@@ -147,6 +147,15 @@ interface/version dce/rpc pipe identification
         }, 0x01                             \
 }
 
+#define SYNT_SHUTDOWN_V1                    \
+{                                           \
+        {                                   \
+                0x894de0c0, 0x0d55, 0x11d3, \
+                { 0xa3, 0x22, 0x00, 0xc0,   \
+                  0x4f, 0xa3, 0x21, 0xa1 }  \
+        }, 0x01                             \
+}
+
 /*
  * IMPORTANT!!  If you update this structure, make sure to
  * update the index #defines in smb.h.
@@ -165,6 +174,7 @@ const struct pipe_id_info pipe_names [] =
 	{ PIPE_SPOOLSS , SYNT_SPOOLSS_V1       , PIPE_SPOOLSS  , TRANS_SYNT_V2 },
 	{ PIPE_NETDFS  , SYNT_NETDFS_V3        , PIPE_NETDFS   , TRANS_SYNT_V2 },
 	{ PIPE_ECHO    , SYNT_ECHO_V1          , PIPE_ECHO     , TRANS_SYNT_V2 },
+	{ PIPE_SHUTDOWN, SYNT_SHUTDOWN_V1      , PIPE_SHUTDOWN , TRANS_SYNT_V2 },
 	{ NULL         , SYNT_NONE_V0          , NULL          , SYNT_NONE_V0  }
 };
 
@@ -243,6 +253,34 @@ BOOL smb_io_rpc_hdr(const char *desc,  RPC_HDR *rpc, prs_struct *ps, int depth)
 }
 
 /*******************************************************************
+ Reads or writes an RPC_UUID structure.
+********************************************************************/
+
+static BOOL smb_io_rpc_uuid(const char *desc, RPC_UUID *uuid, prs_struct *ps, int depth)
+{
+	if (uuid == NULL)
+		return False;
+
+	prs_debug(ps, depth, desc, "smb_io_rpc_uuid");
+	depth++;
+
+	if(!prs_align(ps))
+		return False;
+
+	if(!prs_uint32 ("data   ", ps, depth, &uuid->time_low))
+		return False;
+	if(!prs_uint16 ("data   ", ps, depth, &uuid->time_mid))
+		return False;
+	if(!prs_uint16 ("data   ", ps, depth, &uuid->time_hi_and_version))
+		return False;
+
+	if(!prs_uint8s (False, "data   ", ps, depth, uuid->remaining, sizeof(uuid->remaining)))
+		return False;
+
+	return True;
+}
+
+/*******************************************************************
  Reads or writes an RPC_IFACE structure.
 ********************************************************************/
 
@@ -254,19 +292,10 @@ static BOOL smb_io_rpc_iface(const char *desc, RPC_IFACE *ifc, prs_struct *ps, i
 	prs_debug(ps, depth, desc, "smb_io_rpc_iface");
 	depth++;
 
-	if(!prs_align(ps))
+	if (!smb_io_rpc_uuid(  "uuid", &ifc->uuid, ps, depth))
 		return False;
 
-	if(!prs_uint32 ("data   ", ps, depth, &ifc->uuid.time_low))
-		return False;
-	if(!prs_uint16 ("data   ", ps, depth, &ifc->uuid.time_mid))
-		return False;
-	if(!prs_uint16 ("data   ", ps, depth, &ifc->uuid.time_hi_and_version))
-		return False;
-
-	if(!prs_uint8s (False, "data   ", ps, depth, ifc->uuid.remaining, sizeof(ifc->uuid.remaining)))
-		return False;
-	if(!prs_uint32 (       "version", ps, depth, &ifc->version))
+	if(!prs_uint32 ("version", ps, depth, &ifc->version))
 		return False;
 
 	return True;
@@ -1168,26 +1197,6 @@ BOOL smb_io_rpc_auth_netsec_neg(const char *desc, RPC_AUTH_NETSEC_NEG *neg,
 	return True;
 }
 
-
-/*******************************************************************
-creates an RPC_AUTH_NETSEC_CHK structure.
-********************************************************************/
-BOOL init_rpc_auth_netsec_chk(RPC_AUTH_NETSEC_CHK * chk,
-			      const uchar sig[8],
-			      const uchar packet_digest[8],
-			      const uchar seq_num[8], const uchar data8[8])
-{
-	if (chk == NULL)
-		return False;
-
-	memcpy(chk->sig, sig, sizeof(chk->sig));
-	memcpy(chk->packet_digest, packet_digest, sizeof(chk->packet_digest));
-	memcpy(chk->seq_num, seq_num, sizeof(chk->seq_num));
-	memcpy(chk->data8, data8, sizeof(chk->data8));
-
-	return True;
-}
-
 /*******************************************************************
 reads or writes an RPC_AUTH_NETSEC_CHK structure.
 ********************************************************************/
@@ -1203,7 +1212,7 @@ BOOL smb_io_rpc_auth_netsec_chk(const char *desc, RPC_AUTH_NETSEC_CHK * chk,
 	prs_uint8s(False, "sig  ", ps, depth, chk->sig, sizeof(chk->sig));
 	prs_uint8s(False, "seq_num", ps, depth, chk->seq_num, sizeof(chk->seq_num));
 	prs_uint8s(False, "packet_digest", ps, depth, chk->packet_digest, sizeof(chk->packet_digest));
-	prs_uint8s(False, "data8", ps, depth, chk->data8, sizeof(chk->data8));
+	prs_uint8s(False, "confounder", ps, depth, chk->confounder, sizeof(chk->confounder));
 
 	return True;
 }

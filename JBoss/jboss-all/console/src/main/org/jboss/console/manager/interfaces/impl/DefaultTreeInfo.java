@@ -7,15 +7,15 @@
 
 package org.jboss.console.manager.interfaces.impl;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-
 import org.jboss.console.manager.interfaces.ManageableResource;
 import org.jboss.console.manager.interfaces.TreeAction;
 import org.jboss.console.manager.interfaces.TreeInfo;
 import org.jboss.console.manager.interfaces.TreeNode;
 import org.jboss.console.manager.interfaces.TreeNodeMenuEntry;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
 
 /**
  * <description>
@@ -23,7 +23,7 @@ import org.jboss.console.manager.interfaces.TreeNodeMenuEntry;
  * @see <related>
  *
  * @author  <a href="mailto:sacha.labourey@cogito-info.ch">Sacha Labourey</a>.
- * @version $Revision: 1.1.2.1 $
+ * @version $Revision: 1.1.2.3 $
  *
  * <p><b>Revisions:</b>
  *
@@ -139,10 +139,9 @@ public class DefaultTreeInfo
          
          result+="  Key: " + key + "\n";
          
-         Iterator iter2 = content.iterator ();
-         while (iter2.hasNext ())
+         for (int i = 0; i < content.size(); i++)
          {
-            result += "    Value: " + iter2.next ();
+            result += "    Value: " + content.get(i);
          }
       
          result+="  ----\n";

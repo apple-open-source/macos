@@ -7,31 +7,18 @@
 
 package org.jboss.test.deadlock.test;
 
-import java.rmi.*;
-
-
 import javax.naming.Context;
 import javax.naming.InitialContext;
 import javax.ejb.DuplicateKeyException;
-import javax.ejb.Handle;
-import javax.ejb.EJBMetaData;
-import javax.ejb.EJBHome;
-import javax.ejb.HomeHandle;
 import javax.ejb.ObjectNotFoundException;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
-import java.util.Enumeration;
-import java.util.Iterator;
-import java.util.Properties;
 import java.util.Random;
 
 import junit.framework.Test;
-import junit.framework.TestCase;
-import junit.framework.TestSuite;
 
 import org.jboss.test.deadlock.interfaces.BeanOrder;
 import org.jboss.test.deadlock.interfaces.EnterpriseEntityHome;
@@ -39,30 +26,31 @@ import org.jboss.test.deadlock.interfaces.EnterpriseEntity;
 import org.jboss.test.deadlock.interfaces.StatelessSessionHome;
 import org.jboss.test.deadlock.interfaces.StatelessSession;
 import org.jboss.test.JBossTestCase;
-import org.jboss.ejb.plugins.lock.ApplicationDeadlockException;
+import org.jboss.ejb.plugins.TxInterceptorCMT;
 
 /**
-* Sample client for the jboss container.
-*
-* @author <a href="mailto:bill@burkecentral.com">Bill Burke</a>
-* @version $Id: BeanStressTestCase.java,v 1.5.2.4 2003/07/21 20:25:46 ejort Exp $
-*/
-public class BeanStressTestCase 
+ * Sample client for the jboss container.
+ *
+ * @author <a href="mailto:bill@burkecentral.com">Bill Burke</a>
+ * @version $Id: BeanStressTestCase.java,v 1.5.2.7 2003/08/28 09:20:12 ejort Exp $
+ */
+public class BeanStressTestCase
    extends JBossTestCase
 {
    org.apache.log4j.Category log = getLog();
-   
+
    static boolean deployed = false;
    static int test = 0;
    static Date startDate = new Date();
-   
-   protected final String namingFactory =
-   System.getProperty(Context.INITIAL_CONTEXT_FACTORY);
-   
-   protected final String providerURL =
-   System.getProperty(Context.PROVIDER_URL);
 
-   public BeanStressTestCase(String name) {
+   protected final String namingFactory =
+      System.getProperty(Context.INITIAL_CONTEXT_FACTORY);
+
+   protected final String providerURL =
+      System.getProperty(Context.PROVIDER_URL);
+
+   public BeanStressTestCase(String name)
+   {
       super(name);
    }
 
@@ -70,70 +58,74 @@ public class BeanStressTestCase
 
    private StatelessSession getSession() throws Exception
    {
-      
-      StatelessSessionHome home = (StatelessSessionHome)new InitialContext().lookup("nextgen.StatelessSession");
+
+      StatelessSessionHome home = (StatelessSessionHome) new InitialContext().lookup("nextgen.StatelessSession");
       return home.create();
    }
 
    public class RunTest implements Runnable
    {
       public String test;
+
       public RunTest(String test)
       {
-	 this.test = test;
+         this.test = test;
       }
 
       public void run()
       {
-	 if (test.equals("AB")) runAB();
-	 else runBA();
+         if (test.equals("AB"))
+            runAB();
+         else
+            runBA();
       }
 
       private void runAB()
       {
          log.debug("running AB");
-	 try
-	 {
+         try
+         {
             getSession().callAB();
-	 }
-	 catch (Exception ex)
-	 {
+         }
+         catch (Exception ex)
+         {
             failed = true;
-	 }
+         }
       }
+
       private void runBA()
       {
          log.debug("running BA");
-	 try
-	 {
+         try
+         {
             getSession().callBA();
-	 }
-	 catch (Exception ex)
-	 {
+         }
+         catch (Exception ex)
+         {
             failed = true;
-	 }
+         }
       }
    }
-   
-   public void testDeadLock() 
+
+   public void testDeadLock()
       throws Exception
    {
-      EnterpriseEntityHome home = (EnterpriseEntityHome)new InitialContext().lookup("nextgenEnterpriseEntity");
+      EnterpriseEntityHome home = (EnterpriseEntityHome) new InitialContext().lookup("nextgenEnterpriseEntity");
       try
       {
-	 EnterpriseEntity A = home.findByPrimaryKey("A");
+         EnterpriseEntity A = home.findByPrimaryKey("A");
       }
       catch (ObjectNotFoundException ex)
       {
-	 home.create("A");
+         home.create("A");
       }
       try
       {
-	 EnterpriseEntity B = home.findByPrimaryKey("B");
+         EnterpriseEntity B = home.findByPrimaryKey("B");
       }
       catch (ObjectNotFoundException ex)
       {
-	 home.create("B");
+         home.create("B");
       }
       Thread one = new Thread(new RunTest("AB"));
       Thread two = new Thread(new RunTest("BA"));
@@ -148,7 +140,7 @@ public class BeanStressTestCase
    }
 
    Random random = new Random();
-   
+
    int target;
    int iterations;
 
@@ -165,12 +157,12 @@ public class BeanStressTestCase
 
       String toStringCached;
 
-      public OrderTest(EnterpriseEntityHome home, int beanCount)
+      public OrderTest(EnterpriseEntityHome home, int beanCount, int depth)
       {
          // Create the list of beans
          ArrayList list = new ArrayList();
-         for (int i = 0; i < beanCount; i++)
-            list.add(new Integer(i).toString());
+         for (int i = 0; i < depth; i++)
+            list.add(new Integer(i % beanCount).toString());
 
          // Shuffle them
          Collections.shuffle(list, random);
@@ -194,7 +186,7 @@ public class BeanStressTestCase
          }
          catch (Exception e)
          {
-            if (ApplicationDeadlockException.isADE(e) == null)
+            if (TxInterceptorCMT.isADE(e) == null)
             {
                log.debug("Saw exception for " + this, e);
                unexpected = e;
@@ -230,7 +222,7 @@ public class BeanStressTestCase
       public void run()
       {
          super.run();
-         synchronized(lock)
+         synchronized (lock)
          {
             completed++;
             log.debug("Completed " + completed + " of " + target);
@@ -243,14 +235,17 @@ public class BeanStressTestCase
       throws Exception
    {
       log.debug("Waiting for completion");
-      synchronized(lock)
+      synchronized (lock)
       {
          while (completed < target)
          {
             lock.wait();
-            if (unexpected != null)
-               fail("Unexpected exception");
          }
+      }
+      if (unexpected != null)
+      {
+         log.error("Unexpected exception", unexpected);
+         fail("Unexpected exception");
       }
    }
 
@@ -262,7 +257,53 @@ public class BeanStressTestCase
    public void testAllCompleteOrFail()
       throws Exception
    {
-      log.debug("========= Starting testAllCompleteOrFail");
+      doAllCompleteOrFail("nextgenEnterpriseEntity" ,2);
+   }
+
+   /**
+    * Creates a number of threads to invoke on the
+    * session beans at random to produce deadlocks.
+    * The test will timeout if a deadlock detection is missed.
+    */
+   public void testAllCompleteOrFailReentrant()
+      throws Exception
+   {
+      doAllCompleteOrFail("nextgenEnterpriseEntityReentrant", 4);
+   }
+
+   /**
+    * Creates a number of threads to invoke on the
+    * session beans at random to produce deadlocks.
+    * The test will timeout if a deadlock detection is missed.
+    */
+   public void testAllCompleteOrFailNotSupported()
+      throws Exception
+   {
+      doAllCompleteOrFail("nextgenEnterpriseEntityNotSupported", 2);
+   }
+
+   /**
+    * Creates a number of threads to invoke on the
+    * session beans at random to produce deadlocks.
+    * The test will timeout if a deadlock detection is missed.
+    */
+   public void testAllCompleteOrFailNotSupportedReentrant()
+      throws Exception
+   {
+      doAllCompleteOrFail("nextgenEnterpriseEntityNotSupportedReentrant", 4);
+   }
+
+   /**
+    * Creates a number of threads to invoke on the
+    * session beans at random to produce deadlocks.
+    * The test will timeout if a deadlock detection is missed.
+    */
+   public void doAllCompleteOrFail(String jndiName, int depth)
+      throws Exception
+   {
+      log.debug("========= Starting " + getName());
+
+      iterations = getIterationCount();
 
       // Non-standard: We want a lot of threads and a small number of beans
       // for maximum contention
@@ -274,7 +315,7 @@ public class BeanStressTestCase
       unexpected = null;
 
       // Create some beans
-      EnterpriseEntityHome home = (EnterpriseEntityHome) new InitialContext().lookup("nextgenEnterpriseEntity");
+      EnterpriseEntityHome home = (EnterpriseEntityHome) new InitialContext().lookup(jndiName);
       for (int i = 0; i < beanCount; i++)
       {
          try
@@ -289,7 +330,7 @@ public class BeanStressTestCase
       // Create some threads
       TestThread[] threads = new TestThread[target];
       for (int i = 0; i < target; i++)
-          threads[i] = new TestThread(new OrderTest(home, beanCount));
+         threads[i] = new TestThread(new OrderTest(home, beanCount, depth));
 
       // Start the threads
       for (int i = 0; i < target; i++)
@@ -300,19 +341,20 @@ public class BeanStressTestCase
 
       waitForCompletion();
 
-      log.debug("========= Completed testAllCompleteOrFail");
+      log.debug("========= Completed " + getName());
    }
 
    public class CMRTest
       implements Runnable
    {
       StatelessSession session;
-
+      String jndiName;
       String start;
 
-      public CMRTest(StatelessSession session, String start)
+      public CMRTest(StatelessSession session, String jndiName, String start)
       {
          this.session = session;
+         this.jndiName = jndiName;
          this.start = start;
       }
 
@@ -320,11 +362,12 @@ public class BeanStressTestCase
       {
          try
          {
-            session.cmrTest(start);
+            for (int i = 0; i < iterations; ++i)
+               session.cmrTest(jndiName, start);
          }
          catch (Exception e)
          {
-            if (ApplicationDeadlockException.isADE(e) == null)
+            if (TxInterceptorCMT.isADE(e) == null)
             {
                log.debug("Saw exception for " + this, e);
                unexpected = e;
@@ -352,7 +395,7 @@ public class BeanStressTestCase
       public void run()
       {
          super.run();
-         synchronized(lock)
+         synchronized (lock)
          {
             completed++;
             log.debug("Completed " + completed + " of " + target);
@@ -360,6 +403,7 @@ public class BeanStressTestCase
          }
       }
    }
+
    /**
     * Creates a number of threads to CMR relationships.
     * The test will timeout if a deadlock detection is missed.
@@ -367,7 +411,19 @@ public class BeanStressTestCase
    public void testAllCompleteOrFailCMR()
       throws Exception
    {
-      log.debug("========= Starting testAllCompleteOrFailCMR");
+      doAllCompleteOrFailCMR("local/nextgenEnterpriseEntity");
+   }
+
+   /**
+    * Creates a number of threads to CMR relationships.
+    * The test will timeout if a deadlock detection is missed.
+    */
+   public void doAllCompleteOrFailCMR(String jndiName)
+      throws Exception
+   {
+      log.debug("========= Starting " + getName());
+
+      iterations = getIterationCount();
 
       // Non-standard: We want a lot of threads and a small number of beans
       // for maximum contention
@@ -380,12 +436,12 @@ public class BeanStressTestCase
       // Create some beans
       StatelessSessionHome home = (StatelessSessionHome) new InitialContext().lookup("nextgen.StatelessSession");
       StatelessSession session = home.create();
-      session.createCMRTestData();
+      session.createCMRTestData(jndiName);
 
       // Create some threads
       CMRTestThread[] threads = new CMRTestThread[target];
       for (int i = 0; i < target; i++)
-          threads[i] = new CMRTestThread(new CMRTest(session, i % 2 == 0 ? "First" : "Second" ));
+         threads[i] = new CMRTestThread(new CMRTest(session, jndiName, i % 2 == 0 ? "First" : "Second"));
 
       // Start the threads
       for (int i = 0; i < target; i++)
@@ -396,7 +452,7 @@ public class BeanStressTestCase
 
       waitForCompletion();
 
-      log.debug("========= Completed testAllCompleteOrFailCMR");
+      log.debug("========= Completed " + getName());
    }
 
    /*   
@@ -429,7 +485,13 @@ public class BeanStressTestCase
       assertTrue("ApplicationDeadlockException was not thrown", deadlockExceptionThrown);
    }
    */
-   
+
+   public void testCleanup() throws Exception
+   {
+      // Restart the db pool
+      super.restartDBPool();
+   }
+
    public static Test suite() throws Exception
    {
       return getDeploySetup(BeanStressTestCase.class, "deadlock.jar");

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE server>
+
 <server>
     <mbean code="org.jboss.mq.il.http.HTTPServerILService"
 	 name="jboss.mq:service=InvocationLayer,type=HTTP">

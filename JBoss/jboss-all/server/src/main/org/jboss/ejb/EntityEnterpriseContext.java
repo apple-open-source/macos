@@ -6,6 +6,8 @@
  */
 package org.jboss.ejb;
 
+import org.jboss.ejb.plugins.lock.NonReentrantLock;
+
 import java.rmi.RemoteException;
 
 import javax.ejb.EJBContext;
@@ -23,10 +25,10 @@ import javax.ejb.EntityContext;
  *
  * @see EnterpriseContext
  * 
- * @author <a href="mailto:rickard.oberg@telkel.com">Rickard Öberg</a>
+ * @author <a href="mailto:rickard.oberg@telkel.com">Rickard ï¿½berg</a>
  * @author <a href="mailto:marc.fleury@telkel.com">Marc Fleury</a>
  * @author <a href="mailto:docodan@mvcsoft.com">Daniel OConnor</a>
- * @version $Revision: 1.27.2.1 $
+ * @version $Revision: 1.27.2.3 $
  */
 public class EntityEnterpriseContext extends EnterpriseContext
 {
@@ -60,7 +62,9 @@ public class EntityEnterpriseContext extends EnterpriseContext
 	
    /** The cacheKey for this context */
    private Object key;
-	
+
+   private NonReentrantLock methodLock = new NonReentrantLock();
+
    public EntityEnterpriseContext(Object instance, Container con)
       throws RemoteException
    {
@@ -69,7 +73,17 @@ public class EntityEnterpriseContext extends EnterpriseContext
       ((EntityBean)instance).setEntityContext(ctx);
    }
 	
-   public void clear() 
+   /**
+    * A non-reentrant deadlock detectable lock that is used to protected against
+    * entity bean reentrancy.
+    * @return
+    */
+   public NonReentrantLock getMethodLock()
+   {
+      return methodLock;
+   }
+
+   public void clear()
    {
       super.clear();
       
@@ -169,16 +183,23 @@ public class EntityEnterpriseContext extends EnterpriseContext
    {
       public EJBObject getEJBObject()
       {
-         if (((EntityContainer)con).getProxyFactory()==null)
+         if(((EntityContainer)con).getRemoteClass() == null)
          {
             throw new IllegalStateException( "No remote interface defined." );
          }
 
          if (ejbObject == null)
          {   
-               // Create a new CacheKey
-               Object cacheKey = ((EntityCache)((EntityContainer)con).getInstanceCache()).createCacheKey(id);
-               ejbObject = (EJBObject) ((EntityContainer)con).getProxyFactory().getEntityEJBObject(cacheKey);  
+            // Create a new CacheKey
+            Object cacheKey = ((EntityCache)((EntityContainer)con).getInstanceCache()).createCacheKey(id);
+            EJBProxyFactory proxyFactory = con.getProxyFactory();
+            if(proxyFactory == null)
+            {
+               String defaultInvokerName = con.getBeanMetaData().
+                  getContainerConfiguration().getDefaultInvokerName();
+               proxyFactory = con.lookupProxyFactory(defaultInvokerName);
+            }
+            ejbObject = (EJBObject)proxyFactory.getEntityEJBObject(cacheKey);
          }
 
          return ejbObject;

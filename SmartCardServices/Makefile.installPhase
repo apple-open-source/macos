@@ -37,9 +37,7 @@ install:
 
 # Deleting CVS subdirectories from the copy phase
 
-	rm -rf $(PCSCDIR)/drivers/ccidDriver.bundle/CVS
-	rm -rf $(PCSCDIR)/drivers/ccidDriver.bundle/Contents/CVS
-	rm -rf $(PCSCDIR)/drivers/ccidDriver.bundle/Contents/MacOS/CVS
+	rm -rf `find $(PCSCDIR) -name CVS`
 
 	mkdir -p $(PKCS11_DIR)
 	cp installPhase/PKCS11/pkcs11.shlb $(PKCS11_DIR)

@@ -10,14 +10,18 @@ package org.jboss.test;
 import java.io.File;
 import java.net.URL;
 import java.net.MalformedURLException;
+import java.util.Hashtable;
 
 import javax.management.ObjectName;
 import javax.management.MalformedObjectNameException;
 import javax.naming.InitialContext;
+import javax.naming.Context;
+import javax.security.auth.login.LoginContext;
 
 import org.apache.log4j.Category;
 
 import org.jboss.jmx.adaptor.rmi.RMIAdaptor;
+import org.jboss.test.util.AppCallbackHandler;
 
 /**
  * This is provides services for jboss junit test cases and TestSetups. It supplies
@@ -30,31 +34,29 @@ import org.jboss.jmx.adaptor.rmi.RMIAdaptor;
  * Should be subclassed to derive junit support for specific services integrated
  * into jboss.
  *
- * @author    <a href="mailto:d_jencks@users.sourceforge.net">David Jencks</a>
- * @author    <a href="mailto:christoph.jung@jboss.org">Christoph G. Jung</a>
- * @version   $Revision: 1.14.2.6 $
+ * @author <a href="mailto:d_jencks@users.sourceforge.net">David Jencks</a>
+ * @author <a href="mailto:christoph.jung@jboss.org">Christoph G. Jung</a>
+ * @author Scott.Stark@jboss.org
+ * @version $Revision: 1.14.2.8 $
  */
 public class JBossTestServices
 {
-   
    // Constants -----------------------------------------------------
-   //private final static String serviceDeployerName = "jboss.system:service=ServiceDeployer";
-   //private final static String j2eeDeployerName = "jboss.j2ee:service=J2eeDeployer";
-   
-   protected final static String DEPLOYER_NAME = "jboss.system:service=MainDeployer";
+   public final static String DEPLOYER_NAME = "jboss.system:service=MainDeployer";
+   public final static String DEFAULT_USERNAME = "jduke";
+   public final static String DEFAULT_PASSWORD = "theduke";
+   public final static String DEFAULT_LOGIN_CONFIG = "other";
+   public final static int DEFAULT_THREADCOUNT = 10;
+   public final static int DEFAULT_ITERATIONCOUNT = 1000;
+   public final static int DEFAULT_BEANCOUNT = 100;
 
-   protected final static int DEFAULT_THREADCOUNT = 10;
-   protected final static int DEFAULT_ITERATIONCOUNT = 1000;
-   protected final static int DEFAULT_BEANCOUNT = 100;
-   
    // Attributes ----------------------------------------------------
    protected RMIAdaptor server;
    protected Category log;
    protected InitialContext initialContext;
-   
-   protected java.util.HashSet deployed = new java.util.HashSet();
-   
-   
+   protected Hashtable jndiEnv;   
+   protected LoginContext lc;
+
    // Static --------------------------------------------------------
    // Constructors --------------------------------------------------
    /**
@@ -79,12 +81,15 @@ public class JBossTestServices
    public void setUp() throws Exception
    {
       log.debug("JBossTestServices.setUp()");
+      init();
       log.info("jbosstest.beancount: " + System.getProperty("jbosstest.beancount"));
       log.info("jbosstest.iterationcount: " + System.getProperty("jbosstest.iterationcount"));
       log.info("jbosstest.threadcount: " + System.getProperty("jbosstest.threadcount"));
       log.info("jbosstest.nodeploy: " + System.getProperty("jbosstest.nodeploy"));
+      log.info("jbosstest.jndiurl: " + this.getJndiURL());
+      log.info("jbosstest.jndifactory: " + this.getJndiInitFactory());
    }
-   
+
    /**
     * The teardown method for JUnit
     *
@@ -106,7 +111,6 @@ public class JBossTestServices
     */
    InitialContext getInitialContext() throws Exception
    {
-      init();
       return initialContext;
    }
    
@@ -117,7 +121,6 @@ public class JBossTestServices
     */
    RMIAdaptor getServer () throws Exception
    {
-      init();
       return server;
    }
    
@@ -180,19 +183,6 @@ public class JBossTestServices
       {
          return new URL(url).toString();
       }
-   }
-   
-   
-   //is this good for something??????
-   /**
-    * Gets the Deployed attribute of the JBossTestCase object
-    *
-    * @param name  Description of Parameter
-    * @return      The Deployed value
-    */
-   boolean isDeployed(String name)
-   {
-      return deployed.contains(name);
    }
    
    /**
@@ -267,7 +257,6 @@ public class JBossTestServices
          "deploy",
          new Object[] {deployURL},
          new String[] {"java.lang.String"});
-      setDeployed(deployURL);
    }
    public void redeploy(String name) throws Exception
    {
@@ -283,7 +272,38 @@ public class JBossTestServices
          "redeploy",
          new Object[] {deployURL},
          new String[] {"java.lang.String"});
-      setDeployed(deployURL);
+   }
+
+   /** Do a JAAS login with the current username, password and login config.
+    * @throws Exception
+    */ 
+   public void login() throws Exception
+   {
+      flushAuthCache();
+      String username = getUsername();
+      String pass = getPassword();
+      String config = getLoginConfig();
+      char[] password = null;
+      if( pass != null )
+         password = pass.toCharArray();
+      AppCallbackHandler handler = new AppCallbackHandler(username, password);
+      getLog().debug("Creating LoginContext("+config+")");
+      lc = new LoginContext(config, handler);
+      lc.login();
+      getLog().debug("Created LoginContext, subject="+lc.getSubject());
+   }
+
+   public void logout()
+   {
+      try
+      {
+         if( lc != null )
+            lc.logout();
+      }
+      catch(Exception e)
+      {
+         getLog().error("logout error: ", e);
+      }
    }
 
    /**
@@ -298,15 +318,11 @@ public class JBossTestServices
       if( Boolean.getBoolean("jbosstest.nodeploy") == true )
          return;
       String deployName = getDeployURL(name);
-      invoke(getDeployerName(),
-      "undeploy",
-      new Object[]
-      {deployName},
-      new String[]
-      {"java.lang.String"});
-      setUnDeployed(deployName);
+      Object[] args = {deployName};
+      String[] sig = {"java.lang.String"}; 
+      invoke(getDeployerName(), "undeploy", args, sig);
    }
-   
+
    /** Flush all authentication credentials for the java:/jaas/other security
     domain
    */
@@ -317,12 +333,48 @@ public class JBossTestServices
       String[] signature = {"java.lang.String"};
       invoke(jaasMgr, "flushAuthenticationCache", params, signature);
    }
-   
+
+   void restartDBPool() throws Exception
+   {
+      ObjectName dbPool = new ObjectName("jboss.jca:service=ManagedConnectionPool,name=DefaultDS");
+      Object[] params = {};
+      String[] signature = {};
+      invoke(dbPool, "stop", params, signature);
+      invoke(dbPool, "start", params, signature);
+   }
+
+   boolean isSecure()
+   {
+      return Boolean.getBoolean("jbosstest.secure");
+   }
+   String getUsername()
+   {
+      return System.getProperty("jbosstest.username", DEFAULT_USERNAME);
+   }
+   String getPassword()
+   {
+      return System.getProperty("jbosstest.password", DEFAULT_PASSWORD);
+   }
+   String getLoginConfig()
+   {
+      return System.getProperty("jbosstest.loginconfig", DEFAULT_LOGIN_CONFIG);
+   }
+   String getJndiURL()
+   {
+      String url = (String) jndiEnv.get(Context.PROVIDER_URL);
+      return url;
+   }
+   String getJndiInitFactory()
+   {
+      String factory = (String) jndiEnv.get(Context.INITIAL_CONTEXT_FACTORY);
+      return factory;
+   }
+
    int getThreadCount()
    {
       return Integer.getInteger("jbosstest.threadcount", DEFAULT_THREADCOUNT).intValue();
    }
-   
+
    int getIterationCount()
    {
       return Integer.getInteger("jbosstest.iterationcount", DEFAULT_ITERATIONCOUNT).intValue();
@@ -332,21 +384,9 @@ public class JBossTestServices
    {
       return Integer.getInteger("jbosstest.beancount", DEFAULT_BEANCOUNT).intValue();
    }
-   
-   
-   
+
    //private methods--------------
    
-   protected void setDeployed(String name)
-   {
-      deployed.add(name);
-   }
-   
-   protected void setUnDeployed(String name)
-   {
-      deployed.remove(name);
-   }
-
    /** Lookup the RMIAdaptor interface from JNDI. By default this is bound
     * under "jmx/rmi/RMIAdaptor" and this may be overriden with the
     * jbosstest.server.name system property.
@@ -356,6 +396,7 @@ public class JBossTestServices
       if (initialContext == null)
       {
          initialContext = new InitialContext();
+         jndiEnv = initialContext.getEnvironment();
       }
       if (server == null)
       {

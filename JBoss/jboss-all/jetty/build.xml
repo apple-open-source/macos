@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE project [
    <!ENTITY buildmagic SYSTEM "../tools/etc/buildmagic/buildmagic.ent">
+   <!ENTITY libraries SYSTEM "../tools/etc/buildmagic/libraries.ent">
+   <!ENTITY modules SYSTEM "../tools/etc/buildmagic/modules.ent">
 ]>
 
 <!-- ====================================================================== -->
@@ -63,7 +65,7 @@
     <!-- Module name(s) & version -->
     <property name="module.name" value="jetty-plugin"/>
     <property name="module.Name" value="JBoss Jetty"/>
-    <property name="module.version" value="3.2.2RC2"/>
+    <property name="module.version" value="3.2.2"/>
 
     <property name="RELEASE.MAJOR"  value="4.2" />
     <property name="RELEASE.MAJOR.MINOR"  value="4.2.11" />
@@ -71,66 +73,7 @@
     <!-- ========= -->
     <!-- Libraries -->
     <!-- ========= -->
-
-    <!-- Java Secure Socket Extension (JSSE) -->
-    <property name="sun.jsse.root" value="${project.thirdparty}/sun/jsse"/>
-    <property name="sun.jsse.lib" value="${sun.jsse.root}/lib"/>
-    <path id="sun.jsse.classpath">
-      <fileset dir="${sun.jsse.lib}">
-        <include name="*.jar"/>
-      </fileset>
-    </path>
-
-    <!-- Apache Crimson (XML/DOM) -->
-    <property name="apache.crimson.root" value="${project.thirdparty}/apache/crimson"/>
-    <property name="apache.crimson.lib" value="${apache.crimson.root}/lib"/>
-    <path id="apache.crimson.classpath">
-      <pathelement path="${apache.crimson.lib}/crimson.jar"/>
-    </path>
-
-    <!-- Apache Xalan/Xerces -->
-    <property name="apache.xalan.root" value="${project.thirdparty}/apache/xalan"/>
-    <property name="apache.xalan.lib" value="${apache.xalan.root}/lib"/>
-    <path id="apache.xalan.classpath">
-      <pathelement path="${apache.xalan.lib}/xml-apis.jar"/>
-    </path>
-
-    <!-- Apache Commons -->
-    <property name="apache.commons.root" value="${project.thirdparty}/apache/commons"/>
-    <property name="apache.commons.lib" value="${apache.commons.root}/lib"/>
-    <path id="apache.commons.classpath">
-      <pathelement path="${apache.commons.lib}/commons-collections.jar"/>
-      <pathelement path="${apache.commons.lib}/commons-logging.jar"/>
-    </path>
-
-    <!-- Log4j -->
-    <property name="apache.log4j.root" value="${project.thirdparty}/apache/log4j"/>
-    <property name="apache.log4j.lib" value="${apache.log4j.root}/lib"/>
-    <path id="apache.log4j.classpath">
-      <pathelement path="${apache.log4j.lib}/log4j.jar"/>
-    </path>
-
-    <!-- JUnit -->
-    <property name="junit.junit.root" value="${project.thirdparty}/junit/junit"/>
-    <property name="junit.junit.lib" value="${junit.junit.root}/lib"/>
-    <path id="junit.junit.classpath">
-      <pathelement path="${junit.junit.lib}/junit.jar"/>
-    </path>
-
-    <!-- JavaGroups -->
-    <property name="javagroups.javagroups.root" value="${project.thirdparty}/javagroups/javagroups"/>
-    <property name="javagroups.javagroups.lib" value="${javagroups.javagroups.root}/lib"/>
-    <path id="javagroups.javagroups.classpath">
-      <pathelement path="${javagroups.javagroups.lib}/javagroups-2.0.jar"/>
-    </path>
-
-    <!-- Ant -->
-    <property name="apache.ant.root" value="${project.tools}"/>
-    <property name="apache.ant.lib" value="${apache.ant.root}/lib"/>
-    <path id="apache.ant.classpath">
-      <pathelement path="${apache.ant.lib}/ant.jar"/>
-    </path>
-
+    &libraries;
     <!-- Jetty -->
     <property name="module.ext" value="${module.root}/ext"/>
     <property name="mortbay.jetty.cvs" value="${module.root}/mortbay-cvs"/>
@@ -142,11 +85,6 @@
     <property name="jetty.ejb.jar" value="org.mortbay.j2ee.session.ejb.jar"/>
     <property name="servlet.jar" value="javax.servlet.jar"/>
     <property name="jboss.jetty.jar" value="org.jboss.jetty.jar"/>
-
-    <!-- Java Compiler -->
-    <path id="javac.jar.classpath">
-    </path>
-
     <!-- The combined library classpath -->
     <path id="library.classpath">
       <path refid="sun.jsse.classpath"/>
@@ -155,68 +93,14 @@
       <path refid="apache.log4j.classpath"/>
       <path refid="apache.commons.classpath"/>
       <path refid="junit.junit.classpath"/>
-      <path refid="javagroups.javagroups.classpath"/>
+      <path refid="jgroups.jgroups.classpath"/>
       <path refid="apache.ant.classpath"/>
     </path>
 
     <!-- ======= -->
     <!-- Modules -->
     <!-- ======= -->
-
-    <!-- J2EE -->
-    <property name="jboss.j2ee.root" value="${project.root}/j2ee/output"/>
-    <property name="jboss.j2ee.lib" value="${jboss.j2ee.root}/lib"/>
-    <path id="jboss.j2ee.classpath">
-      <pathelement path="${jboss.j2ee.lib}/jboss-j2ee.jar"/>
-    </path>
-
-    <!-- Common -->
-    <property name="jboss.common.root" value="${project.root}/common/output"/>
-    <property name="jboss.common.lib" value="${jboss.common.root}/lib"/>
-    <path id="jboss.common.classpath">
-      <pathelement path="${jboss.common.lib}/jboss-common.jar"/>
-    </path>
-
-    <!-- System -->
-    <property name="jboss.system.root" value="${project.root}/system/output"/>
-    <property name="jboss.system.lib" value="${jboss.system.root}/lib"/>
-    <path id="jboss.system.classpath">
-      <pathelement path="${jboss.system.lib}/jboss-system.jar"/>
-    </path>
-
-    <!-- Server -->
-    <property name="jboss.server.root" value="${project.root}/server/output"/>
-    <property name="jboss.server.lib" value="${jboss.server.root}/lib"/>
-    <path id="jboss.server.classpath">
-      <pathelement path="${jboss.server.lib}/jboss.jar"/>
-    </path>
-
-    <!-- JMX -->
-    <property name="jboss.jmx.root" value="${project.root}/jmx/output"/>
-    <property name="jboss.jmx.lib" value="${jboss.jmx.root}/lib"/>
-    <path id="jboss.jmx.classpath">
-      <pathelement path="${jboss.jmx.lib}/jboss-jmx.jar"/>
-    </path>
-
-    <!-- Security -->
-    <property name="jboss.security.root" value="${project.root}/security/output"/>
-    <property name="jboss.security.lib" value="${jboss.security.root}/lib"/>
-    <path id="jboss.security.classpath">
-      <pathelement path="${jboss.security.lib}/jboss-jaas.jar"/>
-      <pathelement path="${jboss.security.lib}/jbosssx.jar"/>
-    </path>
-
-     <!-- Cluster -->
-     <property name="jboss.cluster.root" value="${project.root}/cluster/output"/>
-     <property name="jboss.cluster.lib" value="${jboss.cluster.root}/lib"/>
-     <property name="jboss.cluster.classes" value="${jboss.cluster.root}/classes"/>
-     <path id="jboss.cluster.classpath">
-<!--
-       <pathelement path="${jboss.cluster.lib}/jbossha-httpsession.sar"/>
- -->
-       <pathelement path="${jboss.cluster.classes}"/>
-     </path>
-
+    &modules;
     <!-- The combined dependent module classpath -->
     <path id="dependentmodule.classpath">
       <path refid="jboss.j2ee.classpath"/>
@@ -279,22 +163,15 @@
       <path refid="javac.classpath"/>
     </path>
 
+    <path id="xdoclet.task.classpath">
+      <path refid="xdoclet.base.classpath"/>
+      <path refid="javac.classpath" />
+    </path>
+    <property name="xdoclet.task.classpath" 
+	      refid="xdoclet.task.classpath"/>
+
     <!-- Packages to include when generating api documentation -->
     <property name="javadoc.packages" value="org.*"/>
-
-    <!-- Override JUnit defaults -->
-    <property name="junit.timeout" value="240000"/> <!-- 4 minutes -->
-    <property name="junit.batchtest.todir" value="${build.reports}"/>
-    <property name="junit.jvm.options" value="-Ddummy"/>
-
-    <!-- xdoclet -->
-    <path id="xdoclet.task.classpath">
-      <path refid="javac.classpath"/>
-      <fileset dir="${project.thirdparty}/xdoclet/xdoclet/lib">
-        <include name="**/*.jar"/>
-      </fileset>
-    </path>
-
   <taskdef
    name="docdoclet"
    classname="xdoclet.modules.doc.DocumentDocletTask"
@@ -557,7 +434,11 @@
 
   <target name="jars"
 	  description="Build the Service Archive"
-	  depends="compile">
+     depends="_buildmagic:build-bypass-check"
+	  unless="build-bypass.on">
+
+    <call target="compile"/>
+
     <mkdir dir="${build.lib}"/>
 
     <!-- Build Jetty and JettyExtra jars -->
@@ -673,15 +554,18 @@
       </fileset>
     </jar>
 
+    <!-- Update the build marker to allow bypassing -->
+    <touch file="${build-bypass.marker}"/>
+
   </target>
 
 <target name="devel" depends="jars"
 	description="Deploy and Test the Jetty plugin">
 
     <property name="jboss.version"
-	      value="jboss-3.2.2beta"/>
-    <property name="hack.project.deploy"
-	      value="${project.root}/build/output/${jboss.version}/server/default/deploy"/>
+	      value="jboss-3.2.2RC3"/>
+    <property name="hack.project.server"
+	      value="${project.root}/build/output/${jboss.version}/server"/>
     <property name="hack.project.lib.ext"
 	      value="${project.root}/build/output/${jboss.version}/lib/ext"/>
 
@@ -694,12 +578,11 @@
  -->
 
     <echo>Undeploying old Jetty plugin...</echo>
-    <delete>
-      <fileset dir="${project.root}/build/output">
-         <include name="**/deploy/${module.name}.sar"/>
-         <include name="**/deploy/${jetty.ejb.jar}"/>
-      </fileset>
-    </delete>
+
+    <delete dir="${hack.project.server}/default/deploy/${jetty.ejb.jar}"/>
+    <delete dir="${hack.project.server}/all/deploy/${jetty.ejb.jar}"/>
+    <delete dir="${hack.project.server}/default/deploy/jbossweb-jetty.sar"/>
+    <delete dir="${hack.project.server}/all/deploy/jbossweb-jetty.sar"/>
 
     <echo>Deploying new Jetty plugin...</echo>
 
@@ -709,14 +592,15 @@
       </fileset>
     </copy>
 
-    <copy file="${build.lib}/${jetty.ejb.jar}" tofile="${hack.project.deploy}/jbossweb-ejb.jar" filtering="no"/>
+    <copy file="${build.lib}/${jetty.ejb.jar}" tofile="${hack.project.server}/default/deploy/jbossweb-ejb.jar" filtering="no"/>
+    <copy file="${build.lib}/${jetty.ejb.jar}" tofile="${hack.project.server}/all/deploy/jbossweb-ejb.jar" filtering="no"/>
 
-    <delete dir="${hack.project.deploy}/jbossweb-jetty.sar"/>
-    <mkdir dir="${hack.project.deploy}/jbossweb-jetty.sar"/>
-    <unjar src="${build.lib}/${module.name}.sar"
-           dest="${hack.project.deploy}/jbossweb-jetty.sar"/>
-    <touch file="${hack.project.deploy}/jbossweb-jetty.sar/META-INF/jboss-service.xml"/>
-
+    <mkdir dir="${hack.project.server}/default/deploy/jbossweb-jetty.sar"/>
+    <mkdir dir="${hack.project.server}/all/deploy/jbossweb-jetty.sar"/>
+    <unjar src="${build.lib}/${module.name}.sar" dest="${hack.project.server}/default/deploy/jbossweb-jetty.sar"/>
+    <unjar src="${build.lib}/${module.name}.sar" dest="${hack.project.server}/all/deploy/jbossweb-jetty.sar"/>
+    <touch file="${hack.project.server}/default/deploy/jbossweb-jetty.sar/META-INF/jboss-service.xml"/>
+    <touch file="${hack.project.server}/all/deploy/jbossweb-jetty.sar/META-INF/jboss-service.xml"/>
 
 <!--
     <sleep seconds="5"/>
@@ -725,7 +609,10 @@
 
 <!--
     <copy file="../../testsuite/output/lib/jbosstest-web.ear"
-          todir="${hack.project.deploy}"
+          todir="${hack.project.server}/default/deploy"
+          filtering="no"/>
+    <copy file="../../testsuite/output/lib/jbosstest-web.ear"
+          todir="${hack.project.server}/all/deploy"
           filtering="no"/>
  -->
 

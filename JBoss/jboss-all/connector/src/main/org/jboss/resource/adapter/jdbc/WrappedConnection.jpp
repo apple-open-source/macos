@@ -17,14 +17,13 @@ import java.sql.SQLException;
 import java.sql.SQLWarning;
 import java.sql.Savepoint;
 import java.sql.Statement;
-import java.util.Map;
-import java.util.Set;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Collections;
 import java.util.Collection;
-import org.jboss.logging.Logger;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 
+import org.jboss.logging.Logger;
 
 /**
  * WrappedConnection.java
@@ -42,13 +41,16 @@ public class WrappedConnection implements Connection {
 
    private BaseWrapperManagedConnection mc;
 
-   private final HashSet statements = new HashSet();
+   private final HashMap statements = new HashMap();
 
    private boolean closed = false;
 
-   public WrappedConnection (final BaseWrapperManagedConnection mc)
+   private boolean setQueryTimeout = false;
+
+   public WrappedConnection (final BaseWrapperManagedConnection mc, boolean qTimeout)
    {
-      this.mc = mc;   
+      this.mc = mc;
+      this.setQueryTimeout = qTimeout;
    }
 
    void setManagedConnection(final BaseWrapperManagedConnection mc)
@@ -66,14 +68,7 @@ public class WrappedConnection implements Connection {
    public void setReadOnly(boolean readOnly) throws SQLException
    {
       checkStatus();
-      try 
-      {
-         mc.getConnection().setReadOnly(readOnly);
-      }
-      catch (SQLException e)
-      {
-         checkException(e);
-      } // end of try-catch      
+      mc.setJdbcReadOnly(readOnly);
    }
 
    /**
@@ -84,15 +79,7 @@ public class WrappedConnection implements Connection {
    public boolean isReadOnly() throws SQLException
    {
       checkStatus();
-      try 
-      {
-         return mc.getConnection().isReadOnly();
-      }
-      catch (SQLException e)
-      {
-         checkException(e);
-         return false;
-      } // end of try-catch      
+      return mc.isJdbcReadOnly();
    }
 
    /**
@@ -102,26 +89,29 @@ public class WrappedConnection implements Connection {
    public void close() throws SQLException
    {
       closed = true;
-      if (mc != null) 
+      if (mc != null)
       {
-         Set myStatements = null;
-         synchronized (statements)
+         if (mc.getTrackStatements())
          {
-            myStatements = (Set)statements.clone();
-         }
-         for (Iterator i = myStatements.iterator(); i.hasNext(); )
-         {
-            WrappedStatement ws = (WrappedStatement)i.next();
-            log.warn("Closing a statement you left open, please do your own housekeeping");
-            if( log.isTraceEnabled() )
-               log.trace("Close caller: ", new Exception("Stacktrace"));
-            try
+            Map myStatements = null;
+            synchronized (statements)
             {
-               ws.close();
+               myStatements = (Map) statements.clone();
             }
-            catch (Exception e)
+            for (Iterator i = myStatements.entrySet().iterator(); i.hasNext(); )
             {
-               log.info("Exception trying to close statement:", e);
+               Map.Entry entry = (Map.Entry) i.next();
+               WrappedStatement ws = (WrappedStatement) entry.getKey();
+               Exception stackTrace = (Exception) entry.getValue();
+               log.warn("Closing a statement you left open, please do your own housekeeping", stackTrace);
+               try
+               {
+                  ws.close();
+               }
+               catch (Exception e)
+               {
+                  log.info("Exception trying to close statement:", e);
+               }
             }
          }
          mc.closeHandle(this);
@@ -146,16 +136,16 @@ public class WrappedConnection implements Connection {
     */
    public Statement createStatement() throws SQLException
    {
-      checkStatus();
-      try 
+      checkTransaction();
+      try
       {
-         return new WrappedStatement(this, mc.getConnection().createStatement());
+         return new WrappedStatement(this, mc.getConnection().createStatement(), setQueryTimeout);
       }
       catch (SQLException e)
       {
          checkException(e);
          return null;
-      } // end of try-catch      
+      } // end of try-catch
    }
 
    /**
@@ -168,16 +158,16 @@ public class WrappedConnection implements Connection {
    public Statement createStatement(int resultSetType, int resultSetConcurrency)
       throws SQLException
    {
-      checkStatus();
-      try 
+      checkTransaction();
+      try
       {
-         return new WrappedStatement(this, mc.getConnection().createStatement(resultSetType, resultSetConcurrency));
+         return new WrappedStatement(this, mc.getConnection().createStatement(resultSetType, resultSetConcurrency), setQueryTimeout);
       }
       catch (SQLException e)
       {
          checkException(e);
          return null;
-      } // end of try-catch      
+      } // end of try-catch
    }
 
    /**
@@ -191,16 +181,16 @@ public class WrappedConnection implements Connection {
    public Statement createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException
    {
 @JDK1.4START@
-      checkStatus();
-      try 
+      checkTransaction();
+      try
       {
-         return new WrappedStatement(this, mc.getConnection().createStatement(resultSetType, resultSetConcurrency, resultSetHoldability));
+         return new WrappedStatement(this, mc.getConnection().createStatement(resultSetType, resultSetConcurrency, resultSetHoldability), setQueryTimeout);
       }
       catch (SQLException e)
       {
          checkException(e);
          return null;
-      } // end of try-catch      
+      } // end of try-catch
 @JDK1.4END@
 @JDK1.3START@
    throw new SQLException("JDK1.4 method not available in JDK1.3");
@@ -215,16 +205,16 @@ public class WrappedConnection implements Connection {
     */
    public PreparedStatement prepareStatement(String sql) throws SQLException
    {
-      checkStatus();
-      try 
+      checkTransaction();
+      try
       {
-         return new WrappedPreparedStatement(this, mc.getConnection().prepareStatement(sql));
+         return new WrappedPreparedStatement(this, mc.prepareStatement(sql), setQueryTimeout);
       }
       catch (SQLException e)
       {
          checkException(e);
          return null;
-      } // end of try-catch      
+      } // end of try-catch
    }
 
    /**
@@ -237,16 +227,16 @@ public class WrappedConnection implements Connection {
     */
    public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency) throws SQLException
    {
-      checkStatus();
-      try 
+      checkTransaction();
+      try
       {
-         return new WrappedPreparedStatement(this, mc.getConnection().prepareStatement(sql, resultSetType, resultSetConcurrency));
+         return new WrappedPreparedStatement(this, mc.getConnection().prepareStatement(sql, resultSetType, resultSetConcurrency), setQueryTimeout);
       }
       catch (SQLException e)
       {
          checkException(e);
          return null;
-      } // end of try-catch      
+      } // end of try-catch
    }
 
    /**
@@ -261,16 +251,16 @@ public class WrappedConnection implements Connection {
    public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException
    {
 @JDK1.4START@
-      checkStatus();
-      try 
+      checkTransaction();
+      try
       {
-         return new WrappedPreparedStatement(this, mc.getConnection().prepareStatement(sql, resultSetType, resultSetConcurrency, resultSetHoldability));
+         return new WrappedPreparedStatement(this, mc.getConnection().prepareStatement(sql, resultSetType, resultSetConcurrency, resultSetHoldability), setQueryTimeout);
       }
       catch (SQLException e)
       {
          checkException(e);
          return null;
-      } // end of try-catch      
+      } // end of try-catch
 @JDK1.4END@
 @JDK1.3START@
    throw new SQLException("JDK1.4 method not available in JDK1.3");
@@ -287,16 +277,16 @@ public class WrappedConnection implements Connection {
    public PreparedStatement prepareStatement(String sql, int autoGeneratedKeys) throws SQLException
    {
 @JDK1.4START@
-      checkStatus();
-      try 
+      checkTransaction();
+      try
       {
-         return new WrappedPreparedStatement(this, mc.getConnection().prepareStatement(sql, autoGeneratedKeys));
+         return new WrappedPreparedStatement(this, mc.getConnection().prepareStatement(sql, autoGeneratedKeys), setQueryTimeout);
       }
       catch (SQLException e)
       {
          checkException(e);
          return null;
-      } // end of try-catch      
+      } // end of try-catch
 @JDK1.4END@
 @JDK1.3START@
    throw new SQLException("JDK1.4 method not available in JDK1.3");
@@ -313,16 +303,16 @@ public class WrappedConnection implements Connection {
    public PreparedStatement prepareStatement(String sql, int[] columnIndexes) throws SQLException
    {
 @JDK1.4START@
-      checkStatus();
-      try 
+      checkTransaction();
+      try
       {
-         return new WrappedPreparedStatement(this, mc.getConnection().prepareStatement(sql, columnIndexes));
+         return new WrappedPreparedStatement(this, mc.getConnection().prepareStatement(sql, columnIndexes), setQueryTimeout);
       }
       catch (SQLException e)
       {
          checkException(e);
          return null;
-      } // end of try-catch      
+      } // end of try-catch
 @JDK1.4END@
 @JDK1.3START@
    throw new SQLException("JDK1.4 method not available in JDK1.3");
@@ -339,16 +329,16 @@ public class WrappedConnection implements Connection {
    public PreparedStatement prepareStatement(String sql, String[] columnNames) throws SQLException
    {
 @JDK1.4START@
-      checkStatus();
-      try 
+      checkTransaction();
+      try
       {
-         return new WrappedPreparedStatement(this, mc.getConnection().prepareStatement(sql, columnNames));
+         return new WrappedPreparedStatement(this, mc.getConnection().prepareStatement(sql, columnNames), setQueryTimeout);
       }
       catch (SQLException e)
       {
          checkException(e);
          return null;
-      } // end of try-catch      
+      } // end of try-catch
 @JDK1.4END@
 @JDK1.3START@
    throw new SQLException("JDK1.4 method not available in JDK1.3");
@@ -363,16 +353,16 @@ public class WrappedConnection implements Connection {
     */
    public CallableStatement prepareCall(String sql) throws SQLException
    {
-      checkStatus();
-      try 
+      checkTransaction();
+      try
       {
-         return new WrappedCallableStatement(this, mc.getConnection().prepareCall(sql));
+         return new WrappedCallableStatement(this, mc.getConnection().prepareCall(sql), setQueryTimeout);
       }
       catch (SQLException e)
       {
          checkException(e);
          return null;
-      } // end of try-catch      
+      } // end of try-catch
    }
 
    /**
@@ -385,16 +375,16 @@ public class WrappedConnection implements Connection {
     */
    public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency) throws SQLException
    {
-      checkStatus();
-      try 
+      checkTransaction();
+      try
       {
-         return new WrappedCallableStatement(this, mc.getConnection().prepareCall(sql, resultSetType, resultSetConcurrency));
+         return new WrappedCallableStatement(this, mc.getConnection().prepareCall(sql, resultSetType, resultSetConcurrency), setQueryTimeout);
       }
       catch (SQLException e)
       {
          checkException(e);
          return null;
-      } // end of try-catch      
+      } // end of try-catch
    }
 
    /**
@@ -409,16 +399,16 @@ public class WrappedConnection implements Connection {
    public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException
    {
 @JDK1.4START@
-      checkStatus();
-      try 
+      checkTransaction();
+      try
       {
-         return new WrappedCallableStatement(this, mc.getConnection().prepareCall(sql, resultSetType, resultSetConcurrency, resultSetHoldability));
+         return new WrappedCallableStatement(this, mc.getConnection().prepareCall(sql, resultSetType, resultSetConcurrency, resultSetHoldability), setQueryTimeout);
       }
       catch (SQLException e)
       {
          checkException(e);
          return null;
-      } // end of try-catch      
+      } // end of try-catch
 @JDK1.4END@
 @JDK1.3START@
    throw new SQLException("JDK1.4 method not available in JDK1.3");
@@ -433,8 +423,8 @@ public class WrappedConnection implements Connection {
     */
    public String nativeSQL(String sql) throws SQLException
    {
-      checkStatus();
-      try 
+      checkTransaction();
+      try
       {
          return mc.getConnection().nativeSQL(sql);
       }
@@ -442,7 +432,7 @@ public class WrappedConnection implements Connection {
       {
          checkException(e);
          return null;
-      } // end of try-catch      
+      } // end of try-catch
    }
 
    /**
@@ -473,7 +463,7 @@ public class WrappedConnection implements Connection {
     */
    public void commit() throws SQLException
    {
-      checkStatus();
+      checkTransaction();
       mc.jdbcCommit();
    }
 
@@ -483,7 +473,7 @@ public class WrappedConnection implements Connection {
     */
    public void rollback() throws SQLException
    {
-      checkStatus();
+      checkTransaction();
       mc.jdbcRollback();
    }
 
@@ -494,7 +484,7 @@ public class WrappedConnection implements Connection {
     */
    public void rollback(Savepoint savepoint) throws SQLException
    {
-      checkStatus();
+      checkTransaction();
       mc.jdbcRollback(savepoint);
    }
 
@@ -505,8 +495,8 @@ public class WrappedConnection implements Connection {
     */
    public DatabaseMetaData getMetaData() throws SQLException
    {
-      checkStatus();
-      try 
+      checkTransaction();
+      try
       {
          return mc.getConnection().getMetaData();
       }
@@ -514,7 +504,7 @@ public class WrappedConnection implements Connection {
       {
          checkException(e);
          return null;
-      } // end of try-catch      
+      } // end of try-catch
    }
 
    /**
@@ -524,15 +514,15 @@ public class WrappedConnection implements Connection {
     */
    public void setCatalog(String catalog) throws SQLException
    {
-      checkStatus();
-      try 
+      checkTransaction();
+      try
       {
          mc.getConnection().setCatalog(catalog);
       }
       catch (SQLException e)
       {
          checkException(e);
-      } // end of try-catch      
+      } // end of try-catch
    }
 
    /**
@@ -542,8 +532,8 @@ public class WrappedConnection implements Connection {
     */
    public String getCatalog() throws SQLException
    {
-      checkStatus();
-      try 
+      checkTransaction();
+      try
       {
          return mc.getConnection().getCatalog();
       }
@@ -551,7 +541,7 @@ public class WrappedConnection implements Connection {
       {
          checkException(e);
          return null;
-      } // end of try-catch      
+      } // end of try-catch
    }
 
    /**
@@ -563,15 +553,7 @@ public class WrappedConnection implements Connection {
    public void setTransactionIsolation(int isolationLevel) throws SQLException
    {
       checkStatus();
-      //Should check we are not in a managed transaction!
-      try 
-      {
-         mc.getConnection().setTransactionIsolation(isolationLevel);
-      }
-      catch (SQLException e)
-      {
-         checkException(e);
-      } // end of try-catch      
+      mc.setJdbcTransactionIsolation(isolationLevel);
    }
 
    /**
@@ -582,15 +564,7 @@ public class WrappedConnection implements Connection {
    public int getTransactionIsolation() throws SQLException
    {
       checkStatus();
-      try 
-      {
-         return mc.getConnection().getTransactionIsolation();
-      }
-      catch (SQLException e)
-      {
-         checkException(e);
-         throw e;
-      } // end of try-catch      
+      return mc.getJdbcTransactionIsolation();
    }
 
    /**
@@ -600,7 +574,7 @@ public class WrappedConnection implements Connection {
     */
    public SQLWarning getWarnings() throws SQLException
    {
-      checkStatus();
+      checkTransaction();
       return mc.getConnection().getWarnings();
    }
 
@@ -610,7 +584,7 @@ public class WrappedConnection implements Connection {
     */
    public void clearWarnings() throws SQLException
    {
-      checkStatus();
+      checkTransaction();
       mc.getConnection().clearWarnings();
    }
 
@@ -621,8 +595,8 @@ public class WrappedConnection implements Connection {
     */
    public Map getTypeMap() throws SQLException
    {
-      checkStatus();
-      try 
+      checkTransaction();
+      try
       {
          return mc.getConnection().getTypeMap();
       }
@@ -630,7 +604,7 @@ public class WrappedConnection implements Connection {
       {
          checkException(e);
          return null;
-      } // end of try-catch      
+      } // end of try-catch
    }
 
    /**
@@ -640,15 +614,15 @@ public class WrappedConnection implements Connection {
     */
    public void setTypeMap(Map typeMap) throws SQLException
    {
-      checkStatus();
-      try 
+      checkTransaction();
+      try
       {
          mc.getConnection().setTypeMap(typeMap);
       }
       catch (SQLException e)
       {
          checkException(e);
-      } // end of try-catch      
+      } // end of try-catch
    }
 
    /**
@@ -659,15 +633,15 @@ public class WrappedConnection implements Connection {
    public void setHoldability(int holdability) throws SQLException
    {
 @JDK1.4START@
-      checkStatus();
-      try 
+      checkTransaction();
+      try
       {
          mc.getConnection().setHoldability(holdability);
       }
       catch (SQLException e)
       {
          checkException(e);
-      } // end of try-catch      
+      } // end of try-catch
 @JDK1.4END@
 @JDK1.3START@
    throw new SQLException("JDK1.4 method not available in JDK1.3");
@@ -682,8 +656,8 @@ public class WrappedConnection implements Connection {
    public int getHoldability() throws SQLException
    {
 @JDK1.4START@
-      checkStatus();
-      try 
+      checkTransaction();
+      try
       {
          return mc.getConnection().getHoldability();
       }
@@ -691,7 +665,7 @@ public class WrappedConnection implements Connection {
       {
          checkException(e);
          throw e;
-      } // end of try-catch      
+      } // end of try-catch
 @JDK1.4END@
 @JDK1.3START@
    throw new SQLException("JDK1.4 method not available in JDK1.3");
@@ -706,8 +680,8 @@ public class WrappedConnection implements Connection {
    public Savepoint setSavepoint() throws SQLException
    {
 @JDK1.4START@
-      checkStatus();
-      try 
+      checkTransaction();
+      try
       {
          return mc.getConnection().setSavepoint();
       }
@@ -715,7 +689,7 @@ public class WrappedConnection implements Connection {
       {
          checkException(e);
          throw e;
-      } // end of try-catch      
+      } // end of try-catch
 @JDK1.4END@
 @JDK1.3START@
    throw new SQLException("JDK1.4 method not available in JDK1.3");
@@ -731,8 +705,8 @@ public class WrappedConnection implements Connection {
    public Savepoint setSavepoint(String name) throws SQLException
    {
 @JDK1.4START@
-      checkStatus();
-      try 
+      checkTransaction();
+      try
       {
          return mc.getConnection().setSavepoint(name);
       }
@@ -740,7 +714,7 @@ public class WrappedConnection implements Connection {
       {
          checkException(e);
          throw e;
-      } // end of try-catch      
+      } // end of try-catch
 @JDK1.4END@
 @JDK1.3START@
    throw new SQLException("JDK1.4 method not available in JDK1.3");
@@ -755,15 +729,15 @@ public class WrappedConnection implements Connection {
    public void releaseSavepoint(Savepoint savepoint) throws SQLException
    {
 @JDK1.4START@
-      checkStatus();
-      try 
+      checkTransaction();
+      try
       {
          mc.getConnection().releaseSavepoint(savepoint);
       }
       catch (SQLException e)
       {
          checkException(e);
-      } // end of try-catch      
+      } // end of try-catch
 @JDK1.4END@
 @JDK1.3START@
    throw new SQLException("JDK1.4 method not available in JDK1.3");
@@ -773,7 +747,7 @@ public class WrappedConnection implements Connection {
 
    public Connection getUnderlyingConnection() throws SQLException
    {
-      checkStatus();
+      checkTransaction();
       return mc.getConnection();
    }
 
@@ -795,11 +769,11 @@ public class WrappedConnection implements Connection {
     */
    protected void checkStatus() throws SQLException
    {
-      if (closed) 
+      if (closed)
       {
          throw new SQLException("Connection handle has been closed and is unusable");
       } // end of if ()
-      if (mc == null) 
+      if (mc == null)
       {
          throw new SQLException("Connection handle is not currently associated with a ManagedConnection");
       } // end of if ()
@@ -814,24 +788,28 @@ public class WrappedConnection implements Connection {
     */
    protected void checkException(SQLException e) throws SQLException
    {
-      if (mc != null) 
+      if (mc != null)
       {
          mc.connectionError(e);
       } // end of if ()
-      
+
       throw e;
    }
-      
+
    void registerStatement(WrappedStatement ws)
    {
+      if (mc.getTrackStatements() == false)
+         return;
       synchronized (statements)
       {
-         statements.add(ws);
+         statements.put(ws, new Exception("STACK TRACE"));
       }
    }
 
    void unregisterStatement(WrappedStatement ws)
    {
+      if (mc == null || mc.getTrackStatements() == false)
+         return;
       synchronized (statements)
       {
          statements.remove(ws);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,21 +23,12 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc.  All rights reserved.
  *
  *  DRI: Dave Radcliffe
  *
  */
-//		$Log: MacRISC4PE.h,v $
-//		Revision 1.3  2003/06/27 00:45:07  raddog
-//		[3304596]: remove unnecessary access to U3 Pwr registers on wake, [3249029]: Disable unused second process on wake, [3301232]: remove unnecessary PCI code from PE
-//		
-//		Revision 1.2  2003/04/14 20:05:27  raddog
-//		[3224952]AppleMacRISC4CPU must specify which MPIC to use (improved fix over that previously submitted)
-//		
-//		Revision 1.1.1.1  2003/02/04 00:36:43  raddog
-//		initial import into CVS
-//		
+ 
 
 #ifndef _IOKIT_MACRISC4PE_H
 #define _IOKIT_MACRISC4PE_H

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,40 +23,12 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc.  All rights reserved.
  *
  *  DRI: Dave Radcliffe
  *
  */
-//		$Log: MacRISC4PE.cpp,v $
-//		Revision 1.8  2003/07/22 01:25:53  raddog
-//		[3332537]Fix Ethernet sleep hang by signalling its nub to not save/restore config space (causing a hang if the Ethernet clock is off)
-//		
-//		Revision 1.7  2003/06/27 00:45:07  raddog
-//		[3304596]: remove unnecessary access to U3 Pwr registers on wake, [3249029]: Disable unused second process on wake, [3301232]: remove unnecessary PCI code from PE
-//		
-//		Revision 1.6  2003/06/03 01:53:01  raddog
-//		3232168, 3259590 - pmu-interrupt map crash fix, cpu driver only load on MacRISC4
-//		
-//		Revision 1.5  2003/05/10 06:50:29  eem
-//		All sensor functionality included for PowerMac7_2_PlatformPlugin.  Version
-//		is 1.0.1d12.
-//		
-//		Revision 1.4.2.1  2003/05/01 09:28:32  eem
-//		Initial check-in in progress toward first Q37 checkpoint.
-//		
-//		Revision 1.4  2003/04/27 23:13:30  raddog
-//		MacRISC4PE.cpp
-//		
-//		Revision 1.3  2003/04/14 20:05:27  raddog
-//		[3224952]AppleMacRISC4CPU must specify which MPIC to use (improved fix over that previously submitted)
-//		
-//		Revision 1.2  2003/02/18 00:02:01  eem
-//		3146943: timebase enable for MP, bump version to 1.0.1d3.
-//		
-//		Revision 1.1.1.1  2003/02/04 00:36:43  raddog
-//		initial import into CVS
-//		
+
 
 #include <sys/cdefs.h>
 
@@ -95,14 +67,13 @@ OSDefineMetaClassAndStructors(MacRISC4PE, ApplePlatformExpert);
 bool MacRISC4PE::start(IOService *provider)
 {
     long            		machineType;
-	char					compatStr[128];
 	char					tmpName[32];
     OSData          		*tmpData;
 //    IORegistryEntry 		*uniNRegEntry;
     IORegistryEntry 		*powerMgtEntry;
     UInt32			   		*primInfo;
 	const OSSymbol			*nameKey, *compatKey, *nameValueSymbol;
-	const OSData			*nameValueData, *compatValueData;
+	const OSData			*nameValueData;
 	OSDictionary			*pluginDict, *platFuncDict;
 	bool					result;
 	
@@ -210,44 +181,65 @@ bool MacRISC4PE::start(IOService *provider)
 		nameValueSymbol->release();
 		nameValueData->release();
 	} else return false;
-	
-	/*
-	 * Create PlatformPlugin nub - for specialized plugins, the compatible property is of the 
-	 * form provider_name_PlatformPlugin, e.g., PowerMac7_1_PlatformPlugin.  For all others
-	 * a generic compatible property of "MacRISC4_PlatformPlugin" is created.
-	 */
-	if (!strcmp (provider_name, "PowerMac7,2") /* add others here */) 
-		strcpy (compatStr, "PowerMac7_2"); 
-	else	// generic plugin
-		strcpy (compatStr, "MacRISC4");
 
-	pluginDict = OSDictionary::withCapacity(2);
-	
-	if (pluginDict) {
-		strcpy(tmpName, "IOPlatformPlugin");
-		nameValueSymbol = OSSymbol::withCString(tmpName);
-		nameValueData = OSData::withBytes(tmpName, strlen(tmpName)+1);
-		pluginDict->setObject (nameKey, nameValueData);
-		strcat (compatStr, "_PlatformPlugin");
+	//
+	// Create PlatformPlugin nub.  Use the "provider_name" as a key into the IOPlatformPluginTable
+	// dictionary.  The name of the plugin to use is the value associated with the "provider_name" key.
+	// If no entry is found in the dictionary, then the default "MacRISC4_PlatformPlugin" platform plugin
+	// is used.
+	//
 
-		compatValueData = OSData::withBytes(compatStr, strlen(compatStr)+1);
-		pluginDict->setObject (compatKey, compatValueData);
-		if (ioPPluginNub = IOPlatformExpert::createNub (pluginDict)) {
-			if (!ioPPluginNub->attach( this ))
-				kprintf ("NUB ATTACH FAILED\n");
-			ioPPluginNub->setName (nameValueSymbol);
+	OSDictionary*					pluginLookupDict;
 
-			ioPPluginNub->registerService();
+	if ( ( pluginLookupDict = OSDynamicCast( OSDictionary, getProperty( "IOPlatformPluginTable" ) ) ) == NULL )
+		{
+		kprintf( "CANNOT LOAD PLATFORM-PLUGIN LOOKUP TABLE\n" );
+		return( false );
 		}
-		pluginDict->release();
-		nameValueSymbol->release();
-		nameValueData->release();
-		compatValueData->release();
-    } else return false;
-	
+
+	removeProperty( "IOPlatformPluginTable" );
+
+	OSString*						platformPluginNameString;
+	OSData*							platformPluginNameData;
+	const char*						platformPluginName = "MacRISC4_PlatformPlugin";
+
+	// The pluginDict requires the values associated with the "name" and "compatible" keys to be OSData types.  Convert the
+	// OSStrings to OSData.
+
+	if ( ( platformPluginNameString = OSDynamicCast( OSString, pluginLookupDict->getObject( provider_name ) ) ) != NULL )
+		{
+		platformPluginName = platformPluginNameString->getCStringNoCopy();
+		}
+
+	platformPluginNameData = OSData::withBytes( platformPluginName, strlen( platformPluginName ) + 1 );
+
+	if ( ( pluginDict = OSDictionary::withCapacity( 2 ) ) == NULL )
+		return( false );
+
+	const char*						ioPlatformPluginString = "IOPlatformPlugin";
+
+	nameValueData = OSData::withBytes( ioPlatformPluginString, strlen( ioPlatformPluginString ) + 1 );
+
+	pluginDict->setObject( nameKey, nameValueData );
+	pluginDict->setObject( compatKey, platformPluginNameData );
+
+	nameValueData->release();
+	platformPluginNameData->release();
+
+	if ( ( ioPPluginNub = IOPlatformExpert::createNub( pluginDict ) ) != NULL )
+		{
+		if ( !ioPPluginNub->attach( this ) )
+			kprintf( "NUB ATTACH FAILED\n" );
+
+		ioPPluginNub->setName( ioPlatformPluginString );
+		ioPPluginNub->registerService();
+		}
+
+	pluginDict->release();
+
 	nameKey->release();
 	compatKey->release();
-	
+
 	kprintf ("MacRISC4PE::start - done\n");
     return result;
 }
@@ -288,6 +280,59 @@ bool MacRISC4PE::platformAdjustService(IOService *service)
     bool				result;
     IORegistryEntry		*parentIC;
     OSData				*parentICData;
+
+#if 1			// VESTA HACK - remove this code once a better solution for resetting the phy!!
+	IORegistryEntry		*phy;
+	OSData				*compat;
+	static				IOService *macio;
+	static				bool hasVesta;
+
+	// the vesta hack
+    if (IODTMatchNubWithKeys(service, "mac-io")) {
+		macio = service;		// Remember mac-io node
+		if (hasVesta)
+			macio->setProperty ("hasVesta", hasVesta);
+
+		return true;
+	}
+	
+    if (IODTMatchNubWithKeys(service, "K2-GMAC") || IODTMatchNubWithKeys(service, "gmac")) {
+		// Same as code below. just copied here so all this code can be deleted when the time comes
+		// [3332537] Mark ethernet PCI space as non-volatile (not needing save/restore)
+		service->setProperty("IOPMPCIConfigSpaceVolatile", kOSBooleanFalse);
+		
+		// The vesta hack.
+		// Look for the phy.  If its the vesta phy, remember that and if macio has been
+		// discovered, record that info there.
+		/*
+		 * 12/19/03 - ARRGH!  This is a hack upon a hack [3505453].  The original hack was to look
+		 * for the Vesta PHY and set a flag indicating its presence.  The AppleK2 driver then looked
+		 * at that to see if it was necessary to reset the PHY [3475890],  But the problem is that the
+		 * original G5s don't have Vesta but also don't need the reset.  So the original change broke
+		 * G5 desktops.  A better fix is to check explicitly for the B5221 PHY (which does need a reset)
+		 * rather then checking for Vesta.
+		 *
+		 * Rather than also making a change to AppleK2 I'm changing the meaning of hasVesta from
+		 * "has B5461 PHY" to "!(has B5221 PHY).  The correct thing will be done by AppleK2 but
+		 * the meaning for AppleK2 becomes hasVesta means don't need to reset the PHY.
+		 */
+		phy = service->getChildEntry( gIODTPlane );
+		if (phy) {
+			// Match to compatible directly.  IODTMatchNubWithKeys does not work because phy
+			// only exists in the device tree plane and is not an IOService
+			compat = OSDynamicCast (OSData, phy->getProperty ("compatible"));
+			if (compat && (strncmp (compat->getBytesNoCopy(), "B5221", strlen ("B5221")))) {
+				hasVesta = true;
+				if (macio)
+					macio->setProperty ("hasVesta", hasVesta);
+			} 
+		}
+		
+        return true;
+    }
+
+
+#endif
     
     if (IODTMatchNubWithKeys(service, "cpu"))
     {
@@ -313,7 +358,7 @@ bool MacRISC4PE::platformAdjustService(IOService *service)
         return true;
     }
 
-    if (IODTMatchNubWithKeys(service, "K2-GMAC"))
+    if (IODTMatchNubWithKeys(service, "K2-GMAC") || IODTMatchNubWithKeys(service, "gmac"))
     {
 		// [3332537] Mark ethernet PCI space as non-volatile (not needing save/restore)
 		service->setProperty("IOPMPCIConfigSpaceVolatile", kOSBooleanFalse);

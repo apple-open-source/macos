@@ -2,7 +2,6 @@
 package org.jboss.test;
 
 import java.security.Principal;
-import java.security.acl.Group;
 import java.util.Enumeration;
 import junit.framework.*;
 
@@ -17,7 +16,7 @@ import org.jboss.security.SimplePrincipal;
 @see org.jboss.security.NestablePrincipal
 
 @author Scott.Stark@jboss.org
-@version $Revision: 1.1 $
+@version $Revision: 1.1.4.1 $
 */
 public class NestablePrincipalTestCase extends TestCase
 {

@@ -1,4 +1,4 @@
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>testparm</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.60.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="testparm.1"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2>Name</h2><p>testparm &#8212; check an smb.conf configuration file for 
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>testparm</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.61.2"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="testparm.1"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2>Name</h2><p>testparm &#8212; check an smb.conf configuration file for 
 	internal correctness</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><tt class="command">testparm</tt>  [-s] [-h] [-v] [-L &lt;servername&gt;] [-t &lt;encoding&gt;] {config filename} [hostname hostIP]</p></div></div><div class="refsect1" lang="en"><h2>DESCRIPTION</h2><p>This tool is part of the <a href="Samba.7.html"><span class="citerefentry"><span class="refentrytitle">Samba</span>(7)</span></a> suite.</p><p><b class="command">testparm</b> is a very simple test program 
 	to check an <a href="smbd.8.html"><span class="citerefentry"><span class="refentrytitle">smbd</span>(8)</span></a> configuration file for 
 	internal correctness. If this program reports no problems, you 
@@ -14,8 +14,8 @@
 	to test the output from <b class="command">testparm</b>.</p></div><div class="refsect1" lang="en"><h2>OPTIONS</h2><div class="variablelist"><dl><dt><span class="term">-s</span></dt><dd><p>Without this option, <b class="command">testparm</b> 
 		will prompt for a carriage return after printing the service 
 		names and before dumping the service definitions.</p></dd><dt><span class="term">-h|--help</span></dt><dd><p>Print a summary of command line options.
-</p></dd><dt><span class="term">-V</span></dt><dd><p>Prints the version number for 
-<b class="command">smbd</b>.</p></dd><dt><span class="term">-L servername</span></dt><dd><p>Sets the value of the %L macro to <i class="replaceable"><tt>servername</tt></i>.
+</p></dd><dt><span class="term">-V</span></dt><dd><p>Prints the program version number.
+</p></dd><dt><span class="term">-L servername</span></dt><dd><p>Sets the value of the %L macro to <i class="replaceable"><tt>servername</tt></i>.
 		This is useful for testing include files specified with the 
 		%L macro. </p></dd><dt><span class="term">-v</span></dt><dd><p>If this option is specified, testparm 
 		will also output all options that were not used in <a href="smb.conf.5.html"><span class="citerefentry"><span class="refentrytitle">smb.conf</span>(5)</span></a> and are thus set to their defaults.</p></dd><dt><span class="term">-t encoding</span></dt><dd><p>

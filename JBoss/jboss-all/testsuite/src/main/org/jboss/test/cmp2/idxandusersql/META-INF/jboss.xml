@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE jboss PUBLIC "-//JBoss//DTD JBOSS 3.2//EN" "http://www.jboss.org/j2ee/dtd/jboss_3_2.dtd">
+
+<jboss>
+
+   <enterprise-beans>
+
+        <session>
+         <ejb-name>EJBTestRunnerEJB</ejb-name>
+         <jndi-name>ejb/EJBTestRunner</jndi-name>
+      </session>
+
+      <entity>
+         <ejb-name>DBIndexTest</ejb-name>
+         <local-jndi-name>DBIndexTestLocal</local-jndi-name>
+
+        <method-attributes>
+        </method-attributes>
+      </entity>
+      <entity>
+         <ejb-name>CMR1</ejb-name>
+         <local-jndi-name>CMR1Local</local-jndi-name>
+
+        <method-attributes>
+        </method-attributes>
+      </entity>
+      <entity>
+         <ejb-name>CMR2</ejb-name>
+         <local-jndi-name>CMR2Local</local-jndi-name>
+
+        <method-attributes>
+        </method-attributes>
+      </entity>
+
+   </enterprise-beans>
+
+   <resource-managers>
+   </resource-managers>
+
+</jboss>

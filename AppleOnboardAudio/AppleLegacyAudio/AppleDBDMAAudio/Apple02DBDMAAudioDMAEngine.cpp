@@ -137,7 +137,7 @@ bool Apple02DBDMAAudioDMAEngine::init(OSDictionary	*properties,
 	IOMemoryMap *map;
 	Boolean					result;
 
-	CLOG("+ Apple02DBDMAAudioDMAEngine::init\n");
+	debugIOLog (3, "+ Apple02DBDMAAudioDMAEngine::init");
 	result = FALSE;
 
 	// Ususal check
@@ -189,7 +189,7 @@ bool Apple02DBDMAAudioDMAEngine::init(OSDictionary	*properties,
 	result = TRUE;
 
 Exit:
-	CLOG("- Apple02DBDMAAudioDMAEngine::init\n");    
+	debugIOLog (3, "- Apple02DBDMAAudioDMAEngine::init");    
 	return result;
 }
 
@@ -234,7 +234,7 @@ bool Apple02DBDMAAudioDMAEngine::initHardware(IOService *provider)
 	dbdmaFormat.fIsMixable = format.fIsMixable;
 	dbdmaFormat.fDriverTag = format.fDriverTag;
 
-    DEBUG_IOLOG("+ Apple02DBDMAAudioDMAEngine::initHardware()\n");
+    debugIOLog (3, "+ Apple02DBDMAAudioDMAEngine::initHardware()");
     
     ourProvider = provider;
 	mNeedToRestartDMA = FALSE;
@@ -485,7 +485,7 @@ bool Apple02DBDMAAudioDMAEngine::initHardware(IOService *provider)
 	result = TRUE;
 
 Exit:
-    DEBUG_IOLOG("- Apple02DBDMAAudioDMAEngine::initHardware()\n");
+    debugIOLog (3, "- Apple02DBDMAAudioDMAEngine::initHardware()");
     return result;
 }
 
@@ -512,7 +512,7 @@ IOReturn Apple02DBDMAAudioDMAEngine::performAudioEngineStart()
 	IOPhysicalAddress			commandBufferPhys;
 	IOReturn					result;
 
-    debugIOLog(" + Apple02DBDMAAudioDMAEngine::performAudioEngineStart()\n");
+    debugIOLog (3, " + Apple02DBDMAAudioDMAEngine::performAudioEngineStart()");
 
 	result = kIOReturnError;
     FailIf (!ioBaseDMAOutput || !dmaCommandBufferOut || !status || !interruptEventSource, Exit);
@@ -555,7 +555,7 @@ IOReturn Apple02DBDMAAudioDMAEngine::performAudioEngineStart()
 	dmaRunState = TRUE;				//	rbm 7.12.02	added for user client support
 	result = kIOReturnSuccess;
 
-    debugIOLog(" - Apple02DBDMAAudioDMAEngine::performAudioEngineStart()\n");
+    debugIOLog (3, " - Apple02DBDMAAudioDMAEngine::performAudioEngineStart()");
 
 Exit:
     return result;
@@ -565,7 +565,7 @@ IOReturn Apple02DBDMAAudioDMAEngine::performAudioEngineStop()
 {
     UInt16 attemptsToStop = 2;
 
-    debugIOLog("+ Apple02DBDMAAudioDMAEngine::performAudioEngineStop()\n");
+    debugIOLog (3, "+ Apple02DBDMAAudioDMAEngine::performAudioEngineStop()");
 
     if (NULL != iSubEngine) {
         iSubEngine->StopiSub ();
@@ -605,7 +605,7 @@ IOReturn Apple02DBDMAAudioDMAEngine::performAudioEngineStop()
 	dmaRunState = FALSE;				//	rbm 7.12.02	added for user client support
     interruptEventSource->enable();
 
-    DEBUG_IOLOG("- Apple02DBDMAAudioDMAEngine::performAudioEngineStop()\n");
+    debugIOLog (3, "- Apple02DBDMAAudioDMAEngine::performAudioEngineStop()");
     return kIOReturnSuccess;
 }
 
@@ -618,9 +618,7 @@ void Apple02DBDMAAudioDMAEngine::resetClipPosition (IOAudioStream *audioStream, 
 		*((UInt32 *)&mLastOutputSample) = 0;
 		*((UInt32 *)&mLastInputSample) = 0;
 
-		#if DEBUGLOG
-        IOLog ("+resetClipPosition: iSubBufferOffset=%ld, previousClippedToFrame=%ld, clipSampleFrame=%ld\n", miSubProcessingParams.iSubBufferOffset, previousClippedToFrame, clipSampleFrame);
-		#endif
+        debugIOLog (3, "+resetClipPosition: iSubBufferOffset=%ld, previousClippedToFrame=%ld, clipSampleFrame=%ld", miSubProcessingParams.iSubBufferOffset, previousClippedToFrame, clipSampleFrame);
         if (previousClippedToFrame < clipSampleFrame) {
 			// Resetting the clip point backwards around the end of the buffer
 			clipAdjustment = (getNumSampleFramesPerBuffer () - clipSampleFrame + previousClippedToFrame) * iSubEngine->GetNumChannels();
@@ -629,7 +627,7 @@ void Apple02DBDMAAudioDMAEngine::resetClipPosition (IOAudioStream *audioStream, 
         }
 		#if DEBUGLOG
         if (clipAdjustment < kMinimumLatency) {
-            IOLog ("resetClipPosition: 44.1 clipAdjustment < min, clipAdjustment=%ld\n", clipAdjustment); 
+            debugIOLog (3, "resetClipPosition: 44.1 clipAdjustment < min, clipAdjustment=%ld", clipAdjustment); 
         }                
 		#endif
         clipAdjustment = (clipAdjustment * 1000) / ((1000 * getSampleRate()->whole) / iSubEngine->GetSampleRate());  
@@ -637,7 +635,7 @@ void Apple02DBDMAAudioDMAEngine::resetClipPosition (IOAudioStream *audioStream, 
 
 		#if DEBUGLOG
         if (clipAdjustment > (iSubBufferMemory->getLength () / 2)) {
-            IOLog ("resetClipPosition: clipAdjustment > iSub buffer size, clipAdjustment=%ld\n", clipAdjustment); 
+            debugIOLog (3, "resetClipPosition: clipAdjustment > iSub buffer size, clipAdjustment=%ld", clipAdjustment); 
         }                
 		#endif
 
@@ -649,9 +647,7 @@ void Apple02DBDMAAudioDMAEngine::resetClipPosition (IOAudioStream *audioStream, 
         previousClippedToFrame = clipSampleFrame;
         justResetClipPosition = TRUE;
 
-		#if DEBUGLOG
-        IOLog ("-resetClipPosition: iSubBufferOffset=%ld, previousClippedToFrame=%ld\n", miSubProcessingParams.iSubBufferOffset, previousClippedToFrame);
-		#endif
+        debugIOLog (3, "-resetClipPosition: iSubBufferOffset=%ld, previousClippedToFrame=%ld", miSubProcessingParams.iSubBufferOffset, previousClippedToFrame);
     }
 }
 
@@ -734,7 +730,7 @@ void Apple02DBDMAAudioDMAEngine::stop(IOService *provider)
 {
     IOWorkLoop *workLoop;
     
-    debug3IOLog(" + Apple02DBDMAAudioDMAEngine[%p]::stop(%p)\n", this, provider);
+    debugIOLog (3, " + Apple02DBDMAAudioDMAEngine[%p]::stop(%p)", this, provider);
     
 	if (provider == iSubEngine) {
 		super::stop(provider);
@@ -751,7 +747,7 @@ void Apple02DBDMAAudioDMAEngine::stop(IOService *provider)
     super::stop(provider);
     stopAudioEngine();
 Exit:
-    debug3IOLog(" - Apple02DBDMAAudioDMAEngine[%p]::stop(%p)\n", this, provider);
+    debugIOLog (3, " - Apple02DBDMAAudioDMAEngine[%p]::stop(%p)", this, provider);
 }
 
 #pragma mark ------------------------ 
@@ -784,7 +780,7 @@ void Apple02DBDMAAudioDMAEngine::chooseOutputClippingRoutinePtr()
 					mClipAppleLegacyDBDMAToOutputStreamRoutine = &Apple02DBDMAAudioDMAEngine::clipAppleLegacyDBDMAToOutputStream16iSub;
 				}
 			} else {
-				debugIOLog("Apple02DBDMAAudioDMAEngine::chooseOutputClippingRoutinePtr - iSub attached, non-supported output bit depth!\n");
+				debugIOLog (3, "Apple02DBDMAAudioDMAEngine::chooseOutputClippingRoutinePtr - iSub attached, non-supported output bit depth!");
 			}
 		} else {
 			if (32 == dbdmaFormat.fBitWidth) {
@@ -806,7 +802,7 @@ void Apple02DBDMAAudioDMAEngine::chooseOutputClippingRoutinePtr()
 					mClipAppleLegacyDBDMAToOutputStreamRoutine = &Apple02DBDMAAudioDMAEngine::clipAppleLegacyDBDMAToOutputStream16;
 				}
 			} else {
-				debugIOLog("Apple02DBDMAAudioDMAEngine::chooseOutputClippingRoutinePtr - Non-supported output bit depth!\n");
+				debugIOLog (3, "Apple02DBDMAAudioDMAEngine::chooseOutputClippingRoutinePtr - Non-supported output bit depth!");
 			}
 		}
 	}
@@ -842,7 +838,7 @@ void Apple02DBDMAAudioDMAEngine::chooseInputConversionRoutinePtr()
 			}
 		}
 	} else {
-		debugIOLog("Apple02DBDMAAudioDMAEngine::chooseInputConversionRoutinePtr - Non-supported input bit depth!\n");
+		debugIOLog (3, "Apple02DBDMAAudioDMAEngine::chooseInputConversionRoutinePtr - Non-supported input bit depth!");
 	}
 }
 
@@ -1773,7 +1769,7 @@ void Apple02DBDMAAudioDMAEngine::setRightChanDelayInput(const bool needsRightCha
 {
 	// Don't call this because it messes up the input stream if two or more applications are recording at once.  [3398910]
 /*
-	debugIOLog ("setRightChanDelayInput (%d)\n", needsRightChanDelay);
+	debugIOLog (3, "setRightChanDelayInput (%d)", needsRightChanDelay);
 	fNeedsRightChanDelayInput = needsRightChanDelay;  
 	chooseInputConversionRoutinePtr();
 */
@@ -1862,45 +1858,46 @@ IOReturn Apple02DBDMAAudioDMAEngine::iSubAttachChangeHandler (IOService *target,
     Apple02DBDMAAudioDMAEngine *		audioDMAEngine;
     IOCommandGate *					cg;
 
-	debug5IOLog ("+ Apple02DBDMAAudioDMAEngine::iSubAttachChangeHandler (%p, %p, 0x%lx, 0x%lx)\n", target, attachControl, oldValue, newValue);
+	debugIOLog (3, "+ Apple02DBDMAAudioDMAEngine::iSubAttachChangeHandler (%p, %p, 0x%lx, 0x%lx)", target, attachControl, oldValue, newValue);
 
 	result = kIOReturnSuccess;
-	FailIf (oldValue == newValue, Exit);
-    audioDMAEngine = OSDynamicCast (Apple02DBDMAAudioDMAEngine, target);
-	FailIf (NULL == audioDMAEngine, Exit);
+	if (oldValue != newValue) {
+		audioDMAEngine = OSDynamicCast (Apple02DBDMAAudioDMAEngine, target);
+		FailIf (NULL == audioDMAEngine, Exit);
 
-	if (newValue) {
-		debugIOLog ("try to connect to an iSub\n");
-		// Set up notifier to run when iSub shows up
-		audioDMAEngine->iSubEngineNotifier = addNotification (gIOPublishNotification, serviceMatching ("AppleiSubEngine"), (IOServiceNotificationHandler)&iSubEnginePublished, audioDMAEngine);
-		if (NULL != audioDMAEngine->iSubBufferMemory) {
-			// it looks like the notifier could be called before iSubEngineNotifier is set, 
-			// so if it was called, then iSubBufferMemory would no longer be NULL and we can remove the notifier
-			debugIOLog ("iSub was already attached\n");
-			audioDMAEngine->iSubEngineNotifier->remove ();
-			audioDMAEngine->iSubEngineNotifier = NULL;
-		}
-    } else {
-		debugIOLog ("do not try to connect to iSub\n");
-		if (NULL != audioDMAEngine->iSubBufferMemory) {
-			debugIOLog ("disconnect from iSub\n");
-			// We're already attached to an iSub, so detach
-			cg = audioDMAEngine->getCommandGate ();
-			if (NULL != cg) {
-				cg->runAction (iSubCloseAction);
+		if (newValue) {
+			debugIOLog (3, "try to connect to an iSub");
+			// Set up notifier to run when iSub shows up
+			audioDMAEngine->iSubEngineNotifier = addNotification (gIOPublishNotification, serviceMatching ("AppleiSubEngine"), (IOServiceNotificationHandler)&iSubEnginePublished, audioDMAEngine);
+			if (NULL != audioDMAEngine->iSubBufferMemory) {
+				// it looks like the notifier could be called before iSubEngineNotifier is set, 
+				// so if it was called, then iSubBufferMemory would no longer be NULL and we can remove the notifier
+				debugIOLog (3, "iSub was already attached");
+				audioDMAEngine->iSubEngineNotifier->remove ();
+				audioDMAEngine->iSubEngineNotifier = NULL;
 			}
-		}
+		} else {
+			debugIOLog (3, "do not try to connect to iSub");
+			if (NULL != audioDMAEngine->iSubBufferMemory) {
+				debugIOLog (3, "disconnect from iSub");
+				// We're already attached to an iSub, so detach
+				cg = audioDMAEngine->getCommandGate ();
+				if (NULL != cg) {
+					cg->runAction (iSubCloseAction);
+				}
+			}
 
-		// We're not attached to the iSub, so just remove our notifier
-		if (NULL != audioDMAEngine->iSubEngineNotifier) {
-			debugIOLog ("remove iSub notifier\n");
-			audioDMAEngine->iSubEngineNotifier->remove ();
-			audioDMAEngine->iSubEngineNotifier = NULL;
+			// We're not attached to the iSub, so just remove our notifier
+			if (NULL != audioDMAEngine->iSubEngineNotifier) {
+				debugIOLog (3, "remove iSub notifier");
+				audioDMAEngine->iSubEngineNotifier->remove ();
+				audioDMAEngine->iSubEngineNotifier = NULL;
+			}
 		}
 	}
 
 Exit:
-    debugIOLog ("- Apple02DBDMAAudioDMAEngine::iSubAttachChangeHandler\n");
+    debugIOLog (3, "- Apple02DBDMAAudioDMAEngine::iSubAttachChangeHandler");
     return result;
 }
 
@@ -1909,7 +1906,7 @@ bool Apple02DBDMAAudioDMAEngine::iSubEnginePublished (Apple02DBDMAAudioDMAEngine
 	bool							resultCode;
     IOCommandGate *					cg;
 
-	debug4IOLog ("+Apple02DBDMAAudioDMAEngine::iSubEnginePublished (%p, %p, %p)\n", dbdmaEngineObject, (UInt32*)refCon, newService);
+	debugIOLog (3, "+Apple02DBDMAAudioDMAEngine::iSubEnginePublished (%p, %p, %p)", dbdmaEngineObject, (UInt32*)refCon, newService);
 
 	resultCode = false;
 
@@ -1937,7 +1934,7 @@ bool Apple02DBDMAAudioDMAEngine::iSubEnginePublished (Apple02DBDMAAudioDMAEngine
 	FailWithAction (kIOReturnSuccess != result, dbdmaEngineObject->detach (dbdmaEngineObject->iSubEngine), Exit);
 //	FailWithAction (kIOReturnSuccess != result, dbdmaEngineObject->iSubEngine->release (), Exit);
 	dbdmaEngineObject->iSubBufferMemory = dbdmaEngineObject->iSubEngine->GetSampleBuffer ();
-	debug2IOLog ("iSubBuffer length = %ld\n", dbdmaEngineObject->iSubBufferMemory->getLength ());
+	debugIOLog (3, "iSubBuffer length = %ld", dbdmaEngineObject->iSubBufferMemory->getLength ());
 
 	// remove our notifier because we only care about the first iSub
 	if (NULL != dbdmaEngineObject->iSubEngineNotifier) {
@@ -1969,7 +1966,7 @@ Exit:
 		dbdmaEngineObject->chooseOutputClippingRoutinePtr();
 	}
 	
-	debug5IOLog ("-Apple02DBDMAAudioDMAEngine::iSubEnginePublished (%p, %p, %p), result = %d\n", dbdmaEngineObject, (UInt32 *)refCon, newService, resultCode);
+	debugIOLog (3, "-Apple02DBDMAAudioDMAEngine::iSubEnginePublished (%p, %p, %p), result = %d", dbdmaEngineObject, (UInt32 *)refCon, newService, resultCode);
 	return resultCode;
 }
 
@@ -1977,7 +1974,7 @@ IOReturn Apple02DBDMAAudioDMAEngine::iSubCloseAction (OSObject *owner, void *arg
     if (NULL != owner) {
         Apple02DBDMAAudioDMAEngine *		audioEngine;
 
-		debugIOLog ("+Apple02DBDMAAudioDMAEngine::iSubCloseAction\n");
+		debugIOLog (3, "+Apple02DBDMAAudioDMAEngine::iSubCloseAction");
 
 		audioEngine = OSDynamicCast (Apple02DBDMAAudioDMAEngine, owner);
 
@@ -1986,7 +1983,7 @@ IOReturn Apple02DBDMAAudioDMAEngine::iSubCloseAction (OSObject *owner, void *arg
 			
 			oldiSubEngine = audioEngine->iSubEngine;
 
-			debugIOLog ("about to null iSub pointers\n");
+			debugIOLog (3, "about to null iSub pointers");
 
 			audioEngine->iSubEngine = NULL;
 			audioEngine->iSubBufferMemory = NULL;
@@ -1994,20 +1991,20 @@ IOReturn Apple02DBDMAAudioDMAEngine::iSubCloseAction (OSObject *owner, void *arg
 			audioEngine->pauseAudioEngine ();
 			audioEngine->beginConfigurationChange ();
 
-			debugIOLog ("about to close iSub\n");
+			debugIOLog (3, "about to close iSub");
 
 			oldiSubEngine->closeiSub (audioEngine);
 
-			debugIOLog ("about to choose clip routine\n");
+			debugIOLog (3, "about to choose clip routine");
 
 			// [3094574] aml - iSub is gone, update the clipping routine while the engine is paused
 			audioEngine->chooseOutputClippingRoutinePtr();
 
-			debugIOLog ("about to choose detach iSub\n");
+			debugIOLog (3, "about to choose detach iSub");
 
 			audioEngine->detach (oldiSubEngine); //(audioEngine->iSubEngine);
 
-			debugIOLog ("about to choose free crossover memory\n");
+			debugIOLog (3, "about to choose free crossover memory");
 
 			if (NULL != audioEngine->miSubProcessingParams.lowFreqSamples) {
 				IOFree (audioEngine->miSubProcessingParams.lowFreqSamples, (audioEngine->numBlocks * audioEngine->blockSize) * sizeof (float));
@@ -2019,7 +2016,7 @@ IOReturn Apple02DBDMAAudioDMAEngine::iSubCloseAction (OSObject *owner, void *arg
 				audioEngine->miSubProcessingParams.highFreqSamples = NULL;
 			}
 
-			debugIOLog ("about to resume audio engine\n");
+			debugIOLog (3, "about to resume audio engine");
 
 			audioEngine->completeConfigurationChange ();
 			audioEngine->resumeAudioEngine ();
@@ -2030,21 +2027,15 @@ IOReturn Apple02DBDMAAudioDMAEngine::iSubCloseAction (OSObject *owner, void *arg
 			//audioEngine->iSubEngine = NULL;
 			//audioEngine->iSubBufferMemory = NULL;
 
-#if DEBUGLOG
-			IOLog ("iSub connections terminated\n");
-#endif
+			debugIOLog (3, "iSub connections terminated");
         } else {
-#if DEBUGLOG
-			IOLog ("didn't terminate the iSub connections because we didn't have an audioEngine\n");
-#endif
+			debugIOLog (3, "didn't terminate the iSub connections because we didn't have an audioEngine");
 		}
 	} else {
-#if DEBUGLOG
-		IOLog ("didn't terminate the iSub connections owner = %p, arg1 = %p\n", owner, arg1);
-#endif
+		debugIOLog (3, "didn't terminate the iSub connections owner = %p, arg1 = %p", owner, arg1);
     }
 
-	debugIOLog ("-Apple02DBDMAAudioDMAEngine::iSubCloseAction\n");
+	debugIOLog (3, "-Apple02DBDMAAudioDMAEngine::iSubCloseAction");
 	return kIOReturnSuccess;
 }
 
@@ -2052,7 +2043,7 @@ IOReturn Apple02DBDMAAudioDMAEngine::iSubOpenAction (OSObject *owner, void *arg1
 	IOReturn					result;
 	bool						resultBool;
 
-	debugIOLog ("+Apple02DBDMAAudioDMAEngine::iSubOpenAction\n");
+	debugIOLog (3, "+Apple02DBDMAAudioDMAEngine::iSubOpenAction");
 
 	result = kIOReturnError;
 	resultBool = FALSE;
@@ -2069,7 +2060,7 @@ IOReturn Apple02DBDMAAudioDMAEngine::iSubOpenAction (OSObject *owner, void *arg1
 		result = kIOReturnSuccess;
 	}
 
-	debugIOLog ("-Apple02DBDMAAudioDMAEngine::iSubOpenAction\n");
+	debugIOLog (3, "-Apple02DBDMAAudioDMAEngine::iSubOpenAction");
 	return result;
 }
 
@@ -2124,7 +2115,7 @@ void Apple02DBDMAAudioDMAEngine::iSubSynchronize(UInt32 firstSampleFrame, UInt32
 	if (needToSync == FALSE) {
 		UInt32			wrote;
 		wrote = miSubProcessingParams.iSubBufferOffset - oldiSubBufferOffset;
-//			IOLog ("wrote %ld iSub samples\n", wrote);
+//			debugIOLog (3, "wrote %ld iSub samples", wrote);
 		if (miSubProcessingParams.iSubLoopCount == iSubEngine->GetCurrentLoopCount () && miSubProcessingParams.iSubBufferOffset > (SInt32)(iSubEngine->GetCurrentByteCount () / 2)) {
 			distance = miSubProcessingParams.iSubBufferOffset - (iSubEngine->GetCurrentByteCount () / 2);
 		} else if (miSubProcessingParams.iSubLoopCount == (iSubEngine->GetCurrentLoopCount () + 1) && miSubProcessingParams.iSubBufferOffset < (SInt32)(iSubEngine->GetCurrentByteCount () / 2)) {
@@ -2135,15 +2126,15 @@ void Apple02DBDMAAudioDMAEngine::iSubSynchronize(UInt32 firstSampleFrame, UInt32
 
 		if (distance < (initialiSubLead / 2)) {			
 			// Write more samples into the iSub's buffer
-//				IOLog ("speed up! %ld, %ld, %ld\n", initialiSubLead, distance, iSubEngine->GetCurrentByteCount () / 2);
+//				debugIOLog (3, "speed up! %ld, %ld, %ld", initialiSubLead, distance, iSubEngine->GetCurrentByteCount () / 2);
 			adaptiveSampleRate = sampleRate - (sampleRate >> 4);
 		} else if (distance > (initialiSubLead + (initialiSubLead / 2))) {
 			// Write fewer samples into the iSub's buffer
-//				IOLog ("slow down! %ld, %ld, %ld\n", initialiSubLead, distance, iSubEngine->GetCurrentByteCount () / 2);
+//				debugIOLog (3, "slow down! %ld, %ld, %ld", initialiSubLead, distance, iSubEngine->GetCurrentByteCount () / 2);
 			adaptiveSampleRate = sampleRate + (sampleRate >> 4);
 		} else {
 			// The sample rate is just right
-//				IOLog ("just right %ld, %ld, %ld\n", initialiSubLead, distance, iSubEngine->GetCurrentByteCount () / 2);
+//				debugIOLog (3, "just right %ld, %ld, %ld", initialiSubLead, distance, iSubEngine->GetCurrentByteCount () / 2);
 			adaptiveSampleRate = sampleRate;
 		}
 	}
@@ -2159,74 +2150,54 @@ void Apple02DBDMAAudioDMAEngine::iSubSynchronize(UInt32 firstSampleFrame, UInt32
 		if (miSubProcessingParams.iSubLoopCount == iSubEngine->GetCurrentLoopCount () && safetyOffset < (SInt32)(iSubEngine->GetCurrentByteCount () / 2)) {
 			#if DEBUGLOG
 			distance = miSubProcessingParams.iSubBufferOffset - (iSubEngine->GetCurrentByteCount () / 2);
-			IOLog ("****iSub is in front of write head safetyOffset = %ld, iSubEngine->GetCurrentByteCount () / 2 = %ld\n", safetyOffset, iSubEngine->GetCurrentByteCount () / 2);
-//				IOLog ("distance = %ld\n", distance);
+			debugIOLog (3, "****iSub is in front of write head safetyOffset = %ld, iSubEngine->GetCurrentByteCount () / 2 = %ld", safetyOffset, iSubEngine->GetCurrentByteCount () / 2);
+//				debugIOLog (3, "distance = %ld", distance);
 			#endif
 			needToSync = TRUE;
 			startiSub = TRUE;
 		} else if (miSubProcessingParams.iSubLoopCount > (iSubEngine->GetCurrentLoopCount () + 1)) {
-			#if DEBUGLOG
-			IOLog ("****looped more than the iSub iSubLoopCount = %ld, iSubEngine->GetCurrentLoopCount () = %ld\n", miSubProcessingParams.iSubLoopCount, iSubEngine->GetCurrentLoopCount ());
-			#endif
+			debugIOLog (3, "****looped more than the iSub iSubLoopCount = %ld, iSubEngine->GetCurrentLoopCount () = %ld", miSubProcessingParams.iSubLoopCount, iSubEngine->GetCurrentLoopCount ());
 			needToSync = TRUE;
 			startiSub = TRUE;
 		} else if (miSubProcessingParams.iSubLoopCount < iSubEngine->GetCurrentLoopCount ()) {
-			#if DEBUGLOG
-			IOLog ("****iSub is ahead of us iSubLoopCount = %ld, iSubEngine->GetCurrentLoopCount () = %ld\n", miSubProcessingParams.iSubLoopCount, iSubEngine->GetCurrentLoopCount ());
-			#endif
+			debugIOLog (3, "****iSub is ahead of us iSubLoopCount = %ld, iSubEngine->GetCurrentLoopCount () = %ld", miSubProcessingParams.iSubLoopCount, iSubEngine->GetCurrentLoopCount ());
 			needToSync = TRUE;
 			startiSub = TRUE;
 		} else if (miSubProcessingParams.iSubLoopCount == iSubEngine->GetCurrentLoopCount () && miSubProcessingParams.iSubBufferOffset > ((SInt32)( (iSubEngine->GetCurrentByteCount() + (((iSubFormat.outputSampleRate)/1000 * NUM_ISUB_FRAME_LISTS_TO_QUEUE * NUM_ISUB_FRAMES_PER_LIST) * iSubFormat.bytesPerSample * iSubFormat.numChannels) ) / 2))) {			// aml 3.27.02, this is the right number here (buffersize was 2x too large).
 					
-			#if DEBUGLOG
-			IOLog ("****iSub is too far behind write head iSubBufferOffset = %ld, (iSubEngine->GetCurrentByteCount () / 2 + max queued data) = %ld\n", miSubProcessingParams.iSubBufferOffset, (iSubEngine->GetCurrentByteCount() / 2 + iSubBufferLen/2));					
-			#endif
+			debugIOLog (3, "****iSub is too far behind write head iSubBufferOffset = %ld, (iSubEngine->GetCurrentByteCount () / 2 + max queued data) = %ld", miSubProcessingParams.iSubBufferOffset, (iSubEngine->GetCurrentByteCount() / 2 + iSubBufferLen/2));					
 			needToSync = TRUE;
 			startiSub = TRUE;
 		}
 	}
 	if (FALSE == needToSync && previousClippedToFrame != firstSampleFrame && !(previousClippedToFrame == getNumSampleFramesPerBuffer () && firstSampleFrame == 0)) {
-		#if DEBUGLOG
-		IOLog ("clipOutput: no sync: iSubBufferOffset was %ld\n", miSubProcessingParams.iSubBufferOffset);
-		#endif
+		debugIOLog (3, "clipOutput: no sync: iSubBufferOffset was %ld", miSubProcessingParams.iSubBufferOffset);
 		if (firstSampleFrame < previousClippedToFrame) {
-			#if DEBUGLOG
-			IOLog ("clipOutput: no sync: firstSampleFrame < previousClippedToFrame (delta = %ld)\n", previousClippedToFrame-firstSampleFrame);
-			#endif
+			debugIOLog (3, "clipOutput: no sync: firstSampleFrame < previousClippedToFrame (delta = %ld)", previousClippedToFrame-firstSampleFrame);
 			// We've wrapped around the buffer
 			offsetDelta = (getNumSampleFramesPerBuffer () - firstSampleFrame + previousClippedToFrame) * iSubEngine->GetNumChannels();	
 		} else {
-			#if DEBUGLOG
-			IOLog ("clipOutput: no sync: previousClippedToFrame < firstSampleFrame (delta = %ld)\n", firstSampleFrame - previousClippedToFrame);
-			#endif
+			debugIOLog (3, "clipOutput: no sync: previousClippedToFrame < firstSampleFrame (delta = %ld)", firstSampleFrame - previousClippedToFrame);
 			offsetDelta = (firstSampleFrame - previousClippedToFrame) * iSubEngine->GetNumChannels();
 		}
 		// aml 3.21.02, adjust for new sample rate
 		offsetDelta = (offsetDelta * 1000) / ((sampleRate * 1000) / iSubFormat.outputSampleRate);
 
 		miSubProcessingParams.iSubBufferOffset += offsetDelta;
-		#if DEBUGLOG
-		IOLog ("clipOutput: no sync: clip to point was %ld, now %ld (delta = %ld)\n", previousClippedToFrame, firstSampleFrame, offsetDelta);
-		IOLog ("clipOutput: no sync: iSubBufferOffset is now %ld\n", miSubProcessingParams.iSubBufferOffset);
-		#endif
+		debugIOLog (3, "clipOutput: no sync: clip to point was %ld, now %ld (delta = %ld)", previousClippedToFrame, firstSampleFrame, offsetDelta);
+		debugIOLog (3, "clipOutput: no sync: iSubBufferOffset is now %ld", miSubProcessingParams.iSubBufferOffset);
 		if (miSubProcessingParams.iSubBufferOffset > (SInt32)iSubBufferLen) {
-			#if DEBUGLOG
-			IOLog ("clipOutput: no sync: iSubBufferOffset > iSubBufferLen, iSubBufferOffset = %ld\n", miSubProcessingParams.iSubBufferOffset);
-			#endif
+			debugIOLog (3, "clipOutput: no sync: iSubBufferOffset > iSubBufferLen, iSubBufferOffset = %ld", miSubProcessingParams.iSubBufferOffset);
 			// Our calculated spot has actually wrapped around the iSub's buffer.
 			miSubProcessingParams.iSubLoopCount += miSubProcessingParams.iSubBufferOffset / iSubBufferLen;
 			miSubProcessingParams.iSubBufferOffset = miSubProcessingParams.iSubBufferOffset % iSubBufferLen;
 
-			#if DEBUGLOG
-			IOLog ("clipOutput: no sync: iSubBufferOffset > iSubBufferLen, iSubBufferOffset is now %ld\n", miSubProcessingParams.iSubBufferOffset);
-			#endif
+			debugIOLog (3, "clipOutput: no sync: iSubBufferOffset > iSubBufferLen, iSubBufferOffset is now %ld", miSubProcessingParams.iSubBufferOffset);
 		} else if (miSubProcessingParams.iSubBufferOffset < 0) {
 
 			miSubProcessingParams.iSubBufferOffset += iSubBufferLen;
 
-			#if DEBUGLOG
-			IOLog ("clipOutput: no sync: iSubBufferOffset < 0, iSubBufferOffset is now %ld\n", miSubProcessingParams.iSubBufferOffset);
-			#endif
+			debugIOLog (3, "clipOutput: no sync: iSubBufferOffset < 0, iSubBufferOffset is now %ld", miSubProcessingParams.iSubBufferOffset);
 		}
 	}
 
@@ -2263,46 +2234,36 @@ void Apple02DBDMAAudioDMAEngine::iSubSynchronize(UInt32 firstSampleFrame, UInt32
 				offsetDelta = (firstSampleFrame - curSampleFrame) * iSubEngine->GetNumChannels();
 			}
 			#if DEBUGLOG
-			IOLog ("clipOutput: need to sync: 44.1kHz offsetDelta = %ld\n", offsetDelta);
+			debugIOLog (3, "clipOutput: need to sync: 44.1kHz offsetDelta = %ld", offsetDelta);
 
 			if (offsetDelta < kMinimumLatency) {
-				IOLog ("clipOutput: no sync: 44.1 offsetDelta < min, offsetDelta=%ld\n", offsetDelta); 
+				debugIOLog (3, "clipOutput: no sync: 44.1 offsetDelta < min, offsetDelta=%ld", offsetDelta); 
 			}                
 			#endif
 			// aml 3.21.02, adjust for new sample rate
 			offsetDelta = (offsetDelta * 1000) / ((sampleRate * 1000) / iSubFormat.outputSampleRate);
-			#if DEBUGLOG
-			IOLog ("clipOutput: need to sync: iSubBufferOffset = %ld, offsetDelta = %ld\n", miSubProcessingParams.iSubBufferOffset, offsetDelta);
-			#endif
+			debugIOLog (3, "clipOutput: need to sync: iSubBufferOffset = %ld, offsetDelta = %ld", miSubProcessingParams.iSubBufferOffset, offsetDelta);
 
 			miSubProcessingParams.iSubBufferOffset = offsetDelta;
-			#if DEBUGLOG
-			IOLog ("clipOutput: need to sync: offsetDelta = %ld\n", offsetDelta);
-			IOLog ("clipOutput: need to sync: firstSampleFrame = %ld, curSampleFrame = %ld\n", firstSampleFrame, curSampleFrame);
-			IOLog ("clipOutput: need to sync: starting iSubBufferOffset = %ld, numSampleFrames = %ld\n", miSubProcessingParams.iSubBufferOffset, numSampleFrames);
-			#endif
+			debugIOLog (3, "clipOutput: need to sync: offsetDelta = %ld", offsetDelta);
+			debugIOLog (3, "clipOutput: need to sync: firstSampleFrame = %ld, curSampleFrame = %ld", firstSampleFrame, curSampleFrame);
+			debugIOLog (3, "clipOutput: need to sync: starting iSubBufferOffset = %ld, numSampleFrames = %ld", miSubProcessingParams.iSubBufferOffset, numSampleFrames);
 			if (miSubProcessingParams.iSubBufferOffset > (SInt32)iSubBufferLen) {
 		
 				needToSync = TRUE;	// aml 4.24.02, requests larger than our buffer size = bad!
-				#if DEBUGLOG
-				IOLog ("clipOutput: need to sync: SubBufferOffset too big (%ld) RESYNC!\n", miSubProcessingParams.iSubBufferOffset);
-				#endif
+				debugIOLog (3, "clipOutput: need to sync: SubBufferOffset too big (%ld) RESYNC!", miSubProcessingParams.iSubBufferOffset);
 				
 				// Our calculated spot has actually wrapped around the iSub's buffer.
 
 				miSubProcessingParams.iSubLoopCount += miSubProcessingParams.iSubBufferOffset / iSubBufferLen;
 				miSubProcessingParams.iSubBufferOffset = miSubProcessingParams.iSubBufferOffset % iSubBufferLen;
 
-				#if DEBUGLOG
-				IOLog ("clipOutput: need to sync: iSubBufferOffset > iSubBufferLen (%ld), iSubBufferOffset is now %ld\n", iSubBufferLen, miSubProcessingParams.iSubBufferOffset);
-				#endif
+				debugIOLog (3, "clipOutput: need to sync: iSubBufferOffset > iSubBufferLen (%ld), iSubBufferOffset is now %ld", iSubBufferLen, miSubProcessingParams.iSubBufferOffset);
 			} else if (miSubProcessingParams.iSubBufferOffset < 0) {
 
 				miSubProcessingParams.iSubBufferOffset += iSubBufferLen;
 
-				#if DEBUGLOG
-				IOLog ("clipOutput: need to sync: iSubBufferOffset < 0, iSubBufferOffset is now %ld\n", miSubProcessingParams.iSubBufferOffset);
-				#endif
+				debugIOLog (3, "clipOutput: need to sync: iSubBufferOffset < 0, iSubBufferOffset is now %ld", miSubProcessingParams.iSubBufferOffset);
 			}
 			initialiSubLead = miSubProcessingParams.iSubBufferOffset;
 		}
@@ -2379,11 +2340,11 @@ void Apple02DBDMAAudioDMAEngine::requestiSubClose (IOAudioEngine * audioEngine) 
 bool Apple02DBDMAAudioDMAEngine::willTerminate (IOService * provider, IOOptionBits options) {
     IOCommandGate *					cg;
 
-	debug3IOLog ("+Apple02DBDMAAudioDMAEngine[%p]::willTerminate (%p)\n", this, provider);
+	debugIOLog (3, "+Apple02DBDMAAudioDMAEngine[%p]::willTerminate (%p)", this, provider);
 
 
 	if (iSubEngine == (AppleiSubEngine *)provider) {
-		debugIOLog ("iSub requesting termination\n");
+		debugIOLog (3, "iSub requesting termination");
 
 		cg = getCommandGate ();
 		if (NULL != cg) {
@@ -2396,7 +2357,7 @@ bool Apple02DBDMAAudioDMAEngine::willTerminate (IOService * provider, IOOptionBi
 		}
 	}
 
-	debug2IOLog ("-Apple02DBDMAAudioDMAEngine[%p]::willTerminate - about to call super::willTerminate ()\n", this);
+	debugIOLog (3, "-Apple02DBDMAAudioDMAEngine[%p]::willTerminate - about to call super::willTerminate ()", this);
 
 	return super::willTerminate (provider, options);
 }
@@ -2429,7 +2390,7 @@ inline void Apple02DBDMAAudioDMAEngine::startTiming() {
 	if ((mCallCount % kCallFrequency) == 0) {
 		SUB_ABSOLUTETIME (&uptime, &mPreviousUptime);
 		absolutetime_to_nanoseconds (uptime, &nanos);
-		IOLog("clipOutputSamples[%ld]:\t%ld:", mCallCount, uptime.lo);
+		debugIOLog (3, "clipOutputSamples[%ld]:\t%ld:", mCallCount, uptime.lo);
 	}
 	mPreviousUptime = tempTime;
 
@@ -2445,7 +2406,7 @@ inline void Apple02DBDMAAudioDMAEngine::endTiming() {
 		clock_get_uptime (&uptime);
 		SUB_ABSOLUTETIME (&uptime, &lastuptime);
 		absolutetime_to_nanoseconds (uptime, &nanos);
-		IOLog("%ld\n", uptime.lo);
+		debugIOLog (3, "%ld", uptime.lo);
 	}
 #endif
 }

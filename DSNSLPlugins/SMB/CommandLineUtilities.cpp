@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -171,20 +169,32 @@ int myexecutecommandas(const char *command, const char* path, const char * argv[
 #ifdef LOG_TO_FILE
 	#warning "DEBUG CODE, DO NOT SUBMIT!!!!"
 		// let's dump this out to a file
-		destFP = fopen( "/tmp/myexecutecommandas.out", "a" );
+		destFP = fopen( "/tmp/executecommand.out", "a" );
 		char				headerString[1024];
 		
 		if ( destFP )
 		{
-			sprintf( headerString, "\n**** Results %d bytes %d strlen ****\n", output_count, (*output)?strlen( *output ):0);
+			int argValue=0;
+			
+			sprintf( headerString, "********************************\n%s ", "%" ); 
+			
+			while ( argv[argValue] )
+			{
+				strcat( headerString, argv[argValue++] );
+				strcat( headerString, " " );
+			}
+			strcat( headerString, "\n" );
+			fputs( headerString, destFP );
+			
+			sprintf( headerString, "\nResults: bytes %d, strlen %d\n\n", output_count, (*output)?strlen( *output ):0);
 			fputs( headerString, destFP );
 			if ( (*output) )
 				fputs( *output, destFP );
-			fputs( "\n**** endof results *****\n\n", destFP );
+			fputs( "\n******** endof results *********\n\n", destFP );
 			fclose( destFP );
 		}
 		else
-			syslog( LOG_ALERT, "COULD NOT OPEN /tmp/myexecutecommandas.out!\n" );
+			syslog( LOG_ALERT, "COULD NOT OPEN /tmp/executecommand.out!\n" );
 #endif	
 	/* Clear error code if no error or if EAGAIN error */
 	if (ferror(pipe) == 0 || errno == EAGAIN) {

@@ -1,4 +1,4 @@
-dnl @(#) $Header: /cvs/root/tcpdump/tcpdump/configure.in,v 1.2 2003/07/02 00:51:24 rbraun Exp $ (LBL)
+dnl @(#) $Header: /cvs/root/tcpdump/tcpdump/configure.in,v 1.3 2004/02/05 19:33:25 rbraun Exp $ (LBL)
 dnl
 dnl Copyright (c) 1994, 1995, 1996, 1997
 dnl	The Regents of the University of California.  All rights reserved.
@@ -6,7 +6,7 @@ dnl
 dnl Process this file with autoconf to produce a configure script.
 dnl
 
-AC_REVISION($Revision: 1.2 $)
+AC_REVISION($Revision: 1.3 $)
 AC_PREREQ(2.13)
 AC_INIT(tcpdump.c)
 
@@ -286,6 +286,7 @@ main()
     hints.ai_family = AF_UNSPEC;
     hints.ai_flags = passive ? AI_PASSIVE : 0;
     hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
     if ((gaierr = getaddrinfo(NULL, "54321", &hints, &aitop)) != 0) {
       (void)gai_strerror(gaierr);
       goto bad;
@@ -392,39 +393,6 @@ main()
 	])
 	AC_REPLACE_FUNCS(getaddrinfo getnameinfo)
 fi
-dnl AC_TRY_COMPILE(inet_ntop inet_pton inet_aton)
-AC_MSG_CHECKING(for inet_ntop)
-AC_TRY_COMPILE([#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>], [char src[4], dst[128];
-inet_ntop(AF_INET, src, dst, sizeof(dst));],
-	[AC_MSG_RESULT(yes)], [AC_MSG_RESULT(no)
-	AC_REPLACE_FUNCS(inet_ntop)])
-AC_MSG_CHECKING(for inet_pton)
-AC_TRY_COMPILE([#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>], [char src[128], dst[4];
-inet_pton(AF_INET, src, dst);],
-	[AC_MSG_RESULT(yes)], [AC_MSG_RESULT(no)
-	AC_REPLACE_FUNCS(inet_pton)])
-AC_MSG_CHECKING(for inet_aton)
-AC_TRY_COMPILE([#include <sys/types.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>], [char src[128];
-struct in_addr dst;
-inet_aton(src, &dst);],
-	[AC_MSG_RESULT(yes)], [AC_MSG_RESULT(no)
-	AC_REPLACE_FUNCS(inet_aton)])
-
-dnl portability macros for getaddrinfo/getnameinfo
-dnl
-dnl Check for sa_len
-AC_CHECK_SA_LEN(ac_cv_sockaddr_has_sa_len)
-if test "$ac_cv_sockaddr_has_sa_len" = no; then
-	missing_includes=yes
-fi
 
 AC_CACHE_CHECK([for dnet_htoa declaration in netdnet/dnetdb.h],
 [td_cv_decl_netdnet_dnetdb_h_dnet_htoa],
@@ -512,6 +480,7 @@ fi
 
 
 AC_REPLACE_FUNCS(vfprintf strcasecmp strlcat strlcpy strdup strsep)
+AC_CHECK_FUNCS(strftime)
 AC_CHECK_FUNCS(ether_ntohost, [
     AC_CACHE_CHECK(for buggy ether_ntohost, ac_cv_buggy_ether_ntohost, [
 	AC_TRY_RUN([
@@ -558,6 +527,52 @@ dnl AC_CHECK_LIB(z, uncompress)
 dnl AC_CHECK_HEADERS(zlib.h)
 
 AC_LBL_LIBPCAP(V_PCAPDEP, V_INCLS)
+
+#
+# Check for these after AC_LBL_LIBPCAP, so we link with the appropriate
+# libraries (e.g., "-lsocket -lnsl" on Solaris).
+#
+# We don't use AC_REPLACE_FUNCS because that uses AC_CHECK_FUNCS which
+# use AC_CHECK_FUNC which doesn't let us specify the right #includes
+# to make this work on BSD/OS 4.x.  BSD/OS 4.x ships with the BIND8
+# resolver, and the way it defines inet_{ntop,pton} is rather strange;
+# it does not ship with a libc symbol "inet_ntop()", it ships with
+# "_inet_ntop()", and has a #define macro in one of the system headers
+# to rename it.
+#
+dnl AC_TRY_COMPILE(inet_ntop inet_pton inet_aton)
+AC_MSG_CHECKING(for inet_ntop)
+AC_TRY_LINK([#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>], [char src[4], dst[128];
+inet_ntop(AF_INET, src, dst, sizeof(dst));],
+	[AC_MSG_RESULT(yes)], [AC_MSG_RESULT(no)
+	LIBOBJS="$LIBOBJS inet_ntop.o"])
+AC_MSG_CHECKING(for inet_pton)
+AC_TRY_LINK([#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>], [char src[128], dst[4];
+inet_pton(AF_INET, src, dst);],
+	[AC_MSG_RESULT(yes)], [AC_MSG_RESULT(no)
+	LIBOBJS="$LIBOBJS inet_pton.o"])
+AC_MSG_CHECKING(for inet_aton)
+AC_TRY_LINK([#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>], [char src[128];
+struct in_addr dst;
+inet_aton(src, &dst);],
+	[AC_MSG_RESULT(yes)], [AC_MSG_RESULT(no)
+	LIBOBJS="$LIBOBJS inet_aton.o"])
+
+dnl portability macros for getaddrinfo/getnameinfo
+dnl
+dnl Check for sa_len
+AC_CHECK_SA_LEN(ac_cv_sockaddr_has_sa_len)
+if test "$ac_cv_sockaddr_has_sa_len" = no; then
+	missing_includes=yes
+fi
 
 AC_CHECK_FUNCS(pcap_findalldevs pcap_dump_flush pcap_lib_version)
 if test $ac_cv_func_pcap_lib_version = "no" ; then
@@ -673,7 +688,20 @@ AC_MSG_CHECKING(for SSLeay)
 ac_cv_ssleay_path=no
 incdir=no
 for dir in /usr/${host_alias} /usr /usr/local /usr/local/ssl /usr/pkg; do
-	if test -d $dir/lib -a -f $dir/lib/libcrypto.a -o -e $dir/lib/libcrypto.dylib; then
+	#
+	# XXX - is there a better way to check if a given library is
+	# in a given directory than checking each of the possible
+	# shared library suffixes?
+	#
+	# Are there any other suffixes we need to look for?  Do we have to
+	# worry about ".so.{version}"?
+	#
+	# Or should we just look for "libcrypto.*"?
+	#
+	if test -d $dir/lib -a \( -f $dir/lib/libcrypto.a -o \
+			          -f $dir/lib/libcrypto.so -o \
+			          -f $dir/lib/libcrypto.sl -o \
+				  -f $dir/lib/libcrypto.dylib \); then
 		ac_cv_ssleay_path=$dir
 	fi
 	if test -d $dir/include/openssl -a -f $dir/include/openssl/des.h; then
@@ -698,46 +726,13 @@ if test "$ac_cv_ssleay_path" != no; then
 	fi
 	AC_CHECK_LIB(crypto, des_cbc_encrypt)
 
-	bak_CPPFLAGS=$CPPFLAGS
 	CPPFLAGS="$CPPFLAGS $V_INCLS"
-	AC_CHECK_HEADERS(openssl/cast.h)
-
-	if test "$ac_cv_header_openssl_cast_h" = "yes"; then
-		AC_MSG_CHECKING(for buggy CAST128)
-		AC_CACHE_VAL(td_cv_buggy_cast128, [AC_TRY_RUN(dnl
-[
-#include <openssl/cast.h>
-main()
-{
-	unsigned char key[] = {0x01,0x23,0x45,0x67,0x12};
-	unsigned char in[] = {0x01,0x23,0x45,0x67,0x89,0xAB,0xCD,0xEF};
-	unsigned char out[sizeof(in)];
-	unsigned char ok[] = {0x7A,0xC8,0x16,0xD1,0x6E,0x9B,0x30,0x2E};
-	CAST_KEY ks;
-	CAST_set_key(&ks, sizeof(key), key);
-	CAST_ecb_encrypt(in, out, &ks, CAST_ENCRYPT);
-	if (memcmp(out, ok, sizeof(ok)) != 0)
-		return 0;
-	else
-		return 1;
-}],
-			[td_cv_buggy_cast128=yes],
-			[td_cv_buggy_cast128=no],
-			[td_cv_buggy_cast128="cross-compiling, assume yes"])])
-		AC_MSG_RESULT($td_cv_buggy_cast128)
-		if test "$td_cv_buggy_cast128" != no; then
-			echo "NOTE: SSLeay 0.9.0b has a bug in CAST128 en/decoding routine."
-			echo "disabling CAST128 support."
-			AC_DEFINE(HAVE_BUGGY_CAST128)
-		fi
-	fi
-
-	CPPFLAGS=$bak_CPPFLAGS
+	AC_CHECK_HEADERS(openssl/evp.h)
 fi
 ])
-AC_CHECK_HEADERS(openssl/rc5.h)
 
 AC_SUBST(V_CCOPT)
+AC_SUBST(V_DEFS)
 AC_SUBST(V_GROUP)
 AC_SUBST(V_INCLS)
 AC_SUBST(V_PCAPDEP)

@@ -8,7 +8,6 @@
 package org.jboss.ejb.plugins;
 
 import java.rmi.RemoteException;
-import java.rmi.ServerException;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -17,8 +16,6 @@ import java.io.ObjectOutputStream;
 import java.io.IOException;
 
 import javax.ejb.SessionBean;
-import javax.ejb.SessionContext;
-import javax.ejb.CreateException;
 import javax.ejb.RemoveException;
 import javax.ejb.EJBException;
 
@@ -45,11 +42,11 @@ import org.jboss.util.id.UID;
  *  clustered state.
  *
  *  @see HASessionState
- *  @see HASessionStateImpl
+ *  @see org.jboss.ha.hasessionstate.server.HASessionStateImpl
  *  
  *  @author <a href="mailto:sacha.labourey@cogito-info.ch">Sacha Labourey</a>
  *  @author <a href="mailto:jason@planet57.com">Jason Dillon</a>
- *  @version $Revision: 1.7.2.3 $
+ *  @version $Revision: 1.7.2.4 $
  *
  *   <p><b>Revisions:</b>
  */

@@ -12,7 +12,7 @@ GnuAfterInstall = strip
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
 Extra_Configure_Flags = --enable-ipv6
-Extra_CC_Flags = -DHAVE_CONFIG_H -I.
+Extra_CC_Flags = -DHAVE_CONFIG_H -I. -D_U_=\"\"
 
 lazy_install_source:: shadow_source
 

@@ -109,7 +109,6 @@ extern "C"
 
 
 #if USE_ELG
-///#define READ_REGISTER(  REG )	OSReadLittleInt32(  (void*)&fpRegs->REG, 0 )
 #define READ_REGISTER( REG )	(UInt32)(fCellClockEnabled ? OSReadLittleInt32( (void*)&fpRegs->REG, 0 ) :  Alrt( 0, 0, 'REG-', "regs unavail" ) )
 #define WRITE_REGISTER( REG, VAL )	writeRegister( &fpRegs->REG, VAL )
 #else
@@ -174,9 +173,9 @@ extern "C"
 		kGMACUserCmd_GetRxRing		= 0x34,		// get Rx DMA elements
 		kGMACUserCmd_WriteOneReg	= 0x35,		// write one particular GMAC register
 
-		kGMACUserCmd_ReadAllMII	= 0x50,		// read MII registers 0 thru 31
-		kGMACUserCmd_ReadMII	= 0x51,		// read one MII register
-		kGMACUserCmd_WriteMII	= 0x52		// write one MII register
+		kGMACUserCmd_ReadAllMII		= 0x50,		// read MII registers 0 thru 31
+		kGMACUserCmd_ReadMII		= 0x51,		// read one MII register
+		kGMACUserCmd_WriteMII		= 0x52		// write one MII register
 	};
 
 
@@ -278,6 +277,7 @@ public:
 	bool		isFullDuplex;
 	bool		txDebuggerPktInUse;	// for Tx timeout code use only
 	bool		fLoopback;			// PHY is in loopback mode
+	bool		fAutoNegotiate;		// auto negotiate or force speed/duplex
 
 	UInt32 		phyType;			// misnomer - really both PHY ID registers
 	UInt8		phyId;				// misnomer - really PHY address 00-1F or FF
@@ -285,7 +285,6 @@ public:
 	UInt32		fLinkStatus;
 	UInt16		fPHYStatus;
 
-	UInt16		fPHYControl;		// 16 bit PHY Control register.
 	UInt32		fPHYType;			// 5400, 5401 or 5201 for PM
 
 	UInt32		fTxQueueSize;				// size of the Tx queue
@@ -327,17 +326,18 @@ public:
 	UInt16		hashTableUseCount[ 256 ];
 	UInt16		hashTableMask[ 16 ];
 
-	UInt32		currentPowerState;	/* must be 0 or 1		*/
-
 		/* Local copies of certain key registers:	*/
 
 	UInt32		fConfiguration;
 	UInt32		fXIFConfiguration;
 	UInt32		fTxConfiguration;
 	UInt32		fTxMACConfiguration;
+	UInt32		fRxConfiguration;
 	UInt32		fRxMACConfiguration;
 	UInt32		fMACControlConfiguration;
 	UInt32		fRxMACStatus;				// preserve auto-clear register.
+	UInt32		fRxBlanking;
+	UInt32		fPauseThresholds;
 
 	UInt32		fIntStatusForTO;			// accumulate Tx & Rx int bits for timer code.
 
@@ -372,8 +372,6 @@ private:			// Instance methods:
 	void		miiWrite( UInt32 miiData, UInt32 dataSize );
 	bool		miiResetPHY();
 	bool		miiWaitForAutoNegotiation();
-//	void		miiRestartAutoNegotiation();
-	bool		miiFindPHY();
 	bool		miiInitializePHY();
 
 	UInt32		outputPacket( struct mbuf *m, void *param );
@@ -387,7 +385,6 @@ private:			// Instance methods:
 	void		getPhyType();
 	void		stopPHY(); 
 	void		startPHY();
-	bool		hardwareResetPHY();
 
 		// callPlatformFunction symbols
 	const OSSymbol 	*keyLargo_resetUniNEthernetPhy;
@@ -449,8 +446,6 @@ public:		// Override methods:
 	virtual UInt32     maxCapabilityForDomainState(		IOPMPowerFlags state);
 	virtual UInt32     initialPowerStateForDomainState(	IOPMPowerFlags state );
 	virtual UInt32     powerStateForDomainState(		IOPMPowerFlags state );
-	virtual IOReturn   setPowerState(	UInt32		powerStateOrdinal,
-										IOService	*whatDevice );
 										
 		// UserClient public access methods:
 

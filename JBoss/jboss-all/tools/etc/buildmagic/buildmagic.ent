@@ -1,4 +1,4 @@
-<!-- $Id: buildmagic.ent,v 1.1.2.1 2003/05/18 06:24:13 starksm Exp $ -->
+<!-- $Id: buildmagic.ent,v 1.1.2.12 2003/11/30 19:16:16 starksm Exp $ -->
 
 <!-- ================================================================== -->
 <!-- Initialization                                                     -->
@@ -33,10 +33,14 @@
   </fail>
 
   <!-- JDK Detection -->
-  <available classname="java.lang.Void" property="HAVE_JDK_1.1"/>
-  <available classname="java.lang.ThreadLocal" property="HAVE_JDK_1.2"/>
   <available classname="java.lang.StrictMath" property="HAVE_JDK_1.3"/>
   <available classname="java.lang.StackTraceElement" property="HAVE_JDK_1.4"/>
+
+  <fail unless="HAVE_JDK_1.3">
+
+  Unsupported Java version: You need at least JDK1.3 to build JBoss3
+
+  </fail>
 
   <!-- Setup the project environment. -->
   <dirname property="project.root" file="${basedir}"/>
@@ -91,8 +95,30 @@
   </tstamp>
   <property name="build.id" value="${build.number}"/>
 
+    <!-- Version identifiers for the server. -->
+    <property name="version.major" value="3"/>
+    <property name="version.minor" value="2"/>
+    <property name="version.revision" value="3"/>
+    <property name="version.tag" value=""/>
+    <property name="version.name" value="WonderLand"/>
+    <!-- This must be set to the CVS tag for any release -->
+    <property name="version.cvstag" value="JBoss_3_2_3"/>
+
+    <!-- Manifest version info -->
+    <property name="specification.title" value="JBoss"/>
+    <property name="specification.version" value="${version.major}.${version.minor}.${version.revision}"/>
+    <property name="specification.vendor" value="JBoss (http://www.jboss.org/)"/>
+
+    <property name="implementation.title" value="JBoss [${version.name}]"/>
+    <property name="implementation.url" value="http://www.jboss.org/"/>
+    <property name="implementation.version" 
+         value="${version.major}.${version.minor}.${version.revision}${version.tag} (build: CVSTag=${version.cvstag} date=${build.id})"/>
+    <property name="implementation.vendor" value="JBoss.org"/>
+    <property name="implementation.vendor.id" value="${implementation.url}"/>
+
   <!-- Invoke the configure task -->
   <call target="configure" unless="configure.disable"/>
+  <call target="xdoclet-task-classpath-check" />
 
   <!-- Load common task properties -->
   <property file="${project.tools}/etc/buildmagic/task.properties"/>
@@ -153,6 +179,8 @@ os.version:      ${os.version}
       <srcfiles dir="${module.source}" includes="**/*"/>
       <srcfiles dir="${module.root}" includes="build.xml,local.properties"/>
       <srcfiles dir="${project.root}" includes="build/build.xml,build/local.properties"/>
+      <srcfiles dir="${project.thirdparty}" includes="**/*"/>
+      <srcfiles dir="${project.tools}" includes="**/*"/>
    </uptodate>
 
 </target>
@@ -263,20 +291,6 @@ to build define build-bypass.disabled=true.
   </copy>
 </target>
 
-
-<!-- $Id: buildmagic.ent,v 1.1.2.1 2003/05/18 06:24:13 starksm Exp $ -->
-<!--
-   $Log: buildmagic.ent,v $
-   Revision 1.1.2.1  2003/05/18 06:24:13  starksm
-
-   Update the buildmagic element to be consistent with head
-
-   Revision 1.16  2003/05/15 14:58:18  yanikc
-   Replaced tabs with spaces to make this file compliant with the
-   JBoss coding standards. Added the Log entry to display
-   cvs history in comment at the beginning of the file.
-
--->
 
 <!-- ================================================================== -->
 <!-- Initialization                                                     -->
@@ -518,8 +532,9 @@ to build define build-bypass.disabled=true.
      unless="docs-javadocs.disable">
 
   <mkdir dir="${build.api}"/>
+  <mkdir dir="${module.output}/gen-src"/>
   <javadoc packagenames="${javadoc.packages}"
-             sourcepath="${source.classes}:${build.gen.classes}"
+             sourcepath="${source.java}:${module.output}/gen-src"
              destdir="${build.api}"
              classpathref="javadoc.classpath"
              windowtitle="${javadoc.windowtitle}"
@@ -582,8 +597,9 @@ to build define build-bypass.disabled=true.
      unless="docs-javadocs.disable">
 
   <mkdir dir="${build.api}"/>
+  <mkdir dir="${module.output}/gen-src"/>
   <javadoc packagenames="${javadoc.packages}"
-             sourcepath="${source.classes}:${build.gen.classes}"
+             sourcepath="${source.java}:${module.output}/gen-src"
              destdir="${build.api}"
              classpathref="javadoc.classpath"
              windowtitle="${javadoc.windowtitle}"
@@ -619,14 +635,22 @@ to build define build-bypass.disabled=true.
 <!-- ========= -->
 <!-- TODO Docs -->
 <!-- ========= -->
+<target name="xdoclet-task-classpath-check" unless="xdoclet.task.classpath">
+    <path id="xdoclet.task.classpath">
+      <path refid="xdoclet.base.classpath"/>
+      <path refid="apache.commons.classpath"/>
+      <path refid="javac.classpath" />
+    </path>
+    <property name="xdoclet.task.classpath" 
+	      refid="xdoclet.task.classpath"/>
+</target>
 
 <target name="docs-todo-check" depends="init">
-
-  <!-- if index.html is newer than the sources we are up to date -->
-  <uptodate property="docs-todo.disable"
+      <!-- if index.html is newer than the sources we are up to date -->
+      <uptodate property="docs-todo.disable"
          targetfile="${build.todo}/index.html">
-    <srcfiles dir="${source.java}" includes="**/*.java"/>
-  </uptodate>
+         <srcfiles dir="${source.java}" includes="**/*.java"/>
+      </uptodate>
   </target>
 
   <!-- Generate TODO list from @todo tags -->
@@ -634,6 +658,9 @@ to build define build-bypass.disabled=true.
      depends="docs-todo-check" 
      unless="docs-todo.disable">
 
+  <taskdef name="todo"
+               classname="xdoclet.modules.doc.DocumentDocletTask"
+               classpath="${xdoclet.task.classpath}"/>
   <mkdir dir="${build.todo}"/>
   <todo destdir="${build.todo}">
     <fileset dir="${source.java}">

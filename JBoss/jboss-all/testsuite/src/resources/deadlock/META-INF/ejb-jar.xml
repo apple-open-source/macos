@@ -45,6 +45,69 @@
             </cmp-field>
             <primkey-field>name</primkey-field>
         </entity>
+        <entity>
+            <description>Nextgen test bean entity </description>
+            <ejb-name>nextgenEnterpriseEntityReentrant</ejb-name>
+            <home>org.jboss.test.deadlock.interfaces.EnterpriseEntityHome</home>
+            <remote>org.jboss.test.deadlock.interfaces.EnterpriseEntity</remote>
+            <local-home>org.jboss.test.deadlock.interfaces.EnterpriseEntityLocalHome</local-home>
+            <local>org.jboss.test.deadlock.interfaces.EnterpriseEntityLocal</local>
+            <ejb-class>org.jboss.test.deadlock.bean.EnterpriseEntityBean</ejb-class>
+            <persistence-type>Container</persistence-type>
+            <prim-key-class>java.lang.String</prim-key-class>
+            <reentrant>True</reentrant>
+            <cmp-version>2.x</cmp-version>
+            <abstract-schema-name>EnterpriseEntityReentrant</abstract-schema-name>
+            <cmp-field>
+                <field-name>name</field-name>
+            </cmp-field>
+            <cmp-field>
+                <field-name>otherField</field-name>
+            </cmp-field>
+            <primkey-field>name</primkey-field>
+        </entity>
+        <entity>
+            <description>Nextgen test bean entity </description>
+            <ejb-name>nextgenEnterpriseEntityNotSupported</ejb-name>
+            <home>org.jboss.test.deadlock.interfaces.EnterpriseEntityHome</home>
+            <remote>org.jboss.test.deadlock.interfaces.EnterpriseEntity</remote>
+            <local-home>org.jboss.test.deadlock.interfaces.EnterpriseEntityLocalHome</local-home>
+            <local>org.jboss.test.deadlock.interfaces.EnterpriseEntityLocal</local>
+            <ejb-class>org.jboss.test.deadlock.bean.EnterpriseEntityBean</ejb-class>
+            <persistence-type>Container</persistence-type>
+            <prim-key-class>java.lang.String</prim-key-class>
+            <reentrant>False</reentrant>
+            <cmp-version>2.x</cmp-version>
+            <abstract-schema-name>EnterpriseEntityNotSupported</abstract-schema-name>
+            <cmp-field>
+                <field-name>name</field-name>
+            </cmp-field>
+            <cmp-field>
+                <field-name>otherField</field-name>
+            </cmp-field>
+            <primkey-field>name</primkey-field>
+        </entity>
+        <entity>
+            <description>Nextgen test bean entity </description>
+            <ejb-name>nextgenEnterpriseEntityNotSupportedReentrant</ejb-name>
+            <home>org.jboss.test.deadlock.interfaces.EnterpriseEntityHome</home>
+            <remote>org.jboss.test.deadlock.interfaces.EnterpriseEntity</remote>
+            <local-home>org.jboss.test.deadlock.interfaces.EnterpriseEntityLocalHome</local-home>
+            <local>org.jboss.test.deadlock.interfaces.EnterpriseEntityLocal</local>
+            <ejb-class>org.jboss.test.deadlock.bean.EnterpriseEntityBean</ejb-class>
+            <persistence-type>Container</persistence-type>
+            <prim-key-class>java.lang.String</prim-key-class>
+            <reentrant>True</reentrant>
+            <cmp-version>2.x</cmp-version>
+            <abstract-schema-name>EnterpriseEntityNotSupportedReentrant</abstract-schema-name>
+            <cmp-field>
+                <field-name>name</field-name>
+            </cmp-field>
+            <cmp-field>
+                <field-name>otherField</field-name>
+            </cmp-field>
+            <primkey-field>name</primkey-field>
+        </entity>
     </enterprise-beans>
 
    <relationships>
@@ -69,7 +132,6 @@
          </ejb-relationship-role>
       </ejb-relation>
    </relationships>
-
     <assembly-descriptor>
         <container-transaction>
             <method>
@@ -77,10 +139,25 @@
                 <method-name>*</method-name>
             </method>
             <method>
+                <ejb-name>nextgenEnterpriseEntityReentrant</ejb-name>
+                <method-name>*</method-name>
+            </method>
+            <method>
                 <ejb-name>nextgen.StatelessSession</ejb-name>
                 <method-name>*</method-name>
             </method>
             <trans-attribute>Required</trans-attribute>
+        </container-transaction>
+        <container-transaction>
+            <method>
+                <ejb-name>nextgenEnterpriseEntityNotSupported</ejb-name>
+                <method-name>*</method-name>
+            </method>
+            <method>
+                <ejb-name>nextgenEnterpriseEntityNotSupportedReentrant</ejb-name>
+                <method-name>*</method-name>
+            </method>
+            <trans-attribute>NotSupported</trans-attribute>
         </container-transaction>
         <container-transaction>
             <method>

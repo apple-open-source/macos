@@ -13,7 +13,7 @@ import javax.management.ObjectName;
  * Defines constants for JMX services.
  *
  * @author  <a href="mailto:juha@jboss.org">Juha Lindfors</a>.
- * @version $Revision: 1.3.8.1 $
+ * @version $Revision: 1.3.8.2 $
  *   
  */
 public interface ServiceConstants
@@ -33,6 +33,10 @@ public interface ServiceConstants
    /** DTD file name for JBossMX XMBean, version 1.0 */
    final static String JBOSSMX_XMBEAN_DTD_1_0   = "jboss_xmbean_1_0.dtd";
    final static String PUBLIC_JBOSSMX_XMBEAN_DTD_1_0   = "-//JBoss//DTD JBOSS XMBEAN 1.0//EN";
+   
+   /** DTD file name for JBossMX XMBean, version 1.1 */
+   final static String JBOSSMX_XMBEAN_DTD_1_1   = "jboss_xmbean_1_1.dtd";
+   final static String PUBLIC_JBOSSMX_XMBEAN_DTD_1_1   = "-//JBoss//DTD JBOSS XMBEAN 1.1//EN";
    
    /** The original, book version of the XMBean document definition */
    final static String XMBEAN_DTD               = "xmbean.dtd";

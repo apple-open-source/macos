@@ -5,12 +5,14 @@ INSTALL
 LICENSE
 Makefile.in
 README
+Readme.Win32
 VERSION
 acconfig.h
 aclocal.m4
 addrtoname.c
 addrtoname.h
 ah.h
+aodv.h
 appletalk.h
 arcnet.h
 atime.awk
@@ -31,6 +33,8 @@ ether.h
 ethertype.h
 extract.h
 fddi.h
+gmpls.c
+gmpls.h
 gmt2local.c
 gmt2local.h
 icmp6.h
@@ -41,6 +45,7 @@ interface.h
 ip.h
 ip6.h
 ipfc.h
+ipproto.h
 ipsec_doi.h
 ipx.h
 isakmp.h
@@ -88,12 +93,14 @@ pcap-missing.h
 ppp.h
 print-802_11.c
 print-ah.c
+print-aodv.c
 print-arcnet.c
 print-arp.c
 print-ascii.c
 print-atalk.c
 print-atm.c
 print-beep.c
+print-bfd.c
 print-bgp.c
 print-bootp.c
 print-cdp.c
@@ -105,6 +112,7 @@ print-dhcp6.c
 print-domain.c
 print-dvmrp.c
 print-egp.c
+print-enc.c
 print-esp.c
 print-ether.c
 print-fddi.c
@@ -204,7 +212,6 @@ win32/Include/Netinet/in_systm.h
 win32/Include/Netinet/ip.h
 win32/Include/Rpc/rpc.h
 win32/Src/getopt.c
-win32/Src/w32_fzs.c
 win32/prj/GNUmakefile
 win32/prj/WinDump.dsp
 win32/prj/WinDump.dsw

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mbean PUBLIC
+   "-//JBoss//DTD JBOSS XMBEAN 1.0//EN"
+   "http://www.jboss.org/j2ee/dtd/jboss_xmbean_1_0.dtd">
+<!-- $Id: servletinfo-xmbean.xml,v 1.1.1.1 2003/08/04 23:31:50 starksm Exp $ -->
+
+<mbean>
+   <description>The Tomcat41 ServletInfo XMBean</description>
+   <class>org.jboss.web.catalina.mbean.ServletInfo</class>
+
+   <!-- Attributes -->
+   <attribute access="read-only" getMethod="getName">
+      <description>The servlet name</description>
+      <name>Name</name>
+      <type>java.lang.String</type>
+   </attribute>
+   <attribute access="read-only" getMethod="getProcessingTime">
+      <description>The total amount of time handling requests in MS</description>
+      <name>ProcessingTime</name>
+      <type>long</type>
+   </attribute>
+   <attribute access="read-only" getMethod="getMinTime">
+      <description>The shortest time spent handling a request in MS</description>
+      <name>MinTime</name>
+      <type>long</type>
+   </attribute>
+   <attribute access="read-only" getMethod="getMaxTime">
+      <description>The longest time spent handling a request in MS</description>
+      <name>MaxTime</name>
+      <type>long</type>
+   </attribute>
+   <attribute access="read-only" getMethod="getRequestCount">
+      <description>The total number of requests handled</description>
+      <name>RequestCount</name>
+      <type>int</type>
+   </attribute>
+   <attribute access="read-only" getMethod="getErrorCount">
+      <description>The total number of errors seen</description>
+      <name>ErrorCount</name>
+      <type>int</type>
+   </attribute>
+   <attribute access="read-only" getMethod="toString">
+      <description>A string summary of the servlet stats</description>
+      <name>Summary</name>
+      <type>java.lang.String</type>
+   </attribute>
+
+</mbean>

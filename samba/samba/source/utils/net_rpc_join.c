@@ -70,7 +70,7 @@ int net_rpc_join_ok(const char *domain)
 	/* ensure that schannel uses the right domain */
 	fstrcpy(cli->domain, domain);
 	if (! NT_STATUS_IS_OK(result = cli_nt_establish_netlogon(cli, channel, stored_md4_trust_password))) {
-		DEBUG(0,("Error in domain join verfication\n"));
+		DEBUG(0,("Error in domain join verfication (fresh connection)\n"));
 		goto done;
 	}
 	
@@ -109,7 +109,7 @@ int net_rpc_join_newstyle(int argc, const char **argv)
 	/* rpc variables */
 
 	POLICY_HND lsa_pol, sam_pol, domain_pol, user_pol;
-	DOM_SID domain_sid;
+	DOM_SID *domain_sid;
 	uint32 user_rid;
 
 	/* Password stuff */
@@ -127,7 +127,7 @@ int net_rpc_join_newstyle(int argc, const char **argv)
 
 	NTSTATUS result;
 	int retval = 1;
-	fstring domain;
+	char *domain;
 	uint32 num_rids, *name_types, *user_rids;
 	uint32 flags = 0x3e8;
 	char *acct_name;
@@ -178,7 +178,7 @@ int net_rpc_join_newstyle(int argc, const char **argv)
 		      "error opening lsa policy handle");
 
 	CHECK_RPC_ERR(cli_lsa_query_info_policy(cli, mem_ctx, &lsa_pol,
-						5, domain, &domain_sid),
+						5, &domain, &domain_sid),
 		      "error querying info policy");
 
 	cli_lsa_close(cli, mem_ctx, &lsa_pol);
@@ -199,7 +199,7 @@ int net_rpc_join_newstyle(int argc, const char **argv)
 	
 	CHECK_RPC_ERR(cli_samr_open_domain(cli, mem_ctx, &sam_pol,
 					   SEC_RIGHTS_MAXIMUM_ALLOWED,
-					   &domain_sid, &domain_pol),
+					   domain_sid, &domain_pol),
 		      "could not open domain");
 
 	/* Create domain user */
@@ -282,7 +282,7 @@ int net_rpc_join_newstyle(int argc, const char **argv)
 	ctr.info.id24 = &p24;
 
 	CHECK_RPC_ERR(cli_samr_set_userinfo(cli, mem_ctx, &user_pol, 24, 
-					    cli->user_session_key, &ctr),
+					    &cli->user_session_key, &ctr),
 		      "error setting trust account password");
 
 	/* Why do we have to try to (re-)set the ACB to be the same as what
@@ -304,7 +304,7 @@ int net_rpc_join_newstyle(int argc, const char **argv)
 	   as a normal user with "Add workstation to domain" privilege. */
 
 	result = cli_samr_set_userinfo2(cli, mem_ctx, &user_pol, 0x10, 
-					cli->user_session_key, &ctr);
+					&cli->user_session_key, &ctr);
 
 	/* Now check the whole process from top-to-bottom */
 	cli_samr_close(cli, mem_ctx, &user_pol);
@@ -322,7 +322,7 @@ int net_rpc_join_newstyle(int argc, const char **argv)
 					   md4_trust_password);
 
 	if (!NT_STATUS_IS_OK(result)) {
-		DEBUG(0, ("Error domain join verification: %s\n\n",
+		DEBUG(0, ("Error domain join verification (reused connection): %s\n\n",
 			  nt_errstr(result)));
 
 		if ( NT_STATUS_EQUAL(result, NT_STATUS_ACCESS_DENIED) &&
@@ -339,7 +339,7 @@ int net_rpc_join_newstyle(int argc, const char **argv)
 
 	strupper_m(domain);
 
-	if (!secrets_store_domain_sid(domain, &domain_sid)) {
+	if (!secrets_store_domain_sid(domain, domain_sid)) {
 		DEBUG(0, ("error storing domain sid for %s\n", domain));
 		goto done;
 	}

@@ -14,13 +14,12 @@ import javax.security.auth.callback.CallbackHandler;
 import javax.security.auth.login.LoginContext;
 import javax.security.auth.login.LoginException;
 
-import org.jboss.deployment.DeploymentException;
 import org.jboss.system.ServiceMBeanSupport;
 
 /** An MBean that requires a JAAS login in order for it to startup. This is
  * used to require authentication to startup a JBoss instance.
  *
- * @version $Revision: 1.1.2.1 $
+ * @version $Revision: 1.1.2.2 $
  * @author Scott.Stark@jboss.org
  */
 public class SystemAuthenticator extends ServiceMBeanSupport

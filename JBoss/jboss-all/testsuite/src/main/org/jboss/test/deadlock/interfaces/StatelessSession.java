@@ -17,6 +17,6 @@ public interface StatelessSession extends EJBObject {
    public void callAB() throws RemoteException;
    public void callBA() throws RemoteException;
    public void requiresNewTest(boolean first) throws RemoteException;
-   public void createCMRTestData() throws RemoteException;
-   public void cmrTest(String start) throws RemoteException;
+   public void createCMRTestData(String jndiName) throws RemoteException;
+   public void cmrTest(String jndiName, String start) throws RemoteException;
 }

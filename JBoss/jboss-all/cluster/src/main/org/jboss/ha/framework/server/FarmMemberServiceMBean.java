@@ -10,23 +10,16 @@ package org.jboss.ha.framework.server;
 import java.io.File;
 import java.io.Serializable;
 import java.net.MalformedURLException;
-import java.net.URL;
-import java.util.Date;
 
 import javax.management.ObjectName;
 
-import org.jboss.deployment.DeploymentException;
-import org.jboss.system.Service;
 import org.jboss.mx.util.ObjectNameFactory;
-
-import org.jboss.ha.framework.server.FarmMemberServiceMBean.FileContent;
-import org.jboss.deployment.DeployerMBean;
 import org.jboss.deployment.scanner.URLDeploymentScannerMBean;
 
 /** 
  *
  * @author <a href="mailto:bill@jboss.org">Bill Burke</a>
- * @version $Revision: 1.7.4.4 $
+ * @version $Revision: 1.7.4.5 $
  *
  * <p><b>20020809 bill burke:</b>
  * <ul>

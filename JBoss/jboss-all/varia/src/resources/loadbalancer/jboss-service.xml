@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE server>
+<server>
+    <mbean code="org.jboss.web.loadbalancer.LoadbalancerService"
+         name="jboss.web.loadbalancer:service=Loadbalancer">
+       <depends>jboss.web:service=WebServer</depends>
+       <attribute name="Config">
+          <loadbalancer>
+            <!-- The timeout for a connection from the loadbalancer to a target host in ms -->
+            <connection-timeout>20000</connection-timeout>
+
+            <!-- Class name for the scheduler -->
+            <scheduler-class-name>org.jboss.web.loadbalancer.scheduler.RoundRobinScheduler</scheduler-class-name>
+
+            <!-- Register scheduler under this name -->
+            <scheduler-name>jboss.web.loadbalancer:service=Scheduler</scheduler-name>
+ 
+            <!-- Use sticky sessions ? -->
+            <sticky-session>true</sticky-session>
+
+            <!-- The name of the session-cookie to use -->
+            <sticky-session-cookie-name>JBoss_LB_ID</sticky-session-cookie-name>
+
+            <!-- The list of the target hosts -->
+            <hosts>
+               <host>
+                  <!-- The URL to use to connect the host. URLs like http://www.xx.yy:8080/ are also allowed -->
+                  <host-url>http://localhost:8180/</host-url>
+                  <!-- The loadbalancer-factor -->
+                  <lb-factor>1</lb-factor>
+               </host>
+               <host>
+                  <host-url>http://localhost:8280/</host-url>
+                  <lb-factor>1</lb-factor>
+               </host>
+            </hosts>
+          </loadbalancer>
+       </attribute>
+  </mbean>
+</server>

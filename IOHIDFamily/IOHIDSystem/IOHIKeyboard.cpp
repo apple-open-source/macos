@@ -661,9 +661,14 @@ bool IOHIKeyboard::numLock()
 void IOHIKeyboard::setNumLock(bool val)
 {
     _numLock = val;
-    // RY: Since the num lock buttons, acts
-    // as clear, don't toggle the light
-    //setNumLockFeedback(val);
+
+    setNumLockFeedback(val);
+
+    KeyboardReserved *tempReservedStruct = GetKeyboardReservedStructEventForService(this); 
+	
+    if (tempReservedStruct && tempReservedStruct->keyboardNub )
+        tempReservedStruct->keyboardNub->setNumLockLEDElement(val);
+
 }
 
 bool IOHIKeyboard::charKeyActive()

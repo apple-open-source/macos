@@ -17,7 +17,7 @@ import org.jboss.ha.framework.interfaces.HAPartition.HAMembershipListener;
  *
  *   @author  <a href="mailto:bill@burkecentral.com">Bill Burke</a>.
  *   @author  <a href="mailto:sacha.labourey@cogito-info.ch">Sacha Labourey</a>.
- *   @version $Revision: 1.7.2.1 $
+ *   @version $Revision: 1.7.2.2 $
  *
  * <p><b>Revisions:</b><br>
  * <p><b>28.07.2002 - Sacha Labourey:</b>
@@ -234,4 +234,9 @@ public interface HAPartition
     */   
    public Vector getCurrentView ();
 
+   /**
+    * Return the member nodes that built the current view i.e. the current partition.
+    * @return An array of ClusterNode containing the node names
+    */
+   public ClusterNode[] getClusterNodes ();
 }

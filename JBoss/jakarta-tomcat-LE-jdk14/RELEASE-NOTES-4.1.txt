@@ -3,7 +3,7 @@
                             Release Notes
                             =============
 
-$Id: RELEASE-NOTES-4.1.txt,v 1.70 2003/03/19 01:33:16 keith Exp $
+$Id: RELEASE-NOTES-4.1.txt,v 1.81 2003/10/27 13:40:27 remm Exp $
 
 
 ============
@@ -64,6 +64,14 @@ General New Features:
 
 [4.1.19] Administration Webapp:
          Complete the accessibility requirements to pass section 508.
+
+[4.1.28] Connectors:
+         The Coyote connector (HTTP/1.1 and AJP/1.3) has been upgraded to
+         Coyote 1.1, which is the one used by Tomcat 5.0.x. Please refer to the
+         Tomcat 5.0 changelog for the list of changes.
+
+[4.1.29] DBCP:
+         Upgrade to DBCP 1.1.
 
 
 ---------------------
@@ -129,6 +137,15 @@ Catalina New Features:
 
 [4.1.20] GlobalResourcesLifecycleListener:
          Allow the listener to be associated with a Service.
+
+[4.1.25] ExtendedAccessLogValve:
+         An implementation of the W3c Extended Log File Format. See
+         http://www.w3.org/TR/WD-logfile.html for more information
+         about the format. 
+
+[4.1.29] DefaultContext:
+         Added support for nesting a Context Listener and a Webapp Loader 
+         within a DefaultContext.
 
 
 -------------------
@@ -273,6 +290,28 @@ Generic Bug Fixes:
 [4.1.23] #15982
          Administration Webapp:
          Don't set JDBCRealm digest when it's an empty string.
+
+[4.1.23] Startup scripts:
+         Fix bugs in the Unix startup scripts.
+
+[4.1.27] Administration Webapp:
+         Fix typo in the default context action declaraion.
+
+[4.1.28] Modeler:
+         Update to commons-modeler 1.1.
+
+[4.1.28] Xerces:
+         Update to Xerces 2.5.0.
+
+[4.1.28] Regexp:
+         Update to regexp 1.3.
+
+[4.1.28] Scripts:
+         Use -Dsun.io.useCanonCaches=false as an extra system property for
+         Windows scripts, so that the canonical paths returned are case exact.
+
+[4.1.28] Docs:
+         Minor docs updates.
 
 
 ------------------
@@ -731,6 +770,73 @@ Catalina Bug Fixes:
          JDBCStore
          Fix bug where first session in result set was skipped.
 
+[4.1.25] #9851
+         Improve Digest Authentication compatibility
+
+[4.1.25] #20380
+         AccessLogValve incorrectly calculates timezone.
+
+[4.1.25] #16374
+         AccessLogValve Date in file name configurable.
+
+[4.1.25] #16400
+         AccessLogValve Allow logging to be conditional.
+
+[4.1.25] AccessLogValve Add %D, %T for time to serve request.
+
+[4.1.25] StandardContext:
+         Fix listener shutdown order for JNDI access.
+
+[4.1.25] StandardContext:
+         Return facaded context.
+
+[4.1.25] StandardWrapper:
+         Fix SingleThreadModel NPE after a reload.
+
+[4.1.25] WebappClassLoader:
+         Display more debugging when a CL stopped error occurs.
+
+[4.1.25] StandardSession:
+         Clone enumerated list to allow mutating.
+
+[4.1.27] AuthenticatorBase:
+         Don't set the no-caching headers on protected POSTed pages, so that
+         the browser's "back" button works as expected.
+
+[4.1.27] AccessLogValve:
+         Add leading + to timezone offset.
+
+[4.1.27] ExtendedAccessLogValve:
+         If bytes are requested, then print bytes not the date.
+
+[4.1.28] StandardContext:
+         Fix reloading regression.
+
+[4.1.28] StandardHostValve:
+         Reset context classloader after invoking the servlet.
+
+[4.1.28] StandardWrapperValve:
+         Fix infinite recursion when logging in certain cases.
+
+[4.1.28] JNDIRealm:
+         Many bugfixes (18698, 11678, 19864, 20518, 14817, 22236), and allow 
+         multiple user patterns.
+
+[4.1.28] CGI Servlet:
+         Bugfixes (22857, 22858).
+
+[4.1.28] WebDAV Servlet:
+         Fix bad handling of the destinationPath URL.
+
+[4.1.28] SecurityClassLoad:
+         Preload a few additional classes from Coyote.
+
+[4.1.28] MemoryUser:
+         XML-escape the values when writing out the tomcat-users.xml file.
+
+[4.1.29] StandardDefaultContext:
+         Fix support for defining ResourceLink.
+
 
 ----------------
 Coyote Bug Fixes:
@@ -909,6 +1015,57 @@ Coyote Bug Fixes:
 [4.1.24] #16508
          CoyoteResponse:
          Fix value of the committed flag after the response is finished.
+
+[4.1.25] Shell scripts:
+         Add support for OS/400.
+
+[4.1.25] JkHandler:
+         Fix decoding of SSL CLIENT-CERTs passed from Apache/IIS/iPlanet.
+
+[4.1.25] mod_jk:
+         Fix potential path-traversal problem in mappings.
+
+[4.1.25] JSSE SSL:
+         Re-factor to remove dependencies on Sun classes when using a 1.4.x 
+         JVM. It should now be possible to set up a SSL Connector 
+         with any vendors 1.4.x JVM, without having to install 
+         Sun's JSSE 1.0.x.
+
+[4.1.25] PureTLS SSL:
+         Fix problems with getting the CLIENT-CERT.
+
+[4.1.25] CoyoteConnector:
+         Disable server socket timeout by default, to minimize the amount of 
+         generated garbage, especially in SSL mode.
+
+[4.1.25] #21219
+         Http11Processor:
+         Drop the client connection (nicely, if possible, rudely if not) in the
+         event of a serious protocol error.
+
+[4.1.25] CoyoteRequestFacade:
+         Fix double facading of the request object.
+
+[4.1.25] HandlerRequest:
+         Fix incorrect recycling of SSL certificates in JK 2.
+
+[4.1.25] Http11Processor:
+         Catch exceptions which could occur in prepareRequest.
+
+[4.1.26] Http11Processor:
+         Fix regression where connection is always dropped at the end of 
+         processing.
+
+[4.1.27] CoyoteAdapter:
+         Fix "//" URL normalization code.
+
+[4.1.27] JSSESocketFactory:
+         Fix dependency on Sun VMs, so that IBM VM users can use the integrated
+         JSSE.
+
+[4.1.27] #21984
+         HandlerReqest:
+         Fix potential Dos condition when given a mal-formed URI.
 
 
 ----------------
@@ -1218,6 +1375,16 @@ Jasper Bug Fixes:
 [4.1.24] JspC:
          Set the thread context class loader to the specified classpath.
 
+[4.1.25] #18314
+         PageDataImpl:
+         Multiple declarations of same taglib cause exception during 
+         validation.
+
+[4.1.25] #18496
+         Parser:
+         Special characters not escaped in "Unterminated ... tag" 
+         error message.
+
 
 ============================
 KNOWN ISSUES IN THIS RELEASE:
@@ -1227,7 +1394,7 @@ KNOWN ISSUES IN THIS RELEASE:
 * Tomcat 4.1 Standard APIs Available
 * Tomcat 4.1 and XML Parsers
 * Web application reloading and static fields in shared libraries
-* Linux and Sun JDK 1.2.x - 1.3.x
+* Tomcat on Linux
 * Enabling SSI and CGI Support
 * Security manager URLs
 * Symlinking static resources
@@ -1312,9 +1479,9 @@ and put them in the shared classloader instead (the JARs should be put in the
 "lib" folder, and classes should be put in the "classes" folder).
 
 
--------------------------------
-Linux and Sun JDK 1.2.x - 1.3.x:
--------------------------------
+---------------
+Tomcat on Linux:
+---------------
 
 Virtual machine crashes can be experienced when using certain combinations of
 kernel / glibc under Linux with Sun Hotspot 1.2 to 1.3. The crashes were 
@@ -1326,6 +1493,9 @@ do "ulimit -s 2048"; use "limit stacksize 2048" for tcsh.
 
 GLIBC 2.2 / Linux 2.4 users should also define an environment variable:
 export LD_ASSUME_KERNEL=2.2.5
+
+Additionally, Redhat 9.0 users should use the same setting, to avoid stability
+problems.
 
 
 ----------------------------

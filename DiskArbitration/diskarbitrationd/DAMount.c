@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -178,31 +176,6 @@ void _DAMountCreateTrashFolder( DADiskRef disk, CFURLRef mountpoint )
                      */
 
                     ___chattr( path, ___ATTR_INVISIBLE, 0 );
-                }
-            }
-            else
-            {
-                /*
-                 * Correct the trash folder's mode.
-                 */
-
-                if ( ( status.st_mode & 01333 ) != 01333 )
-                {
-                     chmod( path, 01333 );
-                }
-
-                /*
-                 * Correct the trash folder's ownership.
-                 */
-
-                if ( status.st_uid != ___UID_ROOT )
-                {
-                    chown( path, ___UID_ROOT, -1 );
-                }
-
-                if ( status.st_gid != ___GID_ADMIN )
-                {
-                    chown( path, -1, ___GID_ADMIN );
                 }
             }
         }

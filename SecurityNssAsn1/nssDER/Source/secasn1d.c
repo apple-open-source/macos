@@ -35,7 +35,7 @@
  * Support for DEcoding ASN.1 data based on BER/DER (Basic/Distinguished
  * Encoding Rules).
  *
- * $Id: secasn1d.c,v 1.14 2003/06/02 20:18:54 dmitch Exp $
+ * $Id: secasn1d.c,v 1.14.10.1 2003/12/10 00:32:57 dmitch Exp $
  */
 
 #include "secasn1.h"
@@ -142,6 +142,10 @@ typedef struct sec_asn1d_state_struct {
     const SEC_ASN1Template *theTemplate;
     void *dest;
 
+	/* Apple addenda - track mallocd size to avoid overflow from 
+	 * badly formatted DER. */
+	uint32 dest_alloc_len;
+	
     void *our_mark;	/* free on completion */
 
     struct sec_asn1d_state_struct *parent;	/* aka prev */
@@ -278,7 +282,9 @@ sec_asn1d_zalloc (PRArenaPool *poolp, unsigned long len)
 static sec_asn1d_state *
 sec_asn1d_push_state (SEC_ASN1DecoderContext *cx,
 		      const SEC_ASN1Template *theTemplate,
-		      void *dest, PRBool new_depth)
+		      void *dest, 
+			  uint32 dest_alloc_len,
+			  PRBool new_depth)
 {
     sec_asn1d_state *state, *new_state;
 
@@ -307,6 +313,8 @@ sec_asn1d_push_state (SEC_ASN1DecoderContext *cx,
     new_state->parent      = state;
     new_state->theTemplate = theTemplate;
     new_state->place       = notInUse;
+	new_state->dest_alloc_len = dest_alloc_len;
+	
     if (dest != NULL)
 		new_state->dest = (char *)dest + theTemplate->offset;
 
@@ -318,6 +326,12 @@ sec_asn1d_push_state (SEC_ASN1DecoderContext *cx,
     }
 
     cx->current = new_state;
+	#ifndef	NDEBUG
+	if(doDumpStates) {
+		dprintf("sec_asn1d_push_state: old %p new %p dest %p alloc_len %lu\n",
+			state, new_state, dest, dest_alloc_len);
+	}
+	#endif
     return new_state;
 }
 
@@ -421,7 +435,7 @@ sec_asn1d_init_state_based_on_template (sec_asn1d_state *state,
 			sec_asn1d_scrub_state (state);
 			state->place = duringSaveEncoding;
 			state = sec_asn1d_push_state (state->top, SEC_AnyTemplate,
-						state->dest, PR_FALSE);
+						state->dest, 0, PR_FALSE);
 			if (state != NULL)
 				state = sec_asn1d_init_state_based_on_template (state,
 					buf /* __APPLE__ */);
@@ -554,7 +568,8 @@ sec_asn1d_init_state_based_on_template (sec_asn1d_state *state,
 		#endif	/* __APPLE__ */
 		subt = SEC_ASN1GetSubtemplate (state->theTemplate, subDest,
 			PR_FALSE, buf /* __APPLE__ */);
-		state = sec_asn1d_push_state (state->top, subt, dest, PR_FALSE);
+		state = sec_asn1d_push_state (state->top, subt, dest, 
+			state->dest_alloc_len, PR_FALSE);
 		if (state == NULL)
 			return NULL;
 	
@@ -803,7 +818,6 @@ sec_asn1d_confirm_identifier (sec_asn1d_state *state)
 		} else {
 			PORT_SetError (SEC_ERROR_BAD_DER);
 			state->top->status = decodeError;
-			//dprintf("decodeError: sec_asn1d_confirm_identifier\n");
 		}
     }
 }
@@ -883,6 +897,16 @@ sec_asn1d_parse_more_length (sec_asn1d_state *state,
     if (state->pending == 0)
 		state->place = afterLength;
 
+	/* 
+	 * A somewhat arbitrary restriction: if the parsed length's MSB is set, we
+	 * can't proceed since we need to do unsigned arithmetic with it. 
+	 */
+	if(state->contents_length & 0x80000000) {
+		PORT_SetError (SEC_ERROR_BAD_DER);
+		state->top->status = decodeError;
+		dprintf("decodeError: length overflow\n");
+		return 0;
+	}
     return count;
 }
 
@@ -954,7 +978,7 @@ sec_asn1d_prepare_for_contents (sec_asn1d_state *state,
 							     state->dest,
 							     PR_FALSE,
 								 buf /* __APPLE__ */),
-				      state->dest, PR_TRUE);
+				      state->dest, 0, PR_TRUE);
 		if (state != NULL)
 			state = sec_asn1d_init_state_based_on_template (state,
 				buf /* __APPLE__ */);
@@ -984,7 +1008,7 @@ sec_asn1d_prepare_for_contents (sec_asn1d_state *state,
 	    state->place = duringGroup;
 	    subt = SEC_ASN1GetSubtemplate (state->theTemplate, state->dest,
 					   PR_FALSE, buf /* __APPLE__ */);
-	    state = sec_asn1d_push_state (state->top, subt, NULL, PR_TRUE);
+	    state = sec_asn1d_push_state (state->top, subt, NULL, 0, PR_TRUE);
 	    if (state != NULL) {
 			if (!state->top->filter_only)
 				state->allocate = PR_TRUE;	/* XXX propogate this? */
@@ -1013,7 +1037,7 @@ sec_asn1d_prepare_for_contents (sec_asn1d_state *state,
 	 */
 	state->place = duringSequence;
 	state = sec_asn1d_push_state (state->top, state->theTemplate + 1,
-				      state->dest, PR_TRUE);
+				      state->dest, 0, PR_TRUE);
 	if (state != NULL) {
 	    /*
 	     * Do the "before" field notification.
@@ -1166,6 +1190,13 @@ regular_string_type:
 			state->top->status = decodeError;
 			break;
 	    }
+		state->dest_alloc_len = alloc_len;
+		#ifndef	NDEBUG
+		if(doDumpStates) {
+			dprintf("prepare_for_contents: allocated %lu at %p in item %p\n",
+				alloc_len, item->Data, item);
+		}
+		#endif
 
 	    len = 0;
 	    for (subitem = state->subitems_head;
@@ -1174,7 +1205,8 @@ regular_string_type:
 		len += subitem->len;
 	    }
 	    item->Length = len;
-
+		PORT_Assert(len <= alloc_len);
+		
 	    /*
 	     * Because we use arenas and have a mark set, we later free
 	     * everything we have allocated, so this does *not* present
@@ -1239,7 +1271,7 @@ regular_string_type:
 	    }
 
 	    state->place = duringConstructedString;
-	    state = sec_asn1d_push_state (state->top, sub, item, PR_TRUE);
+	    state = sec_asn1d_push_state (state->top, sub, item, state->dest_alloc_len, PR_TRUE);
 	    if (state != NULL) {
 		state->substring = PR_TRUE;	/* XXX propogate? */
 		state = sec_asn1d_init_state_based_on_template (state,
@@ -1249,7 +1281,7 @@ regular_string_type:
 	    /*
 	     * An indefinite-length string *must* be constructed!
 	     */
-	    dprintf("decodeError: prepare for contents indefinite not construncted\n");
+	    dprintf("decodeError: prepare for contents indefinite not constructed\n");
 	    PORT_SetError (SEC_ERROR_BAD_DER);
 	    state->top->status = decodeError;
 	} else {
@@ -1290,7 +1322,7 @@ regular_string_type:
 	     * An indefinite-length or zero-length item is not allowed.
 	     * (All legal cases of such were handled above.)
 	     */
-		dprintf("decodeError: prepare for contents indefinite zero len \n");
+		//dprintf("decodeError: prepare for contents indefinite zero len \n");
 	    PORT_SetError (SEC_ERROR_BAD_DER);
 	    state->top->status = decodeError;
 	}
@@ -1397,14 +1429,18 @@ sec_asn1d_reuse_encoding (sec_asn1d_state *state)
     if (SEC_ASN1DecoderUpdate (state->top,
 			       (char *) item->Data, item->Length) != SECSuccess)
 	return;
+	if(state->top->status == needBytes) {
+		/* 
+		 * Catch this right now - the decode of the saved-up data got a needBytes status
+		 * which can only mean badly formatted data (since know we have everything that's
+		 * ever coming).
+		 */
+		dprintf("decodeError: underflow on saved encoded data\n");
+	    PORT_SetError (SEC_ERROR_BAD_DER);
+	    state->top->status = decodeError;
+		return;
+	}
 
-    PORT_Assert (state->top->current == state);
-    PORT_Assert (state->child == child);
-
-    /*
-     * That should have consumed what we consumed before.
-     */
-    PORT_Assert (consumed == child->consumed);
     child->consumed = 0;
 
     /*
@@ -1447,6 +1483,14 @@ sec_asn1d_parse_leaf (sec_asn1d_state *state,
 			while (len > 1 && buf[0] == 0) {              /* leading 0 */
 				buf++;
 				len--;
+			}
+		}
+		if(state->dest_alloc_len) {
+			if((item->Length + len) > state->dest_alloc_len) {
+				dprintf("sec_asn1d_parse_leaf: Item alloc overflow\n");
+				PORT_SetError (SEC_ERROR_BAD_DER);
+				state->top->status = decodeError;
+				return 0;
 			}
 		}
 		PORT_Memcpy (item->Data + item->Length, buf, len);
@@ -1580,9 +1624,17 @@ sec_asn1d_record_any_header (sec_asn1d_state *state,
 {
     SECItem *item;
 
-    item = (SECItem *)(state->dest);
+    item = (SECItem *)(state->dest); 
     if (item != NULL && item->Data != NULL) {
 	PORT_Assert (state->substring);
+	if(state->dest_alloc_len) {
+		if((item->Length + len) > state->dest_alloc_len) {
+			dprintf("sec_asn1d_record_any_header: Item alloc overflow\n");
+			PORT_SetError (SEC_ERROR_BAD_DER);
+			state->top->status = decodeError;
+			return;
+		}
+	}
 	PORT_Memcpy (item->Data + item->Length, buf, len);
 	item->Length += len;
     } else {
@@ -1618,7 +1670,13 @@ sec_asn1d_next_substring (sec_asn1d_state *state)
     child_consumed = child->consumed;
     child->consumed = 0;
     state->consumed += child_consumed;
-
+	#ifndef	NDEBUG
+	if(doDumpStates) {
+		dprintf("next_substring: child_consumed %lu state->consumed %lu dest %p dest.Data %p\n",
+			child_consumed, state->consumed,
+			state->dest, state->dest ? ((CSSM_DATA_PTR)state->dest)->Data : 0);
+	}
+	#endif
     done = PR_FALSE;
 
     if (state->pending) {
@@ -1648,6 +1706,7 @@ sec_asn1d_next_substring (sec_asn1d_state *state)
 	     */
 	    item->Data = NULL;
 	    item->Length = 0;
+		child->dest_alloc_len = 0;
 	}
 
 	/*
@@ -2011,6 +2070,13 @@ sec_asn1d_concat_substrings (sec_asn1d_state *state)
 	    return;
 	}
 	item->Length = item_len;
+	state->dest_alloc_len = item_len;
+	#ifndef	NDEBUG
+	if(doDumpStates) {
+		dprintf("concat_substrings: allocated %lu at %p in item %p\n",
+			item_len, item->Data, item);
+	}
+	#endif
 
 	where = item->Data;
 	substring = state->subitems_head;
@@ -2290,7 +2356,7 @@ sec_asn1d_before_choice
 	}
 
 	child = sec_asn1d_push_state(state->top, state->theTemplate + 1, 
-								state->dest, PR_FALSE);
+								state->dest, 0, PR_FALSE);
 	if( (sec_asn1d_state *)NULL == child ) {
 		return (sec_asn1d_state *)NULL;
 	}
@@ -2477,9 +2543,10 @@ dump_states
       printf("  ");
     }
 
-    printf("%s: template[0]->kind = 0x%02x, expect tag number = 0x%02x\n",
+    printf("%s: template[0]->kind=0x%02x, expectTag=0x%02x, consume=%lu\n",
            (state == cx->current) ? "STATE" : "State",
-           (unsigned)state->theTemplate->kind, (unsigned)state->expect_tag_number);
+           (unsigned)state->theTemplate->kind, (unsigned)state->expect_tag_number,
+		   state->consumed);
   }
 
   return;
@@ -2504,10 +2571,16 @@ SEC_ASN1DecoderUpdate (SEC_ASN1DecoderContext *cx,
 		consumed = 0;
 		#if DEBUG_ASN1D_STATES
 		if(doDumpStates) {
-			printf("\nPLACE = %s, next byte = 0x%02x\n",
+			printf("\nPLACE = %s, nextByte=0x%02x, alloc_len=%lu\n",
 				(state->place >= 0 && state->place <= notInUse) ?
 				place_names[ state->place ] : "(undefined)",
-				(unsigned int)((unsigned char *)buf)[ consumed ]);
+				(unsigned int)((unsigned char *)buf)[ consumed ],
+				state->dest_alloc_len);
+			printf(" pend=%lu len=%lu consumed=%lu dest=%p dest.Data=%p\n",
+				state->pending,	len, state->consumed,
+				state->dest, 
+				state->dest ? ((CSSM_DATA_PTR)state->dest)->Data : 0);
+
 			dump_states(cx);
 		}
 		#endif /* DEBUG_ASN1D_STATES */
@@ -2675,6 +2748,7 @@ SEC_ASN1DecoderUpdate (SEC_ASN1DecoderContext *cx,
 		state->consumed += consumed;
 		buf += consumed;
 		len -= consumed;
+		
     }	/* main decode loop */
 
     if (cx->status == decodeError) {
@@ -2808,7 +2882,7 @@ SEC_ASN1DecoderStart (PRArenaPool *their_pool, void *dest,
 
     cx->status = needBytes;
 
-    if (sec_asn1d_push_state(cx, theTemplate, dest, PR_FALSE) == NULL
+    if (sec_asn1d_push_state(cx, theTemplate, dest, 0, PR_FALSE) == NULL
 	   || sec_asn1d_init_state_based_on_template (cx->current, 
 			buf /* __APPLE__ */) == NULL) {
 		/*

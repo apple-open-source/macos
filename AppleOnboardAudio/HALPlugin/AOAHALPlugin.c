@@ -26,7 +26,7 @@ OSStatus AudioDriverPlugInOpen (AudioDriverPlugInHostInfo * inHostInfo) {
 	io_iterator_t				theIterator;
 	kern_return_t				theKernelError;
 
-//	syslog (LOG_INFO, "+ HAL Plugin : AudioDriverPlugInOpen \n");
+//	syslog (LOG_INFO, "+ HAL Plugin : AudioDriverPlugInOpen ");
 	theResult = noErr;
 	ioAudioEngine = inHostInfo->mIOAudioEngine;
 	ioAudioDevice = inHostInfo->mIOAudioDevice;
@@ -56,7 +56,7 @@ OSStatus AudioDriverPlugInOpen (AudioDriverPlugInHostInfo * inHostInfo) {
 		}
 	}
 
-//	syslog (LOG_INFO, "- HAL Plugin :  AudioDriverPlugInOpen\n");
+//	syslog (LOG_INFO, "- HAL Plugin :  AudioDriverPlugInOpen");
 	if (theIterator)
 		IOObjectRelease (theIterator);
 
@@ -64,14 +64,14 @@ OSStatus AudioDriverPlugInOpen (AudioDriverPlugInHostInfo * inHostInfo) {
 }
 
 OSStatus AudioDriverPlugInClose (AudioDeviceID inDevice) {
-//	syslog (LOG_INFO, "+ HAL Plugin : AudioDriverPlugInClose \n");
+//	syslog (LOG_INFO, "+ HAL Plugin : AudioDriverPlugInClose ");
 
 	if (gConnectionReference)
 		IOServiceClose (gConnectionReference);
 	if (gControlReference)
 		IOObjectRelease (gControlReference);
 
-//	syslog (LOG_INFO, "- HAL Plugin :  AudioDriverPlugInClose\n");
+//	syslog (LOG_INFO, "- HAL Plugin :  AudioDriverPlugInClose");
 	return 0;
 }
 
@@ -84,7 +84,7 @@ OSStatus AudioDriverPlugInDeviceGetPropertyInfo (AudioDeviceID inDevice, UInt32 
 
 	theResult = kAudioHardwareUnknownPropertyError;
 
-//	syslog (LOG_INFO, "+ HAL Plugin : AudioDriverPlugInDeviceGetPropertyInfo %s\n", theProp);
+//	syslog (LOG_INFO, "+ HAL Plugin : AudioDriverPlugInDeviceGetPropertyInfo %s", theProp);
 
 	switch (inPropertyID) {
 		case kAOAPropertyHeadphoneExclusive:
@@ -112,7 +112,7 @@ OSStatus AudioDriverPlugInDeviceGetPropertyInfo (AudioDeviceID inDevice, UInt32 
 			break;
 	}
 
-//	syslog (LOG_INFO, "- HAL Plugin :  AudioDriverPlugInDeviceGetPropertyInfo\n");
+//	syslog (LOG_INFO, "- HAL Plugin :  AudioDriverPlugInDeviceGetPropertyInfo");
 
 	return theResult;
 }
@@ -142,7 +142,7 @@ OSStatus AudioDriverPlugInDeviceGetProperty (AudioDeviceID inDevice, UInt32 inLi
 	theResult = kAudioHardwareUnknownPropertyError;
 
 	convertDecTo4cc (inPropertyID, theProp);
-//	syslog (LOG_INFO, "+ HAL Plugin : AudioDriverPlugInDeviceGetProperty %s\n", theProp);
+//	syslog (LOG_INFO, "+ HAL Plugin : AudioDriverPlugInDeviceGetProperty %s", theProp);
 
 	switch (inPropertyID) {
 		case kAOAPropertyHeadphoneExclusive:
@@ -175,7 +175,7 @@ OSStatus AudioDriverPlugInDeviceGetProperty (AudioDeviceID inDevice, UInt32 inLi
 			break;
 	}
 
-//	syslog (LOG_INFO, "- HAL Plugin :  AudioDriverPlugInDeviceGetProperty\n");
+//	syslog (LOG_INFO, "- HAL Plugin :  AudioDriverPlugInDeviceGetProperty");
 
 	return theResult;
 }
@@ -190,7 +190,7 @@ OSStatus AudioDriverPlugInDeviceSetProperty (AudioDeviceID inDevice, const Audio
 	convertDecTo4cc (inPropertyID, theProp);
 	theResult = kAudioHardwareUnknownPropertyError;
 
-//	syslog (LOG_INFO, "+ HAL Plugin : AudioDriverPlugInDeviceSetProperty %s\n", theProp);
+//	syslog (LOG_INFO, "+ HAL Plugin : AudioDriverPlugInDeviceSetProperty %s", theProp);
 
 	switch (inPropertyID) {
 		case kAOAPropertyHeadphoneExclusive:
@@ -211,7 +211,7 @@ OSStatus AudioDriverPlugInDeviceSetProperty (AudioDeviceID inDevice, const Audio
 			break;
 	}
 
-//	syslog (LOG_INFO, "- HAL Plugin :  AudioDriverPlugInDeviceSetProperty\n");
+//	syslog (LOG_INFO, "- HAL Plugin :  AudioDriverPlugInDeviceSetProperty");
 	return theResult;                                    
 }                                
 
@@ -222,9 +222,9 @@ OSStatus AudioDriverPlugInStreamGetPropertyInfo (AudioDeviceID inDevice, io_obje
 	convertDecTo4cc (inPropertyID, theProp);
 	theResult = kAudioHardwareUnknownPropertyError;
 
-//	syslog (LOG_INFO, "+ HAL Plugin : AudioDriverPlugInStreamGetPropertyInfo  %s\n", theProp);
+//	syslog (LOG_INFO, "+ HAL Plugin : AudioDriverPlugInStreamGetPropertyInfo  %s", theProp);
 
-//	syslog (LOG_INFO, "- HAL Plugin :  AudioDriverPlugInStreamGetPropertyInfo\n");
+//	syslog (LOG_INFO, "- HAL Plugin :  AudioDriverPlugInStreamGetPropertyInfo");
 	return theResult;                                    
 }
 
@@ -235,9 +235,9 @@ OSStatus AudioDriverPlugInStreamGetProperty (AudioDeviceID inDevice, io_object_t
 	convertDecTo4cc (inPropertyID, theProp);
 	theResult = kAudioHardwareUnknownPropertyError;
 
-//	syslog (LOG_INFO, "+ HAL Plugin : AudioDriverPlugInStreamGetProperty  %s\n", theProp);
+//	syslog (LOG_INFO, "+ HAL Plugin : AudioDriverPlugInStreamGetProperty  %s", theProp);
 
-//	syslog (LOG_INFO, "- HAL Plugin :  AudioDriverPlugInStreamGetProperty\n");
+//	syslog (LOG_INFO, "- HAL Plugin :  AudioDriverPlugInStreamGetProperty");
 	return theResult;                                    
 }
 
@@ -248,9 +248,9 @@ OSStatus AudioDriverPlugInStreamSetProperty (AudioDeviceID inDevice, io_object_t
 	convertDecTo4cc (inPropertyID, theProp);
 	theResult = kAudioHardwareUnknownPropertyError;
 
-//	syslog (LOG_INFO, "+ HAL Plugin : AudioDriverPlugInStreamSetProperty  %s\n", theProp);
+//	syslog (LOG_INFO, "+ HAL Plugin : AudioDriverPlugInStreamSetProperty  %s", theProp);
 
-//	syslog (LOG_INFO, "- HAL Plugin :  AudioDriverPlugInStreamSetProperty\n");    
+//	syslog (LOG_INFO, "- HAL Plugin :  AudioDriverPlugInStreamSetProperty");    
 	return theResult;                                    
 }
 

@@ -44,6 +44,14 @@
         <blocking-timeout-millis>5000</blocking-timeout-millis>
         <idle-timeout-minutes>15</idle-timeout-minutes>
 
+        <!-- sql to call when connection is created
+        <new-connection-sql>some arbitrary sql</new-connection-sql>
+        -->
+
+        <!-- sql to call on an existing pooled connection when it is obtained from pool 
+        <check-valid-connection-sql>some arbitrary sql</check-valid-connection-sql>
+        -->
+
         <!-- pooling criteria.  USE AT MOST ONE-->
         <!--  If you don't use JAAS login modules or explicit login 
          getConnection(usr,pw) but rely on user/pw specified above, 

@@ -43,7 +43,7 @@ import org.jboss.system.ServiceMBeanSupport;
  * @see org.jboss.console.manager.interfaces.TreeInfo
  *
  * @author  <a href="mailto:sacha.labourey@cogito-info.ch">Sacha Labourey</a>.
- * @version $Revision: 1.1.2.1 $
+ * @version $Revision: 1.1.2.3 $
  *
  * <p><b>Revisions:</b>
  *
@@ -364,7 +364,7 @@ public class PluginManager
    
    // NotificationListener implementation ----------------------------------------------
    
-   public synchronized void handleNotification (Notification notif, Object handback)
+   public void handleNotification (Notification notif, Object handback)
    {
       // Very simple implementation: could be optimized to minimize tree regeneration 
       // (local invalidation for example)//
@@ -382,10 +382,10 @@ public class PluginManager
    {
       ArrayList result = new ArrayList ();
       
-      Iterator plugs = pluginsSubset.iterator ();
-      while (plugs.hasNext ())
+
+      for (int i = 0; i < pluginsSubset.size(); i++)
       {
-         ConsolePlugin cp = (ConsolePlugin)plugs.next ();
+         ConsolePlugin cp = (ConsolePlugin)pluginsSubset.get(i);
          TreeNode node = null;
          try
          {
@@ -407,10 +407,9 @@ public class PluginManager
    {
       ArrayList result = new ArrayList ();
       
-      Iterator plugs = plugins.iterator ();
-      while (plugs.hasNext ())
+      for (int i = 0; i < plugins.size(); i++)
       {
-         ConsolePlugin cp = (ConsolePlugin)plugs.next ();
+         ConsolePlugin cp = (ConsolePlugin)plugins.get(i);
          String [] set = cp.getSupportedProfiles ();
          if (java.util.Arrays.asList (set).contains (profile))
             result.add (cp);

@@ -330,8 +330,8 @@ static unsigned char hid_adb_2_usb_keymap[] =
 	0x1f,	// 13
 	0x20,	// 14
 	0x21,	// 15
-	0x22,	// 16
-	0x23,	// 17
+	0x23,	// 16
+	0x22,	// 17
 	0x2e,	// 18
 	0x26,	// 19
 	0x24,	// 1a
@@ -507,7 +507,6 @@ bool IOHIDKeyboardDevice::handleStart( IOService * provider )
 
     _cachedLEDState = _provider->getLEDStatus() & 0x3;
     *(UInt8 *)(_report->getBytesNoCopy()) = _cachedLEDState;
-    handleReport(_report);
 
     return (_report) ? true : false;
 }
@@ -544,6 +543,20 @@ IOReturn IOHIDKeyboardDevice::newReportDescriptor(
     desc = ((IOBufferMemoryDescriptor *)(*descriptor))->getBytesNoCopy();
     bcopy(descBytes, desc, descSize);
     
+    return kIOReturnSuccess;
+}
+
+IOReturn IOHIDKeyboardDevice::getReport( IOMemoryDescriptor * report,
+                                 IOHIDReportType      reportType,
+                                 IOOptionBits         options )
+{
+    if (!report)
+        return kIOReturnError;
+
+    if ( reportType != kIOHIDReportTypeInput)
+        return kIOReturnUnsupported;
+        
+    report->writeBytes(0, _report->getBytesNoCopy(), min(report->getLength(), _report->getLength()));
     return kIOReturnSuccess;
 }
 

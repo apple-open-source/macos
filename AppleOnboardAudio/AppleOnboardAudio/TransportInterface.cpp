@@ -8,8 +8,11 @@
  */
 
 #include "TransportInterface.h"
+#include "AudioHardwareUtilities.h"
 
 #define super OSObject
+
+UInt32 TransportInterface::sInstanceCount = 0;
 
 OSDefineMetaClassAndAbstractStructors ( TransportInterface, OSObject );
 
@@ -23,6 +26,10 @@ bool TransportInterface::init ( PlatformInterface* inPlatformInterface ) {
 		mPlatformObject = inPlatformInterface;
 		result = NULL == mPlatformObject ? false : true ;
 	}
+
+
+	TransportInterface::sInstanceCount++;	
+	mInstanceIndex = TransportInterface::sInstanceCount;
 
 	return result;
 }
@@ -38,6 +45,8 @@ void TransportInterface::free () {
 //	from the inherited class if the target sample rate cannot be set on the
 //	audio data transport.
 IOReturn	TransportInterface::transportSetSampleRate ( UInt32 sampleRate ) {
+
+	debugIOLog (3,  "± TransportInterface[%ld]::transportSetSampleRate ( %d )", mInstanceIndex, (unsigned int)sampleRate );
 	mTransportState.transportSampleRate = sampleRate;
 	return kIOReturnSuccess;
 }

@@ -1,4 +1,4 @@
-<!-- $Id: modules.ent,v 1.1.2.7 2003/07/07 11:23:31 thomasra Exp $ -->
+<!-- $Id: modules.ent,v 1.1.2.11 2003/10/06 02:36:28 starksm Exp $ -->
 
   <!-- Cluster -->
   <property name="jboss.cluster.root" value="${project.root}/cluster/output"/>
@@ -17,7 +17,7 @@
   </path>
 
   <!-- Compatibility -->
-  <property name="jboss.compatibility.root" value="${project.root}/compatibility/output"/>
+  <property name="jboss.compatibility.root" value="${project.root}/compatible/output"/>
   <property name="jboss.compatibility.lib" value="${jboss.compatibility.root}/lib"/>
   <path id="jboss.compatibility.classpath">
   </path>
@@ -27,6 +27,8 @@
   <property name="jboss.jca.lib" value="${jboss.jca.root}/lib"/>
   <path id="jboss.jca.classpath">
     <pathelement path="${jboss.jca.lib}/jboss-jca.sar"/>
+    <pathelement path="${jboss.jca.lib}/jboss-local-jdbc.jar"/>
+    <pathelement path="${jboss.jca.lib}/jboss-common-jdbc-wrapper.jar"/>
   </path>
 
   <!-- Iiop -->
@@ -46,10 +48,12 @@
   <!-- Jbossnet -->
   <property name="jboss.jbossnet.root" value="${project.root}/jboss.net/output"/>
   <property name="jboss.jbossnet.lib" value="${jboss.jbossnet.root}/lib"/>
-  <!--path id="jboss.jbossnet.classpath">
-    <pathelement path="${jboss.jbossnet.lib}/jboss-net.sar"/>
-  </path-->
-
+  <property name="jboss.jbossnet.etc" value="${jboss.jbossnet.root}/etc"/>
+  <path id="jboss.jbossnet.classpath">
+    <pathelement path="${jboss.jbossnet.lib}/jboss-net-client.jar"/>
+    <pathelement path="${jboss.jbossnet.etc}/"/>
+  </path>
+     
   <!-- Jetty -->
   <property name="jboss.jetty.root" value="${project.root}/jetty/output"/>
   <property name="jboss.jetty.lib" value="${jboss.jetty.root}/lib"/>
@@ -72,6 +76,7 @@
   <property name="jboss.management.lib" value="${jboss.management.root}/lib"/>
   <path id="jboss.management.classpath">
     <pathelement path="${jboss.management.lib}/jboss-jsr77.jar"/>
+    <pathelement path="${jboss.management.lib}/jboss-jsr77-client.jar"/>
     <pathelement path="${jboss.management.lib}/jboss-management.jar"/>
   </path>
 
@@ -103,7 +108,7 @@
   <path id="jboss.server.classpath">
     <pathelement path="${jboss.server.lib}/jboss.jar"/>
     <pathelement path="${jboss.server.lib}/jmx-rmi-connector-client.jar"/>
-    <pathelement path="${jboss.server.lib}/jmx-rmi-adaptor.jar"/>    
+    <pathelement path="${jboss.server.lib}/jmx-adaptor-plugin.jar"/>
   </path>
 
   <!-- System -->

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- A test of spaces in the classpath element archives attribute -->
+<server>
+   <loader-repository>
+      jboss.test:service=archivestest-service.xml
+   </loader-repository>
+
+   <classpath codebase="@codebase@" archives="bogus.jar, testdeploy.sar" />
+
+   <mbean code="org.jboss.test.jmx.mbean.TestDeployer"
+      name="test:name=TestSpaceInClasspath"/>
+</server>

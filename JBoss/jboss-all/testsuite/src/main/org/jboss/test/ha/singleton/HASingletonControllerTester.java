@@ -32,9 +32,9 @@ public class HASingletonControllerTester extends HASingletonController
 
   public Stack __invokationStack__ = new Stack();
 
-  protected Object invokeMBeanMethod (ObjectName name, 
-      String operationName, Object[] params, String[] signature)
-      throws InstanceNotFoundException, MBeanException, ReflectionException
+  protected Object invokeSingletonMBeanMethod(ObjectName name,
+     String operationName, Object param)
+     throws InstanceNotFoundException, MBeanException, ReflectionException
   {
     __invokationStack__.push("invokeMBeanMethod:" + name.getCanonicalName() + "." + operationName);
     return null;

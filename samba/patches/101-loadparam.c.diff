@@ -1,6 +1,6 @@
---- samba/source/param/loadparm.c.orig	Fri Aug 29 14:17:32 2003
-+++ samba/source/param/loadparm.c	Fri Aug 29 14:40:36 2003
-@@ -288,6 +288,9 @@ typedef struct
+--- samba/source/param/loadparm.c.orig	Thu Dec 18 15:12:46 2003
++++ samba/source/param/loadparm.c	Fri Dec 19 08:31:14 2003
+@@ -287,6 +287,9 @@ typedef struct
  	BOOL bUnixExtensions;
  	BOOL bDisableNetbios;
  	BOOL bKernelChangeNotify;
@@ -10,7 +10,7 @@
  	int restrict_anonymous;
  	int name_cache_timeout;
  	int client_signing;
-@@ -1519,6 +1522,10 @@ static void init_globals(void)
+@@ -1523,6 +1526,10 @@ static void init_globals(void)
  	Globals.server_signing = False;
  
  	string_set(&Globals.smb_ports, SMB_PORTS);
@@ -21,7 +21,7 @@
  }
  
  static TALLOC_CTX *lp_talloc;
-@@ -1898,6 +1905,9 @@ FN_GLOBAL_INTEGER(lp_algorithmic_rid_bas
+@@ -1899,6 +1906,9 @@ FN_GLOBAL_INTEGER(lp_algorithmic_rid_bas
  FN_GLOBAL_INTEGER(lp_name_cache_timeout, &Globals.name_cache_timeout)
  FN_GLOBAL_INTEGER(lp_client_signing, &Globals.client_signing)
  FN_GLOBAL_INTEGER(lp_server_signing, &Globals.server_signing)
@@ -31,7 +31,7 @@
  
  /* local prototypes */
  
-@@ -4085,6 +4095,7 @@ static void set_default_server_announce_
+@@ -4087,6 +4097,7 @@ static void set_default_server_announce_
  	default_server_announce |= SV_TYPE_WORKSTATION;
  	default_server_announce |= SV_TYPE_SERVER;
  	default_server_announce |= SV_TYPE_SERVER_UNIX;

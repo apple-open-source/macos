@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -100,6 +100,7 @@ void IOUSBControllerV2::clearTTHandler( OSObject *target,
     IOUSBController *	me = (IOUSBController *)target;
     IOUSBCommand 	*command = (IOUSBCommand *)parameter;
     UInt8		sent, back, todo;
+    UInt8		hubAddr = command->GetAddress();
     
     USBLog(5,"clearTTHandler: status (%lx)", status);
 //    USBLog(1,"clearTTHandler this:%p, command:%p", me, command);
@@ -125,12 +126,17 @@ void IOUSBControllerV2::clearTTHandler( OSObject *target,
 	USBLog(5,"clearTTHandler: We've already seen the setup, using static command");
 #endif
     }
-    
+    if (status != kIOReturnSuccess)
+    {
+	USBLog(1, "%s[%p]::clearTTHandler - error response from hub, clearing hub endpoint stall", me->getName(), me);
+	me->UIMClearEndpointStall(hubAddr, 0, kUSBAnyDirn);
+    }
 }
 
 
 OSMetaClassDefineReservedUsed(IOUSBControllerV2,  6);
-void IOUSBControllerV2::ClearTT(USBDeviceAddress fnAddress, UInt8 endpt, Boolean IN)
+void 
+IOUSBControllerV2::ClearTT(USBDeviceAddress fnAddress, UInt8 endpt, Boolean IN)
 {
     UInt16 		wValue;
     IOUSBDevRequest 	*clearRequest;
@@ -138,6 +144,7 @@ void IOUSBControllerV2::ClearTT(USBDeviceAddress fnAddress, UInt8 endpt, Boolean
     IOUSBCommand 	*clearCommand;
     IOUSBCompletion	completion;
     int 		i;
+    IOReturn 		err;
 
     USBLog(5,"+%s[%p]::ClearTT", getName(), this);
     hubAddress = _highSpeedHub[fnAddress];	// Address of its controlling hub.
@@ -255,7 +262,11 @@ Endpoint Type
     for (i=0; i < 10; i++)
 	clearCommand->SetUIMScratch(i, 0);
 
-    ControlTransaction(clearCommand);	// Wait for completion? Or just fire and forget?
+    err = ControlTransaction(clearCommand);	// Wait for completion? Or just fire and forget?
+    if (err)
+    {
+	USBLog(1, "%s[%p]::ClearTT - error %p returned from ControlTransaction", getName(), this, err);
+    }
 }
 
 

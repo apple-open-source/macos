@@ -33,7 +33,7 @@ import java.rmi.server.RMIClassLoaderSpi;
  * in "system" for inclusion in run.jar<p>
  * 
  * @author <a href="mailto:adrian.brock@happeningtimes.com">Adrian Brock</a>
- * @version $Revision: 1.1.4.1 $
+ * @version $Revision: 1.1.4.2 $
  */
 public class JBossRMIClassLoader
    extends RMIClassLoaderSpi
@@ -68,10 +68,10 @@ public class JBossRMIClassLoader
    /**
     * Just delegate
     */
-   public Class loadClass(String codebase, String name, ClassLoader defaultClassLoader)
+   public Class loadClass(String codebase, String name, ClassLoader ignored)
       throws MalformedURLException, ClassNotFoundException
    {
-      return delegate.loadClass(codebase, name, defaultClassLoader);
+      return delegate.loadClass(codebase, name, Thread.currentThread().getContextClassLoader());
    }
 
    /**

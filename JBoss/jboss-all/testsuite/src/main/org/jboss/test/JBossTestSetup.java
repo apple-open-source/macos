@@ -7,25 +7,11 @@
 
 package org.jboss.test;
 
-import java.io.File;
-import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.HashSet;
-import java.util.Set;
-import javax.management.MBeanException;
-import javax.management.MBeanRegistrationException;
 import javax.management.MalformedObjectNameException;
-import javax.management.ObjectInstance;
 import javax.management.ObjectName;
-import javax.management.ReflectionException;
-import javax.management.RuntimeErrorException;
-import javax.management.RuntimeMBeanException;
-import javax.management.RuntimeOperationsException;
-import javax.naming.Context;
 import javax.naming.InitialContext;
-import javax.naming.NamingEnumeration;
-import javax.naming.NamingException;
 
 import junit.extensions.TestSetup;
 import junit.framework.Test;
@@ -49,12 +35,11 @@ import org.jboss.jmx.adaptor.rmi.RMIAdaptor;
  *
  * @author    <a href="mailto:d_jencks@users.sourceforge.net">David Jencks</a>
  * @author    <a href="mailto:christoph.jung@jboss.org">Christoph G. Jung</a>
- * @version   $Revision: 1.8.6.2 $
+ * @version   $Revision: 1.8.6.4 $
  */
 public class JBossTestSetup
-extends TestSetup
+   extends TestSetup
 {
-   
    protected JBossTestServices delegate;
    
    // Static --------------------------------------------------------
@@ -65,46 +50,21 @@ extends TestSetup
     *
     * @param name  Test case name
     */
-   public JBossTestSetup(Test test)
+   public JBossTestSetup(Test test) throws Exception
    {
       super(test);
       delegate = createTestServices();
+      delegate.init();
    }
-   
-   
+
    // Public --------------------------------------------------------
-   
-   
-   /**
-    * The JUnit setup method
-    *
-    * @exception Exception  Description of Exception
-    * /
-    * protected void setUp() throws Exception
-    * {
-    * delegate.setUp();
-    * }*/
-   
-   /**
-    * The teardown method for JUnit
-    *
-    * @exception Exception  Description of Exception
-    * /
-    * protected void tearDown() throws Exception
-    * {
-    * delegate.tearDown();
-    * }*/
-   
-   
-   
+
    //protected---------
-   
-   /** factory for testservices delegate */
    protected JBossTestServices createTestServices()
    {
       return new JBossTestServices(getClass().getName());
    }
-   
+
    /**
     * Gets the InitialContext attribute of the JBossTestCase object
     *
@@ -170,18 +130,6 @@ extends TestSetup
       return resPath;
    }
 
-   //is this good for something??????
-   /**
-    * Gets the Deployed attribute of the JBossTestCase object
-    *
-    * @param name  Description of Parameter
-    * @return      The Deployed value
-    */
-   protected boolean isDeployed(String name)
-   {
-      return delegate.isDeployed(name);
-   }
-   
    /**
     * invoke wraps an invoke call to the mbean server in a lot of exception
     * unwrapping.
@@ -232,8 +180,24 @@ extends TestSetup
    {
       delegate.flushAuthCache();
    }
-   
-   
+
+   /** Restart the connection pool associated with the DefaultDS
+    * @throws Exception on failure
+    */ 
+   protected void restartDBPool() throws Exception
+   {
+      delegate.restartDBPool();      
+   }
+
+   protected String getJndiURL()
+   {
+      return delegate.getJndiURL();
+   }
+   protected String getJndiInitFactory()
+   {
+      return delegate.getJndiInitFactory();
+   }
+
    protected int getThreadCount()
    {
       return delegate.getThreadCount();

@@ -70,9 +70,9 @@ public class WrappedCallableStatement
 
    private final CallableStatement cs;
 
-   public WrappedCallableStatement(final WrappedConnection lc, final CallableStatement cs) 
+   public WrappedCallableStatement(final WrappedConnection lc, final CallableStatement cs, boolean doQueryTimeout)
    {
-      super(lc, cs);
+      super(lc, cs, doQueryTimeout);
       this.cs = cs;
    }
    // implementation of java.sql.CallableStatement interface

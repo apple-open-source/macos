@@ -64,6 +64,29 @@ public:
 
 
 //
+// An AclBearer applied to a raw CSSM key
+//
+class KeyAclBearer : public AclBearer {
+public:
+	KeyAclBearer(CSSM_CSP_HANDLE cspH, CSSM_KEY &theKey, CssmAllocator &alloc)
+		: csp(cspH), key(theKey), allocator(alloc) { }
+	
+	const CSSM_CSP_HANDLE csp;
+	CSSM_KEY &key;
+	CssmAllocator &allocator;
+	
+protected:
+	void getAcl(AutoAclEntryInfoList &aclInfos,
+		const char *selectionTag = NULL) const;
+	void changeAcl(const CSSM_ACL_EDIT &aclEdit,
+		const CSSM_ACCESS_CREDENTIALS *cred = NULL);
+	void getOwner(AutoAclOwnerPrototype &owner) const;
+	void changeOwner(const CSSM_ACL_OWNER_PROTOTYPE &newOwner,
+		const CSSM_ACCESS_CREDENTIALS *cred = NULL);
+};
+
+
+//
 // An AclFactory helps create and maintain CSSM-layer AccessCredentials
 // and matching samples. There is state in an AclFactory, though simple
 // uses may not care about it.

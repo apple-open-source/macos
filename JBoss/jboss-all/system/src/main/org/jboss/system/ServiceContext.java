@@ -22,7 +22,7 @@ import javax.management.ObjectName;
  * @see ServiceMBeanSupport
  * 
  * @author <a href="mailto:marc.fleury@jboss.org">marc fleury</a>
- * @version $Revision: 1.4 $
+ * @version $Revision: 1.4.2.1 $
  *   
  * <p><b>Revisions:</b>
  *
@@ -82,7 +82,10 @@ public class ServiceContext implements Serializable
       StringBuffer result = new StringBuffer();
       for (Iterator i = ctxs.iterator(); i.hasNext();)
       {
-         result.append("  ").append(((ServiceContext)i.next()).objectName).append("\n");
+         ServiceContext sc = (ServiceContext) i.next();
+         result.append(' ');
+         result.append(sc.objectName);
+         result.append('\n');
       } // end of for ()
       return result.toString();
    }

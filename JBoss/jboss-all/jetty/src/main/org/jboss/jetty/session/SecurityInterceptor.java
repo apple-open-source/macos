@@ -5,7 +5,7 @@ package org.jboss.jetty.session;
 
 import java.security.Principal;
 import javax.servlet.http.HttpSession;
-import org.apache.log4j.Category;
+import org.jboss.logging.Logger;
 import org.jboss.security.SecurityAssociation;
 import org.mortbay.j2ee.session.Manager;
 import org.mortbay.j2ee.session.AroundInterceptor;
@@ -29,7 +29,7 @@ import org.mortbay.j2ee.session.State;
 public class SecurityInterceptor
   extends AroundInterceptor
 {
-  Category _log=Category.getInstance(getClass().getName());
+  protected static final Logger _log=Logger.getLogger(SecurityInterceptor.class);
 
   protected final Principal _ourPrincipal=null;
   protected final Object    _ourCredential=null;

@@ -89,6 +89,7 @@ protected:
 	IOMemoryDescriptor* clientBuffer;
 	bool bufferRX;
 	bool rxFeatureOn;
+	bool ultra133;
 	
 	ATABusTimings busTimings[2];
 	bool _needsResync;

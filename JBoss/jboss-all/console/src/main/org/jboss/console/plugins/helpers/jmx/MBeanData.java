@@ -1,18 +1,12 @@
 package org.jboss.console.plugins.helpers.jmx;
 
-import javax.management.Descriptor;
-import javax.management.MBeanException;
 import javax.management.MBeanInfo;
 import javax.management.ObjectName;
-import javax.management.modelmbean.ModelMBeanInfo;
-
-import org.jboss.mx.modelmbean.ModelMBeanConstants;
-import org.jboss.system.ServiceContext;
 
 /** An mbean ObjectNamd and MBeanInfo pair
  *
  * @author Scott.Stark@jboss.org
- * @version $Revision: 1.1.2.1 $
+ * @version $Revision: 1.1.2.2 $
  */
 public class MBeanData
    implements Comparable
@@ -84,7 +78,7 @@ public class MBeanData
    /** Compares MBeanData based on the ObjectName domain name and canonical
     * key properties
     *
-    * @param the MBeanData to compare against
+    * @param o  MBeanData to compare against
     * @return < 0 if this is less than o, > 0 if this is greater than o,
     *    0 if equal.
     */

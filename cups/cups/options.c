@@ -1,5 +1,5 @@
 /*
- * "$Id: options.c,v 1.1.1.9 2003/07/23 02:33:33 jlovell Exp $"
+ * "$Id: options.c,v 1.1.1.9.4.1 2004/01/13 23:43:52 gelphman Exp $"
  *
  *   Option routines for the Common UNIX Printing System (CUPS).
  *
@@ -387,6 +387,7 @@ cupsMarkOptions(ppd_file_t    *ppd,		/* I - PPD file */
        /*
         * Extract the sub-option from the string...
 	*/
+        const char *pgSizeOptionStr;
 
         for (ptr = s; *val && *val != ',' && (ptr - s) < (sizeof(s) - 1);)
 	  *ptr++ = *val++;
@@ -398,8 +399,10 @@ cupsMarkOptions(ppd_file_t    *ppd,		/* I - PPD file */
        /*
         * Mark it...
 	*/
-
-        if (cupsGetOption("PageSize", num_options, options) == NULL)
+        /*
+            If PageSize is not an option OR if it is an option but has an empty value, mark the page size with the media size
+        */
+        if ( (pgSizeOptionStr = cupsGetOption("PageSize", num_options, options)) == NULL || pgSizeOptionStr[0] == '\0')
 	  if (ppdMarkOption(ppd, "PageSize", s))
             conflict = 1;
 
@@ -495,5 +498,5 @@ cupsMarkOptions(ppd_file_t    *ppd,		/* I - PPD file */
 
 
 /*
- * End of "$Id: options.c,v 1.1.1.9 2003/07/23 02:33:33 jlovell Exp $".
+ * End of "$Id: options.c,v 1.1.1.9.4.1 2004/01/13 23:43:52 gelphman Exp $".
  */

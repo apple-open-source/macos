@@ -8,17 +8,17 @@
 ***************************************/
 package org.jboss.ha.singleton;
 
-/**
+import javax.management.ObjectName;
+
+/** The namangement interface for the singleton controller service.
  * 
  * @see org.jboss.ha.singleton.HASingletonMBean
  * 
  * @author <a href="mailto:ivelin@apache.org">Ivelin Ivanov</a>
- * @version $Revision: 1.1.2.2 $
- *
- * <p><b>Revisions:</b></p>
- * 
+ * @author Scott.Stark@jboss.org
+ * @author <a href="mailto:mr@gedoplan.de">Marcus Redeker</a>
+ * @version $Revision: 1.1.2.4 $
  */
-
 public interface HASingletonControllerMBean
   extends HASingletonMBean
 {
@@ -28,7 +28,7 @@ public interface HASingletonControllerMBean
    *
    * @return Object Name of the Target MBean for the timer notifications
    */
-  public String getTargetName();
+  public ObjectName getTargetName();
 
   /**
    * Sets the fully qualified JMX MBean Object Name of the Schedulable MBean to be called.
@@ -39,7 +39,7 @@ public interface HASingletonControllerMBean
    *
    * @throws InvalidParameterException If the given value is an valid Object Name.
    */
-  public void setTargetName(String pTargetObjectName);
+  public void setTargetName(ObjectName targetObjectName);
 
   /**
    * @return start method description of the target MBean to be called
@@ -58,7 +58,27 @@ public interface HASingletonControllerMBean
    * @throws InvalidParameterException If the given value is not of the right
    *                                   format
    */
-  public void setTargetStartMethod(String pTargetStartMethod);
+  public void setTargetStartMethod(String targetStartMethod);
+
+  /**
+   * @jmx:managed-attribute
+   *
+   * @return start method argument of the target MBean to be called
+   *
+   */
+  public String getTargetStartMethodArgument();
+
+  /**
+   * Sets the argument to be passed to the start method of the Singleton MBean. 
+   *
+   * @jmx:managed-attribute
+   *
+   * @param pTargetStartMethodArgument Argument value to be passed to the start method  
+   *
+   * @throws InvalidParameterException If the given value is not of the right
+   *                                   format
+   */
+  public void setTargetStartMethodArgument(String targetStartMethodArgument);
 
   /**
    * @return stop method description of the target MBean to be called
@@ -74,9 +94,25 @@ public interface HASingletonControllerMBean
    *
    * @param pTargetStopMethod Name of the stop method to be called 
    *
-   * @throws InvalidParameterException If the given value is not of the right
-   *                                   format
    */
-  public void setTargetStopMethod(String pTargetStopMethod);
+  public void setTargetStopMethod(String targetStopMethod);
+
+  /**
+   * @jmx:managed-attribute
+   *
+   * @return stop method argument of the target MBean to be called
+   *
+   */
+  public String getTargetStopMethodArgument();
+
+  /**
+   * Sets the argument to be passed to the stop method of the Singleton MBean. 
+   *
+   * @jmx:managed-attribute
+   *
+   * @param pTargetStartMethodArgument Argument value to be passed to the stop method  
+   *
+   */
+  public void setTargetStopMethodArgument(String targetStopMethodArgument);
 
 }

@@ -5,7 +5,7 @@
    String ejbName = new javax.management.ObjectName(request.getParameter("ObjectName")).getKeyProperty ("name");
    String ejbModule = new javax.management.ObjectName(request.getParameter("ObjectName")).getKeyProperty ("EJBModule");
    String containerUrl = "jboss.j2ee:service=EJB,jndiName=" + ejbName;
-   containerUrl = java.net.URLEncoder.encode(containerUrl, "UTF-8");
+   containerUrl = java.net.URLEncoder.encode(containerUrl);
    containerUrl = "../jmx-console/HtmlAdaptor?action=inspectMBean&name=" + containerUrl;
 
    org.jboss.invocation.InvocationStatistics invokeStats= container.getInvokeStats ();
@@ -21,9 +21,9 @@
    	 invokeStats.resetStats ();
    }
 
-   String resetUrl = response.encodeURL(request.getRequestURI()) + "?doReset=true&ObjectName=" + java.net.URLEncoder.encode(request.getParameter("ObjectName"), "UTF-8");
-   String resetInvocUrl = response.encodeURL(request.getRequestURI()) + "?doResetInvoc=true&ObjectName=" + java.net.URLEncoder.encode(request.getParameter("ObjectName"), "UTF-8");
-   String myUrl = response.encodeURL(request.getRequestURI()) + "?" + "&ObjectName=" + java.net.URLEncoder.encode(request.getParameter("ObjectName"), "UTF-8");
+   String resetUrl = response.encodeURL(request.getRequestURI()) + "?doReset=true&ObjectName=" + java.net.URLEncoder.encode(request.getParameter("ObjectName"));
+   String resetInvocUrl = response.encodeURL(request.getRequestURI()) + "?doResetInvoc=true&ObjectName=" + java.net.URLEncoder.encode(request.getParameter("ObjectName"));
+   String myUrl = response.encodeURL(request.getRequestURI()) + "?" + "&ObjectName=" + java.net.URLEncoder.encode(request.getParameter("ObjectName"));
    org.jboss.metadata.BeanMetaData beanMetaData = container.getBeanMetaData();
 
 %>

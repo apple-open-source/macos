@@ -87,7 +87,7 @@ Burgundy_writeCodecReg( volatile UInt8 *ioBaseBurgundy, int regInfo, int value )
       eieio();
 
 
-      DEBUG2_IOLOG( "PPCSound(burgundy): CodecWrite = %08x\n\r", regValue );
+      debugIOLog (3,  "PPCSound(burgundy): CodecWrite = %08x\n\r", regValue );
 
       value >>= 8;
 
@@ -179,7 +179,7 @@ static int Burgundy_readCodecReg( volatile UInt8 *ioBaseBurgundy, int regInfo )
   }
 
 
-    // DEBUG2_IOLOG( "PPCSound(burgundy): CodecRead = %08x %08x\n\r", regValue, value );
+    // debugIOLog (3,  "PPCSound(burgundy): CodecRead = %08x %08x\n\r", regValue, value );
 
   return value;
 }
@@ -193,7 +193,7 @@ static int Burgundy_readCodecSenseLines( volatile UInt8 *ioBaseBurgundy )
 static void Burgundy_writeSoundControlReg( volatile UInt8 *ioBaseBurgundy, int value )
 {
 
-  DEBUG2_IOLOG( "PPCSound(burgundy): SoundControlReg = %08x\n", value);
+  debugIOLog (3,  "PPCSound(burgundy): SoundControlReg = %08x", value);
   OSWriteLittleInt32( ioBaseBurgundy, kSoundCtlReg, value );
   eieio();
 }
@@ -210,7 +210,7 @@ OSDefineMetaClassAndStructors( AppleBurgundyAudio, Apple02Audio )
  * ============== */
 bool AppleBurgundyAudio::init(OSDictionary * properties)
 {
-    DEBUG_IOLOG("+ AppleBurgundyAudio::init\n");
+    debugIOLog (3, "+ AppleBurgundyAudio::init");
     if (!super::init(properties)) 
         return false;
 
@@ -221,14 +221,14 @@ bool AppleBurgundyAudio::init(OSDictionary * properties)
     mVolumeMuteIsActive = false;
     mMuxMix = 0;
     
-    DEBUG_IOLOG("- AppleBurgundyAudio::init\n");
+    debugIOLog (3, "- AppleBurgundyAudio::init");
     return true;    
 }
 
 void AppleBurgundyAudio::free() {
-    DEBUG_IOLOG("+ AppleBurgundyAudio::free\n");
+    debugIOLog (3, "+ AppleBurgundyAudio::free");
     super::free();
-    DEBUG_IOLOG("- AppleBurgundyAudio::free\n");
+    debugIOLog (3, "- AppleBurgundyAudio::free");
 }
 
 IOService* AppleBurgundyAudio::probe(IOService* provider, SInt32* score) {
@@ -280,7 +280,7 @@ IOService* AppleBurgundyAudio::probe(IOService* provider, SInt32* score) {
     } 
 
 BAIL:
-    DEBUG_IOLOG("- AppleBurgundyAudio::probe\n");
+    debugIOLog (3, "- AppleBurgundyAudio::probe");
     return (result);
 }
 
@@ -288,7 +288,7 @@ bool AppleBurgundyAudio::initHardware(IOService* provider)
 {
     bool myreturn = true;
 
-    DEBUG_IOLOG("+ AppleBurgundyAudio::initHardware\n");
+    debugIOLog (3, "+ AppleBurgundyAudio::initHardware");
     
     super::initHardware(provider);
 
@@ -307,7 +307,7 @@ bool AppleBurgundyAudio::initHardware(IOService* provider)
     duringInitialization = false;
  */
     
-    DEBUG_IOLOG("- AppleBurgundyAudio::initHardware\n");
+    debugIOLog (3, "- AppleBurgundyAudio::initHardware");
     return myreturn;
 }
 
@@ -372,7 +372,7 @@ void AppleBurgundyAudio::checkStatus(bool force)
 					}
 				}
 			}
-			debug2IOLog ( "... useMasterVolumeControl %d\n", useMasterVolumeControl );
+			debugIOLog (3,  "... useMasterVolumeControl %d", useMasterVolumeControl );
 			AdjustControls ();					//	rbm	30 Sept 2002					[3042660]	} end
         }
     }
@@ -386,13 +386,13 @@ void AppleBurgundyAudio::sndHWInitialize(IOService *provider){
     IOMemoryMap *map;
     UInt32 idx, tmpReg;
         
-    DEBUG_IOLOG("+ AppleBurgundyAudio::sndHWInitialize\n");
+    debugIOLog (3, "+ AppleBurgundyAudio::sndHWInitialize");
 
 	ourProvider = provider;
     map = provider->mapDeviceMemoryWithIndex(Apple02DBDMAAudioDMAEngine::kDBDMADeviceIndex);
     ioBaseBurgundy = (UInt8 *)map->getVirtualAddress();
     
-    if(!ioBaseBurgundy) debugIOLog("We have no mermory map !!!\n");
+    if(!ioBaseBurgundy) debugIOLog (3, "We have no mermory map !!!");
     curInsense = 0xFFFF;
         
 	mLayoutID = GetDeviceID ();
@@ -525,7 +525,7 @@ void AppleBurgundyAudio::sndHWInitialize(IOService *provider){
     Burgundy_writeCodecReg( ioBaseBurgundy, kSDInReg, 0 );             
     Burgundy_writeCodecReg( ioBaseBurgundy, kSDInReg2, kBurgundyOS_EOutputEnable );
 	
-    DEBUG_IOLOG("- AppleBurgundyAudio::sndHWInitialize\n");
+    debugIOLog (3, "- AppleBurgundyAudio::sndHWInitialize");
 }
 
 void AppleBurgundyAudio::sndHWPostDMAEngineInit (IOService *provider) {
@@ -623,30 +623,30 @@ IOReturn   AppleBurgundyAudio::sndHWSetActiveOutputExclusive(UInt32 outputPort )
 
     switch(physicalPort) {
         case kBurgundyPhysOutputPortNone:
-            DEBUG_IOLOG(" ++ Writing Port None\n");
+            debugIOLog (3, " ++ Writing Port None");
             break;
         case kBurgundyPhysOutputPort13:
-            DEBUG_IOLOG(" ++ Writing Port 13\n");
+            debugIOLog (3, " ++ Writing Port 13");
 			mModemActive = TRUE;
             tempOutputReg |= ( kBurgundyMuteOffState << kBurgundyPort13MonoMute);
             break;
         case kBurgundyPhysOutputPort14:
-            DEBUG_IOLOG(" ++ Writing Port 14\n");
+            debugIOLog (3, " ++ Writing Port 14");
 			mInternalSpeakerActive = TRUE;
             tempOutputReg |= (( kBurgundyMuteOffState << kBurgundyPort14LMute) | ( kBurgundyMuteOffState << kBurgundyPort14RMute));
             break;
         case kBurgundyPhysOutputPort15:
-            DEBUG_IOLOG(" ++ Writing Port 15\n");
+            debugIOLog (3, " ++ Writing Port 15");
 			mExternalSpeakerActive = TRUE;
             tempOutputReg |= (( kBurgundyMuteOffState << kBurgundyPort15LMute) | ( kBurgundyMuteOffState << kBurgundyPort15RMute));
             break;
         case kBurgundyPhysOutputPort16:
-            DEBUG_IOLOG(" ++ Writing Port 16\n");
+            debugIOLog (3, " ++ Writing Port 16");
 			mHeadphonesActive = TRUE;
             tempOutputReg |= (( kBurgundyMuteOffState << kBurgundyPort16LMute) | ( kBurgundyMuteOffState << kBurgundyPort16RMute));
             break;
         case kBurgundyPhysOutputPort17:
-            DEBUG_IOLOG(" ++ Writing Port 17\n");
+            debugIOLog (3, " ++ Writing Port 17");
 			mMonoSpeakerActive = TRUE;
             tempOutputReg |= ( kBurgundyMuteOffState << kBurgundyPort17MonoMute);
             break;        
@@ -665,7 +665,7 @@ IOReturn   AppleBurgundyAudio::sndHWSetActiveInputExclusive(UInt32 input ){
     UInt32 physicalInput , curPhysicalInput, tmpReg;
     UInt8  muxToBe, curMux;
     
-    DEBUG2_IOLOG(" + AppleBurgundyAudio::sndHWSetActiveInputExclusive : %lu\n", input);
+    debugIOLog (3, " + AppleBurgundyAudio::sndHWSetActiveInputExclusive : %lu", input);
     IOReturn result= kIOReturnSuccess;
     
 	tmpReg = 0;
@@ -779,7 +779,7 @@ IOReturn   AppleBurgundyAudio::sndHWSetActiveInputExclusive(UInt32 input ){
         }                                						
         mLogicalInput = input;  // keep track of our new current active input for this system 
     }
-    DEBUG_IOLOG(" - AppleBurgundyAudio::sndHWSetActiveInputExclusive");
+    debugIOLog (3, " - AppleBurgundyAudio::sndHWSetActiveInputExclusive");
 
     return(result);
 }
@@ -791,7 +791,7 @@ IOReturn AppleBurgundyAudio::AdjustControls (void) {
 	IOFixed							maxdBVol;
 	Boolean							mustUpdate;
 
-	debugIOLog ("+ AdjustControls()\n");
+	debugIOLog (3, "+ AdjustControls()");
 	FailIf (NULL == driverDMAEngine, Exit);
 	mustUpdate = FALSE;
 
@@ -813,7 +813,7 @@ IOReturn AppleBurgundyAudio::AdjustControls (void) {
 		mustUpdate = TRUE;
 	}
 	if (TRUE == mustUpdate) {
-		debug5IOLog ("AdjustControls: mindBVol = %d.0x%x, maxdBVol = %d.0x%x\n", 
+		debugIOLog (3, "AdjustControls: mindBVol = %d.0x%x, maxdBVol = %d.0x%x", 
 			(unsigned int)( 0 != mindBVol & 0x80000000 ? ( mindBVol >> 16 ) | 0xFFFF0000 : mindBVol >> 16 ), 
 			(unsigned int)( mindBVol << 16 ), 
 			(unsigned int)( 0 != maxdBVol & 0x80000000 ? ( maxdBVol >> 16 ) | 0xFFFF0000 : maxdBVol >> 16 ), 
@@ -825,7 +825,7 @@ IOReturn AppleBurgundyAudio::AdjustControls (void) {
 		if (TRUE == useMasterVolumeControl) {
 			// We have only the master volume control (possibly not created yet) and have to remove the other volume controls (possibly don't exist)
 			if (NULL == outVolMaster) {
-				debugIOLog ("AdjustControls: deleteing descrete channel controls and creating master control\n");
+				debugIOLog (3, "AdjustControls: deleteing descrete channel controls and creating master control");
 				// remove the existing left and right volume controls
 				if (NULL != outVolLeft) {
 					lastLeftVol = outVolLeft->getIntValue ();
@@ -855,7 +855,7 @@ IOReturn AppleBurgundyAudio::AdjustControls (void) {
 		} else {
 			// or we have both controls (possibly not created yet) and we have to remove the master volume control (possibly doesn't exist)
 			if (NULL == outVolLeft) {
-				debugIOLog ("AdjustControls: deleteing master control and creating descrete channel controls\n");
+				debugIOLog (3, "AdjustControls: deleteing master control and creating descrete channel controls");
 				// Have to create the control again...
 				if (lastLeftVol > kBURGUNDY_MAXIMUM_HW_VOLUME && NULL != outVolMaster) {
 					lastLeftVol = outVolMaster->getIntValue ();
@@ -931,7 +931,7 @@ IOReturn AppleBurgundyAudio::AdjustControls (void) {
 	}
 
 Exit:
-	debugIOLog ("- AdjustControls()\n");
+	debugIOLog (3, "- AdjustControls()");
 	return kIOReturnSuccess;
 }
 
@@ -1115,7 +1115,7 @@ IOReturn AppleBurgundyAudio::sndHWSetSystemInputGain(UInt32 leftGain, UInt32 rig
     UInt32 totGain;
     UInt8 galeft, garight;
     
-    DEBUG3_IOLOG("+ AppleBurgundyAudio::sndHWSetSystemInputGain (%ld, %ld)\n", leftGain, rightGain);
+    debugIOLog (3, "+ AppleBurgundyAudio::sndHWSetSystemInputGain (%ld, %ld)", leftGain, rightGain);
     
     totGain = 0;
     galeft = (UInt8) leftGain;
@@ -1128,21 +1128,21 @@ IOReturn AppleBurgundyAudio::sndHWSetSystemInputGain(UInt32 leftGain, UInt32 rig
     Burgundy_writeCodecReg( ioBaseBurgundy, kVGA1Reg,   totGain );
     Burgundy_writeCodecReg( ioBaseBurgundy, kVGA2Reg,   totGain );
     Burgundy_writeCodecReg( ioBaseBurgundy, kVGA3Reg,   leftGain );
-    DEBUG_IOLOG("- AppleBurgundyAudio::sndHWSetSystemInputGain\n");
+    debugIOLog (3, "- AppleBurgundyAudio::sndHWSetSystemInputGain");
     return(myReturn);
 }
 
 
 IOReturn AppleBurgundyAudio::sndHWSetPlayThrough(bool playthroughstate){
 	IOReturn result= kIOReturnSuccess;
-    DEBUG_IOLOG("+ AppleBurgundyAudio::sndHWSetPlayThrough\n");
+    debugIOLog (3, "+ AppleBurgundyAudio::sndHWSetPlayThrough");
     
     if(playthroughstate) 
         Burgundy_writeCodecReg( ioBaseBurgundy, kMX2Reg, mMuxMix | kBurgundyW_A_n);
     else 
         Burgundy_writeCodecReg( ioBaseBurgundy, kMX2Reg, kBurgundyW_A_n);
          
-    DEBUG_IOLOG("- AppleBurgundyAudio::sndHWSetPlayThrough\n");
+    debugIOLog (3, "- AppleBurgundyAudio::sndHWSetPlayThrough");
     return(result);
 }
     
@@ -1150,54 +1150,54 @@ IOReturn AppleBurgundyAudio::sndHWSetPlayThrough(bool playthroughstate){
 IOReturn AppleBurgundyAudio::sndHWSetPowerState ( IOAudioDevicePowerState theState ) {
     IOReturn		myReturn;
     
-    DEBUG_IOLOG("+ AppleBurgundyAudio::sndHWSetPowerState\n");
+    debugIOLog (3, "+ AppleBurgundyAudio::sndHWSetPowerState");
     myReturn = kIOReturnSuccess;
     switch ( theState )  {
         case kIOAudioDeviceSleep:	myReturn = performDeviceIdleSleep();	break;		//	When sleeping
         case kIOAudioDeviceIdle:	myReturn = performDeviceSleep();		break;		//	When no audio engines running
         case kIOAudioDeviceActive:	myReturn = performDeviceWake();			break;		//	audio engines running
         default:
-            DEBUG_IOLOG("AppleDACAAudio::sndHWSetPowerState unknown power state\n");
+            debugIOLog (3, "AppleDACAAudio::sndHWSetPowerState unknown power state");
             myReturn = kIOReturnBadArgument ;
             break ;
     }
-    DEBUG_IOLOG("- AppleBurgundyAudio::sndHWSetPowerState\n");
+    debugIOLog (3, "- AppleBurgundyAudio::sndHWSetPowerState");
     return ( myReturn );
 }
 
 // --------------------------------------------------------------------------
 IOReturn	AppleBurgundyAudio::performDeviceWake () {
-    DEBUG_IOLOG("+ AppleBurgundyAudio::performDeviceWake\n");
-    DEBUG_IOLOG("- AppleBurgundyAudio::performDeviceWake\n");
+    debugIOLog (3, "+ AppleBurgundyAudio::performDeviceWake");
+    debugIOLog (3, "- AppleBurgundyAudio::performDeviceWake");
     return ( kIOReturnSuccess );
 }
 
 // --------------------------------------------------------------------------
 IOReturn	AppleBurgundyAudio::performDeviceSleep () {
-    DEBUG_IOLOG("+ AppleBurgundyAudio::performDeviceSleep\n");
-    DEBUG_IOLOG("- AppleBurgundyAudio::performDeviceSleep\n");
+    debugIOLog (3, "+ AppleBurgundyAudio::performDeviceSleep");
+    debugIOLog (3, "- AppleBurgundyAudio::performDeviceSleep");
     return ( kIOReturnSuccess );
 }
 
 // --------------------------------------------------------------------------
 IOReturn	AppleBurgundyAudio::performDeviceIdleSleep () {
-    DEBUG_IOLOG("+ AppleBurgundyAudio::performDeviceIdleSleep\n");
-    DEBUG_IOLOG("- AppleBurgundyAudio::performDeviceIdleSleep\n");
+    debugIOLog (3, "+ AppleBurgundyAudio::performDeviceIdleSleep");
+    debugIOLog (3, "- AppleBurgundyAudio::performDeviceIdleSleep");
     return ( kIOReturnSuccess );
 }
 
 // Identification
 UInt32 	AppleBurgundyAudio::sndHWGetType( void ){
     UInt32 result;
-    DEBUG_IOLOG("+ AppleBurgundyAudio::sndHWGetType\n");
+    debugIOLog (3, "+ AppleBurgundyAudio::sndHWGetType");
     result = 0;
-    DEBUG_IOLOG("- AppleBurgundyAudio::sndHWGetType\n");
+    debugIOLog (3, "- AppleBurgundyAudio::sndHWGetType");
     return(result);
 }
 
 UInt32	AppleBurgundyAudio::sndHWGetManufacturer( void ){
     UInt32 result, info;
-    DEBUG_IOLOG("+ AppleBurgundyAudio::sndHWGetManufacturer\n");
+    debugIOLog (3, "+ AppleBurgundyAudio::sndHWGetManufacturer");
 
     info = sndHWGetRegister(kBurgundyIDReg);
 	
@@ -1212,7 +1212,7 @@ UInt32	AppleBurgundyAudio::sndHWGetManufacturer( void ){
             result = kSndHWManfUnknown;
             break;
     }
-    DEBUG_IOLOG("- AppleBurgundyAudio::sndHWGetManufacturer\n");
+    debugIOLog (3, "- AppleBurgundyAudio::sndHWGetManufacturer");
     return(result);
 }
 
@@ -1223,7 +1223,7 @@ UInt32 AppleBurgundyAudio::GetDeviceID (void) {
 	UInt32					*deviceID;
 	UInt32					theDeviceID;
 
-	debugIOLog ( "+ AppleBurgundyAudio::GetDeviceID\n" );
+	debugIOLog (3,  "+ AppleBurgundyAudio::GetDeviceID" );
 	theDeviceID = 0;
 
 	FailIf ( NULL == ourProvider, Exit );
@@ -1238,7 +1238,7 @@ UInt32 AppleBurgundyAudio::GetDeviceID (void) {
 	}
 
 Exit:
-	debug2IOLog ( "- AppleBurgundyAudio::GetDeviceID returns %d\n", (unsigned int)theDeviceID );
+	debugIOLog (3,  "- AppleBurgundyAudio::GetDeviceID returns %d", (unsigned int)theDeviceID );
 	return theDeviceID;
 }
 
@@ -1423,7 +1423,7 @@ void	AppleBurgundyAudio::ReserveMux(UInt8 mux, UInt32 physicalInput){
 IOReturn AppleBurgundyAudio::setModemSound(bool state) {
     IOReturn myReturn = kIOReturnSuccess;
 
-	debug2IOLog ("+ AppleBurgundyAudio::setModemSound(%d)\n", state);
+	debugIOLog (3, "+ AppleBurgundyAudio::setModemSound(%d)", state);
 	// make sure that the imic is not enabled when playthrough is turned on -- there will be no FEEDBACK!!!
 
 	if(TRUE == state) {
@@ -1434,6 +1434,6 @@ IOReturn AppleBurgundyAudio::setModemSound(bool state) {
 		super::setModemSound(state);
 	}
 
-	debug2IOLog ("- AppleBurgundyAudio::setModemSound(%d)\n", state);
+	debugIOLog (3, "- AppleBurgundyAudio::setModemSound(%d)", state);
     return(myReturn);
 }

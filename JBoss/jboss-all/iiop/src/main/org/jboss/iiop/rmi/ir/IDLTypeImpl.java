@@ -20,7 +20,7 @@ import java.io.UnsupportedEncodingException;
  *  IDLType IR object.
  *
  *  @author <a href="mailto:osh@sparre.dk">Ole Husgaard</a>
- *  @version $Revision: 1.3 $
+ *  @version $Revision: 1.3.4.1 $
  */
 abstract class IDLTypeImpl
    extends IRObjectImpl
@@ -68,7 +68,8 @@ abstract class IDLTypeImpl
 
       if (tcKind == TCKind.tk_value || tcKind == TCKind.tk_value_box ||
           tcKind == TCKind.tk_alias || tcKind == TCKind.tk_struct || 
-          tcKind == TCKind.tk_union || tcKind == TCKind.tk_enum) {
+          tcKind == TCKind.tk_union || tcKind == TCKind.tk_enum ||
+          tcKind == TCKind.tk_objref) {
          try {
             return (LocalIDLType)repository._lookup_id(typeCode.id());
          } catch (BadKind ex) {

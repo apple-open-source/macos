@@ -76,10 +76,10 @@ public class XidFactory implements XidFactoryMBean
          if (baseGlobalId.length() > Xid.MAXGTRIDSIZE - 15)
             baseGlobalId = baseGlobalId.substring(0, Xid.MAXGTRIDSIZE - 15);
          baseGlobalId = baseGlobalId + "/";
-         baseGlobalIdBytes = baseGlobalId.getBytes();
       } catch (UnknownHostException e) {
          baseGlobalId = "localhost/";
       }
+      baseGlobalIdBytes = baseGlobalId.getBytes();
    }
 
    

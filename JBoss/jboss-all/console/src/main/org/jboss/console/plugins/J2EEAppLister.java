@@ -7,20 +7,15 @@
 
 package org.jboss.console.plugins;
 
-import javax.management.ObjectInstance;
-import javax.management.ObjectName;
-
 import org.jboss.console.manager.interfaces.ManageableResource;
 import org.jboss.console.manager.interfaces.ResourceTreeNode;
 import org.jboss.console.manager.interfaces.TreeNode;
-import org.jboss.console.manager.interfaces.TreeNodeMenuEntry;
-import org.jboss.console.manager.interfaces.impl.HttpLinkTreeAction;
 import org.jboss.console.manager.interfaces.impl.MBeanResource;
-import org.jboss.console.manager.interfaces.impl.SimpleTreeNodeMenuEntryImpl;
 import org.jboss.console.plugins.helpers.AbstractPluginWrapper;
-import org.jboss.management.j2ee.EJBModuleMBean;
 import org.jboss.management.j2ee.J2EEApplicationMBean;
 import org.jboss.mx.util.MBeanProxy;
+
+import javax.management.ObjectName;
 /**
  * As the number of MBeans is very big, we use a real Java class which is far
  * faster than beanshell
@@ -28,7 +23,7 @@ import org.jboss.mx.util.MBeanProxy;
  * @see <related>
  *
  * @author  <a href="mailto:sacha.labourey@cogito-info.ch">Sacha Labourey</a>.
- * @version $Revision: 1.1.2.1 $
+ * @version $Revision: 1.1.2.3 $
  *
  * <p><b>Revisions:</b>
  *

@@ -216,6 +216,8 @@ public:
 	 */
 	CSSM_KEY_PTR			key()				{ return mKey; }
 	CSSM_DATA				&label()			{ return mLabel; }
+	const CSSM_ACCESS_CREDENTIALS 
+							*privKeyCreds()		{ return mPrivKeyCreds; }
 private:
 	CSSM_KEY_PTR			mKey;
 	CSSM_CSP_HANDLE			mCspHand;
@@ -237,6 +239,10 @@ private:
 	 
 	 /* somewhat unique label when stored in DLDB */
 	 CSSM_DATA				mLabel;
+
+	/* for encode only, owned by app */
+	const CSSM_ACCESS_CREDENTIALS *mPrivKeyCreds;
+
 };
 
 /*

@@ -43,6 +43,7 @@ import javax.management.NotificationFilter;
 import javax.management.NotificationListener;
 import javax.management.MBeanServer;
 import javax.management.MBeanInfo;
+import javax.management.loading.ClassLoaderRepository;
 
 import javax.management.AttributeNotFoundException;
 import javax.management.InstanceAlreadyExistsException;
@@ -81,8 +82,8 @@ import org.jboss.util.NestedRuntimeException;
  *
  * @jmx:mbean extends="org.jboss.jmx.connector.RemoteMBeanServer"
  *
- * @version <tt>$Revision: 1.9 $</tt>
- * @author  <a href="mailto:rickard.oberg@telkel.com">Rickard Öberg</a>
+ * @version <tt>$Revision: 1.9.2.1 $</tt>
+ * @author  <a href="mailto:rickard.oberg@telkel.com">Rickard Ã–berg</a>
  * @author  <A href="mailto:andreas@jboss.org">Andreas &quot;Mad&quot; Schaefer</A>
  */
 public class RMIConnectorImpl
@@ -561,6 +562,37 @@ public class RMIConnectorImpl
       throw new UnsupportedOperationException();
    }
 
+   // MBeanServer JMX 1.2 implementation ------------------------------
+
+   public String[] getDomains()
+   {
+      throw new UnsupportedOperationException();
+   }
+
+   public void removeNotificationListener(ObjectName target, ObjectName listener, NotificationFilter filter, Object handback)
+   {
+      throw new UnsupportedOperationException();
+   }
+
+   public void removeNotificationListener(ObjectName target, NotificationListener listener, NotificationFilter filter, Object handback)
+   {
+      throw new UnsupportedOperationException();
+   }
+
+   public ClassLoaderRepository getClassLoaderRepository()
+   {
+      throw new UnsupportedOperationException();
+   }
+
+   public ClassLoader getClassLoader(ObjectName name)
+   {
+      throw new UnsupportedOperationException();
+   }
+
+   public ClassLoader getClassLoaderFor(ObjectName name)
+   {
+      throw new UnsupportedOperationException();
+   }
    // JMXClientConnector implementation -------------------------------
 
    /**

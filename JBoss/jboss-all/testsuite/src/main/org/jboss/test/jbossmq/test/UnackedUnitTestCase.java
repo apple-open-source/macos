@@ -5,13 +5,27 @@
  * See terms of license at gnu.org.
  */
 package org.jboss.test.jbossmq.test;
-import java.util.*;
-import javax.jms.*;
 
-import javax.naming.*;
+import javax.jms.BytesMessage;
+import javax.jms.DeliveryMode;
+import javax.jms.Message;
+import javax.jms.MessageListener;
+import javax.jms.Queue;
+import javax.jms.QueueConnection;
+import javax.jms.QueueConnectionFactory;
+import javax.jms.QueueReceiver;
+import javax.jms.QueueSender;
+import javax.jms.QueueSession;
+import javax.jms.Session;
+import javax.jms.Topic;
+import javax.jms.TopicConnection;
+import javax.jms.TopicConnectionFactory;
+import javax.jms.TopicPublisher;
+import javax.jms.TopicSession;
+import javax.jms.TopicSubscriber;
+import javax.naming.Context;
 
 import org.apache.log4j.Category;
-
 import org.jboss.test.JBossTestCase;
 
 /**
@@ -60,7 +74,6 @@ public class UnackedUnitTestCase extends JBossTestCase
       drainQueue();
 
       final int iterationCount = getIterationCount();
-      final Category log = getLog();
 
       QueueSession session = queueConnection.createQueueSession(false, Session.AUTO_ACKNOWLEDGE);
       Queue queue = (Queue)context.lookup(TEST_QUEUE);
@@ -107,7 +120,6 @@ public class UnackedUnitTestCase extends JBossTestCase
       drainQueue();
 
       final int iterationCount = getIterationCount();
-      final Category log = getLog();
 
       QueueSession session = queueConnection.createQueueSession(false, Session.AUTO_ACKNOWLEDGE);
       Queue queue = (Queue)context.lookup(TEST_QUEUE);
@@ -177,7 +189,6 @@ public class UnackedUnitTestCase extends JBossTestCase
       drainQueue();
 
       final int iterationCount = getIterationCount();
-      final Category log = getLog();
 
       QueueSession session = queueConnection.createQueueSession(false, Session.AUTO_ACKNOWLEDGE);
       Queue queue = (Queue)context.lookup(TEST_QUEUE);
@@ -471,7 +482,6 @@ public class UnackedUnitTestCase extends JBossTestCase
    {
 
       TopicSession session = topicDurableConnection.createTopicSession(false, Session.AUTO_ACKNOWLEDGE);
-      Topic topic = (Topic)context.lookup(TEST_DURABLE_TOPIC);
       session.unsubscribe("test");
 
       queueConnection.close();

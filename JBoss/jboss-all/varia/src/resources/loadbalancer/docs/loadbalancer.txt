@@ -1,0 +1,59 @@
+Loadbalancer-Service
+The Loadbalancer-Service provides reverse-proxy support with silent failover.
+Configuration
+1.Copy the directory loadbalancer.sar to your deploy directory.
+2.Edit loadbalancer.sar/META-INF/jboss-service.xml to match your configuration. Here is an example of this file:
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE server>
+<server>
+  <mbean code="org.jboss.web.loadbalancer.LoadbalancerService"
+         name="jboss.web.loadbalancer:service=Loadbalancer">
+     <depends>jboss.web:service=WebServer</depends>
+       <attribute name="Config">
+          <loadbalancer>
+            <connection-timeout>20000</connection-timeout>
+            <scheduler-class-name>org.jboss.web.loadbalancer.scheduler.RoundRobinScheduler</scheduler-class-name>
+            <scheduler-name>jboss.web.loadbalancer:service=Scheduler</scheduler-name>
+            <sticky-session>true</sticky-session>
+            <sticky-session-cookie-name>JBoss_LB_ID</sticky-session-cookie-name>
+            <hosts>
+               <host>
+                  <host-url>http://www1.mysite.org/</host-url>
+                  <lb-factor>1</lb-factor>
+               </host>
+               <host>
+                  <host-url>http://www2.mysite.org/</host-url>
+                  <lb-factor>1</lb-factor>
+               </host>
+            </hosts>
+          </loadbalancer>
+       </attribute>
+  </mbean>
+</server>
+Connection-timeout:
+The connection-timeout controls after which time interval a host should be considered dead. This value is given in milliseconds.
+Scheduler class name:
+The algorithm to use to schedule requests.
+Sticky-sessions and sticky session cookie name:
+This value (true or false is allowed) controls if a request should always go to the host the client is first scheduled on. This is needed if you use HTTP-sessions in your web-application. If you set this value to false every request is rescheduled with the algorithm given in the scheduler class. The session cookie name sets the name of the cookie the sticky session information is stored in.
+Hosts list:
+The hosts given in this list are used as request targets.  The URLs can be of any type a normal web-browser will accept (http://www.xy.zz/, https://www.xy.zz/, http://www.xy.zz:8080/).
+3.Edit loadbalancer.sar/WEB-INF/web.xml to match the JMX-name you gave the MBean. Here is an example of the web.xml:
+<?xml version="1.0"?>
+<!DOCTYPE web-app PUBLIC "-//Sun Microsystems, Inc.//DTD Web Application 2.3//EN" "http://java.sun.com/dtd/web-app_2_3.dtd">
+<web-app>
+  <description>JBoss reverse proxy</description>
+  <servlet>
+    <servlet-name>Loadbalancer</servlet-name>
+    <servlet-class>org.jboss.web.loadbalancer.LoadbalancerServlet</servlet-class>
+    <init-param>
+      <param-name>loadbalancer-service-name</param-name>
+      <param-value>jboss.web.loadbalancer:service=Loadbalancer</param-value>
+    </init-param>
+    <load-on-startup>1</load-on-startup>
+  </servlet>
+  <servlet-mapping>
+     <servlet-name>Loadbalancer</servlet-name>
+     <url-pattern>/*</url-pattern>
+  </servlet-mapping>
+</web-app>

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+   XML Schema used by the SnmpAgent to configure the mapping of
+   JMX Notifications to SNMP traps.
+   
+   $Revision: 1.1.2.2 $
+   
+   Authors
+      <a href="mailto:spol@intracom.gr">Spyros Pollatos</a>
+      <a href="mailto:andd@intracom.gr">Dimitris Andreadis</a>
+-->
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns="http://www.w3.org/2001/XMLSchema">
+
+   <xsd:annotation>
+      <xsd:documentation xml:lang="en">
+         Schema describes the mapping of notifications to SNMP traps. The
+         key for the mapping is considered to be the notification type. The
+         mapping concerns:
+            1. Generic trap id
+            2. Specific trap id
+            3. Enterprise OID
+            4. The trap payload comprised of notification variables mapped
+               to specific OIDs.
+      </xsd:documentation>
+   </xsd:annotation>
+    
+   <xsd:element name="notification-map-list">
+      <xsd:complexType>
+         <xsd:sequence>
+            <xsd:element name="mapping" maxOccurs="unbounded">
+               <xsd:complexType>
+                  <xsd:sequence>
+                     <xsd:element name="notification-type" type="xsd:string"/>
+                     <xsd:element name="generic" type="xsd:integer" />
+                     <xsd:element name="specific" type="xsd:integer" />
+                     <xsd:element name="enterprise" type="xsd:string" />
+                     <xsd:element name="var-bind-list">
+                        <xsd:complexType>
+                           <xsd:sequence>
+                              <xsd:element name="var-bind" maxOccurs="unbounded">
+                                 <xsd:complexType>
+                                    <xsd:sequence>
+                                       <xsd:element name="tag" type="xsd:string" />
+                                       <xsd:element name="oid" type="xsd:string" />
+                                    </xsd:sequence>
+                                 </xsd:complexType>
+                              </xsd:element>
+                           </xsd:sequence>
+                           <xsd:attribute name="wrapper-class" type="string" use="required"/>
+                        </xsd:complexType>
+                     </xsd:element>
+                  </xsd:sequence>
+               </xsd:complexType>
+            </xsd:element>
+         </xsd:sequence>
+      </xsd:complexType>
+   </xsd:element>
+</xsd:schema>

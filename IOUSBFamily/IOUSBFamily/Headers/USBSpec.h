@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -198,17 +196,6 @@ enum {
 };
 
 
-    /*!
-    @enum HID Interface Protocol
-    @discussion Reported in the bInterfaceProtocol field of the Interface Descriptor.
-    */
-enum {
-    kHIDNoInterfaceProtocol         = 0,
-    kHIDKeyboardInterfaceProtocol   = 1,
-    kHIDMouseInterfaceProtocol      = 2,
-    kUSBVendorSpecificProtocol      = 0xff
-};
-
 
 enum {
     kUSBCapsLockKey         = 0x39,
@@ -216,50 +203,161 @@ enum {
     kUSBScrollLockKey       = 0x47
 };
 
-    /*!
-    @enum Device and Interface Class
-    @discussion Constants for USB Device and Interface classes (bDeviceClass and bInterfaceClass).
-    */
+/*!
+@enum Device Class Codes
+ @discussion Constants for USB Device classes (bDeviceClass).
+ */
 enum {
-    kUSBCompositeClass          = 0,
-    kUSBAudioClass              = 1,
-    kUSBCommClass               = 2,
-    kUSBHIDClass                = 3,
-    kUSBDisplayClass            = 4,
-    kUSBPrintingClass           = 7,
-    kUSBMassStorageClass        = 8,
-    kUSBHubClass                = 9,
-    kUSBDataClass               = 10,
-    kUSBApplicationSpecificClass = 0xFE,
-    kUSBVendorSpecificClass     = 0xFF
+    kUSBCompositeClass          	= 0,
+    kUSBCommClass               	= 2,		// Deprecated
+    kUSBCommunicationClass		= 2,	
+    kUSBHubClass                	= 9,
+    kUSBDataClass               	= 10,
+    kUSBDiagnosticClass			= 220,
+    kUSBWirelessControllerClass 	= 224,
+    kUSBMiscellaneousClass		= 239,
+    kUSBApplicationSpecificClass 	= 254,
+    kUSBVendorSpecificClass     	= 255
 };
 
-    /*!
-    @enum Device and Interface SubClass
-    @discussion Constants for USB Device and Interface SubClasses (bDeviceSubClass and bInterfaceSubClass).
+/*!
+@enum Interface Class
+ @discussion Constants for Interface classes (bInterfaceClass).
+ */
+enum {
+    kUSBAudioClass             			= 1,		// Deprecated
+    kUSBAudioInterfaceClass			= 1,
+
+    kUSBCommunicationControlInterfaceClass	= 2,
+    kUSBCommunicationDataInterfaceClass		= 10,
+
+    kUSBHIDClass                		= 3,
+    kUSBHIDInterfaceClass			= 3,
+
+    kUSBPhysicalInterfaceClass			= 5,
+
+    kUSBImageInterfaceClass			= 6,
+
+    kUSBPrintingClass           		= 7,		// Deprecated
+    kUSBPrintingInterfaceClass			= 7,
+
+    kUSBMassStorageClass        		= 8,		// Deprecated
+    kUSBMassStorageInterfaceClass		= 8,
+
+    kUSBChipSmartCardInterfaceClass		= 11,
+    
+    kUSBContentSecurityInterfaceClass 		= 12,
+    
+    kUSBVideoInterfaceClass			= 14,
+    
+    kUSBDiagnosticDeviceInterfaceClass 		= 220,
+
+    kUSBWirelessControllerInterfaceClass	= 224,
+
+    kUSBApplicationSpecificInterfaceClass	= 254,
+    
+    kUSBVendorSpecificInterfaceClass     	= 255
+};
+
+// Obsolete
+enum {
+        
+    kUSBDisplayClass            = 4,		// Obsolete
+};
+
+/*!
+    @enum Interface SubClass
+    @discussion Constants for USB Interface SubClasses (bInterfaceSubClass).
 */
 enum {
     kUSBCompositeSubClass               = 0,
+    
     kUSBHubSubClass                     = 0,
+
+    // For the kUSBAudioInterfaceClass
+    //
+    kUSBAudioControlSubClass		= 0x01,
+    kUSBAudioStreamingSubClass		= 0x02,
+    kUSBMIDIStreamingSubClass		= 0x03,
+    
+    // For the kUSBApplicationSpecificInterfaceClass
+    //
     kUSBDFUSubClass                     = 0x01,
     kUSBIrDABridgeSubClass              = 0x02,
+    kUSBTestMeasurementSubClass		= 0x03,
+
+    // For the kUSBMassStorageInterfaceClass
+    //
     kUSBMassStorageRBCSubClass          = 0x01,
     kUSBMassStorageATAPISubClass        = 0x02,
     kUSBMassStorageQIC157SubClass       = 0x03,
     kUSBMassStorageUFISubClass          = 0x04,
     kUSBMassStorageSFF8070iSubClass     = 0x05,
     kUSBMassStorageSCSISubClass         = 0x06,
+
+    // For the kUSBHIDInterfaceClass
+    //
     kUSBHIDBootInterfaceSubClass        = 0x01,
+
+    // For the kUSBCommunicationDataInterfaceClass
+    //
     kUSBCommDirectLineSubClass          = 0x01,
     kUSBCommAbstractSubClass            = 0x02,
     kUSBCommTelephoneSubClass           = 0x03,
     kUSBCommMultiChannelSubClass        = 0x04,
     kUSBCommCAPISubClass                = 0x05,
     kUSBCommEthernetNetworkingSubClass  = 0x06,
-    kUSBATMNetworkingSubClass           = 0x07
+    kUSBATMNetworkingSubClass           = 0x07,
+
+    // For the kUSBDiagnosticDeviceInterfaceClass
+    //
+    kUSBReprogrammableDiagnosticSubClass	= 0x01,
+
+    // For the kUSBWirelessControllerInterfaceClass
+    //
+    kUSBRFControllerSubClass		= 0x01,
+
+    // For the kUSBMiscellaneousClass
+    //
+    kUSBCommonClassSubClass		= 0x02,
+
+    // For the kUSBVideoInterfaceClass
+    //
+    kUSBVideoControlSubClass		= 0x01,
+    kUSBVideoStreamingSubClass		= 0x02,
+    kUSBVideoInterfaceCollectionSubClass = 0x03
+    
 };
 
-    /*!
+/*!
+@enum	Interface Protocol
+ @discussion Reported in the bInterfaceProtocol field of the Interface Descriptor.
+ */
+enum {
+
+    // For kUSBHIDInterfaceClass
+    //
+    kHIDNoInterfaceProtocol		= 0,
+    kHIDKeyboardInterfaceProtocol	= 1,
+    kHIDMouseInterfaceProtocol		= 2,
+    kUSBVendorSpecificProtocol		= 0xff,
+
+    // For kUSBDiagnosticDeviceInterfaceClass
+    //
+    kUSB2ComplianceDeviceProtocol	= 0x01,
+
+    // For kUSBWirelessControllerInterfaceClass
+    //
+    kUSBBluetoothProgrammingInterfaceProtocol	= 0x01,
+
+    // For kUSBMiscellaneousClass
+    //
+    KUSBInterfaceAssociationDescriptorProtocol	= 0x01
+    
+};
+
+
+/*!
     @enum DFU Class Attributes
     @discussion 
 */

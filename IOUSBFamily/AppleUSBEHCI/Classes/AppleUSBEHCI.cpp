@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -1135,7 +1135,7 @@ AppleUSBEHCI::EnableAsyncSchedule(void)
 	    {
 		if (i >= 100)
 		{
-		    USBLog(1, "%s[%p]::EnableAsyncSchedule: ERROR: USBCMD and USBSTS won't synchronize ON", getName(), this);
+		    USBError(1, "%s[%p]::EnableAsyncSchedule: ERROR: USBCMD and USBSTS won't synchronize ON - cannot enable USB list processing", getName(), this);
 		    stat = kIOReturnInternalError;
 		}
 		else

@@ -7,14 +7,7 @@
 
 package org.jboss.console.plugins.helpers;
 
-import java.lang.reflect.UndeclaredThrowableException;
-
-import javax.management.MBeanServer;
-import javax.management.ObjectInstance;
-import javax.servlet.ServletConfig;
-
 import bsh.Interpreter;
-
 import org.jboss.console.manager.PluginManager;
 import org.jboss.console.manager.interfaces.ManageableResource;
 import org.jboss.console.manager.interfaces.ResourceTreeNode;
@@ -22,13 +15,18 @@ import org.jboss.console.manager.interfaces.TreeNode;
 import org.jboss.console.manager.interfaces.TreeNodeMenuEntry;
 import org.jboss.logging.Logger;
 
+import javax.management.MBeanServer;
+import javax.management.ObjectInstance;
+import javax.servlet.ServletConfig;
+import java.lang.reflect.UndeclaredThrowableException;
+
 /**
  * <description>
  *
  * @see <related>
  *
  * @author  <a href="mailto:sacha.labourey@cogito-info.ch">Sacha Labourey</a>.
- * @version $Revision: 1.2.2.1 $
+ * @version $Revision: 1.2.2.2 $
  *
  * <p><b>Revisions:</b>
  *

@@ -7,25 +7,23 @@
  
 package org.jboss.ejb.plugins.cmp.ejbql;
 
+import org.jboss.ejb.plugins.cmp.jdbc.SQLUtil;
+
 /**
  * This abstract syntax node represents an is null comparison.
  *
  * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
- * @version $Revision: 1.1 $
+ * @version $Revision: 1.1.4.2 $
  */                            
-public class ASTNullComparison extends SimpleNode {
+public final class ASTNullComparison extends SimpleNode {
    public boolean not;
 
    public ASTNullComparison(int id) {
       super(id);
    }
 
-   public ASTNullComparison(EJBQLParser p, int id) {
-      super(p, id);
-   }
-
    public String toString() {
-      return (not ? "NOT " : "") + "NULL";
+      return (not ? SQLUtil.NOT : SQLUtil.EMPTY_STRING) + SQLUtil.NULL;
    }
 
    /** Accept the visitor. **/

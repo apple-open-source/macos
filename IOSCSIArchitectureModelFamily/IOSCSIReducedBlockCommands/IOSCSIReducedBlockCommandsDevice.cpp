@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -737,8 +735,7 @@ IOSCSIReducedBlockCommandsDevice::InitializeDeviceSupport ( void )
 	STATUS_LOG ( ( "%s::%s setupSuccessful = %d\n", getName ( ),
 					__FUNCTION__, setupSuccessful ) );
 	
-	setProperty ( kIOMaximumBlockCountReadKey,  kDefaultMaxBlocksPerIO, 64 );
-	setProperty ( kIOMaximumBlockCountWriteKey, kDefaultMaxBlocksPerIO, 64 );
+	SetMediaCharacteristics ( 0, 0 );
 	
 	return setupSuccessful;
 	
@@ -767,26 +764,8 @@ void
 IOSCSIReducedBlockCommandsDevice::StartDeviceSupport ( void )
 {
 	
-	OSBoolean *		shouldNotPoll = NULL;
-	
-	shouldNotPoll = OSDynamicCast (
-							OSBoolean,
-							getProperty ( kAppleKeySwitchProperty ) );
-	
-	if ( shouldNotPoll != NULL )
-	{
-		
-		// See if we should not poll.
-		require ( shouldNotPoll->isFalse ( ), Exit );
-		
-	}
-	
 	// Start polling
 	EnablePolling ( );
-	
-	
-Exit:
-	
 	
 	CreateStorageServiceNub ( );
 	
@@ -1391,6 +1370,23 @@ IOSCSIReducedBlockCommandsDevice::PollForMedia ( void )
 			bool					mediaFound 		= false;
 			bool					validSense		= false;
 			SCSIServiceResponse		serviceResponse;
+			
+			OSBoolean *				keySwitchLocked = NULL;
+			
+			keySwitchLocked = OSDynamicCast (
+									OSBoolean,
+									getProperty ( kAppleKeySwitchProperty ) );
+			
+			if ( keySwitchLocked != NULL )
+			{
+				
+				// See if we should poll for media.
+				if ( keySwitchLocked->isTrue ( ) )
+				{
+					break;
+				}
+				
+			}
 			
 			serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
 			
@@ -2044,6 +2040,74 @@ ErrorExit:
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ AsyncReadWriteCompletion - Completion routine for read/write requests.
+//															 		[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOSCSIReducedBlockCommandsDevice::AsyncReadWriteCompletion (
+										SCSITaskIdentifier completedTask )
+{
+	
+	IOReturn	status		= kIOReturnSuccess;
+	UInt64		actCount	= 0;
+	void *		clientData	= NULL;
+	
+	// Extract the client data from the SCSITaskIdentifier
+	clientData = GetApplicationLayerReference ( completedTask );
+	require_nonzero ( clientData, ErrorExit );
+	
+	if ( ( GetServiceResponse ( completedTask ) == kSCSIServiceResponse_TASK_COMPLETE ) &&
+		 ( GetTaskStatus ( completedTask ) == kSCSITaskStatus_GOOD ) )
+	{
+		
+		// Our status is good, so return a success
+		actCount = GetRealizedDataTransferCount ( completedTask );
+		
+	}
+	
+	else
+	{
+		
+		// Set a generic IO error for starters
+		status = kIOReturnIOError;
+		
+		// Either the task never completed or we have a status other than GOOD,
+		// return an error.		
+		if ( GetTaskStatus ( completedTask ) == kSCSITaskStatus_CHECK_CONDITION )
+		{
+			
+			SCSI_Sense_Data		senseDataBuffer;
+			bool				senseIsValid;
+			
+			senseIsValid = GetAutoSenseData ( completedTask, &senseDataBuffer, sizeof ( senseDataBuffer ) );
+			if ( senseIsValid )
+			{
+				
+				ERROR_LOG ( ( "READ or WRITE failed, ASC = 0x%02x, ASCQ = 0x%02x\n",
+				senseDataBuffer.ADDITIONAL_SENSE_CODE,
+				senseDataBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER ) );
+				
+			}
+			
+		}
+		
+	}
+	
+	IOReducedBlockServices::AsyncReadWriteComplete ( clientData, status, actCount );
+	
+	ReleaseSCSITask ( completedTask );	
+	
+	
+ErrorExit:
+	
+	
+	return;
+	
+}
+
+
 #if 0
 #pragma mark -
 #pragma mark ¥ Static Methods
@@ -2061,72 +2125,18 @@ IOSCSIReducedBlockCommandsDevice::AsyncReadWriteComplete (
 										SCSITaskIdentifier request )
 {
 	
-	void *								clientData 	= NULL;
-	IOSCSIReducedBlockCommandsDevice *	taskOwner	= NULL;
-	SCSITask *							scsiRequest = NULL;
-	IOReturn							status		= kIOReturnIOError;
-	UInt64								actCount 	= 0;
-		
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	require_nonzero ( scsiRequest, ErrorExit );
+	IOSCSIReducedBlockCommandsDevice *	taskOwner = NULL;
 	
-	taskOwner = OSDynamicCast ( IOSCSIReducedBlockCommandsDevice,
-								scsiRequest->GetTaskOwner ( ) );
+	require_nonzero ( request, ErrorExit );
+	
+	taskOwner = OSDynamicCast ( IOSCSIReducedBlockCommandsDevice, sGetOwnerForTask ( request ) );
 	require_nonzero ( taskOwner, ErrorExit );
 	
-	// Extract the client data from the SCSITask
-	clientData = scsiRequest->GetApplicationLayerReference ( );
-	require_nonzero ( clientData, ErrorExit );
-	
-	if ( ( scsiRequest->GetServiceResponse ( ) == kSCSIServiceResponse_TASK_COMPLETE ) &&
-		 ( scsiRequest->GetTaskStatus ( ) == kSCSITaskStatus_GOOD ) )
-	{
-		
-		// Our status is good, so return a success
-		status = kIOReturnSuccess;
-		actCount = scsiRequest->GetRealizedDataTransferCount ( );
-		
-	}
-	
-	else
-	{
-		
-		// Set a generic IO error for starters
-		status = kIOReturnIOError;
-		
-		// Either the task never completed or we have a status other than GOOD,
-		// return an error.		
-		if ( scsiRequest->GetTaskStatus ( ) == kSCSITaskStatus_CHECK_CONDITION )
-		{
-			
-			SCSI_Sense_Data		senseDataBuffer;
-			bool				senseIsValid;
-			
-			senseIsValid = scsiRequest->GetAutoSenseData ( &senseDataBuffer, sizeof ( senseDataBuffer ) );
-			if ( senseIsValid )
-			{
-				
-				ERROR_LOG ( ( "READ or WRITE failed, ASC = 0x%02x, ASCQ = 0x%02x\n",
-				senseDataBuffer.ADDITIONAL_SENSE_CODE,
-				senseDataBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER ) );
-				
-			}
-			
-		}
-		
-	}
-	
-	IOReducedBlockServices::AsyncReadWriteComplete ( clientData, status, actCount );
-	
-	taskOwner->ReleaseSCSITask ( request );	
-	
-	return;
+	taskOwner->AsyncReadWriteCompletion ( request );
 	
 	
 ErrorExit:
 	
-	
-	IOPanic ( "SAM RBC: error completing I/O due to bad completion data" );
 	
 	return;
 	
@@ -2180,9 +2190,9 @@ ErrorExit:
 
 OSMetaClassDefineReservedUsed ( IOSCSIReducedBlockCommandsDevice, 1 );	/* PowerDownHandler	*/
 OSMetaClassDefineReservedUsed ( IOSCSIReducedBlockCommandsDevice, 2 );	/* SetMediaIcon		*/
+OSMetaClassDefineReservedUsed ( IOSCSIReducedBlockCommandsDevice, 3 );	/* AsyncReadWriteCompletion	*/
 
 // Space reserved for future expansion.
-OSMetaClassDefineReservedUnused ( IOSCSIReducedBlockCommandsDevice,  3 );
 OSMetaClassDefineReservedUnused ( IOSCSIReducedBlockCommandsDevice,  4 );
 OSMetaClassDefineReservedUnused ( IOSCSIReducedBlockCommandsDevice,  5 );
 OSMetaClassDefineReservedUnused ( IOSCSIReducedBlockCommandsDevice,  6 );

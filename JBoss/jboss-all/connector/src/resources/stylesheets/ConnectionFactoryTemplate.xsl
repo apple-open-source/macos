@@ -121,7 +121,7 @@
   <!-- tags. The newline in the xsl:text element is crucial!                   -->
   <!-- this makes a property file format, not the ; delimited format-->
   <xsl:template match="xa-datasource-property|connection-property">
-    <xsl:value-of select="@name"/>=<xsl:value-of select="."/><xsl:text>
+    <xsl:value-of select="@name"/>=<xsl:value-of select="normalize-space(.)"/><xsl:text>
 </xsl:text>
   </xsl:template>
 
@@ -137,10 +137,10 @@
 
               <!--we need the other standard properties here-->
               <xsl:if test="user-name">
-                <config-property name="UserName" type="java.lang.String"><xsl:value-of select="user-name"/></config-property>
+                <config-property name="UserName" type="java.lang.String"><xsl:value-of select="normalize-space(user-name)"/></config-property>
               </xsl:if>
               <xsl:if test="password">
-                <config-property name="Password" type="java.lang.String"><xsl:value-of select="password"/></config-property>
+                <config-property name="Password" type="java.lang.String"><xsl:value-of select="normalize-space(password)"/></config-property>
               </xsl:if>
               <xsl:apply-templates select="config-property"/>
             </properties>
@@ -171,8 +171,8 @@
 
           <attribute name="ManagedConnectionFactoryProperties">
             <properties>
-              <config-property name="ConnectionURL" type="java.lang.String"><xsl:value-of select="connection-url"/></config-property>
-              <config-property name="DriverClass" type="java.lang.String"><xsl:value-of select="driver-class"/></config-property>
+              <config-property name="ConnectionURL" type="java.lang.String"><xsl:value-of select="normalize-space(connection-url)"/></config-property>
+              <config-property name="DriverClass" type="java.lang.String"><xsl:value-of select="normalize-space(driver-class)"/></config-property>
 
               <xsl:call-template name="wrapper-common-properties"/>
               <xsl:if test="connection-property">
@@ -200,14 +200,14 @@
 
           <attribute name="ManagedConnectionFactoryProperties">
             <properties>
-              <config-property name="XADataSourceClass" type="java.lang.String"><xsl:value-of select="xa-datasource-class"/></config-property>
+              <config-property name="XADataSourceClass" type="java.lang.String"><xsl:value-of select="normalize-space(xa-datasource-class)"/></config-property>
 
               <config-property name="XADataSourceProperties" type="java.lang.String">
                 <xsl:apply-templates select="xa-datasource-property"/>
               </config-property>
 
               <xsl:if test="isSameRM-override-value">
-                <config-property name="IsSameRMOverrideValue" type="java.lang.Boolean"><xsl:value-of select="isSameRM-override-value"/></config-property>
+                <config-property name="IsSameRMOverrideValue" type="java.lang.Boolean"><xsl:value-of select="normalize-space(isSameRM-override-value)"/></config-property>
               </xsl:if>
 
               <xsl:call-template name="wrapper-common-properties"/>
@@ -222,23 +222,35 @@
   <xsl:template name="wrapper-common-properties">
 
           <xsl:if test="transaction-isolation">
-            <config-property name="TransactionIsolation" type="java.lang.String"><xsl:value-of select="transaction-isolation"/></config-property>
+            <config-property name="TransactionIsolation" type="java.lang.String"><xsl:value-of select="normalize-space(transaction-isolation)"/></config-property>
           </xsl:if>
 
           <xsl:if test="user-name">
-            <config-property name="UserName" type="java.lang.String"><xsl:value-of select="user-name"/></config-property>
+            <config-property name="UserName" type="java.lang.String"><xsl:value-of select="normalize-space(user-name)"/></config-property>
           </xsl:if>
           <xsl:if test="password">
-            <config-property name="Password" type="java.lang.String"><xsl:value-of select="password"/></config-property>
+            <config-property name="Password" type="java.lang.String"><xsl:value-of select="normalize-space(password)"/></config-property>
           </xsl:if>
           <xsl:if test="new-connection-sql">
-            <config-property name="NewConnectionSQL" type="java.lang.String"><xsl:value-of select="new-connection-sql"/></config-property>
+            <config-property name="NewConnectionSQL" type="java.lang.String"><xsl:value-of select="normalize-space(new-connection-sql)"/></config-property>
           </xsl:if>
           <xsl:if test="check-valid-connection-sql">
-            <config-property name="CheckValidConnectionSQL" type="java.lang.String"><xsl:value-of select="check-valid-connection-sql"/></config-property>
+            <config-property name="CheckValidConnectionSQL" type="java.lang.String"><xsl:value-of select="normalize-space(check-valid-connection-sql)"/></config-property>
+          </xsl:if>
+          <xsl:if test="valid-connection-checker-class-name">
+            <config-property name="ValidConnectionCheckerClassName" type="java.lang.String"><xsl:value-of select="normalize-space(valid-connection-checker-class-name)"/></config-property>
           </xsl:if>
           <xsl:if test="exception-sorter-class-name">
-            <config-property name="ExceptionSorterClassName" type="java.lang.String"><xsl:value-of select="exception-sorter-class-name"/></config-property>
+            <config-property name="ExceptionSorterClassName" type="java.lang.String"><xsl:value-of select="normalize-space(exception-sorter-class-name)"/></config-property>
+          </xsl:if>
+          <xsl:if test="track-statements">
+            <config-property name="TrackStatements" type="boolean"><xsl:value-of select="normalize-space(track-statements)"/></config-property>
+          </xsl:if>
+          <xsl:if test="prepared-statement-cache-size">
+            <config-property name="PreparedStatementCacheSize" type="int"><xsl:value-of select="normalize-space(prepared-statement-cache-size)"/></config-property>
+          </xsl:if>
+          <xsl:if test="set-tx-query-timeout">
+            <config-property name="TxQueryTimeout" type="int"><xsl:value-of select="normalize-space(set-tx-query-timeout)"/></config-property>
           </xsl:if>
   </xsl:template>
 
@@ -310,6 +322,11 @@
               <xsl:otherwise>ByNothing</xsl:otherwise>
             </xsl:choose>
           </attribute>
+         <xsl:choose>
+           <xsl:when test="no-tx-separate-pools">
+             <attribute name="NoTxSeparatePools">true</attribute>
+           </xsl:when>
+         </xsl:choose>
         </mbean>
       </depends>
   </xsl:template>

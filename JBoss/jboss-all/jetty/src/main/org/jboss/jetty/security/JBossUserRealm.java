@@ -5,7 +5,7 @@
  * See terms of license at gnu.org.
  */
 
-// $Id: JBossUserRealm.java,v 1.12.2.6 2003/04/05 16:45:29 starksm Exp $
+// $Id: JBossUserRealm.java,v 1.12.2.7 2003/07/26 11:49:40 jules_gosnell Exp $
 
 package org.jboss.jetty.security;
 
@@ -32,7 +32,7 @@ import org.mortbay.http.UserRealm;
 /** An implementation of UserRealm that integrates with the JBossSX
  * security manager associted with the web application.
  * @author  Scott_Stark@displayscape.com, Cert Auth by pdawes@users.sf.net
- * @version $Revision: 1.12.2.6 $
+ * @version $Revision: 1.12.2.7 $
  */
 
 public class JBossUserRealm
@@ -64,8 +64,7 @@ public class JBossUserRealm
       _principal=new SimplePrincipal(name);
        this._logRef = _log;
 
-      if (_log.isDebugEnabled())
-	_log.debug("created JBossUserRealm::JBossUserPrincipal: "+name);
+      if (_log.isDebugEnabled()) _log.debug("created JBossUserRealm::JBossUserPrincipal: "+name);
     }
 
      void associateWithRealm(RealmMapping _realmMapping,
@@ -311,8 +310,7 @@ public class JBossUserRealm
   public UserPrincipal
     authenticate(String userName, Object credential, HttpRequest request)
   {
-    if (_log.isDebugEnabled())
-      _log.debug("JBossUserPrincipal: "+userName);
+    if (_log.isDebugEnabled()) _log.debug("JBossUserPrincipal: "+userName);
 
     // until we get DigestAuthentication sorted JBoss side...
     JBossUserPrincipal user = null;

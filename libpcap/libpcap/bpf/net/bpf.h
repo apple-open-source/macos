@@ -37,10 +37,14 @@
  *
  *      @(#)bpf.h       7.1 (Berkeley) 5/7/91
  *
- * @(#) $Header: /cvs/Darwin/src/live/libpcap/libpcap/bpf/net/bpf.h,v 1.1.1.1 2001/07/07 00:41:37 bbraun Exp $ (LBL)
+ * @(#) $Header: /cvs/root/libpcap/libpcap/bpf/net/bpf.h,v 1.1.1.2 2003/10/14 21:52:39 rbraun Exp $ (LBL)
  */
 
 #ifndef BPF_MAJOR_VERSION
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* BSD style release date */
 #define BPF_RELEASE 199606
@@ -206,17 +210,31 @@ struct bpf_hdr {
  * continue to compile - even though they won't correctly read
  * files of these types.
  */
+#ifdef __NetBSD__
+#ifndef DLT_SLIP_BSDOS
+#define DLT_SLIP_BSDOS	13	/* BSD/OS Serial Line IP */
+#define DLT_PPP_BSDOS	14	/* BSD/OS Point-to-point Protocol */
+#endif
+#else
 #define DLT_SLIP_BSDOS	15	/* BSD/OS Serial Line IP */
 #define DLT_PPP_BSDOS	16	/* BSD/OS Point-to-point Protocol */
+#endif
 
 #define DLT_ATM_CLIP	19	/* Linux Classical-IP over ATM */
 
 /*
- * This value is defined by NetBSD; other platforms should refrain from
- * using it for other purposes, so that NetBSD savefiles with a link
- * type of 50 can be read as this type on all platforms.
+ * These values are defined by NetBSD; other platforms should refrain from
+ * using them for other purposes, so that NetBSD savefiles with link
+ * types of 50 or 51 can be read as this type on all platforms.
  */
 #define DLT_PPP_SERIAL	50	/* PPP over serial with HDLC encapsulation */
+#define DLT_PPP_ETHER	51	/* PPP over Ethernet */
+
+/*
+ * Values between 100 and 103 are used in capture file headers as
+ * link-layer types corresponding to DLT_ types that differ
+ * between platforms; don't use those values for new DLT_ new types.
+ */
 
 /*
  * This value was defined by libpcap 0.5; platforms that have defined
@@ -235,23 +253,21 @@ struct bpf_hdr {
 #define DLT_C_HDLC	104	/* Cisco HDLC */
 #define DLT_CHDLC	DLT_C_HDLC
 
-/*
- * Reserved for future use.
- * Do not pick other numerical value for these unless you have also
- * picked up the tcpdump.org top-of-CVS-tree version of "savefile.c",
- * which will arrange that capture files for these DLT_ types have
- * the same "network" value on all platforms, regardless of what
- * value is chosen for their DLT_ type (thus allowing captures made
- * on one platform to be read on other platforms, even if the two
- * platforms don't use the same numerical values for all DLT_ types).
- */
 #define DLT_IEEE802_11	105	/* IEEE 802.11 wireless */
 
 /*
- * Values between 106 and 107 are used in capture file headers as
- * link-layer types corresponding to DLT_ types that might differ
- * between platforms; don't use those values for new DLT_ new types.
+ * 106 is reserved for Linux Classical IP over ATM; it's like DLT_RAW,
+ * except when it isn't.  (I.e., sometimes it's just raw IP, and
+ * sometimes it isn't.)  We currently handle it as DLT_LINUX_SLL,
+ * so that we don't have to worry about the link-layer header.)
  */
+
+/*
+ * Reserved for Frame Relay; BSD/OS has a DLT_FR, with a value of 11,
+ * but that collides with other values.  DLT_FR and DLT_FRELAY packets
+ * start with the Frame Relay header (DLCI, etc.).
+ */
+#define DLT_FRELAY	107
 
 /*
  * OpenBSD DLT_LOOP, for loopback devices; it's like DLT_NULL, except
@@ -260,20 +276,83 @@ struct bpf_hdr {
  * OpenBSD defines it as 12, but that collides with DLT_RAW, so we
  * define it as 108 here.  If OpenBSD picks up this file, it should
  * define DLT_LOOP as 12 in its version, as per the comment above -
- * and should not use 108 for any purpose.
+ * and should not use 108 as a DLT_ value.
  */
 #define DLT_LOOP	108
 
 /*
  * Values between 109 and 112 are used in capture file headers as
  * link-layer types corresponding to DLT_ types that might differ
- * between platforms; don't use those values for new DLT_ new types.
+ * between platforms; don't use those values for new DLT_ types
+ * other than the corresponding DLT_ types.
  */
 
 /*
  * This is for Linux cooked sockets.
  */
 #define DLT_LINUX_SLL	113
+
+/*
+ * Apple LocalTalk hardware.
+ */
+#define DLT_LTALK	114
+
+/*
+ * Acorn Econet.
+ */
+#define DLT_ECONET	115
+
+/*
+ * Reserved for use with OpenBSD ipfilter.
+ */
+#define DLT_IPFILTER	116
+
+/*
+ * Reserved for use in capture-file headers as a link-layer type
+ * corresponding to OpenBSD DLT_PFLOG; DLT_PFLOG is 17 in OpenBSD,
+ * but that's DLT_LANE8023 in SuSE 6.3, so we can't use 17 for it
+ * in capture-file headers.
+ */
+#define DLT_PFLOG	117
+
+/*
+ * Registered for Cisco-internal use.
+ */
+#define DLT_CISCO_IOS	118
+
+/*
+ * Reserved for 802.11 cards using the Prism II chips, with a link-layer
+ * header including Prism monitor mode information plus an 802.11
+ * header.
+ */
+#define DLT_PRISM_HEADER	119
+
+/*
+ * Reserved for Aironet 802.11 cards, with an Aironet link-layer header
+ * (see Doug Ambrisko's FreeBSD patches).
+ */
+#define DLT_AIRONET_HEADER	120
+
+/*
+ * Reserved for Siemens HiPath HDLC.
+ */
+#define DLT_HHDLC		121
+
+/*
+ * Reserved for RFC 2625 IP-over-Fibre Channel, as per a request from
+ * Don Lee <donlee@cray.com>.
+ *
+ * This is not for use with raw Fibre Channel, where the link-layer
+ * header starts with a Fibre Channel frame header; it's for IP-over-FC,
+ * where the link-layer header starts with an RFC 2625 Network_Header
+ * field.
+ */
+#define DLT_IP_OVER_FC		122
+
+/*
+ * Reserved for capturing on Solaris with SunATM.
+ */
+#define DLT_SUNATM		123	/* Solaris+SunATM */
 
 /*
  * The instruction encodings.
@@ -364,7 +443,7 @@ extern void bpfattach();
 extern void bpfilterattach();
 # endif /* __STDC__ */
 #endif /* BSD && (_KERNEL || KERNEL) */
-#if __STDC__
+#if __STDC__ || defined(__cplusplus)
 extern int bpf_validate(struct bpf_insn *, int);
 extern u_int bpf_filter(struct bpf_insn *, u_char *, u_int, u_int);
 #else
@@ -376,5 +455,9 @@ extern u_int bpf_filter();
  * Number of scratch memory words (for BPF_LD|BPF_MEM and BPF_ST).
  */
 #define BPF_MEMWORDS 16
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

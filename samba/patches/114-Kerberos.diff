@@ -1,5 +1,5 @@
---- samba/source/libsmb/clikrb5.c.orig	Fri Aug 29 14:17:26 2003
-+++ samba/source/libsmb/clikrb5.c	Fri Aug 29 14:40:45 2003
+--- samba/source/libsmb/clikrb5.c.orig	Thu Dec 18 15:12:44 2003
++++ samba/source/libsmb/clikrb5.c	Fri Dec 19 08:31:21 2003
 @@ -53,7 +53,12 @@
  }
  #endif

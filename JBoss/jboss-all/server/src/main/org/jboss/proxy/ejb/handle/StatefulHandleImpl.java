@@ -33,7 +33,7 @@ import org.jboss.security.SecurityAssociation;
  * @author  <a href="mailto:marc.fleury@jboss.org">Marc Fleury</a>
  * @author  <a href="mailto:jason@planet57.com">Jason Dillon</a>
  * @author <a href="bill@burkecentral.com">Bill Burke</a>
- * @version $Revision: 1.9.2.1 $
+ * @version $Revision: 1.9.2.2 $
  */
 public class StatefulHandleImpl
       implements Handle
@@ -88,6 +88,22 @@ public class StatefulHandleImpl
       this.invoker = invoker;
       this.id = id;
       this.invokerProxyBinding = invokerProxyBinding;
+   }
+
+   /**
+    * @return the internal session identifier
+    */
+   public Object getID()
+   {
+      return id;
+   }
+
+   /**
+    * @return the jndi name
+    */
+   public String getJNDIName()
+   {
+      return jndiName;
    }
 
    /**

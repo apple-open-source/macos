@@ -12,6 +12,8 @@
  *  Copyright (c) 2002 Apple Computer. All rights reserved.
  *
  */
+#ifndef FLOAT_LIB_H
+#define FLOAT_LIB_H
 
 #include "AppleDBDMAClipLib.h"
 
@@ -21,21 +23,7 @@ extern "C" {
 #pragma mark ••• Processing Functions
 #pragma mark ----------------------------- 
 
-void delayRightChannel(float* inFloatBufferPtr, UInt32 numSamples, float * inLastSample);// [3173869], added last sample parameter
-void balanceAdjust(float* inFloatBufferPtr, UInt32 numSamples, EQStructPtr inEQ);
-void invertRightChannel(float* inFloatBufferPtr, UInt32 numSamples);
 void mixAndMuteRightChannel(float* inFloatBufferPtr, UInt32 numSamples); 
-void limiter(float* inFloatBufferPtr, UInt32 numSamples, LimiterStructPtr ioLimiterState, UInt32 index); 
-void equalizer(float* inFloatBufferPtr, UInt32 numSamples, EQStructPtr inEQ);
-void crossover2way (float* inFloatBufferPtr, UInt32 numSamples, CrossoverStructPtr ioCrossover);
-void multibandLimiter(float *inBuf, UInt32 numSamples, CrossoverStructPtr ioCrossover, LimiterStructPtr ioLimiter);
-
-void setEQCoefficients (EQParamStructPtr inParams, EQStructPtr inEQ, UInt32 index, UInt32 inSampleRate);
-void setLimiterCoefficients (LimiterParamStructPtr inParams, LimiterStructPtr ioLimiter, UInt32 index, UInt32 inSampleRate);
-void setCrossoverCoefficients (CrossoverParamStructPtr inParams, CrossoverStructPtr ioCrossover, UInt32 inSampleRate);
-void resetEQ (EQStructPtr inEQ);
-void resetLimiter (LimiterStructPtr ioLimiter);
-void resetCrossover (CrossoverStructPtr ioCrossover);
 
 #pragma mark ----------------------------- 
 #pragma mark ••• iSub Processing Functions
@@ -96,4 +84,10 @@ void 	dBfixed2float (UInt32 indBfixed, float* ioGainPtr);
 void 	inputGainConverter (UInt32 inGainIndex, float* ioGainPtr);
 void 	convertToFourDotTwenty(FourDotTwenty* ioFourDotTwenty, float* inFloatPtr);
 void 	dB2linear (float * inDB, float * outLinear);
+void 	invertFloat (float * inFloat);
+void	convertNanosToPercent (UInt64 inNumerator, UInt64 inDenominator, float * percent);
+void	floatAccumulate (float * x, float * acc);
+void	floatAverage (float * x, float * avg);
 };
+
+#endif

@@ -269,6 +269,11 @@ SSKey::clientSession()
 	return mClientSession;
 }
 
+KeyHandle SSKey::optionalKeyHandle() const
+{
+	return mKeyHandle;
+}
+
 KeyHandle
 SSKey::keyHandle()
 {
@@ -306,14 +311,7 @@ SSKey::changeOwner(const AccessCredentials &accessCred,
 				   const AclOwnerPrototype &newOwner)
 {
 	clientSession().changeKeyOwner(keyHandle(), accessCred, newOwner);
-	if (mUniqueId == true)
-	{
-		// The key is persistant, make the change on disk.
-		CssmDataContainer keyBlob(mAllocator);
-		clientSession().encodeKey(keyHandle(), keyBlob);
-		mUniqueId->modify(mRecordType, NULL, &keyBlob,
-						  CSSM_DB_MODIFY_ATTRIBUTE_NONE);
-	}
+	didChangeAcl();
 }
 
 void
@@ -328,12 +326,22 @@ void
 SSKey::changeAcl(const AccessCredentials &accessCred, const AclEdit &aclEdit)
 {
 	clientSession().changeKeyAcl(keyHandle(), accessCred, aclEdit);
+	didChangeAcl();
+}
+
+void
+SSKey::didChangeAcl()
+{
 	if (mUniqueId == true)
 	{
+	    secdebug("keyacl", "SSKey::didChangeAcl() keyHandle: %lu updating DL entry", mKeyHandle);
 		// The key is persistant, make the change on disk.
 		CssmDataContainer keyBlob(mAllocator);
 		clientSession().encodeKey(keyHandle(), keyBlob);
-		mUniqueId->modify(mRecordType, NULL, &keyBlob,
-						  CSSM_DB_MODIFY_ATTRIBUTE_NONE);
+		mUniqueId->modify(mRecordType, NULL, &keyBlob, CSSM_DB_MODIFY_ATTRIBUTE_NONE);
+	}
+	else
+	{
+	    secdebug("keyacl", "SSKey::didChangeAcl() keyHandle: %lu transient key no update done", mKeyHandle);
 	}
 }

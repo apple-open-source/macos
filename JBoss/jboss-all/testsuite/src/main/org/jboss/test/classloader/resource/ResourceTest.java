@@ -18,7 +18,7 @@ import org.jboss.system.ServiceMBeanSupport;
 
  @author Adrian.Brock@HappeningTimes.com
  @author Scott.Stark@jboss.org
- @version $Revision: 1.2.2.4 $
+ @version $Revision: 1.2.2.5 $
  */
 public class ResourceTest
    extends ServiceMBeanSupport
@@ -26,6 +26,16 @@ public class ResourceTest
 {
    private Exception threadEx;
    private boolean running;
+   private String dtdName;
+
+   public String getDtdName()
+   {
+      return dtdName;
+   }
+   public void setDtdName(String dtdName)
+   {
+      this.dtdName = dtdName;
+   }
 
    protected void startService()
       throws Exception
@@ -80,16 +90,11 @@ public class ResourceTest
          throw new Exception("Wrong META-INF/jboss-service.xml");
 
       // Look for the dtds/sample.dtd
-      log.info("Looking for resource: dtds/sample.dtd");
-      URL dtd = cl.getResource("dtds/sample.dtd");
+      log.info("Looking for resource: "+dtdName);
+      URL dtd = cl.getResource(dtdName);
       if( dtd == null )
-      {
-         log.info("Looking for resource: /dtds/sample.dtd");
-         dtd = cl.getResource("/dtds/sample.dtd");
-      }
-      if( dtd == null )
-         throw new Exception("Failed to find dtds/sample.dtd or /dtds/sample.dtd");
-      log.info("Found sample.dtd: "+dtd);
+         throw new Exception("Failed to find "+dtdName);
+      log.info("Found "+dtdName+": "+dtd);
    }
 
    /**

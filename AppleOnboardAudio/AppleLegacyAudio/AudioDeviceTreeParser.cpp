@@ -25,7 +25,7 @@ OSDefineMetaClassAndStructors(AudioDeviceTreeParser, OSObject)
 // Creation and destruction of the object
 AudioDeviceTreeParser *AudioDeviceTreeParser::createWithEntryProvider(IOService *provider){
     AudioDeviceTreeParser *myAudioDTParser = 0;
-    FAIL_IF(!provider, EXIT);    
+    FailIf(!provider, EXIT);    
     
     myAudioDTParser = new AudioDeviceTreeParser;
     
@@ -64,9 +64,9 @@ UInt32 AudioDeviceTreeParser::getNumberOfOutputs(){
     UInt32 AudioOutputNb = 0;
     
     tempData = OSDynamicCast(OSData, soundEntry->getProperty(kNumOutputsPropName));
-    FAIL_IF(!tempData, BAIL);
+    FailIf(!tempData, BAIL);
     AudioOutputNb = *(UInt32 *)(tempData->getBytesNoCopy());
-    FAIL_IF(0 == AudioOutputNb,EXIT);
+    FailIf(0 == AudioOutputNb,EXIT);
 
 EXIT:
     return AudioOutputNb;
@@ -87,14 +87,14 @@ OSArray *AudioDeviceTreeParser::createOutputsArray(){
          
 	// get the output numbers and create the detects array
     AudioOutputNb = getNumberOfOutputs();
-    FAIL_IF(0 == AudioOutputNb,EXIT);
+    FailIf(0 == AudioOutputNb,EXIT);
 
     AudioOutputs = OSArray::withCapacity(AudioOutputNb);
-    FAIL_IF(!AudioOutputs, BAIL);
+    FailIf(!AudioOutputs, BAIL);
     
 	// get all the sound objects and do the parsing
     tempData = OSDynamicCast(OSData, soundEntry->getProperty(kSoundObjectsPropName));
-    FAIL_IF(!tempData, BAIL);
+    FailIf(!tempData, BAIL);
 
     theSoundObjects = (char *) tempData->getBytesNoCopy();
     size = (int) tempData->getLength();
@@ -187,14 +187,10 @@ UInt32 AudioDeviceTreeParser::getNumberOfInputs(){
     OSData *tempData;
     
     tempData = OSDynamicCast(OSData, soundEntry->getProperty(kNumInputsPropName));
-    FAIL_IF(!tempData, BAIL);
-    result = *(UInt32 *)(tempData->getBytesNoCopy());
-    FAIL_IF(0 == result, BAIL);
+    if(tempData)
+		result = *(UInt32 *)(tempData->getBytesNoCopy());
 
-EXIT:
     return result; 
-BAIL:
-    goto EXIT;
 }
 
 UInt32 AudioDeviceTreeParser::getNumberofInputsWithMuxes(){
@@ -205,7 +201,7 @@ UInt32 AudioDeviceTreeParser::getNumberofInputsWithMuxes(){
     
     result = 0;
     tempData = OSDynamicCast(OSData, soundEntry->getProperty(kSoundObjectsPropName));
-    FAIL_IF(!tempData, BAIL);
+    FailIf(!tempData, BAIL);
 
     theSoundObjects = (char *) tempData->getBytesNoCopy();
     size = (int) tempData->getLength();
@@ -238,9 +234,9 @@ UInt32 AudioDeviceTreeParser::getNumberOfDetects(){
     OSData *tempData;
     
     tempData = OSDynamicCast(OSData, soundEntry->getProperty(kNumDetectsPropName));
-    FAIL_IF(!tempData, BAIL);
+    FailIf(!tempData, BAIL);
     result = *(UInt32 *)(tempData->getBytesNoCopy());
-    FAIL_IF(0 == result, BAIL);
+    FailIf(0 == result, BAIL);
 
 EXIT:
     return result; 
@@ -264,7 +260,7 @@ SInt16 AudioDeviceTreeParser::getInitOperationType(){
          
 	// get all the sound objects and do the parsing
     tempData = OSDynamicCast(OSData, soundEntry->getProperty(kSoundObjectsPropName));
-    FAIL_IF(!tempData, BAIL);
+    FailIf(!tempData, BAIL);
 
     theSoundObjects = (char *) tempData->getBytesNoCopy();
 	FailIf (NULL == theSoundObjects, BAIL);
@@ -330,7 +326,7 @@ bool AudioDeviceTreeParser::getPhaseInversion()
     
     // get all the sound objects and do the parsing
     tempData = OSDynamicCast(OSData, soundEntry->getProperty(kSoundObjectsPropName));
-    FAIL_IF(!tempData, BAIL);
+    FailIf(!tempData, BAIL);
 
     theSoundObjects = (char *) tempData->getBytesNoCopy();
     size = (int) tempData->getLength();
@@ -390,7 +386,7 @@ SInt16 AudioDeviceTreeParser::getPowerObjectType(){
 
 	// get all the sound objects and do the parsing
     tempData = OSDynamicCast(OSData, soundEntry->getProperty(kSoundObjectsPropName));
-    FAIL_IF(!tempData, BAIL);
+    FailIf(!tempData, BAIL);
 
     theSoundObjects = (char *) tempData->getBytesNoCopy();
     size = (int) tempData->getLength();
@@ -448,9 +444,9 @@ UInt32 AudioDeviceTreeParser::getLayoutID(){
     OSData *tempData;
     
     tempData = OSDynamicCast(OSData, soundEntry->getProperty(kDeviceIDPropName));
-    FAIL_IF(!tempData, BAIL);
+    FailIf(!tempData, BAIL);
     result = *(UInt32 *)(tempData->getBytesNoCopy());
-    FAIL_IF(0 == result, BAIL);
+    FailIf(0 == result, BAIL);
 
 EXIT:
     return result; 
@@ -476,7 +472,7 @@ bool AudioDeviceTreeParser::getHasHWInputGain(){
     OSData *tempData;
     
     tempData = OSDynamicCast(OSData, soundEntry->getProperty(kModelPropName));
-    FAIL_IF(!tempData, EXIT);
+    FailIf(!tempData, EXIT);
 
     if((!bcmp(tempData->getBytesNoCopy(), kDacaModelName, tempData->getLength())) || 
         (!bcmp(tempData->getBytesNoCopy(), kTexasModelName, tempData->getLength())) || 
@@ -489,19 +485,19 @@ bool AudioDeviceTreeParser::getHasHWInputGain(){
 // aml XXX testing
 #if 0    
     if (!bcmp(tempData->getBytesNoCopy(), kDacaModelName, tempData->getLength())) {
-        IOLog("AudioDeviceTreeParser::getHasHWInputGain - kDacaModelName.\n");
+        debugIOLog (3, "AudioDeviceTreeParser::getHasHWInputGain - kDacaModelName.");
     } else if (!bcmp(tempData->getBytesNoCopy(), kTexasModelName, tempData->getLength())) {
-        IOLog("AudioDeviceTreeParser::getHasHWInputGain - kTexasModelName.\n");
+        debugIOLog (3, "AudioDeviceTreeParser::getHasHWInputGain - kTexasModelName.");
     } else if (!bcmp(tempData->getBytesNoCopy(), kTexas2ModelName, tempData->getLength())) {
-        IOLog("AudioDeviceTreeParser::getHasHWInputGain - kTexas2ModelName.\n");
+        debugIOLog (3, "AudioDeviceTreeParser::getHasHWInputGain - kTexas2ModelName.");
     } else if (!bcmp(tempData->getBytesNoCopy(), kAWACsModelName, tempData->getLength())) {
-        IOLog("AudioDeviceTreeParser::getHasHWInputGain - kAWACsModelName.\n");
+        debugIOLog (3, "AudioDeviceTreeParser::getHasHWInputGain - kAWACsModelName.");
     } else if (!bcmp(tempData->getBytesNoCopy(), kScreamerModelName, tempData->getLength())) {
-        IOLog("AudioDeviceTreeParser::getHasHWInputGain - kScreamerModelName.\n");
+        debugIOLog (3, "AudioDeviceTreeParser::getHasHWInputGain - kScreamerModelName.");
     } else if (!bcmp(tempData->getBytesNoCopy(), kBurgundyModelName, tempData->getLength())) {
-        IOLog("AudioDeviceTreeParser::getHasHWInputGain - kBurgundyModelName.\n");
+        debugIOLog (3, "AudioDeviceTreeParser::getHasHWInputGain - kBurgundyModelName.");
     } 
-    IOLog("AudioDeviceTreeParser::getHasHWInputGain - has HW gain = %d.\n", hasHWInputGain);
+    debugIOLog (3, "AudioDeviceTreeParser::getHasHWInputGain - has HW gain = %d.", hasHWInputGain);
 #endif
 
 EXIT:
@@ -560,7 +556,7 @@ UInt32 AudioDeviceTreeParser::getInternalMicGainOffset(){
 
     result = 0;
     tempData = OSDynamicCast(OSData, soundEntry->getProperty(kSoundObjectsPropName));
-    FAIL_IF(!tempData, BAIL);
+    FailIf(!tempData, BAIL);
 
     theSoundObjects = (char *) tempData->getBytesNoCopy();
     size = (int) tempData->getLength();
@@ -643,15 +639,15 @@ OSArray *AudioDeviceTreeParser::createInputsArrayWithMuxes(){
 	// get the output numbers and create the detects array
     AudioMuxNb = 0; 
     AudioInputMuxNb = getNumberofInputsWithMuxes();
-	DEBUG2_IOLOG ("Number of inputs with muxes = %ld\n", AudioInputMuxNb);
+	debugIOLog (3, "Number of inputs with muxes = %ld", AudioInputMuxNb);
 
     if( 0 != AudioInputMuxNb)
         AudioInputs = OSArray::withCapacity(AudioInputMuxNb);
-    FAIL_IF(!AudioInputs, BAIL);
+	if (!AudioInputs) goto BAIL;	// No need to log, just abort.
     
 	// get all the sound objects and do the parsing
     tempData = OSDynamicCast(OSData, soundEntry->getProperty(kSoundObjectsPropName));
-    FAIL_IF(!tempData, BAIL);
+    FailIf(!tempData, BAIL);
 
     theSoundObjects = (char *) tempData->getBytesNoCopy();
     size = (int) tempData->getLength();
@@ -755,7 +751,7 @@ OSArray *AudioDeviceTreeParser::createInputsArrayWithMuxes(){
                     if(theMux)
                         AudioInputs->setObject(theMux);
                 } else {
-                    DEBUG_IOLOG("There shouldn't be another mux");
+                    debugIOLog (3, "There shouldn't be another mux");
                 }
             }                
         }
@@ -785,7 +781,7 @@ OSArray *AudioDeviceTreeParser::createDetectsArray(){
     
 	// get the complete Sound objects to parse them
     tempData = OSDynamicCast(OSData, soundEntry->getProperty(kSoundObjectsPropName));
-    FAIL_IF(!tempData, BAIL);
+    FailIf(!tempData, BAIL);
 
     theSoundObjects = (char *) tempData->getBytesNoCopy();
     size = (int) tempData->getLength();

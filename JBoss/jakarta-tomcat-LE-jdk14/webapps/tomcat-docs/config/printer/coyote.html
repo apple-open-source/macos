@@ -32,7 +32,7 @@
 
 </blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Attributes"><strong>Attributes</strong></a></font></td></tr><tr><td><blockquote>
 
-  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Common%20Attributes"><strong>Common Attributes</strong></a></font></td></tr><tr><td><blockquote>
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Common Attributes"><strong>Common Attributes</strong></a></font></td></tr><tr><td><blockquote>
 
   <p>All implementations of <strong>Connector</strong>
   support the following attributes:</p>
@@ -59,7 +59,7 @@
       returned by calls to <code>request.getScheme()</code>.  For
       example, you would set this attribute to "<code>https</code>"
       for an SSL Connector.  The default value is "<code>http</code>".
-      See <a href="#SSL%20Support">SSL Support</a> for more information.</p>
+      See <a href="#SSL Support">SSL Support</a> for more information.</p>
     </td></tr><tr><td valign="center" align="left"><code>secure</code></td><td valign="center" align="left">
       <p>Set this attribute to <code>true</code> if you wish to have
       calls to <code>request.isSecure()</code> to return <code>true</code>
@@ -69,7 +69,7 @@
 
   </blockquote></td></tr></table>
 
-  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Standard%20Implementation"><strong>Standard Implementation</strong></a></font></td></tr><tr><td><blockquote>
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Standard Implementation"><strong>Standard Implementation</strong></a></font></td></tr><tr><td><blockquote>
 
   <p>The standard implementation of the <strong>Coyote HTTP/1.1 
   Connector</strong> is 
@@ -138,13 +138,13 @@
       <p>If this <strong>Connector</strong> is being used in a proxy
       configuration, configure this attribute to specify the server name
       to be returned for calls to <code>request.getServerName()</code>.
-      See <a href="#Proxy%20Support">Proxy Support</a> for more
+      See <a href="#Proxy Support">Proxy Support</a> for more
       information.</p>
     </td></tr><tr><td valign="center" align="left"><code>proxyPort</code></td><td valign="center" align="left">
       <p>If this <strong>Connector</strong> is being used in a proxy
       configuration, configure this attribute to specify the server port
       to be returned for calls to <code>request.getServerPort()</code>.
-      See <a href="#Proxy%20Support">Proxy Support</a> for more
+      See <a href="#Proxy Support">Proxy Support</a> for more
       information.</p>
     </td></tr><tr><td valign="center" align="left"><code>tcpNoDelay</code></td><td valign="center" align="left">
       <p>If set to <code>true</code>, the TCP_NO_DELAY option will be
@@ -154,18 +154,18 @@
 
   </blockquote></td></tr></table>
 
-</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Nested%20Components"><strong>Nested Components</strong></a></font></td></tr><tr><td><blockquote>
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Nested Components"><strong>Nested Components</strong></a></font></td></tr><tr><td><blockquote>
 
   <p>The only element that may be embedded inside a <strong>Connector</strong>
   element is a <strong>Factory</strong> element, which is used to configure
   a server socket factory component.  See
-  <a href="#SSL%20Support">SSL Support</a> for more information about when
+  <a href="#SSL Support">SSL Support</a> for more information about when
   this is required.</p>
 
-</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Special%20Features"><strong>Special Features</strong></a></font></td></tr><tr><td><blockquote>
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Special Features"><strong>Special Features</strong></a></font></td></tr><tr><td><blockquote>
 
 
-  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="HTTP/1.1%20and%20HTTP/1.0%20Support"><strong>HTTP/1.1 and HTTP/1.0 Support</strong></a></font></td></tr><tr><td><blockquote>
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="HTTP/1.1 and HTTP/1.0 Support"><strong>HTTP/1.1 and HTTP/1.0 Support</strong></a></font></td></tr><tr><td><blockquote>
 
   <p>This <strong>Connector</strong> supports all of the required features
   of the HTTP/1.1 protocol, as described in RFC 2616, including persistent
@@ -184,7 +184,7 @@
   </blockquote></td></tr></table>
 
 
-  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Logging%20Output"><strong>Logging Output</strong></a></font></td></tr><tr><td><blockquote>
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Logging Output"><strong>Logging Output</strong></a></font></td></tr><tr><td><blockquote>
 
   <p>Any debugging or exception logging information generated by this
   <strong>Connector</strong> will be automatically routed to the
@@ -195,7 +195,7 @@
   </blockquote></td></tr></table>
 
 
-  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Proxy%20Support"><strong>Proxy Support</strong></a></font></td></tr><tr><td><blockquote>
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Proxy Support"><strong>Proxy Support</strong></a></font></td></tr><tr><td><blockquote>
 
   <p>The <code>proxyName</code> and <code>proxyPort</code> attributes can
   be used when Tomcat is run behind a proxy server.  These attributes
@@ -213,7 +213,7 @@
   </blockquote></td></tr></table>
 
 
-  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="SSL%20Support"><strong>SSL Support</strong></a></font></td></tr><tr><td><blockquote>
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="SSL Support"><strong>SSL Support</strong></a></font></td></tr><tr><td><blockquote>
 
   <p>You can enable SSL support for a particular instance of this
   <strong>Connector</strong> by nesting an appropriate

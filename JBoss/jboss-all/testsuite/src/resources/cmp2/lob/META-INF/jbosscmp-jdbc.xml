@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <!DOCTYPE jbosscmp-jdbc PUBLIC
-   "-//JBoss//DTD JBOSSCMP-JDBC 3.0//EN"
-   "http://www.jboss.org/j2ee/dtd/jbosscmp-jdbc_3_0.dtd">
+   "-//JBoss//DTD JBOSSCMP-JDBC 3.2//EN"
+   "http://www.jboss.org/j2ee/dtd/jbosscmp-jdbc_3_2.dtd">
 
 <jbosscmp-jdbc>
    <defaults>
@@ -70,6 +70,15 @@
             <jdbc-type>VARBINARY</jdbc-type>
             <sql-type>VARBINARY</sql-type>
             
+         </cmp-field>
+         <cmp-field>
+            <field-name>cleanGetValueHolder</field-name>
+            <check-dirty-after-get>false</check-dirty-after-get>
+         </cmp-field>
+         <cmp-field>
+            <field-name>stateFactoryValueHolder</field-name>
+            <check-dirty-after-get>true</check-dirty-after-get>
+            <state-factory>org.jboss.test.cmp2.lob.ValueHolderStateFactory</state-factory>
          </cmp-field>
       </entity>
    </enterprise-beans>

@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -189,6 +187,12 @@ enum {
     kSetInterface           = EncodeRequest(kUSBRqSetInterface,  kUSBOut, kUSBStandard, kUSBInterface),
     kSyncFrame              = EncodeRequest(kUSBRqSyncFrame,     kUSBIn,  kUSBStandard, kUSBEndpoint),
 };
+
+/*!
+@defined kCallInterfaceOpenWithGate
+ @discussion If the USB Device has this property, drivers for any of its interfaces will have their handleOpen method called while holding the workloop gate.
+ */
+#define kCallInterfaceOpenWithGate	"kCallInterfaceOpenWithGate"
 
 // TYPES
 
@@ -495,6 +499,9 @@ struct IOUSBEndpointDescriptor {
 };
 typedef struct IOUSBEndpointDescriptor	IOUSBEndpointDescriptor;
 typedef IOUSBEndpointDescriptor *	IOUSBEndpointDescriptorPtr;
+
+enum{addPacketShift = 11};  // Bits for additional packets in maxPacketField. (Table 9-13)
+#define mungeMaxPacketSize(w) ((w>1024)?(((w>>(addPacketShift))+1)*(w&((1<<addPacketShift)-1))):w)
 
 /*!
     @typedef IOUSBHIDDescriptor

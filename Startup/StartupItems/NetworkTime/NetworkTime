@@ -21,6 +21,7 @@ StartService ()
 
 	# Synchronize our clock to the network's time,
 	# then fire off ntpd to keep the clock in sync.
+	scutil -w State:/Network/Global/DNS -t 5
 	ntpdate -bvs
 	ntpd -f /var/run/ntp.drift -p /var/run/ntpd.pid
     fi

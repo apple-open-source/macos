@@ -57,7 +57,7 @@ import org.jboss.logging.Logger;
  * @author <a href="mailto:justin@j-m-f.demon.co.uk">Justin Forder</a>
  * @author <a href="mailto:dirk@jboss.de">Dirk Zimmermann</a>
  * @author <a href="mailto:danch@nvisia.com">danch (Dan Christopherson</a>
- * @version $Revision: 1.43.2.2 $ 
+ * @version $Revision: 1.43.2.3 $ 
  * 
  *   <p><b>Revisions:</b>
  *
@@ -350,7 +350,22 @@ public abstract class JDBCCommand
                   }
               }
           } else {
-              stmt.setObject(idx, value, jdbcType);
+             switch(jdbcType)
+             {
+                case Types.DECIMAL:
+                case Types.NUMERIC:
+                   if(value instanceof BigDecimal)
+                   {
+                      stmt.setBigDecimal(idx, (BigDecimal)value);
+                   }
+                   else
+                   {
+                      stmt.setObject(idx, value, jdbcType, 0);
+                   }
+                   break;
+                default:
+                   stmt.setObject(idx, value, jdbcType);
+             }
           }
       }
    }

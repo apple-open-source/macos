@@ -3,22 +3,21 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
+ * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ * Reserved.  This file contains Original Code and/or Modifications of
+ * Original Code as defined in and that are subject to the Apple Public
+ * Source License Version 1.0 (the 'License').  You may not use this file
+ * except in compliance with the License.  Please obtain a copy of the
+ * License at http://www.apple.com/publicsource and read it before using
+ * this file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License."
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -41,10 +40,8 @@
 #include <syslog.h>
 #include <notify.h>
 
-#define NOTIFY_SYNC
-
-extern uint32_t notify_set_state(int token, int state);
-extern uint32_t notify_get_state(int token, int *state);
+extern u_int32_t notify_set_state(int token, int state);
+extern u_int32_t notify_get_state(int token, int *state);
 
 #define DataStoreAccessMode 0700
 #define ConfigFileName "Config"
@@ -75,7 +72,7 @@ static char zero[DataQuantum];
 
 #define Quantize(X) ((((X) + DataQuantum - 1) / DataQuantum) * DataQuantum)
 static dsstatus store_save_data(dsstore *, dsrecord *, dsdata *);
-static dsstatus dsstore_init(dsstore *s);
+static dsstatus dsstore_init(dsstore *s, u_int32_t dirty);
 u_int32_t dsstore_max_id_internal(dsstore *s, u_int32_t lock);
 dsstatus dsstore_save_internal(dsstore *s, dsrecord *r, u_int32_t lock);
 dsstatus dsstore_remove_internal(dsstore *s, u_int32_t dsid, u_int32_t lock);
@@ -298,7 +295,7 @@ dsstore_lock(dsstore *s, int block)
 	if (s == NULL) return DSStatusInvalidStore;
 
 	op = LOCK_EX;
-	if (block == 0) op |= LOCK_EX;
+	if (block == 0) op |= LOCK_NB;
 
 	status = flock(s->store_lock, op);
 	if ((status < 0) && (errno == EWOULDBLOCK)) return DSStatusLocked;
@@ -338,22 +335,20 @@ dsstore_sync(dsstore *s)
 {
 	struct stat sb;
 	u_int32_t i;
-#ifdef NOTIFY_SYNC
-	u_int32_t status, check, nvers;
-#endif
+	u_int32_t status, check, vers;
 
 	if (s == NULL) return DSStatusInvalidStore;
 
-#ifdef NOTIFY_SYNC
-	nvers = 0;
 	check = 1;
+	vers = 0;
 
 	status = notify_check(s->notify_token, &check);
-	if ((status == NOTIFY_STATUS_OK) && (check == 0)) return DSStatusOK;
+	if (status != NOTIFY_STATUS_OK) check = 1;
 
-	status = notify_get_state(s->notify_token, &nvers);
-	if ((status == NOTIFY_STATUS_OK) && (nvers == s->max_vers)) return DSStatusOK;
-#endif
+	status = notify_get_state(s->notify_token, &vers);
+	if (status != NOTIFY_STATUS_OK) vers = 0;
+
+	if ((check == 0) && (vers == s->max_vers)) return DSStatusOK;
 
 	if (dsstore_stat(s, ConfigFileName, &sb) != 0) return DSStatusInvalidStore;
 	if ((s->last_sec == sb.st_mtimespec.tv_sec) && (s->last_nsec == sb.st_mtimespec.tv_nsec)) return DSStatusOK;
@@ -369,7 +364,7 @@ dsstore_sync(dsstore *s)
 
 	if (s->sync_delegate != NULL) (s->sync_delegate)(s->sync_private);
 
-	return dsstore_init(s);
+	return dsstore_init(s, 1);
 }
 
 static dsstatus
@@ -733,7 +728,7 @@ index_recovery_read(dsstore *s, u_int32_t size)
 	{
 		if (fseek(f, offset, SEEK_SET) != 0)
 		{
-			syslog(LOG_ERR, "%s fseek %u status %s", store, offset, strerror(errno));
+			syslog(LOG_ERR, "%s fseek %q status %s", store, offset, strerror(errno));
 			break;
 		}
 
@@ -1283,7 +1278,7 @@ dsstore_is_file_full(dsstore *s, u_int32_t size)
  * - re-creates the Index if necessary
  */
 static dsstatus
-dsstore_init(dsstore *s)
+dsstore_init(dsstore *s, u_int32_t dirty)
 {
 	dsstatus status;
 	struct stat sb;
@@ -1301,7 +1296,6 @@ dsstore_init(dsstore *s)
 	s->file_info_count = 0;
 
 	write_allowed = dsstore_access_readwrite(s);
-	s->dirty = 0;
 
 	if (dsstore_stat(s, ConfigFileName, &sb) != 0) return DSStatusInvalidStore;
 
@@ -1309,30 +1303,36 @@ dsstore_init(dsstore *s)
 	s->last_nsec = sb.st_mtimespec.tv_nsec;
 
 	/* If Create or Delete file exists, we had a crash */
-	if (dsstore_stat(s, CreateFileName, &sb) == 0) s->dirty++;
-	if (dsstore_stat(s, DeleteFileName, &sb) == 0) s->dirty++;
+	if ((dirty == 0) && (dsstore_stat(s, CreateFileName, &sb) == 0)) dirty++;
+	if ((dirty == 0) && (dsstore_stat(s, DeleteFileName, &sb) == 0)) dirty++;
 
 	/* Can't start up read-only until someone has done crash-recovery */
-	if ((s->dirty != 0) && (!write_allowed)) return DSStatusInvalidStore;
+	if ((dirty != 0) && (!write_allowed)) return DSStatusInvalidStore;
 
 	/* If Clean file is missing or zero size, store is dirty */
-	if (dsstore_stat(s, CleanFileName,  &sb) != 0) s->dirty++;
-	else if (sb.st_size != sizeof(u_int32_t)) s->dirty++;
+	if (dirty == 0)
+	{
+		if (dsstore_stat(s, CleanFileName,  &sb) != 0) dirty++;
+		else if (sb.st_size != sizeof(u_int32_t)) dirty++;
+	}
 
 	/* If Index file is missing or zero size, store is dirty */
-	if (dsstore_stat(s, IndexFileName,  &sb) != 0) s->dirty++;
-	else if (sb.st_size == 0) s->dirty++;
+	if (dirty == 0)
+	{
+		if (dsstore_stat(s, IndexFileName,  &sb) != 0) dirty++;
+		else if (sb.st_size == 0) dirty++;
+	}
 
-	if (s->dirty == 0)
+	if (dirty == 0)
 	{
 		/* Store appears clean.  Read nichecksum from the Clean file */
 		f = dsstore_fopen(s, CleanFileName, "r");
 		i = fread(&(s->nichecksum), sizeof(u_int32_t), 1, f);
 		fclose(f);
-		if (i != 1) return s->dirty++;
+		if (i != 1) dirty++;
 	}
 	
-	if (s->dirty == 0)
+	if (dirty == 0)
 	{
 		/* Store appears clean.  Read Index file */
 		status = dsstore_read_index(s);
@@ -1343,11 +1343,11 @@ dsstore_init(dsstore *s)
 			if (s->index != NULL) free(s->index);
 			s->index = NULL;
 			s->index_count = 0;
-			s->dirty++;
+			dirty++;
 		}
 	}
 
-	if (s->dirty != 0)
+	if (dirty != 0)
 	{
 		/* Store is dirty. Read the store to recover the Index */
 		/* N.B. index_recovery() sets nichecksum */
@@ -1382,7 +1382,7 @@ dsstore_init(dsstore *s)
 	}
 
 	/* If the store was dirty, check the tree */
-	if (s->dirty != 0)
+	if (dirty != 0)
 	{
 		status = tree_check(s, write_allowed);
 		if (status != DSStatusOK) return status;
@@ -1444,8 +1444,7 @@ dsstore_open(dsstore **s, char *dirname, u_int32_t flags)
 	free(path);
 
 	dsstore_lock(*s, 1);
-	status = dsstore_init(*s);
-	dsstore_unlock(*s);
+	status = dsstore_init(*s, 0);
 
 	if (flags & DSSTORE_FLAGS_NOTIFY_CHANGES)
 	{
@@ -1462,6 +1461,8 @@ dsstore_open(dsstore **s, char *dirname, u_int32_t flags)
 		if (dot != NULL) *dot = '.';
 	}
 
+	dsstore_unlock(*s);
+
 	return status;
 }
 
@@ -1469,6 +1470,9 @@ void
 dsstore_set_notification_name(dsstore *s, const char *n)
 {
 	if (s == NULL) return;
+
+	if (!(s->flags & DSSTORE_FLAGS_NOTIFY_CHANGES)) return;
+
 	if (s->notification_name != NULL)
 	{
 		free(s->notification_name);
@@ -1489,6 +1493,8 @@ dsstore_notify(dsstore *s)
 {
 	if (s == NULL) return;
 	if (s->notification_name == NULL) return;
+	if (!(s->flags & DSSTORE_FLAGS_NOTIFY_CHANGES)) return;
+
 	notify_set_state(s->notify_token, s->max_vers);
 	notify_post(s->notification_name);
 }
@@ -1535,8 +1541,6 @@ dsstore_close(dsstore *s)
 		if (i != 1) status = DSStatusWriteFailed;
 	}
 
-	free(s->dsname);
-
 	for (i = 0; i < s->index_count; i++) free(s->index[i]);
 	if (s->index != NULL) free(s->index);
 
@@ -1551,6 +1555,7 @@ dsstore_close(dsstore *s)
 	dsstore_unlock(s);
 	close(s->store_lock);
 
+	free(s->dsname);
 	free(s);
 
 	return status;
@@ -1708,7 +1713,7 @@ store_save_data(dsstore *s, dsrecord *r, dsdata *d)
 			offset = offset + size;
 			if (fseek(f, offset, SEEK_SET) != 0)
 			{
-				syslog(LOG_ERR, "store_save_data %u Store.%u fseek %u status %s", r->dsid, size, offset, strerror(errno));
+				syslog(LOG_ERR, "store_save_data %u Store.%u fseek %q status %s", r->dsid, size, offset, strerror(errno));
 				fclose(f);
 				return DSStatusWriteFailed;
 			}
@@ -1746,19 +1751,15 @@ store_save_data(dsstore *s, dsrecord *r, dsdata *d)
 		offset = where * size;
 		if (fseek(f, offset, SEEK_SET) != 0)
 		{
-			syslog(LOG_ERR, "store_save_data %u Store.%u fseek %u status %s", r->dsid, size, offset, strerror(errno));
+			syslog(LOG_ERR, "store_save_data %u Store.%u fseek %q status %s", r->dsid, size, offset, strerror(errno));
 			fclose(f);
 			return DSStatusWriteFailed;
 		}
 	}
 
 	/* Remove the Clean file when we dirty the store */
-	if (s->dirty == 0)
-	{
-		s->dirty = 1;
-		dsstore_unlink(s, CleanFileName);
-		dsstore_touch(s);
-	}
+	dsstore_unlink(s, CleanFileName);
+	dsstore_touch(s);
 
 	/* write data to store file */
 	status = dsdata_fwrite(d, f);
@@ -1883,11 +1884,8 @@ dsstore_save_internal(dsstore *s, dsrecord *r, u_int32_t lock)
 	}
 
 	/* Remove the Clean file when we dirty the store */
-	if (s->dirty == 0)
-	{
-		s->dirty = 1;
-		dsstore_unlink(s, CleanFileName);
-	}
+	dsstore_unlink(s, CleanFileName);
+	dsstore_touch(s);
 
 	status = dsdata_fwrite(d, f);
 	fclose(f);
@@ -2011,14 +2009,9 @@ dsstore_save_fast(dsstore *s, dsrecord *r, u_int32_t lock)
 		return DSStatusInvalidRecord;
 	}
 
-	dsstore_touch(s);
-
 	/* Remove the Clean file when we dirty the store */
-	if (s->dirty == 0)
-	{
-		s->dirty = 1;
-		dsstore_unlink(s, CleanFileName);
-	}
+	dsstore_unlink(s, CleanFileName);
+	dsstore_touch(s);
 
 	/* Delete record from store */
 	status = dsstore_remove_internal(s, r->dsid, 0);
@@ -2099,15 +2092,10 @@ dsstore_save_copy(dsstore *s, dsrecord *r)
 		return DSStatusInvalidRecord;
 	}
 
-	dsstore_touch(s);
-
 	/* Remove the Clean file when we dirty the store */
-	if (s->dirty == 0)
-	{
-		s->dirty = 1;
-		dsstore_unlink(s, CleanFileName);
-	}
-
+	dsstore_unlink(s, CleanFileName);
+	dsstore_touch(s);
+	
 	/* Delete record from store */
 	status = dsstore_remove_internal(s, r->dsid, 0);
 	if (status == DSStatusInvalidPath)
@@ -2212,8 +2200,6 @@ dsstore_remove_internal(dsstore *s, u_int32_t dsid, u_int32_t lock)
 		return DSStatusOK;
 	}
 
-	dsstore_touch(s);
-
 	f = dsstore_fopen(s, DeleteFileName, "w");
 	if (f == NULL)
 	{
@@ -2223,11 +2209,8 @@ dsstore_remove_internal(dsstore *s, u_int32_t dsid, u_int32_t lock)
 	}
 
 	/* Remove the Clean file when we dirty the store */
-	if (s->dirty == 0)
-	{
-		s->dirty = 1;
-		dsstore_unlink(s, CleanFileName);
-	}
+	dsstore_unlink(s, CleanFileName);
+	dsstore_touch(s);
 
 	status = fwrite(&dsid, sizeof(u_int32_t), 1, f);
 	fclose(f);
@@ -2263,7 +2246,7 @@ dsstore_remove_internal(dsstore *s, u_int32_t dsid, u_int32_t lock)
 	status = fseek(f, offset, SEEK_SET);
 	if (status != 0)
 	{
-		syslog(LOG_ERR, "dsstore_remove_internal %u Store.%u fseek %u failed: %s", dsid, size, offset, strerror(errno));
+		syslog(LOG_ERR, "dsstore_remove_internal %u Store.%u fseek %q failed: %s", dsid, size, offset, strerror(errno));
 		fclose(f);
 		dsstore_unlink(s, DeleteFileName);
 		if (lock != 0) dsstore_unlock(s);
@@ -2272,20 +2255,28 @@ dsstore_remove_internal(dsstore *s, u_int32_t dsid, u_int32_t lock)
 
 	/* Read record and update nichecksum */
 	r = _dsstore_dsrecord_fread(f, size, 1);
+
 	if (r == NULL)
 	{
 		/* Bad news - the database is corrupt */
-		syslog(LOG_ERR, "dsstore_remove_internal %u Store.%u _dsstore_dsrecord_fread failed at offset %u: %s", dsid, size, offset, strerror(errno));
+		syslog(LOG_ERR, "dsstore_remove_internal %u Store.%u _dsstore_dsrecord_fread failed at offset %q: %s", dsid, size, offset, strerror(errno));
 		return DSStatusWriteFailed;
 	}
-
+	
+	if (r->dsid != dsid)
+	{
+		/* Bad news - the database is corrupt */
+		syslog(LOG_ERR, "dsstore_remove_internal %u Store.%u _dsstore_dsrecord_fread returned incorrect ID %u at offset %q: %s", dsid, size, r->dsid, offset, strerror(errno));
+		return DSStatusWriteFailed;
+	}
+	
 	s->nichecksum -= ((dsid + 1) * r->serial);
 	dsrecord_release(r);
 
 	status = fseek(f, offset, SEEK_SET);
 	if (status != 0)
 	{
-		syslog(LOG_ERR, "dsstore_remove_internal %u Store.%u fseek %u failed: %s", dsid, size, offset, strerror(errno));
+		syslog(LOG_ERR, "dsstore_remove_internal %u Store.%u fseek %q failed: %s", dsid, size, offset, strerror(errno));
 	}
 
 	z = malloc(size - DSDATA_STORAGE_HEADER_SIZE);
@@ -2295,19 +2286,19 @@ dsstore_remove_internal(dsstore *s, u_int32_t dsid, u_int32_t lock)
 	status = fwrite(&i, sizeof(u_int32_t), 1, f);
 	if (status <= 0)
 	{
-		syslog(LOG_ERR, "dsstore_remove_internal %u Store.%u fwrite zero type offset %u failed: %u %s", dsid, size, offset, errno, strerror(errno));
+		syslog(LOG_ERR, "dsstore_remove_internal %u Store.%u fwrite zero type offset %q failed: %u %s", dsid, size, offset, errno, strerror(errno));
 	}
 
 	if (status > 0) status = fwrite(&i, sizeof(u_int32_t), 1, f);
 	if (status <= 0)
 	{
-		syslog(LOG_ERR, "dsstore_remove_internal %u Store.%u fwrite zero length offset %u failed: %u %s", dsid, size, offset, errno, strerror(errno));
+		syslog(LOG_ERR, "dsstore_remove_internal %u Store.%u fwrite zero length offset %q failed: %u %s", dsid, size, offset, errno, strerror(errno));
 	}
 
 	if (status > 0) status = fwrite(z, size - DSDATA_STORAGE_HEADER_SIZE, 1, f);
 	if (status <= 0)
 	{
-		syslog(LOG_ERR, "dsstore_remove_internal %u Store.%u fwrite zero data offset %u failed: %u %s", dsid, size, offset, errno, strerror(errno));
+		syslog(LOG_ERR, "dsstore_remove_internal %u Store.%u fwrite zero data offset %q failed: %u %s", dsid, size, offset, errno, strerror(errno));
 	}
 
 	free(z);
@@ -2384,13 +2375,29 @@ dsstore_fetch_internal(dsstore *s, u_int32_t dsid, u_int32_t lock)
 	offset = where * size;
 	if (fseek(f, offset, SEEK_SET) != 0)
 	{
-		syslog(LOG_ERR, "dsstore_fetch_internal %u Store.%u fseek %u failed: %s", dsid, size, offset, strerror(errno));
+		syslog(LOG_ERR, "dsstore_fetch_internal %u Store.%u fseek %q failed: %s", dsid, size, offset, strerror(errno));
 		fclose(f);
 		if (lock != 0) dsstore_unlock(s);
 		return NULL;
 	}
 
 	r = _dsstore_dsrecord_fread(f, size, 1);
+
+	if (r == NULL)
+	{
+		/* Bad news - the database is corrupt */
+		syslog(LOG_ERR, "dsstore_fetch_internal %u Store.%u _dsstore_dsrecord_fread failed at offset %q: %s", dsid, size, offset, strerror(errno));
+		return NULL;
+	}
+
+	if (r->dsid != dsid)
+	{
+		/* Bad news - the database is corrupt */
+		syslog(LOG_ERR, "dsstore_fetch_internal %u Store.%u _dsstore_dsrecord_fread returned incorrect ID %u at offset %q: %s", dsid, size, r->dsid, offset, strerror(errno));
+		dsrecord_release(r);
+		return NULL;
+	}
+	
 	fclose(f);
 
 	/* Save in cache */

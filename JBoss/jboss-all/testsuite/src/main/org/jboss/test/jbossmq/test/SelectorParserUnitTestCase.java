@@ -10,14 +10,10 @@ package org.jboss.test.jbossmq.test;
 import java.io.ByteArrayInputStream;
 import java.util.HashMap;
 
-import junit.framework.Test;
-import junit.framework.TestCase;
-
+import org.jboss.mq.selectors.ISelectorParser;
 import org.jboss.mq.selectors.Identifier;
 import org.jboss.mq.selectors.Operator;
 import org.jboss.mq.selectors.SelectorParser;
-import org.jboss.mq.selectors.ISelectorParser;
-
 import org.jboss.test.JBossTestCase;
 
 /** Tests of the JavaCC LL(1) parser.
@@ -25,7 +21,7 @@ import org.jboss.test.JBossTestCase;
  @author Scott.Stark@jboss.org
  @author d_jencks@users.sourceforge.net
  
- @version $Revision: 1.9.2.1 $
+ @version $Revision: 1.9.2.2 $
  
  * (david jencks)  Used constructor of SelectorParser taking a stream
  * to avoid reInit npe in all tests.  Changed to JBossTestCase and logging.

@@ -45,7 +45,7 @@ import org.jboss.test.util.Debug;
  connect to the server using the https url passed to the service.
 
  @author Scott.Stark@jboss.org
- @version $Revision: 1.1.4.5 $
+ @version $Revision: 1.1.4.6 $
  */
 public class HttpsUnitTestCase extends JBossTestCase
 {
@@ -144,7 +144,7 @@ public class HttpsUnitTestCase extends JBossTestCase
    /**
     * Setup the test suite.
     */
-   public static Test suite()
+   public static Test suite() throws Exception
    {
       TestSuite suite = new TestSuite();
       suite.addTest(new TestSuite(HttpsUnitTestCase.class));

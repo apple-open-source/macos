@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE project [
    <!ENTITY buildmagic SYSTEM "../tools/etc/buildmagic/buildmagic.ent">
+   <!ENTITY libraries SYSTEM "../tools/etc/buildmagic/libraries.ent">
 ]>
 
 <!-- ====================================================================== -->
@@ -12,7 +13,7 @@
 <!--                                                                        -->
 <!-- ====================================================================== -->
 
-<!-- $Id: build.xml,v 1.20.2.9 2003/05/18 06:27:18 starksm Exp $ -->
+<!-- $Id: build.xml,v 1.20.2.12 2003/11/10 06:45:50 starksm Exp $ -->
 
 <project default="main" name="JBoss/Common">
 
@@ -68,68 +69,14 @@
     <!-- ========= -->
     <!-- Libraries -->
     <!-- ========= -->
-
-    <!-- Apache Crimson (XML/DOM) -->
-    <property name="apache.crimson.root" value="${project.thirdparty}/apache/crimson"/>
-    <property name="apache.crimson.lib" value="${apache.crimson.root}/lib"/>
-    <path id="apache.crimson.classpath">
-      <pathelement path="${apache.crimson.lib}/crimson.jar"/>
-    </path>
-
-    <!-- Apache Commons -->
-    <property name="apache.commons.root" value="${project.thirdparty}/apache/commons"/>
-    <property name="apache.commons.lib" value="${apache.commons.root}/lib"/>
-    <path id="apache.commons.classpath">
-      <pathelement path="${apache.commons.lib}/commons-collections.jar"/>
-      <pathelement path="${apache.commons.lib}/commons-logging.jar"/>
-    </path>
-
-    <!-- Log4j -->
-    <property name="apache.log4j.root" value="${project.thirdparty}/apache/log4j"/>
-    <property name="apache.log4j.lib" value="${apache.log4j.root}/lib"/>
-    <path id="apache.log4j.classpath">
-      <pathelement path="${apache.log4j.lib}/log4j.jar"/>
-    </path>
-
-     <!-- Slide Client -->
-     <property name="apache.slide.root" value="${project.thirdparty}/apache/slide/client"/>
-     <property name="apache.slide.lib" value="${apache.slide.root}/lib"/>
-     <path id="apache.slide.classpath">
-        <fileset dir="${apache.slide.lib}">
-          <include name="*.jar"/>
-        </fileset>
-     </path>
-
-    <!-- GNU Regexp -->
-    <property name="gnu.regex.root" value="${project.thirdparty}/gnu/regexp"/>
-    <property name="gnu.regex.lib" value="${gnu.regex.root}/lib"/>
-    <path id="gnu.regex.classpath">
-      <fileset dir="${gnu.regex.lib}">
-        <include name="*.jar"/>
-      </fileset>
-    </path>
-
-    <!-- EDU.oswego.cs.dl.util.concurrent -->
-    <property name="oswego.concurrent.root" value="${project.thirdparty}/oswego/concurrent"/>
-    <property name="oswego.concurrent.lib" value="${oswego.concurrent.root}/lib"/>
-    <path id="oswego.concurrent.classpath">
-      <pathelement path="${oswego.concurrent.lib}/concurrent.jar"/>
-    </path>
-
-    <!-- JUnit -->
-    <property name="junit.junit.root" value="${project.thirdparty}/junit/junit"/>
-    <property name="junit.junit.lib" value="${junit.junit.root}/lib"/>
-    <path id="junit.junit.classpath">
-      <pathelement path="${junit.junit.lib}/junit.jar"/>
-    </path>
-
+    &libraries;
     <!-- The combined library classpath -->
     <path id="library.classpath">
       <path refid="apache.crimson.classpath"/>
       <path refid="apache.commons.classpath"/>
       <path refid="apache.log4j.classpath"/>
       <path refid="apache.slide.classpath"/>
-      <path refid="gnu.regex.classpath"/>
+      <path refid="gnu.regexp.classpath"/>
       <path refid="oswego.concurrent.classpath"/>
       <path refid="junit.junit.classpath"/>
     </path>
@@ -191,27 +138,7 @@
 
     <!-- Packages to include when generating api documentation -->
     <property name="javadoc.packages" value="org.jboss.*"/>
-
-    <!-- Override JUnit defaults -->
-    <property name="junit.timeout" value="240000"/> <!-- 4 minutes -->
-    <property name="junit.batchtest.todir" value="${build.reports}"/>
-    <property name="junit.jvm.options" value="-Ddummy"/>
-
-    <!-- xdoclet -->
-    <path id="xdoclet.task.classpath">
-      <path refid="javac.classpath"/>
-      <fileset dir="${project.thirdparty}/xdoclet/xdoclet/lib">
-        <include name="**/*.jar"/>
-      </fileset>
-    </path>
-    <property name="xdoclet.task.classpath" 
-	      refid="xdoclet.task.classpath"/>
-
-    <taskdef name="todo" 
-             classname="xdoclet.modules.doc.DocumentDocletTask"
-             classpathref="xdoclet.task.classpath"/>
   </target>
-
 
   <!-- ================================================================== -->
   <!-- Compile                                                            -->
@@ -285,7 +212,10 @@
    -->
   <target name="jars" 
 	  description="Builds all jar files."
-	  depends="compile">
+     depends="_buildmagic:build-bypass-check"
+	  unless="build-bypass.on">
+
+    <call target="compile"/>
 
     <mkdir dir="${build.lib}"/>
     
@@ -313,6 +243,9 @@
          <include name="org/jboss/logging/**"/>
       </fileset>
     </jar>
+
+    <!-- Update the build marker to allow bypassing -->
+    <touch file="${build-bypass.marker}"/>
 
   </target>
 

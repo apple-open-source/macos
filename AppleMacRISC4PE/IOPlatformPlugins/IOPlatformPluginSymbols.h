@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,57 +23,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc.  All rights reserved.
  *
  *
  */
-//		$Log: IOPlatformPluginSymbols.h,v $
-//		Revision 1.6  2003/07/08 04:32:49  eem
-//		3288891, 3279902, 3291553, 3154014
-//		
-//		Revision 1.5  2003/06/07 01:30:56  eem
-//		Merge of EEM-PM72-ActiveFans-2 branch, with a few extra tweaks.  This
-//		checkin has working PID control for PowerMac7,2 platforms, as well as
-//		a first shot at localized strings.
-//		
-//		Revision 1.4.2.5  2003/06/04 00:00:51  eem
-//		More PID stuff, working towards support for forced meta states.
-//		
-//		Revision 1.4.2.4  2003/06/01 14:52:51  eem
-//		Most of the PID algorithm is implemented.
-//		
-//		Revision 1.4.2.3  2003/05/31 08:11:34  eem
-//		Initial pass at integrating deadline-based timer callbacks for PID loops.
-//		
-//		Revision 1.4.2.2  2003/05/26 10:07:14  eem
-//		Fixed most of the bugs after the last cleanup/reorg.
-//		
-//		Revision 1.4.2.1  2003/05/22 01:31:04  eem
-//		Checkin of today's work (fails compilations right now).
-//		
-//		Revision 1.4  2003/05/21 21:58:49  eem
-//		Merge from EEM-PM72-ActiveFans-1 branch with initial crack at active fan
-//		control on Q37.
-//		
-//		Revision 1.3.2.1  2003/05/14 22:07:49  eem
-//		Implemented state-driven sensor, cleaned up "const" usage and header
-//		inclusions.
-//		
-//		Revision 1.3  2003/05/13 02:13:51  eem
-//		PowerMac7_2 Dynamic Power Step support.
-//		
-//		Revision 1.2.2.1  2003/05/12 11:21:10  eem
-//		Support for slewing.
-//		
-//		Revision 1.2  2003/05/10 06:50:33  eem
-//		All sensor functionality included for PowerMac7_2_PlatformPlugin.  Version
-//		is 1.0.1d12.
-//		
-//		Revision 1.1.2.1  2003/05/10 06:32:34  eem
-//		Sensor changes, should be ready to merge to trunk as 1.0.1d12.
-//		
-//		
-//		
+
 
 #ifndef _IOPLATFORMPLUGINSYMBOLS_H
 #define _IOPLATFORMPLUGINSYMBOLS_H

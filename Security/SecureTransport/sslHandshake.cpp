@@ -397,7 +397,7 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
 					/* the "proper" way - app decides. */
 					case SSL_RSA:
 					#endif
-						if(ctx->encryptPrivKey != NULL) {
+						if(ctx->encryptPrivKeyRef != NULL) {
 							doServerKeyExch = true;
 						}
 						break;

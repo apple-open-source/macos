@@ -1,0 +1,92 @@
+<!-- Advanced EJB Web Service Descriptor -->
+
+<deployment name="Store" 
+	targetNamespace="http://net.jboss.org/samples/store"
+	xmlns:store="http://net.jboss.org/samples/store"
+	xmlns="http://xml.apache.org/axis/wsdd/"
+    xmlns:jbnet="http://net.jboss.org/server"
+	xmlns:java="http://xml.apache.org/axis/wsdd/providers/java">
+
+  <!-- define some JNDI mappings -->
+  <ejb-ref>
+	<ejb-ref-name>store/ItemService</ejb-ref-name>
+	<ejb-link>ItemService</ejb-link>
+  </ejb-ref>
+	
+  <!-- define some JNDI mappings -->
+  <ejb-ref>
+	<ejb-ref-name>store/BusinessPartnerService</ejb-ref-name>
+	<ejb-link>BusinessPartnerService</ejb-link>
+  </ejb-ref>
+	  
+  <!-- this is the representation of the item web service -->
+  <service name="ItemService" provider="Handler">
+   <parameter name="handlerClass" value="org.jboss.net.axis.server.EJBProvider"/>
+   <!-- the final jndi name that this provider sits upon -->
+   <parameter name="beanJndiName" value="java:comp/env/store/ItemService"/>
+   <parameter name="allowedMethods" value="*"/>
+    <requestFlow name="ItemRequest">
+   	 <handler type="java:org.jboss.net.axis.server.TransactionRequestHandler"/>
+    </requestFlow>
+    <responseFlow name="ItemResponse">
+   	 <handler type="java:org.jboss.net.axis.server.SerialisationResponseHandler"/>
+   	 <handler type="java:org.jboss.net.axis.server.TransactionResponseHandler"/>
+    </responseFlow>
+  </service>
+
+  <!-- this is the representation of the business partner service -->
+  <service name="BusinessPartnerService" provider="Handler">
+   <parameter name="handlerClass" value="org.jboss.net.axis.server.EJBProvider"/>
+   <!-- the final jndi name that this provider sits upon -->
+   <parameter name="beanJndiName" value="java:comp/env/store/BusinessPartnerService"/>
+   <parameter name="allowedMethods" value="*"/>
+    <requestFlow name="BusinessPartnerRequest">
+   	 <handler type="java:org.jboss.net.axis.server.TransactionRequestHandler"/>
+    </requestFlow>
+    <responseFlow name="BusinessPartnerResponse">
+   	 <handler type="java:org.jboss.net.axis.server.SerialisationResponseHandler"/>
+   	 <handler type="java:org.jboss.net.axis.server.TransactionResponseHandler"/>
+    </responseFlow>
+  </service>
+
+  <typeMapping qname="store:Item" 
+        type="java:org.jboss.test.webservice.store.server.Item"
+        serializer="org.apache.axis.encoding.ser.BeanSerializerFactory"
+        deserializer="org.jboss.net.axis.server.EntityBeanDeserializerFactory"
+        encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+  	<parameter name="JndiName" value="local/ItemHome"/>
+  	<parameter name="FindMethodName" value="findByPrimaryKey"/>
+  	<parameter name="FindMethodElements" value="name"/>
+  	<parameter name="FindMethodSignature" value="java.lang.String"/> 	
+  </typeMapping>
+
+  <typeMapping qname="store:BusinessPartner" 
+        type="java:org.jboss.test.webservice.store.server.BusinessPartner"
+        serializer="org.apache.axis.encoding.ser.BeanSerializerFactory"
+        deserializer="org.jboss.net.axis.server.EntityBeanDeserializerFactory"
+        encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+  	<parameter name="JndiName" value="local/BusinessPartnerHome"/>
+  	<parameter name="FindMethodName" value="findByPrimaryKey"/>
+  	<parameter name="FindMethodElements" value="name"/>
+  	<parameter name="FindMethodSignature" value="java.lang.String"/> 	
+  </typeMapping>
+  
+  <typeMapping qname="store:Address" 
+        type="java:org.jboss.test.webservice.store.Address"
+        serializer="org.apache.axis.encoding.ser.BeanSerializerFactory"
+        deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory"
+        encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"/>
+
+ <typeMapping qname="store:Phone" 
+        type="java:org.jboss.test.webservice.store.Phone"
+        serializer="org.apache.axis.encoding.ser.BeanSerializerFactory"
+        deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory"
+        encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"/>
+
+ <typeMapping qname="store:StateType" 
+        type="java:org.jboss.test.webservice.store.StateType"
+        serializer="org.apache.axis.encoding.ser.EnumSerializerFactory"
+        deserializer="org.apache.axis.encoding.ser.EnumDeserializerFactory"
+        encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"/>
+
+</deployment>

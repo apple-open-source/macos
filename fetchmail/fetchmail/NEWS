@@ -2,6 +2,102 @@
 
 (The `lines' figures total .c, .h, .l, and .y files under version control.)
 
+fetchmail-6.2.5 (Wed Oct 15 18:39:22 EDT 2003), 23079 lines:
+
+* Updated Spanish, Turkish, and German translation files.
+* Matthew Gregan's patch to handle garbage lengths from dbmail;
+  closes Debian bug #207919.
+* Fix IMAP query so new-message count doesn't include deleted messages.
+* Man page typo fix, closes Debian bug #205892.
+* OpenSSL cleanup patches from levinedl@acm.org.
+* Benjamin Drieu's patch to fix Debian bug #212240, no oversized-message
+  flushing if both "flush" and "limit" were specified.
+* Benjamin Drieu's patch for Debian bug #156592, incorrect handing of host/port
+  option.
+* Smash all NULs out of headers right after the socket read.
+* Dup-killer code now keys on an MD5 hash of the raw headers.
+* Sunil Shetye's patches to break up fetching of sizes and UIDLs.
+
+There are 599 people on fetchmail-friends and 748 on fetchmail-announce.
+
+fetchmail-6.2.4 (Wed Aug 13 04:27:35 EDT 2003), 22625 lines:
+
+* Updated German, Spanish, Catalan, and Turkish translations.
+* IDLE is now supported using no-ops even if the server doesn't support
+  the IMAP IDLE extension.
+* Sunil Shetye's patch to do better password shrouding.
+* Sunil Shetye's bug-fix rollup patch.
+* Introduce a translation item for the word "seen".
+* Back out the hack to deal with lack of byte stuffing on some POP3 servers.
+* Thomas Steudten's patch to improve SMTP handling of 550 errors.
+
+There are 585 people on fetchmail-friends and 745 on fetchmail-announce.
+
+fetchmail-6.2.3 (Thu Jul 17 14:53:00 EDT 2003), 22490 lines:
+
+* French, German, Danish, Spanish, and Turkish translations updated.
+* Brian Sammon's patch to deal with malformed message lines containing NULs.
+* Fai's patch to ignore all but the first Return-Path (some spams have
+  more than one of these).
+* Benjamin Drieu's patch to properly byte-stuff when talking to BSNTP.
+  Fixes Debian bug #184469.
+* Benjamin Drieu's patch to enable auth=cram-md5.
+  Fixes Debian bug #185232.
+* Sunil Shetye's configure.in patch to avoid spurious search order messages
+  from GCC.
+* Header-reading code now copes better with lines ending in \n only.
+* Elias Israel's patches for POP3 NTLM support and dealing with byte-
+  stuffing failures at socket level.
+
+There are 580 people on fetchmail-friends and 750 on fetchmail-announce.
+
+fetchmail-6.2.2 (Fri Feb 28 21:34:26 EST 2003), 22345 lines:
+
+* Sunil Shetye's patch to improve behavior on empty messages.
+* Conform to RFC2595; reissue capability probes after successful 
+  STARTTLS negotiation.
+* Sunil's patch to make handling of failed STARTTLS more graceful.
+* Sunil's JF2 fix patch for .fetchmailrc security.
+* Christophe GIAUME <christophe@giaume.com> finished the implementation
+  of RFC2177 IDLE.
+* Jason Tishler's fix patch for Cygwin.
+* Support ssh-style authentication in POP3
+* Fix for Debian bug #108977, clean up config file evaluation,
+  by Benjamin Drieu.
+
+There are 554 people on fetchmail-friends and 727 on fetchmail-announce.
+
+fetchmail-6.2.1 (Tue Jan 14 08:17:19 EST 2003), 22219 lines:
+
+* Updated German, Turkish, Spanish, and Danish translation files.
+* Integrated Sunil Shetye's patch to make mark_seen an explicit method.
+* Removed FAQ warning about GMX and associated fetchmailconf check, 
+  we have a report that its servers are conformant now.
+* Another Sunil patch to fix a minor bug in bouncemail generation.
+
+There are 536 people on fetchmail-friends and 716 on fetchmail-announce.
+
+fetchmail-6.2.0 (Fri Dec 13 00:10:07 EST 2002), 22235 lines:
+
+* Applied Steffen Esser's fix for a buffer-overflow bug in rfc822.c
+* Updated Danish, German, and Turkish translation files.
+* Sunil Shetye's SMTP timeout patch.
+
+There are 538 people on fetchmail-friends and 701 on fetchmail-announce.
+
+fetchmail-6.1.3 (Thu Nov 28 05:35:15 EST 2002), 22203 lines:
+
+* Updated Turkish, Danish, German, Spanish, Catalan po files.
+* Added Slovak support.
+* Configure.in update for autoconf 2.5 (Art Haas). 
+* Be case-insensitive when looking for IMAP responses.
+* Fix logout-after-idle-delivery bug (Sunil Shetye).
+* Sunil Shetye's patch to bulletproof end-of-header detection.
+* Sunil's fix for the STARTTLS problem -- repoll if TLS nabdshake
+  fails.  The attempt to set up STARTTLS can be suppressed with 'sslproto ""'.
+
+There are 540 people on fetchmail-friends and 701 on fetchmail-announce.
+
 fetchmail-6.1.2 (Thu Oct 31 11:41:02 EST 2002), 22135 lines:
 
 * Jan Klaverstijn's verbosity-lowering patch.

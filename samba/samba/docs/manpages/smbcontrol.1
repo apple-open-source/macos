@@ -21,14 +21,18 @@
 .SH NAME
 smbcontrol \- send messages to smbd, nmbd or winbindd processes
 .SH "SYNOPSIS"
-
-.nf
-\fBsmbcontrol\fR [-i] [-s]
-.fi
-
-.nf
-\fBsmbcontrol\fR [destination] [message-type] [parameter]
-.fi
+.ad l
+.hy 0
+.HP 11
+\fBsmbcontrol\fR [\-i] [\-s]
+.ad
+.hy
+.ad l
+.hy 0
+.HP 11
+\fBsmbcontrol\fR [destination] [message\-type] [parameter]
+.ad
+.hy
 
 .SH "DESCRIPTION"
 
@@ -41,18 +45,18 @@ This tool is part of the \fBSamba\fR(7) suite\&.
 .SH "OPTIONS"
 
 .TP
--h|--help
+\-h|\-\-help
 Print a summary of command line options\&.
 
 
 .TP
--s <configuration file>
-The file specified contains the configuration details required by the server\&. The information in this file includes server-specific information such as what printcap file to use, as well as descriptions of all the services that the server is to provide\&. See \fIsmb\&.conf\fR for more information\&. The default configuration file name is determined at compile time\&.
+\-s <configuration file>
+The file specified contains the configuration details required by the server\&. The information in this file includes server\-specific information such as what printcap file to use, as well as descriptions of all the services that the server is to provide\&. See \fIsmb\&.conf\fR for more information\&. The default configuration file name is determined at compile time\&.
 
 
 .TP
--i
-Run interactively\&. Individual commands of the form destination message-type parameters can be entered on STDIN\&. An empty command line or a "q" will quit the program\&.
+\-i
+Run interactively\&. Individual commands of the form destination message\-type parameters can be entered on STDIN\&. An empty command line or a "q" will quit the program\&.
 
 
 .TP
@@ -70,13 +74,13 @@ If a single process ID is given, the message is sent to only that process\&.
 
 
 .TP
-message-type
-Type of message to send\&. See the section \fBMESSAGE-TYPES\fR for details\&.
+message\-type
+Type of message to send\&. See the section \fBMESSAGE\-TYPES\fR for details\&.
 
 
 .TP
 parameters
-any parameters required for the message-type
+any parameters required for the message\-type
 
 
 .SH "MESSAGE-TYPES"
@@ -85,8 +89,8 @@ any parameters required for the message-type
 Available message types are:
 
 .TP
-close-share
-Order smbd to close the client connections to the named share\&. Note that this doesn't affect client connections to any other shares\&. This message-type takes an argument of the share name for which client connections will be closed, or the "*" character which will close all currently open shares\&. This may be useful if you made changes to the access controls on the share\&. This message can only be sent to \fBsmbd\fR\&.
+close\-share
+Order smbd to close the client connections to the named share\&. Note that this doesn't affect client connections to any other shares\&. This message\-type takes an argument of the share name for which client connections will be closed, or the "*" character which will close all currently open shares\&. This may be useful if you made changes to the access controls on the share\&. This message can only be sent to \fBsmbd\fR\&.
 
 
 .TP
@@ -95,7 +99,7 @@ Set debug level to the value specified by the parameter\&. This can be sent to a
 
 
 .TP
-force-election
+force\-election
 This message causes the \fBnmbd\fR daemon to force a new browse master election\&.
 
 
@@ -121,7 +125,7 @@ Request profilelevel of a certain daemon and write it to stdout\&. This can be s
 
 .TP
 printnotify
-Order smbd to send a printer notify message to any Windows NT clients connected to a printer\&. This message-type takes the following arguments:
+Order smbd to send a printer notify message to any Windows NT clients connected to a printer\&. This message\-type takes the following arguments:
 
 
 
@@ -172,13 +176,13 @@ Send sam replication message, with specified serial\&. Can only be sent to \fBsm
 
 
 .TP
-dmalloc-mark
+dmalloc\-mark
 Set a mark for dmalloc\&. Can be sent to both smbd and nmbd\&. Only available if samba is built with dmalloc support\&.
 
 
 .TP
-dmalloc-log-changed
-Dump the pointers that have changed since the mark set by dmalloc-mark\&. Can be sent to both smbd and nmbd\&. Only available if samba is built with dmalloc support\&.
+dmalloc\-log\-changed
+Dump the pointers that have changed since the mark set by dmalloc\-mark\&. Can be sent to both smbd and nmbd\&. Only available if samba is built with dmalloc support\&.
 
 
 .TP
@@ -187,8 +191,8 @@ Shut down specified daemon\&. Can be sent to both smbd and nmbd\&.
 
 
 .TP
-pool-usage
-Print a human-readable description of all talloc(pool) memory usage by the specified daemon/process\&. Available for both smbd and nmbd\&.
+pool\-usage
+Print a human\-readable description of all talloc(pool) memory usage by the specified daemon/process\&. Available for both smbd and nmbd\&.
 
 
 .TP
@@ -197,7 +201,7 @@ Force clients of printers using specified driver to update their local version o
 
 
 .TP
-reload-config
+reload\-config
 Force daemon to reload smb\&.conf configuration file\&. Can be sent to \fBsmbd\fR, \fBnmbd\fR, or \fBwinbindd\fR\&.
 
 

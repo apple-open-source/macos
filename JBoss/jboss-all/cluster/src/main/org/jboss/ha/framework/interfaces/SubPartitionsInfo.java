@@ -19,7 +19,7 @@ import java.io.Serializable;
  *  @see org.jboss.ha.hasessionstate.server.HASessionStateImpl
  *
  *  @author <a href="mailto:sacha.labourey@cogito-info.ch">Sacha Labourey</a>
- *  @version $Revision: 1.2.4.1 $
+ *  @version $Revision: 1.2.4.2 $
  */
 public class SubPartitionsInfo implements Serializable, Cloneable
 {
@@ -58,8 +58,8 @@ public class SubPartitionsInfo implements Serializable, Cloneable
        if (partitions != null)
        {
          for (int i=0; i<partitions.length; i++)
-            if (((SubPartitionInfo)partitions[i]).containsNode (name))
-               return (SubPartitionInfo)partitions[i];
+            if ((partitions[i]).containsNode (name))
+               return partitions[i];
        }
 
        return null;

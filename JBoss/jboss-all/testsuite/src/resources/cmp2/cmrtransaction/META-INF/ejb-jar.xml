@@ -1,0 +1,91 @@
+<?xml version="1.0"?>
+<!DOCTYPE ejb-jar PUBLIC
+   "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 2.0//EN"
+   "http://java.sun.com/dtd/ejb-jar_2_0.dtd">
+
+<ejb-jar>
+
+    <enterprise-beans>
+        <entity>
+            <ejb-name>CMRTreeBean</ejb-name>
+            <local-home>org.jboss.test.cmp2.cmrtransaction.interfaces.TreeLocalHome</local-home>
+            <local>org.jboss.test.cmp2.cmrtransaction.interfaces.TreeLocal</local>
+            <ejb-class>org.jboss.test.cmp2.cmrtransaction.ejb.TreeEntity</ejb-class>
+            <persistence-type>Container</persistence-type>
+            <reentrant>False</reentrant>
+            <cmp-version>2.x</cmp-version>
+            <abstract-schema-name>CMRTree</abstract-schema-name>
+            <cmp-field>
+                <description>Identity</description>
+                <field-name>id</field-name>
+            </cmp-field>
+            <cmp-field>
+                <field-name>sortOrder</field-name>
+            </cmp-field>
+            <primkey-field>id</primkey-field>
+            <prim-key-class>java.lang.String</prim-key-class>
+        </entity>
+        <session>
+            <ejb-name>CMRTreeFacadeBean</ejb-name>
+            <home>org.jboss.test.cmp2.cmrtransaction.interfaces.TreeFacadeHome</home>
+            <remote>org.jboss.test.cmp2.cmrtransaction.interfaces.TreeFacade</remote>
+            <ejb-class>org.jboss.test.cmp2.cmrtransaction.ejb.TreeFacadeSession</ejb-class>
+            <session-type>Stateless</session-type>
+            <transaction-type>Container</transaction-type>
+            <ejb-local-ref>
+                <description></description>
+                <ejb-ref-name>ejb/cmrTransactionTest/CMRTreeLocal</ejb-ref-name>
+                <ejb-ref-type>Entity</ejb-ref-type>
+                <local-home>org.jboss.test.cmp2.cmrtransaction.TreeLocalHome</local-home>
+                <local>org.jboss.test.cmp2.cmrtransaction.TreeLocal</local>
+                <ejb-link>CMRTreeBean</ejb-link>
+            </ejb-local-ref>
+        </session>
+    </enterprise-beans>
+    <relationships>
+        <ejb-relation>
+            <ejb-relation-name>MenuFamily</ejb-relation-name>
+            <ejb-relationship-role>
+                <ejb-relationship-role-name>ParentHasChildren</ejb-relationship-role-name>
+                <multiplicity>One</multiplicity>
+                <relationship-role-source>
+                    <ejb-name>CMRTreeBean</ejb-name>
+                </relationship-role-source>
+                <cmr-field>
+                    <cmr-field-name>menuChildren</cmr-field-name>
+                    <cmr-field-type>java.util.Collection</cmr-field-type>
+                </cmr-field>
+            </ejb-relationship-role>
+            <ejb-relationship-role>
+                <ejb-relationship-role-name>ParentOfChildren</ejb-relationship-role-name>
+                <multiplicity>Many</multiplicity>
+                <relationship-role-source>
+                    <ejb-name>CMRTreeBean</ejb-name>
+                </relationship-role-source>
+                <cmr-field>
+                    <cmr-field-name>menuParent</cmr-field-name>
+                </cmr-field>
+            </ejb-relationship-role>
+        </ejb-relation>
+    </relationships>
+
+    <assembly-descriptor>
+        <container-transaction>
+            <description>Transaction attributes for 'TreeBean' methods</description>
+            <method>
+                <ejb-name>CMRTreeBean</ejb-name>
+                <method-name>*</method-name>
+            </method>
+            <trans-attribute>Required</trans-attribute>
+        </container-transaction>
+        <container-transaction>
+            <description>Transaction attributes for 'TreeFacadeBean' methods</description>
+            <method>
+                <ejb-name>CMRTreeFacadeBean</ejb-name>
+                <method-name>*</method-name>
+            </method>
+            <trans-attribute>Required</trans-attribute>
+        </container-transaction>
+    </assembly-descriptor>
+
+</ejb-jar>

@@ -9,12 +9,10 @@
 
 package org.jboss.console.twiddle.command;
 
-import java.io.PrintWriter;
-
 /**
  * ???
  *
- * @version <tt>$Revision: 1.2 $</tt>
+ * @version <tt>$Revision: 1.2.2.1 $</tt>
  * @author <a href="mailto:jason@planet57.com">Jason Dillon</a>
  */
 public interface Command

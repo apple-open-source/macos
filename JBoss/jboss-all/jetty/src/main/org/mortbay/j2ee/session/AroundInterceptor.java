@@ -1,6 +1,6 @@
 // ========================================================================
 // Copyright (c) 2002 Mort Bay Consulting (Australia) Pty. Ltd.
-// $Id: AroundInterceptor.java,v 1.1.2.2 2002/11/16 21:58:58 jules_gosnell Exp $
+// $Id: AroundInterceptor.java,v 1.1.2.3 2003/07/26 11:49:41 jules_gosnell Exp $
 // ========================================================================
 
 package org.mortbay.j2ee.session;
@@ -12,7 +12,7 @@ import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Map;
 import javax.servlet.http.HttpSession;
-import org.apache.log4j.Category;
+import org.jboss.logging.Logger;
 
 //----------------------------------------
 

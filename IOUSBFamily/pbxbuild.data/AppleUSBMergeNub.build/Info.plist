@@ -222,6 +222,24 @@
 			<key>idVendor</key>
 			<integer>2284</integer>
 		</dict>
+		<key>InternalUSBModem</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>kCallInterfaceOpenWithGate</key>
+				<true/>
+			</dict>
+			<key>idProduct</key>
+			<integer>33282</integer>
+			<key>idVendor</key>
+			<integer>1452</integer>
+		</dict>
 		<key>Personality1</key>
 		<dict>
 			<key>CFBundleIdentifier</key>

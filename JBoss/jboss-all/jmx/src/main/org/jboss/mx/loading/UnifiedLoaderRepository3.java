@@ -26,6 +26,7 @@ import javax.management.NotificationFilter;
 import javax.management.NotificationListener;
 
 import org.jboss.logging.Logger;
+import EDU.oswego.cs.dl.util.concurrent.ConcurrentReaderHashMap;
 
 /** A repository of class loaders that form a flat namespace of classes
  * and resources. This version uses UnifiedClassLoader3 instances. Class
@@ -35,7 +36,7 @@ import org.jboss.logging.Logger;
  *
  * @author  <a href="mailto:scott.stark@jboss.org">Scott Stark</a>.
  * @author  <a href="mailto:Adrian.Brock@HappeningTimes.com">Adrian Brock</a>.
- * @version $Revision: 1.1.4.19 $
+ * @version $Revision: 1.1.4.21 $
  * just a hint... xdoclet not really used
  * @jmx.name="JMImplementation:service=UnifiedLoaderRepository,name=Default"
  */
@@ -65,7 +66,7 @@ public class UnifiedLoaderRepository3 extends LoaderRepository
    /** The loaded classes cache, HashMap<String, Class>.
     * Access synchronized via this.classes monitor.
     */
-   private HashMap classes = new HashMap();
+   private ConcurrentReaderHashMap classes = new ConcurrentReaderHashMap();
 
    /** HashMap<UCL, HashSet<String>> class loaders to the set of class names
     * loaded via the UCL.
@@ -150,6 +151,11 @@ public class UnifiedLoaderRepository3 extends LoaderRepository
       {
          classes.clear();
       }
+   }
+
+   public Class getCachedClass(String classname)
+   {
+      return (Class)classes.get(classname);
    }
 
    /** Unlike other implementations of LoaderRepository, this method does
@@ -379,13 +385,25 @@ public class UnifiedLoaderRepository3 extends LoaderRepository
    {
       // Get the set of class loaders from the packages map
       String pkgName = getResourcePackageName(name);
-      HashSet pkgSet = (HashSet) this.packagesMap.get(pkgName);
-      Iterator i;
-      if( pkgSet != null )
-         i = pkgSet.iterator();
-      // If no pkg match was found just go through all class loaders
-      else
-         i = classLoaders.iterator();
+      Iterator i = null;
+      synchronized( packagesMap )
+      {
+         HashSet pkgSet = (HashSet) this.packagesMap.get(pkgName);
+         if( pkgSet != null )
+         {
+            pkgSet = new HashSet(pkgSet);
+            i = pkgSet.iterator();
+         }
+      }
+      if( i == null )
+      {
+         // If no pkg match was found just go through all class loaders
+         synchronized( classLoaders )
+         {
+            HashSet tmpClassLoaders = new HashSet(classLoaders);
+            i = tmpClassLoaders.iterator();
+         }
+      }
 
       URL url = null;
       while( i.hasNext() == true )

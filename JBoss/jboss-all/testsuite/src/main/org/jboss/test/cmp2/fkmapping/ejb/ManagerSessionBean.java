@@ -17,6 +17,7 @@ import javax.ejb.EJBLocalObject;
 import javax.naming.NamingException;
 import java.rmi.RemoteException;
 
+
 /**
  * @ejb.bean
  *    type="Stateless"
@@ -227,6 +228,116 @@ public class ManagerSessionBean
          if(kv62Group != null)
             removeEntity(kv62Group);
       }
+   }
+
+   /**
+    * @ejb.interface-method
+    * @ejb.transaction type="RequiresNew"
+    */
+   public void createParent(Long id, String firstName)
+      throws Exception
+   {
+      ParentUtil.getLocalHome().create(id, firstName);
+   }
+
+   /**
+    * @ejb.interface-method
+    * @ejb.transaction type="RequiresNew"
+    */
+   public void createChild(long id, String firstName)
+      throws Exception
+   {
+      ChildUtil.getLocalHome().create(id, firstName);
+   }
+
+   /**
+    * @ejb.interface-method
+    * @ejb.transaction type="RequiresNew"
+    */
+   public void createChild(long id, String firstName, Long parentId, String parentName)
+      throws Exception
+   {
+      ChildUtil.getLocalHome().create(id, firstName, parentId, parentName);
+   }
+
+   /**
+    * @ejb.interface-method
+    * @ejb.transaction type="RequiresNew"
+    */
+   public void assertChildHasMother(long childId, Long parentId, String parentName)
+      throws Exception
+   {
+      ChildLocal child = ChildUtil.getLocalHome().findByPrimaryKey(new ChildPK(childId));
+      ParentLocal parent = child.getMother();
+      if(parent == null)
+         throw new EJBException("No parent assigned to child: expected parentId=" + parentId);
+      ParentPK parentPK = new ParentPK(parentId, parentName);
+      if(!parent.getPrimaryKey().equals(parentPK))
+         throw new EJBException("Wrong parent: expected parentPK=" + parentPK
+            + ", got " + parent.getPrimaryKey());
+   }
+
+   /**
+    * @ejb.interface-method
+    * @ejb.transaction type="RequiresNew"
+    */
+   public void assertParentHasNoChild(Long parentId, String parentName)
+      throws Exception
+   {
+      ParentLocal parent = ParentUtil.getLocalHome()
+         .findByPrimaryKey(new ParentPK(parentId, parentName));
+      if(parent.getChild() != null)
+         throw new EJBException("parent.getChild() != null");
+   }
+
+   /**
+    * @ejb.interface-method
+    * @ejb.transaction type="RequiresNew"
+    */
+   public Object createChildUPKWithMother() throws Exception
+   {
+      ChildUPKLocal child = ChildUPKUtil.getLocalHome().create("Avoka");
+      ParentLocal mother = ParentUtil.getLocalHome().create(new Long(11), "Irene");
+      child.setMother(mother);
+      return child.getPrimaryKey();
+   }
+   /**
+    * @ejb.interface-method
+    * @ejb.transaction type="RequiresNew"
+    */
+   public void loadChildUPKWithMother(Object pk) throws Exception
+   {
+      // find
+      ChildUPKLocal child = ChildUPKUtil.getLocalHome().findByPrimaryKey(pk);
+      // load child and check its mother
+      assertTrue("child.getMother().getFirstName() is Irene",
+         "Irene".equals(child.getMother().getFirstName()));
+   }
+
+   /**
+    * @ejb.interface-method
+    * @ejb.transaction type="RequiresNew"
+    */
+   public Object createChildUPKWithFather() throws Exception
+   {
+      ChildUPKLocal child = ChildUPKUtil.getLocalHome().create("Avoka");
+      ParentLocal father = ParentUtil.getLocalHome().create(new Long(12), "Gregory");
+      child.setFather(father);
+      return child.getPrimaryKey();
+   }
+
+   /**
+    * @ejb.interface-method
+    * @ejb.transaction type="RequiresNew"
+    */
+   public void loadChildUPKWithFather(Object pk) throws Exception
+   {
+      log.debug("loadChildUPK");
+      // find
+      ChildUPKLocal child = ChildUPKUtil.getLocalHome().findByPrimaryKey(pk);
+      // load child and check its mother
+      assertTrue("child.getFather().getFirstName() is Gregory",
+         "Gregory".equals(child.getFather().getFirstName()));
    }
 
    // Private ---------------------------------------------------

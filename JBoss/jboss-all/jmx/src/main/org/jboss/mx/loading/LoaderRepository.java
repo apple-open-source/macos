@@ -19,7 +19,7 @@ import org.jboss.mx.server.ServerConstants;
  * @see org.jboss.mx.loading.BasicLoaderRepository
  *
  * @author  <a href="mailto:juha@jboss.org">Juha Lindfors</a>.
- * @version $Revision: 1.4.4.3 $  
+ * @version $Revision: 1.4.4.4 $  
  */
 public abstract class LoaderRepository
    implements ServerConstants
@@ -101,6 +101,11 @@ public abstract class LoaderRepository
    public URL[] getURLs()
    {
       return null;
+   }
+
+   public Class getCachedClass(String classname)
+   {
+      throw new RuntimeException("NOT IMPLEMENTED!!!  THIS METHOD NEEDS TO BE IMPLEMENTED");
    }
 
    /** Create UnifiedClassLoader and optionally add it to the repository

@@ -12,8 +12,6 @@ package org.jboss.util.collection;
 import java.util.List;
 import java.util.LinkedList;
 import java.util.AbstractList;
-import java.util.Iterator;
-
 import java.lang.ref.ReferenceQueue;
 
 import org.jboss.util.SoftObject;
@@ -24,7 +22,7 @@ import org.jboss.util.Objects;
  * into {@link SoftObject} references, allowing the VM to garbage collect
  * objects in the collection when memory is low.
  *
- * @version <tt>$Revision: 1.1 $</tt>
+ * @version <tt>$Revision: 1.1.4.1 $</tt>
  * @author  <a href="mailto:jason@planet57.com">Jason Dillon</a>
  */
 public class CachedList

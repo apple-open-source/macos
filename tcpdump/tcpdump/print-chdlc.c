@@ -20,8 +20,8 @@
  */
 
 #ifndef lint
-static const char rcsid[] =
-    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-chdlc.c,v 1.1.1.3 2003/03/17 18:42:16 rbraun Exp $ (LBL)";
+static const char rcsid[] _U_ =
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-chdlc.c,v 1.1.1.4 2004/02/05 19:30:53 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -100,9 +100,9 @@ chdlc_if_print(const struct pcap_pkthdr *h, register const u_char *p)
                 if (*(p+CHDLC_HDRLEN+1) == 0x81 ||
                     *(p+CHDLC_HDRLEN+1) == 0x82 ||
                     *(p+CHDLC_HDRLEN+1) == 0x83)
-                    isoclns_print(p+CHDLC_HDRLEN+1, length-1, length-1, NULL, NULL);
+                    isoclns_print(p+CHDLC_HDRLEN+1, length-1, length-1);
                 else
-                    isoclns_print(p+CHDLC_HDRLEN, length, length, NULL, NULL);
+                    isoclns_print(p+CHDLC_HDRLEN, length, length);
                 break;
 	default:
                 printf("unknown CHDLC protocol (0x%04x)", proto);

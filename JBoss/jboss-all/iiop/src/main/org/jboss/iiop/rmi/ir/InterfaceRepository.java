@@ -40,6 +40,7 @@ import org.jboss.iiop.rmi.OperationAnalysis;
 import org.jboss.iiop.rmi.ParameterAnalysis;
 import org.jboss.iiop.rmi.RMIIIOPViolationException;
 import org.jboss.iiop.rmi.RMIIIOPValueNotSerializableException;
+import org.jboss.iiop.rmi.RmiIdlUtil;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -54,7 +55,7 @@ import javax.naming.NamingException;
  *  An Interface Repository.
  *
  *  @author <a href="mailto:osh@sparre.dk">Ole Husgaard</a>
- *  @version $Revision: 1.6 $
+ *  @version $Revision: 1.6.2.1 $
  */
 public class InterfaceRepository
 {
@@ -448,7 +449,8 @@ public class InterfaceRepository
          ValueDefImpl val =
                          new ValueDefImpl("IDL:omg.org/CORBA/WStringValue:1.0",
                                           "WStringValue", "1.0",
-                                          m, false, false, new String[0],
+                                          m, false, false, 
+                                          new String[0], new String[0],
                                           orb.get_primitive_tc(TCKind.tk_null),
                                           impl);
          ValueMemberDefImpl vmdi =
@@ -679,14 +681,32 @@ public class InterfaceRepository
       InterfaceAnalysis[] interfaces = ca.getInterfaces();
       List base_interfaces = new ArrayList();
       for (int i = 0; i < interfaces.length; ++i) {
-         if (!interfaces[i].mapsToAbstractValuetype()) {
-            InterfaceDefImpl idi = addInterface(interfaces[i]);
-            base_interfaces.add(idi.id());
-            logger.trace("                   " + idi.id());
-         }
+         InterfaceDefImpl idi = addInterface(interfaces[i]);
+         base_interfaces.add(idi.id());
+         logger.trace("                   " + idi.id());
       }
       String[] strArr = new String[base_interfaces.size()];
       return (String[])base_interfaces.toArray(strArr);
+   }
+
+   /**
+    *  Add a set of abstract valuetypes to the IR.
+    *
+    *  @return An array of the IR IDs of the abstract valuetypes.
+    */
+   private String[] addAbstractBaseValuetypes(ContainerAnalysis ca)
+      throws RMIIIOPViolationException, IRConstructionException
+   {
+      logger.trace("Adding abstract valuetypes: ");
+      ValueAnalysis[] abstractValuetypes = ca.getAbstractBaseValuetypes();
+      List abstract_base_valuetypes = new ArrayList();
+      for (int i = 0; i < abstractValuetypes.length; ++i) {
+         ValueDefImpl vdi = addValue(abstractValuetypes[i]);
+         abstract_base_valuetypes.add(vdi.id());
+         logger.trace("                   " + vdi.id());
+      }
+      String[] strArr = new String[abstract_base_valuetypes.size()];
+      return (String[])abstract_base_valuetypes.toArray(strArr);
    }
 
    /**
@@ -702,12 +722,13 @@ public class InterfaceRepository
          // Add array mapping
          addArray(cls);
       } else if (cls.isInterface()) {
-         // Analyse the interface
-         InterfaceAnalysis ia = InterfaceAnalysis.getInterfaceAnalysis(cls);
-         
-         if (!ia.mapsToAbstractValuetype())
+         if (!RmiIdlUtil.isAbstractValueType(cls)) {
+            // Analyse the interface
+            InterfaceAnalysis ia = InterfaceAnalysis.getInterfaceAnalysis(cls);
+        
             // Add analyzed interface (which may be abstract)
             addInterface(ia);
+         }
          else {
             // Analyse the value
             ValueAnalysis va = ValueAnalysis.getValueAnalysis(cls);
@@ -802,7 +823,8 @@ public class InterfaceRepository
             typeName = getJavaIoSerializable().name();
          else if (compType == java.io.Externalizable.class)
             typeName = getJavaIoExternalizable().name();
-         else if (compType.isInterface()) 
+         else if (compType.isInterface() && 
+                  !RmiIdlUtil.isAbstractValueType(compType))
             typeName = ((InterfaceDefImpl)interfaceMap.get(compType)).name();
          else if (Exception.class.isAssignableFrom(compType)) // exception type
             typeName = ((ExceptionDefImpl)exceptionMap.get(compType)).name();
@@ -921,6 +943,9 @@ public class InterfaceRepository
       // Add implemented interfaces
       String[] supported_interfaces = addInterfaces(va);
 
+      // Add abstract base valuetypes
+      String[] abstract_base_valuetypes = addAbstractBaseValuetypes(va);
+
       // Add superclass
       ValueDefImpl superValue = null;
       ValueAnalysis superAnalysis = va.getSuperAnalysis();
@@ -941,7 +966,9 @@ public class InterfaceRepository
       vDef = new ValueDefImpl(va.getRepositoryId(), base, "1.0",
                               m,
                               va.isAbstractValue(),
-                              va.isCustom(), supported_interfaces,
+                              va.isCustom(), 
+                              supported_interfaces,
+                              abstract_base_valuetypes,
                               baseTypeCode,
                               impl);
       addTypeCode(cls, vDef.type());

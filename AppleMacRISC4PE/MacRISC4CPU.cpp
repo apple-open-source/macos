@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,59 +23,12 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc.  All rights reserved.
  *
  *  DRI: Dave Radcliffe
  *
  */
-//		$Log: MacRISC4CPU.cpp,v $
-//		Revision 1.15  2003/07/03 01:16:32  raddog
-//		[3313953]U3 PwrMgmt register workaround
-//		
-//		Revision 1.14  2003/06/27 00:45:07  raddog
-//		[3304596]: remove unnecessary access to U3 Pwr registers on wake, [3249029]: Disable unused second process on wake, [3301232]: remove unnecessary PCI code from PE
-//		
-//		Revision 1.13  2003/06/04 20:21:41  raddog
-//		Improved fix - disable second cpu when unused - 3249029, 3273619
-//		
-//		Revision 1.12  2003/06/03 23:03:57  raddog
-//		disable second cpu when unused - 3249029, 3273619
-//		
-//		Revision 1.11  2003/06/03 01:49:44  raddog
-//		Remove late sleep kprintfs
-//		
-//		Revision 1.10  2003/05/07 00:14:55  raddog
-//		[3125575] MacRISC4 initial sleep support
-//		
-//		Revision 1.9  2003/04/27 23:13:30  raddog
-//		MacRISC4PE.cpp
-//		
-//		Revision 1.8  2003/04/14 20:05:27  raddog
-//		[3224952]AppleMacRISC4CPU must specify which MPIC to use (improved fix over that previously submitted)
-//		
-//		Revision 1.7  2003/04/04 01:26:25  raddog
-//		[3217875] Q37: MacRISC4CPU - needs to be sure it locates host MPIC
-//		
-//		Revision 1.6  2003/03/04 17:53:20  raddog
-//		[3187811] P76: U3.2.0 systems don't boot
-//		[3187813] MacRISC4CPU bridge saving code can block on interrupt stack
-//		[3138343] Q37 Feature: remove platform functions for U3
-//		
-//		Revision 1.5  2003/02/27 01:42:54  raddog
-//		Better support for MP across sleep/wake [3146943]. This time we block in startCPU, rather than initCPU, which is safer.
-//		
-//		Revision 1.4  2003/02/19 22:35:44  raddog
-//		Better support for MP across sleep/wake [3146943]
-//		
-//		Revision 1.3  2003/02/19 21:54:45  raddog
-//		Support for MP across sleep/wake [3146943]
-//		
-//		Revision 1.2  2003/02/18 00:02:01  eem
-//		3146943: timebase enable for MP, bump version to 1.0.1d3.
-//		
-//		Revision 1.1.1.1  2003/02/04 00:36:43  raddog
-//		initial import into CVS
-//		
+
 
 #include <sys/cdefs.h>
 
@@ -99,15 +52,22 @@ __END_DECLS
 
 OSDefineMetaClassAndStructors(MacRISC4CPU, IOCPU);
 
-// defines for CPU timebase enable
-enum {
-	kI2CPort = 0x0,			// U3 Master Port 0
-	kI2CAddr = 0xD0,
+/*
+ * Platform-specific parameters needed for CPU timebase synchronization.  This
+ * data is keyed by (ughh..) model property.
+ */
 
-	kI2CSubAddr = 0x81,		// byte transaction (0x80) flag, register 1
-	kMask = 0xC,			// bits 2 & 3
-	kValue = 0xC
-};
+#define kU3IIC "PPCI2CInterface.i2c-uni-n"
+
+/* PowerMac7,2 - cypress CY28508 clock chip @ IIC_B 0xD2 */
+static const cpu_timebase_params_t cypress =
+	{ kU3IIC, /* port */ 0x00, /* addr */ 0xD0, /* subaddr */ 0x81,
+	  /* mask */ 0x0C, /* enable */ 0x0C, /* disable */ 0x00 };
+
+/* RackMac3,1 and PowerMac7,3 - pulsar clock chip @ IIC_B 0xD4 */
+static const cpu_timebase_params_t pulsar =
+	{ kU3IIC, /* port */ 0x00, /* addr */ 0xD4, /* subaddr */ 0x2E,
+	  /* mask */ 0x77, /* enable */ 0x22, /* disable */ 0x11 };
 
 /*
  * These global variables are used for I2C communication in enableCPUTimeBase
@@ -126,6 +86,7 @@ enum {
  */
 static bool gI2CTransactionComplete;
 static IOService *gI2CDriver;
+static const cpu_timebase_params_t * gTimeBaseParams;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -186,6 +147,49 @@ bool MacRISC4CPU::start(IOService *provider)
     {
         if (numCPUs > maxCPUs) numCPUs = maxCPUs;
     }
+
+	// If we're MP, fetch the timebase parameters.  If we can't sync timebase, limit the number of CPUs to 1.
+	if (numCPUs > 1 && !gTimeBaseParams)
+	{
+		IORegistryEntry * clockchip;
+
+		// PowerMac7,2 (CY28508) and PowerMac7,3 (Pulsar)
+		if ((strcmp(macRISC4PE->provider_name, "PowerMac7,2") == 0) || (strcmp(macRISC4PE->provider_name, "PowerMac7,3") == 0))
+		{
+			// look for cypress at slave address 0xd2
+			if ((clockchip = fromPath("/u3/i2c/i2c-hwclock@d2", gIODTPlane, 0, 0, 0)) != NULL)
+			{
+				clockchip->release();
+				gTimeBaseParams = &cypress;
+			}
+
+			// look for pulsar at slave address 0xd4
+			else if ((clockchip = fromPath("/u3/i2c/i2c-hwclock@d4", gIODTPlane, 0, 0, 0)) != NULL)
+			{
+				clockchip->release();
+				gTimeBaseParams = &pulsar;
+			}
+		}
+
+		// RackMac3,1 (Pulsar)
+		else if (strcmp(macRISC4PE->provider_name, "RackMac3,1") == 0)
+		{
+			// look for pulsar at slave address 0xd4
+			if ((clockchip = fromPath("/u3/i2c/i2c-hwclock@d4", gIODTPlane, 0, 0, 0)) != NULL)
+			{
+				clockchip->release();
+				gTimeBaseParams = &pulsar;
+			}
+		}
+
+		// if we haven't figured out how to sync timebase, then limit the number of CPUs to 1
+		if (!gTimeBaseParams)
+		{
+			IOLog("WARNING: don't know how to sync MP timebase, limiting to one CPU\n");
+			kprintf("WARNING: don't know how to sync MP timebase, limiting to one CPU\n");
+			numCPUs = 1;
+		}
+	}
 	
 	doSleep = false;
   
@@ -228,7 +232,7 @@ bool MacRISC4CPU::start(IOService *provider)
         gCPUIC->attach(this);
         gCPUIC->registerCPUInterruptController();
     }
-  
+
     // Get the l2cr value from the property list.
     tmpData = OSDynamicCast(OSData, provider->getProperty("l2cr"));
     if (tmpData != 0)
@@ -317,31 +321,37 @@ bool MacRISC4CPU::start(IOService *provider)
 	 */
 	if (numCPUs == 1) 
 		uniN->callPlatformFunction (u3APIPhyDisableProcessor1, false, (void *)0, (void *)0, (void *)0, (void *)0);
-	
-    if (physCPU < numCPUs)
-    {
-		if (numCPUs > 1 && !gI2CDriver) {	// MP only
-			// We need to wait for our I2C resources to load before registering the CPU
-			// Otherwise we won't be prepared to enableCPUTimeBase
-			i2cresources = waitForService (resourceMatching ("PPCI2CInterface.i2c-uni-n"));
-			if (i2cresources) {
-				gI2CDriver = OSDynamicCast (IOService, i2cresources->getProperty ("PPCI2CInterface.i2c-uni-n"));
-				if (!gI2CDriver) {
-					kprintf ("MacRISC4CPU::start(%ld) - failed i2cDriver\n", getCPUNumber());
-					return false;
-				}
-			} 
+
+	// We have to get a pointer to the I2C driver now -- when we're syncing timebase, we'll be at
+	// interrupt context
+	if (numCPUs > 1 && !gI2CDriver)
+	{
+		//kprintf("MacRISC4CPU(%ld) looking for %s\n", getCPUNumber(), gTimeBaseParams->i2c_iface);
+		i2cresources = waitForService (resourceMatching ( gTimeBaseParams->i2c_iface ));
+		//kprintf("MacRISC4CPU(%ld) done looking\n", getCPUNumber());
+
+		if (i2cresources)
+		{
+			gI2CDriver = OSDynamicCast (IOService, i2cresources->getProperty ( gTimeBaseParams->i2c_iface ));
+			if (!gI2CDriver)
+			{
+				kprintf ("MacRISC4CPU::start(%ld) - failed i2cDriver\n", getCPUNumber());
+				return false;
+			}
 		}
-		
+	}
+
+    if (physCPU < numCPUs)
+    {		
         processor_info.cpu_id           = (cpu_id_t)this;
         processor_info.boot_cpu         = bootCPU;
         processor_info.start_paddr      = 0x0100;
         processor_info.l2cr_value       = l2crValue;
         processor_info.supports_nap     = !flushOnLock;
-        processor_info.time_base_enable =
-        (time_base_enable_t)&MacRISC4CPU::enableCPUTimeBase;
+        processor_info.time_base_enable = MacRISC4CPU::sEnableCPUTimeBase;
 
 		// Register this CPU with mach.
+		kprintf("MacRISC4CPU::start(%ld) - registering with mach\n", getCPUNumber());
 		result = ml_processor_register(&processor_info, &machProcessor,	&ipi_handler);
 		if (result == KERN_FAILURE) return false;
 	
@@ -351,13 +361,20 @@ bool MacRISC4CPU::start(IOService *provider)
     // Finds PMU so in quiesce we can put the machine to sleep.
     // I can not put these calls there because quiesce runs in interrupt
     // context and waitForService may block.
-    if (!(pmu = waitForService(serviceMatching("ApplePMU")))) return false;
-	
+	if (!pmu) {
+
+		kprintf("MacRISC4CPU::start(%ld) - waiting for IOPMU\n", getCPUNumber());
+
+		service = waitForService(resourceMatching("IOPMU"));
+		if (service) 
+			if (!(pmu = OSDynamicCast (IOService, service->getProperty("IOPMU")))) return false;
+	}
+
 	// Some systems require special handling of Ultra-ATA at sleep.
 	// Call UniN to prepare for that, if necessary
 	uniN->callPlatformFunction ("setupUATAforSleep", false, (void *)0, (void *)0, (void *)0, (void *)0);
 
-	kprintf ("MacRISC4CPU::start - done\n");
+	kprintf ("MacRISC4CPU::start(%ld) - done\n", getCPUNumber());
     return true;
 }
 
@@ -439,7 +456,7 @@ void MacRISC4CPU::initCPU(bool boot)
         gCPUIC->enableCPUInterrupt(this);
     
         // Register and enable IPIs.
-        cpuNub->registerInterrupt(0, this, (IOInterruptAction)&MacRISC4CPU::ipiHandler, 0);
+        cpuNub->registerInterrupt(0, this, MacRISC4CPU::sIPIHandler, 0);
         cpuNub->enableInterrupt(0);
     } else {
         long priority = 0;
@@ -501,6 +518,15 @@ kern_return_t MacRISC4CPU::startCPU(vm_offset_t /*start_paddr*/, vm_offset_t /*a
     long            gpioOffset = soft_reset_offset;
     unsigned long   strobe_value;
 
+	//kprintf("MacRISC4CPU::startCPU(%ld) - entered\n", getCPUNumber());
+
+	// check for timebase sync info
+	if (!gTimeBaseParams)
+	{
+		IOLog("MacRISC4CPU::startCPU(%ld) - timebase sync params unknown\n", getCPUNumber() );
+		return KERN_FAILURE;
+	}
+
 	/*
 	 * On MP machines, once we enable the second CPU the kernel will want to sync the timebases
 	 * between the CPUs and will call enableCPUTimeBase to disable then enable the timebase around
@@ -510,7 +536,8 @@ kern_return_t MacRISC4CPU::startCPU(vm_offset_t /*start_paddr*/, vm_offset_t /*a
 	 * the bus.
 	 */
 	gI2CTransactionComplete = false;
-	if (gI2CDriver && (kIOReturnSuccess == gI2CDriver->callPlatformFunction (i2c_openI2CBus, false, (void *) kI2CPort, (void *) 0, (void *) 0, (void *) 0))) {
+	if (gI2CDriver && (kIOReturnSuccess == gI2CDriver->callPlatformFunction (i2c_openI2CBus, false,
+			(void *) (UInt32)gTimeBaseParams->i2c_port, (void *) 0, (void *) 0, (void *) 0))) {
 		kprintf ("MacRISC4CPU::startCPU(%ld) i2c bus opened\n", getCPUNumber());
 		// pre-set for combined mode
 		gI2CDriver->callPlatformFunction (i2c_setCombinedMode, false, (void *) 0, (void *) 0, (void *) 0, (void *) 0);	//CY28510 does reads in combined mode
@@ -581,7 +608,7 @@ void MacRISC4CPU::haltCPU(void)
 										// Remember this driver
 										topLevelPCIBridges[topLevelPCIBridgeCount++] = pciDriver;
 									else
-										kprintf ("MacRISC4CPU::haltCPU - warning, more than %ld PCI bridges - cannot save/restore them all\n");
+										kprintf ("MacRISC4CPU::haltCPU - warning, more than %ld PCI bridges - cannot save/restore them all\n", kMaxPCIBridges);
 								childDriver->release();
 							}
 						}
@@ -617,18 +644,40 @@ void MacRISC4CPU::signalCPU(IOCPU *target)
 	return;
 }
 
+void MacRISC4CPU::sEnableCPUTimeBase( cpu_id_t self, boolean_t enable )
+	{
+	MacRISC4CPU*			pe = ( MacRISC4CPU * ) self;
+
+	pe->enableCPUTimeBase( enable );
+	}
+
+
 /* enableCPUTimeBase - IS called at interrupt context */
 void MacRISC4CPU::enableCPUTimeBase(bool enable)
 {
 	UInt8 sevenBitAddr, buf, tmp;
-	
+
+	//kprintf("MacRISC4CPU::enableCPUTimeBase(%s)\n", enable ? "enable" : "disable");
+
+/*
+	kprintf ("MacRISC4CPU::enableCPUTimeBase ( %ld, %s ) port=%02lX addr=%02lX subaddr=%02lX mask=%02lX en=%02lX dis=%02lX\n",
+			getCPUNumber(),
+			enable ? "enable" : "disable",
+			gTimeBaseParams->i2c_port,
+			gTimeBaseParams->i2c_addr,
+			gTimeBaseParams->i2c_subaddr,
+			gTimeBaseParams->mask,
+			gTimeBaseParams->enable_value,
+			gTimeBaseParams->disable_value );
+*/
+
 	// read the byte register -- requires 7 bit slave address
-	sevenBitAddr = kI2CAddr >> 1;
-	if (kIOReturnSuccess == gI2CDriver->callPlatformFunction (i2c_readI2CBus, false, (void *)(UInt32)sevenBitAddr, (void *)kI2CSubAddr, (void *)(UInt32)&buf, (void *)1)) {
+	sevenBitAddr = gTimeBaseParams->i2c_addr >> 1;
+	if (kIOReturnSuccess == gI2CDriver->callPlatformFunction (i2c_readI2CBus, false, (void *)(UInt32)sevenBitAddr, (void *) (UInt32)gTimeBaseParams->i2c_subaddr, (void *)(UInt32)&buf, (void *)1)) {
 		// apply mask and value
-		tmp = enable ? kValue : ~kValue; 
-		buf = (buf & ~kMask) | (tmp & kMask);
-		gI2CDriver->callPlatformFunction (i2c_writeI2CBus, false, (void *)(UInt32)sevenBitAddr,(void *) kI2CSubAddr, (void *)(UInt32)& buf, (void *)1);
+		tmp = enable ? gTimeBaseParams->enable_value : gTimeBaseParams->disable_value; 
+		buf = (buf & ~gTimeBaseParams->mask) | (tmp & gTimeBaseParams->mask);
+		gI2CDriver->callPlatformFunction (i2c_writeI2CBus, false, (void *)(UInt32)sevenBitAddr,(void *) (UInt32)gTimeBaseParams->i2c_subaddr, (void *)(UInt32)& buf, (void *)1);
 	} else {
 		kprintf ("MacRISC4CPU::enableCPUTimeBase - I2C read failed\n");
 		return;
@@ -644,6 +693,15 @@ void MacRISC4CPU::enableCPUTimeBase(bool enable)
 
 	return;
 }
+
+
+void MacRISC4CPU::sIPIHandler( OSObject* self, void* refCon, IOService* nub, int source )
+	{
+	MacRISC4CPU*				pe = ( MacRISC4CPU * ) self;
+
+	pe->ipiHandler( refCon, nub, source );
+	}
+
 
 void MacRISC4CPU::ipiHandler(void *refCon, void *nub, int source)
 {

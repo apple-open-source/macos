@@ -29,6 +29,7 @@
 #include <assert.h>
 #include <Security/utilities.h>
 #include <Security/SecCertificate.h>
+#include <Security/SecKeyPriv.h>
 #include <SecurityNssAsn1/nssUtils.h>
 #include <Security/oidsattr.h>
 
@@ -391,7 +392,8 @@ P12KeyBag::P12KeyBag(
 		  mKey(key),
 		  mCspHand(cspHand),
 		  mKeyRef(NULL),
-		  mWeOwnKey(true)
+		  mWeOwnKey(true),
+		  mPrivKeyCreds(NULL)
 {
 	setLabel(labelData);
 }
@@ -410,10 +412,22 @@ P12KeyBag::P12KeyBag(
 		  mKey((CSSM_KEY_PTR)key),
 		  mCspHand(cspHand),
 		  mKeyRef(keyRef),
-		  mWeOwnKey(false)		// app giveth, app taketh away
+		  mWeOwnKey(false),		// app giveth, app taketh away
+		  mPrivKeyCreds(NULL)
 {
 	if(mKeyRef) {
 		CFRetain(mKeyRef);
+		/* 
+	 	 * Get creds associated with this key 
+		 */
+		OSStatus ortn = SecKeyGetCredentials(mKeyRef,
+			CSSM_ACL_AUTHORIZATION_EXPORT_WRAPPED,
+			kSecCredentialTypeDefault,
+			&mPrivKeyCreds);
+		if(ortn) {
+			p12LogCssmError("SecKeyGetCredentials", ortn);
+			MacOSError::throwMe(ortn);
+		}
 	}
 	mLabel.Data = NULL;
 	mLabel.Length = 0;

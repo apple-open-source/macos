@@ -28,7 +28,7 @@ import org.jboss.logging.Logger;
  * @todo verify the pooled executor config
  *
  * @author  Scott.Stark@jboss.org
- * @version $Revision: 1.1.4.6 $
+ * @version $Revision: 1.1.4.7 $
  */
 public class SocketManager
 {
@@ -364,7 +364,7 @@ public class SocketManager
             }
             catch(Exception ie)
             {
-               log.warn("Failed to send error reply", e);
+               log.warn("Failed to send error reply", ie);
             }
          }
       }

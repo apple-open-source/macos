@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -123,7 +120,7 @@ getCudaPMURef(void)
 }
 
 // Boring PMU data massaging
-kern_return_t
+static kern_return_t
 writeDataProperty(io_object_t handle, CFStringRef name,
                   unsigned char * bytes, unsigned int size)
 {
@@ -407,6 +404,19 @@ static bool isRepeating(CFDictionaryRef event)
         return false;
 }
 
+static CFStringRef
+_getScheduledEventType(CFDictionaryRef event)
+{
+    return isA_CFString(CFDictionaryGetValue(event, CFSTR(kIOPMPowerEventTypeKey)));
+}
+
+static void
+_setScheduledEventType(CFMutableDictionaryRef event, CFStringRef type)
+{
+    CFDictionarySetValue(event, CFSTR(kIOPMPowerEventTypeKey), type);
+}
+
+
 static void schedulePowerOnTime(void);
 static void scheduleWakeTime(void);
 
@@ -465,7 +475,9 @@ schedulePowerOnTime(void)
 {
     static CFRunLoopTimerContext    tmr_context = {0, 0, CFRetain, CFRelease, 0};
     CFAbsoluteTime                  fire_time;
-    CFDictionaryRef                 upcoming;
+    CFDictionaryRef                 temp_upcoming;
+    CFMutableDictionaryRef          upcoming;
+    CFStringRef                     event_type;
     
     // If there's a current timer out there, remove it.       
     if(poweron_timer) 
@@ -475,11 +487,20 @@ schedulePowerOnTime(void)
     }
 
     // find upcoming time
-    upcoming = findEarliestUpcomingTime(poweron_arr);
-    if(!upcoming)
+    temp_upcoming = findEarliestUpcomingTime(poweron_arr);
+    if(!temp_upcoming)
     {
         // No scheduled events
         return;
+    }
+    upcoming = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, temp_upcoming);
+    if(!upcoming) return;
+    
+    // If this is a "wake or power on event", re-label it as "power on" for tracking purposes.
+    event_type = _getScheduledEventType(upcoming);
+    if(event_type && (kCFCompareEqualTo == CFStringCompare(event_type, CFSTR(kIOPMAutoWakeOrPowerOn), 0)) );
+    {
+        _setScheduledEventType(upcoming, CFSTR(kIOPMAutoPowerOn));
     }
     
     tmr_context.info = (void *)upcoming;
@@ -494,6 +515,7 @@ schedulePowerOnTime(void)
         CFRunLoopAddTimer(CFRunLoopGetCurrent(), poweron_timer, kCFRunLoopDefaultMode);
         CFRelease(poweron_timer);
     }
+    CFRelease(upcoming);
     
     // Send scheduled power-on to the PMU
     tellPMUScheduledTime(upcoming, kIOPMUAutoPowerKey);
@@ -504,7 +526,9 @@ scheduleWakeTime(void)
 {
     static CFRunLoopTimerContext    tmr_context = {0, 0, CFRetain, CFRelease, 0};
     CFAbsoluteTime                  fire_time;
-    CFDictionaryRef                 upcoming;
+    CFDictionaryRef                 temp_upcoming;
+    CFMutableDictionaryRef          upcoming;
+    CFStringRef                     event_type;
 
     if(wakeup_timer) 
     {
@@ -513,11 +537,20 @@ scheduleWakeTime(void)
     }
     
     // find upcoming time
-    upcoming = findEarliestUpcomingTime(wakeup_arr);
-    if(!upcoming)
+    temp_upcoming = findEarliestUpcomingTime(wakeup_arr);
+    if(!temp_upcoming)
     {
         // No scheduled events
         return;
+    }
+    upcoming = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, temp_upcoming);
+    if(!upcoming) return;
+    
+    // If this is a "wake or power on event", re-label it as "wake" for tracking purposes.
+    event_type = _getScheduledEventType(upcoming);
+    if(event_type && (kCFCompareEqualTo == CFStringCompare(event_type, CFSTR(kIOPMAutoWakeOrPowerOn), 0)) );
+    {
+        _setScheduledEventType(upcoming, CFSTR(kIOPMAutoWake));
     }
     
     tmr_context.info = (void *)upcoming;    
@@ -535,6 +568,7 @@ scheduleWakeTime(void)
         CFRunLoopAddTimer(CFRunLoopGetCurrent(), wakeup_timer, kCFRunLoopDefaultMode);
         CFRelease(wakeup_timer);
     }
+    CFRelease(upcoming);
 
 }
 //*******************

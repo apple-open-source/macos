@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE jbosscmp-jdbc PUBLIC "-//JBoss//DTD JBOSSCMP-JDBC 3.2//EN" "http://www.jboss.org/j2ee/dtd/jbosscmp-jdbc_3_2.dtd">
+<!-- $Revision: 1.1.2.3 $ -->
+<jbosscmp-jdbc>
+   <defaults>
+   		<post-table-create>
+   			<sql-statement>CHECKPOINT</sql-statement>
+   			<sql-statement>ALTER TABLE %%t ADD COLUMN blabla INT </sql-statement>
+   			<sql-statement>Create index b_idx%%n on %%t(blabla)</sql-statement>
+   		</post-table-create>
+   </defaults>
+
+   <enterprise-beans>
+
+     <!--
+       To add beans that you have deployment descriptor info for, add
+       a file to your XDoclet merge directory called jbosscmp-jdbc-beans.xml
+       that contains the <entity></entity> markup for those beans.
+     -->
+
+      <entity>
+         <ejb-name>DBIndexTest</ejb-name>
+         <create-table>true</create-table>
+         <remove-table>true</remove-table>
+	 <post-table-create>
+		 <sql-statement>create index bar_index on DBIndexTest(bar)</sql-statement>
+	 </post-table-create>
+         <table-name>DBIndexTest</table-name>
+
+         <cmp-field>
+            <field-name>pKey</field-name>
+            <dbindex/>
+         </cmp-field>
+         <cmp-field>
+            <field-name>foo</field-name>
+	    <dbindex/>
+         </cmp-field>
+         <cmp-field>
+            <field-name>bar</field-name>
+         </cmp-field>
+         <cmp-field>
+            <field-name>baz</field-name>
+         </cmp-field>
+      </entity>
+
+      <entity>
+         <ejb-name>CMR1</ejb-name>
+         <create-table>true</create-table>
+         <remove-table>true</remove-table>
+         <table-name>CMR1</table-name>
+
+         <cmp-field>
+            <field-name>pKey</field-name>
+         </cmp-field>
+         <cmp-field>
+            <field-name>foo1</field-name>
+	    <dbindex/>
+         </cmp-field>
+         <cmp-field>
+            <field-name>bar1</field-name>
+         </cmp-field>
+      </entity>
+
+      <entity>
+         <ejb-name>CMR2</ejb-name>
+         <create-table>true</create-table>
+         <remove-table>true</remove-table>
+         <table-name>CMR2</table-name>
+
+         <cmp-field>
+            <field-name>pKey2</field-name>
+         </cmp-field>
+         <cmp-field>
+            <field-name>foo2</field-name>
+	    <dbindex/>
+         </cmp-field>
+         <cmp-field>
+            <field-name>bar2</field-name>
+         </cmp-field>
+       </entity>
+
+   </enterprise-beans>
+ <relationships>
+    <ejb-relation>
+      <ejb-relation-name>IDX-TO-CMR1-RELATION</ejb-relation-name>
+      <foreign-key-mapping/>
+
+      <ejb-relationship-role>
+          <ejb-relationship-role-name>cmr1-has-idx</ejb-relationship-role-name>
+          <fk-constraint>false</fk-constraint>
+		  <key-fields/>
+
+      </ejb-relationship-role>
+      <ejb-relationship-role>
+          <ejb-relationship-role-name>idx-has-cmr1</ejb-relationship-role-name>
+          <key-fields>
+             <key-field>
+               <field-name>pKey</field-name>
+               <column-name>idxfk</column-name>
+	       <dbindex/>
+             </key-field>
+          </key-fields>
+
+      </ejb-relationship-role>
+    </ejb-relation>
+    <ejb-relation>
+      <ejb-relation-name>IDX-CMR2</ejb-relation-name>
+      <relation-table-mapping>
+        <table-name>IDX_CMR2_rel</table-name>
+          <create-table>true</create-table>
+	  <remove-table>true</remove-table>
+      </relation-table-mapping>
+
+      <ejb-relationship-role>
+          <ejb-relationship-role-name>IDX-has-CMR2s</ejb-relationship-role-name>
+          <fk-constraint>false</fk-constraint>
+          <key-fields>
+             <key-field>
+               <field-name>pKey</field-name>
+               <column-name>idx_id</column-name>
+	       <dbindex/>
+             </key-field>
+          </key-fields>
+
+      </ejb-relationship-role>
+      <ejb-relationship-role>
+          <ejb-relationship-role-name>CMR2-has-IDXs</ejb-relationship-role-name>
+          <fk-constraint>false</fk-constraint>
+          <key-fields>
+             <key-field>
+               <field-name>pKey2</field-name>
+               <column-name>cmr2_id</column-name>
+             </key-field>
+          </key-fields>
+
+      </ejb-relationship-role>
+    </ejb-relation>
+
+ </relationships>
+
+
+</jbosscmp-jdbc>

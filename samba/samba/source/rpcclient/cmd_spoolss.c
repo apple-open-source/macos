@@ -1246,7 +1246,7 @@ static BOOL init_drv_info_3_members (
 	}
 	for (i=0; i<len; i++)
 	{
-		info->dependentfiles[i] = SSVAL(&info->dependentfiles[i], 0, str2[i]);
+		SSVAL(&info->dependentfiles[i], 0, str2[i]);
 	}
 	info->dependentfiles[len] = '\0';
 
@@ -1266,12 +1266,13 @@ static WERROR cmd_spoolss_addprinterdriver(struct cli_state *cli,
 	fstring			driver_name;
 
 	/* parse the command arguements */
-	if (argc != 3)
+	if (argc != 3 && argc != 4)
 	{
-		printf ("Usage: %s <Environment>\\\n", argv[0]);
+		printf ("Usage: %s <Environment> \\\n", argv[0]);
 		printf ("\t<Long Printer Name>:<Driver File Name>:<Data File Name>:\\\n");
     		printf ("\t<Config File Name>:<Help File Name>:<Language Monitor Name>:\\\n");
-	    	printf ("\t<Default Data Type>:<Comma Separated list of Files>\n");
+	    	printf ("\t<Default Data Type>:<Comma Separated list of Files> \\\n");
+		printf ("\t[version]\n");
 
             return WERR_OK;
         }
@@ -1290,6 +1291,14 @@ static WERROR cmd_spoolss_addprinterdriver(struct cli_state *cli,
 	{
 		printf ("Error Invalid parameter list - %s.\n", argv[2]);
 		return WERR_INVALID_PARAM;
+	}
+
+	/* if printer driver version specified, override the default version
+	 * used by the architecture.  This allows installation of Windows
+	 * 2000 (version 3) printer drivers. */
+	if (argc == 4)
+	{
+		info3.version = atoi(argv[3]);
 	}
 
 
@@ -1327,7 +1336,7 @@ static WERROR cmd_spoolss_addprinterex(struct cli_state *cli,
         slprintf(servername, sizeof(servername)-1, "\\\\%s", cli->desthost);
         strupper_m(servername);
 
-	/* Fill in the DRIVER_INFO_3 struct */
+	/* Fill in the DRIVER_INFO_2 struct */
 	ZERO_STRUCT(info2);
 #if 0	/* JERRY */
 	init_unistr( &info2.servername, 	servername);
@@ -1568,7 +1577,7 @@ static WERROR cmd_spoolss_addform(struct cli_state *cli, TALLOC_CTX *mem_ctx,
 	form.right = 20;
 	form.bottom = 30;
 
-	init_unistr2(&form.name, argv[2], strlen(argv[2]) + 1);
+	init_unistr2(&form.name, argv[2], UNI_STR_TERMINATE);
 
 	/* Add the form */
 
@@ -1627,7 +1636,7 @@ static WERROR cmd_spoolss_setform(struct cli_state *cli, TALLOC_CTX *mem_ctx,
 	form.right = 2000;
 	form.bottom = 3000;
 
-	init_unistr2(&form.name, argv[2], strlen(argv[2]) + 1);
+	init_unistr2(&form.name, argv[2], UNI_STR_TERMINATE);
 
 	/* Set the form */
 

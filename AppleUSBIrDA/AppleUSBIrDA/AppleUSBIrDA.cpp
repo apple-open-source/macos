@@ -3311,6 +3311,8 @@ IOReturn AppleUSBIrDADriver::message( UInt32 type, IOService *provider,  void *a
 	case kIOMessageServiceIsTerminated:
 	    ELG( 0, type, 'mess', "message - kIOMessageServiceIsTerminated" );
 	    
+#ifdef old	// don't need to do stops, will be closed shortly
+	    
 	    if (fIrDA)
 	    {
 		int REVIEW_fTerminate;  // this isn't right yet.
@@ -3341,10 +3343,12 @@ IOReturn AppleUSBIrDADriver::message( UInt32 type, IOService *provider,  void *a
 		    fpInterface = NULL; 
 		}
 	    }
-	    /* We need to disconnect the user client interface */
-	    messageClients(kIrDACallBack_Unplug, 0, 1);
 	    
 	    fTerminate = true;      // we're being terminated (unplugged)
+#endif // old
+	    
+	    /* We need to disconnect the user client interface */
+	    messageClients(kIrDACallBack_Unplug, 0, 1);
 	    break;
 	    
 	case kIOMessageServiceIsSuspended:  

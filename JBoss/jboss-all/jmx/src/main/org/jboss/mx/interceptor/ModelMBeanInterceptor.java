@@ -25,7 +25,7 @@ import org.jboss.mx.server.MBeanInvoker;
  * to the ModelMBean resource.
  *
  * @author  <a href="mailto:juha@jboss.org">Juha Lindfors</a>.
- * @version $Revision: 1.2.8.5 $
+ * @version $Revision: 1.2.8.6 $
  *
  */
 public class ModelMBeanInterceptor
@@ -69,7 +69,8 @@ public class ModelMBeanInterceptor
          }
          catch (NoSuchMethodException e)
          {
-            throw new ReflectionException(e);
+            throw new ReflectionException(e, "Unable to find operation "
+               + name + "("+paramBuffer+")");
          }
       }
    }

@@ -142,7 +142,13 @@ class Mutex {
     void check(int err)	{ if (err) UnixError::throwMe(err); }
 
 public:
+	enum Type {
+        normal,
+		recursive
+	};
+    
     Mutex(bool log = true);
+    Mutex(Type type, bool log = true);
 	~Mutex();
     void lock();
 	bool tryLock();
@@ -156,6 +162,8 @@ private:
 	unsigned long contentionCount;		// number of contentions (valid only if debugLog)
 	static bool debugHasInitialized;	// global: debug state set up
 	static bool loggingMutexi;			// global: we are debug-logging mutexi
+    
+    void init(Type type, bool log);
 };
 
 #elif _USE_THREADS == _USE_NO_THREADS

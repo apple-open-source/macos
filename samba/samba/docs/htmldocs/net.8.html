@@ -1,4 +1,4 @@
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>net</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.60.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="net.8"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2>Name</h2><p>net &#8212; Tool for administration of Samba and remote
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>net</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.61.2"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="net.8"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2>Name</h2><p>net &#8212; Tool for administration of Samba and remote
 	CIFS servers.
 	</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><tt class="command">net</tt>  {&lt;ads|rap|rpc&gt;} [-h] [-w workgroup] [-W myworkgroup] [-U user] [-I ip-address] [-p port] [-n myname] [-s conffile] [-S server] [-l] [-P] [-D debuglevel]</p></div></div><div class="refsect1" lang="en"><h2>DESCRIPTION</h2><p>This tool is part of the <a href="Samba.7.html"><span class="citerefentry"><span class="refentrytitle">Samba</span>(7)</span></a> suite.</p><p>The samba net utility is meant to work just like the net utility 
 	available for windows and DOS. The first argument should be used 
@@ -24,7 +24,7 @@
 		Defaults to trying 445 first, then 139.
 		</p></dd><dt><span class="term">-n &lt;primary NetBIOS name&gt;</span></dt><dd><p>This option allows you to override
 the NetBIOS name that Samba uses for itself. This is identical
-to setting the <a class="indexterm" name="id2796900"></a><a href="#"><i class="parameter"><tt>netbios name</tt></i></a> parameter in the <tt class="filename">smb.conf</tt> file. 
+to setting the <a class="indexterm" name="id2802472"></a>netbios name parameter in the <tt class="filename">smb.conf</tt> file. 
 However, a command
 line setting will take precedence over settings in
 <tt class="filename">smb.conf</tt>.</p></dd><dt><span class="term">-s &lt;configuration file&gt;</span></dt><dd><p>The file specified contains the 
@@ -47,13 +47,13 @@ not specified is zero.</p><p>The higher this value, the more detail will be
 logged to the log files about the activities of the 
 server. At level 0, only critical errors and serious 
 warnings will be logged. Level 1 is a reasonable level for
-day to day running - it generates a small amount of 
+day-to-day running - it generates a small amount of 
 information about operations carried out.</p><p>Levels above 1 will generate considerable 
 amounts of log data, and should only be used when 
 investigating a problem. Levels above 3 are designed for 
 use only by developers and generate HUGE amounts of log
 data, most of which is extremely cryptic.</p><p>Note that specifying this parameter here will 
-override the <a class="indexterm" name="id2797170"></a><a href="#"><i class="parameter"><tt>log level</tt></i></a> parameter
+override the <a class="indexterm" name="id2805430"></a>log level parameter
 in the <tt class="filename">smb.conf</tt> file.</p></dd></dl></div></div><div class="refsect1" lang="en"><h2>COMMANDS</h2><div class="refsect2" lang="en"><h3>CHANGESECRETPW</h3><p>This command allows the Samba machine account password to be set from an external application
 to a machine account password that has already been stored in Active Directory. DO NOT USE this command
 unless you know exactly what you are doing. The use of this command requires that the force flag (-f)

@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE project [
    <!ENTITY buildmagic SYSTEM "../tools/etc/buildmagic/buildmagic.ent">
+   <!ENTITY libraries SYSTEM "../tools/etc/buildmagic/libraries.ent">
+   <!ENTITY modules SYSTEM "../tools/etc/buildmagic/modules.ent">
 ]>
 
 <!-- ====================================================================== -->
@@ -12,7 +14,7 @@
 <!--                                                                        -->
 <!-- ====================================================================== -->
 
-<!-- $Id: build.xml,v 1.12.2.7 2003/05/18 06:28:32 starksm Exp $ -->
+<!-- $Id: build.xml,v 1.12.2.10 2003/11/10 06:45:53 starksm Exp $ -->
 
 <project default="main" name="JBoss/Management">
 
@@ -68,104 +70,18 @@
     <!-- ========= -->
     <!-- Libraries -->
     <!-- ========= -->
-
-    <!-- JUnit -->
-    <property name="junit.junit.root" value="${project.thirdparty}/junit/junit"/>
-    <property name="junit.junit.lib" value="${junit.junit.root}/lib"/>
-    <path id="junit.junit.classpath">
-      <pathelement path="${junit.junit.lib}/junit.jar"/>
-    </path>
-
-    <!-- Log4j -->
-    <property name="apache.log4j.root" value="${project.thirdparty}/apache/log4j"/>
-    <property name="apache.log4j.lib" value="${apache.log4j.root}/lib"/>
-    <path id="apache.log4j.classpath">
-      <pathelement path="${apache.log4j.lib}/log4j.jar"/>
-    </path>
-
-    <!-- Apache Crimson (XML/DOM) -->
-    <property name="apache.crimson.root" value="${project.thirdparty}/apache/crimson"/>
-    <property name="apache.crimson.lib" value="${apache.crimson.root}/lib"/>
-    <path id="apache.crimson.classpath">
-      <pathelement path="${apache.crimson.lib}/crimson.jar"/>
-    </path>
-
-    <!-- Apache Commons -->
-    <property name="apache.commons.root" value="${project.thirdparty}/apache/commons"/>
-    <property name="apache.commons.lib" value="${apache.commons.root}/lib"/>
-    <path id="apache.commons.classpath">
-      <pathelement path="${apache.commons.lib}/commons-collections.jar"/>
-      <pathelement path="${apache.commons.lib}/commons-logging.jar"/>
-    </path>
-
-    <!-- AS: Fix that RemoteMBeanServer is not available in the JBossMX project yet -->
-    <property name="tools.root" value="${project.tools}/"/>
-    <property name="tools.lib" value="${tools.root}/lib"/>
-    <path id="remote-mbeanserver.classpath">
-      <pathelement path="${tools.lib}/remote-mbeanserver.jar"/>
-    </path>
-
+    &libraries;
     <!-- The combined library classpath -->
     <path id="library.classpath">
       <path refid="apache.log4j.classpath"/>
       <path refid="apache.crimson.classpath"/>
       <path refid="apache.commons.classpath"/>
-      <path refid="remote-mbeanserver.classpath"/>
     </path>
 
     <!-- ======= -->
     <!-- Modules -->
     <!-- ======= -->
-
-    <!-- J2EE -->
-    <property name="jboss.j2ee.root" value="${project.root}/j2ee/output"/>
-    <property name="jboss.j2ee.lib" value="${jboss.j2ee.root}/lib"/>
-    <path id="jboss.j2ee.classpath">
-      <pathelement path="${jboss.j2ee.lib}/jboss-j2ee.jar"/>
-    </path>
-
-    <!-- Common -->
-    <property name="jboss.common.root" value="${project.root}/common/output"/>
-    <property name="jboss.common.lib" value="${jboss.common.root}/lib"/>
-    <path id="jboss.common.classpath">
-      <pathelement path="${jboss.common.lib}/jboss-common.jar"/>
-    </path>
-
-    <!-- System -->
-    <property name="jboss.system.root" value="${project.root}/system/output"/>
-    <property name="jboss.system.lib" value="${jboss.system.root}/lib"/>
-    <path id="jboss.system.classpath">
-      <pathelement path="${jboss.system.lib}/jboss-system.jar"/>
-    </path>
-
-    <!-- Server -->
-    <property name="jboss.server.root" value="${project.root}/server/output"/>
-    <property name="jboss.server.lib" value="${jboss.server.root}/lib"/>
-    <path id="jboss.server.classpath">
-      <pathelement path="${jboss.server.lib}/jboss.jar"/>
-    </path>
-
-    <!-- JCA -->
-    <property name="jboss.jca.root" value="${project.root}/connector/output"/>
-    <property name="jboss.jca.lib" value="${jboss.jca.root}/lib"/>
-    <path id="jboss.jca.classpath">
-      <pathelement path="${jboss.jca.lib}/jboss-jca.sar"/>
-    </path>
-
-    <!-- JMX -->
-    <property name="jboss.jmx.root" value="${project.root}/jmx/output"/>
-    <property name="jboss.jmx.lib" value="${jboss.jmx.root}/lib"/>
-    <path id="jboss.jmx.classpath">
-      <pathelement path="${jboss.jmx.lib}/jboss-jmx.jar"/>
-    </path>
-
-    <!-- Clustering -->
-    <property name="jboss.cluster.root" value="${project.root}/cluster/output"/>
-    <property name="jboss.cluster.lib" value="${jboss.cluster.root}/lib"/>
-    <path id="jboss.cluster.classpath">
-      <pathelement path="${jboss.cluster.lib}/jbossha.jar"/>
-    </path>
-
+    &modules;
     <!-- The combined dependent module classpath -->
     <path id="dependentmodule.classpath">
       <path refid="jboss.j2ee.classpath"/>
@@ -226,25 +142,6 @@
 
     <!-- Packages to include when generating api documentation -->
     <property name="javadoc.packages" value="org.jboss.*"/>
-
-    <!-- Override JUnit defaults -->
-    <property name="junit.timeout" value="240000"/> <!-- 4 minutes -->
-    <property name="junit.batchtest.todir" value="${build.reports}"/>
-    <property name="junit.jvm.options" value="-Ddummy"/>
-
-    <!-- xdoclet -->
-    <path id="xdoclet.task.classpath">
-      <path refid="javac.classpath"/>
-      <fileset dir="${project.thirdparty}/xdoclet/xdoclet/lib">
-        <include name="**/*.jar"/>
-      </fileset>
-    </path>
-    <property name="xdoclet.task.classpath" 
-	      refid="xdoclet.task.classpath"/>
-
-    <taskdef name="todo" 
-             classname="xdoclet.modules.doc.DocumentDocletTask"
-             classpathref="xdoclet.task.classpath"/>
   </target>
 
 
@@ -304,7 +201,6 @@
 	     excludedtags="@version,@author">
       <fileset dir="${source.java}">
         <include name="org/jboss/management/mejb/*Bean.java"/>
-        <exclude name="org/jboss/management/mejb/*MBean.java"/>
       </fileset>
       <packageSubstitution packages="ejb" substituteWith="interfaces"/>
       <remoteinterface/>
@@ -369,7 +265,10 @@
    -->
   <target name="jars" 
 	  description="Builds all jar files."
-	  depends="compile">
+     depends="_buildmagic:build-bypass-check"
+	  unless="build-bypass.on">
+
+    <call target="compile"/>
      
     <mkdir dir="${build.lib}"/>
     
@@ -379,7 +278,6 @@
     >
       <fileset dir="${build.classes}">
         <include name="javax/management/j2ee/**"/>
-        <exclude name="javax/management/j2ee/Management*.class"/>
       </fileset>
     </jar>
     
@@ -410,7 +308,6 @@
     >
       <fileset dir="${build.classes}">
         <include name="org/jboss/management/mejb/**"/>
-        <include name="javax/management/j2ee/Management*.class"/>
       </fileset>
       <fileset dir="${build.gen-src}">
         <include name="META-INF/**"/>
@@ -418,6 +315,9 @@
     </jar>
 
     <!-- testsuite-support.jar -->
+
+    <!-- Update the build marker to allow bypassing -->
+    <touch file="${build-bypass.marker}"/>
 
   </target>
 

@@ -1,7 +1,6 @@
 package org.jboss.test;
 
 import java.io.Serializable;
-import java.security.BasicPermission;
 import java.util.Comparator;
 import java.util.Properties;
 import javax.naming.CompoundName;
@@ -12,7 +11,7 @@ import javax.naming.NamingException;
 by NamespacePermissions.
 
 @author Scott.Stark@jboss.org
-@version $Revision: 1.2 $
+@version $Revision: 1.2.4.1 $
 */
 public class PermissionName implements Comparable, Serializable
 {

@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -59,7 +57,10 @@ protected:
     UInt8				_bInterfaceProtocol;
     UInt8				_iInterface;
 
-    struct ExpansionData { /* */ };
+    struct ExpansionData {
+        IOCommandGate	*		_gate;
+        IOWorkLoop	*		_workLoop;
+    };
     ExpansionData * _expansionData;
 
     // private methods
@@ -69,6 +70,8 @@ protected:
 
 public:
     static IOUSBInterface *withDescriptors(const IOUSBConfigurationDescriptor *cfDesc, const IOUSBInterfaceDescriptor *ifDesc);
+    static IOReturn	CallSuperOpen(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
+    
     virtual bool 	init(	const IOUSBConfigurationDescriptor *cfDesc,
                                 const IOUSBInterfaceDescriptor *ifDesc);
     virtual bool 	attach(IOService *provider);
@@ -76,6 +79,7 @@ public:
     virtual bool 	finalize(IOOptionBits options);
     virtual void 	stop(IOService *  provider);
     virtual IOReturn 	message( UInt32 type, IOService * provider,  void * argument = 0 );
+    virtual void 	free();	
 
     /*!
         @function FindNextAltInterface

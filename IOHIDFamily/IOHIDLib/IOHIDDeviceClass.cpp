@@ -110,7 +110,7 @@ IOHIDDeviceClass::IOHIDDeviceClass()
 
     fRunLoop 			= NULL;
     fQueues			= NULL;
-    fDeviceProperties		= NULL;
+    fDeviceElements		= NULL;
     fReportHandlerQueue		= NULL; 
     fRemovalCallback		= NULL; 
     fRemovalTarget		= NULL;
@@ -154,8 +154,8 @@ IOHIDDeviceClass::~IOHIDDeviceClass()
     if (fQueues)
         CFRelease(fQueues);
         
-    if (fDeviceProperties)
-        CFRelease(fDeviceProperties);
+    if (fDeviceElements)
+        CFRelease(fDeviceElements);
         
     if (fNotifyPort)
         IONotificationPortDestroy(fNotifyPort);
@@ -302,6 +302,7 @@ start(CFDictionaryRef propertyTable, io_service_t inService)
     kern_return_t 		kr;
     mach_port_t 		masterPort;
     CFRunLoopSourceRef		runLoopSource;
+    CFMutableDictionaryRef	properties;
     MyPrivateData		*privateDataRef = NULL;
 
     fService = inService;
@@ -344,15 +345,20 @@ start(CFDictionaryRef propertyTable, io_service_t inService)
 
     
     kr = IORegistryEntryCreateCFProperties (fService,
-                                            &fDeviceProperties,
+                                            &properties,
                                             kCFAllocatorDefault,
                                             kNilOptions );
-    if (fDeviceProperties)
-    {
-        BuildElements((CFDictionaryRef) fDeviceProperties);
+
+    if ( !properties || (kr != kIOReturnSuccess))
+        return kIOReturnError;
         
-        FindReportHandlers((CFDictionaryRef) fDeviceProperties);        
-    }
+    fDeviceElements = CFSetCreateMutable(kCFAllocatorDefault, 0, &kCFTypeSetCallBacks);    
+    if ( !fDeviceElements )
+        return kIOReturnError;
+        
+    BuildElements((CFDictionaryRef) properties, fDeviceElements);
+    FindReportHandlers((CFDictionaryRef) properties); 
+    CFRelease(properties);       
 
     return kIOReturnSuccess;
 }
@@ -380,14 +386,14 @@ void IOHIDDeviceClass::_deviceNotification( void *refCon,
                 
             self->fIsTerminated = true;
             
-            if (!self->fRemovalCallback)
-                return;
-            
-            ((IOHIDCallbackFunction)self->fRemovalCallback)(
-                                            self->fRemovalTarget,
-                                            kIOReturnSuccess,
-                                            self->fRemovalRefcon,
-                                            (void *)&(self->fHIDDevice));
+            if (self->fRemovalCallback)
+            {            
+                ((IOHIDCallbackFunction)self->fRemovalCallback)(
+                                                self->fRemovalTarget,
+                                                kIOReturnSuccess,
+                                                self->fRemovalRefcon,
+                                                (void *)&(self->fHIDDevice));
+            }
             // Free up the notificaiton
             IOObjectRelease(privateDataRef->notification);
             free(privateDataRef);
@@ -1041,8 +1047,9 @@ IOHIDDeviceClass::copyMatchingElements(CFDictionaryRef matchingDict, CFArrayRef 
             && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementUnitKey))
             && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementUnitExponentKey))
             && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementNameKey))
-            && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementValueLocationKey))))
-        {
+            && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementValueLocationKey))
+            && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementDuplicateIndexKey))))
+        {            
             CFArrayAppendValue(tempElements, element);
         }
     }
@@ -1279,7 +1286,9 @@ IOReturn IOHIDDeviceClass::startAllQueues(bool deviceInitiated)
     if ( fQueues )
     {
         int			queueCount = CFSetGetCount(fQueues);
-        IOHIDQueueClass *	queues[queueCount];
+        IOHIDQueueClass **	queues = NULL;
+        
+        queues = (IOHIDQueueClass **)malloc(sizeof(IOHIDQueueClass *) * queueCount);
     
         CFSetGetValues(fQueues, (const void **)queues);
         
@@ -1287,6 +1296,10 @@ IOReturn IOHIDDeviceClass::startAllQueues(bool deviceInitiated)
         {
             ret = queues[i]->start(deviceInitiated);
         }
+        
+        if (queues)
+            free(queues);
+
     }
 
     return ret;
@@ -1299,14 +1312,20 @@ IOReturn IOHIDDeviceClass::stopAllQueues(bool deviceInitiated)
     if ( fQueues )
     {
         int			queueCount = CFSetGetCount(fQueues);
-        IOHIDQueueClass *	queues[queueCount];
+        IOHIDQueueClass **	queues	= NULL;
     
+        queues = (IOHIDQueueClass **)malloc(sizeof(IOHIDQueueClass *) * queueCount);
+
         CFSetGetValues(fQueues, (const void **)queues);
         
         for (int i=0; queues && i<queueCount && ret==kIOReturnSuccess; i++)
         {
             ret = queues[i]->stop(deviceInitiated);
         }
+        
+        if (queues)
+            free(queues);
+
     }
 
     return ret;
@@ -1517,7 +1536,7 @@ IOHIDDeviceClass::deviceSetInterruptReportHandlerCallback(void * 	self,
 
 // End added methods
 
-kern_return_t IOHIDDeviceClass::BuildElements (CFDictionaryRef properties)
+kern_return_t IOHIDDeviceClass::BuildElements (CFDictionaryRef properties, CFMutableSetRef set)
 {
     kern_return_t           	kr = kIOReturnSuccess;
     long			allocatedElementCount;
@@ -1531,7 +1550,7 @@ kern_return_t IOHIDDeviceClass::BuildElements (CFDictionaryRef properties)
     allocatedElementCount = 0;
     
     // recursively add leaf elements
-    kr = this->CreateLeafElements (properties, 0, &allocatedElementCount, CFSTR(kIOHIDElementKey), fElements);
+    kr = this->CreateLeafElements (properties, set, 0, &allocatedElementCount, CFSTR(kIOHIDElementKey), fElements);
     
 //    printf ("%ld elements allocated of %ld expected\n", allocatedElementCount, fElementCount);
     
@@ -1552,6 +1571,7 @@ struct StaticWalkElementsParams
 {
     IOHIDDeviceClass *		iohiddevice;
     CFDictionaryRef 		properties;
+    CFMutableSetRef		set;
     CFStringRef			key;
     IOHIDElementStruct *	elements;
     long			value;
@@ -1642,14 +1662,14 @@ void IOHIDDeviceClass::StaticCreateLeafElements (const void * value, void * para
     StaticWalkElementsParams * params = (StaticWalkElementsParams *) parameter;
     
     // increment count by this sub element
-    kr = params->iohiddevice->CreateLeafElements(params->properties, (CFTypeRef) value, (long *) params->data, params->key, params->elements);
+    kr = params->iohiddevice->CreateLeafElements(params->properties, params->set, (CFTypeRef) value, (long *) params->data, params->key, params->elements);
     
     if (params->value == kIOReturnSuccess)
         params->value = kr;
 }
 
 // this function recersively creates the leaf elements, if zero is passed as element, it starts at top
-kern_return_t IOHIDDeviceClass::CreateLeafElements (CFDictionaryRef properties, 
+kern_return_t IOHIDDeviceClass::CreateLeafElements (CFDictionaryRef properties, CFMutableSetRef set,
                     CFTypeRef element, long * allocatedElementCount, CFStringRef key, IOHIDElementStruct * elements)
 {
     kern_return_t 	kr = kIOReturnSuccess;
@@ -1671,12 +1691,13 @@ kern_return_t IOHIDDeviceClass::CreateLeafElements (CFDictionaryRef properties,
     {
         // setup param block for array callback
         StaticWalkElementsParams params;
-        params.iohiddevice = this;
-        params.properties = properties;
-        params.key = key;
-        params.elements = elements;
-        params.value = kIOReturnSuccess;
-        params.data = allocatedElementCount;
+        params.iohiddevice 	= this;
+        params.properties 	= properties;
+        params.set 		= set;
+        params.key 		= key;
+        params.elements 	= elements;
+        params.value 		= kIOReturnSuccess;
+        params.data 		= allocatedElementCount;
         
         // count the size of the array
         CFRange range = { 0, CFArrayGetCount((CFArrayRef) element) };
@@ -1698,8 +1719,21 @@ kern_return_t IOHIDDeviceClass::CreateLeafElements (CFDictionaryRef properties,
         long 			number;
         
         // get the actual dictionary ref
-        hidelement.elementDictionaryRef = dictionary;
-        hidelement.parentElementDictionaryRef = (!isRootItem) ? properties : 0;
+        if ( set )
+        {
+            CFMutableDictionaryRef tempDict = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, dictionary);
+            hidelement.elementDictionaryRef = tempDict;
+            
+            if (tempDict)
+            {
+                if (!isRootItem)
+                    CFDictionarySetValue(tempDict, CFSTR(kIOHIDElementParentCollectionKey), properties);
+    
+                CFSetAddValue(set, tempDict);
+                CFRelease(tempDict);
+                dictionary = tempDict;
+            }
+        }
         
         // get the cookie element
         object = CFDictionaryGetValue (dictionary, CFSTR(kIOHIDElementCookieKey));
@@ -1717,7 +1751,7 @@ kern_return_t IOHIDDeviceClass::CreateLeafElements (CFDictionaryRef properties,
             return kIOReturnInternalError;
         hidelement.type = number;
 
-        if ( ! CFStringCompare( key, CFSTR(kIOHIDElementKey), 0 ) )
+        if ( CFStringCompare( key, CFSTR(kIOHIDElementKey), 0 ) == kCFCompareEqualTo)
         {
             // get the element usage
             object = CFDictionaryGetValue (dictionary, CFSTR(kIOHIDElementUsageKey));
@@ -1744,7 +1778,7 @@ kern_return_t IOHIDDeviceClass::CreateLeafElements (CFDictionaryRef properties,
             elements[(*allocatedElementCount)++] = hidelement;
 
             // recursively create leaf elements
-            kr = this->CreateLeafElements (dictionary, subElements, allocatedElementCount, key, elements);
+            kr = this->CreateLeafElements (dictionary, set, subElements, allocatedElementCount, key, elements);
         }
         // otherwise, this is a leaf, allocate and fill in our data
         else
@@ -1812,7 +1846,7 @@ kern_return_t IOHIDDeviceClass::FindReportHandlers(CFDictionaryRef properties)
     allocatedElementCount = 0;
     
     // recursively add leaf elements
-    kr = this->CreateLeafElements (properties, 0, &allocatedElementCount, CFSTR("InputReportElements"), fReportHandlerElements);
+    kr = this->CreateLeafElements (properties, 0, 0, &allocatedElementCount, CFSTR("InputReportElements"), fReportHandlerElements);
     
 //    printf ("%ld elements allocated of %ld expected\n", allocatedElementCount, fElementCount);
     

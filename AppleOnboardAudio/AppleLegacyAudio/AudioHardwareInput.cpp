@@ -67,7 +67,7 @@ bool AudioHardwareInput::deviceSetActive( UInt32 currentDevices ){
 	// Internal microphone is supposed to be active until we have 
 	// input selection. When an external mic is connected it is activated
 	// automatically
-    // debug2IOLog("Current devices are %x \n", currentDevices);
+    // debugIOLog (3, "Current devices are %x ", currentDevices);
     devices = pluginRef->sndHWGetConnectedDevices();    
     devices = devices & kSndHWInputDevices;   		// we have only the connected device
     oldactive = active;
@@ -89,7 +89,7 @@ bool AudioHardwareInput::deviceSetActive( UInt32 currentDevices ){
                     pluginRef->sndHWSetActiveInputExclusive(sndHWPort);
                     if(isOnMuX)
                         theMuxRef->SetMuxSource(inputPortType);
-                    // CLOG(" --> Switching to port %d\n", sndHWPort);
+                    // debugIOLog (3, " --> Switching to port %d", sndHWPort);
                 }
 			}
             ioLog();
@@ -105,36 +105,36 @@ bool AudioHardwareInput::deviceSetActive( UInt32 currentDevices ){
 
 void AudioHardwareInput::ioLog() {
 #ifdef DEBUGLOG
-    debugIOLog( "+ Input port information :\n");
+    debugIOLog (3,  "+ Input port information :");
      switch (inputPortType) {
-        case kNoSource:debugIOLog(" -- Type is : none \n");break;
-        case kCDSource :debugIOLog(" -- Type is : cd  \n");break;
-        case kExtMicSource:debug2IOLog(" -- Type is : emic or %d\n", kExtMicSource);break;
-        case kSoundInSource:debugIOLog(" -- Type is : sinj\n");break;
-        case kRCAInSource:debugIOLog(" -- Type is :irca (RCA jack) \n");break;
-        case kTVFMTunerSource:debugIOLog(" -- Type is : tvfm (TVFM Tuner) \n");break;
-        case kDAVInSource:debugIOLog(" -- Type is :idav (DAV analog)\n");break;
-        case kIntMicSource:debug2IOLog(" -- Type is :imic or %d\n", kIntMicSource);break;
-        case kMediaBaySource:debugIOLog(" -- Type is :mbay\n");break;
-        case kModemSource :debug2IOLog(" -- Type is :modm or %d\n", kModemSource);break;
-        case kPCCardSource:debugIOLog(" -- Type is :pcm\n");break;
-        case kZoomVideoSource:debugIOLog(" -- Type is :zvpc\n");break;
-        case kDVDSource:debugIOLog(" -- Type is :dvda\n");break;
-        case kMicrophoneArray:debugIOLog(" -- Type is : mica (microphone array) \n");break;
-        default:debugIOLog(" -- Type is : unknown \n"); break;
+        case kNoSource:debugIOLog (3, " -- Type is : none ");break;
+        case kCDSource :debugIOLog (3, " -- Type is : cd  ");break;
+        case kExtMicSource:debugIOLog (3, " -- Type is : emic or %d", kExtMicSource);break;
+        case kSoundInSource:debugIOLog (3, " -- Type is : sinj");break;
+        case kRCAInSource:debugIOLog (3, " -- Type is :irca (RCA jack) ");break;
+        case kTVFMTunerSource:debugIOLog (3, " -- Type is : tvfm (TVFM Tuner) ");break;
+        case kDAVInSource:debugIOLog (3, " -- Type is :idav (DAV analog)");break;
+        case kIntMicSource:debugIOLog (3, " -- Type is :imic or %d", kIntMicSource);break;
+        case kMediaBaySource:debugIOLog (3, " -- Type is :mbay");break;
+        case kModemSource :debugIOLog (3, " -- Type is :modm or %d", kModemSource);break;
+        case kPCCardSource:debugIOLog (3, " -- Type is :pcm");break;
+        case kZoomVideoSource:debugIOLog (3, " -- Type is :zvpc");break;
+        case kDVDSource:debugIOLog (3, " -- Type is :dvda");break;
+        case kMicrophoneArray:debugIOLog (3, " -- Type is : mica (microphone array) ");break;
+        default:debugIOLog (3, " -- Type is : unknown "); break;
     }
     
-    debug2IOLog(" -- Physical port is %ld\n", sndHWPort);
-    debug2IOLog(" -- Affected channels are %ld\n", channels);
-    debug2IOLog(" -- Is a Mux input ? : %d\n", isOnMuX);
+    debugIOLog (3, " -- Physical port is %ld", sndHWPort);
+    debugIOLog (3, " -- Affected channels are %ld", channels);
+    debugIOLog (3, " -- Is a Mux input ? : %d", isOnMuX);
     if(isOnMuX)
         theMuxRef->ioLog();
-    debug2IOLog(" -- Active State ? : %d\n", active);
+    debugIOLog (3, " -- Active State ? : %d", active);
 #endif
 }
 
 void AudioHardwareInput::forceActivation(UInt32 selector) {
-	debug4IOLog ("forceActivation(%4s), inputPortType = %4s, active = %d\n", (char*)&selector, (char*)&inputPortType, active);
+	debugIOLog (3, "forceActivation(%4s), inputPortType = %4s, active = %d", (char*)&selector, (char*)&inputPortType, active);
 
     if(selector == inputPortType) {
 //        if(!active) {
@@ -142,7 +142,7 @@ void AudioHardwareInput::forceActivation(UInt32 selector) {
             if(isOnMuX)
 				theMuxRef->SetMuxSource(inputPortType);
 
-           // CLOG(" --> Switching to port %d\n", sndHWPort);
+           // debugIOLog (3, " --> Switching to port %d", sndHWPort);
             active = true;
 //        }
     } else {

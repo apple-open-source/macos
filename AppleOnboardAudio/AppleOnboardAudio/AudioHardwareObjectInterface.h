@@ -34,7 +34,7 @@ public:
 
 	virtual void			initPlugin(PlatformInterface* inPlatformObject) {return;}
 	virtual bool			preDMAEngineInit () {return false;}
-	virtual void			postDMAEngineInit () {return;}
+	virtual bool			postDMAEngineInit () {return true;}
 
 	virtual void			setWorkLoop (IOWorkLoop * inWorkLoop) {mWorkLoop = inWorkLoop;}
 	virtual IOWorkLoop *	getWorkLoop () { return mWorkLoop; } 
@@ -72,9 +72,7 @@ public:
 	virtual IOReturn		setInputGain (UInt32 leftGain, UInt32 rightGain) {return kIOReturnError;}
 	
 	virtual	void			setProcessing (UInt32 inEQIndex) {return;}
-	virtual	void			setEQProcessing (void * inEQStructure, Boolean inRealtime) {return;}
-	virtual	void			setDRCProcessing (void * inDRCStructure, Boolean inRealtime) {return;}
-	virtual	void			disableProcessing (void) {return;}
+	virtual	void			disableProcessing (Boolean inRealtime) {return;}
 	virtual	void			enableProcessing (void) {return;}
 	
 	virtual IOReturn		performDeviceSleep () {return kIOReturnError;}
@@ -96,6 +94,7 @@ public:
 	virtual void			setCurrentSampleFrame (UInt32 value) {return;}
 	
 	virtual void			poll ( void ) { return; }
+	virtual bool			getClockLockStatus ( void ) { return FALSE; }
 
 	//	
 	//	User Client Support

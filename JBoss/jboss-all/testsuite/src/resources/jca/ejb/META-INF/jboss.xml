@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<jboss>
+    <enterprise-beans>
+       <session>
+            <ejb-name>UnshareableStateful</ejb-name>
+            <resource-ref>
+                <res-ref-name>jdbc/DataSource</res-ref-name>
+                <resource-name>DefaultDS</resource-name>
+            </resource-ref>
+       </session>
+    </enterprise-beans>
+
+    <resource-managers>
+        <resource-manager res-class="">
+            <res-name>DefaultDS</res-name>
+            <res-jndi-name>java:/DefaultDS</res-jndi-name>
+        </resource-manager>
+    </resource-managers>
+</jboss>

@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -59,6 +56,7 @@
 
 #define RAW_DEVICE_PREFIX 		"/dev/r"
 #define DEVICE_PREFIX 			"/dev/"
+#define MAXDEVNAME				255
 #define	CDROM_BLOCK_SIZE		2048
 #define MAX_BLOCK_TO_SCAN		100
 #define ISO_STANDARD_ID 		"CD001"
@@ -123,8 +121,8 @@ int main( int argc, const char *argv[] )
 {
 	const char			*myActionPtr;
 	int				myError = FSUR_IO_SUCCESS;
-	char				myRawDeviceName[256];
-	char				myDeviceName[256];
+	char				myRawDeviceName[MAXPATHLEN];
+	char				myDeviceName[MAXPATHLEN];
 	int mnt_flag;
 
 	/* Verify our arguments */
@@ -138,9 +136,8 @@ int main( int argc, const char *argv[] )
    	strcpy( &myRawDeviceName[0], RAW_DEVICE_PREFIX );
 	strcat( &myRawDeviceName[0], argv[2] );
    
-	/* call the appropriate routine to handle the given action argument after becoming root */
+	/* call the appropriate routine to handle the given action argument */
 	myActionPtr = &argv[1][1];
-	myError = seteuid( 0 );
 
     switch( *myActionPtr ) 
     {
@@ -495,8 +492,8 @@ static int DoVerifyArgs( int argc, const char *argv[], int *mnt_flag)
 
 	/* Make sure device (argv[2]) is something reasonable */
 	myDeviceLength = strlen( argv[2] );
-    	if ( myDeviceLength < 2 )
-    	{
+	if ( myDeviceLength < 2 || myDeviceLength > MAXDEVNAME)
+	{
 		goto ExitThisRoutine;
 	}
 	

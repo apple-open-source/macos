@@ -133,6 +133,7 @@ class AppleI2S : public IOService
 #define	__K2_PLATFORM
 
 #define	kIODMAInputOffset			0x00000100					/*	offset from I2S 0 Tx DMA channel registers to Rx DMA channel registers	*/
+#define kIODMASizeOfChannelBuffer			256
 	
 typedef enum {
 	kK2I2SClockSource_45MHz					= 0,			//	compatible with K2 driver
@@ -202,7 +203,7 @@ public:
 	virtual	GpioAttributes	getDigitalInConnected();
 	virtual	GpioAttributes	getDigitalOutConnected();
 	virtual GpioAttributes	getLineInConnected();
-	virtual GpioAttributes	getLineOutConnected();
+	virtual GpioAttributes	getLineOutConnected(bool ignoreCombo = false);
 	virtual GpioAttributes 	getHeadphoneConnected();
 	virtual GpioAttributes	getSpeakerConnected();
 	virtual GpioAttributes	getCodecInterrupt();
@@ -237,13 +238,21 @@ public:
 	virtual	IODBDMAChannelRegisters *	GetInputChannelRegistersVirtualAddress ( IOService * dbdmaProvider );
 	virtual	IODBDMAChannelRegisters *	GetOutputChannelRegistersVirtualAddress ( IOService * dbdmaProvider );
 
-	//	
+	//
 	//	User Client Support
 	//
 	virtual IOReturn			getPlatformState ( PlatformStateStructPtr outState );
 	virtual IOReturn			setPlatformState ( PlatformStateStructPtr inState );
-	
-private:
+
+        virtual PlatformInterfaceObjectType	getPlatformInterfaceType () { return kPlatformInterfaceType_K2; }
+protected:
+
+	typedef enum {
+		kDMADeviceIndex		= 0,
+		kDMAOutputIndex		= 1,
+		kDMAInputIndex		= 2,
+		kDMANumberOfIndexes	= 3
+	} PlatformDMAIndexes;
 
     IOService *					mK2Service;
 	UInt32						mI2SCell;
@@ -252,8 +261,7 @@ private:
 	UInt32						mI2SOffset;
 	UInt32						mMacIOPHandle;
 	UInt32						mMacIOOffset;
-	IODBDMAChannelRegisters *	mIOBaseDMAInput;
-	IODBDMAChannelRegisters *	mIOBaseDMAOutput;
+	IODBDMAChannelRegisters *	mIOBaseDMA[4];
 
 	static const char * 	kAppleK2pHandle;
 	static const char * 	kAppleI2S0pHandle;
@@ -400,6 +408,7 @@ private:
 	typedef enum i2sReference {
 		kUseI2SCell0			=	0,
 		kUseI2SCell1			=	1,
+		kUseI2SCell2			=	2,	// aml, added for neoborg		
 		kNoI2SCell				=	0xFFFFFFFF
 	} I2SCell;
 	
@@ -417,15 +426,13 @@ private:
 		// This says "we never decided for a sound format before"
 		kSndIOFormatUnknown
 	} SoundFormat;
-	
-#ifndef kBUILD_FOR_DIRECT_I2S_HW_ACCESS	
+
 	bool					findAndAttachI2S();
 	bool					detachFromI2S();
 	bool					openI2S();
 	void					closeI2S();
 	
 	AppleI2S *				mI2SInterface;
-#endif	
 
 	GpioAttributes			GetCachedAttribute ( GPIOSelector selector, GpioAttributes defaultResult );
 	static void				gpioTimerCallback ( OSObject *target, IOAudioDevice *device );
@@ -438,8 +445,6 @@ private:
 	volatile UInt8 *		mHwPtr;
 	volatile UInt8 *		mHwI2SPtr;
 	IOReturn				setupI2SClockSource( UInt32 cell, bool requestClock, UInt32 clockSource );
-
-private:
 
 	volatile UInt32 *				mFcr1;
 	

@@ -1,6 +1,6 @@
 // ========================================================================
 // Copyright (c) 2002 Mort Bay Consulting (Australia) Pty. Ltd.
-// $Id: ActivationInterceptor.java,v 1.1.4.2 2002/11/16 21:58:58 jules_gosnell Exp $
+// $Id: ActivationInterceptor.java,v 1.1.4.3 2003/07/26 11:49:41 jules_gosnell Exp $
 // ========================================================================
 
 package org.mortbay.j2ee.session;
@@ -11,14 +11,14 @@ import java.rmi.RemoteException;
 import javax.servlet.http.HttpSession;
 import javax.servlet.http.HttpSessionActivationListener;
 import javax.servlet.http.HttpSessionEvent;
-import org.apache.log4j.Category;
+import org.jboss.logging.Logger;
 
 //----------------------------------------
 
 public class ActivationInterceptor
   extends StateInterceptor
 {
-  Category _log=Category.getInstance(getClass().getName());
+  protected static final Logger _log=Logger.getLogger(ActivationInterceptor.class);
   protected final HttpSessionEvent _event;
 
   public

@@ -28,7 +28,7 @@ import javax.management.ObjectName;
  * </ul>
  *
  * @author  <a href="mailto:Adrian.Brock@HappeningTimes.com">Adrian Brock</a>.
- * @version $Revision: 1.3 $
+ * @version $Revision: 1.3.6.1 $
  *
  */
 class RoleValidator
@@ -91,12 +91,12 @@ class RoleValidator
 
     // Check the MBeans
     String className = roleInfo.getRefMBeanClassName();
-    Iterator iterator = mbeans.iterator();
-    while (iterator.hasNext())
+
+    for (int i = 0; i < mbeans.size(); i++)
     {
       try
       {
-        ObjectName objectName = (ObjectName) iterator.next();
+        ObjectName objectName = (ObjectName) mbeans.get(i);
         if (server.isInstanceOf(objectName, className) == false)
           return RoleStatus.REF_MBEAN_OF_INCORRECT_CLASS;
       }

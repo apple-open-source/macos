@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- $Id: rmi-il-service.xml,v 1.1.2.1 2003/08/23 22:21:28 ejort Exp $ -->
+
+<server>
+
+  <!-- JBossMQ communication using RMI -->
+
+  <mbean code="org.jboss.mq.il.rmi.RMIServerILService"
+	 name="jboss.mq:service=InvocationLayer,type=RMI">
+	 <depends optional-attribute-name="Invoker">jboss.mq:service=Invoker</depends>
+    <attribute name="ConnectionFactoryJNDIRef">RMIConnectionFactory</attribute>
+    <attribute name="XAConnectionFactoryJNDIRef">RMIXAConnectionFactory</attribute>
+    <attribute name="PingPeriod">60000</attribute>
+  </mbean>
+
+
+</server>

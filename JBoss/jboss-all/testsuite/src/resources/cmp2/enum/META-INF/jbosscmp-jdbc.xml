@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE jbosscmp-jdbc PUBLIC "-//JBoss//DTD JBOSSCMP-JDBC 3.2//EN" "http://www.jboss.org/j2ee/dtd/jbosscmp-jdbc_3_2.dtd">
+
+<jbosscmp-jdbc>
+   <enterprise-beans>
+      <entity>
+         <ejb-name>Child</ejb-name>
+         <create-table>true</create-table>
+         <remove-table>true</remove-table>
+         <table-name>CHILD</table-name>
+         <cmp-field>
+            <field-name>id</field-name>
+            <column-name>CHILD_ID</column-name>
+        </cmp-field>
+        <cmp-field>
+            <field-name>color</field-name>
+            <column-name>COLOR_ID</column-name>
+        </cmp-field>
+        <cmp-field>
+            <field-name>animal</field-name>
+            <column-name>ANIMAL_ID</column-name>
+        </cmp-field>
+      </entity>
+   </enterprise-beans>
+
+   <user-type-mappings>
+      <user-type-mapping>
+         <java-type>org.jboss.test.cmp2.enum.ejb.ColorEnum</java-type>
+         <mapped-type>java.lang.Integer</mapped-type>
+         <mapper>org.jboss.test.cmp2.enum.ejb.ColorMapper</mapper>
+      </user-type-mapping>
+      <user-type-mapping>
+         <java-type>org.jboss.test.cmp2.enum.ejb.AnimalEnum</java-type>
+         <mapped-type>java.lang.Integer</mapped-type>
+         <mapper>org.jboss.test.cmp2.enum.ejb.AnimalMapper</mapper>
+      </user-type-mapping>
+   </user-type-mappings>
+</jbosscmp-jdbc>

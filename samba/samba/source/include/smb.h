@@ -171,7 +171,7 @@ typedef uint16 smb_ucs2_t;
 typedef smb_ucs2_t wpstring[PSTRING_LEN];
 typedef smb_ucs2_t wfstring[FSTRING_LEN];
 
-#ifdef WORDS_BIGENDIAN
+#if __BIG_ENDIAN__ /* apple: configure test is bad for our platform ->  WORDS_BIGENDIAN */
 #define UCS2_SHIFT 8
 #else
 #define UCS2_SHIFT 0
@@ -194,6 +194,7 @@ typedef smb_ucs2_t wfstring[FSTRING_LEN];
 #define PIPE_SPOOLSS  "\\PIPE\\spoolss"
 #define PIPE_NETDFS   "\\PIPE\\netdfs"
 #define PIPE_ECHO     "\\PIPE\\rpcecho"
+#define PIPE_SHUTDOWN "\\PIPE\\initshutdown"
 
 #define PIPE_NETLOGON_PLAIN "\\NETLOGON"
 
@@ -207,7 +208,8 @@ typedef smb_ucs2_t wfstring[FSTRING_LEN];
 #define PI_SPOOLSS		7
 #define PI_NETDFS		8
 #define PI_ECHO 		9
-#define PI_MAX_PIPES		10
+#define PI_SHUTDOWN		10
+#define PI_MAX_PIPES		11
 
 /* 64 bit time (100usec) since ????? - cifs6.txt, section 3.5, page 30 */
 typedef struct nttime_info
@@ -527,7 +529,8 @@ enum {LPQ_QUEUED=0,LPQ_PAUSED,LPQ_SPOOLING,LPQ_PRINTING,LPQ_ERROR,LPQ_DELETING,
 
 typedef struct _print_queue_struct
 {
-  int job;
+  int job;		/* normally the SMB jobid -- see note in 
+			   printing.c:traverse_fn_delete() */
   int size;
   int page_count;
   int status;
@@ -1544,7 +1547,7 @@ typedef struct user_struct
 
 	NT_USER_TOKEN *nt_user_token;
 
-	uint8 session_key[16];
+	DATA_BLOB session_key;
 
 	char *session_keystr; /* used by utmp and pam session code.  
 				 TDB key string */

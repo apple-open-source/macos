@@ -27,7 +27,7 @@ import javax.transaction.Transaction;
  *    pointers.  But really it is just  a repository of objects. 
  *
  * @author  <a href="mailto:marc@jboss.org">Marc Fleury</a>
- * @version $Revision: 1.10.2.6 $
+ * @version $Revision: 1.10.2.7 $
  */
 public class Invocation
 {
@@ -51,10 +51,11 @@ public class Invocation
    /** Payload will be marshalled for type hiding at the RMI layers. */
    public Map payload;// = null;
 
-   protected InvocationContext invocationContext;// = null;
-   protected Object[] args;// = null;
-   protected Object objectName;// = null;
-   protected Method method;// = null;
+   public InvocationContext invocationContext;// = null;
+   public Object[] args;// = null;
+   public Object objectName;// = null;
+   public Method method;// = null;
+   public InvocationType invocationType;
 
    // The variables used to indicate what type of data and where to put it.
 
@@ -70,18 +71,11 @@ public class Invocation
     */
    public Invocation() 
    {
-      payload = new HashMap();
-      as_is_payload = new HashMap();
-      transient_payload = new HashMap();
    }
 
    public Invocation( Object id, Method m, Object[] args, Transaction tx,
       Principal identity, Object credential )
    {
-      this.payload = new HashMap();
-      this.as_is_payload = new HashMap();
-      this.transient_payload = new HashMap();
-
       setId(id);
       setMethod(m);
       setArguments(args);
@@ -115,15 +109,15 @@ public class Invocation
    {
       if(type == PayloadKey.TRANSIENT) 
       {
-          transient_payload.put(key,value);
+          getTransientPayload().put(key,value);
       }
       else if(type == PayloadKey.AS_IS)
       {
-          as_is_payload.put(key,value);
+          getAsIsPayload().put(key,value);
       }
       else if(type == PayloadKey.PAYLOAD)
       {
-          payload.put(key,value);
+          getPayload().put(key,value);
       }
       else 
       {
@@ -137,21 +131,36 @@ public class Invocation
    public Object getValue(Object key) 
    { 
       // find where it is
-      Object rtn = payload.get(key);
+      Object rtn = getPayloadValue(key);
       if (rtn != null) return rtn;
 
-      rtn = as_is_payload.get(key);
+      rtn = getAsIsValue(key);
       if (rtn != null) return rtn;
 
-      rtn = transient_payload.get(key);
+      rtn = getTransientValue(key);
       return rtn;
    }
    
    public Object getPayloadValue(Object key)
    {
+      if (payload == null) return null;
       return payload.get(key);
    }
-   
+
+   public Object getTransientValue(Object key)
+   {
+      if (transient_payload == null) return null;
+      return transient_payload.get(key);
+   }
+
+   public Object getAsIsValue(Object key)
+   {
+      if (as_is_payload == null) return null;
+      return as_is_payload.get(key);
+   }
+
+
+
    //
    // Convenience typed getters, use pre-declared keys in the store, 
    // but it all comes back to the payload, here you see the usage of the 
@@ -167,9 +176,9 @@ public class Invocation
    public void setTransaction(Transaction tx)
    {
       if( tx instanceof Serializable )
-         as_is_payload.put(InvocationKey.TRANSACTION, tx);
+         getAsIsPayload().put(InvocationKey.TRANSACTION, tx);
       else
-         transient_payload.put(InvocationKey.TRANSACTION, tx);
+         getTransientPayload().put(InvocationKey.TRANSACTION, tx);
    }
    
    /**
@@ -177,9 +186,9 @@ public class Invocation
     */
    public Transaction getTransaction()
    {
-      Transaction tx = (Transaction) as_is_payload.get(InvocationKey.TRANSACTION);
+      Transaction tx = (Transaction) getAsIsPayload().get(InvocationKey.TRANSACTION);
       if( tx == null )
-         tx = (Transaction) transient_payload.get(InvocationKey.TRANSACTION);
+         tx = (Transaction) getTransientPayload().get(InvocationKey.TRANSACTION);
       return tx;
    }
 
@@ -188,12 +197,12 @@ public class Invocation
     */
    public void setPrincipal(Principal principal)
    {
-      as_is_payload.put(InvocationKey.PRINCIPAL, principal);
+      getAsIsPayload().put(InvocationKey.PRINCIPAL, principal);
    }
    
    public Principal getPrincipal()
    {
-      return (Principal) as_is_payload.get(InvocationKey.PRINCIPAL);
+      return (Principal) getAsIsPayload().get(InvocationKey.PRINCIPAL);
    }
    
    /**
@@ -201,7 +210,7 @@ public class Invocation
     */
    public void setCredential(Object credential)
    {
-      payload.put(InvocationKey.CREDENTIAL, credential);
+      getPayload().put(InvocationKey.CREDENTIAL, credential);
    }
    
    public Object getCredential()
@@ -227,24 +236,21 @@ public class Invocation
     */
    public void setType(InvocationType type)
    {
-      as_is_payload.put(InvocationKey.TYPE, type);
+      invocationType = type;
    }
    
    public InvocationType getType()
    {
-      InvocationType type = InvocationType.LOCAL;
-      InvocationType invType = (InvocationType) as_is_payload.get(InvocationKey.TYPE);
-      if( invType != null )
-         type = invType;
-      return type;
-   } 
+      if (invocationType == null) return InvocationType.LOCAL;
+      return invocationType;
+   }
 
    /**
     * Return the invocation target ID.  Can be used to identify a cached object
     */
    public void setId(Object id)
    {
-      payload.put(InvocationKey.CACHE_ID, id);
+      getPayload().put(InvocationKey.CACHE_ID, id);
    }
    
    public Object getId()
@@ -296,13 +302,32 @@ public class Invocation
    
    public void setEnterpriseContext(Object ctx)
    {
-      transient_payload.put(InvocationKey.ENTERPRISE_CONTEXT, ctx);
+      getTransientPayload().put(InvocationKey.ENTERPRISE_CONTEXT, ctx);
    }
       
    public Object getEnterpriseContext()
    {
-      return transient_payload.get(InvocationKey.ENTERPRISE_CONTEXT);
+      return getTransientPayload().get(InvocationKey.ENTERPRISE_CONTEXT);
    }
+
+   public Map getTransientPayload()
+   {
+      if (transient_payload == null) transient_payload = new HashMap();
+      return transient_payload;
+   }
+
+   public Map getAsIsPayload()
+   {
+      if (as_is_payload == null) as_is_payload = new HashMap();
+      return as_is_payload;
+   }
+
+   public Map getPayload()
+   {
+      if (payload == null) payload = new HashMap();
+      return payload;
+   }
+
 
 }
 /*

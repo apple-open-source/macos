@@ -56,7 +56,7 @@ import org.jboss.varia.deployment.convertor.Convertor;
  * @see org.jboss.varia.deployment.convertor.Convertor
  *
  * @author <a href="mailto:andreas@jboss.org">Andreas Schaefer</a>
- * @version $Revision: 1.3.2.5 $
+ * @version $Revision: 1.3.2.6 $
  *
  * @jmx.mbean
  *    name="jboss.system:service=ServiceDeployer"
@@ -197,7 +197,7 @@ public class FoeDeployer
          File deflateDest = (File)destinations.get(di.parent);
          if(deflateDest == null)
             deflateDest = scratchDirectory;
-         String validName = null;
+         String validName;
          if(di.shortName.endsWith(".wl"))
             validName = di.shortName.substring(0, di.shortName.length()-3);
          else
@@ -438,7 +438,6 @@ public class FoeDeployer
    protected void inflateJar( URL fileURL, File destinationDirectory )
       throws DeploymentException, IOException
    {
-      File destFile = new File(fileURL.getFile());
       InputStream input = new FileInputStream(fileURL.getFile());
       JarUtils.unjar(input, destinationDirectory);
       // input is closed in unjar();

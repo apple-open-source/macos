@@ -1,0 +1,49 @@
+#!/bin/sh
+
+#
+# Pick up the email recipient from /etc/hostconfig, if defined.
+#
+. /etc/hostconfig
+
+#
+# Initialize...
+#
+PATH=/bin:/usr/bin:/sbin:/usr/sbin
+SI_PATH=/System/LIbrary/StartupItems
+MAIL=mail
+MSG="Shutting down due to power loss!"
+
+logger -i -p daemon.ermerg -t UPS "${MSG}"
+
+#
+# Send notification to the same address used for IP Failover.
+#
+if ! [ "${FAILOVER_EMAIL_RECIPIENT:=-AUTOMATIC-}" = "-AUTOMATIC-" ] ; then
+	SUBJECT="UPS Notification: ${MSG}"
+	${MAIL} -s "${SUBJECT}" ${FAILOVER_EMAIL_RECIPIENT} < /dev/null
+fi
+
+#
+# Shutdown services not controlled by watchdog.
+#
+# (These kill statements should use StartupItem script...)
+kill -TERM $(cat /var/run/failoverd.pid)
+kill -TERM $(cat /var/run/vpnd-*.pid)
+kill -TERM $(cat /var/run/AppleFileServer.pid)
+kill -TERM $(cat /var/run/QuickTimeStreamingServer.pid)
+kill -TERM $(cat /var/run/smbd.pid)
+kill -TERM $(cat /var/run/nmbd.pid)
+
+${SI_PATH}/Apache/Apache stop
+servermgrdctl stop
+
+#
+# Shutdown watchdog and its services.
+#
+${SI_PATH}/Watchdog/Watchdog stop
+
+#
+# Wait for watchdog and take the system down cleanly.
+#
+sleep 10
+shutdown -h now "${MSG}"

@@ -17,6 +17,8 @@ import java.security.PermissionCollection;
 import java.util.Map;
 import java.util.Enumeration;
 import java.util.Vector;
+import java.util.HashSet;
+import java.util.HashMap;
 import java.io.IOException;
 import javax.management.MalformedObjectNameException;
 import javax.management.MBeanServer;
@@ -40,7 +42,7 @@ import org.jboss.logging.Logger;
 * @author <a href="christoph.jung@jboss.org">Christoph G. Jung</a>
 * @author <a href="scott.stark@jboss.org">Scott Stark</a>
 * @author <a href="juha@jboss.org">Juha Lindfors</a>
-* @version <tt>$Revision: 1.9.4.12 $</tt>
+* @version <tt>$Revision: 1.9.4.16 $</tt>
 */
 public class UnifiedClassLoader
    extends URLClassLoader
@@ -66,6 +68,10 @@ public class UnifiedClassLoader
    private Map classes = new ConcurrentReaderHashMap();
    /** The relative order in which this class loader was added to the ULR */
    private int addedOrder;
+   private HashSet classBlacklist = new HashSet();
+   private HashSet resourceBlackList = new HashSet();
+   private HashMap resourceCache = new HashMap();
+   private HashMap classCache = new HashMap();
 
    // Constructors --------------------------------------------------
    /**
@@ -216,6 +222,10 @@ public class UnifiedClassLoader
       {
          repository.removeClassLoader(this);
       }
+      this.classes.clear();
+      this.origURL = null;
+      this.url = null;
+      this.repository = null;
    }
 
    /** Append the given url to the URLs used for class and resource loading
@@ -242,6 +252,11 @@ public class UnifiedClassLoader
       classes.put(name, code);
    }
 
+   public LoaderRepository getLoaderRepository()
+   {
+      return repository;
+   }
+
    public void setRepository(LoaderRepository repository)
    {
       this.repository = repository;
@@ -253,7 +268,33 @@ public class UnifiedClassLoader
    public Class loadClassLocally(String name, boolean resolve)
       throws ClassNotFoundException
    {
-      return super.loadClass(name, resolve);
+      boolean trace = log.isTraceEnabled();
+      if( trace )
+         log.trace("loadClassLocally, name="+name);
+      Class clazz = (Class) classCache.get(name);
+      if (clazz != null)
+      {
+         if( trace )
+            log.trace("Found cached class: "+clazz);
+         return clazz;
+      }
+
+      if (classBlacklist.contains(name))
+      {
+         if( trace )
+            log.trace("Class in blacklist, name="+name);
+         throw new ClassNotFoundException("Class Not Found(blacklist): " + name);
+      }
+
+      try
+      {
+         return clazz = super.loadClass(name, resolve);
+      }
+      catch (ClassNotFoundException cnfe)
+      {
+         classBlacklist.add(name);
+         throw cnfe;
+      }
    }
 
    /**
@@ -261,9 +302,14 @@ public class UnifiedClassLoader
    */
    public URL getResourceLocally(String name)
    {
-      URL resURL = super.getResource(name);
+      URL resURL = (URL)resourceCache.get(name);
+      if (resURL != null) return resURL;
+      if (resourceBlackList.contains(name)) return null;
+      resURL = super.getResource(name);
       if( log.isTraceEnabled() == true )
          log.trace("getResourceLocally("+this+"), name="+name+", resURL:"+resURL);
+      if (resURL == null) resourceBlackList.add(name);
+      else resourceCache.put(name, resURL);
       return resURL;
    }
 

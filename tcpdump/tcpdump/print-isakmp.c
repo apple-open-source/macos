@@ -29,8 +29,8 @@
  */
 
 #ifndef lint
-static const char rcsid[] =
-    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-isakmp.c,v 1.1.1.3 2003/03/17 18:42:17 rbraun Exp $ (LBL)";
+static const char rcsid[] _U_ =
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-isakmp.c,v 1.1.1.4 2004/02/05 19:30:54 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -1076,20 +1076,25 @@ isakmp_sub0_print(u_char np, const struct isakmp_gen *ext, const u_char *ep,
 	cp = (u_char *)ext;
 	safememcpy(&e, ext, sizeof(e));
 
-	if (NPFUNC(np))
+	/*
+	 * Since we can't have a payload length of less than 4 bytes,
+	 * we need to bail out here if the generic header is nonsensical
+	 * or truncated, otherwise we could loop forever processing
+	 * zero-length items or otherwise misdissect the packet.
+	 */
+	item_len = ntohs(e.len);
+	if (item_len <= 4)
+		return NULL;
+
+	if (NPFUNC(np)) {
+		/*
+		 * XXX - what if item_len is too short, or too long,
+		 * for this payload type?
+		 */
 		cp = (*NPFUNC(np))(ext, ep, phase, doi, proto, depth);
-	else {
+	} else {
 		printf("%s", NPSTR(np));
-		item_len = ntohs(e.len);
-		if (item_len == 0) {
-			/*
-			 * We don't want to loop forever processing this
-			 * bogus (zero-length) item; return NULL so that
-			 * we stop dissecting.
-			 */
-			cp = NULL;
-		} else
-			cp += item_len;
+		cp += item_len;
 	}
 
 	return cp;
@@ -1224,35 +1229,36 @@ isakmp_print(const u_char *bp, u_int length, const u_char *bp2)
 		printf("[%s%s]", base.flags & ISAKMP_FLAG_E ? "E" : "",
 			base.flags & ISAKMP_FLAG_C ? "C" : "");
 	}
-	printf(":");
 
-    {
-	const struct isakmp_gen *ext;
-	int nparen;
+	if (vflag) {
+		const struct isakmp_gen *ext;
+		int nparen;
 
 #define CHECKLEN(p, np) \
-	if (ep < (u_char *)(p)) {				\
-		printf(" [|%s]", NPSTR(np));			\
-		goto done;					\
+		if (ep < (u_char *)(p)) {				\
+			printf(" [|%s]", NPSTR(np));			\
+			goto done;					\
+		}
+
+		printf(":");
+
+		/* regardless of phase... */
+		if (base.flags & ISAKMP_FLAG_E) {
+			/*
+			 * encrypted, nothing we can do right now.
+			 * we hope to decrypt the packet in the future...
+			 */
+			printf(" [encrypted %s]", NPSTR(base.np));
+			goto done;
+		}
+
+		nparen = 0;
+		CHECKLEN(p + 1, base.np)
+
+		np = base.np;
+		ext = (struct isakmp_gen *)(p + 1);
+		isakmp_sub_print(np, ext, ep, phase, 0, 0, 0);
 	}
-
-	/* regardless of phase... */
-	if (base.flags & ISAKMP_FLAG_E) {
-		/*
-		 * encrypted, nothing we can do right now.
-		 * we hope to decrypt the packet in the future...
-		 */
-		printf(" [encrypted %s]", NPSTR(base.np));
-		goto done;
-	}
-
-	nparen = 0;
-	CHECKLEN(p + 1, base.np)
-
-	np = base.np;
-	ext = (struct isakmp_gen *)(p + 1);
-	isakmp_sub_print(np, ext, ep, phase, 0, 0, 0);
-    }
 
 done:
 	if (vflag) {

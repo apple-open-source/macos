@@ -26,7 +26,7 @@ OSDefineMetaClassAndAbstractStructors(Apple02Audio, IOAudioDevice)
 bool Apple02Audio::init(OSDictionary *properties)
 {
     OSDictionary *AOAprop;
-    DEBUG_IOLOG("+ Apple02Audio::init\n");
+    debugIOLog (3, "+ Apple02Audio::init");
     if (!super::init(properties)) return false;
         
     currentDevices = 0xFFFF;
@@ -40,13 +40,13 @@ bool Apple02Audio::init(OSDictionary *properties)
         gHasModemSound = (kOSBooleanTrue == OSDynamicCast(OSBoolean, AOAprop->getObject("analogModem")));
     }
 
-    CLOG("- Apple02Audio::init\n");
+    debugIOLog (3, "- Apple02Audio::init");
     return true;
 }
 
 void Apple02Audio::free()
 {
-    DEBUG_IOLOG("+ Apple02Audio::free\n");
+    debugIOLog (3, "+ Apple02Audio::free");
     
     if (driverDMAEngine) {
         driverDMAEngine->release();
@@ -77,17 +77,16 @@ void Apple02Audio::free()
 	if (NULL != mPowerThread) {
 		thread_call_free (mPowerThread);
 	}
-	CLEAN_RELEASE(mSignal);
 
     super::free();
-    DEBUG_IOLOG("- Apple02Audio::free, (void)\n");
+    debugIOLog (3, "- Apple02Audio::free, (void)");
 }
 
 IOService* Apple02Audio::probe(IOService* provider, SInt32* score)
 {
-    DEBUG_IOLOG("+ Apple02Audio::probe\n");
+    debugIOLog (3, "+ Apple02Audio::probe");
     super::probe(provider, score);
-    DEBUG_IOLOG("- Apple02Audio::probe\n");
+    debugIOLog (3, "- Apple02Audio::probe");
     return (0);
 }
 
@@ -116,7 +115,7 @@ IOReturn Apple02Audio::configureAudioOutputs(IOService *provider) {
     AudioHardwareOutput *theOutput;
     UInt16 idx;
 
-    DEBUG_IOLOG("+ Apple02Audio::configureAudioOutputs\n");
+    debugIOLog (3, "+ Apple02Audio::configureAudioOutputs");
     if(!theAudioDeviceTreeParser) 
         goto BAIL;
 
@@ -130,7 +129,7 @@ IOReturn Apple02Audio::configureAudioOutputs(IOService *provider) {
     }
     
 EXIT:
-    DEBUG2_IOLOG("- Apple02Audio::configureAudioOutputs, %d\n", (result == kIOReturnSuccess));
+    debugIOLog (3, "- Apple02Audio::configureAudioOutputs, %d", (result == kIOReturnSuccess));
     return(result);
 BAIL:
     result = kIOReturnError;
@@ -140,7 +139,7 @@ BAIL:
 
 IOReturn Apple02Audio::configureAudioDetects(IOService *provider) {
     IOReturn result = kIOReturnSuccess;   
-    DEBUG_IOLOG("+ Apple02Audio::configureAudioDetects\n");
+    debugIOLog (3, "+ Apple02Audio::configureAudioDetects");
     
     if(!theAudioDeviceTreeParser) 
         goto BAIL;
@@ -148,7 +147,7 @@ IOReturn Apple02Audio::configureAudioDetects(IOService *provider) {
     AudioDetects = theAudioDeviceTreeParser->createDetectsArray();
 
 EXIT:
-    DEBUG2_IOLOG("- Apple02Audio::configureAudioDetects, %d \n", (result == kIOReturnSuccess));
+    debugIOLog (3, "- Apple02Audio::configureAudioDetects, %d ", (result == kIOReturnSuccess));
     return(result);
 BAIL:
     result = kIOReturnError;
@@ -160,30 +159,30 @@ IOReturn Apple02Audio::configureAudioInputs(IOService *provider) {
     UInt16 idx;  
     AudioHardwareInput *theInput;
     AudioHardwareMux *theMux;
-    DEBUG_IOLOG("+ Apple02Audio::configureAudioDetects\n");
+    debugIOLog (3, "+ Apple02Audio::configureAudioDetects");
 
     FailIf (NULL == theAudioDeviceTreeParser, BAIL);
 
     AudioInputs = theAudioDeviceTreeParser->createInputsArrayWithMuxes();
 
-	FailIf (NULL == AudioInputs, BAIL);
-
-    for(idx = 0; idx < AudioInputs->getCount(); idx++) {
-        theInput = OSDynamicCast(AudioHardwareInput, AudioInputs->getObject(idx));
-        if (NULL != theInput) {
-			theInput->attachAudioPluginRef((Apple02Audio *) this);       
-        } else {
-			theMux = OSDynamicCast(AudioHardwareMux, AudioInputs->getObject(idx));
-			if (NULL != theMux) {
-				theMux->attachAudioPluginRef((Apple02Audio *) this);
+	if (AudioInputs) {
+		for(idx = 0; idx < AudioInputs->getCount(); idx++) {
+			theInput = OSDynamicCast(AudioHardwareInput, AudioInputs->getObject(idx));
+			if (NULL != theInput) {
+				theInput->attachAudioPluginRef((Apple02Audio *) this);       
 			} else {
-				DEBUG_IOLOG ("!!!It's not an input and it's not a mux!!!\n");
+				theMux = OSDynamicCast(AudioHardwareMux, AudioInputs->getObject(idx));
+				if (NULL != theMux) {
+					theMux->attachAudioPluginRef((Apple02Audio *) this);
+				} else {
+					debugIOLog (3, "!!!It's not an input and it's not a mux!!!");
+				}
 			}
-        }
-    }
+		}
+	}
 
 EXIT:
-    DEBUG2_IOLOG("- %d = Apple02Audio::configureAudioDetects\n", result);
+    debugIOLog (3, "- %d = Apple02Audio::configureAudioDetects", result);
     return (result);
 BAIL:
     result = kIOReturnError;
@@ -194,7 +193,7 @@ BAIL:
 IOReturn Apple02Audio::parseAndActivateInit(IOService *provider){
     IOReturn result = kIOReturnSuccess;   
     SInt16 initType = 0;
-    DEBUG_IOLOG("+ Apple02Audio::parseAndActivateInit\n");
+    debugIOLog (3, "+ Apple02Audio::parseAndActivateInit");
     
     if(!theAudioDeviceTreeParser) 
         goto BAIL;
@@ -204,7 +203,7 @@ IOReturn Apple02Audio::parseAndActivateInit(IOService *provider){
     if(2 == initType) 
         sndHWSetProgOutput(kSndHWProgOutput0);
 EXIT:
-    DEBUG2_IOLOG("- Apple02Audio::parseAndActivateInit, %d\n", (result == kIOReturnSuccess));
+    debugIOLog (3, "- Apple02Audio::parseAndActivateInit, %d", (result == kIOReturnSuccess));
     return(result);
 BAIL:
     result = kIOReturnError;
@@ -226,8 +225,8 @@ void Apple02Audio::setCurrentDevices(UInt32 devices){
         changedDeviceHandler(odevice);
     }
     
-	debug2IOLog ("currentDevices = %ld\n", currentDevices);
-	debug2IOLog ("fCPUNeedsPhaseInversion = %d\n", fCPUNeedsPhaseInversion);
+	debugIOLog (3, "currentDevices = %ld", currentDevices);
+	debugIOLog (3, "fCPUNeedsPhaseInversion = %d", fCPUNeedsPhaseInversion);
     // if this CPU has a phase inversion feature see if we need to enable phase inversion    
     if (fCPUNeedsPhaseInversion) {
         bool state;
@@ -282,8 +281,6 @@ bool Apple02Audio::initHardware (IOService * provider) {
 
 	result = FALSE;
 
-	mSignal = IOSyncer::create (FALSE);
-
 	mInitHardwareThread = thread_call_allocate ((thread_call_func_t)Apple02Audio::initHardwareThread, (thread_call_param_t)this);
 	FailIf (NULL == mInitHardwareThread, Exit);
 
@@ -332,7 +329,7 @@ IOReturn Apple02Audio::protectedInitHardware (IOService * provider) {
 	IOAudioStream *			outputStream;
     bool					result;
 
-    DEBUG_IOLOG("+ Apple02Audio::initHardware\n");
+    debugIOLog (3, "+ Apple02Audio::initHardware");
 
 	result = FALSE;
     if (!super::initHardware (provider)) {
@@ -384,14 +381,14 @@ IOReturn Apple02Audio::protectedInitHardware (IOService * provider) {
 	if (outputStream) {
 		outputStream->setTerminalType (OUTPUT_SPEAKER);
 	} else {
-		debugIOLog ("didn't get the output stream\n");
+		debugIOLog (3, "didn't get the output stream");
 	}
 
 	inputStream = driverDMAEngine->getAudioStream (kIOAudioStreamDirectionInput, 1);
 	if (inputStream) {
 		inputStream->setTerminalType (INPUT_MICROPHONE);
 	} else {
-		debugIOLog ("didn't get the input stream\n");
+		debugIOLog (3, "didn't get the input stream");
 	}
 
 	idleTimer = IOTimerEventSource::timerEventSource (this, sleepHandlerTimer);
@@ -439,13 +436,12 @@ IOReturn Apple02Audio::protectedInitHardware (IOService * provider) {
 	}
 
 	sndHWPostThreadedInit (provider); // [3284411]
-	mSignal->signal (kIOReturnSuccess, FALSE);
 	gExpertMode = FALSE;
 
 	result = TRUE;
 
 EXIT:
-    DEBUG_IOLOG ("- Apple02Audio::initHardware\n"); 
+    debugIOLog (3, "- Apple02Audio::initHardware"); 
     return (result);
 }
 
@@ -507,7 +503,7 @@ IOReturn Apple02Audio::createDefaultsPorts () {
 	Boolean						done;
 	Boolean					hasPlaythrough;
 
-    DEBUG_IOLOG("+ Apple02Audio::createDefaultsPorts\n");
+    debugIOLog (3, "+ Apple02Audio::createDefaultsPorts");
 
 	hasPlaythrough = FALSE;
 	result = kIOReturnSuccess;
@@ -670,7 +666,7 @@ IOReturn Apple02Audio::createDefaultsPorts () {
 				theInput = OSDynamicCast(AudioHardwareInput, AudioInputs->getObject(idx));
 				if (theInput) {
 					inputType = theInput->getInputPortType();
-					DEBUG2_IOLOG ("Creating input selector of type %4s\n", (char*)&inputType);
+					debugIOLog (3, "Creating input selector of type %4s", (char*)&inputType);
 					if (NULL == inputSelector && 'none' != inputType) {
 						inputSelector = IOAudioSelectorControl::createInputSelector(inputType,
 																		kIOAudioControlChannelIDAll,
@@ -683,7 +679,7 @@ IOReturn Apple02Audio::createDefaultsPorts () {
 					}
 
 					if (NULL != inputSelector) {
-						DEBUG2_IOLOG ("Calling addAvailableSelection with type %4s\n", (char*)&inputType);
+						debugIOLog (3, "Calling addAvailableSelection with type %4s", (char*)&inputType);
 						switch(inputType) {
 							case 'imic' :
 								inputSelector->addAvailableSelection('imic', "InternalMic");
@@ -761,7 +757,7 @@ IOReturn Apple02Audio::createDefaultsPorts () {
 	}
 
 EXIT:    
-    DEBUG2_IOLOG("- %d = Apple02Audio::createDefaultsPorts\n", result);
+    debugIOLog (3, "- %d = Apple02Audio::createDefaultsPorts", result);
     return result;
 BAIL:
     result = kIOReturnError;
@@ -778,10 +774,10 @@ IORegistryEntry * Apple02Audio::FindEntryByNameAndProperty (const IORegistryEntr
 
 	theEntry = NULL;
 	iterator = NULL;
-	FAIL_IF (NULL == start, Exit);
+	FailIf (NULL == start, Exit);
 
 	iterator = start->getChildIterator (gIOServicePlane);
-	FAIL_IF (NULL == iterator, Exit);
+	FailIf (NULL == iterator, Exit);
 
 	while (NULL == theEntry && (tmpReg = OSDynamicCast (IORegistryEntry, iterator->getNextObject ())) != NULL) {
 		if (strcmp (tmpReg->getName (), name) == 0) {
@@ -809,7 +805,7 @@ IOReturn Apple02Audio::outputControlChangeHandler (IOService *target, IOAudioCon
 	UInt32							rightVol;
 	Boolean							wasPoweredDown;
 
-	debug5IOLog ("+ Apple02Audio::outputControlChangeHandler (%p, %p, %ld, %ld)\n", target, control, oldValue, newValue);
+	debugIOLog (3, "+ Apple02Audio::outputControlChangeHandler (%p, %p, %ld, %ld)", target, control, oldValue, newValue);
 
 	audioDevice = OSDynamicCast (Apple02Audio, target);
 	wasPoweredDown = FALSE;
@@ -892,14 +888,14 @@ IOReturn Apple02Audio::outputControlChangeHandler (IOService *target, IOAudioCon
 				if (NULL != audioDevice->outMute) {
 					audioDevice->outMute->hardwareValueChanged (muteState);
 				}
-//				IOLog ("turning on hardware mute flag\n");
+//				debugIOLog (3, "turning on hardware mute flag");
 			} else if (newValue != levelControl->getMinValue () && oldValue == levelControl->getMinValue () && FALSE == audioDevice->gIsMute) {
 				OSNumber *			muteState;
 				muteState = OSNumber::withNumber ((long long unsigned int)0, 32);
 				if (NULL != audioDevice->outMute) {
 					audioDevice->outMute->hardwareValueChanged (muteState);
 				}
-//				IOLog ("turning off hardware mute flag\n");
+//				debugIOLog (3, "turning off hardware mute flag");
 			}
 		}
 	}
@@ -913,7 +909,7 @@ IOReturn Apple02Audio::outputControlChangeHandler (IOService *target, IOAudioCon
 	}
 
 	if (FALSE == audioDevice->gExpertMode) {				// We do that only if we are on a OS 9 like UI guideline
-//		IOLog ("updated volume, setting PRAM\n");
+//		debugIOLog (3, "updated volume, setting PRAM");
 		audioDevice->WritePRAMVol (leftVol, rightVol);
 	}
 
@@ -922,7 +918,7 @@ Exit:
 	if (TRUE == wasPoweredDown) {
 		audioDevice->setTimerForSleep ();
 	}
-	debug6IOLog ("- Apple02Audio::outputControlChangeHandler (%p, %p, %ld, %ld) returns %X\n", target, control, oldValue, newValue, result);
+	debugIOLog (3, "- Apple02Audio::outputControlChangeHandler (%p, %p, %ld, %ld) returns %X", target, control, oldValue, newValue, result);
 
 	return result;
 }
@@ -933,7 +929,7 @@ Exit:
 IOReturn Apple02Audio::volumeMasterChange(SInt32 newValue){
 	IOReturn						result = kIOReturnSuccess;
 
-	DEBUG_IOLOG("+ Apple02Audio::volumeMasterChange\n");
+	debugIOLog (3, "+ Apple02Audio::volumeMasterChange");
 
 	result = kIOReturnError;
 
@@ -945,7 +941,7 @@ IOReturn Apple02Audio::volumeMasterChange(SInt32 newValue){
 
 	result = kIOReturnSuccess;
 
-	DEBUG2_IOLOG("- Apple02Audio::volumeMasterChange, 0x%x\n", result);
+	debugIOLog (3, "- Apple02Audio::volumeMasterChange, 0x%x", result);
 	return result;
 }
 
@@ -954,20 +950,20 @@ IOReturn Apple02Audio::volumeLeftChange(SInt32 newValue){
     AudioHardwareOutput *			theOutput;
 	UInt32							idx;
 
-	DEBUG2_IOLOG("+ Apple02Audio::volumeLeftChange (%ld)\n", newValue);
+	debugIOLog (3, "+ Apple02Audio::volumeLeftChange (%ld)", newValue);
 
 	result = kIOReturnError;
 	FailIf (NULL == AudioOutputs, Exit);
     
-	debug3IOLog("... gIsMute %d, AudioOutputs->getCount() = %d\n", gIsMute, AudioOutputs->getCount());
+	debugIOLog (3, "... gIsMute %d, AudioOutputs->getCount() = %d", gIsMute, AudioOutputs->getCount());
 	if (!gIsMute) {
 		for (idx = 0; idx < AudioOutputs->getCount(); idx++) {
 			theOutput = OSDynamicCast (AudioHardwareOutput, AudioOutputs->getObject (idx));
 			if (theOutput) {
-				debug4IOLog ( "... %X theOutput->setVolume ( %X, %X )\n", (unsigned int)theOutput, (unsigned int)newValue, (unsigned int)gVolRight );
+				debugIOLog (3,  "... %X theOutput->setVolume ( %X, %X )", (unsigned int)theOutput, (unsigned int)newValue, (unsigned int)gVolRight );
 				theOutput->setVolume (newValue, gVolRight);
 			} else {
-				debugIOLog("... ### NO AudioHardwareOutput*\n");
+				debugIOLog (3, "... ### NO AudioHardwareOutput*");
 			}
 		}
 	}
@@ -975,7 +971,7 @@ IOReturn Apple02Audio::volumeLeftChange(SInt32 newValue){
 
 	result = kIOReturnSuccess;
 Exit:
-	DEBUG2_IOLOG("- Apple02Audio::volumeLeftChange, 0x%x\n", result);
+	debugIOLog (3, "- Apple02Audio::volumeLeftChange, 0x%x", result);
 	return result;
 }
 
@@ -984,20 +980,20 @@ IOReturn Apple02Audio::volumeRightChange(SInt32 newValue){
     AudioHardwareOutput *			theOutput;
 	UInt32							idx;
 
-	DEBUG2_IOLOG("+ Apple02Audio::volumeRightChange (%ld)\n", newValue);
+	debugIOLog (3, "+ Apple02Audio::volumeRightChange (%ld)", newValue);
 
 	result = kIOReturnError;
 	FailIf (NULL == AudioOutputs, Exit);
 
-	debug3IOLog("... gIsMute %d, AudioOutputs->getCount() = %d\n", gIsMute, AudioOutputs->getCount());
+	debugIOLog (3, "... gIsMute %d, AudioOutputs->getCount() = %d", gIsMute, AudioOutputs->getCount());
 	if (!gIsMute) {
 		for (idx = 0; idx < AudioOutputs->getCount(); idx++) {
 			theOutput = OSDynamicCast (AudioHardwareOutput, AudioOutputs->getObject (idx));
 			if (theOutput) {
-				debug4IOLog ( "... %X theOutput->setVolume ( %X, %X )\n", (unsigned int)theOutput, (unsigned int)newValue, (unsigned int)gVolRight );
+				debugIOLog (3,  "... %X theOutput->setVolume ( %X, %X )", (unsigned int)theOutput, (unsigned int)newValue, (unsigned int)gVolRight );
 				theOutput->setVolume (gVolLeft, newValue);
 			} else {
-				debugIOLog("... ### NO AudioHardwareOutput*\n");
+				debugIOLog (3, "... ### NO AudioHardwareOutput*");
 			}
 		}
 	}
@@ -1005,7 +1001,7 @@ IOReturn Apple02Audio::volumeRightChange(SInt32 newValue){
 
 	result = kIOReturnSuccess;
 Exit:
-	DEBUG2_IOLOG("- Apple02Audio::volumeRightChange, result = 0x%x\n", result);
+	debugIOLog (3, "- Apple02Audio::volumeRightChange, result = 0x%x", result);
 	return result;
 }
 
@@ -1014,7 +1010,7 @@ IOReturn Apple02Audio::outputMuteChange(SInt32 newValue){
 	UInt32							idx;
 	AudioHardwareOutput *			theOutput;
 
-    DEBUG2_IOLOG("+ Apple02Audio::outputMuteChange (%ld)\n", newValue);
+    debugIOLog (3, "+ Apple02Audio::outputMuteChange (%ld)", newValue);
 
     result = kIOReturnError;
 
@@ -1031,7 +1027,7 @@ IOReturn Apple02Audio::outputMuteChange(SInt32 newValue){
     
 	result = kIOReturnSuccess;
 Exit:
-    DEBUG2_IOLOG("- Apple02Audio::outputMuteChange, 0x%x\n", result);
+    debugIOLog (3, "- Apple02Audio::outputMuteChange, 0x%x", result);
     return result;
 }
 
@@ -1099,7 +1095,7 @@ IOReturn Apple02Audio::gainLeftChanged(SInt32 newValue){
 	IOReturn result = kIOReturnSuccess;
     UInt32 idx;
     AudioHardwareInput *theInput;
-    DEBUG_IOLOG("+ Apple02Audio::gainLeftChanged\n");    
+    debugIOLog (3, "+ Apple02Audio::gainLeftChanged");    
     
     if(!AudioInputs)
         goto BAIL;
@@ -1107,7 +1103,7 @@ IOReturn Apple02Audio::gainLeftChanged(SInt32 newValue){
     gGainLeft = newValue;
 	if (!mHasHardwareInputGain) {
 #ifdef _AML_LOG_INPUT_GAIN
-		IOLog("Apple02Audio::gainLeftChanged - using software gain (0x%X).\n", gGainLeft); 
+		debugIOLog (3, "Apple02Audio::gainLeftChanged - using software gain (0x%X).", gGainLeft); 
 #endif
 		driverDMAEngine->setInputGainL(gGainLeft);
 	} else {
@@ -1119,7 +1115,7 @@ IOReturn Apple02Audio::gainLeftChanged(SInt32 newValue){
 	}
 
 EXIT:    
-    DEBUG2_IOLOG("- Apple02Audio::gainLeftChanged, %d\n", (result == kIOReturnSuccess));
+    debugIOLog (3, "- Apple02Audio::gainLeftChanged, %d", (result == kIOReturnSuccess));
     return result;
 BAIL:
     result = kIOReturnError;
@@ -1130,7 +1126,7 @@ IOReturn Apple02Audio::gainRightChanged(SInt32 newValue){
      IOReturn result = kIOReturnSuccess;
     UInt32 idx;
     AudioHardwareInput *theInput;
-    DEBUG_IOLOG("+ Apple02Audio::gainRightChanged\n");    
+    debugIOLog (3, "+ Apple02Audio::gainRightChanged");    
     
     if(!AudioInputs)
         goto BAIL;
@@ -1138,7 +1134,7 @@ IOReturn Apple02Audio::gainRightChanged(SInt32 newValue){
     gGainRight = newValue;
 	if (!mHasHardwareInputGain) {
 #ifdef _AML_LOG_INPUT_GAIN
-		IOLog("Apple02Audio::gainRightChanged - using software gain (0x%X).\n", gGainRight); 
+		debugIOLog (3, "Apple02Audio::gainRightChanged - using software gain (0x%X).", gGainRight); 
 #endif
 		driverDMAEngine->setInputGainR(gGainRight);
 	} else {
@@ -1149,7 +1145,7 @@ IOReturn Apple02Audio::gainRightChanged(SInt32 newValue){
 	}
 
 EXIT:    
-    DEBUG2_IOLOG("- Apple02Audio::gainRightChanged, %d\n", (result == kIOReturnSuccess));
+    debugIOLog (3, "- Apple02Audio::gainRightChanged, %d", (result == kIOReturnSuccess));
     return result;
 BAIL:
     result = kIOReturnError;
@@ -1158,10 +1154,10 @@ BAIL:
 
 IOReturn Apple02Audio::passThruChanged(SInt32 newValue){
     IOReturn result = kIOReturnSuccess;
-    DEBUG_IOLOG("+ Apple02Audio::passThruChanged\n");
+    debugIOLog (3, "+ Apple02Audio::passThruChanged");
     gIsPlayThroughActive = newValue;
     sndHWSetPlayThrough(!newValue);
-    DEBUG_IOLOG("- Apple02Audio::passThruChanged\n");
+    debugIOLog (3, "- Apple02Audio::passThruChanged");
     return result;
 }
 
@@ -1174,7 +1170,7 @@ IOReturn Apple02Audio::inputSelectorChanged(SInt32 newValue){
 	IOFixed				dBOffset;
     IOReturn result = kIOReturnSuccess;
     
-    DEBUG_IOLOG("+ Apple02Audio::inputSelectorChanged\n");
+    debugIOLog (3, "+ Apple02Audio::inputSelectorChanged");
     if(AudioInputs) {
         for(idx = 0; idx< AudioInputs->getCount(); idx++) {
             theInput = OSDynamicCast(AudioHardwareInput, AudioInputs->getObject(idx));
@@ -1248,7 +1244,7 @@ IOReturn Apple02Audio::inputSelectorChanged(SInt32 newValue){
 	}    
 
     }  
-    DEBUG_IOLOG("- Apple02Audio::inputSelectorChanged\n");
+    debugIOLog (3, "- Apple02Audio::inputSelectorChanged");
     return result;
 }
 
@@ -1257,7 +1253,7 @@ IOReturn Apple02Audio::inputSelectorChanged(SInt32 newValue){
 IOReturn Apple02Audio::configurePowerObject(IOService *provider){
     IOReturn result = kIOReturnSuccess;
 
-    DEBUG_IOLOG("+ Apple02Audio::configurePowerObject\n");
+    debugIOLog (3, "+ Apple02Audio::configurePowerObject");
     switch (theAudioDeviceTreeParser->getPowerObjectType()) {
         case kProj6PowerObject:
             theAudioPowerObject = AudioProj6PowerObject::createAudioProj6PowerObject(this);
@@ -1291,7 +1287,7 @@ IOReturn Apple02Audio::configurePowerObject(IOService *provider){
     }
 
 EXIT:
-    DEBUG2_IOLOG("- Apple02Audio::configurePowerObject result = %d\n", (result == kIOReturnSuccess));
+    debugIOLog (3, "- Apple02Audio::configurePowerObject result = %d", (result == kIOReturnSuccess));
     return(result);
 BAIL:
     result = kIOReturnError;
@@ -1331,12 +1327,12 @@ IOReturn Apple02Audio::setAggressiveness(unsigned long type, unsigned long newLe
 	IOReturn				result;
 	UInt32					time = 0;
 
-	debug3IOLog ( "+ Apple02Audio::setAggressiveness ( %ld, %ld )\n", type, newLevel );
+	debugIOLog (3,  "+ Apple02Audio::setAggressiveness ( %ld, %ld )", type, newLevel );
 	if (type == kPMPowerSource) {
-		debugIOLog ("setting power aggressivness state to ");
+		debugIOLog (3, "setting power aggressivness state to ");
 		switch (newLevel) {
 			case kIOPMInternalPower:								// Running on battery only
-				debugIOLog ("battery power\n");
+				debugIOLog (3, "battery power");
 				idleSleepDelayTime = kBatteryPowerDownDelayTime;
 				setIdleAudioSleepTime (idleSleepDelayTime);
 				if (!asyncPowerStateChangeInProgress && getPowerState () != kIOAudioDeviceActive) {
@@ -1344,7 +1340,7 @@ IOReturn Apple02Audio::setAggressiveness(unsigned long type, unsigned long newLe
 				}
 				break;
 			case kIOPMExternalPower:								// Running on AC power
-				debugIOLog ("wall power\n");
+				debugIOLog (3, "wall power");
 				// idleSleepDelayTime = kACPowerDownDelayTime;		// idle power down after 5 minutes
 				idleSleepDelayTime = kNoIdleAudioPowerDown;
 				setIdleAudioSleepTime (idleSleepDelayTime);			// don't tell us about going to the idle state
@@ -1353,13 +1349,13 @@ IOReturn Apple02Audio::setAggressiveness(unsigned long type, unsigned long newLe
 				}
 				break;
 			default:
-				debug2IOLog ( "UNKOWN STATE %ld\n", newLevel );
+				debugIOLog (3,  "UNKOWN STATE %ld", newLevel );
 				break;
 		}
 	}
 
 	result = super::setAggressiveness(type, newLevel);
-	debug3IOLog ( "- Apple02Audio::setAggressiveness ( %ld, %ld )\n", type, newLevel );
+	debugIOLog (3,  "- Apple02Audio::setAggressiveness ( %ld, %ld )", type, newLevel );
 	return result;
 }
 
@@ -1368,7 +1364,7 @@ IOReturn Apple02Audio::performPowerStateChange (IOAudioDevicePowerState oldPower
 {
 	IOReturn				result;
 
-	debug4IOLog ("+ Apple02Audio::performPowerStateChange (%d, %d) -- ourPowerState = %d\n", oldPowerState, newPowerState, ourPowerState);
+	debugIOLog (3, "+ Apple02Audio::performPowerStateChange (%d, %d) -- ourPowerState = %d", oldPowerState, newPowerState, ourPowerState);
 
 	if (NULL != theAudioPowerObject) {
 		*microsecondsUntilComplete = theAudioPowerObject->GetTimeToChangePowerState (ourPowerState, newPowerState);
@@ -1387,7 +1383,7 @@ IOReturn Apple02Audio::performPowerStateChange (IOAudioDevicePowerState oldPower
 		}
 	}
 
-	debug2IOLog ("- Apple02Audio::performPowerStateChange -- ourPowerState = %d\n", ourPowerState);
+	debugIOLog (3, "- Apple02Audio::performPowerStateChange -- ourPowerState = %d", ourPowerState);
 
 	return result;
 }
@@ -1396,8 +1392,6 @@ void Apple02Audio::performPowerStateChangeThread (Apple02Audio * aoa, thread_cal
 	IOCommandGate *			cg;
 
 	FailIf (NULL == aoa, Exit);
-
-	aoa->mSignal->wait (FALSE);
 
 	FailIf (TRUE == aoa->mTerminating, Exit);	
 	cg = aoa->getCommandGate ();
@@ -1414,7 +1408,7 @@ IOReturn Apple02Audio::performPowerStateChangeThreadAction (OSObject * owner, vo
 	IOReturn				result;
 	
 	aoa = (Apple02Audio *)owner;
-	debug4IOLog ("+ Apple02Audio::performPowerStateChangeThreadAction (%p, %ld) -- ourPowerState = %d\n", owner, (UInt32)newPowerState, aoa->ourPowerState);
+	debugIOLog (3, "+ Apple02Audio::performPowerStateChangeThreadAction (%p, %ld) -- ourPowerState = %d", owner, (UInt32)newPowerState, aoa->ourPowerState);
 	
 	result = kIOReturnError;
 	
@@ -1426,7 +1420,7 @@ IOReturn Apple02Audio::performPowerStateChangeThreadAction (OSObject * owner, vo
 				if (kIOAudioDeviceSleep != aoa->ourPowerState) {				//	[3193592]
 					aoa->outputMuteChange (TRUE);							// Mute before turning off power
 					aoa->ourPowerState = kIOAudioDeviceSleep;
-					debugIOLog ("going to sleep state\n");
+					debugIOLog (3, "going to sleep state");
 					aoa->theAudioPowerObject->setHardwarePowerOff ();
 				}
 				break;
@@ -1434,17 +1428,17 @@ IOReturn Apple02Audio::performPowerStateChangeThreadAction (OSObject * owner, vo
 				if ((kIOAudioDeviceActive == aoa->ourPowerState) || ( kIOAudioDeviceIdle == aoa->ourPowerState )) {	//	[3361022, 3366480]
 					aoa->outputMuteChange (TRUE);							// Mute before turning off power
 					aoa->ourPowerState = kIOAudioDeviceIdle;					//	[3193592]
-					debugIOLog ("going idle from active state\n");
+					debugIOLog (3, "going idle from active state");
 					aoa->theAudioPowerObject->setIdlePowerState ();			//	[3193592]
 				} else if (kIOAudioDeviceSleep == aoa->ourPowerState && kNoIdleAudioPowerDown == aoa->idleSleepDelayTime) {
 					aoa->ourPowerState = kIOAudioDeviceActive;
-					debugIOLog ("going active from sleep state\n");
+					debugIOLog (3, "going active from sleep state");
 					aoa->theAudioPowerObject->setHardwarePowerOn ();
 					if (NULL != aoa->outMute) {
 						aoa->outMute->flushValue ();							// Restore hardware to the user's selected state
 					}
 				} else if (kIOAudioDeviceSleep == aoa->ourPowerState) {
-					debugIOLog ("going idle from sleep state\n");
+					debugIOLog (3, "going idle from sleep state");
 					aoa->theAudioPowerObject->setHardwarePowerIdleOn ();		//	[3193592]
 					//	[3361022, 3366480]	begin {
 					aoa->setTimerForSleep();									
@@ -1454,7 +1448,7 @@ IOReturn Apple02Audio::performPowerStateChangeThreadAction (OSObject * owner, vo
 						aoa->outMute->flushValue ();							// Restore hardware to the user's selected state
 					}
 				} else {
-					debugIOLog ("Trying to go idle, but we already are\n");
+					debugIOLog (3, "Trying to go idle, but we already are");
 				}
 				break;
 			case kIOAudioDeviceActive:
@@ -1465,13 +1459,13 @@ IOReturn Apple02Audio::performPowerStateChangeThreadAction (OSObject * owner, vo
 					}
 					//	} end	[3361022, 3366480]
 					aoa->ourPowerState = kIOAudioDeviceActive;
-					debugIOLog ("going to active state\n");
+					debugIOLog (3, "going to active state");
 					aoa->theAudioPowerObject->setHardwarePowerOn ();
 					if (NULL != aoa->outMute) {
 						aoa->outMute->flushValue ();							// Restore hardware to the user's selected state
 					}
 				} else {
-					debugIOLog ("trying to wake, but we're already awake\n");
+					debugIOLog (3, "trying to wake, but we're already awake");
 				}
 				break;
 			default:
@@ -1486,7 +1480,7 @@ IOReturn Apple02Audio::performPowerStateChangeThreadAction (OSObject * owner, vo
 Exit:
 	aoa->protectedCompletePowerStateChange ();
 
-	debug2IOLog ("- Apple02Audio::performPowerStateChangeThreadAction -- ourPowerState = %d\n", aoa->ourPowerState);
+	debugIOLog (3, "- Apple02Audio::performPowerStateChangeThreadAction -- ourPowerState = %d", aoa->ourPowerState);
 	return result;
 }
 
@@ -1537,7 +1531,7 @@ IOReturn Apple02Audio::setModemSound (bool state){
     UInt32							idx;
 	Boolean							wasPoweredDown;
 
-    debugIOLog ("+ Apple02Audio::setModemSound\n");
+    debugIOLog (3, "+ Apple02Audio::setModemSound");
 
 	// We have to make sure the hardware is on before we can send it any control changes [3000358]
 	if (kIOAudioDeviceSleep == ourPowerState && NULL != theAudioPowerObject) {
@@ -1589,17 +1583,17 @@ EXIT:
 		setTimerForSleep ();
 	}
 
-    debugIOLog ("- Apple02Audio::setModemSound\n");
+    debugIOLog (3, "- Apple02Audio::setModemSound");
     return kIOReturnSuccess;
 }
 
 IOReturn Apple02Audio::callPlatformFunction( const OSSymbol * functionName, bool waitForFunction,void *param1, void *param2, void *param3, void *param4 ) {
-    debugIOLog ("+ Apple02Audio::callPlatformFunction\n");
+    debugIOLog (3, "+ Apple02Audio::callPlatformFunction");
     if (functionName->isEqualTo ("setModemSound")) {
         return (setModemSound ((bool)param1));
     }
 
-    debugIOLog ("- Apple02Audio::callPlatformFunction\n");
+    debugIOLog (3, "- Apple02Audio::callPlatformFunction");
     return (super::callPlatformFunction (functionName, waitForFunction,param1, param2, param3, param4));
 }
 
@@ -1614,7 +1608,7 @@ UInt8 Apple02Audio::VolumeToPRAMValue (UInt32 inLeftVol, UInt32 inRightVol) {
 	UInt32			leftVol;
 	UInt32			rightVol;
 
-	debug3IOLog ( "+ Apple02Audio::VolumeToPRAMValue ( 0x%X, 0x%X )\n", (unsigned int)inLeftVol, (unsigned int)inRightVol );
+	debugIOLog (3,  "+ Apple02Audio::VolumeToPRAMValue ( 0x%X, 0x%X )", (unsigned int)inLeftVol, (unsigned int)inRightVol );
 	pramVolume = 0;											//	[2886446]	Always pass zero as a result when muting!!!
 	if ( ( 0 != inLeftVol ) || ( 0 != inRightVol ) ) {		//	[2886446]
 		leftVol = inLeftVol;
@@ -1626,25 +1620,25 @@ UInt8 Apple02Audio::VolumeToPRAMValue (UInt32 inLeftVol, UInt32 inRightVol) {
 		if (NULL != outVolRight) {
 			rightVol -= outVolRight->getMinValue ();
 		}
-		debug3IOLog ( "... leftVol = 0x%X, rightVol = 0x%X\n", (unsigned int)leftVol, (unsigned int)rightVol );
+		debugIOLog (3,  "... leftVol = 0x%X, rightVol = 0x%X", (unsigned int)leftVol, (unsigned int)rightVol );
 	
 		if (NULL != outVolMaster) {
 			volumeRange = (outVolMaster->getMaxValue () - outVolMaster->getMinValue () + 1);
-			debug2IOLog ( "... outVolMaster volumeRange = 0x%X\n", (unsigned int)volumeRange );
+			debugIOLog (3,  "... outVolMaster volumeRange = 0x%X", (unsigned int)volumeRange );
 		} else if (NULL != outVolLeft) {
 			volumeRange = (outVolLeft->getMaxValue () - outVolLeft->getMinValue () + 1);
-			debug2IOLog ( "... outVolLeft volumeRange = 0x%X\n", (unsigned int)volumeRange );
+			debugIOLog (3,  "... outVolLeft volumeRange = 0x%X", (unsigned int)volumeRange );
 		} else if (NULL != outVolRight) {
 			volumeRange = (outVolRight->getMaxValue () - outVolRight->getMinValue () + 1);
-			debug2IOLog ( "... outVolRight volumeRange = 0x%X\n", (unsigned int)volumeRange );
+			debugIOLog (3,  "... outVolRight volumeRange = 0x%X", (unsigned int)volumeRange );
 		} else {
 			volumeRange = kMaximumPRAMVolume;
-			debug2IOLog ( "... volumeRange = 0x%X **** NO AUDIO LEVEL CONTROLS!\n", (unsigned int)volumeRange );
+			debugIOLog (3,  "... volumeRange = 0x%X **** NO AUDIO LEVEL CONTROLS!", (unsigned int)volumeRange );
 		}
 
 		averageVolume = (leftVol + rightVol) >> 1;		// sum the channel volumes and get an average
-		debug2IOLog ( "... averageVolume = 0x%X\n", (unsigned int)volumeRange );
-		debug3IOLog ( "... volumeRange %X, kMaximumPRAMVolume %X\n", (unsigned int)volumeRange, (unsigned int)kMaximumPRAMVolume );
+		debugIOLog (3,  "... averageVolume = 0x%X", (unsigned int)volumeRange );
+		debugIOLog (3,  "... volumeRange %X, kMaximumPRAMVolume %X", (unsigned int)volumeRange, (unsigned int)kMaximumPRAMVolume );
 		volumeSteps = volumeRange / kMaximumPRAMVolume;	// divide the range by the range of the pramVolume
 		pramVolume = averageVolume / volumeSteps;    
 	
@@ -1658,7 +1652,7 @@ UInt8 Apple02Audio::VolumeToPRAMValue (UInt32 inLeftVol, UInt32 inRightVol) {
 		}
 	
 	}
-	debug2IOLog ( "- Apple02Audio::VolumeToPRAMValue returns 0x%X\n", (unsigned int)pramVolume );
+	debugIOLog (3,  "- Apple02Audio::VolumeToPRAMValue returns 0x%X", (unsigned int)pramVolume );
 	return (pramVolume & 0x07);
 }
 
@@ -1702,52 +1696,52 @@ void Apple02Audio::WritePRAMVol (UInt32 leftVol, UInt32 rightVol) {
 		
 	platform = OSDynamicCast(IODTPlatformExpert,getPlatform());
 
-    debug3IOLog("+ Apple02Audio::WritePRAMVol leftVol=%lu, rightVol=%lu\n",leftVol,  rightVol);
+    debugIOLog (3, "+ Apple02Audio::WritePRAMVol leftVol=%lu, rightVol=%lu",leftVol,  rightVol);
     
     if (platform) {
-		debug2IOLog ( "... platform 0x%X\n", (unsigned int)platform );
+		debugIOLog (3,  "... platform 0x%X", (unsigned int)platform );
 		pramVolume = VolumeToPRAMValue (leftVol, rightVol);
 #if 0
 		curPRAMVol = pramVolume ^ 0xFF;
-		debug3IOLog ( "... target pramVolume = 0x%X, curPRAMVol = 0x%X\n", pramVolume, curPRAMVol );
+		debugIOLog (3,  "... target pramVolume = 0x%X, curPRAMVol = 0x%X", pramVolume, curPRAMVol );
 #endif
 		// get the old value to compare it with
 		err = platform->readXPRAM((IOByteCount)kPRamVolumeAddr, &curPRAMVol, (IOByteCount)1);
 		if ( kIOReturnSuccess == err ) {
-			debug2IOLog ( "... curPRAMVol = 0x%X before write\n", (curPRAMVol & 0x07) );
+			debugIOLog (3,  "... curPRAMVol = 0x%X before write", (curPRAMVol & 0x07) );
 			// Update only if there is a change
 			if (pramVolume != (curPRAMVol & 0x07)) {
 				// clear bottom 3 bits of volume control byte from PRAM low memory image
 				curPRAMVol = (curPRAMVol & 0xF8) | pramVolume;
-				debug2IOLog("... curPRAMVol = 0x%x\n",curPRAMVol);
+				debugIOLog (3, "... curPRAMVol = 0x%x",curPRAMVol);
 				// write out the volume control byte to PRAM
 				err = platform->writeXPRAM((IOByteCount)kPRamVolumeAddr, &curPRAMVol,(IOByteCount) 1);
 				if ( kIOReturnSuccess != err ) {
-					debug5IOLog ( "0x%X = platform->writeXPRAM( 0x%X, & 0x%X, 1 ), value = 0x%X\n", err, (unsigned int)kPRamVolumeAddr, (unsigned int)&curPRAMVol, (unsigned int)curPRAMVol );
+					debugIOLog (3,  "0x%X = platform->writeXPRAM( 0x%X, & 0x%X, 1 ), value = 0x%X", err, (unsigned int)kPRamVolumeAddr, (unsigned int)&curPRAMVol, (unsigned int)curPRAMVol );
 				} else {
 #if 0
 					err = platform->readXPRAM((IOByteCount)kPRamVolumeAddr, &curPRAMVol, (IOByteCount)1);
 					if ( kIOReturnSuccess == err ) {
 						if ( ( 0x07 & curPRAMVol ) != pramVolume ) {
-							debug3IOLog ( "PRAM Read after Write did not compare:  Write = 0x%X, Read = 0x%X\n", (unsigned int)pramVolume, (unsigned int)curPRAMVol );
+							debugIOLog (3,  "PRAM Read after Write did not compare:  Write = 0x%X, Read = 0x%X", (unsigned int)pramVolume, (unsigned int)curPRAMVol );
 						} else {
-							debugIOLog ( "PRAM verified after write!\n" );
+							debugIOLog (3,  "PRAM verified after write!" );
 						}
 					} else {
-						debugIOLog ( "Could not readXPRAM to verify write!\n" );
+						debugIOLog (3,  "Could not readXPRAM to verify write!" );
 					}
 #endif
 				}
 			} else {
-				debugIOLog ( "PRAM write request is to current value: no I/O\n" );
+				debugIOLog (3,  "PRAM write request is to current value: no I/O" );
 			}
 		} else {
-			debug2IOLog ( "Could not readXPRAM prior to write! Error 0x%X\n", err );
+			debugIOLog (3,  "Could not readXPRAM prior to write! Error 0x%X", err );
 		}
 	} else {
-		debugIOLog ( "... no platform\n" );
+		debugIOLog (3,  "... no platform" );
 	}
-    debugIOLog("- Apple02Audio::WritePRAMVol\n");
+    debugIOLog (3, "- Apple02Audio::WritePRAMVol");
 }
 
 UInt8 Apple02Audio::ReadPRAMVol (void) {
@@ -1784,7 +1778,7 @@ IOReturn Apple02Audio::newUserClient( task_t 			inOwningTask,
     IOUserClient *		userClientPtr;
     bool				result;
 	
-	debug2IOLog( "[Apple02Audio] creating user client for task 0x%08lX\n", ( UInt32 ) inOwningTask );
+	debugIOLog (3,  "[Apple02Audio] creating user client for task 0x%08lX", ( UInt32 ) inOwningTask );
 	
 	// Create the user client object.
 	
@@ -1807,7 +1801,7 @@ IOReturn Apple02Audio::newUserClient( task_t 			inOwningTask,
 	err = kIOReturnSuccess;
 	
 exit:
-	debug2IOLog( "[Apple02Audio] newUserClient done (err=%d)\n", err );
+	debugIOLog (3,  "[Apple02Audio] newUserClient done (err=%d)", err );
 	if( err != kIOReturnSuccess )
 	{
 		if( userClientPtr )
@@ -2019,20 +2013,20 @@ AppleLegacyOnboardAudioUserClient *	AppleLegacyOnboardAudioUserClient::Create( A
     userClient = new AppleLegacyOnboardAudioUserClient;
 	if( !userClient )
 	{
-		debugIOLog( "[Apple02Audio] create user client object failed\n" );
+		debugIOLog (3,  "[Apple02Audio] create user client object failed" );
 		goto exit;
 	}
     
     if( !userClient->initWithDriver( inDriver, inTask ) )
 	{
-		debugIOLog( "[Apple02Audio] initWithDriver failed\n" );
+		debugIOLog (3,  "[Apple02Audio] initWithDriver failed" );
 		
 		userClient->release();
 		userClient = NULL;
 		goto exit;
 	}
 	
-	debug2IOLog( "[Apple02Audio] User client created for task 0x%08lX\n", ( UInt32 ) inTask );
+	debugIOLog (3,  "[Apple02Audio] User client created for task 0x%08lX", ( UInt32 ) inTask );
 	
 exit:
 	return( userClient );
@@ -2046,17 +2040,17 @@ bool	AppleLegacyOnboardAudioUserClient::initWithDriver( Apple02Audio *inDriver, 
 {
 	bool		result;
 	
-	debugIOLog( "[Apple02Audio] initWithDriver\n" );
+	debugIOLog (3,  "[Apple02Audio] initWithDriver" );
 	
 	result = false;
     if( !initWithTask( inTask, NULL, 0 ) )
 	{
-		debugIOLog( "[Apple02Audio] initWithTask failed\n" );
+		debugIOLog (3,  "[Apple02Audio] initWithTask failed" );
 		goto exit;
     }
     if( !inDriver )
 	{
-		debugIOLog( "[Apple02Audio] initWithDriver failed (null input driver)\n" );
+		debugIOLog (3,  "[Apple02Audio] initWithDriver failed (null input driver)" );
         goto exit;
     }
     
@@ -2074,7 +2068,7 @@ exit:
 
 void	AppleLegacyOnboardAudioUserClient::free( void )
 {
-	debugIOLog( "[Apple02Audio] free\n" );
+	debugIOLog (3,  "[Apple02Audio] free" );
 	
     IOUserClient::free();
 }
@@ -2085,7 +2079,7 @@ void	AppleLegacyOnboardAudioUserClient::free( void )
 
 IOReturn	AppleLegacyOnboardAudioUserClient::clientClose( void )
 {
-	debugIOLog( "[Apple02Audio] clientClose\n" );
+	debugIOLog (3,  "[Apple02Audio] clientClose" );
 	
     if( !isInactive() )
 	{
@@ -2100,7 +2094,7 @@ IOReturn	AppleLegacyOnboardAudioUserClient::clientClose( void )
 
 IOReturn	AppleLegacyOnboardAudioUserClient::clientDied( void )
 {
-	debugIOLog( "[Apple02Audio] clientDied\n" );
+	debugIOLog (3,  "[Apple02Audio] clientDied" );
 	
     return( clientClose() );
 }
@@ -2118,7 +2112,7 @@ IOExternalMethod *	AppleLegacyOnboardAudioUserClient::getTargetAndMethodForIndex
         *outTarget = this;
 		methodPtr = ( IOExternalMethod * ) &sMethods[ inIndex ];
     } else {
-		debug2IOLog( "[Apple02Audio] getTargetAndMethodForIndex - bad index (index=%lu)\n", inIndex );
+		debugIOLog (3,  "[Apple02Audio] getTargetAndMethodForIndex - bad index (index=%lu)", inIndex );
 	}
 	return( methodPtr );
 }

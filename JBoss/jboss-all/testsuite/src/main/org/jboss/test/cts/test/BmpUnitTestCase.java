@@ -42,7 +42,7 @@ import org.jboss.test.JBossTestCase;
  *  Class BmpTest
  *
  *  @author Author: kimptoc 
- *  @version $Revision: 1.4.4.1 $
+ *  @version $Revision: 1.4.4.2 $
  */
 
 
@@ -104,11 +104,13 @@ public class BmpUnitTestCase
       try {
          getLog().debug("create bean, name=" + BEAN_NAME);
 
-         doEjbCreate(new AccountPK(BEAN_PK_007), BEAN_NAME);
+         bean = doEjbCreate(new AccountPK(BEAN_PK_007), BEAN_NAME);
       } catch (Exception ex) {
          getLog().error("Error in bmptest", ex);
          fail("testEjbCreate has failed!");
       }
+
+      assertEquals(BEAN_NAME, bean.getPersonsName());
 
       getLog().debug(
          "**************************************************************");

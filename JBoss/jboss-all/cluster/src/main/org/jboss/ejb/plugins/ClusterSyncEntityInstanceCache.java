@@ -17,11 +17,11 @@ import org.jboss.system.Registry;
  * distributed cache corruption mechanism.
  *
  * @author <a href="mailto:sacha.labourey@cogito-info.ch">Sacha Labourey</a>
- * @version $Revision: 1.3.2.4 $
+ * @version $Revision: 1.3.2.5 $
  */
 public class ClusterSyncEntityInstanceCache
    extends EntityInstanceCache
-   implements org.jboss.ha.framework.interfaces.DistributedState.DSListener
+   implements org.jboss.ha.framework.interfaces.DistributedState.DSListenerEx
 {
    protected DistributedState ds = null;
    protected String DS_CATEGORY = null;
@@ -46,14 +46,14 @@ public class ClusterSyncEntityInstanceCache
       String ejbName = this.getContainer ().getBeanMetaData ().getEjbName ();
       this.DS_CATEGORY = "CMPClusteredInMemoryPersistenceManager-" + ejbName;
 
-      this.ds.registerDSListener (this.DS_CATEGORY, this);
+      this.ds.registerDSListenerEx (this.DS_CATEGORY, this);
    }
 
    /* From Service interface*/
    public void stop()
    {
       super.stop ();
-      this.ds.unregisterDSListener (this.DS_CATEGORY, this);
+      this.ds.unregisterDSListenerEx (this.DS_CATEGORY, this);
    }
 
    // DSListener implementation -------------------------------------
@@ -65,10 +65,10 @@ public class ClusterSyncEntityInstanceCache
     * @param key The key that has been removed
     * @param previousContent The previous content of the key that has been removed
     */
-   public void keyHasBeenRemoved (String category, String key, java.io.Serializable previousContent, boolean locallyModified)
+   public void keyHasBeenRemoved (String category, java.io.Serializable key, java.io.Serializable previousContent, boolean locallyModified)
    {
       if (!locallyModified)
-         this.cacheMiss (key);
+         this.cacheMiss ((String)key);
    }
 
    /**
@@ -78,10 +78,10 @@ public class ClusterSyncEntityInstanceCache
     * @param key The key that has been added or its value modified
     * @param value The new value of the key
     */
-   public void valueHasChanged (String category, String key, java.io.Serializable value, boolean locallyModified)
+   public void valueHasChanged (String category, java.io.Serializable key, java.io.Serializable value, boolean locallyModified)
    {
       if (!locallyModified)
-         this.cacheMiss (key);
+         this.cacheMiss ((String)key);
    }
 
    public void cacheMiss(String key)

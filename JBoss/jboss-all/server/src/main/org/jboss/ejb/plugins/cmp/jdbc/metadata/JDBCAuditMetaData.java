@@ -15,7 +15,7 @@ import org.w3c.dom.Element;
  * Audit field meta data
  *
  * @author <a href="mailto:Adrian.Brock@HappeningTimes.com">Adrian Brock</a>
- * @version $Revision: 1.1.2.1 $
+ * @version $Revision: 1.1.2.2 $
  */
 public final class JDBCAuditMetaData
 {
@@ -116,7 +116,7 @@ public final class JDBCAuditMetaData
     * Constructs an audit locking field metadata from
     * XML element
     */
-   private JDBCCMPFieldMetaData constructAuditField(
+   private static JDBCCMPFieldMetaData constructAuditField(
       JDBCEntityMetaData entity,
       Element element,
       String defaultName)
@@ -133,7 +133,7 @@ public final class JDBCAuditMetaData
          columnName = defaultName;
 
       // field type
-      Class fieldType = null;
+      Class fieldType;
       String fieldTypeStr = MetaData.getOptionalChildContent(element, "field-type");
       if (fieldTypeStr != null)
       {
@@ -159,7 +159,7 @@ public final class JDBCAuditMetaData
 
       // JDBC/SQL Type
       int jdbcType;
-      String sqlType = null;
+      String sqlType;
       String jdbcTypeName = MetaData.getOptionalChildContent(element, "jdbc-type");
       if (jdbcTypeName != null)
       {

@@ -72,9 +72,9 @@ const char * 	K2Platform::kAppleGPIO_UnregisterCodecIRQ				= "unregister-codec-i
 const char * 	K2Platform::kAppleGPIO_SetCodecInputDataMux				= "platform-codec-input-data-mu";		//	[IN Q37 IOService:...:IOResources]
 const char * 	K2Platform::kAppleGPIO_GetCodecInputDataMux				= "get-codec-input-data-mux";			//	
 
-const char * 	K2Platform::kAppleGPIO_GetComboInJackType				= "combo-in-type";		
+const char * 	K2Platform::kAppleGPIO_GetComboInJackType				= "platform-combo-in-sense";		
 
-const char * 	K2Platform::kAppleGPIO_GetComboOutJackType				= "combo-out-type";
+const char * 	K2Platform::kAppleGPIO_GetComboOutJackType				= "platform-combo-out-sense";
 
 const char * 	K2Platform::kAppleGPIO_SetAudioDigHwReset				= "platform-dig-hw-reset";				//	[IN Q37 IOService:...:IOResources]
 const char * 	K2Platform::kAppleGPIO_GetAudioDigHwReset				= "get-dig-hw-reset";					//	
@@ -131,41 +131,41 @@ bool K2Platform::init (IOService* device, AppleOnboardAudio* provider, UInt32 in
 	IORegistryEntry			*i2S;
 	IORegistryEntry			*macIO;
 	
-	debugIOLog ( "+ K2Platform::init\n" );
+	debugIOLog (3,  "+ K2Platform[%p]::init", this );
 	result = super::init (device, provider, inDBDMADeviceIndex);
 	FailIf ( !result, Exit );
 
-	debug2IOLog ( "    about to waitForService on mK2Service %p\n", mK2Service );
+	debugIOLog (3,  "    about to waitForService on mK2Service %p", mK2Service );
 	mK2Service = IOService::waitForService ( IOService::serviceMatching ( "AppleK2" ) );
-	debug2IOLog ( "    mK2Service %p\n", mK2Service );
+	debugIOLog (3,  "    mK2Service %p", mK2Service );
 	
 	sound = device;
 
 	FailWithAction (!sound, result = false, Exit);
-	debug2IOLog ("K2 - sound's name is %s\n", sound->getName ());
+	debugIOLog (3, "K2 - sound's name is %s", sound->getName ());
 
 	mI2S = sound->getParentEntry (gIODTPlane);
 	FailWithAction (!mI2S, result = false, Exit);
-	debug2IOLog ("K2Platform - i2s's name is %s\n", mI2S->getName ());
+	debugIOLog (3, "K2Platform - i2s's name is %s", mI2S->getName ());
 
 	osdata = OSDynamicCast ( OSData, mI2S->getProperty ( "AAPL,phandle" ) );
 	mI2SPHandle = *((UInt32*)osdata->getBytesNoCopy());
-	debug2IOLog ( "mI2SPHandle %lX", mI2SPHandle );
+	debugIOLog (3,  "mI2SPHandle 0x%lX", mI2SPHandle );
 	
 	osdata = OSDynamicCast ( OSData, mI2S->getProperty ( "reg" ) );
 	mI2SOffset = *((UInt32*)osdata->getBytesNoCopy());
 		
 	i2S = mI2S->getParentEntry (gIODTPlane);
 	FailWithAction (!i2S, result = false, Exit);
-	debug2IOLog ("mI2S - parent name is %s\n", i2S->getName ());
+	debugIOLog (3, "mI2S - parent name is %s", i2S->getName ());
 
 	macIO = i2S->getParentEntry (gIODTPlane);
 	FailWithAction (!macIO, result = false, Exit);
-	debug2IOLog ("i2S - parent name is %s\n", macIO->getName ());
+	debugIOLog (3, "i2S - parent name is %s", macIO->getName ());
 	
 	osdata = OSDynamicCast ( OSData, macIO->getProperty ( "AAPL,phandle" ) );
 	mMacIOPHandle = *((UInt32*)osdata->getBytesNoCopy());
-	debug2IOLog ( "mMacIOPHandle %lX", mMacIOPHandle );
+	debugIOLog (3,  "mMacIOPHandle %lX", mMacIOPHandle );
 
 	osdata = OSDynamicCast ( OSData, macIO->getProperty ( "reg" ) );
 	mMacIOOffset = *((UInt32*)osdata->getBytesNoCopy());
@@ -182,33 +182,33 @@ bool K2Platform::init (IOService* device, AppleOnboardAudio* provider, UInt32 in
 	setInputDataMux ( kGPIO_MuxSelectDefault );
 	setClockMux ( kGPIO_MuxSelectDefault );
 
-	debugIOLog ( "about to findAndAttachI2C\n" );
+	debugIOLog (3,  "about to findAndAttachI2C" );
 	result = findAndAttachI2C();
-	if ( !result ) { debugIOLog ( "K2Platform::init COULD NOT FIND I2C\n" ); }
+	if ( !result ) { debugIOLog (3,  "K2Platform::init COULD NOT FIND I2C" ); }
 	FailIf ( !result, Exit );
 
-	debugIOLog ( "about to findAndAttachI2S\n" );
+	debugIOLog (3,  "about to findAndAttachI2S" );
 	result = findAndAttachI2S();
-	if ( !result ) { debugIOLog ( "K2Platform::init COULD NOT FIND I2S\n" ); }
+	if ( !result ) { debugIOLog (3,  "K2Platform::init COULD NOT FIND I2S" ); }
 	FailIf ( !result, Exit );
 
 Exit:
 
-	debug2IOLog ( "- K2Platform::init returns %d\n", result );
+	debugIOLog (3,  "- K2Platform[%p (%ld)]::init returns %d", this, mInstanceIndex, result );
 	return result;
 }
 
 //	--------------------------------------------------------------------------------
 void K2Platform::free()
 {
-	debugIOLog ("+ K2Platform::free()\n");
+	debugIOLog (3, "+ K2Platform::free()");
 
 	detachFromI2C();
 	//detachFromI2S();
 
 	super::free();
 
-	debugIOLog ("- K2Platform::free()\n");
+	debugIOLog (3, "- K2Platform::free()");
 }
 
 //	--------------------------------------------------------------------------------
@@ -270,9 +270,8 @@ Exit:
 bool K2Platform::writeCodecRegister(UInt8 address, UInt8 subAddress, UInt8 *data, UInt16 len, BusMode mode) {
 	bool success = false;
 
-#ifdef	kVERBOSE_LOG
-	debug6IrqIOLog ( "+ K2Platform::writeCodecRegister ( %X, %X, %p, %d, %d )\n", address, subAddress, data, len, mode );
-#endif
+	debugIOLog (7,  "+ K2Platform::writeCodecRegister ( %X, %X, %p, %d, %d )", address, subAddress, data, len, mode );
+
 	FailIf ( NULL == data, Exit );
 	if (openI2C()) {
 		switch (mode) {
@@ -280,7 +279,7 @@ bool K2Platform::writeCodecRegister(UInt8 address, UInt8 subAddress, UInt8 *data
 			case kI2C_StandardSubMode:		mI2CInterface->setStandardSubMode();		break;
 			case kI2C_CombinedMode:			mI2CInterface->setCombinedMode();			break;
 			default:
-				debugIrqIOLog ("K2Platform::writeCodecRegister() unknown bus mode!\n");
+				debugIOLog (7, "K2Platform::writeCodecRegister() unknown bus mode!");
 				FailIf ( true, Exit );
 				break;
 		}	
@@ -302,24 +301,23 @@ bool K2Platform::writeCodecRegister(UInt8 address, UInt8 subAddress, UInt8 *data
 		//	and instead, requires shifting the address field right 1 bit so that the Read/*Write
 		//	bit is not passed to the I2C driver as part of the address field.
 		//
-#ifdef kVERBOSE_LOG	
-		debug6IrqIOLog ( " mI2CInterface->writeI2CBus ( %X, %X, %p, %d ), data->%X\n", (unsigned int)address, (unsigned int)subAddress, data, (unsigned int)len, *data );
-#endif
+		debugIOLog (7,  " mI2CInterface->writeI2CBus ( %X, %X, %p, %d ), data->%X", (unsigned int)address, (unsigned int)subAddress, data, (unsigned int)len, *data );
+
 		success = mI2CInterface->writeI2CBus (address >> 1, subAddress, data, len);
 		mI2C_lastTransactionResult = success;
 		
 		if (!success) { 
-			debug5IrqIOLog ( "K2Platform::writeCodecRegister( %X, %X, %p %d), mI2CInterface->writeI2CBus returned false.\n", address, subAddress, data, len );
+			debugIOLog (7,  "K2Platform::writeCodecRegister( %X, %X, %p %d), mI2CInterface->writeI2CBus returned false.", address, subAddress, data, len );
 		}
+		FailIf ( !success, Exit );
 Exit:
 		closeI2C();
 	} else {
-		debugIrqIOLog ("K2Platform::writeCodecRegister() couldn't open the I2C bus!\n");
+		debugIOLog (7, "K2Platform::writeCodecRegister() couldn't open the I2C bus!");
 	}
 
-#ifdef kVERBOSE_LOG	
-	debug7IrqIOLog ( "- K2Platform::writeCodecRegister ( %X, %X, %p, %d, %d ) returns %d\n", address, subAddress, data, len, mode, success );
-#endif
+	debugIOLog (7,  "- K2Platform::writeCodecRegister ( %X, %X, %p, %d, %d ) returns %d", address, subAddress, data, len, mode, success );
+
 	return success;
 }
 
@@ -327,16 +325,15 @@ Exit:
 bool K2Platform::readCodecRegister(UInt8 address, UInt8 subAddress, UInt8 *data, UInt16 len, BusMode mode) {
 	bool success = false;
 
-#ifdef kVERBOSE_LOG	
-	debug6IrqIOLog ( "+ K2Platform::readCodecRegister ( %X, %X, %p, %d, %d )\n", address, subAddress, data, len, mode );
-#endif
+	debugIOLog (7,  "+ K2Platform::readCodecRegister ( %X, %X, %p, %d, %d )", address, subAddress, data, len, mode );
+
 	if (openI2C()) {
 		switch (mode) {
 			case kI2C_StandardMode:			mI2CInterface->setStandardMode();			break;
 			case kI2C_StandardSubMode:		mI2CInterface->setStandardSubMode();		break;
 			case kI2C_CombinedMode:			mI2CInterface->setCombinedMode();			break;
 			default:
-				debugIrqIOLog ("K2Platform::readCodecRegister() unknown bus mode!\n");
+				debugIOLog (7, "K2Platform::readCodecRegister() unknown bus mode!");
 				FailIf ( true, Exit );
 				break;
 		}		
@@ -361,15 +358,14 @@ bool K2Platform::readCodecRegister(UInt8 address, UInt8 subAddress, UInt8 *data,
 		success = mI2CInterface->readI2CBus (address >> 1, subAddress, data, len);
 		mI2C_lastTransactionResult = success;
 
-		if (!success) debugIrqIOLog ("K2Platform::readCodecRegister(), mI2CInterface->writeI2CBus returned false.\n");
+		if (!success) debugIOLog (7, "K2Platform::readCodecRegister(), mI2CInterface->writeI2CBus returned false.");
 Exit:
 		closeI2C();
 	} else {
-		debugIrqIOLog ("K2Platform::readCodecRegister() couldn't open the I2C bus!\n");
+		debugIOLog (7, "K2Platform::readCodecRegister() couldn't open the I2C bus!");
 	}
-#ifdef kVERBOSE_LOG	
-	debug7IrqIOLog ( "- K2Platform::readCodecRegister ( %X, %X, %p, %d, %d ) returns %d\n", address, subAddress, data, len, mode, success );
-#endif
+	debugIOLog (7,  "- K2Platform::readCodecRegister ( %X, %X, %p, %d, %d ) returns %d", address, subAddress, data, len, mode, success );
+
 	return success;
 }
 
@@ -377,28 +373,21 @@ Exit:
 IOReturn K2Platform::setCodecReset ( CODEC_RESET target, GpioAttributes reset ) {
 	IOReturn				result;
 
-#ifdef kVERBOSE_LOG
-	debug3IrqIOLog ( "K2Platform::setCodecReset ( %d, %d )\n", (unsigned int)target, (unsigned int)reset );
-#endif
+	debugIOLog (7,  "K2Platform::setCodecReset ( %d, %d )", (unsigned int)target, (unsigned int)reset );
+
 	switch ( target ) {
 		case kCODEC_RESET_Analog:	
 			result = writeGpioState ( kGPIO_Selector_AnalogCodecReset, reset );		
-#ifdef kVERBOSE_LOG
-			debug2IOLog ( "setCodecReset() for kGPIO_Selector_AnalogCodecReset returns %X after reset\n", getCodecReset(target) );
-#endif
+			debugIOLog (5,  "setCodecReset() for kGPIO_Selector_AnalogCodecReset returns %X after reset", getCodecReset(target) );
 			break;
 		case kCODEC_RESET_Digital:	
 			result = writeGpioState ( kGPIO_Selector_DigitalCodecReset, reset );	
-#ifdef kVERBOSE_LOG
-			debug2IOLog ( "setCodecReset() for kGPIO_Selector_DigitalCodecReset returns %X after reset\n", getCodecReset(target) );
-#endif
+			debugIOLog (5,  "setCodecReset() for kGPIO_Selector_DigitalCodecReset returns %X after reset", getCodecReset(target) );
 			break;
 		default:					result = kIOReturnBadArgument;											break;
 	}
 	if ( kIOReturnSuccess != result ) {
-#ifdef kVERBOSE_LOG
-		debug4IrqIOLog ( "- K2Platform::setCodecReset ( %d, %d ) returns %X\n", (unsigned int)target, (unsigned int)reset, (unsigned int)result );
-#endif
+		debugIOLog (7,  "- K2Platform::setCodecReset ( %d, %d ) returns %X", (unsigned int)target, (unsigned int)reset, (unsigned int)result );
 	}
 	return result;
 }
@@ -425,50 +414,49 @@ IOReturn K2Platform::setI2SEnable (bool enable) {
 	IOReturn				result;
 	const OSSymbol*			funcSymbolName = NULL;
 
-#ifdef kVERBOSE_LOG
-	debug2IrqIOLog( "+ K2Platform::setI2SEnable enable=%d\n", enable );
-#endif
+	debugIOLog (7,  "+ K2Platform::setI2SEnable enable=%d", enable );
 
 	result = kIOReturnError;
 	if ( mK2Service ) {
 		if ( enable ) {
-			debugIrqIOLog ( "K2Platform::setI2SEnable to 1\n" );
+			debugIOLog (7,  "K2Platform::setI2SEnable to 1" );
 			funcSymbolName = makeFunctionSymbolName( kAppleI2S_Enable, mI2SPHandle );
 			FailIf ( NULL == funcSymbolName, Exit );
 			result = mK2Service->callPlatformFunction ( funcSymbolName, false, (void *)0, (void *)(UInt32)0, 0, 0 );
 			funcSymbolName->release ();	// [3324205]
 			FailIf ( kIOReturnSuccess != result, Exit );
 		} else {
-			debugIrqIOLog ( "K2Platform::setI2SEnable to 0\n" );
+			debugIOLog (7,  "K2Platform::setI2SEnable to 0" );
 			funcSymbolName = makeFunctionSymbolName( kAppleI2S_Disable, mI2SPHandle );
 			FailIf ( NULL == funcSymbolName, Exit );
 			result = mK2Service->callPlatformFunction ( funcSymbolName, false, (void *)0, (void *)(UInt32)0, 0, 0 );
 			funcSymbolName->release ();	// [3324205]
 			FailIf ( kIOReturnSuccess != result, Exit );
 		}
+		if ( kIOReturnSuccess == result ) { mAppleI2S_Enable = enable; }
 	}
 Exit:
-#ifdef kVERBOSE_LOG
-	debug3IrqIOLog( "- K2Platform::setI2SEnable enable=%d returns %d\n", enable, result );
-#endif
+	debugIOLog (7,  "- K2Platform::setI2SEnable enable=%d returns %d", enable, result );
 	return result;
 }
 
 //	--------------------------------------------------------------------------------
 bool K2Platform::getI2SEnable () {
 	const OSSymbol*			funcSymbolName = NULL;
-	IOReturn				result;
+	IOReturn				err;
 	UInt32					value = 0;
+	bool					result = mAppleI2S_Enable;
 
 	if ( mK2Service ) {
 		funcSymbolName = makeFunctionSymbolName( kAppleI2S_GetEnable, mI2SPHandle );
 		FailIf ( NULL == funcSymbolName, Exit );
-		result = mK2Service->callPlatformFunction ( funcSymbolName, false, (void *)&value, (void *)(UInt32)0, 0, 0 );
+		err = mK2Service->callPlatformFunction ( funcSymbolName, false, (void *)&value, (void *)(UInt32)0, 0, 0 );
 		funcSymbolName->release ();	// [3324205]
-		FailIf ( kIOReturnSuccess != result, Exit );
+		FailIf ( kIOReturnSuccess != err, Exit );
+		result = ( 0 != value );
 	}
 Exit:
-	return ( 0 != value );
+	return result;
 }
 
 //	--------------------------------------------------------------------------------
@@ -476,51 +464,51 @@ IOReturn K2Platform::setI2SClockEnable (bool enable) {
 	IOReturn				result;
 	const OSSymbol*			funcSymbolName = NULL;
 
-#ifdef kVERBOSE_LOG
-	debug2IrqIOLog( "+ K2Platform::setI2SClockEnable enable=%d\n", enable );
-#endif
+	debugIOLog (7,  "+ K2Platform::setI2SClockEnable enable=%d", enable );
 
 	result = kIOReturnError;
+
 	if ( mK2Service ) {
 		if ( enable ) {
-			debugIrqIOLog ( "K2Platform::setI2SClockEnable to 1\n" );
+			debugIOLog (7,  "K2Platform::setI2SClockEnable to 1" );
 			funcSymbolName = makeFunctionSymbolName( kAppleI2S_ClockEnable, mI2SPHandle );
 			FailIf ( NULL == funcSymbolName, Exit );
 			result = mK2Service->callPlatformFunction ( funcSymbolName, false, (void *)0, (void *)0, 0, 0 );
 			funcSymbolName->release ();	// [3324205]
 			FailIf ( kIOReturnSuccess != result, Exit );
 		} else {
-			debugIrqIOLog ( "K2Platform::setI2SClockEnable to 0\n" );
+			debugIOLog (7,  "K2Platform::setI2SClockEnable to 0" );
 			funcSymbolName = makeFunctionSymbolName( kAppleI2S_ClockDisable, mI2SPHandle );
 			FailIf ( NULL == funcSymbolName, Exit );
 			result = mK2Service->callPlatformFunction ( funcSymbolName, false, (void *)0, (void *)0, 0, 0 );
 			funcSymbolName->release ();	// [3324205]
 			FailIf ( kIOReturnSuccess != result, Exit );
 		}
-		if ( kIOReturnSuccess == result ) mAppleI2S_ClockEnable = enable;
+		if ( kIOReturnSuccess == result ) { mAppleI2S_ClockEnable = enable; }
 	}
 Exit:
-#ifdef kVERBOSE_LOG
-	debug3IrqIOLog( "- K2Platform::setI2SClockEnable enable=%d returns %d\n", enable, result );
-#endif
+	debugIOLog (7,  "- K2Platform::setI2SClockEnable enable=%d returns %d", enable, result );
+
 	return result;
 }
 
 //	--------------------------------------------------------------------------------
 bool K2Platform::getI2SClockEnable () {
 	const OSSymbol*			funcSymbolName = NULL;
-	IOReturn				result;
+	IOReturn				err;
 	UInt32					value = 0;
+	bool					result = mAppleI2S_ClockEnable;
 
 	if ( mK2Service ) {
 		funcSymbolName = makeFunctionSymbolName( kAppleI2S_GetClockEnable, mI2SPHandle );
 		FailIf ( NULL == funcSymbolName, Exit );
-		result = mK2Service->callPlatformFunction ( funcSymbolName, false, (void *)&value, (void *)(UInt32)0, 0, 0 );
+		err = mK2Service->callPlatformFunction ( funcSymbolName, false, (void *)&value, (void *)(UInt32)0, 0, 0 );
 		funcSymbolName->release ();	// [3324205]
-		FailIf ( kIOReturnSuccess != result, Exit );
+		FailIf ( kIOReturnSuccess != err, Exit );
+		result = ( 0 != value );
 	}
 Exit:
-	return ( 0 != value );
+	return result;
 }
 
 //	--------------------------------------------------------------------------------
@@ -528,51 +516,50 @@ IOReturn K2Platform::setI2SCellEnable (bool enable) {
 	IOReturn				result;
 	const OSSymbol*			funcSymbolName = NULL;
 	
-#ifdef kVERBOSE_LOG
-	debug2IrqIOLog("+ K2Platform::setI2SCellEnable enable=%d\n",enable);
-#endif
+	debugIOLog (7, "+ K2Platform::setI2SCellEnable enable=%d",enable);
 	
 	result = kIOReturnError;
 	if ( mK2Service ) {
 		if ( enable ) {
-			debugIrqIOLog ( "K2Platform::setI2SCellEnable to 1\n" );
+			debugIOLog (7,  "K2Platform::setI2SCellEnable to 1" );
 			funcSymbolName = makeFunctionSymbolName( kAppleI2S_CellEnable, mI2SPHandle );
 			FailIf ( NULL == funcSymbolName, Exit );
 			result = mK2Service->callPlatformFunction ( funcSymbolName, false, (void *)0, (void *)0, 0, 0 );
 			funcSymbolName->release ();	// [3324205]
 			FailIf ( kIOReturnSuccess != result, Exit );
 		} else {
-			debugIrqIOLog ( "K2Platform::setI2SCellEnable to 0\n" );
+			debugIOLog (7,  "K2Platform::setI2SCellEnable to 0" );
 			funcSymbolName = makeFunctionSymbolName( kAppleI2S_CellDisable, mI2SPHandle );
 			FailIf ( NULL == funcSymbolName, Exit );
 			result = mK2Service->callPlatformFunction ( funcSymbolName, false, (void *)0, (void *)0, 0, 0 );
 			funcSymbolName->release ();	// [3324205]
 			FailIf ( kIOReturnSuccess != result, Exit );
 		}
-		if ( kIOReturnSuccess == result ) mAppleI2S_CellEnable = enable;
+		if ( kIOReturnSuccess == result ) { mAppleI2S_CellEnable = enable; }
 	}
 Exit:
-#ifdef kVERBOSE_LOG
-	debug2IrqIOLog("- K2Platform::setI2SCellEnable result = %x\n",result);
-#endif
+	debugIOLog (7, "- K2Platform::setI2SCellEnable result = %x",result);
+
 	return result;
 }
 
 //	--------------------------------------------------------------------------------
 bool K2Platform::getI2SCellEnable () {
 	const OSSymbol*			funcSymbolName;
-	IOReturn				result;
+	IOReturn				err;
 	UInt32					value = 0;
+	bool					result = mAppleI2S_CellEnable;
 
 	if ( mK2Service ) {
 		funcSymbolName = makeFunctionSymbolName( kAppleI2S_GetCellEnable, mI2SPHandle );
 		FailIf ( NULL == funcSymbolName, Exit );
-		result = mK2Service->callPlatformFunction ( funcSymbolName, false, (void *)&value, (void *)(UInt32)0, 0, 0 );
+		err = mK2Service->callPlatformFunction ( funcSymbolName, false, (void *)&value, (void *)(UInt32)0, 0, 0 );
 		funcSymbolName->release ();	// [3324205]
-		FailIf ( kIOReturnSuccess != result, Exit );
+		FailIf ( kIOReturnSuccess != err, Exit );
+		result = ( 0 != value );
 	}
 Exit:
-	return ( 0 != value );
+	return result;
 }
 
 //	--------------------------------------------------------------------------------
@@ -580,9 +567,7 @@ IOReturn K2Platform::setI2SSWReset(bool enable) {
 	IOReturn				result;
 	const OSSymbol*			funcSymbolName = NULL;
 	
-#ifdef kVERBOSE_LOG
-	debug2IrqIOLog("+ K2Platform::setI2SSWReset enable=%d\n",enable);
-#endif
+	debugIOLog (7, "+ K2Platform::setI2SSWReset enable=%d",enable);
 	
 	result = kIOReturnError;
 	if ( mK2Service ) {
@@ -599,12 +584,10 @@ IOReturn K2Platform::setI2SSWReset(bool enable) {
 			funcSymbolName->release ();	// [3324205]
 			FailIf ( kIOReturnSuccess != result, Exit );
 		}
-		if ( kIOReturnSuccess == result ) mAppleI2S_CellEnable = enable;
+		if ( kIOReturnSuccess == result ) { mAppleI2S_Reset = enable; }
 	}
 Exit:
-#ifdef kVERBOSE_LOG
-	debug2IrqIOLog("- K2Platform::setI2SSWReset result = %x\n",result);
-#endif
+	debugIOLog (7, "- K2Platform::setI2SSWReset result = %x",result);
 
 	return result;
 }
@@ -613,18 +596,20 @@ Exit:
 //	--------------------------------------------------------------------------------
 bool K2Platform::getI2SSWReset() {
 	const OSSymbol*			funcSymbolName = NULL;
-	IOReturn				result;
+	IOReturn				err;
 	UInt32					value = 0;
+	bool					result = mAppleI2S_Reset;
 
 	if ( mK2Service ) {
 		funcSymbolName = makeFunctionSymbolName( kAppleI2S_GetReset, mI2SPHandle );
 		FailIf ( NULL == funcSymbolName, Exit );
-		result = mK2Service->callPlatformFunction ( funcSymbolName, false, (void *)&value, (void *)(UInt32)0, 0, 0 );
+		err = mK2Service->callPlatformFunction ( funcSymbolName, false, (void *)&value, (void *)(UInt32)0, 0, 0 );
 		funcSymbolName->release ();	// [3324205]
-		FailIf ( kIOReturnSuccess != result, Exit );
+		FailIf ( kIOReturnSuccess != err, Exit );
+		result = ( 0 != value );
 	}
 Exit:
-	return ( 0 != value );
+	return result;
 }
 
 //	--------------------------------------------------------------------------------
@@ -772,6 +757,8 @@ IOReturn K2Platform::releaseI2SClockSource(I2SClockFrequency inFrequency)
 		i2sCellNumber = kUseI2SCell0;
 	else if (kUseI2SCell1 == mI2SInterfaceNumber)
 		i2sCellNumber = kUseI2SCell1;
+	else if (kUseI2SCell2 == mI2SInterfaceNumber)
+		i2sCellNumber = kUseI2SCell2;
 	else
 		return kIOReturnBadArgument;
 
@@ -799,6 +786,8 @@ IOReturn K2Platform::requestI2SClockSource(I2SClockFrequency inFrequency)
 		i2sCellNumber = kUseI2SCell0;
 	else if (kUseI2SCell1 == mI2SInterfaceNumber)
 		i2sCellNumber = kUseI2SCell1;
+	else if (kUseI2SCell2 == mI2SInterfaceNumber)
+		i2sCellNumber = kUseI2SCell2;
 	else
 		return kIOReturnBadArgument;
 
@@ -875,7 +864,7 @@ IOReturn K2Platform::disableInterrupt ( PlatformInterruptSource source ) {
 				case kLineOutputDetectInterrupt:	enFuncSymbolName = makeFunctionSymbolName(kAppleGPIO_DisableLineOutDetect, mI2SPHandle );		break;
 				case kSpeakerDetectInterrupt:		enFuncSymbolName = makeFunctionSymbolName(kAppleGPIO_DisableSpeakerDetect, mI2SPHandle );		break;
 				case kUnknownInterrupt:
-				default:							debugIrqIOLog ( "Attempt to disable unknown interrupt source\n" );								break;
+				default:							debugIOLog (7,  "Attempt to disable unknown interrupt source" );								break;
 			}
 			FailIf ( NULL == enFuncSymbolName, Exit );
 			FailIf (NULL == selector, Exit);
@@ -943,7 +932,7 @@ IOReturn K2Platform::enableInterrupt ( PlatformInterruptSource source ) {
 				case kLineOutputDetectInterrupt:	enFuncSymbolName = makeFunctionSymbolName(kAppleGPIO_EnableLineOutDetect, mI2SPHandle );		break;
 				case kSpeakerDetectInterrupt:		enFuncSymbolName = makeFunctionSymbolName(kAppleGPIO_EnableSpeakerDetect, mI2SPHandle );		break;
 				case kUnknownInterrupt:
-				default:							debugIrqIOLog ( "Attempt to enable unknown interrupt source\n" );								break;
+				default:							debugIOLog (7,  "Attempt to enable unknown interrupt source" );								break;
 			}
 			FailIf ( NULL == enFuncSymbolName, Exit );
 			FailIf (NULL == selector, Exit);
@@ -987,52 +976,6 @@ void K2Platform::poll ( void ) {
 		if ( interruptUsesTimerPolling ( kCodecInterrupt ) ) {
 			if ( mCodecInterruptEnable ) {
 				cg->runAction ( mProvider->interruptEventHandlerAction, (void *)kCodecInterruptStatus, (void *)getCodecInterrupt (), (void *)0 );
-			}
-		}
-		if ( interruptUsesTimerPolling ( kDigitalInDetectInterrupt ) ) {
-			if ( mDigitalInDetectInterruptEnable ) {
-				cg->runAction ( mProvider->interruptEventHandlerAction, (void *)kDigitalInStatus, (void *)getDigitalInConnected (), (void *)0 );
-			}
-		}
-		if ( interruptUsesTimerPolling ( kDigitalOutDetectInterrupt ) ) {
-			if ( mDigitalOutDetectInterruptEnable ) {
-				cg->runAction ( mProvider->interruptEventHandlerAction, (void *)kDigitalOutStatus, (void *)getDigitalOutConnected (), (void *)0 );
-			}
-		}
-		if ( interruptUsesTimerPolling ( kHeadphoneDetectInterrupt ) ) {
-			if ( mHeadphoneDetectInterruptEnable ) {
-				if ( !mIsComboOutJack ) {
-					cg->runAction ( mProvider->interruptEventHandlerAction, (void *)kHeadphoneStatus, (void *)getHeadphoneConnected (), (void *)0 );
-				} else {
-					if ( kGPIO_Connected == getComboOutJackTypeConnected() ) {
-						cg->runAction ( mProvider->interruptEventHandlerAction, (void *)kDigitalOutStatus, (void *)getHeadphoneConnected (), (void *)0 );
-					} else {
-						cg->runAction ( mProvider->interruptEventHandlerAction, (void *)kHeadphoneStatus, (void *)getHeadphoneConnected (), (void *)0 );
-					}
-				}
-			}
-		}
-		if ( interruptUsesTimerPolling ( kLineInputDetectInterrupt ) ) {
-			if ( mLineInputDetectInterruptEnable ) {
-				if ( !mIsComboInJack ) {
-					cg->runAction ( mProvider->interruptEventHandlerAction, (void *)kLineInStatus, (void *)getLineInConnected (), (void *)0 );
-				} else {
-					if ( kGPIO_Connected == getComboInJackTypeConnected() ) {
-						cg->runAction ( mProvider->interruptEventHandlerAction, (void *)kDigitalInStatus, (void *)getLineInConnected (), (void *)0 );
-					} else {
-						cg->runAction ( mProvider->interruptEventHandlerAction, (void *)kLineInStatus, (void *)getLineInConnected (), (void *)0 );
-					}
-				}
-			}
-		}
-		if ( interruptUsesTimerPolling ( kLineOutputDetectInterrupt ) ) {
-			if ( mLineOutputDetectInterruptEnable ) {
-				cg->runAction ( mProvider->interruptEventHandlerAction, (void *)kLineOutStatus, (void *)getLineOutConnected (), (void *)0 );
-			}
-		}
-		if ( interruptUsesTimerPolling ( kSpeakerDetectInterrupt ) ) {
-			if ( mSpeakerDetectInterruptEnable ) {
-				cg->runAction ( mProvider->interruptEventHandlerAction, (void *)kExtSpeakersStatus, (void *)getSpeakerConnected (), (void *)0 );
 			}
 		}
 	}
@@ -1080,7 +1023,7 @@ IOReturn K2Platform::registerInterruptHandler ( IOService * theDevice, void * in
 				case kLineOutputDetectInterrupt:	funcSymbolName = makeFunctionSymbolName( kAppleGPIO_RegisterLineOutDetect, mI2SPHandle );		break;
 				case kSpeakerDetectInterrupt:		funcSymbolName = makeFunctionSymbolName( kAppleGPIO_RegisterSpeakerDetect, mI2SPHandle );		break;
 				case kUnknownInterrupt:
-				default:							debugIOLog ( "Attempt to register unknown interrupt source\n" );								break;
+				default:							debugIOLog (7,  "Attempt to register unknown interrupt source" );								break;
 			}
 			FailIf ( NULL == funcSymbolName, Exit );
 			FailIf (NULL == selector, Exit);
@@ -1134,13 +1077,21 @@ IOReturn K2Platform::unregisterInterruptHandler ( IOService * theDevice, void * 
 			case kLineOutputDetectInterrupt:	funcSymbolName = makeFunctionSymbolName( kAppleGPIO_UnregisterLineOutDetect, mI2SPHandle );			break;
 			case kSpeakerDetectInterrupt:		funcSymbolName = makeFunctionSymbolName( kAppleGPIO_UnregisterSpeakerDetect, mI2SPHandle );			break;
 			case kUnknownInterrupt:
-			default:							debugIOLog ( "Attempt to register unknown interrupt source\n" );									break;
+			default:							debugIOLog (7,  "Attempt to register unknown interrupt source" );									break;
 		}
 		FailIf ( NULL == funcSymbolName, Exit );
 		FailIf (NULL == selector, Exit);
 		result = mK2Service->callPlatformFunction ( funcSymbolName, true, interruptHandler, theDevice, (void*)source, (void*)selector);
 		selector->release ();
 		funcSymbolName->release ();	// [3324205]
+		FailIf ( kIOReturnSuccess != result && kCodecErrorInterrupt == source, Exit );
+		FailIf ( kIOReturnSuccess != result && kCodecInterrupt == source, Exit );
+		FailIf ( kIOReturnSuccess != result && kDigitalInDetectInterrupt == source, Exit );
+		FailIf ( kIOReturnSuccess != result && kDigitalOutDetectInterrupt == source, Exit );
+		FailIf ( kIOReturnSuccess != result && kHeadphoneDetectInterrupt == source, Exit );
+		FailIf ( kIOReturnSuccess != result && kLineInputDetectInterrupt == source, Exit );
+		FailIf ( kIOReturnSuccess != result && kLineOutputDetectInterrupt == source, Exit );
+		FailIf ( kIOReturnSuccess != result && kSpeakerDetectInterrupt == source, Exit );
 		FailIf ( kIOReturnSuccess != result, Exit );
 	}
 
@@ -1159,7 +1110,7 @@ GpioAttributes 	K2Platform::getClockMux() {
 
 //	--------------------------------------------------------------------------------
 IOReturn 	K2Platform::setClockMux ( GpioAttributes muxState ) {
-	debug2IOLog ( "K2Platform::setClockMux ( %d )\n", muxState );
+	debugIOLog (7,  "K2Platform::setClockMux ( %d )", muxState );
 	return writeGpioState ( kGPIO_Selector_ClockMux, muxState );
 }
 	
@@ -1186,12 +1137,42 @@ GpioAttributes 	K2Platform::getComboOutJackTypeConnected() {
 
 //	--------------------------------------------------------------------------------
 GpioAttributes 	K2Platform::getDigitalInConnected() {
-	return readGpioState ( kGPIO_Selector_DigitalInDetect );
+	GpioAttributes 			gpioState;
+
+	if (kGPIO_Selector_NotAssociated == mComboInAssociation) {
+		debugIOLog (7,  "K2Platform::getDigitalInConnected: no combo jack");
+		gpioState = readGpioState ( kGPIO_Selector_DigitalInDetect );
+	} else {
+		debugIOLog (7,  "K2Platform::getDigitalInConnected: combo jack");
+		if (kGPIO_TypeIsDigital == getComboInJackTypeConnected()) {
+			gpioState = readGpioState ( mComboInAssociation );
+			debugIOLog (7,  "combo in jack connection is digital type, state = %d", gpioState);
+		} else {
+			gpioState = kGPIO_Disconnected;
+			debugIOLog (7,  "combo in jack connection is analog type");
+		}
+	}
+	return gpioState;
 }
 
 //	--------------------------------------------------------------------------------
 GpioAttributes 	K2Platform::getDigitalOutConnected() {
-	return readGpioState ( kGPIO_Selector_DigitalOutDetect );
+	GpioAttributes 			gpioState;
+
+	if (kGPIO_Selector_NotAssociated == mComboOutAssociation) {
+		debugIOLog (7,  "K2Platform::getDigitalOutConnected: no combo jack");
+		gpioState = readGpioState ( kGPIO_Selector_DigitalOutDetect );
+	} else {
+		debugIOLog (7,  "K2Platform::getDigitalOutConnected: combo jack");
+		if (kGPIO_TypeIsDigital == getComboOutJackTypeConnected()) {
+			gpioState = readGpioState ( mComboOutAssociation );
+			debugIOLog (7,  "combo out jack connection is digital type, state = %d", gpioState);
+		} else {
+			gpioState = kGPIO_Disconnected;
+			debugIOLog (7,  "combo out jack connection is analog type");
+		}
+	}
+	return gpioState;
 }
 
 //	--------------------------------------------------------------------------------
@@ -1206,7 +1187,7 @@ GpioAttributes 	K2Platform::getHeadphoneMuteState() {
 	
 //	--------------------------------------------------------------------------------
 IOReturn 	K2Platform::setHeadphoneMuteState ( GpioAttributes muteState ) {
-	debug2IOLog ( "K2Platform::setHeadphoneMuteState ( %d )\n", muteState );
+	debugIOLog (7,  "K2Platform::setHeadphoneMuteState ( %d )", muteState );
 	return writeGpioState ( kGPIO_Selector_HeadphoneMute, muteState );
 }
 	
@@ -1217,18 +1198,48 @@ GpioAttributes 	K2Platform::getInputDataMux() {
 
 //	--------------------------------------------------------------------------------
 IOReturn 	K2Platform::setInputDataMux(GpioAttributes muxState) {
-	debug2IOLog ( "K2Platform::setInputDataMux ( %d )\n", muxState );
+	debugIOLog (7,  "K2Platform::setInputDataMux ( %d )", muxState );
 	return writeGpioState ( kGPIO_Selector_InputDataMux, muxState );
 }
 
 //	--------------------------------------------------------------------------------
 GpioAttributes 	K2Platform::getLineInConnected() {
-	return readGpioState ( kGPIO_Selector_LineInDetect );
+	GpioAttributes 			gpioState;
+
+	gpioState = readGpioState ( kGPIO_Selector_LineInDetect );
+
+	if (kGPIO_Selector_NotAssociated == mComboInAssociation) {
+		debugIOLog (7,  "K2Platform::getLineInConnected: no combo in jack association, line in state = %d", gpioState);
+	} else {
+		debugIOLog (7,  "K2Platform::getLineInConnected: combo jack is associated with line in");
+		if (kGPIO_TypeIsDigital == getComboInJackTypeConnected()) {
+			gpioState = kGPIO_Disconnected;
+			debugIOLog (7,  "combo in jack connection is digital type, return line out as NOT connected");
+		}
+	}
+	return gpioState;
 }
 
 //	--------------------------------------------------------------------------------
-GpioAttributes 	K2Platform::getLineOutConnected() {
-	return readGpioState ( kGPIO_Selector_LineOutDetect );
+GpioAttributes 	K2Platform::getLineOutConnected(bool ignoreCombo) {
+	GpioAttributes 			gpioState;
+
+	debugIOLog (7,  "K2Platform::getLineOutConnected (ignoreCombo = %d)", ignoreCombo);
+
+	gpioState = readGpioState ( kGPIO_Selector_LineOutDetect );
+
+	if (false == ignoreCombo) {
+		if (kGPIO_Selector_NotAssociated == mComboOutAssociation) {
+			debugIOLog (7,  "K2Platform::getLineOutConnected: no combo out jack association, line out state = %d", gpioState);
+		} else {
+			debugIOLog (7,  "K2Platform::getLineOutConnected: combo jack is associated with line out");
+			if (kGPIO_TypeIsDigital == getComboOutJackTypeConnected()) {
+				gpioState = kGPIO_Disconnected;
+				debugIOLog (7,  "combo out jack connection is digital type, return line out as NOT connected");
+			}
+		}
+	}
+	return gpioState;
 }
 
 //	--------------------------------------------------------------------------------
@@ -1238,7 +1249,7 @@ GpioAttributes 	K2Platform::getLineOutMuteState() {
 	
 //	--------------------------------------------------------------------------------
 IOReturn 	K2Platform::setLineOutMuteState ( GpioAttributes muteState ) {
-	debug2IOLog ( "K2Platform::setLineOutMuteState ( %d )\n", muteState );
+	debugIOLog (7,  "K2Platform::setLineOutMuteState ( %d )", muteState );
 	return writeGpioState ( kGPIO_Selector_LineOutMute, muteState );
 }
 	
@@ -1254,7 +1265,7 @@ GpioAttributes 	K2Platform::getSpeakerMuteState() {
 
 //	--------------------------------------------------------------------------------
 IOReturn 	K2Platform::setSpeakerMuteState ( GpioAttributes muteState ) {
-	debug2IOLog ( "K2Platform::setSpeakerMuteState ( %d )\n", muteState );
+	debugIOLog (7,  "K2Platform::setSpeakerMuteState ( %d )", muteState );
 	return writeGpioState ( kGPIO_Selector_SpeakerMute, muteState );
 }
 	
@@ -1280,9 +1291,8 @@ bool K2Platform::findAndAttachI2C()
 	iterator = NULL;
 	FailIf ( NULL == i2cServiceDictionary, Exit );
 	
-#ifdef kVERBOSE_LOG
-	debugIOLog ( "about to waitForService on i2cServiceDictionary timeout = 5 seconds\n" );
-#endif
+	debugIOLog (5,  "about to waitForService on i2cServiceDictionary timeout = 5 seconds" );
+
 	timeout.tv_sec = 5;
 	timeout.tv_nsec = 0;
 	i2cCandidate = IOService::waitForService ( i2cServiceDictionary, &timeout );
@@ -1292,21 +1302,15 @@ bool K2Platform::findAndAttachI2C()
 			do {
 				theObject = iterator->getNextObject ();
 				if ( theObject ) {
-#ifdef kVERBOSE_LOG
-					debug2IOLog("found theObject=%p\n",theObject);
-#endif
+					debugIOLog (5, "found theObject=%p",theObject);
 					i2cCandidate = OSDynamicCast(IOService,theObject);
 				}
 			} while ( !found && NULL != theObject );
 		} else {
-#ifdef kVERBOSE_LOG
-			debugIOLog(" NULL != iterator\n");
-#endif
+			debugIOLog (5, " NULL != iterator");
 		}
 	} else {
-#ifdef kVERBOSE_LOG
-		debug2IOLog ( "K2Platform::findAndAttachI2C i2cCandidate = %p ",i2cCandidate );
-#endif
+		debugIOLog (5,  "K2Platform::findAndAttachI2C i2cCandidate = %p ",i2cCandidate );
 	}
 	
 	FailIf(NULL == i2cCandidate,Exit);
@@ -1369,7 +1373,7 @@ bool K2Platform::findAndAttachI2S()
 	FailIf ( NULL == i2sServiceDictionary, Exit );
 
 	i2sCandidate = IOService::waitForService ( i2sServiceDictionary, &timeout );
-	debug2IOLog ( "i2sServiceDictionary %p\n", i2sServiceDictionary );
+	debugIOLog (7,  "i2sServiceDictionary %p", i2sServiceDictionary );
 	FailIf(NULL == i2sCandidate,Exit);
 	
 	mI2SInterface = (AppleI2S*)i2sCandidate->getProperty ( i2sDriverName );
@@ -1450,29 +1454,33 @@ GpioAttributes  K2Platform::GetCachedAttribute ( GPIOSelector selector, GpioAttr
 		case kGPIO_Selector_LineOutMute:			result = mAppleGPIO_LineOutMute;																					break;
 		case kGPIO_Selector_SpeakerDetect:			/*	NO CACHE AVAILABLE ON READ ONLY GPIO	*/																		break;
 		case kGPIO_Selector_SpeakerMute:			result = mAppleGPIO_AmpMute;																						break;
+		case kGPIO_Selector_ExternalMicDetect:		/*	NO CACHE AVAILABLE ON READ ONLY GPIO	*/																		break;
+		case kGPIO_Selector_NotAssociated:			/*	NO CACHE AVAILABLE ON UNAVAILABLE ONLY GPIO	*/																	break;
 	}
-#ifdef kVERBOSE_LOG	//	{
+
 	switch ( selector ) {
-		case kGPIO_Selector_AnalogCodecReset:		debug2IOLog ( "... kGPIO_Selector_AnalogCodecReset returns %d from CACHE\n", result );								break;
-		case kGPIO_Selector_ClockMux:				debug2IOLog ( "... kGPIO_Selector_ClockMux returns %d from CACHE\n", result );										break;
+		case kGPIO_Selector_AnalogCodecReset:		debugIOLog (5,  "... kGPIO_Selector_AnalogCodecReset returns %d from CACHE", result );								break;
+		case kGPIO_Selector_ClockMux:				debugIOLog (5,  "... kGPIO_Selector_ClockMux returns %d from CACHE", result );										break;
 		case kGPIO_Selector_CodecInterrupt:			/*	NO CACHE AVAILABLE ON READ ONLY GPIO	*/																		break;
 		case kGPIO_Selector_CodecErrorInterrupt:	/*	NO CACHE AVAILABLE ON READ ONLY GPIO	*/																		break;
 		case kGPIO_Selector_ComboInJackType:		/*	NO CACHE AVAILABLE ON READ ONLY GPIO	*/																		break;
 		case kGPIO_Selector_ComboOutJackType:		/*	NO CACHE AVAILABLE ON READ ONLY GPIO	*/																		break;
-		case kGPIO_Selector_DigitalCodecReset:		debug2IOLog ( "... kGPIO_Selector_DigitalCodecReset returns %d from CACHE\n", result );								break;
+		case kGPIO_Selector_DigitalCodecReset:		debugIOLog (5,  "... kGPIO_Selector_DigitalCodecReset returns %d from CACHE", result );								break;
 		case kGPIO_Selector_DigitalInDetect:		/*	NO CACHE AVAILABLE ON READ ONLY GPIO	*/																		break;
 		case kGPIO_Selector_DigitalOutDetect:		/*	NO CACHE AVAILABLE ON READ ONLY GPIO	*/																		break;
 		case kGPIO_Selector_HeadphoneDetect:		/*	NO CACHE AVAILABLE ON READ ONLY GPIO	*/																		break;
-		case kGPIO_Selector_HeadphoneMute:			debug2IOLog ( "... kGPIO_Selector_HeadphoneMute returns %d from CACHE\n", result );									break;
-		case kGPIO_Selector_InputDataMux:			debug2IOLog ( "... kGPIO_Selector_InputDataMux returns %d from CACHE\n", result );									break;
-		case kGPIO_Selector_InternalSpeakerID:		debug2IOLog ( "... kGPIO_Selector_InternalSpeakerID returns %d from CACHE\n", result );								break;
+		case kGPIO_Selector_HeadphoneMute:			debugIOLog (5,  "... kGPIO_Selector_HeadphoneMute returns %d from CACHE", result );									break;
+		case kGPIO_Selector_InputDataMux:			debugIOLog (5,  "... kGPIO_Selector_InputDataMux returns %d from CACHE", result );									break;
+		case kGPIO_Selector_InternalSpeakerID:		debugIOLog (5,  "... kGPIO_Selector_InternalSpeakerID returns %d from CACHE", result );								break;
 		case kGPIO_Selector_LineInDetect:			/*	NO CACHE AVAILABLE ON READ ONLY GPIO	*/																		break;
 		case kGPIO_Selector_LineOutDetect:			/*	NO CACHE AVAILABLE ON READ ONLY GPIO	*/																		break;
-		case kGPIO_Selector_LineOutMute:			debug2IOLog ( "... kGPIO_Selector_LineOutMute returns %d from CACHE\n", result );									break;
+		case kGPIO_Selector_LineOutMute:			debugIOLog (5,  "... kGPIO_Selector_LineOutMute returns %d from CACHE", result );									break;
 		case kGPIO_Selector_SpeakerDetect:			/*	NO CACHE AVAILABLE ON READ ONLY GPIO	*/																		break;
-		case kGPIO_Selector_SpeakerMute:			debug2IOLog ( "... kGPIO_Selector_SpeakerMute returns %d from CACHE\n", result );									break;
+		case kGPIO_Selector_SpeakerMute:			debugIOLog (5,  "... kGPIO_Selector_SpeakerMute returns %d from CACHE", result );									break;
+		case kGPIO_Selector_ExternalMicDetect:		/*	NO CACHE AVAILABLE ON READ ONLY GPIO	*/																		break;
+		case kGPIO_Selector_NotAssociated:			/*	NO CACHE AVAILABLE ON UNAVAILABLE ONLY GPIO	*/																	break;
 	}
-#endif	//	}
+
 	return result;
 }
 
@@ -1482,7 +1490,7 @@ GpioAttributes K2Platform::readGpioState ( GPIOSelector selector ) {
 	
 	result = kGPIO_Unknown;
 	UInt32				value;
-	const OSSymbol*		funcSymbolName;
+	const OSSymbol*		funcSymbolName = NULL;
 	IOReturn			err;
 	bool				waitForFunction;
 
@@ -1506,6 +1514,8 @@ GpioAttributes K2Platform::readGpioState ( GPIOSelector selector ) {
 			case kGPIO_Selector_LineOutMute:				funcSymbolName = makeFunctionSymbolName( kAppleGPIO_GetLineOutMute, mI2SPHandle);									break;
 			case kGPIO_Selector_SpeakerDetect:				funcSymbolName = makeFunctionSymbolName( kAppleGPIO_GetSpeakerDetect, mI2SPHandle);									break;
 			case kGPIO_Selector_SpeakerMute:				funcSymbolName = makeFunctionSymbolName( kAppleGPIO_GetAmpMute, mI2SPHandle);										break;
+			case kGPIO_Selector_ExternalMicDetect:																																break;
+			case kGPIO_Selector_NotAssociated:																																	break;
 			default:										FailIf ( true, Exit );																								break;
 		}
 		if ( NULL != funcSymbolName ) {
@@ -1523,63 +1533,64 @@ GpioAttributes K2Platform::readGpioState ( GPIOSelector selector ) {
 #endif
 			err = mK2Service->callPlatformFunction ( funcSymbolName , waitForFunction, (void*)&value, (void*)0, (void*)0, (void*)0 );
 			funcSymbolName->release ();	// [3324205]
+
 			if ( kIOReturnSuccess != err ) {
-#ifdef kVERBOSE_LOG	//	{
 				switch ( selector ) {
-					case kGPIO_Selector_AnalogCodecReset:		debug2IOLog ( "... callPlatformFunction for kAppleGPIO_GetAudioHwReset returned %X NOT FOUND\n", err );			break;
-					case kGPIO_Selector_ClockMux:				debug2IOLog ( "... callPlatformFunction for kAppleGPIO_GetCodecClockMux returned %X NOT FOUND\n", err );		break;
-					case kGPIO_Selector_CodecInterrupt:			debug2IOLog ( "... callPlatformFunction for kAppleGPIO_GetCodecIRQ returned %X NOT FOUND\n", err );				break;
-					case kGPIO_Selector_CodecErrorInterrupt:	debug2IOLog ( "... callPlatformFunction for kAppleGPIO_GetCodecErrorIRQ returned %X NOT FOUND\n", err );		break;
-					case kGPIO_Selector_ComboInJackType:		debug2IOLog ( "... callPlatformFunction for kAppleGPIO_GetComboInJackType returned %X NOT FOUND\n", err );		break;
-					case kGPIO_Selector_ComboOutJackType:		debug2IOLog ( "... callPlatformFunction for kAppleGPIO_GetComboOutJackType returned %X NOT FOUND\n", err );		break;
-					case kGPIO_Selector_DigitalCodecReset:		debug2IOLog ( "... callPlatformFunction for kAppleGPIO_GetAudioDigHwReset returned %X NOT FOUND\n", err );		break;
-					case kGPIO_Selector_DigitalInDetect:		debug2IOLog ( "... callPlatformFunction for kAppleGPIO_GetDigitalInDetect returned %X NOT FOUND\n", err );		break;
-					case kGPIO_Selector_DigitalOutDetect:		debug2IOLog ( "... callPlatformFunction for kAppleGPIO_GetDigitalOutDetect returned %X NOT FOUND\n", err );		break;
-					case kGPIO_Selector_HeadphoneDetect:		debug2IOLog ( "... callPlatformFunction for kAppleGPIO_GetHeadphoneDetect returned %X NOT FOUND\n", err );		break;
-					case kGPIO_Selector_HeadphoneMute:			debug2IOLog ( "... callPlatformFunction for kAppleGPIO_GetHeadphoneMute returned %X NOT FOUND\n", err );		break;
-					case kGPIO_Selector_InputDataMux:			debug2IOLog ( "... callPlatformFunction for kAppleGPIO_GetCodecInputDataMux returned %X NOT FOUND\n", err );	break;
-					case kGPIO_Selector_InternalSpeakerID:		debug2IOLog ( "... callPlatformFunction for kAppleGPIO_GetInternalSpeakerID returned %X NOT FOUND\n", err );	break;
-					case kGPIO_Selector_LineInDetect:			debug2IOLog ( "... callPlatformFunction for kAppleGPIO_GetLineInDetect returned %X NOT FOUND\n", err );			break;
-					case kGPIO_Selector_LineOutDetect:			debug2IOLog ( "... callPlatformFunction for kAppleGPIO_GetLineOutDetect returned %X NOT FOUND\n", err );		break;
-					case kGPIO_Selector_LineOutMute:			debug2IOLog ( "... callPlatformFunction for kAppleGPIO_GetLineOutMute returned %X NOT FOUND\n", err );			break;
-					case kGPIO_Selector_SpeakerDetect:			debug2IOLog ( "... callPlatformFunction for kAppleGPIO_GetSpeakerDetect returned %X NOT FOUND\n", err );		break;
-					case kGPIO_Selector_SpeakerMute:			debug2IOLog ( "... callPlatformFunction for kAppleGPIO_GetAmpMute returned %X NOT FOUND\n", err );				break;
-					default:									debug3IOLog ( "... callPlatformFunction for UNKNOWN SELECTOR %d returned %X NOT FOUND\n", selector, err );		break;
+					case kGPIO_Selector_AnalogCodecReset:		debugIOLog (5,  "... callPlatformFunction for kAppleGPIO_GetAudioHwReset returned %X NOT FOUND", err );			break;
+					case kGPIO_Selector_ClockMux:				debugIOLog (5,  "... callPlatformFunction for kAppleGPIO_GetCodecClockMux returned %X NOT FOUND", err );		break;
+					case kGPIO_Selector_CodecInterrupt:			debugIOLog (7,  "... callPlatformFunction for kAppleGPIO_GetCodecIRQ returned %X NOT FOUND", err );				break;
+					case kGPIO_Selector_CodecErrorInterrupt:	debugIOLog (7,  "... callPlatformFunction for kAppleGPIO_GetCodecErrorIRQ returned %X NOT FOUND", err );		break;
+					case kGPIO_Selector_ComboInJackType:		debugIOLog (5,  "... callPlatformFunction for kAppleGPIO_GetComboInJackType returned %X NOT FOUND", err );		break;
+					case kGPIO_Selector_ComboOutJackType:		debugIOLog (5,  "... callPlatformFunction for kAppleGPIO_GetComboOutJackType returned %X NOT FOUND", err );		break;
+					case kGPIO_Selector_DigitalCodecReset:		debugIOLog (5,  "... callPlatformFunction for kAppleGPIO_GetAudioDigHwReset returned %X NOT FOUND", err );		break;
+					case kGPIO_Selector_DigitalInDetect:		debugIOLog (5,  "... callPlatformFunction for kAppleGPIO_GetDigitalInDetect returned %X NOT FOUND", err );		break;
+					case kGPIO_Selector_DigitalOutDetect:		debugIOLog (5,  "... callPlatformFunction for kAppleGPIO_GetDigitalOutDetect returned %X NOT FOUND", err );		break;
+					case kGPIO_Selector_HeadphoneDetect:		debugIOLog (5,  "... callPlatformFunction for kAppleGPIO_GetHeadphoneDetect returned %X NOT FOUND", err );		break;
+					case kGPIO_Selector_HeadphoneMute:			debugIOLog (5,  "... callPlatformFunction for kAppleGPIO_GetHeadphoneMute returned %X NOT FOUND", err );		break;
+					case kGPIO_Selector_InputDataMux:			debugIOLog (5,  "... callPlatformFunction for kAppleGPIO_GetCodecInputDataMux returned %X NOT FOUND", err );	break;
+					case kGPIO_Selector_InternalSpeakerID:		debugIOLog (5,  "... callPlatformFunction for kAppleGPIO_GetInternalSpeakerID returned %X NOT FOUND", err );	break;
+					case kGPIO_Selector_LineInDetect:			debugIOLog (5,  "... callPlatformFunction for kAppleGPIO_GetLineInDetect returned %X NOT FOUND", err );			break;
+					case kGPIO_Selector_LineOutDetect:			debugIOLog (5,  "... callPlatformFunction for kAppleGPIO_GetLineOutDetect returned %X NOT FOUND", err );		break;
+					case kGPIO_Selector_LineOutMute:			debugIOLog (5,  "... callPlatformFunction for kAppleGPIO_GetLineOutMute returned %X NOT FOUND", err );			break;
+					case kGPIO_Selector_SpeakerDetect:			debugIOLog (5,  "... callPlatformFunction for kAppleGPIO_GetSpeakerDetect returned %X NOT FOUND", err );		break;
+					case kGPIO_Selector_SpeakerMute:			debugIOLog (5,  "... callPlatformFunction for kAppleGPIO_GetAmpMute returned %X NOT FOUND", err );				break;
+					case kGPIO_Selector_ExternalMicDetect:																														break;
+					case kGPIO_Selector_NotAssociated:																															break;
+					default:									debugIOLog (5,  "... callPlatformFunction for UNKNOWN SELECTOR %d returned %X NOT FOUND", selector, err );		break;
 				}
-#endif	//	}
 				result = GetCachedAttribute ( selector, result );
 			} else {
-#ifdef kVERBOSE_LOG	//	{
 				switch ( selector ) {
-					case kGPIO_Selector_AnalogCodecReset:		debug2IOLog ( "... callPlatformFunction for kAppleGPIO_SetAudioHwReset returned %ld\n", value );				break;
-					case kGPIO_Selector_ClockMux:				debug2IOLog ( "... callPlatformFunction for kAppleGPIO_SetCodecClockMux returned %ld\n", value );				break;
-					case kGPIO_Selector_CodecInterrupt:			debug2IOLog ( "... callPlatformFunction for kAppleGPIO_GetCodecIRQ returned %ld\n", value );					break;
-					case kGPIO_Selector_CodecErrorInterrupt:	debug2IOLog ( "... callPlatformFunction for kAppleGPIO_GetCodecErrorIRQ returned %ld\n", value );				break;
-					case kGPIO_Selector_ComboInJackType:		debug2IOLog ( "... callPlatformFunction for kAppleGPIO_GetComboInJackType returned %ld\n", value );				break;
-					case kGPIO_Selector_ComboOutJackType:		debug2IOLog ( "... callPlatformFunction for kAppleGPIO_GetComboOutJackType returned %ld\n", value );			break;
-					case kGPIO_Selector_DigitalCodecReset:		debug2IOLog ( "... callPlatformFunction for kAppleGPIO_SetAudioDigHwReset returned %ld\n", value );				break;
-					case kGPIO_Selector_DigitalInDetect:		debug2IOLog ( "... callPlatformFunction for kAppleGPIO_GetDigitalInDetect returned %ld\n", value );				break;
-					case kGPIO_Selector_DigitalOutDetect:		debug2IOLog ( "... callPlatformFunction for kAppleGPIO_GetDigitalOutDetect returned %ld\n", value );			break;
-					case kGPIO_Selector_HeadphoneDetect:		debug2IOLog ( "... callPlatformFunction for kAppleGPIO_GetHeadphoneDetect returned %ld\n", value );				break;
-					case kGPIO_Selector_HeadphoneMute:			debug2IOLog ( "... callPlatformFunction for kAppleGPIO_SetHeadphoneMute returned %ld\n", value );				break;
-					case kGPIO_Selector_InputDataMux:			debug2IOLog ( "... callPlatformFunction for kAppleGPIO_SetCodecInputDataMux returned %ld\n", value );			break;
-					case kGPIO_Selector_InternalSpeakerID:		debug2IOLog ( "... callPlatformFunction for kAppleGPIO_SetInternalSpeakerID returned %ld\n", value );			break;
-					case kGPIO_Selector_LineInDetect:			debug2IOLog ( "... callPlatformFunction for kAppleGPIO_GetLineInDetect returned %ld\n", value );				break;
-					case kGPIO_Selector_LineOutDetect:			debug2IOLog ( "... callPlatformFunction for kAppleGPIO_GetLineOutDetect returned %ld\n", value );				break;
-					case kGPIO_Selector_LineOutMute:			debug2IOLog ( "... callPlatformFunction for kAppleGPIO_SetLineOutMute returned %ld\n", value );					break;
-					case kGPIO_Selector_SpeakerDetect:			debug2IOLog ( "... callPlatformFunction for kAppleGPIO_GetSpeakerDetect returned %ld\n", value );				break;
-					case kGPIO_Selector_SpeakerMute:			debug2IOLog ( "... callPlatformFunction for kAppleGPIO_SetAmpMute returned %ld\n", value );						break;
-					default:									debug3IOLog ( "... callPlatformFunction for UNKNOWN SELECTOR %d returned %ld\n", selector, value );				break;
+					case kGPIO_Selector_AnalogCodecReset:		debugIOLog (5,  "... callPlatformFunction for kAppleGPIO_SetAudioHwReset returned %ld", value );				break;
+					case kGPIO_Selector_ClockMux:				debugIOLog (5,  "... callPlatformFunction for kAppleGPIO_SetCodecClockMux returned %ld", value );				break;
+					case kGPIO_Selector_CodecInterrupt:			debugIOLog (7,  "... callPlatformFunction for kAppleGPIO_GetCodecIRQ returned %ld", value );					break;
+					case kGPIO_Selector_CodecErrorInterrupt:	debugIOLog (7,  "... callPlatformFunction for kAppleGPIO_GetCodecErrorIRQ returned %ld", value );				break;
+					case kGPIO_Selector_ComboInJackType:		debugIOLog (5,  "... callPlatformFunction for kAppleGPIO_GetComboInJackType returned %ld", value );				break;
+					case kGPIO_Selector_ComboOutJackType:		debugIOLog (5,  "... callPlatformFunction for kAppleGPIO_GetComboOutJackType returned %ld", value );			break;
+					case kGPIO_Selector_DigitalCodecReset:		debugIOLog (5,  "... callPlatformFunction for kAppleGPIO_SetAudioDigHwReset returned %ld", value );				break;
+					case kGPIO_Selector_DigitalInDetect:		debugIOLog (5,  "... callPlatformFunction for kAppleGPIO_GetDigitalInDetect returned %ld", value );				break;
+					case kGPIO_Selector_DigitalOutDetect:		debugIOLog (5,  "... callPlatformFunction for kAppleGPIO_GetDigitalOutDetect returned %ld", value );			break;
+					case kGPIO_Selector_HeadphoneDetect:		debugIOLog (5,  "... callPlatformFunction for kAppleGPIO_GetHeadphoneDetect returned %ld", value );				break;
+					case kGPIO_Selector_HeadphoneMute:			debugIOLog (5,  "... callPlatformFunction for kAppleGPIO_SetHeadphoneMute returned %ld", value );				break;
+					case kGPIO_Selector_InputDataMux:			debugIOLog (5,  "... callPlatformFunction for kAppleGPIO_SetCodecInputDataMux returned %ld", value );			break;
+					case kGPIO_Selector_InternalSpeakerID:		debugIOLog (5,  "... callPlatformFunction for kAppleGPIO_SetInternalSpeakerID returned %ld", value );			break;
+					case kGPIO_Selector_LineInDetect:			debugIOLog (5,  "... callPlatformFunction for kAppleGPIO_GetLineInDetect returned %ld", value );				break;
+					case kGPIO_Selector_LineOutDetect:			debugIOLog (5,  "... callPlatformFunction for kAppleGPIO_GetLineOutDetect returned %ld", value );				break;
+					case kGPIO_Selector_LineOutMute:			debugIOLog (5,  "... callPlatformFunction for kAppleGPIO_SetLineOutMute returned %ld", value );					break;
+					case kGPIO_Selector_SpeakerDetect:			debugIOLog (5,  "... callPlatformFunction for kAppleGPIO_GetSpeakerDetect returned %ld", value );				break;
+					case kGPIO_Selector_SpeakerMute:			debugIOLog (5,  "... callPlatformFunction for kAppleGPIO_SetAmpMute returned %ld", value );						break;
+					case kGPIO_Selector_ExternalMicDetect:																														break;
+					case kGPIO_Selector_NotAssociated:																															break;
+					default:									debugIOLog (5,  "... callPlatformFunction for UNKNOWN SELECTOR %d returned %ld", selector, value );				break;
 				}
-#endif	//	}
 				//	Translate the GPIO state to a GPIO attribute
 				switch ( selector ) {
 					case kGPIO_Selector_AnalogCodecReset:		result = value ? kGPIO_Reset : kGPIO_Run;																		break;
 					case kGPIO_Selector_ClockMux:				result = value ? kGPIO_MuxSelectAlternate : kGPIO_MuxSelectDefault;												break;
 					case kGPIO_Selector_CodecInterrupt:			result = value ? kGPIO_CodecInterruptActive : kGPIO_CodecInterruptInactive;										break;
 					case kGPIO_Selector_CodecErrorInterrupt:	result = value ? kGPIO_CodecInterruptActive : kGPIO_CodecInterruptInactive;										break;
-					case kGPIO_Selector_ComboInJackType:		result = value ? kGPIO_TypeIsDigital : kGPIO_TypeIsAnalog;														break;
-					case kGPIO_Selector_ComboOutJackType:		result = value ? kGPIO_TypeIsDigital : kGPIO_TypeIsAnalog;														break;
+					case kGPIO_Selector_ComboInJackType:		result = value ? kGPIO_TypeIsAnalog : kGPIO_TypeIsDigital;														break;
+					case kGPIO_Selector_ComboOutJackType:		result = value ? kGPIO_TypeIsAnalog : kGPIO_TypeIsDigital;														break;
 					case kGPIO_Selector_DigitalCodecReset:		result = value ? kGPIO_Reset : kGPIO_Run;																		break;
 					case kGPIO_Selector_DigitalInDetect:		result = value ? kGPIO_Connected : kGPIO_Disconnected;															break;
 					case kGPIO_Selector_DigitalOutDetect:		result = value ? kGPIO_Connected : kGPIO_Disconnected;															break;
@@ -1590,31 +1601,33 @@ GpioAttributes K2Platform::readGpioState ( GPIOSelector selector ) {
 					case kGPIO_Selector_LineInDetect:			result = value ? kGPIO_Connected : kGPIO_Disconnected;															break;
 					case kGPIO_Selector_LineOutDetect:			result = value ? kGPIO_Connected : kGPIO_Disconnected;															break;
 					case kGPIO_Selector_LineOutMute:			result = value ? kGPIO_Muted : kGPIO_Unmuted;																	break;
-					case kGPIO_Selector_SpeakerDetect:			result = value ? kGPIO_Muted : kGPIO_Unmuted;																	break;
-					case kGPIO_Selector_SpeakerMute:			result = value ? kGPIO_Connected : kGPIO_Disconnected;															break;
+					case kGPIO_Selector_SpeakerDetect:			result = value ? kGPIO_Connected : kGPIO_Disconnected;															break;
+					case kGPIO_Selector_SpeakerMute:			result = value ? kGPIO_Muted : kGPIO_Unmuted;																	break;
+					case kGPIO_Selector_ExternalMicDetect:		result = value ? kGPIO_Connected : kGPIO_Disconnected;															break;
+					case kGPIO_Selector_NotAssociated:			result = kGPIO_Connected;																						break;
 				}
-#ifdef kVERBOSE_LOG	//	{
 				switch ( selector ) {
-					case kGPIO_Selector_AnalogCodecReset:		debug2IOLog ( "... kGPIO_Selector_AnalogCodecReset returns %d from callPlatformFunction\n", result );				break;
-					case kGPIO_Selector_ClockMux:				debug2IOLog ( "... kGPIO_Selector_ClockMux returns %d from callPlatformFunction\n", result );						break;
-					case kGPIO_Selector_CodecInterrupt:			debug2IOLog ( "... kGPIO_Selector_CodecInterrupt returns %d from callPlatformFunction\n", result );					break;
-					case kGPIO_Selector_CodecErrorInterrupt:	debug2IOLog ( "... kGPIO_Selector_CodecErrorInterrupt returns %d from callPlatformFunction\n", result );			break;
-					case kGPIO_Selector_ComboInJackType:		debug2IOLog ( "... kGPIO_Selector_ComboInJackType returns %d from callPlatformFunction\n", result );				break;
-					case kGPIO_Selector_ComboOutJackType:		debug2IOLog ( "... kGPIO_Selector_ComboOutJackType returns %d from callPlatformFunction\n", result );				break;
-					case kGPIO_Selector_DigitalCodecReset:		debug2IOLog ( "... kGPIO_Selector_DigitalCodecReset returns %d from callPlatformFunction\n", result );				break;
-					case kGPIO_Selector_DigitalInDetect:		debug2IOLog ( "... kGPIO_Selector_DigitalInDetect returns %d from callPlatformFunction\n", result );				break;
-					case kGPIO_Selector_DigitalOutDetect:		debug2IOLog ( "... kGPIO_Selector_DigitalOutDetect returns %d from callPlatformFunction\n", result );				break;
-					case kGPIO_Selector_HeadphoneDetect:		debug2IOLog ( "... kGPIO_Selector_HeadphoneDetect returns %d from callPlatformFunction\n", result );				break;
-					case kGPIO_Selector_HeadphoneMute:			debug2IOLog ( "... kGPIO_Selector_HeadphoneMute returns %d from callPlatformFunction\n", result );					break;
-					case kGPIO_Selector_InputDataMux:			debug2IOLog ( "... kGPIO_Selector_InputDataMux returns %d from callPlatformFunction\n", result );					break;
-					case kGPIO_Selector_InternalSpeakerID:		debug2IOLog ( "... kGPIO_Selector_InternalSpeakerID returns %d from callPlatformFunction\n", result );				break;
-					case kGPIO_Selector_LineInDetect:			debug2IOLog ( "... kGPIO_Selector_LineInDetect returns %d from callPlatformFunction\n", result );					break;
-					case kGPIO_Selector_LineOutDetect:			debug2IOLog ( "... kGPIO_Selector_LineOutDetect returns %d from callPlatformFunction\n", result );					break;
-					case kGPIO_Selector_LineOutMute:			debug2IOLog ( "... kGPIO_Selector_LineOutMute returns %d from callPlatformFunction\n", result );					break;
-					case kGPIO_Selector_SpeakerDetect:			debug2IOLog ( "... kGPIO_Selector_SpeakerDetect returns %d from callPlatformFunction\n", result );					break;
-					case kGPIO_Selector_SpeakerMute:			debug2IOLog ( "... kGPIO_Selector_SpeakerMute returns %d from callPlatformFunction\n", result );					break;
+					case kGPIO_Selector_AnalogCodecReset:		debugIOLog (5,  "... kGPIO_Selector_AnalogCodecReset returns %d from callPlatformFunction", result );				break;
+					case kGPIO_Selector_ClockMux:				debugIOLog (5,  "... kGPIO_Selector_ClockMux returns %d from callPlatformFunction", result );						break;
+					case kGPIO_Selector_CodecInterrupt:			debugIOLog (7,  "... kGPIO_Selector_CodecInterrupt returns %d from callPlatformFunction", result );					break;
+					case kGPIO_Selector_CodecErrorInterrupt:	debugIOLog (7,  "... kGPIO_Selector_CodecErrorInterrupt returns %d from callPlatformFunction", result );			break;
+					case kGPIO_Selector_ComboInJackType:		debugIOLog (5,  "... kGPIO_Selector_ComboInJackType returns %d from callPlatformFunction", result );				break;
+					case kGPIO_Selector_ComboOutJackType:		debugIOLog (5,  "... kGPIO_Selector_ComboOutJackType returns %d from callPlatformFunction", result );				break;
+					case kGPIO_Selector_DigitalCodecReset:		debugIOLog (5,  "... kGPIO_Selector_DigitalCodecReset returns %d from callPlatformFunction", result );				break;
+					case kGPIO_Selector_DigitalInDetect:		debugIOLog (5,  "... kGPIO_Selector_DigitalInDetect returns %d from callPlatformFunction", result );				break;
+					case kGPIO_Selector_DigitalOutDetect:		debugIOLog (5,  "... kGPIO_Selector_DigitalOutDetect returns %d from callPlatformFunction", result );				break;
+					case kGPIO_Selector_HeadphoneDetect:		debugIOLog (5,  "... kGPIO_Selector_HeadphoneDetect returns %d from callPlatformFunction", result );				break;
+					case kGPIO_Selector_HeadphoneMute:			debugIOLog (5,  "... kGPIO_Selector_HeadphoneMute returns %d from callPlatformFunction", result );					break;
+					case kGPIO_Selector_InputDataMux:			debugIOLog (5,  "... kGPIO_Selector_InputDataMux returns %d from callPlatformFunction", result );					break;
+					case kGPIO_Selector_InternalSpeakerID:		debugIOLog (5,  "... kGPIO_Selector_InternalSpeakerID returns %d from callPlatformFunction", result );				break;
+					case kGPIO_Selector_LineInDetect:			debugIOLog (5,  "... kGPIO_Selector_LineInDetect returns %d from callPlatformFunction", result );					break;
+					case kGPIO_Selector_LineOutDetect:			debugIOLog (5,  "... kGPIO_Selector_LineOutDetect returns %d from callPlatformFunction", result );					break;
+					case kGPIO_Selector_LineOutMute:			debugIOLog (5,  "... kGPIO_Selector_LineOutMute returns %d from callPlatformFunction", result );					break;
+					case kGPIO_Selector_SpeakerDetect:			debugIOLog (5,  "... kGPIO_Selector_SpeakerDetect returns %d from callPlatformFunction", result );					break;
+					case kGPIO_Selector_SpeakerMute:			debugIOLog (5,  "... kGPIO_Selector_SpeakerMute returns %d from callPlatformFunction", result );					break;
+					case kGPIO_Selector_ExternalMicDetect:																															break;
+					case kGPIO_Selector_NotAssociated:																																break;
 				}
-#endif	//	}
 			}
 		} else {
 			result = GetCachedAttribute ( selector, result );
@@ -1635,14 +1648,14 @@ IOReturn K2Platform::writeGpioState ( GPIOSelector selector, GpioAttributes gpio
 	if ( mK2Service ) {
 		//	Translate GPIO attribute to gpio state
 		switch ( selector ) {
-			case kGPIO_Selector_AnalogCodecReset:		FailIf ( kIOReturnSuccess != translateGpioAttributeToGpioState ( kGPIO_Type_Reset, gpioState, &value ), Exit );	break;
-			case kGPIO_Selector_ClockMux:				FailIf ( kIOReturnSuccess != translateGpioAttributeToGpioState ( kGPIO_Type_Mux, gpioState, &value ), Exit );	break;
-			case kGPIO_Selector_DigitalCodecReset:		FailIf ( kIOReturnSuccess != translateGpioAttributeToGpioState ( kGPIO_Type_Reset, gpioState, &value ), Exit );	break;
-			case kGPIO_Selector_HeadphoneMute:			FailIf ( kIOReturnSuccess != translateGpioAttributeToGpioState ( kGPIO_Type_MuteH, gpioState, &value ), Exit );	break;
-			case kGPIO_Selector_InputDataMux:			FailIf ( kIOReturnSuccess != translateGpioAttributeToGpioState ( kGPIO_Type_Mux, gpioState, &value ), Exit );	break;
-			case kGPIO_Selector_LineOutMute:			FailIf ( kIOReturnSuccess != translateGpioAttributeToGpioState ( kGPIO_Type_MuteH, gpioState, &value ), Exit );	break;
-			case kGPIO_Selector_SpeakerMute:			FailIf ( kIOReturnSuccess != translateGpioAttributeToGpioState ( kGPIO_Type_MuteL, gpioState, &value ), Exit );	break;
-			default:									FailIf ( true, Exit );																							break;
+			case kGPIO_Selector_AnalogCodecReset:		FailIf ( kIOReturnSuccess != translateGpioAttributeToGpioState ( kGPIO_Type_Reset, gpioState, &value ), FailExit );	break;
+			case kGPIO_Selector_ClockMux:				FailIf ( kIOReturnSuccess != translateGpioAttributeToGpioState ( kGPIO_Type_Mux, gpioState, &value ), FailExit );	break;
+			case kGPIO_Selector_DigitalCodecReset:		FailIf ( kIOReturnSuccess != translateGpioAttributeToGpioState ( kGPIO_Type_Reset, gpioState, &value ), FailExit );	break;
+			case kGPIO_Selector_HeadphoneMute:			FailIf ( kIOReturnSuccess != translateGpioAttributeToGpioState ( kGPIO_Type_MuteH, gpioState, &value ), FailExit );	break;
+			case kGPIO_Selector_InputDataMux:			FailIf ( kIOReturnSuccess != translateGpioAttributeToGpioState ( kGPIO_Type_Mux, gpioState, &value ), FailExit );	break;
+			case kGPIO_Selector_LineOutMute:			FailIf ( kIOReturnSuccess != translateGpioAttributeToGpioState ( kGPIO_Type_MuteH, gpioState, &value ), FailExit );	break;
+			case kGPIO_Selector_SpeakerMute:			FailIf ( kIOReturnSuccess != translateGpioAttributeToGpioState ( kGPIO_Type_MuteL, gpioState, &value ), FailExit );	break;
+			default:									FailIf ( true, FailExit );																							break;
 		}
 		switch ( selector ) {
 			case kGPIO_Selector_AnalogCodecReset:		funcSymbolName = makeFunctionSymbolName( kAppleGPIO_SetAudioHwReset, mI2SPHandle );					break;
@@ -1658,7 +1671,7 @@ IOReturn K2Platform::writeGpioState ( GPIOSelector selector, GpioAttributes gpio
 		if ( NULL != funcSymbolName ) {
 			result = mK2Service->callPlatformFunction ( funcSymbolName, false, (void*)value, (void*)0, (void*)0, (void*)0 );
 			funcSymbolName->release ();	// [3324205]
-			FailIf ( kIOReturnSuccess != result, Exit );
+			FailIf ( kIOReturnSuccess != result, FailExit );
 			//	Cache the gpio state in case the gpio does not have a platform function supporting read access
 			switch ( selector ) {
 				case kGPIO_Selector_AnalogCodecReset:	mAppleGPIO_AnalogCodecReset = gpioState;															break;
@@ -1670,21 +1683,31 @@ IOReturn K2Platform::writeGpioState ( GPIOSelector selector, GpioAttributes gpio
 				case kGPIO_Selector_SpeakerMute:		mAppleGPIO_AmpMute = gpioState;																		break;
 				default:																																	break;
 			}
-#ifdef kVERBOSE_LOG	//	{
 			switch ( selector ) {
-				case kGPIO_Selector_AnalogCodecReset:	debug2IOLog ( "... mAppleGPIO_AnalogCodecReset CACHE updated to %d\n", gpioState );					break;
-				case kGPIO_Selector_ClockMux:			debug2IOLog ( "... mAppleGPIO_CodecClockMux CACHE updated to %d\n", gpioState );					break;
-				case kGPIO_Selector_DigitalCodecReset:	debug2IOLog ( "... mAppleGPIO_DigitalCodecReset CACHE updated to %d\n", gpioState );				break;
-				case kGPIO_Selector_HeadphoneMute:		debug2IOLog ( "... mAppleGPIO_HeadphoneMute CACHE updated to %d\n", gpioState );					break;
-				case kGPIO_Selector_InputDataMux:		debug2IOLog ( "... mAppleGPIO_CodecInputDataMux CACHE updated to %d\n", gpioState );				break;
-				case kGPIO_Selector_LineOutMute:		debug2IOLog ( "... mAppleGPIO_LineOutMute CACHE updated to %d\n", gpioState );						break;
-				case kGPIO_Selector_SpeakerMute:		debug2IOLog ( "... mAppleGPIO_AmpMute CACHE updated to %d\n", gpioState );							break;
+				case kGPIO_Selector_AnalogCodecReset:	debugIOLog (5,  "... mAppleGPIO_AnalogCodecReset CACHE updated to %d", gpioState );					break;
+				case kGPIO_Selector_ClockMux:			debugIOLog (5,  "... mAppleGPIO_CodecClockMux CACHE updated to %d", gpioState );					break;
+				case kGPIO_Selector_DigitalCodecReset:	debugIOLog (5,  "... mAppleGPIO_DigitalCodecReset CACHE updated to %d", gpioState );				break;
+				case kGPIO_Selector_HeadphoneMute:		debugIOLog (5,  "... mAppleGPIO_HeadphoneMute CACHE updated to %d", gpioState );					break;
+				case kGPIO_Selector_InputDataMux:		debugIOLog (5,  "... mAppleGPIO_CodecInputDataMux CACHE updated to %d", gpioState );				break;
+				case kGPIO_Selector_LineOutMute:		debugIOLog (5,  "... mAppleGPIO_LineOutMute CACHE updated to %d", gpioState );						break;
+				case kGPIO_Selector_SpeakerMute:		debugIOLog (5,  "... mAppleGPIO_AmpMute CACHE updated to %d", gpioState );							break;
 				default:																																	break;
 			}
-#endif	//	}
 		}
 	}
 Exit:
+	return result;
+FailExit:
+	switch ( selector ) {
+		case kGPIO_Selector_AnalogCodecReset:		FailIf ( true, Exit );			break;
+		case kGPIO_Selector_ClockMux:				FailIf ( true, Exit );			break;
+		case kGPIO_Selector_DigitalCodecReset:		FailIf ( true, Exit );			break;
+		case kGPIO_Selector_HeadphoneMute:			FailIf ( true, Exit );			break;
+		case kGPIO_Selector_InputDataMux:			FailIf ( true, Exit );			break;
+		case kGPIO_Selector_LineOutMute:			FailIf ( true, Exit );			break;
+		case kGPIO_Selector_SpeakerMute:			FailIf ( true, Exit );			break;
+		default:									FailIf ( true, Exit );			break;   
+	}
 	return result;
 }
 
@@ -1738,20 +1761,18 @@ IOReturn K2Platform::translateGpioAttributeToGpioState ( GPIOType gpioType, Gpio
 				break;
 		}
 	}
-#ifdef kVERBOSE_LOG
 	if ( kIOReturnSuccess != result ) { 
 		switch ( gpioType ) {
-			case kGPIO_Type_ConnectorType:	debug2IOLog ( "FAIL: K2Platform::translateGpioAttributeToGpioState ( kGPIO_Type_ConnectorType, %p )\n", valuePtr ); 	break;
-			case kGPIO_Type_Detect:			debug2IOLog ( "FAIL: K2Platform::translateGpioAttributeToGpioState ( kGPIO_Type_Detect, %p )\n", valuePtr ); 			break;
-			case kGPIO_Type_Irq:			debug2IOLog ( "FAIL: K2Platform::translateGpioAttributeToGpioState ( kGPIO_Type_Irq, %p )\n", valuePtr ); 				break;
-			case kGPIO_Type_MuteL:			debug2IOLog ( "FAIL: K2Platform::translateGpioAttributeToGpioState ( kGPIO_Type_MuteL, %p )\n", valuePtr ); 			break;
-			case kGPIO_Type_MuteH:			debug2IOLog ( "FAIL: K2Platform::translateGpioAttributeToGpioState ( kGPIO_Type_MuteH, %p )\n", valuePtr ); 			break;
-			case kGPIO_Type_Mux:			debug2IOLog ( "FAIL: K2Platform::translateGpioAttributeToGpioState ( kGPIO_Type_Mux, %p )\n", valuePtr ); 				break;
-			case kGPIO_Type_Reset:			debug2IOLog ( "FAIL: K2Platform::translateGpioAttributeToGpioState ( kGPIO_Type_Reset, %p )\n", valuePtr ); 			break;
-			default:						debug3IOLog ( "FAIL: K2Platform::translateGpioAttributeToGpioState ( %X, %p )\n", gpioType, valuePtr ); 				break;
+			case kGPIO_Type_ConnectorType:	debugIOLog (5,  "FAIL: K2Platform::translateGpioAttributeToGpioState ( kGPIO_Type_ConnectorType, %p )", valuePtr ); 	break;
+			case kGPIO_Type_Detect:			debugIOLog (5,  "FAIL: K2Platform::translateGpioAttributeToGpioState ( kGPIO_Type_Detect, %p )", valuePtr ); 			break;
+			case kGPIO_Type_Irq:			debugIOLog (5,  "FAIL: K2Platform::translateGpioAttributeToGpioState ( kGPIO_Type_Irq, %p )", valuePtr ); 				break;
+			case kGPIO_Type_MuteL:			debugIOLog (5,  "FAIL: K2Platform::translateGpioAttributeToGpioState ( kGPIO_Type_MuteL, %p )", valuePtr ); 			break;
+			case kGPIO_Type_MuteH:			debugIOLog (5,  "FAIL: K2Platform::translateGpioAttributeToGpioState ( kGPIO_Type_MuteH, %p )", valuePtr ); 			break;
+			case kGPIO_Type_Mux:			debugIOLog (5,  "FAIL: K2Platform::translateGpioAttributeToGpioState ( kGPIO_Type_Mux, %p )", valuePtr ); 				break;
+			case kGPIO_Type_Reset:			debugIOLog (5,  "FAIL: K2Platform::translateGpioAttributeToGpioState ( kGPIO_Type_Reset, %p )", valuePtr ); 			break;
+			default:						debugIOLog (5,  "FAIL: K2Platform::translateGpioAttributeToGpioState ( %X, %p )", gpioType, valuePtr ); 				break;
 		}
 	}
-#endif
 	return result;
 }
 
@@ -1762,17 +1783,17 @@ IOReturn K2Platform::translateGpioAttributeToGpioState ( GPIOType gpioType, Gpio
 //	--------------------------------------------------------------------------------
 IODBDMAChannelRegisters *	K2Platform::GetInputChannelRegistersVirtualAddress ( IOService * dbdmaProvider ) {
 	IOMemoryMap *				map;
-	IOService *					parentOfParent;
+	IOService *				parentOfParent;
 	IOPhysicalAddress			ioPhysAddr;
-	IOMemoryDescriptor *		theDescriptor;
-	IOByteCount					length = 256;
+	IOMemoryDescriptor *			theDescriptor;
+	IOByteCount				length = 256;
 	
-	mIOBaseDMAInput = NULL;
+	mIOBaseDMA[kDMAInputIndex] = NULL;
 	FailIf ( NULL == dbdmaProvider, Exit );
-	debug2IOLog ( "K2Platform::GetInputChannelRegistersVirtualAddress i2s-a name is %s\n", dbdmaProvider->getName() );
+	debugIOLog (7,  "K2Platform::GetInputChannelRegistersVirtualAddress i2s-a name is %s", dbdmaProvider->getName() );
 	parentOfParent = (IOService*)dbdmaProvider->getParentEntry ( gIODTPlane );
 	FailIf ( NULL == parentOfParent, Exit );
-	debug2IOLog ( "   parentOfParent name is %s\n", parentOfParent->getName() );
+	debugIOLog (7,  "   parentOfParent name is %s", parentOfParent->getName() );
 	map = parentOfParent->mapDeviceMemoryWithIndex ( AppleDBDMAAudio::kDBDMAOutputIndex );
 	FailIf ( NULL == map, Exit );
 	ioPhysAddr = map->getPhysicalSegment( kIODMAInputOffset, &length );
@@ -1781,33 +1802,33 @@ IODBDMAChannelRegisters *	K2Platform::GetInputChannelRegistersVirtualAddress ( I
 	FailIf ( NULL == theDescriptor, Exit );
 	map = theDescriptor->map ();
 	FailIf ( NULL == map, Exit );
-	mIOBaseDMAInput = (IODBDMAChannelRegisters*)map->getVirtualAddress();
+	mIOBaseDMA[kDMAInputIndex] = (IODBDMAChannelRegisters*)map->getVirtualAddress();
 	
-	debug2IOLog ( "mIOBaseDMAInput %p\n", mIOBaseDMAInput );
-	if ( NULL == mIOBaseDMAInput ) { IOLog ( "K2Platform::GetInputChannelRegistersVirtualAddress IODBDMAChannelRegisters NOT IN VIRTUAL SPACE\n" ); }
+	debugIOLog (7,  "mIOBaseDMA[kDMAInputIndex] %p", mIOBaseDMA[kDMAInputIndex] );
+	if ( NULL == mIOBaseDMA[kDMAInputIndex] ) { debugIOLog (1,  "K2Platform::GetInputChannelRegistersVirtualAddress IODBDMAChannelRegisters NOT IN VIRTUAL SPACE" ); }
 Exit:
-	return mIOBaseDMAInput;
+	return mIOBaseDMA[kDMAInputIndex];
 }
 
 //	--------------------------------------------------------------------------------
 IODBDMAChannelRegisters *	K2Platform::GetOutputChannelRegistersVirtualAddress ( IOService * dbdmaProvider ) {
 	IOMemoryMap *				map;
-	IOService *					parentOfParent;
-	
-	mIOBaseDMAOutput = NULL;
+	IOService *				parentOfParent;
+
+	mIOBaseDMA[kDMAOutputIndex] = NULL;
 	FailIf ( NULL == dbdmaProvider, Exit );
-	debug2IOLog ( "K2Platform::GetOutputChannelRegistersVirtualAddress i2s-a name is %s\n", dbdmaProvider->getName() );
+	debugIOLog (7,  "K2Platform::GetOutputChannelRegistersVirtualAddress i2s-a name is %s", dbdmaProvider->getName() );
 	parentOfParent = (IOService*)dbdmaProvider->getParentEntry ( gIODTPlane );
 	FailIf ( NULL == parentOfParent, Exit );
-	debug2IOLog ( "   parentOfParent name is %s\n", parentOfParent->getName() );
+	debugIOLog (7,  "   parentOfParent name is %s", parentOfParent->getName() );
 	map = parentOfParent->mapDeviceMemoryWithIndex ( AppleDBDMAAudio::kDBDMAOutputIndex );
 	FailIf ( NULL == map, Exit );
-	mIOBaseDMAOutput = (IODBDMAChannelRegisters*)map->getVirtualAddress();
+	mIOBaseDMA[kDMAOutputIndex] = (IODBDMAChannelRegisters*)map->getVirtualAddress();
 	
-	debug3IOLog ( "mIOBaseDMAOutput %p is at physical %p\n", mIOBaseDMAOutput, (void*)map->getPhysicalAddress() );
-	if ( NULL == mIOBaseDMAOutput ) { IOLog ( "K2Platform::GetOutputChannelRegistersVirtualAddress IODBDMAChannelRegisters NOT IN VIRTUAL SPACE\n" ); }
+	debugIOLog (7,  "mIOBaseDMA[kDMAOutputIndex] %p is at physical %p", mIOBaseDMA[kDMAOutputIndex], (void*)map->getPhysicalAddress() );
+	if ( NULL == mIOBaseDMA[kDMAOutputIndex] ) { debugIOLog (1,  "K2Platform::GetOutputChannelRegistersVirtualAddress IODBDMAChannelRegisters NOT IN VIRTUAL SPACE" ); }
 Exit:
-	return mIOBaseDMAOutput;
+	return mIOBaseDMA[kDMAOutputIndex];
 }
 
 #pragma mark ---------------------------
@@ -1819,7 +1840,7 @@ IOReturn	K2Platform::getPlatformState ( PlatformStateStructPtr outState ) {
 	IOReturn			result = kIOReturnBadArgument;
 	
 	FailIf ( NULL == outState, Exit );
-	outState->platformType = kPlatformInterfaceType_K2;
+	outState->platformType = getPlatformInterfaceType ();
 	
 	outState->i2s.intCtrl = getI2SIOMIntControl ();
 	outState->i2s.serialFmt = getSerialFormatRegister ();
@@ -1856,12 +1877,12 @@ IOReturn	K2Platform::getPlatformState ( PlatformStateStructPtr outState ) {
 	outState->gpio.gpio_InputDataMux = getInputDataMux ();
 	outState->gpio.gpio_InternalSpeakerID = getInternalSpeakerID ();
 	outState->gpio.gpio_LineInDetect = getLineInConnected ();
-	outState->gpio.gpio_LineOutDetect = getLineOutConnected ();
+	outState->gpio.gpio_LineOutDetect = getLineOutConnected (true);
 	outState->gpio.gpio_LineOutMute = getLineOutMuteState ();
 	outState->gpio.gpio_SpeakerDetect = getSpeakerConnected ();
 	outState->gpio.gpio_SpeakerMute = getSpeakerMuteState ();
-	outState->gpio.reserved_18 = kGPIO_Unknown;
-	outState->gpio.reserved_19 = kGPIO_Unknown;
+	outState->gpio.gpio_ComboInAssociation = getComboInAssociation ();
+	outState->gpio.gpio_ComboOutAssociation = getComboOutAssociation ();
 	outState->gpio.reserved_20 = kGPIO_Unknown;
 	outState->gpio.reserved_21 = kGPIO_Unknown;
 	outState->gpio.reserved_22 = kGPIO_Unknown;
@@ -1874,8 +1895,8 @@ IOReturn	K2Platform::getPlatformState ( PlatformStateStructPtr outState ) {
 	outState->gpio.reserved_29 = kGPIO_Unknown;
 	outState->gpio.reserved_30 = kGPIO_Unknown;
 	outState->gpio.reserved_31 = kGPIO_Unknown;
-#ifdef kVERBOSE_LOG
-	IOLog ( "outState->gpio: %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d \n",
+
+	debugIOLog (5,  "outState->gpio: %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d ",
 				outState->gpio.gpio_AnalogCodecReset,
 				outState->gpio.gpio_ClockMux,
 				outState->gpio.gpio_CodecInterrupt,
@@ -1894,7 +1915,7 @@ IOReturn	K2Platform::getPlatformState ( PlatformStateStructPtr outState ) {
 				outState->gpio.gpio_LineOutMute,
 				outState->gpio.gpio_SpeakerMute
 			);
-#endif	
+
 	outState->i2c.i2c_pollingMode = (UInt32)false;
 	outState->i2c.i2c_errorStatus = mI2C_lastTransactionResult;
 	
@@ -1909,74 +1930,78 @@ IOReturn	K2Platform::setPlatformState ( PlatformStateStructPtr inState ) {
 	
 	FailIf ( NULL == inState, Exit );
 	if ( inState->i2s.intCtrl != getI2SIOMIntControl () ) {
-		debug2IOLog ( "K2Platform::setPlatformState setI2SIOMIntControl ( %lX )\n", inState->i2s.intCtrl );
+		debugIOLog (7,  "K2Platform::setPlatformState setI2SIOMIntControl ( %lX )", inState->i2s.intCtrl );
 		result = setI2SIOMIntControl ( inState->i2s.intCtrl );
 		FailIf ( kIOReturnSuccess != result, Exit );
 	}
 	if ( inState->i2s.serialFmt != getSerialFormatRegister () ) {
-		debug2IOLog ( "K2Platform::setPlatformState setSerialFormatRegister ( %lX )\n", inState->i2s.serialFmt );
+		debugIOLog (7,  "K2Platform::setPlatformState setSerialFormatRegister ( %lX )", inState->i2s.serialFmt );
 		result = setSerialFormatRegister ( inState->i2s.serialFmt );
 		FailIf ( kIOReturnSuccess != result, Exit );
 	}
 	if ( ( inState->i2s.frameCount != getFrameCount () ) && ( 0 == inState->i2s.frameCount ) ) {
-		debug2IOLog ( "K2Platform::setPlatformState setFrameCount ( %lX )\n", inState->i2s.frameCount );
+		debugIOLog (7,  "K2Platform::setPlatformState setFrameCount ( %lX )", inState->i2s.frameCount );
 		result = setFrameCount ( inState->i2s.frameCount );
 		FailIf ( kIOReturnSuccess != result, Exit );
 	}
 	if ( inState->i2s.dataWordSizes != getDataWordSizes () ) {
-		debug2IOLog ( "K2Platform::setPlatformState setDataWordSizes ( %lX )\n", inState->i2s.dataWordSizes );
+		debugIOLog (7,  "K2Platform::setPlatformState setDataWordSizes ( %lX )", inState->i2s.dataWordSizes );
 		result = setDataWordSizes ( inState->i2s.dataWordSizes );
 		FailIf ( kIOReturnSuccess != result, Exit );
 	}
 	
 	if ( inState->fcr.i2sEnable != getI2SEnable () ) {
-		debug2IOLog ( "K2Platform::setPlatformState setI2SEnable ( %lX )\n", inState->fcr.i2sEnable );
+		debugIOLog (7,  "K2Platform::setPlatformState setI2SEnable ( %lX )", inState->fcr.i2sEnable );
 		result = setI2SEnable ( inState->fcr.i2sEnable );
 		FailIf ( kIOReturnSuccess != result, Exit );
 	}
 	if ( inState->fcr.i2sClockEnable != getI2SClockEnable () ) {
-		debug2IOLog ( "K2Platform::setPlatformState setI2SClockEnable ( %lX )\n", inState->fcr.i2sClockEnable );
+		debugIOLog (7,  "K2Platform::setPlatformState setI2SClockEnable ( %lX )", inState->fcr.i2sClockEnable );
 		result = setI2SClockEnable ( inState->fcr.i2sClockEnable );
 		FailIf ( kIOReturnSuccess != result, Exit );
 	}
 	if ( inState->fcr.i2sCellEnable != getI2SCellEnable () ) {
-		debug2IOLog ( "K2Platform::setPlatformState setI2SCellEnable ( %lX )\n", inState->fcr.i2sCellEnable );
+		debugIOLog (7,  "K2Platform::setPlatformState setI2SCellEnable ( %lX )", inState->fcr.i2sCellEnable );
 		result = setI2SCellEnable ( inState->fcr.i2sCellEnable );
 		FailIf ( kIOReturnSuccess != result, Exit );
 	}
 	
 	if ( ( kGPIO_Unknown != inState->gpio.gpio_AnalogCodecReset ) && ( inState->gpio.gpio_DigitalCodecReset != getCodecReset ( kCODEC_RESET_Analog ) ) ) {
-		debug2IOLog ( "K2Platform::setPlatformState setCodecReset ( kCODEC_RESET_Analog, %d )\n", inState->gpio.gpio_DigitalCodecReset );
+		debugIOLog (7,  "K2Platform::setPlatformState setCodecReset ( kCODEC_RESET_Analog, %d )", inState->gpio.gpio_DigitalCodecReset );
 		result = setCodecReset ( kCODEC_RESET_Analog, inState->gpio.gpio_AnalogCodecReset );
 		FailIf ( kIOReturnSuccess != result, Exit );
 	}
 	if ( ( kGPIO_Unknown != inState->gpio.gpio_ClockMux ) && ( inState->gpio.gpio_ClockMux != getClockMux () ) ) {
-		debug2IOLog ( "K2Platform::setPlatformState setClockMux ( %d )\n", inState->gpio.gpio_ClockMux );
+		debugIOLog (7,  "K2Platform::setPlatformState setClockMux ( %d )", inState->gpio.gpio_ClockMux );
 		result = setClockMux ( inState->gpio.gpio_ClockMux );
 		FailIf ( kIOReturnSuccess != result, Exit );
 	}
 	if ( ( kGPIO_Unknown != inState->gpio.gpio_DigitalCodecReset ) && ( inState->gpio.gpio_DigitalCodecReset != getCodecReset ( kCODEC_RESET_Digital ) ) ) {
-		debug2IOLog ( "K2Platform::setPlatformState setCodecReset ( kCODEC_RESET_Digital, %d )\n", inState->gpio.gpio_DigitalCodecReset );
+		debugIOLog (7,  "K2Platform::setPlatformState setCodecReset ( kCODEC_RESET_Digital, %d )", inState->gpio.gpio_DigitalCodecReset );
 		result = setCodecReset ( kCODEC_RESET_Digital, inState->gpio.gpio_DigitalCodecReset );
 		FailIf ( kIOReturnSuccess != result, Exit );
 	}
 	if ( ( kGPIO_Unknown != inState->gpio.gpio_HeadphoneMute ) && ( inState->gpio.gpio_HeadphoneMute != getHeadphoneMuteState () ) ) {
-		debug2IOLog ( "K2Platform::setPlatformState setHeadphoneMuteState ( %d )\n", inState->gpio.gpio_HeadphoneMute );
+		debugIOLog (7,  "K2Platform::setPlatformState setHeadphoneMuteState ( %d )", inState->gpio.gpio_HeadphoneMute );
 		result = setHeadphoneMuteState ( inState->gpio.gpio_HeadphoneMute );
 		FailIf ( kIOReturnSuccess != result, Exit );
 	}
 	if ( ( kGPIO_Unknown != inState->gpio.gpio_InputDataMux ) && ( inState->gpio.gpio_InputDataMux != getInputDataMux () ) ) {
-		debug2IOLog ( "K2Platform::setPlatformState setInputDataMux ( %d )\n", inState->gpio.gpio_InputDataMux );
+		debugIOLog (7,  "K2Platform::setPlatformState setInputDataMux ( %d )", inState->gpio.gpio_InputDataMux );
 		result = setInputDataMux ( inState->gpio.gpio_InputDataMux );
 		FailIf ( kIOReturnSuccess != result, Exit );
 	}
+	if ( ( kGPIO_Unknown != inState->gpio.gpio_LineInDetect ) && ( inState->gpio.gpio_LineInDetect != getLineInConnected () ) ) {
+		debugIOLog (2,  "K2Platform::setPlatformState TRIGGER LINE IN INTERRUPT ( %d )", inState->gpio.gpio_LineOutMute );
+		lineInDetectInterruptHandler ( this, 0, 0, 0 );
+	}
 	if ( ( kGPIO_Unknown != inState->gpio.gpio_LineOutMute ) && ( inState->gpio.gpio_LineOutMute != getLineOutMuteState () ) ) {
-		debug2IOLog ( "K2Platform::setPlatformState setLineOutMuteState ( %d )\n", inState->gpio.gpio_LineOutMute );
+		debugIOLog (7,  "K2Platform::setPlatformState setLineOutMuteState ( %d )", inState->gpio.gpio_LineOutMute );
 		result = setLineOutMuteState ( inState->gpio.gpio_LineOutMute );
 		FailIf ( kIOReturnSuccess != result, Exit );
 	}
 	if ( ( kGPIO_Unknown != inState->gpio.gpio_SpeakerMute ) && ( inState->gpio.gpio_SpeakerMute != getSpeakerMuteState () ) ) {
-		debug2IOLog ( "K2Platform::setPlatformState setSpeakerMuteState ( %d )\n", inState->gpio.gpio_SpeakerMute );
+		debugIOLog (7,  "K2Platform::setPlatformState setSpeakerMuteState ( %d )", inState->gpio.gpio_SpeakerMute );
 		result = setSpeakerMuteState ( inState->gpio.gpio_SpeakerMute );
 		FailIf ( kIOReturnSuccess != result, Exit );
 	}

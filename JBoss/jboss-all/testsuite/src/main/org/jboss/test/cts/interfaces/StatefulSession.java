@@ -19,11 +19,13 @@ import org.jboss.test.cts.keys.AccountPK;
  * Interface StatefulSession
  *
  * @author Scott.Stark@jboss.org
- * @version $Revision: 1.10.2.1 $
+ * @version $Revision: 1.10.2.3 $
  */
 public interface StatefulSession
    extends EJBObject
 {
+   public String getTestName()
+      throws RemoteException;
 
    public String method1 (String msg)
       throws RemoteException;
@@ -74,6 +76,11 @@ public interface StatefulSession
    public void createSessionRef()
       throws RemoteException;
    public String useSessionRef()
+      throws RemoteException;
+
+   public void ping()
+      throws RemoteException;
+   public void sleep(long wait)
       throws RemoteException;
 }
 

@@ -1,7 +1,5 @@
 package org.jboss.test;
 
-import java.io.Serializable;
-import java.math.BigInteger;
 import java.rmi.RemoteException;
 import java.security.KeyException;
 import java.security.NoSuchAlgorithmException;
@@ -16,7 +14,7 @@ import org.jboss.security.srp.SRPServerSession;
  any given username to the password and salt provided to its constructor.
  
  @author Scott.Stark@jboss.org
- @version $Revision: 1.5.4.1 $
+ @version $Revision: 1.5.4.2 $
  */
 public class SimpleSRPServer implements SRPServerInterface
 {

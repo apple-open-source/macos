@@ -321,7 +321,8 @@ SSLEncodeCertificateVerify(SSLRecord &certVerify, SSLContext *ctx)
     SSLBuffer       hashDataBuf, shaMsgState, md5MsgState;
     UInt32          len;
     UInt32		    outputLen;
-    
+    const CSSM_KEY	*cssmKey;
+	
     certVerify.contents.data = 0;
     hashDataBuf.data = hashData;
     hashDataBuf.length = 36;
@@ -335,8 +336,13 @@ SSLEncodeCertificateVerify(SSLRecord &certVerify, SSLContext *ctx)
 			shaMsgState, md5MsgState)) != 0)
         goto fail;
     
-	assert(ctx->signingPrivKey != NULL);
-	len = sslKeyLengthInBytes(ctx->signingPrivKey);
+	assert(ctx->signingPrivKeyRef != NULL);
+	err = SecKeyGetCSSMKey(ctx->signingPrivKeyRef, &cssmKey);
+	if(err) {
+		sslErrorLog("SSLEncodeCertificateVerify: SecKeyGetCSSMKey err %d\n", (int)err);
+		return err;
+	}
+	len = sslKeyLengthInBytes(cssmKey);
     
     certVerify.contentType = SSL_RecordTypeHandshake;
 	assert((ctx->negProtocolVersion == SSL_Version_3_0) ||
@@ -350,8 +356,7 @@ SSLEncodeCertificateVerify(SSLRecord &certVerify, SSLContext *ctx)
     SSLEncodeInt(certVerify.contents.data+4, len, 2);
 
 	err = sslRawSign(ctx,
-		ctx->signingPrivKey,
-		ctx->signingKeyCsp,
+		ctx->signingPrivKeyRef,
 		hashData,						// data to sign 
 		36,								// MD5 size + SHA1 size
 		certVerify.contents.data+6,		// signature destination

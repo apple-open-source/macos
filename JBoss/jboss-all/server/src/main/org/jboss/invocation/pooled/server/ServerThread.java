@@ -13,14 +13,14 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.Socket;
-import java.rmi.MarshalledObject;
 import org.jboss.invocation.Invocation;
+import org.jboss.invocation.pooled.interfaces.OptimizedObjectOutputStream;
+import org.jboss.invocation.pooled.interfaces.OptimizedObjectInputStream;
 import org.jboss.logging.Logger;
+import org.jboss.util.ProfilerPoint;
+
 import java.util.LinkedList;
 
 /**
@@ -155,6 +155,7 @@ public class ServerThread extends Thread
                         clientpool.remove(this);
                         //System.out.println("adding myself to threadpool");
                         threadpool.add(this);
+                        Thread.interrupted(); // clear any interruption so that we can be pooled.
                         clientpool.notify();
                      }
                   }
@@ -200,12 +201,16 @@ public class ServerThread extends Thread
       Object response = null;
       try
       {
+         ProfilerPoint.start();
+         boolean interrupted = Thread.interrupted(); // Make absolutely sure thread is cleared.
+         //if (interrupted) log.error("-----------------------Thread was interrupted but is cleared now: " + Thread.interrupted());
          response = invoker.invoke(invocation);
       }
       catch (Exception ex)
       {
          response = ex;
       }
+      Thread.interrupted(); // clear interrupted state so we don't fail on socket writes
       out.writeObject(response);
       out.reset();
       // to make sure stream gets reset
@@ -227,9 +232,9 @@ public class ServerThread extends Thread
       handlingResponse = true;
       try
       {
-         out = new ObjectOutputStream(new BufferedOutputStream(socket.getOutputStream()));
+         out = new OptimizedObjectOutputStream(new BufferedOutputStream(socket.getOutputStream()));
          out.flush();
-         in = new ObjectInputStream(new BufferedInputStream(socket.getInputStream()));
+         in = new OptimizedObjectInputStream(new BufferedInputStream(socket.getInputStream()));
       }
       catch (Exception e)
       {
@@ -271,6 +276,7 @@ public class ServerThread extends Thread
             //log.error("failed", ex);
             running = false;
          }
+         Thread.interrupted(); // clear any interruption so that thread can be pooled.
       }
       //System.out.println("finished loop:" + Thread.currentThread());
       // Ok, we've been shutdown.  Do appropriate cleanups.

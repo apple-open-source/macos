@@ -1,3 +1,11 @@
+NEWS for rsync version 2.5.7:
+
+  SECURITY:
+
+    * Fix buffer handling bugs.  (Andrew Tridgell, Martin Pool, Paul
+      Russell, Andrea Barisani)
+
+
 NEWS for rsync version 2.5.6, aka the dwd-between-jobs release
 Changes since version 2.5.5:
 

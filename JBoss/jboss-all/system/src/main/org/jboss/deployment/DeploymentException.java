@@ -18,11 +18,27 @@ import org.jboss.util.NestedException;
  * @see DeployerMBean
  * 
  * @author <a href="mailto:toby.allsopp@peace.com">Toby Allsopp</a>
- * @version $Revision: 1.1 $
+ * @version $Revision: 1.1.4.1 $
  */
 public class DeploymentException
    extends NestedException
 {
+   /**
+    * Rethrow a throwable as a deployment exception if it isn't already.
+    *
+    * @param message the message
+    * @param t the throwable
+    * @throws a DeploymentException
+    */
+   public static void rethrowAsDeploymentException(String message, Throwable t)
+      throws DeploymentException
+   {
+      if (t instanceof DeploymentException)
+         throw (DeploymentException) t;
+      else
+         throw new DeploymentException(message, t);
+   }
+
    /**
     * Construct a <tt>DeploymentException</tt> with the specified detail 
     * message.

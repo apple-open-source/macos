@@ -120,6 +120,9 @@
 
   <bean:define id="checkboxes" scope="page" value="true"/>
   <br>
+  <%@ include file="groups.jspf" %>
+  <br>
+  <%@ include file="roles.jspf" %>
 
   <%@ include file="../buttons.jsp" %>
 

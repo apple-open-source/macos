@@ -21,10 +21,12 @@
 .SH NAME
 tdbbackup \- tool for backing up and for validating the integrity of samba .tdb files
 .SH "SYNOPSIS"
-
-.nf
-\fBtdbbackup\fR [-s suffix] [-v] [-h]
-.fi
+.ad l
+.hy 0
+.HP 10
+\fBtdbbackup\fR [\-s\ suffix] [\-v] [\-h]
+.ad
+.hy
 
 .SH "DESCRIPTION"
 
@@ -37,18 +39,18 @@ This tool is part of the \fBSamba\fR(1) suite\&.
 .SH "OPTIONS"
 
 .TP
--h
+\-h
 Get help information\&.
 
 
 .TP
--s suffix
-The \fB-s\fR option allows the adminisistrator to specify a file backup extension\&. This way it is possible to keep a history of tdb backup files by using a new suffix for each backup\&.
+\-s suffix
+The \fB\-s\fR option allows the adminisistrator to specify a file backup extension\&. This way it is possible to keep a history of tdb backup files by using a new suffix for each backup\&.
 
 
 .TP
--v
-The \fB-v\fR will check the database for damages (currupt data) which if detected causes the backup to be restored\&.
+\-v
+The \fB\-v\fR will check the database for damages (currupt data) which if detected causes the backup to be restored\&.
 
 
 .SH "COMMANDS"
@@ -60,28 +62,28 @@ The \fB-v\fR will check the database for damages (currupt data) which if detecte
 The \fBtdbbackup\fR utility should be run as soon as samba has shut down\&. Do NOT run this command on a live database\&. Typical usage for the command will be:
 
 .PP
-tdbbackup [-s suffix] *\&.tdb
+tdbbackup [\-s suffix] *\&.tdb
 
 .PP
 Before restarting samba the following command may be run to validate \&.tdb files:
 
 .PP
-tdbbackup -v [-s suffix] *\&.tdb
+tdbbackup \-v [\-s suffix] *\&.tdb
 
 .PP
 Samba \&.tdb files are stored in various locations, be sure to run backup all \&.tdb file on the system\&. Imporatant files includes:
 
 .TP 3
 \(bu
-\fBsecrets.tdb\fR - usual location is in the /usr/local/samba/private directory, or on some systems in /etc/samba\&.
+\fBsecrets\&.tdb\fR \- usual location is in the /usr/local/samba/private directory, or on some systems in /etc/samba\&.
 
 .TP
 \(bu
-\fBpassdb.tdb\fR - usual location is in the /usr/local/samba/private directory, or on some systems in /etc/samba\&.
+\fBpassdb\&.tdb\fR \- usual location is in the /usr/local/samba/private directory, or on some systems in /etc/samba\&.
 
 .TP
 \(bu
-\fB*.tdb\fR located in the /usr/local/samba/var directory or on some systems in the /var/cache or /var/lib/samba directories\&.
+\fB*\&.tdb\fR located in the /usr/local/samba/var directory or on some systems in the /var/cache or /var/lib/samba directories\&.
 
 .LP
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,45 +23,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc.  All rights reserved.
  *
  *
  */
-//		$Log: PowerMac7_2_CPUPowerSensor.h,v $
-//		Revision 1.5  2003/06/07 01:30:58  eem
-//		Merge of EEM-PM72-ActiveFans-2 branch, with a few extra tweaks.  This
-//		checkin has working PID control for PowerMac7,2 platforms, as well as
-//		a first shot at localized strings.
-//		
-//		Revision 1.4.2.2  2003/05/23 05:44:42  eem
-//		Cleanup, ctrlloops not get notification for sensor and control registration.
-//		
-//		Revision 1.4.2.1  2003/05/22 01:31:05  eem
-//		Checkin of today's work (fails compilations right now).
-//		
-//		Revision 1.4  2003/05/21 21:58:55  eem
-//		Merge from EEM-PM72-ActiveFans-1 branch with initial crack at active fan
-//		control on Q37.
-//		
-//		Revision 1.3.2.1  2003/05/14 22:07:55  eem
-//		Implemented state-driven sensor, cleaned up "const" usage and header
-//		inclusions.
-//		
-//		Revision 1.3  2003/05/13 02:13:52  eem
-//		PowerMac7_2 Dynamic Power Step support.
-//		
-//		Revision 1.2.2.1  2003/05/12 11:21:12  eem
-//		Support for slewing.
-//		
-//		Revision 1.2  2003/05/10 06:50:36  eem
-//		All sensor functionality included for PowerMac7_2_PlatformPlugin.  Version
-//		is 1.0.1d12.
-//		
-//		Revision 1.1.2.1  2003/05/03 01:11:40  eem
-//		*** empty log message ***
-//		
-//		
-//
+
 
 #ifndef _POWERMAC7_2_CPUPOWERSENSOR_H
 #define _POWERMAC7_2_CPUPOWERSENSOR_H
@@ -83,8 +49,8 @@ protected:
 	// initialize a sensor from it's SensorArray dict in the IOPlatformThermalProfile
 	virtual IOReturn		initPlatformSensor( const OSDictionary * dict );
 
-	// this sends a force-update message to the sensor and then reads its current-value property
-	virtual OSNumber *		fetchCurrentValue( void );	// blocks for I/O
+	// this reads the sensor's current-value property
+	virtual SensorValue		fetchCurrentValue( void );
 
 	// this sends the polling period to the sensor
 	virtual bool			sendPollingPeriod( OSNumber * period );

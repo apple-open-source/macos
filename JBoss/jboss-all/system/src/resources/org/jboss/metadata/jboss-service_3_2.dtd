@@ -4,7 +4,7 @@
 general to validate a jboss-service.xml descriptor do to the fact that the attribute
 element allows ANY content.
 
-$Id: jboss-service_3_2.dtd,v 1.1.2.6 2003/07/23 03:37:02 starksm Exp $
+$Id: jboss-service_3_2.dtd,v 1.1.2.7 2003/10/30 13:42:24 ejort Exp $
 
 DOCTYPE server
     PUBLIC "-//JBoss//DTD MBean Service 3.2//EN"
@@ -201,6 +201,31 @@ This allows an mbean to have access to the name of the mbean on which
 it depends.
 -->
 <!ATTLIST depends optional-attribute-name CDATA  #IMPLIED>
+
+<!-- The proxy-type attribute specifies the interface name
+that should be exposed on an MBeanProxy pointing at the dependent
+MBean specified by the JMX ObjectName
+
+The special value proxy-type="attribute" will use the
+class declared in the MBeanAttributeInfo as the interface
+for MBeanProxy.
+
+e.g.
+   <mbean code="org.jboss.example.Helper" name="domain:name=helper"/>
+   
+   <mbean code="myBean" name="domain:name=x">
+      <depends optional-attribute-name="Helper"
+               proxy-type="org.jboss.example.HelperMBean"
+      >domain:name=helper</depends>
+   </mbean>
+   
+   <mbean code="myBean" name="domain:name=x">
+      <depends optional-attribute-name="Helper"
+               proxy-type="attribute"
+      >domain:name=helper</depends>
+   </mbean>
+-->
+<!ATTLIST depends proxy-type CDATA  #IMPLIED>
 
 <!-- The depends-list element specifies a series of JMX ObjectName
 strings for a mbeans on which the enclosing mbean depends. This is

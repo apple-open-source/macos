@@ -8,6 +8,7 @@
 #
 # created: 01 May 02
 # change log:
+# Hacked to support message ranges by ESR, January 2003.
 #
 import os, poplib, string, sys
 
@@ -28,19 +29,18 @@ class PopDel:
 	# get user to choose an element from thing
 	def query(self, thing, prompt):
 		length = len(thing)
-		choice = length
+		choice = [length]
 		for i in range(0, length):
 			print '(' + `i +  1` + ') ' + thing[i]
-		while (choice >= length):
+		while filter(lambda x: x > length, choice):
 			choice = raw_input(prompt)
 			if (choice == 'q'):
 				self.done = 1
-				choice = -1
+				choice = [-1]
 			else:
-				try:
-					choice = int(choice) - 1
-				except:
-					choice = 666
+				choice = map(int, string.split(choice, "-"))
+				if len(choice) > 1:
+					choice = range(choice[0], choice[1]+1)
 		return choice
 
 	def run(self):
@@ -48,51 +48,50 @@ class PopDel:
 		os.system('clear')
 		print self.HDR
 
-		try:
-			subjects = []
+		subjects = []
 
-			M = poplib.POP3(sys.argv[1])
-			M.user(sys.argv[2])
-			M.pass_(sys.argv[3])
+		M = poplib.POP3(sys.argv[1])
+		M.user(sys.argv[2])
+		M.pass_(sys.argv[3])
+		M.set_debuglevel(1)
 
-			messages = M.list()
+		messages = M.list()
 
-			list = messages[1]
-			if (len(list) == 0):
-				M.quit()
-				print '\nNo messages on server.'
-			else:
-				for entry in list:
-					tokens = string.split(entry)
-					head = M.top(int(tokens[0]), 32)
-					for line in head[1]:
-						if (string.find(line, 'Subject:') == 0):
-							subject = string.replace(line, 'Subject:','')
-							subject = subject + ' - ' + tokens[1] + ' octets'
-							subjects.append(subject)
-							break
+		list = messages[1]
+		if (len(list) == 0):
+			M.quit()
+			print '\nNo messages on server.'
+		else:
+			for entry in list:
+				tokens = string.split(entry)
+				head = M.top(int(tokens[0]), 32)
+				for line in head[1]:
+					if (string.find(line, 'Subject:') == 0):
+						subject = string.replace(line, 'Subject:','')
+						subject = subject + ' - ' + tokens[1] + ' octets'
+						subjects.append(subject)
+						break
 
-				while not self.done:
-					os.system('clear')
-					print self.HDR
-					print '\nMessages on server:'
-					msg = self.query(subjects, self.PROMPT1)
+			while not self.done:
+				os.system('clear')
+				print self.HDR
+				print '\nMessages on server:'
+				msglist = self.query(subjects, self.PROMPT1)
+				print "Choice:", msglist
+				for msg in msglist:
 					if (msg > -1):
-						M.dele( msg + 1)
+						M.dele(msg+1)
 						subjects[msg] = subjects[msg] + ' -X-'
 
-				print '\nExit Options:'
-				choice = self.query(self.CHOICES, self.PROMPT2)
-				if (choice == 0):			# commit changes and quit
-					M.quit()
-				else:						# reset and quit
-					M.rset()
-					M.quit()
-			
-		except:							# if blows-up then quit gracefully
-			print "Error: terminating on exception."
-			M.rset()
-			M.quit()
+			print '\nExit Options:'
+			choice = self.query(self.CHOICES, self.PROMPT2)
+			print "Choice:", choice
+			if (choice == [1]):			# commit changes and quit
+				M.quit()
+			else:						# reset and quit
+				M.rset()
+				M.quit()
+
 
 		print self.BYE
 		return

@@ -5,7 +5,6 @@ import java.security.MessageDigest;
 import java.security.MessageDigestSpi;
 import java.security.NoSuchAlgorithmException;
 import java.security.ProviderException;
-import java.util.Arrays;
 
 /** An alternate SHA Interleave algorithm as implemented in the SRP
  distribution. This version reverses the even and odd byte streams before
@@ -15,7 +14,7 @@ import java.util.Arrays;
  Jhong for the SRP Distribution (http://srp.stanford.edu/srp/).
 
 @author Scott.Stark@jboss.org
-@version $Revision: 1.1 $
+@version $Revision: 1.1.6.1 $
 */
 public class SHAReverseInterleave extends MessageDigestSpi
 {

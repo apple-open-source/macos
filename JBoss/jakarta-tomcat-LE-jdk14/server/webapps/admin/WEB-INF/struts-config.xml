@@ -85,7 +85,7 @@
                     type="org.apache.webapp.admin.defaultcontext.DefaultContextForm"/>
                     
     <form-bean      name="defaultContextsForm"
-                    type="org.apache.webapp.admin.defaultContext.DefaultContextsForm"/>
+                    type="org.apache.webapp.admin.defaultcontext.DefaultContextsForm"/>
 
     <!-- ============= Connector Module ============= -->
 
@@ -625,6 +625,11 @@
                type="org.apache.webapp.admin.realm.AddRealmAction">
     </action>
 
+    <!-- Set up Add Realm transaction -->
+    <action    path="/realm/AddRealm"
+               type="org.apache.webapp.admin.realm.AddRealmAction">
+    </action>
+
     <!-- Set up Delete Realms transaction -->
     <action    path="/DeleteRealm"
                type="org.apache.webapp.admin.realm.DeleteRealmAction"
@@ -674,6 +679,11 @@
 
     <!-- Set up Add Logger transaction -->
     <action    path="/AddLogger"
+               type="org.apache.webapp.admin.logger.AddLoggerAction">
+    </action>
+
+    <!-- Set up Add Logger transaction -->
+    <action    path="/logger/AddLogger"
                type="org.apache.webapp.admin.logger.AddLoggerAction">
     </action>
 
@@ -770,6 +780,11 @@
                type="org.apache.webapp.admin.connector.AddConnectorAction">
     </action>
 
+    <!-- Set up Add Connector transaction -->
+    <action    path="/connector/AddConnector"
+               type="org.apache.webapp.admin.connector.AddConnectorAction">
+    </action>
+
     <!-- Set up Delete Connectors transaction -->
     <action    path="/DeleteConnector"
                type="org.apache.webapp.admin.connector.DeleteConnectorAction"
@@ -798,6 +813,11 @@
 
     <!-- Set up Add Valve transaction -->
     <action    path="/AddValve"
+               type="org.apache.webapp.admin.valve.AddValveAction">
+    </action>
+
+    <!-- Set up Add Valve transaction -->
+    <action    path="/valve/AddValve"
                type="org.apache.webapp.admin.valve.AddValveAction">
     </action>
 

@@ -25,7 +25,7 @@ import org.jboss.mx.util.Serialization;
  * was passed and the problem type.
  *
  * @author <a href="mailto:Adrian.Brock@HappeningTimes.com">Adrian Brock</a>
- * @version $Revision: 1.4.6.1 $
+ * @version $Revision: 1.4.6.2 $
  */
 public class RoleUnresolved
   implements Serializable
@@ -207,11 +207,11 @@ public class RoleUnresolved
      buffer.append(") Role Name (");
      buffer.append(roleName);
      buffer.append(") ObjectNames (");
-     Iterator iterator = roleValue.iterator(); 
-     while (iterator.hasNext())
+
+     for (int i = 0; i < roleValue.size(); i++)
      {
-       buffer.append(iterator.next());
-       if (iterator.hasNext())
+       buffer.append(roleValue.get(i));
+       if (i + 1 < roleValue.size())
          buffer.append(" ");
      }
      buffer.append(")");

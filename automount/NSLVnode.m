@@ -635,23 +635,23 @@ Error_Exit:
 
 
 
-- (Vnode *)lookupByApparentNameWithoutPopulating:(String *)n
-{	
-	if (!strchr([n value], '/')) {
-		return [self lookupWithoutPopulating:n];
-	} else {
-		String *e = [self makeExternalName:n];
-		Vnode *v = [self lookupWithoutPopulating:e];
-		[e release];
-		return v;
-	};
+- (Vnode *)lookupWithoutPopulating:(String *)n
+{
+	return [super lookup:n];
 }
 
 
 
-- (Vnode *)lookupWithoutPopulating:(String *)n
-{
-	return [super lookup:n];
+- (Vnode *)lookupByApparentNameWithoutPopulating:(String *)n
+{	
+	if (!strchr([n value], '/')) {
+		return [(NSLVnode *)self lookupWithoutPopulating:n];
+	} else {
+		String *e = [self makeExternalName:n];
+		Vnode *v = [(NSLVnode *)self lookupWithoutPopulating:e];
+		[e release];
+		return v;
+	};
 }
 
 
@@ -867,6 +867,7 @@ Std_Exit: ;
 		
 #if 0 /* DEBUG ONLY */
 		if (1) {
+			char attributeCString[64];
 			CFStringRef attributeStringRef = NULL;
 			char attributeCString[64];
 
@@ -1284,7 +1285,6 @@ Error_Exit:
 			(void)CFStringGetCString(urlStringRef, urlbuffer, (CFIndex)sizeof(urlbuffer), kCFStringEncodingUTF8);
 		} else {
 			CFStringRef attributeStringRef = NULL;
-			char attributeCString[64];
 			char servicetype[64];
 			char hostaddress[MAXNSLOBJECTNAMELENGTH];
 			char portnumber[64];

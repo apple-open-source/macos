@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -69,7 +69,7 @@ IOUSBPipe::InitToEndpoint(const IOUSBEndpointDescriptor *ed, UInt8 speed, USBDev
         _endpoint.direction = kUSBAnyDirn;
     else
 	_endpoint.direction = (ed->bEndpointAddress & 0x80) ? kUSBIn : kUSBOut;
-    _endpoint.maxPacketSize = USBToHostWord(ed->wMaxPacketSize);
+    _endpoint.maxPacketSize = mungeMaxPacketSize(USBToHostWord(ed->wMaxPacketSize));
     _endpoint.interval = ed->bInterval;
     _status = 0;
     _address = address;
@@ -765,7 +765,7 @@ IOUSBPipe::SetPipePolicy(UInt16 maxPacketSize, UInt8 maxInterval)
     switch (_endpoint.transferType)
     {
 	case kUSBIsoc:
-	    if (maxPacketSize <= USBToHostWord(_descriptor->wMaxPacketSize))
+	    if (maxPacketSize <= mungeMaxPacketSize(USBToHostWord(_descriptor->wMaxPacketSize)))
 	    {
 		UInt16 oldsize = _endpoint.maxPacketSize;
 		USBLog(6, "IOUSBPipe[%p]::SetPipePolicy - trying to change isoch pipe from %d to %d bytes", this, oldsize, maxPacketSize);
@@ -781,7 +781,7 @@ IOUSBPipe::SetPipePolicy(UInt16 maxPacketSize, UInt8 maxInterval)
 	    }
 	    else
 	    {
-		USBLog(2, "IOUSBPipe[%p]::SetPipePolicy - requested size (%d) larger than maxPacketSize in descriptor (%d)", this, maxPacketSize, USBToHostWord(_descriptor->wMaxPacketSize));
+		USBLog(2, "IOUSBPipe[%p]::SetPipePolicy - requested size (%d) larger than maxPacketSize in descriptor (%d)", this, maxPacketSize, mungeMaxPacketSize(USBToHostWord(_descriptor->wMaxPacketSize)));
 		err = kIOReturnBadArgument;
 	    }
 	    break;

@@ -64,12 +64,12 @@ bool AppleK2::init(OSDictionary * properties)
 bool AppleK2::start(IOService *provider)
 {
 	OSData          *tmpData;
-	UInt32			fcrValue;
 	const OSSymbol	*instantiate = OSSymbol::withCString("InstantiatePlatformFunctions");
 	IOReturn		retval;
 	UInt32			flags;
 	IOPlatformFunction *func;
    	IOPCIDevice		*pciProvider;
+    UInt32			i;
 
     fProvider = provider;
 	tmpData = (OSData *) fProvider->getProperty( "AAPL,phandle" );
@@ -114,36 +114,6 @@ bool AppleK2::start(IOService *provider)
 	if (!super::start(provider))
 		return false;
 
-	// ***Adding an FCR property in the IORegistry
-	k2_FCRNode = OSSymbol::withCString("fcr-values");
-
-	fcrValue = readRegUInt32(kKeyLargoFCR0);
-	fcrs[0] = OSNumber::withNumber(fcrValue, 32);
-	fcrValue = readRegUInt32(kKeyLargoFCR1);
-	fcrs[1] = OSNumber::withNumber(fcrValue, 32);
-	fcrValue = readRegUInt32(kKeyLargoFCR2);
-	fcrs[2] = OSNumber::withNumber(fcrValue, 32);
-	fcrValue = readRegUInt32(kKeyLargoFCR3);
-	fcrs[3] = OSNumber::withNumber(fcrValue, 32);
-	fcrValue = readRegUInt32(kKeyLargoFCR4);
-	fcrs[4] = OSNumber::withNumber(fcrValue, 32);	
-	fcrValue = readRegUInt32(kKeyLargoFCR5);
-	fcrs[5] = OSNumber::withNumber(fcrValue, 32);
-	fcrValue = readRegUInt32(kK2FCR6);
-	fcrs[6] = OSNumber::withNumber(fcrValue, 32);
-	fcrValue = readRegUInt32(kK2FCR7);
-	fcrs[7] = OSNumber::withNumber(fcrValue, 32);
-	fcrValue = readRegUInt32(kK2FCR8);
-	fcrs[8] = OSNumber::withNumber(fcrValue, 32);
-	fcrValue = readRegUInt32(kK2FCR9);
-	fcrs[9] = OSNumber::withNumber(fcrValue, 32);
-	fcrValue = readRegUInt32(kK2FCR10);
-	fcrs[10] = OSNumber::withNumber(fcrValue, 32);
-
-	fcrArray = OSArray::withObjects(fcrs, kK2FCRCount, 0);
-	if (fcrArray)
-		keyLargoService->setProperty(k2_FCRNode, (OSArray *)fcrArray);
- 
 	// Set clock reference counts
 	setReferenceCounts ();
   
@@ -175,19 +145,24 @@ bool AppleK2::start(IOService *provider)
 	// initialize for Power Management
 	initForPM(provider);
   
-	// creates the USBPower handlers:
-	UInt32 i;
-	for (i = 0; i < fNumUSB; i++) {
-		usbBus[i] = new USBKeyLargo;
-    
-		if (usbBus[i] != NULL) {
-			if ( usbBus[i]->init() && usbBus[i]->attach(this))
-				usbBus[i]->initForBus(fBaseUSBID+i, keyLargoDeviceId);                 
-			else
-				usbBus[i]->release();
-		}
-	}
-
+    if(keyLargoDeviceId != kShastaDeviceId4f) {
+        // creates the USBPower handlers:
+        for (i = 0; i < fNumUSB; i++) {
+            usbBus[i] = new USBKeyLargo;
+        
+            if (usbBus[i] != NULL) {
+                if ( usbBus[i]->init() && usbBus[i]->attach(this))
+                    usbBus[i]->initForBus(fBaseUSBID+i, keyLargoDeviceId);                 
+                else
+                    usbBus[i]->release();
+            }
+        }
+    }
+    else {
+        // Shasta machines have no PMU, set up watchdog here.
+        // Presumably SMU supports watchdog timer.
+        watchDogTimer = KeyLargoWatchDogTimer::withKeyLargo(this);
+    }
     // Register the FireWire and Ethernet clock control routines
     publishResource(k2_enableFireWireClock, this);
     publishResource(k2_enableEthernetClock, this);
@@ -199,7 +174,8 @@ bool AppleK2::start(IOService *provider)
 			(void *)provider, (void *)&fPlatformFuncArray, (void *)0, (void *)0);
 
 	if (retval == kIOReturnSuccess && (fPlatformFuncArray != NULL)) {
-		for (i = 0; i < fPlatformFuncArray->getCount(); i++) {
+        UInt32 count = fPlatformFuncArray->getCount();
+		for (i = 0; i < count; i++) {
 			if (func = OSDynamicCast(IOPlatformFunction, fPlatformFuncArray->getObject(i))) {
 				flags = func->getCommandFlags();
 
@@ -237,17 +213,16 @@ bool AppleK2::start(IOService *provider)
 void AppleK2::stop(IOService *provider)
 {
 	// releases the USBPower handlers:
-	UInt32 i;
-	for (i = 0; i < fNumUSB; i++) {
-		if (usbBus[i] != NULL)
-			usbBus[i]->release();
-	}
-
+    if(keyLargoDeviceId != kShastaDeviceId4f) {
+        UInt32 i;
+        for (i = 0; i < fNumUSB; i++) {
+            if (usbBus[i] != NULL)
+                usbBus[i]->release();
+        }
+    }
 	// release the fcr handles
 	if (keyLargoService)
 		keyLargoService->release(); 
-	if (fcrArray)
-		fcrArray->release();
   
 	if (mutex != NULL)
 		IOSimpleLockFree( mutex );
@@ -262,14 +237,6 @@ void AppleK2::publishBelow( IORegistryEntry * root )
 
 void AppleK2::processNub( IOService * nub )
 {
-    // Strip off annoying k2- at start of name
-#if 0
-    const char *name = nub->getName();
-    if(strncmp(name, "k2-", 3) == 0) {
-        kprintf("renaming %s to %s\n", name, name+3);
-        nub->setName(name+3);
-    }
-#endif
     nub->setProperty("preserveIODeviceTree", true);
 }
 
@@ -460,7 +427,8 @@ void AppleK2::enableCells()
 void AppleK2::saveRegisterState(void)
 {
     saveK2State();
-    saveVIAState(savedK2State.savedVIAState);
+    if(keyLargoDeviceId != kShastaDeviceId4f)
+        saveVIAState(savedK2State.savedVIAState);
     savedK2State.thisStateIsValid = true;
 	
 	return;
@@ -470,7 +438,8 @@ void AppleK2::restoreRegisterState(void)
 {
     if (savedK2State.thisStateIsValid) {
         restoreK2State();
-        restoreVIAState(savedK2State.savedVIAState);
+        if(keyLargoDeviceId != kShastaDeviceId4f)
+            restoreVIAState(savedK2State.savedVIAState);
     }
 
     savedK2State.thisStateIsValid = false;
@@ -522,25 +491,6 @@ void AppleK2::safeWriteRegUInt32(unsigned long offset, UInt32 mask, UInt32 data)
 	if ( mutex  != NULL )
 		IOSimpleLockUnlockEnableInterrupt(mutex, intState);
 	
-    // ***If we are writing a 32-bit reg, we want to see if it's an FCR register.
-    // If it is, we want to update the fcr values in memory so we can update the
-    // property later.
-    
-	if (offset >= kKeyLargoFCR0 && offset <= kKeyLargoFCR5 && fcrArray) {
-		OSNumber* value = OSNumber::withNumber(newReg, 32);
-		
-		((OSArray *)fcrArray)->replaceObject((offset - kKeyLargoFCRBase) >> 2, value);
-		keyLargoService->setProperty(k2_FCRNode, (OSArray *)fcrArray);
-		value->release();
-	}
-    else if (offset >= kK2FCR10 && offset <= kK2FCR6 && fcrArray) {
-		OSNumber* value = OSNumber::withNumber(newReg, 32);
-		
-		((OSArray *)fcrArray)->replaceObject(10 - ((offset - kK2FCRBase) >> 2), value);
-		keyLargoService->setProperty(k2_FCRNode, (OSArray *)fcrArray);
-		value->release();
-	}
-
 	return;
 }
 
@@ -911,8 +861,8 @@ IOReturn AppleK2::callPlatformFunction(const OSSymbol *functionName,
 	if (fPlatformFuncArray) {
 		UInt32 i;
 		IOPlatformFunction *pfFunc;
-		
-		for (i = 0; i < fPlatformFuncArray->getCount(); i++) {
+		UInt32 count = fPlatformFuncArray->getCount();
+		for (i = 0; i < count; i++) {
 			if (pfFunc = OSDynamicCast(IOPlatformFunction, fPlatformFuncArray->getObject(i))) {
 				// Check for on-demand case
 				if (pfFunc->platformFunctionMatch (functionName, kIOPFFlagOnDemand, NULL)) {
@@ -1284,27 +1234,38 @@ void AppleK2::ModemResetHigh()
 
 void AppleK2::PowerI2S (bool powerOn, UInt32 cellNum)
 {
-	UInt32 fcr1Bits, fcr3Bits;
+	UInt32 fcr0Bits,fcr1Bits, fcr3Bits;
+    
+    fcr0Bits=0;
 	if (cellNum == 0) {
 		fcr1Bits = kKeyLargoFCR1I2S0CellEnable |
 						kKeyLargoFCR1I2S0ClkEnable |
 						kKeyLargoFCR1I2S0Enable;
 		fcr3Bits = kKeyLargoFCR3I2S0Clk18Enable;
 	} else if (cellNum == 1) {
+        fcr0Bits = kKeyLargoFCR0ChooseSCCA;
 		fcr1Bits = kKeyLargoFCR1I2S1CellEnable |
 						kKeyLargoFCR1I2S1ClkEnable |
 						kKeyLargoFCR1I2S1Enable;
 		fcr3Bits = kKeyLargoFCR3I2S1Clk18Enable;
+    } else if (cellNum == 2 && keyLargoDeviceId == kShastaDeviceId4f) {
+        fcr0Bits = kKeyLargoFCR0ChooseSCCB;
+        fcr1Bits = kShastaFCR1I2S2CellEnable |
+						kShastaFCR1I2S2ClkEnable |
+						kShastaFCR1I2S2Enable;
+		fcr3Bits = kShastaFCR3I2S2Clk18Enable;
 	} else
 		return; 		// bad cellNum ignored
 
 
 	if (powerOn) {
-		// turn on all I2S bits
+		// turn on all I2S bits (note ChooseSCCA/B bits are inverted)
+		safeWriteRegUInt32 (kKeyLargoFCR0, fcr0Bits, 0);
 		safeWriteRegUInt32 (kKeyLargoFCR1, fcr1Bits, fcr1Bits);
 		safeWriteRegUInt32 (kKeyLargoFCR3, fcr3Bits, fcr3Bits);
 	} else {
-		// turn off all I2S bits
+		// turn off all I2S bits (note ChooseSCCA/B bits are inverted)
+		safeWriteRegUInt32 (kKeyLargoFCR0, fcr0Bits, fcr0Bits);
 		safeWriteRegUInt32 (kKeyLargoFCR1, fcr1Bits, 0);
 		safeWriteRegUInt32 (kKeyLargoFCR3, fcr3Bits, 0);
 	}
@@ -1358,18 +1319,32 @@ IOReturn AppleK2::SetPowerSupply (bool powerHi)
 
 void AppleK2::resetUniNEthernetPhy(void)
 {
-	// Uni-N Ethernet's Phy reset is controlled by GPIO16.
+	void *hasVesta = fProvider->getProperty("hasVesta");
+	
 	// This should be determined from the device tree.
     kprintf("resetUniNEthernetPhy!\n");
-#if 0
-	// Pull down GPIO16 for 10ms (> 1ms) to hard reset the Phy,
-	// and bring it out of low-power mode.
-	writeRegUInt8(kKeyLargoGPIOBase + 16, kKeyLargoGPIOOutputEnable);
-	IOSleep(10);
-	// Make direction an input so we don't continue to drive the data line
-	writeRegUInt8(kKeyLargoGPIOBase + 16, kKeyLargoGPIOData);
-	IOSleep(10);
-#endif	
+
+	// WARNING:  GPIO 29 may be routed to a discrete PHY or to a combo PHY
+	// like Vesta, which incorporates both Ethernet and FireWire components.
+	// If using Vesta, assertion of GPIO 29 will reset FireWire as well as
+	// Ethernet.  This is generally not the desired behavior.
+	
+	// DOUBLE WARNING: This is a temporary fix.  A proper fix involves changing
+	// the device tree to better describe the proper behavior.  Expect this code
+	// to change - see 3475890
+	
+	if (!hasVesta) /* using a discrete Ethernet PHY */ {
+		// This should be determined from the device tree.
+	
+		// Assert GPIO29 for 10ms (> 1ms) (active high)
+		// to hard reset the Phy, and bring it out of low-power mode.
+		writeRegUInt8(kK2GPIOBase + 29, kKeyLargoGPIOOutputEnable | kKeyLargoGPIOData);
+		IOSleep(10);
+		// Make direction an input so we don't continue to drive the data line
+		writeRegUInt8(kK2GPIOBase + 29, 0);
+		IOSleep(10);
+	}
+
 	return;
 }
 

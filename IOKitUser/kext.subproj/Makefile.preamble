@@ -9,3 +9,4 @@ OTHER_OFILES = kextmanagerUser.o
 
 ifeq "$(RC_RELEASE)" "Darwin"
 	OTHER_CFLAGS += -DNO_CFUserNofitication
+endif

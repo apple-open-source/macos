@@ -11,8 +11,8 @@ NAME = ps
 
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Component
-CFILES = IOPowerSources.c
-HFILES = IOPSKeys.h IOPowerSources.h
+CFILES = IOPowerSources.c IOPowerSourcesPrivate.c
+HFILES = IOPSKeys.h IOPowerSources.h IOPowerSourcesPrivate.h
 
 OTHERSRCS = Makefile.preamble Makefile
 
@@ -27,6 +27,7 @@ PROF_LIBS = $(LIBS)
 
 PUBLIC_HEADERS = IOPSKeys.h IOPowerSources.h
 
+PRIVATE_HEADERS = IOPowerSourcesPrivate.h
 
 NEXTSTEP_BUILD_OUTPUT_DIR = /$(USER)/build/$(NAME)
 

@@ -21,33 +21,38 @@
  */
 
 #ifndef lint
-static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/src/live/libpcap/libpcap/scanner.l,v 1.1.1.1 2001/07/07 00:41:36 bbraun Exp $ (LBL)";
+static const char rcsid[] _U_ =
+    "@(#) $Header: /cvs/root/libpcap/libpcap/scanner.l,v 1.1.1.3 2004/02/05 19:22:28 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <sys/types.h>
-#include <sys/time.h>
-
 #include <ctype.h>
-#include <unistd.h>
 #include <string.h>
 
 #include "pcap-int.h"
 
 #include "gencode.h"
-#include <pcap-namedb.h>
 #ifdef INET6
-#include <netdb.h>
-#include <sys/socket.h>
+#ifdef WIN32
+#include <pcap-stdinc.h>
+
+#ifdef __MINGW32__
+#include "IP6_misc.h"
+#endif
+#else /* WIN32 */
+#include <sys/socket.h>	/* for "struct sockaddr" in "struct addrinfo" */
+#include <netdb.h>	/* for "struct addrinfo" */
+#endif /* WIN32 */
+
 /* Workaround for AIX 4.3 */
 #if !defined(AI_NUMERICHOST)
 #define AI_NUMERICHOST 0x04
 #endif
 #endif /*INET6*/
+#include <pcap-namedb.h>
 #include "tokdefs.h"
 
 #ifdef HAVE_OS_PROTO_H
@@ -76,11 +81,11 @@ N		([0-9]+|(0X|0x)[0-9A-Fa-f]+)
 B		([0-9A-Fa-f][0-9A-Fa-f]?)
 W		([0-9A-Fa-f][0-9A-Fa-f]?[0-9A-Fa-f]?[0-9A-Fa-f]?)
 
-%a 15000
-%o 17000
+%a 16000
+%o 19000
 %e 6000
 %k 4000
-%p 19000
+%p 25000
 %n 2000
 
 V680		{W}:{W}:{W}:{W}:{W}:{W}:{W}:{W}
@@ -166,19 +171,33 @@ dst		return DST;
 src		return SRC;
 
 link|ether|ppp|slip  return LINK;
-fddi|tr		return LINK;
+fddi|tr|wlan	return LINK;
 arp		return ARP;
 rarp		return RARP;
 ip		return IP;
+sctp		return SCTP;
 tcp		return TCP;
 udp		return UDP;
 icmp		return ICMP;
 igmp		return IGMP;
 igrp		return IGRP;
 pim		return PIM;
+vrrp		return VRRP;
 
-ip6		return IPV6;
-icmp6		return ICMPV6;
+ip6		{
+#ifdef INET6
+		return IPV6;
+#else
+		bpf_error("%s not supported", yytext);
+#endif
+		}
+icmp6		{
+#ifdef INET6
+		return ICMPV6;
+#else
+		bpf_error("%s not supported", yytext);
+#endif
+		}
 ah		return AH;
 esp		return ESP;
 
@@ -195,11 +214,25 @@ esis		return ESIS;
 es-is		return ESIS;
 isis		return ISIS;
 is-is		return ISIS;
+l1              return L1;
+l2              return L2;
+iih             return IIH;
+lsp             return LSP;
+snp             return SNP;
+csnp            return CSNP;
+psnp            return PSNP;
+
 clnp		return CLNP;
+
+stp		return STP;
+
+ipx		return IPX;
+
+netbeui		return NETBEUI;
 
 host		return HOST;
 net		return NET;
-mask		return MASK;
+mask		return NETMASK;
 port		return PORT;
 proto		return PROTO;
 protochain	{
@@ -214,7 +247,7 @@ gateway		return GATEWAY;
 
 less		return LESS;
 greater		return GREATER;
-byte		return BYTE;
+byte		return CBYTE;
 broadcast	return TK_BROADCAST;
 multicast	return TK_MULTICAST;
 
@@ -228,7 +261,27 @@ outbound	return OUTBOUND;
 
 vlan		return VLAN;
 
-[ \n\t]			;
+lane		return LANE;
+llc		return LLC;
+metac		return METAC;
+bcc		return BCC;
+oam		return OAM;
+oamf4		return OAMF4;
+oamf4ec		return OAMF4EC;
+oamf4sc		return OAMF4SC;
+sc		return SC;
+ilmic		return ILMIC;
+vpi		return VPI;
+vci		return VCI;
+connectmsg	return CONNECTMSG;
+metaconnect	return METACONNECT;
+
+on|ifname	return PF_IFNAME;
+rnr|rulenum	return PF_RNR;
+reason		return PF_REASON;
+action		return PF_ACTION;
+
+[ \r\n\t]		;
 [+\-*/:\[\]!<>()&|=]	return yytext[0];
 ">="			return GEQ;
 "<="			return LEQ;
@@ -236,6 +289,8 @@ vlan		return VLAN;
 "=="			return '=';
 "<<"			return LSH;
 ">>"			return RSH;
+${B}			{ yylval.e = pcap_ether_aton(((char *)yytext)+1);
+			  return AID; }
 {N}			{ yylval.i = stoi((char *)yytext); return NUM; }
 ({N}\.{N})|({N}\.{N}\.{N})|({N}\.{N}\.{N}\.{N})	{
 			yylval.s = sdup((char *)yytext); return HID; }
@@ -250,18 +305,42 @@ vlan		return VLAN;
 			  if (getaddrinfo(yytext, NULL, &hints, &res))
 				bpf_error("bogus IPv6 address %s", yytext);
 			  else {
-				yylval.e = sdup((char *)yytext); return HID6;
+				yylval.s = sdup((char *)yytext); return HID6;
 			  }
 #else
 			  bpf_error("IPv6 address %s not supported", yytext);
 #endif /*INET6*/
 			}
 {B}:+({B}:+)+		{ bpf_error("bogus ethernet address %s", yytext); }
-[A-Za-z0-9][-_.A-Za-z0-9]*[.A-Za-z0-9] {
+icmptype		{ yylval.i = 0; return NUM; }
+icmpcode		{ yylval.i = 1; return NUM; }
+icmp-echoreply		{ yylval.i = 0; return NUM; }
+icmp-unreach		{ yylval.i = 3; return NUM; }
+icmp-sourcequench	{ yylval.i = 4; return NUM; }
+icmp-redirect		{ yylval.i = 5; return NUM; }
+icmp-echo		{ yylval.i = 8; return NUM; }
+icmp-routeradvert	{ yylval.i = 9; return NUM; }
+icmp-routersolicit	{ yylval.i = 10; return NUM; }
+icmp-timxceed		{ yylval.i = 11; return NUM; }
+icmp-paramprob		{ yylval.i = 12; return NUM; }
+icmp-tstamp		{ yylval.i = 13; return NUM; }
+icmp-tstampreply	{ yylval.i = 14; return NUM; }
+icmp-ireq		{ yylval.i = 15; return NUM; }
+icmp-ireqreply		{ yylval.i = 16; return NUM; }
+icmp-maskreq		{ yylval.i = 17; return NUM; }
+icmp-maskreply		{ yylval.i = 18; return NUM; }
+tcpflags		{ yylval.i = 13; return NUM; }
+tcp-fin			{ yylval.i = 0x01; return NUM; }
+tcp-syn			{ yylval.i = 0x02; return NUM; }
+tcp-rst			{ yylval.i = 0x04; return NUM; }
+tcp-push		{ yylval.i = 0x08; return NUM; }
+tcp-ack			{ yylval.i = 0x10; return NUM; }
+tcp-urg			{ yylval.i = 0x20; return NUM; }
+[A-Za-z0-9]([-_.A-Za-z0-9]*[.A-Za-z0-9])? {
 			 yylval.s = sdup((char *)yytext); return ID; }
 "\\"[^ !()\n\t]+	{ yylval.s = sdup((char *)yytext + 1); return ID; }
-[^ \[\]\t\n\-_.A-Za-z0-9!<>()&|=]+i {
-			bpf_error("illegal token: %s\n", yytext); }
+[^ \[\]\t\n\-_.A-Za-z0-9!<>()&|=]+ {
+			bpf_error("illegal token: %s", yytext); }
 .			{ bpf_error("illegal char '%c'", *yytext); }
 %%
 void

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,37 +23,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc.  All rights reserved.
  *
  *
  */
-//		$Log: IOPlatformTableCtrlLoop.h,v $
-//		Revision 1.4  2003/07/08 04:32:49  eem
-//		3288891, 3279902, 3291553, 3154014
-//		
-//		Revision 1.3  2003/06/07 01:30:56  eem
-//		Merge of EEM-PM72-ActiveFans-2 branch, with a few extra tweaks.  This
-//		checkin has working PID control for PowerMac7,2 platforms, as well as
-//		a first shot at localized strings.
-//		
-//		Revision 1.2.2.3  2003/05/29 03:51:34  eem
-//		Clean up environment dictionary access.
-//		
-//		Revision 1.2.2.2  2003/05/23 06:36:57  eem
-//		More registration notification stuff.
-//		
-//		Revision 1.2.2.1  2003/05/22 01:31:04  eem
-//		Checkin of today's work (fails compilations right now).
-//		
-//		Revision 1.2  2003/05/21 21:58:49  eem
-//		Merge from EEM-PM72-ActiveFans-1 branch with initial crack at active fan
-//		control on Q37.
-//		
-//		Revision 1.1.2.1  2003/05/16 07:08:46  eem
-//		Table-lookup active fan control working with this checkin.
-//		
-//
-//
+
 
 #ifndef _IOPLATFORMTABLECTRLLOOP_H
 #define _IOPLATFORMTABLECTRLLOOP_H

@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -85,7 +82,6 @@ typedef struct {
     void *		client_id;
     int			client_id_len;
     boolean_t		gathering;
-    u_char *		idstr;
     boolean_t		in_use;
     dhcp_time_secs_t	lease_start;
     dhcp_time_secs_t	lease_expiration;
@@ -112,7 +108,6 @@ typedef struct {
     arp_client_t *	arp;
     bootp_client_t *	client;
     boolean_t		gathering;
-    u_char *		idstr;
     struct in_addr	our_ip;
     struct in_addr	our_mask;
     struct dhcp * 	request;
@@ -833,9 +828,6 @@ inform_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	  }
 	  service_p->private = inform;
 	  bzero(inform, sizeof(*inform));
-	  inform->idstr = identifierToString(if_link_arptype(if_p), 
-					   if_link_address(if_p), 
-					   if_link_length(if_p));
 	  dhcpol_init(&inform->saved.options);
 	  inform->our_ip = ipcfg->ip[0].addr;
 	  inform->our_mask = ipcfg->ip[0].mask;
@@ -860,8 +852,7 @@ inform_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	      status = ipconfig_status_allocation_failed_e;
 	      goto stop;
 	  }
-	  my_log(LOG_DEBUG, "INFORM %s: id %s start", 
-		 if_name(if_p), inform->idstr);
+	  my_log(LOG_DEBUG, "INFORM %s: start", if_name(if_p));
 	  inform->xid = random();
 	  inform_start(service_p, IFEventID_start_e, NULL);
 	  break;
@@ -885,11 +876,6 @@ inform_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	  if (inform->arp) {
 	      arp_client_free(&inform->arp);
 	  }
-	  if (inform->idstr) {
-	      free(inform->idstr);
-	      inform->idstr = NULL;
-	  }
-
 	  dhcpol_free(&inform->saved.options);
 	  if (inform)
 	      free(inform);
@@ -1176,21 +1162,10 @@ dhcp_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	      cid = ((void *)ipcfg->ip) + ipcfg->n_ip * sizeof(ipcfg->ip[0]);
 	      bcopy(cid, dhcp->client_id, dhcp->client_id_len);
 	  }
-
-	  dhcp->idstr = identifierToString(if_link_dhcptype(if_p), 
-					   if_link_address(if_p), 
-					   if_link_length(if_p));
-	  if (dhcp->idstr == NULL) {
-	      my_log(LOG_ERR, "DHCP %s: malloc device ID string failed", 
-		     if_name(if_p));
-	      status = ipconfig_status_allocation_failed_e;
-	      goto stop;
-	  }
-	  my_log(LOG_DEBUG, "DHCP %s: H/W %s start", 
-		 if_name(if_p), dhcp->idstr);
+	  my_log(LOG_DEBUG, "DHCP %s: start", if_name(if_p));
 	  dhcp->xid = random();
 	  if (service_ifstate(service_p)->netboot == TRUE
-	      || dhcp_lease_read(dhcp->idstr, &our_ip)) {
+	      || dhcp_lease_read(if_name(if_p), &our_ip)) {
 	      /* try the same address if we had a lease at some point */
 	      dhcp_init_reboot(service_p, IFEventID_start_e, &our_ip);
 	  }
@@ -1226,10 +1201,6 @@ dhcp_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	  }
 	  if (dhcp->arp) {
 	      arp_client_free(&dhcp->arp);
-	  }
-	  if (dhcp->idstr) {
-	      free(dhcp->idstr);
-	      dhcp->idstr = NULL;
 	  }
 	  if (dhcp->client_id) {
 	      free(dhcp->client_id);
@@ -1293,7 +1264,7 @@ dhcp_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 				  &dhcp->saved.our_ip,
 				  arpc->hwaddr,
 				  &dhcp->saved.server_ip);
-	  dhcp_lease_clear(dhcp->idstr);
+	  dhcp_lease_clear(if_name(if_p));
 	  service_publish_failure(service_p, 
 				  ipconfig_status_address_in_use_e, msg);
 	  if (dhcp->saved.is_dhcp) {
@@ -2105,7 +2076,7 @@ dhcp_bound(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	      }
 	      dhcp->in_use = TRUE;
 	      my_log(LOG_ERR, "DHCP %s: %s", if_name(if_p), msg);
-	      dhcp_lease_clear(dhcp->idstr);
+	      dhcp_lease_clear(if_name(if_p));
 	      service_publish_failure(service_p, 
 				      ipconfig_status_address_in_use_e, msg);
 	      if (dhcp->saved.is_dhcp) {
@@ -2132,10 +2103,10 @@ dhcp_bound(Service_t * service_p, IFEventID_t event_id, void * event_data)
     if (renewing == FALSE) {
 	if (dhcp->saved.is_dhcp) {
 	    /* only bother to save a lease if it came from a DHCP server */
-	    (void)dhcp_lease_write(dhcp->idstr, dhcp->saved.our_ip);
+	    (void)dhcp_lease_write(if_name(if_p), dhcp->saved.our_ip);
 	}
 	else {
-	    dhcp_lease_clear(dhcp->idstr);
+	    dhcp_lease_clear(if_name(if_p));
 	}
     }
 
@@ -2301,6 +2272,7 @@ static void
 dhcp_unbound(Service_t * service_p, IFEventID_t event_id, void * event_data)
 {
     Service_dhcp_t *	dhcp = (Service_dhcp_t *)service_p->private;
+    interface_t *	if_p = service_interface(service_p);
     struct timeval 	tv = {0,0};
 
     switch (event_id) {
@@ -2314,7 +2286,7 @@ dhcp_unbound(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	  (void)service_remove_address(service_p);
 	  dhcp->saved.our_ip.s_addr = 0;
 
-	  dhcp_lease_clear(dhcp->idstr);
+	  dhcp_lease_clear(if_name(if_p));
 
 	  tv.tv_sec = 0;
 	  tv.tv_usec = 1000;
@@ -2516,7 +2488,7 @@ dhcp_release(Service_t * service_p)
     Service_dhcp_t *	dhcp = (Service_dhcp_t *)service_p->private;
     dhcpoa_t	 	options;
 
-    dhcp_lease_clear(dhcp->idstr);
+    dhcp_lease_clear(if_name(if_p));
     if (dhcp->saved.is_dhcp == FALSE || dhcp->saved.our_ip.s_addr == 0) {
 	return;
     }

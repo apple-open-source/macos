@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,78 +23,17 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc.  All rights reserved.
  *
  *
  */
-//		$Log: IOPlatformControl.h,v $
-//		Revision 1.7  2003/07/16 02:02:09  eem
-//		3288772, 3321372, 3328661
-//		
-//		Revision 1.6  2003/06/25 02:16:24  eem
-//		Merged 101.0.21 to TOT, fixed PM72 lproj, included new fan settings, bumped
-//		version to 101.0.22.
-//		
-//		Revision 1.5.4.2  2003/06/20 09:07:33  eem
-//		Added rising/falling slew limiters, integral clipping, etc.
-//		
-//		Revision 1.5.4.1  2003/06/19 10:24:16  eem
-//		Pulled common PID code into IOPlatformPIDCtrlLoop and subclassed it with
-//		PowerMac7_2_CPUFanCtrlLoop and PowerMac7_2_PIDCtrlLoop.  Added history
-//		length to meta-state.  No longer adjust T_err when the setpoint changes.
-//		Don't crank the CPU fans for overtemp, just slew slow.
-//		
-//		Revision 1.5  2003/06/07 01:30:56  eem
-//		Merge of EEM-PM72-ActiveFans-2 branch, with a few extra tweaks.  This
-//		checkin has working PID control for PowerMac7,2 platforms, as well as
-//		a first shot at localized strings.
-//		
-//		Revision 1.4.2.3  2003/06/06 12:16:48  eem
-//		Updated strings, turned off debugging.
-//		
-//		Revision 1.4.2.2  2003/05/23 05:44:40  eem
-//		Cleanup, ctrlloops not get notification for sensor and control registration.
-//		
-//		Revision 1.4.2.1  2003/05/22 01:31:04  eem
-//		Checkin of today's work (fails compilations right now).
-//		
-//		Revision 1.4  2003/05/21 21:58:49  eem
-//		Merge from EEM-PM72-ActiveFans-1 branch with initial crack at active fan
-//		control on Q37.
-//		
-//		Revision 1.3.2.3  2003/05/17 11:08:22  eem
-//		All active fan data present, table event-driven.  PCI power sensors are
-//		not working yet so PCI fan is just set to 67% PWM and forgotten about.
-//		
-//		Revision 1.3.2.2  2003/05/16 07:08:45  eem
-//		Table-lookup active fan control working with this checkin.
-//		
-//		Revision 1.3.2.1  2003/05/14 22:07:48  eem
-//		Implemented state-driven sensor, cleaned up "const" usage and header
-//		inclusions.
-//		
-//		Revision 1.3  2003/05/13 02:13:51  eem
-//		PowerMac7_2 Dynamic Power Step support.
-//		
-//		Revision 1.2.2.1  2003/05/12 11:21:09  eem
-//		Support for slewing.
-//		
-//		Revision 1.2  2003/05/10 06:50:33  eem
-//		All sensor functionality included for PowerMac7_2_PlatformPlugin.  Version
-//		is 1.0.1d12.
-//		
-//		Revision 1.1.2.2  2003/05/10 06:32:34  eem
-//		Sensor changes, should be ready to merge to trunk as 1.0.1d12.
-//		
-//		Revision 1.1.2.1  2003/05/01 09:28:40  eem
-//		Initial check-in in progress toward first Q37 checkpoint.
-//		
-//		
+
 
 #ifndef _IOPLATFORMCONTROL_H
 #define _IOPLATFORMCONTROL_H
 
 #include <IOKit/IOService.h>
+#include "IOPlatformPluginDefs.h"
 
 #ifdef CONTROL_DLOG
 #undef CONTROL_DLOG
@@ -153,17 +92,76 @@ protected:
 	virtual void free( void );
 
 	/* translate between plugin and HW value representations.  Note that current-value and target-value might not represent the same thing.  For example, FCU PWM channels accept/report their target value as a PWM tick value in the range [0-255] but report their current value as an integer RPM.  Here we have a method to convert current-value from HW->plugin, and to convert target from HW->plugin and from plugin->HW. */
-	virtual const OSNumber * 		applyCurrentValueTransform( const OSNumber * hwReading );
-	virtual const OSNumber *		applyTargetValueTransform( const OSNumber * hwReading );
-	virtual const OSNumber *		applyTargetHWTransform( const OSNumber * value );
+	virtual ControlValue	 		applyCurrentValueTransform( ControlValue hwReading );
+	virtual ControlValue			applyTargetValueTransform( ControlValue hwReading );
+	virtual ControlValue			applyTargetValueInverseTransform( ControlValue pluginReading );
 
 	// notify the control loops that we've got a registered driver
 	virtual void notifyCtrlLoops( void );
 
 public:
+
+	/*
+	 * Notes on initPlatformControl( const OSDictionary * ), initPlatformControl( IOService * ),
+	 * and registerDriver( IOSerivce *, const OSDictionary *, bool )
+	 *
+	 * These routines are cumulatively responsible for initializing an IOPlatformControl object
+	 * and making sure that all the correct data is supplied, parsed, and prioritized.  There
+	 * are a number of properties inside a control.  Some can be declared by the thermal
+	 * profile, some can be supplied by the registering driver, and some, if left unspecified,
+	 * will be set to some default value.
+	 *
+	 * initPlatformControl( const OSDictionary * ) is invoked when a control is being initialized
+	 * from a thermal profile entry.  The OSDictionary parameter is the thermal profile entry.
+	 *
+	 * initPlatformControl( IOService * ) is invoked when a control driver tries to register and
+	 * its control-id is not found in the thermal profile.  The IOService parameter is the driver
+	 * that is sending the registration.
+	 *
+	 * registerDriver( IOService *, const OSDictionary *, bool ) is invoked after one of the
+	 * initPlatformControl() routines has been invoked (and some of the parameters have already
+	 * been set.
+	 *
+	 * The following properties are REQUIRED for successful completion of initPlatformControl:
+	 *	kIOPPluginControlIDKey
+	 *
+	 * The following properties may be supplied by the thermal profile, but will be given
+	 * default values if not specified (the control driver does not know about these
+	 * properties):
+	 *
+	 *	kIOPPluginThermalLocalizedDescKey		"UNKNOWN_CONTROL"	<OSString>
+	 *	kIOPPluginControlFlagsKey				0x0					<OSNumber>
+	 *	kIOPPluginInitialTargetKey				<none>
+	 *
+	 * The following properties are always supplied by the control driver (IOHWControl) but, if
+	 * specified, values in the thermal profile will take precedence and be used instead.
+	 *
+	 *	kIOPPluginTypeKey
+	 *	kIOPPluginVersionKey
+	 *	kIOPPluginLocationKey
+	 *	kIOPPluginZoneKey
+	 *
+	 * The control driver is responsible for supplying its current-value and target-value in
+	 * the registration dictionary.  When an IOPlatformControl is initialized (via either method),
+	 * the current-value and target-value are set to zero.  When the control driver registers,
+	 * these values are updated to reflect the values being reported by the driver.
+	 *
+	 * The kIOPPluginInitialTargetKey can be specified in the thermal profile.  If present, the
+	 * indicated target will be sent to the control driver upon initialization.
+	 */
+
 	/*!	@function initPlatformControl 
-		@abstract Initialize an IOPlatformControl object from its ControlArray dict as included in the IOPlatformThermalProfile. */
+		@abstract Initialize an IOPlatformControl object from its ControlArray dict as included in the IOPlatformThermalProfile.
+		@param dict The thermal profile dictionary for this control
+	*/
 	virtual IOReturn				initPlatformControl( const OSDictionary *dict );
+
+	/*!	@function initPlatformControl 
+		@abstract Initialize an IOPlatformControl object from a control driver that is attempting to register
+		@param unknownControl An IOService reference to the driver attempting to register
+		@param dict The OSDictionary that the control sent with the registration message
+	*/
+	virtual IOReturn				initPlatformControl( IOService * unknownControl, const OSDictionary * dict );
 
 	/*! @function isManaged
 		@abstract Boolean to tell whether the platform plugin is managing this control.  Some controls are only represented so that they can report errors/failures. */
@@ -174,7 +172,10 @@ public:
 	virtual OSBoolean *				isRegistered( void );
 
 	/*!	@function registerDriver
-		@abstract Used to associated an IOService with this control. */
+		@abstract Used to associated an IOService with this control.
+		@param driver the driver that is attempting to register
+		@param dict the registration dictionary passed up by the driver
+	*/
 	virtual IOReturn				registerDriver( IOService * driver, const OSDictionary * dict, bool notify = true );
 
 	/*! @function joinedCtrlLoop
@@ -221,27 +222,37 @@ public:
 	// control-flags
 	virtual OSNumber *				getControlFlags( void );
 
+	// Generic value accessor routine
+	virtual ControlValue			getValue( const OSSymbol * key, ControlValue defaultValue );
+	virtual void					setValue( const OSSymbol * key, ControlValue newValue );
+
 	// min-value, max-value -- these may not be used for all controls
-	virtual UInt32					getControlMinValueUInt32( void );
-	virtual OSNumber *				getControlMinValue( void );
-	virtual UInt32					getControlMaxValueUInt32( void );
-	virtual OSNumber *				getControlMaxValue( void );
-	virtual	void					setControlMinValue( OSNumber * min );
-	virtual	void					setControlMaxValue( OSNumber * max );
+	virtual ControlValue			getControlMinValue( void );
+	virtual ControlValue			getControlMaxValue( void );
+	virtual	void					setControlMinValue( ControlValue );
+	virtual	void					setControlMaxValue( ControlValue );
 
 	// current-value
-	virtual const OSNumber *		getCurrentValue( void ); // reads current-value from infoDict
-	virtual void					setCurrentValue( const OSNumber * sensorValue ); // sets current-value in infoDict
-	virtual const OSNumber *		fetchCurrentValue( void );	// possibly blocking -- reads from controller driver
+	virtual ControlValue			getCurrentValue( void ); // reads current-value from infoDict
+	virtual void					setCurrentValue( ControlValue newValue ); // sets current-value in infoDict
+	virtual ControlValue			fetchCurrentValue( void );
+
+	/*!	@function sendForceUpdateMessage
+		@abstract Formulates and sends a force-update message to the control.  This causes the IOHWControl driver to poll the hardware and update it's current-value. */
+	virtual IOReturn				sendForceUpdate( void );
+
+	/*! @function forceAndFetchCurrentValue
+		@abstract Same as fetchCurrentValue(), except calls sendForceUpdate() before fetching, transforming and storing the current-value.
+	*/
+	virtual ControlValue			forceAndFetchCurrentValue( void );	// blocks for I/O
 
 	// target-value
-	virtual const OSNumber *		getTargetValue(void);
-	virtual void					setTargetValue( UInt32 value );
-	virtual void					setTargetValue( const OSNumber * value );
+	virtual ControlValue			getTargetValue(void);
+	virtual void					setTargetValue( ControlValue target );
 
 	// this send the target-value stored in infoDict to the control
 	// if forced == true, this is a forced value from setProperties
-	virtual bool					sendTargetValue( const OSNumber * value, bool forced = false ); // this can block !!
+	virtual bool					sendTargetValue( ControlValue target, bool forced = false ); // this can block !!
 };
 
 #endif

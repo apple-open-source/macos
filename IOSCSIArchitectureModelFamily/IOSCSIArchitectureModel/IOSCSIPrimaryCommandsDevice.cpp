@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -371,14 +369,7 @@ IOSCSIPrimaryCommandsDevice::start ( IOService * provider )
 	
 	fDeviceAccessEnabled = true;
 	StartDeviceSupport ( );
-	
-	if ( getProperty ( kAppleKeySwitchProperty ) )
-	{
-		
-		removeProperty ( kAppleKeySwitchProperty );
-		
-	}
-	
+
 	result = true;
 	
 	return result;
@@ -2220,11 +2211,6 @@ OUTERLOOP:
 			
 		}
 		
-		else
-		{
-			PANIC_NOW ( ( "IOSCSIMultimediaCommandsDevice::GetMechanicalCapabilitiesSize malformed command" ) );
-		}
-		
 		if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
 			 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
 		{
@@ -2284,7 +2270,7 @@ OUTERLOOP:
 				
 			}
 			
-			ERROR_LOG ( ( "Modes sense returned error\n" ) );
+			ERROR_LOG ( ( "Mode sense returned error\n" ) );
 			
 		}
 	
@@ -2469,34 +2455,19 @@ IOSCSIPrimaryCommandsDevice::ServerKeyswitchCallback (
 									IOService * 	newDevice )
 {
 	
-	OSBoolean *						shouldNotPoll	= NULL;
+	OSBoolean *						keySwitchLocked	= NULL;
 	IOSCSIPrimaryCommandsDevice *	device			= NULL;
-	
-	shouldNotPoll = OSDynamicCast (
-							OSBoolean,
-							newDevice->getProperty ( kKeySwitchProperty ) );
 	
 	device = OSDynamicCast ( IOSCSIPrimaryCommandsDevice, ( OSObject * ) target );
 	
-	if ( ( shouldNotPoll != NULL ) && ( device != NULL ) )
+	keySwitchLocked = OSDynamicCast (
+							OSBoolean,
+							newDevice->getProperty ( kKeySwitchProperty ) );
+	
+	if ( ( keySwitchLocked != NULL )  &&  ( device != NULL ) )
 	{
 		
-		// Is the key unlocked?
-		if ( shouldNotPoll->isFalse ( ) )
-		{
-			
-			// Key is unlocked, start resuming device support
-			device->ResumeDeviceSupport ( );
-			
-		}
-		
-		else if ( shouldNotPoll->isTrue ( ) )
-		{
-			
-			// Key is locked, suspend device support
-			device->SuspendDeviceSupport ( );
-			
-		}
+		device->setProperty ( kAppleKeySwitchProperty, keySwitchLocked );
 		
 	}
 	

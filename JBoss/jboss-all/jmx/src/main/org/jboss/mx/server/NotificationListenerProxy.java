@@ -6,8 +6,6 @@
  */
 package org.jboss.mx.server;
 
-import java.io.ObjectStreamException;
-
 import javax.management.Notification;
 import javax.management.NotificationListener;
 import javax.management.ObjectName;
@@ -19,7 +17,7 @@ import javax.management.ObjectName;
  * The original source is replaced with the object name.
  * 
  * @author  <a href="mailto:Adrian.Brock@HappeningTimes.com">Adrian Brock</a>.
- * @version $Revision: 1.1 $
+ * @version $Revision: 1.1.6.1 $
  */
 public class NotificationListenerProxy
    implements NotificationListener

@@ -20,6 +20,8 @@
 
 class AppleOnboardAudio;
 
+UInt32 PlatformInterface::sInstanceCount = 0;
+
 OSDefineMetaClassAndStructors(PlatformInterface, OSObject);
 
 //	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -31,7 +33,14 @@ bool PlatformInterface::init (IOService* device, AppleOnboardAudio* provider, UI
 	
 	FailIf ( NULL == provider, Exit );
 	mProvider = provider;
+
+	PlatformInterface::sInstanceCount++;
 	
+	mInstanceIndex = PlatformInterface::sInstanceCount;
+	
+	mComboInAssociation = kGPIO_Selector_NotAssociated;		//	[3453799]
+	mComboOutAssociation = kGPIO_Selector_NotAssociated;	//	[3453799]
+
 Exit:
 	return result;
 }
@@ -39,7 +48,7 @@ Exit:
 //	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void	PlatformInterface::free ( void ) {
 	
-	debugIOLog ( "+ PlatformInterface::free\n" );
+	debugIOLog (3,  "+ PlatformInterface::free" );
 	
 	unregisterInterrupts();
 
@@ -51,72 +60,53 @@ bool	PlatformInterface::registerInterrupts ( IOService * device ) {
 	IOReturn	err;
 	bool		result = false;
 	
-	debug2IOLog ( "+ PlatformInterface::registerInterrupts ( %p )\n", device );
+	debugIOLog (3,  "+ PlatformInterface[%ld]::registerInterrupts ( %p )", mInstanceIndex, device );
 
 	FailIf (NULL == device, Exit );
+	FailIf ( NULL == mProvider, Exit );
 
 	if ( kGPIO_Unknown != getHeadphoneConnected() ) {
-		//	IMPORTANT:	The headphone connector may also be a digital output connector.  If a 
-		//				digital out type is available then the headphone is a combo connector
-		//				supporting both the headphone and digital output connector.  In this 
-		//				case, there will be no low level registration of a digital output
-		//				interrupt at the derived class and the headphone handler will query
-		//				the detect type on insert to determine if the event is associated with
-		//				the headphone or the digital output.
-		if ( kGPIO_Unknown != getComboOutJackTypeConnected() ) {
-			mIsComboOutJack = true;
-		}
 		err = registerInterruptHandler ( device, (void*)headphoneDetectInterruptHandler, kHeadphoneDetectInterrupt );
 		FailIf ( kIOReturnSuccess != err, Exit );
-		debugIOLog ( "headphoneDetectInterruptHandler has been registered!!!\n" );
+		debugIOLog (3,  "headphoneDetectInterruptHandler has been registered!!!" );
 		headphoneDetectInterruptHandler ( device, NULL, 0, 0 );
 	}
 	else
 	{
-		debugIOLog("PlatformInterface::registerInterrupts kGPIO_Unknown == getHeadphoneConnected()\n");
+		debugIOLog (3, "PlatformInterface::registerInterrupts kGPIO_Unknown == getHeadphoneConnected()");
 	}
 	
 	if ( kGPIO_Unknown != getSpeakerConnected() ) {
 		err = registerInterruptHandler ( device, (void*)speakerDetectInterruptHandler, kSpeakerDetectInterrupt );
 		FailIf ( kIOReturnSuccess != err, Exit );
-		debugIOLog ( "speakerDetectInterruptHandler has been registered!!!\n" );
+		debugIOLog (3,  "speakerDetectInterruptHandler has been registered!!!" );
 		speakerDetectInterruptHandler ( device, NULL, 0, 0 );
 	}
 	else
 	{
-		debugIOLog("PlatformInterface::registerInterrupts kGPIO_Unknown == getSpeakerConnected()\n");
+		debugIOLog (3, "PlatformInterface::registerInterrupts kGPIO_Unknown == getSpeakerConnected()");
 	}
 	
 	if ( kGPIO_Unknown != getLineInConnected() ) {
-		//	IMPORTANT:	The line input connector may also be a digital input connector.  If a 
-		//				digital out type is available then the line input is a combo connector
-		//				supporting both the line input and digital input connector.  In this 
-		//				case, there will be no low level registration of a digital input
-		//				interrupt at the derived class and the line input handler will query
-		//				the detect type on insert to determine if the event is associated with
-		//				the line input or the digital input.
-		if ( kGPIO_Unknown != getComboInJackTypeConnected() ) {
-			mIsComboInJack = true;
-		}
 		err = registerInterruptHandler ( device, (void*)lineInDetectInterruptHandler, kLineInputDetectInterrupt );
 		FailIf ( kIOReturnSuccess != err, Exit );
-		debugIOLog ( "lineInDetectInterruptHandler has been registered!!!\n" );
+		debugIOLog (3,  "lineInDetectInterruptHandler has been registered!!!" );
 		lineInDetectInterruptHandler ( device, NULL, 0, 0 );
 	}
 	else
 	{
-		debugIOLog("PlatformInterface::registerInterrupts kGPIO_Unknown == getLineInConnected()\n");
+		debugIOLog (3, "PlatformInterface::registerInterrupts kGPIO_Unknown == getLineInConnected()");
 	}
 	
 	if ( kGPIO_Unknown != getLineOutConnected() ) {
 		err = registerInterruptHandler ( device, (void*)lineOutDetectInterruptHandler, kLineOutputDetectInterrupt );
 		FailIf ( kIOReturnSuccess != err, Exit );
-		debugIOLog ( "lineOutDetectInterruptHandler has been registered!!!\n" );
+		debugIOLog (3,  "lineOutDetectInterruptHandler has been registered!!!" );
 		lineOutDetectInterruptHandler ( device, NULL, 0, 0 );
 	}
 	else
 	{
-		debugIOLog("PlatformInterface::registerInterrupts kGPIO_Unknown == getLineOutConnected()\n");
+		debugIOLog (3, "PlatformInterface::registerInterrupts kGPIO_Unknown == getLineOutConnected()");
 	}
 	
 	if ( kGPIO_Unknown != getDigitalInConnected() && kGPIO_Unknown == getComboInJackTypeConnected() ) {
@@ -124,12 +114,12 @@ bool	PlatformInterface::registerInterrupts ( IOService * device ) {
 		//				that is already being supported by the line input handler.
 		err = registerInterruptHandler ( device, (void*)digitalInDetectInterruptHandler, kDigitalInDetectInterrupt );
 		FailIf ( kIOReturnSuccess != err, Exit );
-		debugIOLog ( "digitalInDetectInterruptHandler has been registered!!!\n" );
+		debugIOLog (3,  "digitalInDetectInterruptHandler has been registered!!!" );
 		digitalInDetectInterruptHandler ( device, NULL, 0, 0 );
 	}
 	else
 	{
-		debugIOLog("PlatformInterface::registerInterrupts kGPIO_Unknown == getDigitalInConnected()\n");
+		debugIOLog (3, "PlatformInterface::registerInterrupts kGPIO_Unknown == getDigitalInConnected()");
 	}
 	
 	if ( kGPIO_Unknown != getDigitalOutConnected() && kGPIO_Unknown == getComboOutJackTypeConnected() ) {
@@ -137,39 +127,39 @@ bool	PlatformInterface::registerInterrupts ( IOService * device ) {
 		//				that is already being supported by the headphone handler.
 		err = registerInterruptHandler ( device, (void*)digitalOutDetectInterruptHandler, kDigitalOutDetectInterrupt );
 		FailIf ( kIOReturnSuccess != err, Exit );
-		debugIOLog ( "digitalOutDetectInterruptHandler has been registered!!!\n" );
+		debugIOLog (3,  "digitalOutDetectInterruptHandler has been registered!!!" );
 		digitalOutDetectInterruptHandler ( device, NULL, 0, 0 );
 	}
 	else
 	{
-		debugIOLog("PlatformInterface::registerInterrupts kGPIO_Unknown == getDigitalOutConnected()\n");
+		debugIOLog (3, "PlatformInterface::registerInterrupts kGPIO_Unknown == getDigitalOutConnected()");
 	}
 
 	if ( kGPIO_Unknown != getCodecInterrupt() ) {
 		err = registerInterruptHandler ( device, (void*)codecInterruptHandler, kCodecInterrupt );
 		FailIf ( kIOReturnSuccess != err, Exit );
-		debugIOLog ( "codecInterruptHandler has been registered!!!\n" );
+		debugIOLog (3,  "codecInterruptHandler has been registered!!!" );
 		codecInterruptHandler ( device, NULL, 0, 0 );
 	}
 	else
 	{
-		debugIOLog("PlatformInterface::registerInterrupts kGPIO_Unknown == getCodecInterrupt()\n");
+		debugIOLog (3, "PlatformInterface::registerInterrupts kGPIO_Unknown == getCodecInterrupt()");
 	}
 	
 	if ( kGPIO_Unknown != getCodecErrorInterrupt() ) {
 		err = registerInterruptHandler ( device, (void*)codecErrorInterruptHandler, kCodecErrorInterrupt );
 		FailIf ( kIOReturnSuccess != err, Exit );
-		debugIOLog ( "codecErrorInterruptHandler has been registered!!!\n" );
+		debugIOLog (3,  "codecErrorInterruptHandler has been registered!!!" );
 		codecErrorInterruptHandler ( device, NULL, 0, 0 );
 	}
 	else
 	{
-		debugIOLog("PlatformInterface::registerInterrupts kGPIO_Unknown == getCodecErrorInterrupt()\n");
+		debugIOLog (3, "PlatformInterface::registerInterrupts kGPIO_Unknown == getCodecErrorInterrupt()");
 	}
 	
 	result = true;
 Exit:
-	debug2IOLog ( "- PlatformInterface::registerInterrupts ( %p )\n", device );
+	debugIOLog (3,  "- PlatformInterface[%ld]::registerInterrupts ( %p )", mInstanceIndex, device );
 	return result;
 }
 
@@ -211,26 +201,100 @@ void	PlatformInterface::unregisterInterrupts ( void ) {
 
 
 //	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//	[3453799]
+GPIOSelector PlatformInterface::getComboInAssociation ( void ) {
+	return mComboInAssociation;
+}
+
+//	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//	[3453799]
+void PlatformInterface::setAssociateComboInTo ( GPIOSelector theDetectInterruptGpio ) {
+	if (( kGPIO_Selector_LineInDetect == theDetectInterruptGpio ) || ( kGPIO_Selector_ExternalMicDetect == theDetectInterruptGpio )) {
+		mComboInAssociation = theDetectInterruptGpio;
+	}
+}
+
+//	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//	[3453799]
+GPIOSelector PlatformInterface::getComboOutAssociation ( void ) {
+	return mComboOutAssociation;
+}
+
+//	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//	[3453799]
+void PlatformInterface::setAssociateComboOutTo ( GPIOSelector theDetectInterruptGpio ) {
+	if (( kGPIO_Selector_LineOutDetect == theDetectInterruptGpio ) || ( kGPIO_Selector_HeadphoneDetect == theDetectInterruptGpio ) || ( kGPIO_Selector_SpeakerDetect == theDetectInterruptGpio )) {
+		debugIOLog (3,  "combo out associated with %d", theDetectInterruptGpio);
+		mComboOutAssociation = theDetectInterruptGpio;
+	}
+}
+
+
+//	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//	[3453799]
+GpioAttributes PlatformInterface::getComboIn ( void ) {
+	return mComboInJackState;
+}
+
+
+//	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//	[3453799]
+void PlatformInterface::setComboIn ( GpioAttributes jackState ) {
+	if (( kGPIO_TypeIsDigital == jackState ) || ( kGPIO_TypeIsAnalog == jackState )) {
+		mComboInJackState = jackState;
+	}
+}
+
+
+//	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//	[3453799]
+GpioAttributes PlatformInterface::getComboOut ( void ) {
+	return mComboOutJackState;
+}
+
+
+//	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//	[3453799]
+void PlatformInterface::setComboOut ( GpioAttributes jackState ) {
+	if (( kGPIO_TypeIsDigital == jackState ) || ( kGPIO_TypeIsAnalog == jackState )) {
+		debugIOLog (5,  "combo out type set to %d", jackState );
+		mComboOutJackState = jackState;
+	}
+}
+
+
+
+//	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//	[3453799]	This method now tests the combo-in association and if the combo-in is associated
+//				with this interrupt source then the headphone jack state will only be reported
+//				if an analog combo jack insertion / removal occurs.  Otherwise the digital out
+//				jack state is reported.
 void PlatformInterface::headphoneDetectInterruptHandler ( OSObject *owner, IOInterruptEventSource *source, UInt32 count, void * arg4 ) {
 	PlatformInterface * 	platformInterface;
-	IOCommandGate *		cg;
+	IOCommandGate *			cg;
+	GpioAttributes			theAnalogJackState;
 	
-#ifdef kVERBOSE_LOG
-	debugIrqIOLog ( "headphoneDetectInterruptHandler ( %p, %p, %ld, %p )\n", owner, source, count, arg4 );
-#endif
-	platformInterface = (PlatformInterface*)owner;
+	debugIOLog (5,  "headphoneDetectInterruptHandler ( %p, %p, %ld, %p )", owner, source, count, arg4 );
+
+	platformInterface = OSDynamicCast (PlatformInterface, owner );
 	FailIf (NULL == platformInterface, Exit);
 	FailIf ( NULL == platformInterface->mProvider, Exit );
 	cg = platformInterface->mProvider->getCommandGate ();
 	if ( NULL != cg ) {
-		platformInterface->LogInterruptGPIO();
-		if ( !platformInterface->mIsComboOutJack ) {
-			cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void *)kHeadphoneStatus, (void *)platformInterface->getHeadphoneConnected (), (void *)0 );
+		theAnalogJackState = platformInterface->getHeadphoneConnected ();
+		if ( kGPIO_Selector_HeadphoneDetect != platformInterface->getComboOutAssociation () ) {
+			cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void *)kHeadphoneStatus, (void *)theAnalogJackState, (void *)0 );
 		} else {
-			if ( kGPIO_Connected == platformInterface->getComboOutJackTypeConnected() ) {
-				cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void *)kDigitalOutStatus, (void *)platformInterface->getHeadphoneConnected (), (void *)0 );
+			//	Always update the combo jack history state on jack insertion ONLY!  Then the
+			//	combo jack history is used to indicate either digital or analog jack insertion.
+			//	This is required for proper reporting of jack removal relative to digital or analog.
+			if ( kGPIO_Connected == theAnalogJackState ) {
+				platformInterface->setComboOut ( platformInterface->getComboOutJackTypeConnected () );
+			}
+			if ( kGPIO_TypeIsDigital == platformInterface->mComboOutJackState ) {
+				cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void *)kDigitalOutStatus, (void *)theAnalogJackState, (void *)0 );
 			} else {
-				cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void *)kHeadphoneStatus, (void *)platformInterface->getHeadphoneConnected (), (void *)0 );
+				cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void *)kHeadphoneStatus, (void *)theAnalogJackState, (void *)0 );
 			}
 		}
 	}
@@ -240,16 +304,36 @@ Exit:
 
 
 //	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//	[3453799]	This method now tests the combo-in association and if the combo-in is associated
+//				with this interrupt source then the headphone jack state will only be reported
+//				if an analog combo jack insertion / removal occurs.  Otherwise the digital out
+//				jack state is reported.
 void PlatformInterface::speakerDetectInterruptHandler ( OSObject *owner, IOInterruptEventSource *source, UInt32 count, void * arg4 ) {
 	PlatformInterface * 	platformInterface;
-	IOCommandGate *		cg;
+	IOCommandGate *			cg;
+	GpioAttributes			theAnalogJackState;
 	
-	platformInterface = (PlatformInterface*)owner;
+	platformInterface = OSDynamicCast (PlatformInterface, owner );
 	FailIf (NULL == platformInterface, Exit);
 	FailIf ( NULL == platformInterface->mProvider, Exit );
 	cg = platformInterface->mProvider->getCommandGate ();
 	if ( NULL != cg ) {
-		cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void *)kExtSpeakersStatus, (void *)platformInterface->getSpeakerConnected (), (void *)0 );
+		theAnalogJackState = platformInterface->getSpeakerConnected ();
+		if ( kGPIO_Selector_SpeakerDetect != platformInterface->getComboOutAssociation () ) {
+			cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void *)kExtSpeakersStatus, (void *)theAnalogJackState, (void *)0 );
+		} else {
+			//	Always update the combo jack history state on jack insertion ONLY!  Then the
+			//	combo jack history is used to indicate either digital or analog jack insertion.
+			//	This is required for proper reporting of jack removal relative to digital or analog.
+			if ( kGPIO_Connected == theAnalogJackState ) {
+				platformInterface->setComboOut ( platformInterface->getComboOutJackTypeConnected () );
+			}
+			if ( kGPIO_TypeIsDigital == platformInterface->mComboOutJackState ) {
+				cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void *)kDigitalOutStatus, (void *)theAnalogJackState, (void *)0 );
+			} else {
+				cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void *)kExtSpeakersStatus, (void *)theAnalogJackState, (void *)0 );
+			}
+		}
 	}
 	
 Exit:
@@ -258,26 +342,40 @@ Exit:
 
 
 //	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//	[3453799]	This method now tests the combo-in association and if the combo-in is associated
+//				with this interrupt source then the headphone jack state will only be reported
+//				if an analog combo jack insertion / removal occurs.  Otherwise the digital out
+//				jack state is reported.
 void PlatformInterface::lineInDetectInterruptHandler ( OSObject *owner, IOInterruptEventSource *source, UInt32 count, void * arg4 ) {
 	PlatformInterface * 	platformInterface;
-	IOCommandGate *		cg;
+	IOCommandGate *			cg;
+	GpioAttributes			theAnalogJackState;
 	
-#ifdef kVERBOSE_LOG
-	debugIrqIOLog ( "lineInDetectInterruptHandler ( %p, %p, %ld, %p )\n", owner, source, count, arg4 );
-#endif
-	platformInterface = (PlatformInterface*)owner;
+	debugIOLog (5,  "lineInDetectInterruptHandler ( %p, %p, %ld, %p )", owner, source, count, arg4 );
+
+	platformInterface = OSDynamicCast (PlatformInterface, owner );
 	FailIf (NULL == platformInterface, Exit);
 	FailIf ( NULL == platformInterface->mProvider, Exit );
 	cg = platformInterface->mProvider->getCommandGate ();
 	if ( NULL != cg ) {
-		platformInterface->LogInterruptGPIO();
-		if ( !platformInterface->mIsComboInJack ) {
-			cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void *)kLineInStatus, (void *)platformInterface->getLineInConnected (), (void *)0 );
+		theAnalogJackState = platformInterface->getLineInConnected ();
+		if ( kGPIO_Selector_LineInDetect != platformInterface->getComboInAssociation () ) {
+			cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void *)kLineInStatus, (void *)theAnalogJackState, (void *)0 );
 		} else {
-			if ( kGPIO_Connected == platformInterface->getComboInJackTypeConnected() ) {
-				cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void *)kDigitalInStatus, (void *)platformInterface->getLineInConnected (), (void *)0 );
+			//	Always update the combo jack history state on jack insertion ONLY!  Then the
+			//	combo jack history is used to indicate either digital or analog jack insertion.
+			//	This is required for proper reporting of jack removal relative to digital or analog.
+			if ( kGPIO_Connected == theAnalogJackState ) {
+				platformInterface->setComboIn ( platformInterface->getComboInJackTypeConnected () );
+			}
+			if ( kGPIO_TypeIsDigital == platformInterface->mComboInJackState ) {
+				if ( kGPIO_Connected == theAnalogJackState ) {
+					cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void *)kDigitalInInsertStatus, (void *)theAnalogJackState, (void *)0 );
+				} else {
+					cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void *)kDigitalInRemoveStatus, (void *)theAnalogJackState, (void *)0 );
+				}
 			} else {
-				cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void *)kLineInStatus, (void *)platformInterface->getLineInConnected (), (void *)0 );
+				cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void *)kLineInStatus, (void *)theAnalogJackState, (void *)0 );
 			}
 		}
 	}
@@ -286,20 +384,43 @@ Exit:
 }
 
 //	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//	[3453799]	This method now tests the combo-in association and if the combo-in is associated
+//				with this interrupt source then the headphone jack state will only be reported
+//				if an analog combo jack insertion / removal occurs.  Otherwise the digital out
+//				jack state is reported.
 void PlatformInterface::lineOutDetectInterruptHandler ( OSObject *owner, IOInterruptEventSource *source, UInt32 count, void * arg4 ) {
 	PlatformInterface * 	platformInterface;
-	IOCommandGate *		cg;
+	IOCommandGate *			cg;
+	GpioAttributes			theAnalogJackState;
 	
-#ifdef kVERBOSE_LOG
-	debugIrqIOLog ( "lineOutDetectInterruptHandler ( %p, %p, %ld, %p )\n", owner, source, count, arg4 );
-#endif
-	platformInterface = (PlatformInterface*)owner;
+	debugIOLog (5,  "PlatformInterface::lineOutDetectInterruptHandler ( %p, %p, %ld, %p )", owner, source, count, arg4 );
+
+	platformInterface = OSDynamicCast (PlatformInterface, owner );
 	FailIf (NULL == platformInterface, Exit);
 	FailIf ( NULL == platformInterface->mProvider, Exit );
 	cg = platformInterface->mProvider->getCommandGate ();
 	if ( NULL != cg ) {
-		platformInterface->LogInterruptGPIO();
-		cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void *)kLineOutStatus, (void *)platformInterface->getLineOutConnected (), (void *)0 );
+		theAnalogJackState = platformInterface->getLineOutConnected (true);
+		debugIOLog (5,  "lineOutDetectInterruptHandler: analog jack state = %d", theAnalogJackState );
+		if ( kGPIO_Selector_LineOutDetect != platformInterface->getComboOutAssociation () ) {
+			debugIOLog (5,  "lineOutDetectInterruptHandler: no combo jack association" );
+			cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void *)kLineOutStatus, (void *)theAnalogJackState, (void *)0 );
+		} else {
+			//	Always update the combo jack history state on jack insertion ONLY!  Then the
+			//	combo jack history is used to indicate either digital or analog jack insertion.
+			//	This is required for proper reporting of jack removal relative to digital or analog.
+			debugIOLog (5,  "lineOutDetectInterruptHandler: line out has a combo jack association" );
+			if ( kGPIO_Connected == theAnalogJackState ) {
+				platformInterface->setComboOut ( platformInterface->getComboOutJackTypeConnected () );
+			}
+			if ( kGPIO_TypeIsDigital == platformInterface->mComboOutJackState ) {
+				debugIOLog (5,  "lineOutDetectInterruptHandler: combo jack type = digital" );
+				cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void *)kDigitalOutStatus, (void *)theAnalogJackState, (void *)0 );
+			} else {
+				debugIOLog (5,  "lineOutDetectInterruptHandler: combo jack type = analog" );
+				cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void *)kLineOutStatus, (void *)theAnalogJackState, (void *)0 );
+			}
+		}
 	}
 Exit:
 	return;
@@ -311,12 +432,16 @@ void PlatformInterface::digitalInDetectInterruptHandler ( OSObject *owner, IOInt
 	PlatformInterface * 	platformInterface;
 	IOCommandGate *		cg;
 	
-	platformInterface = (PlatformInterface*)owner;
+	platformInterface = OSDynamicCast (PlatformInterface, owner );
 	FailIf (NULL == platformInterface, Exit);
 	FailIf ( NULL == platformInterface->mProvider, Exit );
 	cg = platformInterface->mProvider->getCommandGate ();
 	if ( NULL != cg ) {
-		cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void *)kDigitalInStatus, (void *)platformInterface->getDigitalInConnected (), (void *)0 );
+		if ( kGPIO_Connected == platformInterface->getDigitalInConnected () ) {
+			cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void *)kDigitalInInsertStatus, (void *)platformInterface->getDigitalInConnected (), (void *)0 );
+		} else {
+			cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void *)kDigitalInRemoveStatus, (void *)platformInterface->getDigitalInConnected (), (void *)0 );
+		}
 	}
 Exit:
 	return;
@@ -328,7 +453,7 @@ void PlatformInterface::digitalOutDetectInterruptHandler ( OSObject *owner, IOIn
 	PlatformInterface * 	platformInterface;
 	IOCommandGate *		cg;
 	
-	platformInterface = (PlatformInterface*)owner;
+	platformInterface = OSDynamicCast (PlatformInterface, owner );
 	FailIf (NULL == platformInterface, Exit);
 	FailIf ( NULL == platformInterface->mProvider, Exit );
 	cg = platformInterface->mProvider->getCommandGate ();
@@ -345,15 +470,13 @@ void PlatformInterface::codecInterruptHandler ( OSObject *owner, IOInterruptEven
 	PlatformInterface * 	platformInterface;
 	IOCommandGate *		cg;
 
-#ifdef kVERBOSE_LOG
-	debugIrqIOLog ( "codecInterruptHandler ( %p, %p, %ld, %p )\n", owner, source, count, arg4 );
-#endif
-	platformInterface = (PlatformInterface*)owner;
+	debugIOLog (5,  "codecInterruptHandler ( %p, %p, %ld, %p )", owner, source, count, arg4 );
+
+	platformInterface = OSDynamicCast (PlatformInterface, owner );
 	FailIf (NULL == platformInterface, Exit);
 	FailIf ( NULL == platformInterface->mProvider, Exit );
 	cg = platformInterface->mProvider->getCommandGate ();
 	if ( NULL != cg ) {
-		platformInterface->LogInterruptGPIO();
 		cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void *)kCodecInterruptStatus, (void *)platformInterface->getCodecInterrupt (), (void *)0 );
 	}
 Exit:
@@ -366,15 +489,13 @@ void PlatformInterface::codecErrorInterruptHandler ( OSObject *owner, IOInterrup
 	PlatformInterface * 	platformInterface;
 	IOCommandGate *		cg;
 	
-#ifdef kVERBOSE_LOG
-	debugIrqIOLog ( "codecErrorInterruptHandler ( %p, %p, %ld, %p )\n", owner, source, count, arg4 );
-#endif
-	platformInterface = (PlatformInterface*)owner;
+	debugIOLog (5,  "codecErrorInterruptHandler ( %p, %p, %ld, %p )", owner, source, count, arg4 );
+
+	platformInterface = OSDynamicCast (PlatformInterface, owner );
 	FailIf (NULL == platformInterface, Exit);
 	FailIf ( NULL == platformInterface->mProvider, Exit );
 	cg = platformInterface->mProvider->getCommandGate ();
 	if ( NULL != cg ) {
-		platformInterface->LogInterruptGPIO();
 		cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void *)kCodecErrorInterruptStatus, (void *)platformInterface->getCodecErrorInterrupt (), (void *)0 );
 	}
 Exit:

@@ -352,6 +352,20 @@ IOReturn IOHIDPointingDevice::newReportDescriptor(
     return kIOReturnSuccess;
 }
 
+IOReturn IOHIDPointingDevice::getReport( IOMemoryDescriptor * report,
+                                 IOHIDReportType      reportType,
+                                 IOOptionBits         options )
+{
+    if (!report)
+        return kIOReturnError;
+
+    if ( reportType != kIOHIDReportTypeInput)
+        return kIOReturnUnsupported;
+        
+    report->writeBytes(0, _report->getBytesNoCopy(), min(report->getLength(), _report->getLength()));
+    return kIOReturnSuccess;
+}
+
 void IOHIDPointingDevice::postMouseEvent(UInt8 buttons, UInt16 x, UInt16 y, UInt8 wheel)
 {
     GenericMouseReport *report = (GenericMouseReport*)_report->getBytesNoCopy();

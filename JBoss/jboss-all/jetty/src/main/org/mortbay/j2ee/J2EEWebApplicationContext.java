@@ -1,6 +1,6 @@
 // ========================================================================
 // Copyright (c) 2002 Mort Bay Consulting (Australia) Pty. Ltd.
-// $Id: J2EEWebApplicationContext.java,v 1.1.4.3 2003/02/16 01:16:10 jules_gosnell Exp $
+// $Id: J2EEWebApplicationContext.java,v 1.1.4.4 2003/07/26 11:49:40 jules_gosnell Exp $
 // ========================================================================
 
 package org.mortbay.j2ee;
@@ -10,13 +10,13 @@ import java.util.List;
 import org.mortbay.jetty.servlet.SessionManager;
 import org.mortbay.jetty.servlet.WebApplicationContext;
 import org.mortbay.j2ee.session.Manager;
-import org.apache.log4j.Category;
+import org.jboss.logging.Logger;
 
 public class
   J2EEWebApplicationContext
   extends WebApplicationContext
 {
-  protected Category _log=Category.getInstance(getClass().getName());
+  protected static final Logger _log=Logger.getLogger(J2EEWebApplicationContext.class);
 
   public
     J2EEWebApplicationContext(String warUrl)
@@ -40,7 +40,7 @@ public class
   public void
     setDistributable(boolean distributable)
     {
-      _log.debug("setDistributable "+distributable);
+      if (_log.isDebugEnabled()) _log.debug("setDistributable "+distributable);
       _distributable=distributable;
     }
 

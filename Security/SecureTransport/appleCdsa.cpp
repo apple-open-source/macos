@@ -50,6 +50,7 @@
 #include <Security/Security.h>
 #include <Security/SecTrustPriv.h>
 #include <Security/SecPolicyPriv.h>
+#include <Security/SecKeyPriv.h>
 
 /* X.509 includes, from cssmapi */
 #include <Security/x509defs.h>         /* x.509 function and type defs */
@@ -246,6 +247,26 @@ static CSSM_RETURN sslAddBlindingAttr(
 	return crtn;
 }
 
+/* Get CSP, key in CSSM format from a SecKeyRef */
+static OSStatus sslGetKeyParts(
+	SecKeyRef			keyRef,
+	const CSSM_KEY		**cssmKey,
+	CSSM_CSP_HANDLE		*cspHand)
+{
+	OSStatus ortn = SecKeyGetCSSMKey(keyRef, cssmKey);
+	if(ortn) {
+		sslErrorLog("sslGetKeyParts: SecKeyGetCSSMKey err %d\n",
+			(int)ortn);
+		return ortn;
+	}
+	ortn = SecKeyGetCSPHandle(keyRef, cspHand);
+	if(ortn) {
+		sslErrorLog("sslGetKeyParts: SecKeyGetCSPHandle err %d\n",
+			(int)ortn);
+	}
+	return ortn;
+}
+
 #pragma mark -
 #pragma mark *** CSSM_DATA routines ***
 
@@ -335,8 +356,7 @@ static OSStatus sslKeyToSigAlg(
  */
 OSStatus sslRawSign(
 	SSLContext			*ctx,
-	const CSSM_KEY		*privKey,
-	CSSM_CSP_HANDLE		cspHand,
+	SecKeyRef			privKeyRef,		
 	const UInt8			*plainText,
 	UInt32				plainTextLen,
 	UInt8				*sig,			// mallocd by caller; RETURNED
@@ -348,10 +368,12 @@ OSStatus sslRawSign(
 	OSStatus				serr;
 	CSSM_DATA				sigData;
 	CSSM_DATA				ptextData;
+	CSSM_CSP_HANDLE			cspHand;
+	const CSSM_KEY 			*privKey;
+	const CSSM_ACCESS_CREDENTIALS	*creds;
 	
 	assert(ctx != NULL);
-	if((privKey == NULL) 	|| 
-	   (cspHand == 0) 		|| 
+	if((privKeyRef == NULL)	|| 
 	   (plainText == NULL)	|| 
 	   (sig == NULL)		||
 	   (actualBytes == NULL)) {
@@ -360,14 +382,36 @@ OSStatus sslRawSign(
 	}
 	*actualBytes = 0;
 	
+	/* Get CSP, signing key in CSSM format */
+	serr = sslGetKeyParts(privKeyRef, &privKey, &cspHand);
+	if(serr) {
+		return serr;
+	}
+	assert(privKey->KeyHeader.KeyClass == CSSM_KEYCLASS_PRIVATE_KEY);
+
 	CSSM_ALGORITHMS sigAlg;
 	serr = sslKeyToSigAlg(privKey, sigAlg);
 	if(serr) {
 		return serr;
 	}
+	
+	/* 
+	 * Get default creds
+	 * FIXME: per 3420180, this needs to allow app-specified creds via
+	 * an new API
+	 */
+	serr = SecKeyGetCredentials(privKeyRef,
+		CSSM_ACL_AUTHORIZATION_SIGN,
+		kSecCredentialTypeDefault,
+		&creds);
+	if(serr) {
+		sslErrorLog("sslRawSign: SecKeyGetCredentials err %lu\n", serr);
+		return serr;
+	}
+	
 	crtn = CSSM_CSP_CreateSignatureContext(cspHand,
 		sigAlg,
-		NULL,				// passPhrase
+		creds,	
 		privKey,
 		&sigHand);
 	if(crtn) {
@@ -589,8 +633,7 @@ OSStatus sslRsaEncrypt(
 
 OSStatus sslRsaDecrypt(
 	SSLContext			*ctx,
-	const CSSM_KEY		*privKey,
-	CSSM_CSP_HANDLE		cspHand,
+	SecKeyRef			privKeyRef,
 	const UInt8			*cipherText,
 	UInt32				cipherTextLen,		
 	UInt8				*plainText,			// mallocd by caller; RETURNED
@@ -604,21 +647,42 @@ OSStatus sslRsaDecrypt(
 	OSStatus		serr = errSSLInternal;
 	CSSM_RETURN		crtn;
 	uint32			bytesMoved = 0;
-	CSSM_ACCESS_CREDENTIALS	creds;
+	CSSM_CSP_HANDLE			cspHand;
+	const CSSM_KEY 			*privKey;
+	const CSSM_ACCESS_CREDENTIALS	*creds;
 		
 	assert(ctx != NULL);
 	assert(actualBytes != NULL);
 	*actualBytes = 0;
 	
-	if((privKey == NULL) || (cspHand == 0)) {
-		sslErrorLog("sslRsaDecrypt: bad privKey/cspHand\n");
+	if(privKeyRef == NULL) {
+		sslErrorLog("sslRsaDecrypt: bad privKey\n");
 		return errSSLInternal;
 	}
+
+	/* Get CSP, signing key in CSSM format */
+	serr = sslGetKeyParts(privKeyRef, &privKey, &cspHand);
+	if(serr) {
+		return serr;
+	}
 	assert(privKey->KeyHeader.KeyClass == CSSM_KEYCLASS_PRIVATE_KEY);
-	memset(&creds, 0, sizeof(CSSM_ACCESS_CREDENTIALS));
+
+	/* 
+	 * Get default creds
+	 * FIXME: per 3420180, this needs to allow app-specified creds via
+	 * an new API
+	 */
+	serr = SecKeyGetCredentials(privKeyRef,
+		CSSM_ACL_AUTHORIZATION_DECRYPT,
+		kSecCredentialTypeDefault,
+		&creds);
+	if(serr) {
+		sslErrorLog("sslRsaDecrypt: SecKeyGetCredentials err %lu\n", serr);
+		return serr;
+	}
 	crtn = CSSM_CSP_CreateAsymmetricContext(cspHand,
 		CSSM_ALGID_RSA,
-		&creds,
+		creds,
 		privKey,
 		CSSM_PADDING_PKCS1,
 		&cryptHand);
@@ -756,11 +820,8 @@ OSStatus sslGetPubKeyBits(
 	CSSM_KEY			wrappedKey;
 	CSSM_BOOL			didWrap = CSSM_FALSE;
 	const CSSM_KEYHEADER *hdr;
-	CSSM_CC_HANDLE 		ccHand;
-	CSSM_RETURN			crtn;
 	SSLBuffer			pubKeyBlob;
-	OSStatus				srtn;
-	CSSM_ACCESS_CREDENTIALS	creds;
+	OSStatus			srtn;
 	
 	assert(ctx != NULL);
 	assert(modulus != NULL);
@@ -776,7 +837,10 @@ OSStatus sslGetPubKeyBits(
 		sslErrorLog("sslGetPubKeyBits: bad AlgorithmId (%ld)\n", hdr->AlgorithmId);
 		return errSSLInternal;
 	}
-	
+
+	/* Note currently ALL public keys are raw, obtained from the CL... */
+	assert(hdr->BlobType == CSSM_KEYBLOB_RAW);
+
 	/* 
 	 * Handle possible reference format - I think it should be in
 	 * blob form since it came from the DL, but conversion is 
@@ -789,6 +853,12 @@ OSStatus sslGetPubKeyBits(
 			break;
 
 		case CSSM_KEYBLOB_REFERENCE:
+			
+			sslErrorLog("sslGetPubKeyBits: bad BlobType (%ld)\n", 
+				hdr->BlobType);
+			return errSSLInternal;
+
+			#if 0
 			/* 
 			 * Convert to a blob via "NULL wrap"; no wrapping key, 
 			 * ALGID_NONE 
@@ -831,7 +901,8 @@ OSStatus sslGetPubKeyBits(
 			didWrap = CSSM_TRUE;
 			CSSM_TO_SSLBUF(&wrappedKey.KeyData, &pubKeyBlob);
 			break;
-
+			#endif	/* 0 */
+			
 		default:
 			sslErrorLog("sslGetPubKeyBits: bad BlobType (%ld)\n", 
 				hdr->BlobType);
@@ -1524,13 +1595,22 @@ OSStatus sslVerifyNegotiatedCipher(
 	}
 	
 	/* private signing key required */
-	if(ctx->signingPrivKey == NULL) {
+	if(ctx->signingPrivKeyRef == NULL) {
 		sslErrorLog("sslVerifyNegotiatedCipher: no signing key\n");
 		return errSSLBadConfiguration;
 	}
-	if(ctx->signingPrivKey->KeyHeader.AlgorithmId != requireAlg) {
-		sslErrorLog("sslVerifyNegotiatedCipher: signing key alg mismatch\n");
-		return errSSLBadConfiguration;
+	{
+		const CSSM_KEY *cssmKey;
+		OSStatus ortn = SecKeyGetCSSMKey(ctx->signingPrivKeyRef, &cssmKey);
+		if(ortn) {
+			sslErrorLog("sslVerifyNegotiatedCipher: SecKeyGetCSSMKey err %d\n",
+			(int)ortn);
+			return ortn;
+		}
+		if(cssmKey->KeyHeader.AlgorithmId != requireAlg) {
+			sslErrorLog("sslVerifyNegotiatedCipher: signing key alg mismatch\n");
+			return errSSLBadConfiguration;
+		}
 	}
 	return noErr;
 }

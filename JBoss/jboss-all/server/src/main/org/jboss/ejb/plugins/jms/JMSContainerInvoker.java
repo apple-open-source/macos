@@ -65,7 +65,7 @@ import org.jboss.metadata.InvokerProxyBindingMetaData;
 /**
  * EJBProxyFactory for JMS MessageDrivenBeans
  *
- * @version <tt>$Revision: 1.50.2.9 $</tt>
+ * @version <tt>$Revision: 1.50.2.12 $</tt>
  * @author <a href="mailto:peter.antman@tim.se">Peter Antman</a> .
  * @author <a href="mailto:rickard.oberg@telkel.com">Rickard Öberg</a>
  * @author <a href="mailto:sebastien.alborini@m4x.org">Sebastien Alborini</a>
@@ -705,15 +705,14 @@ public class JMSContainerInvoker
    {
       // Silence the exception listener
       if (exListener != null)
-      {
          exListener.stop();
-      }
       
       innerStop();
 
-      if (dlqHandler != null) {
+      // This does nothing - but left in for the future when
+      // we support pluggable dlq handlers
+      if (dlqHandler != null)
          dlqHandler.stop();
-      }
    }
 
    /**
@@ -747,23 +746,6 @@ public class JMSContainerInvoker
       catch (Exception e)
       {
          log.error("Could not stop JMS connection", e);
-      }
-   }
-   
-   protected void destroyService() throws Exception
-   {
-      // Take down DLQ
-      try
-      {
-         if (dlqHandler != null)
-         {
-            dlqHandler.destroy();
-            dlqHandler = null;
-         }
-      }
-      catch (Exception e)
-      {
-         log.error("Failed to close the dlq handler", e);
       }
 
       // close the connection consumer
@@ -799,11 +781,26 @@ public class JMSContainerInvoker
          try
          {
             connection.close();
+            connection = null;
          }
          catch (Exception e)
          {
             log.error("Failed to close connection", e);
          }
+      }
+
+      // Take down DLQ
+      try
+      {
+         if (dlqHandler != null)
+         {
+            dlqHandler.destroy();
+            dlqHandler = null;
+         }
+      }
+      catch (Exception e)
+      {
+         log.error("Failed to close the dlq handler", e);
       }
    }
 
@@ -1102,10 +1099,12 @@ public class JMSContainerInvoker
          // Invoke, shuld we catch any Exceptions??
          try
          {
+            Transaction tx = tm.getTransaction();
+
             // DLQHandling
             if (useDLQ && // Is Dead Letter Queue used at all
                message.getJMSRedelivered() && // Was message resent
-               dlqHandler.handleRedeliveredMessage(message)) //Did the DLQ handler take care of the message
+               dlqHandler.handleRedeliveredMessage(message, tx)) //Did the DLQ handler take care of the message
             {
                // Message will be placed on Dead Letter Queue,
                // if redelivered to many times
@@ -1115,7 +1114,7 @@ public class JMSContainerInvoker
             invoker.invoke(id,                    // Object id - where used?
                            ON_MESSAGE,            // Method to invoke
                            new Object[]{message}, // argument
-                           tm.getTransaction(),   // Transaction
+                           tx,                    // Transaction
                            null,                  // Principal                           
                            null);                 // Cred
                            

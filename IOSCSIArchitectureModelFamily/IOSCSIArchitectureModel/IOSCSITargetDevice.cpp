@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -40,6 +38,7 @@
 #include "SCSITaskDefinition.h"
 #include "SCSIPrimaryCommands.h"
 #include "IOSCSITargetDevice.h"
+#include <IOKit/scsi/SCSICmds_INQUIRY_Definitions.h>
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -237,14 +236,10 @@ IOSCSITargetDevice::StartDeviceSupport ( void )
 	// command.
 	
 	// Create the Logical Unit nodes for each valid LUN.  If the number
-	// of valid LUNs could not be determine, should we create a Logical Unit
+	// of valid LUNs could not be determined, should we create a Logical Unit
 	// node for each possible LUN and have it determine if there is a valid
 	// Logical Unit for its LUN?
 	
-	// Once the Logical Unit stuff is in, this will go away.
-	// Register this object as a nub for the Logical Unit Driver.
-	// registerService ( );
-
 	// Determine the maximum number of Logical Units supported by the device
 	// and protocol
 	countLU = DetermineMaximumLogicalUnitNumber ( );
@@ -278,6 +273,9 @@ IOSCSITargetDevice::StartDeviceSupport ( void )
 		}
 		
 	}
+	
+	// Make me visible in the IORegistry.
+	registerService ( );
 	
 }
 
@@ -708,8 +706,8 @@ IOSCSITargetDevice::SetCharacteristicsFromINQUIRY (
 {
 	
 	OSString *		string			= NULL;
-	char			tempString[17]; // Maximum + 1 for null char
 	int				index			= 0;
+	char			tempString[17]; // Maximum + 1 for null char
 	
 	// Set target characteristics
 	// Save the target's Peripheral Device Type
@@ -720,11 +718,11 @@ IOSCSITargetDevice::SetCharacteristicsFromINQUIRY (
 	
 	// Set the other supported features
 #if 0
-	fTargetHasHiSup = ( inquiryBuffer->RESPONSE_DATA_FORMAT & ;
-	fTargetHasSCCS;
-	fTargetHasEncServs;
-	fTargetHasMultiPorts;
-	fTargetHasMChanger;
+	fTargetHasHiSup 		= ( inquiryBuffer->RESPONSE_DATA_FORMAT & kINQUIRY_Byte3_HISUP_Mask );
+	fTargetHasSCCS			= ( inquiryBuffer->SCCSReserved & kINQUIRY_Byte5_SCCS_Mask );
+	fTargetHasEncServs		= ( inquiryBuffer->flags1 & kINQUIRY_Byte6_ENCSERV_Mask );
+	fTargetHasMultiPorts	= ( inquiryBuffer->flags1 & kINQUIRY_Byte6_MULTIP_Mask );;
+	fTargetHasMChanger		= ( inquiryBuffer->flags1 & kINQUIRY_Byte6_MCHNGR_Mask );;
 #endif
 	
    	// Set the Peripheral Device Type property for the device.
@@ -759,6 +757,7 @@ IOSCSITargetDevice::SetCharacteristicsFromINQUIRY (
 		
 		setProperty ( kIOPropertySCSIVendorIdentification, string );
 		string->release ( );
+		string = NULL;
 		
 	}
 	
@@ -789,6 +788,7 @@ IOSCSITargetDevice::SetCharacteristicsFromINQUIRY (
 		
 		setProperty ( kIOPropertySCSIProductIdentification, string );
 		string->release ( );
+		string = NULL;
 		
 	}
 	
@@ -819,6 +819,7 @@ IOSCSITargetDevice::SetCharacteristicsFromINQUIRY (
 		
 		setProperty ( kIOPropertySCSIProductRevisionLevel, string );
 		string->release ( );
+		string = NULL;
 		
 	}
 	
@@ -1016,7 +1017,7 @@ IOSCSITargetDevice::RetrieveDefaultINQUIRYData (
  	request = GetSCSITask ( );
  	require_nonzero ( request, ReleaseBuffer );
 	
-	for ( index = 0; ( index < kMaxInquiryAttempts ); index++ )
+	for ( index = 0; index < kMaxInquiryAttempts; index++ )
 	{
 		
 		result = INQUIRY ( request, bufferDesc, 0, 0, 0, inquirySize, 0 );
@@ -1203,7 +1204,7 @@ IOSCSITargetDevice::PublishDeviceIdentification ( void )
 			
 		}
 		
-		numString = OSNumber::withNumber ( (inqData[inqDataCount + 1] >> 4 ) & 0x03, 8 );
+		numString = OSNumber::withNumber ( ( inqData[inqDataCount + 1] >> 4 ) & 0x03, 8 );
 		if ( numString != NULL )
 		{
 			
@@ -1230,7 +1231,7 @@ IOSCSITargetDevice::PublishDeviceIdentification ( void )
 			char			idString[255]	= { 0 };
 			
 			// Add the ASCII bytes to the C string
-			for ( UInt8 i = 0; i< idSize; i++ )
+			for ( UInt8 i = 0; i < idSize; i++ )
 			{
 				idString[i] = inqData[inqDataCount + i];
 			}
@@ -1265,7 +1266,7 @@ IOSCSITargetDevice::PublishDeviceIdentification ( void )
 		}
 		
 		// Increment length for the ID length byte
-		inqDataCount +=idSize;
+		inqDataCount += idSize;
 		
 		if ( deviceIDs->ensureCapacity ( deviceIDCount ) == deviceIDCount )
 		{

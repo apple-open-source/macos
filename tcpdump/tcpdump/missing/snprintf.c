@@ -31,15 +31,15 @@
  * SUCH DAMAGE.
  */
 
-/* $Id: snprintf.c,v 1.1.1.3 2003/03/17 18:42:21 rbraun Exp $ */
+/* $Id: snprintf.c,v 1.1.1.4 2004/02/05 19:30:59 rbraun Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
 
 #ifndef lint
-static const char rcsid[] =
-     "@(#) $Header: /cvs/root/tcpdump/tcpdump/missing/snprintf.c,v 1.1.1.3 2003/03/17 18:42:21 rbraun Exp $";
+static const char rcsid[] _U_ =
+     "@(#) $Header: /cvs/root/tcpdump/tcpdump/missing/snprintf.c,v 1.1.1.4 2004/02/05 19:30:59 rbraun Exp $";
 #endif
 
 #include <stdio.h>

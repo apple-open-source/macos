@@ -18,7 +18,7 @@ import org.jboss.logging.Logger;
  * A bean to test whether ejb load was called.
  *
  * @author <a href="mailto:Adrian.Brock@HappeningTimes.com">Adrian Brock</a>
- * @version $Revision: 1.1.4.1 $
+ * @version $Revision: 1.1.4.2 $
  */
 public class EJBLoadBean
    implements EntityBean
@@ -31,15 +31,19 @@ public class EJBLoadBean
 
    private boolean ejbLoadCalled = false;
 
+   private boolean active = false;
+
    public String getName()
    {
       log.info("getName");
+      assertActive();
       return name;
    }
 
    public boolean wasEJBLoadCalled()
    {
-      log.info("wsaEJBLoadCalled");
+      log.info("wasEJBLoadCalled");
+      assertActive();
       boolean result = ejbLoadCalled;
       ejbLoadCalled = false;
       return result;
@@ -48,12 +52,14 @@ public class EJBLoadBean
    public void noTransaction()
    {
       log.info("noTransaction");
+      assertActive();
       ejbLoadCalled = false;
    }
 	
    public String ejbCreate(String name)
       throws CreateException
    {
+      assertActive();
       log.info("ejbCreate");
       this.name = name;
       return name;
@@ -62,6 +68,7 @@ public class EJBLoadBean
    public void ejbPostCreate(String name)
       throws CreateException
    {
+      assertActive();
       log.info("ejbPostCreate");
    }
 
@@ -74,28 +81,35 @@ public class EJBLoadBean
    public void ejbActivate()
    {
       log.info("ejbActivate");
+      active = true;
    }
 	
    public void ejbLoad()
    {
       log.info("ejbLoad");
       ejbLoadCalled = true;
+      assertActive();
    }
 	
    public void ejbPassivate()
    {
       log.info("ejbPassivate");
+      assertActive();
+      active = false;
    }
 	
    public void ejbRemove()
       throws RemoveException
    {
       log.info("ejbRemove");
+      assertActive();
+      active = false;
    }
 	
    public void ejbStore()
    {
       log.info("ejbStore");
+      assertActive();
    }
 	
    public void setEntityContext(EntityContext context)
@@ -108,5 +122,11 @@ public class EJBLoadBean
    {
       log.info("unsetEntityContext");
       entityContext = null;
+   }
+
+   private void assertActive()
+   {
+      if (active == false)
+         throw new RuntimeException("The bean is not active");
    }
 }

@@ -186,6 +186,15 @@ static int needs_reconnect_before_write(int fd)
 	fd_set			readset;
 	struct timeval	timeout;
 	
+	if ( gSuppressAllUI && (get_gconnectionstate() == WEBDAV_CONNECTION_DOWN) )
+	{
+		/* if we're down and the mount is supposed to fail on disconnects
+		 * instead of retrying, pretend this socket is not usable so
+		 * http_socket_reconnect will be called to close it.
+		 */
+		return ( 1 );
+	}
+	
 	/* initialize the read fs_set */
 	FD_ZERO(&readset);
 	FD_SET(fd, &readset);
@@ -237,6 +246,15 @@ static int http_socket_reconnect(int *a_socket, int use_connect, int hangup)
 		/* close the socket */
 		(void)close(*a_socket);
 		*a_socket = -1;
+	}
+	
+	if ( gSuppressAllUI && (get_gconnectionstate() == WEBDAV_CONNECTION_DOWN) )
+	{
+		/* if we're down and the mount is supposed to fail on disconnects
+		 * instead of retrying, just return an error.
+		 */
+		error = EIO;
+		goto exit;
 	}
 	
 	*a_socket = socket(PF_INET, SOCK_STREAM, 0);

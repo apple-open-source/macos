@@ -53,7 +53,12 @@
 }
 #endif
 
-#if defined(HAVE_KRB5_SET_DEFAULT_IN_TKT_ETYPES) && !defined(HAVE_KRB5_SET_DEFAULT_TGS_KTYPES)
+#if defined(__APPLE__) && !defined(HAVE_KRB5_SET_DEFAULT_TGS_KTYPES)
+krb5_error_code krb5_set_default_tgs_ktypes(krb5_context ctx, const krb5_enctype *enc)
+{
+    return krb5_set_default_tgs_enctypes(ctx, enc);
+}
+#elif defined(HAVE_KRB5_SET_DEFAULT_IN_TKT_ETYPES) && !defined(HAVE_KRB5_SET_DEFAULT_TGS_KTYPES)
  krb5_error_code krb5_set_default_tgs_ktypes(krb5_context ctx, const krb5_enctype *enc)
 {
 	return krb5_set_default_in_tkt_etypes(ctx, enc);
@@ -185,6 +190,7 @@ krb5_error_code get_kerberos_allowed_etypes(krb5_context context,
 #if !defined(HAVE_KRB5_LOCATE_KDC)
  krb5_error_code krb5_locate_kdc(krb5_context ctx, const krb5_data *realm, struct sockaddr **addr_pp, int *naddrs, int get_masters)
 {
+#ifndef __APPLE__
 	krb5_krbhst_handle hnd;
 	krb5_krbhst_info *hinfo;
 	krb5_error_code rc;
@@ -230,6 +236,10 @@ krb5_error_code get_kerberos_allowed_etypes(krb5_context context,
 
 	*naddrs = num_kdcs;
 	*addr_pp = sa;
+#else
+	DEBUG(0, ("krb5_locate_kdc: this function is not implemented on this platform\n"));
+	return -1;
+#endif
 	return 0;
 }
 #endif
@@ -307,14 +317,14 @@ cleanup_princ:
 /*
   get a kerberos5 ticket for the given service 
 */
-DATA_BLOB cli_krb5_get_ticket(const char *principal, time_t time_offset, unsigned char session_key_krb5[16])
+int cli_krb5_get_ticket(const char *principal, time_t time_offset, 
+			DATA_BLOB *ticket, DATA_BLOB *session_key_krb5)
 {
 	krb5_error_code retval;
 	krb5_data packet;
 	krb5_ccache ccdef;
 	krb5_context context;
 	krb5_auth_context auth_context = NULL;
-	DATA_BLOB ret;
 	krb5_enctype enc_types[] = {
 #ifdef ENCTYPE_ARCFOUR_HMAC
 		ENCTYPE_ARCFOUR_HMAC,
@@ -356,20 +366,21 @@ DATA_BLOB cli_krb5_get_ticket(const char *principal, time_t time_offset, unsigne
 
 	get_krb5_smb_session_key(context, auth_context, session_key_krb5, False);
 
-	ret = data_blob(packet.data, packet.length);
+	*ticket = data_blob(packet.data, packet.length);
+
 /* Hmm, heimdal dooesn't have this - what's the correct call? */
-/* 	krb5_free_data_contents(context, &packet); */
-	krb5_free_context(context);
-	return ret;
+#ifdef HAVE_KRB5_FREE_DATA_CONTENTS
+ 	krb5_free_data_contents(context, &packet); 
+#endif
 
 failed:
 	if ( context )
 		krb5_free_context(context);
 		
-	return data_blob(NULL, 0);
+	return retval;
 }
 
- BOOL get_krb5_smb_session_key(krb5_context context, krb5_auth_context auth_context, uint8 session_key[16], BOOL remote)
+ BOOL get_krb5_smb_session_key(krb5_context context, krb5_auth_context auth_context, DATA_BLOB *session_key, BOOL remote)
  {
 	krb5_keyblock *skey;
 	krb5_error_code err;
@@ -383,11 +394,11 @@ failed:
 		err = krb5_auth_con_getlocalsubkey(context, auth_context, &skey);
 	if (err == 0 && skey != NULL) {
 		DEBUG(10, ("Got KRB5 session key of length %d\n",  KRB5_KEY_LENGTH(skey)));
-		if (KRB5_KEY_LENGTH(skey) == 16) {
-			memcpy(session_key, KRB5_KEY_DATA(skey), KRB5_KEY_LENGTH(skey));
-			dump_data_pw("KRB5 Session Key:\n", session_key, 16);
-			ret = True;
-		}
+		*session_key = data_blob(KRB5_KEY_DATA(skey), KRB5_KEY_LENGTH(skey));
+		dump_data_pw("KRB5 Session Key:\n", session_key->data, session_key->length);
+
+		ret = True;
+
 		krb5_free_keyblock(context, skey);
 	} else {
 		DEBUG(10, ("KRB5 error getting session key %d\n", err));
@@ -410,10 +421,11 @@ failed:
 
 #else /* HAVE_KRB5 */
  /* this saves a few linking headaches */
-DATA_BLOB cli_krb5_get_ticket(const char *principal, time_t time_offset, unsigned char session_key_krb5[16])
- {
+int cli_krb5_get_ticket(const char *principal, time_t time_offset, 
+			DATA_BLOB *ticket, DATA_BLOB *session_key_krb5) 
+{
 	 DEBUG(0,("NO KERBEROS SUPPORT\n"));
-	 return data_blob(NULL, 0);
- }
+	 return 1;
+}
 
 #endif

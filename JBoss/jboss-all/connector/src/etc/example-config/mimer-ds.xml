@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- $Id: mimer-ds.xml,v 1.1.2.1 2003/10/26 15:46:23 ejort Exp $ -->
+
+<!-- ==================================================================== -->
+<!-- ConnectionManager setup for Mimer SQL for local transactions         -->
+<!--                                                                      -->
+<!-- Supplied by fredrik.alund@upright.se                                 -->
+<!-- ==================================================================== -->
+
+<datasources>
+   <local-tx-datasource>
+      <jndi-name>MimerDS</jndi-name>
+      <driver-class>com.mimer.jdbc.Driver</driver-class>
+      <connection-url>jdbc:mimer:multi1</connection-url>
+      <user-name>changeme</user-name>
+      <password>changeme</password>
+      <min-pool-size>5</min-pool-size>
+      <max-pool-size>100</max-pool-size>
+      <blocking-timeout-millis>5000</blocking-timeout-millis>
+      <idle-timeout-minutes>15</idle-timeout-minutes>
+   </local-tx-datasource>
+</datasources>

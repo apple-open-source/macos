@@ -51,7 +51,7 @@ import org.jboss.mx.server.MBeanServerImpl;
  * @see RelationServiceMBean
  *
  * @author  <a href="mailto:Adrian.Brock@HappeningTimes.com">Adrian Brock</a>.
- * @version $Revision: 1.6 $
+ * @version $Revision: 1.6.6.2 $
  */
 public class RelationService
   extends NotificationBroadcasterSupport
@@ -845,6 +845,7 @@ public class RelationService
       getReferencedMBeans(relationId).keySet());
 
     // Check to see whether this will remove the MBean
+
     Iterator iterator = unregMBeans.iterator();
     while (iterator.hasNext())
     {
@@ -908,12 +909,11 @@ public class RelationService
       if (entry.getValue().equals(relationTypeName))
         ids.add(entry.getKey());
     }
-    iterator = ids.iterator();
-    while (iterator.hasNext())
+    for (int i = 0; i < ids.size(); i++)
     {
       try
       {
-        removeRelation((String) iterator.next());
+        removeRelation((String) ids.get(i));
       }
       catch (RelationNotFoundException ignored) {}
     }
@@ -1139,10 +1139,11 @@ public class RelationService
     }
 
     // Make sure all the roles exist
+
     iterator = newRoleValue.iterator();
-    while (iterator.hasNext())
+    for (int i = 0; i < newRoleValue.size(); i++)
     {
-      ObjectName objectName = (ObjectName) iterator.next();
+      ObjectName objectName = (ObjectName) newRoleValue.get(i);
       HashMap idRolesMap = (HashMap) idRolesMapByMBean.get(objectName);
       if (idRolesMap == null)
       {
@@ -1282,10 +1283,9 @@ public class RelationService
     ArrayList roleInfos = (ArrayList) relationType.getRoleInfos();
 
     // Add empty roles for missing roles
-    Iterator iterator = roleInfos.iterator();
-    while (iterator.hasNext())
+    for (int i = 0; i < roleInfos.size(); i++)
     {
-      RoleInfo roleInfo = (RoleInfo) iterator.next();
+      RoleInfo roleInfo = (RoleInfo) roleInfos.get(i);
       boolean found = false;
       Iterator inner = roleList.iterator();
       while (inner.hasNext())
@@ -1513,10 +1513,10 @@ public class RelationService
     ArrayList roleInfos = (ArrayList) relationType.getRoleInfos();
     synchronized (roleInfos)
     {
-      Iterator iterator = roleInfos.iterator();
-      while (iterator.hasNext())
+
+      for (int i = 0; i < roleInfos.size(); i++)
       {
-        RoleInfo roleInfo = (RoleInfo) iterator.next();
+        RoleInfo roleInfo = (RoleInfo) roleInfos.get(i);
         if (roleInfo == null)
           throw new InvalidRelationTypeException("Null role");
         if (roleNames.contains(roleInfo.getName()))

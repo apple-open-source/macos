@@ -17,6 +17,14 @@
          <session-type>Stateless</session-type>
          <transaction-type>Container</transaction-type>
       </session>
-
+      <session>
+         <description>Independent deployment interaction tests, Callee</description>
+         <ejb-name>CalleeSessionBean2</ejb-name>
+         <home>org.jboss.test.cts.interfaces.CallerSessionHome</home>
+         <remote>org.jboss.test.cts.interfaces.CallerSession</remote>
+         <ejb-class>org.jboss.test.cts.ejb.CallerSessionBean</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Container</transaction-type>
+      </session>
    </enterprise-beans>
 </ejb-jar>

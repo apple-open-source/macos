@@ -7,7 +7,7 @@
 ## 
 ## Annotated patch file: eapi.patch
 ## Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved. 
-## Created on: 18-Jul-2003
+## Created on: 01-Nov-2003
 ##
 ## This file assembles changes to existing Apache source files
 ## between the original Apache and the patched variant. It can be
@@ -56,8 +56,8 @@ Index: src/Configuration.tmpl
 | Patch in implementation of the EAPI rule.
 +---------------------------------------------------------------------------
 Index: src/Configure
---- src/Configure	18 Jul 2003 15:44:29 -0000	1.1.1.21
-+++ src/Configure	18 Jul 2003 15:56:57 -0000	1.24
+--- src/Configure	29 Oct 2003 18:57:30 -0000	1.1.1.22
++++ src/Configure	29 Oct 2003 18:59:05 -0000	1.25
 @@ -1892,6 +1892,72 @@
  fi
  
@@ -268,17 +268,17 @@ Index: src/include/buff.h
  #ifdef B_SFIO
      Sfio_t *sf_in;
      Sfio_t *sf_out;
-@@ -180,6 +184,10 @@
- /* Internal routines */
+@@ -181,6 +185,10 @@
  API_EXPORT(int) ap_bflsbuf(int c, BUFF *fb);
  API_EXPORT(int) ap_bfilbuf(BUFF *fb);
-+
+ 
 +#ifdef EAPI
 +#define ap_bpeekc(fb) ( ((fb)->incnt == 0) ? EOF : *((fb)->inptr) )
 +#endif
- 
++
  #ifndef CHARSET_EBCDIC
  
+ #define ap_bgetc(fb)   ( ((fb)->incnt == 0) ? ap_bfilbuf(fb) : \
 
 +---------------------------------------------------------------------------
 | Add the four additional Apache API module hooks.
@@ -372,14 +372,6 @@ Index: src/include/http_conf_globals.h
  extern API_VAR_EXPORT char *ap_scoreboard_fname;
 
 +---------------------------------------------------------------------------
-| Export the ap_set_callback_and_alarm() function because this
-| first is a useful thing and second we need it because all
-| other API/timeout functions deal with a request_rec while
-| some modules need a generic timeout mechanism.
-+---------------------------------------------------------------------------
-Index: src/include/http_main.h
-
-+---------------------------------------------------------------------------
 | First add support for the HTTPS protocol scheme via hooks,
 | second add the additional context variable `ctx' for the
 | conn_rec, server_rec and request_rec structures. And third
@@ -387,8 +379,8 @@ Index: src/include/http_main.h
 | function.
 +---------------------------------------------------------------------------
 Index: src/include/httpd.h
---- src/include/httpd.h	18 Jul 2003 15:44:32 -0000	1.1.1.21
-+++ src/include/httpd.h	18 Jul 2003 15:56:58 -0000	1.31
+--- src/include/httpd.h	29 Oct 2003 18:57:32 -0000	1.1.1.22
++++ src/include/httpd.h	29 Oct 2003 18:59:05 -0000	1.32
 @@ -70,7 +70,19 @@
  /* Headers in which EVERYONE has an interest... */
  
@@ -423,7 +415,7 @@ Index: src/include/httpd.h
  #endif
  
  /* --------- Default user name and group name running standalone ---------- */
-@@ -352,6 +369,19 @@
+@@ -355,6 +372,19 @@
  #define SCOREBOARD_MAINTENANCE_INTERVAL 1000000
  #endif
  
@@ -443,7 +435,7 @@ Index: src/include/httpd.h
  /* Number of requests to try to handle in a single process.  If <= 0,
   * the children don't die off.  That's the default here, since I'm still
   * interested in finding and stanching leaks.
-@@ -444,6 +474,9 @@
+@@ -447,6 +477,9 @@
  API_EXPORT(const char *) ap_get_server_version(void);
  API_EXPORT(void) ap_add_version_component(const char *component);
  API_EXPORT(const char *) ap_get_server_built(void);
@@ -453,7 +445,7 @@ Index: src/include/httpd.h
  
  /* Numeric release version identifier: MMNNFFRBB: major minor fix final beta
   * Always increases along the same track as the source branch.
-@@ -847,6 +880,10 @@
+@@ -850,6 +883,10 @@
   * record to improve 64bit alignment the next time we need to break
   * binary compatibility for some other reason.
   */
@@ -464,7 +456,7 @@ Index: src/include/httpd.h
  };
  
  
-@@ -895,6 +932,9 @@
+@@ -898,6 +935,9 @@
      char *local_host;		/* used for ap_get_server_name when
  				 * UseCanonicalName is set to DNS
  				 * (ignores setting of HostnameLookups) */
@@ -474,7 +466,7 @@ Index: src/include/httpd.h
  };
  
  /* Per-vhost config... */
-@@ -967,6 +1007,10 @@
+@@ -970,6 +1010,10 @@
      int limit_req_line;      /* limit on size of the HTTP request line    */
      int limit_req_fieldsize; /* limit on size of any request header field */
      int limit_req_fields;    /* limit on number of request header fields  */
@@ -490,8 +482,8 @@ Index: src/include/httpd.h
 | Patch the shared memory pool support into the Apache pool facility.
 +---------------------------------------------------------------------------
 Index: src/main/alloc.c
---- src/main/alloc.c	18 Jul 2003 15:44:34 -0000	1.1.1.14
-+++ src/main/alloc.c	18 Jul 2003 15:56:58 -0000	1.22
+--- src/main/alloc.c	29 Oct 2003 18:57:34 -0000	1.1.1.15
++++ src/main/alloc.c	31 Oct 2003 21:23:12 -0000	1.24
 @@ -64,6 +64,10 @@
   */
  
@@ -949,24 +941,14 @@ Index: src/main/alloc.c
      ptr = realloc(ptr, (char *)ps.vbuff.curpos - (char *)ptr);
      if (ptr == NULL) {
  	fputs("Ouch!  Out of memory!\n", stderr);
-@@ -1780,6 +2014,9 @@
-     cleanup_pool_for_exec(permanent_pool);
-     ap_unblock_alarms();
- #endif /* ndef WIN32 */
-+#ifdef EAPI
-+    ap_kill_alloc_shared();
-+#endif
- }
- 
- API_EXPORT_NONSTD(void) ap_null_cleanup(void *data)
 
 +---------------------------------------------------------------------------
 | Patch the low-level buffer routines to additionally allow
 | modules to intercept the I/O processing via hooks.
 +---------------------------------------------------------------------------
 Index: src/main/buff.c
---- src/main/buff.c	18 Jul 2003 15:44:34 -0000	1.1.1.13
-+++ src/main/buff.c	18 Jul 2003 15:56:58 -0000	1.21
+--- src/main/buff.c	29 Oct 2003 18:57:34 -0000	1.1.1.14
++++ src/main/buff.c	29 Oct 2003 18:59:05 -0000	1.22
 @@ -293,6 +293,9 @@
      }
      else
@@ -1119,17 +1101,17 @@ Index: src/main/http_config.c
      *ps = s;
  
      return ap_parse_vhost_addrs(p, hostname, s);
-@@ -1577,6 +1631,10 @@
- 
+@@ -1578,6 +1632,10 @@
      s->module_config = create_server_config(p, s);
      s->lookup_defaults = create_default_per_dir_config(p);
-+
+ 
 +#ifdef EAPI
 +    s->ctx = ap_ctx_new(p);
 +#endif /* EAPI */
- 
++
      return s;
  }
+ 
 
 +---------------------------------------------------------------------------
 | Add the ap_global_ctx variable and the new
@@ -1138,8 +1120,8 @@ Index: src/main/http_config.c
 | is added plus the initialization of one more `ctx' variable.
 +---------------------------------------------------------------------------
 Index: src/main/http_main.c
---- src/main/http_main.c	18 Jul 2003 15:44:35 -0000	1.1.1.20
-+++ src/main/http_main.c	18 Jul 2003 15:56:58 -0000	1.42
+--- src/main/http_main.c	29 Oct 2003 18:57:36 -0000	1.1.1.21
++++ src/main/http_main.c	29 Oct 2003 18:59:05 -0000	1.43
 @@ -279,6 +279,9 @@
  
  int ap_dump_settings = 0;
@@ -1254,7 +1236,7 @@ Index: src/main/http_main.c
  
      return conn;
  }
-@@ -4043,6 +4104,15 @@
+@@ -4023,6 +4084,15 @@
      printf("Server's Module Magic Number: %u:%u\n",
  	   MODULE_MAGIC_NUMBER_MAJOR, MODULE_MAGIC_NUMBER_MINOR);
      printf("Server compiled with....\n");
@@ -1270,7 +1252,7 @@ Index: src/main/http_main.c
  #ifdef TPF
      show_os_specific_compile_settings();
  #endif
-@@ -4214,6 +4284,22 @@
+@@ -4194,6 +4264,22 @@
      ap_server_pre_read_config  = ap_make_array(pcommands, 1, sizeof(char *));
      ap_server_post_read_config = ap_make_array(pcommands, 1, sizeof(char *));
      ap_server_config_defines   = ap_make_array(pcommands, 1, sizeof(char *));
@@ -1293,7 +1275,7 @@ Index: src/main/http_main.c
  }
  
  #ifndef MULTITHREAD
-@@ -4675,6 +4761,9 @@
+@@ -4655,6 +4741,9 @@
  
  	    ap_sync_scoreboard_image();
  	    if (ap_scoreboard_image->global.running_generation != ap_my_generation) {
@@ -1303,7 +1285,7 @@ Index: src/main/http_main.c
  		ap_bclose(conn_io);
  		clean_child_exit(0);
  	    }
-@@ -4703,6 +4792,9 @@
+@@ -4683,6 +4772,9 @@
  	 */
  
  #ifdef NO_LINGCLOSE
@@ -1313,7 +1295,7 @@ Index: src/main/http_main.c
  	ap_bclose(conn_io);	/* just close it */
  #else
  	if (r && r->connection
-@@ -4713,6 +4805,9 @@
+@@ -4693,6 +4785,9 @@
  	    lingering_close(r);
  	}
  	else {
@@ -1323,7 +1305,7 @@ Index: src/main/http_main.c
  	    ap_bsetflag(conn_io, B_EOUT, 1);
  	    ap_bclose(conn_io);
  	}
-@@ -5483,16 +5578,31 @@
+@@ -5463,16 +5558,31 @@
  	    usage(argv[0]);
  	}
      }
@@ -1355,7 +1337,7 @@ Index: src/main/http_main.c
      }
  
      child_timeouts = !ap_standalone || one_process;
-@@ -5640,6 +5750,10 @@
+@@ -5620,6 +5730,10 @@
  	    ap_destroy_pool(r->pool);
  	}
  
@@ -1366,7 +1348,7 @@ Index: src/main/http_main.c
  	ap_bclose(cio);
      }
      exit(0);
-@@ -6016,6 +6130,9 @@
+@@ -5996,6 +6110,9 @@
  	ap_kill_cleanups_for_socket(ptrans, csd);
  
  #ifdef NO_LINGCLOSE
@@ -1376,7 +1358,7 @@ Index: src/main/http_main.c
  	ap_bclose(conn_io);	/* just close it */
  #else
  	if (r && r->connection
-@@ -6026,6 +6143,9 @@
+@@ -6006,6 +6123,9 @@
  	    lingering_close(r);
  	}
  	else {
@@ -1386,7 +1368,7 @@ Index: src/main/http_main.c
  	    ap_bsetflag(conn_io, B_EOUT, 1);
  	    ap_bclose(conn_io);
  	}
-@@ -7594,6 +7714,10 @@
+@@ -7574,6 +7694,10 @@
      if (!conf_specified)
          ap_cpystrn(ap_server_confname, SERVER_CONFIG_FILE, sizeof(ap_server_confname));
  
@@ -1397,25 +1379,25 @@ Index: src/main/http_main.c
      if (!ap_os_is_path_absolute(ap_server_confname))
          ap_cpystrn(ap_server_confname,
                     ap_server_root_relative(pcommands, ap_server_confname),
-@@ -7633,6 +7757,9 @@
-     }
+@@ -7614,6 +7738,9 @@
  #else /* ndef WIN32 */
      server_conf = ap_read_config(pconf, ptrans, ap_server_confname);
-+#endif
+ #endif
 +#ifdef EAPI
 +    ap_init_alloc_shared(FALSE);
- #endif
++#endif
  
      if (ap_configtestonly) {
+         fprintf(stderr, "%s: Syntax OK\n", ap_server_root_relative(pcommands, ap_server_confname));
 
 +---------------------------------------------------------------------------
 | Just add the initialization of the `ctx' variable for
 | conn_rec structures.
 +---------------------------------------------------------------------------
 Index: src/main/http_request.c
---- src/main/http_request.c	18 Jul 2003 15:44:36 -0000	1.1.1.16
-+++ src/main/http_request.c	18 Jul 2003 15:56:58 -0000	1.16
-@@ -1398,6 +1398,10 @@
+--- src/main/http_request.c	29 Oct 2003 18:57:37 -0000	1.1.1.17
++++ src/main/http_request.c	29 Oct 2003 18:59:05 -0000	1.17
+@@ -1406,6 +1406,10 @@
  
      new->method          = r->method;
      new->method_number   = r->method_number;
@@ -1591,9 +1573,9 @@ Index: src/modules/standard/mod_log_config.c
 | variables from other modules.
 +---------------------------------------------------------------------------
 Index: src/modules/standard/mod_rewrite.c
---- src/modules/standard/mod_rewrite.c	18 Jul 2003 15:44:39 -0000	1.1.1.17
-+++ src/modules/standard/mod_rewrite.c	18 Jul 2003 15:56:59 -0000	1.15
-@@ -3883,6 +3883,15 @@
+--- src/modules/standard/mod_rewrite.c	29 Oct 2003 18:57:38 -0000	1.1.1.18
++++ src/modules/standard/mod_rewrite.c	29 Oct 2003 18:59:05 -0000	1.16
+@@ -3882,6 +3882,15 @@
      }
  #endif /* ndef WIN32 && NETWARE*/
  

@@ -19,9 +19,12 @@ import javax.xml.transform.stream.StreamSource;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
 import org.w3c.dom.Node;
 
 import org.jboss.logging.Logger;
+import org.jboss.metadata.MetaData;
+import org.jboss.util.Strings;
 
 /** An implementation of the ServicesConfigDelegate that expects a delegate-config
  element of the form:
@@ -30,11 +33,17 @@ import org.jboss.logging.Logger;
  XSL document contents...
 ]]>
       </xslt-config>
+      <xslt-param name="p1">value1</xslt-param>
     </delegate-config>
  The portAttrName and hostAttrName are currently unused. Perhaps these should
- be used as the names of the host and port parameters in the XSL script.
+ be used as the names of the host and port parameters in the XSL script. Currently
+ the host and port bindings are passed into the XSL script as the 'host' and
+ 'port' global parameters.
+ 
+ The xslt-param elements specify arbitrary XSL script parameter name/value pairs
+ that will be set on the Transformer.
 
-@version $Revision: 1.1.2.1 $
+@version $Revision: 1.1.2.3 $
 @author Scott.Stark@jboss.org
  */
 public class XSLTConfigDelegate implements ServicesConfigDelegate
@@ -89,6 +98,24 @@ public class XSLTConfigDelegate implements ServicesConfigDelegate
          }
          transformer.setParameter("port", new Integer(port));
          log.debug("set port parameter to:"+port);
+
+         // Check for any arbitrary attributes
+         NodeList attributes = delegateConfig.getElementsByTagName("xslt-param");
+         // xslt-param are transform parameters
+         for(int a = 0; a < attributes.getLength(); a ++)
+         {
+            Element attr = (Element) attributes.item(a);
+            String name = attr.getAttribute("name");
+            if( name.length() == 0 )
+               throw new IllegalArgumentException("attribute element #"
+                            +a+" has no name attribute");
+            String attrExp = MetaData.getElementContent(attr);
+            String attrValue = Strings.replaceProperties(attrExp);
+            transformer.setParameter(name, attrValue);
+
+            log.debug("set "+name+" parameter to:"+attrValue);
+         }
+
          // Transform the current config element
          DOMSource src = new DOMSource(mbeanConfig);
          DOMResult result = new DOMResult();

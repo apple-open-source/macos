@@ -10,10 +10,10 @@
 package org.jboss.system;
 
 import java.util.Map;
-import java.util.HashMap;
-import java.util.Collections;
 
 import org.jboss.logging.Logger;
+
+import EDU.oswego.cs.dl.util.concurrent.ConcurrentReaderHashMap;
 
 /**
  * A registry, really, a registry.
@@ -23,13 +23,13 @@ import org.jboss.logging.Logger;
  *    to put objects here.
  *  
  * @author <a href="mailto:marc.fleury@jboss.org>Marc Fleury</a>
- * @version $Revision: 1.2.2.2 $
+ * @version $Revision: 1.2.2.4 $
  */
 public class Registry
 {
    private static final Logger log = Logger.getLogger(Registry.class);
    
-   public static Map entries = Collections.synchronizedMap(new HashMap());
+   public static Map entries = new ConcurrentReaderHashMap();
    
    public static void bind(final Object key, final Object value)
    {

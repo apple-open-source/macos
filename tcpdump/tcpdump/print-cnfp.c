@@ -33,8 +33,8 @@
 /* Cisco NetFlow protocol */
 
 #ifndef lint
-static const char rcsid[] =
-    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-cnfp.c,v 1.1.1.3 2003/03/17 18:42:16 rbraun Exp $";
+static const char rcsid[] _U_ =
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-cnfp.c,v 1.1.1.4 2004/02/05 19:30:53 rbraun Exp $";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -51,6 +51,7 @@ static const char rcsid[] =
 #include "extract.h"
 
 #include "tcp.h"
+#include "ipproto.h"
 
 struct nfhdr {
 	u_int32_t	ver_cnt;	/* version [15], and # of records */

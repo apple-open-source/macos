@@ -40,11 +40,11 @@ It is an ASCII file containing one line for NetBIOS name\&. The two fields on ea
 
 .TP 3
 \(bu
-IP Address - in dotted decimal format\&.
+IP Address \- in dotted decimal format\&.
 
 .TP
 \(bu
-NetBIOS Name - This name format is a maximum fifteen character host name, with an optional trailing '#' character followed by the NetBIOS name type as two hexadecimal digits\&.
+NetBIOS Name \- This name format is a maximum fifteen character host name, with an optional trailing '#' character followed by the NetBIOS name type as two hexadecimal digits\&.
 
 
 If the trailing '#' is omitted then the given IP address will be returned for all names that match the given name, whatever the NetBIOS name type in the lookup\&.
@@ -70,7 +70,12 @@ Contains three IP to NetBIOS name mappings\&. The first and third will be return
 The second mapping will be returned only when the "0x20" name type for a name "NTSERVER" is queried\&. Any other name type will not be resolved\&.
 
 .PP
-The default location of the \fIlmhosts\fR file is in the same directory as the \fBsmb.conf\fR(5) file\&.
+The default location of the \fIlmhosts\fR file is in the same directory as the \fBsmb\&.conf\fR(5) file\&.
+
+.SH "FILES"
+
+.PP
+lmhosts is loaded from the configuration directory\&. This is usually \fI/etc/samba\fR or \fI/usr/local/samba/lib\fR\&.
 
 .SH "VERSION"
 
@@ -80,7 +85,7 @@ This man page is correct for version 3\&.0 of the Samba suite\&.
 .SH "SEE ALSO"
 
 .PP
-\fBsmbclient\fR(1), \fBsmb.conf\fR(5), and \fBsmbpasswd\fR(8) 
+\fBsmbclient\fR(1), \fBsmb\&.conf\fR(5), and \fBsmbpasswd\fR(8) 
 
 .SH "AUTHOR"
 

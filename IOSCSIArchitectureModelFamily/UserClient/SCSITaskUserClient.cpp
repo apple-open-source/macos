@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -2967,20 +2965,22 @@ void
 SCSITaskUserClient::sTaskCallback ( SCSITaskIdentifier completedTask )
 {
 	
-	SCSITaskRefCon *		refCon	= NULL;
 	SCSITask *				task	= NULL;
+	SCSITaskRefCon *		refCon	= NULL;
+	SCSITaskUserClient *	uc		= NULL;
 	
 	STATUS_LOG ( ( "SCSITaskUserClient::sTaskCallback called.\n") );
 	
 	task = OSDynamicCast ( SCSITask, completedTask );
-	require_nonzero_string ( task, GENERAL_ERR,
-							 "SCSITaskUserClient::sTaskCallback task == NULL." );
+	require_nonzero ( task, GENERAL_ERR );
 	
 	refCon = ( SCSITaskRefCon * ) task->GetApplicationLayerReference ( );
-	require_nonzero_string ( task, GENERAL_ERR,
-							 "SCSITaskUserClient::sTaskCallback refCon == NULL." );
+	require_nonzero ( refCon, GENERAL_ERR );
 	
-	refCon->self->TaskCallback ( task, refCon );
+	uc = refCon->self;
+	require_nonzero ( uc, GENERAL_ERR );
+	
+	uc->TaskCallback ( task, refCon );
 	
 	
 GENERAL_ERR:

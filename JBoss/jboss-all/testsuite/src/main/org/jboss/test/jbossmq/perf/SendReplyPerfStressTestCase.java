@@ -49,7 +49,6 @@ public class SendReplyPerfStressTestCase extends JBossTestCase
 
       String newArgs[] = {"org.jboss.test.jbossmq.perf.SendReplyPerfStressTestCase"};
       junit.swingui.TestRunner.main(newArgs);
-
    }
 
    public static class State
@@ -111,6 +110,9 @@ public class SendReplyPerfStressTestCase extends JBossTestCase
          catch (Throwable t)
          {
             state.addError(t);
+         }
+         finally
+         {
             state.finished();
          }
       }
@@ -143,13 +145,15 @@ public class SendReplyPerfStressTestCase extends JBossTestCase
             QueueReceiver receiver = qsession.createReceiver(temp);
             receiver.receive();
             receiver.close();
-            temp.delete();
             
             session.close();
          }
          catch (Throwable t)
          {
             state.addError(t);
+         }
+         finally
+         {
             state.finished();
          }
       }
@@ -178,7 +182,6 @@ public class SendReplyPerfStressTestCase extends JBossTestCase
          {
             state.addError(t);
          }
-         state.finished();
       }
    }
 
@@ -216,14 +219,14 @@ public class SendReplyPerfStressTestCase extends JBossTestCase
 
    public void testSendReplyTopic() throws Exception
    {
-      drainTopic();
-
       // Set up the workers
       State state = new State(getThreadCount());
       MessageReplier replier = new MessageReplier(state);
+
       Thread[] threads = new Thread[getThreadCount()];
       for (int i = 0; i < threads.length; ++i)
           threads[i] = new Thread(new MessageTopicSender(state));
+
 
       // Register the message listener
       Topic topic = (Topic)context.lookup(TEST_TOPIC);
@@ -271,7 +274,6 @@ public class SendReplyPerfStressTestCase extends JBossTestCase
 
    private void drainQueue() throws Exception
    {
-
       QueueSession session = queueConnection.createQueueSession(false, Session.AUTO_ACKNOWLEDGE);
       Queue queue = (Queue)context.lookup(TEST_QUEUE);
 
@@ -290,27 +292,5 @@ public class SendReplyPerfStressTestCase extends JBossTestCase
       session.close();
       queueConnection.stop();
 
-   }
-
-   private void drainTopic() throws Exception
-   {
-
-      TopicSession session = topicConnection.createTopicSession(false, Session.AUTO_ACKNOWLEDGE);
-      Topic topic = (Topic)context.lookup(TEST_TOPIC);
-
-      TopicSubscriber subscriber = session.createSubscriber(topic);
-      topicConnection.start();
-      Message message = subscriber.receive(50);
-      int c = 0;
-      while (message != null)
-      {
-         message = subscriber.receive(50);
-         c++;
-      }
-
-      if (c != 0)
-         getLog().debug("  Drained " + c + " messages from the topic");
-      session.close();
-      topicConnection.stop();
    }
 }

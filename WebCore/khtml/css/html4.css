@@ -1,0 +1,509 @@
+/* 
+ * The default style sheet used by khtml to render HTML pages
+ * (C) Lars Knoll (knoll@kde.org) 2000
+ *
+ * Konqueror/khtml relies on the existence of this style sheet for
+ * rendering. Do not remove or modify this file unless you know
+ * what you are doing.
+ */
+
+html {
+	display: block;
+} 
+
+/*
+ * head and its children all have display=none
+ */
+
+head { 
+	display: none;
+}
+     
+meta {
+	display: none;
+}
+
+title {
+	display: none;
+}
+
+link {
+	display: none;
+}
+
+style {
+	display: none;
+}
+
+script {
+	display: none;
+}
+
+/*
+ * generic block level elements
+ */
+
+body {
+    display: block;
+    margin: 8px;
+}
+
+p {
+	display: block;
+	margin: 1.0__qem 0px;
+}
+
+div {
+	display: block;
+}
+
+layer {
+	display: block;
+}
+
+marquee {
+    display: inline-block;
+    overflow: marquee;
+}
+
+address {
+	display: block;
+}
+      
+blockquote {
+	display: block;
+	margin: 1__qem 40px 1em 40px;
+}
+
+Q        {
+         display: inline;
+}
+
+Q:before {
+         content: '"';
+    /*   content: open-quote;   */
+}
+
+Q:after  {
+         content: '"';
+    /*   content: close-quote;  */
+}
+
+IFRAME, EMBED, OBJECT {
+	width: 300px; height:150px;
+}
+
+CENTER { 
+	display: block;
+	/* special centering to be able to emulate the html4/netscape behaviour */
+	text-align: -khtml-center;
+}  
+      
+HR  { 
+        display: block; 
+        margin-top: 12px; 
+        margin-bottom: 12px; 
+        border-style: inset;
+        border-width: 1px;
+        margin-left: auto;
+        margin-right: auto;
+}
+
+MAP { 
+	display: inline;
+} 
+
+
+/* 
+ * heading elements 
+ */
+      
+H1 { 
+	display: block;
+	font-size: 2em; 
+	margin: .67__qem 0 .67em 0;
+	font-weight: bold;
+}
+      
+H2 { 
+	display: block;
+	font-size: 1.5em; 
+	margin: .83__qem 0 .83em 0;
+	font-weight: bold;
+}
+      
+H3 { 
+	display: block;
+	font-size: 1.17em; 
+	margin: 1__qem 0 1em 0;
+	font-weight: bold;
+}
+      
+H4 {
+	display: block;
+	margin: 1.33__qem 0 1.33em 0;
+	font-weight: bold;
+}
+
+H5 { 
+	display: block;
+	font-size: .83em; 
+	margin: 1.67__qem 0 1.67em 0;
+	font-weight: bold;
+}
+
+H6 { 
+	display: block;
+	font-size: .67em; 
+	margin: 2.33__qem 0 2.33em 0;
+	font-weight: bold;
+}
+
+/* 
+ * tables
+ */
+
+TABLE { 
+	display: table;
+        border-collapse: separate;
+	text-align: -khtml-auto;
+	border-spacing: 2px;
+	border-color: gray;
+}
+
+TABLE[align="center"] { 
+    margin-left: auto; 
+    margin-right: auto;
+}
+
+THEAD { 
+	display: table-header-group; 
+    vertical-align: middle;
+    border-color: inherit;
+}
+      
+TBODY { 
+	display: table-row-group;
+    vertical-align: middle; 
+    border-color: inherit;
+}
+      
+TFOOT { 
+	display: table-footer-group; 
+    vertical-align: middle;
+    border-color: inherit;
+}
+
+COL { 
+	display: table-column; 
+}
+      
+COLGROUP { 
+	display: table-column-group; 
+}
+
+TR { 
+	display: table-row;
+	vertical-align: inherit; 
+    border-color: inherit; 
+}
+      
+      
+TD, TH { 
+	display: table-cell;
+	vertical-align: inherit;
+}
+      
+TH { 
+	font-weight: bolder; 
+	text-align: center;
+}
+
+CAPTION { 
+	display: table-caption;  
+	text-align: -khtml-center; 
+}
+
+/*
+ * Lists
+ */
+
+UL, MENU, DIR {
+        display: block;
+        list-style-type: disc;
+        margin: 1__qem 0 1em 0;
+        padding-left: 40px;
+}
+
+OL {
+        display: block;
+        list-style-type: decimal;
+        margin: 1__qem 0 1em 0;
+        padding-left: 40px;
+}
+
+LI {
+        display: list-item;
+}
+
+
+UL UL { 
+	list-style-type: circle;
+}
+
+OL UL { 
+	list-style-type: circle;
+}
+
+UL UL UL { 
+	list-style-type: square;
+}
+      
+
+DD {
+	display: block;
+	margin-left: 40px;
+}
+
+DL {
+	display: block;
+	margin: 1__qem 0 1em 0;
+} 
+
+DT {
+	display: block;
+}
+ 
+/* for right to left */
+      
+*[dir="rtl"] UL, 
+*[dir="rtl"] OL,  
+*[dir="rtl"] DIR, 
+*[dir="rtl"] MENU, 
+*[dir="rtl"] DD { 
+	margin-right:40px; 
+	margin-left: auto;
+}
+      
+OL UL, 
+UL OL,
+UL UL, 
+OL OL { 
+	margin-top: auto; 
+	margin-bottom: auto; 
+}
+
+/*
+ * form elements
+ */
+
+FORM {
+	display: block;
+    margin: 0__qem 0 1em 0;
+}
+
+LEGEND {
+    display: block;
+    padding-left: 2px;
+    padding-right: 2px;
+    border: none;
+}
+
+FIELDSET {
+    display: block;
+    margin-left: 2px;
+    margin-right: 2px;
+    padding: 0.75em 0.625em;
+    border: 2px groove ThreeDFace;
+}
+
+BUTTON {
+        display: inline-block;
+        border: 2px outset ButtonFace;
+        background-color: ButtonFace;
+        color: ButtonText;
+        padding: 2px 2px 2px 2px;
+        cursor: default;
+}
+
+BUTTON:active {
+        border-style: inset;
+}
+
+/* XXX Need to implement support for CSS2 system fonts, so that I don't have to hard code this.
+   -dwh */
+INPUT, TEXTAREA, SELECT, BUTTON {
+    margin: 0__qem;
+    font: 11px 'Lucida Grande';
+}
+
+INPUT[type="hidden"] {
+	display: none; 
+}
+
+INPUT[type="radio"], INPUT[type="checkbox"] {
+        margin: 3px 0.5ex;
+}
+
+OPTION, 
+OPTGROUP, 
+AREA,
+PARAM  { 
+	display: none; 
+}
+
+/*
+ * inline elements
+ */      
+      
+U, 
+INS { 
+	text-decoration: underline;
+}
+      
+STRONG,
+B { 
+	font-weight: bolder; 
+}
+      
+I, 
+CITE, 
+EM,
+VAR, 
+ADDRESS { 
+	font-style: italic; 
+}
+      
+TT, 
+CODE,
+KBD, 
+SAMP { 
+	font-family: monospace; 
+}
+      
+PRE,
+XMP, 
+PLAINTEXT { 
+	display: block;
+	font-family: monospace; 
+	white-space: pre; 
+	margin: 1__qem 0;
+}
+      
+BIG { 
+	font-size: larger; 
+}
+      
+SMALL { 
+	font-size: smaller; 
+}
+
+S, 
+STRIKE, 
+DEL  { 
+	text-decoration: line-through; 
+}
+
+SUB { 
+	vertical-align: sub;
+	font-size: smaller; 
+}
+SUP { 
+	vertical-align: super;	
+	font-size: smaller;
+}
+
+/* ### not supported at the moment
+ABBR, ACRONYM { 
+	font-variant: small-caps; 
+	letter-spacing: 0.1em 
+}
+*/
+abbr, 
+acronym {
+	font-style: italic;
+}
+
+:focus          { outline: auto 3px #1f5ccf }
+a:link          { color: #0000EE; text-decoration: underline; }
+a:link:active          { color: red }
+a:visited              { color: #551A8B; text-decoration: underline; }
+a:visited:active       { color: red }
+
+/* ### :before is now supported, but we haven't tried reinstating this
+   ### rule that was comment out long ago.
+      BR:before       { content: "\n" }
+*/
+
+
+/* Bidirectionality settings (do not change) */
+
+BDO[DIR="ltr"]  { 
+	direction: ltr; 
+	unicode-bidi: bidi-override; 
+}
+
+BDO[DIR="rtl"]  { 
+	direction: rtl; 
+	unicode-bidi: bidi-override;
+}
+
+/* ### this selector seems to be still broken ...
+      *[DIR="ltr"]    { direction: ltr; unicode-bidi: embed }
+      *[DIR="rtl"]    { direction: rtl; unicode-bidi: embed }
+*/
+      
+/* Elements that are block-level in HTML4 */
+/* ### don't support unicode-bidi at the moment
+      ADDRESS, BLOCKQUOTE, BODY, DD, DIV, DL, DT, FIELDSET,
+      FORM, FRAME, FRAMESET, H1, H2, H3, H4, H5, H6, IFRAME,
+      NOSCRIPT, NOFRAMES, OBJECT, OL, P, UL, APPLET, CENTER,
+      DIR, HR, MENU, PRE, LI, TABLE, TR, THEAD, TBODY, TFOOT,
+      COL, COLGROUP, TD, TH, CAPTION
+                      { unicode-bidi: embed }
+*/
+      
+/* End bidi settings */
+
+/*
+ * other elements
+ */
+
+noframes {
+	display: none;
+}
+
+frameset {
+	display: block;
+}
+
+frame { 
+	display: block;
+}
+
+nobr {
+        display: inline;
+        white-space: nowrap; 
+}
+
+wbr {
+        white-space: normal;
+}
+
+/* noscript is handled internally, as it depends on the html settings */
+
+/* media rules are commented out for the moment. We'll have to add
+ * them later. Lars, 23.12.99
+ */
+
+/*
+      @media print {
+        @page         { margin: 10% }
+        H1, H2, H3,
+        H4, H5, H6    { page-break-after: avoid; page-break-inside: avoid }
+        BLOCKQUOTE,
+        PRE           { page-break-inside: avoid }
+        UL, OL, DL    { page-break-before: avoid }
+      }
+
+*/

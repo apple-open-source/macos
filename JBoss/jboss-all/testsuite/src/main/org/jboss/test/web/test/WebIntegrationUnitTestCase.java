@@ -9,35 +9,36 @@ package org.jboss.test.web.test;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;
-import java.net.InetAddress;
 import java.net.URL;
 import javax.management.ObjectName;
-import javax.management.RuntimeMBeanException;
-import javax.naming.InitialContext;
 
 import junit.framework.Test;
-import junit.framework.TestCase;
 import junit.framework.TestSuite;
+
+import org.apache.commons.httpclient.HttpClient;
+import org.apache.commons.httpclient.UsernamePasswordCredentials;
+import org.apache.commons.httpclient.methods.GetMethod;
 
 import org.jboss.test.JBossTestCase;
 import org.jboss.test.JBossTestSetup;
 
 /** Tests of servlet container integration into the JBoss server. This test
  requires than a web container be integrated into the JBoss server. The tests
- currently use the java.net.HttpURLConnection and associated http client and
- these do not return very good information on errors so if a failure occurs it
+ currently do NOT use the java.net.HttpURLConnection and associated http client
+ and  these do not return valid HTTP error codes so if a failure occurs it
  is best to connect the webserver using a browser to look for additional error
  info.
- 
+
  The secure access tests require a user named 'jduke' with a password of 'theduke'
  with a role of 'AuthorizedUser' in the servlet container.
  
  @author Scott.Stark@jboss.org
- @version $Revision: 1.17.2.4 $
+ @version $Revision: 1.17.2.7 $
  */
 public class WebIntegrationUnitTestCase extends JBossTestCase
 {
    private String baseURL = "http://jduke:theduke@localhost:" + Integer.getInteger("web.port", 8080) + "/"; 
+   private String baseURLNoAuth = "http://localhost:" + Integer.getInteger("web.port", 8080) + "/"; 
    
    public WebIntegrationUnitTestCase(String name)
    {
@@ -156,7 +157,7 @@ public class WebIntegrationUnitTestCase extends JBossTestCase
       String baseURL2 = "http://localhost:" + Integer.getInteger("web.port", 8080) + '/';
       URL url2 = new URL(baseURL2+"jbosstest/restricted/UnsecureEJBServlet");
       getLog().info("Accessing SecureServlet with no login");
-      accessURL(url2, true);
+      accessURL(url2, HttpURLConnection.HTTP_UNAUTHORIZED);
    }
    /** Access the http://localhost/jbosstest/restricted/SecureServlet
     */
@@ -164,7 +165,7 @@ public class WebIntegrationUnitTestCase extends JBossTestCase
    {
       String baseURL = "http://jduke:badpass@localhost:" + Integer.getInteger("web.port", 8080) + '/';
       URL url = new URL(baseURL+"jbosstest/restricted/SecureServlet");
-      accessURL(url, true);
+      accessURL(url, HttpURLConnection.HTTP_UNAUTHORIZED);
    }
    /** Access the http://localhost/jbosstest/restricted/SecureServlet
     */
@@ -172,7 +173,7 @@ public class WebIntegrationUnitTestCase extends JBossTestCase
    {
       String baseURL = "http://localhost:" + Integer.getInteger("web.port", 8080) + '/';
       URL url = new URL(baseURL+"jbosstest/restricted/SecureServlet");
-      accessURL(url, true);
+      accessURL(url, HttpURLConnection.HTTP_UNAUTHORIZED);
    }
    /** Access the http://localhost/jbosstest-not/unrestricted/SecureServlet
     */
@@ -180,7 +181,7 @@ public class WebIntegrationUnitTestCase extends JBossTestCase
    {
       String baseURL = "http://localhost:" + Integer.getInteger("web.port", 8080) + '/';
       URL url = new URL(baseURL+"jbosstest-not/unrestricted/SecureServlet");
-      accessURL(url, false);
+      accessURL(url, HttpURLConnection.HTTP_OK);
    }
    /** Access the http://localhost/jbosstest/restricted/SecureEJBAccess
     */
@@ -196,12 +197,30 @@ public class WebIntegrationUnitTestCase extends JBossTestCase
       URL url = new URL(baseURL+"jbosstest/restricted/include_ejb.jsp");
       accessURL(url);
    }
-   /** Access the http://localhost/jbosstest/restricted/SecureEJBAccess
+   /** Access the http://localhost/jbosstest/UnsecureEJBAccess with method=echo
+    * to test that an unsecured servlet cannot access a secured EJB method
+    * that requires a valid permission. This should fail.
     */
    public void testUnsecureEJBAccess() throws Exception
    {
-      URL url = new URL(baseURL+"jbosstest/UnsecureEJBAccess");
-      accessURL(url, true);
+      URL url = new URL(baseURLNoAuth+"jbosstest/UnsecureEJBAccess?method=echo");
+      accessURL(url, HttpURLConnection.HTTP_INTERNAL_ERROR);
+   }
+   /** Access the http://localhost/jbosstest/UnsecureEJBAccess with method=unchecked
+    * to test that an unsecured servlet can access a secured EJB method that
+    * only requires an authenticated user. This requires unauthenticated
+    * identity support by the web security domain.
+    */
+   public void testUnsecureAnonEJBAccess() throws Exception
+   {
+      URL url = new URL(baseURLNoAuth+"jbosstest/UnsecureEJBAccess?method=unchecked");
+      accessURL(url, HttpURLConnection.HTTP_OK);
+   }
+
+   public void testUnsecureRunAsServlet() throws Exception
+   {
+      URL url = new URL(baseURLNoAuth+"jbosstest/UnsecureRunAsServlet?method=checkRunAs");
+      accessURL(url, HttpURLConnection.HTTP_OK);      
    }
 
    /** Deploy a second ear that include a notjbosstest-web.war to test ears
@@ -215,7 +234,7 @@ public class WebIntegrationUnitTestCase extends JBossTestCase
          deploy("jbosstest-web2.ear");
          String baseURL = "http://localhost:" + Integer.getInteger("web.port", 8080) + '/';
          URL url = new URL(baseURL+"jbosstest-not2/unrestricted/SecureServlet");
-         accessURL(url, false);
+         accessURL(url, HttpURLConnection.HTTP_OK);
       }
       finally
       {
@@ -248,7 +267,7 @@ public class WebIntegrationUnitTestCase extends JBossTestCase
          deploy("good-web.war");
          String baseURL = "http://localhost:" + Integer.getInteger("web.port", 8080) + '/';
          URL url = new URL(baseURL+"redeploy/index.html");
-         accessURL(url, false);
+         accessURL(url, HttpURLConnection.HTTP_OK);
       }
       finally
       {
@@ -256,10 +275,24 @@ public class WebIntegrationUnitTestCase extends JBossTestCase
       } // end of try-finally
    }
 
-   /** Deploy a bad ear and then redploy with a fixed ear to test failed war
-    * cleanup. Access the http://localhost/redeploy/index.html
-    * @todo check with authors that undeploying first package tests desired behaviour.
+   /** Test of a war that accesses classes referred to via the war manifest
+    * classpath. Access the http://localhost/manifest/classpath.jsp
     */
+   public void testWarManifest() throws Exception
+   {
+      deploy("manifest-web.ear");
+      try
+      {
+         String baseURL = "http://localhost:" + Integer.getInteger("web.port", 8080) + '/';
+         URL url = new URL(baseURL+"manifest/classpath.jsp");
+         accessURL(url, HttpURLConnection.HTTP_OK);
+      }
+      finally
+      {
+         undeploy("jbosstest-good.ear");
+      }
+   }
+
    public void testBadEarRedeploy() throws Exception
    {
       try
@@ -280,7 +313,7 @@ public class WebIntegrationUnitTestCase extends JBossTestCase
          deploy("jbosstest-good.ear");
          String baseURL = "http://localhost:" + Integer.getInteger("web.port", 8080) + '/';
          URL url = new URL(baseURL+"redeploy/index.html");
-         accessURL(url, false);
+         accessURL(url, HttpURLConnection.HTTP_OK);
       }
       finally
       {
@@ -291,29 +324,31 @@ public class WebIntegrationUnitTestCase extends JBossTestCase
 
    private void accessURL(URL url) throws Exception
    {
-      accessURL(url, false);
+      accessURL(url, HttpURLConnection.HTTP_OK);
    }
-   private void accessURL(URL url, boolean shouldFail) throws Exception
+   private void accessURL(URL url, int expectedHttpCode) throws Exception
    {
       try
       {
          getLog().debug("Connecting to: "+url);
-         HttpClient httpConn = new HttpClient(url);
-         int responseCode = httpConn.getResponseCode();
-         String response = httpConn.getResponseMessage();
-         getLog().debug("responseCode="+responseCode+", response="+response);
-         if( responseCode != HttpURLConnection.HTTP_OK )
+         
+         HttpClient httpConn = new HttpClient();
+         GetMethod request = new GetMethod(url.toString());
+         String userInfo = url.getUserInfo();
+         if( userInfo != null )
          {
-            StringBuffer content = httpConn.getContent();
-            getLog().debug(content);
-            if( shouldFail == false )
-               fail("Access to: "+url+" failed with responseCode="+responseCode);
-            else
-            {
-               // Validate that we are seeing a 401 error
-               assertTrue("Error code 401, actual="+responseCode, responseCode == HttpURLConnection.HTTP_UNAUTHORIZED);
-            }
+            UsernamePasswordCredentials auth = new UsernamePasswordCredentials(userInfo);
+            httpConn.getState().setCredentials("JBossTest Servlets", url.getHost(), auth);
          }
+         getLog().debug("RequestURI: "+request.getURI());
+         int responseCode = httpConn.executeMethod(request);
+         String response = request.getStatusText();
+         getLog().debug("responseCode="+responseCode+", response="+response);
+         String content = request.getResponseBodyAsString();
+         getLog().debug(content);
+         // Validate that we are seeing a 401 error
+         assertTrue("Expected reply code:"+expectedHttpCode+", actual="+responseCode,
+            responseCode == expectedHttpCode);
       }
       catch(IOException e)
       {
@@ -324,7 +359,7 @@ public class WebIntegrationUnitTestCase extends JBossTestCase
    /**
     * Setup the test suite.
     */
-   public static Test suite()
+   public static Test suite() throws Exception
    {
       TestSuite suite = new TestSuite();
       suite.addTest(new TestSuite(WebIntegrationUnitTestCase.class));

@@ -376,6 +376,8 @@ void dump_config(struct runctl *runp, struct query *querylist)
 	numdump("limit", ctl->limit);
 	numdump("warnings", ctl->warnings);
 	numdump("fetchlimit", ctl->fetchlimit);
+	numdump("fetchsizelimit", ctl->fetchsizelimit);
+	numdump("fastuidl", ctl->fastuidl);
 	numdump("batchlimit", ctl->batchlimit);
 #ifdef SSL_ENABLE
 	booldump("ssl", ctl->use_ssl);

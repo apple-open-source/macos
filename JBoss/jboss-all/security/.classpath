@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+    <classpathentry kind="src" path="output/parsers"/>
+    <classpathentry kind="src" path="src/main"/>
+    <classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+    <classpathentry kind="src" path="/common"/>
+    <classpathentry kind="lib" path="/thirdparty/apache/log4j/lib/log4j.jar"/>
+    <classpathentry kind="src" path="/j2ee"/>
+    <classpathentry kind="src" path="/server"/>
+    <classpathentry kind="src" path="/system"/>
+    <classpathentry kind="src" path="/jmx"/>
+    <classpathentry kind="src" path="/naming"/>
+    <classpathentry kind="lib" path="/thirdparty/junit/junit/lib/junit.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/hsqldb/hsqldb/lib/hsqldb.jar"/>
+    <classpathentry kind="output" path="output/eclipse-classes"/>
+</classpath>

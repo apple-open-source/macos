@@ -9,32 +9,24 @@ package org.jboss.ejb.plugins.cmp.jdbc;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.util.Iterator;
-import java.util.List;
 import javax.ejb.EJBException;
 import javax.sql.DataSource;
 
 import org.jboss.ejb.plugins.cmp.jdbc.bridge.JDBCCMPFieldBridge;
 import org.jboss.ejb.plugins.cmp.jdbc.bridge.JDBCCMRFieldBridge;
-import org.jboss.ejb.plugins.cmp.jdbc.bridge.JDBCEntityBridge;
-import org.jboss.ejb.plugins.cmp.jdbc.metadata.JDBCRelationMetaData;
 import org.jboss.logging.Logger;
 
 /**
  * Inserts relations into a relation table.
  *
  * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
- * @version $Revision: 1.11.4.1 $
+ * @author <a href="mailto:alex@jboss.org">Alexey Loubyansky</a>
+ * @version $Revision: 1.11.4.7 $
  */
-public class JDBCInsertRelationsCommand {
-   protected JDBCStoreManager manager;
-   protected Logger log;
+public final class JDBCInsertRelationsCommand {
+   private final Logger log;
     
-   protected JDBCEntityBridge entity;
-   
    public JDBCInsertRelationsCommand(JDBCStoreManager manager) {
-      this.manager = manager;
-      this.entity = manager.getEntityBridge();
-
       this.log = Logger.getLogger(
             this.getClass().getName() + 
             "." + 
@@ -85,49 +77,43 @@ public class JDBCInsertRelationsCommand {
       }
    }
    
-   protected String getSQL(RelationData relationData) throws Exception {
+   protected static String getSQL(RelationData relationData) {
       JDBCCMRFieldBridge left = relationData.getLeftCMRField();
       JDBCCMRFieldBridge right = relationData.getRightCMRField();
       
       StringBuffer sql = new StringBuffer(200);
-      sql.append("INSERT INTO ").append(
-           left.getTableName());      
+      sql.append(SQLUtil.INSERT_INTO).append(left.getTableName());
 
-      sql.append(" (");
-            sql.append(SQLUtil.getColumnNamesClause(left.getTableKeyFields()));
-            sql.append(", ");
-            sql.append(SQLUtil.getColumnNamesClause(right.getTableKeyFields()));
-      sql.append(")");
+      sql.append('(');
+         SQLUtil.getColumnNamesClause(left.getTableKeyFields(), sql);
+      sql.append(SQLUtil.COMMA);
+         SQLUtil.getColumnNamesClause(right.getTableKeyFields(), sql);
+      sql.append(')');
 
-      sql.append(" VALUES (");
-            sql.append(SQLUtil.getValuesClause(left.getTableKeyFields()));
-            sql.append(", ");
-            sql.append(SQLUtil.getValuesClause(right.getTableKeyFields()));
-      sql.append(")");      
+      sql.append(SQLUtil.VALUES).append('(');
+            SQLUtil.getValuesClause(left.getTableKeyFields(), sql);
+            sql.append(SQLUtil.COMMA);
+            SQLUtil.getValuesClause(right.getTableKeyFields(), sql);
+      sql.append(')');
       return sql.toString();
    }
       
-   protected void setParameters(
-         PreparedStatement ps,
-         RelationData relationData,
-         RelationPair pair) throws Exception {
-
+   protected static void setParameters(PreparedStatement ps,
+                                RelationData relationData,
+                                RelationPair pair)
+   {
       int index = 1;
 
       // left keys
       Object leftId = pair.getLeftId();
-      List leftFields = relationData.getLeftCMRField().getTableKeyFields();
-      for(Iterator fields=leftFields.iterator(); fields.hasNext();) {
-         JDBCCMPFieldBridge field = (JDBCCMPFieldBridge)fields.next();
-         index = field.setPrimaryKeyParameters(ps, index, leftId);
-      }
-            
+      JDBCCMPFieldBridge[] leftFields = relationData.getLeftCMRField().getTableKeyFields();
+      for(int i = 0; i < leftFields.length; ++i)
+         index = leftFields[i].setPrimaryKeyParameters(ps, index, leftId);
+
       // right keys
       Object rightId = pair.getRightId();
-      List rightFields = relationData.getRightCMRField().getTableKeyFields();
-      for(Iterator fields=rightFields.iterator(); fields.hasNext();) {
-         JDBCCMPFieldBridge field = (JDBCCMPFieldBridge)fields.next();
-         index = field.setPrimaryKeyParameters(ps, index, rightId);
-      }
+      JDBCCMPFieldBridge[] rightFields = relationData.getRightCMRField().getTableKeyFields();
+      for(int i = 0; i < rightFields.length; ++i)
+         index = rightFields[i].setPrimaryKeyParameters(ps, index, rightId);
    }
 }

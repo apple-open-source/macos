@@ -8,6 +8,16 @@
    <display-name>jBoss CTS</display-name>
    <enterprise-beans>
       <session>
+         <description>JUnit Session Bean Test Runner</description>
+         <ejb-name>EJBTestRunnerEJB</ejb-name>
+         <home>org.jboss.test.util.ejb.EJBTestRunnerHome</home>
+         <remote>org.jboss.test.util.ejb.EJBTestRunner</remote>
+         <ejb-class>org.jboss.test.util.ejb.EJBTestRunnerBean</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Bean</transaction-type>
+      </session>
+
+      <session>
          <display-name>Stateless Session</display-name>
          <ejb-name>StatelessSessionBean</ejb-name>
          <home>org.jboss.test.cts.interfaces.StatelessSessionHome</home>
@@ -106,6 +116,18 @@
          <session-type>Stateless</session-type>
          <transaction-type>Container</transaction-type>
       </session>
+      <session>
+         <description>An stateful session with a short passivation time
+         that performs a long wait
+         </description>
+         <display-name>Long Wait Stateful Session</display-name>
+         <ejb-name>LongWaitStatefulSessionBean</ejb-name>
+         <home>org.jboss.test.cts.interfaces.StatefulSessionHome</home>
+         <remote>org.jboss.test.cts.interfaces.StatefulSession</remote>
+         <ejb-class>org.jboss.test.cts.ejb.StatefulSessionBean</ejb-class>
+         <session-type>Stateful</session-type>
+         <transaction-type>Container</transaction-type>
+      </session>
 
       <entity>
          <description>Test for BEAN managed persistence</description>
@@ -150,6 +172,23 @@
          <reentrant>True</reentrant>
          <cmp-version>2.x</cmp-version>
          <abstract-schema-name>CMPBean</abstract-schema-name>
+         <cmp-field><field-name>pk</field-name></cmp-field>
+         <cmp-field><field-name>personsName</field-name></cmp-field>
+         <primkey-field>pk</primkey-field>
+      </entity>
+      <entity>
+         <description>Duplicate deployment of CMPBean</description>
+         <ejb-name>CMPBean2</ejb-name>
+         <home>org.jboss.test.cts.interfaces.CtsCmpHome</home>
+         <remote>org.jboss.test.cts.interfaces.CtsCmp</remote>
+         <local-home>org.jboss.test.cts.interfaces.CtsCmpLocalHome</local-home>
+         <local>org.jboss.test.cts.interfaces.CtsCmpLocal</local>
+         <ejb-class>org.jboss.test.cts.ejb.CtsCmpBean</ejb-class>
+         <persistence-type>Container</persistence-type>
+         <prim-key-class>org.jboss.test.cts.keys.AccountPK</prim-key-class>
+         <reentrant>True</reentrant>
+         <cmp-version>2.x</cmp-version>
+         <abstract-schema-name>CMPBean2</abstract-schema-name>
          <cmp-field><field-name>pk</field-name></cmp-field>
          <cmp-field><field-name>personsName</field-name></cmp-field>
          <primkey-field>pk</primkey-field>

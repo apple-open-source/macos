@@ -1,4 +1,4 @@
-#!/usr/bin/perl 
+#!/usr/bin/perl -w
 
 #  This code was developped by IDEALX (http://IDEALX.org/) and
 #  contributors (their names can be found in the CONTRIBUTORS file).
@@ -26,16 +26,18 @@
 #       . originally by David Le Corfec <david.le-corfec@IDEALX.com>
 
 use strict;
+use FindBin;
+use FindBin qw($RealBin);
+use lib "$RealBin/";
 use smbldap_tools;
-
 use Getopt::Std;
 my %Options;
 
 my $ok = getopts('?', \%Options);
 
 if ( (!$ok) || (@ARGV < 1) || ($Options{'?'}) ) {
-	print "Usage: $0 [-?] group\n";
-	print "  -?	show this help message\n";
+  print "Usage: $0 [-?] group\n";
+  print "  -?	show this help message\n";
 	exit (1);
 }
 

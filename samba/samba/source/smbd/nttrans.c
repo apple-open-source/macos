@@ -522,8 +522,11 @@ static int do_ntcreate_pipe_open(connection_struct *conn,
 	int ret;
 	int pnum = -1;
 	char *p = NULL;
+	NTSTATUS status;
 
-	srvstr_pull_buf(inbuf, fname, smb_buf(inbuf), sizeof(fname), STR_TERMINATE);
+	srvstr_get_path(inbuf, fname, smb_buf(inbuf), sizeof(fname), STR_TERMINATE,&status);
+	if (!NT_STATUS_IS_OK(status))
+		return ERROR_NT(status);
 
 	if ((ret = nt_open_pipe(fname, conn, inbuf, outbuf, &pnum)) != 0)
 		return ret;
@@ -587,6 +590,7 @@ int reply_ntcreate_and_X(connection_struct *conn,
 	char *p = NULL;
 	time_t c_time;
 	BOOL extended_oplock_granted = False;
+	NTSTATUS status;
 
 	START_PROFILE(SMBntcreateX);
 
@@ -641,7 +645,11 @@ create_options = 0x%x root_dir_fid = 0x%x\n", flags, desired_access, file_attrib
 
 		if(!dir_fsp->is_directory) {
 
-			srvstr_pull_buf(inbuf, fname, smb_buf(inbuf), sizeof(fname), STR_TERMINATE);
+			srvstr_get_path(inbuf, fname, smb_buf(inbuf), sizeof(fname), STR_TERMINATE,&status);
+			if (!NT_STATUS_IS_OK(status)) {
+				END_PROFILE(SMBntcreateX);
+				return ERROR_NT(status);
+			}
 
 			/* 
 			 * Check to see if this is a mac fork of some kind.
@@ -681,9 +689,17 @@ create_options = 0x%x root_dir_fid = 0x%x\n", flags, desired_access, file_attrib
 			dir_name_len++;
 		}
 
-		srvstr_pull_buf(inbuf, &fname[dir_name_len], smb_buf(inbuf), sizeof(fname)-dir_name_len, STR_TERMINATE);
+		srvstr_get_path(inbuf, &fname[dir_name_len], smb_buf(inbuf), sizeof(fname)-dir_name_len, STR_TERMINATE,&status);
+		if (!NT_STATUS_IS_OK(status)) {
+			END_PROFILE(SMBntcreateX);
+			return ERROR_NT(status);
+		}
 	} else {
-		srvstr_pull_buf(inbuf, fname, smb_buf(inbuf), sizeof(fname), STR_TERMINATE);
+		srvstr_get_path(inbuf, fname, smb_buf(inbuf), sizeof(fname), STR_TERMINATE,&status);
+		if (!NT_STATUS_IS_OK(status)) {
+			END_PROFILE(SMBntcreateX);
+			return ERROR_NT(status);
+		}
 
 		/* 
 		 * Check to see if this is a mac fork of some kind.
@@ -971,6 +987,7 @@ static int do_nt_transact_create_pipe( connection_struct *conn, char *inbuf, cha
 	int ret;
 	int pnum = -1;
 	char *p = NULL;
+	NTSTATUS status;
 
 	/*
 	 * Ensure minimum number of parameters sent.
@@ -982,6 +999,10 @@ static int do_nt_transact_create_pipe( connection_struct *conn, char *inbuf, cha
 	}
 
 	srvstr_pull(inbuf, fname, params+53, sizeof(fname), parameter_count-53, STR_TERMINATE);
+	status = check_path_syntax(fname);
+	if (!NT_STATUS_IS_OK(status)) {
+		return ERROR_NT(status);
+	}
 
 	if ((ret = nt_open_pipe(fname, conn, inbuf, outbuf, &pnum)) != 0)
 		return ret;
@@ -1158,7 +1179,6 @@ static int call_nt_transact_create(connection_struct *conn, char *inbuf, char *o
 	smb_attr = (file_attributes & SAMBA_ATTRIBUTES_MASK);
 
 	if (create_options & FILE_OPEN_BY_FILE_ID) {
-		END_PROFILE(SMBntcreateX);
 		return ERROR_NT(NT_STATUS_NOT_SUPPORTED);
 	}
 
@@ -1188,6 +1208,10 @@ static int call_nt_transact_create(connection_struct *conn, char *inbuf, char *o
 		if(!dir_fsp->is_directory) {
 
 			srvstr_pull(inbuf, fname, params+53, sizeof(fname), parameter_count-53, STR_TERMINATE);
+			nt_status = check_path_syntax(fname);
+			if (!NT_STATUS_IS_OK(nt_status)) {
+				return ERROR_NT(nt_status);
+			}
 
 			/*
 			 * Check to see if this is a mac fork of some kind.
@@ -1217,8 +1241,16 @@ static int call_nt_transact_create(connection_struct *conn, char *inbuf, char *o
 
 		srvstr_pull(inbuf, &fname[dir_name_len], params+53, sizeof(fname)-dir_name_len, 
 				parameter_count-53, STR_TERMINATE);
+		nt_status = check_path_syntax(fname);
+		if (!NT_STATUS_IS_OK(nt_status)) {
+			return ERROR_NT(nt_status);
+		}
 	} else {
 		srvstr_pull(inbuf, fname, params+53, sizeof(fname), parameter_count-53, STR_TERMINATE);
+		nt_status = check_path_syntax(fname);
+		if (!NT_STATUS_IS_OK(nt_status)) {
+			return ERROR_NT(nt_status);
+		}
 
 		/*
 		 * Check to see if this is a mac fork of some kind.
@@ -1260,7 +1292,6 @@ static int call_nt_transact_create(connection_struct *conn, char *inbuf, char *o
 
 		/* Can't open a temp directory. IFS kit test. */
 		if (file_attributes & FILE_ATTRIBUTE_TEMPORARY) {
-			END_PROFILE(SMBntcreateX);
 			return ERROR_NT(NT_STATUS_INVALID_PARAMETER);
 		}
 
@@ -1361,7 +1392,6 @@ static int call_nt_transact_create(connection_struct *conn, char *inbuf, char *o
 		fsp->initial_allocation_size = SMB_ROUNDUP(allocation_size,SMB_ROUNDUP_ALLOCATION_SIZE);
 		if (vfs_allocate_file_space(fsp, fsp->initial_allocation_size) == -1) {
 			close_file(fsp,False);
-			END_PROFILE(SMBntcreateX);
 			return ERROR_NT(NT_STATUS_DISK_FULL);
 		}
 	} else {
@@ -1472,6 +1502,9 @@ static int call_nt_transact_notify_change(connection_struct *conn, char *inbuf, 
 	files_struct *fsp;
 	uint32 flags;
 
+        if(setup_count < 6)
+		return ERROR_DOS(ERRDOS,ERRbadfunc);
+
 	fsp = file_fsp(setup,4);
 	flags = IVAL(setup, 0);
 
@@ -1514,6 +1547,10 @@ static int call_nt_transact_rename(connection_struct *conn, char *inbuf, char *o
 	replace_if_exists = (SVAL(params,2) & RENAME_REPLACE_IF_EXISTS) ? True : False;
 	CHECK_FSP(fsp, conn);
 	srvstr_pull(inbuf, new_name, params+4, sizeof(new_name), -1, STR_TERMINATE);
+	status = check_path_syntax(new_name);
+	if (!NT_STATUS_IS_OK(status)) {
+		return ERROR_NT(status);
+	}
 
 	status = rename_internals(conn, fsp->fsp_name,
 				  new_name, replace_if_exists);
@@ -1919,8 +1956,8 @@ static int call_nt_transact_ioctl(connection_struct *conn, char *inbuf, char *ou
 		DEBUGADD(10,("for SID: %s\n",sid_string_static(&sid)));
 
 		if (!NT_STATUS_IS_OK(sid_to_uid(&sid, &uid))) {
-			DEBUG(0,("sid_to_uid: failed, sid[%s] sid_len[%u]\n",
-				sid_string_static(&sid),sid_len));
+			DEBUG(0,("sid_to_uid: failed, sid[%s] sid_len[%lu]\n",
+				sid_string_static(&sid),(unsigned long)sid_len));
 			uid = (-1);
 		}
 		
@@ -2131,7 +2168,7 @@ static int call_nt_transact_get_user_quota(connection_struct *conn, char *inbuf,
 			sid_len = IVAL(pdata,4);
 
 			if (data_count < 8+sid_len) {
-				DEBUG(0,("TRANSACT_GET_USER_QUOTA_FOR_SID: requires %d >= %d bytes data\n",data_count,8+sid_len));
+				DEBUG(0,("TRANSACT_GET_USER_QUOTA_FOR_SID: requires %d >= %lu bytes data\n",data_count,(unsigned long)(8+sid_len)));
 				return ERROR_DOS(ERRDOS,ERRunknownlevel);				
 			}
 
@@ -2264,7 +2301,7 @@ static int call_nt_transact_set_user_quota(connection_struct *conn, char *inbuf,
 	sid_len = IVAL(pdata,4);
 
 	if (data_count < 40+sid_len) {
-		DEBUG(0,("TRANSACT_SET_USER_QUOTA: requires %d >= %d bytes data\n",data_count,40+sid_len));
+		DEBUG(0,("TRANSACT_SET_USER_QUOTA: requires %d >= %lu bytes data\n",data_count,(unsigned long)40+sid_len));
 		return ERROR_DOS(ERRDOS,ERRunknownlevel);		
 	}
 
@@ -2426,7 +2463,8 @@ due to being in oplock break state.\n", (unsigned int)function_code ));
 		if ((parameter_offset + parameter_count < parameter_offset) ||
 				(parameter_offset + parameter_count < parameter_count))
 			goto bad_param;
-		if (smb_base(inbuf) + parameter_offset + parameter_count > inbuf + length)
+		if ((smb_base(inbuf) + parameter_offset + parameter_count > inbuf + length)||
+				(smb_base(inbuf) + parameter_offset + parameter_count < smb_base(inbuf)))
 			goto bad_param;
 
 		memcpy( params, smb_base(inbuf) + parameter_offset, parameter_count);
@@ -2436,7 +2474,8 @@ due to being in oplock break state.\n", (unsigned int)function_code ));
 		DEBUG(10,("reply_nttrans: data_count = %d\n",data_count));
 		if ((data_offset + data_count < data_offset) || (data_offset + data_count < data_count))
 			goto bad_param;
-		if (smb_base(inbuf) + data_offset + data_count > inbuf + length)
+		if ((smb_base(inbuf) + data_offset + data_count > inbuf + length) ||
+		   		(smb_base(inbuf) + data_offset + data_count < smb_base(inbuf)))
 			goto bad_param;
 
 		memcpy( data, smb_base(inbuf) + data_offset, data_count);
@@ -2449,6 +2488,7 @@ due to being in oplock break state.\n", (unsigned int)function_code ));
 		/* We need to send an interim response then receive the rest
 			of the parameter/data bytes */
 		outsize = set_message(outbuf,0,0,True);
+		srv_signing_trans_stop();
 		if (!send_smb(smbd_server_fd(),outbuf))
 			exit_server("reply_nttrans: send_smb failed.");
 
@@ -2458,6 +2498,13 @@ due to being in oplock break state.\n", (unsigned int)function_code ));
 			uint32 data_displacement;
 
 			ret = receive_next_smb(inbuf,bufsize,SMB_SECONDARY_WAIT);
+
+			/*
+			 * The sequence number for the trans reply is always
+			 * based on the last secondary received.
+			 */
+
+			srv_signing_trans_start(SVAL(inbuf,smb_mid));
 
 			if((ret && (CVAL(inbuf, smb_com) != SMBnttranss)) || !ret) {
 				outsize = set_message(outbuf,0,0,True);
@@ -2497,7 +2544,10 @@ due to being in oplock break state.\n", (unsigned int)function_code ));
 				if ((parameter_displacement + parameter_count < parameter_displacement) ||
 						(parameter_displacement + parameter_count < parameter_count))
 					goto bad_param;
-				if (smb_base(inbuf) + parameter_offset + parameter_count >= inbuf + bufsize)
+				if (parameter_displacement > total_parameter_count)
+					goto bad_param;
+				if ((smb_base(inbuf) + parameter_offset + parameter_count >= inbuf + bufsize) ||
+						(smb_base(inbuf) + parameter_offset + parameter_count < smb_base(inbuf)))
 					goto bad_param;
 				if (parameter_displacement + params < params)
 					goto bad_param;
@@ -2511,7 +2561,10 @@ due to being in oplock break state.\n", (unsigned int)function_code ));
 				if ((data_displacement + data_count < data_displacement) ||
 						(data_displacement + data_count < data_count))
 					goto bad_param;
-				if (smb_base(inbuf) + data_offset + data_count >= inbuf + bufsize)
+				if (data_displacement > total_data_count)
+					goto bad_param;
+				if ((smb_base(inbuf) + data_offset + data_count >= inbuf + bufsize) ||
+						(smb_base(inbuf) + data_offset + data_count < smb_base(inbuf)))
 					goto bad_param;
 				if (data_displacement + data < data)
 					goto bad_param;

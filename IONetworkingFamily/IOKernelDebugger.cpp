@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -36,8 +33,14 @@
 #include <IOKit/IOLocks.h>
 #include <IOKit/network/IONetworkController.h>
 #include <IOKit/network/IOKernelDebugger.h>
+#include <IOKit/IOBSD.h> //for kIOBSDNameKey
 #include <libkern/OSAtomic.h>
 #include "IONetworkControllerPrivate.h"
+
+#define kIOPrimaryDebugPortKey      "IOPrimaryDebugPort"
+
+#define kMatchNameArg				"kdp_match_name"
+#define kMatchMacArg				"kdp_match_mac"
 
 //---------------------------------------------------------------------------
 // IOKDP
@@ -47,6 +50,17 @@ class IOKDP : public IOService
     OSDeclareDefaultStructors( IOKDP )
 
 public:
+	/*! @function probe
+	@abstract verify controller meets criteria for debugger
+	@discussion This checks that the controller that is attaching the debugger
+	meets the criteria set by the user on the kernel command line. Current boot-args
+	are kdp_match_mac=001122334455 to match against a specific MAC address and
+	kdp_match_name=bsdname to match against interfaces with the specified BSD interface
+	name (for example, en1)
+	*/
+	
+	virtual IOService *probe(IOService *provider, SInt32 *score);
+	
     virtual bool start( IOService * provider );
 
     virtual void stop( IOService * provider );
@@ -100,6 +114,102 @@ OSDefineMetaClassAndStructors( IOKDP, IOService )
 
 //---------------------------------------------------------------------------
 // start/stop/message.
+IOService *IOKDP::probe(IOService *provider, SInt32 *score)
+{
+	char textBuffer[32];
+	
+	// we expect our provider is an IOKernelDebugger and that its provider is an IONetworkController.
+	// If the controller has an IONetworkInterface client (it should) we can use info in it to
+	// determine if this is the best match for a debugger.
+	IONetworkInterface *interface = 0;
+	OSObject *client;
+	IOService *controller = provider->getProvider();
+	
+//	IOLog("_kdp_ probing...\n");
+	if(controller)
+	{
+		OSIterator *clients = controller->getClientIterator();
+		//try to find a network interface on the provider
+		while(client = clients->getNextObject())
+		{
+			if(interface = OSDynamicCast(IONetworkInterface, client))
+				break;
+		}
+		clients->release();
+		
+	}
+		
+	do
+	{
+		if(PE_parse_boot_arg( kMatchNameArg, textBuffer))
+		{
+			if(!interface) //user wants name match but we're not on a controller with an interface
+			{
+				//IOLog("_kdp_ no interface\n");
+				return 0;
+			}
+			OSString *bsdname = OSDynamicCast(OSString, interface->getProperty(kIOBSDNameKey));
+			if(!bsdname)
+			{
+				//IOLog("_kdp_ no bsd property\n");
+				return 0;
+			}
+			if(bsdname->isEqualTo(textBuffer) == false)
+			{
+				//IOLog("_kdp_ name doesn't match %s\n", textBuffer);
+				return 0;
+			}
+			break; 
+		}
+		
+		if(PE_parse_boot_arg( kMatchMacArg, textBuffer))
+		{
+			char ctrMac[13];
+			if(!controller) //looking for mac match, but the debugger isn't on a controller (!?)
+			{
+				//IOLog("_kdp_ no controller\n");
+				return 0;
+			}
+			OSData * macAddr = OSDynamicCast(OSData, controller->getProperty(kIOMACAddress));
+			if ( (macAddr == 0) || (macAddr->getLength() != 6) )
+			{
+				//IOLog("_kdp_ bad mac\n");
+				return 0;
+			}
+			
+			//make sure command line mac is in upper case
+			for(int i=0; i<12; i++)
+				textBuffer[i] = textBuffer[i] >= 'a' && textBuffer[i] <= 'z' ? textBuffer[i] - 32 : textBuffer[i];
+
+			// now convert the controller mac property to a string
+			unsigned char *macData = (unsigned char *)macAddr->getBytesNoCopy();
+			sprintf(ctrMac, "%02X%02X%02X%02X%02X%02X", macData[0], macData[1], macData[2], macData[3], macData[4], macData[5]);
+			
+			//now see if they match...
+			if(strncmp(ctrMac, textBuffer, 12))
+			{
+				//IOLog("_kdp_ mac doesn't match %s\n", textBuffer);
+				return 0;
+			}
+			break;
+		}
+		
+		//else default to old plist metric: the IOKernelDebugger has IOPrimaryDebugPort property
+		OSBoolean *pdp = OSDynamicCast(OSBoolean, provider->getProperty(kIOPrimaryDebugPortKey));
+		if(!pdp || pdp->isFalse())
+		{
+			//IOLog("_kdp_ not primary debug port\n");
+			return 0;
+		}
+		break;
+	}while(false);
+	
+	//IOLog("_kdp_ MATCHED!\n");
+	
+	//make sure the super is ok with this.
+	IOService *ret = super::probe(provider, score);
+	return ret;
+}
 
 bool IOKDP::start( IOService * provider )
 {
@@ -169,6 +279,7 @@ typedef void (*kdp_send_t)( void * pkt, UInt pkt_len );
 typedef void (*kdp_receive_t)( void * pkt, UInt * pkt_len, UInt timeout );
 void kdp_register_send_receive( kdp_send_t send, kdp_receive_t receive );
 void kdp_unregister_send_receive( kdp_send_t send, kdp_receive_t receive );
+void kdp_set_interface(void *);
 }
 
 #undef  super
@@ -200,12 +311,24 @@ enum {
 #define _disableDebuggerThreadCall  _reserved->disableDebuggerThreadCall
 #define _state                      _reserved->stateVars[0]
 #define _activationChangeThreadCall _reserved->activationChangeThreadCall
-
+#define _interfaceNotifier			_reserved->interfaceNotifier
 #define EARLY_DEBUG_SUPPORT         (gDebugBootArg != 0)
-#define kIOPrimaryDebugPortKey      "IOPrimaryDebugPort"
 
 static void handleActivationChange( IOKernelDebugger * debugger,
                                     void *             change );
+
+bool IOKernelDebugger::interfacePublished( void * target, void *param, IOService * service )
+{
+	IOService *debugger = (IOService *)target;
+	//IOLog("new (or changes on) interface detected\n");
+	//only reregister ourselves if the interface has the same controller (provider) as we do.
+	if(debugger && service && debugger->getProvider() == service->getProvider())
+	{
+		//IOLog("it's on our controller- reregister\n");
+		debugger->registerService();
+	}
+	return true;
+}
 
 //---------------------------------------------------------------------------
 // The KDP receive dispatch function. Dispatches KDP receive requests to the
@@ -317,6 +440,22 @@ bool IOKernelDebugger::init( IOService *          target,
                                 (thread_call_func_t)  handleActivationChange,
                                 (thread_call_param_t) this );
 
+	// if user wants bsd name matching, odds are good that the interface won't
+	// have been named at the time IOKDP is matching on us...fortunately IONetworkStack
+	// reregisters the interface service when it gets named, so we can add a notifier
+	// and reregister ourselves at that time in order to try matching IOKDP again.
+	char textBuffer[64];
+	if(PE_parse_boot_arg( kMatchNameArg, textBuffer))
+	{
+		
+		_interfaceNotifier = addNotification(
+									   /* type   */    gIOPublishNotification,
+									   /* match  */    serviceMatching("IONetworkInterface"),
+									   /* action */    interfacePublished,
+									   /* param  */    this );
+	}
+	else _interfaceNotifier = 0;
+	
     if ( !_enableDebuggerThreadCall || !_disableDebuggerThreadCall ||
          !_activationChangeThreadCall )
     {
@@ -346,7 +485,7 @@ IOKernelDebugger * IOKernelDebugger::debugger( IOService *          target,
     if (debugger && (debugger->init( target, txHandler, rxHandler ) == false))
     {
         debugger->release();
-        debugger = 0;
+        return 0;
     }
 
 #if defined (__ppc__)
@@ -400,6 +539,20 @@ void IOKernelDebugger::registerHandler( IOService *          target,
 
     if ( doRegister && (( gIODebuggerFlag & kIODebuggerFlagRegistered ) == 0) )
     {
+        // if we're on a controller that has an interfacet(we should be), we can register
+		// the IONetworkInterface * as an identifier so that the bsd portion
+		// knows when to assign an ip to kdp
+		IONetworkInterface *interface = 0;
+		OSIterator *clients = target->getClientIterator();
+		//try to find a network interface on the target
+		while(OSObject *client = clients->getNextObject())
+		{
+			if(interface = OSDynamicCast(IONetworkInterface, client))
+				break;
+		}
+		clients->release();
+		kdp_set_interface(interface); 
+		
         // Register dispatch function, these in turn will call the
         // handlers when the debugger is active.
         // 
@@ -587,6 +740,9 @@ void IOKernelDebugger::free()
 
         if ( _activationChangeThreadCall )
             thread_call_free( _activationChangeThreadCall );
+
+		if ( _interfaceNotifier )
+			_interfaceNotifier->remove();
 
         IODelete( _reserved, ExpansionData, 1 );
         _reserved = 0;

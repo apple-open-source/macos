@@ -1,31 +1,31 @@
 <html><head><META http-equiv="Content-Type" content="text/html; charset=iso-8859-1"><title>The Tomcat 4 Servlet/JSP Container - Manager App HOW-TO</title><meta value="Craig R. McClanahan" name="author"><meta value="craigmcc@apache.org" name="email"></head><body vlink="#525D76" alink="#525D76" link="#525D76" text="#000000" bgcolor="#ffffff"><table cellspacing="4" width="100%" border="0"><!--PAGE HEADER--><tr><td colspan="2"><!--JAKARTA LOGO--><a href="http://jakarta.apache.org/"><img border="0" alt="The Jakarta Project" align="left" src="./images/jakarta-logo.gif"></a><!--PROJECT LOGO--><a href="http://jakarta.apache.org/tomcat/"><img border="0" alt="
       The Tomcat Servlet/JSP Container
     " align="right" src="./images/tomcat.gif"></a></td></tr><!--HEADER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade=""></td></tr><tr><!--LEFT SIDE NAVIGATION--><td nowrap="true" valign="top" width="20%"><p><strong>Links</strong></p><ul><li><a href="index.html">Docs Home</a></li></ul><p><strong>Getting Started</strong></p><ul><li><a href="introduction.html">Introduction</a></li><li><a href="README.txt">READ ME</a></li><li><a href="RUNNING.txt">Install and Run</a></li><li><a href="BUILDING.txt">Building from Source</a></li></ul><p><strong>Configuration</strong></p><ul><li><a href="config/index.html">Reference</a></li></ul><p><strong>Administrators</strong></p><ul><li><a href="cgi-howto.html">CGI HOW-TO</a></li><li><a href="class-loader-howto.html">Class Loader HOW-TO</a></li><li><a href="config/connectors.html">Connectors List</a></li><li><a href="html-manager-howto.html">HTML Manager App HOW-TO</a></li><li><a href="jk2/index.html">JK Documentation</a></li><li><a href="jndi-datasource-examples-howto.html">JNDI DataSource HOW-TO</a></li><li><a href="jndi-resources-howto.html">JNDI Resources HOW-TO</a></li><li><a href="jasper-howto.html">JSP Engine Config HOW-TO</a></li><li><a href="manager-howto.html">Manager App HOW-TO</a></li><li><a href="mbeans-descriptor-howto.html">MBean Descriptor HOW-TO</a></li><li><a href="proxy-howto.html">Proxy Support HOW-TO</a></li><li><a href="realm-howto.html">Realm HOW-TO</a></li><li><a href="security-manager-howto.html">Security Mgr. HOW-TO</a></li><li><a href="ssi-howto.html">SSI Config HOW-TO</a></li><li><a href="ssl-howto.html">SSL Config HOW-TO</a></li></ul><p><strong>Application Developers</strong></p><ul><li><a href="appdev/index.html">App Developer Guide</a></li><li><a href="servletapi/index.html">Servlet/JSP Javadocs</a></li></ul><p><strong>Catalina Developers</strong></p><ul><li><a href="catalina/funcspecs/index.html">Functional Specs.</a></li><li><a href="catalina/docs/api/index.html">Javadocs</a></li></ul><p><strong>Jasper Developers</strong></p><ul><li><a href="jasper/docs/api/index.html">Javadocs</a></li></ul></td><!--RIGHT SIDE MAIN BODY--><td align="left" valign="top" width="80%"><table cellspacing="4" width="100%" border="0"><tr><td nowrap="true" valign="top" align="left"><h1>The Tomcat 4 Servlet/JSP Container</h1><h2>Manager App HOW-TO</h2></td><td nowrap="true" valign="top" align="right"><small><a href="printer/manager-howto.html"><img alt="Printer Friendly Version" border="0" src="./images/printer.gif"><br>print-friendly<br>version
-                    </a></small></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Table%20of%20Contents"><strong>Table of Contents</strong></a></font></td></tr><tr><td><blockquote>
+                    </a></small></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Table of Contents"><strong>Table of Contents</strong></a></font></td></tr><tr><td><blockquote>
 
 <p>
 <a href="#Introduction">Introduction</a><br>
-<a href="#Configuring%20Manager%20Application%20Access">
+<a href="#Configuring Manager Application Access">
 Configuring Manager Application Access</a><br>
-<a href="#Supported%20Manager%20Commands">Supported Manager Commands</a><br>
+<a href="#Supported Manager Commands">Supported Manager Commands</a><br>
 <blockquote>
-<a href="#Deploy%20A%20New%20Application">Deploy A New Application</a><br>
-<a href="#Install%20A%20New%20Application">Install A New Application</a><br>
-<a href="#List%20Currently%20Deployed%20and%20Installed%20Applications">
+<a href="#Deploy A New Application">Deploy A New Application</a><br>
+<a href="#Install A New Application">Install A New Application</a><br>
+<a href="#List Currently Deployed and Installed Applications">
 List Currently Deployed and Installed Applications</a><br>
-<a href="#Reload%20An%20Existing%20Application">Reload An Existing Application</a><br>
-<a href="#Remove%20an%20Existing%20Application">Remove an Existing Application</a><br>
-<a href="#List%20OS%20and%20JVM%20Properties">List OS and JVM Properties</a><br>
-<a href="#List%20Available%20Global%20JNDI%20Resources">
+<a href="#Reload An Existing Application">Reload An Existing Application</a><br>
+<a href="#Remove an Existing Application">Remove an Existing Application</a><br>
+<a href="#List OS and JVM Properties">List OS and JVM Properties</a><br>
+<a href="#List Available Global JNDI Resources">
 List Available Global JNDI Resources</a><br>
-<a href="#List%20Available%20Security%20Roles">List Available Security Roles</a><br>
-<a href="#Session%20Statistics">Session Statistics</a><br>
-<a href="#Start%20an%20Existing%20Application">Start an Existing Application</a><br>
-<a href="#Stop%20an%20Existing%20Application">Stop an Existing Application</a><br>
-<a href="#Undeploy%20an%20Existing%20Application">
+<a href="#List Available Security Roles">List Available Security Roles</a><br>
+<a href="#Session Statistics">Session Statistics</a><br>
+<a href="#Start an Existing Application">Start an Existing Application</a><br>
+<a href="#Stop an Existing Application">Stop an Existing Application</a><br>
+<a href="#Undeploy an Existing Application">
 Undeploy an Existing Application</a><br>
 </blockquote>
-<a href="#Executing%20Manager%20Commands%20With%20Ant">
+<a href="#Executing Manager Commands With Ant">
 Executing Manager Commands With Ant</a><br>
 </p>
 
@@ -92,11 +92,11 @@ your website host name:  <code>http://localhost/manager/html/</code> .</li>
 <li>A minimal version using HTTP requests only which is suitable for use
 by scripts setup by system administrators.  Commands are given as part of the
 request URI, and responses are in the form of simple text that can be easily
-parsed and processed.  See <a href="#Supported%20Manager%20Commands">
+parsed and processed.  See <a href="#Supported Manager Commands">
 Supported Manager Commands</a> for more information.</li>
 <li>A convenient set of task definitions for the <em>Ant</em>
 (version 1.4 or later) build tool.  See
-<a href="#Executing%20Manager%20Commands%20With%20Ant">Executing Manager Commands
+<a href="#Executing Manager Commands With Ant">Executing Manager Commands
 With Ant</a> for more information.</li>
 </ul>
 </p>
@@ -112,7 +112,7 @@ is presented in (at least) the following forms:
 </ul>
 </p>
 
-</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Configuring%20Manager%20Application%20Access"><strong>Configuring Manager Application Access</strong></a></font></td></tr><tr><td><blockquote>
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Configuring Manager Application Access"><strong>Configuring Manager Application Access</strong></a></font></td></tr><tr><td><blockquote>
 
     <blockquote><em>
     <p>The description below uses the variable name $CATALINA_HOME
@@ -185,7 +185,7 @@ an example of restricting access to the localhost by IP address:
 &lt;/Context&gt;
 </pre>
 </p>
-</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Supported%20Manager%20Commands"><strong>Supported Manager Commands</strong></a></font></td></tr><tr><td><blockquote>
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Supported Manager Commands"><strong>Supported Manager Commands</strong></a></font></td></tr><tr><td><blockquote>
 
 <p>All commands that the Manager application knows how to process are
 specified in a single request URI like this:</p>
@@ -246,7 +246,7 @@ its message strings in resource bundles, so it is possible that the strings
 have been translated for your platform.  The examples below show the English
 version of the messages.</p>
 
-<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Deploy%20A%20New%20Application"><strong>Deploy A New Application</strong></a></font></td></tr><tr><td><blockquote>
+<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Deploy A New Application"><strong>Deploy A New Application</strong></a></font></td></tr><tr><td><blockquote>
 
 <div align="left"><table border="0" cellpadding="0" cellspacing="4"><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td></tr><tr><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" bgcolor="#ffffff"><pre>
 http://localhost:8080/manager/deploy?path=/foo
@@ -305,7 +305,7 @@ error message.  Possible causes for problems include:</p>
 
 </blockquote></td></tr></table>
 
-<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Install%20A%20New%20Application"><strong>Install A New Application</strong></a></font></td></tr><tr><td><blockquote>
+<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Install A New Application"><strong>Install A New Application</strong></a></font></td></tr><tr><td><blockquote>
 
 <p>Install and start a new web application, attached to the specified context
 <code>path</code> (which must not be in use by any other web application).
@@ -491,7 +491,7 @@ error message.  Possible causes for problems include:</p>
 
 </blockquote></td></tr></table>
 
-<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="List%20Currently%20Deployed%20and%20Installed%20Applications"><strong>List Currently Deployed and Installed Applications</strong></a></font></td></tr><tr><td><blockquote>
+<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="List Currently Deployed and Installed Applications"><strong>List Currently Deployed and Installed Applications</strong></a></font></td></tr><tr><td><blockquote>
 
 <div align="left"><table border="0" cellpadding="0" cellspacing="4"><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td></tr><tr><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" bgcolor="#ffffff"><pre>
 http://localhost:8080/manager/list
@@ -511,7 +511,7 @@ OK - Listed applications for virtual host localhost
 
 </blockquote></td></tr></table>
 
-<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Reload%20An%20Existing%20Application"><strong>Reload An Existing Application</strong></a></font></td></tr><tr><td><blockquote>
+<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Reload An Existing Application"><strong>Reload An Existing Application</strong></a></font></td></tr><tr><td><blockquote>
 
 <div align="left"><table border="0" cellpadding="0" cellspacing="4"><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td></tr><tr><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" bgcolor="#ffffff"><pre>
 http://localhost:8080/manager/reload?path=/examples
@@ -570,7 +570,7 @@ error message.  Possible causes for problems include:</p>
 
 </blockquote></td></tr></table>
 
-<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Remove%20an%20Existing%20Application"><strong>Remove an Existing Application</strong></a></font></td></tr><tr><td><blockquote>
+<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Remove an Existing Application"><strong>Remove an Existing Application</strong></a></font></td></tr><tr><td><blockquote>
 
 <div align="left"><table border="0" cellpadding="0" cellspacing="4"><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td></tr><tr><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" bgcolor="#ffffff"><pre>
 http://localhost:8080/manager/remove?path=/examples
@@ -620,7 +620,7 @@ error message.  Possible causes for problems include:</p>
 
 </blockquote></td></tr></table>
 
-<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="List%20OS%20and%20JVM%20Properties"><strong>List OS and JVM Properties</strong></a></font></td></tr><tr><td><blockquote>
+<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="List OS and JVM Properties"><strong>List OS and JVM Properties</strong></a></font></td></tr><tr><td><blockquote>
 
 <div align="left"><table border="0" cellpadding="0" cellspacing="4"><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td></tr><tr><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" bgcolor="#ffffff"><pre>
 http://localhost:8080/manager/serverinfo
@@ -640,7 +640,7 @@ include an error message.  Possible causes for problems include:</p>
 
 </blockquote></td></tr></table>
 
-<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="List%20Available%20Global%20JNDI%20Resources"><strong>List Available Global JNDI Resources</strong></a></font></td></tr><tr><td><blockquote>
+<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="List Available Global JNDI Resources"><strong>List Available Global JNDI Resources</strong></a></font></td></tr><tr><td><blockquote>
 
 <div align="left"><table border="0" cellpadding="0" cellspacing="4"><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td></tr><tr><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" bgcolor="#ffffff"><pre>
 http://localhost:8080/manager/resources[?type=xxxxx]
@@ -692,7 +692,7 @@ include an error message.  Possible causes for problems include:</p>
 </blockquote></td></tr></table>
 
 
-<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="List%20Available%20Security%20Roles"><strong>List Available Security Roles</strong></a></font></td></tr><tr><td><blockquote>
+<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="List Available Security Roles"><strong>List Available Security Roles</strong></a></font></td></tr><tr><td><blockquote>
 
 <div align="left"><table border="0" cellpadding="0" cellspacing="4"><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td></tr><tr><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" bgcolor="#ffffff"><pre>
 http://localhost:8080/manager/roles
@@ -745,7 +745,7 @@ include an error message.  Possible causes for problems include:</p>
 </blockquote></td></tr></table>
 
 
-<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Session%20Statistics"><strong>Session Statistics</strong></a></font></td></tr><tr><td><blockquote>
+<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Session Statistics"><strong>Session Statistics</strong></a></font></td></tr><tr><td><blockquote>
 
 <div align="left"><table border="0" cellpadding="0" cellspacing="4"><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td></tr><tr><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" bgcolor="#ffffff"><pre>
 http://localhost:8080/manager/sessions?path=/examples
@@ -765,7 +765,7 @@ Default maximum session inactive interval 30 minutes
 </blockquote></td></tr></table>
 
 
-<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Start%20an%20Existing%20Application"><strong>Start an Existing Application</strong></a></font></td></tr><tr><td><blockquote>
+<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Start an Existing Application"><strong>Start an Existing Application</strong></a></font></td></tr><tr><td><blockquote>
 
 <div align="left"><table border="0" cellpadding="0" cellspacing="4"><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td></tr><tr><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" bgcolor="#ffffff"><pre>
 http://localhost:8080/manager/start?path=/examples
@@ -809,7 +809,7 @@ error message.  Possible causes for problems include:</p>
 
 </blockquote></td></tr></table>
 
-<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Stop%20an%20Existing%20Application"><strong>Stop an Existing Application</strong></a></font></td></tr><tr><td><blockquote>
+<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Stop an Existing Application"><strong>Stop an Existing Application</strong></a></font></td></tr><tr><td><blockquote>
 
 <div align="left"><table border="0" cellpadding="0" cellspacing="4"><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td></tr><tr><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" bgcolor="#ffffff"><pre>
 http://localhost:8080/manager/stop?path=/examples
@@ -853,7 +853,7 @@ error message.  Possible causes for problems include:</p>
 </blockquote></td></tr></table>
 
 
-<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Undeploy%20an%20Existing%20Application"><strong>Undeploy an Existing Application</strong></a></font></td></tr><tr><td><blockquote>
+<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Undeploy an Existing Application"><strong>Undeploy an Existing Application</strong></a></font></td></tr><tr><td><blockquote>
 
 <div align="left"><table border="0" cellpadding="0" cellspacing="4"><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td></tr><tr><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./images/void.gif"></td><td height="1" bgcolor="#ffffff"><pre>
 http://localhost:8080/manager/undeploy?path=/examples
@@ -904,7 +904,7 @@ error message.  Possible causes for problems include:</p>
 
 </blockquote></td></tr></table>
 
-</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Executing%20Manager%20Commands%20With%20Ant"><strong>Executing Manager Commands With Ant</strong></a></font></td></tr><tr><td><blockquote>
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Executing Manager Commands With Ant"><strong>Executing Manager Commands With Ant</strong></a></font></td></tr><tr><td><blockquote>
 
 <p>In addition to the ability to execute Manager commands via HTTP requests,
 as documented above, Tomcat 4 includes a convenient set of Task definitions

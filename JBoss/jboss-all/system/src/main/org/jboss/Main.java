@@ -42,7 +42,7 @@ import org.jboss.system.server.ServerLoader;
  * @author <a href="mailto:marc.fleury@jboss.org">Marc Fleury</a>
  * @author <a href="mailto:jason@planet57.com">Jason Dillon</a>
  * @author <a href="mailto:adrian.brock@happeningtimes.com">Adrian Brock</a>
- * @version $Revision: 1.17.2.6 $
+ * @version $Revision: 1.17.2.9 $
  */
 public class Main
 {
@@ -126,15 +126,15 @@ public class Main
       loader.addLibrary(concurrentLib);
 
       // Add any extra libraries
-      for (Iterator iter=extraLibraries.iterator(); iter.hasNext();)
+      for (int i = 0; i < extraLibraries.size(); i++)
       {
-         loader.addLibrary((String)iter.next());
+         loader.addLibrary((String)extraLibraries.get(i));
       }
 
       // Add any extra classapth
-      for (Iterator iter=extraClasspath.iterator(); iter.hasNext();)
+      for (int i = 0; i < extraClasspath.size(); i++)
       {
-         loader.addURL((URL)iter.next());
+         loader.addURL((URL)extraClasspath.get(i));
       }
 
       // Load the server
@@ -188,7 +188,7 @@ public class Main
    {
       // set this from a system property or default to jboss
       String programName = System.getProperty("program.name", "jboss");
-      String sopts = "-:hD:p:n:c:Vj:L:C:P:";
+      String sopts = "-:hD:p:n:c:Vj:L:C:P:b:";
       LongOpt[] lopts =
       {
          new LongOpt("help", LongOpt.NO_ARGUMENT, null, 'h'),
@@ -200,12 +200,14 @@ public class Main
          new LongOpt("library", LongOpt.REQUIRED_ARGUMENT, null, 'L'),
          new LongOpt("classpath", LongOpt.REQUIRED_ARGUMENT, null, 'C'),
          new LongOpt("properties", LongOpt.REQUIRED_ARGUMENT, null, 'P'),
+         new LongOpt("host", LongOpt.REQUIRED_ARGUMENT, null, 'b'),
       };
       
       Getopt getopt = new Getopt(programName, args, sopts, lopts);
       int code;
       String arg;
-      
+      props.setProperty(ServerConfig.SERVER_BIND_ADDRESS, "0.0.0.0");
+      System.setProperty(ServerConfig.SERVER_BIND_ADDRESS, "0.0.0.0");
       while ((code = getopt.getopt()) != -1)
       {
          switch (code)
@@ -240,6 +242,7 @@ public class Main
                System.out.println("    -L, --library=<filename>      Add an extra library to the loaders classpath");
                System.out.println("    -C, --classpath=<url>         Add an extra url to the loaders classpath");
                System.out.println("    -P, --properties=<url>        Load system properties from the given url");
+               System.out.println("    -b, --host=<host or ip>       Bind address for all JBoss services");
                System.out.println();
                System.exit(0);
                break; // for completeness
@@ -360,7 +363,11 @@ public class Main
                props.load(url.openConnection().getInputStream());
                break;
             }
-        
+            case 'b':
+               arg = getopt.getOptarg();
+               props.put(ServerConfig.SERVER_BIND_ADDRESS, arg);
+               System.setProperty(ServerConfig.SERVER_BIND_ADDRESS, arg);
+               break;
             default:
                // this should not happen,
                // if it does throw an error so we know about it

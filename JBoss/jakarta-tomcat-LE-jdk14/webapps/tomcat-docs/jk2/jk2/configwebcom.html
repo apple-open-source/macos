@@ -2,8 +2,8 @@
 <html xmlns="http://www.w3.org/TR/xhtml1/strict">
 <head>
 <title>Components</title>
-<meta content="1999-2002 The Apache Software Foundation" name="copyright"/>
-<meta content="$Date: 2003/01/03 13:52:38 $" name="last-changed"/>
+<meta content="1999-2003 The Apache Software Foundation" name="copyright"/>
+<meta content="$Date: 2003/05/16 10:28:44 $" name="last-changed"/>
 <meta content="Costin Manolache" name="author"/>
 <meta content="cmanolache@yahoo.com" name="email"/>
 <meta content="Jean-Frederic Clere" name="author"/>
@@ -90,6 +90,22 @@
 <tr>
 <td colspan="2" width="150" bgcolor="#cccccc">
 <nobr>
+<a class="menu" href="../common/doccontrib.html">How to Contribute to the Documentation</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../common/tools.html">Tools</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
 <a class="menu" href="../faq.html">FAQ</a>
 </nobr>
 </td>
@@ -159,6 +175,14 @@
 <td colspan="2" width="150" bgcolor="#cccccc">
 <nobr>
 <a class="menu" href="../jk2/configtc.html">Configuration options</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configtccom.html">Coyote/JK2 Handlers</a>
 </nobr>
 </td>
 </tr>
@@ -300,6 +324,14 @@
 </td>
 </tr>
 <tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/vhosthowto.html">Apache 2.0.43 - Tomcat 4.1.12 - jk2 - virtual host HOWTO</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
 <tr height="6"/>
 </table>
 </td>
@@ -384,12 +416,38 @@ and  provides access to all other objects</p>
 <td align="left" valign="top" bgcolor="#a0ddf0">Default loger used by jk2 components, can be changed in the config file, normally it defaults to "logger" the Alias for the default logger for the Server/platform.</td>
 </tr>
 <tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">sslEnable</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">1 (true)</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">Enable handling of SSL</td>
+</tr>
+<tr>
 <td align="left" valign="top" bgcolor="#a0ddf0">timing</td>
 <td align="left" valign="top" bgcolor="#a0ddf0">0</td>
 <td align="left" valign="top" bgcolor="#a0ddf0">Will jk2 get request timing (needs APR?)</td>
 </tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">forwardKeySize</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">not set</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">Enable filling of javax.servlet.request.key_size</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">forwardURICompat</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">set</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">Pass the URI untouched.</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">forwardURICompatUnparsed</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">not set</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">Parse the URI until the '?'.</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">forwardURIEscaped</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">not set</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">Pass the URI escaped.</td>
+</tr>
 </table>
             </p>
+<p class="section">Only one of the forwardURI option could be used it replaces the default value.</p>
 <br/>
 <a name="config">
 <table width="100%" cellpadding="0" cellspacing="0" border="0">
@@ -619,19 +677,14 @@ Other  important  channels are unix socket and jni</p>
 </table>
 </a>
 <p class="section">
-    A communication transport to a remote Engine
-    <b>
-<font color="#333333">Magic:</font>
-</b> The local part of the name will be the Engine name,
-    to use when defining the uri mappings. For example
-    channel.socket.local_9009 will automatically define an engine named
-    local_9009, and if no other setting is set ajp13 will be used for
-    communication.
-    <b>
-<font color="#333333">Magic:</font>
-</b> If no channel is defined in the config, a default channel
-    will be constructed with port=8009, engine=DEFAULT, worker=ajp13 -
-    named 'channel.socket.DEFAULT'
+    Defines a communication transport to a remote Servlet Engine. </p>
+<p class="section">The name of the channels should be: channel.socket:HOST:PORT, where HOST and PORT are the 
+tomcat Ajp location.  You could use other names and explicitely set HOST and PORT, but this
+is discouraged. In most cases, you don't need to set any other config - just add a line like
+[channel.socket:localhost:8009] and all other things will have good defaults. 
+</p>
+<p class="section">
+Tomcat Engine must be set with jvmRoute="HOST:PORT", to match the default tomcatId of the channel.
 </p>
 <p class="section">
                     <table border="0">
@@ -642,13 +695,18 @@ Other  important  channels are unix socket and jni</p>
 </tr>
 <tr>
 <td align="left" valign="top" bgcolor="#a0ddf0">port</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">8009</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">Port where Tomcat is listening</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">extracted from the component name</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">Port where Tomcat is listening. It is automatically extracted from the name - you shouldn't have to specify it explicitely.</td>
 </tr>
 <tr>
 <td align="left" valign="top" bgcolor="#a0ddf0">host</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">localhost</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">Remote host</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">extracted from the component name</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">Remote host. You should use the name, no need to override it</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">graceful</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">If 1, only requests for existing sessions will be forwarded</td>
 </tr>
 <tr>
 <td align="left" valign="top" bgcolor="#a0ddf0">keepalive</td>
@@ -665,13 +723,13 @@ Other  important  channels are unix socket and jni</p>
 </tr>
 <tr>
 <td align="left" valign="top" bgcolor="#a0ddf0">group</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">lb:0</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">loadbalanced groups to which this channel and the associated worker will be added, multivalued</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">lb</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">loadbalanced groups to which this channel and the associated worker will be added, multivalued. You need to set it only if you have an advanced setup with multiple clusters.</td>
 </tr>
 <tr>
 <td align="left" valign="top" bgcolor="#a0ddf0">tomcatId</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">?</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">?</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">Automatically set to the localname ( host:port )</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">Must match the JVM route on tomcat Engine, for load balancing</td>
 </tr>
 </table>
                 </p>

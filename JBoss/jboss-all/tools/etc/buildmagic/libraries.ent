@@ -1,4 +1,4 @@
-<!-- $Id: libraries.ent,v 1.1.2.2 2003/06/20 07:05:47 starksm Exp $ -->
+<!-- $Id: libraries.ent,v 1.1.2.14 2003/11/22 21:24:03 patriot1burke Exp $ -->
 
   <!-- Ant -->
   <property name="apache.ant.root" value="${project.tools}"/>
@@ -20,6 +20,8 @@
   <path id="apache.commons.classpath">
     <pathelement path="${apache.commons.lib}/commons-collections.jar"/>
     <pathelement path="${apache.commons.lib}/commons-logging.jar"/>
+    <pathelement path="${apache.commons.lib}/commons-discovery.jar"/>
+    <pathelement path="${apache.commons.lib}/commons-httpclient.jar"/>
   </path>
 
   <!-- Apache Log4j -->
@@ -29,10 +31,18 @@
     <pathelement path="${apache.log4j.lib}/log4j.jar"/>
   </path>
 
-  <!-- Apache Log4j -->
+  <!-- Apache Tomcat 4.1.x -->
   <property name="apache.tomcat41.root" value="${project.thirdparty}/apache/tomcat41"/>
   <path id="apache.tomcat41.classpath">
     <fileset dir="${apache.tomcat41.root}">
+       <include name="*.jar" />
+    </fileset>
+  </path>
+
+  <!-- Apache Tomcat 5.0.x -->
+  <property name="apache.tomcat50.root" value="${project.thirdparty}/apache/tomcat50"/>
+  <path id="apache.tomcat50.classpath">
+    <fileset dir="${apache.tomcat50.root}">
        <include name="*.jar" />
     </fileset>
   </path>
@@ -124,6 +134,15 @@
     <pathelement path="${ibm.bsf.lib}/bsf.jar"/>
   </path>
 
+  <!-- Java XML Parser -->
+  <property name="sun.jaxp.root" value="${project.thirdparty}/sun/jaxp"/>
+  <property name="sun.jaxp.lib" value="${sun.jaxp.root}/lib"/>
+  <path id="sun.jaxp.classpath">
+    <pathelement path="${sun.jaxp.lib}/jaxp.jar"/>
+    <pathelement path="${sun.jaxp.lib}/crimson.jar"/>
+    <pathelement path="${sun.jaxp.lib}/xalan.jar"/>
+  </path>
+
   <!-- Apache Axis -->
   <property name="apache.axis.root" value="${project.thirdparty}/apache/axis"/>
   <property name="apache.axis.lib" value="${apache.axis.root}/lib"/>
@@ -131,10 +150,16 @@
     <pathelement path="${apache.axis.lib}/axis.jar"/>
     <pathelement path="${apache.axis.lib}/jaxrpc.jar"/>
     <pathelement path="${apache.axis.lib}/saaj.jar"/>
+    <pathelement path="${apache.commons.lib}/commons-discovery.jar"/>
+    <pathelement path="${apache.commons.lib}/commons-logging.jar"/>
     <path refid="ibm.wsdl4j.classpath"/>
     <path refid="ibm.uddi4j.classpath"/>
   </path>
-
+    <path id="apache.axis.generate.classpath">
+      <path refid="sun.jaxp.classpath"/>
+      <path refid="apache.axis.classpath"/>
+      <pathelement path="${ibm.wsdl4j.lib}/wsdl4j.jar"/>
+    </path>
 
   <!-- Castor -->
   <property name="exolab.castor.root" value="${project.thirdparty}/exolab/castor"/>
@@ -173,10 +198,19 @@
   </path>
 
   <!-- JavaGroups -->
-  <property name="javagroups.javagroups.root" value="${project.thirdparty}/javagroups/javagroups"/>
-  <property name="javagroups.javagroups.lib" value="${javagroups.javagroups.root}/lib"/>
-  <path id="javagroups.javagroups.classpath">
-    <pathelement path="${javagroups.javagroups.lib}/javagroups-2.0.jar"/>
+  <property name="jgroups.jgroups.root" value="${project.thirdparty}/javagroups/javagroups"/>
+  <property name="jgroups.jgroups.lib" value="${jgroups.jgroups.root}/lib"/>
+  <path id="jgroups.jgroups.classpath">
+    <pathelement path="${jgroups.jgroups.lib}/jgroups.jar"/>
+  </path>
+
+  <!-- JUnitEJB -->
+  <property name="junitejb.junitejb.root"
+     value="${project.thirdparty}/junitejb/junitejb"/>
+  <property name="junitejb.junitejb.lib"
+     value="${junitejb.junitejb.root}/lib"/>
+  <path id="junitejb.junitejb.classpath">
+    <pathelement path="${junitejb.junitejb.lib}/junitejb.jar"/>
   </path>
 
   <!-- Servlets -->
@@ -201,14 +235,6 @@
     <pathelement path="${sun.jaas.lib}/jaas.jar"/>
   </path>
 
-  <!-- Java XML Parser -->
-  <property name="sun.jaxp.root" value="${project.thirdparty}/sun/jaxp"/>
-  <property name="sun.jaxp.lib" value="${sun.jaxp.root}/lib"/>
-  <path id="sun.jaxp.classpath">
-    <pathelement path="${sun.jaxp.lib}/jaxp.jar"/>
-    <pathelement path="${sun.jaxp.lib}/crimson.jar"/>
-    <pathelement path="${sun.jaxp.lib}/xalan.jar"/>
-  </path>
 
   <!-- JavaBeans Activation Framework (JAF) -->
   <property name="sun.jaf.root" value="${project.thirdparty}/sun/jaf"/>
@@ -258,5 +284,31 @@
   <property name="beanshell.beanshell.root" value="${project.thirdparty}/beanshell/beanshell"/>
   <property name="beanshell.beanshell.lib" value="${beanshell.beanshell.root}/lib"/>
   <path id="beanshell.beanshell.classpath">
-    <pathelement path="${beanshell.beanshell.lib}/bsh-core-1.2b7.jar"/>
+    <fileset dir="${beanshell.beanshell.lib}">
+      <include name="*.jar" />
+    </fileset>
   </path>
+  
+  <!-- Joe SNMP lib -->
+  <property name="opennms.joesnmp.root" value="${project.thirdparty}/opennms/joesnmp"/>
+  <property name="opennms.joesnmp.lib" value="${opennms.joesnmp.root}/lib"/>
+  <path id="opennms.joesnmp.classpath">
+    <pathelement path="${opennms.joesnmp.lib}/joesnmp.jar"/>
+  </path>
+
+  <!-- JFreeChart -->
+  <property name="jfreechart.jfreechart.root" value="${project.thirdparty}/jfreechart/jfreechart"/>
+  <property name="jfreechart.jfreechart.lib" value="${jfreechart.jfreechart.root}/lib"/>
+  <path id="jfreechart.jfreechart.classpath">
+    <fileset dir="${jfreechart.jfreechart.lib}">
+      <include name="*.jar" />
+    </fileset>
+  </path>
+
+  <!-- Xdoclet -->
+  <path id="xdoclet.base.classpath">
+      <fileset dir="${project.thirdparty}/xdoclet/xdoclet/lib">
+        <include name="**/*.jar"/>
+      </fileset>
+  </path>
+

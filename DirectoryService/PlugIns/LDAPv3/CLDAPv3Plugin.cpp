@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -2632,16 +2630,44 @@ sInt32 CLDAPv3Plugin::GetTheseAttributes (	char			   *inRecType,
 								//set the flag indicating that we got a match at least once
 								bAtLeastOneTypeValid = true;
 	
-								literalLength = strlen(pLDAPAttrType) - 1;
-	
+								char *vsReturnStr = nil;
+								vsReturnStr = MappingNativeVariableSubstitution( pLDAPAttrType, inContext, inResult, siResult );
+								
+								if (vsReturnStr != nil)
+								{
+									// we found a wildcard so reset the literalLength
+									literalLength = strlen(vsReturnStr) - 1;
+								}
+								else
+								{
+									//if parsing error returned then we throw an error
+									if (siResult != eDSNoErr) throw (siResult);
+									// no wildcard found so get length of pLDAPAttrType
+									literalLength = strlen(pLDAPAttrType) - 1;
+								}
+									
 								if ( (inAttrOnly == false) && (literalLength > 0) )
 								{
 									valCount++;
 										
-									// Append attribute value
-									aTmpData->AppendLong( literalLength );
-									aTmpData->AppendBlock( pLDAPAttrType + 1, literalLength );
+									if (vsReturnStr != nil)
+									{
+										// If we found a wildcard then copy it here
+										aTmpData->AppendLong( literalLength );
+										aTmpData->AppendBlock( vsReturnStr + 1, literalLength );
+									}
+									else
+									{
+										// Append attribute value
+										aTmpData->AppendLong( literalLength );
+										aTmpData->AppendBlock( pLDAPAttrType + 1, literalLength );
+									}
 								} // if ( (inAttrOnly == false) && (strlen(pLDAPAttrType) > 1) ) 
+								if (vsReturnStr != nil)
+								{
+									free( vsReturnStr );
+									vsReturnStr = nil;
+								}
 							}
 							else
 							{
@@ -2990,16 +3016,44 @@ sInt32 CLDAPv3Plugin::GetTheseAttributes (	char			   *inRecType,
 					if (pLDAPAttrType[0] == '#') //special case where attr is mapped to a literal string
 					{
 						bAtLeastOneTypeValid = true;
-						literalLength = strlen(pLDAPAttrType) - 1;
+
+						char *vsReturnStr = nil;
+						vsReturnStr = MappingNativeVariableSubstitution( pLDAPAttrType, inContext, inResult, siResult );
+						
+						if (vsReturnStr != nil)
+						{
+							// If we found a wildcard then set literalLength to the tmpStr
+							literalLength = strlen(vsReturnStr) - 1;
+						}
+						else
+						{
+							//if parsing error returned then we throw an error
+							if (siResult != eDSNoErr) throw (siResult);
+							literalLength = strlen(pLDAPAttrType) - 1;
+						}
 
 						if ( (inAttrOnly == false) && (literalLength > 0) )
 						{
 							valCount++;
 								
-							// Append attribute value
-							aTmpData->AppendLong( literalLength );
-							aTmpData->AppendBlock( pLDAPAttrType + 1, literalLength );
+							if(vsReturnStr != nil)
+							{
+								// we found a wildcard then copy it here
+								aTmpData->AppendLong( literalLength );
+								aTmpData->AppendBlock( vsReturnStr + 1, literalLength );
+							}
+							else
+							{
+								// append attribute value
+								aTmpData->AppendLong( literalLength );
+								aTmpData->AppendBlock( pLDAPAttrType + 1, literalLength );
+							}
 						} // if ( (inAttrOnly == false) && (strlen(pLDAPAttrType) > 1) ) 
+						if (vsReturnStr != nil)
+						{
+							free( vsReturnStr );
+							vsReturnStr = nil;
+						}
 					}
 					else
 					{
@@ -6846,8 +6900,23 @@ sInt32 CLDAPv3Plugin::GetRecAttribInfo ( sGetRecAttribInfo *inData )
 				}
 				if ( (pLDAPAttrType[0] == '#') && (strlen(pLDAPAttrType) > 1) )
 				{
-					valCount++;
-					uiDataLen += (strlen(pLDAPAttrType) - 1);
+					char *vsReturnStr = nil;
+					vsReturnStr = MappingNativeVariableSubstitution( pLDAPAttrType, pRecContext, result, siResult );
+					
+					if (vsReturnStr != nil)
+					{
+						valCount++;
+						uiDataLen += (strlen(vsReturnStr) - 1);
+						free( vsReturnStr );
+						vsReturnStr = nil;
+					}
+					else
+					{
+						//if parsing error returned then we throw an error
+						if (siResult != eDSNoErr) throw (siResult);
+						valCount++;
+						uiDataLen += (strlen(pLDAPAttrType) - 1);
+					}
 				}
 				else
 				{
@@ -6983,16 +7052,37 @@ sInt32 CLDAPv3Plugin::GetRecAttrValueByIndex ( sGetRecordAttributeValueByIndex *
 					literalLength = strlen(pLDAPAttrType + 1);
 					if ( (valCount == inData->fInAttrValueIndex) && (literalLength > 0) )
 					{
-						// Append attribute value
-						uiDataLen = literalLength;
+						char *vsReturnStr = nil;
+						vsReturnStr = MappingNativeVariableSubstitution( pLDAPAttrType, pRecContext, result, siResult );
+					
+						if (vsReturnStr != nil)
+						{
+							uiDataLen = strlen(vsReturnStr + 1);
+							
+							pOutAttrValue = (tAttributeValueEntry *)::calloc( 1, sizeof( tAttributeValueEntry ) + uiDataLen + kBuffPad );
+
+							pOutAttrValue->fAttributeValueData.fBufferSize = uiDataLen + kBuffPad;
+							pOutAttrValue->fAttributeValueData.fBufferLength = uiDataLen;
+							pOutAttrValue->fAttributeValueID = CalcCRC( pLDAPAttrType + 1 );
+							::memcpy( pOutAttrValue->fAttributeValueData.fBufferData, vsReturnStr + 1, uiDataLen );
+							free(vsReturnStr);
+							vsReturnStr = nil;
+						}
+						else
+						{
+							//if parsing error returned then we throw an error
+							if (siResult != eDSNoErr) throw (siResult);
+							// Append attribute value
+							uiDataLen = literalLength;
+							
+							pOutAttrValue = (tAttributeValueEntry *)::calloc( 1, sizeof( tAttributeValueEntry ) + uiDataLen + kBuffPad );
+	
+							pOutAttrValue->fAttributeValueData.fBufferSize = uiDataLen + kBuffPad;
+							pOutAttrValue->fAttributeValueData.fBufferLength = uiDataLen;
+							pOutAttrValue->fAttributeValueID = CalcCRC( pLDAPAttrType + 1 );
+							::memcpy( pOutAttrValue->fAttributeValueData.fBufferData, pLDAPAttrType + 1, uiDataLen );
+						}
 						
-						pOutAttrValue = (tAttributeValueEntry *)::calloc( 1, sizeof( tAttributeValueEntry ) + uiDataLen + kBuffPad );
-
-						pOutAttrValue->fAttributeValueData.fBufferSize = uiDataLen + kBuffPad;
-						pOutAttrValue->fAttributeValueData.fBufferLength = uiDataLen;
-						pOutAttrValue->fAttributeValueID = CalcCRC( pLDAPAttrType + 1 );
-						::memcpy( pOutAttrValue->fAttributeValueData.fBufferData, pLDAPAttrType + 1, uiDataLen );
-
 						bFoundIt = true;
 					}
 				}
@@ -7159,16 +7249,36 @@ sInt32 CLDAPv3Plugin::GetRecordAttributeValueByID ( sGetRecordAttributeValueByID
 						crcVal = CalcCRC( pLDAPAttrType + 1 );
 						if ( crcVal == inData->fInValueID )
 						{
-							// Append attribute value
-							uiDataLen = literalLength;
+							char *vsReturnStr = nil;
+							vsReturnStr = MappingNativeVariableSubstitution( pLDAPAttrType, pRecContext, result, siResult );
+					
+							if (vsReturnStr != nil)
+							{
+								uiDataLen = strlen(vsReturnStr + 1);
+								pOutAttrValue = (tAttributeValueEntry *)::calloc( 1, sizeof( tAttributeValueEntry ) + uiDataLen + kBuffPad );
+		
+								pOutAttrValue->fAttributeValueData.fBufferSize = uiDataLen + kBuffPad;
+								pOutAttrValue->fAttributeValueData.fBufferLength = uiDataLen;
+								pOutAttrValue->fAttributeValueID = crcVal;
+								::memcpy( pOutAttrValue->fAttributeValueData.fBufferData, vsReturnStr + 1, uiDataLen );
+								free(vsReturnStr);
+								vsReturnStr = nil;
+							}
+							else
+							{
+								//if parsing error returned then we throw an error
+								if (siResult != eDSNoErr) throw (siResult);
+								// Append attribute value
+								uiDataLen = literalLength;
+								
+								pOutAttrValue = (tAttributeValueEntry *)::calloc( 1, sizeof( tAttributeValueEntry ) + uiDataLen + kBuffPad );
+		
+								pOutAttrValue->fAttributeValueData.fBufferSize = uiDataLen + kBuffPad;
+								pOutAttrValue->fAttributeValueData.fBufferLength = uiDataLen;
+								pOutAttrValue->fAttributeValueID = crcVal;
+								::memcpy( pOutAttrValue->fAttributeValueData.fBufferData, pLDAPAttrType + 1, uiDataLen );
+							}
 							
-							pOutAttrValue = (tAttributeValueEntry *)::calloc( 1, sizeof( tAttributeValueEntry ) + uiDataLen + kBuffPad );
-	
-							pOutAttrValue->fAttributeValueData.fBufferSize = uiDataLen + kBuffPad;
-							pOutAttrValue->fAttributeValueData.fBufferLength = uiDataLen;
-							pOutAttrValue->fAttributeValueID = crcVal;
-							::memcpy( pOutAttrValue->fAttributeValueData.fBufferData, pLDAPAttrType + 1, uiDataLen );
-	
 							bFoundIt = true;
 						}
 					}
@@ -11746,3 +11856,170 @@ sInt32 DSDoRetrieval (	char			   *inNativeRecType,
 	return(searchResult);
 	
 } // DSDoRetrieval
+
+//------------------------------------------------------------------------------------
+//	* MappingNativeVariableSubstitution
+//------------------------------------------------------------------------------------
+
+char* CLDAPv3Plugin::MappingNativeVariableSubstitution(	char			   *inLDAPAttrType,
+														sLDAPContextData   *inContext,
+														LDAPMessage		   *inResult,
+														sInt32&				outResult)
+{
+	char			   *returnStr					= nil;
+	char			   *tmpStr						= nil;
+	char			   *vsPtr						= nil;
+	char			  **tokens						= nil;
+	char			  **tokenValues					= nil;
+	struct berval     **vsBValues;
+	int					tokenCount					= 0;
+	int					returnStrCount				= 0;
+	int					vsShift						= 0;
+	LDAP			   *aHost						= nil;
+	int					tokenStep					= 0;
+	int					index						= 0;
+	char			   *lastPtr						= nil;
+	const char			delimiterChar				= '$';
+	const char			literalChar					= '#';
+	const char			nullChar					= '\0';
+	int					tokensMax					= 0;
+	
+	
+	outResult = eDSNoErr;
+	
+	if ( (inLDAPAttrType != nil) && (*inLDAPAttrType == literalChar) && ( strchr(inLDAPAttrType, delimiterChar) != nil) )
+	{
+		// found a variable substitution marker...
+		
+		returnStrCount = strlen(inLDAPAttrType);
+		
+		// copy the literal mapping since we do destructive parsing
+		vsPtr = (char *)calloc(1, 1+returnStrCount);
+		memcpy(vsPtr, inLDAPAttrType, returnStrCount);
+		
+		tmpStr = vsPtr; //needed to free the memory below
+		
+		//setup the max size for the tokens arrays
+		while (vsPtr != nil)
+		{
+			tokensMax++;
+			vsPtr = strchr(vsPtr, delimiterChar);
+			if (vsPtr != nil)
+			{
+				vsPtr = vsPtr + 1;
+			}
+		}
+		tokens		= (char **)calloc(sizeof(char *), tokensMax+1);
+		tokenValues = (char **)calloc(sizeof(char *), tokensMax+1);
+		
+		vsPtr = tmpStr; //reset the ptr
+
+		while ( (vsPtr != nil) && (*vsPtr != nullChar) )
+		{
+			if ( *vsPtr == delimiterChar )
+			{
+				//this should be the start of a variable substitution
+				*vsPtr = nullChar;
+				vsPtr = vsPtr + 1;
+				if (*vsPtr != nullChar)
+				{
+					lastPtr = strchr(vsPtr, delimiterChar);
+					//attribute value must be alphanumeric or - or ; according to RFC2252
+					//also check for consecutive delimiters which represents a single delimiter
+					if (lastPtr != nil)
+					{
+						tokens[tokenCount] = vsPtr;
+						if (vsPtr != lastPtr)
+						{
+							//case of true variable substitution
+							*lastPtr = nullChar;
+						}
+						else
+						{
+							tokenValues[tokenCount] = strdup("$");
+						}
+						tokenCount++;
+						vsPtr = lastPtr + 1;
+					}
+					else
+					{
+						//invalid mapping format ie. no matching delimiter pair
+						outResult = eDSInvalidNativeMapping;
+						break;
+					}
+				}
+				else
+				{
+					//invalid mapping format ie. nothing following delimiter
+					outResult = eDSInvalidNativeMapping;
+					break;
+				}
+			}
+			else
+			{
+				//we have literal text so we leave it alone
+				tokens[tokenCount] = vsPtr;
+				tokenValues[tokenCount] = vsPtr;
+				tokenCount++;
+				while ( ( *vsPtr != nullChar ) && ( *vsPtr != delimiterChar ) )
+				{
+					vsPtr = vsPtr + 1;
+				}
+			}
+		}
+		
+		if (outResult == eDSNoErr)
+		{
+			aHost = fLDAPSessionMgr.LockSession(inContext);
+			
+			if (aHost != nil)
+			{
+				for ( tokenStep = 0; tokenStep < tokenCount; tokenStep++)
+				{
+					if (tokenValues[tokenStep] == nil)
+					{
+						//choose first value only for the substitution
+						vsBValues = ldap_get_values_len(aHost, inResult, tokens[tokenStep]);
+						if (vsBValues != nil)
+						{
+							returnStrCount += vsBValues[0]->bv_len; //a little extra since variable name was already included
+							tokenValues[tokenStep] = (char *) ::calloc(vsBValues[0]->bv_len, sizeof(char));
+							::memcpy(tokenValues[tokenStep], vsBValues[0]->bv_val, vsBValues[0]->bv_len);
+							ldap_value_free_len(vsBValues);
+							vsBValues = nil;
+						}
+					} //not a delimiter char
+				} // for step through tokens
+			}
+			
+			fLDAPSessionMgr.UnLockSession(inContext);
+			
+			returnStr = (char *) ::calloc(1+returnStrCount, sizeof(char));
+			
+			for ( tokenStep = 0; tokenStep < tokenCount; tokenStep++)
+			{
+				if (tokenValues[tokenStep] != nil)
+				{
+					memcpy((returnStr + vsShift), tokenValues[tokenStep], (::strlen(tokenValues[tokenStep])));
+					vsShift += strlen(tokenValues[tokenStep]);
+				}
+			}
+			
+			for (index = 0; index < tokensMax; index++)
+			{
+				if ( (tokenValues[index] != nil) && ( tokenValues[index] != tokens[index] ) )
+				{
+					free(tokenValues[index]);
+					tokenValues[index] = nil;
+				}
+			}
+		}
+		free(tmpStr);
+		tmpStr = nil;
+		free(tokens);
+		free(tokenValues);
+	}
+	
+	return(returnStr);
+	
+} // MappingNativeVariableSubstitution

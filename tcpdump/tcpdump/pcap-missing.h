@@ -18,7 +18,7 @@
  * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * @(#) $Header: /cvs/root/tcpdump/tcpdump/pcap-missing.h,v 1.1.1.1 2003/03/17 18:42:16 rbraun Exp $ (LBL)
+ * @(#) $Header: /cvs/root/tcpdump/tcpdump/pcap-missing.h,v 1.1.1.2 2004/02/05 19:30:52 rbraun Exp $ (LBL)
  */
 
 #ifndef tcpdump_pcap_missing_h
@@ -38,6 +38,10 @@ extern int pcap_list_datalinks(pcap_t *, int **);
  */
 extern int pcap_datalink_name_to_val(const char *);
 extern const char *pcap_datalink_val_to_name(int);
+#endif
+
+#ifndef HAVE_PCAP_DATALINK_VAL_TO_DESCRIPTION
+extern const char *pcap_datalink_val_to_description(int);
 #endif
 
 #endif

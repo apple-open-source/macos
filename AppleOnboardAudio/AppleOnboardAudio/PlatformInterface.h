@@ -64,7 +64,9 @@ typedef enum GPIOSelector {
 	kGPIO_Selector_LineOutDetect,
 	kGPIO_Selector_LineOutMute,
 	kGPIO_Selector_SpeakerDetect,
-	kGPIO_Selector_SpeakerMute
+	kGPIO_Selector_SpeakerMute,
+	kGPIO_Selector_ExternalMicDetect,
+	kGPIO_Selector_NotAssociated
 };
 
 //	If this enumeration changes then please apply the same changes to the DiagnosticSupport sources.
@@ -197,8 +199,8 @@ typedef struct {
 	GpioAttributes			gpio_SpeakerDetect;
 	GpioAttributes			gpio_SpeakerMute;
 	GpioAttributes			gpio_InternalSpeakerID;
-	GpioAttributes			reserved_18;
-	GpioAttributes			reserved_19;
+	GPIOSelector			gpio_ComboInAssociation;
+	GPIOSelector			gpio_ComboOutAssociation;
 	GpioAttributes			reserved_20;
 	GpioAttributes			reserved_21;
 	GpioAttributes			reserved_22;
@@ -312,6 +314,16 @@ public:
 	//
 	// GPIO Methods
 	//
+	GPIOSelector			getComboInAssociation ( void );										//	[3453799]
+	void					setAssociateComboInTo ( GPIOSelector theDetectInterruptGpio );		//	[3453799]
+	GPIOSelector			getComboOutAssociation ( void );									//	[3453799]
+	void					setAssociateComboOutTo ( GPIOSelector theDetectInterruptGpio );		//	[3453799]
+	
+	GpioAttributes			getComboIn ( void );												//	[3453799]
+	void					setComboIn ( GpioAttributes jackState );							//	[3453799]
+	GpioAttributes			getComboOut ( void );												//	[3453799]
+	void					setComboOut ( GpioAttributes jackState );							//	[3453799]
+	
 	virtual IOReturn		setClockMux(GpioAttributes muxState) { return kIOReturnError; }
 	virtual GpioAttributes	getClockMux() { return kGPIO_Unknown; }
 
@@ -335,7 +347,7 @@ public:
 
 	virtual GpioAttributes	 getInternalSpeakerID() {return kGPIO_Unknown;}
 
-	virtual	GpioAttributes	getLineOutConnected() {return kGPIO_Unknown;}
+	virtual	GpioAttributes	getLineOutConnected(bool ignoreCombo = false) {return kGPIO_Unknown;}
 	virtual	GpioAttributes	getLineInConnected() {return kGPIO_Unknown;}
 
 	virtual IOReturn 		setLineOutMuteState( GpioAttributes muteState ) {return kIOReturnError;}
@@ -385,12 +397,15 @@ public:
 	virtual void			LogInterruptGPIO ( void ) { return; }
 protected:
 
+	static UInt32			sInstanceCount;
+	UInt32					mInstanceIndex;
+
 	AppleOnboardAudio *		mProvider;
 
-	bool					mIsComboInJack;
-	bool					mIsComboOutJack;
-	GpioAttributes			mComboInJackState;
-	GpioAttributes			mComboOutJackState;
+	GPIOSelector			mComboInAssociation;		//	[3453799]
+	GPIOSelector			mComboOutAssociation;		//	[3453799]
+	GpioAttributes			mComboInJackState;			//	[3453799]
+	GpioAttributes			mComboOutJackState;			//	[3453799]
 };
 
 #endif	/*	__PLATFORMINTERFACE__	*/

@@ -32,12 +32,12 @@ import org.jboss.invocation.MarshalledInvocation;
 /**
  * The container for <em>stateful</em> session beans.
  *
- * @author <a href="mailto:rickard.oberg@telkel.com">Rickard Öberg</a>
+ * @author <a href="mailto:rickard.oberg@telkel.com">Rickard Ã–berg</a>
  * @author <a href="mailto:docodan@mvcsoft.com">Daniel OConnor</a>
  * @author <a href="mailto:marc.fleury@jboss.org">Marc Fleury</a>
  * @author <a href="mailto:scott.stark@jboss.org">Scott Stark</a>
  * @author <a href="mailto:jason@planet57.com">Jason Dillon</a>
- * @version <tt>$Revision: 1.49.2.4 $</tt>
+ * @version <tt>$Revision: 1.49.2.9 $</tt>
  *
  * @jmx:mbean extends="org.jboss.ejb.ContainerMBean"
  */
@@ -164,6 +164,9 @@ public class StatefulSessionContainer
 
          // Call default init
          super.createService();
+
+         // Make some additional validity checks with regards to the container configuration
+         checkCoherency ();
 
          // Map the bean methods
          setupBeanMapping();
@@ -382,6 +385,9 @@ public class StatefulSessionContainer
             in = in.getNext();
          }
 
+         MarshalledInvocation.removeHashes(homeInterface);
+         MarshalledInvocation.removeHashes(remoteInterface);
+
          // Call default destroy
          super.destroyService();
       }
@@ -459,8 +465,10 @@ public class StatefulSessionContainer
    public EJBHome getEJBHome(Invocation mi) throws RemoteException
    {
       EJBProxyFactory ci = getProxyFactory();
-      if (ci == null) {
-         throw new IllegalStateException();
+      if (ci == null)
+      {
+         String msg = "No ProxyFactory, check for ProxyFactoryFinderInterceptor";
+         throw new IllegalStateException(msg);
       }
 
       return (EJBHome) ci.getEJBHome();
@@ -490,10 +498,13 @@ public class StatefulSessionContainer
       }
       ctx.setId(id);
 
-      // Invoke ejbCreate()
+      // Invoke ejbCreate<METHOD>()
       try
       {
-         Method createMethod = getBeanClass().getMethod("ejbCreate", m.getParameterTypes());
+         // Build the ejbCreate<METHOD> from the home create<METHOD> sig
+         String createName = m.getName();
+         String ejbCreateName = "ejbC" + createName.substring(1);
+         Method createMethod = getBeanClass().getMethod(ejbCreateName, m.getParameterTypes());
          if (debug) {
             log.debug("Using create method for session: " + createMethod);
          }
@@ -590,10 +601,32 @@ public class StatefulSessionContainer
    {
       // All we need is an EJBObject for this Id, the first argument is the Id
       EJBProxyFactory ci = getProxyFactory();
-      if (ci == null) {
-         throw new IllegalStateException();
+      if (ci == null)
+      {
+         String msg = "No ProxyFactory, check for ProxyFactoryFinderInterceptor";
+         throw new IllegalStateException(msg);
       }
-      return (EJBObject) ci.getStatefulSessionEJBObject(mi.getArguments()[0]);
+
+      Object id = mi.getArguments()[0];
+      if (id == null)
+         throw new IllegalStateException("Cannot get a session interface with a null id");
+
+      // Does the session still exist?
+      InstanceCache cache = getInstanceCache();
+      BeanLock lock = getLockManager().getLock(id);
+      lock.sync();
+      try
+      {
+         if (cache.get(id) == null)
+            throw new RemoteException("Session no longer exists: " + id);
+      }
+      finally
+      {
+         lock.releaseSync();
+      }
+
+      // Ok lets create the proxy
+      return (EJBObject) ci.getStatefulSessionEJBObject(id);
    }
 
 
@@ -616,8 +649,10 @@ public class StatefulSessionContainer
       throws RemoteException
    {
       EJBProxyFactory ci = getProxyFactory();
-      if (ci == null) {
-         throw new IllegalStateException();
+      if (ci == null)
+      {
+         String msg = "No ProxyFactory, check for ProxyFactoryFinderInterceptor";
+         throw new IllegalStateException(msg);
       }
 
       return ci.getEJBMetaData();
@@ -789,6 +824,28 @@ public class StatefulSessionContainer
    protected Interceptor createContainerInterceptor()
    {
       return new ContainerInterceptor();
+   }
+
+   protected void checkCoherency () throws Exception
+   {
+      // Check clustering cohrency wrt metadata
+      //
+      if (metaData.isClustered())
+      {
+         boolean clusteredProxyFactoryFound = false;
+         for (Iterator it = proxyFactories.keySet().iterator(); it.hasNext(); )
+         {
+            String invokerBinding = (String)it.next();
+            EJBProxyFactory ci = (EJBProxyFactory)proxyFactories.get(invokerBinding);
+            if (ci instanceof org.jboss.proxy.ejb.ClusterProxyFactory)
+               clusteredProxyFactoryFound = true;
+         }
+
+         if (!clusteredProxyFactoryFound)
+         {
+            log.warn("*** EJB '" + this.metaData.getEjbName() + "' deployed as CLUSTERED but not a single clustered-invoker is bound to container ***");
+         }
+      }
    }
 
    /**

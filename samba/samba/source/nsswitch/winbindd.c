@@ -22,6 +22,7 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
+#include "includes.h"
 #include "winbindd.h"
 
 BOOL opt_nocache = False;
@@ -220,6 +221,7 @@ static struct dispatch_table dispatch_table[] = {
 	{ WINBINDD_GETPWENT, winbindd_getpwent, "GETPWENT" },
 
 	{ WINBINDD_GETGROUPS, winbindd_getgroups, "GETGROUPS" },
+	{ WINBINDD_GETUSERSIDS, winbindd_getusersids, "GETUSERSIDS" },
 
 	/* Group functions */
 
@@ -262,6 +264,7 @@ static struct dispatch_table dispatch_table[] = {
 	{ WINBINDD_INFO, winbindd_info, "INFO" },
 	{ WINBINDD_INTERFACE_VERSION, winbindd_interface_version, "INTERFACE_VERSION" },
 	{ WINBINDD_DOMAIN_NAME, winbindd_domain_name, "DOMAIN_NAME" },
+	{ WINBINDD_DOMAIN_INFO, winbindd_domain_info, "DOMAIN_INFO" },
 	{ WINBINDD_NETBIOS_NAME, winbindd_netbios_name, "NETBIOS_NAME" },
 	{ WINBINDD_PRIV_PIPE_DIR, winbindd_priv_pipe_dir, "WINBINDD_PRIV_PIPE_DIR" },
 
@@ -452,7 +455,7 @@ void winbind_client_read(struct winbindd_cli_state *state)
 		 (char *)&state->request, 
 		 sizeof(state->request) - state->read_buf_len);
 	
-	DEBUG(10,("client_read: read %d bytes. Need %d more for a full request.\n", n, sizeof(state->request) - n - state->read_buf_len ));
+	DEBUG(10,("client_read: read %d bytes. Need %ld more for a full request.\n", n, (unsigned long)(sizeof(state->request) - n - state->read_buf_len) ));
 
 	/* Read failed, kill client */
 	
@@ -479,6 +482,13 @@ static void client_write(struct winbindd_cli_state *state)
 	int num_written;
 	
 	/* Write some data */
+	/*
+	 * The fancy calculation of data below allows us to handle the 
+	 * case where write (sys_write) does not write all the data we 
+	 * gave it. In that case, we will come back through here again
+	 * because of the loop above us, and we want to pick up where
+	 * we left off.
+	 */
 	
 	if (!state->write_extra_data) {
 
@@ -712,8 +722,9 @@ static void process_loop(void)
 
 					if (state->read_buf_len >= sizeof(uint32)
 					    && *(uint32 *) &state->request != sizeof(state->request)) {
-						DEBUG(0,("process_loop: Invalid request size from pid %lu: %d bytes sent, should be %d\n",
-								(unsigned long)state->request.pid, *(uint32 *) &state->request, sizeof(state->request)));
+						DEBUG(0,("process_loop: Invalid request size from pid %lu: %d bytes sent, should be %ld\n",
+								(unsigned long)state->request.pid, *(uint32 *) &state->request, (unsigned long)sizeof(state->request)));
+						DEBUGADD(0, ("This usually means that you are running old wbinfo, pam_winbind or libnss_winbind clients\n"));
 
 						remove_client(state);
 						break;
@@ -830,7 +841,7 @@ int main(int argc, char **argv)
 	reopen_logs();
 
 	DEBUG(1, ("winbindd version %s started.\n", SAMBA_VERSION_STRING) );
-	DEBUGADD( 1, ( "Copyright The Samba Team 2000-2003\n" ) );
+	DEBUGADD( 1, ( "Copyright The Samba Team 2000-2004\n" ) );
 
 	if (!reload_services_file(False)) {
 		DEBUG(0, ("error opening config file\n"));
@@ -924,6 +935,8 @@ int main(int argc, char **argv)
 
 	netsamlogon_cache_init(); /* Non-critical */
 	
+	init_domain_list();
+
 	/* Loop waiting for requests */
 
 	process_loop();

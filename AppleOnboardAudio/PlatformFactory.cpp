@@ -11,9 +11,11 @@
 
 #include <KeyLargoPlatform.h>
 #include <K2Platform.h>
+#include <ShastaPlatform.h>
 
 const char* PlatformFactory::KeyLargoString = "KeyLargo";
 const char* PlatformFactory::K2String = "K2";
+const char* PlatformFactory::ShastaString = "Shasta";
 
 PlatformInterface* PlatformFactory::createPlatform(const OSString* inPlatformString)
 {
@@ -28,6 +30,10 @@ PlatformInterface* PlatformFactory::createPlatform(const OSString* inPlatformStr
 	else if (inPlatformString->isEqualTo(KeyLargoString)) 
 	{
 		thePlatformObject = new KeyLargoPlatform();
+	}
+	else if (inPlatformString->isEqualTo(ShastaString)) 
+	{
+		thePlatformObject = new ShastaPlatform();
 	}
 	
 	return thePlatformObject;

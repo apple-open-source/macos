@@ -45,10 +45,10 @@ public class SelectorPersistentQueue
     * @param selector the selector string
     * @exception JMSException for an error
     */
-   public SelectorPersistentQueue(JMSDestinationManager server, SpyTopic dstopic, String selector)
+   public SelectorPersistentQueue(JMSDestinationManager server, SpyTopic dstopic, String selector, BasicQueueParameters parameters)
       throws JMSException
    {
-      super(server, dstopic);
+      super(server, dstopic, parameters);
       this.selectorString = selector;
       this.selector = new Selector(selector);
    }

@@ -20,7 +20,7 @@ import java.util.List;
  * </ul>
  *
  * @author <a href="mailto:Adrian.Brock@HappeningTimes.com">Adrian Brock</a>
- * @version $Revision: 1.4 $
+ * @version $Revision: 1.4.6.1 $
  */
 public class RoleUnresolvedList
   extends ArrayList
@@ -63,12 +63,12 @@ public class RoleUnresolvedList
      super();
      if (list == null)
        throw new IllegalArgumentException("Null list");
-     Iterator iterator = new ArrayList(list).iterator();
-     while (iterator.hasNext())
+     ArrayList tmpList = new ArrayList(list);
+     for (int i = 0; i < tmpList.size(); i++)
      {
        try
        {
-         add((RoleUnresolved) iterator.next());
+         add((RoleUnresolved) tmpList.get(i));
        }
        catch (ClassCastException cce)
        {

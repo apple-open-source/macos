@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,54 +23,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc.  All rights reserved.
  *
  *
  */
-//		$Log: IOPlatformStateSensor.cpp,v $
-//		Revision 1.4  2003/06/07 01:30:56  eem
-//		Merge of EEM-PM72-ActiveFans-2 branch, with a few extra tweaks.  This
-//		checkin has working PID control for PowerMac7,2 platforms, as well as
-//		a first shot at localized strings.
-//		
-//		Revision 1.3.2.4  2003/06/04 10:21:10  eem
-//		Supports forced PID meta states.
-//		
-//		Revision 1.3.2.3  2003/06/04 00:00:51  eem
-//		More PID stuff, working towards support for forced meta states.
-//		
-//		Revision 1.3.2.2  2003/05/23 05:44:40  eem
-//		Cleanup, ctrlloops not get notification for sensor and control registration.
-//		
-//		Revision 1.3.2.1  2003/05/22 01:31:04  eem
-//		Checkin of today's work (fails compilations right now).
-//		
-//		Revision 1.3  2003/05/21 21:58:49  eem
-//		Merge from EEM-PM72-ActiveFans-1 branch with initial crack at active fan
-//		control on Q37.
-//		
-//		Revision 1.2.4.4  2003/05/17 12:55:37  eem
-//		Active fan control works on RPM channels!!!!!!
-//		
-//		Revision 1.2.4.3  2003/05/17 11:08:22  eem
-//		All active fan data present, table event-driven.  PCI power sensors are
-//		not working yet so PCI fan is just set to 67% PWM and forgotten about.
-//		
-//		Revision 1.2.4.2  2003/05/16 07:08:45  eem
-//		Table-lookup active fan control working with this checkin.
-//		
-//		Revision 1.2.4.1  2003/05/14 22:07:49  eem
-//		Implemented state-driven sensor, cleaned up "const" usage and header
-//		inclusions.
-//		
-//		Revision 1.2  2003/05/10 06:50:33  eem
-//		All sensor functionality included for PowerMac7_2_PlatformPlugin.  Version
-//		is 1.0.1d12.
-//		
-//		Revision 1.1.2.1  2003/05/01 09:28:40  eem
-//		Initial check-in in progress toward first Q37 checkpoint.
-//		
-//		
+
 
 #include "IOPlatformPluginDefs.h"
 #include "IOPlatformPluginSymbols.h"
@@ -92,18 +49,21 @@ void IOPlatformStateSensor::free( void )
 	super::free();
 }
 
-const OSNumber *IOPlatformStateSensor::applyValueTransform( const OSNumber * value ) const
+SensorValue IOPlatformStateSensor::applyCurrentValueInverseTransform( SensorValue pluginReading ) const
 {
-	return super::applyValueTransform(value);
-}
+	// Default IOPlatformStateSensor implementation does not alter the value -- i.e.
+	// the transform implemented here is f(x) = x
+	//
+	// Subclasses should override this method to implement their transforms.
+	// Example would be:
+	//
+	// SensorValue transformed;
+	// transformed.sensValue = (pluginReading.sensValue - 10) / 2;
+	// return transformed;
+	//
+	// This example implements the transform f(x) = (x-10)/2
 
-const OSNumber *IOPlatformStateSensor::applyHWTransform( const OSNumber * value ) const
-{
-	//SENSOR_DLOG("IOPlatformStateSensor::applyHWTransform - entered\n");
-
-	// default to no transformation -- just return the value that was passed in
-	value->retain();
-	return ( value );
+	return pluginReading;
 }
 
 IOReturn IOPlatformStateSensor::initPlatformSensor( const OSDictionary *dict )
@@ -135,14 +95,15 @@ IOReturn IOPlatformStateSensor::registerDriver( IOService * driver, const OSDict
 	IOReturn status;
 	const OSDictionary * thisState;
 	const OSNumber * tmpHigh, * tmpLow, *tmpNumber;
-	UInt32 tryState, nStates, curValue, highThreshold, lowThreshold;
+	UInt32 tryState, nStates;
+	SensorValue curValue, highThreshold, lowThreshold;
 
 	SENSOR_DLOG("IOPlatformStateSensor::registerDriver ID 0x%08lX\n", getSensorID()->unsigned32BitValue());
 
 	if ((status = super::registerDriver(driver, dict, false)) != kIOReturnSuccess)
 		return (status);
 
-	curValue = getCurrentValue()->unsigned32BitValue();
+	curValue = getCurrentValue();
 
 	// determine initial state from current-value
 	if ((nStates = getNumSensorStates()) == 0xFFFFFFFF)
@@ -165,10 +126,10 @@ IOReturn IOPlatformStateSensor::registerDriver( IOService * driver, const OSDict
 			return(kIOReturnError);
 		}
 			
-		highThreshold = tmpHigh->unsigned32BitValue();
-		lowThreshold = tmpLow->unsigned32BitValue();
+		highThreshold.sensValue = (SInt32)tmpHigh->unsigned32BitValue();
+		lowThreshold.sensValue = (SInt32)tmpLow->unsigned32BitValue();
 
-		if (curValue >= lowThreshold && curValue < highThreshold)
+		if (curValue.sensValue >= lowThreshold.sensValue && curValue.sensValue < highThreshold.sensValue)
 		{
 			tmpNumber = OSNumber::withNumber( tryState, 32 );
 			setSensorState( tmpNumber );
@@ -328,7 +289,8 @@ IOReturn IOPlatformStateSensor::sendThresholdsToSensor( void )
 	IOReturn status;
 	const OSDictionary * thisState;
 	OSDictionary * cmdDict;
-	const OSNumber * rawHigh, * rawLow;
+	const OSNumber * high, * low;
+	SensorValue reading;
 
 	//SENSOR_DLOG("IOPlatformStateSensor::sendThresoldsToSensor - entered\n");
 
@@ -339,19 +301,26 @@ IOReturn IOPlatformStateSensor::sendThresholdsToSensor( void )
 	}
 
 	// convert to the hw representation of the threshold values
-	rawLow = applyHWTransform( OSDynamicCast(OSNumber, thisState->getObject(gIOPPluginLowThresholdKey)) );
-	rawHigh = applyHWTransform( OSDynamicCast(OSNumber, thisState->getObject(gIOPPluginHighThresholdKey)) );
+	low = OSDynamicCast(OSNumber, thisState->getObject(gIOPPluginLowThresholdKey));
+	reading.sensValue = (SInt32)low->unsigned32BitValue();
+	reading = applyCurrentValueInverseTransform( reading );
+	low = OSNumber::withNumber( (UInt32)reading.sensValue, 32 );
 
+	high = OSDynamicCast(OSNumber, thisState->getObject(gIOPPluginHighThresholdKey));
+	reading.sensValue = (SInt32)high->unsigned32BitValue();
+	reading = applyCurrentValueInverseTransform( reading );
+	high = OSNumber::withNumber( (UInt32)reading.sensValue, 32 );
+	
 	cmdDict = OSDictionary::withCapacity(3);
 
 	cmdDict->setObject(gIOPPluginSensorIDKey, getSensorID());
-	cmdDict->setObject(gIOPPluginLowThresholdKey, rawLow);
-	cmdDict->setObject(gIOPPluginHighThresholdKey, rawHigh);
+	cmdDict->setObject(gIOPPluginLowThresholdKey, low);
+	cmdDict->setObject(gIOPPluginHighThresholdKey, high);
 
 	status = sendMessage( cmdDict );
 
-	rawLow->release();
-	rawHigh->release();
+	low->release();
+	high->release();
 	cmdDict->release();
 
 	return(status);

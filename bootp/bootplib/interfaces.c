@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -37,6 +34,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/ioctl.h>
+#include <sys/types.h>
 #include <strings.h>
 #include <syslog.h>
 #include <netdb.h>
@@ -44,51 +42,18 @@
 #include <arpa/inet.h>
 #include <syslog.h>
 #include <net/if_types.h>
+#include <net/if_var.h>
+#include <sys/socket.h>
+#include <sys/sysctl.h>
+#include <net/route.h>
+
+
 #include "util.h"
+#include <ifaddrs.h>
 
 extern struct ether_addr *	ether_aton(char *);
 
 static struct sockaddr_in init_sin = {sizeof(init_sin), AF_INET};
-
-#define MAX_IF		16
-
-static boolean_t
-S_get_ifreq_buf(int * sock_p, struct ifconf * ifconf_p)
-{
-    struct ifreq * 	ifreq = NULL;
-    int			size = sizeof(struct ifreq) * MAX_IF;
-    int			sockfd;
-
-    size = sizeof(struct ifreq) * MAX_IF;
-    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-	syslog(LOG_INFO, "socket call failed");
-	return (FALSE);
-    }
-
-    while (1) {
-	if (ifreq != NULL)
-	    ifreq = (struct ifreq *)realloc(ifreq, size);
-	else
-	    ifreq = (struct ifreq *)malloc(size);
-	ifconf_p->ifc_len = size;
-	ifconf_p->ifc_req = ifreq;
-	if (ioctl(sockfd, SIOCGIFCONF, (caddr_t)ifconf_p) < 0
-	    || ifconf_p->ifc_len <= 0) {
-	    syslog(LOG_INFO, "ioctl SIOCGIFCONF failed");
-	    goto err;
-	}
-	if ((ifconf_p->ifc_len + SOCK_MAXADDRLEN + IFNAMSIZ) < size)
-	    break;
-	size *= 2;
-    }
-    *sock_p = sockfd;
-    return (TRUE);
-  err:
-    close(sockfd);
-    if (ifreq)
-	free(ifreq);
-    return (FALSE);
-}
 
 void *
 inet_addrinfo_copy(void * p)
@@ -125,42 +90,49 @@ S_next_entry(interface_list_t * interfaces, char * name)
     return (entry);
 }
 
+static __inline__ int
+count_ifaddrs(const struct ifaddrs * ifap)
+{
+    int		count;
+
+    for (count = 0; ifap != NULL && ifap->ifa_addr != NULL; 
+	 ifap = ifap->ifa_next) {
+	count++;
+    }
+    return (count);
+}
+
 static boolean_t
 S_build_interface_list(interface_list_t * interfaces)
 {
-    struct ifconf 	ifconf;
-    struct ifreq *	ifrp;
+    struct ifaddrs *	addrs = NULL;
+    struct ifaddrs *	ifap = NULL;
     int			size;
-    int			sockfd;
 
-    if (S_get_ifreq_buf(&sockfd, &ifconf) == FALSE)
-	return (FALSE);
-
-    size = (ifconf.ifc_len / sizeof(struct ifreq));
+    if (getifaddrs(&addrs) < 0) {
+	goto err;
+    }
+    size = count_ifaddrs(addrs);
     interfaces->list 
 	= (interface_t *)malloc(size * sizeof(*(interfaces->list)));
-    if (interfaces->list == NULL)
+    if (interfaces->list == NULL) {
 	goto err;
-
-#define IFR_NEXT(ifr)	\
-    ((struct ifreq *) ((char *) (ifr) + sizeof(*(ifr)) + \
-      MAX(0, (int) (ifr)->ifr_addr.sa_len - (int) sizeof((ifr)->ifr_addr))))
+    }
 
     interfaces->count = 0;
     interfaces->size = size;
-    for (ifrp = (struct ifreq *) ifconf.ifc_buf;
-	 (char *) ifrp < &ifconf.ifc_buf[ifconf.ifc_len];
-	 ifrp = IFR_NEXT(ifrp)) {
-
-	switch (ifrp->ifr_addr.sa_family) {
+    
+    for (ifap = addrs; ifap != NULL; ifap = ifap->ifa_next) {
+	if (ifap->ifa_addr == NULL) {
+	    continue;
+	}
+	switch (ifap->ifa_addr->sa_family) {
 	  case AF_INET: {
 	      inet_addrinfo_t	info;
-	      struct ifreq	ifr;
-	      short		flags;
 	      interface_t *	entry;
 	      u_char 		name[IFNAMSIZ + 1];
 
-	      strncpy(name, ifrp->ifr_name, sizeof(name));
+	      strncpy(name, ifap->ifa_name, sizeof(name));
 	      name[IFNAMSIZ] = '\0';
 	      entry = ifl_find_name(interfaces, name);
 	      if (entry == NULL) { /* new entry */
@@ -171,37 +143,17 @@ S_build_interface_list(interface_list_t * interfaces)
 			     "interfaces: S_next_entry returns NULL"); 
 		      continue;
 		  }
-		      
-		  ifr = *ifrp;
-		  if (ioctl(sockfd, SIOCGIFFLAGS, (caddr_t)&ifr) < 0) {
-		      syslog(LOG_INFO, "%s: ioctl(SIOGIFFLAGS), %s (%d)",
-			     name, strerror(errno), errno);
-		  }
-		  else {
-		      entry->flags = ifr.ifr_flags;
-		  }
+		  entry->flags = ifap->ifa_flags;
 	      }
-	      flags = entry->flags;
 	      bzero(&info, sizeof(info));
-	      info.addr = ((struct sockaddr_in *)&ifrp->ifr_addr)->sin_addr;
-	      ifr = *ifrp;
-	      if (ioctl(sockfd, SIOCGIFNETMASK, (caddr_t)&ifr) < 0) {
-		  syslog(LOG_INFO, "%s: ioctl(SIOGIFNETMASK), %s (%d)",
-			 name, strerror(errno), errno);
+	      info.addr = ((struct sockaddr_in *)ifap->ifa_addr)->sin_addr;
+	      if (ifap->ifa_netmask != NULL) {
+		  info.mask 
+		      = ((struct sockaddr_in *)ifap->ifa_netmask)->sin_addr;
 	      }
-	      else {
-		  info.mask = ((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr;
-	      }
-	      ifr = *ifrp;
-	      if (flags & IFF_BROADCAST) {
-		  if (ioctl(sockfd, SIOCGIFBRDADDR, (caddr_t)&ifr)< 0) {
-		      syslog(LOG_INFO, "%s: ioctl(SIOCGBRDADDR), %s (%d)",
-			     name, strerror(errno), errno);
-		  }
-		  else {
-		      info.broadcast 
-			  = ((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr;
-		  }
+	      if (entry->flags & IFF_BROADCAST && ifap->ifa_broadaddr != NULL) {
+		  info.broadcast 
+		      = ((struct sockaddr_in *)ifap->ifa_broadaddr)->sin_addr;
 	      }
 	      info.netaddr.s_addr = htonl(iptohl(info.addr)
 					  & iptohl(info.mask));
@@ -211,11 +163,11 @@ S_build_interface_list(interface_list_t * interfaces)
 	  case AF_LINK: {
 	      struct sockaddr_dl * dl_p;
 	      interface_t *	entry;
-	      struct ifreq	ifr;
+	      struct if_data *	if_data;
 	      u_char 		name[IFNAMSIZ + 1];
 
-	      dl_p = (struct sockaddr_dl *)&ifrp->ifr_addr;
-	      strncpy(name, ifrp->ifr_name, sizeof(name));
+	      dl_p = (struct sockaddr_dl *)ifap->ifa_addr;
+	      strncpy(name, ifap->ifa_name, sizeof(name));
 	      name[IFNAMSIZ] = '\0';
 	      entry = ifl_find_name(interfaces, name);
 	      if (entry == NULL) { /* new entry */
@@ -226,27 +178,28 @@ S_build_interface_list(interface_list_t * interfaces)
 			     "interfaces: S_next_entry returns NULL"); 
 		      continue;
 		  }
-		  ifr = *ifrp;
-		  if (ioctl(sockfd, SIOCGIFFLAGS, (caddr_t)&ifr) < 0) {
-		      syslog(LOG_INFO, "%s: ioctl(SIOGIFFLAGS), %s (%d)",
-			     name, strerror(errno), errno);
-		  }
-		  else {
-		      entry->flags = ifr.ifr_flags;
-		  }
+		  entry->flags = ifap->ifa_flags;
 	      }
-	      if (dl_p->sdl_alen > sizeof(entry->link.addr)) {
+	      if (dl_p->sdl_alen > sizeof(entry->link_address.addr)) {
 		  syslog(LOG_DEBUG,
 			 "%s: link type %d address length %d > %d", name,
-			 dl_p->sdl_type, dl_p->sdl_alen, sizeof(entry->link.addr));
-		  entry->link.alen = sizeof(entry->link.addr);
+			 dl_p->sdl_type, dl_p->sdl_alen, sizeof(entry->link_address.addr));
+		  entry->link_address.alen = sizeof(entry->link_address.addr);
 	      }
 	      else {
-		  entry->link.alen = dl_p->sdl_alen;
+		  entry->link_address.alen = dl_p->sdl_alen;
 	      }
-	      bcopy(dl_p->sdl_data + dl_p->sdl_nlen, entry->link.addr, entry->link.alen);
-	      entry->link.type = dl_p->sdl_type;
-	      entry->link.index = dl_p->sdl_index;
+	      bcopy(dl_p->sdl_data + dl_p->sdl_nlen, 
+		    entry->link_address.addr, entry->link_address.alen);
+	      entry->link_address.type = dl_p->sdl_type;
+	      entry->link_address.index = dl_p->sdl_index;
+	      if_data = (struct if_data *)ifap->ifa_data;
+	      if (if_data != NULL) {
+		  entry->type = if_data->ifi_type;
+	      }
+	      else {
+		  entry->type = dl_p->sdl_type;
+	      }
 	      break;
 	  }
 	}
@@ -255,17 +208,15 @@ S_build_interface_list(interface_list_t * interfaces)
     interfaces->list = (interface_t *)
 	realloc(interfaces->list, 
 		sizeof(*(interfaces->list)) * (interfaces->count + 1));
-    if (ifconf.ifc_buf)
-	free(ifconf.ifc_buf);
-    close(sockfd);
+    freeifaddrs(addrs);
     return (TRUE);
   err:
     if (interfaces->list)
 	free(interfaces->list);
     interfaces->list = NULL;
-    if (ifconf.ifc_buf)
-	free(ifconf.ifc_buf);
-    close(sockfd);
+    if (addrs != NULL) {
+	freeifaddrs(addrs);
+    }
     return (FALSE);
 }
 
@@ -370,8 +321,8 @@ ifl_find_link(interface_list_t * list_p, int index)
     int i;
 
     for (i = 0; i < list_p->count; i++) {
-	if (list_p->list[i].link.type != 0
-	    && list_p->list[i].link.index == index)
+	if (list_p->list[i].link_address.type != 0
+	    && list_p->list[i].link_address.index == index)
 	    return (list_p->list + i);
     }
     return (NULL);
@@ -566,41 +517,102 @@ if_inet_addr_remove(interface_t * if_p, struct in_addr iaddr)
     return (if_inet_addr_remove_at(if_p, i));
 }
 
+void
+if_link_copy(interface_t * dest, const interface_t * source)
+{
+    dest->link_address = source->link_address;
+    return;
+}
+
+void
+if_link_update(interface_t * if_p)
+{
+    char *			buf = NULL;
+    size_t			buf_len = 0;
+    struct sockaddr_dl *	dl_p;
+    struct if_msghdr * 		ifm;
+    int				mib[6];
+
+    mib[0] = CTL_NET;
+    mib[1] = PF_ROUTE;
+    mib[2] = 0;
+    mib[3] = AF_LINK;
+    mib[4] = NET_RT_IFLIST;
+    mib[5] = if_p->link_address.index; /* ask for exactly one interface */
+
+    if (sysctl(mib, 6, NULL, &buf_len, NULL, 0) < 0) {
+	fprintf(stderr, "sysctl() size failed: %s", strerror(errno));
+	goto failed;
+    }
+    buf = malloc(buf_len);
+    if (sysctl(mib, 6, buf, &buf_len, NULL, 0) < 0) {
+	fprintf(stderr, "sysctl() failed: %s", strerror(errno));
+	goto failed;
+    }
+    ifm = (struct if_msghdr *)buf;
+    switch (ifm->ifm_type) {
+    case RTM_IFINFO:
+	dl_p = (struct sockaddr_dl *)(ifm + 1);
+	if (dl_p->sdl_alen > sizeof(if_p->link_address.addr)) {
+	    syslog(LOG_DEBUG,
+		   "%s: link type %d address length %d > %d", if_name(if_p),
+		   dl_p->sdl_type, dl_p->sdl_alen, sizeof(if_p->link_address.addr));
+	    if_p->link_address.alen = sizeof(if_p->link_address.addr);
+	}
+	else {
+	    if_p->link_address.alen = dl_p->sdl_alen;
+	}
+	bcopy(dl_p->sdl_data + dl_p->sdl_nlen, 
+	      if_p->link_address.addr, if_p->link_address.alen);
+	if_p->link_address.type = dl_p->sdl_type;
+    }
+ failed:
+    if (buf != NULL) {
+	free(buf);
+    }
+    return;
+}
+
+int
+if_ift_type(interface_t * if_p)
+{
+    return (if_p->type);
+}
 
 int
 if_link_type(interface_t * if_p)
 {
-    return (if_p->link.type);
+    return (if_p->link_address.type);
 }
 
 int
 if_link_dhcptype(interface_t * if_p)
 {
-    if (if_p->link.type == IFT_IEEE1394) {
+    if (if_p->link_address.type == IFT_IEEE1394) {
 	return (ARPHRD_IEEE1394_EUI64);
     }
     else {
-	return (dl_to_arp_hwtype(if_p->link.type));
+	return (dl_to_arp_hwtype(if_p->link_address.type));
     }
 }
 
 int
 if_link_arptype(interface_t * if_p)
 {
-    return (dl_to_arp_hwtype(if_p->link.type));
+    return (dl_to_arp_hwtype(if_p->link_address.type));
 }
 
 
 void *
 if_link_address(interface_t * if_p)
 {
-    return (if_p->link.addr);
+    return (if_p->link_address.addr);
 }
 
 int
 if_link_length(interface_t * if_p)
 {
-    return (if_p->link.alen);
+    return (if_p->link_address.alen);
 }
 
 #ifdef TEST_INTERFACES
@@ -649,7 +661,7 @@ ifl_print(interface_list_t * list_p)
 	if (i > 0)
 	    printf("\n");
 	
-	printf("%s:\n", if_name(if_p));
+	printf("%s: type %d\n", if_name(if_p), if_ift_type(if_p));
 	
 	for (j = 0; j < if_inet_count(if_p); j++) {
 	    inet_addrinfo_t * info = if_inet_addr_at(if_p, j);
@@ -661,8 +673,8 @@ ifl_print(interface_list_t * list_p)
 	    else
 		printf("\n");
 	}
-	if (if_p->link.type != 0) {
-	    link_addr_print(&if_p->link);
+	if (if_p->link_address.type != 0) {
+	    link_addr_print(&if_p->link_address);
 	}
 	count++;
     }

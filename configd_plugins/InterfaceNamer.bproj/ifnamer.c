@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -25,6 +23,11 @@
 
 /*
  * Modification History
+ *
+ * October 3, 2003		Allan Nathanson <ajn@apple.com>
+ * - sort new interfaces by IOKit path (rather than MAC address) to
+ *   help facilitate a more predictable interface-->name mapping for
+ *   like hardware configurations.
  *
  * June 23, 2001		Allan Nathanson <ajn@apple.com>
  * - update to public SystemConfiguration.framework APIs
@@ -54,28 +57,43 @@
 #include <mach/mach.h>
 #include <net/if_types.h>
 
-#include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCDPlugin.h>
-#include <SystemConfiguration/SCPrivate.h>	// for SCLog()
-#include <SystemConfiguration/SCValidation.h>
 #include <CoreFoundation/CoreFoundation.h>
 
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCDPlugin.h>
+#include <SystemConfiguration/SCPrivate.h>	// for SCLog(), SCPrint()
+#include <SystemConfiguration/SCValidation.h>
+
+#define	KERNEL_PRIVATE
+#include <sys/sockio.h>
+#undef	KERNEL_PRIVATE
+#ifdef	SIOCGETVLAN
+#include <SystemConfiguration/VLANConfiguration.h>
+#include <SystemConfiguration/VLANConfigurationPrivate.h>
+#endif	/* SIOCGETVLAN */
+
 #include <IOKit/IOKitLib.h>
+#include <IOKit/IOBSD.h>
+#include <IOKit/network/IONetworkController.h>
+#include <IOKit/network/IONetworkInterface.h>
+
+#ifndef	kIOBuiltin
+#define	kIOBuiltin			"IOBuiltin"
+#endif
+
+#ifndef	kIOLocation
+#define	kIOLocation			"IOLocation"
+#endif
+
+#define kIONetworkStackUserCommand	"IONetworkStackUserCommand"
+#define kIORegisterOne			1
 
 #define MY_PLUGIN_NAME			"InterfaceNamer"
 
-#define kBSDName			"BSD Name"
-#define kIOInterfaceUnit		"IOInterfaceUnit"
-#define kIOInterfaceType		"IOInterfaceType"
-#define kIOMACAddress			"IOMACAddress"
-#define kIOPrimaryInterface		"IOPrimaryInterface"
-#define kIONetworkStackUserCommand     "IONetworkStackUserCommand"
-#define kIORegisterOne                 1
-
 static boolean_t			S_debug = FALSE;
 static CFMutableArrayRef		S_dblist = NULL;
-static io_connect_t			S_connect = NULL;
-static io_iterator_t			S_iter = NULL;
+static io_connect_t			S_connect = MACH_PORT_NULL;
+static io_iterator_t			S_iter = MACH_PORT_NULL;
 static IONotificationPortRef		S_notify = NULL;
 
 static void
@@ -86,20 +104,6 @@ displayInterface(CFDictionaryRef if_dict);
 
 static CFDictionaryRef
 lookupIOKitPath(CFStringRef if_path);
-
-static int
-cfstring_to_cstring(CFStringRef cfstr, char * str, int len)
-{
-    CFIndex		l;
-    CFIndex		n;
-    CFRange		range;
-
-    range = CFRangeMake(0, CFStringGetLength(cfstr));
-    n = CFStringGetBytes(cfstr, range, kCFStringEncodingMacRoman,
-			 0, FALSE, str, len, &l);
-    str[l] = '\0';
-    return (l);
-}
 
 static __inline__ CFComparisonResult
 compareMacAddress(CFDataRef addr1, CFDataRef addr2)
@@ -132,31 +136,6 @@ compareMacAddress(CFDataRef addr1, CFDataRef addr2)
 }
 
 static CFComparisonResult
-if_type_compare(const void *val1, const void *val2, void *context)
-{
-    CFDataRef		addr1;
-    CFDataRef		addr2;
-    CFComparisonResult	res;
-    CFNumberRef		type1;
-    CFNumberRef		type2;
-
-    type1 = CFDictionaryGetValue((CFDictionaryRef)val1,
-				 CFSTR(kIOInterfaceType));
-    type2 = CFDictionaryGetValue((CFDictionaryRef)val2,
-				 CFSTR(kIOInterfaceType));
-    res = CFNumberCompare(type1, type2, NULL);
-    if (res != kCFCompareEqualTo) {
-	return (res);
-    }
-    addr1 = CFDictionaryGetValue((CFDictionaryRef)val1,
-				 CFSTR(kIOMACAddress));
-    addr2 = CFDictionaryGetValue((CFDictionaryRef)val2,
-				 CFSTR(kIOMACAddress));
-    res = compareMacAddress(addr1, addr2);
-    return (res);
-}
-
-static CFComparisonResult
 if_unit_compare(const void *val1, const void *val2, void *context)
 {
     CFComparisonResult	res;
@@ -178,6 +157,177 @@ if_unit_compare(const void *val1, const void *val2, void *context)
     unit2 = CFDictionaryGetValue((CFDictionaryRef)val2,
 				 CFSTR(kIOInterfaceUnit));
     return (CFNumberCompare(unit1, unit2, NULL));
+}
+
+static CFArrayRef
+split_path(CFStringRef path)
+{
+	CFArrayRef		components;
+	CFMutableStringRef	nPath;
+
+	// turn '@'s into '/'s
+	nPath = CFStringCreateMutableCopy(NULL, 0, path);
+	(void) CFStringFindAndReplace(nPath,
+				      CFSTR("@"),
+				      CFSTR("/"),
+				      CFRangeMake(0, CFStringGetLength(nPath)),
+				      0);
+
+	// split path into components to be compared
+	components = CFStringCreateArrayBySeparatingStrings(NULL, nPath, CFSTR("/"));
+	CFRelease(nPath);
+
+	return components;
+}
+
+
+static CFComparisonResult
+if_path_compare(const void *val1, const void *val2, void *context)
+{
+    CFBooleanRef	builtin;
+    Boolean		builtin_val1	= FALSE;
+    Boolean		builtin_val2	= FALSE;
+    CFArrayRef		elements1	= NULL;
+    CFArrayRef		elements2	= NULL;
+    CFIndex		i;
+    CFIndex		n;
+    CFIndex		n1		= 0;
+    CFIndex		n2		= 0;
+    CFStringRef		path;
+    CFComparisonResult	res;
+    CFNumberRef		type1;
+    CFNumberRef		type2;
+
+    /* sort by interface type */
+
+    type1 = CFDictionaryGetValue((CFDictionaryRef)val1, CFSTR(kIOInterfaceType));
+    type2 = CFDictionaryGetValue((CFDictionaryRef)val2, CFSTR(kIOInterfaceType));
+    res = CFNumberCompare(type1, type2, NULL);
+    if (res != kCFCompareEqualTo) {
+	return (res);
+    }
+
+    /* built-in interfaces sort first */
+    builtin = CFDictionaryGetValue((CFDictionaryRef)val1, CFSTR(kIOBuiltin));
+    if (isA_CFBoolean(builtin) != NULL) {
+	builtin_val1 = CFBooleanGetValue(builtin);
+    }
+    builtin = CFDictionaryGetValue((CFDictionaryRef)val2, CFSTR(kIOBuiltin));
+    if (isA_CFBoolean(builtin) != NULL) {
+	builtin_val2 = CFBooleanGetValue(builtin);
+    }
+    if (builtin_val1 != builtin_val2) {
+	if (builtin_val1) {
+	    res = kCFCompareLessThan;
+	} else {
+	    res = kCFCompareGreaterThan;
+	}
+	return (res);
+    }
+
+    /* ... and then sort built-in interfaces by "location" */
+    if (builtin_val1) {
+	CFStringRef	location1;
+	CFStringRef	location2;
+
+	location1 = CFDictionaryGetValue((CFDictionaryRef)val1, CFSTR(kIOLocation));
+	location2 = CFDictionaryGetValue((CFDictionaryRef)val2, CFSTR(kIOLocation));
+	if (location1 != location2) {
+	    if (isA_CFString(location1)) {
+		if (isA_CFString(location2)) {
+		    res = CFStringCompare(location1, location2, 0);
+		} else {
+		    res = kCFCompareLessThan;
+		}
+	    } else {
+		res = kCFCompareGreaterThan;
+	    }
+
+	    if (res != kCFCompareEqualTo) {
+		return (res);
+	    }
+	}
+    }
+
+    /* ... and then sort by IOPathMatch */
+
+    path = CFDictionaryGetValue((CFDictionaryRef)val1, CFSTR(kIOPathMatchKey));
+    if (isA_CFString(path)) {
+	elements1 = split_path(path);
+	n1 = CFArrayGetCount(elements1);
+    } else {
+	goto done;
+    }
+
+    path = CFDictionaryGetValue((CFDictionaryRef)val2, CFSTR(kIOPathMatchKey));
+    if (isA_CFString(path)) {
+	elements2 = split_path(path);
+	n2 = CFArrayGetCount(elements2);
+    } else {
+	goto done;
+    }
+
+    n = (n1 <= n2) ? n1 : n2;
+    for (i = 0; i < n; i++) {
+	CFStringRef	e1;
+	CFStringRef	e2;
+	char		*end;
+	quad_t		q1;
+	quad_t		q2;
+	char		*str;
+	Boolean		isNum;
+
+	e1 = CFArrayGetValueAtIndex(elements1, i);
+	e2 = CFArrayGetValueAtIndex(elements2, i);
+
+	str = _SC_cfstring_to_cstring(e1, NULL, 0, kCFStringEncodingASCII);
+	errno = 0;
+	q1 = strtoq(str, &end, 16);
+	isNum = ((*str != '\0') && (*end == '\0') && (errno == 0));
+	CFAllocatorDeallocate(NULL, str);
+
+	if (isNum) {
+	    // if e1 is a valid numeric string
+	    str = _SC_cfstring_to_cstring(e2, NULL, 0, kCFStringEncodingASCII);
+	    errno = 0;
+	    q2 = strtoq(str, &end, 16);
+	    isNum = ((*str != '\0') && (*end == '\0') && (errno == 0));
+	    CFAllocatorDeallocate(NULL, str);
+
+	    if (isNum) {
+		// if e2 is also a valid numeric string
+
+		if (q1 == q2) {
+		    res = kCFCompareEqualTo;
+		    continue;
+		} else if (q1 < q2) {
+		    res = kCFCompareLessThan;
+		} else {
+		    res = kCFCompareGreaterThan;
+		}
+		break;
+	    }
+	}
+
+	res = CFStringCompare(e1, e2, 0);
+	if (res != kCFCompareEqualTo) {
+	    break;
+	}
+    }
+
+    if (res == kCFCompareEqualTo) {
+	if (n1 < n2) {
+	    res = kCFCompareLessThan;
+	} else if (n1 < n2) {
+	    res = kCFCompareGreaterThan;
+	}
+    }
+
+ done :
+    if ( elements1 ) CFRelease( elements1 );
+    if ( elements2 ) CFRelease( elements2 );
+
+    return res;
 }
 
 static boolean_t
@@ -240,28 +390,6 @@ addCFNumberProperty( CFMutableDictionaryRef dict,
     if ( keyObj ) CFRelease( keyObj );
 
     return ret;
-}
-
-static void
-CFStringShow(CFStringRef object)
-{
-    const char * c = CFStringGetCStringPtr(object,
-					   kCFStringEncodingMacRoman);
-    if (c) {
-	printf("%s\n", c);
-    }
-    else {
-	CFIndex bufferSize = CFStringGetLength(object) + 1;
-	char *  buffer     = (char *) malloc(bufferSize);
-
-	if (buffer) {
-	    if (CFStringGetCString(object, buffer, bufferSize,
-				   kCFStringEncodingMacRoman)) {
-		printf("%s\n", buffer);
-	    }
-	    free(buffer);
-	}
-    }
 }
 
 static void *
@@ -385,7 +513,7 @@ readInterfaceList()
 static void
 writeInterfaceList(CFArrayRef ilist)
 {
-    SCPreferencesRef	prefs = NULL;
+    SCPreferencesRef	prefs;
 
     if (isA_CFArray(ilist) == NULL) {
 	return;
@@ -414,11 +542,38 @@ writeInterfaceList(CFArrayRef ilist)
     }
 
 done:
-	if (prefs) {
-	    CFRelease(prefs);
-	}
+
+    CFRelease(prefs);
     return;
 }
+
+#ifdef	SIOCGETVLAN
+static void
+updateVLANConfiguration(void)
+{
+    VLANPreferencesRef	prefs;
+
+    prefs = VLANPreferencesCreate(NULL);
+    if (prefs == NULL) {
+	SCLog(TRUE, LOG_INFO,
+	      CFSTR(MY_PLUGIN_NAME ": VLANPreferencesCreate failed, %s"),
+	      SCErrorString(SCError()));
+	return;
+    }
+
+    if (!_VLANPreferencesUpdateConfiguration(prefs)) {
+	SCLog(TRUE, LOG_INFO,
+	      CFSTR(MY_PLUGIN_NAME ": _VLANPreferencesUpdateConfiguration failed, %s"),
+	      SCErrorString(SCError()));
+	goto done;
+    }
+
+done:
+
+    CFRelease(prefs);
+    return;
+}
+#endif	/* SIOCGETVLAN */
 
 #define INDEX_BAD	(-1)
 
@@ -607,11 +762,14 @@ static CFNumberRef
 getHighestUnitForType(CFNumberRef if_type)
 {
     int 		i;
+    CFIndex		n;
     CFNumberRef		ret_unit = NULL;
 
     if (S_dblist == NULL)
 	return (NULL);
-    for (i = CFArrayGetCount(S_dblist) - 1; i >= 0; i--) {
+
+    n = CFArrayGetCount(S_dblist);
+    for (i = 0; i < n; i++) {
 	CFDictionaryRef	dict = CFArrayGetValueAtIndex(S_dblist, i);
 	CFNumberRef	type;
 	CFNumberRef	unit;
@@ -639,7 +797,7 @@ registerInterface(io_connect_t connect,
 		  CFNumberRef unit)
 {
     CFMutableDictionaryRef	dict;
-    kern_return_t           	kr = kIOReturnNoMemory;
+    kern_return_t		kr = kIOReturnNoMemory;
 
     dict = CFDictionaryCreateMutable(NULL, 0,
 				     &kCFTypeDictionaryKeyCallBacks,
@@ -687,14 +845,14 @@ waitForQuiet(mach_port_t masterPort)
 static io_object_t
 createNetworkStackObject(mach_port_t masterPort)
 {
-    io_iterator_t	iter = NULL;
+    io_iterator_t	iter = MACH_PORT_NULL;
     kern_return_t	kr;
-    io_object_t		stack = NULL;
+    io_object_t		stack = MACH_PORT_NULL;
 
     kr = IOServiceGetMatchingServices(masterPort,
 				      IOServiceMatching("IONetworkStack"),
 				      &iter);
-    if (iter != NULL) {
+    if (iter != MACH_PORT_NULL) {
 	if (kr == KERN_SUCCESS) {
 	    stack = IOIteratorNext(iter);
 	}
@@ -710,8 +868,8 @@ printMacAddress(CFDataRef data)
     CFIndex	n = CFDataGetLength(data);
 
     for (i = 0; i < n; i++) {
-	if (i != 0) printf(":");
-	printf("%02x", CFDataGetBytePtr(data)[i]);
+	if (i != 0) SCPrint(TRUE, stdout, CFSTR(":"));
+	SCPrint(TRUE, stdout, CFSTR("%02x"), CFDataGetBytePtr(data)[i]);
     }
     return;
 }
@@ -732,7 +890,7 @@ getMacAddress(io_object_t if_obj)
     CFMutableDictionaryRef	dict = NULL;
     CFDataRef			data = NULL;
     kern_return_t		kr;
-    io_object_t			parent_obj = NULL;
+    io_object_t			parent_obj = MACH_PORT_NULL;
 
     /* get the parent node */
     kr = IORegistryEntryGetParentEntry(if_obj, kIOServicePlane, &parent_obj);
@@ -772,11 +930,12 @@ getMacAddress(io_object_t if_obj)
 static CFDictionaryRef
 getInterface(io_object_t if_obj)
 {
+    CFBooleanRef			builtin;
     kern_return_t			kr;
     CFDataRef				mac_address = NULL;
+    CFStringRef				location;
     CFMutableDictionaryRef		new_if = NULL;
     io_string_t				path;
-    CFBooleanRef			primary;
     CFMutableDictionaryRef		reginfo_if = NULL;
     CFDictionaryRef			ret_dict = NULL;
     CFStringRef				string;
@@ -811,8 +970,15 @@ getInterface(io_object_t if_obj)
     if (mac_address == NULL) {
 	goto failed;
     }
-    primary = isA_CFBoolean(CFDictionaryGetValue(reginfo_if,
-						 CFSTR(kIOPrimaryInterface)));
+    builtin = isA_CFBoolean(CFDictionaryGetValue(reginfo_if,
+						 CFSTR(kIOBuiltin)));
+    if ((builtin == NULL) || !CFBooleanGetValue(builtin)) {
+	builtin = isA_CFBoolean(CFDictionaryGetValue(reginfo_if,
+						     CFSTR(kIOPrimaryInterface)));
+    }
+    location = isA_CFString(CFDictionaryGetValue(reginfo_if,
+						 CFSTR(kIOLocation)));
+
     new_if = CFDictionaryCreateMutable(NULL, 0,
 				       &kCFTypeDictionaryKeyCallBacks,
 				       &kCFTypeDictionaryValueCallBacks);
@@ -821,8 +987,11 @@ getInterface(io_object_t if_obj)
     }
     CFDictionarySetValue(new_if, CFSTR(kIOInterfaceType), type);
     CFDictionarySetValue(new_if, CFSTR(kIOMACAddress), mac_address);
-    if (primary) {
-	CFDictionarySetValue(new_if, CFSTR(kIOPrimaryInterface), primary);
+    if (builtin) {
+	CFDictionarySetValue(new_if, CFSTR(kIOBuiltin), builtin);
+    }
+    if (location) {
+	CFDictionarySetValue(new_if, CFSTR(kIOLocation), location);
     }
     addCFStringProperty(new_if, kIOPathMatchKey, path);
 
@@ -831,9 +1000,9 @@ getInterface(io_object_t if_obj)
     if (unit) {
 	CFDictionarySetValue(new_if, CFSTR(kIOInterfaceUnit), unit);
     }
-    string = isA_CFString(CFDictionaryGetValue(reginfo_if, CFSTR(kBSDName)));
+    string = isA_CFString(CFDictionaryGetValue(reginfo_if, CFSTR(kIOBSDNameKey)));
     if (string) {
-	CFDictionarySetValue(new_if, CFSTR(kBSDName), string);
+	CFDictionarySetValue(new_if, CFSTR(kIOBSDNameKey), string);
     }
     ret_dict = new_if;
     new_if = NULL;
@@ -856,7 +1025,7 @@ lookupIOKitPath(CFStringRef if_path)
 {
     CFDictionaryRef		dict = NULL;
     io_registry_entry_t		entry = MACH_PORT_NULL;
-    kern_return_t           	kr;
+    kern_return_t		kr;
     mach_port_t			masterPort = MACH_PORT_NULL;
     io_string_t			path;
 
@@ -867,7 +1036,7 @@ lookupIOKitPath(CFStringRef if_path)
 	      kr);
 	goto error;
     }
-    cfstring_to_cstring(if_path, path, sizeof(path));
+    _SC_cfstring_to_cstring(if_path, path, sizeof(path), kCFStringEncodingASCII);
     entry = IORegistryEntryFromPath(masterPort, path);
     if (entry == MACH_PORT_NULL) {
 	SCLog(TRUE, LOG_INFO,
@@ -893,40 +1062,24 @@ displayInterface(CFDictionaryRef if_dict)
 {
     CFStringRef		name;
     CFNumberRef		type;
-    int 		type_val;
     CFNumberRef		unit;
-    int 		unit_val;
 
-    name = CFDictionaryGetValue(if_dict, CFSTR(kBSDName));
+    name = CFDictionaryGetValue(if_dict, CFSTR(kIOBSDNameKey));
     if (name) {
-	printf("BSD Name: ");
-	CFStringShow(name);
+	SCPrint(TRUE, stdout, CFSTR("BSD Name: %@\n"), name);
     }
-    type = CFDictionaryGetValue(if_dict, CFSTR(kIOInterfaceType));
+
     unit = CFDictionaryGetValue(if_dict, CFSTR(kIOInterfaceUnit));
     if (unit) {
-	CFNumberGetValue(unit, kCFNumberIntType, &unit_val);
-	printf("Unit: %d\n", unit_val);
+	SCPrint(TRUE, stdout, CFSTR("Unit: %@\n"), unit);
     }
 
-    CFNumberGetValue(type,
-		     kCFNumberIntType, &type_val);
-    printf("Type: %d\n", type_val);
-    printf("MAC address: ");
+    type = CFDictionaryGetValue(if_dict, CFSTR(kIOInterfaceType));
+    SCPrint(TRUE, stdout, CFSTR("Type: %@\n"), type);
+
+    SCPrint(TRUE, stdout, CFSTR("MAC address: "));
     printMacAddress(CFDictionaryGetValue(if_dict, CFSTR(kIOMACAddress)));
-    printf("\n");
-}
-
-static void
-sort_interfaces_by_type(CFMutableArrayRef if_list)
-{
-    int		count = CFArrayGetCount(if_list);
-    CFRange	range = CFRangeMake(0, count);
-
-    if (count < 2)
-	return;
-    CFArraySortValues(if_list, range, if_type_compare, NULL);
-    return;
+    SCPrint(TRUE, stdout, CFSTR("\n"));
 }
 
 static void
@@ -942,13 +1095,39 @@ sort_interfaces_by_unit(CFMutableArrayRef if_list)
 }
 
 static void
+sort_interfaces_by_path(CFMutableArrayRef if_list)
+{
+    int		count = CFArrayGetCount(if_list);
+    CFRange	range = CFRangeMake(0, count);
+
+    if (count < 2)
+	return;
+    CFArraySortValues(if_list, range, if_path_compare, NULL);
+    return;
+}
+
+static void
 name_interfaces(CFArrayRef if_list)
 {
     CFIndex	i;
     CFIndex	n = CFArrayGetCount(if_list);
+    CFIndex	i_builtin = 0;
+    CFIndex	n_builtin = 0;
 
     if (S_debug)
-	printf("\n");
+	SCPrint(TRUE, stdout, CFSTR("\n"));
+
+    for (i = 0; i < n; i++) {
+	CFBooleanRef	builtin;
+	CFDictionaryRef if_dict;
+
+	if_dict = CFArrayGetValueAtIndex(if_list, i);
+	builtin = CFDictionaryGetValue(if_dict, CFSTR(kIOBuiltin));
+	if (builtin && CFBooleanGetValue(builtin)) {
+	    n_builtin++;	// reserve unit number for built-in interface
+	}
+    }
+
     for (i = 0; i < n; i++) {
 	CFDictionaryRef if_dict;
 	CFNumberRef	type;
@@ -956,7 +1135,7 @@ name_interfaces(CFArrayRef if_list)
 
 	if (S_debug) {
 	    if (i != 0)
-		printf("\n");
+		SCPrint(TRUE, stdout, CFSTR("\n"));
 	}
 
 	if_dict = CFArrayGetValueAtIndex(if_list, i);
@@ -964,7 +1143,7 @@ name_interfaces(CFArrayRef if_list)
 	type = CFDictionaryGetValue(if_dict, CFSTR(kIOInterfaceType));
 	if (unit) {
 	    if (S_debug) {
-		printf("Interface already has a unit number\n");
+		SCPrint(TRUE, stdout, CFSTR("Interface already has a unit number\n"));
 		displayInterface(if_dict);
 	    }
 	    replaceInterface(if_dict);
@@ -988,42 +1167,45 @@ name_interfaces(CFArrayRef if_list)
 	    }
 	    else {
 		int		if_type;
-		boolean_t	is_primary = FALSE;
+		boolean_t	is_builtin = FALSE;
 		int 		next_unit = 0;
 
 		CFNumberGetValue(type,
 				 kCFNumberIntType, &if_type);
 		if (if_type == IFT_ETHER) { /* ethernet */
-		    CFBooleanRef	primary;
+		    CFBooleanRef	builtin;
 
-		    primary = CFDictionaryGetValue(if_dict,
-						   CFSTR(kIOPrimaryInterface));
-		    if (primary && CFBooleanGetValue(primary)) {
-			is_primary = TRUE;
+		    builtin = CFDictionaryGetValue(if_dict,
+						   CFSTR(kIOBuiltin));
+		    if (builtin && CFBooleanGetValue(builtin)) {
+			is_builtin = TRUE;
+			next_unit = i_builtin++;
 		    }
 		    else {
 #if defined(__ppc__)
-			next_unit = 1; /* reserve 0 for primary ethernet */
+			/* skip over slots reserved for built-in ethernet interface(s) */
+			next_unit = n_builtin;
 #endif
 		    }
 		}
-		if (is_primary == FALSE) {
+		if (is_builtin == FALSE) {
 		    unit = getHighestUnitForType(type);
 		    if (unit) {
+			int	high_unit;
+
 			CFNumberGetValue(unit,
-					 kCFNumberIntType, &next_unit);
-			next_unit++;
+					 kCFNumberIntType, &high_unit);
+			if (high_unit >= next_unit) {
+			    next_unit = high_unit + 1;
+			}
 		    }
 		}
 		unit = CFNumberCreate(NULL,
 				      kCFNumberIntType, &next_unit);
 	    }
 	    if (S_debug) {
-		int u;
-		CFNumberGetValue(unit,
-				 kCFNumberIntType, &u);
-		printf("Interface assigned unit %d %s\n", u,
-		       dbdict ? "(from database)" : "(next available)");
+		SCPrint(TRUE, stdout, CFSTR("Interface assigned unit %@ %s\n"), unit,
+			dbdict ? "(from database)" : "(next available)");
 	    }
 	    kr = registerInterface(S_connect, path, unit);
 	    if (kr != KERN_SUCCESS) {
@@ -1090,8 +1272,11 @@ interfaceArrivalCallback( void * refcon, io_iterator_t iter )
 	IOObjectRelease(obj);
     }
     if (if_list) {
-	sort_interfaces_by_type(if_list);
+	sort_interfaces_by_path(if_list);
 	name_interfaces(if_list);
+#ifdef	SIOCGETVLAN
+	updateVLANConfiguration();
+#endif	/* SIOCGETVLAN */
 	CFRelease(if_list);
     }
     return;
@@ -1121,14 +1306,14 @@ load(CFBundleRef bundle, Boolean bundleVerbose)
     waitForQuiet(masterPort);
 
     stack = createNetworkStackObject(masterPort);
-    if (stack == NULL) {
+    if (stack == MACH_PORT_NULL) {
 	SCLog(TRUE, LOG_INFO,
 	      CFSTR(MY_PLUGIN_NAME ": No network stack object"));
 	goto error;
     }
     kr = IOServiceOpen(stack, mach_task_self(), 0, &S_connect);
     if (kr != KERN_SUCCESS) {
-	printf(MY_PLUGIN_NAME ": IOServiceOpen returned 0x%x\n", kr);
+	SCPrint(TRUE, stdout, CFSTR(MY_PLUGIN_NAME ": IOServiceOpen returned 0x%x\n"), kr);
 	goto error;
     }
 
@@ -1182,15 +1367,15 @@ load(CFBundleRef bundle, Boolean bundleVerbose)
     if (masterPort != MACH_PORT_NULL) {
 	mach_port_deallocate(mach_task_self(), masterPort);
     }
-    if (S_connect != NULL) {
+    if (S_connect != MACH_PORT_NULL) {
 	IOServiceClose(S_connect);
-	S_connect = NULL;
+	S_connect = MACH_PORT_NULL;
     }
-    if (S_iter != NULL) {
+    if (S_iter != MACH_PORT_NULL) {
 	IOObjectRelease(S_iter);
-	S_iter = NULL;
+	S_iter = MACH_PORT_NULL;
     }
-    if (S_notify != NULL) {
+    if (S_notify != MACH_PORT_NULL) {
 	IONotificationPortDestroy(S_notify);
     }
     return;
@@ -1198,7 +1383,7 @@ load(CFBundleRef bundle, Boolean bundleVerbose)
 
 //------------------------------------------------------------------------
 // Main function.
-#ifdef TEST_IFNAMER
+#ifdef MAIN
 int
 main(int argc, char ** argv)
 {
@@ -1209,5 +1394,4 @@ main(int argc, char ** argv)
     exit(0);
     return 0;
 }
-
-#endif TEST_IFNAMER
+#endif /* MAIN */

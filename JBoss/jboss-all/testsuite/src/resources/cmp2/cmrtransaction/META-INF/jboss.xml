@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE jboss
+    PUBLIC "-//JBoss//DTD JBOSS 3.2//EN"
+    "http://www.jboss.org/j2ee/dtd/jboss_3_2.dtd">
+
+<jboss>
+    <enforce-ejb-restrictions>false</enforce-ejb-restrictions>
+    <unauthenticated-principal>unknown</unauthenticated-principal>
+
+    <enterprise-beans>
+        <entity>
+            <ejb-name>CMRTreeBean</ejb-name>
+            <local-jndi-name>java:/cmrTransactionTest/TreeLocal</local-jndi-name>
+            <method-attributes>
+                <method>
+                    <method-name>get*</method-name>
+                    <read-only>true</read-only>
+                </method>
+                <method>
+                    <method-name>isIdentical</method-name>
+                    <read-only>true</read-only>
+                </method>
+            </method-attributes>
+        </entity>
+        <session>
+            <ejb-name>CMRTreeFacadeBean</ejb-name>
+            <jndi-name>cmrTransactionTest/TreeFacadeRemote</jndi-name>
+        </session>
+    </enterprise-beans>
+
+</jboss>

@@ -12,7 +12,6 @@
 
 #include <IOKit/IOInterruptEventSource.h>
 #include <IOKit/IOUserClient.h>
-#include <IOKit/IOSyncer.h>
 
 #include "AudioHardwareCommon.h"
 #include "AudioHardwareConstants.h"
@@ -105,7 +104,6 @@ protected:
     UInt32						fMinVolume;
 	IOAudioDevicePowerState		ourPowerState;
 	Boolean						shuttingDown;
-	IOSyncer *					mSignal;
 
 	// we keep the engines around to have a cleaner initHardware
     Apple02DBDMAAudioDMAEngine *	driverDMAEngine;

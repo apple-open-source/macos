@@ -3,6 +3,7 @@ if [ "${Target}" = "IOUSBFamily" ]; then
 IOUSBLib
 IOUSBUserClient
 AppleUSBCDCDriver
+AppleUSBCDCEthernet
 AppleUSBComposite
 IOUSBHIDDriverSafeBoot
 AppleUSBMergeNub
@@ -11,7 +12,6 @@ AppleUSBOHCI
 AppleUSBEHCI
 AppleUSBOpticalMouse
 AppleUSBHub
-Configd Plugin
 KLog
 USB Prober
 IOUSBFamily'
@@ -23,6 +23,8 @@ elif [ "${Target}" = "AppleUSBEHCI" ]; then
 	Targets='AppleUSBEHCI'
 elif [ "${Target}" = "AppleUSBCDCDriver" ]; then
 	Targets='AppleUSBCDCDriver'
+elif [ "${Target}" = "AppleUSBCDCEthernet" ]; then
+	Targets='AppleUSBCDCEthernet'
 elif [ "${Target}" = "AppleUSBComposite" ]; then
 	Targets='AppleUSBComposite'
 elif [ "${Target}" = "AppleUSBHub" ]; then
@@ -55,6 +57,7 @@ else
 IOUSBLib
 IOUSBUserClient
 AppleUSBCDCDriver
+AppleUSBCDCEthernet
 AppleUSBComposite
 IOUSBHIDDriverSafeBoot
 AppleUSBMergeNub
@@ -63,7 +66,6 @@ AppleUSBOHCI
 AppleUSBEHCI
 AppleUSBOpticalMouse
 AppleUSBHub
-Configd Plugin
 KLog
 USB Prober
 IOUSBFamily'

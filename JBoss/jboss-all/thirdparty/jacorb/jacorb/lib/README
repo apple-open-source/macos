@@ -1,24 +1,7 @@
 
-The jacorb.jar file in this directory was generated from the 
-HEAD version in the JacORB CVS repository as of March 29, 2003,
-with a couple of changes in org/jacorb/util/Version.java just 
-to indicate that it is an unofficial version built from CVS:
-
-$ cvs -z3 diff Version.java
-Index: Version.java
-===================================================================
-RCS file: /cvsroot/jacorb/JacORB/src/org/jacorb/util/Version.java,v
-retrieving revision 1.13
-diff -r1.13 Version.java
-35c35
-<     public static final String version = "1.4.50";
----
->     public static final String version = "1.4.50 - CVS";
-37c37
-<     public static final String date = "(CVS)";
----
->     public static final String date = "March 29, 2003";
-
+The jacorb.jar file in this directory was generated from 
+JacORB 2.0 beta 2, available at http://www.jacorb.org, by 
+applying the patch below. 
 
 Kudos to the JacORB team, for this great open-source ORB.
 
@@ -30,3 +13,1903 @@ Special thanks to:
 
 
 Francisco
+
+----------------> patchfile included below <-----------------------
+Index: src/org/jacorb/orb/Any.java
+===================================================================
+RCS file: /cvsroot/jacorb/JacORB/src/org/jacorb/orb/Any.java,v
+retrieving revision 1.36
+diff -u -r1.36 Any.java
+--- src/org/jacorb/orb/Any.java	22 Aug 2003 20:20:55 -0000	1.36
++++ src/org/jacorb/orb/Any.java	8 Nov 2003 18:17:51 -0000
+@@ -31,7 +31,7 @@
+  * - additional insert_void operation
+  *
+  * @author (c) Gerald Brose, FU Berlin 1997/98
+- * $Id: Any.java,v 1.36 2003/08/22 20:20:55 francisco Exp $
++ * $Id: Any.java,v 1.39 2003/11/05 12:56:56 francisco Exp $
+  *
+  */
+ 
+@@ -548,7 +548,7 @@
+ 
+     // obj refs
+ 
+-    public void insert_Object (org.omg.CORBA.Object o)
++    public void insert_Object(org.omg.CORBA.Object o)
+     {
+         value = o;
+ 
+@@ -556,7 +556,7 @@
+         String typeId = null;
+         String name = "";
+ 
+-        if( value == null )
++        if (value == null)
+         {
+            orb = org.omg.CORBA.ORB.init();
+            typeId = "IDL:omg.org/CORBA/Object:1.0";
+@@ -568,11 +568,23 @@
+            typeId = ((org.omg.CORBA.portable.ObjectImpl)o)._ids()[0];
+ 
+            // check if the repository Id is in IDL format
+-           if (typeId.startsWith ("IDL:"))
++           if (typeId.startsWith("IDL:"))
++           {
++              // parse the interface name from a repository Id string 
++              // like "IDL:some.prefix/Some/Module/TheInterfaceName"
++              name = typeId.substring(4, typeId.lastIndexOf (':'));
++              name = name.substring(name.lastIndexOf ('/') + 1);
++           }
++           else if (typeId.startsWith("RMI:"))
++           {
++              // parse the interface name from a repository Id string
++              // like "RMI:some.java.package.TheInterfaceName"
++              name = typeId.substring(4, typeId.lastIndexOf(':'));
++              name = name.substring(name.lastIndexOf('.') + 1);
++           }
++           else
+            {
+-              // parse the name from the repository Id string
+-              name = typeId.substring (4, typeId.lastIndexOf (':'));
+-              name = name.substring (name.lastIndexOf ('/') + 1);
++              throw new org.omg.CORBA.BAD_PARAM("Unknown repository id format");
+            }
+         }
+         typeCode = orb.create_interface_tc( typeId , name );
+@@ -651,8 +663,12 @@
+     {
+         int kind = typeCode.kind().value();
+         if (kind != TCKind._tk_value &&
++	    kind != TCKind._tk_value_box &&
++	    kind != TCKind._tk_abstract_interface &&
+             kind != TCKind._tk_null)
++	{
+             tc_error ("Cannot extract value!");
++	}
+         return (java.io.Serializable)value;
+     }
+ 
+@@ -801,8 +817,10 @@
+             ((CDROutputStream)value).write_value(type, input);
+             break;
+         case TCKind._tk_value:
++        case TCKind._tk_value_box:
+             insert_Value
+-                (((org.omg.CORBA_2_3.portable.InputStream)input).read_value());
++                (((org.omg.CORBA_2_3.portable.InputStream)input).read_value(),
++                 type);
+             break;
+         case TCKind._tk_abstract_interface:
+            java.lang.Object obj =
+@@ -921,6 +939,7 @@
+                 throw new INTERNAL( e.getMessage());
+             }
+         case TCKind._tk_value:
++        case TCKind._tk_value_box:
+             ((org.omg.CORBA_2_3.portable.OutputStream)output)
+                 .write_value ((java.io.Serializable)value);
+             break;
+Index: src/org/jacorb/orb/CDRInputStream.java
+===================================================================
+RCS file: /cvsroot/jacorb/JacORB/src/org/jacorb/orb/CDRInputStream.java,v
+retrieving revision 1.65
+diff -u -r1.65 CDRInputStream.java
+--- src/org/jacorb/orb/CDRInputStream.java	22 Aug 2003 20:20:55 -0000	1.65
++++ src/org/jacorb/orb/CDRInputStream.java	8 Nov 2003 18:17:52 -0000
+@@ -37,7 +37,7 @@
+  * Read CDR encoded data
+  *
+  * @author Gerald Brose, FU Berlin
+- * $Id: CDRInputStream.java,v 1.65 2003/08/22 20:20:55 francisco Exp $
++ * $Id: CDRInputStream.java,v 1.72 2003/11/05 12:43:27 francisco Exp $
+  */
+ 
+ public class CDRInputStream
+@@ -65,7 +65,7 @@
+      * NOT access this variable directly. It is initialized on demand.
+      * Use the method {@link #getRecursiveTCMap()}
+      */
+-    private HashMap recursiveTCMap;
++    private Map recursiveTCMap;
+ 
+     /**
+      * <code>cachedTypecodes</code> stores a mapping of ID/Typecode to
+@@ -104,7 +104,7 @@
+      * NOT access this variable directly. It is initialized on demand.
+      * Use the method {@link #getValueMap()}
+      */
+-    private HashMap valueMap;
++    private Map valueMap;
+ 
+     /**
+      * Index of the current IDL value that is being unmarshalled.
+@@ -120,7 +120,7 @@
+      * Do NOT access this variable directly. It is initialized on demand.
+      * Use the method {@link #getRepIdMap()}
+      */
+-    private HashMap repIdMap;
++    private Map repIdMap;
+ 
+     /**
+      * <code>codebaseMap</code> maps indices within the buffer
+@@ -128,7 +128,7 @@
+      * Do NOT access this variable directly. It is initialized on demand.
+      * Use the method {@link #getCodebaseMap()}
+      */
+-    private HashMap codebaseMap;
++    private Map codebaseMap;
+ 
+     public boolean littleEndian = false;
+ 
+@@ -194,12 +194,11 @@
+ 
+ 
+     /**
+-     * <code>getRecursiveTCMap</code> is used to initialize recursiveTCMap
+-     * on demand.
++     * Gets the Map that keeps track of recursive TypeCodes.
+      *
+-     * @return a <code>HashMap</code> value
++     * @return a <code>Map</code> value
+      */
+-    private HashMap getRecursiveTCMap ()
++    private Map getRecursiveTCMap()
+     {
+         if (recursiveTCMap == null)
+         {
+@@ -210,48 +209,48 @@
+ 
+ 
+     /**
+-     * <code>getValueMap</code> is used to initialize valueMap
+-     * on demand.
++     * Gets the Map that is used to demarshal shared valuetype instances.
+      *
+-     * @return a <code>HashMap</code> value
++     * @return a <code>Map</code> value
+      */
+-    private HashMap getValueMap ()
++    private Map getValueMap()
+     {
+         if (valueMap == null)
+         {
+-            valueMap = new HashMap ();
++            // Unlike the valueMap in CDROutputStream, this one
++            // does need to be an equality-based HashMap.
++            valueMap = new HashMap();
+         }
+         return valueMap;
+     }
+ 
+ 
+     /**
+-     * <code>getRepIdMap</code> is used to initialize repIdMap
+-     * on demand.
++     * Gets the Map that is used to implement indirections for RepositoryIDs.
+      *
+-     * @return a <code>HashMap</code> value
++     * @return a <code>Map</code> value
+      */
+-    private HashMap getRepIdMap ()
++    private Map getRepIdMap()
+     {
+         if (repIdMap == null)
+         {
+-            repIdMap = new HashMap ();
++            repIdMap = new HashMap();
+         }
+         return repIdMap;
+     }
+ 
+ 
+     /**
+-     * <code>getCodebaseMap</code> is used to initialize codebaseMap
+-     * on demand.
++     * Gets the Map that is used to implement sharing for codebase
++     * specifications.
+      *
+-     * @return a <code>HashMap</code> value
++     * @return a <code>Map</code> value
+      */
+-    private HashMap getCodebaseMap ()
++    private Map getCodebaseMap()
+     {
+         if (codebaseMap == null)
+         {
+-            codebaseMap = new HashMap ();
++            codebaseMap = new HashMap();
+         }
+         return codebaseMap;
+     }
+@@ -1833,14 +1832,12 @@
+     }
+ 
+     /**
+-     * called from Any
++     * Reads an instance of the type described by type code <code>tc</code>
++     * from this CDRInputStream, and remarshals it to the given OutputStream,
++     * <code>out</code>.  Called from Any.
+      */
+-
+-    final void read_value
+-    (
+-     final org.omg.CORBA.TypeCode tc,
+-     final org.omg.CORBA.portable.OutputStream out
+-     )
++    final void read_value(final org.omg.CORBA.TypeCode tc,
++                          final org.omg.CORBA.portable.OutputStream out)
+     {
+         if (tc == null)
+         {
+@@ -1962,6 +1959,36 @@
+                     b.printStackTrace();
+                 }
+                 break;
++            case TCKind._tk_value_box:
++                int tag = read_long();
++                if (tag == 0x00000000)
++                {
++                    ((org.omg.CORBA_2_3.portable.OutputStream)out)
++                                .write_value(null);
++                }
++                else if (tag == 0x7fffff00)
++                {
++                    out.write_long (0x7fffff00);
++                    try
++                    {
++                        read_value(tc.content_type(), out);
++                    }
++                    catch (org.omg.CORBA.TypeCodePackage.BadKind b)
++                    {
++                        throw new RuntimeException(b.toString());
++                    }
++                }
++                else if (tag == 0xffffffff)
++                {
++                    throw new org.omg.CORBA.NO_IMPLEMENT
++                        ("reference sharing within Anys not implemented");   
++                }
++                else
++                {
++                    throw new org.omg.CORBA.NO_IMPLEMENT
++                        ("cannot handle value tag: " + tag + " within Any");
++                }
++                break;   
+             case TCKind._tk_union:
+                 try
+                 {
+@@ -2208,7 +2235,7 @@
+     }
+ 
+     /**
+-     * @overrides read_value(java.io.Serializable value) in
++     * Overrides read_value(java.io.Serializable value) in
+      * org.omg.CORBA_2_3.portable.InputStream
+      */
+ 
+@@ -2253,24 +2280,42 @@
+     }
+ 
+     /**
+-     * @overrides read_value(value) in
++     * Unmarshals a valuetype instance from this stream.  The value returned
++     * is the same value passed in, with all the data unmarshaled
++     * (IDL-to-Java Mapping 1.2, August 2002, 1.13.1, p. 1-39).  The specified
++     * value is an uninitialized value that is added to the ORB's indirection
++     * table before unmarshaling (1.21.4.1, p. 1-117).
++     * 
++     * This method is intended to be called from custom valuetype factories.
++     * Unlike the other read_value() methods in this class, this method does
++     * not expect a GIOP value tag nor a repository id in the stream.
++     * 
++     * Overrides read_value(value) in
+      * org.omg.CORBA_2_3.portable.InputStream
+      */
+ 
+     public java.io.Serializable read_value(java.io.Serializable value)
+     {
+-        return read_value( value.getClass()); // GB: is that okay?
++        if (value instanceof org.omg.CORBA.portable.Streamable)
++        {
++            register_value(value);
++            ((org.omg.CORBA.portable.Streamable)value)._read(this); 
++            return value;             
++        }
++        else
++            throw new org.omg.CORBA.BAD_PARAM 
++                ("read_value is only implemented for Streamables");
+     }
+ 
+     /**
+-     * @overrides read_value(clz) in
++     * Overrides read_value(clz) in
+      * org.omg.CORBA_2_3.portable.InputStream
+      */
+ 
+     public java.io.Serializable read_value (final java.lang.Class clz)
+     {
+         int tag = read_long();
+-	int start_offset = pos - 4;
++        int start_offset = pos - 4;
+ 
+         if (tag == 0xffffffff)
+         {
+@@ -2309,7 +2354,7 @@
+     }
+ 
+     /**
+-     * @overrides read_value(factory) in
++     * Overrides read_value(factory) in
+      * org.omg.CORBA_2_3.portable.InputStream
+      */
+ 
+@@ -2481,7 +2526,7 @@
+                             catch (NoSuchMethodException e)
+                             {
+                                 throw new org.omg.CORBA.MARSHAL(
+-                                    "No write method in helper class "
++                                    "No read method in helper class "
+                                     + helperClassName + ": " + e);
+                             }
+                         }
+Index: src/org/jacorb/orb/CDROutputStream.java
+===================================================================
+RCS file: /cvsroot/jacorb/JacORB/src/org/jacorb/orb/CDROutputStream.java,v
+retrieving revision 1.81
+diff -u -r1.81 CDROutputStream.java
+--- src/org/jacorb/orb/CDROutputStream.java	22 Aug 2003 20:20:55 -0000	1.81
++++ src/org/jacorb/orb/CDROutputStream.java	8 Nov 2003 18:17:53 -0000
+@@ -31,7 +31,7 @@
+ 
+ /**
+  * @author Gerald Brose,  1999
+- * @version $Id: CDROutputStream.java,v 1.81 2003/08/22 20:20:55 francisco Exp $
++ * @version $Id: CDROutputStream.java,v 1.84 2003/10/30 10:11:14 andre.spiegel Exp $
+  *
+  * A stream for CDR marshalling.
+  *
+@@ -75,7 +75,7 @@
+      * variable directly. It is initialised on demand. Use the method
+      * {@link #getRecursiveTCMap() getRecursiveTCMap()}
+      */
+-    private HashMap recursiveTCMap;
++    private Map recursiveTCMap;
+ 
+     /**
+      * <code>valueMap</code> is used to maps all value objects that have
+@@ -84,7 +84,7 @@
+      * this variable directly. It is initialised on demand. Use the method
+      * {@link #getValueMap() getValueMap()}
+      */
+-    private HashMap valueMap;
++    private Map valueMap;
+ 
+     /**
+      * <code>repIdMap</code> is used to map all repository ids that have already
+@@ -93,7 +93,7 @@
+      * directly. It is initialised on demand. Use the method
+      * {@link #getRepIdMap() getRepIdMap()}
+      */
+-    private HashMap repIdMap;
++    private Map repIdMap;
+ 
+     /**
+      * <code>codebaseMap</code> is used to maps all codebase strings that have
+@@ -102,7 +102,7 @@
+      * directly. It is initialised on demand. Use the method
+      * {@link #getCodebaseMap() getCodebaseMap()}
+      */
+-    private HashMap codebaseMap;
++    private Map codebaseMap;
+ 
+     /**
+      * <code>cachedTypecodes</code> is used to cache compacted typecodes when
+@@ -208,7 +208,7 @@
+      *
+      * @return a <code>Stack</code> value
+      */
+-    private Stack getEncapsStack ()
++    private Stack getEncapsStack()
+     {
+         if (encaps_stack == null)
+         {
+@@ -219,12 +219,11 @@
+ 
+ 
+     /**
+-     * <code>getRecursiveTCMap</code> is used to initialize recursiveTCMap
+-     * on demand.
++     * Gets the Map that is used to store recursive TypeCodes.
+      *
+-     * @return a <code>HashMap</code> value
++     * @return a <code>Map</code> value
+      */
+-    private HashMap getRecursiveTCMap ()
++    private Map getRecursiveTCMap()
+     {
+         if (recursiveTCMap == null)
+         {
+@@ -235,47 +234,46 @@
+ 
+ 
+     /**
+-     * <code>getValueMap</code> is used to initialize valueMap
+-     * on demand.
++     * Gets the Map that is used to detect reference sharing when
++     * marshaling valuetype instances.
+      *
+-     * @return a <code>HashMap</code> value
++     * @return a <code>Map</code> value
+      */
+-    private HashMap getValueMap ()
++    private Map getValueMap()
+     {
+         if (valueMap == null)
+         {
+-            valueMap = new HashMap ();
++            valueMap = new HashMap(); // should be IdentityHashMap, will be fixed, AS.
+         }
+         return valueMap;
+     }
+ 
+ 
+     /**
+-     * <code>getRepIdMap</code> is used to initialize valueMap
+-     * on demand.
++     * Gets the Map that is used to implement indirections for RepositoryIDs.
+      *
+-     * @return a <code>HashMap</code> value
++     * @return a <code>Map</code> value
+      */
+-    private HashMap getRepIdMap ()
++    private Map getRepIdMap()
+     {
+         if (repIdMap == null)
+         {
+-            repIdMap = new HashMap ();
++            repIdMap = new HashMap();
+         }
+         return repIdMap;
+     }
+ 
+     /**
+-     * <code>getCodebaseMap</code> is used to initialize valueMap
+-     * on demand.
++     * Gets the Map that is used to implement indirections for Codebase
++     * specifications.
+      *
+-     * @return a <code>HashMap</code> value
++     * @return a <code>Map</code> value
+      */
+-    private HashMap getCodebaseMap ()
++    private Map getCodebaseMap ()
+     {
+         if (codebaseMap == null)
+         {
+-            codebaseMap = new HashMap ();
++            codebaseMap = new HashMap();
+         }
+         return codebaseMap;
+     }
+@@ -522,15 +520,17 @@
+            Also, remember the current index and the indirection maps because
+            we need to restore these when closing the encapsulation */
+ 
+-        getEncapsStack ().push
++        getEncapsStack().push
+         (
+-            new EncapsInfo
+-            (index, encaps_start, valueMap, repIdMap, codebaseMap)
++            new EncapsInfo(index, encaps_start, 
++                           getValueMap(), 
++                           getRepIdMap(), 
++                           getCodebaseMap())
+         );
+ 
+         // set up new indirection maps for this encapsulation
+ 
+-        valueMap = new HashMap();
++        valueMap = new HashMap(); // should be IdentityHashMap, will be fixed, AS.
+         repIdMap = new HashMap();
+         codebaseMap = new HashMap();
+ 
+@@ -1686,9 +1686,10 @@
+     }
+ 
+     /**
+-     * called from Any
++     * Reads a value of the type indicated by <code>tc</code> from the
++     * InputStream <code>in</code> and remarshals it to this CDROutputStream.
++     * Called from Any.
+      */
+-
+     public final void write_value ( final org.omg.CORBA.TypeCode tc,
+                                     final org.omg.CORBA.portable.InputStream in )
+     {
+@@ -2020,6 +2021,37 @@
+                     write_value( tc.content_type(), in );
+                 }
+                 catch ( org.omg.CORBA.TypeCodePackage.BadKind b ){}
++                break;
++            }
++            case TCKind._tk_value_box:
++            {
++                int tag = in.read_long();
++                if (tag == 0x00000000)
++                {
++                    write_value(null);   
++                }
++                else if (tag == 0x7fffff00)
++                {
++                    write_long (0x7fffff00);
++                    try
++                    {
++                        write_value(tc.content_type(), in);
++                    }
++                    catch (org.omg.CORBA.TypeCodePackage.BadKind b)
++                    {
++                        throw new RuntimeException(b.toString());
++                    }
++                }
++                else if (tag == 0xffffffff)
++                {
++                    throw new org.omg.CORBA.NO_IMPLEMENT
++                        ("reference sharing within Anys not implemented");
++                }
++                else
++                {
++                    throw new org.omg.CORBA.NO_IMPLEMENT
++                        ("cannot handle value tag: " + tag + " within Any");
++                }
+                 break;
+             }
+             case 0xffffffff:
+Index: src/org/jacorb/orb/Delegate.java
+===================================================================
+RCS file: /cvsroot/jacorb/JacORB/src/org/jacorb/orb/Delegate.java,v
+retrieving revision 1.86
+diff -u -r1.86 Delegate.java
+--- src/org/jacorb/orb/Delegate.java	15 Aug 2003 11:17:29 -0000	1.86
++++ src/org/jacorb/orb/Delegate.java	8 Nov 2003 18:17:54 -0000
+@@ -54,12 +54,14 @@
+ import org.omg.PortableServer.POAPackage.WrongAdapter;
+ import org.omg.PortableServer.POAPackage.WrongPolicy;
+ import org.omg.TimeBase.UtcT;
++import org.omg.PortableServer.ServantLocatorPackage.CookieHolder;
++import org.omg.PortableServer.Servant;
+ 
+ /**
+  * JacORB implementation of CORBA object reference
+  *
+  * @author Gerald Brose
+- * @version $Id: Delegate.java,v 1.86 2003/08/15 11:17:29 andre.spiegel Exp $
++ * @version $Id: Delegate.java,v 1.94 2003/11/07 14:15:53 francisco Exp $
+  *
+  */
+ 
+@@ -102,6 +104,11 @@
+     private Hashtable policy_overrides;
+ 
+     private boolean doNotCheckExceptions = false; //Setting for Appligator
++
++    private CookieHolder cookie = null;
++
++    private String invokedOperation = null;
++
+     /**
+      * A general note on the synchronization concept
+      *
+@@ -430,22 +437,28 @@
+         return equals( obj );
+     }
+ 
+-    /**
+-     *
+-     */
+-
+-    public void finalize()
++    protected void finalize() throws Throwable
+     {
+-        if ( connection != null )
++        try
+         {
+-            conn_mg.releaseConnection( connection );
+-        }
++            if ( connection != null )
++            {
++                // Synchronization for inc/dec of clients is handled inside
++                // releaseConnection.
++                conn_mg.releaseConnection( connection );
++            }
+ 
+-        orb._release( this );
++            // Call using string rather than this to prevent data race warning.
++            orb._release( getParsedIOR().getIORString() );
+ 
+-        if ( Debug.isDebugEnabled() )
++            if ( Debug.isDebugEnabled() )
++            {
++                Debug.output( 3, " Delegate gc'ed!" );
++            }
++        }
++        finally
+         {
+-            Debug.output( 3, " Delegate gc'ed!" );
++            super.finalize();
+         }
+     }
+ 
+@@ -573,7 +586,7 @@
+         if (p != null)
+             return ((org.omg.Messaging.SyncScopePolicy)p).synchronization();
+         else
+-            return ((org.omg.Messaging.SYNC_NONE.value));
++            return ((org.omg.Messaging.SYNC_WITH_TRANSPORT.value));
+     }
+ 
+     /**
+@@ -973,7 +986,7 @@
+ 
+                 try
+                 {
+-                    imr = ImRAccessImpl.connect (orb);
++                    imr = ImRAccessImpl.connect(orb);
+                 }
+                 catch ( Exception e )
+                 {
+@@ -1096,18 +1109,31 @@
+             // Try to avoid remote call - is it a derived type?
+             try
+             {
+-                Class derivedhelper = Class.forName( RepositoryID.className( pior.getTypeId(), "Helper" ) );
+-                Method derivednarrow = derivedhelper.getMethod
+-                    ( "narrow", new Class[] { org.omg.CORBA.Object.class } );
+-                Object narrowedhelper = derivednarrow.invoke( null, new Object[] { self } );
++                // Retrieve the local stub for the object in question. Then call the _ids method
++                // and see if any match the logical_type_id otherwise fall back to remote.
++                String classname = RepositoryID.className( ids[0], "Stub" );
++                int lastDot = classname.lastIndexOf( '.' );
++                StringBuffer scn = new StringBuffer( classname.substring( 0, lastDot + 1) );
++                scn.append( '_' );
++                scn.append( classname.substring( lastDot + 1 ) );
++
++                // This will only work if there is a correspondence between the Java class
++                // name and the Repository ID. If prefixes have been using then this mapping
++                // may have been lost.
++                Class stub = Environment.classForName( scn.toString());
++                Method idm = stub.getMethod ( "_ids", null );
++                String newids[] = (String[] )idm.invoke( stub.newInstance(),  new Object[] { } );
+ 
+-                if( narrowedhelper != null )
++                for ( int i = 0; i < newids.length ; i++ )
+                 {
+-                    return true;
++                    if (newids[i].equals( logical_type_id ) )
++                    {
++                        return true;
++                    }
+                 }
+             }
+             // If it fails fall back to a remote call.
+-            catch (Exception e) {}
++            catch (Throwable e) {}
+ 
+             org.omg.CORBA.portable.OutputStream os;
+             org.omg.CORBA.portable.InputStream is;
+@@ -1354,22 +1380,49 @@
+     }
+ 
+     /**
+-     * @overrides servant_postinvoke() in org.omg.CORBA.portable.Delegate<BR>
++     * Overrides servant_postinvoke() in org.omg.CORBA.portable.Delegate<BR>
+      * called from generated stubs after a local operation
+      */
+ 
+ 
+     public void servant_postinvoke( org.omg.CORBA.Object self, ServantObject servant )
+     {
+-        orb.getPOACurrent()._removeContext( Thread.currentThread() );
+         if (poa != null)
+         {
+-            poa.removeLocalRequest ();
++            if ( poa.isUseServantManager() )
++            {
++               if (! poa.isRetain() &&
++                   cookie != null &&
++                   invokedOperation != null )
++               {
++                  // ServantManager is a ServantLocator:
++                  // call postinvoke
++                  try
++                  {
++                     byte [] oid =
++                         POAUtil.extractOID( getParsedIOR().get_object_key() );
++                     org.omg.PortableServer.ServantLocator sl =
++                         ( org.omg.PortableServer.ServantLocator ) poa.get_servant_manager();
++
++                     sl.postinvoke( oid, poa, invokedOperation, cookie.value, (Servant)servant.servant );
++
++                     // delete stored values
++                     cookie = null;
++                     invokedOperation = null;
++                  }
++                  catch ( Throwable e )
++                  {
++                      Debug.output( 2, e );
++                  }
++               }
++            }
++           poa.removeLocalRequest();
+         }
++        orb.getPOACurrent()._removeContext( Thread.currentThread() );
+     }
+ 
+     /**
+-     * @overrides servant_preinvoke() in org.omg.CORBA.portable.Delegate<BR>
++     * Overrides servant_preinvoke() in org.omg.CORBA.portable.Delegate<BR>
+      * called from generated stubs before a local operation
+      */
+ 
+@@ -1379,12 +1432,15 @@
+     {
+         if (poa == null)
+         {
+-            resolvePOA (self);
++            resolvePOA(self);
+         }
+ 
+         if (poa != null)
+         {
+-            poa.addLocalRequest ();
++            // remember that a local request is outstanding. On
++            //  any exit through an exception, this must be cleared again,
++            // otherwise the POA will hangon destruction (bug #400).
++            poa.addLocalRequest();
+ 
+             ServantObject so = new ServantObject();
+ 
+@@ -1394,14 +1450,35 @@
+                      poa.useDefaultServant() )
+                 {
+                     // no ServantManagers, but AOM use
+-                    so.servant = poa.reference_to_servant( self );
++                    try
++                    {
++                        so.servant = poa.reference_to_servant( self );
++                    }
++                    catch( WrongAdapter e )
++                    {
++                        //  exit on an error condition, but need to clean up first (added to fix bug #400)
++                        poa.removeLocalRequest();
++                        throw new OBJ_ADAPTER( "WrongAdapter caught when converting servant to reference. " + e );
++                    }
++                    catch( WrongPolicy e )
++                    {
++                        //  exit on an error condition, but need to clean up first (added to fix bug #400)
++                        poa.removeLocalRequest();
++                        throw new OBJ_ADAPTER("WrongPolicy caught" + e );
++                    }
++                    catch( ObjectNotActive e )
++                    {
++                        //  exit on an error condition, but need to clean up first (added to fix bug #400)
++                        poa.removeLocalRequest();
++                        throw new org.omg.CORBA.OBJECT_NOT_EXIST();
++                    }
+                 }
+                 else if ( poa.isUseServantManager() )
+                 {
+                     byte [] oid =
+                     POAUtil.extractOID( getParsedIOR().get_object_key() );
+                     org.omg.PortableServer.ServantManager sm =
+-                    poa.get_servant_manager();
++                        poa.get_servant_manager();
+ 
+                     if ( poa.isRetain() )
+                     {
+@@ -1418,7 +1495,7 @@
+                                 ( org.omg.PortableServer.ServantActivator ) sm ;
+                             org.omg.PortableServer.ServantActivatorHelper.narrow( sm );
+                             so.servant = sa.incarnate( oid, poa );
+-                            orb.set_delegate (so.servant);
++                            orb.set_delegate(so.servant);
+                         }
+                     }
+                     else
+@@ -1429,9 +1506,15 @@
+                         org.omg.PortableServer.ServantLocator sl =
+                             ( org.omg.PortableServer.ServantLocator ) sm;
+ 
++                        // store this for postinvoke
++
++                        cookie =
++                           new org.omg.PortableServer.ServantLocatorPackage.CookieHolder();
++
++                        invokedOperation = operation;
++
+                         so.servant =
+-                        sl.preinvoke( oid, poa, operation,
+-                                      new org.omg.PortableServer.ServantLocatorPackage.CookieHolder() );
++                            sl.preinvoke( oid, poa, operation, cookie );
+                     }
+                 }
+                 else
+@@ -1439,18 +1522,12 @@
+                     System.err.println ("Internal error: we should have gotten to this piece of code!");
+                 }
+             }
+-            catch( WrongAdapter e )
+-            {
+-                throw new OBJ_ADAPTER( "WrongAdapter caught when converting servant to reference. " + e );
+-            }
+             catch( WrongPolicy e )
+             {
++                //  exit on an error condition, but need to clean up first (added to fix bug #400)
++                poa.removeLocalRequest();
+                 throw new OBJ_ADAPTER( "WrongPolicy caught" + e );
+             }
+-            catch( ObjectNotActive e )
+-            {
+-                throw new OBJ_ADAPTER( "ObjectNotActive caught when converting servant to reference. " + e );
+-            }
+             catch( org.omg.PortableServer.ForwardRequest e )
+             {
+                 if( Debug.isDebugEnabled() )
+@@ -1465,6 +1542,8 @@
+             {
+                 Debug.output(1, "Warning: expected " + expectedType +
+                              " got " + so.servant.getClass() );
++
++                poa.removeLocalRequest();
+                 return null;
+             }
+             else
+@@ -1575,7 +1654,7 @@
+         pending_replies_sync.openBarrier();
+     }
+ 
+-    private class Barrier
++    private static class Barrier
+     {
+         private boolean is_open = true;
+ 
+Index: src/org/jacorb/orb/EncapsInfo.java
+===================================================================
+RCS file: /cvsroot/jacorb/JacORB/src/org/jacorb/orb/EncapsInfo.java,v
+retrieving revision 1.9
+diff -u -r1.9 EncapsInfo.java
+--- src/org/jacorb/orb/EncapsInfo.java	29 Apr 2003 13:07:26 -0000	1.9
++++ src/org/jacorb/orb/EncapsInfo.java	8 Nov 2003 18:17:54 -0000
+@@ -26,7 +26,7 @@
+  * information the has to be saved for each encapsulation and
+  * restored later
+  * @author Gerald Brose
+- * @version $Id: EncapsInfo.java,v 1.9 2003/04/29 13:07:26 nick.cross Exp $
++ * @version $Id: EncapsInfo.java,v 1.10 2003/10/30 10:14:32 andre.spiegel Exp $
+  */
+ 
+ public class EncapsInfo
+@@ -35,9 +35,9 @@
+     public int index;
+     public int start;
+     public int size;
+-    public HashMap valueMap;
+-    public HashMap repIdMap;
+-    public HashMap codebaseMap;
++    public Map valueMap;
++    public Map repIdMap;
++    public Map codebaseMap;
+ 
+     /** constructor used by CDRInputStream */
+ 
+@@ -60,7 +60,7 @@
+      */
+ 
+     public EncapsInfo(int index, int start,
+-                      HashMap valueMap, HashMap repIdMap, HashMap codebaseMap)
++                      Map valueMap, Map repIdMap, Map codebaseMap)
+     {
+ 	this.index = index;
+ 	this.start = start;
+Index: src/org/jacorb/orb/ORB.java
+===================================================================
+RCS file: /cvsroot/jacorb/JacORB/src/org/jacorb/orb/ORB.java,v
+retrieving revision 1.98
+diff -u -r1.98 ORB.java
+--- src/org/jacorb/orb/ORB.java	12 Sep 2003 14:57:14 -0000	1.98
++++ src/org/jacorb/orb/ORB.java	8 Nov 2003 18:17:55 -0000
+@@ -47,7 +47,7 @@
+ 
+ /**
+  * @author Gerald Brose, FU Berlin
+- * @version $Id: ORB.java,v 1.98 2003/09/12 14:57:14 brose Exp $
++ * @version $Id: ORB.java,v 1.103 2003/11/07 14:15:53 francisco Exp $
+  */
+ 
+ public final class ORB
+@@ -140,7 +140,7 @@
+     }
+ 
+     /**
+-     * @overwrites id() in org.omg.CORBA_2_5.ORB
++     * Overrides id() in org.omg.CORBA_2_5.ORB
+      */
+ 
+     public String id()
+@@ -357,9 +357,13 @@
+     }
+ 
+ 
+-    synchronized void _release( org.jacorb.orb.Delegate delegate )
++    /**
++     * Take a string rather then a Delegate object to prevent data race
++     * warning.
++     */
++    synchronized void _release( String iorString )
+     {
+-        knownReferences.remove( delegate.getParsedIOR().getIORString() );
++        knownReferences.remove( iorString );
+     }
+ 
+ 
+@@ -1024,7 +1028,7 @@
+                 {
+                     try
+                     {
+-                        Class currentClass = Class.forName( "org.jacorb.security.level2.CurrentImpl" );
++                        Class currentClass = Environment.classForName( "org.jacorb.security.level2.CurrentImpl" );
+ 
+                         Constructor constr = currentClass.getConstructor( new Class[]{
+                             org.omg.CORBA.ORB.class });
+@@ -1077,11 +1081,12 @@
+      * to resove_initial_references(id). <br>
+      * The references "RootPOA", "POACurrent" and "PICurrent" can be set,
+      * but will not be resolved with the passed in references.
++     * <p>
++     * Overrides  register_initial_reference() in org.omg.CORBA_2_5.ORB
+      *
+      * @param id The references human-readable id, e.g. "MyService".
+      * @param obj The objects reference.
+      * @exception InvalidName A reference with id has already been registered.
+-     * @overwrites  register_initial_reference() in org.omg.CORBA_2_5.ORB
+      */
+ 
+     public void register_initial_reference( String id, org.omg.CORBA.Object obj )
+@@ -1242,6 +1247,10 @@
+                     //find the equals char that separates prop name from
+                     //prop value
+                     int equals_pos = prop.indexOf( '=' );
++                    if ( equals_pos == -1 )
++                    {
++                        throw new org.omg.CORBA.BAD_PARAM( "InitRef format invalid for " + prop );
++                    }
+ 
+                     //add the property to environment
+                     Environment.setProperty( prop.substring( 0, equals_pos ),
+@@ -1263,6 +1272,10 @@
+                     //find the equals char that separates prop name from
+                     //prop value
+                     int equals_pos = prop.indexOf( '=' );
++                    if ( equals_pos == -1 )
++                    {
++                        throw new org.omg.CORBA.BAD_PARAM( "InitRef format invalid for " + prop );
++                    }
+ 
+                     //add the property to environment
+                     Environment.setProperty( "ORBInitRef." +
+@@ -1291,7 +1304,7 @@
+         {
+             try
+             {
+-                knownReferences = (Hashtable) Class.forName( s ).newInstance();
++                knownReferences = (Hashtable) Environment.classForName( s ).newInstance();
+             }
+             catch( Exception e )
+             {
+@@ -1346,7 +1359,7 @@
+         {
+             try
+             {
+-                knownReferences = (Hashtable) Class.forName( s ).newInstance();
++                knownReferences = (Hashtable) Environment.classForName( s ).newInstance();
+             }
+             catch( Exception e )
+             {
+@@ -1711,13 +1724,7 @@
+         {
+             StreamableValue value =
+                 (StreamableValue)instantiate (implementationClass);
+-
+-            // Register the object even before reading its state.
+-            // This is essential for recursive values.
+-            ((org.jacorb.orb.CDRInputStream)is).register_value (value);
+-
+-            value._read (is);
+-            return value;
++            return is.read_value(value);
+         }
+ 
+     }
+@@ -1732,24 +1739,14 @@
+         Class result = null;
+         try
+         {
+-             //#ifjdk 1.2
+-                result = Thread.currentThread().getContextClassLoader()
+-                                               .loadClass (name);
+-             //#else
+-             //# result = Class.forName (name);
+-             //#endif
++            result = Environment.classForName(name);
+         }
+         catch (ClassNotFoundException e)
+         {
+             if (orgomg && name.startsWith ("org.omg"))
+                 try
+                 {
+-                     //#ifjdk 1.2
+-                        result = Thread.currentThread().getContextClassLoader()
+-                                       .loadClass ("omg.org" + name.substring(7));
+-                     //#else
+-                     //# result = Class.forName ("omg.org" + name.substring(7));
+-                     //#endif
++                    result = Environment.classForName("omg.org" + name.substring(7));
+                 }
+                 catch (ClassNotFoundException x)
+                 {
+@@ -1894,6 +1891,22 @@
+         return list;
+     }
+ 
++
++    /**
++     * <code>addObjectKey </code> is a proprietary method that allows the internal
++     * objectKeyMap to be altered programmatically. The objectKeyMap allows more
++     * readable corbaloc URLs by mapping the actual object key to an arbitary string.
++     * See the jacorb.properties file for mroe information.
++     *
++     * @param id a <code>String</code> value e.g. NameService
++     * @param result an <code>String</code> value e.g. file:/home/rnc/NameSingleton.ior
++     */
++    public void addObjectKey(String key_name, String full_path)
++    {
++        objectKeyMap.put(key_name, full_path);
++    }
++
++
+     /**
+      * Map an object key to another, as defined by the value
+      * of a corresponding configuration property in the properties
+@@ -1904,7 +1917,6 @@
+      * @return a <code>byte[]</code> value containing the mapped key, if a
+      * mapping is defined, originalKey otherwise.
+      */
+-
+     public byte[] mapObjectKey( byte[] originalKey )
+     {
+         BufferedReader br        = null;
+Index: src/org/jacorb/orb/ServantDelegate.java
+===================================================================
+RCS file: /cvsroot/jacorb/JacORB/src/org/jacorb/orb/ServantDelegate.java,v
+retrieving revision 1.14
+diff -u -r1.14 ServantDelegate.java
+--- src/org/jacorb/orb/ServantDelegate.java	11 Mar 2003 12:13:30 -0000	1.14
++++ src/org/jacorb/orb/ServantDelegate.java	8 Nov 2003 18:17:55 -0000
+@@ -19,13 +19,13 @@
+  *   License along with this library; if not, write to the Free
+  *   Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+  */
+- 
+-import org.omg.CORBA.ORB; 
++
++import org.omg.CORBA.ORB;
+ import org.omg.CORBA.ORBPackage.InvalidName;
+ import org.omg.CORBA.*;
+ 
+-import org.omg.PortableServer.*; 
+-import org.omg.PortableServer.POAPackage.*; 
++import org.omg.PortableServer.*;
++import org.omg.PortableServer.POAPackage.*;
+ import org.omg.PortableServer.CurrentPackage.NoContext;
+ 
+ import org.jacorb.util.Debug;
+@@ -33,7 +33,7 @@
+ /**
+  * JacORB-specific implementation of PortableServer.Servant
+  *
+- * $Id: ServantDelegate.java,v 1.14 2003/03/11 12:13:30 steve.osselton Exp $
++ * $Id: ServantDelegate.java,v 1.17 2003/10/17 12:04:02 simon.mcqueen Exp $
+  */
+ 
+ public class ServantDelegate
+@@ -43,11 +43,10 @@
+     private transient Repository ir = null;
+     private transient org.omg.PortableServer.Current _current = null;
+     private transient POA poa = null;
+-    //    private transient POA selfPOA = null;
+ 
+     ServantDelegate( org.jacorb.orb.ORB orb )
+     {
+-	this.orb = orb;
++        this.orb = orb;
+     }
+ 
+     /**
+@@ -56,163 +55,177 @@
+ 
+     private final void check()
+     {
+-	if (orb == null) 
+-	{       
+-	    throw new org.omg.CORBA.BAD_INV_ORDER ("The Servant has not been associated with an ORB instance");  
+-	}     
+-    }
+-
+-    final public org.omg.CORBA.Object this_object (org.omg.PortableServer.Servant self) 
+-    {     
+-	check();
+-	try 
+-	{       
+-                poa = poa(self);  
+-	}     
+-	catch (org.omg.CORBA.OBJ_ADAPTER e) 
+-	{       
+-           // Use servants default POA. Operation may be re-implemented
+-           // by servant implementation.
++        if (orb == null)
++        {
++            throw new org.omg.CORBA.BAD_INV_ORDER ("The Servant has not been associated with an ORB instance");
++        }
++    }
++
++    final public org.omg.CORBA.Object this_object (org.omg.PortableServer.Servant self)
++    {
++        check();
++        try
++        {
++            poa = poa(self);
++        }
++        catch (org.omg.CORBA.OBJ_ADAPTER e)
++        {
++            // Use servants default POA. Operation may be re-implemented
++            // by servant implementation.
+ 
+             poa = self._default_POA ();
+-	}
++        }
++
++        if (poa == null)
++        {
++            throw new org.omg.CORBA.OBJ_ADAPTER("null value returned by  _default_POA() on Servant " + self);
++        }
++
++        try
++        {
++            return poa.servant_to_reference(self);
++        }
++        catch(ServantNotActive e)
++        {
++            throw new org.omg.CORBA.OBJ_ADAPTER(e.toString());
++        }
++        catch(WrongPolicy e)
++        {
++            throw new org.omg.CORBA.OBJ_ADAPTER(e.toString());
++        }
++    }
++
++
++    final public ORB orb(org.omg.PortableServer.Servant self)
++    {
++        check();
++        return orb;
++    }
++
++    final public POA poa(org.omg.PortableServer.Servant self)
++    {
++        check();
++        if (_current == null)
++        {
++            _getPOACurrent();
++        }
++        try
++        {
++            if( ((org.jacorb.poa.Current)_current).get_servant() != self )
++            {
++                throw new org.omg.CORBA.OBJ_ADAPTER();
++            }
++
++            return _current.get_POA();
++        }
++        catch(NoContext e)
++        {
++            throw new org.omg.CORBA.OBJ_ADAPTER(e.toString());
++        }
++        catch(NoSuchMethodError nsme)
++        {
++            // We most likely get this if the Sun JDK definition of Current is getting picked up rather than ours.
++            // It has (at present - SDK 1.4.2) no get_servant() method.
++            // Give the user a hint as to how this can be fixed.
++            org.jacorb.util.Debug.output(1, "ERROR: NoSuchMethodError - re-run specifying jacorb.jar " 
++                                             + "with -Xbootclasspath/p: option to avoid use of (incorrect) SDK implementation class.");
++            throw nsme;
++        }
++    }
++
++    final public byte[] object_id(org.omg.PortableServer.Servant self)
++    {
++        check();
++        if (_current == null)
++        {
++            _getPOACurrent();
++        }
++        try
++        {
++            return _current.get_object_id();
++        }
++        catch(NoContext e)
++        {
++            throw new org.omg.CORBA.OBJ_ADAPTER(e.toString());
++        }
++    }
++
++    private synchronized void _getPOACurrent()
++    {
++        if (_current == null)
++        {
++            try
++            {
++                _current = org.omg.PortableServer.CurrentHelper.narrow(orb.resolve_initial_references("POACurrent"));
++            }
++            catch (Exception e)
++            {
++                throw new org.omg.CORBA.INITIALIZE(e.toString());
++            }
++        }
++    }
+ 
+-	if (poa == null) 
+-	{       
+-	    throw new org.omg.CORBA.OBJ_ADAPTER("null value returned by  _default_POA() on Servant " + self);  
+-	}     
+-
+-	try 
+-	{       
+-            return poa.servant_to_reference(self);  
+-	}     
+-	catch(ServantNotActive e) 
+-	{       
+-	    throw new org.omg.CORBA.OBJ_ADAPTER(e.toString());  
+-	}     
+-	catch(WrongPolicy e) 
+-	{       
+-	    throw new org.omg.CORBA.OBJ_ADAPTER(e.toString());  
+-	}   
+-    }
+-
+-
+-    final public ORB orb(org.omg.PortableServer.Servant self) 
+-    {     
+-	check();
+-	return orb;
+-    }
+-
+-    final public POA poa(org.omg.PortableServer.Servant self) 
+-    {     
+-	check();
+-	if (_current == null) 
+-	{       
+-	    _getPOACurrent();  
+-	}     
+-	try 
+-	{       
+-	    return _current.get_POA();  
+-	}     
+-	catch(NoContext e) 
+-	{       
+-	    throw new org.omg.CORBA.OBJ_ADAPTER(e.toString());  
+-	}   
+-    }
+-
+-    final public byte[] object_id(org.omg.PortableServer.Servant self) 
+-    {     
+-	check();
+-	if (_current == null) 
+-	{       
+-	    _getPOACurrent();  
+-	}     
+-	try 
+-	{       
+-	    return _current.get_object_id();  
+-	}     
+-	catch(NoContext e) 
+-	{       
+-	    throw new org.omg.CORBA.OBJ_ADAPTER(e.toString());  
+-	}   
+-    }
+-
+-    private synchronized void _getPOACurrent() 
+-    {     
+-	if (_current == null) 
+-	{       
+-	    try 
+-	    {
+-                _current = org.omg.PortableServer.CurrentHelper.narrow(orb.resolve_initial_references("POACurrent"));      
+-	    }       
+-	    catch (Exception e) 
+-	    {
+-		throw new org.omg.CORBA.INITIALIZE(e.toString());    
+-	    }     
+-	}   
+-    }
+-
+-    public POA default_POA(org.omg.PortableServer.Servant self) 
+-    {     
+-	check();      
+-	try 
+-	{ 
+-            return POAHelper.narrow(orb(self).resolve_initial_references("RootPOA"));  
+-	}     
+-	catch(InvalidName e) 
+-	{       
+-	    throw new org.omg.CORBA.INITIALIZE(e.toString());  
+-	}   
++    public POA default_POA(org.omg.PortableServer.Servant self)
++    {
++        check();
++        try
++        {
++            return POAHelper.narrow(orb(self).resolve_initial_references("RootPOA"));
++        }
++        catch(InvalidName e)
++        {
++            throw new org.omg.CORBA.INITIALIZE(e.toString());
++        }
+     }
+ 
+     public boolean non_existent(org.omg.PortableServer.Servant self)
+     {
+-	check();
++        check();
+         org.jacorb.util.Debug.output(2,"ServantDelegate: non_existent: return false");
+-	return false;
++        return false;
+     }
+ 
+     public org.omg.CORBA.Object get_interface_def( org.omg.PortableServer.Servant self)
+     {
+-	check();
+-	if ( ir == null) 
+-	{       
+-	    try 
+-	    {
+-		ir = RepositoryHelper.narrow(orb.resolve_initial_references("InterfaceRepository")); 
+-	    }       
+-	    catch (Exception e) 
+-	    {
+-		throw new org.omg.CORBA.INITIALIZE(e.toString());    
+-	    }     
+-	}   
++        check();
++        if ( ir == null)
++        {
++            try
++            {
++                ir = RepositoryHelper.narrow(orb.resolve_initial_references("InterfaceRepository"));
++            }
++            catch (Exception e)
++            {
++                throw new org.omg.CORBA.INITIALIZE(e.toString());
++            }
++        }
+         return ir.lookup_id( ((org.omg.CORBA.portable.ObjectImpl)self._this_object())._ids()[0] );
+     }
+ 
+     public org.omg.CORBA.InterfaceDef get_interface(org.omg.PortableServer.Servant self)
+-    {       
+-	return org.omg.CORBA.InterfaceDefHelper.narrow( get_interface_def( self ));
++    {
++        return org.omg.CORBA.InterfaceDefHelper.narrow( get_interface_def( self ));
+     }
+ 
+     public boolean is_a(org.omg.PortableServer.Servant self, String repid)
+     {
+-        org.jacorb.util.Debug.output( 3, "ServantDelegate: is a " + 
++        org.jacorb.util.Debug.output( 3, "ServantDelegate: is a " +
+                                       repid + " ?");
+ 
+-	String [] intf = self._all_interfaces(null, null);
++        String [] intf = self._all_interfaces(null, null);
+ 
+-	for( int i = 0; i < intf.length; i++)
+-	{
++        for( int i = 0; i < intf.length; i++)
++        {
+             org.jacorb.util.Debug.output( 4, "ServantDelegate: is a compares with " + intf[i] );
+ 
+-	    if( intf[i].equals(repid))
+-	    {
+-                org.jacorb.util.Debug.output( 4, "ServantDelegate: ! is a " + 
++            if( intf[i].equals(repid))
++            {
++                org.jacorb.util.Debug.output( 4, "ServantDelegate: ! is a " +
+                                               intf[i] + "!");
+-		return true;
+-	    }
+-	}
+-	return repid.equals("IDL:omg.org/CORBA/Object:1.0");
++                return true;
++            }
++        }
++        return repid.equals("IDL:omg.org/CORBA/Object:1.0");
+     }
+ 
+ 
+@@ -220,69 +233,61 @@
+      * _get_policy
+      */
+ 
+-    public org.omg.CORBA.Policy _get_policy(org.omg.CORBA.Object self, 
+-					    int policy_type)
++    public org.omg.CORBA.Policy _get_policy(org.omg.CORBA.Object self,
++                                            int policy_type)
+     {
+         return null;
+-    } 
++    }
+ 
+     /**
+      * _get_domain_managers
+      */
+ 
+     public org.omg.CORBA.DomainManager[] _get_domain_managers
+-	(org.omg.CORBA.Object self)
+-    {    
++        (org.omg.CORBA.Object self)
++    {
+         return null;
+-    } 
++    }
+ 
+     /**
+-     * Similar to invoke in InvokeHandler, which is ultimately implement by 
++     * Similar to invoke in InvokeHandler, which is ultimately implement by
+      * skeletons. This method is used by the POA to handle operations that
+      * are "special", i.e. not implemented by skeletons
+      */
+ 
+     public org.omg.CORBA.portable.OutputStream _invoke(org.omg.PortableServer.Servant self,
+-						       String method, 
+-						       org.omg.CORBA.portable.InputStream _input, 
+-						       org.omg.CORBA.portable.ResponseHandler handler)
+-	throws org.omg.CORBA.SystemException
+-    {
+-	org.omg.CORBA.portable.OutputStream _out = null;
+-
+-	if(  method.equals("_get_policy"))
+-	{
+-	    _out = handler.createReply();
+-	    _out.write_Object(_get_policy(_input.read_Object() , _input.read_long()  ) );
+-	}
+-	else if( method.equals("_is_a"))
+-	{
+-	    _out = handler.createReply();
+-	    _out.write_boolean(self._is_a(_input.read_string() ));
+-	}
+-	else if( method.equals("_interface"))
+-	{
+-	    _out = handler.createReply();
+-	    _out.write_Object(self._get_interface() );
+-	}
+-	else if( method.equals("_non_existent"))
+-	{
+-	    _out = handler.createReply();
+-	    _out.write_boolean(self._non_existent() );
+-	}
+-	else
+-	    throw new Error("Unknown operation: " + method );
++                                                       String method,
++                                                       org.omg.CORBA.portable.InputStream _input,
++                                                       org.omg.CORBA.portable.ResponseHandler handler)
++        throws org.omg.CORBA.SystemException
++    {
++        org.omg.CORBA.portable.OutputStream _out = null;
++
++        if(  method.equals("_get_policy"))
++        {
++            _out = handler.createReply();
++            _out.write_Object(_get_policy(_input.read_Object() , _input.read_long()  ) );
++        }
++        else if( method.equals("_is_a"))
++        {
++            _out = handler.createReply();
++            _out.write_boolean(self._is_a(_input.read_string() ));
++        }
++        else if( method.equals("_interface"))
++        {
++            _out = handler.createReply();
++            _out.write_Object(self._get_interface() );
++        }
++        else if( method.equals("_non_existent"))
++        {
++            _out = handler.createReply();
++            _out.write_boolean(self._non_existent() );
++        }
++        else
++            throw new Error("Unknown operation: " + method );
+ 
+-	return _out;
++        return _out;
+     }
+ 
+ 
+ }
+-
+-
+-
+-
+-
+-
+-
+-
+Index: src/org/jacorb/orb/dynany/DynAny.java
+===================================================================
+RCS file: /cvsroot/jacorb/JacORB/src/org/jacorb/orb/dynany/DynAny.java,v
+retrieving revision 1.18
+diff -u -r1.18 DynAny.java
+--- src/org/jacorb/orb/dynany/DynAny.java	22 Aug 2003 20:20:55 -0000	1.18
++++ src/org/jacorb/orb/dynany/DynAny.java	8 Nov 2003 18:17:56 -0000
+@@ -29,11 +29,9 @@
+  * CORBA DynAny
+  *
+  * @author (c) Gerald Brose, FU Berlin 1999
+- * $Id: DynAny.java,v 1.18 2003/08/22 20:20:55 francisco Exp $
++ * $Id: DynAny.java,v 1.19 2003/10/27 09:37:00 andre.spiegel Exp $
+  *
+  */
+-
+-
+ public class DynAny
+    extends org.omg.CORBA.LocalObject
+    implements org.omg.DynamicAny.DynAny
+@@ -680,7 +678,7 @@
+          _any.insert_double( 0 );
+          break;
+       case TCKind._tk_ulong:
+-         _any.insert_long( 0 );
++         _any.insert_ulong( 0 );
+          break;
+       case TCKind._tk_longlong:
+          _any.insert_longlong(0);
+@@ -725,6 +723,21 @@
+          throw new TypeMismatch();
+       }
+       return _any;
++   }
++
++   // methods below suggested by <Philippe.Merle@lifl.fr>,
++   // to allow compilation on J2SDK 1.4.2
++   
++   public void insert_val(java.io.Serializable value)
++        throws TypeMismatch   
++   {
++       throw new Error("NOT IMPLEMENTED");
++   }
++   
++   public java.io.Serializable get_val()
++        throws TypeMismatch
++   {
++        throw new Error("NOT IMPLEMENTED");
+    }
+ 
+ }
+Index: src/org/jacorb/orb/iiop/IIOPProfile.java
+===================================================================
+RCS file: /cvsroot/jacorb/JacORB/src/org/jacorb/orb/iiop/IIOPProfile.java,v
+retrieving revision 1.5
+diff -u -r1.5 IIOPProfile.java
+--- src/org/jacorb/orb/iiop/IIOPProfile.java	23 Jun 2003 09:56:20 -0000	1.5
++++ src/org/jacorb/orb/iiop/IIOPProfile.java	8 Nov 2003 18:17:56 -0000
+@@ -7,15 +7,17 @@
+ import org.jacorb.orb.IIOPAddress;
+ import org.jacorb.orb.TaggedComponentList;
+ import org.jacorb.util.Environment;
++import org.jacorb.util.Debug;
+ 
+ import org.omg.ETF.*;
+ import org.omg.IOP.*;
+ import org.omg.IIOP.*;
+ import org.omg.SSLIOP.*;
++import org.omg.CSIIOP.*;
+ 
+ /**
+  * @author Andre Spiegel
+- * @version $Id: IIOPProfile.java,v 1.5 2003/06/23 09:56:20 andre.spiegel Exp $
++ * @version $Id: IIOPProfile.java,v 1.8 2003/11/03 21:33:44 andre.spiegel Exp $
+  */
+ public class IIOPProfile extends _ProfileLocalBase
+                          implements Cloneable
+@@ -53,6 +55,143 @@
+         this.components     = new TaggedComponentList();
+     }
+ 
++    public IIOPProfile (IIOPAddress address, byte[] objectKey, int minor)
++    {
++        this.version        = new org.omg.GIOP.Version ((byte)1, (byte)minor);
++        this.primaryAddress = address;
++        this.objectKey      = objectKey;
++        this.components     = new TaggedComponentList();
++    }
++
++    /**
++     * Constructs an IIOPProfile from a corbaloc URL.  Only to be used
++     * from the corbaloc parser.
++     */
++    public IIOPProfile (String corbaloc)
++    {
++        this.version = null;
++        this.primaryAddress = null;
++        this.objectKey = null;
++        this.components = null;
++        try
++        {
++            this.decode_corbaloc(corbaloc);
++        }
++        catch (Exception e)
++        {
++            Debug.output (1,"could not create new IIOPProfile");
++        }
++    }
++
++    private void decode_corbaloc (String addr)
++    {
++        String host = "127.0.0.1"; //default to localhost
++        short port = 2809; // default IIOP port
++
++        int major = 1;
++        int minor = 2; // should this be 0? should it be configurable?
++
++        String errorstr =
++            "Illegal IIOP protocol format in object address format: " + addr;
++        int sep = addr.indexOf (':');
++        String protocol_identifier = "";
++        if( sep != 0)
++            protocol_identifier = addr.substring( 0,sep);
++        if( sep + 1 == addr.length())
++            throw new IllegalArgumentException(errorstr);
++        addr = addr.substring (sep + 1);
++
++        // decode optional version number
++        sep = addr.indexOf( '@' );
++        if( sep > -1)
++        {
++            String ver_str =  addr.substring(0,sep);
++            addr = addr.substring(sep+1);
++            sep = ver_str.indexOf('.');
++            if( sep != -1 )
++            {
++                try
++                {
++                    major = Integer.parseInt(ver_str.substring(0,sep));
++                    minor = Integer.parseInt(ver_str.substring(sep+1));
++                }
++                catch( NumberFormatException nfe )
++                {
++                    throw new IllegalArgumentException(errorstr);
++                }
++            }
++        }
++        version = new org.omg.GIOP.Version ((byte)major,(byte)minor);
++
++        sep = addr.indexOf (':');
++        if( sep != -1 )
++        {
++            try
++            {
++                port = (short)Integer.parseInt(addr.substring(sep+1));
++                host = addr.substring(0, sep);
++            }
++            catch( NumberFormatException ill )
++            {
++                throw new IllegalArgumentException(errorstr);
++            }
++        }
++        primaryAddress = new IIOPAddress (host,port);
++        decode_extensions (protocol_identifier.toLowerCase());
++    }
++
++    private void decode_extensions (String ident)
++    {
++        this.components = new TaggedComponentList();
++        if (ident.equals("ssliop"))
++        {
++            SSL ssl = new SSL();
++            ssl.port = (short)primaryAddress.getPort();
++            String propname =
++                "jacorb.security.ssl.corbaloc_ssliop.supported_options";
++            ssl.target_supports = get_ssl_options (propname);
++            propname =
++                "jacorb.security.ssl.corbaloc_ssliop.required_options";
++            ssl.target_requires = get_ssl_options (propname);
++
++            //create the tagged component containing the ssl struct
++            CDROutputStream out = new CDROutputStream();
++            out.beginEncapsulatedArray();
++            SSLHelper.write( out, ssl );
++
++            components.addComponent
++                (new TaggedComponent( TAG_SSL_SEC_TRANS.value,
++                                      out.getBufferCopy() )
++                 );
++        }
++    }
++
++    private short get_ssl_options (String propname)
++    {
++        String option_str = Environment.getProperty(propname);
++        short value = EstablishTrustInTarget.value;
++        //For the time being, we only use EstablishTrustInTarget,
++        //because we don't handle any of the other options anyway.
++        // So this makes a reasonable default.
++
++        if( (option_str != null) &&
++            (! option_str.equals( "" )) )
++        {
++            try
++            {
++                value = (short) Integer.parseInt( option_str, 16 );
++            }
++            catch( NumberFormatException nfe )
++            {
++                Debug.output( 0, "WARNING: Invalid hex property >>" +
++                              option_str + "<<" );
++                Debug.output( 0, "Please check property \"" +
++                                  propname + "\"" );
++            }
++        }
++        return value;
++    }
++
+     /**
+      * This function marshals the appropriate information for this
+      * transport into the tagged profile.  ORBs will typically need 
+@@ -164,13 +303,19 @@
+             throw new RuntimeException ("error cloning profile: " + e);
+         }
+     }
+-    
++
+     public Object clone() throws CloneNotSupportedException
+     {
+-        IIOPProfile result = (IIOPProfile)super.clone();
++        IIOPProfile result = (IIOPProfile)super.clone();  // bitwise copy
+ 
+         result.version = new org.omg.GIOP.Version (this.version.major,
+                                                    this.version.minor);
++
++        // No need to make a deep copy of the primaryAddress, because
++        // the address can safely be shared between this IIOPProfile
++        // and the clone.  This way, both will profit from any subsequent
++        // DNS resolution of that address.
++
+         if (this.objectKey != null)
+         {
+             result.objectKey = new byte [this.objectKey.length];
+Index: src/org/jacorb/util/Environment.java
+===================================================================
+RCS file: /cvsroot/jacorb/JacORB/src/org/jacorb/util/Environment.java,v
+retrieving revision 1.59
+diff -u -r1.59 Environment.java
+--- src/org/jacorb/util/Environment.java	17 Aug 2003 23:34:44 -0000	1.59
++++ src/org/jacorb/util/Environment.java	8 Nov 2003 18:17:57 -0000
+@@ -998,4 +998,72 @@
+             return properties;
+         }
+     }
++
++    /**
++     * Returns the <code>Class</code> object for the class or interface 
++     * with the given string name. This method is a replacement for 
++     * <code>Class.forName(String name)</code>. Unlike 
++     * <code>Class.forName(String name)</code> (which always uses the 
++     * caller's loader or one of its ancestors), <code>classForName</code>
++     * uses a thread-specific loader that has no delegation relationship
++     * with the caller's loader. It attempts the load the desired class 
++     * with the thread-specific context class loader and falls back to 
++     * <code>Class.forName(String name)</code> only if the context class 
++     * loader cannot load the class.  
++     * <p>
++     * Loading a class with a loader that is not necessarily an ancestor
++     * of the caller's loader is a crucial thing in many scenarios. As an
++     * example, assume that JacORB was loaded by the boot class loader,
++     * and suppose that some code in JacORB contains a call
++     * <code>Class.forName(someUserClass)</code>. Such usage of 
++     * <code>Class.forName</code> effectively forces the user to place 
++     * <code>someUserClass</code> in the boot class path. If 
++     * <code>classForName(someUserClass)</code> were used instead, the user
++     * class would be loaded by the context class loader, which by default 
++     * is set to the system (CLASSPATH) classloader. 
++     * <p>
++     * In this simple example above, the default setting of the context class
++     * loader allows classes in the boot classpath to reach classes in the 
++     * system classpath. In other scenarios, the context class loader might 
++     * be different from the system classloader. Middleware systems like 
++     * servlet containers or EJB containers set the context class loader so 
++     * that a given thread can reach user-provided classes that are not in 
++     * the system classpath.
++     * <p>
++     * For maximum flexibility, <code>classForName</code> should replace
++     * <code>Class.forName(String name)</code> in nearly all cases.
++     * 
++     * @param name the fully qualified name of a class
++     *
++     * @return the Class object for that class
++     *
++     * @throws IllegalArgumentException if <code>name</code> is null
++     * @throws ClassNotFoundException if the named class cannot be found
++     * @throws LinkageError if the linkage fails
++     * @throws ExceptionInInitializerError if the class initialization fails
++     */
++
++    public static Class classForName(String name) 
++        throws ClassNotFoundException, IllegalArgumentException
++    {
++        if (name == null)
++            throw new IllegalArgumentException("Class name must not be null!");
++        try 
++        {
++            // Here we prefer classLoader.loadClass() over the three-argument 
++            // form of Class.forName(), as the latter is reported to cause 
++            // caching of stale Class instances (due to a buggy cache of 
++            // loaded classes).
++            return Thread.currentThread().getContextClassLoader().loadClass(name);
++        }
++        catch (Exception e) 
++        {
++            // As a fallback, we prefer Class.forName(name) because it loads 
++            // array classes (i.e., it handles arguments like 
++            // "[Lsome.class.Name;" or "[[I;", which classLoader.loadClass()
++            // does not handle).
++            return Class.forName(name);
++        }
++    }
++
+ }
+Index: src/org/jacorb/util/Version.java
+===================================================================
+RCS file: /cvsroot/jacorb/JacORB/src/org/jacorb/util/Version.java,v
+retrieving revision 1.16
+diff -u -r1.16 Version.java
+--- src/org/jacorb/util/Version.java	12 Sep 2003 14:57:30 -0000	1.16
++++ src/org/jacorb/util/Version.java	8 Nov 2003 18:17:57 -0000
+@@ -28,9 +28,9 @@
+  */
+ public final class Version
+ {
+-    public static final String version = "2.0 beta 2";
++    public static final String version = "2.0 beta 2b (JBoss release)";
+ 
+-    public static final String date = "12 September 2003";
++    public static final String date = "08 November 2003";
+ 
+     public static final String longVersion = version + ", " + date;
+ }

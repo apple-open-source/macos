@@ -18,7 +18,7 @@ import java.util.List;
  *
  * @author  <a href="mailto:Adrian.Brock@HappeningTimes.com">Adrian Brock</a>.
  *
- * @version $Revision: 1.1.2.1 $
+ * @version $Revision: 1.1.2.2 $
  *
  */
 public class TabularType
@@ -182,8 +182,8 @@ public class TabularType
          return cachedHashCode;
       cachedHashCode = getTypeName().hashCode();
       cachedHashCode += getRowType().hashCode();
-      for (Iterator i = indexNames.iterator(); i.hasNext();)
-         cachedHashCode += i.next().hashCode();
+      for (int i = 0; i < indexNames.size(); i++)
+         cachedHashCode += indexNames.get(i).hashCode();
       return cachedHashCode;
    }
 
@@ -197,11 +197,11 @@ public class TabularType
       buffer.append("] rowType=[");
       buffer.append(getRowType());
       buffer.append("] indexNames=[");
-      Iterator thisNames = getIndexNames().iterator();
-      while(thisNames.hasNext())
+      List thisNames = getIndexNames();
+      for (int i = 0; i < thisNames.size(); i++)
       {
-         buffer.append(thisNames.next());
-         if (thisNames.hasNext())
+         buffer.append(thisNames.get(i));
+         if (i + 1 < thisNames.size())
             buffer.append(", ");
       }
       buffer.append("]");

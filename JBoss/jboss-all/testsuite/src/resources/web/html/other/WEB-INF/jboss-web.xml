@@ -4,5 +4,5 @@
     "http://www.jboss.org/j2ee/dtds/jboss-web_3_0.dtd">
 
 <jboss-web>
-    <security-domain>java:/jaas/other</security-domain>
+    <security-domain>java:/jaas/jbosstest-web</security-domain>
 </jboss-web>

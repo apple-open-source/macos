@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -41,6 +38,8 @@
  * - added support for diskless X netboot
  * Dieter Siegmund (dieter@apple.com)		April 15, 2003
  * - added support for HTTP netboot
+ * Dieter Siegmund (dieter@apple.com)		December 4, 2003
+ * - added support for BootFileOnly images
  */
 
 #include <unistd.h>
@@ -121,8 +120,6 @@ static BSDPClients_t	S_clients;
 static AFPUsers_t	S_afp_users;
 static int		S_afp_users_max = AFP_USERS_MAX;
 static NBSPListRef	S_sharepoints = NULL;
-static NBImageEntryRef	S_default_old_netboot_image = NULL;
-static boolean_t	S_no_default_old_netboot_image_warned = FALSE;
 static char *		S_machine_name_format = DEFAULT_MACHINE_NAME_FORMAT;
 
 #define AFP_UID_START	100
@@ -269,7 +266,7 @@ S_create_netboot_group(gid_t preferred_gid, gid_t * actual_gid)
 
 }
 
-boolean_t
+static boolean_t
 S_host_format_valid(const char * format)
 {
     char	buf1[256];
@@ -421,6 +418,22 @@ S_set_image_permissions(NBImageListRef list, uid_t user, gid_t group)
 		}
 	    }
 	    break;
+
+	case kNBImageTypeHTTP:
+	    if (entry->type_info.http.indirect == FALSE) {
+		/* set the permissions on the root image */
+		snprintf(file, sizeof(file), "%s/%s", dir, 
+			 entry->type_info.http.root_path);
+		if (set_privs(file, &sb, user, group, SHARED_FILE_PERMS, FALSE)
+		    == FALSE) {
+		    my_log(LOG_INFO, 
+			   "bsdpd: setting permissions on '%s' failed: %m", 
+			   file);
+		    ret = FALSE;
+		}
+	    }
+	    break;
+
 	case kNBImageTypeNFS:
 	    if (entry->type_info.nfs.indirect == FALSE) {
 		/* set the permissions on the root image */
@@ -444,7 +457,8 @@ S_set_image_permissions(NBImageListRef list, uid_t user, gid_t group)
 }
 
 static boolean_t
-S_insert_image_list(const char * sysid, dhcpoa_t * options, 
+S_insert_image_list(const char * sysid, const u_int16_t * attr_filter_list,
+		    int n_attr_filter_list, dhcpoa_t * options, 
 		    dhcpoa_t * bsdp_options)
 {
     char			buf[DHCP_OPTION_SIZE_MAX - 2 * OPTION_OFFSET];
@@ -467,8 +481,15 @@ S_insert_image_list(const char * sysid, dhcpoa_t * options,
 	NBImageEntryRef			image_entry;
 	int				name_length;
 
+	/*
+	 * If the client's system identifier is not supported by the image, 
+	 * or the image attributes don't match those requested by the client,
+	 * don't supply the image.
+	 */
 	image_entry = NBImageList_element(G_image_list, i);
-	if (NBImageEntry_supported_sysid(image_entry, sysid) == FALSE) {
+	if (!NBImageEntry_supported_sysid(image_entry, sysid)
+	    || !NBImageEntry_attributes_match(image_entry, attr_filter_list,
+					      n_attr_filter_list)) {
 	    continue;
 	}
 	name_length = image_entry->name_length;
@@ -636,9 +657,6 @@ bsdp_init()
     if (debug) {
 	NBImageList_print(G_image_list);
     }
-    S_default_old_netboot_image = NBImageList_default(G_image_list, 
-						      OLD_NETBOOT_SYSID);
-    S_no_default_old_netboot_image_warned = FALSE;
     if (S_set_image_permissions(G_image_list, ROOT_UID, G_admin_gid)
 	== FALSE) {
 	goto failed;
@@ -926,6 +944,8 @@ S_client_update(PLCacheEntry_t * entry, struct dhcp * reply,
 	    return (FALSE);
 	}
 	break;
+    case kNBImageTypeBootFileOnly:
+	break;
     default:
 	my_log(LOG_INFO, "NetBoot: invalid type %d\n", image_entry->type);
 	return (FALSE);
@@ -1029,6 +1049,8 @@ S_client_create(struct dhcp * reply, char * idstr,
 	    == FALSE) {
 	    goto failed;
 	}
+	break;
+    case kNBImageTypeBootFileOnly:
 	break;
     default:
 	my_log(LOG_INFO, "NetBoot: invalid type %d\n", image_entry->type);
@@ -1229,6 +1251,45 @@ is_bsdp_packet(dhcpol_t * rq_options, char * arch, char * sysid,
     return (FALSE);
 }
 
+static const u_int16_t *
+attributes_filter_list_copy(dhcpol_t * vsopt, 
+			    u_int16_t * scratch, int scratch_elements,
+			    int * ret_n_attrs)
+{
+    int			i;
+    int			len = 0;
+    const u_int16_t * 	option_data;
+    u_int16_t *		ret_attrs = NULL;
+
+    *ret_n_attrs = 0;
+    option_data = (const u_int16_t *)
+	dhcpol_find(vsopt, bsdptag_image_attributes_filter_list_e,
+		    &len, NULL);
+    if (option_data == NULL) {
+	goto done;
+    }
+
+    /* two bytes per filter attribute */
+    len >>= 1;
+    if (len == 0) {
+	goto done;
+    }
+    if (scratch == NULL || len > scratch_elements) {
+	ret_attrs = (u_int16_t *)malloc(sizeof(*ret_attrs) * len);
+    }
+    else {
+	ret_attrs = scratch;
+    }
+    for (i = 0; i < len; i++) {
+	ret_attrs[i] = ntohs(option_data[i]);
+    }
+    *ret_n_attrs = len;
+ done:
+    return (ret_attrs);
+}
+
+#define N_SCRATCH_ATTRS		4
+
 void
 bsdp_request(request_t * request, dhcp_msgtype_t dhcpmsg,
 	     char * arch, char * sysid, dhcpol_t * rq_vsopt,
@@ -1238,34 +1299,30 @@ bsdp_request(request_t * request, dhcp_msgtype_t dhcpmsg,
     dhcpoa_t		bsdp_options;
     PLCacheEntry_t *	entry;
     u_char *		idstr = NULL;
+    const u_int16_t *	filter_attrs = NULL;
     int			max_packet = dhcp_max_message_size(request->options_p);
     dhcpoa_t		options;
+    int			n_filter_attrs = 0;
     u_int16_t		reply_port = IPPORT_BOOTPC;
     struct dhcp *	reply = NULL;
     struct dhcp *	rq = request->pkt;
+    u_int16_t		scratch_attrs[N_SCRATCH_ATTRS];
+    u_char		scratch_idstr[3 * sizeof(rq->dp_chaddr)];
 
     if (dhcpmsg != dhcp_msgtype_discover_e
 	&& dhcpmsg != dhcp_msgtype_inform_e) {
-	return;
-    }
-    if (is_old_netboot
-	&& S_default_old_netboot_image == NULL) {
-	if (S_no_default_old_netboot_image_warned == FALSE) {
-	    my_log(LOG_INFO, 
-		   "BSDP: no NetBoot 1.0 images, ignoring NetBoot 1.0 client"
-		   " requests");
-	    S_no_default_old_netboot_image_warned = TRUE;
-	}
-	/* no NetBoot 1.0 images */
 	return;
     }
 
     if (strcmp(arch, "ppc")) {
 	return;
     }
-    idstr = identifierToString(rq->dp_htype, 
-			       rq->dp_chaddr, 
-			       rq->dp_hlen);
+    idstr = identifierToStringWithBuffer(rq->dp_htype, rq->dp_chaddr, 
+					 rq->dp_hlen, scratch_idstr,
+					 sizeof(scratch_idstr));
+    if (idstr == NULL) {
+	return;
+    }
     entry = PLCache_lookup_identifier(&S_clients.list, idstr,
 				      NULL, NULL, NULL, NULL);
     if (!quiet) {
@@ -1284,6 +1341,10 @@ bsdp_request(request_t * request, dhcp_msgtype_t dhcpmsg,
 	    bsdp_print_packet(request->pkt, request->pkt_length, 1);
 	}
     }
+    filter_attrs = attributes_filter_list_copy(rq_vsopt, 
+					       scratch_attrs, 
+					       N_SCRATCH_ATTRS, 
+					       &n_filter_attrs);
     switch (dhcpmsg) {
       case dhcp_msgtype_discover_e: { /* DISCOVER */
 	  char *		bound = NULL;
@@ -1309,10 +1370,16 @@ bsdp_request(request_t * request, dhcp_msgtype_t dhcpmsg,
 	      my_log(LOG_INFO, "NetBoot: [%s] image id invalid", idstr);
 	      goto no_reply;
 	  }
+	  /*
+	   * If the image is no longer present, or the client's system
+	   * identifier is not supported by the image, or the image attributes
+	   * don't match those requested by the client, ignore the request.
+	   */
 	  image_entry = NBImageList_elementWithID(G_image_list, image_id);
 	  if (image_entry == NULL
-	      || NBImageEntry_supported_sysid(image_entry, sysid)) {
-	      /* stale image ID */
+	      || !NBImageEntry_supported_sysid(image_entry, sysid)
+	      || !NBImageEntry_attributes_match(image_entry, filter_attrs,
+						n_filter_attrs)) {
 	      goto no_reply;
 	  }
 	  /* reply with a BSDP OFFER packet */
@@ -1439,13 +1506,10 @@ bsdp_request(request_t * request, dhcp_msgtype_t dhcpmsg,
 		u_int32_t	default_image_id;
 		u_int32_t	image_id;
 
-		if (is_old_netboot) {
-		    default_image = S_default_old_netboot_image;
-		}
-		else {
-		    default_image = NBImageList_default(G_image_list, 
-							filter_sysid);
-		}
+		default_image = NBImageList_default(G_image_list, 
+						    filter_sysid,
+						    filter_attrs,
+						    n_filter_attrs);
 		if (default_image == NULL) {
 		    /* no applicable images */
 		    goto no_reply;
@@ -1456,8 +1520,9 @@ bsdp_request(request_t * request, dhcp_msgtype_t dhcpmsg,
 					if_inet_addr(request->if_p), 
 					dhcp_msgtype_ack_e,
 					rq, &options);
-		if (reply == NULL)
+		if (reply == NULL) {
 		    goto no_reply;
+		}
 		/* formulate the BSDP options */
 		if (dhcpoa_add(&bsdp_options, bsdptag_message_type_e,
 			       sizeof(msgtype), &msgtype) 
@@ -1493,18 +1558,27 @@ bsdp_request(request_t * request, dhcp_msgtype_t dhcpmsg,
 		if (entry) {
 		    char * 		bound;
 
+		    /*
+		     * If we don't have a binding for the client,
+		     * or the image no longer exists, or the
+		     * client's system identifier is not support by the image,
+		     * or the image attributes don't match those requested
+		     * by the client, don't supply the selected image.
+		     */
 		    bound = ni_valforprop(&entry->pl, NIPROP_NETBOOT_BOUND);
 		    if ((bound == NULL)
 			|| (strchr(testing_control, 'e') != NULL)
-			|| (S_prop_u_int32(&entry->pl,
+			|| !S_prop_u_int32(&entry->pl,
 					   NIPROP_NETBOOT_IMAGE_ID, 
-					   &image_id) == FALSE)
+					   &image_id)
 			|| ((image_entry 
 			     = NBImageList_elementWithID(G_image_list, 
 							 image_id)) == NULL)
-			|| (NBImageEntry_supported_sysid(image_entry, 
+			|| !NBImageEntry_supported_sysid(image_entry, 
 							 filter_sysid)
-			    == FALSE)) {
+			|| !NBImageEntry_attributes_match(image_entry, 
+							  filter_attrs,
+							  n_filter_attrs)) {
 			/* don't supply the selected image */
 		    }
 		    else {
@@ -1534,9 +1608,9 @@ bsdp_request(request_t * request, dhcp_msgtype_t dhcpmsg,
 		    }
 		}
 		else {
-		    if (S_insert_image_list(filter_sysid, &options, 
-					    &bsdp_options) 
-			== FALSE) {
+		    if (!S_insert_image_list(filter_sysid, 
+					     filter_attrs, n_filter_attrs,
+					     &options, &bsdp_options)) {
 			goto no_reply;
 		    }
 		}
@@ -1583,24 +1657,19 @@ bsdp_request(request_t * request, dhcp_msgtype_t dhcpmsg,
 		    image_entry = NBImageList_elementWithID(G_image_list, 
 							    image_id);
 		    if (image_entry == NULL
-			|| NBImageEntry_supported_sysid(image_entry, 
-							filter_sysid)
-			    == FALSE) {
+			|| !NBImageEntry_supported_sysid(image_entry, 
+							 filter_sysid)) {
 			/* stale image ID */
 			goto send_failed;
 		    }
 		}
 		else {
-		    if (is_old_netboot == FALSE) {
-			image_entry = NBImageList_default(G_image_list,
-							  filter_sysid);
-			if (image_entry == NULL) {
-			    /* no longer a default image */
-			    goto send_failed;
-			}
-		    }
-		    else {
-			image_entry = S_default_old_netboot_image;
+		    image_entry = NBImageList_default(G_image_list,
+						      filter_sysid,
+						      NULL, 0);
+		    if (image_entry == NULL) {
+			/* no longer a default image */
+			goto send_failed;
 		    }
 		}
 		
@@ -1612,12 +1681,13 @@ bsdp_request(request_t * request, dhcp_msgtype_t dhcpmsg,
 		if (reply == NULL) {
 		    goto no_reply;
 		}
-
+		
 		/* formulate the BSDP options */
 		if (dhcpoa_add(&bsdp_options, bsdptag_message_type_e,
 			       sizeof(msgtype), &msgtype) 
 		    != dhcpoa_success_e) {
-		    my_log(LOG_INFO, "NetBoot: [%s] add message type failed, %s",
+		    my_log(LOG_INFO, 
+			   "NetBoot: [%s] add message type failed, %s",
 			   idstr, dhcpoa_err(&bsdp_options));
 		    goto no_reply;
 		}
@@ -1630,7 +1700,7 @@ bsdp_request(request_t * request, dhcp_msgtype_t dhcpmsg,
 			   idstr, dhcpoa_err(&bsdp_options));
 		    goto no_reply;
 		}
-		if (entry) {
+		if (entry != NULL) {
 		    if (S_client_update(entry, reply, idstr, 
 					if_inet_addr(request->if_p),
 					image_entry, &options, &bsdp_options, 
@@ -1741,8 +1811,12 @@ bsdp_request(request_t * request, dhcp_msgtype_t dhcpmsg,
     }
 
  no_reply:
-    if (idstr)
+    if (idstr != scratch_idstr) {
 	free(idstr);
+    }
+    if (filter_attrs != NULL && filter_attrs != scratch_attrs) {
+	free((void *)filter_attrs);
+    }
     return;
 }
 
@@ -1767,11 +1841,13 @@ old_netboot_request(request_t * request)
     char		bsdp_buf[DHCP_OPTION_SIZE_MAX];
     dhcpoa_t		bsdp_options;
     PLCacheEntry_t *	bsdp_entry = NULL;
+    NBImageEntryRef	default_image = NULL;
     struct in_addr	iaddr = {0};
-    char *		idstr = NULL;
+    u_char *		idstr = NULL;
     dhcpoa_t		options;
     struct dhcp *	rq = request->pkt;
     struct dhcp *	reply = NULL;
+    u_char		scratch_idstr[32];
     id			subnet = nil;
     u_int32_t		version = MACNC_SERVER_VERSION;
 
@@ -1779,19 +1855,16 @@ old_netboot_request(request_t * request)
 			      request->options_p, NULL) == FALSE) {
 	return (FALSE);
     }
-    if (S_default_old_netboot_image == NULL) {
-	if (S_no_default_old_netboot_image_warned == FALSE) {
-	    my_log(LOG_INFO, 
-		   "NetBoot[BOOTP]: no NetBoot 1.0 images, "
-		   "ignoring NetBoot 1.0 client requests");
-	    S_no_default_old_netboot_image_warned = TRUE;
-	}
+    default_image = NBImageList_default(G_image_list, 
+					OLD_NETBOOT_SYSID,
+					NULL, 0);
+    if (default_image == NULL) {
 	/* no NetBoot 1.0 images */
 	goto no_reply;
     }
-
-    idstr = identifierToString(rq->dp_htype, 
-			       rq->dp_chaddr, rq->dp_hlen);
+    idstr = identifierToStringWithBuffer(rq->dp_htype, rq->dp_chaddr, 
+					 rq->dp_hlen, scratch_idstr,
+					 sizeof(scratch_idstr));
     if (idstr == NULL) {
 	goto no_reply;
     }
@@ -1839,7 +1912,7 @@ old_netboot_request(request_t * request)
 	    || (NBImageEntry_supported_sysid(image_entry, OLD_NETBOOT_SYSID)
 		== FALSE)) {
 	    /* stale image id, use default */
-	    image_entry = S_default_old_netboot_image;
+	    image_entry = default_image;
 	}
 	if (S_client_update(bsdp_entry, reply, idstr, 
 			    if_inet_addr(request->if_p),
@@ -1851,7 +1924,7 @@ old_netboot_request(request_t * request)
     else {
 	if (S_client_create(reply, idstr, "ppc", "unknown", 
 			    if_inet_addr(request->if_p), 
-			    S_default_old_netboot_image,
+			    default_image,
 			    &options, &bsdp_options, request->time_in_p) 
 	    == FALSE) {
 	    goto no_reply;
@@ -1905,7 +1978,7 @@ old_netboot_request(request_t * request)
     }
 
  no_reply:
-    if (idstr != NULL) {
+    if (idstr != NULL && idstr != scratch_idstr) {
 	free(idstr);
     }
     return (TRUE);

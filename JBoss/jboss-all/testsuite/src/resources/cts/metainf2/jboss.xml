@@ -1,7 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE jboss PUBLIC
+   "-//JBoss//DTD JBOSS 3.2//EN"
+   "http://www.jboss.org/j2ee/dtd/jboss_3_2.dtd">
 
 <jboss>
-   <loader-repository>test:ear=cts.ear</loader-repository>
+   <loader-repository>
+      test:ear=cts2.ear
+      <loader-repository-config>
+         java2ParentDelegation=false
+      </loader-repository-config>
+   </loader-repository>
 
    <enterprise-beans>
       <session>
@@ -10,6 +18,15 @@
          <invoker-bindings>
             <invoker>
                <invoker-proxy-binding-name>call-by-value-jrmp</invoker-proxy-binding-name>
+            </invoker>
+         </invoker-bindings>
+      </session>
+      <session>
+         <ejb-name>CalleeSessionBean2</ejb-name>
+         <jndi-name>ejbcts2/CalleeSessionHome2</jndi-name>
+         <invoker-bindings>
+            <invoker>
+               <invoker-proxy-binding-name>call-by-value-jrmp2</invoker-proxy-binding-name>
             </invoker>
          </invoker-bindings>
       </session>
@@ -33,6 +50,28 @@
                  <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
                  <interceptor>org.jboss.proxy.TransactionInterceptor</interceptor>
                  <interceptor>org.jboss.invocation.ByValueInvokerInterceptor</interceptor>
+              </bean>
+           </client-interceptors>
+         </proxy-factory-config>
+      </invoker-proxy-binding>
+
+      <invoker-proxy-binding>
+         <name>call-by-value-jrmp2</name>
+         <invoker-mbean>jboss:service=invoker,type=jrmp</invoker-mbean>
+         <proxy-factory>org.jboss.proxy.ejb.ProxyFactory</proxy-factory>
+         <proxy-factory-config>
+           <client-interceptors>
+              <home>
+                 <interceptor>org.jboss.proxy.ejb.HomeInterceptor</interceptor>
+                 <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+                 <interceptor>org.jboss.proxy.TransactionInterceptor</interceptor>
+                 <interceptor>org.jboss.invocation.MarshallingInvokerInterceptor</interceptor>
+              </home>
+              <bean>
+                 <interceptor>org.jboss.proxy.ejb.StatelessSessionInterceptor</interceptor>
+                 <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+                 <interceptor>org.jboss.proxy.TransactionInterceptor</interceptor>
+                 <interceptor>org.jboss.invocation.MarshallingInvokerInterceptor</interceptor>
               </bean>
            </client-interceptors>
          </proxy-factory-config>

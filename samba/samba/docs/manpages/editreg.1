@@ -21,10 +21,12 @@
 .SH NAME
 editreg \- A utility to report and change SIDs in registry files
 .SH "SYNOPSIS"
-
-.nf
-\fBeditreg\fR [-v] [-c file] {file}
-.fi
+.ad l
+.hy 0
+.HP 8
+\fBeditreg\fR [\-v] [\-c\ file] {file}
+.ad
+.hy
 
 .SH "DESCRIPTION"
 
@@ -32,7 +34,7 @@ editreg \- A utility to report and change SIDs in registry files
 This tool is part of the \fBSamba\fR(7) suite\&.
 
 .PP
-\fBeditreg\fR is a utility that can visualize windows registry files (currently only NT4) and apply so-called commandfiles to them\&.
+\fBeditreg\fR is a utility that can visualize windows registry files (currently only NT4) and apply so\-called commandfiles to them\&.
 
 .SH "OPTIONS"
 
@@ -42,17 +44,17 @@ Registry file to view or edit\&.
 
 
 .TP
--v,--verbose
+\-v,\-\-verbose
 Increases verbosity of messages\&.
 
 
 .TP
--c commandfile
+\-c commandfile
 Read commands to execute on \fIregistry_file\fR from \fIcommandfile\fR\&. Currently not yet supported!
 
 
 .TP
--h|--help
+\-h|\-\-help
 Print a summary of command line options\&.
 
 

@@ -7,12 +7,12 @@
 
 package org.jboss.console.plugins.helpers.servlet;
 
+import org.jboss.console.plugins.helpers.jmx.Server;
+import org.jboss.mx.util.MBeanProxy;
+
 import javax.management.ObjectName;
 import javax.servlet.jsp.JspTagException;
 import javax.servlet.jsp.tagext.TagSupport;
-
-import org.jboss.console.plugins.helpers.jmx.Server;
-import org.jboss.mx.util.MBeanProxy;
 
 /**
  * <description>
@@ -20,7 +20,7 @@ import org.jboss.mx.util.MBeanProxy;
  * @see <related>
  *
  * @author  <a href="mailto:sacha.labourey@cogito-info.ch">Sacha Labourey</a>.
- * @version $Revision: 1.1.2.1 $
+ * @version $Revision: 1.1.2.2 $
  *
  * <p><b>Revisions:</b>
  *

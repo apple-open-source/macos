@@ -1,5 +1,5 @@
---- samba/source/lib/util_sock.c.orig	Fri Aug 29 14:17:25 2003
-+++ samba/source/lib/util_sock.c	Fri Aug 29 14:40:40 2003
+--- samba/source/lib/util_sock.c.orig	Thu Dec 18 15:12:42 2003
++++ samba/source/lib/util_sock.c	Fri Dec 19 08:31:16 2003
 @@ -216,7 +216,11 @@ ssize_t read_socket_with_timeout(int fd,
  		if (mincnt == 0) mincnt = maxcnt;
  		

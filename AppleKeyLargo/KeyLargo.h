@@ -626,7 +626,7 @@ protected:
 	virtual	void		AdjustBusSpeeds ( void );
 	virtual	void 		saveVIAState(UInt8* savedK2ViaState);
 	virtual	void 		restoreVIAState(UInt8* savedK2ViaState);
-  
+
 	KeyLargoWatchDogTimer	*watchDogTimer;
 
 

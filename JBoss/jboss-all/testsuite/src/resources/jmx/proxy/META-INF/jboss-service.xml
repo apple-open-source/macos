@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE server
+    PUBLIC "-//JBoss//DTD MBean Service 3.2//EN"
+    "http://www.jboss.org/j2ee/dtd/jboss-service_3_2.dtd">
+
+<server>
+
+   <mbean code="org.jboss.test.jmx.proxy.Target"
+          name="jboss.test:name=ProxyTarget"/>
+
+   <mbean code="org.jboss.test.jmx.proxy.ProxyTests"
+          name="jboss.test:name=ProxyTests">
+      <depends optional-attribute-name="Proxy" 
+               proxy-type="org.jboss.test.jmx.proxy.TargetMBean"
+      >jboss.test:name=ProxyTarget</depends>
+   </mbean>
+
+   <mbean code="org.jboss.test.jmx.proxy.ProxyTests"
+          name="jboss.test:name=ProxyTestsNested">
+      <depends optional-attribute-name="Proxy" 
+               proxy-type="org.jboss.test.jmx.proxy.TargetMBean">
+         <mbean code="org.jboss.test.jmx.proxy.Target"
+                name="jboss.test:name=ProxyTargetNested"/>
+      </depends>
+   </mbean>
+
+   <mbean code="org.jboss.test.jmx.proxy.ProxyTests"
+          name="jboss.test:name=ProxyTestsAttribute">
+      <depends optional-attribute-name="Proxy" 
+               proxy-type="attribute"
+      >jboss.test:name=ProxyTarget</depends>
+   </mbean>
+
+</server>

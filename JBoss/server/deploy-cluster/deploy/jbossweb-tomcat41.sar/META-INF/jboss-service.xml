@@ -4,7 +4,7 @@
 -->
 <server>
 
-   <mbean code="org.jboss.web.catalina.EmbeddedCatalinaService41"
+   <mbean code="org.jboss.web.tomcat.tc4.EmbeddedTomcatService"
       name="jboss.web:service=WebServer">
 
       <attribute name="CatalinaBase">${jboss.server.temp.dir}</attribute>
@@ -23,6 +23,12 @@
       specific class loader.
       -->
       <attribute name="UseJBossWebLoader">false</attribute>
+
+      <!-- The name of the request attribute under with the authenticated JAAS
+      Subject is stored on successful authentication. If null or empty then
+      the Subject will not be stored.
+      -->
+      <attribute name="SubjectAttributeName">j_subject</attribute>
 
       <!--
         *******************************************************
@@ -64,15 +70,22 @@
          <Server>
             <Service name="JBoss-Tomcat">
                <Engine name="MainEngine" defaultHost="localhost">
-                  <Logger className="org.jboss.web.catalina.Log4jLogger"
-                          verbosityLevel="INFORMATION" category="org.jboss.web.localhost.Engine"/>
+                  <Logger className="org.jboss.web.tomcat.Log4jLogger"
+                     verbosityLevel="INFORMATION" category="org.jboss.web.localhost.Engine"/>
                   <Host name="localhost">
 
                      <!-- Access logger -->
                      <Valve className="org.apache.catalina.valves.AccessLogValve"
-                            prefix="localhost_access" suffix=".log"
-                            pattern="common" directory="/Library/Logs/JBoss"/>
+                        prefix="localhost_access" suffix=".log"
+                        pattern="common" directory="/Library/Logs/JBoss"/>
 
+                     <!-- This valve clears any caller identity set by the realm
+                     and provides access to the realm about the existence of an
+                     authenticated caller to allow a web app to run with a realm
+                     that support unauthenticated identities. It also establishes
+                     any run-as principal for the servlet being accessed.
+                     -->
+                     <Valve className="org.jboss.web.tomcat.security.SecurityAssociationValve"/>
                      <!-- Default context parameters -->
                      <DefaultContext cookies="true" crossContext="true" override="true"/>
 
@@ -80,13 +93,13 @@
                </Engine>
 
                <!-- SSL/TLS Connector configuration using the SSL domain keystore -->
-               <Connector className = "org.apache.catalina.connector.http.HttpConnector" port = "8443" scheme = "https" secure = "true"
+               <!--Connector className = "org.apache.catalina.connector.http.HttpConnector" port = "8443" scheme = "https" secure = "true"
                           minProcessors="5" maxProcessors="200" address="0.0.0.0"
                           enableLookups="false" acceptCount="50" debug="0"
                           connectionTimeout="20000" >
                  <Factory className = "org.jboss.web.catalina.security.SSLServerSocketFactory"
                           securityDomainName = "java:/jaas/RMI+SSL" clientAuth = "false" />
-               </Connector>
+               </Connector-->
 
                <!-- A HTTP/1.1 Connector on port 8080 -->
                <Connector className="org.apache.coyote.tomcat4.CoyoteConnector"
@@ -101,11 +114,30 @@
                           connectionTimeout="20000"
                           protocolHandlerClassName="org.apache.jk.server.JkCoyoteHandler"/-->
 
+               <!-- SSL/TLS Connector configuration using the SSL domain keystore -->
+               <Connector className = "org.apache.coyote.tomcat4.CoyoteConnector"
+                 address="0.0.0.0" port = "8443" scheme = "https" secure = "true">
+                 <Factory className = "org.apache.coyote.tomcat4.CoyoteServerSocketFactory"
+                   keystoreFile="/Library/JBoss/3.2/lib/jboss.keystore"
+                   keystorePass="rmi+ssl"
+                   protocol = "TLS"/>
+               </Connector>
+                
+
+               <!-- SSL/TLS Connector configuration using the SSL domain keystore
+               <Connector className = "org.apache.coyote.tomcat4.CoyoteConnector"
+                 address="${jboss.bind.address}" port = "8443" scheme = "https" secure = "true">
+                 <Factory className = "org.apache.coyote.tomcat4.CoyoteServerSocketFactory"
+                   keystoreFile="${jboss.server.home.dir}/conf/chap8.keystore"
+                   keystorePass="rmi+ssl"
+                   protocol = "TLS"/>
+               </Connector>
+               --> 
             </Service>
          </Server>
       </attribute>
       <depends>jboss:service=TransactionManager</depends>
-      <depends>jboss.security:service=JaasSecurityDomain,domain=RMI+SSL</depends>
+      <depends>jboss.security:service=JaasSecurityDomain,domain=RMI+SSL</depends> 
    </mbean>
 
 </server>

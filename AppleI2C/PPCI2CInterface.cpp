@@ -198,14 +198,14 @@ PPCI2CInterface::setPort(UInt8 newPort)
 {
     // remember the last mode:
     portSelect = newPort;
-    if (!i2cPMU)     
+    if (!pseudoI2C)     
        writeRegisterField(mode, (UInt8)kPortMask, (UInt8)I2CPortShift, (UInt8)newPort);
 }
 
 INLINE UInt8
 PPCI2CInterface::getPort()
 {
-    if (!i2cPMU)
+    if (!pseudoI2C)
         portSelect = (I2CMode)readRegisterField(mode, (UInt8)kPortMask, (UInt8)I2CPortShift);
     
     return portSelect;
@@ -216,14 +216,14 @@ PPCI2CInterface::setMode(I2CMode newMode)
 {
     // remember the last mode:
     lastMode = newMode;
-    if (!i2cPMU)
+    if (!pseudoI2C)
         writeRegisterField(mode, (UInt8)kModeMask, (UInt8)I2CModeShift, (UInt8)newMode);
 }
 
 INLINE PPCI2CInterface::I2CMode
 PPCI2CInterface::getMode()
 {
-    if (!i2cPMU)
+    if (!pseudoI2C)
         lastMode = (I2CMode)readRegisterField(mode, (UInt8)kModeMask, (UInt8)I2CModeShift);
     return lastMode;
 }
@@ -231,7 +231,7 @@ PPCI2CInterface::getMode()
 INLINE void
 PPCI2CInterface::setSpeed(I2CSpeed newSpeed)
 {
-    if (!i2cPMU)
+    if (!pseudoI2C)
         writeRegisterField(mode, (UInt8)kSpeedMask, (UInt8)I2CSpeedShift, (UInt8)newSpeed);
    else 
         lastSpeed = newSpeed;
@@ -240,7 +240,7 @@ PPCI2CInterface::setSpeed(I2CSpeed newSpeed)
 INLINE PPCI2CInterface::I2CSpeed
 PPCI2CInterface::getSpeed()
 {
-    if (!i2cPMU)
+    if (!pseudoI2C)
         return( (I2CSpeed)readRegisterField(mode, (UInt8)kSpeedMask, (UInt8)I2CSpeedShift) );
     else
         return lastSpeed;
@@ -328,7 +328,7 @@ PPCI2CInterface::setAddressRegister(UInt8 newAddress, I2CRWMode readMode)
 {
     newAddress &= kADDRMask;
     
-    if (i2cPMU) {
+    if (pseudoI2C) {
         currentAddress = (newAddress << I2CAddressShift) | readMode;
         }
     else {
@@ -410,7 +410,7 @@ PPCI2CInterface::setAddressAndDirection()
         setAddressRegister(currentAddress, kWriteADDR);       
     }
 
-    if (i2cPMU)
+    if (pseudoI2C)
         return(true);  //setSubAddress, setControl, etc. not needed for PMU
 
     // sets the subAddress:
@@ -726,6 +726,9 @@ PPCI2CInterface::handleI2CInterrupt()
         case kCombinedMode:
             success = i2cStandardSubModeInterrupts(getInterruptStatus());
             break;
+		
+		default:
+			break;
     }
 
     // Update the transfer status:
@@ -760,7 +763,7 @@ PPCI2CInterface::start(IOService *provider)
 
     if (!super::start(provider)) return false;	//this was just added..
     
-    //see if we are attached to pmu-i2c node, and if so return i2cPMU = TRUE.
+    //see if we are attached to pmu-i2c or smu-i2c node, and if so set pseudoI2C = TRUE.
     retrieveProperty(provider);
 
     // Creates the mutex lock to provide atomic access to the services of the I2C bus:
@@ -773,8 +776,8 @@ PPCI2CInterface::start(IOService *provider)
     }
     IORecursiveLockLock(mutexLock);  //Keep clients from accessing until start is complete
 
-    // publish children for Uni-N's i2c bus only, KeyLargo will handle the others (PMU and Mac-IO).
-    if (i2cUniN == TRUE)
+    // publish children for Uni-N, SMU/SPU, and K2's i2c bus only, KeyLargo will handle the others (PMU and Mac-IO).
+    if ( (i2cUniN == TRUE) || (i2cK2 == TRUE) || (i2cSMU == TRUE) )
       {    
         if( (iterator = provider->getChildIterator(gIODTPlane)) )
         {
@@ -810,7 +813,7 @@ PPCI2CInterface::start(IOService *provider)
 #if 1
 
     //if PMU-I2C, skip the following... 
-    if (!i2cPMU) {
+    if (!pseudoI2C) {
 
     t = OSDynamicCast(OSData, provider->getProperty("AAPL,address"));
     if (t != NULL) {
@@ -859,9 +862,9 @@ PPCI2CInterface::start(IOService *provider)
     if (!initI2CBus((UInt8*)baseAddress, (UInt8)addressSteps))   
     return false;
 
-    } // This bracket ends the !i2cPMU case.
+    } // This bracket ends the !pseudoI2C case.
         
-    if (i2cPMU) {
+    if (pseudoI2C) {
         setKhzSpeed(100);     	 // PMU case specifics
     	clientMutexLock = NULL;  // Creates the mutex lock to protect the PMU clients list
         clientMutexLock = IOLockAlloc();
@@ -893,13 +896,11 @@ bool PPCI2CInterface::retrieveProperty(IOService *provider)
 {
     i2cPMU = false;
     i2cUniN = false;
+    i2cK2 = false;
     i2cmacio = false;
     OSData *propertyPtr = 0;
-    IOService *nub = provider;
     registeredForPmuI2C = false;  // checked when someone tries to register for a PMU interrupt
-    
-    nub = nub->getProvider();
- 
+     
     // Are we attaching to the PMU I2C bus?
     if ( (propertyPtr = OSDynamicCast(OSData, provider->getProperty("name"))) )
     {
@@ -909,10 +910,22 @@ bool PPCI2CInterface::retrieveProperty(IOService *provider)
             IOLog("                                      APPLE I2C:    pmu-i2c COMPATIBLE !\n");
     #endif // DEBUGPMU
             i2cPMU = true;
+			pseudoI2C = true;
 
             return true;
         }
     }
+	
+	// Are we attaching to the SMU I2C bus?
+    if (IODTMatchNubWithKeys(provider, "smu-i2c")) {
+    #ifdef DEBUGPMU
+		IOLog("                                      APPLE I2C:    smu-i2c COMPATIBLE !\n");
+    #endif // DEBUGPMU
+		i2cSMU = true;
+		pseudoI2C = true;
+
+		return true;
+	}
 
     // Are we attaching to the Uni-N I2C bus?
     if ( (propertyPtr = OSDynamicCast(OSData, provider->getProperty("AAPL,driver-name"))) )
@@ -923,6 +936,19 @@ bool PPCI2CInterface::retrieveProperty(IOService *provider)
             IOLog("                                      APPLE I2C:    UniN-i2c COMPATIBLE !\n");
     #endif // DEBUGPMU
             i2cUniN = true;
+            return true;
+        }        
+    }
+
+    // Are we attaching to the K2 I2C bus?
+    if ( (propertyPtr = OSDynamicCast(OSData, provider->getProperty("AAPL,driver-name"))) )
+    {
+        if ( strncmp(".i2c-mac-io", (const char *)propertyPtr->getBytesNoCopy(), 10) == 0 )
+        {
+    #ifdef DEBUGPMU
+            IOLog("                                      APPLE I2C:    K2-i2c COMPATIBLE !\n");
+    #endif // DEBUGPMU
+            i2cK2 = true;
             return true;
         }        
     }
@@ -942,7 +968,7 @@ PPCI2CInterface::free()
     if (i2cRegisterMap != NULL)
         i2cRegisterMap->release();
         
-    if (i2cPMU) {
+    if (pseudoI2C) {
         if (clientMutexLock != NULL) 
             { // Release the mutex lock used to protect PMU clients
             IOLockFree (clientMutexLock);
@@ -1031,7 +1057,7 @@ PPCI2CInterface::setDumbMode()
         return;
     }
 
-    if (i2cPMU)
+    if (pseudoI2C)
         setMode(kSimpleI2CStream);
     else
         setMode(kDumbMode);
@@ -1048,7 +1074,7 @@ PPCI2CInterface::setStandardMode()
         return;
     }
 
-    if (i2cPMU)
+    if (pseudoI2C)
         setMode(kSimpleI2CStream);
     else
         setMode(kStandardMode);
@@ -1064,7 +1090,7 @@ PPCI2CInterface::setStandardSubMode()
         return;
     }
 
-    if (i2cPMU)
+    if (pseudoI2C)
         setMode(kSubaddressI2CStream);
     else
         setMode(kStandardSubMode);
@@ -1081,7 +1107,7 @@ PPCI2CInterface::setCombinedMode()
         return;
     }
 
-    if (i2cPMU)
+    if (pseudoI2C)
         setMode(kCombinedI2CStream);
     else
         setMode(kCombinedMode);
@@ -1196,7 +1222,7 @@ PPCI2CInterface::openI2CBus(UInt8 port)
     IORecursiveLockLock(mutexLock);
 #endif // DEBUGMODE
 
-    if (i2cPMU)  {
+    if (pseudoI2C)  {
         lastMode = kSimpleI2CStream;	//Default case, unless changed after openI2CBus with set...Mode command
 #ifdef DEBUGPMU
         IOLog(" APPLE I2C-PMU  Try to open I2CBus..................port = 0x%2x, mode = 0x%2x\n", port, lastMode);
@@ -1205,12 +1231,12 @@ PPCI2CInterface::openI2CBus(UInt8 port)
 
     setPort(port);
 
-    if (!i2cPMU)  {
+    if (!pseudoI2C)  {
         // by default we go on polling, if the client wishes to change
         // the driver behavior it should call setPollingMode(false).
         setPollingMode(true);
 		setInterruptEnable((I2CInterruptEnable)(kEDataIER | kEAddrIER | kEStopIER | kEStartIER));
-		// don't ever setInterruptEnable for i2cPMU case: hwclock panics!
+		// don't ever setInterruptEnable for pseudoI2C case: hwclock panics!
     }
     else  pollingMode = true;
 
@@ -1258,9 +1284,12 @@ PPCI2CInterface::writeI2CBus(UInt8 address, UInt8 subAddress, UInt8 *newData, UI
     
     if (pollingMode) {
         if ((success = setAddressAndDirection()) == true ) {
-            if (i2cPMU) 
+            if (pseudoI2C) 
                 {
-                success = writePmuI2C(currentAddress, currentSubaddress, dataBuffer, (IOByteCount) nBytes );
+					if (i2cPMU)
+						success = writePmuI2C(currentAddress, currentSubaddress, dataBuffer, (IOByteCount) nBytes );
+					else
+						success = writeSmuI2C(currentAddress, currentSubaddress, dataBuffer, (IOByteCount) nBytes );
                 return(success);
                 }
             else
@@ -1351,9 +1380,12 @@ PPCI2CInterface::readI2CBus(UInt8 address, UInt8 subAddress, UInt8 *newData, UIn
 
     if (pollingMode) {
         if ((success = setAddressAndDirection()) == true ) {
-             if (i2cPMU) 
+             if (pseudoI2C) 
                 {
-                success = readPmuI2C(currentAddress, currentSubaddress, dataBuffer, (IOByteCount) nBytes );
+					if (i2cPMU)
+						success = readPmuI2C(currentAddress, currentSubaddress, dataBuffer, (IOByteCount) nBytes );
+					else
+						success = readSmuI2C(currentAddress, currentSubaddress, dataBuffer, (IOByteCount) nBytes );
                 return(success);
                 }
               else
@@ -1435,7 +1467,7 @@ PPCI2CInterface::closeI2CBus()
     IOLog("PPCI2CInterface::closeI2CBus PPCI2CInterface->mutexLock unlocked.\n");
 #endif // DEBUGMODE
 #ifdef DEBUGPMU
-    if (i2cPMU)
+    if (pseudoI2C)
         IOLog("      APPLE I2C-PMU  CLOSED ,  SUCCESSFULLY! \n");
 #endif // DEBUGPMU
 
@@ -1454,7 +1486,7 @@ PPCI2CInterface::getResourceName()
     strcpy(resourceName, getName());
 
     // builds the resource name:
-    if (!i2cPMU)
+    if (!pseudoI2C)
         t = OSDynamicCast(OSData, getProvider()->getProperty("AAPL,driver-name"));
     else {
         t = OSDynamicCast(OSData, getProvider()->getProperty("name"));
@@ -1480,7 +1512,9 @@ PPCI2CInterface::getResourceName()
 #define kSetI2cTimeout				"setI2cTimeout"
 #define kSetStandardMode			"setStandardMode"
 #define kSetStandardSubMode			"setStandardSubMode"
+#define kSetStandardSub4Mode		"setStandardSub4Mode"
 #define kSetCombinedMode			"setCombinedMode"
+#define kSetCombined4Mode			"setCombined4Mode"
 #define kRegisterForI2cInterrupts 	"registerForI2cInterrupts"
 #define kDeRegisterI2cClient 		"deRegisterI2cClient"
 
@@ -1505,19 +1539,19 @@ PPCI2CInterface::callPlatformFunction( const OSSymbol *functionSymbol,
 
 	if (strcmp(functionName, kWriteI2Cbus) == 0) {
     
-            if (writeI2CBus((UInt8)param1, (UInt8)param2, (UInt8 *)param3, (UInt16)param4))  
+            if (writeI2CBus((UInt8)(UInt32)param1, (UInt8)(UInt32)param2, (UInt8 *)param3, (UInt16)(UInt32)param4))  
                 return (kIOReturnSuccess);
             else 
                return (kIOReturnBadArgument);
     }
     else if (strcmp(functionName, kReadI2Cbus) == 0) {
-            if (readI2CBus((UInt8)param1, (UInt8)param2, (UInt8 *)param3, (UInt16)param4))  
+            if (readI2CBus((UInt8)(UInt32)param1, (UInt8)(UInt32)param2, (UInt8 *)param3, (UInt16)(UInt32)param4))  
                 return (kIOReturnSuccess);
             else 
                return (kIOReturnBadArgument);
     }
     else if (strcmp(functionName, kOpenI2Cbus) == 0) {
-            if (openI2CBus((UInt8) param1))    // param1 = UInt8 bus ID
+            if (openI2CBus((UInt8)(UInt32) param1))    // param1 = UInt8 bus ID
                 return (kIOReturnSuccess);
             else 
                return (kIOReturnBadArgument);
@@ -1556,18 +1590,26 @@ PPCI2CInterface::callPlatformFunction( const OSSymbol *functionSymbol,
              setStandardSubMode();  
                 return (kIOReturnSuccess);
     }
+    else if (strcmp(functionName, kSetStandardSub4Mode) == 0) {
+             setStandardSub4Mode();  
+                return (kIOReturnSuccess);
+    }
     else if (strcmp(functionName, kSetCombinedMode) == 0) {
              setCombinedMode();  
                 return (kIOReturnSuccess);
     }
+    else if (strcmp(functionName, kSetCombined4Mode) == 0) {
+             setCombined4Mode();  
+                return (kIOReturnSuccess);
+    }
     else if (strcmp(functionName, kSetPollingMode) == 0) {
-            if (setPollingMode((bool) param1))
+            if (setPollingMode((bool) (UInt32)param1))
                 return (kIOReturnSuccess);
             else 
                return (kIOReturnBadArgument);
     }
     else if (strcmp(functionName, kSetI2cTimeout) == 0) {
-            if (setI2cTimeout((UInt16) param1))
+            if (setI2cTimeout((UInt16) (UInt32)param1))
                 return (kIOReturnSuccess);
             else 
                return (kIOReturnBadArgument);
@@ -1775,6 +1817,287 @@ PPCI2CInterface::writePmuI2C( UInt8 address, UInt8 subAddress, UInt8 * buffer, I
 
     return(success);
 }
+
+// Static routines for handling SMU I2C.  This code is almost identical to 
+// the PMU code and uses similar, but not identical, parameter blocks.
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* setStandardSub4Mode						 						 	 */
+/* 																		 */
+/* This is a special mode currently supported for SMU I2C only.  This is */
+/* to allow multi-byte sub addresses.  The convention is that the first  */
+/* 4 bytes of the data block are used as (up-to) 4 bytes of sub address  */
+/* Normal data follows the 4 bytes.  In this mode, a 1 byte sub address  */
+/* passed in as a normal parameter is ignored.							 */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+void
+PPCI2CInterface::setStandardSub4Mode()
+{
+    // If I am not the owner of the lock returns without doing anything.
+    if (!IORecursiveLockHaveLock(mutexLock)) {
+#ifdef DEBUGMODE
+        IOLog("PPCI2CInterface::setStandardSub4Mode I am not the owner of the lock returns without doing anything.\n");
+#endif // DEBUGMODE
+        return;
+    }
+
+    if (i2cSMU)		// Currently SMU only
+        setMode(kSubaddress4I2CStream);
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* setCombined4Mode							 						 	 */
+/* 																		 */
+/* This is a special mode currently supported for SMU I2C only.  This is */
+/* to allow multi-byte sub addresses.  The convention is that the first  */
+/* 4 bytes of the data block are used as (up-to) 4 bytes of sub address  */
+/* Normal data follows the 4 bytes.  In this mode, a 1 byte sub address  */
+/* passed in as a normal parameter is ignored.							 */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+void
+PPCI2CInterface::setCombined4Mode()
+{
+    // If I am not the owner of the lock returns without doing anything.
+    if (!IORecursiveLockHaveLock(mutexLock)) {
+#ifdef DEBUGMODE
+        IOLog("PPCI2CInterface::setCombined4Mode I am not the owner of the lock returns without doing anything.\n");
+#endif // DEBUGMODE
+        return;
+    }
+
+    if (i2cSMU)		// Currently SMU only
+        setMode(kCombined4I2CStream);
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* AppleSMUSendI2CCommand						 						 */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/*static*/ IOReturn
+PPCI2CInterface::AppleSMUSendI2CCommand( IOService *smu,
+                        IOByteCount sendLength, UInt8 * sendBuffer,
+                        IOByteCount * readLength, UInt8 * readBuffer )
+{
+    struct SendI2CCommandParameterBlock {
+        IOByteCount sLength;
+        UInt8 *sBuffer;
+        IOByteCount *rLength; 
+        UInt8 *rBuffer;
+    };
+    IOReturn ret = kIOReturnError;
+	static const OSSymbol *i2cCommandSym = OSSymbol::withCStringNoCopy("sendSMUI2CCommand");
+
+    SendI2CCommandParameterBlock params = { sendLength, sendBuffer,
+                                                      readLength, readBuffer };
+    if( smu)
+        ret = smu->callPlatformFunction( i2cCommandSym, true,
+                                         (void*)&params, NULL, NULL, NULL );
+    return( ret );
+}
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* readSmuI2C								 */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/*static*/ bool
+PPCI2CInterface::readSmuI2C( UInt8 address, UInt8 subAddress, UInt8 * readBuf, IOByteCount count )
+{
+    IOReturn 		ioResult = kIOReturnError;
+    SMUI2CPB		iicPB;
+    IOByteCount		readLen;
+    UInt32		retries;		// loop counter for retry attempts
+    bool 		success;
+    UInt8		myreadbuffer[256];
+    IOByteCount		length;			
+
+    success = false;			// assume error
+    retries = MAXIICRETRYCOUNT;
+    while (retries--) {
+
+        iicPB.bus				= portSelect;
+        iicPB.address			= address;
+		if (lastMode == kSubaddress4I2CStream || lastMode == kCombined4I2CStream) {
+			if (lastMode == kSubaddress4I2CStream)
+				iicPB.xferType = kSubaddressI2CStream;    // Set adjusted mode
+			else // if (lastMode == kCombined4I2CStream)
+				iicPB.xferType = kCombinedI2CStream;    // Set adjusted mode
+			iicPB.subAddr[0]        = readBuf[0];      // Pull subAddr cnt from
+			iicPB.subAddr[1]        = readBuf[1];
+			iicPB.subAddr[2]        = readBuf[2];
+			iicPB.subAddr[3]        = readBuf[3];
+		} else if (lastMode == kSubaddressI2CStream || lastMode == kCombinedI2CStream) {
+			iicPB.xferType          = lastMode;
+			iicPB.subAddr[0]        = 1;     // count = 1  old subaddress mode
+			iicPB.subAddr[1]        = subAddress;
+			iicPB.subAddr[2]        = 0;
+			iicPB.subAddr[3]        = 0;
+		} else {  //kSimpleI2Cstream mode implies no subaddress
+			iicPB.xferType          = lastMode;
+			iicPB.subAddr[0]        = 0;       // count = 0 since no subaddress
+			iicPB.subAddr[1]        = 0;
+			iicPB.subAddr[2]        = 0;
+			iicPB.subAddr[3]        = 0;
+		}
+        iicPB.combAddr			= address;		// (don't care in kSimpleI2Cstream)
+        iicPB.dataCount			= count;        // (count set to count + 3 in clock-spread clients) 
+            if (lastMode == kCombinedI2CStream || lastMode == kCombined4I2CStream)  
+                    iicPB.address	&= 0xFE;	// combined mode has "write" version of address                
+        readLen 		= count;	       	// added one byte for the leading pmu status byte	
+        length 			= (short) ((UInt8 *)&iicPB.data - (UInt8 *)&iicPB.bus);   
+
+        ioResult = AppleSMUSendI2CCommand( myProvider, length, (UInt8 *) &iicPB, &readLen, myreadbuffer );   
+
+        if ((ioResult == kIOReturnSuccess) && (myreadbuffer[0] == STATUS_OK)) 
+            break;					// if pb accepted, proceed to status/read phase
+
+        IOSleep( 15 );
+    }
+#ifdef DEBUGPMU
+                IOLog("READ SMU MID STATUS, retries = 0x%02x\n", MAXIICRETRYCOUNT - retries);
+#endif // DEBUGPMU
+	
+	// SMU has a long round trip time so take a nap
+	IOSleep (kSMUSleepDelay);
+
+    if (myreadbuffer[0] == STATUS_OK)
+    {
+    	ioResult = kIOReturnError;
+        success = false;			// assume error again
+        retries = MAXIICRETRYCOUNT;
+        while (retries--)
+        {
+            IOSleep( 15 );
+
+            iicPB.bus		= kI2CStatusBus;
+            readLen 		= count+1;		// added one byte for the leading pmu status byte
+            myreadbuffer[0]	= 0xff;
+
+            ioResult = AppleSMUSendI2CCommand( myProvider, 1, (UInt8 *) &iicPB, &readLen, myreadbuffer );
+
+            if ( (ioResult == kIOReturnSuccess) && ( ( myreadbuffer[0] == STATUS_DATAREAD ) ||  ((SInt8)myreadbuffer[0] >= STATUS_OK ) ) )
+            {
+                if ((SInt8)myreadbuffer[0] >= STATUS_DATAREAD )
+                    {
+                    bcopy( 1 + myreadbuffer, readBuf, readLen-1 ); // strip pmu I2C status byte
+                    success = true;
+                    };
+#ifdef DEBUGPMU
+        IOLog("READ I2C SMU END - STATUS OK:  retries = 0x%02x\n", MAXIICRETRYCOUNT - retries);
+        IOLog("addr = 0x%02x, subAd = 0x%02x, rdBuf = 0x%02x, count = 0x%ld)\n", address, subAddress, myreadbuffer[0], count);
+#endif // DEBUGPMU
+                break;
+            }
+        }
+    }
+    return(success);
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* writeSmuI2C								 */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/*static*/ bool
+PPCI2CInterface::writeSmuI2C( UInt8 address, UInt8 subAddress, UInt8 * buffer, IOByteCount count )
+{
+    IOReturn 		ioResult = kIOReturnError;
+    SMUI2CPB		iicPB;
+    IOByteCount		readLen;
+    UInt8		readBuf[8];
+    UInt32		retries;		// loop counter for retry attempts
+    bool 		success;
+    IOByteCount		length;	
+	UInt32		shift;
+
+#ifdef DEBUGPMU
+    IOLog("WRITE SMU START\n");
+    IOLog("addr = 0x%02x, subAd = 0x%02x, wrBuf = 0x%02x, count = 0x%ld)\n", address, subAddress, buffer[0], count);
+#endif // DEBUGPMU
+
+    ioResult = kIOReturnError;
+    success = false;				// assume error
+    retries = MAXIICRETRYCOUNT;
+    while (retries--) {
+        UInt8 cnt;
+        iicPB.bus				= portSelect;
+        iicPB.address			= address;
+		if (lastMode == kSubaddress4I2CStream || lastMode == kCombined4I2CStream) {
+			if (lastMode == kSubaddress4I2CStream)
+				iicPB.xferType = kSubaddressI2CStream;    // Set adjusted mode
+			else // if (lastMode == kCombined4I2CStream)
+				iicPB.xferType = kCombinedI2CStream;    // Set adjusted mode
+			iicPB.subAddr[0]        = buffer[0];        // Pull subAddr cnt from
+			iicPB.subAddr[1]        = buffer[1];
+			iicPB.subAddr[2]        = buffer[2];
+			iicPB.subAddr[3]        = buffer[3];
+			shift = 4;                              // shift buffer data by 4 bytes
+		} else if (lastMode == kSubaddressI2CStream || lastMode == kCombinedI2CStream) {
+			iicPB.xferType          = lastMode;
+			iicPB.subAddr[0]        = 1;           // count = 1 old subaddress mode
+			iicPB.subAddr[1]        = subAddress;
+			iicPB.subAddr[2]        = 0;
+			iicPB.subAddr[3]        = 0;
+			shift = 0;                              // shift buffer data by 0 bytes
+		} else {  //kSimpleI2Cstream mode implies no subaddress
+			iicPB.xferType          = lastMode;
+			iicPB.subAddr[0]        = 0;           // count = 0 since no subaddress
+			iicPB.subAddr[1]        = 0;
+			iicPB.subAddr[2]        = 0;
+			iicPB.subAddr[3]        = 0;
+			shift = 0;                             // shift buffer data by 0 bytes
+		}
+        iicPB.combAddr			= address;		// (don't care in kSimpleI2Cstream)
+        iicPB.dataCount			= count;        // (count set to count + 3 in clock-spread clients)
+            if (lastMode == kCombinedI2CStream || lastMode == kCombined4I2CStream)  
+                    iicPB.address	&= 0xFE;	// combined mode has "write" version of address                
+
+        for (cnt = 0; cnt < count; cnt++)		// copy to client's buffer
+            iicPB.data[cnt] = buffer[cnt + shift];			
+                
+        readLen 		= 1;			// status return only
+        readBuf[0]		= 0xff;
+        length = (short) (&iicPB.data[iicPB.dataCount] - &iicPB.bus);  
+
+
+        ioResult = AppleSMUSendI2CCommand( myProvider, length, (UInt8 *) &iicPB, &readLen, readBuf );
+
+        if ( (ioResult == kIOReturnSuccess) && (readBuf[0] == STATUS_OK) )
+            break;			// if pb accepted, proceed to status phase
+
+        IOSleep( 15 );
+    }
+#ifdef DEBUGPMU
+                IOLog("WRITE SMU MID STATUS, retries = 0x%02x\n", MAXIICRETRYCOUNT - retries);
+#endif // DEBUGPMU
+
+	// SMU has a long round trip time so take a nap
+	IOSleep (kSMUSleepDelay);
+
+   if (readBuf[0] == STATUS_OK) {
+
+        ioResult = kIOReturnError;
+        success = false;			// assume error
+        retries = MAXIICRETRYCOUNT;
+        while (retries--) {
+
+            IOSleep( 15 );
+
+            // attempt to recover status
+
+            iicPB.bus		= kI2CStatusBus;
+            readLen 		= sizeof( readBuf );
+            readBuf[0]		= 0xff;
+
+            ioResult = AppleSMUSendI2CCommand( myProvider, 1, (UInt8 *) &iicPB, &readLen, readBuf );
+
+            if ( (ioResult == kIOReturnSuccess) && (readBuf[0] == STATUS_OK) ) {
+#ifdef DEBUGPMU
+                IOLog("WRITE SMU STATUS OK, retries = 0x%02x\n", MAXIICRETRYCOUNT - retries);
+#endif // DEBUGPMU
+                success = true;
+                break;
+            }
+        }
+    }
+
+    return(success);
+}
+
 //****************************************************************************************************************
 // Client handling methods:
 // ------------------------

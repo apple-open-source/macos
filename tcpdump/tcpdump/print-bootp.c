@@ -21,8 +21,8 @@
  * Format and print bootp packets.
  */
 #ifndef lint
-static const char rcsid[] =
-    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-bootp.c,v 1.1.1.3 2003/03/17 18:42:16 rbraun Exp $ (LBL)";
+static const char rcsid[] _U_ =
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-bootp.c,v 1.1.1.4 2004/02/05 19:30:53 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -45,41 +45,42 @@ static void cmu_print(const u_char *);
 
 static char tstr[] = " [|bootp]";
 
+static const struct tok bootp_flag_values[] = {
+    { 0x8000,                   "Broadcast" },
+    { 0, NULL}
+};
+
+static const struct tok bootp_op_values[] = {
+    { BOOTPREQUEST,             "Request" },
+    { BOOTPREPLY,               "Reply" },
+    { 0, NULL}
+};
+
 /*
  * Print bootp requests
  */
 void
-bootp_print(register const u_char *cp, u_short sport, u_short dport, u_int length)
+bootp_print(register const u_char *cp, u_int length)
 {
 	register const struct bootp *bp;
 	static const u_char vm_cmu[4] = VM_CMU;
 	static const u_char vm_rfc1048[4] = VM_RFC1048;
 
-        printf("BOOTP/DHCP, length: %u",length);
+	bp = (const struct bootp *)cp;
+	TCHECK(bp->bp_op);
+
+        printf("BOOTP/DHCP, %s",
+	       tok2str(bootp_op_values, "unknown (0x%02x)", bp->bp_op));
+
+	if (bp->bp_htype == 1 && bp->bp_hlen == 6 && bp->bp_op == BOOTPREQUEST) {
+		TCHECK2(bp->bp_chaddr[0], 6);
+		printf(" from %s", etheraddr_string(bp->bp_chaddr));
+	}
+
+        printf(", length: %u", length);
 
         if (!vflag)
             return;
-
-	bp = (const struct bootp *)cp;
-	TCHECK(bp->bp_op);
-	switch (bp->bp_op) {
-
-	case BOOTREQUEST:
-		/* Usually, a request goes from a client to a server */
-		if (sport == IPPORT_BOOTPC && dport == IPPORT_BOOTPS)
-			printf("\n\tRequest");
-		break;
-
-	case BOOTREPLY:
-		/* Usually, a reply goes from a server to a client */
-		if (sport == IPPORT_BOOTPS && dport == IPPORT_BOOTPC)
-			printf("\n\tReply");
-		break;
-
-	default:
-		printf("\n\tbootp-#%d", bp->bp_op);
-                break;
-	}
 
 	TCHECK(bp->bp_secs);
 
@@ -98,8 +99,11 @@ bootp_print(register const u_char *cp, u_short sport, u_short dport, u_int lengt
 		printf(", xid:0x%x", EXTRACT_32BITS(&bp->bp_xid));
 	if (bp->bp_secs)
 		printf(", secs:%d", EXTRACT_16BITS(&bp->bp_secs));
-	if (bp->bp_flags)
-		printf(", flags:0x%x", EXTRACT_16BITS(&bp->bp_flags));
+
+	printf(", flags: [%s]",
+	       bittok2str(bootp_flag_values, "none", EXTRACT_16BITS(&bp->bp_flags)));
+	if (vflag>1)
+	  printf( " (0x%04x)", EXTRACT_16BITS(&bp->bp_flags));
 
 	/* Client's ip address */
 	TCHECK(bp->bp_ciaddr);
@@ -137,7 +141,7 @@ bootp_print(register const u_char *cp, u_short sport, u_short dport, u_int lengt
 		}
 		putchar('"');
 	}
-	TCHECK2(bp->bp_sname[0], 1);		/* check first char only */
+	TCHECK2(bp->bp_file[0], 1);		/* check first char only */
 	if (*bp->bp_file) {
 		printf("\n\t  file \"");
 		if (fn_print(bp->bp_file, snapend)) {

@@ -1,0 +1,549 @@
+
+/*
+ * JBoss, the OpenSource J2EE webOS
+ *
+ * Distributable under LGPL license.
+ * See terms of license at gnu.org.
+ *
+ */
+
+package org.jboss.resource.adapter.jdbc;
+
+import java.io.PrintWriter;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Savepoint;
+import java.sql.Statement;
+import java.sql.PreparedStatement;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Properties;
+import java.util.Set;
+import javax.resource.ResourceException;
+import javax.resource.spi.ConnectionEvent;
+import javax.resource.spi.ConnectionEventListener;
+import javax.resource.spi.ConnectionRequestInfo;
+import javax.resource.spi.LocalTransaction;
+import javax.resource.spi.ManagedConnection;
+import javax.resource.spi.ManagedConnectionMetaData;
+import javax.security.auth.Subject;
+import org.jboss.logging.Logger;
+import org.jboss.resource.JBossResourceException;
+
+/**
+ * BaseWrapperManagedConnection.java
+ *
+ *
+ * Created: Fri Apr 19 13:31:47 2002
+ *
+ * @author <a href="mailto:d_jencks@users.sourceforge.net">David Jencks</a>
+ * @author <a href="mailto:bill@jboss.org">Bill Burke</a>
+ * @version
+ */
+
+public abstract class BaseWrapperManagedConnection
+   implements  ManagedConnection
+{
+
+
+   protected final BaseWrapperManagedConnectionFactory mcf;
+   protected final Connection con;
+   protected final Properties props;
+   private final int transactionIsolation;
+   private final boolean readOnly;
+
+   private final Collection cels = new ArrayList();
+   private final Set handles = new HashSet();
+   private PreparedStatementCache psCache = null;
+
+   protected boolean inManagedTransaction = false;
+   protected boolean jdbcAutoCommit = true;
+   protected boolean underlyingAutoCommit = true;
+   protected boolean jdbcReadOnly;
+   protected boolean underlyingReadOnly;
+   protected int jdbcTransactionIsolation;
+   protected int underlyingTransactionIsolation;
+   protected boolean destroyed = false;
+   protected boolean setQueryTimeout = false;
+
+   public BaseWrapperManagedConnection (final BaseWrapperManagedConnectionFactory mcf,
+                                  final Connection con,
+                                  final Properties props,
+                                  final int transactionIsolation,
+                                  final int psCacheSize,
+                                  final boolean qTimeout)
+      throws SQLException
+   {
+      this.mcf = mcf;
+      this.con = con;
+      this.props = props;
+      this.setQueryTimeout = qTimeout;
+      if (psCacheSize > 0)
+      {
+          psCache = new PreparedStatementCache(psCacheSize);
+      }
+
+      if (transactionIsolation == -1)
+      {
+         this.transactionIsolation = con.getTransactionIsolation();
+      }
+      else
+      {
+         this.transactionIsolation = transactionIsolation;
+         con.setTransactionIsolation(transactionIsolation);
+      }
+
+      readOnly = con.isReadOnly();
+
+      if (mcf.getNewConnectionSQL() != null)
+      {
+         Statement s = con.createStatement();
+         try
+         {
+            s.execute(mcf.getNewConnectionSQL());
+         }
+         finally
+         {
+            s.close();
+         }
+      }
+
+      underlyingReadOnly = readOnly;
+      jdbcReadOnly = readOnly;
+      underlyingTransactionIsolation = this.transactionIsolation;
+      jdbcTransactionIsolation = this.transactionIsolation;
+   }
+   // implementation of javax.resource.spi.ManagedConnection interface
+
+   /**
+    *
+    * @param param1 <description>
+    */
+   public void addConnectionEventListener(ConnectionEventListener cel)
+   {
+      synchronized (cels)
+      {
+         cels.add(cel);
+      }
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    */
+   public void removeConnectionEventListener(ConnectionEventListener cel)
+   {
+      synchronized (cels)
+      {
+         cels.remove(cel);
+      }
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    * @exception javax.resource.ResourceException <description>
+    */
+   public void associateConnection(Object handle) throws ResourceException
+   {
+      if (!(handle instanceof WrappedConnection))
+      {
+	 throw new JBossResourceException("Wrong kind of connection handle to associate" + handle);
+      }
+      ((WrappedConnection)handle).setManagedConnection(this);
+      synchronized(handles)
+      {
+	 handles.add(handle);
+      }
+   }
+
+   /**
+    *
+    * @return <description>
+    * @exception javax.resource.ResourceException <description>
+    */
+   public PrintWriter getLogWriter() throws ResourceException
+   {
+      // TODO: implement this javax.resource.spi.ManagedConnection method
+      return null;
+   }
+
+   /**
+    *
+    * @return <description>
+    * @exception javax.resource.ResourceException <description>
+    */
+   public ManagedConnectionMetaData getMetaData() throws ResourceException
+   {
+      // TODO: implement this javax.resource.spi.ManagedConnection method
+      return null;
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    * @exception javax.resource.ResourceException <description>
+    */
+   public void setLogWriter(PrintWriter param1) throws ResourceException
+   {
+      // TODO: implement this javax.resource.spi.ManagedConnection method
+   }
+
+   /**
+    *
+    * @exception javax.resource.ResourceException <description>
+    */
+   public void cleanup() throws ResourceException
+   {
+      synchronized (handles)
+      {
+         for (Iterator i = handles.iterator(); i.hasNext(); )
+         {
+            WrappedConnection lc = (WrappedConnection)i.next();
+            lc.setManagedConnection(null);
+         }
+         handles.clear();
+      }
+      //reset all the properties we know about to defaults.
+      jdbcAutoCommit = true;
+      jdbcTransactionIsolation = transactionIsolation;
+      jdbcReadOnly = readOnly;
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    * @param param2 <description>
+    * @return <description>
+    * @exception javax.resource.ResourceException <description>
+    */
+   public Object getConnection(Subject subject, ConnectionRequestInfo cri) throws ResourceException
+   {
+      checkIdentity(subject, cri);
+      WrappedConnection lc =  new WrappedConnection(this, setQueryTimeout);
+      synchronized (handles)
+      {
+         handles.add(lc);
+      }
+      return lc;
+   }
+
+   /**
+    *
+    * @exception javax.resource.ResourceException <description>
+    */
+   public void destroy() throws ResourceException
+   {
+      destroyed = true;
+
+      cleanup();
+      if (psCache != null)
+      {
+         psCache.flush();
+      }
+      try
+      {
+         con.close();
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+   }
+
+   //JBoss specific method to check validity, may be called when managed connection is taken from pool to be used.
+
+   public boolean checkValid()
+   {
+      SQLException e = mcf.isValidConnection(con);
+
+      if (e == null)
+      {
+         // It's ok
+         return true;
+      }
+      else
+      {
+         mcf.log.warn("Destroying connection that is not valid, due to the following exception:", e);
+         broadcastConnectionError(e);
+         return false;
+      }
+   }
+
+   //package methods
+
+   void closeHandle(WrappedConnection handle)
+   {
+      if (destroyed)
+         return;
+
+      synchronized(handles)
+      {
+         handles.remove(handle);
+      }
+      ConnectionEvent ce = new ConnectionEvent(this, ConnectionEvent.CONNECTION_CLOSED);
+      ce.setConnectionHandle(handle);
+      Collection copy = null;
+      synchronized(cels)
+      {
+         copy = new ArrayList(cels);
+      }
+      for (Iterator i = copy.iterator(); i.hasNext(); )
+      {
+         ConnectionEventListener cel = (ConnectionEventListener)i.next();
+         cel.connectionClosed(ce);
+      }
+   }
+
+   /**
+    * Describe <code>connectionError</code> method here.
+    *
+    * @param e a <code>SQLException</code> value
+    * @todo Figure out when connectionError should be called, and uncomment it.
+    */
+   void connectionError(SQLException e)
+   {
+      if (mcf.isExceptionFatal(e))
+      {
+         broadcastConnectionError(e);
+      }
+   }
+
+   protected void broadcastConnectionError(SQLException e)
+   {
+      ConnectionEvent ce = new ConnectionEvent(this, ConnectionEvent.CONNECTION_ERROR_OCCURRED, e);
+      Collection copy = null;
+      synchronized(cels)
+      {
+         copy = new ArrayList(cels);
+      }
+      for (Iterator i = copy.iterator(); i.hasNext(); )
+      {
+         ConnectionEventListener cel = (ConnectionEventListener)i.next();
+         cel.connectionErrorOccurred(ce);
+      }
+   }
+
+   Connection getConnection()
+      throws SQLException
+   {
+      if (con == null)
+      {
+         throw new SQLException("Connection has been destroyed!!!");
+      }
+      return con;
+   }
+
+   PreparedStatement prepareStatement(String sql) throws SQLException
+   {
+      if (psCache != null)
+      {
+         CachedPreparedStatement cachedps = (CachedPreparedStatement)psCache.get(sql);
+         if (cachedps == null)
+         {
+            PreparedStatement ps = con.prepareStatement(sql);
+            cachedps = new CachedPreparedStatement(ps);
+            psCache.insert(sql, cachedps);
+         }
+         return cachedps;
+      }
+      else
+         return con.prepareStatement(sql);
+   }
+
+   protected Logger getLog()
+   {
+      return mcf.log;
+   }
+
+   //private methods
+
+   /**
+    * Describe <code>checkIdentity</code> method here.
+    *
+    * @exception ResourceException if an error occurs
+    * @todo check if subject or cri should have higher priority.
+    */
+   private void checkIdentity(Subject subject, ConnectionRequestInfo cri)
+      throws ResourceException
+   {
+      Properties newProps = mcf.getConnectionProperties(subject, cri);
+      if (!props.equals(newProps))
+      {
+         throw new JBossResourceException("Wrong credentials passed to getConnection!");
+      } // end of if ()
+   }
+
+   /**
+    * The <code>checkTransaction</code> method makes sure the adapter follows the JCA
+    * autocommit contract, namely all statements executed outside a container managed transaction
+    * or a component managed transaction should be autocommitted. To avoid continually calling
+    * setAutocommit(enable) before and after container managed transactions, we keep track of the state
+    * and check it before each transactional method call.
+    *
+    */
+   void checkTransaction() throws SQLException
+   {
+      if (inManagedTransaction)
+         return;
+
+      // Check autocommit
+      if (jdbcAutoCommit != underlyingAutoCommit)
+      {
+         con.setAutoCommit(jdbcAutoCommit);
+         underlyingAutoCommit = jdbcAutoCommit;
+      }
+
+      checkState();
+   }
+
+   /**
+    * Checks the state
+    */
+   protected void checkState() throws SQLException
+   {
+      // Check the isolation level
+      if (jdbcTransactionIsolation != underlyingTransactionIsolation)
+      {
+         con.setTransactionIsolation(jdbcTransactionIsolation);
+         underlyingTransactionIsolation = jdbcTransactionIsolation;
+      }
+
+      // Check readonly
+      if (jdbcReadOnly != underlyingReadOnly)
+      {
+         con.setReadOnly(jdbcReadOnly);
+         underlyingReadOnly = jdbcReadOnly;
+      }
+   }
+
+   /**
+    * Get the JdbcAutoCommit value.
+    * @return the JdbcAutoCommit value.
+    */
+   boolean isJdbcAutoCommit()
+   {
+      return inManagedTransaction? false: jdbcAutoCommit;
+   }
+
+   /**
+    * Set the JdbcAutoCommit value.
+    * @param newJdbcAutoCommit The new JdbcAutoCommit value.
+    */
+   void setJdbcAutoCommit(final boolean jdbcAutoCommit)
+      throws SQLException
+   {
+      if (inManagedTransaction)
+      {
+         throw new SQLException("You cannot set autocommit during a managed transaction!");
+      } // end of if ()
+      this.jdbcAutoCommit = jdbcAutoCommit;
+   }
+
+   /**
+    * Get the read only value.
+    * @return the read only value.
+    */
+   boolean isJdbcReadOnly()
+   {
+      return jdbcReadOnly;
+   }
+
+   /**
+    * Set the read only value.
+    * @param readonly The new read only value.
+    */
+   void setJdbcReadOnly(final boolean readOnly)
+      throws SQLException
+   {
+      if (inManagedTransaction)
+      {
+         throw new SQLException("You cannot set read only during a managed transaction!");
+      } // end of if ()
+      this.jdbcReadOnly = readOnly;
+   }
+
+   /**
+    * Get the isolation value.
+    * @return the isolation value.
+    */
+   int getJdbcTransactionIsolation()
+   {
+      return jdbcTransactionIsolation;
+   }
+
+   /**
+    * Set the transaction isolation.
+    * @param isolationLevel The new isolation value.
+    */
+   void setJdbcTransactionIsolation(final int isolationLevel)
+      throws SQLException
+   {
+      if (inManagedTransaction)
+      {
+         throw new SQLException("You cannot set isolation level during a managed transaction!");
+      } // end of if ()
+      this.jdbcTransactionIsolation = isolationLevel;
+   }
+
+   void jdbcCommit() throws SQLException
+   {
+      if (inManagedTransaction)
+      {
+         throw new SQLException("You cannot commit during a managed transaction!");
+      } // end of if ()
+      if (jdbcAutoCommit)
+      {
+         throw new SQLException("You cannot commit with autocommit set!");
+      } // end of if ()
+      con.commit();
+   }
+
+   void jdbcRollback() throws SQLException
+   {
+      if (inManagedTransaction)
+      {
+         throw new SQLException("You cannot rollback during a managed transaction!");
+      } // end of if ()
+      if (jdbcAutoCommit)
+      {
+         throw new SQLException("You cannot rollback with autocommit set!");
+      } // end of if ()
+      con.rollback();
+   }
+
+   void jdbcRollback(Savepoint savepoint) throws SQLException
+   {
+@JDK1.4START@
+      if (inManagedTransaction)
+      {
+         throw new SQLException("You cannot rollback during a managed transaction!");
+      } // end of if ()
+      if (jdbcAutoCommit)
+      {
+         throw new SQLException("You cannot rollback with autocommit set!");
+      } // end of if ()
+      con.rollback(savepoint);
+@JDK1.4END@
+@JDK1.3START@
+   throw new SQLException("JDK1.4 method not available in JDK1.3");
+@JDK1.3END@
+   }
+
+
+   boolean getTrackStatements()
+   {
+      return mcf.getTrackStatements();
+   }
+
+   //private methods
+
+   protected void checkException(SQLException e) throws ResourceException
+   {
+      connectionError(e);
+      throw new JBossResourceException("SQLException", e);
+   }
+
+}// BaseWrapperManagedConnection

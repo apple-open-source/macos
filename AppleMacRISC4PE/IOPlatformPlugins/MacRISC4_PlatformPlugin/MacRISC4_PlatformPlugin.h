@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,15 +23,12 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc.  All rights reserved.
  *
  *  DRI: Dave Radcliffe
  *
  */
-//		$Log: MacRISC4_PlatformPlugin.h,v $
-//		Revision 1.1.1.1  2003/02/04 00:36:43  raddog
-//		initial import into CVS
-//		
+
 
 #ifndef _MACRISC4_PLATFORMPLUGIN_H
 #define _MACRISC4_PLATFORMPLUGIN_H
@@ -50,7 +47,7 @@ class MacRISC4_PlatformPlugin : public IOPlatformPlugin
 
 public:
 
-	virtual bool 			start(IOService *nub);
+	//virtual bool 			start(IOService *nub);
 	//virtual IOReturn		powerStateWillChangeTo (IOPMPowerFlags, unsigned long, IOService*);
 	
 };

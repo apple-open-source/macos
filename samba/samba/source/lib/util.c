@@ -261,7 +261,7 @@ BOOL init_names(void)
 	}			
 
 	fstrcpy( local_machine, global_myname() );
-	trim_string( local_machine, " ", " " );
+	trim_char( local_machine, ' ', ' ' );
 	p = strchr( local_machine, ' ' );
 	if (p)
 		*p = 0;
@@ -603,68 +603,6 @@ void unix_clean_name(char *s)
 	}  
 
 	trim_string(s,NULL,"/..");
-}
-
-/*******************************************************************
- Convert '\' to '/'.
- Reduce a file name, removing or reducing /../ , /./ , // elements.
- Remove also any trailing . and /
- Return a new allocated string.
-********************************************************************/
-
-smb_ucs2_t *unix_clean_path(const smb_ucs2_t *s)
-{
-	smb_ucs2_t *ns;
-	smb_ucs2_t *p, *r, *t;
-
-	DEBUG(3, ("unix_clean_path\n")); /*  [%unicode]\n")); */
-	if(!s)
-		return NULL;
-
-	/* convert '\' to '/' */
-	ns = strdup_w(s);
-	if (!ns)
-		return NULL;
-	unix_format_w(ns);
-
-	/* remove all double slashes */
-	p = ns;
-	ns = all_string_sub_wa(p, "//", "/");
-	SAFE_FREE(p);
-	if (!ns)
-		return NULL;
-
-	/* remove any /./ */
-	p = ns;
-	ns = all_string_sub_wa(p, "/./", "/");
-	SAFE_FREE(p);
-	if (!ns)
-		return NULL;
-
-	/* reduce any /../ */
-	t = ns;
-	while (*t && (r = strstr_wa(t, "/.."))) {
-		t = &(r[3]);
-		if (*t == UCS2_CHAR('/') || *t == 0) {
-			*r = 0;
-			p = strrchr_w(ns, UCS2_CHAR('/'));
-			if (!p)
-				p = ns;
-			if (*t == 0)
-				*p = 0;
-			else
-				memmove(p, t, (strlen_w(t) + 1) * sizeof(smb_ucs2_t));
-			t = p;
-		}
-	}
-
-	/* remove any leading ./ trailing /. */
-	trim_string_wa(ns, "./", "/.");
-
-	/* remove any leading and trailing / */
-	trim_string_wa(ns, "/", "/");
-
-	return ns;
 }
 
 /****************************************************************************
@@ -1466,7 +1404,8 @@ void smb_panic(const char *why)
 	backtrace_size = backtrace(backtrace_stack,BACKTRACE_STACK_SIZE);
 	backtrace_strings = backtrace_symbols(backtrace_stack, backtrace_size);
 
-	DEBUG(0, ("BACKTRACE: %d stack frames:\n", backtrace_size));
+	DEBUG(0, ("BACKTRACE: %lu stack frames:\n", 
+		  (unsigned long)backtrace_size));
 	
 	if (backtrace_strings) {
 		int i;
@@ -1812,13 +1751,15 @@ BOOL is_myworkgroup(const char *s)
    Win2k => "Windows 2000 5.0"
    NT4   => "Windows NT 4.0" 
    Win9x => "Windows 4.0"
+ Windows 2003 doesn't set the native lan manager string but 
+ they do set the domain to "Windows 2003 5.2" (probably a bug).
 ********************************************************************/
 
 void ra_lanman_string( const char *native_lanman )
 {		 
-	if ( 0 == strcmp( native_lanman, "Windows 2002 5.1" ) )
+	if ( strcmp( native_lanman, "Windows 2002 5.1" ) == 0 )
 		set_remote_arch( RA_WINXP );
-	else if ( 0 == strcmp( native_lanman, "Windows .NET 5.2" ) )
+	else if ( strcmp( native_lanman, "Windows Server 2003 5.2" ) == 0 )
 		set_remote_arch( RA_WIN2K3 );
 }
 
@@ -1833,33 +1774,35 @@ void set_remote_arch(enum remote_arch_types type)
 	switch( type ) {
 	case RA_WFWG:
 		fstrcpy(remote_arch, "WfWg");
-		return;
+		break;
 	case RA_OS2:
 		fstrcpy(remote_arch, "OS2");
-		return;
+		break;
 	case RA_WIN95:
 		fstrcpy(remote_arch, "Win95");
-		return;
+		break;
 	case RA_WINNT:
 		fstrcpy(remote_arch, "WinNT");
-		return;
+		break;
 	case RA_WIN2K:
 		fstrcpy(remote_arch, "Win2K");
-		return;
+		break;
 	case RA_WINXP:
 		fstrcpy(remote_arch, "WinXP");
-		return;
+		break;
 	case RA_WIN2K3:
 		fstrcpy(remote_arch, "Win2K3");
-		return;
+		break;
 	case RA_SAMBA:
 		fstrcpy(remote_arch,"Samba");
-		return;
+		break;
 	default:
 		ra_type = RA_UNKNOWN;
 		fstrcpy(remote_arch, "UNKNOWN");
 		break;
 	}
+
+	DEBUG(10,("set_remote_arch: Client arch is \'%s\'\n", remote_arch));
 }
 
 /*******************************************************************
@@ -2205,7 +2148,7 @@ char *lock_path(const char *name)
 	static pstring fname;
 
 	pstrcpy(fname,lp_lockdir());
-	trim_string(fname,"","/");
+	trim_char(fname,'\0','/');
 	
 	if (!directory_exist(fname,NULL))
 		mkdir(fname,0755);
@@ -2225,7 +2168,7 @@ char *pid_path(const char *name)
 	static pstring fname;
 
 	pstrcpy(fname,lp_piddir());
-	trim_string(fname,"","/");
+	trim_char(fname,'\0','/');
 
 	if (!directory_exist(fname,NULL))
 		mkdir(fname,0755);
@@ -2295,7 +2238,7 @@ char *parent_dirname(const char *path)
  Determine if a pattern contains any Microsoft wildcard characters.
 *******************************************************************/
 
-BOOL ms_has_wild(char *s)
+BOOL ms_has_wild(const char *s)
 {
 	char c;
 	while ((c = *s++)) {

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<application>
+  <display-name>Arrays WebService</display-name>
+
+  <module>
+    <ejb>arrays.jar</ejb>
+  </module>
+
+  <module>
+    <java>arrays.wsr</java>
+  </module>
+
+</application>
+

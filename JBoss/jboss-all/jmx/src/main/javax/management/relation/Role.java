@@ -23,7 +23,7 @@ import org.jboss.mx.util.Serialization;
  * the MBeans in the role.
  *
  * @author <a href="mailto:Adrian.Brock@HappeningTimes.com">Adrian Brock</a>
- * @version $Revision: 1.4.6.1 $
+ * @version $Revision: 1.4.6.2 $
  *
  * <p><b>Revisions:</b>
  * <p><b>20020716 Adrian Brock:</b>
@@ -89,11 +89,10 @@ public class Role
      if (roleValue == null)
        throw new IllegalArgumentException("null roleValue");
      StringBuffer buffer = new StringBuffer();
-     Iterator iterator = roleValue.iterator(); 
-     while (iterator.hasNext())
+     for (int i = 0; i < roleValue.size(); i++)
      {
-       buffer.append(iterator.next());
-       if (iterator.hasNext())
+       buffer.append(roleValue.get(i));
+       if (i + 1 < roleValue.size())
          buffer.append("\n");
      }
      return buffer.toString();
@@ -208,11 +207,11 @@ public class Role
      StringBuffer buffer = new StringBuffer("Role Name (");
      buffer.append(name);
      buffer.append(") Object Names (");
-     Iterator iterator = objectNameList.iterator(); 
-     while (iterator.hasNext())
+
+     for (int i = 0; i < objectNameList.size(); i++)
      {
-       buffer.append(iterator.next());
-       if (iterator.hasNext())
+       buffer.append(objectNameList.get(i));
+       if (i + 1 < objectNameList.size())
          buffer.append(" & ");
      }
      buffer.append(")");

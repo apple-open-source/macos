@@ -63,7 +63,7 @@ import org.jboss.mx.persistence.PersistenceManager;
  * @author Matt Munz
  * @author Scott.Stark@jboss.org
  * @author <a href="mailto:julien@jboss.org">Julien Viet</a>
- * @version $Revision: 1.1.4.9 $
+ * @version $Revision: 1.1.4.10 $
  */
 public abstract class ModelMBeanInvoker
       extends MBeanInvoker
@@ -420,8 +420,8 @@ public abstract class ModelMBeanInvoker
       ClassLoader loader = Thread.currentThread().getContextClassLoader();
       for(int d = 0; d < interceptorDescriptors.length; d ++)
       {
-         Descriptor info = interceptorDescriptors[d];
-         String code = (String) info.getFieldValue("code");
+         Descriptor desc = interceptorDescriptors[d];
+         String code = (String) desc.getFieldValue("code");
          Class interceptorClass = loader.loadClass(code);
          Interceptor interceptor = null;
          // Check for a ctor(MBeanInfo info, MBeanInvoker invoker)
@@ -429,7 +429,7 @@ public abstract class ModelMBeanInvoker
          try
          {
             Constructor ctor = interceptorClass.getConstructor(ctorSig);
-            Object[] ctorArgs = {this.getModelMBeanInfo(), this};
+            Object[] ctorArgs = {info, this};
             interceptor = (Interceptor) ctor.newInstance(ctorArgs);
          }
          catch(Throwable t)
@@ -442,7 +442,7 @@ public abstract class ModelMBeanInvoker
          interceptors[d] = interceptor;
 
          // Apply any attributes
-         String[] names = info.getFieldNames();
+         String[] names = desc.getFieldNames();
          HashMap propertyMap = new HashMap();
          if( names.length > 1 )
          {
@@ -458,7 +458,7 @@ public abstract class ModelMBeanInvoker
                String name = names[n];
                if( name.equals("code") )
                   continue;
-               String text = (String) info.getFieldValue(name);
+               String text = (String) desc.getFieldValue(name);
                PropertyDescriptor pd = (PropertyDescriptor) propertyMap.get(name);
                if( pd == null )
                   throw new IntrospectionException("No PropertyDescriptor for attribute:"+name);

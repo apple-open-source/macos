@@ -1,4 +1,4 @@
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>swat</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.60.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="swat.8"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2>Name</h2><p>swat &#8212; Samba Web Administration Tool</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><tt class="command">swat</tt>  [-s &lt;smb config file&gt;] [-a]</p></div></div><div class="refsect1" lang="en"><h2>DESCRIPTION</h2><p>This tool is part of the <a href="Samba.7.html"><span class="citerefentry"><span class="refentrytitle">Samba</span>(7)</span></a> suite.</p><p><b class="command">swat</b> allows a Samba administrator to 
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>swat</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.61.2"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="swat.8"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2>Name</h2><p>swat &#8212; Samba Web Administration Tool</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><tt class="command">swat</tt>  [-s &lt;smb config file&gt;] [-a]</p></div></div><div class="refsect1" lang="en"><h2>DESCRIPTION</h2><p>This tool is part of the <a href="Samba.7.html"><span class="citerefentry"><span class="refentrytitle">Samba</span>(7)</span></a> suite.</p><p><b class="command">swat</b> allows a Samba administrator to 
 	configure the complex <a href="smb.conf.5.html"><span class="citerefentry"><span class="refentrytitle">smb.conf</span>(5)</span></a> file via a Web browser. In addition, 
 	a <b class="command">swat</b> configuration page has help links 
 	to all the configurable options in the <tt class="filename">smb.conf</tt> file allowing an 
@@ -13,8 +13,8 @@
 		</p></dd><dt><span class="term">-a</span></dt><dd><p>This option disables authentication and puts 
 		<b class="command">swat</b> in demo mode. In that mode anyone will be able to modify 
 		the <tt class="filename">smb.conf</tt> file. </p><p><span class="emphasis"><em>WARNING: Do NOT enable this option on a production 
-		server. </em></span></p></dd><dt><span class="term">-V</span></dt><dd><p>Prints the version number for 
-<b class="command">smbd</b>.</p></dd><dt><span class="term">-s &lt;configuration file&gt;</span></dt><dd><p>The file specified contains the 
+		server. </em></span></p></dd><dt><span class="term">-V</span></dt><dd><p>Prints the program version number.
+</p></dd><dt><span class="term">-s &lt;configuration file&gt;</span></dt><dd><p>The file specified contains the 
 configuration details required by the server.  The 
 information in this file includes server-specific
 information such as what printcap file to use, as well 
@@ -27,13 +27,13 @@ not specified is zero.</p><p>The higher this value, the more detail will be
 logged to the log files about the activities of the 
 server. At level 0, only critical errors and serious 
 warnings will be logged. Level 1 is a reasonable level for
-day to day running - it generates a small amount of 
+day-to-day running - it generates a small amount of 
 information about operations carried out.</p><p>Levels above 1 will generate considerable 
 amounts of log data, and should only be used when 
 investigating a problem. Levels above 3 are designed for 
 use only by developers and generate HUGE amounts of log
 data, most of which is extremely cryptic.</p><p>Note that specifying this parameter here will 
-override the <a class="indexterm" name="id2796899"></a><a href="#"><i class="parameter"><tt>log level</tt></i></a> parameter
+override the <a class="indexterm" name="id2802777"></a>log level parameter
 in the <tt class="filename">smb.conf</tt> file.</p></dd><dt><span class="term">-l|--logfile=logbasename</span></dt><dd><p>File name for log/debug files. The extension
 <tt class="constant">".client"</tt> will be appended. The log file is
 never removed by the client.
@@ -56,7 +56,7 @@ never removed by the client.
 		hole depending on the implementation details of your 
 		<b class="command">inetd</b> daemon). </p><p>In <tt class="filename">/etc/inetd.conf</tt> you should 
 		add a line like this: </p><p><b class="command">swat    stream  tcp     nowait.400  root
-		/usr/local/samba/bin/swat swat</b></p><p>One you have edited <tt class="filename">/etc/services</tt> 
+		/usr/local/samba/bin/swat swat</b></p><p>Once you have edited <tt class="filename">/etc/services</tt> 
 		and <tt class="filename">/etc/inetd.conf</tt> you need to send a 
 		HUP signal to inetd. To do this use <b class="command">kill -1 PID
 		</b> where PID is the process ID of the inetd daemon. </p></div></div><div class="refsect1" lang="en"><h2>LAUNCHING</h2><p>To launch SWAT just run your favorite web browser and 

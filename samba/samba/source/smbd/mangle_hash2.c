@@ -53,7 +53,7 @@
 
 #include "includes.h"
 
-#if 0
+#if 1
 #define M_DEBUG(level, x) DEBUG(level, x)
 #else
 #define M_DEBUG(level, x)
@@ -219,7 +219,7 @@ static BOOL is_mangled_component(const char *name, size_t len)
 	if (len > 8) {
 		if (name[8] != '.')
 			return False;
-		for (i=9; name[i]; i++) {
+		for (i=9; name[i] && i < len; i++) {
 			if (! FLAG_CHECK(name[i], FLAG_ASCII)) {
 				return False;
 			}
@@ -325,7 +325,7 @@ static BOOL is_8_3(const char *name, BOOL check_case, BOOL allow_wildcards)
 		prefix_len = PTR_DIFF(dot_p, name);
 		suffix_len = len - (prefix_len+1);
 
-		if (prefix_len > 8 || suffix_len > 3) {
+		if (prefix_len > 8 || suffix_len > 3 || suffix_len == 0) {
 			return False;
 		}
 
@@ -427,7 +427,7 @@ static BOOL is_reserved_name(const char *name)
 		for (i=0; reserved_names[i]; i++) {
 			int len = strlen(reserved_names[i]);
 			/* note that we match on COM1 as well as COM1.foo */
-			if (strncasecmp(name, reserved_names[i], len) == 0 &&
+			if (strnequal(name, reserved_names[i], len) &&
 			    (name[len] == '.' || name[len] == 0)) {
 				return True;
 			}

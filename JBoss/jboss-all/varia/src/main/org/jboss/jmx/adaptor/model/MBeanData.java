@@ -6,12 +6,16 @@ import javax.management.ObjectName;
 /** An mbean ObjectName and MBeanInfo pair that is orderable by ObjectName.
  *
  * @author Scott.Stark@jboss.org
- * @version $Revision: 1.2.2.4 $
+ * @version $Revision: 1.2.2.5 $
  */
 public class MBeanData implements Comparable
 {
    private ObjectName objectName;
    private MBeanInfo metaData;
+
+   /** Creates a new instance of MBeanInfo */
+    public MBeanData() {
+    }
 
    /** Creates a new instance of MBeanInfo */
    public MBeanData(ObjectName objectName, MBeanInfo metaData)

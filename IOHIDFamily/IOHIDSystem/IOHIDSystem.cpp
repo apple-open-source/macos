@@ -121,13 +121,14 @@ typedef struct _IOHIDCmdGateActionArgs {
 
 /* HID SYSTEM EVENT LOCK OUT SUPPORT */
 
-static bool 		keySwitchLocked = false;
-static IONotifier * 	switchNotification = 0;
+static bool 		gKeySwitchLocked = false;
+static bool             gUseKeyswitch = true;
+static IONotifier * 	gSwitchNotification = 0;
 
 // IONotificationHandler
 static bool keySwitchNotificationHandler(void *target, void *refCon, IOService *service) {
     
-    keySwitchLocked = (service->getProperty("Keyswitch") == kOSBooleanTrue) ? true : false;
+    gKeySwitchLocked = (service->getProperty("Keyswitch") == kOSBooleanTrue);
         
     return true;
 } 
@@ -141,12 +142,13 @@ bool static inline ShouldConsumeHIDEvent(AbsoluteTime ts, AbsoluteTime deadline)
     if ( AbsoluteTime_to_scalar(&ts) == 0 )
         clock_get_uptime(&ts);
 
-    if ( keySwitchLocked || 
+    if ( (gKeySwitchLocked && gUseKeyswitch) || 
             (CMP_ABSOLUTETIME(&ts, &deadline) <= 0))
         return true;
 
     return false;
 }
+
 
 #define TICKLE_DISPLAY 				\
 {						\
@@ -394,7 +396,7 @@ bool IOHIDSystem::start(IOService * provider)
                      this, 0 );
                      
     // Get notified everytime AppleKeyswitch registers (each time keyswitch changes)
-    switchNotification = addNotification(gIOPublishNotification, nameMatching("AppleKeyswitch"), 
+    gSwitchNotification = addNotification(gIOPublishNotification, nameMatching("AppleKeyswitch"), 
                         (IOServiceNotificationHandler)keySwitchNotificationHandler, this, 0);
 
     iWasStarted = true;
@@ -493,6 +495,11 @@ bool IOHIDSystem::terminateNotificationHandler(
     // RY: Remove this object from the cachedButtonState
     if (OSDynamicCast(IOHIPointing, service))
     {
+        // Clear the service button state
+        AbsoluteTime	ts;
+        clock_get_uptime(&ts);
+        self->relativePointerEvent(0, 0, 0, /* atTime */ ts, service);
+                
         RemoveCachedMouseEventForService(self->cachedButtonStates, service);
     }
         
@@ -509,14 +516,52 @@ void IOHIDSystem::free()
     evScreen = (void *)0;
     evScreenSize = 0;
 
-    if (timerES)  	timerES->release();
-    if (eventConsumerES) eventConsumerES->release();
-    if (cmdGate)     	{evClose(); cmdGate->release();}
-    if (workLoop) 	workLoop->release();
-    if (publishNotify) 	publishNotify->release();
-    if (switchNotification) switchNotification->release();
-    if (ioHIDevices)	ioHIDevices->release();
-    if (cachedButtonStates) cachedButtonStates->release();
+    if (timerES)
+    {
+        timerES->release();
+        timerES = 0;
+    }
+    if (eventConsumerES)
+    {
+        eventConsumerES->release();
+        eventConsumerES = 0;
+    }
+    if (cmdGate)
+    {
+        evClose();
+        cmdGate->release();
+        cmdGate = 0;
+    }
+    if (workLoop)
+    {
+        workLoop->release();
+        workLoop = 0;
+    }
+    if (publishNotify)
+    {
+        publishNotify->remove();
+        publishNotify = 0;
+    }
+    if (gSwitchNotification)
+    {
+        gSwitchNotification->remove();
+        gSwitchNotification = 0;
+    }
+    if (terminateNotify)
+    {
+        terminateNotify->remove();
+        terminateNotify = 0;    
+    }
+    if (ioHIDevices)
+    {
+        ioHIDevices->release();
+        ioHIDevices = 0;
+    }
+    if (cachedButtonStates)
+    {
+        cachedButtonStates->release();
+        cachedButtonStates = 0;
+    }
 
     super::free();
 }
@@ -1118,22 +1163,22 @@ void IOHIDSystem::postEvent(int           what,
 	case NX_LMOUSEDOWN:
 	    theTail->event.data.mouse.eventNum =
 		leftENum = getUniqueEventNum();
-            // Inform the devices that the mouse was clicked
-            notifyHIDevices(this, ioHIDevices, kIOHIDSystem508MouseClickMessage);
 	    break;
 	case NX_RMOUSEDOWN:
 	    theTail->event.data.mouse.eventNum =
 		rightENum = getUniqueEventNum();
-            // Inform the devices that the mouse was clicked
-            notifyHIDevices(this, ioHIDevices, kIOHIDSystem508MouseClickMessage);
 	    break;
 	case NX_LMOUSEUP:
 	    theTail->event.data.mouse.eventNum = leftENum;
 	    leftENum = NULLEVENTNUM;
+            // Inform the devices that the mouse was clicked
+            notifyHIDevices(this, ioHIDevices, kIOHIDSystem508MouseClickMessage);
 	    break;
 	case NX_RMOUSEUP:
 	    theTail->event.data.mouse.eventNum = rightENum;
 	    rightENum = NULLEVENTNUM;
+            // Inform the devices that the mouse was clicked
+            notifyHIDevices(this, ioHIDevices, kIOHIDSystem508MouseClickMessage);
 	    break;
 	}
 	if (EventCodeMask(what) & PRESSUREEVENTMASK)
@@ -1274,10 +1319,15 @@ void IOHIDSystem::doSpecialKeyMsg(IOHIDSystem * self,
 void IOHIDSystem::doKickEventConsumer(IOHIDSystem * self)  /*IOInterruptEventSource::Action */
 {
 	kern_return_t r;
-	mach_msg_header_t *msgh
+	mach_msg_header_t *msgh;
+
+	self->needToKickEventConsumer = false;   // Request received and processed
+
+        // RY: If the eventPost is null, do nothing
+        if ( self->eventPort == MACH_PORT_NULL )
+            return;
 
 	xpr_ev_post("doKickEventConsumer\n", 1,2,3,4,5);
-	self->needToKickEventConsumer = false;   // Request received and processed
 
 	msgh = (mach_msg_header_t *)self->eventMsg;
 	if( msgh) {
@@ -2186,10 +2236,24 @@ void IOHIDSystem::absolutePointerEventGated(int        buttons,
             else 
             {
                 bzero(&tabletData, sizeof(NXTabletPointData));
+
+                // RY: revert the button state
+                // The window server requires that the lower 3 bits of
+                // the buttons bit field be mangled for interpretation
+                // when handling a button event.  Unfortunately,
+                // applications that make use of the tablet events
+                // require that the buttons field not be mangled.  Thus
+                // the button state should be reverted.
+                tabletData.buttons     = buttons & ~0x7; 
+                if (buttons & 2)
+                    tabletData.buttons |= 4;
+                if (buttons & EV_RB)
+                    tabletData.buttons |= 2;
+                if (buttons & EV_LB)
+                    tabletData.buttons |= 1;
                 
                 tabletData.x 		= newLoc->x;             
                 tabletData.y 		= newLoc->y;             
-                tabletData.buttons 	= buttons;             
                 tabletData.pressure 	= pressure;             
                 cachedMouseEvent->tabletPointDataPtr = &tabletData;
             }
@@ -3735,6 +3799,11 @@ IOReturn IOHIDSystem::setParamPropertiesGated( OSDictionary * dict )
     // check for null
     if (dict == NULL)
         return kIOReturnError;
+        
+    if( (number = OSDynamicCast( OSNumber, dict->getObject(kIOHIDUseKeyswitchKey))))
+    {
+        gUseKeyswitch = number->unsigned32BitValue();
+    }
 		
     if( (number = OSDynamicCast( OSNumber, dict->getObject(kIOHIDClickTimeKey))))
     {

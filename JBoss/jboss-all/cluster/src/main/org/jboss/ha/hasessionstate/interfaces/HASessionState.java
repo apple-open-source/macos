@@ -16,7 +16,7 @@ import org.jboss.ha.framework.interfaces.HAPartition;
  *   @see org.jboss.ha.hasessionstate.server.HASessionStateImpl
  *
  *   @author <a href="mailto:sacha.labourey@cogito-info.ch">Sacha Labourey</a>
- *   @version $Revision: 1.3.4.1 $
+ *   @version $Revision: 1.3.4.2 $
  *
  * <p><b>Revisions:</b><br>
  */
@@ -77,7 +77,7 @@ public interface HASessionState
     * always owned by a node)
     * @param appName Application hosting the state
     * @param keyId Key identifier of the state
-    * @throws RemoteException Thrown if an exception occurs while getting the ownership of the state
+    * @throws java.rmi.RemoteException Thrown if an exception occurs while getting the ownership of the state
     * @return The state value
     */   
    public PackagedSession getStateWithOwnership (String appName, Object keyId) throws java.rmi.RemoteException;
@@ -86,7 +86,7 @@ public interface HASessionState
     * Take ownership of a state. Each state is owned by a node.
     * @param appName Application hosting the state
     * @param keyId Key identifier of the state
-    * @throws RemoteException Trown if a communication exception occurs while asking other node to get the ownership
+    * @throws java.rmi.RemoteException Trown if a communication exception occurs while asking other node to get the ownership
     */   
    public void takeOwnership (String appName, Object keyId) throws java.rmi.RemoteException;
       

@@ -3,22 +3,21 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
+ * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ * Reserved.  This file contains Original Code and/or Modifications of
+ * Original Code as defined in and that are subject to the Apple Public
+ * Source License Version 1.0 (the 'License').  You may not use this file
+ * except in compliance with the License.  Please obtain a copy of the
+ * License at http://www.apple.com/publicsource and read it before using
+ * this file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License."
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -174,7 +173,7 @@ _dns_insert_cname(char *s, char *p)
 }
 
 static char *
-_dns_parse_string(const char *p, char **x, uint32_t *remaining)
+_dns_parse_string(const char *p, char **x, int32_t *remaining)
 {
 	char *str;
 	uint8_t len;
@@ -196,13 +195,15 @@ _dns_parse_string(const char *p, char **x, uint32_t *remaining)
 }
 
 static char *
-_dns_parse_domain_name(const char *p, char **x, uint32_t *remaining)
+_dns_parse_domain_name(const char *p, char **x, int32_t *remaining)
 {
 	uint8_t *v8;
 	uint16_t *v16, skip;
 	uint16_t i, j, dlen, len;
 	int more, compressed;
 	char *name, *start, *z;
+
+	if (*remaining < 1) return NULL;
 
 	z = *x + *remaining;
 	start = *x;
@@ -254,6 +255,8 @@ _dns_parse_domain_name(const char *p, char **x, uint32_t *remaining)
 		}
 
 		*x += 1;
+		*remaining -= 1;
+
 		if (dlen > 0)
 		{
 			len += dlen;
@@ -270,7 +273,9 @@ _dns_parse_domain_name(const char *p, char **x, uint32_t *remaining)
 		{
 			name[j++] = **x;
 			*x += 1;
+			*remaining -= 1;
 		}
+
 		name[j] = '\0';
 		if (compressed == 0) skip += (dlen + 1);
 		
@@ -306,13 +311,15 @@ _dns_parse_domain_name(const char *p, char **x, uint32_t *remaining)
 }
 
 dns_resource_record_t *
-_dns_parse_resource_record_internal(const char *p, char **x, uint32_t *remaining)
+_dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 {
 	uint32_t size, bx, mi;
 	uint16_t rdlen;
 	uint8_t byte, i;
 	dns_resource_record_t *r;
 	char *eor;
+
+	if (*remaining < 1) return NULL;
 
 	r = (dns_resource_record_t *)calloc(1, sizeof(dns_resource_record_t));
 
@@ -746,7 +753,7 @@ dns_resource_record_t *
 dns_parse_resource_record(const char *buf, uint32_t len)
 {
 	char *x;
-	uint32_t remaining;
+	int32_t remaining;
 
 	remaining = len;
 	x = (char *)buf;
@@ -754,12 +761,13 @@ dns_parse_resource_record(const char *buf, uint32_t len)
 }
 
 dns_question_t *
-_dns_parse_question_internal(const char *p, char **x, uint32_t *remaining)
+_dns_parse_question_internal(const char *p, char **x, int32_t *remaining)
 {
 	dns_question_t *q;
 	
 	if (x == NULL) return NULL;
 	if (*x == NULL) return NULL;
+	if (*remaining < 1) return NULL;
 
 	q = (dns_question_t *)calloc(1, sizeof(dns_question_t));
 
@@ -789,7 +797,7 @@ dns_question_t *
 dns_parse_question(const char *buf, uint32_t len)
 {
 	char *x;
-	uint32_t remaining;
+	int32_t remaining;
 
 	remaining = len;
 	x = (char *)buf;
@@ -803,7 +811,8 @@ dns_parse_packet(const char *p, uint32_t len)
 	dns_reply_t *r;
 	dns_header_t *h;
 	char *x;
-	uint32_t i, size, remaining;
+	uint32_t i, size;
+    int32_t remaining;
 
 	if (p == NULL) return NULL;
 	if (len < NS_HFIXEDSZ) return NULL;
@@ -1259,7 +1268,9 @@ dns_lookup(dns_handle_t d, const char *name, uint32_t class, uint32_t type)
 	r = dns_parse_packet(buf, len);
 	if (mymem != 0) free(buf);
 
-	r->server = (struct sockaddr *)from;
+	if (r == NULL) free(from);
+	else r->server = (struct sockaddr *)from;
+
 	return r;
 }
 

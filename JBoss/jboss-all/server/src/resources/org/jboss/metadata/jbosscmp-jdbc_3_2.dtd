@@ -11,7 +11,8 @@ This is the XML DTD for the jbosscmp-jdbc deployment descriptor.
 The root element of JBossCMP-JDBC configuration files.
 -->
 <!ELEMENT jbosscmp-jdbc (defaults?, enterprise-beans?, relationships?,
-         dependent-value-classes?, type-mappings?, entity-commands?)>
+          dependent-value-classes?, type-mappings?, entity-commands?,
+          user-type-mappings? , reserved-words?)>
 
 <!--
 The optional defaults elements contains the default values for
@@ -19,7 +20,7 @@ entities, and relationships.
 -->
 <!ELEMENT defaults ((datasource, datasource-mapping)?, create-table?,
          remove-table?, post-table-create?, read-only?, read-time-out?, 
-         row-locking?,  pk-constraint?, fk-constraint?, 
+         row-locking?, pk-constraint?, fk-constraint?,
          preferred-relation-mapping?, read-ahead?, list-cache-max?, 
          fetch-size?, unknown-pk?, entity-command?)>
 
@@ -132,11 +133,12 @@ Specifies the read ahead strategy.
 
          <read-ahead>
             <strategy>on-load</strategy>
+            <deep-read-ahead/>
             <page-size>255</page-size>
             <eager-load-group>*</eager-load-group>
          </read-ahead>
 -->
-<!ELEMENT read-ahead (strategy, page-size?, eager-load-group?)>
+<!ELEMENT read-ahead (strategy, deep-read-ahead?, page-size?, eager-load-group?)>
 
 <!--
 Specifies the strategy used to read-ahead data in queries.
@@ -148,6 +150,11 @@ The strategy element must be one of the two following:
 -->
 <!ELEMENT strategy (#PCDATA)>
 
+
+<!--
+If present relationship will be added to an on-find query and prefetched.
+-->
+<!ELEMENT deep-read-ahead EMPTY>
 
 <!--
 Specifies the number of entities that will be read in a single
@@ -182,7 +189,7 @@ The entity element contains the configuration of an entity
 -->
 <!ELEMENT entity (ejb-name, (datasource, datasource-mapping)?, create-table?,
          remove-table?, post-table-create?, read-only?, read-time-out?, 
-         row-locking?,pk-constraint?, read-ahead?, list-cache-max?, fetch-size?,
+         row-locking?, pk-constraint?, read-ahead?, list-cache-max?, fetch-size?,
          table-name?, cmp-field*, load-groups?, eager-load-group?, 
          lazy-load-groups?, query*, unknown-pk?, entity-command?,  
          optimistic-locking?, audit?)>
@@ -206,7 +213,7 @@ The cmp-field element contains the configuration of a cmp-field.
 -->
 <!ELEMENT cmp-field (field-name, read-only?, read-time-out?,
          column-name?, not-null?, ((jdbc-type, sql-type) | (property+))?,
-         auto-increment?, dbindex? )>
+         auto-increment?, dbindex?, check-dirty-after-get?, state-factory? )>
 
 
 <!--
@@ -265,6 +272,21 @@ cmp-field element this must match a flattened propety of the
 dependent-value-class field type.
 -->
 <!ELEMENT property-name (#PCDATA)>
+
+
+<!--
+Can be true or false.
+If true, the field will be checked for dirty state at synchronization time.
+By default, all fields except for the fields of primitive and their wrapper types
+are checked for dirty state after get.
+-->
+<!ELEMENT check-dirty-after-get (#PCDATA)>
+
+<!--
+Fully qualified class name of the implementation of
+ org.jboss.ejb.plugins.cmp.jdbc.CMPFieldStateFactory.
+-->
+<!ELEMENT state-factory (#PCDATA)>
 
 <!--
 Contains the named load groups.
@@ -464,7 +486,16 @@ The ejb-rejationship-role element contains the configuration of an
 ejb-relationship-role.
 -->
 <!ELEMENT ejb-relationship-role (ejb-relationship-role-name,
-         fk-constraint?, key-fields?, read-ahead?)>
+         fk-constraint?, key-fields?, read-ahead?, batch-cascade-delete?)>
+
+<!--
+The batch-cascade-delete element specifies that, this side of the relationship
+should be batch deleted with one SQL statement of the form
+DELETE FROM <related-table> WHERE <foreign-key> = ?
+The presense of cascade-delete element in ejb-jar.xml for the matching
+ejb-relationship-role is mandatory.
+-->
+<!ELEMENT batch-cascade-delete EMPTY>
 
 
 <!--
@@ -780,3 +811,32 @@ Updated by principal, default is audit_updated_by
 Updated time, default is audit_updated_time
 -->
 <!ELEMENT updated-time (field-name?, column-name?, (jdbc-type, sql-type)?)>
+
+<!--
+  Container for user-type-mapping elements
+-->
+<!ELEMENT user-type-mappings (user-type-mapping+)>
+
+<!--
+  Defines a mapping of a user type to a column providing a mapper class.
+  Mapper is like a mediator: when storing, it takes an instance of the user
+  type and translates it to a column value; when loading, it takes a column
+  value and translates it to an instance of the user type.
+-->
+<!ELEMENT user-type-mapping (java-type, mapped-type, mapper)>
+
+<!--
+  The type a java-type in user-type-mapping is mapped to.
+-->
+<!ELEMENT mapped-type (#PCDATA)>
+
+<!--
+  Mapper class for user-type-mapping.
+-->
+<!ELEMENT mapper (#PCDATA)>
+
+<!--
+  Provide reserved words that should be escaped when generating tables
+-->
+<!ELEMENT reserved-words (word+)>
+<!ELEMENT word (#PCDATA)>

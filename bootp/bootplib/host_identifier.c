@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -55,9 +52,15 @@
 #define BASE_16		16
 
 u_char *
-identifierToString(u_char type, void * identifier, int len)
+identifierToString(u_char type, const void * identifier, int len)
 {
-    u_char * 	buf;
+    return (identifierToStringWithBuffer(type, identifier, len, NULL, 0));
+}
+
+u_char *
+identifierToStringWithBuffer(u_char type, const void * identifier, int len,
+			     u_char * buf, int buf_len)
+{
     int 	i;
     u_char *	idstr = (u_char *)identifier;
     int 	max_encoded_len;
@@ -70,9 +73,12 @@ identifierToString(u_char type, void * identifier, int len)
      *    + terminating NULL = 3 * (len + 1) + 1
      */
     max_encoded_len = 3 * (len + 1) + 1;
-    buf = malloc(max_encoded_len);
-    if (buf == NULL)
+    if (buf == NULL || max_encoded_len > buf_len) {
+	buf = malloc(max_encoded_len);
+    }
+    if (buf == NULL) {
 	return buf;
+    }
     sprintf(buf, "%x%c", type, SEPARATOR);
     for (i = 0; i < len; i++) {
 	u_char tmp[4];
@@ -83,13 +89,13 @@ identifierToString(u_char type, void * identifier, int len)
 }
 
 void *
-identifierFromString(u_char * str, u_char * type, int * len)
+identifierFromString(const u_char * str, u_char * type, int * len)
 {
     int		buf_pos;
     u_char * 	buf = NULL;
     boolean_t	done = FALSE;
     int		max_decoded_len;
-    u_char *	scan;
+    const u_char * scan;
     int 	slen = strlen(str);
 
     *len = 0;
@@ -120,7 +126,7 @@ identifierFromString(u_char * str, u_char * type, int * len)
 	return (buf);
     for (buf_pos = 0; buf_pos < max_decoded_len && !done; buf_pos++) {
 	u_char		tmp[4];
-	u_char *	colon;
+	const u_char *	colon;
 
 	colon = strchr(scan, ':');
 	if (colon == NULL) {

@@ -2,15 +2,17 @@ TOMCAT=jakarta-tomcat-LE-jdk14
 TARGETDIR:=$(DSTROOT)/Library/JBoss/3.2
 LOGDIR:=$(DSTROOT)/Library/Logs/JBoss
 JBOSS_ROOT:=$(SYMROOT)/jboss-all
-JAVA_HOME:=/System/Library/Frameworks/JavaVM.framework/Versions/1.4.1/Home
+JAVA_HOME:=/Library/Java/Home
 
 install:
 	ditto $(SRCROOT) $(SYMROOT)
 	cd $(JBOSS_ROOT); /bin/sh ./build/build.sh
 	mkdir -p $(LOGDIR)
 	mkdir -p $(TARGETDIR)/deploy $(TARGETDIR)/services
-	ditto $(JBOSS_ROOT)/build/output/jboss-3.2.2RC2  $(TARGETDIR)
-	#snip
+	ditto $(JBOSS_ROOT)/build/output/jboss-3.2.3  $(TARGETDIR)
+	#snip	
+	cp $(TARGETDIR)/docs/examples/jmx/ejb-management.jar $(TARGETDIR)/services
+	cp $(TARGETDIR)/docs/examples/jmx/ejb-management.jar $(TARGETDIR)/server/all/deploy/management
 	#remove obsolete files in all configs
 	rm -rf $(TARGETDIR)/docs $(TARGETDIR)/bin/*.bat $(TARGETDIR)/bin/jboss_init_redhat.sh
 	cd $(TARGETDIR)/server; rm -rf minimal default
@@ -26,9 +28,9 @@ install:
 	cd $(TARGETDIR)/server/all/; ln -s /Library/Logs/JBoss "log"
 	cd $(TARGETDIR)/server; mv all deploy-cluster; ditto deploy-cluster deploy-standalone; ditto deploy-standalone develop
 	# develop config
-	cd $(TARGETDIR)/server/develop/deploy; rm -r cluster-service.xml deploy.last/farm-service.xml cache-invalidation-service.xml jbossha-httpsession.sar jboss-net.sar http-invoker.sar
+	cd $(TARGETDIR)/server/develop/deploy; rm -r cluster-service.xml deploy.last/farm-service.xml cache-invalidation-service.xml jbossha-httpsession.sar jboss-net.sar http-invoker.sar jms/jbossmq-hail.sar
 	# deploy-standalone
-	cd $(TARGETDIR)/server/deploy-standalone/deploy; rm -r cluster-service.xml jmx-console.war deploy.last/farm-service.xml cache-invalidation-service.xml jbossha-httpsession.sar jboss-net.sar http-invoker.sar management/{web-console.war,console-mgr.sar}
+	cd $(TARGETDIR)/server/deploy-standalone/deploy; rm -r cluster-service.xml jmx-console.war deploy.last/farm-service.xml cache-invalidation-service.xml jbossha-httpsession.sar jboss-net.sar http-invoker.sar management/{web-console.war,console-mgr.sar} jms/jbossmq-hail.sar
         #
         # deploy-cluster
 	cd $(TARGETDIR)/server/deploy-cluster/deploy; rm -r http-invoker.sar jmx-console.war jboss-net.sar management/{web-console.war,console-mgr.sar}

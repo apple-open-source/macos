@@ -1,6 +1,6 @@
 // ========================================================================
 // Copyright (c) 2002 Mort Bay Consulting (Australia) Pty. Ltd.
-// $Id: AbstractStore.java,v 1.1.2.2 2002/11/16 21:58:58 jules_gosnell Exp $
+// $Id: AbstractStore.java,v 1.1.2.4 2003/07/30 23:18:19 jules_gosnell Exp $
 // ========================================================================
 
 package org.mortbay.j2ee.session;
@@ -9,7 +9,8 @@ package org.mortbay.j2ee.session;
 
 import java.util.Timer;
 import java.util.TimerTask;
-import org.apache.log4j.Category;
+import javax.servlet.http.HttpServletRequest;
+import org.jboss.logging.Logger;
 
 //----------------------------------------
 
@@ -17,7 +18,7 @@ public abstract class
   AbstractStore
   implements Store
 {
-  protected final Category _log=Category.getInstance(getClass().getName());
+  protected final static Logger _log=Logger.getLogger(AbstractStore.class);
 
   // distributed scavenging
 
@@ -66,48 +67,49 @@ public abstract class
   public void setManager(Manager manager){_manager=manager;}
 
 
-  protected static Timer _scavenger;
-  protected static int   _scavengerCount=0;
+  protected Timer _scavenger;
 
   // Store LifeCycle
   public void
     start()
     throws Exception
     {
-      synchronized (getClass())
-      {
-	if (_scavengerCount++==0)
-	{
-	  boolean isDaemon=true;
-	  _scavenger=new Timer(isDaemon);
-	  long delay=_scavengerPeriod+Math.round(Math.random()*_scavengerPeriod);
-	  _log.debug("local scavenge delay is: "+delay+" seconds");
-	  _scavenger.scheduleAtFixedRate(new Scavenger(), delay*1000, _scavengerPeriod*1000);
-	  _log.debug("started local scavenger");
-	}
-      }
+      _log.trace("starting...");
+      boolean isDaemon=true;
+      _scavenger=new Timer(isDaemon);
+      long delay=_scavengerPeriod+Math.round(Math.random()*_scavengerPeriod);
+      if (_log.isDebugEnabled()) _log.debug("starting distributed scavenger thread...(period: "+delay+" secs)");
+      _scavenger.scheduleAtFixedRate(new Scavenger(), delay*1000, _scavengerPeriod*1000);
+      _log.debug("...distributed scavenger thread started");
+      _log.trace("...started");
     }
 
   public void
     stop()
     {
-      synchronized (getClass())
+      _log.trace("stopping...");
+      _log.debug("stopping distributed scavenger thread...");
+      _scavenger.cancel();
+      _scavenger=null;
+      _log.debug("...distributed scavenger thread stopped");
+
+      try
       {
-	if (--_scavengerCount==0)
-	{
-	  _scavenger.cancel();
-	  _scavenger=null;
-	  _log.debug("stopped local scavenger");
-	}
+	scavenge();
+      }
+      catch (Exception e)
+      {
+	_log.warn("error scavenging distributed sessions", e);
       }
 
-      new Scavenger().run();;
+      _log.trace("...stopped");
     }
 
   public void
     destroy()
     {
-      _guidGenerator=null;
+      _log.trace("destroying...");
+      _log.trace("...destroyed");
     }
 
   class Scavenger
@@ -129,12 +131,10 @@ public abstract class
 
   // ID allocation
 
-  protected GUIDGenerator _guidGenerator=new GUIDGenerator();
-
   public String
-    allocateId()
+    allocateId(HttpServletRequest request)
     {
-      return _guidGenerator.generateSessionId();
+      return getManager().getIdGenerator().nextId(request);
     }
 
   public void

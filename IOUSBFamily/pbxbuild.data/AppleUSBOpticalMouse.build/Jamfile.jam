@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = IOUSBFamily ;
-export deferred SRCROOT = /Volumes/Home/Latest/PantherUpdates/Bisque/IOUSBFamily ;
+export deferred SRCROOT = /Volumes/Home/Latest/PantherUpdates/Feldspar/IOUSBFamily ;
 
 # User-defined project-wide settings for project
 

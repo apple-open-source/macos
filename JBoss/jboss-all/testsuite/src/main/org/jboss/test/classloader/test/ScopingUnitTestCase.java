@@ -7,6 +7,8 @@
 package org.jboss.test.classloader.test;
 
 import java.net.URL;
+import java.io.InputStream;
+import java.io.IOException;
 import javax.management.ObjectName;
 import javax.naming.InitialContext;
 
@@ -18,7 +20,7 @@ import org.jboss.system.ServiceMBean;
 /** Unit tests for class and resource scoping
  *
  * @author Scott.Stark@jboss.org
- * @version $Revision: 1.1.2.2 $
+ * @version $Revision: 1.1.2.3 $
  */
 public class ScopingUnitTestCase extends JBossTestCase
 {
@@ -88,8 +90,14 @@ public class ScopingUnitTestCase extends JBossTestCase
       {
          deploy("log4j113.war");
          URL log4jServletURL = new URL("http://localhost:8080/log4j113/Log4jServlet/");
-         Object reply = log4jServletURL.getContent();
+         InputStream reply = (InputStream) log4jServletURL.getContent();
          getLog().debug("Accessed http://localhost:8080/log4j113/Log4jServlet/");
+         logReply(reply);
+
+         URL encServletURL = new URL("http://localhost:8080/log4j113/ENCServlet/");
+         reply = (InputStream) encServletURL.getContent();
+         getLog().debug("Accessed http://localhost:8080/log4j113/ENCServlet/");
+         logReply(reply);
       }
       catch(Exception e)
       {
@@ -126,5 +134,15 @@ public class ScopingUnitTestCase extends JBossTestCase
       {
          undeploy("log4j113-ejb.jar");
       }
+   }
+
+   private void logReply(InputStream reply) throws IOException
+   {
+      getLog().debug("Begin reply");
+      byte[] tmp = new byte[256];
+      while( reply.read(tmp) > 0 )
+         getLog().debug(new String(tmp));
+      reply.close();
+      getLog().debug("End reply");
    }
 }

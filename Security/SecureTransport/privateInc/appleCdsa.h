@@ -95,8 +95,7 @@ extern OSStatus sslVerifyCertChain(
  */
 OSStatus sslRawSign(
 	SSLContext			*ctx,
-	const CSSM_KEY		*privKey,
-	CSSM_CSP_HANDLE		cspHand,
+	SecKeyRef			privKeyRef,		
 	const UInt8			*plainText,
 	UInt32				plainTextLen,
 	UInt8				*sig,			// mallocd by caller; RETURNED
@@ -126,8 +125,7 @@ OSStatus sslRsaEncrypt(
 	UInt32				*actualBytes);		// RETURNED
 OSStatus sslRsaDecrypt(
 	SSLContext			*ctx,
-	const CSSM_KEY		*privKey,
-	CSSM_CSP_HANDLE		cspHand,
+	SecKeyRef			privKeyRef,	
 	const UInt8			*cipherText,
 	UInt32				cipherTextLen,		
 	UInt8				*plainText,			// mallocd by caller; RETURNED

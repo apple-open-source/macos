@@ -19,8 +19,8 @@
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 #ifndef lint
-static const char rcsid[] =
-    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-ether.c,v 1.1.1.3 2003/03/17 18:42:16 rbraun Exp $ (LBL)";
+static const char rcsid[] _U_ =
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-ether.c,v 1.1.1.4 2004/02/05 19:30:53 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -40,23 +40,58 @@ static const char rcsid[] =
 
 const u_char *snapend;
 
+const struct tok ethertype_values[] = { 
+    { ETHERTYPE_IP,		"IPv4" },
+    { ETHERTYPE_MPLS,		"MPLS unicast" },
+    { ETHERTYPE_MPLS_MULTI,	"MPLS multicast" },
+    { ETHERTYPE_IPV6,		"IPv6" },
+    { ETHERTYPE_8021Q,		"802.1Q" },
+    { ETHERTYPE_VMAN,		"VMAN" },
+    { ETHERTYPE_PUP,            "PUP" },
+    { ETHERTYPE_ARP,            "ARP"},
+    { ETHERTYPE_REVARP ,        "Reverse ARP"},
+    { ETHERTYPE_NS,             "NS" },
+    { ETHERTYPE_SPRITE,         "Sprite" },
+    { ETHERTYPE_TRAIL,          "Trail" },
+    { ETHERTYPE_MOPDL,          "MOP DL" },
+    { ETHERTYPE_MOPRC,          "MOP RC" },
+    { ETHERTYPE_DN,             "DN" },
+    { ETHERTYPE_LAT,            "LAT" },
+    { ETHERTYPE_SCA,            "SCA" },
+    { ETHERTYPE_LANBRIDGE,      "Lanbridge" },
+    { ETHERTYPE_DECDNS,         "DEC DNS" },
+    { ETHERTYPE_DECDTS,         "DEC DTS" },
+    { ETHERTYPE_VEXP,           "VEXP" },
+    { ETHERTYPE_VPROD,          "VPROD" },
+    { ETHERTYPE_ATALK,          "Appletalk" },
+    { ETHERTYPE_AARP,           "Appletalk ARP" },
+    { ETHERTYPE_IPX,            "IPX" },
+    { ETHERTYPE_PPP,            "PPP" },
+    { ETHERTYPE_PPPOED,         "PPPoE D" },
+    { ETHERTYPE_PPPOES,         "PPPoE S" },
+    { ETHERTYPE_LOOPBACK,       "Loopback" },
+    { 0, NULL}
+};
+
 static inline void
 ether_hdr_print(register const u_char *bp, u_int length)
 {
 	register const struct ether_header *ep;
-
 	ep = (const struct ether_header *)bp;
-	if (qflag)
-		(void)printf("%s %s %d: ",
-			     etheraddr_string(ESRC(ep)),
-			     etheraddr_string(EDST(ep)),
-			     length);
-	else
-		(void)printf("%s %s %s %d: ",
-			     etheraddr_string(ESRC(ep)),
-			     etheraddr_string(EDST(ep)),
-			     etherproto_string(ep->ether_type),
-			     length);
+
+	(void)printf("%s > %s",
+		     etheraddr_string(ESRC(ep)),
+		     etheraddr_string(EDST(ep)));
+
+	if (!qflag) {
+	        if (ntohs(ep->ether_type) <= ETHERMTU)
+		          (void)printf(", 802.3");
+                else 
+		          (void)printf(", ethertype %s",
+				       tok2str(ethertype_values,"0x%04x", ntohs(ep->ether_type)));	      
+        }
+
+	(void)printf(", length %u: ", length);
 }
 
 void
@@ -64,7 +99,7 @@ ether_print(const u_char *p, u_int length, u_int caplen)
 {
 	struct ether_header *ep;
 	u_short ether_type;
-	u_short extracted_ethertype;
+	u_short extracted_ether_type;
 
 	if (caplen < ETHER_HDRLEN) {
 		printf("[|ether]");
@@ -84,26 +119,24 @@ ether_print(const u_char *p, u_int length, u_int caplen)
 	/*
 	 * Is it (gag) an 802.3 encapsulation?
 	 */
-	extracted_ethertype = 0;
+	extracted_ether_type = 0;
 	if (ether_type <= ETHERMTU) {
 		/* Try to print the LLC-layer header & higher layers */
 		if (llc_print(p, length, caplen, ESRC(ep), EDST(ep),
-		    &extracted_ethertype) == 0) {
+		    &extracted_ether_type) == 0) {
 			/* ether_type not known, print raw packet */
 			if (!eflag)
 				ether_hdr_print((u_char *)ep, length + ETHER_HDRLEN);
-			if (extracted_ethertype) {
-				printf("(LLC %s) ",
-			       etherproto_string(htons(extracted_ethertype)));
-			}
+
 			if (!xflag && !qflag)
 				default_print(p, caplen);
 		}
 	} else if (ether_encap_print(ether_type, p, length, caplen,
-	    &extracted_ethertype) == 0) {
+	    &extracted_ether_type) == 0) {
 		/* ether_type not known, print raw packet */
 		if (!eflag)
 			ether_hdr_print((u_char *)ep, length + ETHER_HDRLEN);
+
 		if (!xflag && !qflag)
 			default_print(p, caplen);
 	}
@@ -136,13 +169,13 @@ ether_if_print(const struct pcap_pkthdr *h, const u_char *p)
  */
 
 int
-ether_encap_print(u_short ethertype, const u_char *p,
-    u_int length, u_int caplen, u_short *extracted_ethertype)
+ether_encap_print(u_short ether_type, const u_char *p,
+    u_int length, u_int caplen, u_short *extracted_ether_type)
 {
  recurse:
-	*extracted_ethertype = ethertype;
+	*extracted_ether_type = ether_type;
 
-	switch (ethertype) {
+	switch (ether_type) {
 
 	case ETHERTYPE_IP:
 		ip_print(p, length);
@@ -179,31 +212,34 @@ ether_encap_print(u_short ethertype, const u_char *p,
 		return (1);
 
 	case ETHERTYPE_8021Q:
-		printf("802.1Q vlan#%d P%d%s ",
-		       ntohs(*(u_int16_t *)p) & 0xfff,
-		       ntohs(*(u_int16_t *)p) >> 13,
-		       (ntohs(*(u_int16_t *)p) & 0x1000) ? " CFI" : "");
-		ethertype = ntohs(*(u_int16_t *)(p + 2));
+	        if (eflag)
+		    printf("vlan %u, p %u%s, ",
+			   ntohs(*(u_int16_t *)p) & 0xfff,
+			   ntohs(*(u_int16_t *)p) >> 13,
+			   (ntohs(*(u_int16_t *)p) & 0x1000) ? ", CFI" : "");
+
+		ether_type = ntohs(*(u_int16_t *)(p + 2));
 		p += 4;
 		length -= 4;
 		caplen -= 4;
-		if (ethertype > ETHERMTU)
-			goto recurse;
 
-		*extracted_ethertype = 0;
+		if (ether_type > ETHERMTU) {
+		        if (eflag)
+			        printf("ethertype %s, ",
+				       tok2str(ethertype_values,"0x%04x", ether_type));
+			goto recurse;
+		}
+
+		*extracted_ether_type = 0;
 
 		if (llc_print(p, length, caplen, p - 18, p - 12,
-		    extracted_ethertype) == 0) {
-			/* ether_type not known, print raw packet */
-			if (!eflag)
+		    extracted_ether_type) == 0) {
 				ether_hdr_print(p - 18, length + 4);
-			if (*extracted_ethertype) {
-				printf("(LLC %s) ",
-			       etherproto_string(htons(*extracted_ethertype)));
-			}
-			if (!xflag && !qflag)
-				default_print(p - 18, caplen + 4);
 		}
+
+		if (!xflag && !qflag)
+		        default_print(p - 18, caplen + 4);
+
 		return (1);
 
 	case ETHERTYPE_PPPOED:
@@ -212,7 +248,6 @@ ether_encap_print(u_short ethertype, const u_char *p,
 		return (1);
 
 	case ETHERTYPE_PPP:
-		printf("ppp");
 		if (length) {
 			printf(": ");
 			ppp_print(p, length);
@@ -220,7 +255,6 @@ ether_encap_print(u_short ethertype, const u_char *p,
 		return (1);
 
         case ETHERTYPE_LOOPBACK:
-                printf("loopback");
                 return (1);
 
 	case ETHERTYPE_MPLS:

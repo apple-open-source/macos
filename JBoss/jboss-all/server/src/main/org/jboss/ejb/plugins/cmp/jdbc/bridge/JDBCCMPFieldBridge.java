@@ -12,11 +12,10 @@ import java.lang.reflect.Field;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 
-import org.jboss.ejb.EntityEnterpriseContext;
 import org.jboss.ejb.plugins.cmp.bridge.CMPFieldBridge;
 import org.jboss.ejb.plugins.cmp.jdbc.JDBCStoreManager;
-import org.jboss.ejb.plugins.cmp.jdbc.JDBCType;
-import org.jboss.ejb.plugins.cmp.jdbc.metadata.JDBCCMPFieldMetaData;
+import org.jboss.ejb.plugins.cmp.jdbc.LockingStrategy;
+import org.jboss.ejb.EntityEnterpriseContext;
 
 /**
  * JDBCCMPFieldBridge represents one CMP field. This implementations of 
@@ -33,15 +32,41 @@ import org.jboss.ejb.plugins.cmp.jdbc.metadata.JDBCCMPFieldMetaData;
  * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
  * @author <a href="mailto:loubyansky@hotmail.com">Alex Loubyansky</a>
  *
- * @version $Revision: 1.11.4.1 $
+ * @version $Revision: 1.11.4.7 $
  */
-public interface JDBCCMPFieldBridge extends JDBCFieldBridge, CMPFieldBridge {
+public interface JDBCCMPFieldBridge extends JDBCFieldBridge, CMPFieldBridge
+{
+   /**
+    * The index of the field among the table fields.
+    */
+   int getTableIndex();
 
    /**
-    * Gets the java class type of the field.
-    * @return the java class type of this field
+    * Returns the default field flags.
     */
-   public Class getFieldType();
+   byte getDefaultFlags();
+
+   /**
+    * TODO: Get rid of it
+    * @param flag
+    */
+   void addDefaultFlag(byte flag);
+
+   /**
+    * @param ctx  instance's context
+    * @return  field value that was locked.
+    */
+   Object getLockedValue(EntityEnterpriseContext ctx);
+
+   /**
+    * Optimistically locks field value.
+    */
+   public void lockInstanceValue(EntityEnterpriseContext ctx);
+
+   /**
+    * @param lockingStrategy locking strategy assigned to the field
+    */
+   void setLockingStrategy(LockingStrategy lockingStrategy);
 
    /**
     * Gets the field of the primary key object in which the value of this 
@@ -64,10 +89,10 @@ public interface JDBCCMPFieldBridge extends JDBCFieldBridge, CMPFieldBridge {
          throws IllegalArgumentException;
 
    /**
-    * Unknown primary key flag
+    * @return true if the field belongs to a relation table
     */
-   public boolean isUnknownPk();
-   
+   boolean isRelationTableField();
+
    /**
     * Sets the value of this field to the specified value in the 
     * specified primaryKey object.

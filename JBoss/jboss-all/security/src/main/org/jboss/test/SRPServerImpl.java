@@ -12,7 +12,6 @@ import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 
-import org.jboss.security.Util;
 import org.jboss.security.srp.SerialObjectStore;
 import org.jboss.security.srp.SRPRemoteServer;
 
@@ -21,7 +20,7 @@ exports it on the standard RMI register 1099 port. It creates a
 SerialObjectStore as the SRPVerifierStore for the SRPRemoteServer.
 
 @author Scott.Stark@jboss.org
-@version $Revision: 1.2 $
+@version $Revision: 1.2.4.1 $
 */
 public class SRPServerImpl
 {

@@ -655,7 +655,7 @@ done:
 	prs_mem_free(&rbuf);
 	
 	return result;
-};
+}
 
 /* Enumerate domain groups */
 
@@ -864,6 +864,12 @@ NTSTATUS cli_samr_query_aliasmem(struct cli_state *cli, TALLOC_CTX *mem_ctx,
 	}
 
 	*num_mem = r.num_sids;
+
+	if (*num_mem == 0) {
+		*sids = NULL;
+		result = NT_STATUS_OK;
+		goto done;
+	}
 
 	if (!(*sids = talloc(mem_ctx, sizeof(DOM_SID) * *num_mem))) {
 		result = NT_STATUS_UNSUCCESSFUL;
@@ -1335,7 +1341,7 @@ NTSTATUS cli_samr_create_dom_user(struct cli_state *cli, TALLOC_CTX *mem_ctx,
 
 NTSTATUS cli_samr_set_userinfo(struct cli_state *cli, TALLOC_CTX *mem_ctx, 
                                POLICY_HND *user_pol, uint16 switch_value,
-                               uchar sess_key[16], SAM_USERINFO_CTR *ctr)
+                               DATA_BLOB *sess_key, SAM_USERINFO_CTR *ctr)
 {
 	prs_struct qbuf, rbuf;
 	SAMR_Q_SET_USERINFO q;
@@ -1346,6 +1352,11 @@ NTSTATUS cli_samr_set_userinfo(struct cli_state *cli, TALLOC_CTX *mem_ctx,
 
 	ZERO_STRUCT(q);
 	ZERO_STRUCT(r);
+
+	if (!sess_key->length) {
+		DEBUG(1, ("No user session key\n"));
+		return NT_STATUS_NO_USER_SESSION_KEY;
+	}
 
 	/* Initialise parse structures */
 
@@ -1387,7 +1398,7 @@ NTSTATUS cli_samr_set_userinfo(struct cli_state *cli, TALLOC_CTX *mem_ctx,
 
 NTSTATUS cli_samr_set_userinfo2(struct cli_state *cli, TALLOC_CTX *mem_ctx, 
                                 POLICY_HND *user_pol, uint16 switch_value,
-                                uchar sess_key[16], SAM_USERINFO_CTR *ctr)
+                                DATA_BLOB *sess_key, SAM_USERINFO_CTR *ctr)
 {
 	prs_struct qbuf, rbuf;
 	SAMR_Q_SET_USERINFO2 q;
@@ -1395,6 +1406,11 @@ NTSTATUS cli_samr_set_userinfo2(struct cli_state *cli, TALLOC_CTX *mem_ctx,
 	NTSTATUS result = NT_STATUS_UNSUCCESSFUL;
 
 	DEBUG(10,("cli_samr_set_userinfo2\n"));
+
+	if (!sess_key->length) {
+		DEBUG(1, ("No user session key\n"));
+		return NT_STATUS_NO_USER_SESSION_KEY;
+	}
 
 	ZERO_STRUCT(q);
 	ZERO_STRUCT(r);

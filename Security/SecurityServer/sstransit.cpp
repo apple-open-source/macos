@@ -338,8 +338,9 @@ void ClientSession::generateSignature(const Context &context, KeyHandle key,
 {
 	SendContext ctx(context);
 	DataOutput sig(signature, alloc);
-	IPC(ucsp_client_generateSignature(UCSP_ARGS, CONTEXT(ctx), key, signOnlyAlgorithm,
-		DATA(data), DATA(sig)));
+	IPCKEY(ucsp_client_generateSignature(UCSP_ARGS, CONTEXT(ctx), key, signOnlyAlgorithm,
+		DATA(data), DATA(sig)),
+		key, CSSM_ACL_AUTHORIZATION_SIGN);
 }
 
 void ClientSession::verifySignature(const Context &context, KeyHandle key,
@@ -356,16 +357,18 @@ void ClientSession::generateMac(const Context &context, KeyHandle key,
 {
 	SendContext ctx(context);
 	DataOutput sig(signature, alloc);
-	IPC(ucsp_client_generateMac(UCSP_ARGS, CONTEXT(ctx), key,
-		DATA(data), DATA(sig)));
+	IPCKEY(ucsp_client_generateMac(UCSP_ARGS, CONTEXT(ctx), key,
+		DATA(data), DATA(sig)),
+		key, CSSM_ACL_AUTHORIZATION_MAC);
 }
 
 void ClientSession::verifyMac(const Context &context, KeyHandle key,
 	const CssmData &data, const CssmData &signature)
 {
 	SendContext ctx(context);
-	IPC(ucsp_client_verifyMac(UCSP_ARGS, CONTEXT(ctx), key,
-		DATA(data), DATA(signature)));
+	IPCKEY(ucsp_client_verifyMac(UCSP_ARGS, CONTEXT(ctx), key,
+		DATA(data), DATA(signature)),
+		key, CSSM_ACL_AUTHORIZATION_MAC);
 }
 
 
@@ -378,7 +381,8 @@ void ClientSession::encrypt(const Context &context, KeyHandle key,
 {
 	SendContext ctx(context);
 	DataOutput cipherOut(cipher, alloc);
-	IPC(ucsp_client_encrypt(UCSP_ARGS, CONTEXT(ctx), key, DATA(clear), DATA(cipherOut)));
+	IPCKEY(ucsp_client_encrypt(UCSP_ARGS, CONTEXT(ctx), key, DATA(clear), DATA(cipherOut)),
+		key, CSSM_ACL_AUTHORIZATION_ENCRYPT);
 }
 
 void ClientSession::decrypt(const Context &context, KeyHandle key,
@@ -388,7 +392,8 @@ void ClientSession::decrypt(const Context &context, KeyHandle key,
     
 	SendContext ctx(context);
 	DataOutput clearOut(clear, alloc);
-	IPC(ucsp_client_decrypt(UCSP_ARGS, CONTEXT(ctx), key, DATA(cipher), DATA(clearOut)));
+	IPCKEY(ucsp_client_decrypt(UCSP_ARGS, CONTEXT(ctx), key, DATA(cipher), DATA(clearOut)),
+		key, CSSM_ACL_AUTHORIZATION_DECRYPT);
 }
 
 
@@ -447,16 +452,18 @@ void ClientSession::deriveKey(DbHandle db, const Context &context, KeyHandle bas
         typedef CSSM_PKCS5_PBKDF2_PARAMS Params;
         Copier<Params> params(param.interpretedAs<Params>(CSSM_ERRCODE_INVALID_INPUT_POINTER),
 			internalAllocator);
-        IPC(ucsp_client_deriveKey(UCSP_ARGS, db, CONTEXT(ctx), baseKey,
+        IPCKEY(ucsp_client_deriveKey(UCSP_ARGS, db, CONTEXT(ctx), baseKey,
             COPY(creds), COPY(proto), COPY(params), DATA(paramOutput),
-            keyUsage, keyAttr, &newKey, &newHeader));
+            keyUsage, keyAttr, &newKey, &newHeader),
+			baseKey, CSSM_ACL_AUTHORIZATION_DERIVE);
         break; }
     default: {
-        IPC(ucsp_client_deriveKey(UCSP_ARGS, db, CONTEXT(ctx), baseKey,
+        IPCKEY(ucsp_client_deriveKey(UCSP_ARGS, db, CONTEXT(ctx), baseKey,
             COPY(creds), COPY(proto),
             param.data(), param.length(), param.data(),
             DATA(paramOutput),
-            keyUsage, keyAttr, &newKey, &newHeader));
+            keyUsage, keyAttr, &newKey, &newHeader),
+			baseKey, CSSM_ACL_AUTHORIZATION_DERIVE);
         break; }
     }
 }
@@ -482,9 +489,13 @@ void ClientSession::wrapKey(const Context &context, KeyHandle wrappingKey,
 	SendContext ctx(context);
 	Copier<AccessCredentials> creds(cred, internalAllocator);
 	DataOutput keyData(wrappedKey, alloc);
-	IPC(ucsp_client_wrapKey(UCSP_ARGS, CONTEXT(ctx), wrappingKey, COPY(creds),
+	/* @@@ When <rdar://problem/3525664>: CSSM_WrapKey doesn't check the acl of the key doing the wrapping. is fixed, we need to potentially edit the CSSM_ACL_AUTHORIZATION_ENCRYPT acl of the wrapping key as opposed to the key being wrapped.  We need to know which of the 2 keys to edit though somehow. */
+	IPCKEY(ucsp_client_wrapKey(UCSP_ARGS, CONTEXT(ctx), wrappingKey, COPY(creds),
 		keyToBeWrapped, OPTIONALDATA(descriptiveData),
-		&wrappedKey, DATA(keyData)));
+		&wrappedKey, DATA(keyData)),
+		keyToBeWrapped,
+		context.algorithm() == CSSM_ALGID_NONE
+			? CSSM_ACL_AUTHORIZATION_EXPORT_CLEAR : CSSM_ACL_AUTHORIZATION_EXPORT_WRAPPED);
 	wrappedKey = CssmData();	// null out data section (force allocation for key data)
 }
 
@@ -499,10 +510,11 @@ void ClientSession::unwrapKey(DbHandle db, const Context &context, KeyHandle key
 	DataOutput descriptor(descriptiveData, alloc);
 	Copier<AccessCredentials> creds(cred, internalAllocator);
 	Copier<AclEntryPrototype> proto(&acl->proto(), internalAllocator);
-	IPC(ucsp_client_unwrapKey(UCSP_ARGS, db, CONTEXT(ctx), key,
+	IPCKEY(ucsp_client_unwrapKey(UCSP_ARGS, db, CONTEXT(ctx), key,
 		COPY(creds), COPY(proto),
 		publicKey, wrappedKey, DATA(wrappedKey), usage, attr, DATA(descriptor),
-        &newKey, &newHeader));
+        &newKey, &newHeader),
+		key, CSSM_ACL_AUTHORIZATION_DECRYPT);
 }
 
 
@@ -541,8 +553,9 @@ void ClientSession::changeAcl(AclKind kind, KeyHandle key, const AccessCredentia
 	Copier<AccessCredentials> creds(&cred, internalAllocator);
 	//@@@ ignoring callback
 	Copier<AclEntryInput> newEntry(edit.newEntry(), internalAllocator);
-	IPC(ucsp_client_changeAcl(UCSP_ARGS, kind, key, COPY(creds),
-		edit.mode(), edit.handle(), COPY(newEntry)));
+	IPCKEY(ucsp_client_changeAcl(UCSP_ARGS, kind, key, COPY(creds),
+		edit.mode(), edit.handle(), COPY(newEntry)),
+		key, CSSM_ACL_AUTHORIZATION_CHANGE_ACL);
 }
 
 void ClientSession::getOwner(AclKind kind, KeyHandle key, AclOwnerPrototype &owner,
@@ -562,7 +575,8 @@ void ClientSession::changeOwner(AclKind kind, KeyHandle key,
 {
 	Copier<AccessCredentials> creds(&cred, internalAllocator);
 	Copier<AclOwnerPrototype> protos(&proto, internalAllocator);
-	IPC(ucsp_client_setOwner(UCSP_ARGS, kind, key, COPY(creds), COPY(protos)));
+	IPCKEY(ucsp_client_setOwner(UCSP_ARGS, kind, key, COPY(creds), COPY(protos)),
+		key, CSSM_ACL_AUTHORIZATION_CHANGE_OWNER);
 }
 
 

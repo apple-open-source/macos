@@ -13,7 +13,7 @@ Install_Prefix = /usr
 Install_Man = /usr/share/man
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 Extra_Configure_Flags = --enable-ipv6
-Extra_CC_Flags = -I. -dynamic -fno-common -DHAVE_CONFIG_H
+Extra_CC_Flags = -I. -dynamic -fno-common -DHAVE_CONFIG_H -D_U_=\"\"
 
 lazy_install_source:: shadow_source
 	@echo "*This needs to be installed from a case sensitive filesystem*"

@@ -1,16 +1,16 @@
 /*
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
+ *
+ * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -18,7 +18,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -28,7 +28,7 @@
 
 @implementation DecodeConfigurationDescriptor
 
-+ (void)decodeBytes:(IOUSBConfigurationDescriptor *)cfg forDevice:(BusProbeDevice *)thisDevice deviceInterface:(IOUSBDeviceInterface **)deviceIntf configNumber:(int)iconfig isOtherSpeedDesc:(BOOL)isOtherSpeedDesc {
++ (void)decodeBytes:(IOUSBConfigurationDescHeader *)cfgHeader forDevice:(BusProbeDevice *)thisDevice deviceInterface:(IOUSBDeviceInterface **)deviceIntf configNumber:(int)iconfig isOtherSpeedDesc:(BOOL)isOtherSpeedDesc {
     /*	struct IOUSBConfigurationDescriptor {
     UInt8 			bLength;
     UInt8 			bDescriptorType;
@@ -40,10 +40,42 @@
     UInt8 			MaxPower;
     }; */
     
-    Byte                *configBuf;
-    Byte                *p, *pend;
-    char                *cstr1;
-    char                str[500];
+    IOUSBConfigurationDescriptor *   cfg;
+    Byte                            *configBuf;
+    Byte                            *p, *pend;
+    char                            *cstr1;
+    char                            str[500];
+    int                             descriptorLength;
+    UInt8                           descType = isOtherSpeedDesc ? kUSBOtherSpeedConfDesc : kUSBConfDesc;
+    
+    if ( cfgHeader->wTotalLength == 0 )
+    {
+        // The device did not respond to a request for the first x bytes of the Configuration Descriptor  (We
+        // encoded the value in the bDescriptorType field.
+        // This description will be shown in the UI
+        //
+        sprintf(str, "Device did not respond to request for first %u bytes of descriptor", cfgHeader->bDescriptorType);
+        [thisDevice addProperty:"Configuration Descriptor" withValue:str atDepth:CONFIGURATION_DESCRIPTOR_LEVEL-1];
+        return;
+    }
+    // We only have the Configuration Descriptor Header.  We need to get the full descriptor first:
+    //
+    Swap16(&cfgHeader->wTotalLength);
+    configBuf = malloc(cfgHeader->wTotalLength*sizeof(Byte));
+    
+    descriptorLength = GetDescriptor(deviceIntf, descType, iconfig, configBuf, cfgHeader->wTotalLength);
+    if ( descriptorLength < 0 )
+        return;
+    
+    // Save a copy of a full Configuration Buffer
+    //
+    p = configBuf;
+
+    //  Display the standard fields of the config descriptor
+    //
+    cfg = (IOUSBConfigurationDescriptor *)configBuf;
+    Swap16(&cfg->wTotalLength);
+    
     
     cstr1 = GetStringFromIndex((UInt8)cfg->iConfiguration, deviceIntf);
     
@@ -61,8 +93,6 @@
     }
     
     FreeString(cstr1);
-    
-    Swap16(&cfg->wTotalLength);
     
     [thisDevice addNumberProperty:"Total Length of Descriptor:" value: cfg->wTotalLength size:sizeof(cfg->wTotalLength) atDepth:CONFIGURATION_DESCRIPTOR_LEVEL usingStyle:kIntegerOutputStyle];
     [thisDevice addNumberProperty:"Number of Interfaces:" value: cfg->bNumInterfaces size:sizeof(cfg->bNumInterfaces) atDepth:CONFIGURATION_DESCRIPTOR_LEVEL usingStyle:kIntegerOutputStyle];
@@ -87,10 +117,6 @@
     FreeString(cstr1);
     
     
-    configBuf = malloc(cfg->wTotalLength*sizeof(Byte));
-    if ( GetDescriptor(deviceIntf, kUSBConfDesc, iconfig, configBuf, cfg->wTotalLength) < 0 )
-        return;
-    p = configBuf;
     pend = p + cfg->wTotalLength;
     p += cfg->bLength;
     
@@ -110,7 +136,7 @@
             [thisDevice setCurrentInterfaceNumber:(int)((IOUSBInterfaceDescriptor *)p)->bInterfaceNumber];
         }
         
-        [DescriptorDecoder decodeBytes:p forDevice:thisDevice deviceInterface:deviceIntf userInfo:NULL];
+        [DescriptorDecoder decodeBytes:p forDevice:thisDevice deviceInterface:deviceIntf userInfo:NULL isOtherSpeedDesc:isOtherSpeedDesc];
         
         p += descLen;
     }

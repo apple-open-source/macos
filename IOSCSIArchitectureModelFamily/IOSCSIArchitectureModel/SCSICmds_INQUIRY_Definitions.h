@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -208,6 +206,23 @@ enum
 	kINQUIRY_Byte3_NORMACA_Mask				= (1 << kINQUIRY_Byte3_NORMACA_Bit),
 	// Bit 6 is Obsolete
 	kINQUIRY_Byte3_AERC_Mask				= (1 << kINQUIRY_Byte3_AERC_Bit)
+};
+
+
+#if 0
+#pragma mark -
+#pragma mark ¥ INQUIRY Byte 5 Definitions
+#pragma mark -
+#endif
+
+enum
+{
+	// Bit definitions
+	// Bits 0-6: Reserved
+	kINQUIRY_Byte5_SCCS_Bit					= 7,
+	
+	// Masks
+	kINQUIRY_Byte5_SCCS_Mask				= (1 << kINQUIRY_Byte5_SCCS_Bit)
 };
 
 

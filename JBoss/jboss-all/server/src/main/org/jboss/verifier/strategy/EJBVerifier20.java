@@ -18,7 +18,7 @@ package org.jboss.verifier.strategy;
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * This package and its source code is available at www.jboss.org
- * $Id: EJBVerifier20.java,v 1.24.2.7 2003/06/01 22:07:21 starksm Exp $
+ * $Id: EJBVerifier20.java,v 1.24.2.9 2003/10/24 13:00:13 loubyansky Exp $
  */
 
 
@@ -47,7 +47,7 @@ import org.jboss.verifier.factory.DefaultEventFactory;
  * @author Jay Walters     (jwalters@computer.org)
  * @author <a href="mailto:criege@riege.com">Christian Riege</a>
  *
- * @version $Revision: 1.24.2.7 $
+ * @version $Revision: 1.24.2.9 $
  * @since   JDK 1.3
  */
 public class EJBVerifier20
@@ -236,7 +236,7 @@ public class EJBVerifier20
       catch( ClassNotFoundException cnfe )
       {
          fireSpecViolationEvent( theBean, new Section("22.2.b",
-            "Class not found: " + beanName) );
+            "Class not found on '" + beanName + "': " + cnfe.getMessage()) );
          return false;
       }
    }
@@ -264,7 +264,7 @@ public class EJBVerifier20
       catch( ClassNotFoundException cnfe )
       {
          fireSpecViolationEvent( bean, new Section("22.2.c",
-            "Class not found: " + homeName) );
+            "Class not found on '" + homeName + "': " + cnfe.getMessage()) );
          status = false;
       }
 
@@ -276,7 +276,7 @@ public class EJBVerifier20
       catch( ClassNotFoundException cnfe )
       {
          fireSpecViolationEvent( bean, new Section("22.2.d",
-            "Class not found: " + remoteName) );
+            "Class not found on '" + remoteName + "': " + cnfe.getMessage()) );
          status = false;
       }
 
@@ -306,7 +306,8 @@ public class EJBVerifier20
       catch( ClassNotFoundException cnfe )
       {
          fireSpecViolationEvent( bean, new Section("22.2.e",
-            "Class not found: " + localHomeName) );
+            "Class not found on '" + localHomeName + "': " +
+            cnfe.getMessage()) );
          status = false;
       }
 
@@ -317,7 +318,7 @@ public class EJBVerifier20
       catch( ClassNotFoundException cnfe )
       {
          fireSpecViolationEvent( bean, new Section("22.2.f",
-            "Class not found: " + localName) );
+            "Class not found on '" + localName + "': " + cnfe.getMessage()) );
          status = false;
       }
 
@@ -1293,8 +1294,8 @@ public class EJBVerifier20
             //
             // The return type for a find<METHOD> method MUST be the
             // entity bean's remote interface type (single-object
-            // finder) or a collection thereof (for a multi-object
-            // finder).
+            // finder) or a collection (java.util.Collection Spec 10.5.6.2)
+            // thereof (for a multi-object finder).
             //
             // All the exceptions defined in the throws clause of an
             // ejbFind method of the entity bean class MUST be included
@@ -1521,7 +1522,8 @@ public class EJBVerifier20
             //
             // The return type for a find<METHOD> method MUST be the
             // entity bean's local interface type (single-object finder)
-            // or a collection thereof (for a multi-object finder).
+            // or a collection (java.util.Collection Spec 10.5.6.2)
+            // thereof (for a multi-object finder).
             //
             // All the exceptions defined in the throws clause of an
             // ejbFind method of the entity bean class MUST be included

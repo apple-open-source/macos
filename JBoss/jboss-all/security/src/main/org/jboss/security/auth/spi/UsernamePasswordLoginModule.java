@@ -36,7 +36,7 @@ import org.jboss.security.auth.spi.AbstractServerLoginModule;
  * @see #getRoleSets()
  
  @author Scott.Stark@jboss.org
- @version $Revision: 1.11.4.2 $
+ @version $Revision: 1.11.4.3 $
  */
 public abstract class UsernamePasswordLoginModule extends AbstractServerLoginModule
 {
@@ -55,14 +55,25 @@ public abstract class UsernamePasswordLoginModule extends AbstractServerLoginMod
    private String hashCharset = null;
    /** the string encoding format to use. Defaults to base64. */
    private String hashEncoding = null;
+   /** A flag indicating if the password comparison should ignore case */
+   private boolean ignorePasswordCase;
 
    /** Override the superclass method to look for a unauthenticatedIdentity
     property. This method first invokes the super version.
     @param options,
     @option unauthenticatedIdentity: the name of the principal to asssign
     and authenticate when a null username and password are seen.
+    @option hashAlgorithm: the message digest algorithm used to hash passwords.
+    If null then plain passwords will be used.
+    @option hashCharset: the name of the charset/encoding to use when converting
+    the password String to a byte array. Default is the platform's default
+    encoding.
+    @option hashEncoding: the string encoding format to use. Defaults to base64.
+    @option ignorePasswordCase: A flag indicating if the password comparison
+    should ignore case
     */
-   public void initialize(Subject subject, CallbackHandler callbackHandler, Map sharedState, Map options)
+   public void initialize(Subject subject, CallbackHandler callbackHandler,
+      Map sharedState, Map options)
    {
       super.initialize(subject, callbackHandler, sharedState, options);
       // Check for unauthenticatedIdentity option.
@@ -88,6 +99,8 @@ public abstract class UsernamePasswordLoginModule extends AbstractServerLoginMod
                ", encoding = " + hashEncoding+ (hashCharset == null ? "" : "charset = " + hashCharset));
          }
       }
+      String flag = (String) options.get("ignorePasswordCase");
+      ignorePasswordCase = Boolean.valueOf(flag).booleanValue();
    }
 
    /** Perform the authentication of the username and password.
@@ -255,7 +268,12 @@ public abstract class UsernamePasswordLoginModule extends AbstractServerLoginMod
    {
       if( inputPassword == null || expectedPassword == null )
          return false;
-      return inputPassword.equals(expectedPassword);
+      boolean valid = false;
+      if( ignorePasswordCase == true )
+         valid = inputPassword.equalsIgnoreCase(expectedPassword);
+      else
+         valid = inputPassword.equals(expectedPassword);
+      return valid;
    }
 
    /** Get the expected password for the current username available via

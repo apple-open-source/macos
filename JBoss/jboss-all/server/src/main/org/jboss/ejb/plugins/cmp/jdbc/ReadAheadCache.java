@@ -13,6 +13,7 @@ import org.jboss.ejb.plugins.cmp.jdbc.bridge.JDBCCMRFieldBridge;
 import org.jboss.ejb.plugins.cmp.jdbc.bridge.JDBCFieldBridge;
 import org.jboss.ejb.plugins.cmp.jdbc.metadata.JDBCReadAheadMetaData;
 import org.jboss.logging.Logger;
+import org.jboss.tm.TransactionLocal;
 
 import javax.transaction.Transaction;
 import javax.transaction.SystemException;
@@ -26,7 +27,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
-//import org.jboss.util.LRUCachePolicy;
 
 /**
  * ReadAheadCache stores all of the data readahead for an entity.
@@ -34,9 +34,9 @@ import java.util.Map;
  * basis. The read ahead data for each entity is stored with a soft reference.
  *
  * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
- * @version $Revision: 1.8.2.9 $
+ * @version $Revision: 1.8.2.16 $
  */
-public class ReadAheadCache
+public final class ReadAheadCache
 {
    /**
     * To simplify null values handling in the preloaded data pool we use
@@ -63,7 +63,7 @@ public class ReadAheadCache
          catch(SystemException e)
          {
             throw new IllegalStateException("An error occured while getting the " +
-                  "transaction associated with the current thread: " + e);
+               "transaction associated with the current thread: " + e);
          }
       }
    };
@@ -103,11 +103,8 @@ public class ReadAheadCache
       listCache = null;
    }
 
-   public synchronized void addFinderResults(
-      List results,
-      JDBCReadAheadMetaData readahead)
+   public void addFinderResults(List results, JDBCReadAheadMetaData readahead)
    {
-
       if(listCacheMax == 0 || results.size() < 2)
       {
          // nothing to see here... move along
@@ -150,8 +147,7 @@ public class ReadAheadCache
          EntityMapEntry entry;
          if(readahead.isNone())
          {
-            entry = new EntityMapEntry(
-               0, Collections.singletonList(pk), readahead);
+            entry = new EntityMapEntry(0, Collections.singletonList(pk), readahead);
          }
          else
          {
@@ -160,7 +156,7 @@ public class ReadAheadCache
 
          // Keep track of the results that have been dereferenced. Later we
          // all results from the list cache that are no longer referenced.
-         EntityMapEntry oldInfo = (EntityMapEntry)listMap.put(pk, entry);
+         EntityMapEntry oldInfo = (EntityMapEntry) listMap.put(pk, entry);
          if(oldInfo != null)
          {
             dereferencedResults.add(oldInfo.results);
@@ -187,14 +183,14 @@ public class ReadAheadCache
       iter = dereferencedResults.iterator();
       while(iter.hasNext())
       {
-         List dereferencedList = (List)iter.next();
+         List dereferencedList = (List) iter.next();
 
          boolean listHasReference = false;
          Iterator iter2 = dereferencedList.iterator();
          while(!listHasReference &&
             iter2.hasNext())
          {
-            EntityMapEntry entry = (EntityMapEntry)listMap.get(iter2.next());
+            EntityMapEntry entry = (EntityMapEntry) listMap.get(iter2.next());
             if(entry != null && entry.results == dereferencedList)
             {
                listHasReference = true;
@@ -218,7 +214,7 @@ public class ReadAheadCache
       iter = dereferencedResults.iterator();
       while(iter.hasNext())
       {
-         List list = (List)iter.next();
+         List list = (List) iter.next();
          if(log.isTraceEnabled())
          {
             log.trace("Removing dereferenced results: " + list);
@@ -227,7 +223,7 @@ public class ReadAheadCache
       }
    }
 
-   private synchronized void removeFinderResult(List results)
+   private void removeFinderResult(List results)
    {
       Map listMap = getListMap();
       if(listMap == null)
@@ -240,12 +236,12 @@ public class ReadAheadCache
       listCache.remove(results);
 
       // remove all primary keys from the listMap that reference this list
-      if(listMap != null && !listMap.isEmpty())
+      if(!listMap.isEmpty())
       {
          Iterator iter = listMap.values().iterator();
          while(iter.hasNext())
          {
-            EntityMapEntry entry = (EntityMapEntry)iter.next();
+            EntityMapEntry entry = (EntityMapEntry) iter.next();
 
             // use == because only identity matters here
             if(entry.results == results)
@@ -256,7 +252,7 @@ public class ReadAheadCache
       }
    }
 
-   public synchronized EntityReadAheadInfo getEntityReadAheadInfo(Object pk)
+   public EntityReadAheadInfo getEntityReadAheadInfo(Object pk)
    {
       Map listMap = getListMap();
       if(listMap == null)
@@ -265,7 +261,7 @@ public class ReadAheadCache
          return new EntityReadAheadInfo(Collections.singletonList(pk));
       }
 
-      EntityMapEntry entry = (EntityMapEntry)getListMap().get(pk);
+      EntityMapEntry entry = (EntityMapEntry) getListMap().get(pk);
       if(entry != null)
       {
          // we're using these results so promote it to the head of the
@@ -283,8 +279,7 @@ public class ReadAheadCache
          }
 
          int from = entry.index;
-         int to = Math.min(entry.results.size(),
-            entry.index + readahead.getPageSize());
+         int to = Math.min(entry.results.size(), entry.index + readahead.getPageSize());
          List loadKeys = entry.results.subList(from, to);
 
          return new EntityReadAheadInfo(loadKeys, readahead);
@@ -326,7 +321,7 @@ public class ReadAheadCache
       Iterator iter = preloadDataMap.entrySet().iterator();
       while(iter.hasNext())
       {
-         Map.Entry entry = (Map.Entry)iter.next();
+         Map.Entry entry = (Map.Entry) iter.next();
          Object field = entry.getKey();
 
          // get the value that was preloaded for this field
@@ -349,7 +344,7 @@ public class ReadAheadCache
 
          if(field instanceof JDBCCMPFieldBridge)
          {
-            JDBCCMPFieldBridge cmpField = (JDBCCMPFieldBridge)field;
+            JDBCCMPFieldBridge cmpField = (JDBCCMPFieldBridge) field;
 
             if(!cmpField.isLoaded(ctx))
             {
@@ -380,7 +375,7 @@ public class ReadAheadCache
          }
          else if(field instanceof JDBCCMRFieldBridge)
          {
-            JDBCCMRFieldBridge cmrField = (JDBCCMRFieldBridge)field;
+            JDBCCMRFieldBridge cmrField = (JDBCCMRFieldBridge) field;
 
             if(!cmrField.isLoaded(ctx))
             {
@@ -393,7 +388,7 @@ public class ReadAheadCache
                }
 
                // set the value
-               cmrField.load(ctx, (List)value);
+               cmrField.load(ctx, (List) value);
 
                // add the loaded list to the related entity's readahead cache
                JDBCStoreManager relatedManager =
@@ -401,10 +396,7 @@ public class ReadAheadCache
                ReadAheadCache relatedReadAheadCache =
                   relatedManager.getReadAheadCache();
                relatedReadAheadCache.addFinderResults(
-                  (List)value, cmrField.getReadAhead());
-
-               // mark this field clean as it's value was just loaded
-               cmrField.setClean(ctx);
+                  (List) value, cmrField.getReadAhead());
             }
             else
             {
@@ -461,7 +453,7 @@ public class ReadAheadCache
       preloadDataMap.put(field, fieldValue);
    }
 
-   public synchronized void removeCachedData(Object primaryKey)
+   public void removeCachedData(Object primaryKey)
    {
       if(log.isTraceEnabled())
       {
@@ -480,7 +472,7 @@ public class ReadAheadCache
 
       // if the entity didn't have readahead entry, or it was read-ahead
       // none; return
-      EntityMapEntry oldInfo = (EntityMapEntry)listMap.remove(primaryKey);
+      EntityMapEntry oldInfo = (EntityMapEntry) listMap.remove(primaryKey);
       if(oldInfo == null || oldInfo.readahead.isNone())
       {
          return;
@@ -490,7 +482,7 @@ public class ReadAheadCache
       Iterator iter = listMap.values().iterator();
       while(iter.hasNext())
       {
-         EntityMapEntry entry = (EntityMapEntry)iter.next();
+         EntityMapEntry entry = (EntityMapEntry) iter.next();
 
          // use == because only identity matters here
          if(entry.results == oldInfo.results)
@@ -527,13 +519,13 @@ public class ReadAheadCache
       PreloadKey preloadKey = new PreloadKey(entityPrimaryKey);
 
       // get the soft reference to the preload data map
-      SoftReference ref = (SoftReference)manager.getEntityTxData(preloadKey);
+      SoftReference ref = (SoftReference) manager.getEntityTxData(preloadKey);
 
       // did we get a reference
       if(ref != null)
       {
          // get the  map from the reference
-         Map preloadDataMap = (Map)ref.get();
+         Map preloadDataMap = (Map) ref.get();
 
          // did we actually get a map? (will be null if it has been GC'd)
          if(preloadDataMap != null)
@@ -545,10 +537,10 @@ public class ReadAheadCache
       //
       // at this point we did not get an existing value
       //
-
       // if we got a dead reference remove it
       if(ref != null)
       {
+         //log.info(manager.getMetaData().getName() + " was GC'd from read ahead");
          manager.removeEntityTxData(preloadKey);
       }
 
@@ -573,12 +565,12 @@ public class ReadAheadCache
 
    private Map getListMap()
    {
-      return (Map)listMapTxLocal.get();
+      return (Map) listMapTxLocal.get();
    }
 
-   private class ListCache
+   private final class ListCache
    {
-      private TransactionLocal cacheTxLocal = new TransactionLocal()
+      private final TransactionLocal cacheTxLocal = new TransactionLocal()
       {
          protected Object initialValue()
          {
@@ -594,7 +586,7 @@ public class ReadAheadCache
             catch(SystemException e)
             {
                throw new IllegalStateException("An error occured while getting the " +
-                     "transaction associated with the current thread: " + e);
+                  "transaction associated with the current thread: " + e);
             }
          }
       };
@@ -623,8 +615,8 @@ public class ReadAheadCache
          // shrink size to max
          while(cache.size() > max)
          {
-            IdentityObject object = (IdentityObject)cache.removeLast();
-            ageOut((List)object.getObject());
+            IdentityObject object = (IdentityObject) cache.removeLast();
+            ageOut((List) object.getObject());
          }
       }
 
@@ -676,7 +668,7 @@ public class ReadAheadCache
 
       private LinkedList getCache()
       {
-         return (LinkedList)cacheTxLocal.get();
+         return (LinkedList) cacheTxLocal.get();
       }
    }
 
@@ -684,7 +676,7 @@ public class ReadAheadCache
     * Wraps an entity primary key, so it does not collide with other
     * data stored in the entityTxDataMap.
     */
-   private static class PreloadKey
+   private static final class PreloadKey
    {
       private final Object entityPrimaryKey;
 
@@ -701,7 +693,7 @@ public class ReadAheadCache
       {
          if(object instanceof PreloadKey)
          {
-            PreloadKey preloadKey = (PreloadKey)object;
+            PreloadKey preloadKey = (PreloadKey) object;
             return preloadKey.entityPrimaryKey.equals(entityPrimaryKey);
          }
          return false;
@@ -718,7 +710,7 @@ public class ReadAheadCache
       }
    }
 
-   private static class EntityMapEntry
+   private static final class EntityMapEntry
    {
       public final int index;
       public final List results;
@@ -736,7 +728,7 @@ public class ReadAheadCache
       }
    }
 
-   public static class EntityReadAheadInfo
+   public final static class EntityReadAheadInfo
    {
       private final List loadKeys;
       private final JDBCReadAheadMetaData readahead;
@@ -766,7 +758,7 @@ public class ReadAheadCache
    /**
     * Wraps an Object and does equals/hashCode based on object identity.
     */
-   private static class IdentityObject
+   private static final class IdentityObject
    {
       private final Object object;
 

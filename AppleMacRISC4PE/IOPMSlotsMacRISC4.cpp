@@ -79,7 +79,7 @@ bool IOPMSlotsMacRISC4::start ( IOService * nub )
     registerPowerDriver(this,ourPowerStates,number_of_power_states);
 
     //   changePowerStateTo( number_of_power_states-1);			// clamp power on
-    clampPowerOn (300*NSEC_PER_SEC);
+    clampPowerOn (300*USEC_PER_SEC);
 
     setProperty ("IOClass", "IOPMSlotsMacRISC4");
 

@@ -17,7 +17,7 @@
          <param-value>UDP(ip_mcast=true;ip_ttl=16;loopback=false;mcast_addr=228.1.2.3;mcast_port=45566):
 org.jboss.jmx.adaptor.control.FindView
          </param-value>
-         <description>The JavaGroups protocol stack config</description>
+         <description>The JGroups protocol stack config</description>
       </init-param>
    </servlet>
    <servlet>

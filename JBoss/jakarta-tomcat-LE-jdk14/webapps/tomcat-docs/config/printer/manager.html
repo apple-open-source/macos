@@ -13,7 +13,7 @@
 
 </blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Attributes"><strong>Attributes</strong></a></font></td></tr><tr><td><blockquote>
 
-  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Common%20Attributes"><strong>Common Attributes</strong></a></font></td></tr><tr><td><blockquote>
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Common Attributes"><strong>Common Attributes</strong></a></font></td></tr><tr><td><blockquote>
 
     <p>All implementations of <strong>Manager</strong>
     support the following attributes:</p>
@@ -39,7 +39,7 @@
   </blockquote></td></tr></table>
 
 
-  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Standard%20Implementation"><strong>Standard Implementation</strong></a></font></td></tr><tr><td><blockquote>
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Standard Implementation"><strong>Standard Implementation</strong></a></font></td></tr><tr><td><blockquote>
 
     <p>Tomcat provides two standard implementations of <strong>Manager</strong>
     for use - the default one stores active sessions, while the optional one
@@ -80,7 +80,7 @@
         <p>Absolute or relative (to the work directory for this Context)
         pathname of the file in which session state will be preserved
         across application restarts, if possible.  The default is
-        "SESSIONS.ser".  See <a href="#Restart%20Persistence">Restart
+        "SESSIONS.ser".  See <a href="#Restart Persistence">Restart
         Persistence</a> for more information.</p>
       </td></tr><tr><td valign="center" align="left"><code>randomClass</code></td><td valign="center" align="left">
         <p>Java class name of the <code>java.util.Random</code>
@@ -105,7 +105,7 @@
     element - this is required for use of <code>PersistentManager</code>.</p>
 
     <p>This implementation of Manager supports the following attributes in
-    addition to the <a href="#Common%20Attributes">Common Attributes</a>
+    addition to the <a href="#Common Attributes">Common Attributes</a>
     described earlier.</p>
 
     <table cellpadding="5" border="1"><tr><th bgcolor="#023264" width="15%"><font color="#ffffff">Attribute</font></th><th bgcolor="#023264" width="85%"><font color="#ffffff">Description</font></th></tr><tr><td valign="center" align="left"><code>algorithm</code></td><td valign="center" align="left">
@@ -171,7 +171,7 @@
   </blockquote></td></tr></table>
 
 
-</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Nested%20Components"><strong>Nested Components</strong></a></font></td></tr><tr><td><blockquote>
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Nested Components"><strong>Nested Components</strong></a></font></td></tr><tr><td><blockquote>
 
   <h3>Standard Manager Implementation</h3>
 
@@ -317,10 +317,10 @@ create table tomcat_sessions (
   <code>$CATALINA_HOME/common/lib</code> directory (if you wish to share
   this driver with your web applications.</p>
 
-</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Special%20Features"><strong>Special Features</strong></a></font></td></tr><tr><td><blockquote>
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Special Features"><strong>Special Features</strong></a></font></td></tr><tr><td><blockquote>
 
 
-  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Restart%20Persistence"><strong>Restart Persistence</strong></a></font></td></tr><tr><td><blockquote>
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Restart Persistence"><strong>Restart Persistence</strong></a></font></td></tr><tr><td><blockquote>
 
     <p>Whenver Catalina is shut down normally and restarted, or when an
     application reload is triggered, the standard Manager implementation

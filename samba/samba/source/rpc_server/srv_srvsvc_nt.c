@@ -184,7 +184,7 @@ static SEC_DESC *get_share_security_default( TALLOC_CTX *ctx, int snum, size_t *
 	init_sec_ace(&ace, &global_sid_World, SEC_ACE_TYPE_ACCESS_ALLOWED, sa, 0);
 
 	if ((psa = make_sec_acl(ctx, NT4_ACL_REVISION, 1, &ace)) != NULL) {
-		psd = make_sec_desc(ctx, SEC_DESC_REVISION, NULL, NULL, NULL, psa, psize);
+		psd = make_sec_desc(ctx, SEC_DESC_REVISION, SEC_DESC_SELF_RELATIVE, NULL, NULL, NULL, psa, psize);
 	}
 
 	if (!psd) {
@@ -487,10 +487,9 @@ static void init_srv_share_info_1501(pipes_struct *p, SRV_SHARE_INFO_1501 *sh150
 
 static BOOL is_hidden_share(int snum)
 {
-	pstring net_name;
+	const char *net_name = lp_servicename(snum);
 
-	pstrcpy(net_name, lp_servicename(snum));
-	return (net_name[strlen(net_name)] == '$') ? True : False;
+	return (net_name[strlen(net_name) - 1] == '$') ? True : False;
 }
 
 /*******************************************************************

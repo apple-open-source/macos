@@ -21,6 +21,7 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
+#include "includes.h"
 #include "winbindd.h"
 
 #undef DBGC_CLASS
@@ -41,6 +42,7 @@ static NTSTATUS query_user_list(struct winbindd_domain *domain,
 	BOOL got_dom_pol = False;
 	uint32 des_access = SEC_RIGHTS_MAXIMUM_ALLOWED;
 	unsigned int i, start_idx, retry;
+	uint32 loop_count;
 
 	DEBUG(3,("rpc: query_user_list\n"));
 
@@ -51,7 +53,7 @@ static NTSTATUS query_user_list(struct winbindd_domain *domain,
 	do {
 		/* Get sam handle */
 
-		if ( !NT_STATUS_IS_OK(result = cm_get_sam_handle(domain->name, &hnd)) )
+		if ( !NT_STATUS_IS_OK(result = cm_get_sam_handle(domain, &hnd)) )
 			return result;
 
 		/* Get domain handle */
@@ -67,25 +69,36 @@ static NTSTATUS query_user_list(struct winbindd_domain *domain,
 	got_dom_pol = True;
 
 	i = start_idx = 0;
+	loop_count = 0;
+
 	do {
 		TALLOC_CTX *ctx2;
-		char **dom_users;
-		uint32 num_dom_users, *dom_rids, j, size = 0xffff;
-		uint16 acb_mask = ACB_NORMAL;
+		uint32 num_dom_users, j;
+		uint32 max_entries, max_size;
+		SAM_DISPINFO_CTR ctr;
+		SAM_DISPINFO_1 info1;
 
+		ZERO_STRUCT( ctr );
+		ZERO_STRUCT( info1 );
+		ctr.sam.info1 = &info1;
+	
 		if (!(ctx2 = talloc_init("winbindd enum_users"))) {
 			result = NT_STATUS_NO_MEMORY;
 			goto done;
 		}		
 
-		result = cli_samr_enum_dom_users(
-			hnd->cli, ctx2, &dom_pol, &start_idx, acb_mask,
-			size, &dom_users, &dom_rids, &num_dom_users);
+		/* this next bit is copied from net_user_list_internal() */
+
+		get_query_dispinfo_params( loop_count, &max_entries, &max_size );
+
+		result = cli_samr_query_dispinfo(hnd->cli, mem_ctx, &dom_pol,
+			&start_idx, 1, &num_dom_users, max_entries, max_size, &ctr);
+
+		loop_count++;
 
 		*num_entries += num_dom_users;
 
-		*info = talloc_realloc(
-			mem_ctx, *info, 
+		*info = talloc_realloc( mem_ctx, *info, 
 			(*num_entries) * sizeof(WINBIND_USERINFO));
 
 		if (!(*info)) {
@@ -95,10 +108,16 @@ static NTSTATUS query_user_list(struct winbindd_domain *domain,
 		}
 
 		for (j = 0; j < num_dom_users; i++, j++) {
-			(*info)[i].acct_name = 
-				talloc_strdup(mem_ctx, dom_users[j]);
-			(*info)[i].full_name = talloc_strdup(mem_ctx, "");
-			(*info)[i].user_sid = rid_to_talloced_sid(domain, mem_ctx, dom_rids[j]);
+			fstring username, fullname;
+			uint32 rid = ctr.sam.info1->sam[j].rid_user;
+			
+			unistr2_to_ascii( username, &(&ctr.sam.info1->str[j])->uni_acct_name, sizeof(username)-1);
+			unistr2_to_ascii( fullname, &(&ctr.sam.info1->str[j])->uni_full_name, sizeof(fullname)-1);
+			
+			(*info)[i].acct_name = talloc_strdup(mem_ctx, username );
+			(*info)[i].full_name = talloc_strdup(mem_ctx, fullname );
+			(*info)[i].user_sid = rid_to_talloced_sid(domain, mem_ctx, rid );
+			
 			/* For the moment we set the primary group for
 			   every user to be the Domain Users group.
 			   There are serious problems with determining
@@ -106,10 +125,9 @@ static NTSTATUS query_user_list(struct winbindd_domain *domain,
 			   This should really be made into a 'winbind
 			   force group' smb.conf parameter or
 			   something like that. */
-			(*info)[i].group_sid 
-				= rid_to_talloced_sid(domain, 
-						      mem_ctx, 
-						      DOMAIN_GROUP_RID_USERS);
+			   
+			(*info)[i].group_sid = rid_to_talloced_sid(domain, 
+				mem_ctx, DOMAIN_GROUP_RID_USERS);
 		}
 
 		talloc_destroy(ctx2);
@@ -145,7 +163,7 @@ static NTSTATUS enum_dom_groups(struct winbindd_domain *domain,
 
 	retry = 0;
 	do {
-		if (!NT_STATUS_IS_OK(result = cm_get_sam_handle(domain->name, &hnd)))
+		if (!NT_STATUS_IS_OK(result = cm_get_sam_handle(domain, &hnd)))
 			return result;
 
 		status = cli_samr_open_domain(hnd->cli, mem_ctx,
@@ -210,7 +228,7 @@ static NTSTATUS enum_local_groups(struct winbindd_domain *domain,
 
 	retry = 0;
 	do {
-		if ( !NT_STATUS_IS_OK(result = cm_get_sam_handle(domain->name, &hnd)) )
+		if ( !NT_STATUS_IS_OK(result = cm_get_sam_handle(domain, &hnd)) )
 			return result;
 
 		result = cli_samr_open_domain( hnd->cli, mem_ctx, &hnd->pol, 
@@ -282,7 +300,7 @@ static NTSTATUS name_to_sid(struct winbindd_domain *domain,
 
 	retry = 0;
 	do {
-		if (!NT_STATUS_IS_OK(result = cm_get_lsa_handle(domain->name, &hnd))) {
+		if (!NT_STATUS_IS_OK(result = cm_get_lsa_handle(domain, &hnd))) {
 			return result;
 		}
         
@@ -306,7 +324,7 @@ static NTSTATUS name_to_sid(struct winbindd_domain *domain,
 */
 static NTSTATUS sid_to_name(struct winbindd_domain *domain,
 			    TALLOC_CTX *mem_ctx,
-			    DOM_SID *sid,
+			    const DOM_SID *sid,
 			    char **name,
 			    enum SID_NAME_USE *type)
 {
@@ -322,7 +340,7 @@ static NTSTATUS sid_to_name(struct winbindd_domain *domain,
 
 	retry = 0;
 	do {
-		if (!NT_STATUS_IS_OK(result = cm_get_lsa_handle(domain->name, &hnd)))
+		if (!NT_STATUS_IS_OK(result = cm_get_lsa_handle(domain, &hnd)))
 			return result;
         
 		result = cli_lsa_lookup_sids(hnd->cli, mem_ctx, &hnd->pol,
@@ -336,7 +354,7 @@ static NTSTATUS sid_to_name(struct winbindd_domain *domain,
 		DEBUG(5,("Mapped sid to [%s]\\[%s]\n", domains[0], *name));
 
 		/* Paranoia */
-		if (strcasecmp(domain->name, domains[0]) != 0) {
+		if (!strequal(domain->name, domains[0])) {
 			DEBUG(1, ("domain name from domain param and PDC lookup return differ! (%s vs %s)\n", domain->name, domains[0]));
 			return NT_STATUS_UNSUCCESSFUL;
 		}
@@ -391,7 +409,7 @@ static NTSTATUS query_user(struct winbindd_domain *domain,
 	do {
 		/* Get sam handle; if we fail here there is no hope */
 		
-		if (!NT_STATUS_IS_OK(result = cm_get_sam_handle(domain->name, &hnd))) 
+		if (!NT_STATUS_IS_OK(result = cm_get_sam_handle(domain, &hnd))) 
 			goto done;
 			
 		/* Get domain handle */
@@ -492,7 +510,7 @@ static NTSTATUS lookup_usergroups(struct winbindd_domain *domain,
 	do {
 		/* Get sam handle; if we fail here there is no hope */
 		
-		if (!NT_STATUS_IS_OK(result = cm_get_sam_handle(domain->name, &hnd))) 		
+		if (!NT_STATUS_IS_OK(result = cm_get_sam_handle(domain, &hnd))) 		
 			goto done;
 
 		/* Get domain handle */
@@ -580,7 +598,7 @@ static NTSTATUS lookup_groupmem(struct winbindd_domain *domain,
 	retry = 0;
 	do {
 	        /* Get sam handle */
-		if (!NT_STATUS_IS_OK(result = cm_get_sam_handle(domain->name, &hnd)))
+		if (!NT_STATUS_IS_OK(result = cm_get_sam_handle(domain, &hnd)))
 			goto done;
 
 		/* Get domain handle */
@@ -613,6 +631,13 @@ static NTSTATUS lookup_groupmem(struct winbindd_domain *domain,
 
         if (!NT_STATUS_IS_OK(result))
                 goto done;
+
+	if (!*num_names) {
+		names = NULL;
+		name_types = NULL;
+		sid_mem = NULL;
+		goto done;
+	}
 
         /* Step #2: Convert list of rids into list of usernames.  Do this
            in bunches of ~1000 to avoid crashing NT4.  It looks like there
@@ -851,7 +876,7 @@ static NTSTATUS sequence_number(struct winbindd_domain *domain, uint32 *seq)
 		}
 #endif /* HAVE_LDAP */
 	        /* Get sam handle */
-		if (!NT_STATUS_IS_OK(result = cm_get_sam_handle(domain->name, &hnd)))
+		if (!NT_STATUS_IS_OK(result = cm_get_sam_handle(domain, &hnd)))
 			goto done;
 
 		/* Get domain handle */
@@ -907,7 +932,7 @@ static NTSTATUS trusted_domains(struct winbindd_domain *domain,
 
 	retry = 0;
 	do {
-		if (!NT_STATUS_IS_OK(result = cm_get_lsa_handle(lp_workgroup(), &hnd)))
+		if (!NT_STATUS_IS_OK(result = cm_get_lsa_handle(find_our_domain(), &hnd)))
 			goto done;
 
 		result = cli_lsa_enum_trust_dom(hnd->cli, mem_ctx,
@@ -925,7 +950,8 @@ static NTSTATUS domain_sid(struct winbindd_domain *domain, DOM_SID *sid)
 	NTSTATUS result = NT_STATUS_UNSUCCESSFUL;
 	TALLOC_CTX *mem_ctx;
 	CLI_POLICY_HND *hnd;
-	fstring level5_dom;
+	char *level5_dom;
+	DOM_SID *alloc_sid;
 	int retry;
 
 	DEBUG(3,("rpc: domain_sid\n"));
@@ -936,12 +962,20 @@ static NTSTATUS domain_sid(struct winbindd_domain *domain, DOM_SID *sid)
 	retry = 0;
 	do {
 		/* Get lsa handle */
-		if (!NT_STATUS_IS_OK(result = cm_get_lsa_handle(domain->name, &hnd)))
+		if (!NT_STATUS_IS_OK(result = cm_get_lsa_handle(domain, &hnd)))
 			goto done;
 
 		result = cli_lsa_query_info_policy(hnd->cli, mem_ctx,
-					   &hnd->pol, 0x05, level5_dom, sid);
+					   &hnd->pol, 0x05, &level5_dom, &alloc_sid);
 	} while (!NT_STATUS_IS_OK(result) && (retry++ < 1) &&  hnd && hnd->cli && hnd->cli->fd == -1);
+
+	if (NT_STATUS_IS_OK(result)) {
+		if (alloc_sid) {
+			sid_copy(sid, alloc_sid);
+		} else {
+			result = NT_STATUS_NO_MEMORY;
+		}
+	}
 
 done:
 	talloc_destroy(mem_ctx);

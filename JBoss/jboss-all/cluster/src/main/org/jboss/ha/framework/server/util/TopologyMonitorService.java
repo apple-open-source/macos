@@ -6,7 +6,6 @@
 */
 package org.jboss.ha.framework.server.util;
 
-import java.lang.reflect.Method;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Vector;
@@ -61,7 +60,7 @@ import org.apache.log4j.MDC;
 </pre>
 
  @author Scott.Stark@jboss.org
- @version $Revision: 1.1.4.1 $
+ @version $Revision: 1.1.4.2 $
  */
 public class TopologyMonitorService extends ServiceMBeanSupport
    implements TopologyMonitorServiceMBean, AsynchHAMembershipListener
@@ -208,12 +207,11 @@ public class TopologyMonitorService extends ServiceMBeanSupport
       AddressPort info = null;
       try
       {
-         Class[] parameterTypes = {};
-         Object[] args = {};
-         Method getIpAddress = addr.getClass().getMethod("getIpAddress", parameterTypes);
-         InetAddress inetAddr = (InetAddress) getIpAddress.invoke(addr, args);
-         Method getPort = addr.getClass().getMethod("getPort", parameterTypes);
-         Integer port = (Integer) getPort.invoke(addr, args);
+         org.jboss.ha.framework.interfaces.ClusterNode node =
+               (org.jboss.ha.framework.interfaces.ClusterNode)addr;
+
+         InetAddress inetAddr = node.getOriginalJGAddress().getIpAddress();
+         Integer port = new Integer(node.getOriginalJGAddress().getPort());
          info = new AddressPort(inetAddr, port);
       }
       catch(Exception e)

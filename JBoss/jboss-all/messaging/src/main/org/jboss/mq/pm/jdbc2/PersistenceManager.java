@@ -52,7 +52,7 @@ import org.jboss.tm.TransactionManagerService;
  * @author Jayesh Parayali (jayeshpk1@yahoo.com)
  * @author Hiram Chirino (cojonudo14@hotmail.com)
  *
- *  @version $Revision: 1.6.2.10 $
+ *  @version $Revision: 1.6.2.12 $
  */
 public class PersistenceManager
    extends ServiceMBeanSupport
@@ -67,7 +67,6 @@ public class PersistenceManager
    private long nextTransactionId = 0;
    private TxManager txManager;
    private DataSource datasource;
-   private MessageCache messageCache;
    private TransactionManager tm;
 
    /////////////////////////////////////////////////////////////////////////////////
@@ -209,13 +208,13 @@ public class PersistenceManager
       Connection c = null;
       PreparedStatement stmt = null;
       ResultSet rs = null;
-      boolean threadWasInterrupted = Thread.currentThread().interrupted();
+      boolean threadWasInterrupted = Thread.interrupted();
       try
       {
-         c = this.getConnection();
-
          if (createTables)
          {
+            c = this.getConnection();
+
             try
             {
                stmt = c.prepareStatement(CREATE_MESSAGE_TABLE);
@@ -262,6 +261,47 @@ public class PersistenceManager
                stmt = null;
             }
          }
+      }
+      catch (SQLException e)
+      {
+         tms.setRollbackOnly();
+         throw new SpyJMSException("Could not get a connection for jdbc2 table construction ", e);
+      }
+      finally
+      {
+         try
+         {
+            stmt.close();
+         }
+         catch (Throwable ignore)
+         {
+         }
+         stmt = null;
+         try
+         {
+            c.close();
+         }
+         catch (Throwable ignore)
+         {
+         }
+         c = null;
+         tms.endTX();
+
+         // Restore the interrupted state of the thread
+         if( threadWasInterrupted )
+            Thread.currentThread().interrupt();
+      }
+
+      // We perform recovery in a different thread to the table creation
+      // Postgres doesn't like create table failing in the same transaction
+      // as other operations
+
+      tms = new TransactionManagerStrategy();
+      tms.startTX();
+      threadWasInterrupted = Thread.interrupted();
+      try
+      {
+         c = this.getConnection();
 
          // Delete all the messages that were added but thier tx's were not commited.
          stmt = c.prepareStatement(DELETE_MARKED_MESSAGES_WITH_TX);
@@ -343,7 +383,7 @@ public class PersistenceManager
       Connection c = null;
       PreparedStatement stmt = null;
       ResultSet rs = null;
-      boolean threadWasInterrupted = Thread.currentThread().interrupted();
+      boolean threadWasInterrupted = Thread.interrupted();
       try
       {
 
@@ -464,7 +504,7 @@ public class PersistenceManager
       TransactionManagerStrategy tms = new TransactionManagerStrategy();
       tms.startTX();
       Connection c = null;
-      boolean threadWasInterrupted = Thread.currentThread().interrupted();
+      boolean threadWasInterrupted = Thread.interrupted();
       try
       {
 
@@ -553,7 +593,7 @@ public class PersistenceManager
       tms.startTX();
       Connection c = null;
       PreparedStatement stmt = null;
-      boolean threadWasInterrupted = Thread.currentThread().interrupted();
+      boolean threadWasInterrupted = Thread.interrupted();
       try
       {
 
@@ -610,7 +650,7 @@ public class PersistenceManager
       tms.startTX();
       Connection c = null;
       PreparedStatement stmt = null;
-      boolean threadWasInterrupted = Thread.currentThread().interrupted();
+      boolean threadWasInterrupted = Thread.interrupted();
       try
       {
 
@@ -665,7 +705,7 @@ public class PersistenceManager
       TransactionManagerStrategy tms = new TransactionManagerStrategy();
       tms.startTX();
       Connection c = null;
-      boolean threadWasInterrupted = Thread.currentThread().interrupted();
+      boolean threadWasInterrupted = Thread.interrupted();
       try
       {
          c = this.getConnection();
@@ -847,7 +887,7 @@ public class PersistenceManager
       tms.startTX();
       Connection c = null;
       PreparedStatement stmt = null;
-      boolean threadWasInterrupted = Thread.currentThread().interrupted();
+      boolean threadWasInterrupted = Thread.interrupted();
       try
       {
 
@@ -921,7 +961,7 @@ public class PersistenceManager
       tms.startTX();
       Connection c = null;
       PreparedStatement stmt = null;
-      boolean threadWasInterrupted = Thread.currentThread().interrupted();
+      boolean threadWasInterrupted = Thread.interrupted();
       try
       {
 
@@ -948,7 +988,7 @@ public class PersistenceManager
                // which I don't want to do because it is useful
                // for spotting errors
                messageRef.setStored(MessageReference.NOT_STORED);
-               messageCache.removeDelayed(messageRef);
+               messageRef.removeDelayed();
             }
             else
             {
@@ -1027,7 +1067,7 @@ public class PersistenceManager
       Connection c = null;
       PreparedStatement stmt = null;
       ResultSet rs = null;
-      boolean threadWasInterrupted = Thread.currentThread().interrupted();
+      boolean threadWasInterrupted = Thread.interrupted();
       try
       {
 
@@ -1103,7 +1143,7 @@ public class PersistenceManager
       tms.startTX();
       Connection c = null;
       PreparedStatement stmt = null;
-      boolean threadWasInterrupted = Thread.currentThread().interrupted();
+      boolean threadWasInterrupted = Thread.interrupted();
       try
       {
          c = this.getConnection();
@@ -1162,7 +1202,7 @@ public class PersistenceManager
       TransactionManagerStrategy tms = new TransactionManagerStrategy();
       tms.startTX();
       Connection c = null;
-      boolean threadWasInterrupted = Thread.currentThread().interrupted();
+      boolean threadWasInterrupted = Thread.interrupted();
       try
       {
 
@@ -1262,7 +1302,6 @@ public class PersistenceManager
    // JMX Interface 
    //
    /////////////////////////////////////////////////////////////////////////////////   
-   private ObjectName messageCacheName;
    private ObjectName connectionManagerName;
    private Properties sqlProperties = new Properties();
 
@@ -1313,8 +1352,6 @@ public class PersistenceManager
       //Get the Transaction Manager so we can control the jdbc tx
       tm = (TransactionManager) ctx.lookup(TransactionManagerService.JNDI_NAME);
 
-      messageCache = (MessageCache) getServer().getAttribute(messageCacheName, "Instance");
-
       log.debug("Resolving uncommited TXS");
       resolveAllUncommitedTXs();
    }
@@ -1334,22 +1371,20 @@ public class PersistenceManager
     * Describe <code>getMessageCache</code> method here.
     *
     * @return an <code>ObjectName</code> value
-    * @jmx:managed-attribute
     */
    public ObjectName getMessageCache()
    {
-      return messageCacheName;
+      throw new UnsupportedOperationException("This is now set on the destination manager");
    }
 
    /**
     * Describe <code>setMessageCache</code> method here.
     *
     * @param messageCache an <code>ObjectName</code> value
-    * @jmx:managed-attribute
     */
    public void setMessageCache(ObjectName messageCache)
    {
-      this.messageCacheName = messageCache;
+      throw new UnsupportedOperationException("This is now set on the destination manager");
    }
 
    /**
@@ -1370,7 +1405,7 @@ public class PersistenceManager
 
    public MessageCache getMessageCacheInstance()
    {
-      return messageCache;
+      throw new UnsupportedOperationException("This is now set on the destination manager");
    }
 
    /**

@@ -417,7 +417,7 @@ Boolean Set4thOrderCoefficients (Float32 *b0, Float32 *b1, Float32 *b2, Float32 
                     *a1 = -1.977786483776763;
                     *a2 =  0.9780305084917958;
                     break;
-        default:    // IOLog("\nNot a registered frequency...\n");
+        default:    // debugIOLog (3, "\nNot a registered frequency...");
                     success = FALSE;
                     break;
     }
@@ -3949,7 +3949,7 @@ Boolean Set2ndOrderPhaseCompCoefficients (float *b0, float *a1, UInt32 samplingR
         case 96000: *a1 = -0.9745963490718829;
                     *b0 =  *a1;
                     break;
-        default:    // IOLog("\nNot a registered frequency...\n");
+        default:    // debugIOLog (3, "\nNot a registered frequency...");
                     success = FALSE;
                     break;
     }

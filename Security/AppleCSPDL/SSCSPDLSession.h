@@ -42,6 +42,13 @@ public:
 						  CssmKey &outKey, SSDatabase &inSSDatabase,
 						  uint32 inKeyAttr, const CssmData *inKeyLabel);
 	SSKey &lookupKey(const CssmKey &inKey);
+
+	/* Notification we receive when a key's acl has been modified. */
+	void didChangeKeyAcl(SecurityServer::ClientSession &clientSession,
+		SecurityServer::KeyHandle keyHandle, CSSM_ACL_AUTHORIZATION_TAG tag);
+
+	static void didChangeKeyAclCallback(void *context, SecurityServer::ClientSession &clientSession,
+		SecurityServer::KeyHandle keyHandle, CSSM_ACL_AUTHORIZATION_TAG tag);
 };
 
 

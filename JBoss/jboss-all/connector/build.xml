@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE project [
    <!ENTITY buildmagic SYSTEM "../tools/etc/buildmagic/buildmagic.ent">
+   <!ENTITY libraries SYSTEM "../tools/etc/buildmagic/libraries.ent">
+   <!ENTITY modules SYSTEM "../tools/etc/buildmagic/modules.ent">
 ]>
 
 <!-- ====================================================================== -->
@@ -12,7 +14,7 @@
 <!--                                                                        -->
 <!-- ====================================================================== -->
 
-<!-- $Id: build.xml,v 1.42.2.12 2003/05/18 06:27:35 starksm Exp $ -->
+<!-- $Id: build.xml,v 1.42.2.17 2003/11/10 06:45:51 starksm Exp $ -->
 
 <project default="main" name="JBoss/Connector">
 
@@ -68,43 +70,7 @@
     <!-- ========= -->
     <!-- Libraries -->
     <!-- ========= -->
-
-    <!-- Apache Crimson (XML/DOM) -->
-    <property name="apache.crimson.root" value="${project.thirdparty}/apache/crimson"/>
-    <property name="apache.crimson.lib" value="${apache.crimson.root}/lib"/>
-    <path id="apache.crimson.classpath">
-      <pathelement path="${apache.crimson.lib}/crimson.jar"/>
-    </path>
-
-    <!-- Apache Commons -->
-    <property name="apache.commons.root" value="${project.thirdparty}/apache/commons"/>
-    <property name="apache.commons.lib" value="${apache.commons.root}/lib"/>
-    <path id="apache.commons.classpath">
-      <pathelement path="${apache.commons.lib}/commons-collections.jar"/>
-      <pathelement path="${apache.commons.lib}/commons-logging.jar"/>
-    </path>
-
-    <!-- Log4j -->
-    <property name="apache.log4j.root" value="${project.thirdparty}/apache/log4j"/>
-    <property name="apache.log4j.lib" value="${apache.log4j.root}/lib"/>
-    <path id="apache.log4j.classpath">
-      <pathelement path="${apache.log4j.lib}/log4j.jar"/>
-    </path>
-
-    <!-- EDU.oswego.cs.dl.util.concurrent -->
-    <property name="oswego.concurrent.root" value="${project.thirdparty}/oswego/concurrent"/>
-    <property name="oswego.concurrent.lib" value="${oswego.concurrent.root}/lib"/>
-    <path id="oswego.concurrent.classpath">
-      <pathelement path="${oswego.concurrent.lib}/concurrent.jar"/>
-    </path>
-
-    <!-- JUnit -->
-    <property name="junit.junit.root" value="${project.thirdparty}/junit/junit"/>
-    <property name="junit.junit.lib" value="${junit.junit.root}/lib"/>
-    <path id="junit.junit.classpath">
-      <pathelement path="${junit.junit.lib}/junit.jar"/>
-    </path>
-
+    &libraries;
     <!-- The combined library classpath -->
     <path id="library.classpath">
       <path refid="apache.crimson.classpath"/>
@@ -117,57 +83,7 @@
     <!-- ======= -->
     <!-- Modules -->
     <!-- ======= -->
-
-    <!-- J2EE -->
-    <property name="jboss.j2ee.root" value="${project.root}/j2ee/output"/>
-    <property name="jboss.j2ee.lib" value="${jboss.j2ee.root}/lib"/>
-    <path id="jboss.j2ee.classpath">
-      <pathelement path="${jboss.j2ee.lib}/jboss-j2ee.jar"/>
-    </path>
-
-    <!-- Common -->
-    <property name="jboss.common.root" value="${project.root}/common/output"/>
-    <property name="jboss.common.lib" value="${jboss.common.root}/lib"/>
-    <path id="jboss.common.classpath">
-      <pathelement path="${jboss.common.lib}/jboss-common.jar"/>
-    </path>
-
-    <!-- System -->
-    <property name="jboss.system.root" value="${project.root}/system/output"/>
-    <property name="jboss.system.lib" value="${jboss.system.root}/lib"/>
-    <path id="jboss.system.classpath">
-      <pathelement path="${jboss.system.lib}/jboss-system.jar"/>
-    </path>
-
-    <!-- Security -->
-    <property name="jboss.security.root" value="${project.root}/security/output"/>
-    <property name="jboss.security.lib" value="${jboss.security.root}/lib"/>
-    <path id="jboss.security.classpath">
-      <pathelement path="${jboss.security.lib}/jboss-jaas.jar"/>
-      <pathelement path="${jboss.security.lib}/jbosssx.jar"/>
-    </path>
-
-    <!-- Server -->
-    <property name="jboss.server.root" value="${project.root}/server/output"/>
-    <property name="jboss.server.lib" value="${jboss.server.root}/lib"/>
-    <path id="jboss.server.classpath">
-      <pathelement path="${jboss.server.lib}/jboss.jar"/>
-    </path>
-
-    <!-- JMX -->
-    <property name="jboss.jmx.root" value="${project.root}/jmx/output"/>
-    <property name="jboss.jmx.lib" value="${jboss.jmx.root}/lib"/>
-    <path id="jboss.jmx.classpath">
-      <pathelement path="${jboss.jmx.lib}/jboss-jmx.jar"/>
-    </path>
-
-    <!-- transaction -->
-    <property name="jboss.transaction.root" value="${project.root}/transaction/output"/>
-    <property name="jboss.transaction.lib" value="${jboss.transaction.root}/lib"/>
-    <path id="jboss.transaction.classpath">
-      <pathelement path="${jboss.transaction.lib}/jboss-transaction.jar"/>
-    </path>
-
+    &modules;
     <!-- The combined depedant module classpath -->
     <path id="dependentmodule.classpath">
       <path refid="jboss.common.classpath"/>
@@ -197,6 +113,7 @@
     <property name="build.etc" value="${module.output}/etc"/>
     <property name="build.resources" value="${module.output}/resources"/>
     <property name="build.stylesheets" value="${module.output}/stylesheets"/>
+    <property name="build.tools" value="${module.output}/tools"/>
 
     <property name="tools.stylesheets" value="${project.tools}/etc/stylesheets"/>
 
@@ -236,21 +153,6 @@
 
     <!-- Packages to include when generating api documentation -->
     <property name="javadoc.packages" value="org.jboss.*"/>
-
-    <!-- Override JUnit defaults -->
-    <property name="junit.timeout" value="240000"/> <!-- 4 minutes -->
-    <property name="junit.batchtest.todir" value="${build.reports}"/>
-    <property name="junit.jvm.options" value="-Ddummy"/>
-
-    <!-- xdoclet -->
-    <path id="xdoclet.task.classpath">
-      <path refid="javac.classpath"/>
-      <fileset dir="${project.thirdparty}/xdoclet/xdoclet/lib">
-        <include name="**/*.jar"/>
-      </fileset>
-    </path>
-    <property name="xdoclet.task.classpath" 
-	      refid="xdoclet.task.classpath"/>
 
   </target>
 
@@ -406,9 +308,12 @@
     -->
   <target name="jars" 
 	  description="Builds all jar files."
-	  depends="compile">
-    <mkdir dir="${build.lib}"/>
+     depends="_buildmagic:build-bypass-check"
+	  unless="build-bypass.on">
 
+    <call target="compile"/>
+
+    <mkdir dir="${build.lib}"/>
 
     <!-- Build jboss-jca.sar -->
     <jar jarfile="${build.lib}/jboss-jca.sar"
@@ -431,9 +336,14 @@
          manifest="${build.etc}/default.mf">
       <fileset dir="${build.classes}">
         <include name="org/jboss/resource/adapter/jdbc/ExceptionSorter.class"/>
+        <include name="org/jboss/resource/adapter/jdbc/CheckValidConnectionSQL.class"/>
+        <include name="org/jboss/resource/adapter/jdbc/ValidConnectionChecker.class"/>
         <include name="org/jboss/resource/adapter/jdbc/vendor/*.class"/>
+        <include name="org/jboss/resource/adapter/jdbc/Null*.class"/>
         <include name="org/jboss/resource/adapter/jdbc/Wrap*.class"/>
         <include name="org/jboss/resource/adapter/jdbc/BaseWrap*.class"/>
+        <include name="org/jboss/resource/adapter/jdbc/CachedPreparedStatement.class"/>
+        <include name="org/jboss/resource/adapter/jdbc/PreparedStatementCache.class"/>
       </fileset>
     </jar>
 
@@ -495,6 +405,17 @@
         <include name="**"/>
       </fileset>
     </jar>
+
+    <!-- jbosscx-client.jar -->
+    <jar jarfile="${build.lib}/jbosscx-client.jar"
+         manifest="${build.etc}/default.mf">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/resource/JBossResourceException.class"/>
+      </fileset>
+    </jar>
+
+    <!-- Update the build marker to allow bypassing -->
+    <touch file="${build-bypass.marker}"/>
 
   </target>
 

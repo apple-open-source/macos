@@ -128,6 +128,8 @@
 
 #define kIOHIDMouseKeysOnKey			"HIDMouseKeysOn"
 
+#define kIOHIDUseKeyswitchKey                "HIDUseKeyswitch"
+
 
 // the following are misspelled keys present in the system
 // they are being kept around, but will eventually be deprecated

@@ -283,6 +283,8 @@ bool NumberImp::toUInt32(unsigned& uint32) const
   return (double)uint32 == val;
 }
 
+double SimpleNumber::negZero = -0.0;
+
 // ------------------------------ LabelStack -----------------------------------
 
 LabelStack::LabelStack(const LabelStack &other)
@@ -445,6 +447,7 @@ ProgramNode *Parser::parse(const UChar *code, unsigned int length, int *sourceId
   //extern int kjsyydebug;
   //kjsyydebug=1;
   int parseError = kjsyyparse();
+  Lexer::curr()->doneParsing();
   ProgramNode *prog = progNode;
   progNode = 0;
   sid = -1;

@@ -793,8 +793,7 @@ IOFBBuildModeList( IOFBConnectRef connectRef )
     if( connectRef->modesArray)
         CFRelease( connectRef->modesArray );
 
-    connectRef->suppressRefresh = connectRef->overrides
-                && (0 != CFDictionaryGetValue( connectRef->overrides, CFSTR(kIODisplayIsDigitalKey)));
+    connectRef->suppressRefresh = (0 != connectRef->overrides);
     connectRef->detailedRefresh = false;
 
     dict = CFDictionaryCreateMutable( kCFAllocatorDefault, (CFIndex) 0,
@@ -1628,7 +1627,8 @@ IOFBLookDefaultDisplayMode( IOFBConnectRef connectRef )
         else if (!defaultToDependent && !desireHPix && (0 != (info->flags & kDisplayModeDefaultFlag)))
             rDefault++;
 
-        if( !bestMode)
+        if( !bestMode
+	 || ((info->flags & kDisplayModeSafeFlag) && (0 == (bestInfo.flags & kDisplayModeSafeFlag))))
             better = true;
         else {
 #if 1
@@ -1652,9 +1652,11 @@ IOFBLookDefaultDisplayMode( IOFBConnectRef connectRef )
                     if( defaultToDependent && (0 == (info->flags & kDisplayModeSafeFlag)) )
                         better = (info->refreshRate < (61 << 16))
                             && (info->refreshRate > bestInfo.refreshRate);
-                    else
+                    else {
                         better = (info->refreshRate < desireRefresh)
-                            && (info->refreshRate > bestInfo.refreshRate);
+                            && ((info->refreshRate > bestInfo.refreshRate) 
+				|| (bestInfo.refreshRate >= desireRefresh));
+		    }
 
                 } else {
                     if( !better && desireHPix && desireVPix) {

@@ -22,7 +22,7 @@ import java.util.ArrayList;
  *  Specification", version 1.1 (01-06-07).
  *      
  *  @author <a href="mailto:osh@sparre.dk">Ole Husgaard</a>
- *  @version $Revision: 1.4 $
+ *  @version $Revision: 1.4.4.1 $
  */
 public class OperationAnalysis
    extends AbstractAnalysis
@@ -76,7 +76,7 @@ public class OperationAnalysis
       Class[] params = method.getParameterTypes();
       parameters = new ParameterAnalysis[params.length];
       for (int i = 0; i < params.length; ++i) {
-         logger.debug("new OperationAnalysis: " + method.getName() + 
+         logger.debug("OperationAnalysis: " + method.getName() + 
                       " has parameter [" + params[i].getName() + "]");
          parameters[i] = new ParameterAnalysis("param" + (i+1), params[i]);
       }

@@ -97,7 +97,7 @@ static BOOL push_message(ubi_slList *list_head, char *buf, int msg_len)
 	ubi_slAddTail( list_head, msg);
 
 	/* Push the MID of this packet on the signing queue. */
-	srv_defer_sign_response(SVAL(buf,smb_mid), True);
+	srv_defer_sign_response(SVAL(buf,smb_mid));
 
 	return True;
 }
@@ -637,7 +637,7 @@ static void smb_dump(const char *name, int type, char *data, ssize_t len)
 		if (ret != len)
 			DEBUG(0,("smb_dump: problem: write returned %d\n", (int)ret ));
 		close(fd);
-		DEBUG(0,("created %s len %d\n", fname, len));
+		DEBUG(0,("created %s len %lu\n", fname, (unsigned long)len));
 	}
 }
 
@@ -924,10 +924,16 @@ const char *smb_fn_name(int type)
 	return(smb_messages[type].name);
 }
 
-
 /****************************************************************************
- Helper function for contruct_reply.
+ Helper functions for contruct_reply.
 ****************************************************************************/
+
+static uint32 common_flags2 = FLAGS2_LONG_PATH_COMPONENTS|FLAGS2_EXTENDED_SECURITY|FLAGS2_32_BIT_ERROR_CODES;
+
+void remove_from_common_flags2(uint32 v)
+{
+	common_flags2 &= ~v;
+}
 
 void construct_reply_common(char *inbuf,char *outbuf)
 {
@@ -941,9 +947,8 @@ void construct_reply_common(char *inbuf,char *outbuf)
 	SCVAL(outbuf,smb_reh,0);
 	SCVAL(outbuf,smb_flg, FLAG_REPLY | (CVAL(inbuf,smb_flg) & FLAG_CASELESS_PATHNAMES)); 
 	SSVAL(outbuf,smb_flg2,
-	      (SVAL(inbuf,smb_flg2) & FLAGS2_UNICODE_STRINGS) |
-	      FLAGS2_LONG_PATH_COMPONENTS |
-	      FLAGS2_32_BIT_ERROR_CODES | FLAGS2_EXTENDED_SECURITY);
+		(SVAL(inbuf,smb_flg2) & FLAGS2_UNICODE_STRINGS) |
+		common_flags2);
 
 	SSVAL(outbuf,smb_err,SMB_SUCCESS);
 	SSVAL(outbuf,smb_tid,SVAL(inbuf,smb_tid));
@@ -1265,8 +1270,10 @@ void smbd_process(void)
 	if ((InBuffer == NULL) || (OutBuffer == NULL)) 
 		return;
 
+#if defined(DEVELOPER)
 	clobber_region(SAFE_STRING_FUNCTION_NAME, SAFE_STRING_LINE, InBuffer, total_buffer_size);
 	clobber_region(SAFE_STRING_FUNCTION_NAME, SAFE_STRING_LINE, OutBuffer, total_buffer_size);
+#endif
 
 	max_recv = MIN(lp_maxxmit(),BUFFER_SIZE);
 
@@ -1295,7 +1302,9 @@ void smbd_process(void)
 			num_smbs = 0; /* Reset smb counter. */
 		}
 
+#if defined(DEVELOPER)
 		clobber_region(SAFE_STRING_FUNCTION_NAME, SAFE_STRING_LINE, InBuffer, total_buffer_size);
+#endif
 
 		while (!receive_message_or_smb(InBuffer,BUFFER_SIZE+LARGE_WRITEX_HDR_SIZE,select_timeout)) {
 			if(!timeout_processing( deadtime, &select_timeout, &last_timeout_processing_time))

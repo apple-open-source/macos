@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- A service descriptor for the multiple ear test that uses filtering
+to set the version info.
+-->
+<server>
+   <mbean code="org.jboss.test.classloader.resource.ResourceTest"
+      name="jboss.test:name=LoadingResource,version=@VERSION@">
+      <attribute name="DtdName">dtds/sample@VERSION@.dtd</attribute>
+   </mbean>
+</server>
+

@@ -254,18 +254,19 @@ BOOL create_next_pdu(pipes_struct *p)
 	}
 
 	if (p->netsec_auth_validated) {
+		int auth_type, auth_level;
 		char *data;
 		RPC_HDR_AUTH auth_info;
-		static const uchar netsec_sig[8] = NETSEC_SIGNATURE;
-		static const uchar nullbytes[8] = { 0,0,0,0,0,0,0,0 };
 
 		RPC_AUTH_NETSEC_CHK verf;
 		prs_struct rverf;
 		prs_struct rauth;
 
 		data = prs_data_p(&outgoing_pdu) + data_pos;
+		/* Check it's the type of reply we were expecting to decode */
 
-		init_rpc_hdr_auth(&auth_info, NETSEC_AUTH_TYPE, RPC_PIPE_AUTH_SEAL_LEVEL, 
+		get_auth_type_level(p->netsec_auth.auth_flags, &auth_type, &auth_level);
+		init_rpc_hdr_auth(&auth_info, auth_type, auth_level, 
 				  RPC_HDR_AUTH_LEN, 1);
 
 		if(!smb_io_rpc_hdr_auth("hdr_auth", &auth_info, &outgoing_pdu, 0)) {
@@ -277,10 +278,8 @@ BOOL create_next_pdu(pipes_struct *p)
 		prs_init(&rverf, 0, p->mem_ctx, MARSHALL);
 		prs_init(&rauth, 0, p->mem_ctx, MARSHALL);
 
-		init_rpc_auth_netsec_chk(&verf, netsec_sig, nullbytes, nullbytes, nullbytes);
-
 		netsec_encode(&p->netsec_auth, 
-			      AUTH_PIPE_NETSEC|AUTH_PIPE_SIGN|AUTH_PIPE_SEAL, 
+			      p->netsec_auth.auth_flags,
 			      SENDER_IS_ACCEPTOR,
 			      &verf, data, data_len);
 
@@ -421,9 +420,15 @@ failed authentication on named pipe %s.\n", domain, user_name, wks, p->name ));
 	 * Set up the sign/seal data.
 	 */
 
-	{
+	if (server_info->lm_session_key.length != 16) {
+		DEBUG(1,("api_pipe_ntlmssp_verify: User [%s]\\[%s] from machine %s \
+succeeded authentication on named pipe %s, but session key was of incorrect length [%u].\n", 
+			 domain, user_name, wks, p->name, server_info->lm_session_key.length));
+		free_server_info(&server_info);
+		return False;
+	} else {
 		uchar p24[24];
-		NTLMSSPOWFencrypt(server_info->first_8_lm_hash, lm_owf, p24);
+		NTLMSSPOWFencrypt(server_info->lm_session_key.data, lm_owf, p24);
 		{
 			unsigned char j = 0;
 			int ind;
@@ -469,7 +474,7 @@ failed authentication on named pipe %s.\n", domain, user_name, wks, p->name ));
 	 * Store the UNIX credential data (uid/gid pair) in the pipe structure.
 	 */
 
-	memcpy(p->session_key, server_info->session_key, sizeof(p->session_key));
+	p->session_key = data_blob(server_info->lm_session_key.data, server_info->lm_session_key.length);
 
 	p->pipe_user.uid = server_info->uid;
 	p->pipe_user.gid = server_info->gid;
@@ -1337,10 +1342,19 @@ BOOL api_pipe_netsec_process(pipes_struct *p, prs_struct *rpc_in)
 		return False;
 	}
 
-	if ((auth_info.auth_type != NETSEC_AUTH_TYPE) ||
-	    (auth_info.auth_level != RPC_PIPE_AUTH_SEAL_LEVEL)) {
-		DEBUG(0,("Invalid auth info %d or level %d on schannel\n",
-			 auth_info.auth_type, auth_info.auth_level));
+	if (auth_info.auth_type != NETSEC_AUTH_TYPE) {
+		DEBUG(0,("Invalid auth info %d on schannel\n",
+			 auth_info.auth_type));
+		return False;
+	}
+
+	if (auth_info.auth_level == RPC_PIPE_AUTH_SEAL_LEVEL) {
+		p->netsec_auth.auth_flags = AUTH_PIPE_NETSEC|AUTH_PIPE_SIGN|AUTH_PIPE_SEAL;
+	} else if (auth_info.auth_level == RPC_PIPE_AUTH_SIGN_LEVEL) {
+		p->netsec_auth.auth_flags = AUTH_PIPE_NETSEC|AUTH_PIPE_SIGN;
+	} else {
+		DEBUG(0,("Invalid auth level %d on schannel\n",
+			 auth_info.auth_level));
 		return False;
 	}
 
@@ -1350,7 +1364,7 @@ BOOL api_pipe_netsec_process(pipes_struct *p, prs_struct *rpc_in)
 	}
 
 	if (!netsec_decode(&p->netsec_auth,
-			   AUTH_PIPE_NETSEC|AUTH_PIPE_SIGN|AUTH_PIPE_SEAL, 
+			   p->netsec_auth.auth_flags,
 			   SENDER_IS_INITIATOR,
 			   &netsec_chk,
 			   prs_data_p(rpc_in)+old_offset, data_len)) {

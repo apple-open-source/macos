@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,87 +23,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc.  All rights reserved.
  *
  *
  */
-//		$Log: IOPlatformCtrlLoop.h,v $
-//		Revision 1.9  2003/07/16 02:02:09  eem
-//		3288772, 3321372, 3328661
-//		
-//		Revision 1.8  2003/07/08 04:32:49  eem
-//		3288891, 3279902, 3291553, 3154014
-//		
-//		Revision 1.7  2003/06/25 02:21:54  eem
-//		Turned off debugging for submission.
-//		
-//		Revision 1.6  2003/06/25 02:16:24  eem
-//		Merged 101.0.21 to TOT, fixed PM72 lproj, included new fan settings, bumped
-//		version to 101.0.22.
-//		
-//		Revision 1.5.4.1  2003/06/19 10:24:16  eem
-//		Pulled common PID code into IOPlatformPIDCtrlLoop and subclassed it with
-//		PowerMac7_2_CPUFanCtrlLoop and PowerMac7_2_PIDCtrlLoop.  Added history
-//		length to meta-state.  No longer adjust T_err when the setpoint changes.
-//		Don't crank the CPU fans for overtemp, just slew slow.
-//		
-//		Revision 1.5  2003/06/07 01:30:56  eem
-//		Merge of EEM-PM72-ActiveFans-2 branch, with a few extra tweaks.  This
-//		checkin has working PID control for PowerMac7,2 platforms, as well as
-//		a first shot at localized strings.
-//		
-//		Revision 1.4.2.8  2003/06/06 12:16:49  eem
-//		Updated strings, turned off debugging.
-//		
-//		Revision 1.4.2.7  2003/06/06 08:17:56  eem
-//		Holy Motherfucking shit.  PID is really working.
-//		
-//		Revision 1.4.2.6  2003/06/04 10:21:10  eem
-//		Supports forced PID meta states.
-//		
-//		Revision 1.4.2.5  2003/05/31 08:11:34  eem
-//		Initial pass at integrating deadline-based timer callbacks for PID loops.
-//		
-//		Revision 1.4.2.4  2003/05/29 03:51:34  eem
-//		Clean up environment dictionary access.
-//		
-//		Revision 1.4.2.3  2003/05/23 06:36:57  eem
-//		More registration notification stuff.
-//		
-//		Revision 1.4.2.2  2003/05/23 05:44:40  eem
-//		Cleanup, ctrlloops not get notification for sensor and control registration.
-//		
-//		Revision 1.4.2.1  2003/05/22 01:31:04  eem
-//		Checkin of today's work (fails compilations right now).
-//		
-//		Revision 1.4  2003/05/21 21:58:49  eem
-//		Merge from EEM-PM72-ActiveFans-1 branch with initial crack at active fan
-//		control on Q37.
-//		
-//		Revision 1.3.2.2  2003/05/16 07:08:45  eem
-//		Table-lookup active fan control working with this checkin.
-//		
-//		Revision 1.3.2.1  2003/05/14 22:07:48  eem
-//		Implemented state-driven sensor, cleaned up "const" usage and header
-//		inclusions.
-//		
-//		Revision 1.3  2003/05/13 02:13:51  eem
-//		PowerMac7_2 Dynamic Power Step support.
-//		
-//		Revision 1.2.2.1  2003/05/12 11:21:10  eem
-//		Support for slewing.
-//		
-//		Revision 1.2  2003/05/10 06:50:33  eem
-//		All sensor functionality included for PowerMac7_2_PlatformPlugin.  Version
-//		is 1.0.1d12.
-//		
-//		Revision 1.1.2.2  2003/05/10 06:32:34  eem
-//		Sensor changes, should be ready to merge to trunk as 1.0.1d12.
-//		
-//		Revision 1.1.2.1  2003/05/01 09:28:40  eem
-//		Initial check-in in progress toward first Q37 checkpoint.
-//		
-//		
+
 
 #ifndef _IOPLATFORMCTRLLOOP_H
 #define _IOPLATFORMCTRLLOOP_H

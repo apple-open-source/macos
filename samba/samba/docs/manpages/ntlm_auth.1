@@ -21,10 +21,12 @@
 .SH NAME
 ntlm_auth \- tool to allow external access to Winbind's NTLM authentication function
 .SH "SYNOPSIS"
-
-.nf
-\fBntlm_auth\fR [-d debuglevel] [-l logfile] [-s <smb config file>]
-.fi
+.ad l
+.hy 0
+.HP 10
+\fBntlm_auth\fR [\-d\ debuglevel] [\-l\ logfile] [\-s\ <smb\ config\ file>]
+.ad
+.hy
 
 .SH "DESCRIPTION"
 
@@ -32,93 +34,179 @@ ntlm_auth \- tool to allow external access to Winbind's NTLM authentication func
 This tool is part of the \fBSamba\fR(7) suite\&.
 
 .PP
-\fBntlm_auth\fR is a helper utility that authenticates users using NT/LM authentication\&. It returns 0 if the users is authenticated successfully and 1 if access was denied\&. ntlm_auth uses winbind to access the user and authentication data for a domain\&. This utility is only to be used by other programs (currently squid)\&.
+\fBntlm_auth\fR is a helper utility that authenticates users using NT/LM authentication\&. It returns 0 if the users is authenticated successfully and 1 if access was denied\&. ntlm_auth uses winbind to access the user and authentication data for a domain\&. This utility is only indended to be used by other programs (currently squid)\&.
+
+.SH "OPERATIONAL REQUIREMENTS"
+
+.PP
+The \fBwinbindd\fR(8) daemon must be operational for many of these commands to function\&.
+
+.PP
+Some of these commands also require access to the directory \fIwinbindd_privileged\fR in \fI$LOCKDIR\fR\&. This should be done either by running this command as root or providing group access to the \fIwinbindd_privileged\fR directory\&. For security reasons, this directory should not be world\-accessable\&.
 
 .SH "OPTIONS"
 
 .TP
---helper-protocol=PROTO
-Operate as a stdio-based helper
+\-\-helper\-protocol=PROTO
+Operate as a stdio\-based helper\&. Valid helper protocols are:
+
+
+.RS
+
+.TP
+squid\-2\&.4\-basic
+Server\-side helper for use with Squid 2\&.4's basic (plaintext) authentication\&.
 
 
 .TP
---username=USERNAME
+squid\-2\&.5\-basic
+Server\-side helper for use with Squid 2\&.5's basic (plaintext) authentication\&.
+
+
+.TP
+squid\-2\&.5\-ntlmssp
+Server\-side helper for use with Squid 2\&.5's NTLMSSP authentication\&.
+
+
+Requires access to the directory \fIwinbindd_privileged\fR in \fI$LOCKDIR\fR\&. The protocol used is described here: http://devel\&.squid\-cache\&.org/ntlm/squid_helper_protocol\&.html
+
+
+.TP
+ntlmssp\-client\-1
+Cleint\-side helper for use with arbitary external programs that may wish to use Samba's NTLMSSP authentication knowlege\&.
+
+
+This helper is a client, and as such may be run by any user\&. The protocol used is effectivly the reverse of the previous protocol\&.
+
+
+.TP
+gss\-spnego
+Server\-side helper that implements GSS\-SPNEGO\&. This uses a protocol that is almost the same as \fBsquid\-2\&.5\-ntlmssp\fR, but has some subtle differences that are undocumented outside the source at this stage\&.
+
+
+Requires access to the directory \fIwinbindd_privileged\fR in \fI$LOCKDIR\fR\&.
+
+
+.TP
+gss\-spnego\-client
+Client\-side helper that implements GSS\-SPNEGO\&. This also uses a protocol similar to the above helpers, but is currently undocumented\&.
+
+
+.RE
+
+.TP
+\-\-username=USERNAME
 Specify username of user to authenticate
 
 
 .TP
---domain=DOMAIN
+\-\-domain=DOMAIN
 Specify domain of user to authenticate
 
 
 .TP
---workstation=WORKSTATION
+\-\-workstation=WORKSTATION
 Specify the workstation the user authenticated from
 
 
 .TP
---challenge=STRING
-challenge (HEX encoded)
+\-\-challenge=STRING
+NTLM challenge (in HEXADECIMAL)
 
 
 .TP
---lm-response=RESPONSE
-LM Response to the challenge (HEX encoded)
+\-\-lm\-response=RESPONSE
+LM Response to the challenge (in HEXADECIMAL)
 
 
 .TP
---nt-response=RESPONSE
-NT or NTLMv2 Response to the challenge (HEX encoded)
+\-\-nt\-response=RESPONSE
+NT or NTLMv2 Response to the challenge (in HEXADECIMAL)
 
 
 .TP
---password=PASSWORD
+\-\-password=PASSWORD
 User's plaintext password
 
 
+If not specified on the command line, this is prompted for when required\&.
+
+
 .TP
---request-lm-key
+\-\-request\-lm\-key
 Retreive LM session key
 
 
 .TP
---request-nt-key
+\-\-request\-nt\-key
 Request NT key
 
 
 .TP
--V
-Prints the version number for \fBsmbd\fR\&.
+\-\-diagnostics
+Perform Diagnostics on the authentication chain\&. Uses the password from \fB\-\-password\fR or prompts for one\&.
 
 
 .TP
--s <configuration file>
-The file specified contains the configuration details required by the server\&. The information in this file includes server-specific information such as what printcap file to use, as well as descriptions of all the services that the server is to provide\&. See \fIsmb\&.conf\fR for more information\&. The default configuration file name is determined at compile time\&.
+\-V
+Prints the program version number\&.
 
 
 .TP
--d|--debug=debuglevel
+\-s <configuration file>
+The file specified contains the configuration details required by the server\&. The information in this file includes server\-specific information such as what printcap file to use, as well as descriptions of all the services that the server is to provide\&. See \fIsmb\&.conf\fR for more information\&. The default configuration file name is determined at compile time\&.
+
+
+.TP
+\-d|\-\-debug=debuglevel
 \fIdebuglevel\fR is an integer from 0 to 10\&. The default value if this parameter is not specified is zero\&.
 
 
-The higher this value, the more detail will be logged to the log files about the activities of the server\&. At level 0, only critical errors and serious warnings will be logged\&. Level 1 is a reasonable level for day to day running - it generates a small amount of information about operations carried out\&.
+The higher this value, the more detail will be logged to the log files about the activities of the server\&. At level 0, only critical errors and serious warnings will be logged\&. Level 1 is a reasonable level for day\-to\-day running \- it generates a small amount of information about operations carried out\&.
 
 
 Levels above 1 will generate considerable amounts of log data, and should only be used when investigating a problem\&. Levels above 3 are designed for use only by developers and generate HUGE amounts of log data, most of which is extremely cryptic\&.
 
 
-Note that specifying this parameter here will override the \fIlog level\fR parameter in the \fIsmb\&.conf\fR file\&.
+Note that specifying this parameter here will override the log level parameter in the \fIsmb\&.conf\fR file\&.
 
 
 .TP
--l|--logfile=logbasename
+\-l|\-\-logfile=logbasename
 File name for log/debug files\&. The extension \fB"\&.client"\fR will be appended\&. The log file is never removed by the client\&.
 
 
 .TP
--h|--help
+\-h|\-\-help
 Print a summary of command line options\&.
 
+
+.SH "EXAMPLE SETUP"
+
+.PP
+To setup ntlm_auth for use by squid 2\&.5, with both basic and NTLMSSP authentication, the following should be placed in the \fIsquid\&.conf\fR file\&. 
+.nf
+
+auth_param ntlm program ntlm_auth \-\-helper\-protocol=squid\-2\&.5\-ntlmssp
+auth_param basic program ntlm_auth \-\-helper\-protocol=squid\-2\&.5\-basic
+auth_param basic children 5
+auth_param basic realm Squid proxy\-caching web server
+auth_param basic credentialsttl 2 hours
+.fi
+
+
+.RS
+.Sh "Note"
+
+.PP
+This example assumes that ntlm_auth has been installed into your path, and that the group permissions on \fIwinbindd_privileged\fR are as described above\&.
+
+.RE
+
+.SH "TROUBLESHOOTING"
+
+.PP
+If you're experiencing problems with authenticating Internet Explorer running under MS Windows 9X or Millenium Edition against ntlm_auth's NTLMSSP authentication helper (\-\-helper\-protocol=squid\-2\&.5\-ntlmssp), then please readthe Microsoft Knowledge Base article #239869 and follow instructions described there\&.
 
 .SH "VERSION"
 
@@ -131,5 +219,5 @@ This man page is correct for version 3\&.0 of the Samba suite\&.
 The original Samba software and related utilities were created by Andrew Tridgell\&. Samba is now developed by the Samba Team as an Open Source project similar to the way the Linux kernel is developed\&.
 
 .PP
-The ntlm_auth manpage was written by Jelmer Vernooij\&.
+The ntlm_auth manpage was written by Jelmer Vernooij and Andrew Bartlett\&.
 

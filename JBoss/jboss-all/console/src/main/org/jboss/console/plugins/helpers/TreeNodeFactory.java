@@ -7,8 +7,6 @@
 
 package org.jboss.console.plugins.helpers;
 
-import javax.management.ObjectName;
-
 import org.jboss.console.manager.interfaces.ManageableResource;
 import org.jboss.console.manager.interfaces.ResourceTreeNode;
 import org.jboss.console.manager.interfaces.TreeAction;
@@ -21,13 +19,15 @@ import org.jboss.console.manager.interfaces.impl.SimpleResourceTreeNode;
 import org.jboss.console.manager.interfaces.impl.SimpleTreeNode;
 import org.jboss.console.manager.interfaces.impl.SimpleTreeNodeMenuEntryImpl;
 
+import javax.management.ObjectName;
+
 /**
  * <description>
  *
  * @see <related>
  *
  * @author  <a href="mailto:sacha.labourey@cogito-info.ch">Sacha Labourey</a>.
- * @version $Revision: 1.1.2.1 $
+ * @version $Revision: 1.1.2.2 $
  *
  * <p><b>Revisions:</b>
  *

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,20 +23,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc.  All rights reserved.
  *
  *
  */
-//		$Log: PowerMac7_2_PCIPowerSensor.h,v $
-//		Revision 1.2  2003/07/18 00:22:24  eem
-//		[3329244] PCI fan conrol algorithm should use integral of power consumed
-//		[3254911] Q37 Platform Plugin must disable debugging accessors before GM
-//		
-//		Revision 1.1  2003/07/08 04:32:51  eem
-//		3288891, 3279902, 3291553, 3154014
-//		
-//
-//
+
 
 #ifndef _POWERMAC7_2_PCIPOWERSENSOR_H
 #define _POWERMAC7_2_PCIPOWERSENSOR_H
@@ -54,8 +45,8 @@ protected:
 	//virtual IOReturn		initPlatformSensor( const OSDictionary * dict );
 
 	// apply scaling factor
-	virtual const OSNumber *		applyValueTransform( const OSNumber * hwReading ) const;
-	virtual const OSNumber *		applyHWTransform( const OSNumber * value ) const;
+	virtual SensorValue applyCurrentValueTransform( SensorValue ) const;
+	//virtual SensorValue applyCurrentValueInverseTransform( SensorValue ) const;
 
 };
 

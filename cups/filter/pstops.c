@@ -1,5 +1,5 @@
 /*
- * "$Id: pstops.c,v 1.33 2003/08/27 23:40:23 gelphman Exp $"
+ * "$Id: pstops.c,v 1.33.4.1 2004/01/17 00:42:10 gelphman Exp $"
  *
  *   PostScript filter for the Common UNIX Printing System (CUPS).
  *
@@ -578,7 +578,7 @@ main(int  argc,			/* I - Number of command-line arguments */
     */
 
     if (Duplex)
-      puts("%%Requirements: duplex\n");
+      puts("%%Requirements: duplex");
 
    /*
     * Apple uses RBI comments for various non-PPD options...
@@ -1028,7 +1028,7 @@ main(int  argc,			/* I - Number of command-line arguments */
             end_nup(NUp - 1);
 	  }
 
-	  if (slowduplex && !(page & 1))
+	  if (Duplex && !(page & 1))
 	  {
 	   /*
             * Make sure we have an even number of pages...
@@ -2091,5 +2091,5 @@ static void setPageOptionsAndEmit(ppd_file_t *ppd, float minOrder, const char *i
 }
 
 /*
- * End of "$Id: pstops.c,v 1.33 2003/08/27 23:40:23 gelphman Exp $".
+ * End of "$Id: pstops.c,v 1.33.4.1 2004/01/17 00:42:10 gelphman Exp $".
  */

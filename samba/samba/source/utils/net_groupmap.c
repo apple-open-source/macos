@@ -258,7 +258,7 @@ static int net_groupmap_add(int argc, const char **argv)
 	}
 	
 	if ( (gid = nametogid(unixgrp)) == (gid_t)-1 ) {
-		d_printf("Can't lookup UNIX group %s\n", ntgroup);
+		d_printf("Can't lookup UNIX group %s\n", unixgrp);
 		return -1;
 	}
 	
@@ -274,10 +274,10 @@ static int net_groupmap_add(int argc, const char **argv)
 		sid_to_string(string_sid, &sid);
 	}
 
-	if (ntcomment[0])
+	if (!ntcomment[0])
 		fstrcpy(ntcomment, "Local Unix group");
 		
-	if ( !ntgroup[0] )
+	if (!ntgroup[0] )
 		fstrcpy( ntgroup, unixgrp );
 		
 	
@@ -508,9 +508,8 @@ int net_groupmap(int argc, const char **argv)
 		return -1;
 	}
 	
-	return net_run_function(argc, argv, func, net_help_groupmap);
-	if ( 0 == argc )
-		return net_help_groupmap( argc, argv );
+	if ( argc )
+		return net_run_function(argc, argv, func, net_help_groupmap);
 
 	return net_help_groupmap( argc, argv );
 }

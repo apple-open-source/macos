@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,76 +23,51 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc.  All rights reserved.
  *
  *
  */
-//		$Log: IOPlatformPluginDefs.h,v $
-//		Revision 1.4  2003/07/08 04:32:49  eem
-//		3288891, 3279902, 3291553, 3154014
-//		
-//		Revision 1.3  2003/06/07 01:30:56  eem
-//		Merge of EEM-PM72-ActiveFans-2 branch, with a few extra tweaks.  This
-//		checkin has working PID control for PowerMac7,2 platforms, as well as
-//		a first shot at localized strings.
-//		
-//		Revision 1.2.2.2  2003/06/04 00:00:51  eem
-//		More PID stuff, working towards support for forced meta states.
-//		
-//		Revision 1.2.2.1  2003/06/01 14:52:51  eem
-//		Most of the PID algorithm is implemented.
-//		
-//		Revision 1.2  2003/05/21 21:58:49  eem
-//		Merge from EEM-PM72-ActiveFans-1 branch with initial crack at active fan
-//		control on Q37.
-//		
-//		Revision 1.1.2.1  2003/05/16 07:08:45  eem
-//		Table-lookup active fan control working with this checkin.
-//		
-//		Revision 1.1.2.1  2003/05/14 22:07:37  eem
-//		Implemented state-driven sensor, cleaned up "const" usage and header
-//		inclusions.
-//		
-//
-//
+
 
 #ifndef _IOPLATFORMPLUGINDEFS_H
 #define _IOPLATFORMPLUGINDEFS_H
 
 #include <IOKit/IOTypes.h>
 
-// generic keys - for sensors and controls
-#define kIOPPluginForceUpdateKey			"force-update"
-#define kIOPPluginForceUpdateAllKey			"force-update-all"
-#define kIOPPluginForceSensorCurValKey		"force-sensor-current-value"
-#define kIOPPluginReleaseForcedSensorKey	"release-forced-sensor"
-#define kIOPPluginForceCtrlTargetValKey		"force-control-target-value"
-#define kIOPPluginReleaseForcedControlKey	"release-forced-control"
-#define kIOPPluginForceCtrlLoopMetaStateKey	"force-ctrlloop-meta-state"
-#define kIOPPluginReleaseForcedCtrlLoopKey	"release-forced-ctrlloop"
-#define kIOPPluginVersionKey				"version"
-#define kIOPPluginTypeKey					"type"
-#define kIOPPluginLocationKey				"location"
-#define kIOPPluginZoneKey					"zone"
-#define kIOPPluginCurrentValueKey			"current-value"
-#define kIOPPluginPollingPeriodKey			"polling-period"
-#define kIOPPluginRegisteredKey				"registered"
+/*
+ * IOPlatformPluginDefs
+ */
 
-// keys for publishing info to the registry
+
+/*
+ * Property keys for publishing sensor, control and control-loop instance data
+ * in the I/O registry.
+ *
+ * The IOPlatformSensor, IOPlatformControl and IOPlatformCtrlLoop instances store
+ * their instance data in an OSDictionary (infoDict).  The Platform Plugin creates
+ * properties in its I/O registry node, using the keys defined below, which contain
+ * arrays of pointers to the infoDict for each IOPlatformCtrlLoop instance (under
+ * IOHWCtrlLoops) and each *registered* IOPlatformSensor and IOPlatformControl (under
+ * IOHWSensors and IOHWControls, respectively).
+ */
 #define kIOPPluginSensorDataKey				"IOHWSensors"
 #define kIOPPluginControlDataKey			"IOHWControls"
 #define kIOPPluginCtrlLoopDataKey			"IOHWCtrlLoops"
 
-// Sensor-specific keys
-#define kIOPPluginSensorIDKey				"sensor-id"
-#define kIOPPluginSensorFlagsKey			"sensor-flags"
-#define kIOPPluginCurrentStateKey			"current-state"
-#define kIOPPluginLowThresholdKey			"low-threshold"
-#define kIOPPluginHighThresholdKey			"high-threshold"
+/*
+ * Keys defined by the Thermal SW ERS
+ *
+ * (Most of) these keys are define in the Thermal SW ERS.  Each sensor and control
+ * has a set of properties that goes along with it.  As such, the following keys
+ * are used to key member data in the infoDict, and will show up in the I/O
+ * registry.
+ */
 
-// for interaction with IOHWSensor
-#define kIOPPluginNoThreshold				-1
-#define kIOPPluginNoPolling					-1
+// Thermal SW parameter version
+#define kIOPPluginVersionKey				"version"
+
+// Sensor/Control type key, followed by possible values
+#define kIOPPluginTypeKey					"type"
 
 // Sensor type strings - values for the "type" attribute
 #define kIOPPluginTypeTempSensor			"temperature"
@@ -101,12 +76,70 @@
 #define kIOPPluginTypeCurrentSensor			"current"
 #define kIOPPluginTypeADCSensor				"adc"
 
-// Control-specific keys
+// Control type strings - values for the "type" attribute
+#define kIOPPluginTypeSlewControl			"slew"
+#define kIOPPluginTypeFanRPMControl			"fan-rpm"
+#define kIOPPluginTypeFanPWMControl			"fan-pwm"
+
+// Location key, contains a string to identify the physical location and/or human-
+// readable description of the device
+#define kIOPPluginLocationKey				"location"
+
+// Thermal zone key.  Value is an OSData.
+#define kIOPPluginZoneKey					"zone"
+
+// Current value key, holds the sensor's current value or the control's measured
+// value as an OSNumber.
+#define kIOPPluginCurrentValueKey			"current-value"
+
+// Sensor polling period key (optional)
+#define kIOPPluginPollingPeriodKey			"polling-period"
+
+// Boolean to flag whether or not a driver has registered as this sensor/control
+#define kIOPPluginRegisteredKey				"registered"
+
+// Sensor ID key
+#define kIOPPluginSensorIDKey				"sensor-id"
+
+// Sensor flags key  -- currently unused / no bits defined
+#define kIOPPluginSensorFlagsKey			"sensor-flags"
+
+// Current state key -- used for threshold-driven state sensors (see IOPlatformStateSensor)
+#define kIOPPluginCurrentStateKey			"current-state"
+
+// Low threshold key -- holds the low threshold that corresponds to the current
+// state (see IOPlatformStateSensor)
+#define kIOPPluginLowThresholdKey			"low-threshold"
+
+// High threshold -- holds the high threshold that corresponds to the current
+// state (see IOPlatformStateSensor)
+#define kIOPPluginHighThresholdKey			"high-threshold"
+
+// Control ID key
 #define kIOPPluginControlIDKey				"control-id"
+
+// Control flags key -- currently unused / no bits defined
 #define kIOPPluginControlFlagsKey			"control-flags"
+
+// Control target value key -- the control is instructed to adjust itself to this value
 #define kIOPPluginTargetValueKey			"target-value"
+
+// Control initial target value key -- this can be included in a ControlArray entry
+// in the thermal profile to force a control to be programmed to a certain target
+// when it registers
+#define kIOPPluginInitialTargetKey			"initial-target"
+
+// Minimum value -- used in IOPlatformControl as a lower bound for target-value
+// and current-value
 #define kIOPPluginControlMinValueKey		"min-value"
+
+// Maximum value -- used in IOPlatformControl as an upper bound for target-value
+// and current-value
 #define kIOPPluginControlMaxValueKey		"max-value"
+
+// for interaction with IOHWSensor class
+#define kIOPPluginNoThreshold				-1
+#define kIOPPluginNoPolling					-1
 
 // When a control registers, it sends it's type in the registration
 // dictionary with the key "control-type".  This is a bit off from
@@ -115,21 +148,25 @@
 // place this needs to be handled is in the registration handler.
 #define kIOPPluginControlTypeKey			"control-type"
 
-// Control type strings - values for the "type" attribute
-#define kIOPPluginTypeSlewControl			"slew"
-#define kIOPPluginTypeFanRPMControl			"fan-rpm"
-#define kIOPPluginTypeFanPWMControl			"fan-pwm"
-
 /*
  * Control loop keys
  */
+
+// Control loop ID key
 #define kIOPPluginCtrlLoopIDKey				"ctrlloop-id"
+
+// Current control loop meta state key
 #define kIOPPluginCtrlLoopMetaState			"current-meta-state"
 
 /*
  * Environment dictionary keys
  */
+
+// Key for publishing the environment dictionary in the I/O registry, alongside
+// IOHWSensors, IOHWControls and IOHWCtrlLoops
 #define kIOPPluginEnvInfoKey				"IOEnvironment"
+
+// Global environmental variable keys
 
 // internally generated overtemp condition - if the fans are at full
 // and the system is still not cooling, this condition is set.  The
@@ -188,5 +225,8 @@ typedef union SensorValue {
 	SInt32			sensValue;
 	ThermalValue	thermValue;
 };
+
+// Control's current-value and target-value are UInt32 type
+typedef UInt32 ControlValue;
 
 #endif // _IOPLATFORMPLUGINDEFS_H

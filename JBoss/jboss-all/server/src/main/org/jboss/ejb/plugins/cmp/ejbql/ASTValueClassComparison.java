@@ -11,17 +11,12 @@ package org.jboss.ejb.plugins.cmp.ejbql;
  * This abstract syntax node represents an value class comparison.
  *
  * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
- * @version $Revision: 1.1 $
+ * @version $Revision: 1.1.4.1 $
  */                            
-public class ASTValueClassComparison extends ASTComparison {
+public final class ASTValueClassComparison extends ASTComparison {
    public ASTValueClassComparison(int id) {
       super(id);
    }
-
-   public ASTValueClassComparison(EJBQLParser p, int id) {
-      super(p, id);
-   }
-
 
    /** Accept the visitor. **/
    public Object jjtAccept(JBossQLParserVisitor visitor, Object data) {

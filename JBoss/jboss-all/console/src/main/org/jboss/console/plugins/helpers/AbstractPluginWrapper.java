@@ -7,17 +7,6 @@
 
 package org.jboss.console.plugins.helpers;
 
-import java.util.HashMap;
-import java.util.Set;
-
-import javax.management.MBeanServer;
-import javax.management.MalformedObjectNameException;
-import javax.management.ObjectInstance;
-import javax.management.ObjectName;
-import javax.management.Query;
-import javax.management.QueryExp;
-import javax.servlet.ServletConfig;
-
 import org.jboss.console.manager.PluginManager;
 import org.jboss.console.manager.interfaces.ConsolePlugin;
 import org.jboss.console.manager.interfaces.ManageableResource;
@@ -33,8 +22,18 @@ import org.jboss.console.manager.interfaces.impl.SimpleResourceTreeNode;
 import org.jboss.console.manager.interfaces.impl.SimpleTreeNode;
 import org.jboss.console.manager.interfaces.impl.SimpleTreeNodeMenuEntryImpl;
 import org.jboss.logging.Logger;
-import org.jboss.system.Registry;
 import org.jboss.mx.util.MBeanServerLocator;
+import org.jboss.system.Registry;
+
+import javax.management.MBeanServer;
+import javax.management.MalformedObjectNameException;
+import javax.management.ObjectInstance;
+import javax.management.ObjectName;
+import javax.management.Query;
+import javax.management.QueryExp;
+import javax.servlet.ServletConfig;
+import java.util.HashMap;
+import java.util.Set;
 
 /**
  * <description>
@@ -42,7 +41,7 @@ import org.jboss.mx.util.MBeanServerLocator;
  * @see <related>
  *
  * @author  <a href="mailto:sacha.labourey@cogito-info.ch">Sacha Labourey</a>.
- * @version $Revision: 1.3.2.2 $
+ * @version $Revision: 1.3.2.3 $
  *
  * <p><b>Revisions:</b>
  *

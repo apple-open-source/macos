@@ -285,11 +285,11 @@ public class ReflectedMBeanDispatcher implements DynamicMBean
       }
       catch (NullPointerException e)
       {
-         throw new ReflectionException(new NoSuchMethodException("Unable to locate method for: " + opKeyString(actionName, signature)));
+         throw new ReflectionException(new NoSuchMethodException("Unable to locate MBean operation for: " + opKeyString(actionName, signature)));
       }
       catch (ArrayIndexOutOfBoundsException e)
       {
-         throw new ReflectionException(new NoSuchMethodException("Unable to locate method for: " + opKeyString(actionName, signature)));
+         throw new ReflectionException(new NoSuchMethodException("Unable to locate MBean operation for: " + opKeyString(actionName, signature)));
       }
       catch (InvocationTargetException e)
       {

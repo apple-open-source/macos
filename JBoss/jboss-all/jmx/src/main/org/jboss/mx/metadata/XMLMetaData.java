@@ -60,6 +60,7 @@ public class XMLMetaData
    private static final int XMBEAN = 0;
    private static final int JBOSS_XMBEAN_1_0 = 1;
    private static final int JBOSS_XMBEAN_1_2 = 2;
+   private static final int JBOSS_XMBEAN_1_1 = 3;
    
 
 
@@ -261,10 +262,9 @@ public class XMLMetaData
          {
             version = validateVersionString(versionString);
          } // end of else
-       
          // These are the known schemas for us. Pick the correct one based on
          // schema or default to the latest.docURL.endsWith(JBOSSMX_XMBEAN_DTD_1_0)
-         if (version == JBOSS_XMBEAN_1_0)
+         if (version == JBOSS_XMBEAN_1_0 || version == JBOSS_XMBEAN_1_1)
          {
             // jboss_xmbean_1_0.dtd
             
@@ -315,7 +315,7 @@ public class XMLMetaData
    }
    
    private int validateVersionString(String versionString)
-   {
+   {  	
       if (PUBLIC_JBOSSMX_XMBEAN_DTD_1_0.equals(versionString)) 
       {
          return JBOSS_XMBEAN_1_0;
@@ -324,6 +324,15 @@ public class XMLMetaData
       {
          return JBOSS_XMBEAN_1_0;
       } // end of if ()
+      if (PUBLIC_JBOSSMX_XMBEAN_DTD_1_1.equals(versionString)) 
+      {
+         return JBOSS_XMBEAN_1_1;
+      } // end of if ()
+      if (versionString != null && versionString.endsWith(JBOSSMX_XMBEAN_DTD_1_1))
+      {
+         return JBOSS_XMBEAN_1_1;
+      } // end of if ()
+      
       if (versionString != null && versionString.endsWith(XMBEAN_DTD))
       {
          return XMBEAN;

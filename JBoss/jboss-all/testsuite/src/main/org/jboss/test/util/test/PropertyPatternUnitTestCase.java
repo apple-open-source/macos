@@ -14,7 +14,7 @@ import org.jboss.test.JBossTestCase;
  *
  * @see org.jboss.util.Strings
  * @author <a href="Adrian.Brock@HappeningTimes.com">Adrian.Brock</a>
- * @version $Revision: 1.1.4.1 $
+ * @version $Revision: 1.1.4.2 $
  */
 public class PropertyPatternUnitTestCase extends JBossTestCase
 {
@@ -139,7 +139,7 @@ public class PropertyPatternUnitTestCase extends JBossTestCase
    public void testPropertyDoesNotExist()
       throws Exception
    {
-      assertEquals("Property does not exist", "null",
+      assertEquals("Property does not exist", "${"+doesNotExist+"}",
          Strings.replaceProperties("${"+doesNotExist+"}"));
    }
 

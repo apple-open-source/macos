@@ -4,13 +4,13 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Properties;
 import javax.management.MBeanServer;
 import javax.management.MBeanServerFactory;
 import javax.management.ObjectName;
 import javax.naming.InitialContext;
 
 import junit.framework.Test;
-import net.sourceforge.junitejb.EJBTestCase;
 import org.jboss.ejb.EntityContainer;
 import org.jboss.ejb.plugins.cmp.ejbql.Catalog;
 import org.jboss.ejb.plugins.cmp.jdbc.JDBCStoreManager;
@@ -21,6 +21,7 @@ import org.jboss.mx.server.registry.MBeanEntry;
 import org.jboss.mx.server.registry.MBeanRegistry;
 import org.jboss.mx.util.MBeanProxyExt;
 import org.jboss.test.JBossTestCase;
+import org.jboss.test.util.ejb.EJBTestCase;
 
 public class PageSizeUnitTestCase extends EJBTestCase
 {
@@ -100,8 +101,9 @@ public class PageSizeUnitTestCase extends EJBTestCase
       }
    }
 
-   public void setUpEJB() throws Exception
+   public void setUpEJB(Properties props) throws Exception
    {
+      super.setUpEJB(props);
       SimpleHome simpleHome = getSimpleHome();
       pkList = new ArrayList();
 
@@ -122,7 +124,7 @@ public class PageSizeUnitTestCase extends EJBTestCase
       jdbcStoreManager = bridge.getManager();
    }
 
-   public void tearDownEJB() throws Exception
+   public void tearDownEJB(Properties props) throws Exception
    {
       SimpleHome simpleHome = getSimpleHome();
       Collection c = simpleHome.findAll();
@@ -131,6 +133,7 @@ public class PageSizeUnitTestCase extends EJBTestCase
          Simple simple = (Simple) iterator.next();
          simple.remove();
       }
+      super.tearDownEJB(props);
    }
 }
 

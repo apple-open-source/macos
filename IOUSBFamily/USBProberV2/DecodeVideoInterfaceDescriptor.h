@@ -1,16 +1,16 @@
 /*
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
+ *
+ * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -18,7 +18,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -31,11 +31,15 @@
 
 enum  VideoClassSpecific
 {
+    // Video Interface Class Code
+    CC_VIDEO                    = 0x0E,
+
     // Video Interface Subclass Codes
     //
     SC_UNDEFINED		= 0x00,
     SC_VIDEOCONTROL		= 0x01,
     SC_VIDEOSTREAMING		= 0x02,
+    SC_VIDEO_INTERFACE_COLLECTION               = 0x03,
 
     // Video Interface Protocol Codes
     //
@@ -48,7 +52,7 @@ enum  VideoClassSpecific
     CS_CONFIGURATION		= 0x22,
     CS_STRING			= 0x23,
     // CS_INTERFACE		= 0x24,
-    // CS_ENDPOINT			= 0x25,
+    // CS_ENDPOINT              = 0x25,
 
     // Video Class Specific Control Interface Descriptor Types
     //
@@ -73,10 +77,11 @@ enum  VideoClassSpecific
     VS_FORMAT_MPEG1		= 0x08,
     VS_FORMAT_MPEG2PS		= 0x09,
     VS_FORMAT_MPEG2TS		= 0x0a,
-    VS_FORMAT_MPEG4SL		= 0x0b,
+    VS_FORMAT_MPEG4SL		= 0xFF, // TBD -- will not be 0x0b
     VS_FORMAT_DV		= 0x0c,
-    VS_FORMAT_VENDOR		= 0x0d,
-    VS_FRAME_VENDOR		= 0x0e,
+    VS_COLORFORMAT              = 0x0d,
+    VS_FORMAT_VENDOR		= 0x0e,
+    VS_FRAME_VENDOR		= 0x0f,
 
     // Video Class Specific Endpoint Descriptor Subtypes
     //
@@ -99,8 +104,8 @@ enum  VideoClassSpecific
 
     // Video Control Interface Control Selectors
     //
-    VC_UNDEFINED_CONTROL	= 0x00,
-    VC_VIDEO_POWER_MODE_CONTROL	= 0x01,
+    VC_CONTROL_UNDEFINED                        = 0x00,
+    VC_VIDEO_POWER_MODE_CONTROL                 = 0x01,
     VC_REQUEST_ERROR_CODE_CONTROL		= 0x02,
     VC_REQUEST_INDICATE_HOST_CLOCK_CONTROL	= 0x03,
 
@@ -132,6 +137,7 @@ enum  VideoClassSpecific
     CT_PANTILT_RELATIVE_CONTROL		= 0x0E,
     CT_ROLL_ABSOLUTE_CONTROL		= 0x0F,
     CT_ROLL_RELATIVE_CONTROL		= 0x10,
+    CT_PRIVACY_CONTROL                  = 0x11,
 
     // Processing Unit Control Selectors
     //
@@ -156,7 +162,6 @@ enum  VideoClassSpecific
     // Extension Unit Control Selectors
     //
     XU_CONTROL_UNDEFINED		= 0x00,
-    XU_ENABLE_CONTROL			= 0x01,
 
     // Video Streaming Interface Control Selectors
     //
@@ -194,6 +199,15 @@ enum  VideoClassSpecific
     COMPOSITE_CONNECTOR			= 0x0401,
     SVIDEO_CONNECTOR			= 0x0402,
     COMPONENT_CONNECTOR			= 0x0403,
+    
+    // Media Transport Terminal Control Selectors
+    //
+    MTT_CONTROL_UNDEFINED               = 0x00,
+    TRANSPORT_CONTROL                   = 0X01,
+    ATN_INFORMATION_CONTROL             = 0X02,
+    MEDIA_INFORMATION_CONTROL           = 0X03,
+    TIME_CODE_INFORMATION_CONTROL       = 0X04,
+    
 
 };
 
@@ -499,6 +513,157 @@ struct IOUSBVDC_UncompressedFrameDescriptor
     UInt32	dwFrameIntervalStep;
 };
 typedef struct IOUSBVDC_UncompressedFrameDescriptor IOUSBVDC_UncompressedFrameDescriptor;
+#pragma options align=reset
+
+#pragma pack(1)
+struct IOUSBVDC_UncompressedDiscreteFrameDescriptor
+{
+    UInt8	bLength;
+    UInt8	bDescriptorType;
+    UInt8	bDescriptorSubType;
+    UInt8	bFrameIndex;
+    UInt8	bmCapabilities;
+    UInt16	wWidth;
+    UInt16	wHeight;
+    UInt32	dwMinBitRate;
+    UInt32	dwMaxBitRate;
+    UInt32	dwMaxVideoFrameBufferSize;
+    UInt32	dwDefaultFrameInterval;
+    UInt8	bFrameIntervalType;
+    UInt32	dwFrameInterval[1];
+};
+typedef struct IOUSBVDC_UncompressedDiscreteFrameDescriptor IOUSBVDC_UncompressedDiscreteFrameDescriptor;
+#pragma options align=reset
+
+#pragma pack(1)
+struct IOUSBVDC_VendorFormatDescriptor
+{
+    UInt8	bLength;
+    UInt8	bDescriptorType;
+    UInt8	bDescriptorSubType;
+    UInt8	bFormatIndex;
+    UInt8	bNumFrameDescriptors;
+    UInt64	guidMajorFormatHi;
+    UInt64	guidMajorFormatLo;
+    UInt64	guidSubFormatHi;
+    UInt64	guidSubFormatLo;
+    UInt64	guidSpecifierFormatHi;
+    UInt64	guidSpecifierFormatLo;
+    UInt8	bPayloadClass;
+    UInt8	bDefaultFrameIndex;
+    UInt8	bCopyProtect;
+};
+typedef struct IOUSBVDC_VendorFormatDescriptor IOUSBVDC_VendorFormatDescriptor;
+#pragma options align=reset
+
+#pragma pack(1)
+struct IOUSBVDC_VendorFrameDescriptor
+{
+    UInt8	bLength;
+    UInt8	bDescriptorType;
+    UInt8	bDescriptorSubType;
+    UInt8	bFrameIndex;
+    UInt8	bmCapabilities;
+    UInt16	wWidth;
+    UInt16	wHeight;
+    UInt32	dwMinBitRate;
+    UInt32	dwMaxBitRate;
+    UInt32	dwMaxVideoFrameBufferSize;
+    UInt32	dwDefaultFrameInterval;
+    UInt8	bFrameIntervalType;
+    UInt32	dwMinFrameInterval;
+    UInt32	dwMaxFrameInterval;
+    UInt32	dwFrameIntervalStep;
+};
+typedef struct IOUSBVDC_VendorFrameDescriptor IOUSBVDC_VendorFrameDescriptor;
+#pragma options align=reset
+
+#pragma pack(1)
+struct IOUSBVDC_VendorDiscreteFrameDescriptor
+{
+    UInt8	bLength;
+    UInt8	bDescriptorType;
+    UInt8	bDescriptorSubType;
+    UInt8	bFrameIndex;
+    UInt8	bmCapabilities;
+    UInt16	wWidth;
+    UInt16	wHeight;
+    UInt32	dwMinBitRate;
+    UInt32	dwMaxBitRate;
+    UInt32	dwMaxVideoFrameBufferSize;
+    UInt32	dwDefaultFrameInterval;
+    UInt8	bFrameIntervalType;
+    UInt32	dwFrameInterval[1];
+};
+typedef struct IOUSBVDC_VendorDiscreteFrameDescriptor IOUSBVDC_VendorDiscreteFrameDescriptor;
+#pragma options align=reset
+
+#pragma pack(1)
+struct IOUSBVDC_DVFormatDescriptor
+{
+    UInt8	bLength;
+    UInt8	bDescriptorType;
+    UInt8	bDescriptorSubType;
+    UInt8	bFormatIndex;
+    UInt32      dwMaxVideoFrameBufferSize;
+    UInt8	bFormatType;
+};
+typedef struct IOUSBVDC_DVFormatDescriptor IOUSBVDC_DVFormatDescriptor;
+#pragma options align=reset
+
+#pragma pack(1)
+struct IOUSBVDC_MPEG1SSFormatDescriptor
+{
+    UInt8	bLength;
+    UInt8	bDescriptorType;
+    UInt8	bDescriptorSubType;
+    UInt8	bFormatIndex;
+    UInt16      wPacketLength;
+    UInt16      wPackLength;
+    UInt8	bPackDataType;
+};
+typedef struct IOUSBVDC_MPEG1SSFormatDescriptor IOUSBVDC_MPEG1SSFormatDescriptor;
+#pragma options align=reset
+
+#pragma pack(1)
+struct IOUSBVDC_MPEG2PSFormatDescriptor
+{
+    UInt8	bLength;
+    UInt8	bDescriptorType;
+    UInt8	bDescriptorSubType;
+    UInt8	bFormatIndex;
+    UInt16      wPacketLength;
+    UInt16      wPackLength;
+    UInt8	bPackDataType;
+};
+typedef struct IOUSBVDC_MPEG2PSFormatDescriptor IOUSBVDC_MPEG2PSFormatDescriptor;
+#pragma options align=reset
+
+#pragma pack(1)
+struct IOUSBVDC_MPEG2PTSFormatDescriptor
+{
+    UInt8	bLength;
+    UInt8	bDescriptorType;
+    UInt8	bDescriptorSubType;
+    UInt8	bFormatIndex;
+    UInt8       bDataOffset;
+    UInt8	bPacketLength;
+    UInt8	bStrideLength;
+};
+typedef struct IOUSBVDC_MPEG2PTSFormatDescriptor IOUSBVDC_MPEG2PTSFormatDescriptor;
+#pragma options align=reset
+
+#pragma pack(1)
+struct IOUSBVDC_ColorFormatDescriptor
+{
+    UInt8	bLength;
+    UInt8	bDescriptorType;
+    UInt8	bDescriptorSubType;
+    UInt8	bColorPrimaries;
+    UInt8       bTransferCharacteristics;
+    UInt8	bMatrixCoefficients;
+};
+typedef struct IOUSBVDC_ColorFormatDescriptor IOUSBVDC_ColorFormatDescriptor;
 #pragma options align=reset
 
 

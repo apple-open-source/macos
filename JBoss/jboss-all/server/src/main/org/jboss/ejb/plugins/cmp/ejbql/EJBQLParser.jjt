@@ -45,7 +45,7 @@ import org.jboss.ejb.plugins.cmp.bridge.FieldBridge;
  * This class parses EJB-QL into an abstract syntax tree.
  *
  * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
- * @version $Revision: 1.2 $
+ * @version $Revision: 1.2.4.1 $
  */                            
 public class EJBQLParser {
    private Catalog catalog;
@@ -195,8 +195,30 @@ ASTSelect SelectClause() #Select :
 ASTWhere WhereClause() #Where :
 {}
 {
-   <WHERE> ConditionalExpression() 
+   <WHERE> WhereExpression()
    { return jjtThis; }
+}
+
+//
+// ASTWhereExpression and ASTWhereConditionalTerm mimic
+// ConditionalExpression and ConditionalTerm.
+// They are added to support joins per WhereConditionalTerm.
+//
+void WhereExpression() #void :
+{}
+{
+   (
+      WhereConditionalTerm() ( <OR> WhereConditionalTerm() )*
+   ) #Or(>1)
+}
+
+ASTWhereConditionalTerm WhereConditionalTerm() #WhereConditionalTerm :
+{}
+{
+   (
+      ConditionalFactor() ( <AND> ConditionalFactor() )*
+   ) #And(>1)
+   {return jjtThis;}
 }
 
 void ConditionalExpression() #void :

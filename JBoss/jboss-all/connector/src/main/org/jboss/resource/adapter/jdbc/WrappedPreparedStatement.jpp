@@ -46,12 +46,25 @@ public class WrappedPreparedStatement
 
    private final PreparedStatement ps;
 
-   public WrappedPreparedStatement(final WrappedConnection lc, final PreparedStatement ps) 
+   public WrappedPreparedStatement(final WrappedConnection lc, final PreparedStatement ps, boolean doSetQueryTimeout)
    {
-      super(lc, ps);
+      super(lc, ps, doSetQueryTimeout);
       this.ps = ps;
    }
    // implementation of java.sql.PreparedStatement interface
+
+   //Public non-jdbc methods
+   public Statement getUnderlyingStatement()
+   {
+      if (ps instanceof CachedPreparedStatement)
+      {
+         return ((CachedPreparedStatement)ps).getUnderlyingPreparedStatement();
+      }
+      else
+      {
+         return ps;
+      }
+   }
 
    /**
     *
@@ -249,7 +262,8 @@ public class WrappedPreparedStatement
       checkTransaction();
       try 
       {
-         return ps.execute();         
+         setQueryTimeout();
+         return ps.execute();
       }
       catch (SQLException e)
       {
@@ -286,7 +300,8 @@ public class WrappedPreparedStatement
       checkTransaction();
       try 
       {
-         return ps.executeQuery();         
+         setQueryTimeout();
+         return ps.executeQuery();
       }
       catch (SQLException e)
       {
@@ -305,7 +320,8 @@ public class WrappedPreparedStatement
       checkTransaction();
       try 
       {
-         return ps.executeUpdate();         
+         setQueryTimeout();
+         return ps.executeUpdate();
       }
       catch (SQLException e)
       {

@@ -22,6 +22,7 @@ import org.jboss.test.jca.bank.interfaces.Account;
 import org.jboss.test.jca.bank.interfaces.AccountHome;
 import org.jboss.test.jca.bank.interfaces.AccountLocal;
 import org.jboss.test.jca.bank.interfaces.AccountLocalHome;
+import org.jboss.logging.Logger;
 
 
 /**
@@ -41,6 +42,7 @@ import org.jboss.test.jca.bank.interfaces.AccountLocalHome;
 public class TellerBean
    implements SessionBean
 {
+   private static Logger log = Logger.getLogger(TellerBean.class);
    static int invocations;
 
    private Connection c;
@@ -130,7 +132,7 @@ public class TellerBean
    {
       try
       {
-         Category.getInstance(TellerBean.class.getName()).info("Invocation #"+invocations++);
+         log.debug("Invocation #"+invocations++);
          from.withdraw(amount);
          to.deposit(amount);
       } catch (Exception e)

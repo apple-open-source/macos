@@ -16,17 +16,15 @@ import javax.naming.NamingException;
 
 import org.jboss.invocation.Invocation;
 import org.jboss.invocation.InvocationKey;
+import org.jboss.invocation.InvocationContext;
 import org.jboss.proxy.Interceptor;
 
 /**
- * Generic Proxy 
- *
- * These proxies are independent of the transportation protocol.  Their role 
- * is to take care of some of the local calls on the client (done in extension
- * like EJB) 
+ * The base EJB behavior interceptor. 
  *      
  * @author <a href="mailto:marc.fleury@jboss.org">Marc Fleury</a>
- * @version $Revision: 1.3.2.1 $
+ * @author Scott.Stark@jboss.org
+ * @version $Revision: 1.3.2.2 $
  */
 public abstract class GenericEJBInterceptor
    extends Interceptor
@@ -82,10 +80,17 @@ public abstract class GenericEJBInterceptor
    
    protected EJBHome getEJBHome(Invocation invocation) throws NamingException
    {
-      InitialContext iniCtx = new InitialContext();
-      String jndiName = (String)invocation.getInvocationContext().getValue(
-            InvocationKey.JNDI_NAME);
-      return (EJBHome) iniCtx.lookup(jndiName);
+      // Look to the context for the home
+      InvocationContext ctx = invocation.getInvocationContext();
+      EJBHome home = (EJBHome) ctx.getValue(InvocationKey.EJB_HOME);
+      // If there is no home use the legacy lookup method
+      if( home == null )
+      {
+         String jndiName = (String) ctx.getValue(InvocationKey.JNDI_NAME);
+         InitialContext iniCtx =  new InitialContext();
+         home = (EJBHome) iniCtx.lookup(jndiName);
+      }
+      return home;
    }
 }
   

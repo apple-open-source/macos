@@ -17,7 +17,7 @@ import javax.management.ObjectName;
  * @see <related>
  *
  * @author  <a href="mailto:sacha.labourey@cogito-info.ch">Sacha Labourey</a>.
- * @version $Revision: 1.1.2.1 $
+ * @version $Revision: 1.1.2.2 $
  *
  * <p><b>Revisions:</b>
  *
@@ -31,5 +31,8 @@ public interface SimpleRemoteMBeanInvoker
 {
    public Object invoke(ObjectName name, String operationName, Object[] params, String[] signature)
             throws Exception;
-   
+
+   public Object getAttribute(ObjectName name, String attr)
+            throws Exception;
+
 }

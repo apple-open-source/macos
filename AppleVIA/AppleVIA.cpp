@@ -316,14 +316,14 @@ IOReturn AppleVIAInterruptController::handleInterrupt(void */*refCon*/,
 
 void AppleVIAInterruptController::disableVectorHard(long vectorNumber, IOInterruptVector */*vector*/)
 {
-  *IEReg &= ~(1 << vectorNumber);
+  *IEReg = (1 << vectorNumber);
   eieio();
 }
 
 void AppleVIAInterruptController::enableVector(long vectorNumber,
 					       IOInterruptVector *vector)
 {
-  *IEReg |= (1 << vectorNumber);
+  *IEReg = 0x80 | (1 << vectorNumber);
   eieio();
 }
 

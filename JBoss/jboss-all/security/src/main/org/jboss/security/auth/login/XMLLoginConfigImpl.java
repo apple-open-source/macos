@@ -21,9 +21,11 @@ import javax.security.auth.AuthPermission;
 import javax.xml.parsers.FactoryConfigurationError;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.ParserConfigurationException;
 
 import org.xml.sax.EntityResolver;
 import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 import org.jboss.logging.Logger;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -46,7 +48,7 @@ import org.w3c.dom.NodeList;
  @see javax.security.auth.login.Configuration
 
  @author Scott.Stark@jboss.org
- @version $Revision: 1.1.4.3 $
+ @version $Revision: 1.1.4.5 $
  */
 public class XMLLoginConfigImpl extends Configuration
 {
@@ -93,7 +95,7 @@ public class XMLLoginConfigImpl extends Configuration
       if (authInfo != null)
       {
          if (log.isTraceEnabled())
-            log.trace("getAppConfigurationEntry, authInfo=" + authInfo);
+            log.trace("getAppConfigurationEntry("+appName+"), authInfo=" + authInfo);
          // Make a copy of the authInfo object
          final AuthenticationInfo theAuthInfo = authInfo;
          PrivilegedAction action = new PrivilegedAction()
@@ -248,9 +250,9 @@ public class XMLLoginConfigImpl extends Configuration
       {
          loadXMLConfig(config, configNames);
       }
-      catch (Exception e)
+      catch(Throwable e)
       {
-         log.trace("Failed to load config as XML", e);
+         log.debug("Failed to load config as XML", e);
          log.debug("Try loading config as Sun format, url=" + config);
          loadSunConfig(config, configNames);
       }
@@ -272,7 +274,7 @@ public class XMLLoginConfigImpl extends Configuration
    }
 
    private void loadXMLConfig(URL loginConfigURL, ArrayList configNames)
-      throws Exception
+      throws IOException, ParserConfigurationException, SAXException
    {
       HashMap tmpAppConfigs = new HashMap();
       Document doc = loadURL(loginConfigURL);
@@ -303,14 +305,15 @@ public class XMLLoginConfigImpl extends Configuration
       appConfigs.putAll(tmpAppConfigs);
    }
 
-   private Document loadURL(URL configURL) throws Exception
+   private Document loadURL(URL configURL)
+      throws IOException, ParserConfigurationException, SAXException
    {
       InputStream is = configURL.openStream();
       if (is == null)
          throw new IOException("Failed to obtain InputStream from url: " + configURL);
 
       // Get the xml DOM parser
-      PrivilegedExceptionAction action = new PrivilegedExceptionAction()
+      PrivilegedAction action = new PrivilegedAction()
       {
          public Object run() throws FactoryConfigurationError
          {
@@ -323,9 +326,9 @@ public class XMLLoginConfigImpl extends Configuration
       {
          docBuilderFactory = (DocumentBuilderFactory) AccessController.doPrivileged(action);
       }
-      catch (PrivilegedActionException e)
+      catch (FactoryConfigurationError e)
       {
-         throw e.getException();
+         throw e;
       }
 
       docBuilderFactory.setValidating(validateDTD);

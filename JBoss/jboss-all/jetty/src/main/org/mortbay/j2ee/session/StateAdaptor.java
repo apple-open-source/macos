@@ -1,6 +1,6 @@
 // ========================================================================
 // Copyright (c) 2002 Mort Bay Consulting (Australia) Pty. Ltd.
-// $Id: StateAdaptor.java,v 1.2.2.2 2002/11/16 21:58:58 jules_gosnell Exp $
+// $Id: StateAdaptor.java,v 1.2.2.3 2003/07/26 11:49:41 jules_gosnell Exp $
 // ========================================================================
 
 package org.mortbay.j2ee.session;
@@ -12,7 +12,7 @@ import java.util.Enumeration;
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpSession;
 import javax.servlet.http.HttpSessionContext;
-import org.apache.log4j.Category;
+import org.jboss.logging.Logger;
 
 //----------------------------------------
 // this class is responsible for presenting a State container to a
@@ -28,7 +28,7 @@ import org.apache.log4j.Category;
 public class StateAdaptor
   implements org.mortbay.jetty.servlet.SessionManager.Session
 {
-  final Category _log=Category.getInstance(getClass().getName());
+  protected static final Logger _log=Logger.getLogger(StateAdaptor.class);
   Manager        _manager;
   State          _state=null;
   boolean        _new=true;
@@ -317,7 +317,7 @@ public class StateAdaptor
     invalidate()
     throws IllegalStateException
   {
-    _log.debug("user invalidated session: "+getId());
+    if (_log.isTraceEnabled()) _log.trace("user invalidated session: "+getId());
     _manager.destroySession(this);
   }
 

@@ -67,7 +67,7 @@ public class JMX extends Task
 
    private String serverURL;
 
-   private String adapterName = "jmx:local:rmi";//RMIAdaptorService.LOCAL_NAME;
+   private String adapterName;
 
 
    private List ops = new ArrayList();
@@ -83,8 +83,7 @@ public class JMX extends Task
     */
    public JMX() throws Exception
    {
-      String host = InetAddress.getLocalHost().getHostName();
-      adapterName = "jmx:" + host + ":rmi";
+      adapterName = "jmx/rmi/RMIAdaptor";//org.jboss.jmx.adaptor.rmi.RMIAdaptorService.DEFAULT_JNDI_NAME;
    }
 
    /**
@@ -144,7 +143,7 @@ public class JMX extends Task
     */
    public void addGetAttribute(Getter getter)
    {
-       ops.add(getter);
+      ops.add(getter);
    }
 
    /**
@@ -172,9 +171,9 @@ public class JMX extends Task
          Thread.currentThread().setContextClassLoader(getClass().getClassLoader());
          try
          {
-            for (Iterator i = editors.iterator(); i.hasNext(); )
+            for (int i = 0; i < editors.size(); i++)
             {
-               ((PropertyEditorHolder)i.next()).execute();
+               ((PropertyEditorHolder)editors.get(i)).execute();
             } // end of for ()
    
    
@@ -203,7 +202,7 @@ public class JMX extends Task
    
             // if adapter is null, the use the default
             if (adapterName == null) {
-               adapterName = "jmx:local:rmi";//org.jboss.jmx.adaptor.rmi.RMIAdaptorService.LOCAL_NAME;
+               adapterName = "jmx/rmi/RMIAdaptor";//org.jboss.jmx.adaptor.rmi.RMIAdaptorService.DEFAULT_JNDI_NAME;
             }
    
             Object obj = ctx.lookup(adapterName);
@@ -217,9 +216,9 @@ public class JMX extends Task
    
             RemoteMBeanServer server = new RMIConnectorImpl((RMIAdaptor)obj);
    
-            for (Iterator i = ops.iterator(); i.hasNext(); )
+            for (int i = 0; i < ops.size(); i++)
             {
-               Operation op = (Operation)i.next();
+               Operation op = (Operation)ops.get(i);
                op.execute(server, this);
             } // end of for ()
    
@@ -313,9 +312,9 @@ public class JMX extends Task
          Object[] args = new Object[paramCount];
          String[] types = new String[paramCount];
          int pos = 0;
-         for (Iterator i = params.iterator(); i.hasNext();)
+         for (int i = 0; i < params.size(); i++)
          {
-            Param p = (Param)i.next();
+            Param p = (Param)params.get(i);
             args[pos] = p.getValue();
             types[pos] = p.getType();
             pos++;

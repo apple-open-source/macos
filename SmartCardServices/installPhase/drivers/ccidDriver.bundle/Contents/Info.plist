@@ -15,13 +15,13 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.3</string>
+	<string>1.1.4</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.scmccid</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.3</string>
+	<string>1.1.4</string>
 	<key>ifdFriendlyName</key>
 	<string>SCM SCR331 CCID</string>
 	<key>ifdProductID</key>

@@ -1,4 +1,4 @@
-/* @(#) $Header: /cvs/root/tcpdump/tcpdump/ospf.h,v 1.1.1.2 2003/03/17 18:42:16 rbraun Exp $ (LBL) */
+/* @(#) $Header: /cvs/root/tcpdump/tcpdump/ospf.h,v 1.1.1.3 2004/02/05 19:30:52 rbraun Exp $ (LBL) */
 /*
  * Copyright (c) 1991, 1993, 1994, 1995, 1996, 1997
  *	The Regents of the University of California.  All rights reserved.
@@ -68,6 +68,29 @@
 #define	LS_TYPE_OPAQUE_AL      10   /* rfc2370 - Opaque Link Local */
 #define	LS_TYPE_OPAQUE_DW      11   /* rfc2370 - Opaque Domain Wide */
 
+#define LS_OPAQUE_TYPE_TE       1   /* rfc3630 */
+#define LS_OPAQUE_TYPE_GRACE    3   /* draft-ietf-ospf-hitless-restart */
+
+#define LS_OPAQUE_TE_TLV_ROUTER 1   /* rfc3630 */
+#define LS_OPAQUE_TE_TLV_LINK   2   /* rfc3630 */
+
+#define LS_OPAQUE_TE_LINK_SUBTLV_LINK_TYPE             1 /* rfc3630 */
+#define LS_OPAQUE_TE_LINK_SUBTLV_LINK_ID               2 /* rfc3630 */
+#define LS_OPAQUE_TE_LINK_SUBTLV_LOCAL_IP              3 /* rfc3630 */
+#define LS_OPAQUE_TE_LINK_SUBTLV_REMOTE_IP             4 /* rfc3630 */
+#define LS_OPAQUE_TE_LINK_SUBTLV_TE_METRIC             5 /* rfc3630 */
+#define LS_OPAQUE_TE_LINK_SUBTLV_MAX_BW                6 /* rfc3630 */
+#define LS_OPAQUE_TE_LINK_SUBTLV_MAX_RES_BW            7 /* rfc3630 */
+#define LS_OPAQUE_TE_LINK_SUBTLV_UNRES_BW              8 /* rfc3630 */
+#define LS_OPAQUE_TE_LINK_SUBTLV_ADMIN_GROUP           9 /* rfc3630 */
+#define LS_OPAQUE_TE_LINK_SUBTLV_LINK_LOCAL_REMOTE_ID 11 /* draft-ietf-ccamp-ospf-gmpls-extensions */
+#define LS_OPAQUE_TE_LINK_SUBTLV_LINK_PROTECTION_TYPE 14 /* draft-ietf-ccamp-ospf-gmpls-extensions */
+#define LS_OPAQUE_TE_LINK_SUBTLV_INTF_SW_CAP_DESCR    15 /* draft-ietf-ccamp-ospf-gmpls-extensions */
+#define LS_OPAQUE_TE_LINK_SUBTLV_SHARED_RISK_GROUP    16 /* draft-ietf-ccamp-ospf-gmpls-extensions */
+
+#define LS_OPAQUE_TE_LINK_SUBTLV_LINK_TYPE_PTP        1  /* rfc3630 */
+#define LS_OPAQUE_TE_LINK_SUBTLV_LINK_TYPE_MA         2  /* rfc3630 */
+
 /*************************************************
  *
  * is the above a bug in the documentation?
@@ -107,7 +130,13 @@ struct lsa_hdr {
     u_int16_t ls_age;
     u_int8_t ls_options;
     u_int8_t ls_type;
-    struct in_addr ls_stateid;
+    union {
+        struct in_addr lsa_id;
+        struct { /* opaque LSAs change the LSA-ID field */
+            u_int8_t opaque_type;
+            u_int8_t opaque_id[3];
+	} opaque_field;
+    } un_lsa_id;
     struct in_addr ls_router;
     u_int32_t ls_seq;
     u_int16_t ls_chksum;
@@ -162,15 +191,17 @@ struct lsa {
 	    struct in_addr mcla_vid;
 	} un_mcla[1];
 
-	/* Opaque LSA */
-	struct opaque {
-	    u_int8_t opaque_type;
-	    u_int8_t opaque_id[3];
-	    struct in_addr adv_router;
-	    struct in_addr sequence_num;
-	    u_int16_t chksum;
-            u_int16_t length;
-	} un_opaque[1];
+        /* Opaque TE LSA */
+        struct {
+	    u_int16_t type;
+	    u_int16_t length;
+	    u_int8_t data[1]; /* may repeat   */
+	} un_te_lsa_tlv;
+
+        /* Unknown LSA */
+        struct unknown {
+	    u_int8_t data[1]; /* may repeat   */
+	} un_unknown[1];
 
     } lsa_un;
 };
@@ -224,8 +255,14 @@ struct ospfhdr {
 
 	/* Link State Request */
 	struct lsr {
-	    u_int32_t ls_type;
-	    struct in_addr ls_stateid;
+	    u_int8_t ls_type[4];
+            union {
+                struct in_addr ls_stateid;
+                struct { /* opaque LSAs change the LSA-ID field */
+                    u_int8_t opaque_type;
+                    u_int8_t opaque_id[3];
+                } opaque_field;
+            } un_ls_stateid;
 	    struct in_addr ls_router;
 	} un_lsr[1];		/* may repeat	*/
 

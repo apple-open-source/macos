@@ -1407,17 +1407,34 @@ static int call_trans2qfsinfo(connection_struct *conn, char *inbuf, char *outbuf
 	switch (info_level) {
 		case SMB_INFO_ALLOCATION:
 		{
-			SMB_BIG_UINT dfree,dsize,bsize;
+			SMB_BIG_UINT dfree,dsize,bsize,block_size,sectors_per_unit,bytes_per_sector;
 			data_len = 18;
 			SMB_VFS_DISK_FREE(conn,".",False,&bsize,&dfree,&dsize);	
+			block_size = lp_block_size(snum);
+			if (bsize < block_size) {
+				SMB_BIG_UINT factor = block_size/bsize;
+				bsize = block_size;
+				dsize /= factor;
+				dfree /= factor;
+			}
+			if (bsize > block_size) {
+				SMB_BIG_UINT factor = bsize/block_size;
+				bsize = block_size;
+				dsize *= factor;
+				dfree *= factor;
+			}
+			bytes_per_sector = 512;
+			sectors_per_unit = bsize/bytes_per_sector;
+
+			DEBUG(5,("call_trans2qfsinfo : SMB_INFO_ALLOCATION id=%x, bsize=%u, cSectorUnit=%u, \
+cBytesSector=%u, cUnitTotal=%u, cUnitAvail=%d\n", (unsigned int)st.st_dev, (unsigned int)bsize, (unsigned int)sectors_per_unit,
+				(unsigned int)bytes_per_sector, (unsigned int)dsize, (unsigned int)dfree));
+
 			SIVAL(pdata,l1_idFileSystem,st.st_dev);
-			SIVAL(pdata,l1_cSectorUnit,bsize/512);
+			SIVAL(pdata,l1_cSectorUnit,sectors_per_unit);
 			SIVAL(pdata,l1_cUnit,dsize);
 			SIVAL(pdata,l1_cUnitAvail,dfree);
-			SSVAL(pdata,l1_cbSector,512);
-			DEBUG(5,("call_trans2qfsinfo : bsize=%u, id=%x, cSectorUnit=%u, cUnit=%u, cUnitAvail=%u, cbSector=%d\n",
-				(unsigned int)bsize, (unsigned int)st.st_dev, ((unsigned int)bsize)/512, (unsigned int)dsize,
-				(unsigned int)dfree, 512));
+			SSVAL(pdata,l1_cbSector,bytes_per_sector);
 			break;
 		}
 
@@ -1781,16 +1798,13 @@ static int call_trans2setfsinfo(connection_struct *conn,
 
 int set_bad_path_error(int err, BOOL bad_path, char *outbuf, int def_class, uint32 def_code)
 {
-	DEBUG(10,("set_bad_path_error: err = %dm bad_path = %d\n",
+	DEBUG(10,("set_bad_path_error: err = %d bad_path = %d\n",
 			err, (int)bad_path ));
 
 	if(err == ENOENT) {
-		unix_ERR_class = ERRDOS;
 		if (bad_path) {
-			unix_ERR_code = ERRbadpath;
 			return ERROR_NT(NT_STATUS_OBJECT_PATH_NOT_FOUND);
 		} else {
-			unix_ERR_code = ERRbadfile;
 			return ERROR_NT(NT_STATUS_OBJECT_NAME_NOT_FOUND);
 		}
 	}
@@ -3283,8 +3297,8 @@ static int call_trans2getdfsreferral(connection_struct *conn, char* inbuf,
 
 	srvstr_pull(inbuf, pathname, &params[2], sizeof(pathname), -1, STR_TERMINATE);
 
-	if((reply_size = setup_dfs_referral(pathname,max_referral_level,ppdata)) < 0)
-		return ERROR_DOS(ERRDOS,ERRbadfile);
+	if((reply_size = setup_dfs_referral(conn, pathname,max_referral_level,ppdata)) < 0)
+		return UNIXERROR(ERRDOS,ERRbadfile);
     
 	SSVAL(outbuf,smb_flg2,SVAL(outbuf,smb_flg2) | FLAGS2_DFS_PATHNAMES);
 	send_trans2_replies(outbuf,bufsize,0,0,*ppdata,reply_size);
@@ -3305,7 +3319,12 @@ static int call_trans2ioctl(connection_struct *conn, char* inbuf,
 {
 	char *pdata = *ppdata;
 	files_struct *fsp = file_fsp(inbuf,smb_vwv15);
+
+	/* check for an invalid fid before proceeding */
 	
+	if (!fsp)                                
+		return(ERROR_DOS(ERRDOS,ERRbadfid));  
+
 	if ((SVAL(inbuf,(smb_setup+4)) == LMCAT_SPL) &&
 			(SVAL(inbuf,(smb_setup+6)) == LMFUNC_GETJOBID)) {
 		pdata = Realloc(*ppdata, 32);
@@ -3483,7 +3502,8 @@ int reply_trans2(connection_struct *conn,
 		unsigned int psoff = SVAL(inbuf, smb_psoff);
 		if ((psoff + num_params < psoff) || (psoff + num_params < num_params))
 			goto bad_param;
-		if (smb_base(inbuf) + psoff + num_params > inbuf + length)
+		if ((smb_base(inbuf) + psoff + num_params > inbuf + length) ||
+				(smb_base(inbuf) + psoff + num_params < smb_base(inbuf)))
 			goto bad_param;
 		memcpy( params, smb_base(inbuf) + psoff, num_params);
 	}
@@ -3491,7 +3511,8 @@ int reply_trans2(connection_struct *conn,
 		unsigned int dsoff = SVAL(inbuf, smb_dsoff);
 		if ((dsoff + num_data < dsoff) || (dsoff + num_data < num_data))
 			goto bad_param;
-		if (smb_base(inbuf) + dsoff + num_data > inbuf + length)
+		if ((smb_base(inbuf) + dsoff + num_data > inbuf + length) ||
+				(smb_base(inbuf) + dsoff + num_data < smb_base(inbuf)))
 			goto bad_param;
 		memcpy( data, smb_base(inbuf) + dsoff, num_data);
 	}
@@ -3502,6 +3523,7 @@ int reply_trans2(connection_struct *conn,
 		/* We need to send an interim response then receive the rest
 		   of the parameter/data bytes */
 		outsize = set_message(outbuf,0,0,True);
+		srv_signing_trans_stop();
 		if (!send_smb(smbd_server_fd(),outbuf))
 			exit_server("reply_trans2: send_smb failed.");
 
@@ -3515,6 +3537,13 @@ int reply_trans2(connection_struct *conn,
 
 			ret = receive_next_smb(inbuf,bufsize,SMB_SECONDARY_WAIT);
 			
+			/*
+			 * The sequence number for the trans reply is always
+			 * based on the last secondary received.
+			 */
+
+			srv_signing_trans_start(SVAL(inbuf,smb_mid));
+
 			if ((ret && 
 			     (CVAL(inbuf, smb_com) != SMBtranss2)) || !ret) {
 				outsize = set_message(outbuf,0,0,True);
@@ -3552,7 +3581,10 @@ int reply_trans2(connection_struct *conn,
 				if ((param_disp + num_params < param_disp) ||
 						(param_disp + num_params < num_params))
 					goto bad_param;
-				if (smb_base(inbuf) + param_off + num_params >= inbuf + bufsize)
+				if (param_disp > total_params)
+					goto bad_param;
+				if ((smb_base(inbuf) + param_off + num_params >= inbuf + bufsize) ||
+						(smb_base(inbuf) + param_off + num_params < smb_base(inbuf)))
 					goto bad_param;
 				if (params + param_disp < params)
 					goto bad_param;
@@ -3565,7 +3597,10 @@ int reply_trans2(connection_struct *conn,
 				if ((data_disp + num_data < data_disp) ||
 						(data_disp + num_data < num_data))
 					goto bad_param;
-				if (smb_base(inbuf) + data_off + num_data >= inbuf + bufsize)
+				if (data_disp > total_data)
+					goto bad_param;
+				if ((smb_base(inbuf) + data_off + num_data >= inbuf + bufsize) ||
+						(smb_base(inbuf) + data_off + num_data < smb_base(inbuf)))
 					goto bad_param;
 				if (data + data_disp < data)
 					goto bad_param;

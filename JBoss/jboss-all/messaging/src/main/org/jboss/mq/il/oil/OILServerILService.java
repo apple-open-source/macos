@@ -20,38 +20,34 @@ import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.rmi.RemoteException;
 import java.util.Properties;
+
 import javax.jms.Destination;
 import javax.jms.JMSException;
 import javax.jms.Queue;
 import javax.jms.TemporaryQueue;
 import javax.jms.TemporaryTopic;
 import javax.jms.Topic;
+import javax.naming.InitialContext;
 import javax.net.ServerSocketFactory;
 
-import javax.naming.InitialContext;
+import org.jboss.logging.Logger;
 import org.jboss.mq.AcknowledgementRequest;
 import org.jboss.mq.ConnectionToken;
 import org.jboss.mq.DurableSubscriptionID;
-import org.jboss.mq.GenericConnectionFactory;
 import org.jboss.mq.SpyDestination;
 import org.jboss.mq.SpyMessage;
 import org.jboss.mq.Subscription;
 import org.jboss.mq.TransactionRequest;
 import org.jboss.mq.il.Invoker;
 import org.jboss.mq.il.ServerIL;
-import org.jboss.mq.il.ServerILJMXService;
-import org.jboss.mq.il.ServerILFactory;
-import org.jboss.mq.server.JMSServerInterceptor;
-
-import org.jboss.logging.Logger;
 import org.jboss.security.SecurityDomain;
-import org.jboss.system.ServiceMBeanSupport;
+import org.jboss.system.server.ServerConfigUtil;
 
 /**
  * Implements the ServerILJMXService which is used to manage the JVM IL.
  *
  * @author    Hiram Chirino (Cojonudo14@hotmail.com)
- * @version   $Revision: 1.23.2.1 $
+ * @version   $Revision: 1.23.2.4 $
  *
  * @jmx:mbean extends="org.jboss.mq.il.ServerILJMXServiceMBean"
  */
@@ -82,6 +78,11 @@ public final class OILServerILService
     * If the TcpNoDelay option should be used on the socket.
     */
    private boolean enableTcpNoDelay=false;   
+
+   /**
+    * The read timeout
+    */
+   private int readTimeout = 0;
    
    /** The security domain name to use with SSL aware socket factories.
     */
@@ -497,7 +498,7 @@ public final class OILServerILService
 
             try
             {
-               socket.setSoTimeout(0);
+               socket.setSoTimeout(readTimeout);
                new Thread(new Client(socket), "OIL Worker-" + threadNumber++).start();
             }
             catch(IOException ie)
@@ -516,11 +517,13 @@ public final class OILServerILService
          // determine if the socket exception is caused by connection
          // reset by peer. In this case, it's okay to ignore both
          // SocketException and IOException.
-         log.warn("SocketException occured (Connection reset by peer?). Cannot initialize the OILServerILService.");
+         if (running)
+            log.warn("SocketException occured (Connection reset by peer?). Cannot initialize the OILServerILService.");
       }
       catch (IOException e)
       {
-         log.warn("IOException occured. Cannot initialize the OILServerILService.");
+         if (running)
+            log.warn("IOException occured. Cannot initialize the OILServerILService.");
       }
       finally
       {
@@ -591,8 +594,8 @@ public final class OILServerILService
          because this is not a valid address on Win32 while it is for
          *NIX. See BugParade bug #4343286.
          */
-      if( socketAddress.toString().equals("0.0.0.0/0.0.0.0") )
-         socketAddress = InetAddress.getLocalHost();
+      socketAddress = ServerConfigUtil.fixRemoteAddress(socketAddress);
+
       serverIL = new OILServerIL(socketAddress, serverSocket.getLocalPort(),
          clientSocketFactoryName, enableTcpNoDelay);
 
@@ -614,12 +617,21 @@ public final class OILServerILService
    {
       try
       {
-         running = false;
          unbindJNDIReferences();
       }
       catch (Exception e)
       {
          log.error("Exception unbinding from JNDI", e);
+      }
+      try
+      {
+         running = false;
+         if (serverSocket != null)
+            serverSocket.close();
+      }
+      catch (Exception e)
+      {
+         log.debug("Exception stopping server thread", e);
       }
    }
    
@@ -701,6 +713,28 @@ public final class OILServerILService
    public void setEnableTcpNoDelay(boolean enableTcpNoDelay)
    {
       this.enableTcpNoDelay = enableTcpNoDelay;
+   }
+
+   /**
+    * Gets the socket read timeout.
+    * @return Returns the read timeout in milli-seconds
+    *
+    * @jmx:managed-attribute
+    */
+   public int getReadTimeout()
+   {
+      return readTimeout;
+   }
+
+   /**
+    * Sets the read time out.
+    * @param timeout The read time out in milli seconds
+    *
+    * @jmx:managed-attribute
+    */
+   public void setReadTimeout(int timeout)
+   {
+      this.readTimeout = timeout;
    }
 
    /** Get the javax.net.SocketFactory implementation class to use on the

@@ -13,7 +13,7 @@ import java.util.HashMap;
  * Implementation of a Least Recently Used cache policy.
  *
  * @author <a href="mailto:simone.bordet@compaq.com">Simone Bordet</a>
- * @version $Revision: 1.4.2.2 $
+ * @version $Revision: 1.4.2.3 $
  */
 public class LRUCachePolicy
    implements CachePolicy
@@ -264,6 +264,8 @@ public class LRUCachePolicy
          if (entry == null) {throw new IllegalArgumentException("Trying to promote a null object");}
          if (m_capacity < 1) {throw new IllegalStateException("Can't work with capacity < 1");}
 
+         entryPromotion(entry);
+
          entry.m_time = System.currentTimeMillis();
          if (entry.m_prev == null)
          {
@@ -384,6 +386,10 @@ public class LRUCachePolicy
          entryRemoved(entry);
       }
       /**
+       * Callback that signals that the given entry is just about to be added.
+       */
+      protected void entryPromotion(LRUCacheEntry entry) {}
+      /**
        * Callback that signals that the given entry has been added to the cache.
        */
       protected void entryAdded(LRUCacheEntry entry) {}
@@ -399,9 +405,12 @@ public class LRUCachePolicy
 
       protected void clear()
       {
+         LRUCacheEntry entry = m_head;
          m_head = null;
          m_tail = null;
          m_count = 0;
+         for (; entry != null; entry = entry.m_next)
+            entryRemoved(entry);
       }
 
       public String toString()

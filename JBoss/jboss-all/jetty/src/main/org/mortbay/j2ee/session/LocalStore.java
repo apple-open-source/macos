@@ -1,20 +1,21 @@
 // ========================================================================
 // Copyright (c) 2002 Mort Bay Consulting (Australia) Pty. Ltd.
-// $Id: LocalStore.java,v 1.1.4.2 2002/11/16 21:58:58 jules_gosnell Exp $
+// $Id: LocalStore.java,v 1.1.4.4 2003/07/30 23:18:19 jules_gosnell Exp $
 // ========================================================================
 
 package org.mortbay.j2ee.session;
 
-import java.util.Map;
 import java.util.HashMap;
-import org.apache.log4j.Category;
+import java.util.Map;
+import javax.servlet.http.HttpServletRequest;
+import org.jboss.logging.Logger;
 
 //----------------------------------------
 
 public class LocalStore
   implements Store
 {
-  Category _log=Category.getInstance(getClass().getName());
+  protected static final Logger _log=Logger.getLogger(LocalStore.class);
   Map _sessions=new HashMap();
 
   protected Manager _manager;
@@ -65,12 +66,10 @@ public class LocalStore
     }
   }
 
-  protected GUIDGenerator _guidGenerator=new GUIDGenerator();
-
   public String
-    allocateId()
+    allocateId(HttpServletRequest request)
   {
-    return _guidGenerator.generateSessionId();
+    return getManager().getIdGenerator().nextId(request);
   }
 
   public void
@@ -99,6 +98,7 @@ public class LocalStore
 
   protected int _actualMaxInactiveInterval=0;
   public void setActualMaxInactiveInterval(int interval) {_actualMaxInactiveInterval=interval;}
+  public int getActualMaxInactiveInterval() {return _actualMaxInactiveInterval;}
 
   public Object
     clone()

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,18 +23,12 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc.  All rights reserved.
  *
  *  DRI: Dave Radcliffe
  *
  */
-//		$Log: MacRISC4_PlatformPlugin.cpp,v $
-//		Revision 1.2  2003/02/18 00:02:07  eem
-//		3146943: timebase enable for MP, bump version to 1.0.1d3.
-//		
-//		Revision 1.1.1.1  2003/02/04 00:36:43  raddog
-//		initial import into CVS
-//		
+
 
 #include "MacRISC4_PlatformPlugin.h"
 
@@ -44,8 +38,10 @@ OSDefineMetaClassAndStructors(MacRISC4_PlatformPlugin, IOPlatformPlugin)
 /*
  * start
  */
+/*
 bool MacRISC4_PlatformPlugin::start(IOService *nub)
 {
 
 	return super::start (nub);
 }
+*/

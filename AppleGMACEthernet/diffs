@@ -1,0 +1,448 @@
+? diffs
+Index: UniNEnet.cpp
+===================================================================
+RCS file: /cvs/root/IO/Drivers/Ethernet/AppleGMACEthernet/UniNEnet.cpp,v
+retrieving revision 1.52
+diff -u -d -b -w -r1.52 UniNEnet.cpp
+--- UniNEnet.cpp	2003/11/06 20:37:19	1.52
++++ UniNEnet.cpp	2003/11/10 21:42:10
+@@ -2201,10 +2201,13 @@
+ 											IOByteCount	inputSize,
+ 											IOByteCount	*outPutSize )
+ {
++	UCRequest	*req = (UCRequest*)pIn;
++	UInt32 		phyAddr, origPHYaddr = 0;
+ 	UInt16				*reg_value;		// 32 shorts are small enough to go directly out to user
+ 	UInt16				i;
+ 	bool				result;
+-
++	bool		cellClockEnabled;
++	IOReturn	ior = kIOReturnSuccess;
+ 
+ 	if ( !(pOut && outPutSize && *outPutSize >= (32 * sizeof( UInt16 ))) )
+ 	{
+@@ -2216,9 +2219,23 @@
+ 		return kIOReturnBadArgument;
+ 	}
+ 
+-	if ( !fProvider->fCellClockEnabled )
+-		return kIOReturnNoPower;
++	phyAddr = (UInt32)req->pLogBuffer >> 16;
++	if ( phyAddr > 31 && phyAddr != 0xFF )
++	{
++		IOLog( "UniNEnetUserClient::readAllMII - bad argument PHY address = %lx\n", phyAddr );
++		return kIOReturnBadArgument;
++	}
++
++	cellClockEnabled = fProvider->fCellClockEnabled;
++	if ( cellClockEnabled == false )
++		fProvider->enableCellClock();
+ 
++	if ( phyAddr != 0xFF )
++	{
++		origPHYaddr			= fProvider->phyId;
++		fProvider->phyId	= phyAddr;
++	}
++
+ 	reg_value	= (UInt16*)pOut;
+ 	*outPutSize	= 0;						// init returned byte count
+ 
+@@ -2233,10 +2250,18 @@
+ 		else
+ 		{
+ 			IOLog( "Read of PHY register %d failed.\n", i );
+-			return kIOReturnError;
++			ior = kIOReturnError;
++			break;
+ 		}
+ 	}/* end FOR */
+-	return kIOReturnSuccess;
++
++	if ( phyAddr != 0xFF )
++		fProvider->phyId = origPHYaddr;
++
++	if ( cellClockEnabled == false )
++		fProvider->disableCellClock();
++
++	return ior;
+ }/* end readAllMII */
+ 
+ 
+@@ -2245,19 +2270,36 @@
+ {
+ 	UCRequest	*req = (UCRequest*)pIn;
+ 	UInt16		*reg_value = (UInt16*)pOut;
+-	UInt32 		reg_num;
++	UInt32 		reg_num, phyAddr, origPHYaddr = 0;
+ 	bool		result;
++	bool		cellClockEnabled;
+ 
+ 
+ 	*outPutSize	= 0;							// init returned byte count
+-	reg_num		= (UInt32)req->pLogBuffer;		// use the input struct's bufSize for the reg #
++	phyAddr		= (UInt32)req->pLogBuffer >> 16;
++	reg_num		= (UInt32)req->pLogBuffer & 0xFFFF;		// use the input struct's bufSize for the reg #
+ 	if ( reg_num > 31 )
+ 		return kIOReturnError;
+ 
+-	if ( !fProvider->fCellClockEnabled )
+-		return kIOReturnNoPower;
+ 
++	cellClockEnabled = fProvider->fCellClockEnabled;
++	if ( cellClockEnabled == false )
++		fProvider->enableCellClock();
++
++	if ( phyAddr != 0xFF )
++	{
++		origPHYaddr			= fProvider->phyId;
++		fProvider->phyId	= phyAddr;
++	}
++
+ 	result = fProvider->miiReadWord( reg_value, reg_num );
++
++	if ( phyAddr != 0xFF )
++		fProvider->phyId = origPHYaddr;
++
++	if ( cellClockEnabled == false )
++		fProvider->disableCellClock();
++
+ 	if ( !result )
+ 	{
+ 		IOLog( "Read of PHY register %ld failed.\n", reg_num );
+@@ -2275,20 +2317,36 @@
+ 										IOByteCount	inputSize,	IOByteCount	*outPutSize )
+ {
+ 	UCRequest	*req = (UCRequest*)pIn;
+-	UInt32		reg_num, reg_val;
++	UInt32		reg_num, reg_val, phyAddr, origPHYaddr = 0;
+ 	bool		result;
++	bool		cellClockEnabled;
+ 
+ 
+-	reg_num = (UInt32)req->pLogBuffer;
++	phyAddr	= (UInt32)req->pLogBuffer >> 16;
++	reg_num = (UInt32)req->pLogBuffer & 0xFFFF;
+ 	reg_val = req->bufSize;
+ 
+-	if ( reg_num > 31 || reg_val > 0xFFFF )
++	if ( reg_num > 31 || reg_val > 0xFFFF || (phyAddr > 31 && phyAddr != 0xFF) )
+ 		return kIOReturnBadArgument;
+ 
+-	if ( !fProvider->fCellClockEnabled )
+-		return kIOReturnNoPower;
++	cellClockEnabled = fProvider->fCellClockEnabled;
++	if ( cellClockEnabled == false )
++		fProvider->enableCellClock();
+ 
++	if ( phyAddr != 0xFF )
++	{
++		origPHYaddr			= fProvider->phyId;
++		fProvider->phyId	= phyAddr;
++	}
++
+ 	result = fProvider->miiWriteWord( reg_val, reg_num );
++
++	if ( phyAddr != 0xFF )
++		fProvider->phyId = origPHYaddr;
++
++	if ( cellClockEnabled == false )
++		fProvider->disableCellClock();
++
+ 	if ( !result )
+ 	{
+ 		IOLog( "Write of PHY register %ld failed.\n", reg_num );
+Index: UniNEnet.h
+===================================================================
+RCS file: /cvs/root/IO/Drivers/Ethernet/AppleGMACEthernet/UniNEnet.h,v
+retrieving revision 1.40
+diff -u -d -b -w -r1.40 UniNEnet.h
+Index: AppleGMACEthernet.pbproj/project.pbxproj
+===================================================================
+RCS file: /cvs/root/IO/Drivers/Ethernet/AppleGMACEthernet/AppleGMACEthernet.pbproj/project.pbxproj,v
+retrieving revision 1.56
+diff -u -d -b -w -r1.56 project.pbxproj
+--- project.pbxproj	2003/11/06 22:18:43	1.56
++++ project.pbxproj	2003/11/10 21:42:10
+@@ -147,7 +147,7 @@
+ 				LIBRARY_SEARCH_PATHS = "";
+ 				MODULE_IOKIT = YES;
+ 				MODULE_NAME = com.apple.iokit.AppleGMACEthernet;
+-				MODULE_VERSION = 1.3.2b1;
++				MODULE_VERSION = 1.3.2b2;
+ 				OTHER_CFLAGS = "";
+ 				OTHER_LDFLAGS = "";
+ 				OTHER_REZFLAGS = "";
+@@ -186,7 +186,7 @@
+ 	<key>CFBundleSignature</key>
+ 	<string>????</string>
+ 	<key>CFBundleVersion</key>
+-	<string>1.3.2b1</string>
++	<string>1.3.2b2</string>
+ 	<key>IOKitPersonalities</key>
+ 	<dict>
+ 		<key>PCI Matching</key>
+Index: Tools/gmacPHYregs.c
+===================================================================
+RCS file: /cvs/root/IO/Drivers/Ethernet/AppleGMACEthernet/Tools/gmacPHYregs.c,v
+retrieving revision 1.2
+diff -u -d -b -w -r1.2 gmacPHYregs.c
+--- gmacPHYregs.c	2003/04/09 20:53:37	1.2
++++ gmacPHYregs.c	2003/11/10 21:42:10
+@@ -79,6 +79,14 @@
+ 	};
+ 
+ 
++	enum
++	{		// operation codes:
++		kUsage,
++		kReadAll,
++		kReadOne,
++		kWrite
++	};
++
+ 	typedef struct					/* User Client Request structure:	*/
+ 	{
+ 		UInt32		reqID;			/* kGMACUserCmd_GetLog				*/
+@@ -97,66 +105,117 @@
+ 	io_object_t		getInterfaceWithName( mach_port_t masterPort, char *className );
+ 
+ 	void			Usage( char *myname );
+-	void			DumpMII();
+-	void			DumpOneMII(  UInt16 regnum );
+-	void			WriteOneMII( UInt16 regnum, UInt16 value );
++	void			DumpMII(	 UInt16 phyAddr );
++	void			DumpOneMII(  UInt16 phyAddr, UInt16 regnum );
++	void			WriteOneMII( UInt16 phyAddr, UInt16 regnum, UInt16 value );
+ 
+ 
+ 
+ int main( int argc, char ** argv )
+ {
+-	if ( argc == 1 )
++	int			i, rc;
++	UInt32 		regnum, regval, phyAddr, op;
++
++
++	phyAddr = 0xFF;
++	op		= kReadAll;
++
++	for ( i = 1; i < argc; ++i )
+ 	{
+-		DumpMII();		/* If no arguments, dump all PHY registers	*/
+-		return 0;
++		if ( strcmp( argv[ i ], "-h" ) == 0 )
++		{
++			op = kUsage;
++			break;
+ 	}
+-
+-	if ( argc == 2 && strcmp( argv[1], "-r" ) == 0 )
++		else if ( strcmp( argv[ i ], "-r" ) == 0 )
+ 	{
+-		DumpMII();		// read all
++			if ( ++i >= argc )
++			{
++				op = kReadAll;
++				break;
++			}
++			rc = sscanf( argv[ i ], "%ld", &regnum );
++			if ( rc != 1 || regnum > 31 )
++			{
++				printf( "Bad register number?\n" );
+ 		return 0;
+ 	}
+ 
+-	if ( argc == 3 && strcmp( argv[1], "-r" ) == 0 )
++			op = kReadOne;
++			continue;
++		}/* end IF -r */
++
++		else if ( strcmp( argv[ i ], "-w" ) == 0 )
+ 	{
+-		int		rc;
+-		UInt32	regnum;
+-		rc = sscanf( argv[2], "%ld", &regnum );
+-		if ( rc == 1 && regnum < 32 )
++			if ( i + 2 >= argc )	/* need to pick up register number and value.	*/
+ 		{
+-			printf( "Reading PHY register %ld\n", regnum );
+-			DumpOneMII( regnum );
++				printf( "Need register number and value for write.\n" );
++				return 0;
+ 		}
+-		else
+-			printf( "Bad register number?\n" );
++			++i;
++			rc = sscanf( argv[ i ], "%ld", &regnum );
++			if ( rc != 1 || regnum > 31 )
++			{
++				printf( "Bad register number.\n" );
+ 		return 0;
+ 	}
+-
+-	if ( argc == 4 && strcmp( argv[1], "-w" ) == 0 )
++			++i;
++			if ( strncmp( argv[ i ], "0x", 2 ) == 0 )		// skip over any leading 0x
++				argv[ i ] += 2;
++			rc = sscanf( argv[ i ], "%lx", &regval );
++			if ( rc != 1 )
+ 	{
+-		int		rc;
+-		UInt32 	regnum;
+-		UInt32	regval;
+-		rc = sscanf( argv[2], "%ld", &regnum );
+-		if ( rc == 1 && regnum < 32 )
++				printf( "Bad value.\n" );
++				return 0;
++			}
++			op = kWrite;
++			continue;
++		}/* end IF -w */
++
++		else if ( strcmp( argv[ i ], "-p" ) == 0 )
+ 		{
+-			if ( strncmp( argv[3], "0x", 2) == 0 )		// skip over any leading 0x
+-				argv[3] += 2;
+-			rc = sscanf( argv[3], "%lx", &regval );
+-			if ( rc == 1 )
++			if ( ++i >= argc )	/* need to pick up phy address.	*/
+ 			{
+-				printf( "writing mii register %ld with 0x%lx\n", regnum, regval );
+-				WriteOneMII( regnum, regval );
++				printf( "PHY address not specified.\n" );
++				return 0;
+ 			}
+-			else
+-				printf( "bad value?\n" );
++			rc = sscanf( argv[ i ], "%ld", &phyAddr );
++			if ( rc != 1 || phyAddr > 31 )
++			{
++				printf( "Bad PHY address.\n" );
++				return 0;
+ 		}
++			continue;
++		}/* end IF -p */
+ 		else
+-			printf( "bad register number?\n" );
+-		return 0;
++		{
++			op = kUsage;
++			break;
+ 	}
++	}/* end FOR arguments */
++
++	switch ( op )
++	{
++	case kReadAll:
++		printf( "\n\tReading all PHY registers:\n" );
++		DumpMII( phyAddr );
++		break;
++
++	case kReadOne:
++		printf( "Reading PHY register %ld:\n", regnum );
++		DumpOneMII( phyAddr, regnum );
++		break;
++
++	case kWrite:
++		printf( "Writing PHY register %ld with 0x%lx.\n", regnum, regval );
++		WriteOneMII( phyAddr, regnum, regval );
++		break;
+ 
++	default:
+ 	Usage( argv[0] );
++		break;
++	}
++
+ 	return 1;
+ }/* end main */
+ 
+@@ -164,9 +223,14 @@
+ void Usage( char *myname )
+ {
+ 	printf( "Usage:\n" );
+-	printf( "\t%s -r		// read all 32 MII registers\n", myname );
+-	printf( "\t%s -r N	// read just MII register N\n", myname );
+-	printf( "\t%s -w N 0xValue	// write hex value V to register N\n", myname );
++	printf( "   %s -h             // Display this help text.\n", myname );
++	printf( "   %s                // Read all 32 registers from the default PHY address.\n", myname );
++	printf( "   %s -r             //       ditto.\n", myname );
++	printf( "   %s -r N           // Read just register N from the default PHY address\n", myname );
++	printf( "   %s -w N 0xValue   // Write hex value V to register N at the default PHY address\n", myname );
++	printf( "   %s -p A           // Read all 32 registers from PHY at address A\n", myname );
++	printf( "   %s -p A ...       // Specify PHY at address A and do -r or -w\n", myname );
++	printf( "                     // Put -p first if using specific PHY address.\n" );
+ 	printf( "\n" );
+ 	return;
+ }/* end Usage */
+@@ -216,7 +280,7 @@
+ }/* end getInterfaceWithName */
+ 
+ 
+-void DumpMII()
++void DumpMII( UInt16 phyAddr )
+ {
+ 	mach_port_t				masterPort;
+ 	io_object_t				netif;
+@@ -246,7 +310,7 @@
+ 	if ( kr == kIOReturnSuccess )
+ 	{
+ 		inStruct.reqID			= kGMACUserCmd_ReadAllMII;
+-		inStruct.pLogBuffer		= 0;
++		inStruct.pLogBuffer		= (UInt8*)(phyAddr << 16);
+ 		inStruct.logBufferSz	= 0;
+ 
+ 			/* Finally get the data:	*/
+@@ -280,7 +344,7 @@
+ }/* end DumpMII */
+ 
+ 
+-void DumpOneMII( UInt16 regnum )
++void DumpOneMII( UInt16 phyAddr, UInt16 regnum )
+ {
+ 	mach_port_t				masterPort;
+ 	io_object_t				netif;
+@@ -314,7 +378,7 @@
+ 	}
+ 
+ 	inStruct.reqID			= kGMACUserCmd_ReadMII;
+-	inStruct.pLogBuffer		= (UInt8*)r;	// buffer size is really reg number
++	inStruct.pLogBuffer		= (UInt8*)(phyAddr << 16 | r);	// buffer size is really reg number
+ 	inStruct.logBufferSz	= 0;			// unused.
+ 
+ 		/* Get the datum:	*/
+@@ -327,7 +391,7 @@
+ 													&bufferSize );
+ 	if ( kr == kIOReturnSuccess )
+ 	{
+-		printf( "Read of MII worked.\n" );
++	//	printf( "Read of PHY register successful.\n" );
+ 		printf( "PHY register[ %d ] 0x%04x\n", regnum, buffer[0] );
+ 	}
+ 	else printf( "command/request failed 0x%x\n", kr );
+@@ -339,7 +403,7 @@
+ }/* end DumpOneMII */
+ 
+ 
+-void WriteOneMII( UInt16 regnum, UInt16 regval )
++void WriteOneMII( UInt16 phyAddr, UInt16 regnum, UInt16 regval )
+ {
+ 	mach_port_t				masterPort;
+ 	io_object_t				netif;
+@@ -369,7 +433,7 @@
+ 	if ( kr == kIOReturnSuccess )
+ 	{
+ 		inStruct.reqID			= kGMACUserCmd_WriteMII;
+-		inStruct.pLogBuffer		= (UInt8*)r;
++		inStruct.pLogBuffer		= (UInt8*)(phyAddr << 16 | r);
+ 		inStruct.logBufferSz	= regval;
+ 
+ 			/* Set the PHY's register:	*/
+@@ -381,7 +445,7 @@
+ 														dummy,
+ 														&dummySize );
+ 		if ( kr == kIOReturnSuccess )
+-				printf( "write of MII worked.\n" );
++				printf( "Write of PHY register successful.\n" );
+ 		else printf( "command/request failed 0x%x\n", kr );
+ 		IOServiceClose( conObj );
+ 	}

@@ -333,10 +333,6 @@
 #define PASSWORD_LENGTH 16
 #endif  /* HAVE_SYS_SECURITY_H */
 
-#ifdef HAVE_COMPAT_H
-#include <compat.h>
-#endif
-
 #ifdef HAVE_STROPTS_H
 #include <stropts.h>
 #endif
@@ -990,6 +986,10 @@ struct smb_ldap_privates;
 char *strdup(const char *s);
 #endif
 
+#ifndef HAVE_STRNDUP
+char *strndup(const char *s, size_t size);
+#endif
+
 #ifndef HAVE_MEMMOVE
 void *memmove(void *dest,const void *src,int size);
 #endif
@@ -1259,9 +1259,13 @@ int smb_xvasprintf(char **ptr, const char *format, va_list ap) PRINTF_ATTRIBUTE(
 
 /* we need to use __va_copy() on some platforms */
 #ifdef HAVE_VA_COPY
+#define VA_COPY(dest, src) va_copy(dest, src)
+#else
+#ifdef HAVE___VA_COPY
 #define VA_COPY(dest, src) __va_copy(dest, src)
 #else
 #define VA_COPY(dest, src) (dest) = (src)
+#endif
 #endif
 
 #ifndef HAVE_TIMEGM
@@ -1298,7 +1302,7 @@ krb5_const_principal get_principal_from_tkt(krb5_ticket *tkt);
 krb5_error_code krb5_locate_kdc(krb5_context ctx, const krb5_data *realm, struct sockaddr **addr_pp, int *naddrs, int get_masters);
 krb5_error_code get_kerberos_allowed_etypes(krb5_context context, krb5_enctype **enctypes);
 void free_kerberos_etypes(krb5_context context, krb5_enctype *enctypes);
-BOOL get_krb5_smb_session_key(krb5_context context, krb5_auth_context auth_context, uint8 session_key[16], BOOL remote);
+BOOL get_krb5_smb_session_key(krb5_context context, krb5_auth_context auth_context, DATA_BLOB *session_key, BOOL remote);
 #endif /* HAVE_KRB5 */
 
 /* TRUE and FALSE are part of the C99 standard and gcc, but
@@ -1314,5 +1318,12 @@ BOOL get_krb5_smb_session_key(krb5_context context, krb5_auth_context auth_conte
 #undef FALSE
 #endif
 #define FALSE __ERROR__XX__DONT_USE_FALSE
+
+/* If we have blacklisted mmap() try to avoid using it accidentally by
+   undefining the HAVE_MMAP symbol. */
+
+#ifdef MMAP_BLACKLIST
+#undef HAVE_MMAP
+#endif
 
 #endif /* _INCLUDES_H */

@@ -42,7 +42,7 @@ import java.security.NoSuchAlgorithmException;
  *  Specification", version 1.1 (01-06-07).
  *      
  *  @author <a href="mailto:osh@sparre.dk">Ole Husgaard</a>
- *  @version $Revision: 1.6 $
+ *  @version $Revision: 1.6.2.1 $
  */
 public class InterfaceAnalysis
    extends ContainerAnalysis
@@ -88,9 +88,6 @@ public class InterfaceAnalysis
                                             "\" is not an interface.");
 
       abstractInterface = RmiIdlUtil.isAbstractInterface(cls);
-      abstractValuetype = (abstractInterface) ?
-                                    false :
-                                    !RmiIdlUtil.isRMIIDLRemoteInterface(cls);
       calculateOperationAnalysisMap();
       calculateAllTypeIds();
       fixupCaseNames();
@@ -103,14 +100,9 @@ public class InterfaceAnalysis
       return abstractInterface;
    }
 
-   public boolean mapsToAbstractValuetype()
-   {
-      return abstractValuetype;
-   }
-
    public boolean isRmiIdlRemoteInterface()
    {
-      return (!abstractInterface && !abstractValuetype);
+      return (!abstractInterface);
    }
 
    public String[] getAllTypeIds()
@@ -227,8 +219,6 @@ public class InterfaceAnalysis
    // Private -------------------------------------------------------
 
    private boolean abstractInterface;
-
-   private boolean abstractValuetype;
 
    private String[] allTypeIds;
 }

@@ -24,5 +24,6 @@ private:
 	
 	static const char* KeyLargoString;
 	static const char* K2String;
+	static const char* ShastaString;
 	
 };

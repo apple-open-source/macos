@@ -1,14 +1,14 @@
 <html><head><META http-equiv="Content-Type" content="text/html; charset=iso-8859-1"><title>The Tomcat 4 Servlet/JSP Container - JNDI Datasource HOW-TO</title><meta value="Les Hughes" name="author"><meta value="leslie.hughes@rubus.com" name="email"><meta value="David Haraburda" name="author"><meta value="david-tomcat@haraburda.com" name="email"><meta value="Glenn Nielsen" name="author"><meta value="" name="email"></head><body vlink="#525D76" alink="#525D76" link="#525D76" text="#000000" bgcolor="#ffffff"><table cellspacing="4" width="100%" border="0"><!--PAGE HEADER--><tr><td colspan="2"><!--JAKARTA LOGO--><a href="http://jakarta.apache.org/"><img border="0" alt="The Jakarta Project" align="left" src="./../images/jakarta-logo.gif"></a><!--PROJECT LOGO--><a href="http://jakarta.apache.org/tomcat/"><img border="0" alt="
       The Tomcat Servlet/JSP Container
-    " align="right" src="./../images/tomcat.gif"></a></td></tr><!--HEADER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade=""></td></tr><tr><!--RIGHT SIDE MAIN BODY--><td align="left" valign="top" width="80%"><table cellspacing="4" width="100%" border="0"><tr><td nowrap="true" valign="top" align="left"><h1>The Tomcat 4 Servlet/JSP Container</h1><h2>JNDI Datasource HOW-TO</h2></td><td nowrap="true" valign="top" align="right"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./../images/void.gif"></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Table%20of%20Contents"><strong>Table of Contents</strong></a></font></td></tr><tr><td><blockquote>
+    " align="right" src="./../images/tomcat.gif"></a></td></tr><!--HEADER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade=""></td></tr><tr><!--RIGHT SIDE MAIN BODY--><td align="left" valign="top" width="80%"><table cellspacing="4" width="100%" border="0"><tr><td nowrap="true" valign="top" align="left"><h1>The Tomcat 4 Servlet/JSP Container</h1><h2>JNDI Datasource HOW-TO</h2></td><td nowrap="true" valign="top" align="right"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./../images/void.gif"></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Table of Contents"><strong>Table of Contents</strong></a></font></td></tr><tr><td><blockquote>
 <p>
 <a href="#Introduction">Introduction</a><br>
-<a href="#Database%20Connection%20Pool%20(DBCP)%20Configurations">
+<a href="#Database Connection Pool (DBCP) Configurations">
 Database Connection Pool (DBCP) Configurations</a><br>
-<a href="#Tyrex%20Connection%20Pool">Tyrex Connection Pool</a><br>
-<a href="#Non%20DBCP%20Solutions">Non DBCP Solutions</a><br>
-<a href="#Oracle%208i%20with%20OCI%20client">Oracle 8i with OCI client</a><br>
-<a href="#Common%20Problems">Common Problems</a><br>
+<a href="#Tyrex Connection Pool">Tyrex Connection Pool</a><br>
+<a href="#Non DBCP Solutions">Non DBCP Solutions</a><br>
+<a href="#Oracle 8i with OCI client">Oracle 8i with OCI client</a><br>
+<a href="#Common Problems">Common Problems</a><br>
 </p>
 </blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Introduction"><strong>Introduction</strong></a></font></td></tr><tr><td><blockquote>
 
@@ -24,7 +24,7 @@ and/or feedback posted to <code>tomcat-user</code> YMMV :-). Please let us
 know if you have any other tested configurations that you feel may be of use
 to the wider audience, or if you feel we can improve this section in anyway.</p>
 
-</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Database%20Connection%20Pool%20(DBCP)%20Configurations"><strong>Database Connection Pool (DBCP) Configurations</strong></a></font></td></tr><tr><td><blockquote>
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Database Connection Pool (DBCP) Configurations"><strong>Database Connection Pool (DBCP) Configurations</strong></a></font></td></tr><tr><td><blockquote>
 
 <p>DBCP provides support for JDBC 2.0.  On systems using a 1.4 JVM DBCP
 will support JDBC 3.0. Please let us know if you have used DBCP and its
@@ -61,7 +61,7 @@ experience problems if you install them anyplace other than
 
 </blockquote></td></tr></table>
 
-<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Preventing%20dB%20connection%20pool%20leaks"><strong>Preventing dB connection pool leaks</strong></a></font></td></tr><tr><td><blockquote>
+<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Preventing dB connection pool leaks"><strong>Preventing dB connection pool leaks</strong></a></font></td></tr><tr><td><blockquote>
 
 <p>
 A database connection pool creates and manages a pool of connections
@@ -125,7 +125,7 @@ The default is <code>false</code>.
 
 </blockquote></td></tr></table>
 
-<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="MySQL%20DBCP%20Example"><strong>MySQL DBCP Example</strong></a></font></td></tr><tr><td><blockquote>
+<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="MySQL DBCP Example"><strong>MySQL DBCP Example</strong></a></font></td></tr><tr><td><blockquote>
 
 <h3>0. Introduction</h3>
 <p>Versions of MySQL and the mm.mysql JDBC driver when have been
@@ -360,7 +360,7 @@ your hard work.</p>
 
 </blockquote></td></tr></table>
 
-<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Oracle%208i"><strong>Oracle 8i</strong></a></font></td></tr><tr><td><blockquote>
+<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Oracle 8i"><strong>Oracle 8i</strong></a></font></td></tr><tr><td><blockquote>
 <h3>0.    Introduction</h3>
 <p><i>We would appreciate comments on this section as I'm not an Oracle DBA :-)</i></p>
 <p>Oracle requires minimal changes from the MySQL configuration except for the usual gotchas :-) Firstly
@@ -494,7 +494,7 @@ These notes are untested as yet and we would appreciate feedback.</p>
 &lt;/resource-ref&gt;
 </pre></td><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./../images/void.gif"></td></tr><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./../images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./../images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./../images/void.gif"></td></tr></table></div>
 </blockquote></td></tr></table>
-</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Tyrex%20Connection%20Pool"><strong>Tyrex Connection Pool</strong></a></font></td></tr><tr><td><blockquote>
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Tyrex Connection Pool"><strong>Tyrex Connection Pool</strong></a></font></td></tr><tr><td><blockquote>
 
 <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Introduction"><strong>Introduction</strong></a></font></td></tr><tr><td><blockquote>
 
@@ -506,7 +506,7 @@ from the JNDI namespace, as well as the standard <code>javax.transaction.UserTra
 
 </blockquote></td></tr></table>
 
-<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Installing%20Required%20JARs"><strong>Installing Required JARs</strong></a></font></td></tr><tr><td><blockquote>
+<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Installing Required JARs"><strong>Installing Required JARs</strong></a></font></td></tr><tr><td><blockquote>
 
 <p>
 In order for a web application to use Tyrex, the webapp and Tomcat need to have access to the 
@@ -533,7 +533,7 @@ The following two jars are required as well:
 All six of these jar files need to be placed on $TOMCAT_HOME/common/lib so that both Tomcat and your web application will see them.
 </p>
 </blockquote></td></tr></table>
-<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Configuring%20Tyrex"><strong>Configuring Tyrex</strong></a></font></td></tr><tr><td><blockquote>
+<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Configuring Tyrex"><strong>Configuring Tyrex</strong></a></font></td></tr><tr><td><blockquote>
 
 <p>
 The Tyrex documentation (http://tyrex.exolab.org) provides complete details on how to properly configure Tyrex.  As an example, we will use the following Tyrex configuration, specified in Tyrex's domain configuration XML file:
@@ -573,7 +573,7 @@ This XML config file needs to be placed where Tomcat's classloader can find it u
 </p>
 </blockquote></td></tr></table>
 
-<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Configuring%20Tomcat"><strong>Configuring Tomcat</strong></a></font></td></tr><tr><td><blockquote>
+<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Configuring Tomcat"><strong>Configuring Tomcat</strong></a></font></td></tr><tr><td><blockquote>
 
 <p>
 Now that your Tyrex XML config file is in place and ready, you must enlist the Tyrex resources in the JNDI namespace.  This is done through Tomcat's server.xml file. 
@@ -606,7 +606,7 @@ A couple of things to point out:
 </p>
 </blockquote></td></tr></table>
 
-<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Coding%20Your%20Application"><strong>Coding Your Application</strong></a></font></td></tr><tr><td><blockquote>
+<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Coding Your Application"><strong>Coding Your Application</strong></a></font></td></tr><tr><td><blockquote>
 
 <p>
 Making use of your Tyrex resource should now be relatively simple.  To obtain your datasource, simply use JNDI:
@@ -623,12 +623,12 @@ Tyrex also provides a <code>javax.transaction.UserTransaction</code>,
 </p>
 </blockquote></td></tr></table>
 
-</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Non%20DBCP%20Solutions"><strong>Non DBCP Solutions</strong></a></font></td></tr><tr><td><blockquote>
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Non DBCP Solutions"><strong>Non DBCP Solutions</strong></a></font></td></tr><tr><td><blockquote>
 <p>
 These solutions either utilise a single connection to the database (not recommended for anything other
 than testing!) or some other pooling technology.
 </p>
-</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Oracle%208i%20with%20OCI%20client"><strong>Oracle 8i with OCI client</strong></a></font></td></tr><tr><td><blockquote>
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Oracle 8i with OCI client"><strong>Oracle 8i with OCI client</strong></a></font></td></tr><tr><td><blockquote>
 <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Introduction"><strong>Introduction</strong></a></font></td></tr><tr><td><blockquote>
 <p>Whilst not strictly addressing the creation of a JNDI DataSource using the OCI client, these notes can be combined with the
 Oracle and DBCP solution above.</p>
@@ -645,7 +645,7 @@ from this file depending upon the version of Tomcat and JDK you are using.
 </p>
 </blockquote></td></tr></table>
 
-<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Putting%20it%20all%20together"><strong>Putting it all together</strong></a></font></td></tr><tr><td><blockquote>
+<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Putting it all together"><strong>Putting it all together</strong></a></font></td></tr><tr><td><blockquote>
 <p>
 Ensure that you have the <code>ocijdbc8.dll</code> or <code>.so</code> in your <code>$PATH</code> or <code>LD_LIBRARY_PATH</code>
  (possibly in <code>$ORAHOME\bin</code>) and also confirm that the native library can be loaded by a simple test program 
@@ -694,11 +694,11 @@ Change the database connect string (of the form <code>host:port:SID</code>) with
 <i>Ed. Hmm, I don't think this is really needed if you sort out your TNSNames - but I'm not an Oracle DBA :-)</i>
 </p>
 </blockquote></td></tr></table>
-</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Common%20Problems"><strong>Common Problems</strong></a></font></td></tr><tr><td><blockquote>
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Common Problems"><strong>Common Problems</strong></a></font></td></tr><tr><td><blockquote>
 <p>Here are some common problems encountered with a web application which
 uses a database and tips for how to solve them.</p>
 
-<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Intermittent%20dB%20Connection%20Failures"><strong>Intermittent dB Connection Failures</strong></a></font></td></tr><tr><td><blockquote>
+<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Intermittent dB Connection Failures"><strong>Intermittent dB Connection Failures</strong></a></font></td></tr><tr><td><blockquote>
 <p>
 Tomcat runs within a JVM.  The JVM periodically performs garbage collection
 (GC) to remove java objects which are no longer being used.  When the JVM
@@ -722,7 +722,7 @@ For the DBCP you set this using the parameter <code>maxWait</code>.</p>
 
 </blockquote></td></tr></table>
 
-<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Random%20Connection%20Closed%20Exceptions"><strong>Random Connection Closed Exceptions</strong></a></font></td></tr><tr><td><blockquote>
+<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Random Connection Closed Exceptions"><strong>Random Connection Closed Exceptions</strong></a></font></td></tr><tr><td><blockquote>
 <p>
 These can occur when one request gets a db connection from the connection
 pool and closes it twice.  When using a connection pool, closing the

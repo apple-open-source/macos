@@ -1,4 +1,4 @@
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>mount.cifs</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.60.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="mount.cifs.8"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2>Name</h2><p>mount.cifs &#8212; mount using the Common Internet File System (CIFS)</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><tt class="command">mount.cifs</tt>  {service} {mount-point} [-o options]</p></div></div><div class="refsect1" lang="en"><h2>DESCRIPTION</h2><p>This tool is part of the <a href="Samba.7.html"><span class="citerefentry"><span class="refentrytitle">Samba</span>(7)</span></a> suite.</p><p>mount.cifs mounts a Linux CIFS filesystem. It 
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>mount.cifs</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.61.2"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="mount.cifs.8"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2>Name</h2><p>mount.cifs &#8212; mount using the Common Internet File System (CIFS)</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><tt class="command">mount.cifs</tt>  {service} {mount-point} [-o options]</p></div></div><div class="refsect1" lang="en"><h2>DESCRIPTION</h2><p>This tool is part of the <a href="Samba.7.html"><span class="citerefentry"><span class="refentrytitle">Samba</span>(7)</span></a> suite.</p><p>mount.cifs mounts a Linux CIFS filesystem. It 
 is usually invoked indirectly by
 the <a href="mount.8.html"><span class="citerefentry"><span class="refentrytitle">mount</span>(8)</span></a> command when using the 
 "-t cifs" option. This command only works in Linux, and the kernel must
@@ -19,12 +19,14 @@ you get mount failures, check your kernel log for errors on
 unknown options.
 	</p><p><span class="emphasis"><em>mount.cifs</em></span> is a daemon. After mounting it keeps running until
 		the mounted resource is unmounted (usually via the umount utility)
-	</p></div><div class="refsect1" lang="en"><h2>OPTIONS</h2><div class="variablelist"><dl><dt><span class="term">username=<i class="replaceable"><tt>arg</tt></i></span></dt><dd><p>specifies the username to connect as. If
+	</p></div><div class="refsect1" lang="en"><h2>OPTIONS</h2><div class="variablelist"><dl><dt><span class="term">user=<i class="replaceable"><tt>arg</tt></i></span></dt><dd><p>specifies the username to connect as. If
 				this is not given, then the environment variable <span class="emphasis"><em>USER</em></span> is used. This option can also take the
 form "user%password" or "user/workgroup" or
 "user/workgroup%password" to allow the password and workgroup
 to be specified as part of the username.
-		</p></dd><dt><span class="term">password=<i class="replaceable"><tt>arg</tt></i></span></dt><dd><p>specifies the CIFS password. If this
+		</p><div class="note" style="margin-left: 0.5in; margin-right: 0.5in;"><h3 class="title">Note</h3><p>
+		Cifsfs has the parameter <i class="parameter"><tt>user=</tt></i>, not <i class="parameter"><tt>username=</tt></i>, like smbfs.
+	</p></div></dd><dt><span class="term">password=<i class="replaceable"><tt>arg</tt></i></span></dt><dd><p>specifies the CIFS password. If this
 option is not given then the environment variable
 <span class="emphasis"><em>PASSWD</em></span> is used. If it can find
 no password <span class="emphasis"><em>mount.cifs</em></span> will prompt

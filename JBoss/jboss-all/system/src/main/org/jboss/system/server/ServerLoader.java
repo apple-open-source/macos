@@ -49,16 +49,10 @@ import java.net.MalformedURLException;
  *    // shutdown and go to sleep
  *    server.shutdown();
  * </pre>
- *
- * <p><b>Revisions:</b>
- * <p><b>20020321 Adrian Brock:</b>
- * <ul>
- * <li>Use JBossMX to run JBoss
- * </ul>
- *
- * @version <tt>$Revision: 1.8.2.2 $</tt>
+ * @version <tt>$Revision: 1.8.2.5 $</tt>
  * @author  <a href="mailto:jason@planet57.com">Jason Dillon</a>
  * @author <a href="mailto:adrian.brock@happeningtimes.com">Adrian Brock</a>
+ * @author Scott.Stark@jboss.org
  */
 public class ServerLoader
 {
@@ -68,7 +62,7 @@ public class ServerLoader
     * proper libraries.
     */
    public static final String DEFAULT_BOOT_LIBRARY_LIST =
-      "jaxp.jar,log4j-boot.jar,commons-httpclient.jar,webdavlib.jar,jboss-common.jar,jboss-system.jar";
+      "jaxp.jar,log4j-boot.jar,jboss-common.jar,jboss-system.jar";
 
    /** The default server type. */
    public static final String DEFAULT_SERVER_TYPE = "org.jboss.system.server.ServerImpl";
@@ -103,17 +97,27 @@ public class ServerLoader
 
       this.props = props;
 
+      // must have HOME_URL, or we can't continue
+      URL homeURL = getURL(ServerConfig.HOME_URL);
+      if (homeURL == null)
+      {
+         throw new Exception("Missing configuration value for: "
+            + ServerConfig.HOME_URL);
+      }
+
       libraryURL = getURL(ServerConfig.LIBRARY_URL);
-
-      if (libraryURL == null) {
-         // must have HOME_URL, or we can't continue
-         URL homeURL = getURL(ServerConfig.HOME_URL);
-         if (homeURL == null) {
-            throw new Exception("Missing configuration value for: " + ServerConfig.LIBRARY_URL);
-         }
-
+      if (libraryURL == null)
+      {
          // need libraray url to make boot urls list
          libraryURL = new URL(homeURL, ServerConfig.LIBRARY_URL_SUFFIX);
+      }
+
+      // If the home URL begins with http add the webav and httpclient jars
+      if( homeURL.getProtocol().startsWith("http") == true )
+      {
+         this.addLibrary("webdavlib.jar");
+         this.addLibrary("commons-httpclient.jar");
+         this.addLibrary("commons-logging.jar");
       }
    }
 
@@ -131,7 +135,8 @@ public class ServerLoader
       if (filename == null)
          throw new IllegalArgumentException("filename is null");
 
-      extraClasspath.add(new URL(libraryURL, filename));
+      URL jarURL = new URL(libraryURL, filename);
+      extraClasspath.add(jarURL);
    }
 
    /**
@@ -147,7 +152,8 @@ public class ServerLoader
          throw new IllegalArgumentException("filenames is null");
 
       StringTokenizer stok = new StringTokenizer(filenames, ",");
-      while (stok.hasMoreElements()) {
+      while (stok.hasMoreElements())
+      {
          addLibrary(stok.nextToken().trim());
       }
    }
@@ -171,7 +177,8 @@ public class ServerLoader
    protected URL getURL(final String name) throws MalformedURLException
    {
       String value = props.getProperty(name, null);
-      if (value != null) {
+      if (value != null)
+      {
          if (!value.endsWith("/")) value += "/";
          return new URL(value);
       }
@@ -192,12 +199,13 @@ public class ServerLoader
       String value = props.getProperty(ServerConfig.BOOT_LIBRARY_LIST, DEFAULT_BOOT_LIBRARY_LIST);
 
       StringTokenizer stok = new StringTokenizer(value, ",");
-      while (stok.hasMoreElements()) {
+      while (stok.hasMoreElements())
+      {
          URL url = new URL(libraryURL, stok.nextToken().trim());
          list.add(url);
       }
 
-      return (URL[])list.toArray(new URL[list.size()]);
+      return (URL[]) list.toArray(new URL[list.size()]);
    }
 
    /**
@@ -213,7 +221,8 @@ public class ServerLoader
       Server server;
       ClassLoader oldCL = Thread.currentThread().getContextClassLoader();
 
-      try {
+      try
+      {
          // get the boot lib list
          URL[] urls = getBootClasspath();
          URLClassLoader classLoader = new NoAnnotationURLClassLoader(urls, parent);
@@ -223,7 +232,8 @@ public class ServerLoader
          String typename = props.getProperty(ServerConfig.SERVER_TYPE, DEFAULT_SERVER_TYPE);
          server = createServer(typename, classLoader);
       }
-      finally {
+      finally
+      {
          Thread.currentThread().setContextClassLoader(oldCL);
       }
 
@@ -241,7 +251,7 @@ public class ServerLoader
       Class type = classLoader.loadClass(typename);
 
       // and then create a new instance
-      Server server = (Server)type.newInstance();
+      Server server = (Server) type.newInstance();
 
       // here ya go
       return server;

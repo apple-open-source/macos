@@ -26,7 +26,7 @@ import org.jboss.naming.NamingContextFactory;
  *
  * @author  <a href="mailto:marc.fleury@jboss.org">Marc Fleury</a>
  * @author Scott.Stark@jboss.org
- * @version $Revision: 1.1.4.1 $
+ * @version $Revision: 1.1.4.2 $
  */
 public class StatelessHandleImpl
       implements Handle
@@ -82,6 +82,14 @@ public class StatelessHandleImpl
       {
          throw new ServerException("Could not get EJBObject", e);
       }
+   }
+
+   /**
+    * @return the jndi name
+    */
+   public String getJNDIName()
+   {
+      return jndiName;
    }
 
    private void readObject(ObjectInputStream ois)

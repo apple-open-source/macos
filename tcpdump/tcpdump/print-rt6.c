@@ -20,8 +20,8 @@
  */
 
 #ifndef lint
-static const char rcsid[] =
-    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-rt6.c,v 1.1.1.3 2003/03/17 18:42:19 rbraun Exp $";
+static const char rcsid[] _U_ =
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-rt6.c,v 1.1.1.4 2004/02/05 19:30:56 rbraun Exp $";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -102,6 +102,6 @@ rt6_print(register const u_char *bp, register const u_char *bp2)
 
  trunc:
 	fputs("[|srcrt]", stdout);
-	return 65535;		/* XXX */
+	return -1;
 }
 #endif /* INET6 */

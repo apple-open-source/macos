@@ -7,10 +7,6 @@
 
 package org.jboss.jmx.service;
 
-import java.io.File;
-import java.io.IOException;
-
-import java.net.InetAddress;
 import java.net.URL;
 import java.net.MalformedURLException;
 
@@ -20,17 +16,8 @@ import java.util.Iterator;
 import java.util.Hashtable;
 
 import javax.management.ObjectName;
-import javax.management.MalformedObjectNameException;
-import javax.management.MBeanException;
-import javax.management.ReflectionException;
-import javax.management.RuntimeOperationsException;
-import javax.management.RuntimeMBeanException;
-import javax.management.RuntimeErrorException;
-
 import javax.naming.Context;
 import javax.naming.InitialContext;
-import javax.naming.NamingException;
-
 import gnu.getopt.Getopt;
 import gnu.getopt.LongOpt;
 
@@ -43,7 +30,6 @@ import org.jboss.deployment.Deployer;
 import org.jboss.deployment.DeployerMBean;
 import org.jboss.deployment.DeploymentException;
 
-import org.jboss.mx.util.JMXExceptionDecoder;
 import org.jboss.mx.util.MBeanProxyExt;
 import org.jboss.util.Strings;
 
@@ -52,7 +38,7 @@ import org.jboss.logging.Logger;
 /**
  * A JMX client to deploy an application into a running JBoss server via RMI.
  *
- * @version <tt>$Revision: 1.4.2.2 $</tt>
+ * @version <tt>$Revision: 1.4.2.3 $</tt>
  * @author  <a href="mailto:rickard.oberg@telkel.com">Rickard Öberg</a>
  * @author  <a href="mailto:jason@planet57.com">Jason Dillon</a>
  * @author  <a href="mailto:Christoph.Jung@infor.de">Christoph G. Jung</a>
@@ -64,6 +50,9 @@ public class RemoteDeployer
 {
    /** Class logger. */
    private static final Logger log = Logger.getLogger(Deployer.class);
+   
+   /** Default adapter name */
+   private static final String DEFAULT_ADAPTER_NAME = "jmx/rmi/RMIAdaptor";
    
    /** A proxy to the deployer instance on the remote server. */
    protected Deployer deployer;
@@ -112,7 +101,7 @@ public class RemoteDeployer
     */
    public RemoteDeployer() throws Exception
    {
-      this(MainDeployerMBean.OBJECT_NAME, (Hashtable)null, "jmx/rmi/RMIAdaptor");
+      this(MainDeployerMBean.OBJECT_NAME, (Hashtable)null, DEFAULT_ADAPTER_NAME);
    }
 
    protected void init(ObjectName deployerName, Hashtable env, String adapterName)
@@ -144,6 +133,11 @@ public class RemoteDeployer
       {
          ctx = new InitialContext(env);
       }
+      
+      if (adapterName == null)
+      {
+         adapterName = DEFAULT_ADAPTER_NAME;
+      }      
       
       try
       {
@@ -274,7 +268,7 @@ public class RemoteDeployer
       System.out.println("    -D<name>[=<value>]        Set a system property");
       System.out.println("    --                        Stop processing options");
       System.out.println("    -s, --server=<url>        Specify the JNDI URL of the remote server");
-      System.out.println("    -a, --adapter=<name>      Specify JNDI name of the RMI adapter to use");
+      System.out.println("    -a, --adapter=<name>      Specify JNDI name of the RMI adapter to use [" + DEFAULT_ADAPTER_NAME + "]");
       System.out.println();
       System.out.println("operations:");
       System.out.println("    -d, --deploy=<url>        Deploy a URL into the remote server");

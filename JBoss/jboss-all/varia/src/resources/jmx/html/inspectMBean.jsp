@@ -1,11 +1,17 @@
+<?xml version="1.0"?>
 <%@page contentType="text/html"
    import="java.net.*,java.util.*,javax.management.*,javax.management.modelmbean.*,
    org.jboss.jmx.adaptor.control.Server,
    org.jboss.jmx.adaptor.control.AttrResultInfo,
    org.jboss.jmx.adaptor.model.*,
+   org.jdom.output.XMLOutputter,
    java.lang.reflect.Array"
 %>
-<%! public String fixDescription(String desc)
+<%! 
+    XMLOutputter xmlOutput = new XMLOutputter();
+    String sep = System.getProperty("line.separator", "\n");
+
+    public String fixDescription(String desc)
     {
       if (desc == null || desc.equals(""))
       {
@@ -13,12 +19,33 @@
       }
       return desc;
     }
+
+    public String fixValue(Object value)
+    {
+        if (value == null)
+            return null;
+        String s = String.valueOf(value);
+        return xmlOutput.escapeElementEntities(s);
+    }
+
+    public String fixValueForAttribute(Object value)
+    {
+        if (value == null)
+            return null;
+        String s = String.valueOf(value);
+        return xmlOutput.escapeAttributeEntities(s);
+    }
 %>
+
+<!DOCTYPE html 
+    PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
 <html>
 <head>
    <title>MBean Inspector</title>
-   <link rel="stylesheet" href="style_master.css" type="text/css">
-   <meta http-equiv="cache-control" content="no-cache">
+   <link rel="stylesheet" href="style_master.css" type="text/css" />
+   <meta http-equiv="cache-control" content="no-cache" />
 </head>
 <body>
 
@@ -32,61 +59,62 @@
    MBeanOperationInfo[] operationInfo = mbeanInfo.getOperations();
 %>
 
-<table width="100%">
-   <table>
-      <tr>
-         <td><img src="images/logo.gif" align="left" border="0" alt="JBoss"></td>
-         <td valign="middle"><h1>JMX MBean View</h1></td>
-      <tr/>
-   </table>
-   <ul>
-   <table>
-      <tr>
-         <td>MBean Name:</td>
-         <td><b>Domain Name:</b></td>
-         <td><%= objectName.getDomain() %></td>
-      </tr>
+<img src="images/logo.gif" align="right" border="0" alt="" />
+
+<h1>JMX MBean View</h1>
+
 <%
    Hashtable properties = objectName.getKeyPropertyList();
+   int size = properties.keySet().size();
+%>
+   <table class="ObjectName" cellspacing="0" cellpadding="5">
+   <tr>
+      <td class="nameh" rowspan="<%= size + 1 %>">Name</td>
+      <td class='sep'>Domain</td>
+      <td class='sep'><%= objectName.getDomain() %></td>
+   </tr>
+<%
    Iterator it = properties.keySet().iterator();
    while( it.hasNext() )
    {
       String key = (String) it.next();
       String value = (String) properties.get( key );
 %>
-      <tr><td></td><td><b><%= key %>: </b></td><td><%= value %></td></tr>
+   <tr>
+      <td class='sep'><%= key %></td>
+      <td class='sep'><%= value %></td>
+   </tr>
 <%
    }
 %>
-      <tr><td>MBean Java Class:</td><td colspan="3"><jsp:getProperty name='mbeanData' property='className'/></td></tr>
-   </table>
-</ul>
-<table cellpadding="5">
    <tr>
-      <td><a href='HtmlAdaptor?action=displayMBeans'>Back to Agent View</a></td>
-	  <td>
-      <td><a href='HtmlAdaptor?action=inspectMBean&name=<%= URLEncoder.encode(request.getParameter("name")) %>'>Refresh MBean View</a></td>
+      <td class='nameh'>Java Class</td>
+      <td colspan="3"><jsp:getProperty name='mbeanData' property='className'/></td></tr>
+      <tr><td class='nameh'>Description</td>
+      <td colspan="3" class="adescription">
+         <%= fixDescription(mbeanInfo.getDescription())%>
+      </td>
    </tr>
 </table>
 
-<hr>
-<h3>MBean description:</h3>
-<%= fixDescription(mbeanInfo.getDescription())%>
-
-<hr>
-<h3>List of MBean attributes:</h3>
+<p>
+<a href='HtmlAdaptor?action=displayMBeans'>Back to Agent View</a>
+&emsp;
+<a href='HtmlAdaptor?action=inspectMBean&amp;name=<%= URLEncoder.encode(request.getParameter("name")) %>'>Refresh MBean View</a>
+</p>
 
 <form method="post" action="HtmlAdaptor">
-   <input type="hidden" name="action" value="updateAttributes">
-   <input type="hidden" name="name" value="<%= objectNameString %>">
-	<table cellspacing="1" cellpadding="1" border="1">
-		<tr class="AttributesHeader">
-		    <th>Name</th>
-		    <th>Type</th>
-		    <th>Access</th>
-		    <th>Value</th>
-		    <th>Description</th>
-		</tr>
+   <input type="hidden" name="action" value="updateAttributes" />
+   <input type="hidden" name="name" value="<%= objectNameString %>" />
+   <table class="AttributesClass" cellspacing="0" cellpadding="5">
+      <tr class="AttributesHeader">
+      <th width="25%">
+         <span class='aname'>Attribute Name</span> <span class='aaccess'>(Access)</span><br/>
+         <span class='atype'>Type</span> <br/>
+         <span class='adescription'>Description</span> <br/>
+      </th>
+      <th width="75%" class='aname'>Attribute Value</th>
+      </tr>
 <%
    boolean hasWriteable = false;
    for(int a = 0; a < attributeInfo.length; a ++)
@@ -107,35 +135,47 @@
       String attrDescription = fixDescription(attrInfo.getDescription());
 %>
 		<tr>
-		    <td><%= attrName %></td>
-		    <td><%= attrType %></td>
-		    <td><%= access %></td>
-          <td>
+		  <td class='sep'>
+           <span class='aname'><%= attrName %></span> <span class='aaccess'>(<%= access %>)</span> <br/>
+           <span class='atype'><%= attrType %></span> <br/>
+           <span class='adescription'><%= attrDescription %></span> <br/>
+        </td>
+        <td class='sep'>
 <%
       if( attrInfo.isWritable() )
       {
-         String readonly = attrResult.editor == null ? "readonly" : "";
+         String readonly = attrResult.editor == null ? "readonly='readonly'" : "";
          if( attrType.equals("boolean") || attrType.equals("java.lang.Boolean") )
          {
             // Boolean true/false radio boxes
             Boolean value = Boolean.valueOf(attrValue);
-            String trueChecked = (value == Boolean.TRUE ? "checked" : "");
-            String falseChecked = (value == Boolean.FALSE ? "checked" : "");
+            String trueChecked = (value == Boolean.TRUE ? "checked='checked'" : "");
+            String falseChecked = (value == Boolean.FALSE ? "checked='checked'" : "");
 %>
-            <input type="radio" name="<%= attrName %>" value="True" <%=trueChecked%>>True
-            <input type="radio" name="<%= attrName %>" value="False" <%=falseChecked%>>False
+            <input type="radio" name="<%= attrName %>" value="True" <%=trueChecked%>/>True
+            <input type="radio" name="<%= attrName %>" value="False" <%=falseChecked%>/>False
 <%
          }
          else if( attrInfo.isReadable() )
          {  // Text fields for read-write string values
+            attrValue = fixValueForAttribute(attrValue);
+            if (String.valueOf(attrValue).indexOf(sep) == -1)
+            {
 %>
-		    <input type="text" name="<%= attrName %>" value="<%= attrValue %>" <%= readonly %>>
+            <input class="iauto" type="text" name="<%= attrName %>" value="<%= attrValue %>" <%= readonly %>/>
 <%
+            }
+            else
+            {
+%>
+            <textarea cols="80" rows="10" nowrap='nowrap' type="text" name="<%= attrName %>" <%= readonly %>><%= attrValue %></textarea>
+<%
+            }
          }
          else
          {  // Empty text fields for write-only
 %>
-		    <input type="text" name="<%= attrName %>" <%= readonly %>>
+		    <input class="iauto" type="text" name="<%= attrName %>" <%= readonly %>/>
 <%
          }
       }
@@ -148,37 +188,26 @@
             if( names != null )
             {
 %>
-                  <table>
 <%
                for( int i = 0; i < names.length; i++ )
                {
 %>
-                  <tr><td>
                   <a href="HtmlAdaptor?action=inspectMBean&name=<%= URLEncoder.encode(( names[ i ] + "" )) %>"><%= ( names[ i ] + "" ) %></a>
-                  </td></tr>
+                  <br />
 <%
                }
-%>
-                  </table>
-<%
             }
          }
          // Array of some objects
-         else if( attrType.endsWith("[]"))
+         else if( attrType.startsWith("["))
          {
             Object arrayObject = Server.getMBeanAttributeObject(objectNameString, attrName);
             if (arrayObject != null) {
-%>
-                  <table>
-<%
+               out.print("<pre>");
                for (int i = 0; i < Array.getLength(arrayObject); ++i) {
-%>
-                  <tr><td><%=Array.get(arrayObject,i)%></td></tr>
-<%
+                  out.println(fixValue(Array.get(arrayObject,i)));
                }
-%>
-                  </table>
-<%
+               out.print("</pre>");
             } 
             
          }
@@ -186,7 +215,7 @@
          {
             // Just the value string
 %>
-		    <%= attrValue %>
+            <pre><%= fixValue(attrValue) %></pre>
 <%
          }
       }
@@ -196,29 +225,48 @@
          if( attrValue != null )
          {
 %>
-         <a href="HtmlAdaptor?action=inspectMBean&name=<%= URLEncoder.encode(attrValue) %>">View MBean</a>
+            <br />
+            <a href="HtmlAdaptor?action=inspectMBean&name=<%= URLEncoder.encode(attrValue) %>">View MBean</a>
 <%
          }
       }
 %>
          </td>
-         <td><%= attrDescription%></td>
 		</tr>
 <%
    }
 %>
-	</table>
 <% if( hasWriteable )
    {
 %>
-	<input type="submit" value="Apply Changes">
+   <tr>
+      <td colspan='2'>
+         <p align='center'>
+            <input class='applyb' type="submit" value="Apply Changes" />
+         </p>
+      </td>
+   </tr>
 <%
    }
 %>
+   </table>
 </form>
 
-<hr>
-<h3>List of MBean operations:</h3>
+<p>
+</p>
+
+<% if (operationInfo.length > 0) { %>
+<table class="AttributesClass" cellspacing="0" cellpadding="5">
+   <tr class="AttributesHeader">
+   <th width="25%">
+      <span class='aname'>Operation Name</span><br/>
+      <span class='atype'>Return Type</span> <br/>
+      <span class='adescription'>Description</span> <br/>
+   </th>
+   <th width="75%">
+      <span class='aname'>Parameters</span>
+   </th>
+   </tr>
 <%
    for(int a = 0; a < operationInfo.length; a ++)
    {
@@ -237,24 +285,22 @@
       {
          MBeanParameterInfo[] sig = opInfo.getSignature();
 %>
-<form method="post" action="HtmlAdaptor">
-   <input type="hidden" name="action" value="invokeOp">
-   <input type="hidden" name="name" value="<%= objectNameString %>">
-   <input type="hidden" name="methodIndex" value="<%= a %>">
-   <hr align='left' width='80'>
-   <h4><%= opInfo.getReturnType() + " " + opInfo.getName() + "()" %></h4>
-   <p><%= fixDescription(opInfo.getDescription())%></p>
+   <tr>
+		<td class='sep'>
+         <span class='aname'><%= opInfo.getName() %></span><br/>
+         <span class='atype'><%= opInfo.getReturnType() %></span> <br/>
+         <span class='adescription'><%= fixDescription(opInfo.getDescription())%></span> <br/>
+      </td>
+      <td class='sep'>
+         <form method="post" action="HtmlAdaptor">
+            <input type="hidden" name="action" value="invokeOp" />
+            <input type="hidden" name="name" value="<%= objectNameString %>" />
+            <input type="hidden" name="methodIndex" value="<%= a %>" />
 <%
          if( sig.length > 0 )
          {
 %>
-	<table cellspacing="2" cellpadding="2" border="1">
-		<tr class="OperationHeader">
-			<th>Param</th>
-			<th>ParamType</th>
-			<th>ParamValue</th>
-			<th>ParamDescription</th>
-		</tr>
+	<table>
 <%
             for(int p = 0; p < sig.length; p ++)
             {
@@ -265,44 +311,50 @@
                {
                   pname = "arg"+p;
                }
+               String pdesc = fixDescription(paramInfo.getDescription());
 %>
 		<tr>
-			<td><%= pname %></td>
-		   <td><%= ptype %></td>
-         <td> 
+         <td>
+         <span class='aname'><%= pname %></span><br/>
+         <span class='atype'><%= ptype %></span> <br/>
+         <span class='adescription'><%= pdesc %></span> <br/>
 <%
                 if( ptype.equals("boolean") || ptype.equals("java.lang.Boolean") )
                 {
                    // Boolean true/false radio boxes
 %>
-            <input type="radio" name="arg<%= p%>" value="True"checked>True
-            <input type="radio" name="arg<%= p%>" value="False">False
+            <input type="radio" name="arg<%= p%>" value="True" checked='checked'>True
+            <input type="radio" name="arg<%= p%>" value="False" />False
 <%
                  }
                  else
                  {
 %>
-            <input type="text" name="arg<%= p%>">
+            <input type="text" class="iauto" name="arg<%= p%>" />
 <%
                   }
 %>
          </td>
-         <td><%= fixDescription(paramInfo.getDescription())%></td>
 		</tr>
 <%
-               }
+               } // parameter list
 %>
-	</table>
+      </table>
 <%
-         }
+         } // has parameter list
 %>
-	<input type="submit" value="Invoke">
-</form>
-<%
-      }
-   }
-%>
+      <input type="submit" value="Invoke" />
+      </form>
+
 </td></tr>
+<%
+      } // mbean operation
+   } // all mbean operations
+%>
 </table>
+<%
+} // has mbean operation
+%>
+
 </body>
 </html>

@@ -23,7 +23,11 @@
 #include "includes.h"
 
 #ifdef HAVE_DLOPEN
-NTSTATUS smb_load_module(const char *module_name)
+
+/* Load a dynamic module.  Only log a level 0 error if we are not checking 
+   for the existence of a module (probling). */
+
+static NTSTATUS do_smb_load_module(const char *module_name, BOOL is_probe)
 {
 	void *handle;
 	init_module_function *init;
@@ -37,7 +41,9 @@ NTSTATUS smb_load_module(const char *module_name)
 	handle = sys_dlopen(module_name, RTLD_LAZY);
 
 	if(!handle) {
-		DEBUG(0, ("Error loading module '%s': %s\n", module_name, sys_dlerror()));
+		int level = is_probe ? 3 : 0;
+		error = sys_dlerror();
+		DEBUG(level, ("Error loading module '%s': %s\n", module_name, error ? error : ""));
 		return NT_STATUS_UNSUCCESSFUL;
 	}
 
@@ -47,7 +53,8 @@ NTSTATUS smb_load_module(const char *module_name)
            sys_dlsym() can validly return NULL */
 	error = sys_dlerror();
 	if (error) {
-		DEBUG(0, ("Error trying to resolve symbol 'init_module' in %s: %s\n", module_name, error));
+		DEBUG(0, ("Error trying to resolve symbol 'init_module' in %s: %s\n", 
+			  module_name, error));
 		return NT_STATUS_UNSUCCESSFUL;
 	}
 
@@ -56,6 +63,11 @@ NTSTATUS smb_load_module(const char *module_name)
 	DEBUG(2, ("Module '%s' loaded\n", module_name));
 
 	return status;
+}
+
+NTSTATUS smb_load_module(const char *module_name)
+{
+	return do_smb_load_module(module_name, False);
 }
 
 /* Load all modules in list and return number of 
@@ -85,8 +97,11 @@ NTSTATUS smb_probe_module(const char *subsystem, const char *module)
 	/* if we make any 'samba multibyte string' 
 	   calls here, we break 
 	   for loading string modules */
+
+	DEBUG(5, ("Probing module '%s'\n", module));
+
 	if (module[0] == '/')
-		return smb_load_module(module);
+		return do_smb_load_module(module, True);
 	
 	pstrcpy(full_path, lib_path(subsystem));
 	pstrcat(full_path, "/");
@@ -94,9 +109,9 @@ NTSTATUS smb_probe_module(const char *subsystem, const char *module)
 	pstrcat(full_path, ".");
 	pstrcat(full_path, shlib_ext());
 
-	DEBUG(5, ("Probing module %s: Trying to load from %s\n", module, full_path));
+	DEBUG(5, ("Probing module '%s': Trying to load from %s\n", module, full_path));
 	
-	return smb_load_module(full_path);
+	return do_smb_load_module(full_path, True);
 }
 
 #else /* HAVE_DLOPEN */
@@ -194,18 +209,21 @@ void smb_run_idle_events(time_t now)
 	struct smb_idle_list_ent *event = smb_idle_event_list;
 
 	while (event) {
+		struct smb_idle_list_ent *next = event->next;
 		time_t interval;
 
-		if (event->interval >= SMB_IDLE_EVENT_MIN_INTERVAL) {
+		if (event->interval <= 0) {
+			interval = SMB_IDLE_EVENT_DEFAULT_INTERVAL;
+		} else if (event->interval >= SMB_IDLE_EVENT_MIN_INTERVAL) {
 			interval = event->interval;
 		} else {
 			interval = SMB_IDLE_EVENT_MIN_INTERVAL;
 		}
 		if (now >(event->lastrun+interval)) {
-			event->fn(&event->data,&event->interval,now);
 			event->lastrun = now;
+			event->fn(&event->data,&event->interval,now);
 		}
-		event = event->next;
+		event = next;
 	}
 
 	return;

@@ -25,7 +25,7 @@ if [ -n "$CURRENT_PID" ] ; then
 fi
 
 if [ ! -x $JAVA ] ; then
-   /bin/echo "JBoss requires the Java 1.4.1 VM. Exiting."
+   /bin/echo "JBoss requires the Java 1.4.2 VM. Exiting."
    exit 1
 fi
 # Increase the maximum file descriptors if we can

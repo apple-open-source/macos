@@ -19,7 +19,7 @@ content="Known bugs and to-do items in fetchmail" />
 <tr>
 <td width="30%">Back to <a href="/~esr">Eric's Home Page</a></td>
 <td width="30%" align="center">Up to <a href="/~esr/sitemap.html">Site Map</a></td>
-<td width="30%" align="right">$Date: 2002/11/08 02:15:35 $</td>
+<td width="30%" align="right">$Date: 2003/10/16 17:59:42 $</td>
 </tr>
 </table>
 
@@ -31,13 +31,14 @@ fetchmail is now pretty mature and I have many other projects, so I
 don't personally chase obscure or marginal problems. Help with any
 of these will be cheerfully accepted.</p>
 
-<p>IDLE is not fully implemented. Fetchmail does not time out the
-idle connection every 30 minutes or less as required by RFC2177.
-Some servers (including UW IMAPD compiled without the
-MICROSOFT_BRAIN_DAMAGE option, as is the default) will drop the
-connection after 30 minutes, resulting in a spurious socket error
-in your logs and no mail being picked up until the next poll
-cycle.</p>
+<p>Feature request from "Ralf G. R. Bergs" <rabe@RWTH-Aachen.DE> "When
+fetchmail downloads mail and Exim+SpamAssassin detecs an incoming
+message as spam, fetchmail tries to bounce it. Unfortunately it uses
+an incorrect hostname as part of the sender address (I've an internal
+LAN with private hostnames, plus an official IP address and hostname,
+and fetchmail picks the internal name of my host.) So I'd like to have
+a config statement that allows me to explicitly set a senderaddress
+for bounce messages."
 
 <p>POP3 can't presently distinguish a wedged or down server from an
 authentication failure. Possible fix: after issuing a PASS command.
@@ -54,6 +55,8 @@ debugger and check this.</p>
 <p>In the SSL support, add authentication of Certifying Authority
 (Is this a Certifying Authority we recognize?).</p>
 
+<p>Debian wishlist item 181157: ssl key learning for self-signed certificates.</p>
+
 <p>Laszlo Vecsey writes: "I believe qmail uses a technique of
 writing temporary files to nfs, and then moving them into place to
 ensure that they're written. Actually a hardlink is made to the
@@ -69,6 +72,17 @@ SockOpen (this will get rid of the kluge in rcfile_y.y).</p>
 @ ought to be treated as an smtpname option, with the domain part
 removed for other purposes such as local-address matching.</p>
 
+<p>Maybe refuse multidrop configuration unless "envelope" is _explicitly_
+configured (and tell the user he needs to configure the envelope
+option) and change the envelope default to nil.  This would 
+prevent a significant class of shoot-self-in-foot problems.</p>
+
+<p>Given the above change, perhaps treat a delivery as "temporarily
+failed" (leaving the message on the server, not putting it into
+.fetchids) when the header listed in the "envelope" option is not
+found.  (This is so you don't lose mail if you configure the wrong
+envelope header.)</p>
+
 <p>The <a
 href="http://bugs.debian.org/cgi-bin/pkgreport.cgi?pkg=fetchmail&amp;archive=no">
 Debian bug-tracking page for fetchmail</a> lists other bug
@@ -79,7 +93,7 @@ reports.</p>
 <tr>
 <td width="30%">Back to <a href="/~esr">Eric's Home Page</a></td>
 <td width="30%" align="center">Up to <a href="/~esr/sitemap.html">Site Map</a></td>
-<td width="30%" align="right">$Date: 2002/11/08 02:15:35 $</td>
+<td width="30%" align="right">$Date: 2003/10/16 17:59:42 $</td>
 </tr>
 </table>
 

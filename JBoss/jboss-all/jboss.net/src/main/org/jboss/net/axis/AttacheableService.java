@@ -5,26 +5,26 @@
  * See terms of license at gnu.org.
  */
 
-// $Id: AttacheableService.java,v 1.1.2.1 2002/09/12 16:18:03 cgjung Exp $
+// $Id: AttacheableService.java,v 1.1.2.2 2003/11/06 15:36:04 cgjung Exp $
 
 package org.jboss.net.axis;
 
-import javax.naming.Referenceable;
 import javax.naming.Reference;
+import javax.naming.Referenceable;
 import javax.naming.StringRefAddr;
 
-import java.util.Enumeration;
-
 /**
- * The attacheable service implementation 
- * allows to bind wrapped axis service instances into JNDI 
- * without loosing configuration information. Configuration pointers are reinstalled 
- * by a dedicated context attribute that allows to identify a target configuration
- * when deserialized by the associated ServiceFactory.
+ * <p>The attacheable service implementation 
+ * allows to bind axis service instances into JNDI 
+ * without loosing the configuration link to their engine/deployer.</p> 
+ * <p>Configuration pointers are reinstalled 
+ * by a dedicated context attribute that allows to identify a 
+ * target configuration when deserialized by the associated 
+ * ServiceFactory.</p>
  * @see ServiceFactory
- * @created  26.04.02
+ * @since  26.04.02
  * @author <a href="mailto:Christoph.Jung@infor.de">Christoph G. Jung</a>
- * @version $Revision: 1.1.2.1 $
+ * @version $Revision: 1.1.2.2 $
  */
 
 public class AttacheableService implements Referenceable {

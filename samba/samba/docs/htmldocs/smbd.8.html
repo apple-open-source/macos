@@ -1,4 +1,4 @@
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>smbd</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.60.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="smbd.8"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2>Name</h2><p>smbd &#8212; server to provide SMB/CIFS services to clients</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><tt class="command">smbd</tt>  [-D] [-F] [-S] [-i] [-h] [-V] [-b] [-d &lt;debug level&gt;] [-l &lt;log directory&gt;] [-p &lt;port number&gt;] [-O &lt;socket option&gt;] [-s &lt;configuration file&gt;]</p></div></div><div class="refsect1" lang="en"><h2>DESCRIPTION</h2><p>This program is part of the <a href="Samba.7.html"><span class="citerefentry"><span class="refentrytitle">Samba</span>(7)</span></a> suite.</p><p><b class="command">smbd</b> is the server daemon that 
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>smbd</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.61.2"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="smbd.8"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2>Name</h2><p>smbd &#8212; server to provide SMB/CIFS services to clients</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><tt class="command">smbd</tt>  [-D] [-F] [-S] [-i] [-h] [-V] [-b] [-d &lt;debug level&gt;] [-l &lt;log directory&gt;] [-p &lt;port number&gt;] [-O &lt;socket option&gt;] [-s &lt;configuration file&gt;]</p></div></div><div class="refsect1" lang="en"><h2>DESCRIPTION</h2><p>This program is part of the <a href="Samba.7.html"><span class="citerefentry"><span class="refentrytitle">Samba</span>(7)</span></a> suite.</p><p><b class="command">smbd</b> is the server daemon that 
 	provides filesharing and printing services to Windows clients. 
 	The server provides filespace and printer services to
 	clients using the SMB (or CIFS) protocol. This is compatible 
@@ -42,14 +42,14 @@
 		</p></dd><dt><span class="term">-S</span></dt><dd><p>If specified, this parameter causes
 		<b class="command">smbd</b> to log to standard output rather
 		than a file.</p></dd><dt><span class="term">-i</span></dt><dd><p>If this parameter is specified it causes the
-		server to run &quot;interactively&quot;, not as a daemon, even if the
+		server to run "interactively", not as a daemon, even if the
 		server is executed on the command line of a shell. Setting this
 		parameter negates the implicit deamon mode when run from the
 		command line. <b class="command">smbd</b> also logs to standard
 		output, as if the <b class="command">-S</b> parameter had been
 		given.
-		</p></dd><dt><span class="term">-V</span></dt><dd><p>Prints the version number for 
-<b class="command">smbd</b>.</p></dd><dt><span class="term">-s &lt;configuration file&gt;</span></dt><dd><p>The file specified contains the 
+		</p></dd><dt><span class="term">-V</span></dt><dd><p>Prints the program version number.
+</p></dd><dt><span class="term">-s &lt;configuration file&gt;</span></dt><dd><p>The file specified contains the 
 configuration details required by the server.  The 
 information in this file includes server-specific
 information such as what printcap file to use, as well 
@@ -62,26 +62,26 @@ not specified is zero.</p><p>The higher this value, the more detail will be
 logged to the log files about the activities of the 
 server. At level 0, only critical errors and serious 
 warnings will be logged. Level 1 is a reasonable level for
-day to day running - it generates a small amount of 
+day-to-day running - it generates a small amount of 
 information about operations carried out.</p><p>Levels above 1 will generate considerable 
 amounts of log data, and should only be used when 
 investigating a problem. Levels above 3 are designed for 
 use only by developers and generate HUGE amounts of log
 data, most of which is extremely cryptic.</p><p>Note that specifying this parameter here will 
-override the <a class="indexterm" name="id2796921"></a><i class="parameter"><tt>log level</tt></i> parameter
+override the <a class="indexterm" name="id2805043"></a>log level parameter
 in the <tt class="filename">smb.conf</tt> file.</p></dd><dt><span class="term">-l|--logfile=logbasename</span></dt><dd><p>File name for log/debug files. The extension
-<tt class="constant">&quot;.client&quot;</tt> will be appended. The log file is
+<tt class="constant">".client"</tt> will be appended. The log file is
 never removed by the client.
 </p></dd><dt><span class="term">-h|--help</span></dt><dd><p>Print a summary of command line options.
 </p></dd><dt><span class="term">-b</span></dt><dd><p>Prints information about how 
 		Samba was built.</p></dd><dt><span class="term">-l &lt;log directory&gt;</span></dt><dd><p>If specified,
 		<i class="replaceable"><tt>log directory</tt></i> 
-		specifies a log directory into which the &quot;log.smbd&quot; log
+		specifies a log directory into which the "log.smbd" log
 		file will be created for informational and debug 
 		messages from the running server. The log 
 		file generated is never removed by the server although 
 		its size may be controlled by the 
-		<a class="indexterm" name="id2797022"></a><i class="parameter"><tt>max log size</tt></i>
+		<a class="indexterm" name="id2805128"></a>max log size
 		option in the <a href="smb.conf.5.html"><span class="citerefentry"><span class="refentrytitle">smb.conf</span>(5)</span></a> file. <span class="emphasis"><em>Beware:</em></span>
 		If the directory specified does not exist, <b class="command">smbd</b>
 		will log to the default debug log location defined at compile time.
@@ -127,7 +127,7 @@ never removed by the client.
 		is not specific to the server, however.</p></dd></dl></div></div><div class="refsect1" lang="en"><h2>PAM INTERACTION</h2><p>Samba uses PAM for authentication (when presented with a plaintext 
 	password), for account checking (is this account disabled?) and for
 	session management.  The degree too which samba supports PAM is restricted
-	by the limitations of the SMB protocol and the <a class="indexterm" name="id2797347"></a><i class="parameter"><tt>obey pam restrictions</tt></i> <a href="smb.conf.5.html"><span class="citerefentry"><span class="refentrytitle">smb.conf</span>(5)</span></a> paramater.  When this is set, the following restrictions apply:
+	by the limitations of the SMB protocol and the <a class="indexterm" name="id2805429"></a>obey pam restrictions <a href="smb.conf.5.html"><span class="citerefentry"><span class="refentrytitle">smb.conf</span>(5)</span></a> paramater.  When this is set, the following restrictions apply:
 	</p><div class="itemizedlist"><ul type="disc"><li><p><span class="emphasis"><em>Account Validation</em></span>:  All accesses to a 
 	samba server are checked 
 	against PAM to see if the account is vaild, not disabled and is permitted to 

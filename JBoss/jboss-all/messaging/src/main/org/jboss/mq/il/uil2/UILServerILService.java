@@ -21,13 +21,13 @@ import org.jboss.mq.il.ServerIL;
 import org.jboss.mq.il.ServerILJMXService;
 import org.jboss.mq.il.uil2.msgs.MsgTypes;
 import org.jboss.mq.il.uil2.msgs.BaseMsg;
-import org.jboss.mq.il.uil2.SocketManager;
 import org.jboss.security.SecurityDomain;
+import org.jboss.system.server.ServerConfigUtil;
 
 /** This is the server side MBean for the UIL2 transport layer.
  *
  * @author Scott.Stark@jboss.org
- * @version   $Revision: 1.1.4.3 $
+ * @version   $Revision: 1.1.4.4 $
  *
  * @jmx:mbean extends="org.jboss.mq.il.ServerILJMXServiceMBean"
  */
@@ -185,8 +185,8 @@ public class UILServerILService extends ServerILJMXService
          because this is not a valid address on Win32 while it is for
          *NIX. See BugParade bug #4343286.
       */
-      if (socketAddress.toString().equals("0.0.0.0/0.0.0.0"))
-         socketAddress = InetAddress.getLocalHost();
+      socketAddress = ServerConfigUtil.fixRemoteAddress(socketAddress);
+
       serverIL = new UILServerIL(socketAddress, serverSocket.getLocalPort(),
             clientSocketFactoryName, enableTcpNoDelay, bufferSize, chunkSize);
 

@@ -7,13 +7,9 @@
 package org.jboss.mq.server;
 
 import java.util.HashMap;
-import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.LinkedList;
-import java.util.Set;
-import java.util.TreeSet;
 
-import javax.jms.Destination;
 import javax.jms.InvalidDestinationException;
 import javax.jms.JMSException;
 
@@ -25,7 +21,6 @@ import org.jboss.mq.SpyMessage;
 import org.jboss.mq.Subscription;
 import org.jboss.mq.threadpool.ThreadPool;
 import org.jboss.mq.threadpool.Work;
-import org.jboss.mq.xml.XElement;
 
 /**
  *  This represent the clients queue which consumes messages from the
@@ -34,7 +29,7 @@ import org.jboss.mq.xml.XElement;
  * @author     Hiram Chirino (Cojonudo14@hotmail.com)
  * @author <a href="mailto:pra@tim.se">Peter Antman</a>
  * @created    August 16, 2001
- * @version    $Revision: 1.12.2.4 $
+ * @version    $Revision: 1.12.2.6 $
  */
 public class ClientConsumer implements Work
 {
@@ -51,27 +46,27 @@ public class ClientConsumer implements Work
    HashMap subscriptions = new HashMap();
    //Maps a subscription id to a Subscription for subscriptions that have finished receiving
    HashMap removedSubscriptions = new HashMap();
-   
+
    LinkedList blockedSubscriptions = new LinkedList();
-   
+
    //List of messages waiting to be transmitted to the client
    private LinkedList messages = new LinkedList();
-   
+
    /**
     *  Flags that I am enqueued as work on my thread pool.
     */
    private boolean enqueued = false;
-   
+
    // Static ---------------------------------------------------
-   
+
    /**
     *  The {@link org.jboss.mq.threadpool.ThreadPool ThreadPool} that
     *  does the actual message pushing for us.
     */
    private static ThreadPool threadPool = null;
-   
+
    // Constructor ---------------------------------------------------
-   
+
    public ClientConsumer(JMSDestinationManager server, ConnectionToken connectionToken) throws JMSException
    {
       this.server = server;
@@ -83,16 +78,17 @@ public class ClientConsumer implements Work
             threadPool = new ThreadPool("Message Pushers", server.threadGroup, 10, true);
       }
    }
-   
+
    public void setEnabled(boolean enabled) throws JMSException
    {
-      if( log.isTraceEnabled() )
+      if (log.isTraceEnabled())
          log.trace("" + this +"->setEnabled(enabled=" + enabled + ")");
-      this.enabled = enabled;
-      if (enabled)
+
+      // queues might be waiting for messages.
+      synchronized (blockedSubscriptions)
       {
-         // queues might be waiting for messages.
-         synchronized (blockedSubscriptions)
+         this.enabled = enabled;
+         if (enabled)
          {
             for (Iterator it = blockedSubscriptions.iterator(); it.hasNext();)
             {
@@ -105,15 +101,15 @@ public class ClientConsumer implements Work
          }
       }
    }
-   
+
    public void queueMessageForSending(RoutedMessage r)
    {
-     
+
       synchronized (messages)
       {
          if (closed)
             return; // Wouldn't be delivered anyway
-         
+
          messages.add(r);
          if (!enqueued)
          {
@@ -122,45 +118,45 @@ public class ClientConsumer implements Work
          }
       }
    }
-   
+
    public void addSubscription(Subscription req) throws JMSException
    {
-      if( log.isTraceEnabled() )
+      if (log.isTraceEnabled())
          log.trace("Adding subscription for: " + req);
       req.connectionToken = connectionToken;
       req.clientConsumer = this;
-      
+
       JMSDestination jmsdest = (JMSDestination) server.getJMSDestination(req.destination);
       if (jmsdest == null)
          throw new InvalidDestinationException("The destination " + req.destination + " does not exist !");
-      
+
       jmsdest.addSubscriber(req);
-      
+
       synchronized (subscriptions)
       {
          subscriptions.put(new Integer(req.subscriptionId), req);
       }
    }
-   
+
    public void close()
    {
       boolean trace = log.isTraceEnabled();
-      if( trace )
+      if (trace)
          log.trace("" + this +"->close()");
-      
+
       synchronized (messages)
       {
          closed = true;
          if (enqueued)
          {
-            if( trace )
+            if (trace)
                log.trace("" + this +"->close(): Cancelling work in progress.");
             threadPool.cancelWork(this);
             enqueued = false;
          }
          messages.clear();
       }
-      
+
       // Remove all the subscriptions for this client
       HashMap subscriptionsClone = null;
       synchronized (subscriptions)
@@ -175,11 +171,11 @@ public class ClientConsumer implements Work
          {
             removeSubscription(subscriptionId.intValue());
          }
-         catch(JMSException ignore)
+         catch (JMSException ignore)
          {
          }
       }
-      
+
       // Nack the removed subscriptions, the connection is gone
       HashMap removedSubsClone = null;
       synchronized (subscriptions)
@@ -216,24 +212,23 @@ public class ClientConsumer implements Work
       {
          throw new JMSException("The provided subscription does not exist");
       }
-      
+
       JMSDestination queue = server.getJMSDestination(req.destination);
       if (queue == null)
          throw new InvalidDestinationException("The subscription's destination " + req.destination + " does not exist");
-      
-      if (enabled)
+
+      // Block the receiver if we are not enabled and it is not noWait, otherwise receive a message
+      if (addBlockedSubscription(req, wait))
          return queue.receive(req, (wait != -1));
-      else if (wait != -1)
-         addBlockedSubscription(req);
-      
+
       return null;
    }
-   
+
    public void removeSubscription(int subscriptionId) throws JMSException
    {
-      if( log.isTraceEnabled() )
+      if (log.isTraceEnabled())
          log.trace("" + this +"->removeSubscription(subscriberId=" + subscriptionId + ")");
-      
+
       Integer subId = new Integer(subscriptionId);
       Subscription req;
       synchronized (subscriptions)
@@ -242,18 +237,18 @@ public class ClientConsumer implements Work
          if (req != null)
             removedSubscriptions.put(subId, req);
       }
-      
+
       if (req == null)
          throw new JMSException("The subscription had not been previously registered");
-      
+
       JMSDestination queue = (JMSDestination) server.getJMSDestination(req.destination);
       if (queue == null)
          throw new InvalidDestinationException("The subscription was registered with a destination that does not exist !");
-      
+
       queue.removeSubscriber(req);
-      
+
    }
-   
+
    /**
     *  Push some messages.
     */
@@ -261,14 +256,14 @@ public class ClientConsumer implements Work
    {
       try
       {
-         
+
          ReceiveRequest[] job;
-         
+
          synchronized (messages)
          {
             if (closed)
                return;
-            
+
             job = new ReceiveRequest[messages.size()];
             Iterator iter = messages.iterator();
             for (int i = 0; iter.hasNext(); i++)
@@ -279,34 +274,33 @@ public class ClientConsumer implements Work
             }
             enqueued = false;
          }
-         
-         
+
          connectionToken.clientIL.receive(job);
-         
+
       }
-      catch(Exception e)
+      catch (Exception e)
       {
          log.warn("Could not send messages to a receiver.", e);
          try
          {
             server.connectionFailure(connectionToken);
          }
-         catch(Throwable ignore)
+         catch (Throwable ignore)
          {
             log.warn("Could not close the client connection..", ignore);
          }
       }
    }
-   
+
    public String toString()
    {
       return "ClientConsumer:" + connectionToken.getClientID();
    }
-   
+
    public void acknowledge(AcknowledgementRequest request, org.jboss.mq.pm.Tx txId) throws JMSException
    {
       Subscription sub = retrieveSubscription(request.subscriberId);
-      
+
       if (sub == null)
       {
          //might be in removed subscriptions
@@ -315,27 +309,29 @@ public class ClientConsumer implements Work
             sub = (Subscription) removedSubscriptions.get(new Integer(request.subscriberId));
          }
       }
-      
+
       if (sub == null)
       {
          throw new JMSException("The provided subscription does not exist");
       }
-      
+
       JMSDestination queue = server.getJMSDestination(sub.destination);
       if (queue == null)
          throw new InvalidDestinationException("The subscription's destination " + sub.destination + " does not exist");
-      
+
       queue.acknowledge(request, sub, txId);
    }
-   
-   void addBlockedSubscription(Subscription sub)
+
+   boolean addBlockedSubscription(Subscription sub, long wait)
    {
       synchronized (blockedSubscriptions)
       {
-         blockedSubscriptions.add(sub);
+         if (enabled == false && wait != -1)
+            blockedSubscriptions.add(sub);
+         return enabled;
       }
    }
-   
+
    void removeRemovedSubscription(int subId)
    {
       Subscription sub = null;
@@ -347,7 +343,7 @@ public class ClientConsumer implements Work
       {
          JMSDestination topic = server.getJMSDestination(sub.destination);
          if (topic != null && topic instanceof JMSTopic)
-            ((JMSTopic) topic).cleanupSubscription(sub);
+             ((JMSTopic) topic).cleanupSubscription(sub);
       }
    }
 
@@ -361,7 +357,7 @@ public class ClientConsumer implements Work
       Subscription req = retrieveSubscription(subscriberId);
       if (req == null)
          throw new JMSException("The provided subscription does not exist");
-      
+
       return req;
    }
 

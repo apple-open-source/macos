@@ -36,7 +36,9 @@
             "moh.h", 
             "DeviceOnHold.h", 
             "LinkConfiguration.h", 
-            "dy_framework.h"
+            "dy_framework.h", 
+            "VLANConfiguration.h", 
+            "VLANConfigurationPrivate.h"
         ); 
         "OTHER_LIBS" = (); 
         "OTHER_LINKED" = (
@@ -90,7 +92,8 @@
             "moh.c", 
             "DeviceOnHold.c", 
             "LinkConfiguration.c", 
-            "dy_framework.c"
+            "dy_framework.c", 
+            "VLANConfiguration.c"
         ); 
         "OTHER_SOURCES" = (
             "Makefile.preamble", 
@@ -122,7 +125,8 @@
             "SCNetwork.h", 
             "SCNetworkConnection.h", 
             "SCNetworkReachability.h", 
-            "SCValidation.h"
+            "SCValidation.h", 
+            "VLANConfigurationPrivate.h"
         ); 
         "PUBLIC_HEADERS" = (
             "SystemConfiguration.h", 

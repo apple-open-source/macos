@@ -17,15 +17,15 @@ import org.jboss.ejb.plugins.cmp.jdbc.bridge.JDBCCMRFieldBridge;
  * committed these list are retrieved and used to update the relation table.   
  *
  * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
- * @version $Revision: 1.4 $
+ * @version $Revision: 1.4.4.1 $
  */
-public class RelationData {
-   private JDBCCMRFieldBridge leftCMRField;
-   private JDBCCMRFieldBridge rightCMRField;
+public final class RelationData {
+   private final JDBCCMRFieldBridge leftCMRField;
+   private final JDBCCMRFieldBridge rightCMRField;
    
-   public Set addedRelations = new HashSet();
-   public Set removedRelations = new HashSet();
-   public Set notRelatedPairs = new HashSet();
+   public final Set addedRelations = new HashSet();
+   public final Set removedRelations = new HashSet();
+   public final Set notRelatedPairs = new HashSet();
    
    public RelationData(
          JDBCCMRFieldBridge leftCMRField,

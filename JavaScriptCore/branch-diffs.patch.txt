@@ -1,0 +1,54 @@
+? branch-diffs.patch.txt
+? kjs/gramps-phone
+Index: JavaScriptCore.pbproj/project.pbxproj
+===================================================================
+RCS file: /local/home/cvs/Labyrinth/JavaScriptCore/JavaScriptCore.pbproj/project.pbxproj,v
+retrieving revision 1.74
+diff -u -r1.74 project.pbxproj
+--- project.pbxproj	2003/01/08 07:08:29	1.74
++++ project.pbxproj	2003/01/09 02:38:35
+@@ -108,7 +108,6 @@
+ 				0867D69FFE84028FC02AAC07,
+ 				0867D6A0FE84028FC02AAC07,
+ 				F692A8D8025563E401FF60F7,
+-				6573C62F03A0BDCD00FCA39F,
+ 			);
+ 			buildSettings = {
+ 				COPY_PHASE_STRIP = YES;
+@@ -119,7 +118,7 @@
+ 				FRAMEWORK_VERSION = A;
+ 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+ 				HEADER_SEARCH_PATHS = "";
+-				INSTALL_PATH = "@executable_path/../Frameworks";
++				INSTALL_PATH = /System/Library/PrivateFrameworks;
+ 				LIBRARY_SEARCH_PATHS = "";
+ 				MACOSX_DEPLOYMENT_TARGET = 10.2;
+ 				OPTIMIZATION_CFLAGS = "-Os";
+@@ -129,7 +128,6 @@
+ 				PREFIX_HEADER = JavaScriptCorePrefix.h;
+ 				PRODUCT_NAME = JavaScriptCore;
+ 				SECTORDER_FLAGS = "";
+-				SKIP_INSTALL = YES;
+ 				USE_GCC3_PFE_SUPPORT = YES;
+ 				WARNING_CFLAGS = "-Werror -Wall -W -Wcast-align -Wchar-subscripts -Wformat-security -Wmissing-format-attribute -Wmissing-prototypes -Wpointer-arith -Wwrite-strings -Wno-format-y2k -Wno-unused-parameter";
+ 				WRAPPER_EXTENSION = framework;
+@@ -589,19 +587,6 @@
+ 			isa = PBXBuildFile;
+ 			settings = {
+ 			};
+-		};
+-		6573C62F03A0BDCD00FCA39F = {
+-			buildActionMask = 8;
+-			files = (
+-			);
+-			generatedFileNames = (
+-			);
+-			isa = PBXShellScriptBuildPhase;
+-			neededFileNames = (
+-			);
+-			runOnlyForDeploymentPostprocessing = 1;
+-			shellPath = /bin/sh;
+-			shellScript = "ditto ${SYMROOT}/JavaScriptCore.framework ${DSTROOT}/AppleInternal/Library/Frameworks/JavaScriptCore.framework";
+ 		};
+ //650
+ //651

@@ -13,13 +13,15 @@ import org.apache.log4j.Logger;
 import org.jboss.test.cts.interfaces.CallerSession;
 import org.jboss.test.cts.interfaces.CallerSessionHome;
 import org.jboss.test.cts.interfaces.ReferenceTest;
+import org.jboss.test.cts.interfaces.CalleeData;
+import org.jboss.test.cts.interfaces.CalleeException;
 import org.jboss.test.util.ejb.SessionSupport;
 import org.jboss.mx.loading.ClassLoaderUtils;
 
 /** The stateless session bean implementation
  *
  * @author Scott.Stark@jboss.org
- * @version $Revision: 1.1.2.2 $
+ * @version $Revision: 1.1.2.3 $
  */
 public class CallerSessionBean
       extends SessionSupport
@@ -32,12 +34,15 @@ public class CallerSessionBean
    {
    }
 
-   public void simpleCall2(boolean isCaller) throws RemoteException
+   public CalleeData simpleCall2(boolean isCaller) throws RemoteException
    {
-      log.info("simpleCall2, isCaller: "+isCaller);
+      StringBuffer info = new StringBuffer("simpleCall2, isCaller: "+isCaller);
+      info.append(" CalleeData, ");
+      ClassLoaderUtils.displayClassInfo(CalleeData.class, info);
+      log.info(info.toString());
       // If this is the callee just return
       if( isCaller == false )
-         return;
+         return new CalleeData();
 
       // Call the second deployment instance
       CallerSessionHome home = null;
@@ -57,15 +62,19 @@ public class CallerSessionBean
          throw new ServerException("Failed to create Callee", e);
       }
 
-      callee.simpleCall(false);
+      CalleeData data = callee.simpleCall(false);
+      return data;
    }
 
-   public void simpleCall(boolean isCaller) throws RemoteException
+   public CalleeData simpleCall(boolean isCaller) throws RemoteException
    {
-      log.info("simpleCall, isCaller: "+isCaller);
+      StringBuffer info = new StringBuffer("simpleCall, isCaller: "+isCaller);
+      info.append(" CalleeData, ");
+      ClassLoaderUtils.displayClassInfo(CalleeData.class, info);
+      log.info(info.toString());
       // If this is the callee just return
       if( isCaller == false )
-         return;
+         return new CalleeData();
 
       // Call the second deployment instance
       CallerSession callee = null;
@@ -88,7 +97,8 @@ public class CallerSessionBean
          throw new ServerException("Unexpected error"+e.getMessage());
       }
 
-      callee.simpleCall2(false);
+      CalleeData data = callee.simpleCall2(false);
+      return data;
    }
 
    /** Lookup the cts.jar/CalleeHome binding and invoke
@@ -120,6 +130,43 @@ public class CallerSessionBean
 
       ReferenceTest test = new ReferenceTest();
       callee.validateValueMarshalling(test);
+   }
+
+   public void callAppEx() throws CalleeException, RemoteException
+   {
+      StringBuffer info = new StringBuffer("appEx, CalleeException, ");
+      ClassLoaderUtils.displayClassInfo(CalleeException.class, info);
+      log.info(info.toString());
+      // Call the second deployment instance
+      CallerSessionHome home = null;
+      CallerSession callee = null;
+
+      try
+      {
+         home = lookupHome("ejbcts2/CalleeSessionHome");
+         callee = home.create();
+         callee.appEx();
+      }
+      catch(NamingException e)
+      {
+         throw new ServerException("Failed to lookup CalleeHome", e);
+      }
+      catch(CreateException e)
+      {
+         throw new ServerException("Failed to create Callee", e);
+      }
+      catch(CalleeException e)
+      {
+         throw e;
+      }
+   }
+
+   public void appEx() throws CalleeException
+   {
+      StringBuffer info = new StringBuffer("appEx, CalleeException, ");
+      ClassLoaderUtils.displayClassInfo(CalleeException.class, info);
+      log.info(info.toString());
+      throw new CalleeException();
    }
 
    public void validateValueMarshalling(ReferenceTest test)

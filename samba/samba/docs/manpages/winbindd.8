@@ -21,10 +21,12 @@
 .SH NAME
 winbindd \- Name Service Switch daemon for resolving names from NT servers
 .SH "SYNOPSIS"
-
-.nf
-\fBwinbindd\fR [-F] [-S] [-i] [-Y] [-d <debug level>] [-s <smb config file>] [-n]
-.fi
+.ad l
+.hy 0
+.HP 9
+\fBwinbindd\fR [\-F] [\-S] [\-i] [\-Y] [\-d\ <debug\ level>] [\-s\ <smb\ config\ file>] [\-n]
+.ad
+.hy
 
 .SH "DESCRIPTION"
 
@@ -38,7 +40,7 @@ This program is part of the \fBSamba\fR(7) suite\&.
 The service provided by \fBwinbindd\fR is called `winbind' and can be used to resolve user and group information from a Windows NT server\&. The service can also provide authentication services via an associated PAM module\&.
 
 .PP
-The \fIpam_winbind\fR module in the 2\&.2\&.2 release only supports the \fIauth\fR and \fIaccount\fR module-types\&. The latter simply performs a getpwnam() to verify that the system can obtain a uid for the user\&. If the \fIlibnss_winbind\fR library has been correctly installed, this should always succeed\&.
+The \fIpam_winbind\fR module in the 2\&.2\&.2 release only supports the \fIauth\fR and \fIaccount\fR module\-types\&. The latter simply performs a getpwnam() to verify that the system can obtain a uid for the user\&. If the \fIlibnss_winbind\fR library has been correctly installed, this should always succeed\&.
 
 .PP
 The following nsswitch databases are implemented by the winbindd service:
@@ -69,65 +71,69 @@ group:          files winbind
 
 .PP
 The following simple configuration in the\fI/etc/nsswitch\&.conf\fR file can be used to initially resolve hostnames from \fI/etc/hosts\fR and then from the WINS server\&.
+.nf
+
+hosts:		files wins
+.fi
 
 .SH "OPTIONS"
 
 .TP
--F
-If specified, this parameter causes the main \fBwinbindd\fR process to not daemonize, i\&.e\&. double-fork and disassociate with the terminal\&. Child processes are still created as normal to service each connection request, but the main process does not exit\&. This operation mode is suitable for running \fBwinbindd\fR under process supervisors such as \fBsupervise\fR and \fBsvscan\fR from Daniel J\&. Bernstein's \fBdaemontools\fR package, or the AIX process monitor\&.
+\-F
+If specified, this parameter causes the main \fBwinbindd\fR process to not daemonize, i\&.e\&. double\-fork and disassociate with the terminal\&. Child processes are still created as normal to service each connection request, but the main process does not exit\&. This operation mode is suitable for running \fBwinbindd\fR under process supervisors such as \fBsupervise\fR and \fBsvscan\fR from Daniel J\&. Bernstein's \fBdaemontools\fR package, or the AIX process monitor\&.
 
 
 .TP
--S
+\-S
 If specified, this parameter causes \fBwinbindd\fR to log to standard output rather than a file\&.
 
 
 .TP
--V
-Prints the version number for \fBsmbd\fR\&.
+\-V
+Prints the program version number\&.
 
 
 .TP
--s <configuration file>
-The file specified contains the configuration details required by the server\&. The information in this file includes server-specific information such as what printcap file to use, as well as descriptions of all the services that the server is to provide\&. See \fIsmb\&.conf\fR for more information\&. The default configuration file name is determined at compile time\&.
+\-s <configuration file>
+The file specified contains the configuration details required by the server\&. The information in this file includes server\-specific information such as what printcap file to use, as well as descriptions of all the services that the server is to provide\&. See \fIsmb\&.conf\fR for more information\&. The default configuration file name is determined at compile time\&.
 
 
 .TP
--d|--debug=debuglevel
+\-d|\-\-debug=debuglevel
 \fIdebuglevel\fR is an integer from 0 to 10\&. The default value if this parameter is not specified is zero\&.
 
 
-The higher this value, the more detail will be logged to the log files about the activities of the server\&. At level 0, only critical errors and serious warnings will be logged\&. Level 1 is a reasonable level for day to day running - it generates a small amount of information about operations carried out\&.
+The higher this value, the more detail will be logged to the log files about the activities of the server\&. At level 0, only critical errors and serious warnings will be logged\&. Level 1 is a reasonable level for day\-to\-day running \- it generates a small amount of information about operations carried out\&.
 
 
 Levels above 1 will generate considerable amounts of log data, and should only be used when investigating a problem\&. Levels above 3 are designed for use only by developers and generate HUGE amounts of log data, most of which is extremely cryptic\&.
 
 
-Note that specifying this parameter here will override the \fIlog level\fR parameter in the \fIsmb\&.conf\fR file\&.
+Note that specifying this parameter here will override the log level parameter in the \fIsmb\&.conf\fR file\&.
 
 
 .TP
--l|--logfile=logbasename
+\-l|\-\-logfile=logbasename
 File name for log/debug files\&. The extension \fB"\&.client"\fR will be appended\&. The log file is never removed by the client\&.
 
 
 .TP
--h|--help
+\-h|\-\-help
 Print a summary of command line options\&.
 
 
 .TP
--i
-Tells \fBwinbindd\fR to not become a daemon and detach from the current terminal\&. This option is used by developers when interactive debugging of \fBwinbindd\fR is required\&. \fBwinbindd\fR also logs to standard output, as if the \fB-S\fR parameter had been given\&.
+\-i
+Tells \fBwinbindd\fR to not become a daemon and detach from the current terminal\&. This option is used by developers when interactive debugging of \fBwinbindd\fR is required\&. \fBwinbindd\fR also logs to standard output, as if the \fB\-S\fR parameter had been given\&.
 
 
 .TP
--n
-Disable caching\&. This means winbindd will always have to wait for a response from the domain controller before it can respond to a client and this thus makes things slower\&. The results will however be more accurate, since results from the cache might not be up-to-date\&. This might also temporarily hang winbindd if the DC doesn't respond\&.
+\-n
+Disable caching\&. This means winbindd will always have to wait for a response from the domain controller before it can respond to a client and this thus makes things slower\&. The results will however be more accurate, since results from the cache might not be up\-to\-date\&. This might also temporarily hang winbindd if the DC doesn't respond\&.
 
 
 .TP
--Y
+\-Y
 Single daemon mode\&. This means winbindd will run as a single process (the mode of operation in Samba 2\&.2)\&. Winbindd's default behavior is to launch a child process that is responsible for updating expired cache entries\&.
 
 
@@ -145,43 +151,43 @@ WARNING: The rid to unix id database is the only location where the user and gro
 .SH "CONFIGURATION"
 
 .PP
-Configuration of the \fBwinbindd\fR daemon is done through configuration parameters in the \fBsmb.conf\fR(5) file\&. All parameters should be specified in the [global] section of smb\&.conf\&.
+Configuration of the \fBwinbindd\fR daemon is done through configuration parameters in the \fBsmb\&.conf\fR(5) file\&. All parameters should be specified in the [global] section of smb\&.conf\&.
 
 .TP 3
 \(bu
-\fIwinbind separator\fR
+winbind separator
 
 .TP
 \(bu
-\fIidmap uid\fR
+idmap uid
 
 .TP
 \(bu
-\fIidmap gid\fR
+idmap gid
 
 .TP
 \(bu
-\fIwinbind cache time\fR
+winbind cache time
 
 .TP
 \(bu
-\fIwinbind enum users\fR
+winbind enum users
 
 .TP
 \(bu
-\fIwinbind enum groups\fR
+winbind enum groups
 
 .TP
 \(bu
-\fItemplate homedir\fR
+template homedir
 
 .TP
 \(bu
-\fItemplate shell\fR
+template shell
 
 .TP
 \(bu
-\fIwinbind use default domain\fR
+winbind use default domain
 
 .LP
 
@@ -217,22 +223,22 @@ Note in particular the use of the \fIsufficient \fR keyword and the \fIuse_first
 Now replace the account lines with this:
 
 .PP
-\fBaccount required /lib/security/pam_winbind.so \fR
+\fBaccount required /lib/security/pam_winbind\&.so \fR
 
 .PP
 The next step is to join the domain\&. To do that use the\fBnet\fR program like this:
 
 .PP
-\fBnet join -S PDC -U Administrator\fR
+\fBnet join \-S PDC \-U Administrator\fR
 
 .PP
-The username after the \fI-U\fR can be any Domain user that has administrator privileges on the machine\&. Substitute the name or IP of your PDC for "PDC"\&.
+The username after the \fI\-U\fR can be any Domain user that has administrator privileges on the machine\&. Substitute the name or IP of your PDC for "PDC"\&.
 
 .PP
 Next copy \fIlibnss_winbind\&.so\fR to\fI/lib\fR and \fIpam_winbind\&.so \fR to \fI/lib/security\fR\&. A symbolic link needs to be made from \fI/lib/libnss_winbind\&.so\fR to\fI/lib/libnss_winbind\&.so\&.2\fR\&. If you are using an older version of glibc then the target of the link should be\fI/lib/libnss_winbind\&.so\&.1\fR\&.
 
 .PP
-Finally, setup a \fBsmb.conf\fR(5) containing directives like the following: 
+Finally, setup a \fBsmb\&.conf\fR(5) containing directives like the following: 
 .nf
 
 [global]
@@ -240,8 +246,8 @@ Finally, setup a \fBsmb.conf\fR(5) containing directives like the following:
         winbind cache time = 10
         template shell = /bin/bash
         template homedir = /home/%D/%U
-        idmap uid = 10000-20000
-        idmap gid = 10000-20000
+        idmap uid = 10000\-20000
+        idmap gid = 10000\-20000
         workgroup = DOMAIN
         security = domain
         password server = *
@@ -275,7 +281,7 @@ The following signals can be used to manipulate the\fBwinbindd\fR daemon\&.
 
 .TP
 SIGHUP
-Reload the \fBsmb.conf\fR(5) file and apply any parameter changes to the running version of winbindd\&. This signal also clears any cached user and group information\&. The list of other domains trusted by winbindd is also reloaded\&.
+Reload the \fBsmb\&.conf\fR(5) file and apply any parameter changes to the running version of winbindd\&. This signal also clears any cached user and group information\&. The list of other domains trusted by winbindd is also reloaded\&.
 
 
 .TP
@@ -300,7 +306,7 @@ The UNIX pipe over which clients communicate with the \fBwinbindd\fR program\&. 
 
 .TP
 $LOCKDIR/winbindd_privilaged/pipe
-The UNIX pipe over which 'privilaged' clients communicate with the \fBwinbindd\fR program\&. For security reasons, access to some winbindd functions - like those needed by the \fBntlm_auth\fR utility - is restricted\&. By default, only users in the 'root' group will get this access, however the administrator may change the group permissions on $LOCKDIR/winbindd_privilaged to allow programs like 'squid' to use ntlm_auth\&. Note that the winbind client will only attempt to connect to the winbindd daemon if both the \fI$LOCKDIR/winbindd_privilaged\fR directory and \fI$LOCKDIR/winbindd_privilaged/pipe\fR file are owned by root\&.
+The UNIX pipe over which 'privilaged' clients communicate with the \fBwinbindd\fR program\&. For security reasons, access to some winbindd functions \- like those needed by the \fBntlm_auth\fR utility \- is restricted\&. By default, only users in the 'root' group will get this access, however the administrator may change the group permissions on $LOCKDIR/winbindd_privilaged to allow programs like 'squid' to use ntlm_auth\&. Note that the winbind client will only attempt to connect to the winbindd daemon if both the \fI$LOCKDIR/winbindd_privilaged\fR directory and \fI$LOCKDIR/winbindd_privilaged/pipe\fR file are owned by root\&.
 
 
 .TP
@@ -310,7 +316,7 @@ Implementation of name service switch library\&.
 
 .TP
 $LOCKDIR/winbindd_idmap\&.tdb
-Storage for the Windows NT rid to UNIX user/group id mapping\&. The lock directory is specified when Samba is initially compiled using the \fI--with-lockdir\fR option\&. This directory is by default \fI/usr/local/samba/var/locks \fR\&.
+Storage for the Windows NT rid to UNIX user/group id mapping\&. The lock directory is specified when Samba is initially compiled using the \fI\-\-with\-lockdir\fR option\&. This directory is by default \fI/usr/local/samba/var/locks \fR\&.
 
 
 .TP
@@ -326,7 +332,7 @@ This man page is correct for version 3\&.0 of the Samba suite\&.
 .SH "SEE ALSO"
 
 .PP
-\fInsswitch\&.conf(5)\fR, \fBSamba\fR(7), \fBwbinfo\fR(8), \fBsmb.conf\fR(5)
+\fInsswitch\&.conf(5)\fR, \fBSamba\fR(7), \fBwbinfo\fR(8), \fBsmb\&.conf\fR(5)
 
 .SH "AUTHOR"
 

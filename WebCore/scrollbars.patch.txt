@@ -1,0 +1,51 @@
+Index: ChangeLog
+===================================================================
+RCS file: /local/home/cvs/Labyrinth/WebCore/ChangeLog,v
+retrieving revision 1.1606
+diff -u -p -r1.1606 ChangeLog
+--- ChangeLog	2003/04/10 16:56:12	1.1606
++++ ChangeLog	2003/04/10 18:43:51
+@@ -1,3 +1,15 @@
++2003-04-10  Maciej Stachowiak  <mjs@apple.com>
++
++        Reviewed by Darin.
++
++	- fixed 3223127 - REGRESSION: windows for PopCap games show scroll bars now, did not in Safari-60
++
++        * khtml/ecma/kjs_window.cpp:
++        (WindowFunc::tryCall): Re-add scrollbars property, but change it
++	to default to on even when other properties are specified (unlike
++	other window properties). This seems to match what Mac IE, Win IE
++	and Windows Mozilla do.
++
+ 2003-04-10  Darin Adler  <darin@apple.com>
+ 
+         Reviewed by Trey.
+Index: khtml/ecma/kjs_window.cpp
+===================================================================
+RCS file: /local/home/cvs/Labyrinth/WebCore/khtml/ecma/kjs_window.cpp,v
+retrieving revision 1.69
+diff -u -p -r1.69 khtml/ecma/kjs_window.cpp
+--- khtml/ecma/kjs_window.cpp	2003/04/09 19:02:36	1.69
++++ khtml/ecma/kjs_window.cpp	2003/04/10 18:43:51
+@@ -1132,6 +1132,9 @@ Value WindowFunc::tryCall(ExecState *exe
+         winargs.menuBarVisible = false;
+         winargs.toolBarsVisible = false;
+         winargs.statusBarVisible = false;
++#if APPLE_CHANGES
++	winargs.scrollbarsVisible = true;
++#endif
+         QStringList flist = QStringList::split(',', features);
+         QStringList::ConstIterator it = flist.begin();
+         while (it != flist.end()) {
+@@ -1203,6 +1206,10 @@ Value WindowFunc::tryCall(ExecState *exe
+             winargs.resizable = (val == "1" || val == "yes");
+           else if (key == "fullscreen")
+             winargs.fullscreen = (val == "1" || val == "yes");
++#if APPLE_CHANGES
++          else if (key == "scrollbars")
++            winargs.scrollbarsVisible = (val == "1" || val == "yes");
++#endif
+         }
+       }
+ 

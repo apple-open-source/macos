@@ -36,6 +36,44 @@ static void lazy_initialize_passdb(void)
 
 static struct pdb_init_function_entry *pdb_find_backend_entry(const char *name);
 
+/*******************************************************************
+ Clean up uninitialised passwords.  The only way to tell 
+ that these values are not 'real' is that they do not
+ have a valid last set time.  Instead, the value is fixed at 0. 
+ Therefore we use that as the key for 'is this a valid password'.
+ However, it is perfectly valid to have a 'default' last change
+ time, such LDAP with a missing attribute would produce.
+********************************************************************/
+
+static void pdb_force_pw_initialization(SAM_ACCOUNT *pass) 
+{
+	const char *lm_pwd, *nt_pwd;
+	
+	/* only reset a password if the last set time has been 
+	   explicitly been set to zero.  A default last set time 
+	   is ignored */
+
+	if ( (pdb_get_init_flags(pass, PDB_PASSLASTSET) != PDB_DEFAULT) 
+		&& (pdb_get_pass_last_set_time(pass) == 0) ) 
+	{
+		
+		if (pdb_get_init_flags(pass, PDB_LMPASSWD) != PDB_DEFAULT) 
+		{
+			lm_pwd = pdb_get_lanman_passwd(pass);
+			if (lm_pwd) 
+				pdb_set_lanman_passwd(pass, NULL, PDB_SET);
+		}
+		if (pdb_get_init_flags(pass, PDB_NTPASSWD) != PDB_DEFAULT) 
+		{
+			nt_pwd = pdb_get_nt_passwd(pass);
+			if (nt_pwd) 
+				pdb_set_nt_passwd(pass, NULL, PDB_SET);
+		}
+	}
+
+	return;
+}
+
 NTSTATUS smb_register_passdb(int version, const char *name, pdb_init_function init) 
 {
 	struct pdb_init_function_entry *entry = backends;
@@ -141,6 +179,7 @@ static NTSTATUS context_getsampwent(struct pdb_context *context, SAM_ACCOUNT *us
 		context->pwent_methods->setsampwent(context->pwent_methods, False);
 	}
 	user->methods = context->pwent_methods;
+	pdb_force_pw_initialization(user);
 	return ret;
 }
 
@@ -156,6 +195,7 @@ static NTSTATUS context_getsampwnam(struct pdb_context *context, SAM_ACCOUNT *sa
 	curmethods = context->pdb_methods;
 	while (curmethods){
 		if (NT_STATUS_IS_OK(ret = curmethods->getsampwnam(curmethods, sam_acct, username))) {
+			pdb_force_pw_initialization(sam_acct);
 			sam_acct->methods = curmethods;
 			return ret;
 		}
@@ -179,6 +219,7 @@ static NTSTATUS context_getsampwsid(struct pdb_context *context, SAM_ACCOUNT *sa
 
 	while (curmethods){
 		if (NT_STATUS_IS_OK(ret = curmethods->getsampwsid(curmethods, sam_acct, sid))) {
+			pdb_force_pw_initialization(sam_acct);
 			sam_acct->methods = curmethods;
 			return ret;
 		}
@@ -191,12 +232,26 @@ static NTSTATUS context_getsampwsid(struct pdb_context *context, SAM_ACCOUNT *sa
 static NTSTATUS context_add_sam_account(struct pdb_context *context, SAM_ACCOUNT *sam_acct)
 {
 	NTSTATUS ret = NT_STATUS_UNSUCCESSFUL;
+	const char *lm_pw, *nt_pw;
+	uint16 acb_flags;
 
 	if ((!context) || (!context->pdb_methods)) {
 		DEBUG(0, ("invalid pdb_context specified!\n"));
 		return ret;
 	}
 
+	/* disable acccounts with no passwords (that has not 
+	   been allowed by the  ACB_PWNOTREQ bit */
+	
+	lm_pw = pdb_get_lanman_passwd( sam_acct );
+	nt_pw = pdb_get_lanman_passwd( sam_acct );
+	acb_flags = pdb_get_acct_ctrl( sam_acct );
+	if ( !lm_pw && !nt_pw && !(acb_flags&ACB_PWNOTREQ) ) {
+		acb_flags |= ACB_DISABLED;
+		pdb_set_acct_ctrl( sam_acct, acb_flags, PDB_SET );
+		pdb_set_init_flags(sam_acct, PDB_ACCTCTRL, PDB_SET);
+	}
+	
 	/** @todo  This is where a 're-read on add' should be done */
 	/* We now add a new account to the first database listed. 
 	 * Should we? */
@@ -207,6 +262,8 @@ static NTSTATUS context_add_sam_account(struct pdb_context *context, SAM_ACCOUNT
 static NTSTATUS context_update_sam_account(struct pdb_context *context, SAM_ACCOUNT *sam_acct)
 {
 	NTSTATUS ret = NT_STATUS_UNSUCCESSFUL;
+	const char *lm_pw, *nt_pw;
+	uint16 acb_flags;
 
 	if (!context) {
 		DEBUG(0, ("invalid pdb_context specified!\n"));
@@ -218,6 +275,18 @@ static NTSTATUS context_update_sam_account(struct pdb_context *context, SAM_ACCO
 		return ret;
 	}
 
+	/* disable acccounts with no passwords (that has not 
+	   been allowed by the  ACB_PWNOTREQ bit */
+	
+	lm_pw = pdb_get_lanman_passwd( sam_acct );
+	nt_pw = pdb_get_lanman_passwd( sam_acct );
+	acb_flags = pdb_get_acct_ctrl( sam_acct );
+	if ( !lm_pw && !nt_pw && !(acb_flags&ACB_PWNOTREQ) ) {
+		acb_flags |= ACB_DISABLED;
+		pdb_set_acct_ctrl( sam_acct, acb_flags, PDB_SET );
+		pdb_set_init_flags(sam_acct, PDB_ACCTCTRL, PDB_SET);
+	}
+	
 	/** @todo  This is where a 're-read on update' should be done */
 
 	return sam_acct->methods->update_sam_account(sam_acct->methods, sam_acct);
@@ -422,10 +491,10 @@ static NTSTATUS make_pdb_methods_name(struct pdb_methods **methods, struct pdb_c
 	if (p) {
 		*p = 0;
 		module_location = p+1;
-		trim_string(module_location, " ", " ");
+		trim_char(module_location, ' ', ' ');
 	}
 
-	trim_string(module_name, " ", " ");
+	trim_char(module_name, ' ', ' ');
 
 
 	DEBUG(5,("Attempting to find an passdb backend to match %s (%s)\n", selected, module_name));
@@ -671,7 +740,7 @@ BOOL pdb_add_sam_account(SAM_ACCOUNT *sam_acct)
 	if (!pdb_context) {
 		return False;
 	}
-
+	
 	return NT_STATUS_IS_OK(pdb_context->pdb_add_sam_account(pdb_context, sam_acct));
 }
 

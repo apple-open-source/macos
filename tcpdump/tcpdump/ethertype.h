@@ -18,7 +18,7 @@
  * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * @(#) $Header: /cvs/root/tcpdump/tcpdump/ethertype.h,v 1.1.1.3 2003/03/17 18:42:16 rbraun Exp $ (LBL)
+ * @(#) $Header: /cvs/root/tcpdump/tcpdump/ethertype.h,v 1.1.1.4 2004/02/05 19:30:52 rbraun Exp $ (LBL)
  */
 
 /*
@@ -69,9 +69,6 @@
 #ifndef ETHERTYPE_SCA
 #define ETHERTYPE_SCA		0x6007
 #endif
-#ifndef ETHERTYPE_REVARP
-#define ETHERTYPE_REVARP	0x8035
-#endif
 #ifndef	ETHERTYPE_LANBRIDGE
 #define	ETHERTYPE_LANBRIDGE	0x8038
 #endif
@@ -120,15 +117,11 @@
 #ifndef	ETHERTYPE_LOOPBACK
 #define	ETHERTYPE_LOOPBACK	0x9000
 #endif
+#ifndef	ETHERTYPE_VMAN
+#define	ETHERTYPE_VMAN	        0x9100 /* Extreme VMAN Protocol */ 
+#endif
 #ifndef	ETHERTYPE_ISO
 #define	ETHERTYPE_ISO           0xfefe  /* nonstandard - used in Cisco HDLC encapsulation */
 #endif
 
-/* FIXME complete the proto-id to string mapping */
-static const struct tok ethertype_values[] = { 
-    { ETHERTYPE_IP,		"IPv4" },
-    { ETHERTYPE_MPLS,		"MPLS unicast" },
-    { ETHERTYPE_MPLS_MULTI,	"MPLS multicast" },
-    { ETHERTYPE_IPV6,		"IPv6" },
-    { 0, NULL}
-};
+extern const struct tok ethertype_values[];

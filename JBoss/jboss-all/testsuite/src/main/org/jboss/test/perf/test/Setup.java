@@ -7,34 +7,23 @@
 
 package org.jboss.test.perf.test;
 
-import java.io.IOException;
-import java.net.InetAddress;
-import java.rmi.RemoteException;
-import javax.ejb.CreateException;
-import javax.management.ObjectName;
-import javax.naming.InitialContext;
-import javax.naming.NamingException;
 import javax.rmi.PortableRemoteObject;
 import javax.security.auth.login.LoginContext;
 
-import junit.extensions.TestSetup;
 import junit.framework.TestSuite;
 
-import org.jboss.jmx.adaptor.rmi.RMIAdaptor;
-import org.jboss.test.perf.interfaces.Entity;
 import org.jboss.test.perf.interfaces.EntityPK;
 import org.jboss.test.perf.interfaces.Entity2PK;
 import org.jboss.test.perf.interfaces.EntityHome;
 import org.jboss.test.perf.interfaces.Entity2Home;
 
 import org.jboss.test.util.AppCallbackHandler;
-//import org.jboss.test.util.Deploy;
 import org.jboss.test.JBossTestSetup;
 
 /** Setup utility class.
  
  @author Scott.Stark@jboss.org
- @version $Revision: 1.11.2.1 $
+ @version $Revision: 1.11.2.2 $
  */
 public class Setup extends JBossTestSetup 
 {
@@ -42,7 +31,7 @@ public class Setup extends JBossTestSetup
    String filename;
    boolean isSecure;
 
-   Setup(TestSuite suite, String filename, boolean isSecure)
+   Setup(TestSuite suite, String filename, boolean isSecure) throws Exception
    {
       super(suite);
       this.filename = filename;

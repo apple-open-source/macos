@@ -43,6 +43,7 @@ import org.jboss.system.Registry;
 import org.jboss.system.ServiceMBeanSupport;
 import org.jboss.tm.TransactionPropagationContextFactory;
 import org.jboss.tm.TransactionPropagationContextImporter;
+import org.jboss.util.ProfilerPoint;
 
 /**
  * The JRMPInvoker is an RMI implementation that can generate Invocations
@@ -52,7 +53,7 @@ import org.jboss.tm.TransactionPropagationContextImporter;
  *
  * @author <a href="mailto:marc.fleury@jboss.org>Marc Fleury</a>
  * @author <a href="mailto:scott.stark@jboss.org>Scott Stark</a>
- * @version $Revision: 1.21.2.11 $
+ * @version $Revision: 1.21.2.12 $
  */
 public class JRMPInvoker
    extends RemoteServer
@@ -347,6 +348,10 @@ public class JRMPInvoker
    public Object invoke(Invocation invocation)
       throws Exception
    {
+      /*
+      ProfilerPoint.clear();
+      ProfilerPoint.push("BEGIN JRMP");
+      */
       Thread currentThread = Thread.currentThread();
       ClassLoader oldCl = currentThread.getContextClassLoader();
       ObjectName mbean = null;
@@ -375,6 +380,7 @@ public class JRMPInvoker
       finally
       {
          currentThread.setContextClassLoader(oldCl);
+         Thread.interrupted(); // clear interruption because this thread may be pooled.
       }
    }
 

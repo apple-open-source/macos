@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mbean SYSTEM "file:./src/main/test/implementation/modelmbean/support/xml/xmbean.dtd">
+
+<mbean>
+
+   <attribute setMethod="setFoo" getMethod="getBar">
+      <name>Something</name>
+      <type>java.lang.String</type>
+      <access>read-write</access>
+   </attribute>
+
+   <operation>
+      <name>setFoo</name>
+      <parameter>
+        <name>name</name>
+        <type>java.lang.String</type>
+      </parameter>
+      <return-type>void</return-type>
+      <impact>ACTION</impact>
+    </operation>
+    
+    <operation>
+      <name>getBar</name>
+      <return-type>java.lang.String</return-type>
+      <impact>INFO</impact>
+    </operation>
+    
+</mbean>
+
+

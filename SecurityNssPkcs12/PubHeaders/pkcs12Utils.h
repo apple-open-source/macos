@@ -25,9 +25,10 @@
 #include <Security/cssmtype.h>
 #include <SecurityNssAsn1/SecNssCoder.h>
 #include <SecurityNssPkcs12/pkcs7Templates.h>
-#include  <SecurityNssPkcs12/pkcs12Templates.h>
+#include <SecurityNssPkcs12/pkcs12Templates.h>
 #include <Security/cssmerr.h>
 #include <Security/utilities.h>
+#include <Security/Security.h>
 
 #ifdef __cplusplus
 extern "C" {

@@ -26,6 +26,11 @@
 #include "pkcs12Utils.h"
 #include "pkcs12Debug.h"
 #include <Security/cuCdsaUtils.h>
+#include <Security/Security.h>
+#include <Security/SecRuntime.h>
+#include <Security/Access.h>
+#include <Security/cssmacl.h>
+#include <Security/aclclient.h>
 
 /*
  * Given appropriate P12-style parameters, cook up a CSSM_KEY.
@@ -385,6 +390,8 @@ CSSM_RETURN p12UnwrapKey(
 	CSSM_DATA descrData = {0, NULL};	// not used for PKCS8 wrap 
 	CSSM_KEYATTR_FLAGS reqAttr = CSSM_KEYATTR_RETURN_REF |
 		CSSM_KEYATTR_SENSITIVE | CSSM_KEYATTR_EXTRACTABLE;
+	ResourceControlContext rcc;
+	Security::KeychainCore::Access::Maker maker;
 	
 	/* P12 style IV derivation, optional */
 	CSSM_DATA iv = {0, NULL};
@@ -456,6 +463,10 @@ CSSM_RETURN p12UnwrapKey(
 	}
 
 	wrappedKey.KeyData = shroudedKeyBits;
+
+	// Create a Access::Maker for the initial owner of the private key.
+	memset(&rcc, 0, sizeof(rcc));
+	maker.initialOwner(rcc);
 	
 	crtn = CSSM_UnwrapKey(ccHand,
 		NULL,				// PublicKey
@@ -467,7 +478,7 @@ CSSM_RETURN p12UnwrapKey(
 		CSSM_KEYUSE_ANY,
 		reqAttr,
 		&labelData,
-		NULL,					// CredAndAclEntry
+		&rcc,					// CredAndAclEntry
 		privKey,
 		&descrData);			// required
 	if(crtn) {
@@ -477,6 +488,30 @@ CSSM_RETURN p12UnwrapKey(
 			crtn = errSecDuplicateItem;
 		}
 	}
+	
+	// Finally fix the acl and owner of the private key to the 
+	// specified access control settings.
+	if(crtn == CSSM_OK) {
+		try {
+		
+			CssmClient::KeyAclBearer 
+				bearer(cspHand, *privKey, CssmAllocator::standard());
+			KeychainCore::Access initialAccess("privateKey");
+			initialAccess.setAccess(bearer, maker);
+		}
+		catch (const CssmError &e) {
+			/* not implemented means we're talking to the CSP which does
+			 * not implement ACLs */
+			if(e.cssmError() != CSSMERR_CSP_FUNCTION_NOT_IMPLEMENTED) {
+				crtn = e.cssmError();
+			}
+		}
+		catch(...) {
+			p12ErrorLog("p12 exception on setAccess\n");
+			crtn = errSecAuthFailed;	/* ??? */
+		}
+	}
+
 errOut:
 	if(ccHand) {
 		CSSM_DeleteContext(ccHand);
@@ -491,6 +526,7 @@ errOut:
 CSSM_RETURN p12WrapKey(
 	CSSM_CSP_HANDLE		cspHand,
 	CSSM_KEY_PTR		privKey,
+	const CSSM_ACCESS_CREDENTIALS *privKeyCreds,
 	CSSM_ALGORITHMS		keyAlg,				// of the unwrapping key
 	CSSM_ALGORITHMS		encrAlg,
 	CSSM_ALGORITHMS		pbeHashAlg,			// SHA1, MD5 only
@@ -509,8 +545,14 @@ CSSM_RETURN p12WrapKey(
 	CSSM_CC_HANDLE ccHand = 0;
 	CSSM_KEY wrappedKey;
 	CSSM_CONTEXT_ATTRIBUTE attr;
-	CSSM_ACCESS_CREDENTIALS	creds;
 	CSSM_DATA descrData = {0, NULL};
+	CSSM_ACCESS_CREDENTIALS creds;
+	
+	if(privKeyCreds == NULL) {
+		/* i.e., key is from the bare CSP with no ACL support */
+		memset(&creds, 0, sizeof(creds));
+		privKeyCreds = &creds;
+	}
 	
 	/* P12 style IV derivation, optional */
 	CSSM_DATA iv = {0, NULL};
@@ -558,10 +600,8 @@ CSSM_RETURN p12WrapKey(
 		goto errOut;
 	}
 	
-	memset(&creds, 0, sizeof(CSSM_ACCESS_CREDENTIALS));
-	
 	crtn = CSSM_WrapKey(ccHand,
-		&creds,
+		privKeyCreds,
 		privKey,
 		&descrData,			// DescriptiveData
 		&wrappedKey);

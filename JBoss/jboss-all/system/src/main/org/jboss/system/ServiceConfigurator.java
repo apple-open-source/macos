@@ -11,35 +11,31 @@ package org.jboss.system;
 
 import java.beans.PropertyEditor;
 import java.beans.PropertyEditorManager;
-
 import java.io.StringWriter;
 import java.io.Writer;
-
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
-import java.util.Iterator;
 
 import javax.management.Attribute;
 import javax.management.InstanceNotFoundException;
 import javax.management.MBeanAttributeInfo;
 import javax.management.MBeanInfo;
 import javax.management.MBeanServer;
-import javax.management.MalformedObjectNameException;
 import javax.management.ObjectInstance;
 import javax.management.ObjectName;
-
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.jboss.deployment.DeploymentException;
 import org.jboss.logging.Logger;
 import org.jboss.mx.util.JMXExceptionDecoder;
+import org.jboss.mx.util.MBeanProxyExt;
 import org.jboss.mx.util.ObjectNameFactory;
-import org.jboss.util.xml.DOMWriter;
 import org.jboss.util.Classes;
 import org.jboss.util.Strings;
-
+import org.jboss.util.xml.DOMWriter;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -49,7 +45,7 @@ import org.w3c.dom.Text;
 /**
  * Service configuration helper.
  *
- * @version <tt>$Revision: 1.16.2.8 $</tt>
+ * @version <tt>$Revision: 1.16.2.9 $</tt>
  * @author  <a href="mailto:marc@jboss.org">Marc Fleury</a>
  * @author  <a href="mailto:hiram@jboss.org">Hiram Chirino</a>
  * @author  <a href="mailto:d_jencks@users.sourceforge.net">David Jencks</a>
@@ -352,6 +348,10 @@ public class ServiceConfigurator
                mbeanRefName = null;
             } // end of if ()
 
+            String proxyType = element.getAttribute("proxy-type");
+            if ("".equals(proxyType))
+               proxyType = null;
+
             // Get the mbeanRef value
             ObjectName dependsObjectName = processDependency(objectName, loaderName, element, mbeans);
             if (debug)
@@ -359,8 +359,31 @@ public class ServiceConfigurator
 
             if (mbeanRefName != null)
             {
+               Object attribute = dependsObjectName;
+               if (proxyType != null)
+               {
+                  if (mbeanRefName == null)
+                     throw new DeploymentException("You cannot use a proxy-type without an optional-attribute-name");
+                  if (proxyType.equals("attribute"))
+                  {
+                     for (int k = 0; k < attributes.length; k++)
+                     {
+                        // skip over non-matching attribute names
+                        if (mbeanRefName.equals(attributes[k].getName()) == false)
+                           continue;
+                        proxyType = attributes[k].getType();
+                        break;
+                     }
+                     // Didn't find the attribute?
+                     if (proxyType.equals("attribute"))
+                        throw new DeploymentException("Attribute not found :" + mbeanRefName);             
+                  }
+                  Class proxyClass = cl.loadClass(proxyType);
+                  attribute = MBeanProxyExt.create(proxyClass, dependsObjectName, server);                  
+               }
+
                //if if doesn't exist or has wrong type, we'll get an exception
-               setAttribute(objectName, new Attribute(mbeanRefName, dependsObjectName));
+               setAttribute(objectName, new Attribute(mbeanRefName, attribute));
             } // end of if ()
          }
          //end of depends

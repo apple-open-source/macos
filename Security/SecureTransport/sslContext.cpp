@@ -238,10 +238,16 @@ SSLDisposeContext				(SSLContext			*ctx)
 	 * are all raw keys, and all Apple CSPs dispose of raw keys in the same
 	 * way.
 	 */
-	sslFreeKey(ctx->signingKeyCsp, &ctx->signingPubKey, NULL);
-	sslFreeKey(ctx->encryptKeyCsp, &ctx->encryptPubKey, NULL);
+	sslFreeKey(ctx->cspHand, &ctx->signingPubKey, NULL);
+	sslFreeKey(ctx->cspHand, &ctx->encryptPubKey, NULL);
 	sslFreeKey(ctx->peerPubKeyCsp, &ctx->peerPubKey, NULL);
 	
+	if(ctx->signingPrivKeyRef) {
+		CFRelease(ctx->signingPrivKeyRef);
+	}
+	if(ctx->encryptPrivKeyRef) {
+		CFRelease(ctx->encryptPrivKeyRef);
+	}
 	sslFreeTrustedRoots(ctx);
 	
 	detachFromAll(ctx);
@@ -894,14 +900,7 @@ SSLSetCertificate			(SSLContextRef		ctx,
 		certRefs,
 		&ctx->localCert,
 		&ctx->signingPubKey,
-		&ctx->signingPrivKey,
-		&ctx->signingKeyCsp
-		#if ST_KC_KEYS_NEED_REF
-		,
-		&ctx->signingKeyRef
-		#else
-		);
-		#endif
+		&ctx->signingPrivKeyRef);
 }
 
 OSStatus
@@ -925,8 +924,7 @@ SSLSetEncryptionCertificate	(SSLContextRef		ctx,
 		certRefs,
 		&ctx->encryptCert,
 		&ctx->encryptPubKey,
-		&ctx->encryptPrivKey,
-		&ctx->encryptKeyCsp);
+		&ctx->encryptPrivKeyRef);
 }
 
 OSStatus 

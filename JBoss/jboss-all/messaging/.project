@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<projectDescription>
+	<name>messaging</name>
+	<comment></comment>
+	<projects>
+		<project>common</project>
+		<project>j2ee</project>
+		<project>jmx</project>
+		<project>security</project>
+		<project>server</project>
+		<project>system</project>
+		<project>transaction</project>
+	</projects>
+	<buildSpec>
+		<buildCommand>
+			<name>org.eclipse.jdt.core.javabuilder</name>
+			<arguments>
+			</arguments>
+		</buildCommand>
+	</buildSpec>
+	<natures>
+		<nature>org.eclipse.jdt.core.javanature</nature>
+	</natures>
+</projectDescription>

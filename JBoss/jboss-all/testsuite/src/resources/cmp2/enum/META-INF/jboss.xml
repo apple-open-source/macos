@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE jboss PUBLIC "-//JBoss//DTD JBOSS 3.2//EN" "http://www.jboss.org/j2ee/dtd/jboss_3_2.dtd">
+
+<jboss>
+
+   <enterprise-beans>
+
+      <entity>
+         <ejb-name>Child</ejb-name>
+         <local-jndi-name>ChildLocal</local-jndi-name>
+      </entity>
+
+      <session>
+         <ejb-name>Facade</ejb-name>
+         <jndi-name>Facade</jndi-name>
+      </session>
+      <session>
+         <ejb-name>EJBTestRunnerEJB</ejb-name>
+         <jndi-name>ejb/EJBTestRunner</jndi-name>
+      </session>
+
+   </enterprise-beans>
+
+</jboss>

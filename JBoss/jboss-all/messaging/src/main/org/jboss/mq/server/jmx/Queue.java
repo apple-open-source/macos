@@ -24,7 +24,7 @@ import org.jboss.mq.server.MessageCounter;
  * @author     Norbert Lataille (Norbert.Lataille@m4x.org)
  * @author     <a href="hiram.chirino@jboss.org">Hiram Chirino</a>
  * @author     <a href="pra@tim.se">Peter Antman</a>
- * @version    $Revision: 1.3.2.4 $
+ * @version    $Revision: 1.3.2.5 $
  */
 public class Queue
    extends DestinationMBeanSupport
@@ -75,7 +75,7 @@ public class Queue
          server.getAttribute(jbossMQService, "Interceptor");
 
       spyDest = new SpyQueue(destinationName);
-      destination = new JMSQueue((SpyQueue)spyDest, null, jmsServer);
+      destination = new JMSQueue((SpyQueue)spyDest, null, jmsServer, parameters);
 
       jmsServer.addDestination(destination);
 

@@ -22,8 +22,8 @@
  */
 
 #ifndef lint
-static const char rcsid[] =
-    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-ah.c,v 1.1.1.3 2003/03/17 18:42:16 rbraun Exp $ (LBL)";
+static const char rcsid[] _U_ =
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-ah.c,v 1.1.1.4 2004/02/05 19:30:52 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -67,5 +67,5 @@ ah_print(register const u_char *bp)
 	return sizeof(struct ah) + sumlen;
  trunc:
 	fputs("[|AH]", stdout);
-	return 65535;
+	return -1;
 }

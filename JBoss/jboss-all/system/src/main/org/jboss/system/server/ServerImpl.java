@@ -57,7 +57,7 @@ import org.jboss.system.ServiceControllerMBean;
  * @author <a href="mailto:marc.fleury@jboss.org">Marc Fleury</a>
  * @author <a href="mailto:jason@planet57.com">Jason Dillon</a>
  * @author Scott.Stark@jboss.org
- * @version $Revision: 1.25.2.15 $
+ * @version $Revision: 1.25.2.18 $
  */
 public class ServerImpl
    implements Server, ServerImplMBean, NotificationBroadcaster
@@ -179,7 +179,7 @@ public class ServerImpl
       log.info("Server Temp Dir: " + config.getServerTempDir());
       log.info("Server Config URL: " + config.getServerConfigURL());
       log.info("Server Library URL: " + config.getServerLibraryURL());
-      log.info("Root Deployemnt Filename: " + config.getRootDeploymentFilename());
+      log.info("Root Deployment Filename: " + config.getRootDeploymentFilename());
    }
 
    /**
@@ -257,6 +257,7 @@ public class ServerImpl
     * Check if the server is started.
     *
     * @return   True if the server is started, else false.
+    * @jmx:managed-attribute
     */
    public boolean isStarted()
    {
@@ -296,7 +297,7 @@ public class ServerImpl
       }
       catch (Throwable t)
       {
-         log.error("Failed to start", t);
+         log.debug("Failed to start", t);
 
          if (t instanceof Exception)
             throw (Exception)t;

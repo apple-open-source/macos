@@ -9,21 +9,25 @@ package org.jboss.ejb.plugins;
 
 import java.rmi.RemoteException;
 import java.rmi.NoSuchObjectException;
+
 import org.jboss.ejb.Container;
 import org.jboss.ejb.EntityContainer;
 import org.jboss.ejb.EnterpriseContext;
 import org.jboss.ejb.EntityEnterpriseContext;
+import org.jboss.metadata.EntityMetaData;
+import org.jboss.util.propertyeditor.PropertyEditors;
 
 /**
  * Cache subclass for entity beans.
  * 
  * @author <a href="mailto:simone.bordet@compaq.com">Simone Bordet</a>
  * @author <a href="bill@burkecentral.com">Bill Burke</a>
- * @version $Revision: 1.17.2.5 $
+ * @version $Revision: 1.17.2.7 $
+ * @jmx:mbean extends="org.jboss.ejb.plugins.AbstractInstanceCacheMBean"
  */
 public class EntityInstanceCache
    extends AbstractInstanceCache 
-   implements org.jboss.ejb.EntityCache
+   implements org.jboss.ejb.EntityCache, EntityInstanceCacheMBean
 {
    // Constants -----------------------------------------------------
 
@@ -57,9 +61,17 @@ public class EntityInstanceCache
       rtn = super.get(id);
       return rtn;
    }
-   public void remove(Object id)
+
+   /**
+    * @jmx:managed-operation
+    */
+   public void remove(String id)
+      throws Exception
    {
-      super.remove(id);
+      EntityMetaData metaData = (EntityMetaData) m_container.getBeanMetaData();
+      String primKeyClass = metaData.getPrimaryKeyClass();
+      Object key = PropertyEditors.convertValue(id, primKeyClass);
+      remove(key);
    }
 
    public void destroy()
@@ -75,6 +87,7 @@ public class EntityInstanceCache
    {
       return ((EntityEnterpriseContext)ctx).getCacheKey();
    }
+
    protected void setKey(Object id, EnterpriseContext ctx) 
    {
       ((EntityEnterpriseContext)ctx).setCacheKey(id);
@@ -90,18 +103,22 @@ public class EntityInstanceCache
    {
       m_container.getPersistenceManager().passivateEntity((EntityEnterpriseContext)ctx);
    }
+
    protected void activate(EnterpriseContext ctx) throws RemoteException
    {
       m_container.getPersistenceManager().activateEntity((EntityEnterpriseContext)ctx);
    }
+
    protected EnterpriseContext acquireContext() throws Exception
    {
       return m_container.getInstancePool().get();
    }
+
    protected void freeContext(EnterpriseContext ctx)
    {
       m_container.getInstancePool().free(ctx);
    }
+
    protected boolean canPassivate(EnterpriseContext ctx) 
    {
       if (ctx.isLocked()) 

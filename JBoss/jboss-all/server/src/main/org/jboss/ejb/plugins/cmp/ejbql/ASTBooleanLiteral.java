@@ -11,21 +11,17 @@ package org.jboss.ejb.plugins.cmp.ejbql;
  * This abstract syntax node represents a boolean literal.
  *
  * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
- * @version $Revision: 1.1 $
+ * @version $Revision: 1.1.4.2 $
  */                            
-public class ASTBooleanLiteral extends SimpleNode {
+public final class ASTBooleanLiteral extends SimpleNode {
    public boolean value;
 
    public ASTBooleanLiteral(int id) {
       super(id);
    }
 
-   public ASTBooleanLiteral(EJBQLParser p, int id) {
-      super(p, id);
-   }
-
    public String toString() {
-      return "" + value;
+      return String.valueOf(value);
    }
 
    /** Accept the visitor. **/

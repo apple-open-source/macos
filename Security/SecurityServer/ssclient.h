@@ -107,9 +107,14 @@ public:
 class ClientSession {
 	NOCOPY(ClientSession)
 public:
+	typedef void DidChangeKeyAclCallback(void *context, ClientSession &clientSession,
+		KeyHandle key, CSSM_ACL_AUTHORIZATION_TAG tag);
+
 	ClientSession(CssmAllocator &standard, CssmAllocator &returning);
 	virtual ~ClientSession();
-	
+
+	void registerForAclEdits(DidChangeKeyAclCallback *callback, void *context);
+
 	CssmAllocator &internalAllocator;
 	CssmAllocator &returnAllocator;
 	
@@ -328,7 +333,12 @@ private:
 	void changeOwner(AclKind kind, KeyHandle key, const AccessCredentials &cred,
 		const AclOwnerPrototype &edit);
 
+	void addApplicationAclSubject(KeyHandle key, CSSM_ACL_AUTHORIZATION_TAG tag);
+
 private:
+	static DidChangeKeyAclCallback *mCallback;
+	static void *mCallbackContext;
+
 	static UnixPlusPlus::StaticForkMonitor mHasForked;	// global fork indicator
 
 	struct Thread {

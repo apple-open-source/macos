@@ -74,8 +74,8 @@ static int activecount;		/* count number of active entries */
 static struct runctl cmd_run;	/* global options set from command line */
 static time_t parsetime;	/* time of last parse */
 
-static void terminate_run(int);
-static void terminate_poll(int);
+static RETSIGTYPE terminate_run(int);
+static RETSIGTYPE terminate_poll(int);
 
 #if defined(__FreeBSD__) && defined(__FreeBSD_USE_KVM)
 /* drop SGID kmem privileage until we need it */
@@ -119,7 +119,8 @@ static char *timestamp (void)
 static RETSIGTYPE donothing(int sig) 
 {
     extern volatile int lastsig;	/* declared in idle.c */
-    signal(sig, donothing); lastsig = sig;
+    set_signal_handler(sig, donothing);
+    lastsig = sig;
 }
 
 int main(int argc, char **argv)
@@ -367,6 +368,15 @@ int main(int argc, char **argv)
 	    if (argc == 2)
 		exit(PS_EXCLUDE);
 	}
+	else if (getpid() == pid)
+	{
+	    /* this test enables re-execing on a changed rcfile */
+	    if (argc == 2)
+	    {
+		fprintf(stderr,GT_("fetchmail: no other fetchmail is running\n"));
+		exit(PS_EXCLUDE);
+	    }
+	}
 	else if (kill(pid, SIGTERM) < 0)
 	{
 	    fprintf(stderr,GT_("fetchmail: error killing %s fetchmail at %d; bailing out.\n"),
@@ -490,13 +500,13 @@ int main(int argc, char **argv)
 	 * We'll set up a handler for these when we're sleeping,
 	 * but ignore them otherwise so as not to interrupt a poll.
 	 */
-	signal(SIGUSR1, SIG_IGN);
+	set_signal_handler(SIGUSR1, SIG_IGN);
 	if (run.poll_interval && getuid() == ROOT_UID)
-	    signal(SIGHUP, SIG_IGN);
+	    set_signal_handler(SIGHUP, SIG_IGN);
     }
     else
     {
-	if (run.logfile && access(run.logfile, F_OK) == 0)
+	if (run.logfile && !nodetach && access(run.logfile, F_OK) == 0)
     	{
 	    if (!freopen(run.logfile, "a", stdout))
 		    report(stderr, GT_("could not open %s to append logs to \n"), run.logfile);
@@ -511,12 +521,12 @@ int main(int argc, char **argv)
 
     /* beyond here we don't want more than one fetchmail running per user */
     umask(0077);
-    signal(SIGABRT, terminate_run);
-    signal(SIGINT, terminate_run);
-    signal(SIGTERM, terminate_run);
-    signal(SIGALRM, terminate_run);
-    signal(SIGPIPE, terminate_run);
-    signal(SIGQUIT, terminate_run);
+    set_signal_handler(SIGABRT, terminate_run);
+    set_signal_handler(SIGINT, terminate_run);
+    set_signal_handler(SIGTERM, terminate_run);
+    set_signal_handler(SIGALRM, terminate_run);
+    set_signal_handler(SIGPIPE, terminate_run);
+    set_signal_handler(SIGQUIT, terminate_run);
 
     /* here's the exclusion lock */
     lock_or_die();
@@ -631,13 +641,20 @@ int main(int argc, char **argv)
 			continue;
 #endif /* (defined(linux) && !INET6_ENABLE) || defined(__FreeBSD__) */
 
+		    dofastuidl = 0; /* this is reset in the driver if required */
+
 		    querystatus = query_host(ctl);
 
+		    if (NUM_NONZERO(ctl->fastuidl))
+			ctl->fastuidlcount = (ctl->fastuidlcount + 1) % ctl->fastuidl;
 #ifdef POP3_ENABLE
 		    /* leave the UIDL state alone if there have been any errors */
 		    if (!check_only &&
 				((querystatus==PS_SUCCESS) || (querystatus==PS_NOMAIL) || (querystatus==PS_MAXFETCH)))
 			uid_swap_lists(ctl);
+		    else
+			uid_discard_new_list(ctl);
+		    uid_reset_num(ctl);
 #endif  /* POP3_ENABLE */
 
 		    if (querystatus == PS_SUCCESS)
@@ -737,9 +754,9 @@ int main(int argc, char **argv)
 	     * forcing fetchmail to re-poll its hosts.  The second line is
 	     * for people who think all system daemons wake up on SIGHUP.
 	     */
-	    signal(SIGUSR1, donothing);
+	    set_signal_handler(SIGUSR1, donothing);
 	    if (getuid() != ROOT_UID)
-		signal(SIGHUP, donothing);
+		set_signal_handler(SIGHUP, donothing);
 
 	    /*
 	     * OK, now pause until it's time for the next poll cycle.
@@ -862,6 +879,8 @@ static void optmerge(struct query *h2, struct query *h1, int force)
     FLAG_MERGE(limit);
     FLAG_MERGE(warnings);
     FLAG_MERGE(fetchlimit);
+    FLAG_MERGE(fetchsizelimit);
+    FLAG_MERGE(fastuidl);
     FLAG_MERGE(batchlimit);
 #ifdef	SSL_ENABLE
     FLAG_MERGE(use_ssl);
@@ -900,6 +919,8 @@ static int load_params(int argc, char **argv, int optind)
     def_opts.warnings = WARNING_INTERVAL;
     def_opts.remotename = user;
     def_opts.listener = SMTP_MODE;
+    def_opts.fetchsizelimit = 100;
+    def_opts.fastuidl = 10;
 
     /* get the location of rcfile */
     rcfiledir[0] = 0;
@@ -1096,6 +1117,8 @@ static int load_params(int argc, char **argv, int optind)
 		exit(PS_SYNTAX);
 	    }
 #endif /* SSL_ENABLE */
+	    /* one global gets treated specially */
+	    DEFAULT(run.showdots, run.poll_interval==0 || nodetach);
 #undef DEFAULT
 
 	    /*
@@ -1207,7 +1230,7 @@ static int load_params(int argc, char **argv, int optind)
     return(implicitmode);
 }
 
-static void terminate_poll(int sig)
+static RETSIGTYPE terminate_poll(int sig)
 /* to be executed at the end of a poll cycle */
 {
     /*
@@ -1254,7 +1277,7 @@ static void terminate_poll(int sig)
 #endif /* POP3_ENABLE */
 }
 
-static void terminate_run(int sig)
+static RETSIGTYPE terminate_run(int sig)
 /* to be executed on normal or signal-induced termination */
 {
     struct query	*ctl;
@@ -1356,7 +1379,9 @@ static int query_host(struct query *ctl)
 	break;
     case P_IMAP:
 #ifdef IMAP_ENABLE
-	st = doIMAP(ctl);
+	do {
+	    st = doIMAP(ctl);
+	} while (st == PS_REPOLL);
 #else
 	report(stderr, GT_("IMAP support is not configured.\n"));
 	st = PS_PROTOCOL;
@@ -1537,6 +1562,8 @@ static void dump_params (struct runctl *runp,
 #ifdef	SSL_ENABLE
 	if (ctl->use_ssl)
 	    printf(GT_("  SSL encrypted sessions enabled.\n"));
+	if (ctl->sslproto)
+	    printf(GT_("  SSL protocol: %s.\n"), ctl->sslproto);
 	if (ctl->sslcertck) {
 	    printf(GT_("  SSL server certificate checking enabled.\n"));
 	    if (ctl->sslcertpath != NULL)
@@ -1616,6 +1643,20 @@ static void dump_params (struct runctl *runp,
 		       ctl->fetchlimit, ctl->fetchlimit);
 	    else if (outlevel >= O_VERBOSE)
 		printf(GT_("  No received-message limit (--fetchlimit 0).\n"));
+	    if (NUM_NONZERO(ctl->fetchsizelimit))
+		printf(GT_("  Fetch message size limit is %d (--fetchsizelimit %d).\n"),
+		       ctl->fetchsizelimit, ctl->fetchsizelimit);
+	    else if (outlevel >= O_VERBOSE)
+		printf(GT_("  No fetch message size limit (--fetchsizelimit 0).\n"));
+	    if (NUM_NONZERO(ctl->fastuidl) && MAILBOX_PROTOCOL(ctl))
+	    {
+		if (ctl->fastuidl == 1)
+		    printf(GT_("  Do binary search of UIDs during each poll (--fastuidl 1).\n"));
+		else
+		    printf(GT_("  Do binary search of UIDs during %d out of %d polls (--fastuidl %d).\n"), ctl->fastuidl - 1, ctl->fastuidl, ctl->fastuidl);
+	    }
+	    else if (outlevel >= O_VERBOSE)
+		printf(GT_("   Do linear search of UIDs during each poll (--fastuidl 0).\n"));
 	    if (NUM_NONZERO(ctl->batchlimit))
 		printf(GT_("  SMTP message batch limit is %d.\n"), ctl->batchlimit);
 	    else if (outlevel >= O_VERBOSE)

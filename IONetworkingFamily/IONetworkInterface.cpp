@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -195,8 +192,32 @@ bool IONetworkInterface::init(IONetworkController * controller)
     // BSD name for the interface.
 
     setProperty( kIOInterfaceNamePrefix, getNamePrefix() );
-    setProperty( kIOPrimaryInterface, isPrimaryInterface() );
 
+    if (IOService *provider = controller->getProvider())
+	{
+		bool gotLocation = false;
+		
+		setProperty( kIOBuiltin, (bool)( provider->getProperty( "built-in" ) ) );
+		
+		if(OSData *locationAsData = OSDynamicCast(OSData, provider->getProperty("location")))
+		{
+			//the data may be null terminated...but to be on the safe side, let's assume it's not, and add a null...
+			if(OSData *locationAsCstr = OSData::withData(locationAsData)) //create a copy that we can convert to C string
+			{
+				locationAsCstr->appendByte(0, 1); //make sure it's null terminated;
+				if(OSString *locationAsString = OSString::withCString((const char *)locationAsCstr->getBytesNoCopy())) //now create the OSString
+				{
+					gotLocation = true;
+					setProperty( kIOLocation, locationAsString);
+					locationAsString->release(); //setProperty took a ref
+				}
+				locationAsCstr->release();
+			}
+		}
+		if(gotLocation == false)
+			setProperty( kIOLocation, "");
+	}
+		
     return ret;
 }
 
@@ -258,7 +279,7 @@ bool IONetworkInterface::isPrimaryInterface() const
 
     // Look for the built-in property in the ethernet entry.
 
-    if ( provider && provider->getProperty( "built-in" ) )
+    if ( provider && provider->getProperty( "built-in" ) && _ifp->if_unit==0)
     {
         isPrimary = true;
     }
@@ -301,30 +322,36 @@ static UInt32 getIfnetHardwareAssistValue( IONetworkController * ctr )
 
         if ( input & output & IONetworkController::kChecksumIP )
         {
-            hwassist |= CSUM_IP;
+            hwassist |= IF_HWASSIST_CSUM_IP;
         }
         
         if ( ( input  & ( IONetworkController::kChecksumTCP |
                           IONetworkController::kChecksumTCPNoPseudoHeader ) )
         &&   ( output & ( IONetworkController::kChecksumTCP ) ) )
         {
-            hwassist |= CSUM_TCP;
+            hwassist |= IF_HWASSIST_CSUM_TCP;
         }
         
         if ( ( input  & ( IONetworkController::kChecksumUDP | 
                           IONetworkController::kChecksumUDPNoPseudoHeader ) )
         &&   ( output & ( IONetworkController::kChecksumUDP ) ) )
         {
-            hwassist |= CSUM_UDP;
+            hwassist |= IF_HWASSIST_CSUM_UDP;
         }
 
         if ( input & output & IONetworkController::kChecksumTCPSum16 )
         {
-            hwassist |= ( CSUM_TCP_SUM16 | CSUM_TCP | CSUM_UDP );
+            hwassist |= ( IF_HWASSIST_CSUM_TCP_SUM16 | IF_HWASSIST_CSUM_TCP | IF_HWASSIST_CSUM_UDP );
         }
     }
     while ( false );
-    
+  		
+	if( ctr->getFeatures() & kIONetworkFeatureHardwareVlan)
+		hwassist |= IF_HWASSIST_VLAN_TAGGING;
+	
+	if( ctr->getFeatures() & kIONetworkFeatureSoftwareVlan)
+		hwassist |= IF_HWASSIST_VLAN_MTU;
+	
     return hwassist;
 }
 
@@ -1296,6 +1323,7 @@ bool IONetworkInterface::setUnitNumber( UInt16 value )
     if ( setProperty( kIOInterfaceUnit, value, 16 ) )
     {
         _ifp->if_unit = value;
+		setProperty( kIOPrimaryInterface, isPrimaryInterface() );
         return true;
     }
     else

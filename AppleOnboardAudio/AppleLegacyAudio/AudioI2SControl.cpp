@@ -39,7 +39,7 @@ OSDefineMetaClassAndStructors(AudioI2SControl, OSObject)
 // --------------------------------------------------------------------------
 AudioI2SControl *AudioI2SControl::create(AudioI2SInfo *theInfo)
 {
-    DEBUG_IOLOG("+ AudioI2SControl::create\n");
+    debugIOLog (3, "+ AudioI2SControl::create");
     AudioI2SControl *myAudioI2SControl;
     myAudioI2SControl = new AudioI2SControl;
     
@@ -49,7 +49,7 @@ AudioI2SControl *AudioI2SControl::create(AudioI2SInfo *theInfo)
             myAudioI2SControl = 0;
         }            
     }
-    DEBUG_IOLOG("- AudioI2SControl::create\n");
+    debugIOLog (3, "- AudioI2SControl::create");
     return myAudioI2SControl;
 }
 
@@ -58,7 +58,7 @@ bool AudioI2SControl::init(AudioI2SInfo *theInfo)
 {    
 	UInt32				tempFcr1;
 	
-    debugIOLog("+ AudioI2SControl::init\n");
+    debugIOLog (3, "+ AudioI2SControl::init");
 	
     if(!super::init())
         return(false);
@@ -76,7 +76,7 @@ bool AudioI2SControl::init(AudioI2SInfo *theInfo)
 			serialFormat = theInfo->i2sSerialFormat;	//	set the format as requested
 			break;
 		default:
-			debugIOLog ( "### WRONG I2S Serial Format\n" );
+			debugIOLog (3,  "### WRONG I2S Serial Format" );
 			serialFormat = kSerialFormatSony;			//	force a legal value here...
 			break;
 	}													//	[3060321]	rbm	1 Oct 2002	} end
@@ -107,7 +107,7 @@ bool AudioI2SControl::init(AudioI2SInfo *theInfo)
     }
     else 
     {
-        DEBUG_IOLOG("AudioI2SControl::init ERROR: unable to setup ioBaseAddress and i2SInterfaceNumber\n");
+        debugIOLog (3, "AudioI2SControl::init ERROR: unable to setup ioBaseAddress and i2SInterfaceNumber");
     }
 
 	//
@@ -170,7 +170,7 @@ bool AudioI2SControl::init(AudioI2SInfo *theInfo)
 		KLSetRegister ( kFCR1Offset, tempFcr1 | kI2S1InterfaceEnable );
 	}
 
-    DEBUG_IOLOG("- AudioI2SControl::init\n");
+    debugIOLog (3, "- AudioI2SControl::init");
     return(true);
 }
 
@@ -211,7 +211,7 @@ bool AudioI2SControl::setSampleParameters(UInt32 sampleRate, UInt32 mclkToFsRati
     } else if ((kClock49MHz % reqMClkRate) == 0) {	// last, try 49 Mhz clock (48.000 & 96.000 KHz sample rates)
         clockSource = kClock49MHz;
     } else {
-        CLOG("AppleDACAAudio::setSampleParameters Unable to find a suitable source clock (no globals changes take effect)\n");
+        debugIOLog (3, "AppleDACAAudio::setSampleParameters Unable to find a suitable source clock (no globals changes take effect)");
         return false;
     }
 	*pClockSource = clockSource;
@@ -231,7 +231,7 @@ bool AudioI2SControl::setSampleParameters(UInt32 sampleRate, UInt32 mclkToFsRati
 			serialFormat = newSerialFormat;
             break;
         default:
-            DEBUG_IOLOG("AppleDACAAudio::setSampleParameters Invalid serial format\n");
+            debugIOLog (3, "AppleDACAAudio::setSampleParameters Invalid serial format");
             return false;
             break;
     }
@@ -297,7 +297,7 @@ void AudioI2SControl::setSerialFormatRegister(ClockSource clockSource, UInt32 mc
 		}
 		funcSymbolName->release ();		//	[3323977]
 		if ( kIOReturnSuccess != err ) {
-			IOLog ( "keyLargo->callPlatformFunction FAIL\n" );
+			debugIOLog (1,  "keyLargo->callPlatformFunction FAIL" );
 		}
 	}
 
@@ -532,7 +532,7 @@ bool AudioI2SControl::clockRun(bool start)
 				KLSetRegister (kFCR1Offset, KLGetRegister (kFCR1Offset) | kI2S1ClockEnable);
 				break;
 			default:
-				IOLog ("\n\n\n!!!!Wrong I2S interface number!!!!\n\n\n");
+				debugIOLog (1, "\n\n\n!!!!Wrong I2S interface number!!!!\n\n");
 		}
     } else {
         UInt16 loop = 50;
@@ -548,7 +548,7 @@ bool AudioI2SControl::clockRun(bool start)
 				KLSetRegister (kFCR1Offset, KLGetRegister (kFCR1Offset) & ~kI2S1ClockEnable);
 				break;
 			default:
-				IOLog ("\n\n\n!!!!Wrong I2S interface number!!!!\n\n\n");
+				debugIOLog (1, "\n\n\n!!!!Wrong I2S interface number!!!!\n\n");
 		}
         
 		while (((GetIntCtlReg() & kClocksStoppedPending) == 0) && (loop--)) {
@@ -561,7 +561,7 @@ bool AudioI2SControl::clockRun(bool start)
     }
 
     if (!success)
-        debug2IOLog("PPCDACA::clockRun(%s) failed\n", (start ? "true" : "false"));
+        debugIOLog (3, "PPCDACA::clockRun(%s) failed", (start ? "true" : "false"));
 
     return success;
 }

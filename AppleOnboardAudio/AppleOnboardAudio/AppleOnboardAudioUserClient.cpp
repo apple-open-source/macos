@@ -55,20 +55,20 @@ AppleOnboardAudioUserClient *	AppleOnboardAudioUserClient::Create( AppleOnboardA
     userClient = new AppleOnboardAudioUserClient;
 	if( !userClient )
 	{
-		debugIOLog( "[AppleOnboardAudio] create user client object failed\n" );
+		debugIOLog (3,  "[AppleOnboardAudio] create user client object failed" );
 		goto exit;
 	}
     
     if( !userClient->initWithDriver( inDriver, inTask ) )
 	{
-		debugIOLog( "[AppleOnboardAudio] initWithDriver failed\n" );
+		debugIOLog (3,  "[AppleOnboardAudio] initWithDriver failed" );
 		
 		userClient->release();
 		userClient = NULL;
 		goto exit;
 	}
 	
-//	debug2IOLog( "[AppleOnboardAudio] User client created for task 0x%08lX\n", ( UInt32 ) inTask );
+//	debugIOLog (3,  "[AppleOnboardAudio] User client created for task 0x%08lX", ( UInt32 ) inTask );
 	
 exit:
 	return( userClient );
@@ -82,17 +82,17 @@ bool	AppleOnboardAudioUserClient::initWithDriver( AppleOnboardAudio *inDriver, t
 {
 	bool		result;
 	
-//	debug3IOLog( "AppleOnboardAudioUserClient::initWithDriver (%p, %p)\n", inDriver, (void *)inTask);
+//	debugIOLog (3,  "AppleOnboardAudioUserClient::initWithDriver (%p, %p)", inDriver, (void *)inTask);
 	
 	result = false;
     if( !initWithTask( inTask, NULL, 0 ) )
 	{
-		debugIOLog( "   initWithTask failed\n" );
+		debugIOLog (3,  "   initWithTask failed" );
 		goto exit;
     }
     if( !inDriver )
 	{
-		debugIOLog( "   initWithDriver failed (null input driver)\n" );
+		debugIOLog (3,  "   initWithDriver failed (null input driver)" );
         goto exit;
     }
     
@@ -110,7 +110,7 @@ exit:
 
 void	AppleOnboardAudioUserClient::free( void )
 {
-//	debugIOLog( "AppleOnboardAudioUserClient::free ()\n" );
+//	debugIOLog (3,  "AppleOnboardAudioUserClient::free ()" );
 	
     IOUserClient::free();
 }
@@ -121,7 +121,7 @@ void	AppleOnboardAudioUserClient::free( void )
 
 IOReturn	AppleOnboardAudioUserClient::clientClose( void )
 {
-//	debugIOLog( "AppleOnboardAudioUserClient::clientClose ()\n" );
+//	debugIOLog (3,  "AppleOnboardAudioUserClient::clientClose ()" );
 	
     if( !isInactive() )
 	{
@@ -136,7 +136,7 @@ IOReturn	AppleOnboardAudioUserClient::clientClose( void )
 
 IOReturn	AppleOnboardAudioUserClient::clientDied( void )
 {
-//	debugIOLog( "AppleOnboardAudioUserClient::clientDied ()\n" );
+//	debugIOLog (3,  "AppleOnboardAudioUserClient::clientDied ()" );
 	
     return( clientClose() );
 }
@@ -154,7 +154,7 @@ IOExternalMethod *	AppleOnboardAudioUserClient::getTargetAndMethodForIndex( IOSe
         *outTarget = this;
 		methodPtr = ( IOExternalMethod * ) &sMethods[ inIndex ];
     } else {
-		debug2IOLog( "[AppleOnboardAudio] getTargetAndMethodForIndex - bad index (index=%lu)\n", inIndex );
+		debugIOLog (3,  "[AppleOnboardAudio] getTargetAndMethodForIndex - bad index (index=%lu)", inIndex );
 	}
 	return( methodPtr );
 }
@@ -190,7 +190,7 @@ IOReturn AppleOnboardAudioUserClient::getState (UInt32 selector, UInt32 arg2, vo
 				err = mDriver->getTransportInterfaceState ( arg2, outState );
 				break;
 			default:
-				debug2IOLog ("Unknown user client selector (%ld)\n", selector);
+				debugIOLog (3, "Unknown user client selector (%ld)", selector);
 				break;
 		}
 	}
@@ -227,7 +227,7 @@ IOReturn AppleOnboardAudioUserClient::setState (UInt32 selector, UInt32 arg2, vo
 				err = mDriver->setTransportInterfaceState ( arg2, inState );
 				break;
 			default:
-				debug2IOLog ("Unknown user client selector (%ld)\n", selector);
+				debugIOLog (3, "Unknown user client selector (%ld)", selector);
 				break;
 		}
 	}

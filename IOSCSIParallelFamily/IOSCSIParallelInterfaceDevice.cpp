@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -47,7 +45,7 @@
 //	Macros
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
-#define DEBUG 												1
+#define DEBUG 												0
 #define DEBUG_ASSERT_COMPONENT_NAME_STRING					"SPI Device"
 
 #if DEBUG
@@ -77,6 +75,11 @@
 
 #define super IOSCSIProtocolServices
 OSDefineMetaClassAndStructors ( IOSCSIParallelInterfaceDevice, IOSCSIProtocolServices );
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Constants
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 #define kIOPropertyIOUnitKey		"IOUnit"
 
@@ -233,6 +236,49 @@ IOSCSIParallelInterfaceDevice::didTerminate ( IOService *		provider,
 	}
 	
 	return true;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ free															   [PUBLIC]                                                                                                     [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOSCSIParallelInterfaceDevice::free ( void )
+{
+	
+	// Release the HBA specific data
+	if ( fHBAData != NULL )
+	{
+		
+		IOFree ( fHBAData, fHBADataSize );
+		fHBAData		= NULL;
+		fHBADataSize	= 0;
+		
+	}
+	
+	// Release the lock for the Task Queue.
+	if ( fQueueLock != NULL )
+	{
+		
+		// Free the SCSI Task queue access lock.
+		IOSimpleLockFree ( fQueueLock );
+		fQueueLock = NULL;
+		
+	}
+	
+	// Release the lock for the Task Queue.
+	if ( fResendQueueLock != NULL )
+	{
+		
+		// Free the SCSI Task queue access lock.
+		IOSimpleLockFree ( fResendQueueLock );
+		fResendQueueLock = NULL;
+		
+	}
+	
+	super::free ( );
 	
 }
 
@@ -422,37 +468,36 @@ IOSCSIParallelInterfaceDevice::DestroyTarget ( void )
 {
 	
 	// First walk the queue holding any Tasks that completed
-	// with TASK_SET_FULL and reject each one
+	// with TASK_SET_FULL and reject each one.
 	
-	// Release the HBA specific data
-	if ( fHBAData != NULL )
+#if 0
+	
+	// This code isn't ready for primetime. We need to add a method to complete
+	// all these things on the workloop, not on some arbitrary thread like this
+	// code would be doing. We can keep this loop and just write a
+	// CompleteCommandOnWorkloop() routine to get the desired behavior...
+	
+	while ( fResendTaskList != NULL )
 	{
 		
-		IOFree ( fHBAData, fHBADataSize );
-		fHBAData		= NULL;
-		fHBADataSize	= 0;
+		SCSIParallelTaskIdentifier 	parallelTask	= NULL;
+		SCSITaskIdentifier			request			= NULL;
+		
+		parallelTask = fResendTaskList;
+		
+		RemoveFromResendTaskList ( parallelTask);
+		RemoveFromOutstandingTaskList ( parallelTask );
+		request = GetSCSITaskIdentifier ( parallelTask );
+		
+		// Release the SCSI Parallel Task object
+		FreeSCSIParallelTask ( parallelTask );
+		
+		CommandCompleted ( request,
+						   kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE,
+						   kSCSITaskStatus_DeviceNotPresent );
 		
 	}
-	
-	// Release the lock for the Task Queue.
-	if ( fQueueLock != NULL )
-	{
-		
-		// Free the SCSI Task queue access lock.
-		IOSimpleLockFree ( fQueueLock );
-		fQueueLock = NULL;
-		
-	}
-	
-	// Release the lock for the Task Queue.
-	if ( fResendQueueLock != NULL )
-	{
-		
-		// Free the SCSI Task queue access lock.
-		IOSimpleLockFree ( fResendQueueLock );
-		fResendQueueLock = NULL;
-		
-	}
+#endif
 	
 }
 
@@ -721,8 +766,8 @@ IOSCSIParallelInterfaceDevice::FindTaskForAddress (
 	while ( tempTask != NULL )
 	{
 		
-		if ( GetLogicalUnitNumber ( tempTask ) == theL )
-			//&& ( GetTaggedTaskedIdentifier ( tempTask ) == theQ )
+		if ( ( GetLogicalUnitNumber ( tempTask ) == theL ) &&
+			 ( GetTaggedTaskIdentifier ( tempTask ) == theQ ) )
 		{
 			break;
 		}
@@ -795,6 +840,7 @@ IOSCSIParallelInterfaceDevice::FindTaskForControllerIdentifier (
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	¥ SendSCSICommand - Sends a command to the controller.			   [PUBLIC]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
 IOSCSIParallelInterfaceDevice::SendSCSICommand (
 							SCSITaskIdentifier			request,
@@ -899,7 +945,7 @@ IOSCSIParallelInterfaceDevice::CompleteSCSITask (
 		 ( completionStatus == kSCSITaskStatus_TASK_SET_FULL ) )
 	{
 		
-		// The task was not executed because the device reported that
+		// The task was not executed because the device reported
 		// a TASK_SET_FULL, place it on the resend queue and wait for 
 		// a task to complete with a status other than TASK_SET_FULL.
 		AddToResendTaskList ( completedTask );
@@ -950,6 +996,7 @@ IOSCSIParallelInterfaceDevice::CompleteSCSITask (
 	// statement can be removed
 	while ( fResendTaskList != NULL )
 	{
+		
 		SCSIParallelTaskIdentifier 	parallelTask;
 		
 		parallelTask = fResendTaskList;
@@ -1322,7 +1369,7 @@ IOSCSIParallelInterfaceDevice::AddToResendTaskList (
 		
 		listTask->SetNextResendTaskInList ( tempTask );
 		tempTask->SetPreviousResendTaskInList ( listTask );
-		tempTask->SetNextResendTaskInList( NULL );
+		tempTask->SetNextResendTaskInList ( NULL );
 		
 	}
 	
@@ -1850,7 +1897,7 @@ IOSCSIParallelInterfaceDevice::GetSCSIParallelFeatureNegotiationResult (
 
 UInt64
 IOSCSIParallelInterfaceDevice::GetControllerTaskIdentifier (
-							SCSIParallelTaskIdentifier 		parallelTask)
+							SCSIParallelTaskIdentifier 		parallelTask )
 {
 	
 	SCSIParallelTask *	tempTask = ( SCSIParallelTask * ) parallelTask;

@@ -71,8 +71,10 @@
 			projectDirPath = "";
 			targets = (
 				089C1673FE841209C02AAC07,
+				B48FD39A0510DCB800CE0E6C,
 				B0ED8C9E03BA371E05A80123,
 				B4D5938D0458832300CE0E5B,
+				2EACB477053B33ED00912AE3,
 			);
 		};
 		089C166AFE841209C02AAC07 = {
@@ -106,8 +108,8 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleMacRISC4PE;
-				MODULE_VERSION = 1.0.2b1;
-				OTHER_CFLAGS = "-fpermissive -D_BIG_ENDIAN";
+				MODULE_VERSION = 1.1.2a16;
+				OTHER_CFLAGS = "-D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleMacRISC4PE;
@@ -117,7 +119,10 @@
 				WRAPPER_EXTENSION = kext;
 			};
 			dependencies = (
-				B4E56AEB0458AD7B00CE0E5B,
+				B48FD39D0510DCD400CE0E6C,
+				B4FDF1F4054F4DAA00382D6A,
+				B42559B00510DED800CE0E6C,
+				2EACB479053B352E00912AE3,
 			);
 			isa = PBXBundleTarget;
 			name = AppleMacRISC4PE;
@@ -133,7 +138,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleMacRISC4PE</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleMacRISC2PE version 1.0.2, Copyright 2003 Apple Computer, Inc.</string>
+	<string>AppleMacRISC2PE version 1.1.2, Copyright 2003 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -145,11 +150,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.2</string>
+	<string>1.1.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.2b1</string>
+	<string>1.1.2a16</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>MacRISC4CPU</key>
@@ -176,6 +181,15 @@
 			<string>MacRISC4PE</string>
 			<key>IONameMatch</key>
 			<string>MacRISC4</string>
+			<key>IOPlatformPluginTable</key>
+			<dict>
+				<key>PowerMac7,2</key>
+				<string>PowerMac7_2_PlatformPlugin</string>
+				<key>PowerMac7,3</key>
+				<string>PowerMac7_2_PlatformPlugin</string>
+				<key>RackMac3,1</key>
+				<string>RackMac3_1_PlatformPlugin</string>
+			</dict>
 			<key>IOProbeScore</key>
 			<integer>10000</integer>
 			<key>IOProviderClass</key>
@@ -691,6 +705,184 @@
 //0B2
 //0B3
 //0B4
+//160
+//161
+//162
+//163
+//164
+		1610B8C205D4B4BA00F5816A = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = RackMac3_1_MasterSensor.cpp;
+			refType = 4;
+		};
+		1610B8C305D4B4BA00F5816A = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = RackMac3_1_MasterSensor.h;
+			refType = 4;
+		};
+		1610B8C405D4B4BA00F5816A = {
+			fileRef = 1610B8C205D4B4BA00F5816A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		1610B8C505D4B4BA00F5816A = {
+			fileRef = 1610B8C305D4B4BA00F5816A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		16B4EA3905D1D798005782DE = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = RackMac3_1_InletTempCtrlLoop.cpp;
+			refType = 4;
+		};
+		16B4EA3A05D1D798005782DE = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = RackMac3_1_InletTempCtrlLoop.h;
+			refType = 4;
+		};
+		16B4EA3B05D1D798005782DE = {
+			fileRef = 16B4EA3905D1D798005782DE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		16B4EA3C05D1D798005782DE = {
+			fileRef = 16B4EA3A05D1D798005782DE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		16B5FF1305D845D9003B98A8 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = RackMac3_1_PIDCtrlLoop.h;
+			refType = 4;
+		};
+		16B5FF1405D845D9003B98A8 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = RackMac3_1_PIDCtrlLoop.cpp;
+			refType = 4;
+		};
+		16B5FF1505D845D9003B98A8 = {
+			fileRef = 16B5FF1305D845D9003B98A8;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		16B5FF1605D845D9003B98A8 = {
+			fileRef = 16B5FF1405D845D9003B98A8;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		16C130B905D4E76000940195 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = RackMac3_1_MasterControl.cpp;
+			refType = 4;
+		};
+		16C130BA05D4E76000940195 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = RackMac3_1_MasterControl.h;
+			refType = 4;
+		};
+		16C130BB05D4E76000940195 = {
+			fileRef = 16C130B905D4E76000940195;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		16C130BC05D4E76000940195 = {
+			fileRef = 16C130BA05D4E76000940195;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		16C130BD05D4E94C00940195 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = RackMac3_1_PWMFanControl.cpp;
+			refType = 4;
+		};
+		16C130BE05D4E94C00940195 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = RackMac3_1_PWMFanControl.h;
+			refType = 4;
+		};
+		16C130BF05D4E94C00940195 = {
+			fileRef = 16C130BD05D4E94C00940195;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		16C130C005D4E94C00940195 = {
+			fileRef = 16C130BE05D4E94C00940195;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		16C730EB05D9ACE500C0A11D = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = RackMac3_1_CPUBUniFanCtrlLoop.cpp;
+			refType = 4;
+		};
+		16C730EC05D9ACE500C0A11D = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = RackMac3_1_CPUBUniFanCtrlLoop.h;
+			refType = 4;
+		};
+		16C730ED05D9ACE500C0A11D = {
+			fileRef = 16C730EB05D9ACE500C0A11D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		16C730EE05D9ACE500C0A11D = {
+			fileRef = 16C730EC05D9ACE500C0A11D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		16F617E605C86A8D0094D90F = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = RackMac3_1_DIMMFanCtrlLoop.cpp;
+			refType = 4;
+		};
+		16F617E705C86A8D0094D90F = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = RackMac3_1_DIMMFanCtrlLoop.h;
+			refType = 4;
+		};
+		16F617E805C86A8D0094D90F = {
+			fileRef = 16F617E605C86A8D0094D90F;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		16F617E905C86A8D0094D90F = {
+			fileRef = 16F617E705C86A8D0094D90F;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//160
+//161
+//162
+//163
+//164
 //190
 //191
 //192
@@ -699,8 +891,10 @@
 		19C28FB6FE9D52B211CA2CBB = {
 			children = (
 				0B81C263FFB7832611CA28AA,
+				B48FD39B0510DCB800CE0E6C,
 				B0ED8C9F03BA371E05A80123,
 				B4D5938E0458832300CE0E5B,
+				2EACB478053B33ED00912AE3,
 			);
 			isa = PBXGroup;
 			name = Products;
@@ -777,6 +971,2493 @@
 //242
 //243
 //244
+//2E0
+//2E1
+//2E2
+//2E3
+//2E4
+		2E5BE0C205EABC9F004A0274 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = RackMac3_1_CPUVoltageSensor.cpp;
+			refType = 4;
+		};
+		2E5BE0C305EABC9F004A0274 = {
+			fileRef = 2E5BE0C205EABC9F004A0274;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2E5BE0C405EABCAA004A0274 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = RackMac3_1_CPUVoltageSensor.h;
+			refType = 4;
+		};
+		2E5BE0C505EABCAA004A0274 = {
+			fileRef = 2E5BE0C405EABCAA004A0274;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2E8C607C05597A9900E677E5 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = RackMac3_1_FCUTicklerCtrlLoop.h;
+			refType = 4;
+		};
+		2E8C607D05597A9900E677E5 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = RackMac3_1_FCUTicklerCtrlLoop.cpp;
+			refType = 4;
+		};
+		2E8C607E05597A9900E677E5 = {
+			fileRef = 2E8C607C05597A9900E677E5;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2E8C607F05597A9900E677E5 = {
+			fileRef = 2E8C607D05597A9900E677E5;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2EACB471053B33ED00912AE3 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		2EACB472053B33ED00912AE3 = {
+			buildActionMask = 2147483647;
+			files = (
+				2EACB493053B356D00912AE3,
+				2EACB495053B356D00912AE3,
+				2EACB497053B356D00912AE3,
+				2EACB49D053B356D00912AE3,
+				2EACB49F053B356D00912AE3,
+				2EACB4A1053B356D00912AE3,
+				2EACB4BC053B357B00912AE3,
+				2EACB4BD053B357C00912AE3,
+				2EACB4BE053B357C00912AE3,
+				2EACB4C1053B358F00912AE3,
+				2EACB4C2053B359000912AE3,
+				2EACB4C3053B359000912AE3,
+				2EACB4C4053B359200912AE3,
+				2EACB4C5053B359200912AE3,
+				2EACB4C6053B359300912AE3,
+				2EACB4C7053B359400912AE3,
+				2EACB4C8053B359500912AE3,
+				2E8C607E05597A9900E677E5,
+				16F617E905C86A8D0094D90F,
+				16B4EA3C05D1D798005782DE,
+				1610B8C505D4B4BA00F5816A,
+				16C130BC05D4E76000940195,
+				16C130C005D4E94C00940195,
+				16B5FF1505D845D9003B98A8,
+				16C730EE05D9ACE500C0A11D,
+				2E5BE0C505EABCAA004A0274,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2EACB473053B33ED00912AE3 = {
+			buildActionMask = 2147483647;
+			files = (
+				2EACB492053B356D00912AE3,
+				2EACB494053B356D00912AE3,
+				2EACB496053B356D00912AE3,
+				2EACB49C053B356D00912AE3,
+				2EACB49E053B356D00912AE3,
+				2EACB4A0053B356D00912AE3,
+				2E8C607F05597A9900E677E5,
+				16F617E805C86A8D0094D90F,
+				16B4EA3B05D1D798005782DE,
+				1610B8C405D4B4BA00F5816A,
+				16C130BB05D4E76000940195,
+				16C130BF05D4E94C00940195,
+				16B5FF1605D845D9003B98A8,
+				16C730ED05D9ACE500C0A11D,
+				2E5BE0C305EABC9F004A0274,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2EACB474053B33ED00912AE3 = {
+			buildActionMask = 2147483647;
+			files = (
+				2EB8F9B1053B824800B0A8A7,
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2EACB475053B33ED00912AE3 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2EACB476053B33ED00912AE3 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		2EACB477053B33ED00912AE3 = {
+			buildPhases = (
+				2EACB471053B33ED00912AE3,
+				2EACB472053B33ED00912AE3,
+				2EACB473053B33ED00912AE3,
+				2EACB474053B33ED00912AE3,
+				2EACB475053B33ED00912AE3,
+				2EACB476053B33ED00912AE3,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.RackMac3_1_PlatformPlugin;
+				MODULE_VERSION = 1.1.2a16;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = RackMac3_1_PlatformPlugin;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = RackMac3_1_PlatformPlugin;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = RackMac3_1_PlatformPlugin;
+			productReference = 2EACB478053B33ED00912AE3;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>RackMac3_1_PlatformPlugin</string>
+	<key>CFBundleGetInfoString</key>
+	<string>RackMac3_1_PlatformPlugin version 1.1.2, Copyright 2003 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.RackMac3_1_PlatformPlugin</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>RackMac3_1_PlatformPlugin</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.1.2</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.1.2a16</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>RackMac3_1_PlatformPlugin</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.RackMac3_1_PlatformPlugin</string>
+			<key>IOClass</key>
+			<string>RackMac3_1_PlatformPlugin</string>
+			<key>IONameMatch</key>
+			<string>RackMac3_1_PlatformPlugin</string>
+			<key>IOPlatformThermalProfile</key>
+			<dict>
+				<key>ConfigArray</key>
+				<array>
+					<dict>
+						<key>Desc-Key</key>
+						<string>CFG_UNI</string>
+						<key>Description</key>
+						<string>Uniprocessor</string>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>CFG_DUAL</string>
+						<key>Description</key>
+						<string>Dual Processor</string>
+					</dict>
+				</array>
+				<key>ControlArray</key>
+				<array>
+					<dict>
+						<key>Desc-Key</key>
+						<string>SLEW</string>
+						<key>IOClass</key>
+						<string>IOPlatformSlewClockControl</string>
+						<key>control-id</key>
+						<integer>16</integer>
+						<key>location</key>
+						<string>Clock Slew</string>
+						<key>type</key>
+						<string>slew</string>
+						<key>version</key>
+						<integer>0</integer>
+						<key>zone</key>
+						<data>
+						AAAAAA==
+						</data>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>CPU_A1_FAN</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_MasterControl</string>
+						<key>control-id</key>
+						<integer>16640</integer>
+						<key>group</key>
+						<string>Blowers</string>
+						<key>hwmondThresholds</key>
+						<dict>
+							<key>maxFailureThreshold</key>
+							<integer>14500</integer>
+							<key>maxWarningThreshold</key>
+							<integer>14000</integer>
+							<key>medianValue</key>
+							<integer>0</integer>
+							<key>minFailureThreshold</key>
+							<integer>2500</integer>
+							<key>minWarningThreshold</key>
+							<integer>3000</integer>
+						</dict>
+						<key>location</key>
+						<string>CPU A1</string>
+						<key>sort-key</key>
+						<integer>10001</integer>
+						<key>type</key>
+						<string>fan-rpm</string>
+						<key>version</key>
+						<integer>1</integer>
+						<key>zone</key>
+						<data>
+						AAAAAA==
+						</data>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>CPU_A2_FAN</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_MasterControl</string>
+						<key>control-id</key>
+						<integer>16896</integer>
+						<key>group</key>
+						<string>Blowers</string>
+						<key>hwmondThresholds</key>
+						<dict>
+							<key>maxFailureThreshold</key>
+							<integer>14500</integer>
+							<key>maxWarningThreshold</key>
+							<integer>14000</integer>
+							<key>medianValue</key>
+							<integer>0</integer>
+							<key>minFailureThreshold</key>
+							<integer>2500</integer>
+							<key>minWarningThreshold</key>
+							<integer>3000</integer>
+						</dict>
+						<key>location</key>
+						<string>CPU A2</string>
+						<key>sort-key</key>
+						<integer>10002</integer>
+						<key>type</key>
+						<string>fan-rpm</string>
+						<key>version</key>
+						<integer>1</integer>
+						<key>zone</key>
+						<data>
+						AAAAAA==
+						</data>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>CPU_A3_FAN</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_MasterControl</string>
+						<key>control-id</key>
+						<integer>17152</integer>
+						<key>group</key>
+						<string>Blowers</string>
+						<key>hwmondThresholds</key>
+						<dict>
+							<key>maxFailureThreshold</key>
+							<integer>14500</integer>
+							<key>maxWarningThreshold</key>
+							<integer>14000</integer>
+							<key>medianValue</key>
+							<integer>0</integer>
+							<key>minFailureThreshold</key>
+							<integer>2500</integer>
+							<key>minWarningThreshold</key>
+							<integer>3000</integer>
+						</dict>
+						<key>location</key>
+						<string>CPU A3</string>
+						<key>sort-key</key>
+						<integer>10003</integer>
+						<key>type</key>
+						<string>fan-rpm</string>
+						<key>version</key>
+						<integer>1</integer>
+						<key>zone</key>
+						<data>
+						AAAAAA==
+						</data>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>CPU_B1_FAN</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_MasterControl</string>
+						<key>control-id</key>
+						<integer>17408</integer>
+						<key>group</key>
+						<string>Blowers</string>
+						<key>hwmondThresholds</key>
+						<dict>
+							<key>maxFailureThreshold</key>
+							<integer>14500</integer>
+							<key>maxWarningThreshold</key>
+							<integer>14000</integer>
+							<key>medianValue</key>
+							<integer>0</integer>
+							<key>minFailureThreshold</key>
+							<integer>2500</integer>
+							<key>minWarningThreshold</key>
+							<integer>3000</integer>
+						</dict>
+						<key>location</key>
+						<string>CPU B1</string>
+						<key>sort-key</key>
+						<integer>20001</integer>
+						<key>type</key>
+						<string>fan-rpm</string>
+						<key>version</key>
+						<integer>1</integer>
+						<key>zone</key>
+						<data>
+						AAAAAA==
+						</data>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>CPU_B2_FAN</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_MasterControl</string>
+						<key>control-id</key>
+						<integer>17664</integer>
+						<key>group</key>
+						<string>Blowers</string>
+						<key>hwmondThresholds</key>
+						<dict>
+							<key>maxFailureThreshold</key>
+							<integer>14500</integer>
+							<key>maxWarningThreshold</key>
+							<integer>14000</integer>
+							<key>medianValue</key>
+							<integer>0</integer>
+							<key>minFailureThreshold</key>
+							<integer>2500</integer>
+							<key>minWarningThreshold</key>
+							<integer>3000</integer>
+						</dict>
+						<key>location</key>
+						<string>CPU B2</string>
+						<key>sort-key</key>
+						<integer>20002</integer>
+						<key>type</key>
+						<string>fan-rpm</string>
+						<key>version</key>
+						<integer>1</integer>
+						<key>zone</key>
+						<data>
+						AAAAAA==
+						</data>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>CPU_B3_FAN</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_MasterControl</string>
+						<key>control-id</key>
+						<integer>17920</integer>
+						<key>group</key>
+						<string>Blowers</string>
+						<key>hwmondThresholds</key>
+						<dict>
+							<key>maxFailureThreshold</key>
+							<integer>14500</integer>
+							<key>maxWarningThreshold</key>
+							<integer>14000</integer>
+							<key>medianValue</key>
+							<integer>0</integer>
+							<key>minFailureThreshold</key>
+							<integer>2500</integer>
+							<key>minWarningThreshold</key>
+							<integer>3000</integer>
+						</dict>
+						<key>location</key>
+						<string>CPU B3</string>
+						<key>sort-key</key>
+						<integer>20003</integer>
+						<key>type</key>
+						<string>fan-rpm</string>
+						<key>version</key>
+						<integer>1</integer>
+						<key>zone</key>
+						<data>
+						AAAAAA==
+						</data>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>U3_FAN</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_PWMFanControl</string>
+						<key>control-id</key>
+						<integer>18688</integer>
+						<key>group</key>
+						<string>Blowers</string>
+						<key>hwmondThresholds</key>
+						<dict>
+							<key>maxFailureThreshold</key>
+							<integer>14500</integer>
+							<key>maxWarningThreshold</key>
+							<integer>14000</integer>
+							<key>medianValue</key>
+							<integer>0</integer>
+							<key>minFailureThreshold</key>
+							<integer>2500</integer>
+							<key>minWarningThreshold</key>
+							<integer>3000</integer>
+						</dict>
+						<key>location</key>
+						<string>System Controller</string>
+						<key>sort-key</key>
+						<integer>30001</integer>
+						<key>ticks-per-cycle</key>
+						<integer>255</integer>
+						<key>type</key>
+						<string>fan-pwm</string>
+						<key>version</key>
+						<integer>1</integer>
+						<key>zone</key>
+						<data>
+						AAAABA==
+						</data>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>PCI_SLOT_FAN</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_PWMFanControl</string>
+						<key>control-id</key>
+						<integer>18944</integer>
+						<key>group</key>
+						<string>Blowers</string>
+						<key>hwmondThresholds</key>
+						<dict>
+							<key>maxFailureThreshold</key>
+							<integer>14500</integer>
+							<key>maxWarningThreshold</key>
+							<integer>14000</integer>
+							<key>medianValue</key>
+							<integer>0</integer>
+							<key>minFailureThreshold</key>
+							<integer>2500</integer>
+							<key>minWarningThreshold</key>
+							<integer>3000</integer>
+						</dict>
+						<key>location</key>
+						<string>PCI Slot</string>
+						<key>sort-key</key>
+						<integer>40001</integer>
+						<key>ticks-per-cycle</key>
+						<integer>255</integer>
+						<key>type</key>
+						<string>fan-pwm</string>
+						<key>version</key>
+						<integer>1</integer>
+						<key>zone</key>
+						<data>
+						AAAAAg==
+						</data>
+					</dict>
+				</array>
+				<key>CreationDate</key>
+				<string>Mon Dec 15 15:19:29 PST 2003</string>
+				<key>CtrlLoopArray</key>
+				<array>
+					<dict>
+						<key>ControlIDArray</key>
+						<array>
+							<integer>16</integer>
+						</array>
+						<key>Description</key>
+						<string>Clock Slew</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_SlewCtrlLoop</string>
+						<key>MetaStateArray</key>
+						<array>
+							<dict>
+								<key>Description</key>
+								<string>Dynamic Power Step</string>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Force Reduced Speed</string>
+							</dict>
+						</array>
+						<key>ctrlloop-id</key>
+						<integer>0</integer>
+					</dict>
+					<dict>
+						<key>ControlIDArray</key>
+						<array>
+							<integer>16640</integer>
+							<integer>16896</integer>
+							<integer>17152</integer>
+						</array>
+						<key>Description</key>
+						<string>CPU A Fans</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_CPUFanCtrlLoop</string>
+						<key>MetaStateArray</key>
+						<array>
+							<dict>
+								<key>garbage</key>
+								<string>nothing</string>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Failsafe</string>
+								<key>interval</key>
+								<integer>5</integer>
+								<key>output-override</key>
+								<integer>12000</integer>
+							</dict>
+						</array>
+						<key>RM31-CPU-PID-datasets</key>
+						<array>
+							<dict>
+								<key>Description</key>
+								<string>Normal (1.4 GHz) Q42C</string>
+								<key>G_d</key>
+								<data>
+								DQAAAA==
+								</data>
+								<key>G_p</key>
+								<data>
+								AaAAAA==
+								</data>
+								<key>G_r</key>
+								<data>
+								AAAAAA==
+								</data>
+								<key>history-length</key>
+								<integer>6</integer>
+								<key>input-max</key>
+								<integer>4980736</integer>
+								<key>input-target</key>
+								<integer>4653056</integer>
+								<key>interval</key>
+								<integer>1</integer>
+								<key>output-max</key>
+								<integer>14000</integer>
+								<key>output-min</key>
+								<integer>4000</integer>
+								<key>pid-dataset-source</key>
+								<string>Thermal Profile PList</string>
+								<key>pid-dataset-version</key>
+								<data>
+								AAED4g==
+								</data>
+								<key>power-max</key>
+								<integer>5898240</integer>
+								<key>power-max-adjustment</key>
+								<integer>983040</integer>
+								<key>processor-bin</key>
+								<data>
+								NDJD
+								</data>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Normal (1.4 GHz) Q42D</string>
+								<key>G_d</key>
+								<data>
+								DQAAAA==
+								</data>
+								<key>G_p</key>
+								<data>
+								AaAAAA==
+								</data>
+								<key>G_r</key>
+								<data>
+								AAAAAA==
+								</data>
+								<key>history-length</key>
+								<integer>6</integer>
+								<key>input-max</key>
+								<integer>4980736</integer>
+								<key>input-target</key>
+								<integer>4653056</integer>
+								<key>interval</key>
+								<integer>1</integer>
+								<key>output-max</key>
+								<integer>14000</integer>
+								<key>output-min</key>
+								<integer>4000</integer>
+								<key>pid-dataset-source</key>
+								<string>Thermal Profile PList</string>
+								<key>pid-dataset-version</key>
+								<data>
+								AAED4g==
+								</data>
+								<key>power-max</key>
+								<integer>5898240</integer>
+								<key>power-max-adjustment</key>
+								<integer>983040</integer>
+								<key>processor-bin</key>
+								<data>
+								NDJE
+								</data>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Normal (1.4 GHz) DC3</string>
+								<key>G_d</key>
+								<data>
+								DQAAAA==
+								</data>
+								<key>G_p</key>
+								<data>
+								AaAAAA==
+								</data>
+								<key>G_r</key>
+								<data>
+								AAAAAA==
+								</data>
+								<key>history-length</key>
+								<integer>6</integer>
+								<key>input-max</key>
+								<integer>4587520</integer>
+								<key>input-target</key>
+								<integer>4259840</integer>
+								<key>interval</key>
+								<integer>1</integer>
+								<key>output-max</key>
+								<integer>14000</integer>
+								<key>output-min</key>
+								<integer>4000</integer>
+								<key>pid-dataset-source</key>
+								<string>Thermal Profile PList</string>
+								<key>pid-dataset-version</key>
+								<data>
+								AAEC5A==
+								</data>
+								<key>power-max</key>
+								<integer>5898240</integer>
+								<key>power-max-adjustment</key>
+								<integer>983040</integer>
+								<key>processor-bin</key>
+								<data>
+								REMz
+								</data>
+							</dict>
+						</array>
+						<key>SensorIDArray</key>
+						<array>
+							<integer>11</integer>
+							<integer>13</integer>
+							<integer>14</integer>
+							<integer>148</integer>
+						</array>
+						<key>cpu-id</key>
+						<integer>0</integer>
+						<key>ctrlloop-id</key>
+						<integer>1</integer>
+						<key>meta-state-format</key>
+						<string>RM31-CPU-PID</string>
+					</dict>
+					<dict>
+						<key>ControlIDArray</key>
+						<array>
+							<integer>17408</integer>
+							<integer>17664</integer>
+							<integer>17920</integer>
+						</array>
+						<key>Description</key>
+						<string>CPU B Fans</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_CPUFanCtrlLoop</string>
+						<key>MetaStateArray</key>
+						<array>
+							<dict>
+								<key>nothing</key>
+								<string>garbage</string>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Failsafe</string>
+								<key>interval</key>
+								<integer>5</integer>
+								<key>output-override</key>
+								<integer>12000</integer>
+							</dict>
+						</array>
+						<key>RM31-CPU-PID-datasets</key>
+						<array>
+							<dict>
+								<key>Description</key>
+								<string>Normal (1.4 GHz) Q42C</string>
+								<key>G_d</key>
+								<data>
+								DQAAAA==
+								</data>
+								<key>G_p</key>
+								<data>
+								AaAAAA==
+								</data>
+								<key>G_r</key>
+								<data>
+								AAAAAA==
+								</data>
+								<key>history-length</key>
+								<integer>6</integer>
+								<key>input-max</key>
+								<integer>4980736</integer>
+								<key>input-target</key>
+								<integer>4653056</integer>
+								<key>interval</key>
+								<integer>1</integer>
+								<key>output-max</key>
+								<integer>14000</integer>
+								<key>output-min</key>
+								<integer>4000</integer>
+								<key>pid-dataset-source</key>
+								<string>Thermal Profile PList</string>
+								<key>pid-dataset-version</key>
+								<data>
+								AAED4g==
+								</data>
+								<key>power-max</key>
+								<integer>5898240</integer>
+								<key>power-max-adjustment</key>
+								<integer>983040</integer>
+								<key>processor-bin</key>
+								<data>
+								NDJD
+								</data>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Normal (1.4 GHz) Q42D</string>
+								<key>G_d</key>
+								<data>
+								DQAAAA==
+								</data>
+								<key>G_p</key>
+								<data>
+								AaAAAA==
+								</data>
+								<key>G_r</key>
+								<data>
+								AAAAAA==
+								</data>
+								<key>history-length</key>
+								<integer>6</integer>
+								<key>input-max</key>
+								<integer>4980736</integer>
+								<key>input-target</key>
+								<integer>4653056</integer>
+								<key>interval</key>
+								<integer>1</integer>
+								<key>output-max</key>
+								<integer>14000</integer>
+								<key>output-min</key>
+								<integer>4000</integer>
+								<key>pid-dataset-source</key>
+								<string>Thermal Profile PList</string>
+								<key>pid-dataset-version</key>
+								<data>
+								AAED4g==
+								</data>
+								<key>power-max</key>
+								<integer>5898240</integer>
+								<key>power-max-adjustment</key>
+								<integer>983040</integer>
+								<key>processor-bin</key>
+								<data>
+								NDJE
+								</data>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Normal (1.4 GHz) DC3</string>
+								<key>G_d</key>
+								<data>
+								DQAAAA==
+								</data>
+								<key>G_p</key>
+								<data>
+								AaAAAA==
+								</data>
+								<key>G_r</key>
+								<data>
+								AAAAAA==
+								</data>
+								<key>history-length</key>
+								<integer>6</integer>
+								<key>input-max</key>
+								<integer>4587520</integer>
+								<key>input-target</key>
+								<integer>4259840</integer>
+								<key>interval</key>
+								<integer>1</integer>
+								<key>output-max</key>
+								<integer>14000</integer>
+								<key>output-min</key>
+								<integer>4000</integer>
+								<key>pid-dataset-source</key>
+								<string>Thermal Profile PList</string>
+								<key>pid-dataset-version</key>
+								<data>
+								AAEC5A==
+								</data>
+								<key>power-max</key>
+								<integer>5898240</integer>
+								<key>power-max-adjustment</key>
+								<integer>983040</integer>
+								<key>processor-bin</key>
+								<data>
+								REMz
+								</data>
+							</dict>
+						</array>
+						<key>SensorIDArray</key>
+						<array>
+							<integer>16</integer>
+							<integer>18</integer>
+							<integer>19</integer>
+							<integer>149</integer>
+						</array>
+						<key>ValidConfigs</key>
+						<array>
+							<integer>1</integer>
+						</array>
+						<key>cpu-id</key>
+						<integer>1</integer>
+						<key>ctrlloop-id</key>
+						<integer>2</integer>
+						<key>meta-state-format</key>
+						<string>RM31-CPU-PID</string>
+					</dict>
+					<dict>
+						<key>ControlIDArray</key>
+						<array>
+							<integer>17408</integer>
+							<integer>17664</integer>
+							<integer>17920</integer>
+						</array>
+						<key>Description</key>
+						<string>CPU B Fans Uni</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_CPUBUniFanCtrlLoop</string>
+						<key>MetaStateArray</key>
+						<array>
+							<dict>
+								<key>Description</key>
+								<string>Normal</string>
+								<key>interval</key>
+								<integer>1</integer>
+								<key>output-max</key>
+								<integer>14000</integer>
+								<key>output-min</key>
+								<integer>4000</integer>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Failsafe</string>
+								<key>interval</key>
+								<integer>5</integer>
+								<key>output-override</key>
+								<integer>14000</integer>
+							</dict>
+						</array>
+						<key>SensorIDArray</key>
+						<array>
+							<integer>1</integer>
+						</array>
+						<key>ValidConfigs</key>
+						<array>
+							<integer>0</integer>
+						</array>
+						<key>cpu-id</key>
+						<integer>1</integer>
+						<key>ctrlloop-id</key>
+						<integer>8</integer>
+						<key>meta-state-format</key>
+						<string>RM31-CPU-PID</string>
+					</dict>
+					<dict>
+						<key>ControlIDArray</key>
+						<array>
+							<integer>18688</integer>
+						</array>
+						<key>Description</key>
+						<string>U3 Fan</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_PIDCtrlLoop</string>
+						<key>MetaStateArray</key>
+						<array>
+							<dict>
+								<key>Description</key>
+								<string>Normal</string>
+								<key>G_d</key>
+								<data>
+								AFAAAA==
+								</data>
+								<key>G_p</key>
+								<data>
+								AATMzA==
+								</data>
+								<key>G_r</key>
+								<data>
+								AAAAAA==
+								</data>
+								<key>history-length</key>
+								<integer>2</integer>
+								<key>input-target</key>
+								<integer>4600000</integer>
+								<key>interval</key>
+								<integer>1</integer>
+								<key>output-max</key>
+								<integer>100</integer>
+								<key>output-min</key>
+								<integer>20</integer>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Failsafe</string>
+								<key>interval</key>
+								<integer>5</integer>
+								<key>output-override</key>
+								<integer>100</integer>
+							</dict>
+						</array>
+						<key>SensorIDArray</key>
+						<array>
+							<integer>1</integer>
+						</array>
+						<key>ctrlloop-id</key>
+						<integer>3</integer>
+						<key>meta-state-format</key>
+						<string>PID</string>
+					</dict>
+					<dict>
+						<key>ControlIDArray</key>
+						<array>
+							<integer>18944</integer>
+						</array>
+						<key>Description</key>
+						<string>PCI Slot Fan</string>
+						<key>IOClass</key>
+						<string>IOPlatformPIDCtrlLoop</string>
+						<key>MetaStateArray</key>
+						<array>
+							<dict>
+								<key>Description</key>
+								<string>Normal</string>
+								<key>G_d</key>
+								<data>
+								AAAAAA==
+								</data>
+								<key>G_p</key>
+								<data>
+								AAAAAA==
+								</data>
+								<key>G_r</key>
+								<data>
+								ABAAAA==
+								</data>
+								<key>history-length</key>
+								<integer>20</integer>
+								<key>input-target</key>
+								<integer>3200000</integer>
+								<key>interval</key>
+								<integer>1</integer>
+								<key>output-max</key>
+								<integer>100</integer>
+								<key>output-min</key>
+								<integer>20</integer>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Failsafe</string>
+								<key>interval</key>
+								<integer>1</integer>
+								<key>output-override</key>
+								<integer>100</integer>
+							</dict>
+						</array>
+						<key>SensorIDArray</key>
+						<array>
+							<integer>2</integer>
+						</array>
+						<key>ctrlloop-id</key>
+						<integer>4</integer>
+						<key>meta-state-format</key>
+						<string>PID</string>
+					</dict>
+					<dict>
+						<key>ControlIDArray</key>
+						<array>
+							<integer>16640</integer>
+							<integer>16896</integer>
+							<integer>17152</integer>
+							<integer>17408</integer>
+							<integer>17664</integer>
+							<integer>17920</integer>
+							<integer>18688</integer>
+							<integer>18944</integer>
+						</array>
+						<key>Description</key>
+						<string>FCU Tickler</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_FCUTicklerCtrlLoop</string>
+						<key>MetaStateArray</key>
+						<array>
+							<dict>
+								<key>Description</key>
+								<string>Normal</string>
+							</dict>
+						</array>
+						<key>SensorIDArray</key>
+						<array>
+							<integer>0</integer>
+							<integer>10</integer>
+							<integer>12</integer>
+							<integer>15</integer>
+							<integer>17</integer>
+							<integer>40</integer>
+							<integer>41</integer>
+							<integer>42</integer>
+							<integer>43</integer>
+							<integer>44</integer>
+							<integer>45</integer>
+							<integer>46</integer>
+							<integer>47</integer>
+							<integer>50</integer>
+							<integer>51</integer>
+							<integer>52</integer>
+							<integer>53</integer>
+							<integer>54</integer>
+							<integer>55</integer>
+							<integer>56</integer>
+							<integer>57</integer>
+							<integer>58</integer>
+						</array>
+						<key>ctrlloop-id</key>
+						<integer>5</integer>
+					</dict>
+					<dict>
+						<key>ControlIDArray</key>
+						<array>
+							<integer>18688</integer>
+						</array>
+						<key>Description</key>
+						<string>DIMM Fans</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_DIMMFanCtrlLoop</string>
+						<key>MetaStateArray</key>
+						<array>
+							<dict>
+								<key>Description</key>
+								<string>Normal</string>
+								<key>G_d</key>
+								<data>
+								AAAAAA==
+								</data>
+								<key>G_p</key>
+								<data>
+								AAAAAA==
+								</data>
+								<key>G_r</key>
+								<data>
+								BlU2AA==
+								</data>
+								<key>history-length</key>
+								<integer>20</integer>
+								<key>input-target</key>
+								<integer>3276800</integer>
+								<key>interval</key>
+								<integer>1</integer>
+								<key>output-max</key>
+								<integer>14000</integer>
+								<key>output-min</key>
+								<integer>4000</integer>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Failsafe</string>
+								<key>interval</key>
+								<integer>1</integer>
+								<key>output-override</key>
+								<integer>14000</integer>
+							</dict>
+						</array>
+						<key>SensorIDArray</key>
+						<array>
+							<integer>48</integer>
+						</array>
+						<key>ctrlloop-id</key>
+						<integer>6</integer>
+						<key>meta-state-format</key>
+						<string>PID</string>
+					</dict>
+					<dict>
+						<key>ControlIDArray</key>
+						<array>
+							<integer>18688</integer>
+						</array>
+						<key>Description</key>
+						<string>Inlet Slewing</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_InletTempCtrlLoop</string>
+						<key>MetaStateArray</key>
+						<array>
+							<dict>
+								<key>Description</key>
+								<string>Normal</string>
+								<key>G_d</key>
+								<data>
+								AAAAAA==
+								</data>
+								<key>G_p</key>
+								<data>
+								AAAAAA==
+								</data>
+								<key>G_r</key>
+								<data>
+								AAAAAA==
+								</data>
+								<key>history-length</key>
+								<integer>1</integer>
+								<key>input-target</key>
+								<integer>2424832</integer>
+								<key>interval</key>
+								<integer>10</integer>
+								<key>output-max</key>
+								<integer>1</integer>
+								<key>output-min</key>
+								<integer>0</integer>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Failsafe</string>
+								<key>interval</key>
+								<integer>10</integer>
+								<key>output-override</key>
+								<integer>1</integer>
+							</dict>
+						</array>
+						<key>SensorIDArray</key>
+						<array>
+							<integer>3</integer>
+							<integer>4</integer>
+						</array>
+						<key>ctrlloop-id</key>
+						<integer>7</integer>
+						<key>meta-state-format</key>
+						<string>PID</string>
+					</dict>
+				</array>
+				<key>SensorArray</key>
+				<array>
+					<dict>
+						<key>Desc-Key</key>
+						<string>MAX6690LOC_U3AMBIENT</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_MasterSensor</string>
+						<key>group</key>
+						<string>Enclosure Temperatures</string>
+						<key>location</key>
+						<string>System Controller Ambient</string>
+						<key>polling-period</key>
+						<integer>10</integer>
+						<key>sensor-id</key>
+						<integer>0</integer>
+						<key>sort-key</key>
+						<integer>20001</integer>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>MAX6690RMT_U3DIODE</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_MasterSensor</string>
+						<key>group</key>
+						<string>Enclosure Temperatures</string>
+						<key>hwmondThresholds</key>
+						<dict>
+							<key>maxFailureThreshold</key>
+							<integer>5898240</integer>
+							<key>maxWarningThreshold</key>
+							<integer>4915200</integer>
+							<key>medianValue</key>
+							<integer>3604480</integer>
+							<key>minFailureThreshold</key>
+							<integer>0</integer>
+							<key>minWarningThreshold</key>
+							<integer>0</integer>
+						</dict>
+						<key>location</key>
+						<string>System Controller Internal</string>
+						<key>sensor-id</key>
+						<integer>1</integer>
+						<key>sort-key</key>
+						<integer>20002</integer>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>LM75_PCISLOTS</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_MasterSensor</string>
+						<key>group</key>
+						<string>Enclosure Temperatures</string>
+						<key>hwmondThresholds</key>
+						<dict>
+							<key>maxFailureThreshold</key>
+							<integer>3932160</integer>
+							<key>maxWarningThreshold</key>
+							<integer>3604480</integer>
+							<key>medianValue</key>
+							<integer>2293760</integer>
+							<key>minFailureThreshold</key>
+							<integer>0</integer>
+							<key>minWarningThreshold</key>
+							<integer>0</integer>
+						</dict>
+						<key>location</key>
+						<string>PCI Slots</string>
+						<key>sensor-id</key>
+						<integer>2</integer>
+						<key>sort-key</key>
+						<integer>40001</integer>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>LM75_CPUAINLET</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_MasterSensor</string>
+						<key>group</key>
+						<string>Processor Temperatures</string>
+						<key>hwmondThresholds</key>
+						<dict>
+							<key>maxFailureThreshold</key>
+							<integer>2293760</integer>
+							<key>maxWarningThreshold</key>
+							<integer>2228224</integer>
+							<key>medianValue</key>
+							<integer>1638400</integer>
+							<key>minFailureThreshold</key>
+							<integer>0</integer>
+							<key>minWarningThreshold</key>
+							<integer>0</integer>
+						</dict>
+						<key>location</key>
+						<string>CPU 1 Inlet</string>
+						<key>sensor-id</key>
+						<integer>3</integer>
+						<key>sort-key</key>
+						<integer>10001</integer>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>LM75_CPUBINLET</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_MasterSensor</string>
+						<key>group</key>
+						<string>Processor Temperatures</string>
+						<key>hwmondThresholds</key>
+						<dict>
+							<key>maxFailureThreshold</key>
+							<integer>2293760</integer>
+							<key>maxWarningThreshold</key>
+							<integer>2228224</integer>
+							<key>medianValue</key>
+							<integer>1638400</integer>
+							<key>minFailureThreshold</key>
+							<integer>0</integer>
+							<key>minWarningThreshold</key>
+							<integer>0</integer>
+						</dict>
+						<key>location</key>
+						<string>CPU 2 Inlet</string>
+						<key>sensor-id</key>
+						<integer>4</integer>
+						<key>sort-key</key>
+						<integer>20001</integer>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>AD7417_CPUAAMB</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_MasterSensor</string>
+						<key>group</key>
+						<string>Processor Temperatures</string>
+						<key>location</key>
+						<string>CPU 1 Ambient</string>
+						<key>polling-period</key>
+						<integer>10</integer>
+						<key>sensor-id</key>
+						<integer>10</integer>
+						<key>sort-key</key>
+						<integer>10002</integer>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>AD7417AD1_CPUADIODE</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_CPUTempSensor</string>
+						<key>cpu-id</key>
+						<integer>0</integer>
+						<key>group</key>
+						<string>Processor Temperatures</string>
+						<key>location</key>
+						<string>CPU 1 Internal</string>
+						<key>sensor-id</key>
+						<integer>11</integer>
+						<key>sort-key</key>
+						<integer>10003</integer>
+						<key>type</key>
+						<string>temperature</string>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>AD7417AD2_CPUA12VCURR</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_ScaledSensor</string>
+						<key>group</key>
+						<string>System Currents</string>
+						<key>location</key>
+						<string>CPU 1 12v</string>
+						<key>polling-period</key>
+						<integer>10</integer>
+						<key>scaling-factor</key>
+						<data>
+						AAADIA==
+						</data>
+						<key>sensor-id</key>
+						<integer>12</integer>
+						<key>sort-key</key>
+						<integer>20001</integer>
+						<key>type</key>
+						<string>current</string>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>AD7417AD3_CPUAVCORE</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_CPUVoltageSensor</string>
+						<key>cpu-id</key>
+						<integer>0</integer>
+						<key>group</key>
+						<string>System Voltages 1</string>
+						<key>location</key>
+						<string>CPU 1 Vcore</string>
+						<key>scaling-factor</key>
+						<data>
+						AAAAoA==
+						</data>
+						<key>sensor-id</key>
+						<integer>13</integer>
+						<key>sort-key</key>
+						<integer>10001</integer>
+						<key>type</key>
+						<string>voltage</string>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>AD7417AD4_CPUACORECURR</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_ScaledSensor</string>
+						<key>group</key>
+						<string>System Currents</string>
+						<key>location</key>
+						<string>CPU 1 Core</string>
+						<key>scaling-factor</key>
+						<data>
+						AAAfQA==
+						</data>
+						<key>sensor-id</key>
+						<integer>14</integer>
+						<key>sort-key</key>
+						<integer>10001</integer>
+						<key>type</key>
+						<string>current</string>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>FAKE_POWER_CPUA</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_CPUPowerSensor</string>
+						<key>I_V_inputs</key>
+						<array>
+							<integer>13</integer>
+							<integer>14</integer>
+						</array>
+						<key>cpu-id</key>
+						<integer>0</integer>
+						<key>group</key>
+						<string>Processor Power</string>
+						<key>location</key>
+						<string>CPU 1 Power</string>
+						<key>sensor-id</key>
+						<integer>148</integer>
+						<key>sort-key</key>
+						<integer>10001</integer>
+						<key>type</key>
+						<string>power</string>
+						<key>version</key>
+						<integer>1</integer>
+						<key>zone</key>
+						<data>
+						AAAAAA==
+						</data>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>AD7417TEMP_CPUBAMB</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_MasterSensor</string>
+						<key>ValidConfigs</key>
+						<array>
+							<integer>1</integer>
+						</array>
+						<key>group</key>
+						<string>Processor Temperatures</string>
+						<key>location</key>
+						<string>CPU 2 Ambient</string>
+						<key>polling-period</key>
+						<integer>10</integer>
+						<key>sensor-id</key>
+						<integer>15</integer>
+						<key>sort-key</key>
+						<integer>20002</integer>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>AD7417AD1_CPUBDIODE</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_CPUTempSensor</string>
+						<key>ValidConfigs</key>
+						<array>
+							<integer>1</integer>
+						</array>
+						<key>cpu-id</key>
+						<integer>1</integer>
+						<key>group</key>
+						<string>Processor Temperatures</string>
+						<key>location</key>
+						<string>CPU 2 Internal</string>
+						<key>sensor-id</key>
+						<integer>16</integer>
+						<key>sort-key</key>
+						<integer>20003</integer>
+						<key>type</key>
+						<string>temperature</string>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>AD7417AD2_CPUB12VCURR</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_ScaledSensor</string>
+						<key>ValidConfigs</key>
+						<array>
+							<integer>1</integer>
+						</array>
+						<key>group</key>
+						<string>System Currents</string>
+						<key>location</key>
+						<string>CPU 2 12v</string>
+						<key>polling-period</key>
+						<integer>10</integer>
+						<key>scaling-factor</key>
+						<data>
+						AAADIA==
+						</data>
+						<key>sensor-id</key>
+						<integer>17</integer>
+						<key>sort-key</key>
+						<integer>20002</integer>
+						<key>type</key>
+						<string>current</string>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>AD7417AD3_CPUBVCORE</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_CPUVoltageSensor</string>
+						<key>ValidConfigs</key>
+						<array>
+							<integer>1</integer>
+						</array>
+						<key>cpu-id</key>
+						<integer>1</integer>
+						<key>group</key>
+						<string>System Voltages 1</string>
+						<key>location</key>
+						<string>CPU 2 Vcore</string>
+						<key>scaling-factor</key>
+						<data>
+						AAAAoA==
+						</data>
+						<key>sensor-id</key>
+						<integer>18</integer>
+						<key>sort-key</key>
+						<integer>10002</integer>
+						<key>type</key>
+						<string>voltage</string>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>AD7417AD4_CPUBCORECURR</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_ScaledSensor</string>
+						<key>ValidConfigs</key>
+						<array>
+							<integer>1</integer>
+						</array>
+						<key>group</key>
+						<string>System Currents</string>
+						<key>location</key>
+						<string>CPU 2 Core</string>
+						<key>scaling-factor</key>
+						<data>
+						AAAfQA==
+						</data>
+						<key>sensor-id</key>
+						<integer>19</integer>
+						<key>sort-key</key>
+						<integer>10002</integer>
+						<key>type</key>
+						<string>current</string>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>FAKE_POWER_CPUB</string>
+						<key>IOClass</key>
+						<string>RackMac3_1_CPUPowerSensor</string>
+						<key>I_V_inputs</key>
+						<array>
+							<integer>18</integer>
+							<integer>19</integer>
+						</array>
+						<key>ValidConfigs</key>
+						<array>
+							<integer>1</integer>
+						</array>
+						<key>cpu-id</key>
+						<integer>1</integer>
+						<key>group</key>
+						<string>Processor Power</string>
+						<key>location</key>
+						<string>CPU 2 Power</string>
+						<key>sensor-id</key>
+						<integer>149</integer>
+						<key>sort-key</key>
+						<integer>10002</integer>
+						<key>type</key>
+						<string>power</string>
+						<key>version</key>
+						<integer>1</integer>
+						<key>zone</key>
+						<data>
+						AAAAAA==
+						</data>
+					</dict>
+					<dict>
+						<key>IOClass</key>
+						<string>RackMac3_1_MasterSensor</string>
+						<key>group</key>
+						<string>System Voltages 2</string>
+						<key>hwmondThresholds</key>
+						<dict>
+							<key>maxFailureThreshold</key>
+							<integer>129761</integer>
+							<key>maxWarningThreshold</key>
+							<integer>123863</integer>
+							<key>medianValue</key>
+							<integer>117965</integer>
+							<key>minFailureThreshold</key>
+							<integer>106168</integer>
+							<key>minWarningThreshold</key>
+							<integer>112067</integer>
+						</dict>
+						<key>location</key>
+						<string>1.8v</string>
+						<key>polling-period</key>
+						<integer>10</integer>
+						<key>sensor-id</key>
+						<integer>40</integer>
+						<key>sort-key</key>
+						<integer>30001</integer>
+						<key>type</key>
+						<string>voltage</string>
+					</dict>
+					<dict>
+						<key>IOClass</key>
+						<string>RackMac3_1_MasterSensor</string>
+						<key>group</key>
+						<string>System Voltages 1</string>
+						<key>hwmondThresholds</key>
+						<dict>
+							<key>maxFailureThreshold</key>
+							<integer>108134</integer>
+							<key>maxWarningThreshold</key>
+							<integer>103219</integer>
+							<key>medianValue</key>
+							<integer>98304</integer>
+							<key>minFailureThreshold</key>
+							<integer>88474</integer>
+							<key>minWarningThreshold</key>
+							<integer>93389</integer>
+						</dict>
+						<key>location</key>
+						<string>System Bus IO VDD</string>
+						<key>polling-period</key>
+						<integer>10</integer>
+						<key>sensor-id</key>
+						<integer>41</integer>
+						<key>sort-key</key>
+						<integer>30001</integer>
+						<key>type</key>
+						<string>voltage</string>
+					</dict>
+					<dict>
+						<key>IOClass</key>
+						<string>RackMac3_1_MasterSensor</string>
+						<key>group</key>
+						<string>System Voltages 1</string>
+						<key>hwmondThresholds</key>
+						<dict>
+							<key>maxFailureThreshold</key>
+							<integer>187433</integer>
+							<key>maxWarningThreshold</key>
+							<integer>178913</integer>
+							<key>medianValue</key>
+							<integer>170394</integer>
+							<key>minFailureThreshold</key>
+							<integer>153354</integer>
+							<key>minWarningThreshold</key>
+							<integer>161874</integer>
+						</dict>
+						<key>location</key>
+						<string>DDR IO</string>
+						<key>polling-period</key>
+						<integer>10</integer>
+						<key>sensor-id</key>
+						<integer>42</integer>
+						<key>sort-key</key>
+						<integer>40001</integer>
+						<key>type</key>
+						<string>voltage</string>
+					</dict>
+					<dict>
+						<key>IOClass</key>
+						<string>RackMac3_1_MasterSensor</string>
+						<key>group</key>
+						<string>System Voltages 2</string>
+						<key>hwmondThresholds</key>
+						<dict>
+							<key>maxFailureThreshold</key>
+							<integer>108134</integer>
+							<key>maxWarningThreshold</key>
+							<integer>103219</integer>
+							<key>medianValue</key>
+							<integer>98304</integer>
+							<key>minFailureThreshold</key>
+							<integer>88474</integer>
+							<key>minWarningThreshold</key>
+							<integer>93389</integer>
+						</dict>
+						<key>location</key>
+						<string>1.5v</string>
+						<key>polling-period</key>
+						<integer>10</integer>
+						<key>sensor-id</key>
+						<integer>43</integer>
+						<key>sort-key</key>
+						<integer>20001</integer>
+						<key>type</key>
+						<string>voltage</string>
+					</dict>
+					<dict>
+						<key>IOClass</key>
+						<string>RackMac3_1_MasterSensor</string>
+						<key>group</key>
+						<string>System Voltages 3</string>
+						<key>hwmondThresholds</key>
+						<dict>
+							<key>maxFailureThreshold</key>
+							<integer>237896</integer>
+							<key>maxWarningThreshold</key>
+							<integer>227082</integer>
+							<key>medianValue</key>
+							<integer>216269</integer>
+							<key>minFailureThreshold</key>
+							<integer>194642</integer>
+							<key>minWarningThreshold</key>
+							<integer>205455</integer>
+						</dict>
+						<key>location</key>
+						<string>3.3v Trickle</string>
+						<key>polling-period</key>
+						<integer>10</integer>
+						<key>sensor-id</key>
+						<integer>44</integer>
+						<key>sort-key</key>
+						<integer>10003</integer>
+						<key>type</key>
+						<string>voltage</string>
+					</dict>
+					<dict>
+						<key>IOClass</key>
+						<string>RackMac3_1_MasterSensor</string>
+						<key>group</key>
+						<string>System Voltages 3</string>
+						<key>hwmondThresholds</key>
+						<dict>
+							<key>maxFailureThreshold</key>
+							<integer>360448</integer>
+							<key>maxWarningThreshold</key>
+							<integer>344064</integer>
+							<key>medianValue</key>
+							<integer>327680</integer>
+							<key>minFailureThreshold</key>
+							<integer>294912</integer>
+							<key>minWarningThreshold</key>
+							<integer>311296</integer>
+						</dict>
+						<key>location</key>
+						<string>5v</string>
+						<key>polling-period</key>
+						<integer>10</integer>
+						<key>sensor-id</key>
+						<integer>45</integer>
+						<key>sort-key</key>
+						<integer>20001</integer>
+						<key>type</key>
+						<string>voltage</string>
+					</dict>
+					<dict>
+						<key>IOClass</key>
+						<string>RackMac3_1_MasterSensor</string>
+						<key>group</key>
+						<string>System Voltages 3</string>
+						<key>hwmondThresholds</key>
+						<dict>
+							<key>maxFailureThreshold</key>
+							<integer>865075</integer>
+							<key>maxWarningThreshold</key>
+							<integer>825754</integer>
+							<key>medianValue</key>
+							<integer>786432</integer>
+							<key>minFailureThreshold</key>
+							<integer>707789</integer>
+							<key>minWarningThreshold</key>
+							<integer>747110</integer>
+						</dict>
+						<key>location</key>
+						<string>12v Trickle</string>
+						<key>polling-period</key>
+						<integer>10</integer>
+						<key>sensor-id</key>
+						<integer>46</integer>
+						<key>sort-key</key>
+						<integer>30002</integer>
+						<key>type</key>
+						<string>voltage</string>
+					</dict>
+					<dict>
+						<key>IOClass</key>
+						<string>RackMac3_1_MasterSensor</string>
+						<key>group</key>
+						<string>System Voltages 2</string>
+						<key>hwmondThresholds</key>
+						<dict>
+							<key>maxFailureThreshold</key>
+							<integer>86508</integer>
+							<key>maxWarningThreshold</key>
+							<integer>82575</integer>
+							<key>medianValue</key>
+							<integer>78643</integer>
+							<key>minFailureThreshold</key>
+							<integer>70779</integer>
+							<key>minWarningThreshold</key>
+							<integer>74711</integer>
+						</dict>
+						<key>location</key>
+						<string>1.2v</string>
+						<key>polling-period</key>
+						<integer>10</integer>
+						<key>sensor-id</key>
+						<integer>47</integer>
+						<key>sort-key</key>
+						<integer>10001</integer>
+						<key>type</key>
+						<string>voltage</string>
+					</dict>
+					<dict>
+						<key>IOClass</key>
+						<string>RackMac3_1_MasterSensor</string>
+						<key>group</key>
+						<string>Enclosure Temperatures</string>
+						<key>hwmondThresholds</key>
+						<dict>
+							<key>maxFailureThreshold</key>
+							<integer>4587520</integer>
+							<key>maxWarningThreshold</key>
+							<integer>3932160</integer>
+							<key>medianValue</key>
+							<integer>3407872</integer>
+							<key>minFailureThreshold</key>
+							<integer>0</integer>
+							<key>minWarningThreshold</key>
+							<integer>0</integer>
+						</dict>
+						<key>location</key>
+						<string>Behind the DIMMs</string>
+						<key>polling-period</key>
+						<integer>10</integer>
+						<key>sensor-id</key>
+						<integer>48</integer>
+						<key>sort-key</key>
+						<integer>30001</integer>
+						<key>type</key>
+						<string>temperature</string>
+					</dict>
+					<dict>
+						<key>IOClass</key>
+						<string>RackMac3_1_MasterSensor</string>
+						<key>group</key>
+						<string>System Voltages 1</string>
+						<key>hwmondThresholds</key>
+						<dict>
+							<key>maxFailureThreshold</key>
+							<integer>122552</integer>
+							<key>maxWarningThreshold</key>
+							<integer>116982</integer>
+							<key>medianValue</key>
+							<integer>111411</integer>
+							<key>minFailureThreshold</key>
+							<integer>100270</integer>
+							<key>minWarningThreshold</key>
+							<integer>105841</integer>
+						</dict>
+						<key>location</key>
+						<string>System Controller Vcore</string>
+						<key>polling-period</key>
+						<integer>10</integer>
+						<key>sensor-id</key>
+						<integer>50</integer>
+						<key>sort-key</key>
+						<integer>20001</integer>
+						<key>type</key>
+						<string>voltage</string>
+					</dict>
+					<dict>
+						<key>IOClass</key>
+						<string>RackMac3_1_MasterSensor</string>
+						<key>group</key>
+						<string>System Voltages 2</string>
+						<key>hwmondThresholds</key>
+						<dict>
+							<key>maxFailureThreshold</key>
+							<integer>108134</integer>
+							<key>maxWarningThreshold</key>
+							<integer>103219</integer>
+							<key>medianValue</key>
+							<integer>98304</integer>
+							<key>minFailureThreshold</key>
+							<integer>88474</integer>
+							<key>minWarningThreshold</key>
+							<integer>93389</integer>
+						</dict>
+						<key>location</key>
+						<string>1.5v Sleep</string>
+						<key>polling-period</key>
+						<integer>10</integer>
+						<key>sensor-id</key>
+						<integer>51</integer>
+						<key>sort-key</key>
+						<integer>20002</integer>
+						<key>type</key>
+						<string>voltage</string>
+					</dict>
+					<dict>
+						<key>IOClass</key>
+						<string>RackMac3_1_MasterSensor</string>
+						<key>group</key>
+						<string>System Voltages 1</string>
+						<key>hwmondThresholds</key>
+						<dict>
+							<key>maxFailureThreshold</key>
+							<integer>187433</integer>
+							<key>maxWarningThreshold</key>
+							<integer>178913</integer>
+							<key>medianValue</key>
+							<integer>170394</integer>
+							<key>minFailureThreshold</key>
+							<integer>153354</integer>
+							<key>minWarningThreshold</key>
+							<integer>161874</integer>
+						</dict>
+						<key>location</key>
+						<string>DDR IO Sleep</string>
+						<key>polling-period</key>
+						<integer>10</integer>
+						<key>sensor-id</key>
+						<integer>52</integer>
+						<key>sort-key</key>
+						<integer>40002</integer>
+						<key>type</key>
+						<string>voltage</string>
+					</dict>
+					<dict>
+						<key>IOClass</key>
+						<string>RackMac3_1_MasterSensor</string>
+						<key>group</key>
+						<string>System Voltages 3</string>
+						<key>hwmondThresholds</key>
+						<dict>
+							<key>maxFailureThreshold</key>
+							<integer>237896</integer>
+							<key>maxWarningThreshold</key>
+							<integer>227082</integer>
+							<key>medianValue</key>
+							<integer>216269</integer>
+							<key>minFailureThreshold</key>
+							<integer>194642</integer>
+							<key>minWarningThreshold</key>
+							<integer>205455</integer>
+						</dict>
+						<key>location</key>
+						<string>3.3v</string>
+						<key>polling-period</key>
+						<integer>10</integer>
+						<key>sensor-id</key>
+						<integer>53</integer>
+						<key>sort-key</key>
+						<integer>10001</integer>
+						<key>type</key>
+						<string>voltage</string>
+					</dict>
+					<dict>
+						<key>IOClass</key>
+						<string>RackMac3_1_MasterSensor</string>
+						<key>group</key>
+						<string>System Voltages 3</string>
+						<key>hwmondThresholds</key>
+						<dict>
+							<key>maxFailureThreshold</key>
+							<integer>237896</integer>
+							<key>maxWarningThreshold</key>
+							<integer>227082</integer>
+							<key>medianValue</key>
+							<integer>216269</integer>
+							<key>minFailureThreshold</key>
+							<integer>194642</integer>
+							<key>minWarningThreshold</key>
+							<integer>205455</integer>
+						</dict>
+						<key>location</key>
+						<string>3.3v Sleep</string>
+						<key>polling-period</key>
+						<integer>10</integer>
+						<key>sensor-id</key>
+						<integer>54</integer>
+						<key>sort-key</key>
+						<integer>10002</integer>
+						<key>type</key>
+						<string>voltage</string>
+					</dict>
+					<dict>
+						<key>IOClass</key>
+						<string>RackMac3_1_MasterSensor</string>
+						<key>group</key>
+						<string>System Voltages 3</string>
+						<key>hwmondThresholds</key>
+						<dict>
+							<key>maxFailureThreshold</key>
+							<integer>360448</integer>
+							<key>maxWarningThreshold</key>
+							<integer>344064</integer>
+							<key>medianValue</key>
+							<integer>327680</integer>
+							<key>minFailureThreshold</key>
+							<integer>294912</integer>
+							<key>minWarningThreshold</key>
+							<integer>311296</integer>
+						</dict>
+						<key>location</key>
+						<string>5v Sleep</string>
+						<key>polling-period</key>
+						<integer>10</integer>
+						<key>sensor-id</key>
+						<integer>55</integer>
+						<key>sort-key</key>
+						<integer>20002</integer>
+						<key>type</key>
+						<string>voltage</string>
+					</dict>
+					<dict>
+						<key>IOClass</key>
+						<string>RackMac3_1_MasterSensor</string>
+						<key>group</key>
+						<string>System Voltages 3</string>
+						<key>hwmondThresholds</key>
+						<dict>
+							<key>maxFailureThreshold</key>
+							<integer>865075</integer>
+							<key>maxWarningThreshold</key>
+							<integer>825754</integer>
+							<key>medianValue</key>
+							<integer>786432</integer>
+							<key>minFailureThreshold</key>
+							<integer>707789</integer>
+							<key>minWarningThreshold</key>
+							<integer>747110</integer>
+						</dict>
+						<key>location</key>
+						<string>12v</string>
+						<key>polling-period</key>
+						<integer>10</integer>
+						<key>sensor-id</key>
+						<integer>56</integer>
+						<key>sort-key</key>
+						<integer>30001</integer>
+						<key>type</key>
+						<string>voltage</string>
+					</dict>
+					<dict>
+						<key>IOClass</key>
+						<string>RackMac3_1_MasterSensor</string>
+						<key>group</key>
+						<string>System Voltages 2</string>
+						<key>hwmondThresholds</key>
+						<dict>
+							<key>maxFailureThreshold</key>
+							<integer>86507</integer>
+							<key>maxWarningThreshold</key>
+							<integer>82575</integer>
+							<key>medianValue</key>
+							<integer>78643</integer>
+							<key>minFailureThreshold</key>
+							<integer>70778</integer>
+							<key>minWarningThreshold</key>
+							<integer>74711</integer>
+						</dict>
+						<key>location</key>
+						<string>1.2v Sleep</string>
+						<key>polling-period</key>
+						<integer>10</integer>
+						<key>sensor-id</key>
+						<integer>57</integer>
+						<key>sort-key</key>
+						<integer>10002</integer>
+						<key>type</key>
+						<string>voltage</string>
+					</dict>
+					<dict>
+						<key>IOClass</key>
+						<string>RackMac3_1_MasterSensor</string>
+						<key>group</key>
+						<string>Enclosure Temperatures</string>
+						<key>location</key>
+						<string>Between the Processors</string>
+						<key>polling-period</key>
+						<integer>10</integer>
+						<key>sensor-id</key>
+						<integer>58</integer>
+						<key>sort-key</key>
+						<integer>10001</integer>
+						<key>type</key>
+						<string>temperature</string>
+					</dict>
+				</array>
+			</dict>
+			<key>IOProviderClass</key>
+			<string>IOPlatformDevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.IOPlatformPluginFamily</key>
+		<string>1.1.0d2</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>6.5</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>6.5</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Safe Boot</string>
+</dict>
+</plist>
+";
+		};
+		2EACB478053B33ED00912AE3 = {
+			isa = PBXBundleReference;
+			path = RackMac3_1_PlatformPlugin.kext;
+			refType = 3;
+		};
+		2EACB479053B352E00912AE3 = {
+			isa = PBXTargetDependency;
+			target = 2EACB477053B33ED00912AE3;
+		};
+		2EACB47A053B356D00912AE3 = {
+			children = (
+				2EACB487053B356D00912AE3,
+				2EACB488053B356D00912AE3,
+				2EACB4CA053B35D500912AE3,
+				2EACB4CC053B35E700912AE3,
+				2EACB4CD053B35EC00912AE3,
+				2EACB4C9053B35C500912AE3,
+			);
+			isa = PBXGroup;
+			name = RackMac3_1_PlatformPlugin;
+			path = IOPlatformPlugins/RackMac3_1_PlatformPlugin;
+			refType = 4;
+		};
+		2EACB47D053B356D00912AE3 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = RackMac3_1_CPUFanCtrlLoop.cpp;
+			refType = 4;
+		};
+		2EACB47E053B356D00912AE3 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = RackMac3_1_CPUFanCtrlLoop.h;
+			refType = 4;
+		};
+		2EACB47F053B356D00912AE3 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = RackMac3_1_CPUPowerSensor.cpp;
+			refType = 4;
+		};
+		2EACB480053B356D00912AE3 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = RackMac3_1_CPUPowerSensor.h;
+			refType = 4;
+		};
+		2EACB481053B356D00912AE3 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = RackMac3_1_CPUTempSensor.cpp;
+			refType = 4;
+		};
+		2EACB482053B356D00912AE3 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = RackMac3_1_CPUTempSensor.h;
+			refType = 4;
+		};
+		2EACB487053B356D00912AE3 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = RackMac3_1_PlatformPlugin.cpp;
+			refType = 4;
+		};
+		2EACB488053B356D00912AE3 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = RackMac3_1_PlatformPlugin.h;
+			refType = 4;
+		};
+		2EACB489053B356D00912AE3 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = RackMac3_1_ScaledSensor.cpp;
+			refType = 4;
+		};
+		2EACB48A053B356D00912AE3 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = RackMac3_1_ScaledSensor.h;
+			refType = 4;
+		};
+		2EACB48B053B356D00912AE3 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = RackMac3_1_SlewCtrlLoop.cpp;
+			refType = 4;
+		};
+		2EACB48C053B356D00912AE3 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = RackMac3_1_SlewCtrlLoop.h;
+			refType = 4;
+		};
+		2EACB492053B356D00912AE3 = {
+			fileRef = 2EACB47D053B356D00912AE3;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2EACB493053B356D00912AE3 = {
+			fileRef = 2EACB47E053B356D00912AE3;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2EACB494053B356D00912AE3 = {
+			fileRef = 2EACB47F053B356D00912AE3;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2EACB495053B356D00912AE3 = {
+			fileRef = 2EACB480053B356D00912AE3;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2EACB496053B356D00912AE3 = {
+			fileRef = 2EACB481053B356D00912AE3;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2EACB497053B356D00912AE3 = {
+			fileRef = 2EACB482053B356D00912AE3;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2EACB49C053B356D00912AE3 = {
+			fileRef = 2EACB487053B356D00912AE3;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2EACB49D053B356D00912AE3 = {
+			fileRef = 2EACB488053B356D00912AE3;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2EACB49E053B356D00912AE3 = {
+			fileRef = 2EACB489053B356D00912AE3;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2EACB49F053B356D00912AE3 = {
+			fileRef = 2EACB48A053B356D00912AE3;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2EACB4A0053B356D00912AE3 = {
+			fileRef = 2EACB48B053B356D00912AE3;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2EACB4A1053B356D00912AE3 = {
+			fileRef = 2EACB48C053B356D00912AE3;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2EACB4BC053B357B00912AE3 = {
+			fileRef = B0ED8C5003BA2EF905A80123;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2EACB4BD053B357C00912AE3 = {
+			fileRef = B4A5CF65046BB3C000CE0F51;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2EACB4BE053B357C00912AE3 = {
+			fileRef = B4490BC40472E45F00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2EACB4C1053B358F00912AE3 = {
+			fileRef = B41095CB04899BBE00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2EACB4C2053B359000912AE3 = {
+			fileRef = B4D89C210474529300CE0F51;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2EACB4C3053B359000912AE3 = {
+			fileRef = B424C3F70414118C00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2EACB4C4053B359200912AE3 = {
+			fileRef = B44D941704763BCF00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2EACB4C5053B359200912AE3 = {
+			fileRef = B44D941304762FDB00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2EACB4C6053B359300912AE3 = {
+			fileRef = B424C3F50414118C00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2EACB4C7053B359400912AE3 = {
+			fileRef = B4673E64041E8FD800CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2EACB4C8053B359500912AE3 = {
+			fileRef = B0F5A72A03D740D405CE0DA1;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2EACB4C9053B35C500912AE3 = {
+			children = (
+				2EB8F9AF053B824800B0A8A7,
+			);
+			isa = PBXGroup;
+			name = Resources;
+			refType = 4;
+		};
+		2EACB4CA053B35D500912AE3 = {
+			children = (
+				1610B8C205D4B4BA00F5816A,
+				1610B8C305D4B4BA00F5816A,
+				2EACB47F053B356D00912AE3,
+				2EACB480053B356D00912AE3,
+				2EACB481053B356D00912AE3,
+				2EACB482053B356D00912AE3,
+				2E5BE0C205EABC9F004A0274,
+				2E5BE0C405EABCAA004A0274,
+				2EACB489053B356D00912AE3,
+				2EACB48A053B356D00912AE3,
+			);
+			isa = PBXGroup;
+			name = Sensors;
+			path = "";
+			refType = 4;
+		};
+		2EACB4CC053B35E700912AE3 = {
+			children = (
+				16C130B905D4E76000940195,
+				16C130BA05D4E76000940195,
+				16C130BD05D4E94C00940195,
+				16C130BE05D4E94C00940195,
+			);
+			isa = PBXGroup;
+			name = Controls;
+			refType = 4;
+		};
+		2EACB4CD053B35EC00912AE3 = {
+			children = (
+				16B5FF1405D845D9003B98A8,
+				16B5FF1305D845D9003B98A8,
+				16B4EA3905D1D798005782DE,
+				16B4EA3A05D1D798005782DE,
+				16F617E605C86A8D0094D90F,
+				16F617E705C86A8D0094D90F,
+				2EACB48B053B356D00912AE3,
+				2EACB48C053B356D00912AE3,
+				2EACB47D053B356D00912AE3,
+				2EACB47E053B356D00912AE3,
+				16C730EB05D9ACE500C0A11D,
+				16C730EC05D9ACE500C0A11D,
+				2E8C607D05597A9900E677E5,
+				2E8C607C05597A9900E677E5,
+			);
+			isa = PBXGroup;
+			name = CtrlLoops;
+			refType = 4;
+		};
+		2EB8F9AF053B824800B0A8A7 = {
+			children = (
+				2EB8F9B0053B824800B0A8A7,
+			);
+			isa = PBXVariantGroup;
+			name = Localizable.strings;
+			path = "";
+			refType = 4;
+		};
+		2EB8F9B0053B824800B0A8A7 = {
+			fileEncoding = 10;
+			isa = PBXFileReference;
+			name = English;
+			path = English.lproj/Localizable.strings;
+			refType = 4;
+		};
+		2EB8F9B1053B824800B0A8A7 = {
+			fileRef = 2EB8F9AF053B824800B0A8A7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2EC5A923053B528200E6090D = {
+			fileRef = 2EACB478053B33ED00912AE3;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//2E0
+//2E1
+//2E2
+//2E3
+//2E4
 //B00
 //B01
 //B02
@@ -793,7 +3474,10 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
+				B42559B10510DEE700CE0E6C,
+				B4C9572D054F4F0900A4C80C,
 				B4E56AE504588D6200CE0E5B,
+				2EC5A923053B528200E6090D,
 			);
 			isa = PBXCopyFilesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -862,28 +3546,10 @@
 		};
 		B0ED8C5403BA2F3205A80123 = {
 			children = (
-				B4490BC40472E45F00CE0E5B,
-				B4A5CF65046BB3C000CE0F51,
-				B0ED8C5003BA2EF905A80123,
-				B0ED8C5203BA2F1805A80123,
-				B0F5A72A03D740D405CE0DA1,
-				B0F5A72C03D740F005CE0DA1,
-				B4673E64041E8FD800CE0E5B,
-				B4673E65041E8FD800CE0E5B,
-				B424C3F50414118C00CE0E5B,
-				B424C3F40414118C00CE0E5B,
-				B44D941304762FDB00CE0E5B,
-				B44D941404762FDB00CE0E5B,
-				B44D941704763BCF00CE0E5B,
-				B44D941804763BCF00CE0E5B,
-				B424C3F70414118C00CE0E5B,
-				B424C3F60414118C00CE0E5B,
-				B4D89C210474529300CE0F51,
-				B4D89C220474529300CE0F51,
-				B41095CB04899BBE00CE0E5B,
-				B41095CC04899BBE00CE0E5B,
+				B458655C053355930023A571,
 				B0ED8C5503BA308705A80123,
 				B40E15C004140F1500CE0E5B,
+				2EACB47A053B356D00912AE3,
 			);
 			isa = PBXGroup;
 			name = IOPlatformPlugins;
@@ -896,6 +3562,7 @@
 			);
 			isa = PBXGroup;
 			name = MacRISC4_PlatformPlugin;
+			path = "";
 			refType = 4;
 		};
 		B0ED8C5603BA30AD05A80123 = {
@@ -928,8 +3595,18 @@
 		B0ED8C9903BA371E05A80123 = {
 			buildActionMask = 2147483647;
 			files = (
-				B0ED8CA303BA3B6F05A80123,
-				B0ED8CA503BA3B7305A80123,
+				B43AE22E05504C4C0075228F,
+				B43AE23105504C7F0075228F,
+				B43AE23205504C800075228F,
+				B43AE23305504C800075228F,
+				B43AE23405504C950075228F,
+				B43AE23505504C960075228F,
+				B43AE23605504C980075228F,
+				B43AE23705504C990075228F,
+				B43AE23805504C9A0075228F,
+				B43AE23905504C9C0075228F,
+				B43AE23A05504C9D0075228F,
+				B43AE23B05504C9F0075228F,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -937,8 +3614,7 @@
 		B0ED8C9A03BA371E05A80123 = {
 			buildActionMask = 2147483647;
 			files = (
-				B0ED8CA403BA3B7205A80123,
-				B0ED8CA603BA3B7505A80123,
+				B43AE22F05504C4D0075228F,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -982,18 +3658,15 @@
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "";
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
-				INSTALL_OWNER = root;
 				KERNEL_MODULE = YES;
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.driver.MacRISC4PlatformPlugin;
-				MODULE_VERSION = 1.0.1d22;
-				OTHER_CFLAGS = "-fpermissive -D_BIG_ENDIAN";
+				MODULE_NAME = com.apple.driver.MacRISC4_PlatformPlugin;
+				MODULE_VERSION = 1.1.2a16;
+				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = MacRISC4PlatformPlugin;
+				PRODUCT_NAME = MacRISC4_PlatformPlugin;
 				SECTORDER_FLAGS = "";
 				VALID_ARCHS = ppc;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
@@ -1002,7 +3675,7 @@
 			dependencies = (
 			);
 			isa = PBXBundleTarget;
-			name = MacRISC4PlatformPlugin;
+			name = MacRISC4_PlatformPlugin;
 			productName = MacRISC4PlatformPlugin;
 			productReference = B0ED8C9F03BA371E05A80123;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
@@ -1012,82 +3685,72 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
-	<string>MacRISC4PlatformPlugin</string>
+	<string>MacRISC4_PlatformPlugin</string>
 	<key>CFBundleGetInfoString</key>
-	<string>MacRISC4PlatformPlugin version 1.0.1, Copyright 2003 Apple Computer, Inc.</string>
+	<string>MacRISC4_PlatformPlugin version 1.1.2, Copyright 2003 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
-	<string>com.apple.driver.MacRISC4PlatformPlugin</string>
+	<string>com.apple.driver.MacRISC4_PlatformPlugin</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>MacRISC4PlatformPlugin</string>
+	<string>MacRISC4_PlatformPlugin</string>
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.1</string>
+	<string>1.1.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.1d22</string>
+	<string>1.1.2a16</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>MacRISC4_PlatformPlugin</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.MacRISC4PlatformPlugin</string>
+			<string>com.apple.driver.MacRISC4_PlatformPlugin</string>
 			<key>IOClass</key>
 			<string>MacRISC4_PlatformPlugin</string>
 			<key>IONameMatch</key>
 			<string>MacRISC4_PlatformPlugin</string>
+			<key>IOPlatformThermalProfile</key>
+			<dict>
+				<key>ConfigArray</key>
+				<array>
+					<dict>
+						<key>Desc-Key</key>
+						<string>CFG_GENERIC</string>
+						<key>Description</key>
+						<string>MacRISC4 Generic</string>
+					</dict>
+				</array>
+				<key>CreationDate</key>
+				<string>Tue Oct 28 17:11:52 PST 2003</string>
+			</dict>
 			<key>IOProviderClass</key>
 			<string>IOPlatformDevice</string>
 		</dict>
 	</dict>
 	<key>OSBundleLibraries</key>
 	<dict>
-		<key>com.apple.driver.AppleMacRISC4PE</key>
-		<string>1.0.0</string>
+		<key>com.apple.driver.IOPlatformPluginFamily</key>
+		<string>1.1.0d2</string>
 		<key>com.apple.kernel.iokit</key>
-		<string>1.1</string>
+		<string>6.5</string>
 		<key>com.apple.kernel.libkern</key>
-		<string>1.1</string>
-		<key>com.apple.kernel.mach</key>
-		<string>1.1</string>
+		<string>6.5</string>
 	</dict>
+	<key>OSBundleRequired</key>
+	<string>Safe Boot</string>
 </dict>
 </plist>
 ";
 		};
 		B0ED8C9F03BA371E05A80123 = {
 			isa = PBXBundleReference;
-			path = MacRISC4PlatformPlugin.kext;
+			path = MacRISC4_PlatformPlugin.kext;
 			refType = 3;
-		};
-		B0ED8CA303BA3B6F05A80123 = {
-			fileRef = B0ED8C5603BA30AD05A80123;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B0ED8CA403BA3B7205A80123 = {
-			fileRef = B0ED8C5203BA2F1805A80123;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B0ED8CA503BA3B7305A80123 = {
-			fileRef = B0ED8C5003BA2EF905A80123;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B0ED8CA603BA3B7505A80123 = {
-			fileRef = B0ED8C5803BA30C705A80123;
-			isa = PBXBuildFile;
-			settings = {
-			};
 		};
 		B0F5A72A03D740D405CE0DA1 = {
 			fileEncoding = 30;
@@ -1196,24 +3859,9 @@
 			children = (
 				B424C3FD041411C700CE0E5B,
 				B424C3FC041411C700CE0E5B,
-				B40D746204625C2200CE0E5B,
-				B40D746104625C2200CE0E5B,
-				B40D746404625C2200CE0E5B,
-				B40D746304625C2200CE0E5B,
-				B40D746604625C2200CE0E5B,
-				B40D746504625C2200CE0E5B,
-				B418455B04B4F27A00CE0E5B,
-				B418455C04B4F27A00CE0E5B,
-				B418455F04B4F86900CE0E5B,
-				B418456004B4F86900CE0E5B,
-				B47C3D27046F94B700CE0E5B,
-				B47C3D28046F94B700CE0E5B,
-				B4B6ED1A041FC43E00CE0E5B,
-				B4B6ED1B041FC43E00CE0E5B,
-				B4E5E9C3049096D900CE0F51,
-				B4E5E9C4049096D900CE0F51,
-				B443D8DA047E9F1800CE0E5B,
-				B443D8DB047E9F1800CE0E5B,
+				B458655D053355C10023A571,
+				B458655E053355C70023A571,
+				B458655F053355FE0023A571,
 				B4756DCB0459E10600CE0F51,
 			);
 			isa = PBXGroup;
@@ -1234,18 +3882,6 @@
 			name = IOPlatformPIDCtrlLoop.cpp;
 			path = IOPlatformPlugins/IOPlatformPIDCtrlLoop.cpp;
 			refType = 4;
-		};
-		B411A28F0474B6D400CE0F51 = {
-			fileRef = B4D89C210474529300CE0F51;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B411A2900474B6D500CE0F51 = {
-			fileRef = B4D89C220474529300CE0F51;
-			isa = PBXBuildFile;
-			settings = {
-			};
 		};
 		B418455B04B4F27A00CE0E5B = {
 			fileEncoding = 4;
@@ -1341,6 +3977,280 @@
 			path = IOPlatformPlugins/PowerMac7_2_PlatformPlugin/PowerMac7_2_PlatformPlugin.h;
 			refType = 4;
 		};
+		B42559900510DE8500CE0E6C = {
+			fileRef = B4490BC40472E45F00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B42559920510DE8800CE0E6C = {
+			fileRef = B4A5CF65046BB3C000CE0F51;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B42559930510DE8900CE0E6C = {
+			fileRef = B0ED8C5003BA2EF905A80123;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B42559940510DE8900CE0E6C = {
+			fileRef = B0F5A72A03D740D405CE0DA1;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B42559950510DE8B00CE0E6C = {
+			fileRef = B4673E64041E8FD800CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B42559960510DE8C00CE0E6C = {
+			fileRef = B424C3F50414118C00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B42559970510DE8E00CE0E6C = {
+			fileRef = B44D941304762FDB00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B42559980510DE8F00CE0E6C = {
+			fileRef = B44D941704763BCF00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B42559990510DE9100CE0E6C = {
+			fileRef = B424C3F70414118C00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B425599A0510DE9200CE0E6C = {
+			fileRef = B4D89C210474529300CE0F51;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B425599B0510DE9300CE0E6C = {
+			fileRef = B41095CB04899BBE00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B425599C0510DEAB00CE0E6C = {
+			fileRef = B4490BC40472E45F00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B425599D0510DEAB00CE0E6C = {
+			fileRef = B4A5CF65046BB3C000CE0F51;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B425599E0510DEAC00CE0E6C = {
+			fileRef = B0ED8C5003BA2EF905A80123;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B425599F0510DEAD00CE0E6C = {
+			fileRef = B0ED8C5203BA2F1805A80123;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B42559A00510DEAD00CE0E6C = {
+			fileRef = B0F5A72A03D740D405CE0DA1;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B42559A10510DEAE00CE0E6C = {
+			fileRef = B0F5A72C03D740F005CE0DA1;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B42559A20510DEAF00CE0E6C = {
+			fileRef = B4673E64041E8FD800CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B42559A30510DEAF00CE0E6C = {
+			fileRef = B4673E65041E8FD800CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B42559A40510DEB000CE0E6C = {
+			fileRef = B424C3F50414118C00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B42559A50510DEB000CE0E6C = {
+			fileRef = B424C3F40414118C00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B42559A60510DEB100CE0E6C = {
+			fileRef = B44D941304762FDB00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B42559A70510DEB100CE0E6C = {
+			fileRef = B44D941404762FDB00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B42559A80510DEB200CE0E6C = {
+			fileRef = B44D941704763BCF00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B42559A90510DEB300CE0E6C = {
+			fileRef = B44D941804763BCF00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B42559AA0510DEB400CE0E6C = {
+			fileRef = B424C3F70414118C00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B42559AB0510DEB400CE0E6C = {
+			fileRef = B424C3F60414118C00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B42559AC0510DEB500CE0E6C = {
+			fileRef = B4D89C210474529300CE0F51;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B42559AD0510DEB500CE0E6C = {
+			fileRef = B4D89C220474529300CE0F51;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B42559AE0510DEB600CE0E6C = {
+			fileRef = B41095CB04899BBE00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B42559AF0510DEB700CE0E6C = {
+			fileRef = B41095CC04899BBE00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B42559B00510DED800CE0E6C = {
+			isa = PBXTargetDependency;
+			target = B4D5938D0458832300CE0E5B;
+		};
+		B42559B10510DEE700CE0E6C = {
+			fileRef = B48FD39B0510DCB800CE0E6C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B43AE22E05504C4C0075228F = {
+			fileRef = B0ED8C5603BA30AD05A80123;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B43AE22F05504C4D0075228F = {
+			fileRef = B0ED8C5803BA30C705A80123;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B43AE23105504C7F0075228F = {
+			fileRef = B4490BC40472E45F00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B43AE23205504C800075228F = {
+			fileRef = B4A5CF65046BB3C000CE0F51;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B43AE23305504C800075228F = {
+			fileRef = B0ED8C5003BA2EF905A80123;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B43AE23405504C950075228F = {
+			fileRef = B0F5A72A03D740D405CE0DA1;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B43AE23505504C960075228F = {
+			fileRef = B4673E64041E8FD800CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B43AE23605504C980075228F = {
+			fileRef = B424C3F50414118C00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B43AE23705504C990075228F = {
+			fileRef = B44D941304762FDB00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B43AE23805504C9A0075228F = {
+			fileRef = B44D941704763BCF00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B43AE23905504C9C0075228F = {
+			fileRef = B424C3F70414118C00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B43AE23A05504C9D0075228F = {
+			fileRef = B4D89C210474529300CE0F51;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B43AE23B05504C9F0075228F = {
+			fileRef = B41095CB04899BBE00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		B443D8DA047E9F1800CE0E5B = {
 			fileEncoding = 4;
 			isa = PBXFileReference;
@@ -1367,42 +4277,12 @@
 			settings = {
 			};
 		};
-		B447F355045F11C900CE0E5B = {
-			fileRef = B0F5A72A03D740D405CE0DA1;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B447F356045F11C900CE0E5B = {
-			fileRef = B0F5A72C03D740F005CE0DA1;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B447F357045F174600CE0E5B = {
-			fileRef = B424C3F50414118C00CE0E5B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B447F358045F174800CE0E5B = {
-			fileRef = B424C3F70414118C00CE0E5B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		B4490BC40472E45F00CE0E5B = {
 			fileEncoding = 4;
 			isa = PBXFileReference;
 			name = IOPlatformPluginDefs.h;
 			path = IOPlatformPlugins/IOPlatformPluginDefs.h;
 			refType = 4;
-		};
-		B4490BC50472E45F00CE0E5B = {
-			fileRef = B4490BC40472E45F00CE0E5B;
-			isa = PBXBuildFile;
-			settings = {
-			};
 		};
 		B44D941304762FDB00CE0E5B = {
 			fileEncoding = 4;
@@ -1418,18 +4298,6 @@
 			path = IOPlatformPlugins/IOPlatformSlewClockControl.cpp;
 			refType = 4;
 		};
-		B44D941504762FDB00CE0E5B = {
-			fileRef = B44D941304762FDB00CE0E5B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B44D941604762FDB00CE0E5B = {
-			fileRef = B44D941404762FDB00CE0E5B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		B44D941704763BCF00CE0E5B = {
 			fileEncoding = 4;
 			isa = PBXFileReference;
@@ -1444,23 +4312,100 @@
 			path = IOPlatformPlugins/IOPlatformPWMFanControl.cpp;
 			refType = 4;
 		};
-		B44D941904763BCF00CE0E5B = {
-			fileRef = B44D941704763BCF00CE0E5B;
-			isa = PBXBuildFile;
-			settings = {
-			};
+		B45865590533553A0023A571 = {
+			children = (
+				B0F5A72A03D740D405CE0DA1,
+				B0F5A72C03D740F005CE0DA1,
+				B4673E64041E8FD800CE0E5B,
+				B4673E65041E8FD800CE0E5B,
+			);
+			isa = PBXGroup;
+			name = Sensors;
+			path = "";
+			refType = 4;
 		};
-		B44D941A04763BCF00CE0E5B = {
-			fileRef = B44D941804763BCF00CE0E5B;
-			isa = PBXBuildFile;
-			settings = {
-			};
+		B458655A0533553A0023A571 = {
+			children = (
+				B424C3F50414118C00CE0E5B,
+				B424C3F40414118C00CE0E5B,
+				B44D941304762FDB00CE0E5B,
+				B44D941404762FDB00CE0E5B,
+				B44D941704763BCF00CE0E5B,
+				B44D941804763BCF00CE0E5B,
+			);
+			isa = PBXGroup;
+			name = Controls;
+			path = "";
+			refType = 4;
 		};
-		B4561575046E6BCB00CE0E5B = {
-			fileRef = B424C3F40414118C00CE0E5B;
-			isa = PBXBuildFile;
-			settings = {
-			};
+		B458655B0533553B0023A571 = {
+			children = (
+				B424C3F70414118C00CE0E5B,
+				B424C3F60414118C00CE0E5B,
+				B4D89C210474529300CE0F51,
+				B4D89C220474529300CE0F51,
+				B41095CB04899BBE00CE0E5B,
+				B41095CC04899BBE00CE0E5B,
+			);
+			isa = PBXGroup;
+			name = CtrlLoops;
+			path = "";
+			refType = 4;
+		};
+		B458655C053355930023A571 = {
+			children = (
+				B4490BC40472E45F00CE0E5B,
+				B4A5CF65046BB3C000CE0F51,
+				B0ED8C5003BA2EF905A80123,
+				B0ED8C5203BA2F1805A80123,
+				B45865590533553A0023A571,
+				B458655A0533553A0023A571,
+				B458655B0533553B0023A571,
+			);
+			isa = PBXGroup;
+			name = IOPlatformPluginFamily;
+			refType = 4;
+		};
+		B458655D053355C10023A571 = {
+			children = (
+				B40D746204625C2200CE0E5B,
+				B40D746104625C2200CE0E5B,
+				B40D746404625C2200CE0E5B,
+				B40D746304625C2200CE0E5B,
+				B40D746604625C2200CE0E5B,
+				B40D746504625C2200CE0E5B,
+				B418455B04B4F27A00CE0E5B,
+				B418455C04B4F27A00CE0E5B,
+			);
+			isa = PBXGroup;
+			name = Sensors;
+			refType = 4;
+		};
+		B458655E053355C70023A571 = {
+			children = (
+				B418455F04B4F86900CE0E5B,
+				B418456004B4F86900CE0E5B,
+			);
+			isa = PBXGroup;
+			name = Controls;
+			refType = 4;
+		};
+		B458655F053355FE0023A571 = {
+			children = (
+				B47C3D27046F94B700CE0E5B,
+				B47C3D28046F94B700CE0E5B,
+				B4B6ED1A041FC43E00CE0E5B,
+				B4B6ED1B041FC43E00CE0E5B,
+				B4E5E9C3049096D900CE0F51,
+				B4E5E9C4049096D900CE0F51,
+				B443D8DA047E9F1800CE0E5B,
+				B443D8DB047E9F1800CE0E5B,
+				F299766905C58E15003209A6,
+				F299766805C58E15003209A6,
+			);
+			isa = PBXGroup;
+			name = CtrlLoops;
+			refType = 4;
 		};
 		B4673E64041E8FD800CE0E5B = {
 			fileEncoding = 4;
@@ -1510,11 +4455,164 @@
 			settings = {
 			};
 		};
-		B47C3D2B046F96E400CE0E5B = {
-			fileRef = B424C3F60414118C00CE0E5B;
-			isa = PBXBuildFile;
-			settings = {
+		B48FD3940510DCB800CE0E6C = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		B48FD3950510DCB800CE0E6C = {
+			buildActionMask = 2147483647;
+			files = (
+				B425599C0510DEAB00CE0E6C,
+				B425599D0510DEAB00CE0E6C,
+				B425599E0510DEAC00CE0E6C,
+				B42559A00510DEAD00CE0E6C,
+				B42559A20510DEAF00CE0E6C,
+				B42559A40510DEB000CE0E6C,
+				B42559A60510DEB100CE0E6C,
+				B42559A80510DEB200CE0E6C,
+				B42559AA0510DEB400CE0E6C,
+				B42559AC0510DEB500CE0E6C,
+				B42559AE0510DEB600CE0E6C,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B48FD3960510DCB800CE0E6C = {
+			buildActionMask = 2147483647;
+			files = (
+				B425599F0510DEAD00CE0E6C,
+				B42559A10510DEAE00CE0E6C,
+				B42559A30510DEAF00CE0E6C,
+				B42559A50510DEB000CE0E6C,
+				B42559A70510DEB100CE0E6C,
+				B42559A90510DEB300CE0E6C,
+				B42559AB0510DEB400CE0E6C,
+				B42559AD0510DEB500CE0E6C,
+				B42559AF0510DEB700CE0E6C,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B48FD3970510DCB800CE0E6C = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B48FD3980510DCB800CE0E6C = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B48FD3990510DCB800CE0E6C = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		B48FD39A0510DCB800CE0E6C = {
+			buildPhases = (
+				B48FD3940510DCB800CE0E6C,
+				B48FD3950510DCB800CE0E6C,
+				B48FD3960510DCB800CE0E6C,
+				B48FD3970510DCB800CE0E6C,
+				B48FD3980510DCB800CE0E6C,
+				B48FD3990510DCB800CE0E6C,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOPlatformPluginFamily;
+				MODULE_VERSION = 1.1.2a16;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOPlatformPluginFamily;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
 			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = IOPlatformPluginFamily;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = IOPlatformPluginFamily;
+			productReference = B48FD39B0510DCB800CE0E6C;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IOPlatformPluginFamily</string>
+	<key>CFBundleGetInfoString</key>
+	<string>IOPlatformPluginFamily version 1.1.2, Copyright 2003 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.IOPlatformPluginFamily</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>IOPlatformPluginFamily</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.1.2</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.1.2a16</string>
+	<key>IOKitPersonalities</key>
+	<dict/>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.1.0d2</string>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.kernel.iokit</key>
+		<string>6.5</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>6.5</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Safe Boot</string>
+</dict>
+</plist>
+";
+		};
+		B48FD39B0510DCB800CE0E6C = {
+			isa = PBXBundleReference;
+			path = IOPlatformPluginFamily.kext;
+			refType = 3;
+		};
+		B48FD39D0510DCD400CE0E6C = {
+			isa = PBXTargetDependency;
+			target = B48FD39A0510DCB800CE0E6C;
 		};
 		B491DEFE04A935BA00CE0E5B = {
 			children = (
@@ -1538,30 +4636,12 @@
 			settings = {
 			};
 		};
-		B493F13B04723DA700CE0E5B = {
-			fileRef = B4673E64041E8FD800CE0E5B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B493F13C04723DA800CE0E5B = {
-			fileRef = B4673E65041E8FD800CE0E5B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		B4A5CF65046BB3C000CE0F51 = {
 			fileEncoding = 4;
 			isa = PBXFileReference;
 			name = IOPlatformPluginSymbols.h;
 			path = IOPlatformPlugins/IOPlatformPluginSymbols.h;
 			refType = 4;
-		};
-		B4A5CF66046BB3C100CE0F51 = {
-			fileRef = B4A5CF65046BB3C000CE0F51;
-			isa = PBXBuildFile;
-			settings = {
-			};
 		};
 		B4B6ED1A041FC43E00CE0E5B = {
 			fileEncoding = 4;
@@ -1576,6 +4656,12 @@
 			name = PowerMac7_2_CPUFanCtrlLoop.cpp;
 			path = IOPlatformPlugins/PowerMac7_2_PlatformPlugin/PowerMac7_2_CPUFanCtrlLoop.cpp;
 			refType = 4;
+		};
+		B4C9572D054F4F0900A4C80C = {
+			fileRef = B0ED8C9F03BA371E05A80123;
+			isa = PBXBuildFile;
+			settings = {
+			};
 		};
 		B4D593870458832300CE0E5B = {
 			buildActionMask = 2147483647;
@@ -1594,27 +4680,27 @@
 			buildActionMask = 2147483647;
 			files = (
 				B4D59393045887AD00CE0E5B,
-				B4D5939F045887B700CE0E5B,
-				B4D593A1045887C200CE0E5B,
-				B447F355045F11C900CE0E5B,
-				B447F357045F174600CE0E5B,
-				B447F358045F174800CE0E5B,
 				B40D746804625C2200CE0E5B,
 				B40D746C04625C2200CE0E5B,
 				B40D746E04627F5100CE0E5B,
-				B4A5CF66046BB3C100CE0F51,
 				B47C3D29046F94B700CE0E5B,
-				B493F13B04723DA700CE0E5B,
-				B4490BC50472E45F00CE0E5B,
-				B411A28F0474B6D400CE0F51,
-				B44D941504762FDB00CE0E5B,
-				B44D941904763BCF00CE0E5B,
 				B443D8DE047E9F9A00CE0E5B,
 				B4E5E9A4048E9D4800CE0F51,
-				B4F0E47504A132E000CE0E5B,
 				B4F0E47C04A17B8200CE0E5B,
 				B418455D04B4F27A00CE0E5B,
 				B418456104B4F86900CE0E5B,
+				B42559900510DE8500CE0E6C,
+				B42559920510DE8800CE0E6C,
+				B42559930510DE8900CE0E6C,
+				B42559940510DE8900CE0E6C,
+				B42559950510DE8B00CE0E6C,
+				B42559960510DE8C00CE0E6C,
+				B42559970510DE8E00CE0E6C,
+				B42559980510DE8F00CE0E6C,
+				B42559990510DE9100CE0E6C,
+				B425599A0510DE9200CE0E6C,
+				B425599B0510DE9300CE0E6C,
+				F2FBA69905C5EFE40005AF3B,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1623,24 +4709,16 @@
 			buildActionMask = 2147483647;
 			files = (
 				B4D59392045887AC00CE0E5B,
-				B4D5939E045887B600CE0E5B,
-				B447F356045F11C900CE0E5B,
 				B40D746704625C2200CE0E5B,
 				B40D746B04625C2200CE0E5B,
 				B40D746F04627F5100CE0E5B,
-				B4561575046E6BCB00CE0E5B,
 				B47C3D2A046F94B700CE0E5B,
-				B47C3D2B046F96E400CE0E5B,
-				B493F13C04723DA800CE0E5B,
-				B411A2900474B6D500CE0F51,
-				B44D941604762FDB00CE0E5B,
-				B44D941A04763BCF00CE0E5B,
 				B443D8DF047E9F9B00CE0E5B,
 				B4E5E9A3048E9D4800CE0F51,
-				B4F0E47604A132E100CE0E5B,
 				B4F0E47D04A17B8300CE0E5B,
 				B418455E04B4F27A00CE0E5B,
 				B418456204B4F86900CE0E5B,
+				F2FBA69805C5EFE30005AF3B,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1689,7 +4767,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.PowerMac7_2_PlatformPlugin;
-				MODULE_VERSION = 1.0.2b1;
+				MODULE_VERSION = 1.1.2a16;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1714,7 +4792,7 @@
 	<key>CFBundleExecutable</key>
 	<string>PowerMac7_2_PlatformPlugin</string>
 	<key>CFBundleGetInfoString</key>
-	<string>PowerMac7_2_PlatformPlugin version 1.0.2, Copyright 2003 Apple Computer, Inc.</string>
+	<string>PowerMac7_2_PlatformPlugin version 1.1.2, Copyright 2003 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1726,11 +4804,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.2</string>
+	<string>1.1.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.2b1</string>
+	<string>1.1.2a16</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PowerMac7_2_PlatformPlugin</key>
@@ -1757,9 +4835,55 @@
 						<key>Description</key>
 						<string>Dual Processor</string>
 					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>CFG_DUAL_ACS</string>
+						<key>Description</key>
+						<string>Dual Processor ACS</string>
+					</dict>
 				</array>
 				<key>ControlArray</key>
 				<array>
+					<dict>
+						<key>Desc-Key</key>
+						<string>CPUA_ACS</string>
+						<key>ValidConfigs</key>
+						<array>
+							<integer>2</integer>
+						</array>
+						<key>control-id</key>
+						<integer>16384</integer>
+						<key>location</key>
+						<string>CPU A ACS</string>
+						<key>type</key>
+						<string>fan-rpm</string>
+						<key>version</key>
+						<integer>1</integer>
+						<key>zone</key>
+						<data>
+						AAAAAA==
+						</data>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>CPUB_ACS</string>
+						<key>ValidConfigs</key>
+						<array>
+							<integer>2</integer>
+						</array>
+						<key>control-id</key>
+						<integer>16640</integer>
+						<key>location</key>
+						<string>CPU B ACS</string>
+						<key>type</key>
+						<string>fan-rpm</string>
+						<key>version</key>
+						<integer>1</integer>
+						<key>zone</key>
+						<data>
+						AAAAAA==
+						</data>
+					</dict>
 					<dict>
 						<key>Desc-Key</key>
 						<string>SLEW</string>
@@ -1772,7 +4896,7 @@
 						<key>type</key>
 						<string>slew</string>
 						<key>version</key>
-						<integer>0</integer>
+						<integer>1</integer>
 						<key>zone</key>
 						<data>
 						AAAAAA==
@@ -1816,6 +4940,7 @@
 						<key>ValidConfigs</key>
 						<array>
 							<integer>1</integer>
+							<integer>2</integer>
 						</array>
 						<key>control-id</key>
 						<integer>17664</integer>
@@ -1836,6 +4961,7 @@
 						<key>ValidConfigs</key>
 						<array>
 							<integer>1</integer>
+							<integer>2</integer>
 						</array>
 						<key>control-id</key>
 						<integer>17920</integer>
@@ -1864,7 +4990,7 @@
 						<key>location</key>
 						<string>CPU B Exhaust Fan</string>
 						<key>output-override</key>
-						<integer>800</integer>
+						<integer>300</integer>
 						<key>type</key>
 						<string>fan-rpm</string>
 						<key>version</key>
@@ -1938,6 +5064,118 @@
 					<dict>
 						<key>ControlIDArray</key>
 						<array>
+							<integer>18688</integer>
+						</array>
+						<key>Description</key>
+						<string>U3/Backside Fan</string>
+						<key>IOClass</key>
+						<string>PowerMac7_2_PIDCtrlLoop</string>
+						<key>MetaStateArray</key>
+						<array>
+							<dict>
+								<key>Description</key>
+								<string>Normal</string>
+								<key>G_d</key>
+								<data>
+								AKAAAA==
+								</data>
+								<key>G_p</key>
+								<data>
+								ADAAAA==
+								</data>
+								<key>G_r</key>
+								<data>
+								AAAAAA==
+								</data>
+								<key>history-length</key>
+								<integer>2</integer>
+								<key>input-target</key>
+								<integer>5242880</integer>
+								<key>interval</key>
+								<integer>5</integer>
+								<key>output-max</key>
+								<integer>100</integer>
+								<key>output-min</key>
+								<integer>30</integer>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Failsafe</string>
+								<key>interval</key>
+								<integer>5</integer>
+								<key>output-override</key>
+								<integer>100</integer>
+							</dict>
+						</array>
+						<key>SensorIDArray</key>
+						<array>
+							<integer>7</integer>
+						</array>
+						<key>ValidConfigs</key>
+						<array>
+							<integer>2</integer>
+						</array>
+						<key>ctrlloop-id</key>
+						<integer>7</integer>
+						<key>meta-state-format</key>
+						<string>PID</string>
+					</dict>
+					<dict>
+						<key>ControlIDArray</key>
+						<array>
+							<integer>17408</integer>
+							<integer>17152</integer>
+							<integer>17920</integer>
+							<integer>17664</integer>
+							<integer>16384</integer>
+							<integer>16640</integer>
+						</array>
+						<key>Description</key>
+						<string>CPU Cooling</string>
+						<key>IOClass</key>
+						<string>PowerMac7_3_CPUCoolingCtrlLoop</string>
+						<key>MetaStateArray</key>
+						<array>
+							<dict>
+								<key>nothing</key>
+								<string>garbage</string>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string></string>
+								<key>interval</key>
+								<integer>5</integer>
+								<key>output-override</key>
+								<integer>3200</integer>
+							</dict>
+						</array>
+						<key>SensorIDArray</key>
+						<array>
+							<integer>11</integer>
+							<integer>13</integer>
+							<integer>14</integer>
+							<integer>48</integer>
+							<integer>16</integer>
+							<integer>18</integer>
+							<integer>19</integer>
+							<integer>49</integer>
+						</array>
+						<key>ValidConfigs</key>
+						<array>
+							<integer>2</integer>
+						</array>
+						<key>cpu-id</key>
+						<integer>0</integer>
+						<key>ctrlloop-id</key>
+						<integer>6</integer>
+						<key>intake-scaling-factor</key>
+						<integer>63570</integer>
+						<key>meta-state-format</key>
+						<string>PID</string>
+					</dict>
+					<dict>
+						<key>ControlIDArray</key>
+						<array>
 							<integer>16</integer>
 						</array>
 						<key>Description</key>
@@ -1987,13 +5225,13 @@
 								<key>history-length</key>
 								<integer>2</integer>
 								<key>input-target</key>
-								<integer>2621440</integer>
+								<integer>2097152</integer>
 								<key>interval</key>
 								<integer>5</integer>
 								<key>output-max</key>
 								<integer>4000</integer>
 								<key>output-min</key>
-								<integer>300</integer>
+								<integer>1000</integer>
 							</dict>
 							<dict>
 								<key>Description</key>
@@ -2258,6 +5496,11 @@
 							<integer>14</integer>
 							<integer>48</integer>
 						</array>
+						<key>ValidConfigs</key>
+						<array>
+							<integer>1</integer>
+							<integer>0</integer>
+						</array>
 						<key>cpu-id</key>
 						<integer>0</integer>
 						<key>ctrlloop-id</key>
@@ -2491,6 +5734,11 @@
 						<array>
 							<integer>7</integer>
 						</array>
+						<key>ValidConfigs</key>
+						<array>
+							<integer>1</integer>
+							<integer>0</integer>
+						</array>
 						<key>ctrlloop-id</key>
 						<integer>4</integer>
 						<key>meta-state-format</key>
@@ -2531,7 +5779,7 @@
 								<key>output-max</key>
 								<integer>100</integer>
 								<key>output-min</key>
-								<integer>20</integer>
+								<integer>30</integer>
 							</dict>
 							<dict>
 								<key>Description</key>
@@ -2717,6 +5965,7 @@
 						<key>ValidConfigs</key>
 						<array>
 							<integer>1</integer>
+							<integer>2</integer>
 						</array>
 						<key>sensor-id</key>
 						<integer>15</integer>
@@ -2729,6 +5978,7 @@
 						<key>ValidConfigs</key>
 						<array>
 							<integer>1</integer>
+							<integer>2</integer>
 						</array>
 						<key>cpu-id</key>
 						<integer>1</integer>
@@ -2745,6 +5995,7 @@
 						<key>ValidConfigs</key>
 						<array>
 							<integer>1</integer>
+							<integer>2</integer>
 						</array>
 						<key>scaling-factor</key>
 						<data>
@@ -2763,6 +6014,7 @@
 						<key>ValidConfigs</key>
 						<array>
 							<integer>1</integer>
+							<integer>2</integer>
 						</array>
 						<key>scaling-factor</key>
 						<data>
@@ -2781,6 +6033,7 @@
 						<key>ValidConfigs</key>
 						<array>
 							<integer>1</integer>
+							<integer>2</integer>
 						</array>
 						<key>scaling-factor</key>
 						<data>
@@ -2804,6 +6057,7 @@
 						<key>ValidConfigs</key>
 						<array>
 							<integer>1</integer>
+							<integer>2</integer>
 						</array>
 						<key>location</key>
 						<string>CPU B POWER</string>
@@ -2826,6 +6080,8 @@
 	</dict>
 	<key>OSBundleLibraries</key>
 	<dict>
+		<key>com.apple.driver.IOPlatformPluginFamily</key>
+		<string>1.1.0d2</string>
 		<key>com.apple.kernel.iokit</key>
 		<string>6.5</string>
 		<key>com.apple.kernel.libkern</key>
@@ -2854,24 +6110,6 @@
 			settings = {
 			};
 		};
-		B4D5939E045887B600CE0E5B = {
-			fileRef = B0ED8C5203BA2F1805A80123;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B4D5939F045887B700CE0E5B = {
-			fileRef = B0ED8C5003BA2EF905A80123;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B4D593A1045887C200CE0E5B = {
-			fileRef = B06D1B2703C6427605CE0D9E;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		B4D89C210474529300CE0F51 = {
 			fileEncoding = 4;
 			isa = PBXFileReference;
@@ -2891,10 +6129,6 @@
 			isa = PBXBuildFile;
 			settings = {
 			};
-		};
-		B4E56AEB0458AD7B00CE0E5B = {
-			isa = PBXTargetDependency;
-			target = B4D5938D0458832300CE0E5B;
 		};
 		B4E5E9A3048E9D4800CE0F51 = {
 			fileRef = B4B6ED1B041FC43E00CE0E5B;
@@ -2922,18 +6156,6 @@
 			path = IOPlatformPlugins/PowerMac7_2_PlatformPlugin/PowerMac7_2_PIDCtrlLoop.cpp;
 			refType = 4;
 		};
-		B4F0E47504A132E000CE0E5B = {
-			fileRef = B41095CB04899BBE00CE0E5B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B4F0E47604A132E100CE0E5B = {
-			fileRef = B41095CC04899BBE00CE0E5B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		B4F0E47C04A17B8200CE0E5B = {
 			fileRef = B4E5E9C3049096D900CE0F51;
 			isa = PBXBuildFile;
@@ -2946,11 +6168,51 @@
 			settings = {
 			};
 		};
+		B4FDF1F4054F4DAA00382D6A = {
+			isa = PBXTargetDependency;
+			target = B0ED8C9E03BA371E05A80123;
+		};
 //B40
 //B41
 //B42
 //B43
 //B44
+//F20
+//F21
+//F22
+//F23
+//F24
+		F299766805C58E15003209A6 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = PowerMac7_3_CPUCoolingCtrlLoop.cpp;
+			path = IOPlatformPlugins/PowerMac7_2_PlatformPlugin/PowerMac7_3_CPUCoolingCtrlLoop.cpp;
+			refType = 4;
+		};
+		F299766905C58E15003209A6 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = PowerMac7_3_CPUCoolingCtrlLoop.h;
+			path = IOPlatformPlugins/PowerMac7_2_PlatformPlugin/PowerMac7_3_CPUCoolingCtrlLoop.h;
+			refType = 4;
+		};
+		F2FBA69805C5EFE30005AF3B = {
+			fileRef = F299766805C58E15003209A6;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F2FBA69905C5EFE40005AF3B = {
+			fileRef = F299766905C58E15003209A6;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//F20
+//F21
+//F22
+//F23
+//F24
 //F50
 //F51
 //F52

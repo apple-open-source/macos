@@ -18,7 +18,7 @@ import org.jboss.system.ServiceMBean;
  * {@link javax.management.j2ee.EJBModule EJBModule}.
  *
  * @author  <a href="mailto:andreas@jboss.org">Andreas Schaefer</a>.
- * @version $Revision: 1.5.2.1 $
+ * @version $Revision: 1.5.2.3 $
  */
 public class StateManagement
    implements NotificationListener
@@ -174,18 +174,22 @@ public class StateManagement
    /** Sets a new state and if it changed the appropriate state change event
     * is sent.
     *
-    * @param pState Integer indicating the new state according to
+    * @param newState Integer indicating the new state according to
     * {@link org.jboss.management.j2ee.StateManageable StateManageable}
     * constants
     */
-   public void setState(int pState)
+   public void setState(int newState)
    {
       // Only send a notification if the state really changes
-      if (pState != state)
+      if( state > 0 && state < stateTypes.length )
       {
-         state = pState;
-         // Now send the event to the JSR-77 listeners
-         managedObject.sendNotification(stateTypes[state], "State changed");
+         if (newState != state)
+         {
+            state = newState;
+            // Now send the event to the JSR-77 listeners
+            String type = stateTypes[state];
+            managedObject.sendNotification(type, "State changed");
+         }
       }
    }
 

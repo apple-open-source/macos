@@ -6,23 +6,20 @@
  */
 package org.jboss.security;
 
-import java.io.IOException;
 import java.security.CodeSource;
 import java.security.Permission;
 import java.security.PermissionCollection;
 import java.security.Permissions;
 import java.security.Principal;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
-import javax.security.auth.AuthPermission;
 import javax.security.auth.Subject;
 
 /**
 
 @author Scott.Stark@jboss.org
-@version $Revision: 1.3 $
+@version $Revision: 1.3.4.1 $
 */
 public class AuthorizationInfo
 {

@@ -144,7 +144,7 @@ in the catalina module.
 @jmx:mbean extends="org.jboss.deployment.SubDeployerMBean"
 
 @author  Scott.Stark@jboss.org
-@version $Revision: 1.51.2.22 $
+@version $Revision: 1.51.2.25 $
 */
 public abstract class AbstractWebContainer
    extends SubDeployerSupport
@@ -568,6 +568,7 @@ public abstract class AbstractWebContainer
             parent = parent.getParent();
          }
          currentThread.setContextClassLoader(loader);
+         metaData.setENCLoader(loader);
          envCtx = (Context) iniCtx.lookup("java:comp");
 
          // Add a link to the global transaction manager
@@ -634,10 +635,15 @@ public abstract class AbstractWebContainer
                  throw new NamingException("Malformed URL:"+e.getMessage());
              }
          }
-         else
+         else if( resourceName != null )
          {
             log.debug("Linking '"+refName+"' to JNDI name: "+resourceName);
             Util.bind(envCtx, refName, new LinkRef(resourceName));
+         }
+         else
+         {
+            throw new NamingException("resource-env-ref: "+refName
+               +" has no valid JNDI binding. Check the jboss-web/resource-env-ref.");
          }
       }
    }
@@ -663,10 +669,15 @@ public abstract class AbstractWebContainer
                  throw new NamingException("Malformed URL:"+e.getMessage());
              }
          }
-         else
+         else if( jndiName != null )
          {
              log.debug("Linking '"+refName+"' to JNDI name: "+jndiName);
              Util.bind(envCtx, refName, new LinkRef(jndiName));
+         }
+         else
+         {
+            throw new NamingException("resource-ref: "+refName
+               +" has no valid JNDI binding. Check the jboss-web/resource-ref.");
          }
       }
    }
@@ -730,7 +741,20 @@ public abstract class AbstractWebContainer
          {
              jndiName = ejb.getJndiName();
              if ( jndiName == null )
-                 throw new NamingException ("ejb-local-ref: "+name+", no ejb-link in web.xml and no jndi-name in jboss-web.xml");
+             {
+                String msg = null;
+                if( linkName == null )
+                {
+                  msg = "ejb-local-ref: '"+name+"', no ejb-link in web.xml and "
+                   + "no local-jndi-name in jboss-web.xml";
+                }
+                else
+                {
+                   msg = "ejb-local-ref: '"+name+"', with web.xml ejb-link: '"
+                   + linkName + "' failed to resolve to an ejb with a LocalHome";
+                }
+                throw new NamingException(msg);
+             }
          }
 
          log.debug("Linking ejb-local-ref: "+name+" to JNDI name: "+jndiName);

@@ -12,7 +12,6 @@ package org.jboss.console.twiddle;
 import java.io.PrintWriter;
 import java.io.InputStream;
 import java.io.File;
-import java.io.IOException;
 import java.net.URL;
 import java.net.MalformedURLException;
 import java.util.Properties;
@@ -48,16 +47,17 @@ import org.jboss.console.twiddle.command.NoSuchCommandException;
  * A command to invoke an operation on an MBean (or MBeans).
  *
  *
- * @todo Add set command
+ * todo Add set command
  *
  * @author <a href="mailto:jason@planet57.com">Jason Dillon</a>
  * @author Scott.Stark@jboss.org
- * @version $Revision: 1.7.2.3 $
+ * @version $Revision: 1.7.2.5 $
  */
 public class Twiddle
 {
    public static final String PROGRAM_NAME = System.getProperty("program.name", "twiddle");
    public static final String CMD_PROPERTIES = "/org/jboss/console/twiddle/commands.properties";
+   public static final String DEFAULT_JNDI_NAME = "jmx/invoker/RMIAdaptor";
    private static final Logger log = Logger.getLogger(Twiddle.class);
    // Command Line Support
    private static Twiddle twiddle = new Twiddle(new PrintWriter(System.out, true),
@@ -238,7 +238,7 @@ public class Twiddle
       // if adapter is null, the use the default
       if (adapterName == null)
       {
-         adapterName = org.jboss.jmx.adaptor.rmi.RMIAdaptorService.DEFAULT_JNDI_NAME;
+         adapterName = DEFAULT_JNDI_NAME;
       }
 
       Object obj = ctx.lookup(adapterName);

@@ -18,7 +18,7 @@ import java.util.HashSet;
  *  @see org.jboss.ha.hasessionstate.server.HASessionStateImpl
  *
  *  @author <a href="mailto:sacha.labourey@cogito-info.ch">Sacha Labourey</a>
- *  @version $Revision: 1.2.4.1 $
+ *  @version $Revision: 1.2.4.2 $
  */
 public class SubPartitionInfo 
    implements Comparable, Cloneable, java.io.Serializable
@@ -32,7 +32,7 @@ public class SubPartitionInfo
    // Attributes ----------------------------------------------------
    
    /**
-    * Name of the current sub-partition (will be used to create a JavaGroups group)
+    * Name of the current sub-partition (will be used to create a JGroups group)
     */
    public String subPartitionName = null;
    

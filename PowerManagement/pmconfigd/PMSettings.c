@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -38,6 +35,8 @@
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 #include <IOKit/pwr_mgt/IOPM.h>
 #include <IOKit/ps/IOPSKeys.h>
+#include <IOKit/ps/IOPowerSources.h>
+#include <IOKit/ps/IOPowerSourcesPrivate.h>
 #include <IOKit/IOMessage.h>
 
 #include "PMSettings.h"
@@ -45,8 +44,8 @@
  
 /* Power Management profile bits */
 enum {
-    kPMForceLowSpeedProfile = (1<<0),
-    kPMREMSleepProfile      = (1<<1)
+    kPMForceLowSpeedProfile         = (1<<0),
+    kPMREMSleepProfile              = (1<<1)
 };
 
 /* Global - systemEnergySettings
@@ -104,6 +103,25 @@ PMSettingsSleepWakeNotification(natural_t messageType)
     return;
 }
 
+__private_extern__ CFDictionaryRef
+PMSettings_CopyPMSettings(void)
+{
+    CFDictionaryRef         copy_all_settings;
+    CFDictionaryRef         energySettings;
+    CFDictionaryRef         return_val;
+
+    copy_all_settings = IOPMCopyPMPreferences();
+    if(!copy_all_settings) return NULL;
+    energySettings = isA_CFDictionary(CFDictionaryGetValue(copy_all_settings,currentPowerSource));
+    if(energySettings) 
+        return_val = CFDictionaryCreateCopy(kCFAllocatorDefault, energySettings);
+    else 
+        return_val = NULL;
+
+    CFRelease(copy_all_settings);
+    return return_val;
+}
+
 
  /* activate_profiles
  *
@@ -148,8 +166,9 @@ activate_profiles(CFMutableDictionaryRef d, CFStringRef s)
             if(n1) CFDictionarySetValue(profiles_activated, CFSTR(kIOPMDisplaySleepKey), n1);
             //syslog(LOG_INFO, "REMSleepProfile activated");
         }
+        
         CFRelease(n1);
-
+        
         // Package the new, modified settings, in a way that 
         // IOPMActivatePMPreferences will read them
         tmp = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, 
@@ -171,9 +190,8 @@ activate_profiles(CFMutableDictionaryRef d, CFStringRef s)
 __private_extern__ void 
 PMSettings_prime(void)
 {
-    CFArrayRef                          battery_info;
-    int                                 flags;
     mach_port_t                         masterPort;
+    CFTypeRef                           ps_blob;
 
     // Open a connection to the Power Manager.
     IOMasterPort(bootstrap_port, &masterPort);
@@ -181,28 +199,16 @@ PMSettings_prime(void)
     if (gPowerManager == 0) return;
     IOObjectRelease(masterPort);
     
-
     /*
      * determine current power source for separate Battery/AC settings
      */
-    battery_info = isA_CFArray(_copyBatteryInfo());
-    if(battery_info)
+    ps_blob = IOPSCopyPowerSourcesInfo();
+    if(ps_blob) 
     {
-        // Find out what the current power source is
-        CFNumberGetValue(CFDictionaryGetValue(
-                    CFArrayGetValueAtIndex((CFArrayRef)battery_info,0),
-                    CFSTR("Flags")), kCFNumberSInt32Type,&flags);
-
-        if(flags & kIOBatteryChargerConnect)
-            currentPowerSource = CFSTR(kIOPMACPowerKey); // AC
-        else currentPowerSource = CFSTR(kIOPMBatteryPowerKey); // battery
-        
-        CFRelease(battery_info);
-    } else {
-        // If no batteries are found, set currentPowerSource as AC
-        currentPowerSource = CFSTR(kIOPMACPowerKey);
-    }
-
+        currentPowerSource = IOPSGetProvidingPowerSourceType(ps_blob);
+        CFRelease(ps_blob);
+    } else currentPowerSource = CFSTR(kIOPMACPowerKey);
+    
     // load the initial configuration from the database
     systemEnergySettings = IOPMCopyPMPreferences();
 
@@ -235,38 +241,72 @@ PMSettingsPrefsHaveChanged(void)
     return;
 }
 
- 
-/* BatteryPollingTimer
+
+/* PMSettingsPSChange
  *
- * typedef void (*CFRunLoopTimerCallBack)(CFRunLoopTimerRef timer, void *info);
+ * A power source has changed. Has the current power provider changed?
+ * If so, get new settings down to the kernel.
+ */
+__private_extern__ void PMSettingsPSChange(CFTypeRef ps_blob)
+{
+    CFStringRef     newPowerSource;
+    
+    newPowerSource = IOPSGetProvidingPowerSourceType(ps_blob);
+
+    if(!CFEqual(currentPowerSource, newPowerSource))
+    {
+        currentPowerSource = newPowerSource;
+
+        // Are we in the middle of a sleep?
+        if(!_pmcfgd_impendingSleep)
+        {
+            // If not, tell drivers that the power source changed
+            if(CFEqual(CFSTR(kIOPMACPowerKey), currentPowerSource))
+            {
+                // Running off of external power
+                IOPMSetAggressiveness(gPowerManager, kPMPowerSource, kIOPMExternalPower);
+            } else {
+                // This is either battery power or UPS power, "internal power"
+                IOPMSetAggressiveness(gPowerManager, kPMPowerSource, kIOPMInternalPower);
+            }     
+        } else {
+            // If we WERE in the middle of a sleep, delay notification until we're awake.
+            deferredPSChangeNotify = 1;
+        }
+        
+        activate_profiles(systemEnergySettings, currentPowerSource);
+    }
+
+}
+
+/* BatteryPollingTimer
  * 
  */
 __private_extern__ void
 PMSettingsBatteriesHaveChanged(CFArrayRef battery_info)
 {
-    CFStringRef				        oldPowerSource;
     CFBooleanRef			        rem_bool;
     int					        flags;
     int					        changed_flags;
     int                                 	settings_changed = 0;
     static int				        old_flags = 0;
-    mach_port_t				        masterPort;
     io_iterator_t			        it;
     static io_registry_entry_t			root_domain = 0;
 
-    // Assume that battery_info is well formed as passed from pmconfigd.c
-
-    IOMasterPort(bootstrap_port, &masterPort);
-
-    // get a static pointer to IOPMrootDomain registry entry
     if(!root_domain) 
     {
-        IOServiceGetMatchingServices(masterPort, IOServiceNameMatching("IOPMrootDomain"), &it);
-        // note: we won't release root_domain because it's static in a system level daemon
+        IOServiceGetMatchingServices(0, IOServiceNameMatching("IOPMrootDomain"), &it);
+        // note: we won't release root_domain because it's static
         root_domain = IOIteratorNext(it);
         IOObjectRelease(it);
     }
-    
+
+    // YUCK YUCK YUCK
+    // The very fact that these bits are delivered via the PMU's battery info struct
+    // is a hack that slowly evolved to a place we don't want it to be.
+    // As part of the disappearance of the PMU, we'll be moving these off into their
+    // own out-of-band non-battery "environmental bits" data channel created in rdar://problem/3200532.
+
     // decide if power source has changed
     CFNumberGetValue(CFDictionaryGetValue(
                 CFArrayGetValueAtIndex((CFArrayRef)battery_info,0),
@@ -274,44 +314,6 @@ PMSettingsBatteriesHaveChanged(CFArrayRef battery_info)
 
     changed_flags = flags ^ old_flags;
     old_flags = flags;
-
-    // Handle charger plug/unplug event
-    if(changed_flags & kIOBatteryChargerConnect)
-    {
-        oldPowerSource = CFStringCreateCopy(kCFAllocatorDefault, currentPowerSource);
-        
-        // Keep track of current power source
-        if(flags & kIOBatteryChargerConnect) 
-        {
-            currentPowerSource = CFSTR(kIOPMACPowerKey); // AC
-        } else 
-        {
-            currentPowerSource = CFSTR(kIOPMBatteryPowerKey); // battery
-        }
-        
-        // Are we in the middle of a sleep?
-        if(!_pmcfgd_impendingSleep)
-        {
-            // If not, tell drivers that the power source changed
-            if(flags & kIOBatteryChargerConnect) 
-            {
-                IOPMSetAggressiveness(gPowerManager, kPMPowerSource, kIOPMExternalPower);
-            } else 
-            {
-                IOPMSetAggressiveness(gPowerManager, kPMPowerSource, kIOPMInternalPower);
-            }
-        } else {
-            // If so, delay the notification until we're awake from sleep
-            deferredPSChangeNotify = 1;
-        }
-        
-        if(0 != CFStringCompare(oldPowerSource, currentPowerSource, NULL))
-        {
-            //PowerSourceHasChanged(oldPowerSource, currentPowerSource);
-            settings_changed = 1;
-        }
-        CFRelease(oldPowerSource);
-    }
     
     // Do we need to override the low processor speed setting?
     if(changed_flags & kForceLowSpeed)
@@ -368,5 +370,4 @@ PMSettingsBatteriesHaveChanged(CFArrayRef battery_info)
         activate_profiles(systemEnergySettings, currentPowerSource);
     }
     
-    IOObjectRelease(masterPort);
 }

@@ -17,11 +17,13 @@
  * THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR IMPLIED
  * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ * 
+ * Original code by Greg Stark <gsstark@mit.edu> 
  */
 
 #ifndef lint
-static const char rcsid[] =
-"@(#) $Header: /cvs/root/tcpdump/tcpdump/print-pppoe.c,v 1.1.1.3 2003/03/17 18:42:18 rbraun Exp $ (LBL)";
+static const char rcsid[] _U_ =
+"@(#) $Header: /cvs/root/tcpdump/tcpdump/print-pppoe.c,v 1.1.1.4 2004/02/05 19:30:56 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -88,6 +90,7 @@ static struct tok pppoetag2str[] = {
 };
 
 #define PPPOE_HDRLEN 6
+#define MAXTAGPRINT 80
 
 u_int
 pppoe_if_print(const struct pcap_pkthdr *h, register const u_char *p)
@@ -134,14 +137,19 @@ pppoe_print(register const u_char *bp, u_int length)
 		printf(" [ses 0x%x]", pppoe_sessionid);
 	}
 
-	if (pppoe_payload + pppoe_length < snapend) {
-#if 0
-		const u_char *x = pppoe_payload + pppoe_length;
+	if (pppoe_payload + pppoe_length < snapend && snapend-pppoe_payload+14 > 64) {
+		/* (small packets are probably just padded up to the ethernet
+		   minimum of 64 bytes) */
 		printf(" [length %d (%d extra bytes)]",
 		    pppoe_length, snapend - pppoe_payload - pppoe_length);
-		default_print(x, snapend - x);
-#endif
+#if RESPECT_PAYLOAD_LENGTH
 		snapend = pppoe_payload+pppoe_length;
+#else
+		/* Actual PPPoE implementations appear to ignore the payload
+		   length and use the full ethernet frame anyways */
+		pppoe_length = snapend-pppoe_payload;
+#endif
+		
 	}
 
 	if (pppoe_code) {
@@ -162,25 +170,38 @@ pppoe_print(register const u_char *bp, u_int length)
 			/* p points to tag_value */
 
 			if (tag_len) {
-				int isascii = 1;
+				unsigned isascii = 0, isgarbage = 0;
 				const u_char *v = p;
-				u_short l;
+				char tag_str[MAXTAGPRINT];
+				unsigned tag_str_len = 0;
 
-				for (v = p; v < p + tag_len; v++)
-					if (*v >= 127 || *v < 32) {
-						isascii = 0;
-						break;
+				/* TODO print UTF-8 decoded text */
+				for (v = p; v < p + tag_len && tag_str_len < MAXTAGPRINT-1; v++)
+					if (*v >= 32 && *v < 127) {
+						tag_str[tag_str_len++] = *v;
+						isascii++;
+					} else {
+						tag_str[tag_str_len++] = '.';
+						isgarbage++;
 					}
+				tag_str[tag_str_len] = 0;
 
-				/* TODO print UTF8 decoded text */
-				if (isascii) {
-					l = (tag_len < 80 ? tag_len : 80);
+				if (isascii > isgarbage) {
 					printf(" [%s \"%*.*s\"]",
-					    tok2str(pppoetag2str, "TAG-0x%x", tag_type),
-					    l, l, p);
-				} else
-					printf(" [%s UTF8]",
-					    tok2str(pppoetag2str, "TAG-0x%x", tag_type));
+					       tok2str(pppoetag2str, "TAG-0x%x", tag_type),
+					       (int)tag_str_len,
+					       (int)tag_str_len,
+					       tag_str);
+				} else {
+					/* Print hex, not fast to abuse printf but this doesn't get used much */
+					printf(" [%s 0x", tok2str(pppoetag2str, "TAG-0x%x", tag_type));
+					for (v=p; v<p+tag_len; v++) {
+						printf("%02X", *v);
+					}
+					printf("]");
+				}
+				
+
 			} else
 				printf(" [%s]", tok2str(pppoetag2str,
 				    "TAG-0x%x", tag_type));

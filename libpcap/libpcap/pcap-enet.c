@@ -7,8 +7,8 @@
  * Rayan Zachariassen, CA*Net
  */
 #ifndef lint
-static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/src/live/libpcap/libpcap/pcap-enet.c,v 1.1.1.1 2001/07/07 00:41:36 bbraun Exp $";
+static const char rcsid[] _U_ =
+    "@(#) $Header: /cvs/root/libpcap/libpcap/pcap-enet.c,v 1.1.1.2 2004/02/05 19:22:28 rbraun Exp $";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -22,7 +22,7 @@ static const char rcsid[] =
 #include <sys/socket.h>
 
 #include <net/if.h>
-#include <net/bpf.h>
+#include <pcap-bpf.h>
 #include <net/enet.h>
 
 #include <netinet/in.h>
@@ -133,7 +133,7 @@ wrapup(int fd)
 		perror("tcpdump: enet ioctl EIOSTATS error");
 		exit(-1);
 	}
-	
+
 	fprintf(stderr, "%d packets queued", es.enStat_Rcnt);
 	if (es.enStat_Rdrops > 0)
 		fprintf(stderr, ", %d dropped", es.enStat_Rdrops);
@@ -141,7 +141,7 @@ wrapup(int fd)
 		fprintf(stderr, ", %d tcpdump %s", es.enStat_Reads,
 				es.enStat_Reads > 1 ? "reads" : "read");
 	if (es.enStat_MaxRead > 1)
-		fprintf(stderr, ", %d packets in largest read", 
+		fprintf(stderr, ", %d packets in largest read",
 			es.enStat_MaxRead);
 	putc('\n', stderr);
 #endif	/* IBMRTPC */

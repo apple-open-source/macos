@@ -45,8 +45,8 @@ import org.w3c.dom.Element;
  *
  * @see Container
  *
- * @version <tt>$Revision: 1.23.2.12 $</tt>
- * @author <a href="mailto:rickard.oberg@telkel.com">Rickard Öberg</a>
+ * @version <tt>$Revision: 1.23.2.13 $</tt>
+ * @author <a href="mailto:rickard.oberg@telkel.com">Rickard Ã–berg</a>
  * @author <a href="mailto:marc.fleury@telkel.com">Marc Fleury</a>
  * @author <a href="mailto:jplindfo@helsinki.fi">Juha Lindfors</a>
  * @author <a href="mailto:sebastien.alborini@m4x.org">Sebastien Alborini</a>
@@ -480,6 +480,7 @@ public class EJBDeployer
          catch (Throwable t)
          {
             log.warn("Verify failed; continuing", t );
+            allOK = false;
          }
 
          // If the verifier is in strict mode and an error/warning

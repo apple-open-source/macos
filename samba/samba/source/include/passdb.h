@@ -57,7 +57,8 @@ enum pdb_elements {
 	PDB_MUNGEDDIAL,
 	PDB_HOURS,
 	PDB_UNKNOWN3,
-	PDB_UNKNOWN5,
+	PDB_BAD_PASSWORD_COUNT,
+	PDB_LOGON_COUNT,
 	PDB_UNKNOWN6,
 	PDB_LMPASSWD,
 	PDB_NTPASSWD,
@@ -97,7 +98,7 @@ typedef struct sam_passwd
 	struct pdb_methods *methods;
 
 	struct user_data {
-		/* initiailization flags */
+		/* initialization flags */
 		struct bitmap *change_flags;
 		struct bitmap *set_flags;
 
@@ -136,7 +137,10 @@ typedef struct sam_passwd
 		uint32 hours_len; /* normally 21 bytes */
 		uint8 hours[MAX_HOURS_LEN];
 		
-		uint32 unknown_5; /* 0x0002 0000 */
+		/* Was unknown_5. */
+		uint16 bad_password_count;
+		uint16 logon_count;
+
 		uint32 unknown_6; /* 0x0000 04ec */
 		/* a tag for who added the private methods */
 		const struct pdb_methods *backend_private_methods;
@@ -157,7 +161,7 @@ typedef struct sam_group {
 	struct pdb_methods *methods;
 
 	struct group_data {
-		/* initiailization flags */
+		/* initialization flags */
 		struct bitmap *change_flags;
 		struct bitmap *set_flags;
 
@@ -295,5 +299,7 @@ struct pdb_init_function_entry {
 	pdb_init_function init;
 	struct pdb_init_function_entry *prev, *next;
 };
+
+enum sql_search_field { SQL_SEARCH_NONE = 0, SQL_SEARCH_USER_SID = 1, SQL_SEARCH_USER_NAME = 2};
 
 #endif /* _PASSDB_H */

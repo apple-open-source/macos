@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<application>
+  <display-name>EAR Depends EJB - SAR</display-name>
+  
+  <module>
+    <ejb>eardependsaejb.jar</ejb>
+  </module>
+
+  <module>
+    <ejb>eardependsbejb.jar</ejb>
+  </module>
+</application>

@@ -38,7 +38,7 @@ import org.jboss.invocation.pooled.interfaces.PooledInvokerProxy;
 * Sample client for the jboss container.
 *
 * @author <a href="mailto:bill@burkecentral.com">Bill Burke</a>
-* @version $Id: BeanStressTestCase.java,v 1.1.2.1 2002/11/13 19:46:59 patriot1burke Exp $
+* @version $Id: BeanStressTestCase.java,v 1.1.2.2 2003/09/14 23:34:14 ejort Exp $
 */
 public class BeanStressTestCase 
    extends JBossTestCase 
@@ -48,7 +48,8 @@ public class BeanStressTestCase
    static boolean deployed = false;
    static int test = 0;
    static Date startDate = new Date();
-   public static int NUM_THREADS = 300;
+   public int NUM_THREADS = getThreadCount();
+   public int iterations = getIterationCount();
    
    protected final String namingFactory =
    System.getProperty(Context.INITIAL_CONTEXT_FACTORY);
@@ -82,7 +83,7 @@ public class BeanStressTestCase
       }
       public void run()
       {
-         for (int i = 0; i < 10; i++)
+         for (int i = 0; i < iterations; i++)
          {
             try 
             {
@@ -109,7 +110,7 @@ public class BeanStressTestCase
       }
       public void run()
       {
-         for (int i = 0; i < 10; i++)
+         for (int i = 0; i < iterations; i++)
          {
             try 
             {

@@ -1,6 +1,6 @@
 // ========================================================================
 // Copyright (c) 2002 Mort Bay Consulting (Australia) Pty. Ltd.
-// $Id: PublishingInterceptor.java,v 1.1.2.3 2003/02/18 23:53:42 jules_gosnell Exp $
+// $Id: PublishingInterceptor.java,v 1.1.2.4 2003/07/26 11:49:41 jules_gosnell Exp $
 // ========================================================================
 
 package org.mortbay.j2ee.session;
@@ -17,7 +17,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import javax.servlet.http.HttpSession;
-import org.apache.log4j.Category;
+import org.jboss.logging.Logger;
 //----------------------------------------
 
 // at a later date, this needs to be able to batch up changes and
@@ -27,7 +27,7 @@ import org.apache.log4j.Category;
 public class PublishingInterceptor
   extends StateInterceptor
 {
-  protected final Category _log=Category.getInstance(getClass().getName());
+  protected static final Logger _log=Logger.getLogger(PublishingInterceptor.class);
 
   protected AbstractReplicatedStore
     getStore()

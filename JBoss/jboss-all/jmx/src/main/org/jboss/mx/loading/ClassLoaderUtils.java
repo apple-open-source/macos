@@ -31,7 +31,7 @@ import org.jboss.logging.Logger;
 /** Utility methods for class loader to package names, etc.
  *
  * @author Scott.Stark@jboss.org
- * @version $Revision: 1.2.2.9 $
+ * @version $Revision: 1.2.2.11 $
  */
 public class ClassLoaderUtils
 {
@@ -161,6 +161,26 @@ public class ClassLoaderUtils
       if( endIndex > 0 )
          pkgName = className.substring(startIndex, endIndex);
       return pkgName;
+   }
+
+   /** Parse a class name into its resource form. This has to handle
+      array classes whose name is prefixed with [L.
+    */
+   public static String getResourceName(String className)
+   {
+      int startIndex = 0;
+      // Strip any leading "[+L" found in array class names
+      if( className.length() > 0 && className.charAt(0) == '[' )
+      {
+         // Move beyond the [...[L prefix
+         startIndex = className.indexOf('L') + 1;
+      }
+	   // Now extract the package name
+      String resName = "";
+      int endIndex = className.lastIndexOf('.');
+      if( endIndex > 0 )
+         resName = className.substring(startIndex, endIndex);
+      return resName.replace('.', '/');
    }
 
    /** Given a UCL this method determine what packages
@@ -508,7 +528,7 @@ public class ClassLoaderUtils
             if( tmp.isDirectory() )
             {
                rootLength = tmp.getPath().length() + 1;
-               fileIter = new FileIterator(tmp, new ClassFilter());
+               fileIter = new FileIterator(tmp);
             }
             else
             {

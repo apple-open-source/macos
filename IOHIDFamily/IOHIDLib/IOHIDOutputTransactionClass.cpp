@@ -224,24 +224,25 @@ IOReturn IOHIDOutputTransactionClass::create ()
 
 IOReturn IOHIDOutputTransactionClass::dispose()
 {
-    CFIndex			numElements;
-    IOHIDTransactionElement 	*element;
-    IOReturn			ret = kIOReturnSuccess;
+    CFMutableDataRef *		elementDataRefs	= NULL;
+    CFIndex			numElements	= 0;
+    IOHIDTransactionElement *	element		= NULL;
+    IOReturn			ret 		= kIOReturnSuccess;
 
     // mark it dead
     fIsCreated = false;
     
     //if (!fElementDictionaryRef)
     //    return kIOReturnSuccess;
-     
+
     numElements = CFDictionaryGetCount(fElementDictionaryRef);
-    
-    CFMutableDataRef	elementDataRefs[numElements];
-    
+     
     if (!numElements) {
         ret = kIOReturnError;
         goto DISPOSE_RELEASE;
     }
+
+    elementDataRefs = (CFMutableDataRef *)malloc(sizeof(CFMutableDataRef) * numElements);
         
     CFDictionaryGetKeysAndValues(fElementDictionaryRef, NULL, (const void **)elementDataRefs);
     
@@ -274,6 +275,9 @@ IOReturn IOHIDOutputTransactionClass::dispose()
     }
 
 DISPOSE_RELEASE:    
+    if (elementDataRefs)
+        free(elementDataRefs);
+        
     // Destroy the transaction dictionary
     CFRelease(fElementDictionaryRef);
     
@@ -299,6 +303,11 @@ IOReturn IOHIDOutputTransactionClass::addElement (
         return kIOReturnError;
         
     if (!fOwningDevice->getElement(elementCookie, &tempElementStruct))
+        return kIOReturnBadArgument;
+        
+    // Since this is a Output Transaction only allow feature and output elements
+    if ((tempElementStruct.type != kIOHIDElementTypeOutput) && 
+        (tempElementStruct.type != kIOHIDElementTypeFeature))
         return kIOReturnBadArgument;
          
     elementDataRef = CFDataCreateMutable(kCFAllocatorDefault, sizeof(IOHIDTransactionElement));
@@ -607,9 +616,10 @@ IOReturn IOHIDOutputTransactionClass::commit(UInt32 			timeoutMS,
                                              void * 			callbackTarget,
                                              void *			callbackRefcon)
 {
-    CFIndex			numElements;
-    IOHIDTransactionElement 	*element;
-    IOReturn			ret = kIOReturnError;
+    CFIndex			numElements	= 0;
+    CFMutableDataRef *		elementDataRefs	= NULL;
+    IOHIDTransactionElement *	element		= NULL;
+    IOReturn			ret 		= kIOReturnError;
 
     
     if (!fIsCreated || !fElementDictionaryRef)
@@ -620,13 +630,10 @@ IOReturn IOHIDOutputTransactionClass::commit(UInt32 			timeoutMS,
     if (!numElements)
         return kIOReturnError;
     
-    CFMutableDataRef	elementDataRefs[numElements];
+    elementDataRefs = (CFMutableDataRef *)malloc(sizeof(CFMutableDataRef) * numElements);
 
     CFDictionaryGetKeysAndValues(fElementDictionaryRef, NULL, (const void **)elementDataRefs);
-    
-    if (!elementDataRefs)
-        return kIOReturnError;
-    
+        
     // run through and call setElementValue w/o device push
     // *** we definitely have to hold a lock here. ***
     int				numValidElements = 0;
@@ -667,6 +674,9 @@ IOReturn IOHIDOutputTransactionClass::commit(UInt32 			timeoutMS,
         numValidElements++;
     }
     
+    if (elementDataRefs)
+        free(elementDataRefs);
+    
     // put together an ioconnect here
     //  kIOHIDLibUserClientPostElementValue,  kIOUCStructIStructO, 1, 0
     IOByteCount			outputCount = 0;
@@ -683,8 +693,9 @@ IOReturn IOHIDOutputTransactionClass::commit(UInt32 			timeoutMS,
 
 IOReturn IOHIDOutputTransactionClass::clear ()
 {
-    CFIndex			numElements;
-    IOHIDTransactionElement 	*element;
+    CFIndex			numElements	= 0;
+    CFMutableDataRef *		elementDataRefs	= NULL;
+    IOHIDTransactionElement *	element		= NULL;
 
     
     if (!fIsCreated || !fElementDictionaryRef)
@@ -695,12 +706,9 @@ IOReturn IOHIDOutputTransactionClass::clear ()
     if (!numElements)
         return kIOReturnError;
         
-    CFMutableDataRef	elementDataRefs[numElements];
+    elementDataRefs = (CFMutableDataRef *)malloc(sizeof(CFMutableDataRef) * numElements);
     
     CFDictionaryGetKeysAndValues(fElementDictionaryRef, NULL, (const void **)elementDataRefs);
-    
-    if (!elementDataRefs)
-        return kIOReturnError;
     
     for (int i=0; elementDataRefs[i] && i<numElements; i++)
     {
@@ -726,6 +734,9 @@ IOReturn IOHIDOutputTransactionClass::clear ()
             element->state &= ~kIOHIDTransactionCurrent;
         }
     }
+
+    if (elementDataRefs)
+        free(elementDataRefs);
     
     return kIOReturnSuccess;
 }

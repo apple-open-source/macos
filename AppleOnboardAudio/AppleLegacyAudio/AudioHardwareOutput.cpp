@@ -189,23 +189,23 @@ void AudioHardwareOutput::deviceIntService( UInt32 currentDevices ) {
 void AudioHardwareOutput::ioLog(){
     switch (outputKind) {
         case kOutputPortTypeUnknown:
-            debugIOLog("+ Info for output port : unknown");
+            debugIOLog (3, "+ Info for output port : unknown");
             break;
         case kOutputPortTypeProj5:
-            debugIOLog("+ Info for output port : Proj5");
+            debugIOLog (3, "+ Info for output port : Proj5");
             break;
         case kOutputPortTypeProj3:
-            debugIOLog("+ Info for output port : Proj3");
+            debugIOLog (3, "+ Info for output port : Proj3");
             break;
         case kOutputPortTypeEQ:
-            debugIOLog("+ Info for output port : EQ");
+            debugIOLog (3, "+ Info for output port : EQ");
             break;        
     }
     
     if(active) {
-        debug2IOLog("  The output is active of type %4.4s\n", (char*)&oKind);
+        debugIOLog (3, "  The output is active of type %4.4s", (char*)&oKind);
     } else {
-        debug2IOLog("  The output is inactive of type %4.4s\n", (char*)&oKind);
+        debugIOLog (3, "  The output is inactive of type %4.4s", (char*)&oKind);
     }
 }
 

@@ -28,7 +28,7 @@ import org.jboss.management.j2ee.statistics.EJBStatsImpl;
  *
  * @author <a href="mailto:andreas@jboss.org">Andreas Schaefer</a>.
  * @author Scott.Stark@jboss.org
- * @version $Revision: 1.6.2.5 $
+ * @version $Revision: 1.6.2.6 $
  * @jmx:mbean extends="org.jboss.management.j2ee.J2EEManagedObjectMBean, org.jboss.management.j2ee.statistics.StatisticsProvider"
  */
 public abstract class EJB
@@ -76,7 +76,7 @@ public abstract class EJB
                ejb = new StatelessSessionBean(jndiName, ejbModuleName, ejbContainerName);
                break;
             case MESSAGE_DRIVEN_BEAN:
-               ejb = new EntityBean(jndiName, ejbModuleName, ejbContainerName);
+               ejb = new MessageDrivenBean(jndiName, ejbModuleName, ejbContainerName);
                break;
          }
 

@@ -1,6 +1,6 @@
 // ========================================================================
 // Copyright (c) 2002 Mort Bay Consulting (Australia) Pty. Ltd.
-// $Id: MarshallingInterceptor.java,v 1.1.4.4 2003/01/14 00:46:56 jules_gosnell Exp $
+// $Id: MarshallingInterceptor.java,v 1.1.4.5 2003/07/26 11:49:41 jules_gosnell Exp $
 // ========================================================================
 
 package org.mortbay.j2ee.session;
@@ -17,7 +17,7 @@ import java.util.HashMap;
 import javax.servlet.http.HttpSession;
 import javax.servlet.http.HttpSessionActivationListener;
 import javax.servlet.http.HttpSessionEvent;
-import org.apache.log4j.Category;
+import org.jboss.logging.Logger;
 
 //----------------------------------------
 
@@ -35,6 +35,8 @@ import org.apache.log4j.Category;
 public class MarshallingInterceptor
   extends StateInterceptor
 {
+  protected static final Logger _log=Logger.getLogger(MarshallingInterceptor.class);
+
   static class ObjectInputStream
     extends java.io.ObjectInputStream
   {
@@ -79,8 +81,6 @@ public class MarshallingInterceptor
       }
     }
   }
-
-  Category _log=Category.getInstance(getClass().getName());
 
   static public byte[]
     marshal(Object value)

@@ -359,6 +359,7 @@
 #define kRxMACMask_default			1			// enable all but Frame_Received
 #define kMACControlMask_default		0xFFFFFFF8	// enable Paused stuff
 
+														// 6030:
 #define kTxMACConfiguration_TxMac_Enable			0x001
 #define kTxMACConfiguration_Ignore_Carrier_Sense	0x002
 #define kTxMACConfiguration_Ignore_Collisions		0x004
@@ -370,6 +371,7 @@
 #define kTxMACConfiguration_No_FCS					0x100
 #define kTxMACConfiguration_TX_Carrier_Extension	0x200
 
+														// 6034:
 #define kRxMACConfiguration_Rx_Mac_Enable			0x001
 #define kRxMACConfiguration_Strip_Pad				0x002
 #define kRxMACConfiguration_Strip_FCS				0x004
@@ -383,7 +385,7 @@
 #define kMACControlConfiguration_Send_Pause_Enable		0x1
 #define kMACControlConfiguration_Receive_Pause_Enable	0x2
 #define kMACControlConfiguration_Pass_MAC_Control		0x4
-
+															// 603C:
 #define kXIFConfiguration_Tx_MII_OE			0x01	// output enable on the MII bus
 #define kXIFConfiguration_MII_Int_Loopback	0x02
 #define kXIFConfiguration_Disable_Echo		0x04
@@ -493,8 +495,8 @@
 
 	struct TxDescriptor
 	{
-		VU32		flags0;
-		VU32		flags1;
+		VU32		flags0;			// start/end of frame...buffer size
+		VU32		flags1;			// Int me
 		VU32		bufferAddrLo;
 		VU32		bufferAddrHi;
 	};

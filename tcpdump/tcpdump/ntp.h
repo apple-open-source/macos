@@ -1,4 +1,4 @@
-/* $Header: /cvs/root/tcpdump/tcpdump/ntp.h,v 1.1.1.2 2003/03/17 18:42:16 rbraun Exp $ */
+/* $Header: /cvs/root/tcpdump/tcpdump/ntp.h,v 1.1.1.3 2004/02/05 19:30:52 rbraun Exp $ */
 
 /*
  * Based on ntp.h from the U of MD implementation
@@ -8,7 +8,7 @@
 /*
  *  Definitions for the masses
  */
-#define	JAN_1970	2208988800	/* 1970 - 1900 in seconds */
+#define	JAN_1970	2208988800U	/* 1970 - 1900 in seconds */
 
 /*
  * Structure definitions for NTP fixed point values

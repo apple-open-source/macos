@@ -15,7 +15,7 @@ import junit.framework.Test;
  * @see org.jboss.test.JBossTestSetup
  *
  * @author  <a href="mailto:sacha.labourey@cogito-info.ch">Sacha Labourey</a>.
- * @version $Revision: 1.1 $
+ * @version $Revision: 1.1.4.1 $
  *
  * <p><b>Revisions:</b>
  *
@@ -36,7 +36,7 @@ public class JBossTestClusteredSetup extends JBossTestSetup
    
    // Constructors --------------------------------------------------
    
-   public JBossTestClusteredSetup(Test test)
+   public JBossTestClusteredSetup(Test test) throws Exception
    {
       super(test);
    }

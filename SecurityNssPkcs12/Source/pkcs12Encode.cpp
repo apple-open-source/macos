@@ -447,7 +447,7 @@ NSS_P12_SafeBag *P12Coder::keyBagBuild(
 	CSSM_DATA shroudedBits = {0, NULL};
 	
 	CSSM_RETURN crtn = p12WrapKey(mCspHand,
-		key->key(),
+		key->key(), key->privKeyCreds(),
 		keyAlg, encrAlg, pbeHashAlg,
 		keySizeInBits, blockSizeInBytes,
 		padding, mode,

@@ -22,6 +22,7 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
+#include "includes.h"
 #include "winbindd.h"
 
 #undef DBGC_CLASS
@@ -105,7 +106,7 @@ static BOOL fill_grent_mem(struct winbindd_domain *domain,
 	*num_gr_mem = 0;
 	
 	if ( !((group_name_type==SID_NAME_DOM_GRP) ||
-		((group_name_type==SID_NAME_ALIAS) && strequal(lp_workgroup(), domain->name))) )
+		((group_name_type==SID_NAME_ALIAS) && domain->primary)) )
 	{
 		DEBUG(1, ("SID %s in domain %s isn't a domain group (%d)\n", 
 			  sid_to_string(sid_string, group_sid), domain->name, 
@@ -151,15 +152,10 @@ static BOOL fill_grent_mem(struct winbindd_domain *domain,
                    occur in Universal groups on a Windows 2000 native mode
                    server. */
 
-		if (name_types[i] != SID_NAME_USER) {
-			DEBUG(3, ("name %s isn't a domain user\n", the_name));
-			continue;
-		}
+		/* make sure to allow machine accounts */
 
-		/* Don't bother with machine accounts */
-		
-		if (the_name[strlen(the_name) - 1] == '$') {
-			DEBUG(10, ("%s is machine account\n", the_name));
+		if (name_types[i] != SID_NAME_USER && name_types[i] != SID_NAME_COMPUTER) {
+			DEBUG(3, ("name %s isn't a domain user\n", the_name));
 			continue;
 		}
 
@@ -264,20 +260,18 @@ enum winbindd_result winbindd_getgrnam(struct winbindd_cli_state *state)
 		return WINBINDD_OK;
 	}
 
-	/* should we deal with users for our domain? */
-	
-	if ( lp_winbind_trusted_domains_only() && strequal(name_domain, lp_workgroup())) {
-		DEBUG(7,("winbindd_getgrnam: My domain -- rejecting getgrnam() for %s\\%s.\n", 
-			name_domain, name_group));
-		return WINBINDD_ERROR;
-	}	
-
-	
 	/* Get info for the domain */
 
 	if ((domain = find_domain_from_name(name_domain)) == NULL) {
-		DEBUG(0, ("could not get domain sid for domain %s\n",
+		DEBUG(3, ("could not get domain sid for domain %s\n",
 			  name_domain));
+		return WINBINDD_ERROR;
+	}
+	/* should we deal with users for our domain? */
+	
+	if ( lp_winbind_trusted_domains_only() && domain->primary) {
+		DEBUG(7,("winbindd_getgrnam: My domain -- rejecting getgrnam() for %s\\%s.\n", 
+			name_domain, name_group));
 		return WINBINDD_ERROR;
 	}
 
@@ -291,7 +285,7 @@ enum winbindd_result winbindd_getgrnam(struct winbindd_cli_state *state)
 	}
 
 	if ( !((name_type==SID_NAME_DOM_GRP) ||
-		((name_type==SID_NAME_ALIAS) && strequal(lp_workgroup(), domain->name))) )
+		((name_type==SID_NAME_ALIAS) && domain->primary)) )
 	{
 		DEBUG(1, ("name '%s' is not a local or domain group: %d\n", 
 			  name_group, name_type));
@@ -382,7 +376,7 @@ enum winbindd_result winbindd_getgrgid(struct winbindd_cli_state *state)
 	}
 
 	if ( !((name_type==SID_NAME_DOM_GRP) ||
-		((name_type==SID_NAME_ALIAS) && strequal(lp_workgroup(), domain->name))) )
+	       ((name_type==SID_NAME_ALIAS) && domain->primary) ))
 	{
 		DEBUG(1, ("name '%s' is not a local or domain group: %d\n", 
 			  group_name, name_type));
@@ -440,7 +434,7 @@ enum winbindd_result winbindd_setgrent(struct winbindd_cli_state *state)
 		   are a member of a Samba domain */
 		
 		if ( (IS_DC || lp_winbind_trusted_domains_only())
-			&& strequal(domain->name, lp_workgroup()) )
+			&& domain->primary )
 		{
 			continue;
 		}
@@ -546,7 +540,7 @@ static BOOL get_sam_group_entries(struct getent_state *ent)
 	   and are not using LDAP to get the groups */
 	   
 	if ( lp_security() != SEC_ADS && domain->native_mode 
-		&& strequal(lp_workgroup(), domain->name) )
+		&& domain->primary )
 	{
 		DEBUG(4,("get_sam_group_entries: Native Mode 2k domain; enumerating local groups as well\n"));
 		
@@ -691,8 +685,8 @@ enum winbindd_result winbindd_getgrent(struct winbindd_cli_state *state)
 			goto tryagain;
 		}
 
-		DEBUG(10, ("got gid %lu for group %x\n", (unsigned long)group_gid,
-			   name_list[ent->sam_entry_index].rid));
+		DEBUG(10, ("got gid %lu for group %lu\n", (unsigned long)group_gid,
+			   (unsigned long)name_list[ent->sam_entry_index].rid));
 		
 		/* Fill in group entry */
 
@@ -886,7 +880,7 @@ enum winbindd_result winbindd_list_groups(struct winbindd_cli_state *state)
 			extra_data[extra_data_len++] = ',';
 		}
 
-		free(groups.sam_entries);
+		SAFE_FREE(groups.sam_entries);
 	}
 
 	/* Assign extra_data fields in response structure */
@@ -937,21 +931,22 @@ enum winbindd_result winbindd_getgroups(struct winbindd_cli_state *state)
 	/* Parse domain and username */
 
 	parse_domain_user(state->request.data.username, 
-		name_domain, name_user);
+			  name_domain, name_user);
 	
-	/* bail if there is no domain */ 
-	
-	if ( !*name_domain )
-		goto done;
-
 	/* Get info for the domain */
 	
 	if ((domain = find_domain_from_name(name_domain)) == NULL) {
-		DEBUG(0, ("could not find domain entry for domain %s\n", 
+		DEBUG(7, ("could not find domain entry for domain %s\n", 
 			  name_domain));
 		goto done;
 	}
 
+	if ( domain->primary && lp_winbind_trusted_domains_only()) {
+		DEBUG(7,("winbindd_getpwnam: My domain -- rejecting getgroups() for %s\\%s.\n", 
+			name_domain, name_user));
+		return WINBINDD_ERROR;
+	}	
+	
 	/* Get rid and name type from name.  The following costs 1 packet */
 
 	if (!winbindd_lookup_sid_by_name(domain, name_user, &user_sid, 
@@ -960,7 +955,7 @@ enum winbindd_result winbindd_getgroups(struct winbindd_cli_state *state)
 		goto done;
 	}
 
-	if (name_type != SID_NAME_USER) {
+	if (name_type != SID_NAME_USER && name_type != SID_NAME_COMPUTER) {
 		DEBUG(1, ("name '%s' is not a user name: %d\n", 
 			  name_user, name_type));
 		goto done;
@@ -999,7 +994,7 @@ enum winbindd_result winbindd_getgroups(struct winbindd_cli_state *state)
 			   in a win2k native mode domain. */
 			
 			if ( !((sid_type==SID_NAME_DOM_GRP) ||
-				((sid_type==SID_NAME_ALIAS) && strequal(lp_workgroup(), domain->name))) )
+				((sid_type==SID_NAME_ALIAS) && domain->primary)) )
 			{
 				DEBUG(10, ("winbindd_getgroups: sid type %d "
 					   "for %s is not a domain group\n",
@@ -1081,3 +1076,88 @@ enum winbindd_result winbindd_getgroups(struct winbindd_cli_state *state)
 
 	return result;
 }
+
+
+/* Get user supplementary sids. This is equivalent to the
+   winbindd_getgroups() function but it involves a SID->SIDs mapping
+   rather than a NAME->SID->SIDS->GIDS mapping, which means we avoid
+   idmap. This call is designed to be used with applications that need
+   to do ACL evaluation themselves. Note that the cached info3 data is
+   not used 
+
+   this function assumes that the SID that comes in is a user SID. If
+   you pass in another type of SID then you may get unpredictable
+   results.
+*/
+enum winbindd_result winbindd_getusersids(struct winbindd_cli_state *state)
+{
+	DOM_SID user_sid;
+	NTSTATUS status;
+	DOM_SID **user_grpsids;
+	struct winbindd_domain *domain;
+	enum winbindd_result result = WINBINDD_ERROR;
+	unsigned int i;
+	TALLOC_CTX *mem_ctx;
+	char *ret = NULL;
+	uint32 num_groups;
+	unsigned ofs, ret_size = 0;
+
+	/* Ensure null termination */
+	state->request.data.sid[sizeof(state->request.data.sid)-1]='\0';
+
+	if (!string_to_sid(&user_sid, state->request.data.sid)) {
+		DEBUG(1, ("Could not get convert sid %s from string\n", state->request.data.sid));
+		return WINBINDD_ERROR;
+	}
+
+	if (!(mem_ctx = talloc_init("winbindd_getusersids(%s)",
+				    state->request.data.username))) {
+		return WINBINDD_ERROR;
+	}
+
+	/* Get info for the domain */	
+	if ((domain = find_domain_from_sid(&user_sid)) == NULL) {
+		DEBUG(0,("could not find domain entry for sid %s\n", 
+			  sid_string_static(&user_sid)));
+		goto done;
+	}
+	
+	status = domain->methods->lookup_usergroups(domain, mem_ctx, 
+						    &user_sid, &num_groups, 
+						    &user_grpsids);
+	if (!NT_STATUS_IS_OK(status)) 
+		goto done;
+
+	if (num_groups == 0) {
+		goto no_groups;
+	}
+
+	/* work out the response size */
+	for (i = 0; i < num_groups; i++) {
+		const char *s = sid_string_static(user_grpsids[i]);
+		ret_size += strlen(s) + 1;
+	}
+
+	/* build the reply */
+	ret = malloc(ret_size);
+	if (!ret) goto done;
+	ofs = 0;
+	for (i = 0; i < num_groups; i++) {
+		const char *s = sid_string_static(user_grpsids[i]);
+		safe_strcpy(ret + ofs, s, ret_size - ofs - 1);
+		ofs += strlen(ret+ofs) + 1;
+	}
+
+no_groups:
+	/* Send data back to client */
+	state->response.data.num_entries = num_groups;
+	state->response.extra_data = ret;
+	state->response.length += ret_size;
+	result = WINBINDD_OK;
+
+ done:
+	talloc_destroy(mem_ctx);
+
+	return result;
+}
+

@@ -21,11 +21,12 @@
 .SH NAME
 testparm \- check an smb.conf configuration file for internal correctness
 .SH "SYNOPSIS"
-
-.nf
-\fBtestparm\fR [-s] [-h] [-v] [-L <servername>] [-t <encoding>] {config filename} [hostname
-         hostIP]
-.fi
+.ad l
+.hy 0
+.HP 9
+\fBtestparm\fR [\-s] [\-h] [\-v] [\-L\ <servername>] [\-t\ <encoding>] {config\ filename} [hostname\ hostIP]
+.ad
+.hy
 
 .SH "DESCRIPTION"
 
@@ -47,43 +48,43 @@ If \fBtestparm\fR finds an error in the \fI smb\&.conf\fR file it returns an exi
 .SH "OPTIONS"
 
 .TP
--s
+\-s
 Without this option, \fBtestparm\fR will prompt for a carriage return after printing the service names and before dumping the service definitions\&.
 
 
 .TP
--h|--help
+\-h|\-\-help
 Print a summary of command line options\&.
 
 
 .TP
--V
-Prints the version number for \fBsmbd\fR\&.
+\-V
+Prints the program version number\&.
 
 
 .TP
--L servername
+\-L servername
 Sets the value of the %L macro to \fIservername\fR\&. This is useful for testing include files specified with the %L macro\&.
 
 
 .TP
--v
-If this option is specified, testparm will also output all options that were not used in \fBsmb.conf\fR(5) and are thus set to their defaults\&.
+\-v
+If this option is specified, testparm will also output all options that were not used in \fBsmb\&.conf\fR(5) and are thus set to their defaults\&.
 
 
 .TP
--t encoding
+\-t encoding
 Output data in specified encoding\&.
 
 
 .TP
 configfilename
-This is the name of the configuration file to check\&. If this parameter is not present then the default \fBsmb.conf\fR(5) file will be checked\&.
+This is the name of the configuration file to check\&. If this parameter is not present then the default \fBsmb\&.conf\fR(5) file will be checked\&.
 
 
 .TP
 hostname
-If this parameter and the following are specified, then \fBtestparm\fR will examine the \fIhosts allow\fR and \fIhosts deny\fR parameters in the \fBsmb.conf\fR(5) file to determine if the hostname with this IP address would be allowed access to the \fBsmbd\fR server\&. If this parameter is supplied, the hostIP parameter must also be supplied\&.
+If this parameter and the following are specified, then \fBtestparm\fR will examine the \fIhosts allow\fR and \fIhosts deny\fR parameters in the \fBsmb\&.conf\fR(5) file to determine if the hostname with this IP address would be allowed access to the \fBsmbd\fR server\&. If this parameter is supplied, the hostIP parameter must also be supplied\&.
 
 
 .TP
@@ -94,7 +95,7 @@ This is the IP address of the host specified in the previous parameter\&. This a
 .SH "FILES"
 
 .TP
-\fBsmb.conf\fR(5)
+\fBsmb\&.conf\fR(5)
 This is usually the name of the configuration file used by \fBsmbd\fR(8)\&.
 
 
@@ -111,7 +112,7 @@ This man page is correct for version 3\&.0 of the Samba suite\&.
 .SH "SEE ALSO"
 
 .PP
-\fBsmb.conf\fR(5), \fBsmbd\fR(8)
+\fBsmb\&.conf\fR(5), \fBsmbd\fR(8)
 
 .SH "AUTHOR"
 

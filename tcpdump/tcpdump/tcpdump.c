@@ -26,11 +26,11 @@
  */
 
 #ifndef lint
-static const char copyright[] =
+static const char copyright[] _U_ =
     "@(#) Copyright (c) 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 2000\n\
 The Regents of the University of California.  All rights reserved.\n";
-static const char rcsid[] =
-    "@(#) $Header: /cvs/root/tcpdump/tcpdump/tcpdump.c,v 1.1.1.3 2003/03/17 18:42:20 rbraun Exp $ (LBL)";
+static const char rcsid[] _U_ =
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/tcpdump.c,v 1.1.1.4 2004/02/05 19:30:58 rbraun Exp $ (LBL)";
 #endif
 
 /*
@@ -69,7 +69,6 @@ extern int SIZE_BUF;
 #include "gmt2local.h"
 #include "pcap-missing.h"
 
-int aflag;			/* translate network and broadcast addresses */
 int dflag;			/* print filter code */
 int eflag;			/* print ethernet header */
 int fflag;			/* don't translate "foreign" IP address */
@@ -119,6 +118,7 @@ RETSIGTYPE requestinfo(int);
 #endif
 
 static void info(int);
+static u_int packets_captured;
 
 /* Length of saved portion of packet. */
 int snaplen = DEFAULT_SNAPLEN;
@@ -147,9 +147,13 @@ static struct printer printers[] = {
 	{ cip_if_print,         DLT_ATM_CLIP },
 #endif
 	{ sl_if_print,		DLT_SLIP },
+#ifdef DLT_SLIP_BSDOS
 	{ sl_bsdos_if_print,	DLT_SLIP_BSDOS },
+#endif
 	{ ppp_if_print,		DLT_PPP },
+#ifdef DLT_PPP_BSDOS
 	{ ppp_bsdos_if_print,	DLT_PPP_BSDOS },
+#endif
 	{ fddi_if_print,	DLT_FDDI },
 	{ null_if_print,	DLT_NULL },
 #ifdef DLT_LOOP
@@ -252,7 +256,8 @@ show_dlts_and_exit(pcap_t *pd)
 	while (--n_dlts >= 0) {
 		dlt_name = pcap_datalink_val_to_name(dlts[n_dlts]);
 		if (dlt_name != NULL) {
-			(void) fprintf(stderr, "  %s", dlt_name);
+			(void) fprintf(stderr, "  %s (%s)", dlt_name,
+			    pcap_datalink_val_to_description(dlts[n_dlts]));
 
 			/*
 			 * OK, does tcpdump handle that type?
@@ -313,16 +318,10 @@ main(int argc, char **argv)
 	pcap_if_t *devpointer;
 	int devnum;
 #endif
+	int status;
 #ifdef WIN32
-	DWORD dwVersion;
-	DWORD dwWindowsMajorVersion;
-	u_int UserBufferSize=1000000;
-#endif
-
-#ifdef WIN32
-	dwVersion=GetVersion();		/* get the OS version */
-	dwWindowsMajorVersion =  (DWORD)(LOBYTE(LOWORD(dwVersion)));
-	if(wsockinit()!=0) return 1;
+	u_int UserBufferSize = 1000000;
+	if(wsockinit() != 0) return 1;
 #endif /* WIN32 */
 
 	cnt = -1;
@@ -348,7 +347,7 @@ main(int argc, char **argv)
 		switch (op) {
 
 		case 'a':
-			++aflag;
+			/* compatibility for old -a */
 			break;
 
 		case 'A':
@@ -456,11 +455,24 @@ main(int argc, char **argv)
 			break;
 
 		case 'l':
+#ifdef WIN32
+			/*
+			 * _IOLBF is the same as _IOFBF in Microsoft's C
+			 * libraries; the only alternative they offer
+			 * is _IONBF.
+			 *
+			 * XXX - this should really be checking for MSVC++,
+			 * not WIN32, if, for example, MinGW has its own
+			 * C library that is more UNIX-compatible.
+			 */
+			setvbuf(stdout, NULL, _IONBF, 0);
+#else /* WIN32 */
 #ifdef HAVE_SETLINEBUF
 			setlinebuf(stdout);
 #else
 			setvbuf(stdout, NULL, _IOLBF, 0);
 #endif
+#endif /* WIN32 */
 			break;
 
 		case 'n':
@@ -538,6 +550,10 @@ main(int argc, char **argv)
 				packettype = PT_SNMP;
 			else if (strcasecmp(optarg, "cnfp") == 0)
 				packettype = PT_CNFP;
+			else if (strcasecmp(optarg, "tftp") == 0)
+				packettype = PT_TFTP;
+			else if (strcasecmp(optarg, "aodv") == 0)
+				packettype = PT_AODV;
 			else
 				error("unknown packet type `%s'", optarg);
 			break;
@@ -595,25 +611,39 @@ main(int argc, char **argv)
 			/* NOTREACHED */
 		}
 
-	if (aflag && nflag)
-		error("-a and -n options are incompatible");
-
 	if (tflag > 0)
 		thiszone = gmt2local(0);
 
 	if (RFileName != NULL) {
-		/*
-		 * We don't need network access, so set it back to the user id.
-		 * Also, this prevents the user from reading anyone's
-		 * trace file.
-		 */
+		int dlt;
+		const char *dlt_name;
+
 #ifndef WIN32
+		/*
+		 * We don't need network access, so relinquish any set-UID
+		 * or set-GID privileges we have (if any).
+		 *
+		 * We do *not* want set-UID privileges when opening a
+		 * trace file, as that might let the user read other
+		 * people's trace files (especially if we're set-UID
+		 * root).
+		 */
 		setuid(getuid());
 #endif /* WIN32 */
-
 		pd = pcap_open_offline(RFileName, ebuf);
 		if (pd == NULL)
 			error("%s", ebuf);
+		dlt = pcap_datalink(pd);
+		dlt_name = pcap_datalink_val_to_name(dlt);
+		if (dlt_name == NULL) {
+			fprintf(stderr, "reading from file %s, link-type %u\n",
+			    RFileName, dlt);
+		} else {
+			fprintf(stderr,
+			    "reading from file %s, link-type %s (%s)\n",
+			    RFileName, dlt_name,
+			    pcap_datalink_val_to_description(dlt));
+		}
 		localnet = 0;
 		netmask = 0;
 		if (fflag != 0)
@@ -625,7 +655,19 @@ main(int argc, char **argv)
 				error("%s", ebuf);
 		}
 #ifdef WIN32
-		PrintCapBegins(program_name,device);
+		if(IsTextUnicode(device,  
+			wcslen((short*)device),                // Device always ends with a double \0, so this way to determine its 
+													// length should be always valid
+			NULL))
+		{
+			fprintf(stderr, "%s: listening on %ws\n", program_name, device);
+		}
+		else
+		{
+			fprintf(stderr, "%s: listening on %s\n", program_name, device);
+		}
+
+		fflush(stderr);	
 #endif /* WIN32 */
 		*ebuf = '\0';
 		pd = pcap_open_live(device, snaplen, !pflag, 1000, ebuf);
@@ -691,6 +733,9 @@ main(int argc, char **argv)
 	}
 	init_addrtoname(localnet, netmask);
 
+#ifndef WIN32	
+	(void)setsignal(SIGPIPE, cleanup);
+#endif /* WIN32 */
 	(void)setsignal(SIGTERM, cleanup);
 	(void)setsignal(SIGINT, cleanup);
 	/* Cooperate with nohup(1) */
@@ -733,43 +778,93 @@ main(int argc, char **argv)
 #endif
 #ifndef WIN32
 	if (RFileName == NULL) {
+		int dlt;
+		const char *dlt_name;
+
 		if (!vflag && !WFileName) {
 			(void)fprintf(stderr,
 			    "%s: verbose output suppressed, use -v or -vv for full protocol decode\n",
 			    program_name);
 		} else
 			(void)fprintf(stderr, "%s: ", program_name);
-		(void)fprintf(stderr, "listening on %s, capture size %u bytes\n",
-		    device, snaplen);
+		dlt = pcap_datalink(pd);
+		dlt_name = pcap_datalink_val_to_name(dlt);
+		if (dlt_name == NULL) {
+			(void)fprintf(stderr, "listening on %s, link-type %u, capture size %u bytes\n",
+			    device, dlt, snaplen);
+		} else {
+			(void)fprintf(stderr, "listening on %s, link-type %s (%s), capture size %u bytes\n",
+			    device, dlt_name,
+			    pcap_datalink_val_to_description(dlt), snaplen);
+		}
 		(void)fflush(stderr);
 	}
 #endif /* WIN32 */
-	if (pcap_loop(pd, cnt, callback, pcap_userdata) < 0) {
+	status = pcap_loop(pd, cnt, callback, pcap_userdata);
+	if (WFileName == NULL) {
+		/*
+		 * We're printing packets.  Flush the printed output,
+		 * so it doesn't get intermingled with error output.
+		 */
+		if (status == -2) {
+			/*
+			 * We got interrupted, so perhaps we didn't
+			 * manage to finish a line we were printing.
+			 * Print an extra newline, just in case.
+			 */
+			putchar('\n');
+		}
+		(void)fflush(stdout);
+	}
+	if (status == -1) {
+		/*
+		 * Error.  Report it.
+		 */
 		(void)fprintf(stderr, "%s: pcap_loop: %s\n",
 		    program_name, pcap_geterr(pd));
-		cleanup(0);
-		pcap_close(pd);
-		exit(1);
 	}
-	if (RFileName == NULL)
+	if (RFileName == NULL) {
+		/*
+		 * We're doing a live capture.  Report the capture
+		 * statistics.
+		 */
 		info(1);
+	}
 	pcap_close(pd);
-	exit(0);
+	exit(status == -1 ? 1 : 0);
 }
 
 /* make a clean exit on interrupts */
 static RETSIGTYPE
-cleanup(int signo)
+cleanup(int signo _U_)
 {
-
-	/* Can't print the summary if reading from a savefile */
+#ifdef HAVE_PCAP_BREAKLOOP
+	/*
+	 * We have "pcap_breakloop()"; use it, so that we do as little
+	 * as possible in the signal handler (it's probably not safe
+	 * to do anything with standard I/O streams in a signal handler -
+	 * the ANSI C standard doesn't say it is).
+	 */
+	pcap_breakloop(pd);
+#else
+	/*
+	 * We don't have "pcap_breakloop()"; this isn't safe, but
+	 * it's the best we can do.  Print the summary if we're
+	 * not reading from a savefile - i.e., if we're doing a
+	 * live capture - and exit.
+	 */
 	if (pd != NULL && pcap_file(pd) == NULL) {
+		/*
+		 * We got interrupted, so perhaps we didn't
+		 * manage to finish a line we were printing.
+		 * Print an extra newline, just in case.
+		 */
+		putchar('\n');
 		(void)fflush(stdout);
-		putc('\n', stderr);
 		info(1);
 	}
-	if (signo)
-		exit(0);
+	exit(0);
+#endif
 }
 
 static void
@@ -785,6 +880,11 @@ info(register int verbose)
 	if (!verbose)
 		fprintf(stderr, "%s: ", program_name);
 
+	(void)fprintf(stderr, "%u packets captured", packets_captured);
+	if (!verbose)
+		fputs(", ", stderr);
+	else
+		putc('\n', stderr);
 	(void)fprintf(stderr, "%d packets received by filter", stat.ps_recv);
 	if (!verbose)
 		fputs(", ", stderr);
@@ -828,6 +928,8 @@ dump_packet_and_trunc(u_char *user, const struct pcap_pkthdr *h, const u_char *s
 	static uint cnt = 2;
 	char *name;
 
+	++packets_captured;
+
 	++infodelay;
 
 	dump_info = (struct dump_info *)user;
@@ -865,6 +967,8 @@ dump_packet_and_trunc(u_char *user, const struct pcap_pkthdr *h, const u_char *s
 static void
 dump_packet(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 {
+	++packets_captured;
+
 	++infodelay;
 
 	pcap_dump(user, h, sp);
@@ -883,6 +987,8 @@ print_packet(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 {
 	struct print_info *print_info;
 	u_int hdrlen;
+
+	++packets_captured;
 
 	++infodelay;
 	ts_print(&h->ts);

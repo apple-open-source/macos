@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -174,13 +171,13 @@ static u_short			S_ipport_client = IPPORT_BOOTPC;
 static u_short			S_ipport_server = IPPORT_BOOTPS;
 static struct timeval		S_lastmsgtime;
 static u_char 			S_rxpkt[2048];/* receive packet buffer */
-static int			S_rtsockfd = -1;
 static boolean_t		S_sighup = TRUE; /* fake the 1st sighup */
 static u_int32_t		S_which_services = 0;
 static struct ether_addr *	S_allow = NULL;
 static int			S_allow_count = 0;
 static struct ether_addr *	S_deny = NULL;
 static int			S_deny_count = 0;
+static int			S_persist = 0;
 
 void
 my_log(int priority, const char *message, ...)
@@ -589,7 +586,9 @@ S_log_interfaces()
     }
     if (count == 0) {
 	my_log(LOG_INFO, "no available interfaces");
-	exit(2);
+	if (S_persist == 0) {
+	    exit(2);
+	}
     }
     return;
 }
@@ -926,7 +925,6 @@ main(int argc, char * argv[])
     int			logopt = LOG_CONS;
     int			max_hops = 4;
     boolean_t		netinfo_lookups = TRUE;
-    boolean_t		persist = 0;
     boolean_t		relay = FALSE;
     struct in_addr	relay_server = { 0 };
 
@@ -1005,7 +1003,7 @@ main(int argc, char * argv[])
 	    break;
 	}
 	case 'P': {
-	    persist = 1;
+	    S_persist = 1;
 	    break;
 	}
 	case 'p': {
@@ -1065,7 +1063,7 @@ main(int argc, char * argv[])
     else { /* started by inetd */
 	bootp_socket = 0;
 	gettimeofday(&S_lastmsgtime, 0);
-	if (persist == 0) {
+	if (S_persist == 0) {
 	    signal(SIGALRM, on_alarm);
 	    alarm(15);
 	}
@@ -1136,13 +1134,6 @@ main(int argc, char * argv[])
 	S_update_services();
     }
 
-    S_rtsockfd = arp_get_routing_socket();
-    if (S_rtsockfd < 0) {
-	my_log(LOG_INFO, "couldn't get routing socket: %s",
-	       strerror(errno));
-	exit(1);
-    }
-	
     if (relay) {
 	S_relay_loop(&relay_server, max_hops);
     }
@@ -2183,6 +2174,9 @@ S_server_loop()
 	}
 
 	if (n < sizeof(struct dhcp)) {
+	    continue;
+	}
+	if (request->dp_hlen > sizeof(request->dp_chaddr)) {
 	    continue;
 	}
 	if (S_ok_to_respond(request->dp_htype, request->dp_chaddr, 

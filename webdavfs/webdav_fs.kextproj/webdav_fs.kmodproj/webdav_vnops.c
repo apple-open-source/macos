@@ -103,6 +103,30 @@ extern int close(struct proc *p, struct close_args *uap, register_t *retval);
 /*****************************************************************************/
 
 /*
+ * webdav_dead is called when the mount_webdav daemon cannot communicate with
+ * the remote WebDAV server and there will be no reconnection attempts.
+ * It uses vfs_event_signal() to tell interested parties the connection with
+ * the server is dead.
+ */
+static void
+webdav_dead(struct webdavmount *fmp)
+{
+	if ( fmp != NULL )
+	{
+		if ( !(fmp->pm_status & WEBDAV_MOUNT_DEAD) )
+		{
+#ifdef DEBUG
+			printf("webdav_dead: connection is dead\n");
+#endif
+			vfs_event_signal(&fmp->pm_mountp->mnt_stat.f_fsid, VQ_DEAD, 0);
+			fmp->pm_status |= WEBDAV_MOUNT_DEAD;
+		}
+	}
+}
+
+/*****************************************************************************/
+
+/*
  * webdav_down is called when the mount_webdav daemon cannot communicate with
  * the remote WebDAV server. It uses vfs_event_signal() to tell interested
  * parties the connection with the server is down.
@@ -112,13 +136,13 @@ webdav_down(struct webdavmount *fmp)
 {
 	if ( fmp != NULL )
 	{
-		if ( !(fmp->status & WEBDAV_MOUNT_TIMEO) )
+		if ( !(fmp->pm_status & (WEBDAV_MOUNT_TIMEO | WEBDAV_MOUNT_DEAD)) )
 		{
 #ifdef DEBUG
-			printf("webdav_down: lost connection\n");
+			printf("webdav_down: not responding\n");
 #endif
 			vfs_event_signal(&fmp->pm_mountp->mnt_stat.f_fsid, VQ_NOTRESP, 0);
-			fmp->status |= WEBDAV_MOUNT_TIMEO;
+			fmp->pm_status |= WEBDAV_MOUNT_TIMEO;
 		}
 	}
 }
@@ -126,7 +150,7 @@ webdav_down(struct webdavmount *fmp)
 /*****************************************************************************/
 
 /*
- * webdav_down is called when the mount_webdav daemon can communicate with
+ * webdav_up is called when the mount_webdav daemon can communicate with
  * the remote WebDAV server. It uses vfs_event_signal() to tell interested
  * parties the connection is OK again if the connection was having problems.
  */
@@ -135,12 +159,12 @@ webdav_up(struct webdavmount *fmp)
 {
 	if ( fmp != NULL )
 	{
-        if ( (fmp->status & WEBDAV_MOUNT_TIMEO) )
+        if ( (fmp->pm_status & WEBDAV_MOUNT_TIMEO) )
 		{
 #ifdef DEBUG
-			printf("webdav_up: connection OK again\n");
+			printf("webdav_up: is alive again\n");
 #endif
-			fmp->status &= ~WEBDAV_MOUNT_TIMEO;
+			fmp->pm_status &= ~WEBDAV_MOUNT_TIMEO;
 			vfs_event_signal(&fmp->pm_mountp->mnt_stat.f_fsid, VQ_NOTRESP, 1);
         }
 	}
@@ -309,7 +333,7 @@ retry:
 	so = 0;
 	cm = 0;
 	
-	if ( (fmp == NULL) || (fmp->status & WEBDAV_MOUNT_FORCE) || WEBDAV_CHECK_VNODE(vp) )
+	if ( (fmp == NULL) || (fmp->pm_status & WEBDAV_MOUNT_FORCE) || WEBDAV_CHECK_VNODE(vp) )
 	{
 		/* We're doing a forced unmount, so don't send another request to mount_webdav */
 		return (ENXIO);
@@ -366,7 +390,7 @@ retry:
 	}
 
 	/* make sure the server process is still running before attempting to connect */
-	if ( (fmp == NULL) || (fmp->status & WEBDAV_MOUNT_FORCE) ||
+	if ( (fmp == NULL) || (fmp->pm_status & WEBDAV_MOUNT_FORCE) ||
 		WEBDAV_CHECK_VNODE(vp) || (fcount(fmp->pm_server) == 1) )
 	{
 		error = ENXIO;
@@ -402,7 +426,7 @@ retry:
 
 	while ((so->so_state & SS_ISCONNECTING) && so->so_error == 0)
 	{
-		if ( (fmp == NULL) || (fmp->status & WEBDAV_MOUNT_FORCE) ||
+		if ( (fmp == NULL) || (fmp->pm_status & WEBDAV_MOUNT_FORCE) ||
 			WEBDAV_CHECK_VNODE(vp) || (fcount(fmp->pm_server) == 1) )
 		{
 			error = ENXIO;
@@ -464,7 +488,7 @@ retry:
 	auio.uio_resid = aiov[0].iov_len + aiov[1].iov_len + aiov[2].iov_len;
 
 	/* make sure the server process is still running before attempting to send */
-	if ( (fmp == NULL) || (fmp->status & WEBDAV_MOUNT_FORCE) ||
+	if ( (fmp == NULL) || (fmp->pm_status & WEBDAV_MOUNT_FORCE) ||
 		WEBDAV_CHECK_VNODE(vp) || (fcount(fmp->pm_server) == 1) )
 	{
 		error = ENXIO;
@@ -503,7 +527,7 @@ retry:
 	while ( 1 )
 	{
 		/* make sure the server process is still running before attempting to receive */
-		if ( (fmp == NULL) || (fmp->status & WEBDAV_MOUNT_FORCE) ||
+		if ( (fmp == NULL) || (fmp->pm_status & WEBDAV_MOUNT_FORCE) ||
 			WEBDAV_CHECK_VNODE(vp) || (fcount(fmp->pm_server) == 1) )
 		{
 			error = ENXIO;
@@ -519,7 +543,7 @@ retry:
 			break;
 		}
 		
-		if ( (fmp == NULL) || (fmp->status & WEBDAV_MOUNT_FORCE) || WEBDAV_CHECK_VNODE(vp) )
+		if ( (fmp == NULL) || (fmp->pm_status & WEBDAV_MOUNT_FORCE) || WEBDAV_CHECK_VNODE(vp) )
 		{
 			/* We're doing a forced unmount, so don't send another request to mount_webdav */
 			error = ENXIO;
@@ -552,11 +576,18 @@ bad:
 		if ( *a_server_error & WEBDAV_CONNECTION_DOWN_MASK )
 		{
 			/* communications with mount_webdav were OK, but the remote server is unreachable */
-			webdav_down(fmp);
+			if ( fmp->pm_status & WEBDAV_MOUNT_SUPPRESS_ALL_UI )
+			{
+				webdav_dead(fmp);
+			}
+			else
+			{
+				webdav_down(fmp);
+			}
 			*a_server_error &= ~WEBDAV_CONNECTION_DOWN_MASK;
 			
 			/* If this request failed because of the connection problem, retry */
-			if ( *a_server_error == ENXIO )
+			if ( *a_server_error == ENXIO && !(fmp->pm_status & WEBDAV_MOUNT_SUPPRESS_ALL_UI))
 			{
 				/* get current time */
 				microtime(&currenttime);
@@ -1397,7 +1428,7 @@ retry:
 	pt = VTOWEBDAV(vp);
 	fmp = VFSTOWEBDAV(vp->v_mount);
 
-	if ( (fmp == NULL) || (fmp->status & WEBDAV_MOUNT_FORCE) || WEBDAV_CHECK_VNODE(vp) )
+	if ( (fmp == NULL) || (fmp->pm_status & WEBDAV_MOUNT_FORCE) || WEBDAV_CHECK_VNODE(vp) )
 	{
 		/* We're doing a forced unmount, so don't send another request to mount_webdav */
 		return (ENXIO);
@@ -1482,7 +1513,7 @@ retry:
 	}
 
 	/* make sure the server process is still running before attempting to connect */
-	if ( (fmp == NULL) || (fmp->status & WEBDAV_MOUNT_FORCE) ||
+	if ( (fmp == NULL) || (fmp->pm_status & WEBDAV_MOUNT_FORCE) ||
 		WEBDAV_CHECK_VNODE(vp) || (fcount(fmp->pm_server) == 1) )
 	{
 		error = ENXIO;
@@ -1524,7 +1555,7 @@ retry:
 
 	while ((so->so_state & SS_ISCONNECTING) && so->so_error == 0)
 	{
-		if ( (fmp == NULL) || (fmp->status & WEBDAV_MOUNT_FORCE) ||
+		if ( (fmp == NULL) || (fmp->pm_status & WEBDAV_MOUNT_FORCE) ||
 			WEBDAV_CHECK_VNODE(vp) || (fcount(fmp->pm_server) == 1) )
 		{
 			error = ENXIO;
@@ -1583,7 +1614,7 @@ retry:
 	so->so_snd.sb_flags |= SB_NOINTR;
 
 	/* make sure the server process is still running before attempting to send */
-	if ( (fmp == NULL) || (fmp->status & WEBDAV_MOUNT_FORCE) ||
+	if ( (fmp == NULL) || (fmp->pm_status & WEBDAV_MOUNT_FORCE) ||
 		WEBDAV_CHECK_VNODE(vp) || (fcount(fmp->pm_server) == 1) )
 	{
 		error = ENXIO;
@@ -1611,7 +1642,7 @@ retry:
 		while ( 1 )
 		{
 			/* make sure the server process is still running before attempting to receive */
-			if ( (fmp == NULL) || (fmp->status & WEBDAV_MOUNT_FORCE) ||
+			if ( (fmp == NULL) || (fmp->pm_status & WEBDAV_MOUNT_FORCE) ||
 				WEBDAV_CHECK_VNODE(vp) || (fcount(fmp->pm_server) == 1) )
 			{
 				error = ENXIO;
@@ -1628,7 +1659,7 @@ retry:
 				break;
 			}
 			
-			if ( (fmp == NULL) || (fmp->status & WEBDAV_MOUNT_FORCE) || WEBDAV_CHECK_VNODE(vp) )
+			if ( (fmp == NULL) || (fmp->pm_status & WEBDAV_MOUNT_FORCE) || WEBDAV_CHECK_VNODE(vp) )
 			{
 				/* We're doing a forced unmount, so don't send another request to mount_webdav */
 				error = ENXIO;
@@ -1660,11 +1691,18 @@ retry:
 				m_freem(m);
 				if ( error & WEBDAV_CONNECTION_DOWN_MASK )
 				{
-					webdav_down(fmp);
+					if ( fmp->pm_status & WEBDAV_MOUNT_SUPPRESS_ALL_UI )
+					{
+						webdav_dead(fmp);
+					}
+					else
+					{
+						webdav_down(fmp);
+					}
 					error &= ~WEBDAV_CONNECTION_DOWN_MASK;
 					
 					/* If this request failed because of the connection problem, retry */
-					if ( error == ENXIO )
+					if ( error == ENXIO && !(fmp->pm_status & WEBDAV_MOUNT_SUPPRESS_ALL_UI) )
 					{
 						retryrequest = 1;
 					}
@@ -1822,7 +1860,7 @@ retry:
 	while ( 1 )
 	{
 		/* make sure the server process is still running before attempting to receive */
-		if ( (fmp == NULL) || (fmp->status & WEBDAV_MOUNT_FORCE) ||
+		if ( (fmp == NULL) || (fmp->pm_status & WEBDAV_MOUNT_FORCE) ||
 			WEBDAV_CHECK_VNODE(vp) || (fcount(fmp->pm_server) == 1) )
 		{
 			error = ENXIO;
@@ -1839,7 +1877,7 @@ retry:
 			break;
 		}
 		
-		if ( (fmp == NULL) || (fmp->status & WEBDAV_MOUNT_FORCE) || WEBDAV_CHECK_VNODE(vp) )
+		if ( (fmp == NULL) || (fmp->pm_status & WEBDAV_MOUNT_FORCE) || WEBDAV_CHECK_VNODE(vp) )
 		{
 			/* We're doing a forced unmount, so don't send another request to mount_webdav */
 			error = ENXIO;

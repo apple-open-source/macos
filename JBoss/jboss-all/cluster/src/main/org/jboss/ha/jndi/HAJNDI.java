@@ -9,16 +9,11 @@ package org.jboss.ha.jndi;
 
 
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.Collection;
 
-import javax.naming.InitialContext;
 import javax.naming.Name;
-import javax.naming.NameNotFoundException;
 import javax.naming.NamingException;
-import javax.naming.CommunicationException;
 
-import org.jnp.interfaces.NamingContext;
 import org.jnp.interfaces.Naming;
 
 import org.jboss.ha.framework.interfaces.HAPartition;
@@ -33,7 +28,7 @@ import org.jboss.logging.Logger;
  *
  *   @author <a href="mailto:bill@burkecentral.com">Bill Burke</a>
  *   @author Scott.Stark@jboss.org
- *   @version $Revision: 1.12.2.3 $
+ *   @version $Revision: 1.12.2.4 $
  */
 public class HAJNDI
    implements HAPartitionStateTransfer, Serializable, org.jnp.interfaces.Naming

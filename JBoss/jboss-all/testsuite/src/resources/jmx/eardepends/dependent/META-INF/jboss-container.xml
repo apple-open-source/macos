@@ -1,0 +1,6 @@
+<container-configurations>
+  <container-configuration>
+    <container-name>Standard Stateless SessionBean</container-name>
+    <depends>test:name=Test</depends>
+  </container-configuration>
+</container-configurations>

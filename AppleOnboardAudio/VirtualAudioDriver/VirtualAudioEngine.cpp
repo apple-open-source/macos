@@ -25,7 +25,7 @@ bool VirtualAudioEngine::init(OSDictionary *properties)
     bool result = false;
     OSNumber *number;
     
-    debug2IOLog("VirtualAudioEngine[%p]::init()\n", this);
+    debug2IOLog("VirtualAudioEngine[%p]::init()", this);
 
     FailIf(!super::init(properties),Done);
 	
@@ -60,7 +60,7 @@ bool VirtualAudioEngine::initHardware(IOService *provider)
     IOAudioSampleRate	initialSampleRate;
     IOWorkLoop*			wl;
     
-    debug3IOLog("VirtualAudioEngine[%p]::initHardware(%p)\n", this, provider);
+    debug3IOLog("VirtualAudioEngine[%p]::initHardware(%p)", this, provider);
     
     FailIf (!super::initHardware(provider),Done);
 	
@@ -216,7 +216,7 @@ bool VirtualAudioEngine::createAudioStreams(IOAudioSampleRate *initialSampleRate
         
             commonBuffer = (void *)IOMalloc(bufSize);
             if (!commonBuffer) {
-                debug2IOLog("Error allocating buffer - %lu bytes.\n", bufSize);
+                debug2IOLog("Error allocating buffer - %lu bytes.", bufSize);
                 goto Error;
             }
         }
@@ -286,7 +286,7 @@ bool VirtualAudioEngine::createAudioStreams(IOAudioSampleRate *initialSampleRate
 
 Error:
 
-        debug2IOLog("VirtualAudioEngine[%p]::createAudioStreams() - ERROR\n", this);
+        debug2IOLog("VirtualAudioEngine[%p]::createAudioStreams() - ERROR", this);
     
         if (inputStream) {
             inputStream->release();
@@ -361,7 +361,7 @@ Error:
 Done:
 
     if (!result) {
-        debug2IOLog("VirtualAudioEngine[%p]::createAudioStreams() - failed!\n", this);
+        debug2IOLog("VirtualAudioEngine[%p]::createAudioStreams() - failed!", this);
     }
 
     return result;
@@ -370,7 +370,7 @@ Done:
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void VirtualAudioEngine::free()
 {
-    debug2IOLog("VirtualAudioEngine[%p]::free()\n", this);
+    debug2IOLog("VirtualAudioEngine[%p]::free()", this);
     
     // We need to free our resources when we're going away
     
@@ -385,7 +385,7 @@ void VirtualAudioEngine::free()
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void VirtualAudioEngine::stop(IOService *provider)
 {
-    debug3IOLog("VirtualAudioEngine[%p]::stop(%p)\n", this, provider);
+    debug3IOLog("VirtualAudioEngine[%p]::stop(%p)", this, provider);
     
     super::stop(provider);
 }
@@ -393,7 +393,7 @@ void VirtualAudioEngine::stop(IOService *provider)
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 IOReturn VirtualAudioEngine::performAudioEngineStart()
 {
-	debug2IOLog("VirtualAudioEngine[%p]::performAudioEngineStart()\n", this);
+	debug2IOLog("VirtualAudioEngine[%p]::performAudioEngineStart()", this);
 	
 	takeTimeStamp(false);
 	currentBlock = 0;
@@ -406,7 +406,7 @@ IOReturn VirtualAudioEngine::performAudioEngineStart()
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 IOReturn VirtualAudioEngine::performAudioEngineStop()
 {
-    debug2IOLog("VirtualAudioEngine[%p]::performAudioEngineStop()\n", this);
+    debug2IOLog("VirtualAudioEngine[%p]::performAudioEngineStop()", this);
     
     timerEventSource->cancelTimeout();
     
@@ -422,16 +422,16 @@ UInt32 VirtualAudioEngine::getCurrentSampleFrame()
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 IOReturn VirtualAudioEngine::performFormatChange(IOAudioStream *audioStream, const IOAudioStreamFormat *newFormat, const IOAudioSampleRate *newSampleRate)
 {
-    debug5IOLog("VirtualAudioEngine[%p]::peformFormatChange(%p, %p, %p)\n", this, audioStream, newFormat, newSampleRate);
+    debug5IOLog("VirtualAudioEngine[%p]::peformFormatChange(%p, %p, %p)", this, audioStream, newFormat, newSampleRate);
     
     // It is possible that this function will be called with only a format or only a sample rate
     // We need to check for NULL for each of the parameters
     if (newFormat) {
-        debug2IOLog("  -> %d bits per sample selected.\n", newFormat->fBitDepth);
+        debug2IOLog("  -> %d bits per sample selected.", newFormat->fBitDepth);
     }
     
     if (newSampleRate) {
-        debug2IOLog("  -> %ld Hz selected.\n", newSampleRate->whole);
+        debug2IOLog("  -> %ld Hz selected.", newSampleRate->whole);
     }
     
     return kIOReturnSuccess;

@@ -6,46 +6,39 @@
  */
 package org.jboss.mq.server;
 
+import java.text.DateFormat;
 import java.util.ArrayList;
-import java.util.SortedSet;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
-import java.util.Calendar;
-
-import java.text.DateFormat;
-
-import java.io.PrintWriter;
-import java.io.BufferedWriter;
-import java.io.FileWriter;
 
 /**
  *  This class stores message count informations for a given queue
  *
  * @author     Ulf Schroeter (u.schroeter@mobilcom.de)
  * @author     Stephan Steinbacher (s.steinbacher@mobilcom.de)
- * @version    $Revision: 1.1.2.4 $
+ * @version    $Revision: 1.1.2.5 $
  */
 public class MessageCounter
 {
    // destination related information
-   String      destName;
-   String      destSubscription;
-   boolean     destTopic;
-   boolean     destDurable;
+   String destName;
+   String destSubscription;
+   boolean destTopic;
+   boolean destDurable;
 
    // destination queue
-   BasicQueue  destQueue;
+   BasicQueue destQueue;
 
    // counter
-   int  countTotal     ;
-   int  countTotalLast ;
-   int  depthLast      ;
-   long timeLastUpdate  ;
+   int countTotal;
+   int countTotalLast;
+   int depthLast;
+   long timeLastUpdate;
 
    // per hour day counter history
-   int          dayCounterMax;
-   ArrayList    dayCounter;
-
+   int dayCounterMax;
+   ArrayList dayCounter;
 
    /**
     *    Constructor
@@ -57,37 +50,38 @@ public class MessageCounter
     * @param durable          durable subsciption flag
     * @param daycountmax      max message history day count
     */
-   public MessageCounter( String     name,
-                          String     subscription,
-                          BasicQueue queue,
-                          boolean    topic,
-                          boolean    durable,
-                          int        daycountmax )
+   public MessageCounter(
+      String name,
+      String subscription,
+      BasicQueue queue,
+      boolean topic,
+      boolean durable,
+      int daycountmax)
    {
-   	// store destination related information
-   	destName         = name ;
-   	destSubscription = subscription;
-   	destTopic        = topic;
-   	destDurable      = durable;
-      destQueue        = queue;
+      // store destination related information
+      destName = name;
+      destSubscription = subscription;
+      destTopic = topic;
+      destDurable = durable;
+      destQueue = queue;
 
-		// initialize counter
-		resetCounter();
-		
+      // initialize counter
+      resetCounter();
+
       // initialize message history
       dayCounter = new ArrayList();
 
-      setHistoryLimit( daycountmax );
+      setHistoryLimit(daycountmax);
    }
 
    /**
-	* Get string representation
-	*/
+   * Get string representation
+   */
    public String toString()
    {
-      return getCounterAsString();	
+      return getCounterAsString();
    }
-   
+
    /**
     *    Increment message counter and update message history
     */
@@ -100,7 +94,7 @@ public class MessageCounter
       timeLastUpdate = System.currentTimeMillis();
 
       // update message history
-      updateHistory( true );
+      updateHistory(true);
    }
 
    /**
@@ -189,7 +183,7 @@ public class MessageCounter
    public int getDepthDelta()
    {
       int current = destQueue.getQueueDepth();
-      int delta   = current - depthLast;
+      int delta = current - depthLast;
 
       depthLast = current;
 
@@ -211,9 +205,9 @@ public class MessageCounter
     */
    public void resetCounter()
    {
-      countTotal     = 0;
+      countTotal = 0;
       countTotalLast = 0;
-      depthLast      = 0;
+      depthLast = 0;
       timeLastUpdate = 0;
    }
 
@@ -230,22 +224,28 @@ public class MessageCounter
       String ret;
 
       // Topic/Queue
-      if( destTopic ) ret = "Topic,";
-      else            ret = "Queue,";
-      
+      if (destTopic)
+         ret = "Topic,";
+      else
+         ret = "Queue,";
+
       // name 
       ret += destName + ",";
 
       // subscription
-      if( destSubscription != null ) ret += destSubscription + ",";
-      else                           ret += "-,";
+      if (destSubscription != null)
+         ret += destSubscription + ",";
+      else
+         ret += "-,";
 
       // Durable subscription
-      if( destTopic )
+      if (destTopic)
       {
          // Topic
-         if( destDurable ) ret += "true,";
-         else              ret += "false,";
+         if (destDurable)
+            ret += "true,";
+         else
+            ret += "false,";
       }
       else
       {
@@ -254,20 +254,16 @@ public class MessageCounter
       }
 
       // counter values
-      ret += getCount()      + "," +
-             getCountDelta() + "," +
-             getDepth()      + "," +
-             getDepthDelta() + ",";
+      ret += getCount() + "," + getCountDelta() + "," + getDepth() + "," + getDepthDelta() + ",";
 
       // timestamp last counter update
-      if( timeLastUpdate > 0 )
+      if (timeLastUpdate > 0)
       {
-         DateFormat dateFormat = DateFormat.getDateTimeInstance( DateFormat.SHORT,
-                                                                 DateFormat.MEDIUM );
-      
-         ret += dateFormat.format( new Date( timeLastUpdate ) );
-      }         
-      else         
+         DateFormat dateFormat = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.MEDIUM);
+
+         ret += dateFormat.format(new Date(timeLastUpdate));
+      }
+      else
       {
          ret += "-";
       }
@@ -284,28 +280,28 @@ public class MessageCounter
    {
       return dayCounterMax;
    }
-   
+
    /**
     * Set message counter history day count limit
     *
     * <0: unlimited, 0: history disabled, >0: day count
     */
-   public void setHistoryLimit( int daycountmax )
+   public void setHistoryLimit(int daycountmax)
    {
-   	boolean bInitialize = false;
+      boolean bInitialize = false;
 
       // store new maximum day count
       dayCounterMax = daycountmax;
 
       // update day counter array
-      synchronized( dayCounter )
+      synchronized (dayCounter)
       {
-         if( dayCounterMax > 0 )
+         if (dayCounterMax > 0)
          {
-         	// limit day history to specified day count
+            // limit day history to specified day count
             int delta = dayCounter.size() - dayCounterMax;
-              
-            for( int i=0; i<delta; i++ )
+
+            for (int i = 0; i < delta; i++)
             {
                // reduce array size to requested size by dropping
                // oldest day counters
@@ -315,23 +311,23 @@ public class MessageCounter
             // create initial day counter when empty
             bInitialize = dayCounter.isEmpty();
          }
-         else if( dayCounterMax == 0 )
+         else if (dayCounterMax == 0)
          {
-         	// disable history
-         	dayCounter.clear();
+            // disable history
+            dayCounter.clear();
          }
          else
          {
-         	// unlimited day history
+            // unlimited day history
 
             // create initial day counter when empty
             bInitialize = dayCounter.isEmpty();
          }
 
          // optionally initialize first day counter entry
-         if( bInitialize  )
+         if (bInitialize)
          {
-            dayCounter.add( new DayCounter( new GregorianCalendar(), true ) );
+            dayCounter.add(new DayCounter(new GregorianCalendar(), true));
          }
       }
    }
@@ -339,74 +335,73 @@ public class MessageCounter
    /**
     * Update message counter history
     */
-   private void updateHistory( boolean incrementCounter )
+   private void updateHistory(boolean incrementCounter)
    {
       // check history activation
-      if( dayCounter.isEmpty() )
+      if (dayCounter.isEmpty())
       {
          return;
       }
 
       // calculate day difference between current date and date of last day counter entry
-      synchronized( dayCounter )
+      synchronized (dayCounter)
       {
-         DayCounter counterLast = (DayCounter) dayCounter.get( dayCounter.size() - 1 );
-   
-         GregorianCalendar calNow  = new GregorianCalendar();
+         DayCounter counterLast = (DayCounter) dayCounter.get(dayCounter.size() - 1);
+
+         GregorianCalendar calNow = new GregorianCalendar();
          GregorianCalendar calLast = counterLast.getDate();
-   
+
          // clip day time part for day delta calulation
-         calNow.clear( Calendar.HOUR        );
-         calNow.clear( Calendar.HOUR_OF_DAY );
-         calNow.clear( Calendar.MINUTE      );
-         calNow.clear( Calendar.SECOND      );
-         calNow.clear( Calendar.MILLISECOND );
-         
-         calLast.clear( Calendar.HOUR        );
-         calLast.clear( Calendar.HOUR_OF_DAY );
-         calLast.clear( Calendar.MINUTE      );
-         calLast.clear( Calendar.SECOND      );
-         calLast.clear( Calendar.MILLISECOND );
+         calNow.clear(Calendar.HOUR);
+         calNow.clear(Calendar.HOUR_OF_DAY);
+         calNow.clear(Calendar.MINUTE);
+         calNow.clear(Calendar.SECOND);
+         calNow.clear(Calendar.MILLISECOND);
+
+         calLast.clear(Calendar.HOUR);
+         calLast.clear(Calendar.HOUR_OF_DAY);
+         calLast.clear(Calendar.MINUTE);
+         calLast.clear(Calendar.SECOND);
+         calLast.clear(Calendar.MILLISECOND);
 
          long millisPerDay = 86400000; // 24 * 60 * 60 * 1000
-         long millisDelta  = calNow.getTime().getTime() - calLast.getTime().getTime();
-		    
-         int dayDelta = (int)( millisDelta / millisPerDay );
+         long millisDelta = calNow.getTime().getTime() - calLast.getTime().getTime();
 
-         if( dayDelta > 0 )
+         int dayDelta = (int) (millisDelta / millisPerDay);
+
+         if (dayDelta > 0)
          {
             // finalize last day counter
             counterLast.finalizeDayCounter();
-   
+
             // add new intermediate empty day counter entries
             DayCounter counterNew;
-   
-            for( int i=1; i<dayDelta; i++ )
+
+            for (int i = 1; i < dayDelta; i++)
             {
                // increment date
-               calLast.add( Calendar.DAY_OF_YEAR, 1 );
-   
-               counterNew = new DayCounter( calLast, false );
+               calLast.add(Calendar.DAY_OF_YEAR, 1);
+
+               counterNew = new DayCounter(calLast, false);
                counterNew.finalizeDayCounter();
-   
-               dayCounter.add( counterNew );
+
+               dayCounter.add(counterNew);
             }
-   
+
             // add new day counter entry for current day
-            counterNew = new DayCounter( calNow, false );
-               
-            dayCounter.add( counterNew ); 
-            
+            counterNew = new DayCounter(calNow, false);
+
+            dayCounter.add(counterNew);
+
             // ensure history day count limit
-            setHistoryLimit( dayCounterMax );
+            setHistoryLimit(dayCounterMax);
          }
-                
+
          // update last day counter entry
-         counterLast = (DayCounter) dayCounter.get( dayCounter.size() - 1 );
-         counterLast.updateDayCounter( incrementCounter );
+         counterLast = (DayCounter) dayCounter.get(dayCounter.size() - 1);
+         counterLast.updateDayCounter(incrementCounter);
       }
    }
-
 
    /**
     * Reset message counter history
@@ -414,11 +409,10 @@ public class MessageCounter
    public void resetHistory()
    {
       int max = dayCounterMax;
-      
-      setHistoryLimit(0);
-      setHistoryLimit( max );
-   }
 
+      setHistoryLimit(0);
+      setHistoryLimit(max);
+   }
 
    /**
     * Get message counter history data as string in format
@@ -437,23 +431,23 @@ public class MessageCounter
       String ret = "";
 
       // ensure history counters are up to date
-      updateHistory( false );
+      updateHistory(false);
 
-		// compile string       
-      synchronized( dayCounter )
+      // compile string       
+      synchronized (dayCounter)
       {
-			// first line: history day count  
-			ret += dayCounter.size() + "\n";
-      
-			// following lines: day counter data
-         for( int i=0; i<dayCounter.size(); i++ )
+         // first line: history day count  
+         ret += dayCounter.size() + "\n";
+
+         // following lines: day counter data
+         for (int i = 0; i < dayCounter.size(); i++)
          {
             DayCounter counter = (DayCounter) dayCounter.get(i);
-            
+
             ret += counter.getDayCounterAsString() + "\n";
          }
       }
-      
+
       return ret;
    }
 
@@ -462,11 +456,10 @@ public class MessageCounter
     */
    class DayCounter
    {
-   	static final int  HOURS = 24;
+      static final int HOURS = 24;
 
-   	GregorianCalendar date     = null;
-   	int[]             counters = new int[HOURS];
-
+      GregorianCalendar date = null;
+      int[] counters = new int[HOURS];
 
       /**
        *    Constructor
@@ -475,34 +468,34 @@ public class MessageCounter
        * @param isStartDay    true  first day counter
        *                      false follow up day counter
        */
-   	DayCounter( GregorianCalendar   date,
-                  boolean             isStartDay )
-   	{
+      DayCounter(GregorianCalendar date, boolean isStartDay)
+      {
          // store internal copy of creation date
-   		this.date = (GregorianCalendar) date.clone();
-   
-   		// initialize the array with '0'- values to current hour (if it is not the
-   		// first monitored day) and the rest with default values ('-1')
-         int hour = date.get( Calendar.HOUR_OF_DAY );
-   
-   		for( int i=0; i<HOURS; i++ )
-   		{
-   			if( i < hour )
-   			{
-   				if( isStartDay )    counters[i] = -1;
-   				else                counters[i] =  0;
-   			}
-   			else
-   			{
-   				counters[i] = -1;
-   			}
-   		}
-   
-   		// set the array element of the current hour to '0'
-   		counters[ hour ] = 0;
-   	}
-   
-   
+         this.date = (GregorianCalendar) date.clone();
+
+         // initialize the array with '0'- values to current hour (if it is not the
+         // first monitored day) and the rest with default values ('-1')
+         int hour = date.get(Calendar.HOUR_OF_DAY);
+
+         for (int i = 0; i < HOURS; i++)
+         {
+            if (i < hour)
+            {
+               if (isStartDay)
+                  counters[i] = -1;
+               else
+                  counters[i] = 0;
+            }
+            else
+            {
+               counters[i] = -1;
+            }
+         }
+
+         // set the array element of the current hour to '0'
+         counters[hour] = 0;
+      }
+
       /**
        * Gets copy of day counter date
        *
@@ -510,7 +503,7 @@ public class MessageCounter
        */
       GregorianCalendar getDate()
       {
-      	return (GregorianCalendar) date.clone();
+         return (GregorianCalendar) date.clone();
       }
 
       /**
@@ -518,88 +511,87 @@ public class MessageCounter
        *
        * @param incrementCounter      update current hour counter
        */
-   	void updateDayCounter( boolean incrementCounter )
-   	{
+      void updateDayCounter(boolean incrementCounter)
+      {
          // get the current hour of the day
-   		GregorianCalendar cal = new GregorianCalendar();
-   
-   		int currentIndex = cal.get(Calendar.HOUR_OF_DAY);
-   
+         GregorianCalendar cal = new GregorianCalendar();
+
+         int currentIndex = cal.get(Calendar.HOUR_OF_DAY);
+
          // check if the last array update is more than 1 hour ago, if so fill all
          // array elements between the last index and the current index with '0' values
          boolean bUpdate = false;
-   
-         for( int i=0; i<=currentIndex; i++ )
+
+         for (int i = 0; i <= currentIndex; i++)
          {
-            if( counters[i] > -1 )
+            if (counters[i] > -1)
             {
                // found first initialized hour counter
                // -> set all following uninitialized
                //    counter values to 0
                bUpdate = true;
             }
-   
-            if( bUpdate == true )
+
+            if (bUpdate == true)
             {
-               if( counters[i] == -1 )
-                   counters[i] = 0;
+               if (counters[i] == -1)
+                  counters[i] = 0;
             }
          }
-   
+
          // optionally increment current counter
-         if( incrementCounter )
+         if (incrementCounter)
          {
             counters[currentIndex]++;
          }
-   	}
-   
-   
+      }
+
       /**
        * Finalize day counter hour array elements  
        */
-   	void finalizeDayCounter()
-   	{
-   		// a new day has began, so fill all array elements from index to end with
-   		// '0' values
+      void finalizeDayCounter()
+      {
+         // a new day has began, so fill all array elements from index to end with
+         // '0' values
          boolean bFinalize = false;
-   
-   		for( int i=0; i<HOURS; i++ )
-   		{
-            if( counters[i] > -1 )
+
+         for (int i = 0; i < HOURS; i++)
+         {
+            if (counters[i] > -1)
             {
                // found first initialized hour counter
                // -> finalize all following uninitialized
                //    counter values
                bFinalize = true;
             }
-   
-            if( bFinalize )
+
+            if (bFinalize)
             {
-               if( counters[i] == -1 )
-                   counters[i] = 0;
+               if (counters[i] == -1)
+                  counters[i] = 0;
             }
-   		}
-   	}
-   
+         }
+      }
+
       /**
        * Return day counter data as string with format
        * "Date, hour counter 0, hour counter 1, ..., hour counter 23"
        * 
        * @return  String   day counter data
        */
-      String   getDayCounterAsString()
+      String getDayCounterAsString()
       {
          // first element day counter date
-         DateFormat dateFormat = DateFormat.getDateInstance( DateFormat.SHORT );
-      
-         String strData = dateFormat.format( date.getTime() );
+         DateFormat dateFormat = DateFormat.getDateInstance(DateFormat.SHORT);
+
+         String strData = dateFormat.format(date.getTime());
 
          // append 24 comma separated hour counter values           
-         for( int i=0; i<HOURS; i++ )
+         for (int i = 0; i < HOURS; i++)
          {
             strData += "," + counters[i];
          }
-         
+
          return strData;
       }
    }

@@ -22,10 +22,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- *  DRI: Josh de Cesare
- *
- */
 
 #ifndef _APPLERAID_H
 #define _APPLERAID_H
@@ -50,7 +46,8 @@ enum {
     kAppleRAIDSliceMediaStateClosing,
     kAppleRAIDSliceMediaStateClosed,
     kAppleRAIDSliceMediaStateStopping,
-    kAppleRAIDSliceMediaStateStopped
+    kAppleRAIDSliceMediaStateStopped,
+    kAppleRAIDSliceMediaStateRebuilding
 };
 
 class AppleRAIDController;
@@ -148,9 +145,24 @@ protected:
     IOReturn			*arSliceMediaErrors;
     IOMedia			**arSliceMedias;
     
+    // for rebuilding mirrors
+    UInt32			arSpareCount;
+    IOMedia			**arSpareMedias;
+    IOMedia			*_arRebuildingMedia;
+    thread_call_t		_arRebuildSetThreadCall;
+    bool			_arSetBlockedByRebuild;
+
     virtual bool handleOpen(IOService *client, IOOptionBits options, void *argument);
     virtual bool handleIsOpen(const IOService *client) const;
     virtual void handleClose(IOService *client, IOOptionBits options);    
+    
+    virtual bool addSpareToSet(IOMedia * member);
+    virtual void startRebuildRAIDSet(void);
+    virtual void rebuildRAIDSet(void);
+    virtual void rebuildRAIDSetComplete(bool wasRebuilt);
+    virtual IOReturn upgradeSliceMedia(IOMedia *media);
+    virtual bool rebuildPauseSet(void);
+    virtual void rebuildRestartSet(void);
     
 public:
     virtual bool init(OSDictionary *properties = 0);
@@ -183,7 +195,6 @@ class AppleRAIDStorageRequest : public IOCommand
 private:
     AppleRAID			*_srAppleRAID;
     AppleRAIDEventSource	*_srEventSource;
-    IOMedia			**_srSliceMedias;
     AppleRAIDMemoryDescriptor   **_srSliceMemoryDescriptors;
     IOReturn			_srStatus;
     UInt64			_srByteCount;

@@ -1,6 +1,6 @@
 // ========================================================================
 // Copyright (c) 2002 Mort Bay Consulting (Australia) Pty. Ltd.
-// $Id: DebugInterceptor.java,v 1.1.4.3 2003/01/21 01:05:32 jules_gosnell Exp $
+// $Id: DebugInterceptor.java,v 1.1.4.4 2003/07/26 11:49:41 jules_gosnell Exp $
 // ========================================================================
 
 package org.mortbay.j2ee.session;
@@ -11,7 +11,7 @@ import java.rmi.RemoteException;
 import java.util.Enumeration;
 import java.util.Map;
 import javax.servlet.http.HttpSession;
-import org.apache.log4j.Category;
+import org.jboss.logging.Logger;
 
 //----------------------------------------
 /**
@@ -23,7 +23,7 @@ public class
   DebugInterceptor
   extends StateInterceptor
 {
-  protected final Category _log=Category.getInstance(getClass().getName()/*+suffix*/);
+  protected static final Logger _log=Logger.getLogger(DebugInterceptor.class);
 
   // invariant field accessors
   public String

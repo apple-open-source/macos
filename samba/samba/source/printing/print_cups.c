@@ -18,6 +18,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
+#include "includes.h"
 #include "printing.h"
 
 #ifdef HAVE_CUPS
@@ -81,11 +82,13 @@ void cups_printer_fn(void (*fn)(char *, char *))
 	char		*name,		/* printer-name attribute */
 			*make_model,	/* printer-make-and-model attribute */
 			*info;		/* printer-info attribute */
+	int remote;         /* filter out remote printers and classes */
 	static const char *requested[] =/* Requested attributes */
 			{
 			  "printer-name",
 			  "printer-make-and-model",
-			  "printer-info"
+			  "printer-info",
+			  "printer-type"
 			};       
 
 
@@ -166,6 +169,7 @@ void cups_printer_fn(void (*fn)(char *, char *))
 		name       = NULL;
 		make_model = NULL;
 		info       = NULL;
+		remote     = 0;
 
 		while (attr != NULL && attr->group_tag == IPP_TAG_PRINTER)
 		{
@@ -181,6 +185,10 @@ void cups_printer_fn(void (*fn)(char *, char *))
 			    attr->value_tag == IPP_TAG_TEXT)
 				info = attr->values[0].string.text;
 
+        		if (strcmp(attr->name, "printer-type") == 0 &&
+			    attr->value_tag == IPP_TAG_ENUM)
+				remote = attr->values[0].integer & CUPS_PRINTER_REMOTE;
+
         		attr = attr->next;
 		}
 
@@ -189,7 +197,10 @@ void cups_printer_fn(void (*fn)(char *, char *))
 		*/
 
 		if (name == NULL)
-			break;
+			continue;
+
+ 		if (remote != 0)
+			continue;
 
  		if (info == NULL || !info[0])
 			(*fn)(name, make_model);
@@ -260,6 +271,8 @@ void cups_printer_fn(void (*fn)(char *, char *))
 		name       = NULL;
 		make_model = NULL;
 		info       = NULL;
+		remote     = 0;
+
 
 		while (attr != NULL && attr->group_tag == IPP_TAG_PRINTER)
 		{
@@ -275,6 +288,10 @@ void cups_printer_fn(void (*fn)(char *, char *))
 			    attr->value_tag == IPP_TAG_TEXT)
 				info = attr->values[0].string.text;
 
+        		if (strcmp(attr->name, "printer-type") == 0 &&
+			    attr->value_tag == IPP_TAG_ENUM)
+				remote = attr->values[0].integer & CUPS_PRINTER_REMOTE;
+
         		attr = attr->next;
 		}
 
@@ -283,7 +300,10 @@ void cups_printer_fn(void (*fn)(char *, char *))
 		*/
 
 		if (name == NULL)
-			break;
+			continue;
+
+  		if (remote != 0)
+			continue;
 
  		if (info == NULL || !info[0])
 			(*fn)(name, make_model);
@@ -680,7 +700,8 @@ cups_job_submit(int snum, struct printjob *pjob)
 			*response;	/* IPP Response */
 	cups_lang_t	*language;	/* Default language */
 	char		uri[HTTP_MAX_URI]; /* printer-uri attribute */
-
+	char 		*clientname; 	/* hostname of client for job-originating-host attribute */
+	pstring		new_jobname;
 
 	DEBUG(5,("cups_job_submit(%d, %p (%d))\n", snum, pjob, pjob->sysjob));
 
@@ -734,12 +755,20 @@ cups_job_submit(int snum, struct printjob *pjob)
 	ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME, "requesting-user-name",
         	     NULL, pjob->user);
 
+	clientname = client_name();
+	if (strcmp(clientname, "UNKNOWN") == 0) {
+		clientname = client_addr();
+	}
+
 	ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME,
 	             "job-originating-host-name", NULL,
-		     get_remote_machine_name());
+		      clientname);
+
+        pstr_sprintf(new_jobname,"%s%.8u %s", PRINT_SPOOL_PREFIX, 
+		(unsigned int)pjob->smbjob, pjob->jobname);
 
 	ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME, "job-name", NULL,
-        	     pjob->jobname);
+        	     new_jobname);
 
        /*
 	* Do the request and get back a response...

@@ -29,6 +29,10 @@
       <config-property-type>java.lang.String</config-property-type>
     </config-property>
     <config-property>
+      <config-property-name>PreparedStatementCacheSize</config-property-name>
+      <config-property-type>int</config-property-type>
+    </config-property>
+    <config-property>
       <config-property-name>UserName</config-property-name>
       <config-property-type>java.lang.String</config-property-type>
     </config-property>
@@ -51,9 +55,19 @@
       <config-property-type>java.lang.String</config-property-type>
     </config-property>
     <config-property>
+      <description>The fully qualified name of a class implementing org.jboss.resource.adapter.jdbc.ValidConnectionChecker that can determine for a particular vender db when a connection is valid.</description>
+      <config-property-name>ValidConnectionCheckerClassName</config-property-name>
+      <config-property-type>java.lang.String</config-property-type>
+    </config-property>
+    <config-property>
       <description>The fully qualified name of a class implementing org.jboss.resource.adapter.jdbc.ExceptionSorter that can determine for a particular vender db which exceptions are fatal and mean a connection should be discarded.</description>
       <config-property-name>ExceptionSorterClassName</config-property-name>
       <config-property-type>java.lang.String</config-property-type>
+    </config-property>
+    <config-property>
+      <description>Whether to track unclosed statements - this is a debugging feature.</description>
+      <config-property-name>TrackStatements</config-property-name>
+      <config-property-type>boolean</config-property-type>
     </config-property>
     <authentication-mechanism>
       <authentication-mechanism-type>BasicPassword</authentication-mechanism-type>

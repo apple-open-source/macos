@@ -5,7 +5,7 @@
  * See terms of license at gnu.org.
  */
 
-// $Id: Jetty.java,v 1.53.2.8 2003/03/05 01:08:29 jules_gosnell Exp $
+// $Id: Jetty.java,v 1.53.2.9 2003/07/26 11:49:40 jules_gosnell Exp $
 
 // A Jetty HttpServer with the interface expected by JBoss'
 // J2EEDeployer...
@@ -47,7 +47,7 @@ import org.mortbay.j2ee.session.Manager;
  *
  * @author <a href="mailto:jules_gosnell@yahoo..com">Julian Gosnell</a>
  * @author  <a href="mailto:andreas@jboss.org">Andreas Schaefer</a>.
- * @version $Revision: 1.53.2.8 $
+ * @version $Revision: 1.53.2.9 $
  *
  * <p><b>Revisions:</b>
  *
@@ -63,7 +63,7 @@ import org.mortbay.j2ee.session.Manager;
 public class Jetty
   extends org.mortbay.jetty.Server
 {
-  Logger                        _log     = Logger.getLogger("org.jboss.jbossweb");
+  protected static final Logger _log = Logger.getLogger("org.jboss.jbossweb");
   JettyService                  _service;
 
   // the XML snippet
@@ -159,8 +159,7 @@ public class Jetty
     else
       _webDefaultResource = null;
 
-    if (_log.isDebugEnabled())
-      _log.debug ("webdefault specification is: "+_webDefaultResource);
+    if (_log.isDebugEnabled()) _log.debug ("webdefault specification is: "+_webDefaultResource);
   }
 
   public synchronized String
@@ -237,7 +236,7 @@ public class Jetty
 
       _xmlConfigString = _xmlConfigString.substring(index);
 
-      _log.debug ("Passing xml config to jetty:\n"+_xmlConfigString);
+      if (_log.isDebugEnabled()) _log.debug ("Passing xml config to jetty:\n"+_xmlConfigString);
 
       setXMLConfiguration (_xmlConfigString);
 

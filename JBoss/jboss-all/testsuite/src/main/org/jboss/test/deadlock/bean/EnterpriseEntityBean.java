@@ -12,7 +12,7 @@ import java.util.Arrays;
 
 import javax.ejb.*;
 
-import org.jboss.ejb.plugins.lock.ApplicationDeadlockException;
+import org.jboss.ejb.plugins.TxInterceptorCMT;
 import org.jboss.test.deadlock.interfaces.BeanOrder;
 import org.jboss.test.deadlock.interfaces.EnterpriseEntityLocalHome;
 import org.jboss.test.deadlock.interfaces.EnterpriseEntityLocal;
@@ -129,7 +129,7 @@ public abstract class EnterpriseEntityBean implements EntityBean
      }
      catch (Exception e)
      {
-        ApplicationDeadlockException a = ApplicationDeadlockException.isADE(e);
+        Exception a = TxInterceptorCMT.isADE(e);
         if (a == null)
         {
            log.error("Error next=" + beanOrder.next + " order=" + Arrays.asList(beanOrder.order), e);

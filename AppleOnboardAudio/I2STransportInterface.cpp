@@ -27,13 +27,16 @@ OSDefineMetaClassAndStructors ( I2STransportInterface, TransportInterface );
 
 //	--------------------------------------------------------------------------------
 bool		I2STransportInterface::init ( PlatformInterface * inPlatformInterface ) {
-	bool			result;
-	IOReturn		error = kIOReturnError;
+	bool			success;
+	IOReturn		result = kIOReturnError;
 	
-	debug2IOLog ( "+ I2STransportInterface::init ( %d )\n", (unsigned int)inPlatformInterface );
+	debugIOLog (3,  "+ I2STransportInterface[%p]::init ( %d )", this, (unsigned int)inPlatformInterface );
+
+	success = super::init ( inPlatformInterface );
+	FailIf ( !success, Exit );	
+
+	success = false;
 	
-	result = super::init ( inPlatformInterface );
-	FailIf ( !result, Exit );	
 	FailIf ( NULL == mPlatformObject, Exit );
 	
 	super::transportSetTransportInterfaceType ( kTransportInterfaceType_I2S );	
@@ -45,8 +48,8 @@ bool		I2STransportInterface::init ( PlatformInterface * inPlatformInterface ) {
 
 	//	SET UP default operating variables.  There are codec dependencies on how the clock 
 	//	divide ratios are determined for the I2S audio data transport bus.  THIS WILL NEED 
-	//	TO ASK AOA WHAT CODEC IS ATTACHED AT SOME POINT IN THE FUTURE 
-	//	FOR NOW, AN ASSUMPTION THAT ALL CODECS REQUIRE THE SAME BEHAVIOR IS MADE.
+	//	TO ASK AOA WHAT CODEC IS ATTACHED AT SOME POINT IN THE FUTURE (i.e. when the newer 
+	//	controller is used).  FOR NOW, AN ASSUMPTION THAT ALL CODECS REQUIRE THE SAME BEHAVIOR IS MADE.
 	
 	mMclkMultiplier = 256;		//	TAS3004, CS84xx run MCLK at 256 * fs
 	mSclkMultiplier =  64;		//	TAS3004, CS84xx run MCLK at 64 * fs
@@ -58,32 +61,32 @@ bool		I2STransportInterface::init ( PlatformInterface * inPlatformInterface ) {
 	//	Set the I2S cell to a clocks stopped mode so that the clocks
 	//	stop low and then tristate so that a new format can be applied.
 	mPlatformObject->setI2SIOMIntControl ( 1 << kClocksStoppedPendingShift );	//	Clear the clock stop status
-	error = mPlatformObject->setI2SClockEnable ( false );
-	FailIf ( kIOReturnSuccess != error, Exit );
-	
+	result = mPlatformObject->setI2SClockEnable ( false );
+	FailIf ( kIOReturnSuccess != result, Exit );
+
 	waitForClocksStopped ();
 	
 	mPlatformObject->setI2SSWReset ( true );
 	IOSleep ( 10 );
 	mPlatformObject->setI2SSWReset ( false );
 
-	error = mPlatformObject->setDataWordSizes ( mDataWordSize );
-	FailIf ( kIOReturnSuccess != error, Exit );
+	result = mPlatformObject->setDataWordSizes ( mDataWordSize );
+	FailIf ( kIOReturnSuccess != result, Exit );
 	
-	error = mPlatformObject->setI2SCellEnable ( true );
-	FailIf ( kIOReturnSuccess != error, Exit );
+	result = mPlatformObject->setI2SCellEnable ( true );
+	FailIf ( kIOReturnSuccess != result, Exit );
+
+	result = mPlatformObject->setI2SEnable ( true );
+	FailIf ( kIOReturnSuccess != result, Exit );
+
+	result = transportSetSampleRate ( 44100 );
+	FailIf ( kIOReturnSuccess != result, Exit );	
 	
-	error = mPlatformObject->setI2SEnable ( true );
-	FailIf ( kIOReturnSuccess != error, Exit );
-	
-	error = transportSetSampleRate ( 44100 );
-	FailIf ( kIOReturnSuccess != error, Exit );
-	
+	success = true;
 Exit:
-	if ( result ) { result = kIOReturnSuccess == error; }
 	
-	debug3IOLog ( "- I2STransportInterface::init ( %d ) = %d\n", (unsigned int)inPlatformInterface, (unsigned int)result );
-	return result;
+	debugIOLog (3,  "- I2STransportInterface[%p (%ld)]::init ( %d ) = %d", this, mInstanceIndex, (unsigned int)inPlatformInterface, (unsigned int)success );
+	return success;
 }
 
 
@@ -101,7 +104,7 @@ void I2STransportInterface::free () {
 IOReturn	I2STransportInterface::transportSetSampleRate ( UInt32 sampleRate ) {
 	IOReturn	result = kIOReturnError;
 	
-	debug2IOLog ( "+ I2STransportInterface::transportSetSampleRate ( %d )\n", (unsigned int)sampleRate );
+	debugIOLog (3,  "+ I2STransportInterface[%ld]::transportSetSampleRate ( %d )", mInstanceIndex, (unsigned int)sampleRate );
 	
 	result = calculateSerialFormatRegisterValue ( sampleRate );
 	FailIf ( kIOReturnSuccess != result, Exit );
@@ -117,12 +120,11 @@ IOReturn	I2STransportInterface::transportSetSampleRate ( UInt32 sampleRate ) {
 	
 	result = mPlatformObject->setSerialFormatRegister ( mSerialFormat );
 	FailIf ( kIOReturnSuccess != result, Exit );
-	debug3IOLog ( "mPlatformObject->setSerialFormatRegiste ( %X ) returns %X\n", (unsigned int)mSerialFormat, (unsigned int)result );
-	
+	debugIOLog (3,  "mPlatformObject->setSerialFormatRegister ( %X ) returns %X", (unsigned int)mSerialFormat, (unsigned int)result );
+
 	result = mPlatformObject->setDataWordSizes ( mDataWordSize );
 	FailIf ( kIOReturnSuccess != result, Exit );
-	debug3IOLog ( "mPlatformObject->setDataWordSizes ( %X ) returns %X\n", (unsigned int)mDataWordSize, (unsigned int)result );
-	
+	debugIOLog (3,  "mPlatformObject->setDataWordSizes ( %X ) returns %X", (unsigned int)mDataWordSize, (unsigned int)result );
 	
 	result = mPlatformObject->setI2SEnable ( true );
 	FailIf ( kIOReturnSuccess != result, Exit );
@@ -131,12 +133,8 @@ IOReturn	I2STransportInterface::transportSetSampleRate ( UInt32 sampleRate ) {
 	FailIf ( kIOReturnSuccess != result, Exit );
 		
 	result = super::transportSetSampleRate ( sampleRate );
-#ifdef kVERBOSE_LOG
-	mPlatformObject->LogFCR ();
-	mPlatformObject->LogI2S ();
-#endif
 Exit:	
-	debug2IOLog ( "- transportSetSampleRate ( %d )\n", (unsigned int)sampleRate );
+	debugIOLog (3,  "- transportSetSampleRate ( %d )", (unsigned int)sampleRate );
 	return result;
 }
 
@@ -198,7 +196,7 @@ Exit:
 IOReturn	I2STransportInterface::performTransportSleep ( void ) {
 	IOReturn			result = kIOReturnError;
 
-	debugIOLog ( "+ I2STransportInterface::performTransportSleep ()\n" );
+	debugIOLog (3,  "+ I2STransportInterface::performTransportSleep ()" );
 	
 	FailIf ( NULL == mPlatformObject, Exit );
 	
@@ -216,7 +214,7 @@ IOReturn	I2STransportInterface::performTransportSleep ( void ) {
 
 	releaseClockSources ();
 Exit:	
-	debug2IOLog ( "- I2STransportInterface::performTransportSleep () = %d\n", (unsigned int)result );
+	debugIOLog (3,  "- I2STransportInterface::performTransportSleep () = %d", (unsigned int)result );
 	return result;
 }
 
@@ -227,7 +225,7 @@ Exit:
 IOReturn	I2STransportInterface::performTransportWake ( void ) {
 	IOReturn			result = kIOReturnError;
 	
-	debugIOLog ( "+ I2STransportInterface::performTransportWake ()\n" );
+	debugIOLog (3,  "+ I2STransportInterface::performTransportWake ()" );
 
 	requestClockSources ();
 	
@@ -240,7 +238,7 @@ IOReturn	I2STransportInterface::performTransportWake ( void ) {
 	result = transportSetSampleRate ( mTransportState.transportSampleRate );
 	FailIf (kIOReturnSuccess != result, Exit);
 
-	debug2IOLog ( "- I2STransportInterface::performTransportWake () = %d\n", (unsigned int)result );
+	debugIOLog (3,  "- I2STransportInterface::performTransportWake () = %d", (unsigned int)result );
 
 Exit:
 	return result;
@@ -283,7 +281,7 @@ Exit:
 IOReturn	I2STransportInterface::transportBreakClockSelect ( UInt32 clockSource ) {
 	IOReturn	result = kIOReturnError;
 	
-	debug2IrqIOLog ( "+ I2STransportInterface::transportBreakClockSelect ( %d )\n", (unsigned int)clockSource );
+	debugIOLog (7,  "+ I2STransportInterface::transportBreakClockSelect ( %d )", (unsigned int)clockSource );
 	
 	FailIf ( NULL == mPlatformObject, Exit );
 	
@@ -298,11 +296,11 @@ IOReturn	I2STransportInterface::transportBreakClockSelect ( UInt32 clockSource )
 
 	result = mPlatformObject->setSerialFormatRegister ( mSerialFormat );
 	FailIf ( kIOReturnSuccess != result, Exit );
-	debug3IrqIOLog ( "mPlatformObject->setSerialFormatRegiste ( %X ) returns %X\n", (unsigned int)mSerialFormat, (unsigned int)result );
+	debugIOLog (7,  "mPlatformObject->setSerialFormatRegiste ( %X ) returns %X", (unsigned int)mSerialFormat, (unsigned int)result );
 
 	result = mPlatformObject->setDataWordSizes ( mDataWordSize );
 	FailIf ( kIOReturnSuccess != result, Exit );
-	debug3IrqIOLog ( "mPlatformObject->setDataWordSizes ( %X ) returns %X\n", (unsigned int)mDataWordSize, (unsigned int)result );
+	debugIOLog (7,  "mPlatformObject->setDataWordSizes ( %X ) returns %X", (unsigned int)mDataWordSize, (unsigned int)result );
 	
 	IOSleep ( 10 );
 
@@ -317,13 +315,18 @@ IOReturn	I2STransportInterface::transportBreakClockSelect ( UInt32 clockSource )
 
 	switch ( clockSource ) {
 		case kTRANSPORT_MASTER_CLOCK:
-			debugIrqIOLog ( "... kTRANSPORT_MASTER_CLOCK requires no action\n" );
+			debugIOLog (7,  "... kTRANSPORT_MASTER_CLOCK requires no action" );
 			break;
 		case kTRANSPORT_SLAVE_CLOCK:
-			//	Set the clock mux to the ALTERNATE clock source (i.e. externally generated)
-			debugIrqIOLog ( "... setting clock mux to ALTERNATE source\n" );
-			result = mPlatformObject->setClockMux ( kGPIO_MuxSelectAlternate );
-			FailIf ( kIOReturnSuccess != result, Exit );
+			//	Set the clock mux to the ALTERNATE clock source (i.e. externally generated).
+			//	The alternate clock mux will not exist if running on a slave only transport.
+			debugIOLog (7,  "... setting clock mux to ALTERNATE source" );
+			if ( kTransportInterfaceType_I2S == mTransportState.transportInterfaceType ) {
+				result = mPlatformObject->setClockMux ( kGPIO_MuxSelectAlternate );
+				FailIf ( kIOReturnSuccess != result, Exit );
+			} else {
+				result = kIOReturnSuccess;
+			}
 			break;
 		default:
 			FailIf ( true, Exit );
@@ -331,11 +334,7 @@ IOReturn	I2STransportInterface::transportBreakClockSelect ( UInt32 clockSource )
 	}
 	
 Exit:
-#ifdef kVERBOSE_LOG
-	mPlatformObject->LogFCR ();
-	mPlatformObject->LogI2S ();
-#endif
-	debug3IrqIOLog ( "- I2STransportInterface::transportBreakClockSelect ( %d ) = %X\n", (unsigned int)clockSource, (unsigned int)result );
+	debugIOLog (7,  "- I2STransportInterface::transportBreakClockSelect ( %d ) = %X", (unsigned int)clockSource, (unsigned int)result );
 	return result;
 }
 
@@ -376,22 +375,25 @@ Exit:
 IOReturn	I2STransportInterface::transportMakeClockSelect ( UInt32 clockSource ) {
 	IOReturn	result = kIOReturnError;
 	
-	debug2IrqIOLog ( "+ I2STransportInterface::transportMakeClockSelect ( %d )\n", (unsigned int)clockSource );
+	debugIOLog (7,  "+ I2STransportInterface::transportMakeClockSelect ( %d )", (unsigned int)clockSource );
 	
 	FailIf ( NULL == mPlatformObject, Exit );
 	
 	switch ( clockSource ) {
 		case kTRANSPORT_MASTER_CLOCK:
 			//	Set the clock mux to the DEFAULT clock source (i.e. system generated)
-			debugIrqIOLog ( "... setting clock mux to DEFAULT source\n" );
-			result = mPlatformObject->setClockMux ( kGPIO_MuxSelectDefault );
-			FailIf ( kIOReturnSuccess != result, Exit );
-
+			debugIOLog (7,  "... setting clock mux to DEFAULT source" );
+			if ( kTransportInterfaceType_I2S == mTransportState.transportInterfaceType ) {
+				result = mPlatformObject->setClockMux ( kGPIO_MuxSelectDefault );
+				FailIf ( kIOReturnSuccess != result, Exit );
+			} else {
+				result = kIOReturnSuccess;
+			}
 			//	Stop the cell and restart the cell to get I2S running
-			debugIrqIOLog ( "... setting kBClkMasterShift to MASTER\n" );
+			debugIOLog (7,  "... setting kBClkMasterShift to MASTER" );
 			break;
 		case kTRANSPORT_SLAVE_CLOCK:
-			debugIrqIOLog ( "... kTRANSPORT_SLAVE_CLOCK requires no action\n" );
+			debugIOLog (7,  "... kTRANSPORT_SLAVE_CLOCK requires no action" );
 			result = kIOReturnSuccess;
 			break;
 		default:
@@ -402,11 +404,7 @@ IOReturn	I2STransportInterface::transportMakeClockSelect ( UInt32 clockSource ) 
 Exit:
 	result = mPlatformObject->setI2SClockEnable ( true );
 	
-#ifdef kVERBOSE_LOG
-	mPlatformObject->LogFCR ();
-	mPlatformObject->LogI2S ();
-#endif
-	debug3IrqIOLog ( "- I2STransportInterface::transportMakeClockSelect ( %d ) = %X\n", (unsigned int)clockSource, (unsigned int)result );
+	debugIOLog (7,  "- I2STransportInterface::transportMakeClockSelect ( %d ) = %X", (unsigned int)clockSource, (unsigned int)result );
 	return result;
 }
 
@@ -419,16 +417,28 @@ UInt32		I2STransportInterface::transportGetSampleRate ( void ) {
 	if ( kTRANSPORT_SLAVE_CLOCK == mTransportState.clockSource ) {
 		curSerialFormat = mPlatformObject->getSerialFormatRegister ();
 		curSerialFormat &= 0x00000FFF;
-		if ( ( kSampleRate_32Khz_LowerLimt <= curSerialFormat ) && ( curSerialFormat <= kSampleRate_32Khz_UpperLimt ) ) {
+		if ( ( kSampleRate_11Khz_LowerLimt <= curSerialFormat ) && ( curSerialFormat <= kSampleRate_11Khz_UpperLimt ) ) {
+			result = 11025;
+		} else if ( ( kSampleRate_16Khz_LowerLimt <= curSerialFormat ) && ( curSerialFormat <= kSampleRate_16Khz_UpperLimt ) ) {
+			result = 16000;
+		} else if ( ( kSampleRate_22Khz_LowerLimt <= curSerialFormat ) && ( curSerialFormat <= kSampleRate_22Khz_UpperLimt ) ) {
+			result = 22050;
+		} else if ( ( kSampleRate_24Khz_LowerLimt <= curSerialFormat ) && ( curSerialFormat <= kSampleRate_24Khz_UpperLimt ) ) {
+			result = 24000;
+		} else if ( ( kSampleRate_32Khz_LowerLimt <= curSerialFormat ) && ( curSerialFormat <= kSampleRate_32Khz_UpperLimt ) ) {
 			result = 32000;
 		} else if ( ( kSampleRate_44Khz_LowerLimt <= curSerialFormat ) && ( curSerialFormat <= kSampleRate_44Khz_UpperLimt ) ) {
 			result = 44100;
 		} else if ( ( kSampleRate_48Khz_LowerLimt <= curSerialFormat ) && ( curSerialFormat <= kSampleRate_48Khz_UpperLimt ) ) {
 			result = 48000;
+		} else if ( ( kSampleRate_64Khz_LowerLimt <= curSerialFormat ) && ( curSerialFormat <= kSampleRate_64Khz_UpperLimt ) ) {
+			result = 64000;
 		} else if ( ( kSampleRate_88Khz_LowerLimt <= curSerialFormat ) && ( curSerialFormat <= kSampleRate_88Khz_UpperLimt ) ) {
 			result = 88200;
 		} else if ( ( kSampleRate_96Khz_LowerLimt <= curSerialFormat ) && ( curSerialFormat <= kSampleRate_96Khz_UpperLimt ) ) {
 			result = 96000;
+		} else if ( ( kSampleRate_176Khz_LowerLimt <= curSerialFormat ) && ( curSerialFormat <= kSampleRate_176Khz_UpperLimt ) ) {
+			result = 176400;
 		} else if ( ( kSampleRate_192Khz_LowerLimt <= curSerialFormat ) && ( curSerialFormat <= kSampleRate_192Khz_UpperLimt ) ) {
 			result = 19200;
 		} else {
@@ -454,13 +464,13 @@ UInt32		I2STransportInterface::transportGetSampleRate ( void ) {
 IOReturn	I2STransportInterface::transportSetPeakLevel ( UInt32 channelTarget, UInt32 levelMeterValue ) {
 	IOReturn		result;
 	
-	debug3IOLog ( "+ I2STransportInterface::transportSetPeakLevel ( '%4s', %lX )\n", (char*)&channelTarget, levelMeterValue );
+	debugIOLog (3,  "+ I2STransportInterface::transportSetPeakLevel ( '%4s', %lX )", (char*)&channelTarget, levelMeterValue );
 	switch ( channelTarget ) {
 		case kStreamFrontLeft:
 		case kStreamFrontRight:		result = mPlatformObject->setPeakLevel ( channelTarget, levelMeterValue );			break;
 		default:					result = kIOReturnBadArgument;														break;
 	}
-	debug4IOLog ( "- I2STransportInterface::transportSetPeakLevel ( '%4s', %lX ) returns %X\n", (char*)&channelTarget, levelMeterValue, result );
+	debugIOLog (3,  "- I2STransportInterface::transportSetPeakLevel ( '%4s', %lX ) returns %X", (char*)&channelTarget, levelMeterValue, result );
 	return result;
 }
 
@@ -469,7 +479,7 @@ IOReturn	I2STransportInterface::transportSetPeakLevel ( UInt32 channelTarget, UI
 UInt32		I2STransportInterface::transportGetPeakLevel ( UInt32 channelTarget ) {
 	UInt32			result = 0;
 
-	debug2IOLog ( "+ I2STransportInterface::transportGetPeakLevel ( '%4s' )\n", (char*)&channelTarget );
+	debugIOLog (3,  "+ I2STransportInterface::transportGetPeakLevel ( '%4s' )", (char*)&channelTarget );
 	switch ( channelTarget ) {
 		case kStreamFrontLeft:
 		case kStreamFrontRight:
@@ -485,7 +495,7 @@ UInt32		I2STransportInterface::transportGetPeakLevel ( UInt32 channelTarget ) {
 			break;
 	}
 	
-	debug3IOLog ( "- I2STransportInterface::transportGetPeakLevel ( '%4s' ) returns %lX\n", (char*)&channelTarget, result );
+	debugIOLog (3,  "- I2STransportInterface::transportGetPeakLevel ( '%4s' ) returns %lX", (char*)&channelTarget, result );
 	return result;
 }
 
@@ -497,14 +507,13 @@ UInt32		I2STransportInterface::transportGetPeakLevel ( UInt32 channelTarget ) {
 IOReturn I2STransportInterface::requestClockSources () {
 	IOReturn	result = kIOReturnError;
 
-	debugIOLog ("+ I2STransportInterface::requestClockSources ()\n");
-	FailMessage (mHave18MHzClock || mHave45MHzClock || mHave49MHzClock);
+	debugIOLog (3, "+ I2STransportInterface::requestClockSources ()");
 	//	Audio needs all three clocks in order to support setting sample 
 	//	rates and/or clock sources.
 	if (FALSE == mHave45MHzClock) {
 		result = mPlatformObject->requestI2SClockSource (kI2S_45MHz);
 		if (kIOReturnSuccess != result) {
-			IOLog ("I2STransportInterface failed to acquire 45 MHz clock.\n");
+			debugIOLog (3, "I2STransportInterface failed to acquire 45 MHz clock.");
 		} else {
 			mHave45MHzClock = TRUE;
 		}
@@ -512,7 +521,7 @@ IOReturn I2STransportInterface::requestClockSources () {
 	if (FALSE == mHave49MHzClock) {
 		result = mPlatformObject->requestI2SClockSource (kI2S_49MHz);
 		if (kIOReturnSuccess != result) {
-			IOLog ("I2STransportInterface failed to acquire 49 MHz clock.\n");
+			debugIOLog (3, "I2STransportInterface failed to acquire 49 MHz clock.");
 		} else {
 			mHave49MHzClock = TRUE;
 		}
@@ -520,7 +529,7 @@ IOReturn I2STransportInterface::requestClockSources () {
 	if (FALSE == mHave18MHzClock) {
 		result = mPlatformObject->requestI2SClockSource (kI2S_18MHz);
 		if (kIOReturnSuccess != result) {
-			IOLog ("I2STransportInterface failed to acquire 18 MHz clock.\n");
+			debugIOLog (3, "I2STransportInterface failed to acquire 18 MHz clock.");
 		} else {
 			mHave18MHzClock = TRUE;
 		}
@@ -529,7 +538,6 @@ IOReturn I2STransportInterface::requestClockSources () {
 		result = kIOReturnSuccess;
 	}
 
-	debug2IOLog ("- I2STransportInterface::requestClockSources () returns %X\n", result);
 	return result;
 }
 
@@ -540,11 +548,10 @@ IOReturn I2STransportInterface::releaseClockSources () {
 	//	Audio needs all three clocks in order to support setting sample 
 	//	rates and/or clock sources.
 	
-	debugIOLog ("+ I2STransportInterface::releaseClockSources ()\n");
 	if (TRUE == mHave45MHzClock) {
 		result = mPlatformObject->releaseI2SClockSource (kI2S_45MHz);
 		if (kIOReturnSuccess != result) {
-			IOLog ("Failed to release 45 MHz clock.\n");
+			debugIOLog (3, "Failed to release 45 MHz clock.");
 		} else {
 			mHave45MHzClock = FALSE;
 		}
@@ -552,7 +559,7 @@ IOReturn I2STransportInterface::releaseClockSources () {
 	if (TRUE == mHave49MHzClock) {
 		result = mPlatformObject->releaseI2SClockSource (kI2S_49MHz);
 		if (kIOReturnSuccess != result) {
-			IOLog ("Failed to release 49 MHz clock.\n");
+			debugIOLog (3, "Failed to release 49 MHz clock.");
 		} else {
 			mHave49MHzClock = FALSE;
 		}
@@ -560,14 +567,14 @@ IOReturn I2STransportInterface::releaseClockSources () {
 	if (TRUE == mHave18MHzClock) {
 		result = mPlatformObject->releaseI2SClockSource (kI2S_18MHz);
 		if (kIOReturnSuccess != result) {
-			IOLog ("Failed to release 18 MHz clock.\n");
+			debugIOLog (3, "Failed to release 18 MHz clock.");
 		} else {
 			mHave18MHzClock = FALSE;
 		}
 	}
 
 	result = kIOReturnSuccess;
-	debug2IOLog ("- I2STransportInterface::releaseClockSources () returns %X\n", result);
+
 	return result;
 }
 
@@ -581,6 +588,8 @@ IOReturn		I2STransportInterface::calculateSerialFormatRegisterValue ( UInt32 sam
 	mMClkFrequency = sampleRate * mMclkMultiplier;
 	mSClkFrequency = sampleRate * mSclkMultiplier;
 	
+	debugIOLog(6, "I2STransportInterface::calculateSerialFormatRegisterValue: sampleRate = %ld, mMClkFrequency = %ld, mSClkFrequency = %ld", sampleRate, mMClkFrequency, mSClkFrequency);
+	
 	//	The sample rate can be derived from 45.1584 MHz, 49.1520 MHz or 18.432 Mhz.
 	//	The clock that the sample rate is derived from must be an integral multiple
 	//	of the sample rate.  Some common sample rates are setup as follows:
@@ -593,22 +602,24 @@ IOReturn		I2STransportInterface::calculateSerialFormatRegisterValue ( UInt32 sam
 	//	 96.000 Khz		49.1520 Mhz			2				4			PCM3052		256 * fs
 	//	192.000 Khz		49.1520 Mhz			1				4			PCM3052		256 * fs
 	//
-	if ( 0 == ( kClock18MHz % mMClkFrequency ) ) {
-		mClockSourceFrequency = kClock18MHz;
-		mClockSelector = kI2S_18MHz;
-		mSerialFormat = ( kClockSource18MHz << kClockSourceShift );
+	if ( 0 == ( kClock49MHz % mMClkFrequency ) ) {
+		mClockSourceFrequency = kClock49MHz;
+		mClockSelector = kI2S_49MHz;
+		mSerialFormat = ( kClockSource49MHz << kClockSourceShift );
 	} else if ( 0 == ( kClock45MHz % mMClkFrequency ) ) {
 		mClockSourceFrequency = kClock45MHz;
 		mClockSelector = kI2S_45MHz;
 		mSerialFormat = ( kClockSource45MHz << kClockSourceShift );
-	} else if ( 0 == ( kClock49MHz % mMClkFrequency ) ) {
-		mClockSourceFrequency = kClock49MHz;
-		mClockSelector = kI2S_49MHz;
-		mSerialFormat = ( kClockSource49MHz << kClockSourceShift );
+	} else if ( 0 == ( kClock18MHz % mMClkFrequency ) ) {
+		mClockSourceFrequency = kClock18MHz;
+		mClockSelector = kI2S_18MHz;
+		mSerialFormat = ( kClockSource18MHz << kClockSourceShift );
 	} else {
 		//	The sample rate cannot be derived from available clock sources
+		debugIOLog(1, "I2STransportInterface UNABLE TO DERIVE SAMPLE RATE (%ld)", sampleRate);
 		FailIf ( true, Exit );
 	}
+	debugIOLog(6, "I2STransportInterface::calculateSerialFormatRegisterValue: mClockSourceFrequency = %ld", mClockSourceFrequency);
 
 	//	The BCLkMaster bit is set according to the clock source (i.e. system mastered
 	//	clock or externally mastered clock such as a recovered clock from a S/PDIF AES3 stream.
@@ -622,8 +633,10 @@ IOReturn		I2STransportInterface::calculateSerialFormatRegisterValue ( UInt32 sam
 	//	The I2S I/O Module has exceptions for register configurations based on the clock 
 	//	divisor which must be resolved to determine register confuration MCLK values.
 	mMClkDivisor = mClockSourceFrequency / mMClkFrequency;
+	debugIOLog(6, "I2STransportInterface::calculateSerialFormatRegisterValue: mMClkDivisor = %ld", mMClkDivisor);
 	switch ( mMClkDivisor ) {
-		case 1:			mMClkDivider = 0x00000014;									break;
+		// NOTE: these exceptions don't appear to work (audio turns to white noise)
+		case 1:			mMClkDivider = 0x00000014;									break;	// also tried all of these as 0x0000XX10 as indicated in intrepid docs
 		case 3:			mMClkDivider = 0x00000013;									break;
 		case 5:			mMClkDivider = 0x00000012;									break;
 		default:		mMClkDivider = ( ( mMClkDivisor / 2 ) - 1 );				break;
@@ -632,8 +645,9 @@ IOReturn		I2STransportInterface::calculateSerialFormatRegisterValue ( UInt32 sam
 	//	The I2S I/O Module has exceptions for register configurations based on the clock 
 	//	divisor which must be resolved to determine register confuration SCLK values.
 	mSClkDivisor = ( mClockSourceFrequency / mMClkDivisor ) / mSClkFrequency;
+	debugIOLog(6, "I2STransportInterface::calculateSerialFormatRegisterValue: mSClkDivisor = %ld", mSClkDivisor);
 	switch ( mSClkDivisor ) {
-		case 1:			mSClkDivider = 0x00000008;									break;
+		case 1:			mSClkDivider = 0x00000008;									break;	// also tried all of these as 0x0000XX10 as indicated in intrepid docs
 		case 3:			mSClkDivider = 0x00000009;									break;
 		default:		mSClkDivider = ( ( mSClkDivisor / 2 ) - 1 );				break;
 	}

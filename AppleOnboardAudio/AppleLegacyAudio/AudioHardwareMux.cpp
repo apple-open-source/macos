@@ -16,7 +16,7 @@
 OSDefineMetaClassAndStructors(AudioHardwareMux, OSObject)
 
 AudioHardwareMux *AudioHardwareMux::create(AudioHardwareMuxInfo theInfo){
-    CLOG("+ AudioHardwareMux::create\n");
+    debugIOLog (3, "+ AudioHardwareMux::create");
     AudioHardwareMux *myMux;
     myMux = new AudioHardwareMux;
     
@@ -26,14 +26,14 @@ AudioHardwareMux *AudioHardwareMux::create(AudioHardwareMuxInfo theInfo){
             myMux = 0;
         }            
     }
-    CLOG("- AudioHardwareMux::create\n");
+    debugIOLog (3, "- AudioHardwareMux::create");
     return myMux;
 }
 
 bool AudioHardwareMux::init(AudioHardwareMuxInfo theInfo) {
     short idx;
     
-    CLOG("+ AudioHardwareMux::init\n");
+    debugIOLog (3, "+ AudioHardwareMux::init");
     if(!super::init())
         return(false);
     
@@ -59,7 +59,7 @@ bool AudioHardwareMux::init(AudioHardwareMuxInfo theInfo) {
         }
     }
     
-    CLOG("- AudioHardwareMux::init\n");
+    debugIOLog (3, "- AudioHardwareMux::init");
     return(true);
 }
 
@@ -87,7 +87,7 @@ IOReturn AudioHardwareMux::SetMuxSource(UInt32 source ) {
     
     switch(MuxPortType) {
         case kAudioHardwareMuxPO:
-            // debugIOLog("We are in the right case\n");
+            // debugIOLog (3, "We are in the right case");
             for (index = 0; index < MuxPOnumSources; index++) {
 		if (MuxPOsources[index].source == source) {
                     progOuts = pluginRef->sndHWGetProgOutput();	
@@ -160,20 +160,20 @@ BAIL:
 void AudioHardwareMux::ioLog() {
 #ifdef DEBUGLOG
     short idx;
-    debugIOLog( "   + Mux port information :\n");
+    debugIOLog (3,  "   + Mux port information :");
      switch (MuxPortType) {
-        case  kAudioHardwareMuxUnknown:debugIOLog("    -- Type is : Unknown \n");break;
-        case kAudioHardwareMuxWS: debugIOLog("    -- Type is : WallStreet Mux \n");break;
-        case kAudioHardwareMux101: debugIOLog("    -- Type is : 101 Mux \n");break;
-        case kAudioHardwareMuxPO: debugIOLog("    -- Type is : PO Mux \n");break;
-        default:debugIOLog("    -- Type is : unknown \n"); break;
+        case  kAudioHardwareMuxUnknown:debugIOLog (3, "    -- Type is : Unknown ");break;
+        case kAudioHardwareMuxWS: debugIOLog (3, "    -- Type is : WallStreet Mux ");break;
+        case kAudioHardwareMux101: debugIOLog (3, "    -- Type is : 101 Mux ");break;
+        case kAudioHardwareMuxPO: debugIOLog (3, "    -- Type is : PO Mux ");break;
+        default:debugIOLog (3, "    -- Type is : unknown "); break;
     }
-    debug2IOLog(" -- Last source is %ld\n", lastSource);
+    debugIOLog (3, " -- Last source is %ld", lastSource);
     
     if(MuxPortType == kAudioHardwareMuxPO) {
         for(idx = 0; idx <2; idx++) {
-            debug2IOLog("   -- source %ld\n",MuxPOsources[idx].source);
-            debug3IOLog("   -- bitMask, %ld, bitMatch %ld\n",MuxPOsources[idx].bitMask, MuxPOsources[idx].bitMatch);
+            debugIOLog (3, "   -- source %ld",MuxPOsources[idx].source);
+            debugIOLog (3, "   -- bitMask, %ld, bitMatch %ld",MuxPOsources[idx].bitMask, MuxPOsources[idx].bitMatch);
         }        
     }
 #endif

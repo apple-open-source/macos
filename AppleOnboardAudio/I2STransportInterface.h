@@ -29,18 +29,30 @@ typedef enum ClockSource
 //	comparing the least sigificant 12 bits of the serial format
 //	register against the limits described here.
 typedef enum ExternalSampleRate {
-	kSampleRate_32Khz_LowerLimt		=	574,
-	kSampleRate_32Khz_UpperLimt		=	580,
-	kSampleRate_44Khz_LowerLimt		=	415,
-	kSampleRate_44Khz_UpperLimt		=	419,
-	kSampleRate_48Khz_LowerLimt		=	382,
-	kSampleRate_48Khz_UpperLimt		=	386,
-	kSampleRate_88Khz_LowerLimt		=	207,
-	kSampleRate_88Khz_UpperLimt		=	210,
-	kSampleRate_96Khz_LowerLimt		=	190,
-	kSampleRate_96Khz_UpperLimt		=	194,
-	kSampleRate_192Khz_LowerLimt	=	 94,
-	kSampleRate_192Khz_UpperLimt	=	 98
+	kSampleRate_11Khz_LowerLimt		=	1663,
+	kSampleRate_11Khz_UpperLimt		=	1682,
+	kSampleRate_16Khz_LowerLimt		=	1146,
+	kSampleRate_16Khz_UpperLimt		=	1159,
+	kSampleRate_22Khz_LowerLimt		=	 831,
+	kSampleRate_22Khz_UpperLimt		=	 842,
+	kSampleRate_24Khz_LowerLimt		=	 764,
+	kSampleRate_24Khz_UpperLimt		=	 773,
+	kSampleRate_32Khz_LowerLimt		=	 574,
+	kSampleRate_32Khz_UpperLimt		=	 580,
+	kSampleRate_44Khz_LowerLimt		=	 415,
+	kSampleRate_44Khz_UpperLimt		=	 419,
+	kSampleRate_48Khz_LowerLimt		=	 382,
+	kSampleRate_48Khz_UpperLimt		=	 386,
+	kSampleRate_64Khz_LowerLimt		=	 286,
+	kSampleRate_64Khz_UpperLimt		=	 291,
+	kSampleRate_88Khz_LowerLimt		=	 207,
+	kSampleRate_88Khz_UpperLimt		=	 210,
+	kSampleRate_96Khz_LowerLimt		=	 190,
+	kSampleRate_96Khz_UpperLimt		=	 194,
+	kSampleRate_176Khz_LowerLimt	=	 103,
+	kSampleRate_176Khz_UpperLimt	=	 107,
+	kSampleRate_192Khz_LowerLimt	=	  94,
+	kSampleRate_192Khz_UpperLimt	=	  98
 } ExternalSampleRate;
 
 //	Format encoding within the serial format register.

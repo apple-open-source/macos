@@ -17,7 +17,7 @@ package org.jboss.ejb.plugins.cmp.jdbc.bridge;
  *      One for each entity bean ejbSelect method.       
  *
  * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
- * @version $Revision: 1.7 $
+ * @version $Revision: 1.7.4.1 $
  */                            
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -33,8 +33,8 @@ import org.jboss.ejb.plugins.cmp.jdbc.JDBCStoreManager;
 import org.jboss.ejb.plugins.cmp.jdbc.metadata.JDBCQueryMetaData;
 
 public class JDBCSelectorBridge implements SelectorBridge {
-   protected final JDBCQueryMetaData queryMetaData;
-   protected final JDBCStoreManager manager;
+   private final JDBCQueryMetaData queryMetaData;
+   private final JDBCStoreManager manager;
    
    public JDBCSelectorBridge(
          JDBCStoreManager manager, 
@@ -52,12 +52,12 @@ public class JDBCSelectorBridge implements SelectorBridge {
       return queryMetaData.getMethod();
    }
    
-   public Class getReturnType() {
+   private Class getReturnType() {
       return queryMetaData.getMethod().getReturnType();
    }
       
    public Object execute(Object[] args) throws FinderException {
-      Collection retVal = null;
+      Collection retVal;
       try {
          JDBCQueryCommand query = 
                manager.getQueryManager().getQueryCommand(getMethod());

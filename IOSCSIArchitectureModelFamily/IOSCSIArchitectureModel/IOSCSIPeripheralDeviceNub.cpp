@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -35,6 +33,9 @@
 #include <IOKit/IOMessage.h>
 #include <IOKit/IOKitKeys.h>
 #include <IOKit/IOMemoryDescriptor.h>
+
+// IOKit storage related headers
+#include <IOKit/storage/IOStorageProtocolCharacteristics.h>
 
 // SCSI Architecture Model Family includes
 #include <IOKit/scsi/SCSITask.h>
@@ -202,9 +203,7 @@ IOSCSIPeripheralDeviceNub::start ( IOService * provider )
 	characterDict = OSDynamicCast ( OSDictionary, fProvider->getProperty ( kIOPropertyProtocolCharacteristicsKey ) );
 	if ( characterDict == NULL )
 	{
-		
 		characterDict = OSDictionary::withCapacity ( 1 );
-		
 	}
 	
 	else
@@ -244,6 +243,7 @@ IOSCSIPeripheralDeviceNub::start ( IOService * provider )
 	registerService ( );
 	
 	STATUS_LOG ( ( "%s: Registered and setup is complete\n", getName ( ) ) );
+	
 	// Setup was successful, return true.
 	result = true;
 	
@@ -648,19 +648,19 @@ IOSCSIPeripheralDeviceNub::ClearACA( UInt8 theLogicalUnit )
 SCSIServiceResponse		
 IOSCSIPeripheralDeviceNub::ClearTaskSet( UInt8 theLogicalUnit )
 {
-	return 	fProvider->ClearTaskSet( theLogicalUnit );
+	return 	fProvider->ClearTaskSet ( theLogicalUnit );
 }
     
 SCSIServiceResponse		
 IOSCSIPeripheralDeviceNub::LogicalUnitReset( UInt8 theLogicalUnit )
 {
-	return 	fProvider->LogicalUnitReset( theLogicalUnit );
+	return 	fProvider->LogicalUnitReset ( theLogicalUnit );
 }
 
 SCSIServiceResponse		
 IOSCSIPeripheralDeviceNub::TargetReset( void )
 {
-	return 	fProvider->TargetReset();
+	return 	fProvider->TargetReset ( );
 }
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -853,6 +853,7 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
 														   kSenseDefaultSize,
 														   0 );
 				serviceResponse = SendTask ( request );
+				
 				if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
 					 ( request->GetTaskStatus ( ) == kSCSITaskStatus_GOOD ) )
 				{
@@ -887,7 +888,9 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
 						   ( senseBuffer.ADDITIONAL_SENSE_CODE == 0x25 ) &&
 						   ( senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER == 0x00 ) )
 				 	{
+				 		
 						goto ReleaseTask;
+						
 					}
 					
 				}
@@ -1113,6 +1116,7 @@ IOSCSILogicalUnitNub::start ( IOService * provider )
 {
 	
 	OSDictionary * 	characterDict 	= NULL;
+	OSNumber *		number			= NULL;
 	OSObject *		obj				= NULL;
 	bool			result			= false;
 	
@@ -1182,9 +1186,7 @@ IOSCSILogicalUnitNub::start ( IOService * provider )
 	characterDict = OSDynamicCast ( OSDictionary, fProvider->getProperty ( kIOPropertyProtocolCharacteristicsKey ) );
 	if ( characterDict == NULL )
 	{
-		
 		characterDict = OSDictionary::withCapacity ( 1 );
-		
 	}
 	
 	else
@@ -1202,6 +1204,19 @@ IOSCSILogicalUnitNub::start ( IOService * provider )
 	if ( obj != NULL )
 	{
 		characterDict->setObject ( kIOPropertyPhysicalInterconnectLocationKey, obj );
+	}
+	
+	// Create an OSNumber object with the SCSI Logical Unit Identifier
+	number = OSNumber::withNumber ( fLogicalUnitNumber, 64 );
+	if ( number != NULL )
+	{
+		
+		// Set the SCSI Logical Unit Number key
+		characterDict->setObject ( kIOPropertySCSILogicalUnitNumberKey, number );
+		
+		number->release ( );
+		number = NULL;
+		
 	}
 	
 	setProperty ( kIOPropertyProtocolCharacteristicsKey, characterDict );
@@ -1266,6 +1281,7 @@ IOSCSILogicalUnitNub::SetLogicalUnitNumber ( UInt8 newLUN )
 	if ( logicalUnitNumber != NULL )
 	{
 		
+		// Backwards compatibility with 10.3. Set the LUN here as well...
 		setProperty ( kIOPropertySCSILogicalUnitNumberKey, logicalUnitNumber );
 		
 		// Set the Unit number used to build the device tree path

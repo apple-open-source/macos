@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,46 +23,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc.  All rights reserved.
  *
  *
  */
-//		$Log: IOPlatformPIDCtrlLoop.cpp,v $
-//		Revision 1.6  2003/07/17 06:57:36  eem
-//		3329222 and other sleep stability issues fixed.
-//		
-//		Revision 1.5  2003/07/16 02:02:09  eem
-//		3288772, 3321372, 3328661
-//		
-//		Revision 1.4  2003/07/08 04:32:49  eem
-//		3288891, 3279902, 3291553, 3154014
-//		
-//		Revision 1.3  2003/06/25 02:16:24  eem
-//		Merged 101.0.21 to TOT, fixed PM72 lproj, included new fan settings, bumped
-//		version to 101.0.22.
-//		
-//		Revision 1.2.4.5  2003/06/21 02:02:23  eem
-//		Fix massive bone-up.
-//		
-//		Revision 1.2.4.4  2003/06/21 01:42:07  eem
-//		Final Fan Tweaks.
-//		
-//		Revision 1.2.4.3  2003/06/20 09:07:33  eem
-//		Added rising/falling slew limiters, integral clipping, etc.
-//		
-//		Revision 1.2.4.2  2003/06/20 01:39:58  eem
-//		Although commented out in this submision, there is support here to nap
-//		the processors if the fans are at min, with the intent of keeping the
-//		heat sinks up to temperature.
-//		
-//		Revision 1.2.4.1  2003/06/19 10:24:16  eem
-//		Pulled common PID code into IOPlatformPIDCtrlLoop and subclassed it with
-//		PowerMac7_2_CPUFanCtrlLoop and PowerMac7_2_PIDCtrlLoop.  Added history
-//		length to meta-state.  No longer adjust T_err when the setpoint changes.
-//		Don't crank the CPU fans for overtemp, just slew slow.
-//		
-//
-//
+
 
 #include "IOPlatformPluginDefs.h"
 #include "IOPlatformPluginSymbols.h"
@@ -167,7 +132,7 @@ failNoHistory:
 bool IOPlatformPIDCtrlLoop::acquireSample( void )
 {
 	samplePoint * latest;
-	const OSNumber * curValue;
+	SensorValue curValue;
 
 	// move the top of the array to the next spot -- it's circular
 	if (latestSample == 0)
@@ -179,14 +144,10 @@ bool IOPlatformPIDCtrlLoop::acquireSample( void )
 	latest = &historyArray[latestSample];
 
 	// fetch the sensor reading
-	if ((curValue = getAggregateSensorValue()) == NULL)
-	{
-		CTRLLOOP_DLOG("IOPlatformPIDCtrlLoop::acquireSample failed to fetch sensor value\n");
-		goto failGetSensorValue;
-	}
+	curValue = getAggregateSensorValue();
 
 	// store the sample in the history
-	latest->sample.sensValue = (SInt32) curValue->unsigned32BitValue();
+	latest->sample.sensValue = curValue.sensValue;
 
 	// calculate the error term and store it
 	latest->error.sensValue = latest->sample.sensValue - inputTarget.sensValue;
@@ -194,15 +155,7 @@ bool IOPlatformPIDCtrlLoop::acquireSample( void )
 	//CTRLLOOP_DLOG("*** SAMPLE *** InT: 0x%08lX Cur: 0x%08lX Error: 0x%08lX\n",
 	//		inputTarget.sensValue, latest->sample.sensValue, latest->error.sensValue);
 
-	curValue->release();
-
 	return(true);
-
-failGetSensorValue:
-	latest->sample.sensValue = 0;
-	latest->error.sensValue = 0;
-
-	return(false);
 }
 
 IOPlatformPIDCtrlLoop::samplePoint *IOPlatformPIDCtrlLoop::sampleAtIndex( unsigned int index ) const
@@ -217,15 +170,14 @@ IOPlatformPIDCtrlLoop::samplePoint *IOPlatformPIDCtrlLoop::sampleAtIndex( unsign
 	return( &historyArray[myIndex] );
 }
 
-const OSNumber *IOPlatformPIDCtrlLoop::getAggregateSensorValue( void )
+SensorValue IOPlatformPIDCtrlLoop::getAggregateSensorValue( void )
 {
-	const OSNumber * curValue;
+	SensorValue aggValue;
 
-	curValue = inputSensor->fetchCurrentValue();
+	aggValue = inputSensor->forceAndFetchCurrentValue();
+	inputSensor->setCurrentValue( aggValue );
 
-	inputSensor->setCurrentValue( curValue );
-
-	return( curValue );
+	return( aggValue );
 }
 
 bool IOPlatformPIDCtrlLoop::updateMetaState( void )
@@ -505,7 +457,7 @@ void IOPlatformPIDCtrlLoop::didWake( void )
 
 void IOPlatformPIDCtrlLoop::adjustControls( void )
 {
-	const OSNumber * newTarget;
+	ControlValue newTarget;
 
 	//CTRLLOOP_DLOG("IOPlatformPIDCtrlLoop::adjustControls - entered\n");
 
@@ -520,16 +472,14 @@ void IOPlatformPIDCtrlLoop::adjustControls( void )
 
 	// set the target
 	sendNewTarget( newTarget );
-
-	newTarget->release();
 }
 
-void IOPlatformPIDCtrlLoop::sendNewTarget( const OSNumber * newTarget )
+void IOPlatformPIDCtrlLoop::sendNewTarget( ControlValue newTarget )
 {
 	// If the new target value is different, send it to the control
 	if (ctrlloopState == kIOPCtrlLoopFirstAdjustment ||
 	    ctrlloopState == kIOPCtrlLoopDidWake ||
-	    !newTarget->isEqualTo( outputControl->getTargetValue() ))
+	    newTarget != outputControl->getTargetValue() )
 	{
 		if (outputControl->sendTargetValue( newTarget ))
 		{
@@ -543,22 +493,20 @@ void IOPlatformPIDCtrlLoop::sendNewTarget( const OSNumber * newTarget )
 	}
 }
 
-const OSNumber *IOPlatformPIDCtrlLoop::calculateNewTarget( void ) const
+ControlValue IOPlatformPIDCtrlLoop::calculateNewTarget( void ) const
 {
 	SInt32 dRaw, rRaw;
 	SInt64 accum, dProd, rProd, pProd;
 	//UInt32 result, prevResult, scratch;
 	SInt32 result;
-	UInt32 uResult;
+	UInt32 newTarget;
 	samplePoint * latest;
-	const OSNumber * newTarget;
 
 	// if there is an output override, use it
 	if (overrideActive)
 	{
 		CTRLLOOP_DLOG("*** PID *** Override Active\n");
-		newTarget = outputOverride;
-		newTarget->retain();
+		newTarget = outputOverride->unsigned32BitValue();
 	}
 
 	// apply the PID algorithm to choose a new control target value
@@ -601,13 +549,13 @@ const OSNumber *IOPlatformPIDCtrlLoop::calculateNewTarget( void ) const
 			result = (SInt32)accum;
 		}
 
-		uResult = (UInt32)(result > 0) ? result : 0;
+		newTarget = (UInt32)(result > 0) ? result : 0;
 
 		// apply the hard limits
-		if (uResult < outputMin)
-			uResult = outputMin;
-		else if (uResult > outputMax)
-			uResult = outputMax;
+		if (newTarget < outputMin)
+			newTarget = outputMin;
+		else if (newTarget > outputMax)
+			newTarget = outputMax;
 
 /*
 #ifdef CTRLLOOP_DEBUG
@@ -646,7 +594,6 @@ const OSNumber *IOPlatformPIDCtrlLoop::calculateNewTarget( void ) const
 	}
 #endif
 */
-		newTarget = OSNumber::withNumber( uResult, 32 );
 	}
 
 	return(newTarget);

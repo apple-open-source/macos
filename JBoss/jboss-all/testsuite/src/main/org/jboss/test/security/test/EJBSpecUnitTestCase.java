@@ -42,7 +42,7 @@ import junit.framework.TestSuite;
  deployment unit. These test the basic role based access model.
  
  @author Scott.Stark@jboss.org
- @version $Revision: 1.14.2.7 $
+ @version $Revision: 1.14.2.8 $
  */
 public class EJBSpecUnitTestCase
    extends JBossTestCase
@@ -544,7 +544,7 @@ public class EJBSpecUnitTestCase
    /**
     * Setup the test suite.
     */
-   public static Test suite()
+   public static Test suite() throws Exception
    {
       TestSuite suite = new TestSuite();
       suite.addTest(new TestSuite(EJBSpecUnitTestCase.class));

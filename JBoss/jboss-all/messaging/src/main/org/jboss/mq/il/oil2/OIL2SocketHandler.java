@@ -127,9 +127,10 @@ public final class OIL2SocketHandler implements java.lang.Cloneable, Runnable
             pool.setThreadFactory(
                new ThreadFactory()
                {
+                  private int threadNo = 0;
                   public Thread newThread(Runnable r)
                   {
-                     Thread t = new Thread(OIL2SocketHandler.this.partentThreadGroup, r, "OIL2SocketHandler Thread");
+                     Thread t = new Thread(OIL2SocketHandler.this.partentThreadGroup, r, "OIL2SocketHandler Thread-" + threadNo++);
                      t.setDaemon(true);
                      return t;
                   }

@@ -7,7 +7,7 @@
 	<key>CFBundleName</key>
 	<string>SystemConfiguration</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.2</string>
+	<string>1.1.4</string>
 	<key>Requires</key>
 	<array>
 		<string>com.apple.SystemConfiguration.InterfaceNamer</string>

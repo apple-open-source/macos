@@ -9,26 +9,36 @@ package org.jboss.ha.framework.server;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.util.Vector;
+import java.io.Serializable;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Vector;
 
 import javax.naming.Context;
-import javax.naming.StringRefAddr;
 import javax.naming.InitialContext;
+import javax.naming.Name;
+import javax.naming.NameNotFoundException;
+import javax.naming.Reference;
+import javax.naming.StringRefAddr;
 import javax.management.MBeanServer;
 
 import EDU.oswego.cs.dl.util.concurrent.LinkedQueue;
 
-import org.javagroups.JChannel;
-import org.javagroups.MergeView;
-import org.javagroups.View;
-import org.javagroups.blocks.GroupRequest;
-import org.javagroups.blocks.MethodCall;
-import org.javagroups.blocks.MethodLookup;
-import org.javagroups.blocks.MethodLookupClos;
-import org.javagroups.util.Rsp;
-import org.javagroups.util.RspList;
+import org.jgroups.JChannel;
+import org.jgroups.MergeView;
+import org.jgroups.View;
+import org.jgroups.Message;
+import org.jgroups.blocks.GroupRequest;
+import org.jgroups.blocks.MethodCall;
+import org.jgroups.blocks.MethodLookup;
+import org.jgroups.blocks.MethodLookupClos;
+import org.jgroups.stack.IpAddress;
+import org.jgroups.util.Rsp;
+import org.jgroups.util.RspList;
+import org.jgroups.util.Util;
 
 import org.jboss.invocation.MarshalledValueInputStream;
 import org.jboss.invocation.MarshalledValueOutputStream;
@@ -37,27 +47,29 @@ import org.jboss.ha.framework.interfaces.DistributedState;
 import org.jboss.ha.framework.interfaces.HAPartition;
 import org.jboss.ha.framework.interfaces.HAPartition.HAPartitionStateTransfer;
 import org.jboss.ha.framework.interfaces.HAPartition.HAMembershipListener;
+import org.jboss.ha.framework.interfaces.ClusterNode;
 
 import org.jboss.naming.NonSerializableFactory;
 import org.jboss.logging.Logger;
 
 /**
- * This class is an abstraction class for a JavaGroups RPCDispatch and JChannel.
+ * This class is an abstraction class for a JGroups RPCDispatch and JChannel.
  * It is a default implementation of HAPartition for the
- * <a href="http://www.javagroups.com/">JavaGroups</A> framework
+ * <a href="http://www.jgroups.com/">JGroups</A> framework
  *
  * @author <a href="mailto:sacha.labourey@cogito-info.ch">Sacha Labourey</a>.
  * @author <a href="mailto:bill@burkecentral.com">Bill Burke</a>.
  * @author Scott.Stark@jboss.org
- * @version $Revision: 1.20.2.9 $
+ * @version $Revision: 1.20.2.14 $
  *
  * <p><b>Revisions:</b><br>
  */
 public class HAPartitionImpl
-   extends org.javagroups.blocks.RpcDispatcher
-   implements org.javagroups.MessageListener, org.javagroups.MembershipListener, HAPartition
+   extends org.jgroups.blocks.RpcDispatcher
+   implements org.jgroups.MessageListener, org.jgroups.MembershipListener,
+      HAPartition
 {
-   private static class NoHandlerForRPC implements java.io.Serializable {}
+   private static class NoHandlerForRPC implements Serializable {}
 
    // Constants -----------------------------------------------------
 
@@ -77,15 +89,24 @@ public class HAPartitionImpl
    protected Thread asynchNotifyThread;
    /** The current cluster partition members */
    protected Vector members = null;
+   protected Vector jgmembers = null;
+
+   public Vector history = null;
+
    /** The partition members other than this node */
    protected Vector otherMembers = null;
+   protected Vector jgotherMembers = null;
    /** The JChannel name */
    protected String partitionName;
+   /** the local JG IP Address */
+   protected org.jgroups.stack.IpAddress localJGAddress = null;
    /** The cluster transport protocol address string */
    protected String nodeName;
+   /** me as a ClusterNode */
+   protected ClusterNode me = null;
    /** The timeout for cluster RPC calls */
    protected int timeout = 60000;
-   /** The JavaGroups partition channel */
+   /** The JGroups partition channel */
    protected JChannel channel;
    /** The cluster replicant manager */
    protected DistributedReplicantManagerImpl replicantManager;
@@ -129,19 +150,21 @@ public class HAPartitionImpl
 
     // Constructors --------------------------------------------------
        
-   public HAPartitionImpl(String partitionName, org.javagroups.JChannel channel, boolean deadlock_detection, MBeanServer server) throws Exception
+   public HAPartitionImpl(String partitionName, org.jgroups.JChannel channel, boolean deadlock_detection, MBeanServer server) throws Exception
    {
       this(partitionName, channel, deadlock_detection);
       this.server = server;
    }
    
-   public HAPartitionImpl(String partitionName, org.javagroups.JChannel channel, boolean deadlock_detection) throws Exception
+   public HAPartitionImpl(String partitionName, org.jgroups.JChannel channel, boolean deadlock_detection) throws Exception
    {
       super(channel, null, null, new Object(), false); // init RpcDispatcher with a fake target object
       this.log = Logger.getLogger(HAPartition.class.getName() + "." + partitionName);
       this.clusterLifeCycleLog = Logger.getLogger(HAPartition.class.getName() + ".lifecycle." + partitionName);
       this.channel = channel;
       this.partitionName = partitionName;
+      this.history = new Vector();
+      logHistory ("Partition object created");
    }
    
     // Public --------------------------------------------------------
@@ -149,8 +172,9 @@ public class HAPartitionImpl
    public void init() throws Exception
    {
       log.info("Initializing");
-      
-      // Subscribe to dHA events comming generated by the org.javagroups. protocol stack
+      logHistory ("Initializing partition");
+
+      // Subscribe to dHA events comming generated by the org.jgroups. protocol stack
       //
       log.debug("setMembershipListener");
       setMembershipListener(this);
@@ -186,11 +210,16 @@ public class HAPartitionImpl
    {
       // get current JG group properties
       //
+      logHistory ("Starting partition");
       log.debug("get nodeName");
-      this.nodeName = channel.getLocalAddress().toString();
+      this.localJGAddress = (IpAddress)channel.getLocalAddress();
+      this.me = new ClusterNode(this.localJGAddress);
+      this.nodeName = this.me.getName();
+
       log.debug("Get current members");
-      org.javagroups.View view = channel.getView();
-      this.members = (Vector)view.getMembers().clone();
+      org.jgroups.View view = channel.getView();
+      this.jgmembers = (Vector)view.getMembers().clone();
+      this.members = translateAddresses(this.jgmembers); // TRANSLATE
       log.info("Number of cluster members: " + members.size());
       for(int m = 0; m > members.size(); m ++)
       {
@@ -199,10 +228,13 @@ public class HAPartitionImpl
       }
       // Keep a list of other members only for "exclude-self" RPC calls
       //
-      this.otherMembers = (Vector)view.getMembers().clone();
-      this.otherMembers.remove (channel.getLocalAddress());
+      this.jgotherMembers = (Vector)view.getMembers().clone();
+      this.jgotherMembers.remove (channel.getLocalAddress());
+      this.otherMembers = translateAddresses(this.jgotherMembers); // TRANSLATE
       log.info ("Other members: " + this.otherMembers.size ());
-      
+
+      verifyNodeIsUnique (view.getMembers());
+
       // Update the initial view id
       //
       this.currentViewId = view.getVid().getId();
@@ -228,6 +260,7 @@ public class HAPartitionImpl
 
    public void closePartition() throws Exception
    {
+      logHistory ("Closing partition");
       log.info("Closing partition " + partitionName);
 
       try
@@ -285,12 +318,13 @@ public class HAPartitionImpl
       log.info("Partition " + partitionName + " closed.");
    }
 
-   // org.javagroups.MessageListener implementation ----------------------------------------------
+   // org.jgroups.MessageListener implementation ----------------------------------------------
 
    // MessageListener methods
    //
    public byte[] getState()
    {
+      logHistory ("GetState called on partition");
       boolean debug = log.isDebugEnabled();
       
       log.debug("getState called.");
@@ -300,7 +334,7 @@ public class HAPartitionImpl
          // build a "macro" state
          //
          HashMap state = new HashMap();
-         java.util.Iterator keys = stateHandlers.keySet().iterator();
+         Iterator keys = stateHandlers.keySet().iterator();
          while (keys.hasNext())
          {
             String key = (String)keys.next();
@@ -320,6 +354,7 @@ public class HAPartitionImpl
    
    public void setState(byte[] obj)
    {
+      logHistory ("SetState called on partition");
       try
       {
          log.debug("setState called");
@@ -353,13 +388,14 @@ public class HAPartitionImpl
       }
    }
    
-   public void receive(org.javagroups.Message msg)
+   public void receive(org.jgroups.Message msg)
    { /* complete */}
    
-   // org.javagroups.MembershipListener implementation ----------------------------------------------
+   // org.jgroups.MembershipListener implementation ----------------------------------------------
    
-   public void suspect(org.javagroups.Address suspected_mbr)
+   public void suspect(org.jgroups.Address suspected_mbr)
    {      
+      logHistory ("Node suspected: " + (suspected_mbr==null?"null":suspected_mbr.toString()));
       if (isCurrentNodeCoordinator ())
          clusterLifeCycleLog.info ("Suspected member: " + suspected_mbr);
       else
@@ -383,25 +419,34 @@ public class HAPartitionImpl
       {
          // we update the view id
          //
-         this.currentViewId = newView.getVid().getId();         
+         this.currentViewId = newView.getVid().getId();
 
          // Keep a list of other members only for "exclude-self" RPC calls
          //
-         this.otherMembers = (Vector)newView.getMembers().clone();
-         this.otherMembers.remove (channel.getLocalAddress());
+         this.jgotherMembers = (Vector)newView.getMembers().clone();
+         this.jgotherMembers.remove (channel.getLocalAddress());
+         this.otherMembers = translateAddresses (this.jgotherMembers); // TRANSLATE!
+         Vector translatedNewView = translateAddresses ((Vector)newView.getMembers().clone());
+         logHistory ("New view: " + translatedNewView + " with viewId: " + this.currentViewId +
+                     " (old view: " + this.members + " )");
+
 
          // Save the previous view and make a copy of the new view
          Vector oldMembers = this.members;
-         Vector newMembers = (Vector)newView.getMembers().clone();
+
+         Vector newjgMembers = (Vector)newView.getMembers().clone();
+         Vector newMembers = translateAddresses(newjgMembers); // TRANSLATE
          if (this.members == null)
          {
             // Initial viewAccepted
             this.members = newMembers;
+            this.jgmembers = newjgMembers;
             log.debug("ViewAccepted: initial members set");
             return;
          }
          this.members = newMembers;
-         
+         this.jgmembers = newjgMembers;
+
          int difference = 0;
          if (oldMembers == null)
             difference = newMembers.size () - 1;
@@ -411,12 +456,12 @@ public class HAPartitionImpl
          if (isCurrentNodeCoordinator ())
             clusterLifeCycleLog.info ("New cluster view (id: " + this.currentViewId + ", delta: " + difference + ") : " + this.members);
          else
-            log.info("New cluster view: " + this.currentViewId + " (" + newView.getMembers () + " delta: " + difference + ")");
+            log.info("New cluster view: " + this.currentViewId + " (" + this.members + " delta: " + difference + ")");
 
          // Build a ViewChangeEvent for the asynch listeners
          ViewChangeEvent event = new ViewChangeEvent();
          event.viewId = currentViewId;
-         event.allMembers = newView.getMembers();
+         event.allMembers = translatedNewView;
          event.deadMembers = getDeadMembers(oldMembers, event.allMembers);
          event.newMembers = getNewMembers(oldMembers, event.allMembers);
          event.originatingGroups = null;
@@ -471,22 +516,24 @@ public class HAPartitionImpl
    
    public Vector getCurrentView()
    {
-      // we don't directly return this.members because we want to 
-      // hide JG objects
-      //
-      Vector result = new Vector (this.members.size ());
-      if (this.members != null)
+      Vector result = new Vector (this.members.size());
+      for (int i = 0; i < members.size(); i++)
       {
-         for (int i = 0; i < this.members.size (); i++)
-            result.add (this.members.elementAt (i).toString ());
+         result.add( ((ClusterNode) members.elementAt(i)).getName() );
       }
-      
-      return result;      
+      return result;
    }
-   
+
+   public ClusterNode[] getClusterNodes ()
+   {
+      ClusterNode[] nodes = new ClusterNode[this.members.size()];
+      this.members.toArray(nodes);
+      return nodes;
+   }
+
    public boolean isCurrentNodeCoordinator ()
    {
-      return this.members.elementAt (0).equals (channel.getLocalAddress ());
+      return this.members.elementAt (0).equals (this.me);
    }
 
    // ***************************
@@ -516,7 +563,7 @@ public class HAPartitionImpl
       
       if (excludeSelf)
       {
-         rsp = this.callRemoteMethods(this.otherMembers, m, GroupRequest.GET_ALL, timeout);
+         rsp = this.callRemoteMethods(this.jgotherMembers, m, GroupRequest.GET_ALL, timeout);
       }
       else
          rsp = this.callRemoteMethods(null, m, GroupRequest.GET_ALL, timeout);
@@ -558,7 +605,7 @@ public class HAPartitionImpl
    {
       MethodCall m = new MethodCall(objName + "." + methodName, args);
       if (excludeSelf)
-         this.callRemoteMethods(this.otherMembers, m, GroupRequest.GET_NONE, timeout);
+         this.callRemoteMethods(this.jgotherMembers, m, GroupRequest.GET_NONE, timeout);
       else
          this.callRemoteMethods(null, m, GroupRequest.GET_NONE, timeout);
    }
@@ -601,17 +648,17 @@ public class HAPartitionImpl
       }
    }
    
-   // org.javagroups.RpcDispatcher overrides ---------------------------------------------------
+   // org.jgroups.RpcDispatcher overrides ---------------------------------------------------
    
    /**
     * Message contains MethodCall. Execute it against *this* object and return result.
     * Use MethodCall.Invoke() to do this. Return result.
     *
     * This overrides RpcDispatcher.Handle so that we can dispatch to many different objects.
-    * @param req The org.javagroups. representation of the method invocation
+    * @param req The org.jgroups. representation of the method invocation
     * @return The serializable return value from the invocation
     */
-   public Object handle(org.javagroups.Message req)
+   public Object handle(Message req)
    {
       Object body = null;
       Object retval = null;
@@ -627,7 +674,7 @@ public class HAPartitionImpl
       
       try
       {
-         body=org.javagroups.util.Util.objectFromByteBuffer(req.getBuffer());
+         body = Util.objectFromByteBuffer(req.getBuffer());
       }
       catch(Exception e)
       {
@@ -643,7 +690,7 @@ public class HAPartitionImpl
       
       // get method call informations
       //
-      method_call=(MethodCall)body;
+      method_call = (MethodCall)body;
       String methodName = method_call.getName();      
       
       if (log.isDebugEnabled()) log.debug("pre methodName: " + methodName);
@@ -672,7 +719,7 @@ public class HAPartitionImpl
       //
       try
       {
-         retval=method_call.invoke(handler, method_lookup_clos);
+         retval = method_call.invoke(handler, method_lookup_clos);
       }
       catch (Error er)
       {
@@ -699,7 +746,26 @@ public class HAPartitionImpl
    // Package protected ---------------------------------------------
    
    // Protected -----------------------------------------------------
-   
+
+   protected void verifyNodeIsUnique (Vector javaGroupIpAddresses) throws Exception
+   {
+      byte[] localUniqueName = this.localJGAddress.getAdditionalData();
+      if (localUniqueName == null)
+         log.warn("No additional information has been found in the JavaGroup address: " +
+                  "make sure you are running with a correct version of JGroups and that the protocol " +
+                  " you are using supports the 'additionalData' behaviour");
+
+      for (int i = 0; i < javaGroupIpAddresses.size(); i++)
+      {
+         IpAddress address = (IpAddress) javaGroupIpAddresses.elementAt(i);
+         if (!address.equals(this.localJGAddress))
+         {
+            if (localUniqueName.equals(address.getAdditionalData()))
+               throw new Exception ("Local node removed from cluster (" + this.localJGAddress + "): another node (" + address + ") publicizing the same name was already there");
+         }
+      }
+   }
+
    /**
     * Helper method that binds the partition in the JNDI tree.
     * @param jndiName Name under which the object must be bound
@@ -713,7 +779,7 @@ public class HAPartitionImpl
       // Ah ! This service isn't serializable, so we use a helper class
       //
       NonSerializableFactory.bind(jndiName, who);
-      javax.naming.Name n = ctx.getNameParser("").parse(jndiName);
+      Name n = ctx.getNameParser("").parse(jndiName);
       while (n.size () > 1)
       {
          String ctxName = n.get (0);
@@ -721,7 +787,7 @@ public class HAPartitionImpl
          {
             ctx = (Context)ctx.lookup (ctxName);
          }
-         catch (javax.naming.NameNotFoundException e)
+         catch (NameNotFoundException e)
          {
             log.debug ("creating Subcontext" + ctxName);
             ctx = ctx.createSubcontext (ctxName);
@@ -733,7 +799,7 @@ public class HAPartitionImpl
       // use the helper class to bind the service object in JNDI
       //
       StringRefAddr addr = new StringRefAddr("nns", jndiName);
-      javax.naming.Reference ref = new javax.naming.Reference(classType.getName (), addr, NonSerializableFactory.class.getName (), null);
+      Reference ref = new Reference(classType.getName (), addr, NonSerializableFactory.class.getName (), null);
       ctx.rebind (n.get (0), ref);
    }
    
@@ -815,6 +881,30 @@ public class HAPartitionImpl
          }
       }
       log.debug("End notifyListeners, viewID: "+viewID);
+   }
+
+   protected Vector translateAddresses (Vector jgAddresses)
+   {
+      if (jgAddresses == null)
+         return null;
+
+      Vector result = new Vector (jgAddresses.size());
+      for (int i = 0; i < jgAddresses.size(); i++)
+      {
+         IpAddress addr = (IpAddress) jgAddresses.elementAt(i);
+         result.add(new ClusterNode (addr));
+      }
+
+      return result;
+   }
+
+   public void logHistory (String message)
+   {
+      try
+      {
+         history.add(new SimpleDateFormat().format (new Date()) + " : " + message);
+      }
+      catch (Exception ignored){}
    }
 
    /** A simply data class containing the view change event needed to

@@ -16,9 +16,9 @@ package org.jboss.ejb.plugins.cmp.jdbc;
  * @author <a href="mailto:shevlandj@kpi.com.au">Joe Shevland</a>
  * @author <a href="mailto:justin@j-m-f.demon.co.uk">Justin Forder</a>
  * @author <a href="mailto:michel.anke@wolmail.nl">Michel de Groot</a>
- * @version $Revision: 1.7 $
+ * @version $Revision: 1.7.4.1 $
  */
-public class JDBCInitCommand {
+public final class JDBCInitCommand {
    public JDBCInitCommand(JDBCStoreManager manager) {
    }
 

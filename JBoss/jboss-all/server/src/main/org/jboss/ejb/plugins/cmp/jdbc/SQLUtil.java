@@ -12,10 +12,6 @@ import java.sql.DatabaseMetaData;
 import javax.sql.DataSource;
 import java.sql.SQLException;
 import java.sql.ResultSet;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
 import java.util.zip.CRC32;
 
 import org.jboss.deployment.DeploymentException;
@@ -24,681 +20,884 @@ import org.jboss.ejb.plugins.cmp.jdbc.bridge.JDBCCMPFieldBridge;
 import org.jboss.ejb.plugins.cmp.jdbc.bridge.JDBCCMRFieldBridge;
 import org.jboss.ejb.plugins.cmp.jdbc.bridge.JDBCFieldBridge;
 
+import java.util.Vector;
+
 /**
  * SQLUtil helps with building sql statements.
  *
  * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
- * @version $Revision: 1.12.4.3 $
+ * @author <a href="mailto:alex@jboss.org">Alex Loubyansky</a>
+ * @version $Revision: 1.12.4.14 $
  */
-public class SQLUtil {
-   public static String fixTableName(String tableName, DataSource dataSource) 
-         throws DeploymentException {
+public final class SQLUtil
+{
+   public static final String EMPTY_STRING = "";
+   public static final String INSERT_INTO = "INSERT INTO ";
+   public static final String VALUES = " VALUES ";
+   public static final String SELECT = "SELECT ";
+   public static final String DISTINCT = "DISTINCT ";
+   public static final String FROM = " FROM ";
+   public static final String WHERE = " WHERE ";
+   public static final String ORDERBY = " ORDER BY ";
+   public static final String DELETE_FROM = "DELETE FROM ";
+   public static final String AND = " AND ";
+   public static final String OR = " OR ";
+   public static final String NOT = " NOT ";
+   public static final String EXISTS = "EXISTS ";
+   public static final String COMMA = ", ";
+   public static final String LEFT_JOIN = " LEFT JOIN ";
+   public static final String LEFT_OUTER_JOIN = " LEFT OUTER JOIN ";
+   public static final String ON = " ON ";
+   public static final String NOT_EQUAL = "<>";
+   public static final String CREATE_TABLE = "CREATE TABLE ";
+   public static final String DROP_TABLE = "DROP TABLE ";
+   public static final String CREATE_INDEX = "CREATE INDEX ";
+   public static final String NULL = "NULL";
+   public static final String IS = " IS ";
+   public static final String IN = " IN ";
+   public static final String EMPTY = "EMPTY";
+   public static final String BETWEEN = " BETWEEN ";
+   public static final String LIKE = " LIKE ";
+   public static final String MEMBER_OF = " MEMBER OF ";
+   public static final String ESCAPE = " ESCAPE ";
+   public static final String CONCAT = "CONCAT";
+   public static final String SUBSTRING = "SUBSTRING";
+   public static final String LCASE = "LCASE";
+   public static final String UCASE = "UCASE";
+   public static final String LENGTH = "LENGTH";
+   public static final String LOCATE = "LOCATE";
+   public static final String ABS = "ABS";
+   public static final String SQRT = "SQRT";
+   public static final String COUNT = "COUNT";
+   public static final String MAX = "MAX";
+   public static final String MIN = "MIN";
+   public static final String AVG = "AVG";
+   public static final String SUM = "SUM";
+   public static final String ASC = " ASC";
+   public static final String DESC = " DESC";
+   public static final String OFFSET = " OFFSET ";
+   public static final String LIMIT = " LIMIT ";
+   public static final String UPDATE = "UPDATE ";
+   public static final String SET = " SET ";
+   private static final String DOT = ".";
+
+   private static final String EQ_QUESTMARK = "=?";
+
+   private static final Vector rwords = new Vector();
+
+   public static String fixTableName(String tableName, DataSource dataSource)
+      throws DeploymentException
+   {
+      // Separate schema name and table name
+      String strSchema = "";
+      int iIndex;
+      if((iIndex = tableName.indexOf('.')) != -1)
+      {
+         strSchema = tableName.substring(0, iIndex);
+         tableName = tableName.substring(iIndex + 1);
+      }
+
+      // check for SQL reserved word and escape it with prepending a "X"
+      // IMHO one should reject reserved words and throw a
+      // DeploymentException - pilhuhn
+      if(rwords != null)
+      {
+         for(int i = 0; i < rwords.size(); i++)
+         {
+            if(((String)rwords.elementAt(i)).equalsIgnoreCase(tableName))
+            {
+               tableName = "X" + tableName;
+               break;
+            }
+         }
+      }
 
       Connection con = null;
-      try {
+      try
+      {
          con = dataSource.getConnection();
          DatabaseMetaData dmd = con.getMetaData();
 
          // fix length
          int maxLength = dmd.getMaxTableNameLength();
-         if(maxLength > 0 && tableName.length() > maxLength) {
+         if(maxLength > 0 && tableName.length() > maxLength)
+         {
             CRC32 crc = new CRC32();
             crc.update(tableName.getBytes());
             String nameCRC = Long.toString(crc.getValue(), 36);
 
             tableName = tableName.substring(
-                  0, 
-                  maxLength - nameCRC.length() - 2);
+               0,
+               maxLength - nameCRC.length() - 2);
             tableName += "_" + nameCRC;
          }
 
-
-         // TODO: check for SQL reserved word
-
          // fix case
-         if(dmd.storesLowerCaseIdentifiers()) {
+         if(dmd.storesLowerCaseIdentifiers())
+         {
             tableName = tableName.toLowerCase();
-         } else if(dmd.storesUpperCaseIdentifiers()) {
+         }
+         else if(dmd.storesUpperCaseIdentifiers())
+         {
             tableName = tableName.toUpperCase();
          }
+         // now put the schema name back on the table name
+         if(strSchema.length() > 0)
+         {
+            tableName = strSchema + "." + tableName;
+         }
          return tableName;
-      } catch(SQLException e) {
+      }
+      catch(SQLException e)
+      {
          // This should not happen. A J2EE compatiable JDBC driver is
          // required fully support metadata.
          throw new DeploymentException("Error while fixing table name", e);
-      } finally {
+      }
+      finally
+      {
          JDBCUtil.safeClose(con);
       }
    }
- 
-   public static String fixConstraintName(String name, DataSource dataSource) 
-         throws DeploymentException {
 
-      return fixTableName(name, dataSource);
+   public static void addToRwords(String word)
+   {
+      if(!rwords.contains(word))
+         rwords.add(word);
    }
-   
+
+
+   public static String fixConstraintName(String name, DataSource dataSource)
+      throws DeploymentException
+   {
+      return fixTableName(name, dataSource).replace('.', '_');
+   }
+
    // =======================================================================
    //  Create Table Columns Clause
-   //    columnName0 sqlType0 
-   //    [, columnName1 sqlType0 
-   //    [, columnName2 sqlType0 [...]]]            
+   //    columnName0 sqlType0
+   //    [, columnName1 sqlType0
+   //    [, columnName2 sqlType0 [...]]]
    // =======================================================================
-   public static String getCreateTableColumnsClause(List fields) {
-      StringBuffer buf = new StringBuffer();
-
-      List types = getJDBCTypes(fields);
-      for(Iterator iter = types.iterator(); iter.hasNext();) {
-         JDBCType type = (JDBCType)iter.next();
-         buf.append(getCreateTableColumnsClause(type));
-         if(iter.hasNext()) {
-            buf.append(", ");
+   public static String getCreateTableColumnsClause(JDBCFieldBridge[] fields)
+   {
+      StringBuffer buf = new StringBuffer(100);
+      boolean comma = false;
+      for(int i = 0; i < fields.length; ++i)
+      {
+         JDBCType type = getJDBCType(fields[i]);
+         if(type != null)
+         {
+            if(comma)
+               buf.append(COMMA);
+            else
+               comma = true;
+            buf.append(getCreateTableColumnsClause(type));
          }
       }
       return buf.toString();
-   }   
-
-   /**
-    * Returns columnName0 sqlType0 
-    *    [, columnName1 sqlType0 
-    *    [, columnName2 sqlType0 [...]]] 
-    */
-   public static String getCreateTableColumnsClause(JDBCFieldBridge field) {
-      return getCreateTableColumnsClause(field.getJDBCType());
    }
 
    /**
-    * Returns columnName0 sqlType0 
-    *    [, columnName1 sqlType0 
-    *    [, columnName2 sqlType0 [...]]] 
+    * Returns columnName0 sqlType0
+    *    [, columnName1 sqlType0
+    *    [, columnName2 sqlType0 [...]]]
     */
-   public static String getCreateTableColumnsClause(JDBCType type) {
+   public static String getCreateTableColumnsClause(JDBCType type)
+   {
       String[] columnNames = type.getColumnNames();
       String[] sqlTypes = type.getSQLTypes();
       boolean[] notNull = type.getNotNull();
 
       StringBuffer buf = new StringBuffer();
-      for(int i=0; i<columnNames.length; i++) {
-         if(i!=0) {
-            buf.append(", ");
-         }
-         buf.append(columnNames[i]).append(" ").append(sqlTypes[i]);
-         if(notNull[i]) {
-            buf.append(" NOT NULL");
-         }
+      for(int i = 0; i < columnNames.length; i++)
+      {
+         if(i != 0)
+            buf.append(COMMA);
+         buf.append(columnNames[i]).append(' ').append(sqlTypes[i]);
+         if(notNull[i])
+            buf.append(NOT).append(NULL);
       }
       return buf.toString();
    }
 
    // =======================================================================
    //  Column Names Clause
-   //    columnName0 [, columnName1 [AND columnName2 [...]]]            
+   //    columnName0 [, columnName1 [AND columnName2 [...]]]
    // =======================================================================
 
    /**
-    * Returns columnName0 [, columnName1 [AND columnName2 [...]]] 
+    * Returns columnName0 [, columnName1 [AND columnName2 [...]]]
     */
-   public static String getColumnNamesClause(List fields) {
-      return getColumnNamesClause(fields, "");
+   public static StringBuffer getColumnNamesClause(JDBCFieldBridge[] fields, StringBuffer sb)
+   {
+      return getColumnNamesClause(fields, "", sb);
    }
-   
-   /**
-    * Returns columnName0 [, columnName1 [AND columnName2 [...]]] 
-    */
-   public static String getColumnNamesClause(List fields, String identifier) {
-      StringBuffer buf = new StringBuffer();
 
-      List types = getJDBCTypes(fields);
-      for(Iterator iter = types.iterator(); iter.hasNext();) {
-         JDBCType type = (JDBCType)iter.next();
-         buf.append(getColumnNamesClause(type, identifier));
-         if(iter.hasNext()) {
-            buf.append(", ");
+   /**
+    * Returns columnName0 [, columnName1 [AND columnName2 [...]]]
+    */
+   public static StringBuffer getColumnNamesClause(JDBCFieldBridge[] fields,
+                                                   String identifier,
+                                                   StringBuffer buf)
+   {
+      boolean comma = false;
+      for(int i = 0; i < fields.length; ++i)
+      {
+         JDBCType type = getJDBCType(fields[i]);
+         if(type != null)
+         {
+            if(comma)
+               buf.append(COMMA);
+            else
+               comma = true;
+            getColumnNamesClause(type, identifier, buf);
          }
       }
-      return buf.toString();
-   }   
- 
-   /**
-    * Returns columnName0 [, columnName1 [, columnName2 [...]]] 
-    */ 
-   public static String getColumnNamesClause(JDBCFieldBridge field) {
-      return getColumnNamesClause(field, "");
+      return buf;
    }
 
    /**
-    * Returns identifier.columnName0 
-    *    [, identifier.columnName1 
-    *    [, identifier.columnName2 [...]]] 
-    */ 
-   public static String getColumnNamesClause(
-         JDBCFieldBridge field, String identifier) {
-
-      return getColumnNamesClause(field.getJDBCType(), identifier);
+    * Returns columnName0 [, columnName1 [AND columnName2 [...]]]
+    */
+   public static StringBuffer getColumnNamesClause(JDBCEntityBridge entity, String eagerLoadGroup, StringBuffer sb)
+   {
+      return getColumnNamesClause(entity, eagerLoadGroup, "", sb);
    }
-      
+
    /**
-    * Returns identifier.columnName0 
-    *    [, identifier.columnName1 
-    *    [, identifier.columnName2 [...]]] 
-    */ 
-   public static String getColumnNamesClause(JDBCType type, String identifier) {
-      if(identifier.length() > 0) {
-         identifier += ".";
+    * Returns columnName0 [, columnName1 [AND columnName2 [...]]]
+    */
+   public static StringBuffer getColumnNamesClause(JDBCEntityBridge entity,
+                                                   String eagerLoadGroup,
+                                                   String alias,
+                                                   StringBuffer sb)
+   {
+      return getColumnNamesClause(entity.getTableFields(), entity.getLoadGroupMask(eagerLoadGroup), alias, sb);
+   }
+
+   /**
+    * Returns columnName0 [, columnName1 [AND columnName2 [...]]]
+    */
+   public static StringBuffer getColumnNamesClause(JDBCEntityBridge.FieldIterator loadIter, StringBuffer sb)
+   {
+      if(loadIter.hasNext())
+         getColumnNamesClause(loadIter.next(), sb);
+      while(loadIter.hasNext())
+      {
+         sb.append(COMMA);
+         getColumnNamesClause(loadIter.next(), sb);
       }
+      return sb;
+   }
 
+   /**
+    * Returns columnName0 [, columnName1 [AND columnName2 [...]]]
+    */
+   public static StringBuffer getColumnNamesClause(JDBCFieldBridge[] fields,
+                                                   boolean[] mask,
+                                                   String identifier,
+                                                   StringBuffer buf)
+   {
+      boolean comma = false;
+      for(int i = 0; i < fields.length; ++i)
+      {
+         if(mask[i])
+         {
+            JDBCType type = getJDBCType(fields[i]);
+            if(type != null)
+            {
+               if(comma)
+                  buf.append(COMMA);
+               else
+                  comma = true;
+               getColumnNamesClause(type, identifier, buf);
+            }
+         }
+      }
+      return buf;
+   }
+
+   /**
+    * Returns columnName0 [, columnName1 [, columnName2 [...]]]
+    */
+   public static StringBuffer getColumnNamesClause(JDBCFieldBridge field, StringBuffer sb)
+   {
+      return getColumnNamesClause(field.getJDBCType(), sb);
+   }
+
+   /**
+    * Returns identifier.columnName0
+    *    [, identifier.columnName1
+    *    [, identifier.columnName2 [...]]]
+    */
+   public static StringBuffer getColumnNamesClause(JDBCFieldBridge field, String identifier, StringBuffer sb)
+   {
+      return getColumnNamesClause(field.getJDBCType(), identifier, sb);
+   }
+
+   /**
+    * Returns identifier.columnName0
+    *    [, identifier.columnName1
+    *    [, identifier.columnName2 [...]]]
+    */
+   private static StringBuffer getColumnNamesClause(JDBCType type, String identifier, StringBuffer buf)
+   {
       String[] columnNames = type.getColumnNames();
-      
-      StringBuffer buf = new StringBuffer();
-      for(int i=0; i<columnNames.length; i++) {
-         if(i!=0) {
-            buf.append(", ");
-         }
-         buf.append(identifier).append(columnNames[i]);
+      boolean hasIdentifier = identifier.length() > 0;
+      if(hasIdentifier)
+         buf.append(identifier).append(DOT);
+      buf.append(columnNames[0]);
+      int i = 1;
+      while(i < columnNames.length)
+      {
+         buf.append(COMMA);
+         if(hasIdentifier)
+            buf.append(identifier).append(DOT);
+         buf.append(columnNames[i++]);
       }
-      return buf.toString();
+      return buf;
    }
-   
+
+   /**
+    * Returns identifier.columnName0
+    *    [, identifier.columnName1
+    *    [, identifier.columnName2 [...]]]
+    */
+   private static StringBuffer getColumnNamesClause(JDBCType type, StringBuffer buf)
+   {
+      String[] columnNames = type.getColumnNames();
+      buf.append(columnNames[0]);
+      int i = 1;
+      while(i < columnNames.length)
+      {
+         buf.append(COMMA).append(columnNames[i++]);
+      }
+      return buf;
+   }
+
    // =======================================================================
    //  Set Clause
-   //    columnName0=? [, columnName1=? [, columnName2=? [...]]]           
+   //    columnName0=? [, columnName1=? [, columnName2=? [...]]]
    // =======================================================================
 
    /**
-    * Returns columnName0=? [, columnName1=? [, columnName2=? [...]]] 
-    */ 
-   public static String getSetClause(List fields) {
-      StringBuffer buf = new StringBuffer();
-
-      List types = getJDBCTypes(fields);
-      for(Iterator iter = types.iterator(); iter.hasNext();) {
-         JDBCType type = (JDBCType)iter.next();
-         buf.append(getSetClause(type));
-         if(iter.hasNext()) {
-            buf.append(", ");
-         }
+    * Returns columnName0=? [, columnName1=? [, columnName2=? [...]]]
+    */
+   public static StringBuffer getSetClause(JDBCEntityBridge.FieldIterator fieldsIter,
+                                           StringBuffer buf)
+   {
+      JDBCType type = getJDBCType(fieldsIter.next());
+      getSetClause(type, buf);
+      while(fieldsIter.hasNext())
+      {
+         type = getJDBCType(fieldsIter.next());
+         buf.append(COMMA);
+         getSetClause(type, buf);
       }
-      return buf.toString();
+      return buf;
    }
 
    /**
-    * Returns columnName0=? [, columnName1=? [, columnName2=? [...]]] 
-    */ 
-   public static String getSetClause(JDBCFieldBridge field) {
-      return getSetClause(field.getJDBCType());
-   }
-      
-   /**
-    * Returns columnName0=? [, columnName1=? [, columnName2=? [...]]] 
-    */ 
-   public static String getSetClause(JDBCType type) {
+    * Returns columnName0=? [, columnName1=? [, columnName2=? [...]]]
+    */
+   private static StringBuffer getSetClause(JDBCType type, StringBuffer buf)
+   {
       String[] columnNames = type.getColumnNames();
-
-      StringBuffer buf = new StringBuffer();
-      for(int i=0; i<columnNames.length; i++) {
-         if(i!=0) {
-            buf.append(", ");
-         }
-         buf.append(columnNames[i]).append("=?");
+      buf.append(columnNames[0]).append(EQ_QUESTMARK);
+      int i = 1;
+      while(i < columnNames.length)
+      {
+         buf.append(COMMA).append(columnNames[i++]).append(EQ_QUESTMARK);
       }
-      return buf.toString();
+      return buf;
    }
-   
+
    // =======================================================================
    //  Values Clause
-   //    ? [, ? [, ? [...]]]           
+   //    ? [, ? [, ? [...]]]
    // =======================================================================
 
    /**
-    * Returns ? [, ? [, ? [...]]] 
+    * Returns ? [, ? [, ? [...]]]
     */
-   public static String getValuesClause(List fields) {
-      StringBuffer buf = new StringBuffer();
-
-      List types = getJDBCTypes(fields);
-      for(Iterator iter = types.iterator(); iter.hasNext();) {
-         JDBCType type = (JDBCType)iter.next();
-         buf.append(getValuesClause(type));
-         if(iter.hasNext()) {
-            buf.append(", ");
+   public static StringBuffer getValuesClause(JDBCFieldBridge[] fields, StringBuffer buf)
+   {
+      boolean comma = false;
+      for(int i = 0; i < fields.length; ++i)
+      {
+         JDBCType type = getJDBCType(fields[i]);
+         if(type != null)
+         {
+            if(comma)
+               buf.append(COMMA);
+            else
+               comma = true;
+            getValuesClause(type, buf);
          }
       }
-      return buf.toString();
-   }   
- 
-   /**
-    * Returns ? [, ? [, ? [...]]] 
-    */
-   public static String getValuesClause(JDBCFieldBridge field) {
-      return getValuesClause(field.getJDBCType());
+      return buf;
    }
 
    /**
-    * Returns ? [, ? [, ? [...]]] 
+    * Returns ? [, ? [, ? [...]]]
     */
-   public static String getValuesClause(JDBCType type) {
+   private static StringBuffer getValuesClause(JDBCType type, StringBuffer buf)
+   {
       int columnCount = type.getColumnNames().length;
+      buf.append('?');
+      int i = 1;
+      while(i++ < columnCount)
+         buf.append(COMMA).append('?');
+      return buf;
+   }
 
-      StringBuffer buf = new StringBuffer();
-      for(int i=0; i<columnCount; i++) {
-         if(i!=0) {
-            buf.append(", ");
-         }
-         buf.append("?");
-      }
-      return buf.toString();
-   }   
-         
    // =======================================================================
    //  Where Clause
-   //    columnName0=? [AND columnName1=? [AND columnName2=? [...]]]           
+   //    columnName0=? [AND columnName1=? [AND columnName2=? [...]]]
    // =======================================================================
-   
-   /**
-    * Returns columnName0=? [AND columnName1=? [AND columnName2=? [...]]] 
-    */
-   public static String getWhereClause(List fields) {
-      return getWhereClause(fields, "");
-   }   
 
    /**
-    * Returns identifier.columnName0=? 
-    *    [AND identifier.columnName1=? 
-    *    [AND identifier.columnName2=? [...]]] 
+    * Returns columnName0=? [AND columnName1=? [AND columnName2=? [...]]]
     */
-   public static String getWhereClause(List fields, String identifier) {
-      StringBuffer buf = new StringBuffer();
+   public static StringBuffer getWhereClause(JDBCFieldBridge[] fields, StringBuffer buf)
+   {
+      return getWhereClause(fields, "", buf);
+   }
 
-      List types = getJDBCTypes(fields);
-      for(Iterator iter = types.iterator(); iter.hasNext();) {
-         JDBCType type = (JDBCType)iter.next();
-         buf.append(getWhereClause(type, identifier));
-         if(iter.hasNext()) {
-            buf.append(" AND ");
+   /**
+    * Returns identifier.columnName0=?
+    *    [AND identifier.columnName1=?
+    *    [AND identifier.columnName2=? [...]]]
+    */
+   public static StringBuffer getWhereClause(JDBCFieldBridge[] fields, String identifier, StringBuffer buf)
+   {
+      boolean and = false;
+      for(int i = 0; i < fields.length; ++i)
+      {
+         JDBCType type = getJDBCType(fields[i]);
+         if(type != null)
+         {
+            if(and)
+               buf.append(AND);
+            else
+               and = true;
+            getWhereClause(type, identifier, buf);
          }
       }
-      return buf.toString();
-   }   
- 
-   /**
-    * Returns columnName0=? [AND columnName1=? [AND columnName2=? [...]]] 
-    */
-   public static String getWhereClause(JDBCFieldBridge field) {
-      return getWhereClause(field, "");
+      return buf;
    }
 
    /**
-    * Returns identifier.columnName0=? 
-    *    [AND identifier.columnName1=? 
-    *    [AND identifier.columnName2=? [...]]] 
+    * Returns columnName0=? [AND columnName1=? [AND columnName2=? [...]]]
     */
-   public static String getWhereClause(
-         JDBCFieldBridge field, String identifier) {
-
-      return getWhereClause(field.getJDBCType(), identifier);
+   public static StringBuffer getWhereClause(JDBCFieldBridge[] fields,
+                                             long mask,
+                                             StringBuffer buf)
+   {
+      return getWhereClause(fields, mask, "", buf);
    }
 
    /**
-    * Returns identifier.columnName0=? 
-    *    [AND identifier.columnName1=? 
-    *    [AND identifier.columnName2=? [...]]] 
+    * Returns columnName0=? [AND columnName1=? [AND columnName2=? [...]]]
     */
-   public static String getWhereClause(JDBCType type, String identifier) {
-      if(identifier.length() > 0) {
-         identifier += ".";
+   private static StringBuffer getWhereClause(JDBCFieldBridge[] fields,
+                                              long mask,
+                                              String identifier,
+                                              StringBuffer buf)
+   {
+      boolean and = false;
+      long fieldMask = 1;
+      for(int i = 0; i < fields.length; ++i)
+      {
+         if((fieldMask & mask) > 0)
+         {
+            JDBCType type = getJDBCType(fields[i]);
+            if(type != null)
+            {
+               if(and)
+                  buf.append(AND);
+               else
+                  and = true;
+               getWhereClause(type, identifier, buf);
+            }
+         }
+         fieldMask <<= 1;
+      }
+      return buf;
+   }
+
+   /**
+    * Returns columnName0=? [AND columnName1=? [AND columnName2=? [...]]]
+    */
+   public static StringBuffer getWhereClause(JDBCFieldBridge field, StringBuffer buf)
+   {
+      return getWhereClause(field.getJDBCType(), "", buf);
+   }
+
+   /**
+    * Returns identifier.columnName0=?
+    *    [AND identifier.columnName1=?
+    *    [AND identifier.columnName2=? [...]]]
+    */
+   public static StringBuffer getWhereClause(JDBCType type, String identifier, StringBuffer buf)
+   {
+      if(identifier.length() > 0)
+      {
+         identifier += '.';
       }
 
       String[] columnNames = type.getColumnNames();
-
-      StringBuffer buf = new StringBuffer();
-      for(int i=0; i<columnNames.length; i++) {
-         if(i!=0) {
-            buf.append(" AND ");
-         }
-         buf.append(identifier).append(columnNames[i]).append("=?");
+      buf.append(identifier).append(columnNames[0]).append(EQ_QUESTMARK);
+      int i = 1;
+      while(i < columnNames.length)
+      {
+         buf.append(AND).append(identifier).append(columnNames[i++]).append(EQ_QUESTMARK);
       }
-      return buf.toString();
-   }   
+      return buf;
+   }
 
 
    // =======================================================================
    //  Is [Not] Null Clause
    //    columnName0 IS [NOT] NULL [AND columnName1 IS [NOT] NULL [...]]
    // =======================================================================
-   
+
    /**
-    * Returns identifier.columnName0 IS [NOT] NULL 
-    *    [AND identifier.columnName1 IS [NOT] NULL 
-    *    [AND identifier.columnName2 IS [NOT] NULL [...]]] 
+    * Returns identifier.columnName0 IS [NOT] NULL
+    *    [AND identifier.columnName1 IS [NOT] NULL
+    *    [AND identifier.columnName2 IS [NOT] NULL [...]]]
     */
-   public static String getIsNullClause(
-         boolean not, List fields, String identifier) {
-
-      StringBuffer buf = new StringBuffer();
-
-      List types = getJDBCTypes(fields);
-      for(Iterator iter = types.iterator(); iter.hasNext();) {
-         JDBCType type = (JDBCType)iter.next();
-         buf.append(getIsNullClause(not, type, identifier));
-         if(iter.hasNext()) {
-            buf.append(" AND ");
+   public static StringBuffer getIsNullClause(boolean not,
+                                              JDBCFieldBridge[] fields,
+                                              String identifier,
+                                              StringBuffer buf)
+   {
+      boolean and = false;
+      for(int i = 0; i < fields.length; ++i)
+      {
+         JDBCType type = getJDBCType(fields[i]);
+         if(type != null)
+         {
+            if(and)
+               buf.append(AND);
+            else
+               and = true;
+            getIsNullClause(not, type, identifier, buf);
          }
       }
-      return buf.toString();
-   }   
- 
-   /**
-    * Returns identifier.columnName0 IS [NOT] NULL 
-    *    [AND identifier.columnName1 IS [NOT] NULL 
-    *    [AND identifier.columnName2 IS [NOT] NULL [...]]] 
-    */
-   public static String getIsNullClause(
-         boolean not, JDBCFieldBridge field, String identifier) {
-
-      return getIsNullClause(not, field.getJDBCType(), identifier);
+      return buf;
    }
 
    /**
-    * Returns identifier.columnName0 IS [NOT] NULL 
-    *    [AND identifier.columnName1 IS [NOT] NULL 
-    *    [AND identifier.columnName2 IS [NOT] NULL [...]]] 
+    * Returns identifier.columnName0 IS [NOT] NULL
+    *    [AND identifier.columnName1 IS [NOT] NULL
+    *    [AND identifier.columnName2 IS [NOT] NULL [...]]]
     */
-   public static String getIsNullClause(
-         boolean not, JDBCType type, String identifier) {
+   public static StringBuffer getIsNullClause(boolean not,
+                                              JDBCFieldBridge field,
+                                              String identifier,
+                                              StringBuffer buf)
+   {
+      return getIsNullClause(not, field.getJDBCType(), identifier, buf);
+   }
 
-      if(identifier.length() > 0) {
-         identifier += ".";
+   /**
+    * Returns identifier.columnName0 IS [NOT] NULL
+    *    [AND identifier.columnName1 IS [NOT] NULL
+    *    [AND identifier.columnName2 IS [NOT] NULL [...]]]
+    */
+   private static StringBuffer getIsNullClause(boolean not,
+                                               JDBCType type,
+                                               String identifier,
+                                               StringBuffer buf)
+   {
+      if(identifier.length() > 0)
+      {
+         identifier += '.';
       }
 
       String[] columnNames = type.getColumnNames();
 
-      StringBuffer buf = new StringBuffer();
-      for(int i=0; i<columnNames.length; i++) {
-         if(i!=0) {
-            buf.append(" AND ");
-         }
-         buf.append(identifier).append(columnNames[i]);
-         buf.append(" IS");
-         if(not) {
-            buf.append(" NOT");
-         }
-         buf.append(" NULL");
+      buf.append(identifier).append(columnNames[0]).append(IS);
+      (not ? buf.append(NOT) : buf).append(NULL);
+      int i = 1;
+      while(i < columnNames.length)
+      {
+         buf.append(AND).append(identifier).append(columnNames[i++]).append(IS);
+         (not ? buf.append(NOT) : buf).append(NULL);
       }
-      return buf.toString();
-   }   
+      return buf;
+   }
 
    // =======================================================================
    //  Join Clause
-   //    parent.pkColumnName0=child.fkColumnName0 
-   //    [AND parent.pkColumnName1=child.fkColumnName1 
-   //    [AND parent.pkColumnName2=child.fkColumnName2 [...]]] 
+   //    parent.pkColumnName0=child.fkColumnName0
+   //    [AND parent.pkColumnName1=child.fkColumnName1
+   //    [AND parent.pkColumnName2=child.fkColumnName2 [...]]]
    // =======================================================================
 
-   public static String getJoinClause(
-         JDBCCMRFieldBridge cmrField,
-         String parentAlias,
-         String childAlias) {
-
-      StringBuffer buf = new StringBuffer();
-
+   public static StringBuffer getJoinClause(JDBCCMRFieldBridge cmrField,
+                                            String parentAlias,
+                                            String childAlias,
+                                            StringBuffer buf)
+   {
       JDBCEntityBridge parentEntity = cmrField.getEntity();
-      JDBCEntityBridge childEntity = 
-            (JDBCEntityBridge)cmrField.getRelatedEntity();
+      JDBCEntityBridge childEntity = (JDBCEntityBridge)cmrField.getRelatedEntity();
 
       JDBCCMPFieldBridge parentField;
       JDBCCMPFieldBridge childField;
-      
-      if(cmrField.hasForeignKey()) {            
 
+      if(cmrField.hasForeignKey())
+      {
          // parent has the foreign keys
-         List parentFkFields = cmrField.getForeignKeyFields();
-         for(Iterator iter = parentFkFields.iterator(); iter.hasNext(); ) {
-
-            parentField = (JDBCCMPFieldBridge)iter.next();
-            childField = childEntity.getCMPFieldByName(
-                  parentField.getFieldName());
-
-            buf.append(getJoinClause(
-                     parentField, parentAlias, childField, childAlias));
-
-            if(iter.hasNext()) {
-               buf.append(" AND ");
-            }
-         }   
-      } else {
-
+         JDBCCMPFieldBridge[] parentFkFields = cmrField.getForeignKeyFields();
+         int i = 0;
+         while(i < parentFkFields.length)
+         {
+            parentField = parentFkFields[i++];
+            childField = childEntity.getCMPFieldByName(parentField.getFieldName());
+            getJoinClause(parentField, parentAlias, childField, childAlias, buf);
+            if(i < parentFkFields.length)
+               buf.append(AND);
+         }
+      }
+      else
+      {
          // child has the foreign keys
-         List childFkFields = 
-               cmrField.getRelatedCMRField().getForeignKeyFields();
-         for(Iterator iter = childFkFields.iterator(); iter.hasNext(); ) {
-
-            childField = (JDBCCMPFieldBridge)iter.next();
-            parentField = parentEntity.getCMPFieldByName(
-                  childField.getFieldName());
+         JDBCCMPFieldBridge[] childFkFields = cmrField.getRelatedCMRField().getForeignKeyFields();
+         int i = 0;
+         while(i < childFkFields.length)
+         {
+            childField = childFkFields[i++];
+            parentField = parentEntity.getCMPFieldByName(childField.getFieldName());
 
             // add the sql
-            buf.append(SQLUtil.getJoinClause(
-                  parentField, parentAlias, childField, childAlias));
-            if(iter.hasNext()) {
-               buf.append(" AND ");
+            getJoinClause(parentField, parentAlias, childField, childAlias, buf);
+            if(i < childFkFields.length)
+            {
+               buf.append(AND);
             }
-         }   
+         }
       }
-      return buf.toString();
+      return buf;
    }
 
-   public static String getRelationTableJoinClause(
-         JDBCCMRFieldBridge cmrField,
-         String parentAlias,
-         String relationTableAlias) {
-
-      StringBuffer buf = new StringBuffer();
-
+   public static StringBuffer getRelationTableJoinClause(JDBCCMRFieldBridge cmrField,
+                                                         String parentAlias,
+                                                         String relationTableAlias,
+                                                         StringBuffer buf)
+   {
       JDBCEntityBridge parentEntity = cmrField.getEntity();
       JDBCCMPFieldBridge parentField;
       JDBCCMPFieldBridge relationField;
-      
+
       // parent to relation table join
-      List parentFields = cmrField.getTableKeyFields();
-      for(Iterator iter = parentFields.iterator(); iter.hasNext(); ) {
-         
-         relationField = (JDBCCMPFieldBridge)iter.next();
-         parentField = parentEntity.getCMPFieldByName(
-               relationField.getFieldName());
-         
-         buf.append(SQLUtil.getJoinClause(
-               parentField, parentAlias, relationField, relationTableAlias));
-         
-         if(iter.hasNext()) {
-            buf.append(" AND ");
-         }
-      }   
-      return buf.toString();
+      JDBCCMPFieldBridge[] parentFields = cmrField.getTableKeyFields();
+      int i = 0;
+      while(i < parentFields.length)
+      {
+         relationField = parentFields[i++];
+         parentField = parentEntity.getCMPFieldByName(relationField.getFieldName());
+         getJoinClause(parentField, parentAlias, relationField, relationTableAlias, buf);
+         if(i < parentFields.length)
+            buf.append(AND);
+      }
+      return buf;
    }
 
    /**
-    * Returns parent.pkColumnName0=child.fkColumnName0 
-    *    [AND parent.pkColumnName1=child.fkColumnName1 
-    *    [AND parent.pkColumnName2=child.fkColumnName2 [...]]] 
+    * Returns parent.pkColumnName0=child.fkColumnName0
+    *    [AND parent.pkColumnName1=child.fkColumnName1
+    *    [AND parent.pkColumnName2=child.fkColumnName2 [...]]]
     */
-   public static String getJoinClause(
-         JDBCFieldBridge pkField, String parent, 
-         JDBCFieldBridge fkField, String child) {
-
-      return getJoinClause(
-            pkField.getJDBCType(), parent,
-            fkField.getJDBCType(), child);
+   private static StringBuffer getJoinClause(JDBCFieldBridge pkField,
+                                             String parent,
+                                             JDBCFieldBridge fkField,
+                                             String child,
+                                             StringBuffer buf)
+   {
+      return getJoinClause(pkField.getJDBCType(), parent, fkField.getJDBCType(), child, buf);
    }
 
-   public static String getJoinClause(
-         List pkFields, String parent, List fkFields, String child) {
-
-      if(pkFields.size() != fkFields.size()) {
+   public static StringBuffer getJoinClause(JDBCFieldBridge[] pkFields,
+                                            String parent,
+                                            JDBCFieldBridge[] fkFields,
+                                            String child,
+                                            StringBuffer buf)
+   {
+      if(pkFields.length != fkFields.length)
+      {
          throw new IllegalArgumentException(
-               "Error createing theta join clause:" +
-               " pkField.size()="+pkFields.size() +
-               " fkField.size()="+fkFields.size());
+            "Error createing theta join clause:" +
+            " pkField.size()=" + pkFields.length +
+            " fkField.size()=" + fkFields.length);
       }
 
-      StringBuffer buf = new StringBuffer();
-
-      List pkTypes = getJDBCTypes(pkFields);
-      List fkTypes = getJDBCTypes(fkFields);
-      Iterator fkIter = fkTypes.iterator();
-      for(Iterator pkIter = pkTypes.iterator(); pkIter.hasNext();) {
-         JDBCType pkType = (JDBCType)pkIter.next();
-         JDBCType fkType = (JDBCType)fkIter.next();
-
-         buf.append(getJoinClause(pkType, parent, fkType, child));
-         if(pkIter.hasNext()) {
-            buf.append(" AND ");
-         }
+      boolean and = false;
+      for(int i = 0; i < pkFields.length; ++i)
+      {
+         // these types should not be null
+         JDBCType pkType = getJDBCType(pkFields[i]);
+         JDBCType fkType = getJDBCType(fkFields[i]);
+         if(and)
+            buf.append(AND);
+         else
+            and = true;
+         getJoinClause(pkType, parent, fkType, child, buf);
       }
-      return buf.toString();
+      return buf;
    }
- 
+
    /**
-    * Returns parent.pkColumnName0=child.fkColumnName0 
-    *    [AND parent.pkColumnName1=child.fkColumnName1 
-    *    [AND parent.pkColumnName2=child.fkColumnName2 [...]]] 
+    * Returns parent.pkColumnName0=child.fkColumnName0
+    *    [AND parent.pkColumnName1=child.fkColumnName1
+    *    [AND parent.pkColumnName2=child.fkColumnName2 [...]]]
     */
-   public static String getJoinClause(
-         JDBCType pkType, String parent, JDBCType fkType, String child) {
-      if(parent.length() > 0) {
-         parent += ".";
+   private static StringBuffer getJoinClause(JDBCType pkType,
+                                             String parent,
+                                             JDBCType fkType,
+                                             String child,
+                                             StringBuffer buf)
+   {
+      if(parent.length() > 0)
+      {
+         parent += '.';
       }
-      if(child.length() > 0) {
-         child += ".";
+      if(child.length() > 0)
+      {
+         child += '.';
       }
 
       String[] pkColumnNames = pkType.getColumnNames();
       String[] fkColumnNames = fkType.getColumnNames();
-      if(pkColumnNames.length != fkColumnNames.length) {
-         throw new IllegalArgumentException(
-               "PK and FK have different number of columns");
+      if(pkColumnNames.length != fkColumnNames.length)
+      {
+         throw new IllegalArgumentException("PK and FK have different number of columns");
       }
 
-      StringBuffer buf = new StringBuffer();
-      for(int i=0; i<pkColumnNames.length; i++) {
-         if(i!=0) {
-            buf.append(" AND ");
-         }
-         buf.append(parent).append(pkColumnNames[i]);
-         buf.append("=");
-         buf.append(child).append(fkColumnNames[i]);
+      buf.append(parent).append(pkColumnNames[0]).append('=').append(child).append(fkColumnNames[0]);
+      int i = 1;
+      while(i < pkColumnNames.length)
+      {
+         buf.append(AND)
+            .append(parent)
+            .append(pkColumnNames[i])
+            .append('=')
+            .append(child)
+            .append(fkColumnNames[i++]);
       }
-      return buf.toString();
-   }   
+      return buf;
+   }
 
    // =======================================================================
    //  Self Compare Where Clause
-   //    fromIdentifier.pkColumnName0=toIdentifier.fkColumnName0 
-   //    [AND fromIdentifier.pkColumnName1=toIdentifier.fkColumnName1 
-   //    [AND fromIdentifier.pkColumnName2=toIdentifier.fkColumnName2 [...]]] 
+   //    fromIdentifier.pkColumnName0=toIdentifier.fkColumnName0
+   //    [AND fromIdentifier.pkColumnName1=toIdentifier.fkColumnName1
+   //    [AND fromIdentifier.pkColumnName2=toIdentifier.fkColumnName2 [...]]]
    // =======================================================================
 
-   public static String getSelfCompareWhereClause(
-         JDBCFieldBridge field, String fromIdentifier, String toIdentifier) {
-
-      return getSelfCompareWhereClause(
-            field.getJDBCType(), fromIdentifier, toIdentifier);
-   }
-
-   public static String getSelfCompareWhereClause(
-         List fields, String fromIdentifier, String toIdentifier) {
-      
-      StringBuffer buf = new StringBuffer();
-
-      List types = getJDBCTypes(fields);
-      for(Iterator iter = types.iterator(); iter.hasNext();) {
-         JDBCType type = (JDBCType)iter.next();
-         buf.append(getSelfCompareWhereClause(
-                  type, fromIdentifier, toIdentifier));
-         if(iter.hasNext()) {
-            buf.append(" AND ");
+   public static StringBuffer getSelfCompareWhereClause(JDBCFieldBridge[] fields,
+                                                        String fromIdentifier,
+                                                        String toIdentifier,
+                                                        StringBuffer buf)
+   {
+      boolean and = false;
+      for(int i = 0; i < fields.length; ++i)
+      {
+         JDBCType type = getJDBCType(fields[i]);
+         if(type != null)
+         {
+            if(and)
+               buf.append(AND);
+            else
+               and = true;
+            getSelfCompareWhereClause(type, fromIdentifier, toIdentifier, buf);
          }
       }
-      return buf.toString();
-   }   
- 
-   public static String getSelfCompareWhereClause(
-         JDBCType type, String fromIdentifier, String toIdentifier) {
+      return buf;
+   }
 
-      if(fromIdentifier.length() > 0) {
-         fromIdentifier += ".";
-      }
-      if(toIdentifier.length() > 0) {
-         toIdentifier += ".";
-      }
-      
+   private static StringBuffer getSelfCompareWhereClause(JDBCType type,
+                                                         String fromIdentifier,
+                                                         String toIdentifier,
+                                                         StringBuffer buf)
+   {
+      if(fromIdentifier.length() > 0)
+         fromIdentifier += '.';
+      if(toIdentifier.length() > 0)
+         toIdentifier += '.';
+
       String[] columnNames = type.getColumnNames();
 
-      StringBuffer buf = new StringBuffer();
-      for(int i=0; i<columnNames.length; i++) {
-         if(i!=0) {
-            buf.append(" AND ");
-         }
-         buf.append(fromIdentifier).append(columnNames[i]);
-         buf.append(" = ");
-         buf.append(toIdentifier).append(columnNames[i]);
+      buf.append(fromIdentifier)
+         .append(columnNames[0])
+         .append('=')
+         .append(toIdentifier)
+         .append(columnNames[0]);
+      int i = 1;
+      while(i < columnNames.length)
+      {
+         buf.append(AND)
+            .append(fromIdentifier)
+            .append(columnNames[i])
+            .append('=')
+            .append(toIdentifier)
+            .append(columnNames[i++]);
       }
-      return buf.toString();
-   }   
-
-   public static String getSelfCompareWhereClause(
-         JDBCFieldBridge fromField, JDBCFieldBridge toField,
-         String fromIdentifier, String toIdentifier) {
-
-      return getSelfCompareWhereClause(
-            fromField.getJDBCType(), toField.getJDBCType(),
-            fromIdentifier, toIdentifier);
+      return buf;
    }
 
-   public static String getSelfCompareWhereClause(
-         JDBCType fromType, JDBCType toType,
-         String fromIdentifier, String toIdentifier) {
+   public static StringBuffer getSelfCompareWhereClause(JDBCFieldBridge fromField,
+                                                        JDBCFieldBridge toField,
+                                                        String fromIdentifier,
+                                                        String toIdentifier,
+                                                        StringBuffer buf)
+   {
+      return getSelfCompareWhereClause(
+         fromField.getJDBCType(), toField.getJDBCType(), fromIdentifier, toIdentifier, buf
+      );
+   }
 
-      if(fromIdentifier.length() > 0) {
-         fromIdentifier += ".";
-      }
-      if(toIdentifier.length() > 0) {
-         toIdentifier += ".";
-      }
-      
+   private static StringBuffer getSelfCompareWhereClause(JDBCType fromType,
+                                                         JDBCType toType,
+                                                         String fromIdentifier,
+                                                         String toIdentifier,
+                                                         StringBuffer buf)
+   {
+      if(fromIdentifier.length() > 0)
+         fromIdentifier += '.';
+      if(toIdentifier.length() > 0)
+         toIdentifier += '.';
+
       String[] fromColumnNames = fromType.getColumnNames();
       String[] toColumnNames = toType.getColumnNames();
 
-      StringBuffer buf = new StringBuffer();
-      for(int i=0; i<fromColumnNames.length; i++) {
-         if(i!=0) {
-            buf.append(" AND ");
-         }
-         buf.append(fromIdentifier).append(fromColumnNames[i]);
-         buf.append(" = ");
-         buf.append(toIdentifier).append(toColumnNames[i]);
+      buf.append(fromIdentifier)
+         .append(fromColumnNames[0])
+         .append('=')
+         .append(toIdentifier)
+         .append(toColumnNames[0]);
+      int i = 1;
+      while(i < fromColumnNames.length)
+      {
+         buf.append(AND)
+            .append(fromIdentifier)
+            .append(fromColumnNames[i])
+            .append('=')
+            .append(toIdentifier)
+            .append(toColumnNames[i++]);
       }
-      return buf.toString();
-   }   
-
-   public static List getJDBCTypes(List fields) {
-      ArrayList types = new ArrayList(fields.size());
-
-      for(Iterator iter = fields.iterator(); iter.hasNext();) {
-         JDBCFieldBridge field = (JDBCFieldBridge)iter.next();
-         JDBCType type = field.getJDBCType();
-         if(type != null && type.getColumnNames().length > 0) {
-            types.add(type);
-         }
-      }
-      return Collections.unmodifiableList(types);
+      return buf;
    }
 
-   public static boolean tableExists(
-         String tableName, DataSource dataSource
-         ) throws DeploymentException {
-
+   public static boolean tableExists(String tableName, DataSource dataSource)
+      throws DeploymentException
+   {
       Connection con = null;
       ResultSet rs = null;
-      try {
+      try
+      {
          con = dataSource.getConnection();
 
          // (a j2ee spec compatible jdbc driver has to fully
@@ -707,32 +906,49 @@ public class SQLUtil {
          String catalog = con.getCatalog();
          String schema = null;
          String quote = dmd.getIdentifierQuoteString();
-         if (tableName.startsWith(quote)) {
-            if (tableName.endsWith(quote) == false) {
-               throw new DeploymentException("Mismatched quote in table name: "+tableName);
+         if(tableName.startsWith(quote))
+         {
+            if(tableName.endsWith(quote) == false)
+            {
+               throw new DeploymentException("Mismatched quote in table name: " + tableName);
             }
             int quoteLength = quote.length();
-            tableName = tableName.substring(quoteLength, tableName.length()-quoteLength);
-            if (dmd.storesLowerCaseQuotedIdentifiers())
+            tableName = tableName.substring(quoteLength, tableName.length() - quoteLength);
+            if(dmd.storesLowerCaseQuotedIdentifiers())
                tableName = tableName.toLowerCase();
-            else if (dmd.storesUpperCaseQuotedIdentifiers())
+            else if(dmd.storesUpperCaseQuotedIdentifiers())
                tableName = tableName.toUpperCase();
-         } else {
-            if (dmd.storesLowerCaseIdentifiers())
+         }
+         else
+         {
+            if(dmd.storesLowerCaseIdentifiers())
                tableName = tableName.toLowerCase();
-            else if (dmd.storesUpperCaseIdentifiers())
+            else if(dmd.storesUpperCaseIdentifiers())
                tableName = tableName.toUpperCase();
          }
          rs = dmd.getTables(catalog, schema, tableName, null);
          return rs.next();
-      } catch(SQLException e) {
+      }
+      catch(SQLException e)
+      {
          // This should not happen. A J2EE compatiable JDBC driver is
          // required fully support metadata.
-         throw new DeploymentException("Error while checking if table aleady " +
-               "exists", e);
-      } finally {
+         throw new DeploymentException("Error while checking if table aleady exists", e);
+      }
+      finally
+      {
          JDBCUtil.safeClose(rs);
          JDBCUtil.safeClose(con);
       }
+   }
+
+   private static JDBCType getJDBCType(JDBCFieldBridge field)
+   {
+      JDBCType type = field.getJDBCType();
+      if(type != null && type.getColumnNames().length > 0)
+      {
+         return type;
+      }
+      return null;
    }
 }

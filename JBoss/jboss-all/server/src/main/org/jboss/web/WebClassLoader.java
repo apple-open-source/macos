@@ -5,6 +5,7 @@ import java.net.URLClassLoader;
 import javax.management.ObjectName;
 
 import org.jboss.mx.loading.UnifiedClassLoader;
+import org.jboss.mx.loading.LoaderRepositoryClassLoader;
 
 /** A simple subclass of URLClassLoader that is used in conjunction with the
 the WebService mbean to allow dynamic loading of resources and classes from
@@ -28,9 +29,9 @@ as the WebClassLoader constructor.
 @author Sacha Labourey <sacha.labourey@cogito-info.ch>
 @author Vladimir Blagojevic <vladimir@xisnext.2y.net>
 @author  <a href="mailto:reverbel@ime.usp.br">Francisco Reverbel</a>
-@version $Revision: 1.6.4.1 $
+@version $Revision: 1.6.4.2 $
 */
-public class WebClassLoader extends URLClassLoader
+public class WebClassLoader extends LoaderRepositoryClassLoader
 {
     /** This WebClassLoader is associated with this container. */
     private ObjectName containerName;
@@ -44,7 +45,7 @@ public class WebClassLoader extends URLClassLoader
        Subclasses must have a constructor with the same signature. */
    public WebClassLoader(ObjectName containerName, UnifiedClassLoader parent)
    {
-      super(new URL[0], parent);
+      super(parent, parent.getLoaderRepository());
       this.containerName = containerName;
    }
 

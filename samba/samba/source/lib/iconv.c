@@ -21,6 +21,12 @@
 
 #include "includes.h"
 
+/*
+ * We have to use strcasecmp here as the character conversions
+ * haven't been initialised yet. JRA.
+ */
+
+#undef strcasecmp
 
 /**
  * @file
@@ -47,6 +53,7 @@
 
 static size_t ascii_pull(void *,char **, size_t *, char **, size_t *);
 static size_t ascii_push(void *,char **, size_t *, char **, size_t *);
+static size_t latin1_push(void *,char **, size_t *, char **, size_t *);
 static size_t  utf8_pull(void *,char **, size_t *, char **, size_t *);
 static size_t  utf8_push(void *,char **, size_t *, char **, size_t *);
 static size_t ucs2hex_pull(void *,char **, size_t *, char **, size_t *);
@@ -57,6 +64,8 @@ static struct charset_functions builtin_functions[] = {
 	{"UCS-2LE",  iconv_copy, iconv_copy},
 	{"UTF8",   utf8_pull,  utf8_push},
 	{"ASCII", ascii_pull, ascii_push},
+	{"646", ascii_pull, ascii_push},
+	{"ISO-8859-1", ascii_pull, latin1_push},
 	{"UCS2-HEX", ucs2hex_pull, ucs2hex_push},
 	{NULL, NULL, NULL}
 };
@@ -135,7 +144,7 @@ static size_t sys_iconv(void *cd,
  * enough that Samba works on systems that don't have iconv.
  **/
 size_t smb_iconv(smb_iconv_t cd, 
-		 const char **inbuf, size_t *inbytesleft,
+		 char **inbuf, size_t *inbytesleft,
 		 char **outbuf, size_t *outbytesleft)
 {
 	char cvtbuf[2048];
@@ -347,6 +356,32 @@ static size_t ascii_push(void *cd, char **inbuf, size_t *inbytesleft,
 	return ir_count;
 }
 
+static size_t latin1_push(void *cd, char **inbuf, size_t *inbytesleft,
+			 char **outbuf, size_t *outbytesleft)
+{
+	int ir_count=0;
+
+	while (*inbytesleft >= 2 && *outbytesleft >= 1) {
+		(*outbuf)[0] = (*inbuf)[0];
+		if ((*inbuf)[1]) ir_count++;
+		(*inbytesleft)  -= 2;
+		(*outbytesleft) -= 1;
+		(*inbuf)  += 2;
+		(*outbuf) += 1;
+	}
+
+	if (*inbytesleft == 1) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	if (*inbytesleft > 1) {
+		errno = E2BIG;
+		return -1;
+	}
+	
+	return ir_count;
+}
 
 static size_t ucs2hex_pull(void *cd, char **inbuf, size_t *inbytesleft,
 			 char **outbuf, size_t *outbytesleft)

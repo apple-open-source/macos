@@ -39,7 +39,7 @@ import org.jboss.logging.Logger;
  * @author     Norbert Lataille (Norbert.Lataille@m4x.org)
  * @author     Hiram Chirino (Cojonudo14@hotmail.com)
  * @created    August 16, 2001
- * @version    $Revision: 1.16.2.5 $
+ * @version    $Revision: 1.16.2.7 $
  */
 public abstract class SpySession
        implements Session, XASession
@@ -305,7 +305,7 @@ public abstract class SpySession
       }
    }
 
-   public synchronized void close()
+   public void close()
       throws JMSException
    {
       log.debug("Session closing.");
@@ -313,42 +313,22 @@ public abstract class SpySession
       synchronized ( runLock )
       {
          if ( closed )
-         {
             return;
-         }
 
-         JMSException exception = null;
+         closed = true;
+      }
 
-         Iterator i;
-         synchronized ( consumers )
+      JMSException exception = null;
+
+      Iterator i;
+      synchronized ( consumers )
+      {
+         //notify the sleeping synchronous listeners
+         if ( sessionConsumer != null )
          {
-            //notify the sleeping synchronous listeners
-            if ( sessionConsumer != null )
-            {
-               try
-               {
-                  sessionConsumer.close();
-               }
-               catch (InvalidDestinationException ignored)
-               {
-                  log.warn(ignored.getMessage(), ignored);
-               }
-               catch (JMSException e)
-               {
-                  log.trace(e.getMessage(), e);
-                  exception = e;
-               }
-            }
-
-            i = consumers.iterator();
-         }
-
-         while ( i.hasNext() )
-         {
-            SpyMessageConsumer messageConsumer = ( SpyMessageConsumer )i.next();
             try
             {
-               messageConsumer.close();
+               sessionConsumer.close();
             }
             catch (InvalidDestinationException ignored)
             {
@@ -357,29 +337,23 @@ public abstract class SpySession
             catch (JMSException e)
             {
                log.trace(e.getMessage(), e);
-               if (exception == null)
-                  exception = e;
+               exception = e;
             }
          }
 
-         //deal with any unacked messages
+         i = consumers.iterator();
+      }
+
+      while ( i.hasNext() )
+      {
+         SpyMessageConsumer messageConsumer = ( SpyMessageConsumer )i.next();
          try
          {
-            if (spyXAResource == null)
-            {
-               if (transacted)
-                  rollback();
-               else
-               {
-                  i = unacknowledgedMessages.iterator();
-                  while (i.hasNext())
-                  {
-                     SpyMessage message = (SpyMessage) i.next();
-                     connection.send(message.getAcknowledgementRequest(false));
-                     i.remove();
-                  }
-               }
-            }
+            messageConsumer.close();
+         }
+         catch (InvalidDestinationException ignored)
+         {
+            log.warn(ignored.getMessage(), ignored);
          }
          catch (JMSException e)
          {
@@ -387,38 +361,63 @@ public abstract class SpySession
             if (exception == null)
                exception = e;
          }
-
-         connection.sessionClosing( this );
-
-         closed = true;
-
-         // Throw the first exception
-         if (exception != null)
-            throw exception;
       }
+
+      //deal with any unacked messages
+      try
+      {
+         if (spyXAResource == null)
+         {
+            if (transacted)
+               internalRollback();
+            else
+            {
+               i = unacknowledgedMessages.iterator();
+               while (i.hasNext())
+               {
+                  SpyMessage message = (SpyMessage) i.next();
+                  connection.send(message.getAcknowledgementRequest(false));
+                  i.remove();
+               }
+            }
+         }
+      }
+      catch (JMSException e)
+      {
+         log.trace(e.getMessage(), e);
+         if (exception == null)
+            exception = e;
+      }
+
+      connection.sessionClosing( this );
+
+      // Throw the first exception
+      if (exception != null)
+         throw exception;
    }
 
 
    //Commit a transacted session
-   public synchronized void commit()
+   public void commit()
       throws JMSException
    {
-      if ( spyXAResource != null )
-      {
-         throw new javax.jms.TransactionInProgressException( "Should not be call from a XASession" );
-      }
-      if ( closed )
-      {
-         throw new IllegalStateException( "The session is closed" );
-      }
-      if ( !transacted )
-      {
-         throw new IllegalStateException( "The session is not transacted" );
-      }
 
       //Don't deliver any more messages while commiting
       synchronized ( runLock )
       {
+         if ( spyXAResource != null )
+         {
+            throw new javax.jms.TransactionInProgressException( "Should not be call from a XASession" );
+         }
+         if ( closed )
+         {
+            throw new IllegalStateException( "The session is closed" );
+         }
+         if ( !transacted )
+         {
+            throw new IllegalStateException( "The session is not transacted" );
+         }
+
          // commit transaction with onePhase commit
          try
          {
@@ -453,7 +452,18 @@ public abstract class SpySession
    }
 
    //Rollback a transacted session
-   public synchronized void rollback()
+   public void rollback()
+      throws JMSException
+   {
+      synchronized (runLock)
+      {
+         if ( closed )
+            throw new IllegalStateException( "The session is closed" );
+         internalRollback();
+      }
+   }
+
+   private void internalRollback()
       throws JMSException
    {
       synchronized ( runLock )
@@ -461,10 +471,6 @@ public abstract class SpySession
          if ( spyXAResource != null )
          {
             throw new javax.jms.TransactionInProgressException( "Should not be call from a XASession" );
-         }
-         if ( closed )
-         {
-            throw new IllegalStateException( "The session is closed" );
          }
          if ( !transacted )
          {
@@ -503,112 +509,115 @@ public abstract class SpySession
       }
    }
 
-   public synchronized void recover()
+   public void recover()
       throws JMSException
    {
-      if ( closed )
+      synchronized (runLock)
       {
-         throw new IllegalStateException( "The session is closed" );
-      }
-      if ( transacted )
-      {
-         throw new IllegalStateException( "The session is transacted" );
-      }
-
-      //stop message delivery
-      try
-      {
-         connection.stop();
-         running = false;
-      }
-      catch (JMSException e)
-      {
-         throw new SpyJMSException("Could not stop message delivery", e);
-      }
-
-      // Loop over all consumers, check their unacknowledged messages, set
-      // then as redelivered and add back to the list of messages
-      try
-      {
-         synchronized ( messages )
+         if ( closed )
          {
-            boolean trace = log.isTraceEnabled();
-            if (trace)
-               log.trace("Recovering: unacknowledged messages=" + unacknowledgedMessages);
+            throw new IllegalStateException( "The session is closed" );
+         }
+         if ( transacted )
+         {
+            throw new IllegalStateException( "The session is transacted" );
+         }
+
+         //stop message delivery
+         try
+         {
+            connection.stop();
+            running = false;
+         }
+         catch (JMSException e)
+         {
+            throw new SpyJMSException("Could not stop message delivery", e);
+         }
+
+         // Loop over all consumers, check their unacknowledged messages, set
+         // then as redelivered and add back to the list of messages
+         try
+         {
+            synchronized ( messages )
+            {
+               boolean trace = log.isTraceEnabled();
+               if (trace)
+                  log.trace("Recovering: unacknowledged messages=" + unacknowledgedMessages);
+               Iterator i = consumers.iterator();
+               while ( i.hasNext() )
+               {
+                  SpyMessageConsumer consumer = (SpyMessageConsumer) i.next();
+
+                  Iterator ii = unacknowledgedMessages.iterator();
+                  while ( ii.hasNext() )
+                  {
+                     SpyMessage message = ( SpyMessage )ii.next();
+
+                     if ( consumer.getSubscription().accepts( message.header ) )
+                     {
+                        message.setJMSRedelivered( true );
+                        consumer.messages.addLast( message );
+                        ii.remove();
+                        if (trace)
+                           log.trace("Recovered: message=" + message + " consumer=" + consumer);
+                     }
+                  }
+               }
+
+               // We no longer have consumers for the remaining messages
+               i = unacknowledgedMessages.iterator();
+               while (i.hasNext())
+               {
+                  SpyMessage message = (SpyMessage) i.next();
+                  connection.send(message.getAcknowledgementRequest(false));
+                  i.remove();
+                  if (trace)
+                     log.trace("Recovered: nacked with no consumer message=" + message);
+               }
+            }
+         }
+         catch ( Exception e )
+         {
+            throw new SpyJMSException ("Unable to recover session ", e );
+         }
+         // Restart the delivery sequence including all unacknowledged messages that had
+         // been previously delivered. Redelivered messages do not have to be delivered
+         // in exactly their original delivery order.
+         try
+         {
+            running = true;
+            connection.start();
+         
             Iterator i = consumers.iterator();
             while ( i.hasNext() )
             {
-               SpyMessageConsumer consumer = (SpyMessageConsumer) i.next();
-
-               Iterator ii = unacknowledgedMessages.iterator();
-               while ( ii.hasNext() )
-               {
-                  SpyMessage message = ( SpyMessage )ii.next();
-
-                  if ( consumer.getSubscription().accepts( message.header ) )
-                  {
-                     message.setJMSRedelivered( true );
-                     consumer.messages.addLast( message );
-                     ii.remove();
-                     if (trace)
-                        log.trace("Recovered: message=" + message + " consumer=" + consumer);
-                  }
-               }
-            }
-
-            // We no longer have consumers for the remaining messages
-            i = unacknowledgedMessages.iterator();
-            while (i.hasNext())
-            {
-               SpyMessage message = (SpyMessage) i.next();
-               connection.send(message.getAcknowledgementRequest(false));
-               i.remove();
-               if (trace)
-                  log.trace("Recovered: nacked with no consumer message=" + message);
+               ( (SpyMessageConsumer)i.next() ).restartProcessing();
             }
          }
-      }
-      catch ( Exception e )
-      {
-         throw new SpyJMSException ("Unable to recover session ", e );
-      }
-      // Restart the delivery sequence including all unacknowledged messages that had
-      // been previously delivered. Redelivered messages do not have to be delivered
-      // in exactly their original delivery order.
-      try
-      {
-         running = true;
-         connection.start();
-         
-         Iterator i = consumers.iterator();
-         while ( i.hasNext() )
+         catch ( JMSException e )
          {
-            ( (SpyMessageConsumer)i.next() ).restartProcessing();
+            throw new SpyJMSException("Could not resume message delivery", e);
          }
-      }
-      catch ( JMSException e )
-      {
-         throw new SpyJMSException("Could not resume message delivery", e);
       }
    }
    
    /**
     * JMS 11.2.21.2
     * Note that the acknowledge method of Message acknowledges all messages
-    * received on that message’s session.
+    * received on that messageÂ’s session.
     *
     * JMS 11.3.2.2.3
     * Message.acknowledge method: Clarify that the method applies to all consumed
     * messages of the session.
     * Rationale for this change: A possible misinterpretation of the existing Java
     * API documentation for Message.acknowledge assumed that only messages
-    * received prior to “this” message should be acknowledged. The updated Java
+    * received prior to Â“thisÂ” message should be acknowledged. The updated Java
     * API documentation statement emphasizes that message acknowledgement
     * is really a session-level activity and that this message is only being used to
     * identify the session in order to acknowledge all messages consumed by the
     * session. The acknowledge method was placed in the message object only to
     * enable easy access to acknowledgement capability within a message
-    * listener’s onMessage method. This change aligns the specification and Java
+    * listenerÂ’s onMessage method. This change aligns the specification and Java
     * API documentation to define Message.acknowledge in the same manner.
     **/
    public void doAcknowledge ( Message message, AcknowledgementRequest ack )
@@ -710,6 +719,9 @@ public abstract class SpySession
       {
          throw new IllegalStateException( "The session is closed" );
       }
+
+      // Make sure the message has the correct client id
+      m.header.producerClientId = connection.getClientID();
 
       if ( transacted )
       {

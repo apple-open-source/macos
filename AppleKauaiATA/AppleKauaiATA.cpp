@@ -73,6 +73,7 @@
 
 #define kCompatibleString "kauai-ata"
 #define kCompatibleString2 "K2-UATA"
+#define kCompatibleString3 "shasta-ata"
 #define kModelPropertyKey "model"
 #define kCableTypeKey "cable-type"
 #define kModel6String "ata-6"
@@ -83,17 +84,19 @@
 #define kATASupportedPIOModes		 0x001F	// modes 4, 3, 2, 1, and 0
 #define kATASupportedMultiDMAModes	 0x0007	// modes 2, 1, and 0
 #define	kATASupportedUltraDMAModes	 0x003f	// modes 5, 4, 3, 2, 1, and 0
+#define	kATASupportedUltraDMA133Modes	 0x007f	// modes 6, 5, 4, 3, 2, 1, and 0
 
 /* Number of entries in various tables */
 #define kAppleKauaiPIOCycleEntries			11
 #define kAppleKauaiMultiDMACycleEntries 		9
 #define	kAppleKauaiUltraDMACycleEntries		6
-
+#define	kAppleKauaiUltraDMA133CycleEntries		7
 
 // ------ ¥¥¥ Maximum transfer modes the AppleKauai controller is capable of supporting ¥¥¥ ÐÐÐÐÐÐÐÐ
 #define kATAMaxPIOMode		 4
 #define kATAMaxMultiDMAMode	2
-#define	kATAMaxUltraDMAMode 5
+//#define	kATAMaxUltraDMAMode 5
+#define	kATAMaxUltraDMA133Mode 6
 
 // 33 data descriptors + NOP + STOP
 #define kATAXferDMADesc 33
@@ -134,6 +137,7 @@ AppleKauaiATA::init(OSDictionary* properties)
 	clientBuffer = 0;
 	bufferRX = false;
 	rxFeatureOn = false;
+	ultra133 = false;
 	
 	DLOG("AppleKauaiATA init done\n");
 
@@ -172,15 +176,34 @@ AppleKauaiATA::probe(IOService* provider,	SInt32*	score)
 		
 		if( compatibleEntry->isEqualTo( kCompatibleString2, sizeof(kCompatibleString2)-1 ) == false) 
 		{
-		// not our type of controller		
-		DLOG("AppleKauaiATA compatible property doesn't match\n");
-		return 0;
-		}
+
+			if( compatibleEntry->isEqualTo( kCompatibleString3, sizeof(kCompatibleString3)-1 ) == false) 
+			{
+				// not our type of controller		
+				DLOG("AppleKauaiATA compatible property doesn't match\n");
+				return 0;
+			}
+			
+			
+			///////////////////
+			//  turn on 133 mode for Shasta ATA controller.
+			//////////////////
 	
+			ultra133 = true;
+			// turn on rxbuffer feature for this controller. 
+			rxFeatureOn = true;		
+			IOLog("AppleKauaiATA shasta-ata features enabled\n");
+			
+			
+		}
+		// K2-ATA controller.
 		// turn on rxbuffer feature for this controller. 
 		rxFeatureOn = true;		
 		DLOG("AppleKauaiATA rx buffer feature enabled\n");
 	}
+	
+	
+	
 	// do a little initialization here once the probe is succesful so we can start clean.
 
 	OSData		*registryEntry;
@@ -191,13 +214,17 @@ AppleKauaiATA::probe(IOService* provider,	SInt32*	score)
 		return 0;
 	}
 
-
+	// initial timing values.
 	
 	// initialize the timing params to PIO mode 0 at 600ns and MWDMA mode 0 at 480ns
 	// ultra to mode 5 (fastest)
 	busTimings[0].pioMWRegValue = busTimings[1].pioMWRegValue = 0x08000A92 | 0x00618000;
 	busTimings[0].ultraRegValue = busTimings[1].ultraRegValue = 0x00002921;
-	
+	if( ultra133 )
+	{	// set revised timing for ultra 133. 
+		busTimings[0].pioMWRegValue = busTimings[1].pioMWRegValue = 0x0a820c97;  // pio mwdma mode 0
+		busTimings[0].ultraRegValue = busTimings[1].ultraRegValue = 0x00033031;  // uata mode 5 (100) 133 is not as common as 100. 
+	}
 	busTimings[0].ataPIOSpeedMode = busTimings[1].ataPIOSpeedMode = 0x01 ;				// PIO Mode Timing class (bit-significant)
 	busTimings[0].ataPIOCycleTime = busTimings[1].ataPIOCycleTime = 600 ;				// Cycle time for PIO mode
 	busTimings[0].ataMultiDMASpeed = busTimings[1].ataMultiDMASpeed = 0x01;				// Multiple Word DMA Timing Class (bit-significant)
@@ -465,6 +492,11 @@ AppleKauaiATA::provideBusInfo( IOATABusInfo* infoOut)
 	infoOut->setPIOModes( kATASupportedPIOModes);		
 	infoOut->setDMAModes( kATASupportedMultiDMAModes );			
 	infoOut->setUltraModes( kATASupportedUltraDMAModes );
+	if( ultra133 )
+	{
+		infoOut->setUltraModes( kATASupportedUltraDMA133Modes );
+		
+	}
 	
 	infoOut->setExtendedLBA( true );  // indicate extended LBA is available on this bus. 
 	infoOut->setMaxBlocksExtended( 0x0800 ); // allow up to 1 meg per transfer on this controller. 
@@ -563,7 +595,12 @@ AppleKauaiATA::selectConfig( IOATADevConfig* configRequest, UInt32 unitNumber)
 
 
 	UInt8 ultraSupported = kATASupportedUltraDMAModes;	
-
+	if( ultra133 )
+	{
+	
+		ultraSupported = kATASupportedUltraDMA133Modes;
+	
+	}
 	// make sure a requested ultra ATA mode is within the range of this device configuration
 
 	if( configRequest->getUltraMode() & ~ultraSupported )
@@ -647,6 +684,23 @@ UInt32 PIOCycleValue100[kAppleKauaiPIOCycleEntries] =
  					};
 
 
+UInt32 PIOCycleValue133[kAppleKauaiPIOCycleEntries] = 
+					{
+						0x08000FFF,					// Hardware minimum		(1260 ns = 'E' + 630 rec + 630 acc) 	63, 63
+						0x0A000C97,					// Minimum PIO mode 0 	(600 ns = 'E' + 420 rec + 180 acc)	42, 18  42 * 64 + 18 = 2706
+						0x07000712,					// Minimum PIO mode 1	(390 ns = 240 rec + 150 acc)	  	24, 15  24 * 64 + 15 = 1551
+						0x040003CD,					// Derated PIO Mode 2/3/4	(360 ns = 180 rec + 180 acc)	18, 18  18 * 64 + 18 = 1170
+						0x040003CD,					// Derated PIO Mode 2/3/4	(330 ns = 180 rec + 150 acc)    18, 15  18 * 64 + 15 = 1167
+						0x040003CD,					// Derated PIO Mode 2/3/4	(300 ns = 150 rec + 150 acc)	15, 15  15 * 64 + 15 = 975
+						0x040003CD,					// Derated PIO mode 2/3/4	(270 ns = 150 rec + 120 acc)	15, 12  15 * 64 + 12 = 972
+						0x040003CD,					// Minimum PIO mode 2 		(240 ns = 135 rec + 105 acc)	14, 11  14 * 64 + 11 = 907
+						0x040003CD,					// Derated PIO Mode 3/4 	(240 ns = 120 rec + 120 acc)	12, 12	12 * 64 + 12 = 780
+						0x0400028B,					// Minimum PIO mode 3		(180 ns =  90 rec + 90 acc)	   	 9,  9   9 * 64 + 9  = 585
+						0x0400010A					// Minimum PIO mode 4		(120 ns =  45 rec + 75 acc)	 	 5,  8   5 * 64 + 8  = 328 
+ 					};
+
+
+
 
 static const UInt16 PIOCycleTime[ kAppleKauaiPIOCycleEntries ]=
 					{
@@ -677,6 +731,19 @@ static const UInt32 MultiDMACycleValue100[kAppleKauaiMultiDMACycleEntries] =
 					0x00148000	 				// Minimum Multi mode 2  (120= H+45rec+75acc) 	 5, 8
 				}; 
 
+static const UInt32 MultiDMACycleValue133[kAppleKauaiMultiDMACycleEntries] =
+				{
+					0x00FFF000, 				// Hardware maximum     ( 1260=  630rec+630acc)	63, 63 
+					0x00820800, 				// Minimum Multi mode 0  (480=  240rec+240acc)	24, 24
+					0x00820800, 				// Derated mode 1 or 2   (360=  180rec+180acc)	18, 18
+					0x00820800, 				// Derated mode 1 or 2   (270=H+135rec+135acc)	14, 14 
+					0x00820800, 				// Derated mode 1 or 2   (240=  120rec+120acc)	12, 12
+					0x00820800, 				// Derated mode 1 or 2   (210=H+110rec+110acc)	11, 11
+					0x00820800, 				// Derated mode 1 or 2   (180=   90rec+90acc)	 9, 9
+					0x0028B000, 				// Minimum Multi mode 1  (165= H+75rec+90acc)	 8, 9
+					0x001CA000	 				// Minimum Multi mode 2  (120= H+45rec+75acc) 	 5, 8
+				}; 
+
 
 static const UInt16 MultiDMACycleTime[kAppleKauaiMultiDMACycleEntries] =
 				{
@@ -693,7 +760,7 @@ static const UInt16 MultiDMACycleTime[kAppleKauaiMultiDMACycleEntries] =
 
 
 
-static const UInt32 UltraDMACycleValue100[kAppleKauaiUltraDMACycleEntries] =
+static const UInt32 UltraDMACycleValue100[kAppleKauaiUltraDMACycleEntries ] =
 				{
 					0x000070C1,					// crc 7 rdy2paus=00, wrDataSetup=12, ultra mode on     	7,0,12
 					0x00005D81,					// crc 5 rdy2paus=13, wrDataSetup=8, ultra on				5,13,8 
@@ -703,7 +770,21 @@ static const UInt32 UltraDMACycleValue100[kAppleKauaiUltraDMACycleEntries] =
 					0x00002921					// crc 2 rdy2paus=9, wrDataSetup=2, ultra on    mode 5		2,9,2
 				};
 				
-static const UInt16 UltraDMACycleTime[kAppleKauaiUltraDMACycleEntries] =
+				
+static const UInt32 UltraDMACycleValue133[kAppleKauaiUltraDMA133CycleEntries] =
+				{
+					0x00035901,					// 0	
+					0x000348b1,					// 1
+					0x00033881,					// 2 
+					0x00033861,					// 3
+					0x00033841,					// 4
+					0x00033031,					// 5
+					0x00033021					// 6
+				};
+
+				
+				
+static const UInt16 UltraDMACycleTime100[kAppleKauaiUltraDMACycleEntries] =
 				{
 					120,						// mode 0
 					90,							// mode 1
@@ -711,7 +792,20 @@ static const UInt16 UltraDMACycleTime[kAppleKauaiUltraDMACycleEntries] =
 					45,							// mode 3
 					30,							// mode 4
 					20							// mode 5
+
 				};
+
+static const UInt16 UltraDMACycleTime133[kAppleKauaiUltraDMA133CycleEntries] =
+				{
+					120,						// mode 0
+					90,							// mode 1
+					60,							// mode 2
+					45,							// mode 3
+					30,							// mode 4
+					20,							// mode 5
+					15							// mode 6
+				};
+
 				
 /*-----------------------------------------*/
 
@@ -721,7 +815,11 @@ static const UInt16 UltraDMACycleTime[kAppleKauaiUltraDMACycleEntries] =
 
 
 	UInt32 pioConfigBits = PIOCycleValue100[0];
-
+	if( ultra133 )
+	{
+		pioConfigBits = PIOCycleValue133[0];
+	
+	}
 	// the theory is simple, just examine the requested mode and cycle time, find the 
 	// entry in the table which is closest, but NOT faster than the requested cycle time.
 
@@ -754,6 +852,11 @@ static const UInt16 UltraDMACycleTime[kAppleKauaiUltraDMACycleEntries] =
 			// found the fastest time which is not greater than
 			// the requested time.
 			pioConfigBits = PIOCycleValue100[i];
+			if( ultra133 )
+			{
+				pioConfigBits = PIOCycleValue133[i];
+			
+			}
 			break;
 		}
 	}
@@ -761,6 +864,11 @@ static const UInt16 UltraDMACycleTime[kAppleKauaiUltraDMACycleEntries] =
 
 	// now do the same for DMA modes.
 	UInt32 mwdmaConfigBits = MultiDMACycleValue100[0];
+	if( ultra133 )
+	{
+		mwdmaConfigBits = MultiDMACycleValue133[0];
+	}
+	
 	UInt32 dmaModeNumber = 0;
 	UInt32 dmaCycleTime = 0;
 	
@@ -791,6 +899,10 @@ static const UInt16 UltraDMACycleTime[kAppleKauaiUltraDMACycleEntries] =
 				// found the fastest time which is not greater than
 				// the requested time.
 				mwdmaConfigBits = MultiDMACycleValue100[i];
+				if( ultra133 )
+				{
+					mwdmaConfigBits = MultiDMACycleValue133[i];
+				}
 				break;
 			}
 		}
@@ -803,15 +915,22 @@ static const UInt16 UltraDMACycleTime[kAppleKauaiUltraDMACycleEntries] =
 	{
 		ultraModeNumber = bitSigToNumeric( configRequest->getUltraMode() );
 	
-		// in the event someone asks for more than we can do, go as fast as possible given our cable condition.
-		if( ultraModeNumber > kATAMaxUltraDMAMode )
+		
+		
+		if( ultra133 )
 		{
-			ultraModeNumber =  kATAMaxUltraDMAMode;		
+			if( ultraModeNumber > 6)
+				ultraModeNumber = 6;
+				
+			ultraConfigBits = UltraDMACycleValue133[ ultraModeNumber ];	
+		
+		} else {
+		
+			if( ultraModeNumber > 5 )
+				ultraModeNumber = 5;
+				
+			ultraConfigBits = UltraDMACycleValue100[ ultraModeNumber ];
 		}
-	
-		ultraConfigBits = UltraDMACycleValue100[ ultraModeNumber ];
-	
-	
 	}
 
 
@@ -1161,3 +1280,4 @@ AppleKauaiATA::completeIO( IOReturn commandResult )
 
 	super::completeIO( commandResult );
 
+}

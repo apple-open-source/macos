@@ -577,7 +577,9 @@ bool IOHIPointing::resetScroll()
 
 static void ScalePressure(int *pressure, int pressureMin, int pressureMax)
 {    
-    *pressure = (*pressure / (pressureMax - pressureMin)) * 0xffff;
+    *pressure = ((pressureMin != pressureMax)) ? 
+            (((unsigned)(*pressure - pressureMin) * 65535LL) / 
+            (unsigned)( pressureMax - pressureMin)) : 0; 
 }
 
 

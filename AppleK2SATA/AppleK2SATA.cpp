@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -62,6 +62,10 @@
 #include <libkern/OSByteOrder.h>
 #include <libkern/OSAtomic.h>
 
+#include <IOKit/pwr_mgt/IOPM.h>
+#include <IOKit/pwr_mgt/RootDomain.h>
+
+
 
 #ifdef DLOG
 #undef DLOG
@@ -100,7 +104,9 @@
 #define kATAMaxMultiDMAMode		2
 #define	kATAMaxUltraDMAMode 	5
 
-
+#define kK2SIM_REMOVE_MASK 0x90000
+#define kK2SIM_INSERT_MASK 0x00040000
+#define kK2SIM_ATAPI_MASK 0x20000000
 
 #pragma mark -IOService Overrides -
 
@@ -126,6 +132,15 @@ AppleK2SATA::init(OSDictionary* properties)
 	_devIntSrc = 0;
 	busChildNumber = 0;
    	isBusOnline = true;
+	isEmptyBay = false;
+	isCriticalSection = false;
+	isSleeping = false;
+    pmRootDomain = 0;
+    systemIsSleeping = false;	
+	cleanupSystemSleep = false;
+	
+	// test for hot-swap bay from device tree info in start.
+	isHotSwap = false;
 	//chipRoot = 0;
 	
     if (super::init(properties) == false)
@@ -205,6 +220,11 @@ AppleK2SATA::probe(IOService* provider,	SInt32*	score)
 bool 
 AppleK2SATA::start(IOService *provider)
 {
+  
+	  static const IOPMPowerState powerStatesK2 [ 2 ] = {
+        { 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+        { 1, IOPMPowerOn, IOPMPowerOn, IOPMPowerOn, 0, 0, 0, 0, 0, 0, 0, 0 }
+    };
 
     DLOG("AppleK2SATA::start() begin\n");
 	
@@ -218,8 +238,17 @@ AppleK2SATA::start(IOService *provider)
 	
 
 	ATADeviceNub* newNub=0L;
- 
- 	// call start on the superclass
+	
+	OSData* removableType = OSDynamicCast( OSData, provider->getProperty( "removable" ) );	
+	// test for hot-swap device type
+	 if( removableType != 0)
+	{
+		isHotSwap = true;
+	}
+	
+	
+	
+	// call start on the superclass
     if (!super::start( provider))
  	{
         DLOG("AppleK2SATA: super::start() failed\n");
@@ -234,43 +263,95 @@ AppleK2SATA::start(IOService *provider)
 		goto failurePath;
 	}
 
-
-    DLOG("AppleK2SATA::start() done\n");
+	if( isHotSwap )
+	{
+	
+		// Show we are awake now:
+		systemIsSleeping = false;
+		pmRootDomain = getPMRootDomain();
+		if (pmRootDomain != 0) {
+			pmRootDomain->registerInterestedDriver(this);
+		}
+	
+		PMinit();
+		// for K2 we are interested in 2 power states for hot-swap bays.
+		registerPowerDriver(this,(IOPMPowerState *)powerStatesK2,2);
+		// shasta will allow partial and slumber later. 
+		
+		joinPMtree(this);
+	}
+    
+	DLOG("AppleK2SATA::start() done\n");
 		
 
 	// the nubs will call in on handleCommand and take a lock seperately for each identifyDevice command that they issue. 
-
-	for( UInt32 i = 0; i < 2; i++)
+	if( !isEmptyBay )
 	{
-		if( _devInfo[i].type != kUnknownATADeviceType )
+		for( UInt32 i = 0; i < 2; i++)
 		{
-		
-			DLOG("AppleK2SATA creating nub\n");
-			newNub = ATADeviceNub::ataDeviceNub( (IOATAController*)this, (ataUnitID) i, _devInfo[i].type );
-		
-			if( newNub )
+			if( _devInfo[i].type != kUnknownATADeviceType )
 			{
-				
-				DLOG("AppleK2SATA attach nub\n");
-				
-				newNub->attach(this);
 			
-				_nub[i] = (IOATADevice*) newNub;
+				DLOG("AppleK2SATA creating nub\n");
+				newNub = ATADeviceNub::ataDeviceNub( (IOATAController*)this, (ataUnitID) i, _devInfo[i].type );
+				if(kATAPIDeviceType == _devInfo[i].type)
+				{
+					OSWriteLittleInt32( SIMRegister, 0, kK2SIM_ATAPI_MASK);
 				
-				DLOG("AppleK2SATA register nub\n");
-
-				newNub->registerService();
-				newNub = 0L;
+				}
+			
+				if( newNub )
+				{
 					
+					DLOG("AppleK2SATA attach nub\n");
+					
+					newNub->attach(this);
+					_nub[i] = (IOATADevice*) newNub;
+					
+					DLOG("AppleK2SATA register nub\n");
+	
+					newNub->registerService();
+					// re-balance the retain count since creating adds a retain, 
+					// then attach adds a retain that is not really needed. 
+					newNub->release();
+
+					newNub = 0L;
+						
+				}
 			}
+		
 		}
+		
+		// arm the SIM register
+		if( isHotSwap )
+				OSWriteLittleInt32( SIMRegister, 0, kK2SIM_REMOVE_MASK);
+
+		
+	} else {
+	
+		// this is for hotswap bays only emptyBay can only be true if it is empty and a hotswap bay
+	
+		DLOG("AppleK2SATA@%1d no device detected\n", busChildNumber);
+		// arm interrupt mask for comwake signal on bit 18
+		OSWriteLittleInt32( SIMRegister, 0, kK2SIM_INSERT_MASK);
 	
 	}
-
+	
+	
+	DLOG("AppleK2SATA@%d, started\n", busChildNumber);
+	
 	return true;
 
 failurePath:
 
+	if( isHotSwap )
+	{			
+		IOLog("AppleK2SATA@%d, hot swap start failed\n", busChildNumber);
+	}
+
+	DLOG("AppleK2SATA@%d, start failed\n", busChildNumber);
+	
+	
 	return false;	
 
 
@@ -308,12 +389,130 @@ AppleK2SATA::free()
 
 }
 
-void 
-AppleK2SATA::getLock(bool lock)
+
+IOReturn 
+AppleK2SATA::setPowerState ( unsigned long powerStateOrdinal, IOService* whatDevice )
 {
+	if( powerStateOrdinal == 0 
+		&& !(isSleeping) )
+	{
+		DLOG("AppleK2SATA@%d, p-ordinal=0 \n", busChildNumber);
+		isSleeping = true;
+		
+	}
+	
 
+	if( powerStateOrdinal == 1
+		&& (isSleeping) )
+	{
+		isSleeping = false;
+	
+		DLOG("AppleK2SATA@%d,  p-ordinal=1 \n", busChildNumber);
+		// time to wake up
+		if( cleanupSystemSleep )
+		{	
+			cleanupSystemSleep = false;
+	
 
+			// check phy status
+			UInt32 sataStat = OSReadLittleInt32( SATAStatus, 0);  
+			DLOG("AppleK2SATA@%d, cleanup system sleep sata status reg = %X\n", busChildNumber, sataStat);	
+			IOSleep(10); // wait 10ms
+			sataStat = OSReadLittleInt32( SATAStatus, 0);
+			DLOG("AppleK2SATA@%d, second cleanup system sleep sata status reg = %X\n", busChildNumber, sataStat);	
+			
+			// if we had a nub prior to sleep and the phy is indicating it is gone
+			// process it as a removal IRQ
+			if(   !(sataStat & 0x00000303)
+				  && ( _nub[0] != 0)  )
+			{
 
+				DLOG("AppleK2SATA@%d, cleanup system sleep device removed = %X\n", busChildNumber);	
+				// treat as a removal
+				handleRemovalIRQ( );
+				return IOPMAckImplied;
+
+			} 
+			
+			if( isEmptyBay && (sataStat & 0x00000303) ) 
+			{
+			
+				DLOG("AppleK2SATA@%d, cleanup system sleep device inserted = %X\n", busChildNumber);	
+				// treat it as an insertion. 
+				handleEmptyBayIRQ();
+				return IOPMAckImplied;					
+			}
+			
+			
+			// nothing changed across system sleep
+			// clear error register
+			OSWriteLittleInt32( SATAError, 0, 0xffffffff);
+			// restore the last SIM value
+			DLOG("AppleK2SATA@%d, cleanup system sleep saved sim reg = %X\n", busChildNumber, savedSIMValue);	
+			
+			if( isEmptyBay )
+			{
+				OSWriteLittleInt32( SIMRegister, 0, kK2SIM_INSERT_MASK);
+				DLOG("AppleK2SATA@%d, cleanup system sleep restoring sim reg = %X\n", busChildNumber, kK2SIM_INSERT_MASK);
+			} else {
+			
+				OSWriteLittleInt32( SIMRegister, 0, kK2SIM_REMOVE_MASK);
+				DLOG("AppleK2SATA@%d, cleanup system sleep restoring sim reg = %X\n", busChildNumber, kK2SIM_REMOVE_MASK);
+			
+			}
+			
+			
+			
+		}
+	}
+	return IOPMAckImplied;
+
+}
+
+IOReturn 
+AppleK2SATA::powerStateWillChangeTo (IOPMPowerFlags theFlags, unsigned long, IOService* whichDevice)
+{
+    if ( ( whichDevice == pmRootDomain) 
+		&& !systemIsSleeping )
+	{
+	
+		if (!(theFlags & IOPMPowerOn) && !(theFlags & IOPMSoftSleep) ) 
+		{
+			DLOG("AppleK2SATA@%d,  entering system sleep \n", busChildNumber);	
+			// time to go to sleep
+			systemIsSleeping = true;
+			savedSIMValue = OSReadLittleInt32( SIMRegister,0);
+			OSWriteLittleInt32( SIMRegister, 0, 0x0);  // mask the SIM register
+		}
+	
+	
+    }
+	
+    return IOPMAckImplied;
+}
+
+IOReturn 
+AppleK2SATA::powerStateDidChangeTo (IOPMPowerFlags theFlags, unsigned long, IOService* whichDevice)
+{
+    if ( (whichDevice == pmRootDomain) 
+		&& systemIsSleeping )
+	{
+
+		if ((theFlags & IOPMPowerOn) || (theFlags & IOPMSoftSleep) ) 
+		{
+			DLOG("AppleK2SATA@%d,  leaving system sleep \n", busChildNumber);	
+			// time to wake up
+			systemIsSleeping = false;
+			
+			//schedule a phy cleanup
+			cleanupSystemSleep = true;
+			// ask PM to wake up our hardware. 
+			changePowerStateTo( 1 );
+		}
+	
+	
+	}
+    return IOPMAckImplied;
 }
 
 /*---------------------------------------------------------------------------
@@ -402,10 +601,37 @@ AppleK2SATA::interruptIsValid( IOFilterInterruptEventSource* )
 	
 	if( ! (intStatus & interruptBitMask ) )  // check this channel for interrupt 
 	{
+		//not this channel
 		return false;
 	}
 
-	return true;
+
+	// The SATA cell requires the register to be read as a 32-bit value
+	// in order to clear the interrupt.	This ends the assertion in the filter.
+	// Reading the status register has been determined to be safe on this hardware
+	// at all times, even with DMA engine bit active. With DMA bit active, the 
+	// taskfile registers may not be written and the data register may not be read from. 
+	// Those operations are all protected by the workloop. 
+	
+	UInt32 clearIntStatus = *StatusWide;
+	OSSynchronizeIO();
+	clearIntStatus++;
+	
+	if( isHotSwap )
+	{
+		// disable the interrupt mask
+		OSWriteLittleInt32( SIMRegister, 0, 0x00000000);
+	
+	}
+
+	
+	// signal the event source and return to false to indicate that we've already 
+	//cleared this assertion and scheduled a thread to run. 
+	
+	_devIntSrc->signalInterrupt();
+	
+
+	return false;
 }
 
 
@@ -420,8 +646,20 @@ IOReturn
 AppleK2SATA::handleDeviceInterrupt(void)
 {	
 
-	//IOTimeStampConstant( KDBG_CODE( DBG_DRIVERS, DBG_DRVDISK, 2), this, 0x45464748, 0 ); 
 
+	//IOTimeStampConstant( KDBG_CODE( DBG_DRIVERS, DBG_DRVDISK, 2), this, 0x45464748, 0 ); 
+	if( isEmptyBay && !systemIsSleeping )
+	{
+	
+		return handleEmptyBayIRQ();	
+	}
+	
+	if( isHotSwap && !systemIsSleeping && handleRemovalIRQ( ) )
+	{
+	
+		return 0;
+	
+	}
 
 	if(_currentCommand == 0 )		
 	{
@@ -430,12 +668,6 @@ AppleK2SATA::handleDeviceInterrupt(void)
 
 	
 
-	// super class normally clears the interrupt request by reading the status reg
-	// however, in this case, the SATA cell requires the register to be read as a 32-bit value
-	// in order to clear the interrupt.	
-	UInt32 clearIntStatus = *StatusWide;
-	OSSynchronizeIO();
-	clearIntStatus++;
 	
 	IOReturn result = super::handleDeviceInterrupt();
 
@@ -491,17 +723,17 @@ AppleK2SATA::handleTimeout( void )
 #ifdef  ATA_DEBUG
 	UInt8* myPCIHeader = ((UInt8*)GInterruptStatus) - 0x80 ;
 #endif	
-	DLOG("AppleK2SATA@%d, timeout occurred\n", busChildNumber);
+	kprintf("AppleK2SATA@%d, timeout occurred\n", busChildNumber);
 	DLOG("AppleK2SATA@%d, PCI Status register %4X\n", busChildNumber, OSReadLittleInt16(myPCIHeader, 0x06) );
 	DLOG("AppleK2SATA@%d, Bus Master Command register %2X\n", busChildNumber, *_bmCommandReg);
-	DLOG("AppleK2SATA@%d, Bus Master status register %2X\n", busChildNumber, *_bmStatusReg);
+	kprintf("AppleK2SATA@%d, Bus Master status register %2X\n", busChildNumber, *_bmStatusReg);
 	DLOG("AppleK2SATA@%d, Bus Master PRD register %4X\n", busChildNumber, OSReadLittleInt32(_bmPRDAddresReg, 0) );
 	DLOG("AppleK2SATA@%d, Sata Status register %X\n", busChildNumber, *SATAStatus);
-	DLOG("AppleK2SATA@%d, Sata Error register %X\n", busChildNumber, *SATAError);
+	kprintf("AppleK2SATA@%d, Sata Error register %X\n", busChildNumber, *SATAError);
 	DLOG("AppleK2SATA@%d, PRD Table physical addr %X\n", busChildNumber, _prdTablePhysical);
 	for (int i = 0; i < 32 ; i++)
 	{
-		DLOG("  PRD %2d  Target phys addr = %8X  count = %4X  flags = %4X\n", 
+		kprintf("  PRD %2d  Target phys addr = %8X  count = %4X  flags = %4X\n", 
 		i,  
 		OSSwapLittleToHostInt32(_prdTable[i].bufferPtr),
 		OSSwapLittleToHostInt16(_prdTable[i].byteCount),
@@ -650,8 +882,14 @@ AppleK2SATA::provideBusInfo( IOATABusInfo* infoOut)
 	infoOut->zeroData();
 	
 
+	if( isHotSwap )
+	{
+		infoOut->setSocketType( kSATABay ); // media-bay
 	
-	infoOut->setSocketType( kInternalSATA ); // internal fixed, media-bay, PC-Card
+	} else {
+	
+		infoOut->setSocketType( kInternalSATA ); // internal fixed	
+	}
 	
 	
 	infoOut->setPIOModes( kATASupportedPIOModes);		
@@ -881,17 +1119,37 @@ AppleK2SATA::issueCommand( void )
 
 	IOReturn result = kIOReturnSuccess;
 
+	UInt16 specialFeature = 0x0000;
+	
+	// special case for Silicon Image bridge chip used with ATAPI device
+	if( (_currentCommand->getFlags() & (mATAFlagProtocolATAPI | mATAFlagUseDMA) ) == (mATAFlagProtocolATAPI | mATAFlagUseDMA) )
+	{
+		if( (_currentCommand->getFlags() & mATAFlagIORead) )
+		{
+			specialFeature = 0x05;
+		
+		} else if ( (_currentCommand->getFlags() & mATAFlagIORead) ) {
+		
+			specialFeature = 0x01;
+		
+		}
+			
+	
+	
+	}
+
 	if( _currentCommand->getFlags() & mATAFlag48BitLBA )
 	{
 		IOExtendedLBA* extLBA = _currentCommand->getExtendedLBA();
 
+
 		OSWriteLittleInt32(_tfSDHReg , 0, extLBA->getDevice());	
-		OSWriteLittleInt32(_tfFeatureReg, 0, extLBA->getFeatures16() );
+		OSWriteLittleInt32(_tfFeatureReg, 0, extLBA->getFeatures16() | specialFeature );
 		OSWriteLittleInt32(_tfSCountReg, 0, extLBA->getSectorCount16() );
 		OSWriteLittleInt32(_tfSectorNReg, 0, extLBA->getLBALow16() );
 		OSWriteLittleInt32(_tfCylLoReg, 0, extLBA->getLBAMid16() );
 		OSWriteLittleInt32(_tfCylHiReg, 0, extLBA->getLBAHigh16() );
-
+		
 
 		OSWriteLittleInt32(_tfStatusCmdReg, 0,   extLBA->getCommand());
 
@@ -899,12 +1157,12 @@ AppleK2SATA::issueCommand( void )
 	} else {
 	
 		ataTaskFile* tfRegs = _currentCommand->getTaskFilePtr();
-	
+		
 	
 		OSWriteLittleInt32(_tfSDHReg, 0, tfRegs->ataTFSDH);
 	
 
-		OSWriteLittleInt32(_tfFeatureReg, 0, tfRegs->ataTFFeatures);
+		OSWriteLittleInt32(_tfFeatureReg, 0, tfRegs->ataTFFeatures | specialFeature);
 		OSWriteLittleInt32(_tfSCountReg, 0, tfRegs->ataTFCount);
 		OSWriteLittleInt32(_tfSectorNReg, 0, tfRegs->ataTFSector);
 		OSWriteLittleInt32(_tfCylLoReg,	0, tfRegs->ataTFCylLo);
@@ -930,72 +1188,7 @@ AppleK2SATA::issueCommand( void )
 
 // removable code
 #pragma mark hot-removal
-IOReturn 
-AppleK2SATA::message (UInt32 type, IOService* provider, void* argument)
-{
 
-	switch( type )
-	{
-		case kATARemovedEvent:
-		DLOG( "AppleK2SATA got remove event.\n");
-		// mark the bus as dead.
-		if(isBusOnline == true)
-		{
-			isBusOnline = false;
-			// lock the queue, don't dispatch immediates or anything else.
-			_queueState = IOATAController::kQueueLocked;
-			// disable the interrupt source(s) and timers
-			_devIntSrc->disable();
-			stopTimer();
-			
-			_workLoop->removeEventSource(_devIntSrc);
-			_workLoop->removeEventSource(_timer);
-			
-			getLock(true);
-			stopDMA();
-			
-			
-			// flush any commands in the queue
-			handleQueueFlush();
-			
-			// if there's a command active then call through the command gate
-			// and clean it up from inside the workloop.
-			// 
-
-			if( _currentCommand != 0)
-			{
-			
-				DLOG( "AppleK2SATA Calling cleanup bus.\n");
-				
-					_cmdGate->runAction( (IOCommandGate::Action) 
-						&AppleK2SATA::cleanUpAction,
-            			0, 			// arg 0
-            			0, 		// arg 1
-            			0, 0);						// arg2 arg 3
-
-			
-			
-			}
-			_workLoop->removeEventSource(_cmdGate);
-			
-			getLock(false);
-			
-			
-			DLOG( "AppleK2SATA notify the clients.\n");			
-			terminate( );
-		}
-		break;
-		
-		default:		
-		DLOG( "AppleK2SATA got some other event = %d\n", (int) type);
-		return super::message(type, provider, argument);
-		break;
-	}
-
-
-	return kATANoErr;
-
-}
 
 /*---------------------------------------------------------------------------
  *
@@ -1093,11 +1286,9 @@ AppleK2SATA::handleCommand(	void*	param0,     /* the command */
 		return kIOReturnOffline;
 	}
 
-	getLock(true);
 	
 	IOReturn result = super::handleCommand( param0, param1, param2, param3 );
 
-	getLock( false );
 	
 	return result;
 }
@@ -1136,6 +1327,7 @@ AppleK2SATA::scanForDrives( void )
 {
 	UInt32 sataStat = OSReadLittleInt32( SATAStatus, 0);
 	UInt32 devicesFound = 0;
+	isEmptyBay = false;
 	
 	// examine the DET bits 
 	switch( (sataStat & 0x00000007) )
@@ -1143,10 +1335,18 @@ AppleK2SATA::scanForDrives( void )
 	
 		case 0:
 			DLOG("AppleK2SATA@%1d no device detected\n", busChildNumber);
+			if( isHotSwap )
+			{			
+				isEmptyBay = true;
+			}
 		break;
 
 		case 1:
 			DLOG("AppleK2SATA@%1d device detected, but phy not ready\n", busChildNumber);
+			if( isHotSwap )
+			{			
+				isEmptyBay = true;
+			}
 		break;
 		
 		case 3:
@@ -1156,6 +1356,10 @@ AppleK2SATA::scanForDrives( void )
 		
 		default:
 			DLOG("AppleK2SATA@%1d Phy disabled or reserved bits set, %X\n", busChildNumber, sataStat);
+			if( isHotSwap )
+			{			
+				isEmptyBay = true;
+			}
 		break;
 	}
 
@@ -1167,7 +1371,47 @@ AppleK2SATA::scanForDrives( void )
 		OSWriteLittleInt32(_tfAltSDevCReg, 0, 0);
 		IOSleep(100);
 		
-		return super::scanForDrives();
+		if( super::scanForDrives() )
+		{
+			// always return 1 for this type of controller if a device is positively identified.
+			return 1;
+		
+		}
+		
+
+
+		// it is possible that the phy detected a device present, however the drive itself 
+		// is not setting the correct status after being reset and may not be functioning. In this case, the bay needs to be retained
+		// for hot-plugging operation so that the degraded drive can be replaced.
+		
+		// log it in the system log
+		IOLog("AppleK2SATA@%1d phy detected but drive not in ready state\n", busChildNumber);
+		IOLog("AppleK2SATA@%1d drive status: CL=%2x, CH=%2x, SC=%2x, SN=%2x, AltStat=%2x\n", 
+		busChildNumber,
+		*_tfCylLoReg,
+		*_tfCylHiReg,
+		*_tfSCountReg,
+		*_tfSectorNReg,
+		*_tfAltSDevCReg);
+
+		// if this is not a hot-swap bay, return 0 indicating the drive is offline.
+		if( !isHotSwap )
+		{
+			return 0;
+		}
+		
+		
+		//for hot-swap bays, mark the bay as empty so that it remains ready for a new drive to be inserted.
+		isEmptyBay = true;
+				
+	}
+
+	if( isEmptyBay )
+	{
+		// leave the sata link open, report that we have 1 device.
+		isBusOnline = false;
+		DLOG("AppleK2SATA@%1d empty port retained \n", busChildNumber);
+		return 1;
 	}
 
 	OSWriteLittleInt32( SATAControl, 0, 0x3); // disable SATA port if no devices present.
@@ -1185,6 +1429,15 @@ IOReturn
 AppleK2SATA::selectDevice( ataUnitID unit )
 {
 	UInt32 msLoops = _currentCommand->getTimeoutMS()/10;	
+	
+	if( msLoops > 3000 )
+	{
+	
+		msLoops = 3000;
+//		_currentCommand->setTimeoutMS(30000);
+	
+	}
+
 
 	// do a reality check
 	if( ! (kATADevice0DeviceID == unit)  )
@@ -1824,13 +2077,15 @@ AppleK2SATA::createChannelCommands(void)
 				       					
 			xferDataPtr = (UInt8*) physSegment.location;
 			xferCount = physSegment.length;
-			
-			if( ((UInt32) xferDataPtr & 0x03) || (xferCount & 0x01))
+	
+			if( (UInt32)xferDataPtr & 0x01)
 			{
-				kprintf("AppleK2SATA@%d, target DMA address is at bad alignment = %X xferCount  = %X.\n", busChildNumber, xferDataPtr, xferCount);
-				return kIOReturnNotAligned;			
-			}
-			
+				kprintf("AppleK2SATA@%d, target DMA address is odd addr = %X xferCount  = %X.\n", busChildNumber, xferDataPtr, xferCount);
+				kprintf("AppleK2SATA@%d, transfer command xfer length is 0x%X \n",  busChildNumber, _currentCommand->getByteCount() );
+				return kIOReturnNotAligned;
+			}  
+
+
 			// update the bytes remaining after this pass
 			bytesRemaining -= xferCount;
 			xfrPosition += xferCount;
@@ -1846,11 +2101,18 @@ AppleK2SATA::createChannelCommands(void)
 			// single span.
 			while( xferCount > 0 )
 			{
-				if (ptr2EndData > next64KBlock)
+				if ( false ) //ptr2EndData > next64KBlock)
 				{
 					count2Next64KBlock = next64KBlock - xferDataPtr;
 					if (index < kATAMaxDMADesc)
 					{
+						if( (UInt32) xferDataPtr & 0x01)
+						{
+							kprintf("AppleK2SATA@%d, 64k boundary crossed target DMA address is odd addr = %X bytes remaining = %X.\n", busChildNumber, xferDataPtr,bytesRemaining);
+							kprintf("AppleK2SATA@%d, PRD chain index %ld \n", busChildNumber, index);
+							kprintf("AppleK2SATA@%d, set PRD ptr=0x%X count d = %d  continue flag\n", busChildNumber, xferDataPtr, (UInt16)count2Next64KBlock);
+						}  
+						    
 						setPRD(xferDataPtr, (UInt16)count2Next64KBlock, &_prdTable[index], kContinue_PRD);
 						xferDataPtr = next64KBlock;
 						next64KBlock += 0x10000;
@@ -1859,7 +2121,7 @@ AppleK2SATA::createChannelCommands(void)
 					
 					} else {
 					
-						DLOG("AppleK2SATA@%d, dma too big, PRD table exhausted A.\n", busChildNumber);
+						kprintf("AppleK2SATA@%d, 64k boundary crossed, dma too big, PRD table exhausted A.\n", busChildNumber);
 						_dmaState = kATADMAError;
 						return -1;
 					}
@@ -1868,13 +2130,19 @@ AppleK2SATA::createChannelCommands(void)
 				
 					if (index < kATAMaxDMADesc)
 					{
+						if( ((UInt32) xferDataPtr & 0x01) || (xferCount & 0x01))
+						{
+							kprintf("AppleK2SATA@%d, target DMA address is odd addr = %X bytes remaining = %X.\n", busChildNumber, xferDataPtr, bytesRemaining);
+							kprintf("AppleK2SATA@%d, PRD chain index %ld \n", busChildNumber, index);
+							kprintf("AppleK2SATA@%d, set PRD ptr=0x%X count d = %d  flag by bytes remaining\n", busChildNumber, xferDataPtr, xferCount);
+						}  
 						setPRD(xferDataPtr, (UInt16) xferCount, &_prdTable[index], (bytesRemaining == 0) ? kLast_PRD : kContinue_PRD);
 						xferCount = 0;
 						index++;
 
 					} else {
 					
-						DLOG("AppleK2SATA@%d, dma too big, PRD table exhausted B.\n", busChildNumber);
+						kprintf("AppleK2SATA@%d, dma too big, PRD table exhausted B.\n", busChildNumber);
 						_dmaState = kATADMAError;
 						return -1;
 					}
@@ -1904,7 +2172,7 @@ AppleK2SATA::ATAPISlaveExists( void )
 	
 }
 
-
+//#define DLOG(fmt, args...)  IOLog(fmt, ## args)
 
 IOReturn
 AppleK2SATA::writePacket( void )
@@ -1977,14 +2245,213 @@ AppleK2SATA::writePacket( void )
 		packetData++;	
 	}
 
-	DLOG("AppleK2SATA@%d, writePacket packet data complete\n", busChildNumber);
+	UInt8 curStat = *_tfAltSDevCReg;
+
+
+
+	DLOG("AppleK2SATA@%d, writePacket packet data complete. status = %X\n", busChildNumber, curStat);
 
 	if( _currentCommand->getFlags() & (mATAFlagUseDMA) )
 	{
-			DLOG("AppleK2SATA@%d, writePacket activate DMA engine\n", busChildNumber);	
+		
+		while(!waitForU8Status( (mATADataRequest), 0) )
+		{
+			curStat = *_tfAltSDevCReg;
+			DLOG("AppleK2SATA@%d, waiting for not DRQ after packet status = %x \n", busChildNumber, curStat);
+			;
+		}
+			
+			 curStat = *_tfAltSDevCReg;
+			DLOG("AppleK2SATA@%d, writePacket activate DMA engine. status = %X\n", busChildNumber, curStat);	
 			activateDMAEngine();
 	}
 	return  kATANoErr ;
 
 }
 
+// we got an interrupt with the empty device bay flag set.
+// this is probably a hot-plug event which we proces here. 
+IOReturn 
+AppleK2SATA::handleEmptyBayIRQ( void )
+{
+
+
+	// verify the interrupt
+	OSWriteLittleInt32( SIMRegister, 0, 0x0);  // mask the simregister to disarm interrupts
+#ifdef ATA_DEBUG
+	UInt32 errorBits = OSReadLittleInt32( SATAError, 0 );
+#endif
+	DLOG("AppleK2SATA@%d, EmptyBay IRQ sata err reg = %X\n", busChildNumber, errorBits);	
+  	
+	// clear error register
+	OSWriteLittleInt32( SATAError, 0, 0xffffffff);
+	
+	// reset the phy
+	OSWriteLittleInt32( SATAControl, 0, 00000301);
+	IODelay(100);
+	// reset the phy
+	OSWriteLittleInt32( SATAControl, 0, 00000300);
+	
+	// wait for phy ready
+	SInt32 breakLoop = 1000;
+	UInt32 sataStat = OSReadLittleInt32( SATAStatus, 0);  
+	
+	while( breakLoop )
+	{
+	
+	
+		if( (sataStat & 3) == 3 ) 
+			break;
+			
+		breakLoop --;	
+		IOSleep(10);
+		sataStat = OSReadLittleInt32( SATAStatus, 0); 
+	};
+  
+	if(breakLoop == 0)
+	{
+		DLOG("AppleK2SATA@%d, EmptyBay IRQ Phy timeout sata status = %X\n", busChildNumber, sataStat);	
+		// arm interrupt mask for comwake signal on bit 18
+		OSWriteLittleInt32( SIMRegister, 0, kK2SIM_INSERT_MASK);
+		
+		return -1;		
+	}
+		
+  // scan the device type
+  
+  // presume ATA for now. 
+  
+  _devInfo[0].type = kATADeviceType;
+  
+  // bring bus online
+	isEmptyBay = false;
+	isBusOnline = true;
+  
+	DLOG("AppleK2SATA@%d, EmptyBay IRQ creating thread.\n", busChildNumber);	
+	IOCreateThread( (IOThreadFunc) &createNubsThread, this);
+	DLOG("AppleK2SATA@%d, EmptyBay IRQ creating thread done.\n", busChildNumber);	
+    
+
+	return kATANoErr;
+
+}
+
+
+
+IOReturn 
+AppleK2SATA::handleRemovalIRQ( void )
+{
+	// verify the interrupt
+	UInt32 errorBits = OSReadLittleInt32( SATAError, 0 );
+
+	
+	if( (errorBits & kK2SIM_REMOVE_MASK) )
+	{
+		stopDMA();
+		// disable the interrupt mask
+		OSWriteLittleInt32( SIMRegister, 0, 0x00000000);
+		DLOG("AppleK2SATA@%d, handleRemovalIRQ sata err reg = %X\n", busChildNumber, errorBits);
+		// clear the error bits
+		OSWriteLittleInt32( SATAError, 0, 0xffffffff);
+		
+		UInt32 sataStat = OSReadLittleInt32( SATAStatus, 0);  
+		DLOG("AppleK2SATA@%d, handleRemovalIRQ sata status reg = %X\n", busChildNumber, sataStat);	
+		IOSleep(10); // wait 10ms
+		sataStat = OSReadLittleInt32( SATAStatus, 0);
+
+		if( sataStat & 0x00000303 )
+		{
+			DLOG("AppleK2SATA@%d, handleRemovalIRQ drive still attached sata status reg = %X\n", busChildNumber, sataStat);
+				// arm the PhyRdy interrupt to look for a disconnect
+			OSWriteLittleInt32( SIMRegister, 0, kK2SIM_REMOVE_MASK);
+			return kATANoErr;
+		}
+		
+			
+		isBusOnline = false;
+		
+		handleQueueFlush();
+		cleanUpBus();
+		if( _nub[0])
+		{	
+			_nub[0]->terminate();
+			_nub[0] = 0;
+		}
+		isEmptyBay = true;
+		
+		// reset the phy
+		//OSWriteLittleInt32( SATAControl, 0, 00000301);
+		IOSleep(10); // wait 10ms
+		// clear the error bits
+		OSWriteLittleInt32( SATAError, 0, 0xffffffff);
+	
+	
+		IOLog("AppleK2SATA@%1d device removed\n", busChildNumber);
+		// arm interrupt mask for comwake signal on bit 18
+		OSWriteLittleInt32( SIMRegister, 0, kK2SIM_INSERT_MASK);
+		
+		return -1;
+
+	}
+	
+	// arm the PhyRdy interrupt to look for a disconnect
+	OSWriteLittleInt32( SIMRegister, 0, kK2SIM_REMOVE_MASK);
+	return kATANoErr;
+}
+
+
+
+void 
+AppleK2SATA::createNubsThread( void* param )
+{
+	AppleK2SATA* self = (AppleK2SATA*) param;
+	self->createNubs();
+	IOExitThread();
+	
+}
+
+void 
+AppleK2SATA::createNubs( void )
+{
+  // publish nubs as required
+	DLOG("AppleK2SATA@%d creating nub\n", busChildNumber);
+	
+	ATADeviceNub* newNub = ATADeviceNub::ataDeviceNub( (IOATAController*)this, (ataUnitID) 0, _devInfo[0].type );
+	if(kATAPIDeviceType == _devInfo[0].type)
+	{	
+		// set the ATAPI mode bit
+		OSWriteLittleInt32( SIMRegister, 0, 0x20000000);
+
+	}
+	
+	// clear the error bits
+	OSWriteLittleInt32( SATAError, 0, 0xffffffff);
+	
+	// arm the PhyRdy interrupt to look for a disconnect
+	OSWriteLittleInt32( SIMRegister, 0, kK2SIM_REMOVE_MASK);
+	
+	
+	if( newNub )
+	{
+		
+		DLOG("AppleK2SATA@%d attach nub\n", busChildNumber);
+		
+		newNub->attach(this);
+	
+		_nub[0] = (IOATADevice*) newNub;
+		
+		IOLog("AppleK2SATA@%d drive inserted\n", busChildNumber);
+	
+		newNub->registerService();
+		// re-balance the retain count since creating adds a retain, 
+		// then attach adds a retain that is not really needed. 
+		newNub->release();
+		newNub = 0L;
+			
+	} else {
+	
+		DLOG("AppleK2SATA@%d, EmptyBay IRQ failed to create nub.", busChildNumber);	
+	
+	}
+
+}

@@ -8,22 +8,17 @@ package org.jboss.mq.server;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Hashtable;
 import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.TreeSet;
 import java.util.TreeMap;
 
-import javax.jms.Destination;
 import javax.jms.JMSException;
 
+import org.jboss.mq.DestinationFullException;
 import org.jboss.mq.DurableSubscriptionID;
 import org.jboss.mq.SpyDestination;
 import org.jboss.mq.SpyMessage;
 import org.jboss.mq.SpyTopic;
 import org.jboss.mq.Subscription;
-import org.jboss.mq.pm.Tx;
-import org.jboss.mq.selectors.Selector;
 
 /**
  *  This class is a message queue which is stored (hashed by Destination) on the
@@ -33,51 +28,64 @@ import org.jboss.mq.selectors.Selector;
  * @author     Hiram Chirino (Cojonudo14@hotmail.com)
  * @author     David Maplesden (David.Maplesden@orion.co.nz)
  * @created    August 16, 2001
- * @version    $Revision: 1.17.2.7 $
+ * @version    $Revision: 1.17.2.9 $
  */
-public class JMSTopic extends JMSDestination {
+public class JMSTopic extends JMSDestination
+{
 
    //Hashmap of ExclusiveQueues
    HashMap durQueues = new HashMap();
    HashMap tempQueues = new HashMap();
 
    // Constructor ---------------------------------------------------
-   public JMSTopic(SpyDestination dest, ClientConsumer temporary, JMSDestinationManager server) throws JMSException {
-      super(dest, temporary, server);
+   public JMSTopic(SpyDestination dest, ClientConsumer temporary, JMSDestinationManager server, BasicQueueParameters parameters) throws JMSException
+   {
+      super(dest, temporary, server, parameters);
    }
 
-   public void clientConsumerStopped(ClientConsumer clientConsumer) {
-      synchronized (durQueues) {
+   public void clientConsumerStopped(ClientConsumer clientConsumer)
+   {
+      synchronized (durQueues)
+      {
          Iterator iter = durQueues.values().iterator();
-         while (iter.hasNext()) {
+         while (iter.hasNext())
+         {
             ((BasicQueue) iter.next()).clientConsumerStopped(clientConsumer);
          }
       }
-      synchronized (tempQueues) {
+      synchronized (tempQueues)
+      {
          Iterator iter = tempQueues.values().iterator();
-         while (iter.hasNext()) {
+         while (iter.hasNext())
+         {
             ((BasicQueue) iter.next()).clientConsumerStopped(clientConsumer);
          }
       }
    }
 
-   public void addSubscriber(Subscription sub) throws JMSException {
+   public void addSubscriber(Subscription sub) throws JMSException
+   {
       SpyTopic topic = (SpyTopic) sub.destination;
       DurableSubscriptionID id = topic.getDurableSubscriptionID();
 
-      if (id == null) {
+      if (id == null)
+      {
          // create queue
-         ExclusiveQueue q = new ExclusiveQueue(server, destination, sub);
-         
+         ExclusiveQueue q = new ExclusiveQueue(server, destination, sub, parameters);
+
          // create topic queue message counter
-         q.createMessageCounter( destination.getName(), null, true, false, -1 );
-         
-         synchronized (tempQueues) {
+         q.createMessageCounter(destination.getName(), null, true, false, -1);
+
+         synchronized (tempQueues)
+         {
             tempQueues.put(sub, q);
          }
-      } else {
+      }
+      else
+      {
          PersistentQueue q = null;
-         synchronized (durQueues) {
+         synchronized (durQueues)
+         {
             q = (PersistentQueue) durQueues.get(id);
          }
 
@@ -89,14 +97,13 @@ public class JMSTopic extends JMSDestination {
             String oldSelector = null;
             if (q instanceof SelectorPersistentQueue)
                oldSelector = ((SelectorPersistentQueue) q).selectorString;
-            if ((newSelector == null && oldSelector != null) ||
-               (newSelector != null && newSelector.equals(oldSelector) == false))
+            if ((newSelector == null && oldSelector != null)
+               || (newSelector != null && newSelector.equals(oldSelector) == false))
                selectorChanged = true;
          }
 
          if (q == null || //Brand new durable subscriber
-            !q.destination.equals(topic) 
-            || selectorChanged)
+         !q.destination.equals(topic) || selectorChanged)
          {
             //subscription changed to new topic
             server.getStateManager().setDurableSubscription(server, id, topic);
@@ -104,31 +111,39 @@ public class JMSTopic extends JMSDestination {
       }
    }
 
-   public void removeSubscriber(Subscription sub) throws JMSException {
+   public void removeSubscriber(Subscription sub) throws JMSException
+   {
       BasicQueue queue = null;
       SpyTopic topic = (SpyTopic) sub.destination;
       DurableSubscriptionID id = topic.getDurableSubscriptionID();
-      if (id == null) {
-         synchronized (tempQueues) {
+      if (id == null)
+      {
+         synchronized (tempQueues)
+         {
             queue = (BasicQueue) tempQueues.get(sub);
          }
-      } else {
-         synchronized (durQueues) {
+      }
+      else
+      {
+         synchronized (durQueues)
+         {
             queue = (BasicQueue) durQueues.get(id);
             //note DON'T remove
          }
       }
       // The queue may be null if the durable subscription
       // is destroyed before the consumer is unsubscribed!
-      if (queue == null) {
-         (( ClientConsumer )sub.clientConsumer ).removeRemovedSubscription( sub.subscriptionId );
-      } else {
+      if (queue == null)
+      {
+         ((ClientConsumer) sub.clientConsumer).removeRemovedSubscription(sub.subscriptionId);
+      }
+      else
+      {
          queue.removeSubscriber(sub);
       }
    }
 
-   public void nackMessages(Subscription sub)
-      throws JMSException
+   public void nackMessages(Subscription sub) throws JMSException
    {
       BasicQueue queue = null;
       SpyTopic topic = (SpyTopic) sub.destination;
@@ -153,9 +168,11 @@ public class JMSTopic extends JMSDestination {
       }
    }
 
-   void cleanupSubscription(Subscription sub) {
+   void cleanupSubscription(Subscription sub)
+   {
       //just try to remove from tempQueues, don't worry if its not there
-      synchronized (tempQueues) {
+      synchronized (tempQueues)
+      {
          BasicQueue queue = (BasicQueue) tempQueues.remove(sub);
          try
          {
@@ -169,53 +186,72 @@ public class JMSTopic extends JMSDestination {
       }
    }
 
-   public void addReceiver(Subscription sub) {
+   public void addReceiver(Subscription sub)
+   {
       getQueue(sub).addReceiver(sub);
    }
 
-   public void removeReceiver(Subscription sub) {
+   public void removeReceiver(Subscription sub)
+   {
       getQueue(sub).removeReceiver(sub);
    }
 
-   public void restoreMessage(MessageReference messageRef) {
-      try {
+   public void restoreMessage(MessageReference messageRef)
+   {
+      try
+      {
          SpyMessage spyMessage = messageRef.getMessage();
-         synchronized (this) {
+         synchronized (this)
+         {
             messageIdCounter = Math.max(messageIdCounter, spyMessage.header.messageId + 1);
          }
-         if (spyMessage.header.durableSubscriberID == null) {
+         if (spyMessage.header.durableSubscriberID == null)
+         {
             cat.debug("Trying to restore message with null durableSubscriberID");
-         } else {
+         }
+         else
+         {
             BasicQueue queue = ((BasicQueue) durQueues.get(spyMessage.header.durableSubscriberID));
             messageRef.queue = queue;
             queue.restoreMessage(messageRef);
          }
-      } catch (JMSException e) {
+      }
+      catch (JMSException e)
+      {
          cat.error("Could not restore message:", e);
       }
    }
 
-   public void restoreMessage(SpyMessage message) {
-      try {
-         synchronized (this) {
+   public void restoreMessage(SpyMessage message)
+   {
+      try
+      {
+         synchronized (this)
+         {
             messageIdCounter = Math.max(messageIdCounter, message.header.messageId + 1);
          }
-         if (message.header.durableSubscriberID == null) {
+         if (message.header.durableSubscriberID == null)
+         {
             cat.debug("Trying to restore message with null durableSubscriberID");
-         } else
+         }
+         else
          {
             BasicQueue queue = (BasicQueue) durQueues.get(message.header.durableSubscriberID);
             MessageReference messageRef = server.getMessageCache().add(message, queue, MessageReference.STORED);
             queue.restoreMessage(messageRef);
          }
-      } catch (JMSException e) {
+      }
+      catch (JMSException e)
+      {
          cat.error("Could not restore message:", e);
       }
    }
-   
+
    //called by state manager when a durable sub is created
-   public void createDurableSubscription(DurableSubscriptionID id) throws JMSException {
-      if (temporaryDestination != null) {
+   public void createDurableSubscription(DurableSubscriptionID id) throws JMSException
+   {
+      if (temporaryDestination != null)
+      {
          throw new JMSException("Not a valid operation on a temporary topic");
       }
 
@@ -223,63 +259,80 @@ public class JMSTopic extends JMSDestination {
 
       // Create a 
       BasicQueue queue;
-      if( id.getSelector() == null ) {
-      	queue = new PersistentQueue(server, dstopic);
-      } else {
-         queue = new SelectorPersistentQueue(server, dstopic, id.getSelector());
+      if (id.getSelector() == null)
+      {
+         queue = new PersistentQueue(server, dstopic, parameters);
       }
-      
+      else
+      {
+         queue = new SelectorPersistentQueue(server, dstopic, id.getSelector(), parameters);
+      }
+
       // create topic queue message counter
-      queue.createMessageCounter( destination.getName(), id.toString(), true, true, -1 );
-      
-      synchronized (durQueues) {
+      queue.createMessageCounter(destination.getName(), id.toString(), true, true, -1);
+
+      synchronized (durQueues)
+      {
          durQueues.put(id, queue);
       }
       server.getPersistenceManager().restoreQueue(this, dstopic);
    }
-   
+
    //called by JMSServer when a destination is being closed.
-   public void close() throws JMSException {
-      if (temporaryDestination != null) {
+   public void close() throws JMSException
+   {
+      if (temporaryDestination != null)
+      {
          throw new JMSException("Not a valid operation on a temporary topic");
       }
 
-      synchronized (durQueues) {
+      synchronized (durQueues)
+      {
          Iterator i = durQueues.values().iterator();
-         while( i.hasNext() ) {
-            PersistentQueue queue = (PersistentQueue)i.next();
+         while (i.hasNext())
+         {
+            PersistentQueue queue = (PersistentQueue) i.next();
             server.getPersistenceManager().closeQueue(this, queue.getSpyDestination());
          }
       }
    }
-   
 
    //called by state manager when a durable sub is deleted
-   public void destroyDurableSubscription(DurableSubscriptionID id) throws JMSException {
+   public void destroyDurableSubscription(DurableSubscriptionID id) throws JMSException
+   {
       BasicQueue queue;
-      synchronized (durQueues) {
+      synchronized (durQueues)
+      {
          queue = (BasicQueue) durQueues.remove(id);
       }
       queue.removeAllMessages();
    }
 
-   public SpyMessage receive(Subscription sub, boolean wait) throws javax.jms.JMSException {
+   public SpyMessage receive(Subscription sub, boolean wait) throws javax.jms.JMSException
+   {
       return getQueue(sub).receive(sub, wait);
    }
 
-   public void acknowledge(org.jboss.mq.AcknowledgementRequest req, Subscription sub, org.jboss.mq.pm.Tx txId) throws JMSException {
+   public void acknowledge(org.jboss.mq.AcknowledgementRequest req, Subscription sub, org.jboss.mq.pm.Tx txId)
+      throws JMSException
+   {
       getQueue(sub).acknowledge(req, txId);
    }
 
-   public void addMessage(SpyMessage message, org.jboss.mq.pm.Tx txId) throws JMSException {
+   public void addMessage(SpyMessage message, org.jboss.mq.pm.Tx txId) throws JMSException
+   {
+      StringBuffer errorMessage = null;
 
       //Number the message so that we can preserve order of delivery.
       long messageId = 0;
-      synchronized (this) {
+      synchronized (this)
+      {
          messageId = messageIdCounter++;
-         synchronized (durQueues) {
+         synchronized (durQueues)
+         {
             Iterator iter = durQueues.keySet().iterator();
-            while (iter.hasNext()) {
+            while (iter.hasNext())
+            {
                DurableSubscriptionID id = (DurableSubscriptionID) iter.next();
                PersistentQueue q = (PersistentQueue) durQueues.get(id);
                SpyMessage clone = message.myClone();
@@ -287,20 +340,44 @@ public class JMSTopic extends JMSDestination {
                clone.header.messageId = messageId;
                clone.setJMSDestination(q.getSpyDestination());
                MessageReference ref = server.getMessageCache().add(clone, q, MessageReference.NOT_STORED);
-               q.addMessage(ref, txId);
+               try
+               {
+                  q.addMessage(ref, txId);
+               }
+               catch (DestinationFullException e)
+               {
+                  if (errorMessage == null)
+                     errorMessage = new StringBuffer(e.getText());
+                  else
+                     errorMessage.append(", ").append(e.getText());
+               }
             }
          }
-         synchronized (tempQueues) {
+         synchronized (tempQueues)
+         {
             Iterator iter = tempQueues.values().iterator();
-            while (iter.hasNext()) {
+            while (iter.hasNext())
+            {
                BasicQueue q = (BasicQueue) iter.next();
                SpyMessage clone = message.myClone();
                clone.header.messageId = messageId;
                MessageReference ref = server.getMessageCache().add(clone, q, MessageReference.NOT_STORED);
-               q.addMessage(ref, txId);
+               try
+               {
+                  q.addMessage(ref, txId);
+               }
+               catch (DestinationFullException e)
+               {
+                  if (errorMessage == null)
+                     errorMessage = new StringBuffer(e.getText());
+                  else
+                     errorMessage.append(", ").append(e.getText());
+               }
             }
          }
       }
+      if (errorMessage != null)
+         throw new DestinationFullException(errorMessage.toString());
    }
 
    public int getAllMessageCount()
@@ -382,24 +459,31 @@ public class JMSTopic extends JMSDestination {
    }
 
    // Package protected ---------------------------------------------
-   PersistentQueue getDurableSubscription(DurableSubscriptionID id) {
-      synchronized (durQueues) {
+   PersistentQueue getDurableSubscription(DurableSubscriptionID id)
+   {
+      synchronized (durQueues)
+      {
          return (PersistentQueue) durQueues.get(id);
       }
    }
 
-   private BasicQueue getQueue(Subscription sub) {
+   private BasicQueue getQueue(Subscription sub)
+   {
       SpyTopic topic = (SpyTopic) sub.destination;
       DurableSubscriptionID id = topic.getDurableSubscriptionID();
-      if (id != null) {
+      if (id != null)
+      {
          return getDurableSubscription(id);
-      } else {
-         synchronized (tempQueues) {
+      }
+      else
+      {
+         synchronized (tempQueues)
+         {
             return (BasicQueue) tempQueues.get(sub);
          }
       }
    }
-   
+
    /*
     * @see JMSDestination#isInUse()
     */
@@ -421,10 +505,12 @@ public class JMSTopic extends JMSDestination {
     */
    public void removeAllMessages() throws JMSException
    {
-      synchronized (durQueues) {
+      synchronized (durQueues)
+      {
          Iterator i = durQueues.values().iterator();
-         while( i.hasNext() ) {
-            PersistentQueue queue = (PersistentQueue)i.next();
+         while (i.hasNext())
+         {
+            PersistentQueue queue = (PersistentQueue) i.next();
             queue.removeAllMessages();
          }
       }
@@ -446,48 +532,46 @@ public class JMSTopic extends JMSDestination {
     * 
     * @return MessageCounter[]  topic queue message counter array
     */
-   public MessageCounter[]  getMessageCounter()
+   public MessageCounter[] getMessageCounter()
    {
-      TreeMap  map = new TreeMap();
-      
-      synchronized( durQueues )
+      TreeMap map = new TreeMap();
+
+      synchronized (durQueues)
       {
          Iterator i = durQueues.values().iterator();
-            
-         while( i.hasNext() )
+
+         while (i.hasNext())
          {
-            BasicQueue     queue   = (BasicQueue) i.next();
+            BasicQueue queue = (BasicQueue) i.next();
             MessageCounter counter = queue.getMessageCounter();
-            
-            if( counter != null )
+
+            if (counter != null)
             {
-               String key = counter.getDestinationName() + 
-                            counter.getDestinationSubscription();
-                            
-               map.put( key, counter );
+               String key = counter.getDestinationName() + counter.getDestinationSubscription();
+
+               map.put(key, counter);
             }
          }
       }
-      
-      synchronized( tempQueues )
+
+      synchronized (tempQueues)
       {
          Iterator i = tempQueues.values().iterator();
-            
-         while( i.hasNext() )
+
+         while (i.hasNext())
          {
-            BasicQueue     queue   = (BasicQueue) i.next();
+            BasicQueue queue = (BasicQueue) i.next();
             MessageCounter counter = queue.getMessageCounter();
-            
-            if( counter != null )
+
+            if (counter != null)
             {
-               String key = counter.getDestinationName() + 
-                            counter.getDestinationSubscription();
-                            
-               map.put( key, counter );
+               String key = counter.getDestinationName() + counter.getDestinationSubscription();
+
+               map.put(key, counter);
             }
          }
       }
-      
-      return (MessageCounter[]) map.values().toArray( new MessageCounter[0] );
+
+      return (MessageCounter[]) map.values().toArray(new MessageCounter[0]);
    }
 }

@@ -10,26 +10,25 @@
 package org.jboss.iiop;
 
 import java.io.InputStream;
-import java.util.Properties;
 import java.util.Hashtable;
+import java.util.Properties;
 
-import javax.management.ObjectName;
 import javax.naming.Context;
 import javax.naming.InitialContext;
 import javax.naming.Name;
 import javax.naming.Reference;
 import javax.naming.spi.ObjectFactory;
 
+import org.jboss.system.ServiceMBeanSupport;
+import org.jboss.system.server.ServerConfigUtil;
 import org.omg.CORBA.ORB;
 import org.omg.CORBA.Policy;
-import org.omg.PortableServer.POA;
-import org.omg.PortableServer.POAHelper;
-import org.omg.PortableServer.LifespanPolicy;
-import org.omg.PortableServer.LifespanPolicyValue;
 import org.omg.PortableServer.IdAssignmentPolicy;
 import org.omg.PortableServer.IdAssignmentPolicyValue;
-
-import org.jboss.system.ServiceMBeanSupport;
+import org.omg.PortableServer.LifespanPolicy;
+import org.omg.PortableServer.LifespanPolicyValue;
+import org.omg.PortableServer.POA;
+import org.omg.PortableServer.POAHelper;
 
 /**
  *  This is a JMX service that provides the default CORBA ORB
@@ -37,7 +36,7 @@ import org.jboss.system.ServiceMBeanSupport;
  *      
  *  @author <a href="mailto:osh@sparre.dk">Ole Husgaard</a>
  *  @author <a href="mailto:reverbel@ime.usp.br">Francisco Reverbel</a>
- *  @version $Revision: 1.20.2.3 $
+ *  @version $Revision: 1.20.2.5 $
  */
 public class CorbaORBService
       extends ServiceMBeanSupport
@@ -75,6 +74,12 @@ public class CorbaORBService
       ClassLoader cl = Thread.currentThread().getContextClassLoader();
       InputStream is = cl.getResourceAsStream(orbPropertiesFileName);
       props.load(is);
+      String oaiAddr = props.getProperty("OAIAddr");
+      if (oaiAddr == null)
+         oaiAddr = ServerConfigUtil.getSpecificBindAddress();
+      if (oaiAddr != null)
+         props.setProperty("OAIAddr", oaiAddr);
+      log.info("Using OAIAddr=" + oaiAddr);
 
       // Initialize the ORB
       Properties systemProps = System.getProperties();

@@ -29,13 +29,14 @@ import org.jboss.test.util.ejb.SessionSupport;
 /** The stateful session ejb implementation
  *
  *   @author Scott.Stark@jboss.org
- *   @version $Revision: 1.17.2.1 $
+ *   @version $Revision: 1.17.2.4 $
  */
 public class StatefulSessionBean
    extends SessionSupport
    implements SessionSynchronization
 {
-   private transient Category log = Category.getInstance(StatefulSessionBean.class);
+   private static transient Category log = Category.getInstance(StatefulSessionBean.class);
+   private transient int counterAtTxStart;
    private String testName;
    private int counter;
    private CtsCmpLocal entityBean;
@@ -50,7 +51,13 @@ public class StatefulSessionBean
    {
       this.testName = testName;
       log = Category.getInstance(StatefulSessionBean.class.getName()+"#"+testName);
-      log.debug("ejbCreate( ), ctx="+sessionCtx);
+      log.debug("ejbCreate("+testName+"), ctx="+sessionCtx);
+   }
+   public void ejbCreateAlt(String testName)
+   {
+      this.testName = testName + "Alt";
+      log = Category.getInstance(StatefulSessionBean.class.getName()+"#"+testName);
+      log.debug("ejbCreateAlt("+testName+"), ctx="+sessionCtx);
    }
 
    public void ejbActivate()
@@ -67,16 +74,32 @@ public class StatefulSessionBean
 
    public void afterBegin ()
    {
-      log.debug("afterBegin( )...");
+      log.debug("afterBegin()..., counter="+counter);
+      counterAtTxStart = counter;
    }
    public void afterCompletion (boolean isCommited)
    {
-      log.debug("afterCompletion( )");
-      log.debug("isCommited = " + isCommited);
+      log.debug("afterCompletion(), isCommited="+isCommited
+         +", counter="+counter+", counterAtTxStart="+counterAtTxStart);
+      if( isCommited == false )
+      {
+         counter = counterAtTxStart;
+         log.debug("Rolling counter back to: "+counter);
+      }
+      else
+      {
+         log.debug("Committed updated counter: "+counter);         
+      }
    }
    public void beforeCompletion ()
    {
-      log.debug("beforeCompletion( )...");
+      log.debug("beforeCompletion(), counter="+counter
+         +", counterAtTxStart="+counterAtTxStart);
+   }
+
+   public String getTestName()
+   {
+      return testName;
    }
 
    public String method1(String msg)
@@ -159,6 +182,22 @@ public class StatefulSessionBean
       StatefulSession bean = ( StatefulSession ) obj;
 
       bean.method1("Hello");
+   }
+
+   public void ping()
+   {
+   }
+
+   public void sleep(long wait)
+   {
+      try
+      {
+         Thread.sleep(wait);
+      }
+      catch (InterruptedException e)
+      {
+         throw new EJBException("Interrupted", e);
+      }
    }
 
    public boolean getWasActivated()

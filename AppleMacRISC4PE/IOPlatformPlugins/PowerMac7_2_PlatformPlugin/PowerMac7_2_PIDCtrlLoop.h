@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,13 +23,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc.  All rights reserved.
  *
  *
  */
-//		$Log $
-//
-//
+
 
 #ifndef _POWERMAC7_2_PIDCTRLLOOP_H
 #define _POWERMAC7_2_PIDCTRLLOOP_H
@@ -46,7 +44,7 @@ protected:
 public:
 
 	virtual bool updateMetaState( void );
-	virtual const OSNumber *calculateNewTarget( void ) const;
+	virtual ControlValue calculateNewTarget( void ) const;
 };
 
 #endif	// _POWERMAC7_2_PIDCTRLLOOP_H

@@ -45,10 +45,10 @@ void set_local_machine_name(const char* local_name, BOOL perm)
 	 * arrggg!!! 
 	 */
 
-	if (strcasecmp(local_name, "*SMBSERVER")==0) 
+	if (strequal(local_name, "*SMBSERVER")) 
 		return;
 
-	if (strcasecmp(local_name, "*SMBSERV")==0) 
+	if (strequal(local_name, "*SMBSERV")) 
 		return;
 
 	if (already_perm)
@@ -57,7 +57,7 @@ void set_local_machine_name(const char* local_name, BOOL perm)
 	already_perm = perm;
 
 	fstrcpy(tmp_local_machine,local_name);
-	trim_string(tmp_local_machine," "," ");
+	trim_char(tmp_local_machine,' ',' ');
 	alpha_strcpy(local_machine,tmp_local_machine,SAFE_NETBIOS_CHARS,sizeof(local_machine)-1);
 	strlower_m(local_machine);
 }
@@ -79,7 +79,7 @@ void set_remote_machine_name(const char* remote_name, BOOL perm)
 	already_perm = perm;
 
 	fstrcpy(tmp_remote_machine,remote_name);
-	trim_string(tmp_remote_machine," "," ");
+	trim_char(tmp_remote_machine,' ',' ');
 	alpha_strcpy(remote_machine,tmp_remote_machine,SAFE_NETBIOS_CHARS,sizeof(remote_machine)-1);
 	strlower_m(remote_machine);
 }
@@ -111,7 +111,7 @@ void sub_set_smb_name(const char *name)
 		return;
 
 	fstrcpy(tmp,name);
-	trim_string(tmp," "," ");
+	trim_char(tmp,' ',' ');
 	strlower_m(tmp);
 	alpha_strcpy(smb_user_name,tmp,SAFE_NETBIOS_CHARS,sizeof(smb_user_name)-1);
 }
@@ -363,6 +363,9 @@ void standard_sub_basic(const char *smb_name, char *str,size_t len)
 		case 'I' :
 			string_sub(p,"%I", client_addr(),l);
 			break;
+		case 'i' :
+			string_sub(p,"%i", client_socket_addr(),l);
+			break;
 		case 'L' : 
 			if (local_machine_name && *local_machine_name)
 				string_sub(p,"%L", local_machine_name,l); 
@@ -491,6 +494,13 @@ char *alloc_sub_basic(const char *smb_name, const char *str)
 	struct passwd *pass;
 	const char *local_machine_name = get_local_machine_name();
 
+	/* workaround to prevent a crash while lookinf at bug #687 */
+	
+	if ( !str ) {
+		DEBUG(0,("alloc_sub_basic: NULL source string!  This should not happen\n"));
+		return NULL;
+	}
+	
 	a_string = strdup(str);
 	if (a_string == NULL) {
 		DEBUG(0, ("alloc_sub_specified: Out of memory!\n"));
@@ -528,6 +538,9 @@ char *alloc_sub_basic(const char *smb_name, const char *str)
 				t = realloc_string_sub(t, "%L", local_machine_name); 
 			else
 				t = realloc_string_sub(t, "%L", global_myname()); 
+			break;
+		case 'N':
+			t = realloc_string_sub(t, "%N", automount_server(smb_name));
 			break;
 		case 'M' :
 			t = realloc_string_sub(t, "%M", client_name());

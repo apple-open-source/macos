@@ -8,7 +8,7 @@
 ##
 ## Annotated patch file: sslmod.patch
 ## Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved. 
-## Created on: 18-Jul-2003
+## Created on: 01-Nov-2003
 ##
 ## This file assembles changes to existing Apache source files
 ## between the original Apache and the patched variant. It can be
@@ -75,14 +75,13 @@ Index: src/Configuration.tmpl
  
  ################################################################
  # Makefile configuration
-@@ -450,4 +510,10 @@
- ## should be the last (highest priority) module.
+@@ -451,3 +511,9 @@
  
  AddModule modules/standard/mod_setenvif.o
-+
+ 
 +## mod_ssl incorporates SSL into Apache.
 +## It must stay last here to be first in execution to 
 +## fake basic authorization.
 +
 +# AddModule modules/ssl/libssl.a
- 
++

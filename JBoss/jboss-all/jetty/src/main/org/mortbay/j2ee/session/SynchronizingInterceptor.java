@@ -1,6 +1,6 @@
 // ========================================================================
 // Copyright (c) 2002 Mort Bay Consulting (Australia) Pty. Ltd.
-// $Id: SynchronizingInterceptor.java,v 1.1.2.1 2003/01/03 00:58:04 jules_gosnell Exp $
+// $Id: SynchronizingInterceptor.java,v 1.1.2.2 2003/07/26 11:49:41 jules_gosnell Exp $
 // ========================================================================
 
 package org.mortbay.j2ee.session;
@@ -11,7 +11,7 @@ import java.rmi.RemoteException;
 import java.util.Enumeration;
 import java.util.Map;
 import javax.servlet.http.HttpSession;
-import org.apache.log4j.Category;
+import org.jboss.logging.Logger;
 
 //----------------------------------------
 
@@ -26,7 +26,7 @@ import org.apache.log4j.Category;
 public class SynchronizingInterceptor
   extends StateInterceptor
 {
-  Category _log=Category.getInstance(getClass().getName());
+  protected static final Logger _log=Logger.getLogger(SynchronizingInterceptor.class);
 
   protected final Object _lastAccessedTimeLock=new Object();
   public void        setLastAccessedTime(long time)          throws RemoteException {synchronized(_lastAccessedTimeLock){super.setLastAccessedTime(time);}}

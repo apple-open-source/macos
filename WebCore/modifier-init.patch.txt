@@ -1,0 +1,27 @@
+Index: khtml/xml/dom2_eventsimpl.cpp
+===================================================================
+RCS file: /local/home/cvs/Labyrinth/WebCore/khtml/xml/dom2_eventsimpl.cpp,v
+retrieving revision 1.11.10.1
+diff -u -p -r1.11.10.1 khtml/xml/dom2_eventsimpl.cpp
+--- khtml/xml/dom2_eventsimpl.cpp	2003/11/16 05:42:57	1.11.10.1
++++ khtml/xml/dom2_eventsimpl.cpp	2003/11/16 05:51:27
+@@ -592,14 +592,11 @@ KeyboardEventImpl::KeyboardEventImpl(QKe
+ 
+     // key->state returns enum ButtonState, which is ShiftButton, ControlButton and AltButton or'ed together.
+     int keyState = key->state();
+-    if (keyState & Qt::ControlButton)
+-        m_ctrlKey = true;
+-    if (keyState & Qt::ShiftButton)
+-        m_shiftKey = true;
+-    if (keyState & Qt::AltButton)
+-        m_altKey = true;
+-    if (keyState & Qt::MetaButton)
+-        m_metaKey = true;
++    
++    m_ctrlKey = keyState & Qt::ControlButton;
++    m_shiftKey = keyState & Qt::ShiftButton;
++    m_altKey = keyState & Qt::AltButton;
++    m_metaKey = keyState & Qt::MetaButton;
+     // altGraphKey is not supported by Qt.
+     
+     // Note: we only support testing for num pad

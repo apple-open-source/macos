@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE server>
-<!-- $Id: cluster-examples-service.xml,v 1.1.2.1 2003/07/05 23:52:38 ivelin Exp $ -->
+<!-- $Id: cluster-examples-service.xml,v 1.1.2.5 2003/10/13 03:27:45 starksm Exp $ -->
 
 <!-- ===================================================================== -->
 <!--                                                                       -->
@@ -9,12 +8,6 @@
 <!-- ===================================================================== -->
 
 <server>
-
-  <classpath 
-  		codebase="lib" 
-  		archives="jbossha.jar, scheduler-plugin.jar, scheduler-plugin-example.jar"
-  />
-
 
   <!-- ==================================================================== -->
   <!--    Singleton clustering service                                      -->
@@ -32,14 +25,22 @@
    <!--
     | This is a singleton controller which works similarly to the 
     | SchedulerProvider (when a MBean target is used)
+    |
+    | There are several optional attributes: 
+    |   TargetStartMethodArgument, which sets a string argument 
+    |     to be passed to TargetStartMethod. If not set, the start method should not take any arguments.
+    |   TargetStopMethodArgument, which sets a string argument 
+    |     to be passed to TargetStopMethod. If not set, the stop method should not take any arguments.
+    |
     - ->
    <mbean code="org.jboss.ha.singleton.HASingletonController" 
           name="jboss.examples:service=HASingletonMBeanExample-HASingletonController">
       <depends>jboss:service=DefaultPartition</depends>   
       <depends>jboss.examples:service=HASingletonMBeanExample</depends>
-      <attribute name="TargetName">jboss:service=HASingletonMBeanExample</attribute>
+      <attribute name="TargetName">jboss.examples:service=HASingletonMBeanExample</attribute>
       <attribute name="TargetStartMethod">startSingleton</attribute>
       <attribute name="TargetStopMethod">stopSingleton</attribute>
+      <attribute name="TargetStopMethodArgument">true</attribute>
    </mbean>
    <!- - -->
       
@@ -96,7 +97,7 @@
       <depends>jboss.examples:service=HASchedulableMBeanExample</depends>
       <attribute name="HASingleton">true</attribute>
       <attribute name="ScheduleManagerName">jboss:service=ScheduleManager</attribute>
-      <attribute name="TargetName">jboss:service=HASchedulableMBeanExample</attribute>
+      <attribute name="TargetName">jboss.examples:service=HASingletonMBeanExample</attribute>
       <attribute name="TargetMethod">hit( NOTIFICATION, DATE, REPETITIONS, SCHEDULER_NAME, java.lang.String )</attribute>
       <attribute name="DateFormat"></attribute>
       <attribute name="StartDate">NOW</attribute>

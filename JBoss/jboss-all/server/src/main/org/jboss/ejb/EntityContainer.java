@@ -47,7 +47,7 @@ import org.jboss.util.collection.SerializableEnumeration;
  * @author <a href="mailto:bill@burkecentral.com">Bill Burke</a>
  * @author <a href="mailto:andreas.schaefer@madplanet.com">Andreas Schaefer</a>
  * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
- * @version $Revision: 1.80.2.9 $
+ * @version $Revision: 1.80.2.14 $
  *
  * @jmx:mbean extends="org.jboss.ejb.ContainerMBean"
  */
@@ -110,7 +110,6 @@ public class EntityContainer
     * a remove, otherwise there may be problems with 'cascade delete'.
     *
     * @param tx the transaction that associated entites will be stored
-    * @throws Exception if an problem occures while storing the entities
     */
    public static void synchronizeEntitiesWithinTransaction(Transaction tx)
    {
@@ -245,6 +244,9 @@ public class EntityContainer
 
          // Call default init
          super.createService();
+
+         // Make some additional validity checks with regards to the container configuration
+         checkCoherency ();
 
          // Map the bean methods
          setupBeanMapping();
@@ -463,6 +465,9 @@ public class EntityContainer
             in = in.getNext();
          }
 
+         MarshalledInvocation.removeHashes(homeInterface);
+         MarshalledInvocation.removeHashes(remoteInterface);
+
          // Call default destroy
          super.destroyService();
       }
@@ -491,17 +496,19 @@ public class EntityContainer
    {
       // synchronize entities with the datastore before the bean is removed
       // this will write queued updates so datastore will be consistent before removal
+      Transaction tx = mi.getTransaction();
       if (!getBeanMetaData().getContainerConfiguration().getSyncOnCommitOnly())
-         synchronizeEntitiesWithinTransaction(mi.getTransaction());
+         synchronizeEntitiesWithinTransaction(tx);
 
       // Get the persistence manager to do the dirty work
-      getPersistenceManager().removeEntity((EntityEnterpriseContext)mi.getEnterpriseContext());
+      EntityEnterpriseContext ctx = (EntityEnterpriseContext)mi.getEnterpriseContext();
+      getPersistenceManager().removeEntity(ctx);
 
       // We signify "removed" with a null id
       // There is no need to synchronize on the context since all the threads reaching here have
       // gone through the InstanceInterceptor so the instance is locked and we only have one thread
       // the case of reentrant threads is unclear (would you want to delete an instance in reentrancy)
-      ((EnterpriseContext) mi.getEnterpriseContext()).setId(null);
+      ctx.setId(null);
       removeCount++;
    }
 
@@ -532,8 +539,10 @@ public class EntityContainer
       throws RemoteException
    {
       EJBProxyFactory ci = getProxyFactory();
-      if (ci == null) {
-         throw new IllegalStateException();
+      if (ci == null)
+      {
+         String msg = "No ProxyFactory, check for ProxyFactoryFinderInterceptor";
+         throw new IllegalStateException(msg);
       }
       return (EJBHome) ci.getEJBHome();
    }
@@ -651,8 +660,10 @@ public class EntityContainer
          synchronizeEntitiesWithinTransaction(mi.getTransaction());
 
       EJBProxyFactory ci = getProxyFactory();
-      if (ci == null) {
-         throw new IllegalStateException();
+      if (ci == null)
+      {
+         String msg = "No ProxyFactory, check for ProxyFactoryFinderInterceptor";
+         throw new IllegalStateException(msg);
       }
       // Multi-finder?
       if (!mi.getMethod().getReturnType().equals(getRemoteClass()))
@@ -738,8 +749,10 @@ public class EntityContainer
       throws RemoteException
    {
       EJBProxyFactory ci = getProxyFactory();
-      if (ci == null) {
-         throw new IllegalStateException();
+      if (ci == null)
+      {
+         String msg = "No ProxyFactory, check for ProxyFactoryFinderInterceptor";
+         throw new IllegalStateException(msg);
       }
       // All we need is an EJBObject for this Id;
       return (EJBObject)ci.getEntityEJBObject(((EntityCache) instanceCache).createCacheKey(mi.getId()));
@@ -760,8 +773,10 @@ public class EntityContainer
       throws RemoteException
    {
       EJBProxyFactory ci = getProxyFactory();
-      if (ci == null) {
-         throw new IllegalStateException();
+      if (ci == null)
+      {
+         String msg = "No ProxyFactory, check for ProxyFactoryFinderInterceptor";
+         throw new IllegalStateException(msg);
       }
       return ci.getEJBMetaData();
    }
@@ -977,6 +992,28 @@ public class EntityContainer
    Interceptor createContainerInterceptor()
    {
       return new ContainerInterceptor();
+   }
+
+   protected void checkCoherency () throws Exception
+   {
+      // Check clustering cohrency wrt metadata
+      //
+      if (metaData.isClustered())
+      {
+         boolean clusteredProxyFactoryFound = false;
+         for (Iterator it = proxyFactories.keySet().iterator(); it.hasNext(); )
+         {
+            String invokerBinding = (String)it.next();
+            EJBProxyFactory ci = (EJBProxyFactory)proxyFactories.get(invokerBinding);
+            if (ci instanceof org.jboss.proxy.ejb.ClusterProxyFactory)
+               clusteredProxyFactoryFound = true;
+         }
+
+         if (!clusteredProxyFactoryFound)
+         {
+            log.warn("*** EJB '" + this.metaData.getEjbName() + "' deployed as CLUSTERED but not a single clustered-invoker is bound to container ***");
+         }
+      }
    }
 
    // Inner classes -------------------------------------------------

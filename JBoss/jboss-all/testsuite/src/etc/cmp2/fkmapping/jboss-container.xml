@@ -1,0 +1,6 @@
+   <container-configurations>
+      <container-configuration extends="Standard CMP 2.x EntityBean">
+         <container-name>INSERT after ejbPostCreate Container</container-name>
+	 <insert-after-ejb-post-create>true</insert-after-ejb-post-create>
+      </container-configuration>
+   </container-configurations>

@@ -10,7 +10,6 @@
 package org.jboss.varia.property;
 
 import java.io.IOException;
-import java.io.File;
 import java.io.InputStream;
 
 import java.net.URL;
@@ -29,7 +28,6 @@ import javax.management.ObjectName;
 import javax.management.MalformedObjectNameException;
 
 import org.jboss.system.ServiceMBeanSupport;
-import org.jboss.system.server.ServerConfig;
 import org.jboss.system.server.ServerConfigLocator;
 
 import org.jboss.util.property.Property;
@@ -44,7 +42,7 @@ import org.jboss.util.Strings;
  * @jmx:mbean name="jboss.varia:type=Service,name=SystemProperties"
  *            extends="org.jboss.system.ServiceMBean"
  *
- * @version <tt>$Revision: 1.5.2.1 $</tt>
+ * @version <tt>$Revision: 1.5.2.2 $</tt>
  * @author  <a href="mailto:jason@planet57.com">Jason Dillon</a>
  */
 public class SystemPropertiesService

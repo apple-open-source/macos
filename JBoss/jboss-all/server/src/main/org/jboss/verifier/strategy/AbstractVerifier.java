@@ -17,7 +17,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * This package and its source code is available at www.jboss.org
- * $Id: AbstractVerifier.java,v 1.33.2.5 2003/05/20 03:38:13 starksm Exp $
+ * $Id: AbstractVerifier.java,v 1.33.2.6 2003/10/24 13:00:12 loubyansky Exp $
  */
 package org.jboss.verifier.strategy;
 
@@ -84,7 +84,7 @@ import org.gjt.lindfors.pattern.StrategyContext;
  * </ul>
  * </p>
  *
- * @version $Revision: 1.33.2.5 $
+ * @version $Revision: 1.33.2.6 $
  * @since   JDK 1.3
  */
 public abstract class AbstractVerifier
@@ -444,8 +444,8 @@ public abstract class AbstractVerifier
     */
    public boolean isMultiObjectFinder( Method f )
    {
-      return (java.util.Collection.class.isAssignableFrom(f.getReturnType())
-         || java.util.Enumeration.class.isAssignableFrom(f.getReturnType()));
+      return java.util.Collection.class == f.getReturnType()
+         || java.util.Enumeration.class == f.getReturnType();
    }
 
    /**

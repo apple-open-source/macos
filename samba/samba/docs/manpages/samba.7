@@ -21,10 +21,12 @@
 .SH NAME
 samba \- A Windows SMB/CIFS fileserver for UNIX
 .SH "SYNOPSIS"
-
-.nf
-\fBSamba\fR 
-.fi
+.ad l
+.hy 0
+.HP 6
+\fBSamba\fR
+.ad
+.hy
 
 .SH "DESCRIPTION"
 
@@ -33,22 +35,22 @@ The Samba software suite is a collection of programs that implements the Server 
 
 .TP
 \fBsmbd\fR(8)
-The \fBsmbd\fR daemon provides the file and print services to SMB clients, such as Windows 95/98, Windows NT, Windows for Workgroups or LanManager\&. The configuration file for this daemon is described in \fBsmb.conf\fR(5)
+The \fBsmbd\fR daemon provides the file and print services to SMB clients, such as Windows 95/98, Windows NT, Windows for Workgroups or LanManager\&. The configuration file for this daemon is described in \fBsmb\&.conf\fR(5)
 
 
 .TP
 \fBnmbd\fR(8)
-The \fBnmbd\fR daemon provides NetBIOS nameservice and browsing support\&. The configuration file for this daemon is described in \fBsmb.conf\fR(5)
+The \fBnmbd\fR daemon provides NetBIOS nameservice and browsing support\&. The configuration file for this daemon is described in \fBsmb\&.conf\fR(5)
 
 
 .TP
 \fBsmbclient\fR(1)
-The \fBsmbclient\fR program implements a simple ftp-like client\&. This is useful for accessing SMB shares on other compatible servers (such as Windows NT), and can also be used to allow a UNIX box to print to a printer attached to any SMB server (such as a PC running Windows NT)\&.
+The \fBsmbclient\fR program implements a simple ftp\-like client\&. This is useful for accessing SMB shares on other compatible servers (such as Windows NT), and can also be used to allow a UNIX box to print to a printer attached to any SMB server (such as a PC running Windows NT)\&.
 
 
 .TP
 \fBtestparm\fR(1)
-The \fBtestparm\fR utility is a simple syntax checker for Samba's \fBsmb.conf\fR(5) configuration file\&.
+The \fBtestparm\fR utility is a simple syntax checker for Samba's \fBsmb\&.conf\fR(5) configuration file\&.
 
 
 .TP
@@ -64,11 +66,6 @@ The \fBsmbstatus\fR tool provides access to information about the current connec
 .TP
 \fBnmblookup\fR(1)
 The \fBnmblookup\fR tools allows NetBIOS name queries to be made from a UNIX host\&.
-
-
-.TP
-\fBsmbgroupedit\fR(8)
-The \fBsmbgroupedit\fR tool allows for mapping unix groups to NT Builtin, Domain, or Local groups\&. Also it allows setting priviledges for that group, such as saAddUser, etc\&.
 
 
 .TP
@@ -88,7 +85,7 @@ The \fBsmbsh\fR command is a program that allows you to run a unix shell with wi
 
 .TP
 \fBsmbtree\fR(1)
-The \fBsmbtree\fR command is a text-based network neighborhood tool\&.
+The \fBsmbtree\fR command is a text\-based network neighborhood tool\&.
 
 
 .TP
@@ -128,7 +125,7 @@ The \fBnet\fR command is supposed to work similar to the DOS/Windows NET\&.EXE c
 
 .TP
 \fBswat\fR(8)
-\fBswat\fR is a web-based interface to configuring \fIsmb\&.conf\fR\&.
+\fBswat\fR is a web\-based interface to configuring \fIsmb\&.conf\fR\&.
 
 
 .TP
@@ -143,12 +140,12 @@ The \fBnet\fR command is supposed to work similar to the DOS/Windows NET\&.EXE c
 
 .TP
 \fBeditreg\fR(1)
-\fBeditreg\fR is a command-line utility that can edit windows registry files\&.
+\fBeditreg\fR is a command\-line utility that can edit windows registry files\&.
 
 
 .TP
 \fBprofiles\fR(1)
-\fBprofiles\fR is a command-line utility that can be used to replace all occurences of a certain SID with another SID\&.
+\fBprofiles\fR is a command\-line utility that can be used to replace all occurences of a certain SID with another SID\&.
 
 
 .TP
@@ -163,12 +160,12 @@ The \fBnet\fR command is supposed to work similar to the DOS/Windows NET\&.EXE c
 
 .TP
 \fBntlm_auth\fR(1)
-\fBntlm_auth\fR is a helper-utility for external programs wanting to do NTLM-authentication\&.
+\fBntlm_auth\fR is a helper\-utility for external programs wanting to do NTLM\-authentication\&.
 
 
 .TP
-\fBsmbmount\fR(8), \fBsmbumount\fR(8), \fBsmbmount\fR(8)
-\fBsmbmount\fR,\fBsmbmnt\fR and \fBsmbmnt\fR are commands that can be used to mount CIFS/SMB shares on Linux\&.
+\fBsmbmount\fR(8), \fBsmbumount\fR(8), \fBsmbmnt\fR(8)
+\fBsmbmount\fR,\fBsmbumount\fR and \fBsmbmnt\fR are commands that can be used to mount CIFS/SMB shares on Linux\&.
 
 
 .TP
@@ -209,12 +206,12 @@ This man page is correct for version 3\&.0 of the Samba suite\&.
 If you wish to contribute to the Samba project, then I suggest you join the Samba mailing list athttp://lists\&.samba\&.org\&.
 
 .PP
-If you have patches to submit, visithttp://devel\&.samba\&.org/ for information on how to do it properly\&. We prefer patches in \fBdiff -u\fR format\&.
+If you have patches to submit, visithttp://devel\&.samba\&.org/ for information on how to do it properly\&. We prefer patches in \fBdiff \-u\fR format\&.
 
 .SH "CONTRIBUTORS"
 
 .PP
-Contributors to the project are now too numerous to mention here but all deserve the thanks of all Samba users\&. To see a full list, look at the\fIchange-log\fR in the source package for the pre-CVS changes and at http://cvs\&.samba\&.org/ for the contributors to Samba post-CVS\&. CVS is the Open Source source code control system used by the Samba Team to develop Samba\&. The project would have been unmanageable without it\&.
+Contributors to the project are now too numerous to mention here but all deserve the thanks of all Samba users\&. To see a full list, look at the\fIchange\-log\fR in the source package for the pre\-CVS changes and at http://cvs\&.samba\&.org/ for the contributors to Samba post\-CVS\&. CVS is the Open Source source code control system used by the Samba Team to develop Samba\&. The project would have been unmanageable without it\&.
 
 .SH "AUTHOR"
 

@@ -21,20 +21,22 @@
 .SH NAME
 smbumount \- smbfs umount for normal users
 .SH "SYNOPSIS"
-
-.nf
-\fBsmbumount\fR {mount-point}
-.fi
+.ad l
+.hy 0
+.HP 10
+\fBsmbumount\fR {mount\-point}
+.ad
+.hy
 
 .SH "DESCRIPTION"
 
 .PP
-With this program, normal users can unmount smb-filesystems, provided that it is suid root\&. \fBsmbumount\fR has been written to give normal Linux users more control over their resources\&. It is safe to install this program suid root, because only the user who has mounted a filesystem is allowed to unmount it again\&. For root it is not necessary to use smbumount\&. The normal umount program works perfectly well, but it would certainly be problematic to make umount setuid root\&.
+With this program, normal users can unmount smb\-filesystems, provided that it is suid root\&. \fBsmbumount\fR has been written to give normal Linux users more control over their resources\&. It is safe to install this program suid root, because only the user who has mounted a filesystem is allowed to unmount it again\&. For root it is not necessary to use smbumount\&. The normal umount program works perfectly well, but it would certainly be problematic to make umount setuid root\&.
 
 .SH "OPTIONS"
 
 .TP
-mount-point
+mount\-point
 The directory to unmount\&.
 
 

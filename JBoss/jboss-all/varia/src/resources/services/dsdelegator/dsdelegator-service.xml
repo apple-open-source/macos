@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE server
+    PUBLIC "-//JBoss//DTD MBean Service 3.2//EN"
+    "http://www.jboss.org/j2ee/dtd/jboss-service_3_2.dtd">
+
+<server>
+   <!--
+      | DataSource delegator service.
+   -->
+   <mbean
+      code="org.jboss.varia.dsdelegator.DataSourceDelegator"
+      name="jboss.varia:name=DataSourceDelegator">
+
+      <!-- JNDI under which the service will be bound. -->
+      <attribute name="BindName">java:/DelegatorDS</attribute>
+
+      <!-- JNDI name of the target DataSource -->
+      <attribute name="TargetName">java:/DefaultDS</attribute>
+   </mbean>
+</server>

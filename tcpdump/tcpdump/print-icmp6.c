@@ -20,8 +20,8 @@
  */
 
 #ifndef lint
-static const char rcsid[] =
-    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-icmp6.c,v 1.1.1.3 2003/03/17 18:42:17 rbraun Exp $";
+static const char rcsid[] _U_ =
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-icmp6.c,v 1.1.1.4 2004/02/05 19:30:54 rbraun Exp $";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -37,6 +37,7 @@ static const char rcsid[] =
 
 #include "ip6.h"
 #include "icmp6.h"
+#include "ipproto.h"
 
 #include "interface.h"
 #include "addrtoname.h"
@@ -53,7 +54,7 @@ static void mld6_print(const u_char *);
 static struct udphdr *get_upperlayer(u_char *, u_int *);
 static void dnsname_print(const u_char *, const u_char *);
 static void icmp6_nodeinfo_print(u_int, const u_char *, const u_char *);
-static void icmp6_rrenum_print(u_int, const u_char *, const u_char *);
+static void icmp6_rrenum_print(const u_char *, const u_char *);
 
 #ifndef abs
 #define abs(a)	((0 < (a)) ? (a) : -(a))
@@ -100,8 +101,51 @@ print_lladdr(const u_int8_t *p, size_t l)
 	}
 }
 
+static int icmp6_cksum(const struct ip6_hdr *ip6, const struct icmp6_hdr *icp,
+	u_int len)
+{
+	size_t i;
+	register const u_int16_t *sp;
+	u_int32_t sum;
+	union {
+		struct {
+			struct in6_addr ph_src;
+			struct in6_addr ph_dst;
+			u_int32_t	ph_len;
+			u_int8_t	ph_zero[3];
+			u_int8_t	ph_nxt;
+		} ph;
+		u_int16_t pa[20];
+	} phu;
+
+	/* pseudo-header */
+	memset(&phu, 0, sizeof(phu));
+	phu.ph.ph_src = ip6->ip6_src;
+	phu.ph.ph_dst = ip6->ip6_dst;
+	phu.ph.ph_len = htonl(len);
+	phu.ph.ph_nxt = IPPROTO_ICMPV6;
+
+	sum = 0;
+	for (i = 0; i < sizeof(phu.pa) / sizeof(phu.pa[0]); i++)
+		sum += phu.pa[i];
+
+	sp = (const u_int16_t *)icp;
+
+	for (i = 0; i < (len & ~1); i += 2)
+		sum += *sp++;
+
+	if (len & 1)
+		sum += htons((*(const u_int8_t *)sp) << 8);
+
+	while (sum > 0xffff)
+		sum = (sum & 0xffff) + (sum >> 16);
+	sum = ~sum & 0xffff;
+
+	return (sum);
+}
+
 void
-icmp6_print(const u_char *bp, const u_char *bp2)
+icmp6_print(const u_char *bp, u_int length, const u_char *bp2, int fragmented)
 {
 	const struct icmp6_hdr *dp;
 	const struct ip6_hdr *ip;
@@ -111,7 +155,7 @@ icmp6_print(const u_char *bp, const u_char *bp2)
 	int dport;
 	const u_char *ep;
 	char buf[256];
-	u_int icmp6len, prot;
+	u_int prot;
 
 	dp = (struct icmp6_hdr *)bp;
 	ip = (struct ip6_hdr *)bp2;
@@ -119,13 +163,21 @@ icmp6_print(const u_char *bp, const u_char *bp2)
 	str = buf;
 	/* 'ep' points to the end of available data. */
 	ep = snapend;
-	if (ip->ip6_plen)
-		icmp6len = (EXTRACT_16BITS(&ip->ip6_plen) + sizeof(struct ip6_hdr) -
-			    (bp - bp2));
-	else			/* XXX: jumbo payload case... */
-		icmp6len = snapend - bp;
 
-	TCHECK(dp->icmp6_code);
+	TCHECK(dp->icmp6_cksum);
+
+	if (vflag && !fragmented) {
+		int sum = dp->icmp6_cksum;
+
+		if (TTEST2(bp[0], length)) {
+			sum = icmp6_cksum(ip, dp, length);
+			if (sum != 0)
+				(void)printf("[bad icmp6 cksum %x!] ", sum);
+			else
+				(void)printf("[icmp6 sum ok] ");
+		}
+	}
+
 	switch (dp->icmp6_type) {
 	case ICMP6_DST_UNREACH:
 		TCHECK(oip->ip6_dst);
@@ -244,7 +296,7 @@ icmp6_print(const u_char *bp, const u_char *bp2)
 		if (vflag) {
 #define RTSOLLEN 8
 			icmp6_opt_print((const u_char *)dp + RTSOLLEN,
-					icmp6len - RTSOLLEN);
+					length - RTSOLLEN);
 		}
 		break;
 	case ND_ROUTER_ADVERT:
@@ -276,7 +328,7 @@ icmp6_print(const u_char *bp, const u_char *bp2)
 				EXTRACT_32BITS(&p->nd_ra_retransmit));
 #define RTADVLEN 16
 			icmp6_opt_print((const u_char *)dp + RTADVLEN,
-					icmp6len - RTADVLEN);
+					length - RTADVLEN);
 		}
 		break;
 	case ND_NEIGHBOR_SOLICIT:
@@ -289,7 +341,7 @@ icmp6_print(const u_char *bp, const u_char *bp2)
 		if (vflag) {
 #define NDSOLLEN 24
 			icmp6_opt_print((const u_char *)dp + NDSOLLEN,
-					icmp6len - NDSOLLEN);
+					length - NDSOLLEN);
 		}
 	    }
 		break;
@@ -321,7 +373,7 @@ icmp6_print(const u_char *bp, const u_char *bp2)
 			}
 #define NDADVLEN 24
 			icmp6_opt_print((const u_char *)dp + NDADVLEN,
-					icmp6len - NDADVLEN);
+					length - NDADVLEN);
 #undef NDADVLEN
 		}
 	    }
@@ -336,17 +388,17 @@ icmp6_print(const u_char *bp, const u_char *bp2)
 #define REDIRECTLEN 40
 		if (vflag) {
 			icmp6_opt_print((const u_char *)dp + REDIRECTLEN,
-					icmp6len - REDIRECTLEN);
+					length - REDIRECTLEN);
 		}
 		break;
 #undef REDIRECTLEN
 #undef RDR
 	case ICMP6_ROUTER_RENUMBERING:
-		icmp6_rrenum_print(icmp6len, bp, ep);
+		icmp6_rrenum_print(bp, ep);
 		break;
 	case ICMP6_NI_QUERY:
 	case ICMP6_NI_REPLY:
-		icmp6_nodeinfo_print(icmp6len, bp, ep);
+		icmp6_nodeinfo_print(length, bp, ep);
 		break;
 	case ICMP6_HADISCOV_REQUEST:
 		printf("icmp6: ha discovery request");
@@ -363,7 +415,7 @@ icmp6_print(const u_char *bp, const u_char *bp2)
 
 			TCHECK(dp->icmp6_data16[0]);
 			printf("(id=%d", EXTRACT_16BITS(&dp->icmp6_data16[0]));
-			cp = (u_char *)dp + icmp6len;
+			cp = (u_char *)dp + length;
 			in6 = (struct in6_addr *)(dp + 1);
 			for (; (u_char *)in6 < cp; in6++) {
 				TCHECK(*in6);
@@ -393,7 +445,7 @@ icmp6_print(const u_char *bp, const u_char *bp2)
 			printf(")");
 #define MPADVLEN 8
 			icmp6_opt_print((const u_char *)dp + MPADVLEN,
-					icmp6len - MPADVLEN);
+					length - MPADVLEN);
 		}
 		break;
 	default:
@@ -942,7 +994,7 @@ trunc:
 }
 
 static void
-icmp6_rrenum_print(u_int icmp6len, const u_char *bp, const u_char *ep)
+icmp6_rrenum_print(const u_char *bp, const u_char *ep)
 {
 	struct icmp6_router_renum *rr6;
 	struct icmp6_hdr *dp;

@@ -25,7 +25,8 @@ typedef enum {
 	kTransportInterfaceType_Unknown	= 0,
 	kTransportInterfaceType_I2S,
 	kTransportInterfaceType_DAV,
-	kTransportInterfaceType_AC97
+	kTransportInterfaceType_AC97,
+	kTransportInterfaceType_I2S_Slave_Only
 } TransportInterfaceType;
 
 typedef struct {
@@ -103,6 +104,10 @@ public:
 	virtual IOReturn		setTransportInterfaceState ( TransportStateStructPtr inState );
 	
 protected:
+
+	static UInt32			sInstanceCount;
+	UInt32					mInstanceIndex;
+
 	PlatformInterface *		mPlatformObject;
 	TransportStateStruct	mTransportState;
 };

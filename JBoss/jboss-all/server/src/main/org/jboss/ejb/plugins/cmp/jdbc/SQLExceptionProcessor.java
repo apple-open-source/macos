@@ -19,8 +19,10 @@ import java.sql.SQLException;
  *
  * @jmx.mbean
  */
-public class SQLExceptionProcessor extends ServiceMBeanSupport implements SQLExceptionProcessorMBean
+public final class SQLExceptionProcessor extends ServiceMBeanSupport implements SQLExceptionProcessorMBean
 {
+   private static final String DUPLICATE_CODE = "23000";
+
    /**
     * Return true if the exception indicates that an operation failed due to a
     * unique constraint violation. This could be from any unique constraint
@@ -32,6 +34,6 @@ public class SQLExceptionProcessor extends ServiceMBeanSupport implements SQLExc
     */
    public boolean isDuplicateKey(SQLException e)
    {
-      return "23000".equals(e.getSQLState());
+      return DUPLICATE_CODE.equals(e.getSQLState());
    }
 }

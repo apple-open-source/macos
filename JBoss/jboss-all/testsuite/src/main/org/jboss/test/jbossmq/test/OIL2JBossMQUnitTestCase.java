@@ -17,28 +17,25 @@
  */
 package org.jboss.test.jbossmq.test;
 
-import org.jboss.test.JBossTestCase;
-import org.jboss.test.JBossTestSetup;
-
-import junit.framework.TestSuite;
 import junit.framework.Test;
+import junit.framework.TestSuite;
 
+import org.jboss.test.JBossTestSetup;
 
 /**
  * JBossMQ tests over OIL2
  */
-public class OIL2JBossMQUnitTestCase
-   extends JBossMQUnitTest
+public class OIL2JBossMQUnitTestCase extends JBossMQUnitTest
 {
    public OIL2JBossMQUnitTestCase(String name) throws Exception
    {
       super(name);
    }
-   
+
    public static Test suite() throws Exception
    {
       TestSuite suite = new TestSuite();
-      
+
       suite.addTest(new JBossTestSetup(new TestSuite(OIL2JBossMQUnitTestCase.class))
       {
          protected void setUp() throws Exception
@@ -56,7 +53,7 @@ public class OIL2JBossMQUnitTestCase
       return suite;
    }
 
-   static public void main( String []args )
+   static public void main(String[] args)
    {
       String newArgs[] = { "org.jboss.test.jbossmq.test.OIL2JBossMQUnitTestCase" };
       junit.swingui.TestRunner.main(newArgs);

@@ -2,27 +2,22 @@
 <classpath>
     <classpathentry kind="src" path="src/main"/>
     <classpathentry kind="src" path="src/tools"/>
-    <classpathentry kind="src" path="testsuite/src/main"/>
-    <classpathentry kind="var" path="JRE_LIB" sourcepath="JRE_SRC"/>
-    <classpathentry kind="var" path="JBOSS_SOURCE_ROOT/thirdparty/apache/axis/lib/jaxrpc.jar"/>
-    <classpathentry kind="var" path="JBOSS_SOURCE_ROOT/thirdparty/apache/axis/lib/axis.jar"/>
-    <classpathentry kind="var" path="JBOSS_SOURCE_ROOT/thirdparty/sun/servlet/lib/servlet.jar"/>
-    <classpathentry kind="var" path="JBOSS_SOURCE_ROOT/thirdparty/sun/jaxp/lib/crimson.jar"/>
-    <classpathentry kind="var" path="JBOSS_SOURCE_ROOT/thirdparty/sun/jaxp/lib/jaxp.jar"/>
-    <classpathentry kind="var" path="JBOSS_SOURCE_ROOT/thirdparty/apache/axis/lib/saaj.jar"/>
-    <classpathentry kind="var" path="JBOSS_SOURCE_ROOT/thirdparty/ibm/wsdl4j/lib/wsdl4j.jar"/>
-    <classpathentry kind="var" path="JBOSS_SOURCE_ROOT/common/output/lib/jboss-common.jar"/>
-    <classpathentry kind="var" path="JBOSS_SOURCE_ROOT/thirdparty/apache/log4j/lib/log4j.jar"/>
-    <classpathentry kind="var" path="JBOSS_SOURCE_ROOT/system/output/lib/jboss-system.jar"/>
-    <classpathentry kind="var" path="JBOSS_SOURCE_ROOT/jmx/output/lib/jboss-jmx.jar"/>
-    <classpathentry kind="var" path="JBOSS_SOURCE_ROOT/server/output/lib/jboss.jar"/>
-    <classpathentry kind="var" path="JBOSS_SOURCE_ROOT/thirdparty/sun/jaas/lib/jaas.jar"/>
-    <classpathentry kind="var" path="JBOSS_SOURCE_ROOT/j2ee/output/lib/jboss-j2ee.jar"/>
-    <classpathentry kind="var" path="JBOSS_SOURCE_ROOT/thirdparty/ibm/uddi4j/lib/uddi4j.jar"/>
-    <classpathentry kind="var" path="JBOSS_SOURCE_ROOT/tools/lib/ant.jar"/>
-    <classpathentry kind="var" path="JBOSS_SOURCE_ROOT/thirdparty/xdoclet/xdoclet/lib/xdoclet-jb3.jar"/>
-    <classpathentry kind="var" path="JBOSS_SOURCE_ROOT/thirdparty/apache/commons/lib/commons-logging.jar"/>
-    <classpathentry kind="var" path="JBOSS_SOURCE_ROOT/thirdparty/xdoclet/xdoclet/lib/xdoclet-xjavadoc-jb3.jar"/>
-    <classpathentry kind="var" path="JBOSS_SOURCE_ROOT/thirdparty/junit/junit/lib/junit.jar"/>
-    <classpathentry kind="output" path="output/classes"/>
+    <classpathentry kind="lib" path="/thirdparty/apache/axis/lib/axis.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/apache/axis/lib/jaxrpc.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/apache/axis/lib/saaj.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/sun/servlet/lib/servlet.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/ibm/wsdl4j/lib/wsdl4j.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/apache/commons/lib/commons-logging.jar"/>
+    <classpathentry kind="src" path="/common"/>
+    <classpathentry kind="lib" path="/thirdparty/apache/log4j/lib/log4j.jar"/>
+    <classpathentry kind="src" path="/system"/>
+    <classpathentry kind="src" path="/jmx"/>
+    <classpathentry kind="src" path="/server"/>
+    <classpathentry kind="src" path="/j2ee"/>
+    <classpathentry kind="lib" path="/thirdparty/ibm/uddi4j/lib/uddi4j.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/xdoclet/xdoclet/lib/xdoclet-jb3.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/xdoclet/xdoclet/lib/xdoclet-xjavadoc-jb3.jar"/>
+    <classpathentry kind="var" path="JRE_LIB"/>
+    <classpathentry kind="lib" path="/thirdparty/apache/commons/lib/commons-discovery.jar"/>
+    <classpathentry kind="output" path="output/eclipse-classes"/>
 </classpath>

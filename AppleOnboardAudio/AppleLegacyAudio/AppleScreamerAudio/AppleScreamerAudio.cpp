@@ -126,7 +126,7 @@ static void Screamer_writeCodecControlReg( volatile awacs_regmap_t *ioBaseAwacs,
 {
 	int          CodecControlReg;
 
-	// DEBUG_IOLOG( "PPCSound(awacs): CodecControlReg @ %08x = %08x\n", (int)&ioBaseAwacs->CodecControlRegister, value);
+	// debugIOLog (3,  "PPCSound(awacs): CodecControlReg @ %08x = %08x", (int)&ioBaseAwacs->CodecControlRegister, value);
 
 	ScreamerWaitUntilReady (ioBaseAwacs);
 
@@ -145,7 +145,7 @@ static void Screamer_writeCodecControlReg( volatile awacs_regmap_t *ioBaseAwacs,
 
 static void Screamer_writeSoundControlReg( volatile awacs_regmap_t *ioBaseAwacs, int value )
 {
-	// DEBUG_IOLOG( "PPCSound(awacs): SoundControlReg = %08x\n", value);
+	// debugIOLog (3,  "PPCSound(awacs): SoundControlReg = %08x", value);
 
 	OSWriteLittleInt32( &ioBaseAwacs->SoundControlRegister, 0, value );
 	eieio();
@@ -165,7 +165,7 @@ OSDefineMetaClassAndStructors(AppleScreamerAudio, Apple02Audio)
 // Unix like prototypes
 bool AppleScreamerAudio::init(OSDictionary *properties)
 {
-    DEBUG_IOLOG("+ AppleScreamerAudio::init\n");
+    debugIOLog (3, "+ AppleScreamerAudio::init");
     if (!super::init(properties))
         return false;        
     chipInformation.awacsVersion = kAWACsAwacsRevision;
@@ -175,16 +175,16 @@ bool AppleScreamerAudio::init(OSDictionary *properties)
 //    mIsMute = false;
     mVolMuteActive = false;
 
-    DEBUG_IOLOG("- AppleScreamerAudio::init\n");
+    debugIOLog (3, "- AppleScreamerAudio::init");
     return true;
 }
 
 
 void AppleScreamerAudio::free()
 {
-    DEBUG_IOLOG("+ AppleScreamerAudio::free\n");
+    debugIOLog (3, "+ AppleScreamerAudio::free");
 	super::free();
-    DEBUG_IOLOG("- AppleScreamerAudio::free\n");
+    debugIOLog (3, "- AppleScreamerAudio::free");
 }
 
 
@@ -193,7 +193,7 @@ IOService* AppleScreamerAudio::probe(IOService* provider, SInt32* score)
 	// Finds the possible candidate for sound, to be used in
 	// reading the caracteristics of this hardware:
     IORegistryEntry *sound = 0;
-    DEBUG_IOLOG("+ AppleScreamerAudio::probe\n");
+    debugIOLog (3, "+ AppleScreamerAudio::probe");
     
     super::probe(provider, score);
     *score = kIODefaultProbeScore;
@@ -207,12 +207,12 @@ IOService* AppleScreamerAudio::probe(IOService* provider, SInt32* score)
             if(tmpData->isEqualTo(kAWACsModelName, sizeof(kAWACsModelName) -1) ||
                tmpData->isEqualTo(kScreamerModelName, sizeof(kScreamerModelName) -1) ) {
                 *score = *score+1;
-                DEBUG_IOLOG("- AppleScreamerAudio::probe\n");
+                debugIOLog (3, "- AppleScreamerAudio::probe");
                 return(this);
             } 
         } 
     } 
-    DEBUG_IOLOG("- AppleScreamerAudio::probe\n");
+    debugIOLog (3, "- AppleScreamerAudio::probe");
     return (0);
 }
 
@@ -220,7 +220,7 @@ bool AppleScreamerAudio::initHardware(IOService *provider)
 {
     bool myreturn = true;
 
-    DEBUG_IOLOG("+ AppleScreamerAudio::initHardware\n");
+    debugIOLog (3, "+ AppleScreamerAudio::initHardware");
 
     super::initHardware(provider);
 
@@ -281,7 +281,7 @@ bool AppleScreamerAudio::initHardware(IOService *provider)
     powerState = kIOAudioDeviceActive;
  #endif
  
-   DEBUG_IOLOG("- AppleScreamerAudio::initHardware\n");
+   debugIOLog (3, "- AppleScreamerAudio::initHardware");
     return myreturn;
 }
 
@@ -333,7 +333,7 @@ void AppleScreamerAudio::sndHWInitialize(IOService *provider)
 {
     IOMemoryMap *map;
     
-    DEBUG_IOLOG("+ AppleScreamerAudio::sndHWInitialize\n");
+    debugIOLog (3, "+ AppleScreamerAudio::sndHWInitialize");
 	ourProvider = provider;
     map = provider->mapDeviceMemoryWithIndex(Apple02DBDMAAudioDMAEngine::kDBDMADeviceIndex);
     
@@ -394,7 +394,7 @@ void AppleScreamerAudio::sndHWInitialize(IOService *provider)
     codecControlRegister[0] |= (kUnusedInput | kDefaultMicGain);
 
 	// we should add the Screamer info
-    DEBUG_IOLOG("- AppleScreamerAudio::sndHWInitialize\n");
+    debugIOLog (3, "- AppleScreamerAudio::sndHWInitialize");
 }
 
 /****************************** Workloop functions ***************************/
@@ -414,7 +414,7 @@ void AppleScreamerAudio::checkStatus(bool force) {
     AudioHardwareDetect *theDetect;
     OSArray *AudioDetects;
 
-	// DEBUG_IOLOG("+ AppleScreamerAudio::checkStatus\n");        
+	// debugIOLog (3, "+ AppleScreamerAudio::checkStatus");        
     
 	if ( gCanPollStatus ) {
 		newCodecStatus = Screamer_ReadStatusRegisters(ioBase);
@@ -449,27 +449,27 @@ void AppleScreamerAudio::checkStatus(bool force) {
 						}
 					}
 				}
-				debug2IOLog ( "... useMasterVolumeControl %d\n", useMasterVolumeControl );
+				debugIOLog (3,  "... useMasterVolumeControl %d", useMasterVolumeControl );
 				AdjustControls ();					//	rbm	30 Sept 2002					[3042658]	} end
 			} else {
-				DEBUG_IOLOG("... didn't get the array\n");
+				debugIOLog (3, "... didn't get the array");
 			}
 		} else {
-			debug2IOLog("... newCodecStatus %d\n", (unsigned int)newCodecStatus );
+			debugIOLog (3, "... newCodecStatus %d", (unsigned int)newCodecStatus );
 		}
 	}
-	// DEBUG_IOLOG("- AppleScreamerAudio::checkStatus\n");
+	// debugIOLog (3, "- AppleScreamerAudio::checkStatus");
 }
 
 
 void AppleScreamerAudio::timerCallback(OSObject *target, IOAudioDevice *device) {
     AppleScreamerAudio *screamer;
 
-	// DEBUG_IOLOG("+ AppleScreamerAudio::timerCallback\n");
+	// debugIOLog (3, "+ AppleScreamerAudio::timerCallback");
     screamer = OSDynamicCast(AppleScreamerAudio, target);
     if (screamer) 
         screamer->checkStatus(false);
-	// DEBUG_IOLOG("- AppleScreamerAudio::timerCallback\n");
+	// debugIOLog (3, "- AppleScreamerAudio::timerCallback");
 }
 
 
@@ -554,12 +554,12 @@ IOReturn   AppleScreamerAudio::sndHWSetActiveOutputExclusive(UInt32 outputPort )
             chipInformation.outputCActive = false;
             break;
         case kSndHWOutput1:
-            DEBUG_IOLOG("+ output A is active \n");
+            debugIOLog (3, "+ output A is active ");
             chipInformation.outputAActive = true;
             chipInformation.outputCActive = false;
             break;
         case kSndHWOutput2:
-            DEBUG_IOLOG("+ output C is active \n");
+            debugIOLog (3, "+ output C is active ");
             chipInformation.outputAActive = false;
             chipInformation.outputCActive = true;
             break;
@@ -595,7 +595,7 @@ UInt32 	 AppleScreamerAudio::sndHWGetActiveInputExclusive(void){
             if (pcmciaReg == kAWACsPCMCIAOn)
                 input = kSndHWInput4;
             else if (inputReg != 0)
-                DEBUG_IOLOG("Invalid input setting\n");
+                debugIOLog (3, "Invalid input setting");
             break;
     }
 	
@@ -659,7 +659,7 @@ IOReturn AppleScreamerAudio::AdjustControls (void) {
 	IOFixed							maxdBVol;
 	Boolean							mustUpdate;
 
-	debugIOLog ("+ AdjustControls()\n");
+	debugIOLog (3, "+ AdjustControls()");
 	FailIf (NULL == driverDMAEngine, Exit);
 	mustUpdate = FALSE;
 
@@ -682,7 +682,7 @@ IOReturn AppleScreamerAudio::AdjustControls (void) {
 	}
 
 	if (TRUE == mustUpdate) {
-		debug5IOLog ("AdjustControls: mindBVol = %d.0x%x, maxdBVol = %d.0x%x\n", 
+		debugIOLog (3, "AdjustControls: mindBVol = %d.0x%x, maxdBVol = %d.0x%x", 
 			(unsigned int)( 0 != mindBVol & 0x80000000 ? ( mindBVol >> 16 ) | 0xFFFF0000 : mindBVol >> 16 ), 
 			(unsigned int)( mindBVol << 16 ), 
 			(unsigned int)( 0 != maxdBVol & 0x80000000 ? ( maxdBVol >> 16 ) | 0xFFFF0000 : maxdBVol >> 16 ), 
@@ -694,7 +694,7 @@ IOReturn AppleScreamerAudio::AdjustControls (void) {
 		if (TRUE == useMasterVolumeControl) {
 			// We have only the master volume control (possibly not created yet) and have to remove the other volume controls (possibly don't exist)
 			if (NULL == outVolMaster) {
-				debugIOLog ("AdjustControls: deleteing descrete channel controls and creating master control\n");
+				debugIOLog (3, "AdjustControls: deleteing descrete channel controls and creating master control");
 				// remove the existing left and right volume controls
 				if (NULL != outVolLeft) {
 					lastLeftVol = outVolLeft->getIntValue ();
@@ -724,7 +724,7 @@ IOReturn AppleScreamerAudio::AdjustControls (void) {
 		} else {
 			// or we have both controls (possibly not created yet) and we have to remove the master volume control (possibly doesn't exist)
 			if (NULL == outVolLeft) {
-				debugIOLog ("AdjustControls: deleteing master control and creating descrete channel controls\n");
+				debugIOLog (3, "AdjustControls: deleteing master control and creating descrete channel controls");
 				// Have to create the control again...
 				if (lastLeftVol > kSCREAMER_MAXIMUM_HW_VOLUME && NULL != outVolMaster) {
 					lastLeftVol = outVolMaster->getIntValue ();
@@ -800,7 +800,7 @@ IOReturn AppleScreamerAudio::AdjustControls (void) {
 	}
 
 Exit:
-	debugIOLog ("- AdjustControls()\n");
+	debugIOLog (3, "- AdjustControls()");
 	return kIOReturnSuccess;
 }
 
@@ -813,7 +813,7 @@ IOReturn   AppleScreamerAudio::sndHWSetProgOutput(UInt32 outputBits){
     IOReturn result; 
 	
     result = kIOReturnError;
-    FAIL_IF((outputBits & (kSndHWProgOutput0 | kSndHWProgOutput1)) != outputBits, EXIT);
+    FailIf((outputBits & (kSndHWProgOutput0 | kSndHWProgOutput1)) != outputBits, EXIT);
     
     result = kIOReturnSuccess;
     progOutputReg = sndHWGetRegister(kAWACsProgOutputReg) & ~kAWACsProgOutputField;
@@ -833,7 +833,7 @@ bool   AppleScreamerAudio::sndHWGetSystemMute(void){
 IOReturn   AppleScreamerAudio::sndHWSetSystemMute(bool mutestate){
     UInt32	muteReg;
     
-//	IOLog ("mutestate = %d, gVolRight = %ld, gVolLeft = %ld\n", mutestate, gVolRight, gVolLeft);
+//	debugIOLog (1, "mutestate = %d, gVolRight = %ld, gVolLeft = %ld", mutestate, gVolRight, gVolLeft);
     muteReg = sndHWGetRegister(kAWACsMuteReg) & ~kAWACsMuteField;
 	if (mutestate || (gVolRight == gVolLeft && 0 == gVolRight)) {	
         muteReg |= (kAWACsMuteOutputA | kAWACsMuteOutputC);
@@ -873,7 +873,7 @@ bool AppleScreamerAudio::sndHWSetSystemVolume(UInt32 leftvalue, UInt32 rightvalu
     UInt32			leftAttn;
 	UInt32			rightAttn;
 
-//	IOLog ("leftvalue = %ld, rightvalue = %ld, gVolRight = %ld, gVolLeft = %ld\n", leftvalue, rightvalue, gVolRight, gVolLeft);
+//	debugIOLog (1, "leftvalue = %ld, rightvalue = %ld, gVolRight = %ld, gVolLeft = %ld", leftvalue, rightvalue, gVolRight, gVolLeft);
 
 //    if (((SInt32)leftvalue != gVolLeft)) {
         if (0 == leftvalue) {
@@ -884,7 +884,7 @@ bool AppleScreamerAudio::sndHWSetSystemVolume(UInt32 leftvalue, UInt32 rightvalu
 		}
         leftvalue -= 1;
         leftAttn = 15 - leftvalue;
-//		IOLog ("leftAttn = %ld, leftvalue = %ld \n", leftAttn, leftvalue);
+//		debugIOLog (1, "leftAttn = %ld, leftvalue = %ld ", leftAttn, leftvalue);
 		// we change the left value for each register
         codecControlRegister[kAWACsOutputAAttenReg] 
                 = (codecControlRegister[kAWACsOutputAAttenReg] & ~kAWACsOutputLeftAtten) |
@@ -904,7 +904,7 @@ bool AppleScreamerAudio::sndHWSetSystemVolume(UInt32 leftvalue, UInt32 rightvalu
 		}
         rightvalue -= 1;
         rightAttn = 15 - rightvalue;
-//		IOLog ("rightAttn = %ld, rightvalue = %ld \n", rightAttn, rightvalue);
+//		debugIOLog (1, "rightAttn = %ld, rightvalue = %ld ", rightAttn, rightvalue);
 		// we change the right value for each register
         codecControlRegister[kAWACsOutputAAttenReg] 
                 = (codecControlRegister[kAWACsOutputAAttenReg] & ~kAWACsOutputRightAtten) |
@@ -922,12 +922,12 @@ bool AppleScreamerAudio::sndHWSetSystemVolume(UInt32 leftvalue, UInt32 rightvalu
 	//	if((rightvalue == leftvalue) && (0 == rightvalue)) {
 		if (TRUE == leftMute && TRUE == rightMute) {
 			mVolMuteActive = true;
-//			IOLog ("setting system mute from volume handler\n");
+//			debugIOLog (1, "setting system mute from volume handler");
 			sndHWSetSystemMute(true);
 		} else {
 			if(mVolMuteActive) {
 				mVolMuteActive = false;
-//				IOLog ("turning off system mute from volume handler\n");
+//				debugIOLog (1, "turning off system mute from volume handler");
 				sndHWSetSystemMute(false);
 			}
 		}
@@ -979,7 +979,7 @@ UInt32 AppleScreamerAudio::sndHWGetType( void ) {
 IOReturn   AppleScreamerAudio::sndHWSetPowerState ( IOAudioDevicePowerState theState ) {
     IOReturn		myReturn;
     
-    debugIOLog("+ AppleScreamerAudio::sndHWSetPowerState\n");
+    debugIOLog (3, "+ AppleScreamerAudio::sndHWSetPowerState");
     myReturn = kIOReturnSuccess;
     switch ( theState ) {
         case kIOAudioDeviceSleep:	myReturn = performDeviceSleep();		break;		//	When sleeping
@@ -987,7 +987,7 @@ IOReturn   AppleScreamerAudio::sndHWSetPowerState ( IOAudioDevicePowerState theS
         case kIOAudioDeviceActive:	myReturn = performDeviceWake();			break;		//	audio engines running
         default:					myReturn = kIOReturnBadArgument;		break;
     }
-    debugIOLog("- AppleScreamerAudio::sndHWSetPowerState\n");
+    debugIOLog (3, "- AppleScreamerAudio::sndHWSetPowerState");
     return ( myReturn );
 }
 
@@ -995,10 +995,10 @@ IOReturn   AppleScreamerAudio::sndHWSetPowerState ( IOAudioDevicePowerState theS
 IOReturn	AppleScreamerAudio::performDeviceWake () {
 	IOReturn	myReturn;
 	
-  	debugIOLog("+ AppleScreamerAudio::performDeviceWake\n");
+  	debugIOLog (3, "+ AppleScreamerAudio::performDeviceWake");
 	myReturn = setCodecPowerState ( kIOAudioDeviceActive );	
 	gPowerState = kIOAudioDeviceActive;
-    debugIOLog("- AppleScreamerAudio::performDeviceWake\n");
+    debugIOLog (3, "- AppleScreamerAudio::performDeviceWake");
     return ( myReturn );
 }
 
@@ -1006,7 +1006,7 @@ IOReturn	AppleScreamerAudio::performDeviceWake () {
 IOReturn	AppleScreamerAudio::performDeviceSleep () {
 	IOReturn	myReturn;
 	
-    debugIOLog("+ AppleScreamerAudio::performDeviceSleep\n");
+    debugIOLog (3, "+ AppleScreamerAudio::performDeviceSleep");
 	myReturn = kIOReturnError;
 	if ( kIOAudioDeviceSleep != gPowerState ) {
 		myReturn = setCodecPowerState ( kIOAudioDeviceSleep );	
@@ -1014,7 +1014,7 @@ IOReturn	AppleScreamerAudio::performDeviceSleep () {
 			gPowerState = kIOAudioDeviceSleep;
 		}
 	}
-    debugIOLog("- AppleScreamerAudio::performDeviceSleep\n");
+    debugIOLog (3, "- AppleScreamerAudio::performDeviceSleep");
     return ( myReturn );
 }
 
@@ -1022,10 +1022,10 @@ IOReturn	AppleScreamerAudio::performDeviceSleep () {
 IOReturn	AppleScreamerAudio::performDeviceIdleSleep () {
 	IOReturn	myReturn;
 	
-    debugIOLog("+ AppleScreamerAudio::performDeviceIdleSleep\n");
+    debugIOLog (3, "+ AppleScreamerAudio::performDeviceIdleSleep");
 	myReturn = setCodecPowerState ( kIOAudioDeviceActive );	
 	gPowerState = kIOAudioDeviceActive;
-    debugIOLog("- AppleScreamerAudio::performDeviceIdleSleep\n");
+    debugIOLog (3, "- AppleScreamerAudio::performDeviceIdleSleep");
     return ( myReturn );
 }
 
@@ -1034,13 +1034,13 @@ IOReturn	AppleScreamerAudio::performDeviceIdleSleep () {
 IOReturn	AppleScreamerAudio::setCodecPowerState ( IOAudioDevicePowerState theState ) {
 	IOReturn	myReturn;
 	
-    DEBUG_IOLOG("+ AppleScreamerAudio::setCodecPowerState\n");
+    debugIOLog (3, "+ AppleScreamerAudio::setCodecPowerState");
 	myReturn = kIOReturnSuccess;
     if ( chipInformation.partType == kSndHWTypeAWACs )
         setAWACsPowerState ( theState );
     else
         setScreamerPowerState ( theState );	
-    DEBUG_IOLOG("- AppleScreamerAudio::setCodecPowerState\n");
+    debugIOLog (3, "- AppleScreamerAudio::setCodecPowerState");
     return ( myReturn );
 }
 
@@ -1051,19 +1051,19 @@ UInt32 AppleScreamerAudio::sndHWGetManufacturer(void) {
 	
     switch (codecStatus & kAWACsManufacturerIDMask){
         case kAWACsManfCrystal:
-            DEBUG_IOLOG("Crystal Manufacturer\n");
+            debugIOLog (3, "Crystal Manufacturer");
             info = kSndHWManfCrystal;
             break;
         case kAWACsManfNational:
-            DEBUG_IOLOG("National Manufacturer\n");
+            debugIOLog (3, "National Manufacturer");
             info = kSndHWManfNational;
             break;
         case kAWACsManfTI:
-            DEBUG_IOLOG("TI Manufacturer\n");
+            debugIOLog (3, "TI Manufacturer");
             info = kSndHWManfTI;
             break;
         default:
-            DEBUG_IOLOG("Unknown Manufacturer\n");
+            debugIOLog (3, "Unknown Manufacturer");
             info = kSndHWManfUnknown;
             break;
     }
@@ -1079,7 +1079,7 @@ IOReturn AppleScreamerAudio::sndHWSetSystemInputGain(UInt32 leftGain, UInt32 rig
 	UInt32		preAmpBit;
 	Boolean		doPreAmp;
 
-    debug3IOLog ("+ AppleScreamerAudio::sndHWSetSystemInputGain (%ld, %ld)\n", leftGain, rightGain);
+    debugIOLog (3, "+ AppleScreamerAudio::sndHWSetSystemInputGain (%ld, %ld)", leftGain, rightGain);
     galeft = (UInt8) leftGain;
     garight = (UInt8) rightGain;
 	
@@ -1117,7 +1117,7 @@ IOReturn AppleScreamerAudio::sndHWSetSystemInputGain(UInt32 leftGain, UInt32 rig
 	}
 	// end [3099044]
 	      
-    debugIOLog ("- AppleScreamerAudio::sndHWSetSystemInputGain\n");
+    debugIOLog (3, "- AppleScreamerAudio::sndHWSetSystemInputGain");
     return(myReturn);
 }
 
@@ -1129,7 +1129,7 @@ void AppleScreamerAudio::GC_Recalibrate()
 {
     UInt32 awacsReg, saveReg;
     
-    DEBUG_IOLOG("+ AppleScreamerAudio::GC_Recalibrate\n");
+    debugIOLog (3, "+ AppleScreamerAudio::GC_Recalibrate");
 
     IOSleep( kPreRecalDelayCrystal); //This recalibrate delay is a hack for some
                                      //broken Crystal parts
@@ -1145,7 +1145,7 @@ void AppleScreamerAudio::GC_Recalibrate()
                                          //No doc indicates it clearly. This value was indicated in 
                                          //the OS 9 code
     sndHWSetRegister(kAWACsRecalibrateReg, saveReg);
-    DEBUG_IOLOG("- AppleScreamerAudio::GC_Recalibrate\n");
+    debugIOLog (3, "- AppleScreamerAudio::GC_Recalibrate");
 }
 */
 
@@ -1153,7 +1153,7 @@ void AppleScreamerAudio::GC_Recalibrate () {
 	UInt32					awacsReg;
 	UInt32					saveReg;
 
-	debugIOLog ("+ AppleScreamerAudio::GC_Recalibrate\n");
+	debugIOLog (3, "+ AppleScreamerAudio::GC_Recalibrate");
 
 	IOSleep (kPreRecalDelayCrystal); 		// This recalibrate delay is a hack for some broken Crystal parts
 
@@ -1168,7 +1168,7 @@ void AppleScreamerAudio::GC_Recalibrate () {
 	ScreamerWaitUntilReady (ioBase);
 
 	sndHWSetRegister (kAWACsRecalibrateReg, saveReg);
-	debugIOLog ("- AppleScreamerAudio::GC_Recalibrate\n");
+	debugIOLog (3, "- AppleScreamerAudio::GC_Recalibrate");
 }
 
 void AppleScreamerAudio::restoreSndHWRegisters( void )
@@ -1226,7 +1226,7 @@ void AppleScreamerAudio::setScreamerPowerState(IOAudioDevicePowerState state) {
 
 	curState = SndHWGetPowerState ();
 
-	debug3IOLog ("[AppleScreamerAudio] going to power state %d from %d\n", state, curState);
+	debugIOLog (3, "[AppleScreamerAudio] going to power state %d from %d", state, curState);
 	switch (state) {
 		case kIOAudioDeviceActive:
 			GoRunState(curState);
@@ -1434,10 +1434,10 @@ UInt32 AppleScreamerAudio::GetDeviceID (void) {
 	FailIf (!tmpData, Exit);
 	deviceID = (UInt32*)tmpData->getBytesNoCopy ();
 	if (NULL != deviceID) {
-		debug2IOLog ("deviceID = %ld\n", *deviceID);
+		debugIOLog (3, "deviceID = %ld", *deviceID);
 		theDeviceID = *deviceID;
 	} else {
-		debugIOLog ("deviceID = NULL!\n");
+		debugIOLog (3, "deviceID = NULL!");
 	}
 
 Exit:

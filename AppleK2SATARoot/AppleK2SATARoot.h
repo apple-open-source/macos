@@ -66,6 +66,9 @@ public:
 				 OSString ** matched = 0 ) const;
 
     virtual IOReturn getNubResources( IOService * nub );	
+	
+	// pm stuff
+	virtual IOReturn setPowerState ( unsigned long powerStateOrdinal, IOService* whatDevice ); 	
 
 protected:
 
@@ -85,7 +88,14 @@ protected:
 	
 	AppleK2SATAIC*			intController;	
 	
+	bool					isSleeping;
+	
 	IOInterruptEventSource*  nubIntSrc;
+	
+	UInt32					restoreSCR2[4];
+	UInt32					restoreSICR1[4];
+
+	
 	//OSObject overrides
 	virtual void free();
 	static void sDeviceInterruptOccurred(OSObject*, IOInterruptEventSource *, int count);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,63 +23,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc.  All rights reserved.
  *
  *
  */
-//		$Log: IOPlatformControl.cpp,v $
-//		Revision 1.5  2003/06/07 01:30:56  eem
-//		Merge of EEM-PM72-ActiveFans-2 branch, with a few extra tweaks.  This
-//		checkin has working PID control for PowerMac7,2 platforms, as well as
-//		a first shot at localized strings.
-//		
-//		Revision 1.4.2.6  2003/06/06 08:17:56  eem
-//		Holy Motherfucking shit.  PID is really working.
-//		
-//		Revision 1.4.2.5  2003/06/04 10:21:10  eem
-//		Supports forced PID meta states.
-//		
-//		Revision 1.4.2.4  2003/05/26 10:19:00  eem
-//		Fixed OSNumber leaks.
-//		
-//		Revision 1.4.2.3  2003/05/26 10:07:14  eem
-//		Fixed most of the bugs after the last cleanup/reorg.
-//		
-//		Revision 1.4.2.2  2003/05/23 05:44:40  eem
-//		Cleanup, ctrlloops not get notification for sensor and control registration.
-//		
-//		Revision 1.4.2.1  2003/05/22 01:31:04  eem
-//		Checkin of today's work (fails compilations right now).
-//		
-//		Revision 1.4  2003/05/21 21:58:49  eem
-//		Merge from EEM-PM72-ActiveFans-1 branch with initial crack at active fan
-//		control on Q37.
-//		
-//		Revision 1.3.2.3  2003/05/17 11:08:22  eem
-//		All active fan data present, table event-driven.  PCI power sensors are
-//		not working yet so PCI fan is just set to 67% PWM and forgotten about.
-//		
-//		Revision 1.3.2.2  2003/05/16 07:08:45  eem
-//		Table-lookup active fan control working with this checkin.
-//		
-//		Revision 1.3.2.1  2003/05/14 22:07:48  eem
-//		Implemented state-driven sensor, cleaned up "const" usage and header
-//		inclusions.
-//		
-//		Revision 1.3  2003/05/13 02:13:51  eem
-//		PowerMac7_2 Dynamic Power Step support.
-//		
-//		Revision 1.2.2.1  2003/05/12 11:21:09  eem
-//		Support for slewing.
-//		
-//		Revision 1.2  2003/05/10 06:50:33  eem
-//		All sensor functionality included for PowerMac7_2_PlatformPlugin.  Version
-//		is 1.0.1d12.
-//		
-//		Revision 1.1.2.1  2003/05/01 09:28:40  eem
-//		Initial check-in in progress toward first Q37 checkpoint.
-//		
-//		
+
 
 #include <IOKit/IOLib.h>
 #include "IOPlatformPluginDefs.h"
@@ -118,22 +66,19 @@ void IOPlatformControl::free( void )
 	super::free();
 }
 
-const OSNumber *IOPlatformControl::applyCurrentValueTransform( const OSNumber * hwReading )
+ControlValue IOPlatformControl::applyCurrentValueTransform( ControlValue hwReading )
 {
-	hwReading->retain();
 	return hwReading;
 }
 
-const OSNumber *IOPlatformControl::applyTargetValueTransform( const OSNumber * hwReading )
+ControlValue IOPlatformControl::applyTargetValueTransform( ControlValue hwReading )
 {
-	hwReading->retain();
 	return hwReading;
 }
 
-const OSNumber *IOPlatformControl::applyTargetHWTransform( const OSNumber * value )
+ControlValue IOPlatformControl::applyTargetValueInverseTransform( ControlValue pluginReading )
 {
-	value->retain();
-	return value;
+	return pluginReading;
 }
 
 IOReturn IOPlatformControl::initPlatformControl( const OSDictionary *dict )
@@ -144,102 +89,98 @@ IOReturn IOPlatformControl::initPlatformControl( const OSDictionary *dict )
 
 	if ( !dict || !init() ) return(kIOReturnError);
 
+
 	// id
 	if ((number = OSDynamicCast(OSNumber, dict->getObject(gIOPPluginControlIDKey))) != NULL)
 	{
-		infoDict->setObject(gIOPPluginControlIDKey, number);
+		infoDict->setObject(gIOPPluginControlIDKey, number );
 	}
 	else
 	{
-		CONTROL_DLOG("IOPlatformControl::initPlatformControl no Control ID\n");
+		IOLog("IOPlatformControl::initPlatformControl Invalid Thermal Profile omits Control ID\n");
 		return(kIOReturnBadArgument);
 	}
 
-	// description
+	// description - if not included in thermal profile, will be set in registerDriver()
 	if ((string = OSDynamicCast(OSString, dict->getObject(gIOPPluginThermalLocalizedDescKey))) != NULL)
 	{
 		infoDict->setObject(gIOPPluginThermalLocalizedDescKey, string);
 	}
-	else
-	{
-		string = OSSymbol::withCString("UNKNOWN_CONTROL");
-		infoDict->setObject(gIOPPluginThermalLocalizedDescKey, string);
-		string->release();
-	}
 
-	// location
-	if ((string = OSDynamicCast(OSString, dict->getObject(gIOPPluginLocationKey))) != NULL)
-	{
-		infoDict->setObject(gIOPPluginLocationKey, string);
-	}
-	else
-	{
-		string = OSSymbol::withCString("Unknown Control");
-		infoDict->setObject(gIOPPluginLocationKey, string);
-		string->release();
-	}
-
-	// flags
+	// flags - if not included in thermal profile, will be set in registerDriver()
 	if ((number = OSDynamicCast(OSNumber, dict->getObject(gIOPPluginControlFlagsKey))) != NULL)
 	{
 		infoDict->setObject(gIOPPluginControlFlagsKey, number);
 	}
-	else
+
+	// type
+	if ((string = OSDynamicCast(OSString, dict->getObject(gIOPPluginTypeKey))) != NULL)
 	{
-		infoDict->setObject(gIOPPluginControlFlagsKey, gIOPPluginZero);
+		infoDict->setObject( gIOPPluginTypeKey, string );
 	}
 
-	// version
+	// version - if not included in thermal profile, will be set in registerDriver()
 	if ((number = OSDynamicCast(OSNumber, dict->getObject(gIOPPluginVersionKey))) != NULL)
 	{
 		infoDict->setObject(gIOPPluginVersionKey, number);
 	}
-	else
+
+	// location - if not included in thermal profile, will be set in registerDriver()
+	if ((string = OSDynamicCast(OSString, dict->getObject(gIOPPluginLocationKey))) != NULL)
 	{
-		// if no version was found, assume version 1
-		infoDict->setObject(gIOPPluginVersionKey, gIOPPluginOne);
+		infoDict->setObject( gIOPPluginLocationKey, string);
 	}
 
-	// zone
+	// zone - if not included in thermal profile, will be set in registerDriver()
 	if ((data = OSDynamicCast(OSData, dict->getObject(gIOPPluginZoneKey))) != NULL)
 	{
-		UInt32 zone;
-
-		if (data->getLength() < sizeof(UInt32))
-		{
-			CONTROL_DLOG("IOPlatformControl::initPlatformControl invalid zone in thermal profile!!\n");
-		}
-		else
-		{
-			zone = *((UInt32 *) data->getBytesNoCopy());
-			//CONTROL_DLOG("IOPlatformControl::initPlatformControl got zone %lu\n", zone);
-			infoDict->setObject(gIOPPluginZoneKey, data);
-		}
-	}
-
-	// type - optional override
-	if ((string = OSDynamicCast(OSString, dict->getObject(gIOPPluginTypeKey))) != NULL)
-	{
-		//CONTROL_DLOG("IOPlatformControl::initPlatformControl got type override %s\n", string->getCStringNoCopy());
-		infoDict->setObject(gIOPPluginTypeKey, string);
+		infoDict->setObject( gIOPPluginZoneKey, data);
 	}
 
 	// create the "registered" key and set it to false
 	infoDict->setObject(gIOPPluginRegisteredKey, kOSBooleanFalse);
 
 	// create the "current-value" key and set it to zero
-	setCurrentValue(gIOPPluginZero);
+	setCurrentValue( 0x0 );
 
-	// if there's an initial target value listed, use it, otherwise set to zero
-	if ((number = OSDynamicCast(OSNumber, dict->getObject("initial-target"))) != NULL)
+	// create the "target-value" key and set it to zero
+	setTargetValue( 0x0 );
+
+	// if there's an initial target value listed in the thermal profile, record it
+	if ((number = OSDynamicCast(OSNumber, dict->getObject(kIOPPluginInitialTargetKey))) != NULL)
 	{
-		setTargetValue(number);
-		//CONTROL_DLOG("IOPlatformControl::initPlatformControl initial target value %u\n", number->unsigned32BitValue());
+		infoDict->setObject(kIOPPluginInitialTargetKey, number);
+	}
+
+	return(kIOReturnSuccess);
+}
+
+IOReturn IOPlatformControl::initPlatformControl( IOService * unknownControl, const OSDictionary * dict )
+{
+	const OSNumber *number;
+
+	if ( !unknownControl || !dict || !init() ) return(kIOReturnError);
+
+	// id
+	if ((number = OSDynamicCast(OSNumber, unknownControl->getProperty(gIOPPluginControlIDKey))) != NULL ||
+	    (number = OSDynamicCast(OSNumber, dict->getObject(gIOPPluginControlIDKey))) != NULL)
+	{
+		infoDict->setObject(gIOPPluginControlIDKey, number );
 	}
 	else
 	{
-		setTargetValue(gIOPPluginZero);
+		IOLog("IOPlatformControl::initPlatformControl Unlisted Registrant %s omits Control ID\n", unknownControl->getName());
+		return(kIOReturnBadArgument);
 	}
+
+	// create the "registered" key and set it to false
+	infoDict->setObject(gIOPPluginRegisteredKey, kOSBooleanFalse);
+
+	// create the "current-value" key and set it to zero
+	setCurrentValue( 0x0 );
+
+	// create the "target-value" key and set it to zero
+	setTargetValue( 0x0 );
 
 	return(kIOReturnSuccess);
 }
@@ -256,7 +197,10 @@ OSBoolean *IOPlatformControl::isRegistered( void )
 
 IOReturn IOPlatformControl::registerDriver( IOService * driver, const OSDictionary * dict, bool notify )
 {
-	const OSNumber * curValue;
+	const OSData * data;
+	const OSString * string;
+	const OSNumber * number;
+	ControlValue controlValue;
 
 	if (isRegistered() == kOSBooleanTrue || driver == NULL)
 	{
@@ -265,14 +209,147 @@ IOReturn IOPlatformControl::registerDriver( IOService * driver, const OSDictiona
 
 	// save a pointer to the driver, and set the registered flag
 	controlDriver = driver;
+	controlDriver->retain();
+
+	// If there's no localized description key, add a default
+	if (getControlDescKey() == NULL)
+	{
+		string = OSSymbol::withCString("UNKNOWN_CONTROL");
+		infoDict->setObject(gIOPPluginThermalLocalizedDescKey, string);
+		string->release();
+	}
+
+	// If there's no flags, set a default of zero (no bits set)
+	if (getControlFlags() == NULL)
+	{
+		infoDict->setObject(kIOPPluginControlFlagsKey, gIOPPluginZero);
+	}
+
+	// check for some properties.  If the thermal profile hasn't overridden these values and the
+	// control driver is non-comformant (doesn't supply the properties), print an error to system log
+	// so someone gets nagged about it.
+	// type
+	if (getControlType() == NULL)
+	{
+		if ((string = OSDynamicCast(OSString, controlDriver->getProperty(gIOPPluginTypeKey))) != NULL ||
+		    (string = OSDynamicCast(OSString, dict->getObject(gIOPPluginTypeKey))) != NULL)
+		{
+			infoDict->setObject( gIOPPluginTypeKey, string );
+		}
+		else
+		{
+			// the type has to be there.  If we can't find it anywhere, this control is no good to us.
+			IOLog("IOPlatformControl::registerDriver can't register Control ID %08X (%s) with unknown Control Type!\n",
+					getControlID()->unsigned32BitValue(), controlDriver->getName());
+			return(kIOReturnBadArgument);
+		}
+	}
+
+	if (getVersion() == NULL)
+	{
+		if ((number = OSDynamicCast(OSNumber, controlDriver->getProperty(gIOPPluginVersionKey))) != NULL ||
+		    (number = OSDynamicCast(OSNumber, dict->getObject(gIOPPluginVersionKey))) != NULL)
+		{
+			infoDict->setObject(gIOPPluginVersionKey, number);
+		}
+		else
+		{
+			infoDict->setObject(gIOPPluginVersionKey, gIOPPluginOne);
+			IOLog("IOPlatformControl::registerDriver Control Driver %s did not supply version property, using default\n",
+					controlDriver->getName());
+		}
+	}
+
+	if (getControlLocation() == NULL)
+	{
+		if ((string = OSDynamicCast(OSString, controlDriver->getProperty(gIOPPluginLocationKey))) != NULL ||
+		    (string = OSDynamicCast(OSString, dict->getObject(gIOPPluginLocationKey))) != NULL)
+		{
+			infoDict->setObject(gIOPPluginLocationKey, string);
+		}
+		else
+		{
+			string = OSSymbol::withCString("Unknown Control");
+			infoDict->setObject(gIOPPluginLocationKey, string);
+			string->release();
+			IOLog("IOPlatformControl::registerDriver Control Driver %s did not supply location property, using default\n",
+					controlDriver->getName());
+		}
+	}
+
+	if (getControlZone() == NULL)
+	{
+		if ((data = OSDynamicCast(OSData, controlDriver->getProperty(gIOPPluginZoneKey))) != NULL ||
+		    (data = OSDynamicCast(OSData, dict->getObject(gIOPPluginZoneKey))) != NULL)
+		{
+			infoDict->setObject(gIOPPluginZoneKey, data);
+		}
+		else
+		{
+			UInt32 zero = 0;
+			data = OSData::withBytes( &zero, sizeof(UInt32) );
+			infoDict->setObject(gIOPPluginZoneKey, data);
+			data->release();
+			IOLog("IOPlatformControl::registerDriver Control Driver %s did not supply zone property, using default\n",
+					controlDriver->getName());
+		}
+	}
+
+	// store the control's initial reported current-value
+	number = OSDynamicCast(OSNumber, dict->getObject(gIOPPluginCurrentValueKey));
+	if (number)
+	{
+		controlValue = number->unsigned32BitValue();
+		controlValue = applyCurrentValueTransform( controlValue );
+		setCurrentValue( controlValue );
+	}
+	else
+	{
+		setCurrentValue( 0x0 );
+		IOLog("IOPlatformControl::registerDriver Control Driver %s did not supply current-value, using default\n",
+				controlDriver->getName());
+	}
 
 	// flag the successful registration
 	infoDict->setObject(gIOPPluginRegisteredKey, kOSBooleanTrue );
 
-	// store the control's initial reported current-value
-	curValue = applyCurrentValueTransform( OSDynamicCast(OSNumber, dict->getObject(gIOPPluginCurrentValueKey)) );
-	setCurrentValue( curValue );
-	curValue->release();
+	// handle the target value: if there was an initial-target set in the thermal profile, then send it
+	// down to the driver.  Otherwise, read the target-value out of the control's registration dictionary.
+	// Handle the case of a non-comformant control that doesn't publish its target value as expected
+	if ((number = OSDynamicCast(OSNumber, infoDict->getObject(kIOPPluginInitialTargetKey))) != NULL)
+	{
+		controlValue = number->unsigned32BitValue();
+
+		if (sendTargetValue(controlValue))
+		{
+			setTargetValue(controlValue);
+		}
+		else
+		{
+			IOLog("IOPlatformControl::registerDriver failed to send target-value to Control Driver %s\n",
+					controlDriver->getName());
+		}
+	}
+	else
+	{
+		number = OSDynamicCast(OSNumber, dict->getObject(gIOPPluginTargetValueKey));
+		if (number)
+		{
+			controlValue = number->unsigned32BitValue();
+
+			// we need to apply the transformation (because the value came from the control driver),
+			// and only need to setTargetValue().   sendTargetValue() is not necessary -- the control
+			// driver is alreay using this target value.
+			controlValue = applyTargetValueTransform( controlValue );
+			setTargetValue( controlValue );
+		}
+		else
+		{
+			setTargetValue( 0x0 );
+			IOLog("IOPlatformControl::registerDriver Control Driver %s did not supply target-value, using default\n",
+					controlDriver->getName());
+		}
+	}
 
 	if (notify) notifyCtrlLoops();
 
@@ -365,25 +442,6 @@ OSArray *IOPlatformControl::memberOfCtrlLoops( void )
 	return ctrlLoops;
 }
 
-IOReturn IOPlatformControl::sendMessage( OSDictionary * msg )
-{
-	//CONTROL_DLOG("IOPlatformControl::sendMessage - entered\n");
-
-	if (!(isRegistered() == kOSBooleanTrue) || !controlDriver)
-	{
-		CONTROL_DLOG("IOPlatformControl::sendMessage not registered\n");
-		return(kIOReturnOffline);
-	}
-
-	if ( !msg )
-	{
-		CONTROL_DLOG("IOPlatformControl::sendMessage no message\n");
-		return(kIOReturnBadArgument);
-	}
-
-	return(controlDriver->setProperties( msg ));
-}
-
 OSDictionary *IOPlatformControl::getInfoDict( void )
 {
 	return infoDict;
@@ -442,122 +500,111 @@ OSNumber *IOPlatformControl::getControlFlags( void )
 	return OSDynamicCast(OSNumber, infoDict->getObject(gIOPPluginControlFlagsKey));
 }
 
-UInt32 IOPlatformControl::getControlMinValueUInt32( void )
-{
-	OSNumber * min;
 
-	if ((min = (OSNumber *) getControlMinValue()) == NULL)
+ControlValue IOPlatformControl::getValue( const OSSymbol * key, ControlValue defaultValue )
+{
+	ControlValue value;
+	OSNumber * num;
+
+	num = OSDynamicCast(OSNumber, infoDict->getObject(key));
+	value = num ? num->unsigned32BitValue() : defaultValue;
+
+	return value;
+}
+
+void IOPlatformControl::setValue( const OSSymbol * key, ControlValue newValue )
+{
+	OSNumber * num;
+
+	num = OSDynamicCast(OSNumber, infoDict->getObject(key));
+
+	if (num)
 	{
-		CONTROL_DLOG("IOPlatformControl::getControlMinValue (UInt32) no min value!\n");
-		return(0x0);
+		num->setValue( newValue );
 	}
 	else
 	{
-		return(min->unsigned32BitValue());
+		num = OSNumber::withNumber( newValue, 32 );
+		infoDict->setObject( key, num );
+		num->release();
 	}
 }
 
-OSNumber *IOPlatformControl::getControlMinValue( void )
+ControlValue IOPlatformControl::getControlMinValue( void )
 {
-	return OSDynamicCast(OSNumber, infoDict->getObject(gIOPPluginControlMinValueKey));
+	return getValue( gIOPPluginControlMinValueKey, 0x0 );
 }
 
-UInt32 IOPlatformControl::getControlMaxValueUInt32( void )
+ControlValue IOPlatformControl::getControlMaxValue( void )
 {
-	OSNumber * max;
+	return getValue( gIOPPluginControlMaxValueKey, 0xFFFFFFFF );
+}
 
-	if ((max = getControlMaxValue()) == NULL)
+void IOPlatformControl::setControlMinValue( ControlValue min )
+{
+	setValue( gIOPPluginControlMinValueKey, min );
+}
+
+void IOPlatformControl::setControlMaxValue( ControlValue max )
+{
+	setValue( gIOPPluginControlMaxValueKey, max );
+}
+
+ControlValue IOPlatformControl::getCurrentValue( void )
+{
+	return getValue( gIOPPluginCurrentValueKey, 0x0 );
+}
+
+void IOPlatformControl::setCurrentValue( ControlValue newValue )
+{
+	setValue( gIOPPluginCurrentValueKey, newValue );
+}
+
+ControlValue IOPlatformControl::forceAndFetchCurrentValue( void )
+{
+#if CONTROL_DEBUG
+	if (kIOReturnSuccess != sendForceUpdate())
 	{
-		CONTROL_DLOG("IOPlatformControl::getControlMaxValue (UInt32) no max value!\n");
-		return(0xFFFFFFFF);
+		CONTROL_DLOG("IOPlatformControl::forceAndFetchCurrentValue(0x%08lX) failed to force-update\n", getControlID()->unsigned32BitValue());
 	}
-	else
-	{
-		return(max->unsigned32BitValue());
-	}
+#else
+	sendForceUpdate();
+#endif
+	
+	return(fetchCurrentValue());
 }
 
-OSNumber *IOPlatformControl::getControlMaxValue( void )
-{
-	return OSDynamicCast(OSNumber, infoDict->getObject(gIOPPluginControlMaxValueKey));
-}
 
-void IOPlatformControl::setControlMinValue( OSNumber * min )
+ControlValue IOPlatformControl::fetchCurrentValue( void )
 {
-	if (min)
-	{
-		infoDict->setObject(gIOPPluginControlMinValueKey, min);
-	}
-}
-
-void IOPlatformControl::setControlMaxValue( OSNumber * max )
-{
-	if (max)
-	{
-		infoDict->setObject(gIOPPluginControlMaxValueKey, max);
-	}
-}
-
-const OSNumber *IOPlatformControl::getCurrentValue( void )
-{
-	return OSDynamicCast(OSNumber, infoDict->getObject(gIOPPluginCurrentValueKey));
-}
-
-void IOPlatformControl::setCurrentValue( const OSNumber * controlValue )
-{
-	if (!controlValue)
-	{
-		CONTROL_DLOG("IOPlatformControl::setCurrentValue got null controlValue\n");
-		return;
-	}
-
-	infoDict->setObject(gIOPPluginCurrentValueKey, controlValue);
-}
-
-const OSNumber *IOPlatformControl::fetchCurrentValue( void )
-{
-	IOReturn status;
 	OSDictionary * dict;
 	OSArray * controlInfo;
-	const OSNumber * currentValue, * raw, * myID, * tmpID;
+	ControlValue pluginValue;
+	const OSNumber * hwReading, * myID, * tmpID;
 
 	//CONTROL_DLOG("IOPlatformControl::fetchCurrentValue - entered\n");
 
 	if (!(isRegistered() == kOSBooleanTrue) || !controlDriver)
 	{
 		CONTROL_DLOG("IOPlatformControl::fetchCurrentValue not registered\n");
-		return(NULL);
+		return 0x0;
 	}
 
-	dict = OSDictionary::withCapacity(2);
-	if (!dict) return(NULL);
-	dict->setObject(gIOPPluginForceUpdateKey, gIOPPluginZero);
-	dict->setObject(gIOPPluginControlIDKey, getControlID());
-
-	// force an update
-	status = sendMessage( dict );
-	dict->release();
-
-	if (status != kIOReturnSuccess )
-	{
-		CONTROL_DLOG("IOPlatformControl::fetchCurrentValue sendMessage failed!!\n");
-		return(NULL);
-	}
-
-	// read the updated value
+	// read the control value
 	// This is a little tricky at present.  The AppleSlewClock driver publishes its current-value
 	// as a property in the driver's registry entry.  But the AppleFCU driver publishes an
 	// array, called "control-info", with data on all the controls it is responsible for.  Here
 	// we'll check for a simple current-value property, and if we don't find it we'll look
 	// for the control-info array and iterate it for the control we care about.
-	if ((raw = OSDynamicCast(OSNumber,	controlDriver->getProperty(gIOPPluginCurrentValueKey))) != NULL)
+	if ((hwReading = OSDynamicCast(OSNumber, controlDriver->getProperty(gIOPPluginCurrentValueKey))) == NULL)
 	{
-		currentValue = applyCurrentValueTransform(raw);
-		//raw->release();
-		return(currentValue);
-	}
-	else if ((controlInfo = OSDynamicCast(OSArray, controlDriver->getProperty("control-info"))) != NULL)
-	{
+		if ((controlInfo = OSDynamicCast(OSArray, controlDriver->getProperty("control-info"))) == NULL)
+		{
+			// if we get here, the current-value was not found in any known location
+			CONTROL_DLOG("IOPlatformControl::fetchCurrentValue can't find current value in controlDriver!!\n");
+			return 0x0;
+		}
+
 		int i, count;
 
 		myID = getControlID();
@@ -565,64 +612,63 @@ const OSNumber *IOPlatformControl::fetchCurrentValue( void )
 		count = controlInfo->getCount();
 		for (i=0; i<count; i++)
 		{
-			if ((dict = OSDynamicCast(OSDictionary, controlInfo->getObject(i))) != NULL)
+			if ((dict = OSDynamicCast(OSDictionary, controlInfo->getObject(i))) == NULL ||
+			    (tmpID = OSDynamicCast(OSNumber, dict->getObject(gIOPPluginControlIDKey))) == NULL ||
+			    !myID->isEqualTo(tmpID) ||
+			    (hwReading = OSDynamicCast(OSNumber, dict->getObject(gIOPPluginCurrentValueKey))) == NULL)
 			{
-				if ((tmpID = OSDynamicCast(OSNumber, dict->getObject(gIOPPluginControlIDKey))) != NULL &&
-					myID->isEqualTo(tmpID) &&
-					(raw = OSDynamicCast(OSNumber, dict->getObject(gIOPPluginCurrentValueKey))) != NULL)
-				{
-					currentValue = applyCurrentValueTransform(raw);
-					//raw->release();
-					return(currentValue);
-				}
+				continue;
 			}
+		}
+
+		if (!hwReading)
+		{
+			// if we get here, the current-value was not found in the control-info array
+			CONTROL_DLOG("IOPlatformControl::fetchCurrentValue can't find current value in control-info array!!\n");
+			return 0x0;
 		}
 	}
 
-	// if we get here, the current-value was not found in any known location
-	CONTROL_DLOG("IOPlatformControl::fetchCurrentValue can't find current value in controlDriver!!\n");
-	return(NULL);
+	pluginValue = hwReading->unsigned32BitValue();
+	pluginValue = applyCurrentValueTransform( pluginValue );
+
+	return(pluginValue);
 }
 
-const OSNumber *IOPlatformControl::getTargetValue(void)
+ControlValue IOPlatformControl::getTargetValue( void )
 {
-	return OSDynamicCast(OSNumber, infoDict->getObject(gIOPPluginTargetValueKey));
+	return getValue( gIOPPluginTargetValueKey, 0x0 );
 }
 
-void IOPlatformControl::setTargetValue( UInt32 value )
+void IOPlatformControl::setTargetValue( ControlValue target )
 {
-	const OSNumber * target = OSNumber::withNumber( value, 32 );
-	setTargetValue( target );
-	target->release();
+	setValue( gIOPPluginTargetValueKey, target );
 }
 
-void IOPlatformControl::setTargetValue( const OSNumber * value )
+IOReturn IOPlatformControl::sendMessage( OSDictionary * msg )
 {
-	if (value)
-	{
-		infoDict->setObject( gIOPPluginTargetValueKey, value );
-	}
-}
-
-bool IOPlatformControl::sendTargetValue( const OSNumber * target, bool forced /* = false */)
-{
-	IOReturn status;
-	OSDictionary * dict;
-	const OSNumber * temp;
-
-	//CONTROL_DLOG("IOPlatformControl::sendTargetValue - entered\n");
+	//CONTROL_DLOG("IOPlatformControl::sendMessage - entered\n");
 
 	if (!(isRegistered() == kOSBooleanTrue) || !controlDriver)
 	{
-		CONTROL_DLOG("IOPlatformControl::sendTargetValue not registered\n");
-		return(false);
+		CONTROL_DLOG("IOPlatformControl::sendMessage not registered\n");
+		return(kIOReturnOffline);
 	}
 
-	if (!target)
+	if ( !msg )
 	{
-		CONTROL_DLOG("IOPlatformControl::sendTargetValue value is NULL!\n");
-		return(false);
+		CONTROL_DLOG("IOPlatformControl::sendMessage no message\n");
+		return(kIOReturnBadArgument);
 	}
+
+	return(controlDriver->setProperties( msg ));
+}
+
+bool IOPlatformControl::sendTargetValue( ControlValue target, bool forced /* = false */)
+{
+	IOReturn status;
+	OSDictionary * dict;
+	const OSNumber * num;
 
 	if (!forced && infoDict->getObject(gIOPPluginForceControlTargetValKey))
 	{
@@ -633,21 +679,39 @@ bool IOPlatformControl::sendTargetValue( const OSNumber * target, bool forced /*
 	}
 	
 	dict = OSDictionary::withCapacity(2);
-	if (!dict) return(NULL);
-	temp = applyTargetHWTransform(target);
-	dict->setObject(gIOPPluginTargetValueKey, temp );
-	temp->release();
+	if (!dict) return(false);
+
+	// apply the inverse target value transform
+	target = applyTargetValueInverseTransform(target);
+
+	// add the target value to the command dict
+	num = OSNumber::withNumber( target, 32 );
+	dict->setObject(gIOPPluginTargetValueKey, num );
+	num->release();
+
+	// add the control ID to the command dict
 	dict->setObject(gIOPPluginControlIDKey, getControlID());
 
 	// send the dict
 	status = sendMessage( dict );
 	dict->release();
 
-	if (status != kIOReturnSuccess )
-	{
-		CONTROL_DLOG("IOPlatformControl::sendTargetValue sendMessage failed!!\n");
-		return(false);
-	}
+	return ( status == kIOReturnSuccess );
+}
 
-	return(true);
+IOReturn IOPlatformControl::sendForceUpdate( void )
+{
+	IOReturn status;
+	OSDictionary *forceUpdateDict;
+
+	forceUpdateDict = OSDictionary::withCapacity(2);
+	if (!forceUpdateDict) return(kIOReturnNoMemory);
+	forceUpdateDict->setObject(gIOPPluginForceUpdateKey, gIOPPluginZero);
+	forceUpdateDict->setObject(gIOPPluginControlIDKey, getControlID());
+
+	// force an update
+	status = sendMessage( forceUpdateDict );
+	forceUpdateDict->release();
+
+	return(status);
 }

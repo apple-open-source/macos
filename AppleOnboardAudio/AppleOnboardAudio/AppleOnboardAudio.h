@@ -79,6 +79,12 @@ enum jackStates {
 	kUnknown					= 2
 };
 
+enum inputGainControls {
+	kNoInputGainControls		= 0,
+	kStereoInputGainControls,
+	kMonoInputGainControl
+};
+
 typedef struct AOAStateUserClientStruct {
 	UInt32				ucPramData;
 	UInt32				ucPramVolume;
@@ -121,6 +127,12 @@ typedef struct AOAStateUserClientStruct {
 #define kPluginPListSoftwareInputGain	"SoftwareInputGain"
 #define kPluginPListNumHardwareEQBands	"NumHardwareEQBands"
 
+// Neoborg bring up defines, used to force second AOA instance loading
+#define kMultipleDevices				"MultipleDevices"
+#define kI2SNode						"i2sNode"
+#define kSoundNodePath					"soundNodePath"
+#define kMatchProperty					"matchProperty"
+
 #define kSoundEntry						"sound"
 #define	kLayoutID						"layout-id"
 #define	kCompatible						"compatible"
@@ -130,15 +142,16 @@ typedef struct AOAStateUserClientStruct {
 #define kPlatformObject					"PlatformObject"
 #define kAmpRecoveryTime				"AmpRecoveryTime"
 #define kExternalClockSelect			"ExternalClockSelect"
+#define kExternalClockSelectAuto		"ExternalClockSelectAuto"		//	For S/DIF input with no hardware Sample Rate Converter
 #define kTransportObject				"TransportObject"
 #define kControls						"Controls"
 #define kFormats						"Formats"
 #define kPluginID						"PluginID"
-#define kSignalProcessing				"SignalProcessing"
-#define kHardwareDSPIndex				"HardwareDSPIndex"
-#define kEqualization					"Equalization"
-#define kDynamicRange					"DynamicRange"
-#define kSoftwareDSP					"SoftwareDSP"
+#define kSWInterrupts					"SWInterrupts"
+#define kClockLockIntMessage			"ClockLock"
+#define kClockUnLockIntMessage			"ClockUnLock"
+#define kDigitalInInsertIntMessage		"DigitalInDetectInsert"
+#define kDigitalInRemoveIntMessage		"DigitalInDetectRemove"
 #define kMaxVolumeOffset				"maxVolumeOffset"
 #define kSpeakerID						"SpeakerID"
 #define kMicrophoneID					"MicrophoneID"
@@ -146,29 +159,9 @@ typedef struct AOAStateUserClientStruct {
 #define kClipRoutines					"ClipRoutines"
 #define kEncoding						"Encoding"
 #define kIsMixable						"IsMixable"
+#define	kComboInObject					"ComboIn"
+#define	kComboOutObject					"ComboOut"
 
-#define kFilterType						"FilterType"
-#define kFilterFrequency				"Frequency"
-#define kFilterQ						"Q"
-#define kFilterGain						"Gain"
-#define kFilterRunInSoftware			"runInSoftware"
-#define kFilterIndex					"index"
-
-#define kLimiter						"Limiter"
-#define kLimiterType					"LimiterType"
-#define kLimiterBandIndex				"BandIndex"
-#define kLimiterAttackTime				"AttackTime"
-#define kLimiterReleaseTime				"ReleaseTime"
-#define kLimiterThreshold				"Threshold"
-#define kLimiterGain					"Gain"
-#define kLimiterRatio					"Ratio"
-#define kLimiterRatioBelow				"RatioBelow"
-#define kLimiterLookahead				"Lookahead"
-#define kLimiterRunInHardware			"RunInHardware"
-
-#define kCrossover						"Crossover"
-#define kCrossoverFrequency				"Frequency"
-#define kCrossoverNumberOfBands			"NumberOfBands"
 
 #define kLeftVolControlString			"Left"
 #define kRightVolControlString			"Right"
@@ -195,6 +188,7 @@ typedef struct AOAStateUserClientStruct {
 #define kPluginPListRightVol			"right-vol"
 #define kPluginPListLeftGain			"left-gain"
 #define kPluginPListRightGain			"right-gain"
+#define kPluginPListMasterGain			"master-gain"
 
 #define kInternalClockString			"InternalClock"
 #define kExternalClockString			"ExternalClock"
@@ -237,6 +231,7 @@ protected:
     IOAudioLevelControl *				mOutRightVolumeControl;
     IOAudioLevelControl *				mInLeftGainControl;
     IOAudioLevelControl *				mInRightGainControl;
+	IOAudioLevelControl *				mInMasterGainControl;
     IOAudioSelectorControl *			mInputSelector;
 	IOAudioSelectorControl *			mOutputSelector;
 	IOAudioSelectorControl *			mExternalClockSelector;
@@ -256,7 +251,10 @@ protected:
 	bool								mSampleRateSelectInProcessSemaphore;
 	OSString *							mInternalSpeakerOutputString;
 	OSString *							mExternalSpeakerOutputString;
-	
+	OSString *							mLineOutputString;
+	OSString *							mDigitalOutputString;
+	OSString *							mHeadphoneOutputString;
+		
 	// we keep the engines around to have a cleaner initHardware
     AppleDBDMAAudio *					mDriverDMAEngine;
 
@@ -285,7 +283,6 @@ protected:
 	IOAudioDevicePowerState				ourPowerState;
 	Boolean								shuttingDown;
 
-    OSArray	*							AudioSoftDSPFeatures;
 	OSString *							mCurrentProcessingOutputString;
 	OSString *							mCurrentProcessingInputString;
 
@@ -308,7 +305,23 @@ protected:
 	IOAudioSampleRate					mTransportSampleRate;
 	IOSyncer *							mSignal;
 	
+	UInt32								mMatchingIndex;
+	
+	static UInt32						sInstanceCount;
+	UInt32								mInstanceIndex;
+	
+	bool								mInputDSPMode;
+	OSArray	*							mAOAInstanceArray;
+	IONotifier *						aoaNotifier;
+	
 public:
+	IOInterruptEventSource *			mSoftwareInterruptHandler;
+	UInt16								mInterruptProduced[kNumberOfActionSelectors];
+	UInt16								mInterruptConsumed[kNumberOfActionSelectors];
+
+	static bool 			aoaPublished (AppleOnboardAudio * aoaObject, void * refCon, IOService * newService);
+	static void				softwareInterruptHandler (OSObject *, IOInterruptEventSource *, int count);
+
 	// Classical Unix funxtions
 	virtual bool			start (IOService * provider);
     virtual bool			init (OSDictionary * properties);
@@ -348,6 +361,8 @@ public:
 	virtual IOReturn		outputMuteChange (SInt32 newValue);
     virtual IOReturn		gainLeftChanged (SInt32 newValue);
     virtual IOReturn		gainRightChanged (SInt32 newValue);
+	virtual IOReturn		gainMasterChanged (SInt32 newValue);
+
     virtual IOReturn		passThruChanged (SInt32 newValue);
 
     virtual IOReturn		inputSelectorChanged (SInt32 newValue);
@@ -373,10 +388,13 @@ public:
 	virtual void			interruptEventHandler (UInt32 statusSelector, UInt32 newValue);
 	static	IOReturn		interruptEventHandlerAction (OSObject * owner, void * arg1, void * arg2, void * arg3, void * arg4);
 	virtual void			protectedInterruptEventHandler (UInt32 statusSelector, UInt32 newValue);
+	virtual bool			broadcastSoftwareInterruptMessage ( UInt32 actionSelector );
 
 	virtual PlatformInterface * getPlatformInterfaceObject (void);
 	virtual IOReturn 		AdjustOutputVolumeControls (AudioHardwareObjectInterface * thePluginObject, UInt32 inSelection);
 	virtual IOReturn 		AdjustInputGainControls (AudioHardwareObjectInterface * thePluginObject);
+
+	virtual UInt32			getDeviceIndex () {return mInstanceIndex;}
 
 	// Functions DBDMAAudio calls on AppleOnboardAudio
 	virtual IOReturn		formatChangeRequest (const IOAudioStreamFormat * inFormat, const IOAudioSampleRate * inRate);
@@ -418,7 +436,7 @@ protected:
     IOReturn			configurePowerObject(IOService *provider);
 
 	AudioHardwareObjectInterface * getIndexedPluginObject (UInt32 index);
-	OSObject * 			getLayoutEntry (const char * entryID);
+	OSObject * 			getLayoutEntry (const char * entryID, AppleOnboardAudio * theAOA);
 	bool				hasMasterVolumeControl (const char * outputEntry);
 	bool				hasMasterVolumeControl (const UInt32 inCode);
 	bool				hasLeftVolumeControl (const char * outputEntry);
@@ -453,6 +471,7 @@ protected:
 	void				createMasterVolumeControl (IOFixed mindBVol, IOFixed maxdBVol, SInt32 minVolume, SInt32 maxVolume);
 	void				createLeftGainControl (IOFixed mindBGain, IOFixed maxdBGain, SInt32 minGain, SInt32 maxGain);
 	void				createRightGainControl (IOFixed mindBGain, IOFixed maxdBGain, SInt32 minGain, SInt32 maxGain);
+	void				createMasterGainControl (IOFixed mindBGain, IOFixed maxdBGain, SInt32 minGain, SInt32 maxGain);
 
 	void				cacheOutputVolumeLevels (AudioHardwareObjectInterface * thePluginObject);
 	void				cacheInputGainLevels (AudioHardwareObjectInterface * thePluginObject);
@@ -462,11 +481,14 @@ protected:
 	void				removeMasterVolumeControl ();
 	void				removeLeftGainControl ();
 	void				removeRightGainControl ();
+	void				removeMasterGainControl ();
 
 	void				initializeDetectCollection ( void );
 	UInt32				parseOutputDetectCollection (void);
+	void				updateOutputDetectCollection (UInt32 statusSelector, UInt32 newValue);
 	UInt32				parseInputDetectCollection (void);
 	void				selectOutput (const UInt32 inSelection, const bool inMuteState, const bool inUpdateAll = TRUE);
+	UInt32				getSelectorCodeForOutputEvent (UInt32 eventSelector);
 
 	char *				getConnectionKeyFromCharCode (const SInt32 inSelection, const UInt32 inDirection);
 
@@ -478,6 +500,7 @@ protected:
 	void				setPollTimer ();
 	static void			pollTimerCallback ( OSObject *owner, IOTimerEventSource *device );
 	void				runPolledTasks ( void );
+	bool				isTargetForMessage ( UInt32 index, AppleOnboardAudio * theAOA );
 	
 protected:
     // The PRAM utility
@@ -487,6 +510,18 @@ protected:
 	UInt8				ReadPRAMVol (void);
 	
 	IOTimerEventSource *	theTimerEvent;
+};
+
+class ConfigChangeHelper {
+
+public:
+						ConfigChangeHelper (IOAudioEngine * inEngine, UInt32 inSleep = 0);
+						~ConfigChangeHelper ();
+	
+private:
+
+	IOAudioEngine*		mDriverDMAEngine;
+
 };
 
 #endif

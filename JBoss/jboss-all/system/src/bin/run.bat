@@ -3,7 +3,7 @@ rem -------------------------------------------------------------------------
 rem JBoss Bootstrap Script for Win32
 rem -------------------------------------------------------------------------
 
-rem $Id: run.bat,v 1.4.4.3 2003/06/21 01:50:05 ejort Exp $
+rem $Id: run.bat,v 1.4.4.4 2003/11/12 03:16:35 juhalindfors Exp $
 
 @if not "%ECHO%" == ""  echo %ECHO%
 @if "%OS%" == "Windows_NT"  setlocal
@@ -15,13 +15,17 @@ if "%OS%" == "Windows_NT" set PROGNAME=%~nx0%
 
 rem Read all command line arguments
 
-set ARGS=
-:loop
-if [%1] == [] goto endloop
-        set ARGS=%ARGS% %1
-        shift
-        goto loop
-:endloop
+REM
+REM The %ARGS% env variable commented out in favor of using %* to include
+REM all args in java command line. See bug #840239. [jpl]
+REM
+REM set ARGS=
+REM :loop
+REM if [%1] == [] goto endloop
+REM        set ARGS=%ARGS% %1
+REM        shift
+REM        goto loop
+REM :endloop
 
 rem Find run.jar, or we can't continue
 
@@ -84,7 +88,7 @@ echo ===========================================================================
 echo .
 
 :RESTART
-"%JAVA%" %JAVA_OPTS% -classpath "%JBOSS_CLASSPATH%" org.jboss.Main %ARGS%
+"%JAVA%" %JAVA_OPTS% -classpath "%JBOSS_CLASSPATH%" org.jboss.Main %*
 IF ERRORLEVEL 10 GOTO RESTART
 
 :END

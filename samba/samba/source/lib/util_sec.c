@@ -43,6 +43,20 @@
 #define BOOL int
 #endif
 
+#ifdef USE_SETRESUID
+#undef USE_SETRESUID
+#endif
+
+#ifdef USE_SETREUID
+#undef USE_SETREUID
+#endif
+
+#ifdef USE_SETUIDX
+#undef USE_SETUIDX
+#endif
+
+#define USE_SETEUID 1
+
 /* are we running as non-root? This is used by the regresison test code,
    and potentially also for sites that want non-root smbd */
 static uid_t initial_uid;
@@ -177,13 +191,22 @@ void gain_root_group_privilege(void)
 
 
 /****************************************************************************
- Set *only* the effective uid.
- we want to end up with ruid==0 and euid==uid
+ Set effective uid, and possibly the real uid too.
+ We want to end up with either:
+  
+   ruid==uid and euid==uid
+
+ or
+
+   ruid==0 and euid==uid
+
+ depending on what the local OS will allow us to regain root from.
 ****************************************************************************/
 void set_effective_uid(uid_t uid)
 {
 #if USE_SETRESUID
-	setresuid(-1,uid,-1);
+        /* Set the effective as well as the real uid. */
+	setresuid(uid,uid,-1);
 #endif
 
 #if USE_SETREUID

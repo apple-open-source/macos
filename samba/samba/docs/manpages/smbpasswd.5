@@ -53,18 +53,18 @@ Lanman Password Hash
 This is the LANMAN hash of the user's password, encoded as 32 hex digits\&. The LANMAN hash is created by DES encrypting a well known string with the user's password as the DES key\&. This is the same password used by Windows 95/98 machines\&. Note that this password hash is regarded as weak as it is vulnerable to dictionary attacks and if two users choose the same password this entry will be identical (i\&.e\&. the password is not "salted" as the UNIX password is)\&. If the user has a null password this field will contain the characters "NO PASSWORD" as the start of the hex string\&. If the hex string is equal to 32 'X' characters then the user's account is marked as \fBdisabled\fR and the user will not be able to log onto the Samba server\&.
 
 
-\fBWARNING !!\fR Note that, due to the challenge-response nature of the SMB/CIFS authentication protocol, anyone with a knowledge of this password hash will be able to impersonate the user on the network\&. For this reason these hashes are known as \fBplain text equivalents\fR and must \fBNOT\fR be made available to anyone but the root user\&. To protect these passwords the smbpasswd file is placed in a directory with read and traverse access only to the root user and the smbpasswd file itself must be set to be read/write only by root, with no other access\&.
+\fBWARNING !!\fR Note that, due to the challenge\-response nature of the SMB/CIFS authentication protocol, anyone with a knowledge of this password hash will be able to impersonate the user on the network\&. For this reason these hashes are known as \fBplain text equivalents\fR and must \fBNOT\fR be made available to anyone but the root user\&. To protect these passwords the smbpasswd file is placed in a directory with read and traverse access only to the root user and the smbpasswd file itself must be set to be read/write only by root, with no other access\&.
 
 
 .TP
 NT Password Hash
-This is the Windows NT hash of the user's password, encoded as 32 hex digits\&. The Windows NT hash is created by taking the user's password as represented in 16-bit, little-endian UNICODE and then applying the MD4 (internet rfc1321) hashing algorithm to it\&.
+This is the Windows NT hash of the user's password, encoded as 32 hex digits\&. The Windows NT hash is created by taking the user's password as represented in 16\-bit, little\-endian UNICODE and then applying the MD4 (internet rfc1321) hashing algorithm to it\&.
 
 
 This password hash is considered more secure than the LANMAN Password Hash as it preserves the case of the password and uses a much higher quality hashing algorithm\&. However, it is still the case that if two users choose the same password this entry will be identical (i\&.e\&. the password is not "salted" as the UNIX password is)\&.
 
 
-\fBWARNING !!\fR\&. Note that, due to the challenge-response nature of the SMB/CIFS authentication protocol, anyone with a knowledge of this password hash will be able to impersonate the user on the network\&. For this reason these hashes are known as \fBplain text equivalents\fR and must \fBNOT\fR be made available to anyone but the root user\&. To protect these passwords the smbpasswd file is placed in a directory with read and traverse access only to the root user and the smbpasswd file itself must be set to be read/write only by root, with no other access\&.
+\fBWARNING !!\fR\&. Note that, due to the challenge\-response nature of the SMB/CIFS authentication protocol, anyone with a knowledge of this password hash will be able to impersonate the user on the network\&. For this reason these hashes are known as \fBplain text equivalents\fR and must \fBNOT\fR be made available to anyone but the root user\&. To protect these passwords the smbpasswd file is placed in a directory with read and traverse access only to the root user and the smbpasswd file itself must be set to be read/write only by root, with no other access\&.
 
 
 .TP
@@ -72,20 +72,20 @@ Account Flags
 This section contains flags that describe the attributes of the users account\&. In the Samba 2\&.2 release this field is bracketed by '[' and ']' characters and is always 13 characters in length (including the '[' and ']' characters)\&. The contents of this field may be any of the following characters:
 
 
-\fBU\fR - This means this is a "User" account, i\&.e\&. an ordinary user\&. Only User and Workstation Trust accounts are currently supported in the smbpasswd file\&.
+\fBU\fR \- This means this is a "User" account, i\&.e\&. an ordinary user\&. Only User and Workstation Trust accounts are currently supported in the smbpasswd file\&.
 
-\fBN\fR - This means the account has no password (the passwords in the fields LANMAN Password Hash and NT Password Hash are ignored)\&. Note that this will only allow users to log on with no password if the \fI null passwords\fR parameter is set in the \fBsmb.conf\fR(5) config file\&.
+\fBN\fR \- This means the account has no password (the passwords in the fields LANMAN Password Hash and NT Password Hash are ignored)\&. Note that this will only allow users to log on with no password if the \fI null passwords\fR parameter is set in the \fBsmb\&.conf\fR(5) config file\&.
 
-\fBD\fR - This means the account is disabled and no SMB/CIFS logins will be allowed for this user\&.
+\fBD\fR \- This means the account is disabled and no SMB/CIFS logins will be allowed for this user\&.
 
-\fBW\fR - This means this account is a "Workstation Trust" account\&. This kind of account is used in the Samba PDC code stream to allow Windows NT Workstations and Servers to join a Domain hosted by a Samba PDC\&.
+\fBW\fR \- This means this account is a "Workstation Trust" account\&. This kind of account is used in the Samba PDC code stream to allow Windows NT Workstations and Servers to join a Domain hosted by a Samba PDC\&.
 
 Other flags may be added as the code is extended in future\&. The rest of this field space is filled in with spaces\&.
 
 
 .TP
 Last Change Time
-This field consists of the time the account was last modified\&. It consists of the characters 'LCT-' (standing for "Last Change Time") followed by a numeric encoding of the UNIX time in seconds since the epoch (1970) that the last change was made\&.
+This field consists of the time the account was last modified\&. It consists of the characters 'LCT\-' (standing for "Last Change Time") followed by a numeric encoding of the UNIX time in seconds since the epoch (1970) that the last change was made\&.
 
 
 .PP

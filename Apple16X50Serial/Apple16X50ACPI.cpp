@@ -90,6 +90,12 @@ start(IOService *provider)
 	Map = provider->mapDeviceMemoryWithIndex(0);
     if (!Map) goto fail;
 
+    /*
+     * Lookup IO register base address now to avoid this later,
+     * since getPhysicalAddress() needs to take a mutex.
+     */
+    RegBase = Map->getPhysicalAddress();
+
     probeUART(0);
 
     if (!UARTInstance) goto fail;
@@ -129,11 +135,11 @@ free()
 UInt8 Apple16X50ACPI::
 getReg(UInt32 reg, void *refCon)
 {
-    return (Provider->ioRead8(reg, Map));
+    return (Provider->ioRead8(RegBase + reg, 0));
 }
 
 void Apple16X50ACPI::
 setReg(UInt32 reg, UInt8 val, void *refCon)
 {
-    Provider->ioWrite8(reg, val, Map);
+    Provider->ioWrite8(RegBase + reg, val, 0);
 }

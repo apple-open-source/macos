@@ -18,7 +18,14 @@ add_dynamic_entries()
   for binfile in *
   do
     if [ -f $binfile ]; then
-      echo f none samba/bin/$binfile=source/bin/$binfile 0755 root other
+	case $file in 
+	CP*.so)
+	 echo echo f none samba/lib/charset/$binfile=source/bin/$binfile 0755 root other
+	 ;;
+	*)
+         echo f none samba/bin/$binfile=source/bin/$binfile 0755 root other
+	;;
+	esac
     fi
   done
 
@@ -41,6 +48,13 @@ add_dynamic_entries()
  	echo s none /usr/lib/nss_winbind.so.1=/usr/lib/libnss_winbind.so 0755 root other
  	echo s none /usr/lib/nss_winbind.so.2=/usr/lib/libnss_winbind.so 0755 root other
     fi
+
+ # add the .dat codepages
+  echo "#\n# Codepages \n#"
+    for file in $DISTR_BASE/source/codepages/*.dat ; do
+      bfile=`basename $file`
+      echo f none /usr/local/samba/lib/$bfile=source/codepages/$bfile
+    done
 
   # Add the manpages
   echo "#\n# man pages \n#"
@@ -84,15 +98,6 @@ add_dynamic_entries()
   # Create a symbolic link to the Samba book in docs/ for beginners
   echo 's none samba/docs/samba_book=htmldocs/using_samba'
 
-  echo "#\n# Text Docs \n#"
-  echo d none samba/docs/textdocs 0755 root other
-  cd $DISTR_BASE/docs/textdocs
-  for textdoc in *
-  do 
-    if [ -f $textdoc ]; then
-      echo f none samba/docs/textdocs/$textdoc=docs/textdocs/$textdoc 0644 root other
-    fi
-  done
   echo "#\n# SWAT \n#"
   cd $DISTR_BASE
   list=`find swat -type d | grep -v "/CVS$"`
@@ -105,6 +110,13 @@ add_dynamic_entries()
   do
     echo "f none samba/$i=$i 0644 root other"
   done
+  # add the .msg files for SWAT
+  echo "#\n# msg files \n#"
+    for file in $DISTR_BASE/source/po/*.msg ; do
+      bfile=`basename $file`
+      echo f none /usr/local/samba/lib/$bfile=source/po/$bfile
+    done
+
   echo "#\n# HTML documentation for SWAT\n#"
   cd $DISTR_BASE/docs/htmldocs
   for htmldoc in *
@@ -144,7 +156,7 @@ if [ -f prototype ]; then
 fi
 
 # Setup version from version.h
-VERSION=3.0.0rc2
+VERSION=3.0.2
 sed -e "s|__VERSION__|$VERSION|" -e "s|__ARCH__|`uname -p`|" -e "s|__BASEDIR__|$INSTALL_BASE|g" pkginfo.master >pkginfo
 
 sed -e "s|__BASEDIR__|$INSTALL_BASE|g" inetd.conf.master >inetd.conf

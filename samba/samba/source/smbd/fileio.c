@@ -25,31 +25,6 @@
 static BOOL setup_write_cache(files_struct *, SMB_OFF_T);
 
 /****************************************************************************
- Seek a file. Try to avoid the seek if possible.
-****************************************************************************/
-
-static SMB_OFF_T seek_file(files_struct *fsp,SMB_OFF_T pos)
-{
-	SMB_OFF_T seek_ret;
-
-	seek_ret = SMB_VFS_LSEEK(fsp,fsp->fd,pos,SEEK_SET);
-
-	if(seek_ret == -1) {
-		DEBUG(0,("seek_file: (%s) sys_lseek failed. Error was %s\n",
-			fsp->fsp_name, strerror(errno) ));
-		fsp->pos = -1;
-		return -1;
-	}
-
-	fsp->pos = seek_ret;
-
-	DEBUG(10,("seek_file (%s): requested pos = %.0f, new pos = %.0f\n",
-		fsp->fsp_name, (double)pos, (double)fsp->pos ));
-
-	return(fsp->pos);
-}
-
-/****************************************************************************
  Read from write cache if we can.
 ****************************************************************************/
 
@@ -95,16 +70,14 @@ ssize_t read_file(files_struct *fsp,char *data,SMB_OFF_T pos,size_t n)
 
 	flush_write_cache(fsp, READ_FLUSH);
 
-	if (seek_file(fsp,pos) == -1) {
-		DEBUG(3,("read_file: Failed to seek to %.0f\n",(double)pos));
-		return(ret);
-	}
-  
+	fsp->pos = pos;
+
 	if (n > 0) {
 #ifdef DMF_FIX
 		int numretries = 3;
 tryagain:
-		readret = SMB_VFS_READ(fsp,fsp->fd,data,n);
+		readret = SMB_VFS_PREAD(fsp,fsp->fd,data,n,pos);
+
 		if (readret == -1) {
 			if ((errno == EAGAIN) && numretries) {
 				DEBUG(3,("read_file EAGAIN retry in 10 seconds\n"));
@@ -115,7 +88,8 @@ tryagain:
 			return -1;
 		}
 #else /* NO DMF fix. */
-		readret = SMB_VFS_READ(fsp,fsp->fd,data,n);
+		readret = SMB_VFS_PREAD(fsp,fsp->fd,data,n,pos);
+
 		if (readret == -1)
 			return -1;
 #endif
@@ -143,10 +117,12 @@ static ssize_t real_write_file(files_struct *fsp,char *data,SMB_OFF_T pos, size_
 {
 	ssize_t ret;
 
-	if ((pos != -1) && (seek_file(fsp,pos) == -1))
-		return -1;
-
-	ret = vfs_write_data(fsp,data,n);
+        if (pos == -1)
+                ret = vfs_write_data(fsp, data, n);
+        else {
+		fsp->pos = pos;
+                ret = vfs_pwrite_data(fsp, data, n, pos);
+	}
 
 	DEBUG(10,("real_write_file (%s): pos = %.0f, size = %lu, returned %ld\n",
 		fsp->fsp_name, (double)pos, (unsigned long)n, (long)ret ));
@@ -707,8 +683,8 @@ static BOOL setup_write_cache(files_struct *fsp, SMB_OFF_T file_size)
 	DO_PROFILE_INC(writecache_allocated_write_caches);
 	allocated_write_caches++;
 
-	DEBUG(10,("setup_write_cache: File %s allocated write cache size %u\n",
-		fsp->fsp_name, wcp->alloc_size ));
+	DEBUG(10,("setup_write_cache: File %s allocated write cache size %lu\n",
+		fsp->fsp_name, (unsigned long)wcp->alloc_size ));
 
 	return True;
 }
@@ -725,7 +701,7 @@ void set_filelen_write_cache(files_struct *fsp, SMB_OFF_T file_size)
 		if (fsp->wcp->data_size != 0) {
 			pstring msg;
 			slprintf(msg, sizeof(msg)-1, "set_filelen_write_cache: size change \
-on file %s with write cache size = %u\n", fsp->fsp_name, fsp->wcp->data_size );
+on file %s with write cache size = %lu\n", fsp->fsp_name, (unsigned long)fsp->wcp->data_size );
 			smb_panic(msg);
 		}
 		fsp->wcp->file_size = file_size;

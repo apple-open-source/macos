@@ -1,6 +1,6 @@
 // ========================================================================
 // Copyright (c) 2002 Mort Bay Consulting (Australia) Pty. Ltd.
-// $Id: CMRAttributeBean.java,v 1.1.2.3 2002/10/30 22:47:37 jules_gosnell Exp $
+// $Id: CMRAttributeBean.java,v 1.1.2.4 2003/07/26 11:49:42 jules_gosnell Exp $
 // ========================================================================
 
 package org.mortbay.j2ee.session.ejb;
@@ -15,7 +15,7 @@ import javax.ejb.CreateException;
 import javax.ejb.EntityBean;
 import javax.ejb.EntityContext;
 import javax.ejb.RemoveException;
-import org.apache.log4j.Category;
+import org.jboss.logging.Logger;
 import org.mortbay.j2ee.session.interfaces.CMRAttribute;
 import org.mortbay.j2ee.session.interfaces.CMRAttributeHome;
 import org.mortbay.j2ee.session.interfaces.CMRAttributePK;
@@ -24,7 +24,7 @@ import org.mortbay.j2ee.session.interfaces.CMRAttributePK;
  * The Entity bean represents an HttpSession.
  *
  * @author jules@mortbay.com
- * @version $Revision: 1.1.2.3 $
+ * @version $Revision: 1.1.2.4 $
  *
  *   @ejb:bean
  *     name="CMRAttribute"
@@ -47,7 +47,7 @@ import org.mortbay.j2ee.session.interfaces.CMRAttributePK;
 public abstract class CMRAttributeBean
   implements EntityBean
 {
-  Category _log=Category.getInstance(getClass().getName());
+  protected static final Logger _log=Logger.getLogger(CMRAttributeBean.class);
 
   //----------------------------------------
   // Home

@@ -1,29 +1,19 @@
---- samba/source/rpc_server/srv_samr_nt.c.orig	Fri Aug 29 14:15:04 2003
-+++ samba/source/rpc_server/srv_samr_nt.c	Fri Aug 29 14:40:41 2003
-@@ -2240,7 +2240,7 @@ NTSTATUS _samr_create_user(pipes_struct 
- 		return NT_STATUS_USER_EXISTS;
- 	}
- 
--	pdb_free_sam(&sam_pass);
-+	 /* pdb_free_sam(&sam_pass); */
- 
- 	/*
- 	 * NB. VERY IMPORTANT ! This call must be done as the current pipe user,
-@@ -2317,10 +2317,17 @@ NTSTATUS _samr_create_user(pipes_struct 
- 		
- 	}
- 	
-+	/* Try passdb lookup again */
-+	become_root();
-+	ret = pdb_getsampwnam(sam_pass, account);
-+	unbecome_root();
-+
-+	if (ret != True) {
- 	/* implicit call to getpwnam() next.  we have a valid SID coming out of this call */
- 
+--- samba/source/rpc_server/srv_samr_nt.c.orig	Wed Feb 11 09:24:00 2004
++++ samba/source/rpc_server/srv_samr_nt.c	Thu Feb 26 16:57:00 2004
+@@ -2243,6 +2243,8 @@
  	if ( !NT_STATUS_IS_OK(nt_status = pdb_init_sam_new(&sam_pass, account, new_rid)) )
  		return nt_status;
-+	}
  		
++	if (!lp_opendirectory())
++	{
   	pdb_set_acct_ctrl(sam_pass, acb_info, PDB_CHANGED);
  	
+  	if (!pdb_add_sam_account(sam_pass)) {
+@@ -2251,6 +2253,7 @@
+  			  account));
+  		return NT_STATUS_ACCESS_DENIED;		
+  	}
++	}
+  	
+ 	/* Get the user's SID */
+ 	sid_copy(&sid, pdb_get_user_sid(sam_pass));

@@ -24,6 +24,11 @@
          <configuration-name>Optimistic Container</configuration-name>
       </entity>
       <entity>
+         <ejb-name>EntityExplicitVersionLocking</ejb-name>
+         <local-jndi-name>local/EntityExplicitVersionLocking</local-jndi-name>
+         <configuration-name>Optimistic Container</configuration-name>
+      </entity>
+      <entity>
          <ejb-name>EntityTimestampLocking</ejb-name>
          <local-jndi-name>local/EntityTimestampLocking</local-jndi-name>
          <configuration-name>Optimistic Container</configuration-name>
@@ -47,8 +52,8 @@
    <container-configurations>
       <container-configuration extends="Instance Per Transaction CMP 2.x EntityBean">
          <container-name>Optimistic Container</container-name>
-         <locking-policy>org.jboss.ejb.plugins.lock.JDBCOptimisticLock</locking-policy>
-         <!-- overriding: <locking-policy>org.jboss.ejb.plugins.lock.NoLock</locking-policy> -->
+         <!-- <locking-policy>org.jboss.ejb.plugins.lock.JDBCOptimisticLock</locking-policy> -->
+         <locking-policy>org.jboss.ejb.plugins.lock.NoLock</locking-policy>
       </container-configuration>
    </container-configurations>
 </jboss>

@@ -12,12 +12,14 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.ByteArrayInputStream;
+import java.rmi.RemoteException;
 import java.util.Properties;
 import javax.ejb.Handle;
 import javax.ejb.RemoveException;
 import javax.naming.InitialContext;
 import javax.naming.Context;
 import javax.rmi.PortableRemoteObject;
+import javax.transaction.UserTransaction;
 
 import org.jboss.test.cts.interfaces.StatefulSession;
 import org.jboss.test.cts.interfaces.StatefulSessionHome;
@@ -36,7 +38,7 @@ import EDU.oswego.cs.dl.util.concurrent.CountDown;
  *   @author kimptoc 
  *   @author Scott.Stark@jboss.org 
  *   @author d_jencks converted to JBossTestCase, added logging.
- *   @version $Revision: 1.7.2.4 $
+ *   @version $Revision: 1.7.2.8 $
  */
 public class StatefulSessionUnitTestCase
    extends JBossTestCase
@@ -217,6 +219,9 @@ public class StatefulSessionUnitTestCase
       StatefulSession sessionBean1 = sessionHome.create("testPassivationByTime");		
       sessionBean1.method1("hello");
 
+      getLog().debug("Retrieving handle for object");
+      Handle handle = sessionBean1.getHandle();
+
       getLog().debug("Waiting 41 seconds for passivation...");
       Thread.currentThread().sleep(41*1000);
 
@@ -228,6 +233,17 @@ public class StatefulSessionUnitTestCase
 
       getLog().debug("Waiting 90 seconds for removal due to age...");
       Thread.currentThread().sleep(90*1000);
+
+      try
+      {
+         handle.getEJBObject();
+         fail("Was able to get the remote interface for a removed session");
+      }
+      catch (RemoteException expected)
+      {
+         getLog().debug("Handle access failed as expected", expected);
+      }
+
       try
       {
          passivated = sessionBean1.getWasPassivated();
@@ -250,11 +266,28 @@ public class StatefulSessionUnitTestCase
    {
       getLog().debug("+++ testBasicSession()");
       Context ctx = new InitialContext();
-      StatefulSessionHome sessionHome        =
+      StatefulSessionHome sessionHome =
          ( StatefulSessionHome ) ctx.lookup("ejbcts/StatefulSessionBean");
-      StatefulSession sessionBean = sessionHome.create("testBasicSession");		
+      StatefulSession sessionBean = sessionHome.create("testBasicSession-create");		
       String result = sessionBean.method1("CTS-Test");
+      // Test response
+      assertTrue(result.equals("CTS-Test"));
 
+      try
+      {
+         sessionBean.remove();
+      }
+      catch (Exception ex)
+      {
+          fail("could not remove stateless session bean" + ex);
+      }
+
+      sessionBean = sessionHome.createAlt("testBasicSession-create");
+      String altName = sessionBean.getTestName();
+      assertTrue("testName == testBasicSession-createAlt",
+         altName.equals("testBasicSession-createAlt"));
+
+      result = sessionBean.method1("CTS-Test");
       // Test response
       assertTrue(result.equals("CTS-Test"));
 
@@ -496,6 +529,43 @@ public class StatefulSessionUnitTestCase
       }
    }
 
+   /** Test of accessing the home interface from the remote interface in an env
+    * new InitialContext() will not work.
+    * @throws Exception
+    */
+   public void testHomeFromRemoteNoDefaultJNDI()
+         throws Exception
+   {
+      getLog().debug("+++ testHomeFromRemoteNoDefaultJNDI()");
+
+      // Override the JNDI variables in the System properties
+      Properties sysProps = System.getProperties();
+      Properties newProps = new Properties(sysProps);
+      newProps.setProperty("java.naming.factory.initial", "badFactory");
+      newProps.setProperty("java.naming.provider.url", "jnp://badhost:12345");
+      System.setProperties(newProps);
+
+      // Do a lookup of the home and create a remote using a custom env
+      Properties env = new Properties();
+      env.setProperty("java.naming.factory.initial", super.getJndiInitFactory());
+      env.setProperty("java.naming.provider.url", super.getJndiURL());
+      try
+      {
+         InitialContext ctx = new InitialContext(env);
+         Object ref = ctx.lookup("ejbcts/StatefulSessionBean");
+         StatefulSessionHome home = (StatefulSessionHome)
+               PortableRemoteObject.narrow(ref, StatefulSessionHome.class);
+         StatefulSession bean1 = home.create("testHomeFromRemoteNoDefaultJNDI");
+         StatefulSessionHome home2 = (StatefulSessionHome) bean1.getEJBHome();
+         StatefulSession bean2 = home2.create("testHomeFromRemoteNoDefaultJNDI");
+         bean2.remove();
+      }
+      finally
+      {
+         System.setProperties(sysProps);
+      }
+   }
+
    /**
     * Method testProbeBeanContext
     *
@@ -555,10 +625,10 @@ public class StatefulSessionUnitTestCase
       }
    }
 
-   public void testUserTrx ()
+   public void testUserTx()
       throws Exception
    {
-      getLog().debug("+++ testUsrTrx");
+      getLog().debug("+++ testUsrTx");
 
       getLog().debug("Obtain home interface");
       // Create a new session object
@@ -566,11 +636,26 @@ public class StatefulSessionUnitTestCase
       Object ref = ctx.lookup("ejbcts/StatefulSessionBean");
       StatefulSessionHome home = ( StatefulSessionHome ) PortableRemoteObject.narrow(ref,
          StatefulSessionHome.class);
-      StatefulSession bean = home.create("testUserTrx");		
+      StatefulSession bean = home.create("testUserTx");		
 
+      bean.setCounter(100);
       getLog().debug("Try to instantiate a UserTransaction");
-            javax.transaction.UserTransaction uTrx =
-              (javax.transaction.UserTransaction)ctx.lookup("UserTransaction");
+      UserTransaction userTx = (UserTransaction)ctx.lookup("UserTransaction");
+      userTx.begin();
+         bean.incCounter();
+         bean.incCounter();
+      userTx.commit();
+      int counter = bean.getCounter();
+      assertTrue("counter == 102", counter == 102);
+
+      bean.setCounter(100);
+      userTx.begin();
+         bean.incCounter();
+         bean.incCounter();
+      userTx.rollback();
+      counter = bean.getCounter();
+      assertTrue("counter == 100", counter == 100);
+
       bean.remove();
    }
 
@@ -606,27 +691,4 @@ public class StatefulSessionUnitTestCase
       return getDeploySetup(StatefulSessionUnitTestCase.class, "cts.jar");
    }
 
-   /*
-   public static Test suite()
-   {
-      TestSuite suite = new TestSuite();
-      suite.addTest(new StatefulSessionUnitTestCase("testInVMSessionHandlePassivation"));
-
-      // Create an initializer for the test suite
-      TestSetup wrapper = new JBossTestSetup(suite)
-      {
-         protected void setUp() throws Exception
-         {
-            super.setUp();
-            deploy("cts.jar");
-         }
-         protected void tearDown() throws Exception
-         {
-            undeploy("cts.jar");
-            super.tearDown();
-         }
-      };
-      return wrapper;
-   }
-   */
 }

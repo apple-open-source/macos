@@ -136,14 +136,12 @@ struct SSLContext
 	
     /* crypto state in CDSA-centric terms */
     
-    CSSM_KEY_PTR		signingPrivKey;	/* our private signing key */
-    CSSM_KEY_PTR		signingPubKey;	/* our public signing key */
-    CSSM_CSP_HANDLE		signingKeyCsp;	/* associated DL/CSP */
+    SecKeyRef			signingPrivKeyRef;	/* our private signing key */
+    CSSM_KEY_PTR		signingPubKey;		/* our public signing key */
 	
-    CSSM_KEY_PTR		encryptPrivKey;	/* our private encrypt key, for 
+    SecKeyRef			encryptPrivKeyRef;	/* our private encrypt key, for 
     									 * server-initiated key exchange */
     CSSM_KEY_PTR		encryptPubKey;	/* public version of above */
-    CSSM_CSP_HANDLE		encryptKeyCsp;
 	
     CSSM_KEY_PTR		peerPubKey;
     CSSM_CSP_HANDLE		peerPubKeyCsp;	/* may not be needed, we figure this

@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -38,6 +35,7 @@
 #include <SystemConfiguration/SCPreferencesPrivate.h>
 #include <SystemConfiguration/SCDynamicStorePrivate.h>
 #include <SystemConfiguration/SCDynamicStoreCopySpecificPrivate.h>
+#include <SystemConfiguration/SCDPlugin.h>
 
 #include <IOKit/pwr_mgt/IOPM.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
@@ -152,6 +150,7 @@ ESPrefsHaveChanged(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
     {
         // Tell PMSettings that the prefs file has changed
         PMSettingsPrefsHaveChanged();
+        PSLowPowerPrefsHaveChanged();
     }
 
     if(CFArrayContainsValue(changedKeys, key_range, AutoWakePrefsKey))
@@ -194,6 +193,9 @@ PowerSourcesHaveChanged(void *info)
     
     // Notifiy PSLowPower of power sources change
     PSLowPowerPSChange(ps_blob);
+    
+    // Notify PMSettings
+    PMSettingsPSChange(ps_blob);
     
     CFRelease(ps_blob);
 }
@@ -309,9 +311,25 @@ finish:
     return;
 }
 
+/* _ioupsd_exited
+ *
+ * Gets called (by configd) when /usr/libexec/ioupsd exits
+ */
+static void _ioupsd_exited(
+    pid_t           pid,
+    int             status,
+    struct rusage   *rusage,
+    void            *context)
+{
+    syslog(LOG_INFO, "PowerManagement: /usr/libexec/ioupsd(%d) has exited with status %d\n", pid, status);
+}
+
 void
 prime()
 {
+    char *argv[2] = {"/usr/libexec/ioupsd", NULL};
+    pid_t           _ioupsd_pid;
+    
     // Initialize battery averaging code
     BatteryTimeRemaining_prime();
     
@@ -324,6 +342,10 @@ prime()
     // Initialzie AutoWake code
     AutoWake_prime();
     RepeatingAutoWake_prime();
+    
+    // Launch iopsd
+    _ioupsd_pid = _SCDPluginExecCommand(&_ioupsd_exited, 0, 0, 0,
+        "/usr/libexec/ioupsd", argv);
     
     return;
 }
@@ -373,3 +395,4 @@ main(int argc, char **argv)
 	return 0;
 }
 #endif
+

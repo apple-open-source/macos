@@ -53,7 +53,7 @@ import org.jboss.util.stream.Streams;
  * @author <a href="mailto:marc.fleury@jboss.org">Marc Fleury</a>
  * @author <a href="mailto:scott.stark@jboss.org">Scott Stark</a>
  * @author <a href="mailto:d_jencks@users.sourceforge.net">David Jencks</a>
- * @version $Revision: 1.43.2.12 $
+ * @version $Revision: 1.43.2.14 $
  *
  * @jmx:mbean name="jboss.system:service=MainDeployer"
  *  extends="org.jboss.system.ServiceMBean, org.jboss.deployment.DeployerMBean, org.jboss.deployment.MainDeployerConstants"
@@ -366,7 +366,7 @@ public class MainDeployer
 
       }
 
-      log.info("Undeployed " + deployCounter + " deployed packages");
+      log.debug("Undeployed " + deployCounter + " deployed packages");
    }
 
 
@@ -468,7 +468,7 @@ public class MainDeployer
    }
    protected void undeploy(DeploymentInfo di, boolean isShutdown)
    {
-      log.info("Undeploying "+di.url);
+      log.debug("Undeploying "+di.url);
       stop(di);
       destroy(di);
    }
@@ -556,7 +556,7 @@ public class MainDeployer
          // Nuke my stuff, this includes the class loader
          di.cleanup();
 
-         log.info("Undeployed "+di.url);
+         log.debug("Undeployed "+di.url);
       }
       catch (Throwable t)
       {
@@ -626,7 +626,17 @@ public class MainDeployer
       }
       log.info("Starting deployment of package: " + deployment.url);
 
-      if ( init(deployment) )
+      boolean inited = false;
+      try
+      {
+         inited = init(deployment);
+      }
+      catch (Throwable t)
+      {
+         log.error("Could not initialise deloyment: " + deployment.url, t);
+         DeploymentException.rethrowAsDeploymentException("Could not initialise deployment: " + deployment.url, t);
+      }
+      if ( inited )
       {
          create(deployment);
          start(deployment);
@@ -709,7 +719,7 @@ public class MainDeployer
       catch (Exception e)
       {
          deployment.state = DeploymentState.FAILED;
-         throw new DeploymentException("exception in init of " + deployment.url, e);
+         DeploymentException.rethrowAsDeploymentException("exception in init of " + deployment.url, e);
       }
       finally
       {
@@ -789,9 +799,7 @@ public class MainDeployer
          log.error("could not create deployment: " + deployment.url, t);
          deployment.status = "Deployment FAILED reason: " + t.getMessage();
          deployment.state = DeploymentState.FAILED;
-         if (t instanceof DeploymentException)
-            throw (DeploymentException)t;
-         throw new DeploymentException("Could not create deployment: " + deployment.url, t);
+         DeploymentException.rethrowAsDeploymentException("Could not create deployment: " + deployment.url, t);
       }
    }
 
@@ -840,9 +848,7 @@ public class MainDeployer
          log.error("could not start deployment: " + deployment.url, t);
          deployment.state = DeploymentState.FAILED;
          deployment.status = "Deployment FAILED reason: " + t.getMessage();
-         if (t instanceof DeploymentException)
-            throw (DeploymentException)t;
-         throw new DeploymentException("Could not create deployment: " + deployment.url, t);
+         DeploymentException.rethrowAsDeploymentException("Could not create deployment: " + deployment.url, t);
       }
    }
 
@@ -951,7 +957,7 @@ public class MainDeployer
             }
             catch (Exception ignore)
             {
-               log.warn("The manifest entry in "+sdi.url+" references URL "+lib+
+               log.debug("The manifest entry in "+sdi.url+" references URL "+lib+
                   " which could not be opened, entry ignored");
             }
          }

@@ -62,12 +62,12 @@ OSDefineMetaClassAndStructors(AppleDACAAudio, Apple02Audio)
 bool AppleDACAAudio::init(
     OSDictionary *properties)
 {
-    DEBUG_IOLOG("+ AppleDACAAudio::init\n");
+    debugIOLog (3, "+ AppleDACAAudio::init");
 
     if (!super::init(properties))
         return false;     
 
-    DEBUG_IOLOG("- AppleDACAAudio::init\n");
+    debugIOLog (3, "- AppleDACAAudio::init");
     return true;
 }
 
@@ -75,7 +75,7 @@ bool AppleDACAAudio::init(
 // call inherited free
 void AppleDACAAudio::free()
 {
-    DEBUG_IOLOG("+ AppleDACAAudio::free\n");
+    debugIOLog (3, "+ AppleDACAAudio::free");
     
 	CLEAN_RELEASE(ioBaseAddressMemory);		//	[3060321]
     // free myAudioI2SControl
@@ -84,7 +84,7 @@ void AppleDACAAudio::free()
 	publishResource (fAppleAudioVideoJackStateKey, NULL);
     super::free();
     
-    DEBUG_IOLOG("- AppleDACAAudio::free\n");
+    debugIOLog (3, "- AppleDACAAudio::free");
 }
 
 //====================================================================================================
@@ -96,7 +96,7 @@ IOService* AppleDACAAudio::probe(IOService *provider, SInt32 *score)
 	// Finds the possible candidate for sound, to be used in
 	// reading the caracteristics of this hardware:
         
-    DEBUG_IOLOG("+ AppleDACAAudio::probe\n");
+    debugIOLog (3, "+ AppleDACAAudio::probe");
     
     super::probe(provider, score);
     *score = kIODefaultProbeScore;
@@ -112,13 +112,13 @@ IOService* AppleDACAAudio::probe(IOService *provider, SInt32 *score)
             if(tmpData->isEqualTo(kDacaModelName, sizeof(kDacaModelName) -1) ) 
             {
                 *score = *score+1;
-                DEBUG_IOLOG("- AppleDACAAudio::probe\n");
+                debugIOLog (3, "- AppleDACAAudio::probe");
                 return(this);
             } 
         } 
     }
      
-    DEBUG_IOLOG("- AppleDACAAudio::probe\n");
+    debugIOLog (3, "- AppleDACAAudio::probe");
     return (0);
 }
 
@@ -132,14 +132,14 @@ bool AppleDACAAudio::initHardware(IOService *provider)
 {
     bool myreturn = true;
 
-    DEBUG_IOLOG("+ AppleDACAAudio::initHardware\n");
+    debugIOLog (3, "+ AppleDACAAudio::initHardware");
     
     // calling the superclasses initHarware will indirectly call our
     // sndHWInitialize() method.  So we don't need to do a whole lot 
     // in this function.
     super::initHardware(provider);
     
-    DEBUG_IOLOG("- AppleDACAAudio::initHardware\n");
+    debugIOLog (3, "- AppleDACAAudio::initHardware");
     return myreturn;
 }
 
@@ -154,7 +154,7 @@ bool AppleDACAAudio::initHardware(IOService *provider)
 void AppleDACAAudio::timerCallback(OSObject *target, IOAudioDevice *device)
 {
 // probably don't want this on since we will get called a lot...
-//    DEBUG_IOLOG("+ AppleDACAAudio::timerCallback\n");
+//    debugIOLog (3, "+ AppleDACAAudio::timerCallback");
 
     AppleDACAAudio *daca;
     daca = OSDynamicCast(AppleDACAAudio, target);
@@ -162,7 +162,7 @@ void AppleDACAAudio::timerCallback(OSObject *target, IOAudioDevice *device)
         daca->checkStatus(false);
     }
 // probably don't want this on since we will get called a lot...
-//    DEBUG_IOLOG("- AppleDACAAudio::timerCallback\n");
+//    debugIOLog (3, "- AppleDACAAudio::timerCallback");
     return;
 }
 
@@ -178,7 +178,7 @@ void AppleDACAAudio::timerCallback(OSObject *target, IOAudioDevice *device)
 void AppleDACAAudio::checkStatus(bool force)
 {
 // probably don't want this on since we will get called a lot...
-//    DEBUG_IOLOG("+ AppleDACAAudio::checkStatus\n");
+//    debugIOLog (3, "+ AppleDACAAudio::checkStatus");
 
     static UInt32		lastStatus = 0L;
     UInt32				extdevices;
@@ -198,13 +198,13 @@ void AppleDACAAudio::checkStatus(bool force)
     if(mCanPollStatus == false)
     {
         // probably don't want this on since we will get called a lot...
-        // DEBUG_IOLOG("- AppleDACAAudio::checkStatus\n");
+        // debugIOLog (3, "- AppleDACAAudio::checkStatus");
         return;
     }
 
     if (lastStatus != currentStatusRegister || force)  
     {
-		// debug2IOLog ( "AppleDACAAudio::checkStatus currentStatusRegister UPDATED to %X\n", currentStatusRegister );
+		// debugIOLog (3,  "AppleDACAAudio::checkStatus currentStatusRegister UPDATED to %X", currentStatusRegister );
         lastStatus = currentStatusRegister;
 
         AudioDetects = super::getDetectArray();
@@ -217,16 +217,16 @@ void AppleDACAAudio::checkStatus(bool force)
                 if (theDetect) 
                     extdevices |= theDetect->refreshDevices(currentStatusRegister);
                 else
-                    DEBUG_IOLOG("The detect was null.  That's bad.\n") ;
+                    debugIOLog (3, "The detect was null.  That's bad.") ;
             }
-            if(i==0) DEBUG_IOLOG("AudioDetects->getCount() returned zero\n") ;
+            if(i==0) debugIOLog (3, "AudioDetects->getCount() returned zero") ;
             super::setCurrentDevices(extdevices);
 			//	Opportunity to omit Balance controls if on the internal mono speaker.	[3046950]
 			AdjustControls ();
         } 
         else 
         {
-            DEBUG_IOLOG("AppleDACAAudio::checkStatus couldn't get detect array\n");
+            debugIOLog (3, "AppleDACAAudio::checkStatus couldn't get detect array");
         }
         
         // a side effect of the setCurrentDevices call is that our own sndHWSetActiveOutputExclusive will
@@ -242,7 +242,7 @@ void AppleDACAAudio::checkStatus(bool force)
         }
     }
 // probably don't want this on since we will get called a lot...
-//    DEBUG_IOLOG("- AppleDACAAudio::checkStatus\n");
+//    debugIOLog (3, "- AppleDACAAudio::checkStatus");
 }
 
 /*************************** sndHWXXXX functions******************************/
@@ -296,7 +296,7 @@ void AppleDACAAudio::checkStatus(bool force)
 //
 void 	AppleDACAAudio::sndHWInitialize(IOService *provider)
 {
-    DEBUG_IOLOG("+ AppleDACAAudio::sndHWInitialize\n");
+    debugIOLog (3, "+ AppleDACAAudio::sndHWInitialize");
 
     IOMemoryMap 			*map;
     OSObject 				*t = 0;
@@ -354,7 +354,7 @@ void 	AppleDACAAudio::sndHWInitialize(IOService *provider)
     map = provider->mapDeviceMemoryWithIndex(Apple02DBDMAAudioDMAEngine::kDBDMADeviceIndex);
     if(!map)  
     {
-        DEBUG_IOLOG("AppleDACAAudio::sndHWInitialize ERROR: unable to mapDeviceMemoryWithIndex\n");
+        debugIOLog (3, "AppleDACAAudio::sndHWInitialize ERROR: unable to mapDeviceMemoryWithIndex");
         goto error_exit ;
     }
     
@@ -369,7 +369,7 @@ void 	AppleDACAAudio::sndHWInitialize(IOService *provider)
 
     if(myAudioI2SControl == NULL)
     {
-        DEBUG_IOLOG("AppleDACAAudio::sndHWInitialize ERROR: unable to i2s control object\n");
+        debugIOLog (3, "AppleDACAAudio::sndHWInitialize ERROR: unable to i2s control object");
         goto error_exit ;
     }
     myAudioI2SControl->retain();
@@ -390,7 +390,7 @@ void 	AppleDACAAudio::sndHWInitialize(IOService *provider)
     // build a connection to the i2c bus
     if (!findAndAttachI2C(provider)) 
     {
-        DEBUG_IOLOG("AppleDACAAudio::sndHWInitialize ERROR: unable to find and attach i2c\n");
+        debugIOLog (3, "AppleDACAAudio::sndHWInitialize ERROR: unable to find and attach i2c");
         goto error_exit ;
     }
    
@@ -404,7 +404,7 @@ void 	AppleDACAAudio::sndHWInitialize(IOService *provider)
     analogVolumeReg	= kPowerOnDefaultAVOL ;
     configurationReg	= (UInt8)kInvertRightAmpGCFG | kDACOnGCFG | kSelect5VoltGCFG ;
     
-   debug4IOLog("AppleDACAAudio::sndHWInitialize - writing registers: 0x%x, 0x%x, 0x%x\n", sampleRateReg, analogVolumeReg, configurationReg);
+   debugIOLog (3, "AppleDACAAudio::sndHWInitialize - writing registers: 0x%x, 0x%x, 0x%x", sampleRateReg, analogVolumeReg, configurationReg);
 
     if (openI2C()) 
     {
@@ -417,7 +417,7 @@ void 	AppleDACAAudio::sndHWInitialize(IOService *provider)
     }
     
 error_exit:
-    DEBUG_IOLOG("- AppleDACAAudio::sndHWInitialize\n");
+    debugIOLog (3, "- AppleDACAAudio::sndHWInitialize");
     return ;
 }
 
@@ -444,8 +444,8 @@ void AppleDACAAudio::sndHWPostDMAEngineInit (IOService *provider) {
 //====================================================================================================
 UInt32 	AppleDACAAudio::sndHWGetInSenseBits(void)
 {
-    DEBUG_IOLOG("+ AppleDACAAudio::sndHWGetInSenseBits\n");
-    DEBUG_IOLOG("- AppleDACAAudio::sndHWGetInSenseBits\n");
+    debugIOLog (3, "+ AppleDACAAudio::sndHWGetInSenseBits");
+    debugIOLog (3, "- AppleDACAAudio::sndHWGetInSenseBits");
     return 0;     
 }
 
@@ -453,7 +453,7 @@ UInt32 	AppleDACAAudio::sndHWGetInSenseBits(void)
 // we can't read the registers back, so return the value in the shadow reg.
 UInt32 	AppleDACAAudio::sndHWGetRegister(UInt32 regNum)
 {
-    DEBUG_IOLOG("+ AppleDACAAudio::sndHWGetRegister\n");
+    debugIOLog (3, "+ AppleDACAAudio::sndHWGetRegister");
     
     UInt32	returnValue = 0;
     
@@ -472,7 +472,7 @@ UInt32 	AppleDACAAudio::sndHWGetRegister(UInt32 regNum)
             break;
 
         default:
-            DEBUG2_IOLOG("AppleDACAAudio::sndHWGetRegister 0x%x unknown subaddress\n", (UInt16)regNum);
+            debugIOLog (3, "AppleDACAAudio::sndHWGetRegister 0x%x unknown subaddress", (UInt16)regNum);
             break;
     }
     
@@ -489,7 +489,7 @@ IOReturn  AppleDACAAudio::sndHWSetRegister(UInt32 regNum, UInt32 val)
     UInt8 	subAddress ;
     IOReturn 	myReturn ;
 
-    DEBUG_IOLOG("+ AppleDACAAudio::sndHWSetRegister\n");
+    debugIOLog (3, "+ AppleDACAAudio::sndHWSetRegister");
     
     value8	= (val & 0x000000FF) ;	// just ensure we didn't pass any junk in, mask off the bottom 8 bits
     value16	= (val & 0x0000FFFF) ;	// just ensure we didn't pass any junk in, mask off the bottom 16 bits
@@ -504,7 +504,7 @@ IOReturn  AppleDACAAudio::sndHWSetRegister(UInt32 regNum, UInt32 val)
             case i2cBusSubAddrSR_REG:
                 // send the data to the device
                 success = interface->writeI2CBus((UInt8)i2cBusAddrDAC3550A, i2cBusSubAddrSR_REG, &value8, sizeof(value8));
-                DEBUG2_IOLOG("writing status register %02x\n", (UInt16)value8);
+                debugIOLog (3, "writing status register %02x", (UInt16)value8);
 
                 if (success)
                     sampleRateReg = value8;
@@ -514,7 +514,7 @@ IOReturn  AppleDACAAudio::sndHWSetRegister(UInt32 regNum, UInt32 val)
             case i2cBusSubAddrAVOL:                
                 // set the register via i2c...
                 success = interface->writeI2CBus((UInt8)i2cBusAddrDAC3550A, i2cBusSubAddrAVOL, (UInt8*)&value16, sizeof(value16));
-                DEBUG2_IOLOG("writing analog vol register %04x\n", value16);
+                debugIOLog (3, "writing analog vol register %04x", value16);
                 
                 if (success)
                     analogVolumeReg = value16;
@@ -525,7 +525,7 @@ IOReturn  AppleDACAAudio::sndHWSetRegister(UInt32 regNum, UInt32 val)
 
                 // And send the data we need:
                 success = interface->writeI2CBus((UInt8)i2cBusAddrDAC3550A, i2cBusSubaddrGCFG, &value8, sizeof(value8));
-                debug3IOLog("writing config reg %02x, success = %d\n", (UInt16)value8, success);
+                debugIOLog (3, "writing config reg %02x, success = %d", (UInt16)value8, success);
                 
                 if (success)
                     configurationReg = value8;
@@ -533,7 +533,7 @@ IOReturn  AppleDACAAudio::sndHWSetRegister(UInt32 regNum, UInt32 val)
                 break;
 
             default:
-                DEBUG2_IOLOG("AppleDACAAudio::sndHWSetRegister 0x%x unknown register\n", (UInt16)subAddress);
+                debugIOLog (3, "AppleDACAAudio::sndHWSetRegister 0x%x unknown register", (UInt16)subAddress);
                 success = true ;
                 myReturn = kIOReturnBadArgument ;
                 break;
@@ -546,10 +546,10 @@ IOReturn  AppleDACAAudio::sndHWSetRegister(UInt32 regNum, UInt32 val)
     if(success != true)
     {
         myReturn = kIOReturnError ;
-        DEBUG_IOLOG("sndHWSetRegister: something went wrong\n") ;
+        debugIOLog (3, "sndHWSetRegister: something went wrong") ;
     }
     
-    DEBUG_IOLOG("- AppleDACAAudio::sndHWSetRegister\n");
+    debugIOLog (3, "- AppleDACAAudio::sndHWSetRegister");
     return(myReturn);
 }
 
@@ -568,13 +568,13 @@ void AppleDACAAudio::sndHWSetCurrentSampleFrame (UInt32 value) {
 UInt32	AppleDACAAudio::sndHWGetActiveOutputExclusive(void)
 {
     UInt32	returnVal = 0l;
-    DEBUG_IOLOG("+ AppleDACAAudio::sndHWGetActiveOutputExclusive\n");
+    debugIOLog (3, "+ AppleDACAAudio::sndHWGetActiveOutputExclusive");
     if( fHeadphonesInserted == false )
         returnVal = kSndHWOutput1 ;
     else
         returnVal = kSndHWOutput2 ;
     
-    DEBUG_IOLOG("- AppleDACAAudio::sndHWGetActiveOutputExclusive\n");
+    debugIOLog (3, "- AppleDACAAudio::sndHWGetActiveOutputExclusive");
     return 0;
 }
 
@@ -584,7 +584,7 @@ IOReturn   AppleDACAAudio::sndHWSetActiveOutputExclusive(UInt32 outputPort )
     IOReturn			myReturn;
     UInt8				tmpConfigReg;
 
-    DEBUG_IOLOG("+ AppleDACAAudio::sndHWSetActiveOutputExclusive\n");
+    debugIOLog (3, "+ AppleDACAAudio::sndHWSetActiveOutputExclusive");
 
     myReturn = kIOReturnBadArgument;		// assume that the arg is not recognized in the switch
                                                 // if it is then set the value of myReturn in there.
@@ -609,19 +609,19 @@ IOReturn   AppleDACAAudio::sndHWSetActiveOutputExclusive(UInt32 outputPort )
 			}
             break;
         default:
-            DEBUG_IOLOG("Invalid set output active request\n");
+            debugIOLog (3, "Invalid set output active request");
             break;
     }
 
-    DEBUG_IOLOG("- AppleDACAAudio::sndHWSetActiveOutputExclusive\n");
+    debugIOLog (3, "- AppleDACAAudio::sndHWSetActiveOutputExclusive");
     return(myReturn);
 }
 
 //====================================================================================================
 UInt32 	AppleDACAAudio::sndHWGetActiveInputExclusive(void)
 {
-    DEBUG_IOLOG("+ AppleDACAAudio::sndHWGetActiveInputExclusive\n");
-    DEBUG_IOLOG("- AppleDACAAudio::sndHWGetActiveInputExclusive\n");
+    debugIOLog (3, "+ AppleDACAAudio::sndHWGetActiveInputExclusive");
+    debugIOLog (3, "- AppleDACAAudio::sndHWGetActiveInputExclusive");
     return fActiveInput;
 }
 
@@ -630,7 +630,7 @@ IOReturn   AppleDACAAudio::sndHWSetActiveInputExclusive(UInt32 input )
 {
     IOReturn 	myReturn = kIOReturnBadArgument;
     UInt8	tmpConfigReg = 0;
-    DEBUG_IOLOG("+ AppleDACAAudio::sndHWSetActiveInputExclusive\n");
+    debugIOLog (3, "+ AppleDACAAudio::sndHWSetActiveInputExclusive");
 
     switch (input)
     {
@@ -650,13 +650,13 @@ IOReturn   AppleDACAAudio::sndHWSetActiveInputExclusive(UInt32 input )
 			break;
 				
 		default:
-			debugIOLog("Invalid set output active request\n");
+			debugIOLog (3, "Invalid set output active request");
 			break;
     }
             
     fActiveInput = input;	
     
-    DEBUG_IOLOG("- AppleDACAAudio::sndHWSetActiveInputExclusive\n");
+    debugIOLog (3, "- AppleDACAAudio::sndHWSetActiveInputExclusive");
     return(myReturn);
 }
 
@@ -667,7 +667,7 @@ IOReturn AppleDACAAudio::AdjustControls (void) {
 	IOFixed							maxdBVol;
 	Boolean							mustUpdate;
 
-	debugIOLog ("+ AdjustControls()\n");
+	debugIOLog (3, "+ AdjustControls()");
 	FailIf (NULL == driverDMAEngine, Exit);
 	mustUpdate = FALSE;
 
@@ -690,7 +690,7 @@ IOReturn AppleDACAAudio::AdjustControls (void) {
 	}
 
 	if (TRUE == mustUpdate) {
-		debug5IOLog ("AdjustControls: mindBVol = %d.0x%x, maxdBVol = %d.0x%x\n", 
+		debugIOLog (3, "AdjustControls: mindBVol = %d.0x%x, maxdBVol = %d.0x%x", 
 			0 != mindBVol & 0x80000000 ? (unsigned int)(( mindBVol >> 16 ) | 0xFFFF0000) : (unsigned int)(mindBVol >> 16), (unsigned int)(mindBVol << 16), 
 			0 != maxdBVol & 0x80000000 ? (unsigned int)(( maxdBVol >> 16 ) | 0xFFFF0000) : (unsigned int)(maxdBVol >> 16), (unsigned int)(maxdBVol << 16) );
 	
@@ -700,7 +700,7 @@ IOReturn AppleDACAAudio::AdjustControls (void) {
 		if (TRUE == useMasterVolumeControl) {
 			// We have only the master volume control (possibly not created yet) and have to remove the other volume controls (possibly don't exist)
 			if (NULL == outVolMaster) {
-				debugIOLog ("AdjustControls: deleteing descrete channel controls and creating master control\n");
+				debugIOLog (3, "AdjustControls: deleteing descrete channel controls and creating master control");
 				// remove the existing left and right volume controls
 				if (NULL != outVolLeft) {
 					lastLeftVol = outVolLeft->getIntValue ();
@@ -730,7 +730,7 @@ IOReturn AppleDACAAudio::AdjustControls (void) {
 		} else {
 			// or we have both controls (possibly not created yet) and we have to remove the master volume control (possibly doesn't exist)
 			if (NULL == outVolLeft) {
-				debugIOLog ("AdjustControls: deleteing master control and creating descrete channel controls\n");
+				debugIOLog (3, "AdjustControls: deleteing master control and creating descrete channel controls");
 				// Have to create the control again...
 				if (lastLeftVol > kDACA_MAXIMUM_HW_VOLUME && NULL != outVolMaster) {
 					lastLeftVol = outVolMaster->getIntValue ();
@@ -806,7 +806,7 @@ IOReturn AppleDACAAudio::AdjustControls (void) {
 	}
 
 Exit:
-	debugIOLog ("- AdjustControls()\n");
+	debugIOLog (3, "- AdjustControls()");
 	return kIOReturnSuccess;
 }
 
@@ -814,8 +814,8 @@ Exit:
 // control function
 bool AppleDACAAudio::sndHWGetSystemMute(void)
 {
-    DEBUG_IOLOG("+ AppleDACAAudio::sndHWGetSystemMute\n");
-    DEBUG_IOLOG("- AppleDACAAudio::sndHWGetSystemMute\n");
+    debugIOLog (3, "+ AppleDACAAudio::sndHWGetSystemMute");
+    debugIOLog (3, "- AppleDACAAudio::sndHWGetSystemMute");
 	return gIsMute;
 }
 
@@ -835,7 +835,7 @@ IOReturn AppleDACAAudio::sndHWSetSystemMute(bool mutestate)
     IOReturn	retval = kIOReturnSuccess;
     UInt16		tmpAnalogVolumeReg;
 
-    DEBUG_IOLOG("+ AppleDACAAudio::sndHWSetSystemMute\n");
+    debugIOLog (3, "+ AppleDACAAudio::sndHWSetSystemMute");
 
     if (true == mutestate) {
 		// set the shadow reg to zero and write it to the part
@@ -847,7 +847,7 @@ IOReturn AppleDACAAudio::sndHWSetSystemMute(bool mutestate)
 		retval = sndHWSetRegister(i2cBusSubAddrAVOL, tmpAnalogVolumeReg);
 	} 
 
-    DEBUG_IOLOG("- AppleDACAAudio::sndHWSetSystemMute\n");
+    debugIOLog (3, "- AppleDACAAudio::sndHWSetSystemMute");
     return(retval);
 }
 
@@ -858,7 +858,7 @@ bool AppleDACAAudio::sndHWSetSystemVolume(UInt32 leftVolume, UInt32 rightVolume)
     bool 	retval = false ;
     UInt16	tmpAnalogVolumeReg ;
     
-    DEBUG3_IOLOG("+ AppleDACAAudio::sndHWSetSystemVolume (left: %ld, right %ld)\n", leftVolume, rightVolume);
+    debugIOLog (3, "+ AppleDACAAudio::sndHWSetSystemVolume (left: %ld, right %ld)", leftVolume, rightVolume);
     
     // we want to manipulate the daca registers for the volume
     
@@ -869,14 +869,14 @@ bool AppleDACAAudio::sndHWSetSystemVolume(UInt32 leftVolume, UInt32 rightVolume)
                             
     retval = sndHWSetRegister(i2cBusSubAddrAVOL, tmpAnalogVolumeReg);
     
-    DEBUG_IOLOG("- AppleDACAAudio::sndHWSetSystemVolume\n");
+    debugIOLog (3, "- AppleDACAAudio::sndHWSetSystemVolume");
     return (retval==kIOReturnSuccess);
 }
 
 //====================================================================================================
 IOReturn AppleDACAAudio::sndHWSetSystemVolume(UInt32 value)
 {
-    DEBUG2_IOLOG("+ AppleDACAAudio::sndHWSetSystemVolume (vol: %ld)\n", value);
+    debugIOLog (3, "+ AppleDACAAudio::sndHWSetSystemVolume (vol: %ld)", value);
     
     IOReturn myReturn = kIOReturnError ;
         
@@ -886,7 +886,7 @@ IOReturn AppleDACAAudio::sndHWSetSystemVolume(UInt32 value)
         myReturn = kIOReturnSuccess;
     }
 
-    DEBUG_IOLOG("- AppleDACAAudio::sndHWSetSystemVolume\n");
+    debugIOLog (3, "- AppleDACAAudio::sndHWSetSystemVolume");
     return(myReturn);
 }
 
@@ -896,7 +896,7 @@ IOReturn AppleDACAAudio::sndHWSetPlayThrough(bool playthroughState)
 	IOReturn myReturn;
     UInt8	tmpConfigReg = 0;
 
-    DEBUG_IOLOG("+ AppleDACAAudio::sndHWSetPlayThrough\n");
+    debugIOLog (3, "+ AppleDACAAudio::sndHWSetPlayThrough");
 
 	if (playthroughState) {			// reenable any active aux input
 		switch (fActiveInput) {
@@ -922,18 +922,18 @@ IOReturn AppleDACAAudio::sndHWSetPlayThrough(bool playthroughState)
 
 	gIsPlayThroughActive = playthroughState;
 
-    DEBUG_IOLOG("- AppleDACAAudio::sndHWSetPlayThrough\n");
+    debugIOLog (3, "- AppleDACAAudio::sndHWSetPlayThrough");
     return(myReturn);
 }
 
 //====================================================================================================
 IOReturn AppleDACAAudio::sndHWSetSystemInputGain(UInt32 leftGain, UInt32 rightGain) 
 {
-    DEBUG_IOLOG("+ AppleDACAAudio::sndHWSetSystemInputGain\n");
+    debugIOLog (3, "+ AppleDACAAudio::sndHWSetSystemInputGain");
 
     IOReturn myReturn = kIOReturnSuccess;
 
-    DEBUG_IOLOG("- AppleDACAAudio::sndHWSetSystemInputGain\n");
+    debugIOLog (3, "- AppleDACAAudio::sndHWSetSystemInputGain");
     return(myReturn);
 }
 
@@ -945,11 +945,11 @@ IOReturn AppleDACAAudio::sndHWSetSystemInputGain(UInt32 leftGain, UInt32 rightGa
 //Identification - the only thing this driver supports is the DACA3550 part, return that.
 UInt32 AppleDACAAudio::sndHWGetType( void )
 {
-    DEBUG_IOLOG("+ AppleDACAAudio::sndHWGetType\n");
+    debugIOLog (3, "+ AppleDACAAudio::sndHWGetType");
     
     UInt32	returnValue = kSndHWTypeDaca ; 	// I think this is the only one supported by this driver
 
-    DEBUG_IOLOG("- AppleDACAAudio::sndHWGetType\n");
+    debugIOLog (3, "- AppleDACAAudio::sndHWGetType");
     
     return returnValue ;
 }
@@ -960,11 +960,11 @@ UInt32 AppleDACAAudio::sndHWGetType( void )
 // from Micronas Intermetall.  Always return just that.
 UInt32 AppleDACAAudio::sndHWGetManufacturer( void )
 {
-    DEBUG_IOLOG("+ AppleDACAAudio::sndHWGetManufacturer\n");
+    debugIOLog (3, "+ AppleDACAAudio::sndHWGetManufacturer");
     
     UInt32	returnValue = kSndHWManfMicronas ;
     
-    DEBUG_IOLOG("- AppleDACAAudio::sndHWGetManufacturer\n");
+    debugIOLog (3, "- AppleDACAAudio::sndHWGetManufacturer");
     return returnValue ;
 }
 
@@ -975,10 +975,10 @@ UInt32 AppleDACAAudio::sndHWGetManufacturer( void )
 // turn on detection, TODO move to superclass?? 
 void AppleDACAAudio::setDeviceDetectionActive(void)
 {
-    DEBUG_IOLOG("+ AppleDACAAudio::setDeviceDetectionActive\n");
+    debugIOLog (3, "+ AppleDACAAudio::setDeviceDetectionActive");
     mCanPollStatus = true ;
     
-    DEBUG_IOLOG("- AppleDACAAudio::setDeviceDetectionActive\n");
+    debugIOLog (3, "- AppleDACAAudio::setDeviceDetectionActive");
     return ;
 }
 
@@ -987,10 +987,10 @@ void AppleDACAAudio::setDeviceDetectionActive(void)
 // turn off detection, TODO move to superclass?? 
 void AppleDACAAudio::setDeviceDetectionInActive(void)
 {
-    DEBUG_IOLOG("+ AppleDACAAudio::setDeviceDetectionInActive\n");
+    debugIOLog (3, "+ AppleDACAAudio::setDeviceDetectionInActive");
     mCanPollStatus = false ;
     
-    DEBUG_IOLOG("- AppleDACAAudio::setDeviceDetectionInActive\n");
+    debugIOLog (3, "- AppleDACAAudio::setDeviceDetectionInActive");
     return ;
 }
 
@@ -1001,7 +1001,7 @@ IOReturn AppleDACAAudio::sndHWSetPowerState(IOAudioDevicePowerState theState)
 {
     IOReturn		myReturn;
     
-    DEBUG_IOLOG("+ AppleDACAAudio::sndHWSetPowerState\n");
+    debugIOLog (3, "+ AppleDACAAudio::sndHWSetPowerState");
     
     myReturn = kIOReturnSuccess;
     switch(theState)
@@ -1010,12 +1010,12 @@ IOReturn AppleDACAAudio::sndHWSetPowerState(IOAudioDevicePowerState theState)
         case kIOAudioDeviceIdle:	myReturn = performDeviceSleep();		break;		//	When no audio engines running
         case kIOAudioDeviceActive:	myReturn = performDeviceWake();			break;		//	audio engines running
         default:
-            DEBUG_IOLOG("AppleDACAAudio::sndHWSetPowerState unknown power state\n");
+            debugIOLog (3, "AppleDACAAudio::sndHWSetPowerState unknown power state");
             myReturn = kIOReturnBadArgument ;
             break ;
     }
 
-    DEBUG_IOLOG("- AppleDACAAudio::sndHWSetPowerState\n");
+    debugIOLog (3, "- AppleDACAAudio::sndHWSetPowerState");
     return(myReturn);
 }
     
@@ -1026,7 +1026,7 @@ IOReturn	AppleDACAAudio::performDeviceWake () {
 	UInt32					temp;
 	const OSSymbol*			funcSymbolName = NULL;											//	[3323977]
     
-    DEBUG_IOLOG("+ AppleDACAAudio::performDeviceWake\n");
+    debugIOLog (3, "+ AppleDACAAudio::performDeviceWake");
 
     myReturn = kIOReturnSuccess;
 
@@ -1063,7 +1063,7 @@ IOReturn	AppleDACAAudio::performDeviceWake () {
 	temp = myAudioI2SControl->GetSerialFormatReg();
 	temp = myAudioI2SControl->GetDataWordSizesReg();
 Exit:
-    DEBUG_IOLOG("- AppleDACAAudio::performDeviceWake\n");
+    debugIOLog (3, "- AppleDACAAudio::performDeviceWake");
     return(myReturn);
 }
 
@@ -1075,7 +1075,7 @@ IOReturn	AppleDACAAudio::performDeviceSleep () {
 	IOService		*keyLargo;
 	UInt32			temp;
     
-    DEBUG_IOLOG("+ AppleDACAAudio::performDeviceSleep\n");
+    debugIOLog (3, "+ AppleDACAAudio::performDeviceSleep");
 	
     myReturn = kIOReturnSuccess;
 
@@ -1108,7 +1108,7 @@ IOReturn	AppleDACAAudio::performDeviceSleep () {
 	temp = myAudioI2SControl->GetSerialFormatReg();
 	temp = myAudioI2SControl->GetDataWordSizesReg();
 
-    DEBUG_IOLOG("- AppleDACAAudio::performDeviceSleep\n");
+    debugIOLog (3, "- AppleDACAAudio::performDeviceSleep");
     return(myReturn);
 }
 
@@ -1116,9 +1116,9 @@ IOReturn	AppleDACAAudio::performDeviceSleep () {
 IOReturn	AppleDACAAudio::performDeviceIdleSleep () {
 	IOReturn	myReturn;
 	
-    DEBUG_IOLOG("+ AppleDACAAudio::performDeviceIdleSleep\n");
+    debugIOLog (3, "+ AppleDACAAudio::performDeviceIdleSleep");
 	myReturn = performDeviceSleep();
-    DEBUG_IOLOG("- AppleDACAAudio::performDeviceIdleSleep\n");
+    debugIOLog (3, "- AppleDACAAudio::performDeviceIdleSleep");
     return(myReturn);
 }
 
@@ -1128,29 +1128,29 @@ IOReturn	AppleDACAAudio::performDeviceIdleSleep () {
 // TODO: Move to superclass
 UInt32 AppleDACAAudio::sndHWGetConnectedDevices(void)
 {
-    DEBUG_IOLOG("+ AppleDACAAudio::sndHWGetConnectedDevices\n");
+    debugIOLog (3, "+ AppleDACAAudio::sndHWGetConnectedDevices");
    UInt32	returnValue = currentDevices;
 
-    DEBUG_IOLOG("- AppleDACAAudio::sndHWGetConnectedDevices\n");
+    debugIOLog (3, "- AppleDACAAudio::sndHWGetConnectedDevices");
     return returnValue ;
 }
 
 //====================================================================================================
 UInt32 AppleDACAAudio::sndHWGetProgOutput(void)
 {
-    DEBUG_IOLOG("+ AppleDACAAudio::sndHWGetProgOutput\n");
-    DEBUG_IOLOG("- AppleDACAAudio::sndHWGetProgOutput\n");
+    debugIOLog (3, "+ AppleDACAAudio::sndHWGetProgOutput");
+    debugIOLog (3, "- AppleDACAAudio::sndHWGetProgOutput");
     return 0;
 }
 
 //====================================================================================================
 IOReturn AppleDACAAudio::sndHWSetProgOutput(UInt32 outputBits)
 {
-    DEBUG_IOLOG("+ AppleDACAAudio::sndHWSetProgOutput\n");
+    debugIOLog (3, "+ AppleDACAAudio::sndHWSetProgOutput");
 
     IOReturn myReturn = kIOReturnSuccess;
 
-    DEBUG_IOLOG("- AppleDACAAudio::sndHWSetProgOutput\n");
+    debugIOLog (3, "- AppleDACAAudio::sndHWSetProgOutput");
     return(myReturn);
 }
 
@@ -1167,7 +1167,7 @@ IOReturn AppleDACAAudio::sndHWSetProgOutput(UInt32 outputBits)
 //   Attaches to the i2c interface:
 bool AppleDACAAudio::findAndAttachI2C(IOService *provider)
 {
-    DEBUG_IOLOG("+ AppleDACAAudio::findAndAttachI2C\n");
+    debugIOLog (3, "+ AppleDACAAudio::findAndAttachI2C");
     const OSSymbol 	*i2cDriverName;
     IOService 		*i2cCandidate;
 
@@ -1178,14 +1178,14 @@ bool AppleDACAAudio::findAndAttachI2C(IOService *provider)
     interface = (PPCI2CInterface*)i2cCandidate->getProperty(i2cDriverName);
 
     if (interface == NULL) {
-        DEBUG_IOLOG("- AppleDACAAudio::findAndAttachI2C ERROR: can't find the i2c in the registry\n");
+        debugIOLog (3, "- AppleDACAAudio::findAndAttachI2C ERROR: can't find the i2c in the registry");
         return false;
     }
 
     // Make sure that we hold the interface:
     interface->retain();
 
-    DEBUG_IOLOG("- AppleDACAAudio::findAndAttachI2C\n");
+    debugIOLog (3, "- AppleDACAAudio::findAndAttachI2C");
     return true;
 }
 
@@ -1196,7 +1196,7 @@ bool AppleDACAAudio::findAndAttachI2C(IOService *provider)
 //   detaches from the I2C
 bool AppleDACAAudio::detachFromI2C(IOService* /*provider*/)
 {
-    DEBUG_IOLOG("+ AppleDACAAudio::detachFromI2C\n");
+    debugIOLog (3, "+ AppleDACAAudio::detachFromI2C");
     
     if (interface) 
     {
@@ -1205,7 +1205,7 @@ bool AppleDACAAudio::detachFromI2C(IOService* /*provider*/)
         interface = 0;
     }
         
-    DEBUG_IOLOG("- AppleDACAAudio::detachFromI2C\n");
+    debugIOLog (3, "- AppleDACAAudio::detachFromI2C");
     return (true);
 }
 
@@ -1221,7 +1221,7 @@ UInt32 AppleDACAAudio::getI2CPort(void)
 {
     UInt32 	myPort = 0L;	// the i2c port we will return, null if not found
     
-    DEBUG_IOLOG("+ AppleDACAAudio::getI2CPort\n");
+    debugIOLog (3, "+ AppleDACAAudio::getI2CPort");
 
     if(sound) {
         OSData 		*t ;
@@ -1233,12 +1233,12 @@ UInt32 AppleDACAAudio::getI2CPort(void)
         } 
         else
         {
-            DEBUG_IOLOG( "AppleDACAAudio::getI2CPort ERROR missing property port\n");
+            debugIOLog (3,  "AppleDACAAudio::getI2CPort ERROR missing property port");
             myPort = 0L ; 
         }
     }
     
-    DEBUG_IOLOG( "- AppleDACAAudio::getI2CPort\n");
+    debugIOLog (3,  "- AppleDACAAudio::getI2CPort");
     return myPort;
 }
 
@@ -1249,7 +1249,7 @@ UInt32 AppleDACAAudio::getI2CPort(void)
 //        opens and sets up the i2c bus
 bool AppleDACAAudio::openI2C(void) 
 {
-    DEBUG_IOLOG( "+ AppleDACAAudio::openI2C\n");
+    debugIOLog (3,  "+ AppleDACAAudio::openI2C");
 
     bool	canOpenI2C = false ;	// our return value, indicates whether we were able to open i2c bus
     
@@ -1267,7 +1267,7 @@ bool AppleDACAAudio::openI2C(void)
         }
     }
     
-    DEBUG_IOLOG( "- AppleDACAAudio::openI2C\n");
+    debugIOLog (3,  "- AppleDACAAudio::openI2C");
     return canOpenI2C ;
 }
 
@@ -1278,12 +1278,12 @@ bool AppleDACAAudio::openI2C(void)
 
 void AppleDACAAudio::closeI2C(void) 
 {
-    DEBUG_IOLOG( "+ AppleDACAAudio::closeI2C\n");
+    debugIOLog (3,  "+ AppleDACAAudio::closeI2C");
     
     // Closes the bus so others can access to it:
     interface->closeI2CBus();
     
-    DEBUG_IOLOG( "- AppleDACAAudio::closeI2C\n");
+    debugIOLog (3,  "- AppleDACAAudio::closeI2C");
 }
 
 #pragma mark + GENERAL PURPOSE UTILITY ROUTINES

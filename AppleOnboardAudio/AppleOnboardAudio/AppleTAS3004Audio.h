@@ -79,7 +79,6 @@ public:
 
     // Initializatioin
     virtual bool		preDMAEngineInit () ;
-	virtual void		postDMAEngineInit ();
 	virtual void		initPlugin (PlatformInterface* inPlatformObject);
 
     // IO activation functions
@@ -105,16 +104,11 @@ public:
 
     virtual IOReturn	setPlayThrough (bool playthroughstate);
 
-	virtual	void		setEQProcessing (void * inEQStructure, Boolean inRealtime);
-	virtual	void		setDRCProcessing (void * inDRCStructure, Boolean inRealtime);
-	virtual	void		disableProcessing (void);
+	virtual	void		disableProcessing (Boolean inRealtime);
 	virtual	void		enableProcessing (void);
 
 	virtual	void		notifyHardwareEvent ( UInt32 statusSelector, UInt32 newValue ) { return; }
 	virtual	IOReturn	recoverFromFatalError ( FatalRecoverySelector selector );
-
-	virtual	UInt32		getCurrentSampleFrame (void);
-	virtual void		setCurrentSampleFrame (UInt32 value);
 
 	virtual IOReturn	performDeviceWake ();
 	virtual IOReturn	performDeviceSleep ();
@@ -178,9 +172,6 @@ private:
 	};
 
 	EQPrefsElement		mEQPref;
-
-	void				copyFilter (EQStructPtr source, EQStructPtr dest, UInt32 sourceIndex, UInt32 destIndex);
-	void				GenerateOptimalFilterOrder (EQStructPtr ioEQ);
 
 };
 

@@ -19,7 +19,8 @@ import org.jboss.ejb.EntityEnterpriseContext;
  *      One for each entity bean field.       
  *
  * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
- * @version $Revision: 1.2 $
+ * @author <a href="mailto:alex@jboss.org">Alex Loubyansky</a>
+ * @version $Revision: 1.2.4.2 $
  */                            
 public interface FieldBridge {
    /**
@@ -41,5 +42,4 @@ public interface FieldBridge {
     * @param value the new value of this field
     */
    public void setValue(EntityEnterpriseContext ctx, Object value);
-
 }

@@ -1,5 +1,5 @@
 /*
- * "$Id: lpd.c,v 1.18 2003/08/03 16:31:13 jlovell Exp $"
+ * "$Id: lpd.c,v 1.18.4.1 2004/01/23 18:50:40 jlovell Exp $"
  *
  *   Line Printer Daemon backend for the Common UNIX Printing System (CUPS).
  *
@@ -265,6 +265,9 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
   sanitize_title = 1;
 
 #if defined(__APPLE__)
+  /* We want to use a reserved port if possible (3471949) */
+  reserve        = 1;
+
   /* We want to pass utf-8 characters, not re-map them (3071945) */
   sanitize_title= 0;
 #endif
@@ -1037,5 +1040,5 @@ sigterm_handler(int sig)		/* I - Signal */
 
 
 /*
- * End of "$Id: lpd.c,v 1.18 2003/08/03 16:31:13 jlovell Exp $".
+ * End of "$Id: lpd.c,v 1.18.4.1 2004/01/23 18:50:40 jlovell Exp $".
  */

@@ -87,14 +87,12 @@ parseIncomingCerts(
 	CFArrayRef		certs,
 	SSLCertificate	**destCert,		/* &ctx->{localCert,encryptCert} */
 	CSSM_KEY_PTR	*pubKey,		/* &ctx->signingPubKey, etc. */
-	CSSM_KEY_PTR	*privKey,		/* &ctx->signingPrivKey, etc. */
-	CSSM_CSP_HANDLE	*cspHand)		/* &ctx->signingKeyCsp, etc. */
+	SecKeyRef		*privKeyRef)	/* &ctx->signingPrivKeyRef, etc. */
 {
 	CFIndex				numCerts;
 	CFIndex				cert;
 	SSLCertificate		*certChain = NULL;
 	SSLCertificate		*thisSslCert;
-	SecKeychainRef		kcRef;
 	OSStatus			ortn;
 	SecIdentityRef 		identity;
 	SecCertificateRef	certRef;
@@ -106,14 +104,12 @@ parseIncomingCerts(
 	assert(ctx != NULL);
 	assert(destCert != NULL);		/* though its referent may be NULL */
 	assert(pubKey != NULL);
-	assert(privKey != NULL);
-	assert(cspHand != NULL);
+	assert(privKeyRef != NULL);
 	
 	sslDeleteCertificateChain(*destCert, ctx);
 	*destCert = NULL;
 	*pubKey   = NULL;
-	*privKey  = NULL;
-	*cspHand  = 0;
+	*privKeyRef = NULL;
 	
 	if(certs == NULL) {
 		sslErrorLog("parseIncomingCerts: NULL incoming cert array\n");
@@ -127,7 +123,7 @@ parseIncomingCerts(
 	
 	/* 
 	 * Certs[0] is an SecIdentityRef from which we extract subject cert,
-	 * privKey, pubKey, and cspHand.
+	 * privKeyRef, pubKey.
 	 *
 	 * 1. ensure the first element is a SecIdentityRef.
 	 */
@@ -142,7 +138,7 @@ parseIncomingCerts(
 	}
 	
 	/* 
-	 * 2. Extract cert, keys, CSP handle and convert to local format. 
+	 * 2. Extract cert, keys and convert to local format. 
 	 */
 	ortn = SecIdentityCopyCertificate(identity, &certRef);
 	if(ortn) {
@@ -165,13 +161,7 @@ parseIncomingCerts(
 			(int)ortn);
 		return ortn;
 	}
-	ortn = SecKeyGetCSSMKey(keyRef, (const CSSM_KEY **)privKey);
-	if(ortn) {
-		sslErrorLog("parseIncomingCerts: SecKeyGetCSSMKey err %d\n",
-			(int)ortn);
-		return ortn;
-	}
-	/* FIXME = release keyRef? */
+	*privKeyRef = keyRef;
 	
 	/* obtain public key from cert */
 	ortn = SecCertificateGetCLHandle(certRef, &clHand);
@@ -186,20 +176,6 @@ parseIncomingCerts(
 	if(crtn) {
 		sslErrorLog("parseIncomingCerts: CSSM_CL_CertGetKeyInfo err\n");
 		return (OSStatus)crtn;
-	}
-	
-	/* obtain keychain from key, CSP handle from keychain */
-	ortn = SecKeychainItemCopyKeychain((SecKeychainItemRef)keyRef, &kcRef);
-	if(ortn) {
-		sslErrorLog("parseIncomingCerts: SecKeychainItemCopyKeychain err %d\n",
-			(int)ortn);
-		return ortn;
-	}
-	ortn = SecKeychainGetCSPHandle(kcRef, cspHand);
-	if(ortn) {
-		sslErrorLog("parseIncomingCerts: SecKeychainGetCSPHandle err %d\n",
-			(int)ortn);
-		return ortn;
 	}
 	
 	/* OK, that's the subject cert. Fetch optional remaining certs. */
@@ -231,12 +207,6 @@ parseIncomingCerts(
 		certChain = thisSslCert;
 	}
 	
-	/* validate the whole mess, skipping host name verify */
-	ortn = sslVerifyCertChain(ctx, *certChain, false);
-	if(ortn) {
-		goto errOut;
-	}
-		
 	/* SUCCESS */ 
 	*destCert = certChain;
 	return noErr;

@@ -314,12 +314,20 @@ uint32 pdb_get_unknown_3 (const SAM_ACCOUNT *sampass)
 		return (-1);
 }
 
-uint32 pdb_get_unknown_5 (const SAM_ACCOUNT *sampass)
+uint16 pdb_get_bad_password_count(const SAM_ACCOUNT *sampass)
 {
 	if (sampass)
-		return (sampass->private.unknown_5);
+		return (sampass->private.bad_password_count);
 	else
-		return (-1);
+		return 0;
+}
+
+uint16 pdb_get_logon_count(const SAM_ACCOUNT *sampass)
+{
+	if (sampass)
+		return (sampass->private.logon_count);
+	else
+		return 0;
 }
 
 uint32 pdb_get_unknown_6 (const SAM_ACCOUNT *sampass)
@@ -501,7 +509,7 @@ BOOL pdb_set_init_flags (SAM_ACCOUNT *sampass, enum pdb_elements element, enum p
         return True;
 }
 
-BOOL pdb_set_user_sid (SAM_ACCOUNT *sampass, DOM_SID *u_sid, enum pdb_value_state flag)
+BOOL pdb_set_user_sid (SAM_ACCOUNT *sampass, const DOM_SID *u_sid, enum pdb_value_state flag)
 {
 	if (!sampass || !u_sid)
 		return False;
@@ -537,7 +545,7 @@ BOOL pdb_set_user_sid_from_string (SAM_ACCOUNT *sampass, fstring u_sid, enum pdb
 	return True;
 }
 
-BOOL pdb_set_group_sid (SAM_ACCOUNT *sampass, DOM_SID *g_sid, enum pdb_value_state flag)
+BOOL pdb_set_group_sid (SAM_ACCOUNT *sampass, const DOM_SID *g_sid, enum pdb_value_state flag)
 {
 	if (!sampass || !g_sid)
 		return False;
@@ -925,7 +933,11 @@ BOOL pdb_set_nt_passwd (SAM_ACCOUNT *sampass, const uint8 pwd[NT_HASH_LEN], enum
 
 	data_blob_clear_free(&sampass->private.nt_pw);
 	
-	sampass->private.nt_pw = data_blob(pwd, NT_HASH_LEN);
+       if (pwd) {
+               sampass->private.nt_pw = data_blob(pwd, NT_HASH_LEN);
+       } else {
+               sampass->private.nt_pw = data_blob(NULL, 0);
+       }
 
 	return pdb_set_init_flags(sampass, PDB_NTPASSWD, flag);
 }
@@ -941,7 +953,11 @@ BOOL pdb_set_lanman_passwd (SAM_ACCOUNT *sampass, const uint8 pwd[LM_HASH_LEN], 
 
 	data_blob_clear_free(&sampass->private.lm_pw);
 	
-	sampass->private.lm_pw = data_blob(pwd, LM_HASH_LEN);
+       if (pwd) {
+               sampass->private.lm_pw = data_blob(pwd, LM_HASH_LEN);
+       } else {
+               sampass->private.lm_pw = data_blob(NULL, 0);
+       }
 
 	return pdb_set_init_flags(sampass, PDB_LMPASSWD, flag);
 }
@@ -984,14 +1000,24 @@ BOOL pdb_set_unknown_3 (SAM_ACCOUNT *sampass, uint32 unkn, enum pdb_value_state 
 	return pdb_set_init_flags(sampass, PDB_UNKNOWN3, flag);
 }
 
-BOOL pdb_set_unknown_5 (SAM_ACCOUNT *sampass, uint32 unkn, enum pdb_value_state flag)
+BOOL pdb_set_bad_password_count(SAM_ACCOUNT *sampass, uint16 bad_password_count, enum pdb_value_state flag)
 {
 	if (!sampass)
 		return False;
 
-	sampass->private.unknown_5 = unkn;
+	sampass->private.bad_password_count = bad_password_count;
 
-	return pdb_set_init_flags(sampass, PDB_UNKNOWN5, flag);
+	return pdb_set_init_flags(sampass, PDB_BAD_PASSWORD_COUNT, flag);
+}
+
+BOOL pdb_set_logon_count(SAM_ACCOUNT *sampass, uint16 logon_count, enum pdb_value_state flag)
+{
+	if (!sampass)
+		return False;
+
+	sampass->private.logon_count = logon_count;
+
+	return pdb_set_init_flags(sampass, PDB_LOGON_COUNT, flag);
 }
 
 BOOL pdb_set_unknown_6 (SAM_ACCOUNT *sampass, uint32 unkn, enum pdb_value_state flag)
@@ -1026,19 +1052,6 @@ BOOL pdb_set_backend_private_data (SAM_ACCOUNT *sampass, void *private_data,
 {
 	if (!sampass)
 		return False;
-
-#if 0
-	/* With this check backend_private_data_free_fn is *never* set
-	   as the methods are never set anywhere. What is this
-	   supposed to do ????
-
-	   Volker
-	*/
-
-	/* does this backend 'own' this SAM_ACCOUNT? */
-	if (my_methods != sampass->private.backend_private_methods)
-		return False;
-#endif
 
 	if (sampass->private.backend_private_data && sampass->private.backend_private_data_free_fn) {
 		sampass->private.backend_private_data_free_fn(&sampass->private.backend_private_data);

@@ -28,7 +28,7 @@ import org.jboss.mx.util.Serialization;
  * @author  <a href="mailto:juha@jboss.org">Juha Lindfors</a>.
  * @author  <a href="mailto:trevor@protocool.com">Trevor Squires</a>.
  * @author  <a href="mailto:adrian.brock@happeningtimes.com">Adrian Brock</a>.
- * @version $Revision: 1.10.4.1 $
+ * @version $Revision: 1.10.4.2 $
  *
  * <p><b>Revisions:</b>
  * <p><b>20020521 Adrian Brock:</b>
@@ -352,11 +352,10 @@ public class ObjectName implements java.io.Serializable
       Collections.sort(list);
       StringBuffer strBuffer = new StringBuffer();
 
-      it = list.iterator();
-      while (it.hasNext())
+      for (int i = 0; i < list.size(); i++)
       {
-         strBuffer.append(it.next());
-         if (it.hasNext())
+         strBuffer.append(list.get(i));
+         if (i + 1 < list.size())
          {
             strBuffer.append(',');
          }

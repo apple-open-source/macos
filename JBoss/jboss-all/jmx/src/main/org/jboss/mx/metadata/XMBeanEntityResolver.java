@@ -22,12 +22,11 @@ import org.jboss.mx.service.ServiceConstants;
  * @version
  */
 
-public class XMBeanEntityResolver 
-   implements EntityResolver, ServiceConstants
+public class XMBeanEntityResolver implements EntityResolver, ServiceConstants
 {
-   public XMBeanEntityResolver() 
+   public XMBeanEntityResolver()
    {
-      
+
    }
 
    public InputSource resolveEntity(String publicId, String systemId)
@@ -36,11 +35,23 @@ public class XMBeanEntityResolver
       {
          if (publicId.equals(PUBLIC_JBOSSMX_XMBEAN_DTD_1_0))
          {
-            InputStream dtdStream = getClass().getResourceAsStream("/metadata/" + JBOSSMX_XMBEAN_DTD_1_0);
+            InputStream dtdStream =
+               getClass().getResourceAsStream(
+                  "/metadata/" + JBOSSMX_XMBEAN_DTD_1_0);
 
             return new InputSource(dtdStream);
-         
+
          } // end of if ()
+         if (publicId.equals(PUBLIC_JBOSSMX_XMBEAN_DTD_1_1))
+         {
+            InputStream dtdStream =
+               getClass().getResourceAsStream(
+                  "/metadata/" + JBOSSMX_XMBEAN_DTD_1_1);
+
+            return new InputSource(dtdStream);
+
+         } // end of if ()
+
          /*this one doesn't exist in source, so I'm leaving it out.
          if (publicId.endsWith(XMBEAN_DTD)) 
          {
@@ -50,11 +61,10 @@ public class XMBeanEntityResolver
          } // end of if ()
          */
       }
-      catch( Exception ignore )
+      catch (Exception ignore)
       {
       }
       return null;
    }
-      
 
-}// XMBeanEntityResolver
+} // XMBeanEntityResolver

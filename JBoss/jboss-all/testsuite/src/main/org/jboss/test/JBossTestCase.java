@@ -6,27 +6,15 @@
  */
 package org.jboss.test;
 
-import java.io.File;
-import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.HashSet;
-import java.util.Set;
-import javax.management.MBeanException;
-import javax.management.MBeanRegistrationException;
 import javax.management.MalformedObjectNameException;
-import javax.management.ObjectInstance;
 import javax.management.ObjectName;
-import javax.management.ReflectionException;
-import javax.management.RuntimeErrorException;
-import javax.management.RuntimeMBeanException;
-import javax.management.RuntimeOperationsException;
-import javax.naming.Context;
 import javax.naming.InitialContext;
-import javax.naming.NamingEnumeration;
-import javax.naming.NamingException;
 
-import junit.framework.*;
+import junit.framework.Test;
+import junit.framework.TestCase;
+import junit.framework.TestSuite;
 
 import org.apache.log4j.Category;
 
@@ -41,14 +29,15 @@ import org.jboss.jmx.adaptor.rmi.RMIAdaptor;
  * deployable packages with the system property jbosstest.deploy.dir (default
  * ../lib).
  *
- * @author    <a href="mailto:d_jencks@users.sourceforge.net">David Jencks</a>
- * @version   $Revision: 1.12.4.1 $
+ * @author <a href="mailto:d_jencks@users.sourceforge.net">David Jencks</a>
+ * @author Scott.Stark@jboss.org
+ * @version $Revision: 1.12.4.6 $
  */
 public class JBossTestCase
-       extends TestCase
+   extends TestCase
 {
-    protected Category log;
-   
+   protected Category log;
+
    /**
     *  Saved exception from deployment.
     *  Will be thrown from {@link #testServerFound}, if not <code>null</code>.
@@ -68,13 +57,21 @@ public class JBossTestCase
    public JBossTestCase(String name)
    {
       super(name);
+      log = Category.getInstance(getClass());
       initDelegate();
-      log = getLog();
    }
-   
-   public void initDelegate ()
+
+   public void initDelegate()
    {
       delegate = new JBossTestServices(getClass().getName());
+      try
+      {
+         delegate.init();
+      }
+      catch(Exception e)
+      {
+         log.debug("Failed to init delegate", e);
+      }
    }
 
    // Public --------------------------------------------------------
@@ -94,28 +91,6 @@ public class JBossTestCase
          throw deploymentException;
       assertTrue("Server was not found", getServer() != null);
    }
-
-   /**
-    * The JUnit setup method
-    *
-    * @exception Exception  Description of Exception
-    * /
-   protected void setUp() throws Exception
-   {
-      delegate.setUp();
-      }*/
-
-   /**
-    * The teardown method for JUnit
-    *
-    * @exception Exception  Description of Exception
-    * /
-   protected void tearDown() throws Exception
-   {
-      delegate.tearDown();
-   }*/
-
-
 
    //protected---------
 
@@ -146,7 +121,7 @@ public class JBossTestCase
     */
    protected Category getLog()
    {
-      return delegate.getLog();
+      return log;
    }
 
    /**
@@ -174,7 +149,7 @@ public class JBossTestCase
     */
    protected String getDeployURL(final String filename) throws MalformedURLException
    {
-       return delegate.getDeployURL(filename); 
+      return delegate.getDeployURL(filename);
    }
 
    /** Get a URL string to a resource in the testsuite/output/resources dir.
@@ -189,18 +164,6 @@ public class JBossTestCase
       return resURL != null ? resURL.toString() : null;
    }
 
-
-   //is this good for something??????
-   /**
-    * Gets the Deployed attribute of the JBossTestCase object
-    *
-    * @param name  Description of Parameter
-    * @return      The Deployed value
-    */
-   protected boolean isDeployed(String name)
-   {
-      return delegate.isDeployed(name);
-   }
 
    /**
     * invoke wraps an invoke call to the mbean server in a lot of exception
@@ -242,37 +205,55 @@ public class JBossTestCase
       delegate.undeploy(name);
    }
 
-   public static Test getDeploySetup(final Test test, final String jarName) throws Exception
+   public static Test getDeploySetup(final Test test, final String jarName)
+      throws Exception
    {
       JBossTestSetup wrapper = new JBossTestSetup(test)
+      {
+         protected void setUp() throws Exception
          {
+            deploymentException = null;
+            try
+            {
+               this.delegate.init();
+               if( this.delegate.isSecure() )
+                  this.delegate.login();
+               this.redeploy(jarName);
+               this.getLog().debug("deployed package: " + jarName);
+            }
+            catch (Exception ex)
+            {
+               // Throw this in testServerFound() instead.
+               deploymentException = ex;
+            }
+         }
 
-             protected void setUp() throws Exception
-             {
-                deploymentException = null;
-                try {
-                   this.deploy(jarName);
-                   this.getLog().debug("deployed package: " + jarName);
-                } catch (Exception ex) {
-                   // Throw this in testServerFound() instead.
-                   deploymentException = ex;
-                }
-             }
-
-             protected void tearDown() throws Exception
-             {
-                this.undeploy(jarName);
-                this.getLog().debug("undeployed package: " + jarName);
-             }
-          };
+         protected void tearDown() throws Exception
+         {
+            this.undeploy(jarName);
+            this.getLog().debug("undeployed package: " + jarName);
+            if( this.delegate.isSecure() )
+               this.delegate.logout();
+         }
+      };
       return wrapper;
    }
 
-   public static Test getDeploySetup(final Class clazz, final String jarName) throws Exception
+   public static Test getDeploySetup(final Class clazz, final String jarName)
+      throws Exception
    {
-      TestSuite suite = new TestSuite();  
+      TestSuite suite = new TestSuite();
       suite.addTest(new TestSuite(clazz));
       return getDeploySetup(suite, jarName);
+   }
+
+   protected String getJndiURL()
+   {
+      return delegate.getJndiURL();
+   }
+   protected String getJndiInitFactory()
+   {
+      return delegate.getJndiInitFactory();
    }
 
    protected int getThreadCount()
@@ -290,7 +271,18 @@ public class JBossTestCase
       return delegate.getBeanCount();
    }
 
+   protected void flushAuthCache() throws Exception
+   {
+      delegate.flushAuthCache();
+   }
 
+   /** Restart the connection pool associated with the DefaultDS
+    * @throws Exception on failure
+    */
+   protected void restartDBPool() throws Exception
+   {
+      delegate.restartDBPool();
+   }
 
    //private methods--------------
 

@@ -8,7 +8,7 @@ package org.mortbay.j2ee.session;
 import java.util.ListIterator;
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.log4j.Category;
+import org.jboss.logging.Logger;
 import javax.servlet.http.HttpSession;
 
 public class
@@ -16,7 +16,7 @@ public class
     extends ArrayList
     implements Cloneable
 {
-  Category _log=Category.getInstance(getClass().getName());
+  protected static final Logger _log=Logger.getLogger(Container.class);
 
 // this will come into service when I figure out how to remove the
 // next interceptor from each interceptor's state...
@@ -75,7 +75,7 @@ public class
 	for (int i=interceptors.length; i>0; i--)
 	{
 	  StateInterceptor si=interceptors[i-1];
-//	  _log.debug("adding interceptor instance: "+name);
+//	  if (_log.isDebugEnabled()) _log.debug("adding interceptor instance: "+name);
 	  StateInterceptor interceptor=(StateInterceptor)si.clone();
 	  si.setManager(manager); // overkill - but safe
 	  si.setSession(adp);	// overkill - but safe

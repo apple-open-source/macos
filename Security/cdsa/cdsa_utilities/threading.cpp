@@ -26,6 +26,7 @@
 // we must force THREAD_NDEBUG to off while compiling our header. Trust me.
 //
 #include <Security/threading.h>
+#include <Security/globalizer.h>
 #include <Security/memutils.h>
 
 
@@ -58,7 +59,7 @@ ThreadStoreSlot::~ThreadStoreSlot()
 bool Mutex::debugHasInitialized;
 bool Mutex::loggingMutexi;
 
-Mutex::Mutex(bool log)
+inline void Mutex::init(Type type, bool log)
 {
 #if !defined(THREAD_NDEBUG)
 	// this debug-setup code isn't interlocked, but it's idempotent
@@ -72,8 +73,35 @@ Mutex::Mutex(bool log)
 #else
     debugLog = false;
 #endif //THREAD_NDEBUG    
+}
+
+struct Recursive : public pthread_mutexattr_t {
+	Recursive()
+	{
+		pthread_mutexattr_init(this);
+		pthread_mutexattr_settype(this, PTHREAD_MUTEX_RECURSIVE);
+	}
+};
+
+
+Mutex::Mutex(bool log)
+{
+	init(normal, log);
 	check(pthread_mutex_init(&me, NULL));
 }
+
+Mutex::Mutex(Type type, bool log)
+{
+	init(type, log);
+	switch (type) {
+	case normal:
+        check(pthread_mutex_init(&me, NULL));
+		break;
+	case recursive:
+		static ModuleNexus<Recursive> recursive;
+		check(pthread_mutex_init(&me, &recursive()));
+	};
+ }
 
 Mutex::~Mutex()
 {

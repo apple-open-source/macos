@@ -1,4 +1,3 @@
-
 /*
  * JBoss, the OpenSource J2EE webOS
  *
@@ -43,7 +42,7 @@ import org.jboss.test.cmp2.cmr.interfaces.CMRBugEJBLocal;
  * @jboss:remove-table remove="true"
  */
 public abstract class CMRBugBean
-  implements EntityBean
+   implements EntityBean
 {
    private EntityContext context;
 
@@ -72,6 +71,7 @@ public abstract class CMRBugBean
     * @ejb:interface-method
     */
    public abstract String getDescription();
+
    /**
     * Describe <code>setDescription</code> method here.
     *
@@ -91,6 +91,7 @@ public abstract class CMRBugBean
     * @jboss:auto-key-fields
     */
    public abstract CMRBugEJBLocal getParent();
+
    /**
     * Describe <code>setParent</code> method here.
     *
@@ -110,6 +111,7 @@ public abstract class CMRBugBean
     * @jboss:auto-key-fields
     */
    public abstract Collection getChildren();
+
    /**
     * Describe <code>setChildren</code> method here.
     *
@@ -132,7 +134,7 @@ public abstract class CMRBugBean
          Collection children = getChildren();
          return children.add(child);
       }
-      catch (Exception e)
+      catch(Exception e)
       {
          throw new EJBException(e);
       }
@@ -152,11 +154,53 @@ public abstract class CMRBugBean
          Collection children = getChildren();
          return children.remove(child);
       }
-      catch (Exception e)
+      catch(Exception e)
       {
          throw new EJBException(e);
       }
    }
+
+   //
+   // The following is the linked list implementation. It is implemented with unidirectional CMRs.
+   // These are used to test correct foreign key state initialization when the foreign key
+   // loaded is not a valid value, i.e. the relationship was already changed in the tx.
+   //
+
+   /**
+    * @ejb:interface-method view-type="local"
+    * @ejb:relation
+    *    name="viewcomponent-prevnode"
+    *    role-name="one-viewcomponent-has-one-previous-node"
+    *    target-role-name="one-prev-belogs-to-one-viewcomponent"
+    *    target-ejb="CMRBugEJB"
+    *    target-multiple="no"
+    * @jboss:relation
+    *   related-pk-field="id"
+    *   fk-column="prev_id_fk"
+    */
+   public abstract CMRBugEJBLocal getPrevNode();
+   /**
+    * @ejb:interface-method view-type="local"
+    */
+   public abstract void setPrevNode(CMRBugEJBLocal a_ViewComponent);
+
+   /**
+    * @ejb:interface-method view-type="local"
+    * @ejb:relation
+    *    name="viewcomponent-nextnode"
+    *    role-name="one-viewcomponent-has-one-following-node"
+    *    target-role-name="one-following-node-belogs-to-one-viewcomponent"
+    *    target-ejb="CMRBugEJB"
+    *    target-multiple="no"
+    * @jboss:relation
+    *   related-pk-field="id"
+    *   fk-column="next_id_fk"
+    */
+   public abstract CMRBugEJBLocal getNextNode();
+   /**
+    * @ejb:interface-method view-type="local"
+    */
+   public abstract void setNextNode(CMRBugEJBLocal a_ViewComponent);
 
    // --------------------------------------------------------------------------
    // EntityBean methods
@@ -177,7 +221,7 @@ public abstract class CMRBugBean
    {
       setId(id);
       setDescription(description);
-      
+
       // CMP beans return null for this method
       //
       return null;
@@ -198,7 +242,7 @@ public abstract class CMRBugBean
       //
       setParent(parent);
    }
-   
+
    public void setEntityContext(EntityContext context)
    {
       this.context = context;
@@ -209,11 +253,23 @@ public abstract class CMRBugBean
       context = null;
    }
 
-   public void ejbRemove() {}
+   public void ejbRemove()
+   {
+   }
 
-   public void ejbLoad() {}
-   public void ejbStore() {}
-   
-   public void ejbActivate() {}
-   public void ejbPassivate() {}
+   public void ejbLoad()
+   {
+   }
+
+   public void ejbStore()
+   {
+   }
+
+   public void ejbActivate()
+   {
+   }
+
+   public void ejbPassivate()
+   {
+   }
 }

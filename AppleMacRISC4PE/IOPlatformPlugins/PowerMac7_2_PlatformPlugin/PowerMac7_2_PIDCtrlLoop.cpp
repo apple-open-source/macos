@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,13 +23,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc.  All rights reserved.
  *
  *
  */
-//		$Log $
-//
-//
+
 
 #include "IOPlatformPluginDefs.h"
 #include "IOPlatformPluginSymbols.h"
@@ -115,22 +113,19 @@ bool PowerMac7_2_PIDCtrlLoop::updateMetaState( void )
 	}
 }
 
-const OSNumber *PowerMac7_2_PIDCtrlLoop::calculateNewTarget( void ) const
+ControlValue PowerMac7_2_PIDCtrlLoop::calculateNewTarget( void ) const
 {
 	SInt32 dRaw, rRaw;
 	SInt64 accum, dProd, rProd, pProd;
-	//UInt32 result, prevResult, scratch;
 	SInt32 result;
-	UInt32 uResult;
+	ControlValue newTarget;
 	samplePoint * latest;
-	const OSNumber * newTarget;
 
 	// if there is an output override, use it
 	if (overrideActive)
 	{
 		CTRLLOOP_DLOG("*** PID *** Override Active\n");
-		newTarget = outputOverride;
-		newTarget->retain();
+		newTarget = outputOverride->unsigned32BitValue();
 	}
 
 	// apply the PID algorithm to choose a new control target value
@@ -142,7 +137,7 @@ const OSNumber *PowerMac7_2_PIDCtrlLoop::calculateNewTarget( void ) const
 		}
 		else
 		{
-			result = (SInt32)outputControl->getTargetValue()->unsigned32BitValue();
+			result = (SInt32)outputControl->getTargetValue();
 
 			// calculate the derivative term
 			// apply the derivative gain
@@ -172,13 +167,13 @@ const OSNumber *PowerMac7_2_PIDCtrlLoop::calculateNewTarget( void ) const
 			result += (SInt32)accum;
 		}
 
-		uResult = (UInt32)(result > 0) ? result : 0;
+		newTarget = (UInt32)(result > 0) ? result : 0;
 
 		// apply the hard limits
-		if (uResult < outputMin)
-			uResult = outputMin;
-		else if (uResult > outputMax)
-			uResult = outputMax;
+		if (newTarget < outputMin)
+			newTarget = outputMin;
+		else if (newTarget > outputMax)
+			newTarget = outputMax;
 
 /*
 #ifdef CTRLLOOP_DEBUG
@@ -217,7 +212,6 @@ const OSNumber *PowerMac7_2_PIDCtrlLoop::calculateNewTarget( void ) const
 	}
 #endif
 */
-		newTarget = OSNumber::withNumber( uResult, 32 );
 	}
 
 	return(newTarget);

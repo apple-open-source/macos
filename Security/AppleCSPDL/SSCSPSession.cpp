@@ -50,6 +50,7 @@ SSCSPSession::SSCSPSession(CSSM_MODULE_HANDLE handle,
   mRawCsp(rawCsp),
   mClientSession(CssmAllocator::standard(), *this)
 {
+	mClientSession.registerForAclEdits(SSCSPDLSession::didChangeKeyAclCallback, &mSSCSPDLSession);
 }
 
 //
@@ -607,4 +608,3 @@ void SSCSPSession::validateKeyAttr(uint32 reqKeyAttr)
 	}
 	/* There may be more, but we'll leave it to SS and CSP to decide */
 }
-

@@ -389,7 +389,7 @@ static SEC_DESC *sec_desc_parse(char *str)
 		return NULL;
 	}
 
-	ret = make_sec_desc(ctx,revision, owner_sid, grp_sid, 
+	ret = make_sec_desc(ctx,revision, SEC_DESC_SELF_RELATIVE, owner_sid, grp_sid, 
 			    NULL, dacl, &sd_size);
 
 	SAFE_FREE(grp_sid);
@@ -504,7 +504,7 @@ static int owner_set(struct cli_state *cli, enum chown_mode change_mode,
 		return EXIT_FAILED;
 	}
 
-	sd = make_sec_desc(ctx,old->revision,
+	sd = make_sec_desc(ctx,old->revision, old->type,
 				(change_mode == REQUEST_CHOWN) ? &sid : NULL,
 				(change_mode == REQUEST_CHGRP) ? &sid : NULL,
 			   NULL, NULL, &sd_size);
@@ -679,7 +679,7 @@ static int cacl_set(struct cli_state *cli, char *filename,
 	sort_acl(old->dacl);
 
 	/* Create new security descriptor and set it */
-	sd = make_sec_desc(ctx,old->revision, NULL, NULL,
+	sd = make_sec_desc(ctx,old->revision, old->type, NULL, NULL,
 			   NULL, old->dacl, &sd_size);
 
 	fnum = cli_nt_create(cli, filename, WRITE_DAC_ACCESS);
@@ -751,7 +751,7 @@ static struct cli_state *connect_one(const char *share)
 		POPT_AUTOHELP
 		{ "delete", 'D', POPT_ARG_STRING, NULL, 'D', "Delete an acl", "ACL" },
 		{ "modify", 'M', POPT_ARG_STRING, NULL, 'M', "Modify an acl", "ACL" },
-		{ "add", 'A', POPT_ARG_STRING, NULL, 'A', "Add an acl", "ACL" },
+		{ "add", 'a', POPT_ARG_STRING, NULL, 'a', "Add an acl", "ACL" },
 		{ "set", 'S', POPT_ARG_STRING, NULL, 'S', "Set acls", "ACLS" },
 		{ "chown", 'C', POPT_ARG_STRING, NULL, 'C', "Change ownership of a file", "USERNAME" },
 		{ "chgrp", 'G', POPT_ARG_STRING, NULL, 'G', "Change group ownership of a file", "GROUPNAME" },
@@ -796,7 +796,7 @@ static struct cli_state *connect_one(const char *share)
 			mode = SMB_ACL_MODIFY;
 			break;
 
-		case 'A':
+		case 'a':
 			the_acl = smb_xstrdup(poptGetOptArg(pc));
 			mode = SMB_ACL_ADD;
 			break;

@@ -12,14 +12,14 @@ import org.jboss.ejb.plugins.cmp.jdbc.bridge.JDBCCMRFieldBridge;
  * This class represents one pair of entities in a relation.
  *
  * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
- * @version $Revision: 1.3 $
+ * @version $Revision: 1.3.4.1 $
  */
-public class RelationPair {
-   private JDBCCMRFieldBridge leftCMRField;
-   private JDBCCMRFieldBridge rightCMRField;
+public final class RelationPair {
+   private final JDBCCMRFieldBridge leftCMRField;
+   private final JDBCCMRFieldBridge rightCMRField;
 
-   private Object leftId;      
-   private Object rightId;
+   private final Object leftId;
+   private final Object rightId;
    
    public RelationPair(
          JDBCCMRFieldBridge leftCMRField, Object leftId, 
@@ -31,15 +31,7 @@ public class RelationPair {
       this.rightCMRField = rightCMRField;
       this.rightId = rightId;
    }
-   
-   public JDBCCMRFieldBridge getLeftCMRField() {
-      return leftCMRField;
-   }
-   
-   public JDBCCMRFieldBridge getRightCMRField() {
-      return rightCMRField;
-   }
-   
+
    public Object getLeftId() {
       return leftId;
    }

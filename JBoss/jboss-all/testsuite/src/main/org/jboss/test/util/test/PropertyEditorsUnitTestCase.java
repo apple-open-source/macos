@@ -16,12 +16,14 @@ import java.util.Properties;
 import javax.management.ObjectName;
 
 import org.jboss.test.JBossTestCase;
+import org.jboss.util.propertyeditor.ElementEditor;
+import org.jboss.util.propertyeditor.DocumentEditor;
 
 /** Unit tests for the custom JBoss property editors
 
 @see org.jboss.util.propertyeditor.PropertyEditors
 @author Scott.Stark@jboss.org
-@version $Revision: 1.2.2.1 $
+@version $Revision: 1.2.2.3 $
 **/
 public class PropertyEditorsUnitTestCase extends JBossTestCase
 {
@@ -192,6 +194,29 @@ public class PropertyEditorsUnitTestCase extends JBossTestCase
     */
    public void testServerFound()
    {
+   }
+
+   /** Tests the DOM Document and Element editors.
+    */
+   public void testDocumentElementEditors()
+   {
+      getLog().debug("+++ testDocumentElementEditors");
+      DocumentEditor de = new DocumentEditor();
+      // Comments can appear outside of a document
+      String s = "<!-- document --><doc name=\"whatever\"></doc>";
+      de.setAsText(s);
+      assertTrue("Document :\n" + de.getAsText(), de.getAsText().trim().endsWith(s));
+      assertTrue(de.getValue() instanceof org.w3c.dom.Document);
+      // Test whitespace preservation
+      s = "<element>\n\n<e2></e2> testing\n\n</element>";
+      de.setAsText(s);
+      assertTrue("Document :\n" + de.getAsText() + "\nvs\n" + s, de.getAsText().trim().endsWith(s));
+
+      ElementEditor ee = new ElementEditor();
+      s = "<element>text</element>";
+      ee.setAsText(s);
+      assertEquals(s, ee.getAsText());
+      assertTrue(ee.getValue() instanceof org.w3c.dom.Element);
    }
 
 }

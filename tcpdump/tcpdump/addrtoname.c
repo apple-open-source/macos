@@ -22,8 +22,8 @@
  *  and address to string conversion routines
  */
 #ifndef lint
-static const char rcsid[] =
-    "@(#) $Header: /cvs/root/tcpdump/tcpdump/addrtoname.c,v 1.1.1.3 2003/03/17 18:42:16 rbraun Exp $ (LBL)";
+static const char rcsid[] _U_ =
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/addrtoname.c,v 1.1.1.4 2004/02/05 19:30:51 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -77,6 +77,46 @@ struct hnamemem eprototable[HASHNAMESIZE];
 struct hnamemem dnaddrtable[HASHNAMESIZE];
 struct hnamemem llcsaptable[HASHNAMESIZE];
 struct hnamemem ipxsaptable[HASHNAMESIZE];
+
+#if defined(INET6) && defined(WIN32)
+/*
+ * fake gethostbyaddr for Win2k/XP
+ * gethostbyaddr() returns incorrect value when AF_INET6 is passed
+ * to 3rd argument.
+ *
+ * h_name in struct hostent is only valid.
+ */
+static struct hostent *
+win32_gethostbyaddr(const char *addr, int len, int type)
+{
+	static struct hostent host;
+	static char hostbuf[NI_MAXHOST];
+	char hname[NI_MAXHOST];
+	struct sockaddr_in6 addr6;
+
+	host.h_name = hostbuf;
+	switch (type) {
+	case AF_INET:
+		return gethostbyaddr(addr, len, type);
+		break;
+	case AF_INET6:
+		memset(&addr6, 0, sizeof(addr6));
+		addr6.sin6_family = AF_INET6;
+		memcpy(&addr6.sin6_addr, addr, len);
+		if (getnameinfo((struct sockaddr *)&addr6, sizeof(addr6),
+			hname, sizeof(hname), NULL, 0, 0)) {
+		    return NULL;
+		} else {
+			strcpy(host.h_name, hname);
+			return &host;
+		}
+		break;
+	default:
+		return NULL;
+	}
+}
+#define gethostbyaddr win32_gethostbyaddr
+#endif /* INET6 & WIN32*/
 
 #ifdef INET6
 struct h6namemem {
@@ -146,7 +186,6 @@ intoa(u_int32_t addr)
 
 static u_int32_t f_netmask;
 static u_int32_t f_localnet;
-static u_int32_t netmask;
 
 /*
  * Return a name for the IP address pointed to by ap.  This address
@@ -169,18 +208,14 @@ getname(const u_char *ap)
 	p->nxt = newhnamemem();
 
 	/*
-	 * Only print names when:
-	 *	(1) -n was not given.
+	 * Print names unless:
+	 *	(1) -n was given.
 	 *      (2) Address is foreign and -f was given. (If -f was not
-	 *	    give, f_netmask and f_local are 0 and the test
+	 *	    given, f_netmask and f_localnet are 0 and the test
 	 *	    evaluates to true)
-	 *      (3) -a was given or the host portion is not all ones
-	 *          nor all zeros (i.e. not a network or broadcast address)
 	 */
 	if (!nflag &&
-	    (addr & f_netmask) == f_localnet &&
-	    (aflag ||
-	    !((addr & ~netmask) == 0 || (addr | netmask) == 0xffffffff))) {
+	    (addr & f_netmask) == f_localnet) {
 		hp = gethostbyaddr((char *)&addr, 4, AF_INET);
 		if (hp) {
 			char *dotp;
@@ -223,22 +258,9 @@ getname6(const u_char *ap)
 	p->nxt = newh6namemem();
 
 	/*
-	 * Only print names when:
-	 *	(1) -n was not given.
-	 *      (2) Address is foreign and -f was given. (If -f was not
-	 *	    give, f_netmask and f_local are 0 and the test
-	 *	    evaluates to true)
-	 *      (3) -a was given or the host portion is not all ones
-	 *          nor all zeros (i.e. not a network or broadcast address)
+	 * Do not print names if -n was given.
 	 */
-	if (!nflag
-#if 0
-	&&
-	    (addr & f_netmask) == f_localnet &&
-	    (aflag ||
-	    !((addr & ~netmask) == 0 || (addr | netmask) == 0xffffffff))
-#endif
-	    ) {
+	if (!nflag) {
 		hp = gethostbyaddr((char *)&addr, sizeof(addr), AF_INET6);
 		if (hp) {
 			char *dotp;
@@ -1074,7 +1096,6 @@ init_ipxsaparray(void)
 void
 init_addrtoname(u_int32_t localnet, u_int32_t mask)
 {
-	netmask = mask;
 	if (fflag) {
 		f_localnet = localnet;
 		f_netmask = mask;

@@ -325,15 +325,35 @@ void SMBsesskeygen_lmv1(const uchar lm_hash[16],
 #endif
 }
 
+void SMBsesskeygen_lm_sess_key(const uchar lm_hash[16],
+			const uchar lm_resp[24], /* only uses 8 */ 
+			uint8 sess_key[16])
+{
+	uchar p24[24];
+	uchar partial_lm_hash[16];
+	
+	memcpy(partial_lm_hash, lm_hash, 8);
+	memset(partial_lm_hash + 8, 0xbd, 8);    
+
+	SMBOWFencrypt(partial_lm_hash, lm_resp, p24);
+	
+	memcpy(sess_key, p24, 16);
+
+#ifdef DEBUG_PASSWORD
+	DEBUG(100, ("SMBsesskeygen_lmv1_jerry:\n"));
+	dump_data(100, sess_key, 16);
+#endif
+}
+
 DATA_BLOB NTLMv2_generate_names_blob(const char *hostname, 
 				     const char *domain)
 {
 	DATA_BLOB names_blob = data_blob(NULL, 0);
 	
 	msrpc_gen(&names_blob, "aaa", 
-		  True, NTLMSSP_NAME_TYPE_DOMAIN, domain,
-		  True, NTLMSSP_NAME_TYPE_SERVER, hostname,
-		  True, 0, "");
+		  NTLMSSP_NAME_TYPE_DOMAIN, domain,
+		  NTLMSSP_NAME_TYPE_SERVER, hostname,
+		  0, "");
 	return names_blob;
 }
 

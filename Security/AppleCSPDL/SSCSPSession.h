@@ -167,7 +167,6 @@ private:
 	void validateKeyAttr(uint32 reqKeyAttr);
 
 	SecurityServer::ClientSession mClientSession;
-	
 };
 
 

@@ -64,6 +64,7 @@
 				06AA1265FFB2107B11CA28AA,
 				06AA1266FFB2107B11CA28AA,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 089C166AFE841209C02AAC07;
 			projectDirPath = "";
@@ -106,7 +107,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleKeyLargo;
-				MODULE_VERSION = 1.4.1d1;
+				MODULE_VERSION = 1.5.0d3;
 				OTHER_CFLAGS = "-fpermissive -D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -132,7 +133,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleKeyLargo</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleKeyLargo version 1.4.1, Copyright 2002 Apple Computer, Inc.</string>
+	<string>AppleKeyLargo version 1.5.0, Copyright 2002 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -144,11 +145,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.1</string>
+	<string>1.5.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.1d1</string>
+	<string>1.5.0d3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleKeyLargo</key>
@@ -181,7 +182,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -456,7 +456,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOKeyLargo;
-				MODULE_VERSION = 1.4.1d1;
+				MODULE_VERSION = 1.5.0d3;
 				OTHER_CFLAGS = "-D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -494,11 +494,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.1</string>
+	<string>1.5.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.1d1</string>
+	<string>1.5.0d3</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0</string>
 	<key>OSBundleLibraries</key>
@@ -515,7 +515,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		8C228A2B03B7B58104CE206E = {
 			isa = PBXBundleReference;
@@ -608,7 +607,6 @@
 			isa = PBXAggregateTarget;
 			name = all;
 			productName = all;
-			shouldUseHeadermap = 0;
 		};
 		8C228A3C03B7CF0804CE206E = {
 			isa = PBXTargetDependency;
@@ -687,7 +685,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleK2Driver;
-				MODULE_VERSION = 1.4.1d1;
+				MODULE_VERSION = 1.5.0d3;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -724,11 +722,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.1</string>
+	<string>1.5.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.1d1</string>
+	<string>1.5.0d3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleK2Driver</key>
@@ -737,6 +735,15 @@
 			<string>com.apple.driver.AppleK2Driver</string>
 			<key>IOClass</key>
 			<string>AppleK2Driver</string>
+			<key>IONameMatch</key>
+			<array>
+				<string>i2s-a</string>
+				<string>i2s-b</string>
+				<string>i2s-c</string>
+				<string>fans</string>
+				<string>escc</string>
+				<string>escc-legacy</string>
+			</array>
 			<key>IOProbeScore</key>
 			<integer>0</integer>
 			<key>IOPropertyMatch</key>
@@ -762,7 +769,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		8C28BA92043B779404CE206E = {
 			isa = PBXBundleReference;
@@ -899,7 +905,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleK2;
-				MODULE_VERSION = 1.4.1d1;
+				MODULE_VERSION = 1.5.0d3;
 				OTHER_CFLAGS = "-D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -925,7 +931,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleK2</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleK2 version 1.4.1, Copyright Apple Computer, Inc.</string>
+	<string>AppleK2 version 1.5.0, Copyright Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -937,11 +943,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.1</string>
+	<string>1.5.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.1d1</string>
+	<string>1.5.0d3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleK2</key>
@@ -981,7 +987,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		8C50543A03AE4C3804CE206E = {
 			isa = PBXBundleReference;

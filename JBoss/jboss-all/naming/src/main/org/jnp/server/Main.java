@@ -20,6 +20,7 @@ import java.rmi.MarshalledObject;
 import java.rmi.server.RMIClientSocketFactory;
 import java.rmi.server.RMIServerSocketFactory;
 import java.rmi.server.UnicastRemoteObject;
+import java.lang.reflect.Method;
 import javax.net.ServerSocketFactory;
 
 import org.apache.log4j.Category;
@@ -27,13 +28,14 @@ import org.apache.log4j.PropertyConfigurator;
 
 import org.jnp.interfaces.Naming;
 import org.jnp.interfaces.NamingContext;
+import org.jboss.net.sockets.DefaultSocketFactory;
 
 /** A main() entry point for running the jnp naming service implementation as
  a standalone process.
  
  @author oberg
  @author Scott.Stark@jboss.org
- @version $Revision: 1.12.2.4 $
+ @version $Revision: 1.12.2.6 $
  */
 public class Main implements Runnable, MainMBean
 {
@@ -57,10 +59,14 @@ public class Main implements Runnable, MainMBean
    protected String serverSocketFactoryName;
    /** The class name of the optional custom JNP server socket factory */
    protected String jnpServerSocketFactoryName;
-   /** The interface to bind to. This is useful for multi-homed hosts
-    that want control over which interfaces accept connections.
+   /** The interface to bind to for the lookup socket. This is useful for
+    * multi-homed hosts that want control over which interfaces accept
+    * connections.
     */
    protected InetAddress bindAddress;
+   /** The interface to bind to for the Naming RMI server.
+    */ 
+   protected InetAddress rmiBindAddress;
    /** The serverSocket listen queue depth */
    protected int backlog = 50;
    /** The jnp protocol listening port. The default is 1099, the same as
@@ -145,7 +151,25 @@ public class Main implements Runnable, MainMBean
    }
    public void setBindAddress(String host) throws UnknownHostException
    {
-      bindAddress = InetAddress.getByName(host);
+      if( host == null || host.length() == 0 )
+         bindAddress = null;
+      else
+         bindAddress = InetAddress.getByName(host);
+   }
+
+   public String getRmiBindAddress()
+   {
+      String address = null;
+      if( rmiBindAddress != null )
+         address = rmiBindAddress.getHostAddress();
+      return address;
+   }
+   public void setRmiBindAddress(String host) throws UnknownHostException
+   {
+      if( host == null || host.length() == 0 )
+         rmiBindAddress = null;
+      else
+         rmiBindAddress = InetAddress.getByName(host);
    }
 
    public int getBacklog()
@@ -313,6 +337,42 @@ public class Main implements Runnable, MainMBean
     */
    protected void initJnpInvoker() throws IOException
    {
+      // Use either the rmiBindAddress or bindAddress for the RMI service
+      InetAddress addr = rmiBindAddress;
+      if( addr == null )
+         addr = bindAddress;
+      // If there is an address we need a socket factory
+      if( addr != null )
+      {
+         // If there is no serverSocketFactory use a default
+         if( serverSocketFactory == null )
+            serverSocketFactory = new DefaultSocketFactory(addr);
+         else
+         {
+            // See if the server socket supports setBindAddress(String)
+            try
+            {
+               Class[] parameterTypes = {String.class};
+               Class ssfClass = serverSocketFactory.getClass();
+               Method m = ssfClass.getMethod("setBindAddress", parameterTypes);
+               Object[] args = {bindAddress.getHostAddress()};
+               m.invoke(serverSocketFactory, args);
+            }
+            catch (NoSuchMethodException e)
+            {
+               log.warn("Socket factory does not support setBindAddress(String)");
+               // Go with default address
+            }
+            catch (Exception e)
+            {
+               log.warn("Failed to setBindAddress="+bindAddress+" on socket factory", e);
+               // Go with default address
+            }
+         }
+      }
+      log.debug("Creating NamingServer stub, theServer="+theServer
+         +",rmiPort="+rmiPort+",clientSocketFactory="+clientSocketFactory
+         +",serverSocketFactory="+serverSocketFactory);
       Remote stub = UnicastRemoteObject.exportObject(theServer, rmiPort,
          clientSocketFactory, serverSocketFactory);
       log.debug("NamingServer stub: "+stub);

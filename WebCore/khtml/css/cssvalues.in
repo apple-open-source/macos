@@ -1,0 +1,370 @@
+# These are all values accepted for CSS2.
+#
+# WARNING:
+# --------
+#
+# The Values are sorted according to the properties they belong to,
+# and have to be in the same order as the enums in render_style.h.
+#
+# If not, the optimizations in the cssparser and style selector will fail,
+# and produce incorrect results.
+#
+inherit
+initial
+#
+# CSS_PROP_OUTLINE_STYLE
+# CSS_PROP_BORDER_TOP_STYLE
+# CSS_PROP_BORDER_BOTTOM_STYLE
+# CSS_PROP_BORDER_LEFT_STYLE
+none
+hidden
+inset
+groove
+ridge
+outset
+dotted
+dashed
+solid
+double
+#
+# CSS_PROP_FONT:
+#
+caption
+icon
+menu
+message-box
+small-caption
+status-bar
+#
+# CSS_PROP_FONT_STYLE:
+#
+#normal
+italic
+oblique
+#
+# CSS_PROP_FONT_VARIANT:
+#
+#normal
+small-caps
+#
+# CSS_PROP_FONT_WEIGHT:
+#
+normal
+bold
+bolder
+lighter
+100
+200
+300
+400
+500
+600
+700
+800
+900
+#
+# CSS_PROP_FONT_SIZE:
+#
+xx-small
+x-small
+small
+medium
+large
+x-large
+xx-large
+-khtml-xxx-large
+smaller
+larger
+#
+# CSS_PROP_FONT_STRETCH:
+#
+#normal
+wider
+narrower
+ultra-condensed
+extra-condensed
+condensed
+semi-condensed
+semi-expanded
+expanded
+extra-expanded
+ultra-expanded
+#
+# CSS_PROP_GENERIC_FONT_FAMILY:
+#
+serif
+sans-serif
+cursive
+fantasy
+monospace
+-khtml-body
+#
+#
+# CSS_PROP_*_COLOR
+#
+aqua
+black
+blue
+fuchsia
+gray
+green
+lime
+maroon
+navy
+olive
+orange
+purple
+red
+silver
+teal
+white
+yellow
+transparent
+activeborder
+activecaption
+appworkspace
+background
+buttonface
+buttonhighlight
+buttonshadow
+buttontext
+captiontext
+graytext
+highlight
+highlighttext
+inactiveborder
+inactivecaption
+inactivecaptiontext
+infobackground
+infotext
+menutext
+scrollbar
+threeddarkshadow
+threedface
+threedhighlight
+threedlightshadow
+threedshadow
+window
+windowframe
+windowtext
+#
+# colors in non strict mode
+grey
+-khtml-text
+#
+# CSS_PROP_BACKGROUND_REPEAT:
+#
+repeat
+repeat-x
+repeat-y
+no-repeat
+#
+# CSS_PROP_VERTICAL_ALIGN:
+#
+baseline
+middle
+sub
+super
+text-top
+text-bottom
+top
+bottom
+# HTML alignment MIDDLE has no corresponding CSS alignment
+-khtml-baseline-middle
+#
+# CSS_PROP_TEXT_ALIGN:
+#
+-khtml-auto
+left
+right
+center
+justify
+-khtml-left
+-khtml-right
+-khtml-center
+#
+# CSS_PROP_LIST_STYLE_POSITION:
+#
+outside
+inside
+#
+# CSS_PROP_LIST_STYLE_TYPE:
+#
+disc
+circle
+square
+decimal
+decimal-leading-zero
+lower-roman
+upper-roman
+lower-greek
+lower-alpha
+lower-latin
+upper-alpha
+upper-latin
+hebrew
+armenian
+georgian
+cjk-ideographic
+hiragana
+katakana
+hiragana-iroha
+katakana-iroha
+#none
+#
+# CSS_PROP_DISPLAY:
+#
+inline
+block
+list-item
+run-in
+compact
+inline-block
+table
+inline-table
+table-row-group
+table-header-group
+table-footer-group
+table-row
+table-column-group
+table-column
+table-cell
+table-caption
+-khtml-box
+-khtml-inline-box
+#none
+#
+# CSS_PROP_CURSOR:
+#
+auto
+crosshair
+default
+pointer
+move
+e-resize
+ne-resize
+nw-resize
+n-resize
+se-resize
+sw-resize
+s-resize
+w-resize
+text
+wait
+help
+#
+# CSS_PROP_DIRECTION:
+#
+ltr
+rtl
+#
+# CSS_PROP_TEXT_TRANSFORM:
+#
+capitalize
+uppercase
+lowercase
+#none
+#
+# CSS_PROP_VISIBILITY:
+#
+visible
+#hidden
+collapse
+#
+# Unordered rest
+#
+above
+absolute
+always
+avoid
+below
+bidi-override
+blink
+both
+close-quote
+crop
+cross
+embed
+fixed
+hand
+hide
+higher
+invert
+landscape
+level
+line-through
+loud
+lower
+marquee
+mix
+no-close-quote
+no-open-quote
+nowrap
+open-quote
+overline
+portrait
+pre
+relative
+scroll
+separate
+show
+static
+thick
+thin
+underline
+-khtml-nowrap
+
+# CSS3 Values
+# CSS_PROP_BOX_ALIGN
+stretch
+start
+end
+#center
+#baseline
+
+# CSS_PROP_BOX_DIRECTION
+# normal
+reverse
+
+# CSS_PROP_BOX_ORIENT
+horizontal
+vertical
+inline-axis
+block-axis
+
+# CSS_PROP_BOX_PACK
+# start
+# end
+# center
+# justify
+
+# CSS_PROP_BOX_LINES
+single
+multiple
+
+# CSS_PROP_MARQUEE_DIRECTION
+forwards
+backwards
+ahead
+# reverse
+# left
+# right
+up
+down
+# auto
+
+# CSS_PROP_MARQUEE_SPEED
+slow
+# normal
+fast
+
+# CSS_PROP_MARQUEE_REPETITION
+infinite
+
+# CSS_PROP_MARQUEE_STYLE
+# none
+slide
+# scroll
+alternate
+unfurl
+

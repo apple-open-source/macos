@@ -615,6 +615,9 @@ BC_tag_history(void)
 int
 BC_unload(void)
 {
+#if 1
+	return(0);
+#else
 	pid_t	child;
 	char	*argv[4];
 	int	result;
@@ -639,4 +642,5 @@ BC_unload(void)
 	}
 	/* EBUSY is not a good error */
 	return((result != 0) ? EBUSY : 0);
+#endif
 }

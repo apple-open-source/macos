@@ -7,24 +7,21 @@
 package org.jboss.mq.server;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
-import javax.jms.DeliveryMode;
-import javax.jms.Destination;
 import javax.jms.JMSException;
 
 import org.jboss.logging.Logger;
 import org.jboss.mq.AcknowledgementRequest;
+import org.jboss.mq.DestinationFullException;
 import org.jboss.mq.SpyMessage;
-import org.jboss.mq.SpyQueue;
 import org.jboss.mq.Subscription;
-import org.jboss.mq.pm.PersistenceManager;
 import org.jboss.mq.selectors.Selector;
 
 /**
@@ -45,7 +42,7 @@ import org.jboss.mq.selectors.Selector;
  * @author     David Maplesden (David.Maplesden@orion.co.nz)
  * @author     Adrian Brock (Adrian@jboss.org)
  * @created    August 16, 2001
- * @version    $Revision: 1.20.2.13 $
+ * @version    $Revision: 1.20.2.19 $
  */
 public class BasicQueue
 {
@@ -91,6 +88,9 @@ public class BasicQueue
    /** Removed subscribers <p>
        synchronized access on receivers and messages */
    HashSet removedSubscribers = new HashSet();
+   
+   /** The basic queue parameters */
+   BasicQueueParameters parameters;
 
    // Static --------------------------------------------------------
 
@@ -101,12 +101,14 @@ public class BasicQueue
     * 
     * @param server the destination manager
     * @param description a description to uniquely identify the queue
+    * @param parameters the basic queue parameters
     */
-   public BasicQueue(JMSDestinationManager server, String description) 
+   public BasicQueue(JMSDestinationManager server, String description, BasicQueueParameters parameters)
       throws JMSException
    {
       this.server = server;
       this.description = description;
+      this.parameters = parameters;
    }
 
    // Public --------------------------------------------------------
@@ -119,8 +121,8 @@ public class BasicQueue
    public String getDescription()
    {
       return description;
-   }   
-   
+   }
+
    /**
     * Retrieve the number of receivers waiting for a message
     *
@@ -130,7 +132,7 @@ public class BasicQueue
    {
       return receivers.size();
    }
-   
+
    /**
     * Retrieve the receivers waiting for a message
     *
@@ -143,7 +145,7 @@ public class BasicQueue
          return new ArrayList(receivers);
       }
    }
-   
+
    /**
     * Test whether the queue is in use
     *
@@ -153,8 +155,8 @@ public class BasicQueue
    {
       synchronized (receivers)
       {
-         return receivers.size()>0;
-      }      
+         return receivers.size() > 0;
+      }
    }
 
    /**
@@ -244,7 +246,7 @@ public class BasicQueue
             Subscription sub = (Subscription) it.next();
             if (sub.clientConsumer.equals(clientConsumer))
             {
-               clientConsumer.addBlockedSubscription(sub);
+               clientConsumer.addBlockedSubscription(sub, 0);
                it.remove();
             }
          }
@@ -275,9 +277,24 @@ public class BasicQueue
     * @param mes the message reference
     * @param txId the transaction
     * @throws JMSException for any error
-    */ 
+    */
    public void addMessage(MessageReference mes, org.jboss.mq.pm.Tx txId) throws JMSException
    {
+      if (parameters.maxDepth > 0)
+      {
+         synchronized (messages)
+         {
+            if (messages.size() >= parameters.maxDepth)
+            {
+               dropMessage(mes);
+               String message = "Maximum size " + parameters.maxDepth +
+                  " exceeded for " + description;
+               log.warn(message);
+               throw new DestinationFullException(message);
+            }
+         }
+      }
+
       // The message is removed from the cache on a rollback
       Runnable task = new AddMessagePostRollBackTask(mes);
       server.getPersistenceManager().getTxManager().addPostRollbackTask(txId, task);
@@ -302,8 +319,7 @@ public class BasicQueue
     *                 all messages
     * @throws JMSException for any error
     */
-   public SpyMessage[] browse(String selector)
-      throws JMSException
+   public SpyMessage[] browse(String selector) throws JMSException
    {
       if (selector == null)
       {
@@ -312,8 +328,8 @@ public class BasicQueue
          {
             list = new SpyMessage[messages.size()];
             Iterator iter = messages.iterator();
-            for( int i=0; iter.hasNext(); i++ )
-               list[i] = ((MessageReference)iter.next()).getMessage();
+            for (int i = 0; iter.hasNext(); i++)
+               list[i] = ((MessageReference) iter.next()).getMessage();
          }
          return list;
       }
@@ -347,8 +363,7 @@ public class BasicQueue
     * @param wait whether to wait for a message
     * @throws JMSException for any error
     */
-   public SpyMessage receive(Subscription sub, boolean wait)
-      throws JMSException
+   public SpyMessage receive(Subscription sub, boolean wait) throws JMSException
    {
       boolean trace = log.isTraceEnabled();
 
@@ -356,14 +371,14 @@ public class BasicQueue
       synchronized (receivers)
       {
          // If the subscription is not picky, the first message will be it
-         if (sub.getSelector() == null && sub.noLocal==false )
+         if (sub.getSelector() == null && sub.noLocal == false)
          {
             synchronized (messages)
             {
                // find a non-expired message
                while (messages.size() != 0)
                {
-               	messageRef = (MessageReference)messages.first();
+                  messageRef = (MessageReference) messages.first();
                   messages.remove(messageRef);
 
                   if (messageRef.isExpired())
@@ -371,6 +386,7 @@ public class BasicQueue
                      if (trace)
                         log.trace("message expired: " + messageRef);
                      dropMessage(messageRef);
+                     messageRef = null;
                   }
                   else
                      break;
@@ -379,7 +395,7 @@ public class BasicQueue
          }
          else
          {
-         	// The subscription is picky, so we have to iterate.
+            // The subscription is picky, so we have to iterate.
             synchronized (messages)
             {
                Iterator i = messages.iterator();
@@ -414,8 +430,8 @@ public class BasicQueue
          }
       }
 
-      if(messageRef== null)
-      	return null;
+      if (messageRef == null)
+         return null;
       return messageRef.getMessage();
    }
 
@@ -426,8 +442,7 @@ public class BasicQueue
     * @param txid the transaction
     * @throws JMSException for any error
     */
-   public void acknowledge(AcknowledgementRequest item, org.jboss.mq.pm.Tx txId)
-      throws javax.jms.JMSException
+   public void acknowledge(AcknowledgementRequest item, org.jboss.mq.pm.Tx txId) throws javax.jms.JMSException
    {
       UnackedMessageInfo unacked = null;
 
@@ -442,7 +457,6 @@ public class BasicQueue
          if (map.isEmpty())
             unackedBySubscription.remove(unacked.sub);
       }
-
 
       MessageReference m = unacked.messageRef;
 
@@ -558,17 +572,12 @@ public class BasicQueue
     *                          >0: max day count,
     *                          <0: unlimited
     */
-   public void createMessageCounter( String     name,
-                                     String     subscription,
-                                     boolean    topic,
-                                     boolean    durable,
-                                     int        daycountmax )
+   public void createMessageCounter(String name, String subscription, boolean topic, boolean durable, int daycountmax)
    {
       // create message counter object
-      counter = new MessageCounter( name, subscription, this,
-                                    topic, durable, daycountmax );
+      counter = new MessageCounter(name, subscription, this, topic, durable, daycountmax);
    }
-   
+
    /**
     * Get message counter object
     *
@@ -578,7 +587,7 @@ public class BasicQueue
    {
       return counter;
    }
-   
+
    // Protected -----------------------------------------------------
 
    /**
@@ -617,7 +626,7 @@ public class BasicQueue
       boolean trace = log.isTraceEnabled();
 
       // If scheduled, put in timer queue
-      long ts = message.messageScheduledDelivery; 
+      long ts = message.messageScheduledDelivery;
       if (ts > 0 && ts > System.currentTimeMillis())
       {
          EnqueueMessageTask t = new EnqueueMessageTask(message);
@@ -659,30 +668,28 @@ public class BasicQueue
                   }
                }
             }
-         }
 
+            synchronized (messages)
+            {
+               messages.add(message);
+
+               // If a message is set to expire, and nobody wants it, put its reaper in
+               // the timer queue
+               if (message.messageExpiration > 0)
+               {
+                  // This could be a waste of memory for large numbers of expirations
+                  ExpireMessageTask t = new ExpireMessageTask(message);
+                  messageTimer.schedule(t, message.messageExpiration);
+               }
+            }
+         }
       }
-      catch (JMSException e) 
+      catch (JMSException e)
       {
          // Could happen at the accepts() calls
          log.error("Caught unusual exception in internalAddMessage.", e);
          // And drop the message, otherwise we have a leak in the cache
          dropMessage(message);
-      }
-
-      // If a message is set to expire, and nobody wants it, put its reaper in
-      // the timer queue
-      if (message.messageExpiration > 0)
-      {
-         // This could be a waste of memory for large numbers of expirations
-         ExpireMessageTask t = new ExpireMessageTask(message);
-         messageTimer.schedule(t, ts);
-      }
-
-      //add to message list
-      synchronized (messages)
-      {
-         messages.add(message);
       }
    }
 
@@ -692,8 +699,7 @@ public class BasicQueue
     * @param sub the subscirption to receive the message
     * @param message the message reference to queue
     */
-   protected void queueMessageForSending(Subscription sub, MessageReference message)
-      throws JMSException
+   protected void queueMessageForSending(Subscription sub, MessageReference message) throws JMSException
    {
       setupMessageAcknowledgement(sub, message);
       RoutedMessage r = new RoutedMessage();
@@ -708,9 +714,8 @@ public class BasicQueue
     * @param sub the subscription receiving the message
     * @param messageRef the message to be acknowledged
     * @throws JMSException for any error
-    */ 
-   protected void setupMessageAcknowledgement(Subscription sub, MessageReference messageRef)
-      throws JMSException
+    */
+   protected void setupMessageAcknowledgement(Subscription sub, MessageReference messageRef) throws JMSException
    {
       SpyMessage message = messageRef.getMessage();
       AcknowledgementRequest ack = new AcknowledgementRequest();
@@ -808,8 +813,7 @@ public class BasicQueue
    /**
     * Rollback an add message
     */
-   class AddMessagePostRollBackTask 
-      implements Runnable
+   class AddMessagePostRollBackTask implements Runnable
    {
       MessageReference message;
 
@@ -824,7 +828,7 @@ public class BasicQueue
          {
             server.getMessageCache().remove(message);
          }
-         catch ( JMSException e )
+         catch (JMSException e)
          {
             log.error("Could not remove message from the message cache after an add rollback: ", e);
          }
@@ -834,8 +838,7 @@ public class BasicQueue
    /**
     * Add a message to the queue
     */
-   class AddMessagePostCommitTask
-      implements Runnable
+   class AddMessagePostCommitTask implements Runnable
    {
       MessageReference message;
 
@@ -859,8 +862,7 @@ public class BasicQueue
    /**
     * Restore a message to the queue
     */
-   class RestoreMessageTask
-      implements Runnable
+   class RestoreMessageTask implements Runnable
    {
       MessageReference message;
 
@@ -892,7 +894,7 @@ public class BasicQueue
             else
             {
                int c = spyMessage.getIntProperty(SpyMessage.PROPERTY_REDELIVERY_COUNT);
-               spyMessage.header.jmsProperties.put(SpyMessage.PROPERTY_REDELIVERY_COUNT, new Integer(c+1));
+               spyMessage.header.jmsProperties.put(SpyMessage.PROPERTY_REDELIVERY_COUNT, new Integer(c + 1));
             }
 
             message.invalidate();
@@ -913,8 +915,7 @@ public class BasicQueue
    /**
     * Remove a message
     */
-   class RemoveMessageTask
-      implements Runnable
+   class RemoveMessageTask implements Runnable
    {
       MessageReference message;
 
@@ -929,18 +930,17 @@ public class BasicQueue
          {
             server.getMessageCache().remove(message);
          }
-         catch ( JMSException e )
+         catch (JMSException e)
          {
             log.error("Could not remove an acknowleged message from the message cache: ", e);
-         } 
+         }
       }
    }
-   
+
    /**
     * Schedele message delivery
     */
-   private class EnqueueMessageTask
-      extends SimpleTimerTask
+   private class EnqueueMessageTask extends SimpleTimerTask
    {
       private MessageReference messageRef;
 
@@ -964,8 +964,7 @@ public class BasicQueue
    /**
     * Drop a message when it expires
     */
-   private class ExpireMessageTask
-      extends SimpleTimerTask
+   private class ExpireMessageTask extends SimpleTimerTask
    {
       private MessageReference messageRef;
 

@@ -7,17 +7,18 @@
 package org.jboss.test.jbossmq.stress;
 
 import junit.framework.TestSuite;
-import junit.framework.Assert;
 /**
  *
  *
  * @author     <a href="mailto:pra@tim.se">Peter Antman</a>
- * @version $Revision: 1.1 $
+ * @version $Revision: 1.1.4.1 $
  */
 
-public class FailedDurableSub  extends DurableSubscriberTest  {
-   
-   public FailedDurableSub(String name) {
+public class FailedDurableSub extends DurableSubscriberTest
+{
+
+   public FailedDurableSub(String name)
+   {
       super(name);
    }
    /**
@@ -26,16 +27,18 @@ public class FailedDurableSub  extends DurableSubscriberTest  {
     *
     * This did not work before in JBossMQ, but seems to work fine now.
     */
-   public static junit.framework.Test suite() throws Exception{
-      
-      TestSuite suite= new TestSuite();
+   public static junit.framework.Test suite() throws Exception
+   {
+
+      TestSuite suite = new TestSuite();
       suite.addTest(new FailedDurableSub("runBadClient"));
-      
+
       //suite.addTest(new DurableSubscriberTest("testBadClient"));
       return suite;
    }
-   public static void main(String[] args) {
-      
+   public static void main(String[] args)
+   {
+
    }
-   
+
 } // FailedDurableSub

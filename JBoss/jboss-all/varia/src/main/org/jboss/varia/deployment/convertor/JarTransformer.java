@@ -19,6 +19,8 @@ import java.util.Properties;
 
 import org.jboss.logging.Logger;
 
+import javax.xml.transform.dom.DOMSource;
+
 /**
  * JarTransformer is used to transform passed in jar file.
  * Transformation algorithm:
@@ -68,7 +70,7 @@ public class JarTransformer
       // set path to ejb-jar.xml in xslParams
       File ejbjar = new File(metaInf, "ejb-jar.xml");
       if(ejbjar.exists())
-         xslParams.setProperty("ejb-jar", ejbjar.getAbsolutePath());
+         xslParams.setProperty("ejb-jar-xml", ejbjar.getAbsolutePath());
 
       // list only xml files.
       // Note: returns null only if the path name isn't a directory
@@ -215,7 +217,7 @@ public class JarTransformer
     * the passed in byte array with xsl template, output properties
     * and xsl parameters
     */
-   private static byte[] transformBytes( byte[] bytes,
+   public static byte[] transformBytes( byte[] bytes,
                                          InputStream xslIs,
                                          Properties outputProps,
                                          Properties xslParams )
@@ -239,9 +241,34 @@ public class JarTransformer
    }
 
    /**
+    * Returns byte array that is the result of transformation of
+    * the passed in byte array with xsl template, output properties
+    * and xsl parameters
+    */
+   public static byte[] transformBytes(DOMSource source,
+                                         InputStream xslIs,
+                                         Properties outputProps,
+                                         Properties xslParams )
+      throws Exception
+   {
+      ByteArrayOutputStream baos = new ByteArrayOutputStream(2048);
+      try
+      {
+         XslTransformer.applyTransformation(
+            source, baos, xslIs, outputProps, xslParams );
+      }
+      finally
+      {
+         if(baos != null)
+            try{ baos.close(); } catch(Exception e) {}
+      }
+      return baos.toByteArray();
+   }
+
+   /**
     * Writes byte array to OutputStream.
     */
-   private static void writeBytes(OutputStream os, byte[] bytes)
+   public static void writeBytes(OutputStream os, byte[] bytes)
       throws Exception
    {
       os.write(bytes, 0, bytes.length);
@@ -264,7 +291,7 @@ public class JarTransformer
    /**
     * Returns byte array read from InputStream
     */
-   private static byte[] readBytes(InputStream is)
+   public static byte[] readBytes(InputStream is)
       throws IOException
    {
       byte[] buffer = new byte[ 8192 ];

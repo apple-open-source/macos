@@ -23,10 +23,17 @@
 #include <Security/keychainacl.h>
 #include <Security/cssmwalkers.h>
 #include <Security/cssmdata.h>
+#include <Security/cssmclient.h>
 
 
 namespace Security {
 namespace CssmClient {
+
+
+static inline void check(CSSM_RETURN rc)
+{
+	ObjectImpl::check(rc);
+}
 
 
 //
@@ -37,7 +44,7 @@ AclBearer::~AclBearer()
 
 
 //
-// Delete an ACL by handle
+// Variant forms of AclBearer implemented in terms of its canonical virtual methods
 //
 void AclBearer::addAcl(const AclEntryInput &input, const CSSM_ACCESS_CREDENTIALS *cred)
 {
@@ -61,6 +68,33 @@ void AclBearer::deleteAcl(const char *tag, const CSSM_ACCESS_CREDENTIALS *cred)
 	getAcl(entries, tag);
 	for (uint32 n = 0; n < entries.count(); n++)
 		deleteAcl(entries[n].handle(), cred);
+}
+
+
+//
+// KeyAclBearer implementation
+//
+void KeyAclBearer::getAcl(AutoAclEntryInfoList &aclInfos, const char *selectionTag) const
+{
+	aclInfos.allocator(allocator);
+	check(CSSM_GetKeyAcl(csp, &key, reinterpret_cast<const CSSM_STRING *>(selectionTag), aclInfos, aclInfos));
+}
+
+void KeyAclBearer::changeAcl(const CSSM_ACL_EDIT &aclEdit, const CSSM_ACCESS_CREDENTIALS *cred)
+{
+	check(CSSM_ChangeKeyAcl(csp, AccessCredentials::needed(cred), &aclEdit, &key));
+}
+
+void KeyAclBearer::getOwner(AutoAclOwnerPrototype &owner) const
+{
+	owner.allocator(allocator);
+	check(CSSM_GetKeyOwner(csp, &key, owner));
+}
+
+void KeyAclBearer::changeOwner(const CSSM_ACL_OWNER_PROTOTYPE &newOwner,
+	const CSSM_ACCESS_CREDENTIALS *cred)
+{
+	check(CSSM_ChangeKeyOwner(csp, AccessCredentials::needed(cred), &key, &newOwner));
 }
 
 

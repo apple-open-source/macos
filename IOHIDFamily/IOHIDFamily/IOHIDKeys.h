@@ -124,6 +124,7 @@ __BEGIN_DECLS
 #define kIOHIDElementNameKey                "Name"
 #define kIOHIDElementValueLocationKey       "ValueLocation"
 #define kIOHIDElementDuplicateIndexKey      "DuplicateIndex"
+#define kIOHIDElementParentCollectionKey    "ParentCollection"
 
 /*!
     @typedef IOHIDElementCookie

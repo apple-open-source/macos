@@ -12,8 +12,8 @@ DOCTYPE jboss-web
 <!-- The jboss-web element is the root element.
 -->
 <!ELEMENT jboss-web (class-loading?, security-domain?, context-root?,
-   virtual-host?, resource-env-ref*, resource-ref* , ejb-ref* , ejb-local-ref*,
-   depends*)>
+   virtual-host?, use-session-cookies?, replication-config?, resource-env-ref*,
+   resource-ref* , ejb-ref* , ejb-local-ref*, depends*)>
 
 <!-- The class-loading element allows one to override the default class
 loading behavior of the web container. You can specify the
@@ -145,12 +145,10 @@ the bean.
 Example:
     <ejb-local-ref>
         <ejb-ref-name>ejb/Bean0</ejb-ref-name>
-        <jndi-name>deployed/ejbs/Bean0</jndi-name>
+        <local-jndi-name>deployed/ejbs/Bean0</local-jndi-name>
     </ejb-local-ref>
 -->
-<!ELEMENT ejb-local-ref (ejb-ref-name , jndi-name)>
-
-
+<!ELEMENT ejb-local-ref (ejb-ref-name , (local-jndi-name|jndi-name))>
 
 <!-- The ejb-ref-name element gives the ENC relative name used
 in the web.xml ejb-ref-name element.
@@ -167,6 +165,13 @@ Used in: resource-ref, resource-env-ref, ejb-ref
 -->
 <!ELEMENT jndi-name (#PCDATA)>
 
+<!--
+  The JNDI name under with the local home interface should be bound
+
+  Used in: ejb-local-ref
+-->
+<!ELEMENT local-jndi-name (#PCDATA)>
+
 <!-- The res-url element value is url a URL string.
 
    Used in: resource-ref
@@ -177,3 +182,63 @@ Used in: resource-ref, resource-env-ref, ejb-ref
 container or ejb depends.
 -->
 <!ELEMENT depends (#PCDATA)>
+
+<!-- The use-session-cookies element controls wether this context uses session cookies
+     or not.
+
+Example:
+     <use-session-cookies>true</use-session-cookies>
+-->
+<!ELEMENT use-session-cookies (#PCDATA)>
+
+
+<!--
+   HTTP Session clustering configuration (optional tags)
+-->
+<!ELEMENT replication-config (replication-trigger? , replication-type?)>
+
+<!--
+   Clustering only: Determines when the container should consider that a session
+                    must be replicated accross the cluster.
+                    Possible values are:
+                    1 - "SET_AND_GET"
+                    2 - "SET_AND_NON_PRIMITIVE_GET" (default value)
+                    3 - "SET"
+
+    The first option is conservative but not optimal (performance-wise): it will replicate the
+   session even if its content has not been modified but simply accessed. There is no deterministic
+   way to know if the content of an attribute is not itself modified. Consequently, by default, not
+   hypothesis can be done. It is up to the developer to tell us if we can trust this policy.
+    The second option is conservative but will only replicate if a non-primitive Object has been
+   accessed (Integer, Long, String, etc. which are immutables). It is the default value.
+    The third option considers that the developer will explicitely call setAttribute on the session
+   if it has to be replicated.
+
+Examples:
+         <replication-trigger>SET_AND_GET</replication-trigger>
+      or
+         <replication-trigger>SET_AND_NON_PRIMITIVE_GET</replication-trigger>
+      or
+         <replication-trigger>SET</replication-trigger>
+-->
+<!ELEMENT replication-trigger (#PCDATA)>
+
+<!--
+   Clustering only: Determines how the container will replicate your sessions.
+                    Possible values are:
+                    1 - "SYNC" (default)
+                    2 - "ASYNC"
+
+    The first option will make sure that the session is actually copied to other nodes of the cluster
+    before finishing returning the HTTP request. The session removal and expiration are
+    an exception to this rule.
+    The second option will asynchronously replicate sessions to the other nodes. This is more
+    efficient (better scalability and performance) but in case of failover you cannot be sure the
+    session has actually arrive on the other node(s).
+
+Examples:
+         <replication-type>SYNC</replication-type>
+      or
+         <replication-type>ASYNC</replication-type>
+-->
+<!ELEMENT replication-type (#PCDATA)>

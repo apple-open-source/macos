@@ -65,7 +65,7 @@ import org.jboss.mx.util.ObjectNameConverter;
  * @author <a href="mailto:Scott.Stark@jboss.org">Scott Stark</a>.
  * @author <a href="bill@burkecentral.com">Bill Burke</a>
  * @author <a href="mailto:d_jencks@users.sourceforge.net">David Jencks</a>
- * @version $Revision: 1.96.2.15 $
+ * @version $Revision: 1.96.2.16 $
  *
  * @jmx:mbean extends="org.jboss.system.ServiceMBean"
  */
@@ -791,13 +791,19 @@ public abstract class Container
             if (ref.getLink() != null)
             {
                // Internal link
+               String linkName = ref.getLink();
+               String jndiName = EjbUtil.findEjbLink(server, di, linkName);
                if (debug)
                {
                   log.debug("Binding "+ref.getName()+
-                        " to internal JNDI source: "+ref.getLink());
+                        " to ejb-link: "+linkName+" -> "+jndiName);
                }
-               String jndiName = EjbUtil.findEjbLink(server, di,
-                   ref.getLink());
+               if( jndiName == null )
+               {
+                  String msg = "Failed to resolve ejb-link: "+linkName
+                     +" make by ejb-name: "+ref.getName();
+                  throw new DeploymentException(msg);
+               }
 
                Util.bind(envCtx,
                      ref.getName(),
@@ -907,8 +913,8 @@ public abstract class Container
                 if (ref.getJndiName() == null)
                 {
                     throw new DeploymentException("ejb-local-ref " + ref.getName()+
-                                                  ", expected either ejb-link in ejb-jar.xml " +
-                                                  "or local-jndi-name in jboss.xml");
+                                ", expected either ejb-link in ejb-jar.xml " +
+                                "or local-jndi-name in jboss.xml");
                 }
                 Util.bind(envCtx,
                           ref.getName(),
@@ -956,7 +962,8 @@ public abstract class Container
                      if (debug)
                         log.debug("failed to lookup DefaultDS; ignoring", e);
                   }
-                  finally {
+                  finally
+                  {
                      dsCtx.close();
                   }
                }
@@ -975,16 +982,16 @@ public abstract class Container
             {
                // URL bindings
                if (debug)
-                  log.debug("Binding URL: " + finalName +
-                        " to JDNI ENC as: " + ref.getRefName());
+                  log.debug("Binding URL: " + ref.getRefName() +
+                        " to JDNI ENC as: " + finalName);
                Util.bind(envCtx, ref.getRefName(), new URL(finalName));
             }
             else
             {
                // Resource Manager bindings, should validate the type...
                if (debug) {
-                  log.debug("Binding resource manager: "+finalName+
-                            " to JDNI ENC as: " +ref.getRefName());
+                  log.debug("Binding resource manager: "+ref.getRefName()+
+                            " to JDNI ENC as: " +finalName);
                }
 
                Util.bind(envCtx, ref.getRefName(), new LinkRef(finalName));
@@ -1003,8 +1010,8 @@ public abstract class Container
             String jndiName = resRef.getJndiName();
             // Should validate the type...
             if (debug)
-               log.debug("Binding env resource: " + jndiName +
-                     " to JDNI ENC as: " +encName);
+               log.debug("Binding env resource: " + encName +
+                     " to JDNI ENC as: " +jndiName);
             Util.bind(envCtx, encName, new LinkRef(jndiName));
          }
       }

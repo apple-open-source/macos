@@ -49,7 +49,7 @@ import org.w3c.dom.Document;
  * @author <a href="mailto:daniel.schulze@telkel.com">Daniel Schulze</a>
  * @author <a href="mailto:Christoph.Jung@infor.de">Christoph G. Jung</a>
  * @author <a href="mailto:scott.stark@jboss.org">Scott Stark</a>
- * @version   $Revision: 1.14.2.12 $ <p>
+ * @version   $Revision: 1.14.2.14 $ <p>
  */
 public class DeploymentInfo
 {
@@ -231,6 +231,16 @@ public class DeploymentInfo
          ucl = parent.ucl;
          ucl.addURL(localUrl);
       }
+      // Add any library jars seen before the UCL was created
+      if( classpath.size() > 0 )
+      {
+         Iterator jars = classpath.iterator();
+         while( jars.hasNext() )
+         {
+            URL jar = (URL) jars.next();
+            ucl.addURL(jar);
+         }
+      }
    }
 
    /** Set the UnifiedLoaderRepository info for the deployment. This can only
@@ -271,7 +281,6 @@ public class DeploymentInfo
     * or sar classpaths are added to the root DeploymentInfo class loader. This
     * is neccessary to avoid IllegalAccessErrors due to classes in a pkg
     * being split across jars
-    *
     */
    public void addLibraryJar(URL libJar)
    {
@@ -280,7 +289,13 @@ public class DeploymentInfo
       {
          current = current.parent;
       }
-      current.ucl.addURL(libJar);
+      /* If the UCL exists add the jar to it else use the classpath to
+      indicate that the jars need to be added when the ucl is created.
+      */
+      if( current.ucl != null )
+         current.ucl.addURL(libJar);
+      else
+         classpath.add(libJar);
    }
 
    /** The the class loader repository name of the top most DeploymentInfo
@@ -348,7 +363,7 @@ public class DeploymentInfo
       }
       else if (Files.delete(localUrl.getFile()))
       {
-         log.info("Cleaned Deployment: " + localUrl);
+         log.debug("Cleaned Deployment: " + localUrl);
       }
       else
       {

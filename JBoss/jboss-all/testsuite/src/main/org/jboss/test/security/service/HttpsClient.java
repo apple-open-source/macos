@@ -10,32 +10,31 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.net.JarURLConnection;
 import java.net.Socket;
 import java.net.URL;
-import java.net.URLConnection;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.security.Security;
 import java.util.StringTokenizer;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import javax.net.ssl.SSLSocketFactory;
 
-import com.sun.net.ssl.HostnameVerifier;
-import com.sun.net.ssl.HttpsURLConnection;
 import com.sun.net.ssl.internal.ssl.Provider;
 
 import org.jboss.logging.Logger;
 import org.jboss.system.ServiceMBeanSupport;
+import org.jboss.invocation.http.interfaces.Util;
 
 /** A test mbean service that reads input from an https url passed in
  to its readURL method.
 
  @author Scott.Stark@jboss.org
- @version $Revision: 1.1.4.2 $
+ @version $Revision: 1.1.4.4 $
  */
 public class HttpsClient extends ServiceMBeanSupport
-   implements HttpsClientMBean, HostnameVerifier
+   implements HttpsClientMBean
 {
    // Constants -----------------------------------------------------
 
@@ -54,14 +53,6 @@ public class HttpsClient extends ServiceMBeanSupport
       return "HttpsClient";
    }
 
-   /** We don't care if the server cert host matches the https url host
-    */
-   public boolean verify(String host1, String host2)
-   {
-      log.debug("verify, host1="+host1+", host2="+host2);
-      return true;
-   }
-
    /** Read the contents of the given URL and return it. */
    public String readURL(String urlString) throws IOException
    {
@@ -77,25 +68,18 @@ public class HttpsClient extends ServiceMBeanSupport
          throw new IOException("Failed to readURL, ex="+e.getMessage());
       }
    }
-   private String internalReadURL(String urlString) throws IOException
+   private String internalReadURL(String urlString) throws Exception
    {
       log.debug("Creating URL from string: "+urlString);
       URL url = new URL(urlString);
       log.debug("Created URL object from string, protocol="+url.getProtocol());
-      URLConnection conn = url.openConnection();
-      if( conn instanceof HttpsURLConnection )
-      {
-         /* Override the host verifier so we can use a test server cert with
-          a hostname that may not match the https url hostname.
-         */
-         HttpsURLConnection httpsConn = (HttpsURLConnection) conn;
-         httpsConn.setHostnameVerifier(this);
-         log.debug("Installed noop HostnameVerifier");
-         SSLSocketFactory delegate = httpsConn.getSSLSocketFactory();
-         DebugSSLSocketFactory factory = new DebugSSLSocketFactory(delegate, log);
-         log.debug("Installed DebugSSLSocketFactory");
-         httpsConn.setSSLSocketFactory(factory);
-      }
+      HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+      /* Override the host verifier so we can use a test server cert with
+       a hostname that may not match the https url hostname.
+      */
+      System.setProperty("org.jboss.security.ignoreHttpsHost", "true");
+      Util.configureHttpsHostVerifier(conn);
+
       log.debug("Connecting to URL: "+url);
       byte[] buffer = new byte[1024];
       int length = conn.getContentLength();
@@ -112,19 +96,27 @@ public class HttpsClient extends ServiceMBeanSupport
    // Public --------------------------------------------------------
    protected void startService() throws Exception
    {
-      // Install the default JSSE security provider
-      log.debug("Adding com.sun.net.ssl.internal.ssl.Provider");
-      Security.addProvider(new Provider());
-      addedHttpsHandler = false;
-      // Install the JSSE https handler if it has not already been added
-      String handlers = System.getProperty("java.protocol.handler.pkgs");
-      if( handlers == null || handlers.indexOf("com.sun.net.ssl.internal.www.protocol") < 0 )
+      try
       {
-         handlers += "|com.sun.net.ssl.internal.www.protocol";
-         log.debug("Adding https handler to java.protocol.handler.pkgs");
-         System.setProperty("java.protocol.handler.pkgs", handlers);
-         addedHttpsHandler = true;
+         new URL("https://www.https.test");
       }
+      catch(MalformedURLException e)
+      {
+         // Install the default JSSE security provider
+         log.debug("Adding com.sun.net.ssl.internal.ssl.Provider");
+         Security.addProvider(new Provider());
+         addedHttpsHandler = false;
+         // Install the JSSE https handler if it has not already been added
+         String handlers = System.getProperty("java.protocol.handler.pkgs");
+         if( handlers == null || handlers.indexOf("com.sun.net.ssl.internal.www.protocol") < 0 )
+         {
+            handlers += "|com.sun.net.ssl.internal.www.protocol";
+            log.debug("Adding https handler to java.protocol.handler.pkgs");
+            System.setProperty("java.protocol.handler.pkgs", handlers);
+            addedHttpsHandler = true;
+         }
+      }
+
       // Install the trust store
       ClassLoader loader = Thread.currentThread().getContextClassLoader();
       URL keyStoreURL = loader.getResource("META-INF/tst.keystore");

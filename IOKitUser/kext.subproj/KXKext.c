@@ -5318,7 +5318,7 @@ static void __initSubKeys(void) {
     __gPersonalitySubKeys[3].longKey = CFSTR("IOProviderClass");
     __gPersonalitySubKeys[3].shortKey = CFSTR("iopc");
     __gPersonalitySubKeys[3].required = false;
-#endif 0
+ #endif 0
 
     didIt = true;
     return;

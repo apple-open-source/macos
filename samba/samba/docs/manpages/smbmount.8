@@ -21,18 +21,20 @@
 .SH NAME
 smbmount \- mount an smbfs filesystem
 .SH "SYNOPSIS"
-
-.nf
-\fBsmbmount\fR {service} {mount-point} [-o options]
-.fi
+.ad l
+.hy 0
+.HP 9
+\fBsmbmount\fR {service} {mount\-point} [\-o\ options]
+.ad
+.hy
 
 .SH "DESCRIPTION"
 
 .PP
-\fBsmbmount\fR mounts a Linux SMB filesystem\&. It is usually invoked as \fBmount.smbfs\fR by the \fBmount\fR(8) command when using the "-t smbfs" option\&. This command only works in Linux, and the kernel must support the smbfs filesystem\&.
+\fBsmbmount\fR mounts a Linux SMB filesystem\&. It is usually invoked as \fBmount\&.smbfs\fR by the \fBmount\fR(8) command when using the "\-t smbfs" option\&. This command only works in Linux, and the kernel must support the smbfs filesystem\&.
 
 .PP
-Options to \fBsmbmount\fR are specified as a comma-separated list of key=value pairs\&. It is possible to send options other than those listed here, assuming that smbfs supports them\&. If you get mount failures, check your kernel log for errors on unknown options\&.
+Options to \fBsmbmount\fR are specified as a comma\-separated list of key=value pairs\&. It is possible to send options other than those listed here, assuming that smbfs supports them\&. If you get mount failures, check your kernel log for errors on unknown options\&.
 
 .PP
 \fBsmbmount\fR is a daemon\&. After mounting it keeps running until the mounted smbfs is umounted\&. It will log things that happen when in daemon mode using the "machine name" smbmount, so typically this output will end up in \fIlog\&.smbmount\fR\&. The \fB smbmount\fR process may also be called mount\&.smbfs\&.
@@ -126,7 +128,7 @@ Sets the workgroup on the destination
 
 .TP
 sockopt=<arg>
-Sets the TCP socket options\&. See the \fBsmb.conf\fR(5) \fIsocket options\fR option\&.
+Sets the TCP socket options\&. See the \fBsmb\&.conf\fR(5) \fIsocket options\fR option\&.
 
 
 .TP
@@ -141,17 +143,17 @@ Don't prompt for a password
 
 .TP
 ro
-mount read-only
+mount read\-only
 
 
 .TP
 rw
-mount read-write
+mount read\-write
 
 
 .TP
 iocharset=<arg>
-sets the charset used by the Linux side for codepage to charset translations (NLS)\&. Argument should be the name of a charset, like iso8859-1\&. (Note: only kernel 2\&.4\&.0 or later)
+sets the charset used by the Linux side for codepage to charset translations (NLS)\&. Argument should be the name of a charset, like iso8859\-1\&. (Note: only kernel 2\&.4\&.0 or later)
 
 
 .TP
@@ -167,10 +169,10 @@ sets how long a directory listing is cached in milliseconds (also affects visibi
 .SH "ENVIRONMENT VARIABLES"
 
 .PP
-The variable \fBUSER\fR may contain the username of the person using the client\&. This information is used only if the protocol level is high enough to support session-level passwords\&. The variable can be used to set both username and password by using the format username%password\&.
+The variable \fBUSER\fR may contain the username of the person using the client\&. This information is used only if the protocol level is high enough to support session\-level passwords\&. The variable can be used to set both username and password by using the format username%password\&.
 
 .PP
-The variable \fBPASSWD\fR may contain the password of the person using the client\&. This information is used only if the protocol level is high enough to support session-level passwords\&.
+The variable \fBPASSWD\fR may contain the password of the person using the client\&. This information is used only if the protocol level is high enough to support session\-level passwords\&.
 
 .PP
 The variable \fBPASSWD_FILE\fR may contain the pathname of a file to read the password from\&. A single line of input is read and used as the password\&.
@@ -204,7 +206,7 @@ Documentation/filesystems/smbfs\&.txt in the linux kernel source tree may contai
 FreeBSD also has a smbfs, but it is not related to smbmount
 
 .PP
-For Solaris, HP-UX and others you may want to look at \fBsmbsh\fR(1) or at other solutions, such as Sharity or perhaps replacing the SMB server with a NFS server\&.
+For Solaris, HP\-UX and others you may want to look at \fBsmbsh\fR(1) or at other solutions, such as Sharity or perhaps replacing the SMB server with a NFS server\&.
 
 .SH "AUTHOR"
 

@@ -1,26 +1,26 @@
---- samba/docs/manpages/smb.conf.5.orig	Wed Sep 10 14:24:28 2003
-+++ samba/docs/manpages/smb.conf.5	Wed Sep 10 14:10:14 2003
-@@ -4800,7 +4800,7 @@
- See also the \fIkernel oplocks\fR and \fI level2 oplocks\fR parameters\&.
+--- samba/docs/manpages/smb.conf.5  2004/02/11 18:51:50     1.12
++++ samba/docs/manpages/smb.conf.5  2004/02/11 21:21:32
+@@ -4345,7 +4345,7 @@
  
  
--Default: \fBoplocks = yes\fR
-+Default: \fBoplocks = no\fR
+ Default: .nf
+-\fIoplocks\fR = yes
++\fIoplocks\fR = no
+ .fi
  
  
- .TP
-@@ -6158,7 +6158,7 @@
- Well-behaved clients always ask for lock checks when it is important, so in the vast majority of cases \fBstrict locking = no\fR is preferable\&.
+@@ -6015,7 +6015,7 @@
  
  
--Default: \fBstrict locking = no\fR
-+Default: \fBstrict locking = yes\fR
+ Default: .nf
+-\fIstrict locking\fR = no
++\fIstrict locking\fR = yes
+ .fi
  
  
- .TP
---- samba/source/param/loadparm.c.orig	Wed Sep 10 14:07:01 2003
-+++ samba/source/param/loadparm.c	Wed Sep 10 14:27:16 2003
-@@ -506,7 +506,7 @@
+--- samba/source/param/loadparm.c.orig	Thu Dec 18 15:12:46 2003
++++ samba/source/param/loadparm.c	Fri Dec 19 08:31:23 2003
+@@ -506,7 +506,7 @@ static service sDefault = {
  	True,			/* bStrictLocking */
  	True,			/* bPosixLocking */
  	True,			/* bShareModes */

@@ -15,9 +15,8 @@ import org.jboss.mq.server.MessageCounter;
  *
  *
  * @author  <a href="pra@tim.se">Peter Antman</a>
- * @version $Revision: 1.2.2.2 $
+ * @version $Revision: 1.2.2.3 $
  */
-
 public interface DestinationMBean extends ServiceMBean  
 {
    /**
@@ -101,5 +100,18 @@ public interface DestinationMBean extends ServiceMBean
     * @return  Maximum day count 
     */
    public int getMessageCounterHistoryDayLimit();
+
+   /**
+    * Retrieve the maximum depth of the queue or individual
+    * subscriptions
+    * @return the maximum depth
+    */
+   public int getMaxDepth();
+   
+   /**
+    * Set the maximum depth of the queue or individual subscriptions
+    * @param depth the maximum depth, zero means unlimited
+    */
+   public void setMaxDepth(int depth);
    
 } // DestinationManagerMBean

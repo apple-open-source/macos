@@ -139,23 +139,6 @@ unsigned long UniNEnet::powerStateForDomainState(IOPMPowerFlags domainState )
 }/* end powerStateForDomainState */
 
 
-	// Method: setPowerState
-
-IOReturn UniNEnet::setPowerState(	unsigned long	powerStateOrdinal,
-									IOService		*whatDevice )
-{
-	ELG( IOThreadSelf(), (currentPowerState << 16) | powerStateOrdinal, 'Pwr!', "UniNEnet::setPowerState" );
-
-	if ( powerStateOrdinal >= kNumOfPowerStates )
-		return IOPMNoSuchState;						// Do nothing if state invalid
-
-	if ( powerStateOrdinal == currentPowerState )
-		return IOPMAckImplied;						// no change required
-
-	return IOPMAckImplied;
-}/* end setPowerState */
-
-
 	// This method sets up the PHY registers for low power.
 	// Copied from stopEthernetController() in OS9.
 
@@ -216,8 +199,10 @@ void UniNEnet::stopPHY()
 	WRITE_REGISTER( TxMACConfiguration, 0 );
 	WRITE_REGISTER( XIFConfiguration,	0 );
 
-	WRITE_REGISTER( TxConfiguration, 0 );
-	WRITE_REGISTER( RxConfiguration, 0 );
+	fTxConfiguration &= ~kTxConfiguration_Tx_DMA_Enable;
+	WRITE_REGISTER( TxConfiguration, fTxConfiguration );
+	fRxConfiguration &= ~kRxConfiguration_Rx_DMA_Enable;
+	WRITE_REGISTER( RxConfiguration, fRxConfiguration );
 
 	if ( !fWOL )
 	{
@@ -302,10 +287,11 @@ void UniNEnet::stopPHY()
 
 
 	// start the PHY
+	//// This routine really doesn't do much with the PHY. startPHY is a misnomer.
+	//// It is called only by wakeUp - move the code there.
 
 void UniNEnet::startPHY()
 {
-	UInt32	  val32;
 	UInt16	  val16;
 
 
@@ -314,21 +300,18 @@ void UniNEnet::startPHY()
 	fTxConfiguration |= kTxConfiguration_Tx_DMA_Enable;
 	WRITE_REGISTER( TxConfiguration, fTxConfiguration );
 
-	val32 = READ_REGISTER( RxConfiguration );
-	WRITE_REGISTER( RxConfiguration, val32 | kRxConfiguration_Rx_DMA_Enable );
+	fRxConfiguration |= kRxConfiguration_Rx_DMA_Enable;
+	WRITE_REGISTER( RxConfiguration, fRxConfiguration );
 
 	fTxMACConfiguration |= kTxMACConfiguration_TxMac_Enable;
 	WRITE_REGISTER( TxMACConfiguration, fTxMACConfiguration );
 
-	val32  = READ_REGISTER( RxMACConfiguration );	/// ??? use fRxMACConfiguration?
-	val32 |= kRxMACConfiguration_Rx_Mac_Enable | kRxMACConfiguration_Hash_Filter_Enable;
+	fRxMACConfiguration |= kRxMACConfiguration_Rx_Mac_Enable | kRxMACConfiguration_Hash_Filter_Enable;
 	if ( fIsPromiscuous )
-		 val32 &= ~kRxMACConfiguration_Strip_FCS;
-	else val32 |=  kRxMACConfiguration_Strip_FCS;
+		 fRxMACConfiguration &= ~kRxMACConfiguration_Strip_FCS;
+	else fRxMACConfiguration |=  kRxMACConfiguration_Strip_FCS;
 
-	WRITE_REGISTER( RxMACConfiguration, val32 );
-
-		// Set flag to RxMACEnabled somewhere??
+	WRITE_REGISTER( RxMACConfiguration, fRxMACConfiguration );
 
 		/* These registers are only for the Broadcom 5201.
 		   We write the auto low power mode bit here because if we do it earlier
@@ -351,40 +334,10 @@ void UniNEnet::startPHY()
 #endif
 	}
 
-		// WARNING... this code is untested on gigabit Broadcom 5400 PHY,
-		// there should be a case to handle it for MII_CONTROL_POWERDOWN bit
-		// here, unless it is unnecessary after a hardware reset
-
-	WRITE_REGISTER( RxKick, fRxRingElements - 4 );
+	WRITE_REGISTER( RxKick, fRxRingElements - 4 );	/// Why is this in PHY code?
 //	}
 	return;
 }/* end startPHY */
-
-
-	/*-------------------------------------------------------------------------
-	 * Assert the reset pin on the PHY momentarily to initialize it, and also
-	 * to bring the PHY out of low-power mode.
-	 *
-	 *-------------------------------------------------------------------------*/
-
-bool UniNEnet::hardwareResetPHY()
-{
-	IOReturn	result;
-
-
-	result = keyLargo->callPlatformFunction( keyLargo_resetUniNEthernetPhy, false, 0, 0, 0, 0 );
-	ELG( keyLargo, result, 'RPhy', "hardwareResetPHY" );
-///	if ( result != kIOReturnSuccess )
-///		return false;
-
-	phyId = fK2 ? 1 : 0;
-//	if ( phyId != 0xFF )
-	{		// If PHY location is known, clear Powerdown and reset:
-		miiWriteWord( MII_CONTROL_RESET, MII_CONTROL );
-		IOSleep( 10 );
-	}
-	return true;	/// return value not used.
-}/* end hardwareResetPHY */
 
 
 

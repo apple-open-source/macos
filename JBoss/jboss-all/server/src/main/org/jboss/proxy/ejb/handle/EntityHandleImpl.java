@@ -28,7 +28,7 @@ import org.jboss.naming.NamingContextFactory;
  * @author  <a href="mailto:marc.fleury@jboss.org">Marc Fleury</a>.
  * @author  <a href="mailto:jason@planet57.com">Jason Dillon</a>
  * @author Scott.Stark@jboss.org
- * @version $Revision: 1.1.4.1 $
+ * @version $Revision: 1.1.4.2 $
  */
 public class EntityHandleImpl
       implements Handle
@@ -101,6 +101,22 @@ public class EntityHandleImpl
       {
          throw new ServerException("Could not get EJBObject", e);
       }
+   }
+
+   /**
+    * @return the primary key
+    */
+   public Object getID()
+   {
+      return id;
+   }
+
+   /**
+    * @return the jndi name
+    */
+   public String getJNDIName()
+   {
+      return jndiName;
    }
 
    private void readObject(ObjectInputStream ois)

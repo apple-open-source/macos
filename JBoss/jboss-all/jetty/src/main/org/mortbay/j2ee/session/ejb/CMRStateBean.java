@@ -1,6 +1,6 @@
 // ========================================================================
 // Copyright (c) 2002 Mort Bay Consulting (Australia) Pty. Ltd.
-// $Id: CMRStateBean.java,v 1.1.2.3 2002/10/30 22:47:37 jules_gosnell Exp $
+// $Id: CMRStateBean.java,v 1.1.2.4 2003/07/26 11:49:42 jules_gosnell Exp $
 // ========================================================================
 
 package org.mortbay.j2ee.session.ejb;
@@ -20,7 +20,7 @@ import javax.ejb.EntityContext;
 import javax.ejb.RemoveException;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
-import org.apache.log4j.Category;
+import org.jboss.logging.Logger;
 import org.mortbay.j2ee.session.interfaces.CMRAttributeLocal;
 import org.mortbay.j2ee.session.interfaces.CMRAttributeLocalHome;
 import org.mortbay.j2ee.session.interfaces.CMRState;
@@ -31,7 +31,7 @@ import org.mortbay.j2ee.session.interfaces.CMRStatePK;
  * The Entity bean represents an HttpSession.
  *
  * @author jules@mortbay.com
- * @version $Revision: 1.1.2.3 $
+ * @version $Revision: 1.1.2.4 $
  *
  *   @ejb:bean
  *     name="CMRState"
@@ -62,7 +62,7 @@ import org.mortbay.j2ee.session.interfaces.CMRStatePK;
 public abstract class CMRStateBean
   implements EntityBean
 {
-  Category _log=Category.getInstance(getClass().getName());
+  protected static final Logger _log=Logger.getLogger(CMRStateBean.class);
 
   //----------------------------------------
   // Home
@@ -89,7 +89,7 @@ public abstract class CMRStateBean
       // instance - but it is the only one that I have found so far...
       CMRStateHome home = (CMRStateHome)_entityContext.getEJBObject().getEJBHome();
       Collection c=(Collection)home.findTimedOut(System.currentTimeMillis(), extraTime, actualMaxInactiveInterval);
-      _log.debug("distributed scavenging: "+c);
+      if (_log.isDebugEnabled()) _log.debug("distributed scavenging: "+c);
 
       // this is not working - what is the class of the Objects returned in the Collection ?
       for (Iterator i=c.iterator(); i.hasNext();)
@@ -129,7 +129,7 @@ public abstract class CMRStateBean
   public CMRStatePK ejbCreate(String context, String id, int maxInactiveInterval)
     throws CreateException
   {
-    _log.debug("ejbCreate("+context+":"+id+")");
+    if (_log.isDebugEnabled()) _log.debug("ejbCreate("+context+":"+id+")");
 
     setContext(context);
     setId(id);
@@ -196,7 +196,7 @@ public abstract class CMRStateBean
     ejbRemove()
     throws RemoveException
   {
-    _log.debug("ejbRemove("+getContext()+":"+getId()+")");
+    if (_log.isDebugEnabled()) _log.debug("ejbRemove("+getContext()+":"+getId()+")");
   }
 
   //----------------------------------------

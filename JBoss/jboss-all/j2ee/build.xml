@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE project [
    <!ENTITY buildmagic SYSTEM "../tools/etc/buildmagic/buildmagic.ent">
+   <!ENTITY libraries SYSTEM "../tools/etc/buildmagic/libraries.ent">
 ]>
 
 <!-- ====================================================================== -->
@@ -12,7 +13,7 @@
 <!--                                                                        -->
 <!-- ====================================================================== -->
 
-<!-- $Id: build.xml,v 1.18.4.1 2003/05/18 06:27:20 starksm Exp $ -->
+<!-- $Id: build.xml,v 1.18.4.3 2003/11/10 06:45:52 starksm Exp $ -->
 
 <project default="main" name="JBoss/J2EE">
 
@@ -68,21 +69,7 @@
     <!-- ========= -->
     <!-- Libraries -->
     <!-- ========= -->
-
-    <!-- Java Authentication and Authorization Service (JAAS) -->
-    <property name="sun.jaas.root" value="${project.thirdparty}/sun/jaas"/>
-    <property name="sun.jaas.lib" value="${sun.jaas.root}/lib"/>
-    <path id="sun.jaas.classpath">
-      <pathelement path="${sun.jaas.lib}/jaas.jar"/>
-    </path>
-
-    <!-- JUnit -->
-    <property name="junit.junit.root" value="${project.thirdparty}/junit/junit"/>
-    <property name="junit.junit.lib" value="${junit.junit.root}/lib"/>
-    <path id="junit.junit.classpath">
-      <pathelement path="${junit.junit.lib}/junit.jar"/>
-    </path>
-
+    &libraries;
     <!-- The combined library classpath -->
     <path id="library.classpath">
       <path refid="sun.jaas.classpath"/>
@@ -110,6 +97,7 @@
     <property name="build.lib" value="${module.output}/lib"/>
     <property name="build.api" value="${module.output}/api"/>
     <property name="build.etc" value="${module.output}/etc"/>
+    <property name="build.todo" value="${module.output}/todo"/>
 
     <!-- Install/Release structure -->
     <property name="install.id" value="${module.name}-${module.version}"/>
@@ -207,7 +195,10 @@
    -->
   <target name="jars" 
 	  description="Builds all jar files."
-	  depends="compile">
+     depends="_buildmagic:build-bypass-check"
+	  unless="build-bypass.on">
+
+    <call target="compile"/>
 
     <mkdir dir="${build.lib}"/>
     
@@ -222,6 +213,10 @@
         <include name="javax/transaction/**"/>
       </fileset>
     </jar>
+
+    <!-- Update the build marker to allow bypassing -->
+    <touch file="${build-bypass.marker}"/>
+
   </target>
 
   <!-- ================================================================== -->

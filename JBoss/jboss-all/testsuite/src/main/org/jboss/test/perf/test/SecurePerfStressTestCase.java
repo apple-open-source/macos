@@ -39,7 +39,7 @@ import org.jboss.test.JBossTestCase;
  * @author Scott.Stark@jboss.org
  * @author <a href="mailto:d_jencks@users.sourceforge.net">David Jencks</a>
  *
- * @version $Revision: 1.5.2.1 $
+ * @version $Revision: 1.5.2.2 $
  */
 public class SecurePerfStressTestCase extends PerfStressTestCase //JBossTestCase
 {
@@ -58,7 +58,7 @@ public class SecurePerfStressTestCase extends PerfStressTestCase //JBossTestCase
       super(name);
    }
 
-   public static Test suite()
+   public static Test suite() throws Exception
    {
       TestSuite suite = new TestSuite();
       suite.addTest(new TestSuite(SecurePerfStressTestCase.class));

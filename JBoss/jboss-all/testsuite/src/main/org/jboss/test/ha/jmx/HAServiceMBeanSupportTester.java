@@ -14,7 +14,9 @@ package org.jboss.test.ha.jmx;
 
 import java.util.Stack;
 
+import javax.management.MalformedObjectNameException;
 import javax.management.Notification;
+import javax.management.ObjectName;
 
 import org.jboss.ha.jmx.HAServiceMBeanSupport;
 
@@ -26,13 +28,12 @@ import org.jboss.ha.jmx.HAServiceMBeanSupport;
 public class HAServiceMBeanSupportTester extends HAServiceMBeanSupport
 {
 
-
   public Stack __invokationStack__ = new Stack();
 
   public boolean __isDRMMasterReplica__ = false;
 
   public boolean __isSingletonStarted__ = false;
-  
+
   public boolean __shouldSendNotificationRemoteFail__ = false;
 
   protected void setupPartition() throws Exception
@@ -75,7 +76,8 @@ public class HAServiceMBeanSupportTester extends HAServiceMBeanSupport
   protected void sendNotificationRemote(Notification notification)
     throws Exception
   {
-    if (__shouldSendNotificationRemoteFail__) throw new Exception("simulated exception");
+    if (__shouldSendNotificationRemoteFail__)
+      throw new Exception("simulated exception");
     __invokationStack__.push("sendNotificationRemote");
     __invokationStack__.push(notification);
   }
@@ -86,5 +88,19 @@ public class HAServiceMBeanSupportTester extends HAServiceMBeanSupport
     __invokationStack__.push(notification);
   }
 
+  public ObjectName getServiceName()
+  {
+    ObjectName oname = null;
+    try
+    {
+      oname = new ObjectName("jboss.examples:name=HAServiceMBeanSupportTester");
+    }
+    catch (MalformedObjectNameException e)
+    {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    }
+    return oname;
+  }
 
 }

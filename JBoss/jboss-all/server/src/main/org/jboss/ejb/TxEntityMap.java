@@ -10,7 +10,8 @@ import java.util.HashMap;
 import javax.transaction.Transaction;
 import javax.transaction.RollbackException;
 import javax.transaction.SystemException;
-import javax.transaction.Synchronization;
+
+import org.jboss.tm.TransactionLocal;
 
 /**
  * This class provides a way to find out what entities of a certain type that are contained in
@@ -18,9 +19,9 @@ import javax.transaction.Synchronization;
  *<no longer - global only holds possibly dirty> This class interfaces with the static GlobalTxEntityMap.  EntitySynchronizationInterceptor
  * registers tx/entity pairs through this class.
  * Used in EntitySynchronizationInterceptor.
- * 
+ *
  * @author <a href="bill@burkecentral.com">Bill Burke</a>
- * @version $Revision: 1.9 $
+ * @version $Revision: 1.9.4.4 $
  *
  * Revisions:
  *
@@ -33,65 +34,35 @@ import javax.transaction.Synchronization;
  */
 public class TxEntityMap
 {
-   protected HashMap m_map = new HashMap();
-    
+   protected TransactionLocal m_map = new TransactionLocal();
+
    /**
     * associate entity with transaction
     */
-   public synchronized void associate(Transaction tx,
-                                      EntityEnterpriseContext entity) throws RollbackException, SystemException
+   public void associate(Transaction tx, EntityEnterpriseContext entity)
+      throws RollbackException, SystemException
    {
-      HashMap entityMap = (HashMap)m_map.get(tx);
-      if (entityMap == null)
+      HashMap entityMap = (HashMap) m_map.get(tx);
+      if(entityMap == null)
       {
          entityMap = new HashMap();
-         m_map.put(tx, entityMap);
-         tx.registerSynchronization(new TxEntityMapCleanup(this, tx));
+         m_map.set(tx, entityMap);
       }
       //EntityContainer.getGlobalTxEntityMap().associate(tx, entity);
       entityMap.put(entity.getCacheKey(), entity);
    }
 
-   public synchronized EntityEnterpriseContext getCtx(Transaction tx,
-                                                      Object key)
+   public EntityEnterpriseContext getCtx(Transaction tx, Object key)
    {
-      HashMap entityMap = (HashMap)m_map.get(tx);
-      if (entityMap == null) return null;
-      return (EntityEnterpriseContext)entityMap.get(key);
+      HashMap entityMap = (HashMap) m_map.get(tx);
+      if(entityMap == null) return null;
+      return (EntityEnterpriseContext) entityMap.get(key);
    }
 
-   /**
-    * Cleanup tx/entity map on tx commit/rollback
-    */
-   private class TxEntityMapCleanup implements Synchronization
+   public EntityEnterpriseContext getCtx(Object key)
    {
-      TxEntityMap map;
-      Transaction tx;
-
-      public TxEntityMapCleanup(TxEntityMap map,
-                                Transaction tx)
-      {
-         this.map = map;
-         this.tx = tx;
-      }
-
-      // Synchronization implementation -----------------------------
-  
-      public void beforeCompletion()
-      {
-         /* complete */
-      }
-  
-      public void afterCompletion(int status)
-      {
-         synchronized(map)
-         {
-            HashMap entityMap = (HashMap)m_map.remove(tx);
-            if (entityMap != null)
-            {
-               entityMap.clear();
-            }
-         }
-      }
+      HashMap entityMap = (HashMap) m_map.get();
+      if(entityMap == null) return null;
+      return (EntityEnterpriseContext) entityMap.get(key);
    }
 }

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE server>
-<!-- $Id: jboss-minimal.xml,v 1.4.2.2 2003/02/24 08:02:30 ejort Exp $ -->
+
+<!-- $Id: jboss-minimal.xml,v 1.4.2.3 2003/10/13 03:28:38 starksm Exp $ -->
 
 <!-- ===================================================================== -->
 <!--                                                                       -->

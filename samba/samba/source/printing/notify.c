@@ -1,6 +1,6 @@
 /* 
    Unix SMB/Netbios implementation.
-   Version 2.2
+   Version 3.0
    printing backend routines
    Copyright (C) Tim Potter, 2002
    Copyright (C) Gerald Carter,         2002
@@ -20,6 +20,7 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
+#include "includes.h"
 #include "printing.h"
 
 static TALLOC_CTX *send_ctx;

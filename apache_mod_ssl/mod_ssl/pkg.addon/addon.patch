@@ -8,7 +8,7 @@
 ##
 ## Annotated patch file: addon.patch
 ## Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved. 
-## Created on: 18-Jul-2003
+## Created on: 01-Nov-2003
 ##
 ## This file assembles changes to existing Apache source files
 ## between the original Apache and the patched variant. It can be
@@ -103,19 +103,19 @@ Index: src/modules/standard/mod_status.c
  				i, (int) ps_record.generation,
  				(int) ps_record.pid, (int) conn_lres,
  				my_lres, lres);
-@@ -737,6 +774,12 @@
- </table>\n", r);
+@@ -738,6 +775,12 @@
  #endif
  	}
-+
+ 
 +#ifdef EAPI
 +    ap_hook_use("ap::mod_status::display",
 +                AP_HOOK_SIG4(void,ptr,int,int), AP_HOOK_ALL,
 +                r, no_table_report, short_report);
 +#endif
- 
++
      } else {
  
+ 	if (!short_report) {
 
 +---------------------------------------------------------------------------
 | Add a hyperlink to the mod_define.html document.

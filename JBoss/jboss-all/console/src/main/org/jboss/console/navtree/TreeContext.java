@@ -7,11 +7,8 @@
 
 package org.jboss.console.navtree;
 
-import javax.naming.NamingException;
-
 import org.jboss.console.manager.interfaces.SimpleTreeNodeMenuEntry;
 import org.jboss.console.manager.interfaces.TreeAction;
-import org.jboss.jmx.adaptor.rmi.RMIAdaptor;
 
 /**
  * Interface used to communicate between the container-agnostic AdminTreeBrowser
@@ -21,7 +18,7 @@ import org.jboss.jmx.adaptor.rmi.RMIAdaptor;
  * @see org.jboss.console.navtree.AppletBrowser
  *
  * @author  <a href="mailto:sacha.labourey@cogito-info.ch">Sacha Labourey</a>.
- * @version $Revision: 1.1.2.1 $
+ * @version $Revision: 1.1.2.2 $
  *
  * <p><b>Revisions:</b>
  *

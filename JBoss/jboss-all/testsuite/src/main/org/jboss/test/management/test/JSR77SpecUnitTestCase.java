@@ -39,6 +39,7 @@ import org.jboss.management.j2ee.JTAResource;
 import org.jboss.management.j2ee.JMSResource;
 import org.jboss.management.j2ee.J2EEApplication;
 import org.jboss.test.JBossTestCase;
+import junit.framework.Test;
 
 /**
  * Test of JSR-77 specification conformance using the Management interface.
@@ -46,7 +47,7 @@ import org.jboss.test.JBossTestCase;
  *
  * @author  <a href="mailto:andreas@jboss.org">Andreas Schaefer</a>.
  * @author Scott.Stark@jboss.org
- * @version $Revision: 1.13.2.7 $
+ * @version $Revision: 1.13.2.9 $
  */
 public class JSR77SpecUnitTestCase
    extends JBossTestCase
@@ -526,6 +527,10 @@ public class JSR77SpecUnitTestCase
          }
          catch (Exception e)
          {
+            // HACK: Ignore moved attribute error for message cache on the persistence manager
+            if (name.equals("MessageCache"))
+               continue;
+
             /* This is not a fatal exception as not all attributes are remotable
             but all javax.management.* and org.jboss.management.j2ee.* types
             should be.
@@ -641,4 +646,10 @@ public class JSR77SpecUnitTestCase
          mNrOfNotifications++;
       }
    }
+
+   public static Test suite() throws Exception
+   {
+      return getDeploySetup(JSR77SpecUnitTestCase.class, "ejb-management.jar");
+   }
+
 }

@@ -13,12 +13,10 @@ import java.io.ObjectStreamException;
  * This type safe enumeration s used to mark an invocation as non-entrant.
  *
  * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
- * @version $Revision: 1.1 $
+ * @version $Revision: 1.1.4.1 $
  */
 public final class Entrancy implements Serializable
 {
-   public static final EntrancyKey ENTRANCY_KEY = new EntrancyKey();
-
    public static final Entrancy ENTRANT = new Entrancy(true);
    public static final Entrancy NON_ENTRANT = new Entrancy(false);
 
@@ -51,19 +49,5 @@ public final class Entrancy implements Serializable
       }
    }
 
-   private static final class EntrancyKey implements Serializable
-   {
-      private EntrancyKey()
-      {
-      }
-      public String toString()
-      {
-         return "ENTRANCY_KEY";
-      }
-      Object readResolve() throws ObjectStreamException
-      {
-         return Entrancy.ENTRANCY_KEY;
-      }
-   }
 }
 

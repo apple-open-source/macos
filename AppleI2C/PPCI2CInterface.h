@@ -62,8 +62,8 @@
 // it MUST be all in the same thread.
 // class ApplePMUInterface;  //not necessary
 
-
-#define busTypeString (i2cPMU ? "i2cPMU" : (i2cUniN ? "i2cUniN" : (i2cmacio ? "i2cmacio" : "i2cUnkn")))
+// handy macro for identifying a particular bus in debug messages
+#define busTypeString (i2cPMU ? "i2cPMU" : (i2cSMU ? "i2cSMU" : (i2cUniN ? "i2cUniN" : (i2cK2 ?  "i2cK2" : (i2cmacio ? "i2cmacio" : "i2cUnkn")))))
 
 // Clients get call backs with this type of function:
 typedef void (*AppleI2Cclient)(IOService * client, UInt32 addressInfo, UInt32 length, UInt8 * buffer); 
@@ -94,9 +94,11 @@ private:
         kStandardSubMode = 0x02, //
         kCombinedMode    = 0x03, //
         kModeMask        = 0x03,  //
-        kSimpleI2CStream            = 0,	// PMU i2c modes			
+        kSimpleI2CStream            = 0,	// PMU & SMU i2c modes			
         kSubaddressI2CStream        = 1,
-        kCombinedI2CStream          = 2
+        kCombinedI2CStream          = 2,
+		kSubaddress4I2CStream		= 3,	// Currently SMU only
+		kCombined4I2CStream			= 4		// Currently SMU only
     } I2CMode;
 
     typedef enum {
@@ -193,6 +195,10 @@ private:
         I2CRWShift          = 0
     };
 
+    enum {
+        kSMUSleepDelay          = 150	// milliseconds
+    };
+
     // redefine the types so it makes easyer to handle
     // new i2c if they have wider registers.
     typedef UInt8 *I2CRegister;
@@ -272,13 +278,24 @@ private:
     };
     typedef struct PMUI2CPB                 PMUI2CPB;
 
+    struct SMUI2CPB {
+        UInt8                           bus;
+        UInt8                           xferType;
+        UInt8                           address;
+        UInt8                           subAddr[4];
+        UInt8                           combAddr;
+        UInt8                           dataCount;
+        UInt8                           data[246];                  /* sizeof(SMUI2CPB) = 256*/
+    };
+    typedef struct SMUI2CPB                 SMUI2CPB;
+
 #define MAXIICRETRYCOUNT	20
 #define STATUS_DATAREAD		1
 #define STATUS_OK		0
 #define STATUS_BUSY		0xfe
 
     // Parameters for PMU i2c transactions
-    PMUI2CPB		i2c;
+    //PMUI2CPB		i2c;
     IOByteCount		length;
 
 
@@ -286,10 +303,13 @@ private:
     // interrupts:
     IOService *myProvider;
     
-    // Remember if we had a PMU, UniN provider or not
+    // Remember which type of provider we have
     bool i2cPMU;
     bool i2cUniN;
+    bool i2cK2;
     bool i2cmacio;
+	bool i2cSMU;
+	bool pseudoI2C;		// true either i2cPMU or i2cSMU is true;
     
 	// Loop timeout in waitForCompletion();  Defaults to 2 sec interrupt mode, defaults
 	//  to 15 secs on i2cmacio polling (for audio) and to 3 sec i2cUniN polling
@@ -555,6 +575,25 @@ public:
                                            void *param3, void *param4 );
 
 	virtual bool setI2cTimeout(UInt16 i2cTimeout);
+
+    virtual void setStandardSub4Mode();
+    virtual void setCombined4Mode();
+
+protected:
+    // send a I2C call to Apple SMU (uses callPlatformFunction)
+    static IOReturn AppleSMUSendI2CCommand( IOService *smu,
+                        IOByteCount sendLength, UInt8 * sendBuffer,
+                        IOByteCount * readLength, UInt8 * readBuffer);
+                                                
+    // send a write I2c packet to SMU, includes status check at end
+    // static? 
+    bool writeSmuI2C( UInt8 address, UInt8 subAddress, UInt8 * buffer, IOByteCount count );
+
+    // send a read I2c packet to PMU, includes status check at end
+    // static?
+    bool readSmuI2C( UInt8 address, UInt8 subAddress, UInt8 * buffer, IOByteCount count );
+
+
 };
 
 #endif //_PPCI2CINTERFACE_H

@@ -2,7 +2,7 @@
 
 <!--dtd for jboss 3.2 datasource configurations (*-ds.xml), transformed by
 ConnectionFactoryTemplate.xsl
-$Id: jboss-ds_1_0.dtd,v 1.1.2.7 2003/07/23 15:13:00 starksm Exp $
+$Id: jboss-ds_1_0.dtd,v 1.1.2.15 2003/09/28 11:06:47 starksm Exp $
 
 The datasources element is the root of the jdbc datasource configuration
 -->
@@ -11,29 +11,30 @@ The datasources element is the root of the jdbc datasource configuration
 <!-- Specify a jca-jdbc non-XADatasource (local) wrapper, using no transactions
 -->
 <!ELEMENT no-tx-datasource (jndi-name , connection-url , driver-class ,
- connection-property* , user-name? , password? ,
- (application-managed-security | security-domain)? , min-pool-size? ,
- max-pool-size? , blocking-timeout-millis? , idle-timeout-minutes? , depends*)>
+connection-property* , user-name? , password? ,
+(application-managed-security | security-domain | security-domain-and-application)? ,
+min-pool-size? , max-pool-size? , blocking-timeout-millis? , idle-timeout-minutes? , depends*)>
 
 <!-- Specify a jca-jdbc non-XADatasource (local) wrapper, using local
 transactions
 -->
 <!ELEMENT local-tx-datasource (jndi-name , connection-url , driver-class ,
- transaction-isolation? , connection-property* , user-name? , password? ,
- (application-managed-security | security-domain)? , min-pool-size? ,
- max-pool-size? , blocking-timeout-millis? , idle-timeout-minutes? ,
- new-connection-sql?, check-valid-connection-sql?, exception-sorter-class-name?,
- depends*)>
+transaction-isolation? , connection-property* , user-name? , password? ,
+(application-managed-security | security-domain | security-domain-and-application)? ,
+min-pool-size? , max-pool-size? , blocking-timeout-millis? , idle-timeout-minutes? ,
+no-tx-separate-pools? , new-connection-sql? , check-valid-connection-sql? ,
+valid-connection-checker-class-name? , exception-sorter-class-name? , track-statements? ,
+prepared-statement-cache-size? , depends*)>
 
 <!-- Specify a jca-jdbc XADatasource wrapper
 -->
-<!ELEMENT xa-datasource (jndi-name , track-connection-by-tx ,
- xa-datasource-class , xa-datasource-property* , isSameRM-override-value? ,
- transaction-isolation? , user-name? , password? ,
- (application-managed-security | security-domain)? , min-pool-size? ,
- max-pool-size? , blocking-timeout-millis? , idle-timeout-minutes? ,
- new-connection-sql?, check-valid-connection-sql?, exception-sorter-class-name?,
- depends*)>
+<!ELEMENT xa-datasource (jndi-name , track-connection-by-tx , xa-datasource-class ,
+xa-datasource-property* , isSameRM-override-value? , transaction-isolation? , user-name? , password? ,
+(application-managed-security | security-domain | security-domain-and-application)? ,
+min-pool-size? , max-pool-size? , blocking-timeout-millis? , idle-timeout-minutes? ,
+no-tx-separate-pools? , new-connection-sql? , check-valid-connection-sql? ,
+valid-connection-checker-class-name? , exception-sorter-class-name? , track-statements? ,
+prepared-statement-cache-size? , depends*)>
 
 <!-- The JNDI name under which the DataSource wrapper will be bound. Note that
 this name is relative to the "java:/" prefix. The full JNDI name of the
@@ -89,9 +90,8 @@ are used to distinguish connections in the pool.
 -->
 <!ELEMENT application-managed-security EMPTY>
 
-<!-- Indicates that either app supplied parameters (such as from
-getConnection(user, pw)) or Subject (from security domain). The content of the
-security-domain is the name of the JAAS security manager that will handle
+<!-- Indicates Subject (from security domain) are used to distinguish connections in the pool. 
+The content of the security-domain is the name of the JAAS security manager that will handle
 authentication. This name correlates to the JAAS login-config.xml descriptor
 application-policy/name attribute.
 
@@ -99,6 +99,23 @@ application-policy/name attribute.
    <security-domain>HsqlDbRealm</security-domain>
 -->
 <!ELEMENT security-domain (#PCDATA)>
+
+<!-- Indicates that either app supplied parameters (such as from
+getConnection(user, pw)) or Subject (from security domain) are used to
+distinguish connections in the pool. The content of the
+security-domain is the name of the JAAS security manager that will handle
+authentication. This name correlates to the JAAS login-config.xml descriptor
+application-policy/name attribute.
+
+   Ex:
+   <security-domain-and-application>HsqlDbRealm</security-domain-and-application>
+-->
+<!ELEMENT security-domain-and-application (#PCDATA)>
+
+<!-- Whether to use separete pools for connection retrieved in a transaction
+     and those retieved outside a transaction
+-->
+<!ELEMENT no-tx-separate-pools (#PCDATA)>
 
 <!-- The min-pool-size element indicates the minimum number of connections a
 pool should hold. These are not created until a Subject is known from a
@@ -203,6 +220,18 @@ may be called when managed connection is taken from pool for use.
 -->
 <!ELEMENT check-valid-connection-sql (#PCDATA)>
 
+<!-- An org.jboss.resource.adapter.jdbc.ValidConnectionChecker that provides
+a SQLException isValidConnection(Connection e) method to validate is a connection
+is valid. An exception means the connection is destroyed.
+This overrides the check-valid-connection-sql when present.
+
+Ex:
+<exception-sorter-class-name>
+   org.jboss.resource.adapter.jdbc.vendor.OracleValidConnectionChecker
+</exception-sorter-class-name>
+-->
+<!ELEMENT valid-connection-checker-class-name (#PCDATA)>
+
 <!-- An org.jboss.resource.adapter.jdbc.ExceptionSorter that provides
 a boolean isExceptionFatal(SQLException e) method to validate is an exception
 should be broadcast to all javax.resource.spi.ConnectionEventListener as
@@ -217,6 +246,15 @@ Ex:
 </exception-sorter-class-name>
 -->
 <!ELEMENT exception-sorter-class-name (#PCDATA)>
+
+<!-- Whether to check for unclosed statements when a
+     connection is returned to the pool
+-->
+<!ELEMENT track-statements (#PCDATA)>
+
+<!-- The number of prepared statements per connection in an LRU cache
+-->
+<!ELEMENT prepared-statement-cache-size (#PCDATA)>
 
 <!-- The depends element specifies the JMX ObjectName string of a service
 that the connection manager services depend on.
@@ -235,18 +273,18 @@ that the connection manager services depend on.
 <!-- The tx-connection-factory element is used to configure generic resource
 adapters supporting transactions
 -->
-<!ELEMENT tx-connection-factory (jndi-name, (local-transaction | xa-transaction),
- track-connection-by-tx? , adapter-display-name? , config-property* ,
- (application-managed-security | security-domain)? , min-pool-size? ,
- max-pool-size? , blocking-timeout-millis? , idle-timeout-minutes? , depends*)>
+<!ELEMENT tx-connection-factory (jndi-name , (local-transaction | xa-transaction) ,
+track-connection-by-tx? , adapter-display-name? , config-property* ,
+(application-managed-security | security-domain | security-domain-and-application)? ,
+min-pool-size? , max-pool-size? , blocking-timeout-millis? , idle-timeout-minutes? ,
+no-tx-separate-pools? , depends*)>
 
 <!-- The no-tx-connection-factory element is used to configure generic resource
 adapters that do not support transactions
 -->
-<!ELEMENT no-tx-connection-factory (jndi-name , adapter-display-name? ,
- config-property* , (application-managed-security | security-domain)? ,
- min-pool-size? , max-pool-size? , blocking-timeout-millis? ,
- idle-timeout-minutes? , depends*)>
+<!ELEMENT no-tx-connection-factory (jndi-name , adapter-display-name? , config-property* ,
+(application-managed-security | security-domain | security-domain-and-application)? ,
+min-pool-size? , max-pool-size? , blocking-timeout-millis? , idle-timeout-minutes? , depends*)>
 
 <!-- The display name to associate with the connection manager mbean.
 -->
@@ -275,3 +313,4 @@ factory property.
 factory property.
 -->
 <!ATTLIST config-property type CDATA  #REQUIRED>
+

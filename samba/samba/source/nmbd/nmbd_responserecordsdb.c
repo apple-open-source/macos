@@ -63,6 +63,11 @@ static void add_response_record(struct subnet_record *subrec,
 void remove_response_record(struct subnet_record *subrec,
 				struct response_record *rrec)
 {
+	DEBUG(4,("remove_response_record: rrec (%x) subrec (%x) \n", rrec, subrec));
+
+	if (!rrec || !subrec)
+		return;
+
 	if (rrec->prev)
 		rrec->prev->next = rrec->next;
 	if (rrec->next)

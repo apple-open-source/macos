@@ -45,7 +45,7 @@ const ClassInfo ArrayInstanceImp::info = {"Array", 0, 0, 0};
 ArrayInstanceImp::ArrayInstanceImp(ObjectImp *proto, unsigned initialLength)
   : ObjectImp(proto)
   , length(initialLength)
-  , storageLength(initialLength)
+  , storageLength(initialLength < sparseArrayCutoff ? initialLength : 0)
   , capacity(storageLength)
   , storage(capacity ? (ValueImp **)calloc(capacity, sizeof(ValueImp *)) : 0)
 {
@@ -279,7 +279,15 @@ static ExecState *execForCompareByStringForQSort;
 static int compareByStringForQSort(const void *a, const void *b)
 {
     ExecState *exec = execForCompareByStringForQSort;
-    return compare(Value(*(ValueImp **)a).toString(exec), Value(*(ValueImp **)b).toString(exec));
+    ValueImp *va = *(ValueImp **)a;
+    ValueImp *vb = *(ValueImp **)b;
+    if (va->dispatchType() == UndefinedType) {
+        return vb->dispatchType() == UndefinedType ? 0 : 1;
+    }
+    if (vb->dispatchType() == UndefinedType) {
+        return -1;
+    }
+    return compare(va->dispatchToString(exec), vb->dispatchToString(exec));
 }
 
 void ArrayInstanceImp::sort(ExecState *exec)
@@ -312,12 +320,22 @@ static CompareWithCompareFunctionArguments *compareWithCompareFunctionArguments;
 static int compareWithCompareFunctionForQSort(const void *a, const void *b)
 {
     CompareWithCompareFunctionArguments *args = compareWithCompareFunctionArguments;
-    
+
+    ValueImp *va = *(ValueImp **)a;
+    ValueImp *vb = *(ValueImp **)b;
+    if (va->dispatchType() == UndefinedType) {
+        return vb->dispatchType() == UndefinedType ? 0 : 1;
+    }
+    if (vb->dispatchType() == UndefinedType) {
+        return -1;
+    }
+
     args->arguments.clear();
-    args->arguments.append(*(ValueImp **)a);
-    args->arguments.append(*(ValueImp **)b);
-    return args->compareFunction->call(args->exec, args->globalObject, args->arguments)
-        .toInt32(args->exec);
+    args->arguments.append(va);
+    args->arguments.append(vb);
+    double compareResult = args->compareFunction->call
+        (args->exec, args->globalObject, args->arguments).toNumber(args->exec);
+    return compareResult < 0 ? -1 : compareResult > 0 ? 1 : 0;
 }
 
 void ArrayInstanceImp::sort(ExecState *exec, Object &compareFunction)
@@ -451,6 +469,8 @@ Value ArrayProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &args
       Value element = thisObj.get(exec,k);
       if (element.type() != UndefinedType && element.type() != NullType)
         str += element.toString(exec);
+      if ( exec->hadException() )
+	break;
     }
     result = String(str);
     break;
@@ -560,7 +580,7 @@ Value ArrayProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &args
     // We return a new array
     Object resObj = Object::dynamicCast(exec->interpreter()->builtinArray().construct(exec,List::empty()));
     result = resObj;
-    int begin = args[0].toUInt32(exec);
+    int begin = args[0].toInteger(exec);
     if ( begin < 0 )
       begin = maxInt( begin + length, 0 );
     else
@@ -568,7 +588,7 @@ Value ArrayProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &args
     int end = length;
     if (args[1].type() != UndefinedType)
     {
-      end = args[1].toUInt32(exec);
+      end = args[1].toInteger(exec);
       if ( end < 0 )
         end = maxInt( end + length, 0 );
       else
@@ -576,13 +596,14 @@ Value ArrayProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &args
     }
 
     //printf( "Slicing from %d to %d \n", begin, end );
-    for(unsigned int k = 0; k < (unsigned int) end-begin; k++) {
-      if (thisObj.hasProperty(exec,k+begin)) {
-        Value obj = thisObj.get(exec, k+begin);
-        resObj.put(exec, k, obj);
+    int n = 0;
+    for(int k = begin; k < end; k++, n++) {
+      if (thisObj.hasProperty(exec, k)) {
+        Value obj = thisObj.get(exec, k);
+        resObj.put(exec, n, obj);
       }
     }
-    resObj.put(exec, lengthPropertyName, Number(end - begin), DontEnum | DontDelete);
+    resObj.put(exec, lengthPropertyName, Number(n), DontEnum | DontDelete);
     break;
   }
   case Sort:{
@@ -625,16 +646,16 @@ Value ArrayProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &args
         for ( unsigned int j = i+1 ; j<length ; ++j )
           {
             Value jObj = thisObj.get(exec,j);
-            int cmp;
+            double cmp;
             if (jObj.type() == UndefinedType) {
-              cmp = 1;
+              cmp = 1; // don't check minObj because there's no need to differentiate == (0) from > (1)
             } else if (minObj.type() == UndefinedType) {
               cmp = -1;
             } else if (useSortFunction) {
                 List l;
                 l.append(jObj);
                 l.append(minObj);
-                cmp = sortFunction.call(exec, exec->interpreter()->globalObject(), l).toInt32(exec);
+                cmp = sortFunction.call(exec, exec->interpreter()->globalObject(), l).toNumber(exec);
             } else {
               cmp = (jObj.toString(exec) < minObj.toString(exec)) ? -1 : 1;
             }
@@ -765,8 +786,15 @@ bool ArrayObjectImp::implementsConstruct() const
 Object ArrayObjectImp::construct(ExecState *exec, const List &args)
 {
   // a single numeric argument denotes the array size (!)
-  if (args.size() == 1 && args[0].type() == NumberType)
-    return Object(new ArrayInstanceImp(exec->interpreter()->builtinArrayPrototype().imp(), args[0].toUInt32(exec)));
+  if (args.size() == 1 && args[0].type() == NumberType) {
+    uint32_t n = args[0].toUInt32(exec);
+    if (n != args[0].toNumber(exec)) {
+      Object error = Error::create(exec, RangeError, "Array size is not a small enough positive integer.");
+      exec->setException(error);
+      return error;
+    }
+    return Object(new ArrayInstanceImp(exec->interpreter()->builtinArrayPrototype().imp(), n));
+  }
 
   // otherwise the array is constructed with the arguments in it
   return Object(new ArrayInstanceImp(exec->interpreter()->builtinArrayPrototype().imp(), args));

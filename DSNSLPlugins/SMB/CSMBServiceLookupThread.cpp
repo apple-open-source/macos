@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -98,66 +96,79 @@ void CSMBServiceLookupThread::GetWorkgroupServers( char* workgroup )
 			argv[2] = workgroup;
 			argv[3] = "-NL";
 			argv[4] = lmbName;
-			argv[5] = "-U%";
-			argv[6] = "-s";
-			argv[7] = kBrowsingConfFilePath;
-		
-			DBGLOG( "CSMBServiceLookupThread::GetWorkgroupServers calling smbclient -W %s -NL %s -U\%\n", workgroup, lmbName );
-			if ( myexecutecommandas( NULL, "/usr/bin/smbclient", argv, false, kLMBGoodTimeOutVal, &resultPtr, &canceled, getuid(), getgid() ) < 0 )
+			
+			for ( int tryNum=1; tryNum<=2 && resultsFound==false; tryNum++ )
 			{
-				DBGLOG( "CSMBServiceLookupThread::GetWorkgroupServers smbclient -W %s -NL %s -U\%\n", workgroup, lmbName );
-			}
-			else if ( resultPtr )
-			{
-				DBGLOG( "CSMBServiceLookupThread::GetWorkgroupServers, resultPtr = 0x%lx, length = %ld\n", (UInt32)resultPtr, strlen(resultPtr) );
-				DBGLOG( "%s\n", resultPtr );
-				
-				if ( ExceptionInResult(resultPtr) )
+				if ( tryNum == 1 )
 				{
-					syslog( LOG_INFO, "Unable to browse contents of workgroup (%s) due to %s returning an error\n", workgroup, lmbName );
-					DBGLOG( "CSMBServiceLookupThread::GetWorkgroupServers, got an error, clearing cached lmb results\n" );
-					((CSMBPlugin*)GetParentPlugin())->OurLMBDiscoverer()->MarkLMBAsBad( lmbNameRef );
-					((CSMBPlugin*)GetParentPlugin())->OurLMBDiscoverer()->ClearLMBForWorkgroup(workgroupRef, lmbNameRef);
+					argv[5] = "-U%";		// first try use USER or LOGNAME env variable
+					argv[6] = "-s";
+					argv[7] = kBrowsingConfFilePath;
 				}
 				else
-				{        
-					char*		resultPtrCurrent = NULL;
-					CFArrayRef 	results = ParseOutStringsFromSMBClientResult( resultPtr, "Server", "Comment", &resultPtrCurrent );
-		
-					if ( results )
-					{
-						for ( CFIndex i=CFArrayGetCount(results)-2; i>=0; i-=2 )
-						{
-							resultsFound = true;
-							AddServiceResult( workgroupRef, (CFStringRef)CFArrayGetValueAtIndex(results, i), (CFStringRef)CFArrayGetValueAtIndex(results, i+1) );	// adding workgroup as key, lmb as value
-						}
-						
-						CFRelease( results );
-					}
-		
-					// now parse out the lmb results while we have the data!
-					CFArrayRef lmbResults = ParseOutStringsFromSMBClientResult( resultPtrCurrent, "Workgroup", "Master" );
-					
-					if ( lmbResults )
-					{
-						DBGLOG( "CSMBServiceLookupThread::GetWorkgroupServers is now parsing out the %d results for workgroups and their masters\n", CFArrayGetCount(lmbResults)/2 );
-						for ( CFIndex i=CFArrayGetCount(lmbResults)-2; i>=0; i-=2 )
-						{
-							CFStringRef		workgroupRef = (CFStringRef)CFArrayGetValueAtIndex(lmbResults, i);
-							CFStringRef		lmbNameRef = (CFStringRef)CFArrayGetValueAtIndex(lmbResults, i+1);
-							
-							if ( workgroupRef && CFStringGetLength( workgroupRef ) > 0 && lmbNameRef && CFStringGetLength( lmbNameRef ) > 0 && !((CSMBPlugin*)GetParentPlugin())->OurLMBDiscoverer()->IsLMBKnown( workgroupRef, lmbNameRef ) )		// do we already know about this workgroup?
-							{
-								((CSMBPlugin*)GetParentPlugin())->OurLMBDiscoverer()->AddToCachedResults( workgroupRef, lmbNameRef );		// if this is valid, add it to our list - don't fire off new threads
-							}
-						}
-						
-						CFRelease( lmbResults );
-					}
+				{
+					argv[5] = "-s";
+					argv[6] = kBrowsingConfFilePath;
+					argv[7] = NULL;			// second try use NULL or anon
 				}
-				
-				free( resultPtr );
-				resultPtr = NULL;
+		
+				DBGLOG( "CSMBServiceLookupThread::GetWorkgroupServers calling smbclient -W %s -NL %s -U\%\n", workgroup, lmbName );
+				if ( myexecutecommandas( NULL, "/usr/bin/smbclient", argv, false, kLMBGoodTimeOutVal, &resultPtr, &canceled, getuid(), getgid() ) < 0 )
+				{
+					DBGLOG( "CSMBServiceLookupThread::GetWorkgroupServers smbclient -W %s -NL %s -U\%\n", workgroup, lmbName );
+				}
+				else if ( resultPtr )
+				{
+					DBGLOG( "CSMBServiceLookupThread::GetWorkgroupServers, resultPtr = 0x%lx, length = %ld\n", (UInt32)resultPtr, strlen(resultPtr) );
+					DBGLOG( "%s\n", resultPtr );
+					
+					if ( ExceptionInResult(resultPtr) )
+					{
+						syslog( LOG_INFO, "Unable to browse contents of workgroup (%s) due to %s returning an error\n", workgroup, lmbName );
+						DBGLOG( "CSMBServiceLookupThread::GetWorkgroupServers, got an error, clearing cached lmb results\n" );
+						((CSMBPlugin*)GetParentPlugin())->OurLMBDiscoverer()->MarkLMBAsBad( lmbNameRef );
+						((CSMBPlugin*)GetParentPlugin())->OurLMBDiscoverer()->ClearLMBForWorkgroup(workgroupRef, lmbNameRef);
+					}
+					else
+					{        
+						char*		resultPtrCurrent = NULL;
+						CFArrayRef 	results = ParseOutStringsFromSMBClientResult( resultPtr, "Server", "Comment", &resultPtrCurrent );
+			
+						if ( results )
+						{
+							for ( CFIndex i=CFArrayGetCount(results)-2; i>=0; i-=2 )
+							{
+								resultsFound = true;
+								AddServiceResult( workgroupRef, (CFStringRef)CFArrayGetValueAtIndex(results, i), (CFStringRef)CFArrayGetValueAtIndex(results, i+1) );	// adding workgroup as key, lmb as value
+							}
+							
+							CFRelease( results );
+						}
+			
+						// now parse out the lmb results while we have the data!
+						CFArrayRef lmbResults = ParseOutStringsFromSMBClientResult( resultPtrCurrent, "Workgroup", "Master" );
+						
+						if ( lmbResults )
+						{
+							DBGLOG( "CSMBServiceLookupThread::GetWorkgroupServers is now parsing out the %d results for workgroups and their masters\n", CFArrayGetCount(lmbResults)/2 );
+							for ( CFIndex i=CFArrayGetCount(lmbResults)-2; i>=0; i-=2 )
+							{
+								CFStringRef		workgroupRef = (CFStringRef)CFArrayGetValueAtIndex(lmbResults, i);
+								CFStringRef		lmbNameRef = (CFStringRef)CFArrayGetValueAtIndex(lmbResults, i+1);
+								
+								if ( workgroupRef && CFStringGetLength( workgroupRef ) > 0 && lmbNameRef && CFStringGetLength( lmbNameRef ) > 0 && !((CSMBPlugin*)GetParentPlugin())->OurLMBDiscoverer()->IsLMBKnown( workgroupRef, lmbNameRef ) )		// do we already know about this workgroup?
+								{
+									((CSMBPlugin*)GetParentPlugin())->OurLMBDiscoverer()->AddToCachedResults( workgroupRef, lmbNameRef );		// if this is valid, add it to our list - don't fire off new threads
+								}
+							}
+							
+							CFRelease( lmbResults );
+						}
+					}
+					
+					free( resultPtr );
+					resultPtr = NULL;
+				}
 			}
 		}
 	}

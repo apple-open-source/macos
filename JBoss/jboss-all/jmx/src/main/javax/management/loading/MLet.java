@@ -28,6 +28,7 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.StringTokenizer;
+import java.util.List;
 
 import java.text.ParseException;
 
@@ -47,7 +48,7 @@ import org.jboss.mx.util.MBeanInstaller;
  * @see javax.management.loading.MLetMBean
  *
  * @author  <a href="mailto:juha@jboss.org">Juha Lindfors</a>.
- * @version $Revision: 1.10.4.3 $  
+ * @version $Revision: 1.10.4.4 $  
  *
  * <p><b>Revisions:</b>
  *
@@ -246,14 +247,15 @@ public class MLet
             if (codebase == null)
                codebase = url.toString().substring(0, url.toString().lastIndexOf('/'));
 
-            Iterator archives  = element.getArchives().iterator();
             String codebaseURL = null;
-            
-            while (archives.hasNext())
+
+            List archives  = element.getArchives();
+
+            for (int i = 0; i <archives.size(); i++)
             {
                try
                {
-                  codebaseURL = codebase + ((codebase.endsWith("/")) ? "" : "/") + archives.next();
+                  codebaseURL = codebase + ((codebase.endsWith("/")) ? "" : "/") + archives.get(i);
                   addURL(new URL(codebaseURL));
                }
                catch (MalformedURLException e)

@@ -1,13 +1,19 @@
 {
     DYNAMIC_CODE_GEN = YES; 
     FILESTABLE = {
-        FRAMEWORKS = (CoreFoundation.framework, SystemConfiguration.framework); 
-        H_FILES = (); 
-        OTHER_LINKED = (scselect.c); 
-        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, m.template, h.template); 
-        PRECOMPILED_HEADERS = (); 
-        PROJECT_HEADERS = (); 
-        PUBLIC_HEADERS = (); 
+        FRAMEWORKS = ("CoreFoundation.framework", "SystemConfiguration.framework"); 
+        "H_FILES" = (); 
+        "OTHER_LINKED" = ("scselect.c"); 
+        "OTHER_SOURCES" = (
+            "Makefile.preamble", 
+            Makefile, 
+            "Makefile.postamble", 
+            "m.template", 
+            "h.template"
+        ); 
+        "PRECOMPILED_HEADERS" = (); 
+        "PROJECT_HEADERS" = (); 
+        "PUBLIC_HEADERS" = (); 
         SUBPROJECTS = (); 
     }; 
     LANGUAGE = English; 

@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<!--
+   XML Schema used by SnmpAgent to configure the JMX listening subscriptions:
+   which JMX Notifications to intercept from which MBeans.
+   
+   $Revision: 1.1.2.2 $
+   
+   Authors
+      <a href="mailto:spol@intracom.gr">Spyros Pollatos</a>
+      <a href="mailto:andd@intracom.gr">Dimitris Andreadis</a>
+-->
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns="http://www.w3.org/2001/XMLSchema">
+
+   <xsd:annotation>
+      <xsd:documentation xml:lang="en">
+         Schema describes the data held by the subscription manager 
+         regarding:
+            1.  The name of the objects that are to be subscribed to for 
+                notifications
+            2.  For each object the event types to be included in the 
+                subscription
+      </xsd:documentation>
+   </xsd:annotation>
+
+   <xsd:element name="monitored-obj-list">
+      <xsd:complexType>
+         <xsd:sequence>
+            <xsd:element name="monitored-obj" minOccurs="0" maxOccurs="unbounded">
+               <xsd:complexType>
+                  <xsd:sequence>
+                     <xsd:element name="object-name" type="xsd:string" />
+                     <xsd:element name="notification-type" minOccurs="1" maxOccurs="unbounded" type="xsd:string"/>
+                  </xsd:sequence>
+               </xsd:complexType>
+            </xsd:element>
+         </xsd:sequence>
+      </xsd:complexType>
+   </xsd:element>
+</xsd:schema>

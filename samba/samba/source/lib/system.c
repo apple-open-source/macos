@@ -100,6 +100,47 @@ ssize_t sys_write(int fd, const void *buf, size_t count)
 	return ret;
 }
 
+
+/*******************************************************************
+A pread wrapper that will deal with EINTR and 64-bit file offsets.
+********************************************************************/
+
+#if defined(HAVE_PREAD) || defined(HAVE_PREAD64)
+ssize_t sys_pread(int fd, void *buf, size_t count, SMB_OFF_T off)
+{
+	ssize_t ret;
+
+	do {
+#if defined(HAVE_EXPLICIT_LARGEFILE_SUPPORT) && defined(HAVE_OFF64_T) && defined(HAVE_PREAD64)
+		ret = pread64(fd, buf, count, off);
+#else
+		ret = pread(fd, buf, count, off);
+#endif
+	} while (ret == -1 && errno == EINTR);
+	return ret;
+}
+#endif
+
+/*******************************************************************
+A write wrapper that will deal with EINTR and 64-bit file offsets.
+********************************************************************/
+
+#if defined(HAVE_PWRITE) || defined(HAVE_PWRITE64)
+ssize_t sys_pwrite(int fd, const void *buf, size_t count, SMB_OFF_T off)
+{
+	ssize_t ret;
+
+	do {
+#if defined(HAVE_EXPLICIT_LARGEFILE_SUPPORT) && defined(HAVE_OFF64_T) && defined(HAVE_PWRITE64)
+		ret = pwrite64(fd, buf, count, off);
+#else
+		ret = pwrite(fd, buf, count, off);
+#endif
+	} while (ret == -1 && errno == EINTR);
+	return ret;
+}
+#endif
+
 /*******************************************************************
 A send wrapper that will deal with EINTR.
 ********************************************************************/
@@ -449,6 +490,8 @@ int sys_chown(const char *fname,uid_t uid,gid_t gid)
 		DEBUG(1,("WARNING: no chown!\n"));
 		done=1;
 	}
+	errno = ENOSYS;
+	return -1;
 #else
 	return(chown(fname,uid,gid));
 #endif
@@ -693,7 +736,6 @@ int sys_getgroups(int setlen, gid_t *gidset)
 #endif /* HAVE_BROKEN_GETGROUPS */
 }
 
-#ifdef HAVE_SETGROUPS
 
 /**************************************************************************
  Wrapper for setgroups. Deals with broken (int) case. Automatically used
@@ -702,6 +744,11 @@ int sys_getgroups(int setlen, gid_t *gidset)
 
 int sys_setgroups(int setlen, gid_t *gidset)
 {
+#if !defined(HAVE_SETGROUPS)
+	errno = ENOSYS;
+	return -1;
+#endif /* HAVE_SETGROUPS */
+
 #if !defined(HAVE_BROKEN_GETGROUPS)
 	return setgroups(setlen, gidset);
 #else
@@ -741,8 +788,6 @@ int sys_setgroups(int setlen, gid_t *gidset)
 	return 0 ;
 #endif /* HAVE_BROKEN_GETGROUPS */
 }
-
-#endif /* HAVE_SETGROUPS */
 
 /**************************************************************************
  Wrappers for setpwent(), getpwent() and endpwent()
@@ -1319,7 +1364,7 @@ ssize_t sys_fgetxattr (int filedes, const char *name, void *value, size_t size)
 #endif
 }
 
-#if defined(HAVE_ATTR_LIST)
+#if defined(HAVE_ATTR_LIST) && defined(HAVE_SYS_ATTRIBUTES_H)
 static char attr_buffer[ATTR_MAX_VALUELEN];
 
 static ssize_t irix_attr_list(const char *path, int filedes, char *list, size_t size, int flags)
@@ -1391,7 +1436,7 @@ ssize_t sys_listxattr (const char *path, char *list, size_t size)
 {
 #if defined(HAVE_LISTXATTR)
 	return listxattr(path, list, size);
-#elif defined(HAVE_ATTR_LIST)
+#elif defined(HAVE_ATTR_LIST) && defined(HAVE_SYS_ATTRIBUTES_H)
 	return irix_attr_list(path, 0, list, size, 0);
 #else
 	errno = ENOSYS;
@@ -1403,7 +1448,7 @@ ssize_t sys_llistxattr (const char *path, char *list, size_t size)
 {
 #if defined(HAVE_LLISTXATTR)
 	return llistxattr(path, list, size);
-#elif defined(HAVE_ATTR_LIST)
+#elif defined(HAVE_ATTR_LIST) && defined(HAVE_SYS_ATTRIBUTES_H)
 	return irix_attr_list(path, 0, list, size, ATTR_DONTFOLLOW);
 #else
 	errno = ENOSYS;

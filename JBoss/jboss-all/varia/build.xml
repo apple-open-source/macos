@@ -15,7 +15,7 @@
 <!-- ====================================================================== -->
 
 
-<!-- $Id: build.xml,v 1.41.2.16 2003/05/27 05:32:56 starksm Exp $ -->
+<!-- $Id: build.xml,v 1.41.2.24 2003/11/26 03:45:05 starksm Exp $ -->
 
 <project default="main" name="JBoss/Varia">
 
@@ -83,13 +83,14 @@
       <path refid="apache.log4j.classpath"/>
       <path refid="apache.commons.classpath"/>
       <path refid="gnu.regexp.classpath"/>
-      <path refid="javagroups.javagroups.classpath" />
+      <path refid="jgroups.jgroups.classpath" />
       <path refid="junit.junit.classpath"/>
       <path refid="hsqldb.hsqldb.classpath"/>
       <path refid="exolab.castor.classpath"/>
       <path refid="exolab.tyrex.classpath"/>
       <path refid="apache.ant.classpath"/>
       <path refid="beanshell.beanshell.classpath"/>
+      <path refid="opennms.joesnmp.classpath"/>
     </path>
 
     <!-- ======= -->
@@ -128,6 +129,7 @@
     <property name="build.resources" value="${module.output}/resources"/>
     <property name="build.reports" value="${module.output}/reports"/>
     <property name="build.gen-src" value="${module.output}/gen-src"/>
+    <property name="build.todo" value="${module.output}/todo"/>
 
     <!-- Install/Release structure -->
     <property name="install.id" value="${module.name}-${module.version}"/>
@@ -165,24 +167,6 @@
     <!-- Packages to include when generating api documentation -->
     <property name="javadoc.packages" value="org.jboss.*"/>
 
-    <!-- Override JUnit defaults -->
-    <property name="junit.timeout" value="240000"/> <!-- 4 minutes -->
-    <property name="junit.batchtest.todir" value="${build.reports}"/>
-    <property name="junit.jvm.options" value="-Ddummy"/>
-
-    <!-- xdoclet -->
-    <path id="xdoclet.task.classpath">
-      <path refid="javac.classpath"/>
-      <fileset dir="${project.thirdparty}/xdoclet/xdoclet/lib">
-        <include name="**/*.jar"/>
-      </fileset>
-    </path>
-    <property name="xdoclet.task.classpath" 
-	      refid="xdoclet.task.classpath"/>
-
-    <taskdef name="todo" 
-             classname="xdoclet.modules.doc.DocumentDocletTask"
-             classpathref="xdoclet.task.classpath"/>
   </target>
 
 
@@ -198,8 +182,8 @@
      |  documentation compiles.
     -->
   <target name="compile" 
-	  depends="compile-mbean-sources, compile-classes, compile-rmi, compile-etc, compile-resources" 
-	  description="Compile all source files."/>
+     depends="compile-mbean-sources, compile-xsds, compile-classes, compile-rmi, compile-etc, compile-resources" 
+     description="Compile all source files."/>
 
   <!-- Compile mbeans with XDoclet -->
   <target name="compile-mbean-sources" depends="init">
@@ -207,8 +191,8 @@
 
     <mkdir dir="${build.gen-src}"/>
     <jmxdoclet 
-	     destdir="${build.gen-src}"
-	     excludedtags="@version,@author">
+        destdir="${build.gen-src}"
+        excludedtags="@version,@author">
       <fileset dir="${source.java}">
         <include name="**/*.java"/>
       </fileset>
@@ -216,19 +200,54 @@
     </jmxdoclet>
   </target>
 
+    <!-- Compile XML schemas with Castor -->
+  <target name="compile-xsds" depends="init">
+    <delete dir="${build.gen-src}/org/jboss/jmx/adaptor/snmp/config"/>
+    
+    <java classname="org.exolab.castor.builder.SourceGenerator" fork="true">
+      <arg line="-i ${source.resources}/services/snmp/config/Subscription.xsd"/>
+      <arg line="-package org.jboss.jmx.adaptor.snmp.config.subscription"/>
+      <arg line="-dest ${build.gen-src}"/>
+      <arg line="-types j2"/>
+      <arg line="-nodesc"/>
+      <classpath refid="exolab.castor.classpath"/>
+      <classpath refid="apache.xalan.classpath"/>
+    </java>
+
+    <java classname="org.exolab.castor.builder.SourceGenerator" fork="true">
+      <arg line="-i ${source.resources}/services/snmp/config/Notification.xsd"/>
+      <arg line="-package org.jboss.jmx.adaptor.snmp.config.notification"/>
+      <arg line="-dest ${build.gen-src}"/>
+      <arg line="-types j2"/>
+      <arg line="-nodesc"/>
+      <classpath refid="exolab.castor.classpath"/>
+      <classpath refid="apache.xalan.classpath"/>
+    </java>
+    
+    <java classname="org.exolab.castor.builder.SourceGenerator" fork="true">
+      <arg line="-i ${source.resources}/services/snmp/config/Manager.xsd"/>
+      <arg line="-package org.jboss.jmx.adaptor.snmp.config.manager"/>
+      <arg line="-dest ${build.gen-src}"/>
+      <arg line="-types j2"/>
+      <arg line="-nodesc"/>
+      <classpath refid="exolab.castor.classpath"/>
+      <classpath refid="apache.xalan.classpath"/>
+    </java>
+  </target>
+  
   <!-- Compile all class files -->
   <target name="compile-classes" depends="init">
     <mkdir dir="${build.classes}"/>
     <javac destdir="${build.classes}"
            optimize="${javac.optimize}"
-	   target="${javac.target}"
+      target="${javac.target}"
            debug="${javac.debug}"
-	   depend="${javac.depend}"
-	   verbose="${javac.verbose}"
-	   deprecation="${javac.deprecation}"
-	   includeAntRuntime="${javac.include.ant.runtime}"
-	   includeJavaRuntime="${javac.include.java.runtime}"
-	   failonerror="${javac.fail.onerror}">
+      depend="${javac.depend}"
+      verbose="${javac.verbose}"
+      deprecation="${javac.deprecation}"
+      includeAntRuntime="${javac.include.ant.runtime}"
+      includeJavaRuntime="${javac.include.java.runtime}"
+      failonerror="${javac.fail.onerror}">
        <src path="${source.java}"/>
        <src path="${build.gen-src}"/>
        <classpath refid="javac.classpath"/>
@@ -240,12 +259,12 @@
   <!-- Compile RMI stubs -->
   <target name="compile-rmi" depends="compile-classes">
     <rmic base="${build.classes}"
-	  verify="${rmic.verify}"
-	  iiop="${rmic.iiop}"
-	  iiopopts="${rmic.iiopops}"
-	  idl="${rmic.idl}"
-	  idlopts="${rmic.idlops}"
-	  debug="${rmic.debug}"
+     verify="${rmic.verify}"
+     iiop="${rmic.iiop}"
+     iiopopts="${rmic.iiopops}"
+     idl="${rmic.idl}"
+     idlopts="${rmic.idlops}"
+     debug="${rmic.debug}"
           stubVersion="${rmic.stubVersion}">
       <classpath refid="javac.classpath"/>
       <include name="${rmic.includes}"/>
@@ -283,12 +302,17 @@
   <!-- 
      |  Build all jar files.
     -->
-  <target name="jars" depends="compile" description="Builds all jar files.">
+  <target name="jars" description="Builds all jar files."
+     depends="_buildmagic:build-bypass-check"
+     unless="build-bypass.on">
+
+    <call target="compile"/>
+
     <mkdir dir="${build.lib}"/>
 
     <!-- Build castor-jdo-plugin.jar -->
     <jar jarfile="${build.lib}/castor-jdo-plugin.jar"
-	 manifest="${build.etc}/default.mf">
+    manifest="${build.etc}/default.mf">
       <fileset dir="${build.classes}">
         <include name="org/jboss/jdo/castor/**"/>
       </fileset>
@@ -309,7 +333,7 @@
 
     <!-- autonumber-plugin.jar -->
     <jar jarfile="${build.lib}/autonumber-plugin.jar"
-	 manifest="${build.etc}/default.mf">
+    manifest="${build.etc}/default.mf">
       <fileset dir="${build.classes}">
         <include name="org/jboss/varia/autonumber/**"/>
       </fileset>
@@ -317,7 +341,7 @@
 
     <!-- counter-plugin.jar -->
     <jar jarfile="${build.lib}/counter-plugin.jar"
-	 manifest="${build.etc}/default.mf">
+    manifest="${build.etc}/default.mf">
       <fileset dir="${build.classes}">
         <include name="org/jboss/varia/counter/**"/>
       </fileset>
@@ -325,7 +349,7 @@
 
     <!-- scheduler-plugin.jar -->
     <jar jarfile="${build.lib}/scheduler-plugin.jar"
-	 manifest="${build.etc}/default.mf">
+    manifest="${build.etc}/default.mf">
       <fileset dir="${build.classes}">
         <include name="org/jboss/varia/scheduler/**"/>
       </fileset>
@@ -333,7 +357,7 @@
 
     <!-- scheduler-plugin-example.jar -->
     <jar jarfile="${build.lib}/scheduler-plugin-example.jar"
-	 manifest="${build.etc}/default.mf">
+    manifest="${build.etc}/default.mf">
       <fileset dir="${build.classes}">
         <include name="org/jboss/varia/scheduler/example/**"/>
       </fileset>
@@ -341,7 +365,7 @@
 
     <!-- mail-plugin.jar -->
     <jar jarfile="${build.lib}/mail-plugin.jar"
-	 manifest="${build.etc}/default.mf">
+    manifest="${build.etc}/default.mf">
       <fileset dir="${build.classes}">
         <include name="org/jboss/mail/MailService*.class"/>
       </fileset>
@@ -362,7 +386,7 @@
 
     <!-- hsqldb-plugin.jar -->
     <jar jarfile="${build.lib}/hsqldb-plugin.jar"
-	 manifest="${build.etc}/default.mf">
+    manifest="${build.etc}/default.mf">
       <fileset dir="${build.classes}">
         <include name="org/jboss/jdbc/Hypersonic**"/>
       </fileset>
@@ -370,7 +394,7 @@
 
     <!-- properties-plugin.jar -->
     <jar jarfile="${build.lib}/properties-plugin.jar"
-	 manifest="${build.etc}/default.mf">
+    manifest="${build.etc}/default.mf">
       <fileset dir="${build.classes}">
         <include name="org/jboss/varia/property/**"/>
       </fileset>
@@ -378,7 +402,7 @@
 
     <!-- process-plugin.jar -->
     <jar jarfile="${build.lib}/process-plugin.jar"
-	 manifest="${build.etc}/default.mf">
+    manifest="${build.etc}/default.mf">
       <fileset dir="${build.classes}">
         <include name="org/jboss/varia/process/**"/>
       </fileset>
@@ -408,15 +432,19 @@
       <fileset dir="${build.resources}/deployment">
         <include name="META-INF/**"/>
         <include name="resources/6.1/**"/>
+        <include name="resources/5.1/**"/>
       </fileset>
       <fileset dir="${build.etc}">
          <include name="foe-deployer-service.xml"/>
       </fileset>
-<!-- AS Seems to causes trouble
-      <fileset dir="${project.thirdparty}">
-        <include name="sun/jaxp/lib/xalan.jar"/>
+    </jar>
+
+    <!-- dsdelegator.jar -->
+    <jar jarfile="${build.lib}/dsdelegator.jar"
+         manifest="${build.etc}/default.mf">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/varia/dsdelegator/**"/>
       </fileset>
--->
     </jar>
 
     <!-- htmladaptor.war -->
@@ -425,13 +453,11 @@
       <webinf dir="${source.resources}/jmx/web-inf" />
       <classes dir="${build.classes}">
         <include name="org/jboss/jmx/adaptor/**"/>
+        <exclude name="org/jboss/jmx/adaptor/snmp/**"/>
       </classes>
       <classes dir="${source.resources}/jmx">
         <include name="*.properties"/>
       </classes>
-      <lib dir="${jboss.jmx.lib}">
-        <include name="jboss-jmx.jar"/>
-      </lib>
       <fileset dir="${source.resources}/jmx/html" />
     </war>
 
@@ -467,13 +493,15 @@
 
     <!-- Build jbossjmx-ant.jar -->
     <jar jarfile="${build.lib}/jbossjmx-ant.jar"
-	 manifest="${build.etc}/default.mf">
+    manifest="${build.etc}/default.mf">
       <fileset dir="${build.classes}">
         <include name="org/jboss/ant/**"/>
       </fileset>
+<!-- jndi.properties files in the client jars can cause conflicts
       <fileset dir="${build.resources}/ant">
         <include name="jndi.properties"/>
       </fileset>
+-->
       <fileset dir="${jboss.naming.root}/classes">
         <include name="org/jnp/interfaces/**"/>
         <include name="org/jnp/server/*Stub.class"/>
@@ -529,6 +557,46 @@
       </fileset>
     </jar>
 
+    <!-- loadbalancer.war -->
+    <war warfile="${build.lib}/loadbalancer.war"
+         webxml="${build.resources}/loadbalancer/web.xml">
+       <webinf dir="${build.resources}/loadbalancer">
+          <include name="jboss-web.xml"/>
+       </webinf>
+    </war>
+    <jar jarfile="${build.lib}/loadbalancer.sar">
+       <metainf dir="${build.resources}/loadbalancer">
+          <include name="jboss-service.xml"/>
+       </metainf>
+       <fileset dir="${build.classes}">
+          <include name="org/jboss/web/loadbalancer/**"/>
+       </fileset>
+       <fileset dir="${apache.commons.lib}">
+          <include name="commons-httpclient.jar"/>
+       </fileset>
+       <fileset dir="${build.lib}">
+          <include name="loadbalancer.war"/>
+       </fileset>
+    </jar>
+    
+    <!-- snmp-adaptor.sar and jar -->
+    <jar jarfile="${build.lib}/snmp-adaptor.jar"
+    manifest="${build.etc}/default.mf">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/jmx/adaptor/snmp/**"/>
+      </fileset>
+    </jar>
+    <jar jarfile="${build.lib}/snmp-adaptor.sar"
+         manifest="${build.etc}/default.mf">
+      <fileset dir="${build.resources}/services/snmp/deploy"/>
+      <fileset dir="${exolab.castor.lib}">
+        <include name="castor.jar"/>
+      </fileset>
+    </jar>
+
+    <!-- Update the build marker to allow bypassing -->
+    <touch file="${build-bypass.marker}"/>
+
   </target>
 
   <!-- ================================================================== -->
@@ -536,26 +604,26 @@
   <!-- ================================================================== -->
 
   <target name="install" 
-	  description="Install the structure for a release."
-	  depends="all, _buildmagic:install:default"/>
+     description="Install the structure for a release."
+     depends="all, _buildmagic:install:default"/>
 
   <target name="release" depends="install"/>
 
   <target name="release-zip" 
-	  description="Builds a ZIP distribution."
-	  depends="release, _buildmagic:release:zip"/>
+     description="Builds a ZIP distribution."
+     depends="release, _buildmagic:release:zip"/>
 
   <target name="release-tar" 
-	  description="Builds a TAR distribution."
-	  depends="release, _buildmagic:release:tar"/>
+     description="Builds a TAR distribution."
+     depends="release, _buildmagic:release:tar"/>
 
   <target name="release-tgz" 
-	  description="Builds a TAR-GZ distribution."
-	  depends="release, _buildmagic:release:tgz"/>
+     description="Builds a TAR-GZ distribution."
+     depends="release, _buildmagic:release:tgz"/>
 
   <target name="release-all"
-	  description="Builds a distribution for each archive type."
-	  depends="release-zip, release-tgz"/>
+     description="Builds a distribution for each archive type."
+     depends="release-zip, release-tgz"/>
 
 
   <!-- ================================================================== -->
@@ -564,14 +632,14 @@
 
   <!-- Clean up all build output -->
   <target name="clean" 
-	  description="Cleans up most generated files."
-	  depends="_buildmagic:clean">
+     description="Cleans up most generated files."
+     depends="_buildmagic:clean">
   </target>
 
   <!-- Clean up all generated files -->
   <target name="clobber" 
-	  description="Cleans up all generated files."
-	  depends="_buildmagic:clobber, clean">
+     description="Cleans up all generated files."
+     depends="_buildmagic:clobber, clean">
   </target>
 
 
@@ -580,19 +648,19 @@
   <!-- ================================================================== -->
 
   <target name="main"
-	  description="Executes the default target (most)."
-	  depends="most"/>
+     description="Executes the default target (most)."
+     depends="most"/>
     
   <target name="all"
-	  description="Builds everything."
-	  depends="jars, docs"/>
+     description="Builds everything."
+     depends="jars, docs"/>
 
   <target name="most" 
-	  description="Builds almost everything."
-	  depends="jars"/>
+     description="Builds almost everything."
+     depends="jars"/>
 
   <target name="help" 
           description="Show this help message."
-	  depends="_buildmagic:help:standard"/>
+     depends="_buildmagic:help:standard"/>
 
 </project>

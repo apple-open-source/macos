@@ -18,7 +18,7 @@
 <tr>
 <td width="30%">Back to <a href="index.html">Fetchmail Home Page</a></td>
 <td width="30%" align="center">To <a href="/~esr/sitemap.html">Site Map</a></td>
-<td width="30%" align="right">$Date: 2002/11/08 02:15:29 $</td>
+<td width="30%" align="right">$Date: 2003/10/16 17:59:42 $</td>
 </tr>
 </table>
 
@@ -28,7 +28,7 @@
 <h2>Since 5.0:</h2>
 
 <ul>
-<li>STARTTLS is supportrf in both POP and IMAP. 
+<li>STARTTLS is supported in both POP and IMAP. 
 
 <li>ESMTP AUTH (RFC 2554) is supported.</li>
 
@@ -61,10 +61,10 @@ delivered-to headers looking exactly the same as the ones it adds
 himself, it bounces the message.</li>
 
 <li>Added --smtpname to set username and domain portion of SMTP
-"RCPT TO" command. &gt;fetchmail@mail.julianhaight.com&gt;.</li>
+"RCPT TO" command. &lt;fetchmail@mail.julianhaight.com&gt;.</li>
 
 <li>Added "from" server's IP address to inserted Received line
-&gt;fetchmail@mail.julianhaight.com&lt;.</li>
+&lt;fetchmail@mail.julianhaight.com&lt;.</li>
 
 <li>Fetchmail now runs on BeOS, thanks to David Reid
 &lt;david@jetnet.co.uk&gt;.</li>
@@ -80,7 +80,8 @@ saying `aka netaxs.com' will match not just netaxs.com but also
 (say) pop3.netaxs.com and mail.netaxs.com.</li>
 
 <li>Fetchmail can optionally use the RFC 2177 IDLE extension on an
-IMAP server that supports it.</li>
+IMAP server that supports it. On IMAP servers that don't, it can
+simulate it using periodic NOOP commands.</li>
 
 <li>Fetchmail now recognizes the RFC 2449 extended responses
 [IN-USE] and [LOGIN-DELAY].</li>
@@ -280,7 +281,7 @@ be unique to fetchmail if I hadn't added it to fetchpop.)</li>
 <tr>
 <td width="30%">Back to <a href="index.html">Fetchmail Home Page</a></td>
 <td width="30%" align="center">To <a href="/~esr/sitemap.html">Site Map</a></td>
-<td width="30%" align="right">$Date: 2002/11/08 02:15:29 $</td>
+<td width="30%" align="right">$Date: 2003/10/16 17:59:42 $</td>
 </tr>
 </table>
 

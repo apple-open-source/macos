@@ -16,7 +16,7 @@ content="Frequently asked questions about fetchmail."/>
 Page</a></td>
 <td width="30%" align="center">To <a href="/~esr/sitemap.html">Site
 Map</a></td>
-<td width="30%" align="right">$Date: 2002/11/08 02:15:28 $</td>
+<td width="30%" align="right">$Date: 2003/10/16 17:59:42 $</td>
 </tr>
 </table>
 
@@ -98,19 +98,22 @@ host?.</a><br/>
 
 <a href="#S1">S1. How can I use fetchmail with qpopper?</a><br/>
 <a href="#S2">S2. How can I use fetchmail with Microsoft Exchange?</a><br/>
-<a href="#S3">S3. How can I use fetchmail with Compuserve RPA?</a><br/>
-<a href="#S4">S4. How can I use fetchmail with Demon Internet's SDPS?</a><br/>
-<a href="#S5">S5. How can I use fetchmail with usa.net's servers?</a><br/>
-<a href="#S6">S6. How can I use fetchmail with HP OpenMail?</a><br/>
-<a href="#S7">S7. How can I use fetchmail with geocities POP3 servers?</a><br/>
-<a href="#S8">S8. How can I use fetchmail with Hotmail?</a><br/>
-<a href="#S9">S9. How can I use fetchmail with MSN?</a><br/>
-<a href="#S10">S10. How can I use fetchmail with SpryNet?</a><br/>
-<a href="#S11">S11. How can I use fetchmail with FTGate?</a><br/>
-<a href="#S12">S12. How can I use fetchmail with MailMax?</a><br/>
-<a href="#S13">S13. How can I use fetchmail with Novell GroupWise?</a><br/>
-<a href="#S14">S14. How can I use fetchmail with InterChange?</a><br/>
-<a href="#S15">S15. How can I use fetchmail with www.gmx.de?</a><br/>
+<a href="#S3">S3. How can I use fetchmail with HP OpenMail?</a><br/>
+<a href="#S4">S4. How can I use fetchmail with Novell GroupWise?</a><br/>
+<a href="#S5">S5. How can I use fetchmail with InterChange?</a><br/>
+<a href="#S6">S6. How can I use fetchmail with MailMax?</a><br/>
+<a href="#S7">S7. How can I use fetchmail with FTGate?</a><br/>
+
+<h1>How to fetchmail work with specific ISPs:</h1>
+
+<a href="#I1">I1. How can I use fetchmail with Compuserve RPA?</a><br/>
+<a href="#I2">I2. How can I use fetchmail with Demon Internet's SDPS?</a><br/>
+<a href="#I3">I3. How can I use fetchmail with usa.net's servers?</a><br/>
+<a href="#I4">I4. How can I use fetchmail with geocities POP3 servers?</a><br/>
+<a href="#I5">I5. How can I use fetchmail with Hotmail?</a><br/>
+<a href="#I6">I6. How can I use fetchmail with MSN?</a><br/>
+<a href="#I7">I7. How can I use fetchmail with SpryNet?</a><br/>
+<a href="#I8">I8. How can I use fetchmail with comcast.net?</a><br/>
 
 <h1>How to set up well-known security and authentication
 methods:</h1>
@@ -222,7 +225,8 @@ messages over and over?</a><br/>
 same?</a><br/>
 <a href="#O11">O11. I keep getting messages that say "Repoll
 immediately" in my logs.</a><br/>
-
+<a href="#O12">O12. Fetchmail no longer expunges mail on a 451 SMTP response.</a><br/>
+<a href="#O13">O13. I want timestamp information in my fetchmail logs.</a>
 
 <h1>Answers:</h1>
 
@@ -264,7 +268,7 @@ fetchmail sources?</a></h2>
 
 <p>The latest HTML FAQ is available alongside the latest fetchmail
 sources at the fetchmail home page: <a
-href="http://www.tuxedo.org/~esr/fetchmail">http://www.tuxedo.org/~esr/fetchmail</a>.
+href="http://www.catb.org/~esr/fetchmail">http://www.catb.org/~esr/fetchmail</a>.
 You can also usually find both in the <a
 href="http://sunsite.unc.edu/pub/Linux/system/mail/pop/!INDEX.html">
 POP mail tools directory on Sunsite</a>.</p>
@@ -396,7 +400,11 @@ tin-like kill files).</p>
 
 <p>You can do spam filtering better with procmail or maildrop on
 the server side and (if you're the server sysadmin) sendmail.cf
-domain exclusions. You can do other policy things better with the
+domain exclusions. If you really want fetchmail to do it from the
+client side, yse a <code>preconnect</code> command to call
+<a href='http://mailfilter.sourceforge.net/'>mailfilter</a>.</p>
+
+<p>You can do other policy things better with the
 <code>mda</code> option and script wrappers around fetchmail. If
 it's a prime-time-vs.-non-prime-time issue, ask yourself whether a
 wrapper script called from crontab would do the job.</p>
@@ -409,7 +417,7 @@ fetchmail simple so it stays reliable.</p>
 <p>For reasons fetchmail doesn't have other commonly-requested
 features (such as password encryption, or multiple concurrent polls
 from the same instance of fetchmail) see the <a
-href="http://www.tuxedo.org/~esr/fetchmail/design-notes.html">design
+href="http://www.catb.org/~esr/fetchmail/design-notes.html">design
 notes</a>.</p>
 
 <p>Fetchmail is a mature project, no longer in constant active
@@ -459,7 +467,7 @@ extended test to see if my theory about the critical features of
 the Linux development model is correct.</p>
 
 <p>The experiment was a success. I wrote a paper about it titled <a
-href="http://www.tuxedo.org/~esr/writings/cathedral.html">The
+href="http://www.catb.org/~esr/writings/cathedral.html">The
 Cathedral and the Bazaar</a> which was first presented at Linux
 Kongress '97 in Bavaria and very well received there. It was also
 given at Atlanta Linux Expo, Linux Pro '97 in Warsaw, and the first
@@ -483,7 +491,7 @@ fetchmail?</a></h2>
 <p>Fetchmail will work with any POP, IMAP, ETRN, or ODMR server
 that conforms to the relevant RFCs (and even some outright broken
 ones like <a href="#S2">Microsoft Exchange</a> and <a
-href="#S12">Novell GroupWise</a>). This doesn't mean it works
+href="#S6">Novell GroupWise</a>). This doesn't mean it works
 equally well with all, however. POP2 servers, and POP3 servers
 without LAST, limit fetchmail's capabilities in various ways
 described on the manual page.</p>
@@ -553,19 +561,19 @@ en clair?</a></h2>
 ranges from trivial to impossible. It may even be next to
 useless.</p>
 
-<p>Most people use fetchmail over phone wires, which are hard to
-tap. Anybody with the skill and resources to do this could get into
-your server mailbox with much less effort by subverting the server
-host. So if your provider setup is modem wires going straight into
-a service box, you probably don't need to worry.</p>
+<p>Most people use fetchmail over phone wires (whether plain old
+copper or DSL), which are hard to tap. Anybody with the skill and
+resources to do this could get into your server mailbox with much less
+effort by subverting the server host. So if your provider setup is
+phone-company wire going straight into a service box, you probably
+don't need to worry.</p>
 
-<p>In general there is little point in trying to secure your
-fetchmail transaction unless you trust the security of the server
-host you are retrieving mail from. Your vulnerability is more
-likely to be an insecure local network on the server end (e.g. to
-somebody with a TCP/IP packet sniffer intercepting Ethernet traffic
-between the modem concentrator you dial in to and the mailserver
-host).</p>
+<p>In general there is little point in trying to secure your fetchmail
+transaction unless you trust the security of the server host you are
+retrieving mail from. Your vulnerability is more likely to be an
+insecure local network on the server end (e.g. to somebody with a
+TCP/IP packet sniffer intercepting Ethernet traffic between the modem
+concentrator or DSL POP you dial in to and the mailserver host).</p>
 
 <p>Having realized this, you need to ask whether password
 encryption alone will really address your security exposure. If you
@@ -625,7 +633,7 @@ response.</p>
 
 <p>If you are fetching mail from a CompuServe POP3 account, you can
 use their RPA authentication (which works much like APOP). See <a
-href="#S3">S3</a> for details. If you are fetching mail from
+href="#I1">I1</a> for details. If you are fetching mail from
 Microsoft Exchange using IMAP, you will be able to use NTLM.</p>
 
 <p>Your POP3 server may have the RFC1938 OTP capability to use
@@ -1017,7 +1025,7 @@ any token following "username" or "password" is a string.</p>
 <h2><a id="F3" name="F3">F3. The .fetchmailrc parser won't accept
 my host or username beginning with `no'.</a></h2>
 
-<p>See <a href="#F2">F2</a> You're caught in an unfortunate crack
+<p>See <a href="#F2">F2</a>. You're caught in an unfortunate crack
 between the newer-style syntax for negated options (`no keep', `no
 rewrite' etc.) and the older style run-on syntax (`nokeep',
 `norewrite' etc.).</p>
@@ -1549,6 +1557,7 @@ Notes?</a></h2>
 convert \n to \r\n, but its rules are not the intuitive and
 correct-for-RFC822 ones. Use `forcecr'.</p>
 
+<hr/>
 <h2><a id="T7" name="T7">T7. How can I use fetchmail with Courier
 IMAP?</a></h2>
 
@@ -1557,7 +1566,7 @@ IMAP?</a></h2>
 <code>smtphost</code> or <code>smtpaddress</code>.</p>
 
 <hr/>
-<h2><a href="T8">T8. How can I use fetchmail with vbmailshield?</a></h2>
+<h2><a name="T8">T8. How can I use fetchmail with vbmailshield?</a></h2>
 
 <p>vbmailshield's SMTP interpreter is broken.  It doesn't understand RSET.</p>
 
@@ -1609,7 +1618,7 @@ with no terminating newline added. This will hang fetchmail or any
 other RFC-compliant server. IMAP is alleged to work OK, though.</p>
 
 <p>Older versions of Exchange are semi-usable.  They randomly drop
-atttachments on the floor, though.  Microsoft acknowledges this
+attachments on the floor, though.  Microsoft acknowledges this
 as a known bug and apparently has no plans to fix it.</p>
 
 <p>Fetchmail using IMAP supports the proprietary NTLM mode used
@@ -1730,13 +1739,77 @@ explicitly to your mailbox name.</li>
 <p>But, the best option involves a tactical nuclear weapon (an old
 ASROC will do), pissing off a lot people who live downwind from
 Redmond, and your choice of any Linux, NetBSD, FreeBSD, or Solaris
-CD.</p>
-
-<p>I'll provide the CD.</p>
+CD-ROM.</p>
 
 <hr/>
-<h2><a id="S3" name="S3">S3. How can I use fetchmail with
-CompuServe RPA?</a></h2>
+<h2><a id="S3" name="S3">S3. How can I use fetchmail with HP
+OpenMail?</a></h2>
+
+<p>No special configuration is required, but OpenMail versions
+prior to 6.0 have an annoying bug similar to the big one in <a
+href="#S2">Microsoft Exchange</a>. The message sizes it gives in
+the LIST are rounded to the nearest 1024 bytes. It also has a nasty
+habit of discarding headers it doesn't recognize, such as X- and
+Resent- headers.</p>
+
+<p>As with M$ Exchange, the only real fix for these problems is to
+get a POP (or preferably IMAP) server that isn't brain-dead.
+OpenMail's project manager claims these bugs have been fixed in
+6.0.</p>
+
+<p>We've had a more recent report (December 2001) that the TOP
+command fails, returning only one line regrardless of its argument,
+on something identifying itself as "OpenMail POP3 interface".</p>
+
+<hr/>
+<h2><a id="S4" name="S4">S4. How can I use fetchmail with Novell GroupWise?</a></h2>
+
+<p>The Novell GroupWise IMAP server would be better named
+GroupFoolish; it is (according to the designer of IMAP) unusably
+broken. Among other things, it doesn't include a required content
+length in its BODY[TEXT] response.</p>
+
+<p>Fetchmail works around this problem, but we strongly recommend
+voting with your dollars for a server that isn't brain-dead. If you
+stick with code as shoddy as GroupWise seems to be, you will
+probably pay for it with other problems.</p>
+
+<hr/>
+<h2><a id="S5" name="S5">S5. How can I use fetchmail with
+InterChange?</a></h2>
+
+<p>You can't. At least not if you want to be able to see
+attachments. InterChange has a bug similar to the MailMax server;
+it reports the message length with attachments but doesn't download
+them on TOP or RETR.</p>
+
+<p>On Jan 9 2001, the people at InfiniteMail sent me mail informing
+me that their new 3.61.08 release of InterChange fixes this
+problem. I don't have any reports one way or the other yet.</p>
+
+<hr/>
+<h2><a id="S6" name="S6">S6. How can I use fetchmail with MailMax?</a></h2>
+
+<p>You can't. At least not if you want to be able to see
+attachments. MailMax has a bug; it reports the message length with
+attachments but doesn't download them on TOP or RETR.</p>
+
+<p>Also, we're told that TOP sometimes fails to retrieve the entire
+message even when enough lines have been specified. The MailMax
+developers have acknowledged this bug as of 4 May 2000, but there
+is no fix yet. If you must use this server, force RETR with the
+<tt>fetchall</tt> option.</p>
+
+<hr/>
+<h2><a id="S7" name="S7">S7. How can I use fetchmail with FTGate?</a></h2>
+
+<p>The FTGate V2 server (and possibly older versions as well) has a
+weird bug. It answers OK twice to a TOP request! Use the
+<code>fetchall</code> option to force use of RETR and work around
+this bug.</p>
+
+<hr/>
+<h2><a id="I1" name="I1">I1. How can I use fetchmail with CompuServe RPA?</a></h2>
 
 <p>First, make sure your fetchmail has the RPA support compiled in.
 Stock fetchmail binaries (such as you might get from an RPM) don't.
@@ -1775,7 +1848,7 @@ poll non-rpa.csi.com via "pop.site1.csi.com" with proto POP3 and options no dns
 </pre>
 
 <hr/>
-<h2><a id="S4" name="S4">S4. How can I use fetchmail with Demon
+<h2><a id="I2" name="I2">I2. How can I use fetchmail with Demon
 Internet's SDPS?</a></h2>
 
 <h3>Single-drop mode</h3>
@@ -1822,7 +1895,7 @@ accept mail sent to user@my-company.co.uk)</p>
 
 <p>Note that Demon may delete mail on the server which is more than
 30 days old; see their <a
-href="http://www.demon.net/helpdesk/products/mail/sdps-tech.shtm">POP3
+href="http://www.demon.net/helpdesk/products/mail/sdps-tech.shtml">POP3
 page</a> for details.</p>
 
 <h3>The SDPS extension</h3>
@@ -1848,7 +1921,7 @@ greeting line; if you're accessing Demon Internet through a proxy
 it may fail. To force SDPS mode, pick "sdps" as your protocol.</p>
 
 <hr/>
-<h2><a id="S5" name="S5">S5. How can I use fetchmail with usa.net's
+<h2><a id="I3" name="I3">I3. How can I use fetchmail with usa.net's
 servers?</a></h2>
 
 <p>Enable `<code>fetchall</code>'. A user reports that the 2.2
@@ -1873,27 +1946,7 @@ servers. They seem to be chronically flaky. We recommend finding
 another provider.)</p>
 
 <hr/>
-<h2><a id="S6" name="S6">S6. How can I use fetchmail with HP
-OpenMail?</a></h2>
-
-<p>No special configuration is required, but OpenMail versions
-prior to 6.0 have an annoying bug similar to the big one in <a
-href="#S2">Microsoft Exchange</a>. The message sizes it gives in
-the LIST are rounded to the nearest 1024 bytes. It also has a nasty
-habit of discarding headers it doesn't recognize, such as X- and
-Resent- headers.</p>
-
-<p>As with M$ Exchange, the only real fix for these problems is to
-get a POP (or preferably IMAP) server that isn't brain-dead.
-OpenMail's project manager claims these bugs have been fixed in
-6.0.</p>
-
-<p>We've had a more recent report (December 2001) that the TOP
-command fails, returning only one line regrardless of its argument,
-on something identifying itself as "OpenMail POP3 interface".</p>
-
-<hr/>
-<h2><a id="S7" name="S7">S7. How can I use fetchmail with geocities
+<h2><a id="I4" name="I4">I4. How can I use fetchmail with geocities
 POP3 servers?</a></h2>
 
 <p>Nathan Cutler reports that the the mail.geocities.com POP3
@@ -1918,7 +1971,7 @@ already been read.</p>
 Geocities are lame, you should boycott them anyway.</p>
 
 <hr/>
-<h2><a id="S8" name="S8">S8. How can I use fetchmail with Hotmail?</a></h2>
+<h2><a id="I5" name="I5">I5. How can I use fetchmail with Hotmail?</a></h2>
 
 <p>You can't, yet. But <a
 href="http://linux.cudeso.be/linuxdoc/gotmail.php">gotmail</a> or 
@@ -1926,7 +1979,7 @@ href="http://linux.cudeso.be/linuxdoc/gotmail.php">gotmail</a> or
 be what you need.</p>
 
 <hr/>
-<h2><a id="S9" name="S9">S9. How can I use fetchmail with MSN?</a></h2>
+<h2><a id="I6" name="I6">I6. How can I use fetchmail with MSN?</a></h2>
 
 <p>You can't. MSN uses something that looks like POP3, except the
 authentication part is nonstandard. And of course they don't
@@ -1941,8 +1994,7 @@ MSN; if so, somebody should report it so this FAQ can be
 corrected.</p>
 
 <hr/>
-<h2><a id="S10" name="S10">S10. How can I use fetchmail with
-SpryNet?</a></h2>
+<h2><a id="I7" name="I7">I7. How can I use fetchmail with SpryNet?</a></h2>
 
 <p>The SpryNet POP3 servers mark a message queried with TOP as
 seen. This means that if your connection drops in mid-message, it
@@ -1951,64 +2003,18 @@ may end up invisibly stuck on your mail spool. Use the
 next cycle.</p>
 
 <hr/>
-<h2><a id="S11" name="S11">S11. How can I use fetchmail with
-FTGate?</a></h2>
+<h2><a id="I8" name="I8">I8. How can I use fetchmail with comcast.net?</a></h2>
 
-<p>The FTGate V2 server (and possibly older versions as well) has a
-weird bug. It answers OK twice to a TOP request! Use the
-<code>fetchall</code> option to force use of RETR and work around
-this bug.</p>
+<p>Stock fetchmail will work with a comcast.net server...<em>but</em>
+the Maillennium POP3 server comcat uses seems to have an 80K limit on
+the length of downloaded messages if you use POP3 TOP to retrieve.
+Anything larger is silently truncated.  Don't mistake this for a
+fetchmail bug. (Reported July 2003.)</p>
 
-<hr/>
-<h2><a id="S12" name="S12">S12. How can I use fetchmail with
-MailMax?</a></h2>
-
-<p>You can't. At least not if you want to be able to see
-attachments. MailMax has a bug; it reports the message length with
-attachments but doesn't download them on TOP or RETR.</p>
-
-<p>Also, we're told that TOP sometimes fails to retrieve the entire
-message even when enough lines have been specified. The MailMax
-developers have acknowledged this bug as of 4 May 2000, but there
-is no fix yet. If you must use this server, force RETR with the
-<tt>fetchall</tt> option.</p>
+<p>Workaround: use the <tt>fetchall</tt> option.</p>
 
 <hr/>
-<h2><a id="S13" name="S13">S13. How can I use fetchmail with Novell GroupWise?</a></h2>
-
-<p>The Novell GroupWise IMAP server would be better named
-GroupFoolish; it is (according to the designer of IMAP) unusably
-broken. Among other things, it doesn't include a required content
-length in its BODY[TEXT] response.</p>
-
-<p>Fetchmail works around this problem, but we strongly recommend
-voting with your dollars for a server that isn't brain-dead. If you
-stick with code as shoddy as GroupWise seems to be, you will
-probably pay for it with other problems.</p>
-
-<hr/>
-<h2><a id="S14" name="S14">S14. How can I use fetchmail with
-InterChange?</a></h2>
-
-<p>You can't. At least not if you want to be able to see
-attachments. InterChange has a bug similar to the MailMax server;
-it reports the message length with attachments but doesn't download
-them on TOP or RETR.</p>
-
-<p>On Jan 9 2001, the people at InfiniteMail sent me mail informing
-me that their new 3.61.08 release of InterChange fixes this
-problem. I don't have any reports one way or the other yet.</p>
-
-<h2><a id="S15" name="S15">S15. How can I use fetchmail with www.gmx.de?</a></h2>
-
-<p>You can't, not reliably anyway. The GMX StreamProxy server behaves
-badly on authentication failures, sending back a non-conformant error
-message (missing an <code>-ERR</code> tag) that confuses
-fetchmail.</p>
-
-<hr/>
-<h2><a id="K1" name="K1">K1. How can I use fetchmail with
-SOCKS?</a></h2>
+<h2><a id="K1" name="K1">K1. How can I use fetchmail with SOCKS?</a></h2>
 
 <p>Giuseppe Guerini added a --with-socks option that supports
 linking with socks library. If you specify the value of this option
@@ -3390,7 +3396,7 @@ is write-locked by the other instance yours can neither mark
 messages seen or delete them. The solution is to either (a) wait
 for the other client to finish, or (b) terminate it.</p>
 
-<p>James Stevens &lt;James.Stevens@kyzo.com&gt; writes:</p>
+<p>James Stevens &lt;James.Stevens at kyzo.com&gt; writes:</p>
 
 <p><em>We had a Linux box dialing the Net and collecting mail from
 an NT POP3 server. Fetchmail was correctly collecting and deleting
@@ -3427,8 +3433,8 @@ messages the same?</a></h2>
 the received date from the last Received header.</p>
 
 <hr />
-<a name="#O11">O11. I keep getting messages that say "Repoll
-immediately" in my logs.</a><br/>
+<h2><a name="#O11">O11. I keep getting messages that say "Repoll
+immediately" in my logs.</a></h2>
 
 <p>This is your server barfing on the CAPA probe that fetchmail sends.</p>
 If you run fetchmail in daemon mode (say "set daemon 600"), you will
@@ -3437,6 +3443,36 @@ get the message only once per run.</p>
 <p>If you set an authentication method explicitly (say, with
 <code>auth password</code>), you will never get the message.</p>
 
+<hr />
+<h2><a name="#O12">O12. Fetchmail no longer expunges mail on a 451 SMTP response.</a></h2>
+
+<p>This is a feature, not a bug.</p>
+
+<p>Any 4xx response (like 451) indicates a transient (temporary) error.
+This means that the mail could be accepted if retried later. Lookup
+failures are normally transient errors as a mail should not get
+rejected if a dns server is unreachable or down.</p>
+
+<p>A permanent reject response is of the form 5xx (like 550).</p>
+
+<p>You could tell your SMTP server to not lookup any addresses if you are
+not keen on checking the sender addresses. This problem typically
+occurs if your mail server is not checking the sender addresses, but
+your local server is.</p>
+
+<p>Or you could declare <code>antispam 451<code></p>
+
+<p>Or, you could check your nameserver configuration and query logs for
+dns errors.</p>
+
+<p>All these issues are not related to fetchmail directly.</p>
+
+<hr />
+<h2><a name="#O13">O13. I want timestamp information in my fetchmail logs.</a></h2>
+
+<p>Write a <code>preconnect</connect> command in your configuration file that
+does something like "date >> $HOME/Procmail/fetchmail.log".</p>
+
 <hr/>
 <table width="100%" cellpadding="0" summary="Canned page footer">
 <tr>
@@ -3444,7 +3480,7 @@ get the message only once per run.</p>
 Page</a></td>
 <td width="30%" align="center">To <a href="/~esr/sitemap.html">Site
 Map</a></td>
-<td width="30%" align="right">$Date: 2002/11/08 02:15:28 $</td>
+<td width="30%" align="right">$Date: 2003/10/16 17:59:42 $</td>
 </tr>
 </table>
 

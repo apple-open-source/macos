@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,55 +23,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc.  All rights reserved.
  *
  *
  */
-//		$Log: PowerMac7_2_CPUTempSensor.cpp,v $
-//		Revision 1.4  2003/06/07 01:30:58  eem
-//		Merge of EEM-PM72-ActiveFans-2 branch, with a few extra tweaks.  This
-//		checkin has working PID control for PowerMac7,2 platforms, as well as
-//		a first shot at localized strings.
-//		
-//		Revision 1.3.2.3  2003/06/06 08:17:58  eem
-//		Holy Motherfucking shit.  PID is really working.
-//		
-//		Revision 1.3.2.2  2003/06/01 14:52:55  eem
-//		Most of the PID algorithm is implemented.
-//		
-//		Revision 1.3.2.1  2003/05/22 01:31:05  eem
-//		Checkin of today's work (fails compilations right now).
-//		
-//		Revision 1.3  2003/05/21 21:58:55  eem
-//		Merge from EEM-PM72-ActiveFans-1 branch with initial crack at active fan
-//		control on Q37.
-//		
-//		Revision 1.2.4.4  2003/05/17 12:55:41  eem
-//		Active fan control works on RPM channels!!!!!!
-//		
-//		Revision 1.2.4.3  2003/05/17 11:08:25  eem
-//		All active fan data present, table event-driven.  PCI power sensors are
-//		not working yet so PCI fan is just set to 67% PWM and forgotten about.
-//		
-//		Revision 1.2.4.2  2003/05/16 07:08:48  eem
-//		Table-lookup active fan control working with this checkin.
-//		
-//		Revision 1.2.4.1  2003/05/14 22:07:55  eem
-//		Implemented state-driven sensor, cleaned up "const" usage and header
-//		inclusions.
-//		
-//		Revision 1.2  2003/05/10 06:50:36  eem
-//		All sensor functionality included for PowerMac7_2_PlatformPlugin.  Version
-//		is 1.0.1d12.
-//		
-//		Revision 1.1.2.2  2003/05/10 06:32:35  eem
-//		Sensor changes, should be ready to merge to trunk as 1.0.1d12.
-//		
-//		Revision 1.1.2.1  2003/05/03 01:11:40  eem
-//		*** empty log message ***
-//		
-//		
-//
+
 
 #include "PowerMac7_2_PlatformPlugin.h"
 #include "PowerMac7_2_CPUTempSensor.h"
@@ -137,32 +93,31 @@ IOReturn PowerMac7_2_CPUTempSensor::initPlatformSensor( const OSDictionary * dic
 	return(status);
 }
 
-const OSNumber *PowerMac7_2_CPUTempSensor::applyValueTransform( const OSNumber * hwReading ) const
+SensorValue PowerMac7_2_CPUTempSensor::applyCurrentValueTransform( SensorValue hwReading ) const
 {
-	OSNumber *scaled;
-	SInt32 sbuf32;
+	SensorValue pluginReading;
 
-	sbuf32 = ((SInt32)(hwReading->unsigned32BitValue() * scalingFactor)) + constant;
-	sbuf32 >>= 2;	// shift back down to 16.16
-	scaled = OSNumber::withNumber( sbuf32, 32 );
+	pluginReading.sensValue = (hwReading.sensValue * scalingFactor) + constant;
+	pluginReading.sensValue >>= 2;	// shift back down to 16.16
 
-	//SENSOR_DLOG("PowerMac7_2_CPUTempSensor::applyValueTransform raw = %08lX value = %08lX\n",
-	//		hwReading->unsigned32BitValue(), scaled->unsigned32BitValue());
-
-	return scaled;
+	return pluginReading;
 }
 
-const OSNumber *PowerMac7_2_CPUTempSensor::applyHWTransform( const OSNumber * value ) const
+/* XXX the inverse transform is not used, and has not been for a long time...  since PID started
+   XXX working.  At that point, this class was changed so that instead of inheriting from
+   XXX IOPlatformStateSensor, it inherits from IOPlatformSensor.  This method was never removed.
+   XXX I've updated it in line with the change in the value transform functions, but I'm leaving
+   XXX the code commented out because it's not used and shouldn't be here.
+
+SensorValue PowerMac7_2_CPUTempSensor::applyCurrentValueInverseTransform( SensorValue pluginReading ) const
 {
-	const OSNumber *raw;
 	UInt32 ubuf32;
+	SensorValue hwReading;
 
-	ubuf32 = (UInt32)(((SInt32)(value->unsigned32BitValue() << 2)) - constant);
-	ubuf32 /= scalingFactor;
-	raw = OSNumber::withNumber( ubuf32, 32 );
+	ubuf32 = (UInt32)((pluginReading.sensValue << 2) - constant);
+	hwReading.sensValue = (SInt32)(ubuf32 / scalingFactor);
 
-	//SENSOR_DLOG("PowerMac7_2_CPUTempSensor::applyHWTransform value = %08lX raw = %08lX\n",
-	//		value->unsigned32BitValue(), raw->unsigned32BitValue());
-
-	return raw;
+	return hwReading;
 }
+
+*/

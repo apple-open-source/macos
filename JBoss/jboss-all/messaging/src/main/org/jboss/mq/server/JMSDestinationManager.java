@@ -5,31 +5,33 @@
  * See terms of license at gnu.org.
  */
 package org.jboss.mq.server;
+
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.TreeMap;
 
 import javax.jms.Destination;
-import javax.jms.JMSException;
 import javax.jms.InvalidClientIDException;
 import javax.jms.InvalidDestinationException;
+import javax.jms.JMSException;
 import javax.jms.Queue;
 import javax.jms.TemporaryQueue;
 import javax.jms.TemporaryTopic;
 import javax.jms.Topic;
-import javax.jms.TransactionRolledBackException;
 
+import org.jboss.logging.Logger;
 import org.jboss.mq.AcknowledgementRequest;
 import org.jboss.mq.ConnectionToken;
 import org.jboss.mq.DurableSubscriptionID;
 import org.jboss.mq.SpyDestination;
+import org.jboss.mq.SpyJMSException;
 import org.jboss.mq.SpyMessage;
 import org.jboss.mq.SpyQueue;
-import org.jboss.mq.SpyTopic;
 import org.jboss.mq.SpyTemporaryQueue;
 import org.jboss.mq.SpyTemporaryTopic;
-import org.jboss.mq.SpyJMSException;
+import org.jboss.mq.SpyTopic;
 import org.jboss.mq.SpyTransactionRolledBackException;
 import org.jboss.mq.Subscription;
 import org.jboss.mq.TransactionRequest;
@@ -37,9 +39,7 @@ import org.jboss.mq.pm.PersistenceManager;
 import org.jboss.mq.pm.Tx;
 import org.jboss.mq.sm.StateManager;
 
-import org.jboss.logging.Logger;
-
-import EDU.oswego.cs.dl.util.concurrent.ConcurrentHashMap;
+import EDU.oswego.cs.dl.util.concurrent.ConcurrentReaderHashMap;
 
 /**
  * This class implements the JMS provider
@@ -48,7 +48,7 @@ import EDU.oswego.cs.dl.util.concurrent.ConcurrentHashMap;
  * @author    Hiram Chirino (Cojonudo14@hotmail.com)
  * @author    David Maplesden (David.Maplesden@orion.co.nz)
  * @author <a href="mailto:pra@tim.se">Peter Antman</a>
- * @version   $Revision: 1.2.2.11 $
+ * @version   $Revision: 1.2.2.17 $
  */
 public class JMSDestinationManager extends JMSServerInterceptorSupport
 {
@@ -59,7 +59,6 @@ public class JMSDestinationManager extends JMSServerInterceptorSupport
     */
    public final static String JBOSS_VESION = "JBossMQ Version 3.2";
 
-
    /////////////////////////////////////////////////////////////////////
    // Attributes
    /////////////////////////////////////////////////////////////////////
@@ -68,7 +67,7 @@ public class JMSDestinationManager extends JMSServerInterceptorSupport
    /**
     * Description of the Field
     */
-   public ConcurrentHashMap destinations = new ConcurrentHashMap();
+   public Map destinations = new ConcurrentReaderHashMap();
    //Thread group for server side threads.
    /**
     * Description of the Field
@@ -76,7 +75,7 @@ public class JMSDestinationManager extends JMSServerInterceptorSupport
    public ThreadGroup threadGroup = new ThreadGroup("JBossMQ Server Threads");
 
    //The list of ClientConsumers hased by ConnectionTokens
-   ConcurrentHashMap clientConsumers = new ConcurrentHashMap();
+   Map clientConsumers = new ConcurrentReaderHashMap();
 
    //last id given to a client
    private int lastID = 1;
@@ -110,17 +109,19 @@ public class JMSDestinationManager extends JMSServerInterceptorSupport
     */
    private boolean stopped = true;
 
+   /** Temporary queue/topic parameters */
+   BasicQueueParameters parameters;
+
    /////////////////////////////////////////////////////////////////////
    // Constructors
    /////////////////////////////////////////////////////////////////////
    /**
     * Constructor for the JMSServer object
     */
-   public JMSDestinationManager()
+   public JMSDestinationManager(BasicQueueParameters parameters)
    {
+      this.parameters = parameters;
    }
-
-
 
    /**
     * Sets the Enabled attribute of the JMSServer object
@@ -134,7 +135,6 @@ public class JMSDestinationManager extends JMSServerInterceptorSupport
       ClientConsumer ClientConsumer = getClientConsumer(dc);
       ClientConsumer.setEnabled(enabled);
    }
-
 
    /**
     * Sets the StateManager attribute of the JMSServer object
@@ -242,7 +242,7 @@ public class JMSDestinationManager extends JMSServerInterceptorSupport
       SpyTemporaryTopic topic = new SpyTemporaryTopic(topicName, dc);
 
       ClientConsumer ClientConsumer = getClientConsumer(dc);
-      JMSDestination queue = new JMSTopic(topic, ClientConsumer, this);
+      JMSDestination queue = new JMSTopic(topic, ClientConsumer, this, parameters);
       destinations.put(topic, queue);
 
       return topic;
@@ -265,7 +265,7 @@ public class JMSDestinationManager extends JMSServerInterceptorSupport
       SpyTemporaryQueue newQueue = new SpyTemporaryQueue(queueName, dc);
 
       ClientConsumer ClientConsumer = getClientConsumer(dc);
-      JMSDestination queue = new JMSQueue(newQueue, ClientConsumer, this);
+      JMSDestination queue = new JMSQueue(newQueue, ClientConsumer, this, parameters);
       destinations.put(newQueue, queue);
 
       return newQueue;
@@ -282,7 +282,7 @@ public class JMSDestinationManager extends JMSServerInterceptorSupport
     */
    public ClientConsumer getClientConsumer(ConnectionToken dc) throws JMSException
    {
-      ClientConsumer cq = (ClientConsumer)clientConsumers.get(dc);
+      ClientConsumer cq = (ClientConsumer) clientConsumers.get(dc);
       if (cq == null)
       {
          cq = new ClientConsumer(this, dc);
@@ -299,7 +299,7 @@ public class JMSDestinationManager extends JMSServerInterceptorSupport
     */
    public JMSDestination getJMSDestination(SpyDestination dest)
    {
-      return (JMSDestination)destinations.get(dest);
+      return (JMSDestination) destinations.get(dest);
    }
 
    /**
@@ -370,8 +370,6 @@ public class JMSDestinationManager extends JMSServerInterceptorSupport
       stateManager.addLoggedOnClientId(ID);
    }
 
-
-
    //A connection has sent a new message
    /**
     * Adds a feature to the Message attribute of the JMSServer object
@@ -396,9 +394,13 @@ public class JMSDestinationManager extends JMSServerInterceptorSupport
     */
    public void addMessage(ConnectionToken dc, SpyMessage val, Tx txId) throws JMSException
    {
-      JMSDestination queue = (JMSDestination)destinations.get(val.getJMSDestination());
+      JMSDestination queue = (JMSDestination) destinations.get(val.getJMSDestination());
       if (queue == null)
          throw new InvalidDestinationException("This destination does not exist! " + val.getJMSDestination());
+
+      // Reset any redelivered information
+      val.setJMSRedelivered(false);
+      val.header.jmsProperties.remove(SpyMessage.PROPERTY_REDELIVERY_COUNT);
 
       //Add the message to the queue
       val.setReadOnlyMode();
@@ -416,7 +418,7 @@ public class JMSDestinationManager extends JMSServerInterceptorSupport
    {
 
       org.jboss.mq.pm.TxManager txManager = persistenceManager.getTxManager();
-      if (t.requestType == t.ONE_PHASE_COMMIT_REQUEST)
+      if (t.requestType == TransactionRequest.ONE_PHASE_COMMIT_REQUEST)
       {
 
          Tx txId = txManager.createTx();
@@ -445,12 +447,12 @@ public class JMSDestinationManager extends JMSServerInterceptorSupport
          }
          catch (JMSException e)
          {
-            log.debug("Exception occured, rolling back transaction: ",e);
+            log.debug("Exception occured, rolling back transaction: ", e);
             txManager.rollbackTx(txId);
             throw new SpyTransactionRolledBackException("Transaction was rolled back.", e);
          }
       }
-      else if (t.requestType == t.TWO_PHASE_COMMIT_PREPARE_REQUEST)
+      else if (t.requestType == TransactionRequest.TWO_PHASE_COMMIT_PREPARE_REQUEST)
       {
 
          Tx txId = txManager.createTx(dc, t.xid);
@@ -476,19 +478,19 @@ public class JMSDestinationManager extends JMSServerInterceptorSupport
          }
          catch (JMSException e)
          {
-            log.debug("Exception occured, rolling back transaction: ",e);
+            log.debug("Exception occured, rolling back transaction: ", e);
             txManager.rollbackTx(txId);
             throw new SpyTransactionRolledBackException("Transaction was rolled back.", e);
          }
       }
-      else if (t.requestType == t.TWO_PHASE_COMMIT_ROLLBACK_REQUEST)
+      else if (t.requestType == TransactionRequest.TWO_PHASE_COMMIT_ROLLBACK_REQUEST)
       {
 
          Tx txId = txManager.getPrepared(dc, t.xid);
          txManager.rollbackTx(txId);
 
       }
-      else if (t.requestType == t.TWO_PHASE_COMMIT_COMMIT_REQUEST)
+      else if (t.requestType == TransactionRequest.TWO_PHASE_COMMIT_COMMIT_REQUEST)
       {
 
          Tx txId = txManager.getPrepared(dc, t.xid);
@@ -541,7 +543,7 @@ public class JMSDestinationManager extends JMSServerInterceptorSupport
          return;
 
       // Close it's ClientConsumer
-      ClientConsumer cq = (ClientConsumer)clientConsumers.remove(dc);
+      ClientConsumer cq = (ClientConsumer) clientConsumers.remove(dc);
       if (cq != null)
          cq.close();
 
@@ -550,13 +552,17 @@ public class JMSDestinationManager extends JMSServerInterceptorSupport
          stateManager.removeLoggedOnClientId(dc.getClientID());
 
       //Remove any temporary destinations the consumer may have created.
-      Iterator i = destinations.values().iterator();
+      Iterator i = destinations.entrySet().iterator();
       while (i.hasNext())
       {
-         JMSDestination sq = (JMSDestination)i.next();
+         Map.Entry entry = (Map.Entry) i.next();
+         JMSDestination sq = (JMSDestination) entry.getValue();
          ClientConsumer cc = sq.temporaryDestination;
          if (cc != null && dc.equals(cc.connectionToken))
+         {
             i.remove();
+            deleteTemporaryDestination(dc, sq);
+         }
       }
       // Close the clientIL
       try
@@ -564,7 +570,8 @@ public class JMSDestinationManager extends JMSServerInterceptorSupport
          if (dc.clientIL != null)
             dc.clientIL.close();
       }
-      catch(Exception ex) {
+      catch (Exception ex)
+      {
          // We skipp warning, to often the client will allways
          // have gone when we get here
          //log.warn("Could not close clientIL: " +ex,ex);
@@ -618,7 +625,7 @@ public class JMSDestinationManager extends JMSServerInterceptorSupport
     * @param id                Description of Parameter
     * @exception JMSException  Description of Exception
     */
-   public void destroySubscription(ConnectionToken dc,DurableSubscriptionID id) throws JMSException
+   public void destroySubscription(ConnectionToken dc, DurableSubscriptionID id) throws JMSException
    {
       getStateManager().setDurableSubscription(this, id, null);
    }
@@ -635,13 +642,13 @@ public class JMSDestinationManager extends JMSServerInterceptorSupport
    public SpyMessage[] browse(ConnectionToken dc, Destination dest, String selector) throws JMSException
    {
 
-      JMSDestination queue = (JMSDestination)destinations.get(dest);
+      JMSDestination queue = (JMSDestination) destinations.get(dest);
       if (queue == null)
          throw new InvalidDestinationException("That destination does not exist! " + dest);
       if (!(queue instanceof JMSQueue))
          throw new JMSException("That destination is not a queue");
 
-      return ((JMSQueue)queue).browse(selector);
+      return ((JMSQueue) queue).browse(selector);
    }
 
    /**
@@ -653,8 +660,7 @@ public class JMSDestinationManager extends JMSServerInterceptorSupport
     * @return                  Description of the Returned Value
     * @exception JMSException  Description of Exception
     */
-   public SpyMessage receive(ConnectionToken dc, int subscriberId, long wait)
-      throws JMSException
+   public SpyMessage receive(ConnectionToken dc, int subscriberId, long wait) throws JMSException
    {
       ClientConsumer clientConsumer = getClientConsumer(dc);
       SpyMessage msg = clientConsumer.receive(subscriberId, wait);
@@ -704,18 +710,29 @@ public class JMSDestinationManager extends JMSServerInterceptorSupport
     * @param dest  Description of Parameter
     */
    public void deleteTemporaryDestination(ConnectionToken dc, SpyDestination dest)
+      throws JMSException
    {
-      JMSDestination destination = (JMSDestination)destinations.get(dest);
-      try
-      {
-        destination.removeAllMessages();
-      }
-      catch( Exception e )
-      {
-          log.error( "An exception happened while removing all messages from temporary destination " + dest.getName(), e );
-      }
+      JMSDestination destination = (JMSDestination) destinations.get(dest);
+      if (destination == null)
+         throw new InvalidDestinationException("That destination does not exist! " + destination);
 
       destinations.remove(dest);
+      deleteTemporaryDestination(dc, destination);
+   }
+
+   protected void deleteTemporaryDestination(ConnectionToken dc, JMSDestination destination)
+      throws JMSException
+   {
+      try
+      {
+         destination.removeAllMessages();
+      }
+      catch (Exception e)
+      {
+         log.error("An exception happened while removing all messages from temporary destination " 
+                   + destination.getSpyDestination().getName(), e);
+      }
+
    }
 
    /**
@@ -760,15 +777,15 @@ public class JMSDestinationManager extends JMSServerInterceptorSupport
       destinations.put(destination.getSpyDestination(), destination);
 
       // Restore the messages
-      if( destination instanceof JMSTopic )
+      if (destination instanceof JMSTopic)
       {
          Collection durableSubs =
-            getStateManager().getDurableSubscriptionIdsForTopic((SpyTopic)destination.getSpyDestination());
+            getStateManager().getDurableSubscriptionIdsForTopic((SpyTopic) destination.getSpyDestination());
          for (Iterator i = durableSubs.iterator(); i.hasNext();)
          {
-            DurableSubscriptionID sub = (DurableSubscriptionID)i.next();
+            DurableSubscriptionID sub = (DurableSubscriptionID) i.next();
             log.debug("creating the durable subscription for :" + sub);
-            ((JMSTopic)destination).createDurableSubscription(sub);
+            ((JMSTopic) destination).createDurableSubscription(sub);
          }
       }
    }
@@ -781,7 +798,7 @@ public class JMSDestinationManager extends JMSServerInterceptorSupport
     */
    public void closeDestination(SpyDestination dest) throws JMSException
    {
-      JMSDestination destination = (JMSDestination)destinations.get(dest);
+      JMSDestination destination = (JMSDestination) destinations.get(dest);
       if (destination == null)
          throw new InvalidDestinationException("This destination is not open! " + dest);
 
@@ -828,25 +845,27 @@ public class JMSDestinationManager extends JMSServerInterceptorSupport
     * Gets the messageCache
     * @return Returns a MessageCache
     */
-   public MessageCache getMessageCache() {
-      return getPersistenceManager().getMessageCacheInstance();
+   public MessageCache getMessageCache()
+   {
+      return messageCache;
    }
 
    /**
     * Sets the messageCache
     * @param messageCache The messageCache to set
     */
-   /*public void setMessageCache(MessageCache messageCache) {
+   public void setMessageCache(MessageCache messageCache)
+   {
       this.messageCache = messageCache;
    }
-   */
 
-   public SpyTopic getDurableTopic(DurableSubscriptionID sub)
-      throws JMSException {
+   public SpyTopic getDurableTopic(DurableSubscriptionID sub) throws JMSException
+   {
       return getStateManager().getDurableTopic(sub);
    }
 
-   public Subscription getSubscription(ConnectionToken dc,int subscriberId) throws JMSException {
+   public Subscription getSubscription(ConnectionToken dc, int subscriberId) throws JMSException
+   {
       ClientConsumer clientConsumer = getClientConsumer(dc);
       return clientConsumer.getSubscription(subscriberId);
    }
@@ -858,7 +877,7 @@ public class JMSDestinationManager extends JMSServerInterceptorSupport
     */
    public MessageCounter[] getMessageCounter()
    {
-      TreeMap map = new TreeMap();  // for sorting
+      TreeMap map = new TreeMap(); // for sorting
 
       Iterator i = destinations.values().iterator();
 
@@ -868,18 +887,21 @@ public class JMSDestinationManager extends JMSServerInterceptorSupport
 
          MessageCounter[] counter = dest.getMessageCounter();
 
-         for( int j=0; j<counter.length; j++ )
+         for (int j = 0; j < counter.length; j++)
          {
             // sorting order name + subscription + type
-            String key = counter[j].getDestinationName() + "-" +
-                         counter[j].getDestinationSubscription() + "-" +
-                         ( counter[j].getDestinationTopic() ? "Topic" : "Queue" );
+            String key =
+               counter[j].getDestinationName()
+                  + "-"
+                  + counter[j].getDestinationSubscription()
+                  + "-"
+                  + (counter[j].getDestinationTopic() ? "Topic" : "Queue");
 
-            map.put( key, counter[j] );
+            map.put(key, counter[j]);
          }
       }
 
-      return (MessageCounter[]) map.values().toArray( new MessageCounter[0] );
+      return (MessageCounter[]) map.values().toArray(new MessageCounter[0]);
    }
 
    /**
@@ -895,7 +917,7 @@ public class JMSDestinationManager extends JMSServerInterceptorSupport
 
          MessageCounter[] counter = dest.getMessageCounter();
 
-         for( int j=0; j<counter.length; j++ )
+         for (int j = 0; j < counter.length; j++)
          {
             counter[j].resetCounter();
          }

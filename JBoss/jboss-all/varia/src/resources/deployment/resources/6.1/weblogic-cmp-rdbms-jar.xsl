@@ -6,17 +6,30 @@
    | WebLogic version: 6.1
    | author: Alexey Loubyansky <aloubyansky@hotmail.com>
 -->
+<!--
+   | Aug-2003 - 
+   | author: Marie Foucault <foucault@actoll.com>
+   | * The <table-name> and <cmp-field> elements are included into a <table-map> 
+   |   elements in somes versions of th weblogic weblogic-cmp-rdbms-jar.xml. add
+   |   a rule to check if this element is present or not.
+   | * By Default the datasource-mapping is set to data-source-name value so that
+   |   the stylesheet check in the standardjbosscmp-jdbc.xml file to find the mapping
+   |   associated to the datasource.
+-->
 
 <xsl:stylesheet
    version="1.0"
    xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
 
    <!-- Global parameters -->
-   <xsl:param name="ejb-jar">ejb-jar.xml</xsl:param>
+   <xsl:param name="ejb-jar-xml">ejb-jar.xml</xsl:param>
    <xsl:param name="standardjbosscmp-jdbc">standardjbosscmp-jdbc.xml</xsl:param>
    <xsl:param name="remove-table">create-default-dbms-tables</xsl:param>
    <xsl:param name="datasource">data-source-name</xsl:param>
-   <xsl:param name="datasource-mapping">Hypersonic SQL</xsl:param>
+   <xsl:param name="datasource-mapping">data-source-name</xsl:param>
+
+   <!-- global variables -->
+   <xsl:variable name="ejb-jar" select="document($ejb-jar-xml)/ejb-jar"/>
 
    <xsl:template match="/">
 
@@ -216,11 +229,32 @@
             <xsl:with-param name="data-source-name" select="$weblogic-rdbms-bean/data-source-name"/>
          </xsl:call-template>
 
+         <!-- table-map -->
+	 <xsl:choose>
+	  <xsl:when test="$weblogic-rdbms-bean/table-map">
+              <xsl:call-template name="table-map">
+	         <xsl:with-param name="weblogic-rdbms-bean-table" select="$weblogic-rdbms-bean/table-map"/>
+	      </xsl:call-template>
+	  </xsl:when>
+	  <xsl:otherwise>
+              <xsl:call-template name="table-map">
+	         <xsl:with-param name="weblogic-rdbms-bean-table" select="$weblogic-rdbms-bean"/>
+	      </xsl:call-template>
+	  </xsl:otherwise>
+	 </xsl:choose>
+
+      </xsl:element> <!-- entity -->
+   </xsl:template> <!-- entity -->
+
+   <xsl:template name="table-map">
+	 
+         <xsl:param name="weblogic-rdbms-bean-table"/>
+      
          <!-- table-name -->
-         <xsl:copy-of select="$weblogic-rdbms-bean/table-name"/>
+         <xsl:copy-of select="$weblogic-rdbms-bean-table/table-name"/>
 
          <!-- cmp-fields -->
-         <xsl:for-each select="$weblogic-rdbms-bean/field-map">
+         <xsl:for-each select="$weblogic-rdbms-bean-table/field-map">
             <!-- cmp-field -->
             <xsl:call-template name="cmp-field">
                <xsl:with-param name="field-map" select="."/>
@@ -228,9 +262,9 @@
          </xsl:for-each> <!-- field-map -->
 
          <!-- load-groups -->
-         <xsl:if test="$weblogic-rdbms-bean/field-group">
+         <xsl:if test="$weblogic-rdbms-bean-table/field-group">
             <xsl:element name="load-groups">
-               <xsl:for-each select="$weblogic-rdbms-bean/field-group">
+               <xsl:for-each select="$weblogic-rdbms-bean-table/field-group">
                   <!-- load-group -->
                   <xsl:call-template name="load-group">
                      <xsl:with-param name="field-group" select="."/>
@@ -239,7 +273,6 @@
             </xsl:element>
          </xsl:if> <!-- load-groups -->
 
-      </xsl:element> <!-- entity -->
    </xsl:template> <!-- entity -->
 
    <!--
@@ -407,7 +440,7 @@
                         <xsl:variable name="thisRoleName" select="./relationship-role-name"/>
                         <!-- the current side entity ejb-name -->
                         <xsl:variable name="ejb-name">
-                           <xsl:for-each select="document($ejb-jar)/ejb-jar/relationships/ejb-relation[ejb-relation-name=$relation-name]">
+                           <xsl:for-each select="$ejb-jar/relationships/ejb-relation[ejb-relation-name=$relation-name]">
                               <xsl:for-each select="./ejb-relationship-role[ejb-relationship-role-name=$thisRoleName]">
                                  <xsl:value-of select="./relationship-role-source/ejb-name"/>
                               </xsl:for-each>
@@ -441,7 +474,7 @@
                      <xsl:variable name="thisRoleName" select="./weblogic-relationship-role/relationship-role-name"/>
                      <!-- the ejb-name of the related entity -->
                      <xsl:variable name="related-ejb-name">
-                        <xsl:for-each select="document($ejb-jar)/ejb-jar/relationships/ejb-relation[ejb-relation-name=$relation-name]">
+                        <xsl:for-each select="$ejb-jar/relationships/ejb-relation[ejb-relation-name=$relation-name]">
                            <xsl:for-each select="./ejb-relationship-role[ejb-relationship-role-name!=$thisRoleName]">
                               <xsl:value-of select="./relationship-role-source/ejb-name"/>
                            </xsl:for-each>
@@ -451,7 +484,7 @@
                      <!-- the opposite ejb-relationship-role -->
                      <xsl:element name="ejb-relationship-role">
                         <!-- find the opposite ejb-relationship-role-name in ejb-jar.xml -->
-                        <xsl:for-each select="document($ejb-jar)/ejb-jar/relationships/ejb-relation[ejb-relation-name=$relation-name]">
+                        <xsl:for-each select="$ejb-jar/relationships/ejb-relation[ejb-relation-name=$relation-name]">
                            <xsl:for-each select="./ejb-relationship-role[ejb-relationship-role-name!=$thisRoleName]">
                               <xsl:copy-of select="./ejb-relationship-role-name"/>
                            </xsl:for-each>

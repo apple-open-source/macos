@@ -6,7 +6,7 @@
 	objectVersion = 39;
 	objects = {
 		014CEA3E0018CDD111CA2923 = {
-			expectedFileType = folder;
+			explicitFileType = wrapper.cfbundle;
 			fallbackIsa = PBXFileReference;
 			isa = PBXBundleReference;
 			path = PasswordServer.dsplug;
@@ -153,11 +153,11 @@
 	<key>CFBundlePackageType</key>
 	<string>dspi</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.0</string>
+	<string>2.0.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0</string>
+	<string>2.0.1</string>
 	<key>CFPlugInDynamicRegisterFunction</key>
 	<string></string>
 	<key>CFPlugInDynamicRegistration</key>
@@ -261,9 +261,9 @@
 //0A3
 //0A4
 		0AA1909FFE8422F4C02AAC07 = {
-			expectedFileType = wrapper.framework;
 			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = CoreFoundation.framework;
 			path = /System/Library/Frameworks/CoreFoundation.framework;
 			refType = 0;
@@ -306,17 +306,17 @@
 //843
 //844
 		842E228903DFC6B800DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = AuthFile.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		842E802004B4CCF100EE46D9 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 4;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = CPSPluginDefines.h;
 			refType = 4;
 			sourceTree = "<group>";
@@ -346,81 +346,81 @@
 			};
 		};
 		8448FC9C040187B200DD284C = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = CAuthFileBase.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		8448FC9D040187B200DD284C = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = CAuthFileBase.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		8448FC9E040187B200DD284C = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = CAuthFileUtils.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		8448FC9F040187B200DD284C = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = CAuthFileUtils.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		8448FCA40401954E00DD284C = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = DES.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		8448FCA50401954E00DD284C = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = DES.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		8448FCAA0401988000DD284C = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = AuthFile.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		844EFA0803DEC6CE00DD284B = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = CReplicaFile.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		844EFA0903DEC6CE00DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = CReplicaFile.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		849837DA04B2284200EEF145 = {
-			expectedFileType = wrapper.framework;
 			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = PasswordServer.framework;
 			path = /System/Library/PrivateFrameworks/PasswordServer.framework;
 			refType = 0;
@@ -601,17 +601,17 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
+	<string>1.0.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>0.0.1d1</string>
+	<string>1.0.1</string>
 </dict>
 </plist>
 ";
 		};
 		84BB54F704B109BF0073079A = {
-			expectedFileType = wrapper.framework;
+			explicitFileType = wrapper.framework;
 			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
 			path = PasswordServer.framework;
@@ -960,17 +960,17 @@
 			targetProxy = 84F64BAF04CDBA9A009610BC;
 		};
 		84F0E0A503E6A96C00DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 4;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = CPSUtilities.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		84F0E0A603E6A96C00DD284B = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 4;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = CPSUtilities.cpp;
 			refType = 4;
 			sourceTree = "<group>";
@@ -993,33 +993,33 @@
 //F53
 //F54
 		F54CAA5303562D7B01DD284B = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = SASLCode.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		F54CAA5403562D7B01DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = SASLCode.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		F56C1796029431B901DD284B = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = CPSPlugIn.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		F56C1797029431B901DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = CPSPlugIn.h;
 			refType = 4;
 			sourceTree = "<group>";
@@ -1073,9 +1073,9 @@
 			sourceTree = "<group>";
 		};
 		F56C17D1029432F801DD284B = {
-			expectedFileType = wrapper.framework;
 			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = IOKit.framework;
 			path = /System/Library/Frameworks/IOKit.framework;
 			refType = 0;
@@ -1088,27 +1088,27 @@
 			};
 		};
 		F56C19ED0294331B01DD284B = {
-			expectedFileType = wrapper.framework;
 			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = Security.framework;
 			path = /System/Library/Frameworks/Security.framework;
 			refType = 0;
 			sourceTree = "<absolute>";
 		};
 		F56C19EE0294331B01DD284B = {
-			expectedFileType = wrapper.framework;
 			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = System.framework;
 			path = /System/Library/Frameworks/System.framework;
 			refType = 0;
 			sourceTree = "<absolute>";
 		};
 		F56C19EF0294331B01DD284B = {
-			expectedFileType = wrapper.framework;
 			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = SystemConfiguration.framework;
 			path = /System/Library/Frameworks/SystemConfiguration.framework;
 			refType = 0;
@@ -1133,9 +1133,9 @@
 			};
 		};
 		F56C1E1C0294333301DD284B = {
-			expectedFileType = wrapper.framework;
 			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = TimClient.framework;
 			path = /System/Library/PrivateFrameworks/TimClient.framework;
 			refType = 0;
@@ -1148,9 +1148,9 @@
 			};
 		};
 		F56C1E240294335201DD284B = {
-			expectedFileType = "compiled.mach-o.dylib";
 			fallbackIsa = PBXFileReference;
 			isa = PBXExecutableFileReference;
+			lastKnownFileType = "compiled.mach-o.dylib";
 			name = libsasl2.2.0.1.dylib;
 			path = /usr/lib/libsasl2.2.0.1.dylib;
 			refType = 0;
@@ -1163,8 +1163,8 @@
 			};
 		};
 		F56C1E2D029433D801DD284B = {
-			expectedFileType = archive.ar;
 			isa = PBXFileReference;
+			lastKnownFileType = archive.ar;
 			name = libDSPlugInCommon.a;
 			path = /AppleInternal/Developer/libs/libDSPlugInCommon.a;
 			refType = 0;
@@ -1177,9 +1177,9 @@
 			};
 		};
 		F56C1E2F0294343A01DD284B = {
-			expectedFileType = wrapper.framework;
 			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = DirectoryService.framework;
 			path = /System/Library/Frameworks/DirectoryService.framework;
 			refType = 0;
@@ -1192,9 +1192,9 @@
 			};
 		};
 		F56C1E41029436AB01DD284B = {
-			expectedFileType = wrapper.framework;
 			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = DirectoryServiceCore.framework;
 			path = /System/Library/PrivateFrameworks/DirectoryServiceCore.framework;
 			refType = 0;
@@ -1207,243 +1207,243 @@
 			};
 		};
 		F5E060AC029593D701DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = atomicio.c;
 			path = OpenSSH/atomicio.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		F5E060AD029593D701DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = "bsd-base64.c";
 			path = "OpenSSH/bsd-base64.c";
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		F5E060AE029593D701DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = "bsd-base64.h";
 			path = "OpenSSH/bsd-base64.h";
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		F5E060AF029593D701DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = bufaux.c;
 			path = OpenSSH/bufaux.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		F5E060B0029593D701DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = bufaux.h;
 			path = OpenSSH/bufaux.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		F5E060B1029593D701DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = buffer.c;
 			path = OpenSSH/buffer.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		F5E060B2029593D701DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = buffer.h;
 			path = OpenSSH/buffer.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		F5E060B3029593D701DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = cipher.c;
 			path = OpenSSH/cipher.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		F5E060B4029593D701DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = cipher.h;
 			path = OpenSSH/cipher.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		F5E060B5029593D701DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = compat.h;
 			path = OpenSSH/compat.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		F5E060B6029593D701DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = dsa.c;
 			path = OpenSSH/dsa.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		F5E060B7029593D701DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = dsa.h;
 			path = OpenSSH/dsa.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		F5E060B8029593D701DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = entropy.c;
 			path = OpenSSH/entropy.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		F5E060B9029593D701DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = entropy.h;
 			path = OpenSSH/entropy.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		F5E060BA029593D701DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = "fake-socket.h";
 			path = "OpenSSH/fake-socket.h";
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		F5E060BB029593D701DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = getput.h;
 			path = OpenSSH/getput.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		F5E060BC029593D701DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = kex.h;
 			path = OpenSSH/kex.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		F5E060BD029593D701DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = key.c;
 			path = OpenSSH/key.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		F5E060BE029593D701DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = key.h;
 			path = OpenSSH/key.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		F5E060BF029593D701DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = readconf.h;
 			path = OpenSSH/readconf.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		F5E060C0029593D701DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = rsa.c;
 			path = OpenSSH/rsa.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		F5E060C1029593D701DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = rsa.h;
 			path = OpenSSH/rsa.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		F5E060C2029593D701DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = ssh.h;
 			path = OpenSSH/ssh.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		F5E060C3029593D701DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = uuencode.c;
 			path = OpenSSH/uuencode.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		F5E060C4029593D701DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = uuencode.h;
 			path = OpenSSH/uuencode.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		F5E060C5029593D701DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = xmalloc.c;
 			path = OpenSSH/xmalloc.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		F5E060C6029593D701DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = xmalloc.h;
 			path = OpenSSH/xmalloc.h;
 			refType = 4;

@@ -11,6 +11,7 @@ import java.util.Enumeration;
 import java.util.Map;
 import org.jboss.ha.httpsession.server.ClusteredHTTPSessionServiceMBean;
 import org.jboss.logging.Logger;
+import org.jboss.metadata.WebMetaData;
 
 //----------------------------------------
 
@@ -18,7 +19,7 @@ class
   ClusterStateEnvelope
   implements State
 {
-  protected final Logger                           _log=Logger.getLogger(getClass().getName());
+  protected static final Logger                    _log=Logger.getLogger(ClusterStateEnvelope.class);
   protected final ClusteredHTTPSessionServiceMBean _svc;
   protected final String                           _id;
 
@@ -37,11 +38,10 @@ class
          ClassLoader tcl = Thread.currentThread().getContextClassLoader();
 	state=(State)_svc.getHttpSession(id, tcl);
 
-	_log.debug("loading ClusterState: "+id+"/"+state);
+	if (_log.isDebugEnabled()) _log.debug("loading ClusterState: "+id+"/"+state);
 	//	state.setId(id);
 
-	if (_log.isDebugEnabled())
-	  _log.debug("found ClusterState: "+id);
+	if (_log.isDebugEnabled()) _log.debug("found ClusterState: "+id);
       }
       catch (Throwable ignore)
       {
@@ -56,10 +56,9 @@ class
     {
       ClusterState cs=(ClusterState)state;
 
-      _log.debug("storing ClusterState: "+id+"/"+state);
+      if (_log.isDebugEnabled()) _log.debug("storing ClusterState: "+id+"/"+state);
 
-      if (_log.isDebugEnabled())
-	_log.debug("distributing ClusterState: "+id);
+      if (_log.isDebugEnabled()) _log.debug("distributing ClusterState: "+id);
 
       _svc.setHttpSession(id, cs);
     }
@@ -231,4 +230,19 @@ public class ClusterState
   {
     return getLastAccessedTime();
   }
+
+   public void sessionHasBeenStored()
+   {
+   }
+
+   /**
+    * is the session replicated sync- or asynchronously
+    *
+    * @see  WebMetaData
+    */
+   public int getReplicationTypeForSession()
+   {
+      // defensive: NYI
+      return WebMetaData.REPLICATION_TYPE_SYNC;
+   }
 }

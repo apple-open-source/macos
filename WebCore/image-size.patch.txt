@@ -1,0 +1,181 @@
+Index: ChangeLog
+===================================================================
+RCS file: /local/home/cvs/Labyrinth/WebCore/ChangeLog,v
+retrieving revision 1.1143
+diff -u -p -r1.1143 ChangeLog
+--- ChangeLog	2002/12/17 01:51:41	1.1143
++++ ChangeLog	2002/12/17 06:52:38
+@@ -1,3 +1,33 @@
++2002-12-16  Maciej Stachowiak  <mjs@apple.com>
++
++        Reviewed by Darin.
++
++	- fixed 3125283 - HOMEPAGE: in onload of an IMG, the width and height are equal to zero
++
++	There were two problems here. First, the calls to get image width
++	and height didn't force a layout in all the cases where it was
++	required. Second, layout wouldn't lay out images at all until
++	parsing was done, due to a hack to block inline layout until that
++	point. I'm not sure if this will have other bad consquences, but
++	nearly every page I tried, including Hebrew and Japanese pages as
++	well as every page on the base PLT laid out properly.
++
++        * khtml/html/html_imageimpl.cpp:
++        (HTMLImageElementImpl::width): Force a layout if not laid out.
++        (HTMLImageElementImpl::height): Likewise.
++        * khtml/html/htmlparser.cpp:
++	(KHTMLParser::insertNode): Remove setBlockBidi hack - this was
++	preventing images from getting laid out until the document was
++	totally done parsing.
++        * khtml/rendering/render_flow.cpp:
++        (RenderFlow::RenderFlow): More setBLockBidi removal.
++        (RenderFlow::layout): Likewise.
++        (RenderFlow::close): Likewise.
++        (RenderFlow::addChildToFlow): Likewise.
++        (RenderFlow::printTree): Likewise.
++        * khtml/rendering/render_flow.h:
++        * khtml/rendering/render_object.h:
++
+ 2002-12-16  David Hyatt  <hyatt@apple.com>
+ 
+ 	When a clear occurs (thus causing a block to move underneath
+Index: khtml/html/html_imageimpl.cpp
+===================================================================
+RCS file: /local/home/cvs/Labyrinth/WebCore/khtml/html/html_imageimpl.cpp,v
+retrieving revision 1.7
+diff -u -p -r1.7 khtml/html/html_imageimpl.cpp
+--- khtml/html/html_imageimpl.cpp	2002/12/07 00:27:57	1.7
++++ khtml/html/html_imageimpl.cpp	2002/12/17 06:52:38
+@@ -233,7 +233,7 @@ long HTMLImageElementImpl::width() const
+     if (!m_render) return getAttribute(ATTR_WIDTH).toInt();
+ 
+     // ### make a unified call for this
+-    if (changed()) {
++    if (changed() || !m_render->layouted()) {
+         getDocument()->updateRendering();
+         if (getDocument()->view())
+             getDocument()->view()->layout();
+@@ -247,7 +247,7 @@ long HTMLImageElementImpl::height() cons
+     if (!m_render) return getAttribute(ATTR_HEIGHT).toInt();
+ 
+     // ### make a unified call for this
+-    if (changed()) {
++    if (changed() || !m_render->layouted()) {
+         getDocument()->updateRendering();
+         if (getDocument()->view())
+             getDocument()->view()->layout();
+Index: khtml/html/htmlparser.cpp
+===================================================================
+RCS file: /local/home/cvs/Labyrinth/WebCore/khtml/html/htmlparser.cpp,v
+retrieving revision 1.30
+diff -u -p -r1.30 khtml/html/htmlparser.cpp
+--- khtml/html/htmlparser.cpp	2002/12/09 19:00:31	1.30
++++ khtml/html/htmlparser.cpp	2002/12/17 06:52:38
+@@ -332,8 +332,6 @@ bool KHTMLParser::insertNode(NodeImpl *n
+                 //
+                 if (!n->attached())
+                     n->attach();
+-                if (n->renderer())
+-                    n->renderer()->setBlockBidi();
+             }
+ #endif
+         }
+Index: khtml/rendering/render_flow.cpp
+===================================================================
+RCS file: /local/home/cvs/Labyrinth/WebCore/khtml/rendering/render_flow.cpp,v
+retrieving revision 1.69
+diff -u -p -r1.69 khtml/rendering/render_flow.cpp
+--- khtml/rendering/render_flow.cpp	2002/12/17 01:51:41	1.69
++++ khtml/rendering/render_flow.cpp	2002/12/17 06:52:38
+@@ -50,7 +50,6 @@ RenderFlow::RenderFlow(DOM::NodeImpl* no
+     m_childrenInline = true;
+     m_pre = false;
+     firstLine = false;
+-    m_blockBidi = false;
+     m_clearStatus = CNONE;
+ 
+     specialObjects = 0;
+@@ -313,9 +312,7 @@ void RenderFlow::layout()
+                                        
+ //    kdDebug( 6040 ) << "childrenInline()=" << childrenInline() << endl;
+     if(childrenInline()) {
+-        // ### make bidi resumeable so that we can get rid of this ugly hack
+-        if (!m_blockBidi)
+-            layoutInlineChildren( relayoutChildren );
++	layoutInlineChildren( relayoutChildren );
+     }
+     else
+         layoutBlockChildren( relayoutChildren );
+@@ -1723,9 +1720,6 @@ void RenderFlow::calcMinMaxWidth()
+ 
+ void RenderFlow::close()
+ {
+-    // ### get rid of me
+-    m_blockBidi = false;
+-
+     if(lastChild() && lastChild()->isAnonymousBox()) {
+         lastChild()->close();
+     }
+@@ -1980,12 +1974,6 @@ void RenderFlow::addChildToFlow(RenderOb
+     
+     bool madeBoxesNonInline = FALSE;
+ 
+-    if ( newChild->isPositioned() ) {
+-        m_blockBidi = false;
+-    }
+-    if (m_blockBidi)
+-	    newChild->setBlockBidi();
+-
+     RenderStyle* pseudoStyle=0;
+     if (!isInline() && (!firstChild() || firstChild() == beforeChild) && newChild->isText())
+     {
+@@ -2297,8 +2285,6 @@ bool RenderFlow::nodeAtPoint(NodeInfo& i
+ void RenderFlow::printTree(int indent) const
+ {
+     RenderBox::printTree(indent);
+-
+-//     KHTMLAssert(!m_blockBidi);
+ 
+     if(specialObjects)
+     {
+Index: khtml/rendering/render_flow.h
+===================================================================
+RCS file: /local/home/cvs/Labyrinth/WebCore/khtml/rendering/render_flow.h,v
+retrieving revision 1.22
+diff -u -p -r1.22 khtml/rendering/render_flow.h
+--- khtml/rendering/render_flow.h	2002/12/13 21:24:40	1.22
++++ khtml/rendering/render_flow.h	2002/12/17 06:52:38
+@@ -72,7 +72,6 @@ public:
+     virtual void setChildrenInline(bool b) { m_childrenInline = b; }
+     
+     virtual bool isRendered() const { return true; }
+-    virtual void setBlockBidi() { m_blockBidi = true; }
+ 
+     virtual RenderFlow* continuation() const { return m_continuation; }
+     void setContinuation(RenderFlow* c) { m_continuation = c; }
+@@ -235,7 +234,6 @@ private:
+     bool m_childrenInline : 1;
+     bool m_pre            : 1;
+     bool firstLine        : 1; // used in inline layouting
+-    bool m_blockBidi : 1;
+     EClear m_clearStatus  : 2; // used during layuting of paragraphs
+      
+     short m_maxTopPosMargin;
+Index: khtml/rendering/render_object.h
+===================================================================
+RCS file: /local/home/cvs/Labyrinth/WebCore/khtml/rendering/render_object.h,v
+retrieving revision 1.35
+diff -u -p -r1.35 khtml/rendering/render_object.h
+--- khtml/rendering/render_object.h	2002/12/15 04:43:53	1.35
++++ khtml/rendering/render_object.h	2002/12/17 06:52:38
+@@ -212,10 +212,6 @@ public:
+     void setOverhangingContents(bool p=true);
+     
+     void setLayouted(bool b=true);
+-        
+-    // hack to block inline layouts during parsing
+-    // evil, evil. I didn't do it. <tm>
+-    virtual void setBlockBidi() {}
+ 
+     void setMinMaxKnown(bool b=true) {
+ 	m_minMaxKnown = b;
