@@ -1,6 +1,8 @@
-# Mac OS X 10.0.1
-IOSerialFamily	7
-Libc	167
+# Mac OS X 10.0.2
+Libinfo	78.2
 Libsystem	50
-OpenSSH	7.1
-xnu	124.1
+configd	24.1
+netinfo	208.1
+network_cmds	77
+ntp	13
+xnu	124.7

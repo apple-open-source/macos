@@ -12,11 +12,11 @@ NAME = ftpd
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-HFILES = extern.h pathnames.h
+HFILES = ls.h ls_extern.h extern.h pathnames.h
 
 OTHERLINKED = ftpcmd.y
 
-CFILES = ftpd.c logwtmp.c popen.c vers.c
+CFILES = ftpd.c logwtmp.c popen.c ls.c util.c cmp.c print.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble ftpd.8
 

@@ -103,6 +103,7 @@ syslock_new(bool_t recursive)
 	condition_init(s->condition);
 #endif
 
+	s->locked = 0;
 	s->thread = NO_THREAD;
 	s->recursive = recursive;
 	return s;
@@ -112,6 +113,7 @@ void
 syslock_free(syslock *s)
 {
 	if (s == NULL) return;
+
 #ifdef _THREAD_TYPE_PTHREAD_
 	pthread_mutex_destroy(s->mutex);
 	free(s->mutex);
@@ -136,8 +138,10 @@ syslock_lock(syslock *s)
 	t = _thread_id();
 
 	_internal_lock(s);
-	if (s->locked && s->recursive && (s->thread == t))
+	if ((s->locked > 0) && s->recursive && (s->thread == t))
 	{
+		/* Recursive locks just increment the locked counter */
+		s->locked++;
 		_internal_unlock(s);
 		return;
 	}
@@ -146,7 +150,7 @@ syslock_lock(syslock *s)
 	_main_lock(s);
 
 	_internal_lock(s);
-	s->locked = TRUE;
+	s->locked = 1;
 	s->thread = _thread_id();
 	_internal_unlock(s);
 }
@@ -154,14 +158,22 @@ syslock_lock(syslock *s)
 void
 syslock_unlock(syslock *s)
 {
+	int unlock_me;
+
 	if (s == NULL) return;
 
+	unlock_me = 0;
+
 	_internal_lock(s);
-	s->locked = FALSE;
-	s->thread = NO_THREAD;
+	if (s->locked > 0) s->locked--;
+	if (s->locked == 0)
+	{
+		s->thread = NO_THREAD;
+		unlock_me = 1;
+	}
 	_internal_unlock(s);
 
-	_main_unlock(s);
+	if (unlock_me == 1) _main_unlock(s);
 }
 
 bool_t
@@ -172,8 +184,10 @@ syslock_trylock(syslock *s)
 	if (s == NULL) return FALSE;
 
 	_internal_lock(s);
-	if (s->locked && s->recursive && (s->thread == _thread_id()))
+	if ((s->locked > 0) && s->recursive && (s->thread == _thread_id()))
 	{
+		/* Recursive locks just increment the locked counter */
+		s->locked++;
 		_internal_unlock(s);
 		return TRUE;
 	}
@@ -188,7 +202,7 @@ syslock_trylock(syslock *s)
 	if (t != 0) return FALSE;
 
 	_internal_lock(s);
-	s->locked = TRUE;
+	s->locked = 1;
 	s->thread = _thread_id();
 	_internal_unlock(s);
 
@@ -200,8 +214,11 @@ syslock_is_locked(syslock *s)
 {
 	bool_t ret;
 
+	if (s == NULL) return FALSE;
+
+	ret = FALSE;
 	_internal_lock(s);
-	ret = s->locked;
+	if (s->locked > 0) ret = TRUE;
 	_internal_unlock(s);
 
 	return ret;

@@ -1,5 +1,5 @@
-/*
- * Copyright (c) 1989, 1993
+/*-
+ * Copyright (c) 1991, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,15 +30,31 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *	@(#)pathnames.h	8.1 (Berkeley) 6/4/93
- * $FreeBSD: src/libexec/ftpd/pathnames.h,v 1.11 1999/08/28 00:09:31 peter Exp $
+ *	from: @(#)extern.h	8.1 (Berkeley) 5/31/93
+ * $FreeBSD: src/bin/ls/extern.h,v 1.14 2000/07/04 23:09:23 assar Exp $
  */
 
-#include <paths.h>
+int	 acccmp __P((const FTSENT *, const FTSENT *));
+int	 revacccmp __P((const FTSENT *, const FTSENT *));
+int	 modcmp __P((const FTSENT *, const FTSENT *));
+int	 revmodcmp __P((const FTSENT *, const FTSENT *));
+int	 namecmp __P((const FTSENT *, const FTSENT *));
+int	 revnamecmp __P((const FTSENT *, const FTSENT *));
+int	 statcmp __P((const FTSENT *, const FTSENT *));
+int	 revstatcmp __P((const FTSENT *, const FTSENT *));
 
-#define	_PATH_FTPCHROOT		"/etc/ftpchroot"
-#define	_PATH_FTPWELCOME	"/etc/ftpwelcome"
-#define	_PATH_FTPLOGINMESG	"/etc/ftpmotd"
-#define	_PATH_FTPHOSTS		"/etc/ftphosts"
-#define	_PATH_FTPDSTATFILE	"/var/log/ftpd"
-#define	_PATH_LS		"/bin/ls"
+void	 printcol __P((DISPLAY *));
+void	 printlong __P((DISPLAY *));
+void	 printscol __P((DISPLAY *));
+void	 usage __P((void));
+int	 len_octal __P((const char *, int));
+int	 prn_octal __P((const char *));
+int	 prn_printable __P((const char *));
+#ifdef COLORLS
+void	 parsecolors __P((char *cs));
+void     colorquit __P((int));
+
+extern  char    *ansi_fgcol;
+extern  char    *ansi_bgcol;
+extern  char    *ansi_coloff;
+#endif

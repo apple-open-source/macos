@@ -2,6 +2,9 @@
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
+ * This code is derived from software contributed to Berkeley by
+ * Michael Fischbein.
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -29,16 +32,78 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- *	@(#)pathnames.h	8.1 (Berkeley) 6/4/93
- * $FreeBSD: src/libexec/ftpd/pathnames.h,v 1.11 1999/08/28 00:09:31 peter Exp $
  */
 
-#include <paths.h>
+#ifndef lint
+#if 0
+static char sccsid[] = "@(#)cmp.c	8.1 (Berkeley) 5/31/93";
+#else
+static const char rcsid[] =
+  "$FreeBSD: src/bin/ls/cmp.c,v 1.9 1999/08/27 23:14:31 peter Exp $";
+#endif
+#endif /* not lint */
 
-#define	_PATH_FTPCHROOT		"/etc/ftpchroot"
-#define	_PATH_FTPWELCOME	"/etc/ftpwelcome"
-#define	_PATH_FTPLOGINMESG	"/etc/ftpmotd"
-#define	_PATH_FTPHOSTS		"/etc/ftphosts"
-#define	_PATH_FTPDSTATFILE	"/var/log/ftpd"
-#define	_PATH_LS		"/bin/ls"
+#include <sys/types.h>
+#include <sys/stat.h>
+
+#include <fts.h>
+#include <string.h>
+
+#include "ls.h"
+#include "ls_extern.h"
+
+int
+namecmp(a, b)
+	const FTSENT *a, *b;
+{
+	return (strcoll(a->fts_name, b->fts_name));
+}
+
+int
+revnamecmp(a, b)
+	const FTSENT *a, *b;
+{
+	return (strcoll(b->fts_name, a->fts_name));
+}
+
+int
+modcmp(a, b)
+	const FTSENT *a, *b;
+{
+	return (b->fts_statp->st_mtime - a->fts_statp->st_mtime);
+}
+
+int
+revmodcmp(a, b)
+	const FTSENT *a, *b;
+{
+	return (a->fts_statp->st_mtime - b->fts_statp->st_mtime);
+}
+
+int
+acccmp(a, b)
+	const FTSENT *a, *b;
+{
+	return (b->fts_statp->st_atime - a->fts_statp->st_atime);
+}
+
+int
+revacccmp(a, b)
+	const FTSENT *a, *b;
+{
+	return (a->fts_statp->st_atime - b->fts_statp->st_atime);
+}
+
+int
+statcmp(a, b)
+	const FTSENT *a, *b;
+{
+	return (b->fts_statp->st_ctime - a->fts_statp->st_ctime);
+}
+
+int
+revstatcmp(a, b)
+	const FTSENT *a, *b;
+{
+	return (a->fts_statp->st_ctime - b->fts_statp->st_ctime);
+}

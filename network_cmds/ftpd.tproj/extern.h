@@ -1,26 +1,3 @@
-/*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
 /*-
  * Copyright (c) 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -54,6 +31,7 @@
  * SUCH DAMAGE.
  *
  *	@(#)extern.h	8.2 (Berkeley) 4/4/94
+ * $FreeBSD: src/libexec/ftpd/extern.h,v 1.14 2000/01/27 09:28:19 shin Exp $
  */
 
 void	blkfree __P((char **));
@@ -62,15 +40,16 @@ void	cwd __P((char *));
 void	delete __P((char *));
 void	dologout __P((int));
 void	fatal __P((char *));
+void    ftpd_logwtmp __P((char *, char *, char *));
 int	ftpd_pclose __P((FILE *));
 FILE   *ftpd_popen __P((char *, char *));
 char   *getline __P((char *, int, FILE *));
-void	logwtmp __P((char *, char *, char *));
 void	lreply __P((int, const char *, ...));
 void	makedir __P((char *));
 void	nack __P((char *));
 void	pass __P((char *));
 void	passive __P((void));
+void	long_passive __P((char *, int));
 void	perror_reply __P((int, char *));
 void	pwd __P((void));
 void	removedir __P((char *));
@@ -79,10 +58,32 @@ char   *renamefrom __P((char *));
 void	reply __P((int, const char *, ...));
 void	retrieve __P((char *, char *));
 void	send_file_list __P((char *));
+#ifdef OLD_SETPROCTITLE
 void	setproctitle __P((const char *, ...));
+#endif
 void	statcmd __P((void));
 void	statfilecmd __P((char *));
 void	store __P((char *, char *, int));
 void	upper __P((char *));
 void	user __P((char *));
 void	yyerror __P((char *));
+int	yyparse __P((void));
+#if defined(SKEY) && defined(_PWD_H_) /* XXX evil */
+char   *skey_challenge __P((char *, struct passwd *, int));
+#endif
+int	ls_main __P((int, char **));
+
+struct sockaddr_in;
+struct sockaddr_in6;
+union sockunion {
+	struct sockinet {
+		u_char	si_len;
+		u_char	si_family;
+		u_short	si_port;
+	} su_si;
+	struct	sockaddr_in  su_sin;
+	struct	sockaddr_in6 su_sin6;
+};
+#define	su_len		su_si.si_len
+#define	su_family	su_si.si_family
+#define	su_port		su_si.si_port

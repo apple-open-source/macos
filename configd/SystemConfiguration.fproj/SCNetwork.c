@@ -1133,6 +1133,7 @@ SCNIsReachableByName(const char		*nodename,
 		     const char		**errorMessage)
 {
 	struct in_addr	*defaultRoute	= NULL;
+	struct hostent	*h;
 	int		i;
 	CFDictionaryRef	interfaces	= NULL;
 	CFArrayRef	interfaceOrder	= NULL;
@@ -1222,6 +1223,58 @@ SCNIsReachableByName(const char		*nodename,
 				/* we're in luck */
 				break;
 			}
+		}
+	}
+
+	if (res) {
+		goto done;
+	}
+
+	/*
+	 * The getaddrinfo() function call didn't return any addresses.  While
+	 * this may be the correct answer we have found that some DNS servers
+	 * may, depending on what has been cached, not return all available
+	 * records when issued a T_ANY query.  To accomodate these servers
+	 * we double check by using the gethostbyname() function which uses
+	 * a simple T_A query.
+	 */
+
+#ifdef	DEBUG
+	if (SCDOptionGet(session, kSCDOptionDebug))
+		SCDLog(LOG_INFO, CFSTR("getaddrinfo() returned no addresses, try gethostbyname()"));
+#endif	/* DEBUG */
+
+	h = gethostbyname(nodename);
+	if (h && h->h_length) {
+		struct in_addr **s	= (struct in_addr **)h->h_addr_list;
+
+		while (*s) {   
+			struct sockaddr_in	sa;
+
+			bzero(&sa, sizeof(sa));
+			sa.sin_len    = sizeof(sa);
+			sa.sin_family = AF_INET;
+			sa.sin_addr   = **s;
+
+			ns_status = checkAddress(session,
+						 (struct sockaddr *)&sa,
+						 sizeof(sa),
+						 services,
+						 interfaces,
+						 interfaceOrder,
+						 defaultRoute,
+						 flags,
+						 errorMessage);
+			if (ns_status > scn_status) {
+				/* return the best case result */
+				scn_status = ns_status;
+				if (ns_status == SCN_REACHABLE_YES) {
+					/* we're in luck */
+					break;
+				}
+			}
+
+			s++;
 		}
 	}
 

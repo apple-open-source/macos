@@ -43,7 +43,6 @@
 {
 	struct {
 		LUArray *all;
-		syslock *lock;
 	} rootInitGroups;
 
 	struct {
@@ -60,9 +59,9 @@
 		LUArray *all;
 		BOOL validate;
 		BOOL enabled;
-		syslock *lock;
 	} allStore[NCATEGORIES];
 
+	syslock *cacheLock;
 	char *initgroupsUserName;
 	LUDictionary *stats;
 
