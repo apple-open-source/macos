@@ -2,7 +2,7 @@
 
      _________________________________________________________________
 
-                         Design Notes On Fetchmail
+                           Design Notes On Fetchmail
 
    These notes are for the benefit of future hackers and maintainers. The
    following  sections  are  both  functional  and  narrative,  read from
@@ -13,8 +13,9 @@
    A  direct  ancestor  of  the fetchmail program was originally authored
    (under  the  name popclient) by Carl Harris <ceharris@mal.com>. I took
    over  development  in  June  1996 and subsequently renamed the program
-   `fetchmail' to reflect the addition of IMAP support. In early November
-   1996 Carl officially ended support for the last popclient versions.
+   `fetchmail' to reflect the addition of IMAP support and SMTP delivery.
+   In  early  November  1996  Carl  officially ended support for the last
+   popclient versions.
 
    Before accepting responsibility for the popclient sources from Carl, I
    had   investigated  and  used  and  tinkered  with  every  other  UNIX
@@ -217,7 +218,6 @@ Multiple concurrent instances of fetchmail
    There   are  two  important  aspects  of  the  features  for  handling
    multiple-drop aliases and mailing lists which future hackers should be
    careful to preserve.
-
     1. The  logic  path  for  single-recipient  mailboxes doesn't involve
        header  parsing  or  DNS  lookups  at all. This is important -- it
        means  the  code  for the most common case can be much simpler and

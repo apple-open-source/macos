@@ -476,16 +476,220 @@ errOut:
 }
 #endif	/* TP_ROOT_CERT_ENABLE */
 
-/*
- * Convert a C string to lower case in place. NULL terminator not needed.
+/* 
+ * See if cert's Subject.commonName matches caller-specified hostname.
+ * Returns CSSM_TRUE if match, else returns CSSM_FALSE.
  */
-static void tpToLower(
-	char *str,
-	unsigned strLen)
+static CSSM_BOOL tpCompareCommonName(
+	TPCertInfo &cert,
+	const char *hostName,
+	uint32		hostNameLen)
 {
-	for(unsigned i=0; i<strLen; i++) {
-		*str++ = tolower(*str);
+	char 			*commonName = NULL;			// from cert's subject name
+	uint32 			commonNameLen = 0;
+	CSSM_DATA_PTR 	subjNameData = NULL;
+	CSSM_RETURN 	crtn;
+	CSSM_BOOL		ourRtn = CSSM_FALSE;
+	
+	crtn = cert.fetchField(&CSSMOID_X509V1SubjectNameCStruct, &subjNameData);
+	if(crtn) {
+		/* should never happen, we shouldn't be here if there is no subject */
+		errorLog0("tp_verifySslOpts: error retrieving subject name");
+		return CSSM_FALSE;
 	}
+	CSSM_X509_NAME_PTR x509name = (CSSM_X509_NAME_PTR)subjNameData->Data;
+	if((x509name == NULL) || (subjNameData->Length != sizeof(CSSM_X509_NAME))) {
+		errorLog0("tp_verifySslOpts: malformed CSSM_X509_NAME");
+		cert.freeField(&CSSMOID_X509V1SubjectNameCStruct, subjNameData);
+		return CSSM_FALSE;
+	}
+
+	/* Now grunge thru the X509 name looking for a common name */
+	CSSM_X509_TYPE_VALUE_PAIR 	*ptvp;
+	CSSM_X509_RDN_PTR    		rdnp;
+	unsigned					rdnDex;
+	unsigned					pairDex;
+	
+	for(rdnDex=0; rdnDex<x509name->numberOfRDNs; rdnDex++) {
+		rdnp = &x509name->RelativeDistinguishedName[rdnDex];
+		for(pairDex=0; pairDex<rdnp->numberOfPairs; pairDex++) {
+			ptvp = &rdnp->AttributeTypeAndValue[pairDex];
+			if(tpCompareOids(&ptvp->type, &CSSMOID_CommonName)) {
+				commonName = (char *)ptvp->value.Data;
+				commonNameLen = ptvp->value.Length;
+				ourRtn = tpCompareHostNames(hostName, hostNameLen, 
+					commonName, commonNameLen);
+				if(ourRtn) {
+					/* success */
+					break;
+				}
+				/* else keep going, maybe there's another common name */
+			}
+		}
+		if(ourRtn) {
+			break;
+		}
+	}
+	cert.freeField(&CSSMOID_X509V1SubjectNameCStruct, subjNameData);
+	return ourRtn;
+}
+
+/*
+ * Compare ASCII form of an IP address to a CSSM_DATA containing 
+ * the IP address's numeric components. Returns true on match.
+ */
+static CSSM_BOOL tpCompIpAddrStr(
+	const char *str,
+	unsigned strLen,
+	const CSSM_DATA *numeric)
+{
+	const char *cp = str;
+	const char *nextDot;
+	char buf[100];
+	
+	if((numeric == NULL) || (numeric->Length == 0) || (str == NULL)) {
+		return CSSM_FALSE;
+	}
+	if(cp[strLen - 1] == '\0') {
+		/* ignore NULL terminator */
+		strLen--;
+	}
+	for(unsigned dex=0; dex<numeric->Length; dex++) {
+		/* cp points to start of current string digit */
+		/* find next dot */
+		const char *lastChar = cp + strLen;
+		nextDot = cp + 1;
+		for( ; nextDot<lastChar; nextDot++) {
+			if(*nextDot == '.') {
+				break;
+			}
+		}
+		if(nextDot == lastChar) {
+			/* legal and required on last digit */
+			if(dex != (numeric->Length - 1)) {
+				return CSSM_FALSE;
+			}
+		}
+		else if(dex == (numeric->Length - 1)) {
+			return CSSM_FALSE;
+		}
+		unsigned digLen = nextDot - cp;
+		if(digLen >= sizeof(buf)) {
+			/* preposterous */
+			return CSSM_FALSE;
+		}
+		memmove(buf, cp, digLen);
+		buf[digLen] = '\0';
+		/* incr digLen to include the next dot */
+		digLen++;
+		cp += digLen;
+		strLen -= digLen;
+		int digVal = atoi(buf);
+		if(digVal != numeric->Data[dex]) {
+			return CSSM_FALSE;
+		}
+	}
+	return CSSM_TRUE;
+}
+
+/* 
+ * See if cert's subjectAltName matches caller-specified hostname, either
+ * as a dnsName or an iPAddress.
+ *
+ * Returns CSSM_TRUE if match, else returns CSSM_FALSE. Also indicates
+ * whether or not a dnsName was found (in which case the subject's
+ * common name should NOT be a candidate for verification).
+ */
+static CSSM_BOOL tpCompareSubjectAltName(
+	TPCertInfo &cert,
+	const char *hostName,
+	uint32		hostNameLen,
+	bool		&dnsNameFound)		// RETURNED
+{
+	CSSM_DATA_PTR 	subjAltNameData = NULL;
+	CSSM_RETURN 	crtn;
+	CSSM_BOOL		ourRtn = CSSM_FALSE;
+	
+	dnsNameFound = false;
+	crtn = cert.fetchField(&CSSMOID_SubjectAltName, &subjAltNameData);
+	if(crtn) {
+		/* common failure, no subjectAltName found */
+		return CSSM_FALSE;
+	}
+	CSSM_X509_EXTENSION_PTR exten = 
+		(CSSM_X509_EXTENSION_PTR)subjAltNameData->Data;
+	/* Paranoid check of extension integrity */
+	if((exten == NULL) || 
+	   (subjAltNameData->Length != sizeof(CSSM_X509_EXTENSION)) ||
+	   (exten->format != CSSM_X509_DATAFORMAT_PARSED) ||
+	   (exten->value.parsedValue == NULL)) {
+		errorLog0("tpCompareSubjectAltName: malformed CSSM_X509_EXTENSION");
+		cert.freeField(&CSSMOID_SubjectAltName, subjAltNameData);
+		return CSSM_FALSE;
+	}
+
+	CE_GeneralNames *names = (CE_GeneralNames *)exten->value.parsedValue;
+	char 			*serverName;
+	unsigned 		serverNameLen;
+	
+	/* Search thru the CE_GeneralNames looking for a DNSName or IP Address */
+	for(unsigned dex=0; dex<names->numNames; dex++) {
+		CE_GeneralName *name = &names->generalName[dex];
+		switch(name->nameType) {
+			case GNT_IPAddress:
+				ourRtn = tpCompIpAddrStr(hostName, hostNameLen, &name->name);
+				break;
+
+			case GNT_DNSName:
+				if(name->berEncoded) {
+					errorLog0("tpCompareSubjectAltName: malformed "
+						"CE_GeneralName (1)\n");
+					break;
+				}
+				serverName = (char *)name->name.Data;
+				if(serverName == NULL) {
+					errorLog0("tpCompareSubjectAltName: malformed "
+						"CE_GeneralName (2)\n");
+					break;
+				}
+				serverNameLen = name->name.Length;
+				ourRtn = tpCompareHostNames(hostName, hostNameLen, 
+					serverName, serverNameLen);
+				dnsNameFound = true;
+				break;
+
+			default:
+				/* not interested, proceed to next name */
+				break;
+		}
+		if(ourRtn) {
+			/* success */
+			break;
+		}
+	}
+	cert.freeField(&CSSMOID_SubjectAltName, subjAltNameData);
+	return ourRtn;
+}
+
+/* is host name in the form of a.b.c.d, where a,b,c, and d are digits? */
+static CSSM_BOOL tpIsNumeric(
+	const char *hostName, 
+	unsigned hostNameLen)
+{
+	if(hostName[hostNameLen - 1] == '\0') {
+		/* ignore NULL terminator */
+		hostNameLen--;
+	}
+	for(unsigned i=0; i<hostNameLen; i++) {
+		char c = *hostName++;
+		if(isdigit(c)) {
+			continue;
+		}
+		if(c != '.') {
+			return CSSM_FALSE;
+		}
+	}
+	return CSSM_TRUE;
 }
 
 /*
@@ -502,117 +706,47 @@ static CSSM_RETURN tp_verifySslOpts(
 		return CSSM_OK;
 	}
 
-	CSSM_DATA_PTR subjNameData = NULL;
-	char *serverName = NULL;
-	unsigned serverNameLen = sslOpts->ServerNameLen;
-	char *commonName = NULL;
-	uint32 commonNameLen = 0;
+	unsigned hostNameLen = sslOpts->ServerNameLen;
 	
-	if(serverNameLen == 0) {
+	if(hostNameLen == 0) {
 		/* optional */
 		return CSSM_OK;
 	}
 	if(sslOpts->ServerName == NULL) {
 		return CSSMERR_TP_INVALID_POINTER;
 	}
+
+	/* convert caller's hostname string to lower case */
+	char *hostName = (char *)certGroup.alloc().malloc(hostNameLen);
+	memmove(hostName, sslOpts->ServerName, hostNameLen);
+	tpToLower(hostName, hostNameLen);
 	
-	/* Obtain subject name of leaf cert in CSSM_X509_NAME_PTR form */
 	TPCertInfo *leaf = certGroup.certAtIndex(0);
 	assert(leaf != NULL);
-	CSSM_RETURN crtn;
-	crtn = leaf->fetchField(&CSSMOID_X509V1SubjectNameCStruct, &subjNameData);
-	if(crtn) {
-		/* should never happen, we shouldn't be here if there is no subject */
-		errorLog0("tp_verifySslOpts: error retrieving subject name\n");
-		return crtn;
-	}
-	CSSM_X509_NAME_PTR x509name = (CSSM_X509_NAME_PTR)subjNameData->Data;
-	if((x509name == NULL) || (subjNameData->Length != sizeof(CSSM_X509_NAME))) {
-		errorLog0("tp_verifySslOpts: malformed CSSM_X509_NAME\n");
-		crtn = CSSMERR_TP_INVALID_CERTGROUP;
-		goto done;
-	}
-
-	/* Now grunge thru the X509 name looking for a common name */
-	CSSM_X509_TYPE_VALUE_PAIR 	*ptvp;
-	CSSM_X509_RDN_PTR    		rdnp;
-	unsigned					rdnDex;
-	unsigned					pairDex;
 	
-	for(rdnDex=0; rdnDex<x509name->numberOfRDNs; rdnDex++) {
-		rdnp = &x509name->RelativeDistinguishedName[rdnDex];
-		for(pairDex=0; pairDex<rdnp->numberOfPairs; pairDex++) {
-			ptvp = &rdnp->AttributeTypeAndValue[pairDex];
-			if(tpCompareOids(&ptvp->type, &CSSMOID_CommonName)) {
-				commonName = (char *)ptvp->value.Data;
-				commonNameLen = ptvp->value.Length;
-				break;
-			}
-		}
-	}
-	if(commonName == NULL) {
-		errorLog0("tp_verifySslOpts: NO COMMON NAME in subject\n");
-		crtn = CSSMERR_TP_VERIFY_ACTION_FAILED;
-		goto done;
-	}
+	CSSM_BOOL match = CSSM_FALSE;
 	
-	/* tolerate optional NULL terminators for both */
-	if(commonName[commonNameLen - 1] == '\0') {
-		commonNameLen--;
+	/* First check subjectAltName... */
+	bool dnsNameFound = false;
+	match = tpCompareSubjectAltName(*leaf, hostName, hostNameLen, 
+		dnsNameFound);
+	/* 
+	 * Then common name, if
+	 *  -- no match from subjectAltName, AND
+	 *  -- dnsName was NOT found, AND
+	 *  -- hostName is not strictly numeric form (1.2.3.4)
+	 */
+	if(!match && !dnsNameFound && !tpIsNumeric(hostName, hostNameLen)) {
+		match = tpCompareCommonName(*leaf, hostName, hostNameLen);
 	}
-	if(sslOpts->ServerName[serverNameLen - 1] == '\0') {
-		serverNameLen--;
-	}
-	
-	/* convert both name strings to lower case. The one in the X509 Name can
-	 * be done in place; we have to malloc and copy the caller's string. */
-	tpToLower(commonName, commonNameLen);
-	serverName = (char *)certGroup.alloc().malloc(serverNameLen);
-	memmove(serverName, sslOpts->ServerName, serverNameLen);
-	tpToLower(serverName, serverNameLen);
-	
-	/* case 1: exact match */
-	if((serverNameLen == commonNameLen) &&
-	    !memcmp(commonName, serverName, commonNameLen)) {
-		crtn = CSSM_OK;
-		goto done;
-	}
-	
-	/* case 2: handle optional '*' in cert's common name */
-	if(commonName[0] == '*') {
-		/* last (commonNameLen - 1) chars have to match */
-		unsigned effectLen = commonNameLen - 1;		// skip '*' 
-		if(serverNameLen < effectLen) {
-			errorLog0("tp_verifySslOpts: subject/server name wildcard mismatch (1)\n");
-			crtn = CSSMERR_TP_VERIFY_ACTION_FAILED;
-		}
-		else if(memcmp(commonName+1,		// skip '*'
-		         serverName + serverNameLen - effectLen,
-				 effectLen)) {
-			errorLog0("tp_verifySslOpts: subject/server name wildcard mismatch (2)\n");
-			crtn = CSSMERR_TP_VERIFY_ACTION_FAILED;
-		}
-		else {
-			/* wildcard match */
-			crtn = CSSM_OK;
-		}
+	certGroup.alloc().free(hostName);	
+	if(match) {
+		return CSSM_OK;
 	}
 	else {
-		/* mismatch */
-		errorLog0("tp_verifySslOpts: subject/server name mismatch\n");
-		crtn = CSSMERR_TP_VERIFY_ACTION_FAILED;
-	}
-done:
-	if(subjNameData != NULL) {
-		leaf->freeField(&CSSMOID_X509V1SubjectNameCStruct, subjNameData);
-	}
-	if(serverName != NULL) {
-		certGroup.alloc().free(serverName);	
-	}
-	if(crtn == CSSMERR_TP_VERIFY_ACTION_FAILED) {
 		leaf->addStatusCode(CSSMERR_APPLETP_HOSTNAME_MISMATCH);
+		return CSSMERR_TP_VERIFY_ACTION_FAILED;
 	}
-	return crtn;
 }
 
 /*

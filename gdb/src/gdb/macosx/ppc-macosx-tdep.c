@@ -53,6 +53,7 @@ struct gdbarch_tdep
 };
 
 static int ppc_debugflag = 0;
+static unsigned int ppc_max_frame_size = UINT_MAX;
 
 void ppc_debug (const char *fmt, ...)
 {
@@ -400,9 +401,9 @@ ppc_frame_chain_valid (chain, frame)
 	     (unsigned long) frame->frame, (unsigned long) chain);
     return 0;
   }
-  if ((chain - frame->frame) > 65536) {
+  if ((chain - frame->frame) > ppc_max_frame_size) {
     warning ("ppc_frame_chain_valid: stack frame from 0x%lx to 0x%lx "
-	     "larger than 65536 bytes; assuming invalid",
+	     "larger than ppc-maximum-frame-size bytes; assuming invalid",
 	     (unsigned long) frame->frame, (unsigned long) chain);
     return 0;
   }
@@ -1221,4 +1222,11 @@ _initialize_ppc_tdep ()
   add_com ("ppc-fast-show-stack", class_obscure, ppc_fast_show_stack,
 	   "List stack pc & frame pointers without building the stack info.\n\
 If you pass the \"-name\" argument, it will also return function names.");
+
+  cmd = add_set_cmd
+    ("ppc-maximum-frame-size", class_obscure, var_uinteger,
+     (char *) &ppc_max_frame_size,
+     "Set the maximum size to expect for a valid PPC frame.",
+     &setlist);
+  add_show_from_set (cmd, &showlist);
 }

@@ -248,8 +248,8 @@ AppleUSBOHCI::FilterInterrupt(int index)
             //
             _rootHubStatusChangeInterrupt = kOHCIHcInterrupt_RHSC;
             
-	    // disable the RHSC interrupt because some older controllers will leave it asserted even when 
-	    // it has been specifically cleared (see Yosemite)
+	    // disable the RHSC interrupt until we process it at secondary interrupt
+	    // time. some controllers do not respond to the clear bit
             _pOHCIRegisters->hcInterruptDisable = HostToUSBLong(kOHCIHcInterrupt_RHSC);
             IOSync();
 
@@ -304,7 +304,7 @@ AppleUSBOHCI::FilterInterrupt(int index)
             // Debugging aid to keep track of how long we take in between calls to the filter routine
             //
             _filterInterruptCount++;
-            
+                
             _filterTimeStamp2 = timeStamp;
             SUB_ABSOLUTETIME(&_filterTimeStamp2, &_filterTimeStamp); 
             _filterTimeStamp = timeStamp;

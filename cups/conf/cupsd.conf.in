@@ -1,5 +1,5 @@
 #
-# "$Id: cupsd.conf.in,v 1.11.2.1 2002/10/01 16:55:15 jlovell Exp $"
+# "$Id: cupsd.conf.in,v 1.11.2.2 2002/12/13 22:54:09 jlovell Exp $"
 #
 #   Sample configuration file for the Common UNIX Printing System (CUPS)
 #   scheduler.
@@ -390,6 +390,15 @@ Listen 127.0.0.1:631
 #MaxClients 100
 
 #
+# MaxClientsPerHost: controls the maximum number of simultaneous clients that
+# will be handled from a specific host.  Defaults to 10 or 1/10th of the
+# MaxClients setting, whichever is larger.  A value of 0 specifies the
+# automatic (10 or 1/10th) setting.
+#
+
+#MaxClientsPerHost 0
+
+#
 # MaxRequestSize: controls the maximum size of HTTP requests and print files.
 # Set to 0 to disable this feature (defaults to 0.)
 #
@@ -767,5 +776,5 @@ Allow From 127.0.0.1
 </Location>
 
 #
-# End of "$Id: cupsd.conf.in,v 1.11.2.1 2002/10/01 16:55:15 jlovell Exp $".
+# End of "$Id: cupsd.conf.in,v 1.11.2.2 2002/12/13 22:54:09 jlovell Exp $".
 #

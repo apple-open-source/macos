@@ -294,6 +294,8 @@ void dump_config(struct runctl *runp, struct query *querylist)
 		stringdump("auth", "kerberos_v5");
 	    else if (ctl->server.authenticate == A_SSH)
 		stringdump("auth", "ssh");
+	    else if (ctl->server.authenticate == A_OTP)
+		stringdump("auth", "otp");
 
 #if defined(HAVE_GETHOSTBYNAME) && defined(HAVE_RES_SEARCH)
 	    booldump("dns", ctl->server.dns);
@@ -393,18 +395,13 @@ void dump_config(struct runctl *runp, struct query *querylist)
 
 	indent('\0');
 	fprintf(stdout, "'antispam':'");
-	if (!ctl->antispam)
-	    fputs("'\n", stdout);
-	else
+	for (idp = ctl->antispam; idp; idp = idp->next)
 	{
-	    for (idp = ctl->antispam; idp; idp = idp->next)
-	    {
-		fprintf(stdout, "%d", idp->val.status.num);
-		if (idp->next)
-		    fputs(" ", stdout);
-	    }
-	    fputs("',\n", stdout);
+	    fprintf(stdout, "%d", idp->val.status.num);
+	    if (idp->next)
+		fputs(" ", stdout);
 	}
+	fputs("',\n", stdout);
 	listdump("mailboxes", ctl->mailboxes);
 
 	indent('}');

@@ -448,3 +448,77 @@ CSSM_ALGORITHMS tpOidToAldId(
 		return CSSM_ALGID_NONE;
 	}
 }
+
+/*
+ * Convert a C string to lower case in place. NULL terminator not needed.
+ */
+void tpToLower(
+	char *str,
+	unsigned strLen)
+{
+	for(unsigned i=0; i<strLen; i++) {
+		*str++ = tolower(*str);
+	}
+}
+
+
+/*
+ * Compare hostname, is presented to the TP in 
+ * CSSM_APPLE_TP_SSL_OPTIONS.ServerName, to a server name obtained
+ * from the server's cert (i.e., from subjectAltName or commonName).
+ * Limited wildcard checking is performed here. 
+ *
+ * The incoming hostname is assumed to have been processed by tpToLower();
+ * we'll perform that processing on serverName here. 
+ *
+ * Returns CSSM_TRUE on match, else CSSM_FALSE.
+ */
+CSSM_BOOL tpCompareHostNames(
+	const char	 	*hostName,		// spec'd by app, tpToLower'd
+	uint32			hostNameLen,
+	char			*serverName,	// from cert, we tpToLower
+	uint32			serverNameLen)
+{
+	tpToLower(serverName, serverNameLen);
+
+	/* tolerate optional NULL terminators for both */
+	if(hostName[hostNameLen - 1] == '\0') {
+		hostNameLen--;
+	}
+	if(serverName[serverNameLen - 1] == '\0') {
+		serverNameLen--;
+	}
+	
+	/* case 1: exact match */
+	if((serverNameLen == hostNameLen) &&
+	    !memcmp(serverName, hostName, serverNameLen)) {
+		return CSSM_TRUE;
+	}
+	
+	/* case 2: handle optional '*' in cert's server name */
+	if(serverName[0] == '*') {
+		/* last (serverNameLen - 1) chars have to match */
+		unsigned effectLen = serverNameLen - 1;		// skip '*' 
+		if(serverNameLen < effectLen) {
+			errorLog0("tp_verifySslOpts: subject/server name wildcard "
+				"mismatch (1)");
+			return CSSM_FALSE;
+		}
+		else if(memcmp(serverName+1,		// skip '*'
+		         hostName + hostNameLen - effectLen,
+				 effectLen)) {
+			errorLog0("tp_verifySslOpts: subject/server name wildcard "
+				"mismatch (2)");
+			return CSSM_FALSE;
+		}
+		else {
+			/* wildcard match */
+			return CSSM_TRUE;
+		}
+	}
+	else {
+		/* mismatch */
+		errorLog0("tp_verifySslOpts: subject/server name mismatch");
+		return CSSM_FALSE;
+	}
+}

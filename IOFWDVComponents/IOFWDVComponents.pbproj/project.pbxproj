@@ -177,9 +177,9 @@
 		014F01AEFF9D04C111CE206C = {
 			buildActionMask = 2147483647;
 			files = (
-				014F01B3FF9D052F11CE206C,
 				014F01B4FF9D052F11CE206C,
 				014F01B5FF9D052F11CE206C,
+				F5FA1990034A455301CD2849,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -206,14 +206,6 @@
 			name = writetest.c;
 			path = tests/writetest.c;
 			refType = 4;
-		};
-		014F01B3FF9D052F11CE206C = {
-			fileRef = 014F01B2FF9D052F11CE206C;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-				);
-			};
 		};
 		014F01B4FF9D052F11CE206C = {
 			fileRef = 02C3D632FF6599F211CA29CE;
@@ -342,11 +334,11 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.0</string>
+	<string>1.2.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.1</string>
+	<string>1.2.2</string>
 	<key>CarbonLazyValues</key>
 	<dict>
 		<key>CodeFragmentManager</key>
@@ -957,11 +949,13 @@
 	<key>CFBundlePackageType</key>
 	<string>thng</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.1</string>
+	<string>1.2.2</string>
 	<key>CFBundleSignature</key>
 	<string>appl</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.1</string>
+	<string>1.2.2</string>
+	<key>CSResourcesFileMapped</key>
+	<true/>
 </dict>
 </plist>
 ";
@@ -1218,11 +1212,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.1</string>
+	<string>1.2.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.1</string>
+	<string>1.2.2</string>
 </dict>
 </plist>
 ";
@@ -1492,6 +1486,7 @@
 			children = (
 				8CDC69E501F4F0F904CE206E,
 				8CDC69E301F4EFF304CE206E,
+				F51B1CA3034B53C401CD2849,
 			);
 			isa = PBXGroup;
 			name = Common;
@@ -1636,6 +1631,27 @@
 		};
 		8CFF00B002820B1304CE237C = {
 			fileRef = 8C51CC6F00BDE16404CE206D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//8C0
+//8C1
+//8C2
+//8C3
+//8C4
+//F50
+//F51
+//F52
+//F53
+//F54
+		F51B1CA3034B53C401CD2849 = {
+			isa = PBXFileReference;
+			path = DVVers.h;
+			refType = 4;
+		};
+		F5FA1990034A455301CD2849 = {
+			fileRef = 014F01B2FF9D052F11CE206C;
 			isa = PBXBuildFile;
 			settings = {
 			};

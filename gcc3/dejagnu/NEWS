@@ -1,0 +1,3 @@
+DejaGnu is now back under active maintainance. The initial work has been
+rewriting the manual to bring it up to date, and switching to SGML. NT
+support has also been added, and DejaGnu now uses automake.

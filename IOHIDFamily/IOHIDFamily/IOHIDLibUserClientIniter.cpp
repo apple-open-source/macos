@@ -29,7 +29,11 @@ class IOHIDLibUserClientIniter : public IOService
     OSDeclareDefaultStructors(IOHIDLibUserClientIniter);
 
 public:
-    virtual bool start(IOService * provider);
+    virtual bool 		start(IOService * provider);
+    
+protected:
+    virtual void		mergeProperties(OSObject* dest, OSObject* src) ;
+    virtual OSDictionary *	copyDictionaryProperty(OSDictionary*	srcDictionary) ;
 };
 
 #define super IOService
@@ -37,19 +41,106 @@ OSDefineMetaClassAndStructors(IOHIDLibUserClientIniter, IOService);
 
 bool IOHIDLibUserClientIniter::start(IOService * provider)
 {
-    OSDictionary * mergeProperties;
+    OSObject *		dictObj = getProperty("IOProviderMergeProperties");
+    OSDictionary *	providerMergeProperties = NULL;
 
     if (!super::start(provider))
         return false;
 
-    mergeProperties =
-        OSDynamicCast(OSDictionary, getProperty("IOProviderMergeProperties"));
-    if (!mergeProperties)
+    
+    providerMergeProperties = OSDynamicCast(OSDictionary, dictObj);
+    
+    if ( !providerMergeProperties )
+    {
         return false;
+    }
 
-    provider->getPropertyTable()->merge(mergeProperties);
+    const OSSymbol *	userClientClass;
+    OSObject * 		temp = providerMergeProperties->getObject( gIOUserClientClassKey ) ;
 
-    // Returns true to say that we won and nobody else in
-    // in our match category need apply.
-    return true;
+    
+    if ( OSDynamicCast(OSSymbol, temp) )
+        userClientClass = NULL;			// already in correct form, so don't need to re-add
+    else if ( OSDynamicCast(OSString, temp) )
+        userClientClass = OSSymbol::withString((const OSString *) temp);	// convert to OSSymbol
+    else
+    {
+	userClientClass = NULL;			// unknown form for key
+	providerMergeProperties->removeObject(gIOUserClientClassKey);
+    }
+
+    if (userClientClass)
+	providerMergeProperties->setObject(gIOUserClientClassKey, (OSObject *) userClientClass);
+
+    OSDictionary*	providerProps = provider->getPropertyTable();
+    if (providerProps)
+    {
+        mergeProperties(providerProps, providerMergeProperties) ;
+    }
+
+    return true ;
+
+}
+
+void
+IOHIDLibUserClientIniter::mergeProperties(OSObject* inDest, OSObject* inSrc)
+{
+    OSDictionary*	dest = OSDynamicCast(OSDictionary, inDest) ;
+    OSDictionary*	src = OSDynamicCast(OSDictionary, inSrc) ;
+
+    if (!src || !dest)
+            return ;
+
+    OSCollectionIterator*	srcIterator = OSCollectionIterator::withCollection(src) ;
+    
+    OSSymbol*	keyObject	= NULL ;
+    OSObject*	destObject	= NULL ;
+    OSObject*	srcObject	= NULL ;
+    while (NULL != (keyObject = OSDynamicCast(OSSymbol, srcIterator->getNextObject())))
+    {
+            srcObject 	= src->getObject(keyObject) ;
+            destObject	= dest->getObject(keyObject) ;
+            
+            if (OSDynamicCast(OSDictionary, srcObject))
+                    srcObject = copyDictionaryProperty((OSDictionary*)srcObject) ;
+                    
+            if (destObject && OSDynamicCast(OSDictionary, srcObject))
+                    mergeProperties(destObject, srcObject );
+            else
+                    dest->setObject(keyObject, srcObject) ;
+
+    }
+    
+    // have to release this, or we'll leak.
+    srcIterator->release() ;
+}
+
+OSDictionary *
+IOHIDLibUserClientIniter::copyDictionaryProperty( OSDictionary *	srcDictionary)
+{
+    OSDictionary*		result			= NULL ;
+    OSObject*			srcObject		= NULL ;
+    OSCollectionIterator*	srcIterator		= NULL ;
+    OSSymbol*			keyObject		= NULL ;
+    
+    result = OSDictionary::withCapacity(srcDictionary->getCount()) ;
+    if (result)
+    {
+        srcIterator = OSCollectionIterator::withCollection(srcDictionary) ;
+        if (srcIterator)
+        {
+            while ( keyObject = OSDynamicCast(OSSymbol, srcIterator->getNextObject()) )
+            {
+                srcObject = srcDictionary->getObject(keyObject) ;
+                if (OSDynamicCast(OSDictionary, srcObject))
+                        srcObject = copyDictionaryProperty((OSDictionary*)srcObject) ;
+                            
+                result->setObject(keyObject, srcObject) ;
+            }
+            
+        srcIterator->release() ;
+        }
+    }
+    
+    return result ;
 }

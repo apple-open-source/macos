@@ -20,13 +20,17 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+// public
+#import <IOKit/firewire/IOConfigDirectory.h>
+#import <IOKit/firewire/IORemoteConfigDirectory.h>
+#import <IOKit/firewire/IOFireWireDevice.h>
+
+// private
+#import "FWDebugging.h"
+
+// system
 #import <libkern/c++/OSIterator.h>
 #import <libkern/c++/OSData.h>
-#import <IOConfigDirectory.h>
-#import <IOFireWireDevice.h>
-
-#import "FWDebugging.h"
-#import "IORemoteConfigDirectory.h"
 
 static int findIndex(const UInt32* base, int size, int key,
                      UInt32 type = kInvalidConfigROMEntryType);
@@ -591,7 +595,7 @@ IOReturn IOConfigDirectory::getIndexValue(int index, OSData *&value)
 	if( status == kIOReturnSuccess )
 	{
 		data = lockData();
-		len = (data[offset] & kConfigLeafDirLength) >> kConfigLeafDirLengthPhase;
+		len = ((data[offset] & kConfigLeafDirLength) >> kConfigLeafDirLengthPhase);
 		unlockData();
 
 	//	FWKLOG(( "IOConfigDirectory::getIndexValue(OSData) updateROMCache( %ld, %d )\n", offset, len ));
@@ -665,7 +669,7 @@ IOReturn IOConfigDirectory::getIndexValue(int index, OSString *&value)
 		unlockData();
 	
 		// Check for silly length, people are careless with string data!
-		if( len > 256 ) 
+		if( (len * 4) > 256 ) 
         	status = kIOReturnBadArgument;
 	}
 

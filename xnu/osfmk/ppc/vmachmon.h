@@ -89,7 +89,7 @@ typedef unsigned long vmm_thread_index_t;
 
 enum {
 	kVmmCurMajorVersion					= 0x0001,
-	kVmmCurMinorVersion					= 0x0004,
+	kVmmCurMinorVersion					= 0x0005,
 	kVmmMinMajorVersion					= 0x0001,
 };
 #define kVmmCurrentVersion ((kVmmCurMajorVersion << 16) | kVmmCurMinorVersion)
@@ -100,10 +100,32 @@ enum {
 	kVmmFeature_Stop					= 0x00000002,
 	kVmmFeature_ExtendedMapping			= 0x00000004,
 	kVmmFeature_ListMapping				= 0x00000008,
+	kVmmFeature_FastAssist				= 0x00000010,
 };
-#define kVmmCurrentFeatures (kVmmFeature_LittleEndian | kVmmFeature_Stop | kVmmFeature_ExtendedMapping | kVmmFeature_ListMapping)
+#define kVmmCurrentFeatures (kVmmFeature_LittleEndian |		 \
+							kVmmFeature_Stop |				 \
+							kVmmFeature_ExtendedMapping |	 \
+							kVmmFeature_ListMapping |		 \
+							kVmmFeature_FastAssist)
+
 
 typedef unsigned long vmm_version_t;
+
+typedef struct vmm_fastassist_state_t {
+	unsigned long fastassist_dispatch;
+	unsigned long fastassist_refcon;
+
+	unsigned long fastassist_dispatch_code;
+	unsigned long fastassist_parameter[5];
+
+	unsigned long guest_register[8];
+
+	unsigned long guest_pc;
+	unsigned long guest_msr;
+
+	unsigned long fastassist_intercepts;
+	unsigned long fastassist_reserved1;
+} vmm_fastassist_state_t;
 
 typedef struct vmm_state_page_t {
 	/* This structure must remain below 4Kb (one page) in size */
@@ -123,12 +145,20 @@ typedef struct vmm_state_page_t {
 #define vmmXStartb		4
 #define vmmKey			0x04000000
 #define vmmKeyb			5
+#define vmmFamEna		0x02000000
+#define vmmFamEnab		6
+#define vmmFamSet		0x01000000
+#define vmmFamSetb		7
+
 	vmm_return_code_t		return_code;
 	unsigned long			return_params[4];
 	unsigned long			gas[7];		/* For alignment */
 
 	/* The next portion of the structure must remain 32-byte aligned */
 	vmm_processor_state_t	vmm_proc_state;
+
+	/* The next portion of the structure must remain 16-byte aligned */
+	vmm_fastassist_state_t	vmm_fastassist_state;
 
 } vmm_state_page_t;
 
@@ -162,6 +192,10 @@ enum {
 	kVmmProtectExecute,
 	kVmmMapList,
 	kVmmUnmapList,
+	kvmmExitToHost,
+	kvmmResumeGuest,
+	kvmmGetGuestRegister,
+	kvmmSetGuestRegister,
 };
 
 #define kVmmReturnNull					0
@@ -230,16 +264,20 @@ typedef struct vmmCntrlEntry {						/* Virtual Machine Monitor control table ent
 #define vmmTimerPopb	3
 #define vmmMapDone		0x08000000
 #define vmmMapDoneb		4
+#define vmmFAMmode		0x04000000
+#define vmmFAMmodeb		5
 #define vmmXStop		0x00800000
 #define vmmXStopb		8
 #define vmmSpfSave		0x000000FF
 #define vmmSpfSaveb		24
 	pmap_t			vmmPmap;						/* pmap for alternate context's view of task memory */
 	vmm_state_page_t *vmmContextKern;				/* Kernel address of context communications area */
+	vmm_state_page_t *vmmContextPhys;				/* Physical address of context communications area */
 	vmm_state_page_t *vmmContextUser;				/* User address of context communications area */
 	facility_context vmmFacCtx;						/* Header for vector and floating point contexts */
 	uint64_t		vmmTimer;						/* Last set timer value. Zero means unset */
 	vm_offset_t		vmmLastMap;						/* Last vaddr mapping into virtual machine */
+	unsigned int	vmmFAMintercept;				/* FAM intercepted exceptions */
 } vmmCntrlEntry;
 
 typedef struct vmmCntrlTable {						/* Virtual Machine Monitor Control table */
@@ -280,6 +318,11 @@ extern void vmm_timer_pop(thread_act_t act);
 extern void vmm_interrupt(ReturnHandler *rh, thread_act_t act);
 extern kern_return_t vmm_map_list(thread_act_t act, vmm_thread_index_t index, unsigned int cnt);
 extern kern_return_t vmm_unmap_list(thread_act_t act, vmm_thread_index_t index, unsigned int cnt);
+extern vmm_return_code_t vmm_resume_guest(vmm_thread_index_t index, unsigned long pc, 
+	unsigned long vmmCntrl, unsigned long vmmCntrMaskl);
+extern vmm_return_code_t vmm_exit_to_host(vmm_thread_index_t index);
+extern unsigned long vmm_get_guest_register(vmm_thread_index_t index, unsigned long reg_index);
+extern vmm_return_code_t vmm_set_guest_register(vmm_thread_index_t index, unsigned long reg_index, unsigned long reg_value);
 
 #endif
 

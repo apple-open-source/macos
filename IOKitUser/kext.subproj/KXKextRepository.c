@@ -1756,6 +1756,32 @@ finish:
 }
 
 /*******************************************************************************
+* _KXKextRepositoryInvalidateCaches() just updates the mod time of the
+* repository's directory, so that it is perforce newer than any cache file.
+*******************************************************************************/
+Boolean _KXKextRepositoryInvalidateCaches(
+    KXKextRepositoryRef aRepository)
+{
+    Boolean result = true;
+    char path[MAXPATHLEN+1];
+
+    if (!CFStringGetCString(aRepository->repositoryPath, path,
+        sizeof(path), kCFStringEncodingMacRoman)) {
+
+        result = false;
+        goto finish;
+    }
+
+    if (utimes(path, NULL) != 0) {
+        // FIXME: Should we print an error message here?
+        result = false;
+    }
+
+finish:
+    return result;
+}
+
+/*******************************************************************************
 ********************************************************************************
 * MODULE-PRIVATE API BELOW HERE
 ********************************************************************************

@@ -1,0 +1,42 @@
+# This is a list of toolchains that are supported on this board.
+set_board_info target_install {sparc86x-elf}
+
+# Load the generic configuration for this board. This will define a
+# set of generic routines used by the tool to communicate with the
+# board.
+load_generic_config "slite";
+
+# It needs no multilib flags by default.
+process_multilib_options ""
+
+set_board_info compiler  "[find_gcc]";
+set_board_info cflags  "[newlib_include_flags] [libgloss_include_flags]";
+
+set_board_info ldflags  "-nostartfiles [libgloss_link_flags] [newlib_link_flags]";
+
+# DANlite (sparc86x) linker script.
+set_board_info ldscript "-Tsparc86x.ld";
+
+# The address at which the stub needs to be linked.
+# set_board_info gdb_stub_offset "0x40000000";
+
+# The board doesn't return exit statuses and we need to indicate this.
+# However, the standard GCC wrapper won't work with this target because
+# it doesn't return stuff from printf ().
+set_board_info needs_status_wrapper 1;
+
+# We use a GDB stub to talk to the board.
+set_board_info use_gdb_stub 1;
+# For GDB, we need to use a real stub (not the separate loader scheme
+# we use for Sparclet).
+set_board_info gdb_stub  "";
+# And the protocol is "sparclite".
+set_board_info gdb_protocol "sparclite";
+# No mathlib.
+set_board_info mathlib  "";
+# We can't do I/O in GDB.
+set_board_info gdb,noinferiorio 1;
+# Or pass arguments.
+set_board_info noargs 1;
+# Or do signals.
+set_board_info gdb,nosignals 1;

@@ -34,6 +34,13 @@
 
 #define super IOUserClient
 
+struct AsyncParam {
+    OSAsyncReference 		fAsyncRef;
+    UInt32 			fMax;
+    IOMemoryDescriptor 		*fMem;
+    IOHIDReportType		reportType;
+};
+
 OSDefineMetaClassAndStructors(IOHIDLibUserClient, IOUserClient);
 
 const IOExternalMethod IOHIDLibUserClient::
@@ -115,9 +122,34 @@ sMethods[kIOHIDLibUserClientNumCommands] = {
 	0xffffffff,
 	0
     },
-
-
-
+    { //    kIOHIDLibUserClientGetReport
+	0,
+	(IOMethod) &IOHIDLibUserClient::getReport,
+	kIOUCScalarIStructO,
+	2,
+	0xffffffff
+    },
+    { //    kIOHIDLibUserClientGetReportOOL
+	0,
+	(IOMethod) &IOHIDLibUserClient::getReportOOL,
+	kIOUCStructIStructO,
+	sizeof(IOHIDReportReq),
+	sizeof(UInt32)
+    },
+    { //    kIOHIDLibUserClientSetReport
+	0,
+	(IOMethod) &IOHIDLibUserClient::setReport,
+	kIOUCScalarIStructI,
+	2,
+	0xffffffff
+    },
+    { //    kIOHIDLibUserClientSetReportOOL
+	0,
+	(IOMethod) &IOHIDLibUserClient::setReportOOL,
+	kIOUCStructIStructO,
+	sizeof(IOHIDReportReq),
+	0
+    }    
 };
 
 const IOExternalAsyncMethod IOHIDLibUserClient::
@@ -135,6 +167,20 @@ sAsyncMethods[kIOHIDLibUserClientNumAsyncCommands] = {
 	kIOUCScalarIScalarO,
 	1,
 	0    
+    },
+    { //    kIOHIDLibUserClientAsyncGetReport
+	0,
+	(IOAsyncMethod) &IOHIDLibUserClient::asyncGetReport,
+	kIOUCScalarIScalarO,
+	5,
+	0
+    },
+    { //    kIOHIDLibUserClientAsyncSetReport
+	0,
+	(IOAsyncMethod) &IOHIDLibUserClient::asyncSetReport,
+	kIOUCScalarIScalarO,
+	5,
+	0
     }
 };
 
@@ -495,7 +541,7 @@ updateElementValue (void * cookie, void *, void *,
 {
     IOReturn			ret = kIOReturnError;
     
-    ret = fNub->updateElementValues(&cookie);
+    ret = fNub->updateElementValues(&cookie, 1);
     
     return ret;
 }
@@ -511,4 +557,288 @@ postElementValue (void * cookies, void * cookiesBytes, void *,
     ret = fNub->postElementValues((IOHIDElementCookie *)cookies, numCookies);
             
     return ret;
+}
+
+IOReturn IOHIDLibUserClient::
+getReport (IOHIDReportType reportType, UInt32 reportID, 
+            void *reportBuffer, UInt32 *reportBufferSize)
+{
+    IOReturn 			ret;
+    IOMemoryDescriptor *	mem;
+        
+    if (fNub && !isInactive())
+    {
+        mem = IOMemoryDescriptor::withAddress(reportBuffer, *reportBufferSize, kIODirectionIn);
+        if(mem)
+        { 
+            *reportBufferSize = 0;
+            ret = fNub->getReport(mem, reportType, reportID);
+            
+            // make sure the element values are updated.
+            if (ret == kIOReturnSuccess)
+                fNub->handleReport(mem, reportType);
+                
+            *reportBufferSize = mem->getLength();
+            mem->release();
+        }
+        else
+            ret =  kIOReturnNoMemory;
+    }
+    else
+        ret = kIOReturnNotAttached;
+
+    return ret;
+}
+
+IOReturn IOHIDLibUserClient::
+getReportOOL(  IOHIDReportReq *reqIn, 
+                        UInt32 *sizeOut, 
+                        IOByteCount inCount, 
+                        IOByteCount *outCount)
+{
+    IOReturn 			ret;
+    IOMemoryDescriptor *	mem;
+        
+    if (fNub && !isInactive())
+    {
+        *sizeOut = 0;
+        mem = IOMemoryDescriptor::withAddress(reqIn->reportBuffer, reqIn->reportBufferSize, kIODirectionIn, fClient);
+        if(mem)
+        { 
+            ret = mem->prepare();
+            if(ret == kIOReturnSuccess)
+                ret = fNub->getReport(mem, reqIn->reportType, reqIn->reportID);
+                
+            // make sure the element values are updated.
+            if (ret == kIOReturnSuccess)
+                fNub->handleReport(mem, reqIn->reportType);
+                
+            *sizeOut = mem->getLength();
+            mem->complete();
+            mem->release();
+        }
+        else
+            ret =  kIOReturnNoMemory;
+    }
+    else
+        ret = kIOReturnNotAttached;
+
+    return ret;
+
+}
+
+IOReturn IOHIDLibUserClient::
+setReport (IOHIDReportType reportType, UInt32 reportID, void *reportBuffer,
+                                UInt32 reportBufferSize)
+{
+    IOReturn 			ret;
+    IOMemoryDescriptor *	mem;
+
+    if (fNub && !isInactive())
+    {
+        mem = IOMemoryDescriptor::withAddress(reportBuffer, reportBufferSize, kIODirectionOut);
+        if(mem) 
+        {
+            ret = fNub->setReport(mem, reportType, reportID);
+            // make sure the element values are updated.
+            if (ret == kIOReturnSuccess)
+                fNub->handleReport(mem, reportType);
+                
+            mem->release();
+        }
+        else
+            ret = kIOReturnNoMemory;
+    }
+    else
+        ret = kIOReturnNotAttached;
+
+    return ret;
+}
+
+IOReturn IOHIDLibUserClient::
+setReportOOL (IOHIDReportReq *req, IOByteCount inCount)
+{
+    IOReturn 			ret;
+    IOMemoryDescriptor *	mem;
+
+    if (fNub && !isInactive())
+    {
+        mem = IOMemoryDescriptor::withAddress(req->reportBuffer, req->reportBufferSize, kIODirectionOut, fClient);
+        if(mem) 
+        {
+            ret = mem->prepare();
+            if(ret == kIOReturnSuccess)
+                ret = fNub->setReport(mem, req->reportType, req->reportID);
+            
+            // make sure the element values are updated.
+            if (ret == kIOReturnSuccess)
+                fNub->handleReport(mem, req->reportType);
+            
+            mem->complete();
+            mem->release();
+        }
+        else
+            ret = kIOReturnNoMemory;
+    }
+    else
+        ret = kIOReturnNotAttached;
+
+    return ret;
+
+}
+
+
+IOReturn IOHIDLibUserClient::
+asyncGetReport (OSAsyncReference asyncRef, IOHIDReportType reportType, 
+                            UInt32 reportID, void *reportBuffer,
+                            UInt32 reportBufferSize, UInt32 completionTimeOutMS)
+{
+    IOReturn 			ret;
+    IOHIDCompletion		tap;
+    IOMemoryDescriptor *	mem = NULL;
+    AsyncParam * 		pb = NULL;
+
+    retain();
+    
+    if (fNub && !isInactive())
+    {
+        do {
+            mem = IOMemoryDescriptor::withAddress((vm_address_t)reportBuffer, reportBufferSize, kIODirectionIn, fClient);
+            if(!mem) 
+            {
+                ret = kIOReturnNoMemory;
+                break;
+            }
+            ret = mem->prepare();
+            if(ret != kIOReturnSuccess)
+                break;
+    
+            pb = (AsyncParam *)IOMalloc(sizeof(AsyncParam));
+            if(!pb) 
+            {
+                ret = kIOReturnNoMemory;
+                break;
+            }
+    
+            bcopy(asyncRef, pb->fAsyncRef, sizeof(OSAsyncReference));
+            pb->fMax = reportBufferSize;
+            pb->fMem = mem;
+            pb->reportType = reportType;
+            tap.target = this;
+            tap.action = &ReqComplete;
+            tap.parameter = pb;
+            ret = fNub->getReport(mem, reportType, reportID, completionTimeOutMS, &tap);
+        } while (false);
+    }
+    else
+        ret = kIOReturnNotAttached;
+    
+    if(ret != kIOReturnSuccess) 
+    {
+	if(mem) 
+	{
+	    mem->complete();
+	    mem->release();
+	}
+	if(pb)
+	    IOFree(pb, sizeof(*pb));
+	
+        release();
+    }
+    return ret;
+
+}
+                            
+IOReturn IOHIDLibUserClient::
+asyncSetReport (OSAsyncReference asyncRef, IOHIDReportType reportType, 
+                            UInt32 reportID, void *reportBuffer,
+                            UInt32 reportBufferSize, UInt32 completionTimeOutMS)
+{
+    IOReturn 			ret;
+    IOHIDCompletion		tap;
+    IOMemoryDescriptor *	mem = NULL;
+    AsyncParam * 		pb = NULL;
+
+    retain();
+
+    if (fNub && !isInactive())
+    {
+        do {
+            mem = IOMemoryDescriptor::withAddress((vm_address_t)reportBuffer, reportBufferSize, kIODirectionOut, fClient);
+            if(!mem) 
+            {
+                ret = kIOReturnNoMemory;
+                break;
+            }
+            ret = mem->prepare();
+            if(ret != kIOReturnSuccess)
+                break;
+    
+            pb = (AsyncParam *)IOMalloc(sizeof(AsyncParam));
+            if(!pb) 
+            {
+                ret = kIOReturnNoMemory;
+                break;
+            }
+    
+            bcopy(asyncRef, pb->fAsyncRef, sizeof(OSAsyncReference));
+            pb->fMax = reportBufferSize;
+            pb->fMem = mem;
+            pb->reportType = reportType;
+            tap.target = this;
+            tap.action = &ReqComplete;
+            tap.parameter = pb;
+            ret = fNub->setReport(mem, reportType, reportID, completionTimeOutMS, &tap);
+        } while (false);
+    }
+    else
+        ret = kIOReturnNotAttached;
+    
+    if(ret != kIOReturnSuccess) 
+    {
+	if(mem) 
+	{
+	    mem->complete();
+	    mem->release();
+	}
+	if(pb)
+	    IOFree(pb, sizeof(*pb));
+            
+        release();
+    }
+    return ret;
+}
+                                
+void IOHIDLibUserClient::
+ReqComplete(void *obj, void *param, IOReturn res, UInt32 remaining)
+{
+    void *	args[1];
+    AsyncParam * pb = (AsyncParam *)param;
+    IOHIDLibUserClient *me = OSDynamicCast(IOHIDLibUserClient, (OSObject*)obj);
+
+    if (!me)
+	return;
+
+    if(res == kIOReturnSuccess) 
+    {
+        args[0] = (void *)(pb->fMax - remaining);
+        
+        // make sure the element values are updated.
+        me->fNub->handleReport(pb->fMem, pb->reportType);
+    }
+    else 
+    {
+        args[0] = 0;
+    }
+    if (pb->fMem)
+    {
+	pb->fMem->complete();
+	pb->fMem->release();
+    }
+
+    sendAsyncResult(pb->fAsyncRef, res, args, 1);
+
+    IOFree(pb, sizeof(*pb));
+
+    me->release();
 }

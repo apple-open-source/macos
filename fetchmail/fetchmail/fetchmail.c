@@ -31,7 +31,6 @@
 #endif /* HAVE_SETRLIMIT */
 #include <sys/utsname.h>
 
-#include "getopt.h"
 #include "fetchmail.h"
 #include "socket.h"
 #include "tunable.h"
@@ -117,6 +116,12 @@ static char *timestamp (void)
 #define timestamp rfc822timestamp
 #endif
 
+static RETSIGTYPE donothing(int sig) 
+{
+    extern volatile int lastsig;	/* declared in idle.c */
+    signal(sig, donothing); lastsig = sig;
+}
+
 int main(int argc, char **argv)
 {
     int bkgd = FALSE;
@@ -154,10 +159,7 @@ int main(int argc, char **argv)
     }
 
 #define IDFILE_NAME	".fetchids"
-    run.idfile = (char *) xmalloc(strlen(fmhome)+sizeof(IDFILE_NAME)+2);
-    strcpy(run.idfile, fmhome);
-    strcat(run.idfile, "/");
-    strcat(run.idfile, IDFILE_NAME);
+    run.idfile = prependdir (IDFILE_NAME, fmhome);
   
     outlevel = O_NORMAL;
 
@@ -170,6 +172,14 @@ int main(int argc, char **argv)
      * to be sure the lock gets nuked on any error exit, basically.
      */
     lock_dispose();
+
+#ifdef HAVE_GETCWD
+    /* save the current directory */
+    if (getcwd (currentwd, sizeof (currentwd)) == NULL) {
+	report(stderr, GT_("could not get current working directory\n"));
+	currentwd[0] = 0;
+    }
+#endif
 
     if ((parsestatus = parsecmdline(argc,argv, &cmd_run, &cmd_opts)) < 0)
 	exit(PS_SYNTAX);
@@ -223,6 +233,13 @@ int main(int argc, char **argv)
 	printf("+NLS");
 #endif /* ENABLE_NLS */
 	putchar('\n');
+	fputs("Fallback MDA: ", stdout);
+#ifdef FALLBACK_MDA
+	fputs(FALLBACK_MDA, stdout);
+#else
+	fputs("(none)", stdout);
+#endif
+	putchar('\n');
 	fflush(stdout);
 
 	/* this is an attempt to help remote debugging */
@@ -269,10 +286,7 @@ int main(int argc, char **argv)
 
 #define	NETRC_FILE	".netrc"
     /* parse the ~/.netrc file (if present) for future password lookups. */
-    xalloca(netrc_file, char *, strlen(home) + sizeof(NETRC_FILE) + 2);
-    strcpy (netrc_file, home);
-    strcat (netrc_file, "/");
-    strcat (netrc_file, NETRC_FILE);
+    netrc_file = prependdir (NETRC_FILE, home);
     netrc_list = parse_netrc(netrc_file);
 #undef NETRC_FILE
 
@@ -394,17 +408,14 @@ int main(int argc, char **argv)
 		 pid);
 		return(PS_EXCLUDE);
 	}
+	else if (getpid() == pid)
+	    /* this test enables re-execing on a changed rcfile */
+	    lock_assert();
 	else if (argc > 1)
 	{
-	    /* this test enables re-execing on a changed rcfile */
-	    if (getpid() == pid)
-		lock_assert();
-	    else
-	    {
-		fprintf(stderr,
-			GT_("fetchmail: can't accept options while a background fetchmail is running.\n"));
-		return(PS_EXCLUDE);
-	    }
+	    fprintf(stderr,
+		    GT_("fetchmail: can't accept options while a background fetchmail is running.\n"));
+	    return(PS_EXCLUDE);
 	}
 	else if (kill(pid, SIGUSR1) == 0)
 	{
@@ -480,7 +491,7 @@ int main(int argc, char **argv)
 	 * but ignore them otherwise so as not to interrupt a poll.
 	 */
 	signal(SIGUSR1, SIG_IGN);
-	if (run.poll_interval && !getuid())
+	if (run.poll_interval && getuid() == ROOT_UID)
 	    signal(SIGHUP, SIG_IGN);
     }
     else
@@ -534,6 +545,13 @@ int main(int argc, char **argv)
 	else if (rcstat.st_mtime > parsetime)
 	{
 	    report(stdout, GT_("restarting fetchmail (%s changed)\n"), rcfile);
+
+#ifdef HAVE_GETCWD
+	    /* restore the startup directory */
+	    if (!currentwd[0] || chdir (currentwd) == -1)
+		report(stderr, GT_("attempt to re-exec may fail as directory has not been restored\n"));
+#endif
+
 	    /*
 	     * Matthias Andree: Isn't this prone to introduction of
 	     * "false" programs by interfering with PATH? Those
@@ -713,6 +731,17 @@ int main(int argc, char **argv)
 		       GT_("sleeping at %s\n"), timestamp());
 
 	    /*
+	     * With this simple hack, we make it possible for a foreground 
+	     * fetchmail to wake up one in daemon mode.  What we want is the
+	     * side effect of interrupting any sleep that may be going on,
+	     * forcing fetchmail to re-poll its hosts.  The second line is
+	     * for people who think all system daemons wake up on SIGHUP.
+	     */
+	    signal(SIGUSR1, donothing);
+	    if (getuid() != ROOT_UID)
+		signal(SIGHUP, donothing);
+
+	    /*
 	     * OK, now pause until it's time for the next poll cycle.
 	     * A nonzero return indicates we received a wakeup signal;
 	     * unwedge all servers in case the problem has been
@@ -732,7 +761,7 @@ int main(int argc, char **argv)
 		    ctl->wedged = FALSE;
 	    }
 
-	    if (outlevel >= O_VERBOSE)
+	    if (outlevel > O_SILENT)
 		report(stdout, GT_("awakened at %s\n"), timestamp());
 	}
     } while
@@ -856,6 +885,7 @@ static int load_params(int argc, char **argv, int optind)
     struct passwd *pw;
     struct query def_opts, *ctl;
     struct stat rcstat;
+    char *p;
 
     run.bouncemail = TRUE;
     run.spambounce = FALSE;	/* don't bounce back to innocent bystanders */
@@ -864,19 +894,23 @@ static int load_params(int argc, char **argv, int optind)
     def_opts.smtp_socket = -1;
     def_opts.smtpaddress = (char *)0;
     def_opts.smtpname = (char *)0;
-#define ANTISPAM(n)	save_str(&def_opts.antispam, STRING_DUMMY, 0)->val.status.num = (n)
-    ANTISPAM(571);	/* sendmail */
-    ANTISPAM(550);	/* old exim */
-    ANTISPAM(501);	/* new exim */
-    ANTISPAM(554);	/* Postfix */
-#undef ANTISPAM
-
     def_opts.server.protocol = P_AUTO;
     def_opts.server.timeout = CLIENT_TIMEOUT;
     def_opts.server.esmtp_name = user;
     def_opts.warnings = WARNING_INTERVAL;
     def_opts.remotename = user;
     def_opts.listener = SMTP_MODE;
+
+    /* get the location of rcfile */
+    rcfiledir[0] = 0;
+    p = strrchr (rcfile, '/');
+    if (p && (p - rcfile) < sizeof (rcfiledir)) {
+	*p = 0;			/* replace '/' by '0' */
+	strcpy (rcfiledir, rcfile);
+	*p = '/';		/* restore '/' */
+	if (!rcfiledir[0])	/* "/.fetchmailrc" case */
+	    strcpy (rcfiledir, "/");
+    }
 
     /* note the parse time, so we can pick up on modifications */
     parsetime = 0;	/* foil compiler warnings */
@@ -1164,7 +1198,7 @@ static int load_params(int argc, char **argv, int optind)
      */
     if (!run.postmaster)
     {
-	if (getuid())				/* ordinary user */
+	if (getuid() != ROOT_UID)		/* ordinary user */
 	    run.postmaster = user;
 	else					/* root */
 	    run.postmaster = "postmaster";
@@ -1291,8 +1325,11 @@ static int query_host(struct query *ctl)
 	for (i = 0; i < sizeof(autoprobe)/sizeof(autoprobe[0]); i++)
 	{
 	    ctl->server.protocol = autoprobe[i];
-	    st = query_host(ctl);
-	    if (st == PS_SUCCESS || st == PS_NOMAIL || st == PS_AUTHFAIL || st == PS_LOCKBUSY || st == PS_SMTP || st == PS_MAXFETCH)
+	    do {
+		st = query_host(ctl);
+	    } while 
+		(st == PS_REPOLL);
+	    if (st == PS_SUCCESS || st == PS_NOMAIL || st == PS_AUTHFAIL || st == PS_LOCKBUSY || st == PS_SMTP || st == PS_MAXFETCH || st == PS_DNS)
 		break;
 	}
 	ctl->server.protocol = P_AUTO;
@@ -1309,7 +1346,9 @@ static int query_host(struct query *ctl)
     case P_APOP:
     case P_RPOP:
 #ifdef POP3_ENABLE
-	st = doPOP3(ctl);
+	do {
+	    st = doPOP3(ctl);
+	} while (st == PS_REPOLL);
 #else
 	report(stderr, GT_("POP3 support is not configured.\n"));
 	st = PS_PROTOCOL;

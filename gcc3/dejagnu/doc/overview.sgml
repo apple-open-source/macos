@@ -1,0 +1,439 @@
+<!DOCTYPE book PUBLIC "-//Davenport//DTD DocBook V3.0//EN" [
+
+<!-- Begin Document Specific Declarations -->
+
+<?Fm: Validation Off>
+
+<!ENTITY version "0.5">
+<!ENTITY dj "DejaGnu">
+
+<!ENTITY dejagnu-copyright "
+	<YEAR>1998</YEAR>
+	<HOLDER>Free Software Foundation, Inc.</HOLDER>">
+
+<!ENTITY dejagnu-code-copyright "
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+This file documents the GNU Testing Framework ``DejaGnu''
+
+Copyright (C) 92, 93, 94, 95, 96, 97, 98, 1999 Free Software Foundation, Inc.
+
+This text may be freely distributed under the terms of the GNU
+General Public License.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+">
+
+<!ENTITY dejagnu-copyright "
+Copyright 92, 93, 94, 95, 96, 97, 98, 1999 Free Software Foundation, Inc.
+
+Permission is granted to make and distribute verbatim copies of
+this manual provided the copyright notice and this permission notice
+are preserved on all copies.
+
+Permission is granted to copy and distribute modified versions of this
+manual under the conditions for verbatim copying, provided also that
+the entire resulting derived work is distributed under the terms of a
+permission notice identical to this one.
+
+Permission is granted to copy and distribute translations of this manual
+into another language, under the above conditions for modified versions.
+">
+
+<!-- The reference material -->
+<!entity ref SYSTEM "ref.sgml">
+
+<!-- The user manual -->
+<!entity user SYSTEM "user.sgml">
+
+<!-- End Document Specific Declarations -->
+]>
+
+<book>
+  <bookinfo>
+    <title>&dj;</title>
+    <subtitle>The GNU Testing Framework</subtitle>
+    <date>1998 Nov 24</date>
+    <edition> &version</edition>
+    <releaseinfo> for circulation within Cygnus</releaseinfo>
+    <authorgroup>
+      <author>
+        <firstname>Rob Savoye</firstname>
+        <affiliation>
+          <orgname>Free Software Foundation</orgname></affiliation>
+        <!-- <authorblurb>
+          <title>Rob Savoye</title>
+          <para>
+            His home page is at <ulink>
+            URL="http://www.welcomehome.org/rob.html">this
+            location</ulink>
+            </para>
+        </authorblurb>
+        -->
+      </author>
+    </authorgroup>
+    <address>
+      <email>rob@welcomehome.org</email>
+    </address>
+    <!-- &cygnus-street-address; -->
+    <copyright>&dejagnu-copyright;</copyright>
+    <!-- <legalnotice>
+      <para> -->
+        <!-- [FIXME: must put legal notice here] -->
+      <!-- </para> -->
+      <!-- &cygnus-legal-notice; -->
+    <!-- </legalnotice> -->
+    <revhistory>
+      <revision>
+        <revnumber> 0.1</revnumber>
+        <date>1998-11</date>
+        <authorinitials>rob@welcomehome.org</authorinitials>
+        <revremark>Initial version after conversion to DocBook.</revremark>
+      </revision>
+    </revhistory>
+
+  </bookinfo>
+
+  <toc></toc>
+
+  <preface id=preface>
+    <title>Abstract</title>
+
+    <para>This document attempts to describe the functionality of
+    DejaGnu, the GNU Testing Framework. DejaGnu is entirely written in
+    <productname>Expect</productname>, which uses
+    <productname>Tcl</productname> as a command
+    language. <productname>Expect</productname> serves as a very
+    programmable shell; you can run any program, as with the usual
+    Unix command shells---but once the program is started, your
+    test script has fully programmable control of
+    its input and output.  This does not just apply to the programs
+    under test; <command>expect</command> can also run any auxiliary
+    program, such as <command>diff</command> or <command>sh</command>,
+    with full control over its input and output.</para>  
+
+    <para>DejaGnu itself is merely a framework for creation of a test
+    suites. Test suites are distributed separately for each GNU
+    tool.</para>
+
+  </preface>
+
+  <chapter id=overview xreflabel=Overview>
+    <title>Overview</title>
+
+    <sect1 id=whatis xreflabel="What is &dj; ?">
+      <title>What is &dj; ?</title>
+
+    <para><productname>DejaGnu</productname> is a framework for
+	testing other programs.  Its purpose is to provide a single
+	front end for all tests. Think of it as a custom library of
+	Tcl procedures crafted to support writing a test harness. A
+	<emphasis>Test Harness</emphasis> is the testing
+	infrastructure that is created to support a specific program
+	or tool. Each program can have multiple test suites, all
+	supported by a single test harness. DejaGnu is written in
+	<productname>Expect</productname>, which in turn uses
+	<productname>Tcl</productname> -- Tool command
+	language. There is more information on Tcl at the <ulink
+	URL="http://www.scriptics.com">Scriptics</ulink> web site, and the
+	Expect web site is at <ulink
+	URL="http://expect.nist.gov">NIST</ulink>.</para>
+
+	<para>DejaGnu offers several advantages for testing:</para>
+
+    <itemizedlist mark="bullet" spacing="compact">
+
+      <listitem><para>The flexibility and consistency of the DejaGnu
+	framework make it easy to write tests for any program, with
+	either batch oriented, or interactive programs.</para>
+      </listitem>
+
+      <listitem><para>DejaGnu provides a layer of abstraction which
+	allows you to write tests that are portable to any host or
+	target where a program must be tested. For instance, a test
+	for <command>GDB</command> can run (from any Unix
+	based host) on any target architecture that DejaGnu
+	supports. Currently DejaGnu runs tests on many single board
+	computers, whose operating software ranges from just a boot
+	monitor to a full-fledged, Unix-like realtime OS.</para>
+      </listitem>
+
+      <listitem><para>All tests have the same output format. This
+	makes it easy to integrate testing into other software
+	development processes. DejaGnu's output is designed to be
+	parsed by other filtering script, and it is also human
+	readable.</para>
+      </listitem>
+
+      <listitem><para>Using Tcl and expect, it's easy to create wrappers
+      for existing test suites. By incorporating existing tests under
+      DejaGnu, it's easier to have a single set of report analyse
+      programs..</para>
+
+      </listitem>
+    </itemizedlist>
+
+    <para>Running tests requires two things: the testing framework, and
+    the test suites themselves. Tests are usually written in
+    <productname>Expect</productname> using Tcl, but you can also use a
+    Tcl script to run a test suite that is not based on
+    <productname>Expect</productname>.
+    (<productname>expect</productname> script filenames conventionally
+    use <emphasis>.exp</emphasis> as a suffix; for example, the main
+    implementation of the DejaGnu test driver is in the file
+    <productname>runtest.exp</productname>.)</para>
+	
+    <para>Julia Menapace first coined the term ``Deja Gnu'' to describe an
+    earlier testing framework at Cygnus Support she had written for
+    <command>GDB</command>. When we replaced it with the Expect-based
+    framework, it was like DejaGnu all over again... But more importantly, it
+    was also named after my daughter,<ulink
+    URL="mailto:deja@welcomehome.org">Deja Snow Savoye</ulink> (now 9
+    years old in Dec of 1998), who was a toddler during DejaGnu's
+    creation.</para>
+
+  </sect1>
+
+  <sect1 id=new xreflabel="Release Notes">
+    <title>What's New In This Release</title>
+  
+    <para>This release has a number of substantial changes over version
+    1.3. The most visible change is that the version of Expect and Tcl
+    included in the release are up-to-date with the current stable net
+    releases. The biggest change is years of modifications to the
+    target configuration system, used for cross testing. While this
+    greatly improved cross testing, is has made that subsystem very
+    complicated. The goal is to have this entirely rewritten using
+    <productname>iTcl</productname> by the next release. Other changes
+    are:</para>
+
+    <itemizedlist>
+      <listitem><para>More builtin support for building target binaries
+        with the correct linker flags. Currently this only works with
+        <productname>GCC</productname> as the cross compiler,
+	preferably with a target supported by
+	<xref linkend=libgloss>.</para></listitem>
+
+      <listitem><para>Lots of little bug fixes from years of heavy
+        use at Cygnus Solutions.</para></listitem>
+
+      <listitem><para>DejaGnu now uses
+      <productname>Automake</productname> for Makefile
+      configuration.</para></listitem>
+
+      <listitem><para>Updated documentation, now in SGML
+	(using the <ulink
+	URL="http://nis-www.lanl.gov/~rosalia/mydocs/docbook-intro.html">free
+	GNU DocBook tools</ulink>) format.</para></listitem>
+	
+      <listitem><para>NT support. There is beta level support for NT
+      that is still a work in progress. This requires the <ulink
+      URL=httpd://sourceware.cygnus.com>Cygwin</ulink> POSIX system
+      for NT.</para></listitem>
+
+    </itemizedlist>
+
+    <sect2 id=cygwin xreflabel="NT Support">
+      <title>NT Support</title>
+  
+      <para>To use DejaGnu on NT, you need to first install the
+	<ulink URL="http://sourceware.cygnus.com">Cygwin</ulink>
+	release. This works as of the B20.1 release. Cygwin is a POSIX
+	system for NT. This covers both utility programs, and a libray
+	that adds POSIX system calls to NT. Among them is pseudo tty
+	support for NT that emulates the POSIX pty standard. The
+	latest Cygwin is always available from <ulink
+	URL="http://sourceware.cygnus.com">this location</ulink>. This
+	works well enough to run <emphasis>"make check"</emphasis> of
+	the GNU development tree on NT after a native build. But the
+	nature of pty's on NT is still evolving. Your mileage may
+	vary...</para>
+
+    </sect2>
+	
+  </sect1>
+
+  <sect1 id=designgoals xreflabel="Design Goals">
+    <title>Design Goals</title>
+
+    <para>DejaGnu grew out of the internal needs of Cygnus Solutions. (then
+    Cygnus Support). Cygnus maintains and enhances a variety of free programs
+    in many different environments, and we needed a testing tool that:</para>
+
+    <itemizedlist mark="bullet">
+      <listitem><para>is useful to developers while fixing bugs.</para>
+      <listitem><para>automates running many tests during a software
+      release process.</para> 
+      <listitem><para>is portable among a variety of host
+      computers.</para> 
+      <listitem><para>supports cross-development testing.</para> 
+      <listitem><para>permits testing interactive programs, like
+      <command>GDB</command>; and </para>
+      <listitem><para>permits testing batch oriented programs, like
+      <command>GCC</command>.</para>
+    </itemizedlist>
+
+    <para>Some of the requirements proved challenging.  For example,
+    interactive programs do not lend themselves very well to automated testing.
+    But all the requirements are important: for instance, it is imperative to
+    make sure that <command>GDB</command> works as well when cross-debugging
+    as it does in a native configuration. </para>
+
+    <para>Probably the greatest challenge was testing in a cross-development
+    environment (which can be a real nightmare).  Most cross-development
+    environments are customized by each developer.  Even when buying packaged
+    boards from vendors there are many differences.  The communication
+    interfaces vary from a serial line to ethernet.  DejaGnu was designed with
+    a modular communication setup, so that each kind of communication can be
+    added as required, and supported thereafter.  Once a communication
+    procedure is coded, any test can use it.  Currently DejaGnu can use
+    <command>rsh</command>, <command>rlogin</command>,
+    <command>telnet</command>, <command>tip</command>, 
+    <command>kermit</command>, and <command>mondfe</command> for remote 
+    communications.</para>
+
+    </sect1>
+
+    <sect1 id=posix xreflabel="A POSIX Conforming Test Framework">
+      <title>A POSIX conforming test framework</title>
+
+      <para>DejaGnu conforms to the POSIX 1003.3 standard for test
+      frameworks. I was also a member of that committe.</para>
+
+      <para>The POSIX standard 1003.3 defines what a testing framework needs to
+      provide, in order to permit the creation of POSIX conformance test
+      suites. This standard is primarily oriented to running POSIX conformance
+      tests, but its requirements also support testing of features not related
+      to POSIX conformance.  POSIX 1003.3 does not specify a particular testing
+      framework, but at this time there is only one other POSIX conforming test
+      framework: TET. TET was created by Unisoft for a consortium comprised of
+      X/Open, Unix International, and the Open Software Foundation.</para>
+
+      <para>The POSIX documentation refers to <firstterm>assertions</firstterm>.
+      An assertion is a description of behavior.  For example, if a standard
+      says ``The sun shall shine'', a corresponding assertion might be ``The
+      sun is shining.''  A test based on this assertion would pass or fail
+      depending on whether it is daytime or nighttime.  It is important to note
+      that the standard being tested is never 1003.3; the standard being tested
+      is some other standard, for which the assertions were written.</para>
+
+      <para>As there is no test suite to test testing frameworks for POSIX
+      1003.3 conformance, verifying conformance to this standard is done by
+      repeatedly reading the standard and experimenting.  One of the main
+      things 1003.3 does specify is the set of allowed output messages, and
+      their definitions.  Four messages are supported for a required feature of
+      POSIX conforming systems, and a fifth for a conditional feature. DejaGnu
+      supports the use of all five output messages; in this sense a test suite
+      that uses exactly these messages can be considered POSIX conforming.
+      These definitions specify the output of a test case:</para>
+
+      <variablelist> 
+	<varlistentry>
+	  <term>PASS</term>
+	  <listitem><para>A test has succeeded.  That is, it demonstrated that
+	  the assertion is true.</para></listitem>
+	</varlistentry>
+ 
+        <varlistentry>
+	  <term>XFAIL</term>
+	  <listitem><para>POSIX 1003.3 does not incorporate the notion of
+	  expected failures, so <emphasis>PASS</emphasis>, instead of
+	  <emphasis>XPASS</emphasis>, must also be returned for test cases
+	  which were expected to fail and did not.  This means that
+	  <emphasis>PASS</emphasis> is in some sense more ambiguous than if
+	  <emphasis>XPASS</emphasis> is also used.</para></listitem>
+	</varlistentry>
+ 
+        <varlistentry>
+	  <term>FAIL</term>
+	  <listitem><para>A test has produced the bug it was intended to
+	  capture.  That is, it has demonstrated that the assertion is false.
+	  The <emphasis>FAIL</emphasis> message is based on the test case only.
+	  Other messages are used to indicate a failure of the framework. As
+	  with <emphasis>PASS</emphasis>, POSIX tests must return
+	  <emphasis>FAIL</emphasis> rather than <emphasis>XFAIL</emphasis> even
+	  if a failure was expected.</para></listitem>
+	</varlistentry>
+ 
+        <varlistentry>
+	  <term>UNRESOLVED</term>
+	  <listitem><para>A test produced indeterminate results.  Usually, this
+	  means the test executed in an unexpected fashion; this outcome
+	  requires that a human being go over results, to determine if the test
+	  should have passed or failed.  This message is also used for any test
+	  that requires human intervention because it is beyond the abilities
+	  of the testing framework.  Any unresolved test should resolved to
+	  <emphasis>PASS</emphasis> or <emphasis>FAIL</emphasis> before a test
+	  run can be considered finished.</para>
+
+	  <para>Note that for POSIX, each assertion must produce a test result
+	  code.  If the test isn't actually run, it must produce
+	  <emphasis>UNRESOLVED</emphasis> rather than just leaving that test
+	  out of the output.  This means that you have to be careful when
+	  writing tests, to not carelessly use tcl statements like
+	  <emphasis>return</emphasis>---if you alter the flow of control of the
+	  tcl code you must insure that every test still produces some result
+	  code.</para>
+
+	  <para>Here are some of the ways a test may wind up
+	  <emphasis>UNRESOLVED</emphasis>:</para>
+
+          <itemizedlist mark=bullet>
+	    <listitem><para>A test's execution is interrupted.</listitem>
+
+	    <listitem><para>A test does not produce a clear result. This is
+	    usually because there was an <emphasis>ERROR</emphasis> from
+	    DejaGnu while processing the test, or because there were three or
+	    more <emphasis>WARNING</emphasis> messages. Any 
+	    <emphasis>WARNING</emphasis> or <emphasis>ERROR</emphasis> messages
+	    can invalidate the output of the test.  This usually requires a
+	    human being to examine the output to determine what really
+	    happened---and to improve the test case.</para></listitem>
+
+	    <listitem><para>A test depends on a previous test, which
+	    fails.</para></listitem>
+
+	    <listitem><para>The test was set up incorrectly.</para></listitem>
+	  </itemizedlist>
+
+	  <varlistentry>	  
+	    <term>UNTESTED</term>
+	    <listitem><para>A test was not run.  This is a placeholder, used
+	    when there is no real test case yet.</para>
+	  </varlistentry>
+	</variablelist>
+
+	  <para>The only remaining output message left is intended to test
+	  features that are specified by the applicable POSIX standard as
+	  conditional:</para>
+
+	<variablelist>
+	  <varlistentry>	  
+  	    <term>UNSUPPORTED</term>
+	    <listitem><para>There is no support for the tested case.  This may
+  	    mean that a conditional feature of an operating system, or of a
+  	    compiler, is not implemented.  DejaGnu also uses this message when
+  	    a testing environment (often a ``bare board'' target) lacks basic
+  	    support for compiling or running the test case.  For example, a
+  	    test for the system subroutine <emphasis>gethostname</emphasis>
+  	    would never work on a target board running only a boot monitor.
+	  </varlistentry>	  
+	</variablelist>
+  
+        <para>DejaGnu uses the same output procedures to produce these messages
+	for all test suites, and these procedures are already known to conform
+	to POSIX 1003.3.  For a DejaGnu test suite to conform to POSIX 1003.3,
+	you must avoid the <emphasis>setup</emphasis>xfail} procedure as
+	described in the <emphasis>PASS</emphasis> section above, and you must
+	be careful to return <emphasis>UNRESOLVED</emphasis> where appropriate,
+	as described in the <emphasis>UNRESOLVED</emphasis> section
+	above.</para> 
+     </sect1>
+
+  </chapter>
+  
+  <!-- include the user manual -->
+  &user;
+
+  <!-- include the reference manual -->
+  &ref;
+
+</book>

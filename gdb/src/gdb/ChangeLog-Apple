@@ -1,3 +1,15 @@
+2002-07-10  Jim Ingham   <jingham@apple.com>
+
+	* dbxread.c (process_one_symbol): Use last_function_start rather
+	than function_start_offset to find the real beginning of the
+	current function.  The latter is just the text section offset on
+	some systems, the former is always the real function start...
+
+2002-07-02  Jim Ingham   <jingham@apple.com>
+
+	* varobj.c (create_child): Move the test for child->value AFTER you
+	have created it, dope...
+
 2002-06-12  Klee Dienes  <kdienes@law.apple.com>
 
 	* config/i386/xm-i386-macosx.h: Remove the definitions for

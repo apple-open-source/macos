@@ -619,6 +619,18 @@ KeychainImpl::addItem(const PrimaryKey &primaryKey, ItemImpl *dbItemImpl)
 }
 
 void
+KeychainImpl::didDeleteItem(const ItemImpl *inItemImpl)
+{
+	// Sent sent by CCallbackMgr.
+    debug("kcnotify", "%p notified that item %p was deleted", this, inItemImpl);
+	PrimaryKey primaryKey = inItemImpl->primaryKey();
+	StLock<Mutex> _(mDbItemMapLock);
+	DbItemMap::iterator it = mDbItemMap.find(primaryKey);
+	if (it != mDbItemMap.end())
+		mDbItemMap.erase(it);
+}
+
+void
 KeychainImpl::removeItem(const PrimaryKey &primaryKey, const ItemImpl *inItemImpl)
 {
 	// Sent from DbItemImpl's destructor, remove it from the map. 

@@ -268,7 +268,7 @@ struct dquot {
 	u_int16_t dq_type;		/* quota type of this dquot */
 	u_int32_t dq_id;		/* identifier this applies to */
 	u_int32_t dq_index;		/* index into quota file */
-        struct	quotafile *dq_qfile;	/* quota file that this is taken from */
+	struct	quotafile *dq_qfile;	/* quota file that this is taken from */
 	struct	dqblk dq_dqb;		/* actual usage & quotas */
 };
 /*
@@ -318,7 +318,9 @@ int	dqget(struct vnode *, u_long, struct quotafile *, int, struct dquot **);
 void	dqinit(void);
 void	dqref(struct dquot *);
 void	dqrele(struct vnode *, struct dquot *);
+void	dqreclaim(struct vnode *, struct dquot *);
 int	dqsync(struct vnode *, struct dquot *);
+void	dqsync_orphans(struct quotafile *);
 __END_DECLS
 
 #endif /* KERNEL */

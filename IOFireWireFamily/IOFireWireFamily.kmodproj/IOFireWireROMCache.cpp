@@ -25,6 +25,7 @@
 #include "IOFireWireROMCache.h"
 
 #include <IOKit/firewire/IOFireWireDevice.h>
+#include <IOKit/firewire/IOFireWireUnit.h>
 #include <IOKit/firewire/IOFireWireController.h>
 
 OSDefineMetaClassAndStructors(IOFireWireROMCache, OSObject)
@@ -256,13 +257,13 @@ bool IOFireWireROMCache::hasROMChanged( const UInt32 * newBIB, UInt32 newBIBSize
 	// will fail if the generation has changed.
 	
 	// ROM generation == 0 means you can't assume the ROM is the same,
-	// however, there is only one known real-world device for which this
-	// is true : an older version of Open Firmware in Target Disk Mode.
+	// we ignore this and assume the only ROMs which will ever change
+	// will be 1394a compliant and update their ROM generation properly
 	
-	// to cut down on unneeded bus traffic, we are assuming that all future 
-	// devices with ROMs which may change will be 1394a compliant and update 
-	// their generation when they change.
-	
+	// however, a particular old version of Open Firmware in Target Disk Mode
+	// adds the SBP2 units to its ROM without updating the ROM generation
+	// to handle this we always assume roms for generation 0, unopened, 
+	// unitless devices have changed.
 	
 	// if the BIB + header is bigger than the current ROM, then we've
 	// got a minimal ROM changing into a general ROM
@@ -286,21 +287,49 @@ bool IOFireWireROMCache::hasROMChanged( const UInt32 * newBIB, UInt32 newBIBSize
 	
 	if( newBIBSize == kROMBIBSizeGeneral )
 	{
-	
 		if(	bcmp( newBIB, getBytesNoCopy(), newBIBSize) != 0 ) 
 		{
 			rom_changed = true;
 		}
 
-#if 0		
-		// if this has ROM generation of 0, don't assume the ROM is the same.
+		//
+		// some devices are slow to publish their units
+		// always reconsider generation zero, unopened,
+		// unitless devices
+		//
+		
+		// is this a closed, generation zero device?
+		
 		UInt32 romGeneration = (newBIB[2] & kFWBIBGeneration) >> kFWBIBGenerationPhase;
-		if( romGeneration == 0 )
+		if( romGeneration == 0 && !fOwner->isOpen() )
 		{
-			rom_changed = true; // don't assume its the same
+			bool has_units = false;
+			
+			// does the device have any units?
+			
+			OSIterator * childIterator = fOwner->getClientIterator();
+			if( childIterator ) 
+			{
+				OSObject *child;
+				while( (child = childIterator->getNextObject()) ) 
+				{
+					if( OSDynamicCast(IOFireWireUnit, child) != NULL ) 
+					{
+						has_units = true;
+						break;
+					}
+				}
+				childIterator->release();
+			}
+		
+			if( !has_units )
+			{
+				// if we've got a closed generation zero device with no 
+				// units we can't assume its the same
+				
+				rom_changed = true; 
+			}
 		}
-#endif
-
 	}
 	
 	// don't come back from an invalid state
@@ -478,7 +507,6 @@ void IOFireWireROMCache::setROMState( ROMState state, UInt32 generation )
 IOReturn IOFireWireROMCache::updateROMCache( UInt32 offset, UInt32 length )
 {
     IOReturn status = kIOReturnSuccess;
-
 	FWKLOG(( "IOFireWireROMCache@0x%08lx::updateROMCache entered offset = %ld, length = %ld\n", (UInt32)this, offset, length ));
 
 	FWKLOGASSERT( fOwner->getController()->inGate() == false );
@@ -495,7 +523,7 @@ IOReturn IOFireWireROMCache::updateROMCache( UInt32 offset, UInt32 length )
 		unsigned int romLength = getLength();
 		UInt32 romEnd = (offset + length) * sizeof(UInt32);
 			
-		while( romEnd > romLength && kIOReturnSuccess == status ) 
+		while( romEnd > romLength && kIOReturnSuccess == status) 
 		{
 			UInt32 *				buff;
 			int 					bufLen;
@@ -520,7 +548,6 @@ IOReturn IOFireWireROMCache::updateROMCache( UInt32 offset, UInt32 length )
 			// if the command fails because of a bus reset, wait until the
 			// bus is resumed or the ROM becomes invalid
 			//
-			
 			if( status == kIOFireWireBusReset )
 			{
 				// on good return status the generation will be updated, but we won't have incremented
@@ -528,8 +555,13 @@ IOReturn IOFireWireROMCache::updateROMCache( UInt32 offset, UInt32 length )
 			
 				// on invalid return status the generation will be updated, but status will be invalid
 				// and we will bail out of this loop
-					
+                // Sometimes the ROM doesn't know it's suspended yet - in that case we get the same
+                // generation back that we know isn't up to date - so suspend the ROM
+                UInt32 oldGeneration = generation;
 				status = checkROMState( generation );
+                if(status == kIOReturnSuccess && generation == oldGeneration) {
+                    setROMState(kROMStateSuspended);
+                }
 			}
 			else if( status == kIOReturnSuccess ) 
 			{

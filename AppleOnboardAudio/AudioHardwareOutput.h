@@ -79,9 +79,9 @@ typedef struct _s_AudioHardwareOutputInfo {
 enum{
     kOutputPortTypeUnknown,
     kOutputPortTypeClassic,
-    kOutputPortTypeProj5,
-    kOutputPortTypeProj3,
-    kOutputPortTypeEQ
+    kOutputPortTypeProj5,				//	This is a Kihei iMac
+    kOutputPortTypeProj3,				//	This is a WallStreet G3 PowerBook
+    kOutputPortTypeEQ					//	
 };
 
 // Class declaration

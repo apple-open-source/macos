@@ -27,12 +27,18 @@
  *
  */
 
-#import "IOFireWireUserClient.h"
-#import "IOFireWireLink.h"
-#import "IOFireWireNub.h"
-#import "IOFireWireController.h"
-#import "IOConfigDirectory.h"
+// public
+#import <IOKit/firewire/IOFireWireNub.h>
+#import <IOKit/firewire/IOFireWireController.h>
+#import <IOKit/firewire/IOConfigDirectory.h>
 
+// protected
+#import <IOKit/firewire/IOFireWireLink.h>
+
+// private
+#import "IOFireWireUserClient.h"
+
+// system
 #import <IOKit/assert.h>
 #import <IOKit/IOMessage.h>
 
@@ -72,6 +78,9 @@ void IOFireWireNub::free()
 	if( fConfigDirectorySet )
 		fConfigDirectorySet->release();
 		
+    if(fControl)
+        fControl->release();
+
     IOService::free();
 }
 

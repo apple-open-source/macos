@@ -120,6 +120,7 @@ struct service *svc_make_special( struct service_config *scp )
 void svc_free( struct service *sp )
 {
    sc_free( sp->svc_conf ) ;
+   CLEAR( *sp ) ;
    FREE_SVC( sp ) ;
 }
 
@@ -350,18 +351,10 @@ status_e svc_activate( struct service *sp )
    }
 
 #ifdef HAVE_DNSREGISTRATION
-/* XXX: malloc()/asprintf() error checking */
    char *srvname;
-   char *hostname = malloc(256);
-
-   if( gethostname(hostname, 256) == -1 ) {
-      msg( LOG_ERR, func, "gethostname failed (%m). service = %s", scp->sc_id );
-   }
 
    asprintf(&srvname, "_%s._%s", scp->sc_name, scp->sc_protocol.name);
-   scp->sc_mdnscon = DNSServiceRegistrationCreate(hostname, srvname, "", htons(scp->sc_port), "", mdns_callback, NULL);
-   free(srvname);
-   free(hostname);
+   scp->sc_mdnscon = DNSServiceRegistrationCreate("", srvname, "", htons(scp->sc_port), "", mdns_callback, NULL);
 #endif
 
    if ( log_start( sp, &sp->svc_log ) == FAILED )
@@ -398,12 +391,13 @@ static void deactivate( const struct service *sp )
    (void) close( SVC_FD( sp ) ) ;
 
 #ifdef HAVE_DNSREGISTRATION
-   DNSServiceDiscoveryDeallocate(SVC_CONF(sp)->sc_mdnscon);
+   if( SVC_CONF(sp)->sc_mdnscon )
+      DNSServiceDiscoveryDeallocate(SVC_CONF(sp)->sc_mdnscon);
 #endif
 
    if (debug.on)
-      msg(LOG_DEBUG, "deactivate", "Service %s deactivated", 
-          SC_NAME( SVC_CONF(sp) ) );
+      msg(LOG_DEBUG, "deactivate", "%d Service %s deactivated", 
+          getpid(), SC_NAME( SVC_CONF(sp) ) );
 
 #ifndef NO_RPC
    if ( SC_IS_RPC( SVC_CONF( sp ) ) )
@@ -514,6 +508,7 @@ int svc_release( struct service *sp )
             log_end( SC_LOG( SVC_CONF( sp ) ), sp->svc_log ) ;
          svc_deactivate( sp ) ;
          svc_free( sp ) ;
+         sp = NULL;
       }
       else      /* this shouldn't happen */
          msg( LOG_WARNING, func,
@@ -559,10 +554,12 @@ void svc_request( struct service *sp )
 
    if ( ret_code != OK ) 
    {
-      CONN_CLEANUP( cp ) ;
       if ( SVC_LOGS_USERID_ON_FAILURE( sp ) )
-         if ( svc_generic_handler( LOG_SERVICE( ps ), cp ) == FAILED ) 
-            conn_free( cp, 1 ) ;
+         if( spec_service_handler( LOG_SERVICE( ps ), cp ) == FAILED ) {
+            conn_free( cp, 1 );
+            return;
+         }
+      CONN_CLOSE(cp);
    }
 }
 
@@ -839,9 +836,10 @@ void svc_postmortem( struct service *sp, struct server *serp )
    if ( co_sp != sp && SVC_IS_LOGGING( co_sp ) )
       xlog_control( SVC_LOG( co_sp ), XLOG_SIZECHECK ) ;
 
-   if (!SVC_WAITS(sp))
+   if (!SVC_WAITS(sp)) {
       conn_free( cp, 1 ) ;
-   else
+      cp = NULL;
+   } else
       svc_resume(sp);
 }
 

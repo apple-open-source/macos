@@ -28,8 +28,13 @@
 *
 */
 
-#import "IOFWCommand.h"
+// public
+#import <IOKit/firewire/IOFWCommand.h>
+
+// private
 #import "IOFireWireUserClient.h"
+
+// system
 #import <libkern/c++/OSObject.h>
 
 class IOFWUserCommand: public OSObject

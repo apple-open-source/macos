@@ -20,7 +20,7 @@
  * file: tcl-p.c
  * purpose: check and return via exit code whether the tcl interface needs to be made
  *
- * $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/tcl-p.c,v 1.1.1.1 2001/05/18 23:14:05 mb Exp $
+ * $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/tcl-p.c,v 1.1.1.1 2001/05/18 23:14:05 mb Exp $
  * $Log: tcl-p.c,v $
  * Revision 1.1.1.1  2001/05/18 23:14:05  mb
  * Move from private repository to open source repository

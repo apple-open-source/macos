@@ -468,3 +468,10 @@ enum GeneralHardware {
 #define kScreamerMinVolume			-22.5
 #define kScreamerVolumeRange		(kScreamerMaxVolume - kScreamerMinVolume)
 #define	kMAX_SW_VOL					256.0
+
+#define	kSCREAMER_MIN_VOLUME				( ( -22 << 16 ) | ( 0x8000 ) )
+#define	kSCREAMER_MAX_VOLUME				( (   0 << 16 ) | ( 0x0000 ) )
+#define	kSCREAMER_MINIMUM_HW_VOLUME			0
+#define	kSCREAMER_OUT_OF_BOUNDS_HW_VOLUME	( 1 << 4 )
+#define	kSCREAMER_MAXIMUM_HW_VOLUME			(kSCREAMER_OUT_OF_BOUNDS_HW_VOLUME)
+

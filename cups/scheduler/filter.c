@@ -1,5 +1,5 @@
 /*
- * "$Id: filter.c,v 1.1.1.3 2002/06/06 22:13:16 jlovell Exp $"
+ * "$Id: filter.c,v 1.1.1.3.2.1 2002/12/13 22:54:13 jlovell Exp $"
  *
  *   File type conversion routines for the Common UNIX Printing System (CUPS).
  *
@@ -206,7 +206,7 @@ mimeFilter(mime_t      *mime,		/* I - MIME database */
       */
 
       for (j = 0, cost = 0; j < num_temp; j ++)
-        cost += temp->cost;
+        cost += temp[j].cost;
 
       if (cost < mincost)
       {
@@ -295,5 +295,5 @@ lookup(mime_t      *mime,	/* I - MIME database */
 
 
 /*
- * End of "$Id: filter.c,v 1.1.1.3 2002/06/06 22:13:16 jlovell Exp $".
+ * End of "$Id: filter.c,v 1.1.1.3.2.1 2002/12/13 22:54:13 jlovell Exp $".
  */

@@ -26,6 +26,7 @@
  */
 #define COND_FREE( x )           if ( x )                   \
                                  {                          \
+                                    *x = NUL ;              \
                                     free( (char *) x ) ;    \
                                     x = NULL ;              \
                                  }
@@ -48,7 +49,7 @@ struct service_config *sc_alloc( char *name )
       return( NULL ) ;
    }
    CLEAR( *scp ) ;
-   scp->sc_name = name ;
+   scp->sc_name = new_string( name ) ;
    return( scp ) ;
 }
 
@@ -110,6 +111,7 @@ void sc_free( struct service_config *scp )
                                     SC_ENV( scp )->env_handle != ENV_NULL )
       env_destroy( SC_ENV( scp )->env_handle ) ;
    
+   CLEAR( *scp ) ;
    FREE_SCONF( scp ) ;
 }
 
@@ -291,6 +293,10 @@ void sc_dump( struct service_config *scp,
       tabprint( fd, tab_level+1, "CPS = max conn:%lu wait:%lu\n", 
          scp->sc_time_conn_max, scp->sc_time_wait );
 
+   if ( SC_SPECIFIED( scp, A_PER_SOURCE ) )
+      tabprint( fd, tab_level+1, "PER_SOURCE = %d\n", 
+         scp->sc_per_source );
+
    if ( SC_SPECIFIED( scp, A_BIND ) && scp->sc_bind_addr ) {
       char bindname[NI_MAXHOST];
       int len = 0;
@@ -387,6 +393,12 @@ void sc_dump( struct service_config *scp,
    else
       Sprint( fd, "No blocked sites" );
    Sputchar( fd, '\n' ) ;
+
+   if ( SC_SENSOR(scp) )
+   {
+      tabprint( fd, tab_level+1, "Deny Time: " ) ;
+      Sprint( fd, "%d\n", scp->sc_deny_time);
+   }
    
    dump_log_data( fd, scp, tab_level+1 ) ;
 

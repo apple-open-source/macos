@@ -11,6 +11,7 @@
 #include  <ctype.h>
 #if defined(STDC_HEADERS)
 #include  <stdlib.h>
+#include  <limits.h>
 #endif
 #include  "fetchmail.h"
 #include  "socket.h"
@@ -30,6 +31,7 @@ extern char *strstr();	/* needed on sysV68 R3V7.1. */
 #define IMAP4rev1	1	/* IMAP4 rev 1, RFC2060 */
 
 static int count = 0, recentcount = 0, unseen = 0, deletions = 0;
+static unsigned int startcount = 1;
 static int expunged, expunge_period, saved_timeout = 0;
 static int imap_version, preauth;
 static flag do_idle;
@@ -59,6 +61,19 @@ static int imap_ok(int sock, char *argbuf)
 	else if (strstr(buf, "EXISTS"))
 	{
 	    count = atoi(buf+2);
+	    /*
+	     * Don't trust the message count passed by the server.
+	     * Without this check, it might be possible to do a
+	     * DNS-spoofing attack that would pass back a ridiculous 
+	     * count, and allocate a malloc area that would overlap
+	     * a portion of the stack.
+	     */
+	    if (count > INT_MAX/sizeof(int))
+	    {
+		report(stderr, "bogus message count!");
+		return(PS_PROTOCOL);
+	    }
+
 	    /*
 	     * Nasty kluge to handle RFC2177 IDLE.  If we know we're idling
 	     * we can't wait for the tag matching the IDLE; we have to tell the
@@ -186,7 +201,7 @@ static int do_imap_ntlm(int sock, struct query *ctl)
     if ((gen_recv(sock, msgbuf, sizeof msgbuf)))
 	return result;
   
-    len = from64tobits ((unsigned char*)&challenge, msgbuf, sizeof(msgbuf));
+    len = from64tobits ((char*)&challenge, msgbuf, sizeof(challenge));
     
     if (outlevel >= O_DEBUG)
 	dumpSmbNtlmAuthChallenge(stdout, &challenge);
@@ -342,6 +357,28 @@ static int imap_getauth(int sock, struct query *ctl, char *greeting)
     }
 #endif /* KERBEROS_V4 */
 
+#ifdef SSL_ENABLE
+    if ((ctl->server.authenticate == A_ANY)
+        && !ctl->use_ssl
+        && strstr(capabilities, "STARTTLS"))
+    {
+           char *realhost;
+
+           realhost = ctl->server.via ? ctl->server.via : ctl->server.pollname;
+           gen_transact(sock, "STARTTLS");
+
+           /* We use "tls1" instead of ctl->sslproto, as we want STARTTLS,
+            * not other SSL protocols
+            */
+           if (SSLOpen(sock,ctl->sslcert,ctl->sslkey,"tls1",ctl->sslcertck, ctl->sslcertpath,ctl->sslfingerprint,realhost,ctl->server.pollname) == -1)
+           {
+               report(stderr,
+                      GT_("SSL connection failed.\n"));
+               return(PS_AUTHFAIL);
+           }
+    }
+#endif /* SSL_ENABLE */
+
     /*
      * No such luck.  OK, now try the variants that mask your password
      * in a challenge-response.
@@ -414,10 +451,15 @@ static int imap_getauth(int sock, struct query *ctl, char *greeting)
     }
 #endif /* __UNUSED__ */
 
-    /* we're stuck with sending the password en clair */
-    if ((ctl->server.authenticate == A_ANY 
- 	 || ctl->server.authenticate == A_PASSWORD) 
- 	&& !strstr (capabilities, "LOGINDISABLED"))
+    /* 
+     * We're stuck with sending the password en clair.
+     * The reason for this odd-looking logic is that some
+     * servers return LOGINDISABLED even though login 
+     * actually works.  So arrange things in such a way that
+     * setting auth passwd makes it ignore this capability.
+     */
+    if((ctl->server.authenticate==A_ANY&&!strstr(capabilities,"LOGINDISABLED"))
+	|| ctl->server.authenticate == A_PASSWORD)
     {
 	/* these sizes guarantee no buffer overflow */
 	char	remotename[NAMELEN*2+1], password[PASSWORDLEN*2+1];
@@ -425,7 +467,7 @@ static int imap_getauth(int sock, struct query *ctl, char *greeting)
 	imap_canonicalize(remotename, ctl->remotename, NAMELEN);
 	imap_canonicalize(password, ctl->password, PASSWORDLEN);
 
-	strcpy(shroud, ctl->password);
+	strcpy(shroud, password);
 	ok = gen_transact(sock, "LOGIN \"%s\" \"%s\"", remotename, password);
 	shroud[0] = '\0';
 	if (ok)
@@ -567,6 +609,7 @@ static int imap_getrange(int sock,
 
     *countp = count;
     recentcount = 0;
+    startcount = 1;
 
     /* OK, now get a count of unseen messages and their indices */
     if (!ctl->fetchall && count > 0)
@@ -590,6 +633,10 @@ static int imap_getrange(int sock,
 		char	*ep;
 
 		cp += 8;	/* skip "* SEARCH" */
+		/* startcount is higher than count so that if there are no
+		 * unseen messages, imap_getsizes() will not need to do
+		 * anything! */
+		startcount = count + 1;
 
 		while (*cp && unseen < count)
 		{
@@ -598,24 +645,29 @@ static int imap_getrange(int sock,
 			cp++;
 		    if (*cp) 
 		    {
+			unsigned int um;
 			/*
 			 * Message numbers are between 1 and 2^32 inclusive,
 			 * so unsigned int is large enough.
 			 */
-			unseen_messages[unseen]=(unsigned int)strtol(cp,&ep,10);
-
-			if (outlevel >= O_DEBUG)
-			    report(stdout, 
-				   GT_("%u is unseen\n"), 
-				   unseen_messages[unseen]);
-		
-			unseen++;
+			um=(unsigned int)strtol(cp,&ep,10);
+			if (um <= count)
+			{
+			    unseen_messages[unseen++] = um;
+			    if (outlevel >= O_DEBUG)
+				report(stdout, GT_("%u is unseen\n"), um);
+			    if (startcount > um)
+				startcount = um;
+			}
 			cp = ep;
 		    }
 		}
 	    }
 	} while
 	    (tag[0] != '\0' && strncmp(buf, tag, strlen(tag)));
+
+	if (outlevel >= O_DEBUG && unseen > 0)
+	    report(stdout, GT_("%u is first unseen\n"), startcount);
     } else
 	unseen = -1;
 
@@ -666,10 +718,16 @@ static int imap_getsizes(int sock, int count, int *sizes)
      * on the fact that the sizes array has been preinitialized with a
      * known-bad size value.
      */
-    if (count == 1)
-	gen_send(sock, "FETCH 1 RFC822.SIZE");
-    else
-	gen_send(sock, "FETCH 1:%d RFC822.SIZE", count);
+    /* if fetchall is specified, startcount is 1;
+     * else if there is new mail, startcount is first unseen message;
+     * else startcount is greater than count.
+     */
+    if (count == startcount)
+	gen_send(sock, "FETCH %d RFC822.SIZE", count);
+    else if (count > startcount)
+	gen_send(sock, "FETCH %d:%d RFC822.SIZE", startcount, count);
+    else /* no unseen messages! */
+	return(PS_SUCCESS);
     for (;;)
     {
 	unsigned int num, size;
@@ -677,6 +735,9 @@ static int imap_getsizes(int sock, int count, int *sizes)
 
 	if ((ok = gen_recv(sock, buf, sizeof(buf))))
 	    return(ok);
+	/* an untagged NO means that a message was not readable */
+	else if (strstr(buf, "* NO"))
+	    ;
 	else if (strstr(buf, "OK") || strstr(buf, "NO"))
 	    break;
 	else if (sscanf(buf, "* %u FETCH (RFC822.SIZE %u)", &num, &size) == 2) {
@@ -749,9 +810,19 @@ static int imap_fetch_headers(int sock, struct query *ctl,int number,int *lenp)
   	    break;
 	/* try to recover from chronically fucked-up M$ Exchange servers */
  	else if (!strncmp(ptr, "NO", 2))
+	{
+	    /* wait for a tagged response */
+	    if (strstr (buf, "* NO"))
+		imap_ok (sock, 0);
  	    return(PS_TRANSIENT);
+	}
  	else if (!strncmp(ptr, "BAD", 3))
+	{
+	    /* wait for a tagged response */
+	    if (strstr (buf, "* BAD"))
+		imap_ok (sock, 0);
  	    return(PS_TRANSIENT);
+	}
     }
 
     if (num != number)

@@ -29,6 +29,12 @@
  */
 /*
 	$Log: IOFWUserPseudoAddressSpace.cpp,v $
+	Revision 1.3  2002/10/22 00:34:25  collin
+	fix user space lock transactions, publish GUID = 0 property in objects in the IOFireWire plane
+	
+	Revision 1.2  2002/10/18 23:29:43  collin
+	fix includes, fix cast which fails on new compiler
+	
 	Revision 1.1  2002/09/25 00:27:22  niels
 	flip your world upside-down
 	
@@ -46,13 +52,18 @@
 #ifndef __IOFWUserClientPseuAddrSpace_H__
 #define __IOFWUserClientPseuAddrSpace_H__
 
-#import "IOFWUserPseudoAddressSpace.h"
-#import "IOFireWireNub.h"
-#import "IOFireWireController.h"
-#import "IOFireWireLink.h"
+#import <IOKit/firewire/IOFireWireNub.h>
+#import <IOKit/firewire/IOFireWireController.h>
+
+// protected
+#import <IOKit/firewire/IOFireWireLink.h>
+
+// private
 #import "IOFireWireUserClient.h"
 #import "IOFireWireLib.h"
+#import "IOFWUserPseudoAddressSpace.h"
 
+// system
 #import <IOKit/assert.h>
 #import <IOKit/IOLib.h>
 #import <IOKit/IOWorkLoop.h>
@@ -704,6 +715,18 @@ IOFWUserPseudoAddressSpace::clientCommandIsComplete(
 				
 		switch(type)
 		{
+			case IOFWPacketHeader::kLockPacket:
+				{
+					fUserClient->getOwner()->getController()->asyncLockResponse( oldHeader->IncomingPacket.generation,
+																				oldHeader->IncomingPacket.nodeID, 
+																				oldHeader->IncomingPacket.speed,
+																				fDesc,//fBackingStore
+																				oldHeader->IncomingPacket.addrLo - fAddress.addressLo,
+																				oldHeader->IncomingPacket.packetSize >> 1,
+																				oldHeader->IncomingPacket.reqrefcon ) ;
+				}
+				
+				// fall through
 			case IOFWPacketHeader::kIncomingPacket:
 				fBufferAvailable += oldHeader->IncomingPacket.packetSize ;
 				break ;
@@ -719,18 +742,6 @@ IOFWUserPseudoAddressSpace::clientCommandIsComplete(
                                                                                 oldHeader->ReadPacket.reqrefcon ) ;
 				}
                 break ;
-
-			case IOFWPacketHeader::kLockPacket:
-				{
-					fUserClient->getOwner()->getController()->asyncLockResponse( oldHeader->IncomingPacket.generation,
-																				oldHeader->IncomingPacket.nodeID, 
-																				oldHeader->IncomingPacket.speed,
-																				fDesc,//fBackingStore
-																				oldHeader->IncomingPacket.addrLo - fAddress.addressLo,
-																				oldHeader->IncomingPacket.packetSize >> 1,
-																				oldHeader->IncomingPacket.reqrefcon ) ;
-				}
-				break ;
 				
 			default:
 				// nothing...

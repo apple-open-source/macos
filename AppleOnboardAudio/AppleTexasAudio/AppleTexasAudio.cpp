@@ -92,6 +92,14 @@ void AppleTexasAudio::free()
 	CLEAN_RELEASE(hwResetRegMem);
 	CLEAN_RELEASE(headphoneExtIntGpioMem);
 	CLEAN_RELEASE(dallasExtIntGpioMem);
+	CLEAN_RELEASE(audioI2SControl);
+	if (NULL != ioBaseAddressMemory) {
+		ioBaseAddressMemory->release();
+	}
+	
+	if (NULL != ioClockBaseAddressMemory) {
+		ioClockBaseAddressMemory->release();
+	}
 
 	workLoop = getWorkLoop();
 	if (NULL != workLoop) {
@@ -103,6 +111,8 @@ void AppleTexasAudio::free()
 			workLoop->removeEventSource (dallasHandlerTimer);
 		if (NULL != notifierHandlerTimer)
 			workLoop->removeEventSource (notifierHandlerTimer);
+
+		if ( NULL != deferHeadphoneHandlerTimer ) { workLoop->removeEventSource ( deferHeadphoneHandlerTimer ); }	//	[3103075]	rbm		11/27/2002
 	}
 
 	publishResource (gAppleAudioVideoJackStateKey, NULL);
@@ -225,6 +235,39 @@ void AppleTexasAudio::checkStatus(bool force)
 // ::sndHWInitialize
 // hardware specific initialization needs to be in here, together with the code
 // required to start audio on the device.
+//
+//	There are three sections of memory mapped I/O that are directly accessed by the AppleOnboardAudio.  These
+//	include the GPIOs, I2S DMA Channel Registers and I2S control registers.  They fall within the memory map 
+//	as follows:
+//	~                              ~
+//	|______________________________|
+//	|                              |
+//	|         I2S Control          |
+//	|______________________________|	<-	soundConfigSpace = ioBase + i2s0BaseOffset ...OR... ioBase + i2s1BaseOffset
+//	|                              |
+//	~                              ~
+//	~                              ~
+//	|______________________________|
+//	|                              |
+//	|       I2S DMA Channel        |
+//	|______________________________|	<-	i2sDMA = ioBase + i2s0_DMA ...OR... ioBase + i2s1_DMA
+//	|                              |
+//	~                              ~
+//	~                              ~
+//	|______________________________|
+//	|            FCRs              |
+//	|            GPIO              |	<-	gpio = ioBase + gpioOffsetAddress
+//	|         ExtIntGPIO           |	<-	fcr = ioBase + fcrOffsetAddress
+//	|______________________________|	<-	ioConfigurationBaseAddress
+//	|                              |
+//	~                              ~
+//
+//	The I2S DMA Channel is mapped in by the AppleDBDMAAudioDMAEngine.  Only the I2S control registers are 
+//	mapped in by the AudioI2SControl.  The Apple I/O Configuration Space (i.e. FCRs, GPIOs and ExtIntGPIOs)
+//	are mapped in by the subclass of AppleOnboardAudio.  The FCRs must also be mapped in by the AudioI2SControl
+//	object as the init method must enable the I2S I/O Module for which the AudioI2SControl object is
+//	being instantiated for.
+//
 void	AppleTexasAudio::sndHWInitialize(IOService *provider)
 {
 	IOReturn				err;
@@ -486,37 +529,31 @@ void	AppleTexasAudio::sndHWInitialize(IOService *provider)
 	// All this config should go in a single method: 
 	map = provider->mapDeviceMemoryWithIndex (AppleDBDMAAudioDMAEngine::kDBDMADeviceIndex);
 	FailIf (!map, Exit);
-	soundConfigSpace = (UInt8 *)map->getPhysicalAddress ();
-	FailIf (!soundConfigSpace, Exit);
-
-	// sets the clock base address figuring out which I2S cell we're on
-	if ((((UInt32)soundConfigSpace ^ kI2S0BaseOffset) & 0x0001FFFF) == 0) {
-		ioBaseAddress = (void *)((UInt32)soundConfigSpace - kI2S0BaseOffset);
-		i2SInterfaceNumber = kUseI2SCell0;
-	} else if ((((UInt32)soundConfigSpace ^ kI2S1BaseOffset) & 0x0001FFFF) == 0) {
-		ioBaseAddress = (void *)((UInt32)soundConfigSpace - kI2S1BaseOffset);
-		i2SInterfaceNumber = kUseI2SCell1;
-	} else {
-		FailIf("AppleTexasAudio::start failed to setup ioBaseAddress and ioClockBaseAddress\n", Exit);
-	}
-
-	// This is the keylargo FC1 (Feature configuration 1)
-	ioClockBaseAddress = (void *)((UInt32)ioBaseAddress + kI2SClockOffset);
-
-	// Enables the I2S Interface:
-	switch ( i2SInterfaceNumber ) {
-		case kUseI2SCell0:
-			debug2IOLog ("KLGetRegister(ioClockBaseAddress) | kI2S0InterfaceEnable = 0x%8.0lX\n", KLGetRegister(ioClockBaseAddress) | kI2S0InterfaceEnable);
-			break;
-		case kUseI2SCell1:
-			debug2IOLog ("KLGetRegister(ioClockBaseAddress) | kI2S1InterfaceEnable = 0x%8.0lX\n", KLGetRegister(ioClockBaseAddress) | kI2S1InterfaceEnable);
-			break;
-	}
+    // the i2s stuff is in a separate class.  make an instance of the class and store
+    AudioI2SInfo tempInfo;
+    tempInfo.map = map;
+    tempInfo.i2sSerialFormat = kSerialFormat64x;					//	[3060321]	rbm	2 Oct 2002
+    
+    // create an object, this will get inited.
+    audioI2SControl = AudioI2SControl::create(&tempInfo) ;
+    FailIf (NULL == audioI2SControl, Exit);
+    audioI2SControl->retain();
 
 	// This call will set the next of the frame parameters
 	// (clockSource, mclkDivisor,  sclkDivisor)
-	FailIf (!setSampleParameters(myFrameRate, 256), Exit);
-	setSerialFormatRegister(clockSource, mclkDivisor, sclkDivisor, serialFormat);
+	ClockSource				clockSource;
+	UInt32					sclkDivisor;
+	UInt32					mclkDivisor;
+	UInt32					dataFormat;	//	[3060321]	rbm	2 Oct 2002
+	dataFormat = ( ( 2 << kNumChannelsInShift ) | kDataIn16 | ( 2 << kNumChannelsOutShift ) | kDataOut16 );	//	[3060321]	rbm	2 Oct 2002
+
+	FailIf (FALSE == audioI2SControl->setSampleParameters (myFrameRate, 256, &clockSource, &mclkDivisor, &sclkDivisor, kSndIOFormatI2S64x), Exit);
+	//	[3060321]	The data word format register and serial format register require that the I2S clocks be stopped and
+	//				restarted before the register value is applied to operation of the I2S IOM.  We now pass the data
+	//				word format to setSerialFormatRegister as that method stops the clocks when applying the value
+	//				to the serial format register.  That method now also sets the data word format register while
+	//				the clocks are stopped.		rbm	2 Oct 2002
+	audioI2SControl->setSerialFormatRegister (clockSource, mclkDivisor, sclkDivisor, kSndIOFormatI2S64x, dataFormat);
 
 	err = TAS3001C_Initialize( kFORCE_RESET_SETUP_TIME );			//	reset the TAS3001C and flush the shadow contents to the HW
 
@@ -568,6 +605,9 @@ void AppleTexasAudio::sndHWPostDMAEngineInit (IOService *provider) {
 			workLoop->addEventSource (notifierHandlerTimer);
 		}
 
+ 		deferHeadphoneHandlerTimer = IOTimerEventSource::timerEventSource (this, deferHeadphoneHandler);	//	[3103075]	rbm		11/27/2002
+		if (NULL != deferHeadphoneHandlerTimer) { workLoop->addEventSource (deferHeadphoneHandlerTimer); }
+
 		dallasIntEventSource = IOFilterInterruptEventSource::filterInterruptEventSource (this,
 																			dallasInterruptHandler, 
 																			interruptFilter,
@@ -602,11 +642,15 @@ void AppleTexasAudio::sndHWPostDMAEngineInit (IOService *provider) {
 			}
 		}
 	} else {
+		speakerID = 0;
+		familyID = 0;
 		dallasSpeakersProbed = FALSE;
 	}
 
 	if (FALSE == IsHeadphoneConnected ()) {
-		SetActiveOutput (kSndHWOutput2, kBiquadUntouched);
+		if ( NULL == dallasInterruptHandler ) {						//	[3117811]
+			SetActiveOutput (kSndHWOutput2, kBiquadUntouched);
+		}
 		if (TRUE == hasVideo) {
 			// Tell the video driver about the jack state change in case a video connector was plugged in
 			publishResource (gAppleAudioVideoJackStateKey, kOSBooleanFalse);
@@ -620,14 +664,14 @@ void AppleTexasAudio::sndHWPostDMAEngineInit (IOService *provider) {
 	} else {
 		if (NULL != headphoneIntProvider) {
 			// Set amp mutes accordingly
-			RealHeadphoneInterruptHandler (0, 0);
+			deferHeadphoneHandler (this, deferHeadphoneHandlerTimer);
 		}
 	}
 
 	if (NULL == outVolRight && NULL != outVolLeft) {
 		// If they are running mono at boot time, set the right channel's last value to an illegal value
 		// so it will come up in stereo and center balanced if they plug in speakers or headphones later.
-		lastRightVol = 171;
+		lastRightVol = kOUT_OF_BOUNDS_VOLUME_VALUE;
 		lastLeftVol = outVolLeft->getIntValue ();
 	}
 
@@ -832,6 +876,12 @@ IOReturn AppleTexasAudio::AdjustControls (void) {
 	mindBVol = volumedBTable[minVolume];
 	maxdBVol = volumedBTable[maxVolume];
 
+	//	Must update if any of the following conditions exist:
+	//	1.	No master volume control exists AND the master volume is the target
+	//	2.	The master volume control exists AND the master volume is not the target
+	//	3.	the minimum or maximum dB volume setting for the left volume control changes
+	//	4.	the minimum or maximum dB volume setting for the right volume control changes
+	
 	if ((NULL == outVolMaster && TRUE == useMasterVolumeControl) ||
 		(NULL != outVolMaster && FALSE == useMasterVolumeControl) ||
 		(NULL != outVolLeft && outVolLeft->getMinValue () != minVolume) ||
@@ -880,7 +930,7 @@ IOReturn AppleTexasAudio::AdjustControls (void) {
 			// or we have both controls (possibly not created yet) and we have to remove the master volume control (possibly doesn't exist)
 			if (NULL == outVolLeft) {
 				// Have to create the control again...
-				if (lastLeftVol > 170 && NULL != outVolMaster) {
+				if (lastLeftVol > kMAXIMUM_LEGAL_VOLUME_VALUE && NULL != outVolMaster) {
 					lastLeftVol = outVolMaster->getIntValue ();
 				}
 				outVolLeft = IOAudioLevelControl::createVolumeControl (lastLeftVol, kMinimumVolume, kMaximumVolume, mindBVol, maxdBVol,
@@ -896,7 +946,7 @@ IOReturn AppleTexasAudio::AdjustControls (void) {
 			
 			if (NULL == outVolRight) {
 				// Have to create the control again...
-				if (lastRightVol > 170 && NULL != outVolMaster) {
+				if (lastRightVol > kMAXIMUM_LEGAL_VOLUME_VALUE && NULL != outVolMaster) {
 					lastRightVol = outVolMaster->getIntValue ();
 				}
 				outVolRight = IOAudioLevelControl::createVolumeControl (lastRightVol, kMinimumVolume, kMaximumVolume, mindBVol, maxdBVol,
@@ -1127,11 +1177,15 @@ IOReturn AppleTexasAudio::performDeviceIdleWake () {
 			}
 		}
 	} else {
+		speakerID = 0;
+		familyID = 0;
 		dallasSpeakersProbed = FALSE;
 	}
 
 	if (FALSE == IsHeadphoneConnected ()) {
-		SetActiveOutput (kSndHWOutput2, kBiquadUntouched);
+		if ( NULL == dallasIntProvider ) {			//		[3117811]
+			SetActiveOutput (kSndHWOutput2, kBiquadUntouched);
+		}
 		if (TRUE == hasVideo && FALSE != headphonesConnected) {
 			// Tell the video driver about the jack state change in case a video connector was plugged in
 			publishResource (gAppleAudioVideoJackStateKey, kOSBooleanFalse);
@@ -1145,7 +1199,7 @@ IOReturn AppleTexasAudio::performDeviceIdleWake () {
 	} else {
 		if (NULL != headphoneIntProvider) {
 			// Set amp mutes accordingly
-			RealHeadphoneInterruptHandler (0, 0);
+			deferHeadphoneHandler (this, deferHeadphoneHandlerTimer);
 		}
 	}
 
@@ -1237,11 +1291,15 @@ IOReturn AppleTexasAudio::performDeviceWake () {
 			}
 		}
 	} else {
+		speakerID = 0;
+		familyID = 0;
 		dallasSpeakersProbed = FALSE;
 	}
 
 	if (FALSE == IsHeadphoneConnected ()) {
-		SetActiveOutput (kSndHWOutput2, kBiquadUntouched);
+		if ( NULL == dallasIntProvider ) {			//		[3117811]
+			SetActiveOutput (kSndHWOutput2, kBiquadUntouched);
+		}
 		if (TRUE == hasVideo && FALSE != headphonesConnected) {
 			// Tell the video driver about the jack state change in case a video connector was plugged in
 			publishResource (gAppleAudioVideoJackStateKey, kOSBooleanFalse);
@@ -1255,7 +1313,7 @@ IOReturn AppleTexasAudio::performDeviceWake () {
 	} else {
 		if (NULL != headphoneIntProvider) {
 			// Set amp mutes accordingly
-			RealHeadphoneInterruptHandler (0, 0);
+			deferHeadphoneHandler (this, deferHeadphoneHandlerTimer);
 		}
 	}
 
@@ -1316,56 +1374,109 @@ Boolean AppleTexasAudio::IsSpeakerConnected (void) {
 	return connection;
 }
 
+//	======================================================================================
+//	This timer is used to defer a headphone interrupt until the audio system has completed
+//	a transition to the wake state.  The timer will re-queue itself if the audio system
+//	has not reached the wake state.	[3103075]	rbm		11/27/2002
+void AppleTexasAudio::deferHeadphoneHandler (OSObject *owner, IOTimerEventSource *sender) {
+    AbsoluteTime				fireTime;
+    UInt64						nanos;
+    AppleTexasAudio *			device;
+	
+	device = OSDynamicCast (AppleTexasAudio, owner);
+	FailIf (NULL == device, Exit);
+
+	if ( kIOAudioDeviceActive == device->ourPowerState ) {
+		//	Audio system is awake so handle the interrupt normally.	[3103075]
+		device->RealHeadphoneInterruptHandler (0, 0);
+	} else {
+		//	Audio system is not awake so defer the interrupt until audio is awake.	[3103075]
+		clock_get_uptime (&fireTime);
+		absolutetime_to_nanoseconds (fireTime, &nanos);
+		nanos += kDeferInsertionDelayNanos;			// Schedule 250 milliseconds in the future... 
+		if (NULL != device->deferHeadphoneHandlerTimer && NULL != sender) {
+			nanoseconds_to_absolutetime (nanos, &fireTime);
+			sender->cancelTimeout ();
+			sender->wakeAtTime (fireTime);
+		}
+	}
+Exit:
+	return;
+}
+
+//	======================================================================================
+//	Defers the invoking of the Dallas one-wireª protocol until the Vdd has stabilized.
+//	The timer is also used to defer a dallas interrupt until the audio system has completed
+//	a transition to the wake state.  The timer will re-queue itself if the audio system
+//	has not reached the wake state.	[3103075]	rbm		11/27/2002
 void AppleTexasAudio::DallasInterruptHandlerTimer (OSObject *owner, IOTimerEventSource *sender) {
     AppleTexasAudio *			device;
     IOCommandGate *				cg;
 	AbsoluteTime				currTime;
 	OSNumber *					activeOutput;
+    AbsoluteTime				fireTime;
+    UInt64						nanos;
 
 	device = OSDynamicCast (AppleTexasAudio, owner);
 	FailIf (NULL == device, Exit);
 
-	device->dallasSpeakersConnected = device->IsSpeakerConnected ();
-#if DEBUGLOG
-	IOLog ("dallas speakers connected = %d\n", device->dallasSpeakersConnected);
-#endif
-
-	if (TRUE == device->dallasSpeakersProbed && FALSE == device->dallasSpeakersConnected) {
-		// They've unplugged the dallas speakers, so we'll need to check them out if they get plugged back in.
-		device->dallasSpeakersProbed = FALSE;
-	}
-
-	if (FALSE == device->IsHeadphoneConnected ()) {
-		// Set the proper EQ
-		cg = device->getCommandGate ();
-		if (NULL != cg) {
-			cg->runAction (DeviceInterruptServiceAction);
+	if ( kIOAudioDeviceActive == device->ourPowerState ) {
+		//	Audio system is awake so handle the interrupt normally.	[3103075]
+		device->dallasSpeakersConnected = device->IsSpeakerConnected ();
+		debug2IOLog ("dallas speakers connected = %d\n", (unsigned int)device->dallasSpeakersConnected);
+	
+		if (TRUE == device->dallasSpeakersProbed && FALSE == device->dallasSpeakersConnected) {
+			// They've unplugged the dallas speakers, so we'll need to check them out if they get plugged back in.
+			device->dallasSpeakersProbed = FALSE;
 		}
-
-		clock_get_uptime (&currTime);
-		absolutetime_to_nanoseconds (currTime, &device->savedNanos);
-
-		if (TRUE == device->dallasSpeakersConnected) {
-			if (NULL != device->outputSelector) {
-				activeOutput = OSNumber::withNumber (kIOAudioOutputPortSubTypeExternalSpeaker, 32);
-				device->outputSelector->hardwareValueChanged (activeOutput);
+	
+		if (FALSE == device->IsHeadphoneConnected ()) {
+			// Set the proper EQ
+			cg = device->getCommandGate ();
+			if (NULL != cg) {
+				cg->runAction (DeviceInterruptServiceAction);
 			}
-		} else {
-			if (NULL != device->outputSelector) {
-				activeOutput = OSNumber::withNumber (kIOAudioOutputPortSubTypeInternalSpeaker, 32);
-				device->outputSelector->hardwareValueChanged (activeOutput);
+	
+			device->SetActiveOutput (kSndHWOutput2, kBiquadUntouched);
+			clock_get_uptime (&currTime);
+			absolutetime_to_nanoseconds (currTime, &device->savedNanos);
+	
+			if (TRUE == device->dallasSpeakersConnected) {
+				if (NULL != device->outputSelector) {
+					activeOutput = OSNumber::withNumber (kIOAudioOutputPortSubTypeExternalSpeaker, 32);
+					device->outputSelector->hardwareValueChanged (activeOutput);
+				}
+			} else {
+				if (NULL != device->outputSelector) {
+					activeOutput = OSNumber::withNumber (kIOAudioOutputPortSubTypeInternalSpeaker, 32);
+					device->outputSelector->hardwareValueChanged (activeOutput);
+				}
 			}
 		}
-	}
-
-	if (NULL != device->dallasIntEventSource) {
-		device->dallasIntEventSource->enable();
+	
+		if (NULL != device->dallasIntEventSource) {
+			device->dallasIntEventSource->enable();
+		}
+	} else {
+		//	Audio system is not awake so defer the interrupt until audio is awake.	[3103075]
+		if (NULL != device->dallasHandlerTimer) {
+			clock_get_uptime (&fireTime);
+			absolutetime_to_nanoseconds (fireTime, &nanos);
+			nanos += kInsertionDelayNanos;	// Schedule 4s in the future... 
+	
+			nanoseconds_to_absolutetime (nanos, &fireTime);
+			if ( NULL != sender ) {
+				sender->cancelTimeout ();
+				sender->wakeAtTime (fireTime);
+			}
+		}
 	}
 
 Exit:
 	return;
 }
 
+//	======================================================================================================
 // Set a flag to say if the dallas speakers are plugged in or not so we know which EQ to use.
 void AppleTexasAudio::RealDallasInterruptHandler (IOInterruptEventSource *source, int count) {
     AbsoluteTime				fireTime;
@@ -1378,13 +1489,21 @@ void AppleTexasAudio::RealDallasInterruptHandler (IOInterruptEventSource *source
 		nanos += kInsertionDelayNanos;	// Schedule 4s in the future... 
 
 		nanoseconds_to_absolutetime (nanos, &fireTime);
+		dallasHandlerTimer->cancelTimeout ();
 		dallasHandlerTimer->wakeAtTime (fireTime);
 	}
 
 	return;
 }
 
-// Put changes in RealDallasInterruptHandler, not in here
+//	======================================================================================================
+//	Put changes in RealDallasInterruptHandler, not in here because this is a static member and the
+//	RealDallasInterruptHandler is in virtual space!!!
+//	This function is invoked from the hardware interrupt handler:
+//		gpio service provider
+//			dallasInterruptHandler	<<---------	YOU ARE HERE!
+//				RealDallasInterruptHandler
+//					DallasInterruptTimerHandler
 void AppleTexasAudio::dallasInterruptHandler(OSObject *owner, IOInterruptEventSource *source, int count) {
 	AbsoluteTime 			currTime;
 	UInt64 					currNanos;
@@ -1450,7 +1569,7 @@ void AppleTexasAudio::DisplaySpeakersNotFullyConnected (OSObject *owner, IOTimer
 					clock_get_uptime (&currTime);
 					absolutetime_to_nanoseconds (currTime, &appleTexasAudio->savedNanos);
 
-					if (FALSE == result) {	// FALSE == failure for DallasDriver
+					if (FALSE == result && TRUE == appleTexasAudio->IsSpeakerConnected() ) {	// FALSE == failure for DallasDriver	[3103075]	rbm	12/2/2002
 						KUNCUserNotificationDisplayNotice (
 						0,		// Timeout in seconds
 						0,		// Flags (for later usage)
@@ -1524,9 +1643,10 @@ Exit:
 }
 
 void AppleTexasAudio::RealHeadphoneInterruptHandler (IOInterruptEventSource *source, int count) {
-    IOCommandGate *					cg;
-	OSNumber *						activeOutput;
+    IOCommandGate *				cg;
+	OSNumber *					activeOutput;
 
+	//	Audio system is awake so handle the interrupt normally.	[3103075]
 	SetActiveOutput (kSndHWOutputNone, kBiquadUntouched);
 
 	cg = getCommandGate ();
@@ -1566,10 +1686,67 @@ void AppleTexasAudio::headphoneInterruptHandler (OSObject *owner, IOInterruptEve
 	appleTexasAudio = OSDynamicCast (AppleTexasAudio, owner);
 	FailIf (!appleTexasAudio, Exit);
 
-	appleTexasAudio->RealHeadphoneInterruptHandler (source, count);
+	appleTexasAudio->deferHeadphoneHandler (appleTexasAudio, appleTexasAudio->deferHeadphoneHandlerTimer);
 
 Exit:
 	return;
+}
+
+//	===========================================================================================
+//	Override the AppleOnboardAudio implementation here as part of [3103075].  This is necessary
+//	because any jack state changes are deferred while the audio system is sleeping.  We need
+//	the audio hardware to wake up so that any UI changes resulting from a jack state change
+//	can be updated (i.e. removal or construction of the balance control when going from stereo
+//	to mono or mono to stereo respectively).	[3103075]	rbm		27 Nov 2002
+IOReturn AppleTexasAudio::performPowerStateChange(IOAudioDevicePowerState oldPowerState,
+                                                        IOAudioDevicePowerState newPowerState,
+                                                        UInt32 *microsecondsUntilComplete)
+{
+	IOReturn				result;
+
+	debug4IOLog ("+ AppleTexasAudio::performPowerStateChange (%d, %d) -- ourPowerState = %d\n", oldPowerState, newPowerState, ourPowerState);
+
+	if (NULL != theAudioPowerObject && NULL != microsecondsUntilComplete) {
+		*microsecondsUntilComplete = theAudioPowerObject->GetTimeToChangePowerState (ourPowerState, newPowerState);
+	}
+
+	result = IOAudioDevice::performPowerStateChange (oldPowerState, newPowerState, microsecondsUntilComplete);
+
+	if (NULL != theAudioPowerObject) {
+		switch (newPowerState) {
+			case kIOAudioDeviceSleep:
+				if (ourPowerState == kIOAudioDeviceActive) {
+					outputMuteChange (TRUE);			// Mute before turning off power
+					theAudioPowerObject->setHardwarePowerOff ();
+					ourPowerState = newPowerState;
+				}
+				break;
+			case kIOAudioDeviceIdle:
+				if (ourPowerState == kIOAudioDeviceActive) {
+					outputMuteChange (TRUE);			// Mute before turning off power
+					theAudioPowerObject->setHardwarePowerOff ();
+					ourPowerState = kIOAudioDeviceSleep;
+				} else if (ourPowerState == kIOAudioDeviceSleep && NULL != dallasDriver) {
+					outputMuteChange (TRUE);			// Mute before turning off power
+					theAudioPowerObject->setHardwarePowerOn ();
+					ourPowerState = kIOAudioDeviceActive;
+				}
+				break;
+			case kIOAudioDeviceActive:
+				theAudioPowerObject->setHardwarePowerOn ();
+				if (NULL != outMute) {
+					outMute->flushValue ();					// Restore hardware to the user's selected state
+				}
+				ourPowerState = newPowerState;
+				break;
+			default:
+				break;
+		}
+	}
+
+	debug2IOLog ("- AppleTexasAudio::performPowerStateChange -- ourPowerState = %d\n", ourPowerState);
+
+	return result;
 }
 
 #pragma mark +DIRECT HARDWARE MANIPULATION
@@ -1640,35 +1817,39 @@ Boolean	AppleTexasAudio::checkGpioAvailable ( UInt32 selector ) {
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//	[3060321]	Fixed kI2sDataWordFormatRegisterSelector to reference the
+//				data word format register.  
 IOReturn	AppleTexasAudio::readHWReg32 ( UInt32 selector, UInt32 * registerData ) {
 	IOReturn	result = kIOReturnError;
 	if ( NULL != registerData ) {
 		result = kIOReturnSuccess;
 		switch ( selector ) {
-			case kI2sSerialFormatRegisterSelector:		*registerData = I2SGetSerialFormatReg();	break;
-			case kI2sDataWordFormatRegisterSelector:	*registerData = I2SGetDataWordSizeReg();	break;
-			case kFeatureControlRegister1Selector:		*registerData = FCR1GetReg();				break;
-			case kFeatureControlRegister3Selector:		*registerData = FCR3GetReg();				break;
-			case kI2s1SerialFormatRegisterSelector:		*registerData = I2S1GetSerialFormatReg();	break;
-			case kI2s1DataWordFormatRegisterSelector:	*registerData = I2S1GetDataWordSizeReg();	break;
-			default:									result = kIOReturnError;					break;
+			case kI2sSerialFormatRegisterSelector:		*registerData = audioI2SControl->GetSerialFormatReg();	break;
+			case kI2sDataWordFormatRegisterSelector:	*registerData = audioI2SControl->GetDataWordSizesReg();	break;
+			case kFeatureControlRegister1Selector:		*registerData = audioI2SControl->FCR1GetReg();			break;
+			case kFeatureControlRegister3Selector:		*registerData = audioI2SControl->FCR3GetReg();			break;
+			case kI2s1SerialFormatRegisterSelector:		*registerData = audioI2SControl->GetSerialFormatReg();	break;
+			case kI2s1DataWordFormatRegisterSelector:	*registerData = audioI2SControl->GetDataWordSizesReg();	break;
+			default:									result = kIOReturnError;								break;
 		}
 	}
 	return result;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//	[3060321]	Fixed kI2sDataWordFormatRegisterSelector to reference the
+//				data word format register.  
 IOReturn	AppleTexasAudio::writeHWReg32 ( UInt32 selector, UInt32 registerData ) {
 	IOReturn	result = kIOReturnError;
 	result = kIOReturnSuccess;
 	switch ( selector ) {
-		case kI2sSerialFormatRegisterSelector:		I2SSetSerialFormatReg( registerData );		break;
-		case kI2sDataWordFormatRegisterSelector:	I2SSetDataWordSizeReg( registerData );		break;
-		case kFeatureControlRegister1Selector:		Fcr1SetReg( registerData );					break;
-		case kFeatureControlRegister3Selector:		Fcr3SetReg( registerData );					break;
-		case kI2s1SerialFormatRegisterSelector:		I2S1SetSerialFormatReg( registerData );		break;
-		case kI2s1DataWordFormatRegisterSelector:	I2S1SetDataWordSizeReg( registerData );		break;
-		default:									result = kIOReturnError;					break;
+		case kI2sSerialFormatRegisterSelector:		audioI2SControl->SetSerialFormatReg( registerData );		break;
+		case kI2sDataWordFormatRegisterSelector:	audioI2SControl->SetDataWordSizesReg( registerData );		break;
+		case kFeatureControlRegister1Selector:		audioI2SControl->Fcr1SetReg( registerData );				break;
+		case kFeatureControlRegister3Selector:		audioI2SControl->Fcr3SetReg( registerData );				break;
+		case kI2s1SerialFormatRegisterSelector:		audioI2SControl->SetSerialFormatReg( registerData );		break;
+		case kI2s1DataWordFormatRegisterSelector:	audioI2SControl->SetFrameMatchReg( registerData );			break;
+		default:									result = kIOReturnError;									break;
 	}
 	return result;
 }
@@ -2027,7 +2208,6 @@ void	AppleTexasAudio::GpioWrite( UInt8* gpioAddress, UInt8 data )
 //									SS = DallasID.deviceSubType (not supported currently, returns 0)
 //
 IOReturn	AppleTexasAudio::readSpkrID ( UInt32 selector, UInt32 * speakerIDPtr ) {
-#pragma unused ( selector )
 	UInt8				bEEPROM[32];
 	IOReturn			result = kIOReturnError;
 	
@@ -2035,20 +2215,24 @@ IOReturn	AppleTexasAudio::readSpkrID ( UInt32 selector, UInt32 * speakerIDPtr ) 
 		for ( UInt32 index = 0; index < 4; index++ ) {
 			bEEPROM[index] = 0;
 		}
-#if 0
-		if ( IsSpeakerConnected () && NULL != dallasDriver ) {
-			if ( dallasDriver->getSpeakerID (bEEPROM) ) {
-				*speakerIDPtr = ( IsSpeakerConnected () << kSpeakerID_Connected ) | ( bEEPROM[0] << kSpeakerID_Family ) | ( bEEPROM[1] << kSpeakerID_Type ) | ( bEEPROM[2] << kSpeakerID_SubType );
+
+		if ( selector ) {
+			//	Force a ROM access here.  WARNING:  This may cause corruption the equalizer set
+			//	and should only be used with caution for diagnostic purposes		[3053696]
+			if ( IsSpeakerConnected () && NULL != dallasDriver ) {
+				if ( dallasDriver->getSpeakerID (bEEPROM) ) {
+					*speakerIDPtr = ( IsSpeakerConnected () << kSpeakerID_Connected ) | ( bEEPROM[0] << kSpeakerID_Family ) | ( bEEPROM[1] << kSpeakerID_Type ) | ( bEEPROM[2] << kSpeakerID_SubType );
+				}
 			}
+		} else {
+			//	Default method for accessing speaker ID information is to use the data that
+			//	has been cached by the speaker detect interrupt handler.
+			*speakerIDPtr = ( IsHeadphoneConnected () << kHeadphone_Connected ) | \
+							( IsSpeakerConnected () << kSpeakerID_Connected ) | \
+							( familyID << kSpeakerID_Family ) | \
+							( speakerID << kSpeakerID_Type ) | \
+							( 0 << kSpeakerID_SubType );
 		}
-#else
-		*speakerIDPtr = ( IsHeadphoneConnected () << kHeadphone_Connected ) | \
-						( IsSpeakerConnected () << kSpeakerID_Connected ) | \
-						( familyID << kSpeakerID_Family ) | \
-						( speakerID << kSpeakerID_Type ) | \
-						( 0 << kSpeakerID_SubType );
-#endif
-		debug2IOLog ( "*speakerIDPtr %d\n", (unsigned int)*speakerIDPtr );
 		result = kIOReturnSuccess;
 	}
 	return result;
@@ -2542,6 +2726,9 @@ void AppleTexasAudio::DeviceInterruptService (void) {
 		if (kInternalSpeakerActive == deviceID) {
 			// when it's just the internal speaker, figure out if we have to mute the right channel
 			switch (layoutID) {
+				case layoutTangent:
+				case layoutP57:
+				case layoutP57b:
 				case layoutTessera:
 				case layoutP79:
 					driverDMAEngine->setRightChanMixed (TRUE);
@@ -2585,7 +2772,7 @@ void AppleTexasAudio::DeviceInterruptService (void) {
 		}
 		setProperty (kSpeakerConnectError, speakerConnectFailed);
 	
-		if (kExternalSpeakersActive == deviceID && TRUE == speakerConnectFailed) {
+		if (kExternalSpeakersActive == deviceID && TRUE == speakerConnectFailed && TRUE == IsSpeakerConnected()) {	//	[3103075]	rbm		12/2/2002
 			// Only put up our alert if the Dallas speakers are the output device
 			DisplaySpeakersNotFullyConnected (this, NULL);
 		}
@@ -3256,115 +3443,80 @@ bool AppleTexasAudio::detachFromI2C(IOService* /*provider*/)
 	return (true);
 }
 
-// Generic INLINEd methods to access to registers:
-// ===============================================
-inline UInt32 AppleTexasAudio::ReadWordLittleEndian(void *address, UInt32 offset)
-{
-#if 0
-	UInt32 *realAddress = (UInt32*)(address) + offset;
-	UInt32 value = *realAddress;
-	UInt32 newValue =
-		((value & 0x000000FF) << 16) |
-		((value & 0x0000FF00) << 8) |
-		((value & 0x00FF0000) >> 8) |
-		((value & 0xFF000000) >> 16);
 
-	return (newValue);
-#else
-	return OSReadLittleInt32(address, offset);
-#endif
-}
-
-inline void AppleTexasAudio::WriteWordLittleEndian(void *address, UInt32 offset, UInt32 value)
-{
-#if 0
-	UInt32 *realAddress = (UInt32*)(address) + offset;
-	UInt32 newValue =
-		((value & 0x000000FF) << 16) |
-		((value & 0x0000FF00) << 8) |
-		((value & 0x00FF0000) >> 8) |
-		((value & 0xFF000000) >> 16);
-
-	*realAddress = newValue;
-#else
-	OSWriteLittleInt32(address, offset, value);
-#endif	  
-}
-
+#if 0		//	{
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 inline UInt32 AppleTexasAudio::FCR1GetReg( void )
 {
-	UInt32	result = 0;
-	result = ReadWordLittleEndian ( ioBaseAddress, kFCR1Offset );
-	return result;
+	return OSReadLittleInt32 ( ioBaseAddress, kFCR1Offset );
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 inline void AppleTexasAudio::Fcr1SetReg(UInt32 value)
 {
-	WriteWordLittleEndian(ioBaseAddress, kFCR1Offset, value);
+	OSWriteLittleInt32(ioBaseAddress, kFCR1Offset, value);
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 inline UInt32 AppleTexasAudio::FCR3GetReg( void )
 {
-	UInt32	result = 0;
-	result = ReadWordLittleEndian ( ioBaseAddress, kFCR3Offset );
-	return result;
+	return OSReadLittleInt32 ( ioBaseAddress, kFCR3Offset );
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 inline void AppleTexasAudio::Fcr3SetReg(UInt32 value)
 {
-	WriteWordLittleEndian(ioBaseAddress, kFCR3Offset, value);
+	OSWriteLittleInt32(ioBaseAddress, kFCR3Offset, value);
 }
+#endif		//	}
 
+#if 0		//	{
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 inline void AppleTexasAudio::I2SSetSerialFormatReg(UInt32 value)
 {
-	WriteWordLittleEndian( ioBaseAddress, kI2S0BaseOffset + kI2SSerialFormatOffset, value);
+	OSWriteLittleInt32( ioBaseAddress, kI2S0BaseOffset + kI2SSerialFormatOffset, value);
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 inline UInt32 AppleTexasAudio::I2SGetSerialFormatReg(void)
 {
-	return ReadWordLittleEndian( ioBaseAddress, kI2S0BaseOffset + kI2SSerialFormatOffset);
+	return OSReadLittleInt32( ioBaseAddress, kI2S0BaseOffset + kI2SSerialFormatOffset);
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 inline void AppleTexasAudio::I2SSetDataWordSizeReg(UInt32 value)
 {
-	WriteWordLittleEndian( ioBaseAddress, kI2S0BaseOffset + kI2SFrameMatchOffset, value);
+	OSWriteLittleInt32( ioBaseAddress, kI2S0BaseOffset + kI2SFrameMatchOffset, value);
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 inline UInt32 AppleTexasAudio::I2SGetDataWordSizeReg(void)
 {
-	return ReadWordLittleEndian( ioBaseAddress, kI2S0BaseOffset + kI2SFrameMatchOffset);
+	return OSReadLittleInt32( ioBaseAddress, kI2S0BaseOffset + kI2SFrameMatchOffset);
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 inline void AppleTexasAudio::I2S1SetSerialFormatReg(UInt32 value)
 {
-	WriteWordLittleEndian( ioBaseAddress, kI2S1BaseOffset + kI2SSerialFormatOffset, value);
+	OSWriteLittleInt32( ioBaseAddress, kI2S1BaseOffset + kI2SSerialFormatOffset, value);
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 inline UInt32 AppleTexasAudio::I2S1GetSerialFormatReg(void)
 {
-	return ReadWordLittleEndian( ioBaseAddress, kI2S1BaseOffset + kI2SSerialFormatOffset);
+	return OSReadLittleInt32( ioBaseAddress, kI2S1BaseOffset + kI2SSerialFormatOffset);
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 inline void AppleTexasAudio::I2S1SetDataWordSizeReg(UInt32 value)
 {
-	WriteWordLittleEndian(  ioBaseAddress, kI2S1BaseOffset + kI2SFrameMatchOffset, value);
+	OSWriteLittleInt32(  ioBaseAddress, kI2S1BaseOffset + kI2SFrameMatchOffset, value);
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 inline UInt32 AppleTexasAudio::I2S1GetDataWordSizeReg(void)
 {
-	return ReadWordLittleEndian( ioBaseAddress, kI2S1BaseOffset + kI2SFrameMatchOffset);
+	return OSReadLittleInt32( ioBaseAddress, kI2S1BaseOffset + kI2SFrameMatchOffset);
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -3385,13 +3537,13 @@ inline UInt32 AppleTexasAudio::KLGetRegister(void *klRegister)
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 inline UInt32 AppleTexasAudio::I2SGetIntCtlReg()
 {
-	return ReadWordLittleEndian(ioBaseAddress, kI2S0BaseOffset + kI2SIntCtlOffset);
+	return OSReadLittleInt32(ioBaseAddress, kI2S0BaseOffset + kI2SIntCtlOffset);
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 inline UInt32 AppleTexasAudio::I2S1GetIntCtlReg()
 {
-	return ReadWordLittleEndian(ioBaseAddress, kI2S1BaseOffset + kI2SIntCtlOffset);
+	return OSReadLittleInt32(ioBaseAddress, kI2S1BaseOffset + kI2SIntCtlOffset);
 }
 
 // --------------------------------------------------------------------------
@@ -3531,6 +3683,8 @@ void AppleTexasAudio::setSerialFormatRegister(ClockSource clockSource, UInt32 mc
 	// Set up the serial format register
 	I2SSetSerialFormatReg(i2sSerialFormat);
 }
+#endif						//	}
+
 
 // --------------------------------------------------------------------------
 // Method: frameRate

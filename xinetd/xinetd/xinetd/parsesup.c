@@ -77,10 +77,15 @@ static char *get_attr_op( char *line, char **attrp, enum assign_op *opp )
    }
 
    attr = p ;
-   for ( ; ! isspace( *p ) ; p++ ) ;            /* skip attribute name */
+   for ( ; ! isspace( *p ) && (*p != '='); p++ ) ;            /* skip attribute name */
    if ( *p == NUL )
    {
       parsemsg( LOG_ERR, func, "Nothing after attribute: %s", attr ) ;
+      return( NULL ) ;
+   }
+   if( *p == '=' ) {
+      *p = NUL ;         /* now attribute name is NUL terminated */
+      parsemsg( LOG_ERR, func, "Attribute %s needs a space before operator", attr);
       return( NULL ) ;
    }
    *p++ = NUL ;         /* now attribute name is NUL terminated */

@@ -190,8 +190,10 @@ boolean_t mapping_remove(pmap_t pmap, vm_offset_t va) {			/* Remove a single map
 	mapping		*mp, *mpv;
 	register blokmap *blm;
 	spl_t 		s;
-	unsigned int *useadd, *useaddr;
+	unsigned int *useadd, *useaddr, uindx;
 	int i;
+	struct phys_entry	*pp;
+	mapping			*mp1, *mpv1;
 	
 	debugLog2(1, va, pmap->space);								/* start mapping_remove */
 
@@ -248,7 +250,39 @@ boolean_t mapping_remove(pmap_t pmap, vm_offset_t va) {			/* Remove a single map
 #endif
 	
 	hw_rem_map(mp);												/* Remove the corresponding mapping */
+
+	pp = mpv->physent;
+
+	if ((mpv->physent) && (pmap->vflags & pmapVMhost)) {
+
+		while(mp1 = (mapping *)((unsigned int)pp->phys_link & ~PHYS_FLAGS)) {	/* Keep going so long as there's another */
+
+			mpv1 = hw_cpv(mp1);										/* Get the virtual address */
+#if DEBUG
+			if(hw_atomic_sub(&mpv1->pmap->stats.resident_count, 1) < 0) panic("pmap resident count went negative\n");
+#else
+			(void)hw_atomic_sub(&mpv1->pmap->stats.resident_count, 1);	/* Decrement the resident page count */
+#endif
+
+			uindx = ((mpv1->PTEv >> 24) & 0x78) | ((mpv1->PTEv >> 3) & 7);	/* Join segment number and top 2 bits of the API */
+			useadd = (unsigned int *)&mpv1->pmap->pmapUsage[uindx];	/* Point to slot to bump */
+			useaddr = (unsigned int *)((unsigned int)useadd & -4);	/* Round down to word */
+			(void)hw_atomic_sub(useaddr, (useaddr == useadd) ? 0x00010000 : 1);	/* Increment the even or odd slot */
+
+#if 0
+			for(i = 0; i < (pmapUsageMask + 1); i++) {				/* (TEST/DEBUG) */
+				if((mpv1->pmap->pmapUsage[i]) > 8192) {				/* (TEST/DEBUG) */
+					panic("mapping_remove: pmapUsage slot for %08X has invalid count (%d) for pmap %08X\n",
+				i * pmapUsageSize, mpv1->pmap->pmapUsage[i], mpv1->pmap);
+			}
+		}
+#endif
 	
+			hw_rem_map(mp1);										/* Remove the mapping */
+			mapping_free(mpv1);										/* Add mapping to the free list */
+		}
+	}
+
 	if(mpv->physent)hw_unlock_bit((unsigned int *)&mpv->physent->phys_link, PHYS_LOCK);	/* Unlock physical entry associated with mapping */
 	
 	splx(s);													/* Was there something you needed? */
@@ -1497,7 +1531,7 @@ void mapping_prealloc(unsigned int size) {					/* Preallocates mapppings for lar
 	for(i = 0; i < nmapb; i++) {							/* Allocate 'em all */
 		retr = kmem_alloc_wired(mapping_map, (vm_offset_t *)&mbn, PAGE_SIZE);	/* Find a virtual address to use */
 		if(retr != KERN_SUCCESS) {							/* Did we get some memory? */
-			panic("Whoops...  Not a bit of wired memory left for anyone\n");
+			break;
 		}
 		mapping_free_init((vm_offset_t)mbn, -1, 0);			/* Initialize on to the release queue */
 	}

@@ -54,6 +54,8 @@ enum
 	/* Reserved 0x15 - 0x7F */
 	/* Monitor 0x80 - 0x83	 USB Device Class Definition for Monitor Devices */
 	/* Power 0x84 - 0x87	 USB Device Class Definition for Power Devices */
+	kHIDPage_PowerDevice = 0x84, 				/* Power Device Page */
+	kHIDPage_BatterySystem = 0x85, 				/* Battery System Page */
 	/* Reserved 0x88 - 0x8B */
 	kHIDPage_BarCodeScanner	= 0x8C,	/* (Point of Sale) USB Device Class Definition for Bar Code Scanner Devices */
 	kHIDPage_Scale	= 0x8D,	/* (Point of Sale) USB Device Class Definition for Scale Devices */
@@ -62,7 +64,7 @@ enum
 	kHIDPage_Arcade	= 0x91,	/* OAAF Definitions for arcade and coinop related Devices */
 	/* Reserved 0x92 - 0xFEFF */
 	/* VendorDefined 0xFF00 - 0xFFFF */
-	kHIDPage_VendorDefinedStart	= 0xFF00,
+	kHIDPage_VendorDefinedStart	= 0xFF00
 };
 
 /* Undefined Usage for all usage pages */
@@ -127,7 +129,7 @@ enum
 	kHIDUsage_GD_DPadRight	= 0x92,	/* On/Off Control */
 	kHIDUsage_GD_DPadLeft	= 0x93,	/* On/Off Control */
 	/* 0x94 - 0xFFFF Reserved */
-	kHIDUsage_GD_Reserved = 0xFFFF,
+	kHIDUsage_GD_Reserved = 0xFFFF
 };
 
 /* Simulation Page (0x02) */
@@ -188,7 +190,7 @@ enum
 	kHIDUsage_Sim_FrontBrake	= 0xCF,	/* Dynamic Value */
 	kHIDUsage_Sim_RearBrake	= 0xD0,	/* Dynamic Value */
 	/* 0xD1 - 0xFFFF Reserved */
-	kHIDUsage_Sim_Reserved = 0xFFFF,
+	kHIDUsage_Sim_Reserved = 0xFFFF
 };
 
 /* VR Page (0x03) */
@@ -210,7 +212,7 @@ enum
 	kHIDUsage_VR_StereoEnable	= 0x20,	/* On/Off Control */
 	kHIDUsage_VR_DisplayEnable	= 0x21,	/* On/Off Control */
 	/* 0x22 - 0xFFFF Reserved */
-	kHIDUsage_VR_Reserved = 0xFFFF,
+	kHIDUsage_VR_Reserved = 0xFFFF
 };
 
 /* Sport Page (0x04) */
@@ -253,7 +255,7 @@ enum
 	kHIDUsage_Sprt_7Wood	= 0x62,	/* Selector */
 	kHIDUsage_Sprt_9Wood	= 0x63,	/* Selector */
 	/* 0x64 - 0xFFFF Reserved */
-	kHIDUsage_Sprt_Reserved = 0xFFFF,
+	kHIDUsage_Sprt_Reserved = 0xFFFF
 };
 
 /* Game Page (0x05) */
@@ -289,7 +291,7 @@ enum
 	kHIDUsage_Game_GamepadFireOrJump	= 0x37,	/* Logical Collection */
 	kHIDUsage_Game_GamepadTrigger	= 0x39,	/* Logical Collection */
 	/* 0x3A - 0xFFFF Reserved */
-	kHIDUsage_Game_Reserved = 0xFFFF,
+	kHIDUsage_Game_Reserved = 0xFFFF
 };
 
 /* KeyboardOrKeypad Page (0x07) */
@@ -473,7 +475,7 @@ enum
 	kHIDUsage_KeyboardRightAlt	= 0xE6,	/* Right Alt */
 	kHIDUsage_KeyboardRightGUI	= 0xE7,	/* Right GUI */
 	/* 0xE8-0xFFFF Reserved */
-	kHIDUsage_Keyboard_Reserved = 0xFFFF,
+	kHIDUsage_Keyboard_Reserved = 0xFFFF
 };
 
 /* LEDs Page (0x08) */
@@ -558,7 +560,7 @@ enum
 	kHIDUsage_LED_SystemSuspend	= 0x4C,	/* On/Off Control */
 	kHIDUsage_LED_ExternalPowerConnected	= 0x4D,	/* On/Off Control */
 	/* 0x4E - 0xFFFF Reserved */
-	kHIDUsage_LED_Reserved = 0xFFFF,
+	kHIDUsage_LED_Reserved = 0xFFFF
 };
 
 /* Button Page (0x09) */
@@ -576,7 +578,7 @@ enum
 	kHIDUsage_Button_3	= 0x03,	/* (tertiary) */
 	kHIDUsage_Button_4	= 0x04, /* 4th button */
 	/* ... */
-	kHIDUsage_Button_65535	= 0xFFFF,
+	kHIDUsage_Button_65535	= 0xFFFF
 };
 
 /* Ordinal Page (0x0A) */
@@ -668,7 +670,7 @@ enum
 	kHIDUsage_Tfon_PhoneKeyC	= 0xBE,	/* Selector/One-Shot Control */
 	kHIDUsage_Tfon_PhoneKeyD	= 0xBF,	/* Selector/One-Shot Control */
 	/* 0xC0 - 0xFFFF Reserved */
-	kHIDUsage_TFon_Reserved = 0xFFFF,
+	kHIDUsage_TFon_Reserved = 0xFFFF
 };
 
 /* Consumer Page (0x0C) */
@@ -918,7 +920,133 @@ enum
 	kHIDUsage_Csmr_ACTileVertically	= 0x23B,	/* Selector */
 	kHIDUsage_Csmr_ACFormat	= 0x23C,	/* Selector */
 	/* 0x23D - 0xFFFF Reserved */
-	kHIDUsage_Csmr_Reserved = 0xFFFF,
+	kHIDUsage_Csmr_Reserved = 0xFFFF
+};
+
+/* Physical Interface Device Page (0x0F) */
+/* This section provides detailed descriptions of the usages employed by Digitizer Devices. */
+enum
+{
+	kHIDUsage_PID_PhysicalInterfaceDevice = 0x01,		/* CA - A collection of PID usages */
+	/* 0x02 - 0x1F Reserved */
+	kHIDUsage_PID_Normal = 0x20,						/* DV - A force applied perpendicular to the surface of an object */
+	kHIDUsage_PID_SetEffectReport = 0x21,				/* XXX */
+	kHIDUsage_PID_EffectBlockIndex = 0x22,				/* XXX */
+	kHIDUsage_PID_ParamBlockOffset = 0x23,				/* XXX */
+	kHIDUsage_PID_ROM_Flag = 0x24,						/* XXX */
+	kHIDUsage_PID_EffectType = 0x25,					/* XXX */
+	kHIDUsage_PID_ET_ConstantForce = 0x26,				/* XXX */
+	kHIDUsage_PID_ET_Ramp = 0x27,						/* XXX */
+	kHIDUsage_PID_ET_CustomForceData = 0x28,			/* XXX */
+	/* 0x29 - 0x2F Reserved */
+	kHIDUsage_PID_ET_Square = 0x30,						/* XXX */
+	kHIDUsage_PID_ET_Sine = 0x31,						/* XXX */
+	kHIDUsage_PID_ET_Triangle = 0x32,					/* XXX */
+	kHIDUsage_PID_ET_SawtoothUp = 0x33,					/* XXX */
+	kHIDUsage_PID_ET_SawtoothDown = 0x34,				/* XXX */
+	/* 0x35 - 0x3F Reserved */
+	kHIDUsage_PID_ET_Spring = 0x40,						/* XXX */
+	kHIDUsage_PID_ET_Damper = 0x41,						/* XXX */
+	kHIDUsage_PID_ET_Inertia = 0x42,					/* XXX */
+	kHIDUsage_PID_ET_Friction = 0x43,					/* XXX */
+	/* 0x44 - 0x4F Reserved */
+	kHIDUsage_PID_Duration = 0x50,						/* XXX */
+	kHIDUsage_PID_SamplePeriod = 0x51,					/* XXX */
+	kHIDUsage_PID_Gain = 0x52,							/* XXX */
+	kHIDUsage_PID_TriggerButton = 0x53,					/* XXX */
+	kHIDUsage_PID_TriggerRepeatInterval = 0x54,			/* XXX */
+	kHIDUsage_PID_AxesEnable = 0x55,					/* XXX */
+	kHIDUsage_PID_DirectionEnable = 0x56,				/* XXX */
+	kHIDUsage_PID_Direction = 0x57,						/* XXX */
+	kHIDUsage_PID_TypeSpecificBlockOffset = 0x58,		/* XXX */
+	kHIDUsage_PID_BlockType = 0x59,						/* XXX */
+	kHIDUsage_PID_SetEnvelopeReport = 0x5A,				/* XXX */
+	kHIDUsage_PID_AttackLevel = 0x5B,					/* XXX */
+	kHIDUsage_PID_AttackTime = 0x5C,					/* XXX */
+	kHIDUsage_PID_FadeLevel = 0x5D,						/* XXX */
+	kHIDUsage_PID_FadeTime = 0x5E,						/* XXX */
+	kHIDUsage_PID_SetConditionReport = 0x5F,			/* XXX */
+
+	kHIDUsage_PID_CP_Offset = 0x60,						/* XXX */
+	kHIDUsage_PID_PositiveCoefficient = 0x61,			/* XXX */
+	kHIDUsage_PID_NegativeCoefficient = 0x62,			/* XXX */
+	kHIDUsage_PID_PositiveSaturation = 0x63,			/* XXX */
+	kHIDUsage_PID_NegativeSaturation = 0x64,			/* XXX */
+	kHIDUsage_PID_DeadBand = 0x65,						/* XXX */
+	kHIDUsage_PID_DownloadForceSample = 0x66,			/* XXX */
+	kHIDUsage_PID_IsochCustomForceEnable = 0x67,		/* XXX */
+	kHIDUsage_PID_CustomForceDataReport = 0x68,			/* XXX */
+	kHIDUsage_PID_CustomForceData = 0x69,				/* XXX */
+	kHIDUsage_PID_CustomForceVendorDefinedData = 0x6A,	/* XXX */
+	kHIDUsage_PID_SetCustomForceReport = 0x6B,			/* XXX */
+	kHIDUsage_PID_CustomForceDataOffset = 0x6C,			/* XXX */
+	kHIDUsage_PID_SampleCount = 0x6D,					/* XXX */
+	kHIDUsage_PID_SetPeriodicReport = 0x6E,				/* XXX */
+	kHIDUsage_PID_Offset = 0x6F,						/* XXX */
+
+	kHIDUsage_PID_Magnitude = 0x70,						/* XXX */
+	kHIDUsage_PID_Phase = 0x71,							/* XXX */
+	kHIDUsage_PID_Period = 0x72,						/* XXX */
+	kHIDUsage_PID_SetConstantForceReport = 0x73,		/* XXX */
+	kHIDUsage_PID_SetRampForceReport = 0x74,			/* XXX */
+	kHIDUsage_PID_RampStart = 0x75,						/* XXX */
+	kHIDUsage_PID_RampEnd = 0x76,						/* XXX */
+	kHIDUsage_PID_EffectOperationReport = 0x77,			/* XXX */
+	kHIDUsage_PID_EffectOperation = 0x78,				/* XXX */
+	kHIDUsage_PID_OpEffectStart = 0x79,					/* XXX */
+	kHIDUsage_PID_OpEffectStartSolo = 0x7A,				/* XXX */
+	kHIDUsage_PID_OpEffectStop = 0x7B,					/* XXX */
+	kHIDUsage_PID_LoopCount = 0x7C,						/* XXX */
+	kHIDUsage_PID_DeviceGainReport = 0x7D,				/* XXX */
+	kHIDUsage_PID_DeviceGain = 0x7E,					/* XXX */
+	kHIDUsage_PID_PoolReport = 0x7F,					/* XXX */
+
+	kHIDUsage_PID_RAM_PoolSize = 0x80,					/* XXX */
+	kHIDUsage_PID_ROM_PoolSize = 0x81,					/* XXX */
+	kHIDUsage_PID_ROM_EffectBlockCount = 0x82,			/* XXX */
+	kHIDUsage_PID_SimultaneousEffectsMax = 0x83,		/* XXX */
+	kHIDUsage_PID_PoolAlignment = 0x84,					/* XXX */
+	kHIDUsage_PID_PoolMoveReport = 0x85,				/* XXX */
+	kHIDUsage_PID_MoveSource = 0x86,					/* XXX */
+	kHIDUsage_PID_MoveDestination = 0x87,				/* XXX */
+	kHIDUsage_PID_MoveLength = 0x88,					/* XXX */
+	kHIDUsage_PID_BlockLoadReport = 0x89,				/* XXX */
+	/* 0x8A Reserved */
+	kHIDUsage_PID_BlockLoadStatus = 0x8B,				/* XXX */
+	kHIDUsage_PID_BlockLoadSuccess = 0x8C,				/* XXX */
+	kHIDUsage_PID_BlockLoadFull = 0x8D,					/* XXX */
+	kHIDUsage_PID_BlockLoadError = 0x8E,				/* XXX */
+	kHIDUsage_PID_BlockHandle = 0x8F,					/* XXX */
+
+	kHIDUsage_PID_BlockFreeReport = 0x90,				/* XXX */
+	kHIDUsage_PID_TypeSpecificBlockHandle = 0x91,		/* XXX */
+	kHIDUsage_PID_StateReport = 0x92,					/* XXX */
+	/* 0x93 Reserved */
+	kHIDUsage_PID_EffectPlaying = 0x94,					/* XXX */
+	kHIDUsage_PID_DeviceControlReport = 0x95,			/* XXX */
+	kHIDUsage_PID_DeviceControl = 0x96,					/* XXX */
+	kHIDUsage_PID_DC_EnableActuators = 0x97,			/* XXX */
+	kHIDUsage_PID_DC_DisableActuators = 0x98,			/* XXX */
+	kHIDUsage_PID_DC_StopAllEffects = 0x99,				/* XXX */
+	kHIDUsage_PID_DC_DeviceReset = 0x9A,				/* XXX */
+	kHIDUsage_PID_DC_DevicePause = 0x9B,				/* XXX */
+	kHIDUsage_PID_DC_DeviceContinue = 0x9C,				/* XXX */
+	/* 0x9d - 0x9E Reserved */
+	kHIDUsage_PID_DevicePaused = 0x9F,					/* XXX */
+
+	kHIDUsage_PID_ActuatorsEnabled = 0xA0,				/* XXX */
+	/* 0xA1 - 0xA3 Reserved */
+	kHIDUsage_PID_SafetySwitch = 0xA4,					/* XXX */
+	kHIDUsage_PID_ActuatorOverrideSwitch = 0xA5,		/* XXX */
+	kHIDUsage_PID_ActuatorPower = 0xA6,					/* XXX */
+	kHIDUsage_PID_StartDelay = 0xA7,					/* XXX */
+	kHIDUsage_PID_ParameterBlockSize = 0xA8,			/* XXX */
+	kHIDUsage_PID_DeviceManagedPool = 0xA9,				/* XXX */
+	kHIDUsage_PID_SharedParameterBlocks = 0xAA,			/* XXX */
+	kHIDUsage_PID_CreateNewEffectReport = 0xAB,			/* XXX */
+	kHIDUsage_PID_RAM_PoolAvailable = 0xAC,				/* XXX */
+	/* 0xAD - 0xFFFF Reserved */
+	kHIDUsage_PID_Reserved = 0xFFFF
 };
 
 /* Digitizer Page (0x0D) */
@@ -967,7 +1095,7 @@ enum
 	kHIDUsage_Dig_Eraser	= 0x45,	/* Momentary Control */
 	kHIDUsage_Dig_TabletPick	= 0x46,	/* Momentary Control */
 	/* 0x47 - 0xFFFF Reserved */
-	kHIDUsage_Dig_Reserved = 0xFFFF,
+	kHIDUsage_Dig_Reserved = 0xFFFF
 };
 
 /* AlphanumericDisplay Page (0x14) */
@@ -1011,7 +1139,203 @@ enum
 	kHIDUsage_AD_CharacterSpacingVertical	= 0x40,	/* Static Value */
 	kHIDUsage_AD_UnicodeCharacterSet	= 0x41,	/* Static Flag */
 	/* 0x42 - 0xFFFF Reserved */
-	kHIDUsage_AD_Reserved = 0xFFFF,
+	kHIDUsage_AD_Reserved = 0xFFFF
+};
+
+/* Power Device Page (0x84) */
+/* This section provides detailed descriptions of the usages employed by Power Devices. */
+enum
+{
+	
+	kHIDUsage_PD_Undefined = 0x00,				/* Power Device Undefined Usage */
+	kHIDUsage_PD_iName = 0x01,					/* CL- Power Device Name Index */
+	kHIDUsage_PD_PresentStatus = 0x02,			/* CL- Power Device Present Status */
+	kHIDUsage_PD_ChangedStatus = 0x03,			/* CA- Power Device Changed Status */
+	kHIDUsage_PD_UPS = 0x04,					/* CA- Uninterruptible Power Supply */
+	kHIDUsage_PD_PowerSupply = 0x05,			/* CA- Power Supply */
+	/* Reserved 0x06 - 0x0F */
+	kHIDUsage_PD_BatterySystem = 0x10,			/* CP- Battery System power module */
+	kHIDUsage_PD_BatterySystemID = 0x11,		/* SV IF- Battery System ID */
+	kHIDUsage_PD_Battery = 0x12,				/* CP- Battery */
+	kHIDUsage_PD_BatteryID = 0x13,				/* SV IF- Battery ID */
+	kHIDUsage_PD_Charger = 0x14,				/* CP- Charger */
+	kHIDUsage_PD_ChargerID = 0x15,				/* SV IF- Charger ID */
+	kHIDUsage_PD_PowerConverter = 0x16,			/* CP- Power Converter power module */
+	kHIDUsage_PD_PowerConverterID = 0x17,		/* SV IF- Power Converter ID */
+	kHIDUsage_PD_OutletSystem = 0x18,			/* CP- Outlet System power module */
+	kHIDUsage_PD_OutletSystemID = 0x19,			/* SV IF-Outlet System ID */
+	kHIDUsage_PD_Input = 0x1A,					/* CP- Power Device Input */
+	kHIDUsage_PD_InputID = 0x1B,				/* SV IF- Power Device Input ID */
+	kHIDUsage_PD_Output = 0x1C,					/* CP- Power Device Output */
+	kHIDUsage_PD_OutputID = 0x1D,				/* SV IF- Power Device Output ID */
+	kHIDUsage_PD_Flow = 0x1E,					/* CP- Power Device Flow */
+	kHIDUsage_PD_FlowID = 0x1F,					/* Item IF- Power Device Flow ID */
+	kHIDUsage_PD_Outlet = 0x20,					/* CP- Power Device Outlet */
+	kHIDUsage_PD_OutletID = 0x21,				/* SV IF- Power Device Outlet ID */
+	kHIDUsage_PD_Gang = 0x22,					/* CL/CP- Power Device Gang */
+	kHIDUsage_PD_GangID = 0x23,					/* SV IF- Power Device Gang ID */
+	kHIDUsage_PD_PowerSummary = 0x24,			/* CL/CP- Power Device Power Summary */
+	kHIDUsage_PD_PowerSummaryID = 0x25,			/* SV IF- Power Device Power Summary ID */
+	/* Reserved 0x26 - 0x2F */
+	kHIDUsage_PD_Voltage = 0x30,				/* DV IF- Power Device Voltage */
+	kHIDUsage_PD_Current = 0x31,				/* DV IF- Power Device Current */
+	kHIDUsage_PD_Frequency = 0x32,				/* DV IF- Power Device Frequency */
+	kHIDUsage_PD_ApparentPower = 0x33,			/* DV IF- Power Device Apparent Power */
+	kHIDUsage_PD_ActivePower = 0x34,			/* DV IF- Power Device RMS Power */
+	kHIDUsage_PD_PercentLoad = 0x35,			/* DV IF- Power Device Percent Load */
+	kHIDUsage_PD_Temperature = 0x36,			/* DV IF- Power Device Temperature */
+	kHIDUsage_PD_Humidity = 0x37,				/* DV IF- Power Device Humidity */
+	kHIDUsage_PD_BadCount = 0x38,				/* DV IF- Power Device Bad Condition Count */
+	/* Reserved 0x39 - 0x3F */
+	kHIDUsage_PD_ConfigVoltage = 0x40,			/* SV/DV F- Power Device Nominal Voltage */
+	kHIDUsage_PD_ConfigCurrent = 0x41,			/* SV/DV F- Power Device Nominal Current */
+	kHIDUsage_PD_ConfigFrequency = 0x42,		/* SV/DV F- Power Device Nominal Frequency */
+	kHIDUsage_PD_ConfigApparentPower = 0x43,	/* SV/DV F- Power Device Nominal Apparent Power */
+	kHIDUsage_PD_ConfigActivePower = 0x44,		/* SV/DV F- Power Device Nominal RMS Power */
+	kHIDUsage_PD_ConfigPercentLoad = 0x45,		/* SV/DV F- Power Device Nominal Percent Load */
+	kHIDUsage_PD_ConfigTemperature = 0x46,		/* SV/DV F- Power Device Nominal Temperature */
+	kHIDUsage_PD_ConfigHumidity = 0x47,			/* SV/DV F- Power Device Nominal Humidity */
+	/* Reserved 0x48 - 0x4F */
+	kHIDUsage_PD_SwitchOnControl = 0x50,		/* DV F- Power Device Switch On Control */
+	kHIDUsage_PD_SwitchOffControl = 0x51,		/* DV F- Power Device Switch Off Control */
+	kHIDUsage_PD_ToggleControl = 0x52,			/* DV F- Power Device Toogle Sequence Control */
+	kHIDUsage_PD_LowVoltageTransfer = 0x53,		/* DV F- Power Device Min Transfer Voltage */
+	kHIDUsage_PD_HighVoltageTransfer = 0x54,	/* DV F- Power Device Max Transfer Voltage */
+	kHIDUsage_PD_DelayBeforeReboot = 0x55,		/* DV F- Power Device Delay Before Reboot */
+	kHIDUsage_PD_DelayBeforeStartup = 0x56,		/* DV F- Power Device Delay Before Startup */
+	kHIDUsage_PD_DelayBeforeShutdown = 0x57,	/* DV F- Power Device Delay Before Shutdown */
+	kHIDUsage_PD_Test = 0x58,					/* DV F- Power Device Test Request/Result */
+	kHIDUsage_PD_ModuleReset = 0x59,			/* DV F- Power Device Reset Request/Result */
+	kHIDUsage_PD_AudibleAlarmControl = 0x5A,	/* DV F- Power Device Audible Alarm Control */
+	/* Reserved 0x5B - 0x5F */
+	kHIDUsage_PD_Present = 0x60,				/* DV IOF- Power Device Present */
+	kHIDUsage_PD_Good = 0x61,					/* DV IOF- Power Device Good */
+	kHIDUsage_PD_InternalFailure = 0x62,		/* DV IOF- Power Device Internal Failure */
+	kHIDUsage_PD_VoltageOutOfRange = 0x63,		/* DV IOF- Power Device Voltage Out Of Range */
+	kHIDUsage_PD_FrequencyOutOfRange = 0x64,	/* DV IOF- Power Device Frequency Out Of Range */
+	kHIDUsage_PD_Overload = 0x65,				/* DV IOF- Power Device Overload */
+	kHIDUsage_PD_OverCharged = 0x66,			/* DV IOF- Power Device Over Charged */
+	kHIDUsage_PD_OverTemperature = 0x67,		/* DV IOF- Power Device Over Temperature */
+	kHIDUsage_PD_ShutdownRequested = 0x68,		/* DV IOF- Power Device Shutdown Requested */
+	kHIDUsage_PD_ShutdownImminent = 0x69,		/* DV IOF- Power Device Shutdown Imminent */
+	/* Reserved 0x6A */
+	kHIDUsage_PD_SwitchOnOff = 0x6B,			/* DV IOF- Power Device On/Off Switch Status */
+	kHIDUsage_PD_Switchable = 0x6C,				/* DV IOF- Power Device Switchable */
+	kHIDUsage_PD_Used = 0x6D,					/* DV IOF- Power Device Used */
+	kHIDUsage_PD_Boost = 0x6E,					/* DV IOF- Power Device Boosted */
+	kHIDUsage_PD_Buck = 0x6F,					/* DV IOF- Power Device Bucked */
+	kHIDUsage_PD_Initialized = 0x70,			/* DV IOF- Power Device Initialized */
+	kHIDUsage_PD_Tested = 0x71,					/* DV IOF- Power Device Tested */
+	kHIDUsage_PD_AwaitingPower = 0x72,			/* DV IOF- Power Device Awaiting Power */
+	kHIDUsage_PD_CommunicationLost = 0x73,		/* DV IOF- Power Device Communication Lost */
+	/* Reserved 0x74 - 0xFC */
+	kHIDUsage_PD_iManufacturer = 0xFD,			/* SV F- Power Device Manufacturer String Index */
+	kHIDUsage_PD_iProduct = 0xFE,				/* SV F- Power Device Product String Index */
+	kHIDUsage_PD_iserialNumber = 0xFF,			/* SV F- Power Device Serial Number String Index */
+
+	/* Battery System Page (x85) */
+	/* This section provides detailed descriptions of the usages employed by Battery Systems. */	
+	kHIDUsage_BS_Undefined = 0x00,				/* Battery System Undefined */
+	kHIDUsage_BS_SMBBatteryMode = 0x01,			/* CL - SMB Mode */
+	kHIDUsage_BS_SMBBatteryStatus = 0x02,		/* CL - SMB Status */
+	kHIDUsage_BS_SMBAlarmWarning = 0x03,		/* CL - SMB Alarm Warning */
+	kHIDUsage_BS_SMBChargerMode = 0x04,			/* CL - SMB Charger Mode */
+	kHIDUsage_BS_SMBChargerStatus = 0x05,		/* CL - SMB Charger Status */
+	kHIDUsage_BS_SMBChargerSpecInfo = 0x06,		/* CL - SMB Charger Extended Status */
+	kHIDUsage_BS_SMBSelectorState = 0x07,		/* CL - SMB Selector State */
+	kHIDUsage_BS_SMBSelectorPresets = 0x08,		/* CL - SMB Selector Presets */
+	kHIDUsage_BS_SMBSelectorInfo = 0x09,		/* CL - SMB Selector Info */
+	/* Reserved 0x0A - 0x0F */
+	kHIDUsage_BS_OptionalMfgFunction1 = 0x10,	/* DV F - Battery System Optional SMB Mfg Function 1 */
+	kHIDUsage_BS_OptionalMfgFunction2 = 0x11,	/* DV F - Battery System Optional SMB Mfg Function 2 */
+	kHIDUsage_BS_OptionalMfgFunction3 = 0x12,	/* DV F - Battery System Optional SMB Mfg Function 3 */
+	kHIDUsage_BS_OptionalMfgFunction4 = 0x13,	/* DV F - Battery System Optional SMB Mfg Function 4 */
+	kHIDUsage_BS_OptionalMfgFunction5 = 0x14,	/* DV F - Battery System Optional SMB Mfg Function 5 */
+	kHIDUsage_BS_ConnectionToSMBus = 0x15,		/* DF F - Battery System Connection To System Management Bus */
+	kHIDUsage_BS_OutputConnection = 0x16,		/* DF F - Battery System Output Connection Status */
+	kHIDUsage_BS_ChargerConnection = 0x17,		/* DF F - Battery System Charger Connection */
+	kHIDUsage_BS_BatteryInsertion = 0x18,		/* DF F - Battery System Battery Insertion */
+	kHIDUsage_BS_Usenext = 0x19,				/* DF F - Battery System Use Next */
+	kHIDUsage_BS_OKToUse = 0x1A,				/* DF F - Battery System OK To Use */
+	kHIDUsage_BS_BatterySupported = 0x1B,		/* DF F - Battery System Battery Supported */
+	kHIDUsage_BS_SelectorRevision = 0x1C,		/* DF F - Battery System Selector Revision */
+	kHIDUsage_BS_ChargingIndicator = 0x1D,		/* DF F - Battery System Charging Indicator */
+	/* Reserved 0x1E - 0x27 */
+	kHIDUsage_BS_ManufacturerAccess = 0x28,		/* DV F - Battery System Manufacturer Access */
+	kHIDUsage_BS_RemainingCapacityLimit = 0x29,	/* DV F - Battery System Remaining Capacity Limit */
+	kHIDUsage_BS_RemainingTimeLimit = 0x2A,		/* DV F - Battery System Remaining Time Limit */
+	kHIDUsage_BS_AtRate = 0x2B,					/* DV F - Battery System At Rate... */
+	kHIDUsage_BS_CapacityMode = 0x2C,			/* DV F - Battery System Capacity Mode */
+	kHIDUsage_BS_BroadcastToCharger = 0x2D,		/* DV F - Battery System Broadcast To Charger */
+	kHIDUsage_BS_PrimaryBattery = 0x2E,			/* DV F - Battery System Primary Battery */
+	kHIDUsage_BS_ChargeController = 0x2F,		/* DV F - Battery System Charge Controller */
+	/* Reserved 0x30 - 0x3F */
+	kHIDUsage_BS_TerminateCharge = 0x40,		/* DF IOF - Battery System Terminate Charge */
+	kHIDUsage_BS_TerminateDischarge = 0x41,		/* DF IOF - Battery System Terminate Discharge */
+	kHIDUsage_BS_BelowRemainingCapacityLimit = 0x42, /* DF IOF - Battery System Below Remaining Capacity Limit */
+	kHIDUsage_BS_RemainingTimeLimitExpired = 0x43, /* DF IOF - Battery System Remaining Time Limit Expired */
+	kHIDUsage_BS_Charging = 0x44,				/* DF IOF - Battery System Charging */
+	kHIDUsage_BS_Discharging = 0x45,			/* DV IOF - Battery System Discharging */
+	kHIDUsage_BS_FullyCharged = 0x46,			/* DF IOF - Battery System Fully Charged */
+	kHIDUsage_BS_FullyDischarged = 0x47,		/* DV IOF - Battery System Fully Discharged */
+	kHIDUsage_BS_ConditioningFlag = 0x48,		/* DV IOF - Battery System Conditioning Flag */
+	kHIDUsage_BS_AtRateOK = 0x49,				/* DV IOF - Battery System At Rate OK */
+	kHIDUsage_BS_SMBErrorCode = 0x4A,			/* DF IOF - Battery System SMB Error Code */
+	kHIDUsage_BS_NeedReplacement = 0x4B,		/* DF IOF - Battery System Need Replacement */
+	/* Reserved 0x4C - 0x5F */
+	kHIDUsage_BS_AtRateTimeToFull = 0x60,		/* DV IF - Battery System At Rate Time To Full */
+	kHIDUsage_BS_AtRateTimeToEmpty = 0x61,		/* DV IF - Battery System At Rate Time To Empty */
+	kHIDUsage_BS_AverageCurrent = 0x62,			/* DV IF - Battery System Average Current */
+	kHIDUsage_BS_Maxerror = 0x63,				/* DV IF - Battery System Max Error */
+	kHIDUsage_BS_RelativeStateOfCharge = 0x64,	/* DV IF - Battery System Relative State Of Charge */
+	kHIDUsage_BS_AbsoluteStateOfCharge = 0x65,	/* DV IF - Battery System Absolute State Of Charge */
+	kHIDUsage_BS_RemainingCapacity = 0x66,		/* DV IF - Battery System Remaining Capacity */
+	kHIDUsage_BS_FullChargeCapacity = 0x67,		/* DV IF - Battery System Full Charge Capacity */
+	kHIDUsage_BS_RunTimeToEmpty = 0x68,			/* DV IF - Battery System Run Time To Empty */
+	kHIDUsage_BS_AverageTimeToEmpty = 0x69,		/* DV IF - Battery System Average Time To Empty */
+	kHIDUsage_BS_AverageTimeToFull = 0x6A,		/* DV IF - Battery System Average Time To Full */
+	kHIDUsage_BS_CycleCount = 0x6B,				/* DV IF - Battery System Cycle Count */
+	/* Reserved 0x6C - 0x7F */
+	kHIDUsage_BS_BattPackModelLevel = 0x80,		/* SV F - Battery System Batt Pack Model Level */
+	kHIDUsage_BS_InternalChargeController = 0x81, /* SF F - Battery System Internal Charge Controller */
+	kHIDUsage_BS_PrimaryBatterySupport = 0x82,	/* SF F - Battery System Primary Battery Support */
+	kHIDUsage_BS_DesignCapacity = 0x83,			/* SV F - Battery System Design Capacity */
+	kHIDUsage_BS_SpecificationInfo = 0x84,		/* SV F - Battery System Specification Info */
+	kHIDUsage_BS_ManufacturerDate = 0x85,		/* SV F - Battery System Manufacturer Date */
+	kHIDUsage_BS_SerialNumber = 0x86,			/* SV F - Battery System Serial Number */
+	kHIDUsage_BS_iManufacturerName = 0x87,		/* SV F - Battery System Manufacturer Name Index */
+	kHIDUsage_BS_iDevicename = 0x88,			/* SV F - Battery System Device Name Index */
+	kHIDUsage_BS_iDeviceChemistry = 0x89,		/* SV F - Battery System Device Chemistry Index */
+	kHIDUsage_BS_ManufacturerData = 0x8A,		/* SV F - Battery System Manufacturer Data */
+	kHIDUsage_BS_Rechargable = 0x8B,			/* SV F - Battery System Rechargable */
+	kHIDUsage_BS_WarningCapacityLimit = 0x8C,	/* SV F - Battery System Warning Capacity Limit */
+	kHIDUsage_BS_CapacityGranularity1 = 0x8D,	/* SV F - Battery System Capacity Granularity 1 */
+	kHIDUsage_BS_CapacityGranularity2 = 0x8E,	/* SV F - Battery System Capacity Granularity 2 */
+	kHIDUsage_BS_iOEMInformation = 0x8F,		/* SV F - Battery System OEM Information Index */
+	/* Reserved 0x90 - 0xBF */
+	kHIDUsage_BS_InhibitCharge = 0xC0,			/* DF IOF - Battery System Inhibit Charge */
+	kHIDUsage_BS_EnablePolling = 0xC1,			/* DF IOF - Battery System Enable Polling */
+	kHIDUsage_BS_ResetToZero = 0xC2,			/* DF IOF - Battery System Reset To Zero */
+	/* Reserved 0xC3 - 0xCF */
+	kHIDUsage_BS_ACPresent = 0xD0,				/* DF IOF - Battery System AC Present */
+	kHIDUsage_BS_BatteryPresent = 0xD1,			/* DF IOF - Battery System Battery Present */
+	kHIDUsage_BS_PowerFail = 0xD2,				/* DF IOF - Battery System Power Fail */
+	kHIDUsage_BS_AlarmInhibited = 0xD3,			/* DF IOF - Battery System Alarm Inhibited */
+	kHIDUsage_BS_ThermistorUnderRange = 0xD4,	/* DF IOF - Battery System Thermistor Under Range */
+	kHIDUsage_BS_ThermistorHot = 0xD5,			/* DF IOF - Battery System Thermistor Hot */
+	kHIDUsage_BS_ThermistorCold = 0xD6,			/* DF IOF - Battery System Thermistor Cold */
+	kHIDUsage_BS_ThermistorOverRange = 0xD7,	/* DF IOF - Battery System Thermistor Over Range */
+	kHIDUsage_BS_VoltageOutOfRange = 0xD8,		/* DF IOF - Battery System Voltage Out Of Range */
+	kHIDUsage_BS_CurrentOutOfRange = 0xD9,		/* DF IOF - Battery System Current Out Of Range */
+	kHIDUsage_BS_CurrentNotRegulated = 0xDA,	/* DF IOF - Battery System Current Not Regulated */
+	kHIDUsage_BS_VoltageNotRegulated = 0xDB,	/* DF IOF - Battery System Voltage Not Regulated */
+	kHIDUsage_BS_MasterMode = 0xDC,				/* DF IOF - Battery System Master Mode */
+	/* Reserved 0xDD - 0xEF */
+	kHIDUsage_BS_ChargerSelectorSupport = 0xF0,	/* SF F- Battery System Charger Support Selector */
+	kHIDUsage_BS_ChargerSpec = 0xF1,			/* SF F- Battery System Charger Specification */
+	kHIDUsage_BS_Level2 = 0xF2,					/* SF F- Battery System Charger Level 2 */
+	kHIDUsage_BS_Level3 = 0xF3					/* SF F- Battery System Charger Level 3 */
+	/* Reserved 0xF2 - 0xFF */
 };
 
 #endif /* _IOHIDUSAGETABLES_H */

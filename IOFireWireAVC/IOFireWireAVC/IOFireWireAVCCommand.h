@@ -72,8 +72,10 @@ public:
                                                     
     virtual UInt32 handleResponse(UInt16 nodeID, UInt32 len, const void *buf);
 
+    virtual IOReturn resetInterimTimeout();
+
 private:
-    OSMetaClassDeclareReservedUnused(IOFireWireAVCCommand, 0);
+    OSMetaClassDeclareReservedUsed(IOFireWireAVCCommand, 0);
     OSMetaClassDeclareReservedUnused(IOFireWireAVCCommand, 1);
     OSMetaClassDeclareReservedUnused(IOFireWireAVCCommand, 2);
     OSMetaClassDeclareReservedUnused(IOFireWireAVCCommand, 3);

@@ -1,5 +1,5 @@
 /*
- * "$Id: emit.c,v 1.2 2002/06/05 18:37:46 gelphman Exp $"
+ * "$Id: emit.c,v 1.2.2.1 2002/10/22 17:44:41 gelphman Exp $"
  *
  *   PPD code emission routines for the Common UNIX Printing System (CUPS).
  *
@@ -159,6 +159,22 @@ ppdEmit(ppd_file_t    *ppd,		/* I - PPD file record */
         FILE          *fp,		/* I - File to write to */
         ppd_section_t section)		/* I - Section to write */
 {
+    return ppdEmitAfterOrder(ppd, fp, section, 0, 0);	// don't restrict what is generated
+}
+
+
+/*
+ * 'ppdEmitAfterOrder()' - Emit code for marked options to a file. This variation limits what is emitted
+ *				and only emits what has the requested order dependency or higher.
+ */
+
+int					/* O - 0 on success, -1 on failure */
+ppdEmitAfterOrder(ppd_file_t    *ppd,	/* I - PPD file record */
+        FILE          *fp,		/* I - File to write to */
+        ppd_section_t section,		/* I - Section to write */
+        int		limitOrder,	/* I - true if we are to restrict, 0 otherwise */
+        float		minOrder)	/* I - lowest order dependency to include if we are restricting */
+{
   int		i,			/* Looping var */
 		count;			/* Number of choices */
   ppd_choice_t	**choices;		/* Choices */
@@ -181,77 +197,80 @@ ppdEmit(ppd_file_t    *ppd,		/* I - PPD file record */
   for (i = 0; i < count; i ++)
     if (section != PPD_ORDER_EXIT && section != PPD_ORDER_JCL)
     {
-     /*
-      * Send wrapper commands to prevent printer errors for unsupported
-      * options...
-      */
-
-      if (fputs("[{\n", fp) < 0)
-      {
-        free(choices);
-        return (-1);
-      }
-
-     /*
-      * Send DSC comments with option...
-      */
-
-      if (fprintf(fp, "%%%%BeginFeature: *%s %s\n",
-                  ((ppd_option_t *)choices[i]->option)->keyword,
-		  choices[i]->choice) < 0)
-      {
-        free(choices);
-        return (-1);
-      }
-
-      if ((strcasecmp(((ppd_option_t *)choices[i]->option)->keyword, "PageSize") == 0 ||
-           strcasecmp(((ppd_option_t *)choices[i]->option)->keyword, "PageRegion") == 0) &&
-          strcasecmp(choices[i]->choice, "Custom") == 0)
-      {
-       /*
-        * Variable size; write out standard size options (this should
-	* eventually be changed to use the parameter positions defined
-	* in the PPD file...)
-	*/
-
-        size = ppdPageSize(ppd, "Custom");
-        fprintf(fp, "%.0f %.0f 0 0 0\n", size->width, size->length);
-
-	if (choices[i]->code == NULL)
-	{
-	 /*
-	  * This can happen with certain buggy PPD files that don't include
-	  * a CustomPageSize command sequence...  We just use a generic
-	  * Level 2 command sequence...
-	  */
-
-	  fputs(ppd_custom_code, fp);
-	}
-      }
-
-      if (choices[i]->code != NULL && choices[i]->code[0] != '\0')
-      {
-        if (fputs(choices[i]->code, fp) < 0)
+        if( !limitOrder || ( (ppd_option_t *)choices[i]->option)->order >= minOrder)
         {
-          free(choices);
-          return (-1);
+            /*
+            * Send wrapper commands to prevent printer errors for unsupported
+            * options...
+            */
+        
+            if (fputs("[{\n", fp) < 0)
+            {
+                free(choices);
+                return (-1);
+            }
+        
+            /*
+            * Send DSC comments with option...
+            */
+        
+            if (fprintf(fp, "%%%%BeginFeature: *%s %s\n",
+                        ((ppd_option_t *)choices[i]->option)->keyword,
+                        choices[i]->choice) < 0)
+            {
+                free(choices);
+                return (-1);
+            }
+        
+            if ((strcasecmp(((ppd_option_t *)choices[i]->option)->keyword, "PageSize") == 0 ||
+                strcasecmp(((ppd_option_t *)choices[i]->option)->keyword, "PageRegion") == 0) &&
+                strcasecmp(choices[i]->choice, "Custom") == 0)
+            {
+            /*
+                * Variable size; write out standard size options (this should
+                * eventually be changed to use the parameter positions defined
+                * in the PPD file...)
+                */
+        
+                size = ppdPageSize(ppd, "Custom");
+                fprintf(fp, "%.0f %.0f 0 0 0\n", size->width, size->length);
+        
+                if (choices[i]->code == NULL)
+                {
+                /*
+                * This can happen with certain buggy PPD files that don't include
+                * a CustomPageSize command sequence...  We just use a generic
+                * Level 2 command sequence...
+                */
+        
+                fputs(ppd_custom_code, fp);
+                }
+            }
+        
+            if (choices[i]->code != NULL && choices[i]->code[0] != '\0')
+            {
+                if (fputs(choices[i]->code, fp) < 0)
+                {
+                free(choices);
+                return (-1);
+                }
+        
+                if (choices[i]->code[strlen(choices[i]->code) - 1] != '\n')
+                putc('\n', fp);
+            }
+        
+            if (fputs("%%EndFeature\n", fp) < 0)
+            {
+                free(choices);
+                return (-1);
+            }
+        
+            if (fputs("} stopped cleartomark\n", fp) < 0)
+            {
+                free(choices);
+                return (-1);
+            }
         }
-
-        if (choices[i]->code[strlen(choices[i]->code) - 1] != '\n')
-          putc('\n', fp);
-      }
-
-      if (fputs("%%EndFeature\n", fp) < 0)
-      {
-        free(choices);
-        return (-1);
-      }
-
-      if (fputs("} stopped cleartomark\n", fp) < 0)
-      {
-        free(choices);
-        return (-1);
-      }
     }
     else if (fputs(choices[i]->code, fp) < 0)
     {
@@ -504,8 +523,11 @@ ppd_handle_media(ppd_file_t *ppd)
 
   if (strcasecmp(size->name, "Custom") == 0 ||
       (manual_feed == NULL && input_slot == NULL) ||
-      (manual_feed != NULL && strcasecmp(manual_feed->choice, "False") == 0) ||
-      (input_slot != NULL && (input_slot->code == NULL || !input_slot->code[0])))
+      // !(if we are doing manual feed || we are generating input slot code)
+      !(
+        (manual_feed != NULL && strcasecmp(manual_feed->choice, "True") == 0) ||
+        (input_slot != NULL && input_slot->code != NULL && input_slot->code[0]))
+  )
   {
    /*
     * Manual feed was not selected and/or the input slot selection does
@@ -544,5 +566,5 @@ ppd_sort(ppd_choice_t **c1,	/* I - First choice */
 
 
 /*
- * End of "$Id: emit.c,v 1.2 2002/06/05 18:37:46 gelphman Exp $".
+ * End of "$Id: emit.c,v 1.2.2.1 2002/10/22 17:44:41 gelphman Exp $".
  */

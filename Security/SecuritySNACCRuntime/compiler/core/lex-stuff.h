@@ -9,7 +9,7 @@
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
- * $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/compiler/core/lex-stuff.h,v 1.1 2001/06/20 21:27:57 dmitch Exp $
+ * $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/compiler/core/lex-stuff.h,v 1.1 2001/06/20 21:27:57 dmitch Exp $
  * $Log: lex-stuff.h,v $
  * Revision 1.1  2001/06/20 21:27:57  dmitch
  * Adding missing snacc compiler files.

@@ -55,7 +55,8 @@ class IOFireLogPublisher;
 class IOFireWireSBP2ORB;
 class IOFireWireROMCache;
 class IOFireWireLocalNode;
-class IOFWWorkLoop ;
+class IOFWWorkLoop;
+class IOFireWireIRM;
 
 // Phy packet defs.
 
@@ -300,7 +301,9 @@ protected:
     friend class IOFWAsyncStreamCommand;
 	friend class IOFWAddressSpaceAux;
 	friend class IOFireWireAVCLocalUnit;
-	
+	friend class IOFireWireAVCUnit;
+    friend class IOFireWireAVCCommand;
+    
     IOFireWireLink *		fFWIM;
     IOFWWorkLoop *	fWorkLoop;
     IOTimerEventSource *fTimer;
@@ -373,6 +376,8 @@ protected:
 	IOFWPhysicalAccessMode	fPhysicalAccessMode;
 	IOFWSecurityMode 		fSecurityMode;
 	IONotifier * 		fKeyswitchNotifier;
+	
+	IOFireWireIRM *			fIRM;
 	
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the class in the future.

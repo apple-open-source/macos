@@ -64,15 +64,7 @@ const builtin_s *spec_find( const char *service_name, int type )
 
 status_e spec_service_handler( struct service *sp, connection_s *cp )
 {
-   if ( svc_parent_access_control( sp, cp ) == OK)
-   { 
-      if ( svc_child_access_control( sp, cp ) == OK )
-      {
-         if ( server_run( sp, cp ) == OK )
-            return( OK ) ;
-      }
-   }
-   return( FAILED ) ;
+   return(server_run( sp, cp ));
 }
 
 

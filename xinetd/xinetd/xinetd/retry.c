@@ -60,7 +60,7 @@ static void server_retry(void)
       {
          servers_started++ ;
          SVC_DEC_RETRIES( sp ) ;
-         conn_close( cp ) ;
+         CONN_CLOSE( cp ) ;
          pset_pointer( RETRIES( ps ), u ) = NULL ;
          continue ;
       }

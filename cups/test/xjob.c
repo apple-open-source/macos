@@ -42,7 +42,7 @@
 
 /*** Prototypes ***/
 
-void ConvertJob(const char *filename, mime_type_t *inMimeType, const char *options, const char *ppdPath, mime_type_t *outMimeType, mime_t *mimeDatabase, const char *out);
+static void ConvertJob(const char *filename, mime_type_t *inMimeType, const char *options, const char *ppdPath, mime_type_t *outMimeType, mime_t *mimeDatabase, const char *out, const char *userName, const char *jobName, const char *numCopies);
 int LogMessage(int level, const char *message,	...);
 char *getDateTime(time_t t);
 static int start_process(const char *command, const char *const argv[], const char *const envp[], int infd, int outfd, int errfd, int root);
@@ -70,7 +70,7 @@ static int MaxFDs = 0;
  * It can string together registered filters to convert a file from one MIME type to
  * another.
  *
- * Usage: %s [-f <input filename>] [-o <output filename>] [-i <input mimetype>] [-j <output mimetype>] [-P <PPD filename>] [-a <attribute string>] [-u]
+ * Usage: %s [-f <input filename>] [-o <output filename>] [-i <input mimetype>] [-j <output mimetype>] [-P <PPD filename>] [-a <attribute string>] [-u] [-U <username>] [-J <jobname] [-c <copies>] [-D]
  * -f <filename>		The file to be converted.
  *				If not specified read from stdin
  *
@@ -89,7 +89,15 @@ static int MaxFDs = 0;
  * -a <options>			The string of options to use for the conversion.
  *				If not specified no options are used.
  *
+ * -U <username>		A string corresponding to the username submitting the job
+ *
+ * -J <jobname>			A string corresponding to the name of the print job
+ *
+ * -c <copies>			A string correspoinding to the number of copies requested.
+ *
  * -u				Unlink the PPD file when the conversion is finished.
+ *
+ * -D				Unlink the input file when the conversion is finished.
  */
 int main (int argc, char *argv[]) 
 {
@@ -102,13 +110,17 @@ int main (int argc, char *argv[])
     const char *inMimeStr = NULL;		// NULL means auto-detect.
     const char *filename = NULL;		// NULL means read from stdin.
     const char *outFilename = NULL;
+    const char *userName = "unknown";		// the username originating the job. This is the default.
+    const char *jobName = "unknown";		// the originating job name. This is the default.
+    const char *numCopies = "1";		// the number of copies to generate
     int unlinkPPD = FALSE;
+    int unlinkInputFile = FALSE;
     char c = 0;
     int status = 0;
     int waitStatus = 0;
     int waitErr = 0;
     
-    while ((c = getopt(argc, argv, ":f:o:i:j:P:a:u")) != -1) {
+    while ((c = getopt(argc, argv, "f:o:i:j:P:a:uU:J:c:D")) != -1) {
 	switch(c) {
 	
 	 /* The input file to convert.
@@ -150,6 +162,22 @@ int main (int argc, char *argv[])
 	 case 'u':
 	    unlinkPPD = TRUE;
 	    break;
+
+	 case 'U':
+	    userName = optarg;
+	    break;
+
+	 case 'J':
+	    jobName = optarg;
+	    break;
+
+	 case 'c':
+	    numCopies = optarg;
+	    break;
+
+	 case 'D':
+	    unlinkInputFile = TRUE;
+	    break;
 	
 	 case '?':
 	 default:
@@ -159,7 +187,7 @@ int main (int argc, char *argv[])
     }
     
     if (argc != optind) {
-	fprintf(stderr, "Usage: %s [-f <input filename>] [-o <output filename>] [-i <input mimetype>] [-j <output mimetype>] [-P <PPD filename>] [-u] [-a <attribute string>]\n", argv[0]);
+	fprintf(stderr, "Usage: %s [-f <input filename>] [-o <output filename>] [-i <input mimetype>] [-j <output mimetype>] [-P <PPD filename>] [-u] [-a <attribute string>] [-U <username>] [-J <jobname] [-c <copies>] [-D]\n", argv[0]);
 	status = 1;
      } else {
 	char directory[1024]; /* Configuration directory */
@@ -180,7 +208,7 @@ int main (int argc, char *argv[])
 	
 	outMimeType = getMimeType(mimeDatabase, outMimeStr);
 	
-	ConvertJob(filename, inMimeType, options, ppd, outMimeType,  mimeDatabase, outFilename);
+	ConvertJob(filename, inMimeType, options, ppd, outMimeType,  mimeDatabase, outFilename, userName, jobName, numCopies);
 	
 	/* Wait until all of the children have finished.
 	 */
@@ -188,6 +216,10 @@ int main (int argc, char *argv[])
 	    waitErr = wait(&waitStatus);
 	} while (waitErr != -1);
     
+    }
+    
+    if (unlinkInputFile && filename && filename[0]){
+	unlink(filename);
     }
     
     if (unlinkPPD && ppd != NULL) {
@@ -202,7 +234,7 @@ int main (int argc, char *argv[])
  * @abstract	Convert the a file the specified MIME type. The
  *		MIME output is written to stdout.
  */
-void ConvertJob(const char *filename, mime_type_t *inMimeType, const char *options, const char *ppdPath, mime_type_t *outMimeType, mime_t *mimeDatabase, const char *out)
+static void ConvertJob(const char *filename, mime_type_t *inMimeType, const char *options, const char *ppdPath, mime_type_t *outMimeType, mime_t *mimeDatabase, const char *out, const char *userName, const char *jobName, const char *numCopies)
 {
   int		i;		/* Looping var */
   int		slot;		/* Pipe slot */
@@ -347,9 +379,9 @@ void ConvertJob(const char *filename, mime_type_t *inMimeType, const char *optio
 
   argv[0] = "tofile";
   argv[1] = "1";
-  argv[2] = "nobody";
-  argv[3] = "title";
-  argv[4] = "1";
+  argv[2] = userName;				
+  argv[3] = jobName;
+  argv[4] = numCopies;
   argv[5] = options;
   argv[6] = filename;
   argv[7] = NULL;

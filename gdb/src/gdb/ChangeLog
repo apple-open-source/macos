@@ -1,3 +1,15 @@
+2002-08-06  Klee Dienes  <kdienes@bluegill.localnet>
+
+        * breakpoint.c (watchpoint_equal): New function.  Like
+        value_equal, but arrays only count as "equal" if they have the
+        same contents.
+        (breakpoint_re_set_one): Remove watchpoints if there is an error
+        in setting them.
+        (config/nm-macosx.h): Rename
+        TARGET_RANGE_PROFITABLE_FOR_HW_WATCHPOINT to
+        TARGET_RANGE_OK_FOR_HW_WATCHPOINT.
+	
+
 2002-04-07  Andrew Cagney  <ac131313@redhat.com>
 
 	I believe Jeff Law denies responsability for this one:

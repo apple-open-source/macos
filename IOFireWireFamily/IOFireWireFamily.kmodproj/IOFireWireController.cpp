@@ -27,20 +27,27 @@
  *
  */
 
-#import "IOFWUtils.h"
-#import "IOFireWireController.h"
-#import "IOFireWireLocalNode.h"
-#import "IOFireWireLink.h"
-#import "IOFWQEventSource.h"
-#import "IOLocalConfigDirectory.h"
-#import "IOFWWorkLoop.h"
-#import "IOFireWireNub.h"
-#import "IOFireWireDevice.h"
-#import "FWDebugging.h"
-#import "IOFWLocalIsochPort.h"
-#import "IOFWDCLProgram.h"
-#import "IOFireWireLink.h"
+// public
+#import <IOKit/firewire/IOFWUtils.h>
+#import <IOKit/firewire/IOFireWireController.h>
+#import <IOKit/firewire/IOLocalConfigDirectory.h>
+#import <IOKit/firewire/IOFireWireNub.h>
+#import <IOKit/firewire/IOFireWireDevice.h>
+#import <IOKit/firewire/IOFWLocalIsochPort.h>
+#import <IOKit/firewire/IOFWDCLProgram.h>
 
+// protected
+#import <IOKit/firewire/IOFWWorkLoop.h>
+#import <IOKit/firewire/IOFireWireLink.h>
+
+// private
+#import "FWDebugging.h"
+#import "IOFireLogPriv.h"
+#import "IOFireWireLocalNode.h"
+#import "IOFWQEventSource.h"
+#import "IOFireWireIRM.h"
+
+// system
 #import <IOKit/IOTimerEventSource.h>
 #import <IOKit/IOKitKeys.h>
 #import <IOKit/IOBufferMemoryDescriptor.h>
@@ -100,6 +107,8 @@ OSMetaClassDefineReservedUnused(IOFireWireController, 5);
 OSMetaClassDefineReservedUnused(IOFireWireController, 6);
 OSMetaClassDefineReservedUnused(IOFireWireController, 7);
 OSMetaClassDefineReservedUnused(IOFireWireController, 8);
+
+#pragma mark -
 
 /////////////////////////////////////////////////////////////////////////////
 
@@ -163,6 +172,12 @@ void IOFireWireController::free()
 {
     // Release everything I can think of.
 
+	if( fIRM != NULL )
+	{
+		fIRM->release();
+		fIRM = NULL;
+	}
+	
     if(fROMAddrSpace) {
         fROMAddrSpace->release();
     }
@@ -199,6 +214,7 @@ void IOFireWireController::free()
 
     fPendingQ.fSource->release();
 
+    fWorkLoop->release();
     IOFireWireBus::free();
 }
 
@@ -263,6 +279,7 @@ bool IOFireWireController::start(IOService *provider)
     q->init(this);
 
     fWorkLoop = fFWIM->getFireWireWorkLoop();
+    fWorkLoop->retain();	// make sure workloop lives at least as long as we do.
     fWorkLoop->addEventSource(fTimer);
     fWorkLoop->addEventSource(fPendingQ.fSource);
 
@@ -337,7 +354,10 @@ bool IOFireWireController::start(IOService *provider)
 	
 #endif
 
-    fWorkLoop->enableAllInterrupts();	// Enable the interrupt delivery.
+	fIRM = IOFireWireIRM::create(this);
+	FWPANICASSERT( fIRM != NULL );
+    
+	fWorkLoop->enableAllInterrupts();	// Enable the interrupt delivery.
 
     // register ourselves with superclass policy-maker
     PMinit();
@@ -984,6 +1004,9 @@ for(i=0; i<numOwnIDs; i++)
 
     fBusMgr = false;	// Update if we find one.
     
+	// inform IRM of updated bus generation and node ids
+	fIRM->processBusReset( fLocalNodeID, fIRMNodeID, fBusGeneration );
+	
     // OK for stuff that only needs our ID and the irmID to continue.
     if(localNode) {
         localNode->messageClients(kIOMessageServiceIsResumed);
@@ -1028,8 +1051,6 @@ void IOFireWireController::startBusScan() {
             scan->fRead = 0;
             scan->generation = fBusGeneration;
             scan->fCmd = new IOFWReadQuadCommand;
-            scan->fCmd->initAll(this, fBusGeneration, scan->fAddr, scan->fBuf, 1,
-                                                &readROMGlue, scan);
  			FWKLOG(( "IOFireWireController::startBusScan node %lx speed was %lx\n",(UInt32)nodeID,(UInt32)FWSpeed( nodeID ) ));	
            	if( FWSpeed( nodeID ) & kFWSpeedUnknownMask ) {
            		
@@ -1046,6 +1067,8 @@ void IOFireWireController::startBusScan() {
             	FWKLOG(( "IOFireWireController::startBusScan not speedchecking\n" ));
             }	
 
+            scan->fCmd->initAll(this, fBusGeneration, scan->fAddr, scan->fBuf, 1,
+                                                &readROMGlue, scan);
             scan->fCmd->submit();
         }
     }
@@ -1091,7 +1114,8 @@ void IOFireWireController::readDeviceROM(IOFWNodeScan *scan, IOReturn status)
                 fSpeedCodes[(kFWMaxNodesPerBus + 1)*(fLocalNodeID & 63) + (scan->fAddr.nodeID & 63)]--;
                
                	// Retry command at slower speed
-               	scan->fCmd->submit();
+				scan->fCmd->reinit(scan->fAddr, scan->fBuf, 1, &readROMGlue, scan, true);
+              	scan->fCmd->submit();
   				return;
         	}
         }
@@ -1177,6 +1201,12 @@ void IOFireWireController::readDeviceROM(IOFWNodeScan *scan, IOReturn status)
 			{
 				UInt32 nodeID = FWAddressToID(scan->fAddr.nodeID);
 				fNodes[nodeID] = createDummyRegistryEntry( scan );
+				OSObject * prop = OSNumber::withNumber( guid, 64 );
+				if( prop != NULL ) 
+				{
+					fNodes[nodeID]->setProperty( gFireWire_GUID, prop );
+					prop->release();
+				}
 				continue;
 			}
 			
@@ -1515,9 +1545,12 @@ void IOFireWireController::buildTopology(bool doFWPlane)
 
         // Add node's self speed to speedmap
         speedCode = (id0 & kFWSelfID0SP) >> kFWSelfID0SPPhase;
-        
-        if( speedCode == kFWSpeedReserved )
-        	speedCode = kFWSpeed800MBit | kFWSpeedUnknownMask;	// Remember that we don't know how fast it is
+                
+        if( !doFWPlane )
+        {
+        	if( speedCode == kFWSpeedReserved )
+        		speedCode = kFWSpeed800MBit | kFWSpeedUnknownMask;	// Remember that we don't know how fast it is
+        }
         
         fSpeedCodes[(kFWMaxNodesPerBus + 1)*i + i] = speedCode;
 

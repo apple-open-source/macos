@@ -77,6 +77,9 @@ extern "C"
 #define UC_ELG(A,B,ASCI,STRING)	fProvider->EvLog( (UInt32)(A), (UInt32)(B), (UInt32)(ASCI), STRING )
 	void   EvLog( UInt32 a, UInt32 b, UInt32 ascii, char* str );
 	UInt32 Alrt(  UInt32 a, UInt32 b, UInt32 ascii, char* str );
+#warning *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+#warning     The USE_ELG debugging facility is enabled.      *** *** *** *** *** *** *** *** *** *** ***
+#warning *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
 #else /* ) not USE_ELG: (	*/
 #define ELG(A,B,ASCI,S)
 #define ALRT(A,B,ASCI,STRING)	IOLog( "UniNEnet: %8x %8x " STRING "\n", (unsigned int)(A), (unsigned int)(B) )
@@ -235,7 +238,6 @@ public:
 
 	IONetworkStats			*fpNetStats;
 	IOEthernetStats			*fpEtherStats;
-	IOMbufBigMemoryCursor	*mbufCursor;
 
     OSDictionary			*fMediumDict;
 	MediumTable				*fpgMediumTable;
@@ -272,9 +274,6 @@ public:
 	mbuf		**fRxMbuf;	// array of Rx mBuf pointers
 	mbuf		*txDebuggerPkt;
 
-///	mbuf		*rxMbufBucket;
-///	UInt32		*fRxBucketPhysAddr;			// Physical addr of bit bucket
-
 	void		*debuggerPkt;
 	UInt32		debuggerPktSize;
 
@@ -294,10 +293,10 @@ public:
 
 	UInt32		txIntCnt;
 	UInt32		txRingIndexLast;
-	UInt32		txWDInterrupts;
+///	UInt32		txWDInterrupts;
 	UInt32		txWDCount;
     
-	UInt32		rxWDInterrupts;
+///	UInt32		rxWDInterrupts;
 	UInt32		rxWDCount;
 
 	UInt16		hashTableUseCount[ 256 ];
@@ -312,6 +311,8 @@ public:
 	UInt32		fRxMACConfiguration;
 	UInt32		fMACControlConfiguration;
 	UInt32		fRxMACStatus;				// preserve auto-clear register.
+
+	UInt32		fIntStatusForTO;			// accumulate Tx & Rx int bits for timer code.
 
 private:			// Instance methods:
 	bool		allocateMemory();
@@ -328,7 +329,6 @@ private:			// Instance methods:
 	bool		transmitInterruptOccurred();
 	void		debugTransmitInterruptOccurred();
 	void		debugTransmitCleanup();
-	bool		receiveInterruptOccurred();
 	bool		receivePackets( bool fDebugger );
 	void		packetToDebugger( struct mbuf *packet, u_int size );
 	void		restartReceiver();

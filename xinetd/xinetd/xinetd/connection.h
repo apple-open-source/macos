@@ -9,7 +9,7 @@
 #define CONNECTION_H
 
 /*
- * $Id: connection.h,v 1.1.1.3 2002/10/02 21:07:23 bbraun Exp $
+ * $Id: connection.h,v 1.1.1.4 2002/12/10 01:05:10 bbraun Exp $
  */
 
 #include "config.h"
@@ -24,6 +24,7 @@
 #include "service.h"
 #include "defs.h"
 #include "msg.h"
+#include "sio.h"
 
 #ifndef IN6_IS_ADDR_V4MAPPED
 #define IN6_IS_ADDR_V4MAPPED(a) \
@@ -41,7 +42,6 @@
 typedef enum { CONN_CLOSED = 0, CONN_OPEN } conn_state_e ;
 
 #define COF_HAVE_ADDRESS            1
-#define COF_CLEANUP                 2
 #define COF_NEW_DESCRIPTOR          3
 
 struct connection
@@ -52,7 +52,7 @@ struct connection
    union xsockaddr       co_remote_address ;
 } ;
 
-#define conn_close( cp ) ((void) close( (cp)->co_descriptor ) )
+#define CONN_CLOSE( cp ) {(void) Sclose( (cp)->co_descriptor ); (cp)->co_descriptor = -1; }
 
 #define COP( p )       ((connection_s *)(p))
 
@@ -65,8 +65,6 @@ struct connection
 #define CONN_SERVICE( cp )          (cp)->co_sp
 
 #define CONN_SET_FLAG( cp, flag )   M_SET( (cp)->co_flags, flag )
-
-#define CONN_CLEANUP( cp )          CONN_SET_FLAG( cp, COF_CLEANUP )
 
 #define CONN_SETADDR( cp, sinp )               \
    {                        \

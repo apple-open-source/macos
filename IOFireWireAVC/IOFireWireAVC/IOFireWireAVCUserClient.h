@@ -65,6 +65,8 @@ public:
 
     virtual IOReturn AVCCommand(UInt8 * cmd, UInt8 * response, UInt32 len, UInt32 *size);
     virtual IOReturn AVCCommandInGen(UInt8 * cmd, UInt8 * response, UInt32 len, UInt32 *size);
+
+    virtual IOReturn updateAVCCommandTimeout( void * = 0, void * = 0, void * = 0, void * = 0, void * = 0, void * = 0);
 };
 
 #endif // _IOKIT_IOFIREWIREAVCUSERCLIENT_H

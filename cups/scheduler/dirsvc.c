@@ -1,5 +1,5 @@
 /*
- * "$Id: dirsvc.c,v 1.5 2002/06/10 23:47:32 jlovell Exp $"
+ * "$Id: dirsvc.c,v 1.5.2.1 2002/12/13 22:54:13 jlovell Exp $"
  *
  *   Directory services routines for the Common UNIX Printing System (CUPS).
  *
@@ -87,6 +87,31 @@ ProcessBrowseData(const char   *uri,	/* I - URI of printer/class */
 
   httpSeparate(uri, method, username, host, &port, resource);
 
+ /*
+  * Determine if the URI contains any illegal characters in it...
+  */
+
+  if (strncmp(uri, "ipp://", 6) != 0 ||
+      !host[0] ||
+      (strncmp(resource, "/printers/", 10) != 0 &&
+       strncmp(resource, "/classes/", 9) != 0))
+  {
+    LogMessage(L_ERROR, "ProcessBrowseData: Bad printer URI in browse data: %s",
+               uri);
+    return;
+  }
+
+  if (strchr(resource, '?') != NULL ||
+      (strncmp(resource, "/printers/", 10) == 0 &&
+       strchr(resource + 10, '/') != NULL) ||
+      (strncmp(resource, "/classes/", 9) == 0 &&
+       strchr(resource + 9, '/') != NULL))
+  {
+    LogMessage(L_ERROR, "ProcessBrowseData: Bad resource in browse data: %s",
+               resource);
+    return;
+  }
+    
  /*
   * OK, this isn't a local printer; see if we already have it listed in
   * the Printers list, and add it if not...
@@ -1116,12 +1141,12 @@ UpdateCUPSBrowse(void)
 
   if (auth == AUTH_DENY)
   {
-    LogMessage(L_DEBUG, "UpdateBrowseList: Refused %d bytes from %s", bytes,
+    LogMessage(L_DEBUG, "UpdateCUPSBrowse: Refused %d bytes from %s", bytes,
                srcname);
     return;
   }
 
-  LogMessage(L_DEBUG2, "UpdateBrowseList: (%d bytes from %s) %s", bytes, srcname,
+  LogMessage(L_DEBUG2, "UpdateCUPSBrowse: (%d bytes from %s) %s", bytes, srcname,
              packet);
 
  /*
@@ -1131,7 +1156,7 @@ UpdateCUPSBrowse(void)
   if (sscanf(packet, "%x%x%1023s", (unsigned *)&type, (unsigned *)&state,
              uri) < 3)
   {
-    LogMessage(L_WARN, "UpdateBrowseList: Garbled browse packet - %s",
+    LogMessage(L_WARN, "UpdateCUPSBrowse: Garbled browse packet - %s",
                packet);
     return;
   }
@@ -1226,7 +1251,7 @@ UpdateCUPSBrowse(void)
                  (struct sockaddr *)&(Relays[i].to),
 		 sizeof(struct sockaddr_in)) <= 0)
       {
-	LogMessage(L_ERROR, "UpdateBrowseList: sendto failed for relay %d - %s.",
+	LogMessage(L_ERROR, "UpdateCUPSBrowse: sendto failed for relay %d - %s.",
 	           i + 1, strerror(errno));
 	return;
       }
@@ -1817,5 +1842,5 @@ UpdateSLPBrowse(void)
 
 
 /*
- * End of "$Id: dirsvc.c,v 1.5 2002/06/10 23:47:32 jlovell Exp $".
+ * End of "$Id: dirsvc.c,v 1.5.2.1 2002/12/13 22:54:13 jlovell Exp $".
  */

@@ -118,6 +118,7 @@ int xtimer_poll(void)
 		cur_timer->timerfunc();
 		pset_delete( xtimer_list, cur_timer );
 		free(cur_timer);
+		i--;
 		cur_timer = NULL;
 	}
 

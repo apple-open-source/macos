@@ -1,0 +1,80 @@
+#!/bin/sh
+#
+# Synthesize float.h to be installed in the the system.
+#
+# This is a combined header made up gcc3's config/float-i64.h and
+# float-i386.h.
+#
+# This script is only called from the top-level GNUmakefile.  It
+# is called as follows:
+#
+# synthesize_float $(SRCROOT) file $(RC_RELEASE)
+#
+# i.e., it will combine $(SRCROOT)/gcc/config/float-i64.h and
+# $(SRCROOT)/gcc/config/float-i386.h and output the header into
+# the file.
+#
+# Note that there is some additional C99-compatible definitions for
+# FLT_ROUNDS based on whether __fegetfltrounds() is available to
+# the system or not.  It is definitely not for Proton.  And we
+# dynamically test for it for other releases.  Hence the third
+# argument to this script. Probably in the future we can always
+# assume __fegetfltrounds() exists and just unconditionally
+# generate the additional definitions.  But until then...
+#
+cat <<EOF >"$2"
+/* float.h */
+#ifndef _FLOAT_H_
+#define _FLOAT_H_
+
+/* This is a combined header derived from gcc/config/float-i64.h for
+   ppc and gcc/config/float-i386.h for the x86.  */
+
+#ifdef __i386__
+
+EOF
+
+cat "$1"/gcc/config/float-i386.h | grep -v _FLOAT_H___ | grep -v _FLOAT_H_ >>"$2"
+
+cat <<EOF >>"$2"
+#else /* !__i386__ */
+
+EOF
+
+cat "$1"/gcc/config/float-i64.h | grep -v _FLOAT_H___  | grep -v _FLOAT_H_ >>"$2"
+
+cat <<EOF >>"$2"
+#endif /* !__i386__ */
+EOF
+
+cat <<EOF >/tmp/fegetfltrounds$$.c
+extern int __fegetfltrounds (void);
+int main()
+{
+  return __fegetfltrounds ();
+}
+EOF
+
+set -x
+if [ "$3" != "Proton" ]; then
+    if cc /tmp/fegetfltrounds$$.c -o /tmp/xfegetfltrounds.$$ &> /dev/null; then
+cat <<EOF >>"$2"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern int __fegetfltrounds( void ); 
+#ifdef __cplusplus
+}
+#endif
+#undef FLT_ROUNDS
+#define FLT_ROUNDS (__fegetfltrounds ())
+EOF
+    fi
+    rm -f /tmp/fegetfltrounds$$.c /tmp/xfegetfltrounds.$$
+fi
+
+cat <<EOF >>"$2"
+
+#endif /* _FLOAT_H_ */
+EOF

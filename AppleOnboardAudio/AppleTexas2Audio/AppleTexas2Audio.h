@@ -36,9 +36,10 @@
 #include "AppleDallasDriver.h"
 #include "AppleOnboardAudio.h"
 #include "Texas2_hw.h"
+#include "AudioI2SControl.h"
 
-//#define kLOG_EQ_TABLE_TRAVERSE		//	un-comment this to log GetCustomEQCoefficients table traverse
-//#define kDEBUG_GPIO					//	un-comment this to log GPIO transactions
+//#define kLOG_EQ_TABLE_TRAVERSE		/*	un-comment this to log GetCustomEQCoefficients table traverse	*/
+//#define kDEBUG_GPIO					/*	un-comment this to log GPIO transactions						*/
 
 class IOInterruptEventSource;
 class IORegistryEntry;
@@ -56,11 +57,18 @@ struct IODBDMADescriptor;
 #define kUserLoginDelay				20000
 #define kSpeakerConnectError		"SpeakerConnectError"
 
+//	The normal volume range is from 0.0 dB to -70 dB.  A setting of -70.5 dB results in a muted state.
+//	A value of 0 represents -70.5 dB.  Volume increases 0.5 dB per step.  A value of 141 represents
+//	-70.5 dB + ( 0.5 dB X 141 ) = - 70.0 dB + 70.5 = 0.0 dB.  The absolute maximum available volume
+//	is +18.0 dB.  A value of 177 represents -70.5 dB + ( 0.5 X 177 ) = -70.5 dB + 88.5 dB.
 enum  {
 	kMaximumVolume = 141,
 	kMinimumVolume = 0,
 	kInitialVolume = 101
 };
+
+#define	kMAXIMUM_LEGAL_VOLUME_VALUE		( sizeof ( volumeTable ) / sizeof ( UInt32 ) )
+#define	kOUT_OF_BOUNDS_VOLUME_VALUE		( ( sizeof ( volumeTable ) / sizeof ( UInt32 ) ) + 1 )
 
 typedef Boolean GpioActiveState;
 typedef UInt8* GpioPtr;
@@ -70,30 +78,6 @@ enum {
 	kHeadphonesActive		= 2,
 	kExternalSpeakersActive	= 4
 };
-
-// Characteristic constants:
-typedef enum TicksPerFrame {
-	k64TicksPerFrame		= 64,			// 64 ticks per frame
-	k32TicksPerFrame		= 32			// 32 ticks per frame
-} TicksPerFrame;
-
-typedef enum ClockSource {
-	kClock49MHz				= 49152000,		// 49 MHz clock source
-	kClock45MHz				= 45158400,		// 45 MHz clock source
-	kClock18MHz				= 18432000		// 18 MHz clock source
-} ClockSource;
-
-// Sound Formats:
-// FIXME: these values are "interpreted" and mirrored in specific chip values
-// so wouldn't be better to have them in some parent class?
-typedef enum SoundFormat {
-	kSndIOFormatI2SSony,
-	kSndIOFormatI2S64x,
-	kSndIOFormatI2S32x,
-
-	// This says "we never decided for a sound format before"
-	kSndIOFormatUnknown
-} SoundFormat;
 
 // declare a class for our driver.  This is based from AppleOnboardAudio
 class AppleTexas2Audio : public AppleOnboardAudio
@@ -105,6 +89,7 @@ class AppleTexas2Audio : public AppleOnboardAudio
     friend class AudioHardwareMux;
 
 protected:
+    AudioI2SControl *		audioI2SControl;    						// this class is an abstraction for i2s services
 	SInt32					minVolume;
 	SInt32					maxVolume;
 	Boolean					gVolMuteActive;
@@ -157,6 +142,8 @@ protected:
 	IODeviceMemory *		lineOutExtIntGpioMem;						// Have to free this in free()	[¥new¥]
 	IODeviceMemory *		lineOutMuteGpioMem;							// Have to free this in free()	[¥new¥]
 	IODeviceMemory *		masterMuteGpioMem;							// Have to free this in free()	[2933090]
+	IODeviceMemory *		ioBaseAddressMemory;						// Have to free this in free()
+	IODeviceMemory *		ioClockBaseAddressMemory;					// Have to free this in free()
 	UInt32					i2sSerialFormat;
 	IOService *				headphoneIntProvider;
 	IOService *				lineOutIntProvider;							//	[2788199]
@@ -321,45 +308,51 @@ protected:
 	bool		findAndAttachI2C (IOService *provider);
 	bool		detachFromI2C (IOService* /*provider*/);
 
+	// Recalls which i2s interface we are attached to:
+	UInt8 i2SInterfaceNumber;
+
 	// *********************************
 	// * I 2 S	DATA & Member Function *
 	// *********************************
 	void *soundConfigSpace;		   // address of sound config space
 	void *ioBaseAddress;		   // base address of our I/O controller
+#if 0		//	{
 	void *ioClockBaseAddress;	   // base address for the clock
 
-	// Recalls which i2s interface we are attached to:
-	UInt8 i2SInterfaceNumber;
-
 	// starts and stops the clock count:
-	void   KLSetRegister(void *klRegister, UInt32 value);
-	UInt32	 KLGetRegister(void *klRegister);
-	bool clockRun(bool start);
+	void			KLSetRegister(void *klRegister, UInt32 value);
+	UInt32			KLGetRegister(void *klRegister);
+	bool			clockRun(bool start);
 
-	inline UInt32 ReadWordLittleEndian(void *address, UInt32 offset);
-	inline void WriteWordLittleEndian(void *address, UInt32 offset, UInt32 value);
+	inline UInt32	ReadWordLittleEndian(void *address, UInt32 offset);
+	inline void		WriteWordLittleEndian(void *address, UInt32 offset, UInt32 value);
 
-	inline void I2SSetSerialFormatReg(UInt32 value);
-	inline UInt32 I2SGetSerialFormatReg(void);
-	inline void I2SSetDataWordSizeReg(UInt32 value);
-	inline UInt32 I2SGetDataWordSizeReg(void);
+	inline void		I2SSetSerialFormatReg(UInt32 value);
+	inline UInt32	I2SGetSerialFormatReg(void);
+	inline void		I2SSetDataWordSizeReg(UInt32 value);
+	inline UInt32	I2SGetDataWordSizeReg(void);
 
-	inline void I2S1SetSerialFormatReg(UInt32 value);
-	inline UInt32 I2S1GetSerialFormatReg(void);
-	inline void I2S1SetDataWordSizeReg(UInt32 value);
-	inline UInt32 I2S1GetDataWordSizeReg(void);
+	inline void		I2S1SetSerialFormatReg(UInt32 value);
+	inline UInt32	I2S1GetSerialFormatReg(void);
+	inline void		I2S1SetDataWordSizeReg(UInt32 value);
+	inline UInt32	I2S1GetDataWordSizeReg(void);
+#endif		//	}
 
-	inline void Fcr1SetReg(UInt32 value);
-	inline UInt32 Fcr1GetReg(void);
-	inline void Fcr3SetReg(UInt32 value);
-	inline UInt32 Fcr3GetReg(void);
+#if 0		//	{
+	inline void 	Fcr1SetReg(UInt32 value);
+	inline UInt32	Fcr1GetReg(void);
+	inline void 	Fcr3SetReg(UInt32 value);
+	inline UInt32	Fcr3GetReg(void);
+#endif		//	}
 
+#if 0		//	{
 	inline UInt32 I2SGetIntCtlReg();
 	inline UInt32 I2S1GetIntCtlReg();
 	
 	bool setSampleParameters(UInt32 sampleRate, UInt32 mclkToFsRatio);
 	void setSerialFormatRegister(ClockSource clockSource, UInt32 mclkDivisor, UInt32 sclkDivisor, SoundFormat serialFormat);
 	bool setHWSampleRate(UInt rate);
+#endif		//	}
 	UInt32 frameRate(UInt32 index);
 
 	//	The following should probably be implemented in the base class
@@ -368,9 +361,9 @@ protected:
 	UInt32				mActiveInput;		//	set to kSndHWInputNone at init
 	UInt32				gInputNoneAlias;	
 
-	UInt8 *	getGPIOAddress (UInt32 gpioSelector);
-	void	GpioWriteByte( UInt8* gpioAddress, UInt8 data );
-	UInt8	GpioReadByte( UInt8* gpioAddress );
+	UInt8 *				getGPIOAddress (UInt32 gpioSelector);
+	void				GpioWriteByte( UInt8* gpioAddress, UInt8 data );
+	UInt8				GpioReadByte( UInt8* gpioAddress );
 
 			// User Client calls
 	virtual UInt8		readGPIO (UInt32 selector);

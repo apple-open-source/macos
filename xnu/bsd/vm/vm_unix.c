@@ -1214,7 +1214,7 @@ bsd_read_page_cache_file(
 				(caddr_t) *buffer, profile_size, 
 				profile, UIO_SYSSPACE, IO_NODELOCKED, 
 				p->p_ucred, &resid, p);
-			if(error) {
+			if((error) || (profile_size == resid)) {
 				VOP_UNLOCK(names_vp, 0, p);
 				VOP_UNLOCK(data_vp, 0, p);
 				bsd_close_page_cache_files(uid_files);
@@ -1337,7 +1337,7 @@ bsd_search_page_cache_data_base(
 				(caddr_t)(local_buf + resid_off),
 				size, file_off + resid_off, UIO_SYSSPACE, 
 				IO_NODELOCKED, p->p_ucred, &resid, p);
-			if(error) {
+			if((error) || (size == resid)) {
 				if(local_buf != NULL) {
 					kmem_free(kernel_map, 
 						(vm_offset_t)local_buf, 

@@ -2372,6 +2372,31 @@ bpstat_alloc (struct breakpoint *b, bpstat cbs /* Current "bs" value */ )
   return bs;
 }
 
+int
+watchpoint_equal (struct value *arg1, struct value *arg2)
+{
+  register int len;
+  register char *p1, *p2;
+
+  if ((TYPE_CODE (VALUE_TYPE (arg1)) == TYPE_CODE_ARRAY)
+      && (TYPE_CODE (VALUE_TYPE (arg2)) == TYPE_CODE_ARRAY))
+    {
+      int len = TYPE_LENGTH (VALUE_TYPE (arg1));
+      if (TYPE_LENGTH (VALUE_TYPE (arg1)) != TYPE_LENGTH (VALUE_TYPE (arg2)))
+	return 0;
+      p1 = VALUE_CONTENTS (arg1);
+      p2 = VALUE_CONTENTS (arg2);
+      while (--len >= 0)
+	{
+	  if (*p1++ != *p2++)
+	    break;
+	}
+      return len < 0;
+    }
+
+  return value_equal (arg1, arg2);
+}
+      
 /* Possible return values for watchpoint_check (this can't be an enum
    because of check_errors).  */
 /* The watchpoint has been deleted.  */
@@ -2431,7 +2456,7 @@ watchpoint_check (PTR p)
 
       struct value *mark = value_mark ();
       struct value *new_val = evaluate_expression (bs->breakpoint_at->exp);
-      if (!value_equal (b->val, new_val))
+      if (!watchpoint_equal (b->val, new_val))
 	{
 	  release_value (new_val);
 	  value_free_to_mark (mark);
@@ -7155,10 +7180,26 @@ breakpoint_re_set_one (PTR bint)
          be less stable than filenames or function names.  */
 
       /* So for now, just use a global context.  */
-      if (b->exp)
-	xfree (b->exp);
-      b->exp = parse_expression (b->exp_string);
-      b->exp_valid_block = innermost_block;
+      save_enable = b->enable_state;
+      if (b->enable_state != bp_disabled)
+	b->enable_state = bp_shlib_disabled;
+
+      set_language (b->language);
+      input_radix = b->input_radix;
+      s = b->addr_string;
+      {
+	char *s = b->exp_string;
+	char *tmp = b->exp;
+	if (! gdb_parse_exp_1 (&s, innermost_block, 0, &b->exp))
+	  {
+	    warning ("Unable to reset watchpoint %d (unable to parse expression); deleting", b->number);
+	    delete_breakpoint (b);
+	    return 0;
+	  }
+	if (tmp)
+	  xfree (tmp);
+	b->exp_valid_block = innermost_block;
+      }
       mark = value_mark ();
       if (b->val)
 	value_free (b->val);
@@ -7181,6 +7222,7 @@ breakpoint_re_set_one (PTR bint)
 	  mention (b);
 	}
       value_free_to_mark (mark);
+      b->enable_state = save_enable;	/* Restore it, this worked. */
       break;
     case bp_catch_catch:
     case bp_catch_throw:

@@ -766,7 +766,7 @@ int Sdone( int fd )
 {
    __sio_descriptor_t *dp = &__sio_descriptors[ fd ] ;
 
-   if ( fd >= __sio_n_descriptors || ! DESCRIPTOR_INITIALIZED( dp ) )
+   if ( fd >= __sio_n_descriptors || fd < __sio_n_descriptors || ! DESCRIPTOR_INITIALIZED( dp ) )
    {
       errno = EBADF ;
       return( SIO_ERR ) ;

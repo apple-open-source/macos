@@ -365,84 +365,15 @@ macosx_can_use_hw_watchpoint (enum bptype type, int cnt, enum bptype ot)
 }
 
 
-/* Assuming we could set a hardware watchpoint on this address, do
-   we think it would be profitable ("a good idea") to do so?  If not,
-   we can always set a regular (aka single-step & test) watchpoint
-   on the address...
- */
 int
-macosx_range_profitable_for_hw_watchpoint (int pid, CORE_ADDR start, LONGEST len)
+macosx_region_ok_for_hw_watchpoint (CORE_ADDR start, LONGEST len)
 {
-#if 0
-  int range_is_stack_based;
-  int range_is_accessible;
-  CORE_ADDR page_start;
-  int page_size;
-  int page;
-  LONGEST range_size_in_pages;
-
-  /* ??rehrauer: For now, say that all addresses are potentially
-     profitable.  Possibly later we'll want to test the address
-     for "stackness"?
-   */
-  range_is_stack_based = 0;
-
-  /* If any page in the range is inaccessible, then we cannot
-     really use hardware watchpointing, even though our client
-     thinks we can.  In that case, it's actually an error to
-     attempt to use hw watchpoints, so we'll tell our client
-     that the range is "unprofitable", and hope that they listen...
-   */
-  range_is_accessible = 1;	/* Until proven otherwise. */
-
-  /* Examine all pages in the address range. */
-  errno = 0;
-  page_size = sysconf (_SC_PAGE_SIZE);
-
-  /* If we can't determine page size, we're hosed.  Tell our
-     client it's unprofitable to use hw watchpoints for this
-     range.
-   */
-  if (errno || (page_size <= 0))
-    {
-      errno = 0;
-      return 0;
-    }
-
-  page_start = (start / page_size) * page_size;
-  range_size_in_pages = len / (LONGEST) page_size;
-
-  for (page = 0; page < range_size_in_pages; page++, page_start += page_size)
-    {
-      int tt_status;
-      int page_permissions;
-
-      /* Is this page accessible? */
-      errno = 0;
-      tt_status = call_ttrace (TT_PROC_GET_MPROTECT,
-			       pid,
-			       (TTRACE_ARG_TYPE) page_start,
-			       TT_NIL,
-			       (TTRACE_ARG_TYPE) & page_permissions);
-      if (errno || (tt_status < 0))
-	{
-	  errno = 0;
-	  range_is_accessible = 0;
-	  break;
-	}
-
-      /* Yes, go for another... */
-    }
-
-  return (!range_is_stack_based && range_is_accessible);
-#endif
-
   return 1;
 }
 
 /* Given the starting address of a memory page, hash it to a bucket in
-   the memory page dictionary.
- */
+   the memory page dictionary. */
+
 static int
 get_dictionary_bucket_of_page (CORE_ADDR page_start)
 {
@@ -457,8 +388,8 @@ get_dictionary_bucket_of_page (CORE_ADDR page_start)
 /* Given a memory page's starting address, get (i.e., find an existing
    or create a new) dictionary entry for the page.  The page will be
    write-protected when this function returns, but may have a reference
-   count of 0 (if the page was newly-added to the dictionary).
- */
+   count of 0 (if the page was newly-added to the dictionary).  */
+
 static memory_page_t *
 get_dictionary_entry_of_page (int pid, CORE_ADDR page_start)
 {
@@ -470,8 +401,8 @@ get_dictionary_entry_of_page (int pid, CORE_ADDR page_start)
   require_memory_page_dictionary ();
 
   /* Try to find an existing dictionary entry for this page.  Hash
-     on the page's starting address.
-   */
+     on the page's starting address. */
+
   bucket = get_dictionary_bucket_of_page (page_start);
   page = &memory_page_dictionary.buckets[bucket];
   while (page != NULL)
@@ -483,8 +414,8 @@ get_dictionary_entry_of_page (int pid, CORE_ADDR page_start)
     }
 
   /* Did we find a dictionary entry for this page?  If not, then
-     add it to the dictionary now.
-   */
+     add it to the dictionary now. */
+
   if (page == NULL)
     {
       /* Create a new entry. */

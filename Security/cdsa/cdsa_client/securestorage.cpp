@@ -528,18 +528,27 @@ SSDbUniqueRecordImpl::deleteRecord(const CSSM_ACCESS_CREDENTIALS *cred)
 	CssmDataContainer dataBlob(allocator());
 	DbUniqueRecordImpl::get(NULL, &dataBlob);
 
-	// @@@ Use transactions.
+	// delete data part first:
+	// (1) don't leave data without keys around
+	// (2) delete orphaned data anyway
+	DbUniqueRecordImpl::deleteRecord();
+	
+	// @@@ Use transactions?
 	if (SSGroupImpl::isGroup(dataBlob))
-	{
+	try {
 		// Get the group for dataBlob
 		SSGroup group(database(), dataBlob);
-		// Delete the group
-		// @@@ What if the group is shared?
+		// Delete the group (key)
 		group->deleteKey(cred);
+	} catch (const CssmError &err) {
+		switch (err.cssmError()) {
+		case CSSMERR_DL_RECORD_NOT_FOUND:
+			// Zombie item (no group key). Finally at peace! No error
+			break;
+		default:
+			throw;
+		}
 	}
-
-	// Delete the record.
-	DbUniqueRecordImpl::deleteRecord();
 }
 
 void

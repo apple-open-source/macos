@@ -7,9 +7,12 @@
  *
  */
 
+// public
+#import <IOKit/firewire/IOFireWireDevice.h>
+#import <IOKit/firewire/IOFireWireFamilyCommon.h>
+
+// private
 #import "IOFWUserCommand.h"
-#import "IOFireWireDevice.h"
-#import "IOFireWireFamilyCommon.h"
 #import "IOFireWireLib.h"
 
 OSDefineMetaClassAndAbstractStructors(IOFWUserCommand, OSObject)

@@ -153,3 +153,16 @@ sendmail 8.11.0 with multidrop.
 fetchmailnochda.pl
 
 Watchdog script to check whether fetchmail is working in daemon mode.
+
+PopDel.py:
+
+The author writes: "PopDel stands for Pop Delete; this program deletes
+selected email from a pop mail server. I use fetchmail with a size
+limit of around 142k.  Anything bigger than that triggers a fetchmail
+oversize message. This program is used to look at the subject lines in
+the mail headers on the server and lets you delete all those lovely,
+large MSOffice virus products."
+
+The full manual is is at PopDel.manual.
+
+

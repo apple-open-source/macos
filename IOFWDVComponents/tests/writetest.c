@@ -1,3 +1,4 @@
+#define __PRINT__ // Print headers don't compile for some reason
 #include <Carbon/Carbon.h>
 #include <QuickTime/QuickTime.h>
 
@@ -31,8 +32,10 @@ static int frameSize = 120000;	// NTSC 144000 PAL
 static char *sFile;
 static int sSDL;
 static int sDVCPro;
+static int sDVCPro50;
 static int sFormat = 0;	// DV
 static int sLoop;
+static UInt64 sGUID = 0;
 
 static void printP(const char *s)
 {
@@ -279,7 +282,6 @@ static void OpenDV()
                     goto error;
             QTCopyAtomDataToPtr( deviceList, dataAtom, true, sizeof( test), test, &size);
             printf("guid 0x%x%08x ", test[0], test[1]);
-
             dataAtom = QTFindChildByIndex( deviceList, deviceAtom, kIDHNameAtomType, 1, nil);
             if( dataAtom == nil)
                     goto error;
@@ -358,6 +360,8 @@ static void OpenDV()
                                 QTCopyAtomDataToPtr( deviceList, frameSizeAtom, true, sizeof( frameSize), &frameSize, &size);
                                 if(sSDL)
                                     frameSize /= 2;
+								if (sDVCPro50)
+									frameSize *= 2;
                                 printf("Config buffer size %d\n", frameSize);
                             }
                             videoConfig.container = deviceList;	// save this config
@@ -367,7 +371,8 @@ static void OpenDV()
                     printf("\n");
             }
             printf("-----\n");
-
+            if(sGUID == (((UInt64)test[0]) << 32) + test[1])
+                break;
     }
 
     if( videoConfig.atom == nil)	// no good configs found
@@ -413,14 +418,22 @@ int main(int argc, char **argv)
             
     sFile = "/tmp/dump.dv";
     sSDL = 0;
-    
+	sDVCPro = 0;
+	sDVCPro50 = 0;
+ 
     while(argc > pos) {
         if(strcmp(argv[pos], "-sdl") == 0)
             sSDL = 1;
         else if(strcmp(argv[pos], "-DVCPro") == 0)
             sDVCPro = 1;
+        else if(strcmp(argv[pos], "-DVCPro50") == 0)
+            sDVCPro50 = 1;
         else if(strcmp(argv[pos], "-l") == 0)
             sLoop = 1;
+        else if(strcmp(argv[pos], "-guid") == 0 && argc > pos + 1) {
+            pos++;
+            sGUID = strtoq(argv[pos], NULL, 0);
+        }
         else
             sFile = argv[pos];
         pos++;
@@ -433,6 +446,12 @@ int main(int argc, char **argv)
     else if(sDVCPro) {
         sFormat = kIDHDVCPro_25;
     }
+    else if(sDVCPro50) {
+		frameSize *= 2;
+        sFormat = kIDHDVCPro_50;
+    }
+	
+	
     printf("Reading from %s\n", sFile);
 	printf("Component seed is %d\n", seed);
     desc.componentType = 'ihlr';				/* A unique 4-byte code indentifying the command set */

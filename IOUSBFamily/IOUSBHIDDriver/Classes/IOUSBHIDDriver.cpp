@@ -217,157 +217,117 @@ IOUSBHIDDriver::processPacket(void *data, UInt32 size)
 IOReturn 
 IOUSBHIDDriver::GetReport(UInt8 inReportType, UInt8 inReportID, UInt8 *vInBuf, UInt32 *vInSize)
 {
-	IOUSBDevRequest requestPB;
-	IOReturn err;
-    
-	//--- Fill out device request form
-	requestPB.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBClass, kUSBInterface);
-	requestPB.bRequest = kHIDRqGetReport;
-	requestPB.wValue = (inReportType << 8) | inReportID;
-        requestPB.wIndex = _interface->GetInterfaceNumber();
-	requestPB.wLength = *vInSize;
-	requestPB.pData = vInBuf;
-	requestPB.wLenDone = 0;
-	
-	err = _device->DeviceRequest(&requestPB, 5000, 0);
-	if ( err != kIOReturnSuccess )
-		IOLog("IOUSBHIDDriver::GetReport request failed; err = 0x%x)\n", err);
-
-    // vInBuf should already have it's report info.
-    *vInSize = requestPB.wLenDone;
-
-    return err;
+    return kIOReturnSuccess;
 }
 
 IOReturn 
-IOUSBHIDDriver::getReport( IOMemoryDescriptor * report,
-                                 IOHIDReportType      reportType,
-                                 IOOptionBits         options )
+IOUSBHIDDriver::getReport(	IOMemoryDescriptor * report,
+                                IOHIDReportType      reportType,
+                                IOOptionBits         options )
 {
-    UInt8 	*reportData;
-    UInt8	reportID;
-    IOByteCount	reportLength, originalReportLength;
-    IOByteCount segmentSize;
-    IOReturn	ret;
-       
-        
-    reportData   = (UInt8 *)report->getVirtualSegment(0, &segmentSize);
-    reportLength = originalReportLength = report->getLength();
+    UInt8		reportID;
+    IOReturn		ret;
+    UInt8		usbReportType;
+    IOUSBDevRequestDesc requestPB;
     
-    // If there are multiple segments allocate a buffer 
-    // based on the originalReportLength
-    if ( segmentSize != originalReportLength ) {
-        reportData = (UInt8 *)IOMalloc( originalReportLength );
-        if ( reportData == 0 )
-            return kIOReturnNoMemory;
-    }
+    IncrementOutstandingIO();
     
     // Get the reportID from the lower 8 bits of options
-    reportID = (UInt8) options;
+    //
+    reportID = (UInt8) ( options & 0x000000ff);
+
+    // And now save the report type
+    //
+    usbReportType = HIDMgr2USBReportType(reportType);
     
-    ret = GetReport(HIDMgr2USBReportType(reportType), reportID, reportData, &reportLength);
-            
-    // If there were multiple segments,
-    // write reportData to descriptor
-    if ( segmentSize != originalReportLength ) {
-        report->writeBytes(0, reportData, reportLength);
-        
-        IOFree( reportData, originalReportLength );
-    }
-        
+    //--- Fill out device request form
+    //
+    requestPB.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBClass, kUSBInterface);
+    requestPB.bRequest = kHIDRqGetReport;
+    requestPB.wValue = (usbReportType << 8) | reportID;
+    requestPB.wIndex = _interface->GetInterfaceNumber();
+    requestPB.wLength = report->getLength();
+    requestPB.pData = report;
+    requestPB.wLenDone = 0;
+    
+    ret = _device->DeviceRequest(&requestPB);
+    if ( ret != kIOReturnSuccess )
+            USBLog(3, "%s[%p]::getReport request failed; err = 0x%x)", getName(), this, ret);
+           
+    DecrementOutstandingIO();
     return ret;
 }
 
 
+// DEPRECATED
+//
 IOReturn 
 IOUSBHIDDriver::SetReport(UInt8 outReportType, UInt8 outReportID, UInt8 *vOutBuf, UInt32 vOutSize)
 {
-    IOUSBDevRequest requestPB;
-    IOReturn err;
+    return kIOReturnSuccess;
+}
+
+IOReturn 
+IOUSBHIDDriver::setReport( IOMemoryDescriptor * 	report,
+                            IOHIDReportType      	reportType,
+                            IOOptionBits         	options)
+{
+    UInt8		reportID;
+    IOReturn		ret;
+    UInt8		usbReportType;
+    IOUSBDevRequestDesc requestPB;
+    
+    IncrementOutstandingIO();
+    
+    // Get the reportID from the lower 8 bits of options
+    //
+    reportID = (UInt8) ( options & 0x000000ff);
+
+    // And now save the report type
+    //
+    usbReportType = HIDMgr2USBReportType(reportType);
     
     // If we have an interrupt out pipe, try to use it for output type of reports.
-    if (kHIDOutputReport == outReportType && _interruptOutPipe && _outBuffer)
+    if ( kHIDOutputReport == usbReportType && _interruptOutPipe )
     {
-        // Copy data into buffer for Write call.
-        // This is a real shame if we came in through setReport because it originally had a
-        // memory descriptor that we converted to the vOutBuf and which is now being converted 
-        // back to a memory descriptor.
-        _outBuffer->setLength(0);
-        if (_outBuffer->appendBytes(vOutBuf, vOutSize))
-        {
-#if ENABLE_HIDREPORT_LOGGING
-            USBLog(3, "%s[%p]::SetReport sending out interrupt out pipe buffer (%p,%d):", getName(), this, vOutBuf, _outBuffer->getLength() );
-            LogMemReport(_outBuffer);
-#endif
-            err = _interruptOutPipe->Write(_outBuffer);
-            if (err == kIOReturnSuccess)
-            {
-                return err;
-            }
-            else
-            {
-                IOLog("IOUSBHIDDriver::SetReport _interruptOutPipe->Write failed; err = 0x%x)\n", err);
-            }
+        #if ENABLE_HIDREPORT_LOGGING
+            USBLog(3, "%s[%p]::setReport sending out interrupt out pipe buffer (%p,%d):", getName(), this, report, report->getLength() );
+            LogMemReport(report);
+        #endif
+        ret = _interruptOutPipe->Write(report);
+        if (ret == kIOReturnSuccess)
+        {       
+            DecrementOutstandingIO();
+            return ret;
         }
-        // If we did not succeed using the interrupt out pipe, we may still be able to use the control pipe.
+        else
+        {
+            USBLog(3, "%s[%p]::setReport _interruptOutPipe->Write failed; err = 0x%x)", getName(), this, ret);
+        }
     }
-
-#if ENABLE_HIDREPORT_LOGGING
-    USBLog(3, "%s[%p]::SetReport sending out control pipe:", getName(), this);
-    LogBufferReport((char *)vOutBuf, vOutSize);
-#endif
+        
+    // If we did not succeed using the interrupt out pipe, we may still be able to use the control pipe.
+    // We'll let the family check whether it's a disjoint descriptor or not (but right now it doesn't do it)
+    //
+    #if ENABLE_HIDREPORT_LOGGING
+        USBLog(3, "%s[%p]::SetReport sending out control pipe:", getName(), this);
+        LogMemReport( report);
+    #endif
 
     //--- Fill out device request form
     requestPB.bmRequestType = USBmakebmRequestType(kUSBOut, kUSBClass, kUSBInterface);
     requestPB.bRequest = kHIDRqSetReport;
-    requestPB.wValue = (outReportType << 8) | outReportID;
+    requestPB.wValue = (usbReportType << 8) | reportID;
     requestPB.wIndex = _interface->GetInterfaceNumber();
-    requestPB.wLength = vOutSize;
-    requestPB.pData = vOutBuf;
+    requestPB.wLength = report->getLength();
+    requestPB.pData = report;
     requestPB.wLenDone = 0;
     
-    err = _device->DeviceRequest(&requestPB, 5000, 0);
-    if (err != kIOReturnSuccess)
-	    IOLog("IOUSBHIDDriver::SetReport request failed; err = 0x%x)\n", err);
-
-    return err;
-}
-
-IOReturn 
-IOUSBHIDDriver::setReport( IOMemoryDescriptor * report,
-                                IOHIDReportType      reportType,
-                                IOOptionBits         options)
-{
-    UInt8 	*reportData;
-    UInt8	reportID;
-    IOByteCount	reportLength;
-    IOByteCount segmentSize;
-    IOReturn	ret;
-       
+    ret = _device->DeviceRequest(&requestPB);
+    if (ret != kIOReturnSuccess)
+            USBLog(3, "%s[%p]::setReport request failed; err = 0x%x)", getName(), this, ret);
         
-    reportData   = (UInt8 *)report->getVirtualSegment(0, &segmentSize);
-    reportLength = report->getLength();
-    
-    // If there are multiple segments allocate a buffer 
-    // based on the reportLength
-    if ( segmentSize != reportLength ) {    
-        reportData = (UInt8 *)IOMalloc (reportLength);
-        
-        if ( reportData == 0 )
-            return kIOReturnNoMemory;
-
-        report->readBytes( 0, reportData, reportLength );
-    }
-    
-    // Get the reportID from the lower 8 bits of options
-    reportID = (UInt8) options;
-    
-    ret = SetReport(HIDMgr2USBReportType(reportType), reportID, reportData, reportLength);
-        
-    if ( segmentSize != reportLength ) {
-        IOFree( reportData, reportLength );
-    }
-        
+    DecrementOutstandingIO();
     return ret;
 }
 
@@ -883,21 +843,6 @@ IOUSBHIDDriver::start(IOService *provider)
         request.direction = kUSBOut;
         _interruptOutPipe = _interface->FindNextPipe(NULL, &request);
 
-        if(_interruptOutPipe)
-        {
-            // It's not an error if we don't have an interrupt out pipe.
-            _maxOutReportSize = getMaxReportSize();
-            if (_maxOutReportSize)
-            {
-                _outBuffer = IOBufferMemoryDescriptor::withCapacity(_maxOutReportSize, kIODirectionOut);
-				if ( !_outBuffer )
-				{
-					USBError(2, "%s[%p]::start - unable to get create output buffer", getName(), this);
-					_interruptOutPipe = NULL;
-				}
-			}
-        }
-
         request.type = kUSBInterrupt;
         request.direction = kUSBIn;
         _interruptPipe = _interface->FindNextPipe(NULL, &request);
@@ -912,11 +857,11 @@ IOUSBHIDDriver::start(IOService *provider)
         if (_maxReportSize)
         {
             _buffer = IOBufferMemoryDescriptor::withCapacity(_maxReportSize, kIODirectionIn);
-			if ( !_buffer )
-			{
-				USBError(1, "%s[%p]::start - unable to get create buffer", getName(), this);
-				break;
-			}
+            if ( !_buffer )
+            {
+                USBError(1, "%s[%p]::start - unable to get create buffer", getName(), this);
+                break;
+            }
         }
 
 
@@ -1384,49 +1329,22 @@ IOUSBHIDDriver::SetIdleMillisecs(UInt16 msecs)
 
 #if ENABLE_HIDREPORT_LOGGING
 void 
-IOUSBHIDDriver::LogBufferReport(char *report, UInt32 len)
+IOUSBHIDDriver::LogMemReport(IOMemoryDescriptor * reportBuffer)
 {
     IOByteCount reportSize;
     char outBuffer[1024];
+    char in[1024];
     char *out;
-    char *in;
     char inChar;
     
     out = (char *)&outBuffer;
-    in = report;
-	reportSize = len;
+    reportSize = reportBuffer->getLength();
+    reportBuffer->readBytes(0, in, reportSize );
     if (reportSize > 256) reportSize = 256;
     
     for (unsigned int i = 0; i < reportSize; i++)
     {
-        inChar = *in++;
-        *out++ = ' ';
-        *out++ = GetHexChar(inChar >> 4);
-        *out++ = GetHexChar(inChar & 0x0F);
-    }
-    
-    *out = 0;
-    
-    USBLog(6, outBuffer);
-}
-
-void 
-IOUSBHIDDriver::LogMemReport(IOBufferMemoryDescriptor * reportBuffer)
-{
-    IOByteCount reportSize;
-    char outBuffer[1024];
-    char *out;
-    char *in;
-    char inChar;
-    
-    out = (char *)&outBuffer;
-    in = (char *)reportBuffer->getBytesNoCopy();
-	reportSize = reportBuffer->getLength();
-    if (reportSize > 256) reportSize = 256;
-    
-    for (unsigned int i = 0; i < reportSize; i++)
-    {
-        inChar = *in++;
+        inChar = in[i];
         *out++ = ' ';
         *out++ = GetHexChar(inChar >> 4);
         *out++ = GetHexChar(inChar & 0x0F);

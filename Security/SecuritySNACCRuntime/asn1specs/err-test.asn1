@@ -6,7 +6,7 @@
 --
 -- Mike Sample 92/07
 --
--- $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/asn1specs/err-test.asn1,v 1.1.1.1 2001/05/18 23:14:05 mb Exp $
+-- $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/asn1specs/err-test.asn1,v 1.1.1.1 2001/05/18 23:14:05 mb Exp $
 -- $Log: err-test.asn1,v $
 -- Revision 1.1.1.1  2001/05/18 23:14:05  mb
 -- Move from private repository to open source repository

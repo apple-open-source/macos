@@ -123,7 +123,7 @@ msgstr "krb5_sendauth: %s [servidor informa '%*s'] \n"
 
 #: driver.c:1424
 #, c-format
-msgid "\t%d msg %d octets long skipped by fetchmail.\r\n"
+msgid "\t%d msg %d octets long skipped by fetchmail.\n"
 msgstr "\t%d mensagem %d octetos de tamanho pulada pelo fetchmail.\n"
 
 #: driver.c:1491
@@ -157,36 +157,36 @@ msgid "timeout after %d seconds.\n"
 msgstr "tempo esgotado após %d segundos.\n"
 
 #: driver.c:1527
-msgid "Subject: fetchmail sees repeated timeouts\r\n"
+msgid "Subject: fetchmail sees repeated timeouts\n"
 msgstr ""
-"Assunto: o fetchmail tem notado repetidos vencimentos de temporização\r\n"
+"Assunto: o fetchmail tem notado repetidos vencimentos de temporização\n"
 "\n"
 
 #: driver.c:1529
 #, c-format
 msgid ""
 "Fetchmail saw more than %d timeouts while attempting to get mail from "
-"%s@%s.\r\n"
+"%s@%s.\n"
 msgstr ""
 "Fetchmail notou mais que %d vencimentos de temporização enquanto tentava "
-"baixar mensagens de %s@%s.\r\n"
+"baixar mensagens de %s@%s.\n"
 
 #: driver.c:1534
 msgid ""
-"This could mean that your mailserver is stuck, or that your SMTP\r\n"
-"server is wedged, or that your mailbox file on the server has been\r\n"
-"corrupted by a server error.  You can run `fetchmail -v -v' to\r\n"
-"diagnose the problem.\r\n"
-"\r\n"
-"Fetchmail won't poll this mailbox again until you restart it.\r\n"
+"This could mean that your mailserver is stuck, or that your SMTP\n"
+"server is wedged, or that your mailbox file on the server has been\n"
+"corrupted by a server error.  You can run `fetchmail -v -v' to\n"
+"diagnose the problem.\n"
+"\n"
+"Fetchmail won't poll this mailbox again until you restart it.\n"
 msgstr ""
-"Isto pode significar que seu servidor de email está travado, ou\r\n"
-"que seu servidor SMTP está emperrado, ou que seu arquivo de caixa postal\r\n"
-"no servidor foi corrompido por um erro do servidor. Você pode rodar\r\n"
-"`fetchmail -v -v' para diagnosticar o problema.\r\n"
-"\r\n"
+"Isto pode significar que seu servidor de email está travado, ou\n"
+"que seu servidor SMTP está emperrado, ou que seu arquivo de caixa postal\n"
+"no servidor foi corrompido por um erro do servidor. Você pode rodar\n"
+"`fetchmail -v -v' para diagnosticar o problema.\n"
+"\n"
 "Fetchmail não vai consultar mais esta caixa postal até que seja "
-"reiniciado.\r\n"
+"reiniciado.\n"
 
 #: driver.c:1568
 #, c-format
@@ -234,28 +234,28 @@ msgid "Authorization failure on %s@%s\n"
 msgstr "Falha de autorização para %s@%s\n"
 
 #: driver.c:1733
-msgid "Subject: fetchmail authentication failed\r\n"
+msgid "Subject: fetchmail authentication failed\n"
 msgstr ""
-"Assunto: falha de autenticação do fetchmail\r\n"
+"Assunto: falha de autenticação do fetchmail\n"
 "\n"
 
 #: driver.c:1735
 #, c-format
-msgid "Fetchmail could not get mail from %s@%s.\r\n"
+msgid "Fetchmail could not get mail from %s@%s.\n"
 msgstr "O fetchmail não pôde receber o correio eletrônico de %s@%s.\n"
 
 #: driver.c:1739
 msgid ""
-"The attempt to get authorization failed.\r\n"
-"This probably means your password is invalid, but POP3 servers have\r\n"
-"other failure modes that fetchmail cannot distinguish from this\r\n"
-"because they don't send useful error messages on login failure.\r\n"
+"The attempt to get authorization failed.\n"
+"This probably means your password is invalid, but POP3 servers have\n"
+"other failure modes that fetchmail cannot distinguish from this\n"
+"because they don't send useful error messages on login failure.\n"
 msgstr ""
-"A tentativa de obter autorização falhou.\r\n"
-"Isto provavelmente indica que sua senha é inválida, mas servidores POP3\r\n"
+"A tentativa de obter autorização falhou.\n"
+"Isto provavelmente indica que sua senha é inválida, mas servidores POP3\n"
 "possuem outros tipos de falhas que fetchmail não consegue distinguir "
-"desta\r\n"
-"pois eles não enviam mensagens de erro úteis durante a falha no login.\r\n"
+"desta\n"
+"pois eles não enviam mensagens de erro úteis durante a falha no login.\n"
 
 #: driver.c:1748
 #, c-format

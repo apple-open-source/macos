@@ -58,7 +58,7 @@ SecureTransportCore::~SecureTransportCore()
 //
 // Open initiates or continues the SSL handshake.
 // In nonblocking mode, open may return while handshake is still in
-// progress. Keep calling open until state() != errSSLWouldBlock, or
+// Progress. Keep calling open until state() != errSSLWouldBlock, or
 // go directly to I/O.
 //
 void SecureTransportCore::open()
@@ -141,7 +141,7 @@ size_t SecureTransportCore::write(const void *data, size_t length)
 
 //
 // Continue handshake processing if necessary.
-// Returns true if handshake is in progress and not yet complete.
+// Returns true if handshake is in Progress and not yet complete.
 //
 bool SecureTransportCore::continueHandshake()
 {

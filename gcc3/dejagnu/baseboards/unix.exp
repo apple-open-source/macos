@@ -1,0 +1,8 @@
+# The canonical unix board description.
+load_generic_config "unix";
+
+process_multilib_options "";
+
+set_board_info compiler  "[find_gcc]";
+
+set_board_info bmk,use_alarm 1;

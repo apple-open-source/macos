@@ -130,7 +130,9 @@ IOReturn IOFWCommand::submit(bool queue)
 		if(res == kIOReturnSuccess)
 		{
 			res = fSyncWakeup->wait();
+#if 0
 			if (res) IOLog("%s %u: fSyncWakeup->wait returned %x\n", __FILE__, __LINE__, res) ;
+#endif
 		}
 		else
 		{
@@ -744,7 +746,8 @@ IOReturn IOFWReadCommand::execute()
         complete(result);
 		status = fStatus;
 		release();
-	}	
+	}
+		
 	return status;
 }
 

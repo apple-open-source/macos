@@ -90,6 +90,8 @@
 #include <nfs/nfsmount.h>
 #include <nfs/nqnfs.h>
 
+#include <vfs/vfs_journal.h>
+
 #include <mach/mach_types.h>
 
 #include <kern/zalloc.h>
@@ -205,7 +207,8 @@ struct kmzones {
 	0,		KMZ_MALLOC,		/* 88 M_IP6MISC */
 	0,		KMZ_MALLOC,		/* 89 M_TSEGQ */
 	0,		KMZ_MALLOC,		/* 90 M_IGMP */
-
+	SOS(journal),     KMZ_CREATEZONE,     /* 91 M_JNL_JNL */
+	SOS(transaction), KMZ_CREATEZONE,     /* 92 M_JNL_TR */
 #undef	SOS
 #undef	SOX
 };
@@ -218,6 +221,11 @@ void
 kmeminit(void)
 {
 	struct kmzones	*kmz;
+
+	if ((sizeof(kmzones)/sizeof(kmzones[0])) != (sizeof(memname)/sizeof(memname[0]))) {
+		panic("kmeminit: kmzones has %d elements but memname has %d\n",
+			  (sizeof(kmzones)/sizeof(kmzones[0])), (sizeof(memname)/sizeof(memname[0])));
+	}
 
 	kmz = kmzones;
 	while (kmz < &kmzones[M_LAST]) {

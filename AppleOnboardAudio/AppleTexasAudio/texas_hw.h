@@ -95,7 +95,7 @@ static UInt8	kBassRegValues[] = {
 };
 #endif
 
-//#define kUSE_DRC		//	when defined, enable DRC at -30.0 dB
+//#define kUSE_DRC		/*	when defined, enable DRC at -30.0 dB	*/
 
 static UInt32	volumeTable[] = {					// db = 20 LOG(x) but we just use table. from 0.0 to -70 db
 	0x00000000,														// -infinity
@@ -415,7 +415,6 @@ enum {
 #define kVideoPropertyEntry			"video"
 #define kOneWireBus					"one-wire-bus"
 
-#define kGPIODTEntry				"gpio"
 #define kI2CDTEntry					"i2c"
 #define kDigitalEQDTEntry			"deq"
 #define kSoundEntry					"sound"
@@ -424,7 +423,6 @@ enum {
 #define kDeviceID					"device-id"
 #define kSpeakerID					"speaker-id"
 #define kCompatible					"compatible"
-#define kAAPLAddress				"AAPL,address"
 #define kI2CAddress					"i2c-address"
 #define kAudioGPIO					"audio-gpio"
 #define kAudioGPIOActiveState		"audio-gpio-active-state"

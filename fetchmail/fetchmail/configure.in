@@ -40,7 +40,6 @@ AC_PROG_YACC
 AC_SUBST(CPFLAGS)
 AC_SUBST(CEFLAGS)
 AC_SUBST(LDEFLAGS)
-AC_SUBST(LIBOBJS)
 
 # Check for LynxOS special case: -lbsd needed (at least on 2.3.0) and -s
 # not working.
@@ -68,7 +67,7 @@ then
 fi
  
 dnl i18n
-ALL_LINGUAS="cs da de es fr gl pl pt_BR tr"
+ALL_LINGUAS="ca cs da de es fr gl ja pl pt_BR tr"
 AM_GNU_GETTEXT
 dnl end i18n
 
@@ -222,10 +221,33 @@ AC_DEFINE_UNQUOTED(PID_DIR, "$dir")
 #
 # Note2: it would be a very bad idea to use any MDA that doesn't return
 # a refuse-to-deliver status on disk- or process-table-full
-# conditions; mail could get lost that way.  Both procmail and
-# sendmail (and all of the MDAs like exim that might be lurking under
-# a sendmail alias) do the right thing in this circumstance.
+# conditions; mail could get lost that way.  Sendmail and all of the MDAs
+# like exim that might be lurking under a sendmail alias) do the right 
+# thing in this circumstance.  Matthias Andree warns that procmail does
+# not.  
 #
+# Note3: Defalt value of fallback is now off.  Matthias writes:
+#
+# 1. there is no way to predict when the fallback is used. With some MTAs
+#    (such as those limiting load average), outer circumstances can cause
+#    the fallback to kick in.
+# 
+# 2. the fallback changes fetchmail behaviour in unpredictable ways. It's
+#    not only about alias expansion, .forwards to special filters won't
+#    work, mail may end up in a different place (users claim "mail loss"
+#    for that).
+# 
+# 3. The claim procmail did the right thing with its exit codes is plain
+#    wrong. I've seen procmail exit with code 1 when it should have exited
+#    with code 75, like, configuration errors. Procmail is a dangerous
+#    beast and is best replaced by maildrop.
+# 
+# 4. if multiple choices exist (like procmail and maildrop), fetchmail
+#    cannot tell which one it should choose. Say, your MTA is configured
+#    to use maildrop to deliver to user's mailboxes, if fetchmail then
+#    chooses procmail, this is plain wrong.
+#
+
 AC_PATH_PROG(procmail, procmail, "", $PATH:/usr/sbin)
 AC_PATH_PROG(sendmail, sendmail, "", $PATH:/usr/sbin:/usr/lib)
 AC_PATH_PROG(maildrop, maildrop, "", $PATH:/usr/local/bin)
@@ -234,17 +256,17 @@ AC_PATH_PROG(maildrop, maildrop, "", $PATH:/usr/local/bin)
 ###	use option --enable-fallback=procmail or 
 ###		   --enable-fallback=sendmail to select
 AC_ARG_ENABLE(fallback,
-	[  --enable-fallback=procmail    enable procmail as fallback (default)
+	[  --enable-fallback=procmail    enable procmail as fallback
   --enable-fallback=sendmail    enable /usr/sbin/sendmail as fallback
   --enable-fallback=maildrop    enable maildrop as fallback
-  --enable-fallback=no          disable fallback],,[enable_fallback=auto])
+  --enable-fallback=no          disable fallback],,[enable_fallback=no])
 
 case "$enable_fallback" in
 	sendmail)	if test -z "$sendmail" ; then 
 				AC_ERROR([Sendmail selected as fallback, but not found])
 				#not reached
 			fi
-			AC_DEFINE_UNQUOTED(FALLBACK_MDA, "$sendmail %T")
+			AC_DEFINE_UNQUOTED(FALLBACK_MDA, "$sendmail -i %T")
 			echo "Will use $sendmail as fallback MDA."
 			;;
 	procmail)	if test -z "$procmail" ; then
@@ -263,13 +285,12 @@ case "$enable_fallback" in
 			;;
 	no|unset)	echo "Will not use a fallback MDA"
 			;;
-	auto|yes|set)	if test -n "$procmail" ; then
-				AC_DEFINE_UNQUOTED(FALLBACK_MDA,"$procmail -d %T")
-				echo "Will use $procmail as fallback MDA."
-			elif test -n "$sendmail" ; then
-				AC_DEFINE_UNQUOTED(FALLBACK_MDA,"$sendmail %T")
+	auto|yes|set)	if test -n "$sendmail" ; then
+				AC_DEFINE_UNQUOTED(FALLBACK_MDA,"$sendmail -i %T")
 				echo "Will use $sendmail as fallback MDA."
-			else	echo "No fallback MDA available."
+			else
+				echo "No fallback MDA available. procmail and maildrop are not eligible"
+				echo "for automatic fallback MDA configuration for reliability reasons."
 			fi
 			;;
 	*)		AC_ERROR([unkown value for --enable-fallback given: $enable_fallback])
@@ -411,7 +432,7 @@ then
   AC_DEFINE(HEIMDAL)
   AC_DEFINE(KERBEROS_V5)
   CEFLAGS="$CEFLAGS -I/usr/include/kerberosV"
-  LIBS="$LIBS -lasn1 -lkrb5 -lcom_err"
+  LIBS="$LIBS -lasn1 -lkrb5 -lcom_err -lkafs"
 else
   if test "$with_kerberos5" != "yes" 
   then
@@ -553,6 +574,7 @@ then
     for ac_dir in \
       /usr/local/ssl \
       /usr/ssl \
+      /usr \
       /local/ssl \
       /opt/ssl \
       ; \
@@ -645,7 +667,7 @@ x)
     do
       if test -f "$dir/include/hesiod.h"
       then
-        CEFLAGS="$CEFLAGS -DHESIOD -I$dir/include"
+        test "$dir" != "/usr" && CEFLAGS="$CEFLAGS -DHESIOD -I$dir/include"
         LDEFLAGS="$LDEFLAGS -L$dir/lib"
         LIBS="$LIBS -lhesiod"
         with_hesiod=$dir

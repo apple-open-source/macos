@@ -68,6 +68,8 @@ struct mxentry *getmxrecords(const char *name)
     n = res_search(name, C_IN,T_MX, (unsigned char *)&answer, sizeof(answer));
     if (n == -1)
 	return((struct mxentry *)NULL);
+    if (n > sizeof(answer))
+	n = sizeof(answer);    	
 
     hp = (HEADER *)&answer;
     cp = answer + HFIXEDSZ;

@@ -766,3 +766,37 @@ This file describes the changes to xinetd. The base version is 2.0.0.
 	Make sure we byteswap the value returned by time services.
 	Fix an omission with the tcpmux integration.
 	Fixed a race when there's 1 service configured and it is a wait service.
+devel
+	Close the service descriptors on fork.  This only matters for internal
+		forking services, since anything that calls exec() will get
+		those closed automagically.  This will help reduce the file
+		discriptors used by the daemon when using some internal services
+	Fix a numbering bug with xinetd's internal flag representation that
+		was manifesting its self as all services being disabled upon
+		recieving a SIGUSR2 (hard reconfig)
+	Don't pass a hostname to dns registration calls, it'll pick a hostname
+		automagically.
+	Remove CLEANUP and other dead code.
+	Make sure tcp internal non-forking services close their filedescriptors.
+	Added syslog facilities for the xinetd log configuration to match SUS.
+		- Steve Grubb
+	Start reporting the Per Source value when dumping debugging output
+		- Steve Grubb
+	Correct the fake-getnameinfo.h to include appropriate macros.
+		- Steve Grubb
+	Up the default CPS value to 50 from 10.
+	Document the default CPS values in the xinetd.conf man page.
+	Fix a closing of the connection when there's an error handling the 
+		service.  - Steve Grubb
+	Fixed a bug in the includedir path where a reference was kept to
+		free()'d memory.
+	Fixed a bug in the consistency check mechanism where it would
+		report the signal pipe as a problem.
+	Clear memory before freeing it.  This isn't strictly necissary,
+		but aids in debugging.
+	Add the pid to debugging messages.
+	Remove access control calls for special services.  The access control
+		functions must always allow these services anyway.
+	Fixed a bug with reconfiguring services using the interface attribute.
+		-- Adam Lukosek
+	Fixed a bug with deallocating dns registrations.

@@ -28,7 +28,7 @@
  *
  */
 
-#import "IOFireWireLib.h"
+#import <IOKit/firewire/IOFireWireLib.h>
 
 namespace IOFireWireLib {
 

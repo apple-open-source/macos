@@ -696,7 +696,7 @@ void AppleTPSession::SubmitCredRequest(
 		/* create signature context */		
 		ourRtn = CSSM_CSP_CreateSignatureContext(certReq->cspHand,
 				certReq->signatureAlg,
-				NULL,			// AccessCred
+				(CallerAuthContext ? CallerAuthContext->CallerCredentials : NULL),
 				certReq->issuerPrivateKey,
 				&sigContext);
 		if(ourRtn) {

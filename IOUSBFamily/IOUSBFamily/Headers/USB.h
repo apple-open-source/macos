@@ -250,8 +250,6 @@ typedef struct IOUSBLowLatencyIsocCompletion {
     void *				parameter;
 } IOUSBLowLatencyIsocCompletion;
 
-typedef struct IOUSBLowLatencyIsocCompletion IOUSBLowLatencyIsocCompletion;
-
 /* ************* USB Family error codes ************* */
 
 #define	iokit_usb_err(return) (sys_iokit|sub_iokit_usb|return)
@@ -676,7 +674,7 @@ struct LowLatencyUserBufferInfo {
     void *			bufferAddress;
     IOByteCount			bufferSize;
     UInt32			bufferType;
-    bool			isPrepared;
+    Boolean			isPrepared;
     LowLatencyUserBufferInfo *	nextBuffer;
 };
 

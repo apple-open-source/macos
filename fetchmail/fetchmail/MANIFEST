@@ -33,6 +33,8 @@ contrib/maildaemon
 contrib/mailqueue.pl
 contrib/multidrop
 contrib/novell
+contrib/PopDel.manual
+contrib/PopDel.py
 contrib/poptest
 contrib/preauth-harness
 contrib/RCS
@@ -76,7 +78,6 @@ ipv6-connect.c
 kerberos.c
 kerberos.h
 lock.c
-lsmgen.py
 Makefile.in
 MANIFEST
 md5c.c
@@ -95,6 +96,8 @@ ntlm.h
 odmr.c
 opie.c
 options.c
+po/ca.gmo
+po/ca.po
 po/cat-id-tbl.c
 po/cs.gmo
 po/cs.po
@@ -104,11 +107,13 @@ po/de.gmo
 po/de.po
 po/es.gmo
 po/es.po
+po/fetchmail.diff
 po/fetchmail.pot
 po/fr.gmo
 po/fr.po
 po/gl.gmo
 po/gl.po
+po/ja.gmo
 po/ja.po
 po/Makefile.in.in
 pop2.c

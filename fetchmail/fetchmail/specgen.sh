@@ -5,7 +5,7 @@ Version:	$1
 Release:	1
 Vendor:		Eric Conspiracy Secret Labs
 Packager:	Eric S. Raymond <esr@thyrsus.com>
-URL:		http://www.tuxedo.org/~esr/fetchmail
+URL:		http://www.tuxedo.org/~esr/fetchmail/
 Source:         %{name}-%{version}.tar.gz
 Group:		Applications/Mail
 Group(pt_BR):   Aplicações/Correio Eletrônico
@@ -117,7 +117,7 @@ GUI konfigurator do fetchmaila napisany w pythonie.
 %build
 LDFLAGS="-s"
 export CFLAGS LDFLAGS
-./configure --prefix=/usr --disable-nls --without-kerberos --mandir=%{_mandir} 
+./configure --prefix=/usr --disable-nls --without-kerberos --mandir=%{_mandir} --with-ssl --enable-inet6
                          # Remove --disable-nls, add --without-included-gettext
                          # for internationalization. Also look below.
 make

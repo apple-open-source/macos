@@ -40,7 +40,7 @@
 #include "fetchmail.h"
 #include "i18n.h"
 
-/* Defines to allow BeOS to play nice... */
+/* Defines to allow BeOS and Cygwin to play nice... */
 #ifdef __BEOS__
 static char peeked;
 #define fm_close(a)  closesocket(a)
@@ -51,7 +51,12 @@ static char peeked;
 #define fm_close(a)  close(a)
 #define fm_write(a,b,c)  write(a,b,c)
 #define fm_peek(a,b,c)   recv(a,b,c, MSG_PEEK)
+#ifdef __CYGWIN__
+#define fm_read(a,b,c)   cygwin_read(a,b,c)
+static ssize_t cygwin_read(int sock, void *buf, size_t count);
+#else /* ! __CYGWIN__ */
 #define fm_read(a,b,c)   read(a,b,c)
+#endif /* __CYGWIN__ */
 #endif
 
 /* We need to define h_errno only if it is not already */
@@ -520,10 +525,8 @@ int SockWrite(int sock, char *buf, int len)
 	if( NULL != ( ssl = SSLGetContext( sock ) ) )
 		n = SSL_write(ssl, buf, len);
 	else
-       	n = fm_write(sock, buf, len);
-#else
-        n = fm_write(sock, buf, len);
-#endif
+#endif /* SSL_ENABLE */
+	    n = fm_write(sock, buf, len);
         if (n <= 0)
             return -1;
         len -= n;
@@ -608,29 +611,24 @@ int SockRead(int sock, char *buf, int len)
 				out of the loop now */
 			newline = bp;
 		}
-	} else {
-		if ((n = fm_peek(sock, bp, len)) <= 0)
-			return(-1);
-		if ((newline = memchr(bp, '\n', n)) != NULL)
-			n = newline - bp + 1;
-		if ((n = fm_read(sock, bp, n)) == -1)
-			return(-1);
 	}
-#else
+	else
+#endif /* SSL_ENABLE */
+	{
 
 #ifdef __BEOS__
-    if ((n = fm_read(sock, bp, 1)) <= 0)
+	    if ((n = fm_read(sock, bp, 1)) <= 0)
 #else
-    if ((n = fm_peek(sock, bp, len)) <= 0)
+	    if ((n = fm_peek(sock, bp, len)) <= 0)
 #endif
-        return (-1);
-	if ((newline = memchr(bp, '\n', n)) != NULL)
-	    n = newline - bp + 1;
+		return (-1);
+	    if ((newline = memchr(bp, '\n', n)) != NULL)
+		n = newline - bp + 1;
 #ifndef __BEOS__
-	if ((n = fm_read(sock, bp, n)) == -1)
-	    return(-1);
+	    if ((n = fm_read(sock, bp, n)) == -1)
+		return(-1);
 #endif /* __BEOS__ */
-#endif
+	}
 	bp += n;
 	len -= n;
     } while 
@@ -676,14 +674,10 @@ int SockPeek(int sock)
 
 			return 0;	/* Give him a '\0' character */
 		}
-	} else {
-    		n = fm_peek(sock, &ch, 1);
 	}
-#else
-
-        n = fm_peek(sock, &ch, 1);
-
+	else
 #endif /* SSL_ENABLE */
+	    n = fm_peek(sock, &ch, 1);
 	if (n == -1)
 		return -1;
 
@@ -997,6 +991,33 @@ int SockClose(int sock)
     /* if there's an error closing at this point, not much we can do */
     return(fm_close(sock));	/* this is guarded */
 }
+
+#ifdef __CYGWIN__
+/*
+ * Workaround Microsoft Winsock recv/WSARecv(..., MSG_PEEK) bug.
+ * See http://sources.redhat.com/ml/cygwin/2001-08/msg00628.html
+ * for more details.
+ */
+static ssize_t cygwin_read(int sock, void *buf, size_t count)
+{
+    char *bp = buf;
+    int n = 0;
+
+    if ((n = read(sock, bp, count)) == -1)
+	return(-1);
+
+    if (n != count) {
+	int n2 = 0;
+	if (outlevel >= O_VERBOSE)
+	    report(stdout, GT_("Cygwin socket read retry\n"));
+	n2 = read(sock, bp + n, count - n);
+	if (n2 == -1 || n + n2 != count) {
+	    report(stderr, GT_("Cygwin socket read retry failed!\n"));
+	    return(-1);
+	}
+    }
+}
+#endif /* __CYGWIN__ */
 
 #ifdef MAIN
 /*

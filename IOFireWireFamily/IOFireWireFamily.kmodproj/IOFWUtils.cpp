@@ -27,10 +27,14 @@
  *
  * Useful stuff called from several different FireWire objects.
  */
+ 
+// public
+#import <IOKit/firewire/IOFireWireFamilyCommon.h>
+#import <IOKit/firewire/IOFWUtils.h>
+
+// system
 #import <IOKit/assert.h>
 #import <IOKit/IOLib.h>
-#import <IOKit/firewire/IOFireWireFamilyCommon.h>
-#import "IOFWUtils.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 //

@@ -43,29 +43,31 @@ CFTypeID SecKeyGetTypeID(void);
 /*!
 	@function SecKeyCreatePair
 	@abstract Creates an asymmetric key pair and stores it in the keychain specified by the keychain parameter.
-	@param keychain A reference to the keychain in which to store the private and public key items. Specify NULL for the default keychain.
-    @param algorithm An algorithm for the key pair.
-    @param keySizeInBits A key size for the key pair.
-    @param publicKeyUsage A bit mask indicating all permitted uses for the new public key. The bit mask values are defined in cssmtype.h
+	@param keychainRef A reference to the keychain in which to store the private and public key items. Specify NULL for the default keychain.
+    @param algorithm An algorithm for the key pair.  This parameter is ignored if contextHandle is non 0.
+    @param keySizeInBits A key size for the key pair.  This parameter is ignored if contextHandle is non 0.
+	@param contextHandle An optional CSSM_CC_HANDLE or 0.  If this argument is not 0 the algorithm and keySizeInBits parameters are ignored.  If extra parameters are need to generate a key (some algortihms require this) you should create a context using CSSM_CSP_CreateKeyGenContext(), using the CSPHandle obtained by calling SecKeychainGetCSPHandle(). Then use CSSM_UpdateContextAttributes() to add additional parameters and dispose of the context using CSSM_DeleteContext after calling this function.
+	@param publicKeyUsage A bit mask indicating all permitted uses for the new public key. The bit mask values are defined in cssmtype.h
     @param publicKeyAttr A bit mask defining attribute values for the new public key. The bit mask values are equivalent to a CSSM_KEYATTR_FLAGS and are defined in cssmtype.h
-    @param publicKey A pointer to the keychain item reference of the new public key. Use the SecKeyGetCSSMKey function to obtain the CSSM_KEY. The public key item must be of class type kSecAppleKeyItemClass.
     @param privateKeyUsage A bit mask indicating all permitted uses for the new private key. The bit mask values are defined in cssmtype.h
     @param privateKeyAttr A bit mask defining attribute values for the new private key. The bit mask values are equivalent to a CSSM_KEYATTR_FLAGS and are defined in cssmtype.h
-    @param privateKey A pointer to the keychain item reference of the new private key. Use the SecKeyGetCSSMKey function to obtain the CSSM_KEY. The private key item must be of class type kSecAppleKeyItemClass.
-    @param initialAccess A reference to an initial access to use for each of the keys returned.
+    @param initialAccess A SecAccess object that determines the initial access rights to the private key.  The public key is given an any/any acl by default.
+    @param publicKey Optional output pointer to the keychain item reference of the imported public key. Use the SecKeyGetCSSMKey function to obtain the CSSM_KEY. The caller must call CFRelease on this value if it is returned.
+    @param privateKey Optional output pointer to the keychain item reference of the imported private key. Use the SecKeyGetCSSMKey function to obtain the CSSM_KEY. The caller must call CFRelease on this value if it is returned.
 	@result A result code.  See "Security Error Codes" (SecBase.h).
 */
 OSStatus SecKeyCreatePair(
-        SecKeychainRef keychain,
+        SecKeychainRef keychainRef,
         CSSM_ALGORITHMS algorithm,
         uint32 keySizeInBits,
-        CSSM_KEYUSE publicKeyUsage, 
-        uint32 publicKeyAttr, 
+        CSSM_CC_HANDLE contextHandle,
+        CSSM_KEYUSE publicKeyUsage,
+        uint32 publicKeyAttr,
+        CSSM_KEYUSE privateKeyUsage,
+        uint32 privateKeyAttr,
+        SecAccessRef initialAccess,
         SecKeyRef* publicKey, 
-        CSSM_KEYUSE privateKeyUsage, 
-        uint32 privateKeyAttr, 
-        SecKeyRef* privateKey,
-        SecAccessRef initialAccess);
+        SecKeyRef* privateKey);
 
 /*!
 	@function SecKeyGetCSSMKey

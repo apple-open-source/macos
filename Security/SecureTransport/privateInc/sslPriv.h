@@ -21,7 +21,7 @@
 
 	Contains:	Misc. private SSL typedefs
 
-	Written by:	Doug Mitchell, based on Netscape SSLRef 3.0
+	Written by:	Doug Mitchell
 
 	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
 
@@ -32,6 +32,7 @@
 
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
 #include "sslBuildFlags.h"
+#include "SecureTransportPriv.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -84,17 +85,6 @@ typedef enum
  * following typedef.
  */
 typedef struct SSLContext SSLContext;
-
-/*
- * Some hard-coded constants. 
- */
-
-/* The size of of client- and server-generated random numbers in hello messages. */
-#define SSL_CLIENT_SRVR_RAND_SIZE		32
-
-/* The size of the pre-master and master secrets. */
-#define SSL_RSA_PREMASTER_SECRET_SIZE	48
-#define SSL_MASTER_SECRET_SIZE			48
 
 #ifdef __cplusplus
 }

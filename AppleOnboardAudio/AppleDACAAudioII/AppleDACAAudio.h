@@ -23,13 +23,6 @@
 #include "AudioHardwareDetect.h"
 #include "AudioI2SControl.h"
 
-// In debug mode we may wish to step trough the INLINEd methods, so:
-#ifdef DEBUGMODE
-#define INLINE
-#else
-#define INLINE	inline
-#endif
-
 // declare a class for our driver.  This is based from AppleOnboardAudio
 
 class AppleDACAAudio : public AppleOnboardAudio
@@ -41,21 +34,31 @@ class AppleDACAAudio : public AppleOnboardAudio
     friend class AudioHardwareMux;
 
 protected:
-    bool	mCanPollStatus;			// set if we can look at the detects
+	SInt32				minVolume;					//	[3046950]
+	SInt32				maxVolume;					//	[3046950]
+    bool				mCanPollStatus;				// set if we can look at the detects
+	Boolean				useMasterVolumeControl;		//	[3046950]
+	UInt32				lastLeftVol;				//	[3046950]
+	UInt32				lastRightVol;				//	[3046950]
+	ClockSource			clockSource;				//	[] moved to member variable to share with SetPowerState
+	UInt32				sclkDivisor;				//	[] moved to member variable to share with SetPowerState
+	UInt32				mclkDivisor;				//	[] moved to member variable to share with SetPowerState
+	UInt32				dataFormat;					//	[3060321]	rbm	2 Oct 2002
 
     // Hardware register manipulation
-    virtual void 	sndHWInitialize(IOService *provider) ;
-	virtual void	sndHWPostDMAEngineInit (IOService *provider);
+    virtual void 		sndHWInitialize(IOService *provider) ;
+	virtual void		sndHWPostDMAEngineInit (IOService *provider);
 
-    virtual UInt32 	sndHWGetInSenseBits(void) ;
-    virtual UInt32 	sndHWGetRegister(UInt32 regNum) ;
+    virtual UInt32 		sndHWGetInSenseBits(void) ;
+    virtual UInt32 		sndHWGetRegister(UInt32 regNum) ;
     virtual IOReturn   	sndHWSetRegister(UInt32 regNum, UInt32 value) ;
 
     // IO activation functions
-    virtual  UInt32	sndHWGetActiveOutputExclusive(void);
+    virtual  UInt32		sndHWGetActiveOutputExclusive(void);
     virtual  IOReturn   sndHWSetActiveOutputExclusive(UInt32 outputPort );
     virtual  UInt32 	sndHWGetActiveInputExclusive(void);
     virtual  IOReturn   sndHWSetActiveInputExclusive(UInt32 input );
+			IOReturn	AdjustControls (void);			// [3046950]
     
     // control functions
     virtual  bool   	sndHWGetSystemMute(void);
@@ -67,10 +70,10 @@ protected:
    
 
     // Identification
-    virtual UInt32 	sndHWGetType( void );
-    virtual UInt32	sndHWGetManufacturer( void );
+    virtual UInt32 		sndHWGetType( void );
+    virtual UInt32		sndHWGetManufacturer( void );
 
-			// User Client calls
+	// User Client calls
 	virtual UInt8		readGPIO (UInt32 selector) {return 0;}
 	virtual void		writeGPIO (UInt32 selector, UInt8 data) {return;}
 	virtual Boolean		getGPIOActiveState (UInt32 gpioSelector) {return 0;}
@@ -95,23 +98,23 @@ protected:
 
 public:
     // Classic Unix driver functions
-    virtual bool init(OSDictionary *properties);
-    virtual void free();
+    virtual bool		init(OSDictionary *properties);
+    virtual void		free();
 
-    virtual IOService* probe(IOService *provider, SInt32*);
+    virtual IOService*	probe(IOService *provider, SInt32*);
 
     // IOAudioDevice subclass
-    virtual bool initHardware(IOService *provider);
+    virtual bool 		initHardware(IOService *provider);
             
     // Turn detects on and off
-    virtual void setDeviceDetectionActive();
-    virtual void setDeviceDetectionInActive();
+    virtual void 		setDeviceDetectionActive();
+    virtual void 		setDeviceDetectionInActive();
 
     //Power Management
     virtual  IOReturn   sndHWSetPowerState(IOAudioDevicePowerState theState);
     
     // 
-    virtual  UInt32	sndHWGetConnectedDevices(void);
+    virtual  UInt32		sndHWGetConnectedDevices(void);
     virtual  UInt32 	sndHWGetProgOutput();
     virtual  IOReturn   sndHWSetProgOutput(UInt32 outputBits);
 
@@ -127,9 +130,18 @@ private:
 
     const OSSymbol *		fAppleAudioVideoJackStateKey;
     
-    bool					fHeadphonesInserted;		// true if headphones (or speakers) are inserted in the jack
-    UInt8					fActiveInput;			// used to store the currently selected input
-    AudioI2SControl *		myAudioI2SControl;    	// this class is an abstraction for i2s services
+    bool					fHeadphonesInserted;			// true if headphones (or speakers) are inserted in the jack
+    UInt8					fActiveInput;					// used to store the currently selected input
+    AudioI2SControl *		myAudioI2SControl;    			// this class is an abstraction for i2s services
+
+	void					*soundConfigSpace;				//	[3060321]	address of sound config space
+    void					*ioBaseAddress;					//	[3060321]	base address of our I/O controller
+	IODeviceMemory			*ioBaseAddressMemory;			//	[3060321]	Have to free this in free()
+	UInt8					*ioConfigurationBaseAddress;	//	[3060321]	base address for the configuration registers
+	
+	IODeviceMemory			*headphoneDetectRegMem;			//	[3060321]	Have to free this in free()
+	UInt8					*headphoneDetectGPIO;			//	[3060321]	
+	IOService *				ourProvider;					//	[3060321]
 
       
     // Remember the provider
@@ -144,24 +156,25 @@ private:
     PPCI2CInterface *		interface;
 
     // private routines for accessing i2c
-    bool findAndAttachI2C( IOService *provider ) ;
-    bool detachFromI2C(  IOService* /*provider*/) ;
-    UInt32 getI2CPort( void ) ;
-    bool openI2C( void ) ;
-    void closeI2C( void ) ;
+    bool					findAndAttachI2C( IOService *provider ) ;
+    bool					detachFromI2C(  IOService* /*provider*/) ;
+    UInt32					getI2CPort( void ) ;
+    bool					openI2C( void ) ;
+    void					closeI2C( void ) ;
 
 
     // private utility methods
-    bool dependentSetup(void) ;		// final daca specific setup
-    UInt32 frameRate(UInt32 index) ;
-    bool setDACASampleRate( UInt rate ) ;
-    bool writeRegisterBits( UInt8 subAddress,  UInt32 bitMaskOn,  UInt32 bitMaskOff) ;
+    bool					dependentSetup(void) ;		// final daca specific setup
+    UInt32					frameRate(UInt32 index) ;
+    bool					setDACASampleRate( UInt rate ) ;
+    bool					writeRegisterBits( UInt8 subAddress,  UInt32 bitMaskOn,  UInt32 bitMaskOff) ;
+	IORegistryEntry *		FindEntryByProperty (const IORegistryEntry * start, const char * key, const char * value);
     
     // These will probably change when we have a general method
     // to verify the Detects.  Wait til we figure out how to do 
     // this with interrupts and then make that generic.
-    virtual void checkStatus(bool force);
-    static void timerCallback(OSObject *target, IOAudioDevice *device);
+    virtual void			checkStatus(bool force);
+    static void				timerCallback(OSObject *target, IOAudioDevice *device);
     
     // Routines for setting registers.  If you look at the old driver you'll see that the write register
     // routine had 3 params: register, bits on, bits off.  The register is is the register to write to.
@@ -195,8 +208,6 @@ private:
         
         // place contents of reg into temp value
         newValue = analogVolumeReg ;
-//		newValue &= ~(mask & 0x0000FFFF);
-//		newValue |= value & 0x0000FFFF;
         
         // zero values specified by the mask, leaving the rest of the register intact
         newValue &= ~mask ;
@@ -206,7 +217,7 @@ private:
 
         // set the value of the shadow register
         analogVolumeReg = newValue ;
-        
+
         return newValue ;
     } 
     
@@ -237,6 +248,7 @@ private:
     
     inline UInt8 setBitsGCFGShadowReg(UInt8 value, UInt8 mask) 
     {
+#if 0	//	{
         // NOTE: this does not write the shadow reg to the part, it just
         // updates the shadow reg to the requested value.  You need to 
         // write this to the DACA part when you are done.
@@ -258,7 +270,12 @@ private:
 
         // set the value of the shadow register
         configurationReg = newValue ;
-
+#else	//	}{
+		UInt8	newValue;
+		newValue = configurationReg & ~mask;
+		newValue |= ( value & mask );
+		configurationReg = newValue;
+#endif
         return newValue ;
     } 
     

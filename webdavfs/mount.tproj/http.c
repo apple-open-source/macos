@@ -130,6 +130,32 @@ time_t parse_http_date(char *datestring);
 
 /*****************************************************************************/
 
+/*
+ *	check_connection determines if http_socket_reconnect needs to be called
+ *	before sendmsg is used.
+ */
+int needs_reconnect_before_write(int fd)
+{
+	fd_set			readset;
+	struct timeval	timeout;
+	
+	/* initialize the read fs_set */
+	FD_ZERO(&readset);
+	FD_SET(fd, &readset);
+	/* poll mode (no wait) */
+	bzero(&timeout, sizeof(timeout));
+	
+	/* If select returns non-zero result, then http_socket_reconnect needs
+	 * to be called. A negative result is an error from select; a positive
+	 * result means that the fd is ready for reading. Since the socket should
+	 * never be ready for reading before write to it, this always means we
+	 * need to reconnect.
+	 */
+	return ( select(fd + 1, &readset, NULL, NULL, &timeout) != 0 );
+}
+
+/*****************************************************************************/
+
 int http_socket_reconnect(int *a_socket, int use_connect, int hangup)
 {
 #ifdef NOT_YET
@@ -160,13 +186,6 @@ int http_socket_reconnect(int *a_socket, int use_connect, int hangup)
 
 	if (*a_socket >= 0)
 	{
-		struct linger	lingerval;
-		
-		/* disgard the send and receive buffers on reconnect close */
-		lingerval.l_onoff = 1;
-		lingerval.l_linger = 0;
-		(void)setsockopt(*a_socket, SOL_SOCKET, SO_LINGER, &lingerval, sizeof(lingerval));
-		
 		/* close the socket */
 		(void)close(*a_socket);
 	}
@@ -580,7 +599,7 @@ retry:
 	addstr(iov, n, "\r\n");
 
 	/* open the socket if needed */
-	if (*(fs->fs_socketptr) < 0)
+	if ( (*(fs->fs_socketptr) < 0) || needs_reconnect_before_write(*(fs->fs_socketptr)) )
 	{
 		if (http_socket_reconnect(fs->fs_socketptr, fs->fs_use_connect, 0))
 		{
@@ -2148,7 +2167,7 @@ int http_get_body(struct fetch_state *fs, struct iovec *iov, int iovlen,
 	msg.msg_iovlen = iovlen;
 
 	/* open the socket if needed */
-	if (*(fs->fs_socketptr) < 0)
+	if ( (*(fs->fs_socketptr) < 0) || needs_reconnect_before_write(*(fs->fs_socketptr)) )
 	{
 		if (http_socket_reconnect(fs->fs_socketptr, fs->fs_use_connect, 0))
 		{
@@ -4548,6 +4567,20 @@ reconnect:
 		{
 			if (myreturn == EAUTH)
 			{
+				/* read the body (if any) before retrying with authentication */
+				if ((total_length != -1) || chunked)
+				{
+					(void) http_clean_socket(fs->fs_socketptr, total_length, chunked);
+				}
+				
+				/* Ok now set up to reread the file since we will be
+				* retrying */
+				if (local != -1)
+				{
+					(void)lseek(local, 0, SEEK_SET);
+				}
+				bytes_written = 0;
+				
 				myreturn = 0;
 				goto retry;
 			}
@@ -4699,6 +4732,12 @@ reconnect:
 	{
 		if (status == EAUTH)
 		{
+			/* read the body (if any) before retrying with authentication */
+			if ((total_length != -1) || chunked)
+			{
+				(void) http_clean_socket(fs->fs_socketptr, total_length, chunked);
+			}
+			
 			goto retry;
 		}
 		else if (status != EACCES)

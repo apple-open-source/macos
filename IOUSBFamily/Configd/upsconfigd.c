@@ -80,15 +80,14 @@ OSStatus	USBPowerGetCapacityLimits (USBReference inReference, UInt32 *warningLev
     #include <SystemConfiguration/SCPrivate.h>
 #endif
 
-#include <Kernel/IOKit/hidsystem/IOHIDUsageTables.h>
-
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOMessage.h>
 #include <IOKit/IOCFPlugIn.h>
 #include <IOKit/hid/IOHIDKeys.h>
 #include <IOKit/hid/IOHIDLib.h>
-#include <IOKit/usb/IOUSBLib.h>
+#include <IOKit/hid/IOHIDUsageTables.h>
 #include <IOKit/ps/IOPSKeys.h>
+#include <IOKit/usb/IOUSBLib.h>
 
 //================================================================================================
 //   Typedefs and Defines
@@ -131,27 +130,6 @@ typedef struct UPSDeviceData {
     UPSElementInfo		elementInfo[kNumberOfUPSElements];
     bool			isPresent;
 } UPSDeviceData;
-
-enum
-{
-    // Usage Pages
-    kHIDPage_PowerDevice = 0x84, 			// Power Device Page 
-    kHIDPage_BatterySystem = 0x85, 			// Battery System Page 
-
-    // Power Device Page
-    kHIDUsage_PD_Voltage = 0x30,			// Voltage 
-    kHIDUsage_PD_Current = 0x31,			// Current 
-   
-   // Battery System Page
-    kHIDUsage_BS_RemainingCapacityLimit	= 0x29,	// Remaining Capacity Limit 
-    kHIDUsage_BS_Charging = 0x44,				// Charging 
-    kHIDUsage_BS_Discharging = 0x45,			// Discharging 
-    kHIDUsage_BS_RemainingCapacity = 0x66,		// Remaining Capacity 
-    kHIDUsage_BS_RunTimeToEmpty = 0x68,			// Run Time To Empty 
-    kHIDUsage_BS_Rechargable = 0x8B,			// Rechargable 
-    kHIDUsage_BS_WarningCapacityLimit = 0x8C,	// Warning Capacity Limit 
-    kHIDUsage_BS_ACPresent = 0xD0,				// AC Present 
-};
 
 
 enum

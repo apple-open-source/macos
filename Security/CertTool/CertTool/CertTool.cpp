@@ -53,6 +53,9 @@
 
 #include <Security/SecKeychainItem.h>
 #include <Security/SecKeychain.h>
+#include <Security/SecKey.h>
+#include <Security/SecAccess.h>
+#include <Security/SecACL.h>
 #include <Security/certextensions.h>
 #include <Security/cssmapple.h>
 #include <Security/oidsattr.h>
@@ -71,6 +74,7 @@
 #include "CertUI.h"
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/utilities.h>
+#include <Security/aclclient.h>
 
 /* will change soon */
 #include <Security/SecCertificate.h>
@@ -86,7 +90,7 @@
 #define SEC_CERT_ADD_TO_KC			1
 
 /* SecKeyCreatePair() implemented */
-#define SEC_KEY_CREATE_PAIR			0
+#define SEC_KEY_CREATE_PAIR			1
 
 #if 	!SEC_KEY_CREATE_PAIR
 /* munge Label attr if manually generating keys */
@@ -135,7 +139,7 @@ static void usage(char **argv)
 }
 
 #if 	SEC_KEY_CREATE_PAIR
-#error	Work needed to generate key pair using Keychain.
+/* #error	Work needed to generate key pair using Keychain. */
 #else	
 
 /* 
@@ -345,8 +349,8 @@ static OSStatus generateKeyPair(
 	const char 			*keyLabel,			// C string
 	CU_KeyUsage			keyUsage,			// CUK_Signing, etc. 
 	CSSM_BOOL 			verbose,
-	CSSM_KEY_PTR 		*pubKeyPtr,			// mallocd, created, RETURNED
-	CSSM_KEY_PTR 		*privKeyPtr)		// mallocd, created, RETURNED
+	const CSSM_KEY	 	**pubKeyPtr,			// mallocd, created, RETURNED
+	const CSSM_KEY 		**privKeyPtr)		// mallocd, created, RETURNED
 {
 	CSSM_KEY_PTR pubKey = reinterpret_cast<CSSM_KEY_PTR>(
 		APP_MALLOC(sizeof(CSSM_KEY)));
@@ -569,8 +573,8 @@ static OSStatus createCertCsr(
 	CSSM_TP_HANDLE		tpHand,				// eventually, a SecKeychainRef
 	CSSM_CL_HANDLE		clHand,
 	CSSM_CSP_HANDLE		cspHand,
-	CSSM_KEY_PTR		subjPubKey,
-	CSSM_KEY_PTR		signerPrivKey,
+	const CSSM_KEY		*subjPubKey,
+	const CSSM_KEY		*signerPrivKey,
 	CSSM_ALGORITHMS 	sigAlg,
 	const CSSM_OID		*sigOid,
 	CU_KeyUsage			keyUsage,			// kKeyUseSigning, etc. 
@@ -706,6 +710,8 @@ static OSStatus createCertCsr(
 	}
 	CallerAuthContext.Policy.NumberOfPolicyIds = 1;
 	CallerAuthContext.Policy.PolicyIds = &policyId;
+	CssmClient::AclFactory factory;
+	CallerAuthContext.CallerCredentials = const_cast<Security::AccessCredentials *>(factory.promptCred());
 
 	CSSM_RETURN crtn = CSSM_TP_SubmitCredRequest(tpHand,
 		NULL,				// PreferredAuthority
@@ -768,8 +774,8 @@ int main(int argc, char **argv)
 	CSSM_CSP_HANDLE		cspHand = 0;
 	CSSM_TP_HANDLE		tpHand = 0;
 	CSSM_CL_HANDLE		clHand = 0;
-	CSSM_KEY_PTR		pubKey;
-	CSSM_KEY_PTR		privKey;
+	const CSSM_KEY		*pubKey;
+	const CSSM_KEY		*privKey;
 	int					arg;
 	char				*argp;
 	CSSM_BOOL			verbose = CSSM_FALSE;
@@ -781,12 +787,27 @@ int main(int argc, char **argv)
 	CU_KeyUsage			keyUsage = 0;
 	bool				isRoot;
 	CSSM_DATA			keyLabel;
-	#if 	!SEC_KEY_CREATE_PAIR && !MUNGE_LABEL_ATTR
+	#if		SEC_KEY_CREATE_PAIR
+	CSSM_KEYUSE pubKeyUse = 0;
+	CSSM_KEYUSE privKeyUse = 0;
+	CSSM_KEYATTR_FLAGS pubKeyAttrs;
+	CSSM_KEYATTR_FLAGS privKeyAttrs;
+	CFStringRef description = NULL;
+	SecAccessRef access = NULL;
+	CFArrayRef acls = NULL;
+	SecACLRef acl = NULL;
+	bool aclFound = false;
+	CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR promptSelector =
+	{
+		CSSM_ACL_KEYCHAIN_PROMPT_CURRENT_VERSION, 0
+	};
+	SecKeyRef pubKeyRef = 0, privKeyRef = 0;
+	#elif	!MUNGE_LABEL_ATTR
 	CSSM_DATA			pubKeyHash = {3, (uint8 *)"foo"};
 	#endif
 	CSSM_BOOL			createCsr = CSSM_FALSE;			// else create cert
 	int					optArgs = 0;
-	
+
 	/* command line arguments */
 	char				*fileName = NULL;
 	CSSM_BOOL			pemFormat = CSSM_TRUE;
@@ -1022,6 +1043,76 @@ int main(int argc, char **argv)
 	}
 	
 	printf("...Generating key pair...\n");
+#if SEC_KEY_CREATE_PAIR
+
+	description = CFStringCreateWithCString(NULL, labelBuf, kCFStringEncodingMacRoman);
+	ortn = SecAccessCreate(description, NULL, &access);
+	if(ortn) {
+		printf("Error creating SecAccessRef; aborting.\n");
+		goto abort;
+	}
+	ortn = SecAccessCopyACLList(access, &acls);
+	if (ortn) {
+		printf("Error calling SecAccessCopyACLList; aborting.\n");
+		goto abort;
+	}
+	for (CFIndex ix = 0; ix < CFArrayGetCount(acls); ++ix)
+	{
+		CSSM_ACL_AUTHORIZATION_TAG tags[20];
+		uint32 tagCount = 20;
+
+		acl = (SecACLRef)CFArrayGetValueAtIndex(acls, ix);
+		ortn = SecACLGetAuthorizations(acl, tags, &tagCount);
+		if(ortn) {
+			printf("Error calling SecACLGetAuthorizations; aborting.\n");
+			goto abort;
+		}
+
+		for (uint32 tix = 0; tix < tagCount; ++tix)
+		{
+			if (tags[tix] == CSSM_ACL_AUTHORIZATION_DECRYPT
+				|| tags[tix] == CSSM_ACL_AUTHORIZATION_ANY)
+			{
+				aclFound = true;
+				break;
+			}
+		}
+
+		if (aclFound)
+			break;
+	}
+
+	if (!aclFound) {
+		printf("Could not find ACL for decrypt right; aborting.\n");
+		goto abort;
+	}
+
+	// Make the ACL an any allowed acl by setting the trusted application list to NULL
+	ortn = SecACLSetSimpleContents(acl, NULL, description, &promptSelector);
+	if(ortn) {
+		printf("Error calling SecACLSetSimpleContents; aborting.\n");
+		goto abort;
+	}
+
+	pubKeyAttrs = CSSM_KEYATTR_EXTRACTABLE | CSSM_KEYATTR_RETURN_REF | CSSM_KEYATTR_PERMANENT;
+	privKeyAttrs = CSSM_KEYATTR_SENSITIVE | CSSM_KEYATTR_RETURN_REF | CSSM_KEYATTR_PERMANENT;
+
+	if(keyUsage & kKeyUseSigning) {
+		pubKeyUse  |= CSSM_KEYUSE_VERIFY;
+		privKeyUse |= CSSM_KEYUSE_SIGN;
+	}
+	if(keyUsage & kKeyUseEncrypting) {
+		pubKeyUse  |= (CSSM_KEYUSE_ENCRYPT | CSSM_KEYUSE_WRAP);
+		privKeyUse |= (CSSM_KEYUSE_DECRYPT | CSSM_KEYUSE_UNWRAP);
+	}
+
+	ortn = SecKeyCreatePair(kcRef, keyAlg, keySizeInBits, 0, pubKeyUse, pubKeyAttrs, privKeyUse, privKeyAttrs, access, &pubKeyRef, &privKeyRef);
+
+	if (!ortn)
+		ortn = SecKeyGetCSSMKey(pubKeyRef, &pubKey);
+	if (!ortn)
+		ortn = SecKeyGetCSSMKey(privKeyRef, &privKey);
+#else
 	ortn = generateKeyPair(cspHand,
 		dlDbHand,
 		keyAlg,
@@ -1031,6 +1122,7 @@ int main(int argc, char **argv)
 		verbose,
 		&pubKey,
 		&privKey);
+#endif /* SEC_KEY_CREATE_PAIR */
 	if(ortn) {
 		printf("Error generating keys; aborting.\n");
 		goto abort;
@@ -1129,6 +1221,13 @@ int main(int argc, char **argv)
 	}
 abort:
 	/* CLEANUP */
+#if SEC_KEY_CREATE_PAIR
+	if (description) CFRelease(description);
+	if (access) CFRelease(access);
+	if (acls) CFRelease(acls);
+	if (pubKeyRef) CFRelease(pubKeyRef);
+	if (privKeyRef) CFRelease(privKeyRef);
+#endif /* SEC_KEY_CREATE_PAIR */
 	return 0;
 }
 

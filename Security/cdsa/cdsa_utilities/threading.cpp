@@ -46,7 +46,10 @@ ThreadStoreSlot::~ThreadStoreSlot()
 {
     //@@@ if we wanted to dispose of pending task objects, we'd have
     //@@@ to keep a set of them and delete them explicitly here
+#if BUG_2998157
+	// @@@ bug 2998157 does not clear slots on delete or allocate. Leak them for now
     pthread_key_delete(mKey);
+#endif //BUG_2998157
 }
 
 #endif

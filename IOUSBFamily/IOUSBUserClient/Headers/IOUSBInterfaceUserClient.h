@@ -199,6 +199,7 @@ private:
     virtual void			AddDataBufferToList( LowLatencyUserClientBufferInfo * insertBuffer );
     virtual LowLatencyUserClientBufferInfo *	FindBufferCookieInList( UInt32 cookie);
     virtual bool			RemoveDataBufferFromList( LowLatencyUserClientBufferInfo *removeBuffer);
+    virtual void			ReleasePreparedDescriptors();
     
     
     // static methods

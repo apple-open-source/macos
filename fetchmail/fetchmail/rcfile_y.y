@@ -47,6 +47,9 @@ static void record_current(void);
 static void user_reset(void);
 static void reset_server(const char *name, int skip);
 
+/* these should be of size PATH_MAX */
+char currentwd[1024] = "", rcfiledir[1024] = "";
+
 /* using Bison, this arranges that yydebug messages will show actual tokens */
 extern char * yytext;
 #define YYPRINT(fp, type, val)	fprintf(fp, " = \"%s\"", yytext)
@@ -90,8 +93,8 @@ statement_list	: statement
 optmap		: MAP | /* EMPTY */;
 
 /* future global options should also have the form SET <name> optmap <value> */
-statement	: SET LOGFILE optmap STRING	{run.logfile = xstrdup($4);}
-		| SET IDFILE optmap STRING	{run.idfile = xstrdup($4);}
+statement	: SET LOGFILE optmap STRING	{run.logfile = prependdir ($4, rcfiledir);}
+		| SET IDFILE optmap STRING	{run.idfile = prependdir ($4, rcfiledir);}
 		| SET DAEMON optmap NUMBER	{run.poll_interval = $4;}
 		| SET POSTMASTER optmap STRING	{run.postmaster = xstrdup($4);}
 		| SET BOUNCEMAIL		{run.bouncemail = TRUE;}
@@ -323,7 +326,7 @@ user_option	: TO localnames HERE
 		| SMTPNAME STRING	{current.smtpname = xstrdup($2);}
 		| SPAMRESPONSE num_list
 		| MDA STRING		{current.mda         = xstrdup($2);}
-		| BSMTP STRING		{current.bsmtp       = xstrdup($2);}
+		| BSMTP STRING		{current.bsmtp       = prependdir ($2, rcfiledir);}
 		| LMTP			{current.listener    = LMTP_MODE;}
 		| PRECONNECT STRING	{current.preconnect  = xstrdup($2);}
 		| POSTCONNECT STRING	{current.postconnect = xstrdup($2);}
@@ -347,11 +350,11 @@ user_option	: TO localnames HERE
 		    yyerror(GT_("SSL is not enabled"));
 #endif 
 		}
-		| SSLKEY STRING		{current.sslkey = xstrdup($2);}
-		| SSLCERT STRING	{current.sslcert = xstrdup($2);}
+		| SSLKEY STRING		{current.sslkey = prependdir ($2, rcfiledir);}
+		| SSLCERT STRING	{current.sslcert = prependdir ($2, rcfiledir);}
 		| SSLPROTO STRING	{current.sslproto = xstrdup($2);}
 		| SSLCERTCK             {current.sslcertck = FLAG_TRUE;}
-		| SSLCERTPATH STRING    {current.sslcertpath = xstrdup($2);}
+		| SSLCERTPATH STRING    {current.sslcertpath = prependdir($2, rcfiledir);}
 		| SSLFINGERPRINT STRING {current.sslfingerprint = xstrdup($2);}
 
 		| NO KEEP		{current.keep        = FLAG_FALSE;}
@@ -568,6 +571,23 @@ static void record_current(void)
 {
     (void) hostalloc(&current);
     trailer = TRUE;
+}
+
+char *prependdir (const char *file, const char *dir)
+/* if a filename is relative to dir, convert it to an absolute path */
+{
+    char *newfile;
+    if (!file[0] ||			/* null path */
+	file[0] == '/' ||		/* absolute path */
+	strcmp(file, "-") == 0 ||	/* stdin/stdout */
+	!dir[0])			/* we don't HAVE_GETCWD */
+	return xstrdup (file);
+    newfile = xmalloc (strlen (dir) + 1 + strlen (file) + 1);
+    if (dir[strlen(dir) - 1] != '/')
+	sprintf (newfile, "%s/%s", dir, file);
+    else
+	sprintf (newfile, "%s%s", dir, file);
+    return newfile;
 }
 
 /* easier to do this than cope with variations in where the library lives */

@@ -119,7 +119,7 @@
 #define IFEF_DVR_REENTRY_OK	0x20	/* When set, driver may be reentered from its own thread */
 #define IFEF_INUSE	0x40000000 /* DLIL ifnet recycler, ifnet in use */
 #define IFEF_REUSE	0x20000000 /* DLIL ifnet recycler, ifnet is not new */
-#endif KERNEL_PRIVATE
+#endif /* KERNEL_PRIVATE */
 
 
 /* flags set internally only: */

@@ -59,6 +59,9 @@ IODestroyPlugInInterface(). Do not call Release() on it.
 */
 /*
 	$Log: IOFireWireLib.h,v $
+	Revision 1.26  2002/11/06 23:44:21  wgulland
+	Update header doc for CreateLocalIsochPort
+	
 	Revision 1.25  2002/09/25 00:27:33  niels
 	flip your world upside-down
 	
@@ -983,9 +986,13 @@ public:
 			false if this port represents an isochronous listener.
 		@param inDCLProgram A pointer to the first DCL command struct of the DCL program
 			to be compiled and used to send or receive data on this port.
-		@param inStartEvent Start event bits
-		@param inStartState Start state bits
-		@param inStartMask Start mask bits
+		@param inStartEvent Start event: 0 or kFWDCLCycleEvent or kFWDCLSyBitsEvent
+		@param inStartState Start state bits. For kFWDCLCycleEvent specifies the cycle to start the DMA on.
+            For kFWDCLSyBitsEvent specifies the packet sync field value for the first packet to receive.
+		@param inStartMask Start mask bits. For kFWDCLCycleEvent specifies a mask for the start cycle:
+            the DMA will start when currentCycle & inStartMask == inStartEvent & inStartMask.
+            For kFWDCLSyBitsEvent specifies a mask for the sync field:
+            the DMA will start when packet sync == inStartEvent & inStartMask.
 		@param inDCLProgramRanges This is an optional optimization parameter which can be used
 			to decrease the time the local port object spends determining which set of virtual
 			ranges the passed DCL program occupies. Pass a pointer to an array of IOVirtualRange

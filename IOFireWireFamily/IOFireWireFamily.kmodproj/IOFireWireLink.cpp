@@ -27,10 +27,12 @@
  *
  */
 
-#include <IOKit/firewire/IOFireWireLink.h>
+// public
 #include <IOKit/firewire/IOFireWireDevice.h>
 
-#import "IOFWWorkLoop.h"
+// protected
+#include <IOKit/firewire/IOFireWireLink.h>
+#import <IOKit/firewire/IOFWWorkLoop.h>
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 

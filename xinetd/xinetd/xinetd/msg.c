@@ -10,6 +10,7 @@
 #include <syslog.h>
 #include <fcntl.h>
 #include <stdarg.h>
+#include <unistd.h>
 
 #include "xlog.h"
 #include "str.h"
@@ -169,7 +170,7 @@ prepare_buffer( int level,
     */
    if ( debug.on || level == LOG_CRIT )
    {
-      cc = strx_nprint( bufstart, bytes_left, "{%s} ", func ) ;
+      cc = strx_nprint( bufstart, bytes_left, "%d {%s} ", getpid(), func ) ;
       bufstart += cc ;
       bytes_left -= cc ;
    }

@@ -121,7 +121,7 @@ int do_rfc1731(int sock, char *command, char *truename)
 
     memcpy(session, credentials.session, sizeof session);
     memset(&credentials, 0, sizeof credentials);
-    des_key_sched(session, schedule);
+    des_key_sched(&session, schedule);
 
     result = krb_get_tf_fullname(TKT_FILE, tktuser, tktinst, tktrealm);
     if (result) {

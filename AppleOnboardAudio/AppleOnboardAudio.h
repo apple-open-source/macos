@@ -41,8 +41,8 @@ enum invokeInternalFunctionSelectors {
 	kInvokeSpeakerInterruptHandler
 };
 		
-#define kBatteryPowerDownDelayTime		30000000000ULL				// 30 seconds
-#define kACPowerDownDelayTime			300000000000ULL				// 300 seconds == 5 minutes
+#define kBatteryPowerDownDelayTime		30000000000ULL				/* 30 seconds					*/
+#define kACPowerDownDelayTime			300000000000ULL				/* 300 seconds == 5 minutes		*/
 #define kiSubMaxVolume					60
 #define kiSubVolumePercent				92
 

@@ -95,7 +95,6 @@ int webdav_open(proxy_ok, pcr, key, a_socket, so, fdp, file_type, a_file_handle)
 	char *utf8_key;
 	struct webdav_lock_struct lock_struct;
 	int error, error2;
-	int locked = FALSE;
 	int i, arrayelem = -1;
 	struct fetch_state fs;
 	struct timeval tv;
@@ -397,7 +396,6 @@ success:
 
 				goto clear_free_unlock_done;
 			}
-			locked = TRUE;
 
 			/* If opened for write and O_TRUNC we can set the length to zero 
 			  and not get it from the server.
@@ -422,7 +420,7 @@ success:
 		/* Skip the GET if the file is being opened read-only, it was completely downloaded,
 		 * and it was validated in the last WEBDAV_CACHE_VALID_TIMEOUT seconds.
 		 */
-		if ( locked ||
+		if ( (lock_struct.locktoken != NULL) ||
 			 (gfile_array[arrayelem].download_status != WEBDAV_DOWNLOAD_FINISHED) ||
 			 (gfile_array[arrayelem].lastvalidtime + WEBDAV_CACHE_VALID_TIMEOUT < tv.tv_sec) )
 		{
@@ -538,7 +536,7 @@ clear_free_unlock_done:
 
 		/* Unlock it on the server if it was opened for write and there's 
 		  been an error. */
-		if (locked)
+		if (lock_struct.locktoken != NULL)
 		{
 			fs.fs_fd = -1;						/* just in case */
 
@@ -547,8 +545,8 @@ clear_free_unlock_done:
 			if (error2)
 				fprintf(stderr, "webdav_open: unlock returned error %d\n", error2);
 #endif
-
-			locked = FALSE;
+			free(lock_struct.locktoken);
+			lock_struct.locktoken = NULL;
 		}
 		else
 		{

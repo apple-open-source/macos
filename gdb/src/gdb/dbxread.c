@@ -2917,7 +2917,7 @@ process_one_symbol (int type, int desc, CORE_ADDR valu, char *name,
 	    }
 	  
 	  saw_fun_start = 0;
-	  record_line (current_subfile, 0, function_start_offset + valu);
+	  record_line (current_subfile, 0, last_function_start + valu);
 	  within_function = 0;
 	  new = pop_context ();
 

@@ -230,7 +230,8 @@ struct per_proc_info {
 	unsigned int	spcTRc;				/* Special trace count */
 	unsigned int	spcTRp;				/* Special trace buffer pointer */
 	unsigned int 	Uassist;			/* User Assist Word */
-	unsigned int	rsrvd158[2];		/* Reserved slots */
+	vm_offset_t		VMMareaPhys;		/* vmm state page physical addr */
+	unsigned int	FAMintercept;		/* vmm FAM Exceptions to intercept */
 	
 	/* PPC cache line boundary here - 160 */
 	cpu_data_t		pp_cpu_data;		/* cpu data info */
@@ -404,6 +405,8 @@ extern char *trap_type[];
 
 #define T_AST					(0x100 * T_VECTOR_SIZE) 
 #define T_MAX					T_CHOKE		 /* Maximum exception no */
+
+#define	T_FAM					0x00004000
 
 #define	EXCEPTION_VECTOR(exception)	(exception * 0x100 /T_VECTOR_SIZE )
 

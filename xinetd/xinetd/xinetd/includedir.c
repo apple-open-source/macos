@@ -20,7 +20,7 @@
 #include "includedir.h"
 #include "msg.h"
 #include "parse.h"
-
+#include "sio.h"
 
 #if !defined(NAME_MAX)
    #ifdef FILENAME_MAX
@@ -83,6 +83,7 @@ void handle_includedir(const char *service_name, struct configuration *confp)
       }
       pset_add(dir_list, storename);
    }
+   closedir(dirfp);
 
    /* Sort the list using "compfunc" */
    pset_sort(dir_list, compfunc);
@@ -101,14 +102,21 @@ void handle_includedir(const char *service_name, struct configuration *confp)
       */
       if ( !storename[0] /* Shouldn't happen */ || 
                       strchr(storename, '.') ||
-                      storename[strlen(storename)-1] == '~')
+                      storename[strlen(storename)-1] == '~') {
+         pset_remove(dir_list, storename);
+         free(storename);
+         u--;
          continue;
+      }
 
       strx_sprint(filename, len_sn+NAME_MAX+1, "%s/%s",
          service_name, storename);
 
       if( stat(filename, &sb) < 0 ) {
          parsemsg( LOG_ERR, func, "Unable to stat includedir file %s", filename);
+         pset_remove(dir_list, storename);
+         free(storename);
+         u--;
          continue;
       }
 
@@ -117,22 +125,29 @@ void handle_includedir(const char *service_name, struct configuration *confp)
           msg( LOG_ERR, func,
          "%s is not a regular file. It is being skipped.",
          filename );
+          pset_remove(dir_list, storename);
+          free(storename);
+          u--;
           continue;
       }
       incfd = open(filename, O_RDONLY);
       if( incfd < 0 ) {
          parsemsg( LOG_ERR, func, "Unable to open included configuration file: %s", filename);
+         pset_remove(dir_list, storename);
+         free(storename);
+         u--;
          continue;
       }
       parsemsg( LOG_DEBUG,func,"Reading included configuration file: %s",filename);
       parse_conf_file(incfd, confp);
-      close(incfd);
+      Sclose(incfd);
+      pset_remove(dir_list, storename);
       free(storename);
+      u--;
    }
    if ( errno != 0) {
       parsemsg( LOG_ERR, func, "Error reading included directory: %s", service_name);
    }
    pset_destroy(dir_list);
-   closedir(dirfp);
    free(filename);
 }

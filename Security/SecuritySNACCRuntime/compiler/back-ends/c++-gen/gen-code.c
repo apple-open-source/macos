@@ -39,7 +39,7 @@
  * INSERT_VDA_COMMENTS
  *
  *
- * $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/compiler/back-ends/c++-gen/gen-code.c,v 1.4 2002/03/21 05:38:53 dmitch Exp $
+ * $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/compiler/back-ends/c++-gen/gen-code.c,v 1.4 2002/03/21 05:38:53 dmitch Exp $
  * $Log: gen-code.c,v $
  * Revision 1.4  2002/03/21 05:38:53  dmitch
  * Radar 2868524: no more setjmp/longjmp in SNACC-generated code.

@@ -28,7 +28,8 @@
  *
  */
 
-#import "IOFWIsochChannel.h"
+// public
+#import <IOKit/firewire/IOFWIsochChannel.h>
 
 class IOFWUserIsochChannel: public IOFWIsochChannel
 {

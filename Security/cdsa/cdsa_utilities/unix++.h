@@ -23,7 +23,7 @@
 #define _H_UNIXPLUSPLUS
 
 #include <Security/utilities.h>
-#include "timeflow.h"
+#include <Security/timeflow.h>
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
@@ -136,6 +136,34 @@ public:
         : FileDesc(path, flag, mode) { }
 
     ~AutoFileDesc()		{ close(); }
+};
+
+
+//
+// A ForkMonitor determines whether the current thread is a (fork) child of
+// the thread that last checked it. Essentially, it checks for pid changes.
+//
+class StaticForkMonitor {
+public:
+	bool operator () () const
+	{
+		if (mLastPid == 0) {
+			mLastPid = getpid();
+			return false;
+		} else if (getpid() != mLastPid) {
+			mLastPid = getpid();
+			return true;
+		}
+		return false;
+	}
+	
+protected:
+	mutable pid_t mLastPid;
+};
+
+class ForkMonitor : public StaticForkMonitor {
+public:
+	ForkMonitor()		{ mLastPid = getpid(); }
 };
 
 

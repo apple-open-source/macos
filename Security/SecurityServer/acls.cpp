@@ -82,6 +82,7 @@ void SecurityServerAcl::cssmChangeOwner(const AclOwnerPrototype &newOwner,
 //
 void SecurityServerAcl::validate(AclAuthorization auth, const AccessCredentials *cred) const
 {
+	instantiateAcl();
     SecurityServerEnvironment env(*this);
     ObjectAcl::validate(auth, cred, &env);
 }

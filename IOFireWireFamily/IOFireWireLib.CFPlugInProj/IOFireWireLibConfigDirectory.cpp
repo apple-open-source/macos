@@ -6,8 +6,12 @@
  *  Copyright (c) 2000 Apple, Inc. All rights reserved.
  *
  */
-
+ 
+// private
 #import "IOFireWireLibConfigDirectory.h"
+
+// system
+#import <exception>
 
 namespace IOFireWireLib {
 
@@ -44,19 +48,19 @@ namespace IOFireWireLib {
 	
 	ConfigDirectory::ConfigDirectory( IUnknownVTbl* interface, Device& userclient, KernConfigDirectoryRef inKernConfigDirectoryRef)
 	: IOFireWireIUnknown( interface ),
-	mUserClient( userclient ),
-	mKernConfigDirectoryRef( inKernConfigDirectoryRef )
+	  mUserClient( userclient ),
+	  mKernConfigDirectoryRef( inKernConfigDirectoryRef )
 	{
 		mUserClient.AddRef() ;
 	}
 	
 	ConfigDirectory::ConfigDirectory( IUnknownVTbl* interface, Device& userclient )
 	: IOFireWireIUnknown( interface ),
-	mUserClient( userclient )
+	  mUserClient( userclient )
 	{	
-		IOReturn err = IOConnectMethodScalarIScalarO(mUserClient.GetUserClientConnection(), kConfigDirectoryCreate, 0, 1, & mKernConfigDirectoryRef) ;
+		IOReturn err = ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kConfigDirectoryCreate, 0, 1, & mKernConfigDirectoryRef) ;
 		if (err)
-			throw ;//Exception::IOReturn(err) ;	//!!!
+			throw std::exception() ;//Exception::IOReturn(err) ;	//!!!
 
 		mUserClient.AddRef() ;
 	}

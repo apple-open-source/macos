@@ -171,6 +171,7 @@ switch_context(
 	register struct thread_shuttle* retval;
 	pmap_t	new_pmap;
 	facility_context *fowner;
+	int	my_cpu;
 	
 #if	MACH_LDEBUG || MACH_KDB
 	log_thread_action("switch", 
@@ -179,10 +180,11 @@ switch_context(
 			  (long)__builtin_return_address(0));
 #endif
 
-	per_proc_info[cpu_number()].old_thread = (unsigned int)old;
-	per_proc_info[cpu_number()].cpu_flags &= ~traceBE;  /* disable branch tracing if on */
+	my_cpu = cpu_number();
+	per_proc_info[my_cpu].old_thread = (unsigned int)old;
+	per_proc_info[my_cpu].cpu_flags &= ~traceBE;  /* disable branch tracing if on */
 	assert(old_act->kernel_loaded ||
-	       active_stacks[cpu_number()] == old_act->thread->kernel_stack);
+	       active_stacks[my_cpu] == old_act->thread->kernel_stack);
 	       
 	check_simple_locks();
 
@@ -191,13 +193,13 @@ switch_context(
 	 * so that it can be found by the other if needed
 	 */
 	if(real_ncpus > 1) {								/* This is potentially slow, so only do when actually SMP */
-		fowner = per_proc_info[cpu_number()].FPU_owner;	/* Cache this because it may change */
+		fowner = per_proc_info[my_cpu].FPU_owner;	/* Cache this because it may change */
 		if(fowner) {									/* Is there any live context? */
 			if(fowner->facAct == old->top_act) {		/* Is it for us? */
 				fpu_save(fowner);						/* Yes, save it */
 			}
 		}
-		fowner = per_proc_info[cpu_number()].VMX_owner;	/* Cache this because it may change */
+		fowner = per_proc_info[my_cpu].VMX_owner;	/* Cache this because it may change */
 		if(fowner) {									/* Is there any live context? */
 			if(fowner->facAct == old->top_act) {		/* Is it for us? */
 				vec_save(fowner);						/* Yes, save it */
@@ -213,6 +215,15 @@ switch_context(
 #endif /* DEBUG */
 
 	/*
+	 * If old thread is running VM, save per proc userProtKey and FamVMmode spcFlags bits in the thread spcFlags
+ 	 * This bits can be modified in the per proc without updating the thread spcFlags
+	 */
+	if(old_act->mact.specFlags & runningVM) {
+		old_act->mact.specFlags &=  ~(userProtKey|FamVMmode);
+		old_act->mact.specFlags |= (per_proc_info[my_cpu].spcFlags) & (userProtKey|FamVMmode);
+	}
+
+	/*
 	 * We do not have to worry about the PMAP module, so switch.
 	 *
 	 * We must not use top_act->map since this may not be the actual
@@ -221,6 +232,8 @@ switch_context(
 
 	if(new_act->mact.specFlags & runningVM) {			/* Is the new guy running a VM? */
 		pmap_switch(new_act->mact.vmmCEntry->vmmPmap);	/* Switch to the VM's pmap */
+		per_proc_info[my_cpu].VMMareaPhys = (vm_offset_t)new_act->mact.vmmCEntry->vmmContextPhys;
+		per_proc_info[my_cpu].FAMintercept = new_act->mact.vmmCEntry->vmmFAMintercept;
 	}
 	else {												/* otherwise, we use the task's pmap */
 		new_pmap = new_act->task->map->pmap;
@@ -236,7 +249,7 @@ switch_context(
 	assert(retval != (struct thread_shuttle*)NULL);
 
 	if (branch_tracing_enabled())
-	  per_proc_info[cpu_number()].cpu_flags |= traceBE;  /* restore branch tracing */
+	  per_proc_info[my_cpu].cpu_flags |= traceBE;  /* restore branch tracing */
 
 	/* We've returned from having switched context, so we should be
 	 * back in the original context.
@@ -792,10 +805,12 @@ stack_handoff(thread_t old,
 	vm_offset_t stack;
 	pmap_t new_pmap;
 	facility_context *fowner;
+	int	my_cpu;
 	
 	assert(new->top_act);
 	assert(old->top_act);
 	
+	my_cpu = cpu_number();
 	stack = stack_detach(old);
 	new->kernel_stack = stack;
 	if (stack == old->stack_privilege) {
@@ -804,21 +819,29 @@ stack_handoff(thread_t old,
 		new->stack_privilege = stack;
 	}
 
-	per_proc_info[cpu_number()].cpu_flags &= ~traceBE;
+	per_proc_info[my_cpu].cpu_flags &= ~traceBE;
 
 	if(real_ncpus > 1) {								/* This is potentially slow, so only do when actually SMP */
-		fowner = per_proc_info[cpu_number()].FPU_owner;	/* Cache this because it may change */
+		fowner = per_proc_info[my_cpu].FPU_owner;	/* Cache this because it may change */
 		if(fowner) {									/* Is there any live context? */
 			if(fowner->facAct == old->top_act) {		/* Is it for us? */
 				fpu_save(fowner);						/* Yes, save it */
 			}
 		}
-		fowner = per_proc_info[cpu_number()].VMX_owner;	/* Cache this because it may change */
+		fowner = per_proc_info[my_cpu].VMX_owner;	/* Cache this because it may change */
 		if(fowner) {									/* Is there any live context? */
 			if(fowner->facAct == old->top_act) {		/* Is it for us? */
 				vec_save(fowner);						/* Yes, save it */
 			}
 		}
+	}
+	/*
+	 * If old thread is running VM, save per proc userProtKey and FamVMmode spcFlags bits in the thread spcFlags
+ 	 * This bits can be modified in the per proc without updating the thread spcFlags
+	 */
+	if(old->top_act->mact.specFlags & runningVM) {			/* Is the current thread running a VM? */
+		old->top_act->mact.specFlags &= ~(userProtKey|FamVMmode);
+		old->top_act->mact.specFlags |= (per_proc_info[my_cpu].spcFlags) & (userProtKey|FamVMmode);
 	}
 
 	KERNEL_DEBUG_CONSTANT(MACHDBG_CODE(DBG_MACH_SCHED,MACH_STACK_HANDOFF) | DBG_FUNC_NONE,
@@ -827,6 +850,8 @@ stack_handoff(thread_t old,
 
 	if(new->top_act->mact.specFlags & runningVM) {	/* Is the new guy running a VM? */
 		pmap_switch(new->top_act->mact.vmmCEntry->vmmPmap);	/* Switch to the VM's pmap */
+		per_proc_info[my_cpu].VMMareaPhys = (vm_offset_t)new->top_act->mact.vmmCEntry->vmmContextPhys;
+		per_proc_info[my_cpu].FAMintercept = new->top_act->mact.vmmCEntry->vmmFAMintercept;
 	}
 	else {											/* otherwise, we use the task's pmap */
 		new_pmap = new->top_act->task->map->pmap;
@@ -836,14 +861,14 @@ stack_handoff(thread_t old,
 	}
 
 	thread_machine_set_current(new);
-	active_stacks[cpu_number()] = new->kernel_stack;
-	per_proc_info[cpu_number()].Uassist = new->top_act->mact.cthread_self;
+	active_stacks[my_cpu] = new->kernel_stack;
+	per_proc_info[my_cpu].Uassist = new->top_act->mact.cthread_self;
 
-	per_proc_info[cpu_number()].ppbbTaskEnv = new->top_act->mact.bbTaskEnv;
-	per_proc_info[cpu_number()].spcFlags = new->top_act->mact.specFlags;
+	per_proc_info[my_cpu].ppbbTaskEnv = new->top_act->mact.bbTaskEnv;
+	per_proc_info[my_cpu].spcFlags = new->top_act->mact.specFlags;
 
 	if (branch_tracing_enabled()) 
-		per_proc_info[cpu_number()].cpu_flags |= traceBE;
+		per_proc_info[my_cpu].cpu_flags |= traceBE;
     
 	if(trcWork.traceMask) dbgTrace(0x12345678, (unsigned int)old->top_act, (unsigned int)new->top_act);	/* Cut trace entry if tracing */    
     

@@ -208,6 +208,11 @@ status_e protocol_parser( pset_h values,
    struct protoent *pep ;
    const char *func = "protocol_parser" ;
 
+   if( proto_name == NULL ) {
+      parsemsg( LOG_ERR, func, "Protocol name is null in %s", scp->sc_name );
+      return( FAILED );
+   }
+
    if ( ( pep = getprotobyname( proto_name ) ) == NULL )
    {
       parsemsg( LOG_ERR, func, 
@@ -943,7 +948,7 @@ status_e log_on_success_parser( pset_h values,
                                 enum assign_op op )
 {
    return( parse_log_flags( values, op,
-      &scp->sc_log_on_success, success_log_options, "log-on-success flag" ) ) ;
+      &scp->sc_log_on_success, success_log_options, "log_on_success flag" ) ) ;
 }
 
 
@@ -952,7 +957,7 @@ status_e log_on_failure_parser( pset_h values,
                                 enum assign_op op )
 {
    return( parse_log_flags( values, op,
-      &scp->sc_log_on_failure, failure_log_options, "log-on_failure flag" ) ) ;
+      &scp->sc_log_on_failure, failure_log_options, "log_on_failure flag" ) ) ;
 }
 
 

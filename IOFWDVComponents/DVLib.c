@@ -22,6 +22,10 @@
 
 #include "DVLib.h"
 #include <pthread.h>
+#include <mach/mach_port.h>
+#include <mach/thread_act.h>
+#include <mach/vm_map.h>
+
 #include <syslog.h>	// Debug messages
 
 #include <IOKit/IOMessage.h>
@@ -42,6 +46,15 @@
 #define kWriteChannel 62
 #define kReadChannel 63
 
+// AY_TODO: Move the following to IOFireWireAVCConsts.h
+#define kAVCSignalModeDVCPro50_525_60	0x74
+#define kAVCSignalModeDVCPro50_625_50	0xF4
+#define kAVCSignalModeDVCPro100_525_60	0x70
+#define kAVCSignalModeDVCPro100_625_50	0xF0
+#define kAVCSignalModeMask_DVCPro50		0x74
+#define kAVCSignalModeMask_DVCPro100	0x70
+#define kAVCSignalModeMask_HD			0x08
+
 enum {
     kDVRunning = 0,
     kDVStopped = 1,
@@ -60,14 +73,14 @@ enum {
 };
 
 enum {
-    // Frame
-    kDVFrameSize                            = 144000,     // size of one frame of DVC video
 
     // DVRead
     kNumPacketsPerInputBuffer               = 100,
     kDVSDPayloadPacketSize                  = 480,
     kDVSDLPayloadPacketSize                 = 240,
     kDVHDPayloadPacketSize               	= 960,
+	kDVCPro50PayloadPacketSize				= 960,
+	kDVCPro100PayloadPacketSize				= 1920,
 
     kNumPingPongs                           = 8,		// Number of DCL blocks in read program
     kNumPacketsPerPingPong                  = 100,
@@ -76,10 +89,6 @@ enum {
         kNumPingPongs * (kNumPacketsPerPingPong * kNumDCLsPerPingPongPacket+3)+6,
     kMaxDCLSize                             = 32,
     kRecordDCLProgramSize                   = kMaxDCLSize * kRecordNumDCLs,
-    kReceiveDVPacketSize                    = 492,
-    kAlignedDVPacketSize                    = 512,
-    kPingPongBufferSize                     =
-        kNumPingPongs * kNumPacketsPerPingPong * kAlignedDVPacketSize
 };
 
 enum {
@@ -100,6 +109,22 @@ enum {
     kDVPacketAlignSlop                      = 8,       // add 8 bytes to
     kDVPacketCIPSize                        = 8,
     kPlaySYTDelay                           = 3, 		// Sony camcorders send a delay of 2, but VX2000 wants 3 from us...
+};
+
+// Frame Sizes
+enum {
+    kFrameSize_SD525_60						= 120000,
+    kFrameSize_DVCPro525_60					= 120000,
+    kFrameSize_SD625_50						= 144000,
+    kFrameSize_DVCPro625_50					= 144000,
+    kFrameSize_SDL525_60					= 60000,
+    kFrameSize_SDL625_50					= 72000,
+    kFrameSize_DVCPro50_525_60				= 240000,
+    kFrameSize_HD1125_60					= 240000,
+    kFrameSize_DVCPro50_625_50				= 288000,
+    kFrameSize_HD1250_50					= 288000,
+    kFrameSize_DVCPro100_525_60				= 480000,
+    kFrameSize_DVCPro100_625_50				= 576000
 };
 
 typedef struct {
@@ -138,6 +163,7 @@ typedef struct _DVStreamStruct {
     UInt8			fIsocChannel;	// Channel to use
     UInt8			fMaxSpeed;		// Max bus speed for isoc channel
     DVDevice		*pDVDevice;
+	UInt32			fDVFrameSize;	// Frame size based on current signal mode
 } DVStream;
 
 // structs
@@ -241,6 +267,7 @@ static IOReturn buildWriteProgram(DVGlobalOutPtr pGlobalData);
 static IOReturn allocateBuffers(DVGlobalOutPtr pGlobalData);
 static void DVWritePoll(DVGlobalOutPtr globs);
 static void DVReadPoll(DVGlobalInPtr globs);
+static void closeStream(DVStream *stream);
 
 UInt32  AddFWCycleTimeToFWCycleTime( UInt32 cycleTime1, UInt32 cycleTime2 )
 {
@@ -422,14 +449,14 @@ static IOReturn writeDeviceOutputPlug(IOFireWireLibDeviceRef interface, UInt32 p
     return err;
 }
 
-static IOReturn writeDeviceInputPlug(IOFireWireLibDeviceRef interface, UInt32 plugNo, UInt32 mask, UInt32 val)
+static IOReturn writeDeviceInputPlug(IOFireWireLibDeviceRef interface, UInt32 plugNo, UInt32 mask, UInt32 val, int p2pInc)
 {
     UInt32 oldVal, newVal;
     IOReturn err;
     FWAddress addr;
     io_object_t obj;
     int i;
-	
+	UInt32 p2p;
 	for( i = 0; i < 4; i++ )
 	{
 		addr.nodeID = 0;
@@ -439,10 +466,15 @@ static IOReturn writeDeviceInputPlug(IOFireWireLibDeviceRef interface, UInt32 pl
 		err = (*interface)->ReadQuadlet(interface, obj, &addr, &oldVal, false, 0);
 		
 		if(err == kIOReturnSuccess) {
-			if( (oldVal & mask) != val) {
-				newVal = (oldVal & ~mask) | val;
-				err = (*interface)->CompareSwap(interface, obj, &addr, oldVal, newVal, false, 0);
-			}
+            newVal = (oldVal & ~mask) | val;
+            p2p = newVal & kIOFWPCRP2PCount;
+            if(p2pInc > 0)
+                p2p += 1 << kIOFWPCRP2PCountPhase;
+            else if (p2pInc < 0)
+                p2p -= 1 << kIOFWPCRP2PCountPhase;
+            newVal = (newVal & ~kIOFWPCRP2PCount) | (p2p &kIOFWPCRP2PCount);
+            if(newVal != oldVal)
+                err = (*interface)->CompareSwap(interface, obj, &addr, oldVal, newVal, false, 0);
 		}
 		
 		if( err == kIOReturnSuccess )
@@ -460,8 +492,8 @@ static IOReturn MakeP2PConnectionForWrite(DVDevice *pDVDevice,UInt32 plug, UInt3
 
     err = writeDeviceInputPlug(	pDVDevice->fDevInterface,
                                 plug, 
-                                (kIOFWPCRChannel | kIOFWPCRBroadcast  | kIOFWPCRP2PCount ),
-                                (chan<<kIOFWPCRChannelPhase | 1 << kIOFWPCRP2PCountPhase ));
+                                (kIOFWPCRChannel | kIOFWPCRBroadcast),
+                                chan<<kIOFWPCRChannelPhase, 1);
 //                                (pStream->fIsocChannel<<kIOFWPCRChannelPhase | 1 << kIOFWPCRP2PCountPhase ));
 
     if (err == kIOReturnSuccess)
@@ -479,8 +511,8 @@ static IOReturn BreakP2PConnectionForWrite(DVDevice *pDVDevice,UInt32 plug, UInt
 
     err = writeDeviceInputPlug(	pDVDevice->fDevInterface,
                                 plug, 
-                                (kIOFWPCRChannel | kIOFWPCRBroadcast  | kIOFWPCRP2PCount ),
-                                chan<<kIOFWPCRChannelPhase);
+                                (kIOFWPCRChannel | kIOFWPCRBroadcast),
+                                chan<<kIOFWPCRChannelPhase, -1);
 //                                pStream->fIsocChannel<<kIOFWPCRChannelPhase);
 
 // Always clear the connected flag, even if there was an error.
@@ -534,7 +566,7 @@ static IOReturn getSignalMode(IOFireWireAVCLibUnitInterface **avc, UInt8 *mode)
     return res;
 }
 
-static bool isDVCPro(IOFireWireAVCLibUnitInterface **avc)
+static bool isDVCPro(IOFireWireAVCLibUnitInterface **avc, UInt8 *pMode)
 {
     UInt32 size;
     UInt8 cmd[10],response[10];
@@ -554,8 +586,30 @@ static bool isDVCPro(IOFireWireAVCLibUnitInterface **avc)
     size = 10;
     res = (*avc)->AVCCommand(avc, cmd, 10, response, &size);
 
-    // DVCPro if command is implemented
-    return res == kIOReturnSuccess && response[0] == kAVCImplementedStatus;    
+	// If it is DVCPro50, see if its 25 or 50
+	if ((res == kIOReturnSuccess) && (response[0] == kAVCImplementedStatus))
+	{
+		cmd[0] = kAVCStatusInquiryCommand;
+		cmd[1] = kAVCUnitAddress;
+		cmd[2] = kAVCOutputPlugSignalFormatOpcode;
+		cmd[3] = 0;
+		cmd[4] = 0xFF;
+		cmd[5] = 0xFF;
+		cmd[6] = 0xFF;
+		cmd[7] = 0xFF;
+		size = 8;
+
+		res = (*avc)->AVCCommand(avc, cmd, 8, response, &size);
+
+		if (res == kIOReturnSuccess && response[0] == kAVCImplementedStatus)
+			*pMode = response[5];
+		else
+			*pMode = 0x00;
+
+		return true;
+	}
+	else
+		return false;
 }
 
 static bool isSDL(IOFireWireAVCLibUnitInterface **avc, UInt8 signalMode)
@@ -599,6 +653,7 @@ static void deviceArrived(void *refcon, io_iterator_t iterator )
 {
     io_object_t obj;
     DVThread * dvThread = (DVThread *)refcon;
+	UInt8 dvcProMode;
     
     //syslog(LOG_INFO,"deviceArrived(0x%x, 0x%x)\n", refcon, iterator);
     while(obj = IOIteratorNext(iterator)) {
@@ -650,46 +705,77 @@ static void deviceArrived(void *refcon, io_iterator_t iterator )
         
         // Request notification of messages via AVC user client
         err = openAVCUnit(dev->fObject, &dev->fAVCInterface, dvThread);
-        if(err == kIOReturnSuccess) {
+        if(err == kIOReturnSuccess)
+		{
             UInt8 mode, stype;
 
             dev->deviceIndex = device+1;
-//            (*dev->fAVCInterface)->setMessageCallback(dev->fAVCInterface, (void *)(device+1), dvThread->fDeviceMessage);
             (*dev->fAVCInterface)->setMessageCallback(dev->fAVCInterface, (void *) dev, AVCUnitMessageCallback);
 
-
-            // figure out device info before notifying clients
-            // Assume NTSC, standard DV if device doesn't support AVC.
-            dev->fDVFormats = 1 << kIDHDV_SD;	// Standard DV
-            dev->standard = ntscIn; 			// device standard - NTSC/PAL
-            
-            
-            if(dev->fSupportsFCP) {
+			// Determine mode(s) supported
+            if(dev->fSupportsFCP)
+			{
                 err = getSignalMode(dev->fAVCInterface, &mode);
-                if(err == kIOReturnSuccess) {
+                if(err == kIOReturnSuccess)
+				{
                     if(mode & kAVCSignalModeMask_50)
-                        dev->standard = palIn; 
-                    stype = mode & kAVCSignalModeMask_STYPE;
-                    if(stype == kAVCSignalModeMask_DVCPro25) {
-                        dev->fDVFormats |= 1 << kIDHDVCPro_25;
-                    }
-                    else {
-                        // Ask device via vender-dependent command if it's a DVCPro device.
-                        if(isDVCPro(dev->fAVCInterface))
-                            dev->fDVFormats |= 1 << kIDHDVCPro_25;
-                    }
-                    if(stype == kAVCSignalModeMask_SDL)
-                        dev->fDVFormats |= 1 << kIDHDV_SDL;
-                    else {
-                        // Ask camera if it's SDL.
-                        if(isSDL(dev->fAVCInterface, mode))
-                            dev->fDVFormats |= 1 << kIDHDV_SDL;
-                    }
-                }
-            }
+                        dev->standard = palIn;
+					else
+						dev->standard = ntscIn;
+
+					// See if DVCPro25 type device
+					stype = mode & kAVCSignalModeMask_STYPE;
+					if(stype == kAVCSignalModeMask_DVCPro25)
+					{
+						dev->fDVFormats |= 1 << kIDHDVCPro_25;
+					}
+					else if(stype == kAVCSignalModeMask_DVCPro50)
+					{
+						dev->fDVFormats |= 1 << kIDHDVCPro_50;
+						dev->fMaxSpeed = kFWSpeed400MBit;	// Default to 400 for DVCPro-50
+					}
+					else
+					{
+						// Ask device via vender-dependent command if it's a DVCPro device.
+						if(isDVCPro(dev->fAVCInterface,&dvcProMode))
+						{
+							if((dvcProMode & kAVCSignalModeMask_STYPE) == kAVCSignalModeMask_DVCPro50)
+							{
+								dev->fDVFormats |= 1 << kIDHDVCPro_50;
+								dev->fMaxSpeed = kFWSpeed400MBit;	// Default to 400 for DVCPro-50
+							}
+							else
+								dev->fDVFormats |= 1 << kIDHDVCPro_25;
+						}
+					}
+
+					// See if SDL type device
+					if(stype == kAVCSignalModeMask_SDL)
+						dev->fDVFormats |= 1 << kIDHDV_SDL;
+					else
+					{
+						// Ask camera if it's SDL.
+						if(isSDL(dev->fAVCInterface, mode))
+							dev->fDVFormats |= 1 << kIDHDV_SDL;
+					}
+				}
+				else
+				{
+					// Failed the signal mode command. Assume standard NTSC DV
+					dev->fDVFormats = 1 << kIDHDV_SD;	// Standard DV
+					dev->standard = ntscIn;
+				}
+			}
+			else
+			{
+				// Assume NTSC, standard DV if device doesn't support AVC.
+				dev->fDVFormats = 1 << kIDHDV_SD;	// Standard DV
+				dev->standard = ntscIn; 			// device standard - NTSC/PAL
+			}
+
             // Notify client
             (dvThread->fAddedFunc)(dvThread->fAddedRefCon, dev, device+1, refound);
-        }
+		}
     }
 }
 
@@ -1283,6 +1369,11 @@ static IOReturn openStream(DVStream *stream, bool forWrite, UInt32 packetSize)
         stream->fFrames.fStatus = kDVRunning;
 
     } while (false);
+
+	// If we got any errors, call closeStream now to cleanup
+	if(err)
+		closeStream(stream);
+	
     return err;
 }
 
@@ -1317,19 +1408,19 @@ static void closeStream(DVStream *stream)
     //CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.1, false);
 }
 
-static IOReturn DVAllocFrames(DVFrameVars *pFrameData, UInt32 numFrames, 
+static IOReturn DVAllocFrames(DVFrameVars *pFrameData, UInt32 numFrames, UInt32 frameSize,
         DVFrameVars **frameVars, UInt8 **frames)
 {
     int i;
     
     pFrameData->fNumFrames = numFrames;
-    pFrameData->fFrames = malloc(numFrames*kDVFrameSize);
+    pFrameData->fFrames = malloc(numFrames*frameSize);
     pFrameData->fReader = 0;
     pFrameData->fWriter = 0;
     pFrameData->fDroppedFrames = 0;
     pFrameData->fStatus = 0;
     for(i=0; i<numFrames; i++) {
-        frames[i] = pFrameData->fFrames + i*kDVFrameSize;
+        frames[i] = pFrameData->fFrames + i*frameSize;
     }
     *frameVars = pFrameData;
     
@@ -1345,7 +1436,7 @@ static void DVFreeFrames(DVFrameVars *pFrameData)
     pFrameData->fFrames = NULL;
 }
 
-static void DVGetNextFullOutputFrame(DVFrameVars *pFrameData, UInt8** ppFrame )
+static void DVGetNextFullOutputFrame(DVFrameVars *pFrameData, UInt8** ppFrame, UInt32 frameSize )
 {
     if(NULL == *ppFrame) {
         *ppFrame = pFrameData->fFrames;
@@ -1361,7 +1452,7 @@ static void DVGetNextFullOutputFrame(DVFrameVars *pFrameData, UInt8** ppFrame )
             pFrameData->fDroppedFrames++;
         }
         *ppFrame = pFrameData->fFrames + 
-            kDVFrameSize*(pFrameData->fReader % pFrameData->fNumFrames);
+            frameSize*(pFrameData->fReader % pFrameData->fNumFrames);
     }
 }
 
@@ -1390,10 +1481,10 @@ void DVSetInputFrameSizeAndMode(DVFrameVars *pFrameData, UInt32 bytes, UInt8 mod
     }
 }
 
-void DVGetNextEmptyInputFrame(DVFrameVars *pFrameData,  UInt8** ppFrame)
+void DVGetNextEmptyInputFrame(DVFrameVars *pFrameData,  UInt8** ppFrame, UInt32 frameSize )
 {
     int index = pFrameData->fWriter % pFrameData->fNumFrames;
-    *ppFrame = pFrameData->fFrames + kDVFrameSize*index;
+    *ppFrame = pFrameData->fFrames + frameSize*index;
 	pFrameData->fFrameStatus[index] = kWriting;
 }
 
@@ -1602,6 +1693,7 @@ void DVSilenceFrame(UInt8 mode, UInt8* frame)
 {
     UInt32    i,j,k,n;
     UInt8    *tPtr;
+	UInt8    sType = ((mode & 0x7C) >> 2);
     
     //syslog(LOG_INFO, "silencing frame %p\n", frame);
     
@@ -1611,10 +1703,12 @@ void DVSilenceFrame(UInt8 mode, UInt8* frame)
         n=10;                            // ntsc            
     else
         n=12;                            // pal
-    
-    if(mode & 4)	// SDL
-        n /= 2;
-    // Yet another attempt ...
+
+	if (sType == 1)
+		n /= 2;							//  SDL
+	else if (sType == 0x1D)
+		n *= 2;							// DVCPro-50
+
     // Mute all the audio samples
     
     for (i=0;i<n;i++)
@@ -1644,6 +1738,7 @@ static void DVUpdateOutputBuffers( DVLocalOutPtr pLocalData )
     UInt32                dbc;
 //    static UInt16       lastFrameSequence = 0;
 //    UInt16              currentFrameSequence;
+	UInt8 stype;
     
     // Get driver data and first DCL command.
     pGlobalData = pLocalData->pGlobalData;
@@ -1674,7 +1769,9 @@ static void DVUpdateOutputBuffers( DVLocalOutPtr pLocalData )
     if(pGlobalData->fUpdateBuffers) {
         // Get the next frame to output
         if( pGlobalData->pImageBuffer == NULL ) {
-            DVGetNextFullOutputFrame(&pGlobalData->fStreamVars.fFrames, (UInt8 **)&(pGlobalData->pImageBuffer) );
+            DVGetNextFullOutputFrame(&pGlobalData->fStreamVars.fFrames,
+							(UInt8 **)&(pGlobalData->pImageBuffer),
+							 pGlobalData->fStreamVars.fDVFrameSize);
         }
     }
     pImageBuffer = ( pGlobalData->pImageBuffer + (pGlobalData->fDataQuadSize * dataPacketNum) );
@@ -1702,7 +1799,27 @@ static void DVUpdateOutputBuffers( DVLocalOutPtr pLocalData )
                         pGlobalData->fDataPacketSize);
                 pImageBuffer += pGlobalData->fDataQuadSize;
             }
-            dbc++;
+
+			// Increment dbc based on stream type
+			// TODO: This will need to change to support 2x,4x modes on some signal types
+			stype = pGlobalData->fStreamVars.fSignalMode & kAVCSignalModeMask_STYPE;
+			switch (stype)
+			{
+				case kAVCSignalModeMask_DVCPro50:
+					dbc += 2;	// DBC increments by two for each packet
+					break;
+		
+				case kAVCSignalModeMask_DVCPro100:
+					dbc += 4;	// DBC increments by four for each packet
+					break;
+
+				case kAVCSignalModeMask_SDL:
+				case kAVCSignalModeMask_DVCPro25:
+				case kAVCSignalModeMask_HD:
+				default:	// SD video stream
+					dbc += 1;	// DBC increments by one for each packet
+					break;
+			};
             dataPacketNum++;
         
             // check if frame is done
@@ -1726,7 +1843,9 @@ static void DVUpdateOutputBuffers( DVLocalOutPtr pLocalData )
                 if(pGlobalData->fUpdateBuffers) {
                     pLastImageBuffer = pGlobalData->pImageBuffer;
                     
-                    DVGetNextFullOutputFrame(&pGlobalData->fStreamVars.fFrames, (UInt8 **)&(pGlobalData->pImageBuffer) );
+                    DVGetNextFullOutputFrame(&pGlobalData->fStreamVars.fFrames,
+								(UInt8 **)&(pGlobalData->pImageBuffer),
+								 pGlobalData->fStreamVars.fDVFrameSize);
                     pImageBuffer = pGlobalData->pImageBuffer;
         
                     // Mute the audio on repeating frames, based on repeating frame sequences
@@ -1949,23 +2068,48 @@ static IOReturn allocateBuffers(DVGlobalOutPtr pGlobalData)
     UInt32			transmitBuffersSize;
 
     IOReturn		res;
+	
+	// Setup CIP header static bits, plus packet size based on signal mode
+	UInt8 stype = pGlobalData->fStreamVars.fSignalMode & kAVCSignalModeMask_STYPE;
+	switch (stype)
+	{
+		case kAVCSignalModeMask_SDL:
+			pGlobalData->fHeader0 = 0x003c0000;
+			pGlobalData->fHeader1 = 0x80040000;
+			pGlobalData->fDataPacketSize = kDVSDLPayloadPacketSize;			// Data portion, in bytes
+			break;
+			
+		case kAVCSignalModeMask_DVCPro25:
+			pGlobalData->fHeader0 = 0x00780000;
+			pGlobalData->fHeader1 = 0x80780000;
+			pGlobalData->fDataPacketSize = kDVSDPayloadPacketSize;			// Data portion, in bytes
+			break;
+			
+		case kAVCSignalModeMask_DVCPro50:
+			pGlobalData->fHeader0 = 0x00784000;
+			pGlobalData->fHeader1 = 0x80740000;
+			pGlobalData->fDataPacketSize = kDVCPro50PayloadPacketSize;			// Data portion, in bytes
+			break;
+		
+		case kAVCSignalModeMask_DVCPro100:
+			pGlobalData->fHeader0 = 0x00788000;
+			pGlobalData->fHeader1 = 0x80700000;
+			pGlobalData->fDataPacketSize = kDVCPro50PayloadPacketSize;			// Data portion, in bytes		
+			break;
 
-    // Determine SDL/SD/DVCPro
-    if((pGlobalData->fStreamVars.fSignalMode & kAVCSignalModeMask_STYPE) == kAVCSignalModeMask_SDL) {
-        pGlobalData->fHeader0 = 0x003c0000;
-        pGlobalData->fHeader1 = 0x80040000;
-        pGlobalData->fDataPacketSize = kDVSDLPayloadPacketSize;			// Data portion, in bytes
-    }
-    else if((pGlobalData->fStreamVars.fSignalMode & kAVCSignalModeMask_STYPE) == kAVCSignalModeMask_DVCPro25) {
-        pGlobalData->fHeader0 = 0x00780000;
-        pGlobalData->fHeader1 = 0x80780000;
-        pGlobalData->fDataPacketSize = kDVSDPayloadPacketSize;			// Data portion, in bytes
-    }
-    else {
-        pGlobalData->fHeader0 = 0x00780000;
-        pGlobalData->fHeader1 = 0x80000000;
-        pGlobalData->fDataPacketSize = kDVSDPayloadPacketSize;			// Data portion, in bytes
-    }
+		case kAVCSignalModeMask_HD:
+			pGlobalData->fHeader0 = 0x00F00000;
+			pGlobalData->fHeader1 = 0x80080000;
+			pGlobalData->fDataPacketSize = kDVCPro50PayloadPacketSize;			// Data portion, in bytes		
+			break;
+			
+		default:	// Must be SD video stream
+			pGlobalData->fHeader0 = 0x00780000;
+			pGlobalData->fHeader1 = 0x80000000;
+			pGlobalData->fDataPacketSize = kDVSDPayloadPacketSize;			// Data portion, in bytes
+			break;
+	};
+	
     pGlobalData->fDataQuadSize = pGlobalData->fDataPacketSize/4;	// Data portion, in quads
     pGlobalData->fAlignQuadSize = (pGlobalData->fDataPacketSize + kDVPacketCIPSize + 15)/16;
     pGlobalData->fAlignQuadSize *= 4;					// Packet size padded out to 16 byte boundary, in quads
@@ -2105,7 +2249,7 @@ static IOReturn buildWriteProgram(DVGlobalOutPtr pGlobalData)
     IOReturn			res;
 
     UInt32			 totalDCLSize;
-    UInt32			totalEmpty, emptySoFar, emptyError;
+    UInt32			totalEmpty, emptySoFar;
 
 #if ALT_TIMING    
 	totalEmpty = getEmptyPacketsPerGroup(pGlobalData, pGlobalData->numDataPacketsPerGroup) * kNumPlayBufferGroups;
@@ -2396,6 +2540,57 @@ DVGlobalOutPtr DVAllocWrite(DVDevice *device, DVThread *thread)
 IOReturn DVWriteSetSignalMode(DVGlobalOutPtr globs, UInt8 mode)
 {
     globs->fStreamVars.fSignalMode = mode;
+	
+	switch (mode)
+	{
+		// NTSC SD or DVCPro25
+		case kAVCSignalModeSD525_60:
+		case kAVCSignalModeDVCPro525_60:
+			globs->fStreamVars.fDVFrameSize = kFrameSize_SD525_60;
+			break;
+
+		// PAL SD or DVCPro25
+		case kAVCSignalModeSD625_50:
+		case kAVCSignalModeDVCPro625_50:
+			globs->fStreamVars.fDVFrameSize = kFrameSize_SD625_50;
+			break;
+
+		// NTSC SDL
+		case kAVCSignalModeSDL525_60: 
+			globs->fStreamVars.fDVFrameSize = kFrameSize_SDL525_60;
+			break;
+
+		// PAL SDL
+		case kAVCSignalModeSDL625_50:
+			globs->fStreamVars.fDVFrameSize = kFrameSize_SDL625_50;
+			break;
+
+		// NTSC DVCPro50 or HD
+		case kAVCSignalModeDVCPro50_525_60:
+		case kAVCSignalModeHD1125_60:
+			globs->fStreamVars.fDVFrameSize = kFrameSize_DVCPro50_525_60;
+			break;
+
+		// PAL DVCPro50 or HD
+		case kAVCSignalModeDVCPro50_625_50:
+		case kAVCSignalModeHD1250_50:
+			globs->fStreamVars.fDVFrameSize = kFrameSize_DVCPro50_625_50;
+			break;
+
+		// NTSC DVCPro100
+		case kAVCSignalModeDVCPro100_525_60:
+			globs->fStreamVars.fDVFrameSize = kFrameSize_DVCPro100_525_60;
+			break;
+
+		// PAL DVCPro100
+		case kAVCSignalModeDVCPro100_625_50:
+			globs->fStreamVars.fDVFrameSize = kFrameSize_DVCPro100_625_50;
+			break;
+
+		default:
+			globs->fStreamVars.fDVFrameSize = kFrameSize_SD625_50;
+			break;
+	};
     
     return kIOReturnSuccess;
 }
@@ -2405,7 +2600,11 @@ IOReturn DVWriteAllocFrames(DVGlobalOutPtr pGlobalData, UInt32 numFrames,
 {
     IOReturn err;
    do {
-        err = DVAllocFrames(&pGlobalData->fStreamVars.fFrames, numFrames, frameVars, frames);
+        err = DVAllocFrames(&pGlobalData->fStreamVars.fFrames,
+							numFrames,
+							pGlobalData->fStreamVars.fDVFrameSize,
+							frameVars,
+							frames);
         if(err != kIOReturnSuccess)
             break;
         err = allocateBuffers(pGlobalData);
@@ -2536,14 +2735,83 @@ DVGlobalInPtr DVAllocRead(DVDevice *device, DVThread *thread)
         return NULL;
     bzero(globs, sizeof(DVGlobalIn));
     initStream(&globs->fStreamVars, device, kNoPlug, device->fReadChan, thread);
-    
+
+	// Set the initial read signal mode for standard DV.
+	// This can be overriden later by a call to DVReadSetSignalMode
+	if (device->standard == 0)
+		DVReadSetSignalMode(globs,0x00);	// NTSC-DV
+	else
+		DVReadSetSignalMode(globs,0x80);	// PAL-DV
+	
     return globs;
+}
+
+IOReturn DVReadSetSignalMode(DVGlobalInPtr globs, UInt8 mode)
+{
+    globs->fStreamVars.fSignalMode = mode;
+	
+    switch (mode)
+	{
+		// NTSC SD or DVCPro25
+		case kAVCSignalModeSD525_60:
+		case kAVCSignalModeDVCPro525_60:
+			globs->fStreamVars.fDVFrameSize = kFrameSize_SD525_60;
+			break;
+
+		// PAL SD or DVCPro25
+		case kAVCSignalModeSD625_50:
+		case kAVCSignalModeDVCPro625_50:
+			globs->fStreamVars.fDVFrameSize = kFrameSize_SD625_50;
+			break;
+
+		// NTSC SDL
+		case kAVCSignalModeSDL525_60: 
+			globs->fStreamVars.fDVFrameSize = kFrameSize_SDL525_60;
+			break;
+
+		// PAL SDL
+		case kAVCSignalModeSDL625_50:
+			globs->fStreamVars.fDVFrameSize = kFrameSize_SDL625_50;
+			break;
+
+		// NTSC DVCPro50 or HD
+		case kAVCSignalModeDVCPro50_525_60:
+		case kAVCSignalModeHD1125_60:
+			globs->fStreamVars.fDVFrameSize = kFrameSize_DVCPro50_525_60;
+			break;
+
+		// PAL DVCPro50 or HD
+		case kAVCSignalModeDVCPro50_625_50:
+		case kAVCSignalModeHD1250_50:
+			globs->fStreamVars.fDVFrameSize = kFrameSize_DVCPro50_625_50;
+			break;
+
+		// NTSC DVCPro100
+		case kAVCSignalModeDVCPro100_525_60:
+			globs->fStreamVars.fDVFrameSize = kFrameSize_DVCPro100_525_60;
+			break;
+
+		// PAL DVCPro100
+		case kAVCSignalModeDVCPro100_625_50:
+			globs->fStreamVars.fDVFrameSize = kFrameSize_DVCPro100_625_50;
+			break;
+
+		default:
+			globs->fStreamVars.fDVFrameSize = kFrameSize_SD625_50;
+			break;
+	};
+    
+    return kIOReturnSuccess;
 }
 
 IOReturn DVReadAllocFrames(DVGlobalInPtr globs, UInt32 numFrames, 
     DVFrameVars **frameVars, UInt8 **frames)
 {
-    return DVAllocFrames(&globs->fStreamVars.fFrames, numFrames, frameVars, frames);
+    return DVAllocFrames(&globs->fStreamVars.fFrames,
+							numFrames,
+							globs->fStreamVars.fDVFrameSize,
+							frameVars,
+							frames);
 }
 
 static void doDVReadHandleInputUnderrun( DCLCommandPtr pDCLCommandPtr )
@@ -2589,6 +2857,8 @@ static void DVStorePackets(DVLocalInPtr pLocalData)
     bool vSyncDetected;
     UInt8 currentSequenceCount;
     int prevBlock;
+	UInt8 fn;
+	UInt8 stype;
 
 #if TIMING
     CFAbsoluteTime cstart, cend;
@@ -2614,12 +2884,19 @@ static void DVStorePackets(DVLocalInPtr pLocalData)
         pPacketBuffer += 4; // 4 byte 1394 header
         packetSize = (packetHeader & kFWIsochDataLength) >> kFWIsochDataLengthPhase;
 #if 1
+		// Calculate fn
+		fn = ((pPacketBuffer[2] & 0xC0) >> 6);
+		if (fn == 0)
+			fn = 1;
+		else
+			fn = 1 << fn;
+
         // Check for corrupt packets, otherwise we may die horribly later in bcopy()
         if(packetSize < 8) {
             syslog(LOG_INFO, "DVStorePackets: size %d header 0x%x\n", packetSize, packetHeader);
             packetSize = 8;
         }
-        else if(packetSize > 8 && packetSize != pPacketBuffer[1]*4 + 8) {
+        else if(packetSize > 8 && packetSize != (pPacketBuffer[1]*4*fn) + 8) {
             syslog(LOG_INFO, "DVStorePackets: size %d header 0x%x\n", packetSize, packetHeader);
             packetSize = 8;
         }
@@ -2628,8 +2905,28 @@ static void DVStorePackets(DVLocalInPtr pLocalData)
         if( packetSize > 8 ) {
             // get current data block sequence counter value and increment saved value
             currentSequenceCount = pPacketBuffer[3];
-            pGlobalData->lastSequenceCount++;
-            
+
+			// Increment lastSequenceCount based on stream type
+			// TODO: This will need to change to support 2x,4x modes on some signal types
+			stype = pGlobalData->fStreamVars.fSignalMode & kAVCSignalModeMask_STYPE;
+			switch (stype)
+			{
+				case kAVCSignalModeMask_DVCPro50:
+					pGlobalData->lastSequenceCount += 2;
+					break;
+		
+				case kAVCSignalModeMask_DVCPro100:
+					pGlobalData->lastSequenceCount += 4;
+					break;
+
+				case kAVCSignalModeMask_SDL:
+				case kAVCSignalModeMask_DVCPro25:
+				case kAVCSignalModeMask_HD:
+				default:	// SD video stream
+					pGlobalData->lastSequenceCount += 1;
+					break;
+			};
+
             // Want size minus CIP header
             packetSize -= 8;
             // detect vSync
@@ -2683,7 +2980,9 @@ static void DVStorePackets(DVLocalInPtr pLocalData)
                 // start a new frame
                 pGlobalData->packetCount = 0;
                 pGlobalData->lastSequenceCount = currentSequenceCount;
-                DVGetNextEmptyInputFrame(&pGlobalData->fStreamVars.fFrames, &(pGlobalData->pImageBuffer));
+                DVGetNextEmptyInputFrame(&pGlobalData->fStreamVars.fFrames, 
+											&(pGlobalData->pImageBuffer),
+											pGlobalData->fStreamVars.fDVFrameSize);
                 //printf("Filling frame %p (w%d r%d)\n",
                 //    pGlobalData->pImageBuffer, pGlobalData->fStreamVars.fFrames.fWriter, pGlobalData->fStreamVars.fFrames.fReader);
                     
@@ -2775,6 +3074,9 @@ IOReturn DVReadStart(DVGlobalInPtr globs)
     IOReturn			res;
     UInt32 *			timeStampPtr;
     int 				i;
+	UInt32				packetBufferSize;
+	UInt32 				alignedDVPacketSize;
+	UInt32 				pingPongBufferSize;
     
     //syslog(LOG_INFO, "DVReadStart() %p\n", globs);
 
@@ -2785,13 +3087,48 @@ IOReturn DVReadStart(DVGlobalInPtr globs)
     globs->ppUpdateDCLList = NULL;
     globs->pImageBuffer = NULL;
     globs->fStreamVars.fDCLBuffers = NULL;
-    globs->fStreamVars.fSignalMode = kAVCSignalModeMask_50;	// initialize to bigger packets per frame (PAL)
+//    globs->fStreamVars.fSignalMode = kAVCSignalModeMask_50;	// initialize to bigger packets per frame (PAL)
     globs->packetCount = 0;
     globs->fState = 0;
-    
+
+	switch (globs->fStreamVars.fSignalMode)
+	{
+
+		case kAVCSignalModeSDL525_60:
+		case kAVCSignalModeSDL625_50:
+			packetBufferSize = 252;
+			alignedDVPacketSize = 512;
+			break;
+
+		case kAVCSignalModeDVCPro50_525_60:
+		case kAVCSignalModeHD1125_60:
+		case kAVCSignalModeDVCPro50_625_50:
+		case kAVCSignalModeHD1250_50:
+			packetBufferSize = 972;
+			alignedDVPacketSize = 1024;
+			break;
+
+		case kAVCSignalModeDVCPro100_525_60:
+		case kAVCSignalModeDVCPro100_625_50:
+			packetBufferSize = 1932;
+			alignedDVPacketSize = 2048;
+			break;
+
+		case kAVCSignalModeSD525_60:
+		case kAVCSignalModeDVCPro525_60:
+		case kAVCSignalModeSD625_50:
+		case kAVCSignalModeDVCPro625_50:
+		default:
+			packetBufferSize = 492;
+			alignedDVPacketSize = 512;
+			break;
+	};
+
+	pingPongBufferSize = kNumPingPongs * kNumPacketsPerPingPong * alignedDVPacketSize;
+	
     // Create ping pong buffer, overrun buffer and time stamp buffer
     //zzz should allocate in initialization routine.
-    bufferSize = kPingPongBufferSize + kAlignedDVPacketSize + kNumPingPongs * sizeof(UInt32);
+    bufferSize = pingPongBufferSize + alignedDVPacketSize + kNumPingPongs * sizeof(UInt32);
     vm_allocate(mach_task_self(), (vm_address_t *)&pingPongBuffer,
         bufferSize, VM_FLAGS_ANYWHERE);
     if (pingPongBuffer == NULL)
@@ -2800,7 +3137,7 @@ IOReturn DVReadStart(DVGlobalInPtr globs)
         res = kIOReturnNoMemory;
         goto bail;
     }
-    timeStampPtr = (UInt32 *)(pingPongBuffer + kPingPongBufferSize + kAlignedDVPacketSize);
+    timeStampPtr = (UInt32 *)(pingPongBuffer + pingPongBufferSize + alignedDVPacketSize);
     globs->fStreamVars.fDCLBuffers = pingPongBuffer;
     globs->fStreamVars.fDCLBufferSize = bufferSize;
     bzero( pingPongBuffer, bufferSize );
@@ -2857,17 +3194,17 @@ IOReturn DVReadStart(DVGlobalInPtr globs)
             // Create transfer DCL for each packet.
             for (packetNum = 0; packetNum < kNumPacketsPerPingPong; packetNum++)
             {
-                    // Receive one packet up to kReceiveDVPacketSize bytes.
+                    // Receive one packet up to packetBufferSize bytes.
                     pDCLTransferPacket = (DCLTransferPacketPtr) pDCLCommand;
                     pDCLCommand += sizeof (DCLTransferPacket);
                     pDCLTransferPacket->pNextDCLCommand = (DCLCommandPtr) pDCLCommand;
                     pDCLTransferPacket->opcode = kDCLReceivePacketStartOp;
                     pDCLTransferPacket->buffer = pingPongPtr;
-                    pDCLTransferPacket->size = kReceiveDVPacketSize;
+                    pDCLTransferPacket->size = packetBufferSize;
 
                     *updateDCLList++ = (DCLCommandPtr) pDCLTransferPacket;
                     updateListSize++;
-                    pingPongPtr += kAlignedDVPacketSize;
+                    pingPongPtr += alignedDVPacketSize;
             }
 
             // Create timestamp.                      
@@ -2910,7 +3247,7 @@ IOReturn DVReadStart(DVGlobalInPtr globs)
     pDCLTransferPacket->pNextDCLCommand = (DCLCommandPtr) pDCLCommand;
     pDCLTransferPacket->opcode = kDCLReceivePacketStartOp;
     pDCLTransferPacket->buffer = pingPongPtr;
-    pDCLTransferPacket->size = kReceiveDVPacketSize;
+    pDCLTransferPacket->size = packetBufferSize;
     
     // Call underrun proc.
     pUnderrunDCLCallProc = (DCLCallProcPtr) pDCLCommand;
@@ -2933,7 +3270,7 @@ IOReturn DVReadStart(DVGlobalInPtr globs)
     pDCLTransferPacket->pNextDCLCommand = (DCLCommandPtr) pDCLCommand;
     pDCLTransferPacket->opcode = kDCLReceivePacketStartOp;
     pDCLTransferPacket->buffer = pingPongPtr;
-    pDCLTransferPacket->size = kReceiveDVPacketSize;
+    pDCLTransferPacket->size = packetBufferSize;
 
     // Loop back to keep dumping packets into the bucket
     // This is the last command.

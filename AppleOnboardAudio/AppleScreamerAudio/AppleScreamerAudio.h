@@ -93,11 +93,13 @@ protected:
 	
 	// information specific to the chip
     AwacsInformation				chipInformation;
-//    bool							mIsMute;
-//    UInt32 							mVolRight;
-//	UInt32							mVolLeft;
-	// PM info
-	// bool							wakingFromSleep;
+	IOService						*ourProvider;					//	[3042658]	rbm	30 Sept 2002
+	SInt32							minVolume;						//	[3042658]	rbm	30 Sept 2002
+	SInt32							maxVolume;						//	[3042658]	rbm	30 Sept 2002
+	Boolean							useMasterVolumeControl;			//	[3042658]	rbm	30 Sept 2002
+	UInt32							lastLeftVol;					//	[3042658]	rbm	30 Sept 2002
+	UInt32							lastRightVol;					//	[3042658]	rbm	30 Sept 2002
+	UInt32							layoutID;						//	[3042658]	rbm	30 Sept 2002
       
 public:
 	// Classical Unix funxtions
@@ -110,7 +112,7 @@ public:
     virtual bool initHardware(IOService *provider);
         
 	// PRAM volume - need to move to common class
-    UInt8 VolumeToPRAMValue( UInt32 volLeft ,  UInt32 volRight);
+    UInt8 		VolumeToPRAMValue( UInt32 volLeft ,  UInt32 volRight);
     // void WritePRAMVol(  UInt32 volLeft ,  UInt32 volRight);
 
 protected:
@@ -119,44 +121,46 @@ protected:
 	// to verify the Detects.
     virtual void checkStatus(bool force);
     static void timerCallback(OSObject *target, IOAudioDevice *device);
-    void setDeviceDetectionActive();
-    void setDeviceDetectionInActive();       
+    void 		setDeviceDetectionActive();
+    void 		setDeviceDetectionInActive();     
+	  
 	// These should be virtual method in a superclass. All "Get" method
 	// could be common.
 		
 	// hardware registers manipulationf
-    void 	sndHWInitialize(IOService *provider);
+    void 		sndHWInitialize(IOService *provider);
 	virtual void	sndHWPostDMAEngineInit (IOService *provider);
 
-    UInt32 	sndHWGetInSenseBits(void);
-    UInt32 	sndHWGetRegister(UInt32 regNum);
+    UInt32 		sndHWGetInSenseBits(void);
+    UInt32 		sndHWGetRegister(UInt32 regNum);
     IOReturn   	sndHWSetRegister(UInt32 regNum, UInt32 value);
 public:
-    UInt32	sndHWGetConnectedDevices(void);
+    UInt32		sndHWGetConnectedDevices(void);
 protected:    
 
 	// activation functions
-    UInt32	sndHWGetActiveOutputExclusive(void);
+    UInt32		sndHWGetActiveOutputExclusive(void);
     IOReturn   	sndHWSetActiveOutputExclusive(UInt32 outputPort );
-    UInt32 	sndHWGetActiveInputExclusive(void);
+    UInt32 		sndHWGetActiveInputExclusive(void);
     IOReturn   	sndHWSetActiveInputExclusive(UInt32 input );
-    UInt32 	sndHWGetProgOutput();    
+	IOReturn	AdjustControls (void);					//	[3042658]	rbm	30 Sept 2002
+    UInt32 		sndHWGetProgOutput();    
     IOReturn   	sndHWSetProgOutput(UInt32 outputBits);
     
 	// control function
-    bool   	sndHWGetSystemMute(void);
+    bool   		sndHWGetSystemMute(void);
     IOReturn  	sndHWSetSystemMute(bool mutestate);
-    bool   	sndHWSetSystemVolume(UInt32 leftVolume, UInt32 rightVolume);
+    bool   		sndHWSetSystemVolume(UInt32 leftVolume, UInt32 rightVolume);
     IOReturn   	sndHWSetSystemVolume(UInt32 value);
     IOReturn	sndHWSetPlayThrough(bool playthroughstate);
-    IOReturn sndHWSetSystemInputGain(UInt32 leftGain, UInt32 rightGain);
+    IOReturn	sndHWSetSystemInputGain(UInt32 leftGain, UInt32 rightGain);
     
 	// Power Management
     IOReturn   	sndHWSetPowerState(IOAudioDevicePowerState theState);
 
 	// Identification
-    UInt32 	sndHWGetType( void );
-    UInt32	sndHWGetManufacturer( void );
+    UInt32 		sndHWGetType( void );
+    UInt32		sndHWGetManufacturer( void );
     
 	// chip specific
     void GC_Recalibrate(void);
@@ -172,6 +176,7 @@ protected:
 
 	IOAudioDevicePowerState SndHWGetPowerState( void );
 	void SetStateBits( UInt32 stateBits, UInt32 delay );
+	UInt32				GetDeviceID (void);					//	[3042658]	rbm	30 Sept 2002
 
 	// User Client calls
 	virtual UInt8		readGPIO (UInt32 selector) {return 0;}

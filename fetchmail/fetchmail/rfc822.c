@@ -1,27 +1,43 @@
-/*
- * rfc822.c -- code for slicing and dicing RFC822 mail headers
- *
- * Copyright 1997 by Eric S. Raymond
- * For license terms, see the file COPYING in this directory.
- */
+/*****************************************************************************
 
+NAME:
+   rfc822.c -- code for slicing and dicing RFC822 mail headers
+
+ENTRY POINTS:
+   nextaddr() -- parse the next address out of an RFC822 header
+   reply_hack() -- append hostname to local header addresses 
+
+THEORY:
+   How to parse RFC822 headers in C. This is not a fully conformant
+implementation of RFC822 or RFC2822, but it has been in production use
+in a widely-deployed MTA (fetcmail) since 1996 without complaints.
+Really perverse combinations of quoting and commenting could break it.
+
+AUTHOR:
+   Eric S. Raymond <esr@thyrsus.com>, 1997.  This source code example
+is part of fetchmail and the Unix Cookbook, and are released under the
+MIT license.  Compile with -DMAIN to build the demonstrator.
+
+******************************************************************************/
 #include  <stdio.h>
 #include  <ctype.h>
 #include  <string.h>
-#if defined(STDC_HEADERS)
 #include  <stdlib.h>
-#endif
 
-#include "config.h"
+#ifndef MAIN
 #include "fetchmail.h"
 #include "i18n.h"
-
-#define HEADER_END(p)	((p)[0] == '\n' && ((p)[1] != ' ' && (p)[1] != '\t'))
-
-#ifdef TESTMAIN
+#else
 static int verbose;
 char *program_name = "rfc822";
-#endif /* TESTMAIN */
+#endif /* MAIN */
+
+#ifndef TRUE
+#define TRUE 1
+#define FALSE 0
+#endif
+
+#define HEADER_END(p)	((p)[0] == '\n' && ((p)[1] != ' ' && (p)[1] != '\t'))
 
 unsigned char *reply_hack(buf, host)
 /* hack message headers so replies will work properly */
@@ -30,9 +46,9 @@ const unsigned char *host;	/* server hostname */
 {
     unsigned char *from, *cp, last_nws = '\0', *parens_from = NULL;
     int parendepth, state, has_bare_name_part, has_host_part;
-#ifndef TESTMAIN
+#ifndef MAIN
     int addresscount = 1;
-#endif /* TESTMAIN */
+#endif /* MAIN */
 
     if (strncasecmp("From:", buf, 5)
 	&& strncasecmp("To:", buf, 3)
@@ -52,7 +68,7 @@ const unsigned char *host;	/* server hostname */
 	return(buf);
     }
 
-#ifndef TESTMAIN
+#ifndef MAIN
     if (outlevel >= O_DEBUG)
 	report_build(stdout, GT_("About to rewrite %s"), buf);
 
@@ -61,7 +77,7 @@ const unsigned char *host;	/* server hostname */
 	if (*cp == ',' || isspace(*cp))
 	    addresscount++;
     buf = (unsigned char *)xrealloc(buf, strlen(buf) + addresscount * strlen(host) + 1);
-#endif /* TESTMAIN */
+#endif /* MAIN */
 
     /*
      * This is going to foo up on some ill-formed addresses.
@@ -73,13 +89,13 @@ const unsigned char *host;	/* server hostname */
     has_host_part = has_bare_name_part = FALSE;
     for (from = buf; *from; from++)
     {
-#ifdef TESTMAIN
+#ifdef MAIN
 	if (verbose)
 	{
 	    printf("state %d: %s", state, buf);
 	    printf("%*s^\n", from - buf + 10, " ");
 	}
-#endif /* TESTMAIN */
+#endif /* MAIN */
 	if (state != 2)
 	{
 	    if (*from == '(')
@@ -188,10 +204,10 @@ const unsigned char *host;	/* server hostname */
 	}
     }
 
-#ifndef TESTMAIN
+#ifndef MAIN
     if (outlevel >= O_DEBUG)
 	report_complete(stdout, GT_("Rewritten version is %s\n"), buf);
-#endif /* TESTMAIN */
+#endif /* MAIN */
     return(buf);
 }
 
@@ -199,13 +215,13 @@ unsigned char *nxtaddr(hdr)
 /* parse addresses in succession out of a specified RFC822 header */
 const unsigned char *hdr;	/* header to be parsed, NUL to continue previous hdr */
 {
-    static unsigned char address[POPBUFSIZE+1];
+    static unsigned char address[BUFSIZ];
     static int tp;
     static const unsigned char *hp;
     static int	state, oldstate;
-#ifdef TESTMAIN
+#ifdef MAIN
     static const unsigned char *orighdr;
-#endif /* TESTMAIN */
+#endif /* MAIN */
     int parendepth = 0;
 
 #define START_HDR	0	/* before header colon */
@@ -222,21 +238,21 @@ const unsigned char *hdr;	/* header to be parsed, NUL to continue previous hdr *
     {
 	hp = hdr;
 	state = START_HDR;
-#ifdef TESTMAIN
+#ifdef MAIN
 	orighdr = hdr;
-#endif /* TESTMAIN */
+#endif /* MAIN */
 	tp = 0;
     }
 
     for (; *hp; hp++)
     {
-#ifdef TESTMAIN
+#ifdef MAIN
 	if (verbose)
 	{
 	    printf("state %d: %s", state, orighdr);
 	    printf("%*s^\n", hp - orighdr + 10, " ");
 	}
-#endif /* TESTMAIN */
+#endif /* MAIN */
 
 	if (state == ENDIT_ALL)		/* after last address */
 	    return(NULL);
@@ -370,7 +386,7 @@ const unsigned char *hdr;	/* header to be parsed, NUL to continue previous hdr *
     return(NULL);
 }
 
-#ifdef TESTMAIN
+#ifdef MAIN
 static void parsebuf(unsigned char *longbuf, int reply)
 {
     unsigned char	*cp;
@@ -392,7 +408,7 @@ static void parsebuf(unsigned char *longbuf, int reply)
 
 main(int argc, char *argv[])
 {
-    unsigned char	buf[MSGBUFSIZE], longbuf[BUFSIZ];
+    unsigned char	buf[BUFSIZ], longbuf[BUFSIZ];
     int			ch, reply;
     
     verbose = reply = FALSE;
@@ -433,6 +449,6 @@ main(int argc, char *argv[])
 	parsebuf(longbuf, reply);
     }
 }
-#endif /* TESTMAIN */
+#endif /* MAIN */
 
 /* rfc822.c end */

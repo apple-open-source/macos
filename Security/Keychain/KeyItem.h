@@ -22,6 +22,7 @@
 #define _SECURITY_KEYITEM_H_
 
 #include <Security/Item.h>
+#include <Security/SecKeyPriv.h>
 
 namespace Security
 {
@@ -49,6 +50,31 @@ public:
 
 	CssmClient::SSDbUniqueRecord ssDbUniqueRecord();
 	const CssmKey &cssmKey();
+
+	const AccessCredentials *getCredentials(
+		CSSM_ACL_AUTHORIZATION_TAG operation,
+		SecCredentialType credentialType);
+
+	static void createPair(
+		Keychain keychain,
+        CSSM_ALGORITHMS algorithm,
+        uint32 keySizeInBits,
+        CSSM_CC_HANDLE contextHandle,
+        CSSM_KEYUSE publicKeyUsage,
+        uint32 publicKeyAttr,
+        CSSM_KEYUSE privateKeyUsage,
+        uint32 privateKeyAttr,
+        RefPointer<Access> initialAccess,
+        RefPointer<KeyItem> &outPublicKey, 
+        RefPointer<KeyItem> &outPrivateKey);
+
+	static void importPair(
+		Keychain keychain,
+		const CSSM_KEY &publicCssmKey,
+		const CSSM_KEY &privateCssmKey,
+        RefPointer<Access> initialAccess,
+        RefPointer<KeyItem> &outPublicKey, 
+        RefPointer<KeyItem> &outPrivateKey);
 
 protected:
 	virtual PrimaryKey add(Keychain &keychain);

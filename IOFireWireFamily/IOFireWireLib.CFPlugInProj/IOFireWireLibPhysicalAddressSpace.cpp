@@ -221,7 +221,7 @@ namespace IOFireWireLib {
 			IOByteCount traversed = mSegmentLengths[0] ;
 			UInt32		currentSegment = 0 ;
 			
-			while((traversed < offset) && (currentSegment < mSegmentCount))
+			while((traversed <= offset) && (currentSegment < mSegmentCount))
 			{
 				traversed += mSegmentLengths[currentSegment] ;
 				++currentSegment ;

@@ -38,15 +38,15 @@ BOOL busDevicesChanged=NO;
     [usbextensionsModulesPopup selectItemAtIndex:[prefs integerForKey:@"Kernel Extensions"]];
     [ioregPlanePopup selectItemAtIndex:[prefs integerForKey:@"IORegistry Plane"]];
     [usbLoggerLoggingLevel selectItemAtIndex:[prefs integerForKey:@"Logging Level"]];
-    if ([prefs integerForKey:@"Prober Should Not AutoRefresh"] == 0) {
-        [proberAutoRefreshButton setState:NSOnState];
-        proberShouldAutoRefresh = YES;
-        [proberRefreshButton setEnabled:NO];
-    }
-    else {
+    if ([prefs integerForKey:@"Prober Should AutoRefresh"] == 0) {
         [proberAutoRefreshButton setState:NSOffState];
         proberShouldAutoRefresh = NO;
         [proberRefreshButton setEnabled:YES];
+    }
+    else {
+        [proberAutoRefreshButton setState:NSOnState];
+        proberShouldAutoRefresh = YES;
+        [proberRefreshButton setEnabled:NO];
     }
     if ([prefs integerForKey:@"IORegistry Should Not AutoRefresh"] == 0) {
         [ioregistryAutoRefreshButton setState:NSOnState];
@@ -70,7 +70,7 @@ BOOL busDevicesChanged=NO;
     [prefs setInteger:[usbextensionsModulesPopup indexOfSelectedItem] forKey:@"Kernel Extensions"];
     [prefs setInteger:[ioregPlanePopup indexOfSelectedItem] forKey:@"IORegistry Plane"];
     [prefs setInteger:[usbLoggerLoggingLevel indexOfSelectedItem] forKey:@"Logging Level"];
-    [prefs setInteger:![proberAutoRefreshButton state] forKey:@"Prober Should Not AutoRefresh"];
+    [prefs setInteger:![proberAutoRefreshButton state] forKey:@"Prober Should AutoRefresh"];
     [prefs setInteger:![ioregistryAutoRefreshButton state] forKey:@"IORegistry Should Not AutoRefresh"];
 
     [prefs synchronize];

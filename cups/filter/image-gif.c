@@ -1,5 +1,5 @@
 /*
- * "$Id: image-gif.c,v 1.1.1.4 2002/06/06 22:13:00 jlovell Exp $"
+ * "$Id: image-gif.c,v 1.1.1.4.2.1 2002/12/13 22:54:10 jlovell Exp $"
  *
  *   GIF image routines for the Common UNIX Printing System (CUPS).
  *
@@ -233,6 +233,19 @@ ImageReadGIF(image_t    *img,		/* IO - Image */
           img->xsize = (buf[5] << 8) | buf[4];
           img->ysize = (buf[7] << 8) | buf[6];
 
+         /*
+	  * Check the dimensions of the image; since the dimensions are
+	  * a 16-bit integer we just need to check for 0...
+	  */
+
+          if (img->xsize == 0 || img->ysize == 0)
+	  {
+	    fprintf(stderr, "ERROR: Bad GIF image dimensions: %dx%d\n",
+	            img->xsize, img->ysize);
+	    fclose(fp);
+	    return (1);
+	  }
+
 	  i = gif_read_image(fp, img, cmap, buf[8] & GIF_INTERLACE);
           fclose(fp);
           return (i);
@@ -374,14 +387,23 @@ gif_get_code(FILE *fp,		/* I - File to read from */
     * Move last two bytes to front of buffer...
     */
 
-    buf[0] = buf[last_byte - 2];
-    buf[1] = buf[last_byte - 1];
+    if (last_byte > 1)
+    {
+      buf[0]    = buf[last_byte - 2];
+      buf[1]    = buf[last_byte - 1];
+      last_byte = 2;
+    }
+    else if (last_byte == 1)
+    {
+      buf[0]    = buf[last_byte - 1];
+      last_byte = 1;
+    }
 
    /*
     * Read in another buffer...
     */
 
-    if ((count = gif_get_block (fp, buf + 2)) <= 0)
+    if ((count = gif_get_block (fp, buf + last_byte)) <= 0)
     {
      /*
       * Whoops, no more data!
@@ -395,8 +417,8 @@ gif_get_code(FILE *fp,		/* I - File to read from */
     * Update buffer state...
     */
 
-    last_byte = 2 + count;
-    curbit    = (curbit - lastbit) + 16;
+    curbit    = (curbit - lastbit) + 8 * last_byte;
+    last_byte += count;
     lastbit   = last_byte * 8;
   }
 
@@ -649,5 +671,5 @@ gif_read_image(FILE       *fp,		/* I - Input file */
 
 
 /*
- * End of "$Id: image-gif.c,v 1.1.1.4 2002/06/06 22:13:00 jlovell Exp $".
+ * End of "$Id: image-gif.c,v 1.1.1.4.2.1 2002/12/13 22:54:10 jlovell Exp $".
  */

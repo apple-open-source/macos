@@ -101,6 +101,9 @@ protected:
     void convertWordToByte( const UInt32 * src,
                         UInt8 *        dst,
                         UInt32         bitsToCopy);
+                        
+    // Call back methods
+    static void _hidReportCallback(void *refcon, IOReturn result, UInt32 bufferSize);
                            
 public:
     // add/remove a queue 
@@ -149,7 +152,7 @@ public:
                                 IOHIDElementCookie		elementCookie,
                                 IOHIDEventStruct *		valueEvent,
                                 UInt32 				timeoutMS = 0,
-                                IOHIDElementCallbackFunction *	callback = NULL,
+                                IOHIDElementCallbackFunction	callback = NULL,
                                 void * 				callbackTargetm = NULL,
                                 void *				callbackRefcon = NULL,
                                 bool				pushToDevice = false);
@@ -158,7 +161,7 @@ public:
                                 IOHIDElementCookie		elementCookie,
                                 IOHIDEventStruct *		valueEvent,
                                 UInt32 				timeoutMS,
-                                IOHIDElementCallbackFunction *	callback,
+                                IOHIDElementCallbackFunction	callback,
                                 void * 				callbackTarget,
                                 void *				callbackRefcon);
 
@@ -169,6 +172,25 @@ public:
     
     virtual IOHIDOutputTransactionInterface ** allocOutputTransaction();
 
+    // Added functions Post Jaguar
+    virtual IOReturn setReport (IOHIDReportType			reportType,
+                                UInt32				reportID,
+                                void *				reportBuffer,
+                                UInt32				reportBufferSize,
+                                UInt32 				timeoutMS,
+                                IOHIDReportCallbackFunction	callback,
+                                void * 				callbackTarget,
+                                void *				callbackRefcon);
+
+
+    virtual IOReturn getReport (IOHIDReportType			reportType,
+                                UInt32				reportID,
+                                void *				reportBuffer,
+                                UInt32 *			reportBufferSize,
+                                UInt32 				timeoutMS,
+                                IOHIDReportCallbackFunction	callback,
+                                void * 				callbackTarget,
+                                void *				callbackRefcon);
 
 /*
  * Routing gumf for CFPlugIn interfaces
@@ -228,7 +250,7 @@ protected:
                                 IOHIDElementCookie		elementCookie,
                                 IOHIDEventStruct *		valueEvent,
                                 UInt32 				timeoutMS,
-                                IOHIDElementCallbackFunction *	callback,
+                                IOHIDElementCallbackFunction	callback,
                                 void * 				callbackTarget,
                                 void *				callbackRefcon);
 
@@ -246,7 +268,7 @@ protected:
                                 IOHIDElementCookie		elementCookie,
                                 IOHIDEventStruct *		valueEvent,
                                 UInt32 				timeoutMS,
-                                IOHIDElementCallbackFunction *	callback,
+                                IOHIDElementCallbackFunction	callback,
                                 void * 				callbackTarget,
                                 void *				callbackRefcon);
 
@@ -259,6 +281,28 @@ protected:
     
     /* Wrapper to return instances of the IOHIDOutputTransactionInterface */
     static IOHIDOutputTransactionInterface ** deviceAllocOutputTransaction (void *self);
+    
+    // Added functions Post Jaguar
+    static IOReturn deviceSetReport (void * 			self,
+                                IOHIDReportType			reportType,
+                                UInt32				reportID,
+                                void *				reportBuffer,
+                                UInt32				reportBufferSize,
+                                UInt32 				timeoutMS,
+                                IOHIDReportCallbackFunction	callback,
+                                void * 				callbackTarget,
+                                void *				callbackRefcon);
+
+
+    static IOReturn deviceGetReport (void * 			self,
+                                IOHIDReportType			reportType,
+                                UInt32				reportID,
+                                void *				reportBuffer,
+                                UInt32 *			reportBufferSize,
+                                UInt32 				timeoutMS,
+                                IOHIDReportCallbackFunction	callback,
+                                void * 				callbackTarget,
+                                void *				callbackRefcon);
 
 /*
  * Internal functions

@@ -1,0 +1,3572 @@
+o\input texinfo               @c             -*- Texinfo -*-
+@finalout
+@setfilename dejagnu.info
+@c
+@c This file documents the GNU Testing Framework ``DejaGnu''
+@c
+@c Copyright (C) 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
+@c
+@c This text may be freely distributed under the terms of the GNU
+@c General Public License.
+@c
+
+@c FIXME---MAIN TODO LIST!
+@c
+@c * Revisit organization.
+@c 
+@c * discuss Tcl/expect basics---enough to get started (see seminar notes).
+@c   Maybe this would permit abbreviating appendices.
+
+@ifinfo
+@format
+START-INFO-DIR-ENTRY
+* DejaGnu: (dejagnu).            The GNU testing framework.
+END-INFO-DIR-ENTRY
+@end format
+@end ifinfo
+
+@syncodeindex ky cp
+@syncodeindex fn cp
+
+@setchapternewpage odd
+@settitle DejaGnu Testing Framework
+@titlepage
+@title The DejaGnu Testing Framework
+@subtitle for DejaGnu Version 1.3
+@sp 1
+@subtitle Jan 1996
+@author Rob Savoye
+@page
+
+@tex
+{\parskip=0pt \hfill Cygnus Support}
+@end tex
+
+@vskip 0pt plus 1filll
+Copyright @copyright{} 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
+
+Permission is granted to make and distribute verbatim copies of
+this manual provided the copyright notice and this permission notice
+are preserved on all copies.
+
+@noindent
+Permission is granted to copy and distribute modified versions of this
+manual under the conditions for verbatim copying, provided also that
+the entire resulting derived work is distributed under the terms of a
+permission notice identical to this one.
+
+Permission is granted to copy and distribute translations of this manual
+into another language, under the above conditions for modified versions.
+@end titlepage
+
+@ifinfo
+Copyright @copyright{} 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
+
+Permission is granted to make and distribute verbatim copies of
+this manual provided the copyright notice and this permission notice
+are preserved on all copies.
+
+@ignore
+Permission is granted to process this file through TeX and print the
+results, provided the printed document carries a copying permission
+notice identical to this one except for the removal of this paragraph
+(this paragraph not being relevant to the printed manual).
+@end ignore
+
+Permission is granted to copy and distribute modified versions of this
+manual under the conditions for verbatim copying, provided also that
+the entire resulting derived work is distributed under the terms of a
+permission notice identical to this one.
+
+Permission is granted to copy and distribute translations of this manual
+into another language, under the above conditions for modified versions.
+
+@node Top
+@top DejaGnu
+
+DejaGnu is a framework for running test suites on software tools.
+
+This file describes version 1.3 of DejaGnu.
+
+@menu
+* Overview::                    What is DejaGnu?
+* What is New::                 What is new in this release.
+* Invoking runtest::            Using `runtest', the main test driver
+* Customizing::			Setting `runtest' defaults
+* Internals::                   The DejaGnu implementation
+* Tests::                       How to write a test case
+* Extending::                   New tools, new targets, and new hosts
+* Installation::                Configuring and Installing DejaGnu
+* Index::                       Index
+@end menu
+@end ifinfo
+
+@iftex
+@raggedbottom
+@end iftex
+
+@node Overview
+@chapter What is DejaGnu?
+@cindex overview
+
+DejaGnu is a framework for testing other programs.  Its purpose is to
+provide a single front end for all tests.  Beyond this, DejaGnu offers
+several advantages for testing:
+
+@enumerate
+@item
+The flexibility and consistency of the DejaGnu framework make it easy
+to write tests for any program.
+
+@item
+DejaGnu provides a layer of abstraction which allows you to write tests
+that are portable to any host or target where a program must be tested.
+ For instance, a test for GDB can run (from any Unix based host) on any
+target architecture that DejaGnu supports. Currently DejaGnu runs tests
+on several single board computers, whose operating software ranges from
+just a boot monitor to a full-fledged, Unix-like realtime OS.
+
+@item
+All tests have the same output format.  This makes it easy to integrate
+testing into other software development processes. DejaGnu's output is
+designed to be parsed by other filtering script, and it is also human
+readable.
+@end enumerate
+
+DejaGnu is written in @code{expect}, which in turn uses @dfn{Tcl}---Tool
+command language.
+
+@cindex @code{expect} script names
+@kindex .exp
+@cindex suffix, @code{expect} scripts
+Running tests requires two things: the testing framework, and the test
+suites themselves.  Tests are usually written in @code{expect} using
+Tcl, but you can also use a Tcl script to run a test suite that is not
+based on @code{expect}.  (@code{expect} script filenames conventionally
+use @samp{.exp} as a suffix; for example, the main implementation of the
+DejaGnu test driver is in the file @file{runtest.exp}.)
+
+
+@menu
+* Running Tests::               A first look at running DejaGnu tests
+* Sample Test::                 What does a DejaGnu test case look like?
+* Design Goals::                Goals behind DejaGnu
+* Posix::			DejaGnu conforms to POSIX 1003.3
+* Future Directions::           Where is DejaGnu going?
+* Tcl and Expect::              Reading more about Tcl and Expect
+@end menu
+
+@node What is New
+@chapter What is new in this release ?
+@cindex What is New
+
+This release has a number of substantial changes over version 1.2. The
+most visible change is that the version of expect and Tcl included in
+the release are up-to-date with the current stable net releases. Other
+changes are:
+
+@enumerate
+@item
+@c FIXME: add a link to the config section
+The config sub-system in DejaGnu has been completely redesigned. It now
+supports testing on remote hosts as well as remote targets.
+
+@item
+More builtin support for building target binaries with the correct
+linker flags. Currently this only works with GCC, preferably with a
+target support by @code{libgloss}.
+
+@item
+Lots of little bug fixes from a year of heavy use here at Cygnus
+Support.
+
+@item
+DejaGnu now uses @code{autoconf} for configuration.
+
+@item
+New test cases for DejaGnu have been added for the new features, plus
+the "--tool" option bug in the 1.2 testsuite has been fixed.
+
+@item
+The @code{--tool} option is now optional.
+
+@item
+@code{runtest} when searching for test drivers ignores all directories
+named SCCS, RCS, and CVS.
+
+@item
+There is now a generic keyword based test harness that uses comments in
+source code to control how each test case gets built and run.
+
+@item
+There is now some support for running a testsuite with multiple passes
+and multiple targets.
+
+@end enumerate
+
+@node Running Tests
+@section Running existing tests
+@cindex existing tests, running
+@cindex running tests
+@cindex tests, running
+
+@kindex make check
+To run tests from an existing collection, first use @code{configure} as
+usual to set up the source directory containing the tests.  Then try
+running
+
+@example
+make check
+@end example
+
+@cindex @code{check} makefile target
+If the @code{check} target exists, it usually saves you some
+trouble---for instance, it can set up any auxiliary programs or other
+files needed by the tests.
+
+@cindex auxiliary files, building
+Once you have run @samp{make check} to build any auxiliary files, you
+might want to call the test driver @code{runtest} directly to repeat the
+tests.  You may also have to call @code{runtest} directly for test
+collections with no @code{check} target in the @file{Makefile}.
+
+@c force page break to avoid losing footnote to another page
+@page
+@cindex @code{runtest}, most common options
+@cindex options for @code{runtest}, common
+Typically, you must use two command-line options: @samp{--tool}, to
+specify which set of tests to run@footnote{@samp{--tool} selects a
+particular suite of tests, @emph{not} the name of the executable program
+to run.  @xref{Config Values,,Configuration dependent values}, for
+information on the variables that you can use to specify the names of
+programs to run.}, and @samp{--srcdir}, to specify where to find test
+directories.
+
+For example, if the directory @file{gdb/testsuite} contains a collection
+of DejaGnu tests for @sc{gdb}, you can run them like this:
+
+@example
+eg$ cd gdb/testsuite
+eg$ runtest --tool gdb
+@exdent @emph{Test output follows, ending with:}
+
+		=== gdb Summary ===
+
+# of expected passes 508
+# of expected failures 103
+/usr/latest/bin/gdb version 4.14.4 -nx
+@end example
+
+You can use the option @samp{--srcdir} to point to some other directory
+containing a collection of tests:
+
+@smallexample
+eg$ runtest --tool gdb --srcdir /devo/gdb/testsuite
+@end smallexample
+
+@cindex native configuration
+@cindex cross configuration
+These examples assume a @dfn{native} configuration, where the same
+computer runs both @code{runtest} and the tests themselves.  When you
+have a @dfn{cross} configuration, the tests run on a different computer,
+controlled by the host running @code{runtest}.  In this situation, you
+need the option @samp{--name} to specify the network address for the
+other computer:
+
+@smallexample
+eg$ runtest --tool gdb --name vx9.munist.com
+@end smallexample
+
+If you always use the same option values, you can record them in a file
+called @file{site.exp}, rather than typing them each time.  @xref{Config
+Values,,Setting defaults for @code{runtest} options}.
+
+By default, @code{runtest} prints only the names of the tests it runs,
+output from any tests that have unexpected results, and a summary
+showing how many tests passed and how many failed.  To display output
+from all tests (whether or not they behave as expected), use the
+@samp{--all} option.  For more verbose output about processes being run,
+communication, and so on, use @samp{--verbose}. To see even more output,
+use multiple @samp{--verbose} options.  @xref{Invoking runtest,,Using
+@code{runtest}}, for a more detailed explanation of each @code{runtest}
+option.
+
+Test output goes into two files in your current directory: summary
+output in @file{@var{tool}.sum}, and detailed output in
+@file{@var{tool}.log}.  (@var{tool} refers to the collection of tests;
+for example, after a run with @samp{--tool gdb}, look for output files
+@file{gdb.sum} and @file{gdb.log}.)  @xref{Output Files,,The files
+DejaGnu writes}.
+
+@node Sample Test
+@section What does a DejaGnu test look like?
+
+@cindex example
+Each DejaGnu test is an @code{expect} script; the tests vary widely in
+complexity, depending on the nature of the tool and the feature tested.
+
+@kindex gdb.t00/echo.exp
+@kindex echo.exp
+Here is a very simple @sc{gdb} test---one of the simplest tests shipped
+with DejaGnu (extracted from @file{gdb.t00/echo.exp}):@footnote{More
+recent @sc{gdb} tests use the @samp{gdb_test} procedure.
+An equivalent test using that procedure is @samp{ gdb_test "echo Hello
+world!" "Hello world!" }}
+@c FIXME! include xref in footnote, when gdb_test documented in some manual.
+@c @xref{}.
+@c Extra spaces in @samp above avoid running end ' against " inside.
+
+@cartouche
+@smallexample
+# send a string to the GDB stdin:
+send "echo Hello world!\n"
+
+# inspect the GDB stdout for the correct reply,
+# and determine whether the test passes or fails:
+expect @{
+  -re "Hello world.*$prompt $"    @{ pass "Echo test" @}
+  -re "$prompt $"                 @{ fail "Echo test" @}
+  timeout                         @{ fail "(timeout) Echo test" @}
+  @}
+@end smallexample
+@end cartouche
+
+Though brief, this example is a complete test.  It illustrates some of
+the main features of DejaGnu test scripts:
+
+@itemize @bullet
+@item
+The test case does not start the tested program (@sc{gdb} in this case);
+all test scripts for interactive tools can assume the corresponding tool
+is running.
+
+@item
+Comments start with @samp{#}.
+
+@item
+The main commands you use to control a tested program are @code{send}
+(to give it commands) and @code{expect} (to analyze its responses).
+
+@item
+The @code{expect} command uses a list of pairs; a pattern (regular
+expression if @samp{-re} specified), followed by an action to run if the
+pattern matches output from the program.  Only the action for the
+@emph{first} matching pattern will execute.
+
+@item
+Test cases use the commands @code{pass} and @code{fail} to record the
+test outcome.
+@end itemize
+
+@node Design Goals
+@section Design goals
+@cindex design goals
+
+DejaGnu grew out of the internal needs of Cygnus Support.  Cygnus
+maintains and enhances a variety of free programs in many different
+environments, and we needed a testing tool that:
+
+@itemize @bullet
+@item
+is useful to developers while fixing bugs;
+
+@item
+automates running many tests during a software release process;
+
+@item
+is portable among a variety of host computers;
+
+@item
+supports cross-development testing;
+
+@item
+permits testing interactive programs, like @sc{gdb}; and
+
+@item
+permits testing batch oriented programs, like @sc{gcc}.
+@end itemize
+
+Some of the requirements proved challenging.  For example, interactive
+programs do not lend themselves very well to automated testing.  But all
+the requirements are important: for instance, it is imperative to make
+sure that @sc{gdb} works as well when cross-debugging as it does in a
+native configuration.
+
+Probably the greatest challenge was testing in a cross-development
+environment (which can be a real nightmare).  Most cross-development
+environments are customized by each developer.  Even when buying
+packaged boards from vendors there are many differences.  The
+communication interfaces vary from a serial line to ethernet.  DejaGnu
+was designed with a modular communication setup, so that each kind of
+communication can be added as required, and supported thereafter.  Once
+a communication procedure is coded, any test can use it.  Currently
+DejaGnu can use @code{rsh}, @code{rlogin}, @code{telnet}, @code{tip},
+@code{kermit}, and @code{mondfe} for remote communications.
+
+@cindex name ``DejaGnu''
+@cindex DejaGnu, the name
+@cindex Menapace, Julia
+Julia Menapace first coined the term ``Deja Gnu'' to describe an earlier
+testing framework at Cygnus Support.  When we replaced it with the
+Expect-based framework, it was like DejaGnu all over again@dots{}
+
+@node Posix
+@section A POSIX conforming test framework
+
+@cindex POSIX conformance
+@cindex standard conformance: POSIX 1003.3
+DejaGnu conforms to the @sc{posix} standard for test frameworks.
+
+@cindex TET
+@sc{posix} standard 1003.3 defines what a testing framework needs to
+provide, in order to permit the creation of @sc{posix} conformance
+test suites. This standard is primarily oriented to running @sc{posix}
+conformance tests, but its requirements also support testing of features
+not related to @sc{posix} conformance.  @sc{posix} 1003.3 does not
+specify a particular testing framework, but at this time there is only
+one other @sc{posix} conforming test framework:
+@sc{tet}.@footnote{@sc{tet} was created by Unisoft for a consortium
+comprised of X/Open, Unix International, and the Open Software
+Foundation.}
+
+The @sc{posix} documentation refers to @dfn{assertions}.  An assertion
+is a description of behavior.  For example, if a standard says ``The sun
+shall shine'', a corresponding assertion might be ``The sun is
+shining.''  A test based on this assertion would pass or fail depending
+on whether it is daytime or nighttime.  It is important to note that the
+standard being tested is never 1003.3; the standard being tested is some
+other standard, for which the assertions were written.
+
+As there is no test suite to test @emph{testing frameworks} for
+@sc{posix} 1003.3 conformance, verifying conformance to this standard is
+done by repeatedly reading the standard and experimenting.  One of the
+main things 1003.3 does specify is the set of allowed output messages,
+and their definitions.  Four messages are supported for a required
+feature of @sc{posix} conforming systems, and a fifth for a conditional
+feature. DejaGnu supports the use of all five output messages; in this
+sense a test suite that uses exactly these messages can be considered
+@sc{posix} conforming.  These definitions specify the output of a test
+case:
+
+@ftable @code
+@cindex success, POSIX definition
+@item PASS
+A test has succeeded.  That is, it demonstrated that the assertion is true.
+
+@cindex XFAIL, avoiding for POSIX
+@item XFAIL
+@sc{posix} 1003.3 does not incorporate the notion of expected failures,
+so @code{PASS}, instead of @code{XPASS}, must also be returned for test
+cases which were expected to fail and did not.  This means that
+@code{PASS} is in some sense more ambiguous than if @code{XPASS} is also
+used.  For information on @code{XPASS} and @code{XFAIL}, see
+@ref{Invoking runtest,,Using @code{runtest}}.
+
+@item FAIL
+@cindex failure, POSIX definition
+A test @emph{has} produced the bug it was intended to capture.  That is,
+it has demonstrated that the assertion is false.  The @code{FAIL}
+message is based on the test case only.  Other messages are used to
+indicate a failure of the framework.
+
+As with @code{PASS}, @sc{posix} tests must return @code{FAIL} rather
+than @code{XFAIL} even if a failure was expected.
+
+@item UNRESOLVED
+@cindex ambiguity, required for POSIX
+A test produced indeterminate results.  Usually, this means the test
+executed in an unexpected fashion; this outcome requires that a human
+being go over results, to determine if the test should have passed or
+failed.  This message is also used for any test that requires human
+intervention because it is beyond the abilities of the testing
+framework.  Any unresolved test should resolved to @code{PASS} or
+@code{FAIL} before a test run can be considered finished.
+
+Note that for @sc{posix}, each assertion must produce a test result
+code.  If the test isn't actually run, it must produce @code{UNRESOLVED}
+rather than just leaving that test out of the output.  This means that
+you have to be careful when writing tests, to not carelessly use tcl
+statements like @code{return}---if you alter the flow of control of the
+tcl code you must insure that every test still produces some result code.
+
+Here are some of the ways a test may wind up @code{UNRESOLVED}:
+
+@itemize @bullet
+@item
+A test's execution is interrupted.
+
+@item
+A test does not produce a clear result. This is usually because there
+was an @code{ERROR} from DejaGnu while processing the test, or because there
+were three or more @code{WARNING} messages. Any @code{WARNING} or
+@code{ERROR} messages can invalidate the output of the test.  This
+usually requires a human being to examine the output to
+determine what really happened---and to improve the test case.
+
+@item
+A test depends on a previous test, which fails.
+
+@item
+The test was set up incorrectly.
+@end itemize
+
+@item UNTESTED
+A test was not run.  This is a placeholder, used when there is no
+real test case yet.
+@end ftable
+
+@noindent
+The only remaining output message left is intended to test features that
+are specified by the applicable @sc{posix} standard as conditional:
+
+@ftable @code
+@item UNSUPPORTED
+There is no support for the tested case.  This may mean that a
+conditional feature of an operating system, or of a compiler, is not
+implemented.  DejaGnu also uses this message when a testing environment
+(often a ``bare board'' target) lacks basic support for compiling or
+running the test case.  For example, a test for the system subroutine
+@code{gethostname} would never work on a target board running only a
+boot monitor.
+@end ftable
+  
+DejaGnu uses the same output procedures to produce these messages for
+all test suites, and these procedures are already known to conform to
+@sc{posix} 1003.3.  For a DejaGnu test suite to conform to @sc{posix}
+1003.3, you must avoid the @code{setup_xfail} procedure as described in
+the @code{PASS} section above, and you must be careful to return
+@code{UNRESOLVED} where appropriate, as described in the
+@code{UNRESOLVED} section above.
+
+@node Future Directions
+@section Future directions
+@cindex future directions
+
+In the near future, there are two parallel directions for DejaGnu
+development.  The first is to add support for more hosts and targets.
+
+The second would permit testing programs with a more complex interface,
+whether text based or GUI based.  Two components already exist: a Tcl
+based X window toolkit, and a terminal package for @code{expect}. Both
+of these could be merged into DejaGnu in a way that permits testing
+programs that run in each environment.
+
+Meanwhile, we hope DejaGnu enables the creation of test suites for
+conformance to @sc{ansi} C and C++, to @sc{posix}, and to other
+standards.  We encourage you to make any test suites you create freely
+available, under the same terms as DejaGnu itself.
+
+@node Tcl and Expect
+@section Tcl and Expect
+@cindex tool command language
+@cindex tcl
+@cindex Ousterhout, John K.
+Tcl was introduced in a paper by John K. Ousterhout at the 1990 Winter
+Usenix conference, @cite{Tcl: An Embeddable Command Language}.  That
+paper is included in PostScript form in the @file{doc} subdirectory of
+the Tcl distribution. The version of Tcl included in DejaGnu at this time is
+Tcl 7.4p3. 
+
+@cindex @code{expect} scripting language
+@cindex Libes, Don
+Don Libes introduced @code{expect} in his paper @cite{expect: Curing
+Those Uncontrollable Fits of Interaction} at the 1990 Summer Usenix
+conference.  The paper is included in PostScript form in the
+@code{expect} distribution (as are several other papers about
+@code{expect}). The version of expect included in DejaGnu at this time
+is expect 5.18.0.
+
+@node Invoking runtest
+@chapter Using @code{runtest}
+@cindex invoking
+@cindex running
+@cindex command line options
+@cindex options
+
+@cindex @code{runtest} description
+@cindex DejaGnu test driver
+@code{runtest} is the executable test driver for DejaGnu.  You can
+specify two kinds of things on the @code{runtest} command line: command
+line options, and Tcl variables for the test scripts.  The options are
+listed alphabetically below.  
+
+@cindex exit code from @code{runtest}
+@cindex @code{runtest} exit code
+@code{runtest} returns an exit code of @code{1} if any test
+has an unexpected result; otherwise (if all tests pass or fail as
+expected) it returns @code{0} as the exit code.
+
+@code{runtest} flags the outcome of each test as one of these cases.
+(@xref{Posix,,A POSIX conforming test framework}, for a discussion of
+how @sc{posix} specifies the meanings of these cases.)
+
+@table @code
+@item PASS
+@kindex PASS
+@cindex successful test
+@cindex test, successful
+The most desirable outcome: the test succeeded, and was expected to
+succeed.
+
+@item XPASS
+@kindex XPASS
+@cindex successful test, unexpected
+@cindex unexpected success
+A pleasant kind of failure: a test was expected to fail, but succeeded.
+This may indicate progress; inspect the test case to determine whether
+you should amend it to stop expecting failure.
+
+@item FAIL
+@kindex FAIL
+@cindex failing test, unexpected
+@cindex test, failing
+A test failed, although it was expected to succeed.  This may indicate
+regress; inspect the test case and the failing software to locate the bug.
+
+@item XFAIL
+@kindex XFAIL
+@cindex expected failure
+@cindex failing test, expected
+A test failed, but it was expected to fail.  This result indicates no
+change in a known bug.  If a test fails because the operating system
+where the test runs lacks some facility required by the test, the
+outcome is @code{UNSUPPORTED} instead.
+
+@item UNRESOLVED
+@kindex UNRESOLVED
+@cindex test, unresolved outcome
+Output from a test requires manual inspection; the test suite could not
+automatically determine the outcome.  For example, your tests can report
+this outcome is when a test does not complete as expected.
+
+@item UNTESTED
+@kindex UNTESTED
+@cindex untested properties
+A test case is not yet complete, and in particular cannot yet produce a
+@code{PASS} or @code{FAIL}.  You can also use this outcome in dummy
+``tests'' that note explicitly the absence of a real test case
+for a particular property.
+
+@item UNSUPPORTED
+@kindex UNSUPPORTED
+@cindex unsupported test
+@cindex test, unsupported
+A test depends on a conditionally available feature that does not exist
+(in the configured testing environment).  For example, you can use this
+outcome to report on a test case that does not work on a particular
+target because its operating system support does not include a required
+subroutine.
+@end table
+
+@code{runtest} may also display the following messages:
+
+@table @code
+@item ERROR
+@kindex ERROR
+@cindex problem, detected by test case
+@cindex test case cannot run
+Indicates a major problem (detected by the test case itself) in running
+the test. This is usually an unrecoverable error, such as a missing file
+or loss of communication to the target.  (@sc{posix} test suites should
+not emit this message; use @code{UNSUPPORTED}, @code{UNTESTED}, or
+@code{UNRESOLVED} instead, as appropriate.)
+
+@item WARNING
+@kindex WARNING
+@cindex test case warnings
+Indicates a possible problem in running the test. Usually warnings
+correspond to recoverable errors, or display an important message about
+the following tests.
+
+@item NOTE
+@kindex NOTE
+@cindex test case messages
+An informational message about the test case.
+@end table
+
+This is the full set of command line options that @code{runtest}
+recognizes.  Arguments may be abbreviated to the shortest unique string.
+
+@cindex @code{runtest} option list
+@cindex option list, @code{runtest}
+@smallexample
+runtest --tool @var{tool}  [ @var{testsuite}.exp @dots{} ]
+[ @var{testsuite}.exp="testfile1 @dots{}" ]
+[ @var{tclvar}=@var{value}@dots{} ]
+[ --all ]  [ --baud @var{baud-rate} ]  [ --connect @var{type} ]
+[ --debug ]  [ --help ]  [ --host @var{string} ]
+[ --mail "@var{name} @dots{}" ]  [ --name @var{string} ]
+[ --name @var{name} ]  [ --outdir @var{path} ]
+[ --objdir @var{path} ]  [ --reboot ]
+[ --srcdir @var{path} ]  [ --strace @var{n} ]
+[ --target @var{string} --build @var{string} ]
+[ -v | --verbose ]  [ -V | --version ]  [ --D@var{n} ]
+@end smallexample
+
+@table @code
+@item --tool @var{tool}
+@cindex selecting tests for a tool
+@cindex @code{--tool} (@code{runtest} option)
+@var{tool} specifies what set of tests to run, and what initialization
+module to use.  @var{tool} is used @emph{only} for these two purposes:
+it is @emph{not} used to name the executable program to test.
+Executable tool names (and paths) are recorded in @file{site.exp}
+(@pxref{Config Values,,Configuration dependent values}), and you can
+override them by specifying Tcl variables on the command line.
+
+For example, including @samp{--tool gcc} on the @code{runtest} command
+line runs tests from all test subdirectories whose names match
+@file{gcc.*}, and uses one of the initialization modules named
+@file{config/*-gcc.exp}.  To specify the name of the compiler (perhaps
+as an alternative path to what @code{runtest} would use by default), use
+@samp{GCC=@var{binname}} on the @code{runtest} command line.
+
+@item @var{testsuite}.exp @dots{}
+@cindex selecting a range of tests
+@cindex tests, running specifically
+@cindex naming tests to run
+Specify the names of testsuites to run.
+By default, @code{runtest} runs all tests for the tool, but you can
+restrict it to particular testsuites by giving the names of the @samp{.exp}
+@code{expect} scripts that control them.
+
+@var{testsuite}.exp may not include path information; use plain filenames.
+
+@item @var{testfile}.exp="testfile1 @dots{}"
+@cindex selecting a range of tests
+@cindex tests, running specifically
+@cindex naming tests to run
+Specify a subset of tests in a suite to run.
+For compiler or assembler tests, which often use a single @samp{.exp}
+script covering many different source files, this option allows you to
+further restrict the tests by listing particular source files to compile.
+Some tools even support wildcards here.  The wildcards supported depend
+upon the tool, but typically they are @code{?}, @code{*}, and @code{[chars]}.
+
+@item @var{tclvar}=@var{value}
+@kindex @var{tclvar}=@var{value}
+@cindex Tcl variables, defining for @code{runtest}
+@cindex command line Tcl variable definition
+@cindex @code{runtest}, variable defns on cmdline
+You can define Tcl variables for use by your test scripts in the same
+style used with @code{make} for environment variables.  For example,
+@samp{runtest GDB=gdb.old} defines a variable called @samp{GDB}; when
+your scripts refer to @samp{$GDB} in this run, they use the value
+@samp{gdb.old}.
+
+The default Tcl variables used for most tools are defined in the main
+DejaGnu @code{Makefile}; their values are captured in the
+@file{site.exp} file.  @xref{Config Values,,Configuration dependent
+values}.
+
+@item --all
+@cindex @code{--all} (@code{runtest} option)
+@cindex test output, displaying all
+Display all test output.  By default, @code{runtest} shows only the
+output of tests that produce unexpected results; that is, tests with
+status @samp{FAIL} (unexpected failure), @samp{XPASS} (unexpected
+success), or @samp{ERROR} (a severe error in the test case itself).
+Specify @samp{--all} to see output for tests with status @samp{PASS}
+(success, as expected) @samp{XFAIL} (failure, as expected), or
+@samp{WARNING} (minor error in the test case itself).
+
+@item --baud @var{baud-rate}
+@itemx -b @var{baud-rate}
+@cindex baud rate, specifying
+@cindex bps, specifying
+@cindex @code{--baud} (@code{runtest} option)
+@cindex @code{-b} (@code{runtest} option)
+Set the default baud rate to something other than 9600.  (Some serial
+interface programs, like @code{tip}, use a separate initialization file
+instead of this value.)
+
+@item --connect @var{type}
+@cindex connecting to target
+@cindex @code{--connect} (@code{runtest} option)
+@cindex remote testbed, connecting to
+@cindex @code{rlogin}, remote testing via
+@cindex @code{telnet}, remote testing via
+@cindex @code{rsh}, remote testing via
+@cindex @code{tip}, remote testing via
+@cindex @code{kermit}, remote testing via
+@cindex @code{mondfe}, remote testing via
+@cindex remote testing via @code{rlogin}
+@cindex remote testing via @code{telnet}
+@cindex remote testing via @code{rsh}
+@cindex remote testing via @code{tip}
+@cindex remote testing via @code{kermit}
+@cindex remote testing via @code{mondfe}
+Connect to a target testing environment as specified by @var{type}, if
+the target is not the computer running @code{runtest}.  For example, use
+@samp{--connect} to change the program used to connect to a ``bare
+board'' boot monitor.  The choices for @var{type} in the DejaGnu 1.0
+distribution are @samp{rlogin}, @samp{telnet}, @samp{rsh}, @samp{tip},
+@samp{kermit}, and @samp{mondfe}.
+
+@noindent
+The default for this option depends on the configuration (@pxref{Cross
+Targets,,Remote targets supported}).  The default is chosen to be the
+most convenient communication method available, but often other
+alternatives work as well; you may find it useful to try alternative
+connect methods if you suspect a communication problem with your testing
+target.
+
+@item --debug
+@cindex @code{--debug} (@code{runtest} option)
+@cindex debug log for test cases
+@cindex test cases, debug log
+@cindex @code{dbg.log} file
+Turns on the @code{expect} internal debugging output.  Debugging output
+is displayed as part of the @code{runtest} output, and logged to a file
+called @file{dbg.log}.  The extra debugging output does @emph{not}
+appear on standard output, unless the verbose level is greater than 2
+(for instance, to see debug output immediately, specify @samp{--debug -v
+-v}).  The debugging output shows all attempts at matching the test
+output of the tool with the scripted patterns describing expected
+output.  The output generated with @samp{--strace} also goes into
+@file{dbg.log}.
+
+@item --help
+@itemx -he
+@cindex @code{--help} (@code{runtest} option)
+@cindex help with @code{runtest}
+@cindex @code{runtest}, listing options
+Prints out a short summary of the @code{runtest} options, then exits
+(even if you also specify other options).
+
+@item --host @var{string}
+@cindex @code{--host} (@code{runtest} option)
+@cindex specifying the host config name
+@cindex host config name, changing
+@var{string} is a full configuration ``triple'' name as used by
+@code{configure}.  Use this option to override the default string
+recorded by your configuration's choice of host.  This choice does not
+change how anything is actually configured unless --build is also
+specified; it affects @emph{only} DejaGnu procedures that compare the
+host string with particular values.  The procedures @code{ishost},
+@code{istarget}, @code{isnative}, and @code{setup_xfail} are affected by
+@samp{--host}. In this usage, @code{host} refers to the machine that the
+tests are to be run on, which may not be the same as the @code{build}
+machine. If @code{--build} is also specified, then @code{--host} refers
+to the machine that the tests wil, be run on, not the machine DejaGnu is
+run on.
+
+@item --build @var{string}
+@cindex @code{--build} (@code{runtest} option)
+@cindex specifying the build config name
+@cindex build config name, changing
+@var{string} is a full configuration ``triple'' name as used by
+@code{configure}. This is the type of machine DejaGnu and the tools to
+be tested are built on. For a normal cross this is the same as the host,
+but for a canadian cross, they are seperate.
+
+@item --name @var{name}
+@cindex specifying target name
+@cindex target machine name
+@cindex @code{--name} (@code{runtest} option)
+@var{name} is a name for the particular testing target machine (for
+cross testing).  If the testing target has IP network support (for
+example, @code{RPC} or @code{NFS}), this is the network name for the
+target itself.  (@var{name} is @emph{not the configuration string} you
+specify as a target with @code{configure}; the @samp{--name} option
+names a particular target, rather than describing a class of targets.)
+For targets that connect in other ways, the meaning of the @var{name}
+string depends on the connection method.  @xref{Cross Targets,,Remote
+targets supported}.
+
+@item --name @var{string}
+@cindex remote test machine name
+@cindex name for remote test machine
+Specify a network name of testing target or its host.  The particular
+names that are meaningful with @samp{--name} will depend on your site
+configuration, and on the connection protocol: for example, @code{tip}
+connections require names from a serial line configuration file (usually
+called @file{/etc/remote}), while @code{telnet} connections use IP
+hostnames.
+
+@item --objdir @var{path}
+@cindex @code{--objdir} (@code{runtest} option)
+@cindex object directory
+@cindex test programs, auxiliary
+@cindex auxiliary test programs
+Use @var{path} as the top directory containing any auxiliary compiled
+test code. This defaults to @file{.}.  Use this option to locate
+pre-compiled test code.  You can normally prepare any auxiliary files
+needed with @code{make}.
+
+@item --outdir @var{path}
+@cindex output directory
+@cindex @code{--outdir} (@code{runtest} option)
+@cindex log files, where to write
+Write output logs in directory @var{path}.  The default is @samp{.}, the
+directory where you start @code{runtest}.  This option affects only the
+summary and the detailed log files @file{@var{tool}.sum} and
+@file{@var{tool}.log}.  The DejaGnu debug log @file{dbg.log} always
+appears (when requested) in the local directory.
+
+@item --reboot
+@cindex rebooting remote targets
+@cindex @code{--reboot} (@code{runtest} option)
+Reboot the target board when @code{runtest} initializes.
+Usually, when running tests on a separate target board, it is safer to
+reboot the target to be certain of its state.  However, when developing
+test scripts, rebooting takes a lot of time.
+
+@item --srcdir @var{path}
+@cindex source directory
+@cindex @code{--srcdir} (@code{runtest} option)
+Use @var{path} as the top directory for test scripts to run.
+@code{runtest} looks in this directory for any subdirectory whose name
+begins with the toolname (specified with @samp{--tool}).  For instance,
+with @samp{--tool gdb}, @code{runtest} uses tests in subdirectories
+@file{gdb.*} (with the usual shell-like filename expansion).  If you do
+not use @samp{--srcdir}, @code{runtest} looks for test directories under
+the current working directory.
+
+@item --strace @var{n}
+@cindex @code{--strace} (@code{runtest} option)
+@cindex tracing Tcl commands
+@cindex @code{expect} internal tracing
+Turn on internal tracing for @code{expect}, to @var{n} levels deep. By
+adjusting the level, you can control the extent to which your output
+expands multi-level Tcl statements.  This allows you to ignore some
+levels of @code{case} or @code{if} statements.  Each procedure call or
+control structure counts as one ``level''.
+
+The output is recorded in the same file, @file{dbg.log}, used for output
+from @samp{--debug}.
+
+@item --target @var{string}
+@cindex @code{--target} (@code{runtest} option)
+@cindex specifying the target configuration
+@cindex target configuration, specifying
+Use this option to override the default setting (running native tests).
+@var{string} is a full configuration ``triple''
+name@footnote{Configuration triples have the form
+@samp{@var{cpu}-@var{vendor}-@var{os}}.} as used by @code{configure}.
+This option changes the configuration @code{runtest} uses for the
+default tool names, and other setup information.  @xref{Using
+configure,,Using @code{configure}, configure.info, Cygnus configure},
+for details about @code{configure} names.
+
+@item --verbose
+@itemx -v
+@cindex @code{--verbose} (@code{runtest} option)
+@cindex @code{-v} (@code{runtest} option)
+@cindex turning on output
+@cindex output, additional
+Turns on more output.  Repeating this option increases the amount of
+output displayed.  Level one (@samp{-v}) is simply test output. Level
+two (@samp{-v -v}) shows messages on options, configuration, and process
+control.  Verbose messages appear in the detailed (@file{*.log}) log
+file, but not in the summary (@file{*.sum}) log file.
+
+@item --version
+@itemx -V
+@cindex @code{-V} (@code{runtest} option)
+@cindex @code{--version} (@code{runtest} option)
+@cindex version numbers
+Prints out the version numbers of DejaGnu, @code{expect} and Tcl, and
+exits without running any tests.
+
+@item -D0
+@itemx -D1
+@cindex starting the tcl debugger
+@cindex tcl debugger
+@c FIXME!!! we should say a *lot* more about this debugger
+Start the internal Tcl debugger.  The Tcl debugger supports breakpoints,
+single stepping, and other common debugging activities.  (See @cite{A
+Debugger for Tcl Applications} by Don Libes. @footnote{Distributed in
+PostScript form with @code{expect} as the file@*
+@file{expect/tcl-debug.ps}.})
+
+If you specify @samp{-D1}, the @code{expect} shell stops at a breakpoint
+as soon as DejaGnu invokes it.
+
+If you specify @samp{-D0}, DejaGnu starts as usual, but you can enter
+the debugger by sending an interrupt (e.g. by typing @key{C-c}).
+@end table
+
+@node Customizing
+@chapter Setting @code{runtest} defaults
+
+@kindex site.exp
+@cindex variables of DejaGnu, defaults
+The site configuration file, @file{site.exp}, captures
+configuration-dependent values and propagates them to the DejaGnu test
+environment using Tcl variables.  This ties the DejaGnu test scripts
+into the @code{configure} and @code{make} programs.
+
+@cindex @file{site.exp}, multiple
+@cindex overriding @file{site.exp}
+DejaGnu supports more than one @file{site.exp} file.  The multiple
+instances of @file{site.exp} are loaded in a fixed order built into
+DejaGnu (the more local last). The first file loaded is the optional
+@code{~/.dejagnurc}, then the local files, and finally the global file.
+
+@enumerate
+@item
+There is am optional ``master'' @file{site.exp}, capturing configuration values
+that apply to DejaGnu across the board, in each configuration-specific
+subdirectory of the DejaGnu library directory.  @code{runtest} loads
+these values first. @xref{Installation,,Configuring and Installing
+DejaGnu}.  The master @file{site.exp} contains the default values for
+all targets and hosts supported by DejaGnu. This master file is
+identified by setting the environment variable @code{DEJAGNU} to the
+name of the file. This is also refered to as the ``global'' config file.
+
+@item
+Any directory containing a configured test suite also has a
+@file{site.exp}, capturing configuration values specific to the tool
+under test.  Since @code{runtest} loads these values last, the
+individual test configuration can either rely on and use, or override,
+any of the global values from the ``master'' @file{site.exp}.
+
+You can usually generate or update the testsuite @file{site.exp} by
+typing @samp{make site.exp} in the test suite directory, after the test
+suite is configured.
+
+@item
+You can also have a file in your home directory called
+@code{.dejagnurc}. This gets loaded first before the other config
+files. Usually this is used for personal stuff, like setting
+@code{all_flag} so all the output gets printed, or verbosity levels.
+@end enumerate
+
+You can further override the default values in a user-editable section
+of any @file{site.exp}, or by setting variables on the @code{runtest}
+command line.
+
+@menu
+* Config Values::               Variables used in the configuration file.
+* Master Config File::          The master configuration file.
+* Local Config File::           The local configuration file.
+* Personal Config File::        The personal configuration file.
+@end menu
+
+@node Config Values, Master Config File, , Customizing
+@subsection Config Variables
+@cindex configuration dependent defaults
+@cindex setting defaults for DejaGnu variables
+
+@c NOTE: default values are given via @code{"fubar"} rather than the
+@c    more conventional @samp{fubar} to permit a consistent and clear
+@c    notation for the empty string (@code{""}), which will work exactly as
+@c    typed.
+
+DejaGnu uses a named array in Tcl to hold all the info for each
+machine. In the case of a canadian cross, this means host information as
+well as target information. The named array is called
+@code{target_info}, and it has two indices. The following fields are
+part of the array. 
+
+@table @code
+@item name
+The name of the target. (mostly for error messages) This
+should also be the string used for this target's array.
+It should also be the same as the linker script so we
+can find them dynamically. This should be the same as the argument used
+for @code{push_target@{@}}.
+
+@item ldflags 
+This is the linker flags required to produce a fully linked
+executable. For @code{libgloss} supported targets this is usually just
+the name of the linker script. 
+
+@item config
+The target canonical for this target. This is used by some init files to
+make sure the target is supported.
+
+@item cflags
+The flags required to produce an object file from a source file.
+
+@item connect
+This is the connectmode for this target. This is for both IP and
+serial connections. Typically this is either @code{telnet},
+@code{rlogin}, or @code{rsh}.
+
+@item target
+This is the hostname of the target. This is for TCP/IP based connections,
+and is also used for version of tip that use /etc/remote. 
+
+@item serial
+This is the serial port. This is typically /dev/tty? or com?:.
+
+@item netport
+This is the IP port. This is commonly used for telneting to target
+boards that are connected to a terminal server. In that case the IP port
+specifies the which serial port to use.
+
+@item baud 
+This is the baud rate for a serial port connection.
+
+@item x10
+This is the parameters for an x10 controller. These are simple devices
+that let us power cycle or reset a target board remotely. 
+
+@item fileid
+This is the fileid or spawn id of of the connection.
+
+@item prompt
+a glob style pattern to recognize the prompt.
+
+@item abbrev
+abbreviation for tool init files.
+
+@item ioport
+This is the port for I/O on dual port systems. In this configuration,
+the main serial port @code{0} is usually used for stdin and stdout,
+which the second serial port can be used for debugging.
+@end table
+
+The first index into the array is the same value as used in the
+@code{name} field. This is usually a short version of the name of the
+target board. For an example, here's the settings I use for  my
+@code{Motorola's} @code{IDP} board and my @code{Motorola} 6U VME
+@code{MVME135-1} board. (both m68k targets)
+       
+@cartouche
+@smallexample
+# IDP board
+set target_info(idp,name)       "idp"
+set target_info(idp,ldflags)    "-Tidp.ld"
+set target_info(idp,config)     m68k-unknown-aout
+set target_info(idp,cflags)     ""
+set target_info(idp,connect)    telnet
+set target_info(idp,target)     "s7"
+set target_info(idp,serial)     "tstty7"
+set target_info(idp,netport)    "wharfrat:1007"
+set target_info(idp,baud)       "9600"
+# MVME 135 board
+set target_info(idp,name)       "mvme"
+set target_info(idp,ldflags)    "-Tmvme.ld"
+set target_info(idp,config)     m68k-unknown-aout
+set target_info(idp,cflags)     ""
+set target_info(idp,connect)    telnet
+set target_info(idp,target)     "s8"
+set target_info(idp,serial)     "tstty8"
+set target_info(idp,netport)    "wharfrat:1008"
+set target_info(idp,baud)       "9600"
+@end smallexample
+@end cartouche
+
+DejaGnu can use this information to switch between multiple targets in
+one test run. This is done through the use of the @code{push_target}
+procedure, which is discussed elsewhere.
+@c FIXME: write that section and put an xref here
+
+This array can also hold information for a remote host, which is used
+when testing a candain cross. In this case, the only thing different is
+the index is just @code{host}. Here's the settings I use to run tests
+on my NT machine while running DejaGnu on a Unix machine. (in this case
+a Linux box)
+
+@cartouche
+@smallexample
+set target_info(host,name)      "nt-host"
+set target_info(host,config)    "386-unknown-winnt"
+set target_info(host,connect)   "telnet"
+set target_info(host,target)    "ripple"
+@end smallexample
+@end cartouche
+
+There is more info on how to use these variables in the sections on the
+config files. @xref{Master Config File,,Configuration Files}.
+
+@cindex option defaults
+@cindex @code{runtest} option defaults
+@cindex variables for option defaults
+@cindex defaults, option
+In the user editable second section of @file{site.exp}, you can not only
+override the configuration variables captured in the first section, but
+also specify default values for all the @code{runtest} command line
+options.  Save for @samp{--debug}, @samp{--help}, and @samp{--version},
+each command line option has an associated Tcl variable.  Use the Tcl
+@code{set} command to specify a new default value (as for the
+configuration variables).  The following table describes the
+correspondence between command line options and variables you can set in
+@file{site.exp}.  @xref{Invoking runtest,,Running the Tests}, for
+explanations of the command-line options.
+
+@kindex all_flag
+@kindex baud
+@kindex reboot
+@kindex outdir
+@kindex objdir
+@kindex runtests
+@kindex ignoretests
+@kindex srcdir
+@kindex tracelevel
+@kindex targetname
+@kindex connectmode
+@kindex tool
+@kindex target_triplet
+@kindex host_triplet
+@kindex build_triplet
+@kindex verbose
+
+@cindex command line option variables
+@cindex Tcl variables for option defaults
+@cindex default options, controlling
+@cindex options, Tcl variables for defaults
+
+@ifinfo
+@display
+runtest      Tcl   
+option     variable     description
+__________ ________     ___________________________________________
+
+--all      all_flag     display all test results if set
+
+--baud     baud         set the default baud rate to something other
+                        than 9600.
+--connect  connectmode  @samp{rlogin}, @samp{telnet}, @samp{rsh}, 
+                        @samp{kermit}, @samp{tip}, or @samp{mondfe}
+
+--outdir   outdir       directory for @file{@var{tool}.sum} and @file{@var{tool}.log}
+
+--objdir   objdir       directory for pre-compiled binaries
+
+--reboot   reboot       reboot the target if set to @code{"1"};
+                        do not reboot if set to @code{"0"} (the default)
+
+--srcdir   srcdir       directory of test subdirectories
+
+--strace   tracelevel   a number: Tcl trace depth
+
+--tool     tool         name of tool to test; identifies init, test subdir
+
+--verbose  verbose      verbosity level.  As option, use multiple times;
+                        as variable, set a number, 0 or greater
+--target   target_triplet The canonical configuration string for the target.
+--host     host_triplet The canonical configuration string for the host.
+--build    build_triplet The canonical configuration string for the
+                        build host.
+
+@end display
+@end ifinfo
+
+@tex
+\vbox{\halign{\hfil \tt #\quad &\quad\tt #\hfil &\hbox{\vtop{{\raggedright\parindent=0pt\parskip=5pt\hsize=2.75in\rm#\strut\par}}}\hfill\cr
+\cr
+{\it runtest}&{\it Tcl}\cr
+{\it option}&{\it variable}&{\it description}\cr
+\noalign{\hrule width\hsize}\cr
+--all     &all\_flag    &display all test results if set\cr
+--baud    &baud         &set the default baud rate to something other
+                        than 9600.\cr
+--connect &connectmode &@samp{rlogin}, @samp{telnet}, @samp{rsh},
+                        @samp{kermit}, @samp{tip}, or @samp{mondfe}\cr
+--mail    &mailing\_list&address list for mailing test output\cr
+--name    &targetname  &network name of testing target or its host\cr
+--outdir  &outdir      &directory for @file{@var{tool}.sum} and @file{@var{tool}.log}\cr
+--objdir  &objdir      &directory for compiled binaries\cr
+--reboot  &reboot      &reboot the target if set to @code{"1"};
+do not reboot if set to @code{"0"} (the default)\cr
+--srcdir  &srcdir      &directory of test subdirectories\cr
+--strace  &tracelevel  &a number: Tcl trace depth\cr
+--tool    &tool        &name of tool to test; identifies init, test subdir\cr
+--verbose &verbose     &verbosity level.  As option, use multiple times;
+                        as variable, set a number, 0 or greater\cr
+--target  &target\_triplet
+        &The canonical configuration string for the target.\cr
+--host   &host\_triplet &The canonical configuration string for the host.\cr
+--build  &build\_triplet &The canonical configuration string for the
+                        build host.\cr
+}}
+@end tex
+
+@node Master Config File, Local Config File, Config Values, Customizing
+@subsection Master Config File
+@cindex master @file{site.exp}
+@cindex @file{site.exp} for all of DejaGnu
+The master config file is where all the target specific config variables
+get set for a whole site get set. The idea is that for a centralized
+testing lab where people have to share a target between multiple
+developers. There are settings for both remote targets and remote hosts. 
+Here's an example of a Master Config File (also called the Global config
+file) for a @emph{canadian cross}. A canadian cross is when you build
+and test a cross compiler on a machine other than the one it's to be
+hosted on.
+
+Here we have the config settings for our California office. Note that
+all config values are site dependant. Here we have two sets of values
+that we use for testing m68k-aout cross compilers. As both of these
+target boards has a different debugging protocol, we test on both of
+them in sequence.
+
+@cartouche
+@smallexample
+global CFLAGS
+global CXXFLAGS
+
+case "$target_triplet" in @{
+    @{ "native" @} @{
+        set target_abbrev unix
+    @}
+    @{ "m68*-unknown-aout" @} @{
+        set target_abbrev               "rom68k"
+        # IDP target                    # IDP board with rom68k monitor
+        set target_info(idp,name)       "idp"
+        set target_info(idp,ldflags)    "-Tidp.ld"
+        set target_info(idp,config)     m68k-unknown-aout
+        set target_info(idp,cflags)     ""
+        set target_info(idp,connect)    telnet
+        set target_info(idp,target)     "s7"
+        set target_info(idp,serial)     "tstty12"
+        set target_info(idp,netport)    "truckin:1007"
+        set target_info(idp,baud)       "9600"
+        # MVME target                   # Motorola MVME 135 with BUG monitor
+        set target_info(mvme,name)      "mvme"
+        set target_info(mvme,ldflags)   "-Tmvme.ld"
+        set target_info(mvme,config)    m68k-unknown-aout
+        set target_info(mvme,cflags)    ""
+        set target_info(mvme,connect)   telnet
+        set target_info(mvme,target)    "s4"
+        set target_info(mvme,serial)    "tstty8"
+        set target_info(mvme,netport)   "truckin:1004"
+        set target_info(mvme,baud)      "9600"
+     @}
+@}
+@end smallexample
+@end cartouche
+
+ In this case, we have support for several remote hosts for
+our m68k-aout cross compiler. Typically the remote Unix hosts run
+DejaGnu locally, but we also use them for debugging the testsuites when
+we find problems in running on remote hosts. Expect won't run on NT, so
+DejaGnu is run on the local build machine, and it'll connect to the NT
+host and run all the tests for this cross compiler on that host.
+
+@smallexample
+@cartouche
+case "$host_triplet" in @{
+    "native" @{
+    @}
+    "i?86-*-linux*" @{                   # Linux host
+        set target_info(host,name)      "linux-host"
+        set target_info(host,config)    $host_triplet
+        set target_info(host,connect)   rlogin
+        set target_info(host,target)    chinadoll
+    @}
+    "i?86-*-winnt                       # NT host
+        set target_info(host,name)      "nt-host"
+        set target_info(host,config)    i386-unknown-winnt
+        set target_info(host,connect)   telnet
+        set target_info(host,target)    ripple
+    @}
+    "hppa*-hp-hpux*" @{                  # HP-UX host
+        set target_info(host,name)      "hpux-host"
+        set target_info(host,config)    $host_triplet
+        set target_info(host,connect)   rlogin
+        set target_info(host,target)    slipknot
+        @}
+    "sparc-sun-sunos*" @{                # SunOS (sun4)
+        set target_info(host,name)      "sunos-host"
+        set target_info(host,config)    $host_triplet
+        set target_info(host,connect)   rlogin
+        set target_info(host,target)    darkstar
+    @}
+@}
+@end cartouche
+@end smallexample
+
+@node Local Config File, Personal Config File, Master Config File, Customizing
+@subsection Local Config File
+@cindex local @file{site.exp}
+@cindex @file{site.exp} for each tool
+It is usually more convenient to keep these ``manual overrides'' in the
+@file{site.exp} local to each test directory, rather than in the
+``master'' @file{site.exp} in the DejaGnu library.
+
+All local @file{site.exp} usually files have two sections, separated by
+comment text. The first section is the part that is generated by
+@code{make}. It is essentially a collection of Tcl variable definitions
+based on @file{Makefile} environment variables. Since they are generated
+by @code{make}, they contain the values as specified by
+@code{configure}.  (You can also customize these values by using the
+@samp{--site} option to @code{configure}.)  In particular, this section
+contains the @file{Makefile} variables for host and target configuration
+data. Do not edit this first section; if you do, your changes are replaced
+next time you run @code{make}.
+
+The first section starts with:
+
+@cartouche
+@smallexample
+## these variables are automatically generated by make ##
+# Do not edit here. If you wish to override these values
+# add them to the last section
+@end smallexample
+@end cartouche
+
+In the second section, you can override any default values (locally to
+DejaGnu) for all the variables.  The 
+second section can also contain your preferred defaults for all the
+command line options to @code{runtest}. This allows you to easily
+customize @code{runtest} for your preferences in each configured
+test-suite tree, so that you need not type options repeatedly on the
+command line.  (The second section may also be empty, if you do not wish
+to override any defaults.)
+
+The first section ends with this line:
+
+@cartouche
+@smallexample
+## All variables above are generated by configure. Do Not Edit ##
+@end smallexample
+@end cartouche
+
+You can make any changes under this line. If you wish to redefine a
+variable in the top section, then just put a duplicate value in this
+second section. Usually the values defined in this config file are
+related to the configuration of the test run. This is the ideal place to
+set the variables @code{host_triplet}, @code{build_triplet},
+@code{target_triplet}. All other variables are tool dependant. ie for
+testing a compiler, the value for @var{CC} might be set to a freshly
+built binary, as opposed to one in the user's path.
+
+@node Personal Config File, , Local Config File, Customizing
+@subsection Personal Config File
+@cindex personal config @file{site.exp}
+@cindex @file{site.exp} for each person
+The personal config file is used to customize @code{runtest's} behaviour
+for each person. It's typically used to set the user prefered setting
+for verbosity, and any experimental Tcl procedures. My personal
+@file{~/.dejagnurc} file looks like:
+
+@cartouche
+@smallexample
+set all_flag 1
+set RLOGIN /usr/ucb/rlogin
+set RSH /usr/ucb/rsh
+@end smallexample
+@end cartouche
+
+Here I set @code{all_flag} so I see all the test cases that PASS along
+with the ones that FAIL. I also set @var{RLOGIN} and @code{RSH} to the
+BSD version. I have @code{kerberos} installed, and when I rlogin to a
+target board, it usually isn't supported. So I use the non secure
+versions of these programs rather than the default that's in my path. 
+
+@node Internals
+@chapter The DejaGnu Implementation
+@cindex operating principles
+@cindex internal details
+
+DejaGnu is entirely written in @code{expect}, which uses Tcl as a
+command language.  @code{expect} serves as a very programmable shell;
+you can run any program, as with the usual Unix command shells---but
+once the program is started, your @code{expect} script has fully
+programmable control of its input and output.  This does not just apply
+to the programs under test; @code{expect} can also run any auxiliary
+program, such as @code{diff} or @code{sh}, with full control over its
+input and output.
+
+DejaGnu itself is merely a framework for the set of test suites
+distributed separately for each @sc{gnu} tool.  Future releases of
+@sc{gnu} tools will include even more tests, developed throughout the
+free software community.
+
+@kindex runtest.exp
+@code{runtest} is the glue to tie together and manage the test scripts.
+The @code{runtest} program is actually a simple Bourne shell script that
+locates a copy of the @code{expect} shell and then starts the main Tcl
+code, @code{runtest.exp}. @code{runtest.exp} itself has these essential
+functions:
+
+@enumerate
+@item
+Parse the command line options, load the library files, and load the
+default configuration files.
+
+@item
+Locating the individual test scripts.  @code{runtest.exp} locates the tests
+by exploiting a straightforward naming convention based on the string
+you specify with the @samp{--tool} option.
+
+@item
+Providing an extended test environment, by defining additional Tcl
+procedures beyond those already in @code{expect}.
+
+@item
+Locating target-dependent functions, to standardize the test environment
+across a wide variety of test platforms.
+@end enumerate
+
+@menu
+* Names::                       Conventions for using tool names
+* Init Module::			Initialization module
+* DejaGnu Builtins::            DejaGnu provides these Tcl procedures
+* Target Dependent::            Procedures supplied by the init module
+* Cross Targets::		Remote targets supported
+* Input Files::                 The files DejaGnu depends on
+* Output Files::                The files DejaGnu produces
+@end menu
+
+@node Names
+@section Conventions for using tool names
+
+@cindex @code{--tool} and naming conventions
+@cindex tool names and naming conventions
+@cindex naming conventions
+DejaGnu uses @samp{$tool}, the name of the tool under test, to tie
+together the testing configuration in a straightforward but flexible
+way. If there is only one testsuite for a particular application, then
+@samp{$tool} is optional.
+
+@samp{$tool} is @emph{not} used to invoke the tool, since sites that run
+multiple configurations of a particular tool often call each
+configuration by a different name.  @code{runtest} uses the
+configuration-dependent variables captured in @file{site.exp} to
+determine how to call each tool.
+
+@cindex directory names and @code{--tool}
+@cindex test directories, naming
+@code{runtest} uses tool names to find directories containing tests.
+@code{runtest} scans the source directory (specified with
+@code{--srcdir}) for all directories whose names start with the tool
+name. It is a common practice to put a period after the tool part of the
+name. For instance, directories that start with
+@samp{g++.} contain @sc{g++} tests.  To add a new test, just put it in
+any directory (create an entirely new directory, if you wish) whose name
+follows this convention.
+
+@cindex @code{exp} filename suffix
+@cindex test filename
+@cindex filename for test files
+A test is any file in an appropriately named subdirectory whose name
+ends in @samp{.exp} (the conventional way of naming @code{expect}
+scripts).  These simple naming conventions make it as simple as possible
+to install new tests: all you must do is put the test in the right
+directory.
+
+@cindex order of tests
+@cindex tests, running order
+@code{runtest} sorts the tests in each subdirectory by name (using the
+Tcl @code{lsort} command) and runs them in the resulting order.
+
+@node Init Module
+@section Initialization module
+@cindex tool initialization
+@cindex setting up targets
+
+@c FIXME! should this node be merged with "Target dependent"?
+
+@cindex init file, purpose
+@cindex starting interactive tools
+@cindex initialization
+The initialization module (or ``init file'') has two purposes: to
+provide tool and target dependent procedures, and to start up an
+interactive tool to the point where it is ready to operate.  The latter
+includes establishing communications with the target.  All the tests for
+interactive programs assume that the tool is already running and
+communicating.  Initialization modules for non-interactive programs may
+only need to supply the support functions.
+
+@cindex init file name
+@cindex name, initialization module
+Each test suite directory must contain (in its @file{config}
+subdirectory) a separate initialization module for each target.  The
+appropriate init file is can be named several ways. The prefered name is
+the @emph{os} part of the canonical configuration name with @code{.exp}
+as the suffix. An example would be that for an @code{m68k-coff} system,
+the @code{target_os} part would be @code{coff}. The next way is for
+system where there are short filenames, or a shortcut is desired to
+refer to the OS name for that target. This is uses the value of
+@code{$target_abbrev} rather than the @code{target_os}.
+
+The final file looked for is simply @file{default.exp}. If there is only
+one operating system to support, then this file can be used. It's main
+purpose is to offer some support for new operating systems, or for
+unsupported cross targets. The last file looked for is
+@file{unknown.exp}. This is usually limited to error handling for
+unsupported targets. It's whole contents is typically.
+
+@cartouche
+@smallexample
+perror "Sorry, there is no support for this target"
+exit 1
+@end smallexample
+@end cartouche
+
+At the beginning of the init file, you must first determine the proper
+executable name of the tool to execute, since the actual name of the
+tool to be tested my vary from system to system. Here's an example
+for the @sc{GNU} C compiler.
+
+@cartouche
+@smallexample
+global AR
+# look for the archiver ar
+if ![info exists AR] @{
+    set AR [findfile $base_dir/../../binutils/ar $base_dir/../../binutils/ar [tr
+ansform ar]]
+    verbose "AR defaulting to $AR" 2
+@}
+@}
+
+global CFLAGS
+if ![info exists CFLAGS] then @{
+    set CFLAGS ""
+@}
+@end smallexample
+@end cartouche
+ 
+It is always a good idea to first check the variable, and only set it if
+it has not yet been defined.  Often the proper value of @code{AR} is set
+on the command line that invokes @file{runtest}.
+
+@kindex findfile
+The @code{findfile} procedure takes as it's first argument a file name
+to look for. The second argument is returned if the file is found, and
+the third argument is returned if the file is not found. @code{base_dir}
+is set internally by DejaGnu to the top level directory of the object
+tree.
+
+@kindex transform
+The @code{transform} procedure takes as its argument the native name of
+a tool (such as @samp{gcc} for the compiler), and returns the name as
+configured for that tool in the current installation.  (For example, a
+cross-compiling version of @sc{gnu} CC that generates MIPS code may be
+installed with a name like @code{mips-idt-ecoff-gcc}.)
+
+In a test running native, writing the Tcl code for initialization is
+usually quite simple.  For cross configurations, however, more elaborate
+instructions are usually needed to describe how to talk to a remote
+target.
+
+Each initialization module defines up to four procedures with standard
+names and purposes.  The names of these procedures begin with
+@samp{$tool}, the string that identifies tests for a particular tool:
+@code{$tool_start}, @code{$tool_load}, @code{$tool_exit}, and
+@code{$tool_version}.  For example, the start procedure for @sc{gdb} is
+called @code{gdb_start}.  (Since start procedures are used differently
+for batch and interactive tools, however, @code{runtest} itself never
+calls the start procedure.  Init files for interactive tools are
+expected to end by running the start procedure.)
+
+@cindex utilities, loading from init file
+@cindex defaults, setting in init file
+The initialization module is also a good place to call @code{load_lib}
+to get any collections of utility procedures meant for a family of test
+cases, and to set up default values for any additional Tcl variables
+needed for a specific set of tests.
+
+@xref{Target Dependent,,Target dependent procedures}, for full
+descriptions of these procedures.
+
+@node DejaGnu Builtins
+@section DejaGnu procedures
+@cindex built in procedures, DejaGnu
+
+DejaGnu provides these Tcl procedures for use in test scripts.
+You can also use any standard @code{expect} or Tcl function. These
+procedures are stored in libraries, which DejaGnu loads at
+runtime. Here's explanation of the library procedures that get loaded at
+runtime. All other librarys are optional, and need to be loaded by the
+testsuite.
+
+@menu
+* framework.exp::               Core Internal Procedures.
+* remote.exp::                  Procedures for remote communication.
+* utils.exp::                   Utility procedures.
+* target.exp::                  Cross target procedures.
+* debugger.exp::                Procedures for debugging your Tcl code.
+@end menu
+
+@node framework.exp, remote.exp, ,DejaGnu Builtins
+@subsection Core Internal Procedures
+@cindex Core Internal Procedures
+
+@xref{Posix,,A POSIX conforming test framework}, for more detailed
+explanations of the test outcomes (@samp{FAIL}, @samp{PASS},
+@samp{UNTESTED}, @samp{UNRESOLVED}, @samp{UNSUPPORTED}).
+
+@ftable @code
+@item perror "@var{string} @var{number}"
+@cindex test case, ERROR in
+@kindex ERROR
+Declares a severe error in the testing framework itself.
+@code{perror} writes in the log files a message beginning with
+@samp{ERROR}, appending the argument @var{string}. If the optional
+@var{number} is supplied, then this is used to set the internal count of
+errors to that value.
+
+As a side effect, @code{perror} also changes the effect of the next
+@code{pass} or @code{fail} command: the test outcome becomes
+@samp{UNRESOLVED}, since an automatic @samp{PASS} or @samp{FAIL} cannot
+be trusted after a severe error in the test framework.  If the optional
+numeric value is @samp{0}, then there are no further side effects to
+calling this function, and the following test outcome doesn't become
+@samp{UNRESOLVED}. This can be used for errors with no known side
+effects.
+
+@item warning "@var{string} @var{number}"
+@cindex test case, WARNING in
+@kindex WARNING
+Declares detection of a minor error in the test case itself.
+@code{warning} writes in the log files a message beginning with
+@samp{WARNING}, appending the argument @var{string}.  Use @code{warning}
+rather than @code{error} for cases (such as communication failure
+to be followed by a retry) where the test case can recover from the
+error.  If the optional @var{number} is supplied, then this is used to
+set the internal count of warnings to that value.
+
+As a side effect, @code{warning_threshold} or more calls to
+@code{warning} in a single test case also changes the effect of the next
+@code{pass} or @code{fail} command: the test outcome becomes
+@samp{UNRESOLVED} since an automatic @samp{PASS} or @samp{FAIL} may not
+be trustworthy after many warnings.  If the optional numeric value is
+@samp{0}, then there are no further side effects to calling this
+function, and the following test outcome doesn't become
+@samp{UNRESOLVED}. This can be used for errors with no known side
+effects.
+
+@item note "@var{string}"
+@cindex test case, informational messages
+@kindex NOTE
+Appends an informational message to the log file.
+@code{note} writes in the log files a message beginning with
+@samp{NOTE}, appending the argument @var{string}.  Use @code{note}
+sparingly.  @code{verbose} should be used for most such messages,
+but in cases where a message is needed in the log file regardless of
+the verbosity level use @code{note}.
+
+@item pass "@var{string}"
+@cindex test case, declaring success
+Declares a test to have passed.  @code{pass} writes in the 
+log files a message beginning with @samp{PASS} (or @code{XPASS}, if
+failure was expected), appending the argument @var{string}.
+
+@item fail "@var{string}"
+@cindex test case, declaring failure
+Declares a test to have failed.  @code{fail} writes in the 
+log files a message beginning with @samp{FAIL} (or @code{XFAIL}, if
+failure was expected), appending the argument @var{string}.
+
+@item unresolved "@var{string}"
+@cindex test case, declaring ambiguity
+Declares a test to have an unresolved outcome.  @code{unresolved} writes
+in the log file a message beginning with @samp{UNRESOLVED}, appending
+the argument @var{string}.  This usually means the test did not execute
+as expected, and a human being must go over results to determine if it
+passed or failed (and to improve the test case).
+
+@item untested "@var{string}"
+@cindex test case, declaring no test
+Declares a test was not run.  @code{untested} writes in the log file a
+message beginning with @samp{UNTESTED}, appending the argument
+@var{string}.  For example, you might use this in a dummy test whose
+only role is to record that a test does not yet exist for some feature.
+
+@item unsupported "@var{string}"
+@cindex test case, declaring no support
+Declares that a test case depends on some facility that does not exist
+in the testing environment.  @code{unsupported} writes in the log file a
+message beginning with @samp{UNSUPPORTED}, appending the argument
+@var{string}.
+
+@item get_warning_threshold
+@cindex test case, WARNING threshold
+Returns the current value of @code{warning_threshold}.
+The default value is 3.
+
+@item set_warning_threshold @var{threshold}
+@cindex test case, WARNING threshold
+Sets the value of @code{warning_threshold}.
+A value of @code{0} disables it: calls to @code{warning} will not turn
+a @samp{PASS} or @samp{FAIL} into an @samp{UNRESOLVED}.
+
+@item transform "@var{toolname}"
+@cindex transform tool name
+@cindex installed tool name
+@cindex tool name, as installed
+@cindex name transformations
+Generates a string for the name of a tool as it was configured and
+installed, given its native name (as the argument @var{toolname}).
+This makes the assumption that all tools are installed using the same
+naming conventions: it extrapolates from the invocation name for
+@file{runtest}.  For example, if you call @code{runtest} as
+@file{m68k-vxworks-runtest}, the result of @w{@samp{ transform "gcc" }}
+is @samp{m68k-vxworks-gcc}.
+
+@item ishost "@var{host}"
+@cindex host configuration test
+Tests for a particular @emph{host} environment.  If the currently
+configured host matches the argument string, the result is @code{1};
+otherwise the result is @code{0}.  @var{host} must be a full three-part
+@code{configure} host name; in particular, you may not use the shorter
+nicknames supported by @code{configure} (but you can use wildcard
+characters, using shell syntax, to specify sets of names). 
+
+@item istarget "@var{target}"
+@cindex target configuration test
+Tests for a particular @emph{target} environment.  If the currently
+configured target matches the argument string, the result is @code{1};
+otherwise the result is @code{0}.  @var{target} must be a full
+three-part @code{configure} target name; in particular, you may not use
+the shorter nicknames supported by @code{configure} (but you can use
+wildcard characters, using shell syntax, to specify sets of names). If it is
+passed a @code{NULL} string, then it returns the name of the build
+canonical configuration.
+
+@item isbuild "@var{host}"
+@cindex build host configuration test
+Tests for a particular @emph{build host} environment.  If the currently
+configured host matches the argument string, the result is @code{1};
+otherwise the result is @code{0}.  @var{host} must be a full three-part
+@code{configure} host name; in particular, you may not use the shorter
+nicknames supported by @code{configure} (but you can use wildcard
+characters, using shell syntax, to specify sets of names). If it is
+passed a @code{NULL} string, then it returns the name of the build
+canonical configuration.
+
+item is3way "@var{host}"
+@cindex canadian cross configuration test
+Tests for a canadian cross. This is when the tests will be run on a
+remotly hosted cross compiler. If it is a canadian cross, then the
+result is @code{1}; otherwise the result is @code{0}.
+
+@item isnative
+@cindex native configuration test
+Tests whether the current configuration has the same host and target.
+When it runs in a @emph{native} configuration this procedure returns a
+@code{1}; otherwise it returns a @code{0}.
+
+@item load_lib "@var{library-file}"
+@cindex load library file
+Loads the file @var{library-file} by searching a fixed path built into
+@code{runtest}.  If DejaGnu has been installed, it looks in a path
+starting with the installed library directory.  If you are running
+DejaGnu directly from a source directory, without first running
+@samp{make install}, this path defaults to the current directory.  In
+either case, it then looks in the current directory for a directory
+called @code{lib}.  If there are duplicate definitions, the last one
+loaded takes precedence over the earlier ones.
+ 
+@item setup_xfail "@var{config}  @r{[}@var{bugid}@r{]}"
+@c two spaces above to make it absolutely clear there's whitespace---a
+@c crude sort of italic correction!
+@cindex test case, expecting failure
+@cindex failure, expected
+@cindex expected failure
+Declares that the test is expected to fail on a particular set of
+configurations.  The @var{config} argument must be a list of full
+three-part @code{configure} target name; in particular, you may not use
+the shorter nicknames supported by @code{configure} (but you can use the
+common shell wildcard characters to specify sets of names).  The
+@var{bugid} argument is optional, and used only in the logging file
+output; use it as a link to a bug-tracking system such as @sc{gnats}
+(@pxref{Overview,, Overview, gnats.info, Tracking Bugs With GNATS}).
+
+@cindex @code{XFAIL}, producing
+@cindex @code{XPASS}, producing
+Once you use @code{setup_xfail}, the @code{fail} and @code{pass}
+procedures produce the messages @samp{XFAIL} and @samp{XPASS}
+respectively, allowing you to distinguish expected failures (and
+unexpected success!) from other test outcomes.
+
+@emph{Warning:} you must clear the expected failure after using
+@code{setup_xfail} in a test case.  Any call to @code{pass} or
+@code{fail} clears the expected failure implicitly; if the test has some
+other outcome, e.g. an error, you can call @code{clear_xfail} to clear
+the expected failure explicitly.  Otherwise, the expected-failure
+declaration applies to whatever test runs next, leading to surprising
+results.
+
+@item check_conditional_xfail @var{message} @var{targets} @var{includes} @var{excludes}
+@cindex test case, expecting a conditional failure
+@cindex failure, conditional expected
+@cindex conditional expected failure
+
+This procedure adds a condition xfail, based on compiler options used to
+create a test case executable. If an include options is found in the
+compiler flags, and it's the right architecture, it'll trigger an
+XFAIL. Otherwise it'll produce an ordinary FAIL. You can also specify
+flags to exclude. This makes a result be a FAIL, even if the included
+options are found. To set the conditional, set the variable
+@var{compiler_conditional_xfail_data} to the fields "[message string] [targets
+list] [includes list] [excludes list]" (descriptions below). This is the
+checked at pass/fail decision time, so there is no need to call the
+procedure yourself, unless you wish to know if it gets triggered. After
+a pass/fail, the variable is reset, so it doesn't effect other tests.
+
+The parameters are:
+
+@table @code
+@item message
+is the message to print with the normal test result
+
+@item targets
+is a string with the targets to activate this conditional on.
+
+@item includes
+is a list of sets of options to search for in the compiler options to
+activate this conditional. If any set of the options matches, then this
+conditional is true.
+
+@item excludes
+is a list of sets of options to search for in the compiler options to
+activate this conditional. If any set of the options matches,
+(regardless of whether any of the include sets match) then this
+conditional is de-activated.
+@end table
+
+returns:
+
+@table @code
+@item 1
+if the conditional is true
+@item 0
+if the conditional is false
+@end table
+
+An example of setting the variable would be:
+
+@cartouche
+@smallexample
+set compiler_conditional_xfail_data @{@ \
+        "I sure wish I knew why this was hosed" \
+        "sparc*-sun*-* *-pc-*-*" \
+        @{@"-Wall -v" "-O3"@}@ \
+        @{@"-O1" "-Map" @}@ \
+        @}@         
+@end smallexample
+@end cartouche
+
+  What this does is it matches only for these two targets if "-Wall -v" or 
+"-O3" is set, but neither "-O1" or "-Map" is set.
+
+  For a set to match, the options specified are searched for independantly of
+each other, so a "-Wall -v" matches either "-Wall -v" or "-v -Wall". A space
+seperates the options in the string. Glob-style regular expressions are also
+permitted.
+
+@item clear_xfail @var{config}
+@cindex cancelling expected failure
+@cindex expected failure, cancelling
+Cancel an expected failure (previously declared with @code{setup_xfail})
+for a particular set of configurations.  The @var{config} argument is a
+list of configuration target names.  It is only necessary to call
+@code{clear_xfail} if a test case ends without calling either
+@code{pass} or @code{fail}, after calling @code{setup_xfail}.
+
+@item verbose @r{[}-log@r{]} @r{[}-n@r{]} @r{[}--@r{]} "@var{string}" @var{number}
+@cindex @code{verbose} builtin function
+Test cases can use this function to issue helpful messages depending on
+the number of @samp{--verbose} options on the @code{runtest} command
+line.  It prints @var{string} if the value of the variable
+@code{verbose} is higher than or equal to the optional @var{number}. The
+default value for @var{number} is 1.  Use the optional @samp{-log} argument
+to cause @var{string} to always be added to the log file, even if it won't
+be printed.  Use the optional @samp{-n} argument to print @var{string}
+without a trailing newline.  Use the optional @samp{--} argument if
+@var{string} begins with "-".
+
+@end ftable
+
+@noindent
+@node remote.exp, utils.exp, framework.exp, DejaGnu Builtins
+@subsection Remote Communication Procedures
+
+@kindex remote.exp
+@kindex lib/remote.exp
+@cindex remote connection procedures
+@cindex communications procedures
+@file{lib/remote.exp} defines these functions, for establishing and
+managing communications:
+
+@emph{Procedures to establish a connection:} Each of these procedures
+tries to establish the connection up to three times before returning.
+Warnings (if retries will continue) or errors (if the attempt is
+abandoned) report on communication failures.  The result for any of
+these procedures is either @code{-1}, when the connection cannot be
+established, or the spawn ID returned by the @code{expect} command
+@code{spawn}.
+
+It use the value of the @code{connect} field in the @code{target_info}
+array (was @code{connectmode} as the type of connection to make. Current
+supported connection types are tip, kermit, telnet, rsh, rlogin, and
+netdata. If the @code{--reboot} option was used on the runtest command
+line, then the target is rebooted before the connection is made.
+
+@ftable @code
+
+@item remote_open @var{type}
+@cindex Opening a remote connection
+@emph{Remote Connection Procedure.} This is passed @emph{host} or
+@emph{target}. Host or target refers to whether it is a connection to a
+remote target, or a remote host. This opens the connection to the
+desired target or host using the default values in the configuration
+system. It returns that @code{spawn_id} of the process that manages the
+connection. This value can be used in @code{expect} or @code{exp_send}
+statements, or passed to other procedures that need the connection
+process's id. This also sets the @code{fileid} field in the
+@code{target_info} array.
+
+
+@item remote_close @var{shellid}
+@cindex Closing a remote connection
+@emph{shellid} is value returned by a call to @code{remote_open}. This
+closes the connection to the target so resources can be used by
+others. This parameter can be left off if the @code{fileid} field in the
+@code{target_info} array is set.
+
+@item telnet @var{hostname} @var{port}
+@itemx rlogin @var{hostname}
+@itemx rsh @var{hostname}
+@cindex IP network procedures
+@cindex network (IP) procedures
+@emph{IP network procedures.} @var{hostname} refers to the IP address or
+name (for example, an entry in @file{/etc/hosts}) for this target.  The
+procedure names reflect the Unix utility used to establish a
+connection. The optional @var{port} is used to specify the IP port
+number. The value of the @code{netport} field in the @code{target_info}
+array is used. (was @code{$netport}) This value has two parts, the
+hostname and the port number, seperated by a @emph{:}. If @code{host} or
+@code{target} is used in the @code{hostname} field, than the config
+array is used for all information.
+
+@item tip @var{port}
+@cindex serial line connection, @code{tip}
+@emph{Serial line procedure.} Connect using the Unix utility @code{tip}.
+@var{port} must be a name from the @code{tip} configuration file
+@file{/etc/remote}.  Often, this is called @samp{hardwire}, or something
+like @samp{ttya}. This file holds all the configuration data for
+the serial port. The value of the @code{serial} field in the
+@code{target_info} array is used. (was @code{$serialport}) If
+@code{host} or @code{target} is used in the @code{port} field, than
+the config array is used for all information.
+
+@item kermit @var{port} @var{bps}
+@cindex serial line connection, @code{kermit}
+@emph{Serial line procedure.}  Connect using the program @code{kermit}.
+@var{port} is the device name, e.g. @file{/dev/ttyb}.  @var{bps} is
+the line speed to use (in bits per second) for the connection. The value
+of the @code{serial} field in the @code{target_info} array is used. (was
+@code{$serialport}) If @code{host} or @code{target} is used in the
+@code{port} field, than the config array is used for all information.
+
+@end ftable
+
+@noindent
+@emph{Procedures to manage a connection:}
+
+@ftable @code
+@item tip_download @var{spawnid} @var{file}
+@cindex download, @code{tip}
+@cindex serial download, @code{tip}
+Download @file{@var{file}} to the process @var{spawnid} (the value
+returned when the connection was established), using the @code{~put}
+command under @code{tip}.  Most often used for single board computers
+that require downloading programs in @sc{ascii} S-records.  Returns
+@code{1} if an error occurs, @code{0} otherwise.
+
+@item exit_remote_shell @var{spawnid}
+@cindex terminating remote connection
+@cindex remote connection, ending
+Exits a remote process started by any of the connection procedures.
+@var{spawnid} is the result of the connection procedure that started the
+remote process.
+
+@item download @var{file} @r{[} @var{spawnid} @r{]}
+@cindex download a file
+After you establish a connection to a target, you can download programs
+using this command.  @code{download} reads in @var{file} (object code in
+S-record format) and writes it to the device controlling this
+@var{spawnid}.  (From the point of view of the target, the S-record file
+comes in via standard input.)
+
+If you have more than one target active, you can use the optional argument
+@var{spawnid} to specify an alternative target (the default is the most
+recently established @var{spawnid}.)
+@end ftable
+
+@noindent
+@node utils.exp, target.exp, remote.exp, DejaGnu Builtins
+@subsection Utility Procedures
+
+@kindex utils.exp
+@kindex lib/utils.exp
+@file{lib/utils.exp} defines these utility procedures:
+
+@ftable @code
+@item getdirs @var{dir}
+@itemx getdirs @var{dir} @var{pattern}
+@cindex directories matching a pattern
+@cindex pattern match, directory
+Returns a list of all the directories in the single directory @var{dir}
+that match @var{pattern}.  If you do not specify @var{pattern},
+@code{getdirs} assumes @samp{*}.  You may use the common shell wildcard
+characters in @var{pattern}. If no directories match the pattern, then a
+@code{NULL} string is returned.
+
+@item find @var{dir} @var{pattern}
+@cindex files matching a pattern
+@cindex pattern match, filenames
+Search for files whose names match @var{pattern} (using shell wildcard
+characters for filename expansion).  Search subdirectories recursively,
+starting at @var{dir}.  The result is the list of files whose names
+match; if no files match, the result is empty.  Filenames in the result
+include all intervening subdirectory names. If no files match the
+pattern, then a @code{NULL} string is returned.
+
+@item which @var{binary}
+@cindex path lookup
+Searches the execution path for an executable file @var{binary}, like
+the the BSD @code{which} utility.  This procedure uses the shell
+environment variable @samp{PATH}. It returns @code{0} if the binary is
+not in the path, or if there is no @samp{PATH} environment variable. If
+@var{binary} is in the path, it returns the full path to @var{binary}.
+
+@item grep @var{filename} @var{regexp}
+@item grep @var{filename} @var{regexp} line
+@cindex regular expression, file contents
+@cindex searching file contents
+Search the file called @var{filename} (a fully specified path) for lines
+that contain a match for regular expression @var{regexp}.  The result is
+a list of all the lines that match.  If no lines match, the result is an
+empty string.  Specify @var{regexp} using the standard regular
+expression style used by the Unix utility program @code{grep}.
+
+Use the optional third argument @samp{line} to start lines in the result
+with the line number in @var{filename}.  (This argument is simply an
+option flag; type it just as shown---@samp{line}.)
+
+@item diff @var{filename} @var{filename}
+@cindex finding file differences
+@cindex comparing files
+Compares the two files and returns a 1 if they match, or a 0 if they
+don't. If @code{verbose} is set, then it'll print the differences to the
+screen.
+
+@item slay @var{name}
+@cindex slaying processes
+This look in the process table for @var{name} and send it a unix
+@code{SIGINT}, killing the process.
+
+@item absolute @var{path}
+@cindex converting relative paths to absolute
+This procedure takes the relative @var{path}, and converts it to an
+absolute path.
+
+@item psource @var{filename}
+@cindex sourcing Tcl files
+This sources the file @var{filename}, and traps all errors. It also
+ignores all extraneous output. If there was an error it returns a 1,
+otherwise it returns a 0.
+
+@item prune @var{list} @var{pattern}
+@cindex list, pruning
+Remove elements of the Tcl list @var{list}.  Elements are fields
+delimited by spaces.  The result is a copy of @var{list}, without any
+elements that match @var{pattern}.  You can use the common shell
+wildcard characters to specify @var{pattern}.
+
+@item setenv @var{var} @var{val}
+@cindex setting environment variables
+Sets the variable @var{var} to the value @var{val}.
+
+@item unsetenv @var{var}
+@cindex unsetting environment variables
+Unsets the environment variable @var{var}
+
+@item getenv @var{var}
+@cindex getting environment variables
+returns the value of @var{var} in the environment if it exists,
+otherwise it returns @code{NULL}.
+
+@item runtest_file_p @var{runtests} @var{testcase}
+@cindex selecting a range of tests
+@cindex tests, running specifically
+Search @var{runtests} for @var{testcase} and return 1 if found, 0 if not.
+@var{runtests} is a list of two elements.  The first is the pathname of
+the testsuite expect script running.  The second is a copy of what was
+on the right side of the @code{=} if @samp{foo.exp="@dots{}"} was specified,
+or an empty string if no such argument is present.
+This is used by tools like compilers where each testcase is a file.
+
+@item prune_system_crud @var{system} @var{text}
+@cindex pruning system output, examining program output
+For system @var{system}, delete text the host or target operating system might
+issue that will interfere with pattern matching of program output in
+@var{text}.  An example is the message that is printed if a shared library
+is out of date.
+
+@end ftable
+
+@noindent
+@node target.exp, debugger.exp, utils.exp, DejaGnu Builtins
+@subsection Cross target procedure
+
+@kindex target.exp
+@kindex lib/target.exp
+@file{lib/target.exp} defines these utility procedures:
+
+@ftable @code
+
+@item push_target @emph{name}
+@cindex set current target
+This makes the target named @emph{name} be the current target
+connection. The value of @emph{name} is an index into the
+@code{target_info} array and is set in the global config file.
+
+@item pop_target
+@cindex unset current target
+This unsets the current target connection.
+
+@item list_targets
+@cindex lists supported targets
+This lists all the supported targets for this architecture.
+
+@item push_host @emph{name}
+@cindex set current host
+This makes the host named @emph{name} be the current remote host
+connection. The value of @emph{name} is an index into the
+@code{target_info} array and is set in the global config file.
+
+@item pop_host
+@cindex unset current host
+This unsets the current host connection.
+
+@c @item compile @emph{file}
+@cindex compile a file
+This invokes the compiler as set by @code{CC} to compile the file
+@emph{file}. The default options for many cross compilation targets are
+@emph{guessed} by DejaGnu, and these options can be added to by passing
+in more parameters as arguments to @code{compile}. Optionally, this will
+also use the value of the @code{cflags} field in the target config
+array. If the host is not the same as the build machines, then then
+compiler is run on the remote host using @code{execute_anywhere}.
+
+@c @item archive @emph{file}
+@cindex archive object files
+This produces an archive file. Any parameters passed to @code{archive}
+are used in addition to the default flags. Optionally, this will
+also use the value of the @code{arflags} field in the target config
+array. If the host is not the same as the build machines, then then
+archiver is run on the remote host using @code{execute_anywhere}.
+
+@c @item ranlib @emph{file}
+@cindex ranlib a file
+This generates an index for the archive file for systems that aren't
+POSIX yet. Any parameters passed to @code{ranlib} are used in for the
+flags.
+
+@item execute_anywhere @emph{cmdline}
+@cindex executing commands remotely
+This executes the @emph{cmdline} on the proper host. This should be used
+as a replacement for the Tcl command @code{exec} as this version
+utilizes the target config info to execute this command on the build
+machine or a remote host. All config information for the remote host
+must be setup to have this command work. If this is a canadian cross,
+(where we test a cross compiler that runs on a different host then where
+DejaGnu is running) then a connection is made to the remote host and
+the command is executed there. It returns either @emph{REMOTERROR} (for
+an error) or the output produced when the command was executed. This is
+used for running the tool to be tested, not a test case.
+
+@end ftable
+
+@node debugger.exp, , target.exp, DejaGnu Builtins
+@subsection Debugging Procedures
+
+@kindex debugger.exp
+@kindex lib/debugger.exp
+@file{lib/debugger.exp} defines these utility procedures:
+
+@ftable @code
+
+@item dumpvars @emph{expr}
+@cindex Print global variable values
+This takes a csh style regular expression (glob rules) and prints the
+values of the global variable names that match.  It is abbreviated as
+@code{dv}
+
+@item dumplocals @emph{expr}
+@cindex Print local variable value
+This takes a csh style regular expression (glob rules) and prints the
+values of the local variable names that match. It is abbreviated as
+@code{dl}.
+
+@item dumprocs @emph{expr}
+@cindex Print procedure bodies
+This takes a csh style regular expression (glob rules) and prints the
+body of all procs that match. It is abbreviated as @code{dp}
+
+@item dumpwatch @emph{expr}
+@cindex Print watchpoints
+This takes a csh style regular expression (glob rules) and prints all
+the watchpoints. It is abbreviated as @code{dw}.
+
+@c FIXME: finish these when the code is fixed.
+@c @item watcharray @emph{element} @emph{type}
+@c @cindex Set a watchpoint on an array
+@c This sets an watchpoint of the @emph{element-type} on the 
+@c @item watchvar v null type
+@c @cindex Set a watchpoint on a variable
+
+@item watchunset @emph{var}
+@cindex Watch when a variable is unset
+This breaks program execution when the variable @emph{var} is unset. It
+is abbreviated as @code{wu}.
+
+@item watchwrite @emph{var}
+@cindex Watch when a variable is written
+This breaks program execution when the variable @emph{var} is
+written. It is abbreviated as @code{ww}.
+
+@item watchread @emph{var}
+@cindex Watch when a variable is read
+This breaks program execution when the variable @emph{var} is read. It
+is abbreviated as @code{wr}.
+
+@item watchdel @emph{watch}
+@cindex Delete a watchpoint.
+This deletes a the watchpoint for @emph{watch}. It is abbreviated as
+@code{wd}.
+
+@item print @emph{var}
+@cindex Printing variable values
+This prints the value of the variable @emph{var}. It is abbreviated as
+@code{p}.
+
+@item quit
+@cindex Quiting DejaGnu
+This makes runtest exit. It is abbreviated as @code{q}.
+
+@item bt
+@cindex Print a backtrace
+This prints a backtrace of the executed Tcl commands.
+
+@end ftable
+
+@node Target Dependent
+@section Target dependent procedures
+@cindex target dependent procedures
+
+@c FIXME? These may be renamed to just "start", "load", "exit", and
+@c "version" eventually.
+
+Each combination of target and tool requires some target-dependent
+procedures.  The names of these procedures have a common form: the tool
+name, followed by an underbar @samp{_}, and finally a suffix describing
+the procedure's purpose.  For example, a procedure to extract the
+version from @sc{gdb} is called @samp{gdb_version}.  @xref{Init Module,,
+Initialization Module}, for a discussion of how DejaGnu arranges to find
+the right procedures for each target.
+
+@code{runtest} itself calls only two of these procedures,
+@code{@var{tool}_exit} and @code{@var{tool}_version}; these procedures use
+no arguments.
+
+The other two procedures, @code{@var{tool}_start} and
+@code{@var{tool}_load}, are only called by the test suites themselves
+(or by testsuite-specific initialization code); they may take arguments
+or not, depending on the conventions used within each test suite.
+
+@ftable @code
+@item @var{tool}_start
+@cindex start procedure, tested tools
+Starts a particular tool.  For an interactive tool,
+@code{@var{tool}_start} starts and initializes the tool, leaving the
+tool up and running for the test cases; an example is @code{gdb_start},
+the start function for @sc{gdb}.  For a batch oriented tool,
+@code{@var{tool}_start} is optional; the recommended convention is to
+let @code{@var{tool}_start} run the tool, leaving the output in a
+variable called @code{comp_output}.  Test scripts can then analyze
+@samp{$comp_output} to determine the test results.  An example of this
+second kind of start function is @code{gcc_start}, the start function
+for @sc{gcc}.
+
+@code{runtest} itself @emph{does not call} @code{@var{tool}_start}.  The
+initialization module @file{@var{tool}_init.exp} must call
+@code{@var{tool}_start} for interactive tools; for batch-oriented tools,
+each individual test script calls @code{@var{tool}_start} (or makes
+other arrangements to run the tool).
+
+@item @var{tool}_load
+@cindex load procedure, tested tools
+Loads something into a tool. For an interactive tool, this conditions
+the tool for a particular test case; for example, @code{gdb_load} loads
+a new executable file into the debugger. For batch oriented tools,
+@code{@var{tool}_load} may do nothing---though, for example, the
+@sc{gcc} support uses @code{gcc_load} to load and run a binary on the
+target environment.  Conventionally, @code{@var{tool}_load} leaves the
+output of any program it runs in a variable called @samp{exec_output}.
+Writing @code{@var{tool}_load} can be the most complex part of extending
+DejaGnu to a new tool or a new target, if it requires much communication
+coding or file downloading.
+
+Test scripts call @code{@var{tool}_load}.
+
+@item @var{tool}_exit
+@cindex exit procedure, tested tools
+Cleans up (if necessary) before @code{runtest} exits. For interactive
+tools, this usually ends the interactive session.  You can also use
+@code{@var{tool}_exit} to remove any temporary files left over from the
+tests.
+
+@code{runtest} calls @code{@var{tool}_exit}.
+
+@item @var{tool}_version
+@cindex version procedure, tested tools
+Prints the version label and number for @var{tool}.  This is called by
+the DejaGnu procedure that prints the final summary report.  The output
+should consist of the full path name used for the tested tool, and its
+version number.
+
+@code{runtest} calls @code{@var{tool}_version}.
+@end ftable
+
+The usual convention for return codes from any of these procedures
+(although it is not required by @code{runtest}) is to return @code{0} if
+the procedure succeeded, @code{1} if it failed, and @code{-1} if there
+was a communication error.
+
+@node Cross Targets
+@section Remote targets supported
+
+@cindex targets
+@cindex remote testing
+The DejaGnu distribution includes support for the following remote
+targets.  You can set the target name and the connect mode in the
+@file{site.exp} file (using the Tcl variables @samp{targetname} and
+@samp{connectmode}, respectively), or on the @code{runtest} command line
+(using @samp{--name} and @samp{--connect}).
+
+@table @strong
+@item @sc{amd} 29000, with UDI protocol
+Configure DejaGnu for target @samp{a29k-amd-udi}.  (Cygnus
+@code{configure} also recognizes the abbreviation @samp{udi29k}.)  Then,
+to run tests, use the @code{runtest} target name to specify whether you
+want to use a simulator, or a particular hardware board.  The particular
+string to use with @samp{--name} will depend on your UDI setup file,
+@file{udi_soc} (if @file{udi_soc} is not in your working directory, the
+environment variable @samp{UDICONF} should contain a path to this file).
+For example, if your UDI setup file includes these lines:
+@end table
+@c table "ends" *only* to allow wider example below
+
+@cartouche
+@smallexample
+iss   AF_UNIX  *   isstip -r /home/gnu/29k/src/osboot/sim/osboot
+mon   AF_UNIX  *   montip -t serial -baud 9600 -com /dev/ttyb
+@end smallexample
+@end cartouche
+
+@table @strong
+@item @w{ }
+@c fake out table/item into continuing w/same margin as before
+You can use @samp{--name iss} to run tests on the simulator, and
+@samp{--name mon} to run tests on the 29K hardware.  See the
+manufacturer's manuals for more information on UDI and @file{udi_soc}.
+@c FIXME! Is there a better ref than "the manufacturer's manuals"?
+
+@kindex mondfe
+The default connect protocol is @samp{mondfe} with either back end.
+@code{mondfe} is the only shell DejaGnu supports for UDI targets.
+@code{mondfe} is an @sc{amd} specific monitor program freely available
+from @sc{amd}.
+
+@emph{Warning:} This target requires @sc{gdb} version 4.7.2 (or
+greater).  Earlier versions of @sc{gdb} do not fully support the
+@code{load} command on this target, so DejaGnu has no way to load
+executable files from the debugger.
+
+@item Motorola 680x0 boards, a.out or @sc{coff} object format
+Configure DejaGnu for any remote target matching @samp{m68k-*}.
+
+@emph{Warning:} Most @samp{m68k-*} configurations run all tests only for
+native testing (when the target is the same as the host).  When you
+specify most of these targets for a cross configuration, you will only be
+able to use tests that run completely within the host (for example,
+tests of the binary utilities such as the archiver; or compiler tests
+that only generate code rather than running it).
+
+To run a.out or @sc{coff} binaries on a remote M68K, you must configure
+DejaGnu for a particular target board.  @samp{m68k-abug} is an example.
+(In general for an embedded environment, because it does not have absolute
+addresses, a.out is not a good choice for output format in any case; most
+often S-records or Hex-32 are used instead.)
+
+@item Motorola 68K MVME 135 board running ABug boot monitor
+Configure for @samp{m68k-abug-aout} or @samp{m68k-abug-coff} (as a
+target).  This boot monitor can only download S-records; therefore, the
+DejaGnu tests for this environment require a linker command script to
+convert either output format to S-records, setting the default addresses
+for @code{.text}, @code{.bss}, and @code{.data}.
+
+With this configuration, the default for @samp{--connect} is @samp{tip}.
+@samp{tip} is the only communications protocol supported for connecting
+to @samp{m68k-abug-*} targets.  @samp{tip} uses an @sc{ascii} downloader
+(the @code{~put} command) to load S-records into the target board.  The
+@samp{--name} string must be a machine name that @code{tip}
+understands (for example, on some @code{tip} implementations it must be
+an entry from the initialization file for @code{tip}; this file is
+sometimes called @file{/etc/remote}).
+
+See your system documentation for information on how to create new
+entries in @file{/etc/remote}.  (Some @sc{unix} systems are distributed
+with at least one default entry with a name resembling @samp{hardwire};
+if your system has one, you can edit it, or make a modified copy with a
+new name.)  When you have a working @file{/etc/remote} entry
+@var{abugtarget}, you should be able to type @samp{tip
+@var{abugtarget}}, and get the prompt @samp{135ABUG>} from the board.
+Use the same @var{abugtarget} string with @samp{runtest --name}.
+
+@item Motorola IDP board running the rom68k boot monitor
+@c FIXME 1: this doesn't really say anything!  OK, so functionality is
+@c the same.  Is object code the same (srecords)?  Do we configure with
+@c the same triplets?  What is the default for --connect?  Is
+@c any comms method other than tip supported?  What prompt to expect
+@c when tip connected?
+@c FIXME 2: should @code{BUG} below be @code{ABUG}?
+This is the same in functionality as the MVME board running the
+@code{BUG} boot monitor. Only the monitor commands and the addresses are
+different.
+
+@item VxWorks (Motorola 68K or Intel 960)
+Configure DejaGnu for either @samp{m68k-wrs-vxworks} (abbreviated
+@samp{vxworks68}) or @samp{i960-wrs-vxworks} (abbreviated
+@samp{vxworks960}).  Since both targets support IP addressing, specify
+the network address (for example, a host name from @file{/etc/hosts})
+with @samp{--name}.
+
+The default connect protocol is @samp{rlogin}, but you can use any of
+@samp{--connect rlogin}, @samp{--connect telnet}, or @samp{--connect
+rsh}.
+
+Test scripts need no special code to load programs into these targets;
+since VxWorks supports NFS, all you must do is ensure test programs are
+on an exported filesystem.
+
+@cindex VxWorks, link with @samp{-r}
+When you compile for VxWorks, use the linker @samp{-r} option to make
+the linker output relocatable---at least if you want to use library
+routines. Many standard C routines are included in VxWorks; often no
+additional libraries are needed.  See your VxWorks system documentation
+for additional details.
+@end table
+
+@node Input Files
+@section The files DejaGnu reads
+@cindex input files
+
+The @code{runtest} program used to invoke DejaGnu is a short shell
+script generated by @code{make} during the configuration process.  Its
+main task is to read the main test framework driver, @file{runtest.exp}.
+
+@file{runtest.exp}, in turn, reads @code{expect} code from certain other
+files, in this order:
+
+@enumerate
+@item
+Each of the @file{site.exp} local definition files available.
+@xref{Customizing,,Setting @code{runtest} defaults}, for details.
+
+@item
+@file{lib/utils.exp}, a collection of utility procedures.  @xref{DejaGnu
+Builtins,,DejaGnu Builtins}, for descriptions of these procedures.
+
+@item
+@file{lib/framework.exp}, a file of subroutines meant for @code{runtest}
+itself rather than for general-purpose use in both @code{runtest} and
+test suites.
+
+@item
+@file{debugger.exp}, Don Libes' Tcl Debugger.  (See @cite{A Debugger for
+Tcl Applications} by Don Libes. This paper is distributed with
+@code{expect} in PostScript form as the file
+@file{expect/tcl-debug.ps}.)
+
+@item
+@file{lib/remote.exp}, a collection of subroutines meant for connecting
+to remote machines.
+
+@item
+@file{lib/target.exp}, a collection of subroutines used for the
+configuration systems in DejaGnu. These procedures typically manipulate
+or utilize the configuration system.
+
+@item
+@c FIXME!  A comment in runtest.exp claims a system default is used if
+@c         no tool-specific init file is not available; I couldn't see where
+@c         the program flow actually does this, though---pesch 30jul1993.
+An initialization file @code{@var{tool}_init.exp}.  @xref{Init
+Module,,Initialization module}, for more discussion of init files.
+@end enumerate
+
+@c This hard page break is mainly intended for smallbook formatting;
+@c some examples in this section come out better if this starts at a
+@c page boundary.
+@page
+@node Output Files
+@section The files DejaGnu writes
+@cindex output files
+
+@code{runtest} always writes two kinds of output files: summary logs and
+detailed logs.  The contents of both of these are determined by your
+tests.
+
+For troubleshooting, a third kind of output file is useful: use
+@samp{--debug} to request an output file showing details of what
+@code{expect} is doing internally.
+
+@menu
+* Summary::             Files that summarize tests
+* Detail::              Files that contain complete test results
+* Debug::               Logging expect internal actions
+@end menu
+
+@node Summary
+@subsection Summary log
+@cindex summary log
+
+@code{runtest} always produces a summary output file
+@file{@var{tool}.sum}.  This summary shows the names of all test files
+run; for each test file, one line of output from each @code{pass}
+command (showing status @samp{PASS} or @samp{XPASS}) or @code{fail}
+command (status @samp{FAIL} or @samp{XFAIL}); trailing summary
+statistics that count passing and failing tests (expected and
+unexpected); and the full pathname and version number of the tool
+tested.  (All possible outcomes, and all errors, are always reflected in
+the summary output file, regardless of whether or not you specify
+@samp{--all}.)
+
+If any of your tests use the procedures @code{unresolved},
+@code{unsupported}, or @code{untested}, the summary output also
+tabulates the corresponding outcomes.
+
+For example, after @samp{runtest --tool binutils}, look for a summary
+log in @file{binutils.sum}.  Normally, @code{runtest} writes this file
+in your current working directory; use the @samp{--outdir} option to
+select a different directory.
+
+@need 3500
+@noindent
+Here is a short sample summary log:
+
+@cartouche
+@smallexample
+Test Run By rob on Mon May 25 21:40:57 PDT 1992
+                === gdb tests ===
+Running ./gdb.t00/echo.exp ...
+PASS:   Echo test
+Running ./gdb.all/help.exp ...
+PASS:   help add-symbol-file
+PASS:   help aliases
+PASS:   help breakpoint "bre" abbreviation
+FAIL:   help run "r" abbreviation
+Running ./gdb.t10/crossload.exp ...
+PASS:   m68k-elf (elf-big) explicit format; loaded
+XFAIL:  mips-ecoff (ecoff-bigmips) "ptype v_signed_char" signed
+C types 
+                === gdb Summary ===
+# of expected passes 5
+# of expected failures 1
+# of unexpected failures 1
+/usr/latest/bin/gdb version 4.6.5 -q
+@end smallexample
+@end cartouche
+
+@node Detail
+@subsection Detailed log
+@cindex detailed log
+
+@code{runtest} also saves a detailed log file @file{@var{tool}.log},
+showing any output generated by tests as well as the summary output.
+For example, after @samp{runtest --tool binutils}, look for a detailed
+log in @file{binutils.log}.  Normally, @code{runtest} writes this file
+in your current working directory; use the @samp{--outdir} option to
+select a different directory.
+
+@need 4000
+@noindent
+Here is a brief example showing a detailed log for @sc{g++} tests:
+
+@cartouche
+@smallexample
+Test Run By rob on Mon May 25 21:40:43 PDT 1992
+
+                === g++ tests ===
+
+--- Running ./g++.other/t01-1.exp ---
+        PASS:   operate delete
+
+--- Running ./g++.other/t01-2.exp ---
+        FAIL:   i960 bug EOF
+p0000646.C: In function `int  warn_return_1 ()':
+p0000646.C:109: warning: control reaches end of non-void function
+p0000646.C: In function `int  warn_return_arg (int)':
+p0000646.C:117: warning: control reaches end of non-void function
+p0000646.C: In function `int  warn_return_sum (int, int)':
+p0000646.C:125: warning: control reaches end of non-void function
+p0000646.C: In function `struct foo warn_return_foo ()':
+p0000646.C:132: warning: control reaches end of non-void function
+
+--- Running ./g++.other/t01-4.exp ---
+        FAIL:   abort
+900403_04.C:8: zero width for bit-field `foo'
+--- Running ./g++.other/t01-3.exp ---
+        FAIL:   segment violation
+900519_12.C:9: parse error before `;'
+900519_12.C:12: Segmentation violation
+/usr/latest/bin/gcc: Internal compiler error: program cc1plus got
+fatal signal
+
+                === g++ Summary ===
+
+# of expected passes 1
+# of expected failures 3
+/usr/ps/bin/g++ version cygnus-2.0.1
+@end smallexample
+@end cartouche
+
+@node Debug
+@subsection Logging @code{expect} internal actions
+@cindex debug log
+
+With the @samp{--debug} option, you can request a log file showing the
+output from @code{expect} itself, running in debugging mode. This file
+(@file{dbg.log}, in the directory where you start @code{runtest}) shows
+each pattern @code{expect} considers in analyzing test output.
+
+This file reflects each @code{send} command, showing the string sent as
+input to the tool under test; and each @code{expect} command, showing
+each pattern it compares with the tool output.
+
+The log messages for @code{expect} begin with a message of the form
+
+@smallexample
+expect: does @{@var{tool output}@} (spawn_id @var{n}) match pattern
+@{@var{expected pattern}@}?
+@end smallexample
+
+@noindent
+For every unsuccessful match, @code{expect} issues a @samp{no} after
+this message; if other patterns are specified for the same
+@code{expect} command, they are reflected also, but without the first
+part of the message (@samp{expect@dots{}match pattern}).  
+
+When @code{expect} finds a match, the log for the successful match ends
+with @samp{yes}, followed by a record of the @code{expect} variables set
+to describe a successful match.  Here is an excerpt from the debugging
+log for a @sc{gdb} test:
+
+@c FIXME! Why is the second spawn_id shown 0 rather than 6?
+@cartouche
+@smallexample
+send: sent @{break gdbme.c:34\n@} to spawn id 6
+expect: does @{@} (spawn_id 6) match pattern @{Breakpoint.*at.* file
+ gdbme.c, line 34.*\(gdb\) $@}? no
+@{.*\(gdb\) $@}? no
+expect: does @{@} (spawn_id 0) match pattern @{<return>@}? no
+@{\(y or n\) @}? no
+@{buffer_full@}? no
+@{virtual@}? no
+@{memory@}? no
+@{exhausted@}? no
+@{Undefined@}? no
+@{command@}? no
+break gdbme.c:34
+Breakpoint 8 at 0x23d8: file gdbme.c, line 34.
+(gdb) expect: does @{break gdbme.c:34\r\nBreakpoint 8 at 0x23d8: 
+file gdbme.c, line 34.\r\n(gdb) @} (spawn_id 6) match pattern
+@{Breakpoint.*at.* file gdbme.c, line 34.*\(gdb\) $@}? yes
+expect: set expect_out(0,start) @{18@}
+expect: set expect_out(0,end) @{71@}
+expect: set expect_out(0,string) @{Breakpoint 8 at 0x23d8: file
+gdbme.c, line 34.\r\n(gdb) @}
+expect: set expect_out(spawn_id) @{6@}
+expect: set expect_out(buffer) @{break gdbme.c:34\r\nBreakpoint 8
+at 0x23d8: file gdbme.c, line 34.\r\n(gdb) @}
+        PASS:   70      0       breakpoint line number in file
+@end smallexample
+@end cartouche
+
+@noindent
+This example exhibits three properties of @code{expect} and DejaGnu that
+might be surprising at first glance:
+
+@itemize @bullet
+@item
+Empty output for the first attempted match.  The first set of attempted
+matches shown ran against the output @samp{@{@}}---that is, no output.
+@code{expect} begins attempting to match the patterns supplied
+immediately; often, the first pass is against incomplete output (or
+completely before all output, as in this case).
+
+@item
+Interspersed tool output.  The beginning of the log entry for the second
+attempted match may be hard to spot: this is because the prompt
+@samp{(gdb) } appears on the same line, just before the @samp{expect:}
+that marks the beginning of the log entry.  
+
+@item
+Fail-safe patterns.  Many of the patterns tested are fail-safe patterns
+provided by @sc{gdb} testing utilities, to reduce possible
+indeterminacy.  It is useful to anticipate potential variations
+caused by extreme system conditions (@sc{gdb} might issue the message
+@samp{virtual memory exhausted} in rare circumstances), or by changes in
+the tested program (@samp{Undefined command} is the likeliest outcome if
+the name of a tested command changes).
+
+The pattern @samp{@{<return>@}} is a particularly interesting fail-safe
+to notice; it checks for an unexpected @key{RET} prompt.  This may
+happen, for example, if the tested tool can filter output through a
+pager.
+
+These fail-safe patterns (like the debugging log itself) are primarily
+useful while developing test scripts.  Use the @code{error} procedure to
+make the actions for fail-safe patterns produce messages starting with
+@samp{ERROR} on the @code{runtest} standard output, and in the detailed
+log file.
+@end itemize
+
+@node Tests
+@chapter How To Write a Test Cases
+@cindex writing a test case
+@cindex test case, writing
+
+@menu
+* Writing::                     Writing a test case
+* Debugging::                   Debugging a test case
+* Adding::                      Adding a test case to a test suite
+* Hints::                       Hints on writing a test case
+* Variables::                   Special variables used by test cases
+@end menu
+
+@node Writing
+@section Writing a test case
+
+The easiest way to prepare a new test case is to base it on an existing
+one for a similar situation.  There are two major categories of tests:
+batch or interactive.  Batch oriented tests are usually easier to write.
+
+The @sc{gcc} tests are a good example of batch oriented tests.  All
+@sc{gcc} tests consist primarily of a call to a single common procedure,
+since all the tests either have no output, or only have a few warning
+messages when successfully compiled.  Any non-warning output is a test
+failure.  All the C code needed is kept in the test directory.  The test
+driver, written in @code{expect}, need only get a listing of all the C
+files in the directory, and compile them all using a generic procedure.
+This procedure and a few others supporting for these tests are kept in
+the library module @file{lib/c-torture.exp} in the @sc{gcc} test suite.
+Most tests of this kind use very few @code{expect} features, and are
+coded almost purely in Tcl.
+
+@noindent
+Writing the complete suite of C tests, then, consisted of these steps:
+
+@enumerate
+@item 
+@cindex Granlund, Torbjorn
+@cindex C torture test
+Copying all the C code into the test directory.  These tests were based on
+the C-torture test created by Torbjorn Granlund (on behalf of the Free
+Software Foundation) for @sc{gcc} development.
+
+@item
+Writing (and debugging) the generic @code{expect} procedures for
+compilation.
+
+@item
+Writing the simple test driver: its main task is to search the directory
+(using the Tcl procedure @code{glob} for filename expansion with
+wildcards) and call a Tcl procedure with each filename.  It also checks
+for a few errors from the testing procedure.
+@end enumerate
+
+Testing interactive programs is intrinsically more complex.  Tests for most
+interactive programs require some trial and error before they are complete.
+
+However, some interactive programs can be tested in a simple fashion
+reminiscent of batch tests.  For example, prior to the creation of
+DejaGnu, the @sc{gdb} distribution already included a wide-ranging
+testing procedure.  This procedure was very robust, and had already
+undergone much more debugging and error checking than many recent
+DejaGnu test cases.  Accordingly, the best approach was simply to
+encapsulate the existing @sc{gdb} tests, for reporting purposes.
+Thereafter, new @sc{gdb} tests built up a family of @code{expect}
+procedures specialized for @sc{gdb} testing.
+
+@file{gdb.t10/crossload.exp} is a good example of an interactive test.
+@c FIXME!  Check what *kind* of example it is---work-intensive, or generic...
+
+@node Debugging
+@section Debugging a test case
+@cindex debugging a test case
+@cindex test case, debugging
+
+@noindent
+These are the kinds of debugging information available from DejaGnu:
+
+@enumerate
+@item
+Output controlled by test scripts themselves, explicitly allowed for by
+the test author.  This kind of debugging output appears in the detailed
+output recorded in the @file{@var{tool}.log} file.  To do the same for
+new tests, use the @code{verbose} procedure (which in turn uses the
+variable also called @code{verbose}) to control how much output to
+generate.  This will make it easier for other people running the test to
+debug it if necessary.  Whenever possible, if @samp{$verbose} is
+@code{0}, there should be no output other than the output from
+@code{pass}, @code{fail}, @code{error}, and @code{warning}.  Then, to
+whatever extent is appropriate for the particular test, allow
+successively higher values of @samp{$verbose} to generate more
+information.  Be kind to other programmers who use your tests: provide
+for a lot of debugging information.
+
+@item
+Output from the internal debugging functions of Tcl and @code{expect}.
+There is a command line options for each; both forms of debugging output
+are recorded in the file @code{dbg.log} in the current directory.
+
+Use @samp{--debug} for information from the @code{expect} level; it
+generates displays of the @code{expect} attempts to match the tool
+output with the patterns specified (@pxref{Debug,,Debug Log}).  This
+output can be very helpful while developing test scripts, since it shows
+precisely the characters received.  Iterating between the latest attempt
+at a new test script and the corresponding @file{dbg.log} can allow you
+to create the final patterns by ``cut and paste''.  This is sometimes
+the best way to write a test case.
+
+Use @samp{--strace} to see more detail at the Tcl level; this shows how Tcl
+procedure definitions expand, as they execute.  The associated number
+controls the depth of definitions expanded; see the discussion of
+@samp{--strace} in @ref{Invoking runtest,,Running the Tests}.
+
+@item
+Finally, if the value of @samp{verbose} is 3 or greater, @code{runtest}
+turns on the @code{expect} command @code{log_user}.  This command prints
+all @code{expect} actions to the @code{expect} standard output, to the
+detailed log file, and (if @samp{--debug} is on) to @file{dbg.log}.
+@end enumerate
+
+@node Adding
+@section Adding a test case to a test suite
+@cindex adding a test case
+
+There are two slightly different ways to add a test case. One is to add
+the test case to an existing directory. The other is to create a new
+directory to hold your test. The existing test directories represent
+several styles of testing, all of which are slightly different; examine
+the directories for the tool of interest to see which (if any) is most
+suitable.
+
+Adding a @sc{gcc} test can be very simple: just add the C code to any
+directory beginning with @samp{gcc.} and it runs on the next
+@samp{runtest --tool gcc}.
+
+To add a test to @sc{gdb}, first add any source code you will need to
+the test directory. Then you can either create a new @code{expect} file,
+or add your test to an existing one (any file with a @samp{.exp}
+suffix).  Creating a new @samp{.exp} file is probably a better idea if
+the test is significantly different from existing tests. Adding it as a
+separate file also makes upgrading easier. If the C code has to be
+already compiled before the test will run, then you'll have to add it to
+the @file{Makefile.in} file for that test directory, then run
+@code{configure} and @code{make}.
+
+Adding a test by creating a new directory is very similar:
+
+@enumerate
+@item
+Create the new directory. All subdirectory names begin with the name of
+the tool to test; e.g. @sc{g++} tests might be in a directory called
+@file{g++.other}. There can be multiple test directories that start with
+the same tool name (such as @samp{g++}).
+
+@item
+Add the new directory name to the @samp{configdirs} definition in the
+@file{configure.in} file for the test suite directory. This way when
+@code{make} and @code{configure} next run, they include the new directory.
+
+@item
+Add the new test case to the directory, as above. 
+
+@item
+To add support in the new directory for configure and make, you must
+also create a @code{Makefile.in} and a @code{configure.in}.  @xref{What
+Configure Does,,What Configure Does, configure.info, Cygnus Configure}.
+@end enumerate
+
+@c FIXME! Expand this sentence to at least a section, maybe a chapter...
+@c The @file{admin} directory contains templates for a few common forms
+@c of test.
+
+@node Hints
+@section Hints on writing a test case
+@cindex hints on test case writing
+
+There may be useful existing procedures already written for your test in
+the @file{lib} directory of the DejaGnu distribution.  @xref{DejaGnu
+Builtins,,DejaGnu Builtins}.
+
+It is safest to write patterns that match @emph{all} the output
+generated by the tested program; this is called @dfn{closure}.  If a
+pattern does not match the entire output, any output that remains will
+be examined by the @emph{next} @code{expect} command.  In this
+situation, the precise boundary that determines which @code{expect}
+command sees what is very sensitive to timing between the @code{expect}
+task and the task running the tested tool.  As a result, the test may
+sometimes appear to work, but is likely to have unpredictable results.
+(This problem is particularly likely for interactive tools, but can also
+affect batch tools---especially for tests that take a long time to finish.)
+The best way to ensure closure is to use the @samp{-re} option for the
+@code{expect} command to write the pattern as a full regular
+expressions; then you can match the end of output using a @samp{$}.  It
+is also a good idea to write patterns that match all available output by
+using @samp{.*\} after the text of interest; this will also match any
+intervening blank lines.  Sometimes an alternative is to match end of
+line using @samp{\r} or @samp{\n}, but this is usually too dependent on
+terminal settings.
+@c FIXME!! explain what "end of output" means for interactive task.
+@c (Timeout or EOF, right?)
+
+Always escape punctuation, such as @samp{(} or @samp{"}, in your
+patterns; for example, write @samp{\(}.  If you forget to escape
+punctuation, you will usually see an error message like @samp{extra
+characters after close-quote}.
+
+If you have trouble understanding why a pattern does not match the
+program output, try using the @samp{--debug} option to @code{runtest},
+and examine the debug log carefully.  @xref{Debug,,Debug Log}.  
+
+Be careful not to neglect output generated by setup rather than by the
+interesting parts of a test case.  For example, while testing @sc{gdb},
+I issue a send @samp{set height 0\n} command.  The purpose is simply to
+make sure @sc{gdb} never calls a paging program.  The @samp{set height}
+command in @sc{gdb} does not generate any output; but running @emph{any}
+command makes @sc{gdb} issue a new @samp{(gdb) } prompt.  If there were
+no @code{expect} command to match this prompt, the output @samp{(gdb) }
+begins the text seen by the next @code{expect} command---which might
+make @emph{that} pattern fail to match.
+
+To preserve basic sanity, I also recommended that no test ever pass if
+there was any kind of problem in the test case.  To take an extreme
+case, tests that pass even when the tool will not spawn are misleading.
+Ideally, a test in this sort of situation should not fail either.
+Instead, print an error message by calling one of the DejaGnu procedures
+@code{error} or @code{warning}.
+
+@node Variables
+@section Special variables used by test cases
+@cindex special variables
+
+@cindex variables for all tests
+Your test cases can use these variables, with conventional meanings (as
+well as the variables saved in @file{site.exp}
+@pxref{Customizing,,Setting @code{runtest} defaults}):
+
+@quotation
+@emph{These variables are available to all test cases.}
+@end quotation
+
+@ftable @code
+@item prms_id
+@cindex PRMS bug number
+@cindex GNATS bug number
+@cindex bug number
+The tracking system (e.g. @sc{gnats}) number identifying a corresponding
+bugreport.  (@samp{0} if you do not specify it in the test script.)
+
+@item bug_id
+@cindex bug number, extra
+An optional bug id; may reflect a bug identification from another
+organization.  (@samp{0} if you do not specify it.)
+
+@item subdir
+@cindex current test subdirectory
+The subdirectory for the current test case.
+@end ftable
+
+@quotation
+@emph{These variables should never be changed. They appear in most
+tests.}
+@end quotation
+
+@ftable @code
+@item expect_out(buffer)
+@cindex last command output
+The output from the last command. This is an internal variable set by
+@code{expect}. 
+
+@item exec_output
+This is the output from a @code{@var{tool}_load} command. This only
+applies to tools like @sc{gcc} and @sc{gas} which produce an object
+file that must in turn be executed to complete a test.
+
+@item comp_output
+This is the output from a @code{@var{tool}_start} command.  This is
+conventionally used for batch oriented programs, like @sc{gcc} and
+@sc{gas}, that may produce interesting output (warnings, errors) without
+further interaction.
+@end ftable
+
+@node Extending
+@chapter New Tools, Targets, or Hosts 
+
+The most common ways to extend the DejaGnu framework are: adding a suite
+of tests for a new tool to be tested; adding support for testing on a
+new target; and porting @code{runtest} to a new host.
+
+@menu
+* Adding Tools::                How to add tests for a new tool
+* Adding Targets::              How to add a new target
+* Porting::                     Porting DejaGnu to a new host
+@end menu
+
+@node Adding Tools
+@section Writing tests for a new tool
+
+In general, the best way to learn how to write (code or even prose) is
+to read something similar.  This principle applies to test cases and to
+test suites.  Unfortunately, well-established test suites have a way of
+developing their own conventions: as test writers become more
+experienced with DejaGnu and with Tcl, they accumulate more utilities,
+and take advantage of more and more features of @code{expect} and Tcl in
+general.
+
+Inspecting such established test suites may make the prospect of
+creating an entirely new test suite appear overwhelming.  Nevertheless,
+it is quite straightforward to get a new test suite going.
+
+@cindex Lupton, Robert
+There is one test suite that is guaranteed not to grow more elaborate
+over time: both it and the tool it tests were created expressly to
+illustrate what it takes to get started with DejaGnu.  The
+@file{example/} directory of the DejaGnu distribution contains both an
+interactive tool called @code{calc}, and a test suite for it.  Reading
+this test suite, and experimenting with it, is a good way to supplement
+the information in this section.  (Thanks to Robert Lupton for creating
+@code{calc} and its test suite---and also the first version of this
+section of the manual!)
+
+To help orient you further in this task, here is an outline of the steps
+to begin building a test suite for a program @var{example}.
+
+@enumerate
+@item
+Create or select a directory to contain your new collection of tests.
+Change to that directory (shown here as @code{testsuite}):
+
+@example
+eg$ cd testsuite/
+@end example
+
+@item
+Create a @file{configure.in} file in this directory, to control
+configuration-dependent choices for your tests.  So far as DejaGnu is
+concerned, the important thing is to set a value for the variable
+@code{target_abbrev}; this value is the link to the init file you will
+write soon.  (For simplicity, we assume the environment is Unix, and use
+@samp{unix} as the value.)
+
+What else is needed in @file{configure.in} depends on the requirements
+of your tool, your intended test environments, and which
+@code{configure} system you use.  This example is a minimal
+@code{configure.in} for use with Cygnus Configure.  (For an alternative
+based on the FSF @code{autoconf} system, see the @code{calc} example
+distributed with DejaGnu.)  Replace @var{example} with the name of your
+program:
+
+@cartouche
+@smallexample
+# This file is a shell script fragment
+# for use with Cygnus configure.
+
+srctrigger="@var{example}.0"
+srcname="The DejaGnu @var{example} tests"
+
+# per-host:
+
+# per-target:
+
+# everything defaults to unix for a target
+target_abbrev=unix
+
+# post-target:
+
+@end smallexample
+@end cartouche
+
+@item
+Create @file{Makefile.in}, the source file used by @code{configure} to
+build your @file{Makefile}.  Its leading section should as usual contain
+the values that @code{configure} may override:
+
+@cartouche
+@smallexample
+srcdir = .
+prefix = /usr/local
+
+exec_prefix = $(prefix)
+bindir = $(exec_prefix)/bin
+libdir = $(exec_prefix)/lib
+tooldir = $(libdir)/$(target_alias)
+
+datadir = $(exec_prefix)/lib/dejagnu
+
+RUNTEST = runtest
+RUNTESTFLAGS =
+FLAGS_TO_PASS =
+
+#### host, target, site specific Makefile frags come in here.
+@end smallexample
+@end cartouche
+
+This should be followed by the standard targets at your site.  To begin
+with, they need not do anything---for example, these definitions will
+do:
+
+@cartouche
+@smallexample
+
+all:
+
+info:
+
+install-info:
+
+install:
+uninstall:
+
+clean:
+        -rm -f *~ core *.info*
+
+@end smallexample
+@end cartouche
+
+It is also a good idea to make sure your @file{Makefile} can rebuild
+itself if @file{Makefile.in} changes, with a target like this (which
+works for either Cygnus or FSF Configure):
+
+@cartouche
+@smallexample
+Makefile : $(srcdir)/Makefile.in $(host_makefile_frag) \
+             $(target_makefile_frag)
+        $(SHELL) ./config.status
+@end smallexample
+@end cartouche
+
+You also need to include two targets important to DejaGnu: @code{check},
+to run the tests, and @code{site.exp}, to set up the Tcl copies of
+configuration-dependent values.  The @code{check} target must run
+@samp{runtest --tool @var{example}}:
+
+@cartouche
+@smallexample
+check: site.exp all
+        $(RUNTEST) $(RUNTESTFLAGS) $(FLAGS_TO_PASS) \
+            --tool @var{example} --srcdir $(srcdir) 
+@end smallexample
+@end cartouche
+
+The @code{site.exp} target should usually set up (among other things!) a
+Tcl variable for the name of your program:
+
+@cartouche
+@smallexample
+site.exp: ./config.status Makefile
+        @@echo "Making a new config file..."
+        -@@rm -f ./tmp?
+        @@touch site.exp
+
+        -@@mv site.exp site.bak
+        @@echo "## these variables are automatically\
+ generated by make ##" > ./tmp0
+        @@echo "# Do not edit here. If you wish to\
+ override these values" >> ./tmp0
+        @@echo "# add them to the last section" >> ./tmp0
+        @@echo "set host_os $@{host_os@}" >> ./tmp0
+        @@echo "set host_alias $@{host_alias@}" >> ./tmp0
+        @@echo "set host_cpu $@{host_cpu@}" >> ./tmp0
+        @@echo "set host_vendor $@{host_vendor@}" >> ./tmp0
+        @@echo "set target_os $@{target_os@}" >> ./tmp0
+        @@echo "set target_alias $@{target_alias@}" >> ./tmp0
+        @@echo "set target_cpu $@{target_cpu@}" >> ./tmp0
+        @@echo "set target_vendor $@{target_vendor@}" >> ./tmp0
+        @@echo "set host_triplet $@{host_canonical@}" >> ./tmp0
+        @@echo "set target_triplet $@{target_canonical@}">>./tmp0
+        @@echo "set tool binutils" >> ./tmp0
+        @@echo "set srcdir $@{srcdir@}" >> ./tmp0
+        @@echo "set objdir `pwd`" >> ./tmp0
+        @@echo "set @var{examplename} @var{example}" >> ./tmp0
+        @@echo "## All variables above are generated by\
+ configure. Do Not Edit ##" >> ./tmp0
+                @@cat ./tmp0 > site.exp
+        @@sed < site.bak \
+               -e '1,/^## All variables above are.*##/ d' \
+               >> site.exp
+        -@@rm -f ./tmp?
+@end smallexample
+@end cartouche
+
+@item
+Create a directory (in @file{testsuite/}) called @file{config/}:
+
+@example
+eg$ mkdir config
+@end example
+
+@item
+Make an init file in this directory; its name must start with the
+@code{target_abbrev} value, so call it @file{config/unix.exp}.  
+This is the file that contains the target-dependent procedures;
+fortunately, most of them do not have to do very much in order for
+@code{runtest} to run.
+
+If @var{example} is not interactive, you can get away with this minimal
+@file{unix.exp} to begin with:
+
+@cartouche
+@smallexample
+proc foo_exit @{@} @{@}
+proc foo_version @{@} @{@}
+@end smallexample
+@end cartouche
+
+If @var{example} is interactive, however, you might as well define a
+start routine @emph{and invoke it} by using an init file like this:
+
+@cartouche
+@smallexample
+proc foo_exit @{@} @{@}
+proc foo_version @{@} @{@}
+
+proc foo_start @{@} @{
+  global @var{examplename}
+  spawn $@var{examplename}
+  expect @{
+    -re "" @{@}
+  @}
+@}
+foo_start
+@end smallexample
+@end cartouche
+
+@item
+Create a directory whose name begins with your tool's name, to contain
+tests:
+
+@example
+eg$ mkdir @var{example}.0
+@end example
+
+@item
+Create a sample test file in @file{@var{example}.0}.  Its name must end
+with @samp{.exp}; you can use @samp{first-try.exp}  To begin with, just
+write there a line of Tcl code to issue a message:
+
+@cartouche
+@smallexample
+send_user "Testing: one, two...\n"
+@end smallexample
+@end cartouche
+
+@item
+Back in the @file{testsuite/} (top level) directory, run
+
+@example
+eg$ configure
+@end example
+
+(You may have to specify more of a path, if a suitable @code{configure}
+is not available in your execution path.)
+
+@item
+You are now ready to triumphantly type @samp{make check} or
+@samp{runtest --tool @var{example}}.  You should see something like this:
+
+@cartouche
+@smallexample
+Test Run By rhl on Fri Jan 29 16:25:44 EST 1993
+
+                === @var{example} tests ===
+
+Running ./@var{example}.0/first-try.exp ...
+Testing: one, two...
+
+                === @var{example} Summary ===
+
+@end smallexample
+@end cartouche
+
+There is no output in the summary, because so far the example does not
+call any of the procedures that establish a test outcome.
+
+@item
+Begin writing some real tests.  For an interactive tool, you should
+probably write a real exit routine in fairly short order; in any case,
+you should also write a real version routine soon.
+@end enumerate
+
+@node Adding Targets
+@section Adding a target
+@cindex adding a target
+
+DejaGnu has some additional requirements for target support, beyond the
+general-purpose provisions of Cygnus @code{configure}.  @code{runtest}
+must actively communicate with the target, rather than simply generating
+or managing code for the target architecture.  Therefore, each tool
+requires an initialization module for each target.  For new targets, you
+must supply a few Tcl procedures to adapt DejaGnu to the target.  This
+permits DejaGnu itself to remain target independent.  @xref{Init
+Module,,Initialization module}, for a discussion of the naming
+conventions that enable DejaGnu to locate and use init files.
+
+Usually the best way to write a new initialization module is to edit an
+existing initialization module; some trial and error will be required.
+If necessary, you can use the @samp{--debug} option to see what
+is really going on.
+
+When you code an initialization module, be generous in printing
+information controlled by the @code{verbose} procedure (@pxref{DejaGnu
+Builtins, DejaGnu procedures}).
+
+Most of the work is in getting the communications right. Communications
+code (for several situations involving IP networks or serial lines) is
+available in a DejaGnu library file, @file{lib/remote.exp}.
+@xref{DejaGnu Builtins,,DejaGnu Builtins}. 
+
+@c FIXME!  Say something about Tcl debugger here.
+If you suspect a communication problem, try running the connection
+interactively from @code{expect}.  (There are three ways of running
+@code{expect} as an interactive interpreter.  You can run @code{expect}
+with no arguments, and control it completely interactively; or you can
+use @samp{expect -i} together with other command-line options and
+arguments; or you can run the command @code{interpreter} from any
+@code{expect} procedure.  Use @code{return} to get back to the calling
+procedure (if any), or @code{return -tcl} to make the calling procedure
+itself return to its caller; use @code{exit} or end-of-file to leave
+@code{expect} altogether.)  Run the program whose name is recorded in
+@samp{$connectmode}, with the arguments in @samp{$targetname}, to
+establish a connection.  You should at least be able to get a prompt
+from any target that is physically connected.
+
+@node Porting
+@section Porting to a new host
+@cindex porting to a new host
+
+The task of porting DejaGnu is basically that of porting Tcl and
+@code{expect}. Tcl and @code{expect}, as distributed with DejaGnu, both
+use @code{autoconf}; they should port automatically to most Unix
+systems.
+
+Once Tcl and @code{expect} are ported, DejaGnu should run.  Most system
+dependencies are taken care of by using @code{expect} as the main
+command shell.
+
+@node Installation
+@appendix Installing DejaGnu
+
+@cindex host, explained
+@cindex target, explained
+@cindex DejaGnu configuration
+@cindex configuring DejaGnu
+Once you have the DejaGnu source unpacked and available, you must first
+configure the software to specify where it is to run (and the associated
+defaults); then you can proceed to installing it.
+
+@menu
+* Configuring DejaGnu::
+* Installing DejaGnu::
+@end menu
+
+@node Configuring DejaGnu
+@section Configuring the DejaGnu test driver
+
+It is usually best to configure in a directory separate
+from the source tree, specifying where to find the source with the
+optional @samp{--srcdir} option to @code{configure}. DejaGnu uses the
+GNU @code{autoconf} to configure itself. For more info on using
+autoconf, read the GNU autoconf manual. To configure, execute the
+@file{configure} program, no other options are required. For an example,
+to configure in a seperate tree for objects, execute the configure
+script from the source tree like this:
+
+@smallexample
+../dejagnu-1.3/configure
+@end smallexample
+
+DejaGnu doesn't care at config time if it's for testing a native system
+or a cross system. That is determined at runtime by using the config
+files.
+
+@cindex @code{prefix}, configure options
+@cindex @code{exec_prefix}, configure options.
+You may also want to use the @code{configure} option @samp{--prefix} to
+specify where you want DejaGnu and its supporting code installed.  By
+default, installation is in subdirectories of @file{/usr/local}, but you
+can select any alternate directory @var{altdir} by including
+@samp{--prefix=@var{altdir}} on the @code{configure} command line.
+(This value is captured in the Makefile variables @code{prefix}
+and @code{exec_prefix}.)
+
+@cindex auxiliary programs
+@cindex test suite distributions
+@cindex @code{make} builds part of tests
+Save for a small number of example tests, the DejaGnu distribution
+itself does not include any test suites; these are available separately.
+Test suites for the @sc{gnu} compiler (testing both GCC and G++) and for
+the @sc{gnu} binary utilities are distributed in parallel with the
+DejaGnu distribution (but packaged as separate files).  The test suite
+for the @sc{gnu} debugger is distributed in parallel with each release
+of GDB itself, starting with GDB 4.9.  After configuring the top-level
+DejaGnu directory, unpack and configure the test directories for the
+tools you want to test; then, in each test directory, run @code{make} to
+build auxiliary programs required by some of the tests.
+
+@node Installing DejaGnu
+@section Installing DejaGnu
+
+@cindex installing DejaGnu
+To install DejaGnu in your filesystem (either in @file{/usr/local}, or
+as specified by your @samp{--prefix} option to @code{configure}), execute
+
+@example
+eg$ make install
+@end example
+
+@noindent
+@samp{make install} does these things for DejaGnu:
+
+@enumerate
+@item
+Look in the path specified for executables (@file{$exec_prefix}) for
+directories called @file{lib} and @file{bin}.  If these directories do
+not exist, @samp{make install} creates them.
+
+@item
+Create another directory in the @file{lib} directory, called
+@file{dejagnu}.
+
+@item
+Copy the @code{runtest} shell script into @file{$exec_prefix/bin}.
+
+@item
+Copy all the library files (used to support the framework) into
+@file{$exec_prefix/lib/dejagnu}.
+
+@item
+Copy @file{runtest.exp} into @file{$exec_prefix/lib/dejagnu}.  This is
+the main Tcl code implementing DejaGnu.
+
+@end enumerate
+
+Each test suite collection comes with simple installation instructions
+in a @file{README} file; in general, the test suites are designed to be
+unpacked in the source directory for the corresponding tool, and extract
+into a directory called @file{testsuite}.
+
+@node Index
+@unnumbered Index
+
+@printindex cp
+
+@contents
+
+@bye

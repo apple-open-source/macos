@@ -48,7 +48,7 @@
 //
 // MS 92
 //
-// $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-lib/inc/asn-type.h,v 1.1.1.1 2001/05/18 23:14:06 mb Exp $
+// $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/c++-lib/inc/asn-type.h,v 1.1.1.1 2001/05/18 23:14:06 mb Exp $
 // $Log: asn-type.h,v $
 // Revision 1.1.1.1  2001/05/18 23:14:06  mb
 // Move from private repository to open source repository

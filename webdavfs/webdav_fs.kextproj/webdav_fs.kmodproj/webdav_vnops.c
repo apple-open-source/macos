@@ -1732,6 +1732,7 @@ int webdav_close(ap)
 
 	if (vp->v_type == VREG)
 	{
+		/* it's a file */
 		struct vop_fsync_args fsync_args;
 
 		/* synchronize the file before closing */
@@ -1751,24 +1752,32 @@ int webdav_close(ap)
 
 		/* VOP_UNLOCK(vp) ? */
 
-		  /* If we are not the last closer, get out now.
-		 * This is not a directory, and we've done all we need to.
-		 * (Directories aren't cached and we want them to always get 
-		 *	rid of the cached vnode on close.) */
-
-		/* Account for an extra reference if the UBC is hanging on to us */
-		if ((vp->v_usecount > 2) || ((vp->v_usecount == 2) && WEBDAVISMAPPED(vp)))
+		/* is this the last close? */
+		if ( ubc_isinuse(vp, 1) )
 		{
+			/* no, do nothing and return */
 			error = 0;
 #if (defined(DEBUG) || defined(WEBDAV_TRACE) || defined(WEBDAV_ERROR))
 			printf("webdav_close: not the last closer\n");
 #endif
-
 			goto error_return;
 		}
-
 	}
-	/* end not a directory */
+	else
+	{
+		/* it's a directory */
+		
+		/* is this the last close? */
+		if (vp->v_usecount > 1)
+		{
+			/* no, do nothing and return */
+			error = 0;
+#if (defined(DEBUG) || defined(WEBDAV_TRACE) || defined(WEBDAV_ERROR))
+			printf("webdav_close: not the last closer\n");
+#endif
+			goto error_return;
+		}
+	}
 
 	bzero(&pcred, sizeof(pcred));
 	if (ap->a_cred)
@@ -1835,25 +1844,41 @@ bad:
 
 	if (pt->pt_cache_vnode)
 	{
-		webdav_hashrem(pt);
-
-		if ((vp->v_type == VREG) &&
-			((vp->v_usecount > 2) || ((vp->v_usecount == 2) && WEBDAVISMAPPED(vp))))
+		struct vnode *temp;
+		
+		if ((vp->v_type == VREG))
 		{
-
-			/* Hey we need to put this back in the cache, someone
-			  else opened the file */
-			webdav_hashins(pt);
+			/* it's a file - is this the last close? */
+			if (ubc_isinuse(vp, 1))
+			{
+				/* no, do nothing and return */
 #if (defined(DEBUG) || defined(WEBDAV_TRACE))
-			printf("webdav_close: someone else opened the file\n");
+				printf("webdav_close: someone else opened the file\n");
 #endif
-
-			error = 0;
-			goto error_return;
+				error = 0;
+				goto error_return;
+			}
+			else
+			{
+				/* yes, remove it from the hash */
+				webdav_hashrem(pt);
+			}
 		}
-
-		vrele(pt->pt_cache_vnode);
+		else
+		{
+			/* it's a directory - is this the last close? */
+			if (vp->v_usecount > 1)
+			{
+				/* no, do nothing and return */
+				error = 0;
+				goto error_return;
+			}
+		}
+		
+		/* zero out pt_cache_vnode and then release the cache vnode */
+		temp = pt->pt_cache_vnode;
 		pt->pt_cache_vnode = 0;
+		vrele(temp);
 	}
 	pt->pt_file_handle = -1;					/* clear this after last potential re-use */
 
@@ -4094,8 +4119,12 @@ int webdav_inactive(ap)
 		pt->pt_file_handle = -1;
 		if (pt->pt_cache_vnode)
 		{
-			vrele(pt->pt_cache_vnode);
+			struct vnode *temp;
+			
+			/* zero out pt_cache_vnode and then release the cache vnode */
+			temp = pt->pt_cache_vnode;
 			pt->pt_cache_vnode = 0;
+			vrele(temp);
 		}
 	}
 

@@ -110,6 +110,22 @@ typedef void (*IOHIDElementCallbackFunction)
                void * 			sender,
                IOHIDElementCookie 	elementCookie);
 
+/*! @typedef IOHIDReportCallbackFunction
+    @discussion Type and arguments of callout C function that is used when a
+                completion routine is called, see IOHIDLib.h:setReport().
+    @param target void * pointer to your data, often a pointer to an object.
+    @param result completion result of desired operation
+    @param refcon void * pointer to more data.
+    @param sender interface instance sending the completion routine.
+    @param bufferSize size of the buffer received upon completion.
+*/
+typedef void (*IOHIDReportCallbackFunction)
+              (void *	 		target,
+               IOReturn 		result,
+               void * 			refcon,
+               void * 			sender,
+               UInt32		 	bufferSize);
+
 /* Forward declarations of the queue and output transaction interfaces */
 struct IOHIDQueueInterface;
 struct IOHIDOutputTransactionInterface;
@@ -179,7 +195,7 @@ struct IOHIDDeviceInterface
                                 IOHIDElementCookie		elementCookie,
                                 IOHIDEventStruct *		valueEvent,
                                 UInt32 				timeoutMS,
-                                IOHIDElementCallbackFunction *	callback,
+                                IOHIDElementCallbackFunction	callback,
                                 void * 				callbackTarget,
                                 void *				callbackRefcon);
 
@@ -202,7 +218,7 @@ struct IOHIDDeviceInterface
                                 IOHIDElementCookie		elementCookie,
                                 IOHIDEventStruct *		valueEvent,
                                 UInt32 				timeoutMS,
-                                IOHIDElementCallbackFunction *	callback,
+                                IOHIDElementCallbackFunction	callback,
                                 void * 				callbackTarget,
                                 void *				callbackRefcon);
 
@@ -221,6 +237,51 @@ struct IOHIDDeviceInterface
 /*! @function allocOutputTransaction
     @abstract Wrapper to return instances of the IOHIDOutputTransactionInterface */
     IOHIDOutputTransactionInterface ** (*allocOutputTransaction) (void *self);
+    
+    
+/*! @function setReport
+    @abstract Called to send a report to the device
+    @discussion
+    @param reportType The report type.
+    @param reportID The report id.
+    @param reportBuffer Pointer to a preallocated buffer.
+    @param reportBufferSize Size of the reportBuffer in bytes.
+    @param timeoutMS
+    @param callback If null, this method will behave synchronously.
+    @param callbackTarget The callback target passed to the callback.
+    @param callbackRefcon The callback refcon passed to the callback. */
+    IOReturn (*setReport)	(void * 			self,
+                                IOHIDReportType			reportType,
+                                UInt32				reportID,
+                                void *				reportBuffer,
+                                UInt32				reportBufferSize,
+                                UInt32 				timeoutMS,
+                                IOHIDReportCallbackFunction	callback,
+                                void * 				callbackTarget,
+                                void *				callbackRefcon);
+
+
+/*! @function getReport
+    @abstract Called to obtain a report from the device
+    @discussion
+    @param reportType The report type.
+    @param reportID The report id.
+    @param reportBuffer Pointer to a preallocated buffer.
+    @param reportBufferSize Size of the reportBuffer in bytes.  
+        When finished, will contain the actual size of the report.
+    @param timeoutMS
+    @param callback If null, this method will behave synchronously.
+    @param callbackTarget The callback target passed to the callback.
+    @param callbackRefcon The callback refcon passed to the callback. */
+    IOReturn (*getReport)	(void * 			self,
+                                IOHIDReportType			reportType,
+                                UInt32				reportID,
+                                void *				reportBuffer,
+                                UInt32 *			reportBufferSize,
+                                UInt32 				timeoutMS,
+                                IOHIDReportCallbackFunction	callback,
+                                void * 				callbackTarget,
+                                void *				callbackRefcon);
 };
 typedef struct IOHIDDeviceInterface IOHIDDeviceInterface;
 

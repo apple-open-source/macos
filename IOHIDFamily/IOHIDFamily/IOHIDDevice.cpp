@@ -114,7 +114,7 @@ static IOHIDevice * CreateIOHIDeviceNub(IOService * owner, IOService * provider)
 
 //---------------------------------------------------------------------------
 // Notification handler to grab an instance of the Display Manager
-bool IOHIDDevice::publishNotificationHandler(
+bool IOHIDDevice::_publishNotificationHandler(
 			void * target,
 			void * /* ref */,
 			IOService * newService )
@@ -292,7 +292,7 @@ bool IOHIDDevice::start( IOService * provider )
     {
         _publishNotify = addNotification( gIOPublishNotification, 
                             serviceMatching("IODisplayWrangler"),
-                            &IOHIDDevice::publishNotificationHandler,
+                            &IOHIDDevice::_publishNotificationHandler,
                             this, 0 );
     }
     
@@ -808,7 +808,7 @@ IOHIDDevice::createElementHierarchy( HIDPreparsedDataRef parseData )
         _maxInputReportSize    = caps.inputReportByteLength;
         _maxOutputReportSize   = caps.outputReportByteLength;
         _maxFeatureReportSize  = caps.featureReportByteLength;
-
+        
         // Create an OSArray to store all HID elements.
 
         _elementArray = OSArray::withCapacity(
@@ -1615,8 +1615,32 @@ OSNumber * IOHIDDevice::newLocationIDNumber() const
     return 0;
 }
 
-OSMetaClassDefineReservedUnused(IOHIDDevice,  4);
-OSMetaClassDefineReservedUnused(IOHIDDevice,  5);
+//---------------------------------------------------------------------------
+// Get an async report from the device.
+
+OSMetaClassDefineReservedUsed(IOHIDDevice,  4);
+IOReturn IOHIDDevice::getReport( IOMemoryDescriptor * report,
+                                IOHIDReportType      reportType,
+                                IOOptionBits         options,
+                                UInt32               completionTimeout,
+                                IOHIDCompletion	*    completion)
+{
+    return kIOReturnUnsupported;
+}
+
+//---------------------------------------------------------------------------
+// Send an async report to the device.
+
+OSMetaClassDefineReservedUsed(IOHIDDevice,  5);
+IOReturn IOHIDDevice::setReport( IOMemoryDescriptor * report,
+                                IOHIDReportType      reportType,
+                                IOOptionBits         options,
+                                UInt32               completionTimeout,
+                                IOHIDCompletion	*    completion)
+{
+    return kIOReturnUnsupported;
+}
+
 OSMetaClassDefineReservedUnused(IOHIDDevice,  6);
 OSMetaClassDefineReservedUnused(IOHIDDevice,  7);
 OSMetaClassDefineReservedUnused(IOHIDDevice,  8);

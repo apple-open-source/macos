@@ -1,0 +1,33 @@
+APPLE LOCAL file
+diff -u Csu-37-orig/crt.c Csu-37/crt.c
+--- Csu-37-orig/crt.c	Thu Jun 28 08:55:59 2001
++++ Csu-37/crt.c	Fri Jan  4 09:40:36 2002
+@@ -108,6 +108,7 @@
+ asm(".comm __objcInit, 4");
+ asm(".comm __cplus_init, 4");
+ asm(".comm __carbon_init, 4");
++asm(".comm ___darwin_gcc3_preregister_frame_info, 4");
+ extern void _objcInit(void);
+ #ifndef POSTSCRIPT
+ static void (*pointer_to_objcInit)(void) = _objcInit;
+@@ -115,6 +116,7 @@
+ extern void _cplus_init(void);
+ extern void _carbon_init(int argc, char **argv);
+ static void (*pointer_to_carbon_init)(int argc, char **argv) = _carbon_init;
++extern void __darwin_gcc3_preregister_frame_info (void);
+ 
+ #define CARBON	1
+ 
+@@ -195,6 +197,12 @@
+ 
+ #ifdef CRT1
+ 	__keymgr_dwarf2_register_sections ();
++
++	/* Call a GCC 3.x-specific function (in libgcc.a) to
++	   "preregister" exception frame info, meaning to set up the
++	   dyld hooks that do the actual registration.  */
++        if(*((int *)__darwin_gcc3_preregister_frame_info) != 0)
++	    __darwin_gcc3_preregister_frame_info ();
+ #endif
+ 
+ #ifdef CRT0

@@ -28,9 +28,14 @@
  *
  */
 
-#import <CoreFoundation/CoreFoundation.h>
-#import "IOFireWireLib.h"
+// public
+#import <IOKit/firewire/IOFireWireLib.h>
+
+// private
 #import "IOFireWireLibPriv.h"
+
+// system
+#import <CoreFoundation/CoreFoundation.h>
 
 namespace IOFireWireLib {
 

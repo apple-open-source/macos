@@ -1535,7 +1535,7 @@ AppleUSBOHCI::DoDoneQueueProcessing(IOPhysicalAddress cachedWriteDoneQueueHead, 
     IOPhysicalAddress			physicalAddress;
     UInt32				pageMask;
     OHCIEndpointDescriptorPtr		tempED;
-    OHCIIsochTransferDescriptorPtr	pITD;
+    OHCIIsochTransferDescriptorPtr	pITD, testITD;
     volatile UInt32			cachedConsumer;
     UInt32				numTDs = 0;
     // This should never happen
@@ -1601,13 +1601,57 @@ AppleUSBOHCI::DoDoneQueueProcessing(IOPhysicalAddress cachedWriteDoneQueueHead, 
     //
     _consumerCount = cachedConsumer;
     
-/*
+
+#if 0
     if ( (numTDs > 1) || (numTDs < 1) )
     {
+        OHCIGeneralTransferDescriptorPtr	testTD, nextTD;
+        IOUSBLowLatencyIsocFrame * pLLFrames;
+        int			i;
+        int			frameCount;
+        
+        testTD = pHCDoneTD;
+        
         USBLog(3,"Processed %d (%d) TDs, # filtInterr: %ld, time Interval: %ld", numTDs, _lowLatencyIsochTDsProcessed, _filterInterruptCount, (UInt32) _timeElapsed );
+
+        while (testTD != NULL)
+        {
+            nextTD	= testTD->pLogicalNext;
+            // USBLog(3,"testTD: %p, nextTD: %p",testTD, nextTD);
+            
+            if ( (pHCDoneTD->pType == kOHCIIsochronousInLowLatencyType) || (pHCDoneTD->pType == kOHCIIsochronousOutLowLatencyType) )
+            {
+                // cast to a isoc type
+                testITD = (OHCIIsochTransferDescriptorPtr) testTD;
+                pLLFrames = (IOUSBLowLatencyIsocFrame *) testITD->pIsocFrame;
+                frameCount = (USBToHostLong(testITD->flags) & kOHCIITDControl_FC) >> kOHCIITDControl_FCPhase;
+
+
+                for (i=0; i <= frameCount; i++)
+                {
+                    // Need to process low latency isoch differently than other isoc, as the frameList has an extra parameter (use pLLFrame instead of pFrame )
+                    //
+                        UInt16 offset = USBToHostWord(testITD->offset[i]);
+                        
+                        // Check to see if we really processed this itd before:
+                        // 
+                        if ( (_filterInterruptCount != 0 ))                        
+                        {
+                            if ( (pLLFrames[testITD->frameNum + i].frStatus != (IOReturn) kUSBLowLatencyIsochTransferKey) ) 
+                            {
+                                USBLog(3,"%s[%p]::MoreTD's(%p): frame processed at hw interrupt time: frame: %d,  frTimeStamp.lo: 0x%x",  getName(), this, testITD, i, pLLFrames[testITD->frameNum + i].frTimeStamp.lo);
+                            }
+                        }
+                }
+            
+           }
+            
+            testTD = nextTD;	/* New qHead */
+        }
     }
-*/
     
+#endif
+
     // Now, we have a new done queue head.  Now process this reversed list in LOGICAL order.  That
     // means that we can look for a NULL termination
     //

@@ -453,7 +453,7 @@ IOReturn IOHIDDeviceClass::setElementValue(
                                 IOHIDElementCookie		elementCookie,
                                 IOHIDEventStruct *		valueEvent,
                                 UInt32 				timeoutMS,
-                                IOHIDElementCallbackFunction *	callback,
+                                IOHIDElementCallbackFunction	callback,
                                 void * 				callbackTarget,
                                 void *				callbackRefcon,
                                 bool				pushToDevice)
@@ -535,7 +535,7 @@ IOReturn IOHIDDeviceClass::queryElementValue(
                                 IOHIDElementCookie		elementCookie,
                                 IOHIDEventStruct *		valueEvent,
                                 UInt32 				timeoutMS,
-                                IOHIDElementCallbackFunction *	callback,
+                                IOHIDElementCallbackFunction	callback,
                                 void * 				callbackTarget,
                                 void *				callbackRefcon)
 {
@@ -660,6 +660,191 @@ IOReturn IOHIDDeviceClass::fillElementValue(IOHIDElementCookie		elementCookie,
 
     return kIOReturnSuccess;
     
+}
+
+struct IOHIDReportRefCon {
+    IOHIDReportCallbackFunction	callback;
+    void *			callbackTarget;
+    void *			callbackRefcon;
+    void *			sender;
+};
+
+// Added functions Post Jaguar
+IOReturn 
+IOHIDDeviceClass::setReport (	IOHIDReportType			reportType,
+                                UInt32				reportID,
+                                void *				reportBuffer,
+                                UInt32				reportBufferSize,
+                                UInt32 				timeoutMS,
+                                IOHIDReportCallbackFunction	callback,
+                                void * 				callbackTarget,
+                                void *				callbackRefcon)
+{
+    int				in[5];
+    mach_msg_type_number_t	len = 0;
+    IOReturn			ret;
+
+    allChecks();
+
+    // Async getReport
+    if (callback) 
+    {
+        if (!fAsyncPort)
+            return kIOReturnError; //kIOUSBNoAsyncPortErr;
+            
+        natural_t		asyncRef[kIOAsyncCalloutCount];
+        IOHIDReportRefCon	* hidRefcon = 0;
+
+    
+        in[0] = reportType;
+        in[1] = reportID;
+        in[2] = (natural_t)reportBuffer;
+        in[3] = reportBufferSize;
+        in[4] = timeoutMS; 
+        
+        hidRefcon = malloc(sizeof(IOHIDReportRefCon));
+        
+        if (!hidRefcon)
+            return kIOReturnError;
+            
+        hidRefcon->callback		= callback;
+        hidRefcon->callbackTarget 	= callbackTarget;
+        hidRefcon->callbackRefcon 	= callbackRefcon;
+        hidRefcon->sender		= fHIDDevice.pseudoVTable;
+    
+        asyncRef[kIOAsyncCalloutFuncIndex] = (natural_t) _hidReportCallback;
+        asyncRef[kIOAsyncCalloutRefconIndex] = (natural_t) hidRefcon;
+    
+        ret = io_async_method_scalarI_scalarO( fConnection, fAsyncPort, asyncRef, kIOAsyncCalloutCount, kIOHIDLibUserClientAsyncSetReport, in, 5, NULL, &len);
+    
+    }
+    else
+    {
+        if(reportBufferSize < sizeof(io_struct_inband_t)) 
+        {
+            in[0] = reportType;
+            in[1] = reportID;
+            ret = io_connect_method_scalarI_structureI( fConnection, kIOHIDLibUserClientSetReport, in, 2, (char *)reportBuffer, reportBufferSize);
+        }
+        else 
+        {
+            IOHIDReportReq		req;
+                        
+            req.reportType = reportType;
+            req.reportID = reportID;
+            req.reportBuffer = reportBuffer;
+            req.reportBufferSize = reportBufferSize;
+            
+            ret = io_connect_method_structureI_structureO( fConnection, kIOHIDLibUserClientSetReportOOL, (char*)&req, sizeof(req), NULL, &len);
+        }    
+    }
+    
+    if (ret == MACH_SEND_INVALID_DEST)
+    {
+	fIsOpen = false;
+	fConnection = MACH_PORT_NULL;
+	ret = kIOReturnNoDevice;
+    }
+    return ret;
+
+}
+
+
+IOReturn 
+IOHIDDeviceClass::getReport (	IOHIDReportType			reportType,
+                                UInt32				reportID,
+                                void *				reportBuffer,
+                                UInt32 *			reportBufferSize,
+                                UInt32 				timeoutMS,
+                                IOHIDReportCallbackFunction	callback,
+                                void * 				callbackTarget,
+                                void *				callbackRefcon)
+{
+    int				in[5];
+    mach_msg_type_number_t	len = 0;
+    IOReturn			ret;
+
+    allChecks();
+
+    // Async getReport
+    if (callback) 
+    {
+        if (!fAsyncPort)
+            return kIOReturnError; //kIOUSBNoAsyncPortErr;
+            
+        natural_t		asyncRef[kIOAsyncCalloutCount];
+        IOHIDReportRefCon	* hidRefcon = 0;
+
+    
+        in[0] = reportType;
+        in[1] = reportID;
+        in[2] = (natural_t)reportBuffer;
+        in[3] = *reportBufferSize;
+        in[4] = timeoutMS; 
+        
+        hidRefcon = malloc(sizeof(IOHIDReportRefCon));
+        
+        if (!hidRefcon)
+            return kIOReturnError;
+            
+        hidRefcon->callback		= callback;
+        hidRefcon->callbackTarget 	= callbackTarget;
+        hidRefcon->callbackRefcon 	= callbackRefcon;
+        hidRefcon->sender		= fHIDDevice.pseudoVTable;
+    
+        asyncRef[kIOAsyncCalloutFuncIndex] = (natural_t) _hidReportCallback;
+        asyncRef[kIOAsyncCalloutRefconIndex] = (natural_t) hidRefcon;
+    
+        ret = io_async_method_scalarI_scalarO( fConnection, fAsyncPort, asyncRef, kIOAsyncCalloutCount, kIOHIDLibUserClientAsyncGetReport, in, 5, NULL, &len);
+    
+    }
+    else
+    {
+        if(*reportBufferSize < sizeof(io_struct_inband_t)) 
+        {
+            in[0] = reportType;
+            in[1] = reportID;
+            ret = io_connect_method_scalarI_structureO( fConnection, kIOHIDLibUserClientGetReport, in, 2, (char *)reportBuffer, (unsigned int *)reportBufferSize);
+        }
+        else 
+        {
+            IOHIDReportReq		req;
+            
+            len = sizeof(*reportBufferSize);
+            
+            req.reportType = reportType;
+            req.reportID = reportID;
+            req.reportBuffer = reportBuffer;
+            req.reportBufferSize = *reportBufferSize;
+            
+            ret = io_connect_method_structureI_structureO( fConnection, kIOHIDLibUserClientGetReportOOL, (char*)&req, sizeof(req), (char*)reportBufferSize, &len);
+        }    
+    }
+    
+    if (ret == MACH_SEND_INVALID_DEST)
+    {
+	fIsOpen = false;
+	fConnection = MACH_PORT_NULL;
+	ret = kIOReturnNoDevice;
+    }
+    return ret;
+}
+
+void 
+IOHIDDeviceClass::_hidReportCallback(void *refcon, IOReturn result, UInt32 bufferSize)
+{
+    IOHIDReportRefCon *hidRefcon = refcon;
+    
+    if (!hidRefcon || !hidRefcon->callback)
+        return;
+    
+    ((IOHIDReportCallbackFunction)hidRefcon->callback)( hidRefcon->callbackTarget,
+                                                        result,
+                                                        hidRefcon->callbackRefcon,
+                                                        hidRefcon->sender,
+                                                        bufferSize);
+                                                    
+    free(hidRefcon);
 }
 
 //---------------------------------------------------------------------------
@@ -822,7 +1007,10 @@ IOHIDDeviceInterface IOHIDDeviceClass::sHIDDeviceInterfaceV1 =
     &IOHIDDeviceClass::deviceStartAllQueues,
     &IOHIDDeviceClass::deviceStopAllQueues,
     &IOHIDDeviceClass::deviceAllocQueue,
-    &IOHIDDeviceClass::deviceAllocOutputTransaction
+    &IOHIDDeviceClass::deviceAllocOutputTransaction,
+    // New post Jaguar 10.2
+    &IOHIDDeviceClass::deviceSetReport,
+    &IOHIDDeviceClass::deviceGetReport    
 };
 
 // Methods for routing iocfplugin interface
@@ -880,7 +1068,7 @@ IOReturn IOHIDDeviceClass::deviceSetElementValue(void *	 	self,
                                 IOHIDElementCookie		elementCookie,
                                 IOHIDEventStruct *		valueEvent,
                                 UInt32 				timeoutMS,
-                                IOHIDElementCallbackFunction *	callback,
+                                IOHIDElementCallbackFunction	callback,
                                 void * 				callbackTarget,
                                 void *				callbackRefcon)
     { return getThis(self)->setElementValue (	elementCookie,
@@ -895,7 +1083,7 @@ IOReturn IOHIDDeviceClass::deviceQueryElementValue(void * 	self,
                                 IOHIDElementCookie		elementCookie,
                                 IOHIDEventStruct *		valueEvent,
                                 UInt32 				timeoutMS,
-                                IOHIDElementCallbackFunction *	callback,
+                                IOHIDElementCallbackFunction	callback,
                                 void * 				callbackTarget,
                                 void *				callbackRefcon)
     { return getThis(self)-> queryElementValue (elementCookie,
@@ -918,6 +1106,38 @@ IOHIDOutputTransactionInterface **
           IOHIDDeviceClass::deviceAllocOutputTransaction (void *self)
     { return getThis(self)->allocOutputTransaction (); }
     
+
+// Added methods
+IOReturn 
+IOHIDDeviceClass::deviceSetReport (void * 			self,
+                                IOHIDReportType			reportType,
+                                UInt32				reportID,
+                                void *				reportBuffer,
+                                UInt32				reportBufferSize,
+                                UInt32 				timeoutMS,
+                                IOHIDReportCallbackFunction	callback,
+                                void * 				callbackTarget,
+                                void *				callbackRefcon)
+{
+    return getThis(self)->setReport(reportType, reportID, reportBuffer, reportBufferSize, timeoutMS, callback, callbackTarget, callbackRefcon);
+}
+
+
+IOReturn 
+IOHIDDeviceClass::deviceGetReport (void * 			self,
+                                IOHIDReportType			reportType,
+                                UInt32				reportID,
+                                void *				reportBuffer,
+                                UInt32 *			reportBufferSize,
+                                UInt32 				timeoutMS,
+                                IOHIDReportCallbackFunction	callback,
+                                void * 				callbackTarget,
+                                void *				callbackRefcon)
+{
+    return getThis(self)->getReport(reportType, reportID, reportBuffer, reportBufferSize, timeoutMS, callback, callbackTarget, callbackRefcon);
+}
+// End added methods
+
 kern_return_t IOHIDDeviceClass::BuildElements (CFDictionaryRef properties)
 {
     kern_return_t           	kr = kIOReturnSuccess;

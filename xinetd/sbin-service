@@ -33,15 +33,19 @@ elif [ -f "/etc/xinetd.d/$1" ]
 then
 	if [ "$2" == start ]
 	then
+		lockfile "/etc/xinetd.d/.lock-$1"
 		mv "/etc/xinetd.d/$1" "/etc/xinetd.d/$1.old"
 		sed 's/disable.*=.*/disable = no/g' < "/etc/xinetd.d/$1.old" > "/etc/xinetd.d/$1"
 		rm "/etc/xinetd.d/$1.old"
+		rm -f "/etc/xinetd.d/.lock-$1"
 		restart_xinetd
 	elif [ "$2" == stop ]
 	then
+		lockfile "/etc/xinetd.d/.lock-$1"
 		mv "/etc/xinetd.d/$1" "/etc/xinetd.d/$1.old"
 		sed 's/disable.*=.*/disable = yes/g' < "/etc/xinetd.d/$1.old" > "/etc/xinetd.d/$1"
 		rm "/etc/xinetd.d/$1.old"
+		rm -f "/etc/xinetd.d/.lock-$1"
 		restart_xinetd
 	else
 		echo "No such service command" >&2

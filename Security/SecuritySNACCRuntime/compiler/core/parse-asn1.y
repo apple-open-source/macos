@@ -21,7 +21,7 @@
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
- * $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/compiler/core/parse-asn1.y,v 1.1 2001/06/20 21:27:58 dmitch Exp $
+ * $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/compiler/core/parse-asn1.y,v 1.1 2001/06/20 21:27:58 dmitch Exp $
  * $Log: parse-asn1.y,v $
  * Revision 1.1  2001/06/20 21:27:58  dmitch
  * Adding missing snacc compiler files.

@@ -26,6 +26,26 @@ extern "C" {
 // second parameter.  You must use the literal name of the superclass.
 OSDefineMetaClassAndStructors(AppleDallasDriver, IOService)
 
+//================================================================================
+//	The bus master (this driver) asserts a reset pulse.  The target device
+//	responds with a "Presence" pulse prior to expiration of tPDH max.
+//
+//			                   >|         tRSTH              |<
+//	Vpullup	_____                 _______              _______
+//	Vih MIN	     \               /       \            /       \
+//			      \             /         \          /         \
+//	Vil MAX	       \           /           \        /           \
+//	0v		        \_________/             \______/             \
+//			                    >| tPDH  |<
+//			                 >|tR|<      |
+//			       >|  tRSTL  |<        >|  tPDL  |<
+//
+//	Where:	15 µS ² tPDH < 60 µS
+//			60 µS ² tPDL < 240 µS
+//			480 µS ² tRSTH
+//			480 µS ² tRSTL < °
+//			tRSTL + tR + tRSTH < 960 µS
+//
 bool ROMReset (UInt8 *gpioPtr)
 {
     AbsoluteTime start, now, finish;
@@ -37,23 +57,25 @@ bool ROMReset (UInt8 *gpioPtr)
     int          errorCount = 0;
     bool         res;    
 	
-	outputZero      = (*gpioPtr & 0x80) |  kGPIODriveOut;  // set output select0, altoe=0, ddir=1, output value = 0
-														   // save bit 7
-	outputTristate  = (*gpioPtr & 0x80) | !kGPIODriveOut;  // output bit = 0, but output tristated to get a 1
+	outputZero      = (*gpioPtr & ( dualEdge << intEdgeSEL )) | ( gpioDDR_OUTPUT << gpioDDR );	// set output select0, altoe=0, ddir=1, output value = 0
+																								// save bit 7
+	outputTristate  = (*gpioPtr & ( dualEdge << intEdgeSEL )) | ( gpioDDR_INPUT << gpioDDR );	// output bit = 0, but output tristated to get a 1
 
     res = TRUE;
-    // Make sure the ROM is present
+    // Make sure the ROM is present.  The ROM's one-wire-bus is pulled low if
+	//	no rom is present through switching of the speaker jack connector and
+	//	pulled high if the ROM is present.  The ROM itself will not pull the
+	//	bus low unless in response to a reset or data query.
     *gpioPtr = outputTristate; OSSynchronizeIO();
-    if ((*gpioPtr&kGPIOPin)==0) {
+    if ( ( *gpioPtr & ( 1 << gpioPIN_RO ) ) == 0 ) {
         IOSleep(1);
-        FailWithAction ((*gpioPtr&kGPIOPin)==0, debugIOLog("[DALLAS] ROM Reset: No speaker ROM detected\n"), exit);
+        FailWithAction ((*gpioPtr & ( 1 << gpioPIN_RO )) == 0, debugIOLog("AppleDallasDriver::ROMReset No speaker ROM detected\n"), exit);
     }
 
     correctTiming = FALSE;
     while (!correctTiming)
     {
         debugIOLog("[DALLAS] ROM Reset\n");
-    
         correctTiming = TRUE;
         
         clock_get_uptime(&start);
@@ -61,17 +83,18 @@ bool ROMReset (UInt8 *gpioPtr)
         IODelay(kROMResetPulseMin);
         *gpioPtr = outputTristate; OSSynchronizeIO();
         
-        ns = kROMResetPulseMax*1000;
+        ns = kROMResetPulseMax * kNANOSECONDS_PER_MICROSECOND;
         nanoseconds_to_absolutetime(ns, &finish);
         ADD_ABSOLUTETIME(&finish, &start);
         
-        bitEdge = FALSE;  // Wait for rising edge of reset pulse
+		// Wait for rising edge of reset pulse or HIGH level for quiescent bus state
+        bitEdge = FALSE;  
         while (!bitEdge && correctTiming)
         {
-            bit = *gpioPtr & kGPIOPin;
+            bit = *gpioPtr & ( 1 << gpioPIN_RO );
             clock_get_uptime(&now);
             
-            if (CMP_ABSOLUTETIME(&now, &finish)>0) {
+            if (CMP_ABSOLUTETIME(&now, &finish) > 0) {
                 correctTiming = FALSE;
                 debugIOLog("[DALLAS] ROM Reset: Failed Reset Rising Edge\n");
             } else if (bit) {
@@ -81,20 +104,21 @@ bool ROMReset (UInt8 *gpioPtr)
             }
         }
         
-        ns = kROMPresenceDelayMax*1000;
+		//	BEGIN the RESET PULSE
+        ns = kROMPresenceDelayMax * kNANOSECONDS_PER_MICROSECOND;
         nanoseconds_to_absolutetime(ns, &finish);
         ADD_ABSOLUTETIME(&finish, &now);
         
         bitEdge = FALSE;  // Wait for falling edge of presence pulse
         while (!bitEdge && correctTiming)
         {
-            bit = *gpioPtr & kGPIOPin;
+            bit = *gpioPtr & ( 1 << gpioPIN_RO );
             clock_get_uptime(&now);
             
             if (CMP_ABSOLUTETIME(&now, &finish)>0) {
                 correctTiming = FALSE;
                 IOSleep(1);
-//                debugIOLog("[DALLAS] ROM Reset: Failed to detect Presence Pulse\n");
+				debugIOLog("AppleDallasDriver::ROMReset  Failed to detect Presence Pulse\n");
             } else if (!bit) {
                 bitEdge = TRUE;
             } else {
@@ -102,14 +126,15 @@ bool ROMReset (UInt8 *gpioPtr)
             }
         }
         
-        ns = kROMPresencePulseMax*1000;
+		//	BEGIN detection of the PRESENCE PULSE
+        ns = kROMPresencePulseMax * kNANOSECONDS_PER_MICROSECOND;
         nanoseconds_to_absolutetime(ns, &finish);
         ADD_ABSOLUTETIME(&finish, &now);
         
         bitEdge = FALSE;  // Wait for rising edge of presence pulse
         while (!bitEdge && correctTiming)
         {
-            bit = *gpioPtr & kGPIOPin;
+            bit = *gpioPtr & ( 1 << gpioPIN_RO );
             clock_get_uptime(&now);
             
             if (CMP_ABSOLUTETIME(&now, &finish)>0) {
@@ -135,71 +160,124 @@ exit:
     return res;
 }
 
-bool ROMSendByte (UInt8 *gpioPtr, UInt8 theByte)
+//================================================================================
+//	Write-1 Time Slot:
+//	Vpullup	_____                 ____________________________
+//	Vih MIN	     \               /                            \
+//			      \             /                              \
+//	Vil MAX	       \           /                                \
+//	0v		        \_________/                                  \
+//
+//			       >|   tLOW1    |<
+//			       >|           tLOW0            |<  >| tREC |<
+//			       >|            tSLOT                |<
+//
+//	Where:	1 µS ² tLOW1 < 15 µS
+//			60 µS ² tSLOT ² 120 µS
+//			1 µS ² tREC < °
+//
+//	Write-0 Time Slot:
+//	Vpullup	_____                                      _______
+//	Vih MIN	     \                                    /       \
+//			      \                                  /         \
+//	Vil MAX	       \                                /           \
+//	0v		        \______________________________/             \
+//
+//			       >|   tLOW1    |<
+//			       >|           tLOW0            |<  >| tREC |<
+//			       >|            tSLOT                |<
+//
+//	Where:	60 µS ² tLOW0 < 120 µS
+//			60 µS ² tSLOT ² 120 µS
+//			1 µS ² tREC < °
+//
+//	Data is transacted lsb first.  Returns TRUE if failed!
+//
+//	Althought the tLOW1 is specified as 1µS minimum, it is unlikely that our hardware
+//	will propagate such a short duration pulse so the pulse is done at half the maximum.
+//	EMI filtering on the speaker jack can impact the timing such that an RC charge curve
+//	occurs as the signal is driven low and released high.  This curve causes the actual
+//	time period that the signal is below the minimum input voltage (i.e. Vil MAX) to be
+//	reduced and may result in timing less than the minimum allowed for the one-wire-bus
+//	protocol.  Using longer timing, which does not violate the maximum timing, allows 
+//	the charge curve to progress deeper toward the desired bus state and will result
+//	in timing that does not violate the minimum timing for the signal assertion.  This
+//	rule has been applied throughout this driver.  rbm 16 Oct 2002	[3053696]
+bool ROMSendByte ( UInt8 *gpioPtr, UInt8 theByte, UInt8 msgRefCon )
 {
-    AbsoluteTime start, now, finish;
-    UInt64       ns;
-    UInt8	 bit;
-	UInt8		outputZero, outputTristate;
-    bool         correctTiming;
-    bool         bitEdge;
-    bool         res;
-    int          i;
+    AbsoluteTime	start, now, finish, tLOW;
+    UInt64			ns;
+    UInt8			bit;
+	UInt8			outputZero, outputTristate;
+    bool			correctTiming;
+    bool			bitEdge;
+    bool			res;
+    int				bitIndex;
     
     debug2IOLog("[DALLAS] ROM Send 0x%02X\n", theByte);
 	
-	outputZero      = (*gpioPtr & 0x80) |  kGPIODriveOut;  // set output select0, altoe=0, ddir=1, output value = 0
-														   // save bit 7
-	outputTristate  = (*gpioPtr & 0x80) | !kGPIODriveOut;  // output bit = 0, but output tristated to get a 1
+	outputZero      = (*gpioPtr & ( dualEdge << intEdgeSEL )) | ( gpioDDR_OUTPUT << gpioDDR );	// set output select0, altoe=0, ddir=1, output value = 0
+																								// save bit 7
+	outputTristate  = (*gpioPtr & ( dualEdge << intEdgeSEL )) | ( gpioDDR_INPUT << gpioDDR );	// output bit = 0, but output tristated to get a 1
 
     res = FALSE;		// assume success
-    for (i=0; i<8; i++)
+    for ( bitIndex = 0; bitIndex < kBITS_PER_BYTE; bitIndex++)
     {
+		clock_get_uptime(&start);
+		ns = kTSLOT_maximum * kNANOSECONDS_PER_MICROSECOND;				//	tSLOT 120 µS limit
+		nanoseconds_to_absolutetime(ns, &finish);
+		ADD_ABSOLUTETIME(&finish, &start);
+
         correctTiming = TRUE;
-        if (theByte&(1<<i)) {	// bit=1
-            clock_get_uptime(&start);
-            *gpioPtr = outputZero; OSSynchronizeIO();
-            IODelay(kROMWrite1Min);
-            *gpioPtr = outputTristate; OSSynchronizeIO();
-            
-            ns = kROMWrite1Max*1000;
-            nanoseconds_to_absolutetime(ns, &finish);
-            ADD_ABSOLUTETIME(&finish, &start);
-            
+        if ( theByte & ( 1 << bitIndex ) ) {							// bit=1
+            ns = kTLOW1_maximum * kNANOSECONDS_PER_MICROSECOND;			//	tLOW1 15 µS limit
+            nanoseconds_to_absolutetime(ns, &tLOW);
+            ADD_ABSOLUTETIME(&tLOW, &start);
+
+            *gpioPtr = outputZero; OSSynchronizeIO();					//	assert to '0' bus level
+            IODelay( kTLOW1_maximum / 2 );								//	1 µS ² tLOW1 < 15 µS	rbm 16 Oct 2002	[3053696]
+            *gpioPtr = outputTristate; OSSynchronizeIO();				//	release to '1' bus level
+                        
             bitEdge = FALSE;  // Wait for rising edge of bit
             while (!bitEdge && correctTiming)
             {
-                bit = *gpioPtr & kGPIOPin;
+                bit = *gpioPtr & ( 1 << gpioPIN_RO );
                 clock_get_uptime(&now);
                 
-                if (CMP_ABSOLUTETIME(&now, &finish)>0) {
+				//	Check to see that bus released within tLOW1 maximum limit of 15 µS
+                if ( CMP_ABSOLUTETIME ( &now, &tLOW ) > 0 ) {
                     correctTiming = FALSE;
-                    debug2IOLog("[DALLAS] ROM Send Byte: Failed Bit %d Rising Edge\n", i);
+                    debug4IOLog( "... ROM Send Byte: theByte %X, Failed Bit %d Rising Edge, msgRefCon %d\n", 
+						(unsigned int)theByte, 
+						(unsigned int)bitIndex, 
+						(unsigned int)msgRefCon );
                 } else if (bit) {
                     bitEdge = TRUE;
                 } else {
                     IODelay(1);
                 }
             }
-        } else {		// bit = 0
-            clock_get_uptime(&start);
-            ns = kROMWrite0Max*1000;
-            nanoseconds_to_absolutetime(ns, &finish);
-            ADD_ABSOLUTETIME(&finish, &start);
+        } else {														// bit = 0
+            ns = kTLOW0_maximum * kNANOSECONDS_PER_MICROSECOND;			//	60 µS ² tLOW0 ² tSLOT ² 120 µS
+            nanoseconds_to_absolutetime(ns, &tLOW);
+            ADD_ABSOLUTETIME(&tLOW, &start);
             
-            *gpioPtr = outputZero; OSSynchronizeIO();
-            IODelay(kROMWrite0Min);
-            *gpioPtr = outputTristate; OSSynchronizeIO();
+            *gpioPtr = outputZero; OSSynchronizeIO();					//	assert to '0' bus level
+            IODelay( ( kTLOW0_minimum + kTLOW0_maximum ) / 2 );			//	use 90 µS	rbm 16 Oct 2002	[3053696]
+            *gpioPtr = outputTristate; OSSynchronizeIO();				//	release to '1' bus level
             
             bitEdge = FALSE;  // Wait for rising edge of bit
             while (!bitEdge && correctTiming)
             {
-                bit = *gpioPtr & kGPIOPin;
+                bit = *gpioPtr & ( 1 << gpioPIN_RO );
                 clock_get_uptime(&now);
                 
-                if (CMP_ABSOLUTETIME(&now, &finish)>0) {
+                if (CMP_ABSOLUTETIME(&now, &tLOW)>0) {
                     correctTiming = FALSE;
-                    debug2IOLog("[DALLAS] ROM Send Byte: Failed Bit %d Rising Edge\n", i);
+                    debug4IOLog( "... ROM Send Byte: theByte %X, Failed Bit %d Rising Edge, msgRefCon %d\n", 
+						(unsigned int)theByte, 
+						(unsigned int)bitIndex, 
+						(unsigned int)msgRefCon );
                 } else if (bit) {
                     bitEdge = TRUE;
                 } else {
@@ -207,137 +285,136 @@ bool ROMSendByte (UInt8 *gpioPtr, UInt8 theByte)
                 }
             }
         }
+
+		IODelay ( kTSLOT_minimum + kTREC );									//	make sure remaining tSLOT + tREC is greater than 611 µS
         
         if (!correctTiming)
             res = TRUE;
-
-        ns = kROMTSlot*1000;		// Minimum delay to guarantee timing between bits
-        nanoseconds_to_absolutetime(ns, &finish);
-        ADD_ABSOLUTETIME(&finish, &start);
-        clock_get_uptime(&now);
-        if (CMP_ABSOLUTETIME(&now, &finish)<0) {
-            SUB_ABSOLUTETIME(&finish, &now);
-            absolutetime_to_nanoseconds(finish, &ns);
-            IODelay((ns/1000)+1);
-        }
 	}
 
 	IOSleep(1);					// Give up CPU every byte
+	if ( res ) { debugIOLog ( "ROMSendByte FAILED!\n" ); }
     return res;
 }
 
+//================================================================================
+//	Read Data Time Slot:
+//	Vpullup	_____                 ____________________________
+//	Vih MIN	     \               /                    /       \
+//			      \             /                    /         \
+//	Vil MAX	       \           /                    /           \
+//	0v		        \_________/___________________ /             \
+//
+//			       >|            tSLOT                |<
+//			       >|   tLOWR    |<    >| tRELEASE |<
+//			       >|        tRDV       |<           >| tREC |<
+//
+//	Where:	1 µS ² tLOWR < 15 µS
+//			60 µS ² tSLOT ² 120 µS
+//			1 µS ² tRELEASE ² 45 µS
+//			15 µS = tRDV
+//			1 µS ² tREC < °
+//
+//	Data is transacted lsb first.
 bool ROMReadByte (UInt8 *gpioPtr, UInt8* theByte)
 {
-    AbsoluteTime start, finish, setup, before, after, lastZero;
-    AbsoluteTime setupLimit, bit0Limit, bit1Limit;
-    UInt64       ns;
-    UInt8	 bit;
-	UInt8		outputZero, outputTristate;
-    UInt8        theValue = 0;
-    bool         correctTiming;
-    bool         bitEdge;
-    bool         res;
-    int          i;
-    
+    AbsoluteTime	start, finish, tRdv, after;
+    UInt64			ns;
+    UInt8			bit, failedTRdv, failedTRelease, outputZero, outputTristate, theValue = 0;
+    bool			correctTiming, bitEdge, res;
+    int				bitIndex;
 	
-	outputZero      = (*gpioPtr & 0x80) |  kGPIODriveOut;  // set output select0, altoe=0, ddir=1, output value = 0
-														   // save bit 7
-	outputTristate  = (*gpioPtr & 0x80) | !kGPIODriveOut;  // output bit = 0, but output tristated to get a 1
+	outputZero      = (*gpioPtr & ( dualEdge << intEdgeSEL )) | ( gpioDDR_OUTPUT << gpioDDR );	// set output select0, altoe=0, ddir=1, output value = 0
+																								// save bit 7
+	outputTristate  = (*gpioPtr & ( dualEdge << intEdgeSEL )) | ( gpioDDR_INPUT << gpioDDR );	// output bit = 0, but output tristated to get a 1
 
     res = FALSE;		// assume success
-    for (i=0; i<8; i++)
+	failedTRelease = failedTRdv = 0;
+    for ( bitIndex = 0; bitIndex < kBITS_PER_BYTE; bitIndex++)
     {
         correctTiming = TRUE;
         
-        clock_get_uptime(&start);
-        *gpioPtr = outputZero; OSSynchronizeIO();
-        IODelay(kROMReadSetup);
-        *gpioPtr = outputTristate; OSSynchronizeIO();
-        clock_get_uptime(&setup);
-
-        ns = kROMTSlot*1000;
-        nanoseconds_to_absolutetime(ns, &finish);
+		//	There also was a timing violation in the ROMReadByte method where 1 µS < tSU was used to 
+		//	assert the bus to a low state at the start of reading a bit cell.  The tSU timing parameter 
+		//	actualy refers to how fast the device asserts the bus after sensing a low on the bus and 
+		//	does not refer to the timing that the master should continue to assert the bus to a low state. 
+		//	The bus master should continue to drive the bus low up to tLOWR maximum or < 15 µS.  The 
+		//	same concerns about RC charge currents applies here so I've lengthened the timing to half 
+		//	the maximum or 7.5 µS.  Care must be taken to make sure that tROMSlot timing is not measured
+		//	from any signal element other than the initial falling edge (i.e. '0' bus level state) to
+		//	avoid accumulating timing error over multiple bit cells.		rbm 16 Oct 2002	[3053696]
+		clock_get_uptime ( &start );
+        ns = kTSLOT_maximum * kNANOSECONDS_PER_MICROSECOND;			//	tSlot begins at start of bit cell	rbm 16 Oct 2002	[3053696]
+        nanoseconds_to_absolutetime ( ns, &finish );
         ADD_ABSOLUTETIME(&finish, &start);
+		ns = ( kTRDV + 1 ) * kNANOSECONDS_PER_MICROSECOND;
+        nanoseconds_to_absolutetime ( ns, &tRdv );
+        ADD_ABSOLUTETIME(&tRdv, &start);							//	masterSampleWindow indicates tRDV relative to start of bit cell		
+		
+        *gpioPtr = outputZero; OSSynchronizeIO();					//	assert to '0' bus level starts the bit cell
+        IODelay( kTLOWR_maximum / 3 );								//	1 µS ² tLOWR < 15 µS	rbm 16 Oct 2002	[3053696]
+        *gpioPtr = outputTristate; OSSynchronizeIO();				//	release to '1' bus level
         
-       
-        bitEdge = FALSE;  // Wait for rising edge of bit
-        while (!bitEdge && correctTiming)
-        {
-            clock_get_uptime(&before);
-            bit = *gpioPtr & kGPIOPin;
-            clock_get_uptime(&after);
-            
-            if (CMP_ABSOLUTETIME(&after, &finish)>0) {
-                correctTiming = FALSE;
-                debugIOLog("[DALLAS] Late rising edge\n");
-            } else if (bit) {
-                bitEdge = TRUE;
-            } else {
-                lastZero = before;
-                IODelay(1);
-            }
-        }
-        
-        ns = (kROMReadSetup+kROMReadMargin)*1000;
-        nanoseconds_to_absolutetime(ns, &setupLimit);
-        ADD_ABSOLUTETIME(&setupLimit, &start);
-        
-        if (CMP_ABSOLUTETIME(&setup, &setupLimit)>0) {
-            correctTiming = FALSE;
-            debugIOLog("[DALLAS] Failed setup time\n");
-        }
+		//	Once the bus has been released from the '0' state at the beginning of the bit cell, the
+		//	device will have asserted asserted a '0' or released to a '1' in parallel with the master
+		//	'0' assertion on the bus and within 1 µS of the master asserting '0'.  The data is then
+		//	read between tLOWR maximum and tRDV (i.e. MASTER SAMPLING WINDOW).  The tRDV indicates
+		//	the point where the data is to be sampled (see Dallas application note 126: ReadX function).
+		//	rbm	16 Oct 2002	[3053696]
+		
+		IODelay ( kTRDV - ( kTLOWR_maximum / 3 ) - 1 );
+		bit = *gpioPtr & ( 1 << gpioPIN_RO );
+		clock_get_uptime(&after);
+		if ( CMP_ABSOLUTETIME ( &after, &tRdv ) > 0 ) {
+			correctTiming = FALSE;
+			res = TRUE;
+			failedTRdv |= ( 1 << bitIndex );
+		}
+		
+		//	Now wait for release (necessary when the bit cell is a '0'.  This must occur within 45 µS
+		//	of tRDV (i.e. 0 µS ² tRELEASE < 45 µS).
+		if ( 0 == bit ) {
+			bitEdge = FALSE;
+			correctTiming = TRUE;
+			while ( !bitEdge && correctTiming ) {
+				if ( *gpioPtr & ( 1 << gpioPIN_RO ) ) {
+					bitEdge = TRUE;
+				}
+				clock_get_uptime(&after);
+				if ( CMP_ABSOLUTETIME ( &after, &finish ) > 0 ) {
+					correctTiming = FALSE;
+					res = TRUE;
+					failedTRelease |= ( 1 << bitIndex );
+				}
+			}
+		}
+		IODelay( kTSLOT_minimum + kTREC );
+		
+		//	'bit' now contains the bit sample state within acceptable timing margins if 'correctTiming' is TRUE.
                 
-        if (correctTiming) {
-            ns = kROMRead1TimeMax*1000;
-            nanoseconds_to_absolutetime(ns, &bit1Limit);
-            ADD_ABSOLUTETIME(&bit1Limit, &start);
-                
-            ns = kROMRead0TimeMin*1000;
-            nanoseconds_to_absolutetime(ns, &bit0Limit);
-            ADD_ABSOLUTETIME(&bit0Limit, &start);
-            
-            if (CMP_ABSOLUTETIME(&after, &bit1Limit)<0) {
-                theValue |= 1 << i;
-                debug2IOLog("[DALLAS] 1 (%ld ns)", (UInt32) ns);
-            } else if (CMP_ABSOLUTETIME(&lastZero, &bit0Limit)>0) {
-                theValue |= 0 << i;
-                debug2IOLog("0 (%ld ns)", (UInt32) ns);
-            } else {
-                correctTiming = FALSE;
-                debugIOLog("[DALLAS] Failed to meet bit timing\n");
-            }
-        }
-        
-        if (!correctTiming) {
-            res = TRUE;
-        }
-        
-        ns = kROMTSlot*1000;		// Minimum delay to guarantee timing between bits
-        nanoseconds_to_absolutetime(ns, &finish);
-        ADD_ABSOLUTETIME(&finish, &start);
-        clock_get_uptime(&after);
-        if (CMP_ABSOLUTETIME(&after, &finish)<0) {
-            SUB_ABSOLUTETIME(&finish, &after);
-            absolutetime_to_nanoseconds(finish, &ns);
-            IODelay((ns/1000)+1);
-        }
+        theValue |= ( bit == 0 ? 0 << bitIndex : 1 << bitIndex );
     }
-
-    IOSleep(1);			// give up CPU every byte
+	if ( res ) {
+		debug4IOLog("[DALLAS] ROMReadByte tRDV failed on bits %X, tRELEASE failed on bits %X, data %X\n", (unsigned int)failedTRdv, (unsigned int)failedTRelease, (unsigned int)theValue );
+	}
+	
+    IOSleep(1);														// give up CPU every byte
 	*theByte = theValue;
     debug2IOLog("[DALLAS]   ROM Read 0x%02x\n", *theByte);
+	if ( res ) { debugIOLog ( "ROMReadByte FAILED!\n" ); }
     return res;
 }
 
+//================================================================================
 void ROMCheckCRC(UInt8 *bROM)
 {
-    int i, j;
+    int index, j;
     UInt8 crc[8] = {0, 0, 0, 0, 0, 0, 0, 0};
     UInt8 currByte, newBit;
     UInt8 finalCRC;
     
-    for (i=0; i<7; i++) {
-        currByte = bROM[i];
+    for (index=0; index<7; index++) {
+        currByte = bROM[index];
         for (j=0; j<8; j++) {
             newBit = crc[7] ^ (currByte&0x01);
             crc[7] = crc[6];
@@ -353,8 +430,8 @@ void ROMCheckCRC(UInt8 *bROM)
     }
     
     finalCRC = 0;
-    for (i=0; i<8; i++) {
-        finalCRC = (finalCRC << 1) | crc[i];
+    for (index=0; index<8; index++) {
+        finalCRC = (finalCRC << 1) | crc[index];
     }
     
     if (finalCRC != bROM[7]) {
@@ -365,6 +442,7 @@ void ROMCheckCRC(UInt8 *bROM)
     
 }
 
+//================================================================================
 IORegistryEntry * FindEntryByProperty (const IORegistryEntry * start, const char * key, const char * value) 
 {
 	OSIterator				*iterator;
@@ -390,6 +468,7 @@ Exit:
 	return theEntry;
 }
 
+//================================================================================
 bool AppleDallasDriver::init (OSDictionary *dict)
 {
     bool res = super::init (dict);
@@ -397,6 +476,7 @@ bool AppleDallasDriver::init (OSDictionary *dict)
     return res;
 }
 
+//================================================================================
 void AppleDallasDriver::free (void)
 {
     debugIOLog ("AppleDallasDriver Freeing\n");
@@ -404,6 +484,7 @@ void AppleDallasDriver::free (void)
     super::free ();
 }
 
+//================================================================================
 IOService *AppleDallasDriver::probe (IOService *provider, SInt32 *score)
 {
     
@@ -412,13 +493,14 @@ IOService *AppleDallasDriver::probe (IOService *provider, SInt32 *score)
     return res;
 }
 
+//================================================================================
 bool AppleDallasDriver::readApplicationRegister (UInt8 *bAppReg)
 {
-    IOMemoryMap     *map = NULL;
-    UInt8			*gpioPtr = NULL;
-    int			i;
-    bool			failure;
-    bool			resultSuccess;
+    IOMemoryMap	*map = NULL;
+    UInt8		*gpioPtr = NULL;
+    int			index;
+    bool		failure;
+    bool		resultSuccess;
 	int			retryCount;
     
     resultSuccess = FALSE;
@@ -436,16 +518,16 @@ bool AppleDallasDriver::readApplicationRegister (UInt8 *bAppReg)
     failure = TRUE;
     debugIOLog("[DALLAS] Reading 64b Application Register\n");
 	retryCount = kRetryCountSeed;
-    for (i=0; i<8; i++) {
+    for (index=0; index<8; index++) {
         do {
             while (failure && retryCount) {
                 ROMReset(gpioPtr);
-                failure = ROMSendByte(gpioPtr, kROMSkipROM);
-                failure = failure || ROMSendByte(gpioPtr, kROMReadAppReg);
-                failure = failure || ROMSendByte(gpioPtr, i);
+                failure = ROMSendByte(gpioPtr, kROMSkipROM, 0 );
+                failure = failure || ROMSendByte(gpioPtr, kROMReadAppReg, 1 );
+                failure = failure || ROMSendByte(gpioPtr, index, 2 );
 				retryCount--;
             }
-            failure = ROMReadByte(gpioPtr, &bAppReg[i]);
+            failure = ROMReadByte(gpioPtr, &bAppReg[index]);
         } while (failure && retryCount);
     }
     if ( !failure ) {
@@ -456,76 +538,212 @@ exit:
     return resultSuccess;
 }
 
+//=========================================================================================
+//	Dallas 2430A ROM EEPROM read transaction:
+//
+//	BUS PHASE			VALUE	ACTION					DESCRIPTION
+//	--------------		----	---------------------	-----------------------------------
+//	RESET				...		...						...
+//	PRESENCE PULSE		...		...						...
+//	SEND BYTE			0xCC	SKIP ROM				Bypass lasered ROM
+//	SEND BYTE			0xF0	READ MEMORY				Copy EEPROM to Scratchpad (Note 1)
+//	RESET				...		...						...
+//	PRESENCE PULSE		...		...						...
+//	SEND BYTE			0xCC	SKIP ROM				Bypass lasered ROM
+//	SEND BYTE			0xAA	READ SCRATCHPAD			Copy Scratchpad to CPU
+//	SEND BYTE			0x00	SCRATCHPAD ADDRESS		Beginning address modulus 32
+//	READ BYTE			0x__	Read 'deviceFamily'		speaker ID field
+//	READ BYTE			0x__	Read 'deviceType'		speaker ID field
+//	READ BYTE			0x__	Read 'deviceSubtype'	speaker ID field	(Note 2)
+//	READ BYTE			0x__	Read 'deviceReserved'	speaker ID field	(Note 2)
+//	
+//	Note 1:		No address is conveyed during the READ MEMORY command which results
+//				in copying the entire EEPROM to the scratchpad memory.
+//	Note 2:		Only the 'deviceFamily' and 'deviceType' fields are used.  The
+//				'deviceSubtype' and 'deviceReserved' fields have not been defined
+//				for any shipping product and are intended for future expansion only.
+//				Reading 'deviceSubtype' and 'deviceReserved' fields is optional.
+//
+//	Restructured the AppleDallasDriver::readDataROM method to implement a state machine with a 
+//	conditional compile flag that allows the retry method to be implemented with more flexibility  
+//	in recovery options.  The Dallas ROM is segmented into four sections which consist of a  
+//	lasered ROM (i.e. serial number), application register, scratchpad memory and EEPROM.  The  
+//	speaker data is held in the EEPROM but cannot be accessed directly.  The driver must transfer  
+//	the data from the EEPROM to the scratchpad memory and then read the scratchpad memory.  This  
+//	takes two separate transactions.  The state machine was implemented to avoid increasing nesting  
+//	of conditional execution statements in providing for recovery mechanisms that allow failed data  
+//	values from the second transaction to provide for recovery by initiating a retry at the transfer  
+//	of the EEPROM data to scratchpad memory.  If the scratchpad memory had incorrect data then  
+//	retrying the scratchpad transaction would only result in fetching incorrect data on each retry.
+//	rbm 16 Oct 2002	[3053696]
 bool AppleDallasDriver::readDataROM (UInt8 *bEEPROM,int dallasAddress, int size)
 {
-#pragma unused ( dallasAddress )
     IOMemoryMap     *map = NULL;
-    UInt8           *gpioPtr = NULL;
-    int              i;
-    bool             failure;
-    bool             resultSuccess;
-	int				retryCount;
+    UInt8           tempData, *gpioPtr = NULL;
+    int				index;
+    bool			resultSuccess;
+	int				retryCount, stateMachine;
     
+	debug4IOLog ( "+ AppleDallasDriver::readDataROM ( %X, %X, %X )\n", (unsigned int)bEEPROM, (unsigned int)dallasAddress, (unsigned int)size );
     resultSuccess = FALSE;			//	assume that it failed
 	
 	FailIf ( NULL == bEEPROM, exit );
+	((DallasIDPtr)bEEPROM)->deviceFamily = kDeviceFamilyUndefined;
+	((DallasIDPtr)bEEPROM)->deviceType = kDallasSpeakerRESERVED;
+	((DallasIDPtr)bEEPROM)->deviceSubType = 0;
+	((DallasIDPtr)bEEPROM)->deviceReserved = 0;
 
     map = gpioRegMem->map (0);
     FailIf (!map, exit);
     gpioPtr = (UInt8*)map->getVirtualAddress ();
-    debug2IOLog("[DALLAS] GPIO16 Register Value = 0x%02x\n", *gpioPtr);
+    debug2IOLog( "[DALLAS] GPIO16 Register Value = 0x%02x\n", *gpioPtr );
     FailIf (!gpioPtr, exit);
-    
-    // Look for ROM present
-    FailWithAction(ROMReset(gpioPtr), debugIOLog("No speaker ROM detected\n"), exit);
-    
-    // Read 256b EEPROM
-    failure = TRUE;
-    debugIOLog("[DALLAS] Reading 256b EEPROM\n");
-	retryCount = kRetryCountSeed;
-    while (failure && retryCount) {
-        ROMReset(gpioPtr);
-        failure = ROMSendByte(gpioPtr, kROMSkipROM);
-        failure = failure || ROMSendByte(gpioPtr, kROMReadMemory);
-		if( failure ) {
-			retryCount--;
-		}
-    }
-
-	FailIf( failure, exit );
 	
-    failure = TRUE;
+	stateMachine = kSTATE_RESET_READ_MEMORY;
 	retryCount = kRetryCountSeed;
-    for (i=0; i<size; i++) {
-		bEEPROM[0] = 0;		//	device family
-		bEEPROM[1] = 0;		//	device type
-		bEEPROM[2] = 0;		//	device subtype
-		bEEPROM[3] = 0;		//	device reserved
-       do {
-            while ( failure ) {
-                ROMReset ( gpioPtr );
-                failure = ROMSendByte ( gpioPtr, kROMSkipROM );
-                failure = failure || ROMSendByte ( gpioPtr, kROMReadScratch );
-                failure = failure || ROMSendByte ( gpioPtr, i);
-				retryCount--;
-            }
-            failure = ROMReadByte ( gpioPtr, &bEEPROM[i] );
-        } while ( failure && retryCount && ( 0xFF != bEEPROM[0] ) );
-    }
-	if ( !failure ) {
-		resultSuccess = TRUE;
+	while( ( kSTATE_COMPLETED != stateMachine ) && ( 0 != retryCount ) ) {
+		switch ( stateMachine ) {
+			case kSTATE_RESET_READ_MEMORY:
+				if ( ROMReset ( gpioPtr ) ) {
+					debug3IOLog ( "... failed at kSTATE_RESET_READ_MEMORY %d, retryCount %d\n", (unsigned int)stateMachine, (unsigned int)retryCount );
+					stateMachine = kSTATE_RESET_READ_MEMORY;
+					if ( retryCount ) { retryCount--; }
+				} else {
+					stateMachine = kSTATE_CMD_SKIPROM_READ_MEMORY;
+				}
+				break;
+			case kSTATE_CMD_SKIPROM_READ_MEMORY:
+				if ( ROMSendByte ( gpioPtr, kROMSkipROM, stateMachine ) ) {
+					debug3IOLog ( "... failed at kSTATE_CMD_SKIPROM_READ_MEMORY %d, retryCount %d\n", (unsigned int)stateMachine, (unsigned int)retryCount );
+					stateMachine = kSTATE_RESET_READ_MEMORY;
+					if ( retryCount ) { retryCount--; }
+				} else {
+					stateMachine = kSTATE_CMD_READ_MEMORY;
+				}
+				break;
+			case kSTATE_CMD_READ_MEMORY:
+				if ( ROMSendByte ( gpioPtr, kROMReadMemory, stateMachine ) ) {
+					debug3IOLog ( "... failed at kSTATE_CMD_READ_MEMORY %d, retryCount %d\n", (unsigned int)stateMachine, (unsigned int)retryCount );
+					stateMachine = kSTATE_RESET_READ_MEMORY;
+					if ( retryCount ) { retryCount--; }
+				} else {
+					if ( 0 != dallasAddress ) {
+						stateMachine = kSTATE_READ_MEMORY_ADDRESS;
+					} else {
+						stateMachine = kUSE_DESCRETE_BYTE_TRANSFER ? kSTATE_READ_MEMORY_ADDRESS : kSTATE_RESET_READ_SCRATCHPAD;
+					}
+				}
+				break;
+			case kSTATE_READ_MEMORY_ADDRESS:
+				if ( ROMSendByte ( gpioPtr, dallasAddress, stateMachine ) ) {					//	ROM address is 0x00
+					debug3IOLog ( "... failed at kSTATE_READ_MEMORY_ADDRESS %d, retryCount %d\n", (unsigned int)stateMachine, (unsigned int)retryCount );
+					stateMachine = kSTATE_RESET_READ_MEMORY;
+					if ( retryCount ) { retryCount--; }
+				} else {
+					stateMachine = kSTATE_READ_MEMORY_DATA;
+					index = 0;
+				}
+				break;
+			case kSTATE_READ_MEMORY_DATA:
+				if ( ROMReadByte ( gpioPtr, &tempData ) ) {
+					debug4IOLog ( "... failed at kSTATE_READ_MEMORY_DATA %d, retryCount %d, byte %d\n", (unsigned int)stateMachine, (unsigned int)retryCount, (unsigned int)index );
+					stateMachine = kSTATE_RESET_READ_MEMORY;
+					if ( retryCount ) { retryCount--; }
+				} else {
+					index++;
+					if ( index == size ) { stateMachine = kSTATE_RESET_READ_SCRATCHPAD; }
+				}
+				break;
+			case kSTATE_RESET_READ_SCRATCHPAD:
+				if ( ROMReset ( gpioPtr ) ) {
+					debug3IOLog ( "... failed at kSTATE_RESET_READ_SCRATCHPAD %d, retryCount %d\n", (unsigned int)stateMachine, (unsigned int)retryCount );
+					stateMachine = kSCRATCHPAD_RETRY_STATE;
+					if ( retryCount ) { retryCount--; }
+				} else {
+					stateMachine = kSTATE_CMD_SKIPROM_SCRATCHPAD;
+				}
+				break;
+			case kSTATE_CMD_SKIPROM_SCRATCHPAD:
+				if ( ROMSendByte ( gpioPtr, kROMSkipROM, stateMachine ) ) {
+					debug3IOLog ( "... failed at kSTATE_CMD_SKIPROM_SCRATCHPAD %d, retryCount %d\n", (unsigned int)stateMachine, (unsigned int)retryCount );
+					stateMachine = kSCRATCHPAD_RETRY_STATE;
+					if ( retryCount ) { retryCount--; }
+				} else {
+					stateMachine = kSTATE_CMD_SCRATCHPAD;
+				}
+				break;
+			case kSTATE_CMD_SCRATCHPAD:
+				if ( ROMSendByte ( gpioPtr, kROMReadScratch, stateMachine ) ) {
+					debug3IOLog ( "... failed at kSTATE_CMD_SCRATCHPAD %d, retryCount %d\n", (unsigned int)stateMachine, (unsigned int)retryCount );
+					stateMachine = kSCRATCHPAD_RETRY_STATE;
+					if ( retryCount ) { retryCount--; }
+				} else {
+					stateMachine = kSTATE_SCRATCHPAD_ADDRESS;
+				}
+				break;
+			case kSTATE_SCRATCHPAD_ADDRESS:
+				if ( ROMSendByte ( gpioPtr, dallasAddress, stateMachine ) ) {		//	ROM address is 0x00
+					debug3IOLog ( "... failed at kSTATE_SCRATCHPAD_ADDRESS %d, retryCount %d\n", (unsigned int)stateMachine, (unsigned int)retryCount );
+					stateMachine = kSCRATCHPAD_RETRY_STATE;
+					if ( retryCount ) { retryCount--; }
+				} else {
+					stateMachine = kSTATE_READ_SCRATCHPAD;
+					index = 0;
+				}
+				break;
+			case kSTATE_READ_SCRATCHPAD:
+				if ( ROMReadByte ( gpioPtr, &bEEPROM[index] ) ) {
+					debug4IOLog ( "... failed at kSTATE_READ_SCRATCHPAD %d, retryCount %d, byte %d\n", (unsigned int)stateMachine, (unsigned int)retryCount, (unsigned int)index );
+					stateMachine = kSCRATCHPAD_RETRY_STATE;							//	timing failed so retry at scratchpad transaction
+					if ( retryCount ) { retryCount--; }
+				} else {
+					switch ( index ) {
+						case 0:
+							if ( kDeviceFamilySpeaker == ((DallasIDPtr)bEEPROM)->deviceFamily ) {
+								index++;
+								if ( index >= size ) { stateMachine = kSTATE_COMPLETED; }
+							} else {
+								debug2IOLog ( "... failed with bad deviceFamily data %X, resetting state machine\n", ((DallasIDPtr)bEEPROM)->deviceFamily );
+								stateMachine = kSTATE_RESET_READ_MEMORY;			//	bad data then retry at copy of EEPROM to scratchpad
+							}
+							break;
+						case 1:
+							if ( 0xFF != ((DallasIDPtr)bEEPROM)->deviceSubType ) {
+								index++;
+								if ( index >= size ) { stateMachine = kSTATE_COMPLETED; }
+							} else {
+								debug2IOLog ( "... failed with bad deviceSubType data %X, resetting state machine\n", ((DallasIDPtr)bEEPROM)->deviceSubType );
+								stateMachine = kSTATE_RESET_READ_MEMORY;			//	bad data then retry at copy of EEPROM to scratchpad
+							}
+							break;
+						default:
+							index++;
+							if ( index >= size ) { stateMachine = kSTATE_COMPLETED; }
+							break;
+					}
+				}
+				break;
+			case kSTATE_COMPLETED:
+				break;
+		}
+		if ( retryCount && ( kSTATE_RESET_READ_MEMORY == stateMachine ) ) {
+			IOSleep ( 1 );
+		}
 	}
-
+	if ( kSTATE_COMPLETED == stateMachine ) { resultSuccess = TRUE; }
+	
 exit:
+	debug5IOLog ( "- AppleDallasDriver::readDataROM ( %X, %X, %X ) returns %X\n", (unsigned int)bEEPROM, (unsigned int)dallasAddress, (unsigned int)size, (unsigned int)resultSuccess );
     debug2IOLog("[DALLAS] readDataROM returns %dx\n", (unsigned int)resultSuccess);
     return resultSuccess;
 }
 
+//================================================================================
 bool AppleDallasDriver::readSerialNumberROM (UInt8 *bROM)
 {
     IOMemoryMap     *map = NULL;
     UInt8           *gpioPtr = NULL;
-    int              i;
+    int              index;
     bool             failure;
     bool             resultSuccess;
 	int				retryCount;
@@ -547,12 +765,13 @@ bool AppleDallasDriver::readSerialNumberROM (UInt8 *bROM)
     while (failure && retryCount) {
         while (failure && retryCount) {
             ROMReset(gpioPtr);
-            failure = ROMSendByte(gpioPtr, kROMReadROM);
+            failure = ROMSendByte( gpioPtr, kROMReadROM, 0 );
 			retryCount--;
         }
 
-        for (i=0; i<8 && !failure; i++)
-            failure = failure || ROMReadByte(gpioPtr, &bROM[i]);
+        for ( index = 0; index < 8 && !failure; index++ ) {
+            failure |= ROMReadByte ( gpioPtr, &bROM[index] );
+		}
     }
     if ( !failure ) {
 		resultSuccess = TRUE;
@@ -561,6 +780,7 @@ exit:
     return resultSuccess;
 }
 
+//================================================================================
 bool AppleDallasDriver::start(IOService *provider)
 {
     IORegistryEntry *gpio;
@@ -571,7 +791,7 @@ bool AppleDallasDriver::start(IOService *provider)
     UInt8            bEEPROM[32];
     UInt8            bAppReg[8];
     bool             result;
-    int				 i;
+    int				 index;
 
     debugIOLog ("AppleDallasDriver Starting\n");
     
@@ -595,14 +815,14 @@ bool AppleDallasDriver::start(IOService *provider)
     gpioRegMem = IODeviceMemory::withRange (*gpioAddr, sizeof (UInt8));
     FailIf (!gpioRegMem, exit);
 
-	for (i = 0; i < 8; i++)
-		bROM[i] = 0;
+	for (index = 0; index < 8; index++)
+		bROM[index] = 0;
 		
-	for (i = 0; i < 32; i++)
-		bEEPROM[i] = 0;
+	for (index = 0; index < 32; index++)
+		bEEPROM[index] = 0;
 
-	for (i = 0; i < 8; i++)
-		bAppReg[i] = 0;
+	for (index = 0; index < 8; index++)
+		bAppReg[index] = 0;
 
    // (void)readROM (bROM, bEEPROM, bAppReg);
    // ROMCheckCRC (bROM);
@@ -614,16 +834,20 @@ exit:
     return result;
 }
 
+//================================================================================
 void AppleDallasDriver::stop (IOService *provider)
 {
     debugIOLog ("AppleDallasDriver Stopping\n");
     super::stop (provider);
 }
 
+//================================================================================
 //	The parameters are of the form:
 //		UInt8				bROM[8];
 //		UInt8				bEEPROM[32];  <--- use this for speaker id
 //		UInt8				bAppReg[8];
+//	NOTE:	There is no CRC within the EEPROM.  Only the lasered ROM has CRC!!!
+//			This function only accesses the EEPROM.
 bool AppleDallasDriver::getSpeakerID (UInt8 *bEEPROM)
 {
 	bool				resultSuccess;
@@ -631,7 +855,7 @@ bool AppleDallasDriver::getSpeakerID (UInt8 *bEEPROM)
     UInt8 *				gpioPtr = NULL;
 	UInt8				savedGPIO;
 	
-    debug2IOLog("+[DALLAS] getSpeakerID( 0x%x )\n", (unsigned int)bEEPROM);
+	debug2IOLog ( "+ AppleDallasDriver::getSpeakerID ( %X )\n", (unsigned int)bEEPROM );
 
 	resultSuccess = FALSE;
 	
@@ -639,12 +863,13 @@ bool AppleDallasDriver::getSpeakerID (UInt8 *bEEPROM)
     FailIf (!map, exit);
     gpioPtr = (UInt8*)map->getVirtualAddress ();
 
-    debug2IOLog("[DALLAS] GPIO16 Register Value = 0x%02x\n", *gpioPtr);
+    debug2IOLog("... GPIO16 Register Value = 0x%02x\n", *gpioPtr);
     FailIf (!gpioPtr, exit);
 
 	savedGPIO = *gpioPtr;
 
 	if ( NULL != bEEPROM ) {
+		debug4IOLog ( "... About to readDataROM ( %X, %X, %X )\n", (unsigned int)bEEPROM, (unsigned int)kDallasIDAddress, (unsigned int)sizeof ( SpkrID ) );
  		resultSuccess = readDataROM (bEEPROM, kDallasIDAddress, sizeof ( SpkrID ) );
 	}
 
@@ -652,7 +877,7 @@ bool AppleDallasDriver::getSpeakerID (UInt8 *bEEPROM)
 	OSSynchronizeIO();
 	
 exit:
-    debug3IOLog("-[DALLAS] %d = getSpeakerID( 0x%x )\n", (unsigned int)resultSuccess, (unsigned int)bEEPROM);
+	debug3IOLog ( "- AppleDallasDriver::getSpeakerID ( %X ) returns %X\n", (unsigned int)bEEPROM, (unsigned int)resultSuccess );
 
 	return resultSuccess;
 }

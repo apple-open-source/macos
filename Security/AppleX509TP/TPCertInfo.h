@@ -197,6 +197,7 @@ public:
 	CSSM_RETURN getReturnCode(
 		CSSM_RETURN constructStatus,
 		CSSM_BOOL	allowExpired,
+		CSSM_BOOL	allowExpiredRoot,
 		CSSM_RETURN policyStatus = CSSM_OK);
 	 
 	CssmAllocator

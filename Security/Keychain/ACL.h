@@ -88,9 +88,9 @@ public:
 	void addApplication(TrustedApplication *app);
 	
 	CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR &promptSelector()
-	{ assert(form() == appListForm); return mPromptSelector; }
+	{ assert(form() == appListForm || form() == allowAllForm); return mPromptSelector; }
 	string &promptDescription()
-	{ assert(form() == appListForm); return mPromptDescription; }
+	{ assert(form() == appListForm || form() == allowAllForm); return mPromptDescription; }
 	
 	CSSM_ACL_HANDLE entryHandle() const	{ return mCssmHandle; }
 	

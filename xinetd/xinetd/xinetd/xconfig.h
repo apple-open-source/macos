@@ -9,7 +9,7 @@
 #define XCONFIG_H
 
 /*
- * $Id: xconfig.h,v 1.1.1.2 2002/06/17 22:51:28 zarzycki Exp $
+ * $Id: xconfig.h,v 1.1.1.3 2002/12/10 01:05:36 bbraun Exp $
  */
 
 /*
@@ -51,7 +51,7 @@
  * The loop rate is a bound on the rate of forking servers for a
  * particular service. If that rate is exceeded, the service is deactivated.
  */
-#define DEFAULT_LOOP_RATE			10
+#define DEFAULT_LOOP_RATE			50
 
 /*
  * The number of seconds to wait before re-enabling a looping service.

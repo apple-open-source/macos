@@ -23,7 +23,10 @@
 #include "IOFireWireAVCConsts.h"
 
 #include <IOKit/firewire/IOFireWireNub.h>
+#include <IOKit/firewire/IOFireWireController.h>
 #include <IOKit/IOSyncer.h>
+
+#define kInterimTimeout 10000000
 
 class IOFireWireAVCCommandInGen : public IOFireWireAVCCommand
 {
@@ -49,7 +52,7 @@ private:
 
 
 OSDefineMetaClassAndStructors(IOFireWireAVCCommand, IOFWCommand)
-OSMetaClassDefineReservedUnused(IOFireWireAVCCommand, 0);
+//OSMetaClassDefineReservedUnused(IOFireWireAVCCommand, 0);
 OSMetaClassDefineReservedUnused(IOFireWireAVCCommand, 1);
 OSMetaClassDefineReservedUnused(IOFireWireAVCCommand, 2);
 OSMetaClassDefineReservedUnused(IOFireWireAVCCommand, 3);
@@ -60,7 +63,7 @@ OSMetaClassDefineReservedUnused(IOFireWireAVCCommand, 3);
  Not submitted: fTimeout = 0, fWriteNodeID = kFWBadNodeID, fStatus != Busy().
  Write submitted: fTimeout = 0, fWriteNodeID = kFWBadNodeID, fStatus = kIOReturnBusy
  Write complete: fTimeout = 250000, fWriteNodeID = device node, fStatus = kIOReturnBusy
- Interim received: fTimeout = 10000000, fWriteNodeID = device node, fStatus = kIOReturnBusy
+ Interim received: fTimeout = kInterimTimeout, fWriteNodeID = device node, fStatus = kIOReturnBusy
  Complete: fStatus != Busy()
 */
 
@@ -94,7 +97,7 @@ UInt32 IOFireWireAVCCommand::handleResponse(UInt16 nodeID, UInt32 len, const voi
     if(fTimeout && nodeID == fWriteNodeID) {
         p = (const UInt8 *)buf;
         if(p[kAVCCommandResponse] == kAVCInterimStatus) {
-            fTimeout = 10000000;	// We could wait for ever after the Interim, 10 seconds seems long enough
+            fTimeout = kInterimTimeout;	// We could wait for ever after the Interim, 10 seconds seems long enough
             updateTimer();
         }
         else {
@@ -165,6 +168,18 @@ IOReturn IOFireWireAVCCommand::execute()
     fStatus = kIOReturnBusy;
     fWriteCmd->submit();
     return fStatus;
+}
+
+IOReturn IOFireWireAVCCommand::resetInterimTimeout()
+{
+    // Reinitialize the timeout if we're waiting for the final response after an interim.
+    // Must check internal state with FireWire command gate closed.
+	fControl->closeGate();
+	if(fTimeout == kInterimTimeout && fStatus == kIOReturnBusy)
+        updateTimer();
+	fControl->openGate();
+
+    return kIOReturnSuccess;
 }
 
 bool IOFireWireAVCCommand::init(IOFireWireNub *device, const UInt8 * command, UInt32 cmdLen,

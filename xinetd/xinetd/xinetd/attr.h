@@ -9,7 +9,7 @@
 #define ATTR_H
 
 /*
- * $Id: attr.h,v 1.1.1.3 2002/10/02 21:07:20 bbraun Exp $
+ * $Id: attr.h,v 1.1.1.4 2002/12/10 01:05:03 bbraun Exp $
  */
 
 /*
@@ -57,16 +57,14 @@
 #define A_V6ONLY           39
 #define A_DENY_TIME        40
 #define A_UMASK            41
+#define A_ENABLED          42
+#define A_DISABLED         43
 
 /*
  * SERVICE_ATTRIBUTES is the number of service attributes and also
  * the number from which defaults-only attributes start.
  */
-#define SERVICE_ATTRIBUTES      ( A_CPS + 1 )
-
-#define A_DISABLED              ( SERVICE_ATTRIBUTES )
-#define A_ENABLED               ( A_DISABLED + 1 )
-
+#define SERVICE_ATTRIBUTES      ( A_ENABLED + 1 )
 
 /*
  * Mask of attributes that must be specified.

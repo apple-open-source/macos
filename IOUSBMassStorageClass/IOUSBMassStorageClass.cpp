@@ -491,18 +491,14 @@ IOUSBMassStorageClass::BeginProvidedServices( void )
 			
 			if ( nub->attach( this ) == false )
 			{
-#if 0
 				if ( isInactive() == false )
 				{
-#endif
 					// panic since the nub can't attach and we are active
 					PANIC_NOW(( "IOUSBMassStorageClass::CreatePeripheralDeviceNubForLUN unable to attach nub" ));
-#if 0
 				}
 				
 				// Release our nub before we return so we don't leak...
 				nub->release();
-#endif				
 				// We didn't attach so we should return false.
 				return false;
 			}
@@ -1067,9 +1063,7 @@ IOUSBMassStorageClass::HandlePowerOn( void )
 		
 		// Reset the device on its own thread so we don't deadlock.
 		fResetInProgress = true;
-#if 0
 		retain();
-#endif
 		IOCreateThread( IOUSBMassStorageClass::sResetDevice, this );
 		fCommandGate->runAction ( ( IOCommandGate::Action ) &IOUSBMassStorageClass::sWaitForReset );
 		
@@ -1230,14 +1224,14 @@ IOUSBMassStorageClass::sResetDevice( void * refcon )
 {
 	IOUSBMassStorageClass *		driver;
 	driver = ( IOUSBMassStorageClass * ) refcon;
-#if 0		
+		
 	// Check if we should bail out because we are
 	// being terminated.
 	if ( driver->GetInterfaceReference() == NULL )
 	{
 		goto ErrorExit;
 	}
-#endif
+	
 	driver->GetInterfaceReference()->GetDevice()->ResetDevice();
 	
 	if ( driver->GetBulkInPipe() != NULL )
@@ -1257,14 +1251,14 @@ IOUSBMassStorageClass::sResetDevice( void * refcon )
 	// device can be reconfigured for use.
 	driver->SendNotification_VerifyDeviceState();
 	
-#if 0
+	
 ErrorExit:
 	
 	
 	driver->release();
 	
 	return;
-#endif	
+	
 }
 
 
@@ -1317,16 +1311,16 @@ OSMetaClassDefineReservedUsed( IOUSBMassStorageClass, 2 );
 void
 IOUSBMassStorageClass::FinishDeviceRecovery( IOReturn status )
 {
-#if 0
+	
 	SCSITaskIdentifier	tempTask = NULL;
-#endif
+	
 	if ( status != kIOReturnSuccess)
 	{
 		// The endpoint status could not be retrieved meaning that the device has
 		// stopped responding.  Begin the device reset sequence.
 		
 		STATUS_LOG(("%s: StartDeviceRecovery GetStatusEndpointStatus error.\n", getName() ));
-#if 0		
+		
 		if ( GetInterfaceReference() == NULL )
 		{
 			// We are being terminated.  We should clean up and bail...
@@ -1341,7 +1335,7 @@ IOUSBMassStorageClass::FinishDeviceRecovery( IOReturn status )
 			
 			goto ErrorExit;
 		}
-#endif		
+		
 		status = (GetInterfaceReference()->GetDevice())->ResetDevice();
 		
 		// Once the device has been reset, send notification to the client so that the
@@ -1352,10 +1346,7 @@ IOUSBMassStorageClass::FinishDeviceRecovery( IOReturn status )
 	// If the device is responding correctly or has been reset, retry the command.
 	if( status == kIOReturnSuccess )
 	{
-
-//¥¥¥ Remove me start
-		SCSITaskIdentifier	tempTask = NULL;
-//¥¥¥ Remove me end
+		
 		if( fBulkOnlyCommandStructInUse == true )
 		{
 			tempTask = fBulkOnlyCommandRequestBlock.request;
@@ -1367,12 +1358,7 @@ IOUSBMassStorageClass::FinishDeviceRecovery( IOReturn status )
 	   			 		status));
 			if( status != kIOReturnSuccess)
 			{
-//¥¥¥ Remove me start
-				RejectTask( tempTask );
-//¥¥¥ÊRemove me end
-#if 0
 				goto ErrorExit;
-#endif
 			}
 		}
 		else if ( fCBICommandStructInUse == true )
@@ -1385,26 +1371,22 @@ IOUSBMassStorageClass::FinishDeviceRecovery( IOReturn status )
 	   					status));
 			if( status != kIOReturnSuccess)
 			{
-//¥¥¥ Remove me start
-				RejectTask( tempTask );
-//¥¥¥ÊRemove me end
-#if 0
 				goto ErrorExit;
-#endif
 			}
 	   	}
 	}
-
-#if 0	
+	
 	return;
 	
+	
 ErrorExit:
+	
 	
 	if ( tempTask != NULL )
 	{
 		RejectTask( tempTask );
 	}
-#endif
+	
 }
 
 

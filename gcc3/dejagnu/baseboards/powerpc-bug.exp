@@ -1,0 +1,29 @@
+load_generic_config "powerpc-bug";
+
+# This is a list of toolchains that are supported on this board.
+set_board_info target_install {powerpc-eabi};
+
+# We need mvme by default.
+process_multilib_options "mvme";
+
+# The compiler used to build for this board. This has *nothing* to do
+# with what compiler is tested if we're testing gcc.
+set_board_info compiler "[find_gcc]"
+
+set_board_info cflags "[libgloss_include_flags] [newlib_include_flags]"
+set_board_info ldflags "[libgloss_link_flags] [newlib_link_flags]"
+
+# No linker script needed for this board.
+set_board_info ldscript "";
+
+# Can't pass arguments to programs on this target..
+set_board_info noargs 1
+# And there's no support for signals.
+set_board_info gdb,nosignals 1
+
+# GDB doesn't return exit statuses and we need to indicate this;
+# the standard GCC wrapper will work with this target.
+set_board_info needs_status_wrapper 1
+
+# The GDB protocol for this board is...
+set_board_info gdb_protocol "ppcbug"

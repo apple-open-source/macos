@@ -527,7 +527,8 @@ typedef struct {
  */
 typedef uint32 CSSM_APPLE_TP_ACTION_FLAGS;
 enum {
-   CSSM_TP_ACTION_ALLOW_EXPIRED = 0x00000001,	// allow expired certs
+   CSSM_TP_ACTION_ALLOW_EXPIRED = 0x00000001,		// allow expired certs
+   CSSM_TP_ACTION_ALLOW_EXPIRED_ROOT = 0x00000008,	// allow expired roots
    /* other flags TBD */
 };
 

@@ -866,7 +866,7 @@ AppleUSBOHCI::UIMCreateIsochTransfer(
                 // Need new ITD for this condition
                 needNewITD = true;
                 
-                USBLog(5, "%s[%p]::UIMCreateIsochTransfer(LL) - got it! (%d, %p, %p, %d)", getName(), this, pageSelectMask, segs[0].location & kOHCIPageMask, physPageEnd, numSegs);
+                USBLog(5, "%s[%p]::UIMCreateIsochTransfer - got it! (%d, %p, %p, %d)", getName(), this, pageSelectMask, segs[0].location & kOHCIPageMask, physPageEnd, numSegs);
                 
             }
             else if ( (prevFramesPage != (segs[0].location & kOHCIPageMask)) && (segmentEnd != 0) )
@@ -876,7 +876,7 @@ AppleUSBOHCI::UIMCreateIsochTransfer(
                 // Need new ITD for this condition
                 needNewITD = true;
                 
-                USBLog(3,"%s[%p]::UIMCreateIsochTransfer(LL) This frame starts on a new page and the previous one did NOT end on a page boundary (%d)",getName(), this, segmentEnd);
+                USBLog(6,"%s[%p]::UIMCreateIsochTransfer This frame starts on a new page and the previous one did NOT end on a page boundary (%d)",getName(), this, segmentEnd);
             }
             else
 	    {

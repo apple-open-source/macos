@@ -4,7 +4,7 @@
 # So just uncomment all the lines marked QNX.
 
 PACKAGE = fetchmail
-VERSION = 5.9.11
+VERSION = 6.1.2
 
 # Ultrix 2.2 make doesn't expand the value of VPATH.
 srcdir = @srcdir@
@@ -43,9 +43,6 @@ defines = $(DEFS)
 # In particular, add -lresolv if you are running bind 4.9.5
 LOADLIBS = @LIBS@ @INTLLIBS@ @LEXLIB@
 # LOADLIBS = -lsocket3r -lunix3r	# QNX
-
-# Any extra object files your system needs.
-extras = @LIBOBJS@
 
 # Extra sources/objects for library functions not provided on the host system.
 EXTRASRC = @EXTRASRC@
@@ -99,7 +96,7 @@ protobjs = rcfile_y.o rcfile_l.o socket.o getpass.o pop2.o pop3.o imap.o \
        report.o unmime.o conf.o checkalias.o smbdes.o smbencrypt.o smbmd4.o \
        smbutil.o ipv6-connect.o lock.o
 
-objs = $(protobjs) $(extras) $(EXTRAOBJ)
+objs = $(protobjs) $(EXTRAOBJ)
 
 srcs = $(srcdir)/socket.c $(srcdir)/getpass.c $(srcdir)/pop2.c 		\
        $(srcdir)/pop3.c $(srcdir)/imap.c $(srcdir)/etrn.c 		\
@@ -137,7 +134,7 @@ dummy:
 
 # Tester for address parsing
 rfc822: rfc822.c
-	gcc -DTESTMAIN -g rfc822.c -o rfc822
+	gcc -DMAIN -g rfc822.c -o rfc822
 
 # Stand-alone MIME decoder
 unmime: unmime.c base64.c rfc822.c xmalloc.c report.c
@@ -202,7 +199,8 @@ clean:
 distclean: clean 
 	-cd intl; $(MAKE) distclean
 	-cd po; $(MAKE) distclean
-	-rm -f TAGS tags
+	-rm -f TAGS tags config.h config.log \
+		config.cache stamp-h stamp-h.in # config.status Makefile
 
 realclean: distclean
 	-rm -f FAQ FEATURES NOTES MANIFEST 
@@ -254,7 +252,7 @@ config = $(srcdir)/Makefile.in $(srcdir)/configure.in $(srcdir)/configure \
 	$(srcdir)/config.guess $(srcdir)/config.h.in $(srcdir)/config.sub \
 	$(srcdir)/acconfig.h $(srcdir)/aclocal.m4
 scripts = $(srcdir)/install-sh $(srcdir)/missing $(srcdir)/mkinstalldirs \
-	$(srcdir)/specgen.sh $(srcdir)/lsmgen.py $(srcdir)/fetchmailconf
+	$(srcdir)/specgen.sh $(srcdir)/fetchmailconf
 all = $(docs) $(config) $(srcs) $(parser) $(headers) $(extra) $(scripts) \
 	$(srcdir)/rh-config/* $(srcdir)/contrib/*[A-Za-uw-z] \
 	$(srcdir)/po/* $(srcdir)/intl $(srcdir)/beos/* ABOUT-NLS $(srcdir)/MANIFEST
@@ -286,14 +284,10 @@ TODO: todo.html
 fetchmail-man.html: fetchmail.man
 	manServer.pl fetchmail.man >fetchmail-man.html
 
-# Make distribution, update LSM with proper size, remake distribution
-# (Making fetchmail-man.html is a kluge to ensure that it will be
-# available when I upload the distribution.)
+# Make distribution.
 dist: distclean MANIFEST Makefile.in distdocs
 	touch fetchmail.lsm
 	make fetchmail-$(VERSION).tar.gz 
-	lsmgen.py $(VERSION) `wc -c fetchmail-$(VERSION).tar.gz` >fetchmail.lsm
-	make fetchmail-$(VERSION).tar.gz
 	#-cd po; make update-po
 	ls -l fetchmail-$(VERSION).tar.gz
 	@echo "Don't forget to build RPMs from root!"
@@ -308,7 +302,7 @@ fetchmail-$(VERSION).tar.gz: $(all)
 
 # Make RPMs.  You need to be root to make this work
 RPMROOT=/usr/src/redhat
-RPM = rpm
+RPM = rpmbuild
 RPMFLAGS = -ba
 rpm: dist
 	cp fetchmail-$(VERSION).tar.gz fetchmail.xpm $(RPMROOT)/SOURCES;

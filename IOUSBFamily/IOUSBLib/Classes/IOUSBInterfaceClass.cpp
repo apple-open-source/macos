@@ -36,6 +36,16 @@ __BEGIN_DECLS
 #include <IOKit/iokitmig.h>
 __END_DECLS
 
+#ifndef IOUSBLIBDEBUG
+    #define IOUSBLIBDEBUG		0
+#endif
+
+#if IOUSBLIBDEBUG
+    #define DEBUGPRINT(x,...)	printf(x, ##__VA_ARGS__)
+#else
+    #define DEBUGPRINT(x,...)
+#endif
+
 #define connectCheck() do {	    \
     if (!fConnection)		    \
 	return kIOReturnNoDevice;   \
@@ -382,7 +392,7 @@ IOUSBInterfaceClass::USBInterfaceClose()
     {
         nextBuffer = fUserBufferInfoListHead;
         buffer = fUserBufferInfoListHead;
-        printf("fUserBufferInfoListHead != NULL: %p, next: %p\n",fUserBufferInfoListHead, buffer->nextBuffer);
+        DEBUGPRINT("fUserBufferInfoListHead != NULL: %p, next: %p\n",fUserBufferInfoListHead, buffer->nextBuffer);
         
         // Traverse the list and release memory
         //
@@ -390,7 +400,7 @@ IOUSBInterfaceClass::USBInterfaceClose()
         {
             nextBuffer = buffer->nextBuffer;
             
-            printf("Releasing %p, %p\n", buffer->bufferAddress, buffer );
+            DEBUGPRINT("Releasing %p, %p\n", buffer->bufferAddress, buffer );
             free ( buffer->bufferAddress );
             free ( buffer );
             
@@ -1147,11 +1157,11 @@ IOUSBInterfaceClass::LowLatencyReadIsochPipeAsync(UInt8 pipeRef, void *buf, UInt
     {
         pb.fDataBufferCookie = dataBufferInfo->cookie;
         pb.fDataBufferOffset = (UInt32) buf - (UInt32)dataBufferInfo->bufferAddress;
-        // printf("LLRead: Found Data buffer: offset = %ld, cookie: %ld\n", pb.fDataBufferOffset, dataBufferInfo->cookie);
+        DEBUGPRINT("IOUSBInterfaceClass::LowLatencyReadIsochPipeAsync  Found Data buffer: offset = %ld, cookie: %ld\n", pb.fDataBufferOffset, dataBufferInfo->cookie);
     }
     else
     {
-        // printf("LL Read: Ooops, couldn't find buffer %p in our list\n",buf);
+        DEBUGPRINT("IOUSBInterfaceClass::LowLatencyReadIsochPipeAsync Ooops, couldn't find buffer %p in our list\n",buf);
         return kIOUSBLowLatencyBufferNotPreviouslyAllocated;
     }
     
@@ -1162,11 +1172,11 @@ IOUSBInterfaceClass::LowLatencyReadIsochPipeAsync(UInt8 pipeRef, void *buf, UInt
     {
         pb.fFrameListBufferCookie = frameListData->cookie;
         pb.fFrameListBufferOffset = (UInt32) frameList - (UInt32)frameListData->bufferAddress;
-        // printf("LL Read: Found FrameList buffer: offset = %ld, cookie : %ld\n", pb.fFrameListBufferOffset, frameListData->cookie);
+        DEBUGPRINT("IOUSBInterfaceClass::LowLatencyReadIsochPipeAsync  Found FrameList buffer: offset = %ld, cookie : %ld\n", pb.fFrameListBufferOffset, frameListData->cookie);
     }
     else
     {
-        // printf("LL Read: Ooops, couldn't find buffer %p in our list\n",frameList);
+        DEBUGPRINT("IOUSBInterfaceClass::LowLatencyReadIsochPipeAsync  Ooops, couldn't find buffer %p in our list\n",frameList);
         return kIOUSBLowLatencyFrameListNotPreviouslyAllocated;
     }
 
@@ -1219,11 +1229,11 @@ IOUSBInterfaceClass::LowLatencyWriteIsochPipeAsync(UInt8 pipeRef, void *buf, UIn
     {
         pb.fDataBufferCookie = dataBufferInfo->cookie;
         pb.fDataBufferOffset = (UInt32) buf - (UInt32)dataBufferInfo->bufferAddress;
-       //  printf("LLWrite: Found Data buffer: offset = %ld, cookie: %ld\n", pb.fDataBufferOffset, dataBufferInfo->cookie);
+        DEBUGPRINT("IOUSBInterfaceClass::LowLatencyWriteIsochPipeAsync Found Data buffer: offset = %ld, cookie: %ld\n", pb.fDataBufferOffset, dataBufferInfo->cookie);
     }
     else
     {
-       // printf("LLWrite: Ooops, couldn't find buffer %p in our list\n",buf);
+        DEBUGPRINT("IOUSBInterfaceClass::LowLatencyWriteIsochPipeAsync Ooops, couldn't find buffer %p in our list\n",buf);
         return kIOUSBLowLatencyBufferNotPreviouslyAllocated;
     }
     
@@ -1234,11 +1244,11 @@ IOUSBInterfaceClass::LowLatencyWriteIsochPipeAsync(UInt8 pipeRef, void *buf, UIn
     {
         pb.fFrameListBufferCookie = frameListData->cookie;
         pb.fFrameListBufferOffset = (UInt32) frameList - (UInt32)frameListData->bufferAddress;
-        // printf("LLWrite: Found FrameList buffer: offset = %ld, cookie = %ld\n", pb.fFrameListBufferOffset, frameListData->cookie);
+        DEBUGPRINT("IOUSBInterfaceClass::LowLatencyWriteIsochPipeAsync Found FrameList buffer: offset = %ld, cookie = %ld\n", pb.fFrameListBufferOffset, frameListData->cookie);
     }
     else
     {
-        // printf("LLWrite: Ooops, couldn't find buffer %p in our list\n",frameList);
+        DEBUGPRINT("IOUSBInterfaceClass::LowLatencyWriteIsochPipeAsync Ooops, couldn't find buffer %p in our list\n",frameList);
         return kIOUSBLowLatencyFrameListNotPreviouslyAllocated;
     }
 
@@ -1271,13 +1281,14 @@ IOUSBInterfaceClass::LowLatencyCreateBuffer( void ** buffer, IOByteCount bufferS
     
     allChecks();
 
-    // printf("In LowLatencyCreateBuffer, size: %d, type, %d\n", (int)bufferSize, (int)bufferType);
+    DEBUGPRINT("IOUSBLib::LowLatencyCreateBuffer size: %d, type, %d\n", (int)bufferSize, (int)bufferType);
     
     // Allocate our buffer Data and zero it
     //
     bufferInfo = ( LowLatencyUserBufferInfo *) malloc( sizeof(LowLatencyUserBufferInfo) );
     if ( bufferInfo == NULL )
     {
+        DEBUGPRINT("IOUSBLib::LowLatencyCreateBuffer:  Could not allocate a LowLatencyUserBufferInfo of %ld bytes\n",sizeof(LowLatencyUserBufferInfo));
         *buffer = NULL;
         result = kIOReturnNoMemory;
         goto ErrorExit;
@@ -1290,11 +1301,12 @@ IOUSBInterfaceClass::LowLatencyCreateBuffer( void ** buffer, IOByteCount bufferS
     *buffer = malloc( bufferSize );
     if ( *buffer == NULL )
     {
+        DEBUGPRINT("IOUSBLib::LowLatencyCreateBuffer:  Could not allocate a buffer of size %ld, type %ld\n", bufferSize, bufferType);
         result = kIOReturnNoMemory;
         goto ErrorExit;
     }
     
-    // printf("\tBuffer: %p\n", *buffer);
+    DEBUGPRINT("IOUSBLib::LowLatencyCreateBuffer Buffer: %p\n", *buffer);
     
     // Update our buffer Data
     //
@@ -1328,6 +1340,7 @@ IOUSBInterfaceClass::LowLatencyCreateBuffer( void ** buffer, IOByteCount bufferS
         
         // Fall through to return result
         //
+        DEBUGPRINT("IOUSBLib::LowLatencyCreateBuffer:  Kernel call to kUSBInterfaceUserClientLowLatencyPrepareBuffer returned 0x%x\n", result);
     }
     
     
@@ -1346,7 +1359,7 @@ IOUSBInterfaceClass::LowLatencyDestroyBuffer( void * buffer )
     
     allChecks();
 
-    //printf("In LowLatencyDestroyBuffer, buffer %p\n", buffer);
+    DEBUGPRINT("IOUSBLib::LowLatencyDestroyBuffer, buffer %p\n", buffer);
     
     // We need to find the LowLatencyUserBufferInfo structure that contains
     // this buffer and then remove it from the list and free the structure
@@ -1355,6 +1368,7 @@ IOUSBInterfaceClass::LowLatencyDestroyBuffer( void * buffer )
     bufferData = FindBufferAddressInList( buffer );
     if ( bufferData == NULL )
     {
+        DEBUGPRINT("IOUSBLib::LowLatencyDestroyBuffer:  Could not find buffer (%p) in our list\n", buffer);
         result = kIOReturnBadArgument;
         goto ErrorExit;
     }
@@ -1364,6 +1378,7 @@ IOUSBInterfaceClass::LowLatencyDestroyBuffer( void * buffer )
     found = RemoveDataBufferFromList( bufferData );
     if ( !found )
     {
+        DEBUGPRINT("IOUSBLib::LowLatencyDestroyBuffer:  Could not remove buffer (%p) from our list\n", buffer);
         result = kIOReturnBadArgument;
         goto ErrorExit;
     }
@@ -1380,6 +1395,10 @@ IOUSBInterfaceClass::LowLatencyDestroyBuffer( void * buffer )
     free ( bufferData->bufferAddress );
     free ( bufferData );
     
+    if ( result != kIOReturnSuccess )
+    {
+        DEBUGPRINT("IOUSBLib::LowLatencyDestroyBuffer:  Kernel call kUSBInterfaceUserClientLowLatencyReleaseBuffer returned 0x%x\n", result);
+    }
 
 ErrorExit:
     

@@ -255,6 +255,7 @@ static status_e service_fill( struct service_config *scp,
                 scp->sc_name);
             return( FAILED );
          }
+         memset(scp->sc_bind_addr, 0, sizeof(union xsockaddr));
          memcpy(scp->sc_bind_addr, res->ai_addr, res->ai_addrlen);
          free(scp->sc_orig_bind_addr);
          scp->sc_orig_bind_addr = 0;

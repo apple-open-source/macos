@@ -1,3 +1,28 @@
+ 2002-08-06  Klee Dienes  <kdienes@bluegill.localnet>
+
+       * (macosx-nat-watchpoint.c): Rename
+       target_range_profitable_for_hw_watchpoint to
+       target_range_ok_for_hw_watchpoint.
+
+2002-08-06  Klee Dienes  <kdienes@bluegill.localnet>
+
+	* macosx-nat-inferior-util.c (macosx_inferior_resume_ptrace): Pass
+	the signal to ptrace whever the inferior is either (a) detaching,
+	or (b) not stopped by a software exception.
+
+	* macosx-nat-inferior.c (macosx_handle_exception): macosx_status
+	is already a pointer; pass it to macosx_inferior_resume_mach, not
+	its address.
+
+2002-08-06  Klee Dienes  <kdienes@bluegill.localnet>
+
+	* ppc-macosx-tdep.c: Made the maximum stack frame size
+	configurable via 'ppp-maximum-frame-size', and set the default to
+	'unlimited'.  It's tempting to have ppc-maximum-frame-size default
+	to 512K, since that's the default stack allocation size on Mac OS
+	X.  But I couldn't think of a compelling reason to do it, and
+	UINT_MAX is much less dependent on OS-leve
+
 2002-06-27  Jim Ingham <jingham@apple.com>
 
 	* macosx-nat-inferior-util.c (macosx_inferior_reset): Set uses_dyld

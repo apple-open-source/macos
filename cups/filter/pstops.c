@@ -1,5 +1,5 @@
 /*
- * "$Id: pstops.c,v 1.14 2002/07/02 19:22:42 gelphman Exp $"
+ * "$Id: pstops.c,v 1.14.2.1 2002/10/22 18:02:22 gelphman Exp $"
  *
  *   PostScript filter for the Common UNIX Printing System (CUPS).
  *
@@ -68,6 +68,21 @@
 #define LAYOUT_NEGATEX	2
 #define LAYOUT_VERTICAL	4
 
+#define setFirstPageOptionsAndEmit(ppd, specialSlotSel, minOutputOrder) \
+    setPageOptionsAndEmit((ppd), (minOutputOrder), (specialSlotSel).firstPgInputSlot, \
+    (specialSlotSel).firstPgManualFeed, (specialSlotSel).otherPgManualFeed)
+
+#define setOtherPageOptionsAndEmit(ppd, specialSlotSel, minOutputOrder) \
+    setPageOptionsAndEmit((ppd), (minOutputOrder), (specialSlotSel).otherPgInputSlot, \
+    (specialSlotSel).otherPgManualFeed, (specialSlotSel).firstPgManualFeed)
+
+/* typedefs */
+typedef struct SpecialSlotSel{
+    char	*firstPgInputSlot, 
+                *firstPgManualFeed, 
+                *otherPgInputSlot, 
+                *otherPgManualFeed;
+}SpecialSlotSel;
 
 /*
  * Globals...
@@ -105,6 +120,9 @@ static void	end_nup(int number);
 #define 	is_not_last_page(p)	(NUp > 1 && ((p) % NUp) != 0)
 static char	*psgets(char *buf, size_t len, FILE *fp);
 static void	start_nup(int number, int show_border);
+static void setPageOptionsAndEmit(ppd_file_t *ppd, float minOrder, const char *inputSlotToSet, 
+                const char *manualFeedToSet, 
+                const char *manualFeedToUnset);
 
 
 /*
@@ -143,7 +161,11 @@ main(int  argc,			/* I - Number of command-line arguments */
   int		sent_espsp,	/* Did we send the ESPshowpage commands? */
 		sent_prolog,	/* Did we send the prolog commands? */
 		sent_setup;	/* Did we send the setup commands? */
-
+  int		emit_jcl = 1;	/* Should we emit JCL */
+  SpecialSlotSel  specialSlotSelection;	/* handling special slot selection */
+  char		firstPgOption[255];/* first page option data */
+  char		otherPgOption[255];/* other page option data */
+  float		minOutputOrder = 999999;	/* the minimum order dependency to generate for the page1 or pageRest feature code */
 
  /*
   * Make sure status messages are not buffered...
@@ -270,6 +292,63 @@ main(int  argc,			/* I - Number of command-line arguments */
   if ((val = cupsGetOption("brightness", num_options, options)) != NULL)
     b = atoi(val) * 0.01f;
 
+  if ((val = cupsGetOption("emit-jcl", num_options, options)) != NULL)
+    emit_jcl = atoi(val);
+
+  specialSlotSelection.firstPgInputSlot = specialSlotSelection.firstPgManualFeed =
+  specialSlotSelection.otherPgInputSlot = specialSlotSelection.otherPgManualFeed = NULL;
+  
+  if ((val = cupsGetOption("AP_FIRSTPAGE_InputSlot", num_options, options)) != NULL){
+        strlcpy(firstPgOption, val, sizeof(firstPgOption));
+        specialSlotSelection.firstPgInputSlot = firstPgOption;
+  }else{
+    if ((val = cupsGetOption("AP_FIRSTPAGE_ManualFeed", num_options, options)) != NULL){
+            strlcpy(firstPgOption, val, sizeof(firstPgOption));
+            specialSlotSelection.firstPgManualFeed = firstPgOption;
+    }
+  }
+
+  if(specialSlotSelection.firstPgInputSlot || specialSlotSelection.firstPgManualFeed){
+        if ((val = cupsGetOption("InputSlot", num_options, options)) != NULL){
+                strlcpy(otherPgOption, val, sizeof(otherPgOption));
+                specialSlotSelection.otherPgInputSlot = otherPgOption;
+        }else{
+            if ((val = cupsGetOption("ManualFeed", num_options, options)) != NULL){
+                    strlcpy(otherPgOption, val, sizeof(otherPgOption));
+                    specialSlotSelection.otherPgManualFeed = otherPgOption;
+            }
+        }
+        // we can't have both these NULL and still do special page handling
+        if(!specialSlotSelection.otherPgInputSlot && !specialSlotSelection.otherPgManualFeed){	
+            specialSlotSelection.firstPgInputSlot = NULL;
+            specialSlotSelection.firstPgManualFeed = NULL;
+        }
+        // optimize out the case where the selections are the same for first and remaining
+        if( (specialSlotSelection.otherPgInputSlot && specialSlotSelection.firstPgInputSlot &&
+            strcasecmp(specialSlotSelection.otherPgInputSlot, specialSlotSelection.firstPgInputSlot) == 0)
+                || (specialSlotSelection.otherPgManualFeed && specialSlotSelection.firstPgManualFeed &&
+            strcasecmp(specialSlotSelection.otherPgManualFeed, specialSlotSelection.firstPgManualFeed) == 0)
+        ){
+            specialSlotSelection.firstPgInputSlot = specialSlotSelection.firstPgManualFeed =
+            specialSlotSelection.otherPgInputSlot = specialSlotSelection.otherPgManualFeed = NULL;
+        }
+        
+	// compute the minimum output order based on the output order for PageRegion, InputSlot, and ManualFeed
+        if(ppd){
+            int i;
+            const char * const FeatureList[] = {
+                    "PageRegion",
+                    "InputSlot",
+                    "ManualFeed"};
+            ppd_option_t *theOption;
+            for(i=0; i < sizeof(FeatureList)/sizeof(char *) ; i++){
+                theOption = ppdFindOption(ppd, FeatureList[i]);
+                if(theOption && minOutputOrder > theOption->order)
+                    minOutputOrder = theOption->order;
+            }
+        }
+   }
+
  /*
   * See if we have to filter the fast or slow way...
   */
@@ -328,7 +407,8 @@ main(int  argc,			/* I - Number of command-line arguments */
   * Write any JCL commands that are needed to print PostScript code...
   */
 
-  ppdEmitJCL(ppd, stdout, atoi(argv[1]), argv[2], argv[3]);
+  if(emit_jcl)
+    ppdEmitJCL(ppd, stdout, atoi(argv[1]), argv[2], argv[3]);
 
  /*
   * Read the first line to see if we have DSC comments...
@@ -357,7 +437,7 @@ main(int  argc,			/* I - Number of command-line arguments */
            Collate ? " collate" : "",
 	   Duplex ? " duplex" : "");
   else if (Duplex)
-    puts("%%%%Requirements: duplex\n");
+    puts("%%Requirements: duplex");
 
  /*
   * Apple uses RBI comments for various non-PPD options...
@@ -566,11 +646,23 @@ main(int  argc,			/* I - Number of command-line arguments */
         fprintf(stderr, "DEBUG: %d %s", level, line);
 
       if (strncmp(line, "%%BeginDocument:", 16) == 0 ||
-          strncmp(line, "%%BeginDocument ", 16) == 0)	/* Adobe Acrobat BUG */
+          strncmp(line, "%%BeginDocument ", 16) == 0){	/* Adobe Acrobat BUG */
         level ++;
-      else if (strncmp(line, "%%EndDocument", 13) == 0 && level > 0)
+
+	if (!sloworder)
+          fputs(line, stdout);
+
+	if (slowcollate || sloworder)
+	  fputs(line, temp);
+      }else if (strncmp(line, "%%EndDocument", 13) == 0 && level > 0){
         level --;
-      else if (strcmp(line, "\004") == 0)
+
+	if (!sloworder)
+          fputs(line, stdout);
+
+	if (slowcollate || sloworder)
+	  fputs(line, temp);
+      }else if (strcmp(line, "\004") == 0)
         break;
       else if (strncmp(line, "%%EOF", 5) == 0 && level == 0)
       {
@@ -610,7 +702,15 @@ main(int  argc,			/* I - Number of command-line arguments */
 	    if (ppd == NULL || ppd->num_filters == 0)
 	      fprintf(stderr, "PAGE: %d %d\n", page, Copies);
 
+            // if we are about to write page 2 then we need to emit any special feature code at the end of page 1
+            if(page == 2){	// need to handle second page special features
+                setOtherPageOptionsAndEmit(ppd, specialSlotSelection, minOutputOrder);
+            }
             printf("%%%%Page: %d %d\n", page, page);
+            // if we are about to write page 1 then we need to write any special features for page 1
+            if(page == 1){	// need to handle first page special features
+                setFirstPageOptionsAndEmit(ppd, specialSlotSelection, minOutputOrder);
+            }
 	    page ++;
 	    ppdEmit(ppd, stdout, PPD_ORDER_PAGE);
 	  }
@@ -722,7 +822,14 @@ main(int  argc,			/* I - Number of command-line arguments */
 	      if (ppd == NULL || ppd->num_filters == 0)
 		fprintf(stderr, "PAGE: %d 1\n", page);
 
+                // if we are about to write page 2 then we need to emit any special feature code at the end of page 1
+                if(number == 1){	// need to handle second page special features
+                    setOtherPageOptionsAndEmit(ppd, specialSlotSelection, minOutputOrder);
+                }
               printf("%%%%Page: %d %d\n", page, page);
+                if(number == 0){	// need to handle first page special features
+                    setFirstPageOptionsAndEmit(ppd, specialSlotSelection, minOutputOrder);
+                }
 	      page ++;
 	      ppdEmit(ppd, stdout, PPD_ORDER_PAGE);
 	    }
@@ -950,7 +1057,7 @@ main(int  argc,			/* I - Number of command-line arguments */
 
   if (ppd != NULL)
   {
-    if (ppd->jcl_end)
+    if (emit_jcl && ppd->jcl_end)
       fputs(ppd->jcl_end, stdout);
 #if 0	// we don't generate control-D
     else if (ppd->num_filters == 0)
@@ -1668,7 +1775,25 @@ start_nup(int number,		/* I - Page number */
   }
 }
 
+static void setPageOptionsAndEmit(ppd_file_t *ppd, float minOrder, const char *inputSlotToSet, const char *manualFeedToSet, const char *manualFeedToUnset)
+{
+    if(ppd && (inputSlotToSet || manualFeedToSet)){
+        int limitOrder = 1;
+        if(inputSlotToSet){
+            // need to set input slot correctly and turn off manual feed if on
+            if(manualFeedToUnset && strcasecmp(manualFeedToUnset, "True") == 0){
+                ppdMarkOption(ppd, "ManualFeed", "False");
+            }
+            ppdMarkOption(ppd, "InputSlot", inputSlotToSet);
+        }else{
+            // need to set manual feed
+            ppdMarkOption(ppd, "ManualFeed", manualFeedToSet);
+        }
+        ppdEmitAfterOrder(ppd, stdout, PPD_ORDER_DOCUMENT, limitOrder, minOrder);
+        ppdEmitAfterOrder(ppd, stdout, PPD_ORDER_ANY, limitOrder, minOrder);
+    }
+}
 
 /*
- * End of "$Id: pstops.c,v 1.14 2002/07/02 19:22:42 gelphman Exp $".
+ * End of "$Id: pstops.c,v 1.14.2.1 2002/10/22 18:02:22 gelphman Exp $".
  */

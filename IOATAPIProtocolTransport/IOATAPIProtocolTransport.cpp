@@ -1610,11 +1610,16 @@ IOReturn
 IOATAPIProtocolTransport::ReconfigureATAPIDevice ( void )
 {
 	
-	SetPIOTransferMode ( fConfigCommand, true );
-	
-	if ( ( fUltraDMAMode != 0 ) || ( fDMAMode != 0 ) )
+	if ( fConfigCommand != NULL )
 	{
-		SetDMATransferMode ( fConfigCommand, true );
+		
+		SetPIOTransferMode ( fConfigCommand, true );
+		
+		if ( ( fUltraDMAMode != 0 ) || ( fDMAMode != 0 ) )
+		{
+			SetDMATransferMode ( fConfigCommand, true );
+		}
+		
 	}
 	
 	return kIOReturnSuccess;

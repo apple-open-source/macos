@@ -2,35 +2,12 @@
 
      _________________________________________________________________
 
-                       Fetchmail Bugs and To-Do Items
+                        Fetchmail Bugs and To-Do Items
 
    I  try to respond to urgent bug reports in a timely way. But fetchmail
    is  now  pretty  mature  and  I  have  many other projects, so I don't
    personally  chase obscure or marginal problems. Help with any of these
    will be cheerfully accepted.
-
-   Matthias  Andree  writes:  I believe fetchmail should not iterate over
-   protocols when we have a DNS failure.
-
-> BTW, I found a bug in 5.9.7:
-> ./fetchmail -Nvd0 jads.asdkjaldsf.com
-> Enter password for emma@jads.asdkjaldsf.com:
-> fetchmail: 5.9.7 querying jads.asdkjaldsf.com (protocol auto) at Mit 20
-> Feb 2002 06:35:07 CET: poll started
-> fetchmail: 5.9.7 querying jads.asdkjaldsf.com (protocol IMAP) at Mit 20
-> Feb 2002 06:35:07 CET: poll started
-> fetchmail: couldn't find canonical DNS name of jads.asdkjaldsf.com
-> fetchmail: 5.9.7 querying jads.asdkjaldsf.com (protocol IMAP) at Mit 20
-> Feb 2002 06:35:08 CET: poll completed
-> fetchmail: 5.9.7 querying jads.asdkjaldsf.com (protocol POP3) at Mit 20
-> Feb 2002 06:35:08 CET: poll started
-> fetchmail: couldn't find canonical DNS name of jads.asdkjaldsf.com
-> fetchmail: 5.9.7 querying jads.asdkjaldsf.com (protocol POP3) at Mit 20
-> Feb 2002 06:35:08 CET: poll completed
-> fetchmail: 5.9.7 querying jads.asdkjaldsf.com (protocol auto) at Mit 20
-> Feb 2002 06:35:08 CET: poll completed
-> fetchmail: Query status=11 (DNS)
-> fetchmail: normal termination, status 11
 
    IDLE  is  not  fully implemented. Fetchmail does not time out the idle
    connection  every  30  minutes  or  less  as required by RFC2177. Some
@@ -38,10 +15,6 @@
    MICROSOFT_BRAIN_DAMAGE  option,  as  is  the  default)  will  drop the
    connection  after  30 minutes, resulting in a spurious socket error in
    your logs and no mail being picked up until the next poll cycle.
-
-   The  UIDL  code  seems rather broken. It's a nasty swamp. Somebody who
-   actually  uses  it  should  fix  it -- every time I try I seem to make
-   things worse....
 
    POP3  can't  presently  distinguish  a  wedged  or down server from an
    authentication  failure.  Possible  fix: after issuing a PASS command.

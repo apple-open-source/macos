@@ -177,7 +177,7 @@ private:	// Should these be protected or virtual?
 
 #if ENABLE_HIDREPORT_LOGGING
     void LogBufferReport(char *report, UInt32 len);
-    void LogMemReport(IOBufferMemoryDescriptor * reportBuffer);
+    void LogMemReport(IOMemoryDescriptor * reportBuffer);
     char GetHexChar(char hexChar);
 #endif
 

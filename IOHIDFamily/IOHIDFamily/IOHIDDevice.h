@@ -33,6 +33,33 @@ class  IOHIDElement;
 class  IOHIDEventQueue;
 struct IOHIDReportHandler;
 
+/*!
+    @typedef IOHIDCompletionAction
+    Function called when set/get report completes
+    @param target The target specified in the IOHIDCompletion struct.
+    @param parameter The parameter specified in the IOHIDCompletion struct.
+    @param status Completion status
+*/
+typedef void (*IOHIDCompletionAction)(
+                void *			target,
+                void *			parameter,
+                IOReturn		status,
+                UInt32			bufferSizeRemaining);
+
+/*!
+    @typedef IOHIDCompletion
+    Struct spefifying action to perform when set/get report completes.
+    @param target The target to pass to the action function.
+    @param action The function to call.
+    @param parameter The parameter to pass to the action function.
+*/
+typedef struct IOHIDCompletion {
+    void * 			target;
+    IOHIDCompletionAction	action;
+    void *			parameter;
+} IOHIDCompletion;
+
+
 /*! @class IOHIDDevice : public IOService
     @abstract IOHIDDevice defines a Human Interface Device (HID) object,
     which will interact with the HID Manager by publishing static properties
@@ -118,7 +145,7 @@ private:
     IOBufferMemoryDescriptor * createMemoryForElementValues();
 
     
-    static bool publishNotificationHandler( void * target, 
+    static bool _publishNotificationHandler( void * target, 
 				void * ref, IOService * newService );
 
 protected:
@@ -525,9 +552,49 @@ public:
     on the object returned. */    
     OSMetaClassDeclareReservedUsed(IOHIDDevice,  3);
     virtual OSNumber * newLocationIDNumber() const;
+
+/*! @function getReport
+    @abstract Get a report from the HID device.
+    @discussion A completion parameter may be added in the future.
+    @param report A memory descriptor that describes the memory to store
+    the report read from the HID device.
+    @param reportType The report type.
+    @param options The lower 8 bits will represent the Report ID.  The
+    other 24 bits are options to specify the request.
+    @param completionTimeout Specifies an amount of time (in ms) after which 
+    the command will be aborted if the entire command has not been completed.
+    @param completion Function to call when request completes. If omitted then
+    getReport() executes synchronously, blocking until the request is complete.
+    @result kIOReturnSuccess on success, or an error return otherwise. */
+
+    OSMetaClassDeclareReservedUsed(IOHIDDevice,  4);
+    virtual IOReturn getReport( IOMemoryDescriptor * report,
+                                IOHIDReportType      reportType,
+                                IOOptionBits         options,
+                                UInt32               completionTimeout,
+                                IOHIDCompletion	*    completion = 0);
+
+/*! @function setReport
+    @abstract Send a report to the HID device.
+    @discussion A completion parameter may be added in the future.
+    @param report A memory descriptor that describes the report to send
+    to the HID device.
+    @param reportType The report type.
+    @param options The lower 8 bits will represent the Report ID.  The
+    other 24 bits are options to specify the request.
+    @param completionTimeout Specifies an amount of time (in ms) after which 
+    the command will be aborted if the entire command has not been completed.
+    @param completion Function to call when request completes. If omitted then
+    setReport() executes synchronously, blocking until the request is complete.
+    @result kIOReturnSuccess on success, or an error return otherwise. */
+
+    OSMetaClassDeclareReservedUsed(IOHIDDevice,  5);
+    virtual IOReturn setReport( IOMemoryDescriptor * report,
+                                IOHIDReportType      reportType,
+                                IOOptionBits         options,
+                                UInt32               completionTimeout,
+                                IOHIDCompletion	*    completion = 0);    
     
-    OSMetaClassDeclareReservedUnused(IOHIDDevice,  4);
-    OSMetaClassDeclareReservedUnused(IOHIDDevice,  5);
     OSMetaClassDeclareReservedUnused(IOHIDDevice,  6);
     OSMetaClassDeclareReservedUnused(IOHIDDevice,  7);
     OSMetaClassDeclareReservedUnused(IOHIDDevice,  8);

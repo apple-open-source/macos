@@ -1,7 +1,7 @@
 # file: selbox.tcl
 # file and content type selection box (ASN.1)
 #
-# $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/tcl-lib/selbox.tcl,v 1.1.1.1 2001/05/18 23:14:10 mb Exp $
+# $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/tcl-lib/selbox.tcl,v 1.1.1.1 2001/05/18 23:14:10 mb Exp $
 # $Log: selbox.tcl,v $
 # Revision 1.1.1.1  2001/05/18 23:14:10  mb
 # Move from private repository to open source repository

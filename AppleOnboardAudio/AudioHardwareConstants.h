@@ -41,6 +41,9 @@
 // Sound Entry
 #define kSoundObjectsPropName		"sound-objects"
 
+#define kAAPLAddress				"AAPL,address"
+#define kGPIODTEntry				"gpio"
+
 #define kInputObjEntryName			"input"
 #define kOutputObjEntryName			"output"
 #define kDetectObjEntryName			"detect"
@@ -73,7 +76,7 @@
 #define kPortConnectionPropName 	"port-connection"
 #define kPortTypePropName       	"port-type"
 #define kNameIDPropName         	"name-id"
-#define kZeroGainPropName         	"zero-gain"	// aml 4.26.02
+#define kZeroGainPropName         	"zero-gain"	/* aml 4.26.02	*/
 
 #define kOutputPortObjName			"OutputPort"
 #define kOutputEQPortObjName		"OutputEQPort"
@@ -143,7 +146,10 @@ enum {
 	layoutP73					=	28,
 	layoutP79					=	29,
 	layoutP84					=	30,
-	layoutP99					=	31
+	layoutP99					=	31,
+	layoutQ25					=	32,
+	layoutQ26					=	33,
+	layoutP86					=	34
 };
 
 // Hardware type 

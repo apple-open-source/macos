@@ -9,7 +9,7 @@
 #define SERVER_H
 
 /*
- * $Id: server.h,v 1.1.1.3 2002/10/02 21:07:29 bbraun Exp $
+ * $Id: server.h,v 1.1.1.4 2002/12/10 01:05:31 bbraun Exp $
  */
 
 #include "config.h"
@@ -84,7 +84,7 @@ status_e server_start(struct server *serp);
 void server_dump(const struct server *serp,int fd);
 void server_end(struct server *serp);
 struct server *server_lookup(pid_t pid);
-struct server *server_alloc( const struct server *init_serp, pset_h stab );
+struct server *server_alloc( const struct server *init_serp );
 
 #endif   /* SERVER_H */
 

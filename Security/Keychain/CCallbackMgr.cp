@@ -33,6 +33,7 @@
 #include "Globals.h"
 #include <Security/DLDBListCFPref.h>
 #include <Security/SecCFTypes.h>
+//#include <Security/Keychain.h>
 
 using namespace KeychainCore;
 using namespace CssmClient;
@@ -134,11 +135,16 @@ void CCallbackMgr::AlertClients(SecKeychainEvent inEvent,
                                 const Keychain &inKeychain,
                                 const Item &inItem)
 {
+    debug("kcnotify", "dispatch event %d pid %d keychain %p item %p",
+        inEvent, inPid, &inKeychain, !!inItem ? &*inItem : NULL);
+
     // Deal with events that we care about ourselves first.
     if (inEvent == kSecDefaultChangedEvent)
         globals().defaultKeychain.reload(true);
     else if (inEvent == kSecKeychainListChangedEvent)
         globals().storageManager.reload(true);
+    else if (inEvent == kSecDeleteEvent && inKeychain.get() && inItem.get())
+        inKeychain->didDeleteItem(inItem.get());
 
 	// Iterate through callbacks, looking for those registered for inEvent
 	const SecKeychainEventMask theMask = 1U << inEvent;

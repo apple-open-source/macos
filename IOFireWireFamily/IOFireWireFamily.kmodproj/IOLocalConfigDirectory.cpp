@@ -20,10 +20,12 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#import "IOFireWireFamilyCommon.h"
-#import "IOLocalConfigDirectory.h"
-#import "IOFWUtils.h"
+// public
+#import <IOKit/firewire/IOFireWireFamilyCommon.h>
+#import <IOKit/firewire/IOLocalConfigDirectory.h>
+#import <IOKit/firewire/IOFWUtils.h>
 
+// system
 #import <libkern/c++/OSIterator.h>
 #import <libkern/c++/OSData.h>
 #import <libkern/c++/OSArray.h>
@@ -349,7 +351,7 @@ IOReturn IOLocalConfigDirectory::compile(OSData *rom)
                 else
                     return kIOReturnInternalError;	// Oops!
                 crc = FWComputeCRC16((const UInt32 *)buffer, len / 4);
-                val = len << kConfigLeafDirLengthPhase;
+                val = (len/4) << kConfigLeafDirLengthPhase;
                 val |= crc;
                 rom->appendBytes(&val, sizeof(UInt32));
                 rom->appendBytes(buffer, len);

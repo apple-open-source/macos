@@ -6,6 +6,7 @@
  */
 
 #include "config.h"
+#include <sys/types.h>
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
@@ -22,7 +23,7 @@
 #endif
 
 XMALLOCTYPE *
-xmalloc (int n)
+xmalloc (size_t n)
 {
     XMALLOCTYPE *p;
 
@@ -36,7 +37,7 @@ xmalloc (int n)
 }
 
 XMALLOCTYPE *
-xrealloc (XMALLOCTYPE *p, int n)
+xrealloc (XMALLOCTYPE *p, size_t n)
 {
     if (p == 0)
 	return xmalloc (n);

@@ -24,7 +24,7 @@ resource 'thng' (kIsocCodecThing, "DV_IHandler")
     {
 //        cmpWantsRegisterMessage  |
             0,		// component flags
-        'dlle', kIsocCodecBaseID, 5, //platformPowerPCNativeEntryPoint,
+        'dlle', kIsocCodecBaseID, platformPowerPCNativeEntryPoint,
     }
 };
 

@@ -29,6 +29,7 @@
 #include <IOKit/hidsystem/IOHIPointing.h>
 #include <IOKit/hidsystem/IOHIDParameter.h>
 #include <IOKit/pwr_mgt/RootDomain.h>
+#include <libkern/OSByteOrder.h>
 
 #include "IOHIDPointingDevice.h"
 
@@ -435,16 +436,6 @@ static SInt32 Interpolate(  SInt32 x1, SInt32 y1,
 }
 
 
-static SInt32 Fetch32( const UInt16 * p )
-{
-    SInt32 result;
-
-    result  = (*(p++)) << 16;
-    result |= (*(p++));
-
-    return( result );
-}
-
 void IOHIPointing::setupForAcceleration( IOFixed desired )
 {
     if (SetupAcceleration (copyAccelerationTable(), desired, resolution(), &_scaleSegments, &_scaleSegCount))
@@ -813,15 +804,21 @@ IOFixed	IOHIPointing::scrollResolution()
 
 OSData * IOHIPointing::copyAccelerationTable()
 {
-    static const UInt16 accl[] = {
-	0x0000, 0x8000, 
-        0x4032, 0x3030, 0x0002, 0x0000, 0x0000, 0x0001, 0x0001, 0x0000,
-        0x0001, 0x0000, 0x0001, 0x0000, 0x0009, 0x0000, 0x713B, 0x0000,
-        0x6000, 0x0004, 0x4EC5, 0x0010, 0x8000, 0x000C, 0x0000, 0x005F,
-        0x0000, 0x0016, 0xEC4F, 0x008B, 0x0000, 0x001D, 0x3B14, 0x0094,
-        0x8000, 0x0022, 0x7627, 0x0096, 0x0000, 0x0024, 0x6276, 0x0096,
-        0x0000, 0x0026, 0x0000, 0x0096, 0x0000, 0x0028, 0x0000, 0x0096,
-        0x0000
+    static const UInt8 accl[] = {
+	0x00, 0x00, 0x80, 0x00, 
+        0x40, 0x32, 0x30, 0x30, 0x00, 0x02, 0x00, 0x00, 
+        0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00,
+        0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 
+        0x00, 0x09, 0x00, 0x00, 0x71, 0x3B, 0x00, 0x00,
+        0x60, 0x00, 0x00, 0x04, 0x4E, 0xC5, 0x00, 0x10, 
+        0x80, 0x00, 0x00, 0x0C, 0x00, 0x00, 0x00, 0x5F,
+        0x00, 0x00, 0x00, 0x16, 0xEC, 0x4F, 0x00, 0x8B, 
+        0x00, 0x00, 0x00, 0x1D, 0x3B, 0x14, 0x00, 0x94,
+        0x80, 0x00, 0x00, 0x22, 0x76, 0x27, 0x00, 0x96, 
+        0x00, 0x00, 0x00, 0x24, 0x62, 0x76, 0x00, 0x96,
+        0x00, 0x00, 0x00, 0x26, 0x00, 0x00, 0x00, 0x96, 
+        0x00, 0x00, 0x00, 0x28, 0x00, 0x00, 0x00, 0x96,
+        0x00, 0x00
     };
     
     OSData * data = OSDynamicCast( OSData,
@@ -923,7 +920,7 @@ bool SetupAcceleration (OSData * data, IOFixed desired, IOFixed resolution, void
 
     scaledX1 = scaledY1 = 0;
 
-    scale = Fetch32( highTable );
+    scale = OSReadBigInt32(highTable, 0);
     highTable += 4;
 
     // normalize table's default (scale) to 0.5
@@ -937,21 +934,21 @@ bool SetupAcceleration (OSData * data, IOFixed desired, IOFixed resolution, void
         desired <<= 1;
     }
 
-    count = *(highTable++);
+    count = OSReadBigInt16(highTable++, 0);
     scale = (1 << 16);
 
     // find curves bracketing the desired value
     do {
-        highAccl = Fetch32( highTable );
+        highAccl = OSReadBigInt32(highTable, 0);
         highTable += 2;
-        highPoints = *(highTable++);
+        highPoints = OSReadBigInt16(highTable++, 0);
 
         if( desired <= highAccl)
             break;
 
         if( 0 == --count) {
             // this much over the highest table
-            scale = IOFixedDivide( desired, highAccl );
+            scale = (highAccl) ? IOFixedDivide( desired, highAccl ) : 0;
             lowTable	= 0;
             break;
         }
@@ -964,9 +961,12 @@ bool SetupAcceleration (OSData * data, IOFixed desired, IOFixed resolution, void
     } while( true );
 
     // scale between the two
-    if( lowTable)
-        scale = IOFixedDivide( desired - lowAccl,
-                        highAccl - lowAccl );
+    if( lowTable) {
+        scale = (highAccl == lowAccl) ? 0 : 
+                IOFixedDivide((desired - lowAccl), (highAccl - lowAccl));
+                            
+    }
+                        
     // or take all the high one
     else {
         lowTable	= highTable;
@@ -987,13 +987,13 @@ bool SetupAcceleration (OSData * data, IOFixed desired, IOFixed resolution, void
 
     x1 = prevX1 = y1 = prevY1 = 0;
 
-    lowerX = Fetch32( lowTable );
+    lowerX = OSReadBigInt32(lowTable, 0);
     lowTable += 2;
-    lowerY = Fetch32( lowTable );
+    lowerY = OSReadBigInt32(lowTable, 0);
     lowTable += 2;
-    upperX = Fetch32( highTable );
+    upperX = OSReadBigInt32(highTable, 0);
     highTable += 2;
-    upperY = Fetch32( highTable );
+    upperY = OSReadBigInt32(highTable, 0);
     highTable += 2;
 
     do {
@@ -1007,9 +1007,9 @@ bool SetupAcceleration (OSData * data, IOFixed desired, IOFixed resolution, void
             x3 = lowerX;
             y3 = lowerY;
             if( lowPoints && (--lowPoints)) {
-                lowerX = Fetch32( lowTable );
+                lowerX = OSReadBigInt32(lowTable, 0);
                 lowTable += 2;
-                lowerY = Fetch32( lowTable );
+                lowerY = OSReadBigInt32(lowTable, 0);
                 lowTable += 2;
             }
         } else  {
@@ -1019,9 +1019,9 @@ bool SetupAcceleration (OSData * data, IOFixed desired, IOFixed resolution, void
             x3 = upperX;
             y3 = upperY;
             if( highPoints && (--highPoints)) {
-                upperX = Fetch32( highTable );
+                upperX = OSReadBigInt32(highTable, 0);
                 highTable += 2;
-                upperY = Fetch32( highTable );
+                upperY = OSReadBigInt32(highTable, 0);
                 highTable += 2;
             }
         }
@@ -1037,8 +1037,10 @@ bool SetupAcceleration (OSData * data, IOFixed desired, IOFixed resolution, void
             segment->devUnits = scaledX2;
         else
             segment->devUnits = 0x7fffffff;
-        segment->slope = IOFixedDivide( scaledY2 - scaledY1,
-                                        scaledX2 - scaledX1 );
+            
+        segment->slope = ((scaledX2 == scaledX1)) ? 0 : 
+                IOFixedDivide((scaledY2 - scaledY1), (scaledX2 - scaledX1));
+
         segment->intercept = scaledY2
                             - IOFixedMultiply( segment->slope, scaledX2 );
 /*        IOLog("devUnits = %08lx, slope = %08lx, intercept = %08lx\n",

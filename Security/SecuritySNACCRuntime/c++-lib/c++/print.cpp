@@ -31,7 +31,7 @@
 // useful, but WITHOUT ANY WARRANTY; without even the implied warranty
 // of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 //
-// $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-lib/c++/print.cpp,v 1.4 2001/06/28 22:49:58 mb Exp $
+// $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/c++-lib/c++/print.cpp,v 1.4 2001/06/28 22:49:58 mb Exp $
 // $Log: print.cpp,v $
 // Revision 1.4  2001/06/28 22:49:58  mb
 // Saved 4 bytes of data when compiling with -DNDEBUG

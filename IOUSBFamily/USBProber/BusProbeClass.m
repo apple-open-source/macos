@@ -339,98 +339,101 @@ errexit:
     //
     IOUSBDeviceQualifierDescriptor	desc;
     
-    len = GetDescriptor(deviceIntf, kUSBDeviceQualifierDesc, 0, &desc, sizeof(desc));
-    if ( (len > 0) && (dev.bcdUSB == 0x0200) )
+    if ( dev.bcdUSB >= 0x0200 )
     {
-        [self DumpDescriptor:deviceIntf p:(Byte *)&desc forDevice:deviceNumber lastInterfaceClass:lastInterfaceClass lastInterfaceSubClass:lastInterfaceSubClass currentInterfaceNum:currentInterfaceNum];
-        
-        // Since we have a Device Qualifier Descriptor, we can get a "Other Speed Configuration Descriptor" (It's the same as a 
-        // regular configuration descriptor)
-        //
-        for (iconfig = 0; iconfig < desc.bNumConfigurations; ++iconfig)
+        len = GetDescriptor(deviceIntf, kUSBDeviceQualifierDesc, 0, &desc, sizeof(desc));
+        if ( len > 0)
         {
-            IOUSBConfigurationDescriptor cfg;
-
-            len = GetDescriptor(deviceIntf, kUSBOtherSpeedConfDesc, iconfig, &cfg, sizeof(cfg));
-            if (len > 0) {
-                /*	struct IOUSBConfigurationDescriptor {
-                UInt8 			bLength;
-                UInt8 			bDescriptorType;
-                UInt16 			wTotalLength;
-                UInt8 			bNumInterfaces;
-                UInt8 			bConfigurationValue;
-                UInt8 			iConfiguration;
-                UInt8 			bmAttributes;
-                UInt8 			MaxPower;
-                }; */
-
-                Byte *configBuf;
-                Byte *p, *pend;
-                char configHeading[500];
-
-                aTempString = RETURNSTR(cfg, iConfiguration);
-                if (strcmp([aTempString cString], "0x00") != 0) {
-                    sprintf(configHeading, "Other Speed Configuration Descriptor: .......................................");
-                    sprintf(tempCString, [aTempString cString]);
-                    [self PrintKeyVal:configHeading val:tempCString forDevice:deviceNumber atDepth:CONFIGURATION_DESCRIPTOR_LEVEL-1 forNode:busprobeRootNode];
-                }
-                else {
-                    sprintf(configHeading, "Other Speed Configuration Descriptor");
-                    [self PrintKeyVal:configHeading val:"" forDevice:deviceNumber atDepth:CONFIGURATION_DESCRIPTOR_LEVEL-1 forNode:busprobeRootNode];
-                }
-
-                Swap16(&cfg.wTotalLength);
-                NUM(cfg, "Total Length of Descriptor:", wTotalLength, deviceNumber, CONFIGURATION_DESCRIPTOR_LEVEL, 1);
-                NUM(cfg, "Number of Interfaces:", bNumInterfaces, deviceNumber, CONFIGURATION_DESCRIPTOR_LEVEL, 1);
-                NUM(cfg, "Configuration Value:", bConfigurationValue, deviceNumber, CONFIGURATION_DESCRIPTOR_LEVEL, 1);
-                sprintf(str, "0x%02X", cfg.bmAttributes);
-                if (cfg.bmAttributes & 0x40) {
-                    strcat(str, " (self-powered");
-                }
-                else {
-                    strcat(str, " (bus-powered");
-                }
-                if (cfg.bmAttributes & 0x20) {
-                    strcat(str, ", remote wakeup");
-                }
-                strcat(str, ")");
-                [self PrintKeyVal:"Attributes:" val:str forDevice:deviceNumber atDepth:CONFIGURATION_DESCRIPTOR_LEVEL forNode:busprobeRootNode];
-
-
-                aTempString = RETURNNUM(cfg, MaxPower, 1);
-                sprintf(tempCString, "%d ma", [aTempString intValue]*2);
-                [self PrintKeyVal:"MaxPower:" val:tempCString forDevice:deviceNumber atDepth:CONFIGURATION_DESCRIPTOR_LEVEL forNode:busprobeRootNode];
-
- 
-                configBuf = malloc(cfg.wTotalLength*sizeof(Byte));
-                if ( GetDescriptor(deviceIntf, kUSBOtherSpeedConfDesc, iconfig, configBuf, cfg.wTotalLength) < 0 )
-                    continue;
-                p = configBuf;
-                pend = p + cfg.wTotalLength;
-                p += cfg.bLength;
-
-                // Dump the descriptors in the Configuration Descriptor
-                //
-               while (p < pend)
-                {
-                    UInt8 descLen = p[0];
-                    UInt8 descType = p[1];
-                    
-                    //  If this is an interface descriptor, save the interface class and subclass
-                    //
-                    if ( descType == kUSBInterfaceDesc )
-                    {
-                        lastInterfaceClass = ((IOUSBInterfaceDescriptor *)p)->bInterfaceClass;
-                        lastInterfaceSubClass = ((IOUSBInterfaceDescriptor *)p)->bInterfaceSubClass;
-                        currentInterfaceNum = (int) ((IOUSBInterfaceDescriptor *)p)->bInterfaceNumber;
-                    }
-                    
-                    [self DumpDescriptor:deviceIntf p:p forDevice:deviceNumber lastInterfaceClass:lastInterfaceClass lastInterfaceSubClass:lastInterfaceSubClass currentInterfaceNum:currentInterfaceNum];
-                    p += descLen;
-                }
+            [self DumpDescriptor:deviceIntf p:(Byte *)&desc forDevice:deviceNumber lastInterfaceClass:lastInterfaceClass lastInterfaceSubClass:lastInterfaceSubClass currentInterfaceNum:currentInterfaceNum];
+            
+            // Since we have a Device Qualifier Descriptor, we can get a "Other Speed Configuration Descriptor" (It's the same as a 
+            // regular configuration descriptor)
+            //
+            for (iconfig = 0; iconfig < desc.bNumConfigurations; ++iconfig)
+            {
+                IOUSBConfigurationDescriptor cfg;
     
-            }
-        }    
+                len = GetDescriptor(deviceIntf, kUSBOtherSpeedConfDesc, iconfig, &cfg, sizeof(cfg));
+                if (len > 0) {
+                    /*	struct IOUSBConfigurationDescriptor {
+                    UInt8 			bLength;
+                    UInt8 			bDescriptorType;
+                    UInt16 			wTotalLength;
+                    UInt8 			bNumInterfaces;
+                    UInt8 			bConfigurationValue;
+                    UInt8 			iConfiguration;
+                    UInt8 			bmAttributes;
+                    UInt8 			MaxPower;
+                    }; */
+    
+                    Byte *configBuf;
+                    Byte *p, *pend;
+                    char configHeading[500];
+    
+                    aTempString = RETURNSTR(cfg, iConfiguration);
+                    if (strcmp([aTempString cString], "0x00") != 0) {
+                        sprintf(configHeading, "Other Speed Configuration Descriptor: .......................................");
+                        sprintf(tempCString, [aTempString cString]);
+                        [self PrintKeyVal:configHeading val:tempCString forDevice:deviceNumber atDepth:CONFIGURATION_DESCRIPTOR_LEVEL-1 forNode:busprobeRootNode];
+                    }
+                    else {
+                        sprintf(configHeading, "Other Speed Configuration Descriptor");
+                        [self PrintKeyVal:configHeading val:"" forDevice:deviceNumber atDepth:CONFIGURATION_DESCRIPTOR_LEVEL-1 forNode:busprobeRootNode];
+                    }
+    
+                    Swap16(&cfg.wTotalLength);
+                    NUM(cfg, "Total Length of Descriptor:", wTotalLength, deviceNumber, CONFIGURATION_DESCRIPTOR_LEVEL, 1);
+                    NUM(cfg, "Number of Interfaces:", bNumInterfaces, deviceNumber, CONFIGURATION_DESCRIPTOR_LEVEL, 1);
+                    NUM(cfg, "Configuration Value:", bConfigurationValue, deviceNumber, CONFIGURATION_DESCRIPTOR_LEVEL, 1);
+                    sprintf(str, "0x%02X", cfg.bmAttributes);
+                    if (cfg.bmAttributes & 0x40) {
+                        strcat(str, " (self-powered");
+                    }
+                    else {
+                        strcat(str, " (bus-powered");
+                    }
+                    if (cfg.bmAttributes & 0x20) {
+                        strcat(str, ", remote wakeup");
+                    }
+                    strcat(str, ")");
+                    [self PrintKeyVal:"Attributes:" val:str forDevice:deviceNumber atDepth:CONFIGURATION_DESCRIPTOR_LEVEL forNode:busprobeRootNode];
+    
+    
+                    aTempString = RETURNNUM(cfg, MaxPower, 1);
+                    sprintf(tempCString, "%d ma", [aTempString intValue]*2);
+                    [self PrintKeyVal:"MaxPower:" val:tempCString forDevice:deviceNumber atDepth:CONFIGURATION_DESCRIPTOR_LEVEL forNode:busprobeRootNode];
+    
+    
+                    configBuf = malloc(cfg.wTotalLength*sizeof(Byte));
+                    if ( GetDescriptor(deviceIntf, kUSBOtherSpeedConfDesc, iconfig, configBuf, cfg.wTotalLength) < 0 )
+                        continue;
+                    p = configBuf;
+                    pend = p + cfg.wTotalLength;
+                    p += cfg.bLength;
+    
+                    // Dump the descriptors in the Configuration Descriptor
+                    //
+                while (p < pend)
+                    {
+                        UInt8 descLen = p[0];
+                        UInt8 descType = p[1];
+                        
+                        //  If this is an interface descriptor, save the interface class and subclass
+                        //
+                        if ( descType == kUSBInterfaceDesc )
+                        {
+                            lastInterfaceClass = ((IOUSBInterfaceDescriptor *)p)->bInterfaceClass;
+                            lastInterfaceSubClass = ((IOUSBInterfaceDescriptor *)p)->bInterfaceSubClass;
+                            currentInterfaceNum = (int) ((IOUSBInterfaceDescriptor *)p)->bInterfaceNumber;
+                        }
+                        
+                        [self DumpDescriptor:deviceIntf p:p forDevice:deviceNumber lastInterfaceClass:lastInterfaceClass lastInterfaceSubClass:lastInterfaceSubClass currentInterfaceNum:currentInterfaceNum];
+                        p += descLen;
+                    }
+        
+                }
+            }    
+        }
     }
     [deviceClass release];
     [interfaceClass release];
@@ -800,15 +803,58 @@ UInt16	Swap16(void *p)
 //	dump
 +(void)dump:(int)n byte:(Byte *)p forDevice:(int)deviceNumber atDepth:(int)depth
 {
-    char str1[8192] = "";  // Don't know how long the descriptor will be, so make str nice and big
-    char str2[10];
-    while (--n >= 0) {
-        sprintf(str2, "0x%02X ", *p++);
+    #define BYTESPERLINE	16
+    
+    int 	lineCount = 0;
+    int		runningCount = 0;
+    int		lastLine = 0;
+    char 	str1[BYTESPERLINE * 6] = "";  // 0xXX + 2 spaces
+    char 	str2[10];
+    char	descriptor[40];
+    
+    strcat( str1, "0000: ");
+    
+    while (--n >= 0) 
+    {
+        sprintf(str2, "%02X ", *p++);
         strcat(str1, str2);
+        
+        lineCount++;
+        runningCount++;
+        
+        // Add a space in between BYTESPERLINE / 2 and the next one
+        //
+        if ( (runningCount % (BYTESPERLINE>>1)) == 0 )
+            strcat(str1, " ");
+            
+        // Add the index to the bytes (should they be in hex?) to the text
+        //
+        sprintf(descriptor, "Raw Descriptor (hex) ");
+
+        // Split the descriptor into BYTESPERLINE bytes each line so that it's more readabale
+        //
+        if ( lineCount == BYTESPERLINE )
+        {
+            [self PrintKeyVal:descriptor val:str1 forDevice:deviceNumber atDepth:depth forNode:busprobeRootNode];
+            lastLine = runningCount;
+            lineCount = 0;
+            sprintf(str1, "%4.4x: ",runningCount);
+         //   strcpy(str1,"");
+        }
     }
 
     [self PrintKeyVal:"Unknown Descriptor" val:str1 forDevice:deviceNumber atDepth:depth forNode:busprobeRootNode];
 
+    if ( lineCount != 0 )
+    {
+        // Don't add an index for descriptors that only occupy one line
+        //
+        if ( lastLine == 0 )
+            strcpy(descriptor,"Raw Descriptor (hex)");
+            
+    	[self PrintKeyVal:descriptor val:str1 forDevice:deviceNumber atDepth:depth forNode:busprobeRootNode];
+    }
+    
     return;
 }
 
@@ -985,6 +1031,7 @@ UInt16	Swap16(void *p)
                     int descriptorIncrement=0;
 
                     HIDDesc = *(IOUSBHIDDescriptor *)p;
+
                     [self PrintKeyVal:"HID Descriptor" val:"" forDevice:deviceNumber atDepth:HID_DESCRIPTOR_LEVEL-1 forNode:busprobeRootNode];
                     Swap16(&HIDDesc.descVersNum);
 
@@ -1015,12 +1062,13 @@ UInt16	Swap16(void *p)
                             sprintf(tempCString, "%s  (Report Descriptor)", [tempString cString]);
                             [self PrintKeyVal:"Type:" val:tempCString forDevice:deviceNumber atDepth:HID_DESCRIPTOR_LEVEL+1 forNode:busprobeRootNode];
                             sprintf(tempCString, "%d", hidDescriptorLength);
-                            [self PrintKeyVal:"Length:" val:tempCString forDevice:deviceNumber atDepth:HID_DESCRIPTOR_LEVEL+1 forNode:busprobeRootNode];
+                            [self PrintKeyVal:"Length (and contents):" val:tempCString forDevice:deviceNumber atDepth:HID_DESCRIPTOR_LEVEL+1 forNode:busprobeRootNode];
                             reportdesc = malloc(hidDescriptorLength);
                             if (reportdesc){
                                 hidlen = GetDescriptorFromInterface(deviceIntf, kUSBReportDesc, 0 /*desc index*/,  currentInterfaceNum, reportdesc, hidDescriptorLength);
                                 if (hidlen == hidDescriptorLength)
                                 {
+                                    [self dump:hidlen byte:reportdesc forDevice:deviceNumber atDepth:HID_DESCRIPTOR_LEVEL+2];
                                     [DecodeHIDReport DecodeHIDReport:reportdesc forDevice:deviceNumber atDepth:HID_DESCRIPTOR_LEVEL+1 reportLen:hidlen forNode:busprobeRootNode];
                                 }
                                 free(reportdesc);
@@ -1042,12 +1090,12 @@ UInt16	Swap16(void *p)
                         }
                     }
                 }  /* HID Descriptor */
-        /*        else
+                else
                 {
                     // Descriptor 21 for an unknown class.  Just dump it out
                     //
                     [self DumpRawDescriptor:p forDevice:deviceNumber atDepth:CONFIGURATION_DESCRIPTOR_LEVEL+1];
-                }*/
+                }
             }
                             break;
                             

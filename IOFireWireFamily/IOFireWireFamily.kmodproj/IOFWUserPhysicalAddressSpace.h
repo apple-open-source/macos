@@ -31,7 +31,7 @@
 #ifndef _IOKIT_IOFWUserClientPhysAddrSpace_H_
 #define _IOKIT_IOFWUserClientPhysAddrSpace_H_
 
-#import "IOFWAddressSpace.h"
+#import <IOKit/firewire/IOFWAddressSpace.h>
 
 class IOFWUserClientPhysicalAddressSpace: public IOFWPhysicalAddressSpace
 {

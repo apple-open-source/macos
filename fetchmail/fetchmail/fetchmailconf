@@ -4,7 +4,7 @@
 # by Eric S. Raymond, <esr@snark.thyrsus.com>.
 # Requires Python with Tkinter, and the following OS-dependent services:
 #       posix, posixpath, socket
-version = "1.42"
+version = "1.43"
 
 from Tkinter import *
 from Dialog import *
@@ -224,42 +224,42 @@ class User:
 	    print "Can't get your username!"
 	    sys.exit(1)
 	self.localnames = [self.remote,]# Local names
-	self.password = None	    # Password for mail account access
-	self.mailboxes = []	     # Remote folders to retrieve from
-	self.smtphunt = []	      # Hosts to forward to
-	self.fetchdomains = []	  # Domains to fetch from
-	self.smtpaddress = None	 # Append this to MAIL FROM line
-	self.smtpname = None	    # Use this for RCPT TO
-	self.preconnect = None	  # Connection setup
-	self.postconnect = None	 # Connection wrapup
-	self.mda = None		 # Mail Delivery Agent
-	self.bsmtp = None	       # BSMTP output file
-	self.lmtp = FALSE	       # Use LMTP rather than SMTP?
-	self.antispam = "571 550 501 554"	# Listener's spam-block code
-	self.keep = FALSE	       # Keep messages
-	self.flush = FALSE	      # Flush messages
-	self.fetchall = FALSE	   # Fetch old messages
-	self.rewrite = TRUE	     # Rewrite message headers
-	self.forcecr = FALSE	    # Force LF -> CR/LF
-	self.stripcr = FALSE	    # Strip CR
-	self.pass8bits = FALSE	  # Force BODY=7BIT
-	self.mimedecode = FALSE	 # Undo MIME armoring
-	self.dropstatus = FALSE	 # Drop incoming Status lines
-	self.dropdelivered = FALSE      # Drop incoming Delivered-To lines
+	self.password = None	# Password for mail account access
+	self.mailboxes = []	# Remote folders to retrieve from
+	self.smtphunt = []	# Hosts to forward to
+	self.fetchdomains = []	# Domains to fetch from
+	self.smtpaddress = None	# Append this to MAIL FROM line
+	self.smtpname = None	# Use this for RCPT TO
+	self.preconnect = None	# Connection setup
+	self.postconnect = None	# Connection wrapup
+	self.mda = None		# Mail Delivery Agent
+	self.bsmtp = None	# BSMTP output file
+	self.lmtp = FALSE	# Use LMTP rather than SMTP?
+	self.antispam = ""	# Listener's spam-block code
+	self.keep = FALSE	# Keep messages
+	self.flush = FALSE	# Flush messages
+	self.fetchall = FALSE	# Fetch old messages
+	self.rewrite = TRUE     # Rewrite message headers
+	self.forcecr = FALSE	# Force LF -> CR/LF
+	self.stripcr = FALSE	# Strip CR
+	self.pass8bits = FALSE	# Force BODY=7BIT
+	self.mimedecode = FALSE	# Undo MIME armoring
+	self.dropstatus = FALSE	# Drop incoming Status lines
+	self.dropdelivered = FALSE     # Drop incoming Delivered-To lines
 	self.idle = FALSE	       # IDLE after poll
-	self.limit = 0		  # Message size limit
-	self.warnings = 3600	    # Size warning interval (see tunable.h)
-	self.fetchlimit = 0	     # Max messages fetched per batch
-	self.batchlimit = 0	     # Max message forwarded per batch
-	self.expunge = 0		# Interval between expunges (IMAP)
-	self.ssl = 0		    # Enable Seccure Socket Layer
-	self.sslkey = None	      # SSL key filename
-	self.sslcert = None	     # SSL certificate filename
-	self.sslproto = None	    # Force SSL?
-	self.sslcertck = 0	      # Enable strict SSL cert checking
-	self.sslcertpath = None	 # Path to trusted certificates
+	self.limit = 0		# Message size limit
+	self.warnings = 3600	# Size warning interval (see tunable.h)
+	self.fetchlimit = 0	# Max messages fetched per batch
+	self.batchlimit = 0	# Max message forwarded per batch
+	self.expunge = 0	# Interval between expunges (IMAP)
+	self.ssl = 0		# Enable Seccure Socket Layer
+	self.sslkey = None	# SSL key filename
+	self.sslcert = None	# SSL certificate filename
+	self.sslproto = None	# Force SSL?
+	self.sslcertck = 0	# Enable strict SSL cert checking
+	self.sslcertpath = None	# Path to trusted certificates
 	self.sslfingerprint = None      # SSL key fingerprint to check
-	self.properties = None	  # Extension properties
+	self.properties = None	# Extension properties
 	User.typemap = (
 	    ('remote',      'String'),
 	    # leave out mailboxes and localnames
@@ -414,7 +414,7 @@ defaultports = {"auto":0,
 		"ETRN":25,
 		"ODMR":366}
 
-authlist = ("any", "password", "gssapi", "kerberos", "ssh")
+authlist = ("any", "password", "gssapi", "kerberos", "ssh", "otp")
 
 listboxhelp = {
     'title' : 'List Selection Help',
@@ -1278,6 +1278,12 @@ brain-dead Microsoft operating system it rode in on.
 		warnings = warnings + """
 This POP server has a weird bug; it says OK twice in response to TOP.
 Its response to RETR is normal, so use the `fetchall' option.
+
+"""
+	    if string.find(greetline, " geonet.de") > 0:
+		warnings = warnings + """
+You appear to be using geonet.  As of late 2002, the TOP command on
+geonet's POP3 is broken.  Use the fetchall option.
 
 """
 	    if string.find(greetline, "GMX POP3 StreamProxy") > 0:

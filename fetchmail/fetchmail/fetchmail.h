@@ -5,6 +5,9 @@
 /* We need this for HAVE_STDARG_H, etc */
 #include "config.h"
 
+/* We need this for size_t */
+#include <sys/types.h>
+
 /* constants designating the various supported protocols */
 #define		P_AUTO		1
 #define		P_POP2		2
@@ -97,6 +100,7 @@
 #define		PS_REFUSED	25	/* mail refused (internal use) */
 #define		PS_RETAINED	26	/* message retained (internal use) */
 #define		PS_TRUNCATED	27	/* headers incomplete (internal use) */
+#define		PS_REPOLL	28	/* repoll immediately with changed parameters (internal use) */
 
 /* output noise level */
 #define         O_SILENT	0	/* mute, max squelch, etc. */
@@ -383,7 +387,7 @@ extern int pass;		/* number of re-polling pass */
 extern flag configdump;		/* dump control blocks as Python dictionary */
 extern char *fetchmailhost;	/* either "localhost" or an FQDN */
 extern int suppress_tags;	/* suppress tags in tagged protocols? */
-extern char shroud[PASSWORDLEN];	/* string to shroud in debug output */
+extern char shroud[PASSWORDLEN*2+1];	/* string to shroud in debug output */
 #ifdef SDPS_ENABLE
 extern char *sdps_envfrom;
 extern char *sdps_envto;
@@ -393,7 +397,7 @@ extern char *sdps_envto;
 
 /* from /usr/include/sys/cdefs.h */
 #if !defined __GNUC__ || __GNUC__ < 2
-# define __attribute__(xyz)»    /* Ignore. */
+# define __attribute__(xyz)    /* Ignore. */
 #endif
 
 /* error.c: Error reporting */
@@ -481,6 +485,7 @@ int interruptible_idle(int interval);
 /* sink.c: forwarding */
 void smtp_close(struct query *, int);
 int smtp_open(struct query *);
+char *rcpt_address(struct query *, const char *, int);
 int stuffline(struct query *, char *);
 int open_sink(struct query*, struct msgblk *, int*, int*);
 void release_sink(struct query *);
@@ -549,8 +554,8 @@ int interface_approve(struct hostdata *, flag domonitor);
 #else
 #define XMALLOCTYPE char
 #endif
-XMALLOCTYPE *xmalloc(int);
-XMALLOCTYPE *xrealloc(XMALLOCTYPE *, int);
+XMALLOCTYPE *xmalloc(size_t);
+XMALLOCTYPE *xrealloc(/*@null@*/ XMALLOCTYPE *, size_t);
 char *xstrdup(const char *);
 #if defined(HAVE_ALLOCA_H)
 #include <alloca.h>
@@ -583,8 +588,13 @@ int do_gssauth(int sock, char *command, char *hostname, char *username);
 int do_otp(int sock, char *command, struct query *ctl);
 
 /* miscellanea */
+
+/* these should be of size PATH_MAX */
+extern char currentwd[1024], rcfiledir[1024];
+
 struct query *hostalloc(struct query *); 
 int parsecmdline (int, char **, struct runctl *, struct query *);
+char *prependdir (const char *, const char *);
 char *MD5Digest (unsigned char *);
 void hmac_md5 (unsigned char *, size_t, unsigned char *, size_t, unsigned char *, size_t);
 int POP3_auth_rpa(unsigned char *, unsigned char *, int socket);
@@ -642,5 +652,11 @@ char *strerror ();
        _exit(e); \
        } while(0)
 #endif /* FETCHMAIL_DEBUG */
+
+#ifdef __CYGWIN__
+#define ROOT_UID 18
+#else /* !__CYGWIN__ */
+#define ROOT_UID 0
+#endif /* __CYGWIN__ */
 
 /* fetchmail.h ends here */

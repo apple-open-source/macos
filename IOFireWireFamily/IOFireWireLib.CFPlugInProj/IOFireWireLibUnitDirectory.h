@@ -28,7 +28,10 @@
  *
  */
 
-#import "IOFireWireLib.h"
+// public
+#import <IOKit/firewire/IOFireWireLib.h>
+
+// private
 #import "IOFireWireLibPriv.h"
 
 namespace IOFireWireLib {

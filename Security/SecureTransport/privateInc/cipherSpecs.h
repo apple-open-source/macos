@@ -21,7 +21,7 @@
 
 	Contains:	SSLCipherSpec declarations
 
-	Written by:	Doug Mitchell, based on Netscape SSLRef 3.0
+	Written by:	Doug Mitchell
 
 	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
 
@@ -30,26 +30,28 @@
 #ifndef	_CIPHER_SPECS_H_
 #define _CIPHER_SPECS_H_
 
-#ifndef _SSLCTX_H_
-#include "sslctx.h"
-#endif
-
-#ifndef _CRYPTTYPE_H_
+#include "sslContext.h"
 #include "cryptType.h"
+
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 /* 
  * Build ctx->validCipherSpecs as a copy of all known CipherSpecs. 
  */
-extern SSLErr sslBuildCipherSpecArray(SSLContext *ctx);
+extern OSStatus sslBuildCipherSpecArray(SSLContext *ctx);
 
 /*
  * Given a valid ctx->selectedCipher and ctx->validCipherSpecs, set
  * ctx->selectedCipherSpec as appropriate. 
  */
-SSLErr  FindCipherSpec(SSLContext *ctx);
+OSStatus  FindCipherSpec(SSLContext *ctx);
 
 extern const SSLCipherSpec SSL_NULL_WITH_NULL_NULL_CipherSpec;
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif	/* _CIPHER_SPECS_H_ */

@@ -38,8 +38,6 @@ extern "C" {
  * general Keychain functionality.
  */
  
-#define ST_KEYCHAIN_ENABLE				1
-
 /*
  * Work around the Netscape Server Key Exchange bug. When this is 
  * true, only do server key exchange if both of the following are
@@ -48,7 +46,7 @@ extern "C" {
  *   -- an export-grade ciphersuite has been negotiated, and
  *   -- an encryptPrivKey is present in the context
  */
-#define SSL_SERVER_KEYEXCH_HACK			0
+#define SSL_SERVER_KEYEXCH_HACK		0
 
 /*
  * RSA functions which use a public key to do encryption force 
@@ -58,34 +56,13 @@ extern "C" {
  * might not be enough - what if server certs don't have the 
  * appropriate usage bits?
  */
-#define RSA_PUB_KEY_USAGE_HACK			1
-
-/*
- * For now, we're assuming that the domestic CSP is available - major
- * rework needed if it's not. 
- */
-#define APPLE_DOMESTIC_CSP_REQUIRED		1
+#define RSA_PUB_KEY_USAGE_HACK		1
 
 /*
  * CSSM_KEYs obtained from Keychain require a SecKeychainRef to be freed/released.
  * True on 9, false on X.
  */
 #define ST_KC_KEYS_NEED_REF			0
-
-/*
- * Initial bringup of server/keychain on X: the certRefs argument of 
- * SSLSetCertificate() contains one DLDBHandle, not a number of 
- * SecIdentityRefs. The DLDB contains exactly one private key, and a
- * cert with PrintName which matches that key. Public key is obtained
- * from the cert. We have to manually attach to the CSPDL in this case.
- */
-#define ST_FAKE_KEYCHAIN			0
-
-/*
- * Flags need for manually attaching to CSPDL for configuration which
- * does not contain a working SecKeychainGetCSPHandle().
- */
-#define ST_FAKE_GET_CSPDL_HANDLE	0
 
 /* 
  * We manage trusted certs and pass them to the TP. 
@@ -97,11 +74,11 @@ extern "C" {
 
 /* debugging flags */
 #ifdef	NDEBUG
-#define SSL_DEBUG			0
-#define ERROR_LOG_ENABLE	0
+#define SSL_DEBUG					0
+#define ERROR_LOG_ENABLE			0
 #else
-#define SSL_DEBUG			1
-#define ERROR_LOG_ENABLE	1
+#define SSL_DEBUG					1
+#define ERROR_LOG_ENABLE			1
 #endif	/* NDEBUG */
 	
 #if defined(__cplusplus)

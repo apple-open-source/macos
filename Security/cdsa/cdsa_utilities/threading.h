@@ -83,6 +83,10 @@ private:
 //
 // Per-thread pointers are patterned after the pthread TLS (thread local storage)
 // facility.
+// Let's be clear on what gets destroyed when, here. Following the pthread lead,
+// when a thread dies its PerThreadPointer object(s) are properly destroyed.
+// However, if a PerThreadPointer itself is destroyed, NOTHING HAPPENS. Yes, there are
+// reasons for this. This is not (on its face) a bug, so don't yell. But be aware...
 //
 #if _USE_THREADS == _USE_PTHREADS
 
@@ -107,7 +111,7 @@ template <class T>
 class PerThreadPointer {
 public:
 	PerThreadPointer(bool cleanup = true) : mCleanup(cleanup) { }
-    ~PerThreadPointer()			{ if (mCleanup) delete mValue; }
+    ~PerThreadPointer()			{ /* no cleanup - see comment above */ }
 	operator bool() const		{ return mValue != NULL; }
 	operator T * () const		{ return mValue; }
     T *operator -> () const		{ return mValue; }

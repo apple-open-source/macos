@@ -1,0 +1,53 @@
+# Copyright (C) 1995, 1996, 1997, 1999 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+# Please email any bugs, comments, and/or additions to this file to:
+# bug-dejagnu@prep.ai.mit.edu
+
+# This file tests pass/fail/etc.
+# The way we do this is to recursively invoke ourselves on a small testsuite
+# and analyze the results.
+
+load_lib util-defs.exp
+
+if ![info exists tmpdir] {
+    set tmpdir $objdir/tmpdir
+}
+
+if ![file isdirectory $tmpdir] {
+    catch "exec mkdir $tmpdir"
+}
+
+set tests {
+    { pass "expected passes\[ \t\]+1\n" }
+    { fail "unexpected failures\[ \t\]+1\n" }
+    { xpass "unexpected successes\[ \t\]+1\n" }
+    { xfail "expected failures\[ \t\]+1\n" }
+    { untested "untested testcases\[ \t\]+1\n" }
+    { unresolved "unresolved testcases\[ \t\]+1\n" }
+    { unsupported "unsupported tests\[ \t\]+1\n" }
+}
+
+foreach t $tests {
+    if [util_test "$RUNTEST" \
+	    "--outdir $tmpdir STATS_TEST=[lindex $t 0] stats-sub.exp" \
+	    "" \
+	    [lindex $t 1]] {
+	fail [lindex $t 0]
+    } else {
+	pass [lindex $t 0]
+    }
+}

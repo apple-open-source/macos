@@ -171,7 +171,8 @@ enum {
   kIDHDV_SD                     = 0,
   kIDHDV_SDL                    = 1,
   kIDHDV_HD                     = 2,
-  kIDHDVCPro_25                 = 0x1E
+  kIDHDVCPro_25                 = 0x1E,
+  kIDHDVCPro_50                 = 0x1D
 };
 
 /*  Isoch Interval Atom Data*/

@@ -53,9 +53,10 @@ extern int errno ;
 
 
 /*
- * Allocate a server, initialize it from init_serp, and insert it in stab
+ * Allocate a server, initialize it from init_serp, and insert it in the server
+ * table.
  */
-struct server *server_alloc( const struct server *init_serp, pset_h stab )
+struct server *server_alloc( const struct server *init_serp )
 {
    struct server   *serp ;
    const char      *func = "server_alloc" ;
@@ -67,9 +68,10 @@ struct server *server_alloc( const struct server *init_serp, pset_h stab )
       return( NULL ) ;
    }
 
-   if ( pset_add( stab, serp ) == NULL )
+   if ( pset_add( SERVERS(ps), serp ) == NULL )
    {
       msg( LOG_CRIT, func, "couldn't insert server in server table" ) ;
+      CLEAR( *serp ) ;
       FREE_SERVER( serp ) ;
       return( NULL ) ;
    }
@@ -86,9 +88,11 @@ void server_release( struct server *serp )
    struct service   *sp   = SERVER_SERVICE( serp ) ;
    int              count = SVC_RELE( sp ) ;
 
+   pset_remove(SERVERS(ps), serp);
    if ( count == 0 && ! SC_IS_SPECIAL( SVC_CONF( sp ) ) )
       pset_remove( SERVICES( ps ), sp ) ;
    
+   CLEAR( *serp ) ;
    FREE_SERVER( serp ) ;
 }
 
@@ -142,21 +146,16 @@ status_e server_run( struct service *sp, connection_s *cp )
        * same protection that external services get. This is
        * mandatory for the sensor patch to work.
        */
+
       if (svc_child_access_control( sp, cp ) == OK)
          server_internal( &server ) ;
       else {
-         conn_close(cp);
          if ( SVC_WAITS( sp ) )
             svc_resume( sp );
          return( FAILED );
       }
       if ( SVC_WAITS( sp ) )
          svc_resume( sp );
-      if ( SVC_IS_ACTIVE( sp ) ) {
-         CONN_CLEANUP( cp ) ;   /* forces a drain on DGRAM...   */
-         if( SVC_FORKS( sp ) )
-            conn_free( cp, 1 ) ;      /* Parent must close socket   */
-      }
       return( OK ) ;
    }
 
@@ -164,21 +163,18 @@ status_e server_run( struct service *sp, connection_s *cp )
     * Insert new struct server in server table first, to avoid the
     * possibility of running out of memory *after* the fork.
     */
-   serp = server_alloc( &server, SERVERS( ps ) ) ;
+   serp = server_alloc( &server ) ;
    if ( serp == NULL )
       return( FAILED ) ;
 
    if ( server_start( serp ) == OK )
    {
       if( !SVC_WAITS(sp) )
-         conn_close( cp ) ;
+         CONN_CLOSE( cp ) ;
       return( OK ) ;
    }
 
-   /*
-    * Fork failed; remove the server from the server table
-    */
-   pset_remove( SERVERS( ps ), serp ) ;
+   /* server will be removed in server_release() */
 
    /*
     * Currently, fork failures are the only reason for retrying.
@@ -220,7 +216,6 @@ status_e server_start( struct server *serp )
    {
       case 0:
          ps.rws.env_is_valid = FALSE ;
-
          child_process( serp ) ;
 
          msg( LOG_ERR, func, "INTERNAL ERROR: child_process returned" ) ;
@@ -303,7 +298,6 @@ void server_end( struct server *serp )
          FD_SET( SVC_FD( sp ), &ps.rws.socket_mask ) ;
 
       svc_postmortem( sp, serp ) ;
-      pset_remove( SERVERS( ps ), serp ) ;
       server_release( serp ) ;
    }
    else if ( PROC_STOPPED( serp->svr_exit_status ) )

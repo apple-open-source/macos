@@ -175,8 +175,8 @@ bool UniNEnet::miiFindPHY( UInt8 *phy )
 
     	// The first two PHY registers are required:
 
-    for ( i = 0; i < MII_MAX_PHY; i++ ) 
-    {        
+	for ( i = 0; i < MII_MAX_PHY; i++ )
+    {
         if ( miiReadWord( &phyWord,     MII_STATUS,  i ) == false )	continue;
         if ( miiReadWord( &fPHYControl, MII_CONTROL, i ) == false )	continue;
 

@@ -29,10 +29,9 @@ using namespace SecurityServer;
 const char *const SSDatabaseImpl::DBBlobRelationName = "DBBlob";
 
 
-SSDatabaseImpl::SSDatabaseImpl(ClientSession &inClientSession,
-							   const CssmClient::DL &dl,
+SSDatabaseImpl::SSDatabaseImpl(ClientSession &inClientSession, const CssmClient::DL &dl,
 							   const char *inDbName, const CSSM_NET_ADDRESS *inDbLocation)
-: Db::Impl(dl, inDbName, inDbLocation), mClientSession(inClientSession), mSSDbHandle(noDb)
+	: Db::Impl(dl, inDbName, inDbLocation), mClientSession(inClientSession), mSSDbHandle(noDb)
 {
 }
 
@@ -119,12 +118,20 @@ DbHandle
 SSDatabaseImpl::dbHandle()
 {
 	activate();
+	if (mForked()) {
+		// re-establish the dbHandle with the SecurityServer
+		CssmDataContainer dbb(allocator());
+		mDbBlobId->get(NULL, &dbb);
+		mSSDbHandle = mClientSession.decodeDb(mIdentifier,
+			AccessCredentials::overlay(accessCredentials()), dbb);
+	}
 	return mSSDbHandle;
 }
 
 void
 SSDatabaseImpl::create(const DLDbIdentifier &dlDbIdentifier)
 {
+	mIdentifier = dlDbIdentifier;
 	DbImpl::create();
 
 	try
@@ -177,6 +184,7 @@ SSDatabaseImpl::create(const DLDbIdentifier &dlDbIdentifier)
 void
 SSDatabaseImpl::open(const DLDbIdentifier &dlDbIdentifier)
 {
+	mIdentifier = dlDbIdentifier;
 	Db::Impl::open();
 
 	DbCursor cursor(SSDatabase(this));

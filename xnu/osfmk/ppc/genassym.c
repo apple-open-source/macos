@@ -108,6 +108,10 @@ int main(int argc, char *argv[])
 
 	DECLARE("fvChkb",		fvChkb);
 	DECLARE("fvChk",		fvChk);
+	DECLARE("FamVMena",		FamVMena);
+	DECLARE("FamVMenabit",		FamVMenabit);
+	DECLARE("FamVMmode",		FamVMmode);
+	DECLARE("FamVMmodebit",		FamVMmodebit);
 
 	/* Per Proc info structure */
 	DECLARE("PP_CPU_NUMBER",		offsetof(struct per_proc_info *, cpu_number));
@@ -132,7 +136,9 @@ int main(int argc, char *argv[])
 	DECLARE("lclfreecnt",			offsetof(struct per_proc_info *, lclfreecnt));
 	DECLARE("PP_INTS_ENABLED", 		offsetof(struct per_proc_info *, interrupts_enabled));
 	DECLARE("UAW", 					offsetof(struct per_proc_info *, Uassist));
-	DECLARE("next_savearea", 			offsetof(struct per_proc_info *, next_savearea));
+	DECLARE("VMMareaPhys", 			offsetof(struct per_proc_info *, VMMareaPhys));
+	DECLARE("FAMintercept", 		offsetof(struct per_proc_info *, FAMintercept));
+	DECLARE("next_savearea", 		offsetof(struct per_proc_info *, next_savearea));
 	DECLARE("PP_ACTIVE_THREAD", 	offsetof(struct per_proc_info *, pp_active_thread));
 	DECLARE("PP_PREEMPT_CNT", 		offsetof(struct per_proc_info *, pp_preemption_count));
 	DECLARE("PP_SIMPLE_LOCK_CNT",	offsetof(struct per_proc_info *, pp_simple_lock_count));
@@ -370,6 +376,11 @@ int main(int argc, char *argv[])
 	DECLARE("kVmmExecuteVM", 		kVmmExecuteVM);
 	DECLARE("kVmmProtectPage", 		kVmmProtectPage);
 
+	DECLARE("kvmmExitToHost",		kvmmExitToHost);
+	DECLARE("kvmmResumeGuest",		kvmmResumeGuest);
+	DECLARE("kvmmGetGuestRegister",	kvmmGetGuestRegister);
+	DECLARE("kvmmSetGuestRegister",	kvmmSetGuestRegister);
+
 	DECLARE("kVmmReturnNull",		kVmmReturnNull);
 	DECLARE("kVmmStopped",			kVmmStopped);
 	DECLARE("kVmmBogusContext",		kVmmBogusContext);
@@ -391,9 +402,11 @@ int main(int argc, char *argv[])
 	DECLARE("vmmInUse",				vmmInUse);
 	DECLARE("vmmPmap",				offsetof(struct vmmCntrlEntry *, vmmPmap));
 	DECLARE("vmmContextKern",		offsetof(struct vmmCntrlEntry *, vmmContextKern));
+	DECLARE("vmmContextPhys",		offsetof(struct vmmCntrlEntry *, vmmContextPhys));
 	DECLARE("vmmContextUser",		offsetof(struct vmmCntrlEntry *, vmmContextUser));
 	DECLARE("vmmFacCtx",			offsetof(struct vmmCntrlEntry *, vmmFacCtx));
 	DECLARE("vmmLastMap",			offsetof(struct vmmCntrlEntry *, vmmLastMap));
+	DECLARE("vmmFAMintercept",		offsetof(struct vmmCntrlEntry *, vmmFAMintercept));
 	DECLARE("vmmCEntrySize",		sizeof(struct vmmCntrlEntry));
 	DECLARE("kVmmMaxContextsPerThread",		kVmmMaxContextsPerThread);
 	
@@ -404,7 +417,6 @@ int main(int argc, char *argv[])
 	DECLARE("return_code",			offsetof(struct vmm_state_page_t *, return_code));
 	DECLARE("return_params",		offsetof(struct vmm_state_page_t *, return_params));
 	DECLARE("vmm_proc_state",		offsetof(struct vmm_state_page_t *, vmm_proc_state));
-	DECLARE("return_params",		offsetof(struct vmm_state_page_t *, return_params));
 	DECLARE("vmmppcVRs",			offsetof(struct vmm_state_page_t *, vmm_proc_state.ppcVRs));
 	DECLARE("vmmppcVSCR",			offsetof(struct vmm_state_page_t *, vmm_proc_state.ppcVSCR));
 	DECLARE("vmmppcVSCRshadow",		offsetof(struct vmm_state_page_t *, vmm_proc_state.ppcVSCRshadow));
@@ -461,6 +473,23 @@ int main(int argc, char *argv[])
 	DECLARE("vmmppcfpscrpad",		offsetof(struct vmm_state_page_t *, vmm_proc_state.ppcFPSCR));
 	DECLARE("vmmppcfpscr",			offsetof(struct vmm_state_page_t *, vmm_proc_state.ppcFPSCR+4));
 
+	DECLARE("famguestr0",			offsetof(struct vmm_state_page_t *, vmm_fastassist_state.guest_register));
+	DECLARE("famguestr1",			offsetof(struct vmm_state_page_t *, vmm_fastassist_state.guest_register+0x4));
+	DECLARE("famguestr2",			offsetof(struct vmm_state_page_t *, vmm_fastassist_state.guest_register+0x8));
+	DECLARE("famguestr3",			offsetof(struct vmm_state_page_t *, vmm_fastassist_state.guest_register+0xC));
+	DECLARE("famguestr4",			offsetof(struct vmm_state_page_t *, vmm_fastassist_state.guest_register+0x10));
+	DECLARE("famguestr5",			offsetof(struct vmm_state_page_t *, vmm_fastassist_state.guest_register+0x14));
+	DECLARE("famguestr6",			offsetof(struct vmm_state_page_t *, vmm_fastassist_state.guest_register+0x18));
+	DECLARE("famguestr7",			offsetof(struct vmm_state_page_t *, vmm_fastassist_state.guest_register+0x1C));
+	DECLARE("famguestpc",			offsetof(struct vmm_state_page_t *, vmm_fastassist_state.guest_pc));
+	DECLARE("famguestmsr",			offsetof(struct vmm_state_page_t *, vmm_fastassist_state.guest_msr));
+
+	DECLARE("famdispcode",			offsetof(struct vmm_state_page_t *, vmm_fastassist_state.fastassist_dispatch_code));
+	DECLARE("famrefcon",			offsetof(struct vmm_state_page_t *, vmm_fastassist_state.fastassist_refcon));
+	DECLARE("famparam",				offsetof(struct vmm_state_page_t *, vmm_fastassist_state.fastassist_parameter));
+	DECLARE("famhandler",			offsetof(struct vmm_state_page_t *, vmm_fastassist_state.fastassist_dispatch));
+	DECLARE("famintercepts",		offsetof(struct vmm_state_page_t *, vmm_fastassist_state.fastassist_intercepts));
+
 	DECLARE("vmmFloatCngd",			vmmFloatCngd);
 	DECLARE("vmmFloatCngdb",		vmmFloatCngdb);
 	DECLARE("vmmVectCngd",			vmmVectCngd);
@@ -469,6 +498,8 @@ int main(int argc, char *argv[])
 	DECLARE("vmmTimerPopb",			vmmTimerPopb);
 	DECLARE("vmmMapDone",			vmmMapDone);
 	DECLARE("vmmMapDoneb",			vmmMapDoneb);
+	DECLARE("vmmFAMmode",			vmmFAMmode);
+	DECLARE("vmmFAMmodeb",			vmmFAMmodeb);
 	DECLARE("vmmSpfSave",			vmmSpfSave);
 	DECLARE("vmmSpfSaveb",			vmmSpfSaveb);
 	DECLARE("vmmFloatLoad",			vmmFloatLoad);
@@ -481,10 +512,14 @@ int main(int argc, char *argv[])
 	DECLARE("vmmVectVAssb",			vmmVectVAssb);
 	DECLARE("vmmXStart",			vmmXStart);
 	DECLARE("vmmXStartb",			vmmXStartb);
-	DECLARE("vmmXStop",				vmmXStop);
+	DECLARE("vmmXStop",			vmmXStop);
 	DECLARE("vmmXStopb",			vmmXStopb);
-	DECLARE("vmmKey",				vmmKey);
-	DECLARE("vmmKeyb",				vmmKeyb);
+	DECLARE("vmmKey",			vmmKey);
+	DECLARE("vmmKeyb",			vmmKeyb);
+	DECLARE("vmmFamSet",			vmmFamSet);
+	DECLARE("vmmFamSetb",			vmmFamSetb);
+	DECLARE("vmmFamEna",			vmmFamEna);
+	DECLARE("vmmFamEnab",			vmmFamEnab);
 
 	/* values from kern/task.h */
 	DECLARE("TASK_SYSCALLS_MACH",

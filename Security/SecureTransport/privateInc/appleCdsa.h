@@ -21,7 +21,7 @@
 
 	Contains:	interface between SSL and CDSA
 
-	Written by:	Doug Mitchell, based on Netscape SSLRef 3.0
+	Written by:	Doug Mitchell
 
 	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
 
@@ -32,22 +32,21 @@
 
 #include "ssl.h"
 #include "sslPriv.h"
-#include "sslctx.h"
-#include "sslerrs.h"
+#include "sslContext.h"
 #include <Security/cssmtype.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#if		SSL_DEBUG
+#ifndef		NDEBUG
 extern void stPrintCdsaError(const char *op, CSSM_RETURN crtn);
 extern char *stCssmErrToStr(CSSM_RETURN err);
 #else
 #define stPrintCdsaError(o, cr)
 #endif
 
-extern SSLErr sslSetUpSymmKey(
+extern OSStatus sslSetUpSymmKey(
 	CSSM_KEY_PTR	symKey,
 	CSSM_ALGORITHMS	alg,
 	CSSM_KEYUSE		keyUse, 		// CSSM_KEYUSE_ENCRYPT, etc.
@@ -55,52 +54,46 @@ extern SSLErr sslSetUpSymmKey(
 	uint8 			*keyData,
 	uint32			keyDataLen);	// in bytes
 
-extern SSLErr sslFreeKey(CSSM_CSP_HANDLE cspHand, 
+extern OSStatus sslFreeKey(CSSM_CSP_HANDLE cspHand, 
 	CSSM_KEY_PTR 	*key,
-	#if		ST_KEYCHAIN_ENABLE && ST_KC_KEYS_NEED_REF
+	#if		ST_KC_KEYS_NEED_REF
 	SecKeychainRef	*kcItem);
-	#else	/* !ST_KEYCHAIN_ENABLE */
+	#else	/* !ST_KC_KEYS_NEED_REF */
 	void			*kcItem);
-	#endif	/* ST_KEYCHAIN_ENABLE*/
+	#endif	/* ST_KC_KEYS_NEED_REF*/
 
-extern SSLErr attachToCsp(SSLContext *ctx);
-extern SSLErr attachToCl(SSLContext *ctx);
-extern SSLErr attachToTp(SSLContext *ctx);
-extern SSLErr attachToAll(SSLContext *ctx);
-extern SSLErr detachFromAll(SSLContext *ctx);
+extern OSStatus attachToCsp(SSLContext *ctx);
+extern OSStatus attachToCl(SSLContext *ctx);
+extern OSStatus attachToTp(SSLContext *ctx);
+extern OSStatus attachToAll(SSLContext *ctx);
+extern OSStatus detachFromAll(SSLContext *ctx);
 
 extern CSSM_DATA_PTR stMallocCssmData(uint32 size);
 extern void stFreeCssmData(CSSM_DATA_PTR data, CSSM_BOOL freeStruct);
-extern SSLErr stSetUpCssmData(CSSM_DATA_PTR data, uint32 length);
+extern OSStatus stSetUpCssmData(CSSM_DATA_PTR data, uint32 length);
 
-
-/*
- * Common RNG function; replaces SSLRef's SSLRandomFunc
- */
-extern SSLErr sslRand(
-	SSLContext *ctx, 
-	SSLBuffer *buf);
 
 /*
  * Given a DER-encoded cert, obtain its public key as a CSSM_KEY_PTR.
  */
-extern SSLErr sslPubKeyFromCert(
+extern OSStatus sslPubKeyFromCert(
 	SSLContext 				*ctx,
-	const SSLBuffer			*derCert,
+	const SSLBuffer			&derCert,
 	CSSM_KEY_PTR			*pubKey,		// RETURNED
 	CSSM_CSP_HANDLE			*cspHand);		// RETURNED
 
 /*
  * Verify a cert chain.
  */
-extern SSLErr sslVerifyCertChain(
+extern OSStatus sslVerifyCertChain(
 	SSLContext				*ctx,
-	const SSLCertificate	*certChain); 
+	const SSLCertificate	&certChain,
+	bool					verifyHostName = true); 
 
 /*
  * Raw RSA sign/verify.
  */
-SSLErr sslRsaRawSign(
+OSStatus sslRsaRawSign(
 	SSLContext			*ctx,
 	const CSSM_KEY		*privKey,
 	CSSM_CSP_HANDLE		cspHand,
@@ -110,7 +103,7 @@ SSLErr sslRsaRawSign(
 	UInt32				sigLen,			// available
 	UInt32				*actualBytes);	// RETURNED
 	
-SSLErr sslRsaRawVerify(
+OSStatus sslRsaRawVerify(
 	SSLContext			*ctx,
 	const CSSM_KEY		*pubKey,
 	CSSM_CSP_HANDLE		cspHand,
@@ -122,7 +115,7 @@ SSLErr sslRsaRawVerify(
 /*
  * Encrypt/Decrypt
  */
-SSLErr sslRsaEncrypt(
+OSStatus sslRsaEncrypt(
 	SSLContext			*ctx,
 	const CSSM_KEY		*pubKey,
 	CSSM_CSP_HANDLE		cspHand,
@@ -131,7 +124,7 @@ SSLErr sslRsaEncrypt(
 	UInt8				*cipherText,		// mallocd by caller; RETURNED 
 	UInt32				cipherTextLen,		// available
 	UInt32				*actualBytes);		// RETURNED
-SSLErr sslRsaDecrypt(
+OSStatus sslRsaDecrypt(
 	SSLContext			*ctx,
 	const CSSM_KEY		*privKey,
 	CSSM_CSP_HANDLE		cspHand,
@@ -150,7 +143,7 @@ extern UInt32 sslKeyLengthInBytes(
 /*
  * Get raw key bits from an RSA public key.
  */
-SSLErr sslGetPubKeyBits(
+OSStatus sslGetPubKeyBits(
 	SSLContext			*ctx,
 	const CSSM_KEY		*pubKey,
 	CSSM_CSP_HANDLE		cspHand,
@@ -161,7 +154,7 @@ SSLErr sslGetPubKeyBits(
  * Given raw RSA key bits, cook up a CSSM_KEY_PTR. Used in 
  * Server-initiated key exchange. 
  */
-SSLErr sslGetPubKeyFromBits(
+OSStatus sslGetPubKeyFromBits(
 	SSLContext			*ctx,
 	const SSLBuffer		*modulus,	
 	const SSLBuffer		*exponent,	
@@ -169,31 +162,13 @@ SSLErr sslGetPubKeyFromBits(
 	CSSM_CSP_HANDLE		*cspHand);		// RETURNED
 
 /*
- * Given two certs, verify subjectCert with issuerCert. Returns 
- * CSSM_TRUE on successful verify.
- * Only special case on error is "subject cert expired", indicated by
- * *subjectExpired returned as CSSM_TRUE.
- */
-#if 0
-/* no longer needed */
-CSSM_BOOL sslVerifyCert(
-	SSLContext				*ctx,
-	const CSSM_DATA_PTR		subjectCert,
-	const CSSM_DATA_PTR		issuerCert,
-	CSSM_CSP_HANDLE			cspHand,			// can verify with issuerCert
-	CSSM_BOOL				*subjectExpired);	// RETURNED
-#endif
-
-/*
  * Given a DER-encoded cert, obtain its DER-encoded subject name.
  */
-#if		ST_KEYCHAIN_ENABLE 
 CSSM_DATA_PTR sslGetCertSubjectName( 
 	SSLContext			*ctx,
     const CSSM_DATA_PTR cert);
-#endif		ST_KEYCHAIN_ENABLE 
 
-#if		(SSL_DEBUG && ST_KEYCHAIN_ENABLE)
+#if		SSL_DEBUG 
 void verifyTrustedRoots(SSLContext *ctx,
 	CSSM_DATA_PTR	certs,
 	unsigned		numCerts);

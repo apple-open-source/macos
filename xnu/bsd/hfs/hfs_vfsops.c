@@ -1587,7 +1587,12 @@ loop:
 
 		// restart our whole search if this guy is locked
 		// or being reclaimed.
-		if (cp == NULL || vp->v_flag & (VXLOCK|VORECLAIM)) {
+		// XXXdbg - at some point this should go away or we
+		//          need to change all file systems to have
+		//          this same code.  vget() should never return
+		//          success if either of these conditions is
+		//          true.
+		if (vp->v_tag != VT_HFS || cp == NULL) {
 			simple_unlock(&vp->v_interlock);
 			continue;
 		}
@@ -1841,7 +1846,11 @@ hfs_sysctl(name, namelen, oldp, oldlenp, newp, newlen, p)
 		struct cat_attr jnl_attr, jinfo_attr;
 		struct cat_fork jnl_fork, jinfo_fork;
 		void *jnl = NULL;
-		
+
+		/* Only root can enable journaling */
+        if (current_proc()->p_ucred->cr_uid != 0) {
+			return (EPERM);
+		}
 		hfsmp = VTOHFS(vp);
 		if (hfsmp->hfs_fs_ronly) {
 			return EROFS;
@@ -1923,6 +1932,10 @@ hfs_sysctl(name, namelen, oldp, oldlenp, newp, newlen, p)
 		void *jnl;
 		int retval;
 		
+		/* Only root can disable journaling */
+        if (current_proc()->p_ucred->cr_uid != 0) {
+			return (EPERM);
+		}
 		hfsmp = VTOHFS(vp);
 		if (hfsmp->jnl == NULL) {
 			return EINVAL;

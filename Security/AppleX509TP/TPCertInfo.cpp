@@ -489,6 +489,7 @@ CSSM_TP_APPLE_EVIDENCE_INFO *TPCertGroup::buildCssmEvidenceInfo()
 CSSM_RETURN TPCertGroup::getReturnCode(
 	CSSM_RETURN constructStatus,
 	CSSM_BOOL	allowExpired,
+	CSSM_BOOL	allowExpiredRoot,
 	CSSM_RETURN policyStatus /* = CSSM_OK */)
 {
 	if(constructStatus) {
@@ -500,7 +501,8 @@ CSSM_RETURN TPCertGroup::getReturnCode(
 	bool expired = false;
 	bool notValid = false;
 	for(unsigned i=0; i<mNumCerts; i++) {
-		if(mCertInfo[i]->isExpired()) {
+		if(mCertInfo[i]->isExpired() &&
+		   !(allowExpiredRoot && mCertInfo[i]->isSelfSigned())) {
 			expired = true;
 		}
 		if(mCertInfo[i]->isNotValidYet()) {

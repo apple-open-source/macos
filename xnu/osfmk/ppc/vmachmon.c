@@ -310,6 +310,7 @@ int vmm_init_context(struct savearea *save)
 	CTable->vmmc[cvi].vmmFlags = vmmInUse;		/* Mark the slot in use and make sure the rest are clear */
 	CTable->vmmc[cvi].vmmPmap = new_pmap;		/* Remember the pmap for this guy */
 	CTable->vmmc[cvi].vmmContextKern = vks;		/* Remember the kernel address of comm area */
+	CTable->vmmc[cvi].vmmContextPhys = (vmm_state_page_t *)conphys;	/* Remember the state page physical addr */
 	CTable->vmmc[cvi].vmmContextUser = vmm_user_state;		/* Remember user address of comm area */
 	
 	CTable->vmmc[cvi].vmmFacCtx.FPUsave = 0;	/* Clear facility context control */
@@ -321,6 +322,12 @@ int vmm_init_context(struct savearea *save)
 	CTable->vmmc[cvi].vmmFacCtx.facAct = act;	/* Point back to the activation */
 
 	hw_atomic_add((int *)&saveanchor.savetarget, 2);	/* Account for the number of extra saveareas we think we might "need" */
+
+	if (!(act->map->pmap->vflags & pmapVMhost)) {
+		simple_lock(&(act->map->pmap->lock));
+		act->map->pmap->vflags |= pmapVMhost;
+		simple_unlock(&(act->map->pmap->lock));
+	}
 	
 	ml_set_interrupts_enabled(FALSE);			/* Set back interruptions */
 	save->save_r3 = KERN_SUCCESS;				/* Hip, hip, horay... */	
@@ -581,7 +588,8 @@ kern_return_t vmm_map_page(
 	hw_unlock_bit((unsigned int *)&mpv->physent->phys_link, PHYS_LOCK);	/* Unlock the physical entry now, we're done with it */
 	
 	CEntry->vmmLastMap = ava & -PAGE_SIZE;		/* Remember the last mapping we made */
-	CEntry->vmmFlags |= vmmMapDone;				/* Set that we did a map operation */
+	if (!((per_proc_info[cpu_number()].spcFlags) & FamVMmode))
+		CEntry->vmmFlags |= vmmMapDone;				/* Set that we did a map operation */
 
 	return KERN_SUCCESS;
 }
@@ -616,9 +624,15 @@ vmm_return_code_t vmm_map_execute(
 
 	if (CEntry == NULL) return kVmmBogusContext;	/* Return bogus context */
 	
+	if (((per_proc_info[cpu_number()].spcFlags) & FamVMmode) && (CEntry != act->mact.vmmCEntry))
+		return kVmmBogusContext;			/* Yes, invalid index in Fam */
+	
 	ret = vmm_map_page(act, index, cva, ava, prot);	/* Go try to map the page on in */
 	
-	if(ret == KERN_SUCCESS) vmm_execute_vm(act, index);	/* Return was ok, launch the VM */
+	if(ret == KERN_SUCCESS) {
+		CEntry->vmmFlags |= vmmMapDone;			/* Set that we did a map operation */
+		vmm_execute_vm(act, index);				/* Return was ok, launch the VM */
+	}
 	
 	return kVmmInvalidAddress;					/* We had trouble mapping in the page */	
 	
@@ -661,7 +675,7 @@ kern_return_t vmm_map_list(
 	if(cnt > kVmmMaxMapPages) return KERN_FAILURE;	/* They tried to map too many */
 	if(!cnt) return KERN_SUCCESS;					/* If they said none, we're done... */
 	
-	lst = &((vmm_comm_page_t *)CEntry->vmmContextKern)->vmcpComm[0];	/* Point to the first entry */
+	lst = (vmmMapList *)(&((vmm_comm_page_t *)CEntry->vmmContextKern)->vmcpComm[0]);	/* Point to the first entry */
 	
 	for(i = 0; i < cnt; i++) {						/* Step and release all pages in list */
 		cva = lst[i].vmlva;							/* Get the actual address */	
@@ -940,7 +954,8 @@ kern_return_t vmm_protect_page(
 	hw_unlock_bit((unsigned int *)&mpv->physent->phys_link, PHYS_LOCK);		/* We're done, unlock the physical entry */
 
 	CEntry->vmmLastMap = va & -PAGE_SIZE;					/* Remember the last mapping we changed */
-	CEntry->vmmFlags |= vmmMapDone;							/* Set that we did a map operation */
+	if (!((per_proc_info[cpu_number()].spcFlags) & FamVMmode))
+		CEntry->vmmFlags |= vmmMapDone;						/* Set that we did a map operation */
 
 	return KERN_SUCCESS;									/* Return */
 }
@@ -973,9 +988,15 @@ vmm_return_code_t vmm_protect_execute(
 
 	if (CEntry == NULL) return kVmmBogusContext;		/* Return bogus context */
 	
+	if (((per_proc_info[cpu_number()].spcFlags) & FamVMmode) && (CEntry != act->mact.vmmCEntry))
+		return kVmmBogusContext;			/* Yes, invalid index in Fam */
+	
 	ret = vmm_protect_page(act, index, va, prot);		/* Go try to change access */
 	
-	if(ret == KERN_SUCCESS) vmm_execute_vm(act, index);	/* Return was ok, launch the VM */
+	if(ret == KERN_SUCCESS) {
+		CEntry->vmmFlags |= vmmMapDone;					/* Set that we did a map operation */
+		vmm_execute_vm(act, index);						/* Return was ok, launch the VM */
+	}
 	
 	return kVmmInvalidAddress;							/* We had trouble of some kind (shouldn't happen) */	
 	

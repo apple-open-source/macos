@@ -202,9 +202,11 @@ ModifiedTable::deleteRecord(const RecordId &inRecordId)
 		if (!mTable)
 			CssmError::throwMe(CSSMERR_DL_RECORD_NOT_FOUND);
 
+#if RECORDVERSIONCHECK
 		const RecordId aRecordId = MetaRecord::unpackRecordId(mTable->getRecordSection(aRecordNumber));
 		if (aRecordId.mRecordVersion != inRecordId.mRecordVersion)
 			CssmError::throwMe(CSSMERR_DL_RECORD_MODIFIED);
+#endif
 
 		// Schedule the record for deletion
 		if (!mDeletedSet.insert(aRecordNumber).second)
@@ -216,8 +218,10 @@ ModifiedTable::deleteRecord(const RecordId &inRecordId)
 		if (aRecordId.mCreateVersion != inRecordId.mCreateVersion)
 			CssmError::throwMe(CSSMERR_DL_RECORD_NOT_FOUND);
 
+#if RECORDVERSIONCHECK
 		if (aRecordId.mRecordVersion != inRecordId.mRecordVersion)
 			CssmError::throwMe(CSSMERR_DL_RECORD_MODIFIED);
+#endif
 
 		// Remove the inserted (but uncommited) record.  It should already be in mDeletedSet
 		// if it existed previously in mTable.
@@ -278,9 +282,11 @@ ModifiedTable::updateRecord(const RecordId &inRecordId,
 	if (aRecordId.mCreateVersion != inRecordId.mCreateVersion)
 		CssmError::throwMe(CSSMERR_DL_RECORD_NOT_FOUND);
 
+#if RECORDVERSIONCHECK
 	// Is the record we that our update is based on current?
 	if (aRecordId.mRecordVersion != inRecordId.mRecordVersion)
 		CssmError::throwMe(CSSMERR_DL_STALE_UNIQUE_RECORD);
+#endif
 
 	// Update the actual packed record.
     auto_ptr<WriteSection> aDbRecord(new WriteSection());

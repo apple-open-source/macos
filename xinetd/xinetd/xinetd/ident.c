@@ -136,8 +136,10 @@ idresult_e log_remote_user( const struct server *serp, unsigned timeout )
    if ( timeout ) {
       if ( sigsetjmp( env, 1 ) == 0 )
          START_TIMER( timeout ) ;
-      else
+      else {
+         close( sd ) ;
          return( IDR_TIMEDOUT ) ;
+      }
    }
 
    if ( connect( sd, &sin_contact.sa, sizeof( sin_contact ) ) == -1 )
@@ -146,6 +148,7 @@ idresult_e log_remote_user( const struct server *serp, unsigned timeout )
          STOP_TIMER() ;
          signal ( SIGALRM, SIG_DFL ) ;
       }
+      close( sd );
       return( IDR_NOSERVER ) ;
    }
 
@@ -157,6 +160,7 @@ idresult_e log_remote_user( const struct server *serp, unsigned timeout )
          STOP_TIMER() ;
          signal ( SIGALRM, SIG_DFL ) ;
       }
+      close( sd );
       return( IDR_ERROR ) ;
    }
 
@@ -167,8 +171,10 @@ idresult_e log_remote_user( const struct server *serp, unsigned timeout )
       signal ( SIGALRM, SIG_DFL ) ;
    }
 
-   if ( p == NULL )
+   if ( p == NULL ) {
+      close( sd );
       return( IDR_RESPERR ) ;
+   }
    
    /*
     * Verify that the received line is OK
@@ -177,6 +183,7 @@ idresult_e log_remote_user( const struct server *serp, unsigned timeout )
    {
       msg(LOG_ERR, func, "Bad line received from identity server at %s: %s",
          xaddrname( &sin_remote ), buf ) ;
+      close( sd );
       return( IDR_BADRESP ) ;
    }
 

@@ -35,6 +35,7 @@
 class IOUSBPipe : public OSObject
 {
     friend class IOUSBInterface;
+    friend class IOUSBDevice;
 
     OSDeclareDefaultStructors(IOUSBPipe)
 

@@ -48,7 +48,7 @@
 //
 // MS 92
 //
-// $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-lib/c++/asn-type.cpp,v 1.3 2002/03/21 05:38:45 dmitch Exp $
+// $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/c++-lib/c++/asn-type.cpp,v 1.3 2002/03/21 05:38:45 dmitch Exp $
 // $Log: asn-type.cpp,v $
 // Revision 1.3  2002/03/21 05:38:45  dmitch
 // Radar 2868524: no more setjmp/longjmp in SNACC-generated code.

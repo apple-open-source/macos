@@ -246,6 +246,9 @@ tcp_init()
 	tcp_keepintvl = TCPTV_KEEPINTVL;
 	tcp_maxpersistidle = TCPTV_KEEP_IDLE;
 	tcp_msl = TCPTV_MSL;
+	read_random(&tcp_now, sizeof(tcp_now));
+	tcp_now  = tcp_now & 0x7fffffffffffffff; /* Starts tcp internal 500ms clock at a random value */
+
 
 	LIST_INIT(&tcb);
 	tcbinfo.listhead = &tcb;

@@ -78,9 +78,18 @@ public:
 */
     IOFireWireNub* getDevice() const
         {return fDevice;};
+
+/*!
+    @function updateAVCCommandTimeout
+    @abstract By default, AVCCommands timeout 10 seconds after receiving an Interim response.
+    This function resets the timeout of the current command to 10 seconds from the current time.
+    Call this repeatedly for AVC commands that take a very long time to execute to prevent premature
+    timeout.
+*/
+    virtual IOReturn updateAVCCommandTimeout() = 0;
     
 private:
-    OSMetaClassDeclareReservedUnused(IOFireWireAVCNub, 0);
+    OSMetaClassDeclareReservedUsed(IOFireWireAVCNub, 0);
     OSMetaClassDeclareReservedUnused(IOFireWireAVCNub, 1);
     OSMetaClassDeclareReservedUnused(IOFireWireAVCNub, 2);
     OSMetaClassDeclareReservedUnused(IOFireWireAVCNub, 3);
@@ -103,6 +112,7 @@ protected:
     UInt8 fSubUnitCount[kAVCNumSubUnitTypes];
     
 	bool fStarted;
+    IOLock *cmdLock;
 	
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the class in the future.
@@ -187,6 +197,15 @@ public:
 */
     virtual IOReturn AVCCommandInGeneration(UInt32 generation,
                 const UInt8 * command, UInt32 cmdLen, UInt8 * response, UInt32 *responseLen);
+
+/*!
+    @function updateAVCCommandTimeout
+    @abstract By default, AVCCommands timeout 10 seconds after receiving an Interim response.
+    This function resets the timeout of the current command to 10 seconds from the current time.
+    Call this repeatedly for AVC commands that take a very long time to execute to prevent premature
+    timeout.
+*/
+    virtual IOReturn updateAVCCommandTimeout();
 
 private:
     OSMetaClassDeclareReservedUnused(IOFireWireAVCUnit, 0);
@@ -280,6 +299,15 @@ public:
 */
     virtual IOReturn AVCCommandInGeneration(UInt32 generation,
                 const UInt8 * command, UInt32 cmdLen, UInt8 * response, UInt32 *responseLen);
+
+/*!
+    @function updateAVCCommandTimeout
+    @abstract By default, AVCCommands timeout 10 seconds after receiving an Interim response.
+    This function resets the timeout of the current command to 10 seconds from the current time.
+    Call this repeatedly for AVC commands that take a very long time to execute to prevent premature
+    timeout.
+*/
+    virtual IOReturn updateAVCCommandTimeout();
 
 private:
     OSMetaClassDeclareReservedUnused(IOFireWireAVCSubUnit, 0);

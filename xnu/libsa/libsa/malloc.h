@@ -36,7 +36,7 @@ double malloc_current_efficiency(void);
 void malloc_clear_hiwat(void);
 void malloc_report(void);
 int malloc_sanity_check(void);
-#endif DEBUG
-#endif 0
+#endif /* DEBUG */
+#endif /* 0 */
 
-#endif defined _LIBSA_MALLOC_H_
+#endif /* defined _LIBSA_MALLOC_H_ */

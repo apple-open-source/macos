@@ -40,7 +40,7 @@ extern char *strstr();	/* needed on sysV68 R3V7.1. */
 
 int mytimeout;		/* value of nonreponse timeout */
 int suppress_tags;	/* emit tags? */
-char shroud[PASSWORDLEN];	/* string to shroud in debug output */
+char shroud[PASSWORDLEN*2+1];	/* string to shroud in debug output */
 struct msgblk msgblk;
 
 char tag[TAGLEN];
@@ -91,6 +91,13 @@ static void find_server_names(const char *hdr,
 	     cp = nxtaddr(NULL))
 	{
 	    char	*atsign;
+
+	    /* 
+	     * Handle empty address from a To: header containing only 
+	     * a comment.
+	     */
+	    if (!*cp)
+		continue;
 
 	    /*
 	     * If the name of the user begins with a qmail virtual
@@ -181,6 +188,8 @@ static char *parse_received(struct query *ctl, char *bufp)
     char *base, *ok = (char *)NULL;
     static char rbuf[HOSTLEN + USERNAMELEN + 4]; 
 
+#define RBUF_WRITE(value) if (tp < rbuf+sizeof(rbuf)-1) *tp++=value
+
     /*
      * Try to extract the real envelope addressee.  We look here
      * specifically for the mailserver's Received line.
@@ -208,7 +217,7 @@ static char *parse_received(struct query *ctl, char *bufp)
 		continue;
 	    tp = rbuf;
 	    for (; !isspace(*sp); sp++)
-		*tp++ = *sp;
+		RBUF_WRITE(*sp);
 	    *tp = '\0';
 
 	    /* look for valid address */
@@ -256,7 +265,7 @@ static char *parse_received(struct query *ctl, char *bufp)
 		    continue;
 		tp = rbuf;
 		for (; !isspace(*sp); sp++)
-		    *tp++ = *sp;
+		    RBUF_WRITE(*sp);
 		*tp = '\0';
 
 		if (strchr(rbuf, '@'))
@@ -274,8 +283,8 @@ static char *parse_received(struct query *ctl, char *bufp)
 	    for (sp = ok + 4; isspace(*sp); sp++)
 		continue;
 	    tp = rbuf;
-	    *tp++ = ':';	/* Here is the hack.  This is to be friends */
-	    *tp++ = ' ';	/* with nxtaddr()... */
+	    RBUF_WRITE(':');	/* Here is the hack.  This is to be friends */
+	    RBUF_WRITE(' ');	/* with nxtaddr()... */
 	    if (*sp == '<')
 	    {
 		want_gt = TRUE;
@@ -288,14 +297,17 @@ static char *parse_received(struct query *ctl, char *bufp)
                    && (want_gt ? (*sp != '>') : !isspace(*sp))
                    && *sp != ';')
 		if (!isspace(*sp))
-		    *tp++ = *sp++;
+		{
+		    RBUF_WRITE(*sp);
+		    sp++;
+		}    
 		else
 		{
 		    /* uh oh -- whitespace here can't be right! */
 		    ok = (char *)NULL;
 		    break;
 		}
-	    *tp++ = '\n';
+	    RBUF_WRITE('\n');
 	    *tp = '\0';
 	    if (strlen(rbuf) <= 3)	/* apparently nothing has been found */
 		ok = NULL;
@@ -353,12 +365,14 @@ int readheaders(int sock,
     int			from_offs, reply_to_offs, resent_from_offs;
     int			app_from_offs, sender_offs, resent_sender_offs;
     int			env_offs;
-    char		*received_for, *rcv, *cp, *delivered_to;
+    char		*received_for, *rcv, *cp;
+    static char		*delivered_to = NULL;
     int 		n, linelen, oldlen, ch, remaining, skipcount;
     struct idlist 	*idp;
     flag		no_local_matches = FALSE;
     flag		headers_ok, has_nuls;
     int			olderrs, good_addresses, bad_addresses;
+    int			retain_mail = 0;
 
     sizeticker = 0;
     has_nuls = headers_ok = FALSE;
@@ -376,6 +390,9 @@ int readheaders(int sock,
      */
     if (msgblk.headers)
        free(msgblk.headers);
+    free_str_list(&msgblk.recipients);
+    if (delivered_to)
+	free(delivered_to);
 
     /* initially, no message ID */
     if (ctl->thisid)
@@ -474,6 +491,7 @@ int readheaders(int sock,
 	     */
 	    if (protocol->delimited && line[0] == '.' && EMPTYLINE(line+1))
 	    {
+		headers_ok = FALSE;
 		has_nuls = (linelen != strlen(line));
 		free(line);
 		goto process_headers;
@@ -545,9 +563,8 @@ int readheaders(int sock,
 #endif /* POP2_ENABLE */
 	    if (num == 1 && !strncasecmp(line, "X-IMAP:", 7)) {
 		free(line);
-		free(msgblk.headers);
-		msgblk.headers = NULL;
-		return(PS_RETAINED);
+		retain_mail = 1;
+		continue;
 	    }
 
 	/*
@@ -652,7 +669,8 @@ int readheaders(int sock,
 	 */
 	if (!strncasecmp("Return-Path:", line, 12) && (cp = nxtaddr(line)))
 	{
-	    strcpy(msgblk.return_path, cp);
+	    strncpy(msgblk.return_path, cp, sizeof(msgblk.return_path));
+	    msgblk.return_path[sizeof(msgblk.return_path)-1] = '\0';
 	    if (!ctl->mda) {
 		free(line);
 		continue;
@@ -784,6 +802,13 @@ int readheaders(int sock,
     }
 
  process_headers:    
+
+    if (retain_mail)
+    {
+	free(msgblk.headers);
+	msgblk.headers = NULL;
+	return(PS_RETAINED);
+    }
     /*
      * When mail delivered to a multidrop mailbox on the server is
      * addressed to multiple people on the client machine, there will
@@ -838,6 +863,7 @@ int readheaders(int sock,
 	if (outlevel > O_SILENT)
 	    report(stdout,
 		   GT_("message delimiter found while scanning headers\n"));
+	return(PS_TRUNCATED);
     }
 
     /*
@@ -903,8 +929,10 @@ int readheaders(int sock,
 	else if (reply_to_offs >= 0 && (ap = nxtaddr(msgblk.headers + reply_to_offs)));
 	else if (app_from_offs >= 0 && (ap = nxtaddr(msgblk.headers + app_from_offs)));
 	/* multi-line MAIL FROM addresses confuse SMTP terribly */
-	if (ap && !strchr(ap, '\n')) 
-	    strcpy(msgblk.return_path, ap);
+	if (ap && !strchr(ap, '\n')) {
+	    strncpy(msgblk.return_path, ap, sizeof(msgblk.return_path));
+	    msgblk.return_path[sizeof(msgblk.return_path)-1] = '\0';
+	}
     }
 
     /* cons up a list of local recipients */
@@ -930,6 +958,7 @@ int readheaders(int sock,
    {
 	    find_server_names(delivered_to, ctl, &msgblk.recipients);
        free(delivered_to);
+       delivered_to = NULL;
    }
 	else if (received_for)
 	    /*
@@ -1089,33 +1118,20 @@ int readheaders(int sock,
 #else
 		    sprintf(buf+1,
 #endif /* HAVE_SNPRINTF */
-			    "for %s@%s (by default); ",
-			    user, ctl->destaddr);
+			    "for %s (by default); ",
+			    rcpt_address (ctl, run.postmaster, 0));
 		}
 		else if (good_addresses == 1)
 		{
 		    for (idp = msgblk.recipients; idp; idp = idp->next)
 			if (idp->val.status.mark == XMIT_ACCEPT)
 			    break;	/* only report first address */
-		    if (strchr(idp->id, '@'))
 #ifdef HAVE_SNPRINTF
 		    snprintf(buf+1, sizeof(buf)-1,
 #else                       
 		    sprintf(buf+1,
 #endif /* HAVE_SNPRINTF */
-			    "for %s", idp->id);
-		    else
-			/*
-			 * This could be a bit misleading, as destaddr is
-			 * the forwarding host rather than the actual 
-			 * destination.  Most of the time they coincide.
-			 */
-#ifdef HAVE_SNPRINTF
-		    	snprintf(buf+1, sizeof(buf)-1,
-#else                       
-			sprintf(buf+1,
-#endif /* HAVE_SNPRINTF */
-				"for %s@%s", idp->id, ctl->destaddr);
+			    "for %s", rcpt_address (ctl, idp->id, 1));
 		    sprintf(buf+strlen(buf), " (%s); ",
 			    MULTIDROP(ctl) ? "multi-drop" : "single-drop");
 		}
@@ -1166,22 +1182,39 @@ int readheaders(int sock,
 		for (idp = msgblk.recipients; idp; idp = idp->next)
 		    if (idp->val.status.mark == XMIT_REJECT)
 			break;
-		sprintf(errhd+strlen(errhd), GT_("recipient address %s didn't match any local name"), idp->id);
+#ifdef HAVE_SNPRINTF
+		snprintf(errhd+strlen(errhd), sizeof(errhd)-strlen(errhd),
+#else
+		sprintf(errhd+strlen(errhd),
+#endif /* HAVE_SNPRINTF */
+			GT_("recipient address %s didn't match any local name"), idp->id);
 	    }
 	}
 
 	if (has_nuls)
 	{
 	    if (errhd[sizeof("X-Fetchmail-Warning: ")])
+#ifdef HAVE_SNPRINTF
+		snprintf(errhd+strlen(errhd), sizeof(errhd)-strlen(errhd), "; ");
+	    snprintf(errhd+strlen(errhd), sizeof(errhd)-strlen(errhd),
+#else
 		strcat(errhd, "; ");
-	    strcat(errhd, GT_("message has embedded NULs"));
+	    strcat(errhd,
+#endif /* HAVE_SNPRINTF */
+			GT_("message has embedded NULs"));
 	}
 
 	if (bad_addresses)
 	{
 	    if (errhd[sizeof("X-Fetchmail-Warning: ")])
+#ifdef HAVE_SNPRINTF
+		snprintf(errhd+strlen(errhd), sizeof(errhd)-strlen(errhd), "; ");
+	    snprintf(errhd+strlen(errhd), sizeof(errhd)-strlen(errhd),
+#else
 		strcat(errhd, "; ");
-	    strcat(errhd, GT_("SMTP listener rejected local recipient addresses: "));
+	    strcat(errhd,
+#endif /* HAVE_SNPRINTF */
+			GT_("SMTP listener rejected local recipient addresses: "));
 	    errlen = strlen(errhd);
 	    for (idp = msgblk.recipients; idp; idp = idp->next)
 		if (idp->val.status.mark == XMIT_RCPTBAD)
@@ -1212,8 +1245,6 @@ int readheaders(int sock,
     *cp++ = '\0';
     stuffline(ctl, buf);
 
-/*    free(msgblk.headers); */
-    free_str_list(&msgblk.recipients);
     return(headers_ok ? PS_SUCCESS : PS_TRUNCATED);
 }
 
@@ -1333,6 +1364,23 @@ void init_transact(const struct method *proto)
     protocol = (struct method *)proto;
 }
 
+static void enshroud(char *buf)
+/* shroud a password in the given buffer */
+{
+    char *cp;
+
+    if (shroud[0] && (cp = strstr(buf, shroud)))
+    {
+       char    *sp;
+
+       sp = cp + strlen(shroud);
+       *cp = '*';
+       while (*sp)
+           *cp++ = *sp++;
+       *cp = '\0';
+    }
+}
+
 #if defined(HAVE_STDARG_H)
 void gen_send(int sock, const char *fmt, ... )
 #else
@@ -1372,18 +1420,7 @@ va_dcl
 
     if (outlevel >= O_MONITOR)
     {
-	char *cp;
-
-	if (shroud[0] && (cp = strstr(buf, shroud)))
-	{
-	    char	*sp;
-
-	    sp = cp + strlen(shroud);
-	    *cp++ = '*';
-	    while (*sp)
-		*cp++ = *sp++;
-	    *cp = '\0';
-	}
+	enshroud(buf);
 	buf[strlen(buf)-2] = '\0';
 	report(stdout, "%s> %s\n", protocol->name, buf);
     }
@@ -1462,19 +1499,8 @@ va_dcl
 
     if (outlevel >= O_MONITOR)
     {
-	char *cp;
-
-	if (shroud && shroud[0] && (cp = strstr(buf, shroud)))
-	{
-	    char	*sp;
-
-	    sp = cp + strlen(shroud);
-	    *cp++ = '*';
-	    while (*sp)
-		*cp++ = *sp++;
-	    *cp = '\0';
-	}
-	buf[strlen(buf)-1] = '\0';
+	enshroud(buf);
+	buf[strlen(buf)-2] = '\0';
 	report(stdout, "%s> %s\n", protocol->name, buf);
     }
 

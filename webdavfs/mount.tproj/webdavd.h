@@ -36,7 +36,7 @@
  *
  *	@(#)webdavd.h	8.1 (Berkeley) 6/5/93
  *
- * $Id: webdavd.h,v 1.8 2002/08/23 15:09:44 lutherj Exp $
+ * $Id: webdavd.h,v 1.9 2002/10/22 22:19:38 lutherj Exp $
  */
 
 #include <sys/cdefs.h>
@@ -258,22 +258,9 @@ extern void name_tempfile  __P((char *buf, char *seed_prefix));
 #define PRIVATE_UNMOUNT_FLAGS "-f"
 
 /* WEBDAV_IO_TIMEOUT is the amount of time we'll wait for a server to
- * send a response or the amount of time we'll wait for TCP's send to sit
- * with no activity.
- *
- * Since connect() has a 75 second timeout, I set  WEBDAV_IO_TIMEOUT to
- * 45 seconds to get a total of 120 seconds. I picked 120 seconds because
- * that's what the ASP AppleTalk protocol used for a session timeout and
- * so existing Macintosh users are used to waiting about 2 minutes. Also,
- * 45 seconds should give even a really slow connection time to respond.
- * 
- * The one exception to this is in http_put(). Because user data will be lost
- * when we error out of http_put(), we try longer. The first send attempt
- * uses WEBDAV_IO_TIMEOUT for the SO_SNDTIMEO option, and uses the
- * TCP default timeout is used for the retry (if a retry is needed and
- * assuming the reconnect is successful).
+ * send a response.
  */
-#define WEBDAV_IO_TIMEOUT 45			/* seconds */
+#define WEBDAV_IO_TIMEOUT 100			/* seconds */
 
 #define WEBDAV_STATFS_TIMEOUT 60		/* Number of seconds gstatfsbuf is valid */
 #define WEBDAV_PULSE_TIMEOUT "600"		/* Default time out = 10 minutes */

@@ -84,7 +84,6 @@ void UniNEnet::AllocateEventLog( UInt32 size )
 {
 	IOPhysicalAddress	phys;
 	mach_timespec_t		time;
-	IOReturn			rc;
 
 
 	fpELG = (elg*)IOMallocContiguous( size, 0x1000, &phys );
@@ -93,18 +92,20 @@ void UniNEnet::AllocateEventLog( UInt32 size )
 		kprintf( "AllocateEventLog - UniNEnet evLog allocation failed " );
 		return;
 	}
-	IOUnmapPages( kernel_map, (vm_offset_t)fpELG, size );
-	rc = IOSetProcessorCacheMode(	kernel_task,
-									(IOVirtualAddress)fpELG,
-									size,
-									kIOMapWriteThruCache );
+#ifdef OPEN_FIRMWARE
+///	IOUnmapPages( kernel_map, (vm_offset_t)fpELG, size );
+	IOSetProcessorCacheMode(	kernel_task,
+								(IOVirtualAddress)fpELG,
+								size,
+								kIOMapWriteThruCache );
+#endif // OPEN_FIRMWARE
 	bzero( fpELG, size );
 
 	fpELG->evLogBuf		= (UInt8*)fpELG + sizeof( struct elg );
 	fpELG->evLogBufe	= (UInt8*)fpELG + kEvLogSize - 0x20; // ??? overran buffer?
 	fpELG->evLogBufp	= fpELG->evLogBuf;
-	fpELG->evLogFlag	 = 0xFEEDBEEF;	// continuous wraparound
-//	fpELG->evLogFlag	 = 0x03330333;	// > kEvLogSize - don't wrap - stop logging at buffer end
+//	fpELG->evLogFlag	 = 0xFEEDBEEF;	// continuous wraparound
+	fpELG->evLogFlag	 = 0x03330333;	// > kEvLogSize - don't wrap - stop logging at buffer end
 //	fpELG->evLogFlag	 = 0x0099;		// < #elements - count down and stop logging at 0
 //	fpELG->evLogFlag	 = 'step';		// stop at each ELG
 
@@ -240,8 +241,10 @@ UInt32 UniNEnet::Alrt( UInt32 a, UInt32 b, UInt32 ascii, char* str )
 	OSSynchronizeIO();
 	IOFlushProcessorCache( kernel_task, (IOVirtualAddress)fpELG, kEvLogSize );
 
-if ( fpELG->evLogFlag == 0xfeedbeef )
-	 fpELG->evLogFlag = 100;	// cruise to see what happens next.
+//	fpELG->evLogFlag = 0;	// stop logging but alertCount can continue increasing.
+
+///if ( fpELG->evLogFlag == 0xfeedbeef )
+///	 fpELG->evLogFlag = 100;	// cruise to see what happens next.
 
 //	kprintf( work );
 ///	panic( work );
@@ -341,17 +344,6 @@ bool UniNEnet::start( IOService *provider )
     debugQueue = IOPacketQueue::withCapacity( (UInt)-1 );
     if ( !debugQueue )
         return false;
-
-		/* Allocate a IOMbufBigMemoryCursor instance. Currently, the maximum
-		 * number of segments is set to 1. The maximum length for each segment
-		 * is set to the maximum ethernet frame size (plus padding).
-		 */    
-    mbufCursor = IOMbufBigMemoryCursor::withSpecification( NETWORK_BUFSIZE, 1 );
-    if ( !mbufCursor ) 
-    {
-        IOLog( "UniNEnet::start - IOMbufBigMemoryCursor allocation failure\n" );
-        return false;
-    }
 
 	phyId = 0xFF;
 	fLinkStatus = kLinkStatusUnknown;
@@ -551,8 +543,6 @@ void UniNEnet::free()
 {
 	ELG( this, 0, 'Free', "UniNEnet::free" );
 
-///	putToSleep( false );	// unnecessary and causes crash if never start()'d
-
 	flushRings( true, true );	// Flush both Tx and Rx rings.
 
 	if ( debugger )			debugger->release();
@@ -563,13 +553,13 @@ void UniNEnet::free()
 	if ( transmitQueue )	transmitQueue->release();
 	if ( debugQueue )		debugQueue->release();
 	if ( networkInterface )	networkInterface->release();
-	if ( mbufCursor )		mbufCursor->release();
 	if ( fMediumDict )		fMediumDict->release();
 	if ( ioMapEnet )		ioMapEnet->release();
 	if ( fTxDescriptorRing )IOFreeContiguous( (void*)fTxDescriptorRing, fTxRingElements * sizeof( TxDescriptor ) );
 	if ( fRxDescriptorRing )IOFreeContiguous( (void*)fRxDescriptorRing, fRxRingElements * sizeof( RxDescriptor ) );
 	if ( fTxMbuf )			IOFree( fTxMbuf, sizeof( mbuf* ) * fTxRingElements );
 	if ( fRxMbuf )			IOFree( fRxMbuf, sizeof( mbuf* ) * fRxRingElements );
+
 	if ( workLoop )			workLoop->release();
 
 	if ( keyLargo_resetUniNEthernetPhy )
@@ -624,8 +614,8 @@ void UniNEnet::interruptOccurred( IOInterruptEventSource *src, int /*count*/ )
 		return;
 	}
 
-	do
-	{
+///	do
+///	{
 		lockState = IODebuggerLock( this );
 
         interruptStatus = READ_REGISTER( Status );
@@ -645,15 +635,16 @@ void UniNEnet::interruptOccurred( IOInterruptEventSource *src, int /*count*/ )
 }
 #endif // LOG_RX_BACKUP
 
+	///	interruptStatus &= kStatus_TX_INT_ME
+	///					 | kStatus_RX_DONE
+	///					 | kStatus_MIF_Interrupt;
+		fIntStatusForTO |= interruptStatus;	// accumulate Tx & Rx int bits for timer code
 
-		interruptStatus &= kStatus_TX_INT_ME
-						 | kStatus_RX_DONE
-						 | kStatus_MIF_Interrupt;
         doService  = false;
 
-        if ( interruptStatus & kStatus_TX_INT_ME )
+		if ( interruptStatus & kStatus_TX_INT_ME )
         {
-            txWDInterrupts++;
+		///	txWDInterrupts++;
             KERNEL_DEBUG( DBG_GEM_TXIRQ | DBG_FUNC_START, 0, 0, 0, 0, 0 );
             doService = transmitInterruptOccurred();
             KERNEL_DEBUG( DBG_GEM_TXIRQ | DBG_FUNC_END,   0, 0, 0, 0, 0 );
@@ -662,28 +653,27 @@ void UniNEnet::interruptOccurred( IOInterruptEventSource *src, int /*count*/ )
 
         doFlushQueue = false;
 
-        if ( interruptStatus & kStatus_RX_DONE )
+	///	if ( interruptStatus & kStatus_RX_DONE )
         {
-            rxWDInterrupts++;
+		///	rxWDInterrupts++;
             KERNEL_DEBUG( DBG_GEM_RXIRQ | DBG_FUNC_START, 0, 0, 0, 0, 0 );
-            doFlushQueue = receiveInterruptOccurred();
+            doFlushQueue = receivePackets( false );
             KERNEL_DEBUG( DBG_GEM_RXIRQ | DBG_FUNC_END,   0, 0, 0, 0, 0 );
 			ETHERNET_STAT_ADD( dot3RxExtraEntry.interrupts );
         }
 
 
-if ( interruptStatus & kStatus_MIF_Interrupt )
-{
-	mifStatus = READ_REGISTER( MIFStatus );	// clear the interrupt
-	ELG( 0, mifStatus, '*MIF', "interruptOccurred - MIF interrupt" );
-}
+		if ( interruptStatus & kStatus_MIF_Interrupt )
+		{
+			mifStatus = READ_REGISTER( MIFStatus );		// clear the interrupt
+			ELG( 0, mifStatus, '*MIF', "interruptOccurred - MIF interrupt" );
+		}
 
 
 		IODebuggerUnlock( lockState );
 
-			/* Submit all received packets queued up						*/
-			/* by _receiveInterruptOccurred() to the network stack.			*/
-			/* The up call is performed without holding the debugger lock.	*/
+			/* Submit all received packets queued up by receivePackets() to the network stack.	*/
+			/* The up call is performed without holding the debugger lock.						*/
 
 		if ( doFlushQueue )
 	    	networkInterface->flushInputQueue();
@@ -691,7 +681,7 @@ if ( interruptStatus & kStatus_MIF_Interrupt )
 			/* Make sure the output queue is not stalled.	*/
 		if ( doService && netifEnabled )
 	   	 transmitQueue->service();
-	} while ( interruptStatus );
+///	} while ( interruptStatus );
 
 	return;
 }/* end interruptOccurred */
@@ -702,14 +692,14 @@ UInt32 UniNEnet::outputPacket( struct mbuf *pkt, void *param )
     UInt32		ret = kIOReturnOutputSuccess;
 
 		/*** Caution - this method runs on the client's	***/
-		/*** thread not the workloop thread.			***/ 
+		/*** thread not the workloop thread.			***/
 
     KERNEL_DEBUG( DBG_GEM_TXQUEUE | DBG_FUNC_NONE, (int)pkt, (int)pkt->m_pkthdr.len, 0, 0, 0 );
 
     reserveDebuggerLock();/* Hold debugger lock so debugger can't interrupt us	*/
 
-///	ELG( pkt, fLinkStatus, 'OutP', "outputPacket" );
-	ELG( pkt, READ_REGISTER( StatusAlias ), 'OutP', "outputPacket" );
+	ELG( pkt, fLinkStatus, 'OutP', "outputPacket" );
+///	ELG( pkt, READ_REGISTER( StatusAlias ), 'OutP', "outputPacket" );
 
     if ( fLinkStatus != kLinkStatusUp )
     {
@@ -792,7 +782,7 @@ setLinkStatus( kIONetworkLinkValid, medium, 0 ); // Link status is Valid and ina
 		OSSynchronizeIO();
 		callPlatformFunction( "EnableUniNEthernetClock", true, (void*)false, (void*)nub, 0, 0 );
 		OSSynchronizeIO();
-		ALRT( 0, 0, '-clk', "UniNEnet::putToSleep - disabled cell clock!!!" );
+		ELG( 0, 0, '-clk', "UniNEnet::putToSleep - disabled ethernet cell clock." );
 	}
 
     if ( sleepCellClockOnly )
@@ -1186,7 +1176,8 @@ void UniNEnet::timeoutOccurred( IOTimerEventSource* /*timer*/ )
 
 	lockState = IODebuggerLock( this );
 
-    monitorLinkStatus( false );	/// ??? don't do this if Tx and Rx are moving
+	if ( (fIntStatusForTO & (kStatus_TX_DONE |  kStatus_RX_DONE)) == 0 )
+		monitorLinkStatus( false );	// Don't do this if neither Tx nor Rx are moving
 
 		// if the link went down (fLinkStatus is updated in monitorLinkStatus),
 		// disable the ethernet clock and exit this function.
@@ -1199,23 +1190,25 @@ void UniNEnet::timeoutOccurred( IOTimerEventSource* /*timer*/ )
 
 		/* If there are pending entries on the Tx ring:	*/
 
-    if ( txCommandHead != txCommandTail )
-    {
-        /* 
-         * If the hardware tx pointer did not move since the last
-         * check, increment the txWDCount.
-         */
+///	if ( txCommandHead != txCommandTail )
+	if ( (fIntStatusForTO & kStatus_TX_DONE) )
+	{
+		txWDCount = 0;
+	}
+	else
+	{		/* If the hardware Tx pointer did not move since	*/
+			/* the last check, increment the txWDCount.			*/
 		txRingIndex = READ_REGISTER( TxCompletion );
 		if ( txRingIndex == txRingIndexLast )
 		{
-			txWDCount++;         
+			txWDCount++;			/* bump the watchdog count */
 		}
 		else
         {
-            txWDCount = 0;
+            txWDCount = 0;			/* reset the watchdog count */
             txRingIndexLast = txRingIndex;
         }
-  
+
         if ( txWDCount > 2 )
         {
             /* We take interrupts every 32 or so tx completions, so we may be here just
@@ -1241,20 +1234,16 @@ void UniNEnet::timeoutOccurred( IOTimerEventSource* /*timer*/ )
             txWDCount = 0;
         }
     }
-    else
-    {
-        txWDCount = 0;
-    }
     
 		/* Check for Rx deafness.										*/
 		/* IF no Rx interrupts have occurred in the past few timeouts	*/
 		/* AND the FIFO overflowed,										*/
 		/* THEN restart the receiver.									*/
 
-    if ( rxWDInterrupts )
+    if ( fIntStatusForTO & kStatus_RX_DONE )
 	{
 		rxWDCount      = 0;			// Reset watchdog timer count
-		rxWDInterrupts = 0;			// Reset watchdog interrupt count
+	///	rxWDInterrupts = 0;			// Reset watchdog interrupt count
 	}
 	else if ( rxWDCount++ >= 2 )	// skip 1st timer period
     {
@@ -1270,11 +1259,10 @@ void UniNEnet::timeoutOccurred( IOTimerEventSource* /*timer*/ )
 			ETHERNET_STAT_ADD( dot3RxExtraEntry.watchdogTimeouts );
 			fRxMACStatus	= 0;		// reset FIFO overflow indicator
 			rxWDCount		= 0;		// reset the watchdog count.
-#if USE_ELG
-			fpELG->evLogFlag = 0;		// freeze the event logger.
-#endif // USE_ELG
 		}
     }
+
+	fIntStatusForTO = 0;				// reset the Tx and Rx accumulated int bits.
 
 		/* Clean-up after the debugger if the debugger was active:	*/
 
@@ -1291,10 +1279,7 @@ void UniNEnet::timeoutOccurred( IOTimerEventSource* /*timer*/ )
 	if ( doService && netifEnabled )
 		transmitQueue->service();
 
-    /*
-     * Restart the watchdog timer
-     */
-    timerSource->setTimeoutMS( WATCHDOG_TIMER_MS );
+    timerSource->setTimeoutMS( WATCHDOG_TIMER_MS );	/* Restart watchdog timer	*/
 	return;
 }/* end timeoutOccurred */
 
@@ -1436,11 +1421,11 @@ IOReturn UniNEnet::selectMedium( const IONetworkMedium *medium )
 	bool			gotReg;
 
 
+			/* If the user sets a speed/duplex unsupported by the hub/switch,		*/
+			/* link will not be established and the cell clock will be disabled.	*/
+			/* Wake it up so the setting can be fixed:								*/
     if ( fCellClockEnabled == false )
-    {
-        ALRT( this, mType, 'sMd-', "UniNEnet::selectMedium - enet clock is disabled" );
-        return kIOReturnIOError;
-    }
+		wakeUp( true );
 
 ///fpELG->evLogFlag = 0xDEBEEFED;	/// ???
 
@@ -1967,7 +1952,7 @@ IOReturn UniNEnetUserClient::getGMACLog(
 	else   		{ UC_ELG( 0,   0, 'gLg+', "UniNEnetUserClient::getGMACLog - complete worked" ); }
 
 	md->release();			// free it
-fProvider->fpELG->evLogFlag = 0xFEEDBEEF;	/// Let 'er rip again.
+	fProvider->fpELG->evLogFlag = 0xFEEDBEEF;	/// Let 'er rip again.
 
     return kIOReturnSuccess;
 

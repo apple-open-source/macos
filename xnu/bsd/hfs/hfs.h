@@ -489,6 +489,9 @@ extern void hfs_setencodingbits(struct hfsmount *hfsmp, u_int32_t encoding);
 
 extern void replace_desc(struct cnode *cp, struct cat_desc *cdp);
 
+extern int hfs_namecmp(const char *, size_t, const char *, size_t);
+
+
 #endif /* __APPLE_API_PRIVATE */
 #endif /* KERNEL */
 #endif /* __HFS__ */

@@ -222,7 +222,7 @@ void AppleOnboardAudio::setCurrentDevices(UInt32 devices){
     }
 
 	// For [2829546]
-	if (devices & kSndHWInputDevices) {
+	if (devices & kSndHWInputDevices || odevice & kSndHWInputDevices) {
 		if (NULL != inputConnection) {
 			OSNumber *			inputState;
 			UInt32				active;
@@ -718,7 +718,7 @@ IOReturn AppleOnboardAudio::outputControlChangeHandler (IOService *target, IOAud
 	UInt32							rightVol;
 	Boolean							wasPoweredDown;
 
-//	IOLog ("AppleOnboardAudio::outputControlChangeHandler (%p, %p, %ld, %ld)\n", target, control, oldValue, newValue);
+	debug5IOLog ("+ AppleOnboardAudio::outputControlChangeHandler (%p, %p, %ld, %ld)\n", target, control, oldValue, newValue);
 
 	audioDevice = OSDynamicCast (AppleOnboardAudio, target);
 	FailIf (NULL == audioDevice, Exit);
@@ -831,9 +831,11 @@ Exit:
 	if (TRUE == wasPoweredDown) {
 		audioDevice->scheduleIdleAudioSleep ();
 	}
+	debug6IOLog ("- AppleOnboardAudio::outputControlChangeHandler (%p, %p, %ld, %ld) returns %X\n", target, control, oldValue, newValue, result);
 
 	return result;
 }
+
 #if 0
 IOReturn AppleOnboardAudio::setiSubVolume (UInt32 iSubVolumeControl, SInt32 iSubVolumeLevel) {
     IOReturn				result;
@@ -911,11 +913,15 @@ IOReturn AppleOnboardAudio::volumeLeftChange(SInt32 newValue){
 	result = kIOReturnError;
 	FailIf (NULL == AudioOutputs, Exit);
     
+	debug3IOLog("... gIsMute %d, AudioOutputs->getCount() = %d\n", gIsMute, AudioOutputs->getCount());
 	if (!gIsMute) {
 		for (idx = 0; idx < AudioOutputs->getCount(); idx++) {
 			theOutput = OSDynamicCast (AudioHardwareOutput, AudioOutputs->getObject (idx));
 			if (theOutput) {
+				debug4IOLog ( "... %X theOutput->setVolume ( %X, %X )\n", (unsigned int)theOutput, (unsigned int)newValue, (unsigned int)gVolRight );
 				theOutput->setVolume (newValue, gVolRight);
+			} else {
+				debugIOLog("... ### NO AudioHardwareOutput*\n");
 			}
 		}
 	}
@@ -937,11 +943,15 @@ IOReturn AppleOnboardAudio::volumeRightChange(SInt32 newValue){
 	result = kIOReturnError;
 	FailIf (NULL == AudioOutputs, Exit);
 
+	debug3IOLog("... gIsMute %d, AudioOutputs->getCount() = %d\n", gIsMute, AudioOutputs->getCount());
 	if (!gIsMute) {
 		for (idx = 0; idx < AudioOutputs->getCount(); idx++) {
 			theOutput = OSDynamicCast (AudioHardwareOutput, AudioOutputs->getObject (idx));
 			if (theOutput) {
+				debug4IOLog ( "... %X theOutput->setVolume ( %X, %X )\n", (unsigned int)theOutput, (unsigned int)newValue, (unsigned int)gVolRight );
 				theOutput->setVolume (gVolLeft, newValue);
+			} else {
+				debugIOLog("... ### NO AudioHardwareOutput*\n");
 			}
 		}
 	}
@@ -1841,7 +1851,7 @@ const IOExternalMethod		AppleOnboardAudioUserClient::sMethods[] =
 		2,															// count of input parameters
 		0															// count of output parameters
 	},
-	// hwRegisterWrite32
+	// ksetBiquadCoefficients
 	{
 		NULL,														// object
 		( IOMethod ) &AppleOnboardAudioUserClient::setBiquadCoefficients,	// func

@@ -257,15 +257,6 @@ int main (int argc, const char *argv[])
 
     /* call the appropriate routine to handle the given action argument after becoming root */
 
-    result = seteuid( 0 );
-    if ( result ) {
-		fprintf(stderr, "You must be root to run %s.\n", argv[0]);
-        result = FSUR_INVAL;
-        goto AllDone;
-    }
-
-    result = setegid( 0 );	// PPD - is this necessary?
-
     switch( * actionPtr ) {
         case FSUC_PROBE:
             result = DoProbe(rawDeviceName);

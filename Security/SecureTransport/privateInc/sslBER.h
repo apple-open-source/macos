@@ -47,7 +47,7 @@ extern	"C" {
  *		publicExponent INTEGER -- e }
  */
  
-SSLErr sslDecodeRsaBlob(
+OSStatus sslDecodeRsaBlob(
 	const SSLBuffer	*blob,			/* PKCS-1 encoded */
 	SSLBuffer		*modulus,		/* data mallocd and RETURNED */
 	SSLBuffer		*exponent);		/* data mallocd and RETURNED */
@@ -57,7 +57,7 @@ SSLErr sslDecodeRsaBlob(
  * BER-encoded RSA public key blob.
  */
  
-SSLErr sslEncodeRsaBlob(
+OSStatus sslEncodeRsaBlob(
 	const SSLBuffer	*modulus,		
 	const SSLBuffer	*exponent,		
 	SSLBuffer		*blob);			/* data mallocd and RETURNED */

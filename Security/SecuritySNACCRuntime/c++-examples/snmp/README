@@ -113,7 +113,7 @@ but currently does not check value names.  The SNMP ASN.1 module shows
 this problem the with value "private" in rfc1155-smi.asn1.
 
 #-------------------------------------------------------------------------------
-# $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-examples/snmp/README,v 1.1.1.1 2001/05/18 23:14:05 mb Exp $
+# $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/c++-examples/snmp/README,v 1.1.1.1 2001/05/18 23:14:05 mb Exp $
 # $Log: README,v $
 # Revision 1.1.1.1  2001/05/18 23:14:05  mb
 # Move from private repository to open source repository

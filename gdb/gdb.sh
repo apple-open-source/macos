@@ -1,7 +1,5 @@
 #! /bin/sh
 
-PATH=/bin:/usr/bin
-
 arch=""
 for i in /sbin/arch /bin/arch /usr/sbin/arch /usr/bin/arch; do
     if [ -x "$i" ]; then

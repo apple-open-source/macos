@@ -419,9 +419,10 @@ void AppleTPSession::CertGroupVerify(CSSM_CL_HANDLE clHand,
 	const CSSM_TP_CALLERAUTH_CONTEXT *cred;
 	CSSM_OID_PTR 			oid = NULL;
 	TPCertGroup 			*tpCertGroup = NULL;	// created by
-													//   CertGroupConstructPriv
+													// CertGroupConstructPriv
 	TPCertInfo 				*certInfo = NULL;
 	CSSM_BOOL				allowExpired = CSSM_FALSE;
+	CSSM_BOOL				allowExpiredRoot = CSSM_FALSE;
 	/* declare volatile as compiler workaround to avoid caching in CR4 */
 	const CSSM_APPLE_TP_ACTION_DATA * volatile actionData = NULL;
 	const CSSM_APPLE_TP_SSL_OPTIONS *sslOpts = NULL;
@@ -506,6 +507,9 @@ void AppleTPSession::CertGroupVerify(CSSM_CL_HANDLE clHand,
 		}
 		if(actionData->ActionFlags & CSSM_TP_ACTION_ALLOW_EXPIRED) {
 			allowExpired = CSSM_TRUE;
+		}
+		if(actionData->ActionFlags & CSSM_TP_ACTION_ALLOW_EXPIRED_ROOT) {
+			allowExpiredRoot = CSSM_TRUE;
 		}
 	}
 	
@@ -710,7 +714,7 @@ out:
 
 	}
 	CSSM_RETURN outErr = tpCertGroup->getReturnCode(constructReturn,
-		allowExpired, policyReturn);
+		allowExpired, allowExpiredRoot, policyReturn);
 		
 	/* delete (internal use only) TPCertGroup */
 	delete tpCertGroup;

@@ -65,6 +65,7 @@ enum {
 IOUSBLog		*IOUSBController::_log;				
 const IORegistryPlane	*IOUSBController::gIOUSBPlane = 0;
 UInt32			IOUSBController::_busCount;
+bool			IOUSBController::gUsedBusIDs[16];
 
 void IOUSBSyncCompletion(void *	target,
                     void * 	parameter,
@@ -279,7 +280,7 @@ IOUSBController::CreateDevice(	IOUSBDevice 		*newDevice,
 {
 
     USBLog(5,"%s: CreateDevice: addr=%d, speed=%s, power=%d", getName(), 
-             deviceAddress, (speed == kUSBDeviceSpeedLow) ? "low" : "full", (int)powerAvailable*2);
+             deviceAddress, (speed == kUSBDeviceSpeedLow) ? "low" :  ((speed == kUSBDeviceSpeedFull) ? "full" : "high"), (int)powerAvailable*2);
     
     do 
     {
@@ -1014,12 +1015,11 @@ IOUSBController::AcquireDeviceZero()
     ep.transferType = kUSBControl;
     ep.maxPacketSize = 8;
 
-    USBLog(5,"%s[%p]: TRYING TO ACQUIRE DEVICE ZERO", getName(), this);
-
+    USBLog(6,"%s[%p]: Trying to acquire Device Zero", getName(), this);
     _commandGate->runAction(ProtectedDevZeroLock, (void*)true);
     // IOTakeLock(_devZeroLock);
 
-    USBLog(5,"%s[%p]: ACQUIRED DEVICE ZERO", getName(), this);
+    USBLog(5,"%s[%p]: Acquired Device Zero", getName(), this);
 
 //    err = OpenPipe(0, kUSBDeviceSpeedFull, &ep);
 // BT we don't need to do this, it just confuses the UIM
@@ -1037,9 +1037,8 @@ IOUSBController::ReleaseDeviceZero(void)
 
     err = _commandGate->runAction(DoDeleteEP, (void *)0, (void *)0, (void *)kUSBAnyDirn);
     _commandGate->runAction(ProtectedDevZeroLock, (void*)false);
-    // IOUnlock(_devZeroLock);
 
-    USBLog(5,"%s[%p]: RELEASED DEVICE ZERO", getName(), this);
+    USBLog(5,"%s[%p]:: Released Device Zero", getName(), this);
 
     return;
 }
@@ -1065,7 +1064,7 @@ IOUSBController::ConfigureDeviceZero(UInt8 maxPacketSize, UInt8 speed)
     ep.transferType = kUSBControl;
     ep.maxPacketSize = maxPacketSize;
 
-    USBLog(3,"********** ConfigureDeviceZero %d %d **********", maxPacketSize, speed);
+    USBLog(6, "%s[%p]::ConfigureDeviceZero (maxPacketSize: %d, Speed: %d)", getName(), this, maxPacketSize, speed);
 
 //    err = _commandGate->runAction(DoDeleteEP, (void *)0, (void *)0, (void *)kUSBAnyDirn);
 // BT paired with OpenPipe in AcquireDeviceZero
@@ -1082,7 +1081,7 @@ IOUSBController::GetDeviceZeroDescriptor(IOUSBDeviceDescriptor *desc, UInt16 siz
     IOReturn		err = kIOReturnSuccess;
     IOUSBDevRequest	request;
 
-    USBLog(3,"********** GET DEVICE ZERO DEVICE DESCRIPTOR (%d)**********", size);
+    USBLog(6, "%s[%p]::GetDeviceZeroDescriptor (size: %d)", getName(), this, size);
 
     do
     {
@@ -1112,7 +1111,7 @@ IOUSBController::GetDeviceZeroDescriptor(IOUSBDeviceDescriptor *desc, UInt16 siz
 
         if (err)
         {
-            USBLog(3,"%s: error getting device zero descriptor. err=0x%x", getName(), err);
+            USBLog(3,"%s[%p]::GetDeviceZeroDescriptor Error: 0x%x", getName(), this, err);
 
             syncer->release();
             syncer->release();
@@ -1133,7 +1132,7 @@ IOUSBController::SetDeviceZeroAddress(USBDeviceAddress address)
     IOReturn		err = kIOReturnSuccess;
     IOUSBDevRequest	request;
 
-    USBLog(3,"********** SET DEVICE ZERO ADDRESS: %d **********", address);
+    USBLog(6, "%s[%p]::SetDeviceZeroAddress (%d)", getName(), this, address);
 
     do
     {
@@ -1166,7 +1165,7 @@ IOUSBController::SetDeviceZeroAddress(USBDeviceAddress address)
 
     if (err)
     {
-        USBLog(3,"%s: error setting device address. err=0x%x", getName(), err);
+        USBLog(6, "%s[%p]::SetDeviceZeroAddress Error: 0x%x", getName(), this, err);
     }
     
     return(err);
@@ -1180,7 +1179,7 @@ IOUSBController::MakeDevice(USBDeviceAddress *	address)
     IOReturn		err = kIOReturnSuccess;
     IOUSBDevice		*newDev;
 
-    USBLog(3,"*************** MakeDevice ***************");
+    USBLog(6, "%s[%p]::MakeDevice", getName(), this);
 
     newDev = IOUSBDevice::NewDevice();
     
@@ -1195,11 +1194,10 @@ IOUSBController::MakeDevice(USBDeviceAddress *	address)
     }
 
     err = SetDeviceZeroAddress(*address);
-
     
     if (err)
     {
-        USBLog(3,"%s: error setting address. err=0x%x device=%p", getName(), err, this);
+        USBLog(3,"%s[%p]::MakeDevice error setting address. err=0x%x device=%p", getName(), this, err, newDev);
         *address = 0;
         //return(0); Some devices produce a spurious error here, eg. Altec Lansing speakers
     }
@@ -1322,7 +1320,6 @@ IOUSBController::stop( IOService * provider )
 {
     UInt32		i;
     IOUSBCommand *	command;
-    OSNumber *		busNumberProp;
     UInt32		retries = 0;
 
     USBLog(5,"+%s::stop (0x%lx)", getName(), (UInt32) provider);
@@ -1344,21 +1341,12 @@ IOUSBController::stop( IOService * provider )
     //
     UIMFinalize();
 
+    // Indicate that this busID is no longer used
+    //
+    gUsedBusIDs[_busNumber] = false;
+    
     // If we are the last controller, then we need to remove the gIOUSBPlane
     //
-    busNumberProp = (OSNumber *) provider->getProperty("busNumber");
-    if ( busNumberProp )
-    {
-        UInt32	bus = busNumberProp->unsigned32BitValue();
-       if ( bus == (_busCount) )
-            _busCount--;
-            
-        if ( _busCount == 0 )
-        {
-            // Need to release the gIOUSBPlane, but there doesn't seem to be a method
-            // to do it
-        }
-    }
     
     // Release the devZero lock:
     //
@@ -1728,7 +1716,9 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
     OSObject			*appleCurrentProperty;
     UInt32			pseudoBus;
     IOReturn			err = kIOReturnSuccess;
-
+    OSNumber * 			busNumberProp;
+    UInt32			bus;
+    
     /*
      * Create the root hub device
      */
@@ -1748,19 +1738,41 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
         goto ErrorExit;
     }
 
-    // Increment our global busCount (# of USB Buses) and set the properties on
+    // Increment our global _busCount (# of USB Buses) and set the properties on
     // our provider for busNumber and locationID.  This is used by Apple System Profiler.  The _busCount is NOT
     // guaranteed by IOKit to be the same across reboots (as the loading of the USB Controller driver can happen
     // in any order), but for all intents and purposes it will be the same.  This was changed from using the provider's
     // location for part of the locationID because of problems with multifunction PC and PCI cards.
     //
-    _busCount++;
-    pseudoBus = (_busCount & 0xff) << 24;
-    provider->setProperty("busNumber", _busCount, 32);
+    
+    // If our provider already has a "busNumber" property, then use that one for our location ID
+    // if it hasn't been used already
+    //
+    busNumberProp = (OSNumber *) provider->getProperty("USBBusNumber");
+    if ( busNumberProp )
+    {
+        bus = busNumberProp->unsigned32BitValue();
+    }
+    else
+    {
+        // Find the next empty busID and use that for our USBBusNumber
+        //
+        for ( bus = 0; bus < 16; bus++ )
+        {
+            if ( !gUsedBusIDs[bus] )
+                break;
+        }
+    }
+    
+    // We have an entry we can use so claim it
+    //
+    gUsedBusIDs[bus] = true;
+    pseudoBus = (bus & 0xff) << 24;
+    provider->setProperty("USBBusNumber", bus, 32);
     provider->setProperty(kUSBDevicePropertyLocationID, pseudoBus, 32);
 
     //  Save a copy of our busNumber property in a field
-    _busNumber = _busCount;
+    _busNumber = bus;
     
     // Set our locationID property for the root hub device.  Also, set the IOKit location
     // of the root hub device to be the same as the usb controller
@@ -1793,7 +1805,25 @@ ErrorExit:
 //OSMetaClassDefineReservedUsed(IOUSBController,  15);
 
 // in AppleUSBOHCI_UIM.cpp
-//OSMetaClassDefineReservedUsed(IOUSBController,  16);
+OSMetaClassDefineReservedUsed(IOUSBController,  16);
+IOReturn 		
+IOUSBController::UIMCreateIsochTransfer(
+                                                        short			functionAddress,
+                                                        short			endpointNumber,
+                                                        IOUSBIsocCompletion	completion,
+                                                        UInt8			direction,
+                                                        UInt64			frameStart,
+                                                        IOMemoryDescriptor *	pBuffer,
+                                                        UInt32			frameCount,
+                                                        IOUSBLowLatencyIsocFrame *pFrames,
+                                                        UInt32			updateFrequency)
+{
+    // This would normally be a pure virtual function which is implemented only in the UIM. However, 
+    // too maintain binary compatibility, I am implementing it
+    // in the controller class as a call that returns unimplemented. This method will be overriden with "new" UIMs.
+    //
+    return kIOReturnUnsupported;
+}
 
 OSMetaClassDefineReservedUnused(IOUSBController,  17);
 OSMetaClassDefineReservedUnused(IOUSBController,  18);

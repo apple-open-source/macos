@@ -31,7 +31,7 @@
 // useful, but WITHOUT ANY WARRANTY; without even the implied warranty
 // of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 //
-// $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-lib/inc/asn-config.h,v 1.7 2002/06/12 18:36:31 dmitch Exp $
+// $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/c++-lib/inc/asn-config.h,v 1.7 2002/06/12 18:36:31 dmitch Exp $
 // $Log: asn-config.h,v $
 // Revision 1.7  2002/06/12 18:36:31  dmitch
 // Radar 2951933: Avoid including iostream in asn-config.h for NDEBUG builds.
