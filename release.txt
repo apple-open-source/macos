@@ -1,8 +1,7 @@
-# Mac OS X 10.0.2 SU2Cheetah4P12
+# Mac OS X 10.0.3 SU3Cheetah4P13
 configd	24.1	Other
 Libinfo	78.2	Other
 Libsystem	50	Other
 netinfo	208.1	Other
 network_cmds	77	Other
 ntp	13	Other
-xnu	124.7	Other
