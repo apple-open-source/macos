@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = IOPCCardFamily ;
-export deferred SRCROOT = /Volumes/sandbox/pccard/IOPCCardFamily ;
+export deferred SRCROOT = /Volumes/home/ras/IOPCCardFamily ;
 
 # User-defined project-wide settings for project
 
@@ -19,7 +19,7 @@ export deferred _PBDEVELOPMENT_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/Apple
 
 # Implicitly computed build settings for target "ApplePMUPCCardEject"
 export deferred CLONE_HEADERS = NO ;
-export deferred PFE_FILE_C_DIALECTS = "c++" ;
+export deferred PFE_FILE_C_DIALECTS = c++ ;
 export deferred TARGETNAME = $(TARGET_NAME) ;
 export deferred TARGET_NAME = ApplePMUPCCardEject ;
 
@@ -80,6 +80,12 @@ ProcessFrameworksAndLibraries "<ApplePMUPCCardEject>ApplePMUPCCardEject.kext" : 
 # Script Build Phase Files
 SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/ApplePMUPCCardEject.build/BPTag005-script.sh" ;
 ProcessScriptBuildPhaseFiles "<ApplePMUPCCardEject>ApplePMUPCCardEject.kext" : "$(SCRIPT_BUILD_PHASE_FILES)" : BPTag004 : BPTag005 ;
+
+rule DefineHeaderDependencies
+{
+}
+
+DefineHeaderDependencies "<ApplePMUPCCardEject>ApplePMUPCCardEject.kext" ;
 
 EndBundle "<ApplePMUPCCardEject>ApplePMUPCCardEject.kext" ;
 

@@ -1,4 +1,4 @@
-# Mac OS X 10.2.5
+# Mac OS X 10.2.6
 Apple16X50Serial	10.6
 Apple3Com3C90x	3
 AppleADBButtons	102.0.1
@@ -64,13 +64,13 @@ IOHIDFamily	34.12
 IOKitTools	34
 IOKitUser	120.3
 IONetworkingFamily	12
-IOPCCardFamily	24.4
+IOPCCardFamily	24.5
 IOPCIFamily	9
 IOSCSIArchitectureModelFamily	124.3.1
 IOSCSIParallelFamily	124.3.2
 IOSerialFamily	19
 IOStorageFamily	25.5
-IOUSBFamily	198.4.15
+IOUSBFamily	199.4.1
 IOUSBMassStorageClass	123.3.2
 IPFirewall	12
 KeyLargoATA	109.3.1
@@ -213,7 +213,7 @@ vi	7
 volfs	24
 webdavfs	115
 xinetd	11
-xnu	344.32
+xnu	344.34
 yacc	6
 zlib	6
 zsh	30

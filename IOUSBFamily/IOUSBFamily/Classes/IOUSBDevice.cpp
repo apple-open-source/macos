@@ -283,7 +283,6 @@ IOUSBDevice::finalize(IOOptionBits options)
 void 
 IOUSBDevice::free()
 {
-    USBLog(5,"%s[%p]::free",getName(), this);
     if(_configList) 
     {
 	int 	i;
@@ -298,13 +297,16 @@ IOUSBDevice::free()
     }
     _currentConfigValue = 0;
 
-    IORecursiveLockFree(_getConfigLock);
-    
     //  This needs to be the LAST thing we do, as it disposes of our "fake" member
     //  variables.
     //
     if (_expansionData)
+    {
+        if ( _getConfigLock )
+            IORecursiveLockFree(_getConfigLock);
+    
 	IOFree(_expansionData, sizeof(ExpansionData));
+    }
 
     super::free();
 }
