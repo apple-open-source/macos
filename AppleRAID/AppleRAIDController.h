@@ -22,11 +22,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- *  DRI: Josh de Cesare
- *
- */
-
 
 #ifndef _APPLERAIDCONTROLLER_H
 #define _APPLERAIDCONTROLLER_H

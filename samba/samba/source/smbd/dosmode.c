@@ -136,9 +136,11 @@ uint32 dos_mode(connection_struct *conn,char *path,SMB_STRUCT_STAT *sbuf)
 	if (S_ISDIR(sbuf->st_mode))
 		result = aDIR | (result & aRONLY);
 
+#if defined (HAVE_STAT_ST_BLOCKS) && defined (HAVE_STAT_ST_BLKSIZE)
 	if (sbuf->st_size > sbuf->st_blocks * (SMB_OFF_T)sbuf->st_blksize) {
 		result |= FILE_ATTRIBUTE_SPARSE;
 	}
+#endif
  
 #ifdef S_ISLNK
 #if LINKS_READ_ONLY
@@ -181,6 +183,7 @@ uint32 dos_mode(connection_struct *conn,char *path,SMB_STRUCT_STAT *sbuf)
 /*******************************************************************
 chmod a file - but preserve some bits
 ********************************************************************/
+
 int file_chmod(connection_struct *conn,char *fname, uint32 dosmode,SMB_STRUCT_STAT *st)
 {
 	SMB_STRUCT_STAT st1;
@@ -194,6 +197,8 @@ int file_chmod(connection_struct *conn,char *fname, uint32 dosmode,SMB_STRUCT_ST
 		if (SMB_VFS_STAT(conn,fname,st))
 			return(-1);
 	}
+
+	get_acl_group_bits(conn, fname, &st->st_mode);
 
 	if (S_ISDIR(st->st_mode))
 		dosmode |= aDIR;

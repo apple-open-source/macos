@@ -9,35 +9,42 @@
 
 package org.jboss.jmx.adaptor.rmi;
 
-
-
+import java.io.Serializable;
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import javax.management.ObjectName;
+import javax.management.MBeanServer;
+import javax.naming.InitialContext;
 
 
 /**
  * A factory for producing MBean proxies that run on a distant node and access
  * the server through RMI. Most of the code comes from MBeanProxy.
  *
- * @version <tt>$Revision: 1.1.2.1 $</tt>
+ * @version <tt>$Revision: 1.1.2.2 $</tt>
  * @author <a href="mailto:sacha.labourey@cogito-info.ch">Sacha Labourey</a>.
  */
-public class RMIRemoteMBeanProxy 
-   implements java.io.Serializable, java.lang.reflect.InvocationHandler
+public class RMIRemoteMBeanProxy
+   implements Serializable, InvocationHandler
 {
+   /** The default binding of the RMIAdaptor */
+   private static final String DEFAULT_JNDI_NAME = "jmx/invoker/RMIAdaptor";
+
    /** The server to proxy invoke calls to. */
    private final RMIAdaptor remoteServer;
 
    /** The name of the object to invoke. */
    private final ObjectName name;
-  
+
    /**
     * Construct a MBeanProxy.
     */
 
-   RMIRemoteMBeanProxy (final ObjectName name, final javax.management.MBeanServer server) throws Exception
+   RMIRemoteMBeanProxy(final ObjectName name, final MBeanServer server) throws Exception
    {
       this.name = name;
-      this.remoteServer = getRmiAdaptor ();        
+      this.remoteServer = getRmiAdaptor();
    }
 
    /** Used when args is null. */
@@ -47,7 +54,8 @@ public class RMIRemoteMBeanProxy
     * Invoke the configured MBean via the target MBeanServer and decode
     * any resulting JMX exceptions that are thrown.
     */
-   public Object invoke (final Object proxy, final java.lang.reflect.Method method, final Object[] args) throws Throwable
+   public Object invoke(final Object proxy, final Method method, final Object[] args)
+      throws Throwable
    {
       String methodName = method.getName();
 
@@ -70,7 +78,7 @@ public class RMIRemoteMBeanProxy
       {
          String attrName = methodName.substring(3);
          remoteServer.setAttribute(name, new javax.management.Attribute(attrName, args[0]));
-         return null;         
+         return null;
       }
 
       // Operation
@@ -78,17 +86,18 @@ public class RMIRemoteMBeanProxy
       // convert the parameter types to strings for JMX
       Class[] types = method.getParameterTypes();
       String[] sig = new String[types.length];
-      for (int i = 0; i < types.length; i++) {
+      for (int i = 0; i < types.length; i++)
+      {
          sig[i] = types[i].getName();
       }
 
       // invoke the server and decode JMX exceptions
       return remoteServer.invoke(name, methodName, args == null ? EMPTY_ARGS : args, sig);
    }
-   
-   protected RMIAdaptor getRmiAdaptor () throws Exception
+
+   protected RMIAdaptor getRmiAdaptor() throws Exception
    {
-      return (RMIAdaptor)new javax.naming.InitialContext().lookup (RMIAdaptorService.DEFAULT_JNDI_NAME);
+      return (RMIAdaptor) new InitialContext().lookup(DEFAULT_JNDI_NAME);
    }
 
 
@@ -122,11 +131,12 @@ public class RMIRemoteMBeanProxy
     *
     * @throws MalformedObjectNameException    Invalid object name.
     */
-   public static Object create (final Class intf, final String name, final javax.management.MBeanServer server) throws Exception
+   public static Object create(final Class intf, final String name, final MBeanServer server)
+      throws Exception
    {
       return create(intf, new ObjectName(name), server);
-   }    
-   
+   }
+
    /**
     * Create an MBean proxy.
     *
@@ -135,10 +145,11 @@ public class RMIRemoteMBeanProxy
     * @param server    The MBeanServer that contains the MBean to proxy to.
     * @return          A MBean proxy.
     */
-   public static Object create (final Class intf, final ObjectName name, final javax.management.MBeanServer server) throws Exception
+   public static Object create(final Class intf, final ObjectName name, final MBeanServer server)
+      throws Exception
    {
-      return java.lang.reflect.Proxy.newProxyInstance(Thread.currentThread ().getContextClassLoader (), 
-                                    new Class[] { intf },
-                                    new RMIRemoteMBeanProxy(name, server));
+      return Proxy.newProxyInstance(Thread.currentThread().getContextClassLoader(),
+         new Class[]{intf},
+         new RMIRemoteMBeanProxy(name, server));
    }
 }

@@ -154,7 +154,12 @@ static int webdav_mount(struct mount *mp, char *path, caddr_t data,
 	fmp->pm_root = rvp;
 	fmp->pm_server = fp;
 	fmp->pm_mountp = mp;
-	fmp->status = WEBDAV_MOUNT_SUPPORTS_STATFS;	/* assume yes until told no */
+	fmp->pm_status = WEBDAV_MOUNT_SUPPORTS_STATFS;	/* assume yes until told no */
+	if ( args.pa_suppressAllUI )
+	{
+		/* suppress UI when connection is lost */
+		fmp->pm_status |= WEBDAV_MOUNT_SUPPRESS_ALL_UI;
+	}
 	fref(fp);
 
 	mp->mnt_data = (qaddr_t)fmp;
@@ -247,7 +252,7 @@ static int webdav_unmount(struct mount *mp, int mntflags, struct proc *p)
 	if (mntflags & MNT_FORCE)
 	{
 		flags |= FORCECLOSE;
-		VFSTOWEBDAV(mp)->status |= WEBDAV_MOUNT_FORCE;
+		VFSTOWEBDAV(mp)->pm_status |= WEBDAV_MOUNT_FORCE;
 	}
 
 	/*
@@ -353,17 +358,17 @@ static int webdav_statfs(struct mount *mp, struct statfs *sbp, struct proc *p)
 
 	/* get the values from the server if we can.  If not, make em up */
 
-	if (fmp->status & WEBDAV_MOUNT_SUPPORTS_STATFS)
+	if (fmp->pm_status & WEBDAV_MOUNT_SUPPORTS_STATFS)
 	{
 		/* while there's a WEBDAV_STATFS request outstanding, sleep */
-		while (fmp->status & WEBDAV_MOUNT_STATFS)
+		while (fmp->pm_status & WEBDAV_MOUNT_STATFS)
 		{
-			fmp->status |= WEBDAV_MOUNT_STATFS_WANTED;
-			(void) tsleep((caddr_t)&fmp->status, PRIBIO, "webdav_statfs", 0);
+			fmp->pm_status |= WEBDAV_MOUNT_STATFS_WANTED;
+			(void) tsleep((caddr_t)&fmp->pm_status, PRIBIO, "webdav_statfs", 0);
 		}
 		
 		/* we're making a request so grab the token */
-		fmp->status |= WEBDAV_MOUNT_STATFS;
+		fmp->pm_status |= WEBDAV_MOUNT_STATFS;
 
 		pcred.pcr_flag = 0;
 		/* user level is ingnoring the pcred anyway */
@@ -418,7 +423,7 @@ static int webdav_statfs(struct mount *mp, struct statfs *sbp, struct proc *p)
 		if ( error == 0 && server_error == 0 )
 		{
 			/* server must not support getting quotas so stop trying */
-			fmp->status &= ~WEBDAV_MOUNT_SUPPORTS_STATFS;
+			fmp->pm_status &= ~WEBDAV_MOUNT_SUPPORTS_STATFS;
 		}
 		sbp->f_blocks = WEBDAV_NUM_BLOCKS;
 		sbp->f_bfree = sbp->f_bavail = WEBDAV_FREE_BLOCKS;
@@ -466,13 +471,13 @@ bad:
 	 */
 	
 	/* we're done, so release the token */
-	fmp->status &= ~WEBDAV_MOUNT_STATFS;
+	fmp->pm_status &= ~WEBDAV_MOUNT_STATFS;
 	
 	/* if anyone else is waiting, wake them up */
-	if ( fmp->status & WEBDAV_MOUNT_STATFS_WANTED )
+	if ( fmp->pm_status & WEBDAV_MOUNT_STATFS_WANTED )
 	{
-		fmp->status &= ~WEBDAV_MOUNT_STATFS_WANTED;
-		wakeup((caddr_t)&fmp->status);
+		fmp->pm_status &= ~WEBDAV_MOUNT_STATFS_WANTED;
+		wakeup((caddr_t)&fmp->pm_status);
 	}
 
 	return (error);
@@ -520,9 +525,16 @@ static int webdav_sysctl(int *name, u_int namelen, void *oldp, size_t *oldlenp,
 					{
 						fmp = VFSTOWEBDAV(mp);
 						bzero(&vq, sizeof(vq));
-						if ( (fmp != NULL) && (fmp->status & WEBDAV_MOUNT_TIMEO) )
+						if ( fmp != NULL )
 						{
-							vq.vq_flags |= VQ_NOTRESP;
+							if ( fmp->pm_status & WEBDAV_MOUNT_TIMEO )
+							{
+								vq.vq_flags |= VQ_NOTRESP;
+							}
+							if ( fmp->pm_status & WEBDAV_MOUNT_DEAD )
+							{
+								vq.vq_flags |= VQ_DEAD;
+							}
 						}
 						error = SYSCTL_OUT(req, &vq, sizeof(vq));
 					}

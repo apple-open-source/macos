@@ -15,9 +15,9 @@ package org.jboss.ejb.plugins.cmp.jdbc;
  * @author <a href="mailto:marc.fleury@telkel.com">Marc Fleury</a>
  * @author <a href="mailto:shevlandj@kpi.com.au">Joe Shevland</a>
  * @author <a href="mailto:justin@j-m-f.demon.co.uk">Justin Forder</a>
- * @version $Revision: 1.8 $
+ * @version $Revision: 1.8.4.1 $
  */
-public class JDBCDestroyCommand {
+public final class JDBCDestroyCommand {
    public JDBCDestroyCommand(JDBCStoreManager manager) {
    }
    

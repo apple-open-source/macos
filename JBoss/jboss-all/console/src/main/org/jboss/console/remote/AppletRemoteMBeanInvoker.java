@@ -12,7 +12,7 @@ package org.jboss.console.remote;
  * @see <related>
  *
  * @author  <a href="mailto:sacha.labourey@cogito-info.ch">Sacha Labourey</a>.
- * @version $Revision: 1.1.2.1 $
+ * @version $Revision: 1.1.2.2 $
  *
  * <p><b>Revisions:</b>
  *
@@ -49,7 +49,12 @@ implements SimpleRemoteMBeanInvoker
    {
       return Util.invoke (this.baseUrl, new RemoteMBeanInvocation (name, operationName, params, signature));
    }
-   
+
+   public Object getAttribute (javax.management.ObjectName name, String attrName) throws Exception
+   {
+      return Util.getAttribute(this.baseUrl, new RemoteMBeanAttributeInvocation(name, attrName));
+   }
+
    // Y overrides ---------------------------------------------------
    
    // Package protected ---------------------------------------------

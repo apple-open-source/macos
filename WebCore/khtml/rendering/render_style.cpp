@@ -55,14 +55,8 @@ StyleBoxData::StyleBoxData()
     : z_index( 0 ), z_auto(true)
 {
     // Initialize our min/max widths/heights.
-    min_width.type = Fixed;
-    min_width.value = 0;
-    min_height.type = Fixed;
-    min_height.value = 0;
-    max_width.type = Fixed;
-    max_width.value = UNDEFINED;
-    max_height.type = Fixed;
-    max_height.value = UNDEFINED;
+    min_width = min_height = RenderStyle::initialMinSize();
+    max_width = max_height = RenderStyle::initialMaxSize();
 }
 
 StyleBoxData::StyleBoxData(const StyleBoxData& o )
@@ -88,7 +82,9 @@ bool StyleBoxData::operator==(const StyleBoxData& o) const
 }
 
 StyleVisualData::StyleVisualData()
-    : hasClip(false), textDecoration(TDNONE), colspan( 1 ), counter_increment( 0 ), counter_reset( 0 ),
+      : hasClip(false), 
+      textDecoration(RenderStyle::initialTextDecoration()), 
+      colspan( 1 ), counter_increment( 0 ), counter_reset( 0 ),
       palette( QApplication::palette() )
 {
 }
@@ -107,7 +103,7 @@ StyleVisualData::StyleVisualData(const StyleVisualData& o )
 
 
 StyleBackgroundData::StyleBackgroundData()
-    : image( 0 )
+    : image( RenderStyle::initialBackgroundImage() )
 {
 }
 
@@ -129,16 +125,36 @@ bool StyleBackgroundData::operator==(const StyleBackgroundData& o) const
 	outline == o.outline;
 }
 
+StyleMarqueeData::StyleMarqueeData()
+{
+    increment = RenderStyle::initialMarqueeIncrement();
+    speed = RenderStyle::initialMarqueeSpeed();
+    direction = RenderStyle::initialMarqueeDirection();
+    behavior = RenderStyle::initialMarqueeBehavior();
+    loops = RenderStyle::initialMarqueeLoopCount();
+}
+
+StyleMarqueeData::StyleMarqueeData(const StyleMarqueeData& o)
+:Shared<StyleMarqueeData>(), increment(o.increment), speed(o.speed), loops(o.loops),
+ behavior(o.behavior), direction(o.direction) 
+{}
+
+bool StyleMarqueeData::operator==(const StyleMarqueeData& o) const
+{
+    return (increment == o.increment && speed == o.speed && direction == o.direction &&
+            behavior == o.behavior && loops == o.loops);
+}
+
 StyleFlexibleBoxData::StyleFlexibleBoxData()
 : Shared<StyleFlexibleBoxData>()
 {
-    flex = 0.0f;
-    flex_group = 1;
-    ordinal_group = 1;
-    align = BSTRETCH;
-    pack = BSTART;
-    orient = HORIZONTAL;
-    lines = SINGLE;
+    flex = RenderStyle::initialBoxFlex();
+    flex_group = RenderStyle::initialBoxFlexGroup();
+    ordinal_group = RenderStyle::initialBoxOrdinalGroup();
+    align = RenderStyle::initialBoxAlign();
+    pack = RenderStyle::initialBoxPack();
+    orient = RenderStyle::initialBoxOrient();
+    lines = RenderStyle::initialBoxLines();
     flexed_height = -1;
 }
 
@@ -164,19 +180,18 @@ bool StyleFlexibleBoxData::operator==(const StyleFlexibleBoxData& o) const
 }
 
 StyleCSS3NonInheritedData::StyleCSS3NonInheritedData()
-:Shared<StyleCSS3NonInheritedData>(), opacity(1.0f)
+:Shared<StyleCSS3NonInheritedData>(), opacity(RenderStyle::initialOpacity())
 {
-    
 }
 
 StyleCSS3NonInheritedData::StyleCSS3NonInheritedData(const StyleCSS3NonInheritedData& o)
-:Shared<StyleCSS3NonInheritedData>(), opacity(o.opacity), flexibleBox(o.flexibleBox)
+:Shared<StyleCSS3NonInheritedData>(), opacity(o.opacity), flexibleBox(o.flexibleBox), marquee(o.marquee)
 {
 }
 
 bool StyleCSS3NonInheritedData::operator==(const StyleCSS3NonInheritedData& o) const
 {
-    return opacity == o.opacity && flexibleBox == o.flexibleBox;
+    return opacity == o.opacity && flexibleBox == o.flexibleBox && marquee == o.marquee;
 }
 
 StyleCSS3InheritedData::StyleCSS3InheritedData()
@@ -189,6 +204,11 @@ StyleCSS3InheritedData::StyleCSS3InheritedData(const StyleCSS3InheritedData& o)
 :Shared<StyleCSS3InheritedData>()
 {
     textShadow = o.textShadow ? new ShadowData(*o.textShadow) : 0;
+}
+
+StyleCSS3InheritedData::~StyleCSS3InheritedData()
+{
+    delete textShadow;
 }
 
 bool StyleCSS3InheritedData::operator==(const StyleCSS3InheritedData& o) const
@@ -206,8 +226,13 @@ bool StyleCSS3InheritedData::shadowDataEquivalent(const StyleCSS3InheritedData& 
 }
 
 StyleInheritedData::StyleInheritedData()
-    : indent( Fixed ), line_height( -100, Percent ), style_image( 0 ),
-      cursor_image( 0 ), font(), color( Qt::black ), border_spacing( 0 )
+    : indent( RenderStyle::initialTextIndent() ), line_height( RenderStyle::initialLineHeight() ), 
+      style_image( RenderStyle::initialListStyleImage() ),
+      cursor_image( 0 ), font(), color( RenderStyle::initialColor() ), 
+      horizontal_border_spacing( RenderStyle::initialHorizontalBorderSpacing() ), 
+      vertical_border_spacing( RenderStyle::initialVerticalBorderSpacing() ),
+      widows( RenderStyle::initialWidows() ), orphans( RenderStyle::initialOrphans() ),
+      page_break_inside( RenderStyle::initialPageBreak() )
 {
 }
 
@@ -220,7 +245,9 @@ StyleInheritedData::StyleInheritedData(const StyleInheritedData& o )
       indent( o.indent ), line_height( o.line_height ), style_image( o.style_image ),
       cursor_image( o.cursor_image ), font( o.font ),
       color( o.color ),
-      border_spacing( o.border_spacing )
+      horizontal_border_spacing( o.horizontal_border_spacing ),
+      vertical_border_spacing( o.vertical_border_spacing ),
+      widows(o.widows), orphans(o.orphans), page_break_inside(o.page_break_inside)
 {
 }
 
@@ -229,14 +256,15 @@ bool StyleInheritedData::operator==(const StyleInheritedData& o) const
     return
 	indent == o.indent &&
 	line_height == o.line_height &&
-	border_spacing == o.border_spacing &&
 	style_image == o.style_image &&
 	cursor_image == o.cursor_image &&
 	font == o.font &&
-	color == o.color;
-
-    // doesn't work because structs are not packed
-    //return memcmp(this, &o, sizeof(*this))==0;
+	color == o.color &&
+        horizontal_border_spacing == o.horizontal_border_spacing &&
+        vertical_border_spacing == o.vertical_border_spacing &&
+        widows == o.widows &&
+        orphans == o.orphans &&
+        page_break_inside == o.page_break_inside;
 }
 
 RenderStyle::RenderStyle()
@@ -270,6 +298,7 @@ RenderStyle::RenderStyle(bool)
     surround.init();
     css3NonInheritedData.init();
     css3NonInheritedData.access()->flexibleBox.init();
+    css3NonInheritedData.access()->marquee.init();
     css3InheritedData.init();
     inherited.init();
 
@@ -329,36 +358,61 @@ bool RenderStyle::isStyleAvailable() const
     return this != CSSStyleSelector::styleNotYetAvailable;
 }
 
+enum EPseudoBit { NO_BIT = 0x0, BEFORE_BIT = 0x1, AFTER_BIT = 0x2, FIRST_LINE_BIT = 0x4,
+                  FIRST_LETTER_BIT = 0x8, SELECTION_BIT = 0x10, FIRST_LINE_INHERITED_BIT = 0x20 };
+
+static int pseudoBit(RenderStyle::PseudoId pseudo)
+{
+    switch (pseudo) {
+        case RenderStyle::BEFORE:
+            return BEFORE_BIT;
+        case RenderStyle::AFTER:
+            return AFTER_BIT;
+        case RenderStyle::FIRST_LINE:
+            return FIRST_LINE_BIT;
+        case RenderStyle::FIRST_LETTER:
+            return FIRST_LETTER_BIT;
+        case RenderStyle::SELECTION:
+            return SELECTION_BIT;
+        case RenderStyle::FIRST_LINE_INHERITED:
+            return FIRST_LINE_INHERITED_BIT;
+        default:
+            return NO_BIT;
+    }
+}
+
+bool RenderStyle::hasPseudoStyle(PseudoId pseudo) const
+{
+    return (pseudoBit(pseudo) & noninherited_flags._pseudoBits) != 0;
+}
+
+void RenderStyle::setHasPseudoStyle(PseudoId pseudo)
+{
+    noninherited_flags._pseudoBits |= pseudoBit(pseudo);
+}
+
 RenderStyle* RenderStyle::getPseudoStyle(PseudoId pid)
 {
     RenderStyle *ps = 0;
     if (noninherited_flags._styleType==NOPSEUDO) {
 	ps = pseudoStyle;
-    while (ps) {
-        if (ps->noninherited_flags._styleType==pid)
-		break;
-
-        ps = ps->pseudoStyle;
-    }
+        while (ps) {
+            if (ps->noninherited_flags._styleType==pid)
+                    break;
+    
+            ps = ps->pseudoStyle;
+        }
     }
     return ps;
 }
 
-RenderStyle* RenderStyle::addPseudoStyle(PseudoId pid)
+void RenderStyle::addPseudoStyle(RenderStyle* pseudo)
 {
-    RenderStyle *ps = getPseudoStyle(pid);
-
-    if (!ps)
-    {
-        ps = new RenderStyle(); // So that noninherited flags are reset.
-        ps->ref();
-        ps->noninherited_flags._styleType = pid;
-        ps->pseudoStyle = pseudoStyle;
-
-        pseudoStyle = ps;
-    }
-
-    return ps;
+    if (!pseudo) return;
+    
+    pseudo->ref();
+    pseudo->pseudoStyle = pseudoStyle;
+    pseudoStyle = pseudo;
 }
 
 void RenderStyle::removePseudoStyle(PseudoId pid)
@@ -420,14 +474,16 @@ RenderStyle::Diff RenderStyle::diff( const RenderStyle *other ) const
 //     DataRef<StyleInheritedData> inherited;
 
     if ( *box.get() != *other->box.get() ||
-        *surround.get() != *other->surround.get() ||
+         !(surround->margin == other->surround->margin) ||
+         !(surround->padding == other->surround->padding) ||
          *css3NonInheritedData->flexibleBox.get() != *other->css3NonInheritedData->flexibleBox.get() ||
         !(inherited->indent == other->inherited->indent) ||
         !(inherited->line_height == other->inherited->line_height) ||
         !(inherited->style_image == other->inherited->style_image) ||
         !(inherited->cursor_image == other->inherited->cursor_image) ||
         !(inherited->font == other->inherited->font) ||
-        !(inherited->border_spacing == other->inherited->border_spacing) ||
+        !(inherited->horizontal_border_spacing == other->inherited->horizontal_border_spacing) ||
+        !(inherited->vertical_border_spacing == other->inherited->vertical_border_spacing) ||
         !(inherited_flags._box_direction == other->inherited_flags._box_direction) ||
         !(inherited_flags._visuallyOrdered == other->inherited_flags._visuallyOrdered) ||
         !(inherited_flags._htmlHacks == other->inherited_flags._htmlHacks) ||
@@ -479,7 +535,6 @@ RenderStyle::Diff RenderStyle::diff( const RenderStyle *other ) const
 	 !(inherited_flags._text_transform == other->inherited_flags._text_transform) ||
 	 !(inherited_flags._direction == other->inherited_flags._direction) ||
 	 !(inherited_flags._white_space == other->inherited_flags._white_space) ||
-	 !(inherited_flags._font_variant == other->inherited_flags._font_variant) ||
 	 !(noninherited_flags._clear == other->noninherited_flags._clear)
 	)
 	return Layout;
@@ -490,6 +545,25 @@ RenderStyle::Diff RenderStyle::diff( const RenderStyle *other ) const
     if ( !(noninherited_flags._effectiveDisplay == INLINE) &&
          !(noninherited_flags._vertical_align == other->noninherited_flags._vertical_align))
         return Layout;
+
+    // If our border widths change, then we need to layout.  Other changes to borders
+    // only necessitate a repaint.
+    if (borderLeftWidth() != other->borderLeftWidth() ||
+        borderTopWidth() != other->borderTopWidth() ||
+        borderBottomWidth() != other->borderBottomWidth() ||
+        borderRightWidth() != other->borderRightWidth())
+        return Layout;
+
+    // Make sure these left/top/right/bottom checks stay below all layout checks and above
+    // all visible checks.
+    if (other->position() != STATIC && !(surround->offset == other->surround->offset)) {
+     // FIXME: would like to do this at some point, but will need a new hint that indicates
+     // descendants need to be repainted too.
+     //   if (other->position() == RELATIVE)
+     //       return Visible;
+     //   else
+            return Layout;
+    }
 
     // Visible:
 // 	EVisibility _visibility : 2;
@@ -504,6 +578,8 @@ RenderStyle::Diff RenderStyle::diff( const RenderStyle *other ) const
         !(noninherited_flags._bg_repeat == other->noninherited_flags._bg_repeat) ||
         !(noninherited_flags._bg_attachment == other->noninherited_flags._bg_attachment) ||
         !(inherited_flags._text_decorations == other->inherited_flags._text_decorations) ||
+        !(inherited_flags._should_correct_text_color == other->inherited_flags._should_correct_text_color) ||
+        !(surround->border == other->surround->border) ||
         *background.get() != *other->background.get() ||
         !(visual->clip == other->visual->clip) ||
         visual->hasClip != other->visual->hasClip ||

@@ -32,7 +32,15 @@
 #include "html_formimpl.h"
 #include "html_tableimpl.h"
 
+#import "WebCoreKeyboardAccess.h"
+
 #include <CoreFoundation/CoreFoundation.h>
+
+#include <JavaVM/jni.h>
+#include <JavaScriptCore/jni_jsobject.h>
+#include <JavaScriptCore/runtime.h>
+
+#include "KWQDict.h"
 
 class KHTMLPartPrivate;
 class KWQWindowWidget;
@@ -50,6 +58,7 @@ namespace KJS {
 #ifdef __OBJC__
 @class NSAttributedString;
 @class NSEvent;
+@class NSFileWrapper;
 @class NSResponder;
 @class NSView;
 @class WebCoreBridge;
@@ -62,6 +71,7 @@ namespace KJS {
 #else
 class NSAttributedString;
 class NSEvent;
+class NSFileWrapper;
 class NSResponder;
 class NSView;
 class WebCoreBridge;
@@ -84,6 +94,8 @@ public:
     KWQKHTMLPart();
     ~KWQKHTMLPart();
     
+    void clear();
+
     void setBridge(WebCoreBridge *p);
     WebCoreBridge *bridge() const { return _bridge; }
     void setView(KHTMLView *view);
@@ -97,6 +109,8 @@ public:
     
     void openURLRequest(const KURL &, const KParts::URLArgs &);
     void submitForm(const KURL &, const KParts::URLArgs &);
+
+    void scheduleHistoryNavigation( int steps );
     
     void scrollToAnchor(const KURL &);
     void jumpToSelection();
@@ -138,6 +152,11 @@ public:
     NSView *nextKeyView(DOM::NodeImpl *startingPoint, KWQSelectionDirection);
     NSView *nextKeyViewInFrameHierarchy(DOM::NodeImpl *startingPoint, KWQSelectionDirection);
     static NSView *nextKeyViewForWidget(QWidget *startingPoint, KWQSelectionDirection);
+    static bool currentEventIsKeyboardOptionTab();
+    static bool handleKeyboardOptionTabInView(NSView *view);
+    
+    virtual bool tabsToLinks() const;
+    virtual bool tabsToAllControls() const;
     
     static bool currentEventIsMouseDownInWidget(QWidget *candidate);
     
@@ -151,7 +170,7 @@ public:
     using KHTMLPart::xmlDocImpl;
     khtml::RenderObject *renderer();
     void forceLayout();
-    void forceLayoutForPageWidth(float pageWidth);
+    void forceLayoutWithPageWidthRange(float minPageWidth, float maxPageWidth);
     void sendResizeEvent();
     void paint(QPainter *, const QRect &);
     void paintSelectionOnly(QPainter *p, const QRect &rect);
@@ -175,14 +194,15 @@ public:
 
     QRect selectionRect() const;
 
-    static NSAttributedString *attributedString(DOM::NodeImpl *startNode, int startOffset, DOM::NodeImpl *endNode, int endOffset);
+    NSFileWrapper *fileWrapperForElement(DOM::ElementImpl *);
+    NSAttributedString *attributedString(DOM::NodeImpl *startNode, int startOffset, DOM::NodeImpl *endNode, int endOffset);
 
     void addMetaData(const QString &key, const QString &value);
 
     void mouseDown(NSEvent *);
     void mouseDragged(NSEvent *);
     void mouseUp(NSEvent *);
-    void doFakeMouseUpAfterWidgetTracking(NSEvent *downEvent);
+    void sendFakeEventsAfterWidgetTracking(NSEvent *initiatingEvent);
     void mouseMoved(NSEvent *);
     bool keyEvent(NSEvent *);
     bool lastEventIsMouseUp();
@@ -217,20 +237,32 @@ public:
     void setUsesInactiveTextBackgroundColor(bool u) { _usesInactiveTextBackgroundColor = u; }
     bool usesInactiveTextBackgroundColor() const { return _usesInactiveTextBackgroundColor; }
 
+    void setShowsFirstResponder(bool flag);
+    bool showsFirstResponder() const { return _showsFirstResponder; }
+    
     // Convenience, to avoid repeating the code to dig down to get this.
     QChar backslashAsCurrencySymbol() const;
 
     NSColor *bodyBackgroundColor() const;
+    
+    WebCoreKeyboardUIMode keyboardUIMode() const;
 
+    void setName(const QString &name);
+
+    void didTellBridgeAboutLoad(const QString &urlString);
+    bool haveToldBridgeAboutLoad(const QString &urlString);
+    void print();
+
+    KJS::Bindings::Instance *getAppletInstanceForView (NSView *aView);
+    void addPluginRootObject(const KJS::Bindings::RootObject *root);
+    void cleanupPluginRootObjects();
+    
 private:
     virtual void khtmlMousePressEvent(khtml::MousePressEvent *);
     virtual void khtmlMouseDoubleClickEvent(khtml::MouseDoubleClickEvent *);
     virtual void khtmlMouseMoveEvent(khtml::MouseMoveEvent *);
     virtual void khtmlMouseReleaseEvent(khtml::MouseReleaseEvent *);
     
-    static int buttonForCurrentEvent();
-    static int stateForCurrentEvent();
-
     bool passWidgetMouseDownEventToWidget(khtml::MouseEvent *);
     bool passWidgetMouseDownEventToWidget(khtml::RenderWidget *);
     bool passWidgetMouseDownEventToWidget(QWidget *);
@@ -244,7 +276,7 @@ private:
     NSView *nextKeyViewInFrame(DOM::NodeImpl *startingPoint, KWQSelectionDirection);
     static DOM::NodeImpl *nodeForWidget(const QWidget *);
     static KWQKHTMLPart *partForNode(DOM::NodeImpl *);
-    khtml::ChildFrame *childFrameForPart(const KParts::ReadOnlyPart *) const;
+    static NSView *documentViewForNode(DOM::NodeImpl *);
     
     WebCoreBridge *_bridge;
     
@@ -269,10 +301,15 @@ private:
     static QPtrList<KWQKHTMLPart> &mutableInstances();
 
     KWQWindowWidget *_windowWidget;
-    
+
     bool _usesInactiveTextBackgroundColor;
+    bool _showsFirstResponder;
+
+    QDict<char> urlsBridgeKnowsAbout;
 
     friend class KHTMLPart;
+
+    QPtrList<KJS::Bindings::RootObject> rootObjects;
 };
 
 inline KWQKHTMLPart *KWQ(KHTMLPart *part) { return static_cast<KWQKHTMLPart *>(part); }

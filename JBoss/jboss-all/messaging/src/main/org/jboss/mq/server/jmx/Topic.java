@@ -7,19 +7,14 @@
 
 package org.jboss.mq.server.jmx;
 
-import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 
 import javax.jms.IllegalStateException;
 
-import org.jboss.mq.DurableSubscriptionID;
 import org.jboss.mq.SpyTopic;
 import org.jboss.mq.server.JMSDestinationManager;
 import org.jboss.mq.server.JMSTopic;
 import org.jboss.mq.server.MessageCounter;
-
-import org.jboss.mq.sm.StateManager;
 
 /**
  * This class is a message queue which is stored (hashed by Destination) on the
@@ -29,19 +24,13 @@ import org.jboss.mq.sm.StateManager;
  * @author     Norbert Lataille (Norbert.Lataille@m4x.org)
  * @author     <a href="hiram.chirino@jboss.org">Hiram Chirino</a>
  * @author     <a href="pra@tim.se">Peter Antman</a>
- * @version    $Revision: 1.3.2.3 $
+ * @version    $Revision: 1.3.2.5 $
  */
 public class Topic
    extends DestinationMBeanSupport
    implements TopicMBean
 {
    JMSTopic destination;
-   //SpyTopic topic;
-   //String topicName;
-   //String jndiName;
-   //boolean jndiBound;
-   
-   //private ObjectName jbossMQService;
    
    /**
     * @jmx:managed-attribute
@@ -62,7 +51,7 @@ public class Topic
          server.getAttribute(jbossMQService, "Interceptor");
 
       spyDest = new SpyTopic(destinationName);
-      destination = new JMSTopic((SpyTopic)spyDest, null, jmsServer);
+      destination = new JMSTopic((SpyTopic)spyDest, null, jmsServer, parameters);
       
       jmsServer.addDestination(destination);
                           

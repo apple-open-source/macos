@@ -6,3 +6,6 @@ http://jakarta.apache.org/builds/jakarta-commons/release/commons-collections/v2.
 
 commons-logging.jar: The 1.0.2 release of the commons logging wrapper from
 http://jakarta.apache.org/builds/jakarta-commons/release/commons-logging/v1.0.2/
+
+commons-httpclient.jar: The 2.0-RC1 release of the commons http client from
+http://www.apache.org/dist/jakarta/commons/httpclient/binary/commons-httpclient-2.0-rc1.zip

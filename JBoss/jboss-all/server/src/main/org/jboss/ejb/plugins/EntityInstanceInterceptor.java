@@ -12,16 +12,13 @@ import java.rmi.RemoteException;
 
 import javax.transaction.Transaction;
 
-import org.jboss.ejb.Container;
 import org.jboss.ejb.BeanLock;
-import org.jboss.ejb.BeanLockManager;
+import org.jboss.ejb.Container;
 import org.jboss.ejb.EntityContainer;
 import org.jboss.ejb.EntityEnterpriseContext;
-import org.jboss.ejb.EnterpriseContext;
 import org.jboss.ejb.InstanceCache;
-import org.jboss.ejb.InstancePool;
 import org.jboss.invocation.Invocation;
-
+import org.jboss.util.NestedRuntimeException;
 
 /**
 * The instance interceptors role is to acquire a context representing
@@ -44,7 +41,7 @@ import org.jboss.invocation.Invocation;
 * @author <a href="mailto:marc.fleury@jboss.org">Marc Fleury</a>
 * @author <a href="mailto:Scott.Stark@jboss.org">Scott Stark</a>
 * @author <a href="mailto:bill@burkecentral.com">Bill Burke</a>
-* @version $Revision: 1.53.2.5 $
+* @version $Revision: 1.53.2.9 $
 */
 public class EntityInstanceInterceptor
    extends AbstractInterceptor
@@ -76,9 +73,10 @@ public class EntityInstanceInterceptor
       throws Exception
    {
       // Get context
-      EntityEnterpriseContext ctx = (EntityEnterpriseContext)((EntityContainer)getContainer()).getInstancePool().get();
+      EntityContainer container = (EntityContainer) getContainer();
+      EntityEnterpriseContext ctx = (EntityEnterpriseContext) container.getInstancePool().get();
 
-		// Pass it to the method invocation
+      // Pass it to the method invocation
       mi.setEnterpriseContext(ctx);
 
       // Give it the transaction
@@ -94,9 +92,7 @@ public class EntityInstanceInterceptor
       {
 
          BeanLock lock = container.getLockManager().getLock(ctx.getCacheKey());
-
          lock.sync(); // lock all access to BeanLock
-
          try
          {
             // Check there isn't a context already in the cache
@@ -115,7 +111,13 @@ public class EntityInstanceInterceptor
             container.getLockManager().removeLockRef(ctx.getCacheKey());
          }
       }
-      //Do not send back to pools in any case, let the instance be GC'ed
+      else
+      {
+         // It was just a home invocation, put the context back in the pool
+         ctx.setTransaction(null);
+         container.getInstancePool().free(ctx);
+         mi.setEnterpriseContext(null); // EntityCreateInterceptor will access ctx if it is not null and call postCreate
+      }
       return rtn;
    }
 
@@ -128,44 +130,31 @@ public class EntityInstanceInterceptor
       Object key = mi.getId();
 
       // The context
-      EntityEnterpriseContext ctx = null;
-      try
+      EntityEnterpriseContext ctx = (EntityEnterpriseContext) container.getInstanceCache().get(key);
+
+      if( trace ) log.trace("Begin invoke, key="+key);
+
+      // Associate transaction, in the new design the lock already has the transaction from the
+      // previous interceptor
+
+      // Don't set the transction if a read-only method.  With a read-only method, the ctx can be shared
+      // between multiple transactions.
+      Transaction tx = (Transaction) mi.getTransaction();
+      if(!container.isReadOnly()) 
       {
-         ctx = (EntityEnterpriseContext) container.getInstanceCache().get(key);
-
-         if( trace ) log.trace("Begin invoke, key="+key);
-
-         // Associate transaction, in the new design the lock already has the transaction from the
-         // previous interceptor
-
-         // Don't set the transction if a read-only method.  With a read-only method, the ctx can be shared
-         // between multiple transactions.
-         if(!container.isReadOnly()) 
+         Method method = mi.getMethod();
+         if(method == null ||
+            !container.getBeanMetaData().isMethodReadOnly(method.getName()))
          {
-            Method method = mi.getMethod();
-            if(method == null ||
-               !container.getBeanMetaData().isMethodReadOnly(method.getName()))
-            {
-               ctx.setTransaction(mi.getTransaction());
-            }
+            ctx.setTransaction(tx);
          }
-
-         // Set the current security information
-         ctx.setPrincipal(mi.getPrincipal());
-
-         // Set context on the method invocation
-         mi.setEnterpriseContext(ctx);
       }
-      catch (Throwable e)
-      {
-         clearLockTx(mi, e, trace);
-         if (e instanceof Exception)
-            throw (Exception) e;
-         else if (e instanceof Error)
-            throw (Error) e;
-         else
-            throw new InvocationTargetException(e);
-      }
+
+      // Set the current security information
+      ctx.setPrincipal(mi.getPrincipal());
+
+      // Set context on the method invocation
+      mi.setEnterpriseContext(ctx);
 
       Throwable exceptionThrown = null;
 
@@ -182,10 +171,21 @@ public class EntityInstanceInterceptor
       {
          exceptionThrown = e;
          throw e;
-      } catch (Error e)
+      }
+      catch (Error e)
       {
          exceptionThrown = e;
          throw e;
+      }
+      catch (Exception e)
+      {
+         exceptionThrown = e;
+         throw e;
+      }
+      catch (Throwable e)
+      {
+         exceptionThrown = e;
+         throw new NestedRuntimeException(e);
       }
       finally
       {
@@ -193,6 +193,16 @@ public class EntityInstanceInterceptor
          // example when activating a bean.
          if (ctx != null)
          {
+            // Make sure we clear the transaction on an error before synchronization.
+            // But avoid a race with a transaction rollback on a synchronization
+            // that may have moved the context onto a different transaction
+            if (exceptionThrown != null && tx != null)
+            {
+               Transaction ctxTx = ctx.getTransaction();
+               if (tx.equals(ctxTx) && ctx.hasTxSynchronization() == false)
+                  ctx.setTransaction(null);
+            }
+
 				// If an exception has been thrown,
             if (exceptionThrown != null &&
                 // if tx, the ctx has been registered in an InstanceSynchronization.
@@ -219,43 +229,6 @@ public class EntityInstanceInterceptor
          if( trace )	log.trace("End invoke, key="+key+", ctx="+ctx);
 
       }	// end invoke
-   }
-
-    /**
-    * Something went wrong getting the enterprise context.<br>
-    * Clear any transaction associated with the lock, otherwise
-    * the lock interceptor will barf. This should only happen
-    * on the first access to the context if activation fails.
-    */
-   protected void clearLockTx(Invocation mi, Throwable e, boolean trace)
-   {
-      if (container.isReadOnly() == false) 
-      {
-         Method method = mi.getMethod();
-         if (method == null ||
-            container.getBeanMetaData().isMethodReadOnly(method.getName()) == false)
-         {
-            Object key = mi.getId();
-            BeanLock lock = container.getLockManager().getLock(key);
-            lock.sync();
-            try
-            {
-               Transaction tx = lock.getTransaction();
-               if (tx != null)
-               {
-                  if (trace)
-                     log.trace("Clearing bean lock's tx: " + tx + " key: " + key, e);
-  
-                  lock.wontSynchronize(tx);
-               }
-            }
-            finally
-            {
-               lock.releaseSync();
-               container.getLockManager().removeLockRef(lock.getId());
-            }
-         }
-      }
    }
 }
 

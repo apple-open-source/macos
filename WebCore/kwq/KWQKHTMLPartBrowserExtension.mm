@@ -24,8 +24,10 @@
  */
 
 #import "KWQKHTMLPartBrowserExtension.h"
-#import "khtml_part.h"
+
+#import "KWQExceptions.h"
 #import "WebCoreBridge.h"
+#import "khtml_part.h"
 
 KHTMLPartBrowserExtension::KHTMLPartBrowserExtension(KHTMLPart *part)
     : _part(KWQ(part)), _browserInterface(_part)
@@ -36,20 +38,8 @@ void KHTMLPartBrowserExtension::openURLRequest(const KURL &url,
 					       const KParts::URLArgs &args)
 {
     if (url.protocol().lower() == "javascript") {
-	QString string = url.url();
 	_part->createEmptyDocument();
-	QString script = KURL::decode_string(string.mid(strlen("javascript:")));
-	QVariant ret = _part->executeScript(script);
-
-	// some sites open windows with a javascript: URL that
-	// evaluates to an HTML string which they want placed in the
-	// window - should executing a script always do this?
-	if (ret.type() == QVariant::String) {
-	    _part->begin();
-	    _part->write(ret.asString());
-	    _part->end();
-	}
-
+	_part->replaceContentsWithScriptResult(url);
      } else {
 	_part->openURLRequest(url, args);
     }
@@ -78,22 +68,26 @@ void KHTMLPartBrowserExtension::createNewWindow(const KURL &url,
 						const KParts::WindowArgs &winArgs, 
 						KParts::ReadOnlyPart **partResult)
 { 
+    KWQ_BLOCK_EXCEPTIONS;
+
     NSString *frameName = urlArgs.frameName.length() == 0 ? nil : urlArgs.frameName.getNSString();
-
+    
     WebCoreBridge *bridge;
-
+    
     if (frameName != nil) {
 	bridge = [_part->bridge() findFrameNamed:frameName];
 	if (bridge != nil) {
 	    if (!url.isEmpty()) {
-		[bridge loadURL:url.getNSURL() referrer:[_part->bridge() referrer] reload:urlArgs.reload target:nil triggeringEvent:nil form:nil formValues:nil];
+		[bridge loadURL:url.getNSURL() referrer:[_part->bridge() referrer] reload:urlArgs.reload onLoadEvent:false target:nil triggeringEvent:nil form:nil formValues:nil];
 	    }
 	    [bridge focusWindow];
-	    *partResult = [bridge part];
+	    if (partResult) {
+		*partResult = [bridge part];
+	    }
 	    return;
 	}
     }
-
+    
     bridge = [_part->bridge() createWindowWithURL:url.getNSURL() frameName:frameName];
     
     if (!winArgs.toolBarsVisible) {
@@ -115,7 +109,7 @@ void KHTMLPartBrowserExtension::createNewWindow(const KURL &url,
     if (winArgs.xSet || winArgs.ySet || winArgs.widthSet || winArgs.heightSet) {
 	NSRect frame = [bridge windowFrame];
 	NSRect contentRect = [bridge windowContentRect];
-
+	
 	if (winArgs.xSet) {
 	    frame.origin.x = winArgs.x;
 	}
@@ -139,16 +133,33 @@ void KHTMLPartBrowserExtension::createNewWindow(const KURL &url,
     }
     
     [bridge showWindow];
+
+    if ([bridge part]) {
+	[bridge part]->setName(urlArgs.frameName);
+    }
     
-    *partResult = [bridge part];
+    if (partResult) {
+	*partResult = [bridge part];
+    }
+    return;
+
+    KWQ_UNBLOCK_EXCEPTIONS;
+
+    if (partResult) {
+	*partResult = NULL;
+    }
 }
 
 void KHTMLPartBrowserExtension::setIconURL(const KURL &url)
 {
+    KWQ_BLOCK_EXCEPTIONS;
     [_part->bridge() setIconURL:url.getNSURL()];
+    KWQ_UNBLOCK_EXCEPTIONS;
 }
 
 void KHTMLPartBrowserExtension::setTypedIconURL(const KURL &url, const QString &type)
 {
+    KWQ_BLOCK_EXCEPTIONS;
     [_part->bridge() setIconURL:url.getNSURL() withType:type.getNSString()];
+    KWQ_UNBLOCK_EXCEPTIONS;
 }

@@ -31,6 +31,11 @@ using CodeSigning::OSXCode;
 namespace Security {
 namespace SecurityServer {
 
+//
+// Static callback stuff
+//
+ClientSession::DidChangeKeyAclCallback *ClientSession::mCallback = NULL;
+void *ClientSession::mCallbackContext = NULL;
 
 //
 // The process-global object
@@ -39,7 +44,6 @@ UnixPlusPlus::StaticForkMonitor ClientSession::mHasForked;
 ModuleNexus<ClientSession::Global> ClientSession::mGlobal;
 bool ClientSession::mSetupSession;
 const char *ClientSession::mContactName;
-
 
 //
 // Construct a client session
@@ -55,6 +59,13 @@ ClientSession::ClientSession(CssmAllocator &std, CssmAllocator &rtn)
 ClientSession::~ClientSession()
 { }
 
+
+void
+ClientSession::registerForAclEdits(DidChangeKeyAclCallback *callback, void *context)
+{
+	mCallback = callback;
+	mCallbackContext = context;
+}
 
 //
 // Activate a client session: This connects to the SecurityServer and executes
@@ -157,6 +168,19 @@ void ClientSession::terminate()
 {
 	// currently defunct
 	secdebug("SSclnt", "ClientSession::terminate() call ignored");
+}
+
+
+void ClientSession::addApplicationAclSubject(KeyHandle key, CSSM_ACL_AUTHORIZATION_TAG tag)
+{
+	/* Notify our client if they are interested. */
+	if (mCallback && mCallbackContext)
+	{
+		secdebug("keyacl", "ClientSession::addApplicationAclSubject(keyHandle: %lu tag: %lu)", key, tag);
+		mCallback(mCallbackContext, *this, key, tag);
+	}
+	else
+		secdebug("keyacl", "ClientSession::addApplicationAclSubject() with NULL mCallback");
 }
 
 

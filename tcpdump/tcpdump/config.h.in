@@ -11,9 +11,6 @@
 /* Define if you can safely include both <sys/time.h> and <time.h>.  */
 #undef TIME_WITH_SYS_TIME
 
-/* Define if you have SSLeay 0.9.0b with the buggy cast128. */
-#undef HAVE_BUGGY_CAST128
-
 /* Define if you enable IPv6 support */
 #undef INET6
 
@@ -73,6 +70,9 @@
 
 /* define if libpcap has pcap_datalink_name_to_val() */
 #undef HAVE_PCAP_DATALINK_NAME_TO_VAL
+
+/* define if libpcap has pcap_datalink_val_to_description() */
+#undef HAVE_PCAP_DATALINK_VAL_TO_DESCRIPTION
 
 /* define if unaligned memory accesses fail */
 #undef LBL_ALIGN
@@ -139,14 +139,8 @@
 /* Define if you have the getnameinfo function.  */
 #undef HAVE_GETNAMEINFO
 
-/* Define if you have the inet_aton function.  */
-#undef HAVE_INET_ATON
-
-/* Define if you have the inet_ntop function.  */
-#undef HAVE_INET_NTOP
-
-/* Define if you have the inet_pton function.  */
-#undef HAVE_INET_PTON
+/* Define if you have the pcap_breakloop function.  */
+#undef HAVE_PCAP_BREAKLOOP
 
 /* Define if you have the pcap_dump_flush function.  */
 #undef HAVE_PCAP_DUMP_FLUSH
@@ -178,6 +172,9 @@
 /* Define if you have the strdup function.  */
 #undef HAVE_STRDUP
 
+/* Define if you have the strftime function.  */
+#undef HAVE_STRFTIME
+
 /* Define if you have the strlcat function.  */
 #undef HAVE_STRLCAT
 
@@ -205,11 +202,8 @@
 /* Define if you have the <netinet/if_ether.h> header file.  */
 #undef HAVE_NETINET_IF_ETHER_H
 
-/* Define if you have the <openssl/cast.h> header file.  */
-#undef HAVE_OPENSSL_CAST_H
-
-/* Define if you have the <openssl/rc5.h> header file.  */
-#undef HAVE_OPENSSL_RC5_H
+/* Define if you have the <openssl/evp.h> header file.  */
+#undef HAVE_OPENSSL_EVP_H
 
 /* Define if you have the <rpc/rpcent.h> header file.  */
 #undef HAVE_RPC_RPCENT_H

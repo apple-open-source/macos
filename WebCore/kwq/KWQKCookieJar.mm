@@ -25,26 +25,35 @@
 
 #import "KWQKCookieJar.h"
 
-#import "WebCoreCookieAdapter.h"
+#import "KWQExceptions.h"
 #import "KWQKURL.h"
+#import "WebCoreCookieAdapter.h"
+#import <Foundation/NSString.h>
 
 QString KWQKCookieJar::cookie(const KURL &url)
 {
-    NSString *result = [[WebCoreCookieAdapter sharedAdapter] cookiesForURL:url.url().getNSString()];
-    if (result != nil) {
-        return QString::fromNSString(result);
-    } else {
-        return QString();
-    }
+    KWQ_BLOCK_EXCEPTIONS;
+    return QString::fromNSString([[WebCoreCookieAdapter sharedAdapter] cookiesForURL:url.url().getNSString()]);
+    KWQ_UNBLOCK_EXCEPTIONS;
+
+    return QString();
 }
 
 void KWQKCookieJar::setCookie(const KURL &url, const KURL &policyBaseURL, const QString &cookie)
 {
+    KWQ_BLOCK_EXCEPTIONS;
+
     [[WebCoreCookieAdapter sharedAdapter] setCookies:cookie.getNSString()
-        forURL:url.url().getNSString() policyBaseURL:policyBaseURL.url().getNSString()];
+     forURL:url.url().getNSString() policyBaseURL:policyBaseURL.url().getNSString()];
+
+    KWQ_UNBLOCK_EXCEPTIONS;
 }
 
 bool KWQKCookieJar::cookieEnabled()
 {
+    KWQ_BLOCK_EXCEPTIONS;
     return [[WebCoreCookieAdapter sharedAdapter] cookiesEnabled];
+    KWQ_UNBLOCK_EXCEPTIONS;
+
+    return false;
 }

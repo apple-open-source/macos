@@ -18,6 +18,7 @@
         <bean:message key="users.list.description"/>
       </div></td>
     </tr>
+    <logic:present name="groupsForm">
     <logic:iterate name="groupsForm" property="groups"
                      id="group" type="java.lang.String">
       <tr class="line-row">
@@ -47,6 +48,7 @@
         </div></td>
       </tr>
     </logic:iterate>
+    </logic:present>
   </table>
 
 </td></tr></table>

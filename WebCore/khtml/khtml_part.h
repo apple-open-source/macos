@@ -29,6 +29,7 @@
 
 #include "dom/html_document.h"
 #include "dom/dom2_range.h"
+#include "dom/dom_misc.h"
 
 #include <kparts/part.h>
 #include <kparts/browserextension.h>
@@ -60,6 +61,8 @@ namespace DOM
   class HTMLEventListener;
   class EventListener;
 };
+
+using DOM::TristateFlag;
 
 namespace khtml
 {
@@ -94,7 +97,7 @@ namespace KParts
  * This class is khtml's main class. It features an almost complete
  * web browser, and html renderer.
  *
- * The easiest way to use this class (if you just want to display a an HTML
+ * The easiest way to use this class (if you just want to display an HTML
  * page at some URL) is the following:
  *
  * <pre>
@@ -345,9 +348,13 @@ public:
   void setOnlyLocalReferences(bool enable);
 
   /**
-   * Returnd whether references should be loaded ( default false )
+   * Returns whether references should be loaded ( default false )
    **/
   bool onlyLocalReferences() const;
+
+  void setEditMode(TristateFlag enable);
+  TristateFlag editMode() const;
+  bool inEditMode() const;
 
 #ifndef KDE_NO_COMPAT
   void enableJScript(bool e) { setJScriptEnabled(e); }
@@ -563,6 +570,11 @@ public:
   void setSelection( const DOM::Range & );
 
   /**
+   * Returns the text for a part of the document.
+   */
+  QString text(const DOM::Range &) const;
+
+  /**
    * Has the user selected anything?
    *
    *  Call @ref selectedText() to
@@ -634,7 +646,7 @@ public:
    *
    *  Returns 0L otherwise.
    */
-  KHTMLPart *parentPart();
+  KHTMLPart *parentPart() const;
 
   /**
    * Returns a list of names of all frame (including iframe) objects of
@@ -716,6 +728,9 @@ public:
 
   bool isPointInsideSelection(int x, int y);
 
+  virtual bool tabsToLinks() const;
+  virtual bool tabsToAllControls() const;
+  
   /**
    * @internal
    */
@@ -1042,7 +1057,7 @@ private:
 
   void init( KHTMLView *view, GUIProfile prof );
 
-  void clear();
+  virtual void clear();
 
   bool scheduleScript( const DOM::Node &n, const QString& script);
 
@@ -1069,7 +1084,7 @@ private:
 
   DOM::HTMLDocumentImpl *docImpl() const;
   DOM::DocumentImpl *xmlDocImpl() const;
-  khtml::ChildFrame *frame( const QObject *obj );
+  khtml::ChildFrame *childFrame( const QObject *obj );
 
   khtml::ChildFrame *recursiveFrameRequest( const KURL &url, const KParts::URLArgs &args, bool callParent = true );
 
@@ -1090,6 +1105,8 @@ private:
   void emitLoadEvent();
   
   void receivedFirstData();
+
+  void replaceContentsWithScriptResult( const KURL &url );
 
   KHTMLPartPrivate *d;
   friend class KHTMLPartPrivate;

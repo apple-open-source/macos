@@ -315,22 +315,17 @@ setQueueAsyncPort(OSAsyncReference asyncRef, void * vInQueue, void *, void *,
 IOReturn IOHIDLibUserClient::
 open(void * flags, void *, void *, void *, void *, void *)
 {
-    IOReturn 		ret = kIOReturnSuccess;
+    IOReturn		ret = kIOReturnSuccess;
     IOOptionBits 	options = (IOOptionBits)flags;
     
-    if (options & kIOServiceSeize)
-        do {
-            ret = clientHasPrivilege(fClient, kIOClientPrivilegeAdministrator);
-            if (ret == kIOReturnSuccess)
-                break;
-                
-            ret = clientHasPrivilege(fClient, kIOClientPrivilegeLocalUser);
-            if (ret == kIOReturnSuccess)
-                break;
-                
+    ret = clientHasPrivilege(fClient, kIOClientPrivilegeLocalUser);
+    if (ret != kIOReturnSuccess)
+    {
+        ret = clientHasPrivilege(fClient, kIOClientPrivilegeAdministrator);
+        if (ret != kIOReturnSuccess)
             return ret;
-        } while (0);
-    
+    }
+
     if (!fNub->open(this, options))
 	return kIOReturnExclusiveAccess;
         

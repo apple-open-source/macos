@@ -1,0 +1,20 @@
+
+<jboss-client>
+   <security-domain>java:/jaas/jbosstest-web</security-domain>
+   <jndi-name>test-client</jndi-name>
+
+   <ejb-ref>
+      <ejb-ref-name>ejb/StatelessSessionBean</ejb-ref-name>
+      <jndi-name>ejbcts/StatelessSessionHome</jndi-name>
+   </ejb-ref>
+
+   <resource-ref>
+      <res-ref-name>url/JBossHome</res-ref-name>
+      <res-url>http://www.jboss.org</res-url>
+   </resource-ref>
+   <resource-env-ref>
+      <resource-env-ref-name>jms/aQueue</resource-env-ref-name>
+      <jndi-name>queue/testQueue</jndi-name>
+   </resource-env-ref>
+
+</jboss-client>

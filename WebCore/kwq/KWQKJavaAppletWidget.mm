@@ -26,43 +26,38 @@
 #import "KWQKJavaAppletWidget.h"
 
 #import "KHTMLView.h"
+#import "KWQExceptions.h"
+#import "KWQKHTMLPart.h"
 #import "KWQKJavaAppletContext.h"
 #import "KWQKURL.h"
-#import "KWQKHTMLPart.h"
 #import "KWQView.h"
 #import "WebCoreBridge.h"
 
-KJavaAppletWidget::KJavaAppletWidget(KJavaAppletContext *c, QWidget *)
-    : _applet(*this)
-    , _context(c)
-    , _parameters([[NSMutableDictionary alloc] init])
+KJavaAppletWidget::KJavaAppletWidget(const QSize &size, KJavaAppletContext *c, const QMap<QString, QString> &args)
 {
-}
-
-KJavaAppletWidget::~KJavaAppletWidget()
-{
-    [_parameters release];
-}
-
-void KJavaAppletWidget::setParameter(const QString &name, const QString &value)
-{
-    // When putting strings into dictionaries, we should use an immutable copy.
-    // That's not necessary for keys, because they are copied.
-    NSString *immutableString = [value.getNSString() copy];
-    [_parameters setObject:immutableString forKey:name.lower().getNSString()];
-    [immutableString release];
-}
-
-void KJavaAppletWidget::showApplet()
-{
-    // If the view is a KWQView, we haven't replaced it with the Java view yet.
-    // Only set the Java view once.
-    if ([getView() isKindOfClass:[KWQView class]]) {
-        setView([KWQ(_context->part())->bridge()
-            viewForJavaAppletWithFrame:NSMakeRect(x(), y(), width(), height())
-                            attributes:_parameters
-                               baseURL:KURL(_baseURL).getNSURL()]);
-        // Add the view to the main view now so the applet starts immediately rather than until the first paint.
-        _context->part()->view()->addChild(this, x(), y());
+    KWQ_BLOCK_EXCEPTIONS;
+    
+    NSMutableDictionary *attributes = [[NSMutableDictionary alloc] init];
+    QMapConstIterator<QString, QString> it = args.begin();
+    QMapConstIterator<QString, QString> end = args.end();
+    QString baseURLString = NULL;
+    while (it != end) {
+        if (it.key().lower() == "baseurl") {
+            baseURLString = it.data();
+        }
+        [attributes setObject:it.data().getNSString() forKey:it.key().getNSString()];
+        ++it;
     }
+    
+    KHTMLPart *part = c->part();
+    KURL baseURL = baseURLString != NULL ? KURL(baseURLString) : part->baseURL();
+    
+    setView([KWQ(part)->bridge() viewForJavaAppletWithFrame:NSMakeRect(x(), y(), size.width(), size.height())
+                                                 attributes:attributes
+                                                    baseURL:baseURL.getNSURL()]);
+    [attributes release];
+    part->view()->addChild(this, x(), y());
+    
+    KWQ_UNBLOCK_EXCEPTIONS;
 }
+

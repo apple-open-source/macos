@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE server>
 
-<!-- $Id: jboss-service.xml,v 1.1.2.4 2003/06/16 23:30:40 sreich Exp $ -->
+<!-- $Id: jboss-service.xml,v 1.1.2.6 2003/10/05 23:49:29 starksm Exp $ -->
 <server>
 
    <!-- The JRMP invoker proxy configuration for the InvokerAdaptorService -->
@@ -18,11 +17,21 @@
       <attribute name="ClientInterceptors">
           <interceptors>
              <interceptor>org.jboss.proxy.ClientMethodInterceptor</interceptor>
+             <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
              <interceptor>org.jboss.jmx.connector.invoker.client.InvokerAdaptorClientInterceptor</interceptor>
              <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
           </interceptors>
       </attribute>
       <depends>jboss:service=invoker,type=jrmp</depends>
+   </mbean>
+
+   <!-- Create a mapping from the legacy jmx-rmi-adaptor.sar binding to the
+   jmx-invoker-adaptor-server.sar JndiName specified above for backwards
+   portability.
+   -->
+   <mbean code="org.jboss.naming.NamingAlias" name="jboss.jmx:alias=jmx/rmi/RMIAdaptor">
+      <attribute name="FromName">jmx/rmi/RMIAdaptor</attribute>
+      <attribute name="ToName">jmx/invoker/RMIAdaptor</attribute>
    </mbean>
 
    <!-- This is the service that handles the RMIAdaptor invocations by routing

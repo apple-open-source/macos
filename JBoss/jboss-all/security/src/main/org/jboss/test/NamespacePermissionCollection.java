@@ -5,7 +5,6 @@ import java.security.PermissionCollection;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Iterator;
-import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.SortedMap;
@@ -14,7 +13,7 @@ import java.util.TreeMap;
 /** The PermissionCollection object for NamespacePermissions.
 
 @author Scott.Stark@jboss.org
-@version $Revision: 1.3 $
+@version $Revision: 1.3.4.1 $
 */
 public class NamespacePermissionCollection extends PermissionCollection
 {

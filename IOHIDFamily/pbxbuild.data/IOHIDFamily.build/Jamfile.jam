@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = IOHIDFamily ;
-export deferred SRCROOT = /Users/Shared/IOHIDFamily ;
+export deferred SRCROOT = /Volumes/Junk/IOHIDFamily ;
 
 # User-defined project-wide settings for project
 
@@ -30,8 +30,8 @@ export deferred INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions" ;
 export deferred KERNEL_MODULE = YES ;
 export deferred LIBRARY_SEARCH_PATHS =  ;
 export deferred MODULE_IOKIT = YES ;
-export deferred MODULE_NAME += com.apple.iokit.IOHIDFamily ;
-export deferred MODULE_VERSION = 1.3.1 ;
+export deferred MODULE_NAME = com.apple.iokit.IOHIDFamily ;
+export deferred MODULE_VERSION = 1.3.3 ;
 export deferred OTHER_CFLAGS =  ;
 export deferred OTHER_LDFLAGS =  ;
 export deferred OTHER_REZFLAGS =  ;

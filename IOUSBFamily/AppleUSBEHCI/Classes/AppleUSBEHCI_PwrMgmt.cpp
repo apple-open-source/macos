@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -232,7 +232,13 @@ AppleUSBEHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
         {
             USBLog(2, "%s[%p] suspending the bus", getName(), this);
             _remote_wakeup_occurred = false;
-    
+
+            // Make sure that we have the USB Bus running before we go into suspend
+            if (_idleSuspend)
+            {
+                USBLog(5, "%s[%p]::setPowerState - in _idleSuspend -  restarting USB before suspending", getName(), this);
+                RestartUSBBus();
+            }
             SuspendUSBBus();
             USBLog(2, "%s[%p] The bus is now suspended", getName(), this);
         }

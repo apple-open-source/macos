@@ -6,7 +6,7 @@ import org.jboss.logging.Logger;
 
 /**
  * @author Scott.Stark@jboss.org
- * @version $Revision: 1.1.2.1 $
+ * @version $Revision: 1.1.2.2 $
  */
 public class NotificationListenerDelegate
    implements NotificationListener
@@ -25,7 +25,10 @@ public class NotificationListenerDelegate
    {
       try
       {
-         log.info("Sending notification to client, event:"+notification);
+         if( log.isTraceEnabled() )
+         {
+            log.trace("Sending notification to client, event:"+notification);
+         }
          client.handleNotification(notification, handback);
       }
       catch(Throwable t)

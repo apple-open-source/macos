@@ -1,0 +1,20 @@
+<?xml version='1.0'?>
+<!DOCTYPE policy PUBLIC
+      "-//JBoss//DTD JBOSS Security Config 3.0//EN"
+      "http://www.jboss.org/j2ee/dtd/security_config.dtd">
+
+<!-- The JAAS login configuration file for the java:/jaas/jbossweb
+security domain used by the security-spec test case
+-->
+<policy>
+
+    <application-policy name = "jbosstest-web">
+       <authentication>
+          <login-module code = "org.jboss.security.auth.spi.UsersRolesLoginModule"
+             flag = "required">
+             <module-option name = "unauthenticatedIdentity">nobody</module-option>
+          </login-module>
+       </authentication>
+    </application-policy>
+
+</policy>

@@ -57,14 +57,10 @@
 
 package org.jboss.util.xml;
 
-
-import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.Writer;
-import java.io.UnsupportedEncodingException;
 
 import org.w3c.dom.Attr;
-import org.w3c.dom.Document;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -74,258 +70,266 @@ import org.w3c.dom.NodeList;
  * A sample DOM writer. This sample program illustrates how to
  * traverse a DOM tree in order to print a document that is parsed.
  *
- * @version $Id: DOMWriter.java,v 1.1 2002/02/16 10:35:22 user57 Exp $
- * @version ORIGINAL - DOMWriter.java,v 1.8 2000/09/19 17:15:47 jeffreyr 
+ * @version $Revision: 1.1.4.4 $
  */
-public class DOMWriter {
+public class DOMWriter
+{
+   /** Print writer. */
+   protected PrintWriter out;
 
-    //
-    // Constants
-    //
+   /** Canonical output. */
+   protected boolean canonical;
 
+   public DOMWriter(Writer w)
+   {
+      this(w, false);
+   }
 
-    //
-    // Data
-    //
+   public DOMWriter(Writer w, boolean canonical)
+   {
+      out = new PrintWriter(w);
+      this.canonical = canonical;
+   }
 
-    /** Default Encoding */
-    private static  String
-    PRINTWRITER_ENCODING = "UTF8";
+   public void print(Node node)
+   {
+      print(node, true);
+   }
 
-    private static String MIME2JAVA_ENCODINGS[] =
-    { "Default", "UTF-8", "US-ASCII", "ISO-8859-1", "ISO-8859-2", "ISO-8859-3", "ISO-8859-4", 
-        "ISO-8859-5", "ISO-8859-6", "ISO-8859-7", "ISO-8859-8", "ISO-8859-9", "ISO-2022-JP",
-        "SHIFT_JIS", "EUC-JP","GB2312", "BIG5", "EUC-KR", "ISO-2022-KR", "KOI8-R", "EBCDIC-CP-US", 
-        "EBCDIC-CP-CA", "EBCDIC-CP-NL", "EBCDIC-CP-DK", "EBCDIC-CP-NO", "EBCDIC-CP-FI", "EBCDIC-CP-SE",
-        "EBCDIC-CP-IT", "EBCDIC-CP-ES", "EBCDIC-CP-GB", "EBCDIC-CP-FR", "EBCDIC-CP-AR1", 
-        "EBCDIC-CP-HE", "EBCDIC-CP-CH", "EBCDIC-CP-ROECE","EBCDIC-CP-YU",  
-        "EBCDIC-CP-IS", "EBCDIC-CP-AR2", "UTF-16"
-    };
+   public void print(Node node, boolean prettyprint)
+   {
 
+      // is there anything to do?
+      if (node == null)
+      {
+         return;
+      }
 
-
-    /** Print writer. */
-    protected PrintWriter out;
-
-    /** Canonical output. */
-    protected boolean canonical;
-
-
-    public DOMWriter(Writer w, boolean canonical)              
-    throws UnsupportedEncodingException {
-        out = new PrintWriter(w);
-        this.canonical = canonical;
-    } // <init>(String,boolean)
-
-    //
-    // Constructors
-    //
-
-    public static String getWriterEncoding( ) {
-        return(PRINTWRITER_ENCODING);
-    }// getWriterEncoding 
-
-
-
-    public void print(Node node) {
-        print(node, true);
-    }
-
-    /** Prints the specified node, recursively. */
-    public void print(Node node, boolean prettyprint) {
-
-        // is there anything to do?
-        if ( node == null ) {
-            return;
-        }
-
-        int type = node.getNodeType();
-        switch ( type ) {
-        // print document
-        case Node.DOCUMENT_NODE: {
-                if ( !canonical ) {
-                    String  Encoding = this.getWriterEncoding();
-                    if ( Encoding.equalsIgnoreCase( "DEFAULT" ) )
-                        Encoding = "UTF-8";
-                    else if ( Encoding.equalsIgnoreCase( "Unicode" ) )
-                        Encoding = "UTF-16";
-                    else
-                        Encoding = MIME2Java.reverse( Encoding );
-
-                    out.println("<?xml version=\"1.0\" encoding=\""+
-                                Encoding + "\"?>");
-                }
-                //print(((Document)node).getDocumentElement());
+      int type = node.getNodeType();
+      switch (type)
+      {
+         // print document
+         case Node.DOCUMENT_NODE:
+            {
+               if (!canonical)
+               {
+                  out.println("<?xml version=\"1.0\"?>");
+               }
+               //print(((Document)node).getDocumentElement());
                 
-                NodeList children = node.getChildNodes(); 
-                for ( int iChild = 0; iChild < children.getLength(); iChild++ ) { 
-                    print(children.item(iChild)); 
-                } 
-                out.flush();
-                break;
+               NodeList children = node.getChildNodes();
+               for (int iChild = 0; iChild < children.getLength(); iChild++)
+               {
+                  print(children.item(iChild));
+               }
+               out.flush();
+               break;
             }
 
             // print element with attributes
-        case Node.ELEMENT_NODE: {
-                out.print('<');
-                out.print(node.getNodeName());
-                Attr attrs[] = sortAttributes(node.getAttributes());
-                for ( int i = 0; i < attrs.length; i++ ) {
-                    Attr attr = attrs[i];
-                    out.print(' ');
-                    out.print(attr.getNodeName());
-                    out.print("=\"");
-                    out.print(normalize(attr.getNodeValue()));
-                    out.print('"');
-                }
-                out.print('>');
-                NodeList children = node.getChildNodes();
-                if ( children != null ) {
-                    int len = children.getLength();
-                    for ( int i = 0; i < len; i++ ) {
-                        print(children.item(i));
-                    }
-                }
-                break;
+         case Node.ELEMENT_NODE:
+            {
+               out.print('<');
+               out.print(node.getNodeName());
+               Attr attrs[] = sortAttributes(node.getAttributes());
+               for (int i = 0; i < attrs.length; i++)
+               {
+                  Attr attr = attrs[i];
+                  out.print(' ');
+                  out.print(attr.getNodeName());
+                  out.print("=\"");
+                  out.print(normalize(attr.getNodeValue()));
+                  out.print('"');
+               }
+               out.print('>');
+               NodeList children = node.getChildNodes();
+               if (children != null)
+               {
+                  int len = children.getLength();
+                  for (int i = 0; i < len; i++)
+                  {
+                     print(children.item(i));
+                  }
+               }
+               break;
             }
 
             // handle entity reference nodes
-        case Node.ENTITY_REFERENCE_NODE: {
-                if ( canonical ) {
-                    NodeList children = node.getChildNodes();
-                    if ( children != null ) {
-                        int len = children.getLength();
-                        for ( int i = 0; i < len; i++ ) {
-                            print(children.item(i));
-                        }
-                    }
-                } else {
-                    out.print('&');
-                    out.print(node.getNodeName());
-                    out.print(';');
-                }
-                break;
+         case Node.ENTITY_REFERENCE_NODE:
+            {
+               if (canonical)
+               {
+                  NodeList children = node.getChildNodes();
+                  if (children != null)
+                  {
+                     int len = children.getLength();
+                     for (int i = 0; i < len; i++)
+                     {
+                        print(children.item(i));
+                     }
+                  }
+               }
+               else
+               {
+                  out.print('&');
+                  out.print(node.getNodeName());
+                  out.print(';');
+               }
+               break;
             }
 
             // print cdata sections
-        case Node.CDATA_SECTION_NODE: {
-                if ( canonical ) {
-                    out.print(normalize(node.getNodeValue()));
-                } else {
-                    out.print("<![CDATA[");
-                    out.print(node.getNodeValue());
-                    out.print("]]>");
-                }
-                break;
+         case Node.CDATA_SECTION_NODE:
+            {
+               if (canonical)
+               {
+                  out.print(normalize(node.getNodeValue()));
+               }
+               else
+               {
+                  out.print("<![CDATA[");
+                  out.print(node.getNodeValue());
+                  out.print("]]>");
+               }
+               break;
             }
 
             // print text
-        case Node.TEXT_NODE: {
-                out.print(normalize(node.getNodeValue()));
-                break;
+         case Node.TEXT_NODE:
+            {
+               out.print(normalize(node.getNodeValue()));
+               break;
             }
 
             // print processing instruction
-        case Node.PROCESSING_INSTRUCTION_NODE: {
-                out.print("<?");
-                out.print(node.getNodeName());
-                String data = node.getNodeValue();
-                if ( data != null && data.length() > 0 ) {
-                    out.print(' ');
-                    out.print(data);
-                }
-                out.println("?>");
-                break;
+         case Node.PROCESSING_INSTRUCTION_NODE:
+            {
+               out.print("<?");
+               out.print(node.getNodeName());
+               String data = node.getNodeValue();
+               if (data != null && data.length() > 0)
+               {
+                  out.print(' ');
+                  out.print(data);
+               }
+               out.print("?>");
+               break;
             }
-        }
 
-        if ( type == Node.ELEMENT_NODE ) {
-            out.print("</");
-            out.print(node.getNodeName());
-            out.print('>');
-            if (prettyprint) out.println();
-        }
-
-        out.flush();
-
-    } // print(Node)
-
-    /** Returns a sorted list of attributes. */
-    protected Attr[] sortAttributes(NamedNodeMap attrs) {
-
-        int len = (attrs != null) ? attrs.getLength() : 0;
-        Attr array[] = new Attr[len];
-        for ( int i = 0; i < len; i++ ) {
-            array[i] = (Attr)attrs.item(i);
-        }
-        for ( int i = 0; i < len - 1; i++ ) {
-            String name  = array[i].getNodeName();
-            int    index = i;
-            for ( int j = i + 1; j < len; j++ ) {
-                String curName = array[j].getNodeName();
-                if ( curName.compareTo(name) < 0 ) {
-                    name  = curName;
-                    index = j;
-                }
+            // print comment
+         case Node.COMMENT_NODE:
+            {
+               out.print("<!--");
+               String data = node.getNodeValue();
+               if (data != null)
+               {
+                  out.print(data);
+               }
+               out.print("-->");
+               break;
             }
-            if ( index != i ) {
-                Attr temp    = array[i];
-                array[i]     = array[index];
-                array[index] = temp;
+      }
+
+      if (type == Node.ELEMENT_NODE)
+      {
+         out.print("</");
+         out.print(node.getNodeName());
+         out.print('>');
+      }
+
+      out.flush();
+
+   } // print(Node)
+
+   /** Returns a sorted list of attributes. */
+   protected Attr[] sortAttributes(NamedNodeMap attrs)
+   {
+
+      int len = (attrs != null) ? attrs.getLength() : 0;
+      Attr array[] = new Attr[len];
+      for (int i = 0; i < len; i++)
+      {
+         array[i] = (Attr) attrs.item(i);
+      }
+      for (int i = 0; i < len - 1; i++)
+      {
+         String name = array[i].getNodeName();
+         int index = i;
+         for (int j = i + 1; j < len; j++)
+         {
+            String curName = array[j].getNodeName();
+            if (curName.compareTo(name) < 0)
+            {
+               name = curName;
+               index = j;
             }
-        }
+         }
+         if (index != i)
+         {
+            Attr temp = array[i];
+            array[i] = array[index];
+            array[index] = temp;
+         }
+      }
 
-        return(array);
+      return (array);
 
-    } // sortAttributes(NamedNodeMap):Attr[]
-
-
+   } // sortAttributes(NamedNodeMap):Attr[]
 
 
-    /** Normalizes the given string. */
-    protected String normalize(String s) {
-        StringBuffer str = new StringBuffer();
+   /** Normalizes the given string. */
+   protected String normalize(String s)
+   {
+      StringBuffer str = new StringBuffer();
 
-        int len = (s != null) ? s.length() : 0;
-        for ( int i = 0; i < len; i++ ) {
-            char ch = s.charAt(i);
-            switch ( ch ) {
-            case '<': {
-                    str.append("&lt;");
-                    break;
-                }
-            case '>': {
-                    str.append("&gt;");
-                    break;
-                }
-            case '&': {
-                    str.append("&amp;");
-                    break;
-                }
-            case '"': {
-                    str.append("&quot;");
-                    break;
-                }
+      int len = (s != null) ? s.length() : 0;
+      for (int i = 0; i < len; i++)
+      {
+         char ch = s.charAt(i);
+         switch (ch)
+         {
+            case '<':
+               {
+                  str.append("&lt;");
+                  break;
+               }
+            case '>':
+               {
+                  str.append("&gt;");
+                  break;
+               }
+            case '&':
+               {
+                  str.append("&amp;");
+                  break;
+               }
+            case '"':
+               {
+                  str.append("&quot;");
+                  break;
+               }
             case '\r':
-            case '\n': {
-                    if ( canonical ) {
-                        str.append("&#");
-                        str.append(Integer.toString(ch));
-                        str.append(';');
-                        break;
-                    }
-                    // else, default append char
-                }
-            default: {
-                    str.append(ch);
-                }
-            }
-        }
+            case '\n':
+               {
+                  if (canonical)
+                  {
+                     str.append("&#");
+                     str.append(Integer.toString(ch));
+                     str.append(';');
+                     break;
+                  }
+                  // else, default append char
+               }
+            default:
+               {
+                  str.append(ch);
+               }
+         }
+      }
 
-        return(str.toString());
+      return (str.toString());
 
-    } // normalize(String):String
-
+   } // normalize(String):String
 
 
 } 

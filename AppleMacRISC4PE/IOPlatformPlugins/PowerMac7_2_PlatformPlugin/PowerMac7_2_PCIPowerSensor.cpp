@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,44 +23,39 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc.  All rights reserved.
  *
  *
  */
-//		$Log: PowerMac7_2_PCIPowerSensor.cpp,v $
-//		Revision 1.2  2003/07/18 00:22:24  eem
-//		[3329244] PCI fan conrol algorithm should use integral of power consumed
-//		[3254911] Q37 Platform Plugin must disable debugging accessors before GM
-//		
-//		Revision 1.1  2003/07/08 04:32:51  eem
-//		3288891, 3279902, 3291553, 3154014
-//		
-//
-//
+
 
 #include "PowerMac7_2_PCIPowerSensor.h"
 
 #define super IOPlatformSensor
 OSDefineMetaClassAndStructors(PowerMac7_2_PCIPowerSensor, IOPlatformSensor)
 
-const OSNumber *PowerMac7_2_PCIPowerSensor::applyValueTransform( const OSNumber * hwReading ) const
+SensorValue PowerMac7_2_PCIPowerSensor::applyCurrentValueTransform( SensorValue hwReading ) const
 {
-	const OSNumber *scaled;
+	SensorValue pluginReading;
 
-	scaled = OSNumber::withNumber( (hwReading->unsigned32BitValue() << 12) / 40, 32 );
-	//SENSOR_DLOG("PowerMac7_2_ScaledSensor::applyValueTransform raw = %08lX value = %08lX\n",
-	//		hwReading->unsigned32BitValue(), scaled->unsigned32BitValue());
+	pluginReading.sensValue = (((UInt32)hwReading.sensValue) << 12) / 40;
 
-	return scaled;
+	return pluginReading;
 }
 
-const OSNumber *PowerMac7_2_PCIPowerSensor::applyHWTransform( const OSNumber * value ) const
+/* XXX the inverse transform is not used, and has not been for a long time...  since PID started
+   XXX working.  At that point, this class was changed so that instead of inheriting from
+   XXX IOPlatformStateSensor, it inherits from IOPlatformSensor.  This method was never removed.
+   XXX I've updated it in line with the change in the value transform functions, but I'm leaving
+   XXX the code commented out because it's not used and shouldn't be here.
+
+SensorValue PowerMac7_2_PCIPowerSensor::applyCurrentValueInverseTransform( SensorValue pluginReading ) const
 {
-	const OSNumber * raw;
+	SensorValue hwReading;
 
-	raw = OSNumber::withNumber( (value->unsigned32BitValue() * 40) >> 12, 32 );
-	//SENSOR_DLOG("PowerMac7_2_ScaledSensor::applyHWTransform value = %08lX raw = %08lX\n",
-	//		value->unsigned32BitValue(), raw->unsigned32BitValue());
+	hwReading.sensValue = (SInt32)((((UInt32)pluginReading.sensValue) * 40) >> 12);
 
-	return raw;
+	return hwReading;
 }
+
+*/

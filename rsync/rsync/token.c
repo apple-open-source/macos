@@ -68,7 +68,7 @@ static int simple_recv_token(int f,char **data)
 	int n;
 
 	if (!buf) {
-		buf = (char *)malloc(CHUNK_SIZE);
+		buf = new_array(char, CHUNK_SIZE);
 		if (!buf) out_of_memory("simple_recv_token");
 	}
 
@@ -160,7 +160,7 @@ send_deflated_token(int f, int token,
 				rprintf(FERROR, "compression init failed\n");
 				exit_cleanup(RERR_STREAMIO);
 			}
-			if ((obuf = malloc(MAX_DATA_COUNT+2)) == NULL)
+			if ((obuf = new_array(char, MAX_DATA_COUNT+2)) == NULL)
 				out_of_memory("send_deflated_token");
 			init_done = 1;
 		} else
@@ -322,8 +322,8 @@ recv_deflated_token(int f, char **data)
 					rprintf(FERROR, "inflate init failed\n");
 					exit_cleanup(RERR_STREAMIO);
 				}
-				if ((cbuf = malloc(MAX_DATA_COUNT)) == NULL
-				    || (dbuf = malloc(CHUNK_SIZE)) == NULL)
+				if (!(cbuf = new_array(char, MAX_DATA_COUNT))
+				    || !(dbuf = new_array(char, CHUNK_SIZE)))
 					out_of_memory("recv_deflated_token");
 				init_done = 1;
 			} else {

@@ -2,8 +2,8 @@
 <html xmlns="http://www.w3.org/TR/xhtml1/strict">
 <head>
 <title>Configuration options</title>
-<meta content="1999-2002 The Apache Software Foundation" name="copyright"/>
-<meta content="$Date: 2002/10/03 15:34:10 $" name="last-changed"/>
+<meta content="1999-2003 The Apache Software Foundation" name="copyright"/>
+<meta content="$Date: 2003/03/16 00:56:34 $" name="last-changed"/>
 <meta content="Jean-Frederic Clere" name="author"/>
 <meta content="jfrederic.clere@fujitsu-siemens.com" name="email"/>
 <link href="..//style.css" type="text/css" rel="stylesheet"/>
@@ -81,6 +81,22 @@
 <td colspan="2" width="150" bgcolor="#cccccc">
 <nobr>
 <a class="menu" href="../common/AJPv13-extensions-proposal.html">AJPv13 extensions Proposal</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../common/doccontrib.html">How to Contribute to the Documentation</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../common/tools.html">Tools</a>
 </nobr>
 </td>
 </tr>
@@ -171,10 +187,25 @@
 <tr>
 <td width="10" bgcolor="#cccccc"/>
 <td width="140" bgcolor="#cccccc">
-<a href="#Config options" class="menu">Config options</a>
+<a href="#Config File Format" class="menu">Config File Format</a>
 </td>
 </tr>
 <tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Generic properties" class="menu">Generic properties</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configtccom.html">Coyote/JK2 Handlers</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
 <tr>
 <td colspan="2" width="150" bgcolor="#cccccc">
 <nobr>
@@ -235,6 +266,14 @@
 </td>
 </tr>
 <tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/vhosthowto.html">Apache 2.0.43 - Tomcat 4.1.12 - jk2 - virtual host HOWTO</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
 <tr height="6"/>
 </table>
 </td>
@@ -253,16 +292,30 @@
   where ${jkHome} is the well known ${catalina.base} property.
 </p>
 <br/>
-<a name="Config options">
+<a name="Config File Format">
 <table width="100%" cellpadding="0" cellspacing="0" border="0">
 <tr>
 <td align="left" valign="top" class="section" bgcolor="#525D76">
-<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Config options</td>
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Config File Format</td>
+</tr>
+</table>
+</a>
+<p class="section"> settings are specified in the following format:
+	<pre class="section">
+	handler.propertie=value
+	</pre>
+	</p>
+<br/>
+<a name="Generic properties">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Generic properties</td>
 </tr>
 </table>
 </a>
 <p class="section">
-<table border="0">
+			<table border="0">
 <tr>
 <td align="middle" valign="top" bgcolor="#039acc">Property name</td>
 <td align="middle" valign="top" bgcolor="#039acc">Default</td>
@@ -278,96 +331,8 @@
 <td align="left" valign="top" bgcolor="#a0ddf0">No default value</td>
 <td align="left" valign="top" bgcolor="#a0ddf0">Define the class of the handler myhandler.</td>
 </tr>
-<tr>
-<td align="middle" valign="top" bgcolor="#039acc" colspan="2">apr</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">APR descriptor</td>
-</tr>
-<tr>
-<td align="left" valign="top" bgcolor="#a0ddf0">NativeSo</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">jkjni</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">
-    Location of the jkjni dynamic library.
-    It is searched in java.library.path but a absolute path can be specified.
-  </td>
-</tr>
-<tr>
-<td align="left" valign="top" bgcolor="#a0ddf0">jniModeSo</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">inprocess</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">
-    If set to "inprocess" the jk2 will regiter native library functions by itself.
-	If not then it has to be the absolute path of the jkjni dynamic library.
-  </td>
-</tr>
-<tr>
-<td align="middle" valign="top" bgcolor="#039acc" colspan="2">channelSocket</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">A communication transport from a remote Web Server.</td>
-</tr>
-<tr>
-<td align="left" valign="top" bgcolor="#a0ddf0">port</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">8009</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">First port where Tomcat is listening</td>
-</tr>
-<tr>
-<td align="left" valign="top" bgcolor="#a0ddf0">address</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">127.0.0.1</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">Local address where Tomcat is listening.</td>
-</tr>
-<tr>
-<td align="left" valign="top" bgcolor="#a0ddf0">maxPort</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">port+10</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">Max port used to listen.</td>
-</tr>
-<tr>
-<td align="middle" valign="top" bgcolor="#039acc" colspan="2">channelUnix</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">A AF_UNIX socket communication transport from a local Web Server.</td>
-</tr>
-<tr>
-<td align="left" valign="top" bgcolor="#a0ddf0">file</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">No default value</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">
-    Name of the "file" associate with the socket.
-    That must be absolut path name.
-  </td>
-</tr>
-<tr>
-<td align="middle" valign="top" bgcolor="#039acc" colspan="2">channelJni</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">A in Web Server process communication.</td>
-</tr>
-<tr>
-<td align="middle" valign="top" bgcolor="#039acc" colspan="2">mx</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">mx4j adapter.</td>
-</tr>
-<tr>
-<td align="left" valign="top" bgcolor="#a0ddf0">port</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">-1 (Disabled)</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">Port Number.</td>
-</tr>
-<tr>
-<td align="middle" valign="top" bgcolor="#039acc" colspan="2">shm</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">shared memory objects handler.</td>
-</tr>
-<tr>
-<td align="left" valign="top" bgcolor="#a0ddf0">file</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">/tmp/shm.file</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">Shared memory file.</td>
-</tr>
-<tr>
-<td align="left" valign="top" bgcolor="#a0ddf0">host</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">localhost</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">Host name.</td>
-</tr>
-<tr>
-<td align="left" valign="top" bgcolor="#a0ddf0">port</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">8009</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">Port number.</td>
-</tr>
-<tr>
-<td align="left" valign="top" bgcolor="#a0ddf0">unixSocket</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">No default value</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">Unix socket where tomcat is listening.</td>
-</tr>
 </table>
-</p>
+		</p>
 <br/>
 </td>
 </tr>

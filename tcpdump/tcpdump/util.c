@@ -20,8 +20,8 @@
  */
 
 #ifndef lint
-static const char rcsid[] =
-    "@(#) $Header: /cvs/root/tcpdump/tcpdump/util.c,v 1.1.1.3 2003/03/17 18:42:21 rbraun Exp $ (LBL)";
+static const char rcsid[] _U_ =
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/util.c,v 1.1.1.4 2004/02/05 19:30:58 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -85,15 +85,10 @@ int
 fn_printn(register const u_char *s, register u_int n,
 	  register const u_char *ep)
 {
-	register int ret;
 	register u_char c;
 
-	ret = 1;			/* assume truncated */
-	while (ep == NULL || s < ep) {
-		if (n-- <= 0) {
-			ret = 0;
-			break;
-		}
+	while (n > 0 && (ep == NULL || s < ep)) {
+		n--;
 		c = *s++;
 		if (!isascii(c)) {
 			c = toascii(c);
@@ -106,7 +101,7 @@ fn_printn(register const u_char *s, register u_int n,
 		}
 		putchar(c);
 	}
-	return(ret);
+	return (n == 0) ? 0 : 1;
 }
 
 /*
@@ -222,7 +217,7 @@ print_unknown_data(const u_char *cp,const char *lf,int len)
 	        printf(" ");
 	    if (i/16!=(i+1)/16) {
 	        if (i<(len-1))
-		    printf("%s0x%04x: ",lf,i);
+		    printf("%s0x%04x: ",lf,i+1);
 	    }
 	}
 	return(1); /* everything is ok */
@@ -333,15 +328,15 @@ mask2plen (u_int32_t mask)
 		0xffffff80, 0xffffffc0, 0xffffffe0, 0xfffffff0,
 		0xfffffff8, 0xfffffffc, 0xfffffffe, 0xffffffff
 	};
-	int prefix_len = 33;
+	int prefix_len = 32;
 
-        /* lets see if we can transform the mask into a prefixlen */
-        while (prefix_len >= 0) {
-            if (bitmasks[prefix_len] == mask)
-                break;
-            prefix_len--;
-        }
-        return (prefix_len);
+	/* let's see if we can transform the mask into a prefixlen */
+	while (prefix_len >= 0) {
+		if (bitmasks[prefix_len] == mask)
+			break;
+		prefix_len--;
+	}
+	return (prefix_len);
 }
 
 /* VARARGS */

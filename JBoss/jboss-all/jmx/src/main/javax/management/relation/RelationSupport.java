@@ -37,7 +37,7 @@ import org.jboss.mx.util.MBeanProxyCreationException;
  * @author  <a href="mailto:Adrian.Brock@HappeningTimes.com">Adrian Brock</a>.
  * @author  <a href="mailto:juha@jboss.org">Juha Lindfors</a>
  *
- * @version $Revision: 1.5 $
+ * @version $Revision: 1.5.6.1 $
  *
  * <p><b>Revisions:</b>
  *
@@ -194,10 +194,10 @@ public class RelationSupport
 
         // Get the mbeans in the role
         ArrayList mbeans = (ArrayList) role.getRoleValue();
-        Iterator mbeanIterator = mbeans.iterator();
-        while (mbeanIterator.hasNext())
+
+        for (int i = 0; i < mbeans.size(); i++)
         {
-          ObjectName mbean = (ObjectName) mbeanIterator.next();
+          ObjectName mbean = (ObjectName) mbeans.get(i);
 
           // Make sure this mbean has an entry
           ArrayList resultRoles = (ArrayList) result.get(mbean);

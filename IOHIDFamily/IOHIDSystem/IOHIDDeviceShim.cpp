@@ -50,6 +50,9 @@ bool IOHIDDeviceShim::handleStart( IOService * provider )
     if (!(device = OSDynamicCast(IOHIDevice, provider)))
         return false;
         
+    if (device->getProperty(kIOHIDVirtualHIDevice) == kOSBooleanTrue)
+        return false;
+        
     _hiDevice = device;
     
     do {

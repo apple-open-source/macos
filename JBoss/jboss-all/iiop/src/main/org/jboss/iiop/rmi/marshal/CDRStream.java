@@ -11,6 +11,8 @@ package org.jboss.iiop.rmi.marshal;
 
 import java.io.Externalizable;
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.rmi.Remote;
 import javax.rmi.CORBA.Util;
 import javax.rmi.PortableRemoteObject;
@@ -33,7 +35,7 @@ import org.jboss.iiop.rmi.RmiIdlUtil;
  * defined by <code>CDRStream</code>.
  *
  * @author  <a href="mailto:reverbel@ime.usp.br">Francisco Reverbel</a>
- * @version $Revision: 1.3.2.1 $
+ * @version $Revision: 1.3.2.3 $
  */
 public class CDRStream 
 {
@@ -61,12 +63,13 @@ public class CDRStream
     * <br>
     * <pre>
     *    java.lang.String                     "G" (strinG)
-    *    RMI/IDL remote interface             "R" + interfaceName
-    *    RMI/IDL abstract interface           "A"
+    *    RMI remote interface                 "R" + interfaceName
+    *    RMI abstract interface               "A"
     *    serializable                         "E" (sErializablE)
     *    valuetype                            "L" + className
     *    externalizable                       "X" (eXternalizable)
     *    org.omg.CORBA.Object                 "M" (oMg)
+    *    IDL interface                        "N" + interfaceName
     *    java.lang.Object                     "O"
     * </pre>
     *
@@ -108,6 +111,12 @@ public class CDRStream
       else if (RmiIdlUtil.isRMIIDLRemoteInterface(clz)) {
          return "R" + clz.getName(); // Remote interface
       }
+      else if (clz == org.omg.CORBA.Object.class) {
+         return "M"; // oMg (CORBA Object)
+      }
+      else if (org.omg.CORBA.Object.class.isAssignableFrom(clz)) {
+         return "N" + clz.getName(); // IDL iNterface
+      }
       else if (IDLEntity.class.isAssignableFrom(clz)) {
          return "L" + clz.getName(); // vaLuetype
       }
@@ -124,9 +133,6 @@ public class CDRStream
       }
       else if (Externalizable.class.isAssignableFrom(clz)) {
          return "X"; // eXternalizable
-      }
-      else if (clz == org.omg.CORBA.Object.class) {
-         return "M"; // oMg (CORBA Object)
       }
       else if (clz == Object.class) {
          return "O"; // Object
@@ -147,7 +153,7 @@ public class CDRStream
       case 'A':
          return AbstractInterfaceReader.instance;
       case 'B':
-         return BooleanReader.instance;
+         return ByteReader.instance;
       case 'C':
          return CharReader.instance;
       case 'D':
@@ -164,7 +170,11 @@ public class CDRStream
          return LongReader.instance;
       case 'L':
          try {
-            return new ValuetypeReader(cl.loadClass(s.substring(1)));
+            // Use Class.forName() (rather than cl.loadClass()), because 
+            // Class.forName() loads Java array types (which are valuetypes).
+            return new ValuetypeReader(Class.forName(s.substring(1), 
+                                                     true, 
+                                                     cl));
          }
          catch (ClassNotFoundException e) {
             throw new RuntimeException("Error loading class " 
@@ -172,6 +182,14 @@ public class CDRStream
          }
       case 'M':
          return CorbaObjectReader.instance;
+      case 'N':
+         try {
+            return new IdlInterfaceReader(cl.loadClass(s.substring(1)));
+         }
+         catch (ClassNotFoundException e) {
+            throw new RuntimeException("Error loading class " 
+                                       + s.substring(1) + ": " + e);
+         }
       case 'O':
          return ObjectReader.instance;
       case 'R':
@@ -206,7 +224,7 @@ public class CDRStream
       case 'A':
          return AbstractInterfaceWriter.instance;
       case 'B':
-         return BooleanWriter.instance;
+         return ByteWriter.instance;
       case 'C':
          return CharWriter.instance;
       case 'D':
@@ -223,7 +241,11 @@ public class CDRStream
          return LongWriter.instance;
       case 'L':  
          try {
-            return new ValuetypeWriter(cl.loadClass(s.substring(1)));
+            // Use Class.forName() (rather than cl.loadClass()), because 
+            // Class.forName() loads Java array types (which are valuetypes).
+            return new ValuetypeWriter(Class.forName(s.substring(1), 
+                                                     true, 
+                                                     cl));
          }
          catch (ClassNotFoundException e) {
             throw new RuntimeException("Error loading class " 
@@ -231,6 +253,14 @@ public class CDRStream
          }
       case 'M':
          return CorbaObjectWriter.instance;
+      case 'N':
+         try {
+            return new IdlInterfaceWriter(cl.loadClass(s.substring(1)));
+         }
+         catch (ClassNotFoundException e) {
+            throw new RuntimeException("Error loading class " 
+                                       + s.substring(1) + ": " + e);
+         }
       case 'O':
          return ObjectWriter.instance;
       case 'R':
@@ -286,6 +316,12 @@ public class CDRStream
       else if (RmiIdlUtil.isRMIIDLRemoteInterface(clz)) {
          return new RemoteReader(clz);
       }
+      else if (clz == org.omg.CORBA.Object.class) {
+         return CorbaObjectReader.instance;
+      }
+      else if (org.omg.CORBA.Object.class.isAssignableFrom(clz)) {
+         return new IdlInterfaceReader(clz);
+      }
       else if (IDLEntity.class.isAssignableFrom(clz)) {
          return new ValuetypeReader(clz);
       }
@@ -302,9 +338,6 @@ public class CDRStream
       }
       else if (Externalizable.class.isAssignableFrom(clz)) {
          return ExternalizableReader.instance;
-      }
-      else if (clz == org.omg.CORBA.Object.class) {
-         return CorbaObjectReader.instance;
       }
       else if (clz == Object.class) {
          return ObjectReader.instance;
@@ -352,6 +385,12 @@ public class CDRStream
       else if (RmiIdlUtil.isRMIIDLRemoteInterface(clz)) {
          return RemoteWriter.instance;
       }
+      else if (clz == org.omg.CORBA.Object.class) {
+         return CorbaObjectWriter.instance;
+      }
+      else if (org.omg.CORBA.Object.class.isAssignableFrom(clz)) {
+         return new IdlInterfaceWriter(clz);
+      }
       else if (IDLEntity.class.isAssignableFrom(clz)) {
          return new ValuetypeWriter(clz);
       }
@@ -368,9 +407,6 @@ public class CDRStream
       }
       else if (Externalizable.class.isAssignableFrom(clz)) {
          return ExternalizableWriter.instance;
-      }
-      else if (clz == org.omg.CORBA.Object.class) {
-         return CorbaObjectWriter.instance;
       }
       else if (clz == Object.class) {
          return ObjectWriter.instance;
@@ -625,6 +661,56 @@ public class CDRStream
       public Object read(InputStream in)
       {
          return (org.omg.CORBA.Object)in.read_Object();
+      }
+   }
+   
+   /**
+    * Class that unmarshals IDL interfaces from a CDR input stream.
+    * An <code>IdlInterfaceReader</code> is specific for objects that 
+    * implement the Java interface passed as a parameter to the 
+    * <code>IdlInterfaceReader</code> constructor. This Java interface
+    * must extend <code>org.omg.CORBA.Object</code>. 
+    */
+   private static final class IdlInterfaceReader
+         implements CDRStreamReader 
+   {
+      static private Class[] paramTypes = 
+         { org.omg.CORBA.portable.InputStream.class };
+
+      // The readMethod for this IdlInterfaceReader.
+      private Method readMethod = null;
+      
+      IdlInterfaceReader(Class clz) 
+      {
+         String helperClassName = clz.getName() + "Helper";
+         
+         try {
+            Class helperClass = 
+               clz.getClassLoader().loadClass(helperClassName);
+            readMethod = helperClass.getMethod("read", paramTypes);
+         }
+         catch (ClassNotFoundException e) {
+            throw new RuntimeException("Error loading class " 
+                                       + helperClassName + ": " + e);
+         }
+         catch (NoSuchMethodException e) {
+            throw new RuntimeException("No read method in helper class " 
+                                       + helperClassName + ": " + e);
+         }
+      }
+      
+      public Object read(InputStream in)
+      {
+         try {
+            return readMethod.invoke(null, new Object[] { in });
+         }
+         catch (IllegalAccessException e) {
+            throw new RuntimeException("Internal error: " + e);
+         }
+         catch (InvocationTargetException e) {
+            throw new RuntimeException("Exception unmarshaling CORBA object: " 
+                                       + e.getTargetException());
+         }
       }
    }
    
@@ -904,10 +990,61 @@ public class CDRStream
       
       public void write(OutputStream out, Object obj)
       {
-         out.write_Object((org.omg.CORBA.Object)out);
+         out.write_Object((org.omg.CORBA.Object)obj);
       }
    }
    
+   /**
+    * Class that marshals IDL interfaces into a CDR output stream.
+    * An <code>IdlInterfaceWriter</code> is specific for objects that
+    * implement the Java interface is passed as a parameter to the 
+    * <code>IdlInterfaceWriter</code> constructor. This Java interface 
+    * must extend <code>org.omg.CORBA.Object</code>.
+    */
+   private static final class IdlInterfaceWriter
+         implements CDRStreamWriter
+   {
+      // The writeMethod for this IdlInterfaceReader.
+      private Method writeMethod = null;
+      
+      IdlInterfaceWriter(Class clz) 
+      {
+         String helperClassName = clz.getName() + "Helper";
+         
+         try {
+            Class helperClass = 
+               clz.getClassLoader().loadClass(helperClassName);
+            Class[] paramTypes = { 
+               org.omg.CORBA.portable.OutputStream.class, 
+               clz 
+            };
+            writeMethod = helperClass.getMethod("write", paramTypes);
+         }
+         catch (ClassNotFoundException e) {
+            throw new RuntimeException("Error loading class " 
+                                       + helperClassName + ": " + e);
+         }
+         catch (NoSuchMethodException e) {
+            throw new RuntimeException("No write method in helper class " 
+                                       + helperClassName + ": " + e);
+         }
+      }
+      
+      public void write(OutputStream out, Object obj)
+      {
+         try {
+            writeMethod.invoke(null, new Object[] { out, obj });
+         }
+         catch (IllegalAccessException e) {
+            throw new RuntimeException("Internal error: " + e);
+         }
+         catch (InvocationTargetException e) {
+            throw new RuntimeException("Exception marshaling CORBA object: " 
+                                       + e.getTargetException());
+         }
+      }
+   }
+      
    /**
     * Singleton class that marshals into a CDR output stream objects whose
     * declared type is an interface that does not extend

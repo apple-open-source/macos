@@ -1,4 +1,3 @@
-
 /*
  * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  *
@@ -47,6 +46,7 @@ extern "C" {
 **************************************************/
 #define kIOPMDynamicStoreSettingsKey    "State:/IOKit/PowerManagement/CurrentSettings"
 
+#define kIOPMUPSPowerKey                                "UPS Power"
 #define kIOPMBatteryPowerKey                            "Battery Power"
 #define kIOPMACPowerKey                                 "AC Power"
 
@@ -73,6 +73,21 @@ extern "C" {
 #define kIOPMSleepOnPowerButtonKey                      "Sleep On Power Button"
 // units - CFNumber 0/1
 #define kIOPMWakeOnClamshellKey                         "Wake On Clamshell Open"
+
+
+typedef void (*IOPMPrefsCallbackType)(void *context);
+
+    /*!
+@function IOPMPrefsNotificationCreateRunLoopSource
+@abstract  Returns a CFRunLoopSourceRef that notifies the caller when any PM preferences
+    file changes - including Energy Saver or UPS changes.
+@param callback A function to be called whenever a prefs file changes.
+@param context Any user-defined pointer, passed to the IOPowerSource callback.
+@result Returns NULL if an error was encountered, otherwise a CFRunLoopSource. Caller must
+    release the CFRunLoopSource.
+    */
+CFRunLoopSourceRef IOPMPrefsNotificationCreateRunLoopSource(IOPMPrefsCallbackType, void *);
+
 
     /*!
 @function IOPMCopyPMPreferences.

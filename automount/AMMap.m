@@ -3,22 +3,21 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
+ * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ * Reserved.  This file contains Original Code and/or Modifications of
+ * Original Code as defined in and that are subject to the Apple Public
+ * Source License Version 1.0 (the 'License').  You may not use this file
+ * except in compliance with the License.  Please obtain a copy of the
+ * License at http://www.apple.com/publicsource and read it before using
+ * this file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License."
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -34,13 +33,46 @@
 #import <string.h>
 #import <stdio.h>
 #import <stdlib.h>
+#import <unistd.h>
+#import <mach/mach.h>
+#import <mach/mach_error.h>
+#import <mach/message.h>
+#import <servers/bootstrap.h>
+
+#import <CoreFoundation/CoreFoundation.h>
+#import <CoreServices/CoreServices.h>
+#import <URLMount/URLMount.h>
+#import <URLMount/URLMountPrivate.h>
+
+extern CFRunLoopRef gMainRunLoop;
 
 #ifndef innetgr
 extern int innetgr(const char *, const char *, const char *, const char *);
 #endif
 extern int doing_timeout;
+extern BOOL doServerMounts;
 
 @implementation Map
+
+typedef struct {
+	mach_msg_header_t header;
+	AMInfo_req_msg_body_t body;
+	mach_msg_security_trailer_t trailer;
+} AMInfo_server_req_msg_t;
+
+typedef struct {
+	mach_msg_header_t header;
+	AMInfo_rsp_msg_body_t body;
+} AMInfo_server_rsp_msg_t;
+
+#if 0
+typedef union {
+	AMInfo_server_req_msg_t rcv;
+	AMInfo_server_rsp_msg_t send;
+} AMInfo_server_msg_t;
+#endif
+
+static char * bootstrap_error_string(int errNum);
 
 - (Map *)initWithParent:(Vnode *)p directory:(String *)dir
 {
@@ -65,13 +97,16 @@ extern int doing_timeout;
 	if (mountPoint != nil) [mountPoint retain];
 
 	name = [String uniqueString:"-null"];
+	hostname = NULL;
 
 	root = [[Vnode alloc] init];
 	[root setMap:self];
 	[root setName:dir];
 	if (p != nil) [p addChild:root];
 	[controller registerVnode:root];
-	
+	AMInfoServicePort = MACH_PORT_NULL;
+	AMInfoPortContext = NULL;
+    
 	return self;
 }
 
@@ -97,14 +132,28 @@ extern int doing_timeout;
 	return name;
 }
 
+- (void)setHostname:(String *)hn
+{
+	if (hostname != nil) [hostname release];
+	hostname = [hn retain];
+}
+
+- (String *)hostname
+{
+	return hostname;
+}
+
 - (void)dealloc
 {
+	if (AMInfoServicePort) [self deregisterAMInfoService];
+
 	if (mountPoint != nil) [mountPoint release];
 	if (name != nil) [name release];
 	if (root != nil)
 	{
 		[controller destroyVnode:root];
 	}
+	
 	[super dealloc];
 }
 
@@ -193,13 +242,35 @@ extern int doing_timeout;
 	return status;
 }
 
-- (unsigned int)unmount:(Vnode *)v
+- (unsigned int)attemptUnmountChildren:(Vnode *)v withRemountOnFailure:(BOOL)remountOnFailure
 {
 	int i, len;
 	Array *kids;
 	Vnode *k;
 	unsigned int status;
+
+	kids = [v children];
+	len = 0;
+	if (kids != nil) len = [kids count];
+
+	for (i = 0; i < len; i++)
+	{
+		k = [kids objectAtIndex:i];
+		status = [self unmount:k withRemountOnFailure:remountOnFailure];
+		if ((status != 0) && remountOnFailure)
+		{
+			[self mount:v];
+			return 1;
+		}
+	}
+	
+	return 0;
+}
+
+- (unsigned int)unmount:(Vnode *)v withRemountOnFailure:(BOOL)remountOnFailure
+{
 	struct timeval tv;
+	unsigned int status;
 
 	if (v == nil) return 0;
 
@@ -216,22 +287,16 @@ extern int doing_timeout;
 		sys_msg(debug, LOG_DEBUG, "Checking %s %s %s",
 			[[v path] value], [[[v server] name] value], [[v link] value]);
 
-		
-		kids = [v children];
-		len = 0;
-		if (kids != nil) len = [kids count];
-
-		for (i = 0; i < len; i++)
-		{
-			k = [kids objectAtIndex:i];
-			status = [self unmount:k];
-			if (status != 0)
-			{
-				[self mount:v];
-				return 1;
-			}
+		if ([v children]) {
+			/*
+			   Try to unmount child nodes.  If 'doServerMounts' is set, it's
+			   important to re-mount any nodes that get unmounted if any node
+			   cannot be unmounted (e.g. is busy)
+			 */
+			status = [self attemptUnmountChildren:v withRemountOnFailure:doServerMounts];
+			if (status != 0) return status;
 		}
-
+		
 		status = [controller attemptUnmount:v];
 		if (status != 0) 
 		{
@@ -239,19 +304,251 @@ extern int doing_timeout;
 			return 1;
 		}
 		return 0;
+	} else {
+		if ([v children]) {
+			status = [self attemptUnmountChildren:v withRemountOnFailure:remountOnFailure];
+			if (status != 0) return status;
+		}
 	}
-
-	kids = [v children];
-	len = 0;
-	if (kids != nil) len = [kids count];
-
-	for (i = 0; i < len; i++)
-	{
-		k = [kids objectAtIndex:i];
-		[self unmount:k];
-	}
-
+	
 	return 0;
+}
+
+void AMInfoMsgCallback(CFMachPortRef CFPort, void *msg, CFIndex size, void *info) {
+	mach_msg_trailer_t *trailer; 
+	mach_msg_trailer_size_t trailer_size = 0;
+
+	if (0) {
+		trailer = (mach_msg_trailer_t *)((char *)msg + ((mach_msg_header_t *)msg)->msgh_size);
+	};
+#if 0
+	sys_msg(debug, LOG_DEBUG, "AMInfoMsgCallback: Received %ld bytes\n", size);
+	sys_msg(debug, LOG_DEBUG, "\tCFPort = 0x%08x (Mach port 0x%08lx)...", (unsigned long)CFPort, (unsigned long)CFMachPortGetPort(CFPort));
+	sys_msg(debug, LOG_DEBUG, "\tmsg = 0x%08x...", (unsigned long)msg);
+	sys_msg(debug, LOG_DEBUG, "\tinfo = 0x%08x...", (unsigned long)info);
+#endif
+	(void)post_AMInfoServiceRequest(CFMachPortGetPort(CFPort), (Map *)info, (mach_msg_header_t *)msg, (size_t)size + trailer_size);
+}
+
+- (int)registerAMInfoService
+{
+	char servicename[sizeof(AMINFOSERVICENAMEPREFIX) + 1 + MNAMELEN + 1];	/* MNAMELEN bytes for target mountpoint name */
+	mach_port_t bp;
+	mach_port_t parent_bp;
+	kern_return_t ret;
+	Boolean freeAMInfoPortContext = false;
+	CFRunLoopSourceRef inforeqSource = NULL;
+	unsigned int result = -1;
+	
+	AMInfoPortContext = calloc(1, sizeof(*AMInfoPortContext));
+	if (AMInfoPortContext == NULL) {
+		result = ENOMEM;
+		goto Err_Exit;
+	};
+	
+    AMInfoPortContext->version = 0;
+    AMInfoPortContext->info = self;
+    AMInfoPortContext->retain = NULL;
+    AMInfoPortContext->release = NULL;
+    AMInfoPortContext->copyDescription = NULL;
+	
+	AMInfoServicePort = CFMachPortCreate(NULL, &AMInfoMsgCallback, AMInfoPortContext, &freeAMInfoPortContext);
+	if (AMInfoServicePort == NULL)
+	{
+		sys_msg(debug, LOG_ERR, "registerAMInfoService: could not create AMInfoServicePort");
+		goto Err_Exit;
+	}
+
+    /* Create a run loop source for the service port with some minimal context passed on: */
+	inforeqSource = CFMachPortCreateRunLoopSource(NULL, AMInfoServicePort, 0);
+	if (inforeqSource == NULL)
+	{
+		sys_msg(debug, LOG_ERR, "registerAMInfoService: could not create CFRunLoopSource");
+		goto Err_Exit;
+	}
+
+	/* Set up to read messages from the Mach port in the main event loop: */
+	CFRunLoopAddSource(gMainRunLoop, inforeqSource, kCFRunLoopDefaultMode);
+
+	/*
+	 * Declare a service name associated with this server.
+	 */
+	snprintf(servicename, sizeof(servicename), "%s.%s", AMINFOSERVICENAMEPREFIX, [hostname value]);
+	
+	/* Publish the port in the lowest-level [boot] bootstrap port: */
+	ret = task_get_bootstrap_port(mach_task_self(), &bp);
+	if (ret != KERN_SUCCESS) {
+		sys_msg(debug_mount, LOG_ERR, 
+                "registerAMInfoService: task_get_bootstrap_port(..., &bp): 0x%x: %s",
+                    ret, mach_error_string(ret));
+		goto Err_Exit;
+	}
+
+	/* Find the outermost bootstrap pointer for registration: */
+	while (((ret = bootstrap_parent(bp, &parent_bp)) == BOOTSTRAP_SUCCESS) &&
+		   (parent_bp != bp)) {
+		bp = parent_bp;
+	};
+	
+	ret = bootstrap_register(bp, servicename, CFMachPortGetPort(AMInfoServicePort));
+	if (ret != BOOTSTRAP_SUCCESS) {
+		sys_msg(debug_mount, LOG_ERR,
+                "registerAMInfoService: bootstrap_register(%s): 0x%x: %s", 
+                    servicename, ret, bootstrap_error_string(ret));
+		goto Err_Exit;
+	}
+	
+	result = 0;
+	goto Std_Exit;
+
+Err_Exit:
+	if (AMInfoServicePort != MACH_PORT_NULL) {
+		CFRelease(AMInfoServicePort);
+		AMInfoServicePort = MACH_PORT_NULL;
+	};
+
+Std_Exit:
+	if (inforeqSource != NULL) CFRelease(inforeqSource);
+	if (AMInfoPortContext && freeAMInfoPortContext) free(AMInfoPortContext);
+	
+    return result;
+}
+
+- (void)handleAMInfoRequest:(mach_msg_header_t *)msg ofSize:(size_t)size onPort:(mach_port_t)port
+{
+	AMInfo_req_msg_body_t *body;
+	mach_msg_trailer_t *trailer;
+    char pathbuffer[MAXPATHLEN + 1];
+	AMInfo_server_rsp_msg_t rsp;
+	char *str = NULL;
+	size_t len;
+	mach_msg_return_t mret;
+	String *path = nil;
+	Vnode *v = nil;
+	
+	body = (AMInfo_req_msg_body_t *)((char *)msg + sizeof(mach_msg_header_t));
+	trailer = (mach_msg_trailer_t *)((char *)msg + msg->msgh_size);
+    
+#if 0
+	sys_msg(debug, LOG_DEBUG, "handlePendingAMInfoRequests: info requested = 0x%08lx", body->request);
+	sys_msg(debug, LOG_DEBUG, "handlePendingAMInfoRequests: path = '%s'", body->path);
+#endif
+	
+/*  uid_t clientuid = trailer->msgh_sender.val[0];		*/
+
+	bzero(&rsp, sizeof(rsp));
+	rsp.header = *msg;
+	rsp.body.result = -1;
+	
+	/* Check if any unknown or unsupported options are being requested: */
+	if (body->request & ~(AMI_MOUNTOPTIONS | AMI_URL | AMI_MOUNTDIR)) {
+		rsp.body.result = EINVAL;
+		goto Send_Response;
+	};
+	
+	/* Locate the node for the path specified: */
+	strncpy(pathbuffer, body->path, sizeof(pathbuffer) - 1);
+	pathbuffer[sizeof(pathbuffer) - 1] = (char)0;		/* Make sure the string's terminated */
+	path = [String uniqueString:pathbuffer];
+	if (path == nil) {
+		rsp.body.result = ENOMEM;
+		goto Send_Response;
+	};
+	
+	v = [self lookupVnodePath:path from:[[controller rootMap] root]];
+	if (v == nil) {
+		rsp.body.result = ENOENT;
+		goto Send_Response;
+	};
+	
+	if (([v server] == nil) ||
+		([v source] == nil) ||
+		([v urlString] == nil)) {
+		rsp.body.result = EINVAL;
+		goto Send_Response;
+	};
+	
+	/* Generate the mount options field: */
+	if (body->request & AMI_MOUNTOPTIONS) {
+		rsp.body.mountOptions = 0;  /* kMarkAutomounted | kUseUIProxy | kMountAll */
+		if ([v mntArgs] & MNT_DONTBROWSE) rsp.body.mountOptions |= kMarkDontBrowse;
+	};
+	
+	str = (char *)&rsp.body.returnBuffer;
+
+	/* Generate the server URL string: */
+	if (body->request & AMI_URL) {
+		rsp.body.URLOffset = str - (char *)&rsp.body.URLOffset;
+		len = strlen([[v urlString] value]);
+		if (len > (MAXURLLENGTH-1)) {
+			len = MAXURLLENGTH-1;
+		};
+		strncpy(str, [[v urlString] value], len);
+		str[len] = (char)0;
+		str += len;
+		str += ((4 - ((unsigned long)str & 3)) & 3);		/* Round up to nearest 4-byte multiple */
+	} else {
+		rsp.body.URLOffset = 0;
+	};
+	
+	/* Generate the target mount path: */
+	if (body->request & AMI_MOUNTDIR) {
+		rsp.body.mountDirOffset = str - (char *)&rsp.body.mountDirOffset;
+		len = strlen([[v link] value]);
+		if (len > (MAXPATHLEN-1)) {
+			len = MAXPATHLEN-1;
+		};
+		strncpy(str, [[v link] value], len);
+		str[len] = (char)0;
+		str += len;
+		str += ((4 - ((unsigned long)str & 3)) & 3);		/* Round up to nearest 4-byte multiple */
+	} else {
+		rsp.body.mountDirOffset = 0;
+	};
+	
+	rsp.body.result = 0;
+	
+	/* Generate a response message: */
+	rsp.header.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_MOVE_SEND_ONCE, 0);
+	rsp.header.msgh_size = str - (char *)&rsp.header;
+	rsp.header.msgh_local_port = MACH_PORT_NULL;
+	rsp.header.msgh_id = msg->msgh_id + 100;
+	
+Send_Response:
+#if 0
+	sys_msg(debug, LOG_DEBUG, "handlePendingAMInfoRequests: sending %d-byte response to port 0x%lx.",
+						str - (char *)&rsp.header,
+						port);
+#endif
+	mret = mach_msg(&rsp.header,
+					MACH_SEND_MSG,
+					str - (char *)&rsp.header,
+					0,
+					MACH_PORT_NULL,
+					MACH_MSG_TIMEOUT_NONE,
+					MACH_PORT_NULL);
+	if (mret != MACH_MSG_SUCCESS) {
+		sys_msg(debug_mount, LOG_DAEMON | LOG_ERR, "mach_msg(response): 0x%x: %s\n", 
+										mret, mach_error_string(mret));
+		return;
+	};
+	
+	if (path) [path release];
+}
+
+- (int)deregisterAMInfoService
+{
+	if (AMInfoServicePort) {
+		CFRelease(AMInfoServicePort);
+		AMInfoServicePort = MACH_PORT_NULL;
+	};
+	
+	if (AMInfoPortContext) {
+		free(AMInfoPortContext);
+		AMInfoPortContext = NULL;
+	};
+	
+    return 0;
 }
 
 - (void)reInit
@@ -261,7 +558,7 @@ extern int doing_timeout;
 
 - (void)timeout
 {
-	[self unmount:root];
+	[self unmount:root withRemountOnFailure:NO];
 }
 
 - (Vnode *)createVnodePath:(String *)path from:(Vnode *)v
@@ -323,15 +620,15 @@ extern int doing_timeout;
 	return n;
 }
 
-- (BOOL)checkVnodePath:(String *)path from:(Vnode *)v
+- (Vnode *)lookupVnodePath:(String *)path from:(Vnode *)v
 {
 	int i, p;
 	Vnode *n, *x;
 	char *s, t[1024];
 	String *part;
 
-	if (path == nil) return YES;
-	if ([path length] == 0) return YES;
+	if (path == nil) return nil;
+	if ([path length] == 0) return v;
 
 	p = 0;
 	s = [path value];
@@ -356,13 +653,18 @@ extern int doing_timeout;
 
 		x = [n lookup:part];
 		[part release];
-		if (x == nil) return NO;
+		if (x == nil) return nil;
 
 		n = x;
 		s = [path scan:'/' pos:&p];
 	}
 
-	return YES;
+	return n;
+}
+
+- (BOOL)checkVnodePath:(String *)path from:(Vnode *)v
+{
+	return [self lookupVnodePath:path from:v] != nil;
 }
 
 - (Vnode *)mkdir:(String *)s attributes:(void *)x atVnode:(Vnode *)v
@@ -804,5 +1106,33 @@ extern int doing_timeout;
 
 	return YES;
 }
+
+static char * bootstrap_error_string(int errNum) {
+	switch (errNum) {
+	  case BOOTSTRAP_NOT_PRIVILEGED:
+		return "Bootstrap not privileged";
+		break;
+	  case BOOTSTRAP_NAME_IN_USE:
+		return "Bootstrap name in use";
+		break;
+	  case BOOTSTRAP_UNKNOWN_SERVICE:  
+		return "Bootstrap unknown service";
+		break;
+	  case BOOTSTRAP_SERVICE_ACTIVE:
+		return "Bootstrap service active";
+		break; 
+	  case BOOTSTRAP_BAD_COUNT:
+		return "Bootstrap bad count";
+		break;
+	  case BOOTSTRAP_NO_MEMORY:
+		return "Bootstrap non memory";
+		break;      
+	  case BOOTSTRAP_SUCCESS:
+		return "No error";
+		break;
+	};
+	
+	return mach_error_string(errNum);
+} 
 
 @end

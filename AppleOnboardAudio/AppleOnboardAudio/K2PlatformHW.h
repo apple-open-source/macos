@@ -133,7 +133,13 @@ class AppleI2S : public IOService
 #ifndef __K2HW_PLATFORM
 #define	__K2HW_PLATFORM
 
+#if 0
+#define	kIODMAInputOffset			0x00000900					/*	offset from I2S 0 Tx DMA channel registers to Rx DMA channel registers	*/
+#define	kIODMAOutputOffset			0x00000800					/*	offset from I2S 0 Tx DMA channel registers to Rx DMA channel registers	*/
+#else
 #define	kIODMAInputOffset			0x00000100					/*	offset from I2S 0 Tx DMA channel registers to Rx DMA channel registers	*/
+#endif
+#define kIODMASizeOfChannelBuffer			256
 	
 #define	kGPIO_DATA_WR_PIN_LEVEL_H			0x07
 #define	kGPIO_DATA_WR_PIN_LEVEL_L			0x04

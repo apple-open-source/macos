@@ -1,179 +1,190 @@
 <?xml version="1.0"?>
-<!DOCTYPE ejb-jar PUBLIC "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 1.1//EN"
-    "http://java.sun.com/j2ee/dtds/ejb-jar_1_1.dtd">
+<!DOCTYPE ejb-jar PUBLIC
+   "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 2.0//EN"
+   "http://java.sun.com/dtd/ejb-jar_2_0.dtd">
 
 <ejb-jar>
-    <display-name>ENC Tests</display-name>
-    <enterprise-beans>
-        <session>
-            <description>A session bean on looks up stuff in the ENC</description>
-            <ejb-name>ENCBean</ejb-name>
-            <ejb-class>org.jboss.test.naming.ejb.TestENCBean</ejb-class>
-            <home>org.jboss.test.naming.interfaces.TestENCHome</home>
-            <remote>org.jboss.test.naming.interfaces.TestENC</remote>
-            <session-type>Stateless</session-type>
-            <transaction-type>Container</transaction-type>
+   <display-name>ENC Tests</display-name>
+   <enterprise-beans>
+      <session>
+         <description>JUnit Session Bean Test Runner</description>
+         <ejb-name>EJBTestRunnerHome</ejb-name>
+         <home>org.jboss.test.util.ejb.EJBTestRunnerHome</home>
+         <remote>org.jboss.test.util.ejb.EJBTestRunner</remote>
+         <ejb-class>org.jboss.test.util.ejb.EJBTestRunnerBean</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Bean</transaction-type>
+      </session>
 
-            <!-- Basic environment entries -->
-            <env-entry>
-                <description>A flag indicating if the bean should perform the full ENC testsuite</description>
-                <env-entry-name>hasFullENC</env-entry-name>
-                <env-entry-type>java.lang.Boolean</env-entry-type>
-                <env-entry-value>true</env-entry-value>
-            </env-entry>
-            <env-entry>
-                <description>Integer0</description>
-                <env-entry-name>Ints/i0</env-entry-name>
-                <env-entry-type>java.lang.Integer</env-entry-type>
-                <env-entry-value>0</env-entry-value>
-            </env-entry>
-            <env-entry>
-                <description>Integer1</description>
-                <env-entry-name>Ints/i1</env-entry-name>
-                <env-entry-type>java.lang.Integer</env-entry-type>
-                <env-entry-value>1</env-entry-value>
-            </env-entry>
-            <env-entry>
-                <description>Float0</description>
-                <env-entry-name>Floats/f0</env-entry-name>
-                <env-entry-type>java.lang.Float</env-entry-type>
-                <env-entry-value>0.0</env-entry-value>
-            </env-entry>
-            <env-entry>
-                <description>Float1</description>
-                <env-entry-name>Floats/f1</env-entry-name>
-                <env-entry-type>java.lang.Float</env-entry-type>
-                <env-entry-value>1.1</env-entry-value>
-            </env-entry>
-            <env-entry>
-                <description>String0</description>
-                <env-entry-name>Strings/s0</env-entry-name>
-                <env-entry-type>java.lang.String</env-entry-type>
-                <env-entry-value>String0</env-entry-value>
-            </env-entry>
-            <env-entry>
-                <description>String1</description>
-                <env-entry-name>Strings/s1</env-entry-name>
-                <env-entry-type>java.lang.String</env-entry-type>
-                <env-entry-value>String1</env-entry-value>
-            </env-entry>
+      <session>
+         <description>A session bean on looks up stuff in the ENC</description>
+         <ejb-name>ENCBean</ejb-name>
+         <home>org.jboss.test.naming.interfaces.TestENCHome</home>
+         <remote>org.jboss.test.naming.interfaces.TestENC</remote>
+         <ejb-class>org.jboss.test.naming.ejb.TestENCBean</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Container</transaction-type>
 
-            <!-- EJB References (java:comp/env/ejb) -->
-            <ejb-ref>
-                <ejb-ref-name>ejb/bean0</ejb-ref-name>
-                <ejb-ref-type>Session</ejb-ref-type>
-                <ejb-link>ENCBean0</ejb-link>
-                <home>org.jboss.test.naming.interfaces.TestENCHome2</home>
-                <remote>org.jboss.test.naming.interfaces.TestENC</remote>
-            </ejb-ref>
-            <ejb-ref>
-                <ejb-ref-name>ejb/bean1</ejb-ref-name>
-                <ejb-ref-type>Session</ejb-ref-type>
-                <ejb-link>ENCBean1</ejb-link>
-                <home>org.jboss.test.naming.interfaces.TestENCHome</home>
-                <remote>org.jboss.test.naming.interfaces.TestENC</remote>
-            </ejb-ref>
-            <ejb-ref>
-                <ejb-ref-name>ejb/bean2</ejb-ref-name>
-                <ejb-ref-type>Session</ejb-ref-type>
-                <ejb-link>ENCBean2</ejb-link>
-                <home>org.jboss.test.naming.interfaces.TestENCHome</home>
-                <remote>org.jboss.test.naming.interfaces.TestENC</remote>
-            </ejb-ref>
-            <ejb-ref>
-                <ejb-ref-name>ejb/remote-bean</ejb-ref-name>
-                <ejb-ref-type>Session</ejb-ref-type>
-                <home>org.jboss.test.naming.interfaces.TestENCHome</home>
-                <remote>org.jboss.test.naming.interfaces.TestENC</remote>
-            </ejb-ref>
+         <!-- Basic environment entries -->
+         <env-entry>
+            <description>A flag indicating if the bean should perform the full ENC testsuite</description>
+            <env-entry-name>hasFullENC</env-entry-name>
+            <env-entry-type>java.lang.Boolean</env-entry-type>
+            <env-entry-value>true</env-entry-value>
+         </env-entry>
+         <env-entry>
+            <description>Integer0</description>
+            <env-entry-name>Ints/i0</env-entry-name>
+            <env-entry-type>java.lang.Integer</env-entry-type>
+            <env-entry-value>0</env-entry-value>
+         </env-entry>
+         <env-entry>
+            <description>Integer1</description>
+            <env-entry-name>Ints/i1</env-entry-name>
+            <env-entry-type>java.lang.Integer</env-entry-type>
+            <env-entry-value>1</env-entry-value>
+         </env-entry>
+         <env-entry>
+            <description>Float0</description>
+            <env-entry-name>Floats/f0</env-entry-name>
+            <env-entry-type>java.lang.Float</env-entry-type>
+            <env-entry-value>0.0</env-entry-value>
+         </env-entry>
+         <env-entry>
+            <description>Float1</description>
+            <env-entry-name>Floats/f1</env-entry-name>
+            <env-entry-type>java.lang.Float</env-entry-type>
+            <env-entry-value>1.1</env-entry-value>
+         </env-entry>
+         <env-entry>
+            <description>String0</description>
+            <env-entry-name>Strings/s0</env-entry-name>
+            <env-entry-type>java.lang.String</env-entry-type>
+            <env-entry-value>String0</env-entry-value>
+         </env-entry>
+         <env-entry>
+            <description>String1</description>
+            <env-entry-name>Strings/s1</env-entry-name>
+            <env-entry-type>java.lang.String</env-entry-type>
+            <env-entry-value>String1</env-entry-value>
+         </env-entry>
 
-            <!-- JDBC DataSources (java:comp/env/jdbc) -->
-            <resource-ref>
-                <description>The default DS</description>
-                <res-ref-name>jdbc/DefaultDS</res-ref-name>
-                <res-type>javax.sql.DataSource</res-type>
-                <res-auth>Container</res-auth>
-            </resource-ref>
-            <!-- JavaMail Connection Factories (java:comp/env/mail) -->
-            <resource-ref>
-                <description>Default Mail</description>
-                <res-ref-name>mail/DefaultMail</res-ref-name>
-                <res-type>javax.mail.Session</res-type>
-                <res-auth>Container</res-auth>
-            </resource-ref>
-            <!-- JMS Connection Factories (java:comp/env/jms) -->
-            <resource-ref>
-                <description>Default QueueFactory</description>
-                <res-ref-name>jms/QueFactory</res-ref-name>
-                <res-type>javax.jms.QueueConnectionFactory</res-type>
-                <res-auth>Container</res-auth>
-            </resource-ref>
-            <!-- URL Connection Factories (java:comp/env/url) -->
-            <resource-ref>
-                <description>The JBoss Web Site HomePage</description>
-                <res-ref-name>url/JBossHomePage</res-ref-name>
-                <res-type>java.net.URL</res-type>
-                <res-auth>Container</res-auth>
-            </resource-ref>
-            <resource-ref>
-                <description>The SourceForge HomePage</description>
-                <res-ref-name>url/SourceforgeHomePage</res-ref-name>
-                <res-type>java.net.URL</res-type>
-                <res-auth>Container</res-auth>
-            </resource-ref>
-
-            <resource-env-ref>
-                <description>A test of the resource-env-ref tag</description>
-                <resource-env-ref-name>res/aQueue</resource-env-ref-name>
-                <resource-env-ref-type>javax.jms.Queue</resource-env-ref-type>
-            </resource-env-ref>
-        </session>
-
-        <session>
-            <description>Referenced Bean0 Create by TestENCHome2</description>
-            <ejb-name>ENCBean0</ejb-name>
-            <ejb-class>org.jboss.test.naming.ejb.TestENCBean</ejb-class>
+         <!-- EJB References (java:comp/env/ejb) -->
+         <ejb-ref>
+            <ejb-ref-name>ejb/bean0</ejb-ref-name>
+            <ejb-ref-type>Session</ejb-ref-type>
             <home>org.jboss.test.naming.interfaces.TestENCHome2</home>
             <remote>org.jboss.test.naming.interfaces.TestENC</remote>
-            <session-type>Stateless</session-type>
-            <transaction-type>Container</transaction-type>
-            <env-entry>
-                <description>This bean should NOT have the same ENC as ENCBean</description>
-                <env-entry-name>hasFullENC</env-entry-name>
-                <env-entry-type>java.lang.Boolean</env-entry-type>
-                <env-entry-value>false</env-entry-value>
-            </env-entry>
-        </session>
-        <session>
-            <description>Referenced Bean1</description>
-            <ejb-name>ENCBean1</ejb-name>
-            <ejb-class>org.jboss.test.naming.ejb.TestENCBean</ejb-class>
+            <ejb-link>ENCBean0</ejb-link>
+         </ejb-ref>
+         <ejb-ref>
+            <ejb-ref-name>ejb/bean1</ejb-ref-name>
+            <ejb-ref-type>Session</ejb-ref-type>
             <home>org.jboss.test.naming.interfaces.TestENCHome</home>
             <remote>org.jboss.test.naming.interfaces.TestENC</remote>
-            <session-type>Stateless</session-type>
-            <transaction-type>Container</transaction-type>
-            <env-entry>
-                <description>This bean should NOT have the same ENC as ENCBean</description>
-                <env-entry-name>hasFullENC</env-entry-name>
-                <env-entry-type>java.lang.Boolean</env-entry-type>
-                <env-entry-value>false</env-entry-value>
-            </env-entry>
-        </session>
-        <session>
-            <description>A bean with a JNDI name that cannot be used in a JMX
+            <ejb-link>ENCBean1</ejb-link>
+         </ejb-ref>
+         <ejb-ref>
+            <ejb-ref-name>ejb/bean2</ejb-ref-name>
+            <ejb-ref-type>Session</ejb-ref-type>
+            <home>org.jboss.test.naming.interfaces.TestENCHome</home>
+            <remote>org.jboss.test.naming.interfaces.TestENC</remote>
+            <ejb-link>ENCBean2</ejb-link>
+         </ejb-ref>
+         <ejb-ref>
+            <ejb-ref-name>ejb/remote-bean</ejb-ref-name>
+            <ejb-ref-type>Session</ejb-ref-type>
+            <home>org.jboss.test.naming.interfaces.TestENCHome</home>
+            <remote>org.jboss.test.naming.interfaces.TestENC</remote>
+         </ejb-ref>
+
+         <!-- JDBC DataSources (java:comp/env/jdbc) -->
+         <resource-ref>
+            <description>The default DS</description>
+            <res-ref-name>jdbc/DefaultDS</res-ref-name>
+            <res-type>javax.sql.DataSource</res-type>
+            <res-auth>Container</res-auth>
+         </resource-ref>
+         <!-- JavaMail Connection Factories (java:comp/env/mail) -->
+         <resource-ref>
+            <description>Default Mail</description>
+            <res-ref-name>mail/DefaultMail</res-ref-name>
+            <res-type>javax.mail.Session</res-type>
+            <res-auth>Container</res-auth>
+         </resource-ref>
+         <!-- JMS Connection Factories (java:comp/env/jms) -->
+         <resource-ref>
+            <description>Default QueueFactory</description>
+            <res-ref-name>jms/QueFactory</res-ref-name>
+            <res-type>javax.jms.QueueConnectionFactory</res-type>
+            <res-auth>Container</res-auth>
+         </resource-ref>
+         <!-- URL Connection Factories (java:comp/env/url) -->
+         <resource-ref>
+            <description>The JBoss Web Site HomePage</description>
+            <res-ref-name>url/JBossHomePage</res-ref-name>
+            <res-type>java.net.URL</res-type>
+            <res-auth>Container</res-auth>
+         </resource-ref>
+         <resource-ref>
+            <description>The SourceForge HomePage</description>
+            <res-ref-name>url/SourceforgeHomePage</res-ref-name>
+            <res-type>java.net.URL</res-type>
+            <res-auth>Container</res-auth>
+         </resource-ref>
+
+         <resource-env-ref>
+            <description>A test of the resource-env-ref tag</description>
+            <resource-env-ref-name>res/aQueue</resource-env-ref-name>
+            <resource-env-ref-type>javax.jms.Queue</resource-env-ref-type>
+         </resource-env-ref>
+      </session>
+
+      <session>
+         <description>Referenced Bean0 Create by TestENCHome2</description>
+         <ejb-name>ENCBean0</ejb-name>
+         <home>org.jboss.test.naming.interfaces.TestENCHome2</home>
+         <remote>org.jboss.test.naming.interfaces.TestENC</remote>
+         <ejb-class>org.jboss.test.naming.ejb.TestENCBean</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Container</transaction-type>
+         <env-entry>
+            <description>This bean should NOT have the same ENC as ENCBean</description>
+            <env-entry-name>hasFullENC</env-entry-name>
+            <env-entry-type>java.lang.Boolean</env-entry-type>
+            <env-entry-value>false</env-entry-value>
+         </env-entry>
+      </session>
+      <session>
+         <description>Referenced Bean1</description>
+         <ejb-name>ENCBean1</ejb-name>
+         <home>org.jboss.test.naming.interfaces.TestENCHome</home>
+         <remote>org.jboss.test.naming.interfaces.TestENC</remote>
+         <ejb-class>org.jboss.test.naming.ejb.TestENCBean</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Container</transaction-type>
+         <env-entry>
+            <description>This bean should NOT have the same ENC as ENCBean</description>
+            <env-entry-name>hasFullENC</env-entry-name>
+            <env-entry-type>java.lang.Boolean</env-entry-type>
+            <env-entry-value>false</env-entry-value>
+         </env-entry>
+      </session>
+      <session>
+         <description>A bean with a JNDI name that cannot be used in a JMX
             ObjectName</description>
-            <ejb-name>ENCBean2</ejb-name>
-            <ejb-class>org.jboss.test.naming.ejb.TestENCBean</ejb-class>
-            <home>org.jboss.test.naming.interfaces.TestENCHome</home>
-            <remote>org.jboss.test.naming.interfaces.TestENC</remote>
-            <session-type>Stateless</session-type>
-            <transaction-type>Container</transaction-type>
-            <env-entry>
-                <description>This bean should NOT have the same ENC as ENCBean</description>
-                <env-entry-name>hasFullENC</env-entry-name>
-                <env-entry-type>java.lang.Boolean</env-entry-type>
-                <env-entry-value>false</env-entry-value>
-            </env-entry>
-        </session>
-    </enterprise-beans>
+         <ejb-name>ENCBean2</ejb-name>
+         <home>org.jboss.test.naming.interfaces.TestENCHome</home>
+         <remote>org.jboss.test.naming.interfaces.TestENC</remote>
+         <ejb-class>org.jboss.test.naming.ejb.TestENCBean</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Container</transaction-type>
+         <env-entry>
+            <description>This bean should NOT have the same ENC as ENCBean</description>
+            <env-entry-name>hasFullENC</env-entry-name>
+            <env-entry-type>java.lang.Boolean</env-entry-type>
+            <env-entry-value>false</env-entry-value>
+         </env-entry>
+      </session>
+   </enterprise-beans>
 </ejb-jar>

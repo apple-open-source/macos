@@ -25,6 +25,7 @@
 
 #import "KWQFont.h"
 
+#import "KWQExceptions.h"
 #import "KWQString.h"
 #import "WebCoreTextRendererFactory.h"
 
@@ -146,7 +147,10 @@ bool QFont::bold() const
 
 bool QFont::isFixedPitch() const
 {
+    KWQ_BLOCK_EXCEPTIONS;
     return [[WebCoreTextRendererFactory sharedFactory] isFontFixedPitch: getNSFont()];
+    KWQ_UNBLOCK_EXCEPTIONS;
+    return false;
 }
 
 
@@ -162,10 +166,12 @@ NSFont *QFont::getNSFont() const
 {
     if (!_NSFont) {
         CREATE_FAMILY_ARRAY(*this, families);
+	KWQ_BLOCK_EXCEPTIONS;
         _NSFont = [[[WebCoreTextRendererFactory sharedFactory] 
             fontWithFamilies:families
                       traits:getNSTraits() 
                         size:getNSSize()] retain];
+	KWQ_UNBLOCK_EXCEPTIONS;
     }
     return _NSFont;
 }

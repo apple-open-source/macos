@@ -55,28 +55,28 @@ servers, which Tomcat emulates for the services that it provides:</p>
     Specification</a> (in particular, see Chapter 5 on <em>Naming</em>)</li>
 </ul>
 
-</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Configuring%20JNDI%20Resources"><strong>Configuring JNDI Resources</strong></a></font></td></tr><tr><td><blockquote>
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Configuring JNDI Resources"><strong>Configuring JNDI Resources</strong></a></font></td></tr><tr><td><blockquote>
 
 <p>Each available JNDI Resource is configured based on inclusion of the
 following elements in the <code>$CATALINA_HOME/conf/server.xml</code>
 file:</p>
 <ul>
-<li><a href="../config/context.html#Environment%20Entries">&lt;Environment&gt;</a> -
+<li><a href="../config/context.html#Environment Entries">&lt;Environment&gt;</a> -
     Configure names and values for scalar environment entries that will be
     exposed to the web application through the JNDI
     <code>InitialContext</code> (equivalent to the inclusion of an
     <code>&lt;env-entry&gt;</code> element in the web application
     deployment descriptor).</li>
-<li><a href="../config/context.html#Resource%20Definitions">&lt;Resource&gt;</a> -
+<li><a href="../config/context.html#Resource Definitions">&lt;Resource&gt;</a> -
     Configure the name and data type of a resource made available to the
     application (equivalent to the inclusion of a
     <code>&lt;resource-ref&gt;</code> element in the web application
     deployment descriptor).</li>
-<li><a href="../config/context.html#Resource%20Parameters">&lt;ResourceParams&gt;</a> -
+<li><a href="../config/context.html#Resource Parameters">&lt;ResourceParams&gt;</a> -
     Configure the Java class name of the resource factory implementation to be
     used, as well as JavaBeans properties used to configure that resource
     factory.</li>
-<li><a href="../config/context.html#Resource%20Links">&lt;ResourceLink&gt;</a> -
+<li><a href="../config/context.html#Resource Links">&lt;ResourceLink&gt;</a> -
     Add a link to a resource defined in the global JNDI context.</li>
 </ul>
 
@@ -101,7 +101,7 @@ the resource elements described above to the
 child element of the <a href="../config/server.html">&lt;Server&gt;</a>
 element.</p>
 
-</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Tomcat%20Standard%20Resource%20Factories"><strong>Tomcat Standard Resource Factories</strong></a></font></td></tr><tr><td><blockquote>
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Tomcat Standard Resource Factories"><strong>Tomcat Standard Resource Factories</strong></a></font></td></tr><tr><td><blockquote>
 
   <p>Tomcat 4 includes a series of standard resource factories that can
   provide services to your web applications, but give you configuration
@@ -110,7 +110,7 @@ element.</p>
   subsection below details the configuration and usage of the standard
   resource factories.</p>
 
-  <p>See <a href="#Adding%20Custom%20Resource%20Factories">Adding Custom
+  <p>See <a href="#Adding Custom Resource Factories">Adding Custom
   Resource Factories</a> for information about how to create, install,
   configure, and use your own custom resource factory classes with
   Tomcat 4.</p>
@@ -123,7 +123,7 @@ element.</p>
   that you write yourself, are specific to Tomcat and cannot be assumed
   to be available on other containers.</p>
 
-  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Generic%20JavaBean%20Resources"><strong>Generic JavaBean Resources</strong></a></font></td></tr><tr><td><blockquote>
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Generic JavaBean Resources"><strong>Generic JavaBean Resources</strong></a></font></td></tr><tr><td><blockquote>
 
     <h3>0.  Introduction</h3>
 
@@ -250,7 +250,7 @@ writer.println("foo = " + bean.getFoo() + ", bar = " +
   </blockquote></td></tr></table>
 
 
-  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="JavaMail%20Sessions"><strong>JavaMail Sessions</strong></a></font></td></tr><tr><td><blockquote>
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="JavaMail Sessions"><strong>JavaMail Sessions</strong></a></font></td></tr><tr><td><blockquote>
 
     <h3>0.  Introduction</h3>
 
@@ -372,7 +372,7 @@ Transport.send(message);
 
   </blockquote></td></tr></table>
 
-  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="JDBC%20Data%20Sources"><strong>JDBC Data Sources</strong></a></font></td></tr><tr><td><blockquote>
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="JDBC Data Sources"><strong>JDBC Data Sources</strong></a></font></td></tr><tr><td><blockquote>
 
     <h3>0.  Introduction</h3>
 
@@ -405,7 +405,7 @@ Transport.send(message);
     subproject.  However, it is possible to use any other connection pool
     that implements <code>javax.sql.DataSource</code>, by writing your
     own custom resource factory, as described
-    <a href="#Adding%20Custom%20Resource%20Factories">below</a>.</p>
+    <a href="#Adding Custom Resource Factories">below</a>.</p>
 
     <h3>1.  Install Your JDBC Driver</h3>
 
@@ -548,14 +548,14 @@ conn.close();
 
   </blockquote></td></tr></table>
 
-</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Adding%20Custom%20Resource%20Factories"><strong>Adding Custom Resource Factories</strong></a></font></td></tr><tr><td><blockquote>
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Adding Custom Resource Factories"><strong>Adding Custom Resource Factories</strong></a></font></td></tr><tr><td><blockquote>
 
   <p>If none of the standard resource factories meet your needs, you can
   write your own factory and integrate it into Tomcat 4, and then configure
   the use of this factory in the <code>conf/server.xml</code> configuration
   file.  In the example below, we will create a factory that only knows how
   to create <code>com.mycompany.MyBean</code> beans, from the
-  <a href="#Generic%20JavaBean%20Resources">Generic JavaBean Resources</a>
+  <a href="#Generic JavaBean Resources">Generic JavaBean Resources</a>
   example, above.</p>
 
   <h3>1.  Write A Resource Factory Class</h3>

@@ -188,10 +188,16 @@ SSLEncodeRSAKeyParams(SSLBuffer *keyParams, SSLRSAPrivateKey *key, SSLContext *c
 {   OSStatus    err;
     SSLBuffer   modulus, exponent;
     UInt8       *charPtr;
-    
+
+	if(err = attachToCsp(ctx)) {
+		return err;
+	}
+	
+	/* Note currently ALL public keys are raw, obtained from the CL... */
+	assert((*key)->KeyHeader.BlobType == CSSM_KEYBLOB_RAW);
 	err = sslGetPubKeyBits(ctx,
 		*key,
-		ctx->encryptKeyCsp,
+		ctx->cspHand,
 		&modulus,
 		&exponent);
 	if(err) {
@@ -254,6 +260,7 @@ SSLEncodeSignedServerKeyExchange(SSLRecord &keyExch, SSLContext *ctx)
     UInt32 			maxSigLen;
     UInt32	    	actSigLen;
 	SSLBuffer		signature;
+	const CSSM_KEY	*cssmKey;
 	
     assert(ctx->protocolSide == SSL_ServerSide);
 	assert(ctx->signingPubKey != NULL);
@@ -362,7 +369,13 @@ SSLEncodeSignedServerKeyExchange(SSLRecord &keyExch, SSLContext *ctx)
         goto fail;
     
 	/* preallocate a buffer for signing */
-	err = sslGetMaxSigSize(ctx->signingPrivKey, maxSigLen);
+	err = SecKeyGetCSSMKey(ctx->signingPrivKeyRef, &cssmKey);
+	if(err) {
+		sslErrorLog("SSLEncodeSignedServerKeyExchange: SecKeyGetCSSMKey err %d\n",
+			(int)err);
+        goto fail;
+	}
+	err = sslGetMaxSigSize(cssmKey, maxSigLen);
 	if(err) {
         goto fail;
 	}
@@ -372,8 +385,7 @@ SSLEncodeSignedServerKeyExchange(SSLRecord &keyExch, SSLContext *ctx)
 	}
 	
 	err = sslRawSign(ctx,
-		ctx->signingPrivKey,
-		ctx->signingKeyCsp,
+		ctx->signingPrivKeyRef,
 		dataToSign,			// one or two hashes
 		dataToSignLen,
 		signature.data,
@@ -592,15 +604,12 @@ static OSStatus
 SSLDecodeRSAKeyExchange(SSLBuffer keyExchange, SSLContext *ctx)
 {   OSStatus            err;
     UInt32        		outputLen, localKeyModulusLen;
-    CSSM_KEY_PTR    	*key;
     SSLProtocolVersion  version;
     Boolean				useEncryptKey = false;
 	UInt8				*src = NULL;
-	
-    
-	/* different key names, also need CSP handle */
-	CSSM_CSP_HANDLE		cspHand;
-	
+	SecKeyRef			keyRef = NULL;
+    const CSSM_KEY		*cssmKey;
+		
 	assert(ctx->protocolSide == SSL_ServerSide);
 	
 	#if		SSL_SERVER_KEYEXCH_HACK
@@ -616,20 +625,26 @@ SSLDecodeRSAKeyExchange(SSLBuffer keyExchange, SSLContext *ctx)
 		
 	#else	/* !SSL_SERVER_KEYEXCH_HACK */
 		/* The "correct" way, I think, which doesn't work with Netscape */
-		if (ctx->encryptPrivKey) {
+		if (ctx->encryptPrivKeyRef) {
 			useEncryptKey = true;
 		}
 	#endif	/* SSL_SERVER_KEYEXCH_HACK */
 	if (useEncryptKey) {
-		key = &ctx->encryptPrivKey;
-		cspHand = ctx->encryptKeyCsp;
+		keyRef  = ctx->encryptPrivKeyRef;
+		/* FIXME: when 3420180 is implemented, pick appropriate creds here */
 	} 
 	else {
-		key = &ctx->signingPrivKey;
-		cspHand = ctx->signingKeyCsp;
+		keyRef  = ctx->signingPrivKeyRef;
+		/* FIXME: when 3420180 is implemented, pick appropriate creds here */
+	}
+	err = SecKeyGetCSSMKey(keyRef, &cssmKey);
+	if(err) {
+		sslErrorLog("SSLDecodeRSAKeyExchange: SecKeyGetCSSMKey err %d\n",
+			(int)err);
+		return err;
 	}
     
-	localKeyModulusLen = sslKeyLengthInBytes(*key);
+	localKeyModulusLen = sslKeyLengthInBytes(cssmKey);
 
 	/* 
 	 * We have to tolerate incoming key exchange msgs with and without the 
@@ -670,8 +685,7 @@ SSLDecodeRSAKeyExchange(SSLBuffer keyExchange, SSLContext *ctx)
 	 * See http://eprint.iacr.org/2003/052/ for more info.
 	 */
 	err = sslRsaDecrypt(ctx,
-		*key,
-		cspHand,
+		keyRef,
 		src, 
 		localKeyModulusLen,				// ciphertext len
 		ctx->preMasterSecret.data,

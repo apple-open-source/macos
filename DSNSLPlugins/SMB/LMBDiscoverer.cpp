@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -960,57 +958,79 @@ CFArrayRef GetLMBInfoFromLMB( CFStringRef workgroupRef, CFStringRef lmbNameRef )
 
 		CFStringGetCString( lmbNameRef, lmbName, sizeof(lmbName), kCFStringEncodingUTF8 );
 			
-		if ( workgroupRef )
-		{
-			CFStringGetCString( workgroupRef, workgroup, sizeof(workgroup), GetWindowsSystemEncodingEquivalent() );
-			
-			argv[0] = "/usr/bin/smbclient";
-			argv[1] = "-W";
-			argv[2] = workgroup;
-			argv[3] = "-NL";
-			argv[4] = lmbName;
-			argv[5] = "-U%";
-			argv[6] = "-s";
-			argv[7] = kBrowsingConfFilePath;
-
-			DBGLOG( "LMBDiscoverer::GetLMBInfoFromLMB calling smbclient -W %s -NL %s -U\n", workgroup, lmbName );
-		}
-		else
-		{
-			argv[0] = "/usr/bin/smbclient";
-			argv[1] = "-NL";
-			argv[2] = lmbName;
-			argv[3] = "-U%";
-			argv[4] = "-s";
-			argv[5] = kBrowsingConfFilePath;
-
-			DBGLOG( "LMBDiscoverer::GetLMBInfoFromLMB calling smbclient -NL %s -U\n", lmbName );
-		}
-		
-		if ( myexecutecommandas( NULL, "/usr/bin/smbclient", argv, false, kLMBGoodTimeOutVal, &resultPtr, &canceled, getuid(), getgid() ) < 0 )
-		{
-			DBGLOG( "LMBDiscoverer::GetLMBInfoFromLMB smbclient -W %s -NL %s -U failed\n", workgroup, lmbName );
-		}
-		else if ( resultPtr )
-		{
-			DBGLOG( "LMBDiscoverer::GetLMBInfoFromLMB, resultPtr = 0x%lx, length = %ld\n", (UInt32)resultPtr, strlen(resultPtr) );
-			DBGLOG( "%s\n", resultPtr );
-			
-			if ( !ExceptionInResult(resultPtr) )
+		for ( int tryNum=1; tryNum<=2 && lmbResults==NULL; tryNum++ )
+		{	
+			if ( workgroupRef )
 			{
-				lmbResults = ParseOutStringsFromSMBClientResult( resultPtr, "Workgroup", "Master" );
+				CFStringGetCString( workgroupRef, workgroup, sizeof(workgroup), GetWindowsSystemEncodingEquivalent() );
+				
+				argv[0] = "/usr/bin/smbclient";
+				argv[1] = "-W";
+				argv[2] = workgroup;
+				argv[3] = "-NL";
+				argv[4] = lmbName;
+
+				if ( tryNum == 1 )
+				{
+					argv[5] = "-U%";
+					argv[6] = "-s";
+					argv[7] = kBrowsingConfFilePath;
+				}
+				else
+				{
+					argv[5] = "-s";
+					argv[6] = kBrowsingConfFilePath;
+					argv[7] = NULL;			// second try use NULL or anon
+				}
+
+				DBGLOG( "LMBDiscoverer::GetLMBInfoFromLMB calling smbclient -W %s -NL %s -U\n", workgroup, lmbName );
 			}
 			else
 			{
-				DBGLOG( "LMBDiscoverer::GetLMBInfoFromLMB found an Exception in the result for smbclient -W %s -NL %s -U\n", workgroup, lmbName );
+				argv[0] = "/usr/bin/smbclient";
+				argv[1] = "-NL";
+				argv[2] = lmbName;
+
+				if ( tryNum == 1 )
+				{
+					argv[3] = "-U%";
+					argv[4] = "-s";
+					argv[5] = kBrowsingConfFilePath;
+				}
+				else
+				{
+					argv[4] = "-s";
+					argv[5] = kBrowsingConfFilePath;
+					argv[6] = NULL;			// second try use NULL or anon
+				}
+	
+				DBGLOG( "LMBDiscoverer::GetLMBInfoFromLMB calling smbclient -NL %s -U\n", lmbName );
 			}
 			
-			free( resultPtr );
-			resultPtr = NULL;
+			if ( myexecutecommandas( NULL, "/usr/bin/smbclient", argv, false, kLMBGoodTimeOutVal, &resultPtr, &canceled, getuid(), getgid() ) < 0 )
+			{
+				DBGLOG( "LMBDiscoverer::GetLMBInfoFromLMB smbclient -W %s -NL %s -U failed\n", workgroup, lmbName );
+			}
+			else if ( resultPtr )
+			{
+				DBGLOG( "LMBDiscoverer::GetLMBInfoFromLMB, resultPtr = 0x%lx, length = %ld\n", (UInt32)resultPtr, strlen(resultPtr) );
+				DBGLOG( "%s\n", resultPtr );
+				
+				if ( !ExceptionInResult(resultPtr) )
+				{
+					lmbResults = ParseOutStringsFromSMBClientResult( resultPtr, "Workgroup", "Master" );
+				}
+				else
+				{
+					DBGLOG( "LMBDiscoverer::GetLMBInfoFromLMB found an Exception in the result for smbclient -W %s -NL %s -U\n", workgroup, lmbName );
+				}
+				
+				free( resultPtr );
+				resultPtr = NULL;
+			}
+			else
+				DBGLOG( "LMBDiscoverer::GetLMBInfoFromLMB resultPtr is NULL!\n" );
 		}
-		else
-			DBGLOG( "LMBDiscoverer::GetLMBInfoFromLMB resultPtr is NULL!\n" );
-		
 	}
 	
 	return lmbResults;

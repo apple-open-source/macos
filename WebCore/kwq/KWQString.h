@@ -84,11 +84,7 @@ public:
     QChar upper() const;
     Direction direction() const
     {
-        const unsigned char *rowp = WebCoreDirectionInfo[((unsigned char)(c>>8))];
-        
-        if(!rowp) 
-            return DirL;
-        return (QChar::Direction)( *(rowp+((unsigned char)(c))) &0x1f );
+        return (Direction)WebCoreUnicodeDirectionFunction(c);
     }
 
     bool mirrored() const;
@@ -382,6 +378,8 @@ public:
     int compare(const char *) const;
 
     bool startsWith(const QString &) const;
+    bool startsWith(const char *) const;
+    bool startsWith(const char *, bool caseSensitive) const;
 
     int find(char, int index = 0) const;
     int find(QChar, int index = 0) const;

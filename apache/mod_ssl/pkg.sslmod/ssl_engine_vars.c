@@ -9,7 +9,7 @@
 */
 
 /* ====================================================================
- * Copyright (c) 1998-2001 Ralf S. Engelschall. All rights reserved.
+ * Copyright (c) 1998-2003 Ralf S. Engelschall. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -617,7 +617,7 @@ static char *ssl_var_lookup_ssl_version(pool *p, char *var)
         result = ap_psprintf(p, "mod_ssl/%s", MOD_SSL_VERSION);
     }
     else if (strEQ(var, "LIBRARY")) {
-        result = ap_pstrdup(p, SSL_LIBRARY_TEXT);
+        result = ap_pstrdup(p, SSLeay_version(SSLEAY_VERSION));
         if ((cp = strchr(result, ' ')) != NULL) {
             *cp = '/';
             if ((cp2 = strchr(cp, ' ')) != NULL)

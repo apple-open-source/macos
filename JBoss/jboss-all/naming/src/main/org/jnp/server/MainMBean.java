@@ -12,7 +12,7 @@ import java.net.UnknownHostException;
  *      
  *   @author oberg
  *   @author Scott.Stark@jboss.org
- *   @version $Revision: 1.6.2.1 $
+ *   @version $Revision: 1.6.2.2 $
  */
 public interface MainMBean
 {
@@ -27,6 +27,9 @@ public interface MainMBean
 
    public String getBindAddress();
    public void setBindAddress(String host) throws UnknownHostException;
+
+   public String getRmiBindAddress();
+   public void setRmiBindAddress(String host) throws UnknownHostException;
 
    public int getBacklog();
    public void setBacklog(int backlog);

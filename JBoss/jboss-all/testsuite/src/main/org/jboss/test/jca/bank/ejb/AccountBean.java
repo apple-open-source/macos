@@ -20,6 +20,7 @@ import javax.ejb.EJBException;
 import javax.ejb.EntityBean;
 import javax.ejb.EntityContext;
 import javax.ejb.FinderException;
+import javax.ejb.NoSuchEntityException;
 import javax.ejb.ObjectNotFoundException;
 import javax.sql.DataSource;
 
@@ -52,6 +53,8 @@ public class AccountBean
    private Integer id;
    private int balance;
    private Integer customerId;    
+
+   private EntityContext ctx;
    
    /**
     * Abstract cmp2 field get-set pair for field id
@@ -174,8 +177,8 @@ public class AccountBean
       
          ps = getConnection().prepareStatement("INSERT INTO CCBMPACCOUNT (ID, BALANCE, CUSTOMERID) VALUES (?, ?, ?)");
          ps.setInt(1, id.intValue());
-         ps.setInt(1, balance);
-         ps.setObject(1, customerId);
+         ps.setInt(2, balance);
+         ps.setObject(3, customerId);
       }
       catch (Exception e)
       {
@@ -307,6 +310,7 @@ public class AccountBean
    
    public void ejbLoad()
    {
+      id = (Integer) ctx.getPrimaryKey();
       if (id == null) 
       {
          Category.getInstance(getClass().getName()).info("null id!");
@@ -324,9 +328,10 @@ public class AccountBean
          
          ps.setInt(1, id.intValue());
          ResultSet rs = ps.executeQuery();
-         rs.next();
+         if (rs.next() == false)
+            throw new NoSuchEntityException("Account does not exist " + id.toString());
          this.balance = rs.getInt(1);
-         this.customerId = (Integer)rs.getObject(1);
+         this.customerId = (Integer)rs.getObject(2);
       }
       catch (Exception e)
       {
@@ -405,10 +410,12 @@ public class AccountBean
    
    public void setEntityContext(EntityContext ctx)
    {
+      this.ctx = ctx;
    }
    
    public void unsetEntityContext()
    {
+      ctx = null;
    }
 
    private Connection getConnection() throws Exception

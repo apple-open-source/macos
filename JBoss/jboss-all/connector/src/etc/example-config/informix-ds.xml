@@ -6,7 +6,7 @@
 <!--                                                                       -->
 <!-- ===================================================================== -->
 
-<!-- $Id: informix-ds.xml,v 1.1 2002/07/22 22:57:24 d_jencks Exp $ -->
+<!-- $Id: informix-ds.xml,v 1.1.2.1 2003/09/05 16:38:24 patriot1burke Exp $ -->
 
 
 <datasources>
@@ -16,6 +16,14 @@
     <driver-class>com.informix.jdbc.IfxDriver</driver-class>
     <user-name>x</user-name>
     <password>y</password>
+        <!-- sql to call when connection is created
+        <new-connection-sql>some arbitrary sql</new-connection-sql>
+        -->
+
+        <!-- sql to call on an existing pooled connection when it is obtained from pool 
+        <check-valid-connection-sql>some arbitrary sql</check-valid-connection-sql>
+        -->
+
   </local-tx-datasource>
 
 </datasources>

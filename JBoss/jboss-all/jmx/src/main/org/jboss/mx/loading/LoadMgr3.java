@@ -15,6 +15,7 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.List;
+import java.net.URL;
 
 import org.jboss.logging.Logger;
 import org.jboss.mx.loading.ClassLoadingTask.ThreadTask;
@@ -24,7 +25,7 @@ import org.jboss.mx.loading.ClassLoadingTask.ThreadTask;
  * class loading tasks.
  *
  * @author Scott.Stark@jboss.org
- * @version $Revision: 1.1.2.3 $
+ * @version $Revision: 1.1.2.6 $
  */
 public class LoadMgr3
 {
@@ -176,25 +177,71 @@ public class LoadMgr3
          to be augmented.
        */
       Iterator iter = pkgSet.iterator();
+      UnifiedClassLoader3 theUCL = null;
+      int order = Integer.MAX_VALUE;
       while( iter.hasNext() )
       {
          Object next = iter.next();
+         int uclOrder;
          UnifiedClassLoader3 ucl;
-         int order = 0;
          // This may be either a PkgClassLoader or a UCL3
          if( next instanceof UnifiedClassLoader3 )
          {
             ucl = (UnifiedClassLoader3) next;
+            uclOrder = ucl.getAddedOrder();
          }
          else
          {
             PkgClassLoader pkgUcl = (PkgClassLoader) next;
             ucl = pkgUcl.ucl;
-            order = pkgUcl.order;
+            uclOrder = pkgUcl.order;
          }
 
-         scheduleTask(task, ucl, order, false, trace);
+         // Validate that the ucl has the class as a resource
+         String classRsrcName = task.classname.replace('.', '/') + ".class";
+         URL url = ucl.getResourceLocally(classRsrcName);
+         if( url != null && uclOrder < order )
+         {
+            if( trace && theUCL != null )
+               log.trace("Replacing UCL: "+theUCL+" with UCL:"+ucl);
+            theUCL = ucl;
+            order = uclOrder;
+         }
       }
+      if( theUCL == null )
+      {
+         /* If there are no class loaders in the repository capable of handling
+         the request ask the class loader itself in the event that its parent(s)
+         can load the class.
+         */
+         try
+         {
+            cls = repository.loadClassFromClassLoader(task.classname, false,
+               task.requestingClassLoader);
+         }
+         catch(LinkageError e)
+         {
+            if( trace )
+               log.trace("End beginLoadTask, LinkageError for task: "+task, e);
+            throw e;
+         }
+         if( cls != null )
+         {
+            task.loadedClass = cls;
+            task.state = ClassLoadingTask.FINISHED;
+            if( trace )
+               log.trace("End beginLoadTask, loadClassFromClassLoader");
+            return true;
+         }
+
+         // Else, fail the load
+         if( trace )
+            log.trace("End beginLoadTask, ClassNotFoundException");
+         String msg = "No ClassLoaders found for: "+task.classname;
+         throw new ClassNotFoundException(msg);
+      }
+
+      scheduleTask(task, theUCL, order, false, trace);
       task.state = ClassLoadingTask.FOUND_CLASS_LOADER;
       if( trace )
          log.trace("End beginLoadTask, task="+task);
@@ -283,9 +330,32 @@ public class LoadMgr3
       }
       catch(Throwable e)
       {
-         loadTask.loadException = e;
-         if( trace )
-            log.trace("Run failed with exception", e);
+         if( e instanceof ClassCircularityError && taskList.size() > 0 )
+         {
+            /* Reschedule this task after all existing tasks to allow the
+            current load tasks which are conflicting to complete.
+            */
+            try
+            {
+               if( trace )
+                  log.trace("Run failed with exception", e);
+               // Reschedule and update the loadTask.threadTaskCount
+               scheduleTask(loadTask, ucl3, Integer.MAX_VALUE, false, trace);
+            }
+            catch(ClassNotFoundException ex)
+            {
+               loadTask.loadException = e;
+               log.warn("Failed to reschedule task after CCE", ex);
+            }
+            if( trace )
+               log.trace("Post CCE state, loadTask="+loadTask);
+         }
+         else
+         {
+            loadTask.loadException = e;
+            if( trace )
+               log.trace("Run failed with exception", e);
+         }
       }
       finally
       {
@@ -310,29 +380,6 @@ public class LoadMgr3
       if( loadTask.threadTaskCount == 0 )
       {
          Class loadedClass = threadTask.getLoadedClass();
-         if( loadedClass == null )
-         {
-            /* If we have not found the class it may be that this is due to
-            the repository having class loaders associated with the class'
-            pkg, but none have the class in their immeadiate urls. We try to
-            load the class through the original requesting class loader here.
-            @todo, need indexing down to the class level instead just the pkgs
-            */
-            try
-            {
-               loadedClass = repository.loadClassFromClassLoader(task.classname, false,
-                  task.requestingClassLoader);
-               loadTask.loadedClass = loadedClass;
-               if( trace )
-                  log.trace("nextTask, called loadClassFromClassLoader for task: "+task);
-            }
-            catch(Throwable e)
-            {
-               if( trace )
-                  log.trace("nextTask, failed to loadClassFromClassLoader for task: "+task);
-            }
-         }
-
          if( loadedClass != null )
          {
             ClassLoader loader = loadedClass.getClassLoader();
@@ -342,6 +389,8 @@ public class LoadMgr3
          }
          synchronized( loadTask )
          {
+            if( trace )
+               log.trace("Notifying task of thread completion, loadTask:"+loadTask);
             loadTask.state = ClassLoadingTask.FINISHED;
             loadTask.notify();
          }
@@ -478,5 +527,5 @@ public class LoadMgr3
 
       if( trace )
          log.trace("scheduleTask("+taskList.size()+"), created subtask: "+subtask);
-   }
+   } 
 }

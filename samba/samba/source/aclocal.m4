@@ -73,7 +73,7 @@ AC_DEFUN(SMB_SUBSYSTEM,
 	AC_SUBST($1_STATIC)
 	AC_SUBST($1_MODULES)
 	AC_DEFINE_UNQUOTED([static_init_]translit([$1], [A-Z], [a-z]), [{$init_static_modules_]translit([$1], [A-Z], [a-z])[}], [Static init functions])
-    	ifelse([$2], , :, [touch $2])
+    	ifelse([$2], , :, [rm -f $2])
 ])
 
 dnl AC_PROG_CC_FLAG(flag)
@@ -125,11 +125,11 @@ AC_DEFUN(AC_LIBTESTFUNC,
 # may have different results.
 #
 # Note that using directly AS_VAR_PUSHDEF([ac_Lib], [ac_cv_lib_$1_$3])
-# is asking for troubles, since AC_CHECK_LIB($lib, fun) would give
+# is asking for trouble, since AC_CHECK_LIB($lib, fun) would give
 # ac_cv_lib_$lib_fun, which is definitely not what was meant.  Hence
 # the AS_LITERAL_IF indirection.
 #
-# FIXME: This macro is extremely suspicious.  It DEFINEs unconditionnally,
+# FIXME: This macro is extremely suspicious.  It DEFINEs unconditionally,
 # whatever the FUNCTION, in addition to not being a *S macro.  Note
 # that the cache does depend upon the function we are looking for.
 #
@@ -179,7 +179,7 @@ AS_IF([test AS_VAR_GET(ac_Lib_ext) = yes],
 		    *-l$1*)
 			;;
 		    *)
-			$2="$$2 -l$1"
+			$2="-l$1 $$2"
 			;;
 		esac])
 		[$6]
@@ -484,6 +484,51 @@ AC_ARG_WITH(mysql-exec-prefix,[  --with-mysql-exec-prefix=PFX Exec prefix where 
   AC_SUBST(MYSQL_LIBS)
 ])
 
+# =========================================================================
+# AM_PATH_PGSQL : pgSQL library
+
+dnl AM_PATH_PGSQL([MINIMUM-VERSION, [ACTION-IF-FOUND [, ACTION-IF-NOT-FOUND]]])
+dnl Test for PGSQL, and define PGSQL_CFLAGS and PGSQL_LIBS
+dnl
+AC_DEFUN(AM_PATH_PGSQL,
+[dnl
+dnl Get the cflags and libraries from the pg_config script
+dnl
+AC_ARG_WITH(pgsql-prefix,[  --with-pgsql-prefix=PFX   Prefix where PostgreSQL is installed (optional)],
+            pgsql_prefix="$withval", pgsql_prefix="")
+AC_ARG_WITH(pgsql-exec-prefix,[  --with-pgsql-exec-prefix=PFX Exec prefix where PostgreSQL is installed (optional)],
+            pgsql_exec_prefix="$withval", pgsql_exec_prefix="")
+
+  if test x$pgsql_exec_prefix != x ; then
+     if test x${PGSQL_CONFIG+set} != xset ; then
+        PGSQL_CONFIG=$pgsql_exec_prefix/bin/pg_config
+     fi
+  fi
+  if test x$pgsql_prefix != x ; then
+     if test x${PGSQL_CONFIG+set} != xset ; then
+        PGSQL_CONFIG=$pgsql_prefix/bin/pg_config
+     fi
+  fi
+
+  AC_REQUIRE([AC_CANONICAL_TARGET])
+  AC_PATH_PROG(PGSQL_CONFIG, pg_config, no, [$PATH:/usr/lib/postgresql/bin])
+  AC_MSG_CHECKING(for PGSQL)
+  no_pgsql=""
+  if test "$PGSQL_CONFIG" = "no" ; then
+    PGSQL_CFLAGS=""
+    PGSQL_LIBS=""
+    AC_MSG_RESULT(no)
+     ifelse([$2], , :, [$2])
+  else
+    PGSQL_CFLAGS=-I`$PGSQL_CONFIG --includedir`
+    PGSQL_LIBS="-lpq -L`$PGSQL_CONFIG --libdir`"
+    AC_MSG_RESULT(yes)
+    ifelse([$1], , :, [$1])
+  fi
+  AC_SUBST(PGSQL_CFLAGS)
+  AC_SUBST(PGSQL_LIBS)
+])
+
 dnl Removes -I/usr/include/? from given variable
 AC_DEFUN(CFLAGS_REMOVE_USR_INCLUDE,[
   ac_new_flags=""
@@ -516,7 +561,7 @@ AC_DEFUN(jm_ICONV,
   dnl those with the standalone portable libiconv installed).
   AC_MSG_CHECKING(for iconv in $1)
     jm_cv_func_iconv="no"
-    jm_cv_lib_iconv=no
+    jm_cv_lib_iconv=""
     jm_cv_giconv=no
     jm_save_LIBS="$LIBS"
     LIBS="$LIBS -lbiconv"
@@ -528,9 +573,10 @@ AC_DEFUN(jm_ICONV,
       jm_cv_func_iconv=yes
       jm_cv_biconv=yes
       jm_cv_include="biconv.h"
-      jm_cv_lib_iconv="yes")
+      jm_cv_lib_iconv="biconv")
       LIBS="$jm_save_LIBS"
 
+    dnl Check for include in funny place but no lib needed
     if test "$jm_cv_func_iconv" != yes; then 
       AC_TRY_LINK([#include <stdlib.h>
 #include <giconv.h>],
@@ -539,8 +585,10 @@ AC_DEFUN(jm_ICONV,
          iconv_close(cd);],
          jm_cv_func_iconv=yes
          jm_cv_include="giconv.h"
-         jm_cv_giconv="yes")
+         jm_cv_giconv="yes"
+         jm_cv_lib_iconv="")
 
+      dnl Standard iconv.h include, lib in glibc or libc ...
       if test "$jm_cv_func_iconv" != yes; then
         AC_TRY_LINK([#include <stdlib.h>
 #include <iconv.h>],
@@ -548,7 +596,8 @@ AC_DEFUN(jm_ICONV,
            iconv(cd,NULL,NULL,NULL,NULL);
            iconv_close(cd);],
            jm_cv_include="iconv.h"
-           jm_cv_func_iconv=yes)
+           jm_cv_func_iconv=yes
+           jm_cv_lib_iconv="")
 
           if test "$jm_cv_lib_iconv" != yes; then
             jm_save_LIBS="$LIBS"
@@ -561,8 +610,10 @@ AC_DEFUN(jm_ICONV,
               jm_cv_lib_iconv=yes
               jm_cv_func_iconv=yes
               jm_cv_include="giconv.h"
-              jm_cv_giconv=yes)
-            LIBS="$jm_save_LIBS"
+              jm_cv_giconv=yes
+              jm_cv_lib_iconv="giconv")
+
+           LIBS="$jm_save_LIBS"
 
         if test "$jm_cv_func_iconv" != yes; then
           jm_save_LIBS="$LIBS"
@@ -572,9 +623,9 @@ AC_DEFUN(jm_ICONV,
             [iconv_t cd = iconv_open("","");
              iconv(cd,NULL,NULL,NULL,NULL);
              iconv_close(cd);],
-            jm_cv_lib_iconv=yes
             jm_cv_include="iconv.h"
-            jm_cv_func_iconv=yes)
+            jm_cv_func_iconv=yes
+            jm_cv_lib_iconv="iconv")
           LIBS="$jm_save_LIBS"
         fi
       fi
@@ -598,17 +649,6 @@ AC_DEFUN(jm_ICONV,
     fi
   else
     AC_MSG_RESULT(no)
-  fi
-  if test "$jm_cv_lib_iconv" = yes; then
-    if test "$jm_cv_giconv" = yes; then
-      LIBS="$LIBS -lgiconv"
-    else
-      if test "$jm_cv_biconv" = yes; then
-        LIBS="$LIBS -lbiconv"
-      else
-        LIBS="$LIBS -liconv"
-      fi
-    fi
   fi
 ])
 

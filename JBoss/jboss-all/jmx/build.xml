@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE project [
    <!ENTITY buildmagic SYSTEM "../tools/etc/buildmagic/buildmagic.ent">
+   <!ENTITY libraries SYSTEM "../tools/etc/buildmagic/libraries.ent">
+   <!ENTITY modules SYSTEM "../tools/etc/buildmagic/modules.ent">
 ]>
 
 <!-- ====================================================================== -->
@@ -12,7 +14,7 @@
 <!--                                                                        -->
 <!-- ====================================================================== -->
 
-<!-- $Id: build.xml,v 1.39.4.6 2003/05/18 06:28:22 starksm Exp $ -->
+<!-- $Id: build.xml,v 1.39.4.8 2003/11/10 06:45:53 starksm Exp $ -->
 
 <project default="main" name="JBoss/JMX">
 
@@ -69,80 +71,15 @@
     <!-- Libraries -->
     <!-- ========= -->
 
-    <!-- EDU.oswego.cs.dl.util.concurrent -->
-    <property name="oswego.concurrent.root" value="${project.thirdparty}/oswego/concurrent"/>
-    <property name="oswego.concurrent.lib" value="${oswego.concurrent.root}/lib"/>
-    <path id="oswego.concurrent.classpath">
-      <pathelement path="${oswego.concurrent.lib}/concurrent.jar"/>
-    </path>
-
-    <!-- GNU Regexp -->
-    <property name="gnu.regexp.root" value="${project.thirdparty}/gnu/regexp"/>
-    <property name="gnu.regexp.lib" value="${gnu.regexp.root}/lib"/>
-    <path id="gnu.regexp.classpath">
-      <pathelement path="${gnu.regexp.lib}/gnu-regexp.jar"/>
-    </path>
-
-    <!-- org.jdom -->
-    <property name="jdom.root" value="${project.thirdparty}/jdom"/>
-    <property name="jdom.lib" value="${jdom.root}/lib"/>
-    <path id="jdom.classpath">
-      <pathelement path="${jdom.lib}/jdom.jar"/>
-    </path>
-
-    <!-- org.xml.sax (SAX2 & SAX2 Extensions) -->
-    <property name="sax.root" value="${project.thirdparty}/xml/sax"/>
-    <property name="sax.lib" value="${sax.root}/lib"/>
-    <path id="sax.classpath">
-      <pathelement path="${sax.lib}/sax2.jar"/>
-      <pathelement path="${sax.lib}/sax2-ext.jar"/>
-    </path>
-
-    <!-- org.apache.crimson (Default XML parser for JDOM) -->
-    <property name="crimson.root" value="${project.thirdparty}/sun/jaxp"/>
-    <property name="crimson.lib"  value="${crimson.root}/lib"/>
-    <path id="crimson.classpath">
-      <pathelement path="${crimson.lib}/crimson.jar"/>
-    </path>
-    
-    <!-- Apache Commons -->
-    <property name="apache.commons.root" value="${project.thirdparty}/apache/commons"/>
-    <property name="apache.commons.lib" value="${apache.commons.root}/lib"/>
-    <path id="apache.commons.classpath">
-      <pathelement path="${apache.commons.lib}/commons-collections.jar"/>
-      <pathelement path="${apache.commons.lib}/commons-logging.jar"/>
-    </path>
-
-    <!-- JUnit -->
-    <property name="junit.junit.root" value="${project.thirdparty}/junit/junit"/>
-    <property name="junit.junit.lib" value="${junit.junit.root}/lib"/>
-    <path id="junit.junit.classpath">
-      <pathelement path="${junit.junit.lib}/junit.jar"/>
-    </path>
-
-    <!-- Log4j -->
-    <property name="apache.log4j.root" value="${project.thirdparty}/apache/log4j"/>
-    <property name="apache.log4j.lib" value="${apache.log4j.root}/lib"/>
-    <path id="apache.log4j.classpath">
-      <pathelement path="${apache.log4j.lib}/log4j.jar"/>
-    </path>
-
-    <!-- org.apache.bcel -->
-    <property name="apache.bcel.root" value="${project.thirdparty}/apache/bcel"/>
-    <property name="apache.bcel.lib"  value="${apache.bcel.root}/lib"/>
-    <path id="apache.bcel.classpath">
-      <pathelement path="${apache.bcel.lib}/bcel.jar"/>
-    </path>
-    
+    &libraries;
     <!-- The combined library classpath -->
     <path id="library.classpath">
       <path refid="apache.log4j.classpath"/>
+      <path refid="apache.crimson.classpath"/>
       <path refid="apache.commons.classpath"/>
       <path refid="oswego.concurrent.classpath"/>
       <path refid="gnu.regexp.classpath"/>
       <path refid="jdom.classpath"/>
-      <path refid="crimson.classpath"/>
-      <path refid="sax.classpath"/>
       <path refid="junit.junit.classpath"/>
       <path refid="apache.bcel.classpath"/>
     </path>
@@ -151,13 +88,7 @@
     <!-- Modules -->
     <!-- ======= -->
 
-    <!-- Common -->
-    <property name="jboss.common.root" value="${project.root}/common/output"/>
-    <property name="jboss.common.lib" value="${jboss.common.root}/lib"/>
-    <path id="jboss.common.classpath">
-      <pathelement path="${jboss.common.lib}/jboss-common.jar"/>
-    </path>
-
+    &modules;
     <!-- The combined dependent module classpath -->
     <path id="dependentmodule.classpath">
       <path refid="jboss.common.classpath"/>
@@ -180,6 +111,7 @@
     <property name="build.etc" value="${module.output}/etc"/>
     <property name="build.gen-src" value="${module.output}/gen-src"/>
     <property name="build.resources" value="${module.output}/resources"/>
+    <property name="build.todo" value="${module.output}/todo"/>
 
     <!-- Install/Release structure -->
     <property name="install.id" value="${module.name}-${module.version}"/>
@@ -218,16 +150,6 @@
     <property name="junit.timeout" value="240000"/> <!-- 4 minutes -->
     <property name="junit.batchtest.todir" value="${build.reports}"/>
     <property name="junit.jvm.options" value="-Ddummy"/>
-
-    <!-- xdoclet -->
-    <path id="xdoclet.task.classpath">
-      <path refid="javac.classpath"/>
-      <fileset dir="${project.thirdparty}/xdoclet/xdoclet/lib">
-        <include name="**/*.jar"/>
-      </fileset>
-    </path>
-    <property name="xdoclet.task.classpath" 
-	      refid="xdoclet.task.classpath"/>
 
     <!-- Properties used in serialization tests -->
     <property name="jboss.test.location.jmxri"
@@ -329,7 +251,10 @@ Since the xmbean doesn't really work now anyway, not a big loss
    -->
   <target name="jars"
 	  description="Builds all jar files."
-	  depends="compile">
+     depends="_buildmagic:build-bypass-check"
+	  unless="build-bypass.on">
+
+    <call target="compile"/>
 
     <mkdir dir="${build.lib}"/>
     
@@ -503,6 +428,9 @@ Since the xmbean doesn't really work now anyway, not a big loss
         <include name="test/implementation/loading/support/AClass.class"/>
       </fileset>
     </jar>
+
+    <!-- Update the build marker to allow bypassing -->
+    <touch file="${build-bypass.marker}"/>
     
   </target>
 

@@ -30,6 +30,7 @@
 #include "render_replaced.h"
 #include "render_table.h"
 #include "render_text.h"
+#include "render_canvas.h"
 
 #include "KWQKHTMLPart.h"
 #include "KWQTextStream.h"
@@ -39,13 +40,15 @@ using khtml::RenderObject;
 using khtml::RenderTableCell;
 using khtml::RenderWidget;
 using khtml::RenderText;
-using khtml::TextRun;
-using khtml::TextRunArray;
+using khtml::RenderCanvas;
+using khtml::InlineTextBox;
+using khtml::InlineTextBoxArray;
+using khtml::BorderValue;
+using khtml::EBorderStyle;
+using khtml::transparentColor;
 
-typedef khtml::RenderLayer::RenderLayerElement RenderLayerElement;
-typedef khtml::RenderLayer::RenderZTreeNode RenderZTreeNode;
-
-static void writeLayers(QTextStream &ts, const RenderObject &o, int indent = 0);
+static void writeLayers(QTextStream &ts, const RenderLayer* rootLayer, RenderLayer* l,
+                        const QRect& paintDirtyRect, int indent=0);
 
 static QTextStream &operator<<(QTextStream &ts, const QRect &r)
 {
@@ -57,6 +60,44 @@ static void writeIndent(QTextStream &ts, int indent)
     for (int i = 0; i != indent; ++i) {
         ts << "  ";
     }
+}
+
+static void printBorderStyle(QTextStream &ts, const RenderObject &o, const EBorderStyle borderStyle)
+{
+    switch (borderStyle) {
+        case khtml::BNONE:
+            ts << "none";
+            break;
+        case khtml::BHIDDEN:
+            ts << "hidden";
+            break;
+        case khtml::INSET:
+            ts << "inset";
+            break;
+        case khtml::GROOVE:
+            ts << "groove";
+            break;
+        case khtml::RIDGE:
+            ts << "ridge";
+            break;
+        case khtml::OUTSET:
+            ts << "outset";
+            break;
+        case khtml::DOTTED:
+            ts << "dotted";
+            break;
+        case khtml::DASHED:
+            ts << "dashed";
+            break;
+        case khtml::SOLID:
+            ts << "solid";
+            break;
+        case khtml::DOUBLE:
+            ts << "double";
+            break;
+    }
+    
+    ts << " ";
 }
 
 static QTextStream &operator<<(QTextStream &ts, const RenderObject &o)
@@ -77,16 +118,80 @@ static QTextStream &operator<<(QTextStream &ts, const RenderObject &o)
     QRect r(o.xPos(), o.yPos(), o.width(), o.height());
     ts << " " << r;
     
-    if (o.parent() && (o.parent()->style()->color() != o.style()->color()))
-        ts << " [color=" << o.style()->color().name() << "]";
-    if (o.parent() && (o.parent()->style()->backgroundColor() != o.style()->backgroundColor()))
-        ts << " [bgcolor=" << o.style()->backgroundColor().name() << "]";
-
+    if (!o.isText()) {
+        if (o.parent() && (o.parent()->style()->color() != o.style()->color()))
+            ts << " [color=" << o.style()->color().name() << "]";
+        if (o.parent() && (o.parent()->style()->backgroundColor() != o.style()->backgroundColor()) &&
+            o.style()->backgroundColor().isValid() && 
+	    o.style()->backgroundColor().rgb() != khtml::transparentColor)
+	    // Do not dump invalid or transparent backgrounds, since that is the default.
+            ts << " [bgcolor=" << o.style()->backgroundColor().name() << "]";
+    
+        if (o.borderTop() || o.borderRight() || o.borderBottom() || o.borderLeft()) {
+            ts << " [border:";
+            
+            BorderValue prevBorder;
+            if (o.style()->borderTop() != prevBorder) {
+                prevBorder = o.style()->borderTop();
+                if (!o.borderTop())
+                    ts << " none";
+                else {
+                    ts << " (" << o.borderTop() << "px ";
+                    printBorderStyle(ts, o, o.style()->borderTopStyle());
+                    QColor col = o.style()->borderTopColor();
+                    if (!col.isValid()) col = o.style()->color();
+                    ts << col.name() << ")";
+                }
+            }
+            
+            if (o.style()->borderRight() != prevBorder) {
+                prevBorder = o.style()->borderRight();
+                if (!o.borderRight())
+                    ts << " none";
+                else {
+                    ts << " (" << o.borderRight() << "px ";
+                    printBorderStyle(ts, o, o.style()->borderRightStyle());
+                    QColor col = o.style()->borderRightColor();
+                    if (!col.isValid()) col = o.style()->color();
+                    ts << col.name() << ")";
+                }
+            }
+            
+            if (o.style()->borderBottom() != prevBorder) {
+                prevBorder = o.style()->borderBottom();
+                if (!o.borderBottom())
+                    ts << " none";
+                else {
+                    ts << " (" << o.borderBottom() << "px ";
+                    printBorderStyle(ts, o, o.style()->borderBottomStyle());
+                    QColor col = o.style()->borderBottomColor();
+                    if (!col.isValid()) col = o.style()->color();
+                    ts << col.name() << ")";
+                }
+            }
+            
+            if (o.style()->borderLeft() != prevBorder) {
+                prevBorder = o.style()->borderLeft();
+                if (!o.borderLeft())
+                    ts << " none";
+                else {                    
+                    ts << " (" << o.borderLeft() << "px ";
+                    printBorderStyle(ts, o, o.style()->borderLeftStyle());
+                    QColor col = o.style()->borderLeftColor();
+                    if (!col.isValid()) col = o.style()->color();
+                    ts << col.name() << ")";
+                }
+            }
+            
+            ts << "]";
+        }
+    }
+    
     if (o.isTableCell()) {
         const RenderTableCell &c = static_cast<const RenderTableCell &>(o);
         ts << " [r=" << c.row() << " c=" << c.col() << " rs=" << c.rowSpan() << " cs=" << c.colSpan() << "]";
     }
-    
+
     return ts;
 }
 
@@ -100,6 +205,8 @@ static QString quoteAndEscapeNonPrintables(const QString &s)
             result += "\\\\";
         } else if (c == '"') {
             result += "\\\"";
+        } else if (c == '\n' || c.unicode() == 0x00A0) {
+            result += ' ';
         } else {
             ushort u = c.unicode();
             if (u >= 0x20 && u < 0x7F) {
@@ -115,7 +222,7 @@ static QString quoteAndEscapeNonPrintables(const QString &s)
     return result;
 }
 
-static void writeTextRun(QTextStream &ts, const RenderText &o, const TextRun &run)
+static void writeTextRun(QTextStream &ts, const RenderText &o, const InlineTextBox &run)
 {
     ts << "text run at (" << run.m_x << "," << run.m_y << ") width " << run.m_width << ": "
     	<< quoteAndEscapeNonPrintables(o.data().string().mid(run.m_start, run.m_len))
@@ -130,7 +237,7 @@ static void write(QTextStream &ts, const RenderObject &o, int indent = 0)
     
     if (o.isText()) {
         const RenderText &text = static_cast<const RenderText &>(o);
-        TextRunArray runs = text.textRuns();
+        InlineTextBoxArray runs = text.inlineTextBoxes();
         for (unsigned int i = 0; i < runs.count(); i++) {
             writeIndent(ts, indent+1);
             writeTextRun(ts, text, *runs[i]);
@@ -149,61 +256,83 @@ static void write(QTextStream &ts, const RenderObject &o, int indent = 0)
         if (view) {
             RenderObject *root = KWQ(view->part())->renderer();
             if (root) {
-                writeLayers(ts, *root, indent + 1);
+                view->layout();
+                RenderLayer* l = root->layer();
+                if (l)
+                    writeLayers(ts, l, l, QRect(l->xPos(), l->yPos(), l->width(), l->height()), indent+1);
             }
         }
     }
 }
 
-static void write(QTextStream &ts, const RenderLayerElement &e, int indent = 0)
+static void write(QTextStream &ts, const RenderLayer &l,
+                  const QRect& layerBounds, const QRect& backgroundClipRect, const QRect& clipRect,
+                  int layerType = 0, int indent = 0)
 {
-    RenderLayer &l = *e.layer;
-    
     writeIndent(ts, indent);
     
     ts << "layer";
-    
-    QRect r(e.absBounds);
-    
-    ts << " " << r;
-    
-    if (r != r.intersect(e.backgroundClipRect)) {
-        ts << " backgroundClip " << e.backgroundClipRect;
-    }
-    if (r != r.intersect(e.clipRect)) {
-        ts << " clip " << e.clipRect;
-    }
+    ts << " " << layerBounds;
 
-    if (e.layerElementType == RenderLayerElement::Background)
+    if (layerBounds != layerBounds.intersect(backgroundClipRect))
+        ts << " backgroundClip " << backgroundClipRect;
+    if (layerBounds != layerBounds.intersect(clipRect))
+        ts << " clip " << clipRect;
+
+    if (layerType == -1)
         ts << " layerType: background only";
-    else if (e.layerElementType == RenderLayerElement::Foreground)
+    else if (layerType == 1)
         ts << " layerType: foreground only";
     
     ts << "\n";
 
-    if (e.layerElementType != RenderLayerElement::Background)
+    if (layerType != -1)
         write(ts, *l.renderer(), indent + 1);
 }
-
-static void writeLayers(QTextStream &ts, const RenderObject &o, int indent)
+    
+static void writeLayers(QTextStream &ts, const RenderLayer* rootLayer, RenderLayer* l,
+                        const QRect& paintDirtyRect, int indent)
 {
-    RenderZTreeNode *node;
-    QPtrVector<RenderLayerElement> list = o.layer()->elementList(node);
-    for (unsigned i = 0; i != list.count(); ++i) {
-        write(ts, *list[i], indent);
+    // Calculate the clip rects we should use.
+    QRect layerBounds, damageRect, clipRectToApply;
+    l->calculateRects(rootLayer, paintDirtyRect, layerBounds, damageRect, clipRectToApply);
+    
+    // Ensure our z-order lists are up-to-date.
+    l->updateZOrderLists();
+
+    bool shouldPaint = l->intersectsDamageRect(layerBounds, damageRect);
+    QPtrVector<RenderLayer>* negList = l->negZOrderList();
+    if (shouldPaint && negList && negList->count() > 0)
+        write(ts, *l, layerBounds, damageRect, clipRectToApply, -1, indent);
+
+    if (negList) {
+        for (unsigned i = 0; i != negList->count(); ++i)
+            writeLayers(ts, rootLayer, negList->at(i), paintDirtyRect, indent);
     }
-    if (node) {
-        node->detach(o.renderArena());
+
+    if (shouldPaint)
+        write(ts, *l, layerBounds, damageRect, clipRectToApply, negList && negList->count() > 0, indent);
+
+    QPtrVector<RenderLayer>* posList = l->posZOrderList();
+    if (posList) {
+        for (unsigned i = 0; i != posList->count(); ++i)
+            writeLayers(ts, rootLayer, posList->at(i), paintDirtyRect, indent);
     }
 }
 
-QString externalRepresentation(const RenderObject *o)
+QString externalRepresentation(RenderObject *o)
 {
     QString s;
     {
         QTextStream ts(&s);
         if (o) {
-            writeLayers(ts, *o);
+            // FIXME: Hiding the vertical scrollbar is a total hack to preserve the
+            // layout test results until I can figure out what the heck is going on. -dwh
+            o->canvas()->view()->setVScrollBarMode(QScrollView::AlwaysOff);
+            o->canvas()->view()->layout();
+            RenderLayer* l = o->layer();
+            if (l)
+                writeLayers(ts, l, l, QRect(l->xPos(), l->yPos(), l->width(), l->height()));
         }
     }
     return s;

@@ -13,7 +13,7 @@
   <p>In many cases, System Administrators wish to associate more than
   one network name (such as <code>www.mycompany.com</code> and
   <code>company.com</code>) with the same virtual host and applications.
-  This can be accomplished using the <a href="#Host%20Name%20Aliases">Host
+  This can be accomplished using the <a href="#Host Name Aliases">Host
   Name Aliases</a> feature discussed below.</p>
 
   <p>One or more <strong>Host</strong> elements are nested inside an
@@ -35,7 +35,7 @@
 
 </blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Attributes"><strong>Attributes</strong></a></font></td></tr><tr><td><blockquote>
 
-  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Common%20Attributes"><strong>Common Attributes</strong></a></font></td></tr><tr><td><blockquote>
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Common Attributes"><strong>Common Attributes</strong></a></font></td></tr><tr><td><blockquote>
 
     <p>All implementations of <strong>Host</strong>
     support the following attributes:</p>
@@ -46,14 +46,14 @@
         to be deployed on this virtual host.  You may specify an
         absolute pathname for this directory, or a pathname that is relative
         to the <code>$CATALINA_HOME</code> directory.  See
-        <a href="#Automatic%20Application%20Deployment">Automatic Application
+        <a href="#Automatic Application Deployment">Automatic Application
         Deployment</a> for more information on automatic recognition and
         deployment of web applications to be deployed automatically.</p>
       </td></tr><tr><td valign="center" align="left"><code>autoDeploy</code></td><td valign="center" align="left">
         <p>This flag value indicates if web applications from this host should
         be automatically deployed by the host configurator.
         The flag's value defaults to true.  See
-        <a href="#Automatic%20Application%20Deployment">Automatic Application
+        <a href="#Automatic Application Deployment">Automatic Application
         Deployment</a> for more information.</p>
       </td></tr><tr><td valign="center" align="left"><code>className</code></td><td valign="center" align="left">
         <p>Java class name of the implementation to use.  This class must
@@ -64,7 +64,7 @@
         <em>Domain Name Service</em> server.  One of the Hosts nested within
         an <a href="engine.html">Engine</a> MUST have a name that matches the
         <code>defaultHost</code> setting for that Engine.  See
-        <a href="#Host%20Name%20Aliases">Host Name Aliases</a> for information
+        <a href="#Host Name Aliases">Host Name Aliases</a> for information
         on how to assign more than one network name to the same
         virtual host.</p>
       </td></tr></table>
@@ -72,7 +72,7 @@
   </blockquote></td></tr></table>
 
 
-  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Standard%20Implementation"><strong>Standard Implementation</strong></a></font></td></tr><tr><td><blockquote>
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Standard Implementation"><strong>Standard Implementation</strong></a></font></td></tr><tr><td><blockquote>
 
     <p>The standard implementation of <strong>Host</strong> is
     <strong>org.apache.catalina.core.StandardHost</strong>.
@@ -106,7 +106,7 @@
         <p>This flag value indicates if new web applications, dropped in to
         the <code>appBase</code> directory while Tomcat is running, should
         be automatically deployed.  The flag's value defaults to true.  See
-        <a href="#Automatic%20Application%20Deployment">Automatic Application
+        <a href="#Automatic Application Deployment">Automatic Application
         Deployment</a> for more information.</p>
       </td></tr><tr><td valign="center" align="left"><code>unpackWARs</code></td><td valign="center" align="left">
         <p>Set to <code>true</code> if you want web applications that are
@@ -114,7 +114,7 @@
         archive (WAR) files to be unpacked into a corresponding disk directory
         structure, <code>false</code> to run such web applications directly
         from a WAR file.  See
-        <a href="#Automatic%20Application%20Deployment">Automatic Application
+        <a href="#Automatic Application Deployment">Automatic Application
         Deployment</a> for more information.</p>
       </td></tr><tr><td valign="center" align="left"><code>workDir</code></td><td valign="center" align="left">
         <p>Pathname to a scratch directory to be used by applications for
@@ -131,7 +131,7 @@
   </blockquote></td></tr></table>
 
 
-</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Nested%20Components"><strong>Nested Components</strong></a></font></td></tr><tr><td><blockquote>
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Nested Components"><strong>Nested Components</strong></a></font></td></tr><tr><td><blockquote>
 
   <p>You can nest one or more <a href="context.html">Context</a> elements
   inside this <strong>Host</strong> element, each representing a different web
@@ -161,10 +161,10 @@
       at a lower level).</li>
   </ul>
 
-</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Special%20Features"><strong>Special Features</strong></a></font></td></tr><tr><td><blockquote>
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Special Features"><strong>Special Features</strong></a></font></td></tr><tr><td><blockquote>
 
 
-  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Access%20Logs"><strong>Access Logs</strong></a></font></td></tr><tr><td><blockquote>
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Access Logs"><strong>Access Logs</strong></a></font></td></tr><tr><td><blockquote>
 
     <p>When you run a web server, one of the output files normally generated
     is an <em>access log</em>, which generates one line of information for
@@ -188,14 +188,14 @@
 &lt;/Host&gt;
 </pre></td><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../../images/void.gif"></td></tr><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../../images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../../images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../../images/void.gif"></td></tr></table></div>
 
-    <p>See <a href="valve.html#Access%20Log%20Valve">Access Log Valve</a>
+    <p>See <a href="valve.html#Access Log Valve">Access Log Valve</a>
     for more information on the configuration attributes that are
     supported.</p>
 
   </blockquote></td></tr></table>
 
 
-  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Automatic%20Application%20Deployment"><strong>Automatic Application Deployment</strong></a></font></td></tr><tr><td><blockquote>
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Automatic Application Deployment"><strong>Automatic Application Deployment</strong></a></font></td></tr><tr><td><blockquote>
 
     <p>If you are using the standard <strong>Host</strong> implementation,
     the following actions take place automatically when Catalina is first
@@ -238,7 +238,7 @@
   </blockquote></td></tr></table>
 
 
-  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Host%20Name%20Aliases"><strong>Host Name Aliases</strong></a></font></td></tr><tr><td><blockquote>
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Host Name Aliases"><strong>Host Name Aliases</strong></a></font></td></tr><tr><td><blockquote>
 
     <p>In many server environments, Network Administrators have configured
     more than one network name (in the <em>Domain Name Service</em> (DNS)
@@ -273,7 +273,7 @@
   </blockquote></td></tr></table>
 
 
-  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Lifecycle%20Listeners"><strong>Lifecycle Listeners</strong></a></font></td></tr><tr><td><blockquote>
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Lifecycle Listeners"><strong>Lifecycle Listeners</strong></a></font></td></tr><tr><td><blockquote>
 
     <p>If you have implemented a Java object that needs to know when this
     <strong>Host</strong> is started or stopped, you can declare it by
@@ -299,7 +299,7 @@
   </blockquote></td></tr></table>
 
 
-  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Request%20Filters"><strong>Request Filters</strong></a></font></td></tr><tr><td><blockquote>
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Request Filters"><strong>Request Filters</strong></a></font></td></tr><tr><td><blockquote>
 
     <p>You can ask Catalina to check the IP address, or host name, on every
     incoming request directed to the surrounding
@@ -323,14 +323,14 @@
 &lt;/Host&gt;
 </pre></td><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../../images/void.gif"></td></tr><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../../images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../../images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../../images/void.gif"></td></tr></table></div>
 
-  <p>See <a href="valve.html#Remote%20Address%20Filter">Remote Address Filter</a>
-  and <a href="valve.html#Remote%20Host%20Filter">Remote Host Filter</a> for
+  <p>See <a href="valve.html#Remote Address Filter">Remote Address Filter</a>
+  and <a href="valve.html#Remote Host Filter">Remote Host Filter</a> for
   more information about the configuration options that are supported.</p>
 
   </blockquote></td></tr></table>
 
 
-  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Single%20Sign%20On"><strong>Single Sign On</strong></a></font></td></tr><tr><td><blockquote>
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Single Sign On"><strong>Single Sign On</strong></a></font></td></tr><tr><td><blockquote>
 
     <p>In many environments, but particularly in portal environments, it
     is desireable to have a user challenged to authenticate themselves only
@@ -382,7 +382,7 @@
   </blockquote></td></tr></table>
 
 
-  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="User%20Web%20Applications"><strong>User Web Applications</strong></a></font></td></tr><tr><td><blockquote>
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="User Web Applications"><strong>User Web Applications</strong></a></font></td></tr><tr><td><blockquote>
 
     <p>Many web servers can automatically map a request URI starting with
     a tilde character ("~") and a username to a directory (commonly named

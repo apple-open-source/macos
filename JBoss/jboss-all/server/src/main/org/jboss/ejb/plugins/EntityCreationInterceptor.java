@@ -17,7 +17,7 @@ import org.jboss.invocation.Invocation;
 * passed over the invoke chain.
 *    
 * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
-* @version $Revision: 1.1.4.1 $
+* @version $Revision: 1.1.4.2 $
 */
 public class EntityCreationInterceptor extends AbstractInterceptor
 {
@@ -31,7 +31,8 @@ public class EntityCreationInterceptor extends AbstractInterceptor
       // This means that a create method was called, so invoke ejbPostCreate.
       EntityEnterpriseContext ctx = 
             (EntityEnterpriseContext) mi.getEnterpriseContext();
-      if(ctx.getId() != null)
+      
+      if(ctx != null && ctx.getId() != null)
       {
          // copy from the context into the mi
          // interceptors down the chain look in the mi for the id not the ctx.

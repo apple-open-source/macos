@@ -36,10 +36,15 @@ public:
     HTMLAnchorElementImpl(DocumentPtr *doc);
     ~HTMLAnchorElementImpl();
 
-    virtual bool isSelectable() const { return m_hasAnchor; }
+#if APPLE_CHANGES
+    virtual bool isMouseFocusable() const;
+    virtual bool isKeyboardFocusable() const;
+#endif
+    virtual bool isFocusable() const;
     virtual Id id() const;
     virtual void parseAttribute(AttributeImpl *attr);
     virtual void defaultEventHandler(EventImpl *evt);
+    virtual void accessKeyAction();
 protected:
     bool m_hasTarget : 1;
 };
@@ -56,7 +61,6 @@ public:
 
     virtual Id id() const;
     virtual void parseAttribute(AttributeImpl *attr);
-    virtual void attach();
     virtual khtml::RenderObject *createRenderer(RenderArena *, khtml::RenderStyle *);
 };
 

@@ -10,6 +10,7 @@ import javax.naming.InitialContext;
 
 import org.jboss.test.util.ejb.SessionSupport;
 import org.jboss.test.bank.interfaces.*;
+import org.jboss.logging.Logger;
 
 import org.apache.log4j.Category;
 
@@ -17,8 +18,8 @@ import org.apache.log4j.Category;
 /**
  *      
  *   @see <related>
- *   @author $Author: user57 $
- *   @version $Revision: 1.7 $
+ *   @author $Author: starksm $
+ *   @version $Revision: 1.7.4.1 $
  */
 public class TellerBean
    extends SessionSupport
@@ -37,7 +38,7 @@ public class TellerBean
    {
       try
       {
-         Category.getInstance(TellerBean.class.getName()).info("Invocation #"+invocations++);
+         log.debug("Invocation #"+invocations++);
          from.withdraw(amount);
          to.deposit(amount);
       } catch (Exception e)
@@ -114,7 +115,7 @@ public class TellerBean
                return cust;
             
          }
-         
+
          // Create customer
          BankHome bankHome = (BankHome)new InitialContext().lookup(BankHome.COMP_NAME);
          Bank bank = bankHome.create();
@@ -139,34 +140,3 @@ public class TellerBean
       }
    }
 }
-/*
- *   $Id: TellerBean.java,v 1.7 2002/02/16 11:26:57 user57 Exp $
- *   Currently locked by:$Locker:  $
- *   Revision:
- *   $Log: TellerBean.java,v $
- *   Revision 1.7  2002/02/16 11:26:57  user57
- *    o System.err, System.out & printStackTrace() 99.9% gone.
- *
- *   Revision 1.6  2002/02/15 06:15:50  user57
- *    o replaced most System.out usage with Log4j.  should really introduce
- *      some base classes to make this mess more maintainable...
- *
- *   Revision 1.5  2001/08/19 14:45:20  d_jencks
- *   Modified TellerBean to use log4j logging
- *
- *   Revision 1.4  2001/08/02 15:54:17  mnf999
- *   TestBankTest update with number of threads and the output for visual feedback on console
- *
- *
- *   Revision 1.3  2001/01/07 23:14:34  peter
- *   Trying to get JAAS to work within test suite.
- *
- *   Revision 1.2  2000/09/30 01:00:55  fleury
- *   Updated bank tests to work with new jBoss version
- *
- *   Revision 1.1.1.1  2000/06/21 15:52:37  oberg
- *   Initial import of jBoss test. This module contains CTS tests, some simple examples, and small bean suites.
- *
- *
- *  
- */

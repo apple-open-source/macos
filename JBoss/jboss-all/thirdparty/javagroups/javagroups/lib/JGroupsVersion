@@ -1,0 +1,4 @@
+Current version: JGroups 2.2.x (HEAD from 10.10.2003, tagged JG_2_2_0b_JBOSS)
+
+SL: Compile with modern compiler *no* log4j support (delegates integration to JBoss)
+

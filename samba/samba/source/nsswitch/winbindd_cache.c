@@ -22,6 +22,7 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
+#include "includes.h"
 #include "winbindd.h"
 
 #undef DBGC_CLASS
@@ -106,12 +107,18 @@ static struct winbind_cache *get_cache(struct winbindd_domain *domain)
 		case SEC_ADS: {
 			extern struct winbindd_methods ads_methods;
 			/* always obey the lp_security parameter for our domain */
-			if ( strequal(lp_realm(), domain->alt_name) || strequal(lp_workgroup(), domain->name) ) {
+			if (domain->primary) {
 				domain->backend = &ads_methods;
 				break;
 			}
 
+			/* only use ADS for native modes at the momment.
+			   The problem is the correct detection of mixed 
+			   mode domains from NT4 BDC's    --jerry */
+			
 			if ( domain->native_mode ) {
+				DEBUG(5,("get_cache: Setting ADS methods for domain %s\n",
+					domain->name));
 				domain->backend = &ads_methods;
 				break;
 			}
@@ -120,6 +127,8 @@ static struct winbind_cache *get_cache(struct winbindd_domain *domain)
 		}	
 #endif
 		default:
+			DEBUG(5,("get_cache: Setting MS-RPC methods for domain %s\n",
+				domain->name));
 			domain->backend = &msrpc_methods;
 		}
 	}
@@ -585,7 +594,7 @@ static void centry_end(struct cache_entry *centry, const char *format, ...)
 
 static void wcache_save_name_to_sid(struct winbindd_domain *domain, 
 				    NTSTATUS status, 
-				    const char *name, DOM_SID *sid, 
+				    const char *name, const DOM_SID *sid, 
 				    enum SID_NAME_USE type)
 {
 	struct cache_entry *centry;
@@ -604,7 +613,7 @@ static void wcache_save_name_to_sid(struct winbindd_domain *domain,
 }
 
 static void wcache_save_sid_to_name(struct winbindd_domain *domain, NTSTATUS status, 
-				    DOM_SID *sid, const char *name, enum SID_NAME_USE type)
+				    const DOM_SID *sid, const char *name, enum SID_NAME_USE type)
 {
 	struct cache_entry *centry;
 	fstring sid_string;
@@ -972,7 +981,7 @@ do_query:
    given */
 static NTSTATUS sid_to_name(struct winbindd_domain *domain,
 			    TALLOC_CTX *mem_ctx,
-			    DOM_SID *sid,
+			    const DOM_SID *sid,
 			    char **name,
 			    enum SID_NAME_USE *type)
 {

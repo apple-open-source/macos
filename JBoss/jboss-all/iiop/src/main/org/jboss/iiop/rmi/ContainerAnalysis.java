@@ -42,7 +42,7 @@ import java.security.NoSuchAlgorithmException;
  *  Specification", version 1.1 (01-06-07).
  *      
  *  @author <a href="mailto:osh@sparre.dk">Ole Husgaard</a>
- *  @version $Revision: 1.6 $
+ *  @version $Revision: 1.6.4.2 $
  */
 public abstract class ContainerAnalysis
    extends ClassAnalysis
@@ -136,6 +136,11 @@ public abstract class ContainerAnalysis
    protected InterfaceAnalysis[] interfaces;
 
    /**
+    *  Array of analysis of the abstract base valuetypes implemented/extended here.
+    */
+   protected ValueAnalysis[] abstractBaseValuetypes;
+
+   /**
     *  Array of attributes.
     */
    protected AttributeAnalysis[] attributes;
@@ -197,6 +202,16 @@ public abstract class ContainerAnalysis
    }
 
    /**
+    *  Return the abstract base valuetypes.
+    */
+   public ValueAnalysis[] getAbstractBaseValuetypes()
+   {
+      logger.debug("Abstract base valuetype count: " + 
+                   abstractBaseValuetypes.length);
+      return (ValueAnalysis[])abstractBaseValuetypes.clone();
+   }
+
+   /**
     *  Return the attributes.
     */
    public AttributeAnalysis[] getAttributes()
@@ -206,7 +221,7 @@ public abstract class ContainerAnalysis
    }
 
    /**
-    *  Return the attributes.
+    *  Return the constants.
     */
    public ConstantAnalysis[] getConstants()
    {
@@ -366,26 +381,31 @@ public abstract class ContainerAnalysis
    {
       Class[] intfs = cls.getInterfaces();
       ArrayList a = new ArrayList();
+      ArrayList b = new ArrayList();
 
       for (int i = 0; i < intfs.length; ++i) {
-         if (cls.isInterface() &&
-             java.rmi.Remote.class.isAssignableFrom(cls)) {
-            // Ignore java.rmi.Remote for interfaces
-            if (intfs[i] == java.rmi.Remote.class)
-               continue;
-         } else {
-            // Ignore Serializable and Externalizable for values
-            if (intfs[i] == java.io.Serializable.class)
-               continue;
-            if (intfs[i] == java.io.Externalizable.class)
-               continue;
+         // Ignore java.rmi.Remote
+         if (intfs[i] == java.rmi.Remote.class)
+            continue;
+         // Ignore java.io.Serializable
+         if (intfs[i] == java.io.Serializable.class)
+            continue;
+         // Ignore java.io.Externalizable
+         if (intfs[i] == java.io.Externalizable.class)
+            continue;
+         if (!RmiIdlUtil.isAbstractValueType(intfs[i])) {
+            a.add(InterfaceAnalysis.getInterfaceAnalysis(intfs[i]));
          }
-
-         a.add(InterfaceAnalysis.getInterfaceAnalysis(intfs[i]));
+         else {
+            b.add(ValueAnalysis.getValueAnalysis(intfs[i]));
+         }
       }
 
       interfaces = new InterfaceAnalysis[a.size()];
       interfaces = (InterfaceAnalysis[])a.toArray(interfaces);
+
+      abstractBaseValuetypes = new ValueAnalysis[b.size()];
+      abstractBaseValuetypes = (ValueAnalysis[])b.toArray(abstractBaseValuetypes);
    }
 
    /**
@@ -747,31 +767,39 @@ public abstract class ContainerAnalysis
    {
       if (cls.isArray() || cls.isPrimitive())
          throw new IllegalArgumentException("Not a class or interface.");
- 
-      StringBuffer b = new StringBuffer("RMI:");
- 
-      b.append(escapeIRName(cls.getName()));
 
-      memberPrefix = b.toString() + ".";
- 
-      String hashStr = toHexString(classHashCode);
- 
-      b.append(':').append(hashStr);
- 
-      ObjectStreamClass osClass = ObjectStreamClass.lookup(cls);
-      if (osClass != null) {
-         long serialVersionUID = osClass.getSerialVersionUID();
-         String SVUID = toHexString(serialVersionUID);
- 
-         if (classHashCode != serialVersionUID)
-            b.append(':').append(SVUID);
-         memberPostfix = ":" + hashStr + ":" + SVUID;
-      } else
-         memberPostfix = ":" + hashStr;
- 
-      repositoryId = b.toString();
+      if (cls.isInterface() && 
+          org.omg.CORBA.Object.class.isAssignableFrom(cls) &&
+          org.omg.CORBA.portable.IDLEntity.class.isAssignableFrom(cls)) {
+
+         StringBuffer b = new StringBuffer("IDL:");
+         b.append(cls.getPackage().getName().replace('.', '/'));
+         b.append('/');
+         String base = cls.getName();
+         base = base.substring(base.lastIndexOf('.')+1);
+         b.append(base).append(":1.0");
+         repositoryId = b.toString();
+      }
+      else {
+         StringBuffer b = new StringBuffer("RMI:");
+         b.append(escapeIRName(cls.getName()));
+         memberPrefix = b.toString() + ".";
+         String hashStr = toHexString(classHashCode);
+         b.append(':').append(hashStr);
+         ObjectStreamClass osClass = ObjectStreamClass.lookup(cls);
+         if (osClass != null) {
+            long serialVersionUID = osClass.getSerialVersionUID();
+            String SVUID = toHexString(serialVersionUID);
+            
+            if (classHashCode != serialVersionUID)
+               b.append(':').append(SVUID);
+            memberPostfix = ":" + hashStr + ":" + SVUID;
+         } else
+            memberPostfix = ":" + hashStr;
+         
+         repositoryId = b.toString();
+      }
    }
-
 
    // Private  ------------------------------------------------------
 

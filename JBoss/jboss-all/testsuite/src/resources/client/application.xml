@@ -1,0 +1,13 @@
+<!DOCTYPE application PUBLIC
+   "-//Sun Microsystems, Inc.//DTD J2EE Application 1.3//EN"
+   "http://java.sun.com/dtd/application_1_3.dtd">
+
+<application>
+   <display-name>The cts.jar with an application client jar</display-name>
+   <module>
+      <ejb>cts.jar</ejb>
+   </module>
+   <module>
+      <java>app-client.jar</java>
+   </module>
+</application>

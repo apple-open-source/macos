@@ -31,7 +31,7 @@ import org.jboss.mx.util.ObjectNameFactory;
  * @see org.jboss.web.AbstractWebContainer
  
  * @author Scott.Stark@jboss.org
- * @version $Revision: 1.9.2.3 $
+ * @version $Revision: 1.9.2.7 $
  */
 public class WebMetaData implements XmlLoadable
 {
@@ -62,7 +62,28 @@ public class WebMetaData implements XmlLoadable
    /** The jboss-web.xml JNDI name of the security domain implementation
     */
    private String securityDomain;
+
+   public static final int SESSION_INVALIDATE_SET_AND_GET =0;
+   public static final int SESSION_INVALIDATE_SET_AND_NON_PRIMITIVE_GET =1;
+   public static final int SESSION_INVALIDATE_SET =2;
+
+   private int invalidateSessionPolicy = SESSION_INVALIDATE_SET_AND_NON_PRIMITIVE_GET;
+
+   public static final int REPLICATION_TYPE_SYNC = 0;
+   public static final int REPLICATION_TYPE_ASYNC = 1;
+
+   private int replicationType = REPLICATION_TYPE_SYNC;
+
+   /** The web context class loader used to create the java:comp context */
+   private ClassLoader encLoader;
    private ArrayList depends = new ArrayList();
+
+   /** Should the context use session cookies or use default */
+   private int sessionCookies=SESSION_COOKIES_DEFAULT;
+
+   public static final int SESSION_COOKIES_DEFAULT=0;
+   public static final int SESSION_COOKIES_ENABLED=1;
+   public static final int SESSION_COOKIES_DISABLED=2;
 
    public WebMetaData()
    {
@@ -164,6 +185,30 @@ public class WebMetaData implements XmlLoadable
    public void setJava2ClassLoadingCompliance(boolean flag)
    {
       java2ClassLoadingCompliance = flag;
+   }
+
+   public ClassLoader getENCLoader()
+   {
+      return encLoader;
+   }
+   public void setENCLoader(ClassLoader encLoader)
+   {
+      this.encLoader = encLoader;
+   }
+
+   public int getSessionCookies()
+   {
+      return this.sessionCookies;
+   }
+
+   public int getInvalidateSessionPolicy()
+   {
+      return this.invalidateSessionPolicy;
+   }
+
+   public int getReplicationType()
+   {
+      return replicationType;
    }
 
    public void importXml(Element element) throws Exception
@@ -328,6 +373,64 @@ public class WebMetaData implements XmlLoadable
          String dependsName = MetaData.getElementContent(dependsElement);
          depends.add(ObjectNameFactory.create(dependsName));
       } // end of for ()
+
+      // Parse the jboss-web/use-session-cookies element
+      iterator = MetaData.getChildrenByTagName(jbossWeb, "use-session-cookies");
+      if ( iterator.hasNext() )
+      {
+         Element useCookiesElement = (Element) iterator.next();
+         String useCookiesElementContent = MetaData.getElementContent(useCookiesElement);
+         Boolean useCookies=Boolean.valueOf(useCookiesElementContent);
+         
+         if (useCookies.booleanValue())
+         {
+            sessionCookies=SESSION_COOKIES_ENABLED;
+         }
+         else
+         {
+            sessionCookies=SESSION_COOKIES_DISABLED;
+         }
+      }
+
+      // Parse the jboss-web/session-replication element
+
+
+      Element sessionReplicationRootElement = MetaData.getOptionalChild(jbossWeb, "replication-config");
+      if( sessionReplicationRootElement != null )
+      {
+         // manage "replication-trigger" first ...
+         //
+         Element replicationTriggerElement = MetaData.getOptionalChild(sessionReplicationRootElement, "replication-trigger");
+         if (replicationTriggerElement != null)
+         {
+            String repMethod = MetaData.getElementContent(replicationTriggerElement);
+            if ("SET_AND_GET".equalsIgnoreCase(repMethod))
+               this.invalidateSessionPolicy = SESSION_INVALIDATE_SET_AND_GET;
+            else if ("SET_AND_NON_PRIMITIVE_GET".equalsIgnoreCase(repMethod))
+               this.invalidateSessionPolicy = SESSION_INVALIDATE_SET_AND_NON_PRIMITIVE_GET;
+            else if ("SET".equalsIgnoreCase(repMethod))
+               this.invalidateSessionPolicy = SESSION_INVALIDATE_SET;
+            else
+               throw new DeploymentException("replication-trigger value set to a non-valid value: '" + repMethod
+                  + "' (should be ['SET_AND_GET', 'SET_AND_NON_PRIMITIVE_GET', 'SET']) in jboss-web.xml");
+         }
+
+         // ... then manage "replication-type".
+         //
+         Element replicationTypeElement = MetaData.getOptionalChild(sessionReplicationRootElement, "replication-type");
+         if (replicationTypeElement != null)
+         {
+            String repType = MetaData.getElementContent(replicationTypeElement);
+            if ("SYNC".equalsIgnoreCase(repType))
+               this.replicationType = REPLICATION_TYPE_SYNC;
+            else if ("ASYNC".equalsIgnoreCase(repType))
+               this.replicationType = REPLICATION_TYPE_ASYNC;
+            else
+               throw new DeploymentException("replication-type value set to a non-valid value: '" + repType
+                  + "' (should be ['SYNC', 'ASYNC']) in jboss-web.xml");
+         }
+
+      }
 
       /* The jboss-web/class-loading.java2ClassLoadingCompliance attribute is
       parsed by the AbstractWebContainer since it can be overriden at that

@@ -41,10 +41,10 @@ namespace khtml
     class RenderText;
     class RenderStyle;
 
-class TextRun : public InlineBox
+class InlineTextBox : public InlineBox
 {
 public:
-    TextRun(RenderObject* obj)
+    InlineTextBox(RenderObject* obj)
     :InlineBox(obj)
     {
         m_start = 0;
@@ -53,7 +53,7 @@ public:
         m_toAdd = 0;
     }
     
-    void detach(RenderArena* renderArena);
+    void detach(RenderArena* arena);
     
     // Overloaded new operator.  Derived classes must override operator new
     // in order to allocate out of the RenderArena.
@@ -70,7 +70,7 @@ public:
     void setSpaceAdd(int add) { m_width -= m_toAdd; m_toAdd = add; m_width += m_toAdd; }
     int spaceAdd() { return m_toAdd; }
 
-    virtual bool isTextRun() { return true; }
+    virtual bool isInlineTextBox() { return true; }
     
     void paintDecoration( QPainter *pt, int _tx, int _ty, int decoration);
     void paintSelection(const Font *f, RenderText *text, QPainter *p, RenderStyle* style, int tx, int ty, int startPos, int endPos);
@@ -93,7 +93,7 @@ public:
     int m_toAdd : 14; // for justified text
 private:
     // this is just for QVector::bsearch. Don't use it otherwise
-    TextRun(int _x, int _y)
+    InlineTextBox(int _x, int _y)
         :InlineBox(0)
     {
         m_x = _x;
@@ -103,12 +103,12 @@ private:
     friend class RenderText;
 };
 
-class TextRunArray : public QPtrVector<TextRun>
+class InlineTextBoxArray : public QPtrVector<InlineTextBox>
 {
 public:
-    TextRunArray();
+    InlineTextBoxArray();
 
-    TextRun* first();
+    InlineTextBox* first();
 
     int	  findFirstMatching( Item ) const;
     virtual int compareItems( Item, Item );
@@ -116,23 +116,26 @@ public:
 
 class RenderText : public RenderObject
 {
-    friend class TextRun;
+    friend class InlineTextBox;
 
 public:
     RenderText(DOM::NodeImpl* node, DOM::DOMStringImpl *_str);
     virtual ~RenderText();
 
+    virtual bool isTextFragment() const;
+    virtual DOM::DOMStringImpl* originalString() const;
+    
     virtual const char *renderName() const { return "RenderText"; }
 
     virtual void setStyle(RenderStyle *style);
-
+    
     virtual void paint(QPainter *, int x, int y, int w, int h,
                        int tx, int ty, PaintAction paintAction);
     virtual void paintObject(QPainter *, int x, int y, int w, int h,
                              int tx, int ty, PaintAction paintAction);
 
-    void deleteRuns(RenderArena *renderArena = 0);
-    virtual void detach(RenderArena* renderArena);
+    void deleteRuns();
+    virtual void detach();
     
     DOM::DOMString data() const { return str; }
     DOM::DOMStringImpl *string() const { return str; }
@@ -141,7 +144,10 @@ public:
     
     virtual void layout() {assert(false);}
 
-    virtual bool nodeAtPoint(NodeInfo& info, int x, int y, int tx, int ty, bool inside = false);
+    virtual bool nodeAtPoint(NodeInfo& info, int x, int y, int tx, int ty,
+                             HitTestAction hitTestAction = HitTestAll, bool inside=false);
+
+    virtual void absoluteRects(QValueList<QRect>& rects, int _tx, int _ty);
 
     // Return before, after (offset set to max), or inside the text, at @p offset
     virtual FindSelectionResult checkSelectionPointIgnoringContinuations
@@ -190,7 +196,6 @@ public:
     virtual SelectionState selectionState() const {return m_selectionState;}
     virtual void setSelectionState(SelectionState s) {m_selectionState = s; }
     virtual void cursorPos(int offset, int &_x, int &_y, int &height);
-    virtual bool absolutePosition(int &/*xPos*/, int &/*yPos*/, bool f = false);
     void posOfChar(int ch, int &x, int &y);
 
     virtual short marginLeft() const { return style()->marginLeft().minWidth(0); }
@@ -198,7 +203,7 @@ public:
 
     virtual int rightmostPosition() const;
 
-    virtual void repaint(bool immediate=false);
+    virtual QRect getAbsoluteRepaintRect();
 
     const QFontMetrics &metrics(bool firstLine) const;
     const Font *htmlFont(bool firstLine) const;
@@ -207,23 +212,20 @@ public:
     { return static_cast<DOM::TextImpl*>(RenderObject::element()); }
 
 #if APPLE_CHANGES
-    TextRunArray textRuns() const { return m_lines; }
+    InlineTextBoxArray inlineTextBoxes() const { return m_lines; }
     int widthFromCache(const Font *, int start, int len) const;
     bool shouldUseMonospaceCache(const Font *) const;
     void cacheWidths();
     bool allAscii() const;
 #endif
 
-protected:
-    void paintTextOutline(QPainter *p, int tx, int ty, const QRect &prevLine, const QRect &thisLine, const QRect &nextLine);
-
 #if APPLE_CHANGES
 public:
 #endif
-    TextRun * findTextRun( int offset, int &pos );
+    InlineTextBox * findNextInlineTextBox( int offset, int &pos );
 
 protected: // members
-    TextRunArray m_lines;
+    InlineTextBoxArray m_lines;
     DOM::DOMStringImpl *str; //
 
     short m_lineHeight;
@@ -246,6 +248,30 @@ protected: // members
 #endif
 };
 
-
+// Used to represent a text substring of an element, e.g., for text runs that are split because of
+// first letter and that must therefore have different styles (and positions in the render tree).
+// We cache offsets so that text transformations can be applied in such a way that we can recover
+// the original unaltered string from our corresponding DOM node.
+class RenderTextFragment : public RenderText
+{
+public:
+    RenderTextFragment(DOM::NodeImpl* _node, DOM::DOMStringImpl* _str,
+                       int startOffset, int endOffset);
+    RenderTextFragment(DOM::NodeImpl* _node, DOM::DOMStringImpl* _str);
+    ~RenderTextFragment();
+    
+    virtual bool isTextFragment() const;
+    
+    uint start() const { return m_start; }
+    uint end() const { return m_end; }
+    
+    DOM::DOMStringImpl* contentString() const { return m_generatedContentStr; }
+    virtual DOM::DOMStringImpl* originalString() const;
+    
+private:
+    uint m_start;
+    uint m_end;
+    DOM::DOMStringImpl* m_generatedContentStr;
+};
 };
 #endif

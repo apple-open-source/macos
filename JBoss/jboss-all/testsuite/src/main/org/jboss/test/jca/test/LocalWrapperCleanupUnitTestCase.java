@@ -67,6 +67,10 @@ public class LocalWrapperCleanupUnitTestCase extends JBossTestCase
       s.testAutoCommitInReturnedConnection();
    }
 
+   public void testReadOnly() throws Exception
+   {
+      s.testReadOnly();
+   }
 
    /**
     * The <code>testAutoCommit</code> method tests that autocommit is really on

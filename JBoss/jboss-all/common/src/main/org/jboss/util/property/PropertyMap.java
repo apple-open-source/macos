@@ -9,6 +9,9 @@
 
 package org.jboss.util.property;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.util.List;
 import java.util.LinkedList;
 import java.util.ArrayList;
@@ -19,10 +22,8 @@ import java.util.Set;
 import java.util.HashSet;
 import java.util.Collections;
 import java.util.Properties;
-
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import javax.naming.Context;
+import javax.naming.ldap.LdapContext;
 
 import org.jboss.util.NullArgumentException;
 
@@ -30,7 +31,9 @@ import org.jboss.util.NullArgumentException;
  * A replacement for the standard <code>java.util.Properties</code>
  * class which adds, among others, property event capabilities.
  *
- * @version <tt>$Revision: 1.2.2.2 $</tt>
+ * @todo consider moving the JNDI property handling to a InitialContextFactoryBuilder
+ * 
+ * @version <tt>$Revision: 1.2.2.3 $</tt>
  * @author  <a href="mailto:jason@planet57.com">Jason Dillon</a>
  * @author Scott.Stark@jboss.org
  */
@@ -78,7 +81,8 @@ public class PropertyMap
       this(null);
    }
 
-   /** Initialized listener lists */
+   /** Initialized listener lists and the JNDI properties cache map
+    */
    private void init()
    {
       unboundListeners = Collections.synchronizedList(new ArrayList());
@@ -86,35 +90,55 @@ public class PropertyMap
       Object value;
       jndiMap = new HashMap();
 
-      value = System.getProperty(javax.naming.Context.PROVIDER_URL);
+      value = System.getProperty(Context.PROVIDER_URL);
       if (value == null) value = NULL_VALUE;
-      jndiMap.put(javax.naming.Context.PROVIDER_URL, value);
+      jndiMap.put(Context.PROVIDER_URL, value);
 
-      value = System.getProperty(javax.naming.Context.INITIAL_CONTEXT_FACTORY);
+      value = System.getProperty(Context.INITIAL_CONTEXT_FACTORY);
       if (value == null) value = NULL_VALUE;
-      jndiMap.put(javax.naming.Context.INITIAL_CONTEXT_FACTORY, value);
+      jndiMap.put(Context.INITIAL_CONTEXT_FACTORY, value);
 
-      value = System.getProperty(javax.naming.Context.OBJECT_FACTORIES);
+      value = System.getProperty(Context.OBJECT_FACTORIES);
       if (value == null) value = NULL_VALUE;
-      jndiMap.put(javax.naming.Context.OBJECT_FACTORIES, value);
+      jndiMap.put(Context.OBJECT_FACTORIES, value);
 
-      value = System.getProperty(javax.naming.Context.URL_PKG_PREFIXES);
+      value = System.getProperty(Context.URL_PKG_PREFIXES);
       if (value == null) value = NULL_VALUE;
-      jndiMap.put(javax.naming.Context.URL_PKG_PREFIXES, value);
+      jndiMap.put(Context.URL_PKG_PREFIXES, value);
 
-      value = System.getProperty(javax.naming.Context.STATE_FACTORIES);
+      value = System.getProperty(Context.STATE_FACTORIES);
       if (value == null) value = NULL_VALUE;
-      jndiMap.put(javax.naming.Context.STATE_FACTORIES, value);
+      jndiMap.put(Context.STATE_FACTORIES, value);
 
-      value = System.getProperty(javax.naming.Context.DNS_URL);
+      value = System.getProperty(Context.DNS_URL);
       if (value == null) value = NULL_VALUE;
-      jndiMap.put(javax.naming.Context.DNS_URL, value);
+      jndiMap.put(Context.DNS_URL, value);
 
-      value = System.getProperty(javax.naming.ldap.LdapContext.CONTROL_FACTORIES);
+      value = System.getProperty(LdapContext.CONTROL_FACTORIES);
       if (value == null) value = NULL_VALUE;
-      jndiMap.put(javax.naming.ldap.LdapContext.CONTROL_FACTORIES, value);
+      jndiMap.put(LdapContext.CONTROL_FACTORIES, value);
    }
 
+   /** Called by setProperty to update the jndiMap cache values.
+    * @param name the property name
+    * @param value the property value
+    */ 
+   private void updateJndiCache(String name, String value)
+   {
+      if( name == null )
+         return;
+
+      boolean isJndiProperty = name.equals(Context.PROVIDER_URL)
+         || name.equals(Context.INITIAL_CONTEXT_FACTORY)
+         || name.equals(Context.OBJECT_FACTORIES)
+         || name.equals(Context.URL_PKG_PREFIXES)
+         || name.equals(Context.STATE_FACTORIES)
+         || name.equals(Context.DNS_URL)
+         || name.equals(LdapContext.CONTROL_FACTORIES)
+      ;
+      if( isJndiProperty == true )
+         jndiMap.put(name, value);
+   }
 
    /////////////////////////////////////////////////////////////////////////
    //                     Properties Override Methods                     //
@@ -180,6 +204,8 @@ public class PropertyMap
                value = (String) obj;
             }
          }
+         // Remove any JNDI property value
+         jndiMap.remove(name);
 
          PropertyEvent event = new PropertyEvent(this, (String) name, value);
          firePropertyRemoved(event);
@@ -587,6 +613,7 @@ public class PropertyMap
     */
    public Object setProperty(String name, String value)
    {
+      updateJndiCache(name, value);
       return put(name, value);
    }
 

@@ -8,7 +8,7 @@
 ##
 ## Annotated patch file: sslsup.patch
 ## Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved. 
-## Created on: 18-Jul-2003
+## Created on: 01-Nov-2003
 ##
 ## This file assembles changes to existing Apache source files
 ## between the original Apache and the patched variant. It can be
@@ -418,20 +418,20 @@ Index: src/Makefile.tmpl
  .c.o:
  	$(CC) -c $(INCLUDES) $(CFLAGS) $<
  
-@@ -59,6 +65,13 @@
- 		    ln lib$(TARGET).$(SHLIB_SUFFIX_NAME) lib$(TARGET).$(SHLIB_SUFFIX_NAME).$$suffix; \
+@@ -60,6 +66,13 @@
  		done; \
  	fi
-+
+ 
 +certificate:   
 +	@./support/mkcert.sh \
 +		"$(MAKE)" "$(MFLAGS) $(MFLAGS_STATIC)" \
 +		"$(SSL_PROGRAM)" ./support \
 +		"$(TYPE)" "$(ALGO)" "$(CRT)" "$(KEY)" "$(VIEW)"
 +	@cd ../conf/ssl.crt; $(MAKE) $(MFLAGS_STATIC) SSL_PROGRAM=$(SSL_PROGRAM) >/dev/null 2>&1
- 
++
  subdirs:
  	@for i in $(SUBDIRS); do \
+ 		echo "===> $(SDP)$$i"; \
 
 +---------------------------------------------------------------------------
 | Provide an additional `startssl' command to supplement the
@@ -475,12 +475,13 @@ Index: src/support/apachectl
 +---------------------------------------------------------------------------
 Index: src/support/suexec.c
 --- src/support/suexec.c	18 Jul 2003 15:44:47 -0000	1.1.1.11
-+++ src/support/suexec.c	18 Jul 2003 15:56:59 -0000	1.11
-@@ -133,6 +133,10 @@
++++ src/support/suexec.c	31 Oct 2003 21:32:22 -0000	1.12
+@@ -133,6 +133,11 @@
  {
      /* variable name starts with */
      "HTTP_",
 +#ifdef MOD_SSL
++    "HTTPS=",
 +    "HTTPS_",
 +    "SSL_",
 +#endif

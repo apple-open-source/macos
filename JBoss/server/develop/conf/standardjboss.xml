@@ -6,7 +6,7 @@
 <!-- ===================================================================== -->
 <!--  Standard JBoss EJB Configurations                                    -->
 <!-- ===================================================================== -->
-<!-- $Id: standardjboss.xml,v 1.3 2003/06/04 22:14:05 sreich Exp $ -->
+<!-- $Id: standardjboss.xml,v 1.4 2004/01/30 19:47:44 szemanki Exp $ -->
 
 <jboss>
    <enforce-ejb-restrictions>true</enforce-ejb-restrictions>
@@ -189,6 +189,7 @@
          <call-logging>false</call-logging>
          <invoker-proxy-binding-name>entity-rmi-invoker</invoker-proxy-binding-name>
          <sync-on-commit-only>false</sync-on-commit-only>
+         <insert-after-ejb-post-create>false</insert-after-ejb-post-create>
          <container-interceptors>
             <interceptor>org.jboss.ejb.plugins.ProxyFactoryFinderInterceptor</interceptor>
             <interceptor>org.jboss.ejb.plugins.LogInterceptor</interceptor>
@@ -231,6 +232,7 @@
          <call-logging>false</call-logging>
          <invoker-proxy-binding-name>clustered-entity-rmi-invoker</invoker-proxy-binding-name>
          <sync-on-commit-only>false</sync-on-commit-only>
+         <insert-after-ejb-post-create>false</insert-after-ejb-post-create>
          <container-interceptors>
             <interceptor>org.jboss.ejb.plugins.ProxyFactoryFinderInterceptor</interceptor>
             <interceptor>org.jboss.ejb.plugins.CleanShutdownInterceptor</interceptor>
@@ -316,6 +318,7 @@
          <call-logging>false</call-logging>
          <invoker-proxy-binding-name>entity-rmi-invoker</invoker-proxy-binding-name>
          <sync-on-commit-only>false</sync-on-commit-only>
+         <insert-after-ejb-post-create>false</insert-after-ejb-post-create>
          <container-interceptors>
             <interceptor>org.jboss.ejb.plugins.ProxyFactoryFinderInterceptor</interceptor>
             <interceptor>org.jboss.ejb.plugins.LogInterceptor</interceptor>
@@ -358,6 +361,7 @@
          <call-logging>false</call-logging>
          <invoker-proxy-binding-name>entity-rmi-invoker</invoker-proxy-binding-name>
          <sync-on-commit-only>false</sync-on-commit-only>
+         <insert-after-ejb-post-create>false</insert-after-ejb-post-create>
          <container-interceptors>
             <interceptor>org.jboss.ejb.plugins.ProxyFactoryFinderInterceptor</interceptor>
             <interceptor>org.jboss.ejb.plugins.LogInterceptor</interceptor>
@@ -399,6 +403,7 @@
          <call-logging>false</call-logging>
          <invoker-proxy-binding-name>clustered-entity-rmi-invoker</invoker-proxy-binding-name>
          <sync-on-commit-only>false</sync-on-commit-only>
+         <insert-after-ejb-post-create>false</insert-after-ejb-post-create>
          <container-interceptors>
             <interceptor>org.jboss.ejb.plugins.ProxyFactoryFinderInterceptor</interceptor>
             <interceptor>org.jboss.ejb.plugins.CleanShutdownInterceptor</interceptor>
@@ -441,6 +446,7 @@
          <call-logging>false</call-logging>
          <invoker-proxy-binding-name>entity-rmi-invoker</invoker-proxy-binding-name>
          <sync-on-commit-only>false</sync-on-commit-only>
+         <insert-after-ejb-post-create>false</insert-after-ejb-post-create>
          <container-interceptors>
             <interceptor>org.jboss.ejb.plugins.ProxyFactoryFinderInterceptor</interceptor>
             <interceptor>org.jboss.ejb.plugins.LogInterceptor</interceptor>
@@ -618,6 +624,7 @@
          <call-logging>false</call-logging>
          <invoker-proxy-binding-name>entity-rmi-invoker</invoker-proxy-binding-name>
          <sync-on-commit-only>false</sync-on-commit-only>
+         <insert-after-ejb-post-create>false</insert-after-ejb-post-create>
          <container-interceptors>
             <interceptor>org.jboss.ejb.plugins.ProxyFactoryFinderInterceptor</interceptor>
             <interceptor>org.jboss.ejb.plugins.LogInterceptor</interceptor>
@@ -659,6 +666,7 @@
          <call-logging>false</call-logging>
          <invoker-proxy-binding-name>clustered-entity-rmi-invoker</invoker-proxy-binding-name>
          <sync-on-commit-only>false</sync-on-commit-only>
+         <insert-after-ejb-post-create>false</insert-after-ejb-post-create>
          <container-interceptors>
             <interceptor>org.jboss.ejb.plugins.ProxyFactoryFinderInterceptor</interceptor>
             <interceptor>org.jboss.ejb.plugins.CleanShutdownInterceptor</interceptor>
@@ -701,6 +709,7 @@
          <call-logging>false</call-logging>
          <invoker-proxy-binding-name>entity-rmi-invoker</invoker-proxy-binding-name>
          <sync-on-commit-only>false</sync-on-commit-only>
+         <insert-after-ejb-post-create>false</insert-after-ejb-post-create>
          <container-interceptors>
             <interceptor>org.jboss.ejb.plugins.ProxyFactoryFinderInterceptor</interceptor>
             <interceptor>org.jboss.ejb.plugins.LogInterceptor</interceptor>

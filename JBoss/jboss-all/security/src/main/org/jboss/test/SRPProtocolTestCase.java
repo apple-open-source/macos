@@ -6,12 +6,6 @@
  */
 package org.jboss.test;
 
-import java.io.Serializable;
-import java.math.BigInteger;
-import java.rmi.RemoteException;
-import java.security.KeyException;
-import java.security.MessageDigest;
-
 import org.apache.log4j.Category;
 import org.apache.log4j.NDC;
 import org.apache.log4j.PatternLayout;
@@ -19,16 +13,14 @@ import org.apache.log4j.WriterAppender;
 
 import org.jboss.logging.XLevel;
 import org.jboss.security.Util;
-import org.jboss.security.srp.SRPConf;
 import org.jboss.security.srp.SRPServerInterface;
 import org.jboss.security.srp.SRPClientSession;
 import org.jboss.security.srp.SRPParameters;
-import org.jboss.security.srp.SRPServerSession;
 
 /** Test of the SRP protocol msg exchange sequence.
 
 @author Scott.Stark@jboss.org
-@version $Revision: 1.4.2.2 $
+@version $Revision: 1.4.2.3 $
 */
 public class SRPProtocolTestCase extends junit.framework.TestCase
 {

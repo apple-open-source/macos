@@ -125,10 +125,11 @@ namespace khtml
 	static void loadDefaultStyle(const KHTMLSettings *s = 0);
 	static void clear();
 
-	RenderStyle *styleForElement(DOM::ElementImpl *e);
+        void initForStyleResolve(DOM::ElementImpl* e, RenderStyle* parentStyle);
+	RenderStyle *styleForElement(DOM::ElementImpl* e, RenderStyle* parentStyle=0);
+        RenderStyle* pseudoStyleForElement(RenderStyle::PseudoId pseudoStyle, 
+                                           DOM::ElementImpl* e, RenderStyle* parentStyle=0);
 
-        QValueList<int> fontSizes() const { return m_fontSizes; }
-	
 	bool strictParsing;
 	struct Encodedurl {
 	    QString host; //also contains protocol
@@ -136,7 +137,17 @@ namespace khtml
 	    QString file;
 	} encodedurl;
 
-        void computeFontSizes(QPaintDeviceMetrics* paintDeviceMetrics);
+        // Given a CSS keyword in the range (xx-small to -khtml-xxx-large), this function will return
+        // the correct font size scaled relative to the user's default (medium).
+        float fontSizeForKeyword(int keyword, bool quirksMode) const;
+        
+        // When the CSS keyword "larger" is used, this function will attempt to match within the keyword
+        // table, and failing that, will simply multiply by 1.2.
+        float largerFontSize(float size, bool quirksMode) const;
+        
+        // Like the previous function, but for the keyword "smaller".
+        float smallerFontSize(float size, bool quirksMode) const;
+        
         void setFontSize(FontDef& fontDef, float size);
         float getComputedSizeFromSpecifiedSize(bool isAbsoluteSize, float specifiedSize);
         
@@ -144,7 +155,8 @@ namespace khtml
 
 	/* checks if the complete selector (which can be build up from a few CSSSelector's
 	    with given relationships matches the given Element */
-	void checkSelector(int selector, DOM::ElementImpl *e);
+        void checkSelector(int selector, DOM::ElementImpl *e, 
+                           RenderStyle::PseudoId pseudo = RenderStyle::NOPSEUDO);
 	/* checks if the selector matches the given Element */
 	bool checkOneSelector(DOM::CSSSelector *selector, DOM::ElementImpl *e);
 
@@ -226,10 +238,7 @@ public:
 	KHTMLPart *part;
 	const KHTMLSettings *settings;
 	QPaintDeviceMetrics *paintDeviceMetrics;
-        QValueList<int>     m_fontSizes;
-        float m_fixedScaleFactor; // Used when converting from proportional to fixed and vice
-                                  // versa.
-	bool fontDirty;
+        bool fontDirty;
         bool isXMLDoc;
         
 	void applyRule(int id, DOM::CSSValueImpl *value);

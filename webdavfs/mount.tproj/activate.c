@@ -36,7 +36,7 @@
  *
  *	@(#)activate.c	8.3 (Berkeley) 4/28/95
  *
- *	$Id: activate.c,v 1.11 2003/09/10 00:46:06 lutherj Exp $
+ *	$Id: activate.c,v 1.11.22.1 2004/01/23 00:55:59 lutherj Exp $
  */
 
 #include <err.h>
@@ -111,7 +111,7 @@ static void send_reply(int so, int fd, int data, int error)
 	int send_error = error;
 	
 	/* if the connection is down, let the kernel know */
-	if ( !gSuppressAllUI && (get_gconnectionstate() == WEBDAV_CONNECTION_DOWN) )
+	if ( get_gconnectionstate() == WEBDAV_CONNECTION_DOWN )
 	{
 		send_error |= WEBDAV_CONNECTION_DOWN_MASK;
 	}
@@ -202,7 +202,7 @@ static void send_data(int so, void *data, int size, int error)
 	int send_error = error;
 	
 	/* if the connection is down, let the kernel know */
-	if ( !gSuppressAllUI && (get_gconnectionstate() == WEBDAV_CONNECTION_DOWN) )
+	if ( get_gconnectionstate() == WEBDAV_CONNECTION_DOWN )
 	{
 		send_error |= WEBDAV_CONNECTION_DOWN_MASK;
 	}

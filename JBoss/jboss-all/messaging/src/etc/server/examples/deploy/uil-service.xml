@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- $Id: uil-service.xml,v 1.1.2.1 2003/10/06 01:48:56 ejort Exp $ -->
+
+<server>
+
+  <!-- Deprecated use UIL2 -->
+
+  <mbean code="org.jboss.mq.il.uil.UILServerILService"
+	 name="jboss.mq:service=InvocationLayer,type=UIL">
+    <depends optional-attribute-name="Invoker">jboss.mq:service=Invoker</depends>
+    <attribute name="ConnectionFactoryJNDIRef">UILConnectionFactory</attribute>
+    <attribute name="XAConnectionFactoryJNDIRef">UILXAConnectionFactory</attribute>
+    <attribute name="ServerBindPort">8091</attribute>
+    <!-- FIXME: ping disabled because of deadlock problem -->
+    <attribute name="PingPeriod">0</attribute>
+<!--    <attribute name="PingPeriod">60000</attribute> -->
+    <attribute name="EnableTcpNoDelay">true</attribute>
+  </mbean>
+
+</server>

@@ -1,4 +1,4 @@
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>winbindd</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.60.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="winbindd.8"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2>Name</h2><p>winbindd &#8212; Name Service Switch daemon for resolving names 
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>winbindd</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.61.2"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="winbindd.8"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2>Name</h2><p>winbindd &#8212; Name Service Switch daemon for resolving names 
 	from NT servers</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><tt class="command">winbindd</tt>  [-F] [-S] [-i] [-Y] [-d &lt;debug level&gt;] [-s &lt;smb config file&gt;] [-n]</p></div></div><div class="refsect1" lang="en"><h2>DESCRIPTION</h2><p>This program is part of the <a href="Samba.7.html"><span class="citerefentry"><span class="refentrytitle">Samba</span>(7)</span></a> suite.</p><p><b class="command">winbindd</b> is a daemon that provides 
 	a service for the Name Service Switch capability that is present 
 	in most modern C libraries.  The Name Service Switch allows user 
@@ -37,7 +37,9 @@ group:          files winbind
 </pre><p>The following simple configuration in the
 	<tt class="filename">/etc/nsswitch.conf</tt> file can be used to initially
 	resolve hostnames from <tt class="filename">/etc/hosts</tt> and then from the
-	WINS server.</p></div><div class="refsect1" lang="en"><h2>OPTIONS</h2><div class="variablelist"><dl><dt><span class="term">-F</span></dt><dd><p>If specified, this parameter causes
+	WINS server.</p><pre class="programlisting">
+hosts:		files wins
+</pre></div><div class="refsect1" lang="en"><h2>OPTIONS</h2><div class="variablelist"><dl><dt><span class="term">-F</span></dt><dd><p>If specified, this parameter causes
 		the main <b class="command">winbindd</b> process to not daemonize,
 		i.e. double-fork and disassociate with the terminal.
 		Child processes are still created as normal to service
@@ -49,8 +51,8 @@ group:          files winbind
 		package, or the AIX process monitor.
 		</p></dd><dt><span class="term">-S</span></dt><dd><p>If specified, this parameter causes
 		<b class="command">winbindd</b> to log to standard output rather
-		than a file.</p></dd><dt><span class="term">-V</span></dt><dd><p>Prints the version number for 
-<b class="command">smbd</b>.</p></dd><dt><span class="term">-s &lt;configuration file&gt;</span></dt><dd><p>The file specified contains the 
+		than a file.</p></dd><dt><span class="term">-V</span></dt><dd><p>Prints the program version number.
+</p></dd><dt><span class="term">-s &lt;configuration file&gt;</span></dt><dd><p>The file specified contains the 
 configuration details required by the server.  The 
 information in this file includes server-specific
 information such as what printcap file to use, as well 
@@ -63,13 +65,13 @@ not specified is zero.</p><p>The higher this value, the more detail will be
 logged to the log files about the activities of the 
 server. At level 0, only critical errors and serious 
 warnings will be logged. Level 1 is a reasonable level for
-day to day running - it generates a small amount of 
+day-to-day running - it generates a small amount of 
 information about operations carried out.</p><p>Levels above 1 will generate considerable 
 amounts of log data, and should only be used when 
 investigating a problem. Levels above 3 are designed for 
 use only by developers and generate HUGE amounts of log
 data, most of which is extremely cryptic.</p><p>Note that specifying this parameter here will 
-override the <a class="indexterm" name="id2800127"></a><a href="#"><i class="parameter"><tt>log level</tt></i></a> parameter
+override the <a class="indexterm" name="id2799802"></a>log level parameter
 in the <tt class="filename">smb.conf</tt> file.</p></dd><dt><span class="term">-l|--logfile=logbasename</span></dt><dd><p>File name for log/debug files. The extension
 <tt class="constant">".client"</tt> will be appended. The log file is
 never removed by the client.
@@ -108,15 +110,15 @@ never removed by the client.
 	and group rids. </p></div><div class="refsect1" lang="en"><h2>CONFIGURATION</h2><p>Configuration of the <b class="command">winbindd</b> daemon 
 	is done through configuration parameters in the <a href="smb.conf.5.html"><span class="citerefentry"><span class="refentrytitle">smb.conf</span>(5)</span></a> file.  All parameters should be specified in the 
 	[global] section of smb.conf. </p><div class="itemizedlist"><ul type="disc"><li><p>
-		<a class="indexterm" name="id2800484"></a><a href="#"><i class="parameter"><tt>winbind separator</tt></i></a></p></li><li><p>
-		<a class="indexterm" name="id2800509"></a><a href="#"><i class="parameter"><tt>idmap uid</tt></i></a></p></li><li><p>
-		<a class="indexterm" name="id2800532"></a><a href="#"><i class="parameter"><tt>idmap gid</tt></i></a></p></li><li><p>
-		<a class="indexterm" name="id2800556"></a><a href="#"><i class="parameter"><tt>winbind cache time</tt></i></a></p></li><li><p>
-		<a class="indexterm" name="id2800581"></a><a href="#"><i class="parameter"><tt>winbind enum users</tt></i></a></p></li><li><p>
-		<a class="indexterm" name="id2800606"></a><a href="#"><i class="parameter"><tt>winbind enum groups</tt></i></a></p></li><li><p>
-		<a class="indexterm" name="id2800630"></a><a href="#"><i class="parameter"><tt>template homedir</tt></i></a></p></li><li><p>
-		<a class="indexterm" name="id2800655"></a><a href="#"><i class="parameter"><tt>template shell</tt></i></a></p></li><li><p>
-		<a class="indexterm" name="id2800679"></a><a href="#"><i class="parameter"><tt>winbind use default domain</tt></i></a></p></li></ul></div></div><div class="refsect1" lang="en"><h2>EXAMPLE SETUP</h2><p>To setup winbindd for user and group lookups plus 
+		<a class="indexterm" name="id2800604"></a>winbind separator</p></li><li><p>
+		<a class="indexterm" name="id2800618"></a>idmap uid</p></li><li><p>
+		<a class="indexterm" name="id2800632"></a>idmap gid</p></li><li><p>
+		<a class="indexterm" name="id2800646"></a>winbind cache time</p></li><li><p>
+		<a class="indexterm" name="id2799866"></a>winbind enum users</p></li><li><p>
+		<a class="indexterm" name="id2802513"></a>winbind enum groups</p></li><li><p>
+		<a class="indexterm" name="id2802526"></a>template homedir</p></li><li><p>
+		<a class="indexterm" name="id2802541"></a>template shell</p></li><li><p>
+		<a class="indexterm" name="id2802555"></a>winbind use default domain</p></li></ul></div></div><div class="refsect1" lang="en"><h2>EXAMPLE SETUP</h2><p>To setup winbindd for user and group lookups plus 
 	authentication from a domain controller use something like the 
 	following setup. This was tested on a RedHat 6.2 Linux box. </p><p>In <tt class="filename">/etc/nsswitch.conf</tt> put the 
 	following:

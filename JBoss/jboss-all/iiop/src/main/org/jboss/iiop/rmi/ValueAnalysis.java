@@ -37,7 +37,7 @@ import java.lang.reflect.Modifier;
  *  Specification", version 1.1 (01-06-07).
  *      
  *  @author <a href="mailto:osh@sparre.dk">Ole Husgaard</a>
- *  @version $Revision: 1.4 $
+ *  @version $Revision: 1.4.4.1 $
  */
 public class ValueAnalysis
    extends ContainerAnalysis
@@ -270,6 +270,19 @@ public class ValueAnalysis
 
 
    // Protected -----------------------------------------------------
+
+   /**
+    *  Analyse attributes.
+    *  This will fill in the <code>attributes</code> array.
+    *  Here we override the implementation in ContainerAnalysis and create an 
+    *  empty array, because for valuetypes we don't want to analyse IDL 
+    *  attributes or operations (as in "rmic -idl -noValueMethods").
+    */
+   protected void analyzeAttributes()
+      throws RMIIIOPViolationException
+   {
+      attributes = new AttributeAnalysis[0];
+   }
 
    /**
     *  Return a list of all the entries contained here.

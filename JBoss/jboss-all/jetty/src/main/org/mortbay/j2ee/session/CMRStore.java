@@ -1,6 +1,6 @@
 // ========================================================================
 // Copyright (c) 2002 Mort Bay Consulting (Australia) Pty. Ltd.
-// $Id: CMRStore.java,v 1.1.2.2 2002/11/16 21:58:58 jules_gosnell Exp $
+// $Id: CMRStore.java,v 1.1.2.3 2003/07/26 11:49:41 jules_gosnell Exp $
 // ========================================================================
 
 package org.mortbay.j2ee.session;
@@ -16,7 +16,7 @@ import javax.ejb.RemoveException;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import javax.rmi.PortableRemoteObject;
-import org.apache.log4j.Category;
+import org.jboss.logging.Logger;
 import org.mortbay.j2ee.session.interfaces.CMRState;
 import org.mortbay.j2ee.session.interfaces.CMRStateHome;
 import org.mortbay.j2ee.session.interfaces.CMRStatePK;

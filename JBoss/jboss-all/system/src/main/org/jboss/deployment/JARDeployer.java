@@ -35,7 +35,7 @@ import javax.management.ObjectName;
  *
  * @author Scott.Stark@jboss.org
  * @author <a href="mailto:d_jencks@users.sourceforge.net">David Jencks</a>
- * @version $Revision: 1.7.2.2 $
+ * @version $Revision: 1.7.2.5 $
  *
  * @jmx:mbean name="jboss.system:service=JARDeployer"
  *            extends="org.jboss.deployment.SubDeployerMBean"
@@ -137,21 +137,29 @@ public class JARDeployer
          else if (ddDir.getProtocol().equals("jar") == true)
          {
             log.trace("jar protocol: " + ddDir);
-            JarFile jarFile =null;
+            JarFile jarFile = null;
       
             try
             {
                URLConnection con = ddDir.openConnection();
-               JarURLConnection jarConn = (JarURLConnection)con;
+               JarURLConnection jarConn = (JarURLConnection) con;
+               /* Need to set caching to false otherwise closing the jarfile
+               ends up conflicting with other users of the cached jar.
+               */
+               jarConn.setUseCaches(false);
                jarFile = jarConn.getJarFile();
             }
             catch (Exception e)
             {
                log.warn("Looking inside jar failed; ignoring", e);
+               if( jarFile != null )
+                  jarFile.close();
+               jarFile = null;
                return false;
             }
 
             // Scan for any xml files in the META-INF dir
+            boolean accepts = true;
             for (Enumeration e = jarFile.entries(); e.hasMoreElements();)
             {
                JarEntry entry = (JarEntry)e.nextElement();
@@ -163,11 +171,15 @@ public class JARDeployer
                
                if (name.startsWith("META-INF/") && name.endsWith(".xml")) 
                {
-                  return false;
+                  accepts = false;
+                  break;
                } // end of if ()
             } // end of for
+            jarFile.close();
+            jarFile = null;
+
             log.debug("No xml files found");
-            return true;
+            return accepts;
          } // end of if ()
          else
          {

@@ -59,7 +59,7 @@ const UInt8 		AppleTAS3004Audio::kDEQAddress = 0x6A;
 // call into superclass and initialize.
 bool AppleTAS3004Audio::init(OSDictionary *properties)
 {
-	debugIOLog("+ AppleTAS3004Audio::init\n");
+	debugIOLog (3, "+ AppleTAS3004Audio::init");
 	if (!super::init(properties))
 		return false;
 
@@ -67,7 +67,7 @@ bool AppleTAS3004Audio::init(OSDictionary *properties)
 	mVolRight = 0;
 	mTAS_WasDead = false;
 
-	debugIOLog("- AppleTAS3004Audio::init\n");
+	debugIOLog (3, "- AppleTAS3004Audio::init");
 	return true;
 }
 
@@ -75,7 +75,7 @@ bool AppleTAS3004Audio::init(OSDictionary *properties)
 bool AppleTAS3004Audio::start (IOService * provider) {
 	bool					result;
 
-	debug3IOLog ("+ AppleTAS3004Audio[%p]::start(%p)\n", this, provider);
+	debugIOLog (3, "+ AppleTAS3004Audio[%p]::start(%p)", this, provider);
 
 	result = FALSE;
 	FailIf (!provider, Exit);
@@ -86,18 +86,18 @@ bool AppleTAS3004Audio::start (IOService * provider) {
 	result = provider->open (this, kFamilyOption_OpenMultiple);
 
 Exit:
-	debug4IOLog ("- AppleTAS3004Audio[%p]::start(%p) returns %s\n", this, provider, result == true ? "true" : "false");
+	debugIOLog (3, "- AppleTAS3004Audio[%p]::start(%p) returns %s", this, provider, result == true ? "true" : "false");
 	return result;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void AppleTAS3004Audio::free()
 {
-	debugIOLog("+ AppleTAS3004Audio::free\n");
+	debugIOLog (3, "+ AppleTAS3004Audio::free");
 
 	super::free();
 
-	debugIOLog("- AppleTAS3004Audio::free\n");
+	debugIOLog (3, "- AppleTAS3004Audio::free");
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -111,14 +111,14 @@ void AppleTAS3004Audio::initPlugin(PlatformInterface* inPlatformObject)
 bool AppleTAS3004Audio::willTerminate ( IOService * provider, IOOptionBits options )
 {
 	bool result = super::willTerminate( provider, options );
-	debug4IOLog("AppleTAS3004Audio::willTerminate(%p) returns %d, mAudioDeviceProvider = %p\n", provider, result, mAudioDeviceProvider);
+	debugIOLog (3, "AppleTAS3004Audio::willTerminate(%p) returns %d, mAudioDeviceProvider = %p", provider, result, mAudioDeviceProvider);
 
 	if (provider == mAudioDeviceProvider) {
-		debugIOLog ("closing our provider\n");
+		debugIOLog (3, "closing our provider");
 		provider->close (this);
 	}
 
-	debug4IOLog ("- AppleTAS3004Audio[%p]::willTerminate(%p) returns %s\n", this, provider, result == true ? "true" : "false");
+	debugIOLog (3, "- AppleTAS3004Audio[%p]::willTerminate(%p) returns %s", this, provider, result == true ? "true" : "false");
 	return result;
 }
 
@@ -128,7 +128,7 @@ bool AppleTAS3004Audio::requestTerminate ( IOService * provider, IOOptionBits op
 
 	
 	bool result = super::requestTerminate( provider, options );
-	debug4IOLog("AppleTAS3004Audio::requestTerminate(%p) returns %d, mAudioDeviceProvider = %p\n", provider, result, mAudioDeviceProvider);
+	debugIOLog (3, "AppleTAS3004Audio::requestTerminate(%p) returns %d, mAudioDeviceProvider = %p", provider, result, mAudioDeviceProvider);
 	return result;
 }
 
@@ -186,12 +186,12 @@ bool AppleTAS3004Audio::preDMAEngineInit()
 	UInt32					loopCnt;
 	UInt8					data[kTAS3004BIQwidth];						// space for biggest register size
 
-	debugIOLog("+ AppleTAS3004Audio::preDMAEngineInit\n");
+	debugIOLog (3, "+ AppleTAS3004Audio::preDMAEngineInit");
 
-	debug2IOLog ("ourProvider's name is %s\n", mAudioDeviceProvider->getName ());
+	debugIOLog (3, "ourProvider's name is %s", mAudioDeviceProvider->getName ());
 	sound = mAudioDeviceProvider->getParentEntry (gIOServicePlane);
 	FailIf (!sound, Exit);
-	debug2IOLog ("sound's name is %s\n", sound->getName ());
+	debugIOLog (3, "sound's name is %s", sound->getName ());
 
 	//	Initialize the TAS3004 as follows:
 	//		Mode:					normal
@@ -280,24 +280,17 @@ bool AppleTAS3004Audio::preDMAEngineInit()
 	IOSleep (1);
 	ToggleAnalogPowerDownWake();
 
+	// make sure that standby registers are init'd to something too
+	memcpy (&standbyTAS3004Regs, &shadowTAS3004Regs, sizeof (TAS3004_ShadowReg));
+
 	minVolume = kMinimumVolume;
 	maxVolume = kMaximumVolume;
 
 Exit:
 
-	debugIOLog("- AppleTAS3004Audio::preDMAEngineInit\n");
+	debugIOLog (3, "- AppleTAS3004Audio::preDMAEngineInit");
 	return true;
 }
-
-// --------------------------------------------------------------------------
-void AppleTAS3004Audio::postDMAEngineInit () {
-
-	DEBUG_IOLOG("+ AppleTAS3004Audio::sndHWPostDMAEngineInit\n");
-		
-	DEBUG_IOLOG("- AppleTAS3004Audio::sndHWPostDMAEngineInit\n");
-	return;
-}
-
 
 // --------------------------------------------------------------------------
 IOReturn	AppleTAS3004Audio::SetAnalogPowerDownMode( UInt8 mode )
@@ -341,27 +334,27 @@ IOReturn	AppleTAS3004Audio::ToggleAnalogPowerDownWake( void )
 // --------------------------------------------------------------------------
 UInt32	AppleTAS3004Audio::getActiveOutput(void)
 {
-	DEBUG_IOLOG("+ AppleTAS3004Audio::sndHWGetActiveOutputExclusive\n");
-	DEBUG_IOLOG("- AppleTAS3004Audio::sndHWGetActiveOutputExclusive\n");
+	debugIOLog (3, "+ AppleTAS3004Audio::sndHWGetActiveOutputExclusive");
+	debugIOLog (3, "- AppleTAS3004Audio::sndHWGetActiveOutputExclusive");
 	return 0;
 }
 
 // --------------------------------------------------------------------------
 IOReturn   AppleTAS3004Audio::setActiveOutput(UInt32 outputPort )
 {
-	DEBUG_IOLOG("+ AppleTAS3004Audio::sndHWSetActiveOutputExclusive\n");
+	debugIOLog (3, "+ AppleTAS3004Audio::sndHWSetActiveOutputExclusive");
 
 	IOReturn myReturn = kIOReturnSuccess;
 
-	DEBUG_IOLOG("- AppleTAS3004Audio::sndHWSetActiveOutputExclusive\n");
+	debugIOLog (3, "- AppleTAS3004Audio::sndHWSetActiveOutputExclusive");
 	return(myReturn);
 }
 
 // --------------------------------------------------------------------------
 UInt32	AppleTAS3004Audio::getActiveInput(void)
 {
-	DEBUG_IOLOG("+ AppleTAS3004Audio::sndHWGetActiveInputExclusive\n");
-	DEBUG_IOLOG("- AppleTAS3004Audio::sndHWGetActiveInputExclusive\n");
+	debugIOLog (3, "+ AppleTAS3004Audio::sndHWGetActiveInputExclusive");
+	debugIOLog (3, "- AppleTAS3004Audio::sndHWGetActiveInputExclusive");
 	return 0;
 }
 
@@ -393,7 +386,7 @@ IOReturn   AppleTAS3004Audio::setActiveInput (UInt32 input)
     UInt8		data[kTAS3004MaximumRegisterWidth];
     IOReturn	result = kIOReturnSuccess; 
     
-	debug2IOLog("+ AppleTAS3004Audio::setActiveInput (%4s)\n", (char *)&input);
+	debugIOLog (3, "+ AppleTAS3004Audio::setActiveInput (%4s)", (char *)&input);
 
 	//	Mask off the current input selection and then OR in the new selections
 	CODEC_ReadRegister (kTAS3004AnalogControlReg, data);
@@ -414,7 +407,7 @@ IOReturn   AppleTAS3004Audio::setActiveInput (UInt32 input)
         //case kSndHWInput3:	data[0] |= ((kADMBInputsMonaural << kADM) | (kLeftInputForMonaural << kLRB) | (kAnalogInputB << kINP));	break;
     }
 
-    debugIOLog("- AppleTAS3004Audio::setActiveInput\n");
+    debugIOLog (3, "- AppleTAS3004Audio::setActiveInput");
     return(result);
 }
 
@@ -435,7 +428,7 @@ IOReturn AppleTAS3004Audio::setCodecMute(bool mutestate)
 IOReturn AppleTAS3004Audio::setCodecMute (bool muteState, UInt32 streamType) {
 	IOReturn		result = kIOReturnSuccess;
 	
-	debug3IOLog("+ AppleTAS3004Audio::setMute (%d, %4s)\n", muteState, (char*)&streamType);
+	debugIOLog (3, "+ AppleTAS3004Audio::setMute (%d, %4s)", muteState, (char*)&streamType);
 
 	switch ( streamType ) {
 		case kAnalogAudioSelector:
@@ -451,7 +444,7 @@ IOReturn AppleTAS3004Audio::setCodecMute (bool muteState, UInt32 streamType) {
 			result = kIOReturnError;
 			break;
 	}
-	debug4IOLog("- AppleTAS3004Audio::setMute (%d, %4s) returns %X\n", muteState, (char*)&streamType, result);
+	debugIOLog (3, "- AppleTAS3004Audio::setMute (%d, %4s) returns %X", muteState, (char*)&streamType, result);
 	return result;
 }
 
@@ -505,12 +498,12 @@ bool AppleTAS3004Audio::setCodecVolume(UInt32 leftVolume, UInt32 rightVolume)
 
 	result = false;
 
-	DEBUG3_IOLOG("+ AppleTAS3004Audio::sndHWSetSystemVolume (left: %ld, right %ld)\n", leftVolume, rightVolume);
+	debugIOLog (3, "+ AppleTAS3004Audio::sndHWSetSystemVolume (left: %ld, right %ld)", leftVolume, rightVolume);
 	mVolLeft = leftVolume;
 	mVolRight = rightVolume;
 	result = SetVolumeCoefficients (volumeTable[(UInt32)mVolLeft], volumeTable[(UInt32)mVolRight]);
 
-	DEBUG_IOLOG("- AppleTAS3004Audio::sndHWSetSystemVolume\n");
+	debugIOLog (3, "- AppleTAS3004Audio::sndHWSetSystemVolume");
 	return (result == kIOReturnSuccess);
 }
 
@@ -521,7 +514,7 @@ IOReturn AppleTAS3004Audio::setPlayThrough(bool playthroughstate)
 	UInt8		rightMixerGain[kTAS3004MIXERGAINwidth];
 	IOReturn	err;
 	
-	debugIOLog("+ AppleTAS3004Audio::sndHWSetPlayThrough\n");
+	debugIOLog (3, "+ AppleTAS3004Audio::sndHWSetPlayThrough");
 
 	err = CODEC_ReadRegister ( kTAS3004MixerLeftGainReg, leftMixerGain );
 	FailIf ( kIOReturnSuccess != err, Exit );
@@ -540,7 +533,7 @@ IOReturn AppleTAS3004Audio::setPlayThrough(bool playthroughstate)
 	err = CODEC_WriteRegister ( kTAS3004MixerRightGainReg, rightMixerGain, kUPDATE_ALL );
 
 Exit:
-	debugIOLog("- AppleTAS3004Audio::sndHWSetPlayThrough\n");
+	debugIOLog (3, "- AppleTAS3004Audio::sndHWSetPlayThrough");
 	return err;
 }
 
@@ -560,7 +553,7 @@ IOReturn	AppleTAS3004Audio::setSampleDepth ( UInt32 sampleDepth ) {
 	UInt8			data;
 	IOReturn		result = kIOReturnBadArgument;
 	
-	debug2IOLog ( "+ AppleTAS3004Audio:: setSampleDepth ( %d )\n", (unsigned int) sampleDepth );
+	debugIOLog (3,  "+ AppleTAS3004Audio:: setSampleDepth ( %d )", (unsigned int) sampleDepth );
 	FailIf ( !( 16 == sampleDepth || 24 == sampleDepth ), Exit );
 	
 	CODEC_Initialize ();
@@ -579,7 +572,7 @@ IOReturn	AppleTAS3004Audio::setSampleDepth ( UInt32 sampleDepth ) {
 	result = CODEC_WriteRegister ( kTAS3004MainCtrl1Reg, &data, kFORCE_UPDATE_ALL );
 	
 Exit:
-	debug3IOLog ( "+ AppleTAS3004Audio::setSampleWidth ( %d ) returns %d\n", (unsigned int)sampleDepth, (unsigned int)result );
+	debugIOLog (3,  "+ AppleTAS3004Audio::setSampleWidth ( %d ) returns %d", (unsigned int)sampleDepth, (unsigned int)result );
 	return result;
 }
 
@@ -620,13 +613,13 @@ Exit:
 IOReturn	AppleTAS3004Audio::breakClockSelect ( UInt32 clockSource ) {
 	IOReturn		result;
 	
-	debug2IOLog ( "+ AppleTAS3004Audio::breakClockSelect ( %ld )\n", clockSource );
+	debugIOLog (3,  "+ AppleTAS3004Audio::breakClockSelect ( %ld )", clockSource );
 	result = kIOReturnError;
 	FailIf ( !( kTRANSPORT_MASTER_CLOCK == clockSource || kTRANSPORT_SLAVE_CLOCK == clockSource ), Exit );
 	mPlatformInterface->setCodecReset ( kCODEC_RESET_Analog, kGPIO_Reset );
 	result = kIOReturnSuccess;
 Exit:
-	debug3IOLog ( "+ AppleTAS3004Audio::breakClockSelect ( %ld ) returns %X\n", clockSource, result );
+	debugIOLog (3,  "+ AppleTAS3004Audio::breakClockSelect ( %ld ) returns %X", clockSource, result );
 	return result;
 }
 
@@ -667,13 +660,13 @@ Exit:
 IOReturn	AppleTAS3004Audio::makeClockSelect ( UInt32 clockSource ) {
 	IOReturn		result;
 	
-	debug2IOLog ( "+ AppleTAS3004Audio::makeClockSelect ( %ld )\n", clockSource );
+	debugIOLog (3,  "+ AppleTAS3004Audio::makeClockSelect ( %ld )", clockSource );
 	result = kIOReturnError;
 	FailIf ( !( kTRANSPORT_MASTER_CLOCK == clockSource || kTRANSPORT_SLAVE_CLOCK == clockSource ), Exit );
 	CODEC_Initialize();
 	result = kIOReturnSuccess;
 Exit:
-	debug3IOLog ( "- AppleTAS3004Audio::makeClockSelect ( %ld ) returns %X\n", clockSource, result );
+	debugIOLog (3,  "- AppleTAS3004Audio::makeClockSelect ( %ld ) returns %X", clockSource, result );
 	return result;
 }
 
@@ -681,7 +674,7 @@ Exit:
 //	Fatal error recovery 
 IOReturn AppleTAS3004Audio::recoverFromFatalError ( FatalRecoverySelector selector ) {
 
-//	if (mSemaphores ) { debugIOLog ( "REDUNDANT RECOVERY FROM FATAL ERROR\n" ); }
+//	if (mSemaphores ) { debugIOLog (3,  "REDUNDANT RECOVERY FROM FATAL ERROR" ); }
 	FailIf ( NULL == mPlatformInterface, Exit );
 	
 	switch ( selector ) {
@@ -692,22 +685,12 @@ IOReturn AppleTAS3004Audio::recoverFromFatalError ( FatalRecoverySelector select
 			CODEC_Initialize();
 			break;
 		default:
-			debugIOLog ( "*** Requested recovery from unknown condition!\n" );
+			debugIOLog (3,  "*** Requested recovery from unknown condition!" );
 			break;
 	}
 Exit:
-	debug2IOLog ( "± AppleTAS3004Audio::recoverFromFatalError ( %d )\n", (unsigned int)selector );
+	debugIOLog (3,  "± AppleTAS3004Audio::recoverFromFatalError ( %d )", (unsigned int)selector );
 	return kIOReturnSuccess;
-}
-
-UInt32 AppleTAS3004Audio::getCurrentSampleFrame (void) {
-	return mPlatformInterface->getFrameCount ();
-}
-
-void AppleTAS3004Audio::setCurrentSampleFrame (UInt32 value) {
-	if ( kIOReturnSuccess != mPlatformInterface->setFrameCount (value) ) {
-		debugIOLog ( "*** AppleTAS3004Audio::setCurrentSampleFrame FAILED\n" );
-	}
 }
 
 #pragma mark ---------------------
@@ -726,7 +709,7 @@ void AppleTAS3004Audio::setCurrentSampleFrame (UInt32 value) {
 //	exists with a value of 'true'.  For all other cases, the original
 //	signal manipulation order exists.
 IOReturn AppleTAS3004Audio::performDeviceSleep () {
-	debugIOLog ("+ AppleTAS3004Audio::performDeviceSleep\n");
+	debugIOLog (3, "+ AppleTAS3004Audio::performDeviceSleep");
 
 	//	Mute all of the amplifiers
         
@@ -738,7 +721,7 @@ IOReturn AppleTAS3004Audio::performDeviceSleep () {
     
 //	IOSleep (kAmpRecoveryMuteDuration);
 
-	debugIOLog ("- AppleTAS3004Audio::performDeviceSleep\n");
+	debugIOLog (3, "- AppleTAS3004Audio::performDeviceSleep");
 	return kIOReturnSuccess;
 }
 	
@@ -754,7 +737,7 @@ IOReturn AppleTAS3004Audio::performDeviceWake () {
 //	IOService *							keyLargo;
 	IOReturn							err;
 
-	debugIOLog ("+ AppleTAS3004Audio::performDeviceWake\n");
+	debugIOLog (3, "+ AppleTAS3004Audio::performDeviceWake");
 
 	err = kIOReturnSuccess;
 
@@ -766,7 +749,7 @@ IOReturn AppleTAS3004Audio::performDeviceWake () {
 
 	//	Mute the amplifiers as needed
 
-	debugIOLog ( "- AppleTAS3004Audio::performDeviceWake\n" );
+	debugIOLog (3,  "- AppleTAS3004Audio::performDeviceWake" );
 	return err;
 }
 
@@ -845,7 +828,7 @@ IOReturn AppleTAS3004Audio::SetVolumeCoefficients( UInt32 left, UInt32 right )
 	UInt8		volumeData[kTAS3004VOLwidth];
 	IOReturn	err;
 	
-	debug3IOLog("SetVolumeCoefficients: L=%lX R=%lX\n", left, right);
+	debugIOLog (3, "SetVolumeCoefficients: L=%lX R=%lX", left, right);
 	
 	volumeData[2] = left;														
 	volumeData[1] = left >> 8;												
@@ -885,8 +868,8 @@ IOReturn	AppleTAS3004Audio::CODEC_Initialize() {
 	{
 		mSemaphores = 1;
 		do{
-//			if ( 0 != retryCount ) { debug2IOLog( "[AppleTAS3004Audio] ... RETRYING, retryCount %ld\n", retryCount ); }
-			debugIOLog ( "... Resetting TAS3004\n" );
+//			if ( 0 != retryCount ) { debugIOLog (3,  "[AppleTAS3004Audio] ... RETRYING, retryCount %ld", retryCount ); }
+			debugIOLog (3,  "... Resetting TAS3004" );
             CODEC_Reset();
 
 			if( 0 == oldMode )
@@ -1017,16 +1000,14 @@ AttemptToRetry:
 		mSemaphores = 0;
 		if( kTAS3004_MAX_RETRY_COUNT == retryCount ) {
 			mTAS_WasDead = true;
-#ifdef kVERBOSE_LOG
-			debug2IOLog( "\n\n\n\n          TAS3004 IS DEAD: Check %s\n\n\n\n", "ChooseAudio in fcr1" );
+			debugIOLog (5,  "\n\n\n\n          TAS3004 IS DEAD: Check %s\n\n\n", "ChooseAudio in fcr1" );
 			mPlatformInterface->LogFCR ();
 			mPlatformInterface->LogGPIO ();
 			mPlatformInterface->LogI2S ();
-#endif
 		}
 	}
 	if( kIOReturnSuccess != err )
-		debug2IrqIOLog( "[AppleTAS3004Audio] CODEC_Initialize() err = %d  ***** FATAL *****\n", err );
+		debugIOLog (7,  "[AppleTAS3004Audio] CODEC_Initialize() err = %d  ***** FATAL *****", err );
 
     return err;
 }
@@ -1072,7 +1053,7 @@ IOReturn 	AppleTAS3004Audio::CODEC_ReadRegister(UInt8 regAddr, UInt8* registerDa
 		}
 	}
 	if( kIOReturnSuccess != err )
-		debug4IOLog( "[AppleTAS3004Audio] %d notEnoughHardware = CODEC_ReadRegister( 0x%2.0X, 0x%8.0X )", err, regAddr, (unsigned int)registerData );
+		debugIOLog (3,  "[AppleTAS3004Audio] %d notEnoughHardware = CODEC_ReadRegister( 0x%2.0X, 0x%8.0X )", err, regAddr, (unsigned int)registerData );
 
     return err;
 }
@@ -1129,14 +1110,14 @@ IOReturn 	AppleTAS3004Audio::CODEC_WriteRegister(UInt8 regAddr, UInt8* registerD
 				}
 			}
 			if ( !success && !mSemaphores ) {	//	avoid redundant recovery
-				debug5IrqIOLog ( "AppleTAS3004Audio::CODEC_WriteRegister mPlatformInterface->writeCodecRegister ( %x, %p, %x ) %d POSTS A FATAL ERROR!\n", regAddr, registerData, kI2C_StandardSubMode, success );
+				debugIOLog (7,  "AppleTAS3004Audio::CODEC_WriteRegister mPlatformInterface->writeCodecRegister ( %x, %p, %x ) %d POSTS A FATAL ERROR!", regAddr, registerData, kI2C_StandardSubMode, success );
 				mAudioDeviceProvider->interruptEventHandler ( kRequestCodecRecoveryStatus, (UInt32)kControlBusFatalErrorRecovery );
 			}
 		}
 	}
 
 	if( kIOReturnSuccess != err || !success ) {
-		debug3IrqIOLog ("error 0x%X returned, success == %d in AppleTAS3004Audio::CODEC_WriteRegister\n", err, success);
+		debugIOLog (7, "error 0x%X returned, success == %d in AppleTAS3004Audio::CODEC_WriteRegister", err, success);
 	}
 
 
@@ -1211,7 +1192,7 @@ Boolean AppleTAS3004Audio::HasInput (void) {
 	UInt32					*numInputs = NULL;
 	Boolean					hasInput;
 
-	debugIOLog ( "+ AppleTAS3004Audio::HasInput\n" );
+	debugIOLog (3,  "+ AppleTAS3004Audio::HasInput" );
 	hasInput = false;
 
 	sound = mAudioDeviceProvider->getParentEntry (gIOServicePlane);
@@ -1224,118 +1205,8 @@ Boolean AppleTAS3004Audio::HasInput (void) {
 		hasInput = true;
 	}
 Exit:
-	debug3IOLog ( "- AppleTAS3004Audio::HasInput returns %d, numInputs %ld\n", hasInput, NULL == numInputs ? 0 : *numInputs );
+	debugIOLog (3,  "- AppleTAS3004Audio::HasInput returns %d, numInputs %ld", hasInput, NULL == numInputs ? 0 : *numInputs );
 	return hasInput;
-}
-
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-void AppleTAS3004Audio::setDRCProcessing (void * inDRCStructure, Boolean inRealtime) {
-
-	debug3IOLog ("AppleTAS3004Audio::setDRCProcessing (%p, %d)\n", inDRCStructure, inRealtime);
-	
-	DRCInfo				localDRC;
-	
-	if ( 0 != inDRCStructure ) {
-		localDRC.ratio = (UInt8)(*((UInt32 *)&((((LimiterParamStructPtr)inDRCStructure)->ratio))));
-		localDRC.ratio &= 0xFE;
-		localDRC.ratioBelow = (UInt8)(*((UInt32 *)&((((LimiterParamStructPtr)inDRCStructure)->ratioBelow))));
-		localDRC.threshold = (UInt8)(*((UInt32 *)&((((LimiterParamStructPtr)inDRCStructure)->threshold))));
-		localDRC.integrationInterval = kDRC_Integration_6point7ms;
-		localDRC.attack = (UInt8)(*((UInt32 *)&((((LimiterParamStructPtr)inDRCStructure)->attack))));
-		localDRC.decay = (UInt8)(*((UInt32 *)&((((LimiterParamStructPtr)inDRCStructure)->release))));
-		debug7IOLog ( "ratio %X, ratioBelow %X, threshold %X, integration %X, attack, %X, decay %X\n",
-				localDRC.ratio,
-				localDRC.ratioBelow,
-				localDRC.threshold,
-				localDRC.integrationInterval,
-				localDRC.attack,
-				localDRC.decay
-			);
-		CODEC_WriteRegister( kTAS3004DynamicRangeCtrlReg, (UInt8*)&localDRC, kFORCE_UPDATE_ALL );
-	} else {
-		shadowTAS3004Regs.sDRC[0] |= 0x01;
-		CODEC_WriteRegister( kTAS3004DynamicRangeCtrlReg, (UInt8*)&shadowTAS3004Regs.sDRC, kFORCE_UPDATE_ALL );
-	}
-
-	return;
-}
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-void AppleTAS3004Audio::setEQProcessing (void * inEQStructure, Boolean inRealtime) {
-	UInt32				index;
-	UInt8				volumeData[kTAS3004VOLwidth];
-
-	debug3IOLog ("+ AppleTAS3004Audio::setEQ (%p, %d)\n", inEQStructure, inRealtime);
-	
-	if ( ((EQStructPtr)inEQStructure)->bypassAll ) {
-		disableProcessing ();
-	} else {
-
-		//	[3454015]	Removed all redundant transactions to set the parametric EQ filter
-		//	mode to normal (not necessary since the filters are now always on to deal with
-		//	fixing the phase shift problem between right and left channels).  Added code
-		//	to mute the codec, delay for mute to take place prior to setting the filter 
-		//	coefficients.  After setting the filter coefficients, the mute state is restored.  
-		
-		SetVolumeCoefficients (0, 0);						//	mute the amplifier
-		IODelay ( 70000 );									//	delay to allow mute to take place (2400 samples max)
-		SetAnalogPowerDownMode (kPowerDownAnalog);
-		IODelay ( 10000 );
-		InitEQSerialMode ( kSetFastLoadMode );				//	and pause the DSP
-	
-		BuildCustomEQCoefficients (inEQStructure);
-
-		if (FALSE == inRealtime) {
-			for ( UInt32 index = 0; index < kTAS3004VOLwidth; index++ ) { 
-				volumeData[index] = 0; 
-			}
-			CODEC_WriteRegister( kTAS3004VolumeCtrlReg, volumeData, kUPDATE_HW );
-			IOSleep ( kMAX_VOLUME_RAMP_DELAY );
-						
-			SndHWSetOutputBiquadGroup (mEQPref.filterCount, mEQPref.filter[0].coefficient);
-	
-			CODEC_ReadRegister( kTAS3004VolumeCtrlReg, volumeData );
-			CODEC_WriteRegister( kTAS3004VolumeCtrlReg, volumeData, kUPDATE_HW );
-		} else {
-			setBiquadCoefficients (mEQPref.filter[0].coefficient);
-		}
-
-		// [3323073]
-		for ( index = 0; index < kTAS3004BIQwidth; index++ ) {
-			standbyTAS3004Regs.sLB0[index] = shadowTAS3004Regs.sLB0[index];
-			standbyTAS3004Regs.sLB1[index] = shadowTAS3004Regs.sLB1[index];
-			standbyTAS3004Regs.sLB2[index] = shadowTAS3004Regs.sLB2[index];
-			standbyTAS3004Regs.sLB3[index] = shadowTAS3004Regs.sLB3[index];
-			standbyTAS3004Regs.sLB4[index] = shadowTAS3004Regs.sLB4[index];
-			standbyTAS3004Regs.sLB5[index] = shadowTAS3004Regs.sLB5[index];
-			standbyTAS3004Regs.sLB6[index] = shadowTAS3004Regs.sLB6[index];
-			standbyTAS3004Regs.sRB0[index] = shadowTAS3004Regs.sRB0[index];
-			standbyTAS3004Regs.sRB1[index] = shadowTAS3004Regs.sRB1[index];
-			standbyTAS3004Regs.sRB2[index] = shadowTAS3004Regs.sRB2[index];
-			standbyTAS3004Regs.sRB3[index] = shadowTAS3004Regs.sRB3[index];
-			standbyTAS3004Regs.sRB4[index] = shadowTAS3004Regs.sRB4[index];
-			standbyTAS3004Regs.sRB5[index] = shadowTAS3004Regs.sRB5[index];
-			standbyTAS3004Regs.sRB6[index] = shadowTAS3004Regs.sRB6[index];
-		}
-		
-		mEQDisabled = FALSE;
-		
-		minVolume = kMinimumVolume;
-		maxVolume = kMaximumVolume;
-		
-		//	[3454015]  If hardware was not muted then restore the volume setting.
-		InitEQSerialMode ( kSetNormalLoadMode );			//	and resume running the DSP
-		IODelay ( 10000 );
-		SetAnalogPowerDownMode (kPowerNormalAnalog);
-		IODelay ( 10000 );
-		if ( !mAnalogMuteState ) {
-			SetVolumeCoefficients (volumeTable[(UInt32)mVolLeft], volumeTable[(UInt32)mVolRight]);
-		}
-	}	
-
-	debug3IOLog ("- AppleTAS3004Audio::setEQ (%p, %d)\n", inEQStructure, inRealtime);
-	return;
 }
 
 IOReturn AppleTAS3004Audio::setBiquadCoefficients ( void * biquadCoefficients )
@@ -1356,144 +1227,6 @@ IOReturn AppleTAS3004Audio::setBiquadCoefficients ( void * biquadCoefficients )
 	return totalErr;
 }
 
-IOReturn AppleTAS3004Audio::BuildCustomEQCoefficients ( void * inEQStructure ) 
-{
-	UInt32 filterIndex, offset, countOver2;
-	FourDotTwenty one;
-	FourDotTwenty zero;
-	one.integerAndFraction1 = 0x10;
-	one.fraction2 = 0x00;
-	one.fraction3 = 0x00;
-	zero.integerAndFraction1 = 0x00;
-	zero.fraction2 = 0x00;
-	zero.fraction3 = 0x00;
-
-	// Reorder filters that will run in hardware 
-	GenerateOptimalFilterOrder ((EQStructPtr)inEQStructure);
-	
-	bzero (&mEQPref, sizeof (EQPrefsElement));
-	
-	mEQPref.filterSampleRate = 0;
-	mEQPref.drcCompressionRatioNumerator = kDrcRatioNumerator;
-	mEQPref.drcCompressionRatioDenominator = kDrcRationDenominator;
-	mEQPref.drcThreshold = kDrcUnityThresholdHW;
-	mEQPref.drcMaximumVolume = kDefaultMaximumVolume;	// FIX: this should come from incoming structure?
-	mEQPref.drcEnable = false;
-
-	mEQPref.layoutID = 0;
-	mEQPref.deviceID = 0;
-	mEQPref.speakerID = 0;
-	mEQPref.reserved = 0;
-	mEQPref.filterCount = 14;
-
-	countOver2 = (mEQPref.filterCount) >> 1;
-	// first N filters are run in software
-	filterIndex = 0;
-	offset = 0;
-	while (TRUE == ((EQStructPtr)inEQStructure)->runInSoftware[filterIndex++]) {
-		offset++;
-	}
-
-	for (filterIndex = 0; filterIndex < countOver2; filterIndex++) {
-		// Left
-		if (FALSE == ((EQStructPtr)inEQStructure)->bypassFilter[offset + filterIndex]) {
-			convertToFourDotTwenty ( &(mEQPref.filter[filterIndex].coefficient[0]), &(((EQStructPtr)inEQStructure)->b0[offset + filterIndex]) );
-			convertToFourDotTwenty ( &(mEQPref.filter[filterIndex].coefficient[1]), &(((EQStructPtr)inEQStructure)->b1[offset + filterIndex]) );
-			convertToFourDotTwenty ( &(mEQPref.filter[filterIndex].coefficient[2]), &(((EQStructPtr)inEQStructure)->b2[offset + filterIndex]) );
-			convertToFourDotTwenty ( &(mEQPref.filter[filterIndex].coefficient[3]), &(((EQStructPtr)inEQStructure)->a1[offset + filterIndex]) );
-			convertToFourDotTwenty ( &(mEQPref.filter[filterIndex].coefficient[4]), &(((EQStructPtr)inEQStructure)->a2[offset + filterIndex]) );
-		} else {
-			mEQPref.filter[filterIndex].coefficient[0] = one;
-			mEQPref.filter[filterIndex].coefficient[1] = zero;
-			mEQPref.filter[filterIndex].coefficient[2] = zero;
-			mEQPref.filter[filterIndex].coefficient[3] = zero;
-			mEQPref.filter[filterIndex].coefficient[4] = zero;
-		}
-		// Right
-		mEQPref.filter[filterIndex + countOver2].coefficient[0] = mEQPref.filter[filterIndex].coefficient[0];
-		mEQPref.filter[filterIndex + countOver2].coefficient[1] = mEQPref.filter[filterIndex].coefficient[1];
-		mEQPref.filter[filterIndex + countOver2].coefficient[2] = mEQPref.filter[filterIndex].coefficient[2];
-		mEQPref.filter[filterIndex + countOver2].coefficient[3] = mEQPref.filter[filterIndex].coefficient[3];
-		mEQPref.filter[filterIndex + countOver2].coefficient[4] = mEQPref.filter[filterIndex].coefficient[4];
-
-#if 0
-		//IOLog ("inEQStructure->bypassFilter[%ld] = %d\n", offset + filterIndex, ((EQStructPtr)inEQStructure)->bypassFilter[offset + filterIndex]);		
-		IOLog (" - - - - - - - - - - - - - - \n");
-		IOLog ("inEQStructure->b0[%ld] = 0x%lX\n", offset + (filterIndex >> 1), *(UInt32*)&((EQStructPtr)inEQStructure)->b0[offset + (filterIndex >> 1)]);
-		IOLog ("inEQStructure->b1[%ld] = 0x%lX\n", offset + (filterIndex >> 1), *(UInt32*)&((EQStructPtr)inEQStructure)->b1[offset + (filterIndex >> 1)]);
-		IOLog ("inEQStructure->b2[%ld] = 0x%lX\n", offset + (filterIndex >> 1), *(UInt32*)&((EQStructPtr)inEQStructure)->b2[offset + (filterIndex >> 1)]);
-		IOLog ("inEQStructure->a1[%ld] = 0x%lX\n", offset + (filterIndex >> 1), *(UInt32*)&((EQStructPtr)inEQStructure)->a1[offset + (filterIndex >> 1)]);
-		IOLog ("inEQStructure->a2[%ld] = 0x%lX\n", offset + (filterIndex >> 1), *(UInt32*)&((EQStructPtr)inEQStructure)->a2[offset + (filterIndex >> 1)]);
-		IOLog ("mEQPref.filter[%ld].coefficient[0] = 0x%X%X%X\n", filterIndex, mEQPref.filter[filterIndex].coefficient[0].integerAndFraction1, mEQPref.filter[filterIndex].coefficient[0].fraction2, mEQPref.filter[filterIndex].coefficient[0].fraction3);
-		IOLog ("mEQPref.filter[%ld].coefficient[1] = 0x%X%X%X\n", filterIndex, mEQPref.filter[filterIndex].coefficient[1].integerAndFraction1, mEQPref.filter[filterIndex].coefficient[1].fraction2, mEQPref.filter[filterIndex].coefficient[1].fraction3);
-		IOLog ("mEQPref.filter[%ld].coefficient[2] = 0x%X%X%X\n", filterIndex, mEQPref.filter[filterIndex].coefficient[2].integerAndFraction1, mEQPref.filter[filterIndex].coefficient[2].fraction2, mEQPref.filter[filterIndex].coefficient[2].fraction3);
-		IOLog ("mEQPref.filter[%ld].coefficient[3] = 0x%X%X%X\n", filterIndex, mEQPref.filter[filterIndex].coefficient[3].integerAndFraction1, mEQPref.filter[filterIndex].coefficient[3].fraction2, mEQPref.filter[filterIndex].coefficient[3].fraction3);
-		IOLog ("mEQPref.filter[%ld].coefficient[4] = 0x%X%X%X\n", filterIndex, mEQPref.filter[filterIndex].coefficient[4].integerAndFraction1, mEQPref.filter[filterIndex].coefficient[4].fraction2, mEQPref.filter[filterIndex].coefficient[4].fraction3);
-		IOSleep (200);
-#endif
-	}
-
-	return kIOReturnSuccess;
-}
-
-void AppleTAS3004Audio::GenerateOptimalFilterOrder (EQStructPtr ioEQ) {
-    UInt32				index, new_index;
-    EQStruct			tempEQ;
-   
-    new_index = 0;
-    
-	// make a temporary copy of EQ to preserve it when switching order
-	memcpy (&tempEQ, ioEQ, sizeof (EQStruct));
-    
-    // Now re-order original filter structure in optimal order
-	// LP, HP, BP, BR, AP first
-    for(index = 0; index < kMaxNumFilters; index++) {
-		if (FALSE == tempEQ.runInSoftware && FALSE == tempEQ.bypassFilter[index]) {
-			if (tempEQ.type[index] == kLowPass  || tempEQ.type[index] == kHighPass   || 
-				tempEQ.type[index] == kBandPass || tempEQ.type[index] == kBandReject || 
-				tempEQ.type[index] == kAllPass) {
-				copyFilter (&tempEQ, ioEQ, index, new_index);
-                new_index++;
-            }
-        }
-    }
-    // LS, HS next
-    for(index = 0; index < kMaxNumFilters; index++) {
-		if (FALSE == tempEQ.runInSoftware && FALSE == tempEQ.bypassFilter[index]) {
-            if (tempEQ.type[index] == kLowShelf  || tempEQ.type[index] == kHighShelf) {
-				copyFilter (&tempEQ, ioEQ, index, new_index);
-                new_index++;
-            }
-        }
-    }
-    // Parametrics next
-    for(index = 0; index < kMaxNumFilters; index++) {
-		if (FALSE == tempEQ.runInSoftware && FALSE == tempEQ.bypassFilter[index]) {
-            if (tempEQ.type[index] == kParametric) {
-				copyFilter (&tempEQ, ioEQ, index, new_index);
-                new_index++;
-            }
-        }
-    }
-	// Bypassed filters last
-    for(index = 0; index < kMaxNumFilters; index++) {
-		if (FALSE == tempEQ.runInSoftware && TRUE == tempEQ.bypassFilter[index]) {
- 			copyFilter (&tempEQ, ioEQ, index, new_index);
-            new_index++;
-        }
-    }
-}
-
-void AppleTAS3004Audio::copyFilter (EQStructPtr source, EQStructPtr dest, UInt32 sourceIndex, UInt32 destIndex) {
-	dest->b0[destIndex] = source->b0[sourceIndex];
-	dest->b1[destIndex] = source->b1[sourceIndex];
-	dest->b2[destIndex] = source->b2[sourceIndex];
-	dest->a1[destIndex] = source->a1[sourceIndex];
-	dest->a2[destIndex] = source->a2[sourceIndex];
-	dest->bypassFilter[destIndex] = source->bypassFilter[sourceIndex];
-	dest->type[destIndex] = source->type[sourceIndex];
-}
-
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //	This routine will only restore unity gain all pass coefficients to the
 //	biquad registers.  All other coefficients to be passed through exported
@@ -1503,11 +1236,11 @@ void AppleTAS3004Audio::copyFilter (EQStructPtr source, EQStructPtr dest, UInt32
 //	left and right channels where a hardware fault in the TAS3004 results in
 //	a one sample delay of the left channel.  Disabling the EQ now flushes the
 //	filter coefficients to a standby cache.  
-void AppleTAS3004Audio::disableProcessing (void) {
+void AppleTAS3004Audio::disableProcessing ( Boolean inRealtime ) {
 	UInt32			index;
 	UInt8			data[kTAS3004BIQwidth*2];
 
-	debugIOLog ( "+ AppleTAS3004Audio::disableProcessing\n" );
+	debugIOLog (3, "+ AppleTAS3004Audio::disableProcessing, already disabled = %s", mEQDisabled ? "true" : "false" );
 	
 	if (FALSE == mEQDisabled) {	// [3250195], don't allow multiple disables (sets standby to disabled coefficients!)
 		//	[3280002]	begin {
@@ -1518,14 +1251,14 @@ void AppleTAS3004Audio::disableProcessing (void) {
 		//	to mute the codec, delay for mute to take place prior to setting the filter 
 		//	coefficients.  After setting the filter coefficients, the mute state is restored.  
 		
-		SetVolumeCoefficients (0, 0);						//	mute the amplifier
-		IODelay ( 70000 );									//	delay to allow mute to take place (2400 samples max)
-		SetAnalogPowerDownMode (kPowerDownAnalog);
-		IODelay ( 10000 );
-		InitEQSerialMode ( kSetFastLoadMode );				//	and pause the DSP
-	
-		setDRCProcessing ( NULL, FALSE );
-		
+		if (FALSE == inRealtime) {	
+			SetVolumeCoefficients (0, 0);						//	mute the amplifier
+			IODelay ( 70000 );									//	delay to allow mute to take place (2400 samples max)
+			SetAnalogPowerDownMode (kPowerDownAnalog);			//	[3455140]
+			IODelay ( 10000 );
+			InitEQSerialMode ( kSetFastLoadMode );				//	and pause the DSP
+		}
+				
 		for( index = 0; index < sizeof ( data ); index++ ) { data[index] = 0x00; }
 		data[3] = 0x10;
 		for ( index = 0; index < kTAS3004BIQwidth; index++ ) {
@@ -1544,38 +1277,44 @@ void AppleTAS3004Audio::disableProcessing (void) {
 			standbyTAS3004Regs.sRB5[index] = shadowTAS3004Regs.sRB5[index];
 			standbyTAS3004Regs.sRB6[index] = shadowTAS3004Regs.sRB6[index];
 		}
+
+		for( index = 0; index < kTAS3004DRCwidth; index++ ) {
+			standbyTAS3004Regs.sDRC[index] = shadowTAS3004Regs.sDRC[index];
+		}
 		
 		for ( index = kTAS3004LeftBiquad0CtrlReg; index < kTAS3004LeftBiquad6CtrlReg; index++ ) {
 			CODEC_WriteRegister( index, &data[3], kUPDATE_ALL );
 			CODEC_WriteRegister( index + ( kTAS3004RightBiquad0CtrlReg - kTAS3004LeftBiquad0CtrlReg ), &data[3], kUPDATE_ALL );
 		}
-		
+			
 		CODEC_WriteRegister( kTAS3004LeftBiquad6CtrlReg, &data[3], kUPDATE_ALL );
 		CODEC_WriteRegister( kTAS3004RightBiquad6CtrlReg, &data[0], kUPDATE_ALL );
 	
-		//	[3454015]  If hardware was not muted then restore the volume setting.
-		InitEQSerialMode ( kSetNormalLoadMode );			//	and resume running the DSP
-		IODelay ( 10000 );
-		SetAnalogPowerDownMode (kPowerNormalAnalog);
-		IODelay ( 10000 );
-		if ( !mAnalogMuteState ) {
-			SetVolumeCoefficients (volumeTable[(UInt32)mVolLeft], volumeTable[(UInt32)mVolRight]);
+		if (FALSE == inRealtime) {	
+			//	[3454015]  If hardware was not muted then restore the volume setting.
+			InitEQSerialMode ( kSetNormalLoadMode );			//	and resume running the DSP
+			IODelay ( 10000 );
+			SetAnalogPowerDownMode (kPowerNormalAnalog);
+			IODelay ( 10000 );
+			if ( !mAnalogMuteState ) {
+				SetVolumeCoefficients (volumeTable[(UInt32)mVolLeft], volumeTable[(UInt32)mVolRight]);
+			}
 		}
-
+		
 		mEQDisabled = TRUE;
 	}
 	//	[3280002]	} end
 
-	debugIOLog ( "- AppleTAS3004Audio::disableProcessing\n" );
+	debugIOLog (3,  "- AppleTAS3004Audio::disableProcessing" );
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void AppleTAS3004Audio::enableProcessing (void) {
-	UInt8			mcr2Data[kTAS3004MaximumRegisterWidth];
+	UInt8			mcr2Data[kTAS3004DRCwidth];
 	UInt32			index;
 	UInt8			data[kTAS3004BIQwidth*2];
 
-	debugIOLog ( "+ AppleTAS3004Audio::enableEQ\n" );
+	debugIOLog (3,  "+ AppleTAS3004Audio::enableEQ" );
 	
 	//	[3454015]	Removed all redundant transactions to set the parametric EQ filter
 	//	mode to normal (not necessary since the filters are now always on to deal with
@@ -1584,7 +1323,9 @@ void AppleTAS3004Audio::enableProcessing (void) {
 	//	coefficients.  After setting the filter coefficients, the mute state is restored.  
 	
 	SetVolumeCoefficients (0, 0);						//	mute the amplifier
-	IODelay ( 50000 );									//	delay to allow mute to take place (2400 samples max)
+	IODelay ( 70000 );									//	delay to allow mute to take place (2400 samples max)
+	SetAnalogPowerDownMode (kPowerDownAnalog);			//	[3455140]
+	IODelay ( 10000 );
 	InitEQSerialMode ( kSetFastLoadMode );				//	and pause the DSP
 
 	//	[3280002]	begin {
@@ -1610,19 +1351,24 @@ void AppleTAS3004Audio::enableProcessing (void) {
 	
 	//	[3280002]	} end
 
-	CODEC_ReadRegister( kTAS3004DynamicRangeCtrlReg, mcr2Data );
-	mcr2Data[DRC_AboveThreshold] &= 0xFE;				//	TURN the DRC ON!
+	// read out of the standby regs and turn on only if needed
+	for( index = 0; index < kTAS3004DRCwidth; index++ ) {
+		mcr2Data[index] = standbyTAS3004Regs.sDRC[index];
+	}
 	CODEC_WriteRegister( kTAS3004DynamicRangeCtrlReg, mcr2Data, kFORCE_UPDATE_ALL );
 
 	//	[3454015]  If hardware was not muted then restore the volume setting.
 	InitEQSerialMode ( kSetNormalLoadMode );			//	and resume running the DSP
+	IODelay ( 10000 );
+	SetAnalogPowerDownMode (kPowerNormalAnalog);		//	[3455140]
+	IODelay ( 10000 );
 	if ( !mAnalogMuteState ) {
 		SetVolumeCoefficients (volumeTable[(UInt32)mVolLeft], volumeTable[(UInt32)mVolRight]);
 	}
 
 	mEQDisabled = FALSE;
 
-	debugIOLog ( "- AppleTAS3004Audio::enableEQ\n" );
+	debugIOLog (3,  "- AppleTAS3004Audio::enableEQ" );
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1788,7 +1534,7 @@ IOReturn AppleTAS3004Audio::SetOutputBiquadCoefficients( UInt32 streamID, UInt32
 	}
 
 Exit:
-	debug5IOLog ("± AppleTAS3004Audio::SetOutputBiquadCoefficients (%4s, %ld,%p) returns %x\n", (char*)&streamID, biquadRefNum, biquadCoefficients, err);
+	debugIOLog (3, "± AppleTAS3004Audio::SetOutputBiquadCoefficients (%4s, %ld,%p) returns %x", (char*)&streamID, biquadRefNum, biquadCoefficients, err);
 	return err;
 }
 

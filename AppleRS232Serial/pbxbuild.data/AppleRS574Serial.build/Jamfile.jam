@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = AppleRS232Serial ;
-export deferred SRCROOT = /play/AppleRS232Serial ;
+export deferred SRCROOT = /Play/AppleRS232Serial ;
 
 # User-defined project-wide settings for project
 
@@ -29,12 +29,12 @@ export deferred HEADER_SEARCH_PATHS =  ;
 export deferred INSTALL_GROUP = wheel ;
 export deferred INSTALL_MODE = "a-w, u+w, a+rX" ;
 export deferred INSTALL_OWNER = root ;
-export deferred INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOSerialFamily.kext/Contents/PlugIns/" ;
+export deferred INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOSerialFamily.kext/Contents/PlugIns" ;
 export deferred KERNEL_MODULE = YES ;
 export deferred LIBRARY_SEARCH_PATHS =  ;
 export deferred MODULE_IOKIT = YES ;
 export deferred MODULE_NAME = com.apple.driver.AppleRS574Serial ;
-export deferred MODULE_VERSION = 1.2.1 ;
+export deferred MODULE_VERSION = 1.2.3 ;
 export deferred OTHER_CFLAGS =  ;
 export deferred OTHER_LDFLAGS =  ;
 export deferred OTHER_REZFLAGS =  ;

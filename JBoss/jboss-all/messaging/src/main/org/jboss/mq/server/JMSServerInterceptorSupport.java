@@ -7,50 +7,50 @@
 package org.jboss.mq.server;
 
 import javax.jms.Destination;
-
 import javax.jms.JMSException;
 import javax.jms.Queue;
 import javax.jms.TemporaryQueue;
 import javax.jms.TemporaryTopic;
 import javax.jms.Topic;
-import javax.jms.JMSException;
 
+import org.jboss.logging.Logger;
 import org.jboss.mq.AcknowledgementRequest;
 import org.jboss.mq.ConnectionToken;
 import org.jboss.mq.DurableSubscriptionID;
-
 import org.jboss.mq.SpyDestination;
-import org.jboss.mq.SpyTopic;
 import org.jboss.mq.SpyMessage;
-import org.jboss.mq.TransactionRequest;
+import org.jboss.mq.SpyTopic;
 import org.jboss.mq.Subscription;
+import org.jboss.mq.TransactionRequest;
 
-import org.jboss.logging.Logger;
 /**
  * A pass through JMSServerInvoker.
  *
  * @author <a href="mailto:pra@tim.se">Peter Antman</a>
- * @version $Revision: 1.1 $
+ * @version $Revision: 1.1.4.1 $
  */
 
-public class JMSServerInterceptorSupport implements JMSServerInterceptor {
+public class JMSServerInterceptorSupport implements JMSServerInterceptor
+{
    protected Logger log;
    /**
     * Next invoker in chain.
     */
    protected JMSServerInterceptor nextInterceptor = null;
-   
-   public JMSServerInterceptorSupport() {
+
+   public JMSServerInterceptorSupport()
+   {
       log = Logger.getLogger(this.getClass().getName());
    }
-   
+
    /**
     * Set next invoker in chain to be called. Is mot often the real JMSServer
     */
-   public void setNext(JMSServerInterceptor server) {
+   public void setNext(JMSServerInterceptor server)
+   {
       this.nextInterceptor = server;
    }
-   
+
    /**
     * @see JMSServerInterceptor#getNext()
     */
@@ -61,8 +61,9 @@ public class JMSServerInterceptorSupport implements JMSServerInterceptor {
 
    /**
     * Get the thread group of the server.
-    */ 
-   public ThreadGroup getThreadGroup() {
+    */
+   public ThreadGroup getThreadGroup()
+   {
       return nextInterceptor.getThreadGroup();
    }
    /**
@@ -71,10 +72,10 @@ public class JMSServerInterceptorSupport implements JMSServerInterceptor {
     * @return               The ID value
     * @exception JMSException  Description of Exception
     */
-   public String getID()
-      throws JMSException {
-     String ID = nextInterceptor.getID();
-     return ID;
+   public String getID() throws JMSException
+   {
+      String ID = nextInterceptor.getID();
+      return ID;
    }
 
    /**
@@ -84,8 +85,8 @@ public class JMSServerInterceptorSupport implements JMSServerInterceptor {
     * @return               The TemporaryTopic value
     * @exception JMSException  Description of Exception
     */
-   public TemporaryTopic getTemporaryTopic(ConnectionToken dc)
-      throws JMSException {
+   public TemporaryTopic getTemporaryTopic(ConnectionToken dc) throws JMSException
+   {
       return nextInterceptor.getTemporaryTopic(dc);
    }
 
@@ -96,8 +97,8 @@ public class JMSServerInterceptorSupport implements JMSServerInterceptor {
     * @return               The TemporaryQueue value
     * @exception JMSException  Description of Exception
     */
-   public TemporaryQueue getTemporaryQueue(ConnectionToken dc)
-      throws JMSException {
+   public TemporaryQueue getTemporaryQueue(ConnectionToken dc) throws JMSException
+   {
       return nextInterceptor.getTemporaryQueue(dc);
    }
 
@@ -107,8 +108,8 @@ public class JMSServerInterceptorSupport implements JMSServerInterceptor {
     * @param dc             Description of Parameter
     * @exception JMSException  Description of Exception
     */
-   public void connectionClosing(ConnectionToken dc)
-      throws JMSException {
+   public void connectionClosing(ConnectionToken dc) throws JMSException
+   {
       nextInterceptor.connectionClosing(dc);
    }
 
@@ -118,9 +119,9 @@ public class JMSServerInterceptorSupport implements JMSServerInterceptor {
     * @param ID             a clientID
     * @exception JMSException if ID is already taken
     */
-   public void checkID(String ID)
-      throws JMSException {
-       nextInterceptor.checkID(ID);
+   public void checkID(String ID) throws JMSException
+   {
+      nextInterceptor.checkID(ID);
    }
 
    /**
@@ -130,9 +131,9 @@ public class JMSServerInterceptorSupport implements JMSServerInterceptor {
     * @param message        The feature to be added to the Message attribute
     * @exception JMSException  Description of Exception
     */
-   public void addMessage(ConnectionToken dc, SpyMessage message)
-      throws JMSException {
-      nextInterceptor.addMessage(dc,message);
+   public void addMessage(ConnectionToken dc, SpyMessage message) throws JMSException
+   {
+      nextInterceptor.addMessage(dc, message);
    }
 
    /**
@@ -143,9 +144,9 @@ public class JMSServerInterceptorSupport implements JMSServerInterceptor {
     * @return               Description of the Returned Value
     * @exception JMSException  Description of Exception
     */
-   public Queue createQueue(ConnectionToken dc, String dest)
-      throws JMSException {
-      return nextInterceptor.createQueue(dc,dest);
+   public Queue createQueue(ConnectionToken dc, String dest) throws JMSException
+   {
+      return nextInterceptor.createQueue(dc, dest);
    }
 
    /**
@@ -156,9 +157,9 @@ public class JMSServerInterceptorSupport implements JMSServerInterceptor {
     * @return               Description of the Returned Value
     * @exception JMSException  Description of Exception
     */
-   public Topic createTopic(ConnectionToken dc, String dest)
-      throws JMSException {
-      return nextInterceptor.createTopic(dc,dest);
+   public Topic createTopic(ConnectionToken dc, String dest) throws JMSException
+   {
+      return nextInterceptor.createTopic(dc, dest);
    }
 
    /**
@@ -168,9 +169,9 @@ public class JMSServerInterceptorSupport implements JMSServerInterceptor {
     * @param dest           Description of Parameter
     * @exception JMSException  Description of Exception
     */
-   public void deleteTemporaryDestination(ConnectionToken dc, SpyDestination dest)
-      throws JMSException {
-      nextInterceptor.deleteTemporaryDestination(dc,dest);
+   public void deleteTemporaryDestination(ConnectionToken dc, SpyDestination dest) throws JMSException
+   {
+      nextInterceptor.deleteTemporaryDestination(dc, dest);
    }
 
    /**
@@ -180,9 +181,9 @@ public class JMSServerInterceptorSupport implements JMSServerInterceptor {
     * @param t              Description of Parameter
     * @exception JMSException  Description of Exception
     */
-   public void transact(ConnectionToken dc, TransactionRequest t)
-      throws JMSException {
-      nextInterceptor.transact(dc,t);
+   public void transact(ConnectionToken dc, TransactionRequest t) throws JMSException
+   {
+      nextInterceptor.transact(dc, t);
    }
 
    /**
@@ -192,9 +193,9 @@ public class JMSServerInterceptorSupport implements JMSServerInterceptor {
     * @param item           Description of Parameter
     * @exception JMSException  Description of Exception
     */
-   public void acknowledge(ConnectionToken dc, AcknowledgementRequest item)
-      throws JMSException {
-      nextInterceptor.acknowledge(dc,item);
+   public void acknowledge(ConnectionToken dc, AcknowledgementRequest item) throws JMSException
+   {
+      nextInterceptor.acknowledge(dc, item);
    }
 
    /**
@@ -206,9 +207,9 @@ public class JMSServerInterceptorSupport implements JMSServerInterceptor {
     * @return               Description of the Returned Value
     * @exception JMSException  Description of Exception
     */
-   public SpyMessage[] browse(ConnectionToken dc, Destination dest, String selector)
-      throws JMSException {
-      return nextInterceptor.browse(dc,dest,selector);
+   public SpyMessage[] browse(ConnectionToken dc, Destination dest, String selector) throws JMSException
+   {
+      return nextInterceptor.browse(dc, dest, selector);
    }
 
    /**
@@ -220,9 +221,9 @@ public class JMSServerInterceptorSupport implements JMSServerInterceptor {
     * @return               Description of the Returned Value
     * @exception JMSException  Description of Exception
     */
-   public SpyMessage receive(ConnectionToken dc, int subscriberId, long wait)
-      throws JMSException {
-      return nextInterceptor.receive(dc,subscriberId,wait);
+   public SpyMessage receive(ConnectionToken dc, int subscriberId, long wait) throws JMSException
+   {
+      return nextInterceptor.receive(dc, subscriberId, wait);
    }
 
    /**
@@ -232,9 +233,9 @@ public class JMSServerInterceptorSupport implements JMSServerInterceptor {
     * @param enabled        The new Enabled value
     * @exception JMSException  Description of Exception
     */
-   public void setEnabled(ConnectionToken dc, boolean enabled)
-      throws JMSException {
-      nextInterceptor.setEnabled(dc,enabled);
+   public void setEnabled(ConnectionToken dc, boolean enabled) throws JMSException
+   {
+      nextInterceptor.setEnabled(dc, enabled);
    }
 
    /**
@@ -244,9 +245,9 @@ public class JMSServerInterceptorSupport implements JMSServerInterceptor {
     * @param subscriptionId  Description of Parameter
     * @exception JMSException   Description of Exception
     */
-   public void unsubscribe(ConnectionToken dc, int subscriptionId)
-      throws JMSException {
-      nextInterceptor.unsubscribe(dc,subscriptionId);
+   public void unsubscribe(ConnectionToken dc, int subscriptionId) throws JMSException
+   {
+      nextInterceptor.unsubscribe(dc, subscriptionId);
    }
 
    /**
@@ -255,9 +256,9 @@ public class JMSServerInterceptorSupport implements JMSServerInterceptor {
     * @param id             Description of Parameter
     * @exception JMSException  Description of Exception
     */
-   public void destroySubscription(ConnectionToken dc,DurableSubscriptionID id)
-      throws JMSException {
-      nextInterceptor.destroySubscription(dc,id);
+   public void destroySubscription(ConnectionToken dc, DurableSubscriptionID id) throws JMSException
+   {
+      nextInterceptor.destroySubscription(dc, id);
    }
 
    /**
@@ -268,11 +269,11 @@ public class JMSServerInterceptorSupport implements JMSServerInterceptor {
     * @return               a clientId.
     * @exception JMSException  if user was not allowed to login
     */
-   public String checkUser(String userName, String password)
-      throws JMSException {
-      return nextInterceptor.checkUser(userName,password);
+   public String checkUser(String userName, String password) throws JMSException
+   {
+      return nextInterceptor.checkUser(userName, password);
    }
-   
+
    /**
     * Check user for autentication.
     *
@@ -281,9 +282,9 @@ public class JMSServerInterceptorSupport implements JMSServerInterceptor {
     * @return               a sessionId
     * @exception JMSException  if user was not allowed to login
     */
-   public String authenticate(String userName, String password)
-      throws JMSException {
-      return nextInterceptor.authenticate(userName,password);
+   public String authenticate(String userName, String password) throws JMSException
+   {
+      return nextInterceptor.authenticate(userName, password);
    }
 
    /**
@@ -291,9 +292,9 @@ public class JMSServerInterceptorSupport implements JMSServerInterceptor {
     * @param s                        org.jboss.mq.Subscription
     * @exception JMSException  The exception description.
     */
-   public void subscribe(org.jboss.mq.ConnectionToken dc, org.jboss.mq.Subscription s)
-      throws JMSException {
-      nextInterceptor.subscribe(dc,s);
+   public void subscribe(org.jboss.mq.ConnectionToken dc, org.jboss.mq.Subscription s) throws JMSException
+   {
+      nextInterceptor.subscribe(dc, s);
    }
 
    /**
@@ -303,18 +304,19 @@ public class JMSServerInterceptorSupport implements JMSServerInterceptor {
     * @param clientTime     Description of Parameter
     * @exception JMSException  Description of Exception
     */
-   public void ping(ConnectionToken dc, long clientTime)
-      throws JMSException {
-      nextInterceptor.ping(dc,clientTime);
+   public void ping(ConnectionToken dc, long clientTime) throws JMSException
+   {
+      nextInterceptor.ping(dc, clientTime);
    }
 
-   public SpyTopic getDurableTopic(DurableSubscriptionID sub) 
-      throws JMSException {
+   public SpyTopic getDurableTopic(DurableSubscriptionID sub) throws JMSException
+   {
       return nextInterceptor.getDurableTopic(sub);
    }
 
-   public Subscription getSubscription(ConnectionToken dc,int subscriberId) throws JMSException {
-      return nextInterceptor.getSubscription(dc,subscriberId);
+   public Subscription getSubscription(ConnectionToken dc, int subscriberId) throws JMSException
+   {
+      return nextInterceptor.getSubscription(dc, subscriberId);
    }
 
 } // JMSServerInvokerSupport

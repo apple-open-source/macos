@@ -18,23 +18,18 @@ import java.rmi.server.RMIServerSocketFactory;
 import java.rmi.server.RMIClientSocketFactory;
 import java.rmi.server.UnicastRemoteObject;
 import java.rmi.server.RemoteStub;
+import java.net.InetAddress;
 
 import org.jboss.invocation.MarshalledInvocation;
-import org.jboss.invocation.Invocation;
-import org.jboss.ha.framework.interfaces.DistributedReplicantManager.ReplicantListener;
-import org.jboss.ha.framework.interfaces.LoadBalancePolicy;
-import org.jboss.ha.framework.interfaces.HARMIServer;
-import org.jboss.ha.framework.interfaces.HARMIClient;
-import org.jboss.ha.framework.interfaces.HARMIResponse;
-import org.jboss.ha.framework.interfaces.HARMIProxy;
-import org.jboss.ha.framework.interfaces.HAPartition;
+import org.jboss.ha.framework.interfaces.*;
+import org.jboss.net.sockets.DefaultSocketFactory;
 
-/** 
+/**
  * This class is a <em>server-side</em> proxy for replicated RMI objects.
  *
  * @author bill@burkecentral.com
  * @author sacha.labourey@cogito-info.ch
- * @version $Revision: 1.15.2.2 $
+ * @version $Revision: 1.15.2.4 $
  *
  * <p><b>Revisions:</b><br>
  * <p><b>2001/11/09: Sacha Labourey</b>
@@ -59,14 +54,58 @@ public class HARMIServerImpl
    protected String key;
    protected Class intf;
    protected RefreshProxiesHATarget target;
-   
-   public HARMIServerImpl(HAPartition partition, 
-                          String replicantName, 
-                          Class intf, 
+
+   public HARMIServerImpl(HAPartition partition,
+                          String replicantName,
+                          Class intf,
                           Object handler,
-                          int port, 
-                          RMIClientSocketFactory csf, 
-                          RMIServerSocketFactory ssf) 
+                          int port,
+                          RMIClientSocketFactory csf,
+                          RMIServerSocketFactory ssf)
+      throws Exception
+   {
+      this(partition,
+                      replicantName,
+                      intf,
+                      handler,
+                      port,
+                      csf,
+                      ssf,
+                      null,
+                      null);
+
+   }
+
+    public HARMIServerImpl(HAPartition partition,
+                           String replicantName,
+                           Class intf,
+                           Object handler,
+                           int port,
+                           RMIClientSocketFactory csf,
+                           RMIServerSocketFactory ssf,
+                           InetAddress bindAddress)
+            throws Exception {
+        this(partition,
+                replicantName,
+                intf,
+                handler,
+                port,
+                csf,
+                ssf,
+                bindAddress,
+                null);
+
+    }
+
+   public HARMIServerImpl(HAPartition partition,
+                          String replicantName,
+                          Class intf,
+                          Object handler,
+                          int port,
+                          RMIClientSocketFactory clientSocketFactory,
+                          RMIServerSocketFactory serverSocketFactory,
+                          InetAddress bindAddress,
+                          HARMIProxyCallback callbackEvents)
       throws Exception
    {
       this.handler = handler;
@@ -74,43 +113,72 @@ public class HARMIServerImpl
       this.intf = intf;
       this.key = partition.getPartitionName() + "/" + replicantName;
       Method[] methods = handler.getClass().getMethods();
-      
+
       for (int i = 0; i < methods.length; i++) {
          Long methodkey = new Long(MarshalledInvocation.calculateHash(methods[i]));
          invokerMap.put(methodkey, methods[i]);
       }
-      
-      this.rmistub = (RemoteStub)UnicastRemoteObject.exportObject(this, port, csf, ssf);// casting is necessary because interface has changed in JDK>=1.2
-      this.target = new RefreshProxiesHATarget(partition, replicantName, rmistub, HATarget.ENABLE_INVOCATIONS);
+
+      if( bindAddress != null )
+      {
+         // If there is no serverSocketFactory use a default
+         if( serverSocketFactory == null )
+            serverSocketFactory = new DefaultSocketFactory(bindAddress);
+         else
+         {
+            // See if the server socket supports setBindAddress(String)
+            try
+            {
+               Class[] parameterTypes = {String.class};
+               Class ssfClass = serverSocketFactory.getClass();
+               Method m = ssfClass.getMethod("setBindAddress", parameterTypes);
+               Object[] args = {bindAddress.getHostAddress()};
+               m.invoke(serverSocketFactory, args);
+            }
+            catch (NoSuchMethodException e)
+            {
+               log.warn("Socket factory does not support setBindAddress(String)");
+               // Go with default address
+            }
+            catch (Exception e)
+            {
+               log.warn("Failed to setBindAddress="+bindAddress+" on socket factory", e);
+               // Go with default address
+            }
+         }
+      }
+
+      this.rmistub = (RemoteStub)UnicastRemoteObject.exportObject(this, port, clientSocketFactory, serverSocketFactory);// casting is necessary because interface has changed in JDK>=1.2
+      this.target = new RefreshProxiesHATarget(partition, replicantName, rmistub, HATarget.ENABLE_INVOCATIONS, callbackEvents);
 
       HARMIServer.rmiServers.put(key, this);
    }
 
    /**
     * Create a new HARMIServer implementation that will act as a RMI end-point for a specific server.
-    * 
+    *
     * @param partition {@link HAPartition} that will determine the cluster member
     * @param replicantName Name of the service using this HARMIServer
     * @param intf Class type under which should appear the RMI server dynamically built
     * @param handler Target object to which calls will be forwarded
     * @throws Exception Thrown if any exception occurs during call forwarding
-    */   
+    */
    public HARMIServerImpl(HAPartition partition, String replicantName, Class intf, Object handler) throws Exception
    {
       this(partition, replicantName, intf, handler, 0, null, null);
    }
-   
+
    /**
     * Once a HARMIServer implementation exists, it is possible to ask for a stub that can, for example,
     * be bound in JNDI for client use. Each client stub may incorpore a specific load-balancing
     * policy.
-    * 
-    * @param policy {@link org.jboss.ha.framework.interfaces.LoadBalancingPolicy} implementation to ues on the client.
+    *
+    * @param policy {@link org.jboss.ha.framework.interfaces.LoadBalancePolicy} implementation to ues on the client.
     * @return
-    */   
+    */
    public Object createHAStub(LoadBalancePolicy policy)
    {
-      HARMIClient client = new HARMIClient(target.getReplicants(), target.getCurrentViewId (), 
+      HARMIClient client = new HARMIClient(target.getReplicants(), target.getCurrentViewId (),
                                            policy, key, handler);
       this.target.addProxy (client);
       return Proxy.newProxyInstance(
@@ -119,7 +187,7 @@ public class HARMIServerImpl
       { intf, HARMIProxy.class },
       client);
    }
-   
+
    public void destroy()
    {
       try
@@ -127,29 +195,29 @@ public class HARMIServerImpl
 	 target.destroy();
          HARMIServer.rmiServers.remove(key);
          UnicastRemoteObject.unexportObject(this, true);
-         
+
       } catch (Exception e)
       {
          log.error("failed to destroy", e);
       }
    }
-   
+
    // HARMIServer implementation ----------------------------------------------
 
    public HARMIResponse invoke(long clientViewId, MarshalledInvocation mi) throws Exception
    {
       mi.setMethodMap(invokerMap);
       Method method = mi.getMethod();
-      
+
       try
       {
-         HARMIResponse rsp = new HARMIResponse();         
+         HARMIResponse rsp = new HARMIResponse();
          if (clientViewId != target.getCurrentViewId())
          {
             rsp.newReplicants = new ArrayList(target.getReplicants());
             rsp.currentViewId = target.getCurrentViewId();
-         } 
-         
+         }
+
          rsp.response = method.invoke(handler, mi.getArguments());
          return rsp;
       }
@@ -176,37 +244,48 @@ public class HARMIServerImpl
    {
       return handler;
    }
-   
+
    public class RefreshProxiesHATarget extends HATarget
    {
       protected ArrayList generatedProxies;
-      
-      public RefreshProxiesHATarget(HAPartition partition, 
+      protected HARMIProxyCallback callback = null;
+
+      public RefreshProxiesHATarget(HAPartition partition,
             String replicantName,
             java.io.Serializable target,
-            int allowInvocations) 
+            int allowInvocations)
          throws Exception
       {
-         super (partition, replicantName, target, allowInvocations);         
+         super (partition, replicantName, target, allowInvocations);
       }
-      
+
+      public RefreshProxiesHATarget(HAPartition partition,
+                                    String replicantName,
+                                    java.io.Serializable target,
+                                    int allowInvocations,
+                                    HARMIProxyCallback callbackEvents)
+         throws Exception
+      {
+         super(partition, replicantName, target, allowInvocations);
+         this.callback = callbackEvents;
+      }
       public void init() throws Exception
       {
          super.init ();
          generatedProxies = new ArrayList ();
       }
-      
-      
+
+
       public synchronized void addProxy (HARMIClient client)
       {
          SoftReference ref = new SoftReference(client);
          generatedProxies.add (ref);
       }
-      
+
       public synchronized void replicantsChanged(String key, List newReplicants, int newReplicantsViewId)
       {
          super.replicantsChanged (key, newReplicants, newReplicantsViewId);
-         
+
          // we now update all generated proxies
          //
          int max = generatedProxies.size ();
@@ -224,10 +303,17 @@ public class HARMIServerImpl
                proxy.updateClusterInfo (this.replicants, this.clusterViewId);
             }
          }
-         
+
          if (trash.size () > 0)
             generatedProxies.removeAll (trash);
-         
+
+         if (this.callback != null)
+            try
+            {
+               this.callback.proxyUpdated(); // call callback event handler if any is registered
+            }
+            catch (Throwable notOurBusiness) {}
+
       }
    }
 }

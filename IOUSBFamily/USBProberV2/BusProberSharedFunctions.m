@@ -1,16 +1,16 @@
 /*
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
+ *
+ * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -18,7 +18,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -58,9 +58,8 @@ int GetDeviceAddress( IOUSBDeviceInterface **deviceIntf, USBDeviceAddress * addr
     return 0;
 }
 
-int GetDescriptor(IOUSBDeviceInterface **deviceIntf, UInt8 descType, UInt8 descIndex, void *buf, UInt16 len) {
+IOReturn GetDescriptor(IOUSBDeviceInterface **deviceIntf, UInt8 descType, UInt8 descIndex, void *buf, UInt16 len) {
     IOUSBDevRequest req;
-    IOReturn err;
     
     req.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBStandard, kUSBDevice);
     req.bRequest = kUSBRqGetDescriptor;
@@ -69,11 +68,7 @@ int GetDescriptor(IOUSBDeviceInterface **deviceIntf, UInt8 descType, UInt8 descI
     req.wLength = len;
     req.pData = buf;
     
-    err = (*deviceIntf)->DeviceRequest(deviceIntf, &req);
-    if (err) {
-        return -1;
-    }
-    return req.wLenDone;
+    return (*deviceIntf)->DeviceRequest(deviceIntf, &req);
 }
 
 int GetStringDescriptor(IOUSBDeviceInterface **deviceIntf, UInt8 descIndex, void *buf, UInt16 len, UInt16 lang) {
@@ -205,126 +200,6 @@ char * GetStringFromIndex(UInt8 strIndex, IOUSBDeviceInterface ** deviceIntf) {
     }
 }
 
-/*
-BusProbeClass * GetClassAndSubClass(UInt8 * pcls) {
-    BusProbeClass *bpClass = [[BusProbeClass alloc] init];
-    NSString *cls = @"", *sub = @"";
-    
-    [bpClass setClassNum:pcls[0]];
-    [bpClass setSubclassNum:pcls[1]];
-    
-    switch (pcls[0])
-    {
-        case kUSBCompositeClass:
-            cls = @"Composite";
-            break;
-        case kUSBAudioClass:
-            cls = @"Audio";
-            
-            switch (pcls[1])
-            {
-                case 0x01:
-                    sub = @"Audio Control";
-                    break;
-                case 0x02:
-                    sub = @"Audio Streaming";
-                    break;
-                case 0x03:
-                    sub = @"MIDI Streaming";
-                    break;
-                default:
-                    sub = @"Unknown";
-                    break;
-            }
-                break;
-            
-        case kUSBCommClass:
-            cls = @"Comm";
-            break;
-            
-        case kUSBHIDClass:			
-            cls = @"HID";
-            switch (pcls[1])
-            {
-                case kUSBHIDBootInterfaceSubClass:
-                    sub = @"Boot Interface";
-                    break;
-                default:
-                    sub = @"";
-                    break;
-            }
-                break;
-            
-        case kUSBDisplayClass:
-            cls = @"Display";
-            break;
-            
-        case kUSBPrintingClass:
-            cls = @"Printing";
-            break;
-            
-        case kUSBMassStorageClass:		
-            cls = @"Mass Storage";
-            switch (pcls[1])
-            {
-                case kUSBMassStorageRBCSubClass:        sub = @"Reduced Block Commands"; break;
-                case kUSBMassStorageATAPISubClass:  	sub = @"ATAPI"; break;
-                case kUSBMassStorageQIC157SubClass:  	sub = @"QIC-157"; break;
-                case kUSBMassStorageUFISubClass:  	sub = @"UFI"; break;
-                case kUSBMassStorageSFF8070iSubClass:  	sub = @"SFF-8070i"; break;
-                case kUSBMassStorageSCSISubClass:  	sub = @"SCSI"; break;
-                default:                        	sub = @"Unknown"; break;
-            }
-                break;
-            
-        case kUSBHubClass:
-            cls = @"Hub";
-            break;
-            
-        case kUSBDataClass:
-            cls = @"Data";
-            switch (pcls[1])
-            {
-                case kUSBCommDirectLineSubClass:	sub = @"Direct Line Model";  break;
-                case kUSBCommAbstractSubClass:		sub = @"Abstract Model";   break;
-                case kUSBCommTelephoneSubClass:		sub = @"Telephone Model"; break;
-                case kUSBCommMultiChannelSubClass:	sub = @"Multi Channel Model"; break;
-                case kUSBCommCAPISubClass:		sub = @"CAPI Model"; break;
-                case kUSBCommEthernetNetworkingSubClass:sub = @"Ethernet Networking Model";  break;
-                case kUSBATMNetworkingSubClass:		sub = @"ATM Networking Model";  break;
-                default:				sub = @"Unknown Comm Class Model";  break;
-            }
-                break;
-            
-        case 0xE0:
-            cls = @"Bluetooth Wireless Controller";
-            break;
-            
-        case kUSBApplicationSpecificClass:
-            cls = @"Application Specific";
-            switch (pcls[1])
-            {
-                case kUSBDFUSubClass:         	sub = @"Device Firmware Upgrade"; break;
-                case kUSBIrDABridgeSubClass:  	sub = @"IrDA Bridge"; break;
-                default:                        sub = @"Unknown"; break;
-            }
-                break;
-            
-        case kUSBVendorSpecificClass:
-            cls = sub = @"Vendor-specific";
-            break;
-            
-        default:
-            cls = @"Unknown";
-            break;
-    }
-
-    [bpClass setClassName:cls];
-    [bpClass setSubclassName:sub];
- 
-    return [bpClass autorelease];
-}
-*/
 
 BusProbeClass * GetDeviceClassAndSubClass(UInt8 * pcls) {
     BusProbeClass *bpClass = [[BusProbeClass alloc] init];
@@ -339,11 +214,25 @@ BusProbeClass * GetDeviceClassAndSubClass(UInt8 * pcls) {
             break;
         case kUSBHubClass:
             cls = @"Hub";
+            // Check the bDeviceProtocol.  If 0, then hub is operating at full/low Speed
+            //
+            switch (pcls[2]) {
+                case 1:
+                    protocol = @"High Speed Single Transaction Translator";
+                    break;
+                case 2:
+                    protocol = @"High Speed Multiple Transaction Translators";
+                    break;
+                case 0:
+                default:
+                    protocol = @"Full/Low Speed";
+                    break;
+            }
             break;
-        case 0xDC:
+        case kUSBDiagnosticClass:
             cls = @"Diagnostic Device";
             switch (pcls[1]) {
-                case 0x01:
+                case kUSBReprogrammableDiagnosticSubClass:
                     sub = @"Reprogrammable Diagnostic Device";
                     break;
                 default:
@@ -351,7 +240,7 @@ BusProbeClass * GetDeviceClassAndSubClass(UInt8 * pcls) {
                     break;
             }
             switch (pcls[2]) {
-                case 0x01:
+                case kUSB2ComplianceDeviceProtocol:
                     protocol = @"USB2 Compliance Device";
                     break;
                 default:
@@ -359,10 +248,10 @@ BusProbeClass * GetDeviceClassAndSubClass(UInt8 * pcls) {
                     break;
             }
             break;
-        case 0xE0:
+        case kUSBWirelessControllerClass:
             cls = @"Wireless Controller";
             switch (pcls[1]) {
-                case 0x01:
+                case kUSBRFControllerSubClass:
                     sub = @"RF Controller";
                     break;
                 default:
@@ -370,7 +259,7 @@ BusProbeClass * GetDeviceClassAndSubClass(UInt8 * pcls) {
                     break;
             }
             switch (pcls[2]) {
-                case 0x01:
+                case kUSBBluetoothProgrammingInterfaceProtocol:
                     protocol = @"Bluetooth Programming Interface";
                     break;
                 default:
@@ -378,10 +267,10 @@ BusProbeClass * GetDeviceClassAndSubClass(UInt8 * pcls) {
                     break;
             }
             break;
-        case 0xEF:
+        case kUSBMiscellaneousClass:
             cls = @"Miscellaneous";
             switch (pcls[1]) {
-                case 0x02:
+                case kUSBCommonClassSubClass:
                     sub = @"Common Class";
                     break;
                 default:
@@ -389,7 +278,7 @@ BusProbeClass * GetDeviceClassAndSubClass(UInt8 * pcls) {
                     break;
             }
             switch (pcls[2]) {
-                case 0x01:
+                case KUSBInterfaceAssociationDescriptorProtocol:
                     protocol = @"Interface Association";
                     break;
                 default:
@@ -418,20 +307,20 @@ BusProbeClass * GetDeviceClassAndSubClass(UInt8 * pcls) {
 
 BusProbeClass * GetInterfaceClassAndSubClass(UInt8 * pcls) {
     BusProbeClass *bpClass = [[BusProbeClass alloc] init];
-    NSString *cls = @"", *sub = @"";
+    NSString *cls = @"", *sub = @"",  *protocol = @"";;
     
     switch (pcls[0]) {
-        case kUSBAudioClass:
+        case kUSBAudioInterfaceClass:
             cls = @"Audio";
             switch (pcls[1]) {
-                case 0x01:
-                    sub = @"Audio Control";
+                case kUSBAudioControlSubClass:
+                    sub = @"Control";
                     break;
-                case 0x02:
-                    sub = @"Audio Streaming";
+                case kUSBAudioStreamingSubClass:
+                    sub = @"Streaming";
                     break;
-                case 0x03:
-                    sub = @"MIDI Streaming";
+                case kUSBMIDIStreamingSubClass:
+                    sub = @"Streaming";
                     break;
                 default:
                     sub = @"Unknown";
@@ -453,19 +342,16 @@ BusProbeClass * GetInterfaceClassAndSubClass(UInt8 * pcls) {
                     break;
             }
             break;
-        case kUSBDisplayClass:
-            cls = @"Display";
-            break;
-        case 0x05:
+        case kUSBPhysicalInterfaceClass:
             cls = @"Physical";
             break;
-        case 0x06:
+        case kUSBImageInterfaceClass:
             cls = @"Image";
             break;
-        case kUSBPrintingClass:
+        case kUSBPrintingInterfaceClass:
             cls = @"Printer";
             break;
-        case kUSBMassStorageClass:		
+        case kUSBMassStorageInterfaceClass:		
             cls = @"Mass Storage";
             switch (pcls[1])
             {
@@ -481,9 +367,21 @@ BusProbeClass * GetInterfaceClassAndSubClass(UInt8 * pcls) {
             
         case kUSBHubClass:
             cls = @"Hub";
-            break;
-            
-        case kUSBDataClass:
+
+            switch (pcls[2]) {
+                case 1:
+                    protocol = @"Multi TT Hub configured as a Single TT Hub";
+                    break;
+                case 2:
+                    protocol = @"Multi TT Hub";
+                    break;
+                case 0:
+                default:
+                    protocol = @"";
+                    break;
+            }
+                break;
+        case kUSBCommunicationDataInterfaceClass:
             cls = @"Communications-Data";
             switch (pcls[1])
             {
@@ -497,19 +395,34 @@ BusProbeClass * GetInterfaceClassAndSubClass(UInt8 * pcls) {
                 default:				sub = @"Unknown Comm Class Model";  break;
             }
             break;
-        case 0x0B:
+        case kUSBChipSmartCardInterfaceClass:
             cls = @"Chip/Smart-Card";
             break;
-        case 0x0D:
+        case kUSBContentSecurityInterfaceClass:
             cls = @"Content-Security";
             break;
-        case 0x0E:
+        case kUSBVideoInterfaceClass:
             cls = @"Video";
+            switch (pcls[1]) {
+                case kUSBVideoControlSubClass:
+                    sub = @"Control";
+                    break;
+                case kUSBVideoStreamingSubClass:
+                    sub = @"Streaming";
+                    break;
+                case kUSBVideoInterfaceCollectionSubClass:
+                    sub = @"Interface Collection";
+                    break;
+                default:
+                    sub = @"Unknown";
+                    break;
+            }
+                break;
             break;
-        case 0xDC:
+        case kUSBDiagnosticDeviceInterfaceClass:
             cls = @"Diagnostic Device";
             switch (pcls[1]) {
-                case 0x01:
+                case kUSBReprogrammableDiagnosticSubClass:
                     sub = @"Reprogrammable Diagnostic Device";
                     break;
                 default:
@@ -517,27 +430,35 @@ BusProbeClass * GetInterfaceClassAndSubClass(UInt8 * pcls) {
                     break;
             }
             break;
-        case 0xE0:
+        case kUSBWirelessControllerInterfaceClass:
             cls = @"Wireless Controller";
             switch (pcls[1]) {
-                case 0x01:
+                case kUSBRFControllerSubClass:
                     sub = @"RF Controller";
                     break;
                 default:
                     sub = @"Unknown";
                     break;
             }
-            break;
+                switch (pcls[2]) {
+                    case kUSBBluetoothProgrammingInterfaceProtocol:
+                        protocol = @"Bluetooth Programming Interface";
+                        break;
+                    default:
+                        protocol = @"Unknown";
+                        break;
+                }
+                break;
         case kUSBApplicationSpecificClass:
             cls = @"Application Specific";
             switch (pcls[1]) {
-                case 0x01:
+                case kUSBDFUSubClass:
                     sub = @"Device Firmware Update";
                     break;
-                case 0x02:
+                case kUSBIrDABridgeSubClass:
                     sub = @"IrDA Bridge";
                     break;
-                case 0x03:
+                case kUSBTestMeasurementSubClass:
                     sub = @"Test & Measurement Class";
                     break;
                 default:
@@ -555,9 +476,11 @@ BusProbeClass * GetInterfaceClassAndSubClass(UInt8 * pcls) {
     
     [bpClass setClassNum:pcls[0]];
     [bpClass setSubclassNum:pcls[1]];
-    
+    [bpClass setProtocolNum:pcls[2]];
+   
     [bpClass setClassName:cls];
     [bpClass setSubclassName:sub];
+    [bpClass setProtocolName:protocol];
     
     return [bpClass autorelease];
 }
@@ -617,4 +540,14 @@ UInt32	Swap32(void *p) {
 UInt64	Swap64(void *p) {
     * (UInt64 *) p = CFSwapInt64LittleToHost(*(UInt64 *)p);
     return * (UInt64 *) p;
+    
+}
+
+//  This function will NOT swap the results in memory.  It will
+//  take a pointer to a UInt32 that looks like 0xAABBCCDD and return
+//  a UInt32 that has the first 3 bytes swapped:  0x00CCBBAA
+//
+UInt32 Swap24(void *p) {
+    UInt32 temp = CFSwapInt32LittleToHost(*(UInt32 *)p);
+    return ( temp & 0x00FFFFFF);
 }

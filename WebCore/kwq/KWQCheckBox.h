@@ -36,13 +36,15 @@ public:
     bool isChecked();
 
     QSize sizeHint() const;
-    int baselinePosition() const;
+    int baselinePosition(int height) const;
     QRect frameGeometry() const;
     void setFrameGeometry(const QRect &);
 
     virtual void clicked();
 
 private:
+    const int *dimensions() const;
+
     KWQSignal m_stateChanged;
 };
 

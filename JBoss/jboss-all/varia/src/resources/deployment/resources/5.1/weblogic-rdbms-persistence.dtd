@@ -1,0 +1,378 @@
+<!--
+This is the DTD for WebLogic 5.1.0 EJB RDBMS Persistence.
+
+Copyright (c) 1999-2000 by BEA Systems, Inc. All Rights Reserved.
+-->
+
+<!--
+The root-level element of an XML file that represents a single bean that is 
+managed by the WebLogic RDBMS Container Persistence Type.
+-->
+<!ELEMENT weblogic-rdbms-bean (
+    pool-name,
+    schema-name?,
+    table-name,
+    attribute-map,
+    finder-list,
+    options
+)>
+
+<!--
+The name of the WebLogic Connection Pool which should be used for all database 
+connectivity for this particular bean. This pool must be defined in the 
+standard way for WebLogic JDBC connection pools. If you do not know how to do 
+this please consult the WebLogic Server Documentation.
+
+Used in: weblogic-rdbms-bean
+
+Example:
+    <pool-name>finance_pool</pool-name>
+-->
+<!ELEMENT pool-name (#PCDATA)>
+
+<!--
+The name of the schema where the source table is located in the database. Note 
+that this need only be set if it is not the default schema for the user 
+defined in the connection pool that this bean uses.
+This field is case sensitive, though not all SQL implementations are
+(the case is kept for this field, though the underlying database might
+not be case sensitive).
+
+Used in: weblogic-rdbms-bean
+
+Example:
+    <schema-name>FINANCE_APP</schema-name>
+-->
+<!ELEMENT schema-name (#PCDATA)>
+
+<!--
+The name of the source table in the database. Note that this needs to be set 
+in all cases. The user defined in the connection pool for this bean must
+have read and write privileges to this table, though not necessarily
+schema modification privileges.
+This field is case sensitive, though not all SQL implementations are.
+
+Used in: weblogic-rdbms-bean
+
+Example:
+    <table-name>ACCOUNT</table-name>
+
+-->
+<!ELEMENT table-name (#PCDATA)>
+
+<!--
+A hash table that links a single field in the bean instance to a particular 
+column in the database table.
+
+Each cmp-field in the bean must have exactly one entry in this table.
+
+Used in: weblogic-rdbms-bean
+
+Example:
+    <attribute-map>
+        <object-link>
+            <bean-field>accountID</bean-field>
+            <dbms-column>ACCOUNT_NUMBER</dbms-column>
+        </object-link>
+        <object-link>
+            <bean-field>balance</bean-field>
+            <dbms-column>BALANCE</dbms-column>
+        </object-link>
+    </attribute-map>
+-->
+<!ELEMENT attribute-map (object-link*)>
+
+<!--
+The object-link tag represents a link between a particular column in a 
+database and a particular field in the target bean instance.
+
+Used in: attribute-map
+
+Example:
+    <object-link>
+        <bean-field>accountID</bean-field>
+        <dbms-column>ACCOUNT_NUMBER</dbms-column>
+    </object-link>
+-->
+<!ELEMENT object-link (bean-field, dbms-column)>
+
+<!--
+The field in the bean instance which should be populated from the database.
+This field is case sensitive and must precisely match the name of the
+field in the bean instance. The field referenced in this tag must have
+a cmp-field entry in the ejb-jar.xml file.
+
+Used in: object-link
+
+Example:
+    <bean-field>balance</bean-field>
+-->
+<!ELEMENT bean-field (#PCDATA)>
+
+<!--
+The database column to which the given field should be mapped.
+This tag is case maintaining, though not all databases are
+case sensitive.
+
+Used in: object-link
+
+Example:
+    <dbms-column>BALANCE</dbms-column>
+-->
+<!ELEMENT dbms-column (#PCDATA)>
+
+                                                       
+<!--
+The finder-list for this bean is the set of all finders which will be 
+generated to locate sets of beans.
+
+There must be exactly one element in the finder-list for each finder
+method defined in the home interface, except for findByPrimarykey.
+Should a finder descriptor not be provided for findByPrimaryKey, one
+will be generated at compilation time. However, should an entry
+appear in the finder-list for findByPrimaryKey, it will be used
+without validation for correctness. In other words, while you are not
+required to specify a descriptor for findByPrimaryKey, should you specify
+one it will be used exactly as provided (this is recommended only
+for advanced users or specific requirements when the semantics of the
+application require an override of the default behavior).
+
+Used in: weblogic-rdbms-bean
+
+Example:
+    <finder-list>
+        <finder>
+            <method-name>findBigAccounts</method-name>
+            <method-params>
+                <method-param>double</method-param>
+            </method-params>
+            <finder-query>(> balance_field $0)</finder-query>
+        </finder>
+        ...
+    </finder-list>
+-->
+<!ELEMENT finder-list (finder*)>
+
+<!--
+A descriptor for a particular finder method defined in the home interface.
+The information provided in the finder tag permits the system to identify
+which method in the home interface is being described, and perform the
+database operations necessary to produce the desired results.
+
+Used in: finder-list
+
+Example:
+		<finder>
+				<method-name>findBigAccounts</method-name>
+				<method-params>
+						<method-param>double</method-param>
+				</method-params>
+				<finder-query>(> balance_field $0)</finder-query>
+		</finder>
+-->
+<!ELEMENT finder (
+    method-name,
+    method-params?,
+    finder-query,
+    finder-expression*
+)>
+
+<!--
+The name of the finder method in the home interface. This tag
+should contain the whole name of the method.
+
+Used in: finder
+
+Example:
+		<method-name>findBigAccounts</method-name>
+-->
+<!ELEMENT method-name (#PCDATA)>
+
+<!--
+The list of parameters to the finder method being
+specified. This list will be compared against the parameter types
+for the finder method obtained from the home interface for the
+bean, and must match precisely. Order is maintained by this list,
+and must precisely match the order of the parameters to the
+finder method.
+
+Used in: finder
+
+Example:
+		<method-params>
+				<method-param>double</method-param>
+		</method-params>
+-->
+<!ELEMENT method-params (method-param*)>
+
+<!--
+The fully-qualified name of the type of this ordinal
+parameter into the finder method. This type name is evaluated
+into a java.lang.Class object, and the resultant object must
+precisely match the respective parameter in the finder method
+for the <finder> element to match the finder method in the
+home interface of the bean.
+
+Primitive parameters should be specified in their
+primitive names (such as 'double' or 'int'). All object
+parameters should be fully qualified.
+
+Used in: method-params
+
+Examples:
+		<method-param>double</method-param>
+		<method-param>java.lang.Long</method-param>
+-->
+<!ELEMENT method-param (#PCDATA)>
+
+<!--
+The WebLogic Query Language string used to create the SQL string that will be 
+used to retrieve values from the database for this finder. This string must 
+follow the rules for the WebLogic Query Language. Field-names must be those of 
+the bean instance, not the database table (database columns will be found 
+using the Attribute Map defined elsewhere in the XML file).
+
+Note that if you use any characters which might confuse an XML parser (namely 
+the > and < characters) you should take care and declare your query using the 
+CDATA form.
+
+Used in: finder-query
+
+Example:
+    <finder-query>
+    </finder-query>
+-->
+<!ELEMENT finder-query (#PCDATA)>
+
+<!--
+A Java language expression used as a variable in the database query
+for this finder. Finder expressions are designed to allow the user
+complete freedom in creating powerful finders without having to
+extend WLQL to do it.
+
+Note that if you do not define a particular finder expression
+number, but you use it in a WLQL query, then the SQL statement
+will have that particular variable populated with the equivalent
+parameter into the finder method. So if you have the following
+finder method:
+public abstract findBigAccounts(double amount, String currency);
+and the following WLQL query associated with that finder:
+(< balance_field $0)
+but no finder-expression with expression-number 0 defined, it will
+automatically generate code to retrieve that amount from the
+"amount" parameter to the finder method.
+
+Used in: finder-query
+
+Example:
+    <finder-expression>
+        <expression-number>0</expression-number>
+        <expression-text>@0 * 2</expression-text>
+        <expression-type>int</expression-type>
+    </finder-expression>
+-->
+<!ELEMENT finder-expression (
+    expression-number,
+    expression-text,
+    expression-type
+)>
+
+<!--
+The ordinal number of this expression within the set of Finder Expressions
+defined for this particular finder. It is recommended, but not required, that
+these numbers begin with 0 and continue in a sequence up to the number of
+expressions in total.
+
+It is considered to be an error for any two expressions within a particular
+finder to have the same expression number.
+
+Used in: finder-expression
+
+Example:
+    <expression-number>0</expression-number>
+-->
+<!ELEMENT expression-number (#PCDATA)>
+
+
+<!--
+The Java language text used to generate a particular variable
+in a SQL statement. All elements of the form @<number> will
+be converted into the parameter into the finder method
+with 0-based index <number>.
+
+Used in: finder-expression
+
+Example:
+    <expression-text>@0 * 2</expression-text>
+-->
+<!ELEMENT expression-text (#PCDATA)>
+
+<!--
+The return java type of the finder expression used to generate
+a particular variable in a SQL statement. The expression
+produced must be compatible with the type provided here.
+Thus, when in doubt, you should provide an encompassing
+type (such as long when you expect that only an int should
+be produced). Otherwise runtime errors might occur during
+bean execution.
+
+If the expression produced is not compatible in any way
+with the type provided in this tag, a compilation error will
+result during compilation of generated bean source code.
+
+Used in: finder-expression
+
+Example:
+    <expression-type>java.lang.String</expression-type>
+-->
+<!ELEMENT expression-type (#PCDATA)>
+
+<!--
+A set of options which may be set for RDBMS-persisted beans.
+This tag is expected to obtain additional values in future
+releases of WebLogic Server.
+
+Used in: weblogic-rdbms-bean
+
+Example:
+    <options>
+        <use-quoted-names>false</use-quoted-names>
+        ...
+    </options>
+-->
+<!ELEMENT options (
+    use-quoted-names?,
+    transaction-isolation?
+)>
+
+<!--
+This tag is presently not used by the WebLogic RDBMS
+PersistenceType, and must be set to 'false' if it is
+set in the deployment descriptor.
+
+Used in: options
+
+Example:
+    <use-quoted-names>false</use-quoted-names>
+-->
+<!ELEMENT use-quoted-names (#PCDATA)>
+
+<!--
+This tag specifies the transaction isolation level that the entity bean
+shall use when it accesses a database. Allowable values are: 
+TRANSACTION_READ_UNCOMMITTED, TRANSACTION_READ_COMMITTED, TRANSACTION_REPEATABLE_READ,
+and TRANSACTION_SERIALIZABLE.
+
+Used in: options
+
+Example:
+    <transaction-isolation>TRANSACTION_READ_COMMITTED</transaction-isolation>
+-->
+<!ELEMENT transaction-isolation (#PCDATA)>
+
+
+
+
+
+
+

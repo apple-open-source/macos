@@ -109,6 +109,9 @@ namespace KJS {
     static void forgetDOMObject( void* objectHandle );
     static void forgetDOMObjectsForDocument( DOM::DocumentImpl* documentHandle );
 
+    static void updateDOMObjectDocument(void *objectHandle, DOM::DocumentImpl *oldDoc, DOM::DocumentImpl *newDoc);
+
+
     KHTMLPart* part() const { return m_part; }
 
     virtual int rtti() { return 1; }
@@ -125,6 +128,9 @@ namespace KJS {
     bool wasRunByUserGesture() const;
 
     virtual void mark();
+    
+    DOM::Event *getCurrentEvent() const { return m_evt; }
+    
   private:
     KHTMLPart* m_part;
     QPtrDict<DOMObject> m_domObjects;

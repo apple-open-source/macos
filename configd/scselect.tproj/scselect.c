@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -26,6 +24,11 @@
 /*
  * Modification History
  *
+ * January 15, 2004		Allan Nathanson <ajn@apple.com>
+ * - limit location changes to "root" (uid==0), users who are
+ *   a member of group "admin", and processses which have access
+ *   to a local graphics console.
+ *
  * June 1, 2001			Allan Nathanson <ajn@apple.com>
  * - public API conversion
  *
@@ -36,9 +39,18 @@
 #include <getopt.h>
 #include <unistd.h>
 #include <sysexits.h>
+#include <sys/param.h>
+#include <sys/types.h>
+#include <sys/param.h>
+#include <sys/stat.h>
+#include <mach-o/dyld.h>
+#include <grp.h>
 
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
+
+#include <Security/Security.h>
+#include <Security/AuthSession.h>
 
 
 Boolean	apply	= TRUE;
@@ -53,11 +65,93 @@ static struct option longopts[] = {
 };
 
 
-void
+static void
 usage(const char *command)
 {
 	SCPrint(TRUE, stderr, CFSTR("usage: %s [-n] new-set-name\n"), command);
 	exit (EX_USAGE);
+}
+
+
+static Boolean
+isAdmin()
+{
+        gid_t	groups[NGROUPS_MAX];
+        int	ngroups;
+
+        if (getuid() == 0) {
+                return TRUE;	// if "root"
+        }
+
+        ngroups = getgroups(NGROUPS_MAX, groups);
+        if(ngroups > 0) {
+                struct group	*adminGroup;
+
+                adminGroup = getgrnam("admin");
+                if (adminGroup != NULL) {
+                        gid_t	adminGid = adminGroup->gr_gid;
+                        int	i;
+
+                        for (i = 0; i < ngroups; i++) {
+                                if (groups[i] == adminGid) {
+                                        return TRUE;	// if a member of group "admin"
+                                }
+                        }
+                }
+        }
+
+        return FALSE;
+}
+
+
+static void *
+__loadSecurity(void) {
+	static const void *image = NULL;
+	if (NULL == image) {
+		const char	*framework		= "/System/Library/Frameworks/Security.framework/Security";
+		struct stat	statbuf;
+		const char	*suffix			= getenv("DYLD_IMAGE_SUFFIX");
+		char		path[MAXPATHLEN];
+
+		strcpy(path, framework);
+		if (suffix) strcat(path, suffix);
+		if (0 <= stat(path, &statbuf)) {
+			image = NSAddImage(path, NSADDIMAGE_OPTION_NONE);
+		} else {
+			image = NSAddImage(framework, NSADDIMAGE_OPTION_NONE);
+		}
+	}
+	return (void *)image;
+}
+
+
+static OSStatus
+_SessionGetInfo(SecuritySessionId session, SecuritySessionId *sessionId, SessionAttributeBits *attributes)
+{
+	static OSStatus (*dyfunc)(SecuritySessionId, SecuritySessionId *, SessionAttributeBits *) = NULL;
+	if (!dyfunc) {
+		void *image = __loadSecurity();
+		if (image) dyfunc = NSAddressOfSymbol(NSLookupSymbolInImage(image, "_SessionGetInfo", NSLOOKUPSYMBOLINIMAGE_OPTION_BIND));
+	}
+	return dyfunc ? dyfunc(session, sessionId, attributes) : -1;
+}
+#define SessionGetInfo _SessionGetInfo
+
+
+static Boolean
+hasLocalConsoleAccess()
+{
+        OSStatus		error;
+        SecuritySessionId	sessionID	= 0;
+        SessionAttributeBits	attributeBits	= 0;
+
+        error = SessionGetInfo(callerSecuritySession, &sessionID, &attributeBits);
+        if (error != noErr) {
+                /* Security check failed, must not permit access */
+                return FALSE;
+        }
+
+        return (attributeBits & (sessionHasGraphicAccess|sessionIsRemote)) == sessionHasGraphicAccess;
 }
 
 
@@ -229,6 +323,12 @@ main(int argc, char **argv)
 
     found :
 
+	if (!(isAdmin() || hasLocalConsoleAccess())) {
+                SCPrint(TRUE, stderr,
+                        CFSTR("Only local console users and administrators can change locations\n"));
+                exit (EX_NOPERM);
+	}
+        
 	if (!SCPreferencesSetValue(session, kSCPrefCurrentSet, current)) {
 		SCPrint(TRUE, stderr,
 			CFSTR("SCPreferencesSetValue(...,%@,%@) failed\n"),

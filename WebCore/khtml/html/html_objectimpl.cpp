@@ -46,6 +46,10 @@
 #include "java/kjavaappletcontext.h"
 #endif
 
+#if APPLE_CHANGES
+#include "KWQKHTMLPart.h"
+#endif
+
 using namespace DOM;
 using namespace khtml;
 
@@ -54,10 +58,12 @@ using namespace khtml;
 HTMLAppletElementImpl::HTMLAppletElementImpl(DocumentPtr *doc)
   : HTMLElementImpl(doc)
 {
+    appletInstance = 0;
 }
 
 HTMLAppletElementImpl::~HTMLAppletElementImpl()
 {
+    delete appletInstance;
 }
 
 NodeImpl::Id HTMLAppletElementImpl::id() const
@@ -69,13 +75,14 @@ void HTMLAppletElementImpl::parseAttribute(AttributeImpl *attr)
 {
     switch( attr->id() )
     {
-    case ATTR_CODEBASE:
+    case ATTR_ALT:
     case ATTR_ARCHIVE:
     case ATTR_CODE:
-    case ATTR_OBJECT:
-    case ATTR_ALT:
+    case ATTR_CODEBASE:
     case ATTR_ID:
+    case ATTR_MAYSCRIPT:
     case ATTR_NAME:
+    case ATTR_OBJECT:
         break;
     case ATTR_WIDTH:
         addCSSLength(CSS_PROP_WIDTH, attr->value());
@@ -99,9 +106,9 @@ bool HTMLAppletElementImpl::rendererIsNeeded(RenderStyle *style)
 RenderObject *HTMLAppletElementImpl::createRenderer(RenderArena *arena, RenderStyle *style)
 {
 #ifndef Q_WS_QWS // FIXME(E)? I don't think this is possible with Qt Embedded...
-    KHTMLView *view = getDocument()->view();
+    KHTMLPart *part = getDocument()->part();
 
-    if( view->part()->javaEnabled() )
+    if( part && part->javaEnabled() )
     {
 	QMap<QString, QString> args;
 
@@ -118,6 +125,13 @@ RenderObject *HTMLAppletElementImpl::createRenderer(RenderArena *arena, RenderSt
 	    args.insert( "archive", archive.string() );
 
 	args.insert( "baseURL", getDocument()->baseURL() );
+
+        DOMString mayScript = getAttribute(ATTR_MAYSCRIPT);
+        if (!mayScript.isNull())
+            args.insert("mayScript", mayScript.string());
+
+        // Other arguments (from <PARAM> tags) are added later.
+        
         return new (getDocument()->renderArena()) RenderApplet(this, args);
     }
 
@@ -127,12 +141,6 @@ RenderObject *HTMLAppletElementImpl::createRenderer(RenderArena *arena, RenderSt
 #else
     return 0;
 #endif
-}
-
-void HTMLAppletElementImpl::attach()
-{
-    createRendererIfNeeded();
-    NodeBaseImpl::attach();
 }
 
 bool HTMLAppletElementImpl::getMember(const QString & name, JType & type, QString & val) {
@@ -164,6 +172,31 @@ bool HTMLAppletElementImpl::callMember(const QString & name, const QStringList &
 #endif
 #endif
 }
+
+#if APPLE_CHANGES
+KJS::Bindings::Instance *HTMLAppletElementImpl::getAppletInstance() const
+{
+    KHTMLPart* part = getDocument()->part();
+    if (!part || !part->javaEnabled())
+        return 0;
+
+    if (appletInstance)
+        return appletInstance;
+    
+    RenderApplet *r = static_cast<RenderApplet*>(m_render);
+    if (r) {
+        r->createWidgetIfNecessary();
+        if (r->widget()){
+            // Call into the part (and over the bridge) to pull the Bindings::Instance
+            // from the guts of the Java VM.
+            void *_view = r->widget()->getView();
+            appletInstance = KWQ(part)->getAppletInstanceForView((NSView *)_view);
+        }
+    }
+    return appletInstance;
+}
+#endif
+
 // -------------------------------------------------------------------------
 
 HTMLEmbedElementImpl::HTMLEmbedElementImpl(DocumentPtr *doc)
@@ -244,8 +277,10 @@ void HTMLEmbedElementImpl::parseAttribute(AttributeImpl *attr)
 
 bool HTMLEmbedElementImpl::rendererIsNeeded(RenderStyle *style)
 {
-    KHTMLView* w = getDocument()->view();
-    return w->part()->pluginsEnabled() && parentNode()->id() != ID_OBJECT;
+    KHTMLPart *part = getDocument()->part();
+    if (!part)
+	return false;
+    return part->pluginsEnabled() && parentNode()->id() != ID_OBJECT;
 }
 
 RenderObject *HTMLEmbedElementImpl::createRenderer(RenderArena *arena, RenderStyle *style)
@@ -262,11 +297,10 @@ void HTMLEmbedElementImpl::attach()
         addCSSLength( CSS_PROP_HEIGHT, "0" );
     }
     
-    createRendererIfNeeded();
+    HTMLElementImpl::attach();
     if (m_render) {
         static_cast<RenderPartObject*>(m_render)->updateWidget();
     }
-    NodeBaseImpl::attach();
 }
 
 // -------------------------------------------------------------------------
@@ -343,8 +377,8 @@ bool HTMLObjectElementImpl::rendererIsNeeded(RenderStyle *style)
         return HTMLElementImpl::rendererIsNeeded(style);
     }
 
-    KHTMLView* w = getDocument()->view();
-    if (!w->part()->pluginsEnabled()) {
+    KHTMLPart* part = getDocument()->part();
+    if (!part || !part->pluginsEnabled()) {
         return false;
     }
 #if APPLE_CHANGES
@@ -370,7 +404,8 @@ RenderObject *HTMLObjectElementImpl::createRenderer(RenderArena *arena, RenderSt
 
 void HTMLObjectElementImpl::attach()
 {
-    createRendererIfNeeded();
+    HTMLElementImpl::attach();
+
     if (m_render) {
         if (canRenderImageType(serviceType)) {
             m_render->updateFromElement();
@@ -382,8 +417,6 @@ void HTMLObjectElementImpl::attach()
             needWidgetUpdate = false;
         }
     }
-
-    NodeBaseImpl::attach();
 
     // ### do this when we are actually finished loading instead
     if (m_render)

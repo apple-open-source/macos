@@ -29,7 +29,7 @@ import org.jboss.security.Util;
 login modules.
  
  @author Scott.Stark@jboss.org
- @version $Revision: 1.1.4.6 $
+ @version $Revision: 1.1.4.8 $
  */
 public class SRPLoginModuleUnitTestCase extends JBossTestCase
 {
@@ -60,6 +60,15 @@ public class SRPLoginModuleUnitTestCase extends JBossTestCase
    {
       log.debug("+++ testSRPLoginHTTP");
       login("srp-test-http", username, password, null);
+      logout();
+   }
+
+   /** Test a login against the SRP service using the SRPLoginModule
+    */
+   public void testSRPLoginHTTPHA() throws Exception
+   {
+      log.debug("+++ testSRPLoginHTTPHA");
+      login("srp-test-http-ha", username, password, null);
       logout();
    }
 
@@ -217,7 +226,7 @@ public class SRPLoginModuleUnitTestCase extends JBossTestCase
    /**
     * Setup the test suite.
     */
-   public static Test suite()
+   public static Test suite() throws Exception
    {
       TestSuite suite = new TestSuite();
       suite.addTest(new TestSuite(SRPLoginModuleUnitTestCase.class));

@@ -102,7 +102,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleKauaiATA;
-				MODULE_VERSION = 1.0.2f1;
+				MODULE_VERSION = 1.0.3b1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -140,11 +140,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.2</string>
+	<string>1.0.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.2f1</string>
+	<string>1.0.3b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleKauaiATA</key>
@@ -157,6 +157,7 @@
 			<array>
 				<string>kauai-ata</string>
 				<string>K2-UATA</string>
+				<string>shasta-ata</string>
 			</array>
 			<key>IOProviderClass</key>
 			<string>IOPCIDevice</string>

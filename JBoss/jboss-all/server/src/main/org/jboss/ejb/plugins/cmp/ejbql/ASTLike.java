@@ -7,25 +7,23 @@
  
 package org.jboss.ejb.plugins.cmp.ejbql;
 
+import org.jboss.ejb.plugins.cmp.jdbc.SQLUtil;
+
 /**
  * This abstract syntax node represents a like opperator.
  *
  * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
- * @version $Revision: 1.1 $
+ * @version $Revision: 1.1.4.2 $
  */                            
-public class ASTLike extends SimpleNode {
+public final class ASTLike extends SimpleNode {
    public boolean not;
 
    public ASTLike(int id) {
       super(id);
    }
 
-   public ASTLike(EJBQLParser p, int id) {
-      super(p, id);
-   }
-
    public String toString() {
-      return (not ? "NOT " : "") + "LIKE";
+      return (not ? SQLUtil.NOT : SQLUtil.EMPTY_STRING) + SQLUtil.LIKE;
    }
 
    /** Accept the visitor. **/

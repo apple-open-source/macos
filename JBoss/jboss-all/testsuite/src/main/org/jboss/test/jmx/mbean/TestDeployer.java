@@ -27,7 +27,7 @@ import org.jboss.system.server.ServerConfigLocator;
  * This is a do-nothing mbean to test service archive deployment.
  *
  * @author <a href="mailto:d_jencks@users.sourceforge.net">David Jencks</a>
- * @version <tt>$Revision: 1.6 $</tt>
+ * @version <tt>$Revision: 1.6.4.1 $</tt>
  *
  * <b>20010901 david jencks</b>
  * <ul>
@@ -43,5 +43,12 @@ public class TestDeployer
       File file = ServerConfigLocator.locate().getServerHomeDir();
 
       return file.getCanonicalPath();
+   }
+
+   protected void startService() throws Exception
+   {
+      ClassLoader loader = Thread.currentThread().getContextClassLoader();
+      log.info("TCL: "+loader);
+      log.info("CodeSource: "+getClass().getProtectionDomain().getCodeSource());
    }
 }

@@ -34,6 +34,7 @@
 #include <qobject.h>
 #include <qdict.h>
 #include <qmap.h>
+#include <qdatetime.h>
 
 #include <kurl.h>
 
@@ -45,8 +46,13 @@
 class QPaintDevice;
 class QPaintDeviceMetrics;
 class KHTMLView;
+class KHTMLPart;
 class Tokenizer;
 class RenderArena;
+
+#if APPLE_CHANGES
+class KWQAccObjectCache;
+#endif
 
 namespace khtml {
     class CSSStyleSelector;
@@ -142,7 +148,7 @@ public:
 
     DOMImplementationImpl *implementation() const;
     ElementImpl *documentElement() const;
-    virtual ElementImpl *createElement ( const DOMString &tagName );
+    virtual ElementImpl *createElement ( const DOMString &tagName, int &exceptioncode );
     DocumentFragmentImpl *createDocumentFragment ();
     TextImpl *createTextNode ( const DOMString &data );
     CommentImpl *createComment ( const DOMString &data );
@@ -151,7 +157,7 @@ public:
     Attr createAttribute(NodeImpl::Id id);
     EntityReferenceImpl *createEntityReference ( const DOMString &name );
     NodeImpl *importNode( NodeImpl *importedNode, bool deep, int &exceptioncode );
-    virtual ElementImpl *createElementNS ( const DOMString &_namespaceURI, const DOMString &_qualifiedName );
+    virtual ElementImpl *createElementNS ( const DOMString &_namespaceURI, const DOMString &_qualifiedName, int &exceptioncode );
     ElementImpl *getElementById ( const DOMString &elementId ) const;
 
     // Actually part of HTMLDocument, but used for giving XML documents a window title as well
@@ -167,10 +173,12 @@ public:
     virtual bool isDocumentNode() const { return true; }
     virtual bool isHTMLDocument() const { return false; }
 
-    virtual ElementImpl *createHTMLElement ( const DOMString &tagName );
+    virtual ElementImpl *createHTMLElement ( const DOMString &tagName, int &exceptioncode );
 
     khtml::CSSStyleSelector *styleSelector() { return m_styleSelector; }
 
+    ElementImpl *DocumentImpl::getElementByAccessKey( const DOMString &key );
+    
     /**
      * Updates the pending sheet count and then calls updateStyleSelector.
      */
@@ -180,7 +188,7 @@ public:
      * This method returns true if all top-level stylesheets have loaded (including
      * any @imports that they may be loading).
      */
-    bool haveStylesheetsLoaded() { return m_pendingStylesheets <= 0; }
+    bool haveStylesheetsLoaded() { return m_pendingStylesheets <= 0 || m_ignorePendingStylesheets; }
 
     /**
      * Increments the number of pending sheets.  The <link> elements
@@ -216,6 +224,7 @@ public:
     QStringList &restoreState( ) { return m_state; }
 
     KHTMLView *view() const { return m_view; }
+    KHTMLPart *part() const;
 
     RangeImpl *createRange();
 
@@ -236,6 +245,11 @@ public:
     virtual void detach();
 
     RenderArena* renderArena() { return m_renderArena; }
+
+#if APPLE_CHANGES
+    KWQAccObjectCache* getExistingAccObjectCache() { return m_accCache; }
+    KWQAccObjectCache* getOrCreateAccObjectCache();
+#endif
     
     // to get visually ordered hebrew and arabic pages right
     void setVisuallyOrdered();
@@ -243,8 +257,8 @@ public:
     void setSelection(NodeImpl* s, int sp, NodeImpl* e, int ep);
     void clearSelection();
 
-    void open (  );
-    virtual void close (  );
+    void open();
+    void close();
     void closeInternal ( bool checkTokenizer );
     void write ( const DOMString &text );
     void write ( const QString &text );
@@ -344,9 +358,13 @@ public:
     void setSelectedStylesheetSet(const DOMString& aString);
 
     QStringList availableStyleSheets() const;
+
     NodeImpl *focusNode() const { return m_focusNode; }
     void setFocusNode(NodeImpl *newFocusNode);
 
+    NodeImpl *hoverNode() const { return m_hoverNode; }
+    void setHoverNode(NodeImpl *newHoverNode);
+    
     // Updates for :target (CSS3 selector).
     void setCSSTarget(NodeImpl* n);
     NodeImpl* getCSSTarget();
@@ -442,6 +460,18 @@ public:
     DOMString domain() const;
     void setDomain( const DOMString &newDomain, bool force = false ); // not part of the DOM
     
+    // The following implements the rule from HTML 4 for what valid names are.
+    // To get this right for all the XML cases, we probably have to improve this or move it
+    // and make it sensitive to the type of document.
+    static bool isValidName(const DOMString &);
+    
+    void addElementById(const DOMString &elementId, ElementImpl *element);
+    void removeElementById(const DOMString &elementId, ElementImpl *element);
+
+    HTMLElementImpl* body();
+
+    DOMString toString() const;
+    
 signals:
     void finishedParsing();
 
@@ -470,6 +500,10 @@ protected:
     // elements.
     int m_pendingStylesheets;
 
+    // But sometimes you need to ignore pending stylesheet count to
+    // force an immediate layout when requested by JS.
+    bool m_ignorePendingStylesheets;
+
     CSSStyleSheetImpl *m_elemSheet;
 
     QPaintDevice *m_paintDevice;
@@ -478,8 +512,10 @@ protected:
     HTMLMode hMode;
 
     QColor m_textColor;
-    NodeImpl *m_focusNode;
 
+    NodeImpl *m_focusNode;
+    NodeImpl *m_hoverNode;
+    
     // ### replace me with something more efficient
     // in lookup and insertion.
     DOMStringImpl **m_elementNames;
@@ -516,6 +552,10 @@ protected:
     DOMString m_title;
     
     RenderArena* m_renderArena;
+
+#if APPLE_CHANGES
+    KWQAccObjectCache* m_accCache;
+#endif
     
     QPtrList<khtml::RenderImage> m_imageLoadEventDispatchSoonList;
     QPtrList<khtml::RenderImage> m_imageLoadEventDispatchingList;
@@ -523,6 +563,9 @@ protected:
 
     NodeImpl* m_cssTarget;
     
+    bool m_processingLoadEvent;
+    QTime m_startTime;
+
 #if APPLE_CHANGES
 public:
     KWQSignal m_finishedParsing;
@@ -550,11 +593,17 @@ public:
 private:
     mutable DOMString m_domain;
     bool m_inPageCache;
+    khtml::RenderObject *m_savedRenderer;
     int m_passwordFields;
     int m_secureForms;
     
     khtml::Decoder *m_decoder;
+
+    QDict<ElementImpl> m_elementsById;
     
+    QDict<ElementImpl> m_elementsByAccessKey;
+    bool m_accessKeyDictValid;
+ 
     bool m_createRenderers;
 #endif
 };
@@ -572,6 +621,8 @@ public:
 
     // Other methods (not part of DOM)
     virtual bool childTypeAllowed( unsigned short type );
+
+    virtual DOMString toString() const;
 };
 
 
@@ -602,6 +653,8 @@ public:
     void setName(const DOMString& n) { m_qualifiedName = n; }
     DOMImplementationImpl *implementation() const { return m_implementation; }
     void copyFrom(const DocumentTypeImpl&);
+
+    virtual DOMString toString() const;
 
 #if APPLE_CHANGES
     static DocumentType createInstance (DocumentTypeImpl *impl);

@@ -21,7 +21,8 @@ HFILES = SystemConfiguration.h SCPrivate.h SCDPlugin.h config_types.h\
          SCPreferencesSetSpecific.h SCNetwork.h SCNetworkConnection.h\
          SCNetworkReachability.h SCValidation.h ppp.h\
          DHCPClientPreferences.h SCDynamicStoreCopyDHCPInfo.h moh_msg.h\
-         moh.h DeviceOnHold.h LinkConfiguration.h dy_framework.h
+         moh.h DeviceOnHold.h LinkConfiguration.h dy_framework.h\
+         VLANConfiguration.h VLANConfigurationPrivate.h
 
 CFILES = SCD.c SCDKeys.c SCDPrivate.c SCDPlugin.c SCDOpen.c SCDLock.c\
          SCDUnlock.c SCDList.c SCDAdd.c SCDAddSession.c SCDGet.c\
@@ -35,7 +36,8 @@ CFILES = SCD.c SCDKeys.c SCDPrivate.c SCDPlugin.c SCDOpen.c SCDLock.c\
          SCPCommit.c SCPApply.c SCPPath.c SCDConsoleUser.c\
          SCDHostName.c SCLocation.c SCNetwork.c SCNetworkConnection.c\
          SCNetworkReachability.c SCProxies.c ppp.c DHCP.c moh.c\
-         DeviceOnHold.c LinkConfiguration.c dy_framework.c
+         DeviceOnHold.c LinkConfiguration.c dy_framework.c\
+         VLANConfiguration.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble m.template\
             h.template config.defs genSCPreferences.c CustomInfo.plist
@@ -75,7 +77,7 @@ PROJECT_HEADERS = SystemConfiguration.h SCPrivate.h config_types.h\
                   SCPreferencesPrivate.h SCPreferencesPath.h\
                   SCPreferencesSetSpecific.h SCNetwork.h\
                   SCNetworkConnection.h SCNetworkReachability.h\
-                  SCValidation.h
+                  SCValidation.h VLANConfigurationPrivate.h
 
 
 

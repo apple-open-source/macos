@@ -35,12 +35,7 @@
 /*!
  @define kIOPSUPSManagementClaimed
  @abstract Claims UPS management for a third-party driver.
- @discussion kIOPSUPSManagementClaimed If a third-party app manages UPS power it should set this key in the SCDynamicStore
-    with a value of kCFBooleanTrue.
-    If this key is not set, OS X will provide a minimal default UPS Power Management
-    implementation that includes clean shutdown if the attached UPS falls below 20%
-    remaining battery power. <br>This key should be used with the "State:" prefix, as in "State:/IOKit/UPSPowerManagementClaimed"
-    
+ @discussion kIOPSUPSManagementClaimed Obsolete. Do not use.
  */
 #define kIOPSUPSManagementClaimed       "/IOKit/UPSPowerManagementClaimed"
 
@@ -66,11 +61,50 @@
 
 
 /*
+ * Power Source Commands
+ * These keys specify UPS-specific commands.
+ */ 
+
+
+/*!
+    @define kIOPSCommandDelayedRemovePowerKey
+    @abstract Command to give a UPS when it should remove power from its AC plugs in a specified amount of time
+        <br>The matching argument should be a CFNumber of kCFNumberIntType specifying when the UPS should
+        <br>remove power from its AC power ports.
+*/
+#define kIOPSCommandDelayedRemovePowerKey     "Delayed Remove Power"
+
+/*!
+    @define kIOPSCommandEnableAudibleAlarmKey
+    @abstract Command to give a UPS when it should either enable or disable the audible alarm.
+        <br>The matching argument should be a CFBooleanRef where kCFBooleanTrue enables the alarm and 
+        <br>kCFBooleanFalse diables the alarm
+*/
+#define kIOPSCommandEnableAudibleAlarmKey     "Enable Audible Alarm"
+
+/*!
+    @define kIOPSCommandStartupDelayKey
+    @abstract Tell UPS how long it should wait for 
+        <br>The matching argument should be a CFNumber of kCFNumberIntType specifying how soon
+        <br>after a power outage the UPS should restore computer power.
+*/
+#define kIOPSCommandStartupDelayKey           "Startup Delay"
+
+
+/*
  * Power Source data keys
  * These keys specify the values in a dictionary of PowerSource details.
  * Use these keys in conjunction with the dictionary returned by 
  * IOPSGetPowerSourceDescription()
  */ 
+
+/*!
+    @define kIOPSPowerSourceID
+    @abstract CFNumber key uniquely identifying a UPS attached to the system.
+        <br>Type CFNumber, kCFNumberIntType, uniquely identifying an attached UPS.
+*/
+#define kIOPSPowerSourceIDKey          "Power Source ID"
+
  
 /*!
     @define kIOPSPowerSourceStateKey
@@ -159,6 +193,14 @@
     kIOPSUSBTransportType, kIOPSNetworkTransportType, or kIOPSInternalType.
 */
 #define kIOPSTransportTypeKey          "Transport Type"
+
+/*!
+    @define kIOPSVendorDataKey
+    @abstract CFDictionary key for arbitrary vendor data. The value should be a 
+    <br>CFDictionary 
+    kIOPSUSBTransportType, kIOPSNetworkTransportType, or kIOPSInternalType.
+*/
+#define kIOPSVendorDataKey          "Vendor Specific Data"
 
 
 /*

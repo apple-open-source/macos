@@ -27,33 +27,28 @@ import javax.jms.Queue;
 import javax.jms.TemporaryQueue;
 import javax.jms.TemporaryTopic;
 import javax.jms.Topic;
+import javax.naming.InitialContext;
 import javax.net.ServerSocketFactory;
 
-import javax.naming.InitialContext;
-
-import org.jboss.logging.Logger;
 import org.jboss.mq.AcknowledgementRequest;
 import org.jboss.mq.ConnectionToken;
 import org.jboss.mq.DurableSubscriptionID;
-import org.jboss.mq.GenericConnectionFactory;
 import org.jboss.mq.SpyDestination;
 import org.jboss.mq.SpyMessage;
 import org.jboss.mq.Subscription;
 import org.jboss.mq.TransactionRequest;
 import org.jboss.mq.il.Invoker;
 import org.jboss.mq.il.ServerIL;
-import org.jboss.mq.il.ServerILJMXService;
-import org.jboss.mq.il.ServerILFactory;
 import org.jboss.mq.il.uil.multiplexor.SocketMultiplexor;
-import org.jboss.mq.server.JMSServerInterceptor;
 import org.jboss.security.SecurityDomain;
+import org.jboss.system.server.ServerConfigUtil;
 
 /**
  * Implements the ServerILJMXService which is used to manage the JVM IL.
  *
  * @author    Hiram Chirino (Cojonudo14@hotmail.com)
  * @author    <a href="pra@tim.se">Peter Antman</a>
- * @version   $Revision: 1.21.2.5 $
+ * @version   $Revision: 1.21.2.6 $
  *
  * @jmx:mbean extends="org.jboss.mq.il.ServerILJMXServiceMBean"
  */
@@ -464,8 +459,8 @@ public class UILServerILService extends org.jboss.mq.il.ServerILJMXService imple
          because this is not a valid address on Win32 while it is for
          *NIX. See BugParade bug #4343286.
       */
-      if( socketAddress.toString().equals("0.0.0.0/0.0.0.0") )
-         socketAddress = InetAddress.getLocalHost();
+      socketAddress = ServerConfigUtil.fixRemoteAddress(socketAddress);
+
       serverIL = new UILServerIL(socketAddress, serverSocket.getLocalPort(),
          clientSocketFactoryName, enableTcpNoDelay);
 

@@ -1,4 +1,4 @@
-/* @(#) $Header: /cvs/root/tcpdump/tcpdump/bootp.h,v 1.1.1.3 2003/03/17 18:42:16 rbraun Exp $ (LBL) */
+/* @(#) $Header: /cvs/root/tcpdump/tcpdump/bootp.h,v 1.1.1.4 2004/02/05 19:30:51 rbraun Exp $ (LBL) */
 /*
  * Bootstrap Protocol (BOOTP).  RFC951 and RFC1048.
  *
@@ -27,7 +27,7 @@ struct bootp {
 	u_int8_t	bp_hops;	/* gateway hops */
 	u_int32_t	bp_xid;		/* transaction ID */
 	u_int16_t	bp_secs;	/* seconds since boot began */
-	u_int16_t	bp_flags;	/* flags: 0x8000 is broadcast */
+	u_int16_t	bp_flags;	/* flags - see bootp_flag_values[] in print-bootp.c */
 	struct in_addr	bp_ciaddr;	/* client IP address */
 	struct in_addr	bp_yiaddr;	/* 'your' IP address */
 	struct in_addr	bp_siaddr;	/* server IP address */
@@ -44,9 +44,8 @@ struct bootp {
 #define	IPPORT_BOOTPS		67
 #define	IPPORT_BOOTPC		68
 
-#define BOOTREPLY		2
-#define BOOTREQUEST		1
-
+#define BOOTPREPLY		2
+#define BOOTPREQUEST		1
 
 /*
  * Vendor magic cookie (v_magic) for CMU

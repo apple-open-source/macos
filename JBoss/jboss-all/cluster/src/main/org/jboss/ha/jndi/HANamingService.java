@@ -49,7 +49,7 @@ import org.jnp.interfaces.NamingContext;
  *
  *   @author <a href="mailto:bill@burkecentral.com">Bill Burke</a>
  *   @author <a href="mailto:sacha.labourey@cogito-info.ch">Sacha Labourey</a>
- *   @version $Revision: 1.22.4.13 $
+ *   @version $Revision: 1.22.4.14 $
  *
  * <p><b>Revisions:</b><br>
  * <p><b>2001/11/19 bill burke:</b>
@@ -234,7 +234,7 @@ public class HANamingService
       throws Exception
    {
       log.debug("Create HARMIServer proxy");
-      this.rmiserver = new HARMIServerImpl(partition, "HAJNDI", Naming.class, theServer, rmiPort, this.clientSocketFactory, this.serverSocketFactory);
+      this.rmiserver = new HARMIServerImpl(partition, "HAJNDI", Naming.class, theServer, rmiPort, this.clientSocketFactory, this.serverSocketFactory, this.bindAddress);
       this.stub = (Naming)rmiserver.createHAStub(new RoundRobin());
       this.theServer.setHAStub (this.stub);
 
@@ -472,6 +472,9 @@ public class HANamingService
       {
          stopping = false;
          socket = new MulticastSocket (adGroupPort);
+         if (bindAddress != null)
+            socket.setInterface(bindAddress);
+
          group = InetAddress.getByName (adGroupAddress);
          socket.joinGroup (group);
          

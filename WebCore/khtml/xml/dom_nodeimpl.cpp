@@ -38,6 +38,7 @@
 
 #include "rendering/render_text.h"
 
+#include "ecma/kjs_binding.h"
 #include "ecma/kjs_proxy.h"
 #include "khtmlview.h"
 #include "khtml_part.h"
@@ -59,7 +60,6 @@ NodeImpl::NodeImpl(DocumentPtr *doc)
       m_hasId( false ),
       m_hasClass( false ),
       m_hasStyle( false ),
-      m_pressed( false ),
       m_attached(false),
       m_changed( false ),
       m_hasChangedChild( false ),
@@ -74,6 +74,20 @@ NodeImpl::NodeImpl(DocumentPtr *doc)
 {
     if (document)
         document->ref();
+}
+
+void NodeImpl::setDocument(DocumentPtr *doc)
+{
+    if (inDocument())
+	return;
+    
+    if (doc)
+	doc->ref();
+    
+    if (document)
+	document->deref();
+
+    document = doc;
 }
 
 NodeImpl::~NodeImpl()
@@ -359,6 +373,20 @@ bool NodeImpl::isInline() const
     return !isElementNode();
 }
 
+bool NodeImpl::isFocusable() const
+{
+    return false;
+}
+
+bool NodeImpl::isKeyboardFocusable() const
+{
+    return isFocusable();
+}
+
+bool NodeImpl::isMouseFocusable() const
+{
+    return isFocusable();
+}
 
 unsigned long NodeImpl::nodeIndex() const
 {
@@ -474,6 +502,8 @@ bool NodeImpl::dispatchEvent(EventImpl *evt, int &exceptioncode, bool tempEvent)
 {
     evt->setTarget(this);
 
+    KHTMLPart *part = document->document()->part();
+
     // Since event handling code could cause this object to be deleted, grab a reference to the view now
     KHTMLView *view = document->document()->view();
     if (view)
@@ -484,13 +514,8 @@ bool NodeImpl::dispatchEvent(EventImpl *evt, int &exceptioncode, bool tempEvent)
     // If tempEvent is true, this means that the DOM implementation will not be storing a reference to the event, i.e.
     // there is no way to retrieve it from javascript if a script does not already have a reference to it in a variable.
     // So there is no need for the interpreter to keep the event in it's cache
-#if APPLE_CHANGES
-    if (tempEvent && view && view->part() && view->part()->jScript())
-        view->part()->jScript()->finishedWithEvent(evt);
-#else
-    if (tempEvent && view && view->part()->jScript())
-        view->part()->jScript()->finishedWithEvent(evt);
-#endif
+    if (tempEvent && part && part->jScript())
+        part->jScript()->finishedWithEvent(evt);
 
     if (view)
         view->deref();
@@ -547,7 +572,7 @@ bool NodeImpl::dispatchGenericEvent( EventImpl *evt, int &/*exceptioncode */)
 
     if (evt->bubbles()) {
         evt->setEventPhase(Event::BUBBLING_PHASE);
-        for (; it.current() && !evt->propagationStopped(); --it) {
+        for (; it.current() && !evt->propagationStopped() && !evt->getCancelBubble(); --it) {
             evt->setCurrentTarget(it.current());
             it.current()->handleLocalEvents(evt,false);
         }
@@ -556,14 +581,16 @@ bool NodeImpl::dispatchGenericEvent( EventImpl *evt, int &/*exceptioncode */)
     evt->setCurrentTarget(0);
     evt->setEventPhase(0); // I guess this is correct, the spec does not seem to say
                            // anything about the default event handler phase.
+
+
     if (evt->bubbles()) {
-        // now we call all default event handlers (this is not part of DOM - it is internal to khtml)
+	// now we call all default event handlers (this is not part of DOM - it is internal to khtml)
 
-        it.toLast();
-        for (; it.current() && !evt->propagationStopped() && !evt->defaultPrevented() && !evt->defaultHandled(); --it)
-                    it.current()->defaultEventHandler(evt);
+	it.toLast();
+	for (; it.current() && !evt->propagationStopped() && !evt->defaultPrevented() && !evt->defaultHandled(); --it)
+	    it.current()->defaultEventHandler(evt);
     }
-
+    
     // In the case of a mouse click, also send a DOMActivate event, which causes things like form submissions
     // to occur. Note that this only happens for _real_ mouse clicks (for which we get a KHTML_CLICK_EVENT or
     // KHTML_DBLCLICK_EVENT), not the standard DOM "click" event that could be sent from js code.
@@ -605,7 +632,7 @@ bool NodeImpl::dispatchWindowEvent(int _id, bool canBubbleArg, bool cancelableAr
     if (!evt->defaultPrevented() && doc->document())
 	doc->document()->defaultEventHandler(evt);
     
-    if (_id == EventImpl::LOAD_EVENT && !evt->propagationStopped()) {
+    if (_id == EventImpl::LOAD_EVENT && !evt->propagationStopped() && doc->document()) {
         // For onload events, send them to the enclosing frame only.
         // This is a DOM extension and is independent of bubbling/capturing rules of
         // the DOM.  You send the event only to the enclosing frame.  It does not
@@ -737,14 +764,23 @@ bool NodeImpl::dispatchKeyEvent(QKeyEvent *key)
 {
     int exceptioncode = 0;
     //kdDebug(6010) << "DOM::NodeImpl: dispatching keyboard event" << endl;
-    KeyEventImpl *keyEventImpl = new KeyEventImpl(key, getDocument()->defaultView());
-    keyEventImpl->ref();
-    bool r = dispatchEvent(keyEventImpl,exceptioncode,true);
+    KeyboardEventImpl *keyboardEventImpl = new KeyboardEventImpl(key, getDocument()->defaultView());
+    keyboardEventImpl->ref();
+    bool r = dispatchEvent(keyboardEventImpl,exceptioncode,true);
+
+#if APPLE_CHANGES
+    // we want to return false if default is prevented (already taken care of)
+    // or if the element is default-handled by the DOM. Otherwise we let it just
+    // let it get handled by AppKit 
+    if (keyboardEventImpl->defaultHandled())
+#else
     // the default event handler should accept() the internal QKeyEvent
     // to prevent the view from further evaluating it.
-    if (!keyEventImpl->defaultPrevented() && !keyEventImpl->qKeyEvent->isAccepted())
+    if (!keyboardEventImpl->defaultPrevented() && !keyboardEventImpl->qKeyEvent->isAccepted())
+#endif
       r = false;
-    keyEventImpl->deref();
+
+    keyboardEventImpl->deref();
     return r;
 }
 
@@ -860,13 +896,23 @@ void NodeImpl::checkAddChild(NodeImpl *newChild, int &exceptioncode)
         return;
     }
 
+    bool shouldAdoptChild = false;
+
     // WRONG_DOCUMENT_ERR: Raised if newChild was created from a different document than the one that
     // created this node.
     // We assume that if newChild is a DocumentFragment, all children are created from the same document
     // as the fragment itself (otherwise they could not have been added as children)
     if (newChild->getDocument() != getDocument()) {
-        exceptioncode = DOMException::NO_MODIFICATION_ALLOWED_ERR;
-        return;
+	// but if the child is not in a document yet then loosen the
+	// restriction, so that e.g. creating an element with the Option()
+	// constructor and then adding it to a different document works,
+	// as it does in Mozilla and Mac IE.
+	if (!newChild->inDocument()) {
+	    shouldAdoptChild = true;
+	} else {
+	    exceptioncode = DOMException::WRONG_DOCUMENT_ERR;
+	    return;
+	}
     }
 
     // HIERARCHY_REQUEST_ERR: Raised if this node is of a type that does not allow children of the type of the
@@ -896,6 +942,12 @@ void NodeImpl::checkAddChild(NodeImpl *newChild, int &exceptioncode)
             return;
         }
     }
+
+    // only do this once we know there won't be an exception
+    if (shouldAdoptChild) {
+	KJS::ScriptInterpreter::updateDOMObjectDocument(newChild, newChild->getDocument(), getDocument());
+	newChild->setDocument(getDocument()->docPtr());
+    }
 }
 
 bool NodeImpl::isAncestor( NodeImpl *other )
@@ -920,7 +972,13 @@ NodeImpl::StyleChange NodeImpl::diff( khtml::RenderStyle *s1, khtml::RenderStyle
     // explicit inheritance of non-inherited properties and so you end up not re-resolving
     // style in cases where you need to.
     StyleChange ch = NoInherit;
-    if ( !s1 || !s2 )
+    EDisplay display1 = s1 ? s1->display() : NONE;
+    bool fl1 = s1 ? s1->hasPseudoStyle(RenderStyle::FIRST_LETTER) : false;
+    EDisplay display2 = s2 ? s2->display() : NONE;
+    bool fl2 = s2 ? s2->hasPseudoStyle(RenderStyle::FIRST_LETTER) : false;
+    if (display1 != display2 || fl1 != fl2)
+        ch = Detach;
+    else if ( !s1 || !s2 )
 	ch = Inherit;
     else if ( *s1 == *s2 )
  	ch = NoChange;
@@ -987,8 +1045,8 @@ void NodeImpl::detach()
 {
 //    assert(m_attached);
 
-    if ( m_render )
-        m_render->detach(getDocument()->renderArena());
+    if (m_render)
+        m_render->detach();
 
     m_render = 0;
     m_attached = false;
@@ -1228,14 +1286,8 @@ NodeImpl *NodeBaseImpl::insertBefore ( NodeImpl *newChild, NodeImpl *refChild, i
 
         // Add child to the rendering tree
         // ### should we detach() it first if it's already attached?
-        if (attached() && !child->attached()) {
+        if (attached() && !child->attached())
             child->attach();
-            // This is extremely important, as otherwise a fresh layout
-            // isn't scheduled, and you end up with stale data (especially
-            // with inline runs of text). -dwh
-            if (child->renderer())
-                child->renderer()->setNeedsLayout(true);
-        }
 
         // Dispatch the mutation events
         dispatchChildInsertedEvents(child,exceptioncode);
@@ -1302,14 +1354,8 @@ NodeImpl *NodeBaseImpl::replaceChild ( NodeImpl *newChild, NodeImpl *oldChild, i
 
         // Add child to the rendering tree
         // ### should we detach() it first if it's already attached?
-        if (attached() && !child->attached()) {
+        if (attached() && !child->attached())
             child->attach();
-            // This is extremely important, as otherwise a fresh layout
-            // isn't scheduled, and you end up with stale data (especially
-            // with inline runs of text). -dwh
-            if (child->renderer())
-                child->renderer()->setNeedsLayout(true);
-        }
 
         // Dispatch the mutation events
         dispatchChildInsertedEvents(child,exceptioncode);
@@ -1455,14 +1501,8 @@ NodeImpl *NodeBaseImpl::appendChild ( NodeImpl *newChild, int &exceptioncode )
 
         // Add child to the rendering tree
         // ### should we detach() it first if it's already attached?
-        if (attached() && !child->attached()) {
+        if (attached() && !child->attached())
             child->attach();
-            // This is extremely important, as otherwise a fresh layout
-            // isn't scheduled, and you end up with stale data (especially
-            // with inline runs of text). -dwh
-            if (child->renderer())
-                child->renderer()->setNeedsLayout(true);
-        }
           
         // Dispatch the mutation events
         dispatchChildInsertedEvents(child,exceptioncode);
@@ -1735,8 +1775,6 @@ void NodeBaseImpl::setFocus(bool received)
     if (m_focused == received) return;
 
     NodeImpl::setFocus(received);
-    for(NodeImpl *it=_first;it;it=it->nextSibling())
-        it->setFocus(received);
 
     // note that we need to recalc the style
     setChanged();

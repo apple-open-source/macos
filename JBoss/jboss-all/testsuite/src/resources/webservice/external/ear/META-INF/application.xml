@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<application>
+  <display-name>Federated WebService Test</display-name>
+
+  <module>
+    <ejb>wsexternal.jar</ejb>
+  </module>
+
+  <module>
+    <java>wsexternal.wsr</java>
+  </module>
+
+</application>
+

@@ -24,7 +24,7 @@ import org.jboss.web.WebClassLoader;
  * A subclass of WebClassLoader that does IIOP bytecode generation on the fly.
  *
  * @author  <a href="mailto:reverbel@ime.usp.br">Francisco Reverbel</a>
- * @version $Revision: 1.5.2.2 $
+ * @version $Revision: 1.5.2.3 $
 */
 public class WebCL extends WebClassLoader
 {
@@ -40,6 +40,9 @@ public class WebCL extends WebClassLoader
         super(container, parent);
         logger.debug("Constructed WebCL " + this.toString());
         logger.debug("           parent " + parent.toString());
+
+        // Turn standard loading back on (we do classloading)
+        standard = true;
     }
 
     /** Gets a string key used as the key into the WebServer's loaderMap. */

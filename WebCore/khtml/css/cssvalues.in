@@ -10,6 +10,7 @@
 # and produce incorrect results.
 #
 inherit
+initial
 #
 # CSS_PROP_OUTLINE_STYLE
 # CSS_PROP_BORDER_TOP_STYLE
@@ -17,14 +18,14 @@ inherit
 # CSS_PROP_BORDER_LEFT_STYLE
 none
 hidden
-dotted
-dashed
-double
-solid
-outset
 inset
 groove
 ridge
+outset
+dotted
+dashed
+solid
+double
 #
 # CSS_PROP_FONT:
 #
@@ -99,11 +100,6 @@ monospace
 -khtml-body
 #
 #
-# CSS_PROP_BACKGROUND_COLOR:
-#
-transparent
-#
-#
 # CSS_PROP_*_COLOR
 #
 aqua
@@ -123,6 +119,7 @@ silver
 teal
 white
 yellow
+transparent
 activeborder
 activecaption
 appworkspace
@@ -243,7 +240,6 @@ auto
 crosshair
 default
 pointer
-progress
 move
 e-resize
 ne-resize
@@ -299,6 +295,7 @@ level
 line-through
 loud
 lower
+marquee
 mix
 no-close-quote
 no-open-quote
@@ -316,75 +313,6 @@ thick
 thin
 underline
 -khtml-nowrap
-# CSS_PROP__khtml_FLOW_MODE
--khtml-normal
--khtml-around-floats
-#
-# Not supported CSS 2 Aural values
-#
-# CSS_PROP_AZIMUTH:
-#
-#A left-side
-#A far-left
-#A #left
-#A center-left
-#A #center
-#A center-right
-#A right
-#A far-right
-#A right-side
-#A behind
-#A leftwards
-#A rightwards
-#
-# CSS_PROP_SPEECH_RATE:
-#
-#A x-slow
-#A slow
-#A #medium
-#A x-fast
-#A fast
-#A faster
-#A slower
-#
-# CSS_PROP_VOLUME:
-#
-#A silent
-#A x-soft
-#A soft
-#A #medium
-#A high
-#A x-high
-#A x-loud
-#
-# CSS_PROP_PITCH:
-#
-#A x-low
-#A low
-#A #medium
-#A #high
-#A #x-high
-#
-# CSS_PROP_SPEAK:
-#
-#A #normal
-#A #none
-#A spell-out
-#
-# CSS_PROP_SPEAK_HEADER:
-#
-#A #once
-#A always
-#
-# CSS_PROP_SPEAK_NUMERAL:
-#
-#A digits
-#A continuous
-#
-# CSS_PROP_SPEAK_PUNCTUATION:
-#
-#A code
-#A #none
 
 # CSS3 Values
 # CSS_PROP_BOX_ALIGN
@@ -413,4 +341,30 @@ block-axis
 # CSS_PROP_BOX_LINES
 single
 multiple
+
+# CSS_PROP_MARQUEE_DIRECTION
+forwards
+backwards
+ahead
+# reverse
+# left
+# right
+up
+down
+# auto
+
+# CSS_PROP_MARQUEE_SPEED
+slow
+# normal
+fast
+
+# CSS_PROP_MARQUEE_REPETITION
+infinite
+
+# CSS_PROP_MARQUEE_STYLE
+# none
+slide
+# scroll
+alternate
+unfurl
 

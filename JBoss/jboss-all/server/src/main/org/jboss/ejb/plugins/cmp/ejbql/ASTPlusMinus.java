@@ -15,17 +15,13 @@ import java.util.List;
  * opperations.
  *
  * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
- * @version $Revision: 1.1 $
+ * @version $Revision: 1.1.4.1 $
  */                            
-public class ASTPlusMinus extends SimpleNode {
-   public List opps = new ArrayList();
+public final class ASTPlusMinus extends SimpleNode {
+   public final List opps = new ArrayList();
    
    public ASTPlusMinus(int id) {
       super(id);
-   }
-
-   public ASTPlusMinus(EJBQLParser p, int id) {
-      super(p, id);
    }
 
    public void addOpp(String opp) {

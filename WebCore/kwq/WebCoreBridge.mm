@@ -36,6 +36,8 @@
 #import "htmltags.h"
 #import "khtml_part.h"
 #import "khtmlview.h"
+#import "kjs_proxy.h"
+#import "kjs_window.h"
 #import "loader.h"
 #import "render_frames.h"
 #import "render_image.h"
@@ -44,6 +46,8 @@
 #import "render_style.h"
 #import "render_replaced.h"
 
+#import <JavaScriptCore/jni_jsobject.h>
+#import <JavaScriptCore/object.h>
 #import <JavaScriptCore/property_map.h>
 
 #import "KWQAssertions.h"
@@ -56,10 +60,12 @@
 #import "KWQRenderTreeDebug.h"
 #import "KWQView.h"
 #import "KWQPrinter.h"
+#import "KWQAccObjectCache.h"
 
 #import "WebCoreDOMPrivate.h"
 #import "WebCoreImageRenderer.h"
 #import "WebCoreTextRendererFactory.h"
+#import "WebCoreViewFactory.h"
 #import "WebCoreSettings.h"
 
 #import <AppKit/NSView.h>
@@ -82,6 +88,8 @@ using KJS::SavedBuiltins;
 
 using KParts::URLArgs;
 
+using KJS::Bindings::RootObject;
+
 NSString *WebCoreElementFrameKey = 		@"WebElementFrame";
 NSString *WebCoreElementImageAltStringKey = 	@"WebElementImageAltString";
 NSString *WebCoreElementImageKey = 		@"WebElementImage";
@@ -93,12 +101,31 @@ NSString *WebCoreElementLinkTargetFrameKey =	@"WebElementTargetFrame";
 NSString *WebCoreElementLinkLabelKey = 		@"WebElementLinkLabel";
 NSString *WebCoreElementLinkTitleKey = 		@"WebElementLinkTitle";
 NSString *WebCoreElementNameKey = 		@"WebElementName";
+NSString *WebCoreElementTitleKey = 		@"WebCoreElementTitle"; // not in WebKit API for now, could be in API some day
 
-NSString *WebCorePageCacheStateKey =               @"WebCorePageCacheState";
+NSString *WebCorePageCacheStateKey =            @"WebCorePageCacheState";
+
+static RootObject *rootForView(void *v)
+{
+    NSView *aView = (NSView *)v;
+    WebCoreBridge *aBridge = [[WebCoreViewFactory sharedFactory] bridgeForView:aView];
+    if (aBridge) {
+        KWQKHTMLPart *part = [aBridge part];
+        RootObject *root = new RootObject(v);    // The root gets deleted by JavaScriptCore.
+        
+        root->setRootObjectImp (static_cast<KJS::ObjectImp *>(KJS::Window::retrieveWindow(part)));
+        root->setInterpreter (KJSProxy::proxy(part)->interpreter());
+        part->addPluginRootObject (root);
+            
+        return root;
+    }
+    return 0;
+}
 
 @implementation WebCoreBridge
 
 static bool initializedObjectCacheSize = FALSE;
+static bool initializedKJS = FALSE;
 
 - init
 {
@@ -110,6 +137,11 @@ static bool initializedObjectCacheSize = FALSE;
     if (!initializedObjectCacheSize){
         khtml::Cache::setSize([self getObjectCacheSize]);
         initializedObjectCacheSize = TRUE;
+    }
+    
+    if (!initializedKJS) {
+        KJS::Bindings::RootObject::setFindRootObjectForNativeHandleFunction (rootForView);
+        initializedKJS = TRUE;
     }
     
     _shouldCreateRenderers = YES;
@@ -269,6 +301,9 @@ static bool initializedObjectCacheSize = FALSE;
         return NO;
     }
     
+    if (!doc->view()) {
+        return NO;
+    }
     _part->clearTimers();
 
     SavedProperties *windowProperties = new SavedProperties;
@@ -285,8 +320,6 @@ static bool initializedObjectCacheSize = FALSE;
                                                      windowProperties:windowProperties
                                                    locationProperties:locationProperties
 				                  interpreterBuiltins:interpreterBuiltins] autorelease];
-
-
     [pageState setPausedActions: _part->pauseActions((const void *)pageState)];
 
     return [self saveDocumentToPageCache:pageState];
@@ -337,12 +370,29 @@ static bool initializedObjectCacheSize = FALSE;
 
 - (void)deselectAll
 {
+    [self deselectText];
+    DocumentImpl *doc = _part->xmlDocImpl();
+    if (doc) {
+        doc->setFocusNode(0);
+    }
+}
+
+- (void)deselectText
+{
     _part->slotClearSelection();
 }
 
 - (BOOL)isFrameSet
 {
     return _part->isFrameSet();
+}
+
+- (NSString *)styleSheetForPrinting
+{
+    if (!_part->settings()->shouldPrintBackgrounds()) {
+        return @"* { background-image: none !important; background-color: white !important;}";
+    }
+    return nil;
 }
 
 - (void)reapplyStylesForDeviceType:(WebCoreDeviceType)deviceType
@@ -353,6 +403,9 @@ static bool initializedObjectCacheSize = FALSE;
         static QPaintDevice screen;
         static QPrinter printer;
     	doc->setPaintDevice(deviceType == WebCoreDeviceScreen ? &screen : &printer);
+        if (deviceType != WebCoreDeviceScreen) {
+            doc->setPrintStyleSheet(QString::fromNSString([self styleSheetForPrinting]));
+        }
     }
     return _part->reparseConfiguration();
 }
@@ -384,10 +437,10 @@ static BOOL nowPrinting(WebCoreBridge *self)
     [self _setupRootForPrinting:NO];
 }
 
-- (void)forceLayoutForPageWidth:(float)pageWidth adjustingViewSize:(BOOL)flag
+- (void)forceLayoutWithMinimumPageWidth:(float)minPageWidth maximumPageWidth:(float)maxPageWidth adjustingViewSize:(BOOL)flag
 {
     [self _setupRootForPrinting:YES];
-    _part->forceLayoutForPageWidth(pageWidth);
+    _part->forceLayoutWithPageWidthRange(minPageWidth, maxPageWidth);
     if (flag) {
         [self adjustViewSize];
     }
@@ -414,22 +467,44 @@ static BOOL nowPrinting(WebCoreBridge *self)
 {
     QPainter painter(nowPrinting(self));
     painter.setUsesInactiveTextBackgroundColor(_part->usesInactiveTextBackgroundColor());
+    painter.setDrawsFocusRing(_part->showsFirstResponder());
     [self drawRect:rect withPainter:&painter];
 }
 
-- (void)adjustFrames:(NSRect)rect
+// Used by pagination code called from AppKit when a standalone web page is printed.
+- (NSArray*)computePageRectsWithPrintWidth:(float)printWidth printHeight:(float)printHeight
 {
-    // Ick!  khtml sets the frame size during layout and
-    // the frame origins during drawing!  So we have to 
-    // layout and do a draw with rendering disabled to
-    // correctly adjust the frames.
-    [self forceLayoutAdjustingViewSize:NO];
-    QPainter painter(nowPrinting(self));
-    painter.setPaintingDisabled(YES);
-    [self drawRect:rect withPainter:&painter];
+    [self _setupRootForPrinting:YES];
+    NSMutableArray* pages = [NSMutableArray arrayWithCapacity:5];
+	if (printWidth == 0 || printHeight == 0) {
+		return pages;
+	}
+	
+    KHTMLView* view = _part->view();
+    NSView* documentView = view->getDocumentView();
+    if (!documentView)
+        return pages;
+	
+    float currPageHeight = printHeight;
+    float docHeight = NSHeight([documentView bounds]);
+    float docWidth = NSWidth([documentView bounds]);
+    
+    // We need to give the part the opportunity to adjust the page height at each step.
+    for (float i = 0; i < docHeight; i += currPageHeight) {
+        float proposedBottom = kMin(docHeight, i + printHeight);
+        _part->adjustPageHeight(&proposedBottom, i, proposedBottom, i);
+        currPageHeight = kMax(1.0f, proposedBottom - i);
+        for (float j = 0; j < docWidth; j += printWidth) {
+            NSValue* val = [NSValue valueWithRect: NSMakeRect(j, i, printWidth, currPageHeight)];
+            [pages addObject: val];
+        }
+    }
+    [self _setupRootForPrinting:NO];
+    
+    return pages;
 }
 
-// Vertical pagination hook from AppKit
+// This is to support the case where a webview is embedded in the view that's being printed
 - (void)adjustPageHeightNew:(float *)newBottom top:(float)oldTop bottom:(float)oldBottom limit:(float)bottomLimit
 {
     [self _setupRootForPrinting:YES];
@@ -512,6 +587,8 @@ static BOOL nowPrinting(WebCoreBridge *self)
         _renderPart->setWidget(_part->view());
         // Now the render part owns the view, so we don't any more.
     }
+
+    _part->view()->initScrollBars();
 }
 
 - (void)mouseDown:(NSEvent *)event
@@ -569,7 +646,7 @@ static HTMLInputElementImpl *inputElementFromDOMElement(id <WebDOMElement>elemen
 {
     ASSERT([(NSObject *)element isKindOfClass:[WebCoreDOMElement class]]);
     DOM::ElementImpl *domElement = [(WebCoreDOMElement *)element elementImpl];
-    if (idFromNode(domElement) == ID_INPUT) {
+    if (domElement && idFromNode(domElement) == ID_INPUT) {
         return static_cast<HTMLInputElementImpl *>(domElement);
     }
     return nil;
@@ -579,7 +656,7 @@ static HTMLFormElementImpl *formElementFromDOMElement(id <WebDOMElement>element)
 {
     ASSERT([(NSObject *)element isKindOfClass:[WebCoreDOMElement class]]);
     DOM::ElementImpl *domElement = [(WebCoreDOMElement *)element elementImpl];
-    if (idFromNode(domElement) == ID_FORM) {
+    if (domElement && idFromNode(domElement) == ID_FORM) {
         return static_cast<HTMLFormElementImpl *>(domElement);
     }
     return nil;
@@ -681,7 +758,22 @@ static HTMLFormElementImpl *formElementFromDOMElement(id <WebDOMElement>element)
     NSMutableDictionary *element = [NSMutableDictionary dictionary];
     [element setObject:[NSNumber numberWithBool:_part->isPointInsideSelection((int)point.x, (int)point.y)]
                 forKey:WebCoreElementIsSelectedKey];
-    
+
+    // Find the title in the nearest enclosing DOM node.
+    // For <area> tags in image maps, walk the tree for the <area>, not the <img> using it.
+    for (NodeImpl *titleNode = nodeInfo.innerNode(); titleNode; titleNode = titleNode->parentNode()) {
+        if (titleNode->isElementNode()) {
+            const DOMString title = static_cast<ElementImpl *>(titleNode)->getAttribute(ATTR_TITLE);
+            if (!title.isNull()) {
+                // We found a node with a title.
+                QString titleText = title.string();
+                titleText.replace('\\', _part->backslashAsCurrencySymbol());
+                [element setObject:titleText.getNSString() forKey:WebCoreElementTitleKey];
+                break;
+            }
+        }
+    }
+
     NodeImpl *URLNode = nodeInfo.URLElement();
     if (URLNode) {
         ElementImpl *e = static_cast<ElementImpl *>(URLNode);
@@ -695,22 +787,17 @@ static HTMLFormElementImpl *formElementFromDOMElement(id <WebDOMElement>element)
         
         DOMString link = e->getAttribute(ATTR_HREF);
         if (!link.isNull()) {
-            // Look for the first #text node to use as a label.
-            NodeImpl *labelParent = e;
-            while (labelParent->hasChildNodes()){
-                NodeImpl *childNode = labelParent->firstChild();
-                unsigned short type = childNode->nodeType();
-                if (type == Node::TEXT_NODE){
-                    DOMStringImpl *dv = childNode->nodeValue().implementation();
-                    if (dv){
-                        NSString *value = [NSString stringWithCharacters: (const unichar *)dv->s length: dv->l];
-                        [element setObject:value forKey:WebCoreElementLinkLabelKey];
-                        break;
-                    }
+            if (e->firstChild()) {
+                Range r(_part->document());
+                r.setStartBefore(e->firstChild());
+                r.setEndAfter(e->lastChild());
+                QString t = _part->text(r);
+                if (!t.isEmpty()) {
+                    [element setObject:t.getNSString() forKey:WebCoreElementLinkLabelKey];
                 }
-                labelParent = childNode;
             }
-            [element setObject:_part->xmlDocImpl()->completeURL(link.string()).getNSString() forKey:WebCoreElementLinkURLKey];
+            QString URLString = parseURL(link).string();
+            [element setObject:_part->xmlDocImpl()->completeURL(URLString).getNSString() forKey:WebCoreElementLinkURLKey];
         }
         
         DOMString target = e->getAttribute(ATTR_TARGET);
@@ -724,41 +811,44 @@ static HTMLFormElementImpl *formElementFromDOMElement(id <WebDOMElement>element)
 
     NodeImpl *node = nodeInfo.innerNonSharedNode();
     if (node && node->renderer() && node->renderer()->isImage()) {
-        ElementImpl *i = static_cast<ElementImpl*>(node);
-
-        // FIXME: Code copied from RenderImage::updateFromElement; should share.
-        DOMString attr;
-        if (idFromNode(i) == ID_OBJECT) {
-            attr = i->getAttribute(ATTR_DATA);
-        } else {
-            attr = i->getAttribute(ATTR_SRC);
-        }
-        if (!attr.isEmpty()) {
-            [element setObject:_part->xmlDocImpl()->completeURL(attr.string()).getNSString() forKey:WebCoreElementImageURLKey];
-        }
         
-        // FIXME: Code copied from RenderImage::updateFromElement; should share.
-        DOMString alt;
-        if (idFromNode(i) == ID_INPUT)
-            alt = static_cast<HTMLInputElementImpl *>(i)->altText();
-        else if (idFromNode(i) == ID_IMG)
-            alt = static_cast<HTMLImageElementImpl *>(i)->altText();
-        if (!alt.isNull()) {
-            QString altText = alt.string();
-            altText.replace('\\', _part->backslashAsCurrencySymbol());
-            [element setObject:altText.getNSString() forKey:WebCoreElementImageAltStringKey];
-        }
-
         RenderImage *r = static_cast<RenderImage *>(node->renderer());
-        int x, y;
-        if (r->absolutePosition(x, y)) {
-            NSValue *rect = [NSValue valueWithRect:NSMakeRect(x, y, r->contentWidth(), r->contentHeight())];
-            [element setObject:rect forKey:WebCoreElementImageRectKey];
-        }
-
         NSImage *image = r->pixmap().image();
-        if (image) {
-            [element setObject:image forKey:WebCoreElementImageKey];
+        // Only return image information if there is an image.
+        if (image && !r->isDisplayingError()) {
+            [element setObject:r->pixmap().image() forKey:WebCoreElementImageKey];
+            
+            int x, y;
+            if (r->absolutePosition(x, y)) {
+                NSValue *rect = [NSValue valueWithRect:NSMakeRect(x, y, r->contentWidth(), r->contentHeight())];
+                [element setObject:rect forKey:WebCoreElementImageRectKey];
+            }
+            
+            ElementImpl *i = static_cast<ElementImpl*>(node);
+    
+            // FIXME: Code copied from RenderImage::updateFromElement; should share.
+            DOMString attr;
+            if (idFromNode(i) == ID_OBJECT) {
+                attr = i->getAttribute(ATTR_DATA);
+            } else {
+                attr = i->getAttribute(ATTR_SRC);
+            }
+            if (!attr.isEmpty()) {
+                QString URLString = parseURL(attr).string();
+                [element setObject:_part->xmlDocImpl()->completeURL(URLString).getNSString() forKey:WebCoreElementImageURLKey];
+            }
+            
+            // FIXME: Code copied from RenderImage::updateFromElement; should share.
+            DOMString alt;
+            if (idFromNode(i) == ID_INPUT)
+                alt = static_cast<HTMLInputElementImpl *>(i)->altText();
+            else if (idFromNode(i) == ID_IMG)
+                alt = static_cast<HTMLImageElementImpl *>(i)->altText();
+            if (!alt.isNull()) {
+                QString altText = alt.string();
+                altText.replace('\\', _part->backslashAsCurrencySymbol());
+                [element setObject:altText.getNSString() forKey:WebCoreElementImageAltStringKey];
+            }
         }
     }
     
@@ -782,9 +872,6 @@ static HTMLFormElementImpl *formElementFromDOMElement(id <WebDOMElement>element)
         return;
     }
     _part->setZoomFactor(newZoomFactor);
-    // setZoomFactor will trigger a timed layout, but we want to do the layout before
-    // we do any drawing. This takes care of that. Without this we redraw twice.
-    [self setNeedsLayout];
 }
 
 - (CFStringEncoding)textEncoding
@@ -794,12 +881,20 @@ static HTMLFormElementImpl *formElementFromDOMElement(id <WebDOMElement>element)
 
 - (NSView *)nextKeyView
 {
-    return _part->nextKeyView(0, KWQSelectingNext);
+    DocumentImpl *doc = _part->xmlDocImpl();
+    if (!doc) {
+        return nil;
+    }
+    return _part->nextKeyView(doc->focusNode(), KWQSelectingNext);
 }
 
 - (NSView *)previousKeyView
 {
-    return _part->nextKeyView(0, KWQSelectingPrevious);
+    DocumentImpl *doc = _part->xmlDocImpl();
+    if (!doc) {
+        return nil;
+    }
+    return _part->nextKeyView(doc->focusNode(), KWQSelectingPrevious);
 }
 
 - (NSView *)nextKeyViewInsideWebFrameViews
@@ -832,14 +927,14 @@ static HTMLFormElementImpl *formElementFromDOMElement(id <WebDOMElement>element)
 
 - (NSAttributedString *)selectedAttributedString
 {
-    return KWQKHTMLPart::attributedString(_part->selectionStart(), _part->selectionStartOffset(), _part->selectionEnd(), _part->selectionEndOffset());
+    return _part->attributedString(_part->selectionStart(), _part->selectionStartOffset(), _part->selectionEnd(), _part->selectionEndOffset());
 }
 
 - (NSAttributedString *)attributedStringFrom:(id<WebDOMNode>)start startOffset:(int)startOffset to:(id<WebDOMNode>)end endOffset:(int)endOffset
 {
     WebCoreDOMNode *startNode = start;
     WebCoreDOMNode *endNode = end;
-    return KWQKHTMLPart::attributedString([startNode impl], startOffset, [endNode impl], endOffset);
+    return _part->attributedString([startNode impl], startOffset, [endNode impl], endOffset);
 }
 
 - (id<WebDOMNode>)selectionStart
@@ -911,7 +1006,7 @@ static HTMLFormElementImpl *formElementFromDOMElement(id <WebDOMElement>element)
 
 - (void)setName:(NSString *)name
 {
-    _part->setName(QString::fromNSString(name));
+    _part->KHTMLPart::setName(QString::fromNSString(name));
 }
 
 - (NSString *)name
@@ -943,10 +1038,25 @@ static HTMLFormElementImpl *formElementFromDOMElement(id <WebDOMElement>element)
     return [WebCoreBridge stringWithData:data textEncoding:textEncoding];
 }
 
++ (void)updateAllViews
+{
+    for (QPtrListIterator<KWQKHTMLPart> it(KWQKHTMLPart::instances()); it.current(); ++it) {
+        KWQKHTMLPart *part = it.current();
+        [part->bridge() setNeedsReapplyStyles];
+    }
+}
+
 - (BOOL)needsLayout
 {
     RenderObject *renderer = _part->renderer();
     return renderer ? renderer->needsLayout() : false;
+}
+
+- (void)setNeedsLayout
+{
+    RenderObject *renderer = _part->renderer();
+    if (renderer)
+        renderer->setNeedsLayout(true);
 }
 
 - (BOOL)interceptKeyEvent:(NSEvent *)event toView:(NSView *)view
@@ -967,6 +1077,11 @@ static HTMLFormElementImpl *formElementFromDOMElement(id <WebDOMElement>element)
 - (BOOL)usesInactiveTextBackgroundColor
 {
     return _part->usesInactiveTextBackgroundColor();
+}
+
+- (void)setShowsFirstResponder:(BOOL)flag
+{
+    _part->setShowsFirstResponder(flag);
 }
 
 - (void)setShouldCreateRenderers:(BOOL)f
@@ -999,5 +1114,14 @@ static HTMLFormElementImpl *formElementFromDOMElement(id <WebDOMElement>element)
     if (view)
         view->adjustViewSize();
 }
+
+-(id)accessibilityTree
+{
+    if (!_part || !_part->xmlDocImpl()) return nil;
+    RenderCanvas* root = static_cast<khtml::RenderCanvas *>(_part->xmlDocImpl()->renderer());
+    if (!root) return nil;
+    return _part->xmlDocImpl()->getOrCreateAccObjectCache()->accObject(root);
+}
+
 
 @end

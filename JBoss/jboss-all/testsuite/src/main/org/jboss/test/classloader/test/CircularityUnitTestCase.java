@@ -12,7 +12,7 @@ import junit.extensions.TestSetup;
 
 /** Unit tests for the org.jboss.mx.loading.UnifiedLoaderRepository
  * @author Scott.Stark@jboss.org
- * @version $Revision: 1.1.4.3 $
+ * @version $Revision: 1.1.4.5 $
  */
 public class CircularityUnitTestCase extends JBossTestCase
 {
@@ -55,11 +55,15 @@ public class CircularityUnitTestCase extends JBossTestCase
    {
       server.invoke(testObjectName, "testDeadlockCase1", args, sig);
    }
+   public void testRecursiveLoadMT() throws Exception
+   {
+      server.invoke(testObjectName, "testRecursiveLoadMT", args, sig);
+   }
 
    /**
     * Setup the test suite.
     */
-   public static Test suite()
+   public static Test suite() throws Exception
    {
       TestSuite suite = new TestSuite();
       suite.addTest(new TestSuite(CircularityUnitTestCase.class));

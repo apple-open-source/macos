@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- $Id: file-pm-service.xml,v 1.1.2.2 2003/09/01 14:32:55 ejort Exp $ -->
+
+<server>
+
+  <!-- ==================================================================== -->
+  <!-- Persistence and caching using the file system                        -->
+  <!-- IMPORTANT: Remove hsqldb-jdbc2-service.xml                           -->
+  <!-- ==================================================================== -->
+
+  <!--
+     | The destination manager is the core service within JBossMQ
+  -->
+  <mbean code="org.jboss.mq.server.jmx.DestinationManager" name="jboss.mq:service=DestinationManager">
+    <depends optional-attribute-name="PersistenceManager">jboss.mq:service=PersistenceManager</depends>
+    <depends optional-attribute-name="StateManager">jboss.mq:service=StateManager</depends>
+  </mbean>
+
+  <!--
+     | The MessageCache decides where to put JBossMQ message that
+     | are sitting around waiting to be consumed by a client.
+     |
+     | The memory marks are in Megabytes.  Once the JVM memory usage hits
+     | the high memory mark, the old messages in the cache will start getting
+     | stored in the DataDirectory.  As memory usage gets closer to the
+     | Max memory mark, the amount of message kept in the memory cache aproaches 0.
+   -->
+  <mbean code="org.jboss.mq.server.MessageCache"
+	 name="jboss.mq:service=MessageCache">
+    <attribute name="HighMemoryMark">50</attribute>
+    <attribute name="MaxMemoryMark">60</attribute>
+    <depends optional-attribute-name="CacheStore">jboss.mq:service=CacheStore</depends>
+  </mbean>
+
+  <!--
+     | The CacheStore decides where to store JBossMQ message that
+     | that the MessageCache has decided to move in secondary storage.
+     |
+     | Now you can specify a absolute path by using an ULR like:
+     | file:///c:/temp
+     | ATTENTION: the directory MUST exists because it will not be
+     | created.
+   -->
+  <mbean code="org.jboss.mq.pm.file.CacheStore"
+	 name="jboss.mq:service=CacheStore">
+    <attribute name="DataDirectory">tmp/jbossmq</attribute>
+  </mbean>
+
+  <!--
+     | The PersistenceManager is used to store messages to disk.
+     |
+     | Now you can specify a absolut path by using an ULR like:
+     | file:///c:/temp
+     | ATTENTION: the directory MUST exists because it will not be
+     | created. Also for the "file" Persistance Manager the directory
+     | MUST be empty otherwise the startup fails ("rollinglogged" works
+     | fine.
+   -->
+  <mbean code="org.jboss.mq.pm.file.PersistenceManager"
+	 name="jboss.mq:service=PersistenceManager">
+    <attribute name="DataDirectory">data/jbossmq/file</attribute>
+    <depends optional-attribute-name="MessageCache">jboss.mq:service=MessageCache</depends>
+  </mbean>
+
+</server>

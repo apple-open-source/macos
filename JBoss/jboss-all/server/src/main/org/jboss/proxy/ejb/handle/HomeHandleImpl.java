@@ -26,7 +26,7 @@ import org.jboss.naming.NamingContextFactory;
  *
  * @author  <a href="mailto:marc.fleury@jboss.org">Marc Fleury</a>.
  * @author Scott.Stark@jboss.org
- * @version $Revision: 1.2.4.1 $
+ * @version $Revision: 1.2.4.2 $
  */
 public class HomeHandleImpl
       implements HomeHandle
@@ -94,6 +94,14 @@ public class HomeHandleImpl
       {
          throw new ServerException("Could not get EJBHome", e);
       }
+   }
+
+   /**
+    * @return the jndi name
+    */
+   public String getJNDIName()
+   {
+      return jndiName;
    }
 
    private void readObject(ObjectInputStream ois)

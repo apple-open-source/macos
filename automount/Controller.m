@@ -3,22 +3,21 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
+ * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ * Reserved.  This file contains Original Code and/or Modifications of
+ * Original Code as defined in and that are subject to the Apple Public
+ * Source License Version 1.0 (the 'License').  You may not use this file
+ * except in compliance with the License.  Please obtain a copy of the
+ * License at http://www.apple.com/publicsource and read it before using
+ * this file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License."
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -553,7 +552,8 @@ sysctl_unmount(fsid_t *fsid, int flag)
 
 	args.fh = (u_char *)&fh; 
 	sprintf(str, "automount %s [%d]", [src value], getpid());
-	args.hostname = str;
+	[[v map] setHostname:[String uniqueString:str]];
+	args.hostname = [[[v map] hostname] value];
 
 	sys_msg(debug, LOG_DEBUG, "Mounting map %s on %s", [src value], [dir value]);
 
@@ -644,6 +644,7 @@ sysctl_unmount(fsid_t *fsid, int flag)
 	char *s, *t;
 	String *parent, *mountpt;
 	id mapclass;
+    unsigned int mountstatus;
 
 	mapclass = [Map class];
 
@@ -712,7 +713,10 @@ sysctl_unmount(fsid_t *fsid, int flag)
 		return 1;
 	}
 
-	return [self autoMap:map name:mapname directory:dir mountdirectory:mnt];
+	mountstatus = [self autoMap:map name:mapname directory:dir mountdirectory:mnt];
+    if (mountstatus) return mountstatus;
+    
+    return [map registerAMInfoService];
 }
 
 - (Map *)rootMap
@@ -796,7 +800,9 @@ BOOL URLIsComplete(const char *url)
 		String *nslEntrySource = [String uniqueString:"*"];
 		if ([v mntArgs] & MNT_DONTBROWSE) urlMountFlags |= kMarkDontBrowse;
 		if ([[v source] equal:nslEntrySource]) {
-			urlMountFlags |= kMountAll;
+			sys_msg(debug, LOG_ERR, "No source specified for %s (URL='%s')\n", [[v link] value], [[v urlString] value]);
+			[v setNfsStatus:NFSERR_NXIO];
+			return 1;
 		} else {
 			urlMountFlags |= kMountAtMountdir;
 		};
@@ -1307,47 +1313,57 @@ void completeMount(Vnode *v, unsigned int status)
 
 	chdir("/");
 
-	/* unmount normal NFS mounts */
-	for (i = node_table_count - 1; i >= 0; i--)
-	{
-		v = node_table[i].node;
-
-		if ([v fakeMount]) continue;
-		if ([v server] == nil) continue;
-		if ([v source] == nil) [v setMounted:NO];
-		if ([[v server] isLocalHost]) [v setMounted:NO];
-
-		if (![v mounted]) continue;
-
-#ifdef __APPLE__
-		if (use_force)
-		{
-			sys_msg(debug, LOG_WARNING, "Force-unmounting %s", [[v link] value]);
-			status = unmount([[v link] value], MNT_FORCE);
-		}
-		else
-		{
-			sys_msg(debug, LOG_WARNING, "Unmounting %s", [[v link] value]);
-			status = unmount([[v link] value], 0);
-		}
-#else
-		status = unmount([[v link] value]);
-#endif
-
-		if (status == 0)	
-		{
-			[v setMounted:NO];
-#ifndef __APPLE__
-			[self mtabUpdate:v];
-#endif
-			sys_msg(debug, LOG_DEBUG, "Unmounted %s", [[v link] value]);
-		}
-		else
-		{
-			sys_msg(debug, LOG_DEBUG, "Unmount failed for %s: %s",
-				[[v link] value], strerror(errno));
-		}
-	}
+    if (use_force)
+    {
+        /* unmount normal NFS mounts */
+        for (i = node_table_count - 1; i >= 0; i--)
+        {
+            v = node_table[i].node;
+    
+            if ([v fakeMount]) continue;
+            if ([v server] == nil) continue;
+            if ([v source] == nil) [v setMounted:NO];
+            if ([[v server] isLocalHost]) [v setMounted:NO];
+    
+            if (![v mounted]) continue;
+    
+    #ifdef __APPLE__
+            if (use_force)
+            {
+                sys_msg(debug, LOG_WARNING, "Force-unmounting %s", [[v link] value]);
+                status = unmount([[v link] value], MNT_FORCE);
+            }
+            else
+            {
+                sys_msg(debug, LOG_WARNING, "Unmounting %s", [[v link] value]);
+                status = unmount([[v link] value], 0);
+            }
+    #else
+            status = unmount([[v link] value]);
+    #endif
+    
+            if (status == 0)	
+            {
+                [v setMounted:NO];
+    #ifndef __APPLE__
+                [self mtabUpdate:v];
+    #endif
+                sys_msg(debug, LOG_DEBUG, "Unmounted %s", [[v link] value]);
+            }
+            else
+            {
+                sys_msg(debug, LOG_DEBUG, "Unmount failed for %s: %s",
+                    [[v link] value], strerror(errno));
+            }
+        }
+    }
+    else
+    {
+        /* Tell maps to try to unmount all nodes */
+        for (i = 0; i < map_table_count; i++) {
+            [map_table[i].map unmount:[map_table[i].map root] withRemountOnFailure:NO];
+        };
+    }
 }
 
 - (void)unmountMaps:(int)use_force
@@ -1391,6 +1407,8 @@ void completeMount(Vnode *v, unsigned int status)
 #ifndef __APPLE__
 			[self mtabUpdate:v];
 #endif
+          [[v map] deregisterAMInfoService];
+            
 			sys_msg(debug, LOG_DEBUG, "Unmounted %s", [[v link] value]);
 		}
 		else

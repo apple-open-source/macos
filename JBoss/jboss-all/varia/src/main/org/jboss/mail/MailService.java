@@ -41,7 +41,7 @@ import org.jboss.naming.NonSerializableFactory;
  * @jmx:mbean name="jboss:type=Service,service=Mail"
  *            extends="org.jboss.system.ServiceMBean"
  *
- * @version <tt>$Revision: 1.9.2.2 $</tt>
+ * @version <tt>$Revision: 1.9.2.3 $</tt>
  * @author  <a href="mailto:simone.bordet@compaq.com">Simone Bordet</a>
  * @author  <a href="mailto:jason@planet57.com">Jason Dillon</a>
  */
@@ -194,7 +194,7 @@ public class MailService
 	/**
 	 * @jmx:managed-attribute
 	 */
-   public String getPOP3SererHost()
+   public String getPOP3ServerHost()
    {
    	if (ourProps!=null)
    		return ourProps.getProperty("mail.pop3.host");

@@ -1,6 +1,6 @@
 // ========================================================================
 // Copyright (c) 2002 Mort Bay Consulting (Australia) Pty. Ltd.
-// $Id: AbstractReplicatedStore.java,v 1.1.2.10 2003/03/05 01:08:31 jules_gosnell Exp $
+// $Id: AbstractReplicatedStore.java,v 1.1.2.13 2003/10/05 01:57:02 ejort Exp $
 // ========================================================================
 
 package org.mortbay.j2ee.session;
@@ -14,10 +14,10 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.Map;
-import org.apache.log4j.Category;
-import org.javagroups.Message;
-import org.javagroups.blocks.MessageDispatcher;
-import org.javagroups.util.Util;
+import org.jgroups.Message;
+import org.jgroups.blocks.MessageDispatcher;
+import org.jgroups.util.Util;
+import org.jboss.logging.Logger;
 
 //----------------------------------------
 
@@ -34,6 +34,7 @@ import org.javagroups.util.Util;
  * according to notifications published by the other State objects.
  *
  * @author <a href="mailto:jules@mortbay.com">Jules Gosnell</a>
+ * @author <a href="mailto:ddesmeu@nuance.com">Daniel Desmeiles</a>
  * @version 1.0
  */
 
@@ -41,7 +42,9 @@ abstract public class
   AbstractReplicatedStore
   extends AbstractStore
 {
-  protected ClassLoader   _loader;
+  protected final static Logger _log=Logger.getLogger(AbstractReplicatedStore.class);
+
+  protected ClassLoader _loader;
 
   public
     AbstractReplicatedStore()
@@ -76,10 +79,12 @@ abstract public class
   public void
     destroy()			// corresponds to ctor
     {
+      _log.trace("destroying...");
       _sessions.clear();
       _sessions=null;
       setManager(null);
       super.destroy();
+      _log.trace("...destroyed");
     }
 
   //----------------------------------------
@@ -151,16 +156,17 @@ abstract public class
     scavenge()
     throws Exception
     {
-      _log.info("distributed scavenging...");
+      _log.trace("starting distributed session scavenge...");
       synchronized (_sessions)
       {
 	for (Iterator i=_sessions.entrySet().iterator(); i.hasNext();)
  	  if (!((LocalState)((Map.Entry)i.next()).getValue()).isValid(_scavengerExtraTime))
 	  {
-	    _log.info("scavenging state");
+	    //	    _log.trace("scavenging distributed session");
 	    i.remove();
 	  }
       }
+      _log.trace("...distributed session scavenge finished");
     }
 
   //----------------------------------------
@@ -272,7 +278,10 @@ abstract public class
 	try
 	{
 	  Method method=_integerToMethod[methodId.intValue()];
-	  method.invoke(target, argInstances);
+     if (target == null)
+        _log.warn("null target for " + method);
+     else
+        method.invoke(target, argInstances);
 	}
 	catch (Exception e)
 	{
@@ -288,7 +297,7 @@ abstract public class
   public void
     createSession(String id, long creationTime, int maxInactiveInterval, int actualMaxInactiveInterval)
     {
-      _log.debug("creating replicated session: "+id);
+      if (_log.isTraceEnabled()) _log.trace("creating replicated session: "+id);
       State state=new LocalState(id, creationTime, maxInactiveInterval, actualMaxInactiveInterval);
       synchronized(_sessions) {_sessions.put(id, state);}
 
@@ -302,7 +311,9 @@ abstract public class
   public void
     destroySession(String id)
     {
-      _log.debug("destroying replicated session: "+id);
+      if (_log.isTraceEnabled()) _log.trace("destroying replicated session: "+id);
+      if (getManager().sessionExists(id))
+         getManager().destroyContainer(getManager().getHttpSession(id));
       synchronized(_sessions) {_sessions.remove(id);}
     }
 

@@ -1,5 +1,5 @@
---- samba/source/smbd/chgpasswd.c.orig	Mon Aug 18 22:18:28 2003
-+++ samba/source/smbd/chgpasswd.c	Fri Aug 29 14:40:38 2003
+--- samba/source/smbd/chgpasswd.c.orig	Thu Dec 18 15:12:47 2003
++++ samba/source/smbd/chgpasswd.c	Fri Dec 19 08:31:15 2003
 @@ -49,6 +49,12 @@
  
  #include "includes.h"
@@ -13,7 +13,7 @@
  extern struct passdb_ops pdb_ops;
  
  static NTSTATUS check_oem_password(const char *user,
-@@ -747,7 +753,24 @@ NTSTATUS pass_oem_change(char *user,
+@@ -715,7 +721,24 @@ NTSTATUS pass_oem_change(char *user,
  {
  	fstring new_passwd;
  	SAM_ACCOUNT *sampass = NULL;
@@ -39,7 +39,7 @@
  				     &sampass, new_passwd, sizeof(new_passwd));
  
  	if (!NT_STATUS_IS_OK(nt_status))
-@@ -761,6 +784,9 @@ NTSTATUS pass_oem_change(char *user,
+@@ -729,6 +752,9 @@ NTSTATUS pass_oem_change(char *user,
  	memset(new_passwd, 0, sizeof(new_passwd));
  
  	pdb_free_sam(&sampass);

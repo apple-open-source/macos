@@ -20,7 +20,7 @@ IOReturn AudioHardwareObjectInterface::setMute(bool mutestate)
 			mAnalogMuteState = mutestate;
 		}
 	}
-	if ( hasAnalogMute() ) {
+	if ( hasDigitalMute() ) {		//	[3514610]
 		tempResult = setMute ( mutestate, kDigitalAudioSelector );			
 		if ( kIOReturnSuccess != tempResult ) {
 			result = tempResult;

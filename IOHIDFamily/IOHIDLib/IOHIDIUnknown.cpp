@@ -28,6 +28,7 @@
 
 #include "IOHIDIUnknown.h"
 #include "IOHIDDeviceClass.h"
+#include "IOHIDUPSClass.h"
 
 int IOHIDIUnknown::factoryRefCount = 0;
 
@@ -35,6 +36,8 @@ void *IOHIDLibFactory(CFAllocatorRef allocator, CFUUIDRef typeID)
 {
     if (CFEqual(typeID, kIOHIDDeviceUserClientTypeID))
         return (void *) IOHIDDeviceClass::alloc();
+    else if (CFEqual(typeID, kIOUPSPlugInTypeID))
+        return (void *) IOHIDUPSClass::alloc();
     else
         return NULL;
 }

@@ -19,7 +19,7 @@ import org.jboss.test.entity.interfaces.TestEntityValue;
  * Some entity bean tests.
  *
  * @author    Adrian.Brock@HappeningTimes.com
- * @version   $Revision: 1.2.2.2 $
+ * @version   $Revision: 1.2.2.3 $
  */
 public class EntityUnitTestCase
    extends JBossTestCase
@@ -42,7 +42,7 @@ public class EntityUnitTestCase
       TestEntityHome home = TestEntityUtil.getHome();
 
       getLog().debug("Creating entity");
-      TestEntityValue value = new TestEntityValue("key1");
+      TestEntityValue value = new TestEntityValue("key1", null);
       home.create(value);
 
       getLog().debug("Removing entity externally");
@@ -59,7 +59,7 @@ public class EntityUnitTestCase
       TestEntityHome home = TestEntityUtil.getHome();
 
       getLog().debug("Creating entity");
-      TestEntityValue value = new TestEntityValue("key2");
+      TestEntityValue value = new TestEntityValue("key2", null);
       home.create(value);
 
       getLog().debug("Removing entity internally");
@@ -76,7 +76,7 @@ public class EntityUnitTestCase
       TestEntityHome home = TestEntityUtil.getHome();
 
       getLog().debug("Creating entity");
-      TestEntityValue value = new TestEntityValue("key3");
+      TestEntityValue value = new TestEntityValue("key3", null);
       TestEntity bean = home.create(value);
 
       getLog().debug("Removing entity internally");
@@ -84,5 +84,23 @@ public class EntityUnitTestCase
 
       getLog().debug("Recreating the entity");
       home.create(value);
+   }
+
+   public void testChangeReadOnlyField()
+      throws Exception
+   {
+      getLog().debug("Retrieving home");
+      TestEntityHome home = TestEntityUtil.getHome();
+
+      getLog().debug("Creating entity");
+      TestEntityValue value = new TestEntityValue("key4", "original");
+      TestEntity bean = home.create(value);
+
+      getLog().debug("Access the value");
+      assertEquals("original", bean.getValue1());
+
+      getLog().debug("Change the value");
+      home.changeValue1("key4", "changed");
+      assertEquals("changed", bean.getValue1());
    }
 }

@@ -4,7 +4,7 @@
  * Distributable under LGPL license.
  * See terms of license at gnu.org.
  */
- 
+
 package org.jboss.varia.autonumber;
 
 import javax.naming.InitialContext;
@@ -15,14 +15,14 @@ import org.jboss.logging.Logger;
  * AutoNumberFactory can persistently auto number items. 
  *
  * @author <a href="mailto:michel.anke@wolmail.nl">Michel de Groot</a>
- * @version $Revision: 1.1 $
+ * @version $Revision: 1.1.4.1 $
  */
 public class AutoNumberFactory
 {
    private static final Logger log = Logger.getLogger(AutoNumberFactory.class);
-   
+
    private static AutoNumberHome autoNumberHome;
-   
+
    /**
     * Gets the next key for the given collection.
     * Note 1: you must deploy EJB AutoNumber
@@ -35,107 +35,133 @@ public class AutoNumberFactory
     * @param collectionName the name of the collection for which you want an autonumber
     * @throws ArrayIndexOutOfBoundsException if no more numbers are available
     */
-   public static Integer getNextInteger(String collectionName)
+   public static synchronized Integer getNextInteger(String collectionName)
       throws ArrayIndexOutOfBoundsException
    {
       Integer value = null;
       AutoNumber autoNumber = null;
-      if (autoNumberHome == null) {
-         try {
-            autoNumberHome = (AutoNumberHome)new InitialContext().lookup("JBossUtilAutoNumber");
+      if (autoNumberHome == null)
+      {
+         try
+         {
+            autoNumberHome = (AutoNumberHome) new InitialContext().lookup("JBossUtilAutoNumber");
          }
-         catch (javax.naming.NamingException e) {
+         catch (javax.naming.NamingException e)
+         {
             log.error("operation failed", e);
          }
       }
-      
-      try {
-         autoNumber = (AutoNumber)autoNumberHome.findByPrimaryKey(collectionName);
+
+      try
+      {
+         autoNumber = autoNumberHome.findByPrimaryKey(collectionName);
       }
-      catch (javax.ejb.FinderException e) {
+      catch (javax.ejb.FinderException e)
+      {
          // autonumber does not exist yet, create one at value 0
-         try {
+         try
+         {
             autoNumber = autoNumberHome.create(collectionName);
          }
-         catch (javax.ejb.CreateException x) {
+         catch (javax.ejb.CreateException x)
+         {
             log.error("operation failed", x);
          }
-         catch (java.rmi.RemoteException x) {
+         catch (java.rmi.RemoteException x)
+         {
             log.error("operation failed", x);
          }
-         
-         try {
+
+         try
+         {
             autoNumber.setValue(new Integer(0));
          }
-         catch (java.rmi.RemoteException x) {
+         catch (java.rmi.RemoteException x)
+         {
             log.error("operation failed", x);
          }
       }
-      catch (java.rmi.RemoteException e) {
+      catch (java.rmi.RemoteException e)
+      {
          log.error("operation failed", e);
       }
-      
-      try {
+
+      try
+      {
          value = autoNumber.getValue();
-         autoNumber.setValue(new Integer(value.intValue()+1));
+         autoNumber.setValue(new Integer(value.intValue() + 1));
       }
-      catch (java.rmi.RemoteException e) {
+      catch (java.rmi.RemoteException e)
+      {
          log.error("operation failed", e);
       }
-      
+
       return value;
    }
-   
+
    /**
     * Resets the given autonumber to zero.
     * Use with extreme care!
     */
-   public static void resetAutoNumber(String collectionName) {
-      setAutoNumber(collectionName,new Integer(0));
+   public static synchronized void resetAutoNumber(String collectionName)
+   {
+      setAutoNumber(collectionName, new Integer(0));
    }
-   
+
    /**
     * Sets the given autonumber to the given value so that it starts
     * counting at the given value.
     * Use with extreme care!
     */
-   public static void setAutoNumber(String collectionName, Integer value) {
+   public static synchronized void setAutoNumber(String collectionName, Integer value)
+   {
       AutoNumber autoNumber = null;
-      if (autoNumberHome == null) {
-         try {
+      if (autoNumberHome == null)
+      {
+         try
+         {
             autoNumberHome = (AutoNumberHome)
                new InitialContext().lookup("JBossUtilAutoNumber");
          }
-         catch (javax.naming.NamingException e) {
-            log.error("operation failed", e);            
+         catch (javax.naming.NamingException e)
+         {
+            log.error("operation failed", e);
          }
       }
-      
-      try {
-         autoNumber = (AutoNumber)autoNumberHome.findByPrimaryKey(collectionName);
+
+      try
+      {
+         autoNumber = autoNumberHome.findByPrimaryKey(collectionName);
       }
-      catch (javax.ejb.FinderException e) {
+      catch (javax.ejb.FinderException e)
+      {
          // autonumber does not exist yet, create one
 
-         try {
+         try
+         {
             autoNumber = autoNumberHome.create(collectionName);
          }
-         catch (javax.ejb.CreateException x) {
+         catch (javax.ejb.CreateException x)
+         {
             log.error("operation failed", x);
          }
-         catch (java.rmi.RemoteException x) {
+         catch (java.rmi.RemoteException x)
+         {
             log.error("operation failed", x);
          }
       }
-      catch (java.rmi.RemoteException e) {
+      catch (java.rmi.RemoteException e)
+      {
          log.error("operation failed", e);
       }
-      
-      try {
+
+      try
+      {
          autoNumber.setValue(value);
       }
-      catch (java.rmi.RemoteException e) {
+      catch (java.rmi.RemoteException e)
+      {
          log.error("operation failed", e);
       }
-   }	
+   }
 }

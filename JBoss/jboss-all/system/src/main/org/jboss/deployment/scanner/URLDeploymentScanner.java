@@ -39,7 +39,7 @@ import org.jboss.util.NullArgumentException;
  *
  * @jmx:mbean extends="org.jboss.deployment.scanner.DeploymentScannerMBean"
  *
- * @version <tt>$Revision: 1.20.2.8 $</tt>
+ * @version <tt>$Revision: 1.20.2.9 $</tt>
  * @author  <a href="mailto:jason@planet57.com">Jason Dillon</a>
  */
 public class URLDeploymentScanner
@@ -307,7 +307,7 @@ public class URLDeploymentScanner
       }
       catch (Exception e)
       {
-         log.error("Failed to deploy: " + du, e);
+         log.debug("Failed to deploy: " + du, e);
       } // end of try-catch
 
       du.deployed();

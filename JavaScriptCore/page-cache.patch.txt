@@ -1,0 +1,334 @@
+Index: ChangeLog
+===================================================================
+RCS file: /local/home/cvs/Labyrinth/JavaScriptCore/ChangeLog,v
+retrieving revision 1.316
+retrieving revision 1.318
+diff -u -r1.316 ChangeLog
+--- ChangeLog	2003/07/08 01:23:50	1.316
++++ ChangeLog	2003/07/11 01:03:35	1.318
+@@ -1,3 +1,27 @@
++=== Safari-89 ===
++
++2003-07-10  Maciej Stachowiak  <mjs@apple.com>
++
++        Reviewed by Darin.
++
++	- fixed 3302021 - v74 and v85 hang with http://e-www.motorola.com/
++
++	The crux of this was saving and restoring the prototype objects
++	for all the standard types when saving and restoring for the page
++	cache.
++	
++        * kjs/internal.cpp:
++        (InterpreterImp::saveBuiltins):
++        (InterpreterImp::restoreBuiltins):
++        * kjs/internal.h:
++        * kjs/interpreter.cpp:
++        (Interpreter::saveBuiltins):
++        (Interpreter::restoreBuiltins):
++        (SavedBuiltins::SavedBuiltins):
++        (SavedBuiltins::~SavedBuiltins):
++        * kjs/interpreter.h:
++        * kjs/property_map.cpp:
++
+ 2003-07-07  Maciej Stachowiak  <mjs@apple.com>
+ 
+         Reviewed by John.
+Index: JavaScriptCore.pbproj/project.pbxproj
+===================================================================
+RCS file: /local/home/cvs/Labyrinth/JavaScriptCore/JavaScriptCore.pbproj/project.pbxproj,v
+retrieving revision 1.143
+retrieving revision 1.144
+diff -u -r1.143 JavaScriptCore.pbproj/project.pbxproj
+--- JavaScriptCore.pbproj/project.pbxproj	2003/07/08 01:23:50	1.143
++++ project.pbxproj	2003/07/11 01:03:35	1.144
+@@ -173,7 +173,7 @@
+ 	<key>CFBundleShortVersionString</key>
+ 	<string>1.1</string>
+ 	<key>CFBundleVersion</key>
+-	<string>89u</string>
++	<string>89</string>
+ </dict>
+ </plist>
+ ";
+Index: kjs/internal.cpp
+===================================================================
+RCS file: /local/home/cvs/Labyrinth/JavaScriptCore/kjs/internal.cpp,v
+retrieving revision 1.39
+retrieving revision 1.40
+diff -u -r1.39 kjs/internal.cpp
+--- kjs/internal.cpp	2003/05/13 21:19:52	1.39
++++ internal.cpp	2003/07/10 21:18:24	1.40
+@@ -546,7 +546,7 @@
+   unlockInterpreter();
+ }
+ 
+-void InterpreterImp::initGlobalObject()
++ void InterpreterImp::initGlobalObject()
+ {
+   Identifier::init();
+   
+@@ -820,6 +820,88 @@
+   if (d)
+     d->detach(m_interpreter);
+   dbg = d;
++}
++
++void InterpreterImp::saveBuiltins (SavedBuiltins &builtins) const
++{
++  if (!builtins._internal) {
++    builtins._internal = new SavedBuiltinsInternal;
++  }
++
++  builtins._internal->b_Object = b_Object;
++  builtins._internal->b_Function = b_Function;
++  builtins._internal->b_Array = b_Array;
++  builtins._internal->b_Boolean = b_Boolean;
++  builtins._internal->b_String = b_String;
++  builtins._internal->b_Number = b_Number;
++  builtins._internal->b_Date = b_Date;
++  builtins._internal->b_RegExp = b_RegExp;
++  builtins._internal->b_Error = b_Error;
++  
++  builtins._internal->b_ObjectPrototype = b_ObjectPrototype;
++  builtins._internal->b_FunctionPrototype = b_FunctionPrototype;
++  builtins._internal->b_ArrayPrototype = b_ArrayPrototype;
++  builtins._internal->b_BooleanPrototype = b_BooleanPrototype;
++  builtins._internal->b_StringPrototype = b_StringPrototype;
++  builtins._internal->b_NumberPrototype = b_NumberPrototype;
++  builtins._internal->b_DatePrototype = b_DatePrototype;
++  builtins._internal->b_RegExpPrototype = b_RegExpPrototype;
++  builtins._internal->b_ErrorPrototype = b_ErrorPrototype;
++  
++  builtins._internal->b_evalError = b_evalError;
++  builtins._internal->b_rangeError = b_rangeError;
++  builtins._internal->b_referenceError = b_referenceError;
++  builtins._internal->b_syntaxError = b_syntaxError;
++  builtins._internal->b_typeError = b_typeError;
++  builtins._internal->b_uriError = b_uriError;
++  
++  builtins._internal->b_evalErrorPrototype = b_evalErrorPrototype;
++  builtins._internal->b_rangeErrorPrototype = b_rangeErrorPrototype;
++  builtins._internal->b_referenceErrorPrototype = b_referenceErrorPrototype;
++  builtins._internal->b_syntaxErrorPrototype = b_syntaxErrorPrototype;
++  builtins._internal->b_typeErrorPrototype = b_typeErrorPrototype;
++  builtins._internal->b_uriErrorPrototype = b_uriErrorPrototype;
++}
++
++void InterpreterImp::restoreBuiltins (const SavedBuiltins &builtins)
++{
++  if (!builtins._internal) {
++    return;
++  }
++
++  b_Object = builtins._internal->b_Object;
++  b_Function = builtins._internal->b_Function;
++  b_Array = builtins._internal->b_Array;
++  b_Boolean = builtins._internal->b_Boolean;
++  b_String = builtins._internal->b_String;
++  b_Number = builtins._internal->b_Number;
++  b_Date = builtins._internal->b_Date;
++  b_RegExp = builtins._internal->b_RegExp;
++  b_Error = builtins._internal->b_Error;
++  
++  b_ObjectPrototype = builtins._internal->b_ObjectPrototype;
++  b_FunctionPrototype = builtins._internal->b_FunctionPrototype;
++  b_ArrayPrototype = builtins._internal->b_ArrayPrototype;
++  b_BooleanPrototype = builtins._internal->b_BooleanPrototype;
++  b_StringPrototype = builtins._internal->b_StringPrototype;
++  b_NumberPrototype = builtins._internal->b_NumberPrototype;
++  b_DatePrototype = builtins._internal->b_DatePrototype;
++  b_RegExpPrototype = builtins._internal->b_RegExpPrototype;
++  b_ErrorPrototype = builtins._internal->b_ErrorPrototype;
++  
++  b_evalError = builtins._internal->b_evalError;
++  b_rangeError = builtins._internal->b_rangeError;
++  b_referenceError = builtins._internal->b_referenceError;
++  b_syntaxError = builtins._internal->b_syntaxError;
++  b_typeError = builtins._internal->b_typeError;
++  b_uriError = builtins._internal->b_uriError;
++  
++  b_evalErrorPrototype = builtins._internal->b_evalErrorPrototype;
++  b_rangeErrorPrototype = builtins._internal->b_rangeErrorPrototype;
++  b_referenceErrorPrototype = builtins._internal->b_referenceErrorPrototype;
++  b_syntaxErrorPrototype = builtins._internal->b_syntaxErrorPrototype;
++  b_typeErrorPrototype = builtins._internal->b_typeErrorPrototype;
++  b_uriErrorPrototype = builtins._internal->b_uriErrorPrototype;
+ }
+ 
+ // ------------------------------ InternalFunctionImp --------------------------
+Index: kjs/internal.h
+===================================================================
+RCS file: /local/home/cvs/Labyrinth/JavaScriptCore/kjs/internal.h,v
+retrieving revision 1.20
+retrieving revision 1.21
+diff -u -r1.20 kjs/internal.h
+--- kjs/internal.h	2003/04/13 07:31:44	1.20
++++ internal.h	2003/07/10 21:18:24	1.21
+@@ -211,6 +211,44 @@
+     static int sid;
+   };
+ 
++  class SavedBuiltinsInternal {
++    friend class InterpreterImp;
++  private:
++    Object b_Object;
++    Object b_Function;
++    Object b_Array;
++    Object b_Boolean;
++    Object b_String;
++    Object b_Number;
++    Object b_Date;
++    Object b_RegExp;
++    Object b_Error;
++
++    Object b_ObjectPrototype;
++    Object b_FunctionPrototype;
++    Object b_ArrayPrototype;
++    Object b_BooleanPrototype;
++    Object b_StringPrototype;
++    Object b_NumberPrototype;
++    Object b_DatePrototype;
++    Object b_RegExpPrototype;
++    Object b_ErrorPrototype;
++
++    Object b_evalError;
++    Object b_rangeError;
++    Object b_referenceError;
++    Object b_syntaxError;
++    Object b_typeError;
++    Object b_uriError;
++
++    Object b_evalErrorPrototype;
++    Object b_rangeErrorPrototype;
++    Object b_referenceErrorPrototype;
++    Object b_syntaxErrorPrototype;
++    Object b_typeErrorPrototype;
++    Object b_uriErrorPrototype;
++  };
++
+   class InterpreterImp {
+     friend class Collector;
+   public:
+@@ -279,6 +317,9 @@
+     InterpreterImp *prevInterpreter() const { return prev; }
+     
+     void setContext(ContextImp *c) { _context = c; }
++
++    void saveBuiltins (SavedBuiltins &builtins) const;
++    void restoreBuiltins (const SavedBuiltins &builtins);
+ 
+   private:
+     void clear();
+Index: kjs/interpreter.cpp
+===================================================================
+RCS file: /local/home/cvs/Labyrinth/JavaScriptCore/kjs/interpreter.cpp,v
+retrieving revision 1.18
+retrieving revision 1.19
+diff -u -r1.18 kjs/interpreter.cpp
+--- kjs/interpreter.cpp	2003/05/13 21:19:52	1.18
++++ interpreter.cpp	2003/07/10 21:18:24	1.19
+@@ -331,5 +331,26 @@
+ }
+ #endif
+ 
++void Interpreter::saveBuiltins (SavedBuiltins &builtins) const
++{
++  rep->saveBuiltins(builtins);
++}
++
++void Interpreter::restoreBuiltins (const SavedBuiltins &builtins)
++{
++  rep->restoreBuiltins(builtins);
++}
++
++SavedBuiltins::SavedBuiltins() : 
++  _internal(0)
++{
++}
++
++SavedBuiltins::~SavedBuiltins()
++{
++  delete _internal;
++}
++
++
+ void Interpreter::virtual_hook( int, void* )
+ { /*BASE::virtual_hook( id, data );*/ }
+Index: kjs/interpreter.h
+===================================================================
+RCS file: /local/home/cvs/Labyrinth/JavaScriptCore/kjs/interpreter.h,v
+retrieving revision 1.14
+retrieving revision 1.15
+diff -u -r1.14 kjs/interpreter.h
+--- kjs/interpreter.h	2003/05/13 21:19:52	1.14
++++ interpreter.h	2003/07/10 21:18:24	1.15
+@@ -106,6 +106,17 @@
+     ContextImp *rep;
+   };
+ 
++  class SavedBuiltinsInternal;
++
++  class SavedBuiltins {
++    friend class InterpreterImp;
++  public:
++    SavedBuiltins();
++    ~SavedBuiltins();
++  private:
++    SavedBuiltinsInternal *_internal;
++  };
++
+   /**
+    * Interpreter objects can be used to evaluate ECMAScript code. Each
+    * interpreter has a global object which is used for the purposes of code
+@@ -344,6 +355,9 @@
+     static void setShouldPrintExceptions(bool);
+ #endif
+ 
++    void saveBuiltins (SavedBuiltins &) const;
++    void restoreBuiltins (const SavedBuiltins &);
++    
+   private:
+     InterpreterImp *rep;
+ 
+Index: kjs/property_map.cpp
+===================================================================
+RCS file: /local/home/cvs/Labyrinth/JavaScriptCore/kjs/property_map.cpp,v
+retrieving revision 1.35
+retrieving revision 1.36
+diff -u -r1.35 kjs/property_map.cpp
+--- kjs/property_map.cpp	2003/06/20 21:49:17	1.35
++++ property_map.cpp	2003/07/10 21:18:24	1.36
+@@ -555,12 +555,12 @@
+ 
+     if (!_table) {
+ #if USE_SINGLE_ENTRY
+-        if (_singleEntry.key && !(_singleEntry.attributes & (ReadOnly | DontEnum | Function)))
++        if (_singleEntry.key && !(_singleEntry.attributes & (ReadOnly | Function)))
+             ++count;
+ #endif
+     } else {
+         for (int i = 0; i != _table->size; ++i)
+-            if (_table->entries[i].key && !(_table->entries[i].attributes & (ReadOnly | DontEnum | Function)))
++            if (_table->entries[i].key && !(_table->entries[i].attributes & (ReadOnly | Function)))
+                 ++count;
+     }
+ 
+@@ -579,7 +579,7 @@
+     
+     if (!_table) {
+ #if USE_SINGLE_ENTRY
+-        if (_singleEntry.key && !(_singleEntry.attributes & (ReadOnly | DontEnum | Function))) {
++        if (_singleEntry.key && !(_singleEntry.attributes & (ReadOnly | Function))) {
+             prop->key = Identifier(_singleEntry.key);
+             prop->value = Value(_singleEntry.value);
+             prop->attributes = _singleEntry.attributes;
+@@ -602,7 +602,7 @@
+         Entry **p = sortedEntries;
+         for (int i = 0; i != _table->size; ++i) {
+             Entry *e = &_table->entries[i];
+-            if (e->key && !(e->attributes & (ReadOnly | DontEnum | Function)))
++            if (e->key && !(e->attributes & (ReadOnly | Function)))
+                 *p++ = e;
+         }
+         assert(p - sortedEntries == count);

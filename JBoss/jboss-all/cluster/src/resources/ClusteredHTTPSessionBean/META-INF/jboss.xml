@@ -3,8 +3,23 @@
    "-//JBoss//DTD JBOSS 3.2//EN"
    "http://www.jboss.org/j2ee/dtd/jboss_3_2.dtd">
 
-<!-- Version: $Id: jboss.xml,v 1.6.2.3 2003/03/05 02:40:34 starksm Exp $ -->
+<!-- Version: $Id: jboss.xml,v 1.6.2.5 2003/11/23 22:49:29 slaboure Exp $ -->
 <jboss>
+
+   <enterprise-beans>
+      <entity>
+         <ejb-name>ClusteredHTTPSession</ejb-name>
+         <jndi-name>clustering/HTTPSession</jndi-name>
+         <local-jndi-name>clustering/LocalHTTPSession</local-jndi-name>
+         <configuration-name>Clustered in-memory CMP EntityBean</configuration-name>
+         <invoker-bindings>
+            <invoker>
+               <invoker-proxy-binding-name>this-rmi-invoker</invoker-proxy-binding-name>
+            </invoker>
+         </invoker-bindings>
+      </entity>
+   </enterprise-beans>
+
    <invoker-proxy-bindings>
       <invoker-proxy-binding>
          <name>this-rmi-invoker</name>
@@ -32,20 +47,6 @@
       </invoker-proxy-binding>
    </invoker-proxy-bindings>
 
-   <enterprise-beans>
-      <entity>
-         <ejb-name>ClusteredHTTPSession</ejb-name>
-         <jndi-name>clustering/HTTPSession</jndi-name>
-         <local-jndi-name>clustering/LocalHTTPSession</local-jndi-name>
-         <configuration-name>Clustered in-memory CMP EntityBean</configuration-name>
-         <invoker-bindings>
-            <invoker>
-               <invoker-proxy-binding-name>this-rmi-invoker</invoker-proxy-binding-name>
-            </invoker>
-         </invoker-bindings>
-      </entity>
-   </enterprise-beans>
-
    <container-configurations>
       <container-configuration>
          <container-name>Clustered in-memory CMP EntityBean</container-name>
@@ -53,7 +54,6 @@
          <container-interceptors>
             <interceptor>org.jboss.ha.httpsession.beanimpl.ejb.ServerTCLInterceptor</interceptor>
             <interceptor>org.jboss.ejb.plugins.ProxyFactoryFinderInterceptor</interceptor>
-            <interceptor>org.jboss.ejb.plugins.LogInterceptor</interceptor>
             <interceptor>org.jboss.ejb.plugins.EntityLockInterceptor</interceptor>
             <interceptor>org.jboss.ejb.plugins.EntityInstanceInterceptor</interceptor>
             <interceptor>org.jboss.ejb.plugins.EntitySynchronizationInterceptor</interceptor>

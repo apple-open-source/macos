@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,84 +23,12 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc.  All rights reserved.
  *
  *  DRI: Dave Radcliffe
  *
  */
-//		$Log: IOPlatformSensor.cpp,v $
-//		Revision 1.6  2003/07/08 04:32:49  eem
-//		3288891, 3279902, 3291553, 3154014
-//		
-//		Revision 1.5  2003/06/07 01:30:56  eem
-//		Merge of EEM-PM72-ActiveFans-2 branch, with a few extra tweaks.  This
-//		checkin has working PID control for PowerMac7,2 platforms, as well as
-//		a first shot at localized strings.
-//		
-//		Revision 1.4.2.8  2003/06/06 08:17:56  eem
-//		Holy Motherfucking shit.  PID is really working.
-//		
-//		Revision 1.4.2.7  2003/06/04 10:21:10  eem
-//		Supports forced PID meta states.
-//		
-//		Revision 1.4.2.6  2003/06/04 00:00:51  eem
-//		More PID stuff, working towards support for forced meta states.
-//		
-//		Revision 1.4.2.5  2003/05/29 03:51:34  eem
-//		Clean up environment dictionary access.
-//		
-//		Revision 1.4.2.4  2003/05/26 10:19:00  eem
-//		Fixed OSNumber leaks.
-//		
-//		Revision 1.4.2.3  2003/05/26 10:07:15  eem
-//		Fixed most of the bugs after the last cleanup/reorg.
-//		
-//		Revision 1.4.2.2  2003/05/23 05:44:40  eem
-//		Cleanup, ctrlloops not get notification for sensor and control registration.
-//		
-//		Revision 1.4.2.1  2003/05/22 01:31:04  eem
-//		Checkin of today's work (fails compilations right now).
-//		
-//		Revision 1.4  2003/05/21 21:58:49  eem
-//		Merge from EEM-PM72-ActiveFans-1 branch with initial crack at active fan
-//		control on Q37.
-//		
-//		Revision 1.3.2.4  2003/05/17 12:55:37  eem
-//		Active fan control works on RPM channels!!!!!!
-//		
-//		Revision 1.3.2.3  2003/05/17 11:08:22  eem
-//		All active fan data present, table event-driven.  PCI power sensors are
-//		not working yet so PCI fan is just set to 67% PWM and forgotten about.
-//		
-//		Revision 1.3.2.2  2003/05/16 07:08:45  eem
-//		Table-lookup active fan control working with this checkin.
-//		
-//		Revision 1.3.2.1  2003/05/14 22:07:49  eem
-//		Implemented state-driven sensor, cleaned up "const" usage and header
-//		inclusions.
-//		
-//		Revision 1.3  2003/05/13 02:13:51  eem
-//		PowerMac7_2 Dynamic Power Step support.
-//		
-//		Revision 1.2.2.1  2003/05/12 11:21:10  eem
-//		Support for slewing.
-//		
-//		Revision 1.2  2003/05/10 06:50:33  eem
-//		All sensor functionality included for PowerMac7_2_PlatformPlugin.  Version
-//		is 1.0.1d12.
-//		
-//		Revision 1.1.1.1.2.3  2003/05/10 06:32:34  eem
-//		Sensor changes, should be ready to merge to trunk as 1.0.1d12.
-//		
-//		Revision 1.1.1.1.2.2  2003/05/03 01:11:38  eem
-//		*** empty log message ***
-//		
-//		Revision 1.1.1.1.2.1  2003/05/01 09:28:40  eem
-//		Initial check-in in progress toward first Q37 checkpoint.
-//		
-//		Revision 1.1.1.1  2003/02/04 00:36:43  raddog
-//		initial import into CVS
-//		
+
 
 #include <IOKit/IOLib.h>
 #include "IOPlatformPluginDefs.h"
@@ -132,6 +60,7 @@ IOReturn IOPlatformSensor::initPlatformSensor( const OSDictionary *dict )
 {
 	const OSNumber *number;
 	const OSString *string;
+	const OSData *data;
 
 	if ( !dict || !init() ) return(kIOReturnError);
 
@@ -147,47 +76,45 @@ IOReturn IOPlatformSensor::initPlatformSensor( const OSDictionary *dict )
 		return(kIOReturnBadArgument);
 	}
 
-	// description
+	// description - if not included in thermal profile, will be set in registerDriver()
 	if ((string = OSDynamicCast(OSString, dict->getObject(gIOPPluginThermalLocalizedDescKey))) != NULL)
 	{
 		//SENSOR_DLOG("IOPlatformSensor::initPlatformSensor Found Sensor %s\n", string->getCStringNoCopy());
 		infoDict->setObject(gIOPPluginThermalLocalizedDescKey, string);
 	}
-	else
-	{
-		//SENSOR_DLOG("IOPlatformSensor::initPlatformSensor Found Sensor without Description\n");
-		string = OSSymbol::withCString("UNKNOWN_SENSOR");
-		infoDict->setObject(gIOPPluginThermalLocalizedDescKey, string);
-		string->release();
-	}
 
-	// flags
+	// flags - if not included in thermal profile, will be set in registerDriver()
 	if ((number = OSDynamicCast(OSNumber, dict->getObject(gIOPPluginSensorFlagsKey))) != NULL)
 	{
 		//SENSOR_DLOG("IOPlatformSensor::initPlatformSensor Sensor Flags %08lx\n", number->unsigned32BitValue());
 		infoDict->setObject(gIOPPluginSensorFlagsKey, number);
 	}
-	else
+
+	// type
+	if ((string = OSDynamicCast(OSString, dict->getObject(gIOPPluginTypeKey))) != NULL)
 	{
-		//SENSOR_DLOG("IOPlatformSensor::initPlatformSensor Sensor Flags omitted in thermal profile, continuing...\n");
-		infoDict->setObject(gIOPPluginSensorFlagsKey, gIOPPluginZero);
+		infoDict->setObject( gIOPPluginTypeKey, string);
 	}
 
-	// version - optional override - if not here it should come from IOHWSensor when it registers
+	// version - if not included in thermal profile, will be set in registerDriver()
 	if ((number = OSDynamicCast(OSNumber, dict->getObject(gIOPPluginVersionKey))) != NULL)
 	{
-		//SENSOR_DLOG("IOPlatformSensor::initPlatformSensor got version %u\n", number->unsigned32BitValue());
 		infoDict->setObject(gIOPPluginVersionKey, number);
 	}
 
-	// type - optional override -if not here it should come from IOHWSensor when it registers
-	if ((string = OSDynamicCast(OSString, dict->getObject(gIOPPluginTypeKey))) != NULL)
+	// location - if not included in thermal profile, will be set in registerDriver()
+	if ((string = OSDynamicCast(OSString, dict->getObject(gIOPPluginLocationKey))) != NULL)
 	{
-		//SENSOR_DLOG("IOPlatformSensor::initPlatformSensor got type override %s\n", string->getCStringNoCopy());
-		infoDict->setObject(gIOPPluginTypeKey, string);
+		infoDict->setObject( gIOPPluginLocationKey, string);
 	}
 
-	// polling period - optional override - if not here it should come from IOHWSensor when it registers
+	// zone - if not included in thermal profile, will be set in registerDriver()
+	if ((data = OSDynamicCast(OSData, dict->getObject(gIOPPluginZoneKey))) != NULL)
+	{
+		infoDict->setObject( gIOPPluginZoneKey, data);
+	}
+
+	// polling period - if not included in thermal profile, will be set in registerDriver()
 	if ((number = OSDynamicCast(OSNumber, dict->getObject(gIOPPluginPollingPeriodKey))) != NULL)
 	{
 		//SENSOR_DLOG("IOPlatformSensor::initPlatformSensor got polling period override %lu\n", number->unsigned32BitValue());
@@ -198,15 +125,16 @@ IOReturn IOPlatformSensor::initPlatformSensor( const OSDictionary *dict )
 	infoDict->setObject(gIOPPluginRegisteredKey, kOSBooleanFalse);
 
 	// create the "current-value" key and set it to zero
-	setCurrentValue( gIOPPluginZero );
+	SensorValue zeroVal;
+	zeroVal.sensValue = 0x0;
+	setCurrentValue( zeroVal );
 
 	return(kIOReturnSuccess);
 }
 
-IOReturn IOPlatformSensor::initPlatformSensor( IOService * unknownSensor )
+IOReturn IOPlatformSensor::initPlatformSensor( IOService * unknownSensor, const OSDictionary * dict )
 {
 	const OSNumber *number;
-	const OSString *string;
 
 	if ( !unknownSensor || !init() ) return(kIOReturnError);
 
@@ -218,25 +146,23 @@ IOReturn IOPlatformSensor::initPlatformSensor( IOService * unknownSensor )
 	}
 	else
 	{
-		IOLog("IOPlatformSensor::initPlatformSensor Unknown Registrant omits Sensor ID\n");
+		IOLog("IOPlatformSensor::initPlatformSensor Unlisted Registrant %s omits Sensor ID\n", unknownSensor->getName());
 		return(kIOReturnBadArgument);
 	}
 
-	// description
-	//SENSOR_DLOG("IOPlatformSensor::initPlatformSensor Found Sensor without Description\n");
-	string = OSSymbol::withCString("UNKNOWN_SENSOR");
-	infoDict->setObject(gIOPPluginThermalLocalizedDescKey, string);
-	string->release();
-
-	// flags
-	//SENSOR_DLOG("IOPlatformSensor::initPlatformSensor Sensor Flags omitted in thermal profile, continuing...\n");
-	infoDict->setObject(gIOPPluginSensorFlagsKey, gIOPPluginZero);
+	// polling period - if not included in driver property, will be set in registerDriver()
+	if ((number = OSDynamicCast(OSNumber, unknownSensor->getProperty(gIOPPluginPollingPeriodKey))) != NULL)
+	{
+		infoDict->setObject(gIOPPluginPollingPeriodKey, number);
+	}
 
 	// create the "registered" key and set it to false
 	infoDict->setObject(gIOPPluginRegisteredKey, kOSBooleanFalse);
 
 	// create the "current-value" key and set it to zero
-	setCurrentValue( gIOPPluginZero );
+	SensorValue zeroVal;
+	zeroVal.sensValue = 0x0;
+	setCurrentValue( zeroVal );
 
 	return(kIOReturnSuccess);
 }
@@ -249,10 +175,20 @@ void IOPlatformSensor::free( void )
 	super::free();
 }
 
-const OSNumber *IOPlatformSensor::applyValueTransform( const OSNumber * hwReading ) const
+SensorValue IOPlatformSensor::applyCurrentValueTransform( SensorValue hwReading ) const
 {
-	//SENSOR_DLOG("IOPlatformSensor::applyValueTransform - entered\n");
-	hwReading->retain();
+	// Default IOPlatformSensor implementation does not alter the value -- i.e.
+	// the transform implemented here is f(x) = x
+	//
+	// Subclasses should override this method to implement their transforms.
+	// Example would be:
+	//
+	// SensorValue transformed;
+	// transformed.sensValue = hwReading.sensValue * 2 + 10;
+	// return transformed;
+	//
+	// This example implements the transform f(x) = 2x+10
+
 	return hwReading;
 }
 
@@ -264,8 +200,9 @@ OSBoolean *IOPlatformSensor::isRegistered( void )
 
 IOReturn IOPlatformSensor::registerDriver( IOService * driver, const OSDictionary * dict, bool notify )
 {
-	const OSString * type;
-	const OSNumber * pollingPeriod, *value;
+	const OSString * string;
+	SensorValue pluginValue, hwValue;
+	const OSNumber * pollingPeriod, * hwReading;
 
 	SENSOR_DLOG("IOPlatformSensor::registerDriver ID 0x%08lX\n", getSensorID()->unsigned32BitValue());
 
@@ -276,25 +213,59 @@ IOReturn IOPlatformSensor::registerDriver( IOService * driver, const OSDictionar
 	sensorDriver = driver;
 	sensorDriver->retain();
 
-	// grab some properties out of the IOHWSensor node
-	if (getVersion() == NULL)
-		infoDict->setObject( gIOPPluginVersionKey, driver->getProperty( gIOPPluginVersionKey ));
-	if (getSensorLocation() == NULL)
-		infoDict->setObject( gIOPPluginLocationKey, driver->getProperty( gIOPPluginLocationKey ));
-	if (getSensorZone() == NULL)
-		infoDict->setObject( gIOPPluginZoneKey, driver->getProperty( gIOPPluginZoneKey ));
+	// If there's no localized description key, add a default
+	if (getSensorDescKey() == NULL)
+	{
+		string = OSSymbol::withCString("UNKNOWN_SENSOR");
+		infoDict->setObject(gIOPPluginThermalLocalizedDescKey, string);
+		string->release();
+	}
 
-	// if there's no type override, get the type from the sensor driver
-	if ((type = getSensorType()) == NULL)
-		infoDict->setObject( gIOPPluginTypeKey, driver->getProperty( gIOPPluginTypeKey ));
+	// If there's no flags, set a default of zero (no bits set)
+	if (getSensorFlags() == NULL)
+	{
+		infoDict->setObject(gIOPPluginSensorFlagsKey, gIOPPluginZero);
+	}
+
+	// The following properties might be over-ridden by the thermal profile, but are required to
+	// be present in IOHWSensor:
+	//
+	//	type
+	//	version
+	//	location
+	//	zone
+	//
+	// Check if they're already set (meaning they were over-ridden), and if not, pull the value
+	// out of IOHWSensor
+
+	if (getSensorType() == NULL)
+		infoDict->setObject( gIOPPluginTypeKey, sensorDriver->getProperty( gIOPPluginTypeKey ) );
+
+	if (getVersion() == NULL)
+		infoDict->setObject( gIOPPluginVersionKey, sensorDriver->getProperty( gIOPPluginVersionKey ));
+
+	if (getSensorLocation() == NULL)
+		infoDict->setObject( gIOPPluginLocationKey, sensorDriver->getProperty( gIOPPluginLocationKey ));
+
+	if (getSensorZone() == NULL)
+		infoDict->setObject( gIOPPluginZoneKey, sensorDriver->getProperty( gIOPPluginZoneKey ));
 
 	// flag the successful registration
 	infoDict->setObject(gIOPPluginRegisteredKey, kOSBooleanTrue );
 
 	// set the current value sent with the registration
-	value = applyValueTransform( OSDynamicCast(OSNumber, dict->getObject(gIOPPluginCurrentValueKey)) );
-	setCurrentValue( value );
-	value->release();
+	hwReading = OSDynamicCast(OSNumber, dict->getObject(gIOPPluginCurrentValueKey));
+	if (hwReading)
+	{
+		// Extract the sensor reading
+		hwValue.sensValue = (SInt32)hwReading->unsigned32BitValue();
+
+		// Apply the current value transform
+		pluginValue = applyCurrentValueTransform( hwValue );
+
+		// publish the value
+		setCurrentValue( pluginValue );
+	}
 
 	// initialize the polling period
 	if ((pollingPeriod = getPollingPeriod()) != NULL)
@@ -307,7 +278,15 @@ IOReturn IOPlatformSensor::registerDriver( IOService * driver, const OSDictionar
 		pollingPeriod = OSNumber::withNumber( (unsigned long long) kIOPPluginNoPolling, 32 );
 	}
 
-	if (sendPollingPeriod(pollingPeriod)) setPollingPeriod(pollingPeriod);
+	if (sendPollingPeriod(pollingPeriod))
+	{
+		setPollingPeriod(pollingPeriod);
+	}
+	else
+	{
+		SENSOR_DLOG("IOPlatformSensor::registerDriver failed to send polling period to sensor\n");
+	}
+		
 	pollingPeriod->release();
 
 	// conditionally notify control loops that a driver registered
@@ -473,69 +452,114 @@ const OSNumber *IOPlatformSensor::getSensorFlags( void )
 }
 
 // current-value
-const OSNumber *IOPlatformSensor::getCurrentValue( void )
+SensorValue IOPlatformSensor::getCurrentValue( void )
 {
-	return OSDynamicCast(OSNumber, infoDict->getObject(gIOPPluginCurrentValueKey));
+	SensorValue value;
+	OSNumber * num;
+	
+	num = OSDynamicCast(OSNumber, infoDict->getObject(gIOPPluginCurrentValueKey));
+	value.sensValue = num ? (SInt32) num->unsigned32BitValue() : 0 ;
+
+	return value;
 }
 
-void IOPlatformSensor::setCurrentValue( const OSNumber * sensorValue )
+void IOPlatformSensor::setCurrentValue( SensorValue newValue )
 {
-	if (!sensorValue)
+	OSNumber * num;
+
+	if ((num = OSDynamicCast(OSNumber, infoDict->getObject(gIOPPluginCurrentValueKey))) != NULL)
 	{
-		SENSOR_DLOG("IOPlatformSensor::setCurrentValue got null sensorValue\n");
-		return;
-	}
-
-	infoDict->setObject(gIOPPluginCurrentValueKey, sensorValue);
-}
-
-const OSNumber *IOPlatformSensor::fetchCurrentValue( void )
-{
-	IOReturn status;
-	OSDictionary *forceUpdateDict;
-	const OSNumber * raw, * value;
-
-	//SENSOR_DLOG("IOPlatformSensor::fetchCurrentValue - entered\n");
-
-	if (!(isRegistered() == kOSBooleanTrue) || !sensorDriver)
-	{
-		SENSOR_DLOG("IOPlatformSensor::fetchCurrentValue not registered\n");
-		return(NULL);
-	}
-
-	forceUpdateDict = OSDictionary::withCapacity(2);
-	if (!forceUpdateDict) return(NULL);
-	forceUpdateDict->setObject(gIOPPluginForceUpdateKey, gIOPPluginZero);
-	forceUpdateDict->setObject(gIOPPluginSensorIDKey, getSensorID());
-
-	// force an update
-	status = sendMessage( forceUpdateDict );
-	forceUpdateDict->release();
-
-	if (status != kIOReturnSuccess )
-	{
-		SENSOR_DLOG("IOPlatformSensor::fetchCurrentValue sendMessage failed!!\n");
-		return(NULL);
+		num->setValue( (UInt32)newValue.sensValue );
 	}
 	else
 	{
-		// read the updated value
-		raw = OSDynamicCast(OSNumber, sensorDriver->getProperty(gIOPPluginCurrentValueKey));
-		value = applyValueTransform( raw );
-		//raw->release();
-		return value;
+		num = OSNumber::withNumber( (UInt32)newValue.sensValue, 32 );
+		infoDict->setObject(gIOPPluginCurrentValueKey, num );
+		num->release();
 	}
 }
 
+SensorValue IOPlatformSensor::forceAndFetchCurrentValue( void )
+{
+#if SENSOR_DEBUG
+	if (kIOReturnSuccess != sendForceUpdate())
+	{
+		SENSOR_DLOG("IOPlatformSensor::forceAndFetchCurrentValue(0x%08lX) failed to force-update\n", getSensorID()->unsigned32BitValue());
+	}
+#else
+	sendForceUpdate();
+#endif
+	
+	return(fetchCurrentValue());
+}
+
+SensorValue IOPlatformSensor::fetchCurrentValue( void )
+{
+	SensorValue pluginValue;
+	const OSNumber * hwReading;
+
+	// return 0 on failure
+	pluginValue.sensValue = 0x0;
+
+	if (!(isRegistered() == kOSBooleanTrue) || !sensorDriver)
+	{
+		SENSOR_DLOG("IOPlatformSensor::fetchCurrentValue(0x%08lX) not registered\n", getSensorID()->unsigned32BitValue());
+		return pluginValue;
+	}
+
+	// Fetch a reference to IOHWSensor's current-value property.  This uses the
+	// synchronized IORegistryEntry::getProperty() accessor.
+	hwReading = OSDynamicCast(OSNumber, sensorDriver->getProperty(gIOPPluginCurrentValueKey));
+	if (!hwReading)
+	{
+		SENSOR_DLOG("IOPlatformSensor::fetchCurrentValue(0x%08lX) failed to fetch IOHWSensor's current-value property\n", getSensorID()->unsigned32BitValue());
+		return pluginValue;
+	}
+
+	// Apply the current-value transform to IOHWSensor's published current-value
+	pluginValue.sensValue = (SInt32)hwReading->unsigned32BitValue();
+	pluginValue = applyCurrentValueTransform( pluginValue );
+
+	return pluginValue;
+}
+
 // polling period
-const OSNumber *IOPlatformSensor::getPollingPeriod( void )
+OSNumber *IOPlatformSensor::getPollingPeriod( void )
 {
 	return OSDynamicCast(OSNumber, infoDict->getObject(gIOPPluginPollingPeriodKey));
 }
 
 void IOPlatformSensor::setPollingPeriod( const OSNumber * period )
 {
-	infoDict->setObject(gIOPPluginPollingPeriodKey, period);
+	OSNumber * num;
+
+	if ((num = getPollingPeriod()) != NULL)
+	{
+		num->setValue( period->unsigned32BitValue() );
+	}
+	else
+	{
+		infoDict->setObject(gIOPPluginPollingPeriodKey, period);
+	}
+}
+
+IOReturn IOPlatformSensor::sendMessage( OSDictionary * msg )
+{
+	//SENSOR_DLOG("IOPlatformSensor::sendMessage - entered\n");
+
+	if (!(isRegistered() == kOSBooleanTrue) || !sensorDriver)
+	{
+		SENSOR_DLOG("IOPlatformSensor::sendMessage not registered\n");
+		return(kIOReturnOffline);
+	}
+
+	if ( !msg )
+	{
+		SENSOR_DLOG("IOPlatformSensor::sendMessage no message\n");
+		return(kIOReturnBadArgument);
+	}
+
+	return(sensorDriver->setProperties( msg ));
 }
 
 // this sends the polling period (as it is set in the infoDict) to the sensor
@@ -570,21 +594,19 @@ bool IOPlatformSensor::sendPollingPeriod( const OSNumber * period )
 	}
 }
 
-IOReturn IOPlatformSensor::sendMessage( OSDictionary * msg )
+IOReturn IOPlatformSensor::sendForceUpdate( void )
 {
-	//SENSOR_DLOG("IOPlatformSensor::sendMessage - entered\n");
+	IOReturn status;
+	OSDictionary *forceUpdateDict;
 
-	if (!(isRegistered() == kOSBooleanTrue) || !sensorDriver)
-	{
-		SENSOR_DLOG("IOPlatformSensor::sendMessage not registered\n");
-		return(kIOReturnOffline);
-	}
+	forceUpdateDict = OSDictionary::withCapacity(2);
+	if (!forceUpdateDict) return(kIOReturnNoMemory);
+	forceUpdateDict->setObject(gIOPPluginForceUpdateKey, gIOPPluginZero);
+	forceUpdateDict->setObject(gIOPPluginSensorIDKey, getSensorID());
 
-	if ( !msg )
-	{
-		SENSOR_DLOG("IOPlatformSensor::sendMessage no message\n");
-		return(kIOReturnBadArgument);
-	}
+	// force an update
+	status = sendMessage( forceUpdateDict );
+	forceUpdateDict->release();
 
-	return(sensorDriver->setProperties( msg ));
+	return(status);
 }

@@ -29,6 +29,7 @@
 #include "rendering/render_canvas.h"
 #include "xml/dom_elementimpl.h"
 #include "xml/dom_docimpl.h"
+#include "css/cssstyleselector.h"
 #include "misc/htmlhashes.h"
 #include <kdebug.h>
 #include <qpainter.h>
@@ -37,6 +38,11 @@
 #include "render_inline.h"
 #include "render_block.h"
 #include "render_flexbox.h"
+
+#if APPLE_CHANGES
+// For accessibility
+#include "KWQAccObjectCache.h" 
+#endif
 
 #include <assert.h>
 using namespace DOM;
@@ -122,8 +128,9 @@ m_parent( 0 ),
 m_previous( 0 ),
 m_next( 0 ),
 m_verticalPosition( PositionUndefined ),
-m_needsLayout( true ),
-m_unused( false ),
+m_needsLayout( false ),
+m_normalChildNeedsLayout( false ),
+m_posChildNeedsLayout( false ),
 m_minMaxKnown( false ),
 m_floating( false ),
 
@@ -132,14 +139,13 @@ m_overhangingContents( false ),
 m_relPositioned( false ),
 m_paintBackground( false ),
 
-m_isAnonymous( false ),
+m_isAnonymous( node == node->getDocument() ),
 m_recalcMinMax( false ),
 m_isText( false ),
 m_inline( true ),
 
 m_replaced( false ),
 m_mouseInside( false ),
-m_hasFirstLine( false ),
 m_isSelectionBorder( false )
 {
 }
@@ -162,6 +168,16 @@ bool RenderObject::isRoot() const
 bool RenderObject::isBody() const
 {
     return element() && element()->renderer() == this && element()->id() == ID_BODY;
+}
+
+bool RenderObject::isHR() const
+{
+    return element() && element()->id() == ID_HR;
+}
+
+bool RenderObject::isHTMLMarquee() const
+{
+    return element() && element()->renderer() == this && element()->id() == ID_MARQUEE;
 }
 
 bool RenderObject::canHaveChildren() const
@@ -320,6 +336,14 @@ bool RenderObject::requiresLayer()
     return isRoot() || isPositioned() || isRelPositioned() || style()->opacity() < 1.0f;
 }
 
+RenderBlock* RenderObject::firstLineBlock() const
+{
+    return 0;
+}
+
+void RenderObject::updateFirstLetter()
+{}
+
 int RenderObject::offsetLeft() const
 {
     int x = xPos();
@@ -379,7 +403,7 @@ RenderObject::clientWidth() const
         (layer() ? layer()->verticalScrollbarWidth() : 0);
 }
 
-short
+int
 RenderObject::clientHeight() const
 {
     return height() - borderTop() - borderBottom() -
@@ -391,13 +415,13 @@ RenderObject::clientHeight() const
 short
 RenderObject::scrollWidth() const
 {
-    return (style()->hidesOverflow() && layer()) ? layer()->scrollWidth() : clientWidth();
+    return (style()->hidesOverflow() && layer()) ? layer()->scrollWidth() : overflowWidth();
 }
 
-short
+int
 RenderObject::scrollHeight() const
 {
-    return (style()->hidesOverflow() && layer()) ? layer()->scrollHeight() : clientHeight();
+    return (style()->hidesOverflow() && layer()) ? layer()->scrollHeight() : overflowHeight();
 }
 
 bool
@@ -418,50 +442,107 @@ void RenderObject::markAllDescendantsWithFloatsForLayout(RenderObject*)
 {
 }
 
-void RenderObject::setNeedsLayout(bool b) 
+void RenderObject::setNeedsLayout(bool b, bool markParents) 
 {
+#ifdef INCREMENTAL_REPAINTING
+    bool alreadyNeededLayout = m_needsLayout;
+#else
+    bool alreadyNeededLayout = false;
+#endif
     m_needsLayout = b;
     if (b) {
-        RenderObject *o = container();
-        RenderObject *root = this;
-
-        // If an attempt is made to
-        // setNeedsLayout(true) an object inside a clipped (overflow:hidden) object, we 
-        // have to make sure to repaint only the clipped rectangle.
-        // We do this by passing an argument to scheduleRelayout.  This hint really
-        // shouldn't be needed, and it's unfortunate that it is necessary.  -dwh
-
-        RenderObject* clippedObj = 
-            (style()->hidesOverflow() && !isText()) ? this : 0;
-        
-        while( o ) {
-            root = o;
-            o->m_needsLayout = true;
-            if (o->style()->hidesOverflow() && !clippedObj)
-                clippedObj = o;
-            o = o->container();
-        }
-        
-        root->scheduleRelayout(clippedObj);
+        if (!alreadyNeededLayout && markParents)
+            markContainingBlocksForLayout();
+    }
+    else {
+        m_posChildNeedsLayout = false;
+        m_normalChildNeedsLayout = false;
     }
 }
+
+void RenderObject::setChildNeedsLayout(bool b, bool markParents)
+{
+#ifdef INCREMENTAL_REPAINTING
+    bool alreadyNeededLayout = m_normalChildNeedsLayout;
+#else
+    bool alreadyNeededLayout = false;
+#endif
+    m_normalChildNeedsLayout = b;
+    if (b) {
+        if (!alreadyNeededLayout && markParents)
+            markContainingBlocksForLayout();
+    }
+    else {
+        m_posChildNeedsLayout = false;
+        m_normalChildNeedsLayout = false;
+    }
+}
+
+void RenderObject::markContainingBlocksForLayout()
+{
+#ifndef INCREMENTAL_REPAINTING
+    RenderObject* clippedObj = (style()->hidesOverflow() && !isText()) ? this : 0;
+#endif
     
+    RenderObject *o = container();
+    RenderObject *last = this;
+
+    while (o) {
+        if (!last->isText() && (last->style()->position() == FIXED || last->style()->position() == ABSOLUTE)) {
+#ifdef INCREMENTAL_REPAINTING
+            if (o->m_posChildNeedsLayout)
+                return;
+#endif
+            o->m_posChildNeedsLayout = true;
+        }
+        else {
+#ifdef INCREMENTAL_REPAINTING
+            if (o->m_normalChildNeedsLayout)
+                return;
+#endif
+            o->m_normalChildNeedsLayout = true;
+        }
+
+#ifndef INCREMENTAL_REPAINTING
+        if (o->style()->hidesOverflow() && !clippedObj)
+            clippedObj = o;
+#endif
+
+        last = o;
+        o = o->container();
+    }
+
+#ifdef INCREMENTAL_REPAINTING
+    last->scheduleRelayout();
+#else
+    last->scheduleRelayout(clippedObj);
+#endif
+}
+
 RenderBlock* RenderObject::containingBlock() const
 {
     if(isTableCell())
         return static_cast<const RenderTableCell *>(this)->table();
     if (isCanvas())
         return (RenderBlock*)this;
-    
+
     RenderObject *o = parent();
-    if (m_style->position() == FIXED) {
+    if (!isText() && m_style->position() == FIXED) {
         while ( o && !o->isCanvas() )
             o = o->parent();
     }
-    else if (m_style->position() == ABSOLUTE) {
+    else if (!isText() && m_style->position() == ABSOLUTE) {
         while (o && (o->style()->position() == STATIC || (o->isInline() && !o->isReplaced()))
-               && !o->isRoot() && !o->isCanvas())
+               && !o->isRoot() && !o->isCanvas()) {
+            // For relpositioned inlines, we return the nearest enclosing block.  We don't try
+            // to return the inline itself.  This allows us to avoid having a positioned objects
+            // list in all RenderInlines and lets us return a strongly-typed RenderBlock* result
+            // from this method.  The container() method can actually be used to obtain the
+            // inline directly.
+            if (o->style()->position() == RELATIVE && o->isInline() && !o->isReplaced())
+                return o->containingBlock();
             o = o->parent();
+        }
     } else {
         while (o && ((o->isInline() && !o->isReplaced()) || o->isTableRow() || o->isTableSection()
                      || o->isTableCol()))
@@ -489,10 +570,21 @@ int RenderObject::containingBlockHeight() const
 
 bool RenderObject::sizesToMaxWidth() const
 {
-    if (isFloating() || isCompact() || isInlineBlockOrInlineTable() ||
+    // Marquees in WinIE are like a mixture of blocks and inline-blocks.  They size as though they're blocks,
+    // but they allow text to sit on the same line as the marquee.
+    if (isFloating() || isCompact() || 
+        (isInlineBlockOrInlineTable() && !isHTMLMarquee()) ||
         (element() && (element()->id() == ID_BUTTON || element()->id() == ID_LEGEND)))
         return true;
-
+    
+    // Children of a horizontal marquee do not fill the container by default.
+    // FIXME: Need to deal with MAUTO value properly.  It could be vertical.
+    if (parent()->style()->overflow() == OMARQUEE) {
+        EMarqueeDirection dir = parent()->style()->marqueeDirection();
+        if (dir == MAUTO || dir == MFORWARD || dir == MBACKWARD || dir == MLEFT || dir == MRIGHT)
+            return true;
+    }
+    
     // Flexible horizontal boxes lay out children at their maxwidths.  Also vertical boxes
     // that don't stretch their kids lay out their children at their maxwidths.
     if (parent()->isFlexibleBox() &&
@@ -748,12 +840,12 @@ void RenderObject::paintBorder(QPainter *p, int _tx, int _ty, int w, int h, cons
     if(render_t) {
         bool ignore_left =
             (tc == lc) && (tt == lt) &&
-            (ts <= OUTSET) &&
+            (ts >= OUTSET) &&
             (ls == DOTTED || ls == DASHED || ls == SOLID || ls == OUTSET);
 
         bool ignore_right =
             (tc == rc) && (tt == rt) &&
-            (ts <= OUTSET) &&
+            (ts >= OUTSET) &&
             (rs == DOTTED || rs == DASHED || rs == SOLID || rs == INSET);
         
         drawBorder(p, _tx, _ty, _tx + w, _ty +  style->borderTopWidth(), BSTop, tc, style->color(), ts,
@@ -764,12 +856,12 @@ void RenderObject::paintBorder(QPainter *p, int _tx, int _ty, int w, int h, cons
     if(render_b) {
         bool ignore_left =
         (bc == lc) && (bt == lt) &&
-        (bs <= OUTSET) &&
+        (bs >= OUTSET) &&
         (ls == DOTTED || ls == DASHED || ls == SOLID || ls == OUTSET);
 
         bool ignore_right =
             (bc == rc) && (bt == rt) &&
-            (bs <= OUTSET) &&
+            (bs >= OUTSET) &&
             (rs == DOTTED || rs == DASHED || rs == SOLID || rs == INSET);
         
         drawBorder(p, _tx, _ty + h - style->borderBottomWidth(), _tx + w, _ty + h, BSBottom, bc, style->color(), bs,
@@ -781,12 +873,12 @@ void RenderObject::paintBorder(QPainter *p, int _tx, int _ty, int w, int h, cons
     {
 	bool ignore_top =
 	  (tc == lc) && (tt == lt) &&
-	  (ls <= OUTSET) &&
+	  (ls >= OUTSET) &&
 	  (ts == DOTTED || ts == DASHED || ts == SOLID || ts == OUTSET);
 
 	bool ignore_bottom =
 	  (bc == lc) && (bt == lt) &&
-	  (ls <= OUTSET) &&
+	  (ls >= OUTSET) &&
 	  (bs == DOTTED || bs == DASHED || bs == SOLID || bs == INSET);
 
         drawBorder(p, _tx, _ty, _tx + style->borderLeftWidth(), _ty + h, BSLeft, lc, style->color(), ls,
@@ -798,12 +890,12 @@ void RenderObject::paintBorder(QPainter *p, int _tx, int _ty, int w, int h, cons
     {
 	bool ignore_top =
 	  (tc == rc) && (tt == rt) &&
-	  (rs <= SOLID || rs == INSET) &&
+	  (rs >= DOTTED || rs == INSET) &&
 	  (ts == DOTTED || ts == DASHED || ts == SOLID || ts == OUTSET);
 
 	bool ignore_bottom =
 	  (bc == rc) && (bt == rt) &&
-	  (rs <= SOLID || rs == INSET) &&
+	  (rs >= DOTTED || rs == INSET) &&
 	  (bs == DOTTED || bs == DASHED || bs == SOLID || bs == INSET);
 
         drawBorder(p, _tx + w - style->borderRightWidth(), _ty, _tx + w, _ty + h, BSRight, rc, style->color(), rs,
@@ -812,14 +904,69 @@ void RenderObject::paintBorder(QPainter *p, int _tx, int _ty, int w, int h, cons
     }
 }
 
+void RenderObject::absoluteRects(QValueList<QRect>& rects, int _tx, int _ty)
+{
+    // For blocks inside inlines, we go ahead and include margins so that we run right up to the
+    // inline boxes above and below us (thus getting merged with them to form a single irregular
+    // shape).
+    if (continuation()) {
+        rects.append(QRect(_tx, _ty - collapsedMarginTop(), 
+                           width(), height()+collapsedMarginTop()+collapsedMarginBottom()));
+        continuation()->absoluteRects(rects, 
+                                      _tx - xPos() + continuation()->containingBlock()->xPos(),
+                                      _ty - yPos() + continuation()->containingBlock()->yPos());
+    }
+    else
+        rects.append(QRect(_tx, _ty, width(), height()));
+}
+
+#if APPLE_CHANGES
+void RenderObject::addFocusRingRects(QPainter *p, int _tx, int _ty)
+{
+    // For blocks inside inlines, we go ahead and include margins so that we run right up to the
+    // inline boxes above and below us (thus getting merged with them to form a single irregular
+    // shape).
+    if (continuation()) {
+        p->addFocusRingRect(_tx, _ty - collapsedMarginTop(), width(), height()+collapsedMarginTop()+collapsedMarginBottom());
+        continuation()->addFocusRingRects(p, 
+                                          _tx - xPos() + continuation()->containingBlock()->xPos(),
+                                          _ty - yPos() + continuation()->containingBlock()->yPos());
+    }
+    else
+        p->addFocusRingRect(_tx, _ty, width(), height());
+}
+#endif
+
 void RenderObject::paintOutline(QPainter *p, int _tx, int _ty, int w, int h, const RenderStyle* style)
 {
     int ow = style->outlineWidth();
     if(!ow) return;
 
-    const QColor& oc = style->outlineColor();
     EBorderStyle os = style->outlineStyle();
+    if (os <= BHIDDEN)
+        return;
+    
+    QColor oc = style->outlineColor();
+    if (!oc.isValid())
+        oc = style->color();
+    
+    int offset = style->outlineOffset();
+    
+#ifdef APPLE_CHANGES
+    if (style->outlineStyleIsAuto()) {
+        p->initFocusRing(ow, offset, oc);
+        addFocusRingRects(p, _tx, _ty);
+        p->drawFocusRing();
+        p->clearFocusRing();
+        return;
+    }
+#endif
 
+    _tx -= offset;
+    _ty -= offset;
+    w += 2*offset;
+    h += 2*offset;
+    
     drawBorder(p, _tx-ow, _ty-ow, _tx, _ty+h+ow, BSLeft,
 	       QColor(oc), style->color(),
                os, ow, ow, true);
@@ -844,9 +991,125 @@ void RenderObject::paint(QPainter *p, int x, int y, int w, int h, int tx, int ty
     paintObject(p, x, y, w, h, tx, ty, paintAction);
 }
 
-void RenderObject::repaintRectangle(int x, int y, int w, int h, bool immediate, bool f)
+void RenderObject::repaint(bool immediate)
 {
-    if(parent()) parent()->repaintRectangle(x, y, w, h, immediate, f);
+    // Can't use canvas(), since we might be unrooted.
+    RenderObject* o = this;
+    while ( o->parent() ) o = o->parent();
+    if (!o->isCanvas())
+        return;
+    RenderCanvas* c = static_cast<RenderCanvas*>(o);
+    if (c->printingMode())
+        return; // Don't repaint if we're printing.
+    c->repaintViewRectangle(getAbsoluteRepaintRect(), immediate);    
+}
+
+void RenderObject::repaintRectangle(const QRect& r, bool immediate)
+{
+    // Can't use canvas(), since we might be unrooted.
+    RenderObject* o = this;
+    while ( o->parent() ) o = o->parent();
+    if (!o->isCanvas())
+        return;
+    RenderCanvas* c = static_cast<RenderCanvas*>(o);
+    if (c->printingMode())
+        return; // Don't repaint if we're printing.
+    QRect absRect(r);
+    computeAbsoluteRepaintRect(absRect);
+    c->repaintViewRectangle(absRect, immediate);
+}
+
+#ifdef INCREMENTAL_REPAINTING
+void RenderObject::repaintAfterLayoutIfNeeded(const QRect& oldBounds, const QRect& oldFullBounds)
+{
+    QRect newBounds, newFullBounds;
+    getAbsoluteRepaintRectIncludingFloats(newBounds, newFullBounds);
+    if (newBounds != oldBounds || selfNeedsLayout()) {
+        RenderObject* c = canvas();
+        if (!c || !c->isCanvas())
+            return;
+        RenderCanvas* canvasObj = static_cast<RenderCanvas*>(c);
+        if (canvasObj->printingMode())
+            return; // Don't repaint if we're printing.
+        canvasObj->repaintViewRectangle(oldFullBounds);
+        if (newBounds != oldBounds)
+            canvasObj->repaintViewRectangle(newFullBounds);
+    }
+}
+
+void RenderObject::repaintDuringLayoutIfMoved(int x, int y)
+{
+}
+
+void RenderObject::repaintFloatingDescendants()
+{
+}
+
+bool RenderObject::checkForRepaintDuringLayout() const
+{
+    return !document()->view()->needsFullRepaint() && !layer();
+}
+
+void RenderObject::repaintObjectsBeforeLayout()
+{
+    if (!needsLayout() || isText())
+        return;
+    
+    // FIXME: For now we just always repaint blocks with inline children, regardless of whether
+    // they're really dirty or not.
+    bool blockWithInlineChildren = (isRenderBlock() && !isTable() && normalChildNeedsLayout() && childrenInline());
+    if (selfNeedsLayout() || blockWithInlineChildren) {
+        repaint();
+        if (blockWithInlineChildren)
+            return;
+    }
+
+    for (RenderObject* current = firstChild(); current; current = current->nextSibling()) {
+        if (!current->isPositioned()) // RenderBlock subclass method handles walking the positioned objects.
+            current->repaintObjectsBeforeLayout();
+    }
+}
+
+#endif
+
+QRect RenderObject::getAbsoluteRepaintRectWithOutline(int ow)
+{
+    QRect r(getAbsoluteRepaintRect());
+    r.setRect(r.x()-ow, r.y()-ow, r.width()+ow*2, r.height()+ow*2);
+
+    if (continuation() && !isInline())
+        r.setRect(r.x(), r.y()-collapsedMarginTop(), r.width(), r.height()+collapsedMarginTop()+collapsedMarginBottom());
+    
+    if (isInlineFlow()) {
+        for (RenderObject* curr = firstChild(); curr; curr = curr->nextSibling()) {
+            if (!curr->isText()) {
+                QRect childRect = curr->getAbsoluteRepaintRectWithOutline(ow);
+                r = r.unite(childRect);
+            }
+        }
+    }
+
+    return r;
+}
+
+QRect RenderObject::getAbsoluteRepaintRect()
+{
+    if (parent())
+        return parent()->getAbsoluteRepaintRect();
+    return QRect();
+}
+
+#ifdef INCREMENTAL_REPAINTING
+void RenderObject::getAbsoluteRepaintRectIncludingFloats(QRect& bounds, QRect& fullBounds)
+{
+    bounds = fullBounds = getAbsoluteRepaintRect();
+}
+#endif
+
+void RenderObject::computeAbsoluteRepaintRect(QRect& r, bool f)
+{
+    if (parent())
+        return parent()->computeAbsoluteRepaintRect(r, f);
 }
 
 #ifndef NDEBUG
@@ -861,7 +1124,7 @@ QString RenderObject::information() const
     if (isInline()) ts << "il ";
     if (childrenInline()) ts << "ci ";
     if (isFloating()) ts << "fl ";
-    if (isAnonymousBox()) ts << "an ";
+    if (isAnonymous()) ts << "an ";
     if (isRelPositioned()) ts << "rp ";
     if (isPositioned()) ts << "ps ";
     if (overhangingContents()) ts << "oc ";
@@ -904,7 +1167,7 @@ void RenderObject::printTree(int indent) const
 
 void RenderObject::dump(QTextStream *stream, QString ind) const
 {
-    if (isAnonymousBox()) { *stream << " anonymousBox"; }
+    if (isAnonymous()) { *stream << " anonymous"; }
     if (isFloating()) { *stream << " floating"; }
     if (isPositioned()) { *stream << " positioned"; }
     if (isRelPositioned()) { *stream << " relPositioned"; }
@@ -915,7 +1178,6 @@ void RenderObject::dump(QTextStream *stream, QString ind) const
     if (needsLayout()) { *stream << " needsLayout"; }
     if (minMaxKnown()) { *stream << " minMaxKnown"; }
     if (overhangingContents()) { *stream << " overhangingContents"; }
-    if (hasFirstLine()) { *stream << " hasFirstLine"; }
     *stream << endl;
 
     RenderObject *child = firstChild();
@@ -940,9 +1202,8 @@ RenderBlock* RenderObject::createAnonymousBlock()
     newStyle->inheritFrom(m_style);
     newStyle->setDisplay(BLOCK);
 
-    RenderBlock *newBox = new (renderArena()) RenderBlock(0 /* anonymous box */);
+    RenderBlock *newBox = new (renderArena()) RenderBlock(document() /* anonymous box */);
     newBox->setStyle(newStyle);
-    newBox->setIsAnonymousBox(true);
     return newBox;
 }
 
@@ -983,9 +1244,27 @@ void RenderObject::setStyle(RenderStyle *style)
     if (m_style == style)
         return;
 
+    // If our z-index changes value or our visibility changes,
+    // we need to dirty our stacking context's z-order list.
+    if (m_style && style) {
+        if ((m_style->hasAutoZIndex() != style->hasAutoZIndex() ||
+             m_style->zIndex() != style->zIndex() ||
+             m_style->visibility() != style->visibility()) && layer()) {
+            layer()->stackingContext()->dirtyZOrderLists();
+            if (m_style->hasAutoZIndex() != style->hasAutoZIndex() ||
+                m_style->visibility() != style->visibility())
+                layer()->dirtyZOrderLists();
+        }
+    }
+
     RenderStyle::Diff d = m_style ? m_style->diff( style ) : RenderStyle::Layout;
 
-    if (m_style && m_parent && d == RenderStyle::Visible && !isText())
+    // The background of the root element or the body element could propagate up to
+    // the canvas.  Just dirty the entire canvas when our style changes substantially.
+    if (m_style && d >= RenderStyle::Visible && element() &&
+        (element()->id() == ID_HTML || element()->id() == ID_BODY))
+        canvas()->repaint();
+    else if (m_style && m_parent && d == RenderStyle::Visible && !isText())
         // Do a repaint with the old style first, e.g., for example if we go from
         // having an outline to not having an outline.
         repaint();
@@ -1035,20 +1314,19 @@ void RenderObject::setStyle(RenderStyle *style)
         if(nb) nb->ref(this);
     }
 
-    setShouldPaintBackgroundOrBorder(m_style->backgroundColor().isValid() || 
+    setShouldPaintBackgroundOrBorder((m_style->backgroundColor().isValid() &&
+                                      qAlpha(m_style->backgroundColor().rgb()) > 0) || 
                                      m_style->hasBorder() || nb );
-    m_hasFirstLine = (style->getPseudoStyle(RenderStyle::FIRST_LINE) != 0);
-
+    
     if (affectsParentBlock)
         handleDynamicFloatPositionChange();
-            
-    if ( d >= RenderStyle::Position && m_parent ) {
-        //qDebug("triggering relayout");
+    
+    // No need to ever schedule repaints from a style change of a text run, since
+    // we already did this for the parent of the text run.
+    if (d >= RenderStyle::Position && m_parent)
         setNeedsLayoutAndMinMaxRecalc();
-    } else if ( m_parent && !isText()) {
-        //qDebug("triggering repaint");
-    	repaint();
-    }
+    else if (!isText() && m_parent && d == RenderStyle::Visible)
+        repaint();
 }
 
 void RenderObject::setOverhangingContents(bool p)
@@ -1092,8 +1370,13 @@ QRect RenderObject::viewRect() const
 
 bool RenderObject::absolutePosition(int &xPos, int &yPos, bool f)
 {
-    if(parent())
-        return parent()->absolutePosition(xPos, yPos, f);
+    RenderObject* o = parent();
+    if (o) {
+        o->absolutePosition(xPos, yPos, f);
+        if (o->style()->hidesOverflow() && o->layer())
+            o->layer()->subtractScrollOffset(xPos, yPos); 
+        return true;
+    }
     else
     {
         xPos = yPos = 0;
@@ -1165,9 +1448,18 @@ RenderCanvas* RenderObject::canvas() const
 
 RenderObject *RenderObject::container() const
 {
+    // This method is extremely similar to containingBlock(), but with a few notable
+    // exceptions.
+    // (1) It can be used on orphaned subtrees, i.e., it can be called safely even when
+    // the object is not part of the primary document subtree yet.
+    // (2) For normal flow elements, it just returns the parent.
+    // (3) For absolute positioned elements, it will return a relative positioned inline.
+    // containingBlock() simply skips relpositioned inlines and lets an enclosing block handle
+    // the layout of the positioned object.  This does mean that calcAbsoluteHorizontal and
+    // calcAbsoluteVertical have to use container().
     EPosition pos = m_style->position();
     RenderObject *o = 0;
-    if( pos == FIXED ) {
+    if (!isText() && pos == FIXED) {
         // container() can be called on an object that is not in the
         // tree yet.  We don't call canvas() since it will assert if it
         // can't get back to the canvas.  Instead we just walk as high up
@@ -1175,9 +1467,9 @@ RenderObject *RenderObject::container() const
         // aren't we'll get the root of our little subtree (most likely
         // we'll just return 0).
         o = parent();
-        while ( o && o->parent() ) o = o->parent();
+        while (o && o->parent()) o = o->parent();
     }
-    else if ( pos == ABSOLUTE ) {
+    else if (!isText() && pos == ABSOLUTE) {
         // Same goes here.  We technically just want our containing block, but
         // we may not have one if we're part of an uninstalled subtree.  We'll
         // climb as high as we can though.
@@ -1190,13 +1482,17 @@ RenderObject *RenderObject::container() const
     return o;
 }
 
-#if 0  /// this method is unused
-void RenderObject::invalidateLayout()
+#if 0
+static void checkFloats(RenderObject* o, RenderObject* f)
 {
-    kdDebug() << "RenderObject::invalidateLayout " << renderName() << endl;
-    setNeedsLayout(true);
-    if (m_parent && !m_parent->needsLayout())
-        m_parent->invalidateLayout();
+    if (o->isRenderBlock()) {
+        RenderBlock* b = static_cast<RenderBlock*>(o);
+        if (b->containsFloat(f))
+            assert(false);
+    }
+    
+    for (RenderObject* c = o->firstChild(); c; c = c->nextSibling())
+        checkFloats(c, f);
 }
 #endif
 
@@ -1204,11 +1500,17 @@ void RenderObject::removeFromObjectLists()
 {
     if (isFloating()) {
         RenderBlock* outermostBlock = containingBlock();
-        for (RenderBlock* p = outermostBlock;
-             p && !p->isCanvas() && p->containsFloat(this);
-             outermostBlock = p, p = p->containingBlock());
+        for (RenderBlock* p = outermostBlock; p && !p->isCanvas(); p = p->containingBlock()) {
+            if (p->containsFloat(this))
+                outermostBlock = p;
+        }
+        
         if (outermostBlock)
             outermostBlock->markAllDescendantsWithFloatsForLayout(this);
+#if 0
+        // Debugging code for float checking.
+        checkFloats(canvas(), this);
+#endif
     }
 
     if (isPositioned()) {
@@ -1222,20 +1524,29 @@ void RenderObject::removeFromObjectLists()
 
 RenderArena* RenderObject::renderArena() const
 {
-    DOM::NodeImpl* elt = element();
-    RenderObject* current = parent();
-    while (!elt && current) {
-        elt = current->element();
-        current = current->parent();
-    }
-    if (!elt)
-        return 0;
-    return elt->getDocument()->renderArena();
+    DOM::DocumentImpl* doc = document();
+    return doc ? doc->renderArena() : 0;
 }
 
-
-void RenderObject::detach(RenderArena* renderArena)
+void RenderObject::remove()
 {
+#if APPLE_CHANGES
+    // Delete our accessibility object if we have one.
+    KWQAccObjectCache* cache = document()->getExistingAccObjectCache();
+    if (cache)
+        cache->detach(this);
+#endif
+
+    removeFromObjectLists();
+
+    if (parent())
+        //have parent, take care of the tree integrity
+        parent()->removeChild(this);
+}
+
+void RenderObject::detach()
+{
+#ifndef INCREMENTAL_REPAINTING
     // If we're an overflow:hidden object that currently needs layout, we need
     // to make sure the view isn't holding on to us.
     if (needsLayout() && style()->hidesOverflow()) {
@@ -1243,13 +1554,12 @@ void RenderObject::detach(RenderArena* renderArena)
         if (r && r->view()->layoutObject() == this)
             r->view()->unscheduleRelayout();
     }
-    
+#endif
+
     remove();
     
-    m_next = m_previous = 0;
-    
     // by default no refcounting
-    arenaDelete(renderArena, this);
+    arenaDelete(document()->renderArena(), this);
 }
 
 void RenderObject::arenaDelete(RenderArena *arena, void *base)
@@ -1336,20 +1646,8 @@ bool RenderObject::mouseInside() const
     return m_mouseInside; 
 }
 
-void RenderObject::setHoverAndActive(NodeInfo& info, bool oldinside, bool inside)
-{
-    DOM::NodeImpl* elt = element();
-    if (elt) {
-        bool oldactive = elt->active();
-        if (oldactive != (inside && info.active()))
-            elt->setActive(inside && info.active());
-        if ((oldinside != mouseInside() && style()->affectedByHoverRules()) ||
-            (oldactive != elt->active() && style()->affectedByActiveRules()))
-            elt->setChanged();
-    }
-}
-
-bool RenderObject::nodeAtPoint(NodeInfo& info, int _x, int _y, int _tx, int _ty, bool inside)
+bool RenderObject::nodeAtPoint(NodeInfo& info, int _x, int _y, int _tx, int _ty,
+                               HitTestAction hitTestAction, bool inside)
 {
     int tx = _tx + xPos();
     int ty = _ty + yPos();
@@ -1363,11 +1661,14 @@ bool RenderObject::nodeAtPoint(NodeInfo& info, int _x, int _y, int _tx, int _ty,
     }
     
     // ### table should have its own, more performant method
-    if ((!isRenderBlock() ||
+    if (hitTestAction != HitTestSelfOnly &&
+        ((!isRenderBlock() ||
          !static_cast<RenderBlock*>(this)->isPointInScrollbar(_x, _y, _tx, _ty)) &&
         (overhangingContents() || inOverflowRect || isInline() || isCanvas() ||
          isTableRow() || isTableSection() || inside || mouseInside() ||
-         (childrenInline() && firstChild() && firstChild()->isCompact()))) {
+         (childrenInline() && firstChild() && firstChild()->isCompact())))) {
+        if (hitTestAction == HitTestChildrenOnly)
+            inside = false;
         int stx = _tx + xPos();
         int sty = _ty + yPos();
         if (style()->hidesOverflow() && layer())
@@ -1379,6 +1680,15 @@ bool RenderObject::nodeAtPoint(NodeInfo& info, int _x, int _y, int _tx, int _ty,
     }
 
     if (inside) {
+        if (!info.innerNode() && !isInline() && continuation()) {
+            // We are in the margins of block elements that are part of a continuation.  In
+            // this case we're actually still inside the enclosing inline element that was
+            // split.  Go ahead and set our inner node accordingly.
+            info.setInnerNode(continuation()->element());
+            if (!info.innerNonSharedNode())
+                info.setInnerNonSharedNode(continuation()->element());
+        }
+            
         if (info.innerNode() && info.innerNode()->renderer() && 
             !info.innerNode()->renderer()->isInline() && element() && isInline()) {
             // Within the same layer, inlines are ALWAYS fully above blocks.  Change inner node.
@@ -1394,28 +1704,6 @@ bool RenderObject::nodeAtPoint(NodeInfo& info, int _x, int _y, int _tx, int _ty,
 
         if(!info.innerNonSharedNode() && element())
             info.setInnerNonSharedNode(element());
-        
-        if (!info.URLElement()) {
-            RenderObject* p = (!isInline() && continuation()) ? continuation() : this;
-            while (p) {
-                if (p->element() && p->element()->hasAnchor()) {
-                    info.setURLElement(p->element());
-                    break;
-                }
-                if (!isFloatingOrPositioned()) break;
-                p = p->parent();
-            }
-        }
-    }
-
-    if (!info.readonly()) {
-        // lets see if we need a new style
-        bool oldinside = mouseInside();
-        setMouseInside(inside);
-        
-        setHoverAndActive(info, oldinside, inside);
-        if (!isInline() && continuation())
-            continuation()->setHoverAndActive(info, oldinside, inside);
     }
 
     return inside;
@@ -1529,6 +1817,9 @@ void RenderObject::recalcMinMaxWidths()
     kdDebug( 6040 ) << renderName() << " recalcMinMaxWidths() this=" << this <<endl;
 #endif
 
+    if (m_recalcMinMax)
+        updateFirstLetter();
+    
     RenderObject *child = firstChild();
     while( child ) {
         // gcc sucks. if anybody knows a trick to get rid of the
@@ -1562,12 +1853,20 @@ void RenderObject::recalcMinMaxWidths()
     m_recalcMinMax = false;
 }
 
+#ifdef INCREMENTAL_REPAINTING
+void RenderObject::scheduleRelayout()
+#else
 void RenderObject::scheduleRelayout(RenderObject* clippedObj)
+#endif
 {
     if (!isCanvas()) return;
     KHTMLView *view = static_cast<RenderCanvas *>(this)->view();
-    if ( view )
+    if (view)
+#ifdef INCREMENTAL_REPAINTING
+        view->scheduleRelayout();
+#else
         view->scheduleRelayout(clippedObj);
+#endif
 }
 
 
@@ -1579,6 +1878,55 @@ InlineBox* RenderObject::createInlineBox(bool,bool isRootLineBox)
 {
     KHTMLAssert(!isRootLineBox);
     return new (renderArena()) InlineBox(this);
+}
+
+RenderStyle* RenderObject::style(bool firstLine) const {
+    RenderStyle *s = m_style;
+    if (firstLine) {
+        const RenderObject* obj = isText() ? parent() : this;
+        if (obj->isBlockFlow()) {
+            RenderBlock* firstLineBlock = obj->firstLineBlock();
+            if (firstLineBlock)
+                s = firstLineBlock->getPseudoStyle(RenderStyle::FIRST_LINE, style());
+        }
+        else if (!obj->isAnonymous() && obj->isInlineFlow()) {
+            RenderStyle* parentStyle = obj->parent()->style(true);
+            if (parentStyle != obj->parent()->style()) {
+                // A first-line style is in effect. We need to cache a first-line style
+                // for ourselves.
+                style()->setHasPseudoStyle(RenderStyle::FIRST_LINE_INHERITED);
+                s = obj->getPseudoStyle(RenderStyle::FIRST_LINE_INHERITED, parentStyle);
+            }
+        }
+    }
+    return s;
+}
+
+RenderStyle* RenderObject::getPseudoStyle(RenderStyle::PseudoId pseudo, RenderStyle* parentStyle) const
+{
+    if (!style()->hasPseudoStyle(pseudo))
+        return 0;
+    
+    if (!parentStyle)
+        parentStyle = style();
+
+    RenderStyle* result = style()->getPseudoStyle(pseudo);
+    if (result) return result;
+    
+    DOM::NodeImpl* node = element();
+    if (isText())
+        node = element()->parentNode();
+    if (!node) return 0;
+    
+    if (pseudo == RenderStyle::FIRST_LINE_INHERITED)
+        result = document()->styleSelector()->styleForElement(static_cast<DOM::ElementImpl*>(node), 
+                                                              parentStyle);
+    else
+        result = document()->styleSelector()->pseudoStyleForElement(pseudo, static_cast<DOM::ElementImpl*>(node), 
+                                                                    parentStyle);
+    if (result)
+        style()->addPseudoStyle(result);
+    return result;
 }
 
 void RenderObject::getTextDecorationColors(int decorations, QColor& underline, QColor& overline,
@@ -1618,6 +1966,35 @@ void RenderObject::getTextDecorationColors(int decorations, QColor& underline, Q
     }        
 }
 
+#if APPLE_CHANGES
+void RenderObject::updateWidgetPositions()
+{
+    for (RenderObject* curr = firstChild(); curr; curr = curr->nextSibling())
+        curr->updateWidgetPositions();
+}
+#endif
+
+void RenderObject::collectBorders(QPtrList<CollapsedBorderValue>& borderStyles)
+{
+    for (RenderObject* curr = firstChild(); curr; curr = curr->nextSibling())
+        curr->collectBorders(borderStyles);
+}
+
+bool RenderObject::avoidsFloats() const
+{
+    return isReplaced() || isTable() || style()->hidesOverflow() || isHR() || isFlexibleBox(); 
+}
+
+bool RenderObject::usesLineWidth() const
+{
+    // 1. All auto-width objects that avoid floats should always use lineWidth
+    // 2. For objects with a specified width, we match WinIE's behavior:
+    // (a) tables use contentWidth
+    // (b) <hr>s use lineWidth
+    // (c) all other objects use lineWidth in quirks mode and contentWidth in strict mode.
+    return (avoidsFloats() && (style()->width().isVariable() || isHR() || (style()->htmlHacks() && !isTable())));
+}
+
 QChar RenderObject::backslashAsCurrencySymbol() const
 {
 #if !APPLE_CHANGES
@@ -1637,4 +2014,27 @@ QChar RenderObject::backslashAsCurrencySymbol() const
         return '\\';
     return codec->backslashAsCurrencySymbol();
 #endif
+}
+
+void RenderObject::setPixmap(const QPixmap&, const QRect&, CachedImage *image)
+{
+    // Repaint when the background image finishes loading.
+    // This is needed for RenderBox objects, and also for table objects that hold
+    // backgrounds that are then respected by the table cells (which are RenderBox
+    // subclasses). It would be even better to find a more elegant way of doing this that
+    // would avoid putting this function and the CachedObjectClient base class into RenderObject.
+
+    if (image && image->pixmap_size() == image->valid_rect().size() && parent()) {
+        if (element() && (element()->id() == ID_HTML || element()->id() == ID_BODY))
+            canvas()->repaint();    // repaint the entire canvas since the background gets propagated up
+        else
+            repaint();              // repaint object, which is a box or a container with boxes inside it
+    }
+}
+
+int RenderObject::maximalOutlineSize(PaintAction p) const
+{
+    if (p != PaintActionOutline)
+        return 0;
+    return static_cast<RenderCanvas*>(document()->renderer())->maximalOutlineSize();
 }

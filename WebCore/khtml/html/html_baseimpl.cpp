@@ -120,7 +120,7 @@ void HTMLBodyElementImpl::parseAttribute(AttributeImpl *attr)
 	else if ( attr->id() == ATTR_VLINK )
 	    aStr = "a:visited";
 	else if ( attr->id() == ATTR_ALINK )
-	    aStr = "a:active";
+            aStr = "a:link:active, a:visited:active";
 	aStr += " { color: " + attr->value().string() + "; }";
         m_styleSheet->parseString(aStr, !getDocument()->inCompatMode());
         m_styleSheet->setNonCSSHints();
@@ -159,14 +159,16 @@ void HTMLBodyElementImpl::insertedIntoDocument()
 {
     HTMLElementImpl::insertedIntoDocument();
 
+    // FIXME: perhaps all this stuff should be in attach() instead of here...
+
     KHTMLView* w = getDocument()->view();
-    if(w->marginWidth() != -1) {
+    if(w && w->marginWidth() != -1) {
         QString s;
         s.sprintf( "%d", w->marginWidth() );
         addCSSLength(CSS_PROP_MARGIN_LEFT, s);
         addCSSLength(CSS_PROP_MARGIN_RIGHT, s);
     }
-    if(w->marginHeight() != -1) {
+    if(w && w->marginHeight() != -1) {
         QString s;
         s.sprintf( "%d", w->marginHeight() );
         addCSSLength(CSS_PROP_MARGIN_TOP, s);
@@ -208,6 +210,10 @@ bool HTMLFrameElementImpl::isURLAllowed(const DOMString &URLString) const
     }
     
     KHTMLView *w = getDocument()->view();
+
+    if (!w) {
+	return false;
+    }
 
     KURL newURL(getDocument()->completeURL(URLString.string()));
     newURL.setRef(QString::null);
@@ -260,34 +266,30 @@ void HTMLFrameElementImpl::updateForNewURL()
         return;
     }
     
-    DOMString relativeURL = url;
-    if (relativeURL.isEmpty()) {
-        relativeURL = "about:blank";
-    }
-
-    if (!isURLAllowed(relativeURL)) {
+    if (!isURLAllowed(url)) {
         return;
     }
 
+    openURL();
+}
+
+void HTMLFrameElementImpl::openURL()
+{
     KHTMLView *w = getDocument()->view();
     if (!w) {
         return;
     }
     
+    DOMString relativeURL = url;
+    if (relativeURL.isEmpty()) {
+        relativeURL = "about:blank";
+    }
+
     // Load the frame contents.
     KHTMLPart *part = w->part();
     KHTMLPart *framePart = part->findFrame(name.string());
-    KURL kurl = getDocument()->completeURL(relativeURL.string());
-
-    // Temporarily treat javascript: URLs as about:blank, until we can
-    // properly support them as frame sources.
-    if (kurl.protocol() == "javascript") {
-	relativeURL = "about:blank";
-	kurl = "about:blank";
-    }
-
     if (framePart) {
-        framePart->openURL(kurl);
+        framePart->openURL(getDocument()->completeURL(relativeURL.string()));
     } else {
         part->requestFrame(static_cast<RenderFrame *>(m_render), relativeURL.string(), name.string());
     }
@@ -299,8 +301,7 @@ void HTMLFrameElementImpl::parseAttribute(AttributeImpl *attr)
     switch(attr->id())
     {
     case ATTR_SRC:
-        url = khtml::parseURL(attr->val());
-        updateForNewURL();
+        setLocation(khtml::parseURL(attr->val()));
         break;
     case ATTR_ID:
     case ATTR_NAME:
@@ -330,14 +331,15 @@ void HTMLFrameElementImpl::parseAttribute(AttributeImpl *attr)
         break;
     case ATTR_SCROLLING:
         kdDebug( 6031 ) << "set scroll mode" << endl;
-        if( strcasecmp( attr->value(), "auto" ) == 0 )
+	// Auto and yes both simply mean "allow scrolling."  No means
+	// "don't allow scrolling."
+        if( strcasecmp( attr->value(), "auto" ) == 0 ||
+            strcasecmp( attr->value(), "yes" ) == 0 )
             scrolling = QScrollView::Auto;
-        else if( strcasecmp( attr->value(), "yes" ) == 0 )
-            scrolling = QScrollView::AlwaysOn;
         else if( strcasecmp( attr->value(), "no" ) == 0 )
             scrolling = QScrollView::AlwaysOff;
         // FIXME: If we are already attached, this has no effect.
-        // FIXME: Is this falling through on purpose, or do we want a break here?
+        break;
     case ATTR_ONLOAD:
         setHTMLEventListener(EventImpl::LOAD_EVENT,
                                 getDocument()->createHTMLEventListener(attr->value().string()));
@@ -384,41 +386,38 @@ void HTMLFrameElementImpl::attach()
         node = static_cast<HTMLElementImpl*>(node->parentNode());
     }
 
-    createRendererIfNeeded();
-    NodeBaseImpl::attach();
+    HTMLElementImpl::attach();
 
     if (!m_render)
         return;
 
-    KHTMLView* w = getDocument()->view();
+    KHTMLPart *part = getDocument()->part();
 
-    w->part()->incrementFrameCount();
+    if (!part)
+	return;
+
+    part->incrementFrameCount();
     
     DOMString relativeURL = url;
     if (relativeURL.isEmpty()) {
         relativeURL = "about:blank";
     }
 
-    // Temporarily treat javascript: URLs as about:blank, until we can
-    // properly support them as frame sources.
-    if (KURL(getDocument()->completeURL(relativeURL.string())).protocol() == "javascript") {
-	relativeURL = "about:blank";
-    }
-
     // we need a unique name for every frame in the frameset. Hope that's unique enough.
-    if(name.isEmpty() || w->part()->frameExists( name.string() ) )
-      name = DOMString(w->part()->requestFrameName());
+    if(name.isEmpty() || part->frameExists( name.string() ) )
+      name = DOMString(part->requestFrameName());
 
     // load the frame contents
-    w->part()->requestFrame( static_cast<RenderFrame*>(m_render), relativeURL.string(), name.string() );
+    part->requestFrame( static_cast<RenderFrame*>(m_render), relativeURL.string(), name.string() );
 }
 
 void HTMLFrameElementImpl::detach()
 {
-    if (m_render) {
-	KHTMLView* w = getDocument()->view();
-	w->part()->decrementFrameCount();
-        KHTMLPart *framePart = w->part()->findFrame( name.string() );
+    KHTMLPart *part = getDocument()->part();
+
+    if (m_render && part) {
+	part->decrementFrameCount();
+        KHTMLPart *framePart = part->findFrame( name.string() );
         if (framePart)
             framePart->frameDetached();
     }
@@ -428,11 +427,12 @@ void HTMLFrameElementImpl::detach()
 
 void HTMLFrameElementImpl::setLocation( const DOMString& str )
 {
+    if (url == str) return;
     url = str;
     updateForNewURL();
 }
 
-bool HTMLFrameElementImpl::isSelectable() const
+bool HTMLFrameElementImpl::isFocusable() const
 {
     return m_render!=0;
 }
@@ -451,10 +451,10 @@ void HTMLFrameElementImpl::setFocus(bool received)
 
 DocumentImpl* HTMLFrameElementImpl::contentDocument() const
 {
-    KHTMLView* w = getDocument()->view();
+    KHTMLPart* p = getDocument()->part();
 
-    if (w) {
-        KHTMLPart *part = w->part()->findFrame( name.string() );
+    if (p) {
+        KHTMLPart *part = p->findFrame( name.string() );
         if (part) {
             return part->xmlDocImpl();
         }
@@ -567,16 +567,16 @@ void HTMLFrameSetElementImpl::attach()
         node = static_cast<HTMLElementImpl*>(node->parentNode());
     }
 
-    createRendererIfNeeded();
-    NodeBaseImpl::attach();
+    HTMLElementImpl::attach();
 }
 
 void HTMLFrameSetElementImpl::defaultEventHandler(EventImpl *evt)
 {
-    if (evt->isMouseEvent() && !noresize && m_render)
+    if (evt->isMouseEvent() && !noresize && m_render) {
         static_cast<khtml::RenderFrameSet *>(m_render)->userResize(static_cast<MouseEventImpl*>(evt));
+        evt->setDefaultHandled();
+    }
 
-    evt->setDefaultHandled();
     HTMLElementImpl::defaultEventHandler(evt);
 }
 
@@ -661,10 +661,6 @@ void HTMLIFrameElementImpl::parseAttribute(AttributeImpl *attr )
     case ATTR_HEIGHT:
       addCSSLength( CSS_PROP_HEIGHT, attr->value() );
       break;
-    case ATTR_SRC:
-      needWidgetUpdate = true; // ### do this for scrolling, margins etc?
-      HTMLFrameElementImpl::parseAttribute( attr );
-      break;
     case ATTR_ALIGN:
       addHTMLAlignment( attr->value() );
       break;
@@ -686,15 +682,14 @@ RenderObject *HTMLIFrameElementImpl::createRenderer(RenderArena *arena, RenderSt
 
 void HTMLIFrameElementImpl::attach()
 {
-    createRendererIfNeeded();
-    NodeBaseImpl::attach();
+    HTMLElementImpl::attach();
 
-    if (m_render) {
+    KHTMLPart *part = getDocument()->part();
+    if (m_render && part) {
         // we need a unique name for every frame in the frameset. Hope that's unique enough.
-        KHTMLView* w = getDocument()->view();
-	w->part()->incrementFrameCount();
-        if(name.isEmpty() || w->part()->frameExists( name.string() ))
-            name = DOMString(w->part()->requestFrameName());
+	part->incrementFrameCount();
+        if(name.isEmpty() || part->frameExists( name.string() ))
+            name = DOMString(part->requestFrameName());
 
         static_cast<RenderPartObject*>(m_render)->updateWidget();
         needWidgetUpdate = false;
@@ -710,3 +705,8 @@ void HTMLIFrameElementImpl::recalcStyle( StyleChange ch )
     HTMLElementImpl::recalcStyle( ch );
 }
 
+void HTMLIFrameElementImpl::openURL()
+{
+    needWidgetUpdate = true;
+    setChanged();
+}

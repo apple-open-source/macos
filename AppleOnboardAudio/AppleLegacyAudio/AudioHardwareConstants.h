@@ -125,10 +125,12 @@ typedef enum {
 	kLineInStatus,
 	kInputMicStatus,
 	kExternalMicInStatus,
-	kDigitalInStatus,
+	kDigitalInInsertStatus,
+	kDigitalInRemoveStatus,
 	kRequestCodecRecoveryStatus,
 	kClockInterruptedRecovery,
 	kClockLockStatus,
+	kClockUnLockStatus,
 	kAES3StreamErrorStatus,
 	kComboIsAnalogStatus,
 	kComboIsDigitalStatus,
@@ -146,7 +148,8 @@ typedef enum {
 	kSetSampleType,
 	kSetMuteState,
 	kSetAnalogMuteState,										//	[3435307]	
-	kSetDigitalMuteState										//	[3435307]	
+	kSetDigitalMuteState,										//	[3435307]	
+	kNumberOfActionSelectors					//	ALWAYS MAKE THIS LAST!!!!
 } ActionSelector;
 
 // Machine layout constants. All NewWorld machines have a device-id property

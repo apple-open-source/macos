@@ -522,6 +522,8 @@ static void fill_printq_info_52(connection_struct *conn, int snum,
 	NT_PRINTER_DRIVER_INFO_LEVEL 	driver;
 	NT_PRINTER_INFO_LEVEL 		*printer = NULL;
 
+	ZERO_STRUCT(driver);
+
 	if ( !W_ERROR_IS_OK(get_a_printer( NULL, &printer, 2, lp_servicename(snum))) ) {
 		DEBUG(3,("fill_printq_info_52: Failed to lookup printer [%s]\n", 
 			lp_servicename(snum)));
@@ -678,6 +680,8 @@ static int get_printerdrivernumber(int snum)
 	int 				result = 0;
 	NT_PRINTER_DRIVER_INFO_LEVEL 	driver;
 	NT_PRINTER_INFO_LEVEL 		*printer = NULL;
+
+	ZERO_STRUCT(driver);
 
 	if ( !W_ERROR_IS_OK(get_a_printer( NULL, &printer, 2, lp_servicename(snum))) ) {
 		DEBUG(3,("get_printerdrivernumber: Failed to lookup printer [%s]\n", 
@@ -1631,6 +1635,7 @@ static BOOL api_RNetGroupEnum(connection_struct *conn,uint16 vuid, char *param,c
 	char *str1 = param+2;
 	char *str2 = skip_string(str1,1);
 	char *p = skip_string(str2,1);
+	BOOL ret;
 
 	GROUP_MAP *group_list;
 	int num_entries;
@@ -1649,8 +1654,12 @@ static BOOL api_RNetGroupEnum(connection_struct *conn,uint16 vuid, char *param,c
 		return False;
 
 	/* get list of domain groups SID_DOMAIN_GRP=2 */
-	if(!pdb_enum_group_mapping(SID_NAME_DOM_GRP , &group_list, &num_entries, False)) {
-		DEBUG(3,("api_RNetGroupEnum:failed to get group list"));
+	become_root();
+	ret = pdb_enum_group_mapping(SID_NAME_DOM_GRP , &group_list, &num_entries, False);
+	unbecome_root();
+	
+	if( !ret ) {
+		DEBUG(3,("api_RNetGroupEnum:failed to get group list"));	
 		return False;
 	}
 
@@ -1984,7 +1993,7 @@ static BOOL api_SetUserPassword(connection_struct *conn,uint16 vuid, char *param
 		if (NT_STATUS_IS_OK(check_plaintext_password(user,password,&server_info))) {
 
 			become_root();
-			if (NT_STATUS_IS_OK(change_oem_password(server_info->sam_account, pass1, pass2))) {
+			if (NT_STATUS_IS_OK(change_oem_password(server_info->sam_account, pass1, pass2, False))) {
 				SSVAL(*rparam,0,NERR_Success);
 			}
 			unbecome_root();
@@ -2032,47 +2041,46 @@ static BOOL api_SamOEMChangePassword(connection_struct *conn,uint16 vuid, char *
 				char **rdata,char **rparam,
 				int *rdata_len,int *rparam_len)
 {
-  fstring user;
-  char *p = param + 2;
-  *rparam_len = 2;
-  *rparam = REALLOC(*rparam,*rparam_len);
+	fstring user;
+	char *p = param + 2;
+	*rparam_len = 2;
+	*rparam = REALLOC(*rparam,*rparam_len);
 
-  *rdata_len = 0;
+	*rdata_len = 0;
 
-  SSVAL(*rparam,0,NERR_badpass);
+	SSVAL(*rparam,0,NERR_badpass);
 
-  /*
-   * Check the parameter definition is correct.
-   */
-  if(!strequal(param + 2, "zsT")) {
-    DEBUG(0,("api_SamOEMChangePassword: Invalid parameter string %s\n", param + 2));
-    return False;
-  }
-  p = skip_string(p, 1);
+	/*
+	 * Check the parameter definition is correct.
+	 */
 
-  if(!strequal(p, "B516B16")) {
-    DEBUG(0,("api_SamOEMChangePassword: Invalid data parameter string %s\n", p));
-    return False;
-  }
-  p = skip_string(p,1);
+	if(!strequal(param + 2, "zsT")) {
+		DEBUG(0,("api_SamOEMChangePassword: Invalid parameter string %s\n", param + 2));
+		return False;
+	}
+	p = skip_string(p, 1);
 
-  p += pull_ascii_fstring(user,p);
+	if(!strequal(p, "B516B16")) {
+		DEBUG(0,("api_SamOEMChangePassword: Invalid data parameter string %s\n", p));
+		return False;
+	}
+	p = skip_string(p,1);
+	p += pull_ascii_fstring(user,p);
 
-  DEBUG(3,("api_SamOEMChangePassword: Change password for <%s>\n",user));
+	DEBUG(3,("api_SamOEMChangePassword: Change password for <%s>\n",user));
 
-  /*
-   * Pass the user through the NT -> unix user mapping
-   * function.
-   */
+	/*
+	 * Pass the user through the NT -> unix user mapping
+	 * function.
+	 */
 
-  (void)map_username(user);
+	(void)map_username(user);
 
-  if (NT_STATUS_IS_OK(pass_oem_change(user, (uchar*) data, (uchar *)&data[516], NULL, NULL)))
-  {
-    SSVAL(*rparam,0,NERR_Success);
-  }
+	if (NT_STATUS_IS_OK(pass_oem_change(user, (uchar*) data, (uchar *)&data[516], NULL, NULL))) {
+		SSVAL(*rparam,0,NERR_Success);
+	}
 
-  return(True);
+	return(True);
 }
 
 /****************************************************************************
@@ -2343,15 +2351,15 @@ static BOOL api_RNetServerGetInfo(connection_struct *conn,uint16 vuid, char *par
       pstring comment;
       uint32 servertype= lp_default_server_announce();
 
-      pstrcpy(comment,string_truncate(lp_serverstring(), MAX_SERVER_STRING_LENGTH));
+      push_ascii(comment,lp_serverstring(), MAX_SERVER_STRING_LENGTH,STR_TERMINATE);
 
       if ((count=get_server_info(SV_TYPE_ALL,&servers,lp_workgroup()))>0) {
-	for (i=0;i<count;i++)
-	  if (strequal(servers[i].name,local_machine))
-      {
+	for (i=0;i<count;i++) {
+	  if (strequal(servers[i].name,local_machine)) {
 	    servertype = servers[i].type;
-	    pstrcpy(comment,servers[i].comment);	    
+	    push_ascii(comment,servers[i].comment,sizeof(pstring),STR_TERMINATE);	    
 	  }
+	}
       }
       SAFE_FREE(servers);
 

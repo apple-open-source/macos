@@ -91,15 +91,15 @@ NodeImpl::Id HTMLFormElementImpl::id() const
 }
 
 #if APPLE_CHANGES
-bool HTMLFormElementImpl::formWouldHaveSecureSubmission(DOMString url)
+
+bool HTMLFormElementImpl::formWouldHaveSecureSubmission(const DOMString &url)
 {
     if (url.isNull()) {
         return false;
-    } else {
-        QString fullUrl = getDocument()->completeURL( url.string() );
-        return strncmp(fullUrl.latin1(), "https:", 6) == 0;
     }
+    return getDocument()->completeURL(url.string()).startsWith("https:", false);
 }
+
 #endif
 
 void HTMLFormElementImpl::attach()
@@ -141,6 +141,28 @@ long HTMLFormElementImpl::length() const
 
     return len;
 }
+
+#if APPLE_CHANGES
+
+void HTMLFormElementImpl::submitClick()
+{
+    bool submitFound = false;
+    QPtrListIterator<HTMLGenericFormElementImpl> it(formElements);
+    for (; it.current(); ++it) {
+        if (it.current()->id() == ID_INPUT) {
+            HTMLInputElementImpl *element = static_cast<HTMLInputElementImpl *>(it.current());
+            if (element->isSuccessfulSubmitButton() && element->renderer()) {
+                submitFound = true;
+                element->click();
+                break;
+            }
+        }
+    }
+    if (!submitFound) // submit the form without a submit or image input
+        prepareSubmit();
+}
+
+#endif // APPLE_CHANGES
 
 static QCString encodeCString(const QCString& e)
 {
@@ -282,7 +304,7 @@ QByteArray HTMLFormElementImpl::formData(bool& ok)
     str.replace(',', ' ');
     QStringList charsets = QStringList::split(' ', str);
     QTextCodec* codec = 0;
-    KHTMLView *view = getDocument()->view();
+    KHTMLPart *part = getDocument()->part();
     for ( QStringList::Iterator it = charsets.begin(); it != charsets.end(); ++it )
     {
         QString enc = (*it);
@@ -290,8 +312,8 @@ QByteArray HTMLFormElementImpl::formData(bool& ok)
         {
             // use standard document encoding
             enc = "ISO-8859-1";
-            if(view && view->part())
-                enc = view->part()->encoding();
+            if (part)
+                enc = part->encoding();
         }
         if((codec = KGlobal::charsets()->codecForName(enc.latin1())))
             break;
@@ -368,8 +390,7 @@ QByteArray HTMLFormElementImpl::formData(bool& ok)
                         if(!static_cast<HTMLInputElementImpl*>(current)->value().isEmpty())
                         {
 #if APPLE_CHANGES
-                            KWQKHTMLPart *part = KWQ(current->getDocument()->view()->part());
-                            QString mimeType = part->mimeTypeForFileName(onlyfilename);
+                            QString mimeType = part ? KWQ(part)->mimeTypeForFileName(onlyfilename) : QString();
 #else
                             KMimeType::Ptr ptr = KMimeType::findByURL(KURL(path));
                             QString mimeType = ptr->name();
@@ -449,8 +470,8 @@ void HTMLFormElementImpl::setBoundary( const DOMString& bound )
 
 bool HTMLFormElementImpl::prepareSubmit()
 {
-    KHTMLView *view = getDocument()->view();
-    if(m_insubmit || !view || !view->part() || view->part()->onlyLocalReferences())
+    KHTMLPart *part = getDocument()->part();
+    if(m_insubmit || !part || part->onlyLocalReferences())
         return m_insubmit;
 
     m_insubmit = true;
@@ -470,7 +491,8 @@ bool HTMLFormElementImpl::prepareSubmit()
 void HTMLFormElementImpl::submit( bool activateSubmitButton )
 {
     KHTMLView *view = getDocument()->view();
-    if (!view || !view->part()) {
+    KHTMLPart *part = getDocument()->part();
+    if (!view || !part) {
         return;
     }
 
@@ -489,7 +511,7 @@ void HTMLFormElementImpl::submit( bool activateSubmitButton )
     bool needButtonActivation = activateSubmitButton;	// do we need to activate a submit button?
     
 #if APPLE_CHANGES
-    KWQ(view->part())->clearRecordedFormValues();
+    KWQ(part)->clearRecordedFormValues();
 #endif
     for (QPtrListIterator<HTMLGenericFormElementImpl> it(formElements); it.current(); ++it) {
         HTMLGenericFormElementImpl* current = it.current();
@@ -501,7 +523,7 @@ void HTMLFormElementImpl::submit( bool activateSubmitButton )
             if (input->inputType() == HTMLInputElementImpl::TEXT
                 || input->inputType() ==  HTMLInputElementImpl::PASSWORD)
             {
-                KWQ(view->part())->recordFormValue(input->name().string(), input->value().string(), this);
+                KWQ(part)->recordFormValue(input->name().string(), input->value().string(), this);
             }
         }
 #else
@@ -531,13 +553,13 @@ void HTMLFormElementImpl::submit( bool activateSubmitButton )
     QByteArray form_data = formData(ok);
     if (ok) {
         if(m_post) {
-            view->part()->submitForm( "post", m_url.string(), form_data,
+            part->submitForm( "post", m_url.string(), form_data,
                                       m_target.string(),
                                       enctype().string(),
                                       boundary().string() );
         }
         else {
-            view->part()->submitForm( "get", m_url.string(), form_data,
+            part->submitForm( "get", m_url.string(), form_data,
                                       m_target.string() );
         }
     }
@@ -551,8 +573,8 @@ void HTMLFormElementImpl::submit( bool activateSubmitButton )
 
 void HTMLFormElementImpl::reset(  )
 {
-    KHTMLView *view = getDocument()->view();
-    if(m_inreset || !view || !view->part()) return;
+    KHTMLPart *part = getDocument()->part();
+    if(m_inreset || !part) return;
 
     m_inreset = true;
 
@@ -734,13 +756,23 @@ void HTMLGenericFormElementImpl::attach()
 	    m_form->registerFormElement(this);
     }
 
-    NodeBaseImpl::attach();
+    HTMLElementImpl::attach();
 
     // The call to updateFromElement() needs to go after the call through
     // to the base class's attach() because that can sometimes do a close
     // on the renderer.
-    if (m_render)
+    if (m_render) {
         m_render->updateFromElement();
+    
+        // Delayed attachment in order to prevent FOUC can result in an object being
+        // programmatically focused before it has a render object.  If we have been focused
+        // (i.e., if we are the focusNode) then go ahead and focus our corresponding native widget.
+        // (Attach/detach can also happen as a result of display type changes, e.g., making a widget
+        // block instead of inline, and focus should be restored in that case as well.)
+        if (getDocument()->focusNode() == this && m_render->isWidget() && 
+            static_cast<RenderWidget*>(renderer())->widget())
+            static_cast<RenderWidget*>(renderer())->widget()->setFocus();
+    }
 }
 
 HTMLFormElementImpl *HTMLGenericFormElementImpl::getForm() const
@@ -813,12 +845,44 @@ void HTMLGenericFormElementImpl::recalcStyle( StyleChange ch )
         m_render->updateFromElement();
 }
 
-
-bool HTMLGenericFormElementImpl::isSelectable() const
+bool HTMLGenericFormElementImpl::isFocusable() const
 {
-    return  m_render && m_render->isWidget() &&
-        static_cast<RenderWidget*>(m_render)->widget() &&
-        static_cast<RenderWidget*>(m_render)->widget()->focusPolicy() >= QWidget::TabFocus;
+    if (!m_render || (m_render->style() && m_render->style()->visibility() != VISIBLE))
+        return false;
+    return true;
+}
+
+bool HTMLGenericFormElementImpl::isKeyboardFocusable() const
+{
+    if (isFocusable()) {
+        if (m_render->isWidget()) {
+            return static_cast<RenderWidget*>(m_render)->widget() &&
+            ((static_cast<RenderWidget*>(m_render)->widget()->focusPolicy() == QWidget::TabFocus) ||
+             (static_cast<RenderWidget*>(m_render)->widget()->focusPolicy() == QWidget::StrongFocus));
+        }
+	if (getDocument()->part())
+	    return getDocument()->part()->tabsToAllControls();
+    }
+    return false;
+}
+
+bool HTMLGenericFormElementImpl::isMouseFocusable() const
+{
+    if (isFocusable()) {
+        if (m_render->isWidget()) {
+            return static_cast<RenderWidget*>(m_render)->widget() &&
+            ((static_cast<RenderWidget*>(m_render)->widget()->focusPolicy() == QWidget::ClickFocus) ||
+             (static_cast<RenderWidget*>(m_render)->widget()->focusPolicy() == QWidget::StrongFocus));
+        }
+#if APPLE_CHANGES
+        // For <input type=image> and <button>, we will assume no mouse focusability.  This is
+        // consistent with OS X behavior for buttons.
+        return false;
+#else
+        return true;
+#endif
+    }
+    return false;
 }
 
 void HTMLGenericFormElementImpl::defaultEventHandler(EventImpl *evt)
@@ -826,18 +890,18 @@ void HTMLGenericFormElementImpl::defaultEventHandler(EventImpl *evt)
     if (evt->target()==this)
     {
         // Report focus in/out changes to the browser extension (editable widgets only)
-        KHTMLView *view = getDocument()->view();
-        if (evt->id()==EventImpl::DOMFOCUSIN_EVENT && isEditable() && view && m_render && m_render->isWidget()) {
-            KHTMLPartBrowserExtension *ext = static_cast<KHTMLPartBrowserExtension *>(view->part()->browserExtension());
+        KHTMLPart *part = getDocument()->part();
+        if (evt->id()==EventImpl::DOMFOCUSIN_EVENT && isEditable() && part && m_render && m_render->isWidget()) {
+            KHTMLPartBrowserExtension *ext = static_cast<KHTMLPartBrowserExtension *>(part->browserExtension());
             QWidget *widget = static_cast<RenderWidget*>(m_render)->widget();
             if (ext)
                 ext->editableWidgetFocused(widget);
         }
-        if (evt->id()==EventImpl::MOUSEDOWN_EVENT || evt->id()==EventImpl::KHTML_KEYDOWN_EVENT)
+        if (evt->id()==EventImpl::MOUSEDOWN_EVENT || evt->id()==EventImpl::KEYDOWN_EVENT)
         {
             setActive();
         }
-        else if (evt->id() == EventImpl::MOUSEUP_EVENT || evt->id()==EventImpl::KHTML_KEYUP_EVENT)
+        else if (evt->id() == EventImpl::MOUSEUP_EVENT || evt->id()==EventImpl::KEYUP_EVENT)
         {
 	    if (m_active)
 	    {
@@ -853,17 +917,17 @@ void HTMLGenericFormElementImpl::defaultEventHandler(EventImpl *evt)
 	// We don't want this default key event handling, we'll count on
 	// Cocoa event dispatch if the event doesn't get blocked.
 #else
-	if (evt->id()==EventImpl::KHTML_KEYDOWN_EVENT ||
-	    evt->id()==EventImpl::KHTML_KEYUP_EVENT)
+	if (evt->id()==EventImpl::KEYDOWN_EVENT ||
+	    evt->id()==EventImpl::KEYUP_EVENT)
 	{
-	    KeyEventImpl * k = static_cast<KeyEventImpl *>(evt);
+	    KeyboardEventImpl * k = static_cast<KeyboardEventImpl *>(evt);
 	    if (k->keyVal() == QChar('\n').unicode() && m_render && m_render->isWidget() && k->qKeyEvent)
 		QApplication::sendEvent(static_cast<RenderWidget *>(m_render)->widget(), k->qKeyEvent);
 	}
 #endif
 
-	if (evt->id()==EventImpl::DOMFOCUSOUT_EVENT && isEditable() && view && m_render && m_render->isWidget()) {
-	    KHTMLPartBrowserExtension *ext = static_cast<KHTMLPartBrowserExtension *>(view->part()->browserExtension());
+	if (evt->id()==EventImpl::DOMFOCUSOUT_EVENT && isEditable() && part && m_render && m_render->isWidget()) {
+	    KHTMLPartBrowserExtension *ext = static_cast<KHTMLPartBrowserExtension *>(part->browserExtension());
 	    QWidget *widget = static_cast<RenderWidget*>(m_render)->widget();
 	    if (ext)
 		ext->editableWidgetBlurred(widget);
@@ -995,26 +1059,6 @@ void HTMLButtonElementImpl::parseAttribute(AttributeImpl *attr)
     }
 }
 
-void HTMLButtonElementImpl::attach()
-{
-    // FIXME: This code is repeated here because this method does not call
-    // HTMLGenericFormElementImpl::attach(). But it's not clear why the call
-    // to updateFromElement() is a problem for the HTMLButtonElementImpl case.
-    // If we determine that it's not, then we should remove this and call
-    // HTMLGenericFormElementImpl::attach() instead of HTMLElementImpl::attach().
-    if (!m_form) {
-	m_form = getForm();
-	if (m_form)
-	    m_form->registerFormElement(this);
-    }
-
-    // skip the generic handler
-    HTMLElementImpl::attach();
-    // doesn't work yet in the renderer ### fixme
-//     if (renderer())
-//         renderer()->setReplaced(true);
-}
-
 void HTMLButtonElementImpl::defaultEventHandler(EventImpl *evt)
 {
     if (m_type != BUTTON && (evt->id() == EventImpl::DOMACTIVATE_EVENT)) {
@@ -1031,7 +1075,14 @@ void HTMLButtonElementImpl::defaultEventHandler(EventImpl *evt)
 
 bool HTMLButtonElementImpl::isSuccessfulSubmitButton() const
 {
-    return m_type == SUBMIT && !m_disabled && !name().isEmpty();
+    // HTML spec says that buttons must have names
+    // to be considered successful. However, other browsers
+    // do not impose this constraint. Therefore, we behave
+    // differently and can use different buttons than the 
+    // author intended. 
+    // Remove the name constraint for now.
+    // Was: m_type == SUBMIT && !m_disabled && !name().isEmpty()
+    return m_type == SUBMIT && !m_disabled;
 }
 
 bool HTMLButtonElementImpl::isActivatedSubmit() const
@@ -1056,6 +1107,23 @@ bool HTMLButtonElementImpl::encoding(const QTextCodec* codec, khtml::encodingLis
     return true;
 }
 
+void HTMLButtonElementImpl::click()
+{
+#if APPLE_CHANGES
+    QWidget *widget;
+    if (renderer() && (widget = static_cast<RenderWidget *>(renderer())->widget())) {
+        // using this method gives us nice Cocoa user interface feedback
+        static_cast<QButton *>(widget)->click();
+    }
+    else
+#endif
+        HTMLGenericFormElementImpl::click();
+}
+
+void HTMLButtonElementImpl::accessKeyAction()
+{   
+    click();
+}
 
 // -------------------------------------------------------------------------
 
@@ -1068,6 +1136,11 @@ HTMLFieldSetElementImpl::~HTMLFieldSetElementImpl()
 {
 }
 
+bool HTMLFieldSetElementImpl::isFocusable() const
+{
+    return false;
+}
+
 NodeImpl::Id HTMLFieldSetElementImpl::id() const
 {
     return ID_FIELDSET;
@@ -1076,12 +1149,6 @@ NodeImpl::Id HTMLFieldSetElementImpl::id() const
 DOMString HTMLFieldSetElementImpl::type() const
 {
     return "fieldset";
-}
-
-void HTMLFieldSetElementImpl::attach()
-{
-    createRendererIfNeeded();
-    HTMLGenericFormElementImpl::attach();
 }
 
 RenderObject* HTMLFieldSetElementImpl::createRenderer(RenderArena* arena, RenderStyle* style)
@@ -1225,12 +1292,70 @@ void HTMLInputElementImpl::select(  )
         static_cast<RenderFileButton*>(m_render)->select();
 }
 
-void HTMLInputElementImpl::click(  )
+void HTMLInputElementImpl::click()
 {
-    // ###
-#ifdef FORMS_DEBUG
-    kdDebug( 6030 ) << " HTMLInputElementImpl::click(  )" << endl;
+    switch (inputType()) {
+        case HIDDEN:
+            // a no-op for this type
+            break;
+        case CHECKBOX:
+        case RADIO:
+        case SUBMIT:
+        case RESET:
+        case BUTTON: 
+#if APPLE_CHANGES
+        {
+            QWidget *widget;
+            if (renderer() && (widget = static_cast<RenderWidget *>(renderer())->widget())) {
+                // using this method gives us nice Cocoa user interface feedback
+                static_cast<QButton *>(widget)->click();
+                break;
+            }
+        }
 #endif
+            HTMLGenericFormElementImpl::click();
+            break;
+        case FILE:
+#if APPLE_CHANGES
+            if (renderer()) {
+                static_cast<RenderFileButton *>(renderer())->click();
+                break;
+            }
+#endif
+            HTMLGenericFormElementImpl::click();
+            break;
+        case IMAGE:
+        case ISINDEX:
+        case PASSWORD:
+        case TEXT:
+            HTMLGenericFormElementImpl::click();
+            break;
+    }
+}
+
+void HTMLInputElementImpl::accessKeyAction()
+{
+    switch (inputType()) {
+        case HIDDEN:
+            // a no-op for this type
+            break;
+        case TEXT:
+        case PASSWORD:
+        case ISINDEX:
+            focus();
+            break;
+        case CHECKBOX:
+        case RADIO:
+        case SUBMIT:
+        case RESET:
+        case IMAGE:
+        case BUTTON:
+        case FILE:
+            // focus and click
+            focus();
+            click();
+            break;
+    }
 }
 
 void HTMLInputElementImpl::parseAttribute(AttributeImpl *attr)
@@ -1373,37 +1498,16 @@ void HTMLInputElementImpl::attach()
         m_inited = true;
     }
 
-    // make sure we don't inherit a color to the form elements
-    // by adding a non-CSS color property. this his higher
-    // priority than inherited color, but lesser priority than
-    // any color specified by CSS for the elements.
     switch( m_type ) {
-    case TEXT:
-    case PASSWORD:
-#if !APPLE_CHANGES
-        addCSSProperty(CSS_PROP_FONT_FAMILY, CSS_VAL_MONOSPACE);
-#endif
-        /* nobreak */
-    case ISINDEX:
-    case FILE:
-        addCSSProperty(CSS_PROP_COLOR, "text");
-        break;
-    case SUBMIT:
-    case RESET:
-    case BUTTON:
-    case CHECKBOX:
-    case RADIO:
-        addCSSProperty(CSS_PROP_COLOR, "buttontext");
-        // FIXME: There was no break here in the original KHTML. Was that intentional?
-        break;
     case HIDDEN:
     case IMAGE:
         if (!getAttribute(ATTR_WIDTH).isEmpty())
             addCSSLength(CSS_PROP_WIDTH, getAttribute(ATTR_WIDTH));
         break;
+    default:
+        break;
     }
 
-    createRendererIfNeeded();
     HTMLGenericFormElementImpl::attach();
 
 #if APPLE_CHANGES
@@ -1437,7 +1541,13 @@ DOMString HTMLInputElementImpl::altText() const
 
 bool HTMLInputElementImpl::isSuccessfulSubmitButton() const
 {
-    return !m_disabled && (m_type == IMAGE || (m_type == SUBMIT && !name().isEmpty()));
+    // HTML spec says that buttons must have names
+    // to be considered successful. However, other browsers
+    // do not impose this constraint. Therefore, we behave
+    // differently and can use different buttons than the 
+    // author intended. 
+    // Was: (m_type == SUBMIT && !name().isEmpty())
+    return !m_disabled && (m_type == IMAGE || m_type == SUBMIT);
 }
 
 bool HTMLInputElementImpl::isActivatedSubmit() const
@@ -1627,7 +1737,10 @@ DOMString HTMLInputElementImpl::value() const
         return val;
     }
 
-    if (m_value.isNull())
+    // It's important *not* to fall back to the value attribute for file inputs,
+    // because that would allow a malicious web page to upload files by setting the
+    // value attribute in markup.
+    if (m_value.isNull() && m_type != FILE)
         return getAttribute(ATTR_VALUE);
     return m_value;
 }
@@ -1690,6 +1803,56 @@ void HTMLInputElementImpl::defaultEventHandler(EventImpl *evt)
             m_activeSubmit = false;
         }
     }
+
+#if APPLE_CHANGES
+    // Use key press event here since sending simulated mouse events
+    // on key down blocks the proper sending of the key press event.
+    if (evt->id() == EventImpl::KEYPRESS_EVENT) {
+    
+        if (!m_form || !m_render || !evt->isKeyboardEvent())
+            return;
+        
+        DOMString key = static_cast<KeyboardEventImpl *>(evt)->keyIdentifier();
+        
+        switch (m_type) {
+            case IMAGE:
+            case RESET:
+            case SUBMIT:
+                // simulate mouse click for spacebar and enter
+                if (key == "U+000020" || key == "Enter") {
+                    m_form->submitClick();
+                    evt->setDefaultHandled();
+                }
+                break;
+            case CHECKBOX:
+            case RADIO:
+                // for enter, find the first successful image or submit element 
+                // send it a simulated mouse click
+                if (key == "Enter") {
+                    m_form->submitClick();
+                    evt->setDefaultHandled();
+                }
+                break;
+            case TEXT:
+            case PASSWORD: {
+                // For enter, find the first successful image or submit element 
+                // send it a simulated mouse click only if the text input manager has 
+                // no marked text. If it does, then return needs to work in the
+                // "accept" role for the input method.
+                QWidget *widget = static_cast<RenderWidget *>(m_render)->widget();
+                bool hasMarkedText = widget ? static_cast<QLineEdit *>(widget)->hasMarkedText() : false;
+                if (!hasMarkedText && key == "Enter") {
+                    m_form->submitClick();
+                    evt->setDefaultHandled();
+                }
+                break;
+            }
+            default:
+                // not handled for the other widgets
+                break;
+        }
+    }
+#endif
     HTMLGenericFormElementImpl::defaultEventHandler(evt);
 }
 
@@ -1707,6 +1870,11 @@ HTMLLabelElementImpl::HTMLLabelElementImpl(DocumentPtr *doc)
 
 HTMLLabelElementImpl::~HTMLLabelElementImpl()
 {
+}
+
+bool HTMLLabelElementImpl::isFocusable() const
+{
+    return false;
 }
 
 NodeImpl::Id HTMLLabelElementImpl::id() const
@@ -1750,15 +1918,14 @@ HTMLLegendElementImpl::~HTMLLegendElementImpl()
 {
 }
 
+bool HTMLLegendElementImpl::isFocusable() const
+{
+    return false;
+}
+
 NodeImpl::Id HTMLLegendElementImpl::id() const
 {
     return ID_LEGEND;
-}
-
-void HTMLLegendElementImpl::attach()
-{
-    createRendererIfNeeded();
-    HTMLGenericFormElementImpl::attach();
 }
 
 RenderObject* HTMLLegendElementImpl::createRenderer(RenderArena* arena, RenderStyle* style)
@@ -2042,14 +2209,6 @@ RenderObject *HTMLSelectElementImpl::createRenderer(RenderArena *arena, RenderSt
     return new (arena) RenderSelect(this);
 }
 
-void HTMLSelectElementImpl::attach()
-{
-    addCSSProperty(CSS_PROP_COLOR, "text");
-
-    createRendererIfNeeded();
-    HTMLGenericFormElementImpl::attach();
-}
-
 bool HTMLSelectElementImpl::encoding(const QTextCodec* codec, khtml::encodingList& encoded_values, bool)
 {
     bool successful = false;
@@ -2200,6 +2359,34 @@ void HTMLSelectElementImpl::notifyOptionSelected(HTMLOptionElementImpl *selected
     setChanged(true);
 }
 
+#if APPLE_CHANGES
+
+void HTMLSelectElementImpl::defaultEventHandler(EventImpl *evt)
+{
+    // Use key press event here since sending simulated mouse events
+    // on key down blocks the proper sending of the key press event.
+    if (evt->id() == EventImpl::KEYPRESS_EVENT) {
+    
+        if (!m_form || !m_render || !evt->isKeyboardEvent())
+            return;
+        
+        DOMString key = static_cast<KeyboardEventImpl *>(evt)->keyIdentifier();
+        
+        if (key == "Enter") {
+            m_form->submitClick();
+            evt->setDefaultHandled();
+        }
+    }
+    HTMLGenericFormElementImpl::defaultEventHandler(evt);
+}
+
+#endif // APPLE_CHANGES
+
+void HTMLSelectElementImpl::accessKeyAction()
+{
+    focus();
+}
+
 // -------------------------------------------------------------------------
 
 HTMLKeygenElementImpl::HTMLKeygenElementImpl(DocumentPtr* doc, HTMLFormElementImpl* f)
@@ -2228,6 +2415,10 @@ void HTMLKeygenElementImpl::parseAttribute(AttributeImpl* attr)
     switch(attr->id())
     {
     case ATTR_CHALLENGE:
+        m_challenge = attr->val();
+        break;
+    case ATTR_KEYTYPE:
+        m_keyType = attr->val();
         break;
     default:
         // skip HTMLSelectElementImpl parsing!
@@ -2240,8 +2431,20 @@ bool HTMLKeygenElementImpl::encoding(const QTextCodec* codec, khtml::encodingLis
     bool successful = false;
     QCString enc_name = fixUpfromUnicode(codec, name().string());
 
+#if APPLE_CHANGES
+    // Only RSA is supported at this time.
+    if (!m_keyType.isNull() && m_keyType.lower() != "rsa") {
+        return false;
+    }
+    QString value = KSSLKeyGen::signedPublicKeyAndChallengeString((unsigned)selectedIndex(), m_challenge.string(), getDocument()->part()->baseURL());
+    if (!value.isNull()) {
+        encoded_values += enc_name;
+        encoded_values += value.utf8();
+        successful = true;
+    }
+#else
     encoded_values += enc_name;
-
+    
     // pop up the fancy certificate creation dialog here
     KSSLKeyGen *kg = new KSSLKeyGen(static_cast<RenderWidget *>(m_render)->widget(), "Key Generator", true);
 
@@ -2251,7 +2454,8 @@ bool HTMLKeygenElementImpl::encoding(const QTextCodec* codec, khtml::encodingLis
     delete kg;
 
     encoded_values += "deadbeef";
-
+#endif
+    
     return successful;
 }
 
@@ -2264,6 +2468,11 @@ HTMLOptGroupElementImpl::HTMLOptGroupElementImpl(DocumentPtr *doc, HTMLFormEleme
 
 HTMLOptGroupElementImpl::~HTMLOptGroupElementImpl()
 {
+}
+
+bool HTMLOptGroupElementImpl::isFocusable() const
+{
+    return false;
 }
 
 NodeImpl::Id HTMLOptGroupElementImpl::id() const
@@ -2336,6 +2545,11 @@ HTMLOptionElementImpl::HTMLOptionElementImpl(DocumentPtr *doc, HTMLFormElementIm
     : HTMLGenericFormElementImpl(doc, f)
 {
     m_selected = false;
+}
+
+bool HTMLOptionElementImpl::isFocusable() const
+{
+    return false;
 }
 
 NodeImpl::Id HTMLOptionElementImpl::id() const
@@ -2430,6 +2644,13 @@ void HTMLOptionElementImpl::setSelected(bool _selected)
     HTMLSelectElementImpl *select = getSelect();
     if (select)
         select->notifyOptionSelected(this,_selected);
+}
+
+void HTMLOptionElementImpl::childrenChanged()
+{
+   HTMLSelectElementImpl *select = getSelect();
+   if (select)
+       select->childrenChanged();
 }
 
 HTMLSelectElementImpl *HTMLOptionElementImpl::getSelect() const
@@ -2539,17 +2760,9 @@ RenderObject *HTMLTextAreaElementImpl::createRenderer(RenderArena *arena, Render
     return new (arena) RenderTextArea(this);
 }
 
-void HTMLTextAreaElementImpl::attach()
-{
-    addCSSProperty(CSS_PROP_COLOR, "text");
-
-    createRendererIfNeeded();
-    HTMLGenericFormElementImpl::attach();
-}
-
 bool HTMLTextAreaElementImpl::encoding(const QTextCodec* codec, encodingList& encoding, bool)
 {
-    if (name().isEmpty() || !m_render) return false;
+    if (name().isEmpty()) return false;
 
     encoding += fixUpfromUnicode(codec, name().string());
     encoding += fixUpfromUnicode(codec, value().string());
@@ -2565,7 +2778,10 @@ void HTMLTextAreaElementImpl::reset()
 DOMString HTMLTextAreaElementImpl::value()
 {
     if ( m_dirtyvalue) {
-        if ( m_render )  m_value = static_cast<RenderTextArea*>( m_render )->text();
+        if ( m_render )
+            m_value = static_cast<RenderTextArea*>( m_render )->text();
+        else
+            m_value = defaultValue().string();
         m_dirtyvalue = false;
     }
 
@@ -2633,6 +2849,11 @@ void HTMLTextAreaElementImpl::focus()
 bool HTMLTextAreaElementImpl::isEditable()
 {
     return true;
+}
+
+void HTMLTextAreaElementImpl::accessKeyAction()
+{
+    focus();
 }
 
 // -------------------------------------------------------------------------

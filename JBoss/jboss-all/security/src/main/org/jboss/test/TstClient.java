@@ -1,6 +1,5 @@
 package org.jboss.test;
 
-import java.io.IOException;
 import javax.naming.InitialContext;
 
 import org.apache.log4j.Category;
@@ -17,7 +16,7 @@ registry and attempts to validate the username and password passed
 on the command line.
 
  @author Scott.Stark@jboss.org
- @version $Revision: 1.3.4.1 $
+ @version $Revision: 1.3.4.2 $
  */
 public class TstClient
 {

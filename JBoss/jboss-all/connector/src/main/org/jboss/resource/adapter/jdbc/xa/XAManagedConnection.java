@@ -29,7 +29,7 @@ import org.jboss.resource.JBossResourceException;
  * Created: Mon Aug 12 23:02:44 2002
  *
  * @author <a href="mailto:d_jencks@users.sourceforge.net">David Jencks</a>
- * @version $Revision: 1.3.2.6 $
+ * @version $Revision: 1.3.2.11 $
  */
 
 public class XAManagedConnection
@@ -46,9 +46,11 @@ public class XAManagedConnection
    public XAManagedConnection(XAManagedConnectionFactory mcf,
                               XAConnection xaConnection,
                               Properties props,
-                              int transactionIsolation) throws SQLException
+                              int transactionIsolation,
+                              int psCacheSize,
+                              boolean doQueryTimeout) throws SQLException
    {
-      super(mcf, xaConnection.getConnection(), props, transactionIsolation);
+      super(mcf, xaConnection.getConnection(), props, transactionIsolation, psCacheSize, doQueryTimeout);
       this.xaConnection = xaConnection;
       xaConnection.addConnectionEventListener( new javax.sql.ConnectionEventListener ()
          {
@@ -130,6 +132,14 @@ public class XAManagedConnection
     */
    public void start(Xid xid, int flags) throws XAException
    {
+      try
+      {
+         checkState();
+      }
+      catch (SQLException e)
+      {
+         getLog().warn("Error setting state ", e);
+      }
       xaResource.start(xid, flags);
       currentXid = xid;
       inManagedTransaction = true;
@@ -146,7 +156,7 @@ public class XAManagedConnection
       xaResource.end(xid, flags);
       //we want to allow ending transactions that are not the current
       //one.  When one does this, inManagedTransaction is still true.
-      if (currentXid == xid)
+      if (currentXid != null && currentXid.equals(xid))
       {
          inManagedTransaction = false;
          currentXid = null;

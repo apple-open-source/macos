@@ -95,16 +95,16 @@ public:
 
     void drawText(int x, int y, int, int, int alignmentFlags, const QString &);
     void drawHighlightForText(int x, int y, const QChar *, int length, int from, int to, int toAdd,
-                  const QColor& backgroundColor, QPainter::TextDirection d,
+                  const QColor& backgroundColor, QPainter::TextDirection d, bool visuallyOrdered,
                   int letterSpacing, int wordSpacing, bool smallCaps);
     void drawText(int x, int y, const QChar *, int length, int from, int to, int toAdd,
-                  const QColor& backgroundColor, QPainter::TextDirection d,
+                  const QColor& backgroundColor, QPainter::TextDirection d, bool visuallyOrdered,
                   int letterSpacing, int wordSpacing, bool smallCaps);
     void drawLineForText(int x, int y, int yOffset, int width);
 
     QColor selectedTextBackgroundColor() const;
     void setUsesInactiveTextBackgroundColor(bool u) { _usesInactiveTextBackgroundColor = u; }
-
+    
     bool paintingDisabled() const;
     void setPaintingDisabled(bool);
         
@@ -113,6 +113,13 @@ public:
 
     void setShadow(int x, int y, int blur, const QColor& color);
     void clearShadow();
+
+    void initFocusRing(int width, int offset);
+    void initFocusRing(int width, int offset, const QColor& color);
+    void addFocusRingRect(int x, int y, int width, int height);
+    void drawFocusRing();
+    void clearFocusRing();
+    void setDrawsFocusRing(bool flag) { _drawsFocusRing = flag; }
     
 private:
     // no copying or assignment
@@ -132,6 +139,7 @@ private:
     QPainterPrivate *data;
     bool _isForPrinting;
     bool _usesInactiveTextBackgroundColor;
+    bool _drawsFocusRing;
 };
 
 #endif

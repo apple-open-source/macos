@@ -6,15 +6,17 @@
  */
 package org.jboss.ejb.plugins;
 
-import java.lang.reflect.Method;
-import java.rmi.RemoteException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Random;
+import org.jboss.invocation.Invocation;
+import org.jboss.invocation.InvocationType;
+import org.jboss.metadata.BeanMetaData;
+import org.jboss.metadata.MetaData;
+import org.jboss.tm.JBossTransactionRolledbackException;
+import org.jboss.tm.JBossTransactionRolledbackLocalException;
+import org.jboss.util.NestedException;
+import org.jboss.util.deadlock.ApplicationDeadlockException;
 
 import javax.ejb.EJBException;
 import javax.ejb.TransactionRequiredLocalException;
-import javax.ejb.TransactionRolledbackLocalException;
 import javax.transaction.HeuristicMixedException;
 import javax.transaction.HeuristicRollbackException;
 import javax.transaction.RollbackException;
@@ -23,25 +25,21 @@ import javax.transaction.SystemException;
 import javax.transaction.Transaction;
 import javax.transaction.TransactionRequiredException;
 import javax.transaction.TransactionRolledbackException;
-
-import org.jboss.invocation.Invocation;
-import org.jboss.invocation.InvocationType;
-import org.jboss.metadata.BeanMetaData;
-import org.jboss.metadata.MetaData;
-import org.jboss.ejb.plugins.lock.ApplicationDeadlockException;
-import org.jboss.tm.JBossTransactionRolledbackException;
-import org.jboss.tm.JBossTransactionRolledbackLocalException;
-import org.jboss.util.NestedException;
+import java.lang.reflect.Method;
+import java.rmi.RemoteException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Random;
 
 /**
  *  This interceptor handles transactions for CMT beans.
  *
- *  @author <a href="mailto:rickard.oberg@telkel.com">Rickard Öberg</a>
+ *  @author <a href="mailto:rickard.oberg@telkel.com">Rickard ï¿½berg</a>
  *  @author <a href="mailto:marc.fleury@telkel.com">Marc Fleury</a>
  *  @author <a href="mailto:sebastien.alborini@m4x.org">Sebastien Alborini</a>
  *  @author <a href="mailto:akkerman@cs.nyu.edu">Anatoly Akkerman</a>
  *  @author <a href="mailto:osh@sparre.dk">Ole Husgaard</a>
- *  @version $Revision: 1.27.2.8 $
+ *  @version $Revision: 1.27.2.10 $
  */
 public class TxInterceptorCMT
 extends AbstractTxInterceptor
@@ -64,6 +62,32 @@ extends AbstractTxInterceptor
    public static int MAX_RETRIES = 5;
    public static Random random = new Random();
 
+   /**
+    * Detects exception contains is or a ApplicationDeadlockException.
+    */
+   public static ApplicationDeadlockException isADE(Throwable t)
+   {
+      while (t!=null)
+      {
+         if (t instanceof ApplicationDeadlockException)
+         {
+            return (ApplicationDeadlockException)t;
+         }
+         else if (t instanceof RemoteException)
+         {
+            t = ((RemoteException)t).detail;
+         }
+         else if (t instanceof EJBException)
+         {
+            t = ((EJBException)t).getCausedByException();
+         }
+         else
+         {
+            return null;
+         }
+      }
+      return null;
+   }
    public Object invokeHome(Invocation invocation) throws Exception
    {
       Transaction oldTransaction = invocation.getTransaction();
@@ -75,11 +99,11 @@ extends AbstractTxInterceptor
          }
          catch (Exception ex)
          {
-            ApplicationDeadlockException deadlock = ApplicationDeadlockException.isADE(ex);
+            ApplicationDeadlockException deadlock = isADE(ex);
             if (deadlock != null)
             {
                if (!deadlock.retryable() || oldTransaction != null || i + 1 >= MAX_RETRIES) throw deadlock;
-               log.warn(deadlock.getMessage() + " retrying " + (i + 1));
+               log.debug(deadlock.getMessage() + " retrying " + (i + 1));
                Thread.sleep(random.nextInt(1 + i), random.nextInt(1000) + 10);
             }
             else
@@ -105,11 +129,11 @@ extends AbstractTxInterceptor
          }
          catch (Exception ex)
          {
-            ApplicationDeadlockException deadlock = ApplicationDeadlockException.isADE(ex);
+            ApplicationDeadlockException deadlock = isADE(ex);
             if (deadlock != null)
             {
                if (!deadlock.retryable() || oldTransaction != null || i + 1 >= MAX_RETRIES) throw deadlock;
-               log.warn(deadlock.getMessage() + " retrying " + (i + 1));
+               log.debug(deadlock.getMessage() + " retrying " + (i + 1));
 
                Thread.sleep(random.nextInt(1 + i), random.nextInt(1000));
             }

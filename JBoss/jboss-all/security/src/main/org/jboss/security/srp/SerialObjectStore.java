@@ -24,7 +24,6 @@ import org.jboss.logging.Logger;
 import org.jboss.security.Util;
 import org.jboss.security.srp.SRPConf;
 import org.jboss.security.srp.SRPVerifierStore;
-import org.jboss.security.srp.SRPVerifierStore.VerifierInfo;
 
 /** A simple implementation of the SRPVerifierStore that uses a
 file store made up of VerifierInfo serialized objects. Users and
@@ -38,7 +37,7 @@ a production environment is not advised.
 @see #delUser(String)
 
 @author Scott.Stark@jboss.org
-@version $Revision: 1.4.4.2 $
+@version $Revision: 1.4.4.3 $
 */
 public class SerialObjectStore implements SRPVerifierStore
 {

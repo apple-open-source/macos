@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -59,7 +57,7 @@
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 // Flag to turn on compiling of APIs marked as obsolete
-#define INCLUDE_OBSOLETE_APIS					1
+#define INCLUDE_OBSOLETE_APIS					0
 
 #define DEBUG 									0
 #define DEBUG_ASSERT_COMPONENT_NAME_STRING		"MMC"
@@ -124,6 +122,7 @@ OSDefineAbstractStructors ( IOSCSIMultimediaCommandsDevice, IOSCSIPrimaryCommand
 #define kCDAudioModePageCode					0x0E
 
 #define kAppleKeySwitchProperty					"AppleKeyswitch"
+#define kAppleLowPowerPollingKey				"Low Power Polling"
 
 #define kLocalizationPath						"/System/Library/Extensions/IOSCSIArchitectureModelFamily.kext/Contents/PlugIns/IOSCSIMultimediaCommandsDevice.kext"
 #define kMediaEjectHeaderString					"Media Eject Header"
@@ -198,7 +197,6 @@ enum
 	kTrackCatalogValueFieldValidMask	= 0x80
 };
 
-
 // Spindle speed settings
 enum
 {
@@ -210,6 +208,42 @@ enum
 {
 	kThirtySeconds	= 30
 };
+
+enum
+{
+	kCDTAOTestWriteBit 	= 2,
+	kCDTAOBUFWriteBit	= 6,
+	
+	kCDTAOTestWriteMask = (1 << kCDTAOTestWriteBit),
+	kCDTAOBUFWriteMask	= (1 << kCDTAOBUFWriteBit)
+};
+
+enum
+{
+	kCDMasteringCDRWBit			= 1,
+	kCDMasteringTestWriteBit 	= 2,
+	kCDMasteringRawWriteBit		= 3,
+	kCDMasteringSAOWriteBit		= 5,
+	kCDMasteringBUFWriteBit		= 6,
+	
+	kCDMasteringCDRWMask		= (1 << kCDMasteringCDRWBit),
+	kCDMasteringTestWriteMask	= (1 << kCDMasteringTestWriteBit),
+	kCDMasteringRawWriteMask	= (1 << kCDMasteringRawWriteBit),
+	kCDMasteringSAOWriteMask	= (1 << kCDMasteringSAOWriteBit),
+	kCDMasteringBUFWriteMask	= (1 << kCDMasteringBUFWriteBit)
+};
+
+enum
+{
+	kDVDRWBit			= 1,
+	kDVDTestWriteBit 	= 2,
+	kDVDBUFWriteBit		= 6,
+	
+	kDVDRWMask			= (1 << kDVDRWBit),
+	kDVDTestWriteMask	= (1 << kDVDTestWriteBit),
+	kDVDBUFWriteMask	= (1 << kDVDBUFWriteBit)
+};
+
 
 // Apple Features mode page code
 #define kAppleFeaturesModePageCode		0x31
@@ -1527,44 +1561,7 @@ ErrorExit:
 IOReturn
 IOSCSIMultimediaCommandsDevice::AudioPause ( bool pause )
 {
-	
-	IOReturn				status 			= kIOReturnUnsupported;
-	SCSITaskIdentifier		request			= NULL;
-	SCSIServiceResponse		serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
-	
-	require_nonzero ( ( fSupportedCDFeatures & kCDFeaturesAnalogAudioMask ), Exit );
-	
-	request = GetSCSITask ( );
-	require_nonzero_action ( request, ErrorExit, status = kIOReturnNoResources );
-	
-	if ( PAUSE_RESUME ( request, !pause, 0 ) == true )
-	{
-		
-		// The command was successfully built, now send it
-		serviceResponse = SendCommand ( request, kTenSecondTimeoutInMS );
-		
-	}
-	
-	if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
-		 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
-	{
-		status = kIOReturnSuccess;
-	}
-	
-	else
-	{
-		status = kIOReturnIOError;
-	}
-	
-	ReleaseSCSITask ( request );
-	
-	
-ErrorExit:
-Exit:	
-	
-	
-	return status;
-	
+	return kIOReturnUnsupported;
 }
 
 
@@ -1576,60 +1573,7 @@ Exit:
 IOReturn
 IOSCSIMultimediaCommandsDevice::AudioPlay ( CDMSF timeStart, CDMSF timeStop )
 {
-	
-	IOReturn				status 			= kIOReturnUnsupported;
-	SCSITaskIdentifier		request			= NULL;
-	SCSIServiceResponse		serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
-	SCSICmdField4Byte		STARTING_MSF 	= 0;
-	SCSICmdField4Byte		ENDING_MSF 		= 0;
-	
-	require_nonzero ( ( fSupportedCDFeatures & kCDFeaturesAnalogAudioMask ), Exit );
-	
-	// Do some bit shifting to be endian neutral
-	STARTING_MSF 	= ( timeStart.minute << 24 ) |
-					  ( timeStart.second << 16 ) |
-					  ( timeStart.frame << 8 );
-	
-	ENDING_MSF 		= ( timeStop.minute << 24 ) |
-					  ( timeStop.second << 16 ) |
-					  ( timeStop.frame << 8 );
-	
-	// These are multi-byte fields, so use OSWriteBigInt32 to make them correct.
-	OSWriteBigInt32 ( &STARTING_MSF, 0, STARTING_MSF );
-	OSWriteBigInt32 ( &ENDING_MSF, 0, ENDING_MSF );
-	
-	request = GetSCSITask ( );
-	require_nonzero_action ( request, ErrorExit, status = kIOReturnNoResources );
-	
-	if ( PLAY_AUDIO_MSF ( 	request,
-							STARTING_MSF,
-							ENDING_MSF,
-							0 ) == true )
-	{
-		// The command was successfully built, now send it
-		serviceResponse = SendCommand ( request, kTenSecondTimeoutInMS );
-	}
-	
-	if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
-		 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
-	{
-		status = kIOReturnSuccess;
-	}
-	
-	else
-	{
-		status = kIOReturnIOError;
-	}
-	
-	ReleaseSCSITask ( request );
-	
-	
-ErrorExit:	
-Exit:
-	
-	
-	return status;
-	
+	return kIOReturnUnsupported;
 }
 
 
@@ -1641,58 +1585,7 @@ Exit:
 IOReturn
 IOSCSIMultimediaCommandsDevice::AudioScan ( CDMSF timeStart, bool reverse )
 {
-	
-	IOReturn				status						= kIOReturnUnsupported;
-	SCSICmdField4Byte		SCAN_STARTING_ADDRESS_FIELD = 0;	
-	SCSITaskIdentifier		request						= NULL;
-	SCSIServiceResponse		serviceResponse				= kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
-	
-	require_nonzero ( ( fSupportedCDFeatures & kCDFeaturesAnalogAudioMask ), Exit );
-	
-	request = GetSCSITask ( );
-	require_nonzero_action ( request, ErrorExit, status = kIOReturnNoResources );
-	
-	// Do some bit shifting to be endian neutral
-	SCAN_STARTING_ADDRESS_FIELD = ( timeStart.minute << 24 ) |
-								  ( timeStart.second << 16 ) |
-								  ( timeStart.frame << 8 );
-	
-	// Use OSWriteBigInt32 to make sure it is written correctly.
-	OSWriteBigInt32 ( &SCAN_STARTING_ADDRESS_FIELD, 0, SCAN_STARTING_ADDRESS_FIELD );
-	
-	if ( SCAN ( request,
-				reverse,
-				0,
-				SCAN_STARTING_ADDRESS_FIELD,
-				0x01,												
-				0 ) == true )
-	{
-		
-		// The command was successfully built, now send it
-		serviceResponse = SendCommand ( request, kTenSecondTimeoutInMS );
-		
-	}
-	
-	if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
-		 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
-	{
-		status = kIOReturnSuccess;
-	}
-	
-	else
-	{
-		status = kIOReturnIOError;
-	}
-	
-	ReleaseSCSITask ( request );
-	
-
-ErrorExit:
-Exit:
-	
-	
-	return status;
-	
+	return kIOReturnUnsupported;
 }
 
 
@@ -1704,58 +1597,19 @@ Exit:
 IOReturn
 IOSCSIMultimediaCommandsDevice::AudioStop ( void )
 {
-	
-	IOReturn				status			= kIOReturnUnsupported;
-	SCSITaskIdentifier		request			= NULL;
-	SCSIServiceResponse		serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
-	
-	require_nonzero ( ( fSupportedCDFeatures & kCDFeaturesAnalogAudioMask ), Exit );
-	
-	request = GetSCSITask ( );
-	require_nonzero_action ( request, ErrorExit, status = kIOReturnNoResources );
-	
-	if ( STOP_PLAY_SCAN ( request, 0 ) == true )
-	{
-		
-		// The command was successfully built, now send it
-		serviceResponse = SendCommand ( request, kTenSecondTimeoutInMS );
-		
-	}
-	
-	if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
-		 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
-	{
-		status = kIOReturnSuccess;
-	}
-	
-	else
-	{
-		status = kIOReturnIOError;
-	}
-	
-	ReleaseSCSITask ( request );
-	
-	
-ErrorExit:
-Exit:
-	
-	
-	return status;
-	
+	return kIOReturnUnsupported;
 }
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetAudioStatus - 	Unsupported
+//	¥ GetAudioStatus - 	Gets the audio status.
 //						*OBSOLETE* All CD playback is digital now.	   [PUBLIC]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
 IOSCSIMultimediaCommandsDevice::GetAudioStatus ( CDAudioStatus * status )
 {
-	
 	return kIOReturnUnsupported;
-	
 }
 
 
@@ -1768,41 +1622,7 @@ IOReturn
 IOSCSIMultimediaCommandsDevice::GetAudioVolume ( UInt8 * leftVolume,
 												 UInt8 * rightVolume )
 {
-	
-	IOReturn				status 		= kIOReturnUnsupported;
-	IOMemoryDescriptor *	bufferDesc	= NULL;
-	bool					use10Byte	= true;
-	UInt8					cdAudioModePageBuffer[kCDAudioModePageBufferSize];
-	
-	require_nonzero ( ( fSupportedCDFeatures & kCDFeaturesAnalogAudioMask ), Exit );
-	
-	bufferDesc = IOMemoryDescriptor::withAddress ( 	cdAudioModePageBuffer,
-													kCDAudioModePageBufferSize,
-													kIODirectionIn );
-	require_nonzero_action ( bufferDesc, ErrorExit, status = kIOReturnNoResources );
-	
-	status = GetModeSense ( bufferDesc,
-							kCDAudioModePageCode,
-							kCDAudioModePageBufferSize,
-							&use10Byte );
-	
-	if ( status == kIOReturnSuccess )
-	{
-		
-		*leftVolume 	= cdAudioModePageBuffer[17];
-		*rightVolume 	= cdAudioModePageBuffer[19];
-		
-	}
-	
-	bufferDesc->release ( );
-	
-	
-ErrorExit:
-Exit:
-	
-	
-	return status;
-	
+	return kIOReturnUnsupported;
 }
 
 
@@ -1815,104 +1635,7 @@ IOReturn
 IOSCSIMultimediaCommandsDevice::SetAudioVolume ( UInt8 leftVolume,
 												 UInt8 rightVolume )
 {
-	
-	IOReturn				status			= kIOReturnUnsupported;
-	IOMemoryDescriptor *	bufferDesc 		= NULL;
-	SCSITaskIdentifier		request			= NULL;
-	SCSIServiceResponse		serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
-	bool					commandOK 		= false;
-	UInt8					cdAudioModePageBuffer[kCDAudioModePageBufferSize] = { 0 };
-	bool					use10Byte		= true;
-	
-	require_nonzero ( ( fSupportedCDFeatures & kCDFeaturesAnalogAudioMask ), Exit );
-	
-	bufferDesc = IOMemoryDescriptor::withAddress ( 	cdAudioModePageBuffer,
-													kCDAudioModePageBufferSize,
-													kIODirectionIn );
-	require_nonzero_action ( bufferDesc, ErrorExit, status = kIOReturnNoResources );
-	
-	status = GetModeSense ( bufferDesc,
-							kCDAudioModePageCode,
-							kCDAudioModePageBufferSize,
-							&use10Byte );
-	
-	bufferDesc->release ( );
-	bufferDesc = NULL;
-	
-	require_success ( status, ErrorExit );
-	
-	bufferDesc = IOMemoryDescriptor::withAddress ( 	cdAudioModePageBuffer,
-													kCDAudioModePageBufferSize,
-													kIODirectionOut );
-	require_nonzero_action ( bufferDesc, ErrorExit, status = kIOReturnNoResources );
-	
-	request = GetSCSITask ( );
-	require_nonzero_action ( request, ReleaseDescriptor, status = kIOReturnNoResources );
-	
-	cdAudioModePageBuffer[9]	= kCDAudioModePageCode;
-	cdAudioModePageBuffer[17] 	= leftVolume;
-	cdAudioModePageBuffer[19]	= rightVolume;
-	
-	if ( GetANSIVersion ( ) == kINQUIRY_ANSI_VERSION_NoClaimedConformance )
-	{
-				
-		commandOK = MODE_SELECT_10 ( 	request,
-										bufferDesc,
-										0x01,
-										0x00,
-										kCDAudioModePageBufferSize,
-										0 );
-	
-	}
-	
-	else
-	{
-		
-		commandOK = MODE_SELECT_6 ( request,
-									bufferDesc,
-									0x01,
-									0x00,
-									kCDAudioModePageBufferSize,
-									0 );
-		
-	}
-	
-	if ( commandOK )
-	{
-		
-		// The command was successfully built, now send it
-		serviceResponse = SendCommand ( request, kThirtySecondTimeoutInMS );
-		
-	}
-	
-	if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
-		 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
-	{
-		status = kIOReturnSuccess;
-	}
-	
-	else
-	{
-		status = kIOReturnIOError;
-	}
-	
-	ReleaseSCSITask ( request );
-	
-	
-ReleaseDescriptor:
-	
-	
-	require_nonzero_quiet ( bufferDesc, ErrorExit );
-	bufferDesc->release ( );
-	bufferDesc = NULL;
-	
-	
-ErrorExit:	
-Exit:
-	
-	
-	return status;
-	
+	return kIOReturnUnsupported;
 }
 
 
@@ -1925,7 +1648,7 @@ IOSCSIMultimediaCommandsDevice::GetMediaType ( void )
 {
 	
 	return fMediaType;
-		
+	
 }
 
 
@@ -2364,8 +2087,7 @@ IOSCSIMultimediaCommandsDevice::InitializeDeviceSupport ( void )
 	
 	STATUS_LOG ( ( "IOSCSIMultimediaCommandsDevice::InitializeDeviceSupport setupSuccessful = %d\n", setupSuccessful ) );
 	
-	setProperty ( kIOMaximumBlockCountReadKey,  kDefaultMaxBlocksPerIO, 64 );
-	setProperty ( kIOMaximumBlockCountWriteKey, kDefaultMaxBlocksPerIO, 64 );
+	SetMediaCharacteristics ( 0, 0 );
 	
 	return setupSuccessful;
 	
@@ -2394,25 +2116,7 @@ void
 IOSCSIMultimediaCommandsDevice::StartDeviceSupport ( void )
 {
 	
-	OSBoolean *		shouldNotPoll = NULL;
-	
-	shouldNotPoll = OSDynamicCast (
-							OSBoolean,
-							getProperty ( kAppleKeySwitchProperty ) );
-	
-	if ( shouldNotPoll != NULL )
-	{
-		
-		// See if we should not poll.
-		require ( shouldNotPoll->isFalse ( ), Exit );
-		
-	}
-	
 	EnablePolling ( );
-	
-	
-Exit:
-	
 	
 	CreateStorageServiceNub ( );
 	
@@ -3399,7 +3103,7 @@ IOSCSIMultimediaCommandsDevice::GetDeviceConfiguration ( void )
 								bufferDesc,
 								0x02, /* Only one feature descriptor */
 								kGetConfigurationProfile_AnalogAudio,
-								4,
+								kProfileFeatureHeaderSize + 4,
 								0 ) == true )
 	{
 		// The command was successfully built, now send it
@@ -3410,7 +3114,7 @@ IOSCSIMultimediaCommandsDevice::GetDeviceConfiguration ( void )
 		 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
 	{
 		
-		STATUS_LOG ( ( "Device supports Analog Audio \n" ) );
+		STATUS_LOG ( ( "Device supports Analog Audio\n" ) );
 		fSupportedCDFeatures |= kCDFeaturesAnalogAudioMask;
 		
 	}
@@ -3419,7 +3123,7 @@ IOSCSIMultimediaCommandsDevice::GetDeviceConfiguration ( void )
 							 bufferDesc,
 							 0x02, /* Only one feature descriptor */
 							 kGetConfigurationProfile_IncrementalStreamedWrite,
-							 4,
+							 kProfileFeatureHeaderSize + 4,
 							 0 ) == true )
 	{
 		// The command was successfully built, now send it
@@ -3430,7 +3134,7 @@ IOSCSIMultimediaCommandsDevice::GetDeviceConfiguration ( void )
 		 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
 	{
 		
-		STATUS_LOG ( ( "Device supports Packet Writing \n" ) );
+		STATUS_LOG ( ( "Device supports Packet Writing\n" ) );
 		fSupportedCDFeatures |= kCDFeaturesPacketWriteMask;
 		
 	}
@@ -3440,7 +3144,7 @@ IOSCSIMultimediaCommandsDevice::GetDeviceConfiguration ( void )
 								bufferDesc,
 								0x02, /* Only one feature descriptor */
 								kGetConfigurationProfile_CDTAO,
-								8,
+								kProfileFeatureHeaderSize + 8,
 								0 ) == true )
 	{
 		// The command was successfully built, now send it
@@ -3451,21 +3155,21 @@ IOSCSIMultimediaCommandsDevice::GetDeviceConfiguration ( void )
 		( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
 	{
 		
-		STATUS_LOG ( ( "Device supports TAO Write \n" ) );
+		STATUS_LOG ( ( "Device supports TAO Write\n" ) );
 		fSupportedCDFeatures |= kCDFeaturesTAOWriteMask;
 		
-		if ( profilePtr[4] & 0x04 )
+		if ( profilePtr[kProfileFeatureHeaderSize + 4] & kCDTAOTestWriteMask )
 		{
 			
-			STATUS_LOG ( ( "Device supports TAO Test Write \n" ) );
+			STATUS_LOG ( ( "Device supports TAO Test Write\n" ) );
 			fSupportedCDFeatures |= kCDFeaturesTestWriteMask;
 			
 		}
 		
-		if ( profilePtr[4] & 0x40 )
+		if ( profilePtr[kProfileFeatureHeaderSize + 4] & kCDTAOBUFWriteMask )
 		{
 			
-			STATUS_LOG ( ( "Device supports TAO BUF \n" ) );
+			STATUS_LOG ( ( "Device supports TAO BUF\n" ) );
 			fSupportedCDFeatures |= kCDFeaturesBUFWriteMask;
 			
 		}
@@ -3477,7 +3181,7 @@ IOSCSIMultimediaCommandsDevice::GetDeviceConfiguration ( void )
 								bufferDesc,
 								0x02, /* Only one feature descriptor */
 								kGetConfigurationProfile_CDMastering,
-								8,
+								kProfileFeatureHeaderSize + 8,
 								0 ) == true )
 	{
 		// The command was successfully built, now send it
@@ -3488,34 +3192,59 @@ IOSCSIMultimediaCommandsDevice::GetDeviceConfiguration ( void )
 		 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
 	{
 		
-		if ( profilePtr[4] & 0x04 )
+		if ( profilePtr[kProfileFeatureHeaderSize + 4] & kCDMasteringCDRWMask )
 		{
 			
-			STATUS_LOG ( ( "Device supports CD-Mastering Test Write \n" ) );
+			fSupportedCDFeatures |= kCDFeaturesReWriteableMask;
+			
+		}
+		
+		else
+		{
+			
+			// Check if device claimed support for CD-RW profile
+			// but isn't really CD-RW
+			if ( fSupportedCDFeatures & kCDFeaturesReWriteableMask )
+			{
+				
+				ERROR_LOG ( ( "Device claimed support for CD-RW, but doesn't do CD-RW\n" ) );
+				
+				// Not really CD-RW. Get rid of the feature in the
+				// feature list.
+				fSupportedCDFeatures &= ~kCDFeaturesReWriteableMask;
+				
+			}
+			
+		}
+		
+		if ( profilePtr[kProfileFeatureHeaderSize + 4] & kCDMasteringTestWriteMask )
+		{
+			
+			STATUS_LOG ( ( "Device supports CD-Mastering Test Write\n" ) );
 			fSupportedCDFeatures |= kCDFeaturesTestWriteMask;
 			
 		}
 		
-		if ( profilePtr[4] & 0x08 )
+		if ( profilePtr[kProfileFeatureHeaderSize + 4] & kCDMasteringRawWriteMask )
 		{
 			
-			STATUS_LOG ( ( "Device supports CD-Mastering Raw Write \n" ) );
+			STATUS_LOG ( ( "Device supports CD-Mastering Raw Write\n" ) );
 			fSupportedCDFeatures |= kCDFeaturesRawWriteMask;
 			
 		}
 		
-		if ( profilePtr[4] & 0x20 )
+		if ( profilePtr[kProfileFeatureHeaderSize + 4] & kCDMasteringSAOWriteMask )
 		{
 			
-			STATUS_LOG ( ( "Device supports CD-Mastering SAO Write \n" ) );
+			STATUS_LOG ( ( "Device supports CD-Mastering SAO Write\n" ) );
 			fSupportedCDFeatures |= kCDFeaturesSAOWriteMask;
 			
 		}
 
-		if ( profilePtr[4] & 0x40 )
+		if ( profilePtr[kProfileFeatureHeaderSize + 4] & kCDMasteringBUFWriteMask )
 		{
 			
-			STATUS_LOG ( ( "Device supports CD-Mastering BUF \n" ) );
+			STATUS_LOG ( ( "Device supports CD-Mastering BUF\n" ) );
 			fSupportedCDFeatures |= kCDFeaturesBUFWriteMask;
 			
 		}
@@ -3532,7 +3261,7 @@ IOSCSIMultimediaCommandsDevice::GetDeviceConfiguration ( void )
 									bufferDesc,
 									0x02, /* Only one feature descriptor */
 									kGetConfigurationProfile_DVDWrite,
-									8,
+									kProfileFeatureHeaderSize + 8,
 									0 ) == true )
 		{
 			// The command was successfully built, now send it
@@ -3543,18 +3272,44 @@ IOSCSIMultimediaCommandsDevice::GetDeviceConfiguration ( void )
 			 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
 		{
 			
-			if ( profilePtr[4] & 0x04 )
+			if ( profilePtr[kProfileFeatureHeaderSize + 4] & kDVDRWMask )
 			{
 				
-				STATUS_LOG ( ( "Device supports DVD-R Write Test Write \n" ) );
+				STATUS_LOG ( ( "Device supports DVD-RW Write\n" ) );
+				fSupportedDVDFeatures |= kDVDFeaturesReWriteableMask;
+				
+			}
+			
+			else
+			{
+				
+				// Check if device claimed support for DVD-RW profile
+				// but isn't really DVD-RW
+				if ( fSupportedDVDFeatures & kDVDFeaturesReWriteableMask )
+				{
+					
+					ERROR_LOG ( ( "Device claimed support for DVD-RW, but doesn't do DVD-RW\n" ) );
+					
+					// Not really DVD-RW. Get rid of the feature in the
+					// feature list.
+					fSupportedDVDFeatures &= ~kDVDFeaturesReWriteableMask;
+					
+				}
+				
+			}
+			
+			if ( profilePtr[kProfileFeatureHeaderSize + 4] & kDVDTestWriteMask )
+			{
+				
+				STATUS_LOG ( ( "Device supports DVD-R Write Test Write\n" ) );
 				fSupportedDVDFeatures |= kDVDFeaturesTestWriteMask;
 				
 			}
 			
-			if ( profilePtr[4] & 0x40 )
+			if ( profilePtr[kProfileFeatureHeaderSize + 4] & kDVDBUFWriteMask )
 			{
 				
-				STATUS_LOG ( ( "Device supports DVD-R Write BUF \n" ) );
+				STATUS_LOG ( ( "Device supports DVD-R Write BUF\n" ) );
 				fSupportedDVDFeatures |= kDVDFeaturesBUFWriteMask;
 				
 			}
@@ -3571,7 +3326,7 @@ IOSCSIMultimediaCommandsDevice::GetDeviceConfiguration ( void )
 									bufferDesc,
 									0x02, /* Only one feature descriptor */
 									kGetConfigurationProfile_DVDCSS,
-									4,
+									kProfileFeatureHeaderSize + 4,
 									0 ) == true )
 		{
 			// The command was successfully built, now send it
@@ -3582,7 +3337,7 @@ IOSCSIMultimediaCommandsDevice::GetDeviceConfiguration ( void )
 			 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
 		{
 			
-			STATUS_LOG ( ( "Device supports DVD-CSS \n" ) );
+			STATUS_LOG ( ( "Device supports DVD-CSS\n" ) );
 			fSupportedDVDFeatures |= kDVDFeaturesCSSMask;
 			
 		}
@@ -3969,7 +3724,7 @@ IOSCSIMultimediaCommandsDevice::ParseMechanicalCapabilities (
 	if ( ( *mechanicalCapabilities & kMechanicalCapabilitiesBUFMask ) != 0 )
 	{
 		
-		STATUS_LOG ( ( "Device supports BUF \n" ) );
+		STATUS_LOG ( ( "Device supports BUF\n" ) );
 		fSupportedCDFeatures |= kCDFeaturesBUFWriteMask;
 		if ( fSupportedDVDFeatures != 0 )
 		{
@@ -3983,7 +3738,7 @@ IOSCSIMultimediaCommandsDevice::ParseMechanicalCapabilities (
 	if ( ( *mechanicalCapabilities & kMechanicalCapabilitiesAnalogAudioMask ) != 0 )
 	{
 		
-		STATUS_LOG ( ( "Device supports Analog Audio \n" ) );
+		STATUS_LOG ( ( "Device supports Analog Audio\n" ) );
 		fSupportedCDFeatures |= kCDFeaturesAnalogAudioMask;
 	
 	}
@@ -4072,6 +3827,8 @@ IOSCSIMultimediaCommandsDevice::PollForMedia ( void )
 	bool						mediaFound 			= false;
 	bool						validSense			= false;
 	bool						shouldEjectMedia	= false;
+	
+	OSBoolean *					keySwitchLocked 	= NULL;
 	
 	request = GetSCSITask ( );
 	require_nonzero ( request, ErrorExit );
@@ -4214,6 +3971,26 @@ IOSCSIMultimediaCommandsDevice::PollForMedia ( void )
 		{
 			
 			mediaFound = true;
+			
+		}
+		
+	}
+	
+	if ( mediaFound == true )
+	{
+		
+		keySwitchLocked = OSDynamicCast (
+								OSBoolean,
+								getProperty ( kAppleKeySwitchProperty ) );
+		
+		if ( keySwitchLocked != NULL )
+		{
+			
+			// See if we should eject the media.
+			if ( keySwitchLocked->isTrue ( ) )
+			{
+				shouldEjectMedia = true;
+			}
 			
 		}
 		
@@ -4414,7 +4191,7 @@ IOSCSIMultimediaCommandsDevice::CheckForLowPowerPollingSupport ( void )
 							kAppleFeaturesModePageCode,
 							sizeof ( appleFeaturesBuffer ),
 							&use10Byte );
-	require_success ( status, ReleaseDescriptor );
+	require_success_quiet ( status, ReleaseDescriptor );
 	
 	// Swap to proper endian-ness since we are reading a multiple-byte field		
 	if ( ( OSReadBigInt32 ( &appleFeaturesBuffer.signature, 0 ) == '.App' ) &&
@@ -4483,7 +4260,7 @@ ReleaseDescriptor:
 	if ( boolValue != NULL )
 	{
 		
-		fDeviceCharacteristicsDictionary->setObject ( kIOPropertyLowPowerPolling, boolValue );
+		fDeviceCharacteristicsDictionary->setObject ( kAppleLowPowerPollingKey, boolValue );
 		boolValue->release ( );
 		boolValue = NULL;
 		
@@ -5134,47 +4911,30 @@ IOSCSIMultimediaCommandsDevice::ConvertBCDToHex ( UInt8 binaryCodedDigit )
 }
 
 
-#if 0
-#pragma mark -
-#pragma mark ¥ Static Methods
-#pragma mark -
-#endif
-
-
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ AsyncReadWriteComplete - 	Static completion routine for
-//								read/write requests.		  [STATIC][PRIVATE]
+//	¥ AsyncReadWriteCompletion - Completion routine for read/write requests.
+//															 		[PROTECTED]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 void
-IOSCSIMultimediaCommandsDevice::AsyncReadWriteComplete (
-										SCSITaskIdentifier request )
+IOSCSIMultimediaCommandsDevice::AsyncReadWriteCompletion (
+										SCSITaskIdentifier completedTask )
 {
 	
-	IOReturn							status		= kIOReturnSuccess;
-	UInt64								actCount	= 0;
-	IOSCSIMultimediaCommandsDevice	*	taskOwner	= NULL;
-	SCSITask *							task		= NULL;
-	void *								clientData	= NULL;
+	IOReturn	status		= kIOReturnSuccess;
+	UInt64		actCount	= 0;
+	void *		clientData	= NULL;
 	
-	task = OSDynamicCast ( SCSITask, request );
-	require_nonzero ( task, ErrorExit );
-	
-	taskOwner = OSDynamicCast ( IOSCSIMultimediaCommandsDevice,
-								task->GetTaskOwner ( ) );
-	require_nonzero ( taskOwner, ErrorExit );
-	
-	// Extract the client data from the SCSITask
-	clientData = task->GetApplicationLayerReference ( );
+	// Extract the client data from the SCSITaskIdentifier
+	clientData = GetApplicationLayerReference ( completedTask );
 	require_nonzero ( clientData, ErrorExit );
 	
-	if ( ( task->GetServiceResponse ( ) == kSCSIServiceResponse_TASK_COMPLETE ) &&
-		 ( task->GetTaskStatus ( ) == kSCSITaskStatus_GOOD ) )
+	if ( ( GetServiceResponse ( completedTask ) == kSCSIServiceResponse_TASK_COMPLETE ) &&
+		 ( GetTaskStatus ( completedTask ) == kSCSITaskStatus_GOOD ) )
 	{
 		
 		// Our status is good, so return a success
-		status = kIOReturnSuccess;
-		actCount = task->GetRealizedDataTransferCount ( );
+		actCount = GetRealizedDataTransferCount ( completedTask );
 		
 	}
 	
@@ -5186,13 +4946,13 @@ IOSCSIMultimediaCommandsDevice::AsyncReadWriteComplete (
 		
 		// Either the task never completed or we have a status other than GOOD,
 		// return an error.		
-		if ( task->GetTaskStatus ( ) == kSCSITaskStatus_CHECK_CONDITION )
+		if ( GetTaskStatus ( completedTask ) == kSCSITaskStatus_CHECK_CONDITION )
 		{
 			
 			SCSI_Sense_Data		senseDataBuffer;
 			bool				senseIsValid;
 			
-			senseIsValid = task->GetAutoSenseData ( &senseDataBuffer, sizeof ( senseDataBuffer ) );
+			senseIsValid = GetAutoSenseData ( completedTask, &senseDataBuffer, sizeof ( senseDataBuffer ) );
 			if ( senseIsValid )
 			{
 				
@@ -5206,12 +4966,12 @@ IOSCSIMultimediaCommandsDevice::AsyncReadWriteComplete (
 				{
 					
 					// Message up the chain that we do not have media
-					taskOwner->messageClients ( kIOMessageMediaStateHasChanged,
-												( void * ) kIOMediaStateOffline );
+					messageClients ( kIOMessageMediaStateHasChanged,
+									( void * ) kIOMediaStateOffline );
 					
-					taskOwner->ResetMediaCharacteristics ( );
-					taskOwner->fPollingMode = kPollingMode_NewMedia;
-					taskOwner->EnablePolling ( );
+					ResetMediaCharacteristics ( );
+					fPollingMode = kPollingMode_NewMedia;
+					EnablePolling ( );
 					
 				}
 				
@@ -5243,7 +5003,7 @@ IOSCSIMultimediaCommandsDevice::AsyncReadWriteComplete (
 		
 	}
 	
-	if ( taskOwner->fSupportedDVDFeatures & kDVDFeaturesReadStructuresMask )
+	if ( fSupportedDVDFeatures & kDVDFeaturesReadStructuresMask )
 	{
 		IODVDServices::AsyncReadWriteComplete ( clientData, status, actCount );
 	}
@@ -5253,7 +5013,42 @@ IOSCSIMultimediaCommandsDevice::AsyncReadWriteComplete (
 		IOCompactDiscServices::AsyncReadWriteComplete ( clientData, status, actCount );
 	}
 	
-	taskOwner->ReleaseSCSITask ( request );
+	ReleaseSCSITask ( completedTask );
+	
+	
+ErrorExit:
+	
+	
+	return;
+	
+}
+
+
+#if 0
+#pragma mark -
+#pragma mark ¥ Static Methods
+#pragma mark -
+#endif
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ AsyncReadWriteComplete - 	Static completion routine for
+//								read/write requests.		  [STATIC][PRIVATE]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOSCSIMultimediaCommandsDevice::AsyncReadWriteComplete (
+										SCSITaskIdentifier request )
+{
+	
+	IOSCSIMultimediaCommandsDevice	*	taskOwner = NULL;
+	
+	require_nonzero ( request, ErrorExit );
+	
+	taskOwner = OSDynamicCast ( IOSCSIMultimediaCommandsDevice, sGetOwnerForTask ( request ) );
+	require_nonzero ( taskOwner, ErrorExit );
+	
+	taskOwner->AsyncReadWriteCompletion ( request );
 	
 	
 ErrorExit:
@@ -5306,8 +5101,8 @@ OSMetaClassDefineReservedUsed ( IOSCSIMultimediaCommandsDevice,  1 ); 	/* ReadTO
 OSMetaClassDefineReservedUsed ( IOSCSIMultimediaCommandsDevice,  2 );	/* ReadDiscInfo */
 OSMetaClassDefineReservedUsed ( IOSCSIMultimediaCommandsDevice,  3 );	/* ReadTrackInfo */
 OSMetaClassDefineReservedUsed ( IOSCSIMultimediaCommandsDevice,  4 );	/* PowerDownHandler */
+OSMetaClassDefineReservedUsed ( IOSCSIMultimediaCommandsDevice,  5 );	/* AsyncReadWriteCompletion */
 
-OSMetaClassDefineReservedUnused ( IOSCSIMultimediaCommandsDevice,  5 );
 OSMetaClassDefineReservedUnused ( IOSCSIMultimediaCommandsDevice,  6 );
 OSMetaClassDefineReservedUnused ( IOSCSIMultimediaCommandsDevice,  7 );
 OSMetaClassDefineReservedUnused ( IOSCSIMultimediaCommandsDevice,  8 );

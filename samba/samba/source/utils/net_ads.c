@@ -44,9 +44,9 @@ int net_ads_usage(int argc, const char **argv)
 "\n\tdump the machine account details to stdout\n"
 "\nnet ads lookup"\
 "\n\tperform a CLDAP search on the server\n"
-"\nnet ads password <username@realm> -Uadmin_username@realm%%admin_pass"\
+"\nnet ads password <username@realm> <password> -Uadmin_username@realm%%admin_pass"\
 "\n\tchange a user's password using an admin account"\
-"\n\t(note: use realm in UPPERCASE)\n"\
+"\n\t(note: use realm in UPPERCASE, prompts if password is obmitted)\n"\
 "\nnet ads changetrustpw"\
 "\n\tchange the trust account password of this machine in the AD tree\n"\
 "\nnet ads printer [info | publish | remove] <printername> <servername>"\
@@ -127,9 +127,14 @@ static ADS_STRUCT *ads_startup(void)
 	ADS_STATUS status;
 	BOOL need_password = False;
 	BOOL second_time = False;
-       char *cp;
+	char *cp;
 	
-	ads = ads_init(NULL, opt_target_workgroup, opt_host);
+	/* lp_realm() should be handled by a command line param, 
+	   However, the join requires that realm be set in smb.conf
+	   and compares our realm with the remote server's so this is
+	   ok until someone needs more flexibility */
+	   
+	ads = ads_init(lp_realm(), opt_target_workgroup, opt_host);
 
 	if (!opt_user_name) {
 		opt_user_name = "administrator";
@@ -140,7 +145,7 @@ static ADS_STRUCT *ads_startup(void)
 	}
 
 retry:
-	if (!opt_password && need_password) {
+	if (!opt_password && need_password && !opt_machine_pass) {
 		char *prompt;
 		asprintf(&prompt,"%s password: ", opt_user_name);
 		opt_password = getpass(prompt);
@@ -204,7 +209,7 @@ static int net_ads_workgroup(int argc, const char **argv)
 {
 	ADS_STRUCT *ads;
 	TALLOC_CTX *ctx;
-	char *workgroup;
+	const char *workgroup;
 
 	if (!(ads = ads_startup())) return -1;
 
@@ -651,6 +656,8 @@ int net_ads_join(int argc, const char **argv)
 	char *ou_str;
 	uint32 sec_channel_type = SEC_CHAN_WKSTA;
 	uint32 account_type = UF_WORKSTATION_TRUST_ACCOUNT;
+	const char *short_domain_name = NULL;
+	TALLOC_CTX *ctx = NULL;
 
 	if (argc > 0) org_unit = argv[0];
 
@@ -681,7 +688,7 @@ int net_ads_join(int argc, const char **argv)
 	rc = ads_search_dn(ads, &res, dn, NULL);
 	ads_msgfree(ads, res);
 
-	if (rc.error_type == ADS_ERROR_LDAP && rc.err.rc == LDAP_NO_SUCH_OBJECT) {
+	if (rc.error_type == ENUM_ADS_ERROR_LDAP && rc.err.rc == LDAP_NO_SUCH_OBJECT) {
 		d_printf("ads_join_realm: organizational unit %s does not exist (dn:%s)\n", 
 			 org_unit, dn);
 		return -1;
@@ -715,7 +722,33 @@ int net_ads_join(int argc, const char **argv)
 		d_printf("ads_set_machine_password: %s\n", ads_errstr(rc));
 		return -1;
 	}
-
+	
+	/* make sure we get the right workgroup */
+	
+	if ( !(ctx = talloc_init("net ads join")) ) {
+		d_printf("talloc_init() failed!\n");
+		return -1;
+	}
+	
+	rc = ads_workgroup_name(ads, ctx, &short_domain_name);
+	if ( ADS_ERR_OK(rc) ) {
+		if ( !strequal(lp_workgroup(), short_domain_name) ) {
+			d_printf("The workgroup in smb.conf does not match the short\n");
+			d_printf("domain name obtained from the server.\n");
+			d_printf("Using the name [%s] from the server.\n", short_domain_name);
+			d_printf("You should set \"workgroup = %s\" in smb.conf.\n", short_domain_name);
+		}
+	}
+	else
+		short_domain_name = lp_workgroup();
+	
+	d_printf("Using short domain name -- %s\n", short_domain_name);
+	
+	/*  HACK ALRET!  Store the sid and password under bother the lp_workgroup() 
+	    value from smb.conf and the string returned from the server.  The former is
+	    neede to bootstrap winbindd's first connection to the DC to get the real 
+	    short domain name   --jerry */
+	    
 	if (!secrets_store_domain_sid(lp_workgroup(), &dom_sid)) {
 		DEBUG(1,("Failed to save domain sid\n"));
 		return -1;
@@ -726,11 +759,22 @@ int net_ads_join(int argc, const char **argv)
 		return -1;
 	}
 
+	if (!secrets_store_domain_sid(short_domain_name, &dom_sid)) {
+		DEBUG(1,("Failed to save domain sid\n"));
+		return -1;
+	}
+
+	if (!secrets_store_machine_password(password, short_domain_name, sec_channel_type)) {
+		DEBUG(1,("Failed to save machine password\n"));
+		return -1;
+	}
+	
 	d_printf("Joined '%s' to realm '%s'\n", global_myname(), ads->config.realm);
 
 	SAFE_FREE(password);
 	SAFE_FREE(machine_account);
-
+	if ( ctx )
+		talloc_destroy(ctx);
 	return 0;
 }
 
@@ -972,7 +1016,7 @@ static int net_ads_password(int argc, const char **argv)
     }
 
     
-    if (argc != 1) {
+    if (argc < 1) {
 	    d_printf("ERROR: You must say which username to change password for\n");
 	    return -1;
     }
@@ -1004,22 +1048,24 @@ static int net_ads_password(int argc, const char **argv)
 	    return -1;
     }
 
-    asprintf(&prompt, "Enter new password for %s:", user);
-
-    new_password = getpass(prompt);
+    if (argv[1]) {
+	   new_password = (char *)argv[1];
+    } else {
+	   asprintf(&prompt, "Enter new password for %s:", user);
+	   new_password = getpass(prompt);
+	   free(prompt);
+    }
 
     ret = kerberos_set_password(ads->auth.kdc_server, auth_principal, 
 				auth_password, user, new_password, ads->auth.time_offset);
     if (!ADS_ERR_OK(ret)) {
 	d_printf("Password change failed :-( ...\n");
 	ads_destroy(&ads);
-	free(prompt);
 	return -1;
     }
 
     d_printf("Password change for %s completed.\n", user);
     ads_destroy(&ads);
-    free(prompt);
 
     return 0;
 }

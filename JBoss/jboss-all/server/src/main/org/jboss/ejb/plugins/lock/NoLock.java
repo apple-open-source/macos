@@ -1,9 +1,3 @@
-/*
-* JBoss, the OpenSource EJB server
-*
-* Distributable under LGPL license.
-* See terms of license at gnu.org.
-*/
 
 package org.jboss.ejb.plugins.lock;
 
@@ -24,7 +18,7 @@ import org.jboss.invocation.Invocation;
  *
  * @author <a href="bill@burkecentral.com">Bill Burke</a>
  *
- * @version $Revision: 1.1.4.1 $
+ * @version $Revision: 1.1.4.2 $
  *
  * <p><b>Revisions:</b><br>
  * <p><b>2001/08/08: billb</b>

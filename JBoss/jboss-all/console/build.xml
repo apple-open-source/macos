@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE project [
    <!ENTITY buildmagic SYSTEM "../tools/etc/buildmagic/buildmagic.ent">
+   <!ENTITY libraries SYSTEM "../tools/etc/buildmagic/libraries.ent">
+   <!ENTITY modules SYSTEM "../tools/etc/buildmagic/modules.ent">
 ]>
 
 <!-- ====================================================================== -->
@@ -12,7 +14,7 @@
 <!--                                                                        -->
 <!-- ====================================================================== -->
 
-<!-- $Id: build.xml,v 1.5.2.3 2003/05/18 06:27:49 starksm Exp $ -->
+<!-- $Id: build.xml,v 1.5.2.7 2003/11/22 21:22:18 patriot1burke Exp $ -->
 
 <project default="main" name="JBoss/Console">
 
@@ -68,81 +70,7 @@
     <!-- ========= -->
     <!-- Libraries -->
     <!-- ========= -->
-
-    <!-- JUnit -->
-    <property name="junit.junit.root" value="${project.thirdparty}/junit/junit"/>
-    <property name="junit.junit.lib" value="${junit.junit.root}/lib"/>
-    <path id="junit.junit.classpath">
-      <pathelement path="${junit.junit.lib}/junit.jar"/>
-    </path>
-
-    <!-- GNU Getopt -->
-    <property name="gnu.getopt.root" value="${project.thirdparty}/gnu/getopt"/>
-    <property name="gnu.getopt.lib" value="${gnu.getopt.root}/lib"/>
-    <path id="gnu.getopt.classpath">
-      <fileset dir="${gnu.getopt.lib}">
-        <include name="*.jar"/>
-      </fileset>
-    </path>
-
-    <!-- Apache Commons -->
-    <property name="apache.commons.root" value="${project.thirdparty}/apache/commons"/>
-    <property name="apache.commons.lib" value="${apache.commons.root}/lib"/>
-    <path id="apache.commons.classpath">
-      <pathelement path="${apache.commons.lib}/commons-collections.jar"/>
-      <pathelement path="${apache.commons.lib}/commons-logging.jar"/>
-    </path>
-
-    <!-- Log4j -->
-    <property name="apache.log4j.root" value="${project.thirdparty}/apache/log4j"/>
-    <property name="apache.log4j.lib" value="${apache.log4j.root}/lib"/>
-    <path id="apache.log4j.classpath">
-      <pathelement path="${apache.log4j.lib}/log4j.jar"/>
-    </path>
-
-    <!-- BeanShell -->
-    <property name="beanshell.beanshell.root" value="${project.thirdparty}/beanshell/beanshell"/>
-    <property name="beanshell.beanshell.lib" value="${beanshell.beanshell.root}/lib"/>
-    <path id="beanshell.beanshell.classpath">
-      <pathelement path="${beanshell.beanshell.lib}/bsh-core-1.2b7.jar"/>
-    </path>
-
-    <!-- Java Servlets -->
-    <property name="sun.servlet.root" value="${project.thirdparty}/sun/servlet"/>
-    <property name="sun.servlet.lib" value="${sun.servlet.root}/lib"/>
-    <path id="sun.servlet.classpath">
-      <pathelement path="${sun.servlet.lib}/servlet.jar"/>
-    </path>
-
-    <!-- JMX -->
-    <property name="jboss.jmx.root" value="${project.root}/jmx/output"/>
-    <property name="jboss.jmx.lib" value="${jboss.jmx.root}/lib"/>
-    <path id="jboss.jmx.classpath">
-      <pathelement path="${jboss.jmx.lib}/jboss-jmx.jar"/>
-    </path>
-
-
-    <!-- Java Servlets -->
-    <property name="sun.servlet.root" value="${project.thirdparty}/sun/servlet"/>
-    <property name="sun.servlet.lib" value="${sun.servlet.root}/lib"/>
-    <path id="sun.servlet.classpath">
-      <pathelement path="${sun.servlet.lib}/servlet.jar"/>
-    </path>
-
-    <!-- Joe SNMP lib -->
-    <property name="opennms.joesnmp.root" value="${project.thirdparty}/opennms/joesnmp"/>
-    <property name="opennms.joesnmp.lib" value="${opennms.joesnmp.root}/lib"/>
-    <path id="opennms.joesnmp.classpath">
-      <pathelement path="${opennms.joesnmp.lib}/joesnmp.jar"/>
-    </path>
-
-    <!-- SUN JSSE lib -->
-    <property name="sun.jsse.root" value="${project.thirdparty}/sun/jsse"/>
-    <property name="sun.jsse.lib" value="${sun.jsse.root}/lib"/>
-    <path id="sun.jsse.classpath">
-      <pathelement path="${sun.jsse.lib}/jsse.jar"/>
-    </path>
-
+    &libraries;
     <!-- The combined library classpath -->
     <path id="library.classpath">
       <path refid="gnu.getopt.classpath"/>
@@ -151,56 +79,13 @@
       <path refid="beanshell.beanshell.classpath"/>
       <path refid="sun.servlet.classpath"/>
       <path refid="sun.jsse.classpath"/>
+      <path refid="jfreechart.jfreechart.classpath"/>
     </path>
 
     <!-- ======= -->
     <!-- Modules -->
     <!-- ======= -->
-
-    <!-- Common -->
-    <property name="jboss.common.root" value="${project.root}/common/output"/>
-    <property name="jboss.common.lib" value="${jboss.common.root}/lib"/>
-    <path id="jboss.common.classpath">
-      <pathelement path="${jboss.common.lib}/jboss-common.jar"/>
-    </path>
-
-    <!-- System -->
-    <property name="jboss.system.root" value="${project.root}/system/output"/>
-    <property name="jboss.system.lib" value="${jboss.system.root}/lib"/>
-    <path id="jboss.system.classpath">
-      <pathelement path="${jboss.system.lib}/jboss-system.jar"/>
-    </path>
-
-    <!-- JMX -->
-    <property name="jboss.jmx.root" value="${project.root}/jmx/output"/>
-    <property name="jboss.jmx.lib" value="${jboss.jmx.root}/lib"/>
-    <path id="jboss.jmx.classpath">
-      <pathelement path="${jboss.jmx.lib}/jboss-jmx.jar"/>
-    </path>
-
-    <!-- Naming -->
-    <property name="jboss.naming.root" value="${project.root}/naming/output"/>
-    <property name="jboss.naming.lib" value="${jboss.naming.root}/lib"/>
-    <path id="jboss.naming.classpath">
-      <pathelement path="${jboss.naming.lib}/jnpserver.jar"/>
-    </path>    
-
-    <!-- Server -->
-    <property name="jboss.server.root" value="${project.root}/server/output"/>
-    <property name="jboss.server.lib" value="${jboss.server.root}/lib"/>
-    <path id="jboss.server.classpath">
-      <pathelement path="${jboss.server.lib}/jboss.jar"/>
-      <pathelement path="${jboss.server.lib}/jmx-adaptor-plugin.jar"/>
-      <pathelement path="${jboss.server.lib}/jmx-rmi-connector-client.jar"/>
-    </path>
-
-    <!-- Management -->
-    <property name="jboss.management.root" value="${project.root}/management/output"/>
-    <property name="jboss.management.lib" value="${jboss.management.root}/lib"/>
-    <path id="jboss.management.classpath">
-      <pathelement path="${jboss.management.lib}/jboss-management.jar"/>
-    </path>
-
+    &modules;
     <!-- The combined dependent module classpath -->
     <path id="dependentmodule.classpath">
       <path refid="jboss.common.classpath"/>
@@ -230,6 +115,7 @@
     <property name="build.resources" value="${module.output}/resources"/>
     <property name="build.etc" value="${module.output}/etc"/>
     <property name="build.gen-src" value="${module.output}/gen-src"/>
+    <property name="build.todo" value="${module.output}/todo"/>
 
     <!-- Install/Release structure -->
     <property name="install.id" value="${module.name}-${module.version}"/>
@@ -263,21 +149,6 @@
 
     <!-- Packages to include when generating api documentation -->
     <property name="javadoc.packages" value="org.jboss.*"/>
-
-    <!-- Override JUnit defaults -->
-    <property name="junit.timeout" value="240000"/> <!-- 4 minutes -->
-    <property name="junit.batchtest.todir" value="${build.reports}"/>
-    <property name="junit.jvm.options" value="-Ddummy"/>
-
-    <!-- xdoclet -->
-    <path id="xdoclet.task.classpath">
-      <path refid="javac.classpath"/>
-      <fileset dir="${project.thirdparty}/xdoclet/xdoclet/lib">
-        <include name="**/*.jar"/>
-      </fileset>
-    </path>
-    <property name="xdoclet.task.classpath" 
-	      refid="xdoclet.task.classpath"/>
 
     <!-- Misc... -->
     <property name="log4j.console.threshold" value="INFO"/>
@@ -395,7 +266,10 @@
    -->
   <target name="jars" 
 	  description="Builds all jar files."
-	  depends="compile">
+     depends="_buildmagic:build-bypass-check"
+	  unless="build-bypass.on">
+
+    <call target="compile"/>
 
     <mkdir dir="${build.lib}"/>
 
@@ -451,6 +325,9 @@
       <fileset dir="${build.lib}">
         <include name="console-mgr-classes.jar"/>
       </fileset>
+      <fileset dir="${jfreechart.jfreechart.lib}">
+        <include name="*.jar"/>
+      </fileset>
       <fileset dir="${source.resources}/console-mgr.sar">
         <include name="**"/>
       </fileset>
@@ -460,6 +337,10 @@
     <jar destfile="${build.lib}/applet.jar" excludes="META-INF/INDEX.LIST">
       <zipgroupfileset dir="${jboss.server.lib}">
         <include name="jmx-rmi-adaptor.jar"/>
+      </zipgroupfileset>
+      <zipgroupfileset dir="${jfreechart.jfreechart.lib}">
+        <include name="jfreechart.jar"/>
+        <include name="jcommon.jar"/>
       </zipgroupfileset>
       <zipfileset src="${jboss.server.lib}/jboss-client.jar">
         <include name="org/jboss/invocation/*"/>
@@ -536,7 +417,8 @@
       </zipfileset>
     </jar>
          
-         
+    <!-- Update the build marker to allow bypassing -->
+    <touch file="${build-bypass.marker}"/>
 
   </target>
 

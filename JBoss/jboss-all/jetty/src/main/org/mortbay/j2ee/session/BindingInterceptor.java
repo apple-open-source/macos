@@ -1,6 +1,6 @@
 // ========================================================================
 // Copyright (c) 2002 Mort Bay Consulting (Australia) Pty. Ltd.
-// $Id: BindingInterceptor.java,v 1.1.4.2 2002/11/16 21:58:58 jules_gosnell Exp $
+// $Id: BindingInterceptor.java,v 1.1.4.3 2003/07/26 11:49:41 jules_gosnell Exp $
 // ========================================================================
 
 package org.mortbay.j2ee.session;
@@ -11,7 +11,7 @@ import java.rmi.RemoteException;
 import javax.servlet.http.HttpSession;
 import javax.servlet.http.HttpSessionBindingEvent;
 import javax.servlet.http.HttpSessionBindingListener;
-import org.apache.log4j.Category;
+import org.jboss.logging.Logger;
 
 //----------------------------------------
 
@@ -36,7 +36,7 @@ import org.apache.log4j.Category;
 public class BindingInterceptor
   extends StateInterceptor
 {
-  protected final Category _log=Category.getInstance(getClass().getName());
+  protected static final Logger _log=Logger.getLogger(BindingInterceptor.class);
   // All Interceptors are expected to provide this constructor...
 
   // HttpSessionBindingListeners are held in the SessionManager -

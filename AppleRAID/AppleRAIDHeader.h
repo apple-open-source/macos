@@ -22,10 +22,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- *  DRI: Josh de Cesare
- *
- */
 
 
 #ifndef _APPLERAIDHEADER_H
@@ -47,6 +43,9 @@
 #define kAppleRAIDStatusStopped		("Stopped")
 #define kAppleRAIDStatusDegraded	("Degraded")
 #define kAppleRAIDStatusFailed		("Failed")
+#define kAppleRAIDStatusRebuilding	("Rebuilding")
+
+#define kAppleRAIDRebuildStatus		("AppleRAID-Rebuild-Progress")
 
 #define kAppleRAIDSignature		("AppleRAIDHeader")
 
@@ -60,6 +59,9 @@ enum {
     kAppleRAIDHeaderSize	= 0x1000,
     kAppleRAIDMaxOFPath		= 0x200
 };
+
+
+/* Any multi-byte fields are to be stored as big endian on disk */
 
 struct AppleRAIDHeader {
     char	raidSignature[16];		// 0x0000 - kAppleRAIDSignature
@@ -75,8 +77,9 @@ struct AppleRAIDHeader {
     UInt32	raidChunkCount;			// 0x005C - Number of full chunks in set
     UInt32	reserved1[104];			// 0x0060 - reservered init to zero, but preserve on update
     char	raidOFPaths[0];			// 0x0200 - Allow kAppleRAIDMaxOFPath for each slice
-                                                //        - Zero fill to size of header
+						//        - Zero fill to size of header
 };
 typedef struct AppleRAIDHeader AppleRAIDHeader;
+
 
 #endif /* ! _APPLERAIDHEADER_H */

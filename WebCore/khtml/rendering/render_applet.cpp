@@ -49,17 +49,21 @@ RenderApplet::RenderApplet(HTMLElementImpl *applet, const QMap<QString, QString>
     setInline(true);
 
     KJavaAppletContext *context = 0;
-    KHTMLView *_view = applet->getDocument()->view();
-    if ( _view ) {
-        KHTMLPart *part = _view->part();
+    KHTMLPart *part = applet->getDocument()->part();
+    if ( part ) {
         context = part->createJavaContext();
     }
 
+#if APPLE_CHANGES
+    m_context = context;
+    m_args = args;
+#else
     if ( context ) {
         //kdDebug(6100) << "RenderApplet::RenderApplet, setting QWidget" << endl;
         setQWidget( new KJavaAppletWidget(context, _view->viewport()) );
         processArguments(args);
     }
+#endif
 }
 
 RenderApplet::~RenderApplet()
@@ -86,6 +90,29 @@ int RenderApplet::intrinsicHeight() const
     return rval > 10 ? rval : 50;
 }
 
+void RenderApplet::createWidgetIfNecessary()
+{
+    if (!m_widget) {
+        // FIXME: Java applets can't be resized (this is a bug in Apple's Java implementation).  In order to work around
+        // this problem, we will simply use fixed widths/heights from the style system when we can, since the widget might
+        // not have an accurate m_width/m_height.
+        int width = style()->width().isFixed() ? style()->width().value : 
+                    m_width - borderLeft() - borderRight() - paddingLeft() - paddingRight();
+        int height = style()->height().isFixed() ? style()->height().value :
+                     m_height - borderTop() - borderBottom() - paddingTop() - paddingBottom();
+        NodeImpl *child = element()->firstChild();
+        while (child) {
+            if (child->id() == ID_PARAM) {
+                HTMLParamElementImpl *p = static_cast<HTMLParamElementImpl *>(child);
+                m_args.insert(p->name(), p->value());
+            }
+            child = child->nextSibling();
+        }
+    
+        setQWidget(new KJavaAppletWidget(QSize(width, height), m_context, m_args));
+    }
+}
+
 void RenderApplet::layout()
 {
     //kdDebug(6100) << "RenderApplet::layout" << endl;
@@ -97,6 +124,11 @@ void RenderApplet::layout()
     calcHeight();
 
     KJavaAppletWidget *tmp = static_cast<KJavaAppletWidget*>(m_widget);
+#if APPLE_CHANGES
+    // The applet's QWidget gets created lazily upon first layout.
+    if (!tmp)
+        createWidgetIfNecessary();
+#else 
     if ( tmp ) {
         NodeImpl *child = element()->firstChild();
 
@@ -110,22 +142,15 @@ void RenderApplet::layout()
             child = child->nextSibling();
         }
         //kdDebug(6100) << "setting applet widget to size: " << m_width << ", " << m_height << endl;
-        m_widget->resize(m_width-marginLeft()-marginRight()-paddingLeft()-paddingRight(),
-                         m_height-marginTop()-marginBottom()-paddingTop()-paddingBottom());
-#if APPLE_CHANGES
-        // showApplet creates the java view if it hasn't already been created.
-        // When doing this, it replaces the widget's view with the newly created java view.
-        // Since this replacement doesn't actually occur until the widget gets its first paint,
-        // showApplet adds itself to the main view so that applets start even when not visible.
-        // We have to do this move so the widget knows where to place itself when adding itself.
-        m_widget->move(xPos(), yPos());
-#endif
+        m_widget->resize(m_width - borderLeft() - borderRight() - paddingLeft() - paddingRight(),
+                         m_height - borderTop() - borderBottom() - paddingTop() - paddingBottom());
         tmp->showApplet();
     }
-
+#endif
     setNeedsLayout(false);
 }
 
+#if !APPLE_CHANGES
 void RenderApplet::processArguments(const QMap<QString, QString> &args)
 {
     KJavaAppletWidget *w = static_cast<KJavaAppletWidget*>(m_widget);
@@ -150,6 +175,7 @@ void RenderApplet::processArguments(const QMap<QString, QString> &args)
             applet->setArchives( args[QString::fromLatin1("archive") ] );
     }
 }
+#endif
 
 RenderEmptyApplet::RenderEmptyApplet(DOM::NodeImpl* node)
   : RenderWidget(node)
@@ -184,13 +210,16 @@ void RenderEmptyApplet::layout()
     calcWidth();
     calcHeight();
 
+    // updateWidgetPositions will size the widget, so we don't need to do that here.
+#if !APPLE_CHANGES
     if(m_widget)
     {
         //kdDebug(6100) << "RenderEmptyApplet::layout, m_width = " << m_width << ", m_height = " << m_height << endl;
-        m_widget->resize(m_width-marginLeft()-marginRight()-paddingLeft()-paddingRight(),
-                         m_height-marginTop()-marginBottom()-paddingTop()-paddingBottom());
+        m_widget->resize(m_width-borderLeft()-borderRight()-paddingLeft()-paddingRight(),
+                         m_height-borderTop()-borderBottom()-paddingTop()-paddingBottom());
     }
-
+#endif
+    
     setNeedsLayout(false);
 }
 #endif

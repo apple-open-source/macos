@@ -29,8 +29,9 @@ import org.jboss.mx.util.MBeanProxyInstance;
  *
  * <p>Sub-classes only need to implement {@link DeploymentScanner#scan}.
  *
- * @version <tt>$Revision: 1.9.2.3 $</tt>
+ * @version <tt>$Revision: 1.9.2.4 $</tt>
  * @author  <a href="mailto:jason@planet57.com">Jason Dillon</a>
+ * @author Scott.Stark@jboss.org
  */
 public abstract class AbstractDeploymentScanner
    extends ServiceMBeanSupport
@@ -283,16 +284,19 @@ public abstract class AbstractDeploymentScanner
       if( scannerThread != null )
          scannerThread.setEnabled(false);
    }
-   
+
    protected void destroyService() throws Exception 
    {
       // drop our ref to deployer, so scan will fail
       deployer = null;
 
       // shutdown scanner thread
-      synchronized( scannerThread )
+      if( scannerThread != null )
       {
-         scannerThread.shutdown();
+         synchronized( scannerThread )
+         {
+            scannerThread.shutdown();
+         }
       }
 
       // HACK

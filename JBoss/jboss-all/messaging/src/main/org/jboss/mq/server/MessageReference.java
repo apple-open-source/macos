@@ -6,7 +6,6 @@
  */
 package org.jboss.mq.server;
 
-import java.lang.ref.ReferenceQueue;
 import java.lang.ref.SoftReference;
 
 import javax.jms.DeliveryMode;
@@ -15,7 +14,6 @@ import javax.jms.JMSException;
 import org.jboss.logging.Logger;
 import org.jboss.mq.MessagePool;
 import org.jboss.mq.SpyMessage;
-import org.jboss.mq.SpyMessage.Header;
 
 /**
  * This class holds a reference to an actual Message.  Where it is actually
@@ -28,7 +26,7 @@ import org.jboss.mq.SpyMessage.Header;
  *
  * @author <a href="mailto:hiram.chirino@jboss.org">Hiram Chirino</a>
  * @author <a href="mailto:pra@tim.se">Peter Antman</a>
- * @version    $Revision: 1.10.2.5 $
+ * @version    $Revision: 1.10.2.7 $
  */
 public class MessageReference implements Comparable
 {
@@ -53,10 +51,10 @@ public class MessageReference implements Comparable
     * No message should be at this state for very long
     */
    public static final int REMOVED = 3;
-   
+
    public long referenceId;
    public SpyMessage hardReference;
-   
+
    // These fields are copied over from the messae itself..
    // they are used too often to not have them handy.
    public byte jmsPriority;
@@ -71,11 +69,11 @@ public class MessageReference implements Comparable
    public SoftReference softReference;
    public int stored;
    transient public Object persistData;
-   
+
    MessageReference()
    {
    }
-   
+
    //init and reset methods for use by object pool
    void init(MessageCache messageCache, long referenceId, SpyMessage message, BasicQueue queue) throws JMSException
    {
@@ -88,13 +86,13 @@ public class MessageReference implements Comparable
       this.jmsDeliveryMode = message.header.jmsDeliveryMode;
       if (message.propertyExists(SpyMessage.PROPERTY_SCHEDULED_DELIVERY))
       {
-        this.messageScheduledDelivery = message.getLongProperty(SpyMessage.PROPERTY_SCHEDULED_DELIVERY);
+         this.messageScheduledDelivery = message.getLongProperty(SpyMessage.PROPERTY_SCHEDULED_DELIVERY);
       }
       this.messageExpiration = message.header.jmsExpiration;
       this.queue = queue;
       this.persistData = null;
    }
-   
+
    void reset()
    {
       if (hardReference != null)
@@ -117,11 +115,11 @@ public class MessageReference implements Comparable
       this.jmsDeliveryMode = 0;
       this.persistData = null;
    }
-   
+
    public SpyMessage getMessage() throws JMSException
    {
       boolean trace = log.isTraceEnabled();
-      if( trace )
+      if (trace)
          log.trace("getMessage lock aquire " + toString());
 
       SpyMessage result = null;
@@ -140,7 +138,7 @@ public class MessageReference implements Comparable
             messageCache.cacheHits++;
             messageCache.messageReferenceUsedEvent(this, true, trace);
          }
-         if( trace )
+         if (trace)
             log.trace("getMessage lock released " + toString());
          return result;
       }
@@ -185,11 +183,11 @@ public class MessageReference implements Comparable
    {
       return getMessage().header;
    }
-   
+
    void clear() throws JMSException
    {
       boolean trace = log.isTraceEnabled();
-      if( trace )
+      if (trace)
          log.trace("clear lock aquire " + toString());
       synchronized (this)
       {
@@ -197,15 +195,15 @@ public class MessageReference implements Comparable
             messageCache.removeFromStorage(this);
          stored = MessageReference.REMOVED;
 
-         if( trace )
+         if (trace)
             log.trace("clear lock relased " + toString());
       }
    }
-    
+
    public void invalidate() throws JMSException
    {
       boolean trace = log.isTraceEnabled();
-      if( trace )
+      if (trace)
          log.trace("invalidate lock aquire " + toString());
       synchronized (this)
       {
@@ -218,15 +216,20 @@ public class MessageReference implements Comparable
             }
             messageCache.removeFromStorage(this);
          }
-         if( trace )
+         if (trace)
             log.trace("invalidate lock relased " + toString());
       }
+   }
+
+   public void removeDelayed() throws JMSException
+   {
+      messageCache.removeDelayed(this);
    }
 
    void makeSoft() throws JMSException
    {
       boolean trace = log.isTraceEnabled();
-      if( trace )
+      if (trace)
          log.trace("makeSoft lock aquire " + toString());
       synchronized (this)
       {
@@ -242,7 +245,7 @@ public class MessageReference implements Comparable
                throw new JMSException("CACHE ERROR: soft reference to unstored message " + this);
             return;
          }
-         
+
          if (stored == NOT_STORED)
             messageCache.saveToStorage(this, hardReference);
 
@@ -254,18 +257,18 @@ public class MessageReference implements Comparable
                log.trace("saveToStorage rejected by cache " + toString());
             return;
          }
-         
+
          softReference = new SoftReference(hardReference, messageCache.referenceQueue);
-         
+
          // We don't need the hard ref anymore..
          messageCache.soften(this);
          hardReference = null;
-         
-         if( trace )
+
+         if (trace)
             log.trace("makeSoft lock released " + toString());
       }
    }
-   
+
    /**
     * Called from A PeristenceManager/CacheStore, 
     * to let us know that this message is already stored on disk.
@@ -274,11 +277,11 @@ public class MessageReference implements Comparable
    {
       this.stored = stored;
    }
- 
+
    void makeHard() throws JMSException
    {
       boolean trace = log.isTraceEnabled();
-      if( trace )
+      if (trace)
          log.trace("makeHard lock aquire " + toString());
       synchronized (this)
       {
@@ -289,41 +292,43 @@ public class MessageReference implements Comparable
          // allready hard
          if (hardReference != null)
             return;
-         
+
          // Get the object via the softref
          hardReference = (SpyMessage) softReference.get();
-         
+
          // It might have been removed from the cache due to memory constraints
          if (hardReference == null)
          {
             // load it from disk.
             hardReference = messageCache.loadFromStorage(this);
             messageCache.cacheMisses++;
-         } else
+         }
+         else
          {
             messageCache.cacheHits++;
          }
-         
+
          // Since we have hard ref, we do not need the soft one.
          if (softReference != null && softReference.get() != null)
             messageCache.softRefCacheSize--;
          softReference = null;
-         if( trace )
+         if (trace)
             log.trace("makeHard lock released " + toString());
       }
    }
-   
+
    public boolean equals(Object o)
    {
       try
       {
          return referenceId == ((MessageReference) o).referenceId;
-      } catch (Throwable e)
+      }
+      catch (Throwable e)
       {
          return false;
       }
    }
-   
+
    /**
     * This method allows message to be order on the server queues
     * by priority and the order that they came in on.
@@ -363,24 +368,24 @@ public class MessageReference implements Comparable
             buffer.append(" soft");
          switch (stored)
          {
-         case NOT_STORED:
-            buffer.append(" NOT_STORED");
-            break;
-         case STORED:
-            buffer.append(" STORED");
-            break;
-         case REMOVED:
-            buffer.append(" REMOVED");
-            break;
+            case NOT_STORED :
+               buffer.append(" NOT_STORED");
+               break;
+            case STORED :
+               buffer.append(" STORED");
+               break;
+            case REMOVED :
+               buffer.append(" REMOVED");
+               break;
          }
          switch (jmsDeliveryMode)
          {
-         case DeliveryMode.NON_PERSISTENT:
-            buffer.append(" NON_PERSISTENT");
-            break;
-         case DeliveryMode.PERSISTENT:
-            buffer.append(" PERSISTENT");
-            break;
+            case DeliveryMode.NON_PERSISTENT :
+               buffer.append(" NON_PERSISTENT");
+               break;
+            case DeliveryMode.PERSISTENT :
+               buffer.append(" PERSISTENT");
+               break;
          }
          if (persistData != null)
             buffer.append(" persistData=").append(persistData);

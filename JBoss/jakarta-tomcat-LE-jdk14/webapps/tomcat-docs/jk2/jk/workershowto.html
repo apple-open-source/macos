@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/TR/xhtml1/strict">
 <head>
 <title>Workers HowTo</title>
-<meta content="1999-2002 The Apache Software Foundation" name="copyright"/>
+<meta content="1999-2003 The Apache Software Foundation" name="copyright"/>
 <meta content="$Date$" name="last-changed"/>
 <meta content="Henri Gomez" name="author"/>
 <meta content="hgomez@apache.org" name="email"/>
@@ -83,6 +83,22 @@
 <td colspan="2" width="150" bgcolor="#cccccc">
 <nobr>
 <a class="menu" href="../common/AJPv13-extensions-proposal.html">AJPv13 extensions Proposal</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../common/doccontrib.html">How to Contribute to the Documentation</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../common/tools.html">Tools</a>
 </nobr>
 </td>
 </tr>
@@ -194,6 +210,14 @@
 <tr>
 <td colspan="2" width="150" bgcolor="#cccccc">
 <nobr>
+<a class="menu" href="../jk2/configtccom.html">Coyote/JK2 Handlers</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
 <a class="menu" href="../jk2/configtcex.html">Examples</a>
 </nobr>
 </td>
@@ -247,6 +271,14 @@
 <td colspan="2" width="150" bgcolor="#cccccc">
 <nobr>
 <a class="menu" href="../jk2/confighowto.html">Quick Start JK2 Configuration Guide</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/vhosthowto.html">Apache 2.0.43 - Tomcat 4.1.12 - jk2 - virtual host HOWTO</a>
 </nobr>
 </td>
 </tr>
@@ -352,7 +384,7 @@ When starting up, the web server plugin will instantiate the workers whose name 
 <p class="section">
 Each named worker should also have a few entries to provide additional information on his behalf.
 This information includes the worker's type and other related worker information. 
-Currently the following worker types that exists are (JK 1.2.1):
+Currently the following worker types that exists are (JK 1.2.5):
 </p>
 <p class="section">
 Defining workers of a certain type should be done with the following property format:
@@ -530,6 +562,7 @@ We'll see more on this in the lb worker section.
 </b> property is usefull when you're using JK in multithreaded 
 web servers such as Apache 2.0, IIS and Netscape. They will benefit the most by 
 setting this value to a higher level (such as the estimated average concurrent users for Tomcat).
+If cachesize is not set, the connection cache support is disabled.
 </p>
 <p class="section">
 <b>
@@ -577,6 +610,52 @@ with the extra cost you need to reopen the socket next time a request be forward
 This property is very similar to <b>
 <font color="#333333">cache_timeout</font>
 </b> but works also in non-cache mode.
+</p>
+<p class="section">
+<b>
+<font color="#333333">connect_timeout</font>
+</b> property told webserver to send a PING request on ajp13 connection after 
+connection is established. The parameter is the delay in milliseconds to wait for the PONG reply.
+</p>
+<p class="section">
+This features has been added in <b>
+<font color="#333333">jk 1.2.6</font>
+</b> to avoid problem with hung tomcat's and require ajp13 
+ping/pong support which has been implemented on Tomcat <b>
+<font color="#333333">3.3.2+, 4.1.28+ and 5.0.13+</font>
+</b>.
+Disabled by default.
+</p>
+<p class="section">
+<b>
+<font color="#333333">prepost_timeout</font>
+</b> property told webserver to send a PING request on ajp13 connection before 
+forwarding to it a request. The parameter is the delay in milliseconds to wait for the PONG reply.
+</p>
+<p class="section">
+This features has been added in <b>
+<font color="#333333">jk 1.2.6</font>
+</b> to avoid problem with hung tomcat's and require ajp13 
+ping/pong support which has been implemented on <b>
+<font color="#333333">Tomcat 3.3.2+, 4.1.28+ and 5.0.13+</font>
+</b>.
+Disabled by default.
+</p>
+<p class="section">
+<b>
+<font color="#333333">reply_timeout</font>
+</b> property told webserver to wait some time for reply to a forwarded request
+before considering the remote tomcat is dead and eventually switch to another tomcat in a cluster
+group. By default webserver will wait forever which could be an issue for you.
+The parameter is the number of milliseconds to wait for reply, so adjust it carrefully if you 
+have long running servlets.
+</p>
+<p class="section">
+This features has been added in <b>
+<font color="#333333">jk 1.2.6</font>
+</b> to avoid problem with hung tomcat's and works on all
+servlet engines supporting ajp13.
+Disabled by default.
 </p>
 <p class="screen">
 <div align="center">

@@ -19,7 +19,7 @@ import org.jboss.test.JBossTestCase;
 /**
  * @author <a href="mailto:d_jencks@users.sourceforge.net">David Jencks</a>
  * @author Scott.Stark@jboss.org
- * @version $Revision: 1.19.2.2 $
+ * @version $Revision: 1.19.2.3 $
  */
 public class DeployServiceUnitTestCase
        extends JBossTestCase
@@ -109,6 +109,21 @@ public class DeployServiceUnitTestCase
       //check they aren't there any more
       assertTrue("test mbean still registered after undeploy", !getServer().isRegistered(testObjectName));
 
+   }
+
+   /** Test that a spaces in the classpath element archives attribute do not
+    * affect the classpath seen. 
+    * @throws Exception
+    */ 
+   public void testSpaceInClasspath() throws Exception
+   {
+      getLog().debug("+++ testSpaceInClasspath");
+      //deploy the test xml doc.
+      deploy("archivestest-service.xml");
+      ObjectName testObjectName = new ObjectName("test:name=TestSpaceInClasspath");
+      //check deployment registered expected mbeans
+      assertTrue(testObjectName+" registered", checkState(testObjectName, RUNNING));      
+      undeploy("archivestest-service.xml");
    }
 
    /**

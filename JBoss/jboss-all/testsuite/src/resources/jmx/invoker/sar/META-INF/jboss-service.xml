@@ -6,4 +6,41 @@
 	   name="jboss.test:service=InvokerTest">
   </mbean>
 
+   <mbean code="org.jboss.test.jmx.invoker.InvokerTest"
+	   name="jboss.test:service=InvokerTest,secured=true"
+      xmbean-dd="">
+      <xmbean>
+         <descriptors>
+            <interceptors>
+               <interceptor code="org.jboss.test.jmx.interceptors.PrincipalInterceptor" />
+               <interceptor code="org.jboss.mx.interceptor.PersistenceInterceptor2" />
+               <interceptor code="org.jboss.mx.interceptor.ModelMBeanInterceptor" />
+               <interceptor code="org.jboss.mx.interceptor.ObjectReferenceInterceptor" />
+            </interceptors>
+         </descriptors>
+
+         <class>org.jboss.test.jmx.invoker.InvokerTest</class>
+
+         <!-- Attributes -->
+         <attribute access="read-only" getMethod="getSomething">
+            <name>Something</name>
+            <type>java.lang.String</type>
+         </attribute>
+         <attribute access="read-write" getMethod="getCustom" setMethod="setCustom">
+            <name>Custom</name>
+            <type>org.jboss.test.jmx.invoker.CustomClass</type>
+         </attribute>
+
+         <!-- Operations -->
+         <operation>
+            <name>doSomething</name>
+            <parameter>
+               <name>custom</name>
+               <type>org.jboss.test.jmx.invoker.CustomClass</type>
+            </parameter>
+            <return-type>org.jboss.test.jmx.invoker.CustomClass</return-type>
+         </operation>
+
+      </xmbean>
+   </mbean>
 </server>

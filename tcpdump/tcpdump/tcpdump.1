@@ -1,4 +1,6 @@
-.\" @(#) $Header: /cvs/root/tcpdump/tcpdump/tcpdump.1,v 1.1.1.3 2003/03/17 18:42:20 rbraun Exp $ (LBL)
+.\" @(#) $Header: /cvs/root/tcpdump/tcpdump/tcpdump.1,v 1.1.1.4 2004/02/05 19:30:58 rbraun Exp $ (LBL)
+.\"
+.\"	$NetBSD: tcpdump.8,v 1.9 2003/03/31 00:18:17 perry Exp $
 .\"
 .\" Copyright (c) 1987, 1988, 1989, 1990, 1991, 1992, 1994, 1995, 1996, 1997
 .\"	The Regents of the University of California.  All rights reserved.
@@ -20,14 +22,14 @@
 .\" WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
 .\" MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
 .\"
-.TH TCPDUMP 1  "21 December 2002"
+.TH TCPDUMP 1  "23 November 2003"
 .SH NAME
 tcpdump \- dump traffic on a network
 .SH SYNOPSIS
 .na
 .B tcpdump
 [
-.B \-aAdDeflLnNOpqRStuUvxX
+.B \-AdDeflLnNOpqRStuUvxX
 ] [
 .B \-c
 .I count
@@ -118,14 +120,23 @@ When
 .I tcpdump
 finishes capturing packets, it will report counts of:
 .IP
+packets ``captured'' (this is the number of packets that
+.I tcpdump
+has received and processed);
+.IP
 packets ``received by filter'' (the meaning of this depends on the OS on
 which you're running
 .IR tcpdump ,
 and possibly on the way the OS was configured - if a filter was
 specified on the command line, on some OSes it counts packets regardless
-of whether they were matched by the filter expression, and on other OSes
-it counts only packets that were matched by the filter expression and
-were processed by
+of whether they were matched by the filter expression and, even if they
+were matched by the filter expression, regardless of whether
+.I tcpdump
+has read and processed them yet, on other OSes it counts only packets that were
+matched by the filter expression regardless of whether
+.I tcpdump
+has read and processed them yet, and on other OSes it counts only
+packets that were matched by the filter expression and were processed by
 .IR tcpdump );
 .IP
 packets ``dropped by kernel'' (this is the number of packets that were
@@ -176,9 +187,16 @@ must be installed setuid to root.
 .B Under Linux:
 You must be root or
 .I tcpdump
-must be installed setuid to root.
+must be installed setuid to root (unless your distribution has a kernel
+that supports capability bits such as CAP_NET_RAW and code to allow
+those capability bits to be given to particular accounts and to cause
+those bits to be set on a user's initial processes when they log in, in
+which case you  must have CAP_NET_RAW in order to capture and
+CAP_NET_ADMIN to enumerate network devices with, for example, the
+.B \-D
+flag).
 .TP
-.B Under Ultrix and Digital UNIX/Tru64 UNIX:
+.B Under ULTRIX and Digital UNIX/Tru64 UNIX:
 Any user may capture network traffic with
 .IR tcpdump .
 However, no user (not even the super-user) can capture in promiscuous
@@ -195,9 +213,15 @@ packet capture on an interface probably requires that either
 promiscuous-mode or copy-all-mode operation, or both modes of
 operation, be enabled on that interface.
 .TP
-.B Under BSD:
+.B Under BSD (this includes Mac OS X):
 You must have read access to
 .IR /dev/bpf* .
+On BSDs with a devfs (this includes Mac OS X), this might involve more
+than just having somebody with super-user access setting the ownership
+or permissions on the BPF devices - it might involve configuring devfs
+to set the ownership or permissions every time the system is booted,
+if the system even supports that; if it doesn't support that, you might
+have to find some other way to make that happen at boot time.
 .LP
 Reading a saved packet file doesn't require special privileges.
 .SH OPTIONS
@@ -205,9 +229,6 @@ Reading a saved packet file doesn't require special privileges.
 .B \-A
 Print each packet (minus its link level header) in ASCII.  Handy for
 capturing web pages.
-.TP
-.B \-a
-Attempt to convert network and broadcast addresses to names.
 .TP
 .B \-c
 Exit after receiving \fIcount\fP packets.
@@ -416,11 +437,13 @@ Setting
 Force packets selected by "\fIexpression\fP" to be interpreted the
 specified \fItype\fR.
 Currently known types are
+\fBaodv\fR (Ad-hoc On-demand Distance Vector protocol),
 \fBcnfp\fR (Cisco NetFlow protocol),
 \fBrpc\fR (Remote Procedure Call),
 \fBrtp\fR (Real-Time Applications protocol),
 \fBrtcp\fR (Real-Time Applications control protocol),
 \fBsnmp\fR (Simple Network Management Protocol),
+\fBtftp\fR (Trivial File Transfer Protocol),
 \fBvat\fR (Visual Audio Tool),
 and
 \fBwb\fR (distributed White Board).
@@ -817,7 +840,7 @@ SSAP (Source Service Access Point) fields of the LLC header;
 .TP
 \fIatalk\fP
 \fItcpdump\fR checks for a SNAP-format packet with an OUI of 0x080007
-and the Appletalk etype.
+and the AppleTalk etype.
 .RE
 .IP
 In the case of Ethernet, \fItcpdump\fR checks the Ethernet type field
@@ -829,11 +852,11 @@ for most of those protocols.  The exceptions are:
 it does for FDDI, Token Ring, and 802.11;
 .TP
 \fBatalk\fP
-\fItcpdump\fR checks both for the Appletalk etype in an Ethernet frame and
+\fItcpdump\fR checks both for the AppleTalk etype in an Ethernet frame and
 for a SNAP-format packet as it does for FDDI, Token Ring, and 802.11;
 .TP
 \fBaarp\fP
-\fItcpdump\fR checks for the Appletalk ARP etype in either an Ethernet
+\fItcpdump\fR checks for the AppleTalk ARP etype in either an Ethernet
 frame or an 802.2 SNAP frame with an OUI of 0x000000;
 .TP
 \fBipx\fP
@@ -846,7 +869,7 @@ True if the DECNET source address is
 .IR host ,
 which may be an address of the form ``10.123'', or a DECNET host
 name.
-[DECNET host name support is only available on Ultrix systems
+[DECNET host name support is only available on ULTRIX systems
 that are configured to run DECNET.]
 .IP "\fBdecnet dst \fIhost\fR"
 True if the DECNET destination address is
@@ -990,10 +1013,11 @@ True if the packet is an ATM packet, for SunATM on Solaris, and is
 on a meta signaling circuit and is a Q.2931 Setup, Call Proceeding, Connect,
 Release, or Release Done message.
 .IP  "\fIexpr relop expr\fR"
-True if the relation holds, where \fIrelop\fR is one of >, <, >=, <=, =, !=,
-and \fIexpr\fR is an arithmetic expression composed of integer constants
-(expressed in standard C syntax), the normal binary operators
-[+, -, *, /, &, |], a length operator, and special packet data accessors.
+True if the relation holds, where \fIrelop\fR is one of >, <, >=, <=, =,
+!=, and \fIexpr\fR is an arithmetic expression composed of integer
+constants (expressed in standard C syntax), the normal binary operators
+[+, -, *, /, &, |, <<, >>], a length operator, and special packet data
+accessors.
 To access
 data inside the packet, use the following syntax:
 .in +.5i
@@ -1311,7 +1335,8 @@ The general format of a tcp protocol line is:
 \fISrc\fP and \fIdst\fP are the source and destination IP
 addresses and ports.
 \fIFlags\fP are some combination of S (SYN),
-F (FIN), P (PUSH) or R (RST) or a single `.' (no flags).
+F (FIN), P (PUSH), R (RST), W (ECN CWR) or E (ECN-Echo), or a single
+`.' (no flags).
 \fIData-seqno\fP describes the portion of sequence space covered
 by the data in this packet (see example below).
 \fIAck\fP is sequence number of the next data expected the other
@@ -1719,10 +1744,10 @@ gory details.
 If you are decoding SMB sessions containing unicode strings then you
 may wish to set the environment variable USE_UNICODE to 1.
 A patch to
-auto-detect unicode srings would be welcome.
+auto-detect unicode strings would be welcome.
 
 For information on SMB packet formats and what all te fields mean see
-www.cifs.org or the pub/samba/specs/ directory on your favourite
+www.cifs.org or the pub/samba/specs/ directory on your favorite
 samba.org mirror site.
 The SMB patches were written by Andrew Tridgell
 (tridge@samba.org).
@@ -1880,14 +1905,14 @@ follow the
 corresponding request, it might not be parsable.
 
 .HD
-KIP Appletalk (DDP in UDP)
+KIP AppleTalk (DDP in UDP)
 .LP
-Appletalk DDP packets encapsulated in UDP datagrams are de-encapsulated
+AppleTalk DDP packets encapsulated in UDP datagrams are de-encapsulated
 and dumped as DDP packets (i.e., all the UDP header information is
 discarded).
 The file
 .I /etc/atalk.names
-is used to translate appletalk net and node numbers to names.
+is used to translate AppleTalk net and node numbers to names.
 Lines in this file have the form
 .RS
 .nf
@@ -1900,7 +1925,7 @@ Lines in this file have the form
 .sp .5
 .fi
 .RE
-The first two lines give the names of appletalk networks.
+The first two lines give the names of AppleTalk networks.
 The third
 line gives the name of a particular host (a host is distinguished
 from a net by the 3rd octet in the number \-
@@ -1912,7 +1937,7 @@ The
 file may contain blank lines or comment lines (lines starting with
 a `#').
 .LP
-Appletalk addresses are printed in the form
+AppleTalk addresses are printed in the form
 .RS
 .nf
 .sp .5
@@ -1926,7 +1951,7 @@ jssmag.149.235 > icsd-net.2\fR
 .RE
 (If the
 .I /etc/atalk.names
-doesn't exist or doesn't contain an entry for some appletalk
+doesn't exist or doesn't contain an entry for some AppleTalk
 host/net number, addresses are printed in numeric form.)
 In the first example, NBP (DDP port 2) on net 144.1 node 209
 is sending to whatever is listening on port 220 of net icsd node 112.
@@ -1938,7 +1963,7 @@ the broadcast address (255) is indicated by a net name with no host
 number \- for this reason it's a good idea to keep node names and
 net names distinct in /etc/atalk.names).
 .LP
-NBP (name binding protocol) and ATP (Appletalk transaction protocol)
+NBP (name binding protocol) and ATP (AppleTalk transaction protocol)
 packets have their contents interpreted.
 Other protocols just dump
 the protocol name (or number if no name is registered for the

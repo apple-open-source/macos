@@ -10,8 +10,10 @@
 #include "TransportFactory.h"
 
 #include <I2STransportInterface.h>
+#include <I2SSlaveOnlyTranportInterface.h>
 
 const char* TransportFactory::I2SString = "i2s";
+const char* TransportFactory::I2SSlaveOnlyString = "i2sSlaveOnly";
 
 TransportInterface* TransportFactory::createTransport ( const OSString* inTransportString )
 {
@@ -19,9 +21,10 @@ TransportInterface* TransportFactory::createTransport ( const OSString* inTransp
 	
 	theTransportObject = NULL;
 	
-	if ( inTransportString->isEqualTo ( I2SString ) ) 
-	{
+	if ( inTransportString->isEqualTo ( I2SString ) ) {
 		theTransportObject = new I2STransportInterface();
+	} else if ( inTransportString->isEqualTo ( I2SSlaveOnlyString ) ) {
+		theTransportObject = new I2SSlaveOnlyTransportInterface();
 	} 
 	return theTransportObject;
 }

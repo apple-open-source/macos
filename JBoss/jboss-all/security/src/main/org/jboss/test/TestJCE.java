@@ -1,11 +1,7 @@
 package org.jboss.test;
 
-import java.io.Serializable;
 import java.math.BigInteger;
 import java.security.AlgorithmParameters;
-import java.security.Key;
-import java.security.KeyException;
-import java.security.MessageDigest;
 import java.security.Provider;
 import java.security.SecureRandom;
 import java.security.Security;
@@ -18,7 +14,7 @@ import javax.crypto.spec.SecretKeySpec;
 
 /** Tests of the Java Cryptography Extension framework
  @author Scott.Stark@jboss.org
- @version $Revision: 1.5 $
+ @version $Revision: 1.5.4.1 $
 */
 public class TestJCE
 {
@@ -112,9 +108,9 @@ public class TestJCE
       {
          System.setOut(System.err);
          TestJCE tst = new TestJCE();
-         tst.showProviders();
+         showProviders();
          //tst.testKey();
-         tst.testBlowfish();
+         testBlowfish();
       }
       catch(Throwable t)
       {

@@ -72,7 +72,7 @@ const char *opt_container = "cn=Users";
 int opt_flags = -1;
 int opt_timeout = 0;
 const char *opt_target_workgroup = NULL;
-static int opt_machine_pass = 0;
+int opt_machine_pass = 0;
 
 BOOL opt_have_ip = False;
 struct in_addr opt_dest_ip;
@@ -84,14 +84,14 @@ uint32 get_sec_channel_type(const char *param)
 	if (!(param && *param)) {
 		return get_default_sec_channel();
 	} else {
-		if (strcasecmp(param, "PDC")==0) {
+		if (strequal(param, "PDC")) {
 			return SEC_CHAN_BDC;
-		} else if (strcasecmp(param, "BDC")==0) {
+		} else if (strequal(param, "BDC")) {
 			return SEC_CHAN_BDC;
-		} else if (strcasecmp(param, "MEMBER")==0) {
+		} else if (strequal(param, "MEMBER")) {
 			return SEC_CHAN_WKSTA;
 #if 0			
-		} else if (strcasecmp(param, "DOMAIN")==0) {
+		} else if (strequal(param, "DOMAIN")) {
 			return SEC_CHAN_DOMAIN;
 #endif
 		} else {
@@ -130,7 +130,7 @@ NTSTATUS connect_to_ipc(struct cli_state **c, struct in_addr *server_ip,
 {
 	NTSTATUS nt_status;
 
-	if (!opt_password) {
+	if (!opt_password && !opt_machine_pass) {
 		char *pass = getpass("Password:");
 		if (pass) {
 			opt_password = strdup(pass);
@@ -154,6 +154,14 @@ NTSTATUS connect_to_ipc(struct cli_state **c, struct in_addr *server_ip,
 		if (NT_STATUS_V(nt_status) == 
 		    NT_STATUS_V(NT_STATUS_LOGON_FAILURE))
 			d_printf("The username or password was not correct.\n");
+
+		if (NT_STATUS_V(nt_status) == 
+		    NT_STATUS_V(NT_STATUS_ACCOUNT_LOCKED_OUT))
+			d_printf("The account was locked out.\n");
+
+		if (NT_STATUS_V(nt_status) == 
+		    NT_STATUS_V(NT_STATUS_ACCOUNT_DISABLED))
+			d_printf("The account was disabled.\n");
 
 		return nt_status;
 	}
@@ -462,6 +470,50 @@ static int net_getdomainsid(int argc, const char **argv)
 	return 0;
 }
 
+#ifdef WITH_FAKE_KASERVER
+
+int net_afskey_usage(int argc, const char **argv)
+{
+	d_printf("  net afskey filename\n"
+		 "\tImports a OpenAFS KeyFile into our secrets.tdb\n\n");
+	return -1;
+}
+
+static int net_afskey(int argc, const char **argv)
+{
+	int fd;
+	struct afs_keyfile keyfile;
+
+	if (argc != 2) {
+		d_printf("usage: 'net afskey <keyfile> cell'\n");
+		return -1;
+	}
+
+	if (!secrets_init()) {
+		d_printf("Could not open secrets.tdb\n");
+		return -1;
+	}
+
+	if ((fd = open(argv[0], O_RDONLY, 0)) < 0) {
+		d_printf("Could not open %s\n", argv[0]);
+		return -1;
+	}
+
+	if (read(fd, &keyfile, sizeof(keyfile)) != sizeof(keyfile)) {
+		d_printf("Could not read keyfile\n");
+		return -1;
+	}
+
+	if (!secrets_store_afs_keyfile(argv[1], &keyfile)) {
+		d_printf("Could not write keyfile to secrets.tdb\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+#endif /* WITH_FAKE_KASERVER */
+
 static uint32 get_maxrid(void)
 {
 	SAM_ACCOUNT *pwd = NULL;
@@ -572,6 +624,10 @@ static struct functable net_func[] = {
 	{"GETDOMAINSID", net_getdomainsid},
 	{"MAXRID", net_maxrid},
 	{"IDMAP", net_idmap},
+	{"STATUS", net_status},
+#ifdef WITH_FAKE_KASERVER
+	{"AFSKEY", net_afskey},
+#endif
 
 	{"HELP", net_help},
 	{NULL, NULL}

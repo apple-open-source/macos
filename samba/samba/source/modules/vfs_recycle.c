@@ -213,7 +213,7 @@ static BOOL recycle_create_dir(vfs_handle_struct *handle, const char *dname)
 	char *tok_str;
 	BOOL ret = False;
 
-	mode = S_IREAD | S_IWRITE | S_IEXEC;
+	mode = S_IRUSR | S_IWUSR | S_IXUSR;
 
 	tmp_str = strdup(dname);
 	ALLOC_CHECK(tmp_str, done);
@@ -336,7 +336,7 @@ static int recycle_unlink(vfs_handle_struct *handle, connection_struct *conn, co
 	repository = alloc_sub_conn(conn, recycle_repository(handle));
 	ALLOC_CHECK(repository, done);
 	/* shouldn't we allow absolute path names here? --metze */
-	trim_string(repository, "/", "/");
+	trim_char(repository, '/', '/');
 	
 	if(!repository || *(repository) == '\0') {
 		DEBUG(3, ("recycle: repository path not set, purging %s...\n", file_name));

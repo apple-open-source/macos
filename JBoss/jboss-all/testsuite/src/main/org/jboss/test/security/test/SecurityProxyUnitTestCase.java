@@ -29,7 +29,7 @@ import junit.framework.TestSuite;
 /** Tests of the EJB security proxy.
  
  @author Scott.Stark@jboss.org
- @version $Revision: 1.4.2.1 $
+ @version $Revision: 1.4.2.2 $
  */
 public class SecurityProxyUnitTestCase
    extends JBossTestCase
@@ -131,7 +131,7 @@ public class SecurityProxyUnitTestCase
    /**
     * Setup the test suite.
     */
-   public static Test suite()
+   public static Test suite() throws Exception
    {
       TestSuite suite = new TestSuite();
       suite.addTest(new TestSuite(SecurityProxyUnitTestCase.class));

@@ -1,16 +1,16 @@
 /*
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
+ *
+ * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -18,7 +18,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -32,6 +32,7 @@
     IOUSBHubDescriptor 		hubDescriptor;
     UInt16			hubChar;
     char                        temporaryString[500];
+    char                        buf[128];
     
     hubDescriptor = *(IOUSBHubDescriptor *)p;
     
@@ -42,13 +43,23 @@
     
     hubChar = Swap16(&hubDescriptor.characteristics);
     
-    sprintf(temporaryString, "0x%x (%sswitched %s hub with %s overcurrent protection)", hubChar,
-            (((hubChar & 3) == 0) ? "Gang " :
-             ((hubChar & 3) == 1) ? "Individually " : "Non-"),
+    sprintf(temporaryString, "0x%x (%sswitched %s hub with %s overcurrent protection", hubChar,
+            (((hubChar & 3) == 0) ? "Gang " : ((hubChar & 3) == 1) ? "Individually " : "Non-"),
             ((hubChar & 4) == 4) ? "compound" : "standalone",
             ((hubChar & 0x18) == 0) ? "global" :
             ((hubChar & 0x18) == 0x8) ? "individual port" : "no");
     
+    if ( [thisDevice usbRelease] >= 0x200 )
+    {
+        sprintf(buf, " requiring %d FS bit times and %s port indicators)", 
+              (((hubChar & 0x60) >> 5) + 1 ) * 8,
+               (hubChar & 0x80) ? "having" : " no");
+        strcat(temporaryString, buf);
+    }
+    else
+        strcat(temporaryString, ")");
+
+               
     [thisDevice addProperty:"Hub Characteristics:" withValue:temporaryString atDepth:HUB_DESCRIPTOR_LEVEL];
     
     sprintf(temporaryString, "%d ms", hubDescriptor.powerOnToGood*2);

@@ -35,7 +35,7 @@ import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
 
-import org.jboss.ejb.plugins.lock.ApplicationDeadlockException;
+import org.jboss.util.deadlock.ApplicationDeadlockException;
 import org.jboss.test.JBossTestCase;
 
 import org.apache.log4j.Category;
@@ -47,7 +47,7 @@ import org.apache.log4j.Category;
  *
  * @see <related>
  * @author Author: Andreas Schaefer
- * @version $Revision: 1.3 $
+ * @version $Revision: 1.3.2.1 $
  */
 public class BankMarathonTestCase
    extends JBossTestCase

@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2003 Lars Knoll (knoll@kde.org)
  *
- * $Id: cssparser.cpp,v 1.41 2003/07/30 22:19:36 hyatt Exp $
+ * $Id: cssparser.cpp,v 1.55 2003/12/10 21:14:01 hyatt Exp $
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -378,11 +378,13 @@ static bool validUnit( Value *value, int unitflags, bool strict )
     case CSSPrimitiveValue::CSS_PC:
 	b = (unitflags & FLength);
 	break;
+    case CSSPrimitiveValue::CSS_MS:
+    case CSSPrimitiveValue::CSS_S:
+        b = (unitflags & FTime);
+        break;
     case CSSPrimitiveValue::CSS_DEG:
     case CSSPrimitiveValue::CSS_RAD:
     case CSSPrimitiveValue::CSS_GRAD:
-    case CSSPrimitiveValue::CSS_MS:
-    case CSSPrimitiveValue::CSS_S:
     case CSSPrimitiveValue::CSS_HZ:
     case CSSPrimitiveValue::CSS_KHZ:
     case CSSPrimitiveValue::CSS_DIMENSION:
@@ -404,9 +406,13 @@ bool CSSParser::parseValue( int propId, bool important )
     int id = 0;
     id = value->id;
 
-    if ( id == CSS_VAL_INHERIT ) {
-	addProperty( propId, new CSSInheritedValueImpl(), important );
+    if (id == CSS_VAL_INHERIT) {
+	addProperty(propId, new CSSInheritedValueImpl(), important);
 	return true;
+    }
+    else if (id == CSS_VAL_INITIAL) {
+        addProperty(propId, new CSSInitialValueImpl(), important);
+        return true;
     }
 
     bool valid_primitive = false;
@@ -505,7 +511,8 @@ bool CSSParser::parseValue( int propId, bool important )
 	break;
 
     case CSS_PROP_OVERFLOW:             // visible | hidden | scroll | auto | inherit
-	if ( id == CSS_VAL_VISIBLE || id == CSS_VAL_HIDDEN || id == CSS_VAL_SCROLL || id == CSS_VAL_AUTO )
+	if (id == CSS_VAL_VISIBLE || id == CSS_VAL_HIDDEN || id == CSS_VAL_SCROLL || id == CSS_VAL_AUTO ||
+            id == CSS_VAL_MARQUEE)
 	    valid_primitive = true;
 	break;
 
@@ -560,12 +567,16 @@ bool CSSParser::parseValue( int propId, bool important )
 	    valid_primitive = true;
 	break;
 
-    case CSS_PROP_OUTLINE_STYLE:        // <border-style> | inherit
+    case CSS_PROP_OUTLINE_STYLE:        // <border-style> | auto | inherit
+        if (id == CSS_VAL_AUTO) {
+            valid_primitive = true;
+            break;
+        } // Fall through!
     case CSS_PROP_BORDER_TOP_STYLE:     //// <border-style> | inherit
     case CSS_PROP_BORDER_RIGHT_STYLE:   //   Defined as:    none | hidden | dotted | dashed |
     case CSS_PROP_BORDER_BOTTOM_STYLE:  //   solid | double | groove | ridge | inset | outset
     case CSS_PROP_BORDER_LEFT_STYLE:    ////
-	if (id >= CSS_VAL_NONE && id <= CSS_VAL_RIDGE)
+	if (id >= CSS_VAL_NONE && id <= CSS_VAL_DOUBLE)
 	    valid_primitive = true;
 	break;
 
@@ -688,11 +699,27 @@ bool CSSParser::parseValue( int propId, bool important )
 	valid_primitive = validUnit( value, FPercent|FLength, strict&(!nonCSSHint) );
 	break;
 
-    case CSS_PROP_BORDER_SPACING:
-	// ### should be able to have two values
-	valid_primitive = ( validUnit( value, FLength|FNonNeg, strict&(!nonCSSHint) ) );
-	break;
-
+    case CSS_PROP_BORDER_SPACING: {
+        const int properties[2] = { CSS_PROP__KHTML_BORDER_HORIZONTAL_SPACING,
+                                    CSS_PROP__KHTML_BORDER_VERTICAL_SPACING };
+        int num = valueList->numValues;
+        if (num == 1) {
+            if (!parseValue(properties[0], important)) return false;
+            CSSValueImpl* value = parsedProperties[numParsedProperties-1]->value();
+            addProperty(properties[1], value, important);
+            return true;
+        }
+        else if (num == 2) {
+            if (!parseValue(properties[0], important)) return false;
+            if (!parseValue(properties[1], important)) return false;
+            return true;
+        }
+        return false;
+    }
+    case CSS_PROP__KHTML_BORDER_HORIZONTAL_SPACING:
+    case CSS_PROP__KHTML_BORDER_VERTICAL_SPACING:
+        valid_primitive = validUnit(value, FLength|FNonNeg, strict&(!nonCSSHint));
+        break;
     case CSS_PROP_SCROLLBAR_FACE_COLOR:         // IE5.5
     case CSS_PROP_SCROLLBAR_SHADOW_COLOR:       // IE5.5
     case CSS_PROP_SCROLLBAR_HIGHLIGHT_COLOR:    // IE5.5
@@ -711,20 +738,10 @@ bool CSSParser::parseValue( int propId, bool important )
 	}
 	/* nobreak */
     case CSS_PROP_BACKGROUND_COLOR:     // <color> | transparent | inherit
-	if ( propId == CSS_PROP_BACKGROUND_COLOR && id == CSS_VAL_TRANSPARENT ) {
-            valid_primitive = true;
-            break;
-	}
-	/* nobreak */
     case CSS_PROP_BORDER_TOP_COLOR:     // <color> | transparent | inherit
     case CSS_PROP_BORDER_RIGHT_COLOR:   // <color> | transparent | inherit
     case CSS_PROP_BORDER_BOTTOM_COLOR:  // <color> | transparent | inherit
     case CSS_PROP_BORDER_LEFT_COLOR:    // <color> | transparent | inherit
-        if (id == CSS_VAL_TRANSPARENT) {
-            valid_primitive = true;
-            break;
-        }
-        /* fall through */
     case CSS_PROP_COLOR:                // <color> | inherit
     case CSS_PROP_TEXT_DECORATION_COLOR:
         if (id == CSS_VAL__KHTML_TEXT)
@@ -745,9 +762,10 @@ bool CSSParser::parseValue( int propId, bool important )
 	// nw-resize | n-resize | se-resize | sw-resize | s-resize | w-resize | text |
 	// wait | help ] ] | inherit
     // MSIE 5 compatibility :/
-	if ( !strict && id == CSS_VAL_HAND )
+        if ( !strict && id == CSS_VAL_HAND ) {
+            id = CSS_VAL_POINTER;
 	    valid_primitive = true;
-	else if ( id >= CSS_VAL_AUTO && id <= CSS_VAL_HELP )
+        } else if ( id >= CSS_VAL_AUTO && id <= CSS_VAL_HELP )
 	    valid_primitive = true;
 	break;
 
@@ -784,13 +802,6 @@ bool CSSParser::parseValue( int propId, bool important )
 	    valid_primitive = true;
         else
             valid_primitive = ( validUnit( value, FLength, strict&(!nonCSSHint) ) );
-	break;
-
-    case CSS_PROP_MARKER_OFFSET:        // <length> | auto | inherit
-	if ( id == CSS_VAL_AUTO )
-	    valid_primitive = true;
-	else
-            valid_primitive = validUnit( value, FLength, strict&(!nonCSSHint) );
 	break;
 
     case CSS_PROP_LETTER_SPACING:       // normal | <length> | inherit
@@ -966,19 +977,17 @@ bool CSSParser::parseValue( int propId, bool important )
 	    valid_primitive = true;
 	break;
 
-    case CSS_PROP__KHTML_FLOW_MODE:
-	if ( id == CSS_VAL__KHTML_NORMAL || id == CSS_VAL__KHTML_AROUND_FLOATS )
-	    valid_primitive = true;
-	break;
-
     /* CSS3 properties */
+    case CSS_PROP_OUTLINE_OFFSET:
+        valid_primitive = validUnit(value, FLength, strict&(!nonCSSHint));
+        break;
     case CSS_PROP_TEXT_SHADOW: // CSS2 property, dropped in CSS2.1, back in CSS3, so treat as CSS3
         if (id == CSS_VAL_NONE)
             valid_primitive = true;
         else
             return parseShadow(propId, important);
         break;
-    case CSS_PROP__KHTML_OPACITY:
+    case CSS_PROP_OPACITY:
         valid_primitive = validUnit(value, FNumber, strict);
         break;
     case CSS_PROP__KHTML_BOX_ALIGN:
@@ -1012,6 +1021,43 @@ bool CSSParser::parseValue( int propId, bool important )
         valid_primitive = validUnit(value, FInteger|FNonNeg, true);
         break;
     
+    case CSS_PROP__KHTML_MARQUEE: {
+        const int properties[5] = { CSS_PROP__KHTML_MARQUEE_DIRECTION, CSS_PROP__KHTML_MARQUEE_INCREMENT,
+                                    CSS_PROP__KHTML_MARQUEE_REPETITION,
+                                    CSS_PROP__KHTML_MARQUEE_STYLE, CSS_PROP__KHTML_MARQUEE_SPEED };
+        return parseShortHand(properties, 5, important);
+    }
+    case CSS_PROP__KHTML_MARQUEE_DIRECTION:
+        if (id == CSS_VAL_FORWARDS || id == CSS_VAL_BACKWARDS || id == CSS_VAL_AHEAD ||
+            id == CSS_VAL_REVERSE || id == CSS_VAL_LEFT || id == CSS_VAL_RIGHT || id == CSS_VAL_DOWN ||
+            id == CSS_VAL_UP || id == CSS_VAL_AUTO)
+            valid_primitive = true;
+        break;
+    case CSS_PROP__KHTML_MARQUEE_INCREMENT:
+        if (id == CSS_VAL_SMALL || id == CSS_VAL_LARGE || id == CSS_VAL_MEDIUM)
+            valid_primitive = true;
+        else
+            valid_primitive = validUnit(value, FLength|FPercent, strict&(!nonCSSHint));
+        break;
+    case CSS_PROP__KHTML_MARQUEE_STYLE:
+        if (id == CSS_VAL_NONE || id == CSS_VAL_SLIDE || id == CSS_VAL_SCROLL || id == CSS_VAL_ALTERNATE ||
+            id == CSS_VAL_UNFURL)
+            valid_primitive = true;
+        break;
+    case CSS_PROP__KHTML_MARQUEE_REPETITION:
+        if (id == CSS_VAL_INFINITE)
+            valid_primitive = true;
+        else
+            valid_primitive = validUnit(value, FInteger|FNonNeg, strict&(!nonCSSHint));
+        break;
+    case CSS_PROP__KHTML_MARQUEE_SPEED:
+        if (id == CSS_VAL_NORMAL || id == CSS_VAL_SLOW || id == CSS_VAL_FAST)
+            valid_primitive = true;
+        else
+            valid_primitive = validUnit(value, FTime|FInteger|FNonNeg, strict&(!nonCSSHint));
+        break;
+    // End of CSS3 properties
+        
 	/* shorthand properties */
     case CSS_PROP_BACKGROUND:
     	// ['background-color' || 'background-image' ||'background-repeat' ||
@@ -1191,6 +1237,13 @@ bool CSSParser::parseShortHand( const int *properties, int numProperties, bool i
 	    return false;
 	}
     }
+    
+    // Fill in any remaining properties with the initial value.
+    for (int i = 0; i < numProperties; ++i) {
+        if (!fnd[i])
+            addProperty(properties[i], new CSSInitialValueImpl(), important);
+    }
+    
     inParseShortHand = false;
 #ifdef CSS_DEBUG
     kdDebug( 6080 ) << "parsed shorthand" << endl;
@@ -1464,9 +1517,10 @@ bool CSSParser::parseFont( bool important )
 	value = valueList->next();
 	if ( !value )
 	    goto invalid;
-    } else {
-	font->lineHeight = new CSSPrimitiveValueImpl( CSS_VAL_NORMAL );
     }
+    
+    if (!font->lineHeight)
+	font->lineHeight = new CSSPrimitiveValueImpl( CSS_VAL_NORMAL );
 
 //     kdDebug( 6080 ) << "  got line height current=" << valueList->currentValue << endl;
     // font family must come now

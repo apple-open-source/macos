@@ -69,9 +69,21 @@ int batchcount;		/* count of messages sent in current batch */
 flag peek_capable;	/* can we peek for better error recovery? */
 int mailserver_socket_temp = -1;	/* socket to free if connect timeout */ 
 
-static int timeoutcount;		/* count consecutive timeouts */
+volatile static int timeoutcount = 0;	/* count consecutive timeouts */
+volatile static int idletimeout = 0;	/* timeout occured in idle stage? */
 
 static jmp_buf	restart;
+
+int isidletimeout(void)
+/* last timeout occured in idle stage? */
+{
+    return idletimeout;
+}
+
+void resetidletimeout(void)
+{
+    idletimeout = 0;
+}
 
 void set_timeout(int timeleft)
 /* reset the nonresponse-timeout */
@@ -89,21 +101,21 @@ void set_timeout(int timeleft)
 #endif
 }
 
-static void timeout_handler (int signal)
+static RETSIGTYPE timeout_handler (int signal)
 /* handle SIGALRM signal indicating a server timeout */
 {
-    timeoutcount++;
-    longjmp(restart, THROW_TIMEOUT);
+    if(stage != STAGE_IDLE) {
+	timeoutcount++;
+	longjmp(restart, THROW_TIMEOUT);
+    } else
+	idletimeout = 1;
 }
 
-static void sigpipe_handler (int signal)
+static RETSIGTYPE sigpipe_handler (int signal)
 /* handle SIGPIPE signal indicating a broken stream socket */
 {
     longjmp(restart, THROW_SIGPIPE);
 }
-
-/* ignore SIGALRM signal indicating a timeout during cleanup */
-static void cleanup_timeout_handler (int signal) { }
 
 #define CLEANUP_TIMEOUT 60 /* maximum timeout during cleanup */
 
@@ -111,12 +123,12 @@ static int cleanupSockClose (int fd)
 /* close sockets in maximum CLEANUP_TIMEOUT seconds during cleanup */
 {
     int scerror;
-    void (*alrmsave)(int);
-    alrmsave = signal(SIGALRM, cleanup_timeout_handler);
+    SIGHANDLERTYPE alrmsave;
+    alrmsave = set_signal_handler(SIGALRM, null_signal_handler);
     set_timeout(CLEANUP_TIMEOUT);
     scerror = SockClose(fd);
     set_timeout(0);
-    signal(SIGALRM, alrmsave);
+    set_signal_handler(SIGALRM, alrmsave);
     return (scerror);
 }
 
@@ -405,11 +417,55 @@ static void mark_oversized(struct query *ctl, int num, int size)
 }
 
 static int fetch_messages(int mailserver_socket, struct query *ctl, 
-			  int count, int *msgsizes, int *msgcodes, int maxfetch,
+			  int count, int *msgsizes, int maxfetch,
 			  int *fetches, int *dispatches, int *deletions)
 /* fetch messages in lockstep mode */
 {
-    int num, err, len;
+    flag force_retrieval;
+    int num, firstnum = 1, lastnum = 0, err, len;
+    int fetchsizelimit = ctl->fetchsizelimit;
+    int msgsize;
+
+    if (ctl->server.base_protocol->getpartialsizes && NUM_NONZERO(fetchsizelimit))
+    {
+	/* for POP3, we can get the size of one mail only! Unfortunately, this
+	 * protocol specific test cannot be done elsewhere as the protocol
+	 * could be "auto". */
+	if (ctl->server.protocol == P_POP3)
+	    fetchsizelimit = 1;
+
+	/* Time to allocate memory to store the sizes */
+	xalloca(msgsizes, int *, sizeof(int) * fetchsizelimit);
+    }
+
+    /*
+     * What forces this code is that in POP2 and
+     * IMAP2bis you can't fetch a message without
+     * having it marked `seen'.  In POP3 and IMAP4, on the
+     * other hand, you can (peek_capable is set by 
+     * each driver module to convey this; it's not a
+     * method constant because of the difference between
+     * IMAP2bis and IMAP4, and because POP3 doesn't  peek
+     * if fetchall is on).
+     *
+     * The result of being unable to peek is that if there's
+     * any kind of transient error (DNS lookup failure, or
+     * sendmail refusing delivery due to process-table limits)
+     * the message will be marked "seen" on the server without
+     * having been delivered.  This is not a big problem if
+     * fetchmail is running in foreground, because the user
+     * will see a "skipped" message when it next runs and get
+     * clued in.
+     *
+     * But in daemon mode this leads to the message
+     * being silently ignored forever.  This is not
+     * acceptable.
+     *
+     * We compensate for this by checking the error
+     * count from the previous pass and forcing all
+     * messages to be considered new if it's nonzero.
+     */
+    force_retrieval = !peek_capable && (ctl->errcount > 0);
 
     for (num = 1; num <= count; num++)
     {
@@ -417,27 +473,82 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 	flag suppress_forward = FALSE;
 	flag suppress_readbody = FALSE;
 	flag retained = FALSE;
+	int msgcode = MSGLEN_UNKNOWN;
 
-	if (msgcodes[num-1] < 0)
+	/* check if the message is old
+	 * Note: the size of the message may not be known here */
+	if (ctl->fetchall || force_retrieval)
+	    ;
+	else if (ctl->server.base_protocol->is_old && (ctl->server.base_protocol->is_old)(mailserver_socket,ctl,num))
+	    msgcode = MSGLEN_OLD;
+	if (msgcode == MSGLEN_OLD)
 	{
-	    if ((msgcodes[num-1] == MSGLEN_TOOLARGE) && !check_only)
-		mark_oversized(ctl, num, msgsizes[num-1]);
   		/* To avoid flooding the syslog when using --keep,
   		 * report "Skipped message" only when:
   		 *  1) --verbose is on, or
-  		 *  2) fetchmail does not use syslog, or
-  		 *  3) the message was skipped for some other
-  		 *     reason than being old.
+  		 *  2) fetchmail does not use syslog
   		 */
 	    if (   (outlevel >= O_VERBOSE) ||
-	           (outlevel > O_SILENT && (!run.use_syslog || msgcodes[num-1] != MSGLEN_OLD))
+	           (outlevel > O_SILENT && !run.use_syslog)
 	       )
 	    {
 		report_build(stdout, 
+			     GT_("skipping message %s@%s:%d"),
+			     ctl->remotename, ctl->server.truename, num);
+	    }
+
+	    goto flagthemail;
+	}
+
+	if (ctl->server.base_protocol->getpartialsizes && NUM_NONZERO(fetchsizelimit) &&
+	    lastnum < num)
+	{
+	    /* Instead of getting the sizes of all mails at the start, we get
+	     * the sizes in blocks of fetchsizelimit. This leads to better
+	     * performance when there are too many mails (say, 10000) in
+	     * the mailbox and either we are not getting all the mails at
+	     * one go (--fetchlimit 100) or there is a frequent socket
+	     * error while just getting the sizes of all mails! */
+
+	    int i;
+	    int oldstage = stage;
+	    firstnum = num;
+	    lastnum = num + fetchsizelimit - 1;
+	    if (lastnum > count)
+		lastnum = count;
+	    for (i = 0; i < fetchsizelimit; i++)
+		msgsizes[i] = 0;
+
+	    stage = STAGE_GETSIZES;
+	    err = (ctl->server.base_protocol->getpartialsizes)(mailserver_socket, num, lastnum, msgsizes);
+	    if (err != 0)
+		return err;
+	    stage = oldstage;
+	}
+
+	msgsize = msgsizes ? msgsizes[num-firstnum] : 0;
+
+	/* check if the message is oversized */
+	if (NUM_NONZERO(ctl->limit) && (msgsize > ctl->limit))
+	    msgcode = MSGLEN_TOOLARGE;
+/*	else if (msgsize == 512)
+	    msgcode = MSGLEN_OLD;  (hmh) sample code to skip message */
+
+	if (msgcode < 0)
+	{
+	    if ((msgcode == MSGLEN_TOOLARGE) && !check_only)
+	    {
+		mark_oversized(ctl, num, msgsize);
+		suppress_delete = TRUE;
+	    }
+	    if (outlevel > O_SILENT)
+	    {
+		/* old messages are already handled above */
+		report_build(stdout, 
 			     GT_("skipping message %s@%s:%d (%d octets)"),
 			     ctl->remotename, ctl->server.truename, num,
-			     msgsizes[num-1]);
-		switch (msgcodes[num-1])
+			     msgsize);
+		switch (msgcode)
 		{
 		case MSGLEN_INVALID:
 		    /*
@@ -461,6 +572,7 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 	else
 	{
 	    flag wholesize = !ctl->server.base_protocol->fetch_body;
+	    flag separatefetchbody = (ctl->server.base_protocol->fetch_body) ? TRUE : FALSE;
 
 	    /* request a message */
 	    err = (ctl->server.base_protocol->fetch_headers)(mailserver_socket,ctl,num, &len);
@@ -469,7 +581,7 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 		report(stdout,
 			     GT_("couldn't fetch headers, message %s@%s:%d (%d octets)\n"),
 			     ctl->remotename, ctl->server.truename, num,
-			     msgsizes[num-1]);
+			     msgsize);
 		continue;
 	    }
 	    else if (err != 0)
@@ -478,7 +590,7 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 	    /* -1 means we didn't see a size in the response */
 	    if (len == -1)
 	    {
-		len = msgsizes[num - 1];
+		len = msgsize;
 		wholesize = TRUE;
 	    }
 
@@ -501,46 +613,24 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 	     * Read the message headers and ship them to the
 	     * output sink.  
 	     */
-	    err = readheaders(mailserver_socket, len, msgsizes[num-1],
-			     ctl, num);
+	    err = readheaders(mailserver_socket, len, msgsize,
+			     ctl, num,
+			     /* pass the suppress_readbody flag only if the underlying
+			      * protocol does not fetch the body separately */
+			     separatefetchbody ? 0 : &suppress_readbody);
 	    if (err == PS_RETAINED)
-	    {
 		suppress_forward = suppress_delete = retained = TRUE;
-		/* do not read the body only if the underlying protocol
-		 * allows the body to be fetched separately */
-		if (ctl->server.base_protocol->fetch_body)
-		    suppress_readbody = TRUE;
-	    }
 	    else if (err == PS_TRANSIENT)
-	    {
 		suppress_delete = suppress_forward = TRUE;
-		if (ctl->server.base_protocol->fetch_body)
-		    suppress_readbody = TRUE;
-	    }
 	    else if (err == PS_REFUSED)
-	    {
 		suppress_forward = TRUE;
-		if (ctl->server.base_protocol->fetch_body)
-		    suppress_readbody = TRUE;
-	    }
 	    else if (err == PS_TRUNCATED)
-	    {
-		if (ctl->server.base_protocol->fetch_body)
-		    suppress_readbody = TRUE;
-		len = 0;	/* suppress body processing */
-	    }
+		suppress_readbody = TRUE;
 	    else if (err)
 		return(err);
 
-	    /* 
-	     * If we're using IMAP4 or something else that
-	     * can fetch headers separately from bodies,
-	     * it's time to request the body now.  This
-	     * fetch may be skipped if we got an anti-spam
-	     * or other PS_REFUSED error response during
-	     * readheaders.
-	     */
-	    if (ctl->server.base_protocol->fetch_body && !suppress_readbody) 
+	    /* tell server we got it OK and resynchronize */
+	    if (separatefetchbody && ctl->server.base_protocol->trail)
 	    {
 		if (outlevel >= O_VERBOSE && !isafile(1))
 		{
@@ -550,9 +640,27 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 
 		if ((err = (ctl->server.base_protocol->trail)(mailserver_socket, ctl, num)))
 		    return(err);
-		len = 0;
-		if (!suppress_forward)
+	    }
+
+	    /* do not read the body which is not being forwarded only if
+	     * the underlying protocol allows the body to be fetched
+	     * separately */
+	    if (separatefetchbody && suppress_forward)
+		suppress_readbody = TRUE;
+
+	    /* 
+	     * If we're using IMAP4 or something else that
+	     * can fetch headers separately from bodies,
+	     * it's time to request the body now.  This
+	     * fetch may be skipped if we got an anti-spam
+	     * or other PS_REFUSED error response during
+	     * readheaders.
+	     */
+	    if (!suppress_readbody)
+	    {
+		if (separatefetchbody)
 		{
+		    len = -1;
 		    if ((err=(ctl->server.base_protocol->fetch_body)(mailserver_socket,ctl,num,&len)))
 			return(err);
 		    /*
@@ -563,27 +671,17 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 		     * string.  This violates RFC2060.
 		     */
 		    if (len == -1)
-			len = msgsizes[num-1] - msgblk.msglen;
+			len = msgsize - msgblk.msglen;
 		    if (outlevel > O_SILENT && !wholesize)
 			report_complete(stdout,
 					GT_(" (%d body octets) "), len);
 		}
-	    }
 
-	    /* process the body now */
-	    if (len > 0)
-	    {
-		if (suppress_readbody)
-		{
-		    err = PS_SUCCESS;
-		}
-		else
-		{
-		    err = readbody(mailserver_socket,
-				  ctl,
-				  !suppress_forward,
-				  len);
-		}
+		/* process the body now */
+		err = readbody(mailserver_socket,
+			      ctl,
+			      !suppress_forward,
+			      len);
 		if (err == PS_TRANSIENT)
 		    suppress_delete = suppress_forward = TRUE;
 		else if (err)
@@ -630,13 +728,13 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 	     * QUALCOMM server (at least) seems to be
 	     * reporting the on-disk size correctly.
 	     */
-	    if (msgblk.msglen != msgsizes[num-1])
+	    if (msgblk.msglen != msgsize)
 	    {
 		if (outlevel >= O_DEBUG)
 		    report(stdout,
 			   GT_("message %s@%s:%d was not the expected length (%d actual != %d expected)\n"),
 			   ctl->remotename, ctl->server.truename, num,
-			   msgblk.msglen, msgsizes[num-1]);
+			   msgblk.msglen, msgsize);
 	    }
 
 	    /* end-of-message processing starts here */
@@ -649,6 +747,7 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 		(*fetches)++;
 	}
 
+flagthemail:
 	/*
 	 * At this point in flow of control, either
 	 * we've bombed on a protocol error or had
@@ -660,25 +759,6 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 	 * now.
 	 */
 
-	/*
-	 * Tell the UID code we've seen this.
-	 * Matthias Andree: only register the UID if we could actually
-	 * forward this mail. If we omit this !suppress_delete check,
-	 * fetchmail will never retry mail that the local listener
-	 * refused temporarily.
-	 */
-	if (ctl->newsaved && !suppress_delete)
-	{
-	    struct idlist	*sdp;
-
-	    for (sdp = ctl->newsaved; sdp; sdp = sdp->next)
-		if ((sdp->val.status.num == num) && (msgcodes[num-1] >= 0))
-		{
-		    sdp->val.status.mark = UID_SEEN;
-		    save_str(&ctl->oldsaved, sdp->id,UID_SEEN);
-		}
-	}
-
 	/* maybe we delete this message now? */
 	if (retained)
 	{
@@ -687,7 +767,8 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 	}
 	else if (ctl->server.base_protocol->delete
 		 && !suppress_delete
-		 && ((msgcodes[num-1] >= 0) ? !ctl->keep : ctl->flush))
+		 && ((msgcode >= 0 && !ctl->keep)
+		     || (msgcode == MSGLEN_OLD && ctl->flush)))
 	{
 	    (*deletions)++;
 	    if (outlevel > O_SILENT) 
@@ -695,11 +776,10 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 	    err = (ctl->server.base_protocol->delete)(mailserver_socket, ctl, num);
 	    if (err != 0)
 		return(err);
-#ifdef POP3_ENABLE
-	    delete_str(&ctl->newsaved, num);
-#endif /* POP3_ENABLE */
 	}
-	else if (   (outlevel >= O_VERBOSE) ||
+	else
+	{
+	    if (   (outlevel >= O_VERBOSE) ||
          		/* To avoid flooding the syslog when using --keep,
          		 * report "Skipped message" only when:
          		 *  1) --verbose is on, or
@@ -707,12 +787,23 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
          		 *  3) the message was skipped for some other
          		 *     reason than just being old.
          		 */
-	           (outlevel > O_SILENT && (!run.use_syslog || msgcodes[num-1] != MSGLEN_OLD))
+	           (outlevel > O_SILENT && (!run.use_syslog || msgcode != MSGLEN_OLD))
 	       )
 	    report_complete(stdout, GT_(" not flushed\n"));
 
+	    /* maybe we mark this message as seen now? */
+	    if (ctl->server.base_protocol->mark_seen
+		&& !suppress_delete
+		&& (msgcode >= 0 && ctl->keep))
+	    {
+		err = (ctl->server.base_protocol->mark_seen)(mailserver_socket, ctl, num);
+		if (err != 0)
+		    return(err);
+	    }
+	}
+
 	/* perhaps this as many as we're ready to handle */
-	if (maxfetch && maxfetch <= *fetches && *fetches < count)
+	if (maxfetch && maxfetch <= *fetches && num < count)
 	{
 	    report(stdout, GT_("fetchlimit %d reached; %d messages left on server %s account %s\n"),
 		   maxfetch, count - *fetches, ctl->server.truename, ctl->remotename);
@@ -736,8 +827,8 @@ const int maxfetch;		/* maximum number of messages to fetch */
     int err, mailserver_socket = -1;
 #endif /* HAVE_VOLATILE */
     const char *msg;
-    void (*pipesave)(int);
-    void (*alrmsave)(int);
+    SIGHANDLERTYPE pipesave;
+    SIGHANDLERTYPE alrmsave;
 
     ctl->server.base_protocol = proto;
 
@@ -746,11 +837,11 @@ const int maxfetch;		/* maximum number of messages to fetch */
     init_transact(proto);
 
     /* set up the server-nonresponse timeout */
-    alrmsave = signal(SIGALRM, timeout_handler);
+    alrmsave = set_signal_handler(SIGALRM, timeout_handler);
     mytimeout = ctl->server.timeout;
 
     /* set up the broken-pipe timeout */
-    pipesave = signal(SIGPIPE, sigpipe_handler);
+    pipesave = set_signal_handler(SIGPIPE, sigpipe_handler);
 
     if ((js = setjmp(restart)))
     {
@@ -772,7 +863,7 @@ const int maxfetch;		/* maximum number of messages to fetch */
 	
 	if (js == THROW_SIGPIPE)
 	{
-	    signal(SIGPIPE, SIG_IGN);
+	    set_signal_handler(SIGPIPE, SIG_IGN);
 	    report(stdout,
 		   GT_("SIGPIPE thrown from an MDA or a stream socket error\n"));
 	    wait(0);
@@ -834,7 +925,6 @@ const int maxfetch;		/* maximum number of messages to fetch */
 	char buf[MSGBUFSIZE+1], *realhost;
 	int count, new, bytes, deletions = 0;
 	int *msgsizes = (int *)NULL;
-	int *msgcodes = (int *)NULL;
 #if INET6_ENABLE
 	int fetches, dispatches, oldphase;
 #else /* INET6_ENABLE */
@@ -922,8 +1012,8 @@ const int maxfetch;		/* maximum number of messages to fetch */
 		if (namerec == (struct hostent *)NULL)
 		{
 		    report(stderr,
-			   GT_("couldn't find canonical DNS name of %s\n"),
-			   ctl->server.pollname);
+			   GT_("couldn't find canonical DNS name of %s (%s)\n"),
+			   ctl->server.pollname, ctl->server.queryname);
 		    err = PS_DNS;
 		    set_timeout(0);
 		    phase = oldphase;
@@ -1025,8 +1115,8 @@ const int maxfetch;		/* maximum number of messages to fetch */
 	}
 
 #ifdef SSL_ENABLE
-	/* Save the socket opened. Usefull if Fetchmail hangs on SSLOpen 
-	 * because the socket can be closed
+	/* Save the socket opened. Useful if Fetchmail hangs on SSLOpen 
+	 * because the socket can be closed.
 	 */
 	mailserver_socket_temp = mailserver_socket;
 	set_timeout(mytimeout);
@@ -1038,6 +1128,7 @@ const int maxfetch;		/* maximum number of messages to fetch */
 	    ctl->sslcertpath,ctl->sslfingerprint,realhost,ctl->server.pollname) == -1) 
 	{
 	    report(stderr, GT_("SSL connection failed.\n"));
+	    err = PS_AUTHFAIL;
 	    goto closeUp;
 	}
 	
@@ -1251,7 +1342,7 @@ is restored."));
 		    (void) sprintf(buf,
 #endif /* HAVE_SNPRINTF */
 				   GT_("%s at %s (folder %s)"),
-				   ctl->remotename, ctl->server.truename, idp->id);
+				   ctl->remotename, ctl->server.pollname, idp->id);
 		else
 #ifdef HAVE_SNPRINTF
 		    (void) snprintf(buf, sizeof(buf),
@@ -1259,7 +1350,7 @@ is restored."));
 		    (void) sprintf(buf,
 #endif /* HAVE_SNPRINTF */
 			       GT_("%s at %s"),
-				   ctl->remotename, ctl->server.truename);
+				   ctl->remotename, ctl->server.pollname);
 		if (outlevel > O_SILENT)
 		{
 		    if (count == -1)		/* only used for ETRN */
@@ -1267,10 +1358,12 @@ is restored."));
 		    else if (count != 0)
 		    {
 			if (new != -1 && (count - new) > 0)
-			    report_build(stdout, GT_("%d %s (%d seen) for %s"),
+			    report_build(stdout, GT_("%d %s (%d %s) for %s"),
 				  count, count > 1 ? GT_("messages") :
 				                     GT_("message"),
-				  count-new, buf);
+				  count-new, 
+				  GT_("seen"),
+				  buf);
 			else
 			    report_build(stdout, GT_("%d %s for %s"), 
 				  count, count > 1 ? GT_("messages") :
@@ -1306,37 +1399,7 @@ is restored."));
 		}
 		else if (count > 0)
 		{    
-		    flag	force_retrieval;
-		    int		i, num;
-
-		    /*
-		     * What forces this code is that in POP2 and
-		     * IMAP2bis you can't fetch a message without
-		     * having it marked `seen'.  In POP3 and IMAP4, on the
-		     * other hand, you can (peek_capable is set by 
-		     * each driver module to convey this; it's not a
-		     * method constant because of the difference between
-		     * IMAP2bis and IMAP4, and because POP3 doesn't  peek
-		     * if fetchall is on).
-		     *
-		     * The result of being unable to peek is that if there's
-		     * any kind of transient error (DNS lookup failure, or
-		     * sendmail refusing delivery due to process-table limits)
-		     * the message will be marked "seen" on the server without
-		     * having been delivered.  This is not a big problem if
-		     * fetchmail is running in foreground, because the user
-		     * will see a "skipped" message when it next runs and get
-		     * clued in.
-		     *
-		     * But in daemon mode this leads to the message
-		     * being silently ignored forever.  This is not
-		     * acceptable.
-		     *
-		     * We compensate for this by checking the error
-		     * count from the previous pass and forcing all
-		     * messages to be considered new if it's nonzero.
-		     */
-		    force_retrieval = !peek_capable && (ctl->errcount > 0);
+		    int		i;
 
 		    /*
 		     * Don't trust the message count passed by the server.
@@ -1351,23 +1414,23 @@ is restored."));
 			return(PS_PROTOCOL);
 		    }
 
-		    /* OK, we're going to gather size info next */
-		    xalloca(msgsizes, int *, sizeof(int) * count);
-		    xalloca(msgcodes, int *, sizeof(int) * count);
-		    for (i = 0; i < count; i++) {
-			msgsizes[i] = 0;
-			msgcodes[i] = MSGLEN_UNKNOWN;
-		    }
-
 		    /* 
 		     * We need the size of each message before it's
 		     * loaded in order to pass it to the ESMTP SIZE
 		     * option.  If the protocol has a getsizes method,
 		     * we presume this means it doesn't get reliable
 		     * sizes from message fetch responses.
+		     *
+		     * If the protocol supports getting sizes of subset of
+		     * messages, we skip this step now.
 		     */
-		    if (proto->getsizes)
+		    if (proto->getsizes &&
+			!(proto->getpartialsizes && NUM_NONZERO(ctl->fetchsizelimit)))
 		    {
+			xalloca(msgsizes, int *, sizeof(int) * count);
+			for (i = 0; i < count; i++)
+			    msgsizes[i] = 0;
+
 			stage = STAGE_GETSIZES;
 			err = (proto->getsizes)(mailserver_socket, count, msgsizes);
 			if (err != 0)
@@ -1381,25 +1444,12 @@ is restored."));
 			}
 		    }
 
-		    /* mark some messages not to be retrieved */
-		    for (num = 1; num <= count; num++)
-		    {
-			if (NUM_NONZERO(ctl->limit) && (msgsizes[num-1] > ctl->limit))
-			    msgcodes[num-1] = MSGLEN_TOOLARGE;
-			else if (ctl->fetchall || force_retrieval)
-			    continue;
-			else if (ctl->server.base_protocol->is_old && (ctl->server.base_protocol->is_old)(mailserver_socket,ctl,num))
-			    msgcodes[num-1] = MSGLEN_OLD;
-/*			else if (msgsizes[num-1] == 512)
-				msgcodes[num-1] = MSGLEN_OLD;  (hmh) sample code to skip message */
-		    }
-
 		    /* read, forward, and delete messages */
 		    stage = STAGE_FETCH;
 
 		    /* fetch in lockstep mode */
 		    err = fetch_messages(mailserver_socket, ctl, 
-					 count, msgsizes, msgcodes,
+					 count, msgsizes,
 					 maxfetch,
 					 &fetches, &dispatches, &deletions);
 		    if (err)
@@ -1512,8 +1562,8 @@ closeUp:
     }
 
     set_timeout(0); /* cancel any pending alarm */
-    signal(SIGALRM, alrmsave);
-    signal(SIGPIPE, pipesave);
+    set_signal_handler(SIGALRM, alrmsave);
+    set_signal_handler(SIGPIPE, pipesave);
     return(err);
 }
 
@@ -1569,7 +1619,8 @@ const struct method *proto;	/* protocol method table */
      * If no expunge limit or we do expunges within the driver,
      * then just do one session, passing in any fetchlimit.
      */
-    if (proto->retry || !NUM_SPECIFIED(ctl->expunge))
+    if ((ctl->keep && !ctl->flush) ||
+	proto->retry || !NUM_SPECIFIED(ctl->expunge))
 	return(do_session(ctl, proto, NUM_VALUE_OUT(ctl->fetchlimit)));
     /*
      * There's an expunge limit, and it isn't handled in the driver itself.

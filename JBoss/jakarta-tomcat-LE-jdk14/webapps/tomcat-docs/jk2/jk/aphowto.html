@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/TR/xhtml1/strict">
 <head>
 <title>Apache HowTo</title>
-<meta content="1999-2002 The Apache Software Foundation" name="copyright"/>
+<meta content="1999-2003 The Apache Software Foundation" name="copyright"/>
 <meta content="$Date$" name="last-changed"/>
 <meta content="Henri Gomez" name="author"/>
 <meta content="hgomez@apache.org" name="email"/>
@@ -83,6 +83,22 @@
 <td colspan="2" width="150" bgcolor="#cccccc">
 <nobr>
 <a class="menu" href="../common/AJPv13-extensions-proposal.html">AJPv13 extensions Proposal</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../common/doccontrib.html">How to Contribute to the Documentation</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../common/tools.html">Tools</a>
 </nobr>
 </td>
 </tr>
@@ -229,6 +245,14 @@
 <tr>
 <td colspan="2" width="150" bgcolor="#cccccc">
 <nobr>
+<a class="menu" href="../jk2/configtccom.html">Coyote/JK2 Handlers</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
 <a class="menu" href="../jk2/configtcex.html">Examples</a>
 </nobr>
 </td>
@@ -282,6 +306,14 @@
 <td colspan="2" width="150" bgcolor="#cccccc">
 <nobr>
 <a class="menu" href="../jk2/confighowto.html">Quick Start JK2 Configuration Guide</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/vhosthowto.html">Apache 2.0.43 - Tomcat 4.1.12 - jk2 - virtual host HOWTO</a>
 </nobr>
 </td>
 </tr>
@@ -471,6 +503,11 @@ Depending on the platform you are running your web server on, a binary version o
 <p class="section">
 It is recommended to use the binary version if one is available.  
 If the binary is not available, follow the instructions for building mod_jk from source.  
+The mod_jk source can be downloaded from a mirror
+<b>
+<a href="http://jakarta.apache.org/site/sourceindex.cgi/">
+here</a>
+</b>
 </p>
 <p class="section">
 The binaries for mod_jk are now available, for several platforms, in a separate area as the Tomcat Binary Release.  
@@ -484,97 +521,12 @@ since most Windows systems do not have C compilers.
 For others, the binary distribution of mod_jk offers simpler installation.
 </p>
 <p class="section">
-For example JK 1.2.1 can be found <b>
-<a href="http://jakarta.apache.org/builds/jakarta-tomcat-connectors/jk/release/v1.2.1/bin/">
+For example JK 1.2.5 can be downloaded from a mirror
+<b>
+<a href="http://jakarta.apache.org/site/binindex.cgi/">
 here</a>
-</b> and contains the following:
-</p>
-<p class="section">
-<table border="0">
-<tr>
-<td align="middle" valign="top" bgcolor="#039acc">Location</td>
-<td align="middle" valign="top" bgcolor="#039acc">Contents</td>
-</tr>
-<tr>
-<td align="left" valign="top" bgcolor="#a0ddf0">
-<b>
-<a href="http://jakarta.apache.org/builds/jakarta-tomcat-connectors/jk/release/v1.2.1/bin/aix/">aix</a>
-</b>
-</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">SAVF including mod_jk for Apache 2.0 for iSeries V5R1/V5R2</td>
-</tr>
-<tr>
-<td align="left" valign="top" bgcolor="#a0ddf0">
-<b>
-<a href="http://jakarta.apache.org/builds/jakarta-tomcat-connectors/jk/release/v1.2.1/bin/iseries/">iseries</a>
-</b>
-</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">SAVF including mod_jk for Apache 2.0 for iSeries V5R1/V5R2</td>
-</tr>
-<tr>
-<td align="left" valign="top" bgcolor="#a0ddf0">
-<b>
-<a href="http://jakarta.apache.org/builds/jakarta-tomcat-connectors/jk/release/v1.2.1/bin/linux/">linux</a>
-</b>
-</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">mod_jk.so (Apache 1.3 standard API and EAPI and Apache 2.0) for some Linux Archs</td>
-</tr>
-<tr>
-<td align="left" valign="top" bgcolor="#a0ddf0">
-<b>
-<a href="http://jakarta.apache.org/builds/jakarta-tomcat-connectors/jk/release/v1.2.1/bin/macosx/">macosx</a>
-</b>
-</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">Contains the mod_jk.so for MacOS X</td>
-</tr>
-<tr>
-<td align="left" valign="top" bgcolor="#a0ddf0">
-<b>
-<a href="http://jakarta.apache.org/builds/jakarta-tomcat-connectors/jk/release/v1.2.1/bin/netware/">netware</a>
-</b>
-</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">mod_jk.nlm and nsapi.nlm for Netware</td>
-</tr>
-<tr>
-<td align="left" valign="top" bgcolor="#a0ddf0">
-<b>
-<a href="http://jakarta.apache.org/builds/jakarta-tomcat-connectors/jk/release/v1.2.1/bin/rpms/">rpms</a>
-</b>
-</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">Contains the rpms (including sources and i386/ppc architectures)</td>
-</tr>
-<tr>
-<td align="left" valign="top" bgcolor="#a0ddf0">
-<b>
-<a href="http://jakarta.apache.org/builds/jakarta-tomcat-connectors/jk/release/v1.2.1/bin/solaris6/">solaris6</a>
-</b>
-</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">Contains the mod_jk.so for Solaris 6</td>
-</tr>
-<tr>
-<td align="left" valign="top" bgcolor="#a0ddf0">
-<b>
-<a href="http://jakarta.apache.org/builds/jakarta-tomcat-connectors/jk/release/v1.2.1/bin/solaris8/">solaris8</a>
-</b>
-</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">Contains the mod_jk.so for Solaris 8</td>
-</tr>
-<tr>
-<td align="left" valign="top" bgcolor="#a0ddf0">
-<b>
-<a href="http://jakarta.apache.org/builds/jakarta-tomcat-connectors/jk/release/v1.2.1/bin/win32/">win32</a>
-</b>
-</td>
-<td align="left" valign="top" bgcolor="#a0ddf0">Contains the mod_jk.dll for Windows as well as other useful binaries.</td>
-</tr>
-</table>
-</p>
-<p class="section">
-If you don't see your Operating System here, the doc may be outdated so just go 
-<b>
-<a href="http://jakarta.apache.org/builds/jakarta-tomcat-connectors/jk/release/v1.2.1/bin/">
-here</a>
-</b> and check if one of the directory didn't cover your os
+</b> and contains binary version for a variety of
+operating systems for both Apache 1.3 and Apache 2.
 </p>
 <br/>
 <a name="Installation">
@@ -1819,7 +1771,7 @@ Then go to the iSeries command line :
 <code>
 <nobr>
 <em class="screen5250">===&gt;</em>
-<b class="screen5250">CRTLIB MOD_JK TEXT(Apache mod_jk tomcat connector module)</b>
+<b class="screen5250">CRTLIB MOD_JK TEXT(&#145;Apache mod_jk tomcat connector module&#146;)</b>
 </nobr>
 </code>
 <br/>
@@ -1827,7 +1779,7 @@ Then go to the iSeries command line :
 <code>
 <nobr>
 <em class="screen5250">===&gt;</em>
-<b class="screen5250">CRTSRCPF MOD_JK/QSRVSRC TEXT(Service program source file)</b>
+<b class="screen5250">CRTSRCPF MOD_JK/QSRVSRC TEXT(&#145;Service program source file&#146;)</b>
 </nobr>
 </code>
 <br/>
@@ -1835,7 +1787,7 @@ Then go to the iSeries command line :
 <code>
 <nobr>
 <em class="screen5250">===&gt;</em>
-<b class="screen5250">CRTSRCPF FILE(MOD_JK/QCLSRC) TEXT(Build program source file)</b>
+<b class="screen5250">CRTSRCPF FILE(MOD_JK/QCLSRC) TEXT(&#145;Build program source file&#146;)</b>
 </nobr>
 </code>
 <br/>
@@ -1926,7 +1878,7 @@ You could start to build all the modules of mod_jk :
 <code>
 <nobr>
 <em class="screen5250">===&gt;</em>
-<b class="screen5250">CPYFRMSTMF FROMSTMF('/home/apache/jk/native/apache-2.0/bldjk.qcsrc') +</b>
+<b class="screen5250">CPYFRMSTMF FROMSTMF('/home/apache/jk/native/apache-2.0/bldjk.qclsrc') +</b>
 </nobr>
 </code>
 <br/>

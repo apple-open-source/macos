@@ -30,22 +30,39 @@
 #ifndef _PLATFORMFUNCTIONS_H
 #define _PLATFORMFUNCTIONS_H
 
-#include <IOKit/IOLib.h>
-#include <IOKit/IOService.h>
-#include <libkern/c++/OSObject.h>
-#include <libkern/c++/OSIterator.h>
-
-#ifdef DLOG
-#undef DLOG
+#ifndef PFPARSE
+#	include <IOKit/IOLib.h>
+#	include <IOKit/IOService.h>
+#	include <libkern/c++/OSObject.h>
+#	include <libkern/c++/OSIterator.h>
+#else
+#	include <stdio.h>
+#	include <libkern/OSTypes.h>
 #endif
 
-// Uncomment to enable debug output
+#ifdef DLOG
+#	undef DLOG
+#endif
+
+#ifdef PFPARSE
+// Always defined for command line tool
+#	define IOPFDEBUG 1
+#else
+// For IOPlatformFunction kext debugging, uncomment to enable debug output
 //#define IOPFDEBUG 1
+#endif
 
 #ifdef IOPFDEBUG
-#define DLOG(fmt, args...)  kprintf(fmt, ## args)
+#	ifdef PFPARSE
+__BEGIN_DECLS
+		void dprintf(const char *fmt, ...);
+__END_DECLS
+#		define DLOG  dprintf
+#	else
+#		define DLOG(fmt, args...)  kprintf(fmt, ## args)
+#	endif
 #else
-#define DLOG(fmt, args...)
+#	define DLOG(fmt, args...)
 #endif
 
 // To enumerate a nubs platform functions do:
@@ -63,14 +80,15 @@
 
 // Platform function flags - UInt32
 enum {
-	kIOPFFlagOnInit		= 0x80000000,
-	kIOPFFlagOnTerm		= 0x40000000,
-	kIOPFFlagOnSleep	= 0x20000000,
-	kIOPFFlagOnWake		= 0x10000000,
-	kIOPFFlagOnDemand	= 0x08000000,
-	kIOPFFlagIntGen		= 0x04000000,
-	kIOPFFlagHighSpeed	= 0x02000000,
-	kIOPFFlagLowSpeed	= 0x01000000
+	kIOPFFlagOnInit			= 0x80000000,
+	kIOPFFlagOnTerm			= 0x40000000,
+	kIOPFFlagOnSleep		= 0x20000000,
+	kIOPFFlagOnWake			= 0x10000000,
+	kIOPFFlagOnDemand		= 0x08000000,
+	kIOPFFlagIntGen			= 0x04000000,
+	kIOPFFlagHighSpeed		= 0x02000000,
+	kIOPFFlagLowSpeed		= 0x01000000,
+	kIOPFFlagSideEffects	= 0x00800000
 };
 
 // Platform function selectors - use as OSSymbols
@@ -81,59 +99,73 @@ enum {
 
 // Platform function opcodes - UInt32
 enum {
-	kCommandCommandList				= 0,	// Command List
+	kCommandCommandList				= 0,	// [0x0] Command List
 	kCommandCommandListLength		= 1,	// 1 longword of data in command
-	kCommandWriteGPIO				= 1,	// Write to a GPIO
+	kCommandWriteGPIO				= 1,	// [0x1] Write to a GPIO
 	kCommandWriteGPIOLength			= 2,	// 2 longwords of data in command
-	kCommandReadGPIO				= 2,	// Read from a GPIO
+	kCommandReadGPIO				= 2,	// [0x2] Read from a GPIO
 	kCommandReadGPIOLength			= 3,	// 3 longwords of data in command
-	kCommandWriteReg32				= 3,	// Write to a 32-bit register
+	kCommandWriteReg32				= 3,	// [0x3] Write to a 32-bit register
 	kCommandWriteReg32Length		= 3,	// 3 longwords of data in command
-	kCommandReadReg32				= 4,	// Read from a 32-bit register
+	kCommandReadReg32				= 4,	// [0x4] Read from a 32-bit register
 	kCommandReadReg32Length			= 1,	// 1 longword of data in command
-	kCommandWriteReg16				= 5,	// Write to a 16-bit register
+	kCommandWriteReg16				= 5,	// [0x5] Write to a 16-bit register
 	kCommandWriteReg16Length		= 3,	// 3 longwords of data in command
-	kCommandReadReg16				= 6,	// Read from a 16-bit register
+	kCommandReadReg16				= 6,	// [0x6] Read from a 16-bit register
 	kCommandReadReg16Length			= 1,	// 1 longword of data in command
-	kCommandWriteReg8				= 7,	// Write to an 8-bit register
+	kCommandWriteReg8				= 7,	// [0x7] Write to an 8-bit register
 	kCommandWriteReg8Length			= 3,	// 3 longwords of data in command
-	kCommandReadReg8				= 8,	// Read from an 8-bit register
+	kCommandReadReg8				= 8,	// [0x8] Read from an 8-bit register
 	kCommandReadReg8Length			= 1,	// 1 longword of data in command
-	kCommandDelay					= 9,	// Delay between commands
+	kCommandDelay					= 9,	// [0x9] Delay between commands
 	kCommandDelayLength				= 1,	// 1 longword of data in command
-	kCommandWaitReg32				= 10,	// Wait for hw state change in 32-bit register
+	kCommandWaitReg32				= 10,	// [0xA] Wait for hw state change in 32-bit register
 	kCommandWaitReg32Length			= 3,	// 3 longwords of data in command
-	kCommandWaitReg16				= 11,	// Wait for hw state change in 16-bit register
+	kCommandWaitReg16				= 11,	// [0xB] Wait for hw state change in 16-bit register
 	kCommandWaitReg16Length			= 3,	// 3 longwords of data in command
-	kCommandWaitReg8				= 12,	// Wait for hw state change in 8-bit register
+	kCommandWaitReg8				= 12,	// [0xC] Wait for hw state change in 8-bit register
 	kCommandWaitReg8Length			= 3,	// 3 longwords of data in command
-	kCommandReadI2C					= 13,	// Read from I2C bus
+	kCommandReadI2C					= 13,	// [0xD] Read from I2C bus
 	kCommandReadI2CLength			= 1,	// 1 longword of data in command
-	kCommandWriteI2C				= 14,	// Write to I2C bus
+	kCommandWriteI2C				= 14,	// [0xE] Write to I2C bus
 	kCommandWriteI2CLength			= 1,	// Variable - 1 longword of data + length of array in command
-	kCommandRMWI2C					= 15,	// Read-Modify-Write to I2C bus
+	kCommandRMWI2C					= 15,	// [0xF] Read-Modify-Write to I2C bus
 	kCommandRMWI2CLength			= 3,	// Variable - 3 longwords of data + length of mask array + length of value array
-	kCommandGeneralI2C				= 16,	// General I2C
+	kCommandGeneralI2C				= 16,	// [0x10] General I2C
 	kCommandGeneralI2CLength		= 0,	// Unspecified
-	kCommandShiftBytesRight			= 17,	// Shift byte stream right
+	kCommandShiftBytesRight			= 17,	// [0x11] Shift byte stream right
 	kCommandShiftBytesRightLength	= 2,	// 2 longwords of data in command
-	kCommandShiftBytesLeft			= 18,	// Shift byte stream left
+	kCommandShiftBytesLeft			= 18,	// [0x12] Shift byte stream left
 	kCommandShiftBytesLeftLength	= 2,	// 2 longwords of data in command
-	kCommandReadConfig				= 19,	// Config cycle read
+	kCommandReadConfig				= 19,	// [0x13] Config cycle read
 	kCommandReadConfigLength		= 2,	// 2 longwords of data in command
-	kCommandWriteConfig				= 20,	// Config cycle write
+	kCommandWriteConfig				= 20,	// [0x14] Config cycle write
 	kCommandWriteConfigLength		= 2,	// 2 longwords of data in command
-	kCommandRMWConfig				= 21,	// Config read-modify-write cycle
+	kCommandRMWConfig				= 21,	// [0x15] Config read-modify-write cycle
 	kCommandRMWConfigLength			= 4,	// Variable - 4 longwords of data + length of mask array + length of value array
-	kCommandReadI2CSubAddr			= 22,	// Read from SubAddress on I2C bus
+	kCommandReadI2CSubAddr			= 22,	// [0x16] Read from SubAddress on I2C bus
 	kCommandReadI2CSubAddrLength	= 2,	// 2 longwords of data in command
-	kCommandWriteI2CSubAddr			= 23,	// Write to SubAddress on I2C bus
+	kCommandWriteI2CSubAddr			= 23,	// [0x17] Write to SubAddress on I2C bus
 	kCommandWriteI2CSubAddrLength	= 2,	// Variable - 2 longwords of data + length of array in command
-	kCommandI2CMode					= 24,	// Set I2C bus transfer mode
+	kCommandI2CMode					= 24,	// [0x18] Set I2C bus transfer mode
 	kCommandI2CModeLength			= 1,	// 1 longword of data in command
-	kCommandRMWI2CSubAddr			= 25,	// Modify-Write to SubAddress
+	kCommandRMWI2CSubAddr			= 25,	// [0x19] Modify-Write to SubAddress
 	kCommandRMWI2CSubAddrLength		= 4,	// 4 longwords of data + length of mask array + length of value array
-	kCommandMaxCommand				= kCommandRMWI2CSubAddr
+	kCommandReadReg32MaskShRtXOR	= 26,	// [0x1A] Read 32 bit register, them mask, shift right and XOR
+	kCommandReadReg32MaskShRtXORLength	= 4,	// 4 longwords of data
+	kCommandReadReg16MaskShRtXOR	= 27,	// [0x1B] Read 16 bit register, them mask, shift right and XOR
+	kCommandReadReg16MaskShRtXORLength	= 4,	// 4 longwords of data
+	kCommandReadReg8MaskShRtXOR		= 28,	// [0x1C] Read 8 bit register, them mask, shift right and XOR
+	kCommandReadReg8MaskShRtXORLength	= 4,	// 4 longwords of data
+	kCommandWriteReg32ShLtMask		= 29,	// [0x1D] Write 32 bit register, with shift left and mask
+	kCommandWriteReg32ShLtMaskLength	= 3,	// 3 longwords of data
+	kCommandWriteReg16ShLtMask		= 30,	// [0x1E] Write 16 bit register, with shift left and mask
+	kCommandWriteReg16ShLtMaskLength	= 3,	// 3 longwords of data
+	kCommandWriteReg8ShLtMask		= 31,	// [0x1F] Write 8 bit register, with shift left and mask
+	kCommandWriteReg8ShLtMaskLength		= 3,	// 4 longwords of data
+	kCommandMaskandCompare		= 32,	// [0x20] Apply mask to byte stream and compare
+	kCommandMaskandCompareLength		= 1,	// 1 longword of data + mask array + compare value array
+	kCommandMaxCommand				= kCommandMaskandCompare
 };
 
 enum {
@@ -142,6 +174,8 @@ enum {
 	kIOPFBadCmdLength				= 2
 };
 
+#ifndef PFPARSE
+#define mypfobject this
 /*!
     @class IOPlatformFunction
     @abstract A class abstracting platform-do-function properties.  Note that this differs somewhat from a platform-do-function, which can contain multiple commands.  An IOPlatformFunction object deals with a single command, defined as (pHandle, flags, command[List])
@@ -372,4 +406,33 @@ public:
     OSMetaClassDeclareReservedUnused(IOPlatformFunctionIterator, 8);
     OSMetaClassDeclareReservedUnused(IOPlatformFunctionIterator, 9);
 };
+#else
+#	ifndef NULL
+#		define NULL 0L
+#	endif
+#define mypfobject NULL
+	extern UInt32				*commandPtr, *platformFunctionPtr;
+	extern UInt32				dataLengthRemaining;
+	extern bool					isCommandList;
+	extern bool					commandDone;
+	extern UInt32				totalCommandCount;
+	extern UInt32				currentCommandCount;
+
+__BEGIN_DECLS
+bool getNextCommand(UInt32 *cmd, UInt32 *cmdLen,
+					UInt32 *param1, UInt32 *param2, UInt32 *param3, UInt32 *param4, 
+					UInt32 *param5, UInt32 *param6, UInt32 *param7, UInt32 *param8, 
+					UInt32 *param9, UInt32 *param10, UInt32 *result);
+					
+UInt32 *scanSubCommand (UInt32 *cmdPtr, UInt32 lenRemaining,
+					bool quickScan, UInt32 *cmd, UInt32 *cmdLen,
+					UInt32 *param1, UInt32 *param2, UInt32 *param3, UInt32 *param4, 
+					UInt32 *param5, UInt32 *param6, UInt32 *param7, UInt32 *param8, 
+					UInt32 *param9, UInt32 *param10, UInt32 *result);
+					
+UInt32 *scanCommand (UInt32 *cmdPtr, UInt32 dataLen, UInt32 *cmdTotalLen,
+					UInt32 *flags, UInt32 *pHandle, UInt32 *result);
+__END_DECLS
+#endif // PFPARSE
+
 #endif

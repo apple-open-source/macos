@@ -32,7 +32,7 @@ import org.jboss.test.foedeployer.ejb.ql.CarCatalogHome;
  * Test of a simple WebLogic QL conversion
  *
  * @author <a href="mailto:loubyansky@hotmail.com">Alex Loubyansky</a>
- * @version $Revision: 1.1.2.1 $
+ * @version $Revision: 1.1.2.2 $
  */
 public class QLConversionTestCase
    extends JBossTestCase
@@ -48,7 +48,7 @@ public class QLConversionTestCase
    /**
     * Setup the test suite.
     */
-   public static Test suite()
+   public static Test suite() throws Exception
    {
       TestSuite lSuite = new TestSuite();
       lSuite.addTest( new TestSuite( QLConversionTestCase.class ) );

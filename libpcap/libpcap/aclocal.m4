@@ -1,4 +1,4 @@
-dnl @(#) $Header: /cvs/Darwin/src/live/libpcap/libpcap/aclocal.m4,v 1.1.1.1 2001/07/07 00:41:36 bbraun Exp $ (LBL)
+dnl @(#) $Header: /cvs/root/libpcap/libpcap/aclocal.m4,v 1.1.1.3 2004/02/05 19:22:28 rbraun Exp $ (LBL)
 dnl
 dnl Copyright (c) 1995, 1996, 1997, 1998
 dnl	The Regents of the University of California.  All rights reserved.
@@ -156,6 +156,51 @@ AC_DEFUN(AC_LBL_C_INIT,
 	    esac
     fi
 ])
+
+#
+# Try compiling a sample of the type of code that appears in
+# gencode.c with "inline", "__inline__", and "__inline".
+#
+# Autoconf's AC_C_INLINE, at least in autoconf 2.13, isn't good enough,
+# as it just tests whether a function returning "int" can be inlined;
+# at least some versions of HP's C compiler can inline that, but can't
+# inline a function that returns a struct pointer.
+#
+AC_DEFUN(AC_LBL_C_INLINE,
+    [AC_MSG_CHECKING(for inline)
+    AC_CACHE_VAL(ac_cv_lbl_inline, [
+	ac_cv_lbl_inline=""
+	ac_lbl_cc_inline=no
+	for ac_lbl_inline in inline __inline__ __inline
+	do
+	    AC_TRY_COMPILE(
+		[#define inline $ac_lbl_inline
+		static inline struct iltest *foo(void);
+		struct iltest {
+		    int iltest1;
+		    int iltest2;
+		};
+
+		static inline struct iltest *
+		foo()
+		{
+		    static struct iltest xxx;
+
+		    return &xxx;
+		}],,ac_lbl_cc_inline=yes,)
+	    if test "$ac_lbl_cc_inline" = yes ; then
+		break;
+	    fi
+	done
+	if test "$ac_lbl_cc_inline" = yes ; then
+	    ac_cv_lbl_inline=$ac_lbl_inline
+	fi])
+    if test ! -z "$ac_cv_lbl_inline" ; then
+	AC_MSG_RESULT($ac_cv_lbl_inline)
+    else
+	AC_MSG_RESULT(no)
+    fi
+    AC_DEFINE_UNQUOTED(inline, $ac_cv_lbl_inline, [Define as token for inline if inlining supported])])
 
 dnl
 dnl Use pfopen.c if available and pfopen() not in standard libraries
@@ -415,6 +460,31 @@ AC_DEFUN(AC_LBL_SOCKADDR_SA_LEN,
     fi])
 
 dnl
+dnl Checks to see if there's a sockaddr_storage structure
+dnl
+dnl usage:
+dnl
+dnl	AC_LBL_SOCKADDR_STORAGE
+dnl
+dnl results:
+dnl
+dnl	HAVE_SOCKADDR_STORAGE (defined)
+dnl
+AC_DEFUN(AC_LBL_SOCKADDR_STORAGE,
+    [AC_MSG_CHECKING(if sockaddr_storage struct exists)
+    AC_CACHE_VAL(ac_cv_lbl_has_sockaddr_storage,
+	AC_TRY_COMPILE([
+#	include <sys/types.h>
+#	include <sys/socket.h>],
+	[u_int i = sizeof (struct sockaddr_storage)],
+	ac_cv_lbl_has_sockaddr_storage=yes,
+	ac_cv_lbl_has_sockaddr_storage=no))
+    AC_MSG_RESULT($ac_cv_lbl_has_sockaddr_storage)
+    if test $ac_cv_lbl_has_sockaddr_storage = yes ; then
+	    AC_DEFINE(HAVE_SOCKADDR_STORAGE,1,[if struct sockaddr_storage exists])
+    fi])
+
+dnl
 dnl Checks to see if the dl_hp_ppa_info_t struct has the HP-UX 11.00
 dnl dl_module_id_1 member
 dnl
@@ -517,10 +587,41 @@ dnl
 AC_DEFUN(AC_LBL_UNALIGNED_ACCESS,
     [AC_MSG_CHECKING(if unaligned accesses fail)
     AC_CACHE_VAL(ac_cv_lbl_unaligned_fail,
-	[case "$target_cpu" in
+	[case "$host_cpu" in
 
+	#
+	# These are CPU types where:
+	#
+	#	the CPU faults on an unaligned access, but at least some
+	#	OSes that support that CPU catch the fault and simulate
+	#	the unaligned access (e.g., Alpha/{Digital,Tru64} UNIX) -
+	#	the simulation is slow, so we don't want to use it;
+	#
+	#	the CPU, I infer (from the old
+	#
 	# XXX: should also check that they don't do weird things (like on arm)
-	alpha*|arm*|hp*|mips|sparc)
+	#
+	#	comment) doesn't fault on unaligned accesses, but doesn't
+	#	do a normal unaligned fetch, either (e.g., presumably, ARM);
+	#
+	#	for whatever reason, the test program doesn't work
+	#	(this has been claimed to be the case for several of those
+	#	CPUs - I don't know what the problem is; the problem
+	#	was reported as "the test program dumps core" for SuperH,
+	#	but that's what the test program is *supposed* to do -
+	#	it dumps core before it writes anything, so the test
+	#	for an empty output file should find an empty output
+	#	file and conclude that unaligned accesses don't work).
+	#
+	# This run-time test won't work if you're cross-compiling, so
+	# in order to support cross-compiling for a particular CPU,
+	# we have to wire in the list of CPU types anyway, as far as
+	# I know, so perhaps we should just have a set of CPUs on
+	# which we know it doesn't work, a set of CPUs on which we
+	# know it does work, and have the script just fail on other
+	# cpu types and update it when such a failure occurs.
+	#
+	alpha*|arm*|hp*|mips*|sh*|sparc*|ia64|nv1)
 		ac_cv_lbl_unaligned_fail=yes
 		;;
 
@@ -763,7 +864,28 @@ ac_cv___attribute__=yes,
 ac_cv___attribute__=no)])
 if test "$ac_cv___attribute__" = "yes"; then
   AC_DEFINE(HAVE___ATTRIBUTE__, 1, [define if your compiler has __attribute__])
+  V_DEFS="$V_DEFS -D_U_=\"__attribute__((unused))\""
+else
+  V_DEFS="$V_DEFS -D_U_=\"\""
 fi
 AC_MSG_RESULT($ac_cv___attribute__)
 ])
 
+dnl
+dnl Checks to see if tpacket_stats is defined in linux/if_packet.h
+dnl If so then pcap-linux.c can use this to report proper statistics.
+dnl
+dnl -Scott Barron
+dnl
+AC_DEFUN(AC_LBL_TPACKET_STATS,
+   [AC_MSG_CHECKING(if if_packet.h has tpacket_stats defined)
+   AC_CACHE_VAL(ac_cv_lbl_tpacket_stats,
+   AC_TRY_COMPILE([
+#  include <linux/if_packet.h>],
+   [struct tpacket_stats stats],
+   ac_cv_lbl_tpacket_stats=yes,
+   ac_cv_lbl_tpacket_stats=no))
+   AC_MSG_RESULT($ac_cv_lbl_tpacket_stats)
+   if test $ac_cv_lbl_tpacket_stats = yes; then
+       AC_DEFINE(HAVE_TPACKET_STATS,1,[if if_packet.h has tpacket_stats defined])
+   fi])

@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE server>
-<!-- $Id: child-process-service.xml,v 1.2.2.1 2003/05/23 14:42:25 starksm Exp $ -->
+<!-- $Id: child-process-service.xml,v 1.2.2.2 2003/10/13 12:31:03 starksm Exp $ -->
 
 <server>
 

@@ -148,6 +148,8 @@ OTHER_PRIVATE_HEADERS += SCValidation.h
 OTHER_PRIVATE_HEADERS += SCDPlugin.h
 OTHER_PRIVATE_HEADERS += DeviceOnHold.h
 OTHER_PRIVATE_HEADERS += LinkConfiguration.h
+OTHER_PRIVATE_HEADERS += VLANConfiguration.h
+OTHER_PRIVATE_HEADERS += VLANConfigurationPrivate.h
 
 #
 # MiG generated files

@@ -12,4 +12,23 @@
       <remove-table>true</remove-table>
       <pk-constraint>true</pk-constraint>
    </defaults>
+
+   <enterprise-beans>
+        <entity>
+            <ejb-name>nextgenEnterpriseEntity</ejb-name>
+            <table-name>NEXTGENENTITY</table-name>
+        </entity>
+        <entity>
+            <ejb-name>nextgenEnterpriseEntityReentrant</ejb-name>
+            <table-name>NEXTGENREENTRANT</table-name>
+        </entity>
+        <entity>
+            <ejb-name>nextgenEnterpriseEntityNotSupported</ejb-name>
+            <table-name>NEXTGENNOTSUP</table-name>
+        </entity>
+        <entity>
+            <ejb-name>nextgenEnterpriseEntityNotSupportedReentrant</ejb-name>
+            <table-name>NEXTGENREENTNOTSUP</table-name>
+        </entity>
+   </enterprise-beans>
 </jbosscmp-jdbc>

@@ -18,7 +18,7 @@
  * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * @(#) $Header: /cvs/Darwin/src/live/libpcap/libpcap/lbl/os-solaris2.h,v 1.1.1.1 2001/07/07 00:41:37 bbraun Exp $ (LBL)
+ * @(#) $Header: /cvs/root/libpcap/libpcap/lbl/os-solaris2.h,v 1.1.1.1 2001/07/07 00:41:37 bbraun Exp $ (LBL)
  */
 
 /* Prototypes missing in SunOS 5 */

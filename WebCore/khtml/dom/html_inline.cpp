@@ -95,7 +95,10 @@ void HTMLAnchorElement::setCoords( const DOMString &value )
 DOMString HTMLAnchorElement::href() const
 {
     if(!impl) return DOMString();
-    return ((ElementImpl *)impl)->getAttribute(ATTR_HREF);
+    DOMString s = ((ElementImpl *)impl)->getAttribute(ATTR_HREF);
+    if (!s.isNull())
+	s = ownerDocument().completeURL( s );
+    return s;
 }
 
 void HTMLAnchorElement::setHref( const DOMString &value )

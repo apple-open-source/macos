@@ -37,7 +37,7 @@ import org.jboss.mx.server.ServerConstants;
  * @see javax.management.modelmbean.ModelMBean
  *
  * @author  <a href="mailto:juha@jboss.org">Juha Lindfors</a>.
- * @version $Revision: 1.2 $
+ * @version $Revision: 1.2.8.2 $
  *   
  */
 public class RequiredModelMBean
@@ -81,7 +81,10 @@ public class RequiredModelMBean
    public RequiredModelMBean(ModelMBeanInfo info) throws MBeanException, RuntimeOperationsException
    {
       ClassLoader cl = Thread.currentThread().getContextClassLoader();
-      String className = System.getProperty("jbossmx.required.modelmbean.class", "org.jboss.mx.modelmbean.XMBean");
+      String className = System.getProperty(
+            ServerConstants.REQUIRED_MODELMBEAN_CLASS_PROPERTY,
+            ServerConstants.DEFAULT_REQUIRED_MODELMBEAN_CLASS
+      );
       
       try 
       {
@@ -185,7 +188,7 @@ public class RequiredModelMBean
    }
    
    public MBeanNotificationInfo[] getNotificationInfo() {
-      return getNotificationInfo();
+      return delegate.getNotificationInfo();
    }
    
    public void addAttributeChangeNotificationListener(NotificationListener inlistener,
@@ -239,7 +242,3 @@ public class RequiredModelMBean
    }
 
 }
-      
-
-
-

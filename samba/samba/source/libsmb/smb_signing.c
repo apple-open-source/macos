@@ -25,7 +25,6 @@
 struct outstanding_packet_lookup {
 	uint16 mid;
 	uint32 reply_seq_num;
-	BOOL deferred_packet;
 	struct outstanding_packet_lookup *prev, *next;
 };
 
@@ -44,58 +43,45 @@ struct smb_basic_signing_context {
 };
 
 static void store_sequence_for_reply(struct outstanding_packet_lookup **list, 
-				     uint16 mid, uint32 reply_seq_num, BOOL deferred_pkt) 
+				     uint16 mid, uint32 reply_seq_num)
 {
 	struct outstanding_packet_lookup *t;
-	struct outstanding_packet_lookup *tmp;
-	
+
 	t = smb_xmalloc(sizeof(*t));
 	ZERO_STRUCTP(t);
 
-	DLIST_ADD_END(*list, t, tmp);
 	t->mid = mid;
 	t->reply_seq_num = reply_seq_num;
-	t->deferred_packet = deferred_pkt;
 
-	DEBUG(10,("store_sequence_for_reply: stored %sseq = %u mid = %u\n",
-			deferred_pkt ? "deferred " : "",
+	/*
+	 * Add to the *start* of the list not the end of the list.
+	 * This ensures that the *last* send sequence with this mid
+	 * is returned by preference.
+	 * This can happen if the mid wraps and one of the early
+	 * mid numbers didn't get a reply and is still lurking on
+	 * the list. JRA. Found by Fran Fabrizio <fran@cis.uab.edu>.
+	 */
+
+	DLIST_ADD(*list, t);
+	DEBUG(10,("store_sequence_for_reply: stored seq = %u mid = %u\n",
 			(unsigned int)reply_seq_num, (unsigned int)mid ));
 }
 
 static BOOL get_sequence_for_reply(struct outstanding_packet_lookup **list,
-				   uint16 mid, uint32 *reply_seq_num, BOOL *def) 
+				   uint16 mid, uint32 *reply_seq_num)
 {
 	struct outstanding_packet_lookup *t;
 
 	for (t = *list; t; t = t->next) {
 		if (t->mid == mid) {
 			*reply_seq_num = t->reply_seq_num;
-			if (def)
-				*def = t->deferred_packet;
-			DEBUG(10,("get_sequence_for_reply: found %sseq = %u mid = %u\n",
-				(t->deferred_packet) ? "deferred " : "",
+			DEBUG(10,("get_sequence_for_reply: found seq = %u mid = %u\n",
 				(unsigned int)t->reply_seq_num, (unsigned int)t->mid ));
 			DLIST_REMOVE(*list, t);
 			SAFE_FREE(t);
 			return True;
 		}
 	}
-	return False;
-}
-
-/***********************************************************
- A reply is pending if there is a non-deferred packet on the queue.
-************************************************************/
-
-static BOOL is_reply_pending(struct outstanding_packet_lookup *list)
-{
-	for (; list; list = list->next) {
-		if (!list->deferred_packet) {
-			DEBUG(10,("is_reply_pending: True.\n"));
-			return True;
-		}
-	}
-	DEBUG(10,("is_reply_pending: False.\n"));
 	return False;
 }
 
@@ -329,8 +315,7 @@ static void client_sign_outgoing_message(char *outbuf, struct smb_sign_info *si)
 
 	data->send_seq_num++;
 	store_sequence_for_reply(&data->outstanding_packet_list, 
-				 SVAL(outbuf,smb_mid),
-				 data->send_seq_num, False);
+				 SVAL(outbuf,smb_mid), data->send_seq_num);
 	data->send_seq_num++;
 }
 
@@ -359,8 +344,7 @@ static BOOL client_check_incoming_message(char *inbuf, struct smb_sign_info *si)
 	if (data->trans_info) {
 		reply_seq_number = data->trans_info->reply_seq_num;
 	} else if (!get_sequence_for_reply(&data->outstanding_packet_list, 
-				    SVAL(inbuf, smb_mid), 
-				    &reply_seq_number, NULL)) {
+				    SVAL(inbuf, smb_mid), &reply_seq_number)) {
 		DEBUG(1, ("client_check_incoming_message: failed to get sequence number %u for reply.\n",
 					(unsigned int) SVAL(inbuf, smb_mid) ));
 		return False;
@@ -385,8 +369,8 @@ static BOOL client_check_incoming_message(char *inbuf, struct smb_sign_info *si)
 			for (i = 0; i < 10; i++, reply_seq_number++) {
 				simple_packet_signature(data, (const unsigned char *)inbuf, reply_seq_number, calc_md5_mac);
 				if (memcmp(server_sent_mac, calc_md5_mac, 8) == 0) {
-					DEBUG(0,("client_check_incoming_message: out of seq. seq num %u matches.\n",
-							reply_seq_number ));
+					DEBUG(0,("client_check_incoming_message: out of seq. seq num %u matches. \
+We were expecting seq %u\n", reply_seq_number, saved_seq ));
 					break;
 				}
 			}
@@ -394,7 +378,7 @@ static BOOL client_check_incoming_message(char *inbuf, struct smb_sign_info *si)
 #endif /* JRATEST */
 
 	} else {
-		DEBUG(10, ("client_check_incoming_message:: seq %u: got good SMB signature of\n", (unsigned int)reply_seq_number));
+		DEBUG(10, ("client_check_incoming_message: seq %u: got good SMB signature of\n", (unsigned int)reply_seq_number));
 		dump_data(10, (const char *)server_sent_mac, 8);
 	}
 	return signing_good(inbuf, si, good, saved_seq);
@@ -429,11 +413,13 @@ static void simple_free_signing_context(struct smb_sign_info *si)
  SMB signing - Simple implementation - setup the MAC key.
 ************************************************************/
 
-BOOL cli_simple_set_signing(struct cli_state *cli, const uchar user_session_key[16], const DATA_BLOB response)
+BOOL cli_simple_set_signing(struct cli_state *cli,
+			    const DATA_BLOB user_session_key,
+			    const DATA_BLOB response, int initial_send_seq_num)
 {
 	struct smb_basic_signing_context *data;
 
-	if (!user_session_key)
+	if (!user_session_key.length)
 		return False;
 
 	if (!cli_set_smb_signing_common(cli)) {
@@ -449,23 +435,25 @@ BOOL cli_simple_set_signing(struct cli_state *cli, const uchar user_session_key[
 
 	cli->sign_info.signing_context = data;
 	
-	data->mac_key = data_blob(NULL, response.length + 16);
+	data->mac_key = data_blob(NULL, response.length + user_session_key.length);
 
-	memcpy(&data->mac_key.data[0], user_session_key, 16);
+	memcpy(&data->mac_key.data[0], user_session_key.data, user_session_key.length);
 
 	DEBUG(10, ("cli_simple_set_signing: user_session_key\n"));
-	dump_data(10, (const char *)user_session_key, 16);
+	dump_data(10, (const char *)user_session_key.data, user_session_key.length);
 
 	if (response.length) {
-		memcpy(&data->mac_key.data[16],response.data, response.length);
+		memcpy(&data->mac_key.data[user_session_key.length],response.data, response.length);
 		DEBUG(10, ("cli_simple_set_signing: response_data\n"));
 		dump_data(10, (const char *)response.data, response.length);
 	} else {
 		DEBUG(10, ("cli_simple_set_signing: NULL response_data\n"));
 	}
 
+	dump_data_pw("MAC ssession key is:\n", data->mac_key.data, data->mac_key.length);
+
 	/* Initialise the sequence number */
-	data->send_seq_num = 0;
+	data->send_seq_num = initial_send_seq_num;
 
 	/* Initialise the list of outstanding packets */
 	data->outstanding_packet_list = NULL;
@@ -479,9 +467,12 @@ BOOL cli_simple_set_signing(struct cli_state *cli, const uchar user_session_key[
 
 /***********************************************************
  Tell client code we are in a multiple trans reply state.
+ We call this after the last outgoing trans2 packet (which
+ has incremented the sequence numbers), so we must save the
+ current mid and sequence number -2.
 ************************************************************/
 
-void cli_signing_trans_start(struct cli_state *cli)
+void cli_signing_trans_start(struct cli_state *cli, uint16 mid)
 {
 	struct smb_basic_signing_context *data = cli->sign_info.signing_context;
 
@@ -491,9 +482,9 @@ void cli_signing_trans_start(struct cli_state *cli)
 	data->trans_info = smb_xmalloc(sizeof(struct trans_info_context));
 	ZERO_STRUCTP(data->trans_info);
 
-	data->trans_info->send_seq_num = data->send_seq_num;
-	data->trans_info->mid = SVAL(cli->outbuf,smb_mid);
-	data->trans_info->reply_seq_num = data->send_seq_num+1;
+	data->trans_info->send_seq_num = data->send_seq_num-2;
+	data->trans_info->mid = mid;
+	data->trans_info->reply_seq_num = data->send_seq_num-1;
 
 	DEBUG(10,("cli_signing_trans_start: storing mid = %u, reply_seq_num = %u, send_seq_num = %u \
 data->send_seq_num = %u\n",
@@ -514,10 +505,15 @@ void cli_signing_trans_stop(struct cli_state *cli)
 	if (!cli->sign_info.doing_signing || !data)
 		return;
 
+	DEBUG(10,("cli_signing_trans_stop: freeing mid = %u, reply_seq_num = %u, send_seq_num = %u \
+data->send_seq_num = %u\n",
+			(unsigned int)data->trans_info->mid,
+			(unsigned int)data->trans_info->reply_seq_num,
+			(unsigned int)data->trans_info->send_seq_num,
+			(unsigned int)data->send_seq_num ));
+
 	SAFE_FREE(data->trans_info);
 	data->trans_info = NULL;
-
-	data->send_seq_num += 2;
 }
 
 /***********************************************************
@@ -639,7 +635,7 @@ static void srv_sign_outgoing_message(char *outbuf, struct smb_sign_info *si)
 	mid = SVAL(outbuf, smb_mid);
 
 	/* See if this is a reply for a deferred packet. */
-	get_sequence_for_reply(&data->outstanding_packet_list, mid, &send_seq_number, &was_deferred_packet);
+	was_deferred_packet = get_sequence_for_reply(&data->outstanding_packet_list, mid, &send_seq_number);
 
 	if (data->trans_info && (data->trans_info->mid == mid)) {
 		/* This is a reply in a trans stream. Use the sequence
@@ -655,18 +651,21 @@ static void srv_sign_outgoing_message(char *outbuf, struct smb_sign_info *si)
 	memcpy(&outbuf[smb_ss_field], calc_md5_mac, 8);
 
 /*	cli->outbuf[smb_ss_field+2]=0; 
-	Uncomment this to test if the remote server actually verifies signatures...*/
+	Uncomment this to test if the remote client actually verifies signatures...*/
 
-	if (!was_deferred_packet) {
-       		if (!data->trans_info) {
-			/* Always increment if not in a trans stream. */
-			data->send_seq_num++;
-		} else if ((data->trans_info->send_seq_num == data->send_seq_num) || (data->trans_info->mid != mid)) {
-			/* Increment if this is the first reply in a trans stream or a
-			 * packet that doesn't belong to this stream (different mid). */
-			data->send_seq_num++;
-		}
-	} 
+	/* Don't mess with the sequence number for a deferred packet. */
+	if (was_deferred_packet) {
+		return;
+	}
+
+	if (!data->trans_info) {
+		/* Always increment if not in a trans stream. */
+		data->send_seq_num++;
+	} else if ((data->trans_info->send_seq_num == data->send_seq_num) || (data->trans_info->mid != mid)) {
+		/* Increment if this is the first reply in a trans stream or a
+		 * packet that doesn't belong to this stream (different mid). */
+		data->send_seq_num++;
+	}
 }
 
 /***********************************************************
@@ -721,8 +720,10 @@ static BOOL srv_check_incoming_message(char *inbuf, struct smb_sign_info *si)
 		 * isn't a reply pending we need to re-sync the sequence
 		 * number.
 		 */
-		if (is_oplock_break(inbuf) && !is_reply_pending(data->outstanding_packet_list))
+		if (is_oplock_break(inbuf)) {
+			DEBUG(10,("srv_check_incoming_message: oplock break at seq num %u\n", data->send_seq_num));
 			data->send_seq_num++;
+		}
 	}
 
 	saved_seq = reply_seq_number;
@@ -748,8 +749,8 @@ static BOOL srv_check_incoming_message(char *inbuf, struct smb_sign_info *si)
 			for (i = 0; i < 10; i++, reply_seq_number++) {
 				simple_packet_signature(data, (const unsigned char *)inbuf, reply_seq_number, calc_md5_mac);
 				if (memcmp(server_sent_mac, calc_md5_mac, 8) == 0) {
-					DEBUG(0,("srv_check_incoming_message: out of seq. seq num %u matches.\n",
-							reply_seq_number ));
+					DEBUG(0,("srv_check_incoming_message: out of seq. seq num %u matches. \
+We were expecting seq %u\n", reply_seq_number, saved_seq ));
 					break;
 				}
 			}
@@ -760,7 +761,26 @@ static BOOL srv_check_incoming_message(char *inbuf, struct smb_sign_info *si)
 		DEBUG(10, ("srv_check_incoming_message: seq %u: (current is %u) got good SMB signature of\n", (unsigned int)reply_seq_number, (unsigned int)data->send_seq_num));
 		dump_data(10, (const char *)server_sent_mac, 8);
 	}
-	return signing_good(inbuf, si, good, saved_seq);
+
+	if (!signing_good(inbuf, si, good, saved_seq)) {
+		if (!si->mandatory_signing && (data->send_seq_num < 3)){
+			/* Non-mandatory signing - just turn off if this is the first bad packet.. */
+			DEBUG(5, ("srv_check_incoming_message: signing negotiated but not required and client \
+isn't sending correct signatures. Turning off.\n"));
+			si->negotiated_smb_signing = False;
+			si->allow_smb_signing = False;
+			si->doing_signing = False;
+			free_signing_context(si);
+			return True;
+		} else {
+			/* Mandatory signing or bad packet after signing started - fail and disconnect. */
+			if (saved_seq)
+				DEBUG(0, ("srv_check_incoming_message: BAD SIG: seq %u\n", (unsigned int)saved_seq));
+			return False;
+		}
+	} else {
+		return True;
+	}
 }
 
 /***********************************************************
@@ -820,7 +840,7 @@ void srv_calculate_sign_mac(char *outbuf)
  Called by server to defer an outgoing packet.
 ************************************************************/
 
-void srv_defer_sign_response(uint16 mid, BOOL deferred_packet)
+void srv_defer_sign_response(uint16 mid)
 {
 	struct smb_basic_signing_context *data;
 
@@ -833,7 +853,7 @@ void srv_defer_sign_response(uint16 mid, BOOL deferred_packet)
 		return;
 
 	store_sequence_for_reply(&data->outstanding_packet_list, 
-				 mid, data->send_seq_num, deferred_packet);
+				 mid, data->send_seq_num);
 	data->send_seq_num++;
 }
 
@@ -857,7 +877,7 @@ void srv_cancel_sign_response(uint16 mid)
 
 	DEBUG(10,("srv_cancel_sign_response: for mid %u\n", (unsigned int)mid ));
 
-	while (get_sequence_for_reply(&data->outstanding_packet_list, mid, &dummy_seq,NULL))
+	while (get_sequence_for_reply(&data->outstanding_packet_list, mid, &dummy_seq))
 		;
 }
 
@@ -947,11 +967,11 @@ data->send_seq_num = %u\n",
  Turn on signing from this packet onwards. 
 ************************************************************/
 
-void srv_set_signing(const uchar user_session_key[16], const DATA_BLOB response)
+void srv_set_signing(const DATA_BLOB user_session_key, const DATA_BLOB response)
 {
 	struct smb_basic_signing_context *data;
 
-	if (!user_session_key)
+	if (!user_session_key.length)
 		return;
 
 	if (!srv_sign_info.negotiated_smb_signing && !srv_sign_info.mandatory_signing) {
@@ -976,11 +996,17 @@ void srv_set_signing(const uchar user_session_key[16], const DATA_BLOB response)
 
 	srv_sign_info.signing_context = data;
 	
-	data->mac_key = data_blob(NULL, response.length + 16);
+	data->mac_key = data_blob(NULL, response.length + user_session_key.length);
 
-	memcpy(&data->mac_key.data[0], user_session_key, 16);
+	memcpy(&data->mac_key.data[0], user_session_key.data, user_session_key.length);
 	if (response.length)
-		memcpy(&data->mac_key.data[16],response.data, response.length);
+		memcpy(&data->mac_key.data[user_session_key.length],response.data, response.length);
+
+	dump_data_pw("MAC ssession key is:\n", data->mac_key.data, data->mac_key.length);
+
+	DEBUG(3,("srv_set_signing: turning on SMB signing: signing negotiated = %s, mandatory_signing = %s.\n",
+				BOOLSTR(srv_sign_info.negotiated_smb_signing),
+			 	BOOLSTR(srv_sign_info.mandatory_signing) ));
 
 	/* Initialise the sequence number */
 	data->send_seq_num = 0;

@@ -82,12 +82,12 @@
 			);
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "";
-				HEADER_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "\"${BUILT_PRODUCTS_DIR}\"";
 				KERNEL_MODULE = YES;
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.SCSITaskUserClient;
-				MODULE_VERSION = 1.3.1;
+				MODULE_VERSION = 1.3.3;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -97,6 +97,7 @@
 				WRAPPER_EXTENSION = kext;
 			};
 			dependencies = (
+				AC2FA7D6058A905F00FE89A5,
 				013C26460079390611CE15C0,
 			);
 			isa = PBXBundleTarget;
@@ -112,7 +113,7 @@
 	<key>CFBundleExecutable</key>
 	<string>SCSITaskUserClient</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.3.1, Copyright Apple Computer, Inc. 1999-2003</string>
+	<string>1.3.3, Copyright Apple Computer, Inc. 1999-2004</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -124,11 +125,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.1</string>
+	<string>1.3.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.1</string>
+	<string>1.3.3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>CDIniter</key>
@@ -302,7 +303,7 @@
 				0119F4DF00753D9B7F000001,
 			);
 			buildSettings = {
-				HEADER_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Headers\"";
+				HEADER_SEARCH_PATHS = "\"${BUILT_PRODUCTS_DIR}\"";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "-bundle";
 				OTHER_REZFLAGS = "";
@@ -312,6 +313,7 @@
 				WRAPPER_EXTENSION = plugin;
 			};
 			dependencies = (
+				AC2FA7D7058A906100FE89A5,
 			);
 			isa = PBXBundleTarget;
 			name = SCSITaskLib;
@@ -327,7 +329,7 @@
 	<key>CFBundleExecutable</key>
 	<string>SCSITaskLib</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.3.1, Copyright Apple Computer, Inc. 1999-2003</string>
+	<string>1.3.3, Copyright Apple Computer, Inc. 1999-2004</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -339,11 +341,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.1</string>
+	<string>1.3.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.1</string>
+	<string>1.3.3</string>
 	<key>CFPlugInDynamicRegistration</key>
 	<string>NO</string>
 	<key>CFPlugInFactories</key>
@@ -502,6 +504,7 @@
 			children = (
 				084398C3002809C411CE15B4,
 				084398C4002809C411CE15B4,
+				ACBC64B60591602D009A73E0,
 				084398C5002809C411CE15B4,
 				084398C6002809C411CE15B4,
 				F5D31BB7032D52C301CE15B4,
@@ -765,11 +768,12 @@
 				0143F2E7FFE0C65311CE15BF,
 			);
 			buildSettings = {
+				HEADER_SEARCH_PATHS = "\"${BUILT_PRODUCTS_DIR}\"";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIArchitectureModelFamily;
-				MODULE_VERSION = 1.3.1;
+				MODULE_VERSION = 1.3.3;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -779,10 +783,10 @@
 				WRAPPER_EXTENSION = kext;
 			};
 			dependencies = (
+				0E10CC0AFFF0A0B611CE15B4,
 				0143F29DFFE0C65311CE15BF,
 				0143F2D1FFE0C65311CE15BF,
 				0143F2C0FFE0C65311CE15BF,
-				0E10CC0AFFF0A0B611CE15B4,
 				ACCEA99A04EAB6870040AECF,
 				013C26450079390611CE15C0,
 			);
@@ -800,7 +804,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOSCSIArchitectureModelFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.3.1, Copyright Apple Computer, Inc. 1999-2003</string>
+	<string>1.3.3, Copyright Apple Computer, Inc. 1999-2004</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -812,11 +816,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.1</string>
+	<string>1.3.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.1</string>
+	<string>1.3.3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSCSIPeripheralDeviceNub</key>
@@ -862,12 +866,12 @@
 			);
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "";
-				HEADER_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "\"${BUILT_PRODUCTS_DIR}\"";
 				KERNEL_MODULE = YES;
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIBlockCommandsDevice;
-				MODULE_VERSION = 1.3.1;
+				MODULE_VERSION = 1.3.3;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -877,6 +881,7 @@
 				WRAPPER_EXTENSION = kext;
 			};
 			dependencies = (
+				AC2FA7D3058A905B00FE89A5,
 			);
 			isa = PBXBundleTarget;
 			name = IOSCSIBlockCommandsDevice;
@@ -891,7 +896,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOSCSIBlockCommandsDevice</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.3.1, Copyright Apple Computer, Inc. 1999-2003</string>
+	<string>1.3.3, Copyright Apple Computer, Inc. 1999-2004</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -903,11 +908,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.1</string>
+	<string>1.3.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.1</string>
+	<string>1.3.3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSCSIPeripheralDeviceType00</key>
@@ -969,6 +974,7 @@
 				0143F2A3FFE0C65311CE15BF,
 				0143F2A4FFE0C65311CE15BF,
 				0143F2A5FFE0C65311CE15BF,
+				ACBC64B90591602D009A73E0,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1119,12 +1125,12 @@
 			);
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "";
-				HEADER_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "\"${BUILT_PRODUCTS_DIR}\"";
 				KERNEL_MODULE = YES;
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIMultimediaCommandsDevice;
-				MODULE_VERSION = 1.3.1;
+				MODULE_VERSION = 1.3.3;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1134,6 +1140,7 @@
 				WRAPPER_EXTENSION = kext;
 			};
 			dependencies = (
+				AC2FA7D5058A905D00FE89A5,
 			);
 			isa = PBXBundleTarget;
 			name = IOSCSIMultimediaCommandsDevice;
@@ -1148,7 +1155,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOSCSIMultimediaCommandsDevice</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.3.1, Copyright Apple Computer, Inc. 1999-2003</string>
+	<string>1.3.3, Copyright Apple Computer, Inc. 1999-2004</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1160,11 +1167,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.1</string>
+	<string>1.3.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.1</string>
+	<string>1.3.3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSCSIPeripheralDeviceType05</key>
@@ -1223,6 +1230,7 @@
 				017A6217FFE0DFEE11CE15BF,
 				038CD68A00B307BB11CE15BF,
 				044BEABE00CEE6E211CE15BF,
+				ACBC64B70591602D009A73E0,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1359,12 +1367,12 @@
 			);
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "";
-				HEADER_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "\"${BUILT_PRODUCTS_DIR}\"";
 				KERNEL_MODULE = YES;
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIReducedBlockCommandsDevice;
-				MODULE_VERSION = 1.3.1;
+				MODULE_VERSION = 1.3.3;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1374,6 +1382,7 @@
 				WRAPPER_EXTENSION = kext;
 			};
 			dependencies = (
+				AC2FA7D4058A905C00FE89A5,
 			);
 			isa = PBXBundleTarget;
 			name = IOSCSIReducedBlockCommandsDevice;
@@ -1388,7 +1397,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOSCSIReducedBlockCommandsDevice</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.3.1, Copyright Apple Computer, Inc. 1999-2003</string>
+	<string>1.3.3, Copyright Apple Computer, Inc. 1999-2004</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1400,11 +1409,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.1</string>
+	<string>1.3.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.1</string>
+	<string>1.3.3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSCSIPeripheralDeviceType0E</key>
@@ -1454,6 +1463,7 @@
 				0143F2D6FFE0C65311CE15BF,
 				0143F2D7FFE0C65311CE15BF,
 				0143F2D8FFE0C65311CE15BF,
+				ACBC64B80591602D009A73E0,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1594,6 +1604,7 @@
 				F5F7E61402FB10BD01CE15B4,
 				F5D31BB8032D52C301CE15B4,
 				B6CB75A804E32803008272F3,
+				ACBC64BA0591602D009A73E0,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2027,6 +2038,7 @@
 			files = (
 				038CD68300B2FEB311CE15BF,
 				038CD68400B2FEB311CE15BF,
+				ACBC64BD0591607F009A73E0,
 				038CD68500B2FEB311CE15BF,
 				038CD68600B2FEB311CE15BF,
 				038CD68700B2FEB311CE15BF,
@@ -2186,6 +2198,8 @@
 		071C63C5FFF0984511CE15B4 = {
 			buildPhases = (
 				071C63C8FFF0984511CE15B4,
+				AC2FA7F8058A92C700FE89A5,
+				AC2FA7D8058A90AC00FE89A5,
 				071C63CBFFF0988711CE15B4,
 				038CD68200B2FEB311CE15BF,
 				5C40544B011E262405CE1791,
@@ -2237,6 +2251,7 @@
 				084398DB00280A1011CE15B4,
 				F556AFD702FB114801CE15B4,
 				084398DC00280A1011CE15B4,
+				ACBC64BC05916075009A73E0,
 				084398DD00280A4C11CE15B4,
 				084398DE00280A4C11CE15B4,
 				084398DF00280A4C11CE15B4,
@@ -2878,6 +2893,241 @@
 //AC2
 //AC3
 //AC4
+		AC2FA7D3058A905B00FE89A5 = {
+			isa = PBXTargetDependency;
+			target = 071C63C5FFF0984511CE15B4;
+		};
+		AC2FA7D4058A905C00FE89A5 = {
+			isa = PBXTargetDependency;
+			target = 071C63C5FFF0984511CE15B4;
+		};
+		AC2FA7D5058A905D00FE89A5 = {
+			isa = PBXTargetDependency;
+			target = 071C63C5FFF0984511CE15B4;
+		};
+		AC2FA7D6058A905F00FE89A5 = {
+			isa = PBXTargetDependency;
+			target = 071C63C5FFF0984511CE15B4;
+		};
+		AC2FA7D7058A906100FE89A5 = {
+			isa = PBXTargetDependency;
+			target = 071C63C5FFF0984511CE15B4;
+		};
+		AC2FA7D8058A90AC00FE89A5 = {
+			buildActionMask = 2147483647;
+			dstPath = IOKit/scsi;
+			dstSubfolderSpec = 16;
+			files = (
+				AC2FA7DB058A90E100FE89A5,
+				AC2FA7DC058A90E100FE89A5,
+				ACBC64BB05916071009A73E0,
+				AC2FA7DD058A90E100FE89A5,
+				AC2FA7DE058A90E100FE89A5,
+				AC2FA7E0058A90E100FE89A5,
+				AC2FA7E1058A90E100FE89A5,
+				AC2FA7E2058A90E100FE89A5,
+				AC2FA7E3058A90E100FE89A5,
+				AC2FA7E4058A90E100FE89A5,
+				AC2FA7E5058A90E100FE89A5,
+				AC2FA7E6058A90E100FE89A5,
+				AC2FA7E7058A90EE00FE89A5,
+				AC2FA7E8058A90EE00FE89A5,
+				AC2FA7E9058A90EE00FE89A5,
+				AC2FA7EA058A90EE00FE89A5,
+				AC2FA7EB058A90EE00FE89A5,
+				AC2FA7EC058A90F800FE89A5,
+				AC2FA7ED058A90F800FE89A5,
+				AC2FA7EE058A90F800FE89A5,
+				AC2FA7F7058A911400FE89A5,
+				AC2FA7EF058A90F800FE89A5,
+				AC2FA7F0058A910200FE89A5,
+				AC2FA7F1058A910200FE89A5,
+				AC2FA7F2058A910200FE89A5,
+				AC2FA7F3058A910200FE89A5,
+				AC2FA7F4058A910200FE89A5,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AC2FA7DB058A90E100FE89A5 = {
+			fileRef = 084398C3002809C411CE15B4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC2FA7DC058A90E100FE89A5 = {
+			fileRef = 084398C4002809C411CE15B4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC2FA7DD058A90E100FE89A5 = {
+			fileRef = 084398C5002809C411CE15B4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC2FA7DE058A90E100FE89A5 = {
+			fileRef = 084398C6002809C411CE15B4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC2FA7E0058A90E100FE89A5 = {
+			fileRef = 084398CA002809C411CE15B4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC2FA7E1058A90E100FE89A5 = {
+			fileRef = 0376270C002A4E2911CE15B4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC2FA7E2058A90E100FE89A5 = {
+			fileRef = 084398C2002809C411CE15B4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC2FA7E3058A90E100FE89A5 = {
+			fileRef = 084398BE002809C411CE15B4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC2FA7E4058A90E100FE89A5 = {
+			fileRef = 084398C0002809C411CE15B4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC2FA7E5058A90E100FE89A5 = {
+			fileRef = F5F7E61202FB10BD01CE15B4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC2FA7E6058A90E100FE89A5 = {
+			fileRef = 084398C8002809C411CE15B4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC2FA7E7058A90EE00FE89A5 = {
+			fileRef = 0143F23BFFE0C65311CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC2FA7E8058A90EE00FE89A5 = {
+			fileRef = 0143F239FFE0C65311CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC2FA7E9058A90EE00FE89A5 = {
+			fileRef = 0143F23AFFE0C65311CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC2FA7EA058A90EE00FE89A5 = {
+			fileRef = 0143F23CFFE0C65311CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC2FA7EB058A90EE00FE89A5 = {
+			fileRef = 0143F238FFE0C65311CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC2FA7EC058A90F800FE89A5 = {
+			fileRef = 0143F26BFFE0C65311CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC2FA7ED058A90F800FE89A5 = {
+			fileRef = 0143F26AFFE0C65311CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC2FA7EE058A90F800FE89A5 = {
+			fileRef = 0143F269FFE0C65311CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC2FA7EF058A90F800FE89A5 = {
+			fileRef = 0143F268FFE0C65311CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC2FA7F0058A910200FE89A5 = {
+			fileRef = 0143F258FFE0C65311CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC2FA7F1058A910200FE89A5 = {
+			fileRef = 0143F259FFE0C65311CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC2FA7F2058A910200FE89A5 = {
+			fileRef = 0143F25AFFE0C65311CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC2FA7F3058A910200FE89A5 = {
+			fileRef = 0143F25BFFE0C65311CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC2FA7F4058A910200FE89A5 = {
+			fileRef = 017A6212FFE0DF3E11CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC2FA7F7058A911400FE89A5 = {
+			fileRef = 0119F4B200753D057F000001;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC2FA7F8058A92C700FE89A5 = {
+			buildActionMask = 2147483647;
+			dstPath = IOKit/storage;
+			dstSubfolderSpec = 16;
+			files = (
+				AC2FA7F9058A92D700FE89A5,
+				AC2FA7FA058A92D700FE89A5,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AC2FA7F9058A92D700FE89A5 = {
+			fileRef = 5C405449011E259A05CE1791;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC2FA7FA058A92D700FE89A5 = {
+			fileRef = B6CB75A704E32803008272F3;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		AC4DE03604C77F9B00E2D0C4 = {
 			isa = PBXFrameworkReference;
 			name = Security.framework;
@@ -2961,6 +3211,54 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "# Copy all the SDK items to /Developer/Examples/IOKit/scsi/SCSITaskLib\nmkdir -p ${DSTROOT}/${SYSTEM_DEVELOPER_DIR}/Examples/IOKit/scsi/SCSITaskLib\ncd ${SRCROOT}/TestTools/STUC/UnitTests/\npax -ruw -s '/.*CVS.*//' Authoring/Cocoa ${DSTROOT}/${SYSTEM_DEVELOPER_DIR}/Examples/IOKit/scsi/SCSITaskLib\npax -ruw -s '/.*CVS.*//' Authoring/UnixTool ${DSTROOT}/${SYSTEM_DEVELOPER_DIR}/Examples/IOKit/scsi/SCSITaskLib\npax -ruw -s '/.*CVS.*//' Other/UnixTool ${DSTROOT}/${SYSTEM_DEVELOPER_DIR}/Examples/IOKit/scsi/SCSITaskLib";
+		};
+		ACBC64B60591602D009A73E0 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = SCSICmds_MODE_Definitions.h;
+			refType = 4;
+		};
+		ACBC64B70591602D009A73E0 = {
+			fileRef = ACBC64B60591602D009A73E0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		ACBC64B80591602D009A73E0 = {
+			fileRef = ACBC64B60591602D009A73E0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		ACBC64B90591602D009A73E0 = {
+			fileRef = ACBC64B60591602D009A73E0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		ACBC64BA0591602D009A73E0 = {
+			fileRef = ACBC64B60591602D009A73E0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		ACBC64BB05916071009A73E0 = {
+			fileRef = ACBC64B60591602D009A73E0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		ACBC64BC05916075009A73E0 = {
+			fileRef = ACBC64B60591602D009A73E0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		ACBC64BD0591607F009A73E0 = {
+			fileRef = ACBC64B60591602D009A73E0;
+			isa = PBXBuildFile;
+			settings = {
+			};
 		};
 		ACCEA99A04EAB6870040AECF = {
 			isa = PBXTargetDependency;

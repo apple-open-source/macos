@@ -4,11 +4,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Set;
-import javax.ejb.ObjectNotFoundException;
 import javax.naming.InitialContext;
 import junit.framework.Test;
-import junit.framework.TestCase;
-import junit.framework.TestSuite;
 import net.sourceforge.junitejb.EJBTestCase;
 
 import org.jboss.test.JBossTestCase;
@@ -158,6 +155,7 @@ public class CommerceTest extends EJBTestCase {
       shipMN.setState("MN");
       orderMN.setShippingAddress(shipMN);
 
+      System.out.println("orderMN.getStatesShipedTo();");
       Collection c = orderMN.getStatesShipedTo();
       System.out.println(c);
       assertTrue(c.contains("CA"));
@@ -285,7 +283,19 @@ public class CommerceTest extends EJBTestCase {
       order.setLineItems(lineItems);
       assertEquals(lineItems.size(), 3);
       assertEquals(order.getLineItems().size(), 3);
-   }   
+   }
+
+   public void testIsIdentical() throws Exception
+   {
+      OrderHome orderHome = getOrderHome();
+      Order order = orderHome.create(new Long(111));
+
+      LineItemHome liHome = getLineItemHome();
+      LineItem lineItem = liHome.create(new Long(111));
+
+      assertTrue("!order.isIdentical(lineItem)", !order.isIdentical(lineItem));
+      assertTrue("order.isIdentical(order)", order.isIdentical(order));
+   }
 
    public void setUpEJB() throws Exception {
       deleteAllOrders(getOrderHome());

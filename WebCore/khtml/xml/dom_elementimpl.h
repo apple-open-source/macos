@@ -138,6 +138,8 @@ public:
     virtual bool childAllowed( NodeImpl *newChild );
     virtual bool childTypeAllowed( unsigned short type );
 
+    virtual DOMString toString() const;
+
 #if APPLE_CHANGES
     static Attr createInstance(AttrImpl *impl);
 #endif
@@ -192,12 +194,12 @@ public:
     virtual QString state() { return QString::null; }
 
     virtual void attach();
+    virtual void detach();
     virtual khtml::RenderStyle *styleForRenderer(khtml::RenderObject *parent);
     virtual khtml::RenderObject *createRenderer(RenderArena *, khtml::RenderStyle *);
     virtual void recalcStyle( StyleChange = NoChange );
 
     virtual void mouseEventHandler( MouseEvent */*ev*/, bool /*inside*/ ) {};
-    virtual bool isSelectable() const;
     virtual bool childAllowed( NodeImpl *newChild );
     virtual bool childTypeAllowed( unsigned short type );
 
@@ -211,6 +213,10 @@ public:
     void dispatchAttrRemovalEvent(AttributeImpl *attr);
     void dispatchAttrAdditionEvent(AttributeImpl *attr);
 
+    virtual void accessKeyAction() {};
+
+    virtual DOMString toString() const;
+
 #ifndef NDEBUG
     virtual void dump(QTextStream *stream, QString ind = "") const;
 #endif
@@ -221,12 +227,15 @@ public:
 protected:
     void createAttributeMap() const;
     void createDecl();
+    DOMString openTagStartToString() const;
 
 private:
     // map of default attributes. derived element classes are responsible
     // for setting this according to the corresponding element description
     // in the DTD
     virtual NamedAttrMapImpl* defaultMap() const;
+
+    void updateId(DOMStringImpl* oldId, DOMStringImpl* newId);
 
 protected: // member variables
     mutable NamedAttrMapImpl *namedAttrMap;

@@ -9,9 +9,12 @@ package org.jboss.net.jmx.adaptor.server;
 
 import org.jboss.system.ServiceMBeanSupport;
 
-import javax.management.MBeanServer;
-import javax.management.ObjectName;
 import javax.management.MalformedObjectNameException;
+import javax.management.MBeanServer;
+import javax.management.NotificationFilter;
+import javax.management.NotificationListener;
+import javax.management.ObjectName;
+import javax.management.loading.ClassLoaderRepository;
 
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -24,7 +27,7 @@ import org.jboss.mx.loading.UnifiedClassLoader;
  * soap-enabled mbean to the outside world.
  * @author <a href="mailto:Christoph.Jung@infor.de">Christoph G. Jung</a>
  * @created October 1, 2001
- * @version $Revision: 1.8.2.1 $
+ * @version $Revision: 1.8.2.2 $
  */
 
 public class Adaptor extends ServiceMBeanSupport implements AdaptorMBean, Constants {
@@ -155,4 +158,35 @@ public class Adaptor extends ServiceMBeanSupport implements AdaptorMBean, Consta
         getServer().removeNotificationListener(objectName, notificationListener);
     }
 
+   // MBeanServer JMX 1.2 implementation ------------------------------
+
+   public String[] getDomains()
+   {
+      throw new UnsupportedOperationException();
+   }
+
+   public void removeNotificationListener(ObjectName target, ObjectName listener, NotificationFilter filter, Object handback)
+   {
+      throw new UnsupportedOperationException();
+   }
+
+   public void removeNotificationListener(ObjectName target, NotificationListener listener, NotificationFilter filter, Object handback)
+   {
+      throw new UnsupportedOperationException();
+   }
+
+   public ClassLoaderRepository getClassLoaderRepository()
+   {
+      throw new UnsupportedOperationException();
+   }
+
+   public ClassLoader getClassLoader(ObjectName name)
+   {
+      throw new UnsupportedOperationException();
+   }
+
+   public ClassLoader getClassLoaderFor(ObjectName name)
+   {
+      throw new UnsupportedOperationException();
+   }
 }

@@ -9,7 +9,6 @@
 
 package org.jboss.system;
 
-import java.util.Date;
 import javax.management.AttributeChangeNotification;
 import javax.management.MBeanRegistration;
 import javax.management.MBeanServer;
@@ -17,9 +16,10 @@ import javax.management.MalformedObjectNameException;
 import javax.management.NotificationBroadcasterSupport;
 import javax.management.ObjectName;
 
-import EDU.oswego.cs.dl.util.concurrent.SynchronizedLong;
 import org.apache.log4j.NDC;
 import org.jboss.logging.Logger;
+
+import EDU.oswego.cs.dl.util.concurrent.SynchronizedLong;
 
 /**
  * An abstract base class JBoss services can subclass to implement a
@@ -29,11 +29,11 @@ import org.jboss.logging.Logger;
  *
  * @see ServiceMBean
  * 
- * @author <a href="mailto:rickard.oberg@telkel.com">Rickard Öberg</a>
+ * @author <a href="mailto:rickard.oberg@telkel.com">Rickard Ã–berg</a>
  * @author Scott.Stark@jboss.org
  * @author <a href="mailto:andreas@jboss.org">Andreas Schaefer</a>
  * @author <a href="mailto:jason@planet57.com">Jason Dillon</a>
- * @version $Revision: 1.7.2.5 $
+ * @version $Revision: 1.7.2.7 $
  */
 public class ServiceMBeanSupport
    extends NotificationBroadcasterSupport
@@ -151,7 +151,7 @@ public class ServiceMBeanSupport
    public void create() throws Exception
    {
       NDC.push(getName());
-      log.info("Creating");
+      log.debug("Creating");
       
       try
       {
@@ -169,7 +169,7 @@ public class ServiceMBeanSupport
          NDC.remove();
       }
 
-      log.info("Created");
+      log.debug("Created");
    }
 
    public void start() throws Exception
@@ -184,7 +184,7 @@ public class ServiceMBeanSupport
          "State", "java.lang.Integer",
          new Integer(STOPPED), new Integer(STARTING));
       sendNotification(stateChange);
-      log.info("Starting");
+      log.debug("Starting");
       NDC.push(getName());
 
       try
@@ -217,7 +217,7 @@ public class ServiceMBeanSupport
          "State", "java.lang.Integer",
          new Integer(STARTING), new Integer(STARTED));
       sendNotification(stateChange);
-      log.info("Started");
+      log.info("Started " + getServiceName());
    }
    
    public void stop()
@@ -232,7 +232,7 @@ public class ServiceMBeanSupport
          "State", "java.lang.Integer",
          new Integer(STARTED), new Integer(STOPPING));
       sendNotification(stateChange);
-      log.info("Stopping");
+      log.info("Stopping " + getServiceName());
       NDC.push(getName());
 
       try
@@ -265,7 +265,7 @@ public class ServiceMBeanSupport
          "State", "java.lang.Integer",
          new Integer(STOPPING), new Integer(STOPPED));
       sendNotification(stateChange);
-      log.info("Stopped");
+      log.debug("Stopped");
    }
 
    public void destroy()
@@ -275,7 +275,7 @@ public class ServiceMBeanSupport
       if (state != STOPPED)
          stop();
       
-      log.info("Destroying");
+      log.debug("Destroying");
       
       NDC.push(getName());
       
@@ -293,7 +293,7 @@ public class ServiceMBeanSupport
          NDC.remove();
       }
       state = DESTROYED;
-      log.info("Destroyed");
+      log.debug("Destroyed");
    }
 
 

@@ -1,6 +1,6 @@
 // ========================================================================
 // Copyright (c) 2002 Mort Bay Consulting (Australia) Pty. Ltd.
-// $Id: LocalState.java,v 1.1.4.6 2003/01/03 00:58:04 jules_gosnell Exp $
+// $Id: LocalState.java,v 1.1.4.7 2003/07/26 11:49:41 jules_gosnell Exp $
 // ========================================================================
 
 package org.mortbay.j2ee.session;
@@ -12,7 +12,7 @@ import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.log4j.Category;
+import org.jboss.logging.Logger;
 
 //----------------------------------------
 
@@ -26,7 +26,7 @@ public class
   LocalState
   implements State, java.io.Serializable
 {
-  protected static Category _log=Category.getInstance("org.mortbay.j2ee.session.LocalState");
+  protected static final Logger _log=Logger.getLogger(LocalState.class);
 
   protected String _id;
   protected int    _maxInactiveInterval;
@@ -69,7 +69,7 @@ public class
   public long        getLastAccessedTime()                   {return _lastAccessedTime;}
   public void        setLastAccessedTime(long time)          {_lastAccessedTime=time;}
   public int         getMaxInactiveInterval()                {return _maxInactiveInterval;}
-  public void        setMaxInactiveInterval(int interval)    {_maxInactiveInterval=interval;}
+  public void        setMaxInactiveInterval(int interval)    {_log.info("_maxInactiveInterval="+interval);_maxInactiveInterval=interval;}
 
   // allocate attribute map lazily. This is more complex, but JSPs
   // seem to force allocation of sessions and then never put anything

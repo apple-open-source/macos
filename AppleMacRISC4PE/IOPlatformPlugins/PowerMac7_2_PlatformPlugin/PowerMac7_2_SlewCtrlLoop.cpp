@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,71 +23,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc.  All rights reserved.
  *
  *
  */
-//		$Log: PowerMac7_2_SlewCtrlLoop.cpp,v $
-//		Revision 1.7  2003/07/20 23:41:11  eem
-//		[3273577] Q37: Systems need to run at Full Speed during test
-//		
-//		Revision 1.6  2003/07/16 02:02:10  eem
-//		3288772, 3321372, 3328661
-//		
-//		Revision 1.5  2003/06/25 02:16:25  eem
-//		Merged 101.0.21 to TOT, fixed PM72 lproj, included new fan settings, bumped
-//		version to 101.0.22.
-//		
-//		Revision 1.4.4.3  2003/06/21 01:42:08  eem
-//		Final Fan Tweaks.
-//		
-//		Revision 1.4.4.2  2003/06/20 09:07:37  eem
-//		Added rising/falling slew limiters, integral clipping, etc.
-//		
-//		Revision 1.4.4.1  2003/06/20 01:40:01  eem
-//		Although commented out in this submision, there is support here to nap
-//		the processors if the fans are at min, with the intent of keeping the
-//		heat sinks up to temperature.
-//		
-//		Revision 1.4  2003/06/07 01:30:58  eem
-//		Merge of EEM-PM72-ActiveFans-2 branch, with a few extra tweaks.  This
-//		checkin has working PID control for PowerMac7,2 platforms, as well as
-//		a first shot at localized strings.
-//		
-//		Revision 1.3.2.5  2003/06/06 08:17:58  eem
-//		Holy Motherfucking shit.  PID is really working.
-//		
-//		Revision 1.3.2.4  2003/05/31 08:11:38  eem
-//		Initial pass at integrating deadline-based timer callbacks for PID loops.
-//		
-//		Revision 1.3.2.3  2003/05/29 03:51:36  eem
-//		Clean up environment dictionary access.
-//		
-//		Revision 1.3.2.2  2003/05/26 10:07:17  eem
-//		Fixed most of the bugs after the last cleanup/reorg.
-//		
-//		Revision 1.3.2.1  2003/05/23 06:36:59  eem
-//		More registration notification stuff.
-//		
-//		Revision 1.3  2003/05/21 21:58:55  eem
-//		Merge from EEM-PM72-ActiveFans-1 branch with initial crack at active fan
-//		control on Q37.
-//		
-//		Revision 1.2.2.2  2003/05/16 07:08:48  eem
-//		Table-lookup active fan control working with this checkin.
-//		
-//		Revision 1.2.2.1  2003/05/14 22:07:55  eem
-//		Implemented state-driven sensor, cleaned up "const" usage and header
-//		inclusions.
-//		
-//		Revision 1.2  2003/05/13 02:13:52  eem
-//		PowerMac7_2 Dynamic Power Step support.
-//		
-//		Revision 1.1.2.1  2003/05/12 11:21:12  eem
-//		Support for slewing.
-//		
-//
-//
+
 
 #include <IOKit/IOLib.h>
 #include "IOPlatformPluginSymbols.h"
@@ -201,16 +141,18 @@ void PowerMac7_2_SlewCtrlLoop::adjustControls( void )
 		return;
 	}
 
-	const OSNumber * curDPS = OSDynamicCast(OSNumber, platformPlugin->getEnv(gIOPPluginEnvDynamicPowerStep));
+	const OSNumber * curDPSNum = OSDynamicCast(OSNumber, platformPlugin->getEnv(gIOPPluginEnvDynamicPowerStep));
 	//bool allowNapping = platformPlugin->envArrayCondIsTrue(gPM72EnvAllowNapping);
-	const OSNumber * curTarget = slewControl->getTargetValue();
-	const OSNumber * newTarget = gIOPPluginZero;
+	ControlValue curTarget = slewControl->getTargetValue();
+	ControlValue newTarget = 0x0;
 
-	if (!curDPS || !curTarget)
+	if (!curDPSNum)
 	{
 		CTRLLOOP_DLOG("PowerMac7_2_SlewCtrlLoop::adjustControls failed fetching params\n");
 		return;
 	}
+
+	ControlValue curDPS = curDPSNum->unsigned32BitValue();
 
 /*
 	// To Nap or Not to Nap?  That is the question.
@@ -232,9 +174,9 @@ void PowerMac7_2_SlewCtrlLoop::adjustControls( void )
 */
 	// this is an abbreviated technique of calculating the algorithm described above, basically it is
 	// a truth table that says "if curMetaSate==1 OR curDPS==1 THEN newTarget<-1, ELSE newTarget<-0"
-	if (getMetaState()->isEqualTo(gIOPPluginOne) || curDPS->isEqualTo(gIOPPluginOne))
+	if (getMetaState()->isEqualTo(gIOPPluginOne) || curDPS == 0x1 )
 	{
-		newTarget = gIOPPluginOne;
+		newTarget = 0x1;
 	}
 
 	//CTRLLOOP_DLOG("PowerMac7_2_SlewCtrlLoop::adjustControls chose speed %u\n", newTarget->unsigned16BitValue());
@@ -242,7 +184,7 @@ void PowerMac7_2_SlewCtrlLoop::adjustControls( void )
 	// if target value changed, send it down to the slew controller
 	if (ctrlloopState == kIOPCtrlLoopFirstAdjustment ||
 	    ctrlloopState == kIOPCtrlLoopDidWake ||
-	    !curTarget->isEqualTo(newTarget))
+	    curTarget != newTarget)
 	{
 		//CTRLLOOP_DLOG("PowerMac7_2_SlewCtrlLoop::adjustControls MESSAGING SLEW DRIVER\n");
 

@@ -74,7 +74,7 @@ public:
 
     virtual bool isWidget() const { return true; };
 
-    virtual void detach(RenderArena* renderArena);
+    virtual void detach();
     virtual void layout( );
 
     QWidget *widget() const { return m_widget; }
@@ -85,6 +85,7 @@ public:
 
 #if APPLE_CHANGES 
     void sendConsumedMouseUp(const QPoint &mousePos, int button, int state);
+    virtual void updateWidgetPositions();
 #endif
 
 public slots:

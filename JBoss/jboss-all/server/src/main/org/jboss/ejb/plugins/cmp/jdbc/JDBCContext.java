@@ -1,19 +1,41 @@
+/*
+ * JBoss, the OpenSource J2EE webOS
+ *
+ * Distributable under LGPL license.
+ * See terms of license at gnu.org.
+ */
 package org.jboss.ejb.plugins.cmp.jdbc;
 
-import java.util.HashMap;
+import org.jboss.ejb.plugins.cmp.jdbc.bridge.JDBCEntityBridge;
 
-public class JDBCContext {
-   private HashMap data = new HashMap();
 
-   public Object get(Object key) {
-      return data.get(key);
+/**
+ *
+ * @author <a href="alex@jboss.org">Alex Loubyansky</a>
+ */
+public final class JDBCContext
+{
+   private final Object[] fieldStates;
+   private JDBCEntityBridge.EntityState entityState;
+
+   public JDBCContext(int jdbcContextSize, JDBCEntityBridge.EntityState entityState)
+   {
+      fieldStates = new Object[jdbcContextSize];
+      this.entityState = entityState;
    }
 
-   public void put(Object key, Object value) {
-      data.put(key, value);
+   public Object getFieldState(int index)
+   {
+      return fieldStates[index];
    }
 
-   public void remove(Object key) {
-      data.remove(key);
+   public void setFieldState(int index, Object value)
+   {
+      fieldStates[index] = value;
+   }
+
+   public JDBCEntityBridge.EntityState getEntityState()
+   {
+      return entityState;
    }
 }

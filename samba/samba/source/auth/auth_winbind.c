@@ -76,7 +76,8 @@ static NTSTATUS check_winbind_security(const struct auth_context *auth_context,
 	}		
 
 	if (strequal(user_info->domain.str, get_global_sam_name())) {
-		DEBUG(3,("check_winbind_security: Not using winbind, requested domain was for this SAM.\n"));
+		DEBUG(3,("check_winbind_security: Not using winbind, requested domain [%s] was for this SAM.\n",
+			user_info->domain.str));
 		return NT_STATUS_NOT_IMPLEMENTED;
 	}
 
@@ -126,15 +127,15 @@ static NTSTATUS check_winbind_security(const struct auth_context *auth_context,
 
 	if (result == NSS_STATUS_SUCCESS && response.extra_data) {
 		if (NT_STATUS_IS_OK(nt_status)) {
-			if (NT_STATUS_IS_OK(nt_status = get_info3_from_ndr(mem_ctx, &response, &info3))) { 
-				nt_status = 
-					make_server_info_info3(mem_ctx, 
-							       user_info->internal_username.str, 
-							       user_info->smb_name.str, 
-							       user_info->domain.str, 
-							       server_info, 
-							       &info3); 
+		
+			if (NT_STATUS_IS_OK(nt_status = get_info3_from_ndr(mem_ctx, &response, &info3))) 
+			{ 
+				nt_status = make_server_info_info3(mem_ctx, 
+					user_info->internal_username.str, 
+					user_info->smb_name.str, user_info->domain.str, 
+					server_info, &info3); 
 			}
+			
 		}
 	} else if (NT_STATUS_IS_OK(nt_status)) {
 		nt_status = NT_STATUS_NO_LOGON_SERVERS;

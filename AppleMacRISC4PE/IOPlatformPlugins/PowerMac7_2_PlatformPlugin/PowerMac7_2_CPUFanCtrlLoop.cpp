@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,120 +23,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc.  All rights reserved.
  *
  *
  */
-//		$Log: PowerMac7_2_CPUFanCtrlLoop.cpp,v $
-//		Revision 1.13  2003/08/01 00:42:34  wgulland
-//		Merging in branch PR-3338565
-//		
-//		Revision 1.12.2.1  2003/07/31 17:53:10  eem
-//		3338565 - q37 intake fan speed is 97% of exhaust fan speed, but still gets
-//		clipped at the same min/max.  This prevents the intake fan speed from falling
-//		below 300 RPM and being turned off by the FCU.  Version bumped to 1.0.1b1.
-//		
-//		Revision 1.12  2003/07/24 21:47:18  eem
-//		[3338565] Q37 Final Fan data
-//		
-//		Revision 1.11  2003/07/20 23:41:11  eem
-//		[3273577] Q37: Systems need to run at Full Speed during test
-//		
-//		Revision 1.10  2003/07/18 00:22:24  eem
-//		[3329244] PCI fan conrol algorithm should use integral of power consumed
-//		[3254911] Q37 Platform Plugin must disable debugging accessors before GM
-//		
-//		Revision 1.9  2003/07/17 06:57:39  eem
-//		3329222 and other sleep stability issues fixed.
-//		
-//		Revision 1.8  2003/07/16 02:02:10  eem
-//		3288772, 3321372, 3328661
-//		
-//		Revision 1.7  2003/07/08 04:32:51  eem
-//		3288891, 3279902, 3291553, 3154014
-//		
-//		Revision 1.6  2003/06/26 17:16:20  eem
-//		Fixed a retain count leak in PowerMac7_2_CPUFanCtrlLoop that was bracketed
-//		by CTRLLOOP_DLOG.
-//		
-//		Revision 1.5  2003/06/25 02:16:25  eem
-//		Merged 101.0.21 to TOT, fixed PM72 lproj, included new fan settings, bumped
-//		version to 101.0.22.
-//		
-//		Revision 1.4.4.6  2003/06/21 02:02:25  eem
-//		Fix massive bone-up.
-//		
-//		Revision 1.4.4.5  2003/06/21 01:42:08  eem
-//		Final Fan Tweaks.
-//		
-//		Revision 1.4.4.4  2003/06/20 09:07:37  eem
-//		Added rising/falling slew limiters, integral clipping, etc.
-//		
-//		Revision 1.4.4.3  2003/06/20 01:40:00  eem
-//		Although commented out in this submision, there is support here to nap
-//		the processors if the fans are at min, with the intent of keeping the
-//		heat sinks up to temperature.
-//		
-//		Revision 1.4.4.2  2003/06/19 10:24:20  eem
-//		Pulled common PID code into IOPlatformPIDCtrlLoop and subclassed it with
-//		PowerMac7_2_CPUFanCtrlLoop and PowerMac7_2_PIDCtrlLoop.  Added history
-//		length to meta-state.  No longer adjust T_err when the setpoint changes.
-//		Don't crank the CPU fans for overtemp, just slew slow.
-//		
-//		Revision 1.4.4.1  2003/06/18 20:40:12  eem
-//		Added variable sample history length, removed cpu fan response to
-//		internal overtemp, made proportional gain only apply to proportional
-//		term.
-//		
-//		Revision 1.4  2003/06/07 01:30:58  eem
-//		Merge of EEM-PM72-ActiveFans-2 branch, with a few extra tweaks.  This
-//		checkin has working PID control for PowerMac7,2 platforms, as well as
-//		a first shot at localized strings.
-//		
-//		Revision 1.3.2.8  2003/06/06 11:00:45  eem
-//		Drive Bay and U3 zones now also under PID control.
-//		
-//		Revision 1.3.2.7  2003/06/06 08:17:58  eem
-//		Holy Motherfucking shit.  PID is really working.
-//		
-//		Revision 1.3.2.6  2003/06/01 14:52:55  eem
-//		Most of the PID algorithm is implemented.
-//		
-//		Revision 1.3.2.5  2003/05/31 08:11:38  eem
-//		Initial pass at integrating deadline-based timer callbacks for PID loops.
-//		
-//		Revision 1.3.2.4  2003/05/29 03:51:36  eem
-//		Clean up environment dictionary access.
-//		
-//		Revision 1.3.2.3  2003/05/26 10:07:17  eem
-//		Fixed most of the bugs after the last cleanup/reorg.
-//		
-//		Revision 1.3.2.2  2003/05/23 06:36:59  eem
-//		More registration notification stuff.
-//		
-//		Revision 1.3.2.1  2003/05/22 01:31:05  eem
-//		Checkin of today's work (fails compilations right now).
-//		
-//		Revision 1.3  2003/05/21 21:58:55  eem
-//		Merge from EEM-PM72-ActiveFans-1 branch with initial crack at active fan
-//		control on Q37.
-//		
-//		Revision 1.2.4.2  2003/05/17 11:08:25  eem
-//		All active fan data present, table event-driven.  PCI power sensors are
-//		not working yet so PCI fan is just set to 67% PWM and forgotten about.
-//		
-//		Revision 1.2.4.1  2003/05/17 02:55:05  eem
-//		Intermediate commit with cpu fan loop states/outputs included.  This
-//		probably won't compile right now.
-//		
-//		Revision 1.2  2003/05/10 06:50:36  eem
-//		All sensor functionality included for PowerMac7_2_PlatformPlugin.  Version
-//		is 1.0.1d12.
-//		
-//		Revision 1.1.2.1  2003/05/01 09:28:47  eem
-//		Initial check-in in progress toward first Q37 checkpoint.
-//		
-//
+
 
 #include "IOPlatformPluginDefs.h"
 #include "IOPlatformPluginSymbols.h"
@@ -423,7 +314,7 @@ int PowerMac7_2_CPUFanCtrlLoop::comparePIDDatasetVersions( const OSData * v1, co
 	                        /* B */ 2,
 	                        /* C */ 0xFF,
 	                        /* D */ 0,
-	                        /* E */ 0xFF,
+	                        /* E */ 4,
 	                        /* F */ 3 };
 
 	if (v1 == NULL || v2 == NULL)
@@ -722,7 +613,7 @@ bool PowerMac7_2_CPUFanCtrlLoop::updateMetaState( void )
 bool PowerMac7_2_CPUFanCtrlLoop::acquireSample( void )
 {
 	samplePoint * latest;
-	const OSNumber * curValue;
+	SensorValue curValue;
 
 	// Set up the temperature history
 	if (tempIndex == 1)
@@ -731,15 +622,9 @@ bool PowerMac7_2_CPUFanCtrlLoop::acquireSample( void )
 		tempIndex = 1;
 
 	// fetch the temperature reading
-	if ((curValue = getAggregateSensorValue()) == NULL)
-	{
-		CTRLLOOP_DLOG("PowerMac7_2_CPUFanCtrlLoop::acquireSample failed to fetch temp sensor value\n");
-		tempHistory[tempIndex].sensValue = 0;
-		goto failGetTemperatureValue;
-	}
+	curValue = getAggregateSensorValue();
 
-	tempHistory[tempIndex].sensValue = (SInt32) curValue->unsigned32BitValue();
-	curValue->release();
+	tempHistory[tempIndex].sensValue = curValue.sensValue;
 
 	// move the top of the power array to the next spot -- it's circular
 	if (latestSample == 0)
@@ -753,34 +638,16 @@ bool PowerMac7_2_CPUFanCtrlLoop::acquireSample( void )
 	// fetch the power reading
 	// the power sensor is a "fake" logical sensor.  In order to get a good reading,
 	// we have to update the current and power sensors first.
-	if ((curValue = voltageSensor->fetchCurrentValue()) == NULL)
-	{
-		CTRLLOOP_DLOG("PowerMac7_2_CPUFanCtrlLoop::acquireSample failed to update voltage reading\n");
-		goto failGetPowerValue;
-	}
+	voltageSensor->setCurrentValue( voltageSensor->forceAndFetchCurrentValue() );
+	currentSensor->setCurrentValue( currentSensor->forceAndFetchCurrentValue() );
 
-	voltageSensor->setCurrentValue( curValue );
-	curValue->release();
-
-	if ((curValue = currentSensor->fetchCurrentValue()) == NULL)
-	{
-		CTRLLOOP_DLOG("PowerMac7_2_CPUFanCtrlLoop::acquireSample failed to update current reading\n");
-		goto failGetPowerValue;
-	}
-
-	currentSensor->setCurrentValue( curValue );
-	curValue->release();
-
-	if ((curValue = powerSensor->fetchCurrentValue()) == NULL)
-	{
-		CTRLLOOP_DLOG("PowerMac7_2_CPUFanCtrlLoop::acquireSample failed to update power reading\n");
-		goto failGetPowerValue;
-	}
-
+	// the cpu power sensor doesn't need a force update, its fetchCurrentValue() does all the
+	// work (there's no IOHWSensor instance to send a message to since it's a fake sensor)
+	curValue = powerSensor->fetchCurrentValue();
 	powerSensor->setCurrentValue( curValue );
 
 	// store the sample in the history
-	latest->sample.sensValue = (SInt32) curValue->unsigned32BitValue();
+	latest->sample.sensValue = curValue.sensValue;
 
 	// calculate the error term and store it
 	latest->error.sensValue = powerMaxAdj.sensValue - latest->sample.sensValue;
@@ -788,17 +655,7 @@ bool PowerMac7_2_CPUFanCtrlLoop::acquireSample( void )
 	//CTRLLOOP_DLOG("*** SAMPLE *** InT: 0x%08lX Cur: 0x%08lX Error: 0x%08lX\n",
 	//		inputTarget.sensValue, latest->sample.sensValue, latest->error.sensValue);
 
-	curValue->release();
-
 	return(true);
-
-failGetPowerValue:
-	latest->sample.sensValue = 0;
-	latest->error.sensValue = 0;
-
-failGetTemperatureValue:
-
-	return(false);
 }
 
 bool PowerMac7_2_CPUFanCtrlLoop::cacheMetaState( const OSDictionary * metaState )
@@ -964,22 +821,20 @@ failNoInterval:
 
 }
 
-const OSNumber *PowerMac7_2_CPUFanCtrlLoop::calculateNewTarget( void ) const
+ControlValue PowerMac7_2_CPUFanCtrlLoop::calculateNewTarget( void ) const
 {
 	SInt32 pRaw, dRaw, rRaw;
 	SInt64 accum, dProd, rProd, pProd;
 	//UInt32 result, prevResult, scratch;
 	SInt32 result;
-	UInt32 uResult;
+	ControlValue newTarget;
 	SensorValue adjInputTarget, sVal;
-	const OSNumber * newTarget;
 
 	// if there is an output override, use it
 	if (overrideActive)
 	{
 		CTRLLOOP_DLOG("*** PID *** Override Active\n");
-		newTarget = outputOverride;
-		newTarget->retain();
+		newTarget = outputOverride->unsigned32BitValue();
 	}
 
 	// apply the PID algorithm to choose a new control target value
@@ -1001,7 +856,7 @@ const OSNumber *PowerMac7_2_CPUFanCtrlLoop::calculateNewTarget( void ) const
 			adjInputTarget.sensValue = inputTarget.sensValue < sVal.sensValue ? inputTarget.sensValue : sVal.sensValue;
 
 			// do the PID iteration
-			result = (SInt32)outputControl->getTargetValue()->unsigned32BitValue();
+			result = (SInt32)outputControl->getTargetValue();
 
 			// calculate the derivative term
 			// apply the derivative gain
@@ -1030,13 +885,13 @@ const OSNumber *PowerMac7_2_CPUFanCtrlLoop::calculateNewTarget( void ) const
 			result += (SInt32)accum;
 		}
 
-		uResult = (UInt32)(result > 0) ? result : 0;
+		newTarget = (UInt32)(result > 0) ? result : 0;
 
 		// apply the hard limits
-		if (uResult < outputMin)
-			uResult = outputMin;
-		else if (uResult > outputMax)
-			uResult = outputMax;
+		if (newTarget < outputMin)
+			newTarget = outputMin;
+		else if (newTarget > outputMax)
+			newTarget = outputMax;
 
 /*
 #ifdef CTRLLOOP_DEBUG
@@ -1088,7 +943,6 @@ const OSNumber *PowerMac7_2_CPUFanCtrlLoop::calculateNewTarget( void ) const
 #endif
 */
 
-		newTarget = OSNumber::withNumber( uResult, 32 );
 	}
 
 	return(newTarget);
@@ -1140,7 +994,7 @@ void PowerMac7_2_CPUFanCtrlLoop::deadlinePassed( void )
 		// if tMaxExceededPreviously is true, we know that the internal overtemp flag was set
 		// causing the CPU to slew slow
 		maxCoolingApplied = (tMaxExceededPreviously &&
-		                     outputControl->getTargetValue()->unsigned32BitValue() >= outputMax);
+		                     outputControl->getTargetValue() >= outputMax);
 
 		if (maxCoolingApplied)
 		{
@@ -1212,10 +1066,9 @@ void PowerMac7_2_CPUFanCtrlLoop::deadlinePassed( void )
 	timerCallbackActive = false;
 }
 
-void PowerMac7_2_CPUFanCtrlLoop::sendNewTarget( const OSNumber * newTarget )
+void PowerMac7_2_CPUFanCtrlLoop::sendNewTarget( ControlValue newTarget )
 {
-	const OSNumber * secNewTarget;
-	UInt32 secRPM;
+	ControlValue secNewTarget;
 
 /*
 	// If the fans are at minimum speed, don't let the processors nap.  We need to
@@ -1232,7 +1085,7 @@ void PowerMac7_2_CPUFanCtrlLoop::sendNewTarget( const OSNumber * newTarget )
 	// If the new target value is different, send it to the control
 	if (ctrlloopState == kIOPCtrlLoopFirstAdjustment ||
 	    ctrlloopState == kIOPCtrlLoopDidWake ||
-	    !newTarget->isEqualTo( outputControl->getTargetValue() ))
+	    newTarget != outputControl->getTargetValue() )
 	{
 		if (outputControl->sendTargetValue( newTarget ))
 		{
@@ -1250,16 +1103,14 @@ void PowerMac7_2_CPUFanCtrlLoop::sendNewTarget( const OSNumber * newTarget )
 		// secondary control's target.  This requires some shifting since the scaling
 		// factor is a 16.16 fixed point value.
 
-		secRPM = (newTarget->unsigned32BitValue() * intakeScaling) >> 16;
+		secNewTarget = (newTarget * intakeScaling) >> 16;
 
 		// The scaled value is again clipped to the min/max output rpm.
-		if (secRPM < outputMin)
-			secRPM = outputMin;
-		else if (secRPM > outputMax)
-			secRPM = outputMax;
+		if (secNewTarget < outputMin)
+			secNewTarget = outputMin;
+		else if (secNewTarget > outputMax)
+			secNewTarget = outputMax;
 		
-		secNewTarget = OSNumber::withNumber( secRPM, 32 );
-
 		if (secOutputControl->sendTargetValue( secNewTarget ))
 		{
 			secOutputControl->setTargetValue(secNewTarget);
@@ -1268,8 +1119,6 @@ void PowerMac7_2_CPUFanCtrlLoop::sendNewTarget( const OSNumber * newTarget )
 		{
 			CTRLLOOP_DLOG("PowerMac7_2_CPUFanCtrlLoop::sendNewTarget failed to send target value (secondary)\n");
 		}
-
-		secNewTarget->release();
 	}
 }
 

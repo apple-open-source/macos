@@ -68,6 +68,7 @@
 				F5D3DB6F025E18B802A80102,
 				F5D3DB75025E210E02A80102,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 089C166AFE841209C02AAC07;
 			projectDirPath = "";
@@ -108,7 +109,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Apple16X50Serial;
-				MODULE_VERSION = 1.3;
+				MODULE_VERSION = 1.5;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -145,11 +146,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3</string>
+	<string>1.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3</string>
+	<string>1.5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PCI 16X50 Serial Port</key>
@@ -169,7 +170,7 @@
 		</dict>
 	</dict>
 	<key>OSBundleCompatibleVersion</key>
-	<string>1.3</string>
+	<string>1.5</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.iokit.IOPCIFamily</key>
@@ -182,7 +183,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -276,11 +276,13 @@
 //1A3
 //1A4
 		1A224C3EFF42367911CA2CB7 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Apple16X50UARTSync.h;
 			refType = 4;
 		};
 		1A224C3FFF42367911CA2CB7 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Apple16X50UARTSync.cpp;
 			refType = 4;
@@ -422,7 +424,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Apple16X50ACPI;
-				MODULE_VERSION = 1.3;
+				MODULE_VERSION = 1.5;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -459,11 +461,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3</string>
+	<string>1.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3</string>
+	<string>1.5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>ACPI 16X50 Serial Port</key>
@@ -485,7 +487,7 @@
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.driver.Apple16X50Serial</key>
-		<string>1.3</string>
+		<string>1.5</string>
 		<key>com.apple.iokit.IOACPIFamily</key>
 		<string>1.0.0d1</string>
 		<key>com.apple.kernel.iokit</key>
@@ -494,7 +496,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		B9FBA18004601FF708D5663B = {
 			isa = PBXBundleReference;
@@ -502,11 +503,13 @@
 			refType = 3;
 		};
 		B9FBA1810460213D08D5663B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Apple16X50ACPI.cpp;
 			refType = 4;
 		};
 		B9FBA1820460213D08D5663B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Apple16X50ACPI.h;
 			refType = 4;
@@ -546,11 +549,13 @@
 			};
 		};
 		F51EE72D0231EF5402A80164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Apple16X50BusInterface.h;
 			refType = 4;
 		};
 		F51EE72E0231EF5402A80164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Apple16X50BusInterface.cpp;
 			refType = 4;
@@ -583,7 +588,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Apple16X50PCCard;
-				MODULE_VERSION = 1.3;
+				MODULE_VERSION = 1.5;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -620,11 +625,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3</string>
+	<string>1.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3</string>
+	<string>1.5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PCCard 16X50 Serial Port</key>
@@ -648,7 +653,7 @@
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.driver.Apple16X50Serial</key>
-		<string>1.3</string>
+		<string>1.5</string>
 		<key>com.apple.iokit.IOPCCardFamily</key>
 		<string>1.1.0</string>
 		<key>com.apple.kernel.iokit</key>
@@ -657,7 +662,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		F5269A9B023ECEC202CA28B1 = {
 			buildActionMask = 2147483647;
@@ -716,11 +720,13 @@
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
 		F5269AA1023EDA4402CA28B1 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Apple16X50PCCard.h;
 			refType = 4;
 		};
 		F5269AA2023EDA4402CA28B1 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Apple16X50PCCard.cpp;
 			refType = 4;
@@ -738,6 +744,7 @@
 			};
 		};
 		F52B9DB9023C40A102A80164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Apple16X50Serial.h;
 			refType = 4;
@@ -754,11 +761,13 @@
 			refType = 4;
 		};
 		F52F27B80265806C02A80102 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Apple16X50UARTTypes.h;
 			refType = 4;
 		};
 		F52F27B90265806C02A80102 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Apple16X50UARTTypes.cpp;
 			refType = 4;
@@ -776,11 +785,13 @@
 			};
 		};
 		F557DFFF022B7E1402A80164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Apple16X50PCI.h;
 			refType = 4;
 		};
 		F557E000022B7E1402A80164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Apple16X50PCI.cpp;
 			refType = 4;
@@ -806,11 +817,13 @@
 			refType = 0;
 		};
 		F57720B202375BFA02A80164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Apple16X50Queue.h;
 			refType = 4;
 		};
 		F57720B302375BFA02A80164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Apple16X50Queue.cpp;
 			refType = 4;

@@ -6,24 +6,25 @@
  */
 package org.jboss.tm;
 
-import java.util.HashSet;
-import java.util.Iterator;
+import org.jboss.logging.Logger;
+import org.jboss.util.timeout.Timeout;
+import org.jboss.util.timeout.TimeoutFactory;
+import org.jboss.util.timeout.TimeoutTarget;
 
-import javax.transaction.Transaction;
+import javax.transaction.HeuristicMixedException;
+import javax.transaction.HeuristicRollbackException;
+import javax.transaction.RollbackException;
 import javax.transaction.Status;
 import javax.transaction.Synchronization;
 import javax.transaction.SystemException;
-import javax.transaction.RollbackException;
-import javax.transaction.HeuristicMixedException;
-import javax.transaction.HeuristicRollbackException;
-import javax.transaction.xa.Xid;
-import javax.transaction.xa.XAResource;
+import javax.transaction.Transaction;
 import javax.transaction.xa.XAException;
-
-import org.jboss.logging.Logger;
-import org.jboss.util.timeout.Timeout;
-import org.jboss.util.timeout.TimeoutTarget;
-import org.jboss.util.timeout.TimeoutFactory;
+import javax.transaction.xa.XAResource;
+import javax.transaction.xa.Xid;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.ArrayList;
 
 
 /**
@@ -31,13 +32,14 @@ import org.jboss.util.timeout.TimeoutFactory;
  *
  *  @see TxManager
  *
- *  @author <a href="mailto:rickard.oberg@telkel.com">Rickard Öberg</a>
+ *  @author <a href="mailto:rickard.oberg@telkel.com">Rickard Ãberg</a>
  *  @author <a href="mailto:marc.fleury@telkel.com">Marc Fleury</a>
  *  @author <a href="mailto:osh@sparre.dk">Ole Husgaard</a>
  *  @author <a href="mailto:toby.allsopp@peace.com">Toby Allsopp</a>
  *  @author <a href="mailto:jason@planet57.com">Jason Dillon</a>
  *  @author <a href="mailto:d_jencks@users.sourceforge.net">David Jencks</a>
- *  @version $Revision: 1.5.2.12 $
+ *  @author <a href="mailto:bill@jboss.org">Bill Burke</a>
+ *  @version $Revision: 1.5.2.16 $
  */
 class TransactionImpl
    implements Transaction, TimeoutTarget
@@ -71,7 +73,9 @@ class TransactionImpl
    /** The ID of this transaction. */
    private Xid xid;
 
-   private HashSet threads = new HashSet();
+   private ArrayList threads = new ArrayList(1);
+
+   private HashMap transactionLocalMap = new HashMap();
 
    private Throwable cause;
 
@@ -163,6 +167,10 @@ class TransactionImpl
    private Timeout timeout;
 
    /**
+    * Timeout in millisecs
+    */
+   private long timeoutPeriod;
+   /**
     *  Mutex for thread-safety. This should only be changed in the
     *  <code>lock()</code> and <code>unlock()</code> methods.
     */
@@ -209,7 +217,7 @@ class TransactionImpl
 
       start = System.currentTimeMillis();
       this.timeout = TimeoutFactory.createTimeout(start+timeout, this);
-
+      this.timeoutPeriod = timeout;
       if (trace)
          log.trace("Created new instance for tx=" + toString());
 
@@ -418,6 +426,7 @@ class TransactionImpl
          }
 
       } finally {
+         transactionLocalMap.clear();
          threads.clear();
          unlock();
       }
@@ -465,7 +474,9 @@ class TransactionImpl
                getStringStatus(status));
          }
       } finally {
+         transactionLocalMap.clear();
          threads.clear();
+         Thread.interrupted();// clear timeout that did an interrupt
          unlock();
       }
    }
@@ -754,7 +765,13 @@ class TransactionImpl
       threads.remove(Thread.currentThread());
       Thread.interrupted();
    }
-
+   public void clearThreads()
+   {
+      for (int i = 0; i < threads.size(); i++)
+      {
+         Thread t = (Thread)threads.get(i);
+      }
+   }
    public int hashCode()
    {
       return globalId.hashCode();
@@ -1709,6 +1726,26 @@ class TransactionImpl
       return true;
    }
 
+
+   public long getTimeLeftBeforeTimeout()
+   {
+      return (start + timeoutPeriod) - System.currentTimeMillis();
+   }
+
+   Object getTransactionLocalValue(TransactionLocal tlocal)
+   {
+      return transactionLocalMap.get(tlocal);
+   }
+
+   void putTransactionLocalValue(TransactionLocal tlocal, Object value)
+   {
+      transactionLocalMap.put(tlocal, value);
+   }
+
+   boolean containsTransactionLocal(TransactionLocal tlocal)
+   {
+      return transactionLocalMap.containsKey(tlocal);
+   }
 
    // Inner classes -------------------------------------------------
 }

@@ -159,6 +159,10 @@
             <param-name>logVerbosityLevel</param-name>
             <param-value>WARNING</param-value>
         </init-param>
+        <init-param>
+            <param-name>fork</param-name>
+            <param-value>false</param-value>
+        </init-param>
         <load-on-startup>3</load-on-startup>
     </servlet>
 
@@ -707,6 +711,10 @@
     <mime-mapping>
         <extension>shar</extension>
         <mime-type>application/x-shar</mime-type>
+    </mime-mapping>
+    <mime-mapping>
+        <extension>sit</extension>
+        <mime-type>application/x-stuffit</mime-type>
     </mime-mapping>
     <mime-mapping>
         <extension>smf</extension>

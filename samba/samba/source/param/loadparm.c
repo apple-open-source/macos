@@ -126,6 +126,7 @@ typedef struct
 	char *szPasswordServer;
 	char *szSocketOptions;
 	char *szRealm;
+	char *szAfsUsernameMap;
 	char *szUsernameMap;
 	char *szLogonScript;
 	char *szLogonPath;
@@ -160,7 +161,6 @@ typedef struct
 	char *szUtmpDir;
 	char *szWtmpDir;
 	BOOL bUtmp;
-	char *szSourceEnv;
 	char *szIdmapUID;
 	char *szIdmapGID;
 	BOOL bEnableRidAlgorithm;
@@ -184,7 +184,6 @@ typedef struct
 	int mangle_prefix;
 	int max_log_size;
 	char *szLogLevel;
-	int mangled_stack;
 	int max_xmit;
 	int max_mux;
 	int max_open_files;
@@ -207,7 +206,6 @@ typedef struct
 	int max_ttl;
 	int max_wins_ttl;
 	int min_wins_ttl;
-	int ReadSize;
 	int lm_announce;
 	int lm_interval;
 	int announce_as;	/* This is initialised in init_globals */
@@ -233,6 +231,7 @@ typedef struct
 	char *szLdapAdminDn;
 	char *szAclCompat;
 	int ldap_passwd_sync; 
+	int ldap_replication_sleep;
 	BOOL ldap_delete_dn;
 	BOOL bMsAddPrinterWizard;
 	BOOL bDNSproxy;
@@ -246,14 +245,12 @@ typedef struct
 	BOOL bUpdateEncrypt;
 	int  clientSchannel;
 	int  serverSchannel;
-	BOOL bStripDot;
 	BOOL bNullPasswords;
 	BOOL bObeyPamRestrictions;
 	BOOL bLoadPrinters;
 	BOOL bLargeReadwrite;
 	BOOL bReadRaw;
 	BOOL bWriteRaw;
-	BOOL bReadPrediction;
 	BOOL bReadbmpx;
 	BOOL bSyslogOnly;
 	BOOL bBrowseList;
@@ -263,6 +260,7 @@ typedef struct
 	BOOL bPamPasswordChange;
 	BOOL bUnixPasswdSync;
 	BOOL bPasswdChatDebug;
+	int iPasswdChatTimeout;
 	BOOL bTimestampLogs;
 	BOOL bNTSmbSupport;
 	BOOL bNTPipeSupport;
@@ -281,13 +279,15 @@ typedef struct
 	BOOL bDebugPid;
 	BOOL bDebugUid;
 	BOOL bHostMSDfs;
-	BOOL bHideLocalUsers;
 	BOOL bUnicode;
 	BOOL bUseMmap;
 	BOOL bHostnameLookups;
 	BOOL bUnixExtensions;
 	BOOL bDisableNetbios;
 	BOOL bKernelChangeNotify;
+#ifdef WITH_OPENDIRECTORY
+	BOOL bOpenDirectory;
+#endif
 	int restrict_anonymous;
 	int name_cache_timeout;
 	int client_signing;
@@ -414,6 +414,7 @@ typedef struct
 	BOOL bUseSendfile;
 	BOOL bProfileAcls;
 	BOOL bMap_acl_inherit;
+	BOOL bAfs_Share;
 	param_opt_struct *param_opt;
 
 	char dummy[3];		/* for alignment */
@@ -506,7 +507,7 @@ static service sDefault = {
 	True,			/* bStrictLocking */
 	True,			/* bPosixLocking */
 	True,			/* bShareModes */
-	True,			/* bOpLocks */
+	False,			/* bOpLocks */
 	True,			/* bLevel2OpLocks */
 	False,			/* bOnlyUser */
 	True,			/* bMangledNames */
@@ -534,6 +535,7 @@ static service sDefault = {
 	False,			/* bUseSendfile */
 	False,			/* bProfileAcls */
 	False,			/* bMap_acl_inherit */
+	False,			/* bAfs_Share */
 	
 	NULL,			/* Parametric options */
 
@@ -554,7 +556,6 @@ static int default_server_announce;
 /* prototypes for the special type handlers */
 static BOOL handle_include(const char *pszParmValue, char **ptr);
 static BOOL handle_copy(const char *pszParmValue, char **ptr);
-static BOOL handle_source_env(const char *pszParmValue, char **ptr);
 static BOOL handle_netbios_name(const char *pszParmValue, char **ptr);
 static BOOL handle_idmap_uid(const char *pszParmValue, char **ptr);
 static BOOL handle_idmap_gid(const char *pszParmValue, char **ptr);
@@ -563,9 +564,6 @@ static BOOL handle_workgroup( const char *pszParmValue, char **ptr );
 static BOOL handle_netbios_aliases( const char *pszParmValue, char **ptr );
 static BOOL handle_netbios_scope( const char *pszParmValue, char **ptr );
 static BOOL handle_charset( const char *pszParmValue, char **ptr );
-
-static BOOL handle_ldap_suffix ( const char *pszParmValue, char **ptr );
-static BOOL handle_ldap_sub_suffix ( const char *pszParmValue, char **ptr );
 
 static BOOL handle_acl_compatibility(const char *pszParmValue, char **ptr);
 
@@ -748,10 +746,16 @@ static const struct enum_list enum_map_to_guest[] = {
  *       Any parameter that does NOT have FLAG_ADVANCED will not disply at all
  *	 Set FLAG_SHARE and FLAG_PRINT to specifically display parameters in
  *        respective views.
+ *
+ * NOTE2: Handling of duplicated (synonym) paramters:
+ *	Only the first occurance of a parameter should be enabled by FLAG_BASIC
+ *	and/or FLAG_ADVANCED. All duplicates following the first mention should be
+ *	set to FLAG_HIDE. ie: Make you must place the parameter that has the preferred
+ *	name first, and all synonyms must follow it with the FLAG_HIDE attribute.
  */
 
 static struct parm_struct parm_table[] = {
-	{"Base Options", P_SEP, P_SEPARATOR}, 
+	{N_("Base Options"), P_SEP, P_SEPARATOR}, 
 
 	{"dos charset", P_STRING, P_GLOBAL, &Globals.dos_charset, handle_charset, NULL, FLAG_ADVANCED}, 
 	{"unix charset", P_STRING, P_GLOBAL, &Globals.unix_charset, handle_charset, NULL, FLAG_ADVANCED}, 
@@ -770,7 +774,7 @@ static struct parm_struct parm_table[] = {
 	{"interfaces", P_LIST, P_GLOBAL, &Globals.szInterfaces, NULL, NULL, FLAG_BASIC | FLAG_ADVANCED | FLAG_WIZARD}, 
 	{"bind interfaces only", P_BOOL, P_GLOBAL, &Globals.bBindInterfacesOnly, NULL, NULL, FLAG_ADVANCED | FLAG_WIZARD}, 
 
-	{"Security Options", P_SEP, P_SEPARATOR}, 
+	{N_("Security Options"), P_SEP, P_SEPARATOR}, 
 
 	{"security", P_ENUM, P_GLOBAL, &Globals.security, NULL, enum_security, FLAG_BASIC | FLAG_ADVANCED | FLAG_WIZARD}, 
 	{"auth methods", P_LIST, P_GLOBAL, &Globals.AuthMethods, NULL, NULL, FLAG_ADVANCED}, 
@@ -799,6 +803,7 @@ static struct parm_struct parm_table[] = {
 	{"passwd program", P_STRING, P_GLOBAL, &Globals.szPasswdProgram, NULL, NULL, FLAG_ADVANCED}, 
 	{"passwd chat", P_STRING, P_GLOBAL, &Globals.szPasswdChat, NULL, NULL, FLAG_ADVANCED}, 
 	{"passwd chat debug", P_BOOL, P_GLOBAL, &Globals.bPasswdChatDebug, NULL, NULL, FLAG_ADVANCED}, 
+	{"passwd chat timeout", P_INTEGER, P_GLOBAL, &Globals.iPasswdChatTimeout, NULL, NULL, FLAG_ADVANCED}, 
 	{"username map", P_STRING, P_GLOBAL, &Globals.szUsernameMap, NULL, NULL, FLAG_ADVANCED}, 
 	{"password level", P_INTEGER, P_GLOBAL, &Globals.pwordlevel, NULL, NULL, FLAG_ADVANCED}, 
 	{"username level", P_INTEGER, P_GLOBAL, &Globals.unamelevel, NULL, NULL, FLAG_ADVANCED}, 
@@ -854,7 +859,7 @@ static struct parm_struct parm_table[] = {
 	{"deny hosts", P_LIST, P_LOCAL, &sDefault.szHostsdeny, NULL, NULL, FLAG_HIDE}, 
 	{"preload modules", P_LIST, P_GLOBAL, &Globals.szPreloadModules, NULL, NULL, FLAG_ADVANCED | FLAG_GLOBAL}, 
 
-	{"Logging Options", P_SEP, P_SEPARATOR}, 
+	{N_("Logging Options"), P_SEP, P_SEPARATOR}, 
 
 	{"log level", P_STRING, P_GLOBAL, &Globals.szLogLevel, handle_debug_list, NULL, FLAG_ADVANCED}, 
 	{"debuglevel", P_STRING, P_GLOBAL, &Globals.szLogLevel, handle_debug_list, NULL, FLAG_HIDE}, 
@@ -869,7 +874,7 @@ static struct parm_struct parm_table[] = {
 	{"debug pid", P_BOOL, P_GLOBAL, &Globals.bDebugPid, NULL, NULL, FLAG_ADVANCED}, 
 	{"debug uid", P_BOOL, P_GLOBAL, &Globals.bDebugUid, NULL, NULL, FLAG_ADVANCED}, 
 
-	{"Protocol Options", P_SEP, P_SEPARATOR}, 
+	{N_("Protocol Options"), P_SEP, P_SEPARATOR}, 
 
 	{"smb ports", P_STRING, P_GLOBAL, &Globals.smb_ports, NULL, NULL, FLAG_ADVANCED}, 
 	{"protocol", P_ENUM, P_GLOBAL, &Globals.maxprotocol, NULL, enum_protocol, FLAG_ADVANCED}, 
@@ -891,6 +896,7 @@ static struct parm_struct parm_table[] = {
 	{"announce version", P_STRING, P_GLOBAL, &Globals.szAnnounceVersion, NULL, NULL, FLAG_ADVANCED}, 
 	{"announce as", P_ENUM, P_GLOBAL, &Globals.announce_as, NULL, enum_announce_as,  FLAG_ADVANCED}, 
 	{"map acl inherit", P_BOOL, P_LOCAL, &sDefault.bMap_acl_inherit, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE | FLAG_GLOBAL}, 
+	{"afs share", P_BOOL, P_LOCAL, &sDefault.bAfs_Share, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE | FLAG_GLOBAL},
 	{"max mux", P_INTEGER, P_GLOBAL, &Globals.max_mux, NULL, NULL, FLAG_ADVANCED}, 
 	{"max xmit", P_INTEGER, P_GLOBAL, &Globals.max_xmit, NULL, NULL, FLAG_ADVANCED}, 
 
@@ -905,7 +911,7 @@ static struct parm_struct parm_table[] = {
 	{"server signing", P_ENUM, P_GLOBAL, &Globals.server_signing, NULL, enum_smb_signing_vals, FLAG_ADVANCED}, 
 	{"client use spnego", P_BOOL, P_GLOBAL, &Globals.bClientUseSpnego, NULL, NULL, FLAG_ADVANCED}, 
 
-	{"Tuning Options", P_SEP, P_SEPARATOR}, 
+	{N_("Tuning Options"), P_SEP, P_SEPARATOR}, 
 
 	{"block size", P_INTEGER, P_LOCAL, &sDefault.iBlock_size, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE | FLAG_GLOBAL}, 
 	{"change notify timeout", P_INTEGER, P_GLOBAL, &Globals.change_notify_timeout, NULL, NULL, FLAG_ADVANCED}, 
@@ -921,7 +927,6 @@ static struct parm_struct parm_table[] = {
 	{"max disk size", P_INTEGER, P_GLOBAL, &Globals.maxdisksize, NULL, NULL, FLAG_ADVANCED}, 
 	{"max open files", P_INTEGER, P_GLOBAL, &Globals.max_open_files, NULL, NULL, FLAG_ADVANCED}, 
 	{"min print space", P_INTEGER, P_LOCAL, &sDefault.iMinPrintSpace, NULL, NULL, FLAG_ADVANCED | FLAG_PRINT}, 
-	{"read size", P_INTEGER, P_GLOBAL, &Globals.ReadSize, NULL, NULL, FLAG_ADVANCED}, 
 
 	{"socket options", P_GSTRING, P_GLOBAL, user_socket_options, NULL, NULL, FLAG_ADVANCED}, 
 	{"strict allocate", P_BOOL, P_LOCAL, &sDefault.bStrictAllocate, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE}, 
@@ -934,7 +939,7 @@ static struct parm_struct parm_table[] = {
 
 	{"name cache timeout", P_INTEGER, P_GLOBAL, &Globals.name_cache_timeout, NULL, NULL, FLAG_ADVANCED}, 
 
-	{"Printing Options", P_SEP, P_SEPARATOR}, 
+	{N_("Printing Options"), P_SEP, P_SEPARATOR}, 
 
 	{"max reported print jobs", P_INTEGER, P_LOCAL, &sDefault.iMaxReportedPrintJobs, NULL, NULL, FLAG_ADVANCED | FLAG_PRINT}, 
 	{"max print jobs", P_INTEGER, P_LOCAL, &sDefault.iMaxPrintJobs, NULL, NULL, FLAG_ADVANCED | FLAG_PRINT}, 
@@ -964,12 +969,10 @@ static struct parm_struct parm_table[] = {
 	{"use client driver", P_BOOL, P_LOCAL, &sDefault.bUseClientDriver, NULL, NULL, FLAG_ADVANCED | FLAG_PRINT}, 
 	{"default devmode", P_BOOL, P_LOCAL, &sDefault.bDefaultDevmode, NULL, NULL, FLAG_ADVANCED | FLAG_PRINT}, 
 
-	{"Filename Handling", P_SEP, P_SEPARATOR}, 
-	{"strip dot", P_BOOL, P_GLOBAL, &Globals.bStripDot, NULL, NULL, FLAG_ADVANCED}, 
+	{N_("Filename Handling"), P_SEP, P_SEPARATOR}, 
 	{"mangling method", P_STRING, P_GLOBAL, &Globals.szManglingMethod, NULL, NULL, FLAG_ADVANCED}, 
 	{"mangle prefix", P_INTEGER, P_GLOBAL, &Globals.mangle_prefix, NULL, NULL, FLAG_ADVANCED}, 
 
-	{"mangled stack", P_INTEGER, P_GLOBAL, &Globals.mangled_stack, NULL, NULL, FLAG_ADVANCED}, 
 	{"default case", P_ENUM, P_LOCAL, &sDefault.iDefaultCase, NULL, enum_case, FLAG_ADVANCED | FLAG_SHARE}, 
 	{"case sensitive", P_BOOL, P_LOCAL, &sDefault.bCaseSensitive, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE | FLAG_GLOBAL}, 
 	{"casesignames", P_BOOL, P_LOCAL, &sDefault.bCaseSensitive, NULL, NULL, FLAG_HIDE}, 
@@ -989,14 +992,14 @@ static struct parm_struct parm_table[] = {
 	{"map hidden", P_BOOL, P_LOCAL, &sDefault.bMap_hidden, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE | FLAG_GLOBAL}, 
 	{"map archive", P_BOOL, P_LOCAL, &sDefault.bMap_archive, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE | FLAG_GLOBAL}, 
 	{"mangled names", P_BOOL, P_LOCAL, &sDefault.bMangledNames, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE | FLAG_GLOBAL}, 
-	{"mangled map", P_STRING, P_LOCAL, &sDefault.szMangledMap, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE | FLAG_GLOBAL}, 
+	{"mangled map", P_STRING, P_LOCAL, &sDefault.szMangledMap, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE | FLAG_GLOBAL | FLAG_DEPRECATED }, 
 	{"stat cache", P_BOOL, P_GLOBAL, &Globals.bStatCache, NULL, NULL, FLAG_ADVANCED}, 
 
-	{"Domain Options", P_SEP, P_SEPARATOR}, 
+	{N_("Domain Options"), P_SEP, P_SEPARATOR}, 
 
 	{"machine password timeout", P_INTEGER, P_GLOBAL, &Globals.machine_password_timeout, NULL, NULL, FLAG_ADVANCED | FLAG_WIZARD}, 
 
-	{"Logon Options", P_SEP, P_SEPARATOR}, 
+	{N_("Logon Options"), P_SEP, P_SEPARATOR}, 
 
 	{"add user script", P_STRING, P_GLOBAL, &Globals.szAddUserScript, NULL, NULL, FLAG_ADVANCED}, 
 	{"delete user script", P_STRING, P_GLOBAL, &Globals.szDelUserScript, NULL, NULL, FLAG_ADVANCED}, 
@@ -1015,7 +1018,7 @@ static struct parm_struct parm_table[] = {
 	{"logon home", P_STRING, P_GLOBAL, &Globals.szLogonHome, NULL, NULL, FLAG_ADVANCED}, 
 	{"domain logons", P_BOOL, P_GLOBAL, &Globals.bDomainLogons, NULL, NULL, FLAG_ADVANCED}, 
 
-	{"Browse Options", P_SEP, P_SEPARATOR}, 
+	{N_("Browse Options"), P_SEP, P_SEPARATOR}, 
 
 	{"os level", P_INTEGER, P_GLOBAL, &Globals.os_level, NULL, NULL, FLAG_BASIC | FLAG_ADVANCED}, 
 	{"lm announce", P_ENUM, P_GLOBAL, &Globals.lm_announce, NULL, enum_bool_auto, FLAG_ADVANCED}, 
@@ -1029,7 +1032,7 @@ static struct parm_struct parm_table[] = {
 	{"browsable", P_BOOL, P_LOCAL, &sDefault.bBrowseable, NULL, NULL, FLAG_HIDE}, 
 	{"enhanced browsing", P_BOOL, P_GLOBAL, &Globals.enhanced_browsing, NULL, NULL, FLAG_ADVANCED}, 
 
-	{"WINS Options", P_SEP, P_SEPARATOR}, 
+	{N_("WINS Options"), P_SEP, P_SEPARATOR}, 
 
 	{"dns proxy", P_BOOL, P_GLOBAL, &Globals.bDNSproxy, NULL, NULL, FLAG_ADVANCED}, 
 	{"wins proxy", P_BOOL, P_GLOBAL, &Globals.bWINSproxy, NULL, NULL, FLAG_ADVANCED}, 
@@ -1039,7 +1042,7 @@ static struct parm_struct parm_table[] = {
 	{"wins hook", P_STRING, P_GLOBAL, &Globals.szWINSHook, NULL, NULL, FLAG_ADVANCED}, 
 	{"wins partners", P_STRING, P_GLOBAL, &Globals.szWINSPartners, NULL, NULL, FLAG_ADVANCED | FLAG_WIZARD}, 
 
-	{"Locking Options", P_SEP, P_SEPARATOR}, 
+	{N_("Locking Options"), P_SEP, P_SEPARATOR}, 
 
 	{"blocking locks", P_BOOL, P_LOCAL, &sDefault.bBlockingLocks, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE | FLAG_GLOBAL}, 
 	{"csc policy", P_ENUM, P_LOCAL, &sDefault.iCSCPolicy, NULL, enum_csc_policy, FLAG_ADVANCED | FLAG_SHARE | FLAG_GLOBAL}, 
@@ -1057,24 +1060,25 @@ static struct parm_struct parm_table[] = {
 	{"strict locking", P_BOOL, P_LOCAL, &sDefault.bStrictLocking, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE | FLAG_GLOBAL}, 
 	{"share modes", P_BOOL, P_LOCAL,  &sDefault.bShareModes, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE | FLAG_GLOBAL}, 
 
-	{"Ldap Options", P_SEP, P_SEPARATOR}, 
+	{N_("Ldap Options"), P_SEP, P_SEPARATOR}, 
 
 #ifdef WITH_LDAP_SAMCONFIG
 	{"ldap server", P_STRING, P_GLOBAL, &Globals.szLdapServer, NULL, NULL, FLAG_ADVANCED}, 
 	{"ldap port", P_INTEGER, P_GLOBAL, &Globals.ldap_port, NULL, NULL, FLAG_ADVANCED}, 
 #endif
-	{"ldap suffix", P_STRING, P_GLOBAL, &Globals.szLdapSuffix, handle_ldap_suffix, NULL, FLAG_ADVANCED}, 
-	{"ldap machine suffix", P_STRING, P_GLOBAL, &Globals.szLdapMachineSuffix, handle_ldap_sub_suffix, NULL, FLAG_ADVANCED}, 
-	{"ldap user suffix", P_STRING, P_GLOBAL, &Globals.szLdapUserSuffix, handle_ldap_sub_suffix, NULL, FLAG_ADVANCED}, 
-	{"ldap group suffix", P_STRING, P_GLOBAL, &Globals.szLdapGroupSuffix, handle_ldap_sub_suffix, NULL, FLAG_ADVANCED}, 
-	{"ldap idmap suffix", P_STRING, P_GLOBAL, &Globals.szLdapIdmapSuffix, handle_ldap_sub_suffix, NULL, FLAG_ADVANCED}, 
+	{"ldap suffix", P_STRING, P_GLOBAL, &Globals.szLdapSuffix, NULL, NULL, FLAG_ADVANCED}, 
+	{"ldap machine suffix", P_STRING, P_GLOBAL, &Globals.szLdapMachineSuffix, NULL, NULL, FLAG_ADVANCED}, 
+	{"ldap user suffix", P_STRING, P_GLOBAL, &Globals.szLdapUserSuffix, NULL, NULL, FLAG_ADVANCED}, 
+	{"ldap group suffix", P_STRING, P_GLOBAL, &Globals.szLdapGroupSuffix, NULL, NULL, FLAG_ADVANCED}, 
+	{"ldap idmap suffix", P_STRING, P_GLOBAL, &Globals.szLdapIdmapSuffix, NULL, NULL, FLAG_ADVANCED}, 
 	{"ldap filter", P_STRING, P_GLOBAL, &Globals.szLdapFilter, NULL, NULL, FLAG_ADVANCED}, 
 	{"ldap admin dn", P_STRING, P_GLOBAL, &Globals.szLdapAdminDn, NULL, NULL, FLAG_ADVANCED}, 
 	{"ldap ssl", P_ENUM, P_GLOBAL, &Globals.ldap_ssl, NULL, enum_ldap_ssl, FLAG_ADVANCED}, 
 	{"ldap passwd sync", P_ENUM, P_GLOBAL, &Globals.ldap_passwd_sync, NULL, enum_ldap_passwd_sync, FLAG_ADVANCED}, 
 	{"ldap delete dn", P_BOOL, P_GLOBAL, &Globals.ldap_delete_dn, NULL, NULL, FLAG_ADVANCED}, 
+	{"ldap replication sleep", P_INTEGER, P_GLOBAL, &Globals.ldap_replication_sleep, NULL, NULL, FLAG_ADVANCED},
 
-	{"Miscellaneous Options", P_SEP, P_SEPARATOR}, 
+	{N_("Miscellaneous Options"), P_SEP, P_SEPARATOR}, 
 	{"add share command", P_STRING, P_GLOBAL, &Globals.szAddShareCommand, NULL, NULL, FLAG_ADVANCED}, 
 	{"change share command", P_STRING, P_GLOBAL, &Globals.szChangeShareCommand, NULL, NULL, FLAG_ADVANCED}, 
 	{"delete share command", P_STRING, P_GLOBAL, &Globals.szDeleteShareCommand, NULL, NULL, FLAG_ADVANCED}, 
@@ -1101,6 +1105,7 @@ static struct parm_struct parm_table[] = {
 	{"remote browse sync", P_STRING, P_GLOBAL, &Globals.szRemoteBrowseSync, NULL, NULL, FLAG_ADVANCED}, 
 	{"socket address", P_STRING, P_GLOBAL, &Globals.szSocketAddress, NULL, NULL, FLAG_ADVANCED}, 
 	{"homedir map", P_STRING, P_GLOBAL, &Globals.szNISHomeMapName, NULL, NULL, FLAG_ADVANCED}, 
+	{"afs username map", P_USTRING, P_GLOBAL, &Globals.szAfsUsernameMap, NULL, NULL, FLAG_ADVANCED}, 
 	{"time offset", P_INTEGER, P_GLOBAL, &extra_time_offset, NULL, NULL, FLAG_ADVANCED}, 
 	{"NIS homedir", P_BOOL, P_GLOBAL, &Globals.bNISHomeMap, NULL, NULL, FLAG_ADVANCED}, 
 	{"-valid", P_BOOL, P_LOCAL, &sDefault.valid, NULL, NULL, FLAG_HIDE}, 
@@ -1119,7 +1124,6 @@ static struct parm_struct parm_table[] = {
 	{"volume", P_STRING, P_LOCAL, &sDefault.volume, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE }, 
 	{"fstype", P_STRING, P_LOCAL, &sDefault.fstype, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE}, 
 	{"set directory", P_BOOLREV, P_LOCAL, &sDefault.bNo_set_dir, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE}, 
-	{"source environment", P_STRING, P_GLOBAL, &Globals.szSourceEnv, handle_source_env, NULL, FLAG_ADVANCED}, 
 	{"wide links", P_BOOL, P_LOCAL, &sDefault.bWidelinks, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE | FLAG_GLOBAL}, 
 	{"follow symlinks", P_BOOL, P_LOCAL, &sDefault.bSymlinks, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE | FLAG_GLOBAL}, 
 	{"dont descend", P_STRING, P_LOCAL, &sDefault.szDontdescend, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE}, 
@@ -1132,9 +1136,8 @@ static struct parm_struct parm_table[] = {
 
 	{"fake directory create times", P_BOOL, P_LOCAL, &sDefault.bFakeDirCreateTimes, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE | FLAG_GLOBAL}, 
 	{"panic action", P_STRING, P_GLOBAL, &Globals.szPanicAction, NULL, NULL, FLAG_ADVANCED}, 
-	{"hide local users", P_BOOL, P_GLOBAL, &Globals.bHideLocalUsers, NULL, NULL, FLAG_ADVANCED}, 
 
-	{"VFS module options", P_SEP, P_SEPARATOR}, 
+	{N_("VFS module options"), P_SEP, P_SEPARATOR}, 
 
 	{"vfs objects", P_LIST, P_LOCAL, &sDefault.szVfsObjects, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE}, 
 	{"vfs object", P_LIST, P_LOCAL, &sDefault.szVfsObjects, NULL, NULL, FLAG_HIDE}, 
@@ -1144,14 +1147,14 @@ static struct parm_struct parm_table[] = {
 	{"msdfs proxy", P_STRING, P_LOCAL, &sDefault.szMSDfsProxy, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE}, 
 	{"host msdfs", P_BOOL, P_GLOBAL, &Globals.bHostMSDfs, NULL, NULL, FLAG_ADVANCED}, 
 
-	{"Winbind options", P_SEP, P_SEPARATOR}, 
+	{N_("Winbind options"), P_SEP, P_SEPARATOR}, 
 
 	{"enable rid algorithm", P_BOOL, P_GLOBAL, &Globals.bEnableRidAlgorithm, NULL, NULL, FLAG_DEPRECATED}, 
 	{"idmap backend", P_STRING, P_GLOBAL, &Globals.szIdmapBackend, NULL, NULL, FLAG_ADVANCED}, 
 	{"idmap uid", P_STRING, P_GLOBAL, &Globals.szIdmapUID, handle_idmap_uid, NULL, FLAG_ADVANCED}, 
-	{"winbind uid", P_STRING, P_GLOBAL, &Globals.szIdmapUID, handle_idmap_uid, NULL, FLAG_ADVANCED}, 
+	{"winbind uid", P_STRING, P_GLOBAL, &Globals.szIdmapUID, handle_idmap_uid, NULL, FLAG_HIDE}, 
 	{"idmap gid", P_STRING, P_GLOBAL, &Globals.szIdmapGID, handle_idmap_gid, NULL, FLAG_ADVANCED}, 
-	{"winbind gid", P_STRING, P_GLOBAL, &Globals.szIdmapGID, handle_idmap_gid, NULL, FLAG_ADVANCED}, 
+	{"winbind gid", P_STRING, P_GLOBAL, &Globals.szIdmapGID, handle_idmap_gid, NULL, FLAG_HIDE}, 
 	{"template primary group", P_STRING, P_GLOBAL, &Globals.szTemplatePrimaryGroup, NULL, NULL, FLAG_ADVANCED}, 
 	{"template homedir", P_STRING, P_GLOBAL, &Globals.szTemplateHomedir, NULL, NULL, FLAG_ADVANCED}, 
 	{"template shell", P_STRING, P_GLOBAL, &Globals.szTemplateShell, NULL, NULL, FLAG_ADVANCED}, 
@@ -1358,7 +1361,6 @@ static void init_globals(void)
 	Globals.AlgorithmicRidBase = BASE_RID;
 
 	Globals.bLoadPrinters = True;
-	Globals.mangled_stack = 50;
 	/* Was 65535 (0xFFFF). 0x4101 matches W2K and causes major speed improvements... */
 	/* Discovered by 2 days of pain by Don McCall @ HP :-). */
 	Globals.max_xmit = 0x4104;
@@ -1383,11 +1385,9 @@ static void init_globals(void)
 	Globals.serverSchannel = Auto;
 	Globals.bReadRaw = True;
 	Globals.bWriteRaw = True;
-	Globals.bReadPrediction = False;
 	Globals.bReadbmpx = False;
 	Globals.bNullPasswords = False;
 	Globals.bObeyPamRestrictions = False;
-	Globals.bStripDot = False;
 	Globals.syslog = 1;
 	Globals.bSyslogOnly = False;
 	Globals.bTimestampLogs = True;
@@ -1401,7 +1401,6 @@ static void init_globals(void)
 	Globals.machine_password_timeout = 60 * 60 * 24 * 7;	/* 7 days default. */
 	Globals.change_notify_timeout = 60;	/* 1 minute default. */
 	Globals.bKernelChangeNotify = True;	/* On if we have it. */
-	Globals.ReadSize = 16 * 1024;
 	Globals.lm_announce = 2;	/* = Auto: send only if LM clients found */
 	Globals.lm_interval = 60;
 	Globals.announce_as = ANNOUNCE_AS_NT_SERVER;
@@ -1418,6 +1417,7 @@ static void init_globals(void)
 	Globals.bUnixPasswdSync = False;
 	Globals.bPamPasswordChange = False;
 	Globals.bPasswdChatDebug = False;
+	Globals.iPasswdChatTimeout = 2; /* 2 second default. */
 	Globals.bUnicode = True;	/* Do unicode on the wire by default */
 	Globals.bNTPipeSupport = True;	/* Do NT pipes by default. */
 	Globals.bNTStatusSupport = True; /* Use NT status by default. */
@@ -1427,7 +1427,8 @@ static void init_globals(void)
 	Globals.bClientPlaintextAuth = True;	/* Do use a plaintext password if is requested by the server */
 	Globals.bLanmanAuth = True;	/* Do use the LanMan hash if it is available */
 	Globals.bNTLMAuth = True;	/* Do use NTLMv1 if it is available (otherwise NTLMv2) */
-	Globals.bClientNTLMv2Auth = True; /* Client should use NTLMv2 if available. */
+	Globals.bClientNTLMv2Auth = False; /* Client should not use NTLMv2, as we can't tell that the server supports it. */
+	/* Note, that we will use NTLM2 session security (which is different), if it is available */
 
 	Globals.map_to_guest = 0;	/* By Default, "Never" */
 	Globals.min_passwd_length = MINPASSWDLENGTH;	/* By Default, 5. */
@@ -1465,6 +1466,7 @@ static void init_globals(void)
 	Globals.ldap_ssl = LDAP_SSL_ON;
 	Globals.ldap_passwd_sync = LDAP_PASSWD_SYNC_OFF;
 	Globals.ldap_delete_dn = False;
+	Globals.ldap_replication_sleep = 1000; /* wait 1 sec for replication */
 
 /* these parameters are set to defaults that are more appropriate
    for the increasing samba install base:
@@ -1519,6 +1521,10 @@ static void init_globals(void)
 	Globals.server_signing = False;
 
 	string_set(&Globals.smb_ports, SMB_PORTS);
+
+#ifdef WITH_OPENDIRECTORY
+	Globals.bOpenDirectory = True;
+#endif
 }
 
 static TALLOC_CTX *lp_talloc;
@@ -1558,8 +1564,8 @@ static char *lp_string(const char *s)
 		lp_talloc = talloc_init("lp_talloc");
 
 	tmpstr = alloc_sub_basic(current_user_info.smb_name, s);
-	if (trim_string(tmpstr, "\"", "\"")) {
-		if (strchr(tmpstr,'"') != NULL) {
+	if (trim_char(tmpstr, '\"', '\"')) {
+		if (strchr(tmpstr,'\"') != NULL) {
 			SAFE_FREE(tmpstr);
 			tmpstr = alloc_sub_basic(current_user_info.smb_name,s);
 		}
@@ -1623,7 +1629,6 @@ FN_GLOBAL_STRING(lp_utmpdir, &Globals.szUtmpDir)
 FN_GLOBAL_STRING(lp_wtmpdir, &Globals.szWtmpDir)
 FN_GLOBAL_BOOL(lp_utmp, &Globals.bUtmp)
 FN_GLOBAL_STRING(lp_rootdir, &Globals.szRootdir)
-FN_GLOBAL_STRING(lp_source_environment, &Globals.szSourceEnv)
 FN_GLOBAL_STRING(lp_defaultservice, &Globals.szDefaultService)
 FN_GLOBAL_STRING(lp_msg_command, &Globals.szMsgCommand)
 FN_GLOBAL_STRING(lp_dfree_command, &Globals.szDfree)
@@ -1636,6 +1641,7 @@ FN_GLOBAL_STRING(lp_passwd_chat, &Globals.szPasswdChat)
 FN_GLOBAL_STRING(lp_passwordserver, &Globals.szPasswordServer)
 FN_GLOBAL_STRING(lp_name_resolve_order, &Globals.szNameResolveOrder)
 FN_GLOBAL_STRING(lp_realm, &Globals.szRealm)
+FN_GLOBAL_CONST_STRING(lp_afs_username_map, &Globals.szAfsUsernameMap)
 FN_GLOBAL_STRING(lp_username_map, &Globals.szUsernameMap)
 FN_GLOBAL_CONST_STRING(lp_logon_script, &Globals.szLogonScript)
 FN_GLOBAL_CONST_STRING(lp_logon_path, &Globals.szLogonPath)
@@ -1670,8 +1676,8 @@ FN_GLOBAL_STRING(lp_abort_shutdown_script, &Globals.szAbortShutdownScript)
 FN_GLOBAL_STRING(lp_wins_hook, &Globals.szWINSHook)
 FN_GLOBAL_STRING(lp_wins_partners, &Globals.szWINSPartners)
 FN_GLOBAL_STRING(lp_template_primary_group, &Globals.szTemplatePrimaryGroup)
-FN_GLOBAL_STRING(lp_template_homedir, &Globals.szTemplateHomedir)
-FN_GLOBAL_STRING(lp_template_shell, &Globals.szTemplateShell)
+FN_GLOBAL_CONST_STRING(lp_template_homedir, &Globals.szTemplateHomedir)
+FN_GLOBAL_CONST_STRING(lp_template_shell, &Globals.szTemplateShell)
 FN_GLOBAL_CONST_STRING(lp_winbind_separator, &Globals.szWinbindSeparator)
 FN_GLOBAL_STRING(lp_acl_compatibility, &Globals.szAclCompat)
 FN_GLOBAL_BOOL(lp_winbind_enable_local_accounts, &Globals.bWinbindEnableLocalAccounts)
@@ -1688,15 +1694,12 @@ FN_GLOBAL_STRING(lp_ldap_server, &Globals.szLdapServer)
 FN_GLOBAL_INTEGER(lp_ldap_port, &Globals.ldap_port)
 #endif
 FN_GLOBAL_STRING(lp_ldap_suffix, &Globals.szLdapSuffix)
-FN_GLOBAL_STRING(lp_ldap_machine_suffix, &Globals.szLdapMachineSuffix)
-FN_GLOBAL_STRING(lp_ldap_user_suffix, &Globals.szLdapUserSuffix)
-FN_GLOBAL_STRING(lp_ldap_idmap_suffix, &Globals.szLdapIdmapSuffix)
-FN_GLOBAL_STRING(lp_ldap_group_suffix, &Globals.szLdapGroupSuffix)
 FN_GLOBAL_STRING(lp_ldap_filter, &Globals.szLdapFilter)
 FN_GLOBAL_STRING(lp_ldap_admin_dn, &Globals.szLdapAdminDn)
 FN_GLOBAL_INTEGER(lp_ldap_ssl, &Globals.ldap_ssl)
 FN_GLOBAL_INTEGER(lp_ldap_passwd_sync, &Globals.ldap_passwd_sync)
 FN_GLOBAL_BOOL(lp_ldap_delete_dn, &Globals.ldap_delete_dn)
+FN_GLOBAL_INTEGER(lp_ldap_replication_sleep, &Globals.ldap_replication_sleep)
 FN_GLOBAL_STRING(lp_add_share_cmd, &Globals.szAddShareCommand)
 FN_GLOBAL_STRING(lp_change_share_cmd, &Globals.szChangeShareCommand)
 FN_GLOBAL_STRING(lp_delete_share_cmd, &Globals.szDeleteShareCommand)
@@ -1710,14 +1713,12 @@ FN_GLOBAL_BOOL(lp_wins_proxy, &Globals.bWINSproxy)
 FN_GLOBAL_BOOL(lp_local_master, &Globals.bLocalMaster)
 FN_GLOBAL_BOOL(lp_domain_logons, &Globals.bDomainLogons)
 FN_GLOBAL_BOOL(lp_load_printers, &Globals.bLoadPrinters)
-FN_GLOBAL_BOOL(lp_readprediction, &Globals.bReadPrediction)
 FN_GLOBAL_BOOL(lp_readbmpx, &Globals.bReadbmpx)
 FN_GLOBAL_BOOL(lp_readraw, &Globals.bReadRaw)
 FN_GLOBAL_BOOL(lp_large_readwrite, &Globals.bLargeReadwrite)
 FN_GLOBAL_BOOL(lp_writeraw, &Globals.bWriteRaw)
 FN_GLOBAL_BOOL(lp_null_passwords, &Globals.bNullPasswords)
 FN_GLOBAL_BOOL(lp_obey_pam_restrictions, &Globals.bObeyPamRestrictions)
-FN_GLOBAL_BOOL(lp_strip_dot, &Globals.bStripDot)
 FN_GLOBAL_BOOL(lp_encrypted_passwords, &Globals.bEncryptPasswords)
 FN_GLOBAL_BOOL(lp_update_encrypted, &Globals.bUpdateEncrypt)
 FN_GLOBAL_INTEGER(lp_client_schannel, &Globals.clientSchannel)
@@ -1734,6 +1735,7 @@ FN_GLOBAL_BOOL(lp_bind_interfaces_only, &Globals.bBindInterfacesOnly)
 FN_GLOBAL_BOOL(lp_pam_password_change, &Globals.bPamPasswordChange)
 FN_GLOBAL_BOOL(lp_unix_password_sync, &Globals.bUnixPasswdSync)
 FN_GLOBAL_BOOL(lp_passwd_chat_debug, &Globals.bPasswdChatDebug)
+FN_GLOBAL_INTEGER(lp_passwd_chat_timeout, &Globals.iPasswdChatTimeout)
 FN_GLOBAL_BOOL(lp_unicode, &Globals.bUnicode)
 FN_GLOBAL_BOOL(lp_nt_pipe_support, &Globals.bNTPipeSupport)
 FN_GLOBAL_BOOL(lp_nt_status_support, &Globals.bNTStatusSupport)
@@ -1764,7 +1766,6 @@ FN_GLOBAL_INTEGER(lp_maxxmit, &Globals.max_xmit)
 FN_GLOBAL_INTEGER(lp_maxmux, &Globals.max_mux)
 FN_GLOBAL_INTEGER(lp_passwordlevel, &Globals.pwordlevel)
 FN_GLOBAL_INTEGER(lp_usernamelevel, &Globals.unamelevel)
-FN_GLOBAL_INTEGER(lp_readsize, &Globals.ReadSize)
 FN_GLOBAL_INTEGER(lp_deadtime, &Globals.deadtime)
 FN_GLOBAL_INTEGER(lp_maxprotocol, &Globals.maxprotocol)
 FN_GLOBAL_INTEGER(lp_minprotocol, &Globals.minprotocol)
@@ -1874,6 +1875,7 @@ FN_LOCAL_BOOL(lp_nt_acl_support, bNTAclSupport)
 FN_LOCAL_BOOL(_lp_use_sendfile, bUseSendfile)
 FN_LOCAL_BOOL(lp_profile_acls, bProfileAcls)
 FN_LOCAL_BOOL(lp_map_acl_inherit, bMap_acl_inherit)
+FN_LOCAL_BOOL(lp_afs_share, bAfs_Share)
 FN_LOCAL_INTEGER(lp_create_mask, iCreate_mask)
 FN_LOCAL_INTEGER(lp_force_create_mode, iCreate_force_mode)
 FN_LOCAL_INTEGER(lp_security_mask, iSecurity_mask)
@@ -1893,11 +1895,13 @@ FN_LOCAL_INTEGER(lp_write_cache_size, iWriteCacheSize)
 FN_LOCAL_INTEGER(lp_block_size, iBlock_size)
 FN_LOCAL_CHAR(lp_magicchar, magic_char)
 FN_GLOBAL_INTEGER(lp_winbind_cache_time, &Globals.winbind_cache_time)
-FN_GLOBAL_BOOL(lp_hide_local_users, &Globals.bHideLocalUsers)
 FN_GLOBAL_INTEGER(lp_algorithmic_rid_base, &Globals.AlgorithmicRidBase)
 FN_GLOBAL_INTEGER(lp_name_cache_timeout, &Globals.name_cache_timeout)
 FN_GLOBAL_INTEGER(lp_client_signing, &Globals.client_signing)
 FN_GLOBAL_INTEGER(lp_server_signing, &Globals.server_signing)
+#ifdef WITH_OPENDIRECTORY
+FN_GLOBAL_BOOL(lp_opendirectory, &Globals.bOpenDirectory)
+#endif
 
 /* local prototypes */
 
@@ -2024,7 +2028,7 @@ static int lp_enum(const char *s,const struct enum_list *_enum)
 	}
 	
 	for (i=0; _enum[i].name; i++) {
-		if (strcasecmp(_enum[i].name,s)==0)
+		if (strequal(_enum[i].name,s))
 			return _enum[i].value;
 	}
 
@@ -2296,13 +2300,8 @@ BOOL lp_add_home(const char *pszHomename, int iDefaultService,
 	if (!(*(ServicePtrs[iDefaultService]->szPath))
 	    || strequal(ServicePtrs[iDefaultService]->szPath, lp_pathname(GLOBAL_SECTION_SNUM))) {
 		pstrcpy(newHomedir, pszHomedir);
-	} else {
-		pstrcpy(newHomedir, lp_pathname(iDefaultService));
-		string_sub(newHomedir,"%H", pszHomedir, sizeof(newHomedir)); 
-		string_sub(newHomedir,"%S", pszHomename, sizeof(newHomedir)); 
-	}
-
-	string_set(&ServicePtrs[i]->szPath, newHomedir);
+		string_set(&ServicePtrs[i]->szPath, newHomedir);
+	} 
 
 	if (!(*(ServicePtrs[i]->comment))) {
 		pstring comment;
@@ -2396,8 +2395,6 @@ BOOL lp_add_printer(const char *pszPrintername, int iDefaultService)
 	ServicePtrs[i]->bPrint_ok = True;
 
 	DEBUG(3, ("adding printer service %s\n", pszPrintername));
-
-	update_server_announce_as_printserver();
 
 	return (True);
 }
@@ -2717,8 +2714,10 @@ static BOOL handle_netbios_name(const char *pszParmValue, char **ptr)
 
 static BOOL handle_charset(const char *pszParmValue, char **ptr)
 {
-	string_set(ptr, pszParmValue);
-	init_iconv();
+	if (strcmp(*ptr, pszParmValue) != 0) {
+		string_set(ptr, pszParmValue);
+		init_iconv();
+	}
 	return True;
 }
 
@@ -2746,96 +2745,6 @@ static BOOL handle_netbios_aliases(const char *pszParmValue, char **ptr)
 {
 	Globals.szNetbiosAliases = str_list_make(pszParmValue, NULL);
 	return set_netbios_aliases((const char **)Globals.szNetbiosAliases);
-}
-
-/***************************************************************************
- Do the work of sourcing in environment variable/value pairs.
-***************************************************************************/
-
-static BOOL source_env(char **lines)
-{
-	char *varval;
-	size_t len;
-	int i;
-	char *p;
-
-	for (i = 0; lines[i]; i++) {
-		char *line = lines[i];
-
-		if ((len = strlen(line)) == 0)
-			continue;
-
-		if (line[len - 1] == '\n')
-			line[--len] = '\0';
-
-		if ((varval = malloc(len + 1)) == NULL) {
-			DEBUG(0, ("source_env: Not enough memory!\n"));
-			return (False);
-		}
-
-		DEBUG(4, ("source_env: Adding to environment: %s\n", line));
-		strncpy(varval, line, len);
-		varval[len] = '\0';
-
-		p = strchr_m(line, (int)'=');
-		if (p == NULL) {
-			DEBUG(4, ("source_env: missing '=': %s\n", line));
-			continue;
-		}
-
-		if (putenv(varval)) {
-			DEBUG(0, ("source_env: Failed to put environment variable %s\n",
-			       varval));
-			continue;
-		}
-
-		*p = '\0';
-		p++;
-		DEBUG(4, ("source_env: getting var %s = %s\n", line, getenv(line)));
-	}
-
-	DEBUG(4, ("source_env: returning successfully\n"));
-	return (True);
-}
-
-/***************************************************************************
- Handle the source environment operation.
-***************************************************************************/
-
-static BOOL handle_source_env(const char *pszParmValue, char **ptr)
-{
-	pstring fname;
-	char *p = fname;
-	BOOL result;
-	char **lines;
-
-	pstrcpy(fname, pszParmValue);
-
-	standard_sub_basic(current_user_info.smb_name, fname,sizeof(fname));
-
-	string_set(ptr, pszParmValue);
-
-	DEBUG(4, ("handle_source_env: checking env type\n"));
-
-	/*
-	 * Filename starting with '|' means popen and read from stdin.
-	 */
-
-	if (*p == '|')
-		lines = file_lines_pload(p + 1, NULL);
-	else
-		lines = file_lines_load(fname, NULL);
-
-	if (!lines) {
-		DEBUG(0, ("handle_source_env: Failed to open file %s, Error was %s\n",
-		       fname, strerror(errno)));
-		return (False);
-	}
-
-	result = source_env(lines);
-	file_lines_free(lines);
-
-	return (result);
 }
 
 /***************************************************************************
@@ -2994,56 +2903,56 @@ static BOOL handle_debug_list( const char *pszParmValueIn, char **ptr )
 }
 
 /***************************************************************************
- Handle setting ldap suffix and determines whether ldap machine suffix needs
- to be set as well.
- 
- Set all of the sub suffix strings to be the 'ldap suffix' by default
+ Handle ldap suffixes - default to ldapsuffix if sub-suffixes are not defined.
 ***************************************************************************/
 
-static BOOL handle_ldap_suffix( const char *pszParmValue, char **ptr )
+static char* append_ldap_suffix( const char *str )
 {
-	pstring suffix;
-               
-	pstrcpy(suffix, pszParmValue);
+	char *suffix_string;
 
-	/* set defaults for the the sub-suffixes */
-	
-	if (! *Globals.szLdapMachineSuffix )
-		string_set(&Globals.szLdapMachineSuffix, suffix);
-	if (! *Globals.szLdapUserSuffix ) 
-		string_set(&Globals.szLdapUserSuffix, suffix);
-	if (! *Globals.szLdapGroupSuffix ) 
-		string_set(&Globals.szLdapGroupSuffix, suffix);
-	if (! *Globals.szLdapIdmapSuffix ) 
-		string_set(&Globals.szLdapIdmapSuffix, suffix);
 
-	string_set(ptr, suffix); 
-	return True;
+	if (!lp_talloc)
+		lp_talloc = talloc_init("lp_talloc");
+
+	suffix_string = talloc_asprintf( lp_talloc, "%s,%s", str, Globals.szLdapSuffix );
+	if ( !suffix_string ) {
+		DEBUG(0,("append_ldap_suffix: talloc_asprintf() failed!\n"));
+		return NULL;
+	}
+
+	return suffix_string;
 }
 
-/***************************************************************************
- Handle the ldap sub suffix option.
- Always append the 'ldap suffix' if it is set
-***************************************************************************/
-
-static BOOL handle_ldap_sub_suffix( const char *pszParmValue, char **ptr)
+char *lp_ldap_machine_suffix(void)
 {
-	pstring suffix;
-       
-	pstrcpy(suffix, pszParmValue);
+	if (Globals.szLdapMachineSuffix[0])
+		return append_ldap_suffix(Globals.szLdapMachineSuffix);
 
-	if (! *Globals.szLdapSuffix ) {
-		string_set( ptr, suffix );
-		return True;
-	}
-	else {
-		if ( *pszParmValue )
-			pstrcat(suffix, ",");
-		pstrcat(suffix, Globals.szLdapSuffix);
-	}
-	
-	string_set( ptr, suffix );
-	return True;
+	return lp_string(Globals.szLdapSuffix);
+}
+
+char *lp_ldap_user_suffix(void)
+{
+	if (Globals.szLdapUserSuffix[0])
+		return append_ldap_suffix(Globals.szLdapUserSuffix);
+
+	return lp_string(Globals.szLdapSuffix);
+}
+
+char *lp_ldap_group_suffix(void)
+{
+	if (Globals.szLdapGroupSuffix[0])
+		return append_ldap_suffix(Globals.szLdapGroupSuffix);
+
+	return lp_string(Globals.szLdapSuffix);
+}
+
+char *lp_ldap_idmap_suffix(void)
+{
+	if (Globals.szLdapIdmapSuffix[0])
+		return append_ldap_suffix(Globals.szLdapIdmapSuffix);
+
+	return lp_string(Globals.szLdapSuffix);
 }
 
 /***************************************************************************
@@ -3115,7 +3024,7 @@ BOOL lp_do_parameter(int snum, const char *pszParmName, const char *pszParmValue
 			pstr_sprintf(param_key, "%s:", pszParmName);
 			slen = strlen(param_key);
 			pstrcat(param_key, sep+1);
-			trim_string(param_key+slen, " ", " ");
+			trim_char(param_key+slen, ' ', ' ');
 			not_added = True;
 			data = (snum < 0) ? Globals.param_opt : 
 				ServicePtrs[snum]->param_opt;
@@ -3313,9 +3222,13 @@ static void print_parameter(struct parm_struct *p, void *ptr, FILE * f)
 			if ((char ***)ptr && *(char ***)ptr) {
 				char **list = *(char ***)ptr;
 				
-				for (; *list; list++)
-					fprintf(f, "%s%s", *list,
-						((*(list+1))?", ":""));
+				for (; *list; list++) {
+					/* surround strings with whitespace in single quotes */
+					if ( strchr_m( *list, ' ' ) )
+						fprintf(f, "\'%s\'%s", *list, ((*(list+1))?", ":""));
+					else
+						fprintf(f, "%s%s", *list, ((*(list+1))?", ":""));
+				}
 			}
 			break;
 
@@ -3714,15 +3627,6 @@ void lp_add_one_printer(char *name, char *comment)
 }
 
 /***************************************************************************
- Announce ourselves as a print server.
-***************************************************************************/
-
-void update_server_announce_as_printserver(void)
-{
-	default_server_announce |= SV_TYPE_PRINTQ_SERVER;	
-}
-
-/***************************************************************************
  Have we loaded a services file yet?
 ***************************************************************************/
 
@@ -4085,6 +3989,13 @@ static void set_default_server_announce_type(void)
 	default_server_announce |= SV_TYPE_WORKSTATION;
 	default_server_announce |= SV_TYPE_SERVER;
 	default_server_announce |= SV_TYPE_SERVER_UNIX;
+	default_server_announce |= SV_TYPE_PRINTQ_SERVER;
+
+	/* note that the flag should be set only if we have a 
+	   printer service but nmbd doesn't actually load the 
+	   services so we can't tell   --jerry */
+
+	default_server_announce |= SV_TYPE_PRINTQ_SERVER;
 
 	switch (lp_announce_as()) {
 		case ANNOUNCE_AS_NT_SERVER:
@@ -4242,9 +4153,9 @@ int lp_minor_announce_version(void)
  Set the global name resolution order (used in smbclient).
 ************************************************************/
 
-void lp_set_name_resolve_order(char *new_order)
+void lp_set_name_resolve_order(const char *new_order)
 {
-	Globals.szNameResolveOrder = new_order;
+	string_set(&Globals.szNameResolveOrder, new_order);
 }
 
 const char *lp_printername(int snum)
@@ -4272,7 +4183,6 @@ void get_private_directory(pstring privdir)
 
 void lp_set_logfile(const char *name)
 {
-	extern pstring debugf;
 	string_set(&Globals.szLogFile, name);
 	pstrcpy(debugf, name);
 }

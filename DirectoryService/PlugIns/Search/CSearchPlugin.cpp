@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -61,6 +59,8 @@
 #include "GetMACAddress.h"
 
 // Globals ---------------------------------------------------------------------------
+
+#define		kDS1AttrDHCPLDAPDefault		"dsAttrTypeStandard:DHCPLDAPDefault"
 
 static CPlugInRef		 	*gSNNodeRef				= nil;
 static CContinue		 	*gSNContinue			= nil;
@@ -2368,6 +2368,38 @@ sInt32 CSearchPlugin::GetDirNodeInfo ( sGetDirNodeInfo *inData )
 				aTmpData->Clear();
 			}
 				 
+			if ( (::strcmp( pAttrName, kDSAttributesAll ) == 0) || 
+				 (::strcmp( pAttrName, kDS1AttrDHCPLDAPDefault ) == 0) )
+			{
+				aTmpData->Clear();
+
+				uiAttrCnt++;
+
+				// Append the attribute name
+				aTmpData->AppendShort( ::strlen( kDS1AttrDHCPLDAPDefault ) );
+				aTmpData->AppendString( kDS1AttrDHCPLDAPDefault );
+
+				if ( inData->fInAttrInfoOnly == false )
+				{
+					// Attribute value count
+					aTmpData->AppendShort( 1 );
+
+					aTmpData->AppendLong( ::strlen( "off" ) );
+					aTmpData->AppendString( "off" );
+				}
+				else
+				{
+					aTmpData->AppendShort( 0 );
+				}
+
+				// Add the attribute length and data
+				aAttrData->AppendLong( aTmpData->GetLength() );
+				aAttrData->AppendBlock( aTmpData->GetData(), aTmpData->GetLength() );
+
+				// Clear the temp block
+				aTmpData->Clear();
+			}
+
 //			else if ( ::strcmp( pAttrName, kDS1AttrCapabilities ) == 0 )
 //			else if ( ::strcmp( pAttrName, kDSNAttrRecordType ) == 0 )
 		} // while loop over the attributes requested

@@ -37,12 +37,22 @@
 - (NSString *)_KWQ_truncateToNumComposedCharacterSequences:(int)num;
 @end
 
+@interface NSCell (KWQTextFieldKnowsAppKitSecrets)
+- (NSMutableDictionary *)_textAttributes;
+@end
+
 @interface KWQTextField (KWQInternal)
 - (void)setHasFocus:(BOOL)hasFocus;
 @end
 
-// KWQTextFieldCell allows us to tell when we get focus without an editor subclass.
+// KWQTextFieldCell allows us to tell when we get focus without an editor subclass,
+// and override the base writing direction.
 @interface KWQTextFieldCell : NSTextFieldCell
+{
+    NSWritingDirection baseWritingDirection;
+}
+- (void)setBaseWritingDirection:(NSWritingDirection)direction;
+- (NSWritingDirection)baseWritingDirection;
 @end
 
 // KWQTextFieldFormatter enforces a maximum length.
@@ -59,13 +69,22 @@
 // Another is hook up next and previous key views to KHTML.
 @interface KWQSecureTextField : NSSecureTextField <KWQWidgetHolder>
 {
+    QLineEdit *widget;
     BOOL inNextValidKeyView;
     BOOL inSetFrameSize;
 }
+
+- (id)initWithQLineEdit:(QLineEdit *)widget;
+
 @end
 
-// KWQSecureTextFieldCell allows us to tell when we get focus without an editor subclass.
+// KWQSecureTextFieldCell allows us to tell when we get focus without an editor subclass,
+// and override the base writing direction.
 @interface KWQSecureTextFieldCell : NSSecureTextFieldCell
+{
+    NSWritingDirection baseWritingDirection;
+}
+- (void)setBaseWritingDirection:(NSWritingDirection)direction;
 @end
 
 @implementation KWQTextField
@@ -156,11 +175,12 @@
         [secureField removeFromSuperview];
     } else {
         if (secureField == nil) {
-            secureField = [[KWQSecureTextField alloc] init];
+            secureField = [[KWQSecureTextField alloc] initWithQLineEdit:widget];
             [secureField setFormatter:formatter];
             [secureField setFont:[self font]];
             [secureField setEditable:[self isEditable]];
             [secureField setSelectable:[self isSelectable]];
+            [[secureField cell] setBaseWritingDirection:[[self cell] baseWritingDirection]];
             [self setUpTextField:secureField];
             [self updateSecureFieldFrame];
         }
@@ -246,14 +266,14 @@
 
 -(void)controlTextDidEndEditing:(NSNotification *)notification
 {
-    [self setHasFocus:NO];
-
     if (!widget) {
 	return;
     }
 
     WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(widget);
     [bridge controlTextDidEndEditing:notification];
+    
+    [self setHasFocus:NO];
 }
 
 -(void)controlTextDidChange:(NSNotification *)notification
@@ -261,10 +281,14 @@
     if (!widget) {
 	return;
     }
+    
+    if (KWQKHTMLPart::handleKeyboardOptionTabInView(self)) {
+        return;
+    }
 
     WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(widget);
     [bridge controlTextDidChange:notification];
-
+    
     edited = YES;
     widget->textChanged();
 }
@@ -276,6 +300,19 @@
     }
 
     WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(widget);
+
+    // In WebHTMLView, we set a clip. This is not typical to do in an
+    // NSView, and while correct for any one invocation of drawRect:,
+    // it causes some bad problems if that clip is cached between calls.
+    // The cached graphics state, which some views keep around, does
+    // cache the clip in this undesirable way. Consequently, we want to 
+    // turn off this caching for all views contained in a WebHTMLView that
+    // would otherwise do it. Here we turn it off for the editor (NSTextView)
+    // used for text fields in forms and the clip view it's embedded in.
+    // See bug 3457875 and 3310943 for more context.
+    [fieldEditor releaseGState];
+    [[fieldEditor superview] releaseGState];
+
     return [bridge control:control textShouldBeginEditing:fieldEditor];
 }
 
@@ -394,6 +431,11 @@
     return view;
 }
 
+- (BOOL)acceptsFirstResponder
+{
+    return [self isEnabled];
+}
+
 - (BOOL)becomeFirstResponder
 {
     if ([self passwordMode]) {
@@ -463,11 +505,14 @@
 	return YES;
     }
 
-    if ([event type] == NSKeyDown || [event type] == NSKeyUp) {
+    NSEventType type = [event type];
+    if (type == NSKeyDown || type == NSKeyUp) {
         WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(widget);
-        [bridge interceptKeyEvent:event toView:view];
-        // FIXME: In theory, if the bridge intercepted the event we should return NO.
-        // But the code in the Web Kit that we moved in here did not do that.
+        BOOL intercepted = [bridge interceptKeyEvent:event toView:view];
+        // Always return NO for key up events because we don't want them
+        // passed along the responder chain. This is arguably a bug in
+        // NSTextView; see Radar 3507083.
+        return type != NSKeyUp && !intercepted;
     }
     return YES;
 }
@@ -480,6 +525,18 @@
     if ([event type] == NSLeftMouseUp) {
         widget->sendConsumedMouseUp();
         widget->clicked();
+    }
+}
+
+- (void)setBaseWritingDirection:(NSWritingDirection)direction
+{
+    KWQTextFieldCell *cell = [self cell];
+    if ([cell baseWritingDirection] != direction) {
+        [cell setBaseWritingDirection:direction];
+        [[secureField cell] setBaseWritingDirection:direction];
+
+        // One call to setNeedsDisplay will take care of both text fields.
+        [self setNeedsDisplay:YES];
     }
 }
 
@@ -585,6 +642,30 @@
     [(KWQTextField *)delegate setHasFocus:YES];
 }
 
+- (void)setBaseWritingDirection:(NSWritingDirection)direction
+{
+    baseWritingDirection = direction;
+}
+
+- (NSWritingDirection)baseWritingDirection
+{
+    return baseWritingDirection;
+}
+
+- (NSMutableDictionary *)_textAttributes
+{
+    NSMutableDictionary *attributes = [super _textAttributes];
+    NSParagraphStyle *style = [attributes objectForKey:NSParagraphStyleAttributeName];
+    ASSERT(style != nil);
+    if ([style baseWritingDirection] != baseWritingDirection) {
+        NSMutableParagraphStyle *mutableStyle = [style mutableCopy];
+        [mutableStyle setBaseWritingDirection:baseWritingDirection];
+        [attributes setObject:mutableStyle forKey:NSParagraphStyleAttributeName];
+        [mutableStyle release];
+    }
+    return attributes;
+}
+
 @end
 
 @implementation KWQTextFieldFormatter
@@ -635,6 +716,12 @@
 @end
 
 @implementation KWQSecureTextField
+
+-(id)initWithQLineEdit:(QLineEdit *)w 
+{
+    widget = w;
+    return [self init];
+}
 
 // Can't use setCellClass: because NSSecureTextField won't let us (for no good reason).
 + (Class)cellClass
@@ -750,6 +837,30 @@
     }
 }
 
+- (BOOL)textView:(NSTextView *)view shouldHandleEvent:(NSEvent *)event
+{
+    if (!widget) {
+	return YES;
+    }
+
+    if ([event type] == NSKeyDown || [event type] == NSKeyUp) {
+        WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(widget);
+        return ![bridge interceptKeyEvent:event toView:view];
+    }
+    return YES;
+}
+
+- (void)textView:(NSTextView *)view didHandleEvent:(NSEvent *)event
+{
+    if (!widget) {
+	return;
+    }
+    if ([event type] == NSLeftMouseUp) {
+        widget->sendConsumedMouseUp();
+        widget->clicked();
+    }
+}
+
 @end
 
 @implementation KWQSecureTextFieldCell
@@ -766,6 +877,25 @@
     [super selectWithFrame:frame inView:view editor:editor delegate:delegate start:start length:length];
     ASSERT([[delegate delegate] isKindOfClass:[KWQTextField class]]);
     [(KWQTextField *)[delegate delegate] setHasFocus:YES];
+}
+
+- (void)setBaseWritingDirection:(NSWritingDirection)direction
+{
+    baseWritingDirection = direction;
+}
+
+- (NSMutableDictionary *)_textAttributes
+{
+    NSMutableDictionary *attributes = [super _textAttributes];
+    NSParagraphStyle *style = [attributes objectForKey:NSParagraphStyleAttributeName];
+    ASSERT(style != nil);
+    if ([style baseWritingDirection] != baseWritingDirection) {
+        NSMutableParagraphStyle *mutableStyle = [style mutableCopy];
+        [mutableStyle setBaseWritingDirection:baseWritingDirection];
+        [attributes setObject:mutableStyle forKey:NSParagraphStyleAttributeName];
+        [mutableStyle release];
+    }
+    return attributes;
 }
 
 @end

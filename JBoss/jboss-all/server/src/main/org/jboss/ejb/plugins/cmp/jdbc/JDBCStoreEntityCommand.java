@@ -9,24 +9,16 @@ package org.jboss.ejb.plugins.cmp.jdbc;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
 import javax.ejb.EJBException;
 
 import org.jboss.ejb.EntityEnterpriseContext;
-import org.jboss.ejb.plugins.cmp.jdbc.bridge.JDBCFieldBridge;
 import org.jboss.ejb.plugins.cmp.jdbc.bridge.JDBCEntityBridge;
 import org.jboss.ejb.plugins.cmp.jdbc.bridge.JDBCCMPFieldBridge;
-import org.jboss.ejb.plugins.lock.JDBCOptimisticLock;
 import org.jboss.logging.Logger;
 
 /**
  * JDBCStoreEntityCommand updates the row with the new state.
- * In the event that no field is dirty the command just returns.  
+ * In the event that no field is dirty the command just returns.
  * Note: read-only fields are never considered dirty.
  *
  * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
@@ -35,143 +27,145 @@ import org.jboss.logging.Logger;
  * @author <a href="mailto:shevlandj@kpi.com.au">Joe Shevland</a>
  * @author <a href="mailto:justin@j-m-f.demon.co.uk">Justin Forder</a>
  * @author <a href="mailto:sebastien.alborini@m4x.org">Sebastien Alborini</a>
- * @version $Revision: 1.13.2.5 $
+ * @author <a href="mailto:alex@jboss.org">Alex Loubyansky</a>
+ * @version $Revision: 1.13.2.15 $
  */
-public class JDBCStoreEntityCommand {
-   private JDBCStoreManager manager;
-   private JDBCEntityBridge entity;
-   private Logger log;
-   private JDBCCMPFieldBridge updatedPrincipal;
-   private JDBCCMPFieldBridge updatedTime;
-   private JDBCCMPFieldBridge versionField;
+public final class JDBCStoreEntityCommand
+{
+   private final JDBCEntityBridge entity;
+   private final JDBCCMPFieldBridge[] primaryKeyFields;
+   private final Logger log;
 
-   public JDBCStoreEntityCommand(JDBCStoreManager manager) {
-      this.manager = manager;
+   public JDBCStoreEntityCommand(JDBCStoreManager manager)
+   {
       entity = manager.getEntityBridge();
+      primaryKeyFields = entity.getPrimaryKeyFields();
 
       // Create the Log
       log = Logger.getLogger(
-            this.getClass().getName() + 
-            "." + 
-            manager.getMetaData().getName());
-
-      // locate auto-update fields
-      versionField = entity.getVersionField();
-      updatedPrincipal = entity.getUpdatedPrincipalField();
-      updatedTime = entity.getUpdatedTimeField();
+         this.getClass().getName() +
+         "." +
+         manager.getMetaData().getName());
    }
-   
-   public void execute(EntityEnterpriseContext ctx) {
-      List dirtyFields = entity.getDirtyFields(ctx);
-         
-      if(dirtyFields.isEmpty()) {
-         if(log.isTraceEnabled()) {
-            log.trace("Store command NOT executed. Entity is not dirty: pk=" + 
-                  ctx.getId());
+
+   public void execute(EntityEnterpriseContext ctx)
+   {
+      // scheduled for batch cascade-delete instance should not be updated
+      // because foreign key fields could be updated to null and cascade-delete will fail.
+      if(!entity.isDirty(ctx) || entity.isScheduledForBatchCascadeDelete(ctx))
+      {
+         if(log.isTraceEnabled())
+         {
+            log.trace("Store command NOT executed. Entity is not dirty "
+               + " or scheduled for *batch* cascade delete: pk=" + ctx.getId());
          }
          return;
       }
 
-      // Set the audit fields
-      if (updatedPrincipal != null && updatedPrincipal.isDirty(ctx) == false)
-      {
-         updatedPrincipal.setInstanceValue(ctx, ctx.getEJBContext().getCallerPrincipal().getName());
-         dirtyFields.add(updatedPrincipal);
-      }
-      if (updatedTime != null && updatedTime.isDirty(ctx) == false)
-      {
-         updatedTime.setInstanceValue(ctx, new Date()); 
-         dirtyFields.add(updatedTime);
-      }
-
-      // the fields used in the SET clause
-      List setFields = new ArrayList(
-         dirtyFields.size() + (entity.getVersionField() == null ? 0 : 1));
-      setFields.addAll(dirtyFields);
-      if(entity.getVersionField() != null)
-         setFields.add(entity.getVersionField());
-
-      // the fields used in the WHERE clause
-      List whereFields = new ArrayList(entity.getPrimaryKeyFields());
-      Collection lockedFields = Collections.EMPTY_LIST;
-      JDBCOptimisticLock optimisticLock = manager.getOptimisticLock(ctx);
-      if(optimisticLock != null) {
-         lockedFields = optimisticLock.getLockedFields(ctx);
-         whereFields.addAll(lockedFields);
-      }
+      JDBCEntityBridge.FieldIterator dirtyIterator = entity.getDirtyIterator(ctx);
 
       // generate sql
-      StringBuffer sql = new StringBuffer(); 
-      sql.append("UPDATE ").append(entity.getTableName());
-      sql.append(" SET ").append(SQLUtil.getSetClause(setFields));
-      sql.append(" WHERE ").append(SQLUtil.getWhereClause(whereFields));
+      StringBuffer sql = new StringBuffer(200);
+      sql.append(SQLUtil.UPDATE)
+         .append(entity.getTableName())
+         .append(SQLUtil.SET);
+      SQLUtil.getSetClause(dirtyIterator, sql)
+         .append(SQLUtil.WHERE);
+      SQLUtil.getWhereClause(primaryKeyFields, sql);
+
+      boolean hasLockedFields = entity.hasLockedFields(ctx);
+      JDBCEntityBridge.FieldIterator lockedIterator = null;
+      if(hasLockedFields)
+      {
+         lockedIterator = entity.getLockedIterator(ctx);
+         while(lockedIterator.hasNext())
+         {
+            sql.append(SQLUtil.AND);
+            JDBCCMPFieldBridge field = lockedIterator.next();
+            if(field.getLockedValue(ctx) == null)
+            {
+               SQLUtil.getIsNullClause(false, field, "", sql);
+               lockedIterator.remove();
+            }
+            else
+            {
+               SQLUtil.getWhereClause(field, sql);
+            }
+         }
+      }
 
       Connection con = null;
       PreparedStatement ps = null;
-      int rowsAffected  = 0;
-      try {
-         // get the connection
-         con = entity.getDataSource().getConnection();
-         
+      int rowsAffected = 0;
+      try
+      {
          // create the statement
-         if(log.isDebugEnabled()) {
+         if(log.isDebugEnabled())
+         {
             log.debug("Executing SQL: " + sql);
          }
+
+         // get the connection
+         con = entity.getDataSource().getConnection();
          ps = con.prepareStatement(sql.toString());
 
          // SET: set the dirty fields parameters
          int index = 1;
-         for(Iterator iter = dirtyFields.iterator(); iter.hasNext(); ) {
-            JDBCFieldBridge field = (JDBCFieldBridge)iter.next();
-            index = field.setInstanceParameters(ps, index, ctx);
-         }
-
-         // SET: set new value for version field
-         if(versionField != null) {
-            Object nextVal = manager.getOptimisticLock(ctx).getNextLockingValue(
-               versionField, versionField.getInstanceValue(ctx));
-            versionField.setInstanceValue(ctx, nextVal);
-            index = versionField.setArgumentParameters(ps, index, nextVal);
+         dirtyIterator.reset();
+         while(dirtyIterator.hasNext())
+         {
+            index = dirtyIterator.next().setInstanceParameters(ps, index, ctx);
          }
 
          // WHERE: set primary key fields
          index = entity.setPrimaryKeyParameters(ps, index, ctx.getId());
 
          // WHERE: set optimistically locked field values
-         for(Iterator iter = lockedFields.iterator(); iter.hasNext();) {
-            JDBCCMPFieldBridge field = (JDBCCMPFieldBridge)iter.next();
-            Object lockedValue = optimisticLock.getLockedFieldValue(field, ctx);
-            index = field.setArgumentParameters(ps, index, lockedValue);
+         if(hasLockedFields)
+         {
+            lockedIterator.reset();
+            while(lockedIterator.hasNext())
+            {
+               JDBCCMPFieldBridge field = lockedIterator.next();
+               Object value = field.getLockedValue(ctx);
+               index = field.setArgumentParameters(ps, index, value);
+            }
          }
-
-         if(optimisticLock != null)
-            optimisticLock.updateLockedFieldValues(ctx);
 
          // execute statement
          rowsAffected = ps.executeUpdate();
-      } catch(EJBException e) {
+      }
+      catch(EJBException e)
+      {
          throw e;
-      } catch(Exception e) {
+      }
+      catch(Exception e)
+      {
          throw new EJBException("Store failed", e);
-      } finally {
+      }
+      finally
+      {
          JDBCUtil.safeClose(ps);
          JDBCUtil.safeClose(con);
       }
 
       // check results
-      if(rowsAffected != 1) {
+      if(rowsAffected != 1)
+      {
          throw new EJBException("Update failed. Expected one " +
-               "affected row: rowsAffected=" + rowsAffected +
-               "id=" + ctx.getId());
+            "affected row: rowsAffected=" + rowsAffected +
+            "id=" + ctx.getId());
       }
-      if(log.isDebugEnabled()) {
+      if(log.isDebugEnabled())
+      {
          log.debug("Rows affected = " + rowsAffected);
       }
 
-      // Mark the inserted fields as clean.
-      for(Iterator iter = setFields.iterator(); iter.hasNext(); ) {
-         JDBCFieldBridge field = (JDBCFieldBridge)iter.next();
-         field.setClean(ctx);
+      // Mark the updated fields as clean.
+      dirtyIterator.reset();
+      while(dirtyIterator.hasNext())
+      {
+         dirtyIterator.next().setClean(ctx);
       }
    }
 }

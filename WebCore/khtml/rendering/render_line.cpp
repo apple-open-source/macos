@@ -228,7 +228,7 @@ int InlineFlowBox::placeBoxesHorizontally(int x)
     
     for (InlineBox* curr = firstChild(); curr; curr = curr->nextOnLine()) {
         if (curr->object()->isText()) {
-            TextRun* text = static_cast<TextRun*>(curr);
+            InlineTextBox* text = static_cast<InlineTextBox*>(curr);
             text->setXPos(x);
             x += text->width();
         }
@@ -414,7 +414,7 @@ void InlineFlowBox::placeBoxesVertically(int y, int maxHeight, int maxAscent, bo
         int newY = curr->yPos();
         int newHeight = curr->height();
         int newBaseline = curr->baseline();
-        if (curr->isTextRun() || curr->isInlineFlowBox()) {
+        if (curr->isInlineTextBox() || curr->isInlineFlowBox()) {
             const QFontMetrics &fm = curr->object()->fontMetrics( m_firstLine );
             newBaseline = fm.ascent();
             newY += curr->baseline() - newBaseline;
@@ -499,7 +499,8 @@ void InlineFlowBox::paintBackgroundAndBorder(QPainter *p, int _x, int _y,
     // You can use p::first-line to specify a background. If so, the root line boxes for
     // a line may actually have to paint a background.
     RenderStyle* styleToUse = object()->style(m_firstLine);
-    if (object()->hasFirstLine() || (parent() && object()->shouldPaintBackgroundOrBorder())) {
+    if ((!parent() && m_firstLine && styleToUse != object()->style()) || 
+        (parent() && object()->shouldPaintBackgroundOrBorder())) {
         CachedImage* bg = styleToUse->backgroundImage();
         bool hasBackgroundImage = bg && (bg->pixmap_size() == bg->valid_rect().size()) &&
                                   !bg->isTransparent() && !bg->isErrorImage();

@@ -12,7 +12,6 @@ import java.security.InvalidParameterException;
 import javax.management.InstanceNotFoundException;
 import javax.management.JMException;
 import javax.management.MBeanException;
-import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 import javax.management.ReflectionException;
 
@@ -22,153 +21,178 @@ import javax.management.ReflectionException;
  * added declaratively at deployment time
  * 
  * @author  Ivelin Ivanov <ivelin@apache.org>
- *
+ * @author Scott.Stark@jboss.org
+ * @author <a href="mailto:mr@gedoplan.de">Marcus Redeker</a>
+ * @version $Revision: 1.1.2.4 $
  */
 public class HASingletonController
-  extends HASingletonSupport
-  implements HASingletonControllerMBean
+   extends HASingletonSupport
+   implements HASingletonControllerMBean
 {
 
-  // -------------------------------------------------------------------------
-  // Constants
-  // -------------------------------------------------------------------------
+   // -------------------------------------------------------------------------
+   // Constants
+   // -------------------------------------------------------------------------
 
-  // -------------------------------------------------------------------------
-  // Members
-  // -------------------------------------------------------------------------
+   // -------------------------------------------------------------------------
+   // Members
+   // -------------------------------------------------------------------------
 
-  private ObjectName mSingletonMBean;
-  private String mSingletonMBeanStartMethod;
-  private String mSingletonMBeanStopMethod;
+   private ObjectName mSingletonMBean;
+   private String mSingletonMBeanStartMethod;
+   private String mSingletonMBeanStartMethodArgument;
+   private String mSingletonMBeanStopMethod;
+   private String mSingletonMBeanStopMethodArgument;
 
-  /*
-   * 
-   * Forwards the call to the target start method
-   * 
-   * @see org.jboss.ha.singleton.HASingletonSupport#startSingleton()
-   */
-  public void startSingleton()
-  {
-    super.startSingleton();
-    // Extending classes will implement the singleton logic here
+   private static final Object[] NO_ARGS = new Object[0];
+   private static final String[] NO_TYPES = new String[0];
 
-    try
-    {
-      invokeMBeanMethod(
-        mSingletonMBean,
-        mSingletonMBeanStartMethod,
-        new Object[0],
-        new String[0]);
-    }
-    catch (JMException jme)
-    {
-      log.error("Controlled Singleton MBean failed to become master", jme);
-    }
-  }
+   /*
+    * 
+    * Forwards the call to the target start method
+    * 
+    * @see org.jboss.ha.singleton.HASingletonSupport#startSingleton()
+    */
+   public void startSingleton()
+   {
+      super.startSingleton();
+
+      try
+      {
+         log.debug("Starting: "+mSingletonMBean+" using: "+mSingletonMBeanStartMethod);
+         invokeSingletonMBeanMethod(
+            mSingletonMBean,
+            mSingletonMBeanStartMethod,
+            mSingletonMBeanStartMethodArgument 
+            );
+      }
+      catch (JMException jme)
+      {
+         log.error("Controlled Singleton MBean failed to become master", jme);
+      }
+   }
 
 
-  /*
-   * 
-   * Forwards the call to the target stop method
-   * 
-   * @see org.jboss.ha.singleton.HASingletonSupport#stopSingleton()
-   */
-  public void stopSingleton()
-  {
-    super.stopSingleton();
-    // Extending classes will implement the singleton logic here
+   /*
+    * 
+    * Forwards the call to the target stop method
+    * 
+    * @see org.jboss.ha.singleton.HASingletonSupport#stopSingleton()
+    */
+   public void stopSingleton()
+   {
+      super.stopSingleton();
 
-    try
-    {
-      invokeMBeanMethod(
-        mSingletonMBean,
-        mSingletonMBeanStopMethod,
-        new Object[0],
-        new String[0]);
-    }
-    catch (JMException jme)
-    {
-      log.error("Controlled Singleton MBean failed to become master", jme);
-    }
-  }
+      try
+      {
+         log.debug("Stopping: "+mSingletonMBean+" using: "+mSingletonMBeanStopMethod);
+         invokeSingletonMBeanMethod(
+            mSingletonMBean,
+            mSingletonMBeanStopMethod,
+            mSingletonMBeanStopMethodArgument
+            );
+      }
+      catch (JMException jme)
+      {
+         log.error("Controlled Singleton MBean failed to resign from master position", jme);
+      }
+   }
 
-  protected Object invokeMBeanMethod (ObjectName name, 
-      String operationName, Object[] params, String[] signature)
+   protected Object invokeSingletonMBeanMethod(ObjectName name,
+      String operationName, Object param)
       throws InstanceNotFoundException, MBeanException, ReflectionException
+   {
+     Object[] params = NO_ARGS;
+     String[] signature = NO_TYPES;
+         
+     if (param != null) 
+     {
+       params = new Object[] {param};
+       signature = new String[] {param.getClass().getName()};
+     }
+     
+     return server.invoke(name, operationName, params, signature);
+   }
+
+   public ObjectName getTargetName()
+   {
+      return mSingletonMBean;
+   }
+
+   public void setTargetName(ObjectName targetObjectName)
+   {
+      this.mSingletonMBean = targetObjectName;
+   }
+
+   public String getTargetStartMethod()
+   {
+      return mSingletonMBeanStartMethod;
+   }
+
+   public void setTargetStartMethod(String targetStartMethod)
+      throws InvalidParameterException
+   {
+      String methodName = null;
+      if (targetStartMethod == null)
+      {
+         methodName = "";
+      }
+      else
+      {
+         methodName = targetStartMethod.trim();
+      }
+      if (methodName.equals(""))
+      {
+         methodName = "startSingleton";
+      }
+      mSingletonMBeanStartMethod = methodName;
+   }
+
+
+   public String getTargetStopMethod()
+   {
+      return mSingletonMBeanStopMethod;
+   }
+
+   public void setTargetStopMethod(String targetStopMethod)
+      throws InvalidParameterException
+   {
+      String methodName = null;
+      if (targetStopMethod == null)
+      {
+         methodName = "";
+      }
+      else
+      {
+         methodName = targetStopMethod.trim();
+      }
+      if (methodName.equals(""))
+      {
+         methodName = "stopSingleton";
+      }
+      mSingletonMBeanStopMethod = methodName;
+   }
+
+
+  public String getTargetStartMethodArgument()
   {
-    return server.invoke( name, operationName, params, signature);
+    return mSingletonMBeanStartMethodArgument ;
   }
 
-  public String getTargetName()
+  public void setTargetStartMethodArgument(String targetStartMethodArgument)
   {
-    return mSingletonMBean == null ? null : mSingletonMBean.toString();
+    mSingletonMBeanStartMethodArgument = targetStartMethodArgument;
   }
 
-  public void setTargetName(String pTargetObjectName)
-    throws InvalidParameterException
+  public String getTargetStopMethodArgument()
   {
-    if (pTargetObjectName == null)
-    {
-      throw new InvalidParameterException("Schedulable MBean must be specified");
-    }
-    try
-    {
-      mSingletonMBean = new ObjectName(pTargetObjectName);
-    }
-    catch (MalformedObjectNameException mone)
-    {
-      log.error("Singleton MBean Object Name is malformed", mone);
-      throw new InvalidParameterException("Singleton MBean is not correctly formatted");
-    }
+    return mSingletonMBeanStopMethodArgument ;
   }
 
-  public String getTargetStartMethod()
+  public void setTargetStopMethodArgument(String targetStopMethodArgument)
   {
-    return mSingletonMBeanStartMethod;
-  }
-
-  public void setTargetStartMethod(String pTargetStartMethod)
-    throws InvalidParameterException
-  {
-    String lMethodName = null;
-    if (pTargetStartMethod == null)
-    {
-      lMethodName = "";
-    }
-    else
-    {
-      lMethodName = pTargetStartMethod.trim();
-    }
-    if (lMethodName.equals(""))
-    {
-      lMethodName = "startSingleton";
-    }
-    mSingletonMBeanStartMethod = lMethodName;
-  }
-
-
-  public String getTargetStopMethod()
-  {
-    return mSingletonMBeanStopMethod;
-  }
-
-  public void setTargetStopMethod(String pTargetStopMethod)
-    throws InvalidParameterException
-  {
-    String lMethodName = null;
-    if (pTargetStopMethod == null)
-    {
-      lMethodName = "";
-    }
-    else
-    {
-      lMethodName = pTargetStopMethod.trim();
-    }
-    if (lMethodName.equals(""))
-    {
-      lMethodName = "stopSingleton";
-    }
-    mSingletonMBeanStopMethod = lMethodName;
+    mSingletonMBeanStopMethodArgument =  targetStopMethodArgument;
+    
   }
 
 }

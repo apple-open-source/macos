@@ -6,23 +6,21 @@
  */
 package org.jboss.ejb;
 
-import java.util.Iterator;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
+import org.jboss.logging.Logger;
+import org.jboss.tm.TransactionLocal;
 
 import javax.ejb.EJBException;
-import javax.transaction.Transaction;
 import javax.transaction.RollbackException;
 import javax.transaction.Status;
-import javax.transaction.SystemException;
 import javax.transaction.Synchronization;
-import org.jboss.logging.Logger;
+import javax.transaction.SystemException;
+import javax.transaction.Transaction;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
 
 /**
  * This class provides a way to find out what entities are contained in
@@ -34,7 +32,7 @@ import org.jboss.logging.Logger;
  * Entities are stored in an ArrayList to ensure specific ordering.
  *
  * @author <a href="bill@burkecentral.com">Bill Burke</a>
- * @version $Revision: 1.4.2.3 $
+ * @version $Revision: 1.4.2.5 $
  *
  * <p><b>Revisions:</b>
  *
@@ -50,9 +48,8 @@ public class GlobalTxEntityMap
 
    private final Logger log = Logger.getLogger(getClass());
 
-   protected final Map txToEntitiesFifoMap = new HashMap();             // map of fifo ordered entity lists
-   protected final Map txToEntitiesSetMap = new HashMap();              // map of entity sets for quick lookups
-
+   protected final TransactionLocal entitiesFifoMap = new TransactionLocal();       // map of fifo ordered entity lists
+   protected final TransactionLocal entitiesSetMap = new TransactionLocal();        // map of entity sets for quick lookups
    /**
     * associate entity with transaction
     */
@@ -61,22 +58,20 @@ public class GlobalTxEntityMap
          EntityEnterpriseContext entity)
       throws RollbackException, SystemException
    {
-      List entityFifoList;
+      List entityFifoList = (List)entitiesFifoMap.get(tx);
       Set entitySet;
-      synchronized (txToEntitiesFifoMap)
-      {
-         entityFifoList = (List)txToEntitiesFifoMap.get(tx);
          if (entityFifoList == null)
          {
             entityFifoList = new ArrayList();
             entitySet = new HashSet();
-            txToEntitiesFifoMap.put(tx, entityFifoList);
-            txToEntitiesSetMap.put(tx, entitySet);
-            tx.registerSynchronization(new GlobalTxEntityMapCleanup(tx));
+            entitiesFifoMap.set(tx, entityFifoList);
+            entitiesSetMap.set(tx, entitySet);
+            tx.registerSynchronization(new GlobalTxEntityMapSynchronize(tx));
          }
          else
-            entitySet = (Set)txToEntitiesSetMap.get(tx);
-      }
+         {
+            entitySet = (Set)entitiesSetMap.get(tx);
+         }
       //Release lock on txToEntitiesFifoMap to avoid waiting for possibly long scans of
       //entityFifoList.
 
@@ -96,13 +91,8 @@ public class GlobalTxEntityMap
 
       if (!entitySet.contains(entity))
       {
-         //We do have to modify entityFifoList in a synch block to ensure changes are
-         //written to main memory before any other thread can work on this tx.
-         synchronized(entityFifoList)
-         {
             entityFifoList.add(entity);
             entitySet.add(entity);
-         }
       }
    }
 
@@ -112,12 +102,8 @@ public class GlobalTxEntityMap
     */
    public void synchronizeEntities(Transaction tx)
    {
-      Collection entities = null;
-      synchronized (txToEntitiesFifoMap)
-      {
-         entities = (Collection)txToEntitiesFifoMap.remove(tx);
-         txToEntitiesSetMap.remove(tx);
-      }
+      ArrayList entities = (ArrayList)entitiesFifoMap.get(tx);
+
       //There should be only one thread associated with this tx at a time.
       //Therefore we should not need to synchronize on entityFifoList to ensure exclusive
       //access.  entityFifoList is correct since it was obtained in a synch block.
@@ -127,7 +113,7 @@ public class GlobalTxEntityMap
       {
          return;
       }
-
+      Set entitySet = (Set)entitiesSetMap.get(tx);
       // This is an independent point of entry. We need to make sure the
       // thread is associated with the right context class loader
       final Thread currentThread = Thread.currentThread();
@@ -136,7 +122,7 @@ public class GlobalTxEntityMap
       EntityEnterpriseContext ctx = null;
       try
       {
-         for (Iterator i = entities.iterator(); i.hasNext(); )
+         for (int i = 0; i < entities.size(); i++)
          {
             // any one can mark the tx rollback at any time so check
             // before continuing to the next store
@@ -147,7 +133,7 @@ public class GlobalTxEntityMap
             }
 
             // read-only entities will never get into this list.
-            ctx = (EntityEnterpriseContext)i.next();
+            ctx = (EntityEnterpriseContext)entities.get(i);
 
             // only synchronize if the id is not null.  A null id means
             // that the entity has been removed.
@@ -195,6 +181,8 @@ public class GlobalTxEntityMap
       finally
       {
          currentThread.setContextClassLoader(oldCl);
+         entities.clear();
+         entitySet.clear();
       }
    }
 
@@ -204,11 +192,11 @@ public class GlobalTxEntityMap
    /**
     * Store changed entities to resource manager in this Synchronization
     */
-   private class GlobalTxEntityMapCleanup implements Synchronization
+   private class GlobalTxEntityMapSynchronize implements Synchronization
    {
       Transaction tx;
 
-      public GlobalTxEntityMapCleanup(Transaction tx)
+      public GlobalTxEntityMapSynchronize(Transaction tx)
       {
          this.tx = tx;
       }

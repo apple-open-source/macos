@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<!DOCTYPE jboss-web
+    PUBLIC "-//JBoss//DTD Web Application 2.3V2//EN"
+    "http://www.jboss.org/j2ee/dtd/jboss-web_3_2.dtd">
+
+<jboss-web>
+   <!-- Uncomment the security-domain to enable security. You will
+      need to edit the htmladaptor login configuration to setup the
+      login modules used to authentication users.
+      <security-domain>java:/jaas/jmx-console</security-domain>
+   -->
+   <replication-config>
+      <replication-trigger>SET</replication-trigger>
+      <replication-type>SYNC</replication-type>
+   </replication-config>
+
+</jboss-web>

@@ -1,0 +1,65 @@
+dftables.o: dftables.c /usr/include/ctype.h /usr/include/runetype.h \
+  /usr/include/sys/cdefs.h /usr/include/machine/ansi.h \
+  /usr/include/ppc/ansi.h /usr/include/stdio.h /usr/include/sys/types.h \
+  /usr/include/sys/appleapiopts.h /usr/include/machine/types.h \
+  /usr/include/ppc/types.h /usr/include/sys/_types.h \
+  /usr/include/machine/_types.h /usr/include/ppc/_types.h \
+  /usr/include/machine/endian.h /usr/include/ppc/endian.h \
+  /usr/include/string.h internal.h pcre-config.h /usr/include/limits.h \
+  /usr/include/gcc/darwin/3.3/machine/limits.h /usr/include/ppc/limits.h \
+  /usr/include/sys/syslimits.h /usr/include/stddef.h \
+  /usr/include/stdlib.h /usr/include/alloca.h pcre.h maketables.c
+
+/usr/include/ctype.h:
+
+/usr/include/runetype.h:
+
+/usr/include/sys/cdefs.h:
+
+/usr/include/machine/ansi.h:
+
+/usr/include/ppc/ansi.h:
+
+/usr/include/stdio.h:
+
+/usr/include/sys/types.h:
+
+/usr/include/sys/appleapiopts.h:
+
+/usr/include/machine/types.h:
+
+/usr/include/ppc/types.h:
+
+/usr/include/sys/_types.h:
+
+/usr/include/machine/_types.h:
+
+/usr/include/ppc/_types.h:
+
+/usr/include/machine/endian.h:
+
+/usr/include/ppc/endian.h:
+
+/usr/include/string.h:
+
+internal.h:
+
+pcre-config.h:
+
+/usr/include/limits.h:
+
+/usr/include/gcc/darwin/3.3/machine/limits.h:
+
+/usr/include/ppc/limits.h:
+
+/usr/include/sys/syslimits.h:
+
+/usr/include/stddef.h:
+
+/usr/include/stdlib.h:
+
+/usr/include/alloca.h:
+
+pcre.h:
+
+maketables.c:

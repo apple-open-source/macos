@@ -47,12 +47,15 @@
 				409C6E9901A0B1A80ACA2928,
 				409C6E8801A064020ACA2928,
 				40882BAF019747EA0ACA2928,
+				F782818D058E83E60055547B,
 			);
 		};
 		08FB7794FE84155DC02AAC07 = {
 			children = (
 				08FB7795FE84155DC02AAC07,
 				40882B98019742A20ACA2928,
+				F7828182058E83A90055547B,
+				A9B6F98D054DDD9200F5EC01,
 				40882B99019742A20ACA2928,
 				1AB674ADFE9D54B511CA2CBB,
 			);
@@ -75,6 +78,7 @@
 				A9FD4B72047C482B00FA82A6,
 				A9FD4B73047C482B00FA82A6,
 				40D4F0DB01F4A1F40ACA2928,
+				A9D743DA05AF3D4D0075549C,
 			);
 			isa = PBXGroup;
 			name = pmconfigd;
@@ -94,6 +98,7 @@
 			children = (
 				40882BAE019747EA0ACA2928,
 				409C6E8701A064020ACA2928,
+				F782818E058E83E60055547B,
 			);
 			isa = PBXGroup;
 			name = Products;
@@ -245,6 +250,7 @@
 				409C6E8A01A064020ACA2928,
 				409C6E8B01A064020ACA2928,
 				409C6E8C01A064020ACA2928,
+				A9D743DC05AF3D670075549C,
 				409C6E8D01A064020ACA2928,
 			);
 			buildSettings = {
@@ -277,17 +283,17 @@
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.SystemConfiguration.PowerManagement</string>
 	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.49</string>
+	<string>6.61</string>
 	<key>CFBundleName</key>
 	<string>PowerManagement configd plugin</string>
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>6.49.0</string>
+	<string>6.61.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>6.49.0</string>
+	<string>6.61.0</string>
 </dict>
 </plist>
 ";
@@ -298,6 +304,7 @@
 				A9E20B7E03EB129200CA28D7,
 				A999C3F70450D9290018C661,
 				A9FD4B75047C482B00FA82A6,
+				A9D3082A05B3542D006839E7,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -305,6 +312,9 @@
 		409C6E8A01A064020ACA2928 = {
 			buildActionMask = 2147483647;
 			files = (
+				A9C674E8054DF7B5008EC0CF,
+				A9E691B90564519800938E2D,
+				A9D743DB05AF3D4D0075549C,
 			);
 			isa = PBXResourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -319,6 +329,8 @@
 				A9E20B7D03EB129200CA28D7,
 				A999C3F60450D9290018C661,
 				A9FD4B74047C482B00FA82A6,
+				A9D3082905B353FF006839E7,
+				A9D3082B05B3542F006839E7,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -372,6 +384,7 @@
 			dependencies = (
 				409C6E9A01A0B1A80ACA2928,
 				409C6E9B01A0B1A80ACA2928,
+				F7828196058E83F90055547B,
 			);
 			isa = PBXAggregateTarget;
 			name = All;
@@ -524,6 +537,77 @@
 			settings = {
 			};
 		};
+		A9B6F98D054DDD9200F5EC01 = {
+			children = (
+				A9E691B70564519800938E2D,
+				A9C674E7054DF7B5008EC0CF,
+			);
+			isa = PBXGroup;
+			name = Resources;
+			refType = 4;
+		};
+		A9C674E7054DF7B5008EC0CF = {
+			isa = PBXFileReference;
+			name = "low-batt.icns";
+			path = "Resources/low-batt.icns";
+			refType = 4;
+		};
+		A9C674E8054DF7B5008EC0CF = {
+			fileRef = A9C674E7054DF7B5008EC0CF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A9D3082905B353FF006839E7 = {
+			fileRef = F7828183058E83D30055547B;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Client,
+				);
+			};
+		};
+		A9D3082A05B3542D006839E7 = {
+			fileRef = F7828186058E83D30055547B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A9D3082B05B3542F006839E7 = {
+			fileRef = F7828184058E83D30055547B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A9D743DA05AF3D4D0075549C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = upsshutdown;
+			path = pmconfigd/upsshutdown;
+			refType = 2;
+		};
+		A9D743DB05AF3D4D0075549C = {
+			fileRef = A9D743DA05AF3D4D0075549C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A9D743DC05AF3D670075549C = {
+			buildActionMask = 8;
+			dstPath = /usr/libexec;
+			dstSubfolderSpec = 0;
+			files = (
+				A9D743DD05AF3D7A0075549C,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		A9D743DD05AF3D7A0075549C = {
+			fileRef = A9D743DA05AF3D4D0075549C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		A9E20B7B03EB129200CA28D7 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
@@ -550,6 +634,28 @@
 			settings = {
 			};
 		};
+		A9E691B70564519800938E2D = {
+			children = (
+				A9E691B80564519800938E2D,
+			);
+			isa = PBXVariantGroup;
+			name = Localizable.strings;
+			path = "";
+			refType = 4;
+		};
+		A9E691B80564519800938E2D = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = English;
+			path = English.lproj/Localizable.strings;
+			refType = 4;
+		};
+		A9E691B90564519800938E2D = {
+			fileRef = A9E691B70564519800938E2D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		A9FD4B72047C482B00FA82A6 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
@@ -572,6 +678,217 @@
 		};
 		A9FD4B75047C482B00FA82A6 = {
 			fileRef = A9FD4B73047C482B00FA82A6;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//A90
+//A91
+//A92
+//A93
+//A94
+//F70
+//F71
+//F72
+//F73
+//F74
+		F77880F5058F8344006B9971 = {
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/ps";
+			dstSubfolderSpec = 0;
+			files = (
+				F77880F6058F8357006B9971,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		F77880F6058F8357006B9971 = {
+			fileRef = F7828188058E83D30055547B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F7828182058E83A90055547B = {
+			children = (
+				F7828185058E83D30055547B,
+				F7828187058E83D30055547B,
+				F7828183058E83D30055547B,
+				F7828188058E83D30055547B,
+				F7828184058E83D30055547B,
+				F7828186058E83D30055547B,
+			);
+			isa = PBXGroup;
+			name = ioupsd;
+			refType = 4;
+		};
+		F7828183058E83D30055547B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = ioupsplugin.defs;
+			path = ioupsd/ioupsplugin.defs;
+			refType = 4;
+		};
+		F7828184058E83D30055547B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = IOUPSPrivate.c;
+			path = ioupsd/IOUPSPrivate.c;
+			refType = 4;
+		};
+		F7828185058E83D30055547B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = upsd.c;
+			path = ioupsd/upsd.c;
+			refType = 4;
+		};
+		F7828186058E83D30055547B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = IOUPSPrivate.h;
+			path = ioupsd/IOUPSPrivate.h;
+			refType = 4;
+		};
+		F7828187058E83D30055547B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = ioupsplugin.c;
+			path = ioupsd/ioupsplugin.c;
+			refType = 4;
+		};
+		F7828188058E83D30055547B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = IOUPSPlugIn.h;
+			path = ioupsd/IOUPSPlugIn.h;
+			refType = 4;
+		};
+		F7828189058E83E60055547B = {
+			buildActionMask = 2147483647;
+			files = (
+				F7828193058E83F20055547B,
+				F7828195058E83F30055547B,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F782818A058E83E60055547B = {
+			buildActionMask = 2147483647;
+			files = (
+				F7828190058E83F10055547B,
+				F7828191058E83F10055547B,
+				F7828192058E83F20055547B,
+				F7828194058E83F30055547B,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F782818B058E83E60055547B = {
+			buildActionMask = 2147483647;
+			files = (
+				F7828197058E84130055547B,
+				F7828198058E84140055547B,
+				F7828199058E84140055547B,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F782818C058E83E60055547B = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F782818D058E83E60055547B = {
+			buildPhases = (
+				F7828189058E83E60055547B,
+				F782818A058E83E60055547B,
+				F782818B058E83E60055547B,
+				F782818C058E83E60055547B,
+				F77880F5058F8344006B9971,
+			);
+			buildSettings = {
+				INSTALL_PATH = /usr/libexec;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = ioupsd;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = ioupsd;
+			productInstallPath = /usr/libexec;
+			productName = ioupsd;
+			productReference = F782818E058E83E60055547B;
+		};
+		F782818E058E83E60055547B = {
+			isa = PBXExecutableFileReference;
+			path = ioupsd;
+			refType = 3;
+		};
+		F7828190058E83F10055547B = {
+			fileRef = F7828183058E83D30055547B;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Client,
+					Server,
+				);
+			};
+		};
+		F7828191058E83F10055547B = {
+			fileRef = F7828184058E83D30055547B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F7828192058E83F20055547B = {
+			fileRef = F7828185058E83D30055547B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F7828193058E83F20055547B = {
+			fileRef = F7828186058E83D30055547B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F7828194058E83F30055547B = {
+			fileRef = F7828187058E83D30055547B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F7828195058E83F30055547B = {
+			fileRef = F7828188058E83D30055547B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F7828196058E83F90055547B = {
+			isa = PBXTargetDependency;
+			target = F782818D058E83E60055547B;
+		};
+		F7828197058E84130055547B = {
+			fileRef = 40882BA6019747120ACA2928;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F7828198058E84140055547B = {
+			fileRef = 40882BA7019747120ACA2928;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F7828199058E84140055547B = {
+			fileRef = 40882BA8019747120ACA2928;
 			isa = PBXBuildFile;
 			settings = {
 			};

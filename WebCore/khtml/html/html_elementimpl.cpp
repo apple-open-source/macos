@@ -53,7 +53,8 @@ using namespace DOM;
 using namespace khtml;
 
 HTMLElementImpl::HTMLElementImpl(DocumentPtr *doc)
-    : ElementImpl(doc)
+    : ElementImpl(doc),
+      m_contentEditable(FlagNone)
 {
 }
 
@@ -129,6 +130,12 @@ void HTMLElementImpl::parseAttribute(AttributeImpl *attr)
         setHasClass(attr->val());
         setChanged();
         break;
+    case ATTR_CONTENTEDITABLE:
+    {
+        setContentEditable(attr->value());
+        setChanged();
+        break;
+    }
     case ATTR_STYLE:
         // ### we need to remove old style info in case there was any!
         // ### the inline sheet ay contain more than 1 property!
@@ -188,15 +195,15 @@ void HTMLElementImpl::parseAttribute(AttributeImpl *attr)
 	    getDocument()->createHTMLEventListener(attr->value().string()));
         break;
     case ATTR_ONKEYDOWN:
-        setHTMLEventListener(EventImpl::KHTML_KEYDOWN_EVENT,
+        setHTMLEventListener(EventImpl::KEYDOWN_EVENT,
 	    getDocument()->createHTMLEventListener(attr->value().string()));
 	break;
     case ATTR_ONKEYPRESS:
-        setHTMLEventListener(EventImpl::KHTML_KEYPRESS_EVENT,
+        setHTMLEventListener(EventImpl::KEYPRESS_EVENT,
 	    getDocument()->createHTMLEventListener(attr->value().string()));
 	break;
     case ATTR_ONKEYUP:
-        setHTMLEventListener(EventImpl::KHTML_KEYUP_EVENT,
+        setHTMLEventListener(EventImpl::KEYUP_EVENT,
 	    getDocument()->createHTMLEventListener(attr->value().string()));
         break;
 // other misc attributes
@@ -416,6 +423,7 @@ DocumentFragmentImpl *HTMLElementImpl::createContextualFragment( const DOMString
         return NULL;
 
     DocumentFragmentImpl *fragment = new DocumentFragmentImpl( docPtr() );
+    fragment->ref();
     {
         HTMLTokenizer tok( docPtr(), fragment );
         tok.begin();
@@ -460,6 +468,12 @@ DocumentFragmentImpl *HTMLElementImpl::createContextualFragment( const DOMString
 	    node = node->nextSibling();
 	}
     }
+
+    // Trick to get the fragment back to the floating state, with 0
+    // refs but not destroyed.
+    fragment->setParent(this);
+    fragment->deref();
+    fragment->setParent(0);
 
     return fragment;
 }
@@ -556,6 +570,77 @@ void HTMLElementImpl::addHTMLAlignment( DOMString alignment )
     if ( propvalign != -1 )
 	addCSSProperty( CSS_PROP_VERTICAL_ALIGN, propvalign );
 }
+
+bool HTMLElementImpl::isContentEditable() const {
+    if (m_contentEditable == FlagEnabled)
+        return true;
+    if (m_contentEditable == FlagDisabled)
+        return false;
+
+    NodeImpl *node = parentNode();
+    while (node && node->isHTMLElement()) {
+        HTMLElementImpl *element = static_cast<HTMLElementImpl *>(node);
+        if (element->m_contentEditable == FlagEnabled)
+            return true;
+        if (element->m_contentEditable == FlagDisabled)
+            return false;
+        node = node->parentNode();
+    }
+    return false;
+}
+
+DOMString HTMLElementImpl::contentEditable() const {
+    if (m_contentEditable == FlagEnabled)
+        return "true";
+    if (m_contentEditable == FlagDisabled)
+        return "false";
+    return "inherit";
+}
+
+void HTMLElementImpl::setContentEditable(const DOMString &enabled) {
+    if ( strcasecmp ( enabled, "true" ) == 0 )
+        m_contentEditable = FlagEnabled;
+    else if ( enabled.isEmpty() ) // we want the "true" attribute
+        setAttribute(ATTR_CONTENTEDITABLE, "true");
+    else if ( strcasecmp ( enabled, "false" ) == 0 )
+        m_contentEditable = FlagDisabled;
+    else if ( strcasecmp ( enabled, "inherit" ) == 0 ) {
+        m_contentEditable = FlagNone;
+    }
+}
+
+void HTMLElementImpl::click()
+{
+    int x = 0;
+    int y = 0;
+    if (renderer()) {
+        renderer()->absolutePosition(x,y);
+        x += renderer()->width() / 2;
+        y += renderer()->height() / 2;
+    }
+    // always send click
+    QMouseEvent evt(QEvent::MouseButtonRelease, QPoint(x,y), Qt::LeftButton, 0);
+    dispatchMouseEvent(&evt, EventImpl::KHTML_CLICK_EVENT);
+}
+
+DOMString HTMLElementImpl::toString() const
+{
+    if (!hasChildNodes()) {
+	DOMString result = openTagStartToString();
+	result += ">";
+
+	if (endTag[id()] == REQUIRED) {
+	    result += "</";
+	    result += tagName();
+	    result += ">";
+	}
+
+	return result;
+    }
+
+    return ElementImpl::toString();
+}
+
 
 
 // -------------------------------------------------------------------------

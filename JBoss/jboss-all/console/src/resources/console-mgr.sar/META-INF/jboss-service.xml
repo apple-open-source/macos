@@ -8,15 +8,14 @@
 
 <server>
 
-
-  <mbean code="org.jboss.console.manager.PluginManager"
-         name="jboss.admin:service=PluginManager">         
-     <depends>jboss.jmx:type=Connector,name=RMI</depends>
-     <attribute name="MainLogoUrl">/web-console/images/jboss.gif</attribute>
-     <attribute name="MainLinkUrl">/web-console/ServerInfo.jsp</attribute>
-     <attribute name="EnableShutdown">true</attribute>
-     <attribute name="JndiName">console/PluginManager</attribute>
-  </mbean>
-
+   <mbean code="org.jboss.console.manager.PluginManager"
+      name="jboss.admin:service=PluginManager">
+      <!-- The RMIAdaptor provider service -->
+      <depends>jboss.jmx:alias=jmx/rmi/RMIAdaptor</depends>
+      <attribute name="MainLogoUrl">/web-console/images/jboss.gif</attribute>
+      <attribute name="MainLinkUrl">/web-console/ServerInfo.jsp</attribute>
+      <attribute name="EnableShutdown">true</attribute>
+      <attribute name="JndiName">console/PluginManager</attribute>
+   </mbean>
 
 </server>

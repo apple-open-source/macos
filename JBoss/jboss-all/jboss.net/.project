@@ -1,15 +1,28 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>JBoss.net</name>
+	<name>jboss.net</name>
 	<comment>JBoss Implementation of the Web Service for J2EE Specification</comment>
+	<projects>
+		<project>common</project>
+		<project>j2ee</project>
+		<project>jmx</project>
+		<project>server</project>
+		<project>system</project>
+	</projects>
 	<buildSpec>
 		<buildCommand>
 			<name>org.eclipse.jdt.core.javabuilder</name>
 			<arguments>
 			</arguments>
 		</buildCommand>
+		<buildCommand>
+			<name>com.tssap.selena.cmf.PatternBuilder</name>
+			<arguments>
+			</arguments>
+		</buildCommand>
 	</buildSpec>
 	<natures>
 		<nature>org.eclipse.jdt.core.javanature</nature>
+		<nature>com.tssap.selena.cmf.PatternNature</nature>
 	</natures>
 </projectDescription>

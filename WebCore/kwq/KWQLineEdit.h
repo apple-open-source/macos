@@ -56,15 +56,22 @@ public:
     void setText(const QString &);
     QString text();
 
+    void setWritingDirection(QPainter::TextDirection);
+    
     void selectAll();
     
     QSize sizeForCharacterWidth(int numCharacters) const;
-    int baselinePosition() const;
+    int baselinePosition(int height) const;
     
     void returnPressed() { m_returnPressed.call(); }
     void textChanged() { m_textChanged.call(text()); }
 
     void clicked();
+    
+    bool hasMarkedText();
+    
+    virtual bool checksDescendantsForFocus() const;
+
 private:
     KWQSignal m_returnPressed;
     KWQSignal m_textChanged;

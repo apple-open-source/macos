@@ -23,5 +23,6 @@ public:
 private:
 	
 	static const char* I2SString;
+	static const char* I2SSlaveOnlyString;
 	
 };

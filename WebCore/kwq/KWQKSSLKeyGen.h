@@ -27,20 +27,13 @@
 #define KSSLKEYGEN_H_
 
 #include "KWQStringList.h"
-
-class QDialog
-{
-public:
-    enum DialogCode { Accepted, Rejected };
-};
+#include "QWidget.h"
 
 class KSSLKeyGen
 {
 public:
-    static QStringList supportedKeySizes() { return QStringList(); }
-    KSSLKeyGen(QWidget *, const char *, bool) { }
-    void setKeySize(int) { }
-    int exec() { return QDialog::Rejected; }
+    static QStringList supportedKeySizes();
+    static QString signedPublicKeyAndChallengeString(unsigned keySizeIndex, const QString &challengeString, const KURL &url);
 };
 
 #endif

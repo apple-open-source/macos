@@ -6,11 +6,16 @@
  */
 package org.jboss.test.jbossmq.test;
 
-import java.util.*;
-
-import javax.jms.*;
-import javax.naming.*;
-import javax.transaction.xa.*;
+import javax.jms.Message;
+import javax.jms.Topic;
+import javax.jms.TopicPublisher;
+import javax.jms.TopicSession;
+import javax.jms.XATopicConnection;
+import javax.jms.XATopicConnectionFactory;
+import javax.jms.XATopicSession;
+import javax.naming.InitialContext;
+import javax.transaction.xa.XAResource;
+import javax.transaction.xa.Xid;
 
 import org.jboss.test.JBossTestCase;
 
@@ -81,8 +86,7 @@ public class XAResourceUnitTestCase extends JBossTestCase
       }
    }
 
-   public static class MyXid
-      implements Xid
+   public static class MyXid implements Xid
    {
       static byte next = 0;
 
@@ -92,7 +96,7 @@ public class XAResourceUnitTestCase extends JBossTestCase
       {
          xid = new byte[] { ++next };
       }
- 
+
       public int getFormatId()
       {
          return 314;

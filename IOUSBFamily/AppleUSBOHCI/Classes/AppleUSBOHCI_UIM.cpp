@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -1037,10 +1037,19 @@ AppleUSBOHCI::UIMAbortEndpoint(
 
     pED->pShared->flags |= HostToUSBLong(kOHCIEDControl_K);	// mark the ED as skipped
 
-    // We used to wait for a SOF interrupt here.  Now just sleep for 1 ms.
+    // We used to wait for a SOF interrupt here.  Now just sleep for 2 ms:  1 to finish processing
+    // the frame and 1 to let the filter interrupt routine finish
     //
-    IOSleep(1);
-    
+    IOSleep(2);
+
+    // Process the Done Queue in case there is something there
+    //
+    if (_writeDoneHeadInterrupt & kOHCIHcInterrupt_WDH)
+    {
+        _writeDoneHeadInterrupt = 0;
+        UIMProcessDoneQueue(NULL);
+    }
+
     RemoveTDs(pED);
 
     pED->pShared->flags &= ~HostToUSBLong(kOHCIEDControl_K);	// activate ED again
@@ -1113,10 +1122,19 @@ AppleUSBOHCI::UIMDeleteEndpoint(
 
     _pOHCIRegisters->hcControl = HostToUSBLong(hcControl);
 
-    // We used to wait for a SOF interrupt here.  Now just sleep for 1 ms.
+    // We used to wait for a SOF interrupt here.  Now just sleep for 2 ms:  1 to finish processing
+    // the frame and 1 to let the filter interrupt routine finish
     //
-    IOSleep(1);
+    IOSleep(2);
 
+    // Process the Done Queue in case there is something there
+    //
+    if (_writeDoneHeadInterrupt & kOHCIHcInterrupt_WDH)
+    {
+        _writeDoneHeadInterrupt = 0;
+        UIMProcessDoneQueue(NULL);
+    }
+    
     // restart hcControl
     hcControl |= controlMask;
     _pOHCIRegisters->hcControl = HostToUSBLong(hcControl);
@@ -2241,7 +2259,7 @@ AppleUSBOHCI::UIMCreateIsochTransfer(
             needNewITD = true;	// To simplify test at top of loop.
 
             OSWriteLittleInt32(&pTailITD->pShared->flags, 0, itdFlags);
-            
+
             pTailITD->completion.action = NULL;
             pTailITD = pTailITD->pLogicalNext;		// this is the "old" pNewTD
             OSWriteLittleInt32(&pTailITD->pShared->nextTD, 0, pNewITD->pPhysical);	// link to the "new" pNewTD

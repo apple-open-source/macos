@@ -7,7 +7,6 @@
 
 package org.jboss.ha.hasessionstate.server;
 
-import org.jboss.logging.Logger;
 import org.jboss.system.ServiceMBeanSupport;
 
 import javax.management.MBeanServer;
@@ -15,14 +14,13 @@ import javax.management.ObjectName;
 import javax.management.MalformedObjectNameException;
 
 import org.jboss.ha.hasessionstate.server.HASessionStateImpl;
-import org.jboss.ha.framework.interfaces.HAPartition;
 
 /**
  *   Service class for HASessionState
  *
- *   @see HASessionState
+ *   @see org.jboss.ha.hasessionstate.interfaces.HASessionState
  *   @author sacha.labourey@cogito-info.ch
- *   @version $Revision: 1.7 $
+ *   @version $Revision: 1.7.4.1 $
  *
  * <p><b>Revisions:</b><br>
  */

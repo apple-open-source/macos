@@ -26,13 +26,12 @@ import gnu.getopt.Getopt;
 import gnu.getopt.LongOpt;
 
 import org.jboss.util.Strings;
-import org.jboss.util.Classes;
 import org.jboss.util.propertyeditor.PropertyEditors;
 
 /**
  * Invoke an operation on an MBean.
  *
- * @version <tt>$Revision: 1.3.2.1 $</tt>
+ * @version <tt>$Revision: 1.3.2.2 $</tt>
  * @author <a href="mailto:jason@planet57.com">Jason Dillon</a>
  */
 public class InvokeCommand

@@ -514,7 +514,7 @@ public:
 	// Free the ioKey, erase keyReference from mKeyMap, and delete the ReferencedKey
 	void freeKey(CssmAllocator &allocator, CSSM_KEY &key);
 
-private:
+protected:
 	// Called by the constructor of ReferencedKey -- add referencedKey to mKeyMap
  	void add(ReferencedKey &referencedKey);
 
@@ -527,7 +527,7 @@ private:
 	// Erase keyReference from mKeyMap, and return it (for deletion)
  	ReferencedKey &erase(ReferencedKey::KeyReference keyReference);
 
-private:
+protected:
 	typedef map<ReferencedKey::KeyReference, ReferencedKey *> KeyMap;
 	KeyMap mKeyMap;
 	mutable Mutex mKeyMapLock;

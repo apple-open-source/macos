@@ -33,6 +33,7 @@ class QTextEdit;
 {
     KWQTextAreaTextView *textView;
     QTextEdit *widget;
+    NSFont *_font;
     BOOL wrap;
     BOOL inNextValidKeyView;
     BOOL inDrawingMachinery;
@@ -41,9 +42,13 @@ class QTextEdit;
 - initWithQTextEdit:(QTextEdit *)w; 
 
 - (void)setAlignment:(NSTextAlignment)alignment;
+- (void)setBaseWritingDirection:(NSWritingDirection)direction;
 
 - (void)setEditable:(BOOL)flag;
 - (BOOL)isEditable;
+
+- (void)setEnabled:(BOOL)flag;
+- (BOOL)isEnabled;
 
 - (void)setFont:(NSFont *)font;
 
@@ -55,6 +60,8 @@ class QTextEdit;
 - (BOOL)wordWrap;
 
 - (void)selectAll;
+
+- (NSSize)sizeWithColumns:(int)columns rows:(int)rows;
 
 // paragraph-oriented functions for the benefit of QTextEdit
 - (void)setCursorPositionToIndex:(int)index inParagraph:(int)paragraph;

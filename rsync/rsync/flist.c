@@ -118,10 +118,10 @@ static struct string_area *string_area_new(int size)
 
 	if (size <= 0)
 		size = ARENA_SIZE;
-	a = malloc(sizeof(*a));
+	a = new(struct string_area);
 	if (!a)
 		out_of_memory("string_area_new");
-	a->current = a->base = malloc(size);
+	a->current = a->base = new_array(char, size);
 	if (!a->current)
 		out_of_memory("string_area_new buffer");
 	a->end = a->base + size;
@@ -305,7 +305,6 @@ static char *flist_dir;
 static void flist_expand(struct file_list *flist)
 {
 	if (flist->count >= flist->malloced) {
-		size_t new_bytes;
 		void *new_ptr;
 		
 		if (flist->malloced < 1000)
@@ -313,16 +312,18 @@ static void flist_expand(struct file_list *flist)
 		else
 			flist->malloced *= 2;
 
-		new_bytes = sizeof(flist->files[0]) * flist->malloced;
-		
 		if (flist->files)
-			new_ptr = realloc(flist->files, new_bytes);
+			new_ptr = realloc_array(flist->files,
+						struct file_struct *,
+						flist->malloced);
 		else
-			new_ptr = malloc(new_bytes);
+			new_ptr = new_array(struct file_struct *,
+					    flist->malloced);
 
 		if (verbose >= 2) {
 			rprintf(FINFO, "expand file_list to %.0f bytes, did%s move\n",
-				(double) new_bytes,
+				(double)sizeof(flist->files[0])
+				* flist->malloced,
 				(new_ptr == flist->files) ? " not" : "");
 		}
 		
@@ -480,7 +481,7 @@ static void receive_file_entry(struct file_struct **fptr,
 	else
 		l2 = read_byte(f);
 
-	file = (struct file_struct *) malloc(sizeof(*file));
+	file = new(struct file_struct);
 	if (!file)
 		out_of_memory("receive_file_entry");
 	memset((char *) file, 0, sizeof(*file));
@@ -547,7 +548,7 @@ static void receive_file_entry(struct file_struct **fptr,
 			rprintf(FERROR, "overflow: l=%d\n", l);
 			overflow("receive_file_entry");
 		}
-		file->link = (char *) malloc(l + 1);
+		file->link = new_array(char, l + 1);
 		if (!file->link)
 			out_of_memory("receive_file_entry 2");
 		read_sbuf(f, file->link, l);
@@ -568,7 +569,7 @@ static void receive_file_entry(struct file_struct **fptr,
 #endif
 
 	if (always_checksum) {
-		file->sum = (char *) malloc(MD4_SUM_LENGTH);
+		file->sum = new_array(char, MD4_SUM_LENGTH);
 		if (!file->sum)
 			out_of_memory("md4 sum");
 		if (remote_version < 21) {
@@ -703,7 +704,7 @@ struct file_struct *make_file(int f, char *fname, struct string_area **ap,
 	if (verbose > 2)
 		rprintf(FINFO, "make_file(%d,%s)\n", f, fname);
 
-	file = (struct file_struct *) malloc(sizeof(*file));
+	file = new(struct file_struct);
 	if (!file)
 		out_of_memory("make_file");
 	memset((char *) file, 0, sizeof(*file));
@@ -1051,15 +1052,13 @@ struct file_list *recv_file_list(int f)
 
 	start_read = stats.total_read;
 
-	flist = (struct file_list *) malloc(sizeof(flist[0]));
+	flist = new(struct file_list);
 	if (!flist)
 		goto oom;
 
 	flist->count = 0;
 	flist->malloced = 1000;
-	flist->files =
-	    (struct file_struct **) malloc(sizeof(flist->files[0]) *
-					   flist->malloced);
+	flist->files = new_array(struct file_struct *, flist->malloced);
 	if (!flist->files)
 		goto oom;
 
@@ -1201,7 +1200,7 @@ struct file_list *flist_new(void)
 {
 	struct file_list *flist;
 
-	flist = (struct file_list *) malloc(sizeof(flist[0]));
+	flist = new(struct file_list);
 	if (!flist)
 		out_of_memory("send_file_list");
 

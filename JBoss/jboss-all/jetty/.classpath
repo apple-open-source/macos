@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+    <classpathentry excluding="**/LoggerLogSink.java" kind="src" path="src/main"/>
+    <classpathentry kind="src" path="output/ejb"/>
+    <classpathentry kind="src" path="output/src"/>
+    <classpathentry kind="lib" path="ext/com.sun.net.ssl.jar"/>
+    <classpathentry kind="lib" path="ext/jasper-runtime.jar"/>
+    <classpathentry kind="lib" path="ext/jasper-compiler.jar"/>
+    <classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+    <classpathentry kind="src" path="/j2ee"/>
+    <classpathentry kind="src" path="/server"/>
+    <classpathentry kind="src" path="/jmx"/>
+    <classpathentry kind="src" path="/system"/>
+    <classpathentry kind="src" path="/common"/>
+    <classpathentry kind="src" path="/security"/>
+    <classpathentry kind="src" path="/cluster"/>
+    <classpathentry kind="lib" path="/thirdparty/javagroups/javagroups/lib/jgroups.jar"/>
+    <classpathentry kind="output" path="output/eclipse-classes"/>
+</classpath>

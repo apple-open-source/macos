@@ -53,7 +53,7 @@ import org.xml.sax.InputSource;
  * @author <a href="mailto:d_jencks@users.sourceforge.net">David Jencks</a>
  * @author <a href="mailto:jason@planet57.com">Jason Dillon</a>
  * @author <a href="mailto:sacha.labourey@cogito-info.ch">Sacha Labourey</a>
- * @version $Revision: 1.26.2.14 $
+ * @version $Revision: 1.26.2.16 $
  *
  * @jmx:mbean name="jboss.system:service=ServiceDeployer"
  *            extends="org.jboss.deployment.SubDeployerMBean"
@@ -123,6 +123,9 @@ public class SARDeployer
             di.setRepositoryInfo(config);
          }
 
+         // In case there is a dependent classpath defined parse it
+         parseXMLClasspath(di);
+
          // Copy local directory if local-directory element is present
          NodeList lds = di.document.getElementsByTagName("local-directory");
          log.debug("about to copy " + lds.getLength() + " local directories");
@@ -166,9 +169,6 @@ public class SARDeployer
       {
          // install the MBeans in this descriptor
          log.debug("Deploying SAR, create step: url " + di.url);
-
-         // In case there is a dependent classpath defined parse it
-         parseXMLClasspath(di);
 
          // Register the SAR UCL as an mbean so we can use it as the service loader
          ObjectName uclName = di.ucl.getObjectName();
@@ -460,10 +460,6 @@ public class SARDeployer
    protected void startService() throws Exception
    {
       super.startService();
-
-      mainDeployer = (MainDeployerMBean)
-         MBeanProxyExt.create(MainDeployerMBean.class,
-			   MainDeployerMBean.OBJECT_NAME, server);
 
       // get the controller proxy
       serviceController = (ServiceControllerMBean)

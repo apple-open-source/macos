@@ -28,6 +28,7 @@ struct webdav_args
 	char *pa_config;							/* Config file */
 	int pa_socket;								/* Socket to server */
 	char *pa_uri;								/* url of mounted entity */
+	int pa_suppressAllUI;						/* SuppressAllUI flag */
 };
 
 struct webdav_cred
@@ -74,7 +75,7 @@ struct webdavmount
 {
 	struct vnode *pm_root;						/* Root node */
 	struct file *pm_server;						/* Held reference to server socket */
-	u_int32_t status;							/* status bits for this mounted structure */
+	u_int32_t pm_status;							/* status bits for this mounted structure */
 	struct mount *pm_mountp;					/* vfs structure for this filesystem */
 };
 
@@ -110,6 +111,8 @@ struct webdavnode
 #define WEBDAV_MOUNT_STATFS_WANTED 0x00000004	/* statfs wakeup is wanted */
 #define WEBDAV_MOUNT_TIMEO 0x00000008			/* connection to webdav server was lost */
 #define WEBDAV_MOUNT_FORCE 0x00000010			/* doing a forced unmount. */
+#define WEBDAV_MOUNT_DEAD 0x00000020			/* doing a forced unmount. */
+#define WEBDAV_MOUNT_SUPPRESS_ALL_UI 0x00000040	/* suppress UI when connection is lost */
 
 /* Webdav sizes for statfs */
 

@@ -1,6 +1,6 @@
 // ===========================================================================
 // Copyright (c) 1996-2002 Mort Bay Consulting Pty. Ltd. All rights reserved.
-// $Id: ServletHandler.java,v 1.19.2.21 2003/06/04 04:47:51 starksm Exp $
+// $Id: ServletHandler.java,v 1.19.2.22 2003/07/26 11:49:42 jules_gosnell Exp $
 // ---------------------------------------------------------------------------
 
 package org.mortbay.jetty.servlet;
@@ -67,7 +67,7 @@ import org.mortbay.util.URI;
  * java.util.Random generator is created.
  * <P>
  * @see org.mortbay.jetty.servlet.WebApplicationHandler
- * @version $Id: ServletHandler.java,v 1.19.2.21 2003/06/04 04:47:51 starksm Exp $
+ * @version $Id: ServletHandler.java,v 1.19.2.22 2003/07/26 11:49:42 jules_gosnell Exp $
  * @author Greg Wilkins
  */
 public class ServletHandler extends AbstractHttpHandler
@@ -124,6 +124,9 @@ public class ServletHandler extends AbstractHttpHandler
         if (isStarted())
             throw new IllegalStateException("Started");
 
+	int mii=0;
+	boolean setMii=false;
+
         if (getHttpContext()!=null && _sessionManager!=null)
 	{
             _sessionManager.initialize(null);
@@ -135,6 +138,8 @@ public class ServletHandler extends AbstractHttpHandler
                     _sessionManager.removeEventListener(listener);
                 }
             }
+	    mii=_sessionManager.getMaxInactiveInterval();
+	    setMii=true;
 	}
 
         _sessionManager=sm;
@@ -150,7 +155,11 @@ public class ServletHandler extends AbstractHttpHandler
                 }
             }
 	    if (_sessionManager!=null)
+	    {
                 _sessionManager.initialize(this);
+		if (setMii)
+		  _sessionManager.setMaxInactiveInterval(mii);
+	    }
         }
     }
     

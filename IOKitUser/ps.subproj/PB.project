@@ -1,12 +1,13 @@
 {
     DYNAMIC_CODE_GEN = YES; 
     FILESTABLE = {
+        FRAMEWORKS = (CoreFoundation.framework, SystemConfiguration.framework);
         H_FILES = (IOPSKeys.h, IOPowerSources.h); 
-        C_FILES = (IOPowerSources.c);
+        C_FILES = (IOPowerSources.c, IOPowerSourcesPrivate.c);
         OTHER_LINKED = (); 
         OTHER_SOURCES = (Makefile.preamble, Makefile); 
-        PROJECT_HEADERS = (); 
-        PUBLIC_HEADERS = (); 
+        PROJECT_HEADERS = (IOPSKeys.h, IOPowerSources.h, IOPowerSourcesPrivate.h); 
+        PUBLIC_HEADERS = (IOPSKeys.h, IOPowerSources.h); 
         SUBPROJECTS = (); 
     }; 
     LANGUAGE = English; 

@@ -21,14 +21,16 @@ import org.jboss.naming.Util;
 import org.jboss.logging.Logger;
 
 import org.jboss.mq.SpyDestination;
+import org.jboss.mq.server.BasicQueueParameters;
 import org.jboss.mq.server.JMSDestinationManager;
 import org.jboss.mq.server.MessageCounter;
+import org.w3c.dom.Element;
 
 /**
  * Super class for destination managers.
  *
  * @author     <a href="pra@tim.se">Peter Antman</a>
- * @version $Revision: 1.3.2.4 $
+ * @version $Revision: 1.3.2.5 $
  */
 
 abstract public class DestinationMBeanSupport extends ServiceMBeanSupport
@@ -40,7 +42,9 @@ abstract public class DestinationMBeanSupport extends ServiceMBeanSupport
    boolean jndiBound;
    ObjectName jbossMQService;
    //String securityConf;
-   org.w3c.dom.Element securityConf;
+   Element securityConf;
+   /** The basic parameters */
+   BasicQueueParameters parameters = new BasicQueueParameters();
 
    /**
     * A optional security manager. Must be set to use security conf.
@@ -78,7 +82,7 @@ abstract public class DestinationMBeanSupport extends ServiceMBeanSupport
       this.securityConf = securityConf;
    }
 
-   protected org.w3c.dom.Element getSecurityConf()
+   protected Element getSecurityConf()
    {
       return securityConf;
    }
@@ -412,6 +416,16 @@ abstract public class DestinationMBeanSupport extends ServiceMBeanSupport
       }
 
       return days;
+   }
+
+   public int getMaxDepth()
+   {
+      return parameters.maxDepth;
+   }
+
+   public void setMaxDepth(int depth)
+   {
+      parameters.maxDepth = depth;
    }
 
 } // DestinationMBeanSupport

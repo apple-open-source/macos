@@ -10,7 +10,6 @@ package org.jboss.ejb.plugins.cmp.ejbql;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.jboss.ejb.plugins.cmp.bridge.EntityBridge;
 import org.jboss.ejb.plugins.cmp.bridge.CMRFieldBridge;
@@ -19,13 +18,13 @@ import org.jboss.ejb.plugins.cmp.bridge.CMRFieldBridge;
  * This class manages a symbol table for the EJB-QL parser.
  *
  * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
- * @version $Revision: 1.2 $
+ * @version $Revision: 1.2.4.2 $
  */                            
-public class IdentifierManager {
-   private Catalog catalog;
-   private Map pathLists = new HashMap();
-   private Map fieldLists = new HashMap();
-   private Map identifiers = new HashMap();
+public final class IdentifierManager {
+   private final Catalog catalog;
+   private final Map pathLists = new HashMap();
+   private final Map fieldLists = new HashMap();
+   private final Map identifiers = new HashMap();
 
    public IdentifierManager(Catalog catalog) {
       this.catalog = catalog;
@@ -55,10 +54,6 @@ public class IdentifierManager {
       }
       identifiers.put(identifier, cmrField.getRelatedEntity());
    }
-     
-   public boolean isDeclaredIdentifier(String identifier) {
-      return identifiers.containsKey(identifier);
-   }
 
    public EntityBridge getEntity(String identificationVariable) {
       return (EntityBridge)identifiers.get(identificationVariable);
@@ -86,8 +81,5 @@ public class IdentifierManager {
       return (List)fieldLists.get(path);
    }
 
-   public Map getIdentifiers() {
-      return identifiers;
-   }
 }
 

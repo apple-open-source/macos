@@ -23,6 +23,7 @@ import javax.ejb.EntityBean;
 import javax.ejb.EntityContext;
 import javax.ejb.EntityContext;
 import javax.ejb.FinderException;
+import javax.ejb.NoSuchEntityException;
 import javax.naming.InitialContext;
 import java.util.ArrayList;
 
@@ -53,7 +54,8 @@ public class CustomerBean
    public Integer id;
    public String name;
    public Collection accounts;
-   
+
+   private EntityContext ctx;   
    
    /**
     * field get-set pair for field id
@@ -178,7 +180,7 @@ public class CustomerBean
       
          ps = getConnection().prepareStatement("INSERT INTO CCBMPCUSTOMER (ID, NAME) VALUES (?, ?)");
          ps.setInt(1, id.intValue());
-         ps.setString(1, name);
+         ps.setString(2, name);
          accounts = new ArrayList();
       }
       catch (Exception e)
@@ -263,6 +265,10 @@ public class CustomerBean
    
    public void ejbLoad()
    {
+      id = (Integer) ctx.getPrimaryKey();
+      if (id == null)
+         throw new EJBException("Null id!");
+
       PreparedStatement ps = null;
       try 
       {
@@ -270,7 +276,8 @@ public class CustomerBean
          ps = getConnection().prepareStatement("SELECT NAME FROM CCBMPCUSTOMER WHERE ID = ?");
          ps.setInt(1, id.intValue());
          ResultSet rs = ps.executeQuery();
-         rs.next();
+         if (rs.next() == false)
+            throw new NoSuchEntityException("Customer does not exist " + id.toString());
          this.name = rs.getString(1);
          AccountLocalHome ah = (AccountLocalHome)new InitialContext().lookup("AccountLocal");
          accounts = ah.findByCustomerId(id);
@@ -350,10 +357,12 @@ public class CustomerBean
    
    public void setEntityContext(EntityContext ctx)
    {
+      this.ctx = ctx;
    }
    
    public void unsetEntityContext()
    {
+      ctx = null;
    }
 
    private Connection getConnection() throws Exception

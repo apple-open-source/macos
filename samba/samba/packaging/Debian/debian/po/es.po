@@ -14,14 +14,14 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: Samba for Debian 3.0.0beta2-1\n"
-"POT-Creation-Date: 2003-07-02 21:50-0500\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2003-08-30 19:08-0500\n"
 "PO-Revision-Date: 2003-07-02 21:51-0500\n"
 "Last-Translator: Steve Langasek <vorlon@debian.org>\n"
 "Language-Team: Spanish <debian-l10n-spanish@lists.debian.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Report-Msgid-Bugs-To: \n"
 
 #. Description
 #: ../samba-common.templates:3
@@ -39,9 +39,8 @@ msgid ""
 msgstr ""
 "Actualmente hay una opción de \"character set\" en smb.conf.  En Samba 3.0 "
 "esta opción ha sido reemplazado por una opción nueva: \"unix charset\". Por "
-"favor, indique el juego de caracteres que desea usar para esta opción "
-"nueva, que controla cómo Samba interpretará los nombres en el sistema de "
-"ficheros."
+"favor, indique el juego de caracteres que desea usar para esta opción nueva, "
+"que controla cómo Samba interpretará los nombres en el sistema de ficheros."
 
 #. Description
 #: ../samba-common.templates:3

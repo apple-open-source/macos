@@ -1,3 +1,9 @@
+/*
+ * JBoss, the OpenSource J2EE webOS
+ *
+ * Distributable under LGPL license.
+ * See terms of license at gnu.org.
+ */
 package org.jboss.test.cmp2.cmr.ejb;
 
 
@@ -32,13 +38,15 @@ import org.jboss.test.cmp2.cmr.interfaces.CMRBugEJBLocal;
  * @ejb:transaction-type type="Container"
  */
 public class CMRBugManagerBean
-  implements SessionBean
+   implements SessionBean
 {
-  private CMRBugEJBLocalHome cmrBugHome;
+   private CMRBugEJBLocalHome cmrBugHome;
 
-  private Category log = Category.getInstance(getClass());
+   private Category log = Category.getInstance(getClass());
 
-  public CMRBugManagerBean() {}
+   public CMRBugManagerBean()
+   {
+   }
 
    /**
     * Describe <code>createCMRBugs</code> method here.
@@ -47,84 +55,51 @@ public class CMRBugManagerBean
     * @ejb:interface-method view-type="remote"
     */
    public void createCMRBugs(SortedMap cmrBugs)
-  {
-    try
-    {
-      if (!cmrBugs.isEmpty())
+   {
+      try
       {
-        Iterator i = cmrBugs.entrySet().iterator();
-        Map.Entry entry = (Map.Entry) i.next();
+         if(!cmrBugs.isEmpty())
+         {
+            Iterator i = cmrBugs.entrySet().iterator();
+            Map.Entry entry = (Map.Entry)i.next();
 
-        // the root id (of which all others are based) is the first key in
-        // the SortedMap
-        //
-        String root = (String) entry.getKey();
-
-        String id = root;
-        String description = (String) entry.getValue();
-
-        CMRBugEJBLocal parent = cmrBugHome.create(id, description, null);
-        /*
-        if (succeed)
-        {
-          // replace the description with the id
-          //
-          entry.setValue(parent.getId());
-        }
-        else // fail
-        {*/
-          // replace the description in the map with the actual CMRBugEJBLocal
-          //
-          entry.setValue(parent);
-          //}
-
-        while (i.hasNext())
-        {
-          entry = (Map.Entry) i.next();
-
-          id = (String) entry.getKey();
-          description = (String) entry.getValue();
-
-          int index = id.lastIndexOf(".");
-          if (index != -1)
-          {
-            // determine the parent id and then try to find the parent's
-            // CMRBugEJBLocal in the map
+            // the root id (of which all others are based) is the first key in
+            // the SortedMap
             //
-            String parentId = id.substring(0, index);
-            /*
-            if (succeed)
+            String root = (String)entry.getKey();
+
+            String id = root;
+            String description = (String)entry.getValue();
+
+            CMRBugEJBLocal parent = cmrBugHome.create(id, description, null);
+            entry.setValue(parent);
+
+            while(i.hasNext())
             {
-              parent =
-                cmrBugHome.findByPrimaryKey((String) cmrBugs.get(parentId));
+               entry = (Map.Entry)i.next();
+
+               id = (String)entry.getKey();
+               description = (String)entry.getValue();
+
+               int index = id.lastIndexOf(".");
+               if(index != -1)
+               {
+                  // determine the parent id and then try to find the parent's
+                  // CMRBugEJBLocal in the map
+                  //
+                  String parentId = id.substring(0, index);
+                  parent = (CMRBugEJBLocal)cmrBugs.get(parentId);
+               }
+               entry.setValue(cmrBugHome.create(id, description, parent));
             }
-            else // fail (sometimes)
-            {*/
-              parent = (CMRBugEJBLocal) cmrBugs.get(parentId);
-              //}
-          }
-          /*
-          if (succeed)
-          {
-            // replace the description with the id
-            //
-            entry.setValue(cmrBugHome.create(id, description, parent).getId());
-          }
-          else // fail (sometimes)
-          {*/
-            // replace the description in the map with the actual CMRBugEJBLocal
-            //
-            entry.setValue(cmrBugHome.create(id, description, parent));
-            //}
-        }
+         }
       }
-    }
-    catch (Exception e)
-    {
-      e.printStackTrace();
-      throw new EJBException(e.getMessage());
-    }
-  }
+      catch(Exception e)
+      {
+         e.printStackTrace();
+         throw new EJBException(e.getMessage());
+      }
+   }
 
    /**
     * Describe <code>getParentFor</code> method here.
@@ -134,76 +109,145 @@ public class CMRBugManagerBean
     * @ejb:interface-method view-type="remote"
     */
    public String[] getParentFor(String id)
-  {
-    try
-    {
-      CMRBugEJBLocal cmrBug = cmrBugHome.findByPrimaryKey(id);
-      CMRBugEJBLocal parent = cmrBug.getParent();
-
-      String[] parentIdAndDescription = null;
-      if (parent != null)
+   {
+      try
       {
-        parentIdAndDescription = new String[2];
-        parentIdAndDescription[0] = parent.getId();
-        parentIdAndDescription[1] = parent.getDescription();
+         CMRBugEJBLocal cmrBug = cmrBugHome.findByPrimaryKey(id);
+         CMRBugEJBLocal parent = cmrBug.getParent();
+
+         String[] parentIdAndDescription = null;
+         if(parent != null)
+         {
+            parentIdAndDescription = new String[2];
+            parentIdAndDescription[0] = parent.getId();
+            parentIdAndDescription[1] = parent.getDescription();
+         }
+
+         return parentIdAndDescription;
       }
+      catch(Exception e)
+      {
+         e.printStackTrace();
+         throw new EJBException(e.getMessage());
+      }
+   }
 
-      return parentIdAndDescription;
-    }
-    catch (Exception e)
-    {
-      e.printStackTrace();
-      throw new EJBException(e.getMessage());
-    }
-  }
+   /**
+    * @ejb.interface-method
+    * @ejb.transaction type="RequiresNew"
+    */
+   public void setupLoadFKState()
+      throws Exception
+   {
+      CMRBugEJBLocal bug1 = cmrBugHome.create("first", null, null);
+      CMRBugEJBLocal bug2 = cmrBugHome.create("second", null, null);
+      CMRBugEJBLocal bug3 = cmrBugHome.create("third", null, null);
+      CMRBugEJBLocal bug4 = cmrBugHome.create("forth", null, null);
 
-  // --------------------------------------------------------------------------
-  // SessionBean methods
-  //
+      bug1.setNextNode(bug2);
+      bug2.setNextNode(bug3);
+      bug3.setNextNode(bug4);
 
-  /**
-   * Describe <code>ejbCreate</code> method here.
-   *
-   * @exception CreateException if an error occurs
-   */
+      bug4.setPrevNode(bug3);
+      bug3.setPrevNode(bug2);
+      bug2.setPrevNode(bug1);
+   }
+
+   /**
+    * @ejb.interface-method
+    * @ejb.transaction type="RequiresNew"
+    */
+   public void moveLastNodeBack()
+      throws Exception
+   {
+      CMRBugEJBLocal bug = cmrBugHome.findByPrimaryKey("forth");
+
+      CMRBugEJBLocal prev = bug.getPrevNode();
+      CMRBugEJBLocal next = bug.getNextNode();
+      CMRBugEJBLocal prevPrev = prev.getPrevNode();
+
+      prevPrev.setNextNode(bug);
+      bug.setPrevNode(prevPrev);
+      bug.setNextNode(prev);
+      prev.setPrevNode(bug);
+      prev.setNextNode(next);
+   }
+
+   /**
+    * @ejb.interface-method
+    * @ejb.transaction type="RequiresNew"
+    */
+   public boolean lastHasNextNode()
+      throws Exception
+   {
+      CMRBugEJBLocal bug = cmrBugHome.findByPrimaryKey("third");
+      return bug.getNextNode() != null;
+   }
+
+   /**
+    * @ejb.interface-method
+    * @ejb.transaction type="RequiresNew"
+    */
+   public void tearDownLoadFKState()
+      throws Exception
+   {
+      cmrBugHome.remove("first");
+      cmrBugHome.remove("second");
+      cmrBugHome.remove("third");
+      cmrBugHome.remove("forth");
+   }
+
+   // --------------------------------------------------------------------------
+   // SessionBean methods
+   //
+
+   /**
+    * Describe <code>ejbCreate</code> method here.
+    *
+    * @exception CreateException if an error occurs
+    */
    public void ejbCreate()
-    throws CreateException
-  {
-    try
-    {
-      cmrBugHome = lookupCMRBugHome();
-    }
-    catch (Exception e)
-    {
-      throw new CreateException(e.getMessage());
-    }
-  }
+      throws CreateException
+   {
+      try
+      {
+         cmrBugHome = lookupCMRBugHome();
+      }
+      catch(Exception e)
+      {
+         throw new CreateException(e.getMessage());
+      }
+   }
 
-  public void ejbActivate()
-  {
-    try
-    {
-      cmrBugHome = lookupCMRBugHome();
-    }
-    catch (Exception e)
-    {
-      throw new EJBException(e.getMessage());
-    }
-  }
+   public void ejbActivate()
+   {
+      try
+      {
+         cmrBugHome = lookupCMRBugHome();
+      }
+      catch(Exception e)
+      {
+         throw new EJBException(e.getMessage());
+      }
+   }
 
-  public void ejbPassivate()
-  {
-    cmrBugHome = null;
-  }
+   public void ejbPassivate()
+   {
+      cmrBugHome = null;
+   }
 
-  public void ejbRemove() {}
+   public void ejbRemove()
+   {
+   }
 
-  public void setSessionContext(SessionContext sessionContext) {}
+   public void setSessionContext(SessionContext sessionContext)
+   {
+   }
 
-  private CMRBugEJBLocalHome lookupCMRBugHome()
-    throws NamingException
-  {
-    InitialContext initialContext = new InitialContext();
-    return (CMRBugEJBLocalHome) initialContext.lookup("java:comp/env/ejb/CMRBug");
-  }
+   private CMRBugEJBLocalHome lookupCMRBugHome()
+      throws NamingException
+   {
+      InitialContext initialContext = new InitialContext();
+      return (CMRBugEJBLocalHome)initialContext.lookup("java:comp/env/ejb/CMRBug");
+   }
 }

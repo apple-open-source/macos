@@ -57,7 +57,7 @@ bool VirtualAudioDevice::initHardware(IOService *provider)
 {
     bool result = false;
     
-    debug3IOLog("VirtualAudioDevice[%p]::initHardware(%p)\n", this, provider);
+    debug3IOLog("VirtualAudioDevice[%p]::initHardware(%p)", this, provider);
     
     if (!super::initHardware(provider)) {
         goto Done;
@@ -87,7 +87,7 @@ bool VirtualAudioDevice::createAudioEngines()
     bool result = false;
     OSArray *audioEngineArray;
     
-    debug2IOLog("VirtualAudioDevice[%p]::createAudioEngine()\n", this);
+    debug2IOLog("VirtualAudioDevice[%p]::createAudioEngine()", this);
     
     audioEngineArray = OSDynamicCast(OSArray, getProperty(AUDIO_ENGINES_KEY));
     
@@ -115,7 +115,7 @@ bool VirtualAudioDevice::createAudioEngines()
             audioEngineIterator->release();
         }
     } else {
-        debug2IOLog("VirtualAudioDevice[%p]::createAudioEngine() - Error: no AudioEngine array in personality.\n", this);
+        debug2IOLog("VirtualAudioDevice[%p]::createAudioEngine() - Error: no AudioEngine array in personality.", this);
         goto Done;
     }
     
@@ -143,10 +143,10 @@ IOReturn VirtualAudioDevice::volumeChangeHandler(IOService *target, IOAudioContr
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 IOReturn VirtualAudioDevice::volumeChanged(IOAudioControl *volumeControl, SInt32 oldValue, SInt32 newValue)
 {
-    debug5IOLog("VirtualAudioDevice[%p]::volumeChanged(%p, %ld, %ld)\n", this, volumeControl, oldValue, newValue);
+    debug5IOLog("VirtualAudioDevice[%p]::volumeChanged(%p, %ld, %ld)", this, volumeControl, oldValue, newValue);
     
     if (volumeControl) {
-        debug2IOLog("\t-> Channel %ld\n", volumeControl->getChannelID());
+        debug2IOLog("\t-> Channel %ld", volumeControl->getChannelID());
     }
     
     // Add hardware volume code change 
@@ -171,10 +171,10 @@ IOReturn VirtualAudioDevice::outputMuteChangeHandler(IOService *target, IOAudioC
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 IOReturn VirtualAudioDevice::outputMuteChanged(IOAudioControl *muteControl, SInt32 oldValue, SInt32 newValue)
 {
-    debug5IOLog("VirtualAudioDevice[%p]::outputMuteChanged(%p, %ld, %ld)\n", this, muteControl, oldValue, newValue);
+    debug5IOLog("VirtualAudioDevice[%p]::outputMuteChanged(%p, %ld, %ld)", this, muteControl, oldValue, newValue);
     
     if (muteControl) {
-        debug2IOLog("\t-> Channel %ld\n", muteControl->getChannelID());
+        debug2IOLog("\t-> Channel %ld", muteControl->getChannelID());
     }
     
     // Add output mute code here
@@ -199,10 +199,10 @@ IOReturn VirtualAudioDevice::gainChangeHandler(IOService *target, IOAudioControl
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 IOReturn VirtualAudioDevice::gainChanged(IOAudioControl *gainControl, SInt32 oldValue, SInt32 newValue)
 {
-    debug5IOLog("VirtualAudioDevice[%p]::gainChanged(%p, %ld, %ld)\n", this, gainControl, oldValue, newValue);
+    debug5IOLog("VirtualAudioDevice[%p]::gainChanged(%p, %ld, %ld)", this, gainControl, oldValue, newValue);
     
     if (gainControl) {
-        debug2IOLog("\t-> Channel %ld\n", gainControl->getChannelID());
+        debug2IOLog("\t-> Channel %ld", gainControl->getChannelID());
     }
     
     // Add hardware gain change code here 
@@ -227,10 +227,10 @@ IOReturn VirtualAudioDevice::inputMuteChangeHandler(IOService *target, IOAudioCo
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 IOReturn VirtualAudioDevice::inputMuteChanged(IOAudioControl *muteControl, SInt32 oldValue, SInt32 newValue)
 {
-    debug5IOLog("VirtualAudioDevice[%p]::inputMuteChanged(%p, %ld, %ld)\n", this, muteControl, oldValue, newValue);
+    debug5IOLog("VirtualAudioDevice[%p]::inputMuteChanged(%p, %ld, %ld)", this, muteControl, oldValue, newValue);
     
     if (muteControl) {
-        debug2IOLog("\t-> Channel %ld\n", muteControl->getChannelID());
+        debug2IOLog("\t-> Channel %ld", muteControl->getChannelID());
     }
     
     // Add input mute change code here
@@ -255,10 +255,10 @@ IOReturn VirtualAudioDevice::passThruChangeHandler(IOService *target, IOAudioCon
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 IOReturn VirtualAudioDevice::passThruChanged(IOAudioControl *passThruControl, SInt32 oldValue, SInt32 newValue)
 {
-    debug5IOLog("VirtualAudioDevice[%p]::passThruChanged(%p, %ld, %ld)\n", this, passThruControl, oldValue, newValue);
+    debug5IOLog("VirtualAudioDevice[%p]::passThruChanged(%p, %ld, %ld)", this, passThruControl, oldValue, newValue);
     
     if (passThruControl) {
-        debug2IOLog("\t-> Channel %ld\n", passThruControl->getChannelID());
+        debug2IOLog("\t-> Channel %ld", passThruControl->getChannelID());
     }
         
     return kIOReturnSuccess;
@@ -323,7 +323,7 @@ IOService* VirtualAudioDevice::probe(IOService* provider, SInt32* score)
 {
 	IOService* result;
 
-	debugIOLog("VirtualAudioDevice::probe\n");
+	debugIOLog("VirtualAudioDevice::probe");
 
 	result = NULL;
 
@@ -332,19 +332,19 @@ IOService* VirtualAudioDevice::probe(IOService* provider, SInt32* score)
 	{
 		*score = 0x8000;
 		result = this;
-		debugIOLog("VirtualAudioDevice::probe will load\n");
+		debugIOLog("VirtualAudioDevice::probe will load");
 	}
 #else		
-	debugIOLog("VirtualAudioDevice:: probe\n");
+	debugIOLog("VirtualAudioDevice:: probe");
 	if (!FindSoundNode())
 	{
 		*score = 0x4000;
 		result = this;
-		debugIOLog("VirtualAudioDevice::probe should load\n");
+		debugIOLog("VirtualAudioDevice::probe should load");
 	}
 	else
 	{
-		debugIOLog("VirtualAudioDevice::probe should not load\n");
+		debugIOLog("VirtualAudioDevice::probe should not load");
 		*score = 0;
 		result = NULL;
 	}

@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -543,15 +541,73 @@ eventCallback(CFSocketRef s, CFSocketCallBackType type, CFDataRef address, const
 
 }
 
+#ifdef SIOCGETVLAN
+#include <net/ethernet.h>
+#include <net/if_vlan_var.h>
+#include <net/if_types.h>
+
+static struct ifaddrs *
+ifaddrs_find_interface(struct ifaddrs * ifap, char * ifname)
+{
+	struct ifaddrs * scan;
+
+	for (scan = ifap; scan != NULL; scan = scan->ifa_next) {
+		if (strcmp(scan->ifa_name, ifname) == 0) {
+			return (scan);
+		}
+	}
+	return (NULL);
+}
+
+static void
+mark_vlan_parent_up(int s, struct ifaddrs * ifap, char * ifname)
+{
+	struct ifreq		ifr;
+	struct ifaddrs *	parent;
+	char			parent_ifname[IFNAMSIZ + 1];
+	struct vlanreq		vreq;
+
+	/* get the physical interface */
+	bzero(&ifr, sizeof(ifr));
+	bzero((char *)&vreq, sizeof(struct vlanreq));
+	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+	ifr.ifr_data = (caddr_t)&vreq;
+	if (ioctl(s, SIOCGETVLAN, (caddr_t)&ifr) == -1) {
+		SCLog(TRUE, LOG_ERR, 
+		      CFSTR("KernelEventMonitor: SIOCGETVLAN(%s) failed, %s"),
+		      ifname, strerror(errno));
+		return;
+	}
+	if (vreq.vlr_parent[0] == '\0') {
+		/* not associated with a physical interface */
+		return;
+	}
+	strncpy(parent_ifname, vreq.vlr_parent, sizeof(vreq.vlr_parent));
+	parent_ifname[IFNAMSIZ] = '\0';
+	parent = ifaddrs_find_interface(ifap, parent_ifname);
+	if (parent == NULL) {
+		/* this really isn't possible */
+		return;
+	}
+	if ((parent->ifa_flags & IFF_UP) != 0) {
+		/* physical interface already marked up */
+		return;
+	}
+
+	/* mark the interface up */
+	ifflags_set(s, parent_ifname, IFF_UP);
+	parent->ifa_flags |= IFF_UP;
+	return;
+}
+
+#endif SIOCGETVLAN
 
 void
 prime()
 {
+	struct if_data 		*if_data;
 	struct ifaddrs		*ifap		= NULL;
-	struct ifconf		ifc;
-	struct ifreq		*ifr;
-	char			buf[1024];
-	int			offset;
+	struct ifaddrs		*scan;
 	int			sock = -1;
 
 	SCLog(_verbose, LOG_DEBUG, CFSTR("prime() called"));
@@ -564,37 +620,6 @@ prime()
 		goto done;
 	}
 
-	ifc.ifc_len = sizeof(buf);
-	ifc.ifc_buf = buf;
-
-	if (ioctl(sock, SIOCGIFCONF, (char *)&ifc) < 0) {
-		SCLog(TRUE,
-		      LOG_ERR,
-		      CFSTR("could not get interface list, ioctl() failed: %s"),
-		      strerror(errno));
-		goto done;
-	}
-
-	/* update list of interfaces & link status */
-	offset = 0;
-	while (offset <= (ifc.ifc_len - sizeof(*ifr))) {
-		int			extra;
-
-		/*
-		 * grab this interface & bump offset to next
-		 */
-		ifr    = (struct ifreq *)(ifc.ifc_buf + offset);
-		offset = offset + sizeof(*ifr);
-		extra  = ifr->ifr_addr.sa_len - sizeof(ifr->ifr_addr);
-		if (extra > 0)
-			offset = offset + extra;
-
-		/*
-		 * get the per-interface link/media information
-		 */
-		link_add(ifr->ifr_name);
-	}
-
 	if (getifaddrs(&ifap) < 0) {
 		SCLog(TRUE,
 		      LOG_ERR,
@@ -602,6 +627,24 @@ prime()
 		      strerror(errno));
 		goto done;
 	}
+
+	/* update list of interfaces & link status */
+	for (scan = ifap; scan != NULL; scan = scan->ifa_next) {
+		if (scan->ifa_addr == NULL 
+		    || scan->ifa_addr->sa_family != AF_LINK) {
+			continue;
+		}
+		/* get the per-interface link/media information */
+		link_add(scan->ifa_name);
+#ifdef SIOCGETVLAN
+		/* for VLAN, mark the physical interface up, if necessary */
+		if_data = (struct if_data *)scan->ifa_data;
+		if (if_data != NULL && if_data->ifi_type == IFT_L2VLAN) {
+			mark_vlan_parent_up(sock, ifap, scan->ifa_name);
+		}
+#endif SIOCGETVLAN
+	}
+
 
 	/*
 	 * update IPv4 network addresses already assigned to

@@ -20,7 +20,7 @@ import javax.management.NotificationBroadcaster;
  * </p>
  *
  * @author <a href="mailto:ivelin@apache.org">Ivelin Ivanov</a>
- * @version $Revision: 1.1.2.1 $
+ * @version $Revision: 1.1.2.2 $
  *
  */
 
@@ -57,7 +57,7 @@ public interface HAServiceMBean
    * Convenience method for sharing state across a cluster partition.
    * Delegates to the DistributedStateService
    * 
-   * @param String key for the distributed object 
+   * @param key key for the distributed object
    * @return Serializable the distributed object 
    * 
    */
@@ -69,8 +69,8 @@ public interface HAServiceMBean
    * Convenience method for sharing state across a cluster partition.
    * Delegates to the DistributedStateService
    * 
-   * @param String key for the distributed object 
-   * @param Serializable the distributed object 
+   * @param key key for the distributed object
+   * @param value the distributed object
    * 
    */
   public void setDistributedState(String key, Serializable value)
@@ -87,7 +87,7 @@ public interface HAServiceMBean
    * is is available on all nodes where the broadcaster MBean is registered. 
    *   
    * 
-   * @see NotificationBroadcasterSupport#sendNotification(Notification)   
+   * @see javax.management.NotificationBroadcasterSupport#sendNotification(Notification)
    * 
    */
   public void sendNotification(Notification notification);

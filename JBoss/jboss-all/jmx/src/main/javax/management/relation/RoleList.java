@@ -23,7 +23,7 @@ import java.util.List;
  * </ul>
  *
  * @author <a href="mailto:Adrian.Brock@HappeningTimes.com">Adrian Brock</a>
- * @version $Revision: 1.4 $
+ * @version $Revision: 1.4.6.1 $
  */
 public class RoleList
   extends ArrayList
@@ -66,12 +66,12 @@ public class RoleList
      super();
      if (list == null)
        throw new IllegalArgumentException("Null list");
-     Iterator iterator = new ArrayList(list).iterator();
-     while (iterator.hasNext())
+     ArrayList tmpList = new ArrayList(list);
+     for (int i = 0; i < tmpList.size(); i++)
      {
        try
        {
-         add((Role) iterator.next());
+         add((Role) tmpList.get(i));
        }
        catch (ClassCastException cce)
        {

@@ -75,13 +75,11 @@
 
 
 # Ownership and permissions of files installed by 'install' target
+# Inherit defaults for GROUP and PERMISSIONS MASK
 
 INSTALL_AS_USER = root
-        # User/group ownership 
-#INSTALL_AS_GROUP = wheel
-        # (probably want to set both of these) 
-INSTALL_PERMISSIONS = 4555
-        # If set, 'install' chmod's executable to this
+#INSTALL_AS_GROUP = 
+#INSTALL_PERMISSIONS = 
 
 
 # Options to strip.  Note: -S strips debugging symbols (executables can be stripped

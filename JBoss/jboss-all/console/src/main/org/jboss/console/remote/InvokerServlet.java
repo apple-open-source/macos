@@ -21,7 +21,7 @@ import javax.servlet.ServletException;
  * @see org.jboss.invocation.Invocation
  *
  * @author  Scott.Stark@jboss.org
- * @version $Revision: 1.1.2.2 $
+ * @version $Revision: 1.1.2.3 $
  */
 public class InvokerServlet extends javax.servlet.http.HttpServlet
 {
@@ -72,18 +72,28 @@ public class InvokerServlet extends javax.servlet.http.HttpServlet
       {
          response.setContentType (RESPONSE_CONTENT_TYPE);
          // See if the request already has the MarshalledInvocation
-         RemoteMBeanInvocation mi = (RemoteMBeanInvocation) request.getAttribute ("RemoteMBeanInvocation");
+         Object mi = request.getAttribute ("RemoteMBeanInvocation");
          if( mi == null )
          {
             // Get the invocation from the post
             javax.servlet.ServletInputStream sis = request.getInputStream ();
             java.io.ObjectInputStream ois = new java.io.ObjectInputStream (sis);
-            mi = (RemoteMBeanInvocation) ois.readObject ();
+            mi = ois.readObject ();
             ois.close ();
          }
          
          // Forward the invocation onto the JMX bus
-         Object value = mbeanServer.invoke (mi.targetObjectName, mi.actionName, mi.params, mi.signature);
+         Object value = null;
+         if (mi instanceof RemoteMBeanInvocation)
+         {
+            RemoteMBeanInvocation invocation = (RemoteMBeanInvocation)mi;
+            value = mbeanServer.invoke (invocation.targetObjectName, invocation.actionName, invocation.params, invocation.signature);
+         }
+         else
+         {
+            RemoteMBeanAttributeInvocation invocation = (RemoteMBeanAttributeInvocation)mi;
+            value = mbeanServer.getAttribute(invocation.targetObjectName, invocation.attributeName);
+         }
          org.jboss.invocation.MarshalledValue mv = new org.jboss.invocation.MarshalledValue (value);
          javax.servlet.ServletOutputStream sos = response.getOutputStream ();
          java.io.ObjectOutputStream oos = new java.io.ObjectOutputStream (sos);

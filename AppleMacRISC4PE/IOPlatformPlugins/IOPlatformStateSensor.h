@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,45 +23,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc.  All rights reserved.
  *
  *
  */
-//		$Log: IOPlatformStateSensor.h,v $
-//		Revision 1.4  2003/06/07 01:30:56  eem
-//		Merge of EEM-PM72-ActiveFans-2 branch, with a few extra tweaks.  This
-//		checkin has working PID control for PowerMac7,2 platforms, as well as
-//		a first shot at localized strings.
-//		
-//		Revision 1.3.2.2  2003/05/23 05:44:40  eem
-//		Cleanup, ctrlloops not get notification for sensor and control registration.
-//		
-//		Revision 1.3.2.1  2003/05/22 01:31:04  eem
-//		Checkin of today's work (fails compilations right now).
-//		
-//		Revision 1.3  2003/05/21 21:58:49  eem
-//		Merge from EEM-PM72-ActiveFans-1 branch with initial crack at active fan
-//		control on Q37.
-//		
-//		Revision 1.2.4.3  2003/05/17 12:55:37  eem
-//		Active fan control works on RPM channels!!!!!!
-//		
-//		Revision 1.2.4.2  2003/05/17 11:08:22  eem
-//		All active fan data present, table event-driven.  PCI power sensors are
-//		not working yet so PCI fan is just set to 67% PWM and forgotten about.
-//		
-//		Revision 1.2.4.1  2003/05/14 22:07:49  eem
-//		Implemented state-driven sensor, cleaned up "const" usage and header
-//		inclusions.
-//		
-//		Revision 1.2  2003/05/10 06:50:33  eem
-//		All sensor functionality included for PowerMac7_2_PlatformPlugin.  Version
-//		is 1.0.1d12.
-//		
-//		Revision 1.1.2.1  2003/05/01 09:28:41  eem
-//		Initial check-in in progress toward first Q37 checkpoint.
-//		
-//		
+
 
 #ifndef _IOPLATFORMSTATESENSOR_H
 #define _IOPLATFORMSTATESENSOR_H
@@ -78,11 +44,10 @@ protected:
 	virtual bool init( void );
 	virtual void free( void );
 
-	// analogous to applyValueTransform, when we send values back to the sensor we have
+	// when we send values back to the sensor (as high and low thresholds) we have
 	// to put them in the sensor's own representation.  This will convert back to the
 	// hw representation.
-	virtual const OSNumber *	applyValueTransform( const OSNumber * hwReading ) const;
-	virtual const OSNumber *	applyHWTransform( const OSNumber * value ) const;
+	virtual SensorValue applyCurrentValueInverseTransform( SensorValue ) const;
 
 public:
 	// need to grab the threshold dictionary out of the thermal profile

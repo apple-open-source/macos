@@ -25,25 +25,48 @@
 
 #import "KWQLogging.h"
 
+#import "KWQExceptions.h"
+#import "KWQKJobClasses.h"
+#import "KWQLoader.h"
 #import "KWQResourceLoader.h"
 #import "KWQString.h"
-#import "KWQKJobClasses.h"
 
 namespace KIO {
+
+    // The allocations and releases in TransferJobPrivate are
+    // definitely Cocoa-exception-free (either simple Foundation
+    // classes or our own KWQResourceLoader which avoides doing work
+    // in dealloc
 
 class TransferJobPrivate
 {
 public:
-    TransferJobPrivate(const KURL &kurl)
+    TransferJobPrivate(const KURL& kurl)
         : status(0)
         , metaData([[NSMutableDictionary alloc] initWithCapacity:17])
-        , URL(kurl)
-        , loader(nil)
+	, URL(kurl)
+	, loader(nil)
+	, method("GET")
+	, response(0)
+	, assembledResponseHeaders(true)
+    {
+    }
+
+    TransferJobPrivate(const KURL& kurl, const QByteArray &_postData)
+        : status(0)
+        , metaData([[NSMutableDictionary alloc] initWithCapacity:17])
+	, URL(kurl)
+	, loader(nil)
+	, method("POST")
+	, postData(_postData)
+	, response(0)
+	, assembledResponseHeaders(true)
     {
     }
 
     ~TransferJobPrivate()
     {
+	KWQReleaseResponse(response);
         [metaData release];
         [loader release];
     }
@@ -52,21 +75,38 @@ public:
     NSMutableDictionary *metaData;
     KURL URL;
     KWQResourceLoader *loader;
+    QString method;
+    QByteArray postData;
+
+    void *response;
+    bool assembledResponseHeaders;
+    QString responseHeaders;
 };
 
 TransferJob::TransferJob(const KURL &url, bool reload, bool showProgressInfo)
+    : d(new TransferJobPrivate(url)),
+      m_data(this, SIGNAL(data(KIO::Job*, const char*, int))),
+      m_redirection(this, SIGNAL(redirection(KIO::Job*, const KURL&))),
+      m_result(this, SIGNAL(result(KIO::Job*))),
+      m_receivedResponse(this, SIGNAL(receivedResponse(KIO::Job*, void *)))
 {
-    d = new TransferJobPrivate(url);
 }
 
 TransferJob::TransferJob(const KURL &url, const QByteArray &postData, bool showProgressInfo)
+    : d(new TransferJobPrivate(url, postData)),
+      m_data(this, SIGNAL(data(KIO::Job*, const char*, int))),
+      m_redirection(this, SIGNAL(redirection(KIO::Job*, const KURL&))),
+      m_result(this, SIGNAL(result(KIO::Job*))),
+      m_receivedResponse(this, SIGNAL(receivedResponse(KIO::Job*, void *)))
 {
-    d = new TransferJobPrivate(url);
 }
 
 TransferJob::~TransferJob()
 {
+    // This will cancel the handle, and who knows what that could do
+    KWQ_BLOCK_EXCEPTIONS;
     [d->loader jobWillBeDeallocated];
+    KWQ_UNBLOCK_EXCEPTIONS;
     delete d;
 }
 
@@ -91,8 +131,22 @@ QString TransferJob::errorText() const
     return QString::null;
 }
 
+void TransferJob::assembleResponseHeaders() const
+{
+    if (!d->assembledResponseHeaders) {
+	d->responseHeaders = QString::fromNSString((NSString *)KWQResponseHeaderString(d->response));
+	d->assembledResponseHeaders = true;
+    }
+
+}
+
 QString TransferJob::queryMetaData(const QString &key) const
 {
+    if (key == "HTTP-Headers") {
+	assembleResponseHeaders();
+	return d->responseHeaders;
+    }
+
     NSString *value = [d->metaData objectForKey:key.getNSString()]; 
     return value ? QString::fromNSString(value) : QString::null;
 }
@@ -127,6 +181,40 @@ void TransferJob::setLoader(KWQResourceLoader *loader)
 KURL TransferJob::url() const
 {
     return d->URL;
+}
+
+QByteArray TransferJob::postData() const
+{
+    return d->postData;
+}
+
+QString TransferJob::method() const
+{
+    return d->method;
+}
+
+void TransferJob::emitData(const char *data, int size)
+{
+    m_data.call(this, data, size);
+}
+
+void TransferJob::emitRedirection(const KURL &url)
+{
+    m_redirection.call(this, url);
+}
+
+void TransferJob::emitResult()
+{
+    m_result.call(this);
+}
+
+void TransferJob::emitReceivedResponse(void *response)
+{
+    d->assembledResponseHeaders = false;
+    d->response = response;
+    KWQRetainResponse(d->response);
+
+    m_receivedResponse.call(this, response);
 }
 
 } // namespace KIO

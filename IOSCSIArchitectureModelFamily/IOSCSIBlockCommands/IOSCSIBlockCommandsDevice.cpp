@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -30,6 +28,8 @@
 
 // Libkern includes
 #include <libkern/OSByteOrder.h>
+#include <libkern/c++/OSDictionary.h>
+#include <libkern/c++/OSNumber.h>
 
 // Generic IOKit related headers
 #include <IOKit/IOBufferMemoryDescriptor.h>
@@ -37,13 +37,15 @@
 
 // Generic IOKit storage related headers
 #include <IOKit/storage/IOBlockStorageDriver.h>
+#include <IOKit/storage/IOStorageDeviceCharacteristics.h>
 
 // SCSI Architecture Model Family includes
-#include <IOKit/scsi/SCSICommandDefinitions.h>
-#include <IOKit/scsi/IOBlockStorageServices.h>
-
 #include "IOSCSIBlockCommandsDevice.h"
 #include "SCSIBlockCommands.h"
+
+#include <IOKit/scsi/SCSICommandDefinitions.h>
+#include <IOKit/scsi/SCSICmds_MODE_Definitions.h>
+#include <IOKit/scsi/IOBlockStorageServices.h>
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -96,8 +98,6 @@ OSDefineAbstractStructors ( IOSCSIBlockCommandsDevice, IOSCSIPrimaryCommandsDevi
 #define kFibreChannelHDIconKey				"FibreChannelHD.icns"
 #define kFireWireHDIconKey					"FireWireHD.icns"
 #define kUSBHDIconKey						"USBHD.icns"
-#define kModeSense6ParameterHeaderSize		4
-#define kCachingModePageMinSize				18
 #define	kDefaultMaxBlocksPerIO				65535
 
 
@@ -703,8 +703,7 @@ IOSCSIBlockCommandsDevice::InitializeDeviceSupport ( void )
 	STATUS_LOG ( ( "%s::%s setupSuccessful = %d\n", getName ( ),
 					__FUNCTION__, setupSuccessful ) );
 	
-	setProperty ( kIOMaximumBlockCountReadKey,  kDefaultMaxBlocksPerIO, 64 );
-	setProperty ( kIOMaximumBlockCountWriteKey, kDefaultMaxBlocksPerIO, 64 );
+	SetMediumCharacteristics ( 0, 0 );
 	
 	return setupSuccessful;
 	
@@ -733,28 +732,19 @@ void
 IOSCSIBlockCommandsDevice::StartDeviceSupport ( void )
 {
 	
-	OSBoolean *		shouldNotPoll = NULL;
-		
-	shouldNotPoll = OSDynamicCast (
-							OSBoolean,
-							getProperty ( kAppleKeySwitchProperty ) );
-	
-	if ( shouldNotPoll != NULL )
-	{
-		
-		// See if we should not poll.
-		require ( shouldNotPoll->isFalse ( ), Exit );
-		
-	}
-	
-	// Start polling
-	EnablePolling ( );
-	
-	
-Exit:
-	
+	// Do one poll
+	PollForNewMedia ( );
 	
 	CreateStorageServiceNub ( );
+	
+	// Should we keep polling?
+	if ( fPollingMode != kPollingMode_Suspended )
+	{
+		
+		// Enable polling
+		EnablePolling ( );
+		
+	}
 	
 }
 
@@ -891,7 +881,7 @@ IOSCSIBlockCommandsDevice::FreeCommandSetObjects ( void )
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetSCSIReducedBlockCommandObject - Accessor method			[PROTECTED]
+//	¥ GetSCSIBlockCommandObject - Accessor method					[PROTECTED]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 SCSIBlockCommands *
@@ -1228,13 +1218,14 @@ IOSCSIBlockCommandsDevice::DetermineDeviceCharacteristics ( void )
 		
 	}
 	
+	// Set the CMDQUE value so we know whether or not to enable TCQ.
 	SetCMDQUE ( inquiryBuffer->flags2 & kINQUIRY_Byte7_CMDQUE_Mask );
 	
 	buffer->release ( );
 	buffer = NULL;
 	
 	// Check for any caching support
-	buffer = IOBufferMemoryDescriptor::withCapacity ( kCachingModePageSize,
+	buffer = IOBufferMemoryDescriptor::withCapacity ( sizeof ( SBCModePageCaching ) + sizeof ( SPCModeParameterHeader6 ),
 													  kIODirectionOutIn );
 	require_nonzero ( buffer, ReleaseTask );
 	
@@ -1243,35 +1234,41 @@ IOSCSIBlockCommandsDevice::DetermineDeviceCharacteristics ( void )
 	
 	{
 		
-		UInt8 *		cachePage				= ( UInt8 * ) buffer->getBytesNoCopy ( );
-		UInt8		blockDescriptorLength	= 0;
-		UInt8		minSize					= 0;
-		UInt8		pageSize				= 0;
-		bool		WCEBit					= false;
+		SPCModeParameterHeader6 *	header		= NULL;
+		SBCModePageCaching *		cachePage	= NULL;
+		UInt8 *						bufferPtr	= NULL;
+		UInt8						pageCode	= 0;
+		UInt8						minSize		= 0;
+		UInt8						pageSize	= 0;
+		bool						WCEBit		= false;
+		
+		bufferPtr 	= ( UInt8 * ) buffer->getBytesNoCopy ( );
+		header		= ( SPCModeParameterHeader6 * ) bufferPtr;
 		
 		// Sanity check on buffer size
-		minSize = kModeSense6ParameterHeaderSize + kCachingModePageMinSize + 2;
-		require ( ( cachePage[0] + sizeof ( UInt8 ) ) >= minSize, ReleaseTask );
+		minSize = sizeof ( SPCModeParameterHeader6 ) + header->BLOCK_DESCRIPTOR_LENGTH +
+			offsetof ( SBCModePageCaching, DEMAND_READ_WRITE_RETENTION_PRIORITY ) + sizeof ( header->MODE_DATA_LENGTH );
 		
-		// Get the block descriptor length
-		blockDescriptorLength = cachePage[3];
+		require ( ( ( header->MODE_DATA_LENGTH + sizeof ( header->MODE_DATA_LENGTH ) ) >= minSize ), ReleaseTask );
+		
+		cachePage = ( SBCModePageCaching * ) &bufferPtr[ sizeof ( SPCModeParameterHeader6 ) + header->BLOCK_DESCRIPTOR_LENGTH ];
+		pageCode = cachePage->header.PS_PAGE_CODE & kModePageFormat_PAGE_CODE_Mask;
 		
 		// Sanity check on returned data from drive
-		require ( ( cachePage[blockDescriptorLength + kModeSense6ParameterHeaderSize] & 0x3F ) == kCachingModePageCode, ReleaseTask );
-		require ( ( cachePage[blockDescriptorLength + kModeSense6ParameterHeaderSize + 1] ) >= kCachingModePageMinSize, ReleaseTask );
+		require ( ( pageCode == kSBCModePageCachingCode ), ReleaseTask );
 		
 		// Set the page code in the buffer to the cache page code
-		cachePage[blockDescriptorLength + kModeSense6ParameterHeaderSize] = kCachingModePageCode;
+		cachePage->header.PS_PAGE_CODE = kSBCModePageCachingCode;
 		
 		// Find out if the WCE bit is set.
-		WCEBit = cachePage[blockDescriptorLength + 6] & kWriteCacheEnabledMask;
+		WCEBit = cachePage->flags & kSBCModePageCaching_WCE_Mask;
 		
 		// Save off the page size. When we do a MODE_SELECT, the MODE_DATA_LENGTH field is reserved, so we'll
-		// need to set cachePage[0] to zero. This is documented in SPC-2 ¤8.3.3.
-		pageSize = cachePage[0] + sizeof ( UInt8 );
+		// need to set MODE_DATA_LENGTH to zero. This is documented in SPC-2 ¤8.3.3.
+		pageSize = header->MODE_DATA_LENGTH + sizeof ( header->MODE_DATA_LENGTH );
 		
 		// Set the reserved field to zero.
-		cachePage[0] = 0x00;
+		header->MODE_DATA_LENGTH = 0x00;
 		
 		// Write back out the saved bits to enable the saved behavior
 		if ( MODE_SELECT_6 ( request,
@@ -1393,6 +1390,16 @@ IOSCSIBlockCommandsDevice::CreateStorageServiceNub ( void )
 	nub->init ( );
 	require ( nub->attach ( this ), ErrorExit );
 	
+	if ( fMediumPresent == true )
+	{
+		
+		// Message up the chain that we have media
+		nub->message ( kIOMessageMediaStateHasChanged,
+					   this,
+					   ( void * ) kIOMediaStateOnline );
+		
+	}
+	
 	nub->registerService ( );
 	nub->release ( );
 	
@@ -1476,6 +1483,9 @@ IOSCSIBlockCommandsDevice::PollForNewMedia ( void )
 	
 	require ( DetermineMediumCapacity ( &blockSize, &blockCount ), Exit );
 	
+	// Attempt to determine its geometry now.
+	DetermineMediumGeometry ( );
+	
 	// What happens if the medium is unformatted?
 	// A check should be added to handle this case.
 	
@@ -1499,8 +1509,9 @@ IOSCSIBlockCommandsDevice::PollForNewMedia ( void )
 		// Media is not locked into the drive, so this is most likely
 		// a manually ejectable device, start polling for media removal.
 		fPollingMode = kPollingMode_MediaRemoval;
-		fKnownManualEject = true;		
-		fDeviceIsShared = true;		
+		fKnownManualEject = true;
+		fDeviceIsShared = true;
+		
 	}
 	
 	
@@ -1523,6 +1534,23 @@ IOSCSIBlockCommandsDevice::DetermineMediaPresence ( void )
 	SCSIServiceResponse		serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
 	SCSITaskIdentifier		request			= NULL;
 	bool					mediaFound 		= false;
+	
+	OSBoolean *				keySwitchLocked = NULL;
+	
+	keySwitchLocked = OSDynamicCast (
+							OSBoolean,
+							getProperty ( kAppleKeySwitchProperty ) );
+	
+	if ( keySwitchLocked != NULL )
+	{
+		
+		// See if we should poll for media.
+		if ( keySwitchLocked->isTrue ( ) )
+		{
+			goto ErrorExit;
+		}
+		
+	}
 	
 	request = GetSCSITask ( );
 	require_nonzero ( request, ErrorExit );
@@ -1738,6 +1766,228 @@ ErrorExit:
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ DetermineMediumGeometry - Determines geometry of the medium.	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOSCSIBlockCommandsDevice::DetermineMediumGeometry ( void )
+{
+	
+	IOBufferMemoryDescriptor *	bufferDesc				= NULL;
+	OSDictionary *				dict					= NULL;
+	IOReturn					status					= kIOReturnSuccess;
+	UInt32						minBufferSize			= 0;
+	UInt16						blockDescriptorLength	= 0;
+	UInt32						modeDataLength			= 0;
+	UInt16						actualSize				= 0;
+	UInt8						headerSize				= 0;
+	UInt8 *						buffer					= NULL;
+	bool						use10ByteModeSense		= true;
+	
+	require ( ( fMediaIsRemovable == false ), ErrorExit );
+	
+	dict = OSDictionary::withCapacity ( 4 );
+	require_nonzero ( dict, ErrorExit );
+	
+	actualSize = max ( sizeof ( SBCModePageFormatDevice ), sizeof ( SBCModePageRigidDiskGeometry ) );
+	actualSize += sizeof ( SPCModeParameterHeader10 );
+	
+	bufferDesc = IOBufferMemoryDescriptor::withCapacity ( actualSize, kIODirectionIn );
+	require_nonzero ( bufferDesc, ReleaseDictionary );
+	
+	buffer = ( UInt8 * ) bufferDesc->getBytesNoCopy ( );
+	bzero ( buffer, actualSize );
+	
+	status = GetModeSense ( bufferDesc,
+							kSBCModePageFormatDeviceCode,
+							sizeof ( SBCModePageFormatDevice ),
+							&use10ByteModeSense );
+	require_success ( status, RigidDisk );
+	
+	if ( use10ByteModeSense )
+	{
+		
+		SPCModeParameterHeader10 *	header = ( SPCModeParameterHeader10 * ) buffer;
+		
+		// We check to make sure there aren't any block descriptors. If there
+		// are, we skip over them.
+		blockDescriptorLength	= OSSwapBigToHostInt16 ( header->BLOCK_DESCRIPTOR_LENGTH );
+		headerSize				= sizeof ( SPCModeParameterHeader10 );
+		minBufferSize			= sizeof ( header->BLOCK_DESCRIPTOR_LENGTH );
+		modeDataLength			= header->MODE_DATA_LENGTH + sizeof ( header->MODE_DATA_LENGTH );
+		
+	}
+	
+	else
+	{
+		
+		SPCModeParameterHeader6 *	header = ( SPCModeParameterHeader6 * ) buffer;
+		
+		blockDescriptorLength	= header->BLOCK_DESCRIPTOR_LENGTH;
+		headerSize				= sizeof ( SPCModeParameterHeader6 );
+		minBufferSize			= sizeof ( header->BLOCK_DESCRIPTOR_LENGTH );
+		modeDataLength			= header->MODE_DATA_LENGTH + sizeof ( header->MODE_DATA_LENGTH );
+		
+	}
+
+	modeDataLength = min ( modeDataLength, actualSize );
+	
+	// Ensure that our buffer is of the minimum correct size.
+	// Also, check that the first byte of the page is the
+	// correct PAGE_CODE.
+	minBufferSize += headerSize + blockDescriptorLength + offsetof ( SBCModePageFormatDevice, INTERLEAVE );
+	require ( ( modeDataLength >= minBufferSize ), RigidDisk );
+	
+	{
+		
+		SBCModePageFormatDevice *	formatDevice 	= NULL;
+		OSNumber *					number			= NULL;
+		UInt8						pageCode		= 0;
+		
+		formatDevice = ( SBCModePageFormatDevice * ) &buffer[headerSize + blockDescriptorLength];
+		pageCode	 = formatDevice->header.PS_PAGE_CODE & kModePageFormat_PAGE_CODE_Mask;
+		
+		require ( ( pageCode == kSBCModePageFormatDeviceCode ), RigidDisk );
+		
+		// Make sure we are using host endianness
+		formatDevice->SECTORS_PER_TRACK				 = OSSwapBigToHostInt16 ( formatDevice->SECTORS_PER_TRACK );
+		formatDevice->DATA_BYTES_PER_PHYSICAL_SECTOR = OSSwapBigToHostInt16 ( formatDevice->DATA_BYTES_PER_PHYSICAL_SECTOR );
+		
+		number = OSNumber::withNumber ( formatDevice->SECTORS_PER_TRACK, 16 );
+		if ( number != NULL )
+		{
+			
+			dict->setObject ( kIOPropertySectorCountPerTrackKey, number );
+			number->release ( );
+			number = NULL;
+			
+		}
+		
+		number = OSNumber::withNumber ( formatDevice->DATA_BYTES_PER_PHYSICAL_SECTOR, 16 );
+		if ( number != NULL )
+		{
+			
+			dict->setObject ( kIOPropertyBytesPerPhysicalSectorKey, number );
+			number->release ( );
+			number = NULL;
+			
+		}
+		
+	}
+	
+	
+RigidDisk:	
+	
+	
+	bzero ( buffer, actualSize );
+	
+	status = GetModeSense ( bufferDesc,
+							kSBCModePageRigidDiskGeometryCode,
+							sizeof ( SBCModePageRigidDiskGeometry ),
+							&use10ByteModeSense );
+	
+	require_success ( status, ReleaseDescriptor );
+	
+	if ( use10ByteModeSense )
+	{
+		
+		SPCModeParameterHeader10 *	header = ( SPCModeParameterHeader10 * ) buffer;
+		
+		// We check to make sure there aren't any block descriptors. If there
+		// are, we skip over them.
+		blockDescriptorLength	= OSSwapBigToHostInt16 ( header->BLOCK_DESCRIPTOR_LENGTH );
+		headerSize				= sizeof ( SPCModeParameterHeader10 );
+		minBufferSize			= sizeof ( header->BLOCK_DESCRIPTOR_LENGTH );
+		modeDataLength			= header->MODE_DATA_LENGTH + sizeof ( header->MODE_DATA_LENGTH );
+		
+	}
+	
+	else
+	{
+		
+		SPCModeParameterHeader6 *	header = ( SPCModeParameterHeader6 * ) buffer;
+		
+		blockDescriptorLength	= header->BLOCK_DESCRIPTOR_LENGTH;
+		headerSize				= sizeof ( SPCModeParameterHeader6 );
+		minBufferSize			= sizeof ( header->BLOCK_DESCRIPTOR_LENGTH );
+		modeDataLength			= header->MODE_DATA_LENGTH + sizeof ( header->MODE_DATA_LENGTH );
+		
+	}
+	
+	modeDataLength = min ( modeDataLength, actualSize );
+	
+	// Ensure that our buffer is of the minimum correct size.
+	// Also, check that the first byte of the page is the
+	// correct PAGE_CODE.
+	minBufferSize += headerSize + blockDescriptorLength + offsetof ( SBCModePageRigidDiskGeometry, STARTING_CYLINDER_WRITE_PRECOMPENSATION );
+	require ( ( modeDataLength >= minBufferSize ), ReleaseDescriptor );
+	
+	{
+		
+		SBCModePageRigidDiskGeometry *	rigidDisk 	= NULL;
+		OSNumber *						number		= NULL;
+		UInt32							cylinders	= 0;	
+		UInt8							pageCode	= 0;
+		
+		rigidDisk = ( SBCModePageRigidDiskGeometry * ) &buffer[headerSize + blockDescriptorLength];
+		pageCode	 = rigidDisk->header.PS_PAGE_CODE & kModePageFormat_PAGE_CODE_Mask;
+		
+		require ( ( pageCode == kSBCModePageRigidDiskGeometryCode ), ReleaseDescriptor );
+		
+		cylinders = ( rigidDisk->NUMBER_OF_CYLINDERS[0] << 16 ) +
+					( rigidDisk->NUMBER_OF_CYLINDERS[1] << 8 ) +
+					  rigidDisk->NUMBER_OF_CYLINDERS[2];
+		
+		number = OSNumber::withNumber ( cylinders, 32 );
+		if ( number != NULL )
+		{
+			
+			dict->setObject ( kIOPropertyCylinderCountKey, number );
+			number->release ( );
+			number = NULL;
+			
+		}
+		
+		number = OSNumber::withNumber ( rigidDisk->NUMBER_OF_HEADS, 8 );
+		if ( number != NULL )
+		{
+			
+			dict->setObject ( kIOPropertyHeadCountKey, number );
+			number->release ( );
+			number = NULL;
+			
+		}
+		
+	}
+	
+	GetDeviceCharacteristicsDictionary ( )->setObject ( kIOPropertyRigidDiskGeometryKey, dict );
+	
+	
+ReleaseDescriptor:
+	
+	
+	require_nonzero_quiet ( bufferDesc, ErrorExit );
+	bufferDesc->release ( );
+	bufferDesc = NULL;
+	
+	
+ReleaseDictionary:
+	
+	
+	require_nonzero_quiet ( dict, ErrorExit );
+	dict->release ( );
+	dict = NULL;
+	
+	
+ErrorExit:
+	
+	
+	return;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	¥ DetermineMediumWriteProtectState - Determines medium write protect state.
 //																	[PROTECTED]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -1817,19 +2067,6 @@ IOSCSIBlockCommandsDevice::DetermineMediumWriteProtectState ( void )
 			 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
 		{
 			
-			STATUS_LOG ( ( "%s: Returned Mode sense data: ", getName ( ) ) );
-			
-#if SCSI_SBC_DEVICE_DEBUGGING_LEVEL >= 3
-				
-				for ( UInt32 i = 0; i < 8; i++ )
-				{
-					STATUS_LOG ( ( "%x: ", modeBuffer[i] ) );
-				}
-				
-				STATUS_LOG ( ( "\n" ) );
-				
-#endif // SCSI_SBC_DEVICE_DEBUGGING_LEVEL >= 3
-			
 			if ( ( modeBuffer[3] & kWriteProtectMask ) == 0 )
 			{
 			 	mediumIsProtected = false;
@@ -1864,17 +2101,6 @@ IOSCSIBlockCommandsDevice::DetermineMediumWriteProtectState ( void )
 		if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
 			 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
 		{
-			
-			STATUS_LOG ( ( "%s: Returned Mode sense data: ", getName ( ) ) );
-			
-		#if SCSI_SBC_DEVICE_DEBUGGING_LEVEL
-			for ( UInt32 i = 0;i < 8; i++ )
-			{
-				STATUS_LOG ( ( "%x: ", modeBuffer[i] ) );
-			}
-			
-			STATUS_LOG ( ( "\n" ) );
-		#endif // SCSI_SBC_DEVICE_DEBUGGING_LEVEL
 			
 			if ( ( modeBuffer[2] & kWriteProtectMask ) == 0 )
 			{
@@ -2097,7 +2323,7 @@ IOSCSIBlockCommandsDevice::GetWriteCacheState (
 						buffer,
 						0x00,
 						modePageControlValue,
-						kCachingModePageCode,
+						kSBCModePageCachingCode,
 						buffer->getLength ( ),
 						0x00 ) == true )
 	{
@@ -2139,41 +2365,45 @@ IOSCSIBlockCommandsDevice::GetWriteCacheState ( bool * enabled )
 {
 	
 	IOReturn					status 		= kIOReturnUnsupported;
-	IOBufferMemoryDescriptor *	buffer 		= NULL;
-	UInt8 *						cachePage	= NULL;
-	UInt8						length		= 0;
+	IOBufferMemoryDescriptor *	bufferDesc	= NULL;
+	SPCModeParameterHeader6 *	header		= NULL;
+	SBCModePageCaching *		cachePage	= NULL;
+	UInt8 *						buffer		= NULL;
+	UInt8						pageCode	= 0;
 	UInt8						minSize		= 0;
 	
-	buffer = IOBufferMemoryDescriptor::withCapacity ( kCachingModePageSize,
-													  kIODirectionOutIn );
-	require_nonzero ( buffer, ErrorExit );
+	bufferDesc = IOBufferMemoryDescriptor::withCapacity ( sizeof ( SBCModePageCaching ),
+														  kIODirectionOutIn );
+	require_nonzero ( bufferDesc, ErrorExit );
 	
-	status = GetWriteCacheState ( buffer, kModePageControlCurrentValues );
+	status = GetWriteCacheState ( bufferDesc, kModePageControlCurrentValues );
 	require_success ( status, ReleaseDescriptor );
 	
-	cachePage = ( UInt8 * ) buffer->getBytesNoCopy ( );
+	buffer = ( UInt8 * ) bufferDesc->getBytesNoCopy ( );
+	header = ( SPCModeParameterHeader6 * ) buffer;
 	
 	// Sanity check on buffer size
-	minSize = kModeSense6ParameterHeaderSize + kCachingModePageMinSize + 2;
-	require_action ( ( cachePage[0] + sizeof ( UInt8 ) ) >= minSize, ReleaseDescriptor, status = kIOReturnError );
+	minSize = sizeof ( SPCModeParameterHeader6 ) + header->BLOCK_DESCRIPTOR_LENGTH +
+		offsetof ( SBCModePageCaching, DEMAND_READ_WRITE_RETENTION_PRIORITY ) + sizeof ( header->MODE_DATA_LENGTH );
 	
-	// Get the block descriptor length
-	length = cachePage[3];
+	require_action ( ( ( header->MODE_DATA_LENGTH + sizeof ( header->MODE_DATA_LENGTH ) ) >= minSize ), ReleaseDescriptor, status = kIOReturnError );
+	
+	cachePage = ( SBCModePageCaching * ) &buffer[ sizeof ( SPCModeParameterHeader6 ) + header->BLOCK_DESCRIPTOR_LENGTH ];
+	pageCode = cachePage->header.PS_PAGE_CODE & kModePageFormat_PAGE_CODE_Mask;
 	
 	// Sanity check on returned data from drive
-	require_action ( ( cachePage[length + kModeSense6ParameterHeaderSize] & 0x3F ) == kCachingModePageCode, ReleaseDescriptor, status = kIOReturnError );
-	require_action ( ( cachePage[length + kModeSense6ParameterHeaderSize + 1] ) >= kCachingModePageMinSize, ReleaseDescriptor, status = kIOReturnError );
+	require_action ( ( pageCode == kSBCModePageCachingCode ), ReleaseDescriptor, status = kIOReturnError );
 	
 	// Find out if the WCE bit is set.
-	*enabled = cachePage[length + 6] & kWriteCacheEnabledMask;
+	*enabled = cachePage->flags & kSBCModePageCaching_WCE_Mask;
 	
 	
 ReleaseDescriptor:
 	
 	
-	require_nonzero ( buffer, ErrorExit );
-	buffer->release ( );
-	buffer = NULL;
+	require_nonzero ( bufferDesc, ErrorExit );
+	bufferDesc->release ( );
+	bufferDesc = NULL;
 	
 	
 ErrorExit:
@@ -2195,49 +2425,53 @@ IOSCSIBlockCommandsDevice::SetWriteCacheState ( bool enabled )
 	IOReturn					status 			= kIOReturnUnsupported;
 	SCSIServiceResponse			serviceResponse	= kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
 	SCSITaskIdentifier			request 		= NULL;
-	IOBufferMemoryDescriptor *	buffer 			= NULL;
-	UInt8 *						cachePage		= NULL;
-	UInt8						length			= 0;
+	IOBufferMemoryDescriptor *	bufferDesc		= NULL;
+	SPCModeParameterHeader6 *	header			= NULL;
+	SBCModePageCaching *		cachePage		= NULL;
+	UInt8 *						buffer			= NULL;
+	UInt8						pageCode		= 0;
 	UInt8						minSize			= 0;
 	
-	buffer = IOBufferMemoryDescriptor::withCapacity ( kCachingModePageSize,
-													  kIODirectionOutIn );
-	require_nonzero ( buffer, ErrorExit );
+	bufferDesc = IOBufferMemoryDescriptor::withCapacity ( sizeof ( SBCModePageCaching ),
+														  kIODirectionOutIn );
+	require_nonzero ( bufferDesc, ErrorExit );
 	
-	status = GetWriteCacheState ( buffer, kModePageControlCurrentValues );
+	status = GetWriteCacheState ( bufferDesc, kModePageControlCurrentValues );
 	require_success ( status, ReleaseDescriptor );
 	
-	cachePage = ( UInt8 * ) buffer->getBytesNoCopy ( );
+	buffer = ( UInt8 * ) bufferDesc->getBytesNoCopy ( );
+	header = ( SPCModeParameterHeader6 * ) buffer;
 	
 	// Sanity check on buffer size
-	minSize = kModeSense6ParameterHeaderSize + kCachingModePageMinSize + 2;
-	require_action ( ( cachePage[0] + sizeof ( UInt8 ) ) >= minSize, ReleaseDescriptor, status = kIOReturnError );
+	minSize = sizeof ( SPCModeParameterHeader6 ) + header->BLOCK_DESCRIPTOR_LENGTH +
+		offsetof ( SBCModePageCaching, DEMAND_READ_WRITE_RETENTION_PRIORITY ) + sizeof ( header->MODE_DATA_LENGTH );
 	
-	// Get the block descriptor length
-	length = cachePage[3];
+	require_action ( ( ( header->MODE_DATA_LENGTH + sizeof ( header->MODE_DATA_LENGTH ) ) >= minSize ), ReleaseDescriptor, status = kIOReturnError );
+	
+	cachePage = ( SBCModePageCaching * ) &buffer[ sizeof ( SPCModeParameterHeader6 ) + header->BLOCK_DESCRIPTOR_LENGTH ];
+	pageCode = cachePage->header.PS_PAGE_CODE & kModePageFormat_PAGE_CODE_Mask;
 	
 	// Sanity check on returned data from drive
-	require_action ( ( cachePage[length + kModeSense6ParameterHeaderSize] & 0x3F ) == kCachingModePageCode, ReleaseDescriptor, status = kIOReturnError );
-	require_action ( ( cachePage[length + kModeSense6ParameterHeaderSize + 1] ) >= kCachingModePageMinSize, ReleaseDescriptor, status = kIOReturnError );
+	require_action ( ( pageCode == kSBCModePageCachingCode ), ReleaseDescriptor, status = kIOReturnError );
 	
 	// Set the page code in the buffer to the cache page code
-	cachePage[length + kModeSense6ParameterHeaderSize] = kCachingModePageCode;
+	cachePage->header.PS_PAGE_CODE = kSBCModePageCachingCode;
 	
 	// Enable/disable cache as appropriate
 	if ( enabled == true )
-		cachePage[length + 6] |= kWriteCacheEnabledMask;
+		cachePage->flags |= kSBCModePageCaching_WCE_Mask;
 	else
-		cachePage[length + 6] &= ~kWriteCacheEnabledMask;
+		cachePage->flags &= ~kSBCModePageCaching_WCE_Mask;
 	
 	request = GetSCSITask ( );
 	require_nonzero_action ( request, ReleaseDescriptor, status = kIOReturnNoResources );
 	
 	// Write back out the saved bits to enable the saved behavior
 	if ( MODE_SELECT_6 ( request,
-						 buffer,
+						 bufferDesc,
 						 0x01,	// PageFormat		= 1
 						 0x00,	// SaveParameters	= 0
-						 cachePage[0] + sizeof ( UInt8 ),
+						 header->MODE_DATA_LENGTH + sizeof ( header->MODE_DATA_LENGTH ),
 						 0x00 ) == true )
 	{
 		
@@ -2269,9 +2503,9 @@ IOSCSIBlockCommandsDevice::SetWriteCacheState ( bool enabled )
 ReleaseDescriptor:
 	
 	
-	require_nonzero ( buffer, ErrorExit );
-	buffer->release ( );
-	buffer = NULL;
+	require_nonzero ( bufferDesc, ErrorExit );
+	bufferDesc->release ( );
+	bufferDesc = NULL;
 	
 	
 ErrorExit:	
@@ -2543,6 +2777,74 @@ ErrorExit:
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ AsyncReadWriteCompletion - Completion routine for read/write requests.
+//															 		[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOSCSIBlockCommandsDevice::AsyncReadWriteCompletion (
+								SCSITaskIdentifier completedTask )
+{
+	
+	IOReturn	status		= kIOReturnSuccess;
+	UInt64		actCount	= 0;
+	void *		clientData	= NULL;
+	
+	// Extract the client data from the SCSITaskIdentifier
+	clientData = GetApplicationLayerReference ( completedTask );
+	require_nonzero ( clientData, ErrorExit );
+	
+	if ( ( GetServiceResponse ( completedTask ) == kSCSIServiceResponse_TASK_COMPLETE ) &&
+		 ( GetTaskStatus ( completedTask ) == kSCSITaskStatus_GOOD ) )
+	{
+		
+		// Our status is good, so return a success
+		actCount = GetRealizedDataTransferCount ( completedTask );
+		
+	}
+	
+	else
+	{
+		
+		// Set a generic IO error for starters
+		status = kIOReturnIOError;
+		
+		// Either the task never completed or we have a status other than GOOD,
+		// return an error.		
+		if ( GetTaskStatus ( completedTask ) == kSCSITaskStatus_CHECK_CONDITION )
+		{
+			
+			SCSI_Sense_Data		senseDataBuffer;
+			bool				senseIsValid;
+			
+			senseIsValid = GetAutoSenseData ( completedTask, &senseDataBuffer, sizeof ( senseDataBuffer ) );
+			if ( senseIsValid )
+			{
+				
+				ERROR_LOG ( ( "READ or WRITE failed, ASC = 0x%02x, ASCQ = 0x%02x\n",
+				senseDataBuffer.ADDITIONAL_SENSE_CODE,
+				senseDataBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER ) );
+				
+			}
+			
+		}
+		
+	}
+	
+	IOBlockStorageServices::AsyncReadWriteComplete ( clientData, status, actCount );
+	
+	ReleaseSCSITask ( completedTask );	
+	
+	
+ErrorExit:
+	
+	
+	return;
+	
+}
+
+
 #if 0
 #pragma mark -
 #pragma mark ¥ Static Methods
@@ -2560,71 +2862,18 @@ IOSCSIBlockCommandsDevice::AsyncReadWriteComplete (
 								SCSITaskIdentifier request )
 {
 	
-	void *								clientData	= NULL;
-	IOSCSIBlockCommandsDevice	*		taskOwner	= NULL;
-	SCSITask *							task		= NULL;
-	IOReturn							status		= kIOReturnIOError;
-	UInt64								actCount	= 0;
+	IOSCSIBlockCommandsDevice *	taskOwner = NULL;
 	
-	task = OSDynamicCast ( SCSITask, request );
-	require_nonzero ( task, FatalError );
+	require_nonzero ( request, ErrorExit );
 	
-	taskOwner = OSDynamicCast ( IOSCSIBlockCommandsDevice,
-								task->GetTaskOwner ( ) );
-	require_nonzero ( taskOwner, FatalError );
+	taskOwner = OSDynamicCast ( IOSCSIBlockCommandsDevice, sGetOwnerForTask ( request ) );
+	require_nonzero ( taskOwner, ErrorExit );
 	
-	// Extract the client data from the SCSITask	
-	clientData = task->GetApplicationLayerReference ( );
-	require_nonzero ( clientData, FatalError );
-	
-	if ( ( task->GetServiceResponse ( ) == kSCSIServiceResponse_TASK_COMPLETE ) &&
-		 ( task->GetTaskStatus ( ) == kSCSITaskStatus_GOOD ) )
-	{
-		
-		status = kIOReturnSuccess;
-		actCount = task->GetRealizedDataTransferCount ( );
-		
-	}
-	
-	else
-	{
-		
-		// Set a generic IO error for starters
-		status = kIOReturnIOError;
-		
-		// Either the task never completed or we have a status other than GOOD,
-		// return an error.		
-		if ( task->GetTaskStatus ( ) == kSCSITaskStatus_CHECK_CONDITION )
-		{
-			
-			SCSI_Sense_Data		senseDataBuffer;
-			bool				senseIsValid;
-			
-			senseIsValid = task->GetAutoSenseData ( &senseDataBuffer, sizeof ( senseDataBuffer ) );
-			if ( senseIsValid )
-			{
-				
-				ERROR_LOG ( ( "READ or WRITE failed, ASC = 0x%02x, ASCQ = 0x%02x\n",
-				senseDataBuffer.ADDITIONAL_SENSE_CODE,
-				senseDataBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER ) );
-				
-			}
-			
-		}
-		
-	}
-	
-	IOBlockStorageServices::AsyncReadWriteComplete ( clientData, status, actCount );
-	
-	taskOwner->ReleaseSCSITask ( request );
-	
-	return;
+	taskOwner->AsyncReadWriteCompletion ( request );
 	
 	
-FatalError:
+ErrorExit:
 	
-	
-	IOPanic ( "SAM SBC: error completing I/O due to bad completion data" );
 	
 	return;
 	
@@ -2676,9 +2925,9 @@ ErrorExit:
 
 OSMetaClassDefineReservedUsed ( IOSCSIBlockCommandsDevice, 1 );	/* PowerDownHandler */
 OSMetaClassDefineReservedUsed ( IOSCSIBlockCommandsDevice, 2 );	/* SetMediumIcon 	*/
+OSMetaClassDefineReservedUsed ( IOSCSIBlockCommandsDevice, 3 );	/* AsyncReadWriteCompletion	*/
 
 // Space reserved for future expansion.
-OSMetaClassDefineReservedUnused ( IOSCSIBlockCommandsDevice,  3 );
 OSMetaClassDefineReservedUnused ( IOSCSIBlockCommandsDevice,  4 );
 OSMetaClassDefineReservedUnused ( IOSCSIBlockCommandsDevice,  5 );
 OSMetaClassDefineReservedUnused ( IOSCSIBlockCommandsDevice,  6 );

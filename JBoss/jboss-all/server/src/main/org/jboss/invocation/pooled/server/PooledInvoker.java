@@ -19,7 +19,7 @@ import javax.transaction.Transaction;
 import javax.transaction.TransactionManager;
 
 import org.jboss.invocation.Invocation;
-import org.jboss.invocation.MarshalledInvocation;
+import org.jboss.invocation.pooled.interfaces.PooledMarshalledInvocation;
 import org.jboss.invocation.pooled.interfaces.PooledInvokerProxy;
 import org.jboss.invocation.pooled.interfaces.ServerAddress;
 import org.jboss.invocation.jrmp.interfaces.JRMPInvokerProxy;
@@ -324,7 +324,7 @@ public class PooledInvoker extends ServiceMBeanSupport
       {
 
          // Deserialize the transaction if it is there
-         MarshalledInvocation mi = (MarshalledInvocation) invocation;
+         PooledMarshalledInvocation mi = (PooledMarshalledInvocation) invocation;
          invocation.setTransaction(importTPC(mi.getTransactionPropagationContext()));
          ObjectName mbean = (ObjectName) Registry.lookup(invocation.getObjectName());
 

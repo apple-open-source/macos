@@ -1,6 +1,6 @@
 // ========================================================================
 // Copyright (c) 2002 Mort Bay Consulting (Australia) Pty. Ltd.
-// $Id: SubscribingInterceptor.java,v 1.1.2.2 2003/01/14 00:46:56 jules_gosnell Exp $
+// $Id: SubscribingInterceptor.java,v 1.1.2.3 2003/07/26 11:49:41 jules_gosnell Exp $
 // ========================================================================
 
 package org.mortbay.j2ee.session;
@@ -15,7 +15,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import javax.servlet.http.HttpSession;
-import org.apache.log4j.Category;
+import org.jboss.logging.Logger;
 
 //----------------------------------------
 
@@ -26,7 +26,7 @@ import org.apache.log4j.Category;
 public class SubscribingInterceptor
   extends StateInterceptor
 {
-  protected final Category _log=Category.getInstance(getClass().getName());
+  protected static final Logger _log=Logger.getLogger(SubscribingInterceptor.class);
 
   protected AbstractReplicatedStore
     getStore()

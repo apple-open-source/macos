@@ -97,6 +97,7 @@ public:
     DOM::DocumentPtr *docPtr() const { return document; }
 
 protected:
+    void setCurrent(DOM::NodeImpl *newCurrent);
 
     KHTMLView *HTMLWidget;
     DOM::DocumentPtr *document;
@@ -175,7 +176,7 @@ protected:
     int discard_until;
 
     bool headLoaded;
-    bool inStrayTableContent;
+    int inStrayTableContent;
     
 #if SPEED_DEBUG > 0
     QTime qt;

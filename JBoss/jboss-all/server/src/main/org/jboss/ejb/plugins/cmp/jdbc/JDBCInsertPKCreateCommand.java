@@ -39,20 +39,22 @@ public abstract class JDBCInsertPKCreateCommand extends JDBCAbstractCreateComman
 
       // if no exception processor is defined, we will perform a existance
       // check before trying the insert to report duplicate key
-      if (exceptionProcessor == null) {
+      if(exceptionProcessor == null)
+      {
          initExistsSQL();
       }
    }
 
    protected void initExistsSQL()
    {
-      StringBuffer sql = new StringBuffer();
-      sql.append("SELECT COUNT(*) FROM ");
-      sql.append(entity.getTableName());
-      sql.append(" WHERE ");
-      sql.append(SQLUtil.getWhereClause(entity.getPrimaryKeyFields()));
+      StringBuffer sql = new StringBuffer(300);
+      sql.append(SQLUtil.SELECT).append("COUNT(*)").append(SQLUtil.FROM)
+         .append(entity.getTableName())
+         .append(SQLUtil.WHERE);
+      SQLUtil.getWhereClause(entity.getPrimaryKeyFields(), sql);
       existsSQL = sql.toString();
-      if (debug) {
+      if(debug)
+      {
          log.debug("Entity Exists SQL: " + existsSQL);
       }
    }
@@ -60,12 +62,16 @@ public abstract class JDBCInsertPKCreateCommand extends JDBCAbstractCreateComman
    protected void beforeInsert(EntityEnterpriseContext ctx) throws CreateException
    {
       // are we checking existance by query?
-      if (existsSQL != null) {
+      if(existsSQL != null)
+      {
          Connection c = null;
          PreparedStatement ps = null;
          ResultSet rs = null;
-         try {
-            log.debug("Executing SQL: " + existsSQL);
+         try
+         {
+            if(debug)
+               log.debug("Executing SQL: " + existsSQL);
+
             c = entity.getDataSource().getConnection();
             ps = c.prepareStatement(existsSQL);
 
@@ -75,16 +81,22 @@ public abstract class JDBCInsertPKCreateCommand extends JDBCAbstractCreateComman
             entity.setPrimaryKeyParameters(ps, 1, pk);
 
             rs = ps.executeQuery();
-            if (!rs.next()) {
+            if(!rs.next())
+            {
                throw new CreateException("Error checking if entity with primary pk " + pk + "exists: SQL returned no rows");
             }
-            if (rs.getInt(1) > 0) {
+            if(rs.getInt(1) > 0)
+            {
                throw new DuplicateKeyException("Entity with primary key " + pk + " already exists");
             }
-         } catch (SQLException e) {
+         }
+         catch(SQLException e)
+         {
             log.error("Error checking if entity exists", e);
             throw new CreateException("Error checking if entity exists:" + e);
-         } finally {
+         }
+         finally
+         {
             JDBCUtil.safeClose(rs);
             JDBCUtil.safeClose(ps);
             JDBCUtil.safeClose(c);

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- $Id: jvm-il-service.xml,v 1.1.2.1 2003/08/23 22:21:28 ejort Exp $ -->
+
+<server>
+
+  <!-- JBossMQ in memory "communication -->
+
+  <mbean code="org.jboss.mq.il.jvm.JVMServerILService"
+	 name="jboss.mq:service=InvocationLayer,type=JVM">
+    <depends optional-attribute-name="Invoker">jboss.mq:service=Invoker</depends>
+    <attribute name="ConnectionFactoryJNDIRef">java:/ConnectionFactory</attribute>
+    <attribute name="XAConnectionFactoryJNDIRef">java:/XAConnectionFactory</attribute>
+    <attribute name="PingPeriod">0</attribute>
+  </mbean>
+
+</server>

@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE server>
-<!-- $Id: jboss-service.xml,v 1.1.2.9 2003/07/23 11:53:16 starksm Exp $ -->
+<!-- $Id: jboss-service.xml,v 1.1.2.10 2003/10/13 03:33:09 starksm Exp $ -->
 
 <server>
 

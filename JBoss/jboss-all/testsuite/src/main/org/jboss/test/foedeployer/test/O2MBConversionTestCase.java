@@ -35,7 +35,7 @@ import org.jboss.test.foedeployer.ejb.o2mb.O2MBManagerHome;
  * Test of relationships conversion
  *
  * @author <a href="mailto:loubyansky@hotmail.com">Alex Loubyansky</a>
- * @version $Revision: 1.2.2.1 $
+ * @version $Revision: 1.2.2.2 $
  */
 public class O2MBConversionTestCase
    extends JBossTestCase
@@ -51,7 +51,7 @@ public class O2MBConversionTestCase
    /**
     * Setup the test suite.
     */
-   public static Test suite()
+   public static Test suite() throws Exception
    {
       TestSuite suite = new TestSuite();
       suite.addTest( new TestSuite( O2MBConversionTestCase.class ) );

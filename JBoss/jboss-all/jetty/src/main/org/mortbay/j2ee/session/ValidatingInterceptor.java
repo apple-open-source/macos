@@ -1,6 +1,6 @@
 // ========================================================================
 // Copyright (c) 2002 Mort Bay Consulting (Australia) Pty. Ltd.
-// $Id: ValidatingInterceptor.java,v 1.1.2.1 2003/01/03 00:58:04 jules_gosnell Exp $
+// $Id: ValidatingInterceptor.java,v 1.1.2.2 2003/07/26 11:49:41 jules_gosnell Exp $
 // ========================================================================
 
 package org.mortbay.j2ee.session;
@@ -9,7 +9,7 @@ package org.mortbay.j2ee.session;
 
 import java.rmi.RemoteException;
 import javax.servlet.http.HttpSession;
-import org.apache.log4j.Category;
+import org.jboss.logging.Logger;
 
 //----------------------------------------
 
@@ -17,7 +17,7 @@ import org.apache.log4j.Category;
 public class ValidatingInterceptor
   extends AroundInterceptor
 {
-  protected Category _log=Category.getInstance(getClass().getName());
+  protected static final Logger _log=Logger.getLogger(ValidatingInterceptor.class);
 
   protected void before() throws IllegalStateException {if (_running) checkValid();}
   protected void after() {}
@@ -26,17 +26,27 @@ public class ValidatingInterceptor
 
   protected boolean _running=false;
 
-  public void start() {_running=true;}
-  public void stop()  {_running=false;}
+  public void start() {_log.trace("start()");_running=true;}
+  public void stop()  {_log.trace("stop()"); _running=false;}
 
   protected void
     checkValid()
     throws IllegalStateException
   {
     boolean valid=false;
+    State state=getState();
     try
     {
-      valid=getState().isValid();
+      int mii=state.getMaxInactiveInterval(); // secs
+      int keep=mii;
+      mii=mii<1?getManager().getStore().getActualMaxInactiveInterval():mii; // secs
+      long lat=state.getLastAccessedTime(); // milisecs
+      long now=System.currentTimeMillis(); // milisecs
+
+      int age=(int)((now-lat)/1000); // secs
+
+      valid=(age<mii);
+      if (_log.isTraceEnabled()) _log.trace("session keep="+keep+", mii="+mii+", lat="+lat+", now="+now+", age="+age+", valid="+valid);
     }
     catch (java.rmi.NoSuchObjectException ignore)
     {
@@ -46,16 +56,13 @@ public class ValidatingInterceptor
     {
       //      _log.info("IGNORE ABOVE NoSuchEntityException - harmless");
     }
-   catch (Exception e)
+    catch (Exception e)
     {
-      _log.error("couldn't determine validity of HttpSession: "+getSession(), e);
+      _log.error("couldn't determine validity of HttpSession", e);
     }
 
     if (!valid)
-    {
-      stop();			// relax - or we will bounce session tidy-up
-      throw new IllegalStateException("invalid HttpSession");
-    }
+      throw new IllegalStateException("invalid HttpSession - timed out");
   }
 
   //  public Object clone() { return this; } // Stateless

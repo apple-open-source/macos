@@ -21,7 +21,7 @@ import EDU.oswego.cs.dl.util.concurrent.ReentrantLock;
  * ClassLoader which cannot be overriden.
 
  * @author <a href="scott.stark@jboss.org">Scott Stark</a>
- * @version $Revision: 1.1.4.10 $
+ * @version $Revision: 1.1.4.16 $
 */
 public class UnifiedClassLoader3 extends UnifiedClassLoader
    implements UnifiedClassLoader3MBean
@@ -33,6 +33,7 @@ public class UnifiedClassLoader3 extends UnifiedClassLoader
    protected ReentrantLock loadLock = new ReentrantLock();
    /** A debugging variable used to track the recursive depth of loadClass() */
    private int loadClassDepth;
+           
 
    // Constructors --------------------------------------------------
    /**
@@ -91,11 +92,6 @@ public class UnifiedClassLoader3 extends UnifiedClassLoader
 
    // Public --------------------------------------------------------
 
-   public void unregister()
-   {
-      repository.removeClassLoader(this);
-   }
-
    /**
    * Retruns a string representaion of this UCL.
    */
@@ -117,7 +113,16 @@ public class UnifiedClassLoader3 extends UnifiedClassLoader
     * repository.
     *
     */
-   public synchronized Class loadClass(String name, boolean resolve)
+   public Class loadClass(String name, boolean resolve) throws ClassNotFoundException
+   {
+      if (repository != null)
+      {
+         Class clazz = repository.getCachedClass(name);
+         if (clazz != null) return clazz;
+      }
+      return loadClassImpl(name, resolve);
+   }
+   public synchronized Class loadClassImpl(String name, boolean resolve)
       throws ClassNotFoundException
    {
       loadClassDepth ++;
@@ -213,7 +218,9 @@ public class UnifiedClassLoader3 extends UnifiedClassLoader
     */
    public URL getResource(String name)
    {
-      URL u = repository.getResource(name, this);
+      URL u = null;
+      if( repository != null )
+         u = repository.getResource(name, this);
       return u;
    }
 

@@ -8,7 +8,6 @@ package org.jboss.mq.server.jmx;
 
 import javax.management.ObjectName;
 
-import org.jboss.mx.util.ObjectNameFactory;
 import org.jboss.mq.server.JMSServerInterceptor;
 import org.jboss.system.ServiceMBean;
 /**
@@ -17,26 +16,24 @@ import org.jboss.system.ServiceMBean;
  *
  * @author <a href="mailto:cojonudo14@hotmail.com">Hiram Chirino</a>
  * @author <a href="mailto:pra@tim.se">Peter Antman</a>
- * @version $Revision: 1.1.4.1 $
+ * @version $Revision: 1.1.4.2 $
  */
 
-public interface InterceptorMBean
-   extends ServiceMBean
+public interface InterceptorMBean extends ServiceMBean
 {
-   
+
    JMSServerInterceptor getInterceptor();
 
    /**
     * Gets the next interceptor in the chain
     * @param v  Value to assign to nextInterceptor.
     */
-   ObjectName getNextInterceptor(); 
-      
+   ObjectName getNextInterceptor();
+
    /**
     * Set the next interceptor in the chain
     * @param v  Value to assign to nextInterceptor
     */
-   void setNextInterceptor(ObjectName  jbossMQService); 
+   void setNextInterceptor(ObjectName jbossMQService);
 
-   
-   } // JBossMQServiceAdapterMBean
+} // JBossMQServiceAdapterMBean

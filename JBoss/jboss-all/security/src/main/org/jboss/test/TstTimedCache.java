@@ -1,12 +1,5 @@
 package org.jboss.test;
 
-import java.io.FilePermission;
-import java.net.URL;
-import java.security.CodeSource;
-import java.security.Permission;
-import java.security.PermissionCollection;
-import java.security.Policy;
-
 import org.jboss.util.TimedCachePolicy;
 
 /** Tests of the TimedCachePolicy class.
@@ -14,7 +7,7 @@ import org.jboss.util.TimedCachePolicy;
 @see org.jboss.util.TimedCachePolicy
 
 @author Scott.Stark@jboss.org
-@version $Revision: 1.4 $
+@version $Revision: 1.4.2.1 $
 */
 public class TstTimedCache
 {
@@ -77,7 +70,7 @@ public class TstTimedCache
             System.out.println("get(3) -> "+cache.get("3"));
             try
             {
-                Thread.currentThread().sleep(3*1000);
+                Thread.sleep(3 * 1000);
             }
             catch(InterruptedException e)
             {

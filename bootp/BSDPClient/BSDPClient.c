@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -106,6 +103,8 @@ typedef union {
     BSDPClientSelectCallBack	select;
 } BSDPClientCallBackUnion;
 
+#define MAX_ATTRS	10
+
 struct BSDPClient_s {
     char *				system_id;
     bsdp_version_t			client_version; /* network order */
@@ -122,6 +121,8 @@ struct BSDPClient_s {
     BSDPClientTimerCallBack		timer_callback;
     int					try;
     int					wait_secs;
+    u_int16_t				attrs[MAX_ATTRS];
+    int					n_attrs;
 
     /* values provided by caller */
     struct {
@@ -583,15 +584,17 @@ BSDPClientProcess(CFSocketRef s, CFSocketCallBackType type,
     return;
 }
 
+
 /*
- * Function: BSDPClientCreateWithInterface
+ * Function: BSDPClientCreateWithInterfaceAndAttributes
  * Purpose:
  *   Instantiate a BSDPClientRef, checking to ensure that the machine
  *   is NetBoot-compatible.
  */
 BSDPClientRef
-BSDPClientCreateWithInterface(BSDPClientStatus * status_p,
-			      const char * ifname)
+BSDPClientCreateWithInterfaceAndAttributes(BSDPClientStatus * status_p,
+					   const char * ifname, 
+					   const u_int16_t * attrs, int n_attrs)
 {
     BSDPClientRef	client = NULL;
     u_short		client_port;
@@ -650,6 +653,17 @@ BSDPClientCreateWithInterface(BSDPClientStatus * status_p,
     }
     bzero(client, sizeof(*client));
 
+    if (n_attrs > 0) {
+	int	i;
+
+	if (n_attrs > MAX_ATTRS) {
+	    n_attrs = MAX_ATTRS;
+	}
+	for (i = 0; i < n_attrs; i++) {
+	    client->attrs[i] = htons(attrs[i]);
+	}
+	client->n_attrs = n_attrs;
+    }
     fd = S_open_socket(&client_port);
     if (fd < 0) {
 	if (errno == EPERM || errno == EACCES) {
@@ -719,6 +733,19 @@ BSDPClientCreateWithInterface(BSDPClientStatus * status_p,
 }
 
 /*
+ * Function: BSDPClientCreateWithInterface
+ * Purpose:
+ *   Allocate a new session.
+ */
+BSDPClientRef
+BSDPClientCreateWithInterface(BSDPClientStatus * status_p,
+			      const char * ifname)
+{
+    return (BSDPClientCreateWithInterfaceAndAttributes(status_p, ifname, 
+						       NULL, 0));
+}
+
+/*
  * Function: BSDPClientCreate
  * Purpose:
  *   Published entry point to instantiate a BSDPClientRef over "en0".
@@ -770,6 +797,22 @@ BSDPClientFree(BSDPClientRef * client_p)
 /**
  ** BSDP List Routines
  **/
+static boolean_t
+attributes_match(u_int16_t attrs,
+		 const u_int16_t * attrs_list, int n_attrs_list)
+{
+    int		i;
+
+    if (attrs_list == NULL || n_attrs_list == 0) {
+	return (TRUE);
+    }
+    for (i = 0; i < n_attrs_list; i++) {
+	if (attrs_list[i] == attrs) {
+	    return (TRUE);
+	}
+    }
+    return (FALSE);
+}
 
 static CFArrayRef
 BSDPClientCreateImageList(BSDPClientRef client,
@@ -784,6 +827,7 @@ BSDPClientCreateImageList(BSDPClientRef client,
     images = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
     descr = image_list;
     for (length = image_list_len; length > sizeof(*descr); ) {
+	u_int16_t		attributes;
 	bsdp_image_id_t		boot_image_id;
 	CFMutableDictionaryRef	this_dict = NULL;
 	int			this_len;
@@ -798,8 +842,10 @@ BSDPClientCreateImageList(BSDPClientRef client,
 	    goto failed;
 	}
 	boot_image_id = ntohl(*((bsdp_image_id_t *)descr->boot_image_id));
-	if (boot_image_id != BOOT_IMAGE_ID_NULL) {
-	    u_int16_t	attributes;
+	attributes = bsdp_image_attributes(boot_image_id);
+	if (boot_image_id != BOOT_IMAGE_ID_NULL
+	    && attributes_match(htons(attributes), 
+				client->attrs, client->n_attrs)) {
 	    u_int16_t	index;
 
 	    this_dict
@@ -809,7 +855,6 @@ BSDPClientCreateImageList(BSDPClientRef client,
 	    cf_image_id = CFNumberCreate(NULL, kCFNumberSInt32Type, 
 					 &boot_image_id);
 	    index = bsdp_image_index(boot_image_id);
-	    attributes = bsdp_image_attributes(boot_image_id);
 	    cf_image_index = CFNumberCreate(NULL, kCFNumberShortType, 
 					    &index);
 	    cf_image_name = CFStringCreateWithBytes(NULL, 
@@ -985,6 +1030,16 @@ BSDPClientSendListRequest(BSDPClientRef client)
 	fprintf(stderr, "BSDPClientSendListRequest add reply port failed, %s",
 		dhcpoa_err(&bsdp_options));
 	goto failed;
+    }
+    if (client->n_attrs > 0) {
+	if (dhcpoa_add(&bsdp_options,bsdptag_image_attributes_filter_list_e,
+		       client->n_attrs * sizeof(client->attrs[0]),
+		       client->attrs) != dhcpoa_success_e) {
+	    fprintf(stderr, 
+		    "BSDPClientSendListRequest add image attributes failed, %s",
+		    dhcpoa_err(&bsdp_options));
+	    goto failed;
+	}
     }
     if (dhcpoa_add(&options, dhcptag_vendor_specific_e,
 		   dhcpoa_used(&bsdp_options), &bsdp_buf)

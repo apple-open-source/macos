@@ -9,7 +9,7 @@
 <!--                                                                       -->
 <!-- ===================================================================== -->
 
-<!-- $Id: standardjbosscmp-jdbc.xml,v 1.39.2.23 2003/06/25 19:50:02 starksm Exp $ -->
+<!-- $Id: standardjbosscmp-jdbc.xml,v 1.39.2.34 2003/11/25 01:48:16 ejort Exp $ -->
 
 <jbosscmp-jdbc>
 
@@ -40,10 +40,138 @@
       </unknown-pk>
 
       <entity-command name="default"/>
-
+		
    </defaults>
 
    <type-mappings>
+      <type-mapping>
+         <name>FirstSQL/J</name>
+         <row-locking-template/>
+         <pk-constraint-template>PRIMARY KEY (?1)</pk-constraint-template>
+         <fk-constraint-template>FOREIGN KEY (?1) REFERENCES ?2 (?3)</fk-constraint-template>
+         <alias-header-prefix>t</alias-header-prefix>
+         <alias-header-suffix>_</alias-header-suffix>
+         <alias-max-length>32</alias-max-length>
+         <subquery-supported>true</subquery-supported>
+         <true-mapping>1</true-mapping>
+         <false-mapping>0</false-mapping>
+
+         <function-mapping>
+            <function-name>concat</function-name>
+            <function-sql>(?1 || ?2)</function-sql>
+         </function-mapping>
+         <function-mapping>
+            <function-name>substring</function-name>
+            <function-sql>substring(?1 FROM ?2 FOR ?3)</function-sql>
+         </function-mapping>
+         <function-mapping>
+            <function-name>lcase</function-name>
+            <function-sql>lower(?1)</function-sql>
+         </function-mapping>
+         <function-mapping>
+            <function-name>length</function-name>
+            <function-sql>char_length(?1)</function-sql>
+         </function-mapping>
+         <function-mapping>
+            <function-name>locate</function-name>
+            <function-sql>position(?1 IN ?2)</function-sql>
+         </function-mapping>
+         <function-mapping>
+            <function-name>abs</function-name>
+            <function-sql>math.abs(?1)</function-sql>
+         </function-mapping>
+         <function-mapping>
+            <function-name>sqrt</function-name>
+            <function-sql>math.sqrt(CAST(?1 AS DOUBLE))</function-sql>
+         </function-mapping>
+         <function-mapping>
+            <function-name>ucase</function-name>
+            <function-sql>upper(?1)</function-sql>
+         </function-mapping>
+         <function-mapping>
+            <function-name>count</function-name>
+            <function-sql>count(?1)</function-sql>
+         </function-mapping>
+
+         <mapping>
+            <java-type>java.lang.Boolean</java-type>
+            <jdbc-type>TINYINT</jdbc-type>
+            <sql-type>TINYINT</sql-type>
+         </mapping>
+         <mapping>
+            <java-type>java.lang.Byte</java-type>
+            <jdbc-type>TINYINT</jdbc-type>
+            <sql-type>TINYINT</sql-type>
+         </mapping>
+         <mapping>
+            <java-type>java.lang.Short</java-type>
+            <jdbc-type>SMALLINT</jdbc-type>
+            <sql-type>SMALLINT</sql-type>
+         </mapping>
+         <mapping>
+            <java-type>java.lang.Integer</java-type>
+            <jdbc-type>INTEGER</jdbc-type>
+            <sql-type>INTEGER</sql-type>
+         </mapping>
+         <mapping>
+            <java-type>java.lang.Long</java-type>
+            <jdbc-type>BIGINT</jdbc-type>
+            <sql-type>BIGINT</sql-type>
+         </mapping>
+         <mapping>
+            <java-type>java.lang.Float</java-type>
+            <jdbc-type>REAL</jdbc-type>
+            <sql-type>REAL</sql-type>
+         </mapping>
+         <mapping>
+            <java-type>java.lang.Double</java-type>
+            <jdbc-type>DOUBLE</jdbc-type>
+            <sql-type>DOUBLE</sql-type>
+         </mapping>
+         <mapping>
+            <java-type>java.lang.Character</java-type>
+            <jdbc-type>CHAR</jdbc-type>
+            <sql-type>CHAR</sql-type>
+         </mapping>
+         <mapping>
+            <java-type>java.lang.String</java-type>
+            <jdbc-type>VARCHAR</jdbc-type>
+            <!-- or <sql-type>VARCHAR(2147483500)</sql-type> -->
+            <sql-type>VARCHAR(256)</sql-type>
+         </mapping>
+         <mapping>
+            <java-type>java.sql.Date</java-type>
+            <jdbc-type>DATE</jdbc-type>
+            <sql-type>DATE</sql-type>
+         </mapping>
+         <mapping>
+            <java-type>java.sql.Time</java-type>
+            <jdbc-type>TIME</jdbc-type>
+            <sql-type>TIME</sql-type>
+         </mapping>
+         <mapping>
+            <java-type>java.sql.Timestamp</java-type>
+            <jdbc-type>TIMESTAMP</jdbc-type>
+            <sql-type>TIMESTAMP</sql-type>
+         </mapping>
+         <mapping>
+            <java-type>java.util.Date</java-type>
+            <jdbc-type>TIMESTAMP</jdbc-type>
+            <sql-type>TIMESTAMP</sql-type>
+         </mapping>
+         <mapping>
+            <java-type>java.math.BigDecimal</java-type>
+            <jdbc-type>DECIMAL</jdbc-type>
+            <sql-type>DECIMAL</sql-type>
+         </mapping>
+         <mapping>
+            <java-type>java.lang.Object</java-type>
+            <!-- FirstSQL/J only supports directly serializable objects for classes declared with CREATE CLASS -->
+            <jdbc-type>LONGVARBINARY</jdbc-type>
+            <sql-type>VARCHAR(2147483500)</sql-type>
+         </mapping>
+      </type-mapping>
+
       <type-mapping>
          <name>Ingres</name>
          <row-locking-template>SELECT ?1 FROM ?2 WHERE ?3 FOR UPDATE</row-locking-template>    
@@ -88,6 +216,10 @@
             <function-name>ucase</function-name>
             <function-sql>upper(?1)</function-sql>
          </function-mapping>    
+         <function-mapping>
+            <function-name>count</function-name>
+            <function-sql>count(?1)</function-sql>
+         </function-mapping>
 
          <!-- change from bit to integer , 10.12.2002 heb -->
          <mapping>
@@ -187,6 +319,11 @@ Mapping proposed by Computer Associates, but does not work with JBoss properly
       <true-mapping>TRUE</true-mapping>
       <false-mapping>FALSE</false-mapping>
 
+         <function-mapping>
+            <function-name>count</function-name>
+            <function-sql>count(?1)</function-sql>
+         </function-mapping>
+
       <mapping>
          <java-type>java.lang.Boolean</java-type>
          <jdbc-type>BIT</jdbc-type>
@@ -269,6 +406,11 @@ Mapping proposed by Computer Associates, but does not work with JBoss properly
          <true-mapping>1</true-mapping>
          <false-mapping>0</false-mapping>
 
+         <function-mapping>
+            <function-name>count</function-name>
+            <function-sql>count(?1)</function-sql>
+         </function-mapping>
+
          <mapping>
             <java-type>java.lang.Boolean</java-type>
             <jdbc-type>BIT</jdbc-type>
@@ -349,6 +491,11 @@ Mapping proposed by Computer Associates, but does not work with JBoss properly
          <true-mapping>1</true-mapping>
          <false-mapping>0</false-mapping>
 
+         <function-mapping>
+            <function-name>count</function-name>
+            <function-sql>count(?1)</function-sql>
+         </function-mapping>
+
          <mapping>
             <java-type>java.lang.Boolean</java-type>
             <jdbc-type>BIT</jdbc-type>
@@ -427,6 +574,11 @@ Mapping proposed by Computer Associates, but does not work with JBoss properly
          <subquery-supported>true</subquery-supported>
          <true-mapping>1</true-mapping>
          <false-mapping>0</false-mapping>
+
+         <function-mapping>
+            <function-name>count</function-name>
+            <function-sql>count(?1)</function-sql>
+         </function-mapping>
 
          <mapping>
             <java-type>java.lang.Boolean</java-type>
@@ -545,6 +697,10 @@ Mapping proposed by Computer Associates, but does not work with JBoss properly
          <function-mapping>
             <function-name>ucase</function-name>
             <function-sql>upper(?1)</function-sql>
+         </function-mapping>
+         <function-mapping>
+            <function-name>count</function-name>
+            <function-sql>count(?1)</function-sql>
          </function-mapping>
 
          <mapping>
@@ -671,6 +827,10 @@ Mapping proposed by Computer Associates, but does not work with JBoss properly
          <function-mapping>
             <function-name>ucase</function-name>
             <function-sql>upper(?1)</function-sql>
+         </function-mapping>
+         <function-mapping>
+            <function-name>count</function-name>
+            <function-sql>count(?1)</function-sql>
          </function-mapping>
 
          <mapping>
@@ -806,6 +966,10 @@ Mapping proposed by Computer Associates, but does not work with JBoss properly
             <function-name>ucase</function-name>
             <function-sql>upper(?1)</function-sql>
          </function-mapping>
+         <function-mapping>
+            <function-name>count</function-name>
+            <function-sql>count(?1)</function-sql>
+         </function-mapping>
 
          <mapping>
             <java-type>java.lang.Boolean</java-type>
@@ -903,6 +1067,15 @@ Mapping proposed by Computer Associates, but does not work with JBoss properly
          <subquery-supported>true</subquery-supported>
          <true-mapping>1</true-mapping>
          <false-mapping>0</false-mapping>
+
+         <function-mapping>
+            <function-name>count</function-name>
+            <function-sql>count(?1)</function-sql>
+         </function-mapping>         
+         <function-mapping>
+         	<function-name>length</function-name>
+         	<function-sql>char_length(?1)</function-sql>
+         </function-mapping>
 
          <mapping>
             <java-type>java.lang.Boolean</java-type>
@@ -1018,6 +1191,10 @@ Mapping proposed by Computer Associates, but does not work with JBoss properly
          <function-mapping>
             <function-name>ucase</function-name>
             <function-sql>upper(?1)</function-sql>
+         </function-mapping>
+         <function-mapping>
+            <function-name>count</function-name>
+            <function-sql>count(?1)</function-sql>
          </function-mapping>
 
          <mapping>
@@ -1142,6 +1319,10 @@ Mapping proposed by Computer Associates, but does not work with JBoss properly
             <function-name>ucase</function-name>
             <function-sql>upper(?1)</function-sql>
          </function-mapping>
+         <function-mapping>
+            <function-name>count</function-name>
+            <function-sql>count(?1)</function-sql>
+         </function-mapping>
 
          <mapping>
             <java-type>java.lang.Boolean</java-type>
@@ -1265,6 +1446,10 @@ Mapping proposed by Computer Associates, but does not work with JBoss properly
             <function-name>ucase</function-name>
             <function-sql>ucase(?1)</function-sql>
          </function-mapping>
+         <function-mapping>
+            <function-name>count</function-name>
+            <function-sql>count(?1)</function-sql>
+         </function-mapping>
 
          <mapping>
             <java-type>java.lang.Byte</java-type>
@@ -1364,6 +1549,10 @@ Mapping proposed by Computer Associates, but does not work with JBoss properly
             <function-name>ucase</function-name>
             <function-sql>upper(?1)</function-sql>
          </function-mapping>
+         <function-mapping>
+            <function-name>count</function-name>
+            <function-sql>count(?1)</function-sql>
+         </function-mapping>
 
          <mapping>
             <java-type>java.lang.Character</java-type>
@@ -1428,6 +1617,11 @@ Mapping proposed by Computer Associates, but does not work with JBoss properly
          <subquery-supported>true</subquery-supported>
          <true-mapping>1</true-mapping>
          <false-mapping>0</false-mapping>
+
+         <function-mapping>
+            <function-name>count</function-name>
+            <function-sql>count(?1)</function-sql>
+         </function-mapping>
 
          <mapping>
             <java-type>java.lang.Character</java-type>
@@ -1495,7 +1689,8 @@ Mapping proposed by Computer Associates, but does not work with JBoss properly
          <name>mySQL</name>
          <row-locking-template>SELECT ?1 FROM ?2 WHERE ?3 FOR UPDATE</row-locking-template>
          <pk-constraint-template>CONSTRAINT ?1 PRIMARY KEY (?2)</pk-constraint-template>
-         <fk-constraint-template>ALTER TABLE ?1 ADD INDEX ind_?3 (?3), ADD CONSTRAINT ?2 FOREIGN KEY (?3) REFERENCES ?4 (?5)</fk-constraint-template>
+         <!-- does not work for compound keys <fk-constraint-template>ALTER TABLE ?1 ADD INDEX ind_?3 (?3), ADD CONSTRAINT ?2 FOREIGN KEY (?3) REFERENCES ?4 (?5)</fk-constraint-template> -->
+         <fk-constraint-template>ALTER TABLE ?1 ADD CONSTRAINT ?2 FOREIGN KEY (?3) REFERENCES ?4 (?5)</fk-constraint-template>
          <auto-increment-template>?1 auto_increment</auto-increment-template>
          <alias-header-prefix>t</alias-header-prefix>
          <alias-header-suffix>_</alias-header-suffix>
@@ -1535,6 +1730,10 @@ Mapping proposed by Computer Associates, but does not work with JBoss properly
          <function-mapping>
             <function-name>ucase</function-name>
             <function-sql>upper(?1)</function-sql>
+         </function-mapping>
+         <function-mapping>
+            <function-name>count</function-name>
+            <function-sql>count(?1)</function-sql>
          </function-mapping>
 
          <mapping>
@@ -1671,6 +1870,10 @@ Mapping proposed by Computer Associates, but does not work with JBoss properly
             <function-name>ucase</function-name>
             <function-sql>upper(?1)</function-sql>
          </function-mapping>
+         <function-mapping>
+            <function-name>count</function-name>
+            <function-sql>count(?1)</function-sql>
+         </function-mapping>
 
          <mapping>
             <java-type>java.lang.Integer</java-type>
@@ -1798,6 +2001,10 @@ Mapping proposed by Computer Associates, but does not work with JBoss properly
             <function-name>ucase</function-name>
             <function-sql>upper(?1)</function-sql>
          </function-mapping>
+         <function-mapping>
+            <function-name>count</function-name>
+            <function-sql>count(?1)</function-sql>
+         </function-mapping>
 
          <mapping>
             <java-type>java.lang.Integer</java-type>
@@ -1906,6 +2113,11 @@ Mapping proposed by Computer Associates, but does not work with JBoss properly
          <true-mapping>1</true-mapping>
          <false-mapping>0</false-mapping>
 
+         <function-mapping>
+            <function-name>count</function-name>
+            <function-sql>count(?1)</function-sql>
+         </function-mapping>
+
          <mapping>
             <java-type>java.lang.Character</java-type>
             <jdbc-type>CHAR</jdbc-type>
@@ -1977,6 +2189,8 @@ Mapping proposed by Computer Associates, but does not work with JBoss properly
 
       <type-mapping>
          <name>SapDB</name>
+         <!-- SapDB 7.3 might require '... UPDATE OF ?1' in the row-locking-template -->
+         <!-- as is works with SapDB 7.4 -->
          <row-locking-template>SELECT ?1 FROM ?2 WHERE ?3 FOR UPDATE</row-locking-template>
          <pk-constraint-template>CONSTRAINT ?1 PRIMARY KEY (?2)</pk-constraint-template>
          <fk-constraint-template>ALTER TABLE ?1 ADD FOREIGN KEY ?2 (?3) REFERENCES ?4 (?5)</fk-constraint-template>
@@ -1986,6 +2200,11 @@ Mapping proposed by Computer Associates, but does not work with JBoss properly
          <subquery-supported>true</subquery-supported>
          <true-mapping>1</true-mapping>
          <false-mapping>0</false-mapping>
+
+         <function-mapping>
+            <function-name>count</function-name>
+            <function-sql>count(?1)</function-sql>
+         </function-mapping>
 
          <mapping>
             <java-type>java.lang.Integer</java-type>
@@ -2066,6 +2285,11 @@ Mapping proposed by Computer Associates, but does not work with JBoss properly
          <true-mapping>1</true-mapping>
          <false-mapping>0</false-mapping>
 
+         <function-mapping>
+            <function-name>count</function-name>
+            <function-sql>count(?1)</function-sql>
+         </function-mapping>
+
          <mapping>
             <java-type>java.math.BigDecimal</java-type>
             <jdbc-type>LONGVARCHAR</jdbc-type>
@@ -2116,6 +2340,12 @@ Mapping proposed by Computer Associates, but does not work with JBoss properly
             <jdbc-type>LONGVARCHAR</jdbc-type>
             <sql-type>LONG VARCHAR</sql-type>
          </mapping>
+         <!-- NOTE: This alternative mapping has been suggested for cloudscape
+         <mapping>
+            <java-type>java.lang.String</java-type>
+            <jdbc-type>VARCHAR</jdbc-type>
+            <sql-type>VARCHAR(256)</sql-type>
+         </mapping> -->
          <mapping>
             <java-type>java.sql.Date</java-type>
             <jdbc-type>DATE</jdbc-type>
@@ -2150,6 +2380,11 @@ Mapping proposed by Computer Associates, but does not work with JBoss properly
          <subquery-supported>true</subquery-supported>
          <true-mapping>1</true-mapping>
          <false-mapping>0</false-mapping>
+
+         <function-mapping>
+            <function-name>count</function-name>
+            <function-sql>count(?1)</function-sql>
+         </function-mapping>
 
          <mapping>
             <java-type>java.lang.Character</java-type>
@@ -2242,6 +2477,96 @@ Mapping proposed by Computer Associates, but does not work with JBoss properly
          </mapping>
       </type-mapping>
 
+      <type-mapping>
+          <name>Mimer SQL</name>
+          <row-locking-template/>
+          <pk-constraint-template>CONSTRAINT ?1 PRIMARY KEY (?2)</pk-constraint-template>
+          <fk-constraint-template>ALTER TABLE ?1 ADD CONSTRAINT ?2 FOREIGN KEY (?3) REFERENCES ?4 (?5)</fk-constraint-template>
+          <alias-header-prefix>t</alias-header-prefix>
+          <alias-header-suffix>_</alias-header-suffix>
+          <alias-max-length>32</alias-max-length>
+          <subquery-supported>true</subquery-supported>
+          <true-mapping>1</true-mapping>
+          <false-mapping>0</false-mapping>
+
+          <mapping>
+             <java-type>java.lang.Boolean</java-type>
+             <jdbc-type>BIT</jdbc-type>
+             <sql-type>SMALLINT</sql-type>
+          </mapping>
+
+          <mapping>
+             <java-type>java.lang.Byte</java-type>
+             <jdbc-type>TINYINT</jdbc-type>
+             <sql-type>SMALLINT</sql-type>
+          </mapping>
+
+          <mapping>
+             <java-type>java.lang.Short</java-type>
+             <jdbc-type>SMALLINT</jdbc-type>
+             <sql-type>SMALLINT</sql-type>
+          </mapping>
+
+          <mapping>
+             <java-type>java.lang.Integer</java-type>
+             <jdbc-type>INTEGER</jdbc-type>
+             <sql-type>INTEGER</sql-type>
+          </mapping>
+
+          <mapping>
+             <java-type>java.lang.Long</java-type>
+             <jdbc-type>BIGINT</jdbc-type>
+             <sql-type>BIGINT</sql-type>
+          </mapping>
+
+          <mapping>
+             <java-type>java.lang.Float</java-type>
+             <jdbc-type>REAL</jdbc-type>
+             <sql-type>REAL</sql-type>
+          </mapping>
+
+          <mapping>
+             <java-type>java.lang.Double</java-type>
+             <jdbc-type>DOUBLE</jdbc-type>
+             <sql-type>DOUBLE PRECISION</sql-type>
+          </mapping>
+
+          <mapping>
+             <java-type>java.lang.Character</java-type>
+             <jdbc-type>CHAR</jdbc-type>
+             <sql-type>CHAR</sql-type>
+          </mapping>
+
+          <mapping>
+             <java-type>java.lang.String</java-type>
+             <jdbc-type>VARCHAR</jdbc-type>
+             <sql-type>VARCHAR(5000)</sql-type>
+          </mapping>
+
+          <mapping>
+             <java-type>java.sql.Date</java-type>
+             <jdbc-type>DATE</jdbc-type>
+             <sql-type>DATE</sql-type>
+          </mapping>
+
+          <mapping>
+             <java-type>java.sql.Time</java-type>
+             <jdbc-type>TIME</jdbc-type>
+             <sql-type>TIME</sql-type>
+          </mapping>
+
+          <mapping>
+             <java-type>java.sql.Timestamp</java-type>
+             <jdbc-type>TIMESTAMP</jdbc-type>
+             <sql-type>TIMESTAMP</sql-type>
+          </mapping>
+
+          <mapping>
+             <java-type>java.lang.Object</java-type>
+             <jdbc-type>JAVA_OBJECT</jdbc-type>
+             <sql-type>VARBINARY(5000)</sql-type>
+          </mapping>
+       </type-mapping>
    </type-mappings>
 
    <entity-commands>
@@ -2319,4 +2644,31 @@ Mapping proposed by Computer Associates, but does not work with JBoss properly
                       class="org.jboss.ejb.plugins.cmp.jdbc.keygen.JDBC30GeneratedKeysCreateCommand"/>
    </entity-commands>
 
+   <!-- reserved words that should not be used as table names -->
+   <!-- JBoss will escape them by prepending a 'X' -->
+   <reserved-words>
+      	<word>create</word>
+      	<word>table</word>
+      	<word>alter</word>
+      	<word>on</word>
+      	<word>column</word>
+      	<word>index</word>
+      	<word>set</word>
+      	<word>select</word>
+      	<word>update</word>
+      	<word>delete</word>
+      	<word>from</word>
+      	<word>view</word>
+      	<word>trigger</word>
+      	<word>commit</word>
+      	<word>rollback</word>
+      	<word>drop</word>
+      	<word>grant</word>
+      	<word>revoke</word>
+      	<word>group</word>
+      	<word>between</word>
+      	<word>join</word>
+      	<word>unique</word>
+      	<word>primary</word>
+    </reserved-words>
 </jbosscmp-jdbc>

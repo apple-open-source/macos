@@ -61,7 +61,7 @@ import org.omg.CORBA.ValueDefPackage.FullValueDescription;
  *  Interface IR object.
  *
  *  @author <a href="mailto:osh@sparre.dk">Ole Husgaard</a>
- *  @version $Revision: 1.4 $
+ *  @version $Revision: 1.4.2.1 $
  */
 class ValueDefImpl
    extends ContainedImpl
@@ -82,6 +82,7 @@ class ValueDefImpl
                     LocalContainer defined_in,
                     boolean is_abstract, boolean is_custom,
                     String[] supported_interfaces,
+                    String[] abstract_base_valuetypes,
                     TypeCode baseValueTypeCode,
                     RepositoryImpl repository)
    {
@@ -91,6 +92,7 @@ class ValueDefImpl
       this.is_abstract = is_abstract;
       this.is_custom = is_custom;
       this.supported_interfaces = supported_interfaces;
+      this.abstract_base_valuetypes = abstract_base_valuetypes;
       this.baseValueTypeCode = baseValueTypeCode;
       this.delegate = new ContainerImplDelegate(this);
    }
@@ -179,6 +181,20 @@ class ValueDefImpl
                          "reference to implemented interface \"" +
                          supported_interfaces[i] + "\".");
          supported_interfaces_ref[i] = iDef;
+      }
+
+      // Resolve abstract base valuetypes
+      abstract_base_valuetypes_ref = 
+         new ValueDef[abstract_base_valuetypes.length];
+      for (int i = 0; i < abstract_base_valuetypes.length; ++i) {
+         ValueDef vDef = ValueDefHelper.narrow(
+                            repository.lookup_id(abstract_base_valuetypes[i]));
+         if (vDef == null)
+            throw new IRConstructionException(
+                         "ValueDef \"" + id() + "\" unable to resolve " +
+                         "reference to abstract base valuetype \"" +
+                         abstract_base_valuetypes[i] + "\".");
+         abstract_base_valuetypes_ref[i] = vDef;
       }
    }
 
@@ -349,10 +365,7 @@ class ValueDefImpl
 
    public ValueDef[] abstract_base_values()
    {
-      // Java does not support multible implementation inheritance,
-      // but this valuetype may implement Java interfaces mapped to
-      // abstract valuetypes. TODO: return these interfaces.
-      return new ValueDef[0];
+      return abstract_base_valuetypes_ref;
    }
 
    public void abstract_base_values(ValueDef[] arg)
@@ -418,7 +431,7 @@ class ValueDefImpl
                                                  getValueMembers(),
                                                  new Initializer[0], // TODO
                                                  supported_interfaces,
-                                                 new String[0],
+                                                 abstract_base_valuetypes,
                                                  false,
                                                  baseValue,
                                                  typeCode);
@@ -483,7 +496,7 @@ class ValueDefImpl
                                                  is_custom,
                                                  defined_in_id, version,
                                                  supported_interfaces,
-                                                 new String[0],
+                                                 abstract_base_valuetypes,
                                                  false, 
                                                  baseValue);
  
@@ -546,6 +559,16 @@ class ValueDefImpl
     *  CORBA reference to my base type.
     */
    private ValueDef base_value_ref;
+
+   /**
+    *  IDs of my abstract base valuetypes.
+    */
+   private String[] abstract_base_valuetypes;
+
+   /**
+    *  CORBA references to my abstract base valuetypes.
+    */
+   private ValueDef[] abstract_base_valuetypes_ref;
 
    /**
     *  My cached TypeCode.

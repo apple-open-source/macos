@@ -9,17 +9,13 @@ package org.jboss.ha.hasessionstate.server;
 
 import org.jboss.ha.hasessionstate.interfaces.PackagedSession;
 import java.io.Serializable;
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.ByteArrayOutputStream;
 
 /**
  *   Default implementation of PackagedSession
  *
  *   @see PackagedSession, HASessionStateImpl
  *   @author sacha.labourey@cogito-info.ch
- *   @version $Revision: 1.1.4.2 $
+ *   @version $Revision: 1.1.4.3 $
  */
 public class PackagedSessionImpl implements PackagedSession
 {

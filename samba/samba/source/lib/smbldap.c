@@ -97,6 +97,7 @@ ATTRIB_MAP_ENTRY attrib_map_v30[] = {
 	{ LDAP_ATTR_DOMAIN,		"sambaDomainName"	},
 	{ LDAP_ATTR_OBJCLASS,		"objectClass"		},
 	{ LDAP_ATTR_ACB_INFO,		"sambaAcctFlags"	},
+	{ LDAP_ATTR_MUNGED_DIAL,	"sambaMungedDial"	},
 	{ LDAP_ATTR_LIST_END,		NULL 			}
 };
 
@@ -258,6 +259,7 @@ BOOL fetch_ldap_pw(char **dn, char** pw)
 			return False;
 		}
 
+		size = MIN(size, sizeof(fstring)-1);
 		strncpy(old_style_pw, data, size);
 		old_style_pw[size] = 0;
 
@@ -282,8 +284,9 @@ BOOL fetch_ldap_pw(char **dn, char** pw)
 }
 
 /*******************************************************************
-search an attribute and return the first value found.
+ Search an attribute and return the first value found.
 ******************************************************************/
+
  BOOL smbldap_get_single_attribute (LDAP * ldap_struct, LDAPMessage * entry,
 				   const char *attribute, pstring value)
 {
@@ -300,8 +303,7 @@ search an attribute and return the first value found.
 		return False;
 	}
 	
-	if (convert_string(CH_UTF8, CH_UNIX,values[0], -1, value, sizeof(pstring)) == (size_t)-1)
-	{
+	if (convert_string(CH_UTF8, CH_UNIX,values[0], -1, value, sizeof(pstring)) == (size_t)-1) {
 		DEBUG(1, ("smbldap_get_single_attribute: string conversion of [%s] = [%s] failed!\n", 
 			  attribute, values[0]));
 		ldap_value_free(values);
@@ -350,7 +352,7 @@ search an attribute and return the first value found.
 	}
 
 	for (i = 0; mods[i] != NULL; ++i) {
-		if (mods[i]->mod_op == modop && !strcasecmp(mods[i]->mod_type, attribute))
+		if (mods[i]->mod_op == modop && strequal(mods[i]->mod_type, attribute))
 			break;
 	}
 
@@ -402,32 +404,32 @@ search an attribute and return the first value found.
 	*modlist = mods;
 }
 
-
 /**********************************************************************
   Set attribute to newval in LDAP, regardless of what value the
   attribute had in LDAP before.
 *********************************************************************/
+
  void smbldap_make_mod(LDAP *ldap_struct, LDAPMessage *existing,
 		      LDAPMod ***mods,
 		      const char *attribute, const char *newval)
 {
-	char **values = NULL;
+	pstring oldval;
+	BOOL existed;
 
 	if (existing != NULL) {
-		values = ldap_get_values(ldap_struct, existing, attribute);
+		existed = smbldap_get_single_attribute(ldap_struct, existing, attribute, oldval);
+	} else {
+		existed = False;
+		*oldval = '\0';
 	}
 
 	/* all of our string attributes are case insensitive */
 	
-	if ((values != NULL) && (values[0] != NULL) &&
-	    StrCaseCmp(values[0], newval) == 0) 
-	{
+	if (existed && (StrCaseCmp(oldval, newval) == 0)) {
 		
 		/* Believe it or not, but LDAP will deny a delete and
 		   an add at the same time if the values are the
 		   same... */
-
-		ldap_value_free(values);
 		return;
 	}
 
@@ -436,25 +438,24 @@ search an attribute and return the first value found.
 	   the old value, should it exist. */
 
 	if ((newval != NULL) && (strlen(newval) > 0)) {
+		if (existed) {
+		        /* There has been no value before, so don't delete it.
+			 * Here's a possible race: We might end up with
+			 * duplicate attributes */
+			/* By deleting exactly the value we found in the entry this
+			 * should be race-free in the sense that the LDAP-Server will
+			 * deny the complete operation if somebody changed the
+			 * attribute behind our back. */
+			/* This will also allow modifying single valued attributes 
+			 * in Novell NDS. In NDS you have to first remove attribute and then
+			 * you could add new value */
+
+	                 smbldap_set_mod(mods, LDAP_MOD_DELETE, attribute, oldval);
+	        }
+
 		smbldap_set_mod(mods, LDAP_MOD_ADD, attribute, newval);
 	}
-
-	if (values == NULL) {
-		/* There has been no value before, so don't delete it.
-		   Here's a possible race: We might end up with
-		   duplicate attributes */
-		return;
-	}
-
-	/* By deleting exactly the value we found in the entry this
-	   should be race-free in the sense that the LDAP-Server will
-	   deny the complete operation if somebody changed the
-	   attribute behind our back. */
-
-	smbldap_set_mod(mods, LDAP_MOD_DELETE, attribute, values[0]);
-	ldap_value_free(values);
 }
-
 
 /**********************************************************************
  Some varients of the LDAP rebind code do not pass in the third 'arg' 
@@ -544,11 +545,11 @@ static int smbldap_open_connection (struct smbldap_state *ldap_state)
 		SMB_ASSERT(sizeof(protocol)>10 && sizeof(host)>254);
 		
 		/* skip leading "URL:" (if any) */
-		if ( strncasecmp( p, "URL:", 4 ) == 0 ) {
+		if ( strnequal( p, "URL:", 4 ) ) {
 			p += 4;
 		}
 		
-		sscanf(p, "%10[^:]://%254s[^:]:%d", protocol, host, &port);
+		sscanf(p, "%10[^:]://%254[^:/]:%d", protocol, host, &port);
 		
 		if (port == 0) {
 			if (strequal(protocol, "ldap")) {
@@ -661,6 +662,9 @@ static int rebindproc_with_state  (LDAP * ld, char **whop, char **credp,
 		}
 		*methodp = LDAP_AUTH_SIMPLE;
 	}
+
+	gettimeofday(&(ldap_state->last_rebind),NULL);
+		
 	return 0;
 }
 #endif /*defined(LDAP_API_FEATURE_X_OPENLDAP) && (LDAP_API_VERSION > 2000)*/
@@ -687,6 +691,8 @@ static int rebindproc_connect_with_state (LDAP *ldap_struct,
 
 	rc = ldap_simple_bind_s(ldap_struct, ldap_state->bind_dn, ldap_state->bind_secret);
 	
+	gettimeofday(&(ldap_state->last_rebind),NULL);
+
 	return rc;
 }
 #endif /*defined(LDAP_API_FEATURE_X_OPENLDAP) && (LDAP_API_VERSION > 2000)*/
@@ -908,6 +914,32 @@ int smbldap_search(struct smbldap_state *ldap_state,
 	char           *utf8_filter;
 
 	SMB_ASSERT(ldap_state);
+	
+	DEBUG(5,("smbldap_search: base => [%s], filter => [%s], scope => [%d]\n",
+		base, filter, scope));
+
+	if (ldap_state->last_rebind.tv_sec > 0) {
+		struct timeval	tval;
+		int 		tdiff = 0;
+		int		sleep_time = 0;
+
+		ZERO_STRUCT(tval);
+
+		gettimeofday(&tval,NULL);
+
+		tdiff = 1000000 *(tval.tv_sec - ldap_state->last_rebind.tv_sec) + 
+			(tval.tv_usec - ldap_state->last_rebind.tv_usec);
+
+		sleep_time = ((1000*lp_ldap_replication_sleep())-tdiff)/1000;
+
+		if (sleep_time > 0) {
+			/* we wait for the LDAP replication */
+			DEBUG(5,("smbldap_search: waiting %d milliseconds for LDAP replication.\n",sleep_time));
+			msleep(sleep_time);
+			DEBUG(5,("smbldap_search: go on!\n"));
+			ZERO_STRUCT(ldap_state->last_rebind);
+		}
+	}
 
 	if (push_utf8_allocate(&utf8_filter, filter) == (size_t)-1) {
 		return LDAP_NO_MEMORY;
@@ -941,6 +973,8 @@ int smbldap_modify(struct smbldap_state *ldap_state, const char *dn, LDAPMod *at
 
 	SMB_ASSERT(ldap_state);
 
+	DEBUG(5,("smbldap_modify: dn => [%s]\n", dn ));
+
 	if (push_utf8_allocate(&utf8_dn, dn) == (size_t)-1) {
 		return LDAP_NO_MEMORY;
 	}
@@ -972,6 +1006,8 @@ int smbldap_add(struct smbldap_state *ldap_state, const char *dn, LDAPMod *attrs
 	
 	SMB_ASSERT(ldap_state);
 
+	DEBUG(5,("smbldap_add: dn => [%s]\n", dn ));
+
 	if (push_utf8_allocate(&utf8_dn, dn) == (size_t)-1) {
 		return LDAP_NO_MEMORY;
 	}
@@ -1002,6 +1038,8 @@ int smbldap_delete(struct smbldap_state *ldap_state, const char *dn)
 	char           *utf8_dn;
 	
 	SMB_ASSERT(ldap_state);
+
+	DEBUG(5,("smbldap_delete: dn => [%s]\n", dn ));
 
 	if (push_utf8_allocate(&utf8_dn, dn) == (size_t)-1) {
 		return LDAP_NO_MEMORY;
@@ -1065,8 +1103,6 @@ int smbldap_search_suffix (struct smbldap_state *ldap_state, const char *filter,
 	int scope = LDAP_SCOPE_SUBTREE;
 	int rc;
 
-	DEBUG(2, ("smbldap_search_suffix: searching for:[%s]\n", filter));
-
 	rc = smbldap_search(ldap_state, lp_ldap_suffix(), scope, filter, search_attr, 0, result);
 
 	if (rc != LDAP_SUCCESS)	{
@@ -1075,8 +1111,6 @@ int smbldap_search_suffix (struct smbldap_state *ldap_state, const char *filter,
 				&ld_error);
 		DEBUG(0,("smbldap_search_suffix: Problem during the LDAP search: %s (%s)\n", 
 			ld_error?ld_error:"(unknown)", ldap_err2string (rc)));
-		DEBUG(3,("smbldap_search_suffix: Query was: %s, %s\n", lp_ldap_suffix(), 
-			filter));
 		SAFE_FREE(ld_error);
 	}
 	
@@ -1329,3 +1363,23 @@ NTSTATUS smbldap_search_domain_info(struct smbldap_state *ldap_state,
 	return ret;
 }
 
+/*******************************************************************
+ Return a copy of the DN for a LDAPMessage. Convert from utf8 to CH_UNIX.
+********************************************************************/
+
+char *smbldap_get_dn(LDAP *ld, LDAPMessage *entry)
+{
+	char *utf8_dn, *unix_dn;
+
+	utf8_dn = ldap_get_dn(ld, entry);
+	if (!utf8_dn) {
+		DEBUG (5, ("smbldap_get_dn: ldap_get_dn failed\n"));
+		return NULL;
+	}
+	if (pull_utf8_allocate(&unix_dn, utf8_dn) == (size_t)-1) {
+		DEBUG (0, ("smbldap_get_dn: String conversion failure utf8 [%s]\n", utf8_dn));
+		return NULL;
+	}
+	ldap_memfree(utf8_dn);
+	return unix_dn;
+}

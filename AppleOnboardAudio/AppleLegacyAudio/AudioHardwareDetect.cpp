@@ -126,7 +126,7 @@ UInt32 AudioHardwareDetect::refreshDevices(UInt32 inSense){
                 result = 0;
             break;
         case kAudioHardwareDetectGPIO: 					// We need to add the GPIO detect
-			debug4IOLog("AudioHardwareDetect::refreshDevices inSense %08lx, dbitMask %08lx, dbitMatch %08lx\n", inSense, dbitMask, dbitMatch) ;
+			debugIOLog (3, "AudioHardwareDetect::refreshDevices inSense %08lx, dbitMask %08lx, dbitMatch %08lx", inSense, dbitMask, dbitMatch) ;
 
             if((inSense & dbitMask) == dbitMatch) {
                 result = dDevice;
@@ -141,44 +141,44 @@ UInt32 AudioHardwareDetect::refreshDevices(UInt32 inSense){
     }
     ioLog();
     if(0 != result){
-        CLOG(" --> Detect Activated\n");
+        debugIOLog (3, " --> Detect Activated");
     }
     return(result);
 }
 
 void AudioHardwareDetect::ioLog(){
 #ifdef DEBUGLOG
-     debugIOLog( "+ Detect for device : ");
+     debugIOLog (3,  "+ Detect for device : ");
      switch (dDevice) {
-        case kSndHWInternalSpeaker: debugIOLog("kSndHWInternalSpeaker\n"); break;
-        case kSndHWCPUHeadphone: debugIOLog("kSndHWCPUHeadphone\n"); break;
-        case kSndHWCPUExternalSpeaker: debugIOLog("kSndHWCPUExternalSpeaker\n");break;
-        case kSndHWCPUSubwoofer: debugIOLog("kSndHWCPUSubwoofer\n"); break;
-        case kSndHWCPUMicrophone: debugIOLog("kSndHWCPUMicrophone\n"); break;        
-        case kSndHWCPUPlainTalk: debugIOLog("kSndHWCPUPlainTalk\n"); break;       
-        case kSndHWMonitorHeadphone: debugIOLog("kSndHWMonitorHeadphone\n"); break;
-        case kSndHWMonitorPlainTalk: debugIOLog("kSndHWMonitorPlainTalk\n"); break;
-        case kSndHWModemRingDetect: debugIOLog("kSndHWModemRingDetect\n"); break;
-        case kSndHWModemLineCurrent: debugIOLog("kSndHWModemLineCurrent\n"); break;
-        case kSndHWModemESquared: debugIOLog("kSndHWModemESquared\n"); break;
+        case kSndHWInternalSpeaker: debugIOLog (3, "kSndHWInternalSpeaker"); break;
+        case kSndHWCPUHeadphone: debugIOLog (3, "kSndHWCPUHeadphone"); break;
+        case kSndHWCPUExternalSpeaker: debugIOLog (3, "kSndHWCPUExternalSpeaker");break;
+        case kSndHWCPUSubwoofer: debugIOLog (3, "kSndHWCPUSubwoofer"); break;
+        case kSndHWCPUMicrophone: debugIOLog (3, "kSndHWCPUMicrophone"); break;        
+        case kSndHWCPUPlainTalk: debugIOLog (3, "kSndHWCPUPlainTalk"); break;       
+        case kSndHWMonitorHeadphone: debugIOLog (3, "kSndHWMonitorHeadphone"); break;
+        case kSndHWMonitorPlainTalk: debugIOLog (3, "kSndHWMonitorPlainTalk"); break;
+        case kSndHWModemRingDetect: debugIOLog (3, "kSndHWModemRingDetect"); break;
+        case kSndHWModemLineCurrent: debugIOLog (3, "kSndHWModemLineCurrent"); break;
+        case kSndHWModemESquared: debugIOLog (3, "kSndHWModemESquared"); break;
         default: break;
     }
     
     switch(dKind) {
         case kAudioHardwareDetectInSense:
-            debugIOLog(" -- Type : InSense\n");
-            debug3IOLog(" -- Insense mask is %ld, insense match is %ld\n",dbitMask, dbitMatch );
+            debugIOLog (3, " -- Type : InSense");
+            debugIOLog (3, " -- Insense mask is %ld, insense match is %ld",dbitMask, dbitMatch );
             break;
         case kAudioHardwareDetectAnyInSense:
-            debugIOLog(" -- Type : AnyInSense\n");
-            debug2IOLog(" -- Insense mask is %ld \n",dbitMask);
+            debugIOLog (3, " -- Type : AnyInSense");
+            debugIOLog (3, " -- Insense mask is %ld ",dbitMask);
             break;
         case kAudioHardwareDetectGPIO: 				// We need to add the GPIO detect information
-            debugIOLog(" -- Type : GPIO\n");
+            debugIOLog (3, " -- Type : GPIO");
             break;
         case kAudioHardwareDetectUnknown:
         default:
-            debugIOLog(" -- Type : Unknown\n");
+            debugIOLog (3, " -- Type : Unknown");
             break;
     }
 #endif

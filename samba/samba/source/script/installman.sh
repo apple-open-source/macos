@@ -5,7 +5,7 @@
 #   modified to accomodate international man pages (inspired
 #   by Japanese edition's approach)
 
-MANDIR=$1
+MANDIR=`echo $1 | sed 's/\/\//\//g'`
 SRCDIR=$2/
 langs=$3
 
@@ -25,7 +25,7 @@ for lang in $langs; do
     langdir=$MANDIR/$lang
     for d in $MANDIR $langdir $langdir/man1 $langdir/man5 $langdir/man7 $langdir/man8; do
 	if [ ! -d $d ]; then
-	    mkdir $d
+	    mkdir -p $d
 	    if [ ! -d $d ]; then
 		echo Failed to make directory $d, does $USER have privileges?
 		exit 1

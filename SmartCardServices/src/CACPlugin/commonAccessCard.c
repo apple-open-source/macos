@@ -586,7 +586,8 @@ MSC_RV PL_MSCComputeCrypt( MSCLPTokenConnection pConnection,
   }
 
   if ( cryptInit->cipherDirection != MSC_DIR_SIGN &&
-       cryptInit->cipherDirection != MSC_DIR_ENCRYPT ) {
+       cryptInit->cipherDirection != MSC_DIR_ENCRYPT &&
+	   cryptInit->cipherDirection != MSC_DIR_DECRYPT) {
     return MSC_INVALID_PARAMETER;
   }
 

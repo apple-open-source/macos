@@ -1,3 +1,4 @@
+
 /**
  * This file is part of the DOM implementation for KDE.
  *
@@ -67,7 +68,13 @@
 #include "html/html_tableimpl.h"
 #include "html/html_objectimpl.h"
 
+#include "cssvalues.h"
+
 #include <kio/job.h>
+
+#if APPLE_CHANGES
+#include "KWQAccObjectCache.h"
+#endif
 
 using namespace DOM;
 using namespace khtml;
@@ -178,14 +185,6 @@ DocumentImpl *DOMImplementationImpl::createDocument( const DOMString &namespaceU
     if (doc->doctype() && dtype)
         doc->doctype()->copyFrom(*dtype);
 
-    ElementImpl *element = doc->createElementNS(namespaceURI,qualifiedName);
-    doc->appendChild(element,exceptioncode);
-    if (exceptioncode) {
-        delete element;
-        delete doc;
-        return 0;
-    }
-
     return doc;
 }
 
@@ -231,7 +230,8 @@ DocumentImpl::DocumentImpl(DOMImplementationImpl *_implementation, KHTMLView *v)
     , m_imageLoadEventTimer(0)
 #if APPLE_CHANGES
     , m_finishedParsing(this, SIGNAL(finishedParsing()))
-    , m_inPageCache(0), m_passwordFields(0), m_secureForms(0)
+    , m_inPageCache(false), m_savedRenderer(0)
+    , m_passwordFields(0), m_secureForms(0)
     , m_decoder(0), m_createRenderers(true)
 #endif
 {
@@ -242,6 +242,10 @@ DocumentImpl::DocumentImpl(DOMImplementationImpl *_implementation, KHTMLView *v)
 
     m_view = v;
     m_renderArena = 0;
+
+#if APPLE_CHANGES
+    m_accCache = 0;
+#endif
     
     if ( v ) {
         m_docLoader = new DocLoader(v->part(), this );
@@ -284,6 +288,7 @@ DocumentImpl::DocumentImpl(DOMImplementationImpl *_implementation, KHTMLView *v)
     m_namespaceURIs[0] = new DOMStringImpl(xhtml.unicode(), xhtml.length());
     m_namespaceURIs[0]->ref();
     m_focusNode = 0;
+    m_hoverNode = 0;
     m_defaultView = new AbstractViewImpl(this);
     m_defaultView->ref();
     m_listenerTypes = 0;
@@ -298,13 +303,22 @@ DocumentImpl::DocumentImpl(DOMImplementationImpl *_implementation, KHTMLView *v)
                                             !inCompatMode() );
     m_windowEventListeners.setAutoDelete(true);
     m_pendingStylesheets = 0;
+    m_ignorePendingStylesheets = false;
 
     m_cssTarget = 0;
+    m_accessKeyDictValid = false;
+    
+    m_processingLoadEvent = false;
+    m_startTime.restart();
 }
 
 DocumentImpl::~DocumentImpl()
 {
     assert(!m_render);
+#if APPLE_CHANGES
+    assert(!m_inPageCache);
+    assert(m_savedRenderer == 0);
+#endif
     
     KJS::ScriptInterpreter::forgetDOMObjectsForDocument(this);
 
@@ -336,13 +350,23 @@ DocumentImpl::~DocumentImpl()
     delete [] m_namespaceURIs;
     m_defaultView->deref();
     m_styleSheets->deref();
+
     if (m_focusNode)
         m_focusNode->deref();
-        
+    if (m_hoverNode)
+        m_hoverNode->deref();
+    
     if (m_renderArena){
         delete m_renderArena;
         m_renderArena = 0;
     }
+
+#if APPLE_CHANGES
+    if (m_accCache){
+        delete m_accCache;
+        m_accCache = 0;
+    }
+#endif
     
     if (m_decoder){
         m_decoder->deref();
@@ -369,7 +393,7 @@ ElementImpl *DocumentImpl::documentElement() const
     return static_cast<ElementImpl*>(n);
 }
 
-ElementImpl *DocumentImpl::createElement( const DOMString &name )
+ElementImpl *DocumentImpl::createElement( const DOMString &name, int &exceptioncode )
 {
     return new XMLElementImpl( document, name.implementation() );
 }
@@ -415,7 +439,9 @@ NodeImpl *DocumentImpl::importNode(NodeImpl *importedNode, bool deep, int &excep
 
 	if(importedNode->nodeType() == Node::ELEMENT_NODE)
 	{
-		ElementImpl *tempElementImpl = createElementNS(getDocument()->namespaceURI(id()), importedNode->nodeName());
+		ElementImpl *tempElementImpl = createElementNS(getDocument()->namespaceURI(id()), importedNode->nodeName(), exceptioncode);
+                if (exceptioncode)
+                    return 0;
 		result = tempElementImpl;
 
 		if(static_cast<ElementImpl *>(importedNode)->attributes(true) && static_cast<ElementImpl *>(importedNode)->attributes(true)->length())
@@ -477,7 +503,7 @@ NodeImpl *DocumentImpl::importNode(NodeImpl *importedNode, bool deep, int &excep
 	return result;
 }
 
-ElementImpl *DocumentImpl::createElementNS( const DOMString &_namespaceURI, const DOMString &_qualifiedName )
+ElementImpl *DocumentImpl::createElementNS( const DOMString &_namespaceURI, const DOMString &_qualifiedName, int &exceptioncode)
 {
     ElementImpl *e = 0;
     QString qName = _qualifiedName.string();
@@ -487,10 +513,16 @@ ElementImpl *DocumentImpl::createElementNS( const DOMString &_namespaceURI, cons
         _namespaceURI == XHTML_NAMESPACE) {
         // User requested an element in the XHTML namespace - this means we create a HTML element
         // (elements not in this namespace are treated as normal XML elements)
-        e = createHTMLElement(qName.mid(colonPos+1));
-        int exceptioncode = 0;
-        if (colonPos >= 0)
-            e->setPrefix(qName.left(colonPos),  exceptioncode);
+        e = createHTMLElement(qName.mid(colonPos+1), exceptioncode);
+        if (exceptioncode)
+            return 0;
+        if (e && colonPos >= 0) {
+            e->setPrefix(qName.left(colonPos), exceptioncode);
+            if (exceptioncode) {
+                delete e;
+                return 0;
+            }
+        }
     }
     if (!e)
         e = new XMLElementImpl( document, _qualifiedName.implementation(), _namespaceURI.implementation() );
@@ -504,52 +536,65 @@ ElementImpl *DocumentImpl::getElementById( const DOMString &elementId ) const
 	return 0;
     }
 
-    QPtrStack<NodeImpl> nodeStack;
-    NodeImpl *current = _first;
+    return m_elementsById.find(elementId.string());
+}
 
-    while(1)
-    {
-        if(!current)
-        {
-            if(nodeStack.isEmpty()) break;
-            current = nodeStack.pop();
-            current = current->nextSibling();
-        }
-        else
-        {
-            if(current->isElementNode())
-            {
-                ElementImpl *e = static_cast<ElementImpl *>(current);
-                if(e->getAttribute(ATTR_ID) == elementId)
-                    return e;
-            }
 
-            NodeImpl *child = current->firstChild();
-            if(child)
-            {
-                nodeStack.push(current);
-                current = child;
-            }
-            else
-            {
-                current = current->nextSibling();
-            }
-        }
+void DocumentImpl::addElementById(const DOMString &elementId, ElementImpl *element)
+{
+    QString qId = elementId.string();
+
+    if (m_elementsById.find(qId) == NULL) {
+	m_elementsById.insert(qId, element);
+        m_accessKeyDictValid = false;
     }
+}
 
-    //kdDebug() << "WARNING: *DocumentImpl::getElementById not found " << elementId.string() << endl;
-    return 0;
+void DocumentImpl::removeElementById(const DOMString &elementId, ElementImpl *element)
+{
+    QString qId = elementId.string();
+
+    if (m_elementsById.find(qId) == element) {
+	m_elementsById.remove(qId);
+        m_accessKeyDictValid = false;
+    }
+}
+
+ElementImpl *DocumentImpl::getElementByAccessKey( const DOMString &key )
+{
+    if (key.length() == 0)
+	return 0;
+
+    QString k(key.string());
+    if (!m_accessKeyDictValid) {
+        m_elementsByAccessKey.clear();
+    
+        const NodeImpl *n;
+        for (n = this; n != 0; n = n->traverseNextNode()) {
+            if (!n->isElementNode())
+                continue;
+            const ElementImpl *elementImpl = static_cast<const ElementImpl *>(n);
+            DOMString accessKey(elementImpl->getAttribute(ATTR_ACCESSKEY));
+            if (!accessKey.isEmpty()) {
+                QString ak = accessKey.string().lower();
+                if (m_elementsByAccessKey.find(ak) == NULL)
+                    m_elementsByAccessKey.insert(ak, elementImpl);
+            }
+        }
+        m_accessKeyDictValid = true;
+    }
+    return m_elementsByAccessKey.find(k);
 }
 
 void DocumentImpl::setTitle(DOMString _title)
 {
     m_title = _title;
 
-    if (!view() || !view()->part())
+    if (!part())
         return;
 
 #if APPLE_CHANGES
-    KWQ(view()->part())->setTitle(_title);
+    KWQ(part())->setTitle(_title);
 #else
     QString titleStr = m_title.string();
     for (int i = 0; i < titleStr.length(); ++i)
@@ -557,7 +602,7 @@ void DocumentImpl::setTitle(DOMString _title)
             titleStr[i] = ' ';
     titleStr = titleStr.stripWhiteSpace();
     titleStr.compose();
-    if ( !view()->part()->parentPart() ) {
+    if ( !part()->parentPart() ) {
 	if (titleStr.isNull() || titleStr.isEmpty()) {
 	    // empty title... set window caption as the URL
 	    KURL url = m_url;
@@ -566,7 +611,7 @@ void DocumentImpl::setTitle(DOMString _title)
 	    titleStr = url.url();
 	}
 
-	emit view()->part()->setWindowCaption( KStringHandler::csqueeze( titleStr, 128 ) );
+	emit part()->setWindowCaption( KStringHandler::csqueeze( titleStr, 128 ) );
     }
 #endif
 }
@@ -581,8 +626,13 @@ unsigned short DocumentImpl::nodeType() const
     return Node::DOCUMENT_NODE;
 }
 
-ElementImpl *DocumentImpl::createHTMLElement( const DOMString &name )
+ElementImpl *DocumentImpl::createHTMLElement( const DOMString &name, int &exceptioncode )
 {
+    if (!isValidName(name)) {
+        exceptioncode = DOMException::INVALID_CHARACTER_ERR;
+        return 0;
+    }
+
     uint id = khtml::getTagID( name.string().lower().latin1(), name.string().length() );
 
     ElementImpl *n = 0;
@@ -829,7 +879,11 @@ ElementImpl *DocumentImpl::createHTMLElement( const DOMString &name )
         n = new HTMLGenericElementImpl(docPtr(), id);
         break;
 
-    case ID_BDO:
+    case ID_MARQUEE:
+        n = new HTMLMarqueeElementImpl(docPtr());
+        break;
+        
+    case ID_BDO: // FIXME: make an element here. "bdo" with dir adds the CSS direction and unicode-bidi with override.
         break;
 
 // text
@@ -861,6 +915,11 @@ QStringList DocumentImpl::docState()
         s.append(it.current()->state());
 
     return s;
+}
+
+KHTMLPart *DocumentImpl::part() const 
+{
+    return m_view ? m_view->part() : 0; 
 }
 
 RangeImpl *DocumentImpl::createRange()
@@ -897,6 +956,9 @@ void DocumentImpl::setDocumentChanged(bool b)
     else if (!b && m_docChanged)
         changedDocuments->remove(this);
     m_docChanged = b;
+    
+    if (m_docChanged)
+        m_accessKeyDictValid = false;
 }
 
 void DocumentImpl::recalcStyle( StyleChange change )
@@ -925,16 +987,22 @@ void DocumentImpl::recalcStyle( StyleChange change )
 	fontDef.italic = f.italic();
 	fontDef.weight = f.weight();
 #if APPLE_CHANGES
-        fontDef.usePrinterFont = m_paintDevice->devType() == QInternal::Printer;
+        bool printing = m_paintDevice->devType() == QInternal::Printer;
+        fontDef.usePrinterFont = printing;
 #endif
         if (m_view) {
             const KHTMLSettings *settings = m_view->part()->settings();
+#if APPLE_CHANGES
+            if (printing && !settings->shouldPrintBackgrounds()) {
+                _style->setShouldCorrectTextColor(true);
+            }
+#endif
             QString stdfont = settings->stdFontName();
             if ( !stdfont.isEmpty() ) {
                 fontDef.family.setFamily(stdfont);
                 fontDef.family.appendFamily(0);
             }
-            m_styleSelector->setFontSize(fontDef, m_styleSelector->fontSizes()[3]);
+            m_styleSelector->setFontSize(fontDef, m_styleSelector->fontSizeForKeyword(CSS_VAL_MEDIUM, inCompatMode()));
         }
 
         //kdDebug() << "DocumentImpl::attach: setting to charset " << settings->charset() << endl;
@@ -961,13 +1029,8 @@ void DocumentImpl::recalcStyle( StyleChange change )
             n->recalcStyle( change );
     //kdDebug( 6020 ) << "TIME: recalcStyle() dt=" << qt.elapsed() << endl;
 
-    // ### should be done by the rendering tree itself,
-    // this way is rather crude and CPU intensive
-    if ( changed() ) {
-        renderer()->setNeedsLayoutAndMinMaxRecalc();
-	renderer()->layout();
-	renderer()->repaint();
-    }
+    if (changed() && m_view)
+	m_view->layout();
 
 bail_out:
     setChanged( false );
@@ -1012,16 +1075,28 @@ void DocumentImpl::updateDocumentsRendering()
 
 void DocumentImpl::updateLayout()
 {
+    bool oldIgnore = m_ignorePendingStylesheets;
+    
+    if (!haveStylesheetsLoaded()) {
+        m_ignorePendingStylesheets = true;
+	updateStyleSelector();    
+    }
+
     updateRendering();
 
     // Only do a layout if changes have occurred that make it necessary.      
     if (m_view && renderer() && renderer()->needsLayout())
 	m_view->layout();
+
+    m_ignorePendingStylesheets = oldIgnore;
 }
 
 void DocumentImpl::attach()
 {
     assert(!attached());
+#if APPLE_CHANGES
+    assert(!m_inPageCache);
+#endif
 
     if ( m_view )
         setPaintDevice( m_view );
@@ -1031,7 +1106,6 @@ void DocumentImpl::attach()
     
     // Create the rendering tree
     m_render = new (m_renderArena) RenderCanvas(this, m_view);
-    m_styleSelector->computeFontSizes(paintDeviceMetrics());
     recalcStyle( Force );
 
     RenderObject* render = m_render;
@@ -1068,7 +1142,7 @@ void DocumentImpl::detach()
     NodeBaseImpl::detach();
 
     if ( render )
-        render->detach(m_renderArena);
+        render->detach();
 
     if (m_paintDevice == m_view)
         setPaintDevice(0);
@@ -1079,6 +1153,15 @@ void DocumentImpl::detach()
         m_renderArena = 0;
     }
 }
+
+#if APPLE_CHANGES
+KWQAccObjectCache* DocumentImpl::getOrCreateAccObjectCache()
+{
+    if (!m_accCache)
+        m_accCache = new KWQAccObjectCache;
+    return m_accCache;
+}
+#endif
 
 void DocumentImpl::setVisuallyOrdered()
 {
@@ -1130,9 +1213,75 @@ void DocumentImpl::open(  )
         m_view->part()->jScript()->setSourceFile(m_url,"");
 }
 
-void DocumentImpl::close(  )
+HTMLElementImpl* DocumentImpl::body()
 {
-    closeInternal(true);
+    NodeImpl *de = documentElement();
+    if (!de)
+        return 0;
+    
+    // try to prefer a FRAMESET element over BODY
+    NodeImpl* body = 0;
+    for (NodeImpl* i = de->firstChild(); i; i = i->nextSibling()) {
+        if (i->id() == ID_FRAMESET)
+            return static_cast<HTMLElementImpl*>(i);
+        
+        if (i->id() == ID_BODY)
+            body = i;
+    }
+    return static_cast<HTMLElementImpl *>(body);
+}
+
+void DocumentImpl::close()
+{
+    // First fire the onload.
+    bool doload = !parsing() && m_tokenizer && !m_processingLoadEvent;
+    
+    bool wasNotRedirecting = !part() || part()->d->m_scheduledRedirection == noRedirectionScheduled || part()->d->m_scheduledRedirection == historyNavigationScheduled;
+    
+    m_processingLoadEvent = true;
+    if (body() && doload) {
+        // We have to clear the tokenizer, in case someone document.write()s from the
+        // onLoad event handler, as in Radar 3206524
+        delete m_tokenizer;
+        m_tokenizer = 0;
+        dispatchImageLoadEventsNow();
+        body()->dispatchWindowEvent(EventImpl::LOAD_EVENT, false, false);
+    }
+    m_processingLoadEvent = false;
+    
+    // Make sure both the initial layout and reflow happen after the onload
+    // fires. This will improve onload scores, and other browsers do it.
+    // If they wanna cheat, we can too. -dwh
+    
+    bool isRedirectingSoon = view() && view()->part()->d->m_scheduledRedirection != noRedirectionScheduled && view()->part()->d->m_scheduledRedirection != historyNavigationScheduled && view()->part()->d->m_delayRedirect == 0;
+    
+    if (doload && wasNotRedirecting && isRedirectingSoon && m_startTime.elapsed() < 1000) {
+        static int redirectCount = 0;
+        if (redirectCount++ % 4) {
+            // When redirecting over and over (e.g., i-bench), to avoid the appearance of complete inactivity,
+            // paint every fourth page.
+            // Just bail out. During the onload we were shifted to another page.
+            // i-Bench does this. When this happens don't bother painting or laying out.        
+            delete m_tokenizer;
+            m_tokenizer = 0;
+            view()->unscheduleRelayout();
+            return;
+        }
+    }
+    
+    // The initial layout happens here.
+    DocumentImpl::closeInternal(!doload);
+    
+    // Now do our painting/layout, but only if we aren't in a subframe or if we're in a subframe
+    // that has been sized already.  Otherwise, our view size would be incorrect, so doing any 
+    // layout/painting now would be pointless.
+    if (doload && (!ownerElement() || (ownerElement()->renderer() && !ownerElement()->renderer()->needsLayout()))) {
+        updateRendering();
+        
+        // Always do a layout after loading if needed.
+        if (renderer() && (!renderer()->firstChild() || renderer()->needsLayout()))
+            view()->layout();
+    }
 }
 
 void DocumentImpl::closeInternal( bool checkTokenizer )
@@ -1142,8 +1291,13 @@ void DocumentImpl::closeInternal( bool checkTokenizer )
     if ( m_render )
         m_render->close();
 
-    delete m_tokenizer;
-    m_tokenizer = 0;
+    // on an explicit document.close(), the tokenizer might still be waiting on scripts,
+    // and in that case we don't want to destroy it because that will prevent the
+    // scripts from getting processed.
+    if (m_tokenizer && !m_tokenizer->isWaitingForScripts()) {
+	delete m_tokenizer;
+	m_tokenizer = 0;
+    }
 
     if (m_view)
         m_view->part()->checkEmitLoadEvent();
@@ -1272,7 +1426,7 @@ NodeImpl *DocumentImpl::nextFocusNode(NodeImpl *fromNode)
 
 	int lowestTabIndex = 65535;
 	for (n = this; n != 0; n = n->traverseNextNode()) {
-	    if (n->isSelectable()) {
+	    if (n->isKeyboardFocusable()) {
 		if ((n->tabIndex() > 0) && (n->tabIndex() < lowestTabIndex))
 		    lowestTabIndex = n->tabIndex();
 	    }
@@ -1283,7 +1437,7 @@ NodeImpl *DocumentImpl::nextFocusNode(NodeImpl *fromNode)
 
 	// Go to the first node in the document that has the desired tab index
 	for (n = this; n != 0; n = n->traverseNextNode()) {
-	    if (n->isSelectable() && (n->tabIndex() == lowestTabIndex))
+	    if (n->isKeyboardFocusable() && (n->tabIndex() == lowestTabIndex))
 		return n;
 	}
 
@@ -1296,7 +1450,7 @@ NodeImpl *DocumentImpl::nextFocusNode(NodeImpl *fromNode)
     if (fromTabIndex == 0) {
 	// Just need to find the next selectable node after fromNode (in document order) that doesn't have a tab index
 	NodeImpl *n = fromNode->traverseNextNode();
-	while (n && !(n->isSelectable() && n->tabIndex() == 0))
+	while (n && !(n->isKeyboardFocusable() && n->tabIndex() == 0))
 	    n = n->traverseNextNode();
 	return n;
     }
@@ -1310,7 +1464,7 @@ NodeImpl *DocumentImpl::nextFocusNode(NodeImpl *fromNode)
 
 	bool reachedFromNode = false;
 	for (n = this; n != 0; n = n->traverseNextNode()) {
-	    if (n->isSelectable() &&
+	    if (n->isKeyboardFocusable() &&
 		((reachedFromNode && (n->tabIndex() >= fromTabIndex)) ||
 		 (!reachedFromNode && (n->tabIndex() > fromTabIndex))) &&
 		(n->tabIndex() < lowestSuitableTabIndex) &&
@@ -1328,20 +1482,20 @@ NodeImpl *DocumentImpl::nextFocusNode(NodeImpl *fromNode)
 	if (lowestSuitableTabIndex == 65535) {
 	    // No next node with a tab index -> just take first node with tab index of 0
 	    NodeImpl *n = this;
-	    while (n && !(n->isSelectable() && n->tabIndex() == 0))
+	    while (n && !(n->isKeyboardFocusable() && n->tabIndex() == 0))
 		n = n->traverseNextNode();
 	    return n;
 	}
 
 	// Search forwards from fromNode
 	for (n = fromNode->traverseNextNode(); n != 0; n = n->traverseNextNode()) {
-	    if (n->isSelectable() && (n->tabIndex() == lowestSuitableTabIndex))
+	    if (n->isKeyboardFocusable() && (n->tabIndex() == lowestSuitableTabIndex))
 		return n;
 	}
 
 	// The next node isn't after fromNode, start from the beginning of the document
 	for (n = this; n != fromNode; n = n->traverseNextNode()) {
-	    if (n->isSelectable() && (n->tabIndex() == lowestSuitableTabIndex))
+	    if (n->isKeyboardFocusable() && (n->tabIndex() == lowestSuitableTabIndex))
 		return n;
 	}
 
@@ -1362,7 +1516,7 @@ NodeImpl *DocumentImpl::previousFocusNode(NodeImpl *fromNode)
 
 	int highestTabIndex = 0;
 	for (n = lastNode; n != 0; n = n->traversePreviousNode()) {
-	    if (n->isSelectable()) {
+	    if (n->isKeyboardFocusable()) {
 		if (n->tabIndex() == 0)
 		    return n;
 		else if (n->tabIndex() > highestTabIndex)
@@ -1372,7 +1526,7 @@ NodeImpl *DocumentImpl::previousFocusNode(NodeImpl *fromNode)
 
 	// No node with a tab index of 0; just go to the last node with the highest tab index
 	for (n = lastNode; n != 0; n = n->traversePreviousNode()) {
-	    if (n->isSelectable() && (n->tabIndex() == highestTabIndex))
+	    if (n->isKeyboardFocusable() && (n->tabIndex() == highestTabIndex))
 		return n;
 	}
 
@@ -1384,7 +1538,7 @@ NodeImpl *DocumentImpl::previousFocusNode(NodeImpl *fromNode)
 	if (fromTabIndex == 0) {
 	    // Find the previous selectable node before fromNode (in document order) that doesn't have a tab index
 	    NodeImpl *n = fromNode->traversePreviousNode();
-	    while (n && !(n->isSelectable() && n->tabIndex() == 0))
+	    while (n && !(n->isKeyboardFocusable() && n->tabIndex() == 0))
 		n = n->traversePreviousNode();
 	    if (n)
 		return n;
@@ -1392,7 +1546,7 @@ NodeImpl *DocumentImpl::previousFocusNode(NodeImpl *fromNode)
 	    // No previous nodes with a 0 tab index, go to the last node in the document that has the highest tab index
 	    int highestTabIndex = 0;
 	    for (n = this; n != 0; n = n->traverseNextNode()) {
-		if (n->isSelectable() && (n->tabIndex() > highestTabIndex))
+		if (n->isKeyboardFocusable() && (n->tabIndex() > highestTabIndex))
 		    highestTabIndex = n->tabIndex();
 	    }
 
@@ -1400,7 +1554,7 @@ NodeImpl *DocumentImpl::previousFocusNode(NodeImpl *fromNode)
 		return 0;
 
 	    for (n = lastNode; n != 0; n = n->traversePreviousNode()) {
-		if (n->isSelectable() && (n->tabIndex() == highestTabIndex))
+		if (n->isKeyboardFocusable() && (n->tabIndex() == highestTabIndex))
 		    return n;
 	    }
 
@@ -1417,7 +1571,7 @@ NodeImpl *DocumentImpl::previousFocusNode(NodeImpl *fromNode)
 
 	    bool reachedFromNode = false;
 	    for (n = this; n != 0; n = n->traverseNextNode()) {
-		if (n->isSelectable() &&
+		if (n->isKeyboardFocusable() &&
 		    ((!reachedFromNode && (n->tabIndex() <= fromTabIndex)) ||
 		     (reachedFromNode && (n->tabIndex() < fromTabIndex)))  &&
 		    (n->tabIndex() > highestSuitableTabIndex) &&
@@ -1440,12 +1594,12 @@ NodeImpl *DocumentImpl::previousFocusNode(NodeImpl *fromNode)
 
 	    // Search backwards from fromNode
 	    for (n = fromNode->traversePreviousNode(); n != 0; n = n->traversePreviousNode()) {
-		if (n->isSelectable() && (n->tabIndex() == highestSuitableTabIndex))
+		if (n->isKeyboardFocusable() && (n->tabIndex() == highestSuitableTabIndex))
 		    return n;
 	    }
 	    // The previous node isn't before fromNode, start from the end of the document
 	    for (n = lastNode; n != fromNode; n = n->traversePreviousNode()) {
-		if (n->isSelectable() && (n->tabIndex() == highestSuitableTabIndex))
+		if (n->isKeyboardFocusable() && (n->tabIndex() == highestSuitableTabIndex))
 		    return n;
 	    }
 
@@ -1478,7 +1632,7 @@ void DocumentImpl::processHttpEquiv(const DOMString &equiv, const DOMString &con
 {
     assert(!equiv.isNull() && !content.isNull());
 
-    KHTMLView *v = getDocument()->view();
+    KHTMLPart *part = getDocument()->part();
 
     if (strcasecmp(equiv, "default-style") == 0) {
         // The preferred style set has been overridden as per section 
@@ -1487,11 +1641,11 @@ void DocumentImpl::processHttpEquiv(const DOMString &equiv, const DOMString &con
         // For more info, see the test at:
         // http://www.hixie.ch/tests/evil/css/import/main/preferred.html
         // -dwh
-        v->part()->d->m_sheetUsed = content.string();
+        part->d->m_sheetUsed = content.string();
         m_preferredStylesheetSet = content;
         updateStyleSelector();
     }
-    else if(strcasecmp(equiv, "refresh") == 0 && v->part()->metaRefreshEnabled())
+    else if(strcasecmp(equiv, "refresh") == 0 && part->metaRefreshEnabled())
     {
         // get delay and url
         QString str = content.string().stripWhiteSpace();
@@ -1505,10 +1659,10 @@ void DocumentImpl::processHttpEquiv(const DOMString &equiv, const DOMString &con
             int delay = 0;
 	    delay = str.toInt(&ok);
 #if APPLE_CHANGES
-            // We want a new history item if the refresh timeout > 1 second
-            if(ok) v->part()->scheduleRedirection(delay, v->part()->url().url(), delay <= 1);
+	    // We want a new history item if the refresh timeout > 1 second
+	    if(ok && part) part->scheduleRedirection(delay, part->url().url(), delay <= 1);
 #else
-            if(ok) v->part()->scheduleRedirection(delay, v->part()->url().url() );
+	    if(ok && part) part->scheduleRedirection(delay, part->url().url() );
 #endif
         } else {
             double delay = 0;
@@ -1522,12 +1676,12 @@ void DocumentImpl::processHttpEquiv(const DOMString &equiv, const DOMString &con
             str = str.stripWhiteSpace();
             if ( str.length() && str[0] == '=' ) str = str.mid( 1 ).stripWhiteSpace();
             str = parseURL( DOMString(str) ).string();
-            if ( ok )
+            if ( ok && part )
 #if APPLE_CHANGES
                 // We want a new history item if the refresh timeout > 1 second
-                v->part()->scheduleRedirection(delay, getDocument()->completeURL( str ), delay <= 1);
+                part->scheduleRedirection(delay, getDocument()->completeURL( str ), delay <= 1);
 #else
-                v->part()->scheduleRedirection(delay, getDocument()->completeURL( str ));
+                part->scheduleRedirection(delay, getDocument()->completeURL( str ));
 #endif
         }
     }
@@ -1535,14 +1689,13 @@ void DocumentImpl::processHttpEquiv(const DOMString &equiv, const DOMString &con
     {
         QString str = content.string().stripWhiteSpace();
         time_t expire_date = str.toLong();
-        KURL url = v->part()->url();
         if (m_docLoader)
             m_docLoader->setExpireDate(expire_date);
     }
-    else if(strcasecmp(equiv, "pragma") == 0 || strcasecmp(equiv, "cache-control") == 0)
+    else if(strcasecmp(equiv, "pragma") == 0 || strcasecmp(equiv, "cache-control") == 0 && part)
     {
         QString str = content.string().lower().stripWhiteSpace();
-        KURL url = v->part()->url();
+        KURL url = part->url();
         if ((str == "no-cache") && url.protocol().startsWith("http"))
         {
            KIO::http_update_cache(url, true, 0);
@@ -1881,7 +2034,7 @@ void DocumentImpl::stylesheetLoaded()
 void DocumentImpl::updateStyleSelector()
 {
     // Don't bother updating, since we haven't loaded all our style info yet.
-    if (m_pendingStylesheets > 0)
+    if (!haveStylesheetsLoaded())
         return;
 
     recalcStyleSelector();
@@ -2016,6 +2169,17 @@ void DocumentImpl::recalcStyleSelector()
     m_styleSelectorDirty = false;
 }
 
+void DocumentImpl::setHoverNode(NodeImpl* newHoverNode)
+{
+    if (m_hoverNode != newHoverNode) {
+        if (m_hoverNode)
+            m_hoverNode->deref();
+        m_hoverNode = newHoverNode;
+        if (m_hoverNode)
+            m_hoverNode->ref();
+    }    
+}
+
 void DocumentImpl::setFocusNode(NodeImpl *newFocusNode)
 {    
     // Make sure newFocusNode is actually in this document
@@ -2113,6 +2277,8 @@ EventImpl *DocumentImpl::createEvent(const DOMString &eventType, int &exceptionc
         return new MouseEventImpl();
     else if (eventType == "MutationEvents")
         return new MutationEventImpl();
+    else if (eventType == "KeyboardEvents")
+        return new KeyboardEventImpl();
     else if (eventType == "HTMLEvents")
         return new EventImpl();
     else {
@@ -2135,6 +2301,19 @@ void DocumentImpl::defaultEventHandler(EventImpl *evt)
         if (it.current()->id == evt->id()) {
             it.current()->listener->handleEvent(ev, true);
 	}
+    }
+
+    // handle accesskey
+    if (evt->id()==EventImpl::KEYDOWN_EVENT) {
+        KeyboardEventImpl *kevt = static_cast<KeyboardEventImpl *>(evt);
+        if (kevt->ctrlKey()) {
+            QString key = kevt->qKeyEvent()->unmodifiedText().lower();
+            ElementImpl *elem = getElementByAccessKey(key);
+            if (elem) {
+                elem->accessKeyAction();
+                evt->setDefaultHandled();
+            }
+        }
     }
 }
 
@@ -2275,7 +2454,7 @@ ElementImpl *DocumentImpl::ownerElement()
     KHTMLPart *parent = childPart->parentPart();
     if (!parent)
         return 0;
-    ChildFrame *childFrame = parent->frame(childPart);
+    ChildFrame *childFrame = parent->childFrame(childPart);
     if (!childFrame)
         return 0;
     RenderPart *renderPart = childFrame->m_frame;
@@ -2316,6 +2495,29 @@ void DocumentImpl::setDomain(const DOMString &newDomain, bool force /*=false*/)
     }
 }
 
+bool DocumentImpl::isValidName(const DOMString &name)
+{
+    static const char validFirstCharacter[] = "ABCDEFGHIJKLMNOPQRSTUVWXZYabcdefghijklmnopqrstuvwxyz";
+    static const char validSubsequentCharacter[] = "ABCDEFGHIJKLMNOPQRSTUVWXZYabcdefghijklmnopqrstuvwxyz0123456789-_:.";
+    const unsigned length = name.length();
+    if (length == 0)
+        return false;
+    const QChar * const characters = name.unicode();
+    const char fc = characters[0];
+    if (!fc)
+        return false;
+    if (strchr(validFirstCharacter, fc) == 0)
+        return false;
+    for (unsigned i = 1; i < length; ++i) {
+        const char sc = characters[i];
+        if (!sc)
+            return false;
+        if (strchr(validSubsequentCharacter, sc) == 0)
+            return false;
+    }
+    return true;
+}
+
 #if APPLE_CHANGES
 
 void DocumentImpl::setDecoder(Decoder *decoder)
@@ -2339,7 +2541,21 @@ bool DocumentImpl::inPageCache()
 
 void DocumentImpl::setInPageCache(bool flag)
 {
+    if (m_inPageCache == flag)
+        return;
+
     m_inPageCache = flag;
+    if (flag) {
+        assert(m_savedRenderer == 0);
+        m_savedRenderer = m_render;
+        if (m_view) {
+            m_view->resetScrollBars();
+        }
+    } else {
+        assert(m_render == 0 || m_render == m_savedRenderer);
+        m_render = m_savedRenderer;
+        m_savedRenderer = 0;
+    }
 }
 
 void DocumentImpl::passwordFieldAdded()
@@ -2384,6 +2600,17 @@ bool DocumentImpl::shouldCreateRenderers()
     return m_createRenderers;
 }
 
+DOMString DocumentImpl::toString() const
+{
+    DOMString result;
+
+    for (NodeImpl *child = firstChild(); child != NULL; child = child->nextSibling()) {
+	result += child->toString();
+    }
+
+    return result;
+}
+
 #endif // APPLE_CHANGES
 
 // ----------------------------------------------------------------------------
@@ -2423,6 +2650,18 @@ bool DocumentFragmentImpl::childTypeAllowed( unsigned short type )
             return false;
     }
 }
+
+DOMString DocumentFragmentImpl::toString() const
+{
+    DOMString result;
+
+    for (NodeImpl *child = firstChild(); child != NULL; child = child->nextSibling()) {
+	result += child->toString();
+    }
+
+    return result;
+}
+
 
 NodeImpl *DocumentFragmentImpl::cloneNode ( bool deep )
 {
@@ -2465,6 +2704,33 @@ void DocumentTypeImpl::copyFrom(const DocumentTypeImpl& other)
     m_publicId = other.m_publicId;
     m_systemId = other.m_systemId;
     m_subset = other.m_subset;
+}
+
+DOMString DocumentTypeImpl::toString() const
+{
+    DOMString result = "<!DOCTYPE";
+    result += m_qualifiedName;
+    if (!m_publicId.isEmpty()) {
+	result += " PUBLIC \"";
+	result += m_publicId;
+	result += "\" \"";
+	result += m_systemId;
+	result += "\"";
+    } else if (!m_systemId.isEmpty()) {
+	result += " SYSTEM \"";
+	result += m_systemId;
+	result += "\"";
+    }
+
+    if (!m_subset.isEmpty()) {
+	result += " [";
+	result += m_subset;
+	result += "]";
+    }
+
+    result += ">";
+
+    return result;
 }
 
 DOMString DocumentTypeImpl::nodeName() const

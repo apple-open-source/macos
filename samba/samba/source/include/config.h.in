@@ -12,8 +12,14 @@
 /* Broken RedHat 7.2 system header files */
 #undef BROKEN_REDHAT_7_SYSTEM_HEADERS
 
+/* Does this system use unicode compose characters */
+#undef BROKEN_UNICODE_COMPOSE_CHARACTERS
+
 /* Whether the compiler supports the LL prefix on long long integers */
 #undef COMPILER_SUPPORTS_LL
+
+/* Whether the host os is Darwin/MacOSX */
+#undef DARWINOS
 
 /* Default display charset name */
 #undef DEFAULT_DISPLAY_CHARSET
@@ -30,6 +36,9 @@
 /* Define to turn on dmalloc debugging */
 #undef ENABLE_DMALLOC
 
+/* Whether the host os is FreeBSD */
+#undef FREEBSD
+
 /* Whether the FreeBSD sendfile() API is available */
 #undef FREEBSD_SENDFILE_API
 
@@ -45,6 +54,12 @@
 /* Whether the krb5_address struct has a addr_type property */
 #undef HAVE_ADDR_TYPE_IN_KRB5_ADDRESS
 
+/* Define to 1 if you have the <afs/afs.h> header file. */
+#undef HAVE_AFS_AFS_H
+
+/* Define to 1 if you have the <afs.h> header file. */
+#undef HAVE_AFS_H
+
 /* Whether AIX ACLs are available */
 #undef HAVE_AIX_ACLS
 
@@ -54,7 +69,7 @@
 /* Define to 1 if you have the <arpa/inet.h> header file. */
 #undef HAVE_ARPA_INET_H
 
-/* Define to 1 if you have the <asm/types.h> header file. */
+/* check for <asm/types.h> */
 #undef HAVE_ASM_TYPES_H
 
 /* Define to 1 if you have the `asprintf' function. */
@@ -120,6 +135,9 @@
 /* Whether there is a C99 compliant vsnprintf */
 #undef HAVE_C99_VSNPRINTF
 
+/* Define to 1 if you have the <CFStringEncodingConverter.h> header file. */
+#undef HAVE_CFSTRINGENCODINGCONVERTER_H
+
 /* Define to 1 if you have the `chmod' function. */
 #undef HAVE_CHMOD
 
@@ -128,9 +146,6 @@
 
 /* Define to 1 if you have the `chroot' function. */
 #undef HAVE_CHROOT
-
-/* Define to 1 if you have the <compat.h> header file. */
-#undef HAVE_COMPAT_H
 
 /* Whether the compiler will optimize out function calls */
 #undef HAVE_COMPILER_WILL_OPTIMIZE_OUT_FNS
@@ -143,6 +158,10 @@
 
 /* Define to 1 if you have the `copy_Authenticator' function. */
 #undef HAVE_COPY_AUTHENTICATOR
+
+/* Define to 1 if you have the <CoreFoundation/CFStringEncodingConverter.h>
+   header file. */
+#undef HAVE_COREFOUNDATION_CFSTRINGENCODINGCONVERTER_H
 
 /* Define to 1 if you have the `creat64' function. */
 #undef HAVE_CREAT64
@@ -198,6 +217,9 @@
 
 /* Define to 1 if you have the `dlsym' function. */
 #undef HAVE_DLSYM
+
+/* Define to 1 if you have the `dlsym_prepend_underscore' function. */
+#undef HAVE_DLSYM_PREPEND_UNDERSCORE
 
 /* struct dqblk .dqb_fsoftlimit */
 #undef HAVE_DQB_FSOFTLIMIT
@@ -439,6 +461,9 @@
 /* Define to 1 if you have the `krb5_encrypt_data' function. */
 #undef HAVE_KRB5_ENCRYPT_DATA
 
+/* Define to 1 if you have the `krb5_free_data_contents' function. */
+#undef HAVE_KRB5_FREE_DATA_CONTENTS
+
 /* Define to 1 if you have the `krb5_free_ktypes' function. */
 #undef HAVE_KRB5_FREE_KTYPES
 
@@ -456,6 +481,12 @@
 
 /* Whether the krb5_keyblock struct has a keyvalue property */
 #undef HAVE_KRB5_KEYBLOCK_KEYVALUE
+
+/* Whether krb5_keytab_entry has key member */
+#undef HAVE_KRB5_KEYTAB_ENTRY_KEY
+
+/* Whether krb5_keytab_entry has keyblock member */
+#undef HAVE_KRB5_KEYTAB_ENTRY_KEYBLOCK
 
 /* Define to 1 if you have the `krb5_locate_kdc' function. */
 #undef HAVE_KRB5_LOCATE_KDC
@@ -532,6 +563,9 @@
 /* Define to 1 if you have the `crypto' library (-lcrypto). */
 #undef HAVE_LIBCRYPTO
 
+/* Define to 1 if you have the `dl' library (-ldl). */
+#undef HAVE_LIBDL
+
 /* Define to 1 if you have the `gen' library (-lgen). */
 #undef HAVE_LIBGEN
 
@@ -592,17 +626,8 @@
 /* Define to 1 if you have the `link' function. */
 #undef HAVE_LINK
 
-/* Define to 1 if you have the <linux/dqblk_xfs.h> header file. */
-#undef HAVE_LINUX_DQBLK_XFS_H
-
-/* Define to 1 if you have the <linux/quota.h> header file. */
-#undef HAVE_LINUX_QUOTA_H
-
-/* Define to 1 if you have the <linux/xfs_fs.h> header file. */
-#undef HAVE_LINUX_XFS_FS_H
-
-/* Define to 1 if you have the <linux/xqm.h> header file. */
-#undef HAVE_LINUX_XQM_H
+/* Whether Linux xfs quota support is available */
+#undef HAVE_LINUX_XFS_QUOTAS
 
 /* Define to 1 if you have the `listxattr' function. */
 #undef HAVE_LISTXATTR
@@ -636,6 +661,9 @@
 
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
+
+/* Whether in-memory keytabs are supported */
+#undef HAVE_MEMORY_KEYTAB
 
 /* Whether memset() is available */
 #undef HAVE_MEMSET
@@ -684,6 +712,9 @@
 
 /* Whether no ACLs support is available */
 #undef HAVE_NO_ACLS
+
+/* Define to 1 if you have the <nsswitch.h> header file. */
+#undef HAVE_NSSWITCH_H
 
 /* Define to 1 if you have the <nss_common.h> header file. */
 #undef HAVE_NSS_COMMON_H
@@ -742,9 +773,20 @@
 /* Define to 1 if you have the `pwrite64' function. */
 #undef HAVE_PWRITE64
 
+/* Whether CRAY int quotactl (char *spec, int request, char *arg); is
+   available */
+#undef HAVE_QUOTACTL_3
+
 /* Whether long quotactl(int cmd, char *special, qid_t id, caddr_t addr) is
    available */
 #undef HAVE_QUOTACTL_4A
+
+/* Whether int quotactl(const char *path, int cmd, int id, char *addr) is
+   available */
+#undef HAVE_QUOTACTL_4B
+
+/* Whether Linux quota support is available */
+#undef HAVE_QUOTACTL_LINUX
 
 /* Define to 1 if you have the `rand' function. */
 #undef HAVE_RAND
@@ -994,12 +1036,6 @@
 
 /* Whether the flock64 struct is available */
 #undef HAVE_STRUCT_FLOCK64
-
-/* struct if_dqblk */
-#undef HAVE_STRUCT_IF_DQBLK
-
-/* struct mem_dqblk */
-#undef HAVE_STRUCT_MEM_DQBLK
 
 /* Define to 1 if `st_rdev' is member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_RDEV
@@ -1253,7 +1289,7 @@
 /* Whether vasprintf() is available */
 #undef HAVE_VASPRINTF_DECL
 
-/* Whether __va_copy() is available */
+/* Whether va_copy() is available */
 #undef HAVE_VA_COPY
 
 /* Whether the C compiler understands volatile */
@@ -1274,14 +1310,8 @@
 /* Define if you have working AF_LOCAL sockets */
 #undef HAVE_WORKING_AF_LOCAL
 
-/* Define to 1 if you have the <xfs/libxfs.h> header file. */
-#undef HAVE_XFS_LIBXFS_H
-
-/* Define to 1 if you have the <xfs/xfs_fs.h> header file. */
-#undef HAVE_XFS_XFS_FS_H
-
-/* Define to 1 if you have the <xfs/xqm.h> header file. */
-#undef HAVE_XFS_XQM_H
+/* Whether xfs quota support is available */
+#undef HAVE_XFS_QUOTAS
 
 /* Define to 1 if you have the `yp_get_default_domain' function. */
 #undef HAVE_YP_GET_DEFAULT_DOMAIN
@@ -1493,6 +1523,9 @@
 /* Define to 1 if you have the `__telldir' function. */
 #undef HAVE___TELLDIR
 
+/* Whether __va_copy() is available */
+#undef HAVE___VA_COPY
+
 /* Define to 1 if you have the `__write' function. */
 #undef HAVE___WRITE
 
@@ -1647,6 +1680,9 @@
 /* Whether sysconf(_SC_NGROUPS_MAX) is available */
 #undef SYSCONF_SC_NGROUPS_MAX
 
+/* Whether sysconf(_SC_NPROC_ONLN) is available */
+#undef SYSCONF_SC_NPROC_ONLN
+
 /* Whether this is a system V system */
 #undef SYSV
 
@@ -1685,6 +1721,9 @@
 
 /* Whether to include DFS support */
 #undef WITH_DFS
+
+/* Whether to include AFS fake-kaserver support */
+#undef WITH_FAKE_KASERVER
 
 /* Whether to include 2.2 compatible LDAP SAM configuration */
 #undef WITH_LDAP_SAMCONFIG
@@ -1785,6 +1824,9 @@
 /* Whether to build charset_CP850 as shared module */
 #undef charset_CP850_init
 
+/* Whether to build charset_macosxfs as shared module */
+#undef charset_macosxfs_init
+
 /* Whether to build charset_weird as shared module */
 #undef charset_weird_init
 
@@ -1827,6 +1869,9 @@
 
 /* Whether to build pdb_mysql as shared module */
 #undef pdb_mysql_init
+
+/* Whether to build pdb_pgsql as shared module */
+#undef pdb_pgsql_init
 
 /* Whether to build pdb_smbpasswd as shared module */
 #undef pdb_smbpasswd_init

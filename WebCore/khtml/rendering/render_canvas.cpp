@@ -38,6 +38,9 @@ using namespace khtml;
 RenderCanvas::RenderCanvas(DOM::NodeImpl* node, KHTMLView *view)
     : RenderBlock(node)
 {
+    // Clear our anonymous bit.
+    setIsAnonymous(false);
+        
     // init RenderObject attributes
     setInline(false);
 
@@ -58,6 +61,8 @@ RenderCanvas::RenderCanvas(DOM::NodeImpl* node, KHTMLView *view)
     m_printingMode = false;
     m_printImages = true;
 
+    m_maximalOutlineSize = 0;
+    
     m_selectionStart = 0;
     m_selectionEnd = 0;
     m_selectionStartPos = -1;
@@ -122,11 +127,15 @@ void RenderCanvas::calcMinMaxWidth()
 
 void RenderCanvas::layout()
 {
+    KHTMLAssert(!view()->inLayout());
+    
     if (m_printingMode)
        m_minWidth = m_width;
 
+    setChildNeedsLayout(true);
+    setMinMaxKnown(false);
     for (RenderObject *c = firstChild(); c; c = c->nextSibling())
-        c->setNeedsLayout(true);
+        c->setChildNeedsLayout(true);
 
 #ifdef SPEED_DEBUG
     QTime qt;
@@ -158,7 +167,6 @@ void RenderCanvas::layout()
     int doch = docHeight();
 
     if (!m_printingMode) {
-        m_view->resizeContents(docw, doch);
         setWidth( m_viewportWidth = m_view->visibleWidth() );
         setHeight(  m_viewportHeight = m_view->visibleHeight() );
     }
@@ -170,9 +178,9 @@ void RenderCanvas::layout()
     kdDebug() << "RenderCanvas::end time used=" << qt.elapsed() << endl;
 #endif
 
-    layer()->setHeight(QMAX(doch, m_height));
-    layer()->setWidth(QMAX(docw, m_width));
-
+    layer()->setHeight(kMax(doch, m_height));
+    layer()->setWidth(kMax((short)docw, m_width));
+    
     setNeedsLayout(false);
 }
 
@@ -255,53 +263,52 @@ void RenderCanvas::paintBoxDecorations(QPainter *p,int _x, int _y,
         p->fillRect(_x,_y,_w,_h, view()->palette().active().color(QColorGroup::Base));
 }
 
-void RenderCanvas::repaintRectangle(int x, int y, int w, int h, bool immediate, bool f)
+void RenderCanvas::repaintViewRectangle(const QRect& ur, bool immediate)
 {
-    if (m_printingMode) return;
-//    kdDebug( 6040 ) << "updating views contents (" << x << "/" << y << ") (" << w << "/" << h << ")" << endl;
-
-    if ( f && m_view ) {
-        x += m_view->contentsX();
-        y += m_view->contentsY();
-    }
+    if (m_printingMode || ur.width() == 0 || ur.height() == 0) return;
 
     QRect vr = viewRect();
-    QRect ur(x, y, w, h);
-
-    if (m_view && ur.intersects(vr))
-        if (immediate)
-            m_view->updateContents(ur, true);
-        else
-            m_view->scheduleRepaint(x, y, w, h);
-}
-
-void RenderCanvas::repaint(bool immediate)
-{
-    if (m_view && !m_printingMode) {
-        if (immediate) {
-            m_view->resizeContents(docWidth(), docHeight());
-            m_view->unscheduleRepaint();
-            if (needsLayout()) {
-                m_view->scheduleRelayout();
-                return;
-            }
-            m_view->updateContents(m_view->contentsX(), m_view->contentsY(),
-                                   m_view->visibleWidth(), m_view->visibleHeight(), true);
+    if (m_view && ur.intersects(vr)) {
+        // We always just invalidate the root view, since we could be an iframe that is clipped out
+        // or even invisible.
+        QRect r = ur.intersect(vr);
+        DOM::ElementImpl* elt = element()->getDocument()->ownerElement();
+        if (!elt)
+            m_view->repaintRectangle(r, immediate);
+        else {
+            // Subtract out the contentsX and contentsY offsets to get our coords within the viewing
+            // rectangle.
+            r.setX(r.x() - m_view->contentsX());
+            r.setY(r.y() - m_view->contentsY());
+            
+            RenderObject* obj = elt->renderer();
+            int frameOffset = (m_view->frameStyle() != QFrame::NoFrame) ? 2 : 0;
+            r.setX(r.x() + obj->borderLeft()+obj->paddingLeft() + frameOffset);
+            r.setY(r.y() + obj->borderTop()+obj->paddingTop() + frameOffset);
+            obj->repaintRectangle(r, immediate);
         }
-        else
-            m_view->scheduleRepaint(m_view->contentsX(), m_view->contentsY(),
-                                    m_view->visibleWidth(), m_view->visibleHeight());
     }
 }
 
-void RenderCanvas::close()
+QRect RenderCanvas::getAbsoluteRepaintRect()
 {
-    setNeedsLayout(true);
-    if (m_view) {
-        m_view->layout();
-    }
-    //printTree();
+    QRect result;
+    if (m_view && !m_printingMode)
+        result = QRect(m_view->contentsX(), m_view->contentsY(),
+                       m_view->visibleWidth(), m_view->visibleHeight());
+    return result;
 }
+
+void RenderCanvas::computeAbsoluteRepaintRect(QRect& r, bool f)
+{
+    if (m_printingMode) return;
+
+    if (f && m_view) {
+        r.setX(r.x() + m_view->contentsX());
+        r.setY(r.y() + m_view->contentsY());
+    }
+}
+
 
 static QRect enclosingPositionedRect (RenderObject *n)
 {
@@ -650,8 +657,18 @@ int RenderCanvas::docWidth() const
 #if APPLE_CHANGES
 // The idea here is to take into account what object is moving the pagination point, and
 // thus choose the best place to chop it.
-void RenderCanvas::setBestTruncatedAt(int y, RenderObject *forRenderer)
+void RenderCanvas::setBestTruncatedAt(int y, RenderObject *forRenderer, bool forcedBreak)
 {
+    // Nobody else can set a page break once we have a forced break.
+    if (m_forcedPageBreak) return;
+    
+    // Forced breaks always win over unforced breaks.
+    if (forcedBreak) {
+        m_forcedPageBreak = true;
+        m_bestTruncatedAt = y;
+        return;
+    }
+    
     // prefer the widest object who tries to move the pagination point
     int width = forRenderer->width();
     if (width > m_truncatorWidth) {

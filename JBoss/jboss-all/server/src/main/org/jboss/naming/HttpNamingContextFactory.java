@@ -12,6 +12,7 @@ import java.io.ObjectInputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Hashtable;
+import java.lang.reflect.InvocationTargetException;
 import javax.naming.Context;
 import javax.naming.Name;
 import javax.naming.NamingException;
@@ -20,8 +21,8 @@ import javax.naming.RefAddr;
 import javax.naming.spi.InitialContextFactory;
 import javax.naming.spi.ObjectFactory;
 
+import org.jboss.invocation.InvocationException;
 import org.jboss.invocation.MarshalledValue;
-import org.jboss.invocation.http.interfaces.AnyhostVerifier;
 import org.jboss.invocation.http.interfaces.Util;
 import org.jboss.logging.Logger;
 import org.jnp.interfaces.Naming;
@@ -33,7 +34,7 @@ import org.jnp.interfaces.NamingContext;
  @see javax.naming.spi.InitialContextFactory
 
  @author Scott.Stark@jboss.org
- @version $Revision: 1.1.2.3 $
+ @version $Revision: 1.1.2.6 $
  */
 public class HttpNamingContextFactory
    implements InitialContextFactory, ObjectFactory
@@ -87,32 +88,56 @@ public class HttpNamingContextFactory
       return ctx.lookup(path);
    }
 
-   private Naming getNamingServer(URL providerURL) throws ClassNotFoundException, IOException
+   /** Obtain the JNDI Naming stub by reading its marshalled object from the
+    * servlet specified by the providerURL
+    * 
+    * @param providerURL the naming factory servlet URL
+    * @return
+    * @throws ClassNotFoundException throw during unmarshalling
+    * @throws IOException thrown on any trasport failure
+    * @throws InvocationTargetException throw on failure to install a JSSE host verifier
+    * @throws IllegalAccessException throw on failure to install a JSSE host verifier
+    */ 
+   private Naming getNamingServer(URL providerURL)
+      throws ClassNotFoundException, IOException, InvocationTargetException,
+         IllegalAccessException
    {
       // Initialize the proxy Util class to integrate JAAS authentication
       Util.init();
-      log.debug("Retrieving content from : "+providerURL);
+      if( log.isTraceEnabled() )
+         log.trace("Retrieving content from : "+providerURL);
+
       HttpURLConnection conn = (HttpURLConnection) providerURL.openConnection();
-      if( conn instanceof com.sun.net.ssl.HttpsURLConnection )
-      {
-         // See if the org.jboss.security.ignoreHttpsHost property is set
-         if( Boolean.getBoolean("org.jboss.security.ignoreHttpsHost") == true )
-         {
-            com.sun.net.ssl.HttpsURLConnection sconn = (com.sun.net.ssl.HttpsURLConnection) conn;
-            AnyhostVerifier verifier = new AnyhostVerifier();
-            sconn.setHostnameVerifier(verifier);
-         }
-      }
+      Util.configureHttpsHostVerifier(conn);
       int length = conn.getContentLength();
       String type = conn.getContentType();
-      log.debug("ContentLength: "+length+"\nContentType: "+type);
+      if( log.isTraceEnabled() )
+         log.trace("ContentLength: "+length+"\nContentType: "+type);
 
       InputStream is = conn.getInputStream();
       ObjectInputStream ois = new ObjectInputStream(is);
       MarshalledValue mv = (MarshalledValue) ois.readObject();
       ois.close();
 
-      Naming namingServer = (Naming) mv.get();
+      Object obj = mv.get();
+      if( (obj instanceof Naming) == false )
+      {
+         String msg = "Invalid reply content seen: "+obj.getClass();
+         Throwable t = null;
+         if( obj instanceof Throwable )
+         {
+            t = (Throwable) obj;
+            if( t instanceof InvocationException )
+               t = ((InvocationException)t).getTargetException();
+         }
+         if( t != null )
+            log.warn(msg, t);
+         else
+            log.warn(msg);
+         IOException e = new IOException(msg);
+         throw e;
+      }
+      Naming namingServer = (Naming) obj;
       return namingServer;
    }
 }

@@ -19,7 +19,7 @@ import org.jboss.naming.ENCThreadLocalKey;
  * 
  * @author <a href="mailto:rickard.oberg@telkel.com">Rickard Öberg</a>
  * @author <a href="mailto:Scott.Stark@jboss.org">Scott Stark</a>
- * @version $Revision: 1.5.2.2 $
+ * @version $Revision: 1.5.2.3 $
  */
 public class ProxyFactoryFinderInterceptor
    extends AbstractInterceptor
@@ -75,7 +75,7 @@ public class ProxyFactoryFinderInterceptor
       throws Exception
    {
       String invokerBinding = 
-            (String)mi.getValue(InvocationKey.INVOKER_PROXY_BINDING);
+            (String)mi.getAsIsValue(InvocationKey.INVOKER_PROXY_BINDING);
       setProxyFactory(invokerBinding, mi);
 
       String oldInvokerBinding = ENCThreadLocalKey.getKey();
@@ -104,7 +104,7 @@ public class ProxyFactoryFinderInterceptor
       throws Exception
    {
       String invokerBinding = 
-            (String)mi.getValue(InvocationKey.INVOKER_PROXY_BINDING);
+            (String)mi.getAsIsValue(InvocationKey.INVOKER_PROXY_BINDING);
       setProxyFactory(invokerBinding, mi);
 
       String oldInvokerBinding = ENCThreadLocalKey.getKey();

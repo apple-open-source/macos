@@ -73,6 +73,7 @@
 
 #include "khtml_factory.h"
 #include "rendering/render_object.h"
+#include "dom/dom_exception.h"
 
 #include <dcopclient.h>
 #include <kapplication.h>
@@ -121,9 +122,6 @@ HTMLDocumentImpl::HTMLDocumentImpl(DOMImplementationImpl *_implementation, KHTML
 */
     connect( KHTMLFactory::vLinks(), SIGNAL( cleared()),
              SLOT( slotHistoryChanged() ));
-    m_startTime.restart();
-
-    processingLoadEvent = false;
 }
 
 HTMLDocumentImpl::~HTMLDocumentImpl()
@@ -132,21 +130,21 @@ HTMLDocumentImpl::~HTMLDocumentImpl()
 
 DOMString HTMLDocumentImpl::referrer() const
 {
-    if ( view() )
+    if ( part() )
 #if APPLE_CHANGES
-        return KWQ(view()->part())->incomingReferrer();
+        return KWQ(part())->incomingReferrer();
 #else
         // This is broken; returns the referrer used for links within this page (basically
         // the same as the URL), not the referrer used for loading this page itself.
-        return view()->part()->referrer();
+        return part()->referrer();
 #endif
     return DOMString();
 }
 
 DOMString HTMLDocumentImpl::lastModified() const
 {
-    if ( view() )
-        return view()->part()->lastModified();
+    if ( part() )
+        return part()->lastModified();
     return DOMString();
 }
 
@@ -219,34 +217,14 @@ void HTMLDocumentImpl::setCookie( const DOMString & value )
 #endif
 }
 
-
-
-HTMLElementImpl *HTMLDocumentImpl::body()
+void HTMLDocumentImpl::setBody(HTMLElementImpl *_body, int &exceptioncode)
 {
-    NodeImpl *de = documentElement();
-    if (!de)
-        return 0;
-
-    // try to prefer a FRAMESET element over BODY
-    NodeImpl* body = 0;
-    for (NodeImpl* i = de->firstChild(); i; i = i->nextSibling()) {
-        if (i->id() == ID_FRAMESET)
-            return static_cast<HTMLElementImpl*>(i);
-
-        if (i->id() == ID_BODY)
-            body = i;
-    }
-    return static_cast<HTMLElementImpl *>(body);
-}
-
-void HTMLDocumentImpl::setBody(HTMLElementImpl *_body)
-{
-    int exceptioncode = 0;
     HTMLElementImpl *b = body();
-    if ( !_body && !b ) return;
-    if ( !_body )
-        documentElement()->removeChild( b, exceptioncode );
-    else if ( !b )
+    if ( !_body ) { 
+	exceptioncode = DOMException::HIERARCHY_REQUEST_ERR;
+	return;
+    }
+    if ( !b )
         documentElement()->appendChild( _body, exceptioncode );
     else
         documentElement()->replaceChild( _body, b, exceptioncode );
@@ -261,15 +239,43 @@ Tokenizer *HTMLDocumentImpl::createTokenizer()
 // not part of the DOM
 // --------------------------------------------------------------------------
 
+DOMString HTMLDocumentImpl::designMode() const
+{
+    TristateFlag editMode = KWQ(view()->part())->editMode();
+    // Note: case for return values intentionally matches WinIE
+    switch (editMode) {
+        default:
+        case FlagNone:
+            return "Inherit";
+        case FlagEnabled:
+            return "On";
+        case FlagDisabled:
+            return "Off";
+    }
+}
+
+void HTMLDocumentImpl::setDesignMode(const DOMString &s)
+{
+    if ( strcasecmp( s, "on" ) == 0 ) {
+        KWQ(view()->part())->setEditMode(FlagEnabled);
+    }
+    else if (strcasecmp(s, "off") == 0) {
+        KWQ(view()->part())->setEditMode(FlagDisabled);
+    }
+    else if (strcasecmp(s, "inherit") == 0 || s.isNull()) {
+        KWQ(view()->part())->setEditMode(FlagNone);
+    }
+}
+
 bool HTMLDocumentImpl::childAllowed( NodeImpl *newChild )
 {
     // ### support comments. etc as a child
     return (newChild->id() == ID_HTML || newChild->id() == ID_COMMENT);
 }
 
-ElementImpl *HTMLDocumentImpl::createElement( const DOMString &name )
+ElementImpl *HTMLDocumentImpl::createElement( const DOMString &name, int &exceptioncode )
 {
-    return createHTMLElement(name);
+    return createHTMLElement(name, exceptioncode);
 }
 
 void HTMLDocumentImpl::slotHistoryChanged()
@@ -299,59 +305,6 @@ HTMLMapElementImpl* HTMLDocumentImpl::getMap(const DOMString& _url)
         return *it;
     else
         return 0;
-}
-
-void HTMLDocumentImpl::close()
-{
-    // First fire the onload.
-    bool doload = !parsing() && m_tokenizer && !processingLoadEvent;
-    
-    bool wasNotRedirecting = !view() || view()->part()->d->m_scheduledRedirection == noRedirectionScheduled || view()->part()->d->m_scheduledRedirection == historyNavigationScheduled;
-
-    processingLoadEvent = true;
-    if (body() && doload) {
-	// We have to clear the tokenizer, in case someone document.write()s from the
-	// onLoad event handler, as in Radar 3206524
-	delete m_tokenizer;
-	m_tokenizer = 0;
-        dispatchImageLoadEventsNow();
-        body()->dispatchWindowEvent(EventImpl::LOAD_EVENT, false, false);
-    }
-    processingLoadEvent = false;
-        
-    // Make sure both the initial layout and reflow happen after the onload
-    // fires. This will improve onload scores, and other browsers do it.
-    // If they wanna cheat, we can too. -dwh
-    
-    bool isRedirectingSoon = view() && view()->part()->d->m_scheduledRedirection != noRedirectionScheduled && view()->part()->d->m_scheduledRedirection != historyNavigationScheduled && view()->part()->d->m_delayRedirect == 0;
-
-    if (doload && wasNotRedirecting && isRedirectingSoon && m_startTime.elapsed() < 1000) {
-        static int redirectCount = 0;
-        if (redirectCount++ % 4) {
-            // When redirecting over and over (e.g., i-bench), to avoid the appearance of complete inactivity,
-            // paint every fourth page.
-            // Just bail out. During the onload we were shifted to another page.
-            // i-Bench does this. When this happens don't bother painting or laying out.        
-            delete m_tokenizer;
-            m_tokenizer = 0;
-            view()->unscheduleRelayout();
-            return;
-        }
-    }
-                
-    // The initial layout happens here.
-    DocumentImpl::closeInternal(!doload);
-
-    // Now do our painting
-    if (body() && doload) {
-        updateRendering();
-        
-        // Always do a layout/repaint after loading.
-        if (renderer()) {
-            renderer()->layoutIfNeeded();
-            renderer()->repaint();
-        }
-    }
 }
 
 void HTMLDocumentImpl::addNamedImageOrForm(const QString &name)

@@ -42,7 +42,7 @@ import org.jboss.util.TimedCachePolicy;
  
  @author <a href="on@ibis.odessa.ua">Oleg Nitz</a>
  @author Scott.Stark@jboss.org
- @version $Revision: 1.27.2.7 $
+ @version $Revision: 1.27.2.9 $
 */
 public class JaasSecurityManager implements SubjectSecurityManager, RealmMapping
 {

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+    <classpathentry kind="src" path="src/main"/>
+    <classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+    <classpathentry kind="src" path="/common"/>
+    <classpathentry kind="lib" path="/thirdparty/gnu/regexp/lib/gnu-regexp.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/apache/bcel/lib/bcel.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/jdom/lib/jdom.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/oswego/concurrent/lib/concurrent.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/junit/junit/lib/junit.jar"/>
+    <classpathentry kind="output" path="output/eclipse-classes"/>
+</classpath>

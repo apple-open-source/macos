@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,92 +23,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc.  All rights reserved.
  *
  *
  */
-//		$Log: PowerMac7_2_CPUFanCtrlLoop.h,v $
-//		Revision 1.9  2003/07/24 21:47:18  eem
-//		[3338565] Q37 Final Fan data
-//		
-//		Revision 1.8  2003/07/17 06:57:39  eem
-//		3329222 and other sleep stability issues fixed.
-//		
-//		Revision 1.7  2003/07/16 02:02:10  eem
-//		3288772, 3321372, 3328661
-//		
-//		Revision 1.6  2003/07/08 04:32:51  eem
-//		3288891, 3279902, 3291553, 3154014
-//		
-//		Revision 1.5  2003/06/25 02:16:25  eem
-//		Merged 101.0.21 to TOT, fixed PM72 lproj, included new fan settings, bumped
-//		version to 101.0.22.
-//		
-//		Revision 1.4.4.5  2003/06/21 01:42:08  eem
-//		Final Fan Tweaks.
-//		
-//		Revision 1.4.4.4  2003/06/20 09:07:37  eem
-//		Added rising/falling slew limiters, integral clipping, etc.
-//		
-//		Revision 1.4.4.3  2003/06/20 01:40:00  eem
-//		Although commented out in this submision, there is support here to nap
-//		the processors if the fans are at min, with the intent of keeping the
-//		heat sinks up to temperature.
-//		
-//		Revision 1.4.4.2  2003/06/19 10:24:20  eem
-//		Pulled common PID code into IOPlatformPIDCtrlLoop and subclassed it with
-//		PowerMac7_2_CPUFanCtrlLoop and PowerMac7_2_PIDCtrlLoop.  Added history
-//		length to meta-state.  No longer adjust T_err when the setpoint changes.
-//		Don't crank the CPU fans for overtemp, just slew slow.
-//		
-//		Revision 1.4.4.1  2003/06/18 20:40:12  eem
-//		Added variable sample history length, removed cpu fan response to
-//		internal overtemp, made proportional gain only apply to proportional
-//		term.
-//		
-//		Revision 1.4  2003/06/07 01:30:58  eem
-//		Merge of EEM-PM72-ActiveFans-2 branch, with a few extra tweaks.  This
-//		checkin has working PID control for PowerMac7,2 platforms, as well as
-//		a first shot at localized strings.
-//		
-//		Revision 1.3.2.6  2003/06/06 08:17:58  eem
-//		Holy Motherfucking shit.  PID is really working.
-//		
-//		Revision 1.3.2.5  2003/06/01 14:52:55  eem
-//		Most of the PID algorithm is implemented.
-//		
-//		Revision 1.3.2.4  2003/05/31 08:11:38  eem
-//		Initial pass at integrating deadline-based timer callbacks for PID loops.
-//		
-//		Revision 1.3.2.3  2003/05/29 03:51:36  eem
-//		Clean up environment dictionary access.
-//		
-//		Revision 1.3.2.2  2003/05/23 06:36:59  eem
-//		More registration notification stuff.
-//		
-//		Revision 1.3.2.1  2003/05/22 01:31:05  eem
-//		Checkin of today's work (fails compilations right now).
-//		
-//		Revision 1.3  2003/05/21 21:58:55  eem
-//		Merge from EEM-PM72-ActiveFans-1 branch with initial crack at active fan
-//		control on Q37.
-//		
-//		Revision 1.2.4.2  2003/05/17 11:08:25  eem
-//		All active fan data present, table event-driven.  PCI power sensors are
-//		not working yet so PCI fan is just set to 67% PWM and forgotten about.
-//		
-//		Revision 1.2.4.1  2003/05/17 02:55:05  eem
-//		Intermediate commit with cpu fan loop states/outputs included.  This
-//		probably won't compile right now.
-//		
-//		Revision 1.2  2003/05/10 06:50:36  eem
-//		All sensor functionality included for PowerMac7_2_PlatformPlugin.  Version
-//		is 1.0.1d12.
-//		
-//		Revision 1.1.2.1  2003/05/01 09:28:47  eem
-//		Initial check-in in progress toward first Q37 checkpoint.
-//		
-//
+
 
 #ifndef _POWERMAC7_2_CPUFANCTRLLOOP_H
 #define _POWERMAC7_2_CPUFANCTRLLOOP_H
@@ -192,8 +111,8 @@ public:
 	virtual void deadlinePassed( void );
 	bool acquireSample( void );		// gets a sample (using clock_get_uptime() and getAggregateSensorValue()) and stores it at 
 	virtual SensorValue calculateDerivativeTerm( void ) const;
-	virtual const OSNumber *calculateNewTarget( void ) const;
-	virtual void sendNewTarget( const OSNumber * newTarget );
+	virtual ControlValue calculateNewTarget( void ) const;
+	virtual void sendNewTarget( ControlValue newTarget );
 	//virtual void deadlinePassed( void );
 	virtual void sensorRegistered( IOPlatformSensor * aSensor );
 	virtual void controlRegistered( IOPlatformControl * aControl );

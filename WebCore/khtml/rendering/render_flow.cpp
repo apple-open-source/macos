@@ -45,13 +45,13 @@
 using namespace DOM;
 using namespace khtml;
 
-RenderFlow* RenderFlow::createFlow(DOM::NodeImpl* node, RenderStyle* style, RenderArena* arena)
+RenderFlow* RenderFlow::createAnonymousFlow(DOM::DocumentImpl* doc, RenderStyle* style)
 {
     RenderFlow* result;
     if (style->display() == INLINE)
-        result = new (arena) RenderInline(node);
+        result = new (doc->renderArena()) RenderInline(doc);
     else
-        result = new (arena) RenderBlock(node);
+        result = new (doc->renderArena()) RenderBlock(doc);
     result->setStyle(style);
     return result;
 }
@@ -125,11 +125,10 @@ void RenderFlow::addChild(RenderObject *newChild, RenderObject *beforeChild)
     return addChildToFlow(newChild, beforeChild);
 }
 
-void RenderFlow::deleteLineBoxes(RenderArena* arena)
+void RenderFlow::deleteLineBoxes()
 {
     if (m_firstLineBox) {
-        if (!arena)
-            arena = renderArena();
+        RenderArena* arena = renderArena();
         InlineRunBox *curr=m_firstLineBox, *next=0;
         while (curr) {
             next = curr->nextLineBox();
@@ -141,10 +140,10 @@ void RenderFlow::deleteLineBoxes(RenderArena* arena)
     }
 }
 
-void RenderFlow::detach(RenderArena* renderArena)
+void RenderFlow::detach()
 {
-    deleteLineBoxes(renderArena);
-    RenderBox::detach(renderArena);
+    deleteLineBoxes();
+    RenderBox::detach();
 }
 
 InlineBox* RenderFlow::createInlineBox(bool makePlaceHolderBox, bool isRootLineBox)
@@ -181,7 +180,7 @@ void RenderFlow::paintLineBoxBackgroundBorder(QPainter *p, int _x, int _y,
         // intersect.
         int yPos = _ty + firstLineBox()->yPos();
         int h = lastLineBox()->yPos() + lastLineBox()->height() - firstLineBox()->yPos();
-        if( (yPos > _y + _h) || (yPos + h < _y))
+        if( (yPos >= _y + _h) || (yPos + h <= _y))
             return;
 
         // See if our boxes intersect with the dirty rect.  If so, then we paint
@@ -191,7 +190,7 @@ void RenderFlow::paintLineBoxBackgroundBorder(QPainter *p, int _x, int _y,
         for (InlineRunBox* curr = firstLineBox(); curr; curr = curr->nextLineBox()) {
             yPos = _ty + curr->yPos();
             h = curr->height();
-            if ((yPos <= _y + _h) && (yPos + h >= _y))
+            if ((yPos < _y + _h) && (yPos + h > _y))
                 curr->paintBackgroundAndBorder(p, _x, _y, _w, _h, _tx, _ty, xOffsetWithinLineBoxes);
             xOffsetWithinLineBoxes += curr->width();
         }
@@ -206,7 +205,7 @@ void RenderFlow::paintLineBoxDecorations(QPainter *p, int _x, int _y,
 
     if (style()->visibility() == VISIBLE && paintAction == PaintActionForeground) {
         // We only paint line box decorations in strict or almost strict mode.
-        // Otherwise we let the TextRuns paint their own decorations.
+        // Otherwise we let the InlineTextBoxes paint their own decorations.
         if (style()->htmlHacks())
             return;
         
@@ -214,7 +213,7 @@ void RenderFlow::paintLineBoxDecorations(QPainter *p, int _x, int _y,
         // intersect.
         int yPos = _ty + firstLineBox()->yPos();;
         int h = lastLineBox()->yPos() + lastLineBox()->height() - firstLineBox()->yPos();
-        if( (yPos > _y + _h) || (yPos + h < _y))
+        if( (yPos >= _y + _h) || (yPos + h <= _y))
             return;
 
         // See if our boxes intersect with the dirty rect.  If so, then we paint
@@ -223,13 +222,13 @@ void RenderFlow::paintLineBoxDecorations(QPainter *p, int _x, int _y,
         for (InlineRunBox* curr = firstLineBox(); curr; curr = curr->nextLineBox()) {
             yPos = _ty + curr->yPos();
             h = curr->height();
-            if ((yPos <= _y + _h) && (yPos + h >= _y))
+            if ((yPos < _y + _h) && (yPos + h > _y))
                 curr->paintDecorations(p, _x, _y, _w, _h, _tx, _ty);
         }
     }
 }
 
-void RenderFlow::repaint(bool immediate)
+QRect RenderFlow::getAbsoluteRepaintRect()
 {
     if (isInlineFlow()) {
         // Find our leftmost position.
@@ -240,28 +239,52 @@ void RenderFlow::repaint(bool immediate)
                 left = curr->xPos();
 
         // Now invalidate a rectangle.
-        int ow = style() ? style()->outlineWidth() : 0;
+        int ow = style() ? style()->outlineSize() : 0;
         if (isCompact())
             left -= m_x;
-        containingBlock()->repaintRectangle(-ow+left, -ow+top,
-                                            width()+ow*2, height()+ow*2, immediate);
+#ifdef INCREMENTAL_REPAINTING
+        if (style()->position() == RELATIVE && m_layer)
+            m_layer->relativePositionOffset(left, top);
+#else
+        if (style()->position() == RELATIVE)
+            relativePositionOffset(left, top);
+#endif
+        QRect r(-ow+left, -ow+top, width()+ow*2, height()+ow*2);
+        containingBlock()->computeAbsoluteRepaintRect(r);
+        if (ow) {
+            for (RenderObject* curr = firstChild(); curr; curr = curr->nextSibling()) {
+                if (!curr->isText()) {
+                    QRect childRect = curr->getAbsoluteRepaintRectWithOutline(ow);
+                    r = r.unite(childRect);
+                }
+            }
+            
+            if (continuation() && !continuation()->isInline()) {
+                QRect contRect = continuation()->getAbsoluteRepaintRectWithOutline(ow);
+                r = r.unite(contRect);
+            }
+        }
+
+        return r;
     }
     else {
         if (firstLineBox() && firstLineBox()->topOverflow() < 0) {
-            int ow = style() ? style()->outlineWidth() : 0;
-            repaintRectangle(-ow, -ow+firstLineBox()->topOverflow(),
-                             overflowWidth(false)+ow*2,
-                             overflowHeight(false)+ow*2-firstLineBox()->topOverflow(), immediate);
+            int ow = style() ? style()->outlineSize() : 0;
+            QRect r(-ow, -ow+firstLineBox()->topOverflow(),
+                    overflowWidth(false)+ow*2,
+                    overflowHeight(false)+ow*2-firstLineBox()->topOverflow());
+            computeAbsoluteRepaintRect(r);
+            return r;
         }
-        else
-            return RenderBox::repaint(immediate);
     }
+
+    return RenderBox::getAbsoluteRepaintRect();
 }
 
 int
-RenderFlow::lowestPosition(bool includeOverflowInterior) const
+RenderFlow::lowestPosition(bool includeOverflowInterior, bool includeSelf) const
 {
-    int bottom = RenderBox::lowestPosition(includeOverflowInterior);
+    int bottom = RenderBox::lowestPosition(includeOverflowInterior, includeSelf);
     if (!includeOverflowInterior && style()->hidesOverflow())
         return bottom;
 
@@ -270,18 +293,18 @@ RenderFlow::lowestPosition(bool includeOverflowInterior) const
     // a tiny rel div buried somewhere deep in our child tree.  In this case we have to get to
     // the abs div.
     for (RenderObject *c = firstChild(); c; c = c->nextSibling()) {
-        if (!c->isFloatingOrPositioned()) {
+        if (!c->isFloatingOrPositioned() && !c->isText()) {
             int lp = c->yPos() + c->lowestPosition(false);
-            bottom = QMAX(bottom, lp);
+            bottom = kMax(bottom, lp);
         }
     }
     
     return bottom;
 }
 
-int RenderFlow::rightmostPosition(bool includeOverflowInterior) const
+int RenderFlow::rightmostPosition(bool includeOverflowInterior, bool includeSelf) const
 {
-    int right = RenderBox::rightmostPosition(includeOverflowInterior);
+    int right = RenderBox::rightmostPosition(includeOverflowInterior, includeSelf);
     if (!includeOverflowInterior && style()->hidesOverflow())
         return right;
 
@@ -290,12 +313,32 @@ int RenderFlow::rightmostPosition(bool includeOverflowInterior) const
     // a tiny rel div buried somewhere deep in our child tree.  In this case we have to get to
     // the abs div.
     for (RenderObject *c = firstChild(); c; c = c->nextSibling()) {
-        if (!c->isFloatingOrPositioned()) {
+        if (!c->isFloatingOrPositioned() && !c->isText()) {
             int rp = c->xPos() + c->rightmostPosition(false);
-            right = QMAX(right, rp);
+            right = kMax(right, rp);
         }
     }
     
     return right;
+}
+
+int RenderFlow::leftmostPosition(bool includeOverflowInterior, bool includeSelf) const
+{
+    int left = RenderBox::leftmostPosition(includeOverflowInterior, includeSelf);
+    if (!includeOverflowInterior && style()->hidesOverflow())
+        return left;
+    
+    // FIXME: Come up with a way to use the layer tree to avoid visiting all the kids.
+    // For now, we have to descend into all the children, since we may have a huge abs div inside
+    // a tiny rel div buried somewhere deep in our child tree.  In this case we have to get to
+    // the abs div.
+    for (RenderObject *c = firstChild(); c; c = c->nextSibling()) {
+        if (!c->isFloatingOrPositioned() && !c->isText()) {
+            int lp = c->xPos() + c->leftmostPosition(false);
+            left = kMin(left, lp);
+        }
+    }
+    
+    return left;
 }
 

@@ -1252,6 +1252,7 @@ int main(int argc, char *argv[])
 	args.pa_socket = so;
 	args.pa_config = mntfromname;
 	args.pa_uri = uri;
+	args.pa_suppressAllUI = gSuppressAllUI;
 
 	error = getvfsbyname("webdav", &vfc);
 	if (error)

@@ -115,8 +115,11 @@ bool AppleMacRiscPCI::start( IOService * provider )
     {
         tmpData = OSDynamicCast(OSData, uniNRegEntry->getProperty("device-rev"));
         if (tmpData)
+		{
             uniNVersion = *(long *)tmpData->getBytesNoCopy();
 	uniNRegEntry->release();
+			uniNVersion &= 0x3f;
+		}
     }
             
     bridge = provider;
@@ -698,6 +701,15 @@ bool AppleMacRiscAGP::configure( IOService * provider )
     isU3 = IODTMatchNubWithKeys(provider, "u3-agp");
     if (isU3) {
 	gartCtrl |= kGART_PERF_RD;
+	
+	if(uniNVersion > 0x33)
+	{
+		/* B2B_GNT seems broken on U3 Twins */
+		//gartCtrl |= kGART_B2B_GNT;
+		
+		//gartCtrl |= kGART_FAST_DDR;
+	}
+	
 	isU32     = (uniNVersion > 0x30);
     }
 
@@ -739,7 +751,7 @@ IOPCIDevice * AppleMacRiscAGP::createNub( OSDictionary * from )
 	    flags &= ~kIOAGPGartInvalidate;
 	else
 	    flags |= kIOAGPGartInvalidate;
-#if 1
+#if 0
 	if (isU3 || (uniNVersion < 0x08))
 	    flags |= kIOAGPDisablePageSpans;
 #else

@@ -52,16 +52,18 @@ public:
     int height() const { return h; }
 
     QPoint topLeft() const;
+    QPoint bottomRight() const;
     QSize size() const;
     void setX(int x) { xp = x; }
     void setY(int y) { yp = y; }
     void setWidth(int width) { w = width; }
     void setHeight(int height) { h = height; }
+    void setRect(int x, int y, int width, int height) { xp = x; yp = y; w = width; h = height; }
     QRect intersect(const QRect &) const;
     bool intersects(const QRect &) const;
     QRect unite(const QRect &) const;
 
-    bool contains(int x, int y, bool proper = false) {
+    bool contains(int x, int y, bool proper = false) const {
         if (proper)
             return x > xp && (x < (xp + w - 1)) && y > yp && y < (yp + h - 1);
         return x >= xp && x < (xp + w) && y >= yp && y < (yp + h);

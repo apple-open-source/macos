@@ -46,6 +46,7 @@ import org.jboss.system.ServiceControllerMBean;
 import org.jboss.system.ServiceMBeanSupport;
 import org.jboss.mx.util.MBeanProxyExt;
 import org.jboss.mx.util.ObjectNameFactory;
+import org.jboss.util.loading.DelegatingClassLoader;
 import org.jboss.web.WebClassLoader;
 import org.jboss.web.WebServiceMBean;
 
@@ -61,12 +62,12 @@ import org.w3c.dom.Element;
  * @see Container
  * @see EJBDeployer
  *
- * @author <a href="mailto:rickard.oberg@telkel.com">Rickard Öberg</a>
+ * @author <a href="mailto:rickard.oberg@telkel.com">Rickard Ã–berg</a>
  * @author <a href="mailto:d_jencks@users.sourceforge.net">David Jencks</a>
  * @author <a href="mailto:reverbel@ime.usp.br">Francisco Reverbel</a>
  * @author <a href="mailto:Adrian.Brock@HappeningTimes.com">Adrian.Brock</a>
  * @author <a href="mailto:Scott.Stark@jboss.org">Scott Stark</a>
- * @version $Revision: 1.34.2.14 $
+ * @version $Revision: 1.34.2.18 $
  *
  * @jmx:mbean extends="org.jboss.system.ServiceMBean"
  */
@@ -342,7 +343,10 @@ public class EjbModule
          Container con = (Container) iter.previous();
          try
          {
-            log.debug("stopService, stopping container: " + con.getBeanMetaData().getEjbName());
+            // The container may already be destroyed so validate metaData
+            BeanMetaData metaData = con.getBeanMetaData();
+            String ejbName = metaData != null ? metaData.getEjbName() : "Unknown";
+            log.debug("stopService, stopping container: " + ejbName);
             serviceController.stop(con.getJmxName());
          }
          catch (Exception e)
@@ -404,13 +408,17 @@ public class EjbModule
             {
                log.error("unexpected exception destroying Container: " + jmxName, e);
             } // end of try-catch
+        }
+        // If the container was registered with the mbeanserver, remove it
+        if (destroyContainer || conState == REGISTERED)
+        {
             try
             {
                serviceController.remove(jmxName);
             }
             catch (Throwable e)
             {
-               log.error("unexpected exception destroying Container: " + jmxName, e);
+               log.error("unexpected exception removing Container: " + jmxName, e);
             } // end of try-catch
          }
       }
@@ -632,7 +640,7 @@ public class EjbModule
       container.setWebClassLoader(wcl);
       // Create classloader for this container
       // Only used to unique the bean ENC and does not augment class loading
-      container.setClassLoader(new URLClassLoader(new URL[0], wcl));
+      container.setClassLoader(new DelegatingClassLoader(wcl));
 
       // Set transaction manager
       InitialContext iniCtx = new InitialContext();

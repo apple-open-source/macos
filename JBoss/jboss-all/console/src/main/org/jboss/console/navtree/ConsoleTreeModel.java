@@ -17,7 +17,7 @@ import org.jboss.console.manager.interfaces.TreeInfo;
  * @see org.jboss.console.navtree.AdminTreeBrowser
  *
  * @author  <a href="mailto:sacha.labourey@cogito-info.ch">Sacha Labourey</a>.
- * @version $Revision: 1.1.2.1 $
+ * @version $Revision: 1.1.2.2 $
  *
  * <p><b>Revisions:</b>
  *
@@ -54,7 +54,7 @@ public class ConsoleTreeModel implements javax.swing.tree.TreeModel
       this.targetPM = new javax.management.ObjectName (context.getServiceJmxName());
       //this.ctx = new InitialContext (jndiProps);      
       this.context = context;
-      this.reopenerMemory = reopenerMemory;
+      //this.reopenerMemory = reopenerMemory;
       
       this.tree = loadTree ();      
       this.root = new RootWrapper (this.tree);

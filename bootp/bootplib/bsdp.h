@@ -34,6 +34,7 @@
  *                      reserved:8;
  */
 #define BOOT_IMAGE_ID_NULL	((bsdp_image_id_t)0)
+#define BSDP_IMAGE_INDEX_MAX	0xffff
 #define BSDP_IMAGE_ATTRIBUTES_INSTALL	((u_int16_t)0x8000)
 #define BSDP_IMAGE_ATTRIBUTES_KIND_MASK	((u_int16_t)0x7f00)
 #define BSDP_IMAGE_ATTRIBUTES_KIND_MAX	0x7f
@@ -52,6 +53,7 @@ typedef enum {
     bsdp_image_kind_MacOS9 = 0,
     bsdp_image_kind_MacOSX = 1,
     bsdp_image_kind_MacOSXServer = 2,
+    bsdp_image_kind_Diagnostics = 3,
 } bsdp_image_kind_t;
 
 /* 
@@ -139,10 +141,11 @@ typedef enum {
     bsdptag_selected_boot_image_e	= 8,
     bsdptag_boot_image_list_e		= 9,
     bsdptag_netboot_1_0_firmware_e	= 10,
+    bsdptag_image_attributes_filter_list_e = 11,
 
     /* protocol-specific bounds */
     bsdptag_first_e			= 1,
-    bsdptag_last_e			= 10,
+    bsdptag_last_e			= 11,
 
     /* image-specific */
     bsdptag_shadow_mount_path_e		= 128,	/* string (URL) */
@@ -183,6 +186,8 @@ bsdptag_type(bsdptag_t tag)
     case bsdptag_netboot_1_0_firmware_e:
 	type = dhcptype_none_e;
 	break;
+    case bsdptag_image_attributes_filter_list_e:
+	type = dhcptype_uint16_mult_e;
     default:
 	break;
     }
@@ -204,6 +209,7 @@ bsdptag_name(bsdptag_t tag)
 	"selected boot image",		/* 8 */
 	"boot image list",		/* 9 */
 	"netboot 1.0 firmware",		/* 10 */
+	"image attributes filter list",	/* 11 */
     };
     if (tag >= bsdptag_first_e && tag <= bsdptag_last_e) {
 	return (names[tag]);

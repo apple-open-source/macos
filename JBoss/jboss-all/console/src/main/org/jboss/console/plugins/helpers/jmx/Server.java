@@ -1,11 +1,7 @@
 package org.jboss.console.plugins.helpers.jmx;
 
-import java.beans.PropertyEditor;
-import java.beans.PropertyEditorManager;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Set;
-import java.util.TreeMap;
+import org.jboss.logging.Logger;
+import org.jboss.mx.util.MBeanServerLocator;
 
 import javax.management.Attribute;
 import javax.management.AttributeList;
@@ -18,16 +14,17 @@ import javax.management.MBeanParameterInfo;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 import javax.management.ReflectionException;
-
-import org.jboss.logging.Logger;
-import org.jboss.mx.util.MBeanServerLocator;
-import org.jboss.system.ServiceContext;
-import org.jboss.system.ServiceControllerMBean;
+import java.beans.PropertyEditor;
+import java.beans.PropertyEditorManager;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Set;
+import java.util.TreeMap;
 
 /** Utility methods related to the MBeanServer interface
  *
  * @author Scott.Stark@jboss.org
- * @version $Revision: 1.1.2.2 $
+ * @version $Revision: 1.1.2.4 $
  */
 public class Server
 {
@@ -176,8 +173,8 @@ public class Server
          }
          catch(ClassNotFoundException e)
          {
-            log.trace("Failed to load class for attribute: "+attr.getName(), e);
-            throw new ReflectionException(e, "Failed to load class for attribute: "+attr.getName());
+            log.trace("Failed to load class for attribute: "+ (attr==null?"null":attr.getName()), e);
+            throw new ReflectionException(e, "Failed to load class for attribute: " + (attr==null?"null":attr.getName()));
          }
 
          server.setAttribute(objName, attr);

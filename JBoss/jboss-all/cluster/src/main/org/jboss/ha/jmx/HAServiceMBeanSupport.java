@@ -35,12 +35,12 @@ import org.jboss.system.ServiceMBeanSupport;
  * Listeners register with their local broadcaster.
  * Invoking sendNotification() on any broadcaster,
  * will notify all listeners in the same cluster partition.
- * @TODO: The performance can be further optimized by avoiding broadcast messages 
+ * TODO: The performance can be further optimized by avoiding broadcast messages
  * when remote listener nodes are not interested (e.g. have no local subscribers)
  * or by iterating locally over filters or remote listeners. 
  *  
  * @author  Ivelin Ivanov <ivelin@apache.org> *
- * @version $Revision: 1.1.2.1 $
+ * @version $Revision: 1.1.2.3 $
  *
  */
 
@@ -90,8 +90,8 @@ public class HAServiceMBeanSupport
    * Convenience method for sharing state across a cluster partition.
    * Delegates to the DistributedStateService
    * 
-   * @param String key for the distributed object 
-   * @param Serializable the distributed object 
+   * @param key key for the distributed object
+   * @param value the distributed object
    * 
    */
   public void setDistributedState(String key, Serializable value)
@@ -106,7 +106,7 @@ public class HAServiceMBeanSupport
    * Convenience method for sharing state across a cluster partition.
    * Delegates to the DistributedStateService
    * 
-   * @param String key for the distributed object 
+   * @param key key for the distributed object
    * @return Serializable the distributed object 
    * 
    */
@@ -262,13 +262,16 @@ public class HAServiceMBeanSupport
    * is is available on all nodes where the broadcaster MBean is registered. 
    *   
    * 
-   * @see NotificationBroadcasterSupport#sendNotification(Notification)   
+   * @see javax.management.NotificationBroadcasterSupport#sendNotification(Notification)
    * 
    */
   public void sendNotification(Notification notification)
   {
     try
     {
+      // Overriding the source MBean with its ObjectName
+      // to ensure that it can be safely transferred over the wire
+      notification.setSource(this.getServiceName());
       sendNotificationRemote(notification);
     }
     

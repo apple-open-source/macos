@@ -7,16 +7,21 @@
 
 package org.jboss.console.plugins;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-
 import org.jboss.console.manager.interfaces.ManageableResource;
 import org.jboss.console.manager.interfaces.TreeNode;
 import org.jboss.console.manager.interfaces.TreeNodeMenuEntry;
+import org.jboss.console.manager.interfaces.impl.GraphMBeanAttributeAction;
+import org.jboss.console.manager.interfaces.impl.SimpleTreeNodeMenuEntryImpl;
 import org.jboss.console.plugins.helpers.AbstractPluginWrapper;
-import org.jboss.console.plugins.helpers.jmx.Server;
 import org.jboss.console.plugins.helpers.jmx.DomainData;
 import org.jboss.console.plugins.helpers.jmx.MBeanData;
+import org.jboss.console.plugins.helpers.jmx.Server;
+
+import javax.management.MBeanAttributeInfo;
+import javax.management.ObjectName;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.HashSet;
 /**
  * As the number of MBeans is very big, we use a real Java class which is far
  * faster than beanshell
@@ -24,7 +29,7 @@ import org.jboss.console.plugins.helpers.jmx.MBeanData;
  * @see <related>
  *
  * @author  <a href="mailto:sacha.labourey@cogito-info.ch">Sacha Labourey</a>.
- * @version $Revision: 1.1.2.1 $
+ * @version $Revision: 1.1.2.2 $
  *
  * <p><b>Revisions:</b>
  *
@@ -36,9 +41,40 @@ import org.jboss.console.plugins.helpers.jmx.MBeanData;
 public class MBeansLister 
    extends AbstractPluginWrapper
 {
+   private static HashSet graphableClasses = new HashSet();
 
+   static
+   {
+      graphableClasses.add("java.lang.Integer");
+      graphableClasses.add("java.lang.Short");
+      graphableClasses.add("java.lang.Double");
+      graphableClasses.add("java.lang.Float");
+      graphableClasses.add("java.lang.Long");
+   }
    public MBeansLister () { super(); }
-   
+
+   TreeNode createJmxAttributeSubResource(MBeanAttributeInfo attr, ObjectName mbeanName) throws Exception
+   {
+      TreeNodeMenuEntry[] entries = null;
+      if (graphableClasses.contains(attr.getType()))
+      {
+         SimpleTreeNodeMenuEntryImpl entry = new SimpleTreeNodeMenuEntryImpl("graph", new GraphMBeanAttributeAction(mbeanName, attr.getName()));
+         entries = new TreeNodeMenuEntry[1];
+         entries[0] = entry;
+      }
+
+      return createTreeNode(
+              attr.getName(),
+              attr.getDescription(),
+              "images/container.gif",
+              "/jmx-console/HtmlAdaptor?action=inspectMBean&name=" + encode("" + mbeanName), // Default URL
+              entries,
+              null,
+              null
+              //name,
+              //data.getClassName() TOO HEAVY TO GENERATE RESOURCE LOOKUP FOR EACH MBEAN!
+           );
+   }
    TreeNode createJmxMBeanSubResources (MBeanData data) throws Exception
    {
       String name = "" + data.getObjectName();
@@ -50,14 +86,21 @@ public class MBeansLister
          int index = name.indexOf( ":" );
          displayName = ( index >= 0 ) ? name.substring( index + 1 ) : name;
       }
-      
-      return createTreeNode ( 
+
+      MBeanAttributeInfo[] attributes = data.getMetaData().getAttributes();
+      TreeNode[] attrNodes = new TreeNode[attributes.length];
+      for (int i = 0; i < attributes.length; i++)
+      {
+         attrNodes[i] = createJmxAttributeSubResource(attributes[i], data.getObjectName());
+      }
+
+      return createTreeNode (
             displayName, // name
             name, // description
             "images/server.gif", // Icon URL
             "/jmx-console/HtmlAdaptor?action=inspectMBean&name=" + encode(name), // Default URL
             null,
-            null,
+            attrNodes,
             null
             //name,
             //data.getClassName() TOO HEAVY TO GENERATE RESOURCE LOOKUP FOR EACH MBEAN!

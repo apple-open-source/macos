@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<!--
+  $Id: mbeans.xml,v 1.1.2.2 2003/09/16 07:42:31 andd Exp $
+  
+  This file is used to configure the JMX listening subscriptions, 
+  i.e. which JMX Notifications to intercept from which MBeans.
+  
+  The SnmpAgentService MBean will then subscribe to receive those
+  notifications directly from the corresponding MBeans by setting an
+  appropriate filter with each MBean. The intercepted JMX notifications
+  will be eventually mapped onto SNMP traps.
+  
+  Each monitored object is identified by its full ObjectName, i.e.
+  the name under which it is registered at the MBeanServer. It is assumed
+  that monitored objects are NotificationBroadcasters.
+  
+  JMX notifications, in turn, are of a certain type. The type is a
+  string expressed in a dot notation similar to Java properties.
+  An example of a notification type is network.alarm.router.
+  
+  For each monitored MBean, one or more notification types may be
+  monitored. Each specified type will be used to setup a regular expression
+  pattern (see java.util.regexp.Pattern), so an entry in this
+  configuration file may be used to match more than one actual
+  notification types emitted by the monitored MBeans.
+-->
+<monitored-obj-list>
+   
+  <!-- Monitor events from agent itself -->
+  <monitored-obj>
+    <object-name>jboss.jmx:name=SnmpAgent,service=snmp,type=adaptor</object-name>
+    <notification-type>coldstart</notification-type>        
+  </monitored-obj>   
+
+  <!-- Monitor timer for heartbeat events -->
+  <monitored-obj>
+    <object-name>jboss.jmx:name=SnmpAgent,service=timer,type=heartbeat</object-name>
+    <notification-type>heartbeat</notification-type>
+  </monitored-obj>         
+
+  <!--
+    Monitor "JMX.mbean.registered", "JMX.mbean.unregistered" notifications
+    emitted by the always-present JMImplementation:type=MBeanServerDelegate
+    MBean. Both notification can be monitored using the following pattern --> 
+  <!--
+  <monitored-obj>
+    <object-name>JMImplementation:type=MBeanServerDelegate</object-name>
+    <notification-type>JMX\.mbean\..*</notification-type>
+  </monitored-obj>
+  -->        
+</monitored-obj-list>

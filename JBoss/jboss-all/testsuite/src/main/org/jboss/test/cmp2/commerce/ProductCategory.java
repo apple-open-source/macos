@@ -11,4 +11,12 @@ public interface ProductCategory extends EJBLocalObject  {
 
    public Collection getProducts();
    public void setProducts(Collection products);
+
+   public ProductCategory getParent();
+   public void setParent(ProductCategory parent);
+   public Collection getSubcategories();
+   public void setSubcategories(Collection subcategories);
+
+   public ProductCategoryType getType();
+   public void setType(ProductCategoryType type);
 }

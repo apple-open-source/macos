@@ -34,17 +34,21 @@ public class DelayInterceptor extends JMSServerInterceptorSupport
 {
 
    public boolean delayEnabled = false;
-   public long    delayTime = 50;
+   public long delayTime = 50;
 
    /**
     * Get the thread group of the server.
     */
    public ThreadGroup getThreadGroup()
    {
-      if( delayEnabled ) {
-         try {
-            Thread.currentThread().sleep(delayTime);
-         } catch ( InterruptedException e ) {
+      if (delayEnabled)
+      {
+         try
+         {
+            Thread.sleep(delayTime);
+         }
+         catch (InterruptedException e)
+         {
             Thread.currentThread().interrupt();
          }
       }
@@ -59,10 +63,14 @@ public class DelayInterceptor extends JMSServerInterceptorSupport
     */
    public String getID() throws JMSException
    {
-      if( delayEnabled ) {
-         try {
-            Thread.currentThread().sleep(delayTime);
-         } catch ( InterruptedException e ) {
+      if (delayEnabled)
+      {
+         try
+         {
+            Thread.sleep(delayTime);
+         }
+         catch (InterruptedException e)
+         {
             Thread.currentThread().interrupt();
          }
       }
@@ -78,10 +86,14 @@ public class DelayInterceptor extends JMSServerInterceptorSupport
     */
    public TemporaryTopic getTemporaryTopic(ConnectionToken dc) throws JMSException
    {
-      if( delayEnabled ) {
-         try {
-            Thread.currentThread().sleep(delayTime);
-         } catch ( InterruptedException e ) {
+      if (delayEnabled)
+      {
+         try
+         {
+            Thread.sleep(delayTime);
+         }
+         catch (InterruptedException e)
+         {
             Thread.currentThread().interrupt();
          }
       }
@@ -97,10 +109,14 @@ public class DelayInterceptor extends JMSServerInterceptorSupport
     */
    public TemporaryQueue getTemporaryQueue(ConnectionToken dc) throws JMSException
    {
-      if( delayEnabled ) {
-         try {
-            Thread.currentThread().sleep(delayTime);
-         } catch ( InterruptedException e ) {
+      if (delayEnabled)
+      {
+         try
+         {
+            Thread.sleep(delayTime);
+         }
+         catch (InterruptedException e)
+         {
             Thread.currentThread().interrupt();
          }
       }
@@ -117,10 +133,14 @@ public class DelayInterceptor extends JMSServerInterceptorSupport
    public void connectionClosing(ConnectionToken dc) throws JMSException
    {
 
-      if( delayEnabled ) {
-         try {
-            Thread.currentThread().sleep(delayTime);
-         } catch ( InterruptedException e ) {
+      if (delayEnabled)
+      {
+         try
+         {
+            Thread.sleep(delayTime);
+         }
+         catch (InterruptedException e)
+         {
             Thread.currentThread().interrupt();
          }
       }
@@ -136,10 +156,14 @@ public class DelayInterceptor extends JMSServerInterceptorSupport
    public void checkID(String ID) throws JMSException
    {
 
-      if( delayEnabled ) {
-         try {
-            Thread.currentThread().sleep(delayTime);
-         } catch ( InterruptedException e ) {
+      if (delayEnabled)
+      {
+         try
+         {
+            Thread.sleep(delayTime);
+         }
+         catch (InterruptedException e)
+         {
             Thread.currentThread().interrupt();
          }
       }
@@ -156,10 +180,14 @@ public class DelayInterceptor extends JMSServerInterceptorSupport
    public void addMessage(ConnectionToken dc, SpyMessage message) throws JMSException
    {
 
-      if( delayEnabled ) {
-         try {
-            Thread.currentThread().sleep(delayTime);
-         } catch ( InterruptedException e ) {
+      if (delayEnabled)
+      {
+         try
+         {
+            Thread.sleep(delayTime);
+         }
+         catch (InterruptedException e)
+         {
             Thread.currentThread().interrupt();
          }
       }
@@ -177,10 +205,14 @@ public class DelayInterceptor extends JMSServerInterceptorSupport
    public Queue createQueue(ConnectionToken dc, String dest) throws JMSException
    {
 
-      if( delayEnabled ) {
-         try {
-            Thread.currentThread().sleep(delayTime);
-         } catch ( InterruptedException e ) {
+      if (delayEnabled)
+      {
+         try
+         {
+            Thread.sleep(delayTime);
+         }
+         catch (InterruptedException e)
+         {
             Thread.currentThread().interrupt();
          }
       }
@@ -198,10 +230,14 @@ public class DelayInterceptor extends JMSServerInterceptorSupport
    public Topic createTopic(ConnectionToken dc, String dest) throws JMSException
    {
 
-      if( delayEnabled ) {
-         try {
-            Thread.currentThread().sleep(delayTime);
-         } catch ( InterruptedException e ) {
+      if (delayEnabled)
+      {
+         try
+         {
+            Thread.sleep(delayTime);
+         }
+         catch (InterruptedException e)
+         {
             Thread.currentThread().interrupt();
          }
       }
@@ -218,10 +254,14 @@ public class DelayInterceptor extends JMSServerInterceptorSupport
    public void deleteTemporaryDestination(ConnectionToken dc, SpyDestination dest) throws JMSException
    {
 
-      if( delayEnabled ) {
-         try {
-            Thread.currentThread().sleep(delayTime);
-         } catch ( InterruptedException e ) {
+      if (delayEnabled)
+      {
+         try
+         {
+            Thread.sleep(delayTime);
+         }
+         catch (InterruptedException e)
+         {
             Thread.currentThread().interrupt();
          }
       }
@@ -238,10 +278,14 @@ public class DelayInterceptor extends JMSServerInterceptorSupport
    public void transact(ConnectionToken dc, TransactionRequest t) throws JMSException
    {
 
-      if( delayEnabled ) {
-         try {
-            Thread.currentThread().sleep(delayTime);
-         } catch ( InterruptedException e ) {
+      if (delayEnabled)
+      {
+         try
+         {
+            Thread.sleep(delayTime);
+         }
+         catch (InterruptedException e)
+         {
             Thread.currentThread().interrupt();
          }
       }
@@ -258,10 +302,14 @@ public class DelayInterceptor extends JMSServerInterceptorSupport
    public void acknowledge(ConnectionToken dc, AcknowledgementRequest item) throws JMSException
    {
 
-      if( delayEnabled ) {
-         try {
-            Thread.currentThread().sleep(delayTime);
-         } catch ( InterruptedException e ) {
+      if (delayEnabled)
+      {
+         try
+         {
+            Thread.sleep(delayTime);
+         }
+         catch (InterruptedException e)
+         {
             Thread.currentThread().interrupt();
          }
       }
@@ -280,10 +328,14 @@ public class DelayInterceptor extends JMSServerInterceptorSupport
    public SpyMessage[] browse(ConnectionToken dc, Destination dest, String selector) throws JMSException
    {
 
-      if( delayEnabled ) {
-         try {
-            Thread.currentThread().sleep(delayTime);
-         } catch ( InterruptedException e ) {
+      if (delayEnabled)
+      {
+         try
+         {
+            Thread.sleep(delayTime);
+         }
+         catch (InterruptedException e)
+         {
             Thread.currentThread().interrupt();
          }
       }
@@ -302,10 +354,14 @@ public class DelayInterceptor extends JMSServerInterceptorSupport
    public SpyMessage receive(ConnectionToken dc, int subscriberId, long wait) throws JMSException
    {
 
-      if( delayEnabled ) {
-         try {
-            Thread.currentThread().sleep(delayTime);
-         } catch ( InterruptedException e ) {
+      if (delayEnabled)
+      {
+         try
+         {
+            Thread.sleep(delayTime);
+         }
+         catch (InterruptedException e)
+         {
             Thread.currentThread().interrupt();
          }
       }
@@ -322,10 +378,14 @@ public class DelayInterceptor extends JMSServerInterceptorSupport
    public void setEnabled(ConnectionToken dc, boolean enabled) throws JMSException
    {
 
-      if( delayEnabled ) {
-         try {
-            Thread.currentThread().sleep(delayTime);
-         } catch ( InterruptedException e ) {
+      if (delayEnabled)
+      {
+         try
+         {
+            Thread.sleep(delayTime);
+         }
+         catch (InterruptedException e)
+         {
             Thread.currentThread().interrupt();
          }
       }
@@ -342,10 +402,14 @@ public class DelayInterceptor extends JMSServerInterceptorSupport
    public void unsubscribe(ConnectionToken dc, int subscriptionId) throws JMSException
    {
 
-      if( delayEnabled ) {
-         try {
-            Thread.currentThread().sleep(delayTime);
-         } catch ( InterruptedException e ) {
+      if (delayEnabled)
+      {
+         try
+         {
+            Thread.sleep(delayTime);
+         }
+         catch (InterruptedException e)
+         {
             Thread.currentThread().interrupt();
          }
       }
@@ -361,10 +425,14 @@ public class DelayInterceptor extends JMSServerInterceptorSupport
    public void destroySubscription(ConnectionToken dc, DurableSubscriptionID id) throws JMSException
    {
 
-      if( delayEnabled ) {
-         try {
-            Thread.currentThread().sleep(delayTime);
-         } catch ( InterruptedException e ) {
+      if (delayEnabled)
+      {
+         try
+         {
+            Thread.sleep(delayTime);
+         }
+         catch (InterruptedException e)
+         {
             Thread.currentThread().interrupt();
          }
       }
@@ -381,10 +449,14 @@ public class DelayInterceptor extends JMSServerInterceptorSupport
     */
    public String checkUser(String userName, String password) throws JMSException
    {
-      if( delayEnabled ) {
-         try {
-            Thread.currentThread().sleep(delayTime);
-         } catch ( InterruptedException e ) {
+      if (delayEnabled)
+      {
+         try
+         {
+            Thread.sleep(delayTime);
+         }
+         catch (InterruptedException e)
+         {
             Thread.currentThread().interrupt();
          }
       }
@@ -402,10 +474,14 @@ public class DelayInterceptor extends JMSServerInterceptorSupport
    public String authenticate(String userName, String password) throws JMSException
    {
 
-      if( delayEnabled ) {
-         try {
-            Thread.currentThread().sleep(delayTime);
-         } catch ( InterruptedException e ) {
+      if (delayEnabled)
+      {
+         try
+         {
+            Thread.sleep(delayTime);
+         }
+         catch (InterruptedException e)
+         {
             Thread.currentThread().interrupt();
          }
       }
@@ -420,10 +496,14 @@ public class DelayInterceptor extends JMSServerInterceptorSupport
    public void subscribe(org.jboss.mq.ConnectionToken dc, org.jboss.mq.Subscription s) throws JMSException
    {
 
-      if( delayEnabled ) {
-         try {
-            Thread.currentThread().sleep(delayTime);
-         } catch ( InterruptedException e ) {
+      if (delayEnabled)
+      {
+         try
+         {
+            Thread.sleep(delayTime);
+         }
+         catch (InterruptedException e)
+         {
             Thread.currentThread().interrupt();
          }
       }
@@ -440,10 +520,14 @@ public class DelayInterceptor extends JMSServerInterceptorSupport
    public void ping(ConnectionToken dc, long clientTime) throws JMSException
    {
 
-      if( delayEnabled ) {
-         try {
-            Thread.currentThread().sleep(delayTime);
-         } catch ( InterruptedException e ) {
+      if (delayEnabled)
+      {
+         try
+         {
+            Thread.sleep(delayTime);
+         }
+         catch (InterruptedException e)
+         {
             Thread.currentThread().interrupt();
          }
       }
@@ -454,10 +538,14 @@ public class DelayInterceptor extends JMSServerInterceptorSupport
    public SpyTopic getDurableTopic(DurableSubscriptionID sub) throws JMSException
    {
 
-      if( delayEnabled ) {
-         try {
-            Thread.currentThread().sleep(delayTime);
-         } catch ( InterruptedException e ) {
+      if (delayEnabled)
+      {
+         try
+         {
+            Thread.sleep(delayTime);
+         }
+         catch (InterruptedException e)
+         {
             Thread.currentThread().interrupt();
          }
       }
@@ -466,16 +554,20 @@ public class DelayInterceptor extends JMSServerInterceptorSupport
 
    public Subscription getSubscription(ConnectionToken dc, int subscriberId) throws JMSException
    {
-      if( delayEnabled ) {
-         try {
-            Thread.currentThread().sleep(delayTime);
-         } catch ( InterruptedException e ) {
+      if (delayEnabled)
+      {
+         try
+         {
+            Thread.sleep(delayTime);
+         }
+         catch (InterruptedException e)
+         {
             Thread.currentThread().interrupt();
          }
       }
       return getNext().getSubscription(dc, subscriberId);
    }
-   
+
    public boolean isDelayEnabled()
    {
       return delayEnabled;

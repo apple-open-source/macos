@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<connection-factories>
+
+  <tx-connection-factory>
+
+    <!-- ===================================================================== -->
+    <!--                                                                       -->
+    <!--  FirstSQL/J Enterprise Edition (JCA)                                  -->
+    <!--  Download Enterprise Edition: http://www.firstsql.com/download.shtml  -->
+    <!--  Copyright 2003 FirstSQL, Inc. (www.firstsql.com)                     -->
+    <!--                                                                       -->
+    <!-- ===================================================================== -->
+
+    <jndi-name>DefaultDS</jndi-name>
+
+    <xa-transaction/>
+
+    <adapter-display-name>FirstSQL/J Enterprise Edition</adapter-display-name>
+    <config-property name="ServerName" type="java.lang.String">localhost</config-property>
+    <config-property name="PortNumber" type="java.lang.String">8000</config-property>
+    <config-property name="UserName" type="java.lang.String">demo</config-property>
+    <config-property name="Password" type="java.lang.String"></config-property>
+
+  </tx-connection-factory>
+
+</connection-factories>

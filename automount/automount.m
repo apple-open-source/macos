@@ -3,22 +3,21 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
+ * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ * Reserved.  This file contains Original Code and/or Modifications of
+ * Original Code as defined in and that are subject to the Apple Public
+ * Source License Version 1.0 (the 'License').  You may not use this file
+ * except in compliance with the License.  Please obtain a copy of the
+ * License at http://www.apple.com/publicsource and read it before using
+ * this file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License."
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -93,7 +92,7 @@ BOOL doServerMounts = YES;
 
 NSLMap *GlobalTargetNSLMap;
 
-MountProgressRecord_List gMountsInProgress = LIST_HEAD_INITIALIZER(&gMountsInProgress);
+MountProgressRecord_List gMountsInProgress = LIST_HEAD_INITIALIZER(gMountsInProgress);
 
 BOOL gForkedMountInProgress = NO;
 BOOL gForkedMount = NO;
@@ -105,7 +104,9 @@ BOOL gTerminating = FALSE;
 
 BOOL gUserLoggedIn = NO;
 
-NSLMapList gNSLMapList = LIST_HEAD_INITIALIZER(&gNSLMapList);
+NSLMapList gNSLMapList = LIST_HEAD_INITIALIZER(gNSLMapList);
+
+AMIMsgList gAMIMsgList = STAILQ_HEAD_INITIALIZER(gAMIMsgList);
 
 #define DefaultMountDir "/private/var/automount"
 
@@ -120,6 +121,11 @@ struct debug_fdset
 static void child_exit(void);
 static void shutdown_server(void);
 
+struct AMIQueueEntry {
+	struct AMIMsgListEntry AMIListEntry;
+	char msgcopy[0];
+};
+	
 #ifndef __APPLE__ 
 int
 setsid(void)
@@ -160,6 +166,65 @@ fdtoc(fd_set *f)
 		df->i[4], df->i[5], df->i[6], df->i[7]);
 	return str;
 }
+
+void
+enqueue_AMInfoServiceRequest(void)
+{
+	char request_code[1];
+
+	request_code[0] = REQ_AMINFOREQ;
+	if (gWakeupFDs[1] != -1) {
+		(void)write(gWakeupFDs[1], request_code, sizeof(request_code));
+	} else {
+		sys_msg(debug, LOG_ERR, "EnqueueAMInfoServiceRequest: gWakeupFDs[1] uninitialized.");
+	}
+}
+
+int
+post_AMInfoServiceRequest(mach_port_t port, Map *map, mach_msg_header_t *msg, size_t size) {
+	struct AMIQueueEntry *entry;
+	size_t entrySize = sizeof(struct AMIQueueEntry) + size;
+	
+	entry = (struct AMIQueueEntry *)calloc(1, entrySize);
+	if (entry == NULL) return ENOMEM;
+	
+	mach_msg_header_t *msgcopy = (mach_msg_header_t *)(&entry->msgcopy);
+	bcopy(msg, msgcopy, size);
+	
+	entry->AMIListEntry.iml_port = port;
+	entry->AMIListEntry.iml_map = map;
+	entry->AMIListEntry.iml_size = size;
+	entry->AMIListEntry.iml_msg = msgcopy;
+	
+#if 0
+	sys_msg(debug, LOG_ERR, "post_AMInfoServiceRequest: entry->port = 0x%08lx", (unsigned long)entry->AMIListEntry.iml_port);
+	sys_msg(debug, LOG_ERR, "post_AMInfoServiceRequest: entry->msg->remote_port = 0x%08lx",
+								(unsigned long)entry->AMIListEntry.iml_msg->msgh_remote_port);
+	sys_msg(debug, LOG_ERR, "post_AMInfoServiceRequest: entry->msg->local_port = 0x%08lx",
+								(unsigned long)entry->AMIListEntry.iml_msg->msgh_local_port);
+	sys_msg(debug, LOG_ERR, "post_AMInfoServiceRequest: entry->msg->bits = 0x%08lx",
+								(unsigned long)entry->AMIListEntry.iml_msg->msgh_bits);
+#endif
+	STAILQ_INSERT_TAIL(&gAMIMsgList, &entry->AMIListEntry, iml_link);
+	
+	enqueue_AMInfoServiceRequest();
+	
+	return 0;
+}
+
+void
+process_AMInfoServiceRequests(void) {
+	struct AMIMsgListEntry *entry;
+
+	while (entry = STAILQ_FIRST(&gAMIMsgList)) {
+#if 0
+		sys_msg(debug, LOG_DEBUG, "\tDispatching %ld-byte message for %s...", entry->iml_size, [[entry->iml_map name] value]);
+#endif
+		[entry->iml_map handleAMInfoRequest:entry->iml_msg ofSize:entry->iml_size onPort:entry->iml_port];
+		STAILQ_REMOVE_HEAD(&gAMIMsgList, iml_link);
+		free(entry);
+	};
+};
 
 void
 enqueue_reinit_request(void) {
@@ -304,9 +369,21 @@ handle_enqueued_requests(char request_code) {
 		[controller checkForUnmounts];
 		break;
 
+      case REQ_AMINFOREQ:
+		sys_msg(debug, LOG_DEBUG, "handle_deferred_requests: processing pending AM info requests...");
+		process_AMInfoServiceRequests();
+        break;
+      
 	  case REQ_USR2:
+#if 0
+		sys_msg(debug, LOG_DEBUG, "handle_deferred_requests: triggering timeout on SIGUSR2.");
+		doing_timeout = 1;
+		[controller timeout];
+		doing_timeout = 0;
+#else
 		sys_msg(debug, LOG_DEBUG, "handle_deferred_requests: printing mount tree on SIGUSR2.");
 		[controller printTree];
+#endif
 		break;
 		
 	  default:

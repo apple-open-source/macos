@@ -33,6 +33,7 @@
 // ### HACK
 #include "html/html_baseimpl.h"
 #include "html/html_documentimpl.h"
+#include "html/html_objectimpl.h"
 
 #include "khtml_part.h"
 #include "khtmlview.h"
@@ -46,8 +47,10 @@
 #include "misc/htmltags.h"
 
 #include "rendering/render_object.h"
+#include "rendering/render_layer.h"
 
 #include <kdebug.h>
+
 
 using namespace KJS;
 
@@ -69,22 +72,19 @@ Value KJS::HTMLDocFunction::tryCall(ExecState *exec, Object &thisObj, const List
   case HTMLDocument::Open:
     // For compatibility with other browsers, pass open calls with parameters to the window.
     if (args.size() > 1) {
-      KHTMLView *view = static_cast<DOM::DocumentImpl *>(doc.handle())->view();
-      if (view) {
-        KHTMLPart *part = view->part();
-        if (part) {
-          Window *window = Window::retrieveWindow(part);
-          if (window) {
-            Object functionObject = Object::dynamicCast(window->get(exec, "open"));
-            if (functionObject.isNull() || !functionObject.implementsCall()) {
-                Object exception = Error::create(exec, TypeError);
-                exec->setException(exception);
-                return exception;
-            }
-            Object windowObject(window);
-            return functionObject.call(exec, windowObject, args);
-          }
-        }
+      KHTMLPart *part = static_cast<DOM::DocumentImpl *>(doc.handle())->part();
+      if (part) {
+	Window *window = Window::retrieveWindow(part);
+	if (window) {
+	  Object functionObject = Object::dynamicCast(window->get(exec, "open"));
+	  if (functionObject.isNull() || !functionObject.implementsCall()) {
+	    Object exception = Error::create(exec, TypeError);
+	    exec->setException(exception);
+	    return exception;
+	  }
+	  Object windowObject(window);
+	  return functionObject.call(exec, windowObject, args);
+	}
       }
       return Undefined();
     }
@@ -122,7 +122,7 @@ Value KJS::HTMLDocFunction::tryCall(ExecState *exec, Object &thisObj, const List
 const ClassInfo KJS::HTMLDocument::info =
   { "HTMLDocument", &DOMDocument::info, &HTMLDocumentTable, 0 };
 /* Source for HTMLDocumentTable. Use "make hashtables" to regenerate.
-@begin HTMLDocumentTable 31
+@begin HTMLDocumentTable 32
   title			HTMLDocument::Title		DontDelete
   referrer		HTMLDocument::Referrer		DontDelete|ReadOnly
   domain		HTMLDocument::Domain		DontDelete
@@ -136,7 +136,12 @@ const ClassInfo KJS::HTMLDocument::info =
   forms			HTMLDocument::Forms		DontDelete|ReadOnly
   anchors		HTMLDocument::Anchors		DontDelete|ReadOnly
   scripts		HTMLDocument::Scripts		DontDelete|ReadOnly
-  all			HTMLDocument::All		DontDelete|ReadOnly
+# We want no document.all at all, not just a function that returns undefined.
+# That means we lose the "document.all when spoofing as IE" feature, but we don't spoof in Safari.
+# And this makes sites that set document.all explicitly work when they otherwise wouldn't, 
+# e.g. https://corporateexchange.airborne.com
+# (Not in APPLE_CHANGES since we can't do #if in KJS identifier lists.)
+#  all			HTMLDocument::All		DontDelete|ReadOnly
   clear			HTMLDocument::Clear		DontDelete|Function 0
   open			HTMLDocument::Open		DontDelete|Function 0
   close			HTMLDocument::Close		DontDelete|Function 0
@@ -154,6 +159,7 @@ const ClassInfo KJS::HTMLDocument::info =
   height		HTMLDocument::Height		DontDelete|ReadOnly
   width			HTMLDocument::Width		DontDelete|ReadOnly
   dir			HTMLDocument::Dir		DontDelete
+  designMode            HTMLDocument::DesignMode        DontDelete
 #potentially obsolete array properties
 # layers
 # plugins
@@ -198,8 +204,6 @@ Value KJS::HTMLDocument::tryGet(ExecState *exec, const Identifier &propertyName)
     case Body:
       return getDOMNode(exec,doc.body());
     case Location:
-      Q_ASSERT(view);
-      Q_ASSERT(view->part());
       if ( view && view->part() )
       {
         Window* win = Window::retrieveWindow(view->part());
@@ -244,6 +248,8 @@ Value KJS::HTMLDocument::tryGet(ExecState *exec, const Identifier &propertyName)
     case CaptureEvents:
     case ReleaseEvents:
       return lookupOrCreateFunction<HTMLDocFunction>( exec, propertyName, this, entry->value, entry->params, entry->attr );
+    case DesignMode:
+        return String(doc.designMode());
     }
   }
   // Look for overrides
@@ -278,6 +284,17 @@ Value KJS::HTMLDocument::tryGet(ExecState *exec, const Identifier &propertyName)
 
   //kdDebug(6070) << "KJS::HTMLDocument::tryGet " << propertyName.qstring() << " not found, returning element" << endl;
   // image and form elements with the name p will be looked up last
+
+#if APPLE_CHANGES
+    // Look for named applets.
+    // FIXME:  Factor code that creates RuntimeObjectImp for applet.  It's also
+    // located in applets[0]. 
+    DOM::HTMLCollection applets = doc.applets();
+    DOM::HTMLElement anApplet = applets.namedItem (propertyName.string());
+    if (!anApplet.isNull()) {
+        return getRuntimeObject(exec,anApplet);
+    }
+#endif
 
   DOM::HTMLDocumentImpl *docImpl = static_cast<DOM::HTMLDocumentImpl*>(node.handle());
   if (!docImpl->haveNamedImageOrForm(propertyName.qstring())) {
@@ -346,11 +363,9 @@ void KJS::HTMLDocument::putValue(ExecState *exec, int token, const Value& value,
     doc.setCookie(value.toString(exec).string());
     break;
   case Location: {
-    KHTMLView *view = static_cast<DOM::DocumentImpl *>( doc.handle() )->view();
-    Q_ASSERT(view);
-    if (view)
+    KHTMLPart *part = static_cast<DOM::DocumentImpl *>( doc.handle() )->part();
+    if (part)
     {
-      KHTMLPart *part = view->part();
       QString str = value.toString(exec).qstring();
 
       // When assinging location, IE and Mozilla both resolve the URL
@@ -414,6 +429,9 @@ void KJS::HTMLDocument::putValue(ExecState *exec, int token, const Value& value,
   case Dir:
     body.setDir(value.toString(exec).string());
     break;
+  case DesignMode:
+    doc.setDesignMode(value.toString(exec).string());
+    break;
   default:
     kdWarning() << "HTMLDocument::putValue unhandled token " << token << endl;
   }
@@ -475,6 +493,7 @@ const ClassInfo KJS::HTMLElement::tablecell_info = { "HTMLTableCellElement", &KJ
 const ClassInfo KJS::HTMLElement::frameSet_info = { "HTMLFrameSetElement", &KJS::HTMLElement::info, &HTMLFrameSetElementTable, 0 };
 const ClassInfo KJS::HTMLElement::frame_info = { "HTMLFrameElement", &KJS::HTMLElement::info, &HTMLFrameElementTable, 0 };
 const ClassInfo KJS::HTMLElement::iFrame_info = { "HTMLIFrameElement", &KJS::HTMLElement::info, &HTMLIFrameElementTable, 0 };
+const ClassInfo KJS::HTMLElement::marquee_info = { "HTMLMarqueeElement", &KJS::HTMLElement::info, &HTMLMarqueeElementTable, 0 };
 
 const ClassInfo* KJS::HTMLElement::classInfo() const
 {
@@ -598,12 +617,14 @@ const ClassInfo* KJS::HTMLElement::classInfo() const
     return &frame_info;
   case ID_IFRAME:
     return &iFrame_info;
+  case ID_MARQUEE:
+    return &marquee_info;
   default:
     return &info;
   }
 }
 /*
-@begin HTMLElementTable 8
+@begin HTMLElementTable 11
   id		KJS::HTMLElement::ElementId	DontDelete
   title		KJS::HTMLElement::ElementTitle	DontDelete
   lang		KJS::HTMLElement::ElementLang	DontDelete
@@ -615,6 +636,8 @@ const ClassInfo* KJS::HTMLElement::classInfo() const
   document	KJS::HTMLElement::ElementDocument  DontDelete|ReadOnly
 # IE extension
   children	KJS::HTMLElement::ElementChildren  DontDelete|ReadOnly
+  contentEditable   KJS::HTMLElement::ElementContentEditable  DontDelete
+  isContentEditable KJS::HTMLElement::ElementIsContentEditable  DontDelete|ReadOnly
 @end
 @begin HTMLHtmlElementTable 1
   version	KJS::HTMLElement::HtmlVersion	DontDelete
@@ -1053,6 +1076,11 @@ const ClassInfo* KJS::HTMLElement::classInfo() const
   src		  KJS::HTMLElement::IFrameSrc			DontDelete
   width		  KJS::HTMLElement::IFrameWidth			DontDelete
 @end
+
+@begin HTMLMarqueeElementTable 2
+  start           KJS::HTMLElement::MarqueeStart		DontDelete|Function 0
+  stop            KJS::HTMLElement::MarqueeStop                 DontDelete|Function 0
+@end
 */
 
 Value KJS::HTMLElement::tryGet(ExecState *exec, const Identifier &propertyName) const
@@ -1084,23 +1112,30 @@ Value KJS::HTMLElement::tryGet(ExecState *exec, const Identifier &propertyName) 
         return getDOMNode(exec,select.options().item(u)); // not specified by DOM(?) but supported in netscape/IE
     }
       break;
-  case ID_FRAME:
-  case ID_IFRAME: {
-      DOM::DocumentImpl* doc = static_cast<DOM::HTMLFrameElementImpl *>(element.handle())->contentDocument();
-      if ( doc && doc->view() ) {
-        KHTMLPart* part = doc->view()->part();
-        if ( part ) {
-          Object globalObject = Object::dynamicCast( Window::retrieve( part ) );
-          // Calling hasProperty on a Window object doesn't work, it always says true.
-          // Hence we need to use getDirect instead.
-          if ( !globalObject.isNull() && static_cast<ObjectImp *>(globalObject.imp())->getDirect( propertyName ) )
-            return globalObject.get( exec, propertyName );
+    case ID_FRAME:
+    case ID_IFRAME: {
+        DOM::DocumentImpl* doc = static_cast<DOM::HTMLFrameElementImpl *>(element.handle())->contentDocument();
+        if ( doc ) {
+            KHTMLPart* part = doc->part();
+            if ( part ) {
+	      Object globalObject = Object::dynamicCast( Window::retrieve( part ) );
+	      // Calling hasProperty on a Window object doesn't work, it always says true.
+	      // Hence we need to use getDirect instead.
+	      if ( !globalObject.isNull() && static_cast<ObjectImp *>(globalObject.imp())->getDirect( propertyName ) )
+                return globalObject.get( exec, propertyName );
+            }
         }
-      }
-  }
-  default:
-    break;
-  }
+    }
+      break;
+#if APPLE_CHANGES
+    case ID_APPLET: {
+        return getRuntimeObject(exec,element);
+    }
+      break;
+#endif
+    default:
+        break;
+    }
 
   const HashTable* table = classInfo()->propHashTable; // get the right hashtable
   const HashEntry* entry = Lookup::findEntry(table, propertyName);
@@ -1794,6 +1829,10 @@ Value KJS::HTMLElement::getValueProperty(ExecState *exec, int token) const
     return getDOMNode(exec,element.ownerDocument());
   case ElementChildren:
     return getHTMLCollection(exec,element.children());
+  case ElementContentEditable:
+    return String(element.contentEditable());
+  case ElementIsContentEditable:
+    return Boolean(element.isContentEditable());
   // ### what about style? or is this used instead for DOM2 stylesheets?
   }
   kdWarning() << "HTMLElement::getValueProperty unhandled token " << token << endl;
@@ -2073,6 +2112,22 @@ Value KJS::HTMLElementFunction::tryCall(ExecState *exec, Object &thisObj, const 
         return Undefined();
       }
     }
+    case ID_MARQUEE: {
+        if (id == KJS::HTMLElement::MarqueeStart && element.handle()->renderer() && 
+            element.handle()->renderer()->layer() &&
+            element.handle()->renderer()->layer()->marquee()) {
+            element.handle()->renderer()->layer()->marquee()->start();
+            return Undefined();
+        }
+        else if (id == KJS::HTMLElement::MarqueeStop && element.handle()->renderer() && 
+                 element.handle()->renderer()->layer() &&
+                 element.handle()->renderer()->layer()->marquee()) {
+            element.handle()->renderer()->layer()->marquee()->suspend();
+            return Undefined();
+        }
+        break;
+    }
+        
     break;
   }
 
@@ -2807,6 +2862,9 @@ void KJS::HTMLElement::putValue(ExecState *exec, int token, const Value& value, 
   case ElementInnerText:
     element.setInnerText(str);
     return;
+  case ElementContentEditable:
+    element.setContentEditable(str);
+    return;
   default:
     kdWarning() << "KJS::HTMLElement::putValue unhandled token " << token << " thisTag=" << element.tagName().string() << " str=" << str.string() << endl;
   }
@@ -2873,6 +2931,12 @@ Value KJS::HTMLCollection::tryGet(ExecState *exec, const Identifier &propertyNam
     unsigned int u = propertyName.toULong(&ok);
     if (ok) {
       DOM::Node node = collection.item(u);
+
+#if APPLE_CHANGES
+        if (!node.isNull() && node.handle()->id() == ID_APPLET) {
+            return getRuntimeObject(exec,node);
+        }
+#endif
       return getDOMNode(exec,node);
     }
     else
@@ -2954,6 +3018,11 @@ Value KJS::HTMLCollection::getNamedItems(ExecState *exec, const Identifier &prop
     {
 #ifdef KJS_VERBOSE
       kdDebug(6070) << "returning single node" << endl;
+#endif
+#if APPLE_CHANGES
+	  if (!node.isNull() && node.handle()->id() == ID_APPLET) {
+	    return getRuntimeObject(exec,node);
+	  }
 #endif
       return getDOMNode(exec,node);
     }
@@ -3037,7 +3106,13 @@ void KJS::HTMLSelectCollection::tryPut(ExecState *exec, const Identifier &proper
   }
   // resize ?
   else if (propertyName == lengthPropertyName) {
-    long newLen = value.toInteger(exec);
+    unsigned newLen;
+    bool converted = value.toUInt32(newLen);
+
+    if (!converted) {
+      return;
+    }
+
     long diff = element.length() - newLen;
 
     if (diff < 0) { // add dummy elements
@@ -3170,7 +3245,7 @@ Value Image::getValueProperty(ExecState *, int token) const
   case Complete:
     return Boolean(!img || img->status() >= khtml::CachedObject::Persistent);
   case OnLoad:
-    if (onLoadListener) {
+    if (onLoadListener && onLoadListener->listenerObjImp()) {
       return onLoadListener->listenerObj();
     } else {
       return Null();
@@ -3209,8 +3284,8 @@ void Image::putValue(ExecState *exec, int token, const Value& value, int /*attr*
 
 void Image::notifyFinished(khtml::CachedObject *)
 {
-  if (onLoadListener) {
-    DOM::Event ev = doc->view()->part()->document().createEvent("HTMLEvents");
+  if (onLoadListener && doc->part()) {
+    DOM::Event ev = doc->part()->document().createEvent("HTMLEvents");
     ev.initEvent("load", true, true);
     onLoadListener->handleEvent(ev, true);
   }

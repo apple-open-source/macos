@@ -7,13 +7,13 @@
 
 package org.jboss.console.plugins.helpers;
 
-import javax.management.MBeanServer;
-import javax.management.ObjectInstance;
-
 import org.jboss.console.manager.interfaces.ManageableResource;
 import org.jboss.console.manager.interfaces.ResourceTreeNode;
 import org.jboss.console.manager.interfaces.TreeNode;
 import org.jboss.console.manager.interfaces.TreeNodeMenuEntry;
+
+import javax.management.MBeanServer;
+import javax.management.ObjectInstance;
 
 /**
  * <description>
@@ -21,7 +21,7 @@ import org.jboss.console.manager.interfaces.TreeNodeMenuEntry;
  * @see <related>
  *
  * @author  <a href="mailto:sacha.labourey@cogito-info.ch">Sacha Labourey</a>.
- * @version $Revision: 1.1.2.1 $
+ * @version $Revision: 1.1.2.2 $
  *
  * <p><b>Revisions:</b>
  *

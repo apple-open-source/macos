@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,48 +23,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc.  All rights reserved.
  *
  *
  */
-//		$Log: PowerMac7_2_ScaledSensor.cpp,v $
-//		Revision 1.4  2003/06/07 01:30:58  eem
-//		Merge of EEM-PM72-ActiveFans-2 branch, with a few extra tweaks.  This
-//		checkin has working PID control for PowerMac7,2 platforms, as well as
-//		a first shot at localized strings.
-//		
-//		Revision 1.3.2.3  2003/06/06 08:17:58  eem
-//		Holy Motherfucking shit.  PID is really working.
-//		
-//		Revision 1.3.2.2  2003/06/04 10:21:12  eem
-//		Supports forced PID meta states.
-//		
-//		Revision 1.3.2.1  2003/05/22 01:31:05  eem
-//		Checkin of today's work (fails compilations right now).
-//		
-//		Revision 1.3  2003/05/21 21:58:55  eem
-//		Merge from EEM-PM72-ActiveFans-1 branch with initial crack at active fan
-//		control on Q37.
-//		
-//		Revision 1.2.4.3  2003/05/17 12:55:41  eem
-//		Active fan control works on RPM channels!!!!!!
-//		
-//		Revision 1.2.4.2  2003/05/17 11:08:25  eem
-//		All active fan data present, table event-driven.  PCI power sensors are
-//		not working yet so PCI fan is just set to 67% PWM and forgotten about.
-//		
-//		Revision 1.2.4.1  2003/05/16 07:08:48  eem
-//		Table-lookup active fan control working with this checkin.
-//		
-//		Revision 1.2  2003/05/10 06:50:36  eem
-//		All sensor functionality included for PowerMac7_2_PlatformPlugin.  Version
-//		is 1.0.1d12.
-//		
-//		Revision 1.1.2.1  2003/05/03 01:11:40  eem
-//		*** empty log message ***
-//		
-//		
-//
+
 
 #include "PowerMac7_2_ScaledSensor.h"
 
@@ -94,26 +57,11 @@ IOReturn PowerMac7_2_ScaledSensor::initPlatformSensor( const OSDictionary * dict
 	return(status);
 }
 
-const OSNumber *PowerMac7_2_ScaledSensor::applyValueTransform( const OSNumber * hwReading ) const
+SensorValue PowerMac7_2_ScaledSensor::applyCurrentValueTransform( SensorValue hwReading ) const
 {
-	const OSNumber *scaled;
+	SensorValue pluginReading;
 
-	scaled = OSNumber::withNumber( scalingFactor * hwReading->unsigned32BitValue(), 32 );
-	//SENSOR_DLOG("PowerMac7_2_ScaledSensor::applyValueTransform raw = %08lX value = %08lX\n",
-	//		hwReading->unsigned32BitValue(), scaled->unsigned32BitValue());
+	pluginReading.sensValue = (SInt32)( scalingFactor * (UInt32)hwReading.sensValue );
 
-	return scaled;
+	return pluginReading;
 }
-
-/*
-const OSNumber *PowerMac7_2_ScaledSensor::applyHWTransform( const OSNumber * value ) const
-{
-	const OSNumber * raw;
-
-	raw = OSNumber::withNumber( value->unsigned32BitValue() / scalingFactor, 32 );
-	SENSOR_DLOG("PowerMac7_2_ScaledSensor::applyHWTransform value = %08lX raw = %08lX\n",
-			value->unsigned32BitValue(), raw->unsigned32BitValue());
-
-	return raw;
-}
-*/

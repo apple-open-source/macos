@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+    <classpathentry kind="src" path="output/gen-src"/>
+    <classpathentry kind="src" path="src/main"/>
+    <classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+    <classpathentry kind="src" path="/system"/>
+    <classpathentry kind="src" path="/jmx"/>
+    <classpathentry kind="src" path="/common"/>
+    <classpathentry kind="src" path="/management"/>
+    <classpathentry kind="src" path="/server"/>
+    <classpathentry kind="lib" path="/thirdparty/sun/servlet/lib/servlet.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/gnu/getopt/lib/getopt.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/beanshell/beanshell/lib/bsh-core-1.3.0.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/jfreechart/jfreechart/lib/jfreechart.jar"/>
+    <classpathentry kind="output" path="output/eclipse-classes"/>
+</classpath>

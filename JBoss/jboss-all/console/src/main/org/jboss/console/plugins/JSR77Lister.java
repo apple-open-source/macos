@@ -7,18 +7,17 @@
 
 package org.jboss.console.plugins;
 
-import java.util.*;
-
-import javax.management.ObjectInstance;
-import javax.management.ObjectName;
-
 import org.jboss.console.manager.interfaces.ManageableResource;
 import org.jboss.console.manager.interfaces.ResourceTreeNode;
 import org.jboss.console.manager.interfaces.TreeNode;
 import org.jboss.console.plugins.helpers.AbstractPluginWrapper;
-import org.jboss.management.j2ee.*;
 import org.jboss.mx.util.MBeanProxy;
-import org.jboss.deployment.DeploymentSorter;
+
+import javax.management.ObjectInstance;
+import javax.management.ObjectName;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 /**
  * As the number of MBeans is very big, we use a real Java class which is far
  * faster than beanshell
@@ -26,7 +25,7 @@ import org.jboss.deployment.DeploymentSorter;
  * @see <related>
  *
  * @author  <a href="mailto:sacha.labourey@cogito-info.ch">Sacha Labourey</a>.
- * @version $Revision: 1.1.2.2 $
+ * @version $Revision: 1.1.2.4 $
  *
  * <p><b>Revisions:</b>
  *
@@ -168,7 +167,7 @@ public class JSR77Lister
       ArrayList deployed = new ArrayList ();
       for (int i = 0; i < resources.length; i++)
       {
-         if (resources[i].getKeyProperty ("J2EEApplication") == null)
+         //if (resources[i].getKeyProperty ("J2EEApplication") == null)
          {
             deployed.add(createResourceNode (
                resources[i].getKeyProperty("name"), // name
@@ -191,8 +190,8 @@ public class JSR77Lister
 
    ResourceTreeNode createServer (ObjectName serverName) throws Exception
    {
-      J2EEServerMBean serv = (J2EEServerMBean)
-         MBeanProxy.get (J2EEServerMBean.class, serverName, getMBeanServer ());
+      org.jboss.management.j2ee.J2EEServerMBean serv = (org.jboss.management.j2ee.J2EEServerMBean)
+         MBeanProxy.get (org.jboss.management.j2ee.J2EEServerMBean.class, serverName, getMBeanServer ());
 
       ObjectName[] deployedON = serv.getDeployedObjects();
       ResourceTreeNode[] subResArray = createDeployedObjects (deployedON);
@@ -206,15 +205,15 @@ public class JSR77Lister
          new TreeNode[] {createSubResources (serv.getResources())}, // sub nodes
          subResArray, // Sub-Resources
          serverName.toString (),
-         J2EEServer.class.getName ()
+         org.jboss.management.j2ee.J2EEServer.class.getName ()
       );
 
    }
 
    ResourceTreeNode[] createServers (ObjectName domain)  throws Exception
    {
-      J2EEDomainMBean dom = (J2EEDomainMBean)
-         MBeanProxy.get (J2EEDomainMBean.class, domain, getMBeanServer ());
+      org.jboss.management.j2ee.J2EEDomainMBean dom = (org.jboss.management.j2ee.J2EEDomainMBean)
+         MBeanProxy.get (org.jboss.management.j2ee.J2EEDomainMBean.class, domain, getMBeanServer ());
 
       ObjectName[] serversObjectNames = dom.getServers();
 
@@ -240,7 +239,7 @@ public class JSR77Lister
          "", // description
          "images/spirale.gif", // Icon URL
          null, //"J2EEDomain.jsp&objectName=" + encode(objName.toString()), // Default URL
-         null,
+            null,
          null, // sub nodes
          createServers (domain)   // Sub-Resources
       );

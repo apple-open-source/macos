@@ -1,6 +1,6 @@
---- samba/source/configure.orig	Thu Sep  4 23:13:00 2003
-+++ samba/source/configure	Thu Sep  4 23:13:08 2003
-@@ -3024,7 +3024,7 @@ DYNEXP=
+--- samba/source/configure.orig	Fri Dec 19 08:30:35 2003
++++ samba/source/configure	Fri Dec 19 08:31:10 2003
+@@ -3340,7 +3340,7 @@ DYNEXP=
  
  default_static_modules="pdb_smbpasswd pdb_tdbsam rpc_lsa rpc_samr rpc_reg rpc_lsa_ds rpc_wks rpc_net rpc_dfs rpc_srv rpc_spoolss auth_rhosts auth_sam auth_unix auth_winbind auth_server auth_domain auth_builtin"
  
@@ -9,19 +9,40 @@
  
  if test "x$developer" = xyes; then
     default_static_modules="$default_static_modules rpc_echo"
---- samba/source/include/smb.h.orig	Fri Aug 29 14:17:22 2003
-+++ samba/source/include/smb.h	Fri Aug 29 14:40:33 2003
+@@ -3904,7 +3904,7 @@ done
+ 
+ #Add a system specific charset module.
+ 
+-		default_shared_modules="$default_shared_modules charset_macosxfs"
++#		default_shared_modules="$default_shared_modules charset_macosxfs"
+ 		old_CPPFLAGS="$CPPFLAGS"
+ 		CPPFLAGS="-Iinclude $CPPFLAGS"
+ 
+@@ -26267,9 +26267,10 @@ else
+   {
+     krb5_context context;
+     krb5_keytab keytab;
+-
++/* B&I SystemVersion plist is incomplete, causing this test to hang
+     krb5_init_context(&context);
+     if (krb5_kt_resolve(context, "MEMORY:", &keytab))
++*/
+       exit(1);
+     exit(0);
+   }
+--- samba/source/include/smb.h.orig	Thu Dec 18 15:12:42 2003
++++ samba/source/include/smb.h	Fri Dec 19 08:31:10 2003
 @@ -171,7 +171,7 @@ typedef uint16 smb_ucs2_t;
  typedef smb_ucs2_t wpstring[PSTRING_LEN];
  typedef smb_ucs2_t wfstring[FSTRING_LEN];
  
 -#ifdef WORDS_BIGENDIAN
-+#ifdef BIG_ENDIAN /* apple: configure test is bad for our platform ->  WORDS_BIGENDIAN */
++#if __BIG_ENDIAN__ /* apple: configure test is bad for our platform ->  WORDS_BIGENDIAN */
  #define UCS2_SHIFT 8
  #else
  #define UCS2_SHIFT 0
---- samba/source/script/installman.sh.orig	Fri Aug 29 14:17:41 2003
-+++ samba/source/script/installman.sh	Fri Aug 29 14:40:33 2003
+--- samba/source/script/installman.sh.orig	Thu Dec 18 15:12:47 2003
++++ samba/source/script/installman.sh	Fri Dec 19 08:31:10 2003
 @@ -25,7 +25,7 @@ for lang in $langs; do
      langdir=$MANDIR/$lang
      for d in $MANDIR $langdir $langdir/man1 $langdir/man5 $langdir/man7 $langdir/man8; do
@@ -31,8 +52,8 @@
  	    if [ ! -d $d ]; then
  		echo Failed to make directory $d, does $USER have privileges?
  		exit 1
---- samba/source/tdb/spinlock.c.orig	Fri Aug 29 14:17:45 2003
-+++ samba/source/tdb/spinlock.c	Fri Aug 29 14:40:33 2003
+--- samba/source/tdb/spinlock.c.orig	Thu Dec 18 15:12:49 2003
++++ samba/source/tdb/spinlock.c	Fri Dec 19 08:31:10 2003
 @@ -75,7 +75,7 @@ static inline int __spin_is_locked(spinl
  	return (*lock != 0);
  }

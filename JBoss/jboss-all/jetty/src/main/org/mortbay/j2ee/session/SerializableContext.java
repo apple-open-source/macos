@@ -1,13 +1,13 @@
 // ========================================================================
 // Copyright (c) 2002 Mort Bay Consulting (Australia) Pty. Ltd.
-// $Id: SerializableContext.java,v 1.1.4.1 2002/08/24 18:53:36 jules_gosnell Exp $
+// $Id: SerializableContext.java,v 1.1.4.2 2003/07/26 11:49:41 jules_gosnell Exp $
 // ========================================================================
 
 package org.mortbay.j2ee.session;
 
 import javax.naming.Context;
 import javax.naming.InitialContext;
-import org.apache.log4j.Category;
+import org.jboss.logging.Logger;
 
 // utility for unambiguously shipping Contexts from node to node..
 

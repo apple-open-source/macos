@@ -427,9 +427,9 @@ static BOOL rw_torture3(struct cli_state *c, char *lockfname)
 						  sizeof(buf)-count);
 			if (sent < 0)
 			{
-				printf("read failed offset:%d size:%d (%s)\n",
-						count, sizeof(buf)-count,
-						cli_errstr(c));
+				printf("read failed offset:%d size:%ld (%s)\n",
+				       count, (unsigned long)sizeof(buf)-count,
+				       cli_errstr(c));
 				correct = False;
 				sent = 0;
 			}
@@ -438,8 +438,7 @@ static BOOL rw_torture3(struct cli_state *c, char *lockfname)
 				if (memcmp(buf_rd+count, buf+count, sent) != 0)
 				{
 					printf("read/write compare failed\n");
-					printf("offset: %d req %d recvd %d\n",
-						count, sizeof(buf)-count, sent);
+					printf("offset: %d req %ld recvd %ld\n", count, (unsigned long)sizeof(buf)-count, (unsigned long)sent);
 					correct = False;
 					break;
 				}
@@ -504,7 +503,8 @@ static BOOL rw_torture2(struct cli_state *c1, struct cli_state *c2)
 
 		if ((bytes_read = cli_read(c2, fnum2, buf_rd, 0, buf_size)) != buf_size) {
 			printf("read failed (%s)\n", cli_errstr(c2));
-			printf("read %d, expected %d\n", bytes_read, buf_size); 
+			printf("read %d, expected %ld\n", bytes_read, 
+			       (unsigned long)buf_size); 
 			correct = False;
 			break;
 		}
@@ -620,9 +620,11 @@ static BOOL run_readwritelarge(int dummy)
 	}
 
 	if (fsize == sizeof(buf))
-		printf("readwritelarge test 1 succeeded (size = %x)\n", fsize);
+		printf("readwritelarge test 1 succeeded (size = %lx)\n", 
+		       (unsigned long)fsize);
 	else {
-		printf("readwritelarge test 1 failed (size = %x)\n", fsize);
+		printf("readwritelarge test 1 failed (size = %lx)\n", 
+		       (unsigned long)fsize);
 		correct = False;
 	}
 
@@ -652,9 +654,11 @@ static BOOL run_readwritelarge(int dummy)
 	}
 
 	if (fsize == sizeof(buf))
-		printf("readwritelarge test 2 succeeded (size = %x)\n", fsize);
+		printf("readwritelarge test 2 succeeded (size = %lx)\n", 
+		       (unsigned long)fsize);
 	else {
-		printf("readwritelarge test 2 failed (size = %x)\n", fsize);
+		printf("readwritelarge test 2 failed (size = %lx)\n", 
+		       (unsigned long)fsize);
 		correct = False;
 	}
 
@@ -2788,8 +2792,8 @@ static BOOL run_oplock3(int dummy)
  */
 static BOOL run_deletetest(int dummy)
 {
-	struct cli_state *cli1;
-	struct cli_state *cli2;
+	struct cli_state *cli1 = NULL;
+	struct cli_state *cli2 = NULL;
 	const char *fname = "\\delete.file";
 	int fnum1 = -1;
 	int fnum2 = -1;
@@ -3197,15 +3201,15 @@ static BOOL run_deletetest(int dummy)
 	 * intialized, because these functions don't handle
 	 * uninitialized connections. */
 		
-	cli_close(cli1, fnum1);
-	cli_close(cli1, fnum2);
+	if (fnum1 != -1) cli_close(cli1, fnum1);
+	if (fnum2 != -1) cli_close(cli1, fnum2);
 	cli_setatr(cli1, fname, 0, 0);
 	cli_unlink(cli1, fname);
 
-	if (!torture_close_connection(cli1)) {
+	if (cli1 && !torture_close_connection(cli1)) {
 		correct = False;
 	}
-	if (!torture_close_connection(cli2)) {
+	if (cli2 && !torture_close_connection(cli2)) {
 		correct = False;
 	}
 	return correct;
@@ -4577,12 +4581,14 @@ static BOOL run_test(const char *name)
 {
 	BOOL ret = True;
 	BOOL result = True;
+	BOOL found = False;
 	int i;
 	double t;
 	if (strequal(name,"ALL")) {
 		for (i=0;torture_ops[i].name;i++) {
 			run_test(torture_ops[i].name);
 		}
+		found = True;
 	}
 	
 	for (i=0;torture_ops[i].name;i++) {
@@ -4590,6 +4596,7 @@ static BOOL run_test(const char *name)
 			 (unsigned)random());
 
 		if (strequal(name, torture_ops[i].name)) {
+			found = True;
 			printf("Running %s\n", name);
 			if (torture_ops[i].flags & FLAG_MULTIPROC) {
 				t = create_procs(torture_ops[i].fn, &result);
@@ -4609,6 +4616,12 @@ static BOOL run_test(const char *name)
 			printf("%s took %g secs\n\n", name, t);
 		}
 	}
+
+	if (!found) {
+		printf("Did not find a test named %s\n", name);
+		ret = False;
+	}
+
 	return ret;
 }
 
@@ -4776,10 +4789,10 @@ static void usage(void)
 	printf("host=%s share=%s user=%s myname=%s\n", 
 	       host, share, username, myname);
 
-	if (argc == 1) {
+	if (argc == optind) {
 		correct = run_test("ALL");
 	} else {
-		for (i=1;i<argc;i++) {
+		for (i=optind;i<argc;i++) {
 			if (!run_test(argv[i])) {
 				correct = False;
 			}

@@ -26,9 +26,9 @@ import java.sql.Blob;
  * field of type SQL <code>BLOB</code>.
  * 
  * @author <a href="mailto:amccullo@sourceforge.new">Andrew McCulloch</a>
- * @version $Revision: 1.3 $
+ * @version $Revision: 1.3.4.1 $
  */
-public class ByteArrayBlob implements Blob
+public final class ByteArrayBlob implements Blob
 {
    /**
     * The internal buffer for the bytes of the Blob.

@@ -6,7 +6,7 @@
 <!--                                                                       -->
 <!-- ===================================================================== -->
 
-<!-- $Id: generic-ds.xml,v 1.1.2.1 2003/04/22 20:34:33 d_jencks Exp $ -->
+<!-- $Id: generic-ds.xml,v 1.1.2.2 2003/09/05 16:38:24 patriot1burke Exp $ -->
 
 
 <datasources>
@@ -27,6 +27,14 @@
     <max-pool-size>100</max-pool-size>
     <blocking-timeout-millis>5000</blocking-timeout-millis>
     <idle-timeout-minutes>15</idle-timeout-minutes>
+        <!-- sql to call when connection is created
+        <new-connection-sql>some arbitrary sql</new-connection-sql>
+        -->
+
+        <!-- sql to call on an existing pooled connection when it is obtained from pool 
+        <check-valid-connection-sql>some arbitrary sql</check-valid-connection-sql>
+        -->
+
 
     <!-- pooling criteria.  USE AT MOST ONE-->
     <!--  If you don't use JAAS login modules or explicit login 
@@ -69,6 +77,14 @@
     <max-pool-size>100</max-pool-size>
     <blocking-timeout-millis>5000</blocking-timeout-millis>
     <idle-timeout-minutes>15</idle-timeout-minutes>
+        <!-- sql to call when connection is created
+        <new-connection-sql>some arbitrary sql</new-connection-sql>
+        -->
+
+        <!-- sql to call on an existing pooled connection when it is obtained from pool 
+        <check-valid-connection-sql>some arbitrary sql</check-valid-connection-sql>
+        -->
+
 
     <!-- pooling criteria.  USE AT MOST ONE-->
     <!--  If you don't use JAAS login modules or explicit login 

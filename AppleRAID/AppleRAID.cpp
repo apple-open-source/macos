@@ -22,11 +22,8 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- *  DRI: Josh de Cesare
- *
- */
 
+#include <libkern/OSByteOrder.h>
 
 #include <IOKit/IOLib.h>
 #include <IOKit/IOKitKeys.h>
@@ -52,6 +49,7 @@ void AppleRAID::free(void)
     if (arSliceRequestTerminates != 0) IODelete(arSliceRequestTerminates, bool, arSliceCount);
     if (arSliceMediaErrors != 0) IODelete(arSliceMediaErrors, IOReturn, arSliceCount);
     if (arSliceMedias != 0) IODelete(arSliceMedias, IOMedia *, arSliceCount);
+    if (arSpareMedias != 0) IODelete(arSpareMedias, IOMedia *, arSliceCount);
     if (_arSetDTParents != 0) IODelete(_arSetDTParents, IORegistryEntry *, arSliceCount);
     if (_arSetDTLocations != 0) IODelete(_arSetDTLocations, char, arSliceCount * kAppleRAIDMaxOFPath);
     if (_arSetDTPaths != 0) IOFree(_arSetDTPaths, arSliceCount * kAppleRAIDMaxOFPath);
@@ -129,7 +127,6 @@ IOService *AppleRAID::probe(IOService *provider, SInt32 *score)
     AppleRAID		*raidSet = 0;
     AppleRAIDHeader	*raidHeader;
     IOMedia 		*media = OSDynamicCast(IOMedia, provider);
-    OSNumber		*tmpNumber;
     bool		raidLevelValid = true;
     char		tmpString[65];
     
@@ -149,14 +146,23 @@ IOService *AppleRAID::probe(IOService *provider, SInt32 *score)
         
         raidHeader = (AppleRAIDHeader *)_arHeaderBuffer->getBytesNoCopy();
         
+        raidHeader->raidHeaderSize	= OSSwapBigToHostInt32(raidHeader->raidHeaderSize);
+        raidHeader->raidHeaderVersion	= OSSwapBigToHostInt32(raidHeader->raidHeaderVersion);
+        raidHeader->raidHeaderSequence	= OSSwapBigToHostInt32(raidHeader->raidHeaderSequence);
+        raidHeader->raidLevel		= OSSwapBigToHostInt32(raidHeader->raidLevel);
+        raidHeader->raidSliceCount	= OSSwapBigToHostInt32(raidHeader->raidSliceCount);
+        raidHeader->raidSliceNumber	= OSSwapBigToHostInt32(raidHeader->raidSliceNumber);
+        raidHeader->raidChunkSize	= OSSwapBigToHostInt32(raidHeader->raidChunkSize);
+        raidHeader->raidChunkCount	= OSSwapBigToHostInt32(raidHeader->raidChunkCount);
+        
         // Make sure the AppleRAID Header contains the correct signature.
         if (strcmp(raidHeader->raidSignature, kAppleRAIDSignature)) break;
         
         // Make sure the header version is understood.
         if (raidHeader->raidHeaderVersion != kAppleRAIDHeaderV1_0_0) break;
-        
-        // Make sure the header sequence is valid.
-        if (raidHeader->raidHeaderSequence == 0) break;
+
+	// Make sure the header sequence is valid.
+//      if (raidHeader->raidHeaderSequence == 0) break;
         
         // Validate the the RAID level.
         switch (raidHeader->raidLevel) {
@@ -179,16 +185,10 @@ IOService *AppleRAID::probe(IOService *provider, SInt32 *score)
         if (_arSetUniqueName == 0) break;
         
         // Save the header sequence in the IOMedia.
-        tmpNumber = OSNumber::withNumber(raidHeader->raidHeaderSequence, 32);
-        if (tmpNumber == 0) break;
-        media->setProperty(kAppleRAIDSequenceNumberKey, tmpNumber);
-        tmpNumber->release();
+        media->setProperty(kAppleRAIDSequenceNumberKey, raidHeader->raidHeaderSequence, 32);
         
         // Save the slice number in the IOMedia.
-        tmpNumber = OSNumber::withNumber(raidHeader->raidSliceNumber, 32);
-        if (tmpNumber == 0) break;
-        media->setProperty(kAppleRAIDSliceNumberKey, tmpNumber);
-        tmpNumber->release();
+        media->setProperty(kAppleRAIDSliceNumberKey, raidHeader->raidSliceNumber, 32);
         
         gAppleRAIDGlobals.lock();
         
@@ -215,7 +215,7 @@ IOService *AppleRAID::probe(IOService *provider, SInt32 *score)
             arSetMediaSize   	= (UInt64)arSetBlockCount * arSetBlockSize;
             
             _arFirstSlice	= arSliceCount;
-            
+	    
             _arSetUUID[0] = raidHeader->raidUUID[0];
             _arSetUUID[1] = raidHeader->raidUUID[1];
             _arSetUUID[2] = raidHeader->raidUUID[2];
@@ -234,6 +234,7 @@ IOService *AppleRAID::probe(IOService *provider, SInt32 *score)
             arSliceRequestTerminates	= IONew(bool, arSliceCount);
             arSliceMediaErrors	 	= IONew(IOReturn, arSliceCount);
             arSliceMedias		= IONew(IOMedia *, arSliceCount);
+            arSpareMedias		= IONew(IOMedia *, arSliceCount);
             _arSetDTParents		= IONew(IORegistryEntry *, arSliceCount);
             _arSetDTLocations		= IONew(char, arSliceCount * kAppleRAIDMaxOFPath);
             _arSetDTPaths		= (char *)IOMalloc(arSliceCount * kAppleRAIDMaxOFPath);
@@ -244,6 +245,7 @@ IOService *AppleRAID::probe(IOService *provider, SInt32 *score)
             bzero(arSliceRequestTerminates, sizeof(bool) * arSliceCount);
             bzero(arSliceMediaErrors, sizeof(bool) * arSliceCount);
             bzero(arSliceMedias, sizeof(IOMedia *) * arSliceCount);
+            bzero(arSpareMedias, sizeof(IOMedia *) * arSliceCount);
             bzero(_arSetDTParents, sizeof(IORegistryEntry *) * arSliceCount);
             bzero(_arSetDTLocations, arSliceCount * kAppleRAIDMaxOFPath);
             bzero(_arSetDTPaths, kAppleRAIDMaxOFPath * arSliceCount);
@@ -278,7 +280,7 @@ IOService *AppleRAID::probe(IOService *provider, SInt32 *score)
             // Find the AppleRAIDController.
             _arController = gAppleRAIDGlobals.getAppleRAIDController();
             
-            if ((arSliceMediaStates != 0) && (arSliceMedias != 0) &&
+            if ((arSliceMediaStates != 0) && (arSliceMedias != 0) && (arSpareMedias != 0) &&
                 (arSliceRequestTerminates != 0) && (arSliceMediaErrors != 0) &&
                 (_arSetDTParents != 0) && (_arSetDTLocations != 0) &&
                 (_arController != 0) && (_arSliceCloseThreadCall != 0) && (getWorkLoop() != 0) &&
@@ -341,21 +343,22 @@ void AppleRAID::stop(IOService *provider)
 {
     IOMedia		*media = OSDynamicCast(IOMedia, provider);
     AppleRAIDController	*controller = OSDynamicCast(AppleRAIDController, provider);
-    
+
     // Handle being stopped by the AppleRAIDController.
     if (controller != 0) {
         _arController = 0;
     } else if (media != 0) {
-        // Wait for pending slice terminates to complete.
+
+	// Wait for pending slice terminates to complete.
         _arSetCommandGate->runAction((IOCommandGate::Action)&AppleRAID::waitForSliceTerminateRequests);
         
-        // Degrade or remove this slice from the raid set.
-        if ((arSetLevel == kAppleRAIDMirror) && isOpen()) {
-            _arSetCommandGate->runAction((IOCommandGate::Action)&AppleRAID::degradeSliceMedia,
-                                          media, 0, (void *)kIOReturnNoMedia);
-        } else {
-            _arSetCommandGate->runAction((IOCommandGate::Action)&AppleRAID::removeSliceMedia, media);
-        }
+	    // Degrade or remove this slice from the raid set.
+	if ((arSetLevel == kAppleRAIDMirror) && isOpen()) {
+	    _arSetCommandGate->runAction((IOCommandGate::Action)&AppleRAID::degradeSliceMedia,
+					 media, 0, (void *)kIOReturnNoMedia);
+	} else {
+	    _arSetCommandGate->runAction((IOCommandGate::Action)&AppleRAID::removeSliceMedia, media);
+	}
         
         // Wait for all of the slices to stop before removing the AppleRAID Set.
         if (_arSlicesStarted == 0) {
@@ -365,7 +368,7 @@ void AppleRAID::stop(IOService *provider)
             // Mark the set as stopped.
             setProperty(kAppleRAIDStatus, kAppleRAIDStatusStopped);
             
-            _arController->statusChanged(this);
+            if (_arController) _arController->statusChanged(this);
             
             // Remove the set from the dictionary.
             gAppleRAIDGlobals.lock();
@@ -429,9 +432,6 @@ IOReturn AppleRAID::addSliceMedia(IOMedia *media)
         return kIOReturnAborted;
     }
     
-    // Don't try to add new slices after the set has already been published.
-    if (_arSetMedia != 0) return kIOReturnInternalError;
-    
     // Get the sequence number for this slice.
     tmpNumber = OSDynamicCast(OSNumber, media->getProperty(kAppleRAIDSequenceNumberKey));
     sequenceNumber = tmpNumber->unsigned32BitValue();
@@ -439,6 +439,16 @@ IOReturn AppleRAID::addSliceMedia(IOMedia *media)
     // Get the number for this slice.
     tmpNumber = OSDynamicCast(OSNumber, media->getProperty(kAppleRAIDSliceNumberKey));
     sliceNumber = tmpNumber->unsigned32BitValue();
+
+    // check if this slice is meant for mirror rebuilding
+    if (sequenceNumber == 0) {
+	return (addSpareToSet(media)) ? kIOReturnSuccess : kIOReturnNotPermitted;
+    }
+    
+    // Don't try to add new slices after the set has already been published,
+    // unless we have just finished rebuilding them.
+    if ((_arSetMedia != 0) && arSliceMediaStates[sliceNumber] != kAppleRAIDSliceMediaStateRebuilding)
+	return kIOReturnInternalError;
     
     // Don't use slices that have sequence numbers older than the raid set.
     if (sequenceNumber < arHeaderSequence) {
@@ -776,6 +786,9 @@ IOReturn AppleRAID::publishRAIDMedia(void)
         setProperty(kAppleRAIDStatus, kAppleRAIDStatusDegraded);
     }
     
+    if (arSpareCount) 
+	_arSetCommandGate->runAction((IOCommandGate::Action)&AppleRAID::startRebuildRAIDSet);
+
     _arController->statusChanged(this);
     
     return kIOReturnSuccess;
@@ -787,6 +800,8 @@ IOReturn AppleRAID::terminateRAIDMedia(IOMedia *media)
     UInt32	sliceNumber;
     IOMedia	*setMedia;
     
+    if (!getSliceNumberForMedia(media, &sliceNumber)) return kIOReturnSuccess;
+
     // Count this slice as having been actively terminated.
     _arSliceTerminatesPending--;
     _arSliceTerminatesActive++;
@@ -848,6 +863,15 @@ IOReturn AppleRAID::updateRAIDHeaders(void)
         _arHeaderBuffer->setDirection(kIODirectionIn);
 	if (arSliceMedias[cnt]->IOStorage::read(this, 0, _arHeaderBuffer) != kIOReturnSuccess) continue;
         
+        _arHeader->raidHeaderSize	= OSSwapBigToHostInt32(_arHeader->raidHeaderSize);
+        _arHeader->raidHeaderVersion	= OSSwapBigToHostInt32(_arHeader->raidHeaderVersion);
+        _arHeader->raidHeaderSequence	= OSSwapBigToHostInt32(_arHeader->raidHeaderSequence);
+        _arHeader->raidLevel		= OSSwapBigToHostInt32(_arHeader->raidLevel);
+        _arHeader->raidSliceCount	= OSSwapBigToHostInt32(_arHeader->raidSliceCount);
+        _arHeader->raidSliceNumber	= OSSwapBigToHostInt32(_arHeader->raidSliceNumber);
+        _arHeader->raidChunkSize	= OSSwapBigToHostInt32(_arHeader->raidChunkSize);
+        _arHeader->raidChunkCount	= OSSwapBigToHostInt32(_arHeader->raidChunkCount);
+        
         // Update the sequence number if it has changed.
         if (_arHeader->raidHeaderSequence != arHeaderSequence) {
             _arHeader->raidHeaderSequence = arHeaderSequence;
@@ -879,7 +903,20 @@ IOReturn AppleRAID::updateRAIDHeaders(void)
             
             // Write out the new header for this slice.
             _arHeaderBuffer->setDirection(kIODirectionOut);
+            
+	    _arHeader->raidHeaderSize		= OSSwapHostToBigInt32(_arHeader->raidHeaderSize);
+	    _arHeader->raidHeaderVersion	= OSSwapHostToBigInt32(_arHeader->raidHeaderVersion);
+	    _arHeader->raidHeaderSequence	= OSSwapHostToBigInt32(_arHeader->raidHeaderSequence);
+	    _arHeader->raidLevel		= OSSwapHostToBigInt32(_arHeader->raidLevel);
+	    _arHeader->raidSliceCount		= OSSwapHostToBigInt32(_arHeader->raidSliceCount);
+	    _arHeader->raidSliceNumber		= OSSwapHostToBigInt32(_arHeader->raidSliceNumber);
+	    _arHeader->raidChunkSize		= OSSwapHostToBigInt32(_arHeader->raidChunkSize);
+	    _arHeader->raidChunkCount		= OSSwapHostToBigInt32(_arHeader->raidChunkCount);
+            
             arSliceMedias[cnt]->IOStorage::write(this, 0, _arHeaderBuffer);
+
+	    // update the sequence number in the registry
+	    arSliceMedias[cnt]->setProperty(kAppleRAIDSequenceNumberKey, arHeaderSequence, 32);
         }
     }
     
@@ -918,8 +955,9 @@ IOReturn AppleRAID::updateRAIDHeadersDone(void)
 
 void AppleRAID::raidTimeOut(IOTimerEventSource *sender)
 {
-    arHeaderSequence++;
+    IOLog("AppleRAID::raidTimeOut - slice missing for the set, \"%s\", degrading set.\n", _arSetName->getCStringNoCopy());
     
+    arHeaderSequence++;
     publishRAIDMedia();
 }
 
@@ -932,6 +970,7 @@ IOReturn AppleRAID::allocateRAIDRequest(AppleRAIDStorageRequest **storageRequest
         }
         
         if (_arSetIsPaused) {
+	    _arSetBlockedByRebuild = true;
             _arSetCommandGate->commandSleep(&_arSetIsPaused, THREAD_UNINT);
             continue;
         }
@@ -941,7 +980,7 @@ IOReturn AppleRAID::allocateRAIDRequest(AppleRAIDStorageRequest **storageRequest
             _arSetCommandGate->commandSleep(_arStorageRequestPool, THREAD_UNINT);
             continue;
         }
-        
+
         break;
     }
     
@@ -975,20 +1014,32 @@ void AppleRAID::completeRAIDRequest(AppleRAIDStorageRequest *storageRequest)
     
     // Collect the status and byte count for each slice.
     for (cnt = 0; cnt < arSliceCount; cnt++) {
+
+	// skip over rebuilding slice of mirror
+        if (isMirror && isWrite && arSliceMediaStates[cnt] == kAppleRAIDSliceMediaStateRebuilding) {
+
+	    if (storageRequest->srSliceStatus[cnt] != kIOReturnSuccess || byteCount != storageRequest->srSliceByteCounts[cnt]) {
+
+		// this terminates the rebuild thread
+		arSliceMediaStates[cnt] = kAppleRAIDSliceMediaStateStopped;
+	    }
+	    continue;
+	}
+	
         // Ignore missing slices.
         if (arSliceMediaStates[cnt] >= kAppleRAIDSliceMediaStateStopping) continue;
         if (arSliceMedias[cnt] == 0) continue;
-        
-        // Return any status errors.
-        if (storageRequest->srSliceStatus[cnt] != kIOReturnSuccess) {
-            status = storageRequest->srSliceStatus[cnt];
-            byteCount = 0;
-            break;
-        }
-        
-        // Mirrored writes need to all have the same byte count.
+
+	// Return any status errors.
+	if (storageRequest->srSliceStatus[cnt] != kIOReturnSuccess) {
+	    status = storageRequest->srSliceStatus[cnt];
+	    byteCount = 0;
+	    break;
+	}
+
+	// Mirrored writes need to all have the same byte count.
         if (isMirror && isWrite) {
-            if (byteCount != storageRequest->srSliceByteCounts[cnt]) {
+	    if (byteCount != storageRequest->srSliceByteCounts[cnt]) {
                 byteCount = 0;                
                 break;
             }
@@ -1008,7 +1059,14 @@ void AppleRAID::completeRAIDRequest(AppleRAIDStorageRequest *storageRequest)
     // against an active slice, try to degrade the given slice.
     if ((status != kIOReturnSuccess) && isMirror && (cnt < arSliceCount)) {
 
-	IOLog("AppleRAID::completeRAIDRequest - error detected, status = 0x%x\n", status);
+	IOLog("AppleRAID::completeRAIDRequest - error detected for the set, \"%s\", status = 0x%x.\n", _arSetName->getCStringNoCopy(), status);
+
+	// kill any rebuild in progress
+	for (unsigned int cnt2 = 0; cnt2 < arSliceCount; cnt2++) {
+	    if (arSliceMediaStates[cnt2] == kAppleRAIDSliceMediaStateRebuilding) {
+		arSliceMediaStates[cnt2] = kAppleRAIDSliceMediaStateStopped;
+	    }
+	}
 
 	storageRequest->_srStatus = status;
         storageRequest->_srByteCount = byteCount;
@@ -1052,7 +1110,7 @@ IOReturn AppleRAID::requestSliceTerminate(IOMedia *media)
     UInt32	sliceNumber;
     
     if (getSliceNumberForMedia(media, &sliceNumber)) {
-        _arSliceTerminatesPending++;
+	_arSliceTerminatesPending++;
         arSliceRequestTerminates[sliceNumber] = true;
         
         if ((_arSliceTerminatesPending + _arSliceTerminatesActive) == _arSlicesStarted) {
@@ -1172,7 +1230,7 @@ IOReturn AppleRAID::requestSynchronizeCache(void)
     while (_arSetIsSyncing) {
         _arSetCommandGate->commandSleep(&_arSetIsSyncing, THREAD_UNINT);
     }
-    
+
     _arSetIsSyncing = true;
     _arSetIsPaused = true;
 
@@ -1397,7 +1455,6 @@ bool AppleRAIDStorageRequest::initWithAppleRAIDSet(AppleRAID *appleRAID)
     srSetBlockSize   	= appleRAID->arSetBlockSize;
     srSliceCount	= appleRAID->arSliceCount;
     srSliceBaseOffset	= appleRAID->arHeaderSize;
-    _srSliceMedias 	= appleRAID->arSliceMedias;
     
     srSliceStatus = IONew(IOReturn, srSliceCount);
     if (srSliceStatus == 0) return false;
@@ -1456,7 +1513,7 @@ void AppleRAIDStorageRequest::read(IOService *client, UInt64 byteStart, IOMemory
     for (cnt = 0; cnt < srSliceCount; cnt++) {
         memoryDescriptor = _srSliceMemoryDescriptors[cnt];
         if (_srAppleRAID->arSliceMediaStates[cnt] < kAppleRAIDSliceMediaStateStopping) {
-            media = _srSliceMedias[cnt];
+            media = _srAppleRAID->arSliceMedias[cnt];
         } else {
             media = 0;
         }
@@ -1492,9 +1549,13 @@ void AppleRAIDStorageRequest::write(IOService *client, UInt64 byteStart, IOMemor
     for (cnt = 0; cnt < srSliceCount; cnt++) {
         memoryDescriptor = _srSliceMemoryDescriptors[cnt];
         if (_srAppleRAID->arSliceMediaStates[cnt] < kAppleRAIDSliceMediaStateStopping) {
-            media = _srSliceMedias[cnt];
+            media = _srAppleRAID->arSliceMedias[cnt];
         } else {
             media = 0;
+	    if (_srAppleRAID->arSliceMediaStates[cnt] == kAppleRAIDSliceMediaStateRebuilding) {
+
+		media = _srAppleRAID->_arRebuildingMedia;
+	    }
         }
         if ((media != 0) && memoryDescriptor->configureForMemoryDescriptor(buffer, byteStart)) {
             storageCompletion.parameter = memoryDescriptor;
@@ -1817,4 +1878,293 @@ IOPhysicalAddress AppleRAIDConcatMemoryDescriptor::getPhysicalSegment(IOByteCoun
     physAddress = _mdMemoryDescriptor->getPhysicalSegment(raidOffset, length);
     
     return physAddress;
+}
+
+// ----------------------------------------------------------------------------------------------------------------
+
+bool AppleRAID::addSpareToSet(IOMedia * media)
+{
+    OSNumber * tmpNumber = OSDynamicCast(OSNumber, media->getProperty(kAppleRAIDSliceNumberKey));
+    if (!tmpNumber) return false;
+    UInt32 sliceNumber = tmpNumber->unsigned32BitValue();
+
+    // make sure this is a valid slice number
+    if (sliceNumber >= arSliceCount) return false;
+
+    // XXX double check size, this is set specific, for concat the size can vary, for others it needs to be >=
+    
+    if (arSpareMedias[sliceNumber] != 0) return false;
+	
+    arSpareMedias[sliceNumber] = media;
+    arSpareCount++;
+
+    // if set is already started, kickoff off rebuild here
+    if (_arSetMedia != 0) {
+	_arSetCommandGate->runAction((IOCommandGate::Action)&AppleRAID::startRebuildRAIDSet);
+	_arController->statusChanged(this);
+    }
+
+    return true;
+}
+
+void AppleRAID::startRebuildRAIDSet(void)
+{
+    // this is code is running inside the workloop
+
+    // are we already rebuilding a slice
+    if (_arRebuildingMedia) return;
+
+    // quick check that we have a slice missing
+    if (_arSlicesStarted == arSliceCount) return;
+
+    // find a target device
+    IOMedia * target = 0;
+    UInt32 sliceNumber;
+
+    // find a missing slice that can be replaced
+    for (sliceNumber= 0; sliceNumber < arSliceCount; sliceNumber++) {
+
+    	target = arSpareMedias[sliceNumber];
+
+	if (target) {
+
+	    if (arSliceMedias[sliceNumber]) continue;
+
+	    arSpareMedias[sliceNumber] = 0;
+	    arSpareCount--;
+	    
+	    if (!_arRebuildSetThreadCall) {
+		_arRebuildSetThreadCall = thread_call_allocate(
+		    (thread_call_func_t)&AppleRAID::rebuildRAIDSet,
+		    (thread_call_param_t)this);
+	    }
+
+	    setProperty(kAppleRAIDStatus, kAppleRAIDStatusRebuilding);
+	    _arRebuildingMedia = target;
+	
+	    // set the status but not the media itself
+	    arSliceMediaStates[sliceNumber] = kAppleRAIDSliceMediaStateRebuilding;
+
+	    // XXX need to tweek arLogicalSliceNumbers?
+	    // not really, this is only important for reads on mirrors (for right now).
+    
+	    if (_arRebuildSetThreadCall) {
+		thread_call_enter(_arRebuildSetThreadCall);
+	    }
+	}
+    }
+}
+
+// this in not inside the workloop
+
+void AppleRAID::rebuildRAIDSet()
+{
+    IOMedia * target = _arRebuildingMedia;
+    IOMedia * source = 0;
+    bool targetOpen = false;
+    bool sourceOpen = false;
+    IOBufferMemoryDescriptor * rebuildBuffer = 0;
+    UInt64 offset = 0;
+    IOReturn rc;
+    
+    OSNumber * tmpNumber = OSDynamicCast(OSNumber, target->getProperty(kAppleRAIDSliceNumberKey));
+    if (!tmpNumber) return;
+    UInt32 sliceNumber = tmpNumber->unsigned32BitValue();
+
+    // all failures need call rebuildRAIDSetComplete
+
+    while (true) {
+
+	// allocate copy buffers
+	rebuildBuffer = IOBufferMemoryDescriptor::withCapacity(arSetBlockSize, kIODirectionNone);
+	if (rebuildBuffer == 0) break;
+	
+	// open the source (raid set)
+	source = arSliceMedias[_arFirstSlice];
+	sourceOpen = open(this, 0, kIOStorageAccessReader);
+	if (!sourceOpen) break;
+
+	// Open the target slice
+	targetOpen = target->open(this, 0, kIOStorageAccessReaderWriter);
+	if (!targetOpen) break;
+
+	offset = arHeaderSize;
+	UInt32 percentDone = 99, currentDone = 0x99;
+
+	while (offset < arSetMediaSize) {
+
+	    while (_arSetCommandGate->runAction((IOCommandGate::Action)&AppleRAID::rebuildPauseSet) == false) {
+		if (arSliceMediaStates[sliceNumber] != kAppleRAIDSliceMediaStateRebuilding) break;
+		IOSleep(100);
+	    }
+
+	    // check if we failed during normal i/o
+	    if (arSliceMediaStates[sliceNumber] != kAppleRAIDSliceMediaStateRebuilding) break;
+
+	    // the first slice can change
+	    if (source != arSliceMedias[_arFirstSlice]) {
+		source = arSliceMedias[_arFirstSlice];
+		if (!source) break;
+	    }
+	    
+	    // Fill the read buffer
+	    rebuildBuffer->setDirection(kIODirectionIn);
+	    rc = source->IOStorage::read((IOService *)this, offset, rebuildBuffer);
+	    if (rc) {
+		// give up
+		break;
+	    }
+
+	    rebuildBuffer->setDirection(kIODirectionOut);
+	    rc = target->IOStorage::write((IOService *)this, offset, rebuildBuffer);
+	    if (rc) {
+		// give up
+		break;
+	    }
+
+	    _arSetCommandGate->runAction((IOCommandGate::Action)&AppleRAID::rebuildRestartSet);
+
+	    // give the regular i/o path total access to the disk for a while
+	    if (_arSetBlockedByRebuild) {
+		_arSetBlockedByRebuild = false;
+		IOSleep(100);
+	    }
+
+	    // calculate % done
+	    currentDone = ((offset / arSetBlockSize) * 100) / arSetBlockCount;
+	    if (percentDone != currentDone) {
+		percentDone = currentDone;
+                OSNumber * percent = OSNumber::withNumber(percentDone, 32);
+                if (percent) {
+		    target->setProperty(kAppleRAIDRebuildStatus, percent);
+                    percent->release();
+                }
+	    }
+
+	    // keep requests aligned (header != block size)
+	    if ((offset % arSetBlockSize) != 0) offset = (offset / arSetBlockSize) * arSetBlockSize;
+	    
+	    offset += arSetBlockSize;
+	}
+
+	break;
+    }
+
+    // clean up, (don't close the target see below)
+    if (sourceOpen) close(this, 0);
+
+    if (rebuildBuffer) {
+	rebuildBuffer->release();
+	rebuildBuffer = 0;
+    }
+    if (offset >= arSetMediaSize) {
+	_arSetCommandGate->runAction((IOCommandGate::Action)&AppleRAID::rebuildRAIDSetComplete, (void *)true);
+    } else {
+	// this is kind of hack, since the set is already open it doesn't bother to open the
+	// newly added mirror volume, instead of hacking that code we just skip closing it here
+	// unless we fail to rebuild it like here.
+	if (targetOpen) target->close(this, 0);
+	
+	IOLog("AppleRAID::rebuildRAIDSet copy failed.\n");
+	_arSetCommandGate->runAction((IOCommandGate::Action)&AppleRAID::rebuildRestartSet);
+	_arSetCommandGate->runAction((IOCommandGate::Action)&AppleRAID::rebuildRAIDSetComplete, (void *)false);
+    }
+}
+
+void AppleRAID::rebuildRAIDSetComplete(bool wasRebuilt)
+{
+    // this is code is running inside the workloop
+
+    IOMedia * target = _arRebuildingMedia;
+
+    // clear rebuild progress from target
+    target->removeProperty(kAppleRAIDRebuildStatus);
+
+    setProperty(kAppleRAIDStatus, kAppleRAIDStatusDegraded);
+
+    // add media back into the raid set, update raid headers
+    if ( wasRebuilt &&
+	(upgradeSliceMedia(target) == kIOReturnSuccess) &&
+	(_arSlicesStarted == arSliceCount)) {
+	
+	setProperty(kAppleRAIDStatus, kAppleRAIDStatusRunning);
+    }
+
+    _arController->statusChanged(this);
+	
+    // kick off next rebuild (if needed)
+    _arRebuildingMedia = 0;
+    if (arSpareCount) startRebuildRAIDSet();
+}
+
+IOReturn AppleRAID::upgradeSliceMedia(IOMedia *media)
+{
+    IOReturn result = kIOReturnSuccess;
+
+    _arSetIsPaused = true;
+
+    // need to wait for any current io to drain first.
+    while (_arStorageRequestsPending != 0) {
+        _arSetCommandGate->commandSleep(&_arStorageRequestPool, THREAD_UNINT);
+    }
+
+    // Wait for any pending header updates to complete before upgrading
+    // (also locks out degradeSliceMedia)
+    if (_arSetUpdatePending) {
+        _arSetCommandGate->commandSleep(&_arSetUpdatePending, THREAD_UNINT);
+    }
+
+    // change the sequence number to match the rest of the set
+    media->setProperty(kAppleRAIDSequenceNumberKey, arHeaderSequence, 32);
+
+    // add media in to raid set
+    result = addSliceMedia(media);
+    if (result != kIOReturnSuccess) {
+	goto done;
+    }
+
+    initRAIDSet();
+
+    // update headers
+    if (_arSlicesStarted != 0) {
+        _arSetUpdatePending = true;
+        
+        // Increment the header sequence number.
+        arHeaderSequence++;
+        
+	// Update the RAID headers.
+	updateRAIDHeaders();
+    } else {
+        setProperty(kAppleRAIDStatus, kAppleRAIDStatusFailed);
+    }
+
+ done:
+    if (!_arSetIsSyncing) {
+        _arSetIsPaused = false;
+        _arSetCommandGate->commandWakeup(&_arSetIsPaused, false);
+    }
+	
+    return kIOReturnSuccess;
+}
+
+// these methods are executed inside the workloop
+
+bool AppleRAID::rebuildPauseSet()
+{
+    // XXX if isPaused is already true this can fail, need _arSetIsRebuilding flag?
+    // and check for isDegrading and isSyncing
+    // or switch to a count, and nuke the is.... flags
+
+    if (_arStorageRequestsPending == 0) {
+	_arSetIsPaused = true;
+	return true;
+    }
+
+    return false;
+}
+
+void AppleRAID::rebuildRestartSet()
+{
+    _arSetIsPaused = false;
+    _arSetCommandGate->commandWakeup(&_arSetIsPaused, false);
 }

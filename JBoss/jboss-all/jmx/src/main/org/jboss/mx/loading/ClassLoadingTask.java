@@ -16,7 +16,7 @@ import org.jboss.logging.Logger;
 
 /** An encapsulation of a UCL3.loadClass task.
  * @author Scott.Stark@jboss.org
- * @version $Revision: 1.1.4.11 $
+ * @version $Revision: 1.1.4.15 $
 */
 public class ClassLoadingTask
 {
@@ -115,7 +115,7 @@ public class ClassLoadingTask
             }
             else if( trace )
             {
-               log.trace("Already found class, skipping loadClassLocally");
+               log.trace("Already found class("+loadedClass+"), skipping loadClassLocally");
             }
          }
          catch(ClassNotFoundException e)
@@ -210,7 +210,7 @@ public class ClassLoadingTask
       // Accept the lowest order source of the class
       if( theClass != null )
       {
-         if( order < loadOrder )
+         if( loadedClass == null || order <= loadOrder )
          {
             this.loadedClass = theClass;
             this.loadOrder = order;

@@ -4,7 +4,7 @@
 <%
    String ejbName = new javax.management.ObjectName(request.getParameter("ObjectName")).getKeyProperty ("name");
    String containerUrl = "jboss.j2ee:service=EJB,jndiName=" + ejbName;
-   containerUrl = java.net.URLEncoder.encode(containerUrl, "UTF-8");
+   containerUrl = java.net.URLEncoder.encode(containerUrl);
    containerUrl = "../jmx-console/HtmlAdaptor?action=inspectMBean&name=" + containerUrl;
 %>
 <html>

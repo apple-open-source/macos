@@ -26,7 +26,7 @@
 
       try
       {
-         hostname = InetAddress.getLocalHost().getHostName();
+         hostname = InetAddress.getByName(host).getHostName();
       }
       catch(IOException e)  {}
 

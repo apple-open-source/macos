@@ -7,13 +7,9 @@
 package org.jboss.mx.server;
 
 import org.jboss.logging.Logger;
-import org.jboss.mx.capability.DispatcherFactory;
 import org.jboss.mx.loading.LoaderRepository;
-import org.jboss.mx.metadata.MBeanCapability;
-import org.jboss.mx.server.registry.BasicMBeanRegistry;
 import org.jboss.mx.server.registry.MBeanEntry;
 import org.jboss.mx.server.registry.MBeanRegistry;
-import org.jboss.mx.util.MBeanProxy;
 import org.jboss.util.Classes;
 
 import javax.management.Attribute;
@@ -28,11 +24,9 @@ import javax.management.ListenerNotFoundException;
 import javax.management.MBeanException;
 import javax.management.MBeanInfo;
 import javax.management.MBeanParameterInfo;
-import javax.management.MBeanRegistration;
 import javax.management.MBeanRegistrationException;
 import javax.management.MBeanServer;
 import javax.management.MBeanServerDelegate;
-import javax.management.MBeanServerNotification;
 import javax.management.MalformedObjectNameException;
 import javax.management.NotCompliantMBeanException;
 import javax.management.NotificationBroadcaster;
@@ -105,10 +99,12 @@ import java.util.Set;
  * @see org.jboss.mx.loading.BasicLoaderRepository
  * @see org.jboss.mx.modelmbean.XMBean
  *
+ * @todo the context class loader push/pop should be moved to an interceptor
+ * 
  * @author  <a href="mailto:juha@jboss.org">Juha Lindfors</a>.
  * @author  <a href="mailto:trevor@protocool.com">Trevor Squires</a>.
  * @author  <a href="mailto:Adrian.Brock@HappeningTimes.com">Adrian Brock</a>.
- * @version $Revision: 1.24.4.4 $
+ * @version $Revision: 1.24.4.5 $
  */
 public class MBeanServerImpl
    implements MBeanServer, ServerConstants
@@ -991,13 +987,13 @@ public class MBeanServerImpl
          valueMap.put(CLASSLOADER, cl);
       }
 
-      // Dynamic Invocation
-      //if (registryName != null)
-      //{
-         
-      
+      Thread thread = Thread.currentThread();
+      ClassLoader oldTCL = thread.getContextClassLoader();
       try
       {
+         // Set the class loader associated with the mbean as TCL
+         if (cl != oldTCL && cl != null)
+            thread.setContextClassLoader(cl);
          return (ObjectInstance) invoke(
                  new ObjectName(MBEAN_REGISTRY), "registerMBean",
                  new Object[] { object, name, valueMap },
@@ -1017,13 +1013,11 @@ public class MBeanServerImpl
             throw (NotCompliantMBeanException) result;
          throw new RuntimeException(result.toString());
       }
-      
-      
-         
-      //}
-      //else
-      //   // POJO Registry
-      //   return registry.registerMBean(object, name, valueMap);
+      finally
+      {
+         if (cl != oldTCL && cl != null)
+            thread.setContextClassLoader(oldTCL);
+      }
    }
 
    /**
@@ -1458,7 +1452,6 @@ public class MBeanServerImpl
          descMBean
       );
 
-      return info;      
-   }      
+      return info;
+   }
 }
-

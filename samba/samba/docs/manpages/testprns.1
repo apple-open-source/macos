@@ -21,10 +21,12 @@
 .SH NAME
 testprns \- check printer name for validity with smbd
 .SH "SYNOPSIS"
-
-.nf
+.ad l
+.hy 0
+.HP 9
 \fBtestprns\fR {printername} [printcapname]
-.fi
+.ad
+.hy
 
 .SH "DESCRIPTION"
 
@@ -35,7 +37,7 @@ This tool is part of the \fBSamba\fR(7) suite\&.
 \fBtestprns\fR is a very simple test program to determine whether a given printer name is valid for use in a service to be provided by \fBsmbd\fR(8)\&.
 
 .PP
-"Valid" in this context means "can be found in the printcap specified"\&. This program is very stupid - so stupid in fact that it would be wisest to always specify the printcap file to use\&.
+"Valid" in this context means "can be found in the printcap specified"\&. This program is very stupid \- so stupid in fact that it would be wisest to always specify the printcap file to use\&.
 
 .SH "OPTIONS"
 
@@ -74,7 +76,7 @@ If a printer is found to be invalid, the message "Printer name <printername> is 
 All messages that would normally be logged during operation of the Samba daemons are logged by this program to the file \fItest\&.log\fR in the current directory\&. The program runs at debuglevel 3, so quite extensive logging information is written\&. The log should be checked carefully for errors and warnings\&.
 
 .PP
-Other messages are self-explanatory\&.
+Other messages are self\-explanatory\&.
 
 .SH "VERSION"
 

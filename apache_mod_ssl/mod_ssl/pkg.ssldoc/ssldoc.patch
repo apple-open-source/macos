@@ -8,7 +8,7 @@
 ##
 ## Annotated patch file: ssldoc.patch
 ## Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved. 
-## Created on: 18-Jul-2003
+## Created on: 01-Nov-2003
 ##
 ## This file assembles changes to existing Apache source files
 ## between the original Apache and the patched variant. It can be
@@ -163,18 +163,18 @@ Index: htdocs/index.html.en
 Index: htdocs/manual/mod/index.html.en
 --- htdocs/manual/mod/index.html.en	28 Jan 2002 19:21:43 -0000	1.1.1.2
 +++ htdocs/manual/mod/index.html.en	28 Jan 2002 19:40:56 -0000	1.3
-@@ -214,6 +218,11 @@
- 
+@@ -215,6 +219,11 @@
        <dt><a href="mod_speling.html">mod_speling</a> Apache 1.3 and
        up</dt>
-+
+ 
 +      <dt><a href="mod_ssl/index.html">mod_ssl</a> Apache 1.3 with mod_ssl
 +      applied</dt>
 +      
 +      <dd>Apache SSL interface to OpenSSL</dd>
- 
++
        <dd>Automatically correct minor typos in URLs</dd>
  
+       <dt><a href="mod_status.html">mod_status</a> Apache 1.1 and
 
 +---------------------------------------------------------------------------
 | Add a hyperlink to the mod_ssl document.
@@ -202,11 +202,10 @@ Index: htdocs/manual/mod/index-bytype.html.en
 Index: htdocs/manual/mod/directives.html.en
 --- htdocs/manual/mod/directives.html.en	18 Jul 2003 15:44:16 -0000	1.1.1.5
 +++ htdocs/manual/mod/directives.html.en	18 Jul 2003 15:56:57 -0000	1.6
-@@ -551,6 +553,28 @@
-       <li><a href="mod_mime.html#sethandler">SetHandler</a></li>
+@@ -552,6 +554,28 @@
  
        <li><a href="core.html#shmemuidisuser">ShmemUIDisUser</a></li>
-+
+ 
 +      <li><a href="mod_ssl/ssl_reference.html#SSLPassPhraseDialog">SSLPassPhraseDialog</a>
 +      <li><a href="mod_ssl/ssl_reference.html#SSLMutex">SSLMutex</a>
 +      <li><a href="mod_ssl/ssl_reference.html#SSLRandomSeed">SSLRandomSeed</a>
@@ -228,6 +227,7 @@ Index: htdocs/manual/mod/directives.html.en
 +      <li><a href="mod_ssl/ssl_reference.html#SSLOptions">SSLOptions</a>
 +      <li><a href="mod_ssl/ssl_reference.html#SSLRequireSSL">SSLRequireSSL</a>
 +      <li><a href="mod_ssl/ssl_reference.html#SSLRequire">SSLRequire</a>
- 
++
        <li><a href="core.html#startservers">StartServers</a></li>
  
+       <li><a

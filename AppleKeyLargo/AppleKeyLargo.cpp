@@ -64,7 +64,6 @@ bool AppleKeyLargo::init(OSDictionary * properties)
 bool AppleKeyLargo::start(IOService *provider)
 {
 	OSData          *tmpData;
-	UInt32			fcrValue;
 
 	// if this is mac-io (as opposed to ext-mac-io) save a reference to it
 	tmpData = OSDynamicCast(OSData, provider->getProperty("name"));
@@ -93,30 +92,6 @@ bool AppleKeyLargo::start(IOService *provider)
 	// Call KeyLargo's start.
 	if (!super::start(provider))
 		return false;
-
-	// ***Adding an FCR property in the IORegistry
-	keyLargo_FCRNode = OSSymbol::withCString("fcr-values");
-
-	fcrValue = readRegUInt32(kKeyLargoFCR0);
-	fcrs[0] = OSNumber::withNumber(fcrValue, 32);
-	fcrValue = readRegUInt32(kKeyLargoFCR1);
-	fcrs[1] = OSNumber::withNumber(fcrValue, 32);
-	fcrValue = readRegUInt32(kKeyLargoFCR2);
-	fcrs[2] = OSNumber::withNumber(fcrValue, 32);
-	fcrValue = readRegUInt32(kKeyLargoFCR3);
-	fcrs[3] = OSNumber::withNumber(fcrValue, 32);
-	fcrValue = readRegUInt32(kKeyLargoFCR4);
-	fcrs[4] = OSNumber::withNumber(fcrValue, 32);
-	
-	if ((keyLargoDeviceId == kPangeaDeviceId25) || (keyLargoDeviceId == kIntrepidDeviceId3e)) 
-		fcrValue = readRegUInt32(kKeyLargoFCR5);
-	else
-		fcrValue = 0;
-	fcrs[5] = OSNumber::withNumber(fcrValue, 32);
-
-	fcrArray = OSArray::withObjects(fcrs, 6, 0);
-	if (fcrArray)
-		keyLargoService->setProperty(keyLargo_FCRNode, (OSArray *)fcrArray);
  
 	// Set clock reference counts
 	setReferenceCounts ();
@@ -166,8 +141,6 @@ void AppleKeyLargo::stop(IOService *provider)
 	// release the fcr handles
 	if (keyLargoService)
 		keyLargoService->release(); 
-	if (fcrArray)
-		fcrArray->release();
   
 	if (mutex != NULL)
 		IOSimpleLockFree( mutex );
@@ -740,18 +713,6 @@ void AppleKeyLargo::safeWriteRegUInt32(unsigned long offset, UInt32 mask, UInt32
   
 	if ( mutex  != NULL )
 		IOSimpleLockUnlockEnableInterrupt(mutex, intState);
-	
-    // ***If we are writing a 32-bit reg, we want to see if it's an FCR register.
-    // If it is, we want to update the fcr values in memory so we can update the
-    // property later.
-    
-	if (offset >= kKeyLargoFCR0 && offset <= kKeyLargoFCR5 && fcrArray) {
-		OSNumber* value = OSNumber::withNumber(currentReg, 32);
-		
-		((OSArray *)fcrArray)->replaceObject((offset - kKeyLargoFCRBase) >> 2, value);
-		keyLargoService->setProperty(keyLargo_FCRNode, (OSArray *)fcrArray);
-		value->release();
-	}
 	
 	return;
 }

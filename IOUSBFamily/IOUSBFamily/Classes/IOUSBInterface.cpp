@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -22,27 +22,47 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+
+//================================================================================================
+//
+//   Headers
+//
+//================================================================================================
+//
 #include <libkern/OSByteOrder.h>
+#include <libkern/c++/OSDictionary.h>
+#include <libkern/c++/OSData.h>
 
 #include <IOKit/usb/IOUSBDevice.h>
 #include <IOKit/usb/IOUSBController.h>
 #include <IOKit/usb/IOUSBInterface.h>
 #include <IOKit/usb/IOUSBPipe.h>
 #include <IOKit/usb/IOUSBLog.h>
-#include <libkern/c++/OSDictionary.h>
-#include <libkern/c++/OSData.h>
-#include <IOKit/assert.h>
+#include <IOKit/usb/USB.h>
 #include <IOKit/IOKitKeys.h>
 #include <IOKit/IOMessage.h>
 
+//================================================================================================
+//
+//   Local Definitions
+//
+//================================================================================================
+//
 #define super IOUSBNub
-#define self this
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+#define _gate			_expansionData->_gate
+#define _workLoop		_expansionData->_workLoop
 
+
+//================================================================================================
+//
+//   IOUSBInterface Methods
+//
+//================================================================================================
+//
 OSDefineMetaClassAndStructors(IOUSBInterface, IOUSBNub)
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
 
 bool 
 IOUSBInterface::init(const IOUSBConfigurationDescriptor *cfdesc,
@@ -53,6 +73,15 @@ IOUSBInterface::init(const IOUSBConfigurationDescriptor *cfdesc,
 
     if (!super::init())					// create my property table
         return false;
+
+    // allocate our expansion data
+    if (!_expansionData)
+    {
+        _expansionData = (ExpansionData *)IOMalloc(sizeof(ExpansionData));
+        if (!_expansionData)
+            return false;
+        bzero(_expansionData, sizeof(ExpansionData));
+    }
 
     _configDesc = cfdesc;
     _interfaceDesc = ifdesc;
@@ -141,17 +170,56 @@ IOUSBInterface::start(IOService *provider)
     if ( !super::start(provider))
         return false;
 
+    _gate = IOCommandGate::commandGate(this);
+
+    if(!_gate)
+    {
+        USBError(1, "%s[%p]::start - unable to create command gate", getName(), this);
+        goto ErrorExit;
+    }
+
+    _workLoop = getWorkLoop();
+    if (!_workLoop)
+    {
+        USBError(1, "%s[%p]::start - unable to find my workloop", getName(), this);
+        goto ErrorExit;
+    }
+    _workLoop->retain();
+
+    if (_workLoop->addEventSource(_gate) != kIOReturnSuccess)
+    {
+        USBError(1, "%s[%p]::start - unable to add gate to work loop", getName(), this);
+        goto ErrorExit;
+    }
+
     // now that I am attached to a device, I can fill in my property table for matching
     SetProperties();
-    
+
     if ( _device )
     {
         OSNumber *	locationID = (OSNumber *) _device->getProperty(kUSBDevicePropertyLocationID);
         if ( locationID )
             setProperty(kUSBDevicePropertyLocationID,locationID->unsigned32BitValue(), 32);
     }
-    
+
     return true;
+
+ErrorExit:
+
+        if ( _gate != NULL )
+        {
+            _gate->release();
+            _gate = NULL;
+        }
+
+    if ( _workLoop != NULL )
+    {
+        _workLoop->release();
+        _workLoop = NULL;
+    }
+
+    return false;
+
 }
 
 
@@ -187,6 +255,57 @@ IOUSBInterface::finalize(IOOptionBits options)
     return ret;
 }
 
+void
+IOUSBInterface::free()
+{
+    IOReturn ret = kIOReturnSuccess;
+
+    //  This needs to be the LAST thing we do, as it disposes of our "fake" member
+    //  variables.
+    //
+    if (_expansionData)
+    {
+        if (_gate)
+        {
+            if (_workLoop)
+            {
+                ret = _workLoop->removeEventSource(_gate);
+                _workLoop->release();
+                _workLoop = NULL;
+            }
+
+            _gate->release();
+            _gate = NULL;
+        }
+
+        IOFree(_expansionData, sizeof(ExpansionData));
+    }
+
+}
+
+IOReturn
+IOUSBInterface::CallSuperOpen(OSObject *target, void *param1, void *param2, void *param3, void *param4)
+{
+    IOUSBInterface *	me = OSDynamicCast(IOUSBInterface, target);
+    bool		result;
+    IOReturn		ret = kIOReturnSuccess;
+    IOService *		forClient = (IOService *) param1;
+    IOOptionBits 	options = (IOOptionBits ) param2;
+    void *		arg = param3;
+
+    if (!me)
+    {
+        USBLog(1, "IOUSBInterface::CallSuperOpen - invalid target");
+        return kIOReturnBadArgument;
+    }
+
+    result = me->super::open(forClient, options, arg);
+
+    if (! result )
+        ret = kIOReturnNoResources;
+
+    return ret;
+}
 
 
 void 
@@ -261,10 +380,39 @@ IOUSBInterface::CreatePipes(void)
 bool 
 IOUSBInterface::open( IOService *forClient, IOOptionBits options, void *arg )
 {
-    bool	res = super::open(forClient, options, arg);
+    bool	res = true;
+    IOReturn	error = kIOReturnSuccess;
+    bool	useGate = false;
+
+    // Check to see if we need to open the driver while holding the gate.  The USB Device Nub should
+    // have the kCallInterfaceOpenWithGate property set.
+    //
+    OSBoolean * boolObj = OSDynamicCast( OSBoolean, _device->getProperty(kCallInterfaceOpenWithGate) );
+    if ( boolObj && boolObj->isTrue() )
+    {
+        useGate = true;
+    }
+    
+    if ( _gate && useGate )
+    {
+        USBLog(6,"%+s[%p]::open calling super::open with gate", getName(), this);
+        error = _gate->runAction( CallSuperOpen, (void *)forClient, (void *)options, (void *)arg );
+        if ( error != kIOReturnSuccess )
+        {
+            USBError(1,"%s[%p]::open super::open failed (0x%x)", getName(), this, error);
+            res = false;
+        }
+    }
+    else
+    {
+        USBLog(6,"%+s[%p]::open calling super::open with NO gate", getName(), this);
+        res = super::open(forClient, options, arg);
+    }
     
     if (!res)
         USBError(1,"%s[%p]::open super::open failed (0x%x)", getName(), this, res);
+
+    USBLog(3, "-%s[%p]::open returns %d", getName(), this, res);
     
     return res;
 }
@@ -277,7 +425,8 @@ IOUSBInterface::handleOpen( IOService *forClient, IOOptionBits options, void *ar
     UInt16		altInterface;
     IOReturn		err = kIOReturnSuccess;
         
-    
+
+    USBLog(3, "+%s[%p]::handleOpen (device %s)", getName(), this, _device->getName());
     if(!super::handleOpen(forClient, options, arg))
     {
         USBError(1,"%s[%p]::handleOpen failing because super::handleOpen failed (someone already has it open)", getName(), this);
@@ -309,7 +458,7 @@ IOUSBInterface::handleOpen( IOService *forClient, IOOptionBits options, void *ar
         return false;
     }
 
-    USBLog(6, "%s[%p]::handleOpen (device %s): successful", getName(), this, _device->getName());
+    USBLog(3, "-%s[%p]::handleOpen (device %s): successful", getName(), this, _device->getName());
     return true;
 }
 
@@ -921,7 +1070,7 @@ IOUSBInterface::GetEndpointProperties(UInt8 alternateSetting, UInt8 endpointNumb
 		if (endp->bEndpointAddress == endpointAddress)
 		{
 		    *transferType = endp->bmAttributes & 0x03;
-		    *maxPacketSize = USBToHostWord(endp->wMaxPacketSize);
+		    *maxPacketSize = mungeMaxPacketSize(USBToHostWord(endp->wMaxPacketSize));
 		    *interval = endp->bInterval;
 		    USBLog(3, "%s[%p]::GetEndpointProperties - tt=%d, mps=%d, int=%d", getName(), this, *transferType, *maxPacketSize, *interval);
 		    return kIOReturnSuccess;

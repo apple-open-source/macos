@@ -12,8 +12,8 @@ import javax.management.ObjectName;
 import javax.naming.InitialContext;
 
 import org.jboss.invocation.InvokerInterceptor;
-import org.jboss.invocation.http.interfaces.ClientMethodInterceptor;
 import org.jboss.naming.Util;
+import org.jboss.proxy.ClientMethodInterceptor;
 import org.jboss.proxy.GenericProxyFactory;
 import org.jboss.system.Registry;
 import org.jboss.system.ServiceMBeanSupport;
@@ -26,7 +26,7 @@ import org.w3c.dom.Element;
  * is bound to. 
  *
  * @author Scott.Stark@jboss.org
- * @version $Revision: 1.1.2.3 $
+ * @version $Revision: 1.1.2.5 $
  */
 public class JRMPProxyFactory extends ServiceMBeanSupport
    implements JRMPProxyFactoryMBean
@@ -37,7 +37,7 @@ public class JRMPProxyFactory extends ServiceMBeanSupport
     exported interface */
    private ObjectName targetName;
    /** The Proxy object which uses the proxy as its handler */
-   private Object theProxy;
+   protected Object theProxy;
    /** The JNDI name under which the proxy will be bound */
    private String jndiName;
    /** The interface that the proxy implements */
@@ -131,9 +131,7 @@ public class JRMPProxyFactory extends ServiceMBeanSupport
       String proxyBindingName = null;
       Class[] ifaces = {exportedInterface};
       ClassLoader loader = Thread.currentThread().getContextClassLoader();
-      GenericProxyFactory proxyFactory = new GenericProxyFactory();
-      theProxy = proxyFactory.createProxy(cacheID, targetName, invokerName,
-         jndiName, proxyBindingName, interceptorClasses, loader, ifaces);
+      createProxy(cacheID, proxyBindingName, loader, ifaces);
       log.debug("Created JRMPPRoxy for service="+targetName
          +", nameHash="+nameHash+", invoker="+invokerName);
 
@@ -158,4 +156,27 @@ public class JRMPProxyFactory extends ServiceMBeanSupport
       this.theProxy = null;
    }
 
+   protected void createProxy
+   (
+      Object cacheID, 
+      String proxyBindingName,
+      ClassLoader loader,
+      Class[] ifaces
+   )
+   {
+      GenericProxyFactory proxyFactory = new GenericProxyFactory();
+      theProxy = proxyFactory.createProxy(cacheID, targetName, invokerName,
+         jndiName, proxyBindingName, interceptorClasses, loader, ifaces);
+   }
+
+   protected void rebind() throws Exception
+   {
+      log.debug("(re-)Binding " + jndiName);
+      Util.rebind(new InitialContext(), jndiName, theProxy);
+   }
+
+   protected ArrayList getInterceptorClasses()
+   {
+      return interceptorClasses;
+   }
 }

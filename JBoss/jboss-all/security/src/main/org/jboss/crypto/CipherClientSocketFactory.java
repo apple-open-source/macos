@@ -11,13 +11,11 @@ import java.io.Serializable;
 import java.net.Socket;
 import java.rmi.server.RMIClientSocketFactory;
 
-import org.jboss.logging.Logger;
-
 /** An implementation of RMIClientSocketFactory that uses the JCE Cipher
  with an SRP session key to create an encrypted stream.
 
 @author  Scott.Stark@jboss.org
-@version $Revision: 1.1 $
+@version $Revision: 1.1.6.1 $
 */
 public class CipherClientSocketFactory implements RMIClientSocketFactory, Serializable
 {

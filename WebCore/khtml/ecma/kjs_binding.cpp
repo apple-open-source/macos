@@ -50,6 +50,7 @@ Value DOMObject::get(ExecState *exec, const Identifier &p) const
     // ### oh, and s/QString/i18n or I18N_NOOP (the code in kjs uses I18N_NOOP... but where is it translated ?)
     //     and where does it appear to the user ?
     Object err = Error::create(exec, GeneralError, QString("DOM exception %1").arg(e.code).local8Bit());
+    err.put(exec, "code", Number(e.code));
     exec->setException( err );
     result = Undefined();
   }
@@ -69,6 +70,7 @@ void DOMObject::put(ExecState *exec, const Identifier &propertyName,
   }
   catch (DOM::DOMException e) {
     Object err = Error::create(exec, GeneralError, QString("DOM exception %1").arg(e.code).local8Bit());
+    err.put(exec, "code", Number(e.code));
     exec->setException(err);
   }
   catch (...) {
@@ -90,6 +92,7 @@ Value DOMFunction::get(ExecState *exec, const Identifier &propertyName) const
   catch (DOM::DOMException e) {
     result = Undefined();
     Object err = Error::create(exec, GeneralError, QString("DOM exception %1").arg(e.code).local8Bit());
+    err.put(exec, "code", Number(e.code));
     exec->setException(err);
   }
   catch (...) {
@@ -223,6 +226,25 @@ void ScriptInterpreter::forgetDOMObjectsForDocument( DOM::DocumentImpl* document
   }
 }
 
+void ScriptInterpreter::updateDOMObjectDocument(void *objectHandle, DOM::DocumentImpl *oldDoc, DOM::DocumentImpl *newDoc)
+{
+  InterpreterImp *first = InterpreterImp::firstInterpreter();
+  if (first) {
+    InterpreterImp *scr = first;
+    do {
+      if ( scr->interpreter()->rtti() == 1 ) {
+	ScriptInterpreter *interp = static_cast<ScriptInterpreter *>(scr->interpreter());
+	
+	DOMObject* cachedObject = interp->getDOMObjectForDocument(oldDoc, objectHandle);
+	if (cachedObject) {
+	  interp->putDOMObjectForDocument(newDoc, objectHandle, cachedObject);
+	}
+      }
+	
+      scr = scr->nextInterpreter();
+    } while (scr != first);
+  }
+}
 
 bool ScriptInterpreter::wasRunByUserGesture() const
 {
@@ -234,8 +256,8 @@ bool ScriptInterpreter::wasRunByUserGesture() const
       id == DOM::EventImpl::MOUSEUP_EVENT || id == DOM::EventImpl::KHTML_DBLCLICK_EVENT ||
       id == DOM::EventImpl::KHTML_CLICK_EVENT ||
       // keyboard events
-      id == DOM::EventImpl::KHTML_KEYDOWN_EVENT || id == DOM::EventImpl::KHTML_KEYPRESS_EVENT ||
-      id == DOM::EventImpl::KHTML_KEYUP_EVENT ||
+      id == DOM::EventImpl::KEYDOWN_EVENT || id == DOM::EventImpl::KEYPRESS_EVENT ||
+      id == DOM::EventImpl::KEYUP_EVENT ||
       // other accepted events
       id == DOM::EventImpl::SELECT_EVENT || id == DOM::EventImpl::CHANGE_EVENT ||
       id == DOM::EventImpl::FOCUS_EVENT || id == DOM::EventImpl::BLUR_EVENT ||

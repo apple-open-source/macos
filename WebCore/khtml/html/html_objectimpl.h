@@ -29,6 +29,11 @@
 
 #include <qstringlist.h>
 
+#if APPLE_CHANGES
+#include <JavaVM/jni.h>
+#include <JavaScriptCore/runtime.h>
+#endif
+
 class KHTMLView;
 
 // -------------------------------------------------------------------------
@@ -47,14 +52,22 @@ public:
     virtual Id id() const;
 
     virtual void parseAttribute(AttributeImpl *token);
-    virtual void attach();
     virtual bool rendererIsNeeded(khtml::RenderStyle *);
     virtual khtml::RenderObject *createRenderer(RenderArena *, khtml::RenderStyle *);
 
     bool getMember(const QString &, JType &, QString &);
     bool callMember(const QString &, const QStringList &, JType &, QString &);
+    
+#if APPLE_CHANGES
+    void setupApplet() const;
+    KJS::Bindings::Instance *getAppletInstance() const;
+#endif
+
 protected:
     khtml::VAlign valign;
+
+private:
+    mutable KJS::Bindings::Instance *appletInstance;
 };
 
 // -------------------------------------------------------------------------

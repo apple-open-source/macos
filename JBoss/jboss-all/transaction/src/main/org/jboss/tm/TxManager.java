@@ -25,16 +25,17 @@ import org.jboss.logging.Logger;
 /**
  * Our TransactionManager implementation.
  *
- * @author <a href="mailto:rickard.oberg@telkel.com">Rickard Öberg</a>
+ * @author <a href="mailto:rickard.oberg@telkel.com">Rickard Ã–berg</a>
  * @author <a href="mailto:marc.fleury@telkel.com">Marc Fleury</a>
  * @author <a href="mailto:osh@sparre.dk">Ole Husgaard</a>
  * @author <a href="mailto:jason@planet57.com">Jason Dillon</a>
- * @version $Revision: 1.3.2.8 $
+ * @version $Revision: 1.3.2.9 $
  */
 public class TxManager
       implements TransactionManager,
       TransactionPropagationContextImporter,
-      TransactionPropagationContextFactory
+      TransactionPropagationContextFactory,
+      TransactionLocalDelegate
 {
    // Constants -----------------------------------------------------
 
@@ -368,6 +369,24 @@ public class TxManager
       transaction.associateCurrentThread();
    }
 
+   /**
+    * Return the number of active transactions
+    */
+   public int getTransactionCount()
+   {
+      return globalIdTx.size();
+   }
+   /** A count of the transactions that have been committed */
+   public long getCommitCount()
+   {
+      return commitCount;
+   }
+   /** A count of the transactions that have been rolled back */
+   public long getRollbackCount()
+   {
+      return rollbackCount;
+   }
+
    // Implements TransactionPropagationContextImporter ---------------
 
    /**
@@ -398,7 +417,6 @@ public class TxManager
       return null;
    }
 
-
    // Implements TransactionPropagationContextFactory ---------------
 
    /**
@@ -426,22 +444,33 @@ public class TxManager
       return ((TransactionImpl) tx).getGlobalId();
    }
 
+   // Implements TransactionLocalDelegate ----------------------
+
    /**
-    * Return the number of active transactions
+    * get the transaction local value.  Pull it from the TransactionImpl object
     */
-   public int getTransactionCount()
+   public Object getValue(TransactionLocal local, Transaction tx)
    {
-      return globalIdTx.size();
+      TransactionImpl tximpl = (TransactionImpl) tx;
+      return tximpl.getTransactionLocalValue(local);
    }
-   /** A count of the transactions that have been committed */
-   public long getCommitCount()
-   {
-      return commitCount;
+
+   /**
+    * put the value in the TransactionImpl map
+    */
+   public void storeValue(TransactionLocal local, Transaction tx, Object value)
+   {   
+      TransactionImpl tximpl = (TransactionImpl) tx;
+      tximpl.putTransactionLocalValue(local, value);
    }
-   /** A count of the transactions that have been rolled back */
-   public long getRollbackCount()
+
+   /**
+    * does TransactionImpl contain object?
+    */
+   public boolean containsValue(TransactionLocal local, Transaction tx)
    {
-      return rollbackCount;
+      TransactionImpl tximpl = (TransactionImpl) tx;
+      return tximpl.containsTransactionLocal(local);
    }
 
    // Package protected ---------------------------------------------

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE server [
+  <!ENTITY catalina.home "/ws/50/embed">
+]>
+
+<server>
+ 
+  <mbean code="org.jboss.web.tomcat.tc5.Tomcat5"
+         name="jboss.web:service=WebServer" >
+     <attribute name="Domain">jboss.web</attribute>
+  </mbean>
+
+</server>
+

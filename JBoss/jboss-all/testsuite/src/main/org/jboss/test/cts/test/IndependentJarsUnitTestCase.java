@@ -14,11 +14,12 @@ import junit.framework.Test;
 import org.jboss.test.JBossTestCase;
 import org.jboss.test.cts.interfaces.CallerSession;
 import org.jboss.test.cts.interfaces.CallerSessionHome;
+import org.jboss.test.cts.interfaces.CalleeException;
 
 /** Tests of ejbs in seperate jars interacting
  *
  *  @author Scott.Stark@jboss.org
- *  @version $Revision: 1.1.2.2 $
+ *  @version $Revision: 1.1.2.3 $
  */
 public class IndependentJarsUnitTestCase
       extends JBossTestCase
@@ -57,10 +58,26 @@ public class IndependentJarsUnitTestCase
       deploy("cts2.jar");
       sessionBean.simpleCall(true);
       sessionBean.simpleCall2(true);
+      try
+      {
+         sessionBean.callAppEx();
+      }
+      catch(CalleeException e)
+      {
+         log.info("Saw excpected exception", e);
+      }
       undeploy("cts2.jar");
       deploy("cts2.jar");
       sessionBean.simpleCall(true);
       sessionBean.simpleCall2(true);
+      try
+      {
+         sessionBean.callAppEx();
+      }
+      catch(CalleeException e)
+      {
+         log.info("Saw excpected exception", e);
+      }
       undeploy("cts2.jar");
    }
 

@@ -36,13 +36,26 @@ namespace KJS {
     virtual ~JSEventListener();
     virtual void handleEvent(DOM::Event &evt, bool isWindowEvent);
     virtual DOM::DOMString eventListenerType();
-    Object listenerObj() const { return listener; }
-    ObjectImp *listenerObjImp() const { return listener.imp(); }
+    virtual Object listenerObj() const;
+    ObjectImp *listenerObjImp() const { return listenerObj().imp(); }
   protected:
-    Object listener;
+    mutable Object listener;
     bool html;
     Object win;
   };
+
+  class JSLazyEventListener : public JSEventListener {
+  public:
+    JSLazyEventListener(QString _code, const Object &_win, bool _html = false);
+    virtual void handleEvent(DOM::Event &evt, bool isWindowEvent);
+    Object listenerObj() const;
+  private:
+    void parseCode() const;
+    
+    mutable QString code;
+    mutable bool parsed;
+  };
+
 
   Value getNodeEventListener(DOM::Node n, int eventId);
 
@@ -108,7 +121,7 @@ namespace KJS {
     // no put - all read-only
     virtual const ClassInfo* classInfo() const { return &info; }
     static const ClassInfo info;
-    enum { View, Detail, KeyCode, LayerX, LayerY, PageX, PageY, Which, InitUIEvent };
+    enum { View, Detail, KeyCode, CharCode, LayerX, LayerY, PageX, PageY, Which, InitUIEvent };
     DOM::UIEvent toUIEvent() const { return static_cast<DOM::UIEvent>(event); }
   };
 
@@ -126,6 +139,19 @@ namespace KJS {
            MetaKey, Button, RelatedTarget, FromElement, ToElement,
            InitMouseEvent };
     DOM::MouseEvent toMouseEvent() const { return static_cast<DOM::MouseEvent>(event); }
+  };
+
+  class DOMKeyboardEvent : public DOMUIEvent {
+  public:
+    DOMKeyboardEvent(ExecState *exec, DOM::KeyboardEvent ke) : DOMUIEvent(exec, ke) {}
+    ~DOMKeyboardEvent();
+    virtual Value tryGet(ExecState *exec, const Identifier &p) const;
+    Value getValueProperty(ExecState *, int token) const;
+    // no put - all read-only
+    virtual const ClassInfo* classInfo() const;
+    static const ClassInfo info;
+    enum { KeyIdentifier, KeyLocation, CtrlKey, ShiftKey, AltKey, MetaKey, AltGraphKey, InitKeyboardEvent};
+    DOM::KeyboardEvent toKeyboardEvent() const { return event; }
   };
 
   // Constructor object MutationEvent

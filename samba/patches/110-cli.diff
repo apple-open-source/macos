@@ -1,14 +1,14 @@
---- samba/source/libsmb/clientgen.c.orig	Mon Aug 18 22:18:24 2003
-+++ samba/source/libsmb/clientgen.c	Fri Aug 29 14:40:42 2003
-@@ -335,6 +335,7 @@ close the session
+--- samba/source/libsmb/clientgen.c.orig	Thu Dec 18 15:12:44 2003
++++ samba/source/libsmb/clientgen.c	Fri Dec 19 08:31:19 2003
+@@ -338,6 +338,7 @@ close the session
  
  void cli_nt_session_close(struct cli_state *cli)
  {
 +	if (cli != NULL) {
  	if (cli->ntlmssp_pipe_state) {
- 		ntlmssp_client_end(&cli->ntlmssp_pipe_state);
+ 		ntlmssp_end(&cli->ntlmssp_pipe_state);
  	}
-@@ -344,6 +345,7 @@ void cli_nt_session_close(struct cli_sta
+@@ -347,6 +348,7 @@ void cli_nt_session_close(struct cli_sta
  
  	cli->nt_pipe_fnum = 0;
  	cli->pipe_idx = -1;
@@ -16,7 +16,7 @@
  }
  
  /****************************************************************************
-@@ -394,11 +396,14 @@ void cli_close_connection(struct cli_sta
+@@ -398,11 +400,14 @@ void cli_close_connection(struct cli_sta
  
  void cli_shutdown(struct cli_state *cli)
  {

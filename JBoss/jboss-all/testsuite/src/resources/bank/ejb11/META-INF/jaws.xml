@@ -8,23 +8,23 @@
    <enterprise-beans>
       <entity>
          <ejb-name>Account</ejb-name>
-         <table-name>Account</table-name>
+         <table-name>Bank11Account</table-name>
          <create-table>true</create-table>
-         <remove-table>false</remove-table>
+         <remove-table>true</remove-table>
          <tuned-updates>false</tuned-updates>
          <read-only>false</read-only>
          <time-out>300</time-out>
          <cmp-field>
             <field-name>id</field-name>
             <column-name>id</column-name>
-            <sql-type>VARCHAR(256)</sql-type>
             <jdbc-type>VARCHAR</jdbc-type>
+            <sql-type>VARCHAR(256)</sql-type>
          </cmp-field>
          <cmp-field>
             <field-name>balance</field-name>
             <column-name>balance</column-name>
-            <sql-type>DOUBLE PRECISION</sql-type>
             <jdbc-type>REAL</jdbc-type>
+            <sql-type>DOUBLE PRECISION</sql-type>
          </cmp-field>
          <finder>
             <name>findLargeAccounts</name>
@@ -34,23 +34,23 @@
       </entity>
       <entity>
          <ejb-name>Customer</ejb-name>
-         <table-name>Customer</table-name>
+         <table-name>Bank11Customer</table-name>
          <create-table>true</create-table>
-         <remove-table>false</remove-table>
+         <remove-table>true</remove-table>
          <tuned-updates>false</tuned-updates>
          <read-only>true</read-only>
          <time-out>600</time-out>
          <cmp-field>
             <field-name>name</field-name>
             <column-name>name</column-name>
-            <sql-type>VARCHAR(256)</sql-type>
             <jdbc-type>VARCHAR</jdbc-type>
+            <sql-type>VARCHAR(256)</sql-type>
          </cmp-field>
          <cmp-field>
             <field-name>id</field-name>
             <column-name>id</column-name>
-            <sql-type>VARCHAR(256)</sql-type>
             <jdbc-type>VARCHAR</jdbc-type>
+            <sql-type>VARCHAR(256)</sql-type>
          </cmp-field>
       </entity>
    </enterprise-beans>

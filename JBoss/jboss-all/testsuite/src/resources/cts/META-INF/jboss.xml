@@ -4,58 +4,12 @@
    "http://www.jboss.org/j2ee/dtd/jboss_3_2.dtd">
 
 <jboss>
-   <container-configurations>
-      <container-configuration extends="Standard Stateful SessionBean">
-         <!-- Override the cache policy to allow a max of one bean -->
-         <container-name>MaxOne Stateful Session</container-name>
-         <container-cache-conf>
-            <cache-policy>org.jboss.ejb.plugins.LRUStatefulContextCachePolicy</cache-policy>
-            <cache-policy-conf>
-               <min-capacity>1</min-capacity>
-               <max-capacity>1</max-capacity>
-               <!-- Times are in seconds -->
-               <!-- How often to check for beans with an expired max-bean-life -->
-               <remover-period>20</remover-period>
-               <!-- How often to check for beans with an expired max-bean-age -->
-               <overager-period>15</overager-period>
-               <!-- How long before a bean is a candidate for passivation -->
-               <max-bean-age>15</max-bean-age>
-               <!-- How long before a passivated bean is a candidate for removal -->
-               <max-bean-life>45</max-bean-life>
-            </cache-policy-conf>
-         </container-cache-conf>
-      </container-configuration>
-
-      <container-configuration extends="Standard Stateless SessionBean">
-         <container-name>Strictly Pooled Stateless SessionBean</container-name>
-         <container-pool-conf>
-            <MaximumSize>5</MaximumSize>
-            <MinimumSize>1</MinimumSize>
-            <strictMaximumSize>true</strictMaximumSize>
-         </container-pool-conf>
-      </container-configuration>
-
-      <container-configuration extends="Standard Stateful SessionBean">
-         <container-name>Strictly Pooled Stateful SessionBean</container-name>
-         <container-pool-conf>
-            <MaximumSize>5</MaximumSize>
-            <MinimumSize>1</MinimumSize>
-            <strictMaximumSize>true</strictMaximumSize>
-         </container-pool-conf>
-      </container-configuration>
-
-      <container-configuration extends="Standard Message Driven Bean">
-         <container-name>Strictly Pooled Message Driven Bean</container-name>
-         <container-pool-conf>
-            <MaximumSize>5</MaximumSize>
-            <MinimumSize>1</MinimumSize>
-            <strictMaximumSize>true</strictMaximumSize>
-         </container-pool-conf>
-      </container-configuration>
-
-   </container-configurations>
-
    <enterprise-beans>
+      <session>
+         <ejb-name>EJBTestRunnerEJB</ejb-name>
+         <jndi-name>ejb/EJBTestRunner</jndi-name>
+      </session>
+
       <session>
          <ejb-name>StatefulSessionBean</ejb-name>
          <jndi-name>ejbcts/StatefulSessionBean</jndi-name>
@@ -96,6 +50,11 @@
             </invoker>
          </invoker-bindings>
       </session>
+      <session>
+         <ejb-name>LongWaitStatefulSessionBean</ejb-name>
+         <configuration-name>Long Wait Stateful Session</configuration-name>
+         <jndi-name>ejbcts/LongWaitStatefulSessionBean</jndi-name>
+      </session>
 
       <entity>
          <ejb-name>BMPBean</ejb-name>
@@ -116,6 +75,12 @@
       <entity>
          <ejb-name>CMPBean</ejb-name>
          <jndi-name>ejbcts/CMPBean</jndi-name>
+         <local-jndi-name>ejbcts/LocalCMPBean</local-jndi-name>
+      </entity>
+      <entity>
+         <ejb-name>CMPBean2</ejb-name>
+         <jndi-name>ejbcts/CMPBean2</jndi-name>
+         <local-jndi-name>ejbcts/LocalCMPBean2</local-jndi-name>
       </entity>
 
       <message-driven>
@@ -148,4 +113,76 @@
          </proxy-factory-config>
       </invoker-proxy-binding>
    </invoker-proxy-bindings>
+
+   <container-configurations>
+      <container-configuration extends="Standard Stateful SessionBean">
+         <!-- Override the cache policy to allow a max of one bean -->
+         <container-name>MaxOne Stateful Session</container-name>
+         <container-cache-conf>
+            <cache-policy>org.jboss.ejb.plugins.LRUStatefulContextCachePolicy</cache-policy>
+            <cache-policy-conf>
+               <min-capacity>1</min-capacity>
+               <max-capacity>1</max-capacity>
+               <!-- Times are in seconds -->
+               <!-- How often to check for beans with an expired max-bean-life -->
+               <remover-period>20</remover-period>
+               <!-- How long before a passivated bean is a candidate for removal -->
+               <max-bean-life>45</max-bean-life>
+               <!-- How often to check for beans with an expired max-bean-age -->
+               <overager-period>15</overager-period>
+               <!-- How long before a bean is a candidate for passivation -->
+               <max-bean-age>15</max-bean-age>
+            </cache-policy-conf>
+         </container-cache-conf>
+      </container-configuration>
+
+      <container-configuration extends="Standard Stateful SessionBean">
+         <container-name>Long Wait Stateful Session</container-name>
+         <container-cache-conf>
+            <cache-policy>org.jboss.ejb.plugins.LRUStatefulContextCachePolicy</cache-policy>
+            <cache-policy-conf>
+               <min-capacity>1</min-capacity>
+               <max-capacity>1</max-capacity>
+               <!-- Times are in seconds -->
+               <!-- How often to check for beans with an expired max-bean-life -->
+               <remover-period>1</remover-period>
+               <!-- How long before a passivated bean is a candidate for removal -->
+               <max-bean-life>1</max-bean-life>
+               <!-- How often to check for beans with an expired max-bean-age -->
+               <overager-period>1</overager-period>
+               <!-- How long before a bean is a candidate for passivation -->
+               <max-bean-age>1</max-bean-age>
+            </cache-policy-conf>
+         </container-cache-conf>
+      </container-configuration>
+
+      <container-configuration extends="Standard Stateless SessionBean">
+         <container-name>Strictly Pooled Stateless SessionBean</container-name>
+         <container-pool-conf>
+            <MinimumSize>1</MinimumSize>
+            <MaximumSize>5</MaximumSize>
+            <strictMaximumSize>true</strictMaximumSize>
+         </container-pool-conf>
+      </container-configuration>
+
+      <container-configuration extends="Standard Stateful SessionBean">
+         <container-name>Strictly Pooled Stateful SessionBean</container-name>
+         <container-pool-conf>
+            <MinimumSize>1</MinimumSize>
+            <MaximumSize>5</MaximumSize>
+            <strictMaximumSize>true</strictMaximumSize>
+         </container-pool-conf>
+      </container-configuration>
+
+      <container-configuration extends="Standard Message Driven Bean">
+         <container-name>Strictly Pooled Message Driven Bean</container-name>
+         <container-pool-conf>
+            <MinimumSize>1</MinimumSize>
+            <MaximumSize>5</MaximumSize>
+            <strictMaximumSize>true</strictMaximumSize>
+         </container-pool-conf>
+      </container-configuration>
+
+   </container-configurations>
+   
 </jboss>

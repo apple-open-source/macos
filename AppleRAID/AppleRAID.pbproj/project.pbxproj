@@ -71,6 +71,7 @@
 			projectDirPath = "";
 			targets = (
 				089C1673FE841209C02AAC07,
+				AC51781E0545B201001F0E85,
 			);
 		};
 		089C166AFE841209C02AAC07 = {
@@ -101,7 +102,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleRAID;
-				MODULE_VERSION = 1.3.4;
+				MODULE_VERSION = 1.5;
 				OTHER_CFLAGS = "-fpermissive";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -111,6 +112,7 @@
 				WRAPPER_EXTENSION = kext;
 			};
 			dependencies = (
+				AC5178260545B3D1001F0E85,
 			);
 			isa = PBXBundleTarget;
 			name = AppleRAID;
@@ -126,7 +128,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleRAID</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleRAID 1.3.4, Copyright 2000-2003 Apple Computer, Inc.</string>
+	<string>AppleRAID 1.5, Copyright 2000-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -138,11 +140,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.4</string>
+	<string>1.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.4</string>
+	<string>1.5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleRAID</key>
@@ -262,6 +264,7 @@
 		19C28FB6FE9D52B211CA2CBB = {
 			children = (
 				0B81C263FFB7832611CA28AA,
+				AC51781F0545B201001F0E85,
 			);
 			isa = PBXGroup;
 			name = Products;
@@ -454,6 +457,79 @@
 			isa = PBXBuildFile;
 			settings = {
 			};
+		};
+//490
+//491
+//492
+//493
+//494
+//AC0
+//AC1
+//AC2
+//AC3
+//AC4
+		AC51781C0545B201001F0E85 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AC51781D0545B201001F0E85 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AC51781E0545B201001F0E85 = {
+			buildPhases = (
+				AC51781C0545B201001F0E85,
+				AC5178240545B2EC001F0E85,
+				AC51781D0545B201001F0E85,
+			);
+			buildSettings = {
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/storage/RAID";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = InstallHeaders;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = InstallHeaders;
+			productName = InstallHeaders;
+			productReference = AC51781F0545B201001F0E85;
+		};
+		AC51781F0545B201001F0E85 = {
+			isa = PBXExecutableFileReference;
+			path = InstallHeaders;
+			refType = 3;
+		};
+		AC5178240545B2EC001F0E85 = {
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/storage/RAID";
+			dstSubfolderSpec = 0;
+			files = (
+				AC5178250545B309001F0E85,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		AC5178250545B309001F0E85 = {
+			fileRef = 24484B9800A31C3B11CA295E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC5178260545B3D1001F0E85 = {
+			isa = PBXTargetDependency;
+			target = AC51781E0545B201001F0E85;
 		};
 	};
 	rootObject = 089C1669FE841209C02AAC07;

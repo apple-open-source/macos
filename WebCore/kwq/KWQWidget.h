@@ -69,6 +69,7 @@ public:
     virtual QSize sizeHint() const;
     
     virtual void setEnabled(bool);
+    virtual bool isEnabled() const;
     
     void setActiveWindow();
 
@@ -92,18 +93,19 @@ public:
     virtual QRect frameGeometry() const;
     virtual void setFrameGeometry(const QRect &);
 
-    virtual int baselinePosition() const; // relative to the top of the widget
+    virtual int baselinePosition(int height) const; // relative to the top of the widget
 
     virtual QPoint mapFromGlobal(const QPoint &) const;
 
     bool hasFocus() const;
     void setFocus();
     void clearFocus();
+    virtual bool checksDescendantsForFocus() const;
     
     virtual FocusPolicy focusPolicy() const;
-    virtual void setFocusPolicy(FocusPolicy);
+    void setFocusPolicy(FocusPolicy) {};
     
-    virtual void setFocusProxy(QWidget *);
+    virtual void setFocusProxy(QWidget *) {};
 
     const QPalette& palette() const;
     virtual void setPalette(const QPalette &);
@@ -124,8 +126,8 @@ public:
     bool focusNextPrevChild(bool);
     bool hasMouseTracking() const;
 
-    void show() { }
-    void hide() { }
+    void show();
+    void hide();
 
     void showEvent(QShowEvent *) { }
     void hideEvent(QHideEvent *) { }

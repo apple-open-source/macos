@@ -9,9 +9,24 @@
       <servlet-name>Log4jServlet</servlet-name>
       <servlet-class>org.jboss.test.classloader.scoping.override.web.log4j113.Log4jServlet</servlet-class>
    </servlet>
+   <servlet>
+      <servlet-name>ENCServlet</servlet-name>
+      <servlet-class>org.jboss.test.classloader.scoping.override.web.ENCServlet</servlet-class>
+   </servlet>
 
    <servlet-mapping>
       <servlet-name>Log4jServlet</servlet-name>
       <url-pattern>/Log4jServlet/*</url-pattern>
    </servlet-mapping>
+   <servlet-mapping>
+      <servlet-name>ENCServlet</servlet-name>
+      <url-pattern>/ENCServlet/*</url-pattern>
+   </servlet-mapping>
+
+   <env-entry>
+      <description>A string</description>
+      <env-entry-name>prop1</env-entry-name>
+      <env-entry-value>value1</env-entry-value>
+      <env-entry-type>java.lang.String</env-entry-type>
+   </env-entry>
 </web-app>

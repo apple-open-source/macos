@@ -17,12 +17,21 @@ public class ExclusiveQueue
    Subscription exclusive;
    boolean removed = false;
 
-   public ExclusiveQueue(JMSDestinationManager server, SpyDestination destination,
-                         Subscription exclusive)
+   public ExclusiveQueue
+   (
+      JMSDestinationManager server, 
+      SpyDestination destination,
+      Subscription exclusive,
+      BasicQueueParameters parameters
+   )
       throws JMSException
    {
-      super(server, destination.toString() + "." + exclusive.connectionToken.getClientID() 
-                                           + '.' + exclusive.subscriptionId);
+      super
+      (
+         server, 
+         destination.toString() + "." + exclusive.connectionToken.getClientID() + '.' + exclusive.subscriptionId,
+         parameters
+      );
       this.exclusive = exclusive;
    }
 

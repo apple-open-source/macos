@@ -44,3 +44,9 @@ do-fixups:
 			"$(DSTROOT)/usr/share/locale/locale.alias"
 	mv		"$(DSTROOT)/usr/share/locale/en_GB" \
 			"$(DSTROOT)/usr/share/locale/en_GB.ISO8859-1"
+	zcat "$(DSTROOT)/usr/share/cups/model/C/pcl-900.ppd.gz" | \
+		sed 's/HP DeskJet 900 series/HP DeskJet 995C/g' | \
+		gzip >	"$(DSTROOT)/usr/share/cups/model/C/pcl-995C.ppd.gz" 
+	zcat "$(DSTROOT)/usr/share/cups/model/C/pcl-340.ppd.gz" | \
+		sed 's/HP DeskJet 340/HP dj450/g' | \
+		gzip >	"$(DSTROOT)/usr/share/cups/model/C/pcl-450.ppd.gz" 

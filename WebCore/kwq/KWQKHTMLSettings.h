@@ -52,6 +52,7 @@ public:
     static QString settingsToCSS() { return QString(); }
 
     int minFontSize() const { return _minimumFontSize; }
+    int minLogicalFontSize() const { return _minimumLogicalFontSize; }
     int mediumFontSize() const { return _defaultFontSize; }
     int mediumFixedFontSize() const { return _defaultFixedFontSize; }
 
@@ -75,6 +76,7 @@ public:
     const QString &encoding() const { return _encoding; }
 
     const QString &userStyleSheet() const { return _userStyleSheetLocation; }
+    bool shouldPrintBackgrounds() const { return _shouldPrintBackgrounds; }
 
     void setStdFontName(const QString &s) { _stdFontName = s; }
     void setFixedFontName(const QString &s) { _fixedFontName = s; }
@@ -84,6 +86,7 @@ public:
     void setFantasyFontName(const QString &s) { _fantasyFontName = s; }
     
     void setMinFontSize(int s) { _minimumFontSize = s; }
+    void setMinLogicalFontSize(int s) { _minimumLogicalFontSize = s; }
     void setMediumFontSize(int s) { _defaultFontSize = s; }
     void setMediumFixedFontSize(int s) { _defaultFixedFontSize = s; }
     
@@ -96,6 +99,7 @@ public:
     void setEncoding(const QString &s) { _encoding = s; }
 
     void setUserStyleSheet(const QString &s) { _userStyleSheetLocation = s; }
+    void setShouldPrintBackgrounds(bool f) { _shouldPrintBackgrounds = f; }
     
 private:
     QString _stdFontName;
@@ -108,6 +112,7 @@ private:
     QString _userStyleSheetLocation;
     
     int _minimumFontSize;
+    int _minimumLogicalFontSize;
     int _defaultFontSize;
     int _defaultFixedFontSize;
     uint _JavaEnabled:1;
@@ -115,6 +120,7 @@ private:
     uint _pluginsEnabled:1;
     uint _JavaScriptEnabled:1;
     uint _JavaScriptCanOpenWindowsAutomatically:1;
+    uint _shouldPrintBackgrounds:1;
     
 };
 

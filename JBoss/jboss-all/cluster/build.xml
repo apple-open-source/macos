@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE project [
    <!ENTITY buildmagic SYSTEM "../tools/etc/buildmagic/buildmagic.ent">
+   <!ENTITY libraries SYSTEM "../tools/etc/buildmagic/libraries.ent">
+   <!ENTITY modules SYSTEM "../tools/etc/buildmagic/modules.ent">
 ]>
 
 <!-- ====================================================================== -->
@@ -12,7 +14,7 @@
 <!--                                                                        -->
 <!-- ====================================================================== -->
 
-<!-- $Id: build.xml,v 1.39.2.7 2003/07/05 23:52:37 ivelin Exp $ -->
+<!-- $Id: build.xml,v 1.39.2.11 2003/11/27 07:21:55 ivelin Exp $ -->
 
 <project default="main" name="JBoss/Cluster">
 
@@ -68,66 +70,7 @@
     <!-- ========= -->
     <!-- Libraries -->
     <!-- ========= -->
-
-    <!-- Java Secure Socket Extension (JSSE) -->
-    <property name="sun.jsse.root" value="${project.thirdparty}/sun/jsse"/>
-    <property name="sun.jsse.lib" value="${sun.jsse.root}/lib"/>
-    <path id="sun.jsse.classpath">
-      <fileset dir="${sun.jsse.lib}">
-        <include name="**/*.jar"/>
-      </fileset>
-    </path>
-
-    <!-- Apache Crimson (XML/DOM) -->
-    <property name="apache.crimson.root" value="${project.thirdparty}/apache/crimson"/>
-    <property name="apache.crimson.lib" value="${apache.crimson.root}/lib"/>
-    <path id="apache.crimson.classpath">
-      <pathelement path="${apache.crimson.lib}/crimson.jar"/>
-    </path>
-
-    <!-- Apache Commons -->
-    <property name="apache.commons.root" value="${project.thirdparty}/apache/commons"/>
-    <property name="apache.commons.lib" value="${apache.commons.root}/lib"/>
-    <path id="apache.commons.classpath">
-      <pathelement path="${apache.commons.lib}/commons-collections.jar"/>
-      <pathelement path="${apache.commons.lib}/commons-logging.jar"/>
-    </path>
-
-    <!-- Log4j -->
-    <property name="apache.log4j.root" value="${project.thirdparty}/apache/log4j"/>
-    <property name="apache.log4j.lib" value="${apache.log4j.root}/lib"/>
-    <path id="apache.log4j.classpath">
-      <pathelement path="${apache.log4j.lib}/log4j.jar"/>
-    </path>
-
-    <!-- JUnit -->
-    <property name="junit.junit.root" value="${project.thirdparty}/junit/junit"/>
-    <property name="junit.junit.lib" value="${junit.junit.root}/lib"/>
-    <path id="junit.junit.classpath">
-      <pathelement path="${junit.junit.lib}/junit.jar"/>
-    </path>
-
-    <!-- JavaGroups -->
-    <property name="javagroups.javagroups.root" value="${project.thirdparty}/javagroups/javagroups"/>
-    <property name="javagroups.javagroups.lib" value="${javagroups.javagroups.root}/lib"/>
-    <path id="javagroups.javagroups.classpath">
-      <pathelement path="${javagroups.javagroups.lib}/javagroups-2.0.jar"/>
-    </path>
-
-    <!-- Servlet Specification -->
-    <property name="sun.servlet.root" value="${project.thirdparty}/sun/servlet"/>
-    <property name="sun.servlet.lib" value="${sun.servlet.root}/lib"/>
-    <path id="sun.servlet.classpath">
-      <pathelement path="${sun.servlet.lib}/servlet.jar"/>
-    </path>
-
-    <!-- Concurrent Libs -->
-    <property name="oswego.concurrent.root" value="${project.thirdparty}/oswego/concurrent"/>
-    <property name="oswego.concurrent.lib" value="${oswego.concurrent.root}/lib"/>
-    <path id="oswego.concurrent.classpath">
-      <pathelement path="${oswego.concurrent.lib}/concurrent.jar"/>
-    </path>
-
+    &libraries;
     <!-- The combined library classpath -->
     <path id="library.classpath">
       <path refid="sun.jsse.classpath"/>
@@ -135,7 +78,7 @@
       <path refid="apache.log4j.classpath"/>
       <path refid="apache.commons.classpath"/>
       <path refid="junit.junit.classpath"/>
-      <path refid="javagroups.javagroups.classpath"/>
+      <path refid="jgroups.jgroups.classpath"/>
       <path refid="sun.servlet.classpath"/>
       <path refid="oswego.concurrent.classpath"/>
     </path>
@@ -143,70 +86,7 @@
     <!-- ======= -->
     <!-- Modules -->
     <!-- ======= -->
-
-    <!-- J2EE -->
-    <property name="jboss.j2ee.root" value="${project.root}/j2ee/output"/>
-    <property name="jboss.j2ee.lib" value="${jboss.j2ee.root}/lib"/>
-    <path id="jboss.j2ee.classpath">
-      <pathelement path="${jboss.j2ee.lib}/jboss-j2ee.jar"/>
-    </path>
-
-    <!-- Common -->
-    <property name="jboss.common.root" value="${project.root}/common/output"/>
-    <property name="jboss.common.lib" value="${jboss.common.root}/lib"/>
-    <path id="jboss.common.classpath">
-      <pathelement path="${jboss.common.lib}/jboss-common.jar"/>
-    </path>
-
-    <!-- System -->
-    <property name="jboss.system.root" value="${project.root}/system/output"/>
-    <property name="jboss.system.lib" value="${jboss.system.root}/lib"/>
-    <path id="jboss.system.classpath">
-      <pathelement path="${jboss.system.lib}/jboss-system.jar"/>
-    </path>
-
-    <!-- Naming -->
-    <property name="jboss.naming.root" value="${project.root}/naming/output"/>
-    <property name="jboss.naming.lib" value="${jboss.naming.root}/lib"/>
-    <path id="jboss.naming.classpath">
-      <pathelement path="${jboss.naming.lib}/jnpserver.jar"/>
-    </path>
-
-    <!-- Messaging -->
-    <property name="jboss.messaging.root" value="${project.root}/messaging/output"/>
-    <property name="jboss.messaging.lib" value="${jboss.messaging.root}/lib"/>
-    <path id="jboss.messaging.classpath">
-      <pathelement path="${jboss.messaging.lib}/jbossmq.jar"/>
-    </path>
-
-    <!-- Server -->
-    <property name="jboss.server.root" value="${project.root}/server/output"/>
-    <property name="jboss.server.lib" value="${jboss.server.root}/lib"/>
-    <path id="jboss.server.classpath">
-      <pathelement path="${jboss.server.lib}/jboss.jar"/>
-    </path>
-
-    <!-- JMX -->
-    <property name="jboss.jmx.root" value="${project.root}/jmx/output"/>
-    <property name="jboss.jmx.lib" value="${jboss.jmx.root}/lib"/>
-    <path id="jboss.jmx.classpath">
-      <pathelement path="${jboss.jmx.lib}/jboss-jmx.jar"/>
-    </path>
-
-    <!-- Security -->
-    <property name="jboss.security.root" value="${project.root}/security/output"/>
-    <property name="jboss.security.lib" value="${jboss.security.root}/lib"/>
-    <path id="jboss.security.classpath">
-      <pathelement path="${jboss.security.lib}/jaas.jar"/>
-    </path>
-
-    <!-- Transaction -->
-    <property name="jboss.transaction.root" value="${project.root}/transaction/output"/>
-    <property name="jboss.transaction.lib" value="${jboss.transaction.root}/lib"/>
-    <path id="jboss.transaction.classpath">
-      <pathelement path="${jboss.transaction.lib}/jboss-transaction.jar"/>
-    </path>
-
+    &modules;
     <!-- The combined dependent module classpath -->
     <path id="dependentmodule.classpath">
       <path refid="jboss.j2ee.classpath"/>
@@ -238,6 +118,7 @@
     <property name="build.etc" value="${module.output}/etc"/>
     <property name="build.examples" value="${module.output}/examples"/>
     <property name="build.reports" value="${module.output}/reports"/>
+    <property name="build.todo" value="${module.output}/todo"/>
 
     <!-- Install/Release structure -->
     <property name="install.id" value="${module.name}-${module.version}"/>
@@ -274,25 +155,6 @@
 
     <!-- Packages to include when generating api documentation -->
     <property name="javadoc.packages" value="org.jboss.*"/>
-
-    <!-- Override JUnit defaults -->
-    <property name="junit.timeout" value="240000"/> <!-- 4 minutes -->
-    <property name="junit.batchtest.todir" value="${build.reports}"/>
-    <property name="junit.jvm.options" value="-Ddummy"/>
-
-    <!-- xdoclet -->
-    <path id="xdoclet.task.classpath">
-      <path refid="javac.classpath"/>
-      <fileset dir="${project.thirdparty}/xdoclet/xdoclet/lib">
-        <include name="**/*.jar"/>
-      </fileset>
-    </path>
-    <property name="xdoclet.task.classpath" 
-	      refid="xdoclet.task.classpath"/>
-
-    <taskdef name="todo" 
-             classname="xdoclet.modules.doc.DocumentDocletTask"
-             classpathref="xdoclet.task.classpath"/>
   </target>
 
 
@@ -371,8 +233,6 @@
       <include name="org/jboss/ha/framework/server/DistributedStateImpl.class"/>
       <include name="org/jboss/ha/jndi/HAJNDI.class"/>
       <include name="org/jboss/ha/framework/server/HARMIServerImpl.class"/>
-      <include name="org/jboss/mq/il/ha/HAClientIL.class"/>
-      <include name="org/jboss/mq/il/ha/HAServerIL.class"/>
     </rmic>
   </target>
 
@@ -394,7 +254,12 @@
   <!--
      |  Build all jar files.
     -->
-  <target name="jars" depends="compile" description="Builds all jar files.">
+  <target name="jars" description="Builds all jar files."
+     depends="_buildmagic:build-bypass-check"
+	  unless="build-bypass.on">
+
+    <call target="compile"/>
+
     <mkdir dir="${build.lib}"/>
 
     <!-- Build the jbossha.jar -->
@@ -411,6 +276,7 @@
         <include name="org/jboss/ha/httpsession/interfaces/*"/>
         <exclude name="org/jboss/ha/httpsession/server/**"/>
         <exclude name="org/jboss/ha/httpsession/beanimpl/**"/>
+        <exclude name="org/jboss/mq/**"/>
       </fileset>
     </jar>
 
@@ -426,14 +292,6 @@
         <include name="org/jboss/ha/**/*Stub.class"/>
         <include name="org/jboss/ha/framework/test/ExplicitFailoverClientInterceptor.class"/>
         <exclude name="org/jbossmx/**"/>
-      </fileset>
-    </jar>
-
-    <!-- Build the jbossmqha.jar -->
-    <jar jarfile="${build.lib}/jbossmqha.jar"
-	 manifest="${build.etc}/default.mf">
-      <fileset dir="${build.classes}">
-        <include name="org/jboss/mq/il/ha/**"/>
       </fileset>
     </jar>
 
@@ -463,6 +321,26 @@
         <include name="**"/>
       </fileset>
     </jar>
+
+    <!-- jbossmq-hail.sar -->
+
+    <jar jarfile="${build.lib}/jbossmq-hail.jar"
+	 manifest="${build.etc}/default.mf">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/mq/il/ha/**"/>
+      </fileset>
+    </jar>
+    <jar jarfile="${build.lib}/jbossmq-hail.sar">
+      <metainf dir="${source.resources}/jbossmq/hail">
+         <include name="jboss-service.xml" />
+      </metainf>
+      <fileset dir="${build.lib}">
+        <include name="jbossmq-hail.jar"/>
+      </fileset>
+    </jar>
+
+    <!-- Update the build marker to allow bypassing -->
+    <touch file="${build-bypass.marker}"/>
 
   </target>
 
@@ -532,7 +410,9 @@
 
   <target name="all"
 	  description="Builds everything."
-	  depends="jars, docs"/>
+	  depends="jars">
+     <mkdir dir="${module.output}/api" />
+  </target>
 
   <target name="most"
 	  description="Builds almost everything."

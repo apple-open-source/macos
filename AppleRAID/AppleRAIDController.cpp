@@ -22,10 +22,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- *  DRI: Josh de Cesare
- *
- */
 
 #include <IOKit/IOMessage.h>
 

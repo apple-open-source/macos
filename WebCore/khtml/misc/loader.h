@@ -195,7 +195,7 @@ namespace khtml
     protected:
         void setSize(int size);
         
-        QPtrList<CachedObjectClient> m_clients;
+        QPtrDict<CachedObjectClient> m_clients;
 
 	DOM::DOMString m_url;
         QString m_accept;
@@ -449,7 +449,7 @@ namespace khtml
 	void slotFinished( KIO::Job * );
 #if APPLE_CHANGES
 	void slotData( KIO::Job *, const char *data, int size );
-        void receivedResponse ( KIO::Job *, void *response );
+        void slotReceivedResponse ( KIO::Job *, void *response );
 #else
 	void slotData( KIO::Job *, const QByteArray & );
 #endif

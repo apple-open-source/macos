@@ -178,7 +178,6 @@ public:
     bool hasID() const      { return m_hasId; }
     bool hasClass() const   { return m_hasClass; }
     bool hasStyle() const   { return m_hasStyle; }
-    bool pressed() const    { return m_pressed; }
     bool active() const     { return m_active; }
     bool focused() const { return m_focused; }
     bool attached() const   { return m_attached; }
@@ -191,7 +190,6 @@ public:
     void setHasID(bool b=true) { m_hasId = b; }
     void setHasClass(bool b=true) { m_hasClass = b; }
     void setHasStyle(bool b=true) { m_hasStyle = b; }
-    void setPressed(bool b=true) { m_pressed = b; }
     void setHasChangedChild( bool b = true ) { m_hasChangedChild = b; }
     void setInDocument(bool b=true) { m_inDocument = b; }
     virtual void setFocus(bool b=true) { m_focused = b; }
@@ -202,10 +200,12 @@ public:
     void setTabIndex(unsigned short _tabIndex) { m_tabIndex = _tabIndex; }
 
     /**
-     * whether this node can receive the keyboard focus.
+        * whether this node can receive the keyboard focus.
      */
-    virtual bool isSelectable() const { return false; };
-
+    virtual bool isFocusable() const;
+    virtual bool isKeyboardFocusable() const;
+    virtual bool isMouseFocusable() const;
+    
     virtual bool isInline() const;
     virtual QString toHTML() const;
     QString recursive_toHTML(bool start = false) const;
@@ -213,7 +213,7 @@ public:
     virtual void getCursor(int offset, int &_x, int &_y, int &height);
     virtual QRect getRect() const;
 
-    enum StyleChange { NoChange, NoInherit, Inherit, Force };
+    enum StyleChange { NoChange, NoInherit, Inherit, Detach, Force };
     virtual void recalcStyle( StyleChange = NoChange ) {}
     StyleChange diff( khtml::RenderStyle *s1, khtml::RenderStyle *s2 ) const;
 
@@ -221,6 +221,8 @@ public:
     // Returns the document that this node is associated with. This is guaranteed to always be non-null, as opposed to
     // DOM's ownerDocument() which is null for Document nodes (and sometimes DocumentType nodes).
     DocumentImpl* getDocument() const { return document->document(); }
+
+    void setDocument(DocumentPtr *doc);
 
     void addEventListener(int id, EventListener *listener, const bool useCapture);
     void removeEventListener(int id, EventListener *listener, bool useCapture);
@@ -280,7 +282,8 @@ public:
     khtml::RenderObject *renderer() const { return m_render; }
     khtml::RenderObject *nextRenderer();
     khtml::RenderObject *previousRenderer();
-
+    void setRenderer(khtml::RenderObject* renderer) { m_render = renderer; }
+    
     void checkSetPrefix(const DOMString &_prefix, int &exceptioncode);
     void checkAddChild(NodeImpl *newChild, int &exceptioncode);
     bool isAncestor( NodeImpl *other );
@@ -368,7 +371,9 @@ public:
      * node that is of the type CDATA_SECTION_NODE, TEXT_NODE or COMMENT_NODE has changed it's value.
      */
     virtual void childrenChanged();
-    
+
+    virtual DOMString toString() const = 0;
+
 private: // members
     DocumentPtr *document;
     NodeImpl *m_previous;
@@ -383,7 +388,6 @@ protected:
     bool m_hasId : 1;
     bool m_hasClass : 1;
     bool m_hasStyle : 1;
-    bool m_pressed : 1;
     bool m_attached : 1;
     bool m_changed : 1;
     bool m_hasChangedChild : 1;

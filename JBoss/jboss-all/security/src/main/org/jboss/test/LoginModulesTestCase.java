@@ -10,13 +10,11 @@ import java.lang.reflect.Method;
 import java.io.File;
 import java.io.Serializable;
 import java.security.MessageDigest;
-import java.security.Principal;
 import java.security.acl.Group;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Set;
@@ -24,7 +22,6 @@ import java.util.Properties;
 import javax.naming.InitialContext;
 import javax.naming.NameAlreadyBoundException;
 import javax.security.auth.Subject;
-import javax.security.auth.callback.CallbackHandler;
 import javax.security.auth.login.AppConfigurationEntry;
 import javax.security.auth.login.Configuration;
 import javax.security.auth.login.LoginContext;
@@ -48,7 +45,7 @@ import org.jboss.security.auth.spi.UsernamePasswordLoginModule;
 /** Tests of the LoginModule classes.
  
  @author Scott.Stark@jboss.org
- @version $Revision: 1.3.2.2 $
+ @version $Revision: 1.3.2.3 $
  */
 public class LoginModulesTestCase extends TestCase
 {

@@ -111,7 +111,8 @@ public:
  *    element or ignore the tag.
  *
  */
-KHTMLParser::KHTMLParser( KHTMLView *_parent, DocumentPtr *doc)
+KHTMLParser::KHTMLParser( KHTMLView *_parent, DocumentPtr *doc) 
+    : current(0)
 {
     //kdDebug( 6035 ) << "parser constructor" << endl;
 #if SPEED_DEBUG > 0
@@ -131,6 +132,7 @@ KHTMLParser::KHTMLParser( KHTMLView *_parent, DocumentPtr *doc)
 }
 
 KHTMLParser::KHTMLParser( DOM::DocumentFragmentImpl *i, DocumentPtr *doc )
+    : current(0)
 {
     HTMLWidget = 0;
     document = doc;
@@ -141,7 +143,7 @@ KHTMLParser::KHTMLParser( DOM::DocumentFragmentImpl *i, DocumentPtr *doc )
     blockStack = 0;
 
     reset();
-    current = i;
+    setCurrent(i);
     inBody = true;
 }
 
@@ -161,7 +163,7 @@ KHTMLParser::~KHTMLParser()
 
 void KHTMLParser::reset()
 {
-    current = document->document();
+    setCurrent(document->document());
 
     freeBlock();
 
@@ -172,7 +174,7 @@ void KHTMLParser::reset()
     haveFrameSet = false;
     haveContent = false;
     inSelect = false;
-    inStrayTableContent = false;
+    inStrayTableContent = 0;
     
     form = 0;
     map = 0;
@@ -181,6 +183,15 @@ void KHTMLParser::reset()
     isindex = 0;
     
     discard_until = 0;
+}
+
+void KHTMLParser::setCurrent(DOM::NodeImpl *newCurrent) 
+{
+    if (newCurrent) 
+	newCurrent->ref(); 
+    if (current) 
+	current->deref(); 
+    current = newCurrent; 
 }
 
 void KHTMLParser::parseToken(Token *t)
@@ -310,7 +321,7 @@ bool KHTMLParser::insertNode(NodeImpl *n, bool flat)
             if (newNode == current)
                 popBlock(id);
             else
-                current = newNode;
+                setCurrent(newNode);
 #if SPEED_DEBUG < 2
             if(!n->attached() && HTMLWidget)
                 n->attach();
@@ -345,11 +356,10 @@ bool KHTMLParser::insertNode(NodeImpl *n, bool flat)
         case ID_TR:
         case ID_TH:
         case ID_TD:
-            if (inStrayTableContent) {
+            if (inStrayTableContent && !isTableRelatedTag(current->id())) {
                 // pop out to the nearest enclosing table-related tag.
                 while (!isTableRelatedTag(current->id()))
                     popOneBlock();
-                inStrayTableContent = false;
                 return insertNode(n);
             }
             break;
@@ -405,7 +415,7 @@ bool KHTMLParser::insertNode(NodeImpl *n, bool flat)
                 DOM::NodeImpl *newNode = head->addChild(n);
                 if ( newNode ) {
                     pushBlock(id, tagPriority[id]);
-                    current = newNode;
+                    setCurrent(newNode);
 #if SPEED_DEBUG < 2
 		    if(!n->attached() && HTMLWidget)
                         n->attach();
@@ -619,8 +629,8 @@ bool KHTMLParser::insertNode(NodeImpl *n, bool flat)
                         !flat && endTag[id] != DOM::FORBIDDEN)
                     {
                         pushBlock(id, tagPriority[id]);
-                        current = n;
-                        inStrayTableContent = true;
+                        setCurrent(n);
+                        inStrayTableContent++;
                         blockStack->strayTableContent = true;
                     }
                     return true;
@@ -1044,6 +1054,8 @@ NodeImpl *KHTMLParser::getElement(Token* t)
     case ID_SPAN:
     case ID_NOBR:
     case ID_WBR:
+        if (t->id == ID_NOBR || t->id == ID_WBR)
+            popBlock(t->id); // Don't allow nested <nobr> or <wbr>
         n = new HTMLGenericElementImpl(document, t->id);
         break;
 
@@ -1066,7 +1078,7 @@ NodeImpl *KHTMLParser::getElement(Token* t)
         return 0;
         break;
     case ID_MARQUEE:
-        n = new HTMLGenericElementImpl(document, t->id);
+        n = new HTMLMarqueeElementImpl(document);
         break;
 // text
     case ID_TEXT:
@@ -1353,12 +1365,9 @@ void KHTMLParser::handleResidualStyleCloseTagAcrossBlocks(HTMLStackElem* elem)
             // curr->id rather than the node that you should pop to when the element gets pulled off
             // the stack.
             popOneBlock(false);
-            curr->next = 0;
             curr->node = currNode;
-            if (!residualStyleStack)
-                residualStyleStack = curr;
-            else
-                residualStyleStack->next = curr;
+            curr->next = residualStyleStack;
+            residualStyleStack = curr;
         }
         else
             popOneBlock();
@@ -1391,15 +1400,15 @@ void KHTMLParser::reopenResidualStyleTags(HTMLStackElem* elem, DOM::NodeImpl* ma
 
         // Set our strayTableContent boolean if needed, so that the reopened tag also knows
         // that it is inside a malformed table.
-        blockStack->strayTableContent = !inStrayTableContent && malformedTableParent;
+        blockStack->strayTableContent = malformedTableParent != 0;
         if (blockStack->strayTableContent)
-            inStrayTableContent = true;
+            inStrayTableContent++;
 
         // Clear our malformed table parent variable.
         malformedTableParent = 0;
 
         // Update |current| manually to point to the new node.
-        current = newNode;
+        setCurrent(newNode);
         
         // Advance to the next tag that needs to be reopened.
         HTMLStackElem* next = elem->next;
@@ -1460,17 +1469,20 @@ void KHTMLParser::popBlock( int _id )
     {
         if (Elem->id == _id)
         {
-            bool strayTable = inStrayTableContent;
+            int strayTable = inStrayTableContent;
             popOneBlock();
             Elem = 0;
 
             // This element was the root of some malformed content just inside an implicit or
-            // explicit <tbody>.
+            // explicit <tbody> or <tr>.
             // If we end up needing to reopen residual style tags, the root of the reopened chain
-            // must also know that it is the root of malformed content inside a <tbody>.
-            if (strayTable && !inStrayTableContent && residualStyleStack)
-                malformedTableParent = current && current->parentNode() ? 
-		  current->parentNode()->parentNode() : 0;
+            // must also know that it is the root of malformed content inside a <tbody>/<tr>.
+            if (strayTable && (inStrayTableContent < strayTable) && residualStyleStack) {
+                NodeImpl* curr = current;
+                while (curr && curr->id() != ID_TABLE)
+                    curr = curr->parentNode();
+                malformedTableParent = curr ? curr->parentNode() : 0;
+            }
         }
         else
         {
@@ -1532,10 +1544,10 @@ void KHTMLParser::popOneBlock(bool delBlock)
     removeForbidden(Elem->id, forbiddenTag);
 
     blockStack = Elem->next;
-    current = Elem->node;
+    setCurrent(Elem->node);
 
     if (Elem->strayTableContent)
-        inStrayTableContent = false;
+        inStrayTableContent--;
 
     if (delBlock)
         delete Elem;
@@ -1617,5 +1629,5 @@ void KHTMLParser::finished()
 {
     // This ensures that "current" is not left pointing to a node when the document is destroyed.
     freeBlock();
-    current = 0;
+    setCurrent(0);
 }

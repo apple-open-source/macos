@@ -54,6 +54,10 @@ public:
     virtual IOReturn newReportDescriptor(
                         IOMemoryDescriptor ** descriptor ) const;
                         
+    virtual IOReturn getReport( IOMemoryDescriptor * report,
+                                 IOHIDReportType      reportType,
+                                 IOOptionBits         options );
+                                 
     virtual IOReturn setReport( IOMemoryDescriptor * report,
                                 IOHIDReportType      reportType,
                                 IOOptionBits         options );

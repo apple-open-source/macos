@@ -17,7 +17,7 @@ import org.jboss.logging.Logger;
 /**
  *
  * @author  <a href="mailto:juha@jboss.org">Juha Lindfors</a>.
- * @version $Revision: 1.4.4.1 $
+ * @version $Revision: 1.4.4.2 $
  *
  */
 public class NotificationBroadcasterSupport implements NotificationBroadcaster
@@ -65,16 +65,14 @@ public class NotificationBroadcasterSupport implements NotificationBroadcaster
    {
       boolean debug = log.isDebugEnabled();
 
-      Collection copy = null;
+      ArrayList copy = null;
       synchronized (listenerMap)
       {
          copy = new ArrayList(listenerMap.keySet());
       }
-      Iterator listenerIterator = copy.iterator();
-
-      while(listenerIterator.hasNext())
+      for (int i = 0; i < copy.size(); i++)
       {
-         NotificationListener listener = (NotificationListener)listenerIterator.next();
+         NotificationListener listener = (NotificationListener)copy.get(i);
          Map hbMap = (Map)listenerMap.get(listener);
          
          // hbMap may be null if the listener was removed from the listenerMap during this loop

@@ -173,6 +173,21 @@
     return minimumFontSize;
 }
 
+- (void)setMinimumLogicalFontSize:(float)size
+{
+    if (minimumLogicalFontSize == size) {
+        return;
+    }
+    minimumLogicalFontSize = size;
+    settings->setMinLogicalFontSize((int)rint(size));
+    [self _updateAllViews];
+}
+
+- (float)minimumLogicalFontSize
+{
+    return minimumLogicalFontSize;
+}
+
 - (void)setDefaultFontSize:(float)size
 {
     if (defaultFontSize == size) {
@@ -272,6 +287,17 @@
 - (NSString *)userStyleSheetLocation
 {
     return userStyleSheetLocation;
+}
+
+- (void)setShouldPrintBackgrounds:(BOOL)enabled
+{
+    shouldPrintBackgrounds = enabled;
+    settings->setShouldPrintBackgrounds(enabled);
+}
+
+- (BOOL)shouldPrintBackgrounds
+{
+    return shouldPrintBackgrounds;
 }
 
 - (void)setDefaultTextEncoding:(NSString *)s

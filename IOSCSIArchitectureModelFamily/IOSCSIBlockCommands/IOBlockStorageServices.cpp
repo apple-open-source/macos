@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -141,10 +139,12 @@ IOBlockStorageServices::message ( UInt32 		type,
 				
 				case kIOMediaStateOnline:
 					fMediaPresent	= true;
+					fMediaChanged	= true;
 					break;
 					
 				case kIOMediaStateOffline:
 					fMediaPresent	= false;
+					fMediaChanged	= true;
 					break;
 					
 				default:
@@ -604,7 +604,12 @@ IOBlockStorageServices::reportMediaState ( 	bool * mediaPresent,
 {
 	
 	*mediaPresent 	= fMediaPresent;
-	*changed 		= false;
+	*changed 		= fMediaChanged;
+	
+	if ( fMediaChanged == true )
+	{
+		fMediaChanged = false;
+	}
 	
 	return kIOReturnSuccess;
 	

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -56,9 +56,6 @@ public:
 
 	// provide information on bus capability
 	virtual IOReturn provideBusInfo( IOATABusInfo* infoOut);
-	// listen for device removed message
-	virtual IOReturn message (UInt32 type, IOService* provider, void* argument = 0);
-	virtual void getLock(bool lock); // true to lock, false to unlock.
 
 
 protected:
@@ -87,6 +84,16 @@ protected:
 	volatile UInt32* SICR1;
 	volatile UInt32* SICR2;
 	UInt32 interruptBitMask;
+	bool isHotSwap;
+	bool isEmptyBay;
+	bool isCriticalSection;
+	bool isSleeping; 
+	bool systemIsSleeping;
+    bool cleanupSystemSleep;
+	
+	IOPMrootDomain			*pmRootDomain;
+	UInt32 savedSIMValue;
+	
 	
 	// base address mappings for the PCI regs.
 	IOMemoryMap*			ioBaseAddrMap[5];
@@ -150,9 +157,17 @@ protected:
 	virtual bool checkTimeout( void );  //
 	static void cleanUpAction(OSObject * owner, void*, void*, void*, void*); //
 	virtual void cleanUpBus(void); //
-
+	IOReturn handleEmptyBayIRQ( void );
+	IOReturn handleRemovalIRQ( void );
+	
+	static void createNubsThread( void* param );
+	void createNubs( void );
 	//OSObject overrides
 	virtual void free();
+	// pm stuff
+	virtual IOReturn setPowerState ( unsigned long powerStateOrdinal, IOService* whatDevice ); 	
+    virtual IOReturn powerStateWillChangeTo (IOPMPowerFlags theFlags, unsigned long, IOService*);
+    virtual IOReturn powerStateDidChangeTo ( IOPMPowerFlags theFlags, unsigned long, IOService*); 
 
 
 };

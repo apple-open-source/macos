@@ -30,6 +30,14 @@ TODO for MacOS X:
 TODO:
 - For hppa cache flushing use FDC and FIC on the written instruction address.
 
+Changes for the SUPanLavender 10.3.4 release (the cctools-495.1 release):
+- Fixed a bug caused by the fix to 3375399 in cctools-488.  That fix does not
+  work because the system call for gettimeofday() has a non-standard return.
+  And results in a bad value returned for the time which causes fix_prebinding
+  to think the message is old and it does nothing.  The new fix is to pass
+  NULL as the timezone value for gettimeofday() and then to provide a
+  definition of localtime() that returns NULL in images.c .  Radar bug #3489918.
+
 Changes for the 5.13 release (the cctools-491 release):
 - Fixed a bug in _dyld_NSLookupSymbolInImage() in dyld_libfuncs.c on line 2242
   where it was using defined_library_image when it could be NULL.  The fix was

@@ -7,31 +7,29 @@
 
 package org.jboss.invocation.pooled.interfaces;
 
-import java.io.IOException;
-import java.io.Externalizable;
-import java.io.ObjectInput;
-import java.io.ObjectOutput;
-import java.io.BufferedOutputStream;
-import java.io.BufferedInputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.io.IOException;
-import java.net.Socket;
-import java.rmi.MarshalledObject;
-import java.rmi.NoSuchObjectException;
-import java.rmi.ServerException;
-import java.rmi.ConnectException;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedList;
-
-import javax.transaction.TransactionRolledbackException;
-import javax.transaction.SystemException;
 
 import org.jboss.invocation.Invocation;
 import org.jboss.invocation.Invoker;
-import org.jboss.invocation.MarshalledInvocation;
 import org.jboss.tm.TransactionPropagationContextFactory;
+
+import javax.transaction.SystemException;
+import javax.transaction.TransactionRolledbackException;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.net.Socket;
+import java.rmi.ConnectException;
+import java.rmi.MarshalledObject;
+import java.rmi.NoSuchObjectException;
+import java.rmi.ServerException;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedList;
 
 
 /**
@@ -40,7 +38,7 @@ import org.jboss.tm.TransactionPropagationContextFactory;
  * request.
  *
  * @author <a href="mailto:bill@jboss.org">Bill Burke</a>
- * @version $Revision: 1.1.4.4 $
+ * @version $Revision: 1.1.4.7 $
  */
 public class PooledInvokerProxy
    implements Invoker, Externalizable
@@ -52,7 +50,7 @@ public class PooledInvokerProxy
    /**
     * Factory for transaction propagation contexts.
     *
-    * @todo: marcf remove all transaction spill from here
+    * todo: marcf remove all transaction spill from here
     * 
     * When set to a non-null value, it is used to get transaction
     * propagation contexts for remote method invocations.
@@ -108,9 +106,9 @@ public class PooledInvokerProxy
          this.socket = socket;
          socket.setSoTimeout(timeout);
          this.timeout = timeout;
-         out = new ObjectOutputStream(new BufferedOutputStream(socket.getOutputStream()));
+         out = new OptimizedObjectOutputStream(new BufferedOutputStream(socket.getOutputStream()));
          out.flush();
-         in = new ObjectInputStream(new BufferedInputStream(socket.getInputStream()));
+         in = new OptimizedObjectInputStream(new BufferedInputStream(socket.getInputStream()));
       }
 
       protected void finalize()
@@ -203,7 +201,6 @@ public class PooledInvokerProxy
 
    protected ClientSocket getConnection() throws Exception
    {
-      Exception failed = null;
       Socket socket = null;
 
 
@@ -291,7 +288,7 @@ public class PooledInvokerProxy
    /**
     * ???
     *
-    * @todo: MOVE TO TRANSACTION
+    * todo: MOVE TO TRANSACTION
     *  
     * @return the transaction propagation context of the transaction
     *         associated with the current thread.
@@ -313,7 +310,7 @@ public class PooledInvokerProxy
       throws Exception
    {
       // We are going to go through a Remote invocation, switch to a Marshalled Invocation
-      MarshalledInvocation mi = new MarshalledInvocation(invocation);
+      PooledMarshalledInvocation mi = new PooledMarshalledInvocation(invocation);
          
       // Set the transaction propagation context
       //  @todo: MOVE TO TRANSACTION

@@ -16,7 +16,7 @@ agree to use. In addition to the base RFC2945 parameters, one can choose an
 alternate hash algorithm for the private session key.
 
 @author Scott.Stark@jboss.org
-@version $Revision: 1.2.6.1 $
+@version $Revision: 1.2.6.2 $
 */
 public class SRPParameters implements Cloneable, Serializable
 {
@@ -59,6 +59,8 @@ public class SRPParameters implements Cloneable, Serializable
       this.N = N;
       this.g = g;
       this.s = s;
+      if( hashAlgorithm == null )
+         hashAlgorithm = "SHA_Interleave";
       this.hashAlgorithm = hashAlgorithm;
       this.cipherAlgorithm = cipherAlgorithm;
    }

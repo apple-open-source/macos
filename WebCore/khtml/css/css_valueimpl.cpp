@@ -351,13 +351,46 @@ CSSRuleImpl *CSSStyleDeclarationImpl::parentRule() const
 
 DOM::DOMString CSSStyleDeclarationImpl::cssText() const
 {
-    return DOM::DOMString();
-    // ###
+    DOMString result;
+    
+    if ( m_lstValues) {
+	QPtrListIterator<CSSProperty> lstValuesIt(*m_lstValues);
+	CSSProperty *current;
+	for ( lstValuesIt.toFirst(); (current = lstValuesIt.current()); ++lstValuesIt ) {
+	    if (!current->nonCSSHint) {
+		result += current->cssText();
+	    }
+	}
+    }
+
+    return result;
 }
 
-void CSSStyleDeclarationImpl::setCssText(DOM::DOMString /*str*/)
+void CSSStyleDeclarationImpl::setCssText(DOM::DOMString text)
 {
-    // ###
+    if (m_lstValues) {
+	QPtrList<CSSProperty> nonCSSHints;
+
+	{
+	    // make sure to destruct iterator before reassigning list contents
+	    QPtrListIterator<CSSProperty> lstValuesIt(*m_lstValues);
+	    CSSProperty *current;
+	    for ( lstValuesIt.toFirst(); (current = lstValuesIt.current()); ++lstValuesIt ) {
+		if (current->nonCSSHint) {
+		    nonCSSHints.append(new CSSProperty(*current));
+		}
+	    }
+	}
+
+	*m_lstValues = nonCSSHints;
+    } else {
+	m_lstValues = new QPtrList<CSSProperty>;
+	m_lstValues->setAutoDelete( true );
+    }
+
+    CSSParser parser( strictParsing );
+    parser.parseDeclaration( this, text, false );
+    setChanged();
 }
 
 bool CSSStyleDeclarationImpl::parseString( const DOMString &/*string*/, bool )
@@ -378,20 +411,26 @@ CSSValueImpl::~CSSValueImpl()
 {
 }
 
-DOM::DOMString CSSValueImpl::cssText() const
+unsigned short CSSInheritedValueImpl::cssValueType() const
 {
-    return DOM::DOMString();
-}
-
-void CSSValueImpl::setCssText(DOM::DOMString /*str*/)
-{
-    // ###
+    return CSSValue::CSS_INHERIT;
 }
 
 DOM::DOMString CSSInheritedValueImpl::cssText() const
 {
     return DOMString("inherited");
 }
+
+unsigned short CSSInitialValueImpl::cssValueType() const
+{ 
+    return CSSValue::CSS_INITIAL; 
+}
+
+DOM::DOMString CSSInitialValueImpl::cssText() const
+{
+    return DOMString("initial");
+}
+
 // ----------------------------------------------------------------------------------------
 
 CSSValueListImpl::CSSValueListImpl()
@@ -421,8 +460,13 @@ void CSSValueListImpl::append(CSSValueImpl *val)
 
 DOM::DOMString CSSValueListImpl::cssText() const
 {
-    // ###
-    return DOM::DOMString();
+    DOMString result = "";
+
+    for (QPtrListIterator<CSSValueImpl> iterator(m_values); iterator.current(); ++iterator) {
+	result += iterator.current()->cssText();
+    }
+    
+    return result;
 }
 
 // -------------------------------------------------------------------------------------
@@ -702,7 +746,9 @@ DOM::DOMString CSSPrimitiveValueImpl::cssText() const
 	    // ###
 	    break;
 	case CSSPrimitiveValue::CSS_URI:
-	    text = DOMString( m_value.string );
+            text  = "url(";
+	    text += DOMString( m_value.string );
+            text += ")";
 	    break;
 	case CSSPrimitiveValue::CSS_IDENT:
 	    text = getValueName(m_value.ident);
@@ -780,32 +826,39 @@ void RectImpl::setLeft( CSSPrimitiveValueImpl *left )
 // -----------------------------------------------------------------
 
 CSSImageValueImpl::CSSImageValueImpl(const DOMString &url, StyleBaseImpl *style)
-    : CSSPrimitiveValueImpl(url, CSSPrimitiveValue::CSS_URI)
+    : CSSPrimitiveValueImpl(url, CSSPrimitiveValue::CSS_URI), m_loader(0), m_image(0), m_accessedImage(false)
 {
-    khtml::DocLoader *docLoader = 0;
     StyleBaseImpl *root = style;
     while (root->parent())
-	root = root->parent();
+        root = root->parent();
     if (root->isCSSStyleSheet())
-	docLoader = static_cast<CSSStyleSheetImpl*>(root)->docLoader();
-
-    if (docLoader)
-	m_image = docLoader->requestImage(url);
-    else
-	m_image = khtml::Cache::requestImage(0, url);
-
-    if(m_image) m_image->ref(this);
+        m_loader = static_cast<CSSStyleSheetImpl*>(root)->docLoader();
 }
 
 CSSImageValueImpl::CSSImageValueImpl()
-    : CSSPrimitiveValueImpl(CSS_VAL_NONE)
+    : CSSPrimitiveValueImpl(CSS_VAL_NONE), m_loader(0), m_image(0), m_accessedImage(true)
 {
-    m_image = 0;
 }
 
 CSSImageValueImpl::~CSSImageValueImpl()
 {
     if(m_image) m_image->deref(this);
+}
+
+khtml::CachedImage* CSSImageValueImpl::image()
+{
+    if (!m_accessedImage) {
+        m_accessedImage = true;
+
+        if (m_loader)
+            m_image = m_loader->requestImage(getStringValue());
+        else
+            m_image = khtml::Cache::requestImage(0, getStringValue());
+        
+        if(m_image) m_image->ref(this);
+    }
+    
+    return m_image;
 }
 
 // ------------------------------------------------------------------------
@@ -872,6 +925,51 @@ FontValueImpl::~FontValueImpl()
     delete family;
 }
 
+DOMString FontValueImpl::cssText() const
+{
+    // font variant weight size / line-height family 
+
+    DOMString result("");
+
+    if (style) {
+	result += style->cssText();
+    }
+    if (variant) {
+	if (result.length() > 0) {
+	    result += " ";
+	}
+	result += variant->cssText();
+    }
+    if (weight) {
+	if (result.length() > 0) {
+	    result += " ";
+	}
+	result += weight->cssText();
+    }
+    if (size) {
+	if (result.length() > 0) {
+	    result += " ";
+	}
+	result += size->cssText();
+    }
+    if (lineHeight) {
+	if (!size) {
+	    result += " ";
+	}
+	result += "/";
+	result += lineHeight->cssText();
+    }
+    if (family) {
+	if (result.length() > 0) {
+	    result += " ";
+	}
+	result += family->cssText();
+    }
+
+    return result;
+}
+    
+
 // Used for text-shadow and box-shadow
 ShadowValueImpl::ShadowValueImpl(CSSPrimitiveValueImpl* _x, CSSPrimitiveValueImpl* _y,
                                  CSSPrimitiveValueImpl* _blur, CSSPrimitiveValueImpl* _color)
@@ -886,3 +984,35 @@ ShadowValueImpl::~ShadowValueImpl()
     delete color;
 }
 
+DOMString ShadowValueImpl::cssText() const
+{
+    DOMString text("");
+    if (color) {
+	text += color->cssText();
+    }
+    if (x) {
+	if (text.length() > 0) {
+	    text += " ";
+	}
+	text += x->cssText();
+    }
+    if (y) {
+	if (text.length() > 0) {
+	    text += " ";
+	}
+	text += y->cssText();
+    }
+    if (blur) {
+	if (text.length() > 0) {
+	    text += " ";
+	}
+	text += blur->cssText();
+    }
+
+    return text;
+}
+
+DOMString CSSProperty::cssText() const
+{
+    return getPropertyName(m_id) + DOMString(": ") + m_value->cssText() + (m_bImportant ? DOMString(" !important") : DOMString()) + DOMString("; ");
+}

@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -364,6 +362,11 @@ protected:
 													(	const char* inTag );
 	void				HandleMultipleNetworkTransitionsForLDAP
 													(   void );
+	char*				MappingNativeVariableSubstitution
+													(	char *inLDAPAttrType,
+														sLDAPContextData   *inContext,
+														LDAPMessage		   *inResult,
+														sInt32&				outResult );
 
 private:
 	bool				bDoNotInitTwiceAtStartUp;	//don't want setpluginstate call to init again at startup

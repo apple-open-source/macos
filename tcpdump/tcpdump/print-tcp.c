@@ -20,8 +20,8 @@
  */
 
 #ifndef lint
-static const char rcsid[] =
-    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-tcp.c,v 1.1.1.3 2003/03/17 18:42:20 rbraun Exp $ (LBL)";
+static const char rcsid[] _U_ =
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-tcp.c,v 1.1.1.4 2004/02/05 19:30:57 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -46,6 +46,7 @@ static const char rcsid[] =
 #ifdef INET6
 #include "ip6.h"
 #endif
+#include "ipproto.h"
 
 #include "nameser.h"
 
@@ -99,7 +100,7 @@ static struct tcp_seq_hash tcp_seq_hash[TSEQ_HASHSIZE];
 
 static int tcp_cksum(register const struct ip *ip,
 		     register const struct tcphdr *tp,
-		     register int len)
+		     register u_int len)
 {
 	union phu {
 		struct phdr {
@@ -114,7 +115,7 @@ static int tcp_cksum(register const struct ip *ip,
 	const u_int16_t *sp;
 
 	/* pseudo-header.. */
-	phu.ph.len = htons(len);	/* XXX */
+	phu.ph.len = htons((u_int16_t)len);
 	phu.ph.mbz = 0;
 	phu.ph.proto = IPPROTO_TCP;
 	memcpy(&phu.ph.src, &ip->ip_src.s_addr, sizeof(u_int32_t));
@@ -130,9 +131,9 @@ static int tcp_cksum(register const struct ip *ip,
 
 #ifdef INET6
 static int tcp6_cksum(const struct ip6_hdr *ip6, const struct tcphdr *tp,
-	int len)
+	u_int len)
 {
-	int i, tlen;
+	size_t i;
 	register const u_int16_t *sp;
 	u_int32_t sum;
 	union {
@@ -146,14 +147,11 @@ static int tcp6_cksum(const struct ip6_hdr *ip6, const struct tcphdr *tp,
 		u_int16_t pa[20];
 	} phu;
 
-	tlen = EXTRACT_16BITS(&ip6->ip6_plen) + sizeof(struct ip6_hdr) -
-	    ((const char *)tp - (const char*)ip6);
-
 	/* pseudo-header */
 	memset(&phu, 0, sizeof(phu));
 	phu.ph.ph_src = ip6->ip6_src;
 	phu.ph.ph_dst = ip6->ip6_dst;
-	phu.ph.ph_len = htonl(tlen);
+	phu.ph.ph_len = htonl(len);
 	phu.ph.ph_nxt = IPPROTO_TCP;
 
 	sum = 0;
@@ -162,10 +160,10 @@ static int tcp6_cksum(const struct ip6_hdr *ip6, const struct tcphdr *tp,
 
 	sp = (const u_int16_t *)tp;
 
-	for (i = 0; i < (tlen & ~1); i += 2)
+	for (i = 0; i < (len & ~1); i += 2)
 		sum += *sp++;
 
-	if (tlen & 1)
+	if (len & 1)
 		sum += htons((*(const u_int8_t *)sp) << 8);
 
 	while (sum > 0xffff)
@@ -621,7 +619,7 @@ tcp_print(register const u_char *bp, register u_int length,
 			 * TCP DNS query has 2byte length at the head.
 			 * XXX packet could be unaligned, it can go strange
 			 */
-			ns_print(bp + 2, length - 2);
+			ns_print(bp + 2, length - 2, 0);
 		} else if (sport == MSDP_PORT || dport == MSDP_PORT) {
 			msdp_print(bp, length);
 		}

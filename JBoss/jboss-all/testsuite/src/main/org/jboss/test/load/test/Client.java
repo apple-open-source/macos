@@ -1,11 +1,10 @@
 package org.jboss.test.load.test;
 
-import java.net.InetAddress;
 import java.util.Properties;
 import java.util.StringTokenizer;
 import java.util.Hashtable;
 
-import org.jboss.jmx.service.RemoteDeployer;
+import org.jboss.test.JBossTestCase;
 
 /**
 * Test client. <br>
@@ -23,15 +22,21 @@ import org.jboss.jmx.service.RemoteDeployer;
 * </dl>
 *
 * @author <a href="mailto:daniel.schulze@telkel.com">Daniel Schulze</a>
-* @version $Id: Client.java,v 1.8 2002/05/14 00:06:47 user57 Exp $
+* @version $Id: Client.java,v 1.8.2.1 2003/07/25 16:37:15 starksm Exp $
 */
-public class Client
+public class Client extends JBossTestCase
 {
    Properties param = new Properties ();;
    int exitCode = 0;
 
+   public Client(String name)
+   {
+      super(name);
+   }
+
    public Client (String[] _args) throws Exception
    {
+      super("main");
       // scanning parameters
       int i = 0;
       while (i < _args.length)
@@ -68,8 +73,7 @@ public class Client
       {
          System.out.print("Deploying test beans...");
          System.out.flush();
-         RemoteDeployer deployer = new RemoteDeployer();
-         deployer.deploy("../deploy/testbean.jar");
+         deploy("../deploy/testbean.jar");
          System.out.println("done!");
       }
 
@@ -179,7 +183,6 @@ public class Client
       // make statistic...
       int failed = 0;
       int tx = 0;
-      long timeAcc = 0;
       for (int i = 0; i < threads; ++i)
       {
          Hashtable cfg = workers[i].getConfig ();

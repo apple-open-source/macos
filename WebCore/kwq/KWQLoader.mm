@@ -25,12 +25,15 @@
 
 #import "KWQLoader.h"
 
-#import "khtml_part.h"
+#import "KWQExceptions.h"
 #import "KWQKJobClasses.h"
 #import "KWQLogging.h"
 #import "KWQResourceLoader.h"
-#import "loader.h"
 #import "WebCoreBridge.h"
+#import "khtml_part.h"
+#import "loader.h"
+
+#import <Foundation/NSURLResponse.h>
 
 using khtml::Cache;
 using khtml::CachedObject;
@@ -46,14 +49,160 @@ bool KWQServeRequest(Loader *loader, Request *request, TransferJob *job)
         request->m_docLoader->part()->baseURL().url().latin1(),
         request->object->url().string().latin1());
     
-    WebCoreBridge *bridge = static_cast<KWQKHTMLPart *>(request->m_docLoader->part())->bridge();
+    return KWQServeRequest(loader, request->m_docLoader, job);
+}
 
-    KWQResourceLoader *resourceLoader = [[KWQResourceLoader alloc] initWithLoader:loader job:job];
-    id <WebCoreResourceHandle> handle = [bridge startLoadingResource:resourceLoader withURL:job->url().getNSURL()];
+@interface NSDictionary (WebCore_Extras)
+- (id)_webcore_initWithHeaderString:(NSString *)string;
+@end
+
+@implementation NSDictionary (WebCore_Extras)
+- (id)_webcore_initWithHeaderString:(NSString *)string
+{
+    NSMutableDictionary *headers = [[NSMutableDictionary alloc] init];
+
+    NSArray *lines = [string componentsSeparatedByString:@"\r\n"];
+
+    NSEnumerator *e = [lines objectEnumerator];
+    NSString *line;
+
+    NSString *lastHeaderName = nil;
+
+    while ((line = (NSString *)[e nextObject]) != nil) {
+	if (([line characterAtIndex:0] == ' ' || [line characterAtIndex:0] == '\t')
+	    && lastHeaderName != nil) {
+	    // lines that start with space or tab continue the previous header value
+	    NSString *oldVal = [headers objectForKey:lastHeaderName];
+	    ASSERT(oldVal);
+	    [headers setObject:[NSString stringWithFormat:@"%@ %@", oldVal, [line stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@" \t"]]]
+	                forKey:lastHeaderName];
+	    continue;
+	}
+
+	NSRange colonRange = [line rangeOfString:@":"];
+	if (colonRange.location != NSNotFound) {
+	    // don't worry about case, assume lower levels will take care of it
+
+	    NSString *headerName = [[line substringToIndex:colonRange.location] stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@" \t"]];
+	    NSString *headerValue = [[line substringFromIndex:colonRange.location + 1] stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@" \t"]];
+	    
+	    NSString *oldVal = [headers objectForKey:headerName];
+	    if (oldVal) {
+		headerValue = [NSString stringWithFormat:@"%@, %@", oldVal, headerValue];
+	    }
+
+	    [headers setObject:headerValue forKey:headerName];
+	    
+	    lastHeaderName = headerName;
+	}
+    }
+
+    self = [self initWithDictionary:headers];
+    [headers release];
+    return self;
+}
+
+@end
+
+bool KWQServeRequest(Loader *loader, DocLoader *docLoader, TransferJob *job)
+{
+    KWQKHTMLPart *part = static_cast<KWQKHTMLPart *>(docLoader->part());
+    WebCoreBridge *bridge = part->bridge();
+
+    part->didTellBridgeAboutLoad(job->url().url());
+
+    KWQ_BLOCK_EXCEPTIONS;
+    KWQResourceLoader *resourceLoader = [[KWQResourceLoader alloc] initWithJob:job];
+
+    id <WebCoreResourceHandle> handle;
+
+    NSDictionary *headerDict = nil;
+    QString headerString = job->queryMetaData("customHTTPHeader");
+
+    if (!headerString.isEmpty()) {
+	headerDict = [[NSDictionary alloc] _webcore_initWithHeaderString:headerString.getNSString()];
+    }
+
+    if (job->method() == "POST") {
+	NSData *postData = [NSData dataWithBytesNoCopy:job->postData().data() length:job->postData().size() freeWhenDone:NO];
+	handle = [bridge startLoadingResource:resourceLoader withURL:job->url().getNSURL() customHeaders:headerDict postData:postData];
+    } else {
+	handle = [bridge startLoadingResource:resourceLoader withURL:job->url().getNSURL() customHeaders:headerDict];
+    }
     [resourceLoader setHandle:handle];
     [resourceLoader release];
-
     return handle != nil;
+    KWQ_UNBLOCK_EXCEPTIONS;
+
+    return true;
+}
+
+static NSString *KWQHeaderStringFromDictionary(NSDictionary *headers, int statusCode)
+{
+    NSMutableString *headerString = [[NSMutableString alloc] init];
+    [headerString appendString:[NSString stringWithFormat:@"HTTP/1.0 %d OK\n", statusCode]];
+    
+    NSEnumerator *e = [headers keyEnumerator];
+    NSString *key;
+    
+    bool first = true;
+    
+    while ((key = [e nextObject]) != nil) {
+	if (first) {
+	    first = false;
+	} else {
+	    [headerString appendString:@"\n"];
+	}
+	[headerString appendString:key];
+	[headerString appendString:@": "];
+	[headerString appendString:[headers objectForKey:key]];
+    }
+	
+    return headerString;
+}
+
+QByteArray KWQServeSynchronousRequest(Loader *loader, DocLoader *docLoader, TransferJob *job, KURL &finalURL, QString &responseHeaders)
+{
+    KWQKHTMLPart *part = static_cast<KWQKHTMLPart *>(docLoader->part());
+    WebCoreBridge *bridge = part->bridge();
+
+    part->didTellBridgeAboutLoad(job->url().url());
+
+    KWQ_BLOCK_EXCEPTIONS;
+
+    NSDictionary *headerDict = nil;
+    QString headerString = job->queryMetaData("customHTTPHeader");
+
+    if (!headerString.isEmpty()) {
+	headerDict = [[NSDictionary alloc] _webcore_initWithHeaderString:headerString.getNSString()];
+    }
+
+    NSData *postData = nil;
+    
+
+    if (job->method() == "POST") {
+	postData = [NSData dataWithBytesNoCopy:job->postData().data() length:job->postData().size() freeWhenDone:NO];
+    }
+
+    NSURL *finalNSURL = nil;
+    NSDictionary *responseHeaderDict = nil;
+    int statusCode = 0;
+    NSData *resultData = [bridge syncLoadResourceWithURL:job->url().getNSURL() customHeaders:headerDict postData:postData finalURL:&finalNSURL responseHeaders:&responseHeaderDict statusCode:&statusCode];
+    
+    job->kill();
+
+    finalURL = finalNSURL;
+    responseHeaders = QString::fromNSString(KWQHeaderStringFromDictionary(responseHeaderDict, statusCode));
+
+    QByteArray results([resultData length]);
+
+    memcpy( results.data(), [resultData bytes], [resultData length] );
+
+    return results;
+
+    KWQ_UNBLOCK_EXCEPTIONS;
+
+    return QByteArray();
 }
 
 int KWQNumberOfPendingOrLoadingRequests(khtml::DocLoader *dl)
@@ -63,7 +212,11 @@ int KWQNumberOfPendingOrLoadingRequests(khtml::DocLoader *dl)
 
 bool KWQCheckIfReloading(DocLoader *loader)
 {
+    KWQ_BLOCK_EXCEPTIONS;
     return [static_cast<KWQKHTMLPart *>(loader->part())->bridge() isReloading];
+    KWQ_UNBLOCK_EXCEPTIONS;
+
+    return false;
 }
 
 void KWQCheckCacheObjectStatus(DocLoader *loader, CachedObject *cachedObject)
@@ -86,32 +239,75 @@ void KWQCheckCacheObjectStatus(DocLoader *loader, CachedObject *cachedObject)
     ASSERT(cachedObject->response());
     
     // Notify the caller that we "loaded".
-    WebCoreBridge *bridge = static_cast<KWQKHTMLPart *>(loader->part())->bridge();
-    CachedImage *cachedImage = dynamic_cast<CachedImage *>(cachedObject);
-    [bridge objectLoadedFromCacheWithURL:KURL(cachedObject->url().string()).getNSURL()
-                                response:(id)cachedObject->response()
-                                    size:cachedImage ? cachedImage->dataSize() : cachedObject->size()];
+    KWQKHTMLPart *part = static_cast<KWQKHTMLPart *>(loader->part());
+
+    QString urlString = cachedObject->url().string();
+
+    if (!part->haveToldBridgeAboutLoad(urlString)) {
+	WebCoreBridge *bridge = part->bridge();
+	CachedImage *cachedImage = dynamic_cast<CachedImage *>(cachedObject);
+
+	KWQ_BLOCK_EXCEPTIONS;
+	[bridge objectLoadedFromCacheWithURL:KURL(cachedObject->url().string()).getNSURL()
+	        response:(id)cachedObject->response()
+	        size:cachedImage ? cachedImage->dataSize() : cachedObject->size()];
+	KWQ_UNBLOCK_EXCEPTIONS;
+
+	part->didTellBridgeAboutLoad(urlString);
+    }
 }
 
 void KWQRetainResponse(void *response)
 {
+    // There's no way a retain can raise
     [(id)response retain];
 }
 
 void KWQReleaseResponse(void *response)
 {
+    // A release could raise if it deallocs, though...
+    KWQ_BLOCK_EXCEPTIONS;
     [(id)response release];
+    KWQ_UNBLOCK_EXCEPTIONS;
 }
-
-@interface NSObject (WebPrivateResponse)
-- (NSString *)MIMEType;
-@end
 
 void *KWQResponseMIMEType(void *response)
 {
-    return [(id)response MIMEType];
+    KWQ_BLOCK_EXCEPTIONS;
+    return [(NSURLResponse *)response MIMEType];
+    KWQ_UNBLOCK_EXCEPTIONS;
+
+    return NULL;
 }
 
+void *KWQResponseHeaderString(void *response)
+{
+    KWQ_BLOCK_EXCEPTIONS;
+    NSURLResponse *nsResponse = (NSURLResponse *)response;
+    if ([nsResponse isKindOfClass:[NSHTTPURLResponse class]]) {
+	NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)nsResponse;
+	NSDictionary *headers = [httpResponse allHeaderFields];
+
+	return KWQHeaderStringFromDictionary(headers, [httpResponse statusCode]);
+    }
+
+    KWQ_UNBLOCK_EXCEPTIONS;
+
+    return NULL;
+}
+
+time_t KWQCacheObjectExpiresTime(khtml::DocLoader *docLoader, void *response)
+{
+    KWQ_BLOCK_EXCEPTIONS;
+    
+    KWQKHTMLPart *part = static_cast<KWQKHTMLPart *>(docLoader->part());
+    WebCoreBridge *bridge = part->bridge();
+    return [bridge expiresTimeForResponse:(NSURLResponse *)response];
+    
+    KWQ_UNBLOCK_EXCEPTIONS;
+    
+    return 0;
+}
 
 KWQLoader::KWQLoader(Loader *loader)
     : _requestStarted(loader, SIGNAL(requestStarted(khtml::DocLoader *, khtml::CachedObject *)))

@@ -1,23 +1,23 @@
---- samba/source/Makefile.in.orig	Fri Aug 29 14:17:16 2003
-+++ samba/source/Makefile.in	Fri Aug 29 14:40:43 2003
-@@ -124,7 +124,7 @@ SBIN_PROGS = bin/smbd@EXEEXT@ bin/nmbd@E
+--- samba/source/Makefile.in.orig	Thu Dec 18 15:12:41 2003
++++ samba/source/Makefile.in	Fri Dec 19 08:31:19 2003
+@@ -125,7 +125,7 @@ SBIN_PROGS = bin/smbd@EXEEXT@ bin/nmbd@E
  BIN_PROGS1 = bin/smbclient@EXEEXT@ bin/net@EXEEXT@ bin/smbspool@EXEEXT@ \
  	bin/testparm@EXEEXT@ bin/testprns@EXEEXT@ bin/smbstatus@EXEEXT@ 
  BIN_PROGS2 = bin/smbcontrol@EXEEXT@ bin/smbtree@EXEEXT@ bin/tdbbackup@EXEEXT@ \
--	bin/nmblookup@EXEEXT@ bin/pdbedit@EXEEXT@
-+	bin/nmblookup@EXEEXT@ bin/pdbedit@EXEEXT@ bin/tdbtool@EXEEXT@
+-	bin/nmblookup@EXEEXT@ bin/pdbedit@EXEEXT@ bin/tdbdump@EXEEXT@
++	bin/nmblookup@EXEEXT@ bin/pdbedit@EXEEXT@ bin/tdbdump@EXEEXT@ bin/tdbtool@EXEEXT@
  BIN_PROGS3 = bin/smbpasswd@EXEEXT@ bin/rpcclient@EXEEXT@ bin/smbcacls@EXEEXT@ \
  	bin/profiles@EXEEXT@ bin/ntlm_auth@EXEEXT@ \
  	bin/smbcquotas@EXEEXT@
-@@ -627,6 +627,7 @@ POPT_OBJS=popt/findme.o popt/popt.o popt
+@@ -637,6 +637,7 @@ POPT_OBJS=popt/findme.o popt/popt.o popt
            popt/popthelp.o popt/poptparse.o
  
- TDBBACKUP_OBJ = tdb/tdbbackup.o tdb/tdbback.o $(TDBBASE_OBJ)
+ TDBBACKUP_OBJ = tdb/tdbbackup.o tdb/tdbback.o lib/snprintf.o $(TDBBASE_OBJ)
 +TDBTOOL_OBJ = tdb/tdbtool.o $(TDBBASE_OBJ)
  
- NTLM_AUTH_OBJ = utils/ntlm_auth.o $(LIBSAMBA_OBJ) $(POPT_LIB_OBJ) \
- 		libsmb/asn1.o libsmb/spnego.o libsmb/clikrb5.o libads/kerberos.o \
-@@ -1144,6 +1145,10 @@ bin/libmsrpc.a: $(LIBMSRPC_PICOBJ)
+ TDBDUMP_OBJ = tdb/tdbdump.o $(TDBBASE_OBJ)
+ 
+@@ -1174,6 +1175,10 @@ bin/libmsrpc.a: $(LIBMSRPC_PICOBJ)
  bin/tdbbackup@EXEEXT@: $(TDBBACKUP_OBJ) bin/.dummy
  	@echo Linking $@
  	@$(CC) $(FLAGS) -o $@ $(TDBBACKUP_OBJ)
@@ -26,5 +26,5 @@
 +	@echo Linking $@
 +	@$(CC) $(FLAGS) -o $@ $(TDBTOOL_OBJ)
  
- bin/t_strcmp@EXEEXT@: bin/libbigballofmud.@SHLIBEXT@ torture/t_strcmp.o
- 	$(CC) $(FLAGS) -o $@ $(LIBS) torture/t_strcmp.o -L ./bin -lbigballofmud
+ bin/tdbdump@EXEEXT@: $(TDBDUMP_OBJ) bin/.dummy
+ 	@echo Linking $@

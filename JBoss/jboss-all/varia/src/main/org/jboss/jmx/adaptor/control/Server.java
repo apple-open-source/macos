@@ -29,7 +29,7 @@ import org.jboss.util.propertyeditor.PropertyEditors;
 /** Utility methods related to the MBeanServer interface
  *
  * @author Scott.Stark@jboss.org
- * @version $Revision: 1.4.2.5 $
+ * @version $Revision: 1.4.2.6 $
  */
 public class Server
 {
@@ -158,6 +158,10 @@ public class Server
          if( attributes.containsKey(attrName) == false )
             continue;
          String value = (String) attributes.get(attrName);
+         if (value.equals("null") && server.getAttribute(objName, attrName) == null) {
+            log.trace("ignoring 'null' for " + attrName);
+            continue;
+         }
          String attrType = attrInfo.getType();
          Attribute attr = null;
          try
@@ -167,8 +171,9 @@ public class Server
          }
          catch(ClassNotFoundException e)
          {
-            log.trace("Failed to load class for attribute: "+attr.getName(), e);
-            throw new ReflectionException(e, "Failed to load class for attribute: "+attr.getName());
+            String s = (attr != null) ? attr.getName() : attrType;
+            log.trace("Failed to load class for attribute: " + s, e);
+            throw new ReflectionException(e, "Failed to load class for attribute: " + s);
          }
          catch(IntrospectionException e)
          {

@@ -4,7 +4,7 @@
 # So just uncomment all the lines marked QNX.
 
 PACKAGE = fetchmail
-VERSION = 6.1.2
+VERSION = 6.2.5
 
 # Ultrix 2.2 make doesn't expand the value of VPATH.
 srcdir = @srcdir@

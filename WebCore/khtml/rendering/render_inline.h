@@ -58,7 +58,8 @@ public:
     virtual void paintObject(QPainter *, int x, int y, int w, int h,
                              int tx, int ty, PaintAction paintAction);
 
-    virtual bool nodeAtPoint(NodeInfo& info, int _x, int _y, int _tx, int _ty, bool inside);
+    virtual bool nodeAtPoint(NodeInfo& info, int _x, int _y, int _tx, int _ty,
+                             HitTestAction hitTestAction = HitTestAll, bool inside=false);
     
     virtual void calcMinMaxWidth();
 
@@ -73,8 +74,17 @@ public:
     virtual int offsetLeft() const;
     virtual int offsetTop() const;
 
+    void absoluteRects(QValueList<QRect>& rects, int _tx, int _ty);
+
+#ifdef APPLE_CHANGES
+    virtual void addFocusRingRects(QPainter *painter, int _tx, int _ty);
+    void paintFocusRing(QPainter *p, int tx, int ty);
+#endif
+    
 protected:
     static RenderInline* cloneInline(RenderFlow* src);
+    void paintOutline(QPainter *p, int tx, int ty, const QRect &prevLine, const QRect &thisLine, const QRect &nextLine);
+    void paintOutlines(QPainter *p, int tx, int ty);
     
 private:
     bool m_isContinuation : 1; // Whether or not we're a continuation of an inline.

@@ -370,7 +370,10 @@ void HTMLIFrameElement::setScrolling( const DOMString &value )
 DOMString HTMLIFrameElement::src() const
 {
     if(!impl) return DOMString();
-    return ((ElementImpl *)impl)->getAttribute(ATTR_SRC);
+    DOMString s = ((ElementImpl *)impl)->getAttribute(ATTR_SRC);
+    if (!s.isNull())
+	s = ownerDocument().completeURL( s );
+    return s;
 }
 
 void HTMLIFrameElement::setSrc( const DOMString &value )

@@ -1,5 +1,5 @@
---- samba/source/rpc_server/srv_netlog_nt.c.orig	Fri Aug 29 14:17:39 2003
-+++ samba/source/rpc_server/srv_netlog_nt.c	Fri Aug 29 14:40:37 2003
+--- samba/source/rpc_server/srv_netlog_nt.c.orig	Thu Dec 18 15:12:47 2003
++++ samba/source/rpc_server/srv_netlog_nt.c	Fri Dec 19 08:31:14 2003
 @@ -26,6 +26,12 @@
  
  #include "includes.h"

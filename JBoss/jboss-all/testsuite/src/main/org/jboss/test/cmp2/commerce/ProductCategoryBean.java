@@ -25,7 +25,15 @@ public abstract class ProductCategoryBean implements EntityBean {
 
    public abstract Collection getProducts();
    public abstract void setProducts(Collection girth);
-	
+
+   public abstract ProductCategory getParent();
+   public abstract void setParent(ProductCategory parent);
+   public abstract Collection getSubcategories();
+   public abstract void setSubcategories(Collection subcategories);
+
+   public abstract ProductCategoryType getType();
+   public abstract void setType(ProductCategoryType type);
+
 	public void setEntityContext(EntityContext ctx) { this.ctx = ctx; }
 	public void unsetEntityContext() {
 		this.ctx = null;

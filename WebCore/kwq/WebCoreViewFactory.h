@@ -27,10 +27,12 @@
 @class NSDictionary;
 @class NSString;
 @class NSView;
+@class WebCoreBridge;
 
 @protocol WebCoreViewFactory
 
 - (NSArray *)pluginsInfo; // array of id <WebCorePluginInfo>
+- (void)refreshPlugins:(BOOL)reloadPages;
 
 - (NSString *)inputElementAltText;
 - (NSString *)resetButtonDefaultLabel;
@@ -38,6 +40,8 @@
 - (NSString *)submitButtonDefaultLabel;
 
 - (NSString *)defaultLanguageCode;
+
+- (WebCoreBridge *)bridgeForView:(NSView *)aView;
 
 @end
 

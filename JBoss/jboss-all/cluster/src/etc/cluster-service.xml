@@ -21,7 +21,7 @@
     <attribute name="PartitionName">DefaultPartition</attribute>
     <!-- Determine if deadlock detection is enabled -->
     <attribute name="DeadlockDetection">False</attribute>
-    <!-- The JavaGroups protocol configuration -->
+    <!-- The JGroups protocol configuration -->
     <attribute name="PartitionConfig">
       <Config>
         <!-- UDP: if you have a multihomed machine, 
@@ -41,9 +41,9 @@
             timeout="2500" max_tries="5" />
         <VERIFY_SUSPECT timeout="3000" num_msgs="3"
                         up_thread="true" down_thread="true" />
-        <pbcast.STABLE desired_avg_gossip="20000"
-                       up_thread="true" down_thread="true" />
         <pbcast.NAKACK gc_lag="50" retransmit_timeout="300,600,1200,2400,4800"
+                       up_thread="true" down_thread="true" />
+        <pbcast.STABLE desired_avg_gossip="20000"
                        up_thread="true" down_thread="true" />
         <UNICAST timeout="5000" window_size="100" min_threshold="10"
                  down_thread="true" />
@@ -81,7 +81,9 @@
      <depends>jboss:service=DefaultPartition</depends>
     <!-- Name of the partition to which the service is linked -->
     <attribute name="PartitionName">DefaultPartition</attribute>
-    <!-- RmiPort to be used by the HA-JNDI service 
+    <!-- bind address of HA JNDI RMI endpoint -->
+    <attribute name="BindAddress">${jboss.bind.address}</attribute>
+    <!-- RmiPort to be used by the HA-JNDI service
          once bound. 0 => auto. -->
     <attribute name="RmiPort">0</attribute>
     <!-- Port on which the HA-JNDI stub is made available -->
@@ -93,8 +95,10 @@
     <!-- Multicast Address and Group used for auto-discovery -->
     <attribute name="AutoDiscoveryAddress">230.0.0.4</attribute>
     <attribute name="AutoDiscoveryGroup">1102</attribute>
-    
-    <!-- Client socket factory to be used for client-server 
+
+    <!-- IP Address to which should be bound: the Port, the RmiPort and
+         the AutoDiscovery multicast socket. -->
+    <!-- Client socket factory to be used for client-server
          RMI invocations during JNDI queries -->
     <!--attribute name="ClientSocketFactory">custom</attribute-->
     <!-- Server socket factory to be used for client-server
@@ -104,11 +108,11 @@
 
   <mbean code="org.jboss.invocation.jrmp.server.JRMPInvokerHA"
          name="jboss:service=invoker,type=jrmpha">
+     <attribute name="ServerAddress">${jboss.bind.address}</attribute>
     <!--
     <attribute name="RMIObjectPort">0</attribute>
     <attribute name="RMIClientSocketFactory">custom</attribute>
     <attribute name="RMIServerSocketFactory">custom</attribute>
-    <attribute name="RMIServerSocketAddr">custom</attribute>
     -->
   </mbean>
 

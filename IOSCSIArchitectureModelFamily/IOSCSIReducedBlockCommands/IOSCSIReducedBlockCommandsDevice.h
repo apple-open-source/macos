@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -368,6 +366,8 @@ protected:
 							SCSICmdField3Byte 			PARAMETER_LIST_LENGTH );
 	
 	
+
+	/* Added with 10.2 */
 	OSMetaClassDeclareReservedUsed ( IOSCSIReducedBlockCommandsDevice, 1 );
 	
 public:
@@ -379,17 +379,25 @@ public:
 											vm_size_t 		argSize );
 	
 	
+	/* Added with 10.2 */	
 	OSMetaClassDeclareReservedUsed ( IOSCSIReducedBlockCommandsDevice, 2 );
 	
 protected:
-	
+
 	virtual	void		SetMediaIcon ( void );
+	
+
+	/* Added with 10.3.3 */		
+	OSMetaClassDeclareReservedUsed ( IOSCSIReducedBlockCommandsDevice, 3 );
+	
+protected:
+
+	virtual	void AsyncReadWriteCompletion ( SCSITaskIdentifier completedTask );
 	
 	
 private:
 	
 	// Space reserved for future expansion.
-	OSMetaClassDeclareReservedUnused ( IOSCSIReducedBlockCommandsDevice,  3 );
 	OSMetaClassDeclareReservedUnused ( IOSCSIReducedBlockCommandsDevice,  4 );
 	OSMetaClassDeclareReservedUnused ( IOSCSIReducedBlockCommandsDevice,  5 );
 	OSMetaClassDeclareReservedUnused ( IOSCSIReducedBlockCommandsDevice,  6 );

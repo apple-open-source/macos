@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- $Id: https-service.xml,v 1.1.2.1 2003/10/06 08:42:08 ejort Exp $ -->
+
+<server>
+
+  <!-- An example invocation layer using https
+       JBossMQ using the Unified Invocation Layer
+       All communication uses one socket connection -->
+
+  <mbean code="org.jboss.mq.il.uil2.UILServerILService"
+	 name="jboss.mq:service=InvocationLayer,type=HTTPSUIL2">
+    <depends optional-attribute-name="Invoker">jboss.mq:service=Invoker</depends>
+    <attribute name="ConnectionFactoryJNDIRef">HTTPSUIL2ConnectionFactory</attribute>
+    <attribute name="XAConnectionFactoryJNDIRef">HTTPSUIL2XAConnectionFactory</attribute>
+    <attribute name="ServerBindPort">8094</attribute>
+    <attribute name="PingPeriod">60000</attribute>
+    <attribute name="EnableTcpNoDelay">true</attribute>
+    <!-- Used to disconnect the client if there is no activity -->
+    <!-- Ensure this is greater than the ping period -->
+    <attribute name="ReadTimeout">70000</attribute>
+    <!-- The size of the buffer (in bytes) wrapping the socket -->
+    <!-- The buffer is flushed after each request -->
+    <attribute name="BufferSize">2048</attribute>
+    <!-- Large messages may block the ping/pong -->
+    <!-- A pong is simulated after each chunk (in bytes) for both reading and writing -->
+    <!-- It must be larger than the buffer size -->
+    <attribute name="ChunkSize">1000000</attribute>
+    <!-- SSL Socket Factories -->
+    <attribute name="ClientSocketFactory">org.jboss.security.ssl.ClientSocketFactory</attribute>
+    <attribute name="ServerSocketFactory">org.jboss.security.ssl.DomainServerSocketFactory</attribute>
+    <!-- Security domain - see below -->
+    <attribute name="SecurityDomain">java:/jaas/SSL</attribute>
+  </mbean>
+
+  <!-- Configures the keystore on the security domain
+       This mbean is better placed in conf/jboss-service.xml where it
+       can be used by other services. But it will still work from anywhere.
+       Use keytool from the sdk to create the keystore.
+  -->
+  <mbean code="org.jboss.security.plugins.JaasSecurityDomain"
+         name="jboss.security:service=JaasSecurityDomain,domain=SSL">
+     <!-- This must correlate with the java:/jaas/SSL above -->
+     <constructor>
+        <arg type="java.lang.String" value="SSL"/>
+     </constructor>
+     <!-- The location of the keystore
+          resource: loads from the classloaders conf/ is the first classloader -->
+     <attribute name="KeyStoreURL">resource:test.keystore</attribute>
+     <attribute name="KeyStorePass">changeme</attribute>
+  </mbean>
+
+</server>

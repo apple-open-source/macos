@@ -129,12 +129,12 @@
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
 				INSTALL_OWNER = root;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOSerialFamily.kext/Contents/PlugIns/";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOSerialFamily.kext/Contents/PlugIns";
 				KERNEL_MODULE = YES;
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleRS574Serial;
-				MODULE_VERSION = 1.2.1;
+				MODULE_VERSION = 1.2.3;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -147,7 +147,7 @@
 			);
 			isa = PBXBundleTarget;
 			name = AppleRS574Serial;
-			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOSerialFamily.kext/Contents/PlugIns/";
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOSerialFamily.kext/Contents/PlugIns";
 			productName = AppleRS232Serial;
 			productReference = 0B81C263FFB7832611CA28AA;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
@@ -159,7 +159,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleRS574Serial</string>
 	<key>CFBundleGetInfoString</key>
-	<string>Apple RS574 Serial version 1.2.1b1, Copyright 2002, Apple Computer, Inc.</string>
+	<string>Apple RS574 Serial version 1.2.3, Copyright 2002, Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -171,11 +171,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.1</string>
+	<string>1.2.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.1</string>
+	<string>1.2.3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleRS574Serial</key>

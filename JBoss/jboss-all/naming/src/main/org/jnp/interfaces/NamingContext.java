@@ -60,7 +60,7 @@ import org.jboss.logging.Logger;
  *
  *   @author oberg
  *   @author scott.stark@jboss.org
- *   @version $Revision: 1.18.2.14 $
+ *   @version $Revision: 1.18.2.15 $
  *
  * <p><b>Revisions:</b><br>
  * <p><b>2001/09/14: billb</b>
@@ -266,24 +266,53 @@ public class NamingContext
       if (serverEnv.get (Context.PROVIDER_URL) != null)
       {
          String providerURL = (String)serverEnv.get(Context.PROVIDER_URL);
-         StringTokenizer tkn = new StringTokenizer(providerURL,":");
-         host = tkn.nextToken();
-         try
+
+         StringTokenizer tokenizer = new StringTokenizer (providerURL, ",");
+         while (tokenizer.hasMoreElements ())
          {
-            port = Integer.parseInt (tkn.nextToken ());
-         } catch (Exception ex)
-         {
-            // Use default;
+            String url = tokenizer.nextToken ();
+
+            try
+            {
+               // Parse the url into a host:port form, stripping any protocol
+               Name urlAsName = new NamingParser ().parse(url);
+               String server = parseNameForScheme(urlAsName);
+               if( server != null )
+                  url = server;
+               int colon = url.indexOf (':');
+               if( colon < 0 )
+               {
+                  host = url;
+               }
+               else
+               {
+                  host = url.substring (0, colon).trim();
+                  try
+                  {
+                     port = Integer.parseInt (url.substring (colon+1).trim ());
+                  }
+                  catch (Exception ex)
+                  {
+                     // Use default;
+                  }
+                }
+
+               // Remove server from map
+               // Clone and synchronize to minimize delay for readers of the map
+               synchronized (NamingContext.class)
+               {
+                  HashMap newServers = (HashMap)cachedServers.clone ();
+                  newServers.remove (host+":"+port);
+                  cachedServers = newServers;
+               }
+
+            }
+            catch (NamingException ignored) {}
+
+
          }
-         // Remove server from map
-         // Clone and synchronize to minimize delay for readers of the map
-         synchronized (NamingContext.class)
-         {
-            HashMap newServers = (HashMap)cachedServers.clone ();
-            newServers.remove (host+":"+port);
-            cachedServers = newServers;
-         }
-      } else
+      }
+      else
       {
          // Don't do anything for local server
       }

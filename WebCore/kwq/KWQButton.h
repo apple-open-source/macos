@@ -37,11 +37,22 @@ public:
 
     virtual void setText(const QString &);
     QString text() const;
+
+    void setWritingDirection(QPainter::TextDirection);
     
     virtual void clicked();
+    virtual void click();
+
+    // QWidget overrides
+    virtual void setFont(const QFont &);
+    virtual FocusPolicy focusPolicy() const;
+
 private:
-    
     KWQSignal m_clicked;
 };
+
+#ifdef __OBJC__
+NSControlSize KWQNSControlSizeForFont(const QFont &);
+#endif
 
 #endif

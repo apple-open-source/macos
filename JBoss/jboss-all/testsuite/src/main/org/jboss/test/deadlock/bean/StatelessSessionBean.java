@@ -12,7 +12,7 @@ import javax.ejb.*;
 import javax.naming.InitialContext;
 import javax.naming.Context;
 import org.jboss.test.deadlock.interfaces.*;
-import org.jboss.ejb.plugins.lock.ApplicationDeadlockException;
+import org.jboss.util.deadlock.ApplicationDeadlockException;
 
 public class StatelessSessionBean implements SessionBean 
 {
@@ -127,12 +127,12 @@ public class StatelessSessionBean implements SessionBean
       }
    }
 
-   public void createCMRTestData()
+   public void createCMRTestData(String jndiName)
    {
       try
       {
          InitialContext ctx = new InitialContext();
-         EnterpriseEntityLocalHome home = (EnterpriseEntityLocalHome)ctx.lookup("local/nextgenEnterpriseEntity");
+         EnterpriseEntityLocalHome home = (EnterpriseEntityLocalHome)ctx.lookup(jndiName);
          try
          {
             home.create("First");
@@ -158,12 +158,12 @@ public class StatelessSessionBean implements SessionBean
       }
    }
 
-   public void cmrTest(String start)
+   public void cmrTest(String jndiName, String start)
    {
       try
       {
          InitialContext ctx = new InitialContext();
-         EnterpriseEntityLocalHome home = (EnterpriseEntityLocalHome)ctx.lookup("local/nextgenEnterpriseEntity");
+         EnterpriseEntityLocalHome home = (EnterpriseEntityLocalHome)ctx.lookup(jndiName);
          EnterpriseEntityLocal initial = home.findByPrimaryKey(start);
          initial.getNext().getName();
       }

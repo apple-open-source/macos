@@ -7,7 +7,6 @@
 
 package org.jboss.ha.framework.server;
 
-import java.util.Collection;
 import java.util.Vector;
 
 import javax.management.ObjectName;
@@ -17,12 +16,12 @@ import org.jboss.mx.util.ObjectNameFactory;
 import org.w3c.dom.Element;
 
 /** 
- *   Management Bean for Cluster HAPartitions.  It will start a JavaGroups
+ *   Management Bean for Cluster HAPartitions.  It will start a JGroups
  *   channel and initialize the ReplicantManager and DistributedStateService.
  *
  *   @author <a href="mailto:bill@burkecentral.com">Bill Burke</a>.
  *   @author <a href="mailto:sacha.labourey@cogito-info.ch">Sacha Labourey</a>.
- *   @version $Revision: 1.8.4.3 $
+ *   @version $Revision: 1.8.4.7 $
  *
  * <p><b>Revisions:</b><br>
  */
@@ -40,10 +39,10 @@ public interface ClusterPartitionMBean
    void setPartitionName(String newName);
 
    /**
-    * Get JavaGroups property string a la JDBC
-    * see <a href="http://www.javagroups.com/">JavaGroups web site for more information</a>
+    * Get JGroups property string a la JDBC
+    * see <a href="http://www.jgroups.com/">JGroups web site for more information</a>
     */
-   String getPartitionProperties(); // i.e. JavaGroups properties
+   String getPartitionProperties(); // i.e. JGroups properties
    void setPartitionProperties(String newProps);
 
    /** A write-only attribute that allows for an xml specification of the 
@@ -58,6 +57,13 @@ public interface ClusterPartitionMBean
     </JGProps>
     */
    void setPartitionConfig(Element config);
+
+   /**
+    * Uniquely identifies this node. MUST be unique accros the whole cluster!
+    * Cannot be changed once the partition has been started (otherwise an exception is thrown)
+    */
+   String getNodeName();
+   void setNodeName(String node) throws Exception;
 
    /**
     * Determine if deadlock detection is enabled
@@ -75,4 +81,8 @@ public interface ClusterPartitionMBean
     * @return A Vector Strings representing the host:port values of the nodes
     */
    Vector getCurrentView();
+
+   String showHistory ();
+
+   String showHistoryAsXML ();
 }

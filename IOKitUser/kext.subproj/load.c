@@ -984,7 +984,7 @@ kload_error __kload_load_module(dgraph_t * dgraph,
     int interactive_level,
     int ask_overwrite_symbols,
     int overwrite_symbols
-#endif /* not KERNEL */
+    #endif /* not KERNEL */
     )
 {
     kload_error result = kload_error_none;

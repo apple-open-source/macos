@@ -18,12 +18,14 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import javax.ejb.EJBException;
 import javax.ejb.SessionBean;
 import javax.ejb.SessionContext;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import javax.sql.DataSource;
 import org.apache.log4j.Category;
+import org.jboss.test.jca.interfaces.CachedConnectionSessionLocal;
 
 /**
  * CachedConnectionSessionBean.java
@@ -47,6 +49,7 @@ public class CachedConnectionSessionBean implements SessionBean  {
 
    private Connection conn;
    private Category log = Category.getInstance(getClass().getName());
+   private SessionContext ctx;
 
    /**
     * Describe <code>createTable</code> method here.
@@ -187,6 +190,44 @@ public class CachedConnectionSessionBean implements SessionBean  {
       return conn;
    }
 
+   /**
+    * Invoke another bean that opens a thread local connection,
+    * we close it.
+    *
+    * @ejb:interface-method
+    */
+   public void firstTLTest()
+   {
+      try
+      {
+         CachedConnectionSessionLocal other = (CachedConnectionSessionLocal) ctx.getEJBLocalObject();
+         other.secondTLTest();
+         ThreadLocalDB.close();
+      }
+      catch (Exception e)
+      {
+         log.info("Error", e);
+         throw new EJBException(e.toString());
+      }
+   }
+
+   /**
+    * @ejb:interface-method
+    */
+   public void secondTLTest()
+   {
+      try
+      {
+         Connection c = ThreadLocalDB.open();
+         c.createStatement().close();
+      }
+      catch (Exception e)
+      {
+         log.info("Error", e);
+         throw new EJBException(e.toString());
+      }
+   }
+
    public void ejbCreate()
    {
    }
@@ -231,6 +272,7 @@ public class CachedConnectionSessionBean implements SessionBean  {
 
    public void setSessionContext(SessionContext ctx) throws RemoteException
    {
+      this.ctx = ctx;
    }
 
    public void unsetSessionContext() throws RemoteException

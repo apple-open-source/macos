@@ -22,8 +22,8 @@
  */
 
 #ifndef lint
-static const char rcsid[] =
-    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-l2tp.c,v 1.1.1.3 2003/03/17 18:42:17 rbraun Exp $";
+static const char rcsid[] _U_ =
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-l2tp.c,v 1.1.1.4 2004/02/05 19:30:54 rbraun Exp $";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -474,8 +474,17 @@ l2tp_avp_print(const u_char *dat, int length)
 	TCHECK(*ptr);	/* Flags & Length */
 	len = EXTRACT_16BITS(ptr) & L2TP_AVP_HDR_LEN_MASK;
 
-	/* If it is not long enough to decode the entire AVP, we'll
-	   abandon. */
+	/* If it is not long enough to contain the header, we'll give up. */
+	if (len < 6)
+		goto trunc;
+
+	/* If it goes past the end of the remaining length of the packet,
+	   we'll give up. */
+	if (len > (u_int)length)
+		goto trunc;
+
+	/* If it goes past the end of the remaining length of the captured
+	   data, we'll give up. */
 	TCHECK2(*ptr, len);
 	/* After this point, no need to worry about truncation */
 

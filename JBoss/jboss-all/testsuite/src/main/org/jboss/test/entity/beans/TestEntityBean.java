@@ -24,7 +24,7 @@ import org.jboss.test.entity.interfaces.TestEntityValue;
  * An entity.
  *
  * @author <a href="mailto:Adrian.Brock@HappeningTimes.com">Adrian Brock</a>
- * @version $Revision: 1.2.2.1 $
+ * @version $Revision: 1.2.2.2 $
  *
  * @ejb:bean 
  *      name="TestEntity"
@@ -59,6 +59,7 @@ public abstract class TestEntityBean
      throws CreateException
    {
       setEntityID(value.getEntityID());
+      setValue1(value.getValue1());
       return null;
    }
 
@@ -73,6 +74,18 @@ public abstract class TestEntityBean
     */
    public abstract String getEntityID();
    public abstract void setEntityID(String entityID);
+
+   /**
+    * @ejb:interface-method
+    * @ejb:persistent-field
+    * @jboss:method-attributes read-only="true"
+    */
+   public abstract String getValue1();
+
+   /**
+    * @ejb:interface-method
+    */
+   public abstract void setValue1(String value1);
 
    /**
     * @ejb:home-method
@@ -90,6 +103,43 @@ public abstract class TestEntityBean
                                             + "where entityID = '" + entityID + "'");
          if (rows != 1)
             throw new Exception("Wrong number of rows deleted: " + rows);
+      }
+      catch (Exception e)
+      {
+         throw new EJBException(e);
+      }
+      finally
+      {
+         try
+         {
+            if (statement != null)
+               statement.close();
+            if (connection != null)
+               connection.close();
+         }
+         catch (Exception e)
+         {
+            throw new EJBException(e);
+         }
+      }
+   }
+
+   /**
+    * @ejb:home-method
+    */
+   public void ejbHomeChangeValue1(String entityID, String value1)
+   {
+      Connection connection = null;
+      Statement statement = null;
+      try
+      {
+         DataSource dataSource = (DataSource) new InitialContext().lookup("java:/DefaultDS");
+         connection = dataSource.getConnection();
+         statement = connection.createStatement();
+         int rows = statement.executeUpdate("update test_entity_testentity set value1 = '" + value1 +  
+                                            "' where entityID = '" + entityID + "'");
+         if (rows != 1)
+            throw new Exception("Wrong number of rows updated: " + rows);
       }
       catch (Exception e)
       {

@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -2340,11 +2338,11 @@ LDAP* CLDAPNode::InitLDAPConnection( sLDAPNodeStruct *inLDAPNodeStruct, sLDAPCon
 		//TODO KW replicaSearchResult = RetrieveDNSServiceReplicas(inConfig->fReplicaHostnames, inConfig->fWriteableHostnames, inConfig->fServerPort, &inOutList);
 		replicaSearchResult = eDSNoStdMappingAvailable;  // holder for the above search...
 		
-		// if we didn't find and DNS records lets do the other methods...
+		// if we didn't find any DNS records let us do the other methods...
 		if( replicaSearchResult != eDSNoErr )
 		{
 			//root dce altservers and possibly the Open Directory config record
-			replicaSearchResult = RetrieveDefinedReplicas(inLDAPNodeStruct, inConfigFromXML, inConfig->fReplicaHostnames, inConfig->fWriteableHostnames, inConfig->fServerPort, &inOutList);
+			replicaSearchResult = RetrieveDefinedReplicas(inLDAPNodeStruct, inConfigFromXML, inConfig->fServerName, inConfig->fReplicaHostnames, inConfig->fWriteableHostnames, inConfig->fServerPort, &inOutList);
 		}
 		
 		// if we were server mappings we may not have had mappings so use the list we have for now
@@ -2582,8 +2580,8 @@ LDAP* CLDAPNode::EstablishConnection( sReplicaInfo *inList, int inPort, int inOp
 	}
 	
 	// we are worried about bootstrap issues here, so if we don't have a last used, either we were just configured
-	// or we just booted, so let's go through some extra effort
-	if( lastUsedReplica == NULL && bReachableAddresses == false )
+	// or we just booted, so let's go through some extra effort but not if we have no addrinfo values ie. check that sockCount > 0
+	if( lastUsedReplica == NULL && bReachableAddresses == false && sockCount > 0 )
 	{
 		// if we didn't have a reachable address, let's wait a little just in case we are in bootup or waking up before we try sockets..
 		struct mach_timebase_info       timeBaseInfo;
@@ -2855,7 +2853,7 @@ LDAP* CLDAPNode::EstablishConnection( sReplicaInfo *inList, int inPort, int inOp
 //	* RetrieveDefinedReplicas
 //------------------------------------------------------------------------------------
 
-sInt32 CLDAPNode::RetrieveDefinedReplicas( sLDAPNodeStruct *inLDAPNodeStruct, CLDAPv3Configs *inConfigFromXML, CFMutableArrayRef &inOutRepList, CFMutableArrayRef &inOutWriteableList, int inPort, sReplicaInfo **inOutList )
+sInt32 CLDAPNode::RetrieveDefinedReplicas( sLDAPNodeStruct *inLDAPNodeStruct, CLDAPv3Configs *inConfigFromXML, char *inConfigServerString, CFMutableArrayRef &inOutRepList, CFMutableArrayRef &inOutWriteableList, int inPort, sReplicaInfo **inOutList )
 {
 	LDAP			   *outHost			= nil;
 	CFMutableArrayRef	aRepList		= NULL;
@@ -3033,7 +3031,7 @@ sInt32 CLDAPNode::RetrieveDefinedReplicas( sLDAPNodeStruct *inLDAPNodeStruct, CL
 			aRepList		= CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
 			aWriteableList	= CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
 
-			if ( (foundResult = GetReplicaListMessage(outHost, searchTimeout, aRepList, aWriteableList)) == eDSNoErr )
+			if ( (foundResult = GetReplicaListMessage(outHost, searchTimeout, inConfigServerString, aRepList, aWriteableList)) == eDSNoErr )
 			{
 				bMessageFound = true;
 			}
@@ -3112,53 +3110,54 @@ sInt32 CLDAPNode::RetrieveDefinedReplicas( sLDAPNodeStruct *inLDAPNodeStruct, CL
 						aWriteableList = NULL;
 					}
 				}
-				
-				CFStringRef replicaStrRef	= NULL;
+			} //new data found via bMessageFound
+			
+			//always rework the list since need to know which are writable
+			CFStringRef replicaStrRef	= NULL;
 
-				//use the known replicas to fill out the sReplicaInfo list
-				//the writeable replicas are already contained in this list as well
-				//so we need only one list of replica info structs
-				CFIndex numReps = NULL;
-				if (inOutRepList != NULL)
+			//use the known replicas to fill out the sReplicaInfo list
+			//the writeable replicas are already contained in this list as well
+			//so we need only one list of replica info structs
+			CFIndex numReps = NULL;
+			if (inOutRepList != NULL)
+			{
+				numReps = CFArrayGetCount(inOutRepList);
+			}
+
+			// let's make this easy... let's use the readable replicas, as there should be more of those than writable
+			if ( numReps > 0)
+			{
+				CFRange rangeOfWrites = CFRangeMake( 0, (inOutWriteableList ? CFArrayGetCount(inOutWriteableList) : 0) );
+				for (CFIndex indexToRep=0; indexToRep < numReps; indexToRep++ )
 				{
-					numReps = CFArrayGetCount(inOutRepList);
+					replicaStrRef = (CFStringRef)::CFArrayGetValueAtIndex( inOutRepList, indexToRep );
+					struct addrinfo *addrList = ResolveHostName(replicaStrRef, inPort);
+					sReplicaInfo* newInfo = (sReplicaInfo *)calloc(1, sizeof(sReplicaInfo));
+					if (indexToRep == 0)
+					{
+						aList	= newInfo;
+						oldList	= newInfo;
+					}
+					else
+					{
+						oldList->fNext = newInfo;
+						oldList = oldList->fNext;
+					}
+					newInfo->fAddrInfo = addrList;
+					newInfo->hostname = CFStringCreateCopy( kCFAllocatorDefault, replicaStrRef );
+					if( inOutWriteableList != nil && CFArrayContainsValue(inOutWriteableList, rangeOfWrites, replicaStrRef) )
+					{
+						newInfo->bWriteable = true;
+					}
 				}
-
-				// let's make this easy... let's use the readable replicas, as there should be more of those than writable
-				if ( numReps > 0)
+				
+				
+				if (aList != nil) //there is a new rep list that was built
 				{
-					CFRange rangeOfWrites = CFRangeMake( 0, (inOutWriteableList ? CFArrayGetCount(inOutWriteableList) : 0) );
-					for (CFIndex indexToRep=0; indexToRep < numReps; indexToRep++ )
-					{
-						replicaStrRef = (CFStringRef)::CFArrayGetValueAtIndex( inOutRepList, indexToRep );
-						struct addrinfo *addrList = ResolveHostName(replicaStrRef, inPort);
-						sReplicaInfo* newInfo = (sReplicaInfo *)calloc(1, sizeof(sReplicaInfo));
-						if (indexToRep == 0)
-						{
-							aList	= newInfo;
-							oldList	= newInfo;
-						}
-						else
-						{
-							oldList->fNext = newInfo;
-							oldList = oldList->fNext;
-						}
-						newInfo->fAddrInfo = addrList;
-						newInfo->hostname = CFStringCreateCopy( kCFAllocatorDefault, replicaStrRef );
-						if( inOutWriteableList != nil && CFArrayContainsValue(inOutWriteableList, rangeOfWrites, replicaStrRef) )
-						{
-							newInfo->bWriteable = true;
-						}
-					}
-					
-					
-					if (aList != nil) //there is a new rep list that was built
-					{
-						FreeReplicaList( *inOutList );
+					FreeReplicaList( *inOutList );
 
-						// now lets set the new one..
-						*inOutList = aList;
-					}
+					// now lets set the new one..
+					*inOutList = aList;
 				}
 			}
 
@@ -3213,7 +3212,7 @@ sInt32 CLDAPNode::RetrieveDefinedReplicas( sLDAPNodeStruct *inLDAPNodeStruct, CL
 //	* GetReplicaListMessage
 //------------------------------------------------------------------------------------
 
-sInt32 CLDAPNode::GetReplicaListMessage( LDAP *inHost, int inSearchTO, CFMutableArrayRef outRepList, CFMutableArrayRef outWriteableList )
+sInt32 CLDAPNode::GetReplicaListMessage( LDAP *inHost, int inSearchTO, char *inConfigServerString, CFMutableArrayRef outRepList, CFMutableArrayRef outWriteableList )
 {
 	sInt32				siResult		= eDSRecordNotFound;
 	bool				bResultFound	= false;
@@ -3223,10 +3222,12 @@ sInt32 CLDAPNode::GetReplicaListMessage( LDAP *inHost, int inSearchTO, CFMutable
 	char			   *attrs[2]		= {"altserver",NULL};
 	BerElement		   *ber;
 	struct berval	  **bValues;
-	char			   *pAttr			= nil;
+	bool				bAltServerAdded = false;
 
-	//search for the specific LDAP record altserver at the rootDSE which may contain
+	//search for the specific LDAP record altServer at the rootDSE which may contain
 	//the list of LDAP replica urls
+	
+	//we need to retain the original config defined server name since the alt servers are alternatives and might not include the server itself
 	
 	// here is the call to the LDAP server asynchronously which requires
 	// host handle, search base, search scope(LDAP_SCOPE_SUBTREE for all), search filter,
@@ -3259,59 +3260,55 @@ sInt32 CLDAPNode::GetReplicaListMessage( LDAP *inHost, int inSearchTO, CFMutable
 			( ldapReturnCode == LDAP_RES_SEARCH_ENTRY ) )
 	{
 		//get the replica list here
-		//parse the attributes in the result - should only be one ie. altserver
-		pAttr = ldap_first_attribute (inHost, result, &ber );
-		if (pAttr != nil)
-		{
-			if (( bValues = ldap_get_values_len (inHost, result, pAttr )) != NULL)
-			{					
-				// for each value of the attribute we need to parse and add as an entry to the outList
-				for (int i = 0; bValues[i] != NULL; i++ )
+		//parse the attributes in the result - should only be one ie. altServer
+		if (( bValues = ldap_get_values_len (inHost, result, (char *)"altServer" )) != NULL)
+		{					
+			// for each value of the attribute we need to parse and add as an entry to the outList
+			for (int i = 0; bValues[i] != NULL; i++ )
+			{
+				if ( bValues[i] != NULL )
 				{
-					if ( bValues[i] != NULL )
+					//need to strip off any leading characters since this should be an url format
+					//ldap:// or ldaps://
+					int offset = 0;
+					char *strPtr = bValues[i]->bv_val;
+					if (strlen(strPtr) >= 9) //don't bother trying to strip if string not even long enough to have a prefix
 					{
-						//need to strip off any leading characters since this should be an url format
-						//ldap:// or ldaps://
-						int offset = 0;
-						char *strPtr = bValues[i]->bv_val;
-						if (strlen(strPtr) >= 9) //don't bother trying to strip if string not even long enough to have a prefix
+						if (strncmp(strPtr,"ldaps://",8) == 0)
 						{
-							if (strncmp(strPtr,"ldaps://",8) == 0)
-							{
-								offset = 8;
-							}
-							if (strncmp(strPtr,"ldap://",7) == 0)
-							{
-								offset = 7;
-							}
+							offset = 8;
 						}
-						//try to stop at end of server name and don't include port number or search base
-						char *strEnd = nil;
-						strEnd = strchr(strPtr+offset,':');
+						if (strncmp(strPtr,"ldap://",7) == 0)
+						{
+							offset = 7;
+						}
+					}
+					//try to stop at end of server name and don't include port number or search base
+					char *strEnd = nil;
+					strEnd = strchr(strPtr+offset,':');
+					if (strEnd != nil)
+					{
+						strEnd[0] = '\0';
+					}
+					else
+					{
+						strEnd = strchr(strPtr+offset,'/');
 						if (strEnd != nil)
 						{
 							strEnd[0] = '\0';
 						}
-						else
-						{
-							strEnd = strchr(strPtr+offset,'/');
-							if (strEnd != nil)
-							{
-								strEnd[0] = '\0';
-							}
-						}
-						CFStringRef aCFString = CFStringCreateWithCString( NULL, strPtr+offset, kCFStringEncodingMacRoman );
-						CFArrayAppendValue(outRepList, aCFString);
-						//TODO KW which of these are writeable?
-						//CFArrayAppendValue(outRoutWriteableListepList, aCFString);
-						CFRelease(aCFString);
-						siResult = eDSNoErr;
 					}
+					CFStringRef aCFString = CFStringCreateWithCString( NULL, strPtr+offset, kCFStringEncodingMacRoman );
+					CFArrayAppendValue(outRepList, aCFString);
+					//TODO KW which of these are writeable?
+					//CFArrayAppendValue(outRoutWriteableListepList, aCFString);
+					CFRelease(aCFString);
+					bAltServerAdded = true;
+					siResult = eDSNoErr;
 				}
-				ldap_value_free_len(bValues);
-			} // if bValues = ldap_get_values_len ...
-			ldap_memfree( pAttr );
-		} // if pAttr != nil
+			}
+			ldap_value_free_len(bValues);
+		} // if bValues = ldap_get_values_len ...
 			
 		if (ber != nil)
 		{
@@ -3339,6 +3336,13 @@ sInt32 CLDAPNode::GetReplicaListMessage( LDAP *inHost, int inSearchTO, CFMutable
 			ldap_msgfree( result );
 			result = nil;
 		}
+	}
+	
+	if (bAltServerAdded && (inConfigServerString != nil) )
+	{
+		CFStringRef aCFString = CFStringCreateWithCString( NULL, inConfigServerString, kCFStringEncodingMacRoman );
+		CFArrayInsertValueAtIndex(outRepList, 0, aCFString);
+		CFRelease(aCFString);
 	}
 	
 	return( siResult );

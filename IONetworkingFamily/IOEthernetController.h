@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -397,9 +394,36 @@ protected:
 
     virtual bool publishProperties();
 
+	/*! @function getVlanTagDemand
+		@abstract Fetch the demand for hardware vlan tag stuffing
+		for the given packet before it is transmitted on the network.
+		@discussion A network controller that can insert 802.1Q vlan tags for output
+		packets must call this method to obtain vlan tag information that it must
+		insert into the given output packet.
+		@param packet A mbuf containing a packet that may require vlan tag stuffing.
+		@param vlanTag After calling, the low order 16 bits contain the 802.1Q priority and
+		vlan ID tag in host order.  The hi-order 16 bits are currently unused and should be ignored.
+		@result true if vlanTag has been set and should be used.
+		false if no vlan tag stuffing is required for this packet. */
+
+    OSMetaClassDeclareReservedUsed( IOEthernetController,  0);
+	virtual bool getVlanTagDemand(mbuf *m, UInt32 *vlanTag);
+
+	/*! @function setVlanTag
+		@abstract Encode a received packet with the vlan tag result reported
+		by the hardware.
+		@discussion A network controller that can strip 802.1Q vlan tag information for a
+		received packet should call this method to encode the result on the
+		packet, before passing it up towards the protocol stacks.
+		@param packet A mbuf containing a packet that has had its 802.1q vlan tag stripped by
+		the hardware.
+		@param vlanTag A value in host order that contains the 802.1q vlan tag and priority
+		in the low order 16 bits.  The hi order word is currently unused and should be set to 0. */
+
+	OSMetaClassDeclareReservedUsed( IOEthernetController,  1);
+	virtual void setVlanTag(mbuf *m, UInt32 vlanTag);
+	
     // Virtual function padding
-    OSMetaClassDeclareReservedUnused( IOEthernetController,  0);
-    OSMetaClassDeclareReservedUnused( IOEthernetController,  1);
     OSMetaClassDeclareReservedUnused( IOEthernetController,  2);
     OSMetaClassDeclareReservedUnused( IOEthernetController,  3);
     OSMetaClassDeclareReservedUnused( IOEthernetController,  4);

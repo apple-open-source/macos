@@ -9,7 +9,7 @@
 <!-- This is a minimal example.  See the generic example for other stuff   -->
 <!-- ===================================================================== -->
 
-<!-- $Id: sybase-ds.xml,v 1.1.2.1 2003/05/22 21:40:50 d_jencks Exp $ -->
+<!-- $Id: sybase-ds.xml,v 1.1.2.2 2003/09/05 16:38:24 patriot1burke Exp $ -->
 
 
 <datasources>
@@ -25,6 +25,14 @@
     <user-name>x</user-name>
     <password>y</password>
     <exception-sorter-class-name>org.jboss.resource.adapter.jdbc.vendor.SybaseExceptionSorter</exception-sorter-class-name>
+        <!-- sql to call when connection is created
+        <new-connection-sql>some arbitrary sql</new-connection-sql>
+        -->
+
+        <!-- sql to call on an existing pooled connection when it is obtained from pool 
+        <check-valid-connection-sql>some arbitrary sql</check-valid-connection-sql>
+        -->
+
   </local-tx-datasource>
 
 </datasources>

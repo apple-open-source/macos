@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: ctx.c,v 1.21 2003/09/08 23:45:26 lindak Exp $
+ * $Id: ctx.c,v 1.21.34.1 2004/01/27 22:00:48 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/sysctl.h>
@@ -1083,9 +1083,8 @@ out:;
 }
 
 char *
-smb_ctx_principal2blob(size_t **blobp, char *prin, size_t plen)
+smb_ctx_principal2blob(size_t **blobp, char *prin)
 {
-#pragma unused(plen)
 	int		rc = 0;
 	char *		failure;
 	u_char *	tkt = NULL;
@@ -1156,7 +1155,7 @@ prblob(u_char *b, size_t len)
  * We navigate the SPNEGO & ASN1 encoding to find a kerberos principal
  */
 char *
-smb_ctx_blob2principal(size_t *blob, u_char **prinp, size_t *plenp)
+smb_ctx_blob2principal(size_t *blob, u_char **prinp)
 {
 	size_t		len = *blob - SMB_GUIDLEN;
 	u_char *	start = (char *)blob + sizeof(size_t) + SMB_GUIDLEN;
@@ -1193,15 +1192,15 @@ smb_ctx_blob2principal(size_t *blob, u_char **prinp, size_t *plenp)
 	if (rc != SPNEGO_E_BUFFER_TOO_SMALL)
 		goto out;
 	failure = "malloc";
-	if (!(prin = malloc(plen)))
+	if (!(prin = malloc(plen + 1)))
 		goto out;
 	failure = "spnegoGetMechListMIC";
 	if ((rc = spnegoGetMechListMIC(stok, prin, &plen))) {
 		free(prin);
 		goto out;
 	}
+	prin[plen] = '\0';
 	*prinp = prin;
-	*plenp = plen;
 	failure = NULL;
 out:;
 	if (stok)
@@ -1223,7 +1222,6 @@ smb_ctx_negotiate(struct smb_ctx *ctx, int level, int flags)
 	int	error = 0;
 	char *	failure = NULL;
 	u_char	*principal = NULL;
-	size_t	prinlen;
 
 	/*
 	 * We leave ct_secblob set iff extended security
@@ -1254,9 +1252,9 @@ smb_ctx_negotiate(struct smb_ctx *ctx, int level, int flags)
 	else if (*rq.ioc_ssn.ioc_outtok == SMB_GUIDLEN)
 		failure = "NTLMSSP unsupported";	/* XXX */
 	else if (!(failure = smb_ctx_blob2principal(rq.ioc_ssn.ioc_outtok,
-						    &principal, &prinlen)) &&
+						    &principal)) &&
 		 !(failure = smb_ctx_principal2blob(&rq.ioc_ssn.ioc_intok,
-						    principal, prinlen))) {
+						    principal))) {
 		ctx->ct_secblob = rq.ioc_ssn.ioc_intok;
 		rq.ioc_ssn.ioc_intok = NULL;
 	}

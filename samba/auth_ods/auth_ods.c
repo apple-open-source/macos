@@ -244,7 +244,7 @@ core of smb password checking routine.
 static tDirStatus opendirectory_smb_pwd_check_ntlmv1(tDirReference dirRef, tDirNodeReference userNode, const char *user, char *inAuthMethod,
 				DATA_BLOB nt_response,
 				 DATA_BLOB sec_blob,
-				 uint8 user_sess_key[16])
+				 DATA_BLOB *user_sess_key)
 {
 	/* Finish the encryption of part_passwd. */
 	uchar p24[24];
@@ -267,8 +267,9 @@ static tDirStatus opendirectory_smb_pwd_check_ntlmv1(tDirReference dirRef, tDirN
 	
 	if (eDSNoErr == status && user_sess_key != NULL)
 	{
+		*user_sess_key = data_blob(NULL, 16);
 		become_root();
-		keyStatus = opendirectory_user_session_key(user, user_sess_key, NULL);
+		keyStatus = opendirectory_user_session_key(user, user_sess_key->data, NULL);
 		unbecome_root();
 		DEBUG(2, ("opendirectory_smb_pwd_check_ntlmv1: [%d]opendirectory_user_session_key\n", keyStatus));
 	}
@@ -295,7 +296,8 @@ static NTSTATUS opendirectory_password_ok(tDirReference dirRef, tDirNodeReferenc
 				TALLOC_CTX *mem_ctx,
 				SAM_ACCOUNT *sampass, 
 				const auth_usersupplied_info *user_info, 
-				uint8 user_sess_key[16])
+				DATA_BLOB *user_sess_key, 
+				DATA_BLOB *lm_sess_key)
 {
 	uint16 acct_ctrl;
 	uint32 auth_flags;
@@ -363,8 +365,8 @@ static NTSTATUS opendirectory_password_ok(tDirReference dirRef, tDirNodeReferenc
 	
 	if (auth_flags & AUTH_FLAG_LM_RESP) {
 		if (user_info->lm_resp.length != 24) {
-			DEBUG(2,("opendirectory_password_ok: invalid LanMan password length (%d) for user %s\n", 
-				 user_info->nt_resp.length, pdb_get_username(sampass)));		
+			DEBUG(2,("opendirectory_password_ok: invalid LanMan password length (%lu) for user %s\n", 
+				 (unsigned long)user_info->nt_resp.length, pdb_get_username(sampass)));		
 		}
 		
 		if (!lp_lanman_auth()) {
@@ -544,8 +546,8 @@ static NTSTATUS check_opendirectory_security(const struct auth_context *auth_con
 	SAM_ACCOUNT *sampass=NULL;
 	BOOL ret = False;
 	NTSTATUS nt_status = NT_STATUS_OK;
-	uint8 user_sess_key[16];
-	const uint8* lm_hash;
+	DATA_BLOB user_sess_key = data_blob(NULL, 0);
+	DATA_BLOB lm_sess_key = data_blob(NULL, 0);
     tDirStatus		dirStatus		= eDSNoErr;
     tDirReference	dirRef		= NULL;
     tDirNodeReference	userNodeRef	= NULL;
@@ -567,7 +569,7 @@ static NTSTATUS check_opendirectory_security(const struct auth_context *auth_con
 		ret = pdb_getsampwnam(sampass, user_info->internal_username.str);
 		unbecome_root();
 	}
-	DEBUG(0,("check_opendirectory_security: after pdb_getsampwnam [%s]\n", user_info->internal_username.str));
+
 	if (ret == False)
 	{
 		DEBUG(3,("Couldn't find user '%s' in passdb file.\n", user_info->internal_username.str));
@@ -575,10 +577,7 @@ static NTSTATUS check_opendirectory_security(const struct auth_context *auth_con
 		return NT_STATUS_NO_SUCH_USER;
 	}
 
-	DEBUG(0,("check_opendirectory_security: after pdb_free_sam [%s]\n", user_info->internal_username.str));
-
 	nt_status = opendirectory_account_ok(mem_ctx, sampass, user_info);
-	DEBUG(0,("check_opendirectory_security: after opendirectory_account_ok [%s]\n", user_info->internal_username.str));
 	
 	if (!NT_STATUS_IS_OK(nt_status)) {
 		pdb_free_sam(&sampass);
@@ -597,7 +596,7 @@ static NTSTATUS check_opendirectory_security(const struct auth_context *auth_con
     
     if (userNodeRef != NULL)
     {
-		nt_status = opendirectory_password_ok(dirRef, userNodeRef, auth_context, mem_ctx, sampass, user_info, user_sess_key);
+		nt_status = opendirectory_password_ok(dirRef, userNodeRef, auth_context, mem_ctx, sampass, user_info, &user_sess_key, &lm_sess_key);
         dsCloseDirNode( userNodeRef );
     	dsCloseDirService(dirRef);
     } else {
@@ -617,12 +616,8 @@ static NTSTATUS check_opendirectory_security(const struct auth_context *auth_con
 		return nt_status;
 	}
 
-	lm_hash = pdb_get_lanman_passwd((*server_info)->sam_account);
-	if (lm_hash) {
-		memcpy((*server_info)->first_8_lm_hash, lm_hash, 8);
-	}
-	
-	memcpy((*server_info)->session_key, user_sess_key, sizeof(user_sess_key));
+	(*server_info)->nt_session_key = user_sess_key;
+	(*server_info)->lm_session_key = lm_sess_key;
 
 	return nt_status;
 }

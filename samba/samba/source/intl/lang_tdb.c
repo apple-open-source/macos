@@ -53,11 +53,13 @@ static BOOL load_msg(const char *msg_file)
 		}
 		if (msgid && strncmp(lines[i], "msgstr \"", 8) == 0) {
 			msgstr = lines[i] + 8;
-			trim_string(msgid, NULL, "\"");
-			trim_string(msgstr, NULL, "\"");
+			trim_char(msgid, '\0', '\"');
+			trim_char(msgstr, '\0', '\"');
 			if (*msgstr == 0) {
 				msgstr = msgid;
 			}
+			all_string_sub(msgid, "\\n", "\n", 0);
+			all_string_sub(msgstr, "\\n", "\n", 0);
 			key.dptr = msgid;
 			key.dsize = strlen(msgid)+1;
 			data.dptr = msgstr;
@@ -99,10 +101,12 @@ BOOL lang_tdb_init(const char *lang)
 	struct stat st;
 	static int initialised;
 	time_t loadtime;
+	BOOL result = False;
 
 	/* we only want to init once per process, unless given
 	   an override */
-	if (initialised && !lang) return True;
+	if (initialised && !lang) 
+		return True;
 
 	if (initialised) {
 		/* we are re-initialising, free up any old init */
@@ -121,29 +125,33 @@ BOOL lang_tdb_init(const char *lang)
 	}
 
 	/* if no lang then we don't translate */
-	if (!lang) return True;
+	if (!lang) 
+		return True;
 
 	asprintf(&msg_path, "%s.msg", lib_path((const char *)lang));
 	if (stat(msg_path, &st) != 0) {
 		/* the msg file isn't available */
-		free(msg_path);
-		return False;
+		DEBUG(10, ("lang_tdb_init: %s: %s\n", msg_path, 
+			   strerror(errno)));
+		goto done;
 	}
 	
-
 	asprintf(&path, "%s%s.tdb", lock_path("lang_"), lang);
+
+	DEBUG(10, ("lang_tdb_init: loading %s\n", path));
 
 	tdb = tdb_open_log(path, 0, TDB_DEFAULT, O_RDWR|O_CREAT, 0644);
 	if (!tdb) {
 		tdb = tdb_open_log(path, 0, TDB_DEFAULT, O_RDONLY, 0);
-		free(path);
-		free(msg_path);
-		if (!tdb) return False;
+		if (!tdb) {
+			DEBUG(10, ("lang_tdb_init: %s: %s\n", path,
+				   strerror(errno)));
+			goto done;
+		}
 		current_lang = strdup(lang);
-		return True;
+		result = True;
+		goto done;
 	}
-
-	free(path);
 
 	loadtime = tdb_fetch_int32(tdb, "/LOADTIME/");
 
@@ -151,11 +159,15 @@ BOOL lang_tdb_init(const char *lang)
 		load_msg(msg_path);
 		tdb_store_int32(tdb, "/LOADTIME/", (int)time(NULL));
 	}
-	free(msg_path);
 
 	current_lang = strdup(lang);
+	result = True;
 
-	return True;
+ done:
+	SAFE_FREE(msg_path);
+	SAFE_FREE(path);
+
+	return result;
 }
 
 /* translate a msgid to a message string in the current language 
@@ -164,15 +176,47 @@ BOOL lang_tdb_init(const char *lang)
 const char *lang_msg(const char *msgid)
 {
 	TDB_DATA key, data;
+	const char *p;
+	char *q, *msgid_quoted;
+	int count;
 
 	lang_tdb_init(NULL);
 
 	if (!tdb) return msgid;
 
-	key.dptr = (char *)msgid;
-	key.dsize = strlen(msgid)+1;
+	/* Due to the way quotes in msgids are escaped in the msg file we
+	   must replace " with \" before doing a lookup in the tdb. */
+
+	count = 0;
+
+	for(p = msgid; *p; p++) {
+		if (*p == '\"')
+			count++;
+	}
+
+	if (!(msgid_quoted = malloc(strlen(msgid) + count + 1)))
+		return msgid;
+
+	/* string_sub() is unsuitable here as it replaces some punctuation
+	   chars with underscores. */
+
+	for(p = msgid, q = msgid_quoted; *p; p++) {
+		if (*p == '\"') {
+			*q = '\\';
+			q++;
+		}
+		*q = *p;
+		q++;
+	}
+
+	*q = 0;
+
+	key.dptr = (char *)msgid_quoted;
+	key.dsize = strlen(msgid_quoted)+1;
 	
 	data = tdb_fetch(tdb, key);
+
+	free(msgid_quoted);
 
 	/* if the message isn't found then we still need to return a pointer
 	   that can be freed. Pity. */
@@ -199,7 +243,7 @@ void lang_msg_free(const char *msgstr)
 */
 const char *lang_msg_rotate(const char *msgid)
 {
-#define NUM_LANG_BUFS 4
+#define NUM_LANG_BUFS 16
 	char *msgstr;
 	static pstring bufs[NUM_LANG_BUFS];
 	static int next;

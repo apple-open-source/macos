@@ -25,31 +25,52 @@
 
 #import "KWQKLocale.h"
 
+#import "KWQExceptions.h"
 #import "KWQLogging.h"
 #import "KWQString.h"
 #import "WebCoreViewFactory.h"
 
 QString inputElementAltText()
 {
+    KWQ_BLOCK_EXCEPTIONS;
     return QString::fromNSString([[WebCoreViewFactory sharedFactory] inputElementAltText]);
+    KWQ_UNBLOCK_EXCEPTIONS;
+
+    return QString();
 }
 
 QString resetButtonDefaultLabel()
 {
+    KWQ_BLOCK_EXCEPTIONS;
     return QString::fromNSString([[WebCoreViewFactory sharedFactory] resetButtonDefaultLabel]);
+    KWQ_UNBLOCK_EXCEPTIONS;
+
+    return QString();
 }
 
 QString searchableIndexIntroduction()
 {
+    KWQ_BLOCK_EXCEPTIONS;
     return QString::fromNSString([[WebCoreViewFactory sharedFactory] searchableIndexIntroduction]);
+    KWQ_UNBLOCK_EXCEPTIONS;
+
+    return QString();
 }
 
 QString submitButtonDefaultLabel()
 {
+    KWQ_BLOCK_EXCEPTIONS;
     return QString::fromNSString([[WebCoreViewFactory sharedFactory] submitButtonDefaultLabel]);
+    KWQ_UNBLOCK_EXCEPTIONS;
+
+    return QString();
 }
 
 QString KLocale::language()
 {
+    KWQ_BLOCK_EXCEPTIONS;
     return QString::fromNSString([[WebCoreViewFactory sharedFactory] defaultLanguageCode]);
+    KWQ_UNBLOCK_EXCEPTIONS;
+
+    return QString();
 }

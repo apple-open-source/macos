@@ -31,6 +31,26 @@
       <attribute name="JndiName">srp-test-http/SRPServerInterface</attribute>
    </mbean>
 
+   <!-- Expose the SRP service interface via clustered HTTP -->
+   <mbean code="org.jboss.invocation.http.server.HttpProxyFactoryHA"
+      name="jboss.security.tests:service=SRP/HA-HTTP">
+      <attribute name="PartitionName">DefaultPartition</attribute>
+      <attribute name="InvokerName">jboss.security.tests:service=SRPService</attribute>
+      <attribute name="ExportedInterface">org.jboss.security.srp.SRPRemoteServerInterface</attribute>
+      <attribute name="JndiName">srp-test-http/SRPServerInterfaceHA</attribute>
+      <attribute name="LoadBalancePolicy">org.jboss.ha.framework.interfaces.FirstAvailable</attribute>
+      <attribute name="InvokerURLPrefix">http://</attribute>
+      <attribute name="InvokerURLSuffix">:8080/invoker/JMXInvokerHAServlet</attribute>
+      <attribute name="ClientInterceptors">
+         <interceptors>
+            <interceptor>org.jboss.invocation.http.interfaces.ClientMethodInterceptorHA</interceptor>
+            <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+            <!--<interceptor>org.jboss.naming.interceptors.ExceptionInterceptor</interceptor> -->
+            <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+         </interceptors>
+      </attribute>
+   </mbean>
+
    <!-- The SRP store handler service -->
    <mbean code="org.jboss.test.security.service.PropertiesVerifierStore"
       name="jboss.security.tests:service=PropertiesVerifierStore">
@@ -45,14 +65,12 @@
             <interceptors>
                <interceptor code="org.jboss.test.security.interceptors.SRPCacheInterceptor"
                   authenticationCacheJndiName="srp-test/AuthenticationCache"/>
-               <interceptor code="org.jboss.mx.interceptor.PersistenceInterceptor2" />
-               <interceptor code="org.jboss.mx.interceptor.ModelMBeanInterceptor" />
-               <interceptor code="org.jboss.mx.interceptor.ObjectReferenceInterceptor" />
+               <interceptor code="org.jboss.mx.interceptor.PersistenceInterceptor2"/>
+               <interceptor code="org.jboss.mx.interceptor.ModelMBeanInterceptor"/>
+               <interceptor code="org.jboss.mx.interceptor.ObjectReferenceInterceptor"/>
             </interceptors>
          </descriptors>
-         <!--class>org.jboss.test.security.service.SRPCacheTest</class -->
 
-         <!-- Operations -->
          <operation>
             <description>The start lifecycle operation</description>
             <name>start</name>
@@ -73,7 +91,6 @@
             <parameter>
                <description>The SRPSession session key</description>
                <name>clientChallenge</name>
-               <!-- byte[] -->
                <type>[B</type>
             </parameter>
             <return-type>int</return-type>

@@ -11,21 +11,15 @@ package org.jboss.ejb.plugins.cmp.ejbql;
  * Parent class of all abstract syntax tree nodes.
  *
  * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
- * @version $Revision: 1.1 $
+ * @version $Revision: 1.1.4.2 $
  */                            
 public class SimpleNode implements Node {
    protected Node parent;
    protected Node[] children;
-   protected int id;
-   protected EJBQLParser parser;
+   protected final int id;
 
    public SimpleNode(int i) {
       id = i;
-   }
-
-   public SimpleNode(EJBQLParser p, int i) {
-      this(i);
-      parser = p;
    }
 
    public void jjtOpen() {
@@ -61,16 +55,6 @@ public class SimpleNode implements Node {
       return visitor.visit(this, data);
    }
 
-   /** Accept the visitor. **/
-   public Object childrenAccept(JBossQLParserVisitor visitor, Object data) {
-      if (children != null) {
-         for (int i = 0; i < children.length; ++i) {
-            children[i].jjtAccept(visitor, data);
-         }
-      }
-      return data;
-   }
-
    /* You can override these two methods in subclasses of SimpleNode to
        customize the way the node appears when the tree is dumped.   If
        your output uses more than one line you should override
@@ -89,7 +73,7 @@ public class SimpleNode implements Node {
          for (int i = 0; i < children.length; ++i) {
             SimpleNode n = (SimpleNode)children[i];
             if (n != null) {
-               n.dump(prefix + " ");
+               n.dump(prefix + ' ');
             }
          }
       }

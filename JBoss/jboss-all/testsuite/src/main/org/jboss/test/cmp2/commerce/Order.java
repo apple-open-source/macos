@@ -22,7 +22,7 @@ public interface Order extends EJBLocalObject {
 
    public Collection getLineItems();
    public void setLineItems(Collection lineItems);
-	
+
 	public Set getOrdersShippedToCA() throws FinderException;
 	public Set getOrdersShippedToCA2() throws FinderException;
 	

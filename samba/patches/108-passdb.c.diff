@@ -1,0 +1,30 @@
+--- samba/source/passdb/passdb.c.orig	Wed Feb 25 20:09:26 2004
++++ samba/source/passdb/passdb.c	Thu Feb 26 15:08:38 2004
+@@ -308,6 +308,19 @@
+ 	struct passwd 	*pwd;
+ 	BOOL		ret;
+ 	
++	if (lp_opendirectory()) /* computer accounts not available via getpwnam */
++	{
++		pdb_init_sam(new_sam_acct);
++		become_root();
++		ret = pdb_getsampwnam(*new_sam_acct, username);
++		unbecome_root();
++		
++		if (ret != True) {
++			pdb_free_sam(new_sam_acct);
++			*new_sam_acct = NULL;
++			DEBUG(0, ("could not find new user/computer %s in passdb.\n", username)); 
++		}
++	} else {
+ 	pwd = Get_Pwnam(username);
+ 
+ 	if (!pwd) 
+@@ -327,6 +340,7 @@
+ 	/* set the new SID */
+ 	
+ 	ret = pdb_set_user_sid_from_rid( *new_sam_acct, rid, PDB_SET );
++	}
+ 	 
+ 	return (ret ? NT_STATUS_OK : NT_STATUS_NO_SUCH_USER);
+ }

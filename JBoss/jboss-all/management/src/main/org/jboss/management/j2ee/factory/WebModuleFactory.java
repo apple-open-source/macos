@@ -19,7 +19,7 @@ import org.jboss.management.j2ee.Servlet;
 
 /** A factory for mapping WARDeployer deployments to WebModules
  * @author Scott.Stark@jboss.org
- * @version $Revision: 1.1.2.5 $
+ * @version $Revision: 1.1.2.6 $
  */
 public class WebModuleFactory
    implements ManagedObjectFactory
@@ -73,7 +73,7 @@ public class WebModuleFactory
          return;
 
       DeploymentInfo di = (DeploymentInfo) data;
-      ObjectName jsr77Name = (ObjectName) deploymentToModuleNameMap.get(di);
+      ObjectName jsr77Name = (ObjectName) deploymentToModuleNameMap.remove(di);
 
       log.debug("Destroy module: " + jsr77Name);
       Iterator servlets = di.mbeans.iterator();
@@ -137,7 +137,7 @@ public class WebModuleFactory
     */
    public void destroyServlet(MBeanServer server, ObjectName servletServiceName)
    {
-      ObjectName jsr77Name = (ObjectName) containerToModuleNameMap.get(servletServiceName);
+      ObjectName jsr77Name = (ObjectName) containerToModuleNameMap.remove(servletServiceName);
 
       log.debug("Destroy container: "+servletServiceName+", module: " + jsr77Name);
       if( jsr77Name != null )

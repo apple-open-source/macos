@@ -23,15 +23,22 @@
 
 OSDefineMetaClassAndStructors(AppleOnboardAudio, IOAudioDevice)
 
+UInt32 AppleOnboardAudio::sInstanceCount = 0;
+
 #define super IOAudioDevice
 
 #define LOCALIZABLE 1
+
+// Neoborg bringup defines
+#define FORCE_MULTIPLE_DEVICES_TO_LOAD
+//#define ONLY_PUBLISH_ONE_BUILIT_DEVICE
+#define DONT_THREAD_INIT
 
 #pragma mark +UNIX LIKE FUNCTIONS
 
 bool AppleOnboardAudio::init (OSDictionary *properties)
 {
-    debug2IOLog("+ AppleOnboardAudio[%p]::init\n", this);
+    debugIOLog (3, "+ AppleOnboardAudio[%p]::init", this);
 
     if (!super::init(properties)) return false;
         
@@ -49,15 +56,19 @@ bool AppleOnboardAudio::init (OSDictionary *properties)
 
 	mUCState.ucPowerState = kIOAudioDeviceActive;
 
-    debugIOLog("- AppleOnboardAudio::init\n");
+    debugIOLog (3, "- AppleOnboardAudio[%p]::init", this);
     return true;
 }
 
 bool AppleOnboardAudio::start (IOService * provider) {
 	bool								result;
 
-    debug3IOLog ("+ AppleOnboardAudio[%p]::start (%p)\n", this, provider);
+    debugIOLog (3, "+ AppleOnboardAudio[%ld]::start (%p)", mInstanceIndex, provider);
 	result = FALSE;
+
+	AppleOnboardAudio::sInstanceCount++;
+	
+	mInstanceIndex = AppleOnboardAudio::sInstanceCount;
 
 	mProvider = provider;
 	provider->open (this);
@@ -68,7 +79,7 @@ bool AppleOnboardAudio::start (IOService * provider) {
 	mInitHardwareThread = thread_call_allocate ((thread_call_func_t)AppleOnboardAudio::initHardwareThread, (thread_call_param_t)this);
 	FailIf (NULL == mInitHardwareThread, Exit);
 
-    debug3IOLog ("- AppleOnboardAudio[%p]::start (%p)\n", this, provider);
+    debugIOLog (3, "- AppleOnboardAudio[%ld]::start (%p)", mInstanceIndex, provider);
 
 	result = super::start (provider);				// Causes our initHardware routine to be called.
 
@@ -80,7 +91,7 @@ bool AppleOnboardAudio::handleOpen (IOService * forClient, IOOptionBits options,
 {
 	bool							result;
 
-	debug2IOLog ("AppleOnboardAudio::handleOpen(%p)\n", forClient);
+	debugIOLog (3, "AppleOnboardAudio::handleOpen(%p)", forClient);
 
 	if (kFamilyOption_OpenMultiple == options) {
 		result = true;
@@ -92,13 +103,13 @@ bool AppleOnboardAudio::handleOpen (IOService * forClient, IOOptionBits options,
 	registerPlugin ( (AudioHardwareObjectInterface *)forClient );
 
 Exit:
-	debug3IOLog ("AppleOnboardAudio::handleOpen(%p) returns %s\n", forClient, result == true ? "true" : "false");
+	debugIOLog (3, "AppleOnboardAudio::handleOpen(%p) returns %s", forClient, result == true ? "true" : "false");
 	return result;
 }
 
 void AppleOnboardAudio::handleClose (IOService * forClient, IOOptionBits options ) 
 {
-	debug2IOLog ("AppleOnboardAudio::handleClose(%p)\n", forClient);
+	debugIOLog (3, "AppleOnboardAudio::handleClose(%p)", forClient);
 
 	unRegisterPlugin ( (AudioHardwareObjectInterface *)forClient );
 
@@ -123,7 +134,7 @@ bool AppleOnboardAudio::willTerminate ( IOService * provider, IOOptionBits optio
 			if((NULL != thePluginObject)) {
 				thePluginObject->terminate();
 				mPluginObjects->removeObject(index);
-				debug2IOLog ("AppleOnboardAudio::willTerminate terminated  (%p)\n", thePluginObject);
+				debugIOLog (3, "AppleOnboardAudio::willTerminate terminated  (%p)", thePluginObject);
 			}
 		}
 	}
@@ -133,7 +144,7 @@ bool AppleOnboardAudio::willTerminate ( IOService * provider, IOOptionBits optio
 
 	provider->close(this);
 
-	debug3IOLog("AppleOnboardAudio::willTerminate(%p) returns %d\n", provider, result);
+	debugIOLog (3, "AppleOnboardAudio::willTerminate(%p) returns %d", provider, result);
 
 	return result;
 }
@@ -142,12 +153,12 @@ bool AppleOnboardAudio::willTerminate ( IOService * provider, IOOptionBits optio
 void AppleOnboardAudio::registerPlugin (AudioHardwareObjectInterface *thePlugin) {
 //	IOCommandGate *				cg;
 
-	debug2IOLog ("AppleOnboardAudio::registerPlugin (%p)\n", thePlugin);
+	debugIOLog (3, "AppleOnboardAudio::registerPlugin (%p)", thePlugin);
 /*	cg = getCommandGate ();
 	if (NULL != cg) {
 		cg->runAction (registerPluginAction, thePlugin);
 	} else {
-		debugIOLog ("no command gate for registering a plugin!\n");
+		debugIOLog (3, "no command gate for registering a plugin!");
 	}*/
 	
 	FailIf ( NULL == mPluginObjects, Exit );
@@ -159,11 +170,18 @@ Exit:
 
 void AppleOnboardAudio::stop (IOService * provider) {
 
+	if ( NULL != aoaNotifier ) {
+		aoaNotifier->remove();
+	}
+	
+	FailIf ( mProvider != provider, Exit );
 	if (NULL != mSysPowerDownNotifier) {
 		mSysPowerDownNotifier->remove ();
 		mSysPowerDownNotifier = NULL;
 	}
 
+	mTerminating = TRUE;
+	
 	if (idleTimer) {
 		if (workLoop) {
 			workLoop->removeEventSource (idleTimer);
@@ -171,6 +189,13 @@ void AppleOnboardAudio::stop (IOService * provider) {
 
 		idleTimer->release ();
 		idleTimer = NULL;
+	}
+	
+	if (mSoftwareInterruptHandler) {
+		if (workLoop) {
+			workLoop->removeEventSource (mSoftwareInterruptHandler);
+			mSoftwareInterruptHandler->release ();
+		}
 	}
 	
 	if ( pollTimer ) {
@@ -182,8 +207,6 @@ void AppleOnboardAudio::stop (IOService * provider) {
 		pollTimer = NULL;
 	}
 
-	mTerminating = TRUE;
-	
 	// [3253678]
 	callPluginsInOrder ( kSetMuteState, TRUE );						//	[3435307]	rbm
 	
@@ -191,7 +214,8 @@ void AppleOnboardAudio::stop (IOService * provider) {
 		thread_call_cancel (mPowerThread);
 	}
 
-	debug3IOLog ("AppleOnboardAudio::stop(), audioEngines = %p, isInactive() = %d\n", audioEngines, isInactive());
+	debugIOLog (3, "AppleOnboardAudio::stop(), audioEngines = %p, isInactive() = %d", audioEngines, isInactive());
+Exit:
 	super::stop (provider);
 }
 
@@ -200,7 +224,7 @@ void AppleOnboardAudio::unRegisterPlugin (AudioHardwareObjectInterface *inPlugin
 	UInt32								index;
 	UInt32								count;
 
-	debug2IOLog ("AppleOnboardAudio::unRegisterPlugin (%p)\n", inPlugin);
+	debugIOLog (3, "AppleOnboardAudio::unRegisterPlugin (%p)", inPlugin);
 
 	if (NULL != mPluginObjects) {
 		count = mPluginObjects->getCount ();
@@ -208,7 +232,7 @@ void AppleOnboardAudio::unRegisterPlugin (AudioHardwareObjectInterface *inPlugin
 			thePluginObject = getIndexedPluginObject (index);
 			if ((NULL != thePluginObject) && (inPlugin == thePluginObject)) {
 				mPluginObjects->removeObject(index);
-				debug2IOLog ("removed  (%p)\n", inPlugin);
+				debugIOLog (3, "removed  (%p)", inPlugin);
 			}
 		}
 	}
@@ -220,7 +244,7 @@ IOReturn AppleOnboardAudio::registerPluginAction (OSObject *owner, void *arg1, v
 	AppleOnboardAudio *			device;
 
 	device = OSDynamicCast (AppleOnboardAudio, owner);
-	debug2IOLog ("AppleOnboardAudio::plugin %p registering\n", arg1);
+	debugIOLog (3, "AppleOnboardAudio::plugin %p registering", arg1);
 
 	if (NULL == device->mPluginObjects) {
 		device->mPluginObjects = OSArray::withCapacity (1);
@@ -233,17 +257,22 @@ Exit:
 	return kIOReturnSuccess;
 }
 
-OSObject * AppleOnboardAudio::getLayoutEntry (const char * entryID) {
+OSObject * AppleOnboardAudio::getLayoutEntry (const char * entryID, AppleOnboardAudio * theAOA) {
 	OSArray *							layouts;
 	OSDictionary *						layoutEntry;
 	OSObject *							entry;
 
 	entry = NULL;
 
-	layouts = OSDynamicCast (OSArray, getProperty (kLayouts));
+	layouts = OSDynamicCast (OSArray, theAOA->getProperty (kLayouts));
 	FailIf (NULL == layouts, Exit);
 
+#ifdef REMOVE_LAYOUTS
 	layoutEntry = OSDynamicCast (OSDictionary, layouts->getObject (0));
+#else
+	layoutEntry = OSDynamicCast (OSDictionary, layouts->getObject (mMatchingIndex));
+#endif
+
 	FailIf (NULL == layoutEntry, Exit);
 
 	entry = OSDynamicCast (OSObject, layoutEntry->getObject (entryID));
@@ -269,7 +298,7 @@ bool AppleOnboardAudio::hasMasterVolumeControl (const char * outputEntry) {
 
 	hasMasterVolControl = FALSE;
 
-	dictEntry = OSDynamicCast (OSDictionary, getLayoutEntry (outputEntry));
+	dictEntry = OSDynamicCast (OSDictionary, getLayoutEntry (outputEntry, this));
 	FailIf (NULL == dictEntry, Exit);
 	controlsArray = OSDynamicCast (OSArray, dictEntry->getObject (kControls));
 	FailIf (NULL == controlsArray, Exit);
@@ -302,7 +331,7 @@ bool AppleOnboardAudio::hasLeftVolumeControl (const char * outputEntry) {
 
 	hasLeftVolControl = FALSE;
 
-	dictEntry = OSDynamicCast (OSDictionary, getLayoutEntry (outputEntry));
+	dictEntry = OSDynamicCast (OSDictionary, getLayoutEntry (outputEntry, this));
 	FailIf (NULL == dictEntry, Exit);
 	controlsArray = OSDynamicCast (OSArray, dictEntry->getObject (kControls));
 	FailIf (NULL == controlsArray, Exit);
@@ -335,7 +364,7 @@ bool AppleOnboardAudio::hasRightVolumeControl (const char * outputEntry) {
 
 	hasRightVolControl = FALSE;
 
-	dictEntry = OSDynamicCast (OSDictionary, getLayoutEntry (outputEntry));
+	dictEntry = OSDynamicCast (OSDictionary, getLayoutEntry (outputEntry, this));
 	FailIf (NULL == dictEntry, Exit);
 	controlsArray = OSDynamicCast (OSArray, dictEntry->getObject (kControls));
 	FailIf (NULL == controlsArray, Exit);
@@ -358,10 +387,10 @@ void AppleOnboardAudio::setUseInputGainControls (const char * inputEntry) {
 	UInt32							controlsCount;
 	UInt32							index;
 
-	debug2IOLog("AppleOnboardAudio::setUseInputGainControls(%s)\n", inputEntry);
-	mUseInputGainControls = FALSE;
+	debugIOLog (3, "AppleOnboardAudio::setUseInputGainControls(%s)", inputEntry);
+	mUseInputGainControls = kNoInputGainControls;
 
-	dictEntry = OSDynamicCast (OSDictionary, getLayoutEntry (inputEntry));
+	dictEntry = OSDynamicCast (OSDictionary, getLayoutEntry (inputEntry, this));
 	FailIf (NULL == dictEntry, Exit);
 
 	controlsArray = OSDynamicCast (OSArray, dictEntry->getObject (kControls));
@@ -371,8 +400,11 @@ void AppleOnboardAudio::setUseInputGainControls (const char * inputEntry) {
 	for (index = 0; index < controlsCount; index++) {
 		controlString = OSDynamicCast (OSString, controlsArray->getObject (index));
 		if ((NULL != controlString) && (controlString->isEqualTo (kLeftVolControlString) || controlString->isEqualTo (kRightVolControlString))) {
-			mUseInputGainControls = TRUE;
-			debugIOLog("mUseInputGainControls = true\n");
+			mUseInputGainControls = kStereoInputGainControls;
+			debugIOLog (3, "mUseInputGainControls = kStereoInputGainControls");
+		} else if ((NULL != controlString) && (controlString->isEqualTo (kMasterVolControlString))) {
+			mUseInputGainControls = kMonoInputGainControl;
+			debugIOLog (3, "mUseInputGainControls = kMonoInputGainControl");
 		}
 	}
 Exit:
@@ -385,10 +417,10 @@ void AppleOnboardAudio::setUsePlaythroughControl (const char * inputEntry) {
 	OSDictionary *					dictEntry;
 	OSBoolean *						playthroughOSBoolean;
 
-	debug2IOLog( "AppleOnboardAudio::setUsePlaythroughControl(%s)\n", inputEntry );
+	debugIOLog (3,  "AppleOnboardAudio::setUsePlaythroughControl(%s)", inputEntry );
 	mUsePlaythroughControl = FALSE;
 
-	dictEntry = OSDynamicCast ( OSDictionary, getLayoutEntry ( inputEntry ) );
+	dictEntry = OSDynamicCast ( OSDictionary, getLayoutEntry ( inputEntry, this) );
 	FailIf ( NULL == dictEntry, Exit );
 
 	playthroughOSBoolean = OSDynamicCast ( OSBoolean, dictEntry->getObject ( kPlaythroughControlString ) );
@@ -396,7 +428,7 @@ void AppleOnboardAudio::setUsePlaythroughControl (const char * inputEntry) {
 
 	mUsePlaythroughControl = playthroughOSBoolean->getValue ();
 Exit:
-	debug2IOLog( "mUsePlaythroughControl = %d\n", mUsePlaythroughControl );
+	debugIOLog (3,  "mUsePlaythroughControl = %d", mUsePlaythroughControl );
 	return;
 }
 //	[3281535]	} end
@@ -411,14 +443,15 @@ IOReturn AppleOnboardAudio::formatChangeRequest (const IOAudioStreamFormat * inF
 	callPluginsInOrder ( kSetMuteState, TRUE );						//	[3253678], [3435307]	rbm
 
 	if (NULL != inFormat) {
-		debug2IOLog ("AppleOnboardAudio::formatChangeRequest with bit width %d\n", inFormat->fBitWidth);
+		debugIOLog (3, "AppleOnboardAudio::formatChangeRequest with bit width %d", inFormat->fBitWidth);
 		result = mTransportInterface->transportSetSampleWidth (inFormat->fBitDepth, inFormat->fBitWidth);
 		callPluginsInOrder (kSetSampleBitDepth, inFormat->fBitDepth);
 		if (kIOAudioStreamSampleFormat1937AC3 == inFormat->fSampleFormat) {
-			FailIf (NULL == mOutputSelector, Exit);
-			connectionCodeNumber = OSNumber::withNumber (kIOAudioOutputPortSubTypeSPDIF, 32);
-			mOutputSelector->setValue (connectionCodeNumber);
-			mEncodedOutputFormat = true;
+			if (NULL != mOutputSelector) {
+				connectionCodeNumber = OSNumber::withNumber (kIOAudioOutputPortSubTypeSPDIF, 32);
+				mOutputSelector->setValue (connectionCodeNumber);
+				mEncodedOutputFormat = true;
+			}
 		} else {
 			mEncodedOutputFormat = false;		
 		}
@@ -427,7 +460,7 @@ IOReturn AppleOnboardAudio::formatChangeRequest (const IOAudioStreamFormat * inF
 	if (NULL != inRate) {
 		mSampleRateSelectInProcessSemaphore = true;
 		
-		debug2IOLog ("AppleOnboardAudio::formatChangeRequest with rate %ld\n", inRate->whole);
+		debugIOLog (3, "AppleOnboardAudio::formatChangeRequest with rate %ld", inRate->whole);
 		result = mTransportInterface->transportSetSampleRate (inRate->whole);
 		callPluginsInOrder (kSetSampleRate, inRate->whole);
 		
@@ -443,303 +476,10 @@ IOReturn AppleOnboardAudio::formatChangeRequest (const IOAudioStreamFormat * inF
 	}
 
 	// [3253678], [3435307]	Don't change amplifier mutes in response to UI.	RBM
-	selectOutput (mOutputSelector->getIntValue (), mIsMute);
-
-Exit:
+	if ( NULL != mOutputSelector ) {
+		selectOutput (mOutputSelector->getIntValue (), mIsMute);
+	}
 	return result;
-}
-
-void AppleOnboardAudio::interruptEventHandler (UInt32 statusSelector, UInt32 newValue) {
-	IOCommandGate *						cg;
-	
-	cg = getCommandGate ();
-	if (NULL != cg) {
-		cg->runAction (interruptEventHandlerAction, (void *)statusSelector, (void *)newValue);
-	}
-
-	return;
-}
-
-// Must be called on the workloop via runAction()
-IOReturn AppleOnboardAudio::interruptEventHandlerAction (OSObject * owner, void * arg1, void * arg2, void * arg3, void * arg4) {
-	IOReturn 							result;
-	AppleOnboardAudio * 				aoa;
-	
-	result = kIOReturnError;
-	
-#ifdef kVERBOSE_LOG
-	debug6IrqIOLog ("AppleOnboardAudio:: interruptEventAction - (%p, %ld, %ld, %ld, %ld)\n", owner, (UInt32)arg1, (UInt32)arg2, (UInt32)arg3, (UInt32)arg4);
-#endif
-	
-	aoa = (AppleOnboardAudio *)owner;
-	FailIf (NULL == aoa, Exit);
-	aoa->protectedInterruptEventHandler ((UInt32)arg1, (UInt32)arg2);
-
-	result = kIOReturnSuccess;
-Exit:
-	return result;
-}
-
-// Must run on the workloop because we might modify audio controls.
-void AppleOnboardAudio::protectedInterruptEventHandler (UInt32 statusSelector, UInt32 newValue) {
-	AudioHardwareObjectInterface *		thePlugin;
-	OSNumber * 							connectionCodeNumber;
-	char * 								pluginString;
-	UInt32 								selectorCode;
-
-	selectorCode = getCharCodeForIntCode (statusSelector);
-
-#ifdef kVERBOSE_LOG
-	switch ( statusSelector ) {
-		case kInternalSpeakerStatus:		debug3IrqIOLog ("AppleOnboardAudio::protectedInterruptEventHandler ( kInternalSpeakerStatus, '%4s', %ld )\n", (char*)&selectorCode, newValue);		break;
-		case kHeadphoneStatus:				debug3IrqIOLog ("AppleOnboardAudio::protectedInterruptEventHandler ( kHeadphoneStatus, '%4s', %ld )\n", (char*)&selectorCode, newValue);			break;
-		case kExtSpeakersStatus:			debug3IrqIOLog ("AppleOnboardAudio::protectedInterruptEventHandler ( kExtSpeakersStatus, '%4s', %ld )\n", (char*)&selectorCode, newValue);			break;
-		case kLineOutStatus:				debug3IrqIOLog ("AppleOnboardAudio::protectedInterruptEventHandler ( kLineOutStatus, '%4s', %ld )\n", (char*)&selectorCode, newValue);				break;
-		case kDigitalOutStatus:				debug3IrqIOLog ("AppleOnboardAudio::protectedInterruptEventHandler ( kDigitalOutStatus, '%4s', %ld )\n", (char*)&selectorCode, newValue);			break;
-		case kLineInStatus:					debug3IrqIOLog ("AppleOnboardAudio::protectedInterruptEventHandler ( kLineInStatus, '%4s', %ld )\n", (char*)&selectorCode, newValue);				break;
-		case kInputMicStatus:				debug3IrqIOLog ("AppleOnboardAudio::protectedInterruptEventHandler ( kInputMicStatus, '%4s', %ld )\n", (char*)&selectorCode, newValue);				break;
-		case kExternalMicInStatus:			debug3IrqIOLog ("AppleOnboardAudio::protectedInterruptEventHandler ( kExternalMicInStatus, '%4s', %ld )\n", (char*)&selectorCode, newValue);		break;
-		case kDigitalInStatus:				debug3IrqIOLog ("AppleOnboardAudio::protectedInterruptEventHandler ( kDigitalInStatus, '%4s', %ld )\n", (char*)&selectorCode, newValue);			break;
-		case kRequestCodecRecoveryStatus:	debug3IrqIOLog ("AppleOnboardAudio::protectedInterruptEventHandler ( kRequestCodecRecoveryStatus, '%4s', %ld )\n", (char*)&selectorCode, newValue);	break;
-		case kClockInterruptedRecovery:		debug3IrqIOLog ("AppleOnboardAudio::protectedInterruptEventHandler ( kClockInterruptedRecovery, '%4s', %ld )\n", (char*)&selectorCode, newValue);	break;
-		case kClockLockStatus:				debug3IrqIOLog ("AppleOnboardAudio::protectedInterruptEventHandler ( kClockLockStatus, '%4s', %ld )\n", (char*)&selectorCode, newValue);			break;
-		case kAES3StreamErrorStatus:		debug3IrqIOLog ("AppleOnboardAudio::protectedInterruptEventHandler ( kAES3StreamErrorStatus, '%4s', %ld )\n", (char*)&selectorCode, newValue);		break;
-		case kComboIsAnalogStatus:			debug3IrqIOLog ("AppleOnboardAudio::protectedInterruptEventHandler ( kComboIsAnalogStatus, '%4s', %ld )\n", (char*)&selectorCode, newValue);		break;
-		case kComboIsDigitalStatus:			debug3IrqIOLog ("AppleOnboardAudio::protectedInterruptEventHandler ( kComboIsDigitalStatus, '%4s', %ld )\n", (char*)&selectorCode, newValue);		break;
-		case kCodecErrorInterruptStatus:	debug3IrqIOLog ("AppleOnboardAudio::protectedInterruptEventHandler ( kCodecErrorInterruptStatus, '%4s', %ld )\n", (char*)&selectorCode, newValue);	break;
-		case kCodecInterruptStatus:			debug3IrqIOLog ("AppleOnboardAudio::protectedInterruptEventHandler ( kCodecInterruptStatus, '%4s', %ld )\n", (char*)&selectorCode, newValue);		break;
-		case kBreakClockSelect:				debug3IrqIOLog ("AppleOnboardAudio::protectedInterruptEventHandler ( kBreakClockSelect, '%4s', %ld )\n", (char*)&selectorCode, newValue);			break;
-		case kMakeClockSelect:				debug3IrqIOLog ("AppleOnboardAudio::protectedInterruptEventHandler ( kMakeClockSelect, '%4s', %ld )\n", (char*)&selectorCode, newValue);			break;
-		case kSetSampleRate:				debug3IrqIOLog ("AppleOnboardAudio::protectedInterruptEventHandler ( kSetSampleRate, '%4s', %ld )\n", (char*)&selectorCode, newValue);				break;
-		case kSetSampleBitDepth:			debug3IrqIOLog ("AppleOnboardAudio::protectedInterruptEventHandler ( kSetSampleBitDepth, '%4s', %ld )\n", (char*)&selectorCode, newValue);			break;
-		case kPowerStateChange:				debug3IrqIOLog ("AppleOnboardAudio::protectedInterruptEventHandler ( kPreDMAEngineInit, '%4s', %ld )\n", (char*)&selectorCode, newValue);			break;
-		case kPreDMAEngineInit:				debug3IrqIOLog ("AppleOnboardAudio::protectedInterruptEventHandler ( kPreDMAEngineInit, '%4s', %ld )\n", (char*)&selectorCode, newValue);			break;
-		case kPostDMAEngineInit:			debug3IrqIOLog ("AppleOnboardAudio::protectedInterruptEventHandler ( kPostDMAEngineInit, '%4s', %ld )\n", (char*)&selectorCode, newValue);			break;
-		case kRestartTransport:				debug3IrqIOLog ("AppleOnboardAudio::protectedInterruptEventHandler ( kRestartTransport, '%4s', %ld )\n", (char*)&selectorCode, newValue);			break;
-	}
-#endif
-
-	switch (statusSelector) {
-		case kHeadphoneStatus:
-			debug2IOLog ( "kHeadphoneStatus mDetectCollection prior to modification %lX\n", mDetectCollection );
-			if (newValue == kInserted) {
-				mDetectCollection |= kSndHWCPUHeadphone;
-				debug2IOLog ("headphones inserted, mDetectCollection = %lX\n", mDetectCollection);
-			} else if (newValue == kRemoved) {
-				mDetectCollection &= ~kSndHWCPUHeadphone;
-				debug2IOLog ("headphones removed, mDetectCollection = %lX\n", mDetectCollection);
-			} else {
-				debug2IOLog ("Unknown headphone jack status, mDetectCollection = %lX\n", mDetectCollection);
-			}
-			break;
-		case kLineOutStatus:
-			debug2IOLog ( "kLineOutStatus mDetectCollection prior to modification %lX\n", mDetectCollection );
-			if (newValue == kInserted) {
-				mDetectCollection |= kSndHWLineOutput;
-				debugIOLog ("line out inserted.\n");
-			} else if (newValue == kRemoved) {
-				mDetectCollection &= ~kSndHWLineOutput;
-				debugIOLog ("line out removed.\n");
-			} else {
-				debugIOLog ("Unknown line out jack status.\n");
-			}
-			break;
-		case kLineInStatus:
-			debug2IOLog ( "kLineInStatus mDetectCollection prior to modification %lX\n", mDetectCollection );
-			if (newValue == kInserted) {
-				mDetectCollection |= kSndHWLineInput;
-			} else if (newValue == kRemoved) {
-				mDetectCollection &= ~kSndHWLineInput;
-			} else {
-				debugIOLog ("Unknown line in status.\n");
-			}
-			break;
-		case kExtSpeakersStatus:												//	[3398729]	begin	{
-			debug2IOLog ( "kExtSpeakersStatus mDetectCollection prior to modification %lX\n", mDetectCollection );
-			if (newValue == kInserted) {
-				mDetectCollection &= ~kSndHWInternalSpeaker;
-				mDetectCollection |= kSndHWCPUExternalSpeaker;
-				//	[3413551]	begin	{
-				if ( ( NULL != mInternalSpeakerOutputString ) && ( NULL != mExternalSpeakerOutputString ) ) {
-					mOutputSelector->removeAvailableSelection ( kIOAudioOutputPortSubTypeInternalSpeaker );
-					mOutputSelector->addAvailableSelection (kIOAudioOutputPortSubTypeExternalSpeaker, mExternalSpeakerOutputString);
-				}
-				//	}	end		[3413551]
-				debug2IOLog ("external speakers inserted, mDetectCollection = %lX\n", mDetectCollection);
-			} else if (newValue == kRemoved) {
-				mDetectCollection &= ~kSndHWCPUExternalSpeaker;
-				mDetectCollection |= kSndHWInternalSpeaker;
-				//	[3413551]	begin	{
-				if ( ( NULL != mInternalSpeakerOutputString ) && ( NULL != mExternalSpeakerOutputString ) ) {
-					mOutputSelector->removeAvailableSelection ( kIOAudioOutputPortSubTypeExternalSpeaker );
-					mOutputSelector->addAvailableSelection (kIOAudioOutputPortSubTypeInternalSpeaker, mInternalSpeakerOutputString);
-				}
-				//	}	end		[3413551]
-				debug2IOLog ("external speakers removed, mDetectCollection = %lX\n", mDetectCollection);
-			} else {
-				debug2IOLog ("Unknown external speakers jack status, mDetectCollection = %lX\n", mDetectCollection);
-			}
-			break;																//	}	end	[3398729]
-	}
-
-	switch (statusSelector) {
-		case kHeadphoneStatus:
-		case kLineOutStatus:
-		case kExtSpeakersStatus:													//	[3398729]
-			// [3279525] when exclusive, handle redirection
-			if (kLineOutStatus == statusSelector) {
-				if ( mDetectCollection & kSndHWLineOutput ) {
-					selectorCode = kIOAudioOutputPortSubTypeLine;
-				} else if ( mDetectCollection & kSndHWCPUHeadphone ) {
-					selectorCode = kIOAudioOutputPortSubTypeHeadphones;
-				} else if ( mDetectCollection & kSndHWCPUExternalSpeaker ) {		//	[3398729]	begin	{
-					selectorCode = kIOAudioOutputPortSubTypeExternalSpeaker;
-				} else if ( mDetectCollection & kSndHWInternalSpeaker ) {
-					selectorCode = kIOAudioOutputPortSubTypeInternalSpeaker;
-				} else {
-					debugIOLog ( "UNKNOWN device so selecting INTERNAL SPEAKER\n" );
-					selectorCode = kIOAudioOutputPortSubTypeInternalSpeaker;
-				}																	//	}	end	[3398729]
-			} else if (kHeadphoneStatus == statusSelector) {
-				if ( mDetectCollection & kSndHWCPUHeadphone ) {
-					selectorCode = kIOAudioOutputPortSubTypeHeadphones;
-				} else if ( mDetectCollection & kSndHWLineOutput ) {
-					selectorCode = kIOAudioOutputPortSubTypeLine;
-				} else if ( mDetectCollection & kSndHWCPUExternalSpeaker ) {		//	[3398729]	begin	{
-					selectorCode = kIOAudioOutputPortSubTypeExternalSpeaker;
-				} else if ( mDetectCollection & kSndHWInternalSpeaker ) {
-					selectorCode = kIOAudioOutputPortSubTypeInternalSpeaker;
-				} else {															//	}	end	[3398729]
-					debugIOLog ( "UNKNOWN device so selecting INTERNAL SPEAKER\n" );
-					selectorCode = kIOAudioOutputPortSubTypeInternalSpeaker;
-				}
-			} else if (kExtSpeakersStatus == statusSelector) {						//	[3398729]	begin	{
-				if ( mDetectCollection & kSndHWLineOutput ) {
-					selectorCode = kIOAudioOutputPortSubTypeLine;
-				} else if ( mDetectCollection & kSndHWCPUHeadphone ) {
-					selectorCode = kIOAudioOutputPortSubTypeHeadphones;
-				} else if ( mDetectCollection & kSndHWCPUExternalSpeaker ) {
-					selectorCode = kIOAudioOutputPortSubTypeExternalSpeaker;
-				} else if ( mDetectCollection & kSndHWInternalSpeaker ) {
-					selectorCode = kIOAudioOutputPortSubTypeInternalSpeaker;
-				} else {
-					debugIOLog ( "UNKNOWN device so selecting INTERNAL SPEAKER\n" );
-					selectorCode = kIOAudioOutputPortSubTypeInternalSpeaker;
-				}
-			}																		//	}	end	[3398729]
-			debug3IOLog ( "mDetectCollection prior to modification %lX, selectorCode '%4s'\n", mDetectCollection, (char*)&selectorCode );
-
-			connectionCodeNumber = OSNumber::withNumber (selectorCode, 32);
-			// [3250195], must update this too!  Otherwise you get the right output selected but with the wrong clip routine/EQ.
-			pluginString = getConnectionKeyFromCharCode (selectorCode, kIOAudioStreamDirectionOutput);
-			debug2IOLog ("pluginString updated to %s.\n", pluginString);
-			// [3323073], move code from above, and now set the current output plugin if it's changing!
-			thePlugin = getPluginObjectForConnection (pluginString);
-			FailIf (NULL == thePlugin, Exit);
-			
-			cacheOutputVolumeLevels (mCurrentOutputPlugin);
-			mCurrentOutputPlugin = thePlugin;
-			
-			// [3250195], current plugin doesn't matter here, always need these updated
-			setClipRoutineForOutput (pluginString);
-			selectOutput (selectorCode, mIsMute);
-			if (NULL == mOutputSelector) debugIOLog ("\n!!!mOutputSelector = NULL!!!\n");
-			FailIf (NULL == mOutputSelector, Exit);
-			mOutputSelector->hardwareValueChanged (connectionCodeNumber);
-			setSoftwareOutputDSP (pluginString);
-
-			connectionCodeNumber->release();
-
-			// [3317593], always update controls, regardless of who the current output plugin is
-			AdjustOutputVolumeControls (thePlugin, selectorCode);
-			
-			// [3284911]
-			OSNumber *			headphoneState;
-			if (mDetectCollection & kSndHWCPUHeadphone) {
-				headphoneState = OSNumber::withNumber (1, 32);
-			} else {
-				headphoneState = OSNumber::withNumber ((long long unsigned int)0, 32);
-			}
-			mHeadphoneConnected->hardwareValueChanged (headphoneState);
-			break;
-		case kDigitalOutStatus:
-			break;
-		case kLineInStatus:
-			// [3250612] don't do anything on insert events!
-			pluginString = getConnectionKeyFromCharCode (selectorCode, kIOAudioStreamDirectionInput);
-			debug2IOLog ("AppleOnboardAudio::protectedInterruptEventHandler - pluginString = %s.\n", pluginString);
-			thePlugin = getPluginObjectForConnection (pluginString);
-			FailIf (NULL == thePlugin, Exit);
-			debug2IOLog ("AppleOnboardAudio::protectedInterruptEventHandler - thePlugin = %p.\n", thePlugin);
-
-			FailIf (NULL == mInputSelector, Exit);
-			selectorCode = mInputSelector->getIntValue ();
-			debug2IOLog("mInputSelector->getIntValue () returns %4s\n", (char *)&selectorCode);
-
-			if ((mDetectCollection & kSndHWLineInput) && (kIOAudioInputPortSubTypeLine == selectorCode)) {
-				thePlugin->setInputMute (FALSE);
-			} else if (!(mDetectCollection & kSndHWLineInput) && (kIOAudioInputPortSubTypeLine == selectorCode)) {
-				thePlugin->setInputMute (TRUE);
-			}
-			break;
-		case kExternalMicInStatus:
-			break;
-		case kDigitalInStatus:
-			break;
-		case kRequestCodecRecoveryStatus:
-			//	Walk through the available plugin objects and invoke the recoverFromFatalError on each object in the correct order.
-			callPluginsInOrder (kRequestCodecRecoveryStatus, newValue);
-			break;
-		case kRestartTransport:
-			//	This message is used to restart the transport hardware without invoking a general recovery or
-			//	a recovery from clock interruption and is used to perform sequence sensitive initialization.
-			mTransportInterface->transportSetSampleRate ( mTransportInterface->transportGetSampleRate() );
-			break;
-		case kCodecErrorInterruptStatus:
-			callPluginsInOrder ( kCodecErrorInterruptStatus, 0 );
-			break;
-		case kCodecInterruptStatus:
-			callPluginsInOrder ( kCodecInterruptStatus, 0 );
-			break;
-		case kClockLockStatus:
-			//	Codec clock loss errors are to be ignored if in the process of switching clock sources.
-			if ( !mClockSelectInProcessSemaphore ) {
-				//	A non-zero 'newValue' indicates an 'UNLOCK' clock lock status and requires that the clock source
-				//	be redirected back to an internal source (i.e. the internal hardware is to act as a MASTER).
-				if ( newValue ) {
-					//	Set the hardware to MASTER mode.
-					clockSelectorChanged ( kClockSourceSelectionInternal );
-					if ( NULL != mExternalClockSelector ) {
-						//	Flush the control value (i.e. MASTER = internal).
-						OSNumber *			clockSourceSelector;
-						clockSourceSelector = OSNumber::withNumber (kClockSourceSelectionInternal, 32);
-						
-						mExternalClockSelector->hardwareValueChanged (clockSourceSelector);
-					}
-				} else {
-					//	[3435307]	Dont touch amplifier mutes related to UI.	RBM
-					//	[3253678]	successful lock detected, now safe to unmute analog part
-					callPluginsInOrder ( kSetMuteState, mIsMute );
-				}
-			} else {
-				debugIOLog ( "Attempted to post kClockLockStatus blocked by semaphore\n" );
-			}
-			break;
-		case kAES3StreamErrorStatus:
-			//	indicates that the V bit states data is invalid or may be compressed data
-			debug2IrqIOLog ( "... kAES3StreamErrorStatus %d\n", (unsigned int)newValue );
-			if ( newValue ) {
-				//	As appropriate (TBD)...
-			}
-			break;
-		default:
-			break;
-	}
-Exit:
-#ifdef kVERBOSE_LOG
-	debugIOLog ( "- AppleOnboardAudio::protedtedInterruptEventHandler\n" );
-#endif
-	return;
 }
 
 IOReturn AppleOnboardAudio::callPluginsInReverseOrder (UInt32 inSelector, UInt32 newValue) {
@@ -750,10 +490,10 @@ IOReturn AppleOnboardAudio::callPluginsInReverseOrder (UInt32 inSelector, UInt32
 	UInt32								pluginOrderArrayCount;
 	IOReturn							result;
 
-	debug3IOLog ("AppleOnboardAudio::callPluginsInReverseOrder (%lX, %lX)\n", inSelector, newValue);
+	debugIOLog (3, "AppleOnboardAudio::callPluginsInReverseOrder (%lX, %lX)", inSelector, newValue);
 	result = kIOReturnBadArgument;
 
-	pluginOrderArray = OSDynamicCast (OSArray, getLayoutEntry (kPluginRecoveryOrder));
+	pluginOrderArray = OSDynamicCast (OSArray, getLayoutEntry (kPluginRecoveryOrder, this));
 	FailIf (NULL == pluginOrderArray, Exit);
 
 	pluginOrderArrayCount = pluginOrderArray->getCount ();
@@ -761,12 +501,12 @@ IOReturn AppleOnboardAudio::callPluginsInReverseOrder (UInt32 inSelector, UInt32
 	for (index = pluginOrderArrayCount - 1; index >= 0; index--) {
 		pluginName = OSDynamicCast(OSString, pluginOrderArray->getObject(index));
 		if (NULL == pluginName) {
-			debug2IOLog ("Corrupt %s entry in AppleOnboardAudio Info.plist\n", kPluginRecoveryOrder);
+			debugIOLog (3, "Corrupt %s entry in AppleOnboardAudio Info.plist", kPluginRecoveryOrder);
 			continue;
 		}
 		thePluginObject = getPluginObjectWithName (pluginName);
 		if (NULL == thePluginObject) {
-			debug2IOLog ("Can't find required AppleOnboardAudio plugin from %s entry loaded\n", kPluginRecoveryOrder);
+			debugIOLog (3, "Can't find required AppleOnboardAudio plugin from %s entry loaded", kPluginRecoveryOrder);
 			continue;
 		}
 
@@ -812,13 +552,13 @@ IOReturn AppleOnboardAudio::callPluginsInOrder (UInt32 inSelector, UInt32 newVal
 	UInt32								pluginOrderArrayCount;
 	IOReturn							tempResult;
 	IOReturn							result;
+	bool								boolResult;
 	
-#ifdef kVERBOSE_LOG
-	debug3IrqIOLog ("AppleOnboardAudio::callPluginsInOrder (%lX, %lX)\n", inSelector, newValue);
-#endif
+	debugIOLog (7, "AppleOnboardAudio::callPluginsInOrder (%lX, %lX)", inSelector, newValue);
+
 	result = kIOReturnBadArgument;
 
-	pluginOrderArray = OSDynamicCast (OSArray, getLayoutEntry (kPluginRecoveryOrder));
+	pluginOrderArray = OSDynamicCast (OSArray, getLayoutEntry (kPluginRecoveryOrder, this));
 	FailIf (NULL == pluginOrderArray, Exit);
 
 	pluginOrderArrayCount = pluginOrderArray->getCount ();
@@ -827,12 +567,12 @@ IOReturn AppleOnboardAudio::callPluginsInOrder (UInt32 inSelector, UInt32 newVal
 	for (index = 0; index < pluginOrderArrayCount; index++) {
 		pluginName = OSDynamicCast(OSString, pluginOrderArray->getObject(index));
 		if (NULL == pluginName) {
-			debug2IOLog ("Corrupt %s entry in AppleOnboardAudio Info.plist\n", kPluginRecoveryOrder);
+			debugIOLog (3, "Corrupt %s entry in AppleOnboardAudio Info.plist", kPluginRecoveryOrder);
 			continue;
 		}
 		thePluginObject = getPluginObjectWithName (pluginName);
 		if (NULL == thePluginObject) {
-			debug2IOLog ("Can't find required AppleOnboardAudio plugin from %s entry loaded\n", kPluginRecoveryOrder);
+			debugIOLog (3, "Can't find required AppleOnboardAudio plugin from %s entry loaded", kPluginRecoveryOrder);
 			continue;
 		}
 
@@ -860,17 +600,29 @@ IOReturn AppleOnboardAudio::callPluginsInOrder (UInt32 inSelector, UInt32 newVal
 				tempResult = thePluginObject->setSampleType ( newValue );
 				break;
 			case kPreDMAEngineInit:
-				tempResult = thePluginObject->preDMAEngineInit ();
+				boolResult = thePluginObject->preDMAEngineInit ();
+				if ( !boolResult ) {
+					debugIOLog (1, "AppleOnboardAudio::callPluginsInOrder: preDMAEngineInit	on thePluginObject %p failed!\n", thePluginObject);	
+					mPluginObjects->removeObject ( index );
+					index--;
+					tempResult = kIOReturnError;
+				}
 				break;
 			case kPostDMAEngineInit:
-				thePluginObject->postDMAEngineInit ();
+				boolResult = thePluginObject->postDMAEngineInit ();
+				if ( !boolResult ) {
+					debugIOLog (1, "AppleOnboardAudio::callPluginsInOrder: postDMAEngineInit on thePluginObject %p failed!\n", thePluginObject);	
+					mPluginObjects->removeObject ( index );
+					index--;
+					tempResult = kIOReturnError;
+				}
 				break;
 			case kPowerStateChange:
 				if (kIOAudioDeviceSleep == newValue) {
-					debug2IOLog("AppleOnboardAudio::callPluginsInOrder ### Telling %s to sleep\n", pluginName->getCStringNoCopy ());
+					debugIOLog (3, "AppleOnboardAudio::callPluginsInOrder ### Telling %s to sleep", pluginName->getCStringNoCopy ());
 					tempResult = thePluginObject->performDeviceSleep ();
 				} else if (kIOAudioDeviceActive == newValue) {
-					debug2IOLog("AppleOnboardAudio::callPluginsInOrder ### Telling %s to wake\n", pluginName->getCStringNoCopy ());
+					debugIOLog (3, "AppleOnboardAudio::callPluginsInOrder ### Telling %s to wake", pluginName->getCStringNoCopy ());
 					tempResult = thePluginObject->performDeviceWake ();
 				} else if (kIOAudioDeviceIdle == newValue) {
 					// thePluginObject->performDeviceIdle ();			// Not implemented because no hardware supports it
@@ -890,15 +642,15 @@ IOReturn AppleOnboardAudio::callPluginsInOrder (UInt32 inSelector, UInt32 newVal
 				thePluginObject->poll ();
 				break;
 			case kSetMuteState:
-				debug2IOLog ( "callPluginsInOrder calls thePluginObject->setMute ( %ld )\n", newValue );
+				debugIOLog (3,  "callPluginsInOrder calls thePluginObject->setMute ( %ld )", newValue );
 				tempResult = thePluginObject->setMute ( newValue );
 				break;
 			case kSetAnalogMuteState:			//	[3435307]	
-				debug2IOLog ( "callPluginsInOrder calls thePluginObject->setMute ( %ld, kAnalogAudioSelector )\n", newValue );
+				debugIOLog (3,  "callPluginsInOrder calls thePluginObject->setMute ( %ld, kAnalogAudioSelector )", newValue );
 				tempResult = thePluginObject->setMute ( newValue, kAnalogAudioSelector );
 				break;
 			case kSetDigitalMuteState:			//	[3435307]	
-				debug2IOLog ( "callPluginsInOrder calls thePluginObject->setMute ( %ld, kDigitalAudioSelector )\n", newValue );
+				debugIOLog (3,  "callPluginsInOrder calls thePluginObject->setMute ( %ld, kDigitalAudioSelector )", newValue );
 				tempResult = thePluginObject->setMute ( newValue, kDigitalAudioSelector );
 				break;
 			default:
@@ -930,10 +682,10 @@ AudioHardwareObjectInterface *	AppleOnboardAudio::findPluginForType ( HardwarePl
 	UInt32								index;
 	UInt32								pluginOrderArrayCount;
 	
-//	debug2IOLog ( "+ AppleOnboardAudio::findPluginForType (%d )\n", (unsigned int)pluginType );
+//	debugIOLog (3,  "+ AppleOnboardAudio::findPluginForType (%d )", (unsigned int)pluginType );
 
 	result = NULL;
-	pluginOrderArray = OSDynamicCast (OSArray, getLayoutEntry (kPluginRecoveryOrder));
+	pluginOrderArray = OSDynamicCast (OSArray, getLayoutEntry (kPluginRecoveryOrder, this));
 	FailIf (NULL == pluginOrderArray, Exit);
 
 	pluginOrderArrayCount = pluginOrderArray->getCount ();
@@ -951,7 +703,7 @@ AudioHardwareObjectInterface *	AppleOnboardAudio::findPluginForType ( HardwarePl
 		}
 	}
 Exit:
-//	debug3IOLog ( "- AppleOnboardAudio::findPluginForType (%d ) returns %p\n", (unsigned int)pluginType, result );
+//	debugIOLog (3,  "- AppleOnboardAudio::findPluginForType (%d ) returns %p", (unsigned int)pluginType, result );
 	return result;
 }
 
@@ -1004,39 +756,41 @@ void AppleOnboardAudio::runPolledTasks ( void ) {
 			transportSampleRate.whole = mTransportInterface->transportGetSampleRate ();
 			transportSampleRate.fraction = 0;
 	
-			if ( mTransportSampleRate.whole != transportSampleRate.whole || mTransportSampleRate.fraction != transportSampleRate.fraction ) {
-				do {
-					err = callPluginsInOrder ( kSetSampleRate, transportSampleRate.whole );
-					if ( kIOReturnSuccess != err ) {
-						IOSleep(1);
-						errorCount++;
-					}
-				} while ( ( errorCount < 3 ) && ( kIOReturnSuccess != err ) );
-				
-				//	If an externally clocked sample rate change is valid for all of the
-				//	hardware plugin objects then retain the new sample rate and notify
-				//	the HAL of the new operating sample rate.  If the sample rate change
-				//	associated with the externally clocked sample rate is not valid for 
-				//	any of the hardware plugin objects then switch back to the internal
-				//	clock to retain a valid sample rate for the hardware.  The hardware
-				//	plugin objects should always be set to the current sample rate regardless
-				//	whether the sample rate is internally or externally clocked.
-				
-				if ( kIOReturnSuccess == err ) {
-					mTransportSampleRate.whole = transportSampleRate.whole;
-					mTransportSampleRate.fraction = transportSampleRate.fraction;
-					mDriverDMAEngine->hardwareSampleRateChanged ( &mTransportSampleRate );
-				} else {
-					//	Set the hardware to MASTER mode.
-					clockSelectorChanged ( kClockSourceSelectionInternal );
-					if ( NULL != mExternalClockSelector ) {
-						//	Flush the control value (i.e. MASTER = internal).
-						OSNumber *			clockSourceSelector;
-						clockSourceSelector = OSNumber::withNumber (kClockSourceSelectionInternal, 32);
-	
-						mExternalClockSelector->hardwareValueChanged (clockSourceSelector);
+			if ( 0 != transportSampleRate.whole ) {
+				if ( mTransportSampleRate.whole != transportSampleRate.whole || mTransportSampleRate.fraction != transportSampleRate.fraction ) {
+					do {
+						err = callPluginsInOrder ( kSetSampleRate, transportSampleRate.whole );
+						if ( kIOReturnSuccess != err ) {
+							IOSleep(1);
+							errorCount++;
+						}
+					} while ( ( errorCount < 3 ) && ( kIOReturnSuccess != err ) );
+					
+					//	If an externally clocked sample rate change is valid for all of the
+					//	hardware plugin objects then retain the new sample rate and notify
+					//	the HAL of the new operating sample rate.  If the sample rate change
+					//	associated with the externally clocked sample rate is not valid for 
+					//	any of the hardware plugin objects then switch back to the internal
+					//	clock to retain a valid sample rate for the hardware.  The hardware
+					//	plugin objects should always be set to the current sample rate regardless
+					//	whether the sample rate is internally or externally clocked.
+					
+					if ( kIOReturnSuccess == err ) {
+						mTransportSampleRate.whole = transportSampleRate.whole;
+						mTransportSampleRate.fraction = transportSampleRate.fraction;
+						mDriverDMAEngine->hardwareSampleRateChanged ( &mTransportSampleRate );
+					} else {
+						//	Set the hardware to MASTER mode.
+						clockSelectorChanged ( kClockSourceSelectionInternal );
+						if ( NULL != mExternalClockSelector ) {
+							//	Flush the control value (i.e. MASTER = internal).
+							OSNumber *			clockSourceSelector;
+							clockSourceSelector = OSNumber::withNumber (kClockSourceSelectionInternal, 32);
 		
-						err = callPluginsInOrder ( kSetSampleRate, mTransportSampleRate.whole );
+							mExternalClockSelector->hardwareValueChanged (clockSourceSelector);
+			
+							err = callPluginsInOrder ( kSetSampleRate, mTransportSampleRate.whole );
+						}
 					}
 				}
 			}
@@ -1044,15 +798,11 @@ void AppleOnboardAudio::runPolledTasks ( void ) {
 			//		If the DMA engine dies with no indication of a hardware error then
 			//		recovery must be performed by stopping and starting the engine.
 			if ( ( kTRANSPORT_MASTER_CLOCK != mTransportInterface->transportGetClockSelect() ) && mDriverDMAEngine->engineDied() ) {
-				mDriverDMAEngine->pauseAudioEngine ();
-				mDriverDMAEngine->beginConfigurationChange();
+				ConfigChangeHelper theConfigeChangeHelper(mDriverDMAEngine);	
 				
 				UInt32 currentBitDepth = mTransportInterface->transportGetSampleWidth();
 				mTransportInterface->transportSetSampleWidth ( currentBitDepth, mTransportInterface->transportGetDMAWidth() );
 				callPluginsInOrder ( kSetSampleBitDepth, currentBitDepth );
-				
-				mDriverDMAEngine->completeConfigurationChange();
-				mDriverDMAEngine->resumeAudioEngine ();
 			}
 			//	} end	[3305011]
 		}
@@ -1088,7 +838,7 @@ void AppleOnboardAudio::runPolledTasks ( void ) {
 UInt32 AppleOnboardAudio::parseOutputDetectCollection ( void ) {
 	UInt32		result;
 	
-	debug2IOLog ( "+ AppleOnboardAudio::ParseDetectCollection() detectCollection 0x%lX\n", mDetectCollection );
+	debugIOLog (3,  "+ AppleOnboardAudio::ParseDetectCollection() detectCollection 0x%lX", mDetectCollection );
 
 	if ( mDetectCollection & kSndHWLineOutput ) {
 		result = kIOAudioOutputPortSubTypeLine;
@@ -1100,14 +850,14 @@ UInt32 AppleOnboardAudio::parseOutputDetectCollection ( void ) {
 		result = kIOAudioOutputPortSubTypeInternalSpeaker;
 	}
 
-	debug2IOLog ( "- AppleOnboardAudio::ParseDetectCollection returns %lX\n", result );
+	debugIOLog (3,  "- AppleOnboardAudio::ParseDetectCollection returns %4s", (char*)&result );
 	return result;
 }
 
 UInt32 AppleOnboardAudio::parseInputDetectCollection ( void ) {
 	UInt32		result;
 	
-	debug2IOLog ( "+ AppleOnboardAudio::parseInputDetectCollection() detectCollection 0x%lX\n", mDetectCollection );
+	debugIOLog (3,  "+ AppleOnboardAudio::parseInputDetectCollection() detectCollection 0x%lX", mDetectCollection );
 
 	if ( mDetectCollection & kSndHWLineInput ) {
 		result = kIOAudioOutputPortSubTypeLine;
@@ -1115,21 +865,22 @@ UInt32 AppleOnboardAudio::parseInputDetectCollection ( void ) {
 		result = kIOAudioInputPortSubTypeInternalMicrophone;
 	}
 
-	debug2IOLog ( "- AppleOnboardAudio::parseInputDetectCollection returns %lX\n", result );
+	debugIOLog (3,  "- AppleOnboardAudio::parseInputDetectCollection returns %lX", result );
 	return result;
 }
 
 void AppleOnboardAudio::initializeDetectCollection ( void ) {
-	debugIOLog ( "+ AppleOnboardAudio::initializeDetectCollection() \n" );
+	debugIOLog (3,  "+ AppleOnboardAudio::initializeDetectCollection() " );
 
 	if ( kGPIO_Connected == mPlatformInterface->getHeadphoneConnected() ) {
 		mDetectCollection |= kSndHWCPUHeadphone;
-		debugIOLog ( "AppleOnboardAudio::initializeDetectCollection() - headphones are connected.\n" );
+		debugIOLog (3,  "AppleOnboardAudio::initializeDetectCollection() - headphones are connected." );
 	} 
 	if ( kGPIO_Connected == mPlatformInterface->getLineOutConnected() ) {
 		mDetectCollection |= kSndHWLineOutput;
 	} 
 	if ( kGPIO_Connected == mPlatformInterface->getDigitalOutConnected() ) {
+		debugIOLog (3,  "AppleOnboardAudio::initializeDetectCollection() - digital out is connected." );
 		mDetectCollection |= kSndHWDigitalOutput;
 	} 
 	if ( kGPIO_Connected == mPlatformInterface->getLineInConnected() ) {
@@ -1139,24 +890,205 @@ void AppleOnboardAudio::initializeDetectCollection ( void ) {
 		mDetectCollection |= kSndHWDigitalInput;
 	} 
 	if ( kGPIO_Connected == mPlatformInterface->getSpeakerConnected() ) {	//	[3398729]	start	{
-		debugIOLog ( "AppleOnboardAudio::initializeDetectCollection() - external speakers are connected.\n" );
+		debugIOLog (3,  "AppleOnboardAudio::initializeDetectCollection() - external speakers are connected." );
 		mDetectCollection |= kSndHWCPUExternalSpeaker;
 		mDetectCollection &= ~kSndHWInternalSpeaker;
-	} else if ( kGPIO_Disconnected == mPlatformInterface->getSpeakerConnected() ) {
-		debugIOLog ( "AppleOnboardAudio::initializeDetectCollection() - in internal speakers are connected.\n" );
+	} else/* if ( kGPIO_Disconnected == mPlatformInterface->getSpeakerConnected() )*/ {
+		debugIOLog (3,  "AppleOnboardAudio::initializeDetectCollection() - in internal speakers are connected." );
 		mDetectCollection |= kSndHWInternalSpeaker;
 		mDetectCollection &= ~kSndHWCPUExternalSpeaker;
 	}																		//	}	end	[3398729]
 	
-	debug2IOLog ( "- AppleOnboardAudio::initializeDetectCollection() %lX\n", mDetectCollection );
+	debugIOLog (3,  "- AppleOnboardAudio::initializeDetectCollection() %lX", mDetectCollection );
 	return;
+}
+
+void AppleOnboardAudio::updateOutputDetectCollection (UInt32 statusSelector, UInt32 newValue) {
+	switch (statusSelector) {
+		case kHeadphoneStatus:
+			debugIOLog (3,  "kHeadphoneStatus mDetectCollection prior to modification %lX", mDetectCollection );
+			if (newValue == kInserted) {
+				mDetectCollection |= kSndHWCPUHeadphone;
+				mDetectCollection &= ~kSndHWInternalSpeaker;
+				debugIOLog (3, "headphones inserted, mDetectCollection = %lX", mDetectCollection);
+			} else if (newValue == kRemoved) {
+				mDetectCollection &= ~kSndHWCPUHeadphone;
+				mDetectCollection |= kSndHWInternalSpeaker;
+				debugIOLog (3, "headphones removed, mDetectCollection = %lX", mDetectCollection);
+			} else {
+				debugIOLog (3, "Unknown headphone jack status, mDetectCollection = %lX", mDetectCollection);
+			}
+			break;
+		case kLineOutStatus:
+			debugIOLog (3,  "kLineOutStatus mDetectCollection prior to modification %lX", mDetectCollection );
+			if (newValue == kInserted) {
+				mDetectCollection |= kSndHWLineOutput;
+				mDetectCollection &= ~kSndHWInternalSpeaker;
+				debugIOLog (3, "line out inserted.");
+				if ( ( NULL != mDigitalOutputString ) && ( NULL != mLineOutputString ) && (kGPIO_Unknown != mPlatformInterface->getComboOutJackTypeConnected ()) ) {
+					ConfigChangeHelper theConfigeChangeHelper(mDriverDMAEngine);	
+					mOutputSelector->removeAvailableSelection ( kIOAudioOutputPortSubTypeSPDIF );
+					mOutputSelector->addAvailableSelection (kIOAudioOutputPortSubTypeLine, mLineOutputString);
+				}
+			} else if (newValue == kRemoved) {
+				mDetectCollection &= ~kSndHWLineOutput;
+				mDetectCollection |= kSndHWInternalSpeaker;
+				debugIOLog (3, "line out removed.");
+				if ( ( NULL != mDigitalOutputString ) && ( NULL != mLineOutputString ) && (kGPIO_Unknown != mPlatformInterface->getComboOutJackTypeConnected ()) ) {
+					ConfigChangeHelper theConfigeChangeHelper(mDriverDMAEngine);	
+					mOutputSelector->removeAvailableSelection ( kIOAudioOutputPortSubTypeLine );
+					mOutputSelector->removeAvailableSelection ( kIOAudioOutputPortSubTypeSPDIF );
+				}
+			} else {
+				debugIOLog (3, "Unknown line out jack status.");
+			}
+			break;
+		case kDigitalOutStatus:
+			debugIOLog (3,  "kDigitalOutStatus mDetectCollection prior to modification %lX", mDetectCollection );
+			if (newValue == kInserted) {
+				mDetectCollection |= kSndHWDigitalOutput;
+				mDetectCollection &= ~kSndHWInternalSpeaker;
+				debugIOLog (3, "digital out inserted.");
+				if ( ( NULL != mDigitalOutputString ) && ( NULL != mLineOutputString ) && (kGPIO_Unknown != mPlatformInterface->getComboOutJackTypeConnected ()) ) {
+					ConfigChangeHelper theConfigeChangeHelper(mDriverDMAEngine);	
+					mOutputSelector->removeAvailableSelection ( kIOAudioOutputPortSubTypeLine );
+					mOutputSelector->addAvailableSelection (kIOAudioOutputPortSubTypeSPDIF, mDigitalOutputString);
+				}
+			} else if (newValue == kRemoved) {
+				mDetectCollection &= ~kSndHWDigitalOutput;
+				mDetectCollection |= kSndHWInternalSpeaker;
+				debugIOLog (3, "digital out removed.");
+				if ( ( NULL != mDigitalOutputString ) && ( NULL != mLineOutputString ) && (kGPIO_Unknown != mPlatformInterface->getComboOutJackTypeConnected ()) ) {
+					ConfigChangeHelper theConfigeChangeHelper(mDriverDMAEngine);	
+					mOutputSelector->removeAvailableSelection ( kIOAudioOutputPortSubTypeLine );
+					mOutputSelector->removeAvailableSelection ( kIOAudioOutputPortSubTypeSPDIF );
+				}
+			} else {
+				debugIOLog (3, "Unknown digital out jack status.");
+			}
+			break;
+		case kLineInStatus:
+			debugIOLog (3,  "kLineInStatus mDetectCollection prior to modification %lX", mDetectCollection );
+			if (newValue == kInserted) {
+				mDetectCollection |= kSndHWLineInput;
+			} else if (newValue == kRemoved) {
+				mDetectCollection &= ~kSndHWLineInput;
+			} else {
+				debugIOLog (3, "Unknown line in status.");
+			}
+			break;
+		case kExtSpeakersStatus:												//	[3398729]	begin	{
+			debugIOLog (3,  "kExtSpeakersStatus mDetectCollection prior to modification %lX", mDetectCollection );
+			if (newValue == kInserted) {
+				mDetectCollection &= ~kSndHWInternalSpeaker;
+				mDetectCollection |= kSndHWCPUExternalSpeaker;
+				//	[3413551]	begin	{
+				if ( ( NULL != mInternalSpeakerOutputString ) && ( NULL != mExternalSpeakerOutputString ) ) {
+					ConfigChangeHelper theConfigeChangeHelper(mDriverDMAEngine);	
+					mOutputSelector->removeAvailableSelection ( kIOAudioOutputPortSubTypeInternalSpeaker );
+					mOutputSelector->addAvailableSelection (kIOAudioOutputPortSubTypeExternalSpeaker, mExternalSpeakerOutputString);
+				}
+				//	}	end		[3413551]
+				debugIOLog (3, "external speakers inserted, mDetectCollection = %lX", mDetectCollection);
+			} else if (newValue == kRemoved) {
+				mDetectCollection &= ~kSndHWCPUExternalSpeaker;
+				mDetectCollection |= kSndHWInternalSpeaker;
+				//	[3413551]	begin	{
+				if ( ( NULL != mInternalSpeakerOutputString ) && ( NULL != mExternalSpeakerOutputString ) ) {
+					ConfigChangeHelper theConfigeChangeHelper(mDriverDMAEngine);	
+					mOutputSelector->removeAvailableSelection ( kIOAudioOutputPortSubTypeExternalSpeaker );
+					mOutputSelector->addAvailableSelection (kIOAudioOutputPortSubTypeInternalSpeaker, mInternalSpeakerOutputString);
+				}
+				//	}	end		[3413551]
+				debugIOLog (3, "external speakers removed, mDetectCollection = %lX", mDetectCollection);
+			} else {
+				debugIOLog (3, "Unknown external speakers jack status, mDetectCollection = %lX", mDetectCollection);
+			}
+			break;																//	}	end	[3398729]
+	}
+}
+
+UInt32  AppleOnboardAudio::getSelectorCodeForOutputEvent (UInt32 eventSelector) {
+	UInt32 								selectorCode;
+
+	selectorCode = kIOAudioOutputPortSubTypeInternalSpeaker;
+	
+	// [3279525] when exclusive, handle redirection
+	if (kLineOutStatus == eventSelector) {
+		if ( mDetectCollection & kSndHWLineOutput ) {
+			selectorCode = kIOAudioOutputPortSubTypeLine;
+		} else if ( mDetectCollection & kSndHWCPUHeadphone ) {
+			selectorCode = kIOAudioOutputPortSubTypeHeadphones;
+		} else if ( mDetectCollection & kSndHWDigitalOutput ) {
+			selectorCode = kIOAudioOutputPortSubTypeSPDIF;
+		} else if ( mDetectCollection & kSndHWCPUExternalSpeaker ) {		//	[3398729]	begin	{
+			selectorCode = kIOAudioOutputPortSubTypeExternalSpeaker;
+		} else if ( mDetectCollection & kSndHWInternalSpeaker ) {
+			selectorCode = kIOAudioOutputPortSubTypeInternalSpeaker;
+		} else {
+			debugIOLog (3,  "UNKNOWN device so selecting INTERNAL SPEAKER" );
+			selectorCode = kIOAudioOutputPortSubTypeInternalSpeaker;
+			mDetectCollection |= kSndHWInternalSpeaker;
+		}																	//	}	end	[3398729]
+	} else if (kHeadphoneStatus == eventSelector) {
+		if ( mDetectCollection & kSndHWCPUHeadphone ) {
+			selectorCode = kIOAudioOutputPortSubTypeHeadphones;
+		} else if ( mDetectCollection & kSndHWLineOutput ) {
+			selectorCode = kIOAudioOutputPortSubTypeLine;
+		} else if ( mDetectCollection & kSndHWDigitalOutput ) {
+			selectorCode = kIOAudioOutputPortSubTypeSPDIF;
+		} else if ( mDetectCollection & kSndHWCPUExternalSpeaker ) {		//	[3398729]	begin	{
+			selectorCode = kIOAudioOutputPortSubTypeExternalSpeaker;
+		} else if ( mDetectCollection & kSndHWInternalSpeaker ) {
+			selectorCode = kIOAudioOutputPortSubTypeInternalSpeaker;
+		} else {															//	}	end	[3398729]
+			debugIOLog (3,  "UNKNOWN device so selecting INTERNAL SPEAKER" );
+			selectorCode = kIOAudioOutputPortSubTypeInternalSpeaker;
+			mDetectCollection |= kSndHWInternalSpeaker;
+		}
+	} else if (kExtSpeakersStatus == eventSelector) {						//	[3398729]	begin	{
+		if ( mDetectCollection & kSndHWLineOutput ) {
+			selectorCode = kIOAudioOutputPortSubTypeLine;
+		} else if ( mDetectCollection & kSndHWCPUHeadphone ) {
+			selectorCode = kIOAudioOutputPortSubTypeHeadphones;
+		} else if ( mDetectCollection & kSndHWDigitalOutput ) {
+			selectorCode = kIOAudioOutputPortSubTypeSPDIF;
+		} else if ( mDetectCollection & kSndHWCPUExternalSpeaker ) {
+			selectorCode = kIOAudioOutputPortSubTypeExternalSpeaker;
+		} else if ( mDetectCollection & kSndHWInternalSpeaker ) {
+			selectorCode = kIOAudioOutputPortSubTypeInternalSpeaker;
+		} else {
+			debugIOLog (3,  "UNKNOWN device so selecting INTERNAL SPEAKER" );
+			selectorCode = kIOAudioOutputPortSubTypeInternalSpeaker;
+			mDetectCollection |= kSndHWInternalSpeaker;
+		}
+	} else if (kDigitalOutStatus == eventSelector) {						//	[3398729]	begin	{
+		if ( mDetectCollection & kSndHWDigitalOutput ) {
+			selectorCode = kIOAudioOutputPortSubTypeSPDIF;
+		} else if ( mDetectCollection & kSndHWLineOutput ) {
+			selectorCode = kIOAudioOutputPortSubTypeLine;
+		} else if ( mDetectCollection & kSndHWCPUHeadphone ) {
+			selectorCode = kIOAudioOutputPortSubTypeHeadphones;
+		} else if ( mDetectCollection & kSndHWCPUExternalSpeaker ) {
+			selectorCode = kIOAudioOutputPortSubTypeExternalSpeaker;
+		} else if ( mDetectCollection & kSndHWInternalSpeaker ) {
+			selectorCode = kIOAudioOutputPortSubTypeInternalSpeaker;
+		} else {
+			debugIOLog (3,  "UNKNOWN device so selecting INTERNAL SPEAKER" );
+			selectorCode = kIOAudioOutputPortSubTypeInternalSpeaker;
+			mDetectCollection |= kSndHWInternalSpeaker;
+		}
+	}																		//	}	end	[3398729]
+	debugIOLog (3,  "mDetectCollection %lX, selectorCode '%4s'", mDetectCollection, (char*)&selectorCode );
+
+	return selectorCode;
 }
 
 void AppleOnboardAudio::selectOutput (const UInt32 inSelection, const bool inMuteState, const bool inUpdateAll)
 {
 	bool								needToWaitForAmps;
 	
-	debug3IOLog ( "+ AppleOnboardAudio::selectOutput %4s, inMuteState = %d\n", (char *)&(inSelection), inMuteState );
+	debugIOLog (3,  "+ AppleOnboardAudio::selectOutput %4s, inMuteState = %d", (char *)&(inSelection), inMuteState );
 
 	needToWaitForAmps = true;
 	
@@ -1169,7 +1101,7 @@ void AppleOnboardAudio::selectOutput (const UInt32 inSelection, const bool inMut
 	
 	switch (inSelection) {
 		case kIOAudioOutputPortSubTypeHeadphones:
-			debug2IOLog ( "[AOA] switching amps to headphones.  mEncodedOutputFormat %d\n", mEncodedOutputFormat );
+			debugIOLog (3,  "[AOA] switching amps to headphones.  mEncodedOutputFormat %d", mEncodedOutputFormat );
 			mPlatformInterface->setSpeakerMuteState ( kGPIO_Muted );
 			if (!mEncodedOutputFormat) {
 				callPluginsInOrder ( kSetAnalogMuteState, inMuteState );				//	[3435307]	rbm
@@ -1185,7 +1117,7 @@ void AppleOnboardAudio::selectOutput (const UInt32 inSelection, const bool inMut
 			}
 			break;
 		case kIOAudioOutputPortSubTypeLine:
-			debug2IOLog ( "[AOA] switching amps to line output.  mEncodedOutputFormat %d\n", mEncodedOutputFormat );
+			debugIOLog (3,  "[AOA] switching amps to line output.  mEncodedOutputFormat %d", mEncodedOutputFormat );
 			mPlatformInterface->setSpeakerMuteState ( kGPIO_Muted );
 			if (!mEncodedOutputFormat) {
 				callPluginsInOrder ( kSetAnalogMuteState, inMuteState );				//	[3435307]	rbm
@@ -1200,7 +1132,7 @@ void AppleOnboardAudio::selectOutput (const UInt32 inSelection, const bool inMut
 			break;
 		case kIOAudioOutputPortSubTypeExternalSpeaker:								//	[3398729]	fall through to kIOAudioOutputPortSubTypeInternalSpeaker
 		case kIOAudioOutputPortSubTypeInternalSpeaker:
-			debug2IOLog ( "[AOA] switching amps to speakers.  mEncodedOutputFormat %d\n", mEncodedOutputFormat );
+			debugIOLog (3,  "[AOA] switching amps to speakers.  mEncodedOutputFormat %d", mEncodedOutputFormat );
 			if (!mEncodedOutputFormat) {
 				callPluginsInOrder ( kSetAnalogMuteState, inMuteState );				//	[3435307]	rbm
 				mPlatformInterface->setSpeakerMuteState ( kGPIO_Unmuted );
@@ -1231,25 +1163,25 @@ void AppleOnboardAudio::selectOutput (const UInt32 inSelection, const bool inMut
 			}
 			break;
 		default:
-			debug2IOLog("Amplifier not changed, selection = %ld\n", inSelection);
+			debugIOLog (3, "Amplifier not changed, selection = %ld", inSelection);
 			needToWaitForAmps = false;
 			break;
 	}
 	if (needToWaitForAmps) {
 		IOSleep (mAmpRecoveryMuteDuration);
 	}
-	debug3IOLog ( "- AppleOnboardAudio::selectOutput %4s, inMuteState = %d\n", (char *)&(inSelection), inMuteState );
+	debugIOLog (3,  "- AppleOnboardAudio::selectOutput %4s, inMuteState = %d", (char *)&(inSelection), inMuteState );
     return;
 }
 
 void AppleOnboardAudio::free()
 {
-    debugIOLog("+ AppleOnboardAudio::free\n");
+    debugIOLog (3, "+ AppleOnboardAudio::free");
     
 	removeTimerEvent ( this );
 
     if (mDriverDMAEngine) {
-		debug2IOLog("  AppleOnboardAudio::free - mDriverDMAEngine retain count = %d\n", mDriverDMAEngine->getRetainCount());
+		debugIOLog (3, "  AppleOnboardAudio::free - mDriverDMAEngine retain count = %d", mDriverDMAEngine->getRetainCount());
         mDriverDMAEngine->release();
 		mDriverDMAEngine = NULL;
 	}
@@ -1264,6 +1196,7 @@ void AppleOnboardAudio::free()
 	CLEAN_RELEASE(mOutMasterVolumeControl);
 	CLEAN_RELEASE(mInLeftGainControl);
 	CLEAN_RELEASE(mInRightGainControl);
+	CLEAN_RELEASE(mInMasterGainControl);
 	CLEAN_RELEASE(mOutputSelector);
 	CLEAN_RELEASE(mInputSelector);
 	CLEAN_RELEASE(mPluginObjects);
@@ -1273,7 +1206,7 @@ void AppleOnboardAudio::free()
 	CLEAN_RELEASE(mSignal);
 
     super::free();
-    debugIOLog("- AppleOnboardAudio::free, (void)\n");
+    debugIOLog (3, "- AppleOnboardAudio::free, (void)");
 }
 
 #pragma mark +PORT HANDLER FUNCTIONS
@@ -1286,20 +1219,7 @@ void AppleOnboardAudio::setCurrentDevices(UInt32 devices){
         currentDevices = devices;
     }
     
-	debug2IOLog ("currentDevices = %ld\n", currentDevices);
-	debug2IOLog ("fCPUNeedsPhaseInversion = %d\n", fCPUNeedsPhaseInversion);
-    // if this CPU has a phase inversion feature see if we need to enable phase inversion    
-    if (fCPUNeedsPhaseInversion) {
-        bool state;
-
-        if (currentDevices == 0 || currentDevices & kSndHWInternalSpeaker) {			// may only need the kSndHWInternalSpeaker check
-            state = true;
-        } else {
-            state = false;
-		}
-
-         mDriverDMAEngine->setPhaseInversion(state);
-    }
+	debugIOLog (3, "currentDevices = %ld", currentDevices);
 
 	if (devices & kSndHWInputDevices || odevice & kSndHWInputDevices) {
 		if (NULL != mInputConnectionControl) {
@@ -1332,6 +1252,275 @@ PlatformInterface * AppleOnboardAudio::getPlatformInterfaceObject () {
 	return mPlatformInterface;
 }
 
+#pragma mark +INTERRUPTS
+void AppleOnboardAudio::softwareInterruptHandler (OSObject *object, IOInterruptEventSource *source, int count) {
+	AppleOnboardAudio *					aoa;
+    UInt16								cachedProducerCount;
+
+	debugIOLog (2, "softwareInterruptHandler ( %p, %p %d )", object, source, count );
+	aoa = OSDynamicCast (AppleOnboardAudio, object);
+	for ( UInt32 index = 0; index < kNumberOfActionSelectors; index++ ) {
+		cachedProducerCount = aoa->mInterruptProduced[index];
+		if ( 0 != cachedProducerCount - aoa->mInterruptConsumed[index] ) {
+			aoa->protectedInterruptEventHandler ( index, 0 );
+			aoa->mInterruptConsumed[index] = cachedProducerCount;
+			debugIOLog (2, "Processed interrupt at index %d", index );
+		}
+	}
+}
+
+void AppleOnboardAudio::interruptEventHandler (UInt32 statusSelector, UInt32 newValue) {
+	IOCommandGate *						cg;
+	
+	cg = getCommandGate ();
+	if (NULL != cg) {
+		cg->runAction (interruptEventHandlerAction, (void *)statusSelector, (void *)newValue);
+	}
+
+	return;
+}
+
+// Must be called on the workloop via runAction()
+IOReturn AppleOnboardAudio::interruptEventHandlerAction (OSObject * owner, void * arg1, void * arg2, void * arg3, void * arg4) {
+	IOReturn 							result;
+	AppleOnboardAudio * 				aoa;
+	
+	result = kIOReturnError;
+	
+	debugIOLog (7, "AppleOnboardAudio:: interruptEventAction - (%p, %ld, %ld, %ld, %ld)", owner, (UInt32)arg1, (UInt32)arg2, (UInt32)arg3, (UInt32)arg4);
+	
+	aoa = (AppleOnboardAudio *)owner;
+	FailIf (NULL == aoa, Exit);
+	aoa->protectedInterruptEventHandler ((UInt32)arg1, (UInt32)arg2);
+
+	result = kIOReturnSuccess;
+Exit:
+	return result;
+}
+
+bool AppleOnboardAudio::isTargetForMessage ( UInt32 actionSelector, AppleOnboardAudio * theAOA ) {
+	OSArray *	swInterruptsArray;
+	OSString *	theInterruptString;
+	bool		result = FALSE;
+	
+	swInterruptsArray = OSDynamicCast ( OSArray, getLayoutEntry ( kSWInterrupts, theAOA ) );
+	for ( UInt32 index = 0; index < swInterruptsArray->getCount (); index++ ) {
+		theInterruptString = OSDynamicCast ( OSString, swInterruptsArray->getObject ( index ) );
+		if ( NULL != theInterruptString ) {
+			switch ( actionSelector ) {
+				case kClockLockStatus:
+					if ( !strcmp ( kClockLockIntMessage, theInterruptString->getCStringNoCopy() ) ) {
+						result = TRUE;
+					}
+					break;
+				case kClockUnLockStatus:
+					if ( !strcmp ( kClockUnLockIntMessage, theInterruptString->getCStringNoCopy() ) ) {
+						result = TRUE;
+					}
+					break;
+				case kDigitalInInsertStatus:
+					if ( !strcmp ( kDigitalInInsertIntMessage, theInterruptString->getCStringNoCopy() ) ) {
+						result = TRUE;
+					}
+					break;
+				case kDigitalInRemoveStatus:
+					if ( !strcmp ( kDigitalInRemoveIntMessage, theInterruptString->getCStringNoCopy() ) ) {
+						result = TRUE;
+					}
+					break;
+			}
+		}
+	}
+	return result;
+}
+	
+// Must run on the workloop because we might modify audio controls.
+void AppleOnboardAudio::protectedInterruptEventHandler (UInt32 statusSelector, UInt32 newValue) {
+	AudioHardwareObjectInterface *		thePlugin;
+	OSNumber * 							connectionCodeNumber;
+	char * 								pluginString;
+	UInt32 								selectorCode;
+
+	selectorCode = getCharCodeForIntCode (statusSelector);
+
+	switch ( statusSelector ) {
+		case kInternalSpeakerStatus:		debugIOLog (6, "AppleOnboardAudio::protectedInterruptEventHandler ( kInternalSpeakerStatus, '%4s', %ld )", (char*)&selectorCode, newValue);		break;
+		case kHeadphoneStatus:				debugIOLog (6, "AppleOnboardAudio::protectedInterruptEventHandler ( kHeadphoneStatus, '%4s', %ld )", (char*)&selectorCode, newValue);			break;
+		case kExtSpeakersStatus:			debugIOLog (6, "AppleOnboardAudio::protectedInterruptEventHandler ( kExtSpeakersStatus, '%4s', %ld )", (char*)&selectorCode, newValue);			break;
+		case kLineOutStatus:				debugIOLog (6, "AppleOnboardAudio::protectedInterruptEventHandler ( kLineOutStatus, '%4s', %ld )", (char*)&selectorCode, newValue);				break;
+		case kDigitalOutStatus:				debugIOLog (6, "AppleOnboardAudio::protectedInterruptEventHandler ( kDigitalOutStatus, '%4s', %ld )", (char*)&selectorCode, newValue);			break;
+		case kLineInStatus:					debugIOLog (6, "AppleOnboardAudio::protectedInterruptEventHandler ( kLineInStatus, '%4s', %ld )", (char*)&selectorCode, newValue);				break;
+		case kInputMicStatus:				debugIOLog (6, "AppleOnboardAudio::protectedInterruptEventHandler ( kInputMicStatus, '%4s', %ld )", (char*)&selectorCode, newValue);				break;
+		case kExternalMicInStatus:			debugIOLog (6, "AppleOnboardAudio::protectedInterruptEventHandler ( kExternalMicInStatus, '%4s', %ld )", (char*)&selectorCode, newValue);		break;
+		case kDigitalInInsertStatus:		debugIOLog (6, "AppleOnboardAudio::protectedInterruptEventHandler ( kDigitalInInsertStatus, '%4s', %ld )", (char*)&selectorCode, newValue);			break;
+		case kDigitalInRemoveStatus:		debugIOLog (6, "AppleOnboardAudio::protectedInterruptEventHandler ( kDigitalInRemoveStatus, '%4s', %ld )", (char*)&selectorCode, newValue);			break;
+		case kRequestCodecRecoveryStatus:	debugIOLog (6, "AppleOnboardAudio::protectedInterruptEventHandler ( kRequestCodecRecoveryStatus, '%4s', %ld )", (char*)&selectorCode, newValue);	break;
+		case kClockInterruptedRecovery:		debugIOLog (6, "AppleOnboardAudio::protectedInterruptEventHandler ( kClockInterruptedRecovery, '%4s', %ld )", (char*)&selectorCode, newValue);	break;
+		case kClockUnLockStatus:			debugIOLog (6, "AppleOnboardAudio::protectedInterruptEventHandler ( kClockUnLockStatus, '%4s', %ld )", (char*)&selectorCode, newValue);			break;
+		case kClockLockStatus:				debugIOLog (6, "AppleOnboardAudio::protectedInterruptEventHandler ( kClockLockStatus, '%4s', %ld )", (char*)&selectorCode, newValue);			break;
+		case kAES3StreamErrorStatus:		debugIOLog (6, "AppleOnboardAudio::protectedInterruptEventHandler ( kAES3StreamErrorStatus, '%4s', %ld )", (char*)&selectorCode, newValue);		break;
+		case kComboIsAnalogStatus:			debugIOLog (6, "AppleOnboardAudio::protectedInterruptEventHandler ( kComboIsAnalogStatus, '%4s', %ld )", (char*)&selectorCode, newValue);		break;
+		case kComboIsDigitalStatus:			debugIOLog (6, "AppleOnboardAudio::protectedInterruptEventHandler ( kComboIsDigitalStatus, '%4s', %ld )", (char*)&selectorCode, newValue);		break;
+		case kCodecErrorInterruptStatus:	debugIOLog (7, "AppleOnboardAudio::protectedInterruptEventHandler ( kCodecErrorInterruptStatus, '%4s', %ld )", (char*)&selectorCode, newValue);	break;
+		case kCodecInterruptStatus:			debugIOLog (7, "AppleOnboardAudio::protectedInterruptEventHandler ( kCodecInterruptStatus, '%4s', %ld )", (char*)&selectorCode, newValue);		break;
+		case kBreakClockSelect:				debugIOLog (6, "AppleOnboardAudio::protectedInterruptEventHandler ( kBreakClockSelect, '%4s', %ld )", (char*)&selectorCode, newValue);			break;
+		case kMakeClockSelect:				debugIOLog (6, "AppleOnboardAudio::protectedInterruptEventHandler ( kMakeClockSelect, '%4s', %ld )", (char*)&selectorCode, newValue);			break;
+		case kSetSampleRate:				debugIOLog (6, "AppleOnboardAudio::protectedInterruptEventHandler ( kSetSampleRate, '%4s', %ld )", (char*)&selectorCode, newValue);				break;
+		case kSetSampleBitDepth:			debugIOLog (6, "AppleOnboardAudio::protectedInterruptEventHandler ( kSetSampleBitDepth, '%4s', %ld )", (char*)&selectorCode, newValue);			break;
+		case kPowerStateChange:				debugIOLog (6, "AppleOnboardAudio::protectedInterruptEventHandler ( kPreDMAEngineInit, '%4s', %ld )", (char*)&selectorCode, newValue);			break;
+		case kPreDMAEngineInit:				debugIOLog (6, "AppleOnboardAudio::protectedInterruptEventHandler ( kPreDMAEngineInit, '%4s', %ld )", (char*)&selectorCode, newValue);			break;
+		case kPostDMAEngineInit:			debugIOLog (6, "AppleOnboardAudio::protectedInterruptEventHandler ( kPostDMAEngineInit, '%4s', %ld )", (char*)&selectorCode, newValue);			break;
+		case kRestartTransport:				debugIOLog (6, "AppleOnboardAudio::protectedInterruptEventHandler ( kRestartTransport, '%4s', %ld )", (char*)&selectorCode, newValue);			break;
+	}
+
+	updateOutputDetectCollection (statusSelector, newValue);
+
+	switch (statusSelector) {
+		case kHeadphoneStatus:
+		case kLineOutStatus:
+		case kExtSpeakersStatus:													//	[3398729]
+		case kDigitalOutStatus:
+
+			selectorCode = getSelectorCodeForOutputEvent (statusSelector);
+
+			connectionCodeNumber = OSNumber::withNumber (selectorCode, 32);
+			// [3250195], must update this too!  Otherwise you get the right output selected but with the wrong clip routine/EQ.
+			pluginString = getConnectionKeyFromCharCode (selectorCode, kIOAudioStreamDirectionOutput);
+			debugIOLog (3, "pluginString updated to %s.", pluginString);
+			// [3323073], move code from above, and now set the current output plugin if it's changing!
+			thePlugin = getPluginObjectForConnection (pluginString);
+			FailIf (NULL == thePlugin, Exit);
+			
+			cacheOutputVolumeLevels (mCurrentOutputPlugin);
+			mCurrentOutputPlugin = thePlugin;
+			
+			// [3250195], current plugin doesn't matter here, always need these updated
+			setClipRoutineForOutput (pluginString);
+			selectOutput (selectorCode, mIsMute);
+			if (NULL == mOutputSelector) debugIOLog (3, "\n!!!mOutputSelector = NULL!!!");
+			FailIf (NULL == mOutputSelector, Exit);
+			mOutputSelector->hardwareValueChanged (connectionCodeNumber);
+
+			connectionCodeNumber->release();
+
+			// [3317593], always update controls, regardless of who the current output plugin is
+			AdjustOutputVolumeControls (thePlugin, selectorCode);
+			
+			// [3284911]
+			OSNumber *			headphoneState;
+			if (mDetectCollection & kSndHWCPUHeadphone) {
+				headphoneState = OSNumber::withNumber (1, 32);
+			} else {
+				headphoneState = OSNumber::withNumber ((long long unsigned int)0, 32);
+			}
+			mHeadphoneConnected->hardwareValueChanged (headphoneState);
+			break;
+		case kLineInStatus:
+			// [3250612] don't do anything on insert events!
+			pluginString = getConnectionKeyFromCharCode (selectorCode, kIOAudioStreamDirectionInput);
+			debugIOLog (3, "AppleOnboardAudio::protectedInterruptEventHandler - pluginString = %s.", pluginString);
+			thePlugin = getPluginObjectForConnection (pluginString);
+			FailIf (NULL == thePlugin, Exit);
+			debugIOLog (3, "AppleOnboardAudio::protectedInterruptEventHandler - thePlugin = %p.", thePlugin);
+
+			FailIf (NULL == mInputSelector, Exit);
+			selectorCode = mInputSelector->getIntValue ();
+			debugIOLog (3, "mInputSelector->getIntValue () returns %4s", (char *)&selectorCode);
+
+			if ((mDetectCollection & kSndHWLineInput) && (kIOAudioInputPortSubTypeLine == selectorCode)) {
+				thePlugin->setInputMute (FALSE);
+			} else if (!(mDetectCollection & kSndHWLineInput) && (kIOAudioInputPortSubTypeLine == selectorCode)) {
+				thePlugin->setInputMute (TRUE);
+			}
+			break;
+		case kExternalMicInStatus:
+			break;
+		case kDigitalInInsertStatus:
+		case kDigitalInRemoveStatus:
+			if ( !broadcastSoftwareInterruptMessage ( statusSelector ) ) {
+				debugIOLog (2, "kDigitalInRemoveStatus NOT BROADCASTED" );
+			}
+			break;
+		case kRequestCodecRecoveryStatus:
+			//	Walk through the available plugin objects and invoke the recoverFromFatalError on each object in the correct order.
+			callPluginsInOrder (kRequestCodecRecoveryStatus, newValue);
+			break;
+		case kRestartTransport:
+			//	This message is used to restart the transport hardware without invoking a general recovery or
+			//	a recovery from clock interruption and is used to perform sequence sensitive initialization.
+			if (NULL != mTransportInterface) {
+				mTransportInterface->transportSetSampleRate ( mTransportInterface->transportGetSampleRate() );
+			}
+			break;
+		case kCodecErrorInterruptStatus:
+			callPluginsInOrder ( kCodecErrorInterruptStatus, 0 );
+			break;
+		case kCodecInterruptStatus:
+			callPluginsInOrder ( kCodecInterruptStatus, 0 );
+			break;
+		case kClockUnLockStatus:
+		case kClockLockStatus:
+			//	Codec clock loss errors are to be ignored if in the process of switching clock sources.
+			if ( !mClockSelectInProcessSemaphore ) {
+				//	A non-zero 'newValue' indicates an 'UNLOCK' clock lock status and requires that the clock source
+				//	be redirected back to an internal source (i.e. the internal hardware is to act as a MASTER).
+				if ( kClockLockStatus == statusSelector ) {
+					//	Set the hardware to MASTER mode.
+					clockSelectorChanged ( kClockSourceSelectionInternal );
+					if ( NULL != mExternalClockSelector ) {
+						//	Flush the control value (i.e. MASTER = internal).
+						OSNumber *			clockSourceSelector;
+						clockSourceSelector = OSNumber::withNumber (kClockSourceSelectionInternal, 32);
+						
+						mExternalClockSelector->hardwareValueChanged (clockSourceSelector);
+					}
+				} else {
+					//	[3435307]	Dont touch amplifier mutes related to UI.	RBM
+					//	[3253678]	successful lock detected, now safe to unmute analog part
+					callPluginsInOrder ( kSetMuteState, mIsMute );
+				}
+			} else {
+				debugIOLog (3,  "Attempted to post kClockLockStatus blocked by semaphore" );
+			}
+			broadcastSoftwareInterruptMessage ( statusSelector );
+			break;
+		case kAES3StreamErrorStatus:
+			//	indicates that the V bit states data is invalid or may be compressed data
+			debugIOLog (7,  "... kAES3StreamErrorStatus %d", (unsigned int)newValue );
+			if ( newValue ) {
+				//	As appropriate (TBD)...
+			}
+			break;
+		default:
+			break;
+	}
+Exit:
+	debugIOLog (5,  "- AppleOnboardAudio::protedtedInterruptEventHandler" );
+
+	return;
+}
+
+
+bool AppleOnboardAudio::broadcastSoftwareInterruptMessage ( UInt32 actionSelector ) {
+	AppleOnboardAudio *		theAOA;
+	bool					result = FALSE;
+
+	if ( NULL != mAOAInstanceArray ) {
+		for ( UInt32 index = 0; index < mAOAInstanceArray->getCount(); index++ ) {
+			theAOA = OSDynamicCast ( AppleOnboardAudio, mAOAInstanceArray->getObject ( index ) );
+			if ( isTargetForMessage ( index, theAOA ) ) {
+				if (theAOA->mSoftwareInterruptHandler) {
+					theAOA->mInterruptProduced[actionSelector]++;
+					theAOA->mSoftwareInterruptHandler->interruptOccurred (NULL, NULL, 0);
+					result = TRUE;
+				}
+			}
+		}
+	}
+	return result;
+}
+
+
 #pragma mark +IOAUDIO INIT
 bool AppleOnboardAudio::initHardware (IOService * provider) {
 	bool								result;
@@ -1340,12 +1529,23 @@ bool AppleOnboardAudio::initHardware (IOService * provider) {
 
 	mSignal = IOSyncer::create (FALSE);
 
+    debugIOLog (3, "+ AppleOnboardAudio[%ld]::initHardware", mInstanceIndex);
 	FailIf (NULL == mInitHardwareThread, Exit);
+
+#ifdef DONT_THREAD_INIT
+	// this version allows unloading of the kext if initHW fails
+	if (kIOReturnSuccess == protectedInitHardware (provider)) {
+		result = TRUE;
+	}
+#else
 	thread_call_enter1 (mInitHardwareThread, (void *)provider);
-
+	
 	result = TRUE;
-
+#endif
+	
 Exit:
+    debugIOLog (3, "- AppleOnboardAudio[%ld]::initHardware returns %d", mInstanceIndex, result);
+
 	return result;
 }
 
@@ -1383,16 +1583,19 @@ Exit:
 IOReturn AppleOnboardAudio::protectedInitHardware (IOService * provider) {
 	OSArray *							layouts;
 	OSArray *							hardwareObjectsList;
+	OSArray *							multipleDevicesArray;
 	OSDictionary *						layoutEntry;
 	OSNumber *							layoutIDNumber;
 	OSNumber *							ampRecoveryNumber;
 	OSNumber *							headphoneState;
 	OSString *							platformObjectString;
 	OSString *							transportObjectString;
+	OSString *							comboInAssociationString;
+	OSString *							comboOutAssociationString;
 	OSData *							tmpData;
 	UInt32 *							layoutID;
 	UInt32								layoutIDInt;
-	UInt32								timeout;
+	UInt32								timeWaited;
 	UInt32								layoutsCount;
 	UInt32								index;
 	UInt32								numPlugins;
@@ -1411,14 +1614,30 @@ IOReturn AppleOnboardAudio::protectedInitHardware (IOService * provider) {
 	UInt32								inputLatency;
 	UInt32								selectorCode;
 	UInt32								count;
-    bool								result;
-
-    debugIOLog("+ AppleOnboardAudio::initHardware\n");
+    IOReturn							result;
+	char								deviceName[256];
+	char								num[4];
 
 	result = kIOReturnError;
+
+    debugIOLog (3, "+ AppleOnboardAudio[%ld]::protectedInitHardware", mInstanceIndex);
+		
+	debugIOLog (3, "provider's name is: %s", provider->getName ());
+	
 	tmpData = OSDynamicCast (OSData, provider->getProperty (kLayoutID));
+	debugIOLog (3, "provider layoutID data = %p", tmpData);
+	
+	workLoop = getWorkLoop();
+	FailIf (NULL == workLoop, Exit);
+		
+	mSoftwareInterruptHandler = IOInterruptEventSource::interruptEventSource (this, softwareInterruptHandler);
+	FailIf (NULL == mSoftwareInterruptHandler, Exit);
+	workLoop->addEventSource (mSoftwareInterruptHandler);
+	mSoftwareInterruptHandler->enable ();
+	
 	FailIf (NULL == tmpData, Exit);
 	layoutID = (UInt32 *)tmpData->getBytesNoCopy ();
+	debugIOLog (3, "layoutID pointer = %p", layoutID);
 	FailIf (NULL == layoutID, Exit)
 	mLayoutID = *layoutID;
 	mUCState.ucLayoutID = mLayoutID;
@@ -1426,46 +1645,95 @@ IOReturn AppleOnboardAudio::protectedInitHardware (IOService * provider) {
 	// Figure out which plugins need to be loaded for this machine.
 	// Fix up the registry to get needed plugins to load using ourselves as a nub.
 	layouts = OSDynamicCast (OSArray, getProperty (kLayouts));
+	debugIOLog (3, "layout array = %p", layouts);
 	FailIf (NULL == layouts, Exit);
 
 	// First thing to do is to find the array entry that describes the machine that we are on.
 	layoutsCount = layouts->getCount ();
 	layoutEntry = NULL;
 	index = 0;
+	
+	mMatchingIndex = 0xFFFFFFFF;
+	layoutIDInt = 0;
+	debugIOLog (3,  "AppleOnboardAudio[%ld] ><><>< mLayoutID 0x%lX (from provider node)", mInstanceIndex, mLayoutID);
+	
 	while (layoutsCount--) {
 		layoutEntry = OSDynamicCast (OSDictionary, layouts->getObject (index));
 		FailIf (NULL == layoutEntry, Exit);
 		layoutIDNumber = OSDynamicCast (OSNumber, layoutEntry->getObject (kLayoutIDInfoPlist));
 		FailIf (NULL == layoutIDNumber, Exit);
 		layoutIDInt = layoutIDNumber->unsigned32BitValue ();
+#ifdef REMOVE_LAYOUTS
 		if (layoutIDInt != mLayoutID) {
+			debugIOLog (3,  "found layout id 0x%lX and deleted it", layoutIDInt);
 			layouts->removeObject (index);			// Remove wrong entries from the IORegistry to save space
+		} else {
+			debugIOLog (3,  "found matchine layout id 0x%lX @ index %ld", layoutIDInt, index);
+			mMatchingIndex = index;
+			index++;
+		}
+#else
+		if (layoutIDInt == mLayoutID) {
+			debugIOLog (3,  "AppleOnboardAudio[%ld] found matchine layout id 0x%lX @ index %ld", mInstanceIndex, layoutIDInt, index);
+			mMatchingIndex = index;
+			break;
 		} else {
 			index++;
 		}
+#endif
 	}
-	debug2IOLog ( "><><>< mLayoutID %lX\n", mLayoutID);
-	debug2IOLog ( "><><>< layoutIDInt %lX\n", layoutIDInt );
+	debugIOLog (3,  "AppleOnboardAudio[%ld] ><><>< layoutIDInt 0x%lX", mInstanceIndex, layoutIDInt );
 
+#ifdef REMOVE_LAYOUTS
 	layoutEntry = OSDynamicCast (OSDictionary, layouts->getObject (0));
+#else
+	FailIf (0xFFFFFFFF == mMatchingIndex, Exit);	
+	layoutEntry = OSDynamicCast (OSDictionary, layouts->getObject (mMatchingIndex));
+#endif
+
+	debugIOLog (3, "layoutEntry = %p", layoutEntry);
 	FailIf (NULL == layoutEntry, Exit);
 
 	ampRecoveryNumber = OSDynamicCast ( OSNumber, layoutEntry->getObject (kAmpRecoveryTime) );
 	FailIf (NULL == ampRecoveryNumber, Exit);
 	mAmpRecoveryMuteDuration = ampRecoveryNumber->unsigned32BitValue();
-	debug2IOLog ("AppleOnboardAudio::start - mAmpRecoveryMuteDuration = %ld\n", mAmpRecoveryMuteDuration);
+	debugIOLog (3, "AppleOnboardAudio[%ld]::protectedInitHardware - mAmpRecoveryMuteDuration = %ld", mInstanceIndex, mAmpRecoveryMuteDuration);
 
 	// Find out what the correct platform object is and request the platform factory to build it for us.
 	platformObjectString = OSDynamicCast ( OSString, layoutEntry->getObject ( kPlatformObject ) );
 	FailIf (NULL == platformObjectString, Exit);
-	debug2IOLog ("AppleOnboardAudio::start - platformObjectString = %s\n", platformObjectString->getCStringNoCopy());
+	debugIOLog (3, "AppleOnboardAudio[%ld]::protectedInitHardware - platformObjectString = %s", mInstanceIndex, platformObjectString->getCStringNoCopy());
 
 	mPlatformInterface = PlatformFactory::createPlatform (platformObjectString);
 	FailIf (NULL == mPlatformInterface, Exit);
-	debug2IOLog ("AppleOnboardAudio::start - mPlatformInterface = %p\n", mPlatformInterface);
+	debugIOLog (3, "AppleOnboardAudio[%ld]::protectedInitHardware - mPlatformInterface = %p", mInstanceIndex, mPlatformInterface);
 	FailIf (!mPlatformInterface->init(provider, this, AppleDBDMAAudio::kDBDMADeviceIndex), Exit);
-
-	debugIOLog ("AppleOnboardAudio::protectedInitHardware - about to mute all amps.\n");
+	
+	//	[3453799]	begin {
+	comboInAssociationString = OSDynamicCast ( OSString, layoutEntry->getObject ( kComboInObject ) );
+	if ( NULL != comboInAssociationString ) {
+		debugIOLog (3, "comboInAssociationString = %s", comboInAssociationString->getCStringNoCopy ());
+		if ( comboInAssociationString->isEqualTo ("LineInDetect") ) {
+			mPlatformInterface->setAssociateComboInTo ( kGPIO_Selector_LineInDetect );
+		} else if ( comboInAssociationString->isEqualTo ("ExternalMicDetect") ) {
+			mPlatformInterface->setAssociateComboInTo ( kGPIO_Selector_ExternalMicDetect );
+		}
+	}
+	
+	comboOutAssociationString = OSDynamicCast ( OSString, layoutEntry->getObject ( kComboOutObject ) );
+	if ( NULL != comboOutAssociationString ) {
+		debugIOLog (3, "comboOutAssociationString = %s", comboOutAssociationString->getCStringNoCopy ());
+		if ( comboOutAssociationString->isEqualTo ("LineOutDetect") ) {
+			mPlatformInterface->setAssociateComboOutTo ( kGPIO_Selector_LineOutDetect );
+		} else if ( comboOutAssociationString->isEqualTo ("HeadphonesDetect") ) {
+			mPlatformInterface->setAssociateComboOutTo ( kGPIO_Selector_HeadphoneDetect );
+		} else if ( comboOutAssociationString->isEqualTo ("ExtSpeakersDetect") ) {
+			mPlatformInterface->setAssociateComboOutTo ( kGPIO_Selector_SpeakerDetect );
+		}
+	}
+	//	} end	[3453799]
+		
+	debugIOLog (3, "AppleOnboardAudio[%ld]::protectedInitHardware - about to mute all amps.", mInstanceIndex );
 
 	mPlatformInterface->setHeadphoneMuteState ( kGPIO_Muted );
 	mPlatformInterface->setLineOutMuteState ( kGPIO_Muted );
@@ -1475,21 +1743,21 @@ IOReturn AppleOnboardAudio::protectedInitHardware (IOService * provider) {
 	// Find out what the correct transport object is and request the transport factory to build it for us.
 	transportObjectString = OSDynamicCast ( OSString, layoutEntry->getObject ( kTransportObject ) );
 	FailIf ( NULL == transportObjectString, Exit );
-	debug2IOLog ("AppleOnboardAudio::start - transportObjectString = %s\n", transportObjectString->getCStringNoCopy());
+	debugIOLog (3, "AppleOnboardAudio[%ld]::protectedInitHardware - transportObjectString = %s", mInstanceIndex, transportObjectString->getCStringNoCopy());
 
 	mTransportInterface = TransportFactory::createTransport ( transportObjectString );
+	debugIOLog (3, "AppleOnboardAudio[%ld]::protectedInitHardware - mTransportInterface = %p", mInstanceIndex, mTransportInterface);
 	FailIf (NULL == mTransportInterface, Exit);
-	debug2IOLog ("AppleOnboardAudio::start - mTransportInterface = %p\n", mTransportInterface);
 	FailIf (!mTransportInterface->init ( mPlatformInterface ), Exit);
 
 	// If we have the entry we were looking for then get the list of plugins that need to be loaded
 	hardwareObjectsList = OSDynamicCast (OSArray, layoutEntry->getObject (kHardwareObjects));
-	if ( NULL == hardwareObjectsList ) { debugIOLog ( "><><>< NULL == hardwareObjectsList\n" ); }
+	if ( NULL == hardwareObjectsList ) { debugIOLog (3,  "><><>< NULL == hardwareObjectsList" ); }
 	FailIf (NULL == hardwareObjectsList, Exit);
 
 	// Set the IORegistry entries that will cause the plugins to load
 	numPlugins = hardwareObjectsList->getCount ();
-	debug2IOLog ( "numPlugins to load = %ld\n", numPlugins);
+	debugIOLog (3,  "AppleOnboardAudio[%ld] numPlugins to load = %ld", mInstanceIndex, numPlugins);
 
 	if (NULL == mPluginObjects) {
 		mPluginObjects = OSArray::withCapacity (0);
@@ -1499,18 +1767,14 @@ IOReturn AppleOnboardAudio::protectedInitHardware (IOService * provider) {
 	for (index = 0; index < numPlugins; index++) {
 		setProperty (((OSString *)hardwareObjectsList->getObject(index))->getCStringNoCopy(), "YES");
 	}
-
+	
 //	registerService (kIOServiceSynchronous);								// Gets the plugins to load.
 	registerService ();														// Gets the plugins to load.
 
 	// Wait for the plugins to load so that when we get to initHardware everything will be up and ready to go.
-#if DEBUGLOG
-	timeout = 50000;
-#else
-	timeout = 1000;
-#endif
+	timeWaited = 0;
 	done = FALSE;
-	while (!done && timeout) {
+	while (!done) {
 		if (NULL == mPluginObjects) {
 			IOSleep (10);
 		} else {
@@ -1520,24 +1784,24 @@ IOReturn AppleOnboardAudio::protectedInitHardware (IOService * provider) {
 				done = TRUE;
 			}
 		}
-		timeout--;
-	}
-	
-	if ((0 == timeout) && (FALSE == done)) {
-		debugIOLog ("$$$$$$ timeout and not enough plugins $$$$$$\n");
-		setProperty ("Plugin load failed", "TRUE");
+		timeWaited++;
 	}
 
+//	if ((0 == timeout) && (FALSE == done)) {
+//		debugIOLog (3, "$$$$$$ timeout and not enough plugins $$$$$$");
+//		setProperty ("Plugin load failed", "TRUE");
+//	}
 	volumeNumber = OSNumber::withNumber((long long unsigned int)0, 32);
 
-	result = FALSE;
     if (!super::initHardware (provider)) {
         goto Exit;
     }
 
+	debugIOLog (3, "A: about to set work loop");
+	
 	mHeadLineDigExclusive = FALSE;		// [3276398], default to working like we always have.
-	workLoop = getWorkLoop();
-	FailIf (NULL == workLoop, Exit);
+//	workLoop = getWorkLoop();
+//	FailIf (NULL == workLoop, Exit);
 
 	// must occur in this order, and must be called in initHardware or later to have a valid workloop
 	mPlatformInterface->setWorkLoop (workLoop);
@@ -1547,6 +1811,8 @@ IOReturn AppleOnboardAudio::protectedInitHardware (IOService * provider) {
 	count = mPluginObjects->getCount ();
 	FailIf (0 == count, Exit);
 	
+	debugIOLog (3, "AppleOnboardAudio[%ld] about to init %ld plugins", mInstanceIndex, count);
+
 	for (index = 0; index < count; index++) {
 		thePluginObject = getIndexedPluginObject (index);
 
@@ -1575,33 +1841,56 @@ IOReturn AppleOnboardAudio::protectedInitHardware (IOService * provider) {
 	mSignal->signal (kIOReturnSuccess, FALSE);
 
 #if LOCALIZABLE
-    setDeviceName ("DeviceName");
-    setDeviceShortName ("DeviceShortName");
-    setManufacturerName ("ManufacturerName");
-    setProperty (kIOAudioDeviceLocalizedBundleKey, "AppleOnboardAudio.kext");
+	sprintf ( deviceName, "%s", "DeviceName");
+	if (mInstanceIndex > 1) {
+		sprintf (num, "%d", mInstanceIndex);
+		strcat (deviceName, num);
+	}
+//	setDeviceName ("DeviceName");
+	setDeviceName (deviceName);
+	sprintf ( deviceName, "%s", "DeviceShortName");
+	if (mInstanceIndex > 1) {
+		sprintf (num, "%d", mInstanceIndex);
+		strcat (deviceName, num);
+	}
+//	setDeviceShortName ("DeviceShortName");
+	setDeviceShortName (deviceName);
+	setManufacturerName ("ManufacturerName");
+	setProperty (kIOAudioDeviceLocalizedBundleKey, "AppleOnboardAudio.kext");
 #else
     setDeviceName ("Built-in Audio");
     setDeviceShortName ("Built-in");
     setManufacturerName ("Apple");
 #endif
-	setDeviceTransportType (kIOAudioDeviceTransportTypeBuiltIn);
 
+#ifdef ONLY_PUBLISH_ONE_BUILIT_DEVICE	
+	if (mInstanceIndex > 1) {
+		setDeviceTransportType (kIOAudioDeviceTransportTypePCI);
+	} else {
+		setDeviceTransportType (kIOAudioDeviceTransportTypeBuiltIn);
+	}
+#else
+	setDeviceTransportType (kIOAudioDeviceTransportTypeBuiltIn);
+#endif
+	
 	setProperty (kIOAudioEngineCoreAudioPlugInKey, "IOAudioFamily.kext/Contents/PlugIns/AOAHALPlugin.bundle");
 
-    configureDMAEngines (provider);
+	configureDMAEngines (provider);
+	debugIOLog (3, "AppleOnboardAudio[%ld] finished configure DMA engine (%p) ", mInstanceIndex, mDriverDMAEngine);
 	FailIf (NULL == mDriverDMAEngine, Exit);
 
 	// Have to create the audio controls before calling activateAudioEngine
 	mAutoUpdatePRAM = FALSE;			// Don't update the PRAM value while we're initing from it
-    createDefaultControls ();
+    result = createDefaultControls ();
+	FailIf (kIOReturnSuccess != result, Exit);
 
-	debug2IOLog ("  AppleOnboardAudio::initHardware - mDriverDMAEngine retain count before activateAudioEngine = %d\n", mDriverDMAEngine->getRetainCount());
+	debugIOLog (3, "  AppleOnboardAudio::initHardware - mDriverDMAEngine retain count before activateAudioEngine = %d", mDriverDMAEngine->getRetainCount());
     if (kIOReturnSuccess != activateAudioEngine (mDriverDMAEngine)) {
 		mDriverDMAEngine->release ();
 		mDriverDMAEngine = NULL;
         goto Exit;
     }
-	debug2IOLog("  AppleOnboardAudio::initHardware - mDriverDMAEngine retain count after activateAudioEngine = %d\n", mDriverDMAEngine->getRetainCount());
+	debugIOLog (3, "  AppleOnboardAudio::initHardware - mDriverDMAEngine retain count after activateAudioEngine = %d", mDriverDMAEngine->getRetainCount());
 
 	idleTimer = IOTimerEventSource::timerEventSource (this, sleepHandlerTimer);
 	if (!idleTimer) {
@@ -1659,33 +1948,48 @@ IOReturn AppleOnboardAudio::protectedInitHardware (IOService * provider) {
 		mHeadphoneConnected->hardwareValueChanged (headphoneState);
 	}
 	
-	FailIf (NULL == mOutputSelector, Exit);
-	mOutputSelector->hardwareValueChanged (connectionCodeNumber);
+	if ( NULL != mOutputSelector ) {
+		mOutputSelector->hardwareValueChanged (connectionCodeNumber);
+	}
 	
 	connectionCodeNumber->release();
 		
-	selectorCode = mOutputSelector->getIntValue ();
-	debug2IOLog("mOutputSelector->getIntValue () returns %lX\n", selectorCode);
-	if (0 != selectorCode) {
-		connectionString = getConnectionKeyFromCharCode (selectorCode, kIOAudioStreamDirectionOutput);
-		debug2IOLog("mOutputSelector->getIntValue () char code is %s\n", connectionString);
-		if (NULL != connectionString) {
-			mCurrentOutputPlugin = getPluginObjectForConnection (connectionString);
+	if ( NULL != mOutputSelector ) {
+		selectorCode = mOutputSelector->getIntValue ();
+		debugIOLog (3, "mOutputSelector->getIntValue () returns %lX", selectorCode);
+		if (0 != selectorCode) {
+			connectionString = getConnectionKeyFromCharCode (selectorCode, kIOAudioStreamDirectionOutput);
+			debugIOLog (3, "mOutputSelector->getIntValue () char code is %s", connectionString);
+			if (NULL != connectionString) {
+				AudioHardwareObjectInterface* theHWObject;
+				theHWObject = getPluginObjectForConnection (connectionString);
+				if (NULL != theHWObject) {
+					mCurrentOutputPlugin = theHWObject;
+				} else {
+					debugIOLog (1, "can't find hardware plugin for output %s", connectionString);
+				}
+			}
 		}
+		debugIOLog (3, "AppleOnboardAudio[%ld] mCurrentOutputPlugin = %p", mInstanceIndex, mCurrentOutputPlugin);
 	}
-	debug2IOLog("mCurrentOutputPlugin = %p\n", mCurrentOutputPlugin);
 	
 	FailIf (NULL == mInputSelector, Exit);
 	selectorCode = mInputSelector->getIntValue ();
-	debug2IOLog("mInputSelector->getIntValue () returns %4s\n", (char *)&selectorCode);
+	debugIOLog (3, "mInputSelector->getIntValue () returns %4s", (char *)&selectorCode);
 	if (0 != selectorCode) {
 		connectionString = getConnectionKeyFromCharCode (selectorCode, kIOAudioStreamDirectionInput);
-		debug2IOLog("mInputSelector->getIntValue () char code is %s\n", connectionString);
+		debugIOLog (3, "mInputSelector->getIntValue () char code is %s", connectionString);
 		if (NULL != connectionString) {
-			mCurrentInputPlugin = getPluginObjectForConnection (connectionString);
+			AudioHardwareObjectInterface* theHWObject;
+			theHWObject = getPluginObjectForConnection (connectionString);
+			if (NULL != theHWObject) {
+				mCurrentInputPlugin = theHWObject;
+			} else {
+				debugIOLog (1, "can't find hardware plugin for input %s", connectionString);
+			}
 		}
 	}
-	debug2IOLog("mCurrentInputPlugin = %p\n", mCurrentInputPlugin);
+	debugIOLog (3, "AppleOnboardAudio[%ld] mCurrentInputPlugin = %p", mInstanceIndex, mCurrentInputPlugin);
 	
 	mCurrentInputPlugin->setActiveInput (selectorCode);
 
@@ -1731,31 +2035,18 @@ IOReturn AppleOnboardAudio::protectedInitHardware (IOService * provider) {
 
 	mDriverDMAEngine->setSampleLatencies (mOutputLatency, inputLatency);
 
-	// Set the default volume to that stored in the PRAM in case we don't get a setValue call from the Sound prefs before being activated.
-#if 0
-	if (NULL != mOutMasterVolumeControl) {
-		mOutMasterVolumeControl->setValue (PRAMToVolumeValue ());
-	}
-	if (NULL != mOutLeftVolumeControl) {
-		mOutLeftVolumeControl->setValue (PRAMToVolumeValue ());
-	}
-	if (NULL != mOutRightVolumeControl) {
-		mOutRightVolumeControl->setValue (PRAMToVolumeValue ());
-	}
-#endif
-
 	// Has to be after creating the controls so that interruptEventHandler isn't called before the selector controls exist.
-	mPlatformInterface->registerInterrupts ( this );
+	mPlatformInterface->registerInterrupts ( (IOService*)mPlatformInterface );
 
 #if 0
-	IOLog ("about to flush all controls\n");
+	debugIOLog (3, "about to flush all controls");
 	
 	OSSet *		theControls;
 	theControls = mDriverDMAEngine->defaultAudioControls;
-	IOLog ("theControls count = %d\n", mDriverDMAEngine->defaultAudioControls->getCount ());
+	debugIOLog (3, "theControls count = %d", mDriverDMAEngine->defaultAudioControls->getCount ());
 #endif
     flushAudioControls ();
-	if (NULL != mExternalClockSelector) mExternalClockSelector->flushValue ();		// Specifically flush the clock selector's values because flushAudioControls() doesn't seem to call it... ???
+	if (NULL != mExternalClockSelector) { mExternalClockSelector->flushValue (); }		// Specifically flush the clock selector's values because flushAudioControls() doesn't seem to call it... ???
 
  	// Install power change handler so we get notified about shutdown
 	mSysPowerDownNotifier = registerPrioritySleepWakeInterest (&sysPowerDownHandler, this, 0);
@@ -1770,41 +2061,125 @@ IOReturn AppleOnboardAudio::protectedInitHardware (IOService * provider) {
 	
 	setPollTimer ();
 
-//	selectOutput (connectionCode, mIsMute);
+//	selectOutput (connectionCode, mIsMute);	//	when interrupts are registere/enabled then the interrupt dispatch will perform this function.
 
+#ifdef FORCE_MULTIPLE_DEVICES_TO_LOAD
+	// if we are the first instance around and we need to fire up another AOA, find the other i2s node
+	// we want and set a property that will force our other AOA personality to load
+	multipleDevicesArray = OSDynamicCast (OSArray, layoutEntry->getObject (kMultipleDevices));
+	debugIOLog (3, "multipleDevicesArray = %p", multipleDevicesArray);
+
+	if (1 == mInstanceIndex && (NULL != multipleDevicesArray)) {
+		UInt32						deviceIndex;
+		UInt32						devicesToLoad;
+		mach_timespec_t				timeout;
+		
+		timeout.tv_sec = 5;
+		timeout.tv_nsec = 0;
+		devicesToLoad = 0;
+		
+		devicesToLoad = multipleDevicesArray->getCount();
+		debugIOLog (3, "devicesToLoad = %ld", devicesToLoad);
+		
+		for (deviceIndex = 0; deviceIndex < devicesToLoad; deviceIndex++) {
+			OSDictionary *			deviceDict;
+			OSString *				i2sNodeString;
+			OSString *				soundNodePathString;
+			OSString *				matchPropertyString;
+			IOService *				i2sService;
+			IORegistryEntry * 		soundRegEntry;
+			IOService * 			sound;
+			
+			deviceDict = OSDynamicCast (OSDictionary, multipleDevicesArray->getObject(deviceIndex));
+			debugIOLog (3, "deviceDict = %p", deviceDict);
+			FailIf (NULL == deviceDict, Exit);
+
+			i2sNodeString = OSDynamicCast (OSString, deviceDict->getObject(kI2SNode));
+			debugIOLog (3, "i2sNodeString = %p", i2sNodeString);
+			FailIf (NULL == i2sNodeString, Exit);
+
+			soundNodePathString = OSDynamicCast (OSString, deviceDict->getObject(kSoundNodePath));
+			debugIOLog (3, "soundNodePathString = %p", soundNodePathString);
+			FailIf (NULL == soundNodePathString, Exit);
+
+			matchPropertyString = OSDynamicCast (OSString, deviceDict->getObject(kMatchProperty));
+			debugIOLog (3, "matchPropertyString = %p", matchPropertyString);
+			FailIf (NULL == matchPropertyString, Exit);
+		
+			i2sService = IOService::waitForService (IOService::nameMatching(i2sNodeString->getCStringNoCopy()), &timeout);
+			debugIOLog (3, "i2sService = %p", deviceDict);
+			FailIf (NULL == i2sService, Exit);			
+			soundRegEntry = i2sService->childFromPath (soundNodePathString->getCStringNoCopy(), gIOServicePlane);
+			debugIOLog (3, "soundRegEntry = %p", soundRegEntry);
+			FailIf (NULL == i2sService, Exit);
+			
+			sound = OSDynamicCast (IOService, soundRegEntry);
+			FailIf (NULL == i2sService, Exit);
+			debugIOLog (3, "soundRegEntry = %p", soundRegEntry);
+
+			sound->setProperty (matchPropertyString->getCStringNoCopy(), "YES");
+			sound->registerService ();
+		}
+	} else {
+		debugIOLog (3,  "><><>< NULL == multipleDevicesArray on instance %ld", mInstanceIndex );
+	}	
+	aoaNotifier = addNotification (gIOPublishNotification, serviceMatching ("AppleOnboardAudio"), (IOServiceNotificationHandler)&aoaPublished, this);
+#endif
+
+	result = kIOReturnSuccess;
 	mAutoUpdatePRAM = TRUE;
-	result = TRUE;
 
 Exit:
 	if (NULL != mInitHardwareThread) {
 		thread_call_free (mInitHardwareThread);
 	}
 
-    debug2IOLog ("- AppleOnboardAudio::initHardware returns %d\n", result); 
+    debugIOLog (3, "- AppleOnboardAudio[%ld]::protectedInitHardware returns 0x%x", mInstanceIndex, result); 
 	return (result);
 }
 
-IOReturn AppleOnboardAudio::configureDMAEngines(IOService *provider){
+bool AppleOnboardAudio::aoaPublished (AppleOnboardAudio * aoaObject, void * refCon, IOService * newService) {
+	bool	result = FALSE;
+	
+	if ( newService != aoaObject ) {
+		if ( NULL == aoaObject->mAOAInstanceArray ) {
+			aoaObject->mAOAInstanceArray = OSArray::withObjects ( (const OSObject**)&newService, 1 );
+			FailIf ( NULL == aoaObject->mAOAInstanceArray, Exit );
+		} else {
+			aoaObject->mAOAInstanceArray->setObject ( newService );
+		}
+		result = TRUE;
+	}
+Exit:
+	return result;
+}
+
+IOReturn AppleOnboardAudio::configureDMAEngines(IOService *provider) {
     IOReturn 						result;
     bool							hasInput;
+    bool							hasOutput;
 	OSArray *						formatsArray;
 	OSArray *						inputListArray;
+	OSArray *						outputListArray;
     
     result = kIOReturnError;
 
-	inputListArray = OSDynamicCast (OSArray, getLayoutEntry (kInputsList));
+	inputListArray = OSDynamicCast (OSArray, getLayoutEntry (kInputsList, this));
 	hasInput = (NULL != inputListArray);
-
-    debug3IOLog("+ AppleOnboardAudio[%p]::configureDMAEngines (%p)\n", this, provider);
+	
+	outputListArray = OSDynamicCast (OSArray, getLayoutEntry (kOutputsList, this));
+	hasOutput = ( NULL != outputListArray );
+	
+    debugIOLog (3, "+ AppleOnboardAudio[%ld]::configureDMAEngines (%p)", mInstanceIndex, provider);
 
 	// All this config should go in a single method
     mDriverDMAEngine = new AppleDBDMAAudio;
     // make sure we get an engine
     FailIf (NULL == mDriverDMAEngine, Exit);
 
-	formatsArray = OSDynamicCast (OSArray, getLayoutEntry (kFormats));
+	formatsArray = OSDynamicCast (OSArray, getLayoutEntry (kFormats, this));
 
-    if (!mDriverDMAEngine->init (NULL, mPlatformInterface, (IOService *)provider->getParentEntry (gIODTPlane), hasInput, formatsArray)) {
+    if (!mDriverDMAEngine->init (NULL, mPlatformInterface, (IOService *)provider->getParentEntry (gIODTPlane), hasInput, hasOutput, formatsArray)) {
         mDriverDMAEngine->release ();
 		mDriverDMAEngine = NULL;
         goto Exit;
@@ -1813,7 +2188,7 @@ IOReturn AppleOnboardAudio::configureDMAEngines(IOService *provider){
 	result = kIOReturnSuccess;
 
 Exit:
-    debug4IOLog("- AppleOnboardAudio[%p]::configureDMAEngines (%p) returns %x\n", this, provider, result);
+    debugIOLog (3, "- AppleOnboardAudio[%ld]::configureDMAEngines (%p) returns %x", mInstanceIndex, provider, result);
     return result;
 }
 
@@ -1889,7 +2264,7 @@ UInt32 AppleOnboardAudio::getCharCodeForIntCode (UInt32 inCode) {
 		charCode = kIOAudioInputPortSubTypeExternalMicrophone;
 	} else if (kLineInStatus == inCode) {
 		charCode = kIOAudioInputPortSubTypeLine;
-	} else if (kDigitalInStatus == inCode) {
+	} else if ((kDigitalInInsertStatus == inCode) || (kDigitalInRemoveStatus == inCode)) {
 		charCode = kIOAudioInputPortSubTypeSPDIF;
 	} else if (kDigitalOutStatus == inCode) {
 		charCode = kIOAudioOutputPortSubTypeSPDIF;
@@ -1989,7 +2364,7 @@ IOReturn AppleOnboardAudio::createInputSelectorControl (void) {
 	UInt32								index;
 
 	result = kIOReturnError;
-	inputsList = OSDynamicCast (OSArray, getLayoutEntry (kInputsList));
+	inputsList = OSDynamicCast (OSArray, getLayoutEntry (kInputsList, this));
 	FailIf (NULL == inputsList, Exit);
 
 	inputsCount = inputsList->getCount ();
@@ -2016,7 +2391,7 @@ IOReturn AppleOnboardAudio::createInputSelectorControl (void) {
 		}
 	}
 
-	debug2IOLog("AppleOnboardAudio::createInputSelectorControl - mInputSelector = %p\n", mInputSelector);
+	debugIOLog (3, "AppleOnboardAudio::createInputSelectorControl - mInputSelector = %p", mInputSelector);
 
 	result = kIOReturnSuccess;
 
@@ -2041,19 +2416,20 @@ IOReturn AppleOnboardAudio::createOutputSelectorControl (void) {
 	UInt16								terminalType;
 
 	result = kIOReturnError;
-	outputsList = OSDynamicCast (OSArray, getLayoutEntry (kOutputsList));
-	FailIf (NULL == outputsList, Exit);
-
-	outputsCount = outputsList->getCount ();
-	outputString = OSDynamicCast (OSString, outputsList->getObject (0));
-	FailIf (NULL == outputString, Exit);
-
-	theDictionary = OSDictionary::withCapacity (outputsCount);
-	FailIf (NULL == theDictionary, Exit);
-
-	outputSelection = getCharCodeForString (outputString);
-	mOutputSelector = IOAudioSelectorControl::createOutputSelector (outputSelection, kIOAudioControlChannelIDAll);
-	if (NULL != mOutputSelector) {
+	outputsList = OSDynamicCast (OSArray, getLayoutEntry (kOutputsList, this));
+	if ( NULL != outputsList ) {
+		outputsCount = outputsList->getCount ();
+		outputString = OSDynamicCast (OSString, outputsList->getObject (0));
+		FailIf (NULL == outputString, Exit);
+	
+		theDictionary = OSDictionary::withCapacity (outputsCount);
+		FailIf (NULL == theDictionary, Exit);
+	
+		outputSelection = getCharCodeForString (outputString);
+		mOutputSelector = IOAudioSelectorControl::createOutputSelector (outputSelection, kIOAudioControlChannelIDAll);
+		if ( NULL == mOutputSelector ) { debugIOLog ( 3, "createOutputSelector for %4s FAILED", (char*)&outputSelection ); }
+		FailIf (NULL == mOutputSelector, Exit);
+		
 		mDriverDMAEngine->addDefaultAudioControl (mOutputSelector);
 		mOutputSelector->setValueChangeHandler ((IOAudioControl::IntValueChangeHandler)outputControlChangeHandler, this);
 		for (index = 0; index < outputsCount; index++) {
@@ -2068,11 +2444,24 @@ IOReturn AppleOnboardAudio::createOutputSelectorControl (void) {
 			//	selector are added to the output selector control then the protectedInterruptEventHandler() will
 			//	remove the unavailable selector.  
 			//	[3413551]	begin	{
-			if ( kIOAudioOutputPortSubTypeInternalSpeaker == outputSelection ) {
-				mInternalSpeakerOutputString = outputString;
-			}
-			if ( kIOAudioOutputPortSubTypeExternalSpeaker == outputSelection ) {
-				mExternalSpeakerOutputString = outputString;
+			switch (outputSelection) {
+				case kIOAudioOutputPortSubTypeInternalSpeaker:
+					mInternalSpeakerOutputString = outputString;
+					break;
+				case kIOAudioOutputPortSubTypeExternalSpeaker:
+					mExternalSpeakerOutputString = outputString;
+					break;
+				case kIOAudioOutputPortSubTypeLine:
+					mLineOutputString = outputString;
+					break;
+				case kIOAudioOutputPortSubTypeSPDIF:
+					mDigitalOutputString = outputString;
+					break;
+				case kIOAudioOutputPortSubTypeHeadphones:
+					mHeadphoneOutputString = outputString;
+					break;
+				default:
+					debugIOLog (2, "AppleOnboardAudio::createOutputSelectorControl: unknown output selection");
 			}
 			//	}	end		[3413551]
 			terminalType = getTerminalTypeForCharCode (outputSelection);
@@ -2086,7 +2475,7 @@ IOReturn AppleOnboardAudio::createOutputSelectorControl (void) {
 			terminalTypeNum->release ();
 			outputSelectionString->release ();
 #if LOCALIZABLE
-			debug3IOLog ( "mOutputSelector->addAvailableSelection ( '%4s', %p )\n", (char*)&outputSelection, outputString );
+			debugIOLog (3,  "mOutputSelector->addAvailableSelection ( '%4s', %p )", (char*)&outputSelection, outputString );
 			mOutputSelector->addAvailableSelection (outputSelection, outputString);
 #else
 			selectionString = getStringForCharCode (outputSelection);
@@ -2105,11 +2494,21 @@ IOReturn AppleOnboardAudio::createOutputSelectorControl (void) {
 				mOutputSelector->removeAvailableSelection ( kIOAudioOutputPortSubTypeExternalSpeaker );
 			}
 		}
+		if ( ( NULL != mDigitalOutputString ) && ( NULL != mLineOutputString ) && (kGPIO_Unknown != mPlatformInterface->getComboOutJackTypeConnected ()) ) {
+			if ( kGPIO_Connected == mPlatformInterface->getLineOutConnected () ) {
+				mOutputSelector->removeAvailableSelection ( kIOAudioOutputPortSubTypeSPDIF );
+			} else if ( kGPIO_Connected == mPlatformInterface->getDigitalOutConnected () ) {
+				mOutputSelector->removeAvailableSelection ( kIOAudioOutputPortSubTypeLine );
+			} else {
+				mOutputSelector->removeAvailableSelection ( kIOAudioOutputPortSubTypeSPDIF );
+				mOutputSelector->removeAvailableSelection ( kIOAudioOutputPortSubTypeLine );
+			}
+		}
+	
+		mDriverDMAEngine->setProperty ("MappingDictionary", theDictionary);
 	}
-
-	mDriverDMAEngine->setProperty ("MappingDictionary", theDictionary);
-
-	debug2IOLog ("AppleOnboardAudio::createOutputSelectorControl - mOutputSelector = %p\n", mOutputSelector);
+	
+	debugIOLog (3, "AppleOnboardAudio::createOutputSelectorControl - mOutputSelector = %p", mOutputSelector);
 
 	result = kIOReturnSuccess;
 
@@ -2126,7 +2525,7 @@ AudioHardwareObjectInterface * AppleOnboardAudio::getPluginObjectForConnection (
 	pluginIDMatch = NULL;
 	dictEntry = NULL;
 	
-	dictEntry = OSDynamicCast (OSDictionary, getLayoutEntry (entry));
+	dictEntry = OSDynamicCast (OSDictionary, getLayoutEntry (entry, this));
 	FailIf (NULL == dictEntry, Exit);
 
 	pluginIDMatch = OSDynamicCast (OSString, dictEntry->getObject (kPluginID));
@@ -2134,7 +2533,7 @@ AudioHardwareObjectInterface * AppleOnboardAudio::getPluginObjectForConnection (
 
 	thePluginObject = getPluginObjectWithName (pluginIDMatch);
 	
-	debug2IOLog ("AppleOnboardAudio::getPluginObjectForConnection - pluginID = %s\n", pluginIDMatch->getCStringNoCopy());
+	debugIOLog (3, "AppleOnboardAudio::getPluginObjectForConnection - pluginID = %s", pluginIDMatch->getCStringNoCopy());
 
 Exit:
 	return thePluginObject;
@@ -2148,7 +2547,7 @@ GpioAttributes AppleOnboardAudio::getInputDataMuxForConnection (const char * ent
 	dictEntry = NULL;
 	result = kGPIO_Unknown;
 	
-	dictEntry = OSDynamicCast (OSDictionary, getLayoutEntry (entry));
+	dictEntry = OSDynamicCast (OSDictionary, getLayoutEntry (entry, this));
 	FailIf (NULL == dictEntry, Exit);
 
 	inputDataMuxOSNumber = OSDynamicCast (OSNumber, dictEntry->getObject (kInputDataMux));
@@ -2160,7 +2559,7 @@ GpioAttributes AppleOnboardAudio::getInputDataMuxForConnection (const char * ent
 		result = kGPIO_MuxSelectAlternate;
 	}
 	
-	debug2IOLog ("AppleOnboardAudio::getInputDataMuxForConnection - GpioAttributes result = %d\n", result);
+	debugIOLog (3, "AppleOnboardAudio::getInputDataMuxForConnection - GpioAttributes result = %d", result);
 
 Exit:
 	return result;
@@ -2188,9 +2587,7 @@ AudioHardwareObjectInterface * AppleOnboardAudio::getPluginObjectWithName (OSStr
 		FailIf (NULL == thePluginID, Exit);
 
 		if (thePluginID->isEqualTo (inName)) {
-#ifdef kVERBOSE_LOG
-			debug2IOLog ("AppleOnboardAudio found matching plugin with ID %s\n", thePluginID->getCStringNoCopy());
-#endif
+			debugIOLog (7, "AppleOnboardAudio found matching plugin with ID %s", thePluginID->getCStringNoCopy());
 			found = TRUE;
 		}
 		index++;
@@ -2204,11 +2601,11 @@ IOReturn AppleOnboardAudio::createInputGainControls () {
 	AudioHardwareObjectInterface *		thePluginObject;
 	char *								selectedInput;
 	IOReturn							result;
-	IOFixed								mindBGain;
-	IOFixed								maxdBGain;
-	UInt32								curSelection;
-	SInt32								minGain;
-	SInt32								maxGain;
+	IOFixed								mindBGain = 0;
+	IOFixed								maxdBGain = 0;
+	UInt32								curSelection = 0;
+	SInt32								minGain = 0;
+	SInt32								maxGain = 0;
 
 	result = kIOReturnError;
 
@@ -2218,17 +2615,19 @@ IOReturn AppleOnboardAudio::createInputGainControls () {
 
 	setUseInputGainControls (selectedInput);
 
-	if (mUseInputGainControls) {
+	if ( kNoInputGainControls != mUseInputGainControls ) {
 		thePluginObject = getPluginObjectForConnection (selectedInput);
 		FailIf (NULL == thePluginObject, Exit);
 
-		debug2IOLog ("creating input gain controls for input %s\n", selectedInput);
+		debugIOLog (3, "creating input gain controls for input %s", selectedInput);
 	
 		mindBGain = thePluginObject->getMinimumdBGain ();
 		maxdBGain = thePluginObject->getMaximumdBGain ();
 		minGain = thePluginObject->getMinimumGain ();
 		maxGain = thePluginObject->getMaximumGain ();
 	
+	}
+	if ( kStereoInputGainControls == mUseInputGainControls ) {
 		mInLeftGainControl = IOAudioLevelControl::createVolumeControl ((maxGain-minGain) / 2, minGain, maxGain, mindBGain, maxdBGain, kIOAudioControlChannelIDDefaultLeft, kIOAudioControlChannelNameLeft, 0, kIOAudioControlUsageInput);
 		if (NULL != mInLeftGainControl) {
 			mDriverDMAEngine->addDefaultAudioControl (mInLeftGainControl);
@@ -2240,6 +2639,13 @@ IOReturn AppleOnboardAudio::createInputGainControls () {
 		if (NULL != mInRightGainControl) {
 			mDriverDMAEngine->addDefaultAudioControl (mInRightGainControl);
 			mInRightGainControl->setValueChangeHandler ((IOAudioControl::IntValueChangeHandler)inputControlChangeHandler, this);
+			// Don't release it because we might reference it later
+		}
+	} else if ( kMonoInputGainControl == mUseInputGainControls ){
+		mInMasterGainControl = IOAudioLevelControl::createVolumeControl ((maxGain-minGain) / 2, minGain, maxGain, mindBGain, maxdBGain, kIOAudioControlChannelIDAll, kIOAudioControlChannelNameAll, 0, kIOAudioControlUsageInput);
+		if (NULL != mInMasterGainControl) {
+			mDriverDMAEngine->addDefaultAudioControl ( mInMasterGainControl );
+			mInMasterGainControl->setValueChangeHandler ( (IOAudioControl::IntValueChangeHandler)inputControlChangeHandler, this );
 			// Don't release it because we might reference it later
 		}
 	}
@@ -2264,7 +2670,7 @@ OSArray * AppleOnboardAudio::getControlsArray (const char * inSelectedOutput) {
 	
 	theArray = NULL;
 	
-	theOutput = OSDynamicCast(OSDictionary, getLayoutEntry(inSelectedOutput));
+	theOutput = OSDynamicCast(OSDictionary, getLayoutEntry(inSelectedOutput, this));
 	FailIf (NULL == theOutput, Exit);
 	theArray = OSDynamicCast(OSArray, theOutput->getObject(kControls));
 	
@@ -2296,190 +2702,15 @@ UInt32 AppleOnboardAudio::getMaxVolumeOffsetForOutput (const UInt32 inCode) {
 }
 
 UInt32 AppleOnboardAudio::getMaxVolumeOffsetForOutput (const char * inSelectedOutput) {
-	OSDictionary *						theSpeakerIDDict;
-	OSDictionary *						theSignalProcessingDict;
-	OSDictionary *						theOutput;
-	OSNumber *							theMaxVolumeNumber;
-	OSString *							speakerIDString;
-	char								speakerIDCString[32];
-	UInt32								maxVolumeOffset;
-	
-	maxVolumeOffset = 0;
-	
-	theOutput = OSDynamicCast(OSDictionary, getLayoutEntry (inSelectedOutput));
-	FailIf (NULL == theOutput, Exit);
-
-	theSignalProcessingDict = OSDynamicCast (OSDictionary, theOutput->getObject (kSignalProcessing));
-	if ( NULL != theSignalProcessingDict ) {
-		sprintf (speakerIDCString, "%s_%ld", kSpeakerID, mSpeakerID); 
-		speakerIDString = OSString::withCString (speakerIDCString);
-		FailIf (NULL == speakerIDString, Exit);
-		
-		theSpeakerIDDict = OSDynamicCast (OSDictionary, theSignalProcessingDict->getObject (speakerIDString));
-		speakerIDString->release ();
-		FailIf (NULL == theSpeakerIDDict, Exit);
-	
-		theMaxVolumeNumber = OSDynamicCast (OSNumber, theSpeakerIDDict->getObject (kMaxVolumeOffset));
-		if (NULL != theMaxVolumeNumber) {
-			debug2IOLog ("getMaxVolumeOffsetForOutput: theMaxVolumeNumber value = %d\n", theMaxVolumeNumber->unsigned32BitValue ());
-			maxVolumeOffset = theMaxVolumeNumber->unsigned32BitValue ();
-		} 
-	}
-
-Exit:
-	return maxVolumeOffset;
+	return 0;
 }
 
 void AppleOnboardAudio::setSoftwareOutputDSP (const char * inSelectedOutput) {
-	OSDictionary *						theSpeakerIDDict;
-	OSDictionary *						theSignalProcessingDict;
-	OSDictionary *						theEQDict;
-	OSDictionary *						theDynamicsDict;
-	OSDictionary *						theCrossoverDict;
-	OSDictionary *						theOutput;
-	OSDictionary *						theSoftwareDSPDict;
-	OSString *							speakerIDString;
-	char								speakerIDCString[32];
-	
-	debug2IOLog ("+ AppleOnboardAudio::setSoftwareOutputDSP ('%4s' ).\n", inSelectedOutput);
-	// check if we already have calculated coefficients for this output
-	// this will NOT work for more than one output having processing on it
-	if (mCurrentProcessingOutputString->isEqualTo (inSelectedOutput)) {
-		
-		debugIOLog ("Enabling DSP\n");
-	
-		mDriverDMAEngine->enableSoftwareEQ ();
-		mDriverDMAEngine->enableSoftwareLimiter ();
-		mCurrentOutputPlugin->enableProcessing ();
-		debug2IOLog ("mCurrentProcessingOutputString is '%s', coefficients not updated.\n", mCurrentProcessingOutputString->getCStringNoCopy ());
-	} else {
-
-		debugIOLog ("Disabling DSP\n");
-
-		// commmon case is disabled, this is the safer fail scenario
-		mDriverDMAEngine->disableSoftwareEQ ();
-		mDriverDMAEngine->disableSoftwareLimiter ();
-		mCurrentOutputPlugin->disableProcessing ();
-		debugIOLog ("processing disabled.\n");
-	
-		theOutput = OSDynamicCast(OSDictionary, getLayoutEntry (inSelectedOutput));
-		FailIf (NULL == theOutput, Exit);
-	
-		theSignalProcessingDict = OSDynamicCast (OSDictionary, theOutput->getObject (kSignalProcessing));
-		if ( NULL != theSignalProcessingDict ) {
-			sprintf (speakerIDCString, "%s_%ld", kSpeakerID, mSpeakerID); 
-			debug2IOLog ("setSoftwareOutputDSP: speakerIDString = %s\n", speakerIDCString);
-			speakerIDString = OSString::withCString (speakerIDCString);
-			FailIf (NULL == speakerIDString, Exit);
-			
-			theSpeakerIDDict = OSDynamicCast (OSDictionary, theSignalProcessingDict->getObject (speakerIDString));
-			speakerIDString->release ();
-			FailIf (NULL == theSpeakerIDDict, Exit);
-			debug2IOLog ("setSoftwareOutputDSP: theSpeakerIDDict = %p\n", theSpeakerIDDict);
-		
-			theSoftwareDSPDict = OSDynamicCast (OSDictionary, theSpeakerIDDict->getObject (kSoftwareDSP));
-			FailIf (NULL == theSoftwareDSPDict, Exit);
-			debug2IOLog ("setSoftwareOutputDSP: theSoftwareDSPDict = %p\n", theSoftwareDSPDict);
-			
-			theEQDict = OSDynamicCast(OSDictionary, theSoftwareDSPDict->getObject (kEqualization));
-			if (NULL != theEQDict) {
-				debug2IOLog ("setSoftwareOutputDSP: theEQDict = %p\n", theEQDict);
-				mDriverDMAEngine->setEqualizationFromDictionary (theEQDict);
-			}
-			
-			theDynamicsDict = OSDynamicCast(OSDictionary, theSoftwareDSPDict->getObject (kDynamicRange));
-			if (NULL != theDynamicsDict) {
-				debug2IOLog ("setSoftwareOutputDSP: theDynamicsDict = %p\n", theDynamicsDict);
-				mDriverDMAEngine->setLimiterFromDictionary (theDynamicsDict);
-				
-				theCrossoverDict = OSDynamicCast(OSDictionary, theDynamicsDict->getObject (kCrossover));
-				// this handles the case of theCrossoverDict = NULL, setting the crossover state to 1 band
-				mDriverDMAEngine->setCrossoverFromDictionary (theCrossoverDict);
-			}
-			
-			debugIOLog ("Processing set\n");
-			
-			// if we get here, we've found some DSP to perform for this output, so update the currently prepared output string
-			debug2IOLog ("mCurrentProcessingOutputString is '%s'\n", mCurrentProcessingOutputString->getCStringNoCopy ());
-			mCurrentProcessingOutputString->initWithCString (inSelectedOutput);
-			debug2IOLog ("mCurrentProcessingOutputString set to '%s', coefficients will be updated.\n", mCurrentProcessingOutputString->getCStringNoCopy ());
-		}
-	}	
-
-Exit:
-	debug2IOLog ("- AppleOnboardAudio::setSoftwareOutputDSP ('%4s' ).\n", inSelectedOutput);
 	return;
 }
 
 // [3306305]
 void AppleOnboardAudio::setSoftwareInputDSP (const char * inSelectedInput) {
-// Turn this code on in the future when we have input EQ specified.
-// In the mean time, input equalization may be done via the Speaker EQ 2.0 application.
-
-#if 0	
-	OSDictionary *						theSignalProcessingDict;
-	OSDictionary *						theMicrophoneIDDict;
-	OSDictionary *						theSoftwareDSPDict;
-	OSDictionary *						theEQDict;
-	OSDictionary *						theInput;
-	OSString *							microphoneIDString;
-	char								microphoneIDCString[32];
-
-	debug2IOLog ("set input DSP for '%s'.\n", inSelectedInput);
-	// check if we already have calculated coefficients for this input
-	// this will NOT work for more than one input having processing on it
-	if (mCurrentProcessingInputString->isEqualTo (inSelectedInput)) {
-		
-		debugIOLog ("Enabling input DSP\n");
-
-		mDriverDMAEngine->enableSoftwareInputEQ ();
-
-		debugIOLog ("mCurrentProcessingInputString is '%s', coefficients not updated.\n", mCurrentProcessingInputString->getCStringNoCopy ());
-
-	} else {
-
-		debugIOLog ("Disabling input DSP\n");
-
-		// commmon case is disabled, this is the safer fail scenario
-		mDriverDMAEngine->disableSoftwareInputEQ ();
-		debugIOLog ("input processing disabled.\n");
-	
-		theInput = OSDynamicCast(OSDictionary, getLayoutEntry (inSelectedInput));
-		FailIf (NULL == theInput, Exit);
-	
-		theSignalProcessingDict = OSDynamicCast (OSDictionary, theInput->getObject (kSignalProcessing));
-		FailIf (NULL == theSignalProcessingDict, Exit);
-	
-		sprintf (microphoneIDCString, "%s_%ld", kMicrophoneID, mMicrophoneID); 
-		debug2IOLog ("setSoftwareInputDSP: inputDeviceIDString = %s\n", microphoneIDCString);
-		microphoneIDString = OSString::withCString (microphoneIDCString);
-		FailIf (NULL == microphoneIDString, Exit);
-		
-		theMicrophoneIDDict = OSDynamicCast (OSDictionary, theSignalProcessingDict->getObject (microphoneIDString));
-		microphoneIDString->release ();
-		FailIf (NULL == theMicrophoneIDDict, Exit);
-		debug2IOLog ("setSoftwareInputDSP: theMicrophoneIDDict = %p\n", theMicrophoneIDDict);
-
-		theSoftwareDSPDict = OSDynamicCast (OSDictionary, theMicrophoneIDDict->getObject (kSoftwareDSP));
-		FailIf (NULL == theSoftwareDSPDict, Exit);
-		debug2IOLog ("setSoftwareInputDSP: theSoftwareDSPDict = %p\n", theSoftwareDSPDict);
-		
-		theEQDict = OSDynamicCast(OSDictionary, theSoftwareDSPDict->getObject (kEqualization));
-		if (NULL != theEQDict) {
-			debug2IOLog ("setSoftwareInputDSP: theEQDict = %p\n", theEQDict);
-			mDriverDMAEngine->setInputEqualizationFromDictionary (theEQDict);
-		}
-		
-		debugIOLog ("Input processing set\n");
-		
-		// if we get here, we've found some DSP to perform for this output, so update the currently prepared output string
-		debug2IOLog ("mCurrentProcessingInputString is '%s'\n", mCurrentProcessingInputString->getCStringNoCopy ());
-		mCurrentProcessingInputString->initWithCString (inSelectedInput);
-		debug2IOLog ("mCurrentProcessingInputString set to '%s', coefficients will be updated.\n", mCurrentProcessingInputString->getCStringNoCopy ());
-	}	
-
-Exit:
-#endif
 	return;
 }
 
@@ -2487,17 +2718,15 @@ UInt32 AppleOnboardAudio::setClipRoutineForOutput (const char * inSelectedOutput
 	OSDictionary *						theOutput;
 	OSString *							clipRoutineString;
 	OSArray *							theArray;
-	OSData *							volumeData;
 	IOReturn							result;
 	UInt32								arrayCount;
 	UInt32								index;
-	UInt32								volume;
 	
-	debug2IOLog ( "+ AppleOnboardAudio::setClipRoutineForOutput ( '%4s' )\n", inSelectedOutput );
+	debugIOLog (3,  "+ AppleOnboardAudio::setClipRoutineForOutput ( '%4s' )", inSelectedOutput );
 	result = kIOReturnSuccess;
 	theArray = NULL;
 	
-	theOutput = OSDynamicCast(OSDictionary, getLayoutEntry(inSelectedOutput));
+	theOutput = OSDynamicCast(OSDictionary, getLayoutEntry(inSelectedOutput, this));
 	FailIf (NULL == theOutput, Exit);
 	
 	theArray = OSDynamicCast(OSArray, theOutput->getObject(kClipRoutines));
@@ -2509,26 +2738,10 @@ UInt32 AppleOnboardAudio::setClipRoutineForOutput (const char * inSelectedOutput
 	
 	for (index = 0; index < arrayCount; index++) {
 		clipRoutineString = OSDynamicCast(OSString, theArray->getObject(index));
-		debug3IOLog("getClipRoutineForOutput: clip routine[%ld] = %s\n", index, clipRoutineString->getCStringNoCopy());
+		debugIOLog (3, "getClipRoutineForOutput: clip routine[%ld] = %s", index, clipRoutineString->getCStringNoCopy());
 
-		if (clipRoutineString->isEqualTo (kPhaseInversionClipString)) {
-			mDriverDMAEngine->setPhaseInversion (true);
-		} else if (clipRoutineString->isEqualTo (kStereoToRightChanClipString)) {
+		if (clipRoutineString->isEqualTo (kStereoToRightChanClipString)) {
 			mDriverDMAEngine->setRightChanMixed (true);
-		} else if (clipRoutineString->isEqualTo (kDelayRightChan1SampleClipString)) {
-			mDriverDMAEngine->setRightChanDelay (true);
-		} else if (clipRoutineString->isEqualTo (kBalanceAdjustClipString)) {
-			mDriverDMAEngine->setBalanceAdjust (true);
-			volumeData = OSDynamicCast(OSData, theOutput->getObject(kLeftBalanceAdjust));
-			if (NULL != volumeData) {
-				memcpy (&(volume), volumeData->getBytesNoCopy (), 4);
-				mDriverDMAEngine->setLeftSoftVolume ((float *)&volume);
-			}
-			volumeData = OSDynamicCast(OSData, theOutput->getObject(kRightBalanceAdjust));
-			if (NULL != volumeData) {
-				memcpy (&(volume), volumeData->getBytesNoCopy (), 4);
-				mDriverDMAEngine->setRightSoftVolume ((float *)&volume);
-			}
 		} else {
 			mDriverDMAEngine->resetOutputClipOptions();
 		}
@@ -2536,7 +2749,7 @@ UInt32 AppleOnboardAudio::setClipRoutineForOutput (const char * inSelectedOutput
 
 	result = kIOReturnSuccess;
 Exit:
-	debug3IOLog ( "- AppleOnboardAudio::setClipRoutineForOutput ( '%4s' ) returns %X\n", inSelectedOutput, result );
+	debugIOLog (3,  "- AppleOnboardAudio::setClipRoutineForOutput ( '%4s' ) returns %X", inSelectedOutput, result );
 	return result;
 }
 
@@ -2551,7 +2764,7 @@ UInt32 AppleOnboardAudio::setClipRoutineForInput (const char * inSelectedInput) 
 	result = kIOReturnSuccess;
 	theArray = NULL;
 	
-	theInput = OSDynamicCast(OSDictionary, getLayoutEntry(inSelectedInput));
+	theInput = OSDynamicCast(OSDictionary, getLayoutEntry(inSelectedInput, this));
 	FailIf (NULL == theInput, Exit);
 	
 	theArray = OSDynamicCast(OSArray, theInput->getObject(kClipRoutines));
@@ -2563,20 +2776,18 @@ UInt32 AppleOnboardAudio::setClipRoutineForInput (const char * inSelectedInput) 
 	
 	for (index = 0; index < arrayCount; index++) {
 		clipRoutineString = OSDynamicCast(OSString, theArray->getObject(index));
-		debug3IOLog("getClipRoutineForInput: clip routine[%ld] = %s\n", index, clipRoutineString->getCStringNoCopy());
+		debugIOLog (3, "getClipRoutineForInput: clip routine[%ld] = %s", index, clipRoutineString->getCStringNoCopy());
 
 		if (clipRoutineString->isEqualTo (kCopyLeftToRight)) {
 			mDriverDMAEngine->setDualMonoMode (e_Mode_CopyLeftToRight);
 		} else if (clipRoutineString->isEqualTo (kCopyRightToLeft)) {
 			mDriverDMAEngine->setDualMonoMode (e_Mode_CopyRightToLeft);
-		} else if (clipRoutineString->isEqualTo (kDelayRightChan1SampleClipString)) {
-			mDriverDMAEngine->setRightChanDelayInput(true); // [3173869]
-		}	
+		}
 	}	
 
 	result = kIOReturnSuccess;
 Exit:
-	debug2IOLog("getClipRoutineForInput returns %X\n", result);
+	debugIOLog (3, "getClipRoutineForInput returns %X", result);
 	return result;
 }
 
@@ -2607,6 +2818,9 @@ void AppleOnboardAudio::cacheInputGainLevels (AudioHardwareObjectInterface * the
 	if (NULL != mInRightGainControl) {
 		mCurrentInputPlugin->setProperty(kPluginPListRightGain, mInRightGainControl->getValue ());
 	}
+	if ( NULL != mInMasterGainControl ) {
+		mCurrentInputPlugin->setProperty ( kPluginPListMasterGain, mInMasterGainControl->getValue () );
+	}
 	return;
 }
 
@@ -2620,38 +2834,41 @@ IOReturn AppleOnboardAudio::createOutputVolumeControls (void) {
 	UInt32								count;
 	UInt32								index;
 
-	debugIOLog ("+ AppleOnboardAudio::createOutputVolumeControls\n");
+	debugIOLog (3, "+ AppleOnboardAudio::createOutputVolumeControls");
 
 	result = kIOReturnError;
-	FailIf (NULL == mOutputSelector, Exit);
-	curSelection = mOutputSelector->getIntValue ();
+	if ( NULL != mOutputSelector ) {
+		curSelection = mOutputSelector->getIntValue ();
+		
+		selectedOutput = getConnectionKeyFromCharCode(curSelection, kIOAudioStreamDirectionOutput);
 	
-	selectedOutput = getConnectionKeyFromCharCode(curSelection, kIOAudioStreamDirectionOutput);
-
-	thePluginObject = getPluginObjectForConnection (selectedOutput);
-	FailIf (NULL == thePluginObject, Exit);
-
-	AdjustOutputVolumeControls (thePluginObject, curSelection);
-
-	controlsArray = getControlsArray (selectedOutput);
-	FailIf (NULL == controlsArray, Exit);
-	count = controlsArray->getCount ();
-	for (index = 0; index < count; index++) {
-		controlString = OSDynamicCast (OSString, controlsArray->getObject (index));
-		if (controlString->isEqualTo (kMuteControlString)) {
-			mOutMuteControl = IOAudioToggleControl::createMuteControl (false, kIOAudioControlChannelIDAll, kIOAudioControlChannelNameAll, 0, kIOAudioControlUsageOutput);
-			if (NULL != mOutMuteControl) {
-				mDriverDMAEngine->addDefaultAudioControl(mOutMuteControl);
-				mOutMuteControl->setValueChangeHandler((IOAudioControl::IntValueChangeHandler)outputControlChangeHandler, this);
-				// Don't release it because we might reference it later
+		thePluginObject = getPluginObjectForConnection (selectedOutput);
+		FailIf (NULL == thePluginObject, Exit);
+	
+		AdjustOutputVolumeControls (thePluginObject, curSelection);
+	
+		controlsArray = getControlsArray (selectedOutput);
+		FailIf (NULL == controlsArray, Exit);
+		count = controlsArray->getCount ();
+		for (index = 0; index < count; index++) {
+			controlString = OSDynamicCast (OSString, controlsArray->getObject (index));
+			if (controlString->isEqualTo (kMuteControlString)) {
+				mOutMuteControl = IOAudioToggleControl::createMuteControl (false, kIOAudioControlChannelIDAll, kIOAudioControlChannelNameAll, 0, kIOAudioControlUsageOutput);
+				if (NULL != mOutMuteControl) {
+					mDriverDMAEngine->addDefaultAudioControl(mOutMuteControl);
+					mOutMuteControl->setValueChangeHandler((IOAudioControl::IntValueChangeHandler)outputControlChangeHandler, this);
+					// Don't release it because we might reference it later
+				}
+				break;		// out of for loop now that we have created the mute control
 			}
-			break;		// out of for loop now that we have created the mute control
 		}
+	} else {
+		result = kIOReturnSuccess;
 	}
 
 Exit:
 
-	debugIOLog ("- AppleOnboardAudio::createOutputVolumeControls\n");
+	debugIOLog (3, "- AppleOnboardAudio::createOutputVolumeControls");
 	return result;
 }
 
@@ -2667,7 +2884,7 @@ IOReturn AppleOnboardAudio::createDefaultControls () {
 	Boolean								hasPlaythrough;
 	Boolean								hasInput;
 	
-	debugIOLog("+ AppleOnboardAudio::createDefaultControls\n");
+	debugIOLog (3, "+ AppleOnboardAudio::createDefaultControls");
 
 	hasPlaythrough = FALSE;
 	result = kIOReturnError;
@@ -2681,7 +2898,8 @@ IOReturn AppleOnboardAudio::createDefaultControls () {
 		FailIf (NULL == AOAprop, Exit);
 	}
 
-	createOutputSelectorControl ();
+	result = createOutputSelectorControl ();
+	FailIf (kIOReturnSuccess != result, Exit);
 
 	// The call to createOutputVolumeControls has to come after the creation of the selector control because
 	// it references the current value of the selector control to know what controls to create.
@@ -2705,7 +2923,7 @@ IOReturn AppleOnboardAudio::createDefaultControls () {
 		// Don't release it because we might reference it later
 	}
 
-	// [3276398] only build control if we DON"T have a combo jack
+	// [3276398] only build control if we DON'T have a combo jack
 	if (kGPIO_Unknown == mPlatformInterface->getComboOutJackTypeConnected ()) {
 		outHeadLineDigExclusiveControl = IOAudioToggleControl::create (mHeadLineDigExclusive, kIOAudioControlChannelIDAll, kIOAudioControlChannelNameAll, 0, 'hpex', kIOAudioControlUsageOutput);
 		if (NULL != outHeadLineDigExclusiveControl) {
@@ -2715,7 +2933,7 @@ IOReturn AppleOnboardAudio::createDefaultControls () {
 		}
 	}
 
-	inputListArray = OSDynamicCast (OSArray, getLayoutEntry (kInputsList));
+	inputListArray = OSDynamicCast (OSArray, getLayoutEntry (kInputsList, this));
 	hasInput = (NULL != inputListArray);
 	
 	if (hasInput) {
@@ -2724,7 +2942,7 @@ IOReturn AppleOnboardAudio::createDefaultControls () {
 		createInputGainControls ();
 	}
 
-	clockSelectBoolean = OSDynamicCast ( OSBoolean, getLayoutEntry (kExternalClockSelect) );
+	clockSelectBoolean = OSDynamicCast ( OSBoolean, getLayoutEntry (kExternalClockSelect, this) );
 	if (NULL != clockSelectBoolean) {
 		if (TRUE == clockSelectBoolean->getValue ()) {
 			mExternalClockSelector = IOAudioSelectorControl::create (kClockSourceSelectionInternal, kIOAudioControlChannelIDAll, kIOAudioControlChannelNameAll, 0, kIOAudioSelectorControlSubTypeClockSource, kIOAudioControlUsageInput);		
@@ -2739,7 +2957,7 @@ IOReturn AppleOnboardAudio::createDefaultControls () {
   	
 	result = kIOReturnSuccess;
 Exit:    
-    debug2IOLog("- %d = AppleOnboardAudio::createDefaultControls\n", result);
+    debugIOLog (3, "- %lX = AppleOnboardAudio::createDefaultControls", result);
     return result;
 }
 
@@ -2765,7 +2983,7 @@ IOReturn AppleOnboardAudio::AdjustOutputVolumeControls (AudioHardwareObjectInter
 
 	maxVolume += getMaxVolumeOffsetForOutput (selectionCode);
 
-	debug5IOLog ("AppleOnboardAudio::AdjustOutputVolumeControls - mindBVol %lX, maxdBVol %lX, minVolume %ld, maxVolume %ld\n", mindBVol, maxdBVol, minVolume, maxVolume);
+	debugIOLog (3, "AppleOnboardAudio::AdjustOutputVolumeControls - mindBVol %lX, maxdBVol %lX, minVolume %ld, maxVolume %ld", mindBVol, maxdBVol, minVolume, maxVolume);
 
 	mDriverDMAEngine->pauseAudioEngine ();
 	mDriverDMAEngine->beginConfigurationChange ();
@@ -2777,7 +2995,8 @@ IOReturn AppleOnboardAudio::AdjustOutputVolumeControls (AudioHardwareObjectInter
 	// [3339273], don't remove stereo controls if headphones, external speakers or lineout are connected (i.e. any stereo thing)
 	if ((kGPIO_Connected == mPlatformInterface->getHeadphoneConnected ()) || 
 		(kGPIO_Connected == mPlatformInterface->getSpeakerConnected ()) ||
-		(kGPIO_Connected == mPlatformInterface->getLineOutConnected ())) {
+		(kGPIO_Connected == mPlatformInterface->getLineOutConnected ()) ||
+		(kGPIO_Connected == mPlatformInterface->getDigitalOutConnected ())) {
 		stereoOutputConnected = true;
 	} else {
 		stereoOutputConnected = false;
@@ -2874,7 +3093,7 @@ IOReturn AppleOnboardAudio::AdjustInputGainControls (AudioHardwareObjectInterfac
 	minGain = thePluginObject->getMinimumGain ();
 	maxGain = thePluginObject->getMaximumGain ();
 
-	debug5IOLog ("AppleOnboardAudio::AdjustInputGainControls - mindBGain %lX, maxdBGain %lX, minGain %ld, maxGain %ld\n", mindBGain, maxdBGain, minGain, maxGain);
+	debugIOLog (3, "AppleOnboardAudio::AdjustInputGainControls - mindBGain %lX, maxdBGain %lX, minGain %ld, maxGain %ld", mindBGain, maxdBGain, minGain, maxGain);
 
 	mDriverDMAEngine->pauseAudioEngine ();
 	mDriverDMAEngine->beginConfigurationChange ();
@@ -2886,8 +3105,8 @@ IOReturn AppleOnboardAudio::AdjustInputGainControls (AudioHardwareObjectInterfac
 	}
 	//	[3281535]	} end
 
-	if (mUseInputGainControls) {
-		debugIOLog ("AdjustInputGainControls - creating input gain controls.\n");
+	if ( kStereoInputGainControls == mUseInputGainControls ) {
+		debugIOLog (3, "AdjustInputGainControls - creating input gain controls.");
 		// or we have both controls (possibly not created yet) and we have to remove the master volume control (possibly doesn't exist)
 		if (NULL != mInLeftGainControl) {
 			mInLeftGainControl->setMinValue (minGain);
@@ -2914,10 +3133,27 @@ IOReturn AppleOnboardAudio::AdjustInputGainControls (AudioHardwareObjectInterfac
 		} else {
 			createRightGainControl(mindBGain, maxdBGain, minGain, maxGain);
 		}
-	} else {
-		debugIOLog ("AdjustInputGainControls - removing input gain controls.\n");
+		removeMasterGainControl();
+	} else if ( kMonoInputGainControl == mUseInputGainControls ) {
+		if (NULL != mInMasterGainControl) {
+			mInMasterGainControl->setMinValue (minGain);
+			mInMasterGainControl->setMinDB (mindBGain);
+			mInMasterGainControl->setMaxValue (maxGain);
+			mInMasterGainControl->setMaxDB (maxdBGain);
+			if (mInMasterGainControl->getIntValue () > maxGain) {
+				mInMasterGainControl->setValue (maxGain);
+			}
+			mInMasterGainControl->flushValue ();
+		} else {
+			createMasterGainControl(mindBGain, maxdBGain, minGain, maxGain);
+		}
 		removeLeftGainControl();
 		removeRightGainControl();
+	} else {
+		debugIOLog (3, "AdjustInputGainControls - removing input gain controls.");
+		removeLeftGainControl();
+		removeRightGainControl();
+		removeMasterGainControl();
 	}
 
 	mDriverDMAEngine->completeConfigurationChange ();
@@ -2935,10 +3171,10 @@ IORegistryEntry * AppleOnboardAudio::FindEntryByNameAndProperty (const IORegistr
 
 	theEntry = NULL;
 	iterator = NULL;
-	FAIL_IF (NULL == start, Exit);
+	FailIf (NULL == start, Exit);
 
 	iterator = start->getChildIterator (gIOServicePlane);
-	FAIL_IF (NULL == iterator, Exit);
+	FailIf (NULL == iterator, Exit);
 
 	while (NULL == theEntry && (tmpReg = OSDynamicCast (IORegistryEntry, iterator->getNextObject ())) != NULL) {
 		if (strcmp (tmpReg->getName (), name) == 0) {
@@ -2978,7 +3214,7 @@ void AppleOnboardAudio::createLeftVolumeControl (IOFixed mindBVol, IOFixed maxdB
 		}
 	}
 	
-	debug2IOLog("createLeftVolumeControl - leftVol = %ld\n", leftVol);
+	debugIOLog (3, "createLeftVolumeControl - leftVol = %ld", leftVol);
 
 	mOutLeftVolumeControl = IOAudioLevelControl::createVolumeControl (leftVol, minVolume, maxVolume, mindBVol, maxdBVol,
 										kIOAudioControlChannelIDDefaultLeft,
@@ -3012,7 +3248,7 @@ void AppleOnboardAudio::createRightVolumeControl (IOFixed mindBVol, IOFixed maxd
 		}
 	}
 
-	debug2IOLog("createRightVolumeControl - rightVol = %ld\n", rightVol);
+	debugIOLog (3, "createRightVolumeControl - rightVol = %ld", rightVol);
 
 	mOutRightVolumeControl = IOAudioLevelControl::createVolumeControl (rightVol, minVolume, maxVolume, mindBVol, maxdBVol,
 										kIOAudioControlChannelIDDefaultRight,
@@ -3050,7 +3286,7 @@ void AppleOnboardAudio::createMasterVolumeControl (IOFixed mindBVol, IOFixed max
 		masterVol >>= 1;
 	}
 	
-	debug2IOLog("createMasterVolumeControl - masterVol = %ld\n", masterVol);
+	debugIOLog (3, "createMasterVolumeControl - masterVol = %ld", masterVol);
 	
 	mOutMasterVolumeControl = IOAudioLevelControl::createVolumeControl (masterVol, minVolume, maxVolume, mindBVol, maxdBVol,
 																		kIOAudioControlChannelIDAll,
@@ -3078,7 +3314,7 @@ void AppleOnboardAudio::createLeftGainControl (IOFixed mindBGain, IOFixed maxdBG
 		leftGain = theNumber->unsigned32BitValue();
 	}
 	
-	debug2IOLog("createLeftGainControl - leftVol = %ld\n", leftGain);
+	debugIOLog (3, "createLeftGainControl - leftVol = %ld", leftGain);
 
 	mInLeftGainControl = IOAudioLevelControl::createVolumeControl (leftGain, minGain, maxGain, mindBGain, maxdBGain,
 										kIOAudioControlChannelIDDefaultLeft,
@@ -3103,7 +3339,7 @@ void AppleOnboardAudio::createRightGainControl (IOFixed mindBGain, IOFixed maxdB
 		rightGain = theNumber->unsigned32BitValue();
 	}
 	
-	debug2IOLog("createRightGainControl - rightVol = %ld\n", rightGain);
+	debugIOLog (3, "createRightGainControl - rightVol = %ld", rightGain);
 
 	mInRightGainControl = IOAudioLevelControl::createVolumeControl (rightGain, minGain, maxGain, mindBGain, maxdBGain,
 										kIOAudioControlChannelIDDefaultRight,
@@ -3114,6 +3350,31 @@ void AppleOnboardAudio::createRightGainControl (IOFixed mindBGain, IOFixed maxdB
 		mDriverDMAEngine->addDefaultAudioControl (mInRightGainControl);
 		mInRightGainControl->setValueChangeHandler ((IOAudioControl::IntValueChangeHandler)inputControlChangeHandler, this);
 		mInRightGainControl->flushValue ();
+	}
+}
+
+void AppleOnboardAudio::createMasterGainControl (IOFixed mindBGain, IOFixed maxdBGain, SInt32 minGain, SInt32 maxGain) {
+	OSNumber * 						theNumber;
+	SInt32							masterGain;
+	
+	theNumber = OSDynamicCast(OSNumber, mCurrentInputPlugin->getProperty("master-gain"));
+	if (NULL == theNumber) {
+		masterGain = 0;
+	} else {
+		masterGain = theNumber->unsigned32BitValue();
+	}
+	
+	debugIOLog (3, "createMasterGainControl - masterVol = %ld", masterGain);
+
+	mInMasterGainControl = IOAudioLevelControl::createVolumeControl (masterGain, minGain, maxGain, mindBGain, maxdBGain,
+										kIOAudioControlChannelIDAll,
+										kIOAudioControlChannelNameAll,
+										0,
+										kIOAudioControlUsageInput);
+	if (NULL != mInMasterGainControl) {
+		mDriverDMAEngine->addDefaultAudioControl (mInMasterGainControl);
+		mInMasterGainControl->setValueChangeHandler ((IOAudioControl::IntValueChangeHandler)inputControlChangeHandler, this);
+		mInMasterGainControl->flushValue ();
 	}
 }
 
@@ -3152,6 +3413,13 @@ void AppleOnboardAudio::removeRightGainControl() {
 	}
 }
 
+void AppleOnboardAudio::removeMasterGainControl() {
+	if ( NULL != mInMasterGainControl ) {
+		mDriverDMAEngine->removeDefaultAudioControl ( mInMasterGainControl );
+		mInMasterGainControl = NULL;
+	}
+}
+
 IOReturn AppleOnboardAudio::outputControlChangeHandler (IOService *target, IOAudioControl *control, SInt32 oldValue, SInt32 newValue) {
 	IOReturn						result;
 	AppleOnboardAudio *				audioDevice;
@@ -3162,7 +3430,7 @@ IOReturn AppleOnboardAudio::outputControlChangeHandler (IOService *target, IOAud
 	Boolean							wasPoweredDown;
 	UInt32							subType;
 
-	debug5IOLog ("+ AppleOnboardAudio::outputControlChangeHandler (%p, %p, %lX, %lX)\n", target, control, oldValue, newValue);
+	debugIOLog (3, "+ AppleOnboardAudio::outputControlChangeHandler (%p, %p, %lX, %lX)", target, control, oldValue, newValue);
 
 	result = kIOReturnError;
 	audioDevice = OSDynamicCast (AppleOnboardAudio, target);
@@ -3171,6 +3439,9 @@ IOReturn AppleOnboardAudio::outputControlChangeHandler (IOService *target, IOAud
 
 	// We have to make sure the hardware is on before we can send it any control changes [2981190]
 	if (kIOAudioDeviceSleep == audioDevice->ourPowerState) {
+
+		IOAudioDevicePowerState newState;
+		newState = kIOAudioDeviceActive;
 
 		//	Wake requires that the transport object go active prior
 		//	to the hardware plugin object(s) going active.
@@ -3205,7 +3476,7 @@ IOReturn AppleOnboardAudio::outputControlChangeHandler (IOService *target, IOAud
 								muteState = OSNumber::withNumber ((long long unsigned int)1, 32);
 								if (NULL != audioDevice->mOutMuteControl) {
 									audioDevice->mOutMuteControl->hardwareValueChanged (muteState);
-									debugIOLog ("volume control change calling audioDevice->callPluginsInOrder ( kSetMuteState, TRUE )\n");
+									debugIOLog (3, "volume control change calling audioDevice->callPluginsInOrder ( kSetMuteState, TRUE )");
 									result = audioDevice->callPluginsInOrder ( kSetMuteState, TRUE );
 								}
 							} else if (oldValue == levelControl->getMinValue () && FALSE == audioDevice->mIsMute) {
@@ -3213,7 +3484,7 @@ IOReturn AppleOnboardAudio::outputControlChangeHandler (IOService *target, IOAud
 								muteState = OSNumber::withNumber ((long long unsigned int)0, 32);
 								if (NULL != audioDevice->mOutMuteControl) {
 									audioDevice->mOutMuteControl->hardwareValueChanged (muteState);
-									debugIOLog ("volume control change calling audioDevice->callPluginsInOrder ( kSetMuteState, FALSE )\n");
+									debugIOLog (3, "volume control change calling audioDevice->callPluginsInOrder ( kSetMuteState, FALSE )");
 									result = audioDevice->callPluginsInOrder ( kSetMuteState, FALSE );
 								}
 							}
@@ -3246,7 +3517,7 @@ IOReturn AppleOnboardAudio::outputControlChangeHandler (IOService *target, IOAud
 			subType = control->getSubType ();
 			switch (control->getSubType ()) {
 				case kIOAudioToggleControlSubTypeMute:
-					debug2IOLog ("outputControlChangeHandler calling audioDevice->callPluginsInOrder ( kSetMuteState, %ld )\n", newValue);
+					debugIOLog (3, "outputControlChangeHandler calling audioDevice->callPluginsInOrder ( kSetMuteState, %ld )", newValue);
 					result = audioDevice->callPluginsInOrder ( kSetMuteState, newValue );
 					if (kIOReturnSuccess == result) {
 						audioDevice->mIsMute = newValue;
@@ -3257,7 +3528,9 @@ IOReturn AppleOnboardAudio::outputControlChangeHandler (IOService *target, IOAud
 					//	to be able to use both at the same time.
 					audioDevice->mHeadLineDigExclusive = newValue;
 					// [3279525] update the amps
-					audioDevice->selectOutput (audioDevice->mOutputSelector->getIntValue (), audioDevice->mIsMute);
+					if ( NULL != audioDevice->mOutputSelector ) {
+						audioDevice->selectOutput (audioDevice->mOutputSelector->getIntValue (), audioDevice->mIsMute);
+					}
 					result = kIOReturnSuccess;
 					break;
 				default:
@@ -3310,7 +3583,7 @@ Exit:
 	if (TRUE == wasPoweredDown) {
 		audioDevice->setTimerForSleep ();
 	}
-	debug6IOLog ("- AppleOnboardAudio::outputControlChangeHandler (%p, %p, %lX, %lX) returns %X\n", target, control, oldValue, newValue, result);
+	debugIOLog (3, "- AppleOnboardAudio::outputControlChangeHandler (%p, %p, %lX, %lX) returns %X", target, control, oldValue, newValue, result);
 
 	return result;
 }
@@ -3351,7 +3624,7 @@ IOReturn AppleOnboardAudio::outputSelectorChanged (SInt32 newValue) {
 	IOReturn							result;
 	UInt32								inputLatency;
 
-	debug2IOLog ("+ AppleOnboardAudio::outputSelectorChanged(%4s)\n", (char *)&newValue);
+	debugIOLog (3, "+ AppleOnboardAudio::outputSelectorChanged(%4s)", (char *)&newValue);
 
 	result = kIOReturnSuccess;
 	inputLatency = 0;
@@ -3363,6 +3636,11 @@ IOReturn AppleOnboardAudio::outputSelectorChanged (SInt32 newValue) {
 		}	
 	} else if (kIOAudioOutputPortSubTypeHeadphones == newValue) {
 		if ( !(mDetectCollection & kSndHWCPUHeadphone) ) {
+			result = kIOReturnError;
+		}
+	// if we have a combo jack which allows us to tell if digital out is connected, disallow selection if it isn't connected	
+	} else if ((kIOAudioOutputPortSubTypeSPDIF == newValue) && (kGPIO_Unknown != mPlatformInterface->getComboOutJackTypeConnected ())) {
+		if ( !(mDetectCollection & kSndHWDigitalOutput) ) {
 			result = kIOReturnError;
 		}	
 	}
@@ -3396,15 +3674,13 @@ IOReturn AppleOnboardAudio::outputSelectorChanged (SInt32 newValue) {
 		}
 		// [3277271], only report the worst case latency once on initialization, not on output selection changes because they're not exclusive. 
 	
-		setSoftwareOutputDSP (connectionString);
-	
 		AdjustOutputVolumeControls(mCurrentOutputPlugin, newValue);
 	
 		selectOutput(newValue, mIsMute, FALSE);		//	Tell selectOutput that this is an explicit selection
 	}
 
 Exit:
-	debug2IOLog ("- AppleOnboardAudio::outputSelectorChanged returns %X\n", result);
+	debugIOLog (3, "- AppleOnboardAudio::outputSelectorChanged returns %X", result);
 	return result;
 }
 
@@ -3414,7 +3690,7 @@ Exit:
 IOReturn AppleOnboardAudio::volumeMasterChange (SInt32 newValue) {
 	IOReturn						result = kIOReturnSuccess;
 
-	debug2IOLog("+ AppleOnboardAudio::volumeMasterChange (%ld)\n", newValue);
+	debugIOLog (3, "+ AppleOnboardAudio::volumeMasterChange (%ld)", newValue);
 
 	result = kIOReturnError;
 
@@ -3424,7 +3700,7 @@ IOReturn AppleOnboardAudio::volumeMasterChange (SInt32 newValue) {
 
 	result = kIOReturnSuccess;
 
-	debug2IOLog ("- AppleOnboardAudio::volumeMasterChange, 0x%x\n", result);
+	debugIOLog (3, "- AppleOnboardAudio::volumeMasterChange, 0x%x", result);
 	return result;
 }
 
@@ -3434,7 +3710,7 @@ IOReturn AppleOnboardAudio::volumeLeftChange (SInt32 newValue) {
 	UInt32 								index;
 	AudioHardwareObjectInterface* 		thePluginObject;
 
-	debug2IOLog ("+ AppleOnboardAudio::volumeLeftChange (%ld)\n", newValue);
+	debugIOLog (3, "+ AppleOnboardAudio::volumeLeftChange (%ld)", newValue);
 
 	// [3339273] set volume on all plugins
 	//mCurrentOutputPlugin->setVolume (newValue, mVolRight);
@@ -3452,7 +3728,7 @@ IOReturn AppleOnboardAudio::volumeLeftChange (SInt32 newValue) {
 
 	result = kIOReturnSuccess;
 
-	debug2IOLog("- AppleOnboardAudio::volumeLeftChange, 0x%x\n", result);
+	debugIOLog (3, "- AppleOnboardAudio::volumeLeftChange, 0x%x", result);
 
 	return result;
 }
@@ -3460,7 +3736,7 @@ IOReturn AppleOnboardAudio::volumeLeftChange (SInt32 newValue) {
 IOReturn AppleOnboardAudio::volumeRightChange (SInt32 newValue) {
 	IOReturn							result;
 
-//	debug2IOLog ("+ AppleOnboardAudio::volumeRightChange (%ld)\n", newValue);
+//	debugIOLog (3, "+ AppleOnboardAudio::volumeRightChange (%ld)", newValue);
 
 	if ( mIsMute ) {		//	[3435307]
 		mCurrentOutputPlugin->setMute (mIsMute);
@@ -3472,17 +3748,17 @@ IOReturn AppleOnboardAudio::volumeRightChange (SInt32 newValue) {
 
 	result = kIOReturnSuccess;
 
-	debug2IOLog ("- AppleOnboardAudio::volumeRightChange, result = 0x%x\n", result);
+	debugIOLog (3, "- AppleOnboardAudio::volumeRightChange, result = 0x%x", result);
 
 	return result;
 }
 
 IOReturn AppleOnboardAudio::outputMuteChange (SInt32 newValue) {
-	debug2IOLog ("+ AppleOnboardAudio::outputMuteChange (%ld)\n", newValue);
+	debugIOLog (3, "+ AppleOnboardAudio::outputMuteChange (%ld)", newValue);
 
 	callPluginsInOrder ( kSetMuteState, newValue );
 
-	debugIOLog ("- AppleOnboardAudio::outputMuteChange\n");
+	debugIOLog (3, "- AppleOnboardAudio::outputMuteChange");
     return kIOReturnSuccess;
 }
 
@@ -3492,7 +3768,7 @@ IOReturn AppleOnboardAudio::inputControlChangeHandler (IOService *target, IOAudi
 	IOAudioLevelControl *			levelControl;
 	Boolean							wasPoweredDown;
 
-	debug5IOLog ("+ AppleOnboardAudio::inputControlChangeHandler (%p, %p, %lX, %lX)\n", target, control, oldValue, newValue);
+	debugIOLog (3, "+ AppleOnboardAudio::inputControlChangeHandler (%p, %p, %lX, %lX)", target, control, oldValue, newValue);
 
 	audioDevice = OSDynamicCast (AppleOnboardAudio, target);
 	wasPoweredDown = FALSE;
@@ -3500,6 +3776,9 @@ IOReturn AppleOnboardAudio::inputControlChangeHandler (IOService *target, IOAudi
 
 	// We have to make sure the hardware is on before we can send it any control changes [2981190]
 	if (kIOAudioDeviceSleep == audioDevice->ourPowerState) {
+
+		IOAudioDevicePowerState newState;
+		newState = kIOAudioDeviceActive;
 
 		//	Wake requires that the transport object go active prior
 		//	to the hardware plugin object(s) going active.
@@ -3532,6 +3811,9 @@ IOReturn AppleOnboardAudio::inputControlChangeHandler (IOService *target, IOAudi
 						case kIOAudioControlChannelIDDefaultRight:
 							result = audioDevice->gainRightChanged (newValue);
 							break;
+						case kIOAudioControlChannelIDAll:
+							result = audioDevice->gainRightChanged (newValue);
+							break;
 					}
 					break;
 			//}
@@ -3544,7 +3826,7 @@ IOReturn AppleOnboardAudio::inputControlChangeHandler (IOService *target, IOAudi
 			//}
 			break;
 		case kIOAudioControlTypeSelector:
-			debugIOLog ("input selector change handler\n");
+			debugIOLog (3, "input selector change handler");
 			switch (control->getSubType ()) {
 				case kIOAudioSelectorControlSubTypeInput:
 					result = audioDevice->inputSelectorChanged (newValue);
@@ -3553,7 +3835,7 @@ IOReturn AppleOnboardAudio::inputControlChangeHandler (IOService *target, IOAudi
 					result = audioDevice->clockSelectorChanged (newValue);
 					break;
 				default:
-					debugIOLog ("unknown control type in input selector change handler\n");
+					debugIOLog (3, "unknown control type in input selector change handler");
 					break;
 			}		
 		default:
@@ -3572,7 +3854,7 @@ Exit:
 IOReturn AppleOnboardAudio::gainLeftChanged (SInt32 newValue) {
 	IOReturn							result;
 
-    debugIOLog ("+ AppleOnboardAudio::gainLeftChanged\n");    
+    debugIOLog (3, "+ AppleOnboardAudio::gainLeftChanged");    
 
 	if (mCurrentPluginHasSoftwareInputGain) {
 		mDriverDMAEngine->setInputGainL (newValue);
@@ -3583,14 +3865,14 @@ IOReturn AppleOnboardAudio::gainLeftChanged (SInt32 newValue) {
 
 	result = kIOReturnSuccess;
 
-    debug2IOLog ("- AppleOnboardAudio::gainLeftChanged, %d\n", (result == kIOReturnSuccess));
+    debugIOLog (3, "- AppleOnboardAudio::gainLeftChanged, %d", (result == kIOReturnSuccess));
     return result;
 }
 
 IOReturn AppleOnboardAudio::gainRightChanged (SInt32 newValue) {
 	IOReturn							result;
 
-    debugIOLog ("+ AppleOnboardAudio::gainRightChanged\n");    
+    debugIOLog (3, "+ AppleOnboardAudio::gainRightChanged");    
 
 	if (mCurrentPluginHasSoftwareInputGain) {
 		mDriverDMAEngine->setInputGainR (newValue);
@@ -3601,14 +3883,31 @@ IOReturn AppleOnboardAudio::gainRightChanged (SInt32 newValue) {
 
 	result = kIOReturnSuccess;
 
-    debug2IOLog ("- AppleOnboardAudio::gainRightChanged, %d\n", (result == kIOReturnSuccess));
+    debugIOLog (3, "- AppleOnboardAudio::gainRightChanged, %d", (result == kIOReturnSuccess));
+    return result;
+}
+
+IOReturn AppleOnboardAudio::gainMasterChanged (SInt32 newValue) {
+	IOReturn							result;
+
+    debugIOLog (3, "+ AppleOnboardAudio::gainMasterChanged");    
+
+	if (mCurrentPluginHasSoftwareInputGain) {
+		mDriverDMAEngine->setInputGainR (newValue);
+		mDriverDMAEngine->setInputGainL (newValue);
+	} else {
+		mCurrentInputPlugin->setInputGain (newValue, newValue);
+	}
+	result = kIOReturnSuccess;
+
+    debugIOLog (3, "- AppleOnboardAudio::gainMasterChanged, %d", (result == kIOReturnSuccess));
     return result;
 }
 
 IOReturn AppleOnboardAudio::passThruChanged (SInt32 newValue) {
 	IOReturn							result;
 
-    debugIOLog ("+ AppleOnboardAudio::passThruChanged\n");
+    debugIOLog (3, "+ AppleOnboardAudio::passThruChanged");
 
     result = kIOReturnError;
 
@@ -3616,7 +3915,7 @@ IOReturn AppleOnboardAudio::passThruChanged (SInt32 newValue) {
 
 	result = kIOReturnSuccess;
 
-    debugIOLog ("- AppleOnboardAudio::passThruChanged\n");
+    debugIOLog (3, "- AppleOnboardAudio::passThruChanged");
     return result;
 }
 
@@ -3630,7 +3929,7 @@ IOReturn AppleOnboardAudio::inputSelectorChanged (SInt32 newValue) {
 	IOReturn							result;
 	UInt32								inputLatency;
 
-	debug2IOLog ("+ AppleOnboardAudio::inputSelectorChanged (%4s)\n", (char *)&newValue);
+	debugIOLog (3, "+ AppleOnboardAudio::inputSelectorChanged (%4s)", (char *)&newValue);
 
 	result = kIOReturnError;
 	inputLatency = 0;
@@ -3651,8 +3950,6 @@ IOReturn AppleOnboardAudio::inputSelectorChanged (SInt32 newValue) {
 	setUsePlaythroughControl (connectionString);	// [3250612], this was missing
 
 	setClipRoutineForInput (connectionString);
-
-	setSoftwareInputDSP (connectionString);	// [3306305]
 	
 	// [3250612], fix update logic regarding current input plugin	
 	mCurrentInputPlugin->setInputMute (TRUE);
@@ -3664,8 +3961,7 @@ IOReturn AppleOnboardAudio::inputSelectorChanged (SInt32 newValue) {
 		// in future this may need to be on a per input basis (which would move this out of this if statement)
 		cacheInputGainLevels (mCurrentInputPlugin);
 		
-		mDriverDMAEngine->pauseAudioEngine ();
-		mDriverDMAEngine->beginConfigurationChange();
+		ConfigChangeHelper theConfigeChangeHelper(mDriverDMAEngine);	
 	
 		setInputDataMuxForConnection ( connectionString );
 			
@@ -3691,11 +3987,8 @@ IOReturn AppleOnboardAudio::inputSelectorChanged (SInt32 newValue) {
 		// [3277271], output latency doesn't change
 		mDriverDMAEngine->setSampleLatencies (mOutputLatency, inputLatency);
 
-		mDriverDMAEngine->completeConfigurationChange();
-		mDriverDMAEngine->resumeAudioEngine ();
-
 		mCurrentInputPlugin = thePluginObject;
-		debug2IOLog ("+ AppleOnboardAudio::inputSelectorChanged - mCurrentInputPlugin updated to %p\n", mCurrentInputPlugin);
+		debugIOLog (3, "+ AppleOnboardAudio::inputSelectorChanged - mCurrentInputPlugin updated to %p", mCurrentInputPlugin);
 	}
 	
 	mCurrentInputPlugin->setActiveInput (newValue);
@@ -3711,7 +4004,7 @@ IOReturn AppleOnboardAudio::inputSelectorChanged (SInt32 newValue) {
 	result = kIOReturnSuccess;
 
 Exit:
-	debugIOLog ("- AppleOnboardAudio::inputSelectorChanged\n");
+	debugIOLog (3, "- AppleOnboardAudio::inputSelectorChanged");
 	return result;
 }
 
@@ -3753,7 +4046,7 @@ Exit:
 IOReturn AppleOnboardAudio::clockSelectorChanged (SInt32 newValue) {
 	IOReturn							result;
 
-	debug2IrqIOLog ("+ AppleOnboardAudio::clockSelectorChanged (%4s)\n", (char *)&newValue);
+	debugIOLog (7, "+ AppleOnboardAudio::clockSelectorChanged (%4s)", (char *)&newValue);
 
 	result = kIOReturnError;
 
@@ -3766,36 +4059,34 @@ IOReturn AppleOnboardAudio::clockSelectorChanged (SInt32 newValue) {
 		callPluginsInOrder ( kSetMuteState, TRUE );						//	[3435307],[3253678], mute outputs during clock selection
 
 		if ( kClockSourceSelectionInternal == newValue ) {
-			mDriverDMAEngine->pauseAudioEngine ();
-			IOSleep ( 10 );
-			mDriverDMAEngine->beginConfigurationChange ();
+			ConfigChangeHelper theConfigeChangeHelper(mDriverDMAEngine, 10);	
+
 			mTransportInterface->transportBreakClockSelect ( kTRANSPORT_MASTER_CLOCK );
 			callPluginsInOrder ( kBreakClockSelect, kTRANSPORT_MASTER_CLOCK );
 			
 			mTransportInterface->transportMakeClockSelect ( kTRANSPORT_MASTER_CLOCK );
 			callPluginsInOrder ( kMakeClockSelect, kTRANSPORT_MASTER_CLOCK );
-			mDriverDMAEngine->completeConfigurationChange ();
-			mDriverDMAEngine->resumeAudioEngine ();
 			
 			//	[3253678]	safe to unmute analog part when going to internal clock
 			//	[3435307]	Don't change amplifier mutes in response to UI.	RBM
-			selectOutput ( mOutputSelector->getIntValue (), mIsMute);
+			if ( NULL != mOutputSelector ) {
+				selectOutput ( mOutputSelector->getIntValue (), mIsMute);
+			}
 						
 		} else if ( kClockSourceSelectionExternal == newValue ) {
-			mDriverDMAEngine->pauseAudioEngine ();
-			IOSleep ( 10 );
-			mDriverDMAEngine->beginConfigurationChange ();
+			ConfigChangeHelper theConfigeChangeHelper(mDriverDMAEngine, 10);	
 			mTransportInterface->transportBreakClockSelect ( kTRANSPORT_SLAVE_CLOCK );
 			callPluginsInOrder ( kBreakClockSelect, kTRANSPORT_SLAVE_CLOCK );
 			
 			mTransportInterface->transportMakeClockSelect ( kTRANSPORT_SLAVE_CLOCK );
 			callPluginsInOrder ( kMakeClockSelect, kTRANSPORT_SLAVE_CLOCK );
-			mDriverDMAEngine->completeConfigurationChange ();
-			mDriverDMAEngine->resumeAudioEngine ();
+
 			//	[3435307]	Don't change amplifier mutes in response to UI.	RBM
-			selectOutput ( mOutputSelector->getIntValue (), mIsMute);
+			if ( NULL != mOutputSelector ) {
+				selectOutput ( mOutputSelector->getIntValue (), mIsMute);
+			}
 		} else {
-			debugIOLog ( "Unknown clock source selection.\n" );
+			debugIOLog (3,  "Unknown clock source selection." );
 			FailIf (TRUE, Exit);
 		}
 
@@ -3804,16 +4095,17 @@ IOReturn AppleOnboardAudio::clockSelectorChanged (SInt32 newValue) {
 	result = kIOReturnSuccess;
 Exit:
 	mClockSelectInProcessSemaphore = false;	//	enable 'UNLOCK' errors after switching clock sources
-	debugIrqIOLog ("- AppleOnboardAudio::inputSelectorChanged\n");
+	debugIOLog (7, "- AppleOnboardAudio::inputSelectorChanged");
 	return result;
 }
 
 UInt32 AppleOnboardAudio::getCurrentSampleFrame (void) {
-	return mCurrentOutputPlugin->getCurrentSampleFrame ();
+	return mPlatformInterface->getFrameCount ();
 }
 
 void AppleOnboardAudio::setCurrentSampleFrame (UInt32 inValue) {
-	return mCurrentOutputPlugin->setCurrentSampleFrame (inValue);
+	mPlatformInterface->setFrameCount (inValue);
+	return;
 }
 
 void AppleOnboardAudio::setInputDataMuxForConnection ( char * connectionString ) {
@@ -3821,7 +4113,7 @@ void AppleOnboardAudio::setInputDataMuxForConnection ( char * connectionString )
 	
 	theMuxSelect = getInputDataMuxForConnection ( connectionString );
 	if ( kGPIO_Unknown != theMuxSelect ) {
-		debug2IOLog ( "AppleOnboardAudio::setInputDataMuxForConnection setting input data mux to %d\n", (unsigned int)theMuxSelect );
+		debugIOLog (3,  "AppleOnboardAudio::setInputDataMuxForConnection setting input data mux to %d", (unsigned int)theMuxSelect );
 		mPlatformInterface->setInputDataMux ( theMuxSelect );
 	}
 }
@@ -3860,10 +4152,10 @@ IOReturn AppleOnboardAudio::setAggressiveness (unsigned long type, unsigned long
 	UInt32					time = 0;
 
 	if (type == kPMPowerSource) {
-		debugIOLog ("setting power aggressivness state to ");
+		debugIOLog (3, "setting power aggressivness state to ");
 		switch (newLevel) {
 			case kIOPMInternalPower:								// Running on battery only
-				debugIOLog ("battery power\n");
+				debugIOLog (3, "battery power");
 				idleSleepDelayTime = kBatteryPowerDownDelayTime;
 				setIdleAudioSleepTime (idleSleepDelayTime);
 				if (getPowerState () != kIOAudioDeviceActive) {
@@ -3871,7 +4163,7 @@ IOReturn AppleOnboardAudio::setAggressiveness (unsigned long type, unsigned long
 				}
 				break;
 			case kIOPMExternalPower:								// Running on AC power
-				debugIOLog ("wall power\n");
+				debugIOLog (3, "wall power");
 				// idleSleepDelayTime = kACPowerDownDelayTime;		// idle power down after 5 minutes
 				idleSleepDelayTime = kNoIdleAudioPowerDown;
 				setIdleAudioSleepTime (idleSleepDelayTime);			// don't tell us about going to the idle state
@@ -3891,7 +4183,7 @@ IOReturn AppleOnboardAudio::performPowerStateChange (IOAudioDevicePowerState old
 {
 	IOReturn							result;
 
-	debug4IOLog ("+ AppleOnboardAudio::performPowerStateChange (%d, %d) -- ourPowerState = %d\n", oldPowerState, newPowerState, ourPowerState);
+	debugIOLog (3, "+ AppleOnboardAudio::performPowerStateChange (%d, %d) -- ourPowerState = %d", oldPowerState, newPowerState, ourPowerState);
 
 	*microsecondsUntilComplete = 2000000;
 
@@ -3905,7 +4197,7 @@ IOReturn AppleOnboardAudio::performPowerStateChange (IOAudioDevicePowerState old
 		}
 	}
 
-	debug2IOLog ("- AppleOnboardAudio::performPowerStateChange -- ourPowerState = %d\n", ourPowerState);
+	debugIOLog (3, "- AppleOnboardAudio::performPowerStateChange -- ourPowerState = %d", ourPowerState);
 
 	return result; 
 }
@@ -3914,7 +4206,7 @@ void AppleOnboardAudio::performPowerStateChangeThread (AppleOnboardAudio * aoa, 
 	IOCommandGate *						cg;
 	IOReturn							result;
 
-	debug3IOLog ("+ AppleOnboardAudio::performPowerStateChangeThread (%p, %ld)\n", aoa, (UInt32)newPowerState);
+	debugIOLog (3, "+ AppleOnboardAudio::performPowerStateChangeThread (%p, %ld)", aoa, (UInt32)newPowerState);
 
 	FailIf (NULL == aoa, Exit);
 
@@ -3936,11 +4228,11 @@ IOReturn AppleOnboardAudio::performPowerStateChangeThreadAction (OSObject * owne
 
 	result = kIOReturnError;
 
-	aoa = (AppleOnboardAudio *)us;
+	aoa = OSDynamicCast (AppleOnboardAudio, (OSObject *)us);
 	FailIf (NULL == aoa, Exit);
 
-//	kprintf ("+AppleOnboardAudio::performPowerStateChangeThreadAction (%p, %ld), %d\n", owner, (UInt32)newPowerState, aoa->ourPowerState);
-	debug4IOLog ("+ AppleOnboardAudio::performPowerStateChangeThreadAction (%p, %ld) -- ourPowerState = %d *****\n", owner, (UInt32)newPowerState, aoa->ourPowerState);
+//	kprintf ("+AppleOnboardAudio::performPowerStateChangeThreadAction (%p, %ld), %d", owner, (UInt32)newPowerState, aoa->ourPowerState);
+	debugIOLog (3, "+ AppleOnboardAudio::performPowerStateChangeThreadAction (%p, %ld) -- ourPowerState = %d", owner, (UInt32)newPowerState, aoa->ourPowerState);
 
 	FailIf (NULL == aoa->mTransportInterface, Exit);
 
@@ -3949,21 +4241,23 @@ IOReturn AppleOnboardAudio::performPowerStateChangeThreadAction (OSObject * owne
 			//	Sleep requires that the hardware plugin object(s) go to sleep
 			//	prior to the transport object going to sleep.
 			if (kIOAudioDeviceActive == aoa->ourPowerState) {
-				debugIOLog ("active to sleep power change calling outputMuteChange(TRUE)\n");
+				debugIOLog (3, "active to sleep power change calling outputMuteChange(TRUE)");
 				aoa->outputMuteChange (TRUE);			// Mute before turning off power
 				result = aoa->callPluginsInReverseOrder (kPowerStateChange, kIOAudioDeviceSleep);
 				if ( NULL != aoa->mTransportInterface ) { 
 					result = aoa->mTransportInterface->performTransportSleep ();
 				}
+				//	[3453989]	begin	{
 				if ( NULL != aoa->mPlatformInterface ) { 
 					aoa->mPlatformInterface->performPlatformSleep ();
 				}
+				//	}	end	[3453989]
 				aoa->ourPowerState = kIOAudioDeviceSleep;
 			}
 			break;
 		case kIOAudioDeviceIdle:
 			if (kIOAudioDeviceActive == aoa->ourPowerState) {
-				debugIOLog ("active to idle power change calling outputMuteChange(TRUE)\n");
+				debugIOLog (3, "active to idle power change calling outputMuteChange(TRUE)");
 				aoa->outputMuteChange (TRUE);			// Mute before turning off power
 				//	Going idle from wake requires that the hardware plugin object(s) go to sleep
 				//	prior to the transport object going to sleep.
@@ -3971,9 +4265,11 @@ IOReturn AppleOnboardAudio::performPowerStateChangeThreadAction (OSObject * owne
 				if ( NULL != aoa->mTransportInterface ) { 
 					result = aoa->mTransportInterface->performTransportSleep ();
 				}
+				//	[3453989]	begin	{
 				if ( NULL != aoa->mPlatformInterface ) { 
 					aoa->mPlatformInterface->performPlatformSleep ();
 				}
+				//	}	end	[3453989]
 				aoa->ourPowerState = kIOAudioDeviceSleep;
 			} else if (kIOAudioDeviceSleep == aoa->ourPowerState && kNoIdleAudioPowerDown == aoa->idleSleepDelayTime) {
 				//	Wake to idle from sleep requires that the transport object go active prior
@@ -3986,10 +4282,14 @@ IOReturn AppleOnboardAudio::performPowerStateChangeThreadAction (OSObject * owne
 					aoa->mExternalClockSelector->flushValue ();
 				}
 				aoa->ourPowerState = kIOAudioDeviceActive;
+				//	[3453989]	begin	{
 				if ( NULL != aoa->mPlatformInterface ) { 
 					aoa->mPlatformInterface->performPlatformWake ( aoa );
 				}
-				aoa->selectOutput (aoa->mOutputSelector->getIntValue (), aoa->mIsMute);	//	Radar 3416318:	mOutMuteControl does not touch GPIOs so do so here!
+				//	}	end	[3453989]
+				if ( NULL != aoa->mOutputSelector ) {
+					aoa->selectOutput (aoa->mOutputSelector->getIntValue (), aoa->mIsMute);	//	Radar 3416318:	mOutMuteControl does not touch GPIOs so do so here!
+				}
 				if (NULL != aoa->mOutMuteControl) {
 					aoa->mOutMuteControl->flushValue ();					// Restore hardware to the user's selected state
 				}
@@ -4004,18 +4304,22 @@ IOReturn AppleOnboardAudio::performPowerStateChangeThreadAction (OSObject * owne
 				}
 				result = aoa->callPluginsInOrder (kPowerStateChange, kIOAudioDeviceActive);
 				aoa->ourPowerState = kIOAudioDeviceActive;
+				//	[3453989]	begin	{
 				if ( NULL != aoa->mPlatformInterface ) { 
 					aoa->mPlatformInterface->performPlatformWake ( aoa );
 				}
+				//	}	end	[3453989]
 				if (NULL != aoa->mExternalClockSelector) {
 					aoa->mExternalClockSelector->flushValue ();
 				}
-				aoa->selectOutput (aoa->mOutputSelector->getIntValue (), aoa->mIsMute);	//	Radar 3416318:	mOutMuteControl does not touch GPIOs so do so here!
+				if ( NULL != aoa->mOutputSelector ) {
+					aoa->selectOutput (aoa->mOutputSelector->getIntValue (), aoa->mIsMute);	//	Radar 3416318:	mOutMuteControl does not touch GPIOs so do so here!
+				}
 				if (NULL != aoa->mOutMuteControl) {
 					aoa->mOutMuteControl->flushValue ();					// Restore hardware to the user's selected state
 				}
 			} else {
-				debugIOLog ("trying to wake, but we're already awake\n");
+				debugIOLog (3, "trying to wake, but we're already awake");
 			}
 			break;
 		default:
@@ -4025,10 +4329,11 @@ IOReturn AppleOnboardAudio::performPowerStateChangeThreadAction (OSObject * owne
 	aoa->setProperty ("IOAudioPowerState", aoa->ourPowerState, 32);
 	aoa->mUCState.ucPowerState = aoa->ourPowerState;
 Exit:
-	aoa->protectedCompletePowerStateChange ();
-
-//	kprintf ("-AppleOnboardAudio::performPowerStateChangeThreadAction (%p, %ld), %d\n", owner, (UInt32)newPowerState, aoa->ourPowerState);
-	debug4IOLog ("- AppleOnboardAudio::performPowerStateChangeThreadAction (%p, %ld) -- ourPowerState = %d *****\n", owner, (UInt32)newPowerState, aoa->ourPowerState);
+	if (NULL != aoa) {
+		aoa->protectedCompletePowerStateChange ();
+	}
+//	kprintf ("-AppleOnboardAudio::performPowerStateChangeThreadAction (%p, %ld), %d", owner, (UInt32)newPowerState, aoa->ourPowerState);
+	debugIOLog (3, "- AppleOnboardAudio::performPowerStateChangeThreadAction (%p, %ld) -- ourPowerState = %d", owner, (UInt32)newPowerState, aoa->ourPowerState);
 	return result;
 }
 
@@ -4081,7 +4386,7 @@ UInt8 AppleOnboardAudio::VolumeToPRAMValue (UInt32 inLeftVol, UInt32 inRightVol)
 	UInt32			leftVol;
 	UInt32			rightVol;
 
-	debug3IOLog ( "+ AppleOnboardAudio::VolumeToPRAMValue ( 0x%X, 0x%X )\n", (unsigned int)inLeftVol, (unsigned int)inRightVol );
+	debugIOLog (3,  "+ AppleOnboardAudio::VolumeToPRAMValue ( 0x%X, 0x%X )", (unsigned int)inLeftVol, (unsigned int)inRightVol );
 	pramVolume = 0;											//	[2886446]	Always pass zero as a result when muting!!!
 	if ( ( 0 != inLeftVol ) || ( 0 != inRightVol ) ) {		//	[2886446]
 		leftVol = inLeftVol;
@@ -4093,25 +4398,25 @@ UInt8 AppleOnboardAudio::VolumeToPRAMValue (UInt32 inLeftVol, UInt32 inRightVol)
 		if (NULL != mOutRightVolumeControl) {
 			rightVol -= mOutRightVolumeControl->getMinValue ();
 		}
-		debug3IOLog ( "... leftVol = 0x%X, rightVol = 0x%X\n", (unsigned int)leftVol, (unsigned int)rightVol );
+		debugIOLog (3,  "... leftVol = 0x%X, rightVol = 0x%X", (unsigned int)leftVol, (unsigned int)rightVol );
 	
 		if (NULL != mOutMasterVolumeControl) {
 			volumeRange = (mOutMasterVolumeControl->getMaxValue () - mOutMasterVolumeControl->getMinValue () + 1);
-			debug2IOLog ( "... mOutMasterVolumeControl volumeRange = 0x%X\n", (unsigned int)volumeRange );
+			debugIOLog (3,  "... mOutMasterVolumeControl volumeRange = 0x%X", (unsigned int)volumeRange );
 		} else if (NULL != mOutLeftVolumeControl) {
 			volumeRange = (mOutLeftVolumeControl->getMaxValue () - mOutLeftVolumeControl->getMinValue () + 1);
-			debug2IOLog ( "... mOutLeftVolumeControl volumeRange = 0x%X\n", (unsigned int)volumeRange );
+			debugIOLog (3,  "... mOutLeftVolumeControl volumeRange = 0x%X", (unsigned int)volumeRange );
 		} else if (NULL != mOutRightVolumeControl) {
 			volumeRange = (mOutRightVolumeControl->getMaxValue () - mOutRightVolumeControl->getMinValue () + 1);
-			debug2IOLog ( "... mOutRightVolumeControl volumeRange = 0x%X\n", (unsigned int)volumeRange );
+			debugIOLog (3,  "... mOutRightVolumeControl volumeRange = 0x%X", (unsigned int)volumeRange );
 		} else {
 			volumeRange = kMaximumPRAMVolume;
-			debug2IOLog ( "... volumeRange = 0x%X **** NO AUDIO LEVEL CONTROLS!\n", (unsigned int)volumeRange );
+			debugIOLog (3,  "... volumeRange = 0x%X **** NO AUDIO LEVEL CONTROLS!", (unsigned int)volumeRange );
 		}
 
 		averageVolume = (leftVol + rightVol) >> 1;		// sum the channel volumes and get an average
-		debug2IOLog ( "... averageVolume = 0x%X\n", (unsigned int)volumeRange );
-		debug3IOLog ( "... volumeRange %X, kMaximumPRAMVolume %X\n", (unsigned int)volumeRange, (unsigned int)kMaximumPRAMVolume );
+		debugIOLog (3,  "... averageVolume = 0x%X", (unsigned int)volumeRange );
+		debugIOLog (3,  "... volumeRange %X, kMaximumPRAMVolume %X", (unsigned int)volumeRange, (unsigned int)kMaximumPRAMVolume );
 		volumeSteps = volumeRange / kMaximumPRAMVolume;	// divide the range by the range of the pramVolume
 		pramVolume = averageVolume / volumeSteps;    
 	
@@ -4125,7 +4430,7 @@ UInt8 AppleOnboardAudio::VolumeToPRAMValue (UInt32 inLeftVol, UInt32 inRightVol)
 		}
 	
 	}
-	debug2IOLog ( "- AppleOnboardAudio::VolumeToPRAMValue returns 0x%X\n", (unsigned int)pramVolume );
+	debugIOLog (3,  "- AppleOnboardAudio::VolumeToPRAMValue returns 0x%X", (unsigned int)pramVolume );
 	return (pramVolume & 0x07);
 }
 
@@ -4156,54 +4461,54 @@ void AppleOnboardAudio::WritePRAMVol (UInt32 leftVol, UInt32 rightVol) {
 		
 	platform = OSDynamicCast(IODTPlatformExpert,getPlatform());
     
-    debug3IOLog("+ AppleOnboardAudio::WritePRAMVol leftVol=%lu, rightVol=%lu\n",leftVol,  rightVol);
+    debugIOLog (3, "+ AppleOnboardAudio::WritePRAMVol leftVol=%lu, rightVol=%lu",leftVol,  rightVol);
     
     if (platform) {
-		debug2IOLog ( "... platform 0x%X\n", (unsigned int)platform );
+		debugIOLog (3,  "... platform 0x%X", (unsigned int)platform );
 		pramVolume = VolumeToPRAMValue (leftVol, rightVol);
 #if 0
 		curPRAMVol = pramVolume ^ 0xFF;
-		debug3IOLog ( "... target pramVolume = 0x%X, curPRAMVol = 0x%X\n", pramVolume, curPRAMVol );
+		debugIOLog (3,  "... target pramVolume = 0x%X, curPRAMVol = 0x%X", pramVolume, curPRAMVol );
 #endif
 		// get the old value to compare it with
 		err = platform->readXPRAM((IOByteCount)kPRamVolumeAddr, &curPRAMVol, (IOByteCount)1);
 		if ( kIOReturnSuccess == err ) {
-			debug2IOLog ( "... curPRAMVol = 0x%X before write\n", (curPRAMVol & 0x07) );
+			debugIOLog (3,  "... curPRAMVol = 0x%X before write", (curPRAMVol & 0x07) );
 			// Update only if there is a change
 			if (pramVolume != (curPRAMVol & 0x07)) {
 				// clear bottom 3 bits of volume control byte from PRAM low memory image
 				curPRAMVol = (curPRAMVol & 0xF8) | pramVolume;
-				debug2IOLog("... curPRAMVol = 0x%x\n",curPRAMVol);
+				debugIOLog (3, "... curPRAMVol = 0x%x",curPRAMVol);
 				// write out the volume control byte to PRAM
 				err = platform->writeXPRAM((IOByteCount)kPRamVolumeAddr, &curPRAMVol,(IOByteCount) 1);
 				if ( kIOReturnSuccess != err ) {
-					debug5IOLog ( "0x%X = platform->writeXPRAM( 0x%X, & 0x%X, 1 ), value = 0x%X\n", err, (unsigned int)kPRamVolumeAddr, (unsigned int)&curPRAMVol, (unsigned int)curPRAMVol );
+					debugIOLog (3,  "0x%X = platform->writeXPRAM( 0x%X, & 0x%X, 1 ), value = 0x%X", err, (unsigned int)kPRamVolumeAddr, (unsigned int)&curPRAMVol, (unsigned int)curPRAMVol );
 				} else {
 #if 0
 					err = platform->readXPRAM((IOByteCount)kPRamVolumeAddr, &curPRAMVol, (IOByteCount)1);
 					if ( kIOReturnSuccess == err ) {
 						if ( ( 0x07 & curPRAMVol ) != pramVolume ) {
-							debug3IOLog ( "PRAM Read after Write did not compare:  Write = 0x%X, Read = 0x%X\n", (unsigned int)pramVolume, (unsigned int)curPRAMVol );
+							debugIOLog (3,  "PRAM Read after Write did not compare:  Write = 0x%X, Read = 0x%X", (unsigned int)pramVolume, (unsigned int)curPRAMVol );
 						} else {
-							debugIOLog ( "PRAM verified after write!\n" );
+							debugIOLog (3,  "PRAM verified after write!" );
 						}
 					} else {
-						debugIOLog ( "Could not readXPRAM to verify write!\n" );
+						debugIOLog (3,  "Could not readXPRAM to verify write!" );
 					}
 #endif
 					mUCState.ucPramData = (UInt32)curPRAMVol;
 					mUCState.ucPramVolume = mUCState.ucPramData & 0x00000007;
 				}
 			} else {
-				debugIOLog ( "PRAM write request is to current value: no I/O\n" );
+				debugIOLog (3,  "PRAM write request is to current value: no I/O" );
 			}
 		} else {
-			debug2IOLog ( "Could not readXPRAM prior to write! Error 0x%X\n", err );
+			debugIOLog (3,  "Could not readXPRAM prior to write! Error 0x%X", err );
 		}
 	} else {
-		debugIOLog ( "... no platform\n" );
+		debugIOLog (3,  "... no platform" );
 	}
-    debugIOLog("- AppleOnboardAudio::WritePRAMVol\n");
+    debugIOLog (3, "- AppleOnboardAudio::WritePRAMVol");
 }
 
 UInt8 AppleOnboardAudio::ReadPRAMVol (void) {
@@ -4238,7 +4543,7 @@ IOReturn AppleOnboardAudio::newUserClient( task_t 			inOwningTask,
     IOReturn 			err;
 	bool				result;
 	
-//	debug2IOLog( "[AppleOnboardAudio] creating user client for task 0x%08lX\n", ( UInt32 ) inOwningTask );
+//	debugIOLog (3,  "[AppleOnboardAudio] creating user client for task 0x%08lX", ( UInt32 ) inOwningTask );
 	err = kIOReturnError;
 	result = false;
 	
@@ -4259,7 +4564,7 @@ IOReturn AppleOnboardAudio::newUserClient( task_t 			inOwningTask,
 	err = kIOReturnSuccess;
 	
 Exit:
-//	debug2IOLog( "[AppleOnboardAudio] newUserClient done (err=%d)\n", err );
+//	debugIOLog (3,  "[AppleOnboardAudio] newUserClient done (err=%d)", err );
 	if( err != kIOReturnSuccess )
 	{
 		if( userClientPtr )
@@ -4289,11 +4594,16 @@ Exit:
 IOReturn AppleOnboardAudio::getPluginState ( HardwarePluginType thePluginType, void * outState ) {
 	AudioHardwareObjectInterface *		thePluginObject;
 	IOReturn							result = kIOReturnError;
+
+	debugIOLog (7,  "AppleOnboardAudio[%ld]::getPluginState for type %d", mInstanceIndex, thePluginType );
 	
 	FailIf ( NULL == outState, Exit );
 	thePluginObject = findPluginForType ( thePluginType );
-	FailIf ( NULL == thePluginObject, Exit );
-	result = thePluginObject->getPluginState ( (HardwarePluginDescriptorPtr)outState );
+	//	No fail messages here please!  The AOA Viewer always queries for plugin modules that may not
+	//	be loaded and a fail message will overflow the message log!
+	if ( NULL != thePluginObject ) {
+		result = thePluginObject->getPluginState ( (HardwarePluginDescriptorPtr)outState );
+	}
 Exit:
 	return result;
 }
@@ -4317,8 +4627,7 @@ IOReturn AppleOnboardAudio::getDMAStateAndFormat ( UInt32 arg2, void * outState 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 IOReturn AppleOnboardAudio::getSoftwareProcessingState ( UInt32 arg2, void * outState ) {
 #pragma unused ( arg2 )
-	((GetSoftProcUserClientStructPtr)outState)->numHardwareEQBands = getNumHardwareEQBandsForCurrentOutput ();
-	return mDriverDMAEngine->copySoftwareProcessingState ( (GetSoftProcUserClientStructPtr)outState);
+	return kIOReturnSuccess;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -4330,6 +4639,8 @@ IOReturn AppleOnboardAudio::getAOAState ( UInt32 arg2, void * outState ) {
 	FailIf ( 0 != arg2, Exit );
 	FailIf (NULL == outState, Exit );
 	
+	debugIOLog (3,  "AppleOnboardAudio[%ld]::getAOAState for type %ld", mInstanceIndex, arg2 );
+
 	((AOAStateUserClientStructPtr)outState)->ucPramData = mUCState.ucPramData;
 	((AOAStateUserClientStructPtr)outState)->ucPramVolume = mUCState.ucPramVolume;
 	((AOAStateUserClientStructPtr)outState)->ucPowerState = mUCState.ucPowerState;
@@ -4383,11 +4694,10 @@ IOReturn AppleOnboardAudio::setDMAState ( UInt32 arg2, void * inState ) {
 	return kIOReturnError;
 }
 
-
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 IOReturn AppleOnboardAudio::setSoftwareProcessingState ( UInt32 arg2, void * inState ) {
 #pragma unused ( arg2 )
-	return mDriverDMAEngine->applySoftwareProcessingState ((SetSoftProcUserClientStructPtr)inState);
+	return kIOReturnSuccess;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -4406,4 +4716,27 @@ IOReturn AppleOnboardAudio::setTransportInterfaceState ( UInt32 arg2, void * inS
 		result = mTransportInterface->setTransportInterfaceState ( (TransportStateStructPtr)inState );
 	}
 	return result;
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+ConfigChangeHelper::ConfigChangeHelper (IOAudioEngine * inEngine, UInt32 inSleep) {
+	mDriverDMAEngine = inEngine;
+	if (NULL != mDriverDMAEngine) {
+		debugIOLog (4, "ConfigChangeHelper (%p, %ld): calling pauseAudioEngine and beginConfigurationChange", inEngine, inSleep);
+		mDriverDMAEngine->pauseAudioEngine ();
+		if (0 != inSleep) {
+			debugIOLog (4, "waiting %d ms between pause and begin", inSleep);
+			IOSleep ( 10 );
+		}
+		mDriverDMAEngine->beginConfigurationChange ();
+	}
+}
+
+ConfigChangeHelper::~ConfigChangeHelper () {
+	if (NULL != mDriverDMAEngine) {
+		debugIOLog (4, "~ConfigChangeHelper: calling completeConfigurationChange and resumeAudioEngine");
+		mDriverDMAEngine->completeConfigurationChange ();
+		mDriverDMAEngine->resumeAudioEngine ();
+	}
 }

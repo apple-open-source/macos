@@ -7,21 +7,12 @@
 
 package org.jboss.varia.scheduler.example;
 
-import java.security.InvalidParameterException;
 import java.util.Date;
 
-import javax.management.MalformedObjectNameException;
-import javax.management.MBeanServer;
 import javax.management.Notification;
-import javax.management.timer.TimerNotification;
-import javax.management.NotificationFilter;
-import javax.management.NotificationListener;
 import javax.management.ObjectName;
 
-import org.jboss.logging.Logger;
 import org.jboss.system.ServiceMBeanSupport;
-
-import org.jboss.varia.scheduler.Schedulable;
 
 /**
  * 
@@ -31,7 +22,7 @@ import org.jboss.varia.scheduler.Schedulable;
  *
  * @author <a href="mailto:andreas@jboss.org">Andreas Schaefer</a>
  * @author Cameron (camtabor)
- * @version $Revision: 1.2.4.1 $
+ * @version $Revision: 1.2.4.2 $
  *  
  **/
 public class SchedulableMBeanExample

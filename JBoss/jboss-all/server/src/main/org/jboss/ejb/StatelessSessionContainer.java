@@ -35,7 +35,7 @@ import org.jboss.invocation.MarshalledInvocation;
  * @author <a href="mailto:rickard.oberg@telkel.com">Rickard Öberg</a>
  * @author <a href="mailto:marc.fleury@telkel.com">Marc Fleury</a>
  * @author <a href="mailto:docodan@mvcsoft.com">Daniel OConnor</a>
- * @version $Revision: 1.37.2.4 $
+ * @version $Revision: 1.37.2.7 $
  */
 public class StatelessSessionContainer
    extends Container
@@ -132,6 +132,9 @@ public class StatelessSessionContainer
          // Call default init
          super.createService();
 
+         // Make some additional validity checks with regards to the container configuration
+         checkCoherency ();
+
          // Map the bean methods
          setupBeanMapping();
 
@@ -164,6 +167,8 @@ public class StatelessSessionContainer
             EJBProxyFactory ci = (EJBProxyFactory)proxyFactories.get(invokerBinding);
             ci.create();
          }
+
+
 
          // Initialize the interceptor by calling the chain
          Interceptor in = interceptor;
@@ -296,6 +301,9 @@ public class StatelessSessionContainer
             in = in.getNext();
          }
 
+         MarshalledInvocation.removeHashes(homeInterface);
+         MarshalledInvocation.removeHashes(remoteInterface);
+
          // Call default destroy
          super.destroyService();
       }
@@ -358,8 +366,10 @@ public class StatelessSessionContainer
       throws RemoteException
    {
       EJBProxyFactory ci = getProxyFactory();
-      if (ci == null) {
-         throw new IllegalStateException();
+      if (ci == null)
+      {
+         String msg = "No ProxyFactory, check for ProxyFactoryFinderInterceptor";
+         throw new IllegalStateException(msg);
       }
       return (EJBHome) ci.getEJBHome();
    }
@@ -386,7 +396,10 @@ public class StatelessSessionContainer
       throws CreateException
    {
       if (localProxyFactory == null)
-         throw new IllegalStateException();
+      {
+         String msg = "No ProxyFactory, check for ProxyFactoryFinderInterceptor";
+         throw new IllegalStateException(msg);
+      }
       createCount ++;
       return localProxyFactory.getStatelessSessionEJBLocalObject();
    }
@@ -405,8 +418,10 @@ public class StatelessSessionContainer
       throws RemoteException, CreateException
    {
        EJBProxyFactory ci = getProxyFactory();
-      if (ci == null) {
-         throw new IllegalStateException();
+      if (ci == null)
+      {
+         String msg = "No ProxyFactory, check for ProxyFactoryFinderInterceptor";
+         throw new IllegalStateException(msg);
       }
       createCount ++;
       Object obj = ci.getStatelessSessionEJBObject();
@@ -576,6 +591,28 @@ public class StatelessSessionContainer
    Interceptor createContainerInterceptor()
    {
       return new ContainerInterceptor();
+   }
+
+   protected void checkCoherency () throws Exception
+   {
+      // Check clustering cohrency wrt metadata
+      //
+      if (metaData.isClustered())
+      {
+         boolean clusteredProxyFactoryFound = false;
+         for (Iterator it = proxyFactories.keySet().iterator(); it.hasNext(); )
+         {
+            String invokerBinding = (String)it.next();
+            EJBProxyFactory ci = (EJBProxyFactory)proxyFactories.get(invokerBinding);
+            if (ci instanceof org.jboss.proxy.ejb.ClusterProxyFactory)
+               clusteredProxyFactoryFound = true;
+         }
+
+         if (!clusteredProxyFactoryFound)
+         {
+            log.warn("*** EJB '" + this.metaData.getEjbName() + "' deployed as CLUSTERED but not a single clustered-invoker is bound to container ***");
+         }
+      }
    }
 
    /**

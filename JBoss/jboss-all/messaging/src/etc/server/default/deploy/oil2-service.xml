@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- $Id: oil2-service.xml,v 1.1.2.2 2003/10/14 16:41:27 patriot1burke Exp $ -->
+
+<server>
+
+
+  <!-- JBossMQ communication using an alternate Optimizated Invocation Layer
+       The server connects back to the client on a different socket -->
+  
+  <mbean code="org.jboss.mq.il.oil2.OIL2ServerILService"
+	 name="jboss.mq:service=InvocationLayer,type=OIL2">
+    <depends optional-attribute-name="Invoker">jboss.mq:service=Invoker</depends>
+    <attribute name="ConnectionFactoryJNDIRef">OIL2ConnectionFactory</attribute>
+    <attribute name="XAConnectionFactoryJNDIRef">OIL2XAConnectionFactory</attribute>
+    <attribute name="ServerBindPort">8092</attribute>
+    <attribute name="PingPeriod">60000</attribute>
+    <attribute name="EnableTcpNoDelay">true</attribute>
+    <attribute name="BindAddress">${jboss.bind.address}</attribute>
+  </mbean>
+
+</server>

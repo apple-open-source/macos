@@ -46,7 +46,8 @@ import org.jboss.ejb.plugins.cmp.bridge.FieldBridge;
  * This class parses JBossQL into an abstract syntax tree.
  *
  * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
- * @version $Revision: 1.6.2.3 $
+ * @author <a href="mailto:alex@jboss.org">Alex Loubyansky</a>
+ * @version $Revision: 1.6.2.7 $
  */
 public class JBossQLParser {
    private Catalog catalog;
@@ -163,8 +164,8 @@ void OrderByPathExpression() #OrderByPath :
 void LimitClause() #LimitOffset :
 {}
 {
-     <OFFSET> NumericValuedParameter() { jjtThis.hasOffset = true; } [<LIMIT> NumericValuedParameter() { jjtThis.hasLimit = true; }]
-   | <LIMIT> NumericValuedParameter() { jjtThis.hasLimit = true; }
+     <OFFSET> ArithmeticValue() { jjtThis.hasOffset = true; } [<LIMIT> ArithmeticValue() { jjtThis.hasLimit = true; }]
+   | <LIMIT> ArithmeticValue() { jjtThis.hasLimit = true; }
 }
 
 ////////////////////////////////////////////////////////////////////////////
@@ -225,7 +226,8 @@ ASTSelect SelectClause() #Select :
       <SELECT> [<DISTINCT> { jjtThis.distinct=true; }]
       (
          <OBJECT> <LPAREN> IdentificationVariable() <RPAREN> |
-         SingleValuedPath()
+         SingleValuedPath() |
+         FunctionsAllowedInSelect()
       )
    ) { return jjtThis; }
 }
@@ -233,8 +235,30 @@ ASTSelect SelectClause() #Select :
 ASTWhere WhereClause() #Where :
 {}
 {
-   <WHERE> ConditionalExpression()
+   <WHERE> WhereExpression()
    { return jjtThis; }
+}
+
+//
+// ASTWhereExpression and ASTWhereConditionalTerm mimic
+// ConditionalExpression and ConditionalTerm.
+// They are added to support joins per WhereConditionalTerm.
+//
+void WhereExpression() #void :
+{}
+{
+   (
+      WhereConditionalTerm() ( <OR> WhereConditionalTerm() )*
+   ) #Or(>1)
+}
+
+ASTWhereConditionalTerm WhereConditionalTerm() #WhereConditionalTerm :
+{}
+{
+   (
+      ConditionalFactor() ( <AND> ConditionalFactor() )*
+   ) #And(>1)
+   {return jjtThis;}
 }
 
 void ConditionalExpression() #void :
@@ -277,6 +301,13 @@ void ConditionalPrimary() #void :
 }
 
 ////////////////////// New or changed elements /////////////////////////////
+
+void FunctionsAllowedInSelect() #void :
+{}
+{
+   FunctionsReturningNumerics() |
+   FunctionsReturningStrings()
+}
 
 void SimpleCondExpression() #void :
 {}
@@ -636,6 +667,27 @@ void FunctionsReturningNumerics() #void :
          ArithmeticExpression() <RPAREN>
    ) #Mod
 */
+|
+   (
+      <COUNT> <LPAREN> SingleValuedPath() <RPAREN>
+   ) #Count
+|
+   (
+      <MAX> <LPAREN> SingleValuedPath() <RPAREN>
+   ) #Max
+|
+   (
+      <MIN> <LPAREN> SingleValuedPath() <RPAREN>
+   ) #Min
+|
+   (
+      <AVG> <LPAREN> SingleValuedPath() <RPAREN>
+   ) #Avg
+|
+   (
+      <SUM> <LPAREN> SingleValuedPath() <RPAREN>
+   ) #Sum
+
 ////////////////////////////////////////////////////////////////////////////
 }
 
@@ -891,6 +943,11 @@ TOKEN_MGR_DECLS :
 |  < AS: "AS" >
 |  < BETWEEN: "BETWEEN" >
 |  < CONCAT: "CONCAT" >
+|  < COUNT: "COUNT" >
+|  < MAX: "MAX" >
+|  < MIN: "MIN" >
+|  < AVG: "AVG" >
+|  < SUM: "SUM" >
 |  < DISTINCT: "DISTINCT" >
 |  < EMPTY: "EMPTY" >
 |  < ESCAPE: "ESCAPE" >

@@ -1,4 +1,4 @@
-@(#) $Header: /cvs/Darwin/src/live/libpcap/libpcap/INSTALL,v 1.1.1.1 2001/07/07 00:41:36 bbraun Exp $ (LBL)
+@(#) $Header: /cvs/root/libpcap/libpcap/INSTALL,v 1.1.1.1 2001/07/07 00:41:36 bbraun Exp $ (LBL)
 
 To build libpcap, run "./configure" (a shell script). The configure
 script will determine your system attributes and generate an

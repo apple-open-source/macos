@@ -34,89 +34,35 @@
 #ifndef __AUDIOHARDWAREUTILITIES__
 #define __AUDIOHARDWAREUTILITIES__
 
-//#define	LOG_FAIL
-#ifdef DEBUG
-#ifndef LOG_FAIL
+#ifdef DEBUGLOG
+	#define DEBUG_LEVEL 1
+#endif
+
+#include <IOKit/usb/IOUSBLog.h>
+
+//	NOTE:  Use of 'LOG_FAIL' allows the fail messages to appear in the log without
+//	all of the standard logging associated with a DEBUG build (i.e. hopefully failures only).
 #define	LOG_FAIL
-#endif
-#endif
 
-#define	kDebugIOSleepDelay		20
-// Debugging help
-#ifdef DEBUGLOG
-// #define IOSleep(x) ;
-#define debugIOLog( message ) \
-	{IOLog( message ); IOSleep(kDebugIOSleepDelay);}
-#define debug2IOLog( message, arg2 ) \
-	{IOLog( message, arg2 ); IOSleep(kDebugIOSleepDelay);}
-#define debug3IOLog( message, arg2, arg3 ) \
-	{IOLog( message, arg2, arg3 ); IOSleep(kDebugIOSleepDelay);}
-#define debug4IOLog( message, arg2, arg3, arg4 ) \
-	{IOLog( message, arg2, arg3, arg4 ); IOSleep(kDebugIOSleepDelay);}
-#define debug5IOLog( message, arg2, arg3, arg4, arg5 ) \
-	{IOLog( message, arg2, arg3, arg4, arg5 ); IOSleep(kDebugIOSleepDelay);}
-#define debug6IOLog( message, arg2, arg3, arg4, arg5, arg6 ) \
-	{IOLog( message, arg2, arg3, arg4, arg5, arg6 ); IOSleep(kDebugIOSleepDelay);}
-#define debug7IOLog( message, arg2, arg3, arg4, arg5, arg6, arg7 ) \
-	{IOLog( message, arg2, arg3, arg4, arg5, arg6, arg7 ); IOSleep(kDebugIOSleepDelay);}
-#define debug8IOLog( message, arg2, arg3, arg4, arg5, arg6, arg7, arg8 ) \
-	{IOLog( message, arg2, arg3, arg4, arg5, arg6, arg7, arg8 ); IOSleep(kDebugIOSleepDelay);}
-#define debug9IOLog( message, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9 ) \
-    {IOLog( message, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9 ); IOSleep(kDebugIOSleepDelay);}
-#else
-#define debugIOLog( message ) ;
-#define debug2IOLog( message, arg2 ) ;
-#define debug3IOLog( message, arg2, arg3 ) ;
-#define debug4IOLog( message, arg2, arg3, arg4 ) ;
-#define debug5IOLog( message, arg2, arg3, arg4, arg5 ) ;
-#define debug6IOLog( message, arg2, arg3, arg4, arg5, arg6 ) ;
-#define debug7IOLog( message, arg2, arg3, arg4, arg5, arg6, arg7 ) ;
-#define debug8IOLog( message, arg2, arg3, arg4, arg5, arg6, arg7, arg8 ) ;
-#define debug9IOLog( message, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9 ) ;
+#ifdef DEBUG
+	#ifndef LOG_FAIL
+		#define	LOG_FAIL
+	#endif
 #endif
-
 
 #ifdef DEBUGLOG
-#define debugIrqIOLog( message ) \
-	{IOLog( message );}
-#define debug2IrqIOLog( message, arg2 ) \
-	{IOLog( message, arg2 );}
-#define debug3IrqIOLog( message, arg2, arg3 ) \
-	{IOLog( message, arg2, arg3 );}
-#define debug4IrqIOLog( message, arg2, arg3, arg4 ) \
-	{IOLog( message, arg2, arg3, arg4 );}
-#define debug5IrqIOLog( message, arg2, arg3, arg4, arg5 ) \
-	{IOLog( message, arg2, arg3, arg4, arg5 );}
-#define debug6IrqIOLog( message, arg2, arg3, arg4, arg5, arg6 ) \
-	{IOLog( message, arg2, arg3, arg4, arg5, arg6 );}
-#define debug7IrqIOLog( message, arg2, arg3, arg4, arg5, arg6, arg7 ) \
-	{IOLog( message, arg2, arg3, arg4, arg5, arg6, arg7 );}
-#define debug8IrqIOLog( message, arg2, arg3, arg4, arg5, arg6, arg7, arg8 ) \
-	{IOLog( message, arg2, arg3, arg4, arg5, arg6, arg7, arg8 );}
-#define debug9IrqIOLog( message, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9 ) \
-    {IOLog( message, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9 );}
+	#define debugIOLog( level, message... ) \
+		do {USBLog( level, message );} while (0)
 #else
-#define debugIrqIOLog( message ) ;
-#define debug2IrqIOLog( message, arg2 ) ;
-#define debug3IrqIOLog( message, arg2, arg3 ) ;
-#define debug4IrqIOLog( message, arg2, arg3, arg4 ) ;
-#define debug5IrqIOLog( message, arg2, arg3, arg4, arg5 ) ;
-#define debug6IrqIOLog( message, arg2, arg3, arg4, arg5, arg6 ) ;
-#define debug7IrqIOLog( message, arg2, arg3, arg4, arg5, arg6, arg7 ) ;
-#define debug8IrqIOLog( message, arg2, arg3, arg4, arg5, arg6, arg7, arg8 ) ;
-#define debug9IrqIOLog( message, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9 ) ;
+	#define debugIOLog( message... ) ;
 #endif
 
-#define DEBUG_IOLOG debugIOLog
-#define DEBUG2_IOLOG debug2IOLog
-#define DEBUG3_IOLOG debug3IOLog
-
-
-#ifdef DEBUGLOG 
-    #define CLOG( stuff )  IOLog( stuff )
-#else 
-    #define CLOG( stuff )  ; 
-#endif
+#define	IOLog1Float( preString, inFloat, postString )				\
+{																	\
+	char fstr[32];													\
+	float2string(inFloat, fstr);									\
+	IOLog ("%s%s%s", preString, fstr, postString);					\
+}																
 
 // Bytes parsing
 #define NEXTENDOFSTRING(bytes, idx)  while('\0' != bytes[idx]) idx++;
@@ -132,61 +78,68 @@
 #define CLEAN_RELEASE(thingPtr) if(thingPtr) {thingPtr->release(); thingPtr=NULL;}
 
 //	-----------------------------------------------------------------
-#define SoundAssertionMessage( cond, file, line, handler ) \
-    "Sound assertion \"" #cond "\" failed in " #file " at line " #line " goto " #handler "\n"
-
-#define SoundAssertionFailed( cond, file, line, handler ) \
-    IOLog( SoundAssertionMessage( cond, file, line, handler ));
-
-//	-----------------------------------------------------------------
 #ifdef LOG_FAIL
-#define	FailIf( cond, handler )										\
-    if( cond ){														\
-        SoundAssertionFailed( cond, __FILE__, __LINE__, handler )	\
-        goto handler; 												\
-    }
+	#ifndef DEBUGLOG
+		#define SoundAssertionMessage( cond, file, line, handler ) \
+			"Sound assertion \"" #cond "\" failed in " #file " at line " #line " goto " #handler "\n"
+	#else
+		#define SoundAssertionMessage( cond, file, line, handler ) \
+			"Sound assertion \"" #cond "\" failed in " #file " at line " #line " goto " #handler
+	#endif
 #else
-#define	FailIf( cond, handler )										\
-    if( cond ){														\
-        goto handler; 												\
-    }
+	#define SoundAssertionMessage( cond, file, line, handler ) \
+		"Sound assertion \"" #cond "\" failed in " #file " at line " #line " goto " #handler
 #endif
+	
 
 #ifdef LOG_FAIL
-#define	FAIL_IF( cond, handler )										\
-    if( cond ){														\
-        SoundAssertionFailed( cond, __FILE__, __LINE__, handler )	\
-        goto handler; 												\
-    }
+	#ifndef DEBUGLOG
+		#define SoundAssertionFailed( cond, file, line, handler ) \
+			IOLog(SoundAssertionMessage( cond, file, line, handler ));
+	#else
+		#define SoundAssertionFailed( cond, file, line, handler ) \
+			debugIOLog( 1, SoundAssertionMessage( cond, file, line, handler ));
+	#endif
 #else
-#define	FAIL_IF( cond, handler )										\
-    if( cond ){														\
-        goto handler; 												\
-    }
-#endif
-
-
-//	-----------------------------------------------------------------
-#ifdef LOG_FAIL
-#define	FailWithAction( cond, action, handler )						\
-    if( cond ){														\
-        SoundAssertionFailed( cond, __FILE__, __LINE__, handler )	\
-            { action; }												\
-        goto handler; 												\
-    }
-#else
-#define	FailWithAction( cond, action, handler )						\
-    if( cond ){														\
-            { action; }												\
-        goto handler; 												\
-    }
+	#define SoundAssertionFailed( cond, file, line, handler ) \
+		debugIOLog( 1, SoundAssertionMessage( cond, file, line, handler ));
 #endif
 
 //	-----------------------------------------------------------------
 #ifdef LOG_FAIL
-#define FailMessage(cond)		if (cond) SoundAssertionFailed(cond, __FILE__, __LINE__, handler)
+	#define	FailIf( cond, handler )										\
+		if( cond ){														\
+			SoundAssertionFailed( cond, __FILE__, __LINE__, handler )	\
+			goto handler; 												\
+		}
 #else
-#define FailMessage(cond)		{}
+	#define	FailIf( cond, handler )										\
+		if( cond ){														\
+			goto handler; 												\
+		}
+#endif
+
+//	-----------------------------------------------------------------
+#ifdef LOG_FAIL
+	#define	FailWithAction( cond, action, handler )						\
+		if( cond ){														\
+			SoundAssertionFailed( cond, __FILE__, __LINE__, handler )	\
+				{ action; }												\
+			goto handler; 												\
+		}
+#else
+	#define	FailWithAction( cond, action, handler )						\
+		if( cond ){														\
+				{ action; }												\
+			goto handler; 												\
+		}
+#endif
+
+//	-----------------------------------------------------------------
+#ifdef LOG_FAIL
+	#define FailMessage(cond)		if (cond) SoundAssertionFailed(cond, __FILE__, __LINE__, handler)
+#else
+	#define FailMessage(cond)		{}
 #endif
 
 #endif //__AUDIOHARDWAREUTILITIES__

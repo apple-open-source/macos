@@ -1220,7 +1220,7 @@ CSSM_RETURN tp_policyVerify(
 				policyFail = CSSM_TRUE;
 				thisTpCertInfo->addStatusCode(CSSMERR_APPLETP_INVALID_KEY_USAGE); 
 			}
-			
+			#if 0
 			if((policy == kTP_SMIME) && !thisCertInfo->keyUsage.critical) {
 				/*
 				 * Per Radar 3410245, allow this for intermediate certs.
@@ -1231,7 +1231,7 @@ CSSM_RETURN tp_policyVerify(
 					thisTpCertInfo->addStatusCode(CSSMERR_APPLETP_SMIME_KEYUSAGE_NOT_CRITICAL);
 				}
 			}
-			
+			#endif
 		}
 		else if(policy == kTPiSign) {
 			/* 

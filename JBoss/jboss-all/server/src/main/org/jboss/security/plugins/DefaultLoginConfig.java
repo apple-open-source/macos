@@ -16,7 +16,6 @@ import javax.management.MBeanInfo;
 import javax.management.MBeanOperationInfo;
 import javax.management.ReflectionException;
 import javax.security.auth.login.Configuration;
-import javax.security.auth.login.AppConfigurationEntry;
 
 import org.jboss.logging.Logger;
 
@@ -24,7 +23,7 @@ import org.jboss.logging.Logger;
  implementation. 
 
 @author Scott.Stark@jboss.org
-@version $Revision: 1.1 $
+@version $Revision: 1.1.4.1 $
  */
 public class DefaultLoginConfig implements DynamicMBean
 {

@@ -8,29 +8,23 @@
 package org.jboss.ejb.plugins;
 
 import java.lang.reflect.Constructor;
-import java.rmi.RemoteException;
 import java.rmi.NoSuchObjectException;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Iterator;
+import java.rmi.RemoteException;
 import java.util.Map;
 
-import org.w3c.dom.Element;
-
 import org.jboss.deployment.DeploymentException;
-import org.jboss.ejb.InstanceCache;
-import org.jboss.ejb.EnterpriseContext;
-import org.jboss.ejb.EntityEnterpriseContext;
-import org.jboss.ejb.Container;
 import org.jboss.ejb.BeanLock;
+import org.jboss.ejb.Container;
+import org.jboss.ejb.EnterpriseContext;
+import org.jboss.ejb.InstanceCache;
 import org.jboss.logging.Logger;
 import org.jboss.metadata.MetaData;
 import org.jboss.metadata.XmlLoadable;
+import org.jboss.monitor.MetricsConstants;
 import org.jboss.monitor.Monitorable;
 import org.jboss.monitor.client.BeanCacheSnapshot;
-import org.jboss.monitor.MetricsConstants;
 import org.jboss.util.CachePolicy;
-import org.jboss.util.WorkerQueue;
+import org.w3c.dom.Element;
 
 /**
  * Base class for caches of entity and stateful beans. <p>
@@ -45,7 +39,7 @@ import org.jboss.util.WorkerQueue;
  * @author <a href="mailto:simone.bordet@compaq.com">Simone Bordet</a>
  * @author <a href="bill@burkecentral.com">Bill Burke</a>
  * @author <a href="marc.fleury@jboss.org">Marc Fleury</a>
- * @version $Revision: 1.32.2.8 $
+ * @version $Revision: 1.32.2.10 $
  * @jmx:mbean
  */
 public abstract class AbstractInstanceCache
@@ -153,6 +147,7 @@ public abstract class AbstractInstanceCache
          {
             try
             {
+               remove(id);
                passivate(ctx);
                freeContext(ctx);
             }
@@ -164,6 +159,12 @@ public abstract class AbstractInstanceCache
          else
          {
             log.warn("Unable to passivate due to ctx lock, id="+id);
+
+            // Touch the entry to make it MRU
+            synchronized (getCacheLock())
+            {
+               getCache().get(id);
+            }
          }
       }
       finally
@@ -185,13 +186,15 @@ public abstract class AbstractInstanceCache
       synchronized (getCacheLock())
       {
          if (getCache().peek(id) != null)
-         {
             getCache().remove(id);
-         }
       }
       tryToPassivate(ctx);
    }
-   /* From InstanceCache interface */
+
+   /** 
+    * From InstanceCache interface 
+    * @jmx:managed-operation 
+    */
    public void remove(Object id)
    {
       if (id == null) throw new IllegalArgumentException("Can't remove an object using a null key");

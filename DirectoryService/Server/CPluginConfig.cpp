@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -124,6 +122,61 @@ sInt32 CPluginConfig::Initialize ( void )
 			}
 		}
 
+		if ( bSuccess == true && fDictRef != NULL )
+		{
+			// Check versioning here.  If file version is old, we need to convert to the latest
+			CFStringRef		configVersion = (CFStringRef)CFDictionaryGetValue( fDictRef, CFSTR(kVersionKey) );
+			
+			if ( configVersion == NULL )
+			{
+				// this isn't properly configured, throw this away so we can start with a fresh default
+				CFRelease( fDictRef );
+				fDictRef = NULL;
+				bSuccess = false;
+
+				SRVRLOG( kLogApplication, "Plugin configuration file has no version, resetting to current defaults." );
+			}
+			else
+			{
+				Boolean		bUpgradedConfigVersion = false;
+				
+				CFRetain( configVersion );  // release at end
+				
+				if ( CFStringCompare( configVersion, CFSTR("1.1"), kCFCompareNumerically ) == kCFCompareLessThan )
+				{
+					// This is a pre 1.1 version file, upgrade to 1.1 defaults
+					// First the version value
+					CFDictionarySetValue( fDictRef, CFSTR(kVersionKey), CFSTR("1.1") );
+					
+					// Now the change, we want to force AppleTalk plugin to be active by default
+					CFDictionarySetValue( fDictRef, CFSTR(kAppleTalkPluginKey), CFSTR(kActiveValue) );
+					
+					bUpgradedConfigVersion = true;
+					SRVRLOG( kLogApplication, "Plugin configuration file upgraded to 1.1, AppleTalk plugin now Active." );
+				}
+/*				
+				if ( CFStringCompare( configVersion, CFSTR("1.2"), kCFCompareNumerically ) == kCFCompareLessThan )
+				{
+					// This is a pre 1.2 version file, upgrade from 1.1 to 1.2 defaults
+					...
+					// This is a placeholder for future versioning changes.  If we always check the version, we can
+					// do the same upgrades between versions so that whatever the current version state is will be
+					// consistent.
+
+					bUpgradedConfigVersion = true;
+					SRVRLOG( kLogApplication, "Plugin configuration file upgraded to 1.2." );
+				}
+*/
+
+				if ( bUpgradedConfigVersion == true )
+				{
+					SaveConfigData();
+				}
+				
+				CFRelease( configVersion );  // release at end
+			}
+		}
+		
 		// Either the file didn't exist or we didn't have valid data in the file
 		if ( bSuccess == false )
 		{

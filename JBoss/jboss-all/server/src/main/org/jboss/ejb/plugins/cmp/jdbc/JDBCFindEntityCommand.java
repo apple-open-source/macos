@@ -16,7 +16,7 @@ import javax.ejb.ObjectNotFoundException;
 import org.jboss.ejb.EntityEnterpriseContext;
 
 /**
- * JDBCFindEntityCommand finds a single entity, by deligating to 
+ * JDBCFindEntityCommand finds a single entity, by deligating to
  * find entities and checking that only entity is returned.
  *
  * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
@@ -24,31 +24,40 @@ import org.jboss.ejb.EntityEnterpriseContext;
  * @author <a href="mailto:marc.fleury@telkel.com">Marc Fleury</a>
  * @author <a href="mailto:shevlandj@kpi.com.au">Joe Shevland</a>
  * @author <a href="mailto:justin@j-m-f.demon.co.uk">Justin Forder</a>
- * @version $Revision: 1.9 $
+ * @version $Revision: 1.9.4.2 $
  */
-public class JDBCFindEntityCommand {
-   private JDBCStoreManager manager;
-   
-   public JDBCFindEntityCommand(JDBCStoreManager manager) {
+public final class JDBCFindEntityCommand
+{
+   private static final String NO_SUCH_ENTITY = "No such entity!";
+
+   private final JDBCStoreManager manager;
+
+   public JDBCFindEntityCommand(JDBCStoreManager manager)
+   {
       this.manager = manager;
    }
-   
-   public Object execute(
-         Method finderMethod,
-         Object[] args,
-         EntityEnterpriseContext ctx) throws FinderException {
 
-      JDBCQueryCommand query = 
-            manager.getQueryManager().getQueryCommand(finderMethod);
+   public Object execute(
+      Method finderMethod,
+      Object[] args,
+      EntityEnterpriseContext ctx) throws FinderException
+   {
+
+      JDBCQueryCommand query =
+         manager.getQueryManager().getQueryCommand(finderMethod);
 
       Collection result = query.execute(finderMethod, args, ctx);
-      if(result.isEmpty()) {
-         throw new ObjectNotFoundException("No such entity!");
-      } else if(result.size() == 1) {
+      if(result.isEmpty())
+      {
+         throw new ObjectNotFoundException(NO_SUCH_ENTITY);
+      }
+      else if(result.size() == 1)
+      {
          return result.iterator().next();
-      } else {
-         throw new FinderException(
-               "More than one entity matches the finder criteria.");
+      }
+      else
+      {
+         throw new FinderException("More than one entity matches the finder criteria.");
       }
    }
 }

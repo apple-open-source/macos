@@ -6,22 +6,18 @@
  */
 package org.jboss.mq.server;
 
-import java.io.File;
-
 import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
-
 import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.NoSuchElementException;
+import EDU.oswego.cs.dl.util.concurrent.SynchronizedLong;
 
-import javax.management.MBeanRegistration;
-import javax.management.MBeanServer;
-import javax.management.ObjectName;
-import org.jboss.system.ServiceMBeanSupport;
-import org.jboss.mq.SpyMessage;
 import javax.jms.JMSException;
+import javax.management.MBeanRegistration;
+import javax.management.ObjectName;
+
+import org.jboss.mq.SpyMessage;
 import org.jboss.mq.pm.CacheStore;
+import org.jboss.system.ServiceMBeanSupport;
 
 /**
  * This class implements a Message cache so that larger amounts of messages
@@ -37,7 +33,7 @@ import org.jboss.mq.pm.CacheStore;
  * @author <a href="mailto:David.Maplesden@orion.co.nz">David Maplesden</a>
  * @author <a href="mailto:pra@tim.se">Peter Antman</a>
  * @author <a href="mailto:Adrian.Brock@HappeningTimes.com">Adrian Brock</a>
- * @version    $Revision: 1.17.2.3 $
+ * @version    $Revision: 1.17.2.6 $
  *
  * @jmx.mbean name="jboss.mq:service=MessageCache"
  *      extends="org.jboss.system.ServiceMBean"
@@ -48,7 +44,7 @@ public class MessageCache extends ServiceMBeanSupport implements MessageCacheMBe
    private LRUCache lruCache = new LRUCache();
 
    // Provides a Unique ID to MessageHanles
-   private long messageCounter = 0;
+   private SynchronizedLong messageCounter = new SynchronizedLong(0);
    long cacheHits = 0;
    long cacheMisses = 0;
 
@@ -96,8 +92,7 @@ public class MessageCache extends ServiceMBeanSupport implements MessageCacheMBe
    /**
     * Adds a message to the cache.
     */
-   public MessageReference add(SpyMessage message, BasicQueue queue, int stored)
-      throws javax.jms.JMSException
+   public MessageReference add(SpyMessage message, BasicQueue queue, int stored) throws javax.jms.JMSException
    {
       return addInternal(message, queue, stored);
    }
@@ -105,14 +100,13 @@ public class MessageCache extends ServiceMBeanSupport implements MessageCacheMBe
    /**
     * Adds a message to the cache.
     */
-   public MessageReference addInternal(SpyMessage message, BasicQueue queue, int stored)
-      throws javax.jms.JMSException
+   public MessageReference addInternal(SpyMessage message, BasicQueue queue, int stored) throws javax.jms.JMSException
    {
       boolean trace = log.isTraceEnabled();
 
       // Create the message reference
       MessageReference mh = new MessageReference();
-      mh.init(this, getNextCounter(trace), message, queue);
+      mh.init(this, messageCounter.increment(), message, queue);
       mh.setStored(stored);
 
       // Add it to the cache
@@ -138,19 +132,17 @@ public class MessageCache extends ServiceMBeanSupport implements MessageCacheMBe
    /**
     * removes a message from the cache
     */
-   public void remove(MessageReference mr)
-      throws JMSException
+   public void remove(MessageReference mr) throws JMSException
    {
       // Remove if not done already
-         removeInternal(mr, true, true);
+      removeInternal(mr, true, true);
    }
 
    /**
     * removes a message from the cache without returning it to the pool
     * used in two phase removes for joint cache/persistence
     */
-   public void removeDelayed(MessageReference mr)
-      throws JMSException
+   public void removeDelayed(MessageReference mr) throws JMSException
    {
       // Remove from the cache
       removeInternal(mr, true, false);
@@ -160,8 +152,7 @@ public class MessageCache extends ServiceMBeanSupport implements MessageCacheMBe
     * removes a message from the cache but does not clear it,
     * used in softening
     */
-   void soften(MessageReference mr)
-      throws JMSException
+   void soften(MessageReference mr) throws JMSException
    {
       // Remove from the cache
       removeInternal(mr, false, false);
@@ -172,8 +163,7 @@ public class MessageCache extends ServiceMBeanSupport implements MessageCacheMBe
    /**
     * removes a message from the cache
     */
-   protected void removeInternal(MessageReference mr, boolean clear, boolean reset)
-      throws JMSException
+   protected void removeInternal(MessageReference mr, boolean clear, boolean reset) throws JMSException
    {
       boolean trace = log.isTraceEnabled();
 
@@ -187,7 +177,7 @@ public class MessageCache extends ServiceMBeanSupport implements MessageCacheMBe
                log.trace("remove lock aquire lrucache " + mr + " clear= " + clear + " reset=" + reset);
             synchronized (lruCache)
             {
-               if (mr.hardReference != null)//If message is not hard, dont do lru stuff
+               if (mr.hardReference != null) //If message is not hard, dont do lru stuff
                   lruCache.remove(mr);
                if (clear)
                   totalCacheSize--;
@@ -196,11 +186,13 @@ public class MessageCache extends ServiceMBeanSupport implements MessageCacheMBe
                   log.trace("remove lock release lrucache " + mr + " clear= " + clear + " reset=" + reset);
             }
             if (clear)
-               mr.clear();//Will remove it from storage if stored
+               mr.clear();
+            //Will remove it from storage if stored
          }
 
          if (reset)
-            mr.reset();//Return to the pool
+            mr.reset();
+         //Return to the pool
 
          if (trace)
             log.trace("remove lock release message " + mr + " clear= " + clear + " reset=" + reset);
@@ -240,8 +232,8 @@ public class MessageCache extends ServiceMBeanSupport implements MessageCacheMBe
                {
                   softRefCacheSize--;
                }
-               if( log.isTraceEnabled() )
-                  log.trace("soft reference cache size is now: "+softRefCacheSize);
+               if (log.isTraceEnabled())
+                  log.trace("soft reference cache size is now: " + softRefCacheSize);
 
                checkSoftReferenceDepth = true;
             }
@@ -249,10 +241,12 @@ public class MessageCache extends ServiceMBeanSupport implements MessageCacheMBe
             if (checkSoftReferenceDepth)
                checkSoftReferenceDepth = validateSoftReferenceDepth();
          }
-      } catch (JMSException e)
+      }
+      catch (JMSException e)
       {
          log.error("Message Cache Thread Stopped: ", e);
-      } catch (InterruptedException e)
+      }
+      catch (InterruptedException e)
       {
          // Signal to exit the thread.
       }
@@ -260,29 +254,10 @@ public class MessageCache extends ServiceMBeanSupport implements MessageCacheMBe
    }
 
    /**
-    * Gets the next message counter
-    */
-   long getNextCounter(boolean trace)
-   {
-      // Get the next counter
-      if (trace)
-         log.trace("counter lock aquire " + messageCounter);
-      long result = 0;
-      synchronized (lruCache)
-      {
-         result = messageCounter++;
-         if(trace)
-            log.trace("counter lock release " + result);
-      }
-      return result;
-   }
-
-   /**
     * This method is in charge of determining if it time to convert some
     * hard references over to soft references.
     */
-   boolean validateSoftReferenceDepth()
-      throws JMSException
+   boolean validateSoftReferenceDepth() throws JMSException
    {
       boolean trace = log.isTraceEnabled();
 
@@ -348,14 +323,19 @@ public class MessageCache extends ServiceMBeanSupport implements MessageCacheMBe
          synchronized (messageToSoften)
          {
             // Soften unless it was removed
-            if (messageToSoften.messageCache != null &&
-                messageToSoften.stored != MessageReference.REMOVED)
+            if (messageToSoften.messageCache != null && messageToSoften.stored != MessageReference.REMOVED)
             {
                messageToSoften.makeSoft();
                if (messageToSoften.stored == MessageReference.STORED)
                {
                   softenedSize++;
                   return true;
+               }
+               else if (messageToSoften.isPersistent())
+               {
+                  // Avoid going into a cpu loop if there are persistent
+                  // messages just about to be persisted
+                  return false;
                }
             }
             else if (trace)
@@ -372,8 +352,7 @@ public class MessageCache extends ServiceMBeanSupport implements MessageCacheMBe
     * This gets called when a MessageReference is de-referenced.
     * We will pop it to the top of the RLU
     */
-   void messageReferenceUsedEvent(MessageReference mh, boolean wasHard, boolean trace)
-      throws JMSException
+   void messageReferenceUsedEvent(MessageReference mh, boolean wasHard, boolean trace) throws JMSException
    {
       if (trace)
          log.trace("messageReferenceUsedEvent lock aquire message " + mh + " wasHard=" + wasHard);
@@ -406,7 +385,7 @@ public class MessageCache extends ServiceMBeanSupport implements MessageCacheMBe
    //////////////////////////////////////////////////////////////////////////////////
    SpyMessage loadFromStorage(MessageReference mh) throws JMSException
    {
-      return (SpyMessage)cacheStore.loadFromStorage(mh);
+      return (SpyMessage) cacheStore.loadFromStorage(mh);
    }
 
    void saveToStorage(MessageReference mh, SpyMessage message) throws JMSException
@@ -425,14 +404,13 @@ public class MessageCache extends ServiceMBeanSupport implements MessageCacheMBe
    //
    //////////////////////////////////////////////////////////////////////////////////
 
-
    /**
     * This gets called to start the cache service. Synch. by start
     */
    protected void startService() throws Exception
    {
 
-      cacheStore = (CacheStore)getServer().getAttribute(cacheStoreName, "Instance");
+      cacheStore = (CacheStore) getServer().getAttribute(cacheStoreName, "Instance");
 
       referenceSoftner = new Thread(this, "JBossMQ Cache Reference Softner");
       referenceSoftner.setDaemon(true);
@@ -444,14 +422,13 @@ public class MessageCache extends ServiceMBeanSupport implements MessageCacheMBe
     */
    protected void stopService()
    {
-      synchronized(lruCache)
+      synchronized (lruCache)
       {
          referenceSoftner.interrupt();
          referenceSoftner = null;
       }
       cacheStore = null;
    }
-
 
    /**
     * Gets the hardRefCacheSize
@@ -461,7 +438,7 @@ public class MessageCache extends ServiceMBeanSupport implements MessageCacheMBe
     */
    public int getHardRefCacheSize()
    {
-      synchronized(lruCache)
+      synchronized (lruCache)
       {
          return lruCache.size();
       }
@@ -625,14 +602,14 @@ public class MessageCache extends ServiceMBeanSupport implements MessageCacheMBe
          Node newNode = new Node();
          newNode.data = o;
          //insert into map
-         Object oldNode = map.put(o,newNode);
-         if(oldNode != null)
+         Object oldNode = map.put(o, newNode);
+         if (oldNode != null)
          {
-            map.put(o,oldNode);
-            throw new RuntimeException("Can't add object '"+o+"' to LRUCache that is already in cache.");
+            map.put(o, oldNode);
+            throw new RuntimeException("Can't add object '" + o + "' to LRUCache that is already in cache.");
          }
          //insert into linked list
-         if(mostRecent == null)
+         if (mostRecent == null)
          {
             //first element
             mostRecent = newNode;
@@ -652,14 +629,14 @@ public class MessageCache extends ServiceMBeanSupport implements MessageCacheMBe
          Node newNode = new Node();
          newNode.data = o;
          //insert into map
-         Object oldNode = map.put(o,newNode);
-         if(oldNode != null)
+         Object oldNode = map.put(o, newNode);
+         if (oldNode != null)
          {
-            map.put(o,oldNode);
-            throw new RuntimeException("Can't add object '"+o+"' to LRUCache that is already in cache.");
+            map.put(o, oldNode);
+            throw new RuntimeException("Can't add object '" + o + "' to LRUCache that is already in cache.");
          }
          //insert into linked list
-         if(leastRecent == null)
+         if (leastRecent == null)
          {
             //first element
             mostRecent = newNode;
@@ -677,25 +654,33 @@ public class MessageCache extends ServiceMBeanSupport implements MessageCacheMBe
       {
          //remove from map
          Node node = (Node) map.remove(o);
-         if(node == null)
-            throw new RuntimeException("Can't remove object '"+o+"' that is not in cache.");
+         if (node == null)
+            throw new RuntimeException("Can't remove object '" + o + "' that is not in cache.");
          //remove from linked list
          Node more = node.moreRecent;
          Node less = node.lessRecent;
-         if(more == null) {//means node is mostRecent
+         if (more == null)
+         { //means node is mostRecent
             mostRecent = less;
-            if (mostRecent != null) {
-               mostRecent.moreRecent = null;//Mark it as beeing at the top of tree
+            if (mostRecent != null)
+            {
+               mostRecent.moreRecent = null; //Mark it as beeing at the top of tree
             }
-         } else {
+         }
+         else
+         {
             more.lessRecent = less;
          }
-         if(less == null) {//means node is leastRecent
+         if (less == null)
+         { //means node is leastRecent
             leastRecent = more;
-            if (leastRecent != null) {
-               leastRecent.lessRecent = null;//Mark it last in tree
+            if (leastRecent != null)
+            {
+               leastRecent.lessRecent = null; //Mark it last in tree
             }
-         } else {
+         }
+         else
+         {
             less.moreRecent = more;
          }
          --currentSize;
@@ -704,22 +689,22 @@ public class MessageCache extends ServiceMBeanSupport implements MessageCacheMBe
       {
          //get node from map
          Node node = (Node) map.get(o);
-         if(node == null)
-            throw new RuntimeException("Can't make most recent object '"+o+"' that is not in cache.");
+         if (node == null)
+            throw new RuntimeException("Can't make most recent object '" + o + "' that is not in cache.");
          //reposition in linked list, first remove
          Node more = node.moreRecent;
          Node less = node.lessRecent;
-         if(more == null) //means node is mostRecent
+         if (more == null) //means node is mostRecent
             return;
          else
             more.lessRecent = less;
-         if(less == null) //means node is leastRecent
+         if (less == null) //means node is leastRecent
             leastRecent = more;
          else
             less.moreRecent = more;
          //now add back in at most recent position
          node.lessRecent = mostRecent;
-         node.moreRecent = null;//We are at the top
+         node.moreRecent = null; //We are at the top
          mostRecent.moreRecent = node;
          mostRecent = node;
       }

@@ -1,4 +1,4 @@
-dnl @(#) $Header: /cvs/root/tcpdump/tcpdump/aclocal.m4,v 1.1.1.3 2003/03/17 18:42:16 rbraun Exp $ (LBL)
+dnl @(#) $Header: /cvs/root/tcpdump/tcpdump/aclocal.m4,v 1.1.1.4 2004/02/05 19:30:51 rbraun Exp $ (LBL)
 dnl
 dnl Copyright (c) 1995, 1996, 1997, 1998
 dnl	The Regents of the University of California.  All rights reserved.
@@ -273,15 +273,15 @@ AC_DEFUN(AC_LBL_LIBPCAP,
 	    dnl if so, add that subdirectory to the "-I" list.
 	    dnl
 	    AC_MSG_CHECKING(for extraneous pcap header directories)
-	    if ! test \( -r /usr/local/include/pcap.h -o \
-			 -r /usr/include/pcap.h \); then
+	    if test \( ! -r /usr/local/include/pcap.h \) -a \
+			\( ! -r /usr/include/pcap.h \); then
 		if test -r /usr/local/include/pcap/pcap.h; then
 		    d="/usr/local/include/pcap"
 		elif test -r /usr/include/pcap/pcap.h; then
 		    d="/usr/include/pcap"
 		fi
 	    fi
-	    if test -z $d ; then
+	    if test -z "$d" ; then
 		AC_MSG_RESULT(not found)
 	    else
 		$2="-I$d $$2"
@@ -322,7 +322,8 @@ AC_DEFUN(AC_LBL_LIBPCAP,
 
     dnl
     dnl Check for "pcap_list_datalinks()", "pcap_set_datalink()",
-    dnl and "pcap_datalink_name_to_val()".
+    dnl and "pcap_datalink_name_to_val()", and use substitute versions
+    dnl if they're not present
     dnl
     AC_CHECK_FUNC(pcap_list_datalinks,
 	AC_DEFINE(HAVE_PCAP_LIST_DATALINKS),
@@ -330,8 +331,20 @@ AC_DEFUN(AC_LBL_LIBPCAP,
     AC_CHECK_FUNC(pcap_set_datalink,
 	AC_DEFINE(HAVE_PCAP_SET_DATALINK))
     AC_CHECK_FUNC(pcap_datalink_name_to_val,
-	AC_DEFINE(HAVE_PCAP_DATALINK_NAME_TO_VAL),
+	[
+	    AC_DEFINE(HAVE_PCAP_DATALINK_NAME_TO_VAL)
+	    AC_CHECK_FUNC(pcap_datalink_val_to_description,
+		AC_DEFINE(HAVE_PCAP_DATALINK_VAL_TO_DESCRIPTION),
+		LIBOBJS="$LIBOBJS dlnames.o")
+	],
 	LIBOBJS="$LIBOBJS dlnames.o")
+
+    dnl
+    dnl Check for "pcap_breakloop()"; you can't substitute for it if
+    dnl it's absent (it has hooks into the live capture routines),
+    dnl so just define the HAVE_ value if it's there.
+    dnl
+    AC_CHECK_FUNCS(pcap_breakloop)
 ])
 
 dnl
@@ -589,8 +602,39 @@ AC_DEFUN(AC_LBL_UNALIGNED_ACCESS,
     AC_CACHE_VAL(ac_cv_lbl_unaligned_fail,
 	[case "$host_cpu" in
 
+	#
+	# These are CPU types where:
+	#
+	#	the CPU faults on an unaligned access, but at least some
+	#	OSes that support that CPU catch the fault and simulate
+	#	the unaligned access (e.g., Alpha/{Digital,Tru64} UNIX) -
+	#	the simulation is slow, so we don't want to use it;
+	#
+	#	the CPU, I infer (from the old
+	#
 	# XXX: should also check that they don't do weird things (like on arm)
-	alpha*|arm*|hp*|mips*|sparc*|ia64)
+	#
+	#	comment) doesn't fault on unaligned accesses, but doesn't
+	#	do a normal unaligned fetch, either (e.g., presumably, ARM);
+	#
+	#	for whatever reason, the test program doesn't work
+	#	(this has been claimed to be the case for several of those
+	#	CPUs - I don't know what the problem is; the problem
+	#	was reported as "the test program dumps core" for SuperH,
+	#	but that's what the test program is *supposed* to do -
+	#	it dumps core before it writes anything, so the test
+	#	for an empty output file should find an empty output
+	#	file and conclude that unaligned accesses don't work).
+	#
+	# This run-time test won't work if you're cross-compiling, so
+	# in order to support cross-compiling for a particular CPU,
+	# we have to wire in the list of CPU types anyway, as far as
+	# I know, so perhaps we should just have a set of CPUs on
+	# which we know it doesn't work, a set of CPUs on which we
+	# know it does work, and have the script just fail on other
+	# cpu types and update it when such a failure occurs.
+	#
+	alpha*|arm*|hp*|mips*|sh*|sparc*|ia64|nv1)
 		ac_cv_lbl_unaligned_fail=yes
 		;;
 
@@ -1154,6 +1198,9 @@ ac_cv___attribute__=yes,
 ac_cv___attribute__=no)])
 if test "$ac_cv___attribute__" = "yes"; then
   AC_DEFINE(HAVE___ATTRIBUTE__, 1, [define if your compiler has __attribute__])
+  V_DEFS="$V_DEFS -D_U_=\"__attribute__((unused))\""
+else
+  V_DEFS="$V_DEFS -D_U_=\"\""
 fi
 AC_MSG_RESULT($ac_cv___attribute__)
 ])

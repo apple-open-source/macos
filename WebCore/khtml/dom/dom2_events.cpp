@@ -169,12 +169,36 @@ bool Event::isNull() const
     return (impl == 0);
 }
 
-DOMString Event::eventModuleName()
+void Event::setCancelBubble(bool cancel)
 {
     if (!impl)
 	throw DOMException(DOMException::INVALID_STATE_ERR);
 
-    return impl->eventModuleName();
+    impl->setCancelBubble(cancel);
+}
+
+void Event::setDefaultPrevented(bool defaultPrevented)
+{
+    if (!impl)
+	throw DOMException(DOMException::INVALID_STATE_ERR);
+
+    impl->setDefaultPrevented(defaultPrevented);
+}
+ 
+bool Event::getCancelBubble() const
+{
+    if (!impl)
+	throw DOMException(DOMException::INVALID_STATE_ERR);
+
+    return impl->getCancelBubble();
+}
+
+bool Event::defaultPrevented() const
+{
+    if (!impl)
+	throw DOMException(DOMException::INVALID_STATE_ERR);
+    
+    return impl->defaultPrevented();
 }
 
 // -----------------------------------------------------------------------------
@@ -261,9 +285,21 @@ int UIEvent::keyCode() const
     if (!impl)
 	throw DOMException(DOMException::INVALID_STATE_ERR);
     
-    KeyEventImpl *keyEvent = dynamic_cast<KeyEventImpl*>(impl);
+    KeyboardEventImpl *keyEvent = dynamic_cast<KeyboardEventImpl*>(impl);
     if (keyEvent)
-        return keyEvent->keyVal();
+        return keyEvent->keyCode();
+    else
+        return 0;
+}
+
+int UIEvent::charCode() const
+{
+    if (!impl)
+	throw DOMException(DOMException::INVALID_STATE_ERR);
+    
+    KeyboardEventImpl *keyEvent = dynamic_cast<KeyboardEventImpl*>(impl);
+    if (keyEvent)
+        return keyEvent->charCode();
     else
         return 0;
 }
@@ -323,10 +359,11 @@ int UIEvent::which() const
 
     // Note: This property supports both key events and mouse events
 
-    // Value is just like keyCode()
-    KeyEventImpl *keyEvent = dynamic_cast<KeyEventImpl*>(impl);
+    // Netscape's "which" returns a virtual key code for keydown and keyup, and a character code for keypress.
+    // That's exactly what IE's "keyCode" returns.
+    KeyboardEventImpl *keyEvent = dynamic_cast<KeyboardEventImpl*>(impl);
     if (keyEvent)
-        return keyEvent->keyVal();
+        return keyEvent->keyCode();
 
     // For khtml, the return values for left, middle and right mouse buttons are 0, 1, 2, respectively.
     // For the Netscape "which" property, the return values for left, middle and right mouse buttons are 1, 2, 3, respectively. 
@@ -599,3 +636,120 @@ void MutationEvent::initMutationEvent(const DOMString &typeArg,
 }
 
 
+// -----------------------------------------------------------------------------
+
+KeyboardEvent::KeyboardEvent()
+{
+}
+
+KeyboardEvent::KeyboardEvent(const KeyboardEvent &other) : UIEvent(other)
+{
+}
+
+KeyboardEvent::KeyboardEvent(const Event &other)
+{
+    *this = other;
+}
+
+KeyboardEvent::KeyboardEvent(KeyboardEventImpl *impl) : UIEvent(impl)
+{
+}
+
+KeyboardEvent &KeyboardEvent::operator = (const KeyboardEvent &other)
+{
+    UIEvent::operator = (other);
+    return *this;
+}
+
+KeyboardEvent &KeyboardEvent::operator = (const Event &other)
+{
+    Event e;
+    e = other;
+    if (!e.isNull() && !e.handle()->isKeyboardEvent()) {
+	if ( impl ) impl->deref();
+	impl = 0;
+    } else
+	UIEvent::operator = (other);
+    return *this;
+}
+
+KeyboardEvent::~KeyboardEvent()
+{
+}
+
+DOMString KeyboardEvent::keyIdentifier() const
+{
+    if (!impl)
+	throw DOMException(DOMException::INVALID_STATE_ERR);
+
+    return static_cast<KeyboardEventImpl*>(impl)->keyIdentifier();
+}
+
+unsigned long KeyboardEvent::keyLocation() const
+{
+    if (!impl)
+	throw DOMException(DOMException::INVALID_STATE_ERR);
+
+    return static_cast<KeyboardEventImpl*>(impl)->keyLocation();
+}
+
+bool KeyboardEvent::ctrlKey() const
+{
+    if (!impl)
+	throw DOMException(DOMException::INVALID_STATE_ERR);
+
+    return static_cast<KeyboardEventImpl*>(impl)->ctrlKey();
+}
+
+bool KeyboardEvent::shiftKey() const
+{
+    if (!impl)
+	throw DOMException(DOMException::INVALID_STATE_ERR);
+
+    return static_cast<KeyboardEventImpl*>(impl)->shiftKey();
+}
+
+bool KeyboardEvent::altKey() const
+{
+    if (!impl)
+	throw DOMException(DOMException::INVALID_STATE_ERR);
+
+    return static_cast<KeyboardEventImpl*>(impl)->altKey();
+}
+
+bool KeyboardEvent::metaKey() const
+{
+    if (!impl)
+	throw DOMException(DOMException::INVALID_STATE_ERR);
+
+    return static_cast<KeyboardEventImpl*>(impl)->metaKey();
+}
+
+bool KeyboardEvent::altGraphKey() const
+{
+    if (!impl)
+	throw DOMException(DOMException::INVALID_STATE_ERR);
+
+    return static_cast<KeyboardEventImpl*>(impl)->altGraphKey();
+}
+
+void KeyboardEvent::initKeyboardEvent(const DOMString &typeArg, 
+                                        bool canBubbleArg,
+                                        bool cancelableArg,
+                                        const AbstractView &viewArg, 
+                                        const DOMString &keyIdentifierArg, 
+                                        unsigned long keyLocationArg, 
+                                        bool ctrlKeyArg, 
+                                        bool shiftKeyArg, 
+                                        bool altKeyArg, 
+                                        bool metaKeyArg, 
+                                        bool altGraphKeyArg)
+{
+    if (!impl)
+	throw DOMException(DOMException::INVALID_STATE_ERR);
+
+    static_cast<KeyboardEventImpl*>(impl)->initKeyboardEvent(typeArg,canBubbleArg,
+	cancelableArg,viewArg,keyIdentifierArg,keyLocationArg,ctrlKeyArg,altKeyArg,
+        shiftKeyArg,metaKeyArg,altGraphKeyArg);
+}
+                                    

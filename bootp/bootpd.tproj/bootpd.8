@@ -1,4 +1,4 @@
-.Dd April 16, 2003
+.Dd December 8, 2003
 .Dt BOOTPD 8
 .Os "Mac OS X"
 .Sh NAME
@@ -547,10 +547,27 @@ property is also defined (see below).  Optional, default value is false.
 (Boolean) A flag to indicate that the image describes an installation
 image.  Optional, default value is false.
 .It Sy Type
-(String) The type of the image.  The value "Classic" implies that the Kind 
-is Mac OS 9 NetBoot, "NFS" implies the Kind is Mac OS X NetBoot.
+(String) The expected image contents and the mechanism used to
+supply images to the client.  The defined values are:
+.Bl -tag -width BootFileOnly
+.It Classic
+After downloading the boot file via TFTP, the client OS accesses its images
+via AFP.  The \fBSharedImage\fR and \fBPrivateImage\fR properties 
+(defined below) specify the images to use.
+.It NFS
+After downloading the boot files via TFTP, the client OS accesses its "root"
+filesystem via NFS.  The \fBRootPath\fR property (detailed below)
+specifies the path.
+.It HTTP
+After downloading the boot files via TFTP, the client accesses its "root"
+filesystem via HTTP.  The \fBRootPath\fR property (detailed below)
+specifies the path.
+.It BootFileOnly
+The client downloads the boot file(s), and does not require any 
+additional boot image information.
+.El
 .It Sy Kind
-(Integer) The image kind:
+(Integer) The defined image kind values are:
 .Bl -tag -width xxx -compact
 .It 0 = 
 Mac OS 9
@@ -558,8 +575,27 @@ Mac OS 9
 Mac OS X
 .It 2 = 
 Mac OS X Server
+.It 3 =
+Hardware Diagnostics
 .El
-Optional, the default value depends on the \fBType\fR.
+.Pp
+.Pp
+The default \fBKind\fR is determined from the \fBType\fR:
+.Pp
+.Bl -tag -width BootFileOnly -compact
+.It \fBType\fR
+\fBDefault Kind\fR
+.It Classic
+0 - Mac OS 9
+.It NFS 
+1 - Mac OS X
+.It HTTP 
+1 - Mac OS X
+.It BootFileOnly
+none
+.El
+.Pp
+The \fBKind\fR must be specified if the \fBType\fR is \fBBootFileOnly\fR.
 .It Sy Index
 (Integer) The index of the image.  This is a 16-bit value used to differentiate
 between multiple NetBoot images supplied by a server.  There are two value
@@ -617,11 +653,12 @@ Examples:
     http://joe:secret@someserver/Jaguar/Jaguar.dmg
 .fi
 .It Sy SharedImage
-(String) If Type is "Classic", this is the path of the system, or read/write,
+(String) If Type is "Classic", this is the path of the read/write system
 disk image used for Mac OS 9.
 .It Sy PrivateImage
-(String) If Type is "Classic", this is the path of the private, or read-only,
-disk image used for Mac OS 9.  Optional.
+(String) If Type is "Classic", this is the path of the read-only private
+disk image used to store additional applications for Mac OS 9.
+Optional.
 .It Sy SupportsDiskless
 (Boolean) A flag that indicates that the image supports diskless clients,
 and tells the server to allocate resources.  If the Type is "Classic", 

@@ -136,6 +136,37 @@ static BOOL wbinfo_get_usergroups(char *user)
 	return True;
 }
 
+
+/* List group SIDs a user SID is a member of */
+static BOOL wbinfo_get_usersids(char *user_sid)
+{
+	struct winbindd_request request;
+	struct winbindd_response response;
+	NSS_STATUS result;
+	int i;
+	const char *s;
+
+	ZERO_STRUCT(response);
+
+	/* Send request */
+	fstrcpy(request.data.sid, user_sid);
+
+	result = winbindd_request(WINBINDD_GETUSERSIDS, &request, &response);
+
+	if (result != NSS_STATUS_SUCCESS)
+		return False;
+
+	s = response.extra_data;
+	for (i = 0; i < response.data.num_entries; i++) {
+		d_printf("%s\n", s);
+		s += strlen(s) + 1;
+	}
+
+	SAFE_FREE(response.extra_data);
+
+	return True;
+}
+
 /* Convert NetBIOS name to IP */
 
 static BOOL wbinfo_wins_byname(char *name)
@@ -243,6 +274,44 @@ static BOOL wbinfo_show_sequence(const char *domain)
 		d_printf("%s", extra_data);
 		SAFE_FREE(response.extra_data);
 	}
+
+	return True;
+}
+
+/* Show domain info */
+
+static BOOL wbinfo_domain_info(const char *domain_name)
+{
+	struct winbindd_request request;
+	struct winbindd_response response;
+
+	ZERO_STRUCT(request);
+	ZERO_STRUCT(response);
+
+	fstrcpy(request.domain_name, domain_name);
+
+	/* Send request */
+
+	if (winbindd_request(WINBINDD_DOMAIN_INFO, &request, &response) !=
+	    NSS_STATUS_SUCCESS)
+		return False;
+
+	/* Display response */
+
+	d_printf("Name              : %s\n", response.data.domain_info.name);
+	d_printf("Alt_Name          : %s\n", response.data.domain_info.alt_name);
+
+	d_printf("SID               : %s\n", response.data.domain_info.sid);
+
+	d_printf("Active Directory  : %s\n",
+		 response.data.domain_info.active_directory ? "Yes" : "No");
+	d_printf("Native            : %s\n",
+		 response.data.domain_info.native_mode ? "Yes" : "No");
+
+	d_printf("Primary           : %s\n",
+		 response.data.domain_info.primary ? "Yes" : "No");
+
+	d_printf("Sequence          : %d\n", response.data.domain_info.sequence_number);
 
 	return True;
 }
@@ -415,7 +484,7 @@ static BOOL wbinfo_lookupname(char *name)
 
 	/* Display response */
 
-	d_printf("%s %d\n", response.data.sid.sid, response.data.sid.type);
+	d_printf("%s %s (%d)\n", response.data.sid.sid, sid_type_lookup(response.data.sid.type), response.data.sid.type);
 
 	return True;
 }
@@ -789,8 +858,13 @@ static BOOL wbinfo_set_auth_user(char *username)
 	if (password) {
 		*password = 0;
 		password++;
-	} else
-		password = "";
+	} else {
+		char *thepass = getpass("Password: ");
+		if (thepass) {
+			password = thepass;	
+		} else
+			password = "";
+	}
 
 	/* Store or remove DOMAIN\username%password in secrets.tdb */
 
@@ -837,21 +911,21 @@ static void wbinfo_get_auth_user(void)
 	char *user, *domain, *password;
 
 	/* Lift data from secrets file */
+	
+	secrets_fetch_ipc_userpass(&user, &domain, &password);
 
-	secrets_init();
+	if ((!user || !*user) && (!domain || !*domain ) && (!password || !*password)){
 
-	user = secrets_fetch(SECRETS_AUTH_USER, NULL);
-	domain = secrets_fetch(SECRETS_AUTH_DOMAIN, NULL);
-	password = secrets_fetch(SECRETS_AUTH_PASSWORD, NULL);
-
-	if (!user && !domain && !password) {
+		SAFE_FREE(user);
+		SAFE_FREE(domain);
+		SAFE_FREE(password);
 		d_printf("No authorised user configured\n");
 		return;
 	}
 
 	/* Pretty print authorised user info */
 
-	d_printf("%s%s%s%s%s\n", domain ? domain : "", domain ? "\\" : "",
+	d_printf("%s%s%s%s%s\n", domain ? domain : "", domain ? lp_winbind_separator(): "",
 		 user, password ? "%" : "", password ? password : "");
 
 	SAFE_FREE(user);
@@ -879,7 +953,8 @@ enum {
 	OPT_SET_AUTH_USER = 1000,
 	OPT_GET_AUTH_USER,
 	OPT_DOMAIN_NAME,
-	OPT_SEQUENCE
+	OPT_SEQUENCE,
+	OPT_USERSIDS
 };
 
 int main(int argc, char **argv)
@@ -917,12 +992,14 @@ int main(int argc, char **argv)
 		{ "check-secret", 't', POPT_ARG_NONE, 0, 't', "Check shared secret" },
 		{ "trusted-domains", 'm', POPT_ARG_NONE, 0, 'm', "List trusted domains" },
 		{ "sequence", 0, POPT_ARG_NONE, 0, OPT_SEQUENCE, "Show sequence numbers of all domains" },
+		{ "domain-info", 'D', POPT_ARG_STRING, &string_arg, 'D', "Show most of the info we have about the domain" },
 		{ "user-groups", 'r', POPT_ARG_STRING, &string_arg, 'r', "Get user groups", "USER" },
+		{ "user-sids", 0, POPT_ARG_STRING, &string_arg, OPT_USERSIDS, "Get user group sids for user SID", "SID" },
  		{ "authenticate", 'a', POPT_ARG_STRING, &string_arg, 'a', "authenticate user", "user%password" },
 		{ "set-auth-user", 0, POPT_ARG_STRING, &string_arg, OPT_SET_AUTH_USER, "Store user and password used by winbindd (root only)", "user%password" },
 		{ "get-auth-user", 0, POPT_ARG_NONE, NULL, OPT_GET_AUTH_USER, "Retrieve user and password used by winbindd (root only)", NULL },
 		{ "ping", 'p', POPT_ARG_NONE, 0, 'p', "Ping winbindd to see if it is alive" },
-		{ "domain", 0, POPT_ARG_STRING, &opt_domain_name, OPT_DOMAIN_NAME, "Define to the domain to restrict operatio", "domain" },
+		{ "domain", 0, POPT_ARG_STRING, &opt_domain_name, OPT_DOMAIN_NAME, "Define to the domain to restrict operation", "domain" },
 		POPT_COMMON_VERSION
 		POPT_TABLEEND
 	};
@@ -1043,9 +1120,22 @@ int main(int argc, char **argv)
 				goto done;
 			}
 			break;
+		case 'D':
+			if (!wbinfo_domain_info(string_arg)) {
+				d_printf("Could not get domain info\n");
+				goto done;
+			}
+			break;
 		case 'r':
 			if (!wbinfo_get_usergroups(string_arg)) {
 				d_printf("Could not get groups for user %s\n", 
+				       string_arg);
+				goto done;
+			}
+			break;
+		case OPT_USERSIDS:
+			if (!wbinfo_get_usersids(string_arg)) {
+				d_printf("Could not get group SIDs for user SID %s\n", 
 				       string_arg);
 				goto done;
 			}

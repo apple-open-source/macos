@@ -1,6 +1,6 @@
 // ===========================================================================
 // Copyright (c) 1996 Mort Bay Consulting Pty. Ltd. All rights reserved.
-// $Id: SessionManager.java,v 1.15.2.6 2003/06/04 04:47:52 starksm Exp $
+// $Id: SessionManager.java,v 1.15.2.7 2003/07/26 11:49:42 jules_gosnell Exp $
 // ---------------------------------------------------------------------------
 
 package org.mortbay.jetty.servlet;
@@ -15,7 +15,7 @@ import org.mortbay.util.LifeCycle;
 /* --------------------------------------------------------------------- */
 /**
  *
- * @version $Id: SessionManager.java,v 1.15.2.6 2003/06/04 04:47:52 starksm Exp $
+ * @version $Id: SessionManager.java,v 1.15.2.7 2003/07/26 11:49:42 jules_gosnell Exp $
  * @author Greg Wilkins
  */
 public interface SessionManager extends LifeCycle, Serializable
@@ -73,6 +73,9 @@ public interface SessionManager extends LifeCycle, Serializable
     
     /* ------------------------------------------------------------ */
     public HttpSession newHttpSession(HttpServletRequest request);
+
+    /* ------------------------------------------------------------ */
+    public int getMaxInactiveInterval();
 
     /* ------------------------------------------------------------ */
     public void setMaxInactiveInterval(int seconds);

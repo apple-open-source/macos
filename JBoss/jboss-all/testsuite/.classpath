@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+    <classpathentry kind="src" path="src/main"/>
+    <classpathentry kind="src" path="output/gen-src"/>
+    <classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+    <classpathentry kind="src" path="/tools"/>
+    <classpathentry kind="lib" path="/tools/lib/ant.jar"/>
+    <classpathentry kind="lib" path="/tools/lib/optional.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/junit/junit/lib/junit.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/apache/log4j/lib/log4j.jar"/>
+    <classpathentry kind="src" path="/j2ee"/>
+    <classpathentry kind="src" path="/management"/>
+    <classpathentry kind="src" path="/jmx"/>
+    <classpathentry kind="src" path="/common"/>
+    <classpathentry kind="src" path="/system"/>
+    <classpathentry kind="lib" path="/thirdparty/oswego/concurrent/lib/concurrent.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/sun/servlet/lib/servlet.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/sun/javamail/lib/mail.jar"/>
+    <classpathentry kind="src" path="/varia"/>
+    <classpathentry kind="lib" path="/thirdparty/junitejb/junitejb/lib/junitejb.jar"/>
+    <classpathentry kind="src" path="/server"/>
+    <classpathentry kind="src" path="/cluster"/>
+    <classpathentry kind="src" path="/messaging"/>
+    <classpathentry kind="src" path="/naming"/>
+    <classpathentry kind="src" path="/connector"/>
+    <classpathentry kind="src" path="/security"/>
+    <classpathentry kind="src" path="/transaction"/>
+    <classpathentry kind="lib" path="/thirdparty/apache/commons/lib/commons-httpclient.jar"/>
+    <classpathentry kind="src" path="/jboss.net"/>
+    <classpathentry kind="lib" path="/thirdparty/apache/axis/lib/axis.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/apache/axis/lib/jaxrpc.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/apache/axis/lib/saaj.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/ibm/wsdl4j/lib/wsdl4j.jar"/>
+    <classpathentry kind="output" path="output/eclipse-classes"/>
+</classpath>

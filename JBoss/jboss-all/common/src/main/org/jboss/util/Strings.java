@@ -18,7 +18,7 @@ import java.util.Map;
 /**
  * A collection of String utilities.
  *
- * @version <tt>$Revision: 1.4.2.3 $</tt>
+ * @version <tt>$Revision: 1.4.2.4 $</tt>
  * @author  <a href="mailto:jason@planet57.com">Jason Dillon</a>
  * @author <a href="Scott.Stark@jboss.org">Scott Stark</a>
  */
@@ -314,7 +314,8 @@ public final class Strings
    /////////////////////////////////////////////////////////////////////////
 
    /** Go through the input string and replace any occurance of ${p} with
-    *the System.getProperty(p) value.
+    *the System.getProperty(p) value. If there is no such property p defined, then
+    * the ${p} reference will remain unchanged.
     *@return the input string with all property references replaced
     */
    public static String replaceProperties(final String string)
@@ -354,8 +355,12 @@ public final class Strings
             // Collect the system property
             else
             {
-               properties = true;
-               buffer.append(System.getProperty(string.substring(start+2, i)));
+               String value = System.getProperty(string.substring(start+2, i));
+               if( value != null )
+               {
+                  properties = true;
+                  buffer.append(value);
+               }
             }
             start = i+1;
             state = NORMAL;

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- $Id: jboss-service.xml,v 1.1.2.1 2003/11/27 07:21:54 ivelin Exp $ -->
+
+<server>
+
+  <!-- 
+  	| Used by the HAILServerILService to store the address and port 
+  	| of the current HA JMS singleton server.
+  	| Also used to broadcast a notification when the singleton moves to another node.
+  	|
+  	-->
+   <mbean code="org.jboss.mq.il.ha.HAILSharedState" 
+          name="jboss.mq:service=HAILSharedState">
+      <depends>jboss:service=DefaultPartition</depends>   
+   </mbean>
+
+  <!-- JBossMQ using the HA Invocation Layer, which depends on UIL2 -->
+
+  <mbean code="org.jboss.mq.il.ha.HAILServerILService"
+	 name="jboss.mq:service=InvocationLayer,type=HAIL">
+    <depends optional-attribute-name="UILService">jboss.mq:service=InvocationLayer,type=UIL2</depends>
+    <depends optional-attribute-name="SharedStateService">jboss.mq:service=HAILSharedState</depends>
+    <attribute name="ConnectionFactoryJNDIRef">HAILConnectionFactory</attribute>
+    <attribute name="XAConnectionFactoryJNDIRef">HAILXAConnectionFactory</attribute>
+  </mbean>
+
+   <!--
+    | This is a singleton controller which notifies the participating nodes,
+    | which one is the singleton.
+    |
+    | There are several optional attributes: 
+    |   TargetStartMethodArgument, which sets a string argument 
+    |     to be passed to TargetStartMethod. If not set, the start method should not take any arguments.
+    |   TargetStopMethodArgument, which sets a string argument 
+    |     to be passed to TargetStopMethod. If not set, the stop method should not take any arguments.
+    |
+    -->
+   <mbean code="org.jboss.ha.singleton.HASingletonController" 
+          name="jboss.mq:service=HAILSingletonController">
+      <depends>jboss:service=DefaultPartition</depends>   
+      <depends>jboss.mq:service=InvocationLayer,type=HAIL</depends>
+      <attribute name="TargetName">jboss.mq:service=InvocationLayer,type=HAIL</attribute>
+      <attribute name="TargetStartMethod">startSingleton</attribute>
+      <attribute name="TargetStopMethod">stopSingleton</attribute>
+   </mbean>
+   
+   
+   <!--
+    | Helps to manually test the HAIL
+    |
+    - ->
+   <mbean code="org.jboss.mq.il.ha.examples.HAJMSClient" 
+          name="jboss.mq.examples:service=HAJMSClient">
+      <depends>jboss.mq:service=HAILSingletonController</depends>   
+   </mbean>
+   <!- - -->
+
+</server>

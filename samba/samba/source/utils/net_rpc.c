@@ -48,27 +48,14 @@ typedef NTSTATUS (*rpc_command_fn)(const DOM_SID *, struct cli_state *, TALLOC_C
  * @return The Domain SID of the remote machine.
  **/
 
-static DOM_SID *net_get_remote_domain_sid(struct cli_state *cli)
+static DOM_SID *net_get_remote_domain_sid(struct cli_state *cli, TALLOC_CTX *mem_ctx)
 {
 	DOM_SID *domain_sid;
 	POLICY_HND pol;
 	NTSTATUS result = NT_STATUS_OK;
 	uint32 info_class = 5;
-	fstring domain_name;
-	TALLOC_CTX *mem_ctx;
+        char *domain_name;
 	
-	if (!(domain_sid = malloc(sizeof(DOM_SID)))){
-		DEBUG(0,("net_get_remote_domain_sid: malloc returned NULL!\n"));
-		goto error;
-	}
-	    
-	if (!(mem_ctx=talloc_init("net_get_remote_domain_sid")))
-	{
-		DEBUG(0,("net_get_remote_domain_sid: talloc_init returned NULL!\n"));
-		goto error;
-	}
-
-
 	if (!cli_nt_session_open (cli, PI_LSARPC)) {
 		fprintf(stderr, "could not initialise lsa pipe\n");
 		goto error;
@@ -82,7 +69,7 @@ static DOM_SID *net_get_remote_domain_sid(struct cli_state *cli)
 	}
 
 	result = cli_lsa_query_info_policy(cli, mem_ctx, &pol, info_class, 
-					   domain_name, domain_sid);
+					   &domain_name, &domain_sid);
 	if (!NT_STATUS_IS_OK(result)) {
  error:
 		fprintf(stderr, "could not obtain sid for domain %s\n", cli->domain);
@@ -96,7 +83,6 @@ static DOM_SID *net_get_remote_domain_sid(struct cli_state *cli)
 
 	cli_lsa_close(cli, mem_ctx, &pol);
 	cli_nt_session_close(cli);
-	talloc_destroy(mem_ctx);
 
 	return domain_sid;
 }
@@ -132,8 +118,6 @@ static int run_rpc_command(struct cli_state *cli_arg, const int pipe_idx, int co
 		return -1;
 	}
 
-	domain_sid = net_get_remote_domain_sid(cli);
-
 	/* Create mem_ctx */
 	
 	if (!(mem_ctx = talloc_init("run_rpc_command"))) {
@@ -142,6 +126,8 @@ static int run_rpc_command(struct cli_state *cli_arg, const int pipe_idx, int co
 		return -1;
 	}
 	
+	domain_sid = net_get_remote_domain_sid(cli, mem_ctx);
+
 	if (!cli_nt_session_open(cli, pipe_idx)) {
 		DEBUG(0, ("Could not initialise pipe\n"));
 	}
@@ -290,12 +276,35 @@ static NTSTATUS rpc_oldjoin_internals(const DOM_SID *domain_sid, struct cli_stat
  * @return A shell status integer (0 for success)
  **/
 
-static int net_rpc_oldjoin(int argc, const char **argv) 
+static int net_rpc_perform_oldjoin(int argc, const char **argv)
 {
 	return run_rpc_command(NULL, PI_NETLOGON, 
 			       NET_FLAGS_ANONYMOUS | NET_FLAGS_PDC, 
 			       rpc_oldjoin_internals,
 			       argc, argv);
+}
+
+/** 
+ * Join a domain, the old way.  This function exists to allow
+ * the message to be displayed when oldjoin was explicitly 
+ * requested, but not when it was implied by "net rpc join"
+ *
+ * @param argc  Standard main() style argc
+ * @param argc  Standard main() style argv.  Initial components are already
+ *              stripped
+ *
+ * @return A shell status integer (0 for success)
+ **/
+
+static int net_rpc_oldjoin(int argc, const char **argv) 
+{
+	int rc = net_rpc_perform_oldjoin(argc, argv);
+
+	if (rc) {
+		d_printf("Failed to join domain\n");
+	}
+
+	return rc;
 }
 
 /** 
@@ -333,7 +342,7 @@ static int rpc_join_usage(int argc, const char **argv)
 
 int net_rpc_join(int argc, const char **argv) 
 {
-	if ((net_rpc_oldjoin(argc, argv) == 0))
+	if ((net_rpc_perform_oldjoin(argc, argv) == 0))
 		return 0;
 	
 	return net_rpc_join_newstyle(argc, argv);
@@ -916,6 +925,26 @@ rpc_group_list_internals(const DOM_SID *domain_sid, struct cli_state *cli,
 	uint32 start_idx=0, max_entries=250, num_entries, i, loop_count = 0;
 	struct acct_info *groups;
 	DOM_SID global_sid_Builtin;
+	BOOL global = False;
+	BOOL local = False;
+	BOOL builtin = False;
+
+	if (argc == 0) {
+		global = True;
+		local = True;
+		builtin = True;
+	}
+
+	for (i=0; i<argc; i++) {
+		if (strequal(argv[i], "global"))
+			global = True;
+
+		if (strequal(argv[i], "local"))
+			local = True;
+
+		if (strequal(argv[i], "builtin"))
+			builtin = True;
+	}
 
 	string_to_sid(&global_sid_Builtin, "S-1-5-32");
 
@@ -949,6 +978,8 @@ rpc_group_list_internals(const DOM_SID *domain_sid, struct cli_state *cli,
 		ZERO_STRUCT(info3);
 		ctr.sam.info3 = &info3;
 
+		if (!global) break;
+
 		get_query_dispinfo_params(
 			loop_count, &max_entries, &max_size);
 
@@ -967,12 +998,14 @@ rpc_group_list_internals(const DOM_SID *domain_sid, struct cli_state *cli,
 				printf("%-21.21s %-50.50s\n",
 				       group, desc);
 			else
-				printf("%-21.21s\n", group);
+				printf("%s\n", group);
 		}
 	} while (NT_STATUS_EQUAL(result, STATUS_MORE_ENTRIES));
 	/* query domain aliases */
 	start_idx = 0;
 	do {
+		if (!local) break;
+
 		result = cli_samr_enum_als_groups(cli, mem_ctx, &domain_pol,
 						  &start_idx, max_entries,
 						  &groups, &num_entries);
@@ -1006,7 +1039,7 @@ rpc_group_list_internals(const DOM_SID *domain_sid, struct cli_state *cli,
 				       groups[i].acct_name,
 				       description);
 			} else {
-				printf("%-21.21s\n", groups[i].acct_name);
+				printf("%s\n", groups[i].acct_name);
 			}
 		}
 	} while (NT_STATUS_EQUAL(result, STATUS_MORE_ENTRIES));
@@ -1022,6 +1055,8 @@ rpc_group_list_internals(const DOM_SID *domain_sid, struct cli_state *cli,
 	/* query builtin aliases */
 	start_idx = 0;
 	do {
+		if (!builtin) break;
+
 		result = cli_samr_enum_als_groups(cli, mem_ctx, &domain_pol,
 						  &start_idx, max_entries,
 						  &groups, &num_entries);
@@ -1055,13 +1090,117 @@ rpc_group_list_internals(const DOM_SID *domain_sid, struct cli_state *cli,
 				       groups[i].acct_name,
 				       description);
 			} else {
-				printf("%-21.21s\n", groups[i].acct_name);
+				printf("%s\n", groups[i].acct_name);
 			}
 		}
 	} while (NT_STATUS_EQUAL(result, STATUS_MORE_ENTRIES));
 
  done:
 	return result;
+}
+
+static int rpc_group_list(int argc, const char **argv)
+{
+	return run_rpc_command(NULL, PI_SAMR, 0,
+			       rpc_group_list_internals,
+			       argc, argv);
+}
+ 
+static NTSTATUS 
+rpc_group_members_internals(const DOM_SID *domain_sid, struct cli_state *cli,
+			    TALLOC_CTX *mem_ctx, int argc, const char **argv)
+{
+	NTSTATUS result;
+	POLICY_HND connect_pol, domain_pol, group_pol;
+	uint32 num_rids, *rids, *rid_types;
+	uint32 num_members, *group_rids, *group_attrs;
+	uint32 num_names;
+	char **names;
+	uint32 *name_types;
+	int i;
+
+	/* Get sam policy handle */
+	
+	result = cli_samr_connect(cli, mem_ctx, MAXIMUM_ALLOWED_ACCESS, 
+				  &connect_pol);
+	if (!NT_STATUS_IS_OK(result)) {
+		goto done;
+	}
+	
+	/* Get domain policy handle */
+	
+	result = cli_samr_open_domain(cli, mem_ctx, &connect_pol,
+				      MAXIMUM_ALLOWED_ACCESS,
+				      domain_sid, &domain_pol);
+	if (!NT_STATUS_IS_OK(result)) {
+		goto done;
+	}
+
+	result = cli_samr_lookup_names(cli, mem_ctx, &domain_pol, 1000,
+				       1, argv, &num_rids, &rids, &rid_types);
+
+	if (!NT_STATUS_IS_OK(result)) {
+		goto done;
+	}
+
+	if (num_rids != 1) {
+		d_printf("Could not find group %s\n", argv[0]);
+		goto done;
+	}
+
+	if (rid_types[0] != SID_NAME_DOM_GRP) {
+		d_printf("%s is not a domain group\n", argv[0]);
+		goto done;
+	}
+
+	result = cli_samr_open_group(cli, mem_ctx, &domain_pol,
+				     MAXIMUM_ALLOWED_ACCESS,
+				     rids[0], &group_pol);
+
+	if (!NT_STATUS_IS_OK(result))
+		goto done;
+
+	result = cli_samr_query_groupmem(cli, mem_ctx, &group_pol,
+					 &num_members, &group_rids,
+					 &group_attrs);
+
+	if (!NT_STATUS_IS_OK(result))
+		goto done;
+
+	while (num_members > 0) {
+		int this_time = 512;
+
+		if (num_members < this_time)
+			this_time = num_members;
+
+		result = cli_samr_lookup_rids(cli, mem_ctx, &domain_pol, 1000,
+					      this_time, group_rids,
+					      &num_names, &names, &name_types);
+
+		if (!NT_STATUS_IS_OK(result))
+			goto done;
+
+		for (i = 0; i < this_time; i++) {
+			printf("%s\n", names[i]);
+		}
+
+		num_members -= this_time;
+		group_rids += 512;
+	}
+
+ done:
+	return result;
+}
+
+static int rpc_group_members(int argc, const char **argv)
+{
+	if (argc != 1) {
+		return rpc_group_usage(argc, argv);
+	}
+
+	return run_rpc_command(NULL, PI_SAMR, 0,
+			       rpc_group_members_internals,
+			       argc, argv);
 }
 
 /** 
@@ -1078,6 +1217,8 @@ int net_rpc_group(int argc, const char **argv)
 		{"add", rpc_group_add},
 		{"delete", rpc_group_delete},
 #endif
+		{"list", rpc_group_list},
+		{"members", rpc_group_members},
 		{NULL, NULL}
 	};
 	
@@ -1461,7 +1602,7 @@ int net_rpc_file(int argc, const char **argv)
 
 
 /** 
- * ABORT the shutdown of a remote RPC Server
+ * ABORT the shutdown of a remote RPC Server over, initshutdown pipe
  *
  * All parameters are provided by the run_rpc_command function, except for
  * argc, argv which are passed through. 
@@ -1476,8 +1617,44 @@ int net_rpc_file(int argc, const char **argv)
  * @return Normal NTSTATUS return.
  **/
 
-static NTSTATUS rpc_shutdown_abort_internals(const DOM_SID *domain_sid, struct cli_state *cli, TALLOC_CTX *mem_ctx, 
+static NTSTATUS rpc_shutdown_abort_internals(const DOM_SID *domain_sid, 
+					     struct cli_state *cli, 
+					     TALLOC_CTX *mem_ctx, 
 					     int argc, const char **argv) 
+{
+	NTSTATUS result = NT_STATUS_UNSUCCESSFUL;
+	
+	result = cli_shutdown_abort(cli, mem_ctx);
+	
+	if (NT_STATUS_IS_OK(result))
+		DEBUG(5,("cmd_shutdown_abort: query succeeded\n"));
+	else
+		DEBUG(5,("cmd_shutdown_abort: query failed\n"));
+	
+	return result;
+}
+
+
+/** 
+ * ABORT the shutdown of a remote RPC Server,  over winreg pipe
+ *
+ * All parameters are provided by the run_rpc_command function, except for
+ * argc, argv which are passed through. 
+ *
+ * @param domain_sid The domain sid aquired from the remote server
+ * @param cli A cli_state connected to the server.
+ * @param mem_ctx Talloc context, destoyed on compleation of the function.
+ * @param argc  Standard main() style argc
+ * @param argv  Standard main() style argv.  Initial components are already
+ *              stripped
+ *
+ * @return Normal NTSTATUS return.
+ **/
+
+static NTSTATUS rpc_reg_shutdown_abort_internals(const DOM_SID *domain_sid, 
+						 struct cli_state *cli, 
+						 TALLOC_CTX *mem_ctx, 
+						 int argc, const char **argv) 
 {
 	NTSTATUS result = NT_STATUS_UNSUCCESSFUL;
 	
@@ -1491,7 +1668,6 @@ static NTSTATUS rpc_shutdown_abort_internals(const DOM_SID *domain_sid, struct c
 	return result;
 }
 
-
 /** 
  * ABORT the Shut down of a remote RPC server
  *
@@ -1504,7 +1680,17 @@ static NTSTATUS rpc_shutdown_abort_internals(const DOM_SID *domain_sid, struct c
 
 static int rpc_shutdown_abort(int argc, const char **argv) 
 {
-	return run_rpc_command(NULL, PI_WINREG, 0, rpc_shutdown_abort_internals,
+	int rc = run_rpc_command(NULL, PI_SHUTDOWN, 0, 
+				 rpc_shutdown_abort_internals,
+				 argc, argv);
+
+	if (rc == 0)
+		return rc;
+
+	DEBUG(1, ("initshutdown pipe didn't work, trying winreg pipe\n"));
+
+	return run_rpc_command(NULL, PI_WINREG, 0, 
+			       rpc_reg_shutdown_abort_internals,
 			       argc, argv);
 }
 
@@ -1682,7 +1868,7 @@ static NTSTATUS rpc_trustdom_add_internals(const DOM_SID *domain_sid, struct cli
 		ctr.info.id24 = &p24;
 
 		result = cli_samr_set_userinfo(cli, mem_ctx, &user_pol, 24,
-					       cli->user_session_key, &ctr);
+					       &cli->user_session_key, &ctr);
 
 		if (!NT_STATUS_IS_OK(result)) {
 			DEBUG(0,("Could not set trust account password: %s\n",
@@ -1751,10 +1937,11 @@ static int rpc_trustdom_establish(int argc, const char **argv)
 	POLICY_HND connect_hnd;
 	TALLOC_CTX *mem_ctx;
 	NTSTATUS nt_status;
-	DOM_SID domain_sid;
+	DOM_SID *domain_sid;
 	WKS_INFO_100 wks_info;
 	
 	char* domain_name;
+	char* domain_name_pol;
 	char* acct_name;
 	fstring pdc_name;
 
@@ -1875,7 +2062,7 @@ static int rpc_trustdom_establish(int argc, const char **argv)
 	/* Querying info level 5 */
 	
 	nt_status = cli_lsa_query_info_policy(cli, mem_ctx, &connect_hnd,
-	                                      5 /* info level */, domain_name,
+	                                      5 /* info level */, &domain_name_pol,
 	                                      &domain_sid);
 	if (NT_STATUS_IS_ERR(nt_status)) {
 		DEBUG(0, ("LSA Query Info failed. Returned error was %s\n",
@@ -1895,7 +2082,7 @@ static int rpc_trustdom_establish(int argc, const char **argv)
 
 	if (!secrets_store_trusted_domain_password(domain_name, wks_info.uni_lan_grp.buffer,
 						   wks_info.uni_lan_grp.uni_str_len, opt_password,
-						   domain_sid)) {
+						   *domain_sid)) {
 		DEBUG(0, ("Storing password for trusted domain failed.\n"));
 		return -1;
 	}
@@ -1976,7 +2163,7 @@ static NTSTATUS rpc_query_domain_sid(const DOM_SID *domain_sid, struct cli_state
 	sid_to_string(str_sid, domain_sid);
 	d_printf("%s\n", str_sid);
 	return NT_STATUS_OK;
-};
+}
 
 
 static int rpc_trustdom_list(int argc, const char **argv)
@@ -1986,7 +2173,7 @@ static int rpc_trustdom_list(int argc, const char **argv)
 	struct cli_state *cli, *remote_cli;
 	NTSTATUS nt_status;
 	const char *domain_name = NULL;
-	DOM_SID queried_dom_sid;
+	DOM_SID *queried_dom_sid;
 	fstring ascii_sid, padding;
 	int ascii_dom_name_len;
 	POLICY_HND connect_hnd;
@@ -1996,7 +2183,8 @@ static int rpc_trustdom_list(int argc, const char **argv)
 	int i, pad_len, col_len = 20;
 	DOM_SID *domain_sids;
 	char **trusted_dom_names;
-	fstring pdc_name, dummy;
+	fstring pdc_name;
+	char *dummy;
 	
 	/* trusting domains listing variables */
 	POLICY_HND domain_hnd;
@@ -2045,7 +2233,7 @@ static int rpc_trustdom_list(int argc, const char **argv)
 	/* query info level 5 to obtain sid of a domain being queried */
 	nt_status = cli_lsa_query_info_policy(
 		cli, mem_ctx, &connect_hnd, 5 /* info level */, 
-		dummy, &queried_dom_sid);
+		&dummy, &queried_dom_sid);
 
 	if (NT_STATUS_IS_ERR(nt_status)) {
 		DEBUG(0, ("LSA Query Info failed. Returned error was %s\n",
@@ -2127,8 +2315,8 @@ static int rpc_trustdom_list(int argc, const char **argv)
 	/* SamrOpenDomain - we have to open domain policy handle in order to be
 	   able to enumerate accounts*/
 	nt_status = cli_samr_open_domain(cli, mem_ctx, &connect_hnd,
-									 SA_RIGHT_DOMAIN_ENUM_ACCOUNTS,
-									 &queried_dom_sid, &domain_hnd);									 
+					 SA_RIGHT_DOMAIN_ENUM_ACCOUNTS,
+					 queried_dom_sid, &domain_hnd);									 
 	if (!NT_STATUS_IS_OK(nt_status)) {
 		DEBUG(0, ("Couldn't open domain object. Error was %s\n",
 			nt_errstr(nt_status)));

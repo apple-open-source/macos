@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -23,6 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Includes
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -35,22 +34,15 @@
 //	Macros
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
-
-#if ( SCSI_BLOCK_SERVICES_DEBUGGING_LEVEL >= 1 )
+#if ( USB_MASS_STORAGE_DEBUG == 1 )
 #define PANIC_NOW(x)		IOPanic x
+// Override the debug level for USBLog to make sure our logs make it out and then import
+// the logging header.
+#define DEBUG_LEVEL			1
+#include <IOKit/usb/IOUSBLog.h>
+#define STATUS_LOG(x)		USBLog x
 #else
 #define PANIC_NOW(x)
-#endif
-
-#if ( SCSI_BLOCK_SERVICES_DEBUGGING_LEVEL >= 2 )
-#define ERROR_LOG(x)		IOLog x
-#else
-#define ERROR_LOG(x)
-#endif
-
-#if ( SCSI_BLOCK_SERVICES_DEBUGGING_LEVEL >= 3 )
-#define STATUS_LOG(x)		IOLog x
-#else
 #define STATUS_LOG(x)
 #endif
 
@@ -88,7 +80,7 @@ OSDefineMetaClassAndStructors ( IOUFIStorageServices, IOBlockStorageDevice );
 bool
 IOUFIStorageServices::attach( IOService * provider )
 {
-	STATUS_LOG ( ( "IOUFIStorageServices: attach called\n" ) );
+	STATUS_LOG((6, "IOUFIStorageServices: attach called" ) );
 	
 	if ( !super::attach ( provider ) )
 	{
@@ -98,7 +90,7 @@ IOUFIStorageServices::attach( IOService * provider )
 	fProvider = OSDynamicCast ( IOUSBMassStorageUFIDevice, provider );
 	if ( fProvider == NULL )
 	{
-		ERROR_LOG ( ( "IOUFIStorageServices: attach; wrong provider type!\n" ) );
+		STATUS_LOG((1, "IOUFIStorageServices: attach; wrong provider type!" ) );
 		return false;
 	}
 	
@@ -111,7 +103,7 @@ IOUFIStorageServices::attach( IOService * provider )
 	fMaxReadBlocks 	= fProvider->ReportDeviceMaxBlocksReadTransfer();
 	fMaxWriteBlocks = fProvider->ReportDeviceMaxBlocksWriteTransfer();
 	
-	STATUS_LOG ( ( "IOUFIStorageServices: attach exiting\n" ) );
+	STATUS_LOG((6, "IOUFIStorageServices: attach exiting" ) );
 	return true;
 }
 
@@ -123,11 +115,11 @@ IOUFIStorageServices::attach( IOService * provider )
 void
 IOUFIStorageServices::detach( IOService * provider )
 {
-	STATUS_LOG ( ( "IOUFIStorageServices: detach called\n" ) );
+	STATUS_LOG((6, "IOUFIStorageServices: detach called" ) );
 		
 	super::detach( provider );
 
-	STATUS_LOG ( ( "IOUFIStorageServices: detach exiting\n" ) );
+	STATUS_LOG((6, "IOUFIStorageServices: detach exiting" ) );
 }
 
 
@@ -142,18 +134,18 @@ IOUFIStorageServices::message( 	UInt32 			type,
 {
 	IOReturn 	status = kIOReturnSuccess;
 	
-	ERROR_LOG ( ( "IOUFIStorageServices::message called\n" ) );
+	STATUS_LOG((6, "IOUFIStorageServices::message called" ) );
 		
 	switch ( type )
 	{
 		case kIOMessageMediaStateHasChanged:
 		{
-			ERROR_LOG ( ( "type = kIOMessageMediaStateHasChanged, nub = %p\n", nub ) );
+			STATUS_LOG((5, "type = kIOMessageMediaStateHasChanged, nub = %p", nub ) );
 			
 			fMediaChanged	= true;
 			fMediaPresent	= true;
 			status = messageClients ( type, arg, sizeof ( IOMediaState ) );
-			ERROR_LOG ( ( "status = %ld\n", ( UInt32 ) status ) );
+			STATUS_LOG((5, "status = %ld", ( UInt32 ) status ) );
 		}
 		break;
 				
@@ -188,14 +180,14 @@ IOUFIStorageServices::AsyncReadWriteComplete(	void * 			clientData,
 	returnData 		= servicesData->completionData;
 	owner 			= servicesData->owner;
 
-	STATUS_LOG(("IOUFIStorageServices: AsyncReadWriteComplete; command status %x\n", status ));
+	STATUS_LOG((5, "IOUFIStorageServices: AsyncReadWriteComplete; command status %x", status ));
 	// Check to see if an error occurred that on which the request should be retried.
 	if ((( status != kIOReturnNotAttached ) && ( status != kIOReturnOffline ) &&
 		( status != kIOReturnSuccess )) && ( servicesData->retriesLeft > 0 ))
 	{
 		IOReturn 	requestStatus;
 
-		STATUS_LOG(("IOUFIStorageServices: AsyncReadWriteComplete; retry command\n"));
+		STATUS_LOG((5, "IOUFIStorageServices: AsyncReadWriteComplete; retry command"));
 		// An error occurred, but it is one on which the command should be retried.  Decrement
 		// the retry counter and try again.
 		servicesData->retriesLeft--;
@@ -260,7 +252,7 @@ IOUFIStorageServices::doAsyncReadWrite (	IOMemoryDescriptor *	buffer,
 	clientData = (BlockServicesClientData *) IOMalloc( sizeof( BlockServicesClientData ) );
 	if ( clientData == NULL )
 	{
-		ERROR_LOG ( ( "IOUFIStorageServices: doAsyncReadWrite; clientData malloc failed!\n" ) );
+		STATUS_LOG((1, "IOUFIStorageServices: doAsyncReadWrite; clientData malloc failed!" ) );
 		return kIOReturnNoResources;
 	}
 
@@ -270,7 +262,7 @@ IOUFIStorageServices::doAsyncReadWrite (	IOMemoryDescriptor *	buffer,
 
 	requestBlockSize = fProvider->ReportMediumBlockSize();
 	
-	STATUS_LOG ( ( "IOUFIStorageServices: doAsyncReadWrite; save completion data!\n" ) );
+	STATUS_LOG((5, "IOUFIStorageServices: doAsyncReadWrite; save completion data!" ) );
 
 	// Set the owner of this request.
 	clientData->owner = this;
@@ -431,6 +423,8 @@ IOUFIStorageServices::doGetFormatCapacities(	UInt64 * capacities,
 IOReturn
 IOUFIStorageServices::doLockUnlockMedia ( bool doLock )
 {
+	UNUSED( doLock );
+	
 	// Return errors for incoming activity if we have been terminated
 	if ( isInactive() != false )
 	{
@@ -498,7 +492,7 @@ IOUFIStorageServices::getRevisionString ( void )
 char *
 IOUFIStorageServices::getAdditionalDeviceInfoString ( void )
 {
-	STATUS_LOG ( ( "%s::%s called\n", getName ( ), __FUNCTION__ ) );
+	STATUS_LOG((6, "%s::%s called", getName ( ), __FUNCTION__ ) );
 	return ( "No Additional Device Info" );
 }
 
@@ -618,7 +612,7 @@ IOReturn
 IOUFIStorageServices::reportMediaState ( 	bool * mediaPresent,
 												bool * changed )	
 {
-    STATUS_LOG ( ( "IOSCSIBlockCommandsDevice::reportMediaState.\n" ) );
+    STATUS_LOG((6, "IOSCSIBlockCommandsDevice::reportMediaState." ) );
 	
 	*mediaPresent 	= fMediaPresent;
 	*changed 		= fMediaChanged;

@@ -11,24 +11,26 @@ import javax.ejb.EntityBean;
 import javax.ejb.EntityContext;
 import javax.ejb.CreateException;
 import javax.ejb.RemoveException;
+import java.util.Map;
+import java.util.List;
+import java.util.Set;
+import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.HashSet;
 
 /**
  * Implementaton of a CMP2 entity bean that is intended to demonstrate the
  * storage of large text and binary objects.
  *
- * @see javax.ejb.EntityBean.
+ * @see javax.ejb.EntityBean
  *
- * @version <tt>$Revision: 1.1.2.1 $</tt>
+ * @version <tt>$Revision: 1.1.2.4 $</tt>
  * @author  <a href="mailto:steve@resolvesw.com">Steve Coy</a>
- *   
+ * @author  <a href="mailto:alex@jboss.org">Alexey Loubyansky</a>
  */
 public abstract class LOBBean implements EntityBean
 {
-   // Attributes ----------------------------------------------------
-
    private EntityContext mEntityContext;
-
-   // Public --------------------------------------------------------
 
    /**
     * Returns the primary key
@@ -70,71 +72,53 @@ public abstract class LOBBean implements EntityBean
 	 */
    public abstract void setBinaryData(byte[] data);
 
-   /**
-    * @see javax.ejb.EntityBean#ejbActivate()
-    */
-   public void ejbActivate()
-   {
-   }
+   public abstract Map getMapField();
+   public abstract void setMapField(Map map);
 
-   /**
-    * @see javax.ejb.EntityBean#ejbLoad()
-    */
-   public void ejbLoad()
-   {
-   }
+   public abstract List getListField();
+   public abstract void setListField(List list);
 
-   /**
-    * @see javax.ejb.EntityBean#ejbPassivate()
-    */
-   public void ejbPassivate()
-   {
-   }
+   public abstract Set getSetField();
+   public abstract void setSetField(Set set);
 
-   /**
-    * @see javax.ejb.EntityBean#ejbCreate()
-    */
+   public abstract ValueHolder getValueHolder();
+   public abstract void setValueHolder(ValueHolder valueHolder);
+
+   public abstract ValueHolder getCleanGetValueHolder();
+   public abstract void setCleanGetValueHolder(ValueHolder valueHolder);
+
+   public abstract ValueHolder getStateFactoryValueHolder();
+   public abstract void setStateFactoryValueHolder(ValueHolder valueHolder);
+
+   // EntityBean implementation
+
    public Integer ejbCreate(Integer id) throws CreateException
    {
       setId(id);
+      setMapField(new HashMap());
+      setListField(new ArrayList());
+      setSetField(new HashSet());
+      setValueHolder(new ValueHolder(null));
+      setCleanGetValueHolder(new ValueHolder(null));
+      setStateFactoryValueHolder(new ValueHolder(null));
       return null;
    }
 
-   /**
-    * @see javax.ejb.EntityBean#ejbCreate()
-    */
-   public void ejbPostCreate(Integer id)
-   {
-   }
+   public void ejbPostCreate(Integer id) {}
 
-   /**
-    * @see javax.ejb.EntityBean#ejbRemove()
-    */
-   public void ejbRemove() throws RemoveException
-   {
-   }
+   public void ejbActivate() {}
+   public void ejbLoad() {}
+   public void ejbPassivate() {}
+   public void ejbRemove() throws RemoveException {}
+   public void ejbStore() {}
 
-   /**
-    * @see javax.ejb.EntityBean#ejbStore()
-    */
-   public void ejbStore()
-   {
-   }
-
-   /**
-    * @see javax.ejb.EntityBean#setEntityContext(javax.ejb.EntityContext)
-    */
    public void setEntityContext(EntityContext ctx)
    {
       mEntityContext = ctx;
    }
 
-   /**
-    * @see javax.ejb.EntityBean#unsetEntityContext()
-    */
    public void unsetEntityContext()
    {
       mEntityContext = null;
    }
-
 }

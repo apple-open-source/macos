@@ -20,8 +20,8 @@
  */
 
 #ifndef lint
-static const char rcsid[] =
-    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-icmp.c,v 1.1.1.3 2003/03/17 18:42:17 rbraun Exp $ (LBL)";
+static const char rcsid[] _U_ =
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-icmp.c,v 1.1.1.4 2004/02/05 19:30:54 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -39,6 +39,7 @@ static const char rcsid[] =
 
 #include "ip.h"
 #include "udp.h"
+#include "ipproto.h"
 
 /*
  * Interface Control Message Protocol Definitions.
@@ -260,7 +261,7 @@ struct id_rdiscovery {
 };
 
 void
-icmp_print(const u_char *bp, u_int plen, const u_char *bp2)
+icmp_print(const u_char *bp, u_int plen, const u_char *bp2, int fragmented)
 {
 	char *cp;
 	const struct icmp *dp;
@@ -476,7 +477,7 @@ icmp_print(const u_char *bp, u_int plen, const u_char *bp2)
 		break;
 	}
 	(void)printf("icmp %d: %s", plen, str);
-	if (vflag) {
+	if (vflag && !fragmented) { /* don't attempt checksumming if this is a frag */
 		u_int16_t sum, icmp_sum;
 		if (TTEST2(*bp, plen)) {
 			sum = in_cksum((u_short*)dp, plen, 0);

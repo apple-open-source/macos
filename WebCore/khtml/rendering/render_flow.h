@@ -54,10 +54,10 @@ public:
     virtual void addChildToFlow(RenderObject* newChild, RenderObject* beforeChild) = 0;
     virtual void addChild(RenderObject *newChild, RenderObject *beforeChild = 0);
 
-    static RenderFlow* createFlow(DOM::NodeImpl* node, RenderStyle* style, RenderArena* arena);
+    static RenderFlow* createAnonymousFlow(DOM::DocumentImpl* doc, RenderStyle* style);
 
-    void deleteLineBoxes(RenderArena* arena=0);
-    virtual void detach(RenderArena* arena);
+    void deleteLineBoxes();
+    virtual void detach();
 
     InlineFlowBox* firstLineBox() const { return m_firstLineBox; }
     InlineFlowBox* lastLineBox() const { return m_lastLineBox; }
@@ -69,10 +69,11 @@ public:
     void paintLineBoxDecorations(QPainter *p, int _x, int _y,
                                  int _w, int _h, int _tx, int _ty, PaintAction paintAction);
 
-    virtual void repaint(bool immediate = false);
-
-    virtual int lowestPosition(bool includeOverflowInterior=true) const;
-    virtual int rightmostPosition(bool includeOverflowInterior=true) const;
+    virtual QRect getAbsoluteRepaintRect();
+    
+    virtual int lowestPosition(bool includeOverflowInterior=true, bool includeSelf=true) const;
+    virtual int rightmostPosition(bool includeOverflowInterior=true, bool includeSelf=true) const;
+    virtual int leftmostPosition(bool includeOverflowInterior=true, bool includeSelf=true) const;
     
 protected:
     // An inline can be split with blocks occurring in between the inline content.

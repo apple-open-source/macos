@@ -6,11 +6,6 @@
  */
 package org.jboss.security.plugins;
 
-import java.io.InputStream;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.net.URL;
 import java.util.Stack;
 import javax.management.JMException;
 import javax.management.MalformedObjectNameException;
@@ -26,7 +21,7 @@ import org.jboss.system.ServiceMBeanSupport;
  manager.
  
  @author Scott.Stark@jboss.org
- @version $Revision: 1.4 $
+ @version $Revision: 1.4.4.1 $
  */
 public class SecurityConfig extends ServiceMBeanSupport
    implements SecurityConfigMBean

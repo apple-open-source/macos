@@ -368,9 +368,9 @@
 				9D56981A03E74E4100003D05,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 11.1;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 11;
+				DYLIB_CURRENT_VERSION = 11.1;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				HEADER_SEARCH_PATHS = "nssDER/PubHeaders nsprpub/PubHeaders";
 				INSTALL_PATH = /usr/local/lib;
@@ -485,7 +485,7 @@
 			);
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 11;
+				DYLIB_CURRENT_VERSION = 11.1;
 				FRAMEWORK_VERSION = A;
 				INSTALL_PATH = /System/Library/PrivateFrameworks;
 				OTHER_CFLAGS = "";
@@ -526,11 +526,11 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
+	<string>1.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>11</string>
+	<string>11.1</string>
 </dict>
 </plist>
 ";

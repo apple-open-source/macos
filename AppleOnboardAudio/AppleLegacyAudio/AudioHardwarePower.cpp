@@ -27,7 +27,7 @@ AudioPowerObject* AudioPowerObject::createAudioPowerObject(Apple02Audio *pluginR
 }
     
 bool AudioPowerObject::init(Apple02Audio *pluginRef){
-    DEBUG_IOLOG("+ AudioPowerObject::init\n");
+    debugIOLog (3, "+ AudioPowerObject::init");
  	
 	mMicroSecondsRequired = 50000;
     
@@ -38,7 +38,7 @@ bool AudioPowerObject::init(Apple02Audio *pluginRef){
         audioPluginRef = pluginRef;
         audioPluginRef->retain();
     }
-    DEBUG_IOLOG("- AudioPowerObject::init\n");
+    debugIOLog (3, "- AudioPowerObject::init");
     return true;
 }
     
@@ -75,7 +75,7 @@ OSDefineMetaClassAndStructors(AudioProj10PowerObject, AudioPowerObject)
 
 AudioProj10PowerObject* AudioProj10PowerObject::createAudioProj10PowerObject(Apple02Audio *pluginRef){
     AudioProj10PowerObject *myAudioproj10PowerObject = 0;
-    DEBUG_IOLOG("+ AudioProj10PowerObject::createAudioProj10PowerObject\n");
+    debugIOLog (3, "+ AudioProj10PowerObject::createAudioProj10PowerObject");
     myAudioproj10PowerObject = new AudioProj10PowerObject;
     
     if(myAudioproj10PowerObject) {
@@ -84,15 +84,15 @@ AudioProj10PowerObject* AudioProj10PowerObject::createAudioProj10PowerObject(App
             myAudioproj10PowerObject = 0;
         }            
     }
-    DEBUG_IOLOG("+ AudioProj10PowerObject::createAudioProj10PowerObject\n");
+    debugIOLog (3, "+ AudioProj10PowerObject::createAudioProj10PowerObject");
     return myAudioproj10PowerObject;
 }
 
 bool AudioProj10PowerObject::init(Apple02Audio *pluginRef){
-    DEBUG_IOLOG("+ AudioProj10PowerObject::init\n");
+    debugIOLog (3, "+ AudioProj10PowerObject::init");
  	mMicroSecondsRequired = 750000;
     return (AudioPowerObject::init(pluginRef));
-    DEBUG_IOLOG("- AudioProj10PowerObject::init\n");
+    debugIOLog (3, "- AudioProj10PowerObject::init");
 }
 
 void AudioProj10PowerObject::setIdlePowerState (void) {
@@ -112,7 +112,7 @@ void AudioProj10PowerObject::setHardwarePowerIdleOn ( void ) {
 }
 
 IOReturn AudioProj10PowerObject::setHardwarePowerOn(){
-    DEBUG_IOLOG("+ AudioProj10PowerObject::setHardwarePowerOn\n");
+    debugIOLog (3, "+ AudioProj10PowerObject::setHardwarePowerOn");
     IOReturn result = kIOReturnSuccess;
     UInt32 progOut;
     IOService *keyLargo = 0;
@@ -134,7 +134,7 @@ IOReturn AudioProj10PowerObject::setHardwarePowerOn(){
         audioPluginRef->sndHWSetPowerState(kIOAudioDeviceActive);
         audioPluginRef->setDeviceDetectionActive();
     }
-    DEBUG_IOLOG("- AudioProj10PowerObject::setHardwarePowerOn\n");
+    debugIOLog (3, "- AudioProj10PowerObject::setHardwarePowerOn");
     return result;
 }
 
@@ -142,7 +142,7 @@ IOReturn AudioProj10PowerObject::setHardwarePowerOff(){
     IOReturn result = kIOReturnSuccess;
     UInt32 progOut;
     IOService *keyLargo = 0;
-    DEBUG_IOLOG("+ AudioProj10PowerObject::setHardwarePowerOff\n");
+    debugIOLog (3, "+ AudioProj10PowerObject::setHardwarePowerOff");
         
 	// specific
     progOut = audioPluginRef->sndHWGetProgOutput();
@@ -163,7 +163,7 @@ IOReturn AudioProj10PowerObject::setHardwarePowerOff(){
         keyLargo->callPlatformFunction("keyLargo_writeRegUInt8", false, (void *)&gpioOffset, (void *)(UInt32)value, 0, 0);
     }
 
-    DEBUG_IOLOG("- AudioProj10PowerObject::setHardwarePowerOff\n");
+    debugIOLog (3, "- AudioProj10PowerObject::setHardwarePowerOff");
     return result;
 }
 
@@ -176,7 +176,7 @@ OSDefineMetaClassAndStructors(AudioProj6PowerObject, AudioPowerObject)
 AudioProj6PowerObject* AudioProj6PowerObject::createAudioProj6PowerObject(Apple02Audio *pluginRef){
     AudioProj6PowerObject *myAudioProj6PowerObject =0;
     
-    DEBUG_IOLOG("+ AudioProj6PowerObject::createAudioProj6PowerObject\n");
+    debugIOLog (3, "+ AudioProj6PowerObject::createAudioProj6PowerObject");
     myAudioProj6PowerObject = new AudioProj6PowerObject;
     
     if(myAudioProj6PowerObject) {
@@ -185,16 +185,16 @@ AudioProj6PowerObject* AudioProj6PowerObject::createAudioProj6PowerObject(Apple0
             myAudioProj6PowerObject = 0;
         }            
     }
-    DEBUG_IOLOG("+ AudioProj6PowerObject::createAudioProj6PowerObject\n");
+    debugIOLog (3, "+ AudioProj6PowerObject::createAudioProj6PowerObject");
     
     return myAudioProj6PowerObject;
 }
 
 bool AudioProj6PowerObject::init(Apple02Audio *pluginRef){
-    DEBUG_IOLOG("+ AudioProj6PowerObject::init\n");
+    debugIOLog (3, "+ AudioProj6PowerObject::init");
  	mMicroSecondsRequired = 750000;
     return (AudioPowerObject::init(pluginRef));
-    DEBUG_IOLOG("- AudioProj6PowerObject::init\n");
+    debugIOLog (3, "- AudioProj6PowerObject::init");
 }
 
 void AudioProj6PowerObject::setIdlePowerState (void) {
@@ -219,7 +219,7 @@ IOReturn AudioProj6PowerObject::setHardwarePowerOff(){
     UInt32 mask, data;
     UInt32 powerRegAdrr;
      
-    DEBUG_IOLOG("+ AudioProj6PowerObject::setHardwarePowerOff\n");
+    debugIOLog (3, "+ AudioProj6PowerObject::setHardwarePowerOff");
 
     audioPluginRef->sndHWSetPowerState(kIOAudioDeviceSleep);
     audioPluginRef->setDeviceDetectionInActive();
@@ -234,7 +234,7 @@ IOReturn AudioProj6PowerObject::setHardwarePowerOff(){
                                                                 (void *)powerRegAdrr, (void *)mask, (void *) data, 0);
     } 
 
-    DEBUG2_IOLOG("- AudioProj6PowerObject::setHardwarePowerOff, %d\n", kIOReturnSuccess == result);
+    debugIOLog (3, "- AudioProj6PowerObject::setHardwarePowerOff, %d", kIOReturnSuccess == result);
     return result;
 }
 
@@ -244,7 +244,7 @@ IOReturn AudioProj6PowerObject::setHardwarePowerOn(){
     UInt32 mask, data;
     UInt32 powerRegAdrr;
 
-    DEBUG_IOLOG("+ AudioProj6PowerObject::setHardwarePowerOn\n");
+    debugIOLog (3, "+ AudioProj6PowerObject::setHardwarePowerOn");
         
     HeathRow = IOService::waitForService(IOService::serviceMatching("Heathrow"));
 
@@ -262,7 +262,7 @@ IOReturn AudioProj6PowerObject::setHardwarePowerOn(){
         audioPluginRef->setDeviceDetectionActive();
     }
 
-    DEBUG2_IOLOG("- AudioProj6PowerObject::setHardwarePowerOn, %d\n", kIOReturnSuccess == result);
+    debugIOLog (3, "- AudioProj6PowerObject::setHardwarePowerOn, %d", kIOReturnSuccess == result);
     return result;
 
 }
@@ -298,7 +298,7 @@ OSDefineMetaClassAndStructors(AudioProj8PowerObject, AudioPowerObject)
 
 AudioProj8PowerObject* AudioProj8PowerObject::createAudioProj8PowerObject(Apple02Audio *pluginRef)
 {
-    DEBUG_IOLOG("+ myAudioProj8PowerObject::createAudioProj10PowerObject\n");
+    debugIOLog (3, "+ myAudioProj8PowerObject::createAudioProj10PowerObject");
     AudioProj8PowerObject* myAudioProj8PowerObject=0;
     myAudioProj8PowerObject = new AudioProj8PowerObject ;
     if(myAudioProj8PowerObject) 
@@ -309,16 +309,16 @@ AudioProj8PowerObject* AudioProj8PowerObject::createAudioProj8PowerObject(Apple0
             myAudioProj8PowerObject = 0;
         }            
     }
-    DEBUG_IOLOG("- myAudioProj8PowerObject::createAudioProj10PowerObject\n");
+    debugIOLog (3, "- myAudioProj8PowerObject::createAudioProj10PowerObject");
     return(myAudioProj8PowerObject);
 }
 								
 bool AudioProj8PowerObject::init(Apple02Audio *pluginRef)
 {
-    DEBUG_IOLOG("+ AudioProj8PowerObject::init\n");
+    debugIOLog (3, "+ AudioProj8PowerObject::init");
  	mMicroSecondsRequired = 1000000;
     return (AudioPowerObject::init(pluginRef));
-    DEBUG_IOLOG("- AudioProj8PowerObject::init\n");
+    debugIOLog (3, "- AudioProj8PowerObject::init");
 }
 
 void AudioProj8PowerObject::setIdlePowerState (void) {
@@ -341,7 +341,7 @@ IOReturn AudioProj8PowerObject::setHardwarePowerOff()
 {
     IOReturn result = kIOReturnSuccess;
     UInt32 progOut;
-    debugIOLog ("+ AudioProj8PowerObject::setHardwarePowerOff\n");
+    debugIOLog (3, "+ AudioProj8PowerObject::setHardwarePowerOff");
     
     // note the difference between this and some of the other setHardwarePowerOff methods
     // it may be necessary to check for the existance and availability of i2c services before 
@@ -354,14 +354,14 @@ IOReturn AudioProj8PowerObject::setHardwarePowerOff()
     audioPluginRef->sndHWSetPowerState(kIOAudioDeviceSleep);
     audioPluginRef->setDeviceDetectionInActive();
 
-    debugIOLog("- AudioProj8PowerObject::setHardwarePowerOff");
+    debugIOLog (3, "- AudioProj8PowerObject::setHardwarePowerOff");
     
     return result;
 }
 	
 IOReturn AudioProj8PowerObject::setHardwarePowerOn()
 {
-    debugIOLog("+ AudioProj8PowerObject::setHardwarePowerOn\n");
+    debugIOLog (3, "+ AudioProj8PowerObject::setHardwarePowerOn");
     IOReturn result = kIOReturnSuccess;
     UInt32 progOut;
     
@@ -375,7 +375,7 @@ IOReturn AudioProj8PowerObject::setHardwarePowerOn()
         audioPluginRef->sndHWSetPowerState(kIOAudioDeviceActive);
         audioPluginRef->setDeviceDetectionActive();
     }
-    debugIOLog("- AudioProj8PowerObject::setHardwarePowerOn\n");
+    debugIOLog (3, "- AudioProj8PowerObject::setHardwarePowerOn");
     return result;
 }
 
@@ -386,7 +386,7 @@ OSDefineMetaClassAndStructors(AudioProj7PowerObject, AudioPowerObject)
 
 AudioProj7PowerObject* AudioProj7PowerObject::createAudioProj7PowerObject(Apple02Audio *pluginRef){
     AudioProj7PowerObject *myAudioProj7PowerObject = 0;
-    DEBUG_IOLOG("+ AudioProj7PowerObject::createAudioProj10PowerObject\n");
+    debugIOLog (3, "+ AudioProj7PowerObject::createAudioProj10PowerObject");
     myAudioProj7PowerObject = new AudioProj7PowerObject;
     
     if(myAudioProj7PowerObject) {
@@ -395,22 +395,22 @@ AudioProj7PowerObject* AudioProj7PowerObject::createAudioProj7PowerObject(Apple0
             myAudioProj7PowerObject = 0;
         }            
     }
-    DEBUG_IOLOG("+ AudioProj7PowerObject::createAudioProj10PowerObject\n");
+    debugIOLog (3, "+ AudioProj7PowerObject::createAudioProj10PowerObject");
     return myAudioProj7PowerObject;
 }
 
 bool AudioProj7PowerObject::init(Apple02Audio *pluginRef){
-    DEBUG_IOLOG("+ AudioProj10PowerObject::init\n");
+    debugIOLog (3, "+ AudioProj10PowerObject::init");
  	mMicroSecondsRequired = 750000;
    return (AudioPowerObject::init(pluginRef));
-    DEBUG_IOLOG("- AudioProj10PowerObject::init\n");
+    debugIOLog (3, "- AudioProj10PowerObject::init");
 }
 
 IOReturn AudioProj7PowerObject::setHardwarePowerOff(){
     IOReturn result = kIOReturnSuccess;
     UInt32 progOut;
     IOService *keyLargo = 0;
-    DEBUG_IOLOG("+ AudioProj7PowerObject::setHardwarePowerOff\n");
+    debugIOLog (3, "+ AudioProj7PowerObject::setHardwarePowerOff");
     
     progOut = audioPluginRef->sndHWGetProgOutput();
     progOut &= ~kSndHWProgOutput0;
@@ -428,7 +428,7 @@ IOReturn AudioProj7PowerObject::setHardwarePowerOff(){
         keyLargo->callPlatformFunction("keyLargo_writeRegUInt8", false, (void *)&gpioOffset, (void *)(UInt32)value, 0, 0);
     }
     
-    DEBUG_IOLOG("- AudioProj7PowerObject::setHardwarePowerOff\n");
+    debugIOLog (3, "- AudioProj7PowerObject::setHardwarePowerOff");
     return result;
 }
 
@@ -445,13 +445,13 @@ void AudioProj7PowerObject::setFullPowerState (void) {
 }
 
 void AudioProj7PowerObject::setHardwarePowerIdleOn ( void ) {
-    DEBUG_IOLOG("+ AudioProj7PowerObject::setHardwarePowerIdleOn\n");
+    debugIOLog (3, "+ AudioProj7PowerObject::setHardwarePowerIdleOn");
     setHardwarePowerOn();
-    DEBUG_IOLOG("- AudioProj7PowerObject::setHardwarePowerIdleOn\n");
+    debugIOLog (3, "- AudioProj7PowerObject::setHardwarePowerIdleOn");
 }
 
 IOReturn AudioProj7PowerObject::setHardwarePowerOn(){
-    DEBUG_IOLOG("+ AudioProj7PowerObject::setHardwarePowerOn\n");
+    debugIOLog (3, "+ AudioProj7PowerObject::setHardwarePowerOn");
     IOReturn result = kIOReturnSuccess;
     UInt32 progOut;
     IOService *keyLargo = 0;
@@ -475,7 +475,7 @@ IOReturn AudioProj7PowerObject::setHardwarePowerOn(){
         audioPluginRef->sndHWSetPowerState(kIOAudioDeviceActive);
         audioPluginRef->setDeviceDetectionActive();
     }
-    DEBUG_IOLOG("- AudioProj7PowerObject::setHardwarePowerOn\n");
+    debugIOLog (3, "- AudioProj7PowerObject::setHardwarePowerOn");
     return result;
 }
 
@@ -487,7 +487,7 @@ OSDefineMetaClassAndStructors(AudioProj14PowerObject, AudioPowerObject)
 AudioProj14PowerObject* AudioProj14PowerObject::createAudioProj14PowerObject(Apple02Audio *pluginRef){
     AudioProj14PowerObject* myAudioProj14PowerObject = NULL;
 
-    DEBUG_IOLOG("+ AudioProj14PowerObject::createAudioProj14PowerObject\n");
+    debugIOLog (3, "+ AudioProj14PowerObject::createAudioProj14PowerObject");
     myAudioProj14PowerObject = new AudioProj14PowerObject;
     
     if(myAudioProj14PowerObject) {
@@ -496,16 +496,16 @@ AudioProj14PowerObject* AudioProj14PowerObject::createAudioProj14PowerObject(App
             myAudioProj14PowerObject = 0;
         }            
     }
-    DEBUG_IOLOG("+ AudioProj14PowerObject::createAudioProj14PowerObject\n");
+    debugIOLog (3, "+ AudioProj14PowerObject::createAudioProj14PowerObject");
 
     return (myAudioProj14PowerObject);
 }
 
 bool AudioProj14PowerObject::init(Apple02Audio *pluginRef){
-    DEBUG_IOLOG("+ AudioProj14PowerObject::init\n");
+    debugIOLog (3, "+ AudioProj14PowerObject::init");
 	mMicroSecondsRequired = 2000000;
     return (AudioPowerObject::init(pluginRef));
-    DEBUG_IOLOG("- AudioProj14PowerObject::init\n");
+    debugIOLog (3, "- AudioProj14PowerObject::init");
 }
 
 void AudioProj14PowerObject::setIdlePowerState (void) {
@@ -552,7 +552,7 @@ OSDefineMetaClassAndStructors(AudioProj16PowerObject, AudioPowerObject)
 AudioProj16PowerObject* AudioProj16PowerObject::createAudioProj16PowerObject(Apple02Audio *pluginRef){
     AudioProj16PowerObject* myAudioProj16PowerObject = NULL;
 
-    DEBUG_IOLOG("+ AudioProj16PowerObject::createAudioProj16PowerObject\n");
+    debugIOLog (3, "+ AudioProj16PowerObject::createAudioProj16PowerObject");
     myAudioProj16PowerObject = new AudioProj16PowerObject;
     
     if(myAudioProj16PowerObject) {
@@ -561,16 +561,16 @@ AudioProj16PowerObject* AudioProj16PowerObject::createAudioProj16PowerObject(App
             myAudioProj16PowerObject = 0;
         }            
     }
-    DEBUG_IOLOG("+ AudioProj16PowerObject::createAudioProj16PowerObject\n");
+    debugIOLog (3, "+ AudioProj16PowerObject::createAudioProj16PowerObject");
 
     return (myAudioProj16PowerObject);
 }
 
 bool AudioProj16PowerObject::init(Apple02Audio *pluginRef){
-    DEBUG_IOLOG("+ AudioProj16PowerObject::init\n");
+    debugIOLog (3, "+ AudioProj16PowerObject::init");
 	mMicroSecondsRequired = 2000000;
     return (AudioPowerObject::init(pluginRef));
-    DEBUG_IOLOG("- AudioProj16PowerObject::init\n");
+    debugIOLog (3, "- AudioProj16PowerObject::init");
 }
 
 Boolean AudioProj16PowerObject::wantsIdleCalls (void) {

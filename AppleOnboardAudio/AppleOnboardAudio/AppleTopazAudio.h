@@ -5,19 +5,19 @@
  *  Created by Matthew Xavier Mora on Thu Mar 13 2003.
  *  Copyright © 2003 Apple Computer, Inc. All rights reserved.
  *
+ *	29 October 2003		rbm		[3446131]	Converted to plugin architecture.
+ *
  */
 
+#include "PlatformInterface.h"
+#include "AudioHardwareUtilities.h"
+#include "AppleTopazPluginFactory.h"
 #include "AudioHardwareObjectInterface.h"
 #include "CS8420_hw.h"
-#include "PlatformInterface.h"
 #include "AppleDBDMAAudio.h"
 #include "AppleOnboardAudio.h"
 #include "AppleOnboardAudioUserClient.h"
-
-typedef enum {
-	kCS8406_CODEC = 0,
-	kCS8420_CODEC
-} TOPAZ_CODEC_TYPES;
+#include "AppleTopazPlugin.h"
 
 typedef enum {
 	kTopazState_Idle =	0,
@@ -50,7 +50,6 @@ public:
     virtual void			free();
 	virtual void			initPlugin(PlatformInterface* inPlatformObject);
 	virtual bool			preDMAEngineInit ();
-	virtual void			postDMAEngineInit ();
 	virtual UInt32			getActiveOutput (void) { return kSndHWOutput1; }
 	virtual IOReturn		setActiveOutput (UInt32 outputPort) { return kIOReturnSuccess; }
 	virtual UInt32			getActiveInput (void) { return kSndHWInput1; }
@@ -75,8 +74,6 @@ public:
 	virtual	void			notifyHardwareEvent ( UInt32 statusSelector, UInt32 newValue ); 
 
 	virtual IOReturn		recoverFromFatalError ( FatalRecoverySelector selector );
-	virtual	UInt32			getCurrentSampleFrame (void);
-	virtual void			setCurrentSampleFrame (UInt32 value);
 
 	virtual bool 			willTerminate ( IOService * provider, IOOptionBits options );
 	virtual bool 			requestTerminate ( IOService * provider, IOOptionBits options );
@@ -88,28 +85,23 @@ public:
 	//	
 	//	User Client Support
 	//
+	
 	virtual IOReturn		getPluginState ( HardwarePluginDescriptorPtr outState );
 	virtual IOReturn		setPluginState ( HardwarePluginDescriptorPtr inState );
 	virtual	HardwarePluginType	getPluginType ( void );
 	
-private:
-	UInt8					CODEC_GetDataMask ( UInt8 regAddr );
-	IOReturn				CODEC_GetRegSize ( UInt32 selector, UInt32 * codecRegSizePtr );
-	IOReturn 				CODEC_IsControlRegister ( UInt8 regAddr );
-	IOReturn 				CODEC_IsStatusRegister ( UInt8 regAddr );
-	IOReturn 				CODEC_ReadRegister ( UInt8 regAddr, UInt8 * registerData, UInt32 size );
+	ChanStatusStruct		mChannelStatus;
+	
+	UInt8	 				CODEC_ReadID ( void );
 	void					CODEC_Reset ( void );
-	IOReturn				CODEC_SetChannelStatus ( void );
-	IOReturn 				CODEC_WriteRegister ( UInt8 regAddr, UInt8 registerData );
+
+private:
 	
 	void					generalRecovery ( void );
 	
-	UInt8					mShadowRegs[128];	//	write through shadow registers for CS84xx
 	PlatformInterface* 		mPlatformObject;	// pointer to platform object class
 	TOPAZ_CODEC_TYPES		mCodecID;
 	
-	bool					mNonAudio;
-	UInt8					mCurrentMAP;
 	UInt32					mUnlockErrorCount;
 	UInt32					mI2CinProcess;
 	
@@ -124,6 +116,8 @@ private:
 	
 	UInt32 					mClockSource;
 	
+	AppleTopazPlugin *		mTopazPlugin;
+
 protected:
 	AppleOnboardAudio *		mAudioDeviceProvider;
 	

@@ -47,6 +47,20 @@ namespace Security
 #define IPCN(statement) \
 	{ CSSM_RETURN rcode; check(statement); if (rcode != CSSM_OK) CssmError::throwMe(rcode); }
 #define IPC(statement)	{ activate(); IPCN(statement); }
+#define IPCKEY(statement, key, tag) \
+{ \
+	activate(); \
+	CSSM_RETURN rcode; \
+	for (bool retried = false;; retried = true) \
+	{ \
+		check(statement); \
+		if (retried || rcode != CSSMERR_CSP_APPLE_ADD_APPLICATION_ACL_SUBJECT) \
+			break; \
+		addApplicationAclSubject(key, tag); \
+	} \
+	if (rcode != CSSM_OK) \
+		CssmError::throwMe(rcode); \
+}
 
 // pass mandatory or optional CssmData arguments into an IPC call
 #define DATA(arg)			arg.data(), arg.length()

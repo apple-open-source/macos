@@ -21,12 +21,12 @@
 .SH NAME
 smbtar \- shell script for backing up SMB/CIFS shares directly to UNIX tape drives
 .SH "SYNOPSIS"
-
-.nf
-\fBsmbtar\fR [-r] [-i] [-a] [-v] {-s server} [-p password] [-x services] [-X] [-N filename]
-       [-b blocksize] [-d directory] [-l loglevel] [-u user] [-t tape] {filenames}
-      
-.fi
+.ad l
+.hy 0
+.HP 7
+\fBsmbtar\fR [\-r] [\-i] [\-a] [\-v] {\-s\ server} [\-p\ password] [\-x\ services] [\-X] [\-N\ filename] [\-b\ blocksize] [\-d\ directory] [\-l\ loglevel] [\-u\ user] [\-t\ tape] {filenames}
+.ad
+.hy
 
 .SH "DESCRIPTION"
 
@@ -39,79 +39,79 @@ This tool is part of the \fBSamba\fR(7) suite\&.
 .SH "OPTIONS"
 
 .TP
--s server
+\-s server
 The SMB/CIFS server that the share resides upon\&.
 
 
 .TP
--x service
+\-x service
 The share name on the server to connect to\&. The default is "backup"\&.
 
 
 .TP
--X
+\-X
 Exclude mode\&. Exclude filenames\&.\&.\&. from tar create or restore\&.
 
 
 .TP
--d directory
+\-d directory
 Change to initial \fIdirectory \fR before restoring / backing up files\&.
 
 
 .TP
--v
+\-v
 Verbose mode\&.
 
 
 .TP
--p password
+\-p password
 The password to use to access a share\&. Default: none
 
 
 .TP
--u user
+\-u user
 The user id to connect as\&. Default: UNIX login name\&.
 
 
 .TP
--a
+\-a
 Reset DOS archive bit mode to indicate file has been archived\&.
 
 
 .TP
--t tape
+\-t tape
 Tape device\&. May be regular file or tape device\&. Default: \fI$TAPE\fR environmental variable; if not set, a file called \fItar\&.out \fR\&.
 
 
 .TP
--b blocksize
+\-b blocksize
 Blocking factor\&. Defaults to 20\&. See \fBtar(1)\fR for a fuller explanation\&.
 
 
 .TP
--N filename
+\-N filename
 Backup only files newer than filename\&. Could be used (for example) on a log file to implement incremental backups\&.
 
 
 .TP
--i
+\-i
 Incremental mode; tar files are only backed up if they have the archive bit set\&. The archive bit is reset after each file is read\&.
 
 
 .TP
--r
+\-r
 Restore\&. Files are restored to the share from the tar file\&.
 
 
 .TP
--l log level
-Log (debug) level\&. Corresponds to the \fI-d\fR flag of \fBsmbclient\fR(1)\&.
+\-l log level
+Log (debug) level\&. Corresponds to the \fI\-d\fR flag of \fBsmbclient\fR(1)\&.
 
 
 .SH "ENVIRONMENT VARIABLES"
 
 .PP
-The \fI$TAPE\fR variable specifies the default tape device to write to\&. May be overridden with the -t option\&.
+The \fI$TAPE\fR variable specifies the default tape device to write to\&. May be overridden with the \-t option\&.
 
 .SH "BUGS"
 
@@ -136,7 +136,7 @@ This man page is correct for version 3\&.0 of the Samba suite\&.
 .SH "SEE ALSO"
 
 .PP
-\fBsmbd\fR(8), \fBsmbclient\fR(1), \fBsmb.conf\fR(5)\&.
+\fBsmbd\fR(8), \fBsmbclient\fR(1), \fBsmb\&.conf\fR(5)\&.
 
 .SH "AUTHOR"
 

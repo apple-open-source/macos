@@ -5,13 +5,27 @@
  * See terms of license at gnu.org.
  */
 package org.jboss.test.jbossmq.test;
-import java.util.*;
-import javax.jms.*;
 
-import javax.naming.*;
+import javax.jms.BytesMessage;
+import javax.jms.DeliveryMode;
+import javax.jms.Message;
+import javax.jms.MessageListener;
+import javax.jms.Queue;
+import javax.jms.QueueConnection;
+import javax.jms.QueueConnectionFactory;
+import javax.jms.QueueReceiver;
+import javax.jms.QueueSender;
+import javax.jms.QueueSession;
+import javax.jms.Session;
+import javax.jms.Topic;
+import javax.jms.TopicConnection;
+import javax.jms.TopicConnectionFactory;
+import javax.jms.TopicPublisher;
+import javax.jms.TopicSession;
+import javax.jms.TopicSubscriber;
+import javax.naming.Context;
 
 import org.apache.log4j.Category;
-
 import org.jboss.test.JBossTestCase;
 
 /**
@@ -61,37 +75,35 @@ public class RollBackUnitTestCase extends JBossTestCase
       final int iterationCount = getIterationCount();
       final Category log = getLog();
 
-      Thread sendThread =
-         new Thread()
+      Thread sendThread = new Thread()
+      {
+         public void run()
          {
-            public void run()
+            try
             {
-               try
+               QueueSession session = queueConnection.createQueueSession(true, Session.AUTO_ACKNOWLEDGE);
+               Queue queue = (Queue) context.lookup(TEST_QUEUE);
+
+               QueueSender sender = session.createSender(queue);
+
+               BytesMessage message = session.createBytesMessage();
+               message.writeBytes(PAYLOAD);
+
+               for (int i = 0; i < iterationCount; i++)
                {
-                  QueueSession session = queueConnection.createQueueSession(true, Session.AUTO_ACKNOWLEDGE);
-                  Queue queue = (Queue)context.lookup(TEST_QUEUE);
-
-                  QueueSender sender = session.createSender(queue);
-
-                  BytesMessage message = session.createBytesMessage();
-                  message.writeBytes(PAYLOAD);
-
-                  long startTime = System.currentTimeMillis();
-                  for (int i = 0; i < iterationCount; i++)
-                  {
-                     sender.send(message, persistence, 4, 0);
-                  }
-
-                  if (explicit)
-                     session.rollback();
-                  session.close();
+                  sender.send(message, persistence, 4, 0);
                }
-               catch (Exception e)
-               {
-                  log.error("error", e);
-               }
+
+               if (explicit)
+                  session.rollback();
+               session.close();
             }
-         };
+            catch (Exception e)
+            {
+               log.error("error", e);
+            }
+         }
+      };
 
       sendThread.start();
       sendThread.join();
@@ -112,35 +124,34 @@ public class RollBackUnitTestCase extends JBossTestCase
       final int iterationCount = getIterationCount();
       final Category log = getLog();
 
-      Thread sendThread =
-         new Thread()
+      Thread sendThread = new Thread()
+      {
+         public void run()
          {
-            public void run()
+            try
             {
-               try
+
+               TopicSession session = topicConnection.createTopicSession(true, Session.AUTO_ACKNOWLEDGE);
+               Topic topic = (Topic) context.lookup(TEST_TOPIC);
+
+               TopicPublisher publisher = session.createPublisher(topic);
+
+               BytesMessage message = session.createBytesMessage();
+               message.writeBytes(PAYLOAD);
+
+               for (int i = 0; i < iterationCount; i++)
                {
-
-                  TopicSession session = topicConnection.createTopicSession(true, Session.AUTO_ACKNOWLEDGE);
-                  Topic topic = (Topic)context.lookup(TEST_TOPIC);
-
-                  TopicPublisher publisher = session.createPublisher(topic);
-
-                  BytesMessage message = session.createBytesMessage();
-                  message.writeBytes(PAYLOAD);
-
-                  for (int i = 0; i < iterationCount; i++)
-                  {
-                     publisher.publish(message, persistence, 4, 0);
-                  }
-
-                  session.close();
+                  publisher.publish(message, persistence, 4, 0);
                }
-               catch (Exception e)
-               {
-                  log.error("error", e);
-               }
+
+               session.close();
             }
-         };
+            catch (Exception e)
+            {
+               log.error("error", e);
+            }
+         }
+      };
 
       sendThread.start();
       sendThread.join();
@@ -160,38 +171,36 @@ public class RollBackUnitTestCase extends JBossTestCase
       final int iterationCount = getIterationCount();
       final Category log = getLog();
 
-      Thread sendThread =
-         new Thread()
+      Thread sendThread = new Thread()
+      {
+         public void run()
          {
-            public void run()
+            try
             {
-               try
+               QueueSession session = queueConnection.createQueueSession(false, Session.AUTO_ACKNOWLEDGE);
+               Queue queue = (Queue) context.lookup(TEST_QUEUE);
+
+               QueueSender sender = session.createSender(queue);
+
+               BytesMessage message = session.createBytesMessage();
+               message.writeBytes(PAYLOAD);
+
+               for (int i = 0; i < iterationCount; i++)
                {
-                  QueueSession session = queueConnection.createQueueSession(false, Session.AUTO_ACKNOWLEDGE);
-                  Queue queue = (Queue)context.lookup(TEST_QUEUE);
-
-                  QueueSender sender = session.createSender(queue);
-
-                  BytesMessage message = session.createBytesMessage();
-                  message.writeBytes(PAYLOAD);
-
-                  long startTime = System.currentTimeMillis();
-                  for (int i = 0; i < iterationCount; i++)
-                  {
-                     sender.send(message, persistence, 4, 0);
-                  }
-
-                  session.close();
+                  sender.send(message, persistence, 4, 0);
                }
-               catch (Exception e)
-               {
-                  log.error("error", e);
-               }
+
+               session.close();
             }
-         };
+            catch (Exception e)
+            {
+               log.error("error", e);
+            }
+         }
+      };
 
       QueueSession session = queueConnection.createQueueSession(true, Session.AUTO_ACKNOWLEDGE);
-      Queue queue = (Queue)context.lookup(TEST_QUEUE);
+      Queue queue = (Queue) context.lookup(TEST_QUEUE);
       QueueReceiver receiver = session.createReceiver(queue);
 
       MyMessageListener listener = new MyMessageListener(iterationCount, log);
@@ -201,7 +210,7 @@ public class RollBackUnitTestCase extends JBossTestCase
       queueConnection.start();
       synchronized (listener)
       {
-         if (listener.i < iterationCount)        
+         if (listener.i < iterationCount)
             listener.wait();
       }
       receiver.setMessageListener(null);
@@ -232,43 +241,41 @@ public class RollBackUnitTestCase extends JBossTestCase
       final int iterationCount = getIterationCount();
       final Category log = getLog();
 
-      Thread sendThread =
-         new Thread()
+      Thread sendThread = new Thread()
+      {
+         public void run()
          {
-            public void run()
+            try
             {
-               try
+
+               TopicSession session = topicConnection.createTopicSession(false, Session.AUTO_ACKNOWLEDGE);
+               Topic topic = (Topic) context.lookup(TEST_TOPIC);
+
+               TopicPublisher publisher = session.createPublisher(topic);
+
+               waitForSynchMessage();
+
+               BytesMessage message = session.createBytesMessage();
+               message.writeBytes(PAYLOAD);
+
+               for (int i = 0; i < iterationCount; i++)
                {
-
-                  TopicSession session = topicConnection.createTopicSession(false, Session.AUTO_ACKNOWLEDGE);
-                  Topic topic = (Topic)context.lookup(TEST_TOPIC);
-
-                  TopicPublisher publisher = session.createPublisher(topic);
-
-                  waitForSynchMessage();
-
-                  BytesMessage message = session.createBytesMessage();
-                  message.writeBytes(PAYLOAD);
-
-                  for (int i = 0; i < iterationCount; i++)
-                  {
-                     publisher.publish(message, persistence, 4, 0);
-                     log.debug("Published message " + i);
-                  }
-
-                  session.close();
+                  publisher.publish(message, persistence, 4, 0);
+                  log.debug("Published message " + i);
                }
-               catch (Exception e)
-               {
-                  log.error("error", e);
-               }
+
+               session.close();
             }
-         };
+            catch (Exception e)
+            {
+               log.error("error", e);
+            }
+         }
+      };
 
       TopicSession session = topicConnection.createTopicSession(true, Session.AUTO_ACKNOWLEDGE);
-      Topic topic = (Topic)context.lookup(TEST_TOPIC);
+      Topic topic = (Topic) context.lookup(TEST_TOPIC);
       TopicSubscriber subscriber = session.createSubscriber(topic);
-
 
       MyMessageListener listener = new MyMessageListener(iterationCount, log);
 
@@ -304,47 +311,47 @@ public class RollBackUnitTestCase extends JBossTestCase
     */
    public void runAsynchDurableTopicReceiveRollBack(final int persistence, final boolean explicit) throws Exception
    {
+      getLog().debug("====> runAsynchDurableTopicReceiveRollBack persistence=" + persistence + " explicit=" + explicit);
       drainQueue();
       drainDurableTopic();
 
       final int iterationCount = getIterationCount();
       final Category log = getLog();
 
-      Thread sendThread =
-         new Thread()
+      Thread sendThread = new Thread()
+      {
+         public void run()
          {
-            public void run()
+            try
             {
-               try
+
+               TopicSession session = topicConnection.createTopicSession(false, Session.AUTO_ACKNOWLEDGE);
+               Topic topic = (Topic) context.lookup(TEST_DURABLE_TOPIC);
+
+               TopicPublisher publisher = session.createPublisher(topic);
+
+               waitForSynchMessage();
+
+               BytesMessage message = session.createBytesMessage();
+               message.writeBytes(PAYLOAD);
+
+               for (int i = 0; i < iterationCount; i++)
                {
-
-                  TopicSession session = topicConnection.createTopicSession(false, Session.AUTO_ACKNOWLEDGE);
-                  Topic topic = (Topic)context.lookup(TEST_DURABLE_TOPIC);
-
-                  TopicPublisher publisher = session.createPublisher(topic);
-
-                  waitForSynchMessage();
-
-                  BytesMessage message = session.createBytesMessage();
-                  message.writeBytes(PAYLOAD);
-
-                  for (int i = 0; i < iterationCount; i++)
-                  {
-                     publisher.publish(message, persistence, 4, 0);
-                     log.debug("Published message " + i);
-                  }
-
-                  session.close();
+                  publisher.publish(message, persistence, 4, 0);
+                  log.debug("Published message " + i);
                }
-               catch (Exception e)
-               {
-                  log.error("error", e);
-               }
+
+               session.close();
             }
-         };
+            catch (Exception e)
+            {
+               log.error("error", e);
+            }
+         }
+      };
 
       TopicSession session = topicDurableConnection.createTopicSession(true, Session.AUTO_ACKNOWLEDGE);
-      Topic topic = (Topic)context.lookup(TEST_DURABLE_TOPIC);
+      Topic topic = (Topic) context.lookup(TEST_DURABLE_TOPIC);
       TopicSubscriber subscriber = session.createDurableSubscriber(topic, "test");
 
       MyMessageListener listener = new MyMessageListener(iterationCount, log);
@@ -362,6 +369,7 @@ public class RollBackUnitTestCase extends JBossTestCase
       }
       getLog().debug("Got all messages");
       subscriber.setMessageListener(null);
+      subscriber.close();
 
       if (explicit)
          session.rollback();
@@ -472,7 +480,6 @@ public class RollBackUnitTestCase extends JBossTestCase
    {
 
       TopicSession session = topicDurableConnection.createTopicSession(false, Session.AUTO_ACKNOWLEDGE);
-      Topic topic = (Topic)context.lookup(TEST_DURABLE_TOPIC);
       session.unsubscribe("test");
 
       queueConnection.close();
@@ -487,14 +494,15 @@ public class RollBackUnitTestCase extends JBossTestCase
     */
    protected void setUp() throws Exception
    {
+      getLog().debug("START TEST " + getName());
       if (context == null)
       {
          context = getInitialContext();
 
-         QueueConnectionFactory queueFactory = (QueueConnectionFactory)context.lookup(QUEUE_FACTORY);
+         QueueConnectionFactory queueFactory = (QueueConnectionFactory) context.lookup(QUEUE_FACTORY);
          queueConnection = queueFactory.createQueueConnection();
 
-         TopicConnectionFactory topicFactory = (TopicConnectionFactory)context.lookup(TOPIC_FACTORY);
+         TopicConnectionFactory topicFactory = (TopicConnectionFactory) context.lookup(TOPIC_FACTORY);
          topicConnection = topicFactory.createTopicConnection();
          topicDurableConnection = topicFactory.createTopicConnection("john", "needle");
 
@@ -509,15 +517,15 @@ public class RollBackUnitTestCase extends JBossTestCase
       queueConnection.start();
 
       QueueSession session = queueConnection.createQueueSession(false, Session.AUTO_ACKNOWLEDGE);
-      Queue queue = (Queue)context.lookup(TEST_QUEUE);
+      Queue queue = (Queue) context.lookup(TEST_QUEUE);
 
       QueueReceiver receiver = session.createReceiver(queue);
       Message message = receiver.receive(50);
       int c = 0;
       while (message != null)
       {
-         message = receiver.receive(50);
          c++;
+         message = receiver.receive(50);
       }
 
       getLog().debug("  Drained " + c + " messages from the queue");
@@ -536,15 +544,15 @@ public class RollBackUnitTestCase extends JBossTestCase
       topicConnection.start();
 
       final TopicSession session = topicConnection.createTopicSession(false, Session.AUTO_ACKNOWLEDGE);
-      Topic topic = (Topic)context.lookup(TEST_TOPIC);
+      Topic topic = (Topic) context.lookup(TEST_TOPIC);
       TopicSubscriber subscriber = session.createSubscriber(topic);
 
       Message message = subscriber.receive(50);
       int c = 0;
       while (message != null)
       {
-         message = subscriber.receive(50);
          c++;
+         message = subscriber.receive(50);
       }
 
       getLog().debug("  Drained " + c + " messages from the topic");
@@ -563,15 +571,15 @@ public class RollBackUnitTestCase extends JBossTestCase
       topicDurableConnection.start();
 
       final TopicSession session = topicDurableConnection.createTopicSession(false, Session.AUTO_ACKNOWLEDGE);
-      Topic topic = (Topic)context.lookup(TEST_DURABLE_TOPIC);
+      Topic topic = (Topic) context.lookup(TEST_DURABLE_TOPIC);
       TopicSubscriber subscriber = session.createDurableSubscriber(topic, "test");
 
       Message message = subscriber.receive(50);
       int c = 0;
       while (message != null)
       {
-         message = subscriber.receive(50);
          c++;
+         message = subscriber.receive(50);
       }
 
       getLog().debug("  Drained " + c + " messages from the durable topic");
@@ -587,7 +595,7 @@ public class RollBackUnitTestCase extends JBossTestCase
    {
       getLog().debug("Waiting for Synch Message");
       QueueSession session = queueConnection.createQueueSession(false, Session.AUTO_ACKNOWLEDGE);
-      Queue queue = (Queue)context.lookup(TEST_QUEUE);
+      Queue queue = (Queue) context.lookup(TEST_QUEUE);
 
       QueueReceiver receiver = session.createReceiver(queue);
       receiver.receive();
@@ -599,7 +607,7 @@ public class RollBackUnitTestCase extends JBossTestCase
    {
       getLog().debug("Sending Synch Message");
       QueueSession session = queueConnection.createQueueSession(false, Session.AUTO_ACKNOWLEDGE);
-      Queue queue = (Queue)context.lookup(TEST_QUEUE);
+      Queue queue = (Queue) context.lookup(TEST_QUEUE);
 
       QueueSender sender = session.createSender(queue);
 
@@ -610,8 +618,7 @@ public class RollBackUnitTestCase extends JBossTestCase
       getLog().debug("Sent Synch Message");
    }
 
-   public class MyMessageListener
-      implements MessageListener
+   public class MyMessageListener implements MessageListener
    {
       public int i = 0;
 

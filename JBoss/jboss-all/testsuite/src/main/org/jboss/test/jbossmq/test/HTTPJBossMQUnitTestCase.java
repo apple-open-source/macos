@@ -17,28 +17,25 @@
  */
 package org.jboss.test.jbossmq.test;
 
-import org.jboss.test.JBossTestCase;
-import org.jboss.test.JBossTestSetup;
-
-import junit.framework.TestSuite;
 import junit.framework.Test;
+import junit.framework.TestSuite;
 
+import org.jboss.test.JBossTestSetup;
 
 /**
  * JBossMQ tests over HTTP
  */
-public class HTTPJBossMQUnitTestCase
-   extends JBossMQUnitTest
+public class HTTPJBossMQUnitTestCase extends JBossMQUnitTest
 {
    public HTTPJBossMQUnitTestCase(String name) throws Exception
    {
       super(name);
    }
-   
+
    public static Test suite() throws Exception
    {
       TestSuite suite = new TestSuite();
-      
+
       suite.addTest(new JBossTestSetup(new TestSuite(HTTPJBossMQUnitTestCase.class))
       {
          protected void setUp() throws Exception
@@ -56,7 +53,7 @@ public class HTTPJBossMQUnitTestCase
       return suite;
    }
 
-   static public void main( String []args )
+   static public void main(String[] args)
    {
       String newArgs[] = { "org.jboss.test.jbossmq.test.HTTPJBossMQUnitTestCase" };
       junit.swingui.TestRunner.main(newArgs);

@@ -223,9 +223,8 @@ Multiple concurrent instances of fetchmail
        means  the  code  for the most common case can be much simpler and
        more robust.
     2. The  multidrop  handing  does  not rely on doing the equivalent of
-       passing  the  message  to sendmail -oem -t. Instead, it explicitly
-       mines  members  of  a  specified set of local usernames out of the
-       header.
+       passing  the  message to sendmail -t. Instead, it explicitly mines
+       members of a specified set of local usernames out of the header.
     3. We  do not attempt delivery to multidrop mailboxes in the presence
        of  DNS  errors. Before each multidrop poll we probe DNS to see if
        we  have  a  nameserver handy. If not, the poll is skipped. If DNS

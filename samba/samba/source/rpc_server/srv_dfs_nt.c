@@ -70,6 +70,7 @@ WERROR _dfs_add(pipes_struct *p, DFS_Q_DFS_ADD* q_u, DFS_R_DFS_ADD *r_u)
   pstrcat(altpath, "\\");
   pstrcat(altpath, sharename);
 
+  /* The following call can change the cwd. */
   if(get_referred_path(dfspath, &jn, NULL, NULL))
     {
       exists = True;
@@ -78,6 +79,8 @@ WERROR _dfs_add(pipes_struct *p, DFS_Q_DFS_ADD* q_u, DFS_R_DFS_ADD *r_u)
     }
   else
     jn.referral_count = 1;
+
+  vfs_ChDir(p->conn,p->conn->connectpath);
 
   jn.referral_list = (struct referral*) talloc(p->mem_ctx, jn.referral_count 
 					       * sizeof(struct referral));
@@ -100,8 +103,11 @@ WERROR _dfs_add(pipes_struct *p, DFS_Q_DFS_ADD* q_u, DFS_R_DFS_ADD *r_u)
 
   pstrcpy(jn.referral_list[jn.referral_count-1].alternate_path, altpath);
   
-  if(!create_msdfs_link(&jn, exists))
+  if(!create_msdfs_link(&jn, exists)) {
+    vfs_ChDir(p->conn,p->conn->connectpath);
     return WERR_DFS_CANT_CREATE_JUNCT;
+  }
+  vfs_ChDir(p->conn,p->conn->connectpath);
 
   return WERR_OK;
 }
@@ -147,8 +153,11 @@ WERROR _dfs_remove(pipes_struct *p, DFS_Q_DFS_REMOVE *q_u,
   /* if no server-share pair given, remove the msdfs link completely */
   if(!q_u->ptr_ServerName && !q_u->ptr_ShareName)
     {
-      if(!remove_msdfs_link(&jn))
+      if(!remove_msdfs_link(&jn)) {
+        vfs_ChDir(p->conn,p->conn->connectpath);
 	return WERR_DFS_NO_SUCH_VOL;
+      }
+      vfs_ChDir(p->conn,p->conn->connectpath);
     }
   else
     {
@@ -159,7 +168,7 @@ WERROR _dfs_remove(pipes_struct *p, DFS_Q_DFS_REMOVE *q_u,
 	{
 	  pstring refpath;
 	  pstrcpy(refpath,jn.referral_list[i].alternate_path);
-	  trim_string(refpath, "\\", "\\");
+	  trim_char(refpath, '\\', '\\');
 	  DEBUG(10,("_dfs_remove:  refpath: .%s.\n", refpath));
 	  if(strequal(refpath, altpath))
 	    {
@@ -175,13 +184,19 @@ WERROR _dfs_remove(pipes_struct *p, DFS_Q_DFS_REMOVE *q_u,
       /* Only one referral, remove it */
       if(jn.referral_count == 1)
 	{
-	  if(!remove_msdfs_link(&jn))
+	  if(!remove_msdfs_link(&jn)) {
+            vfs_ChDir(p->conn,p->conn->connectpath);
 	    return WERR_DFS_NO_SUCH_VOL;
+	  }
+          vfs_ChDir(p->conn,p->conn->connectpath);
 	}
       else
 	{
-	  if(!create_msdfs_link(&jn, True))
+	  if(!create_msdfs_link(&jn, True)) { 
+            vfs_ChDir(p->conn,p->conn->connectpath);
 	    return WERR_DFS_CANT_CREATE_JUNCT;
+	  }
+          vfs_ChDir(p->conn,p->conn->connectpath);
 	}
     }
 
@@ -198,7 +213,7 @@ static BOOL init_reply_dfs_info_1(struct junction_map* j, DFS_INFO_1* dfs1, int 
       slprintf(str, sizeof(pstring)-1, "\\\\%s\\%s\\%s", global_myname(), 
 	       j[i].service_name, j[i].volume_name);
       DEBUG(5,("init_reply_dfs_info_1: %d) initing entrypath: %s\n",i,str));
-      init_unistr2(&dfs1[i].entrypath,str,strlen(str)+1);
+      init_unistr2(&dfs1[i].entrypath,str,UNI_STR_TERMINATE);
     }
   return True;
 }
@@ -212,7 +227,7 @@ static BOOL init_reply_dfs_info_2(struct junction_map* j, DFS_INFO_2* dfs2, int 
       dfs2[i].ptr_entrypath = 1;
       slprintf(str, sizeof(pstring)-1, "\\\\%s\\%s\\%s", global_myname(),
 	       j[i].service_name, j[i].volume_name);
-      init_unistr2(&dfs2[i].entrypath, str, strlen(str)+1);
+      init_unistr2(&dfs2[i].entrypath, str, UNI_STR_TERMINATE);
       dfs2[i].ptr_comment = 0;
       dfs2[i].state = 1; /* set up state of dfs junction as OK */
       dfs2[i].num_storages = j[i].referral_count;
@@ -234,9 +249,9 @@ static BOOL init_reply_dfs_info_3(TALLOC_CTX *ctx, struct junction_map* j, DFS_I
 	      slprintf(str, sizeof(pstring)-1, "\\\\%s\\%s\\%s", global_myname(),
 		       j[i].service_name, j[i].volume_name);
 
-      init_unistr2(&dfs3[i].entrypath, str, strlen(str)+1);
+      init_unistr2(&dfs3[i].entrypath, str, UNI_STR_TERMINATE);
       dfs3[i].ptr_comment = 1;
-      init_unistr2(&dfs3[i].comment, "", 1); 
+      init_unistr2(&dfs3[i].comment, "", UNI_STR_TERMINATE);
       dfs3[i].state = 1;
       dfs3[i].num_storages = dfs3[i].num_storage_infos = j[i].referral_count;
       dfs3[i].ptr_storages = 1;
@@ -257,7 +272,7 @@ static BOOL init_reply_dfs_info_3(TALLOC_CTX *ctx, struct junction_map* j, DFS_I
 	  struct referral* ref = &(j[i].referral_list[ii]);
 	  
 	  pstrcpy(path, ref->alternate_path);
-	  trim_string(path,"\\","");
+	  trim_char(path,'\\','\0');
 	  p = strrchr_m(path,'\\');
 	  if(p==NULL)
 	    {
@@ -267,8 +282,8 @@ static BOOL init_reply_dfs_info_3(TALLOC_CTX *ctx, struct junction_map* j, DFS_I
 	  *p = '\0';
 	  DEBUG(5,("storage %d: %s.%s\n",ii,path,p+1));
 	  stor->state = 2; /* set all storages as ONLINE */
-	  init_unistr2(&stor->servername, path, strlen(path)+1);
-	  init_unistr2(&stor->sharename,  p+1, strlen(p+1)+1);
+	  init_unistr2(&stor->servername, path, UNI_STR_TERMINATE);
+	  init_unistr2(&stor->sharename,  p+1, UNI_STR_TERMINATE);
 	  stor->ptr_servername = stor->ptr_sharename = 1;
 	}
     }
@@ -325,7 +340,8 @@ WERROR _dfs_enum(pipes_struct *p, DFS_Q_DFS_ENUM *q_u, DFS_R_DFS_ENUM *r_u)
   int num_jn = 0;
 
   num_jn = enum_msdfs_links(jn);
-  
+  vfs_ChDir(p->conn,p->conn->connectpath);
+    
   DEBUG(5,("make_reply_dfs_enum: %d junctions found in Dfs, doing level %d\n", num_jn, level));
 
   r_u->ptr_buffer = level;
@@ -351,21 +367,26 @@ WERROR _dfs_enum(pipes_struct *p, DFS_Q_DFS_ENUM *q_u, DFS_R_DFS_ENUM *r_u)
 WERROR _dfs_get_info(pipes_struct *p, DFS_Q_DFS_GET_INFO *q_u, 
                      DFS_R_DFS_GET_INFO *r_u)
 {
-  UNISTR2* uni_path = &q_u->uni_path;
-  uint32 level = q_u->level;
-  pstring path;
-  struct junction_map jn;
+	UNISTR2* uni_path = &q_u->uni_path;
+	uint32 level = q_u->level;
+	int consumedcnt = sizeof(pstring);
+	pstring path;
+	struct junction_map jn;
 
-  unistr2_to_ascii(path, uni_path, sizeof(path)-1);
-  if(!create_junction(path, &jn))
-     return WERR_DFS_NO_SUCH_SERVER;
+	unistr2_to_ascii(path, uni_path, sizeof(path)-1);
+	if(!create_junction(path, &jn))
+		return WERR_DFS_NO_SUCH_SERVER;
   
-  if(!get_referred_path(path, &jn, NULL, NULL))
-     return WERR_DFS_NO_SUCH_VOL;
+	/* The following call can change the cwd. */
+	if(!get_referred_path(path, &jn, &consumedcnt, NULL) || consumedcnt < strlen(path)) {
+		vfs_ChDir(p->conn,p->conn->connectpath);
+		return WERR_DFS_NO_SUCH_VOL;
+	}
 
-  r_u->level = level;
-  r_u->ptr_ctr = 1;
-  r_u->status = init_reply_dfs_ctr(p->mem_ctx, level, &r_u->ctr, &jn, 1);
+	vfs_ChDir(p->conn,p->conn->connectpath);
+	r_u->level = level;
+	r_u->ptr_ctr = 1;
+	r_u->status = init_reply_dfs_ctr(p->mem_ctx, level, &r_u->ctr, &jn, 1);
   
-  return r_u->status;
+	return r_u->status;
 }

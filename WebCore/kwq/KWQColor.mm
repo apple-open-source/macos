@@ -29,6 +29,8 @@
 #import "KWQString.h"
 #import "KWQAssertions.h"
 
+// NSColor calls don't throw, so no need to block Cocoa exceptions in this file
+
 // Turn off inlining to avoid warning with newer gcc.
 #undef __inline
 #define __inline
@@ -68,7 +70,10 @@ QColor::QColor(const char *name)
 QString QColor::name() const
 {
     QString name;
-    name.sprintf("#%02X%02X%02X", red(), green(), blue());
+    if (qAlpha(color) < 0xFF)
+        name.sprintf("#%02X%02X%02X%02X", red(), green(), blue(), qAlpha(color));
+    else
+        name.sprintf("#%02X%02X%02X", red(), green(), blue());
     return name;
 }
 

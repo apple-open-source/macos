@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+    <classpathentry kind="src" path="src/main"/>
+    <classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+    <classpathentry kind="lib" path="/thirdparty/apache/tomcat41/bootstrap.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/apache/tomcat41/catalina.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/apache/tomcat41/commons-beanutils.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/apache/tomcat41/commons-collections.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/apache/tomcat41/commons-digester.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/apache/tomcat41/commons-logging.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/apache/tomcat41/jasper-compiler.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/apache/tomcat41/jasper-runtime.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/apache/tomcat41/naming-common.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/apache/tomcat41/naming-resources.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/apache/tomcat41/servlets-common.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/apache/tomcat41/servlets-default.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/apache/tomcat41/servlets-invoker.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/apache/tomcat41/servlets-webdav.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/apache/tomcat41/tomcat-coyote.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/apache/tomcat41/tomcat-http11.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/apache/tomcat41/tomcat-jk2.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/apache/tomcat41/tomcat-util.jar"/>
+    <classpathentry kind="lib" path="/thirdparty/sun/servlet/lib/servlet.jar"/>
+    <classpathentry kind="src" path="/common"/>
+    <classpathentry kind="src" path="/server"/>
+    <classpathentry kind="src" path="/system"/>
+    <classpathentry kind="src" path="/jmx"/>
+    <classpathentry kind="src" path="/security"/>
+    <classpathentry kind="lib" path="/thirdparty/apache/log4j/lib/log4j.jar"/>
+    <classpathentry kind="src" path="/cluster"/>
+    <classpathentry kind="src" path="/j2ee"/>
+    <classpathentry kind="output" path="output/eclipse-classes"/>
+</classpath>

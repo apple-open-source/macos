@@ -372,7 +372,46 @@
             </key-fields>
          </ejb-relationship-role>
       </ejb-relation>
+
+      <!-- Batch cascade-delete -->
+      <ejb-relation>
+         <ejb-relation-name>ProductCategory-Subcategories-BatchDelete</ejb-relation-name>
+         <ejb-relationship-role>
+            <ejb-relationship-role-name>parent.getSubcategories()</ejb-relationship-role-name>
+            <key-fields>
+               <key-field>
+                  <field-name>id</field-name>
+                  <column-name>PARENT_FK</column-name>
+               </key-field>
+            </key-fields>
+         </ejb-relationship-role>
+         <ejb-relationship-role>
+            <ejb-relationship-role-name>subcategory.getParent()</ejb-relationship-role-name>
+            <fk-constraint>false</fk-constraint>
+            <key-fields/>
+            <batch-cascade-delete/>
+         </ejb-relationship-role>
+      </ejb-relation>
+      <ejb-relation>
+         <ejb-relation-name>ProductCategory-ProductCategoryType-BatchDelete</ejb-relation-name>
+         <ejb-relationship-role>
+            <ejb-relationship-role-name>type.getProductCategories()</ejb-relationship-role-name>
+            <key-fields>
+               <key-field>
+                  <field-name>id</field-name>
+                  <column-name>TYPE_FK</column-name>
+               </key-field>
+            </key-fields>
+         </ejb-relationship-role>
+         <ejb-relationship-role>
+            <ejb-relationship-role-name>productCategory.getType()</ejb-relationship-role-name>
+            <fk-constraint>true</fk-constraint>
+            <key-fields/>
+           <batch-cascade-delete/>
+         </ejb-relationship-role>
+      </ejb-relation>
    </relationships>
+
    <dependent-value-classes>
       <dependent-value-class>
          <description>Formal Name</description>

@@ -11,8 +11,8 @@
 #endif
 
 #ifndef lint
-static const char rcsid[] =
-     "@(#) $Header: /cvs/root/tcpdump/tcpdump/smbutil.c,v 1.1.1.3 2003/03/17 18:42:20 rbraun Exp $";
+static const char rcsid[] _U_ =
+     "@(#) $Header: /cvs/root/tcpdump/tcpdump/smbutil.c,v 1.1.1.4 2004/02/05 19:30:58 rbraun Exp $";
 #endif
 
 #include <tcpdump-stdinc.h>
@@ -396,8 +396,12 @@ smb_fdata1(const u_char *buf, const char *fmt, const u_char *maxbuf)
 
 	    p = strchr(++fmt, '}');
 	    l = PTR_DIFF(p, fmt);
+
+	    if ((unsigned int)l > sizeof(bitfmt) - 1)
+		    l = sizeof(bitfmt)-1;
+
 	    strncpy(bitfmt, fmt, l);
-	    bitfmt[l] = 0;
+	    bitfmt[l] = '\0';
 	    fmt = p + 1;
 	    write_bits(buf[0], bitfmt);
 	    buf++;

@@ -30,7 +30,7 @@ import org.jboss.system.Registry;
  * @author  <a href="mailto:sacha.labourey@cogito-info.ch">Sacha Labourey</a>.
  * @author  <a href="mailto:bill@burkecentral.com">Bill Burke</a>.
  * @author  Scott.Stark@jboss.org
- * @version $Revision: 1.9.4.1 $
+ * @version $Revision: 1.9.4.2 $
  */
 public class DistributedStateImpl
    implements DistributedStateImplMBean, HAPartitionStateTransfer
@@ -110,7 +110,7 @@ public class DistributedStateImpl
 
          while (keysIter.hasNext ())
          {
-            String key = (String)keysIter.next ();
+            Serializable key = (Serializable) keysIter.next ();
             String value = this.get (category, key).toString ();
             result.append ("'").append(key);
             result.append ("'\t:\t'");
@@ -140,7 +140,7 @@ public class DistributedStateImpl
 
          while (keysIter.hasNext ())
          {
-            String key = (String)keysIter.next ();
+            Serializable key = (Serializable) keysIter.next ();
             String value = this.get (category, key).toString ();
             result.append ("\t\t<Entry>\n");
             result.append ("\t\t\t<Key>").append (key).append ("</Key>\n");

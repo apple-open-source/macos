@@ -43,7 +43,6 @@ struct IOHIDElementStruct
     long		bytes;
     unsigned long	valueLocation;
     CFDictionaryRef	elementDictionaryRef;
-    CFDictionaryRef	parentElementDictionaryRef;
 };
 typedef struct IOHIDElementStruct IOHIDElementStruct;
 
@@ -84,7 +83,7 @@ protected:
     void *			fRemovalRefcon;
     
     CFMutableSetRef		fQueues;
-    CFDictionaryRef		fDeviceProperties;
+    CFMutableSetRef		fDeviceElements;
     
     // ptr to shared memory for current values of elements
     vm_address_t 	fCurrentValuesMappedMemory;
@@ -360,9 +359,10 @@ protected:
     static void		StaticCountElements (const void * value, void * parameter);
     static void		StaticCreateLeafElements (const void * value, void * parameter);
 
-    kern_return_t	BuildElements (CFDictionaryRef properties);
+    kern_return_t	BuildElements (CFDictionaryRef properties, CFMutableSetRef set);
     long		CountElements (CFDictionaryRef properties, CFTypeRef element, CFStringRef key);
-    kern_return_t	CreateLeafElements (CFDictionaryRef properties, 
+    kern_return_t	CreateLeafElements (CFDictionaryRef properties,
+                                            CFMutableSetRef set,
                                             CFTypeRef element, 
                                             long * allocatedElementCount,
                                             CFStringRef key,

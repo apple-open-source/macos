@@ -17,7 +17,7 @@ Several different interceptor stacks are demonstrated. Each is
 tailored to a Store Class.
 
 ClusterStore - This expects jbossha-httpsession.sar to be deployed and
-uses this service (currently implemented via JavaGroups) to distribute
+uses this service (currently implemented via JGroups) to distribute
 session changes around a cluster partition. Your JBoss cluster MUST be
 set up using the JBoss clustering infrastructure. The whole session
 will be distributed upon any change to it.
@@ -95,7 +95,7 @@ Jules
 
 <!-- THESE ARE ALTERNATIVES - uncomment one and it will be used in place of the default -->
 
-<!-- this interceptor stack is for an EXTENDED session using JavaGroups -->
+<!-- this interceptor stack is for an EXTENDED session using JGroups -->
 <!--
  <Set name="DistributableHttpSessionStoreClass">org.mortbay.j2ee.session.JGStore</Set>
  <Set name="DistributableHttpSessionInterceptorClasses">

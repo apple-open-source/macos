@@ -44,7 +44,7 @@ public:
     virtual short baselinePosition(bool b, bool isRootLineBox=false) const;
     
     virtual bool isRenderBlock() const { return true; }
-    virtual bool isBlockFlow() const { return !isInline() && !isTable(); }
+    virtual bool isBlockFlow() const { return (!isInline() || isReplaced()) && !isTable(); }
     virtual bool isInlineFlow() const { return isInline() && !isReplaced(); }
     virtual bool isInlineBlockOrInlineTable() const { return isInline() && isReplaced(); }
     
@@ -92,7 +92,13 @@ public:
 
     virtual void addChildToFlow(RenderObject* newChild, RenderObject* beforeChild);
     virtual void removeChild(RenderObject *oldChild);
-        
+
+#ifdef INCREMENTAL_REPAINTING
+    virtual void repaintObjectsBeforeLayout();
+    virtual void repaintFloatingDescendants();
+    virtual void getAbsoluteRepaintRectIncludingFloats(QRect& bounds, QRect& fullBounds);
+#endif
+
     virtual void setStyle(RenderStyle* _style);
 
     virtual void layout();
@@ -108,11 +114,11 @@ public:
     virtual RenderObject* layoutLegend(bool relayoutChildren) { return 0; };
     
     // the implementation of the following functions is in bidi.cpp
-    void bidiReorderLine(const BidiIterator &start, const BidiIterator &end);
-    BidiIterator findNextLineBreak(BidiIterator &start);
+    void bidiReorderLine(const BidiIterator &start, const BidiIterator &end, BidiState &bidi );
+    BidiIterator findNextLineBreak(BidiIterator &start, BidiState &info );
     InlineFlowBox* constructLine(const BidiIterator& start, const BidiIterator& end);
     InlineFlowBox* createLineBoxes(RenderObject* obj);
-    void computeHorizontalPositionsForLine(InlineFlowBox* lineBox, BidiContext* endEmbed);
+    void computeHorizontalPositionsForLine(InlineFlowBox* lineBox, BidiState &bidi);
     void computeVerticalPositionsForLine(InlineFlowBox* lineBox);
     // end bidi.cpp functions
     
@@ -145,8 +151,9 @@ public:
     inline int rightBottom();
 
     virtual unsigned short lineWidth(int y) const;
-    virtual int lowestPosition(bool includeOverflowInterior=true) const;
-    virtual int rightmostPosition(bool includeOverflowInterior=true) const;
+    virtual int lowestPosition(bool includeOverflowInterior=true, bool includeSelf=true) const;
+    virtual int rightmostPosition(bool includeOverflowInterior=true, bool includeSelf=true) const;
+    virtual int leftmostPosition(bool includeOverflowInterior=true, bool includeSelf=true) const;
 
     int rightOffset() const;
     int rightRelOffset(int y, int fixedOffset, bool applyTextIndent = true,
@@ -158,7 +165,8 @@ public:
                       int *heightRemaining = 0) const;
     int leftOffset(int y) const { return leftRelOffset(y, leftOffset(), true); }
 
-    virtual bool nodeAtPoint(NodeInfo& info, int x, int y, int tx, int ty, bool inside=false);
+    virtual bool nodeAtPoint(NodeInfo& info, int x, int y, int tx, int ty,
+                             HitTestAction hitTestAction = HitTestAll, bool inside=false);
 
     bool isPointInScrollbar(int x, int y, int tx, int ty);
     
@@ -166,18 +174,18 @@ public:
     void calcInlineMinMaxWidth();
     void calcBlockMinMaxWidth();
 
-    virtual void close();
-
     virtual int getBaselineOfFirstLineBox();
     virtual InlineFlowBox* getFirstLineBox();
     
     // overrides RenderObject
-    // FIXME: The bogus table cell check is only here until we figure out how to position
-    // table cells properly when they have layers.
-    // Note that we also restrict overflow to blocks for now.  
-    virtual bool requiresLayer() { 
-        return !isTableCell() && (RenderObject::requiresLayer() || style()->hidesOverflow());
-    }
+    virtual bool requiresLayer();
+    
+    // Obtains the nearest enclosing block (including this block) that contributes a first-line style to our inline
+    // children.
+    virtual RenderBlock* firstLineBlock() const;
+    virtual void updateFirstLetter();
+    
+    bool inRootBlockContext() const;
     
 #ifndef NDEBUG
     virtual void printTree(int indent=0) const;
@@ -186,7 +194,7 @@ public:
     
 protected:
     void newLine();
-    
+
 protected:
     struct FloatingObject {
         enum Type {

@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_vnops.c,v 1.54 2003/09/21 20:53:11 lindak Exp $
+ * $Id: smbfs_vnops.c,v 1.54.22.1 2004/01/27 22:00:48 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -848,7 +848,7 @@ smbfs_read(ap)
 		soff = trunc_page_64(uio->uio_offset);
 		eoff = round_page_64(uio->uio_offset + xfersize);
 		error = ubc_create_upl(vp, soff, (long)(eoff - soff), &upl,
-				       NULL, NULL);
+				       NULL, 0);
 		if (error)
 			break;
 		uio->uio_resid = xfersize;
@@ -930,7 +930,7 @@ smbfs_write(ap)
 		soff = trunc_page_64(uio->uio_offset);
 		eoff = round_page_64(uio->uio_offset + xfersize);
 		error = ubc_create_upl(vp, soff, (long)(eoff - soff), &upl,
-				       NULL, NULL);
+				       NULL, 0);
 		if (error)
 			break;
 		uio->uio_resid = xfersize;

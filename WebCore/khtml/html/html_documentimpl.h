@@ -29,7 +29,6 @@
 #include "misc/loader_client.h"
 
 #include <qmap.h>
-#include <qdatetime.h>
 
 class KHTMLView;
 class QString;
@@ -65,19 +64,20 @@ public:
     void setPolicyBaseURL(const DOMString &s) { m_policyBaseURL = s; }
 #endif
 
-    HTMLElementImpl *body();
-    void setBody(HTMLElementImpl *_body);
+    DOMString designMode() const;
+    void setDesignMode(const DOMString &);
+
+    void setBody(HTMLElementImpl *_body, int& exceptioncode);
 
     virtual Tokenizer *createTokenizer();
 
     virtual bool childAllowed( NodeImpl *newChild );
 
-    virtual ElementImpl *createElement ( const DOMString &tagName );
+    virtual ElementImpl *createElement ( const DOMString &tagName, int &exceptioncode );
 
     HTMLMapElementImpl* getMap(const DOMString& url_);
 
     virtual void determineParseMode( const QString &str );
-    virtual void close();
 
     void addNamedImageOrForm(const QString &name);
     void removeNamedImageOrForm(const QString &name);
@@ -96,12 +96,10 @@ protected slots:
      */
     void slotHistoryChanged();
 private:
-    QTime m_startTime;
-    // we actually store ints inside the pointer value itself; would use void *
+     // we actually store ints inside the pointer value itself; would use void *
     // but that makes the template unhappy.
     QDict<char> namedImageAndFormCounts;
-    bool processingLoadEvent;
-
+    
 #if APPLE_CHANGES
     DOMString m_policyBaseURL;
 #endif

@@ -12,7 +12,6 @@ package org.jboss.ha.framework.server;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.io.FileOutputStream;
 import java.io.FileInputStream;
 import java.io.ByteArrayOutputStream;
@@ -35,7 +34,7 @@ import org.jboss.ha.framework.server.FarmMemberServiceMBean.FileContent;
  *
  * @author <a href="mailto:andreas@jboss.org">Andreas Schaefer</a>
  * @author <a href="mailto:bill@jboss.org">Bill Burke</a>
- * @version $Revision: 1.11.2.5 $
+ * @version $Revision: 1.11.2.7 $
  *
  * <p><b>20021014 andreas schaefer:</b>
  * <ul>
@@ -99,7 +98,7 @@ public class FarmMemberService extends URLDeploymentScanner implements FarmMembe
    /**
     * Saves the MBeanServer reference, create the Farm Member Name and
     * add its Notification Listener to listen for Deployment / Undeployment
-    * notifications from the {@link org.jboss.system.MainDeployer MainDeployer}.
+    * notifications from the {@link org.jboss.deployment.MainDeployer MainDeployer}.
     */
    public ObjectName preRegister( MBeanServer pServer, ObjectName pName )
       throws Exception
@@ -126,9 +125,6 @@ public class FarmMemberService extends URLDeploymentScanner implements FarmMembe
    protected void startService()
       throws Exception
    {
-      // scan before we enable the thread, so JBoss version shows up afterwards
-      scannerThread.doScan();
-
       mClusterPartitionName = new ObjectName( "jboss:service=" + mBackgroundPartition );
       
       log.debug( "registerRPCHandler" );
@@ -156,6 +152,9 @@ public class FarmMemberService extends URLDeploymentScanner implements FarmMembe
             pullNewDeployments(lHAPartition, farmed);
          }
       }
+
+      // scan before we enable the thread, so JBoss version shows up afterwards
+      scannerThread.doScan();
 
       // enable scanner thread if we are enabled
       scannerThread.setEnabled(scanEnabled.get());
@@ -358,14 +357,19 @@ public class FarmMemberService extends URLDeploymentScanner implements FarmMembe
       try
       {
          DeployedURL du = (DeployedURL)parentDUMap.get(depName);
-         File file = du.getFile();
-         return getFileContent(file);
+         if (du != null)
+         {
+            File file = du.getFile();
+            return getFileContent(file);
+         }
+         else
+            return null; // this may be available only on some other node
       }
       catch (Exception ex)
       {
          logException(ex);
+         return null;
       }
-      return null;
    }
 
    protected void deploy(final DeployedURL du)

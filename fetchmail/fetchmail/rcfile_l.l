@@ -124,6 +124,8 @@ plugin		{ return PLUGIN; }
 plugout		{ return PLUGOUT; }
 batchlimit	{ return BATCHLIMIT; }
 fetchlimit	{ return FETCHLIMIT; }
+fetchsizelimit	{ return FETCHSIZELIMIT; }
+fastuidl	{ return FASTUIDL; }
 expunge		{ return EXPUNGE; }
 properties	{ return PROPERTIES; }
 
@@ -199,7 +201,7 @@ options		{/* EMPTY */}
 
 (#.*)?\\?\n	{ prc_lineno++;	}   /* newline is ignored */
 
--?[0-9]+/[^a-zA-Z]	{ yylval.number = atoi(yytext); return NUMBER; }
+-?[0-9]+	{ yylval.number = atoi(yytext); return NUMBER; }
 
 [^=;:, \t\r\n]+	{
 			char buf[MSGBUFSIZE];

@@ -26,8 +26,9 @@
 #ifndef QCOMBOBOX_H_
 #define QCOMBOBOX_H_
 
-#include "KWQListBox.h"
 #include "KWQWidget.h"
+
+class QListBox;
 
 #ifdef __OBJC__
 @class KWQComboBoxAdapter;
@@ -52,12 +53,18 @@ public:
     QSize sizeHint() const;
     QRect frameGeometry() const;
     void setFrameGeometry(const QRect &);
-    int baselinePosition() const;
+    int baselinePosition(int height) const;
+    void setFont(const QFont &);
 
     void itemSelected();
+    
+    virtual FocusPolicy focusPolicy() const;
 
+    void setWritingDirection(QPainter::TextDirection);
+    
 private:
     bool updateCurrentItem() const;
+    const int *dimensions() const;
     
     KWQComboBoxAdapter *_adapter;
     mutable float _width;

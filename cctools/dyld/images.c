@@ -6463,7 +6463,6 @@ void)
     struct stat fileStat, rootStat;
 
     struct timeval currentTime;
-    struct timezone currentTimezone;
 
     char *serviceName;
     port_t serverPort;
@@ -6600,7 +6599,7 @@ void)
 	 * prebinding problem, we assume the problem may have been fixed, and
 	 * fix_prebinding will choose not to fix the binary.
 	 */
-	if(gettimeofday(&currentTime, &currentTimezone) != 0)
+	if(gettimeofday(&currentTime, NULL) != 0)
 	    goto leave_notify_prebinding_agent;
 
 	/*
@@ -6642,17 +6641,12 @@ leave_notify_prebinding_agent:
 }
 
 /*
- * We have our own gettimeofday() to avoid needing the notify API which is used
- * by the code in libc.a for gettimeofday() but not in libc.a .
+ * We have our own localtime() to avoid needing the notify API which is used
+ * by the code in libc.a for localtime() but is in libnotify.
  */
-#define __APPLE_API_PRIVATE
-#include <sys/syscall.h>
-int
-gettimeofday(
-struct timeval *tp,
-struct timezone *tzp)
+struct tm *
+localtime(
+const time_t *t)
 {
-	if(syscall(SYS_gettimeofday, tp, tzp) < 0)
-	    return(-1);
-	return(0);
+	return((struct tm *)0);
 }

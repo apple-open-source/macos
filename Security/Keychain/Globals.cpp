@@ -40,6 +40,7 @@ ModuleNexus<Globals> KeychainCore::globals;
 #pragma mark ÑÑÑÑ Constructor/Destructor ÑÑÑÑ
 
 Globals::Globals() :
+apiLock(Mutex::recursive),
 mUI(true)
 {
 }

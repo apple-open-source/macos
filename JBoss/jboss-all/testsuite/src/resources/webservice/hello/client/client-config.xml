@@ -1,0 +1,19 @@
+<!-- Example EJB Web Service Descriptor -->
+
+<deployment name="Hello" 
+	targetNamespace="http://net.jboss.org/hello"
+	xmlns:hello="http://net.jboss.org/hello"
+	xmlns="http://xml.apache.org/axis/wsdd/"
+        xmlns:jbnet="http://net.jboss.org/server"
+	xmlns:java="http://xml.apache.org/axis/wsdd/providers/java">
+
+  <transport name="http" pivot="java:org.apache.axis.transport.http.HTTPSender">
+  </transport>
+
+    <typeMapping qname="hello:HelloData" 
+        type="java:org.jboss.test.webservice.hello.HelloData"
+        serializer="org.apache.axis.encoding.ser.BeanSerializerFactory"
+        deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory"
+        encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"/>
+
+</deployment>

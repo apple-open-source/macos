@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,101 +23,12 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc.  All rights reserved.
  *
  *  DRI: Dave Radcliffe
  *
  */
-//		$Log: IOPlatformPlugin.h,v $
-//		Revision 1.9  2003/07/17 06:57:36  eem
-//		3329222 and other sleep stability issues fixed.
-//		
-//		Revision 1.8  2003/07/16 02:02:09  eem
-//		3288772, 3321372, 3328661
-//		
-//		Revision 1.7  2003/07/08 04:32:49  eem
-//		3288891, 3279902, 3291553, 3154014
-//		
-//		Revision 1.6  2003/06/25 02:16:24  eem
-//		Merged 101.0.21 to TOT, fixed PM72 lproj, included new fan settings, bumped
-//		version to 101.0.22.
-//		
-//		Revision 1.5.4.3  2003/06/20 09:07:33  eem
-//		Added rising/falling slew limiters, integral clipping, etc.
-//		
-//		Revision 1.5.4.2  2003/06/20 01:39:58  eem
-//		Although commented out in this submision, there is support here to nap
-//		the processors if the fans are at min, with the intent of keeping the
-//		heat sinks up to temperature.
-//		
-//		Revision 1.5.4.1  2003/06/19 10:24:16  eem
-//		Pulled common PID code into IOPlatformPIDCtrlLoop and subclassed it with
-//		PowerMac7_2_CPUFanCtrlLoop and PowerMac7_2_PIDCtrlLoop.  Added history
-//		length to meta-state.  No longer adjust T_err when the setpoint changes.
-//		Don't crank the CPU fans for overtemp, just slew slow.
-//		
-//		Revision 1.5  2003/06/07 01:30:56  eem
-//		Merge of EEM-PM72-ActiveFans-2 branch, with a few extra tweaks.  This
-//		checkin has working PID control for PowerMac7,2 platforms, as well as
-//		a first shot at localized strings.
-//		
-//		Revision 1.4.2.8  2003/06/06 12:16:49  eem
-//		Updated strings, turned off debugging.
-//		
-//		Revision 1.4.2.7  2003/06/04 10:21:10  eem
-//		Supports forced PID meta states.
-//		
-//		Revision 1.4.2.6  2003/06/02 18:23:16  eem
-//		Fixed compilation errors.
-//		
-//		Revision 1.4.2.5  2003/06/01 14:52:51  eem
-//		Most of the PID algorithm is implemented.
-//		
-//		Revision 1.4.2.4  2003/05/31 08:11:34  eem
-//		Initial pass at integrating deadline-based timer callbacks for PID loops.
-//		
-//		Revision 1.4.2.3  2003/05/29 03:51:34  eem
-//		Clean up environment dictionary access.
-//		
-//		Revision 1.4.2.2  2003/05/23 05:44:40  eem
-//		Cleanup, ctrlloops not get notification for sensor and control registration.
-//		
-//		Revision 1.4.2.1  2003/05/22 01:31:04  eem
-//		Checkin of today's work (fails compilations right now).
-//		
-//		Revision 1.4  2003/05/21 21:58:49  eem
-//		Merge from EEM-PM72-ActiveFans-1 branch with initial crack at active fan
-//		control on Q37.
-//		
-//		Revision 1.3.2.1  2003/05/14 22:07:49  eem
-//		Implemented state-driven sensor, cleaned up "const" usage and header
-//		inclusions.
-//		
-//		Revision 1.3  2003/05/13 02:13:51  eem
-//		PowerMac7_2 Dynamic Power Step support.
-//		
-//		Revision 1.2.2.1  2003/05/12 11:21:10  eem
-//		Support for slewing.
-//		
-//		Revision 1.2  2003/05/10 06:50:33  eem
-//		All sensor functionality included for PowerMac7_2_PlatformPlugin.  Version
-//		is 1.0.1d12.
-//		
-//		Revision 1.1.1.1.2.4  2003/05/10 06:32:34  eem
-//		Sensor changes, should be ready to merge to trunk as 1.0.1d12.
-//		
-//		Revision 1.1.1.1.2.3  2003/05/05 21:29:37  eem
-//		Checkin 1.1.0d11 for PD distro and submission.  Debugging turned off.
-//		
-//		Revision 1.1.1.1.2.2  2003/05/03 01:11:38  eem
-//		*** empty log message ***
-//		
-//		Revision 1.1.1.1.2.1  2003/05/01 09:28:40  eem
-//		Initial check-in in progress toward first Q37 checkpoint.
-//		
-//		Revision 1.1.1.1  2003/02/04 00:36:43  raddog
-//		initial import into CVS
-//		
+
 
 #ifndef _IOPLATFORMPLUGIN_H
 #define _IOPLATFORMPLUGIN_H
@@ -129,6 +40,7 @@
 #include <IOKit/pwr_mgt/RootDomain.h>
 #include <IOKit/IOKitKeys.h>
 #include <IOKit/IODeviceTreeSupport.h>
+#include <IOKit/IOMessage.h>
 
 __BEGIN_DECLS
 #include <kern/thread_call.h>
@@ -151,6 +63,9 @@ __END_DECLS
 #else
 #define DLOG(fmt, args...)
 #endif
+
+// compile in the PlatformConsole accessor in setProperties()
+#define IMPLEMENT_SETPROPERTIES 1
 
 /*!
     @class IOPlatformPlugin
@@ -183,7 +98,8 @@ enum {
 	IOPPluginEventMessage			= 3,	// param1 = type, param2 = IOService * sender, param3 = dict
 	IOPPluginEventPlatformFunction	= 4,	// params match callPlatformFunction() params
 	IOPPluginEventSetProperties		= 5,	// param1 = OSObject * properties
-	IOPPluginEventTimer				= 6		// no params used
+	IOPPluginEventTimer				= 6,	// no params used
+	IOPPluginEventSystemRestarting	= 7		// params all NULL
 };
 
 /* message types */
@@ -205,29 +121,43 @@ enum {
 	kIOPPluginRunning
 };
 
-	//IOWorkLoop *		workLoop;
-	//IOCommandGate *		commandGate;
-
+	/* This lock protects _ALL_ of the internal state and instance data within the plugin and provides serialization for all entry points */
 	IORecursiveLock *	gate;
+
+	/* the deadline timer thread callout */
 	thread_call_t		timerCallout;
+
+	/* a pointer to the root power domain, initialized in ::start() */
 	IOPMrootDomain *	pmRootDomain;
 
+	/* initializes all IOPlatformPluginFamily symbols */
 	virtual void 		initSymbols( void );
 
-    //static IOReturn		commandGateCaller(OSObject *object, void *arg0, void *arg1, void *arg2, void *arg3);
+	/* unsynchronized event dispatcher -- all unsynchronized entry points call through dispatchEvent(), which in turn aquires the gate lock and passes control to the synchronized event handler, handleEvent(). */
+	virtual IOReturn	dispatchEvent(IOPPluginEventData *event);  /* BLOCKING */
 
-	virtual IOReturn	dispatchEvent(IOPPluginEventData *event);
+	/* synchronized event handler -- processes events under protection of the gate lock */
 	virtual IOReturn	handleEvent(IOPPluginEventData *event);
 
+	/* the array of IOPlatformSensor objects */
 	OSArray *			sensors;
+
+	/* an array of pointers to the IOPlatformSensor::infoDict dictionaries of all registered sensors.  This array is published in the I/O registry */
 	OSArray *			sensorInfoDicts;
 
+	/* the array of IOPlatformControl objects */
 	OSArray *			controls;
+
+	/* an array of pointers to the IOPlatformControl::infoDict dictionaries of all registered controls.  This array is published in the I/O registry */
 	OSArray *			controlInfoDicts;
 
+	/* the array of IOPlatformCtrlLoop objects */
 	OSArray *			ctrlLoops;
+
+	/* an array of pointers to the IOPlatformCtrlLoop::infoDict dictionaries of all control loops.  This array is published in the I/O registry */
 	OSArray *			ctrlLoopInfoDicts;
 
+	/* a flag to record whether or not the environment dictionary has changed during the current pass through handleEvent().  This flag is cleared after every invocation of handleEvent().  If it is set during a pass, then all the control loops are notified of the environment change and allowed a chance to react immediately */
 	bool				envChanged;
 
 	int					pluginPowerState;
@@ -262,12 +192,17 @@ enum {
 /*!
 	@function sleepHandler
 	@abstract serialized sleep notification handler */
-	IOReturn sleepHandler(void);
+	virtual IOReturn sleepHandler(void);
 
 /*!
 	@function wakeHandler
 	@abstract serialized wake notification handler */
-	IOReturn wakeHandler(void);
+	virtual IOReturn wakeHandler(void);
+
+/*!
+	@function restartHandler
+	@abstract serialized restart notification handler */
+	virtual IOReturn restartHandler(void);
 
 /*!
 	@function messageHandler
@@ -347,6 +282,7 @@ public:
 
 	virtual IOReturn	powerStateWillChangeTo (IOPMPowerFlags, unsigned long, IOService*);
 	virtual IOReturn	powerStateDidChangeTo( IOPMPowerFlags theFlags, unsigned long, IOService*);
+	static	IOReturn	sysPowerDownHandler(void *, void *, UInt32, IOService *, void *, vm_size_t);
     virtual IOReturn	message( UInt32 type, IOService * provider, void * argument = 0 );
     virtual IOReturn	setAggressiveness(unsigned long selector, unsigned long newLevel);
 	virtual IOReturn	setProperties( OSObject * properties );

@@ -191,7 +191,7 @@ RenderObject *HTMLImageElementImpl::createRenderer(RenderArena *arena, RenderSty
 
 void HTMLImageElementImpl::attach()
 {
-    createRendererIfNeeded();
+    HTMLElementImpl::attach();
     if (m_render) {
         m_render->updateFromElement();
     }
@@ -201,8 +201,6 @@ void HTMLImageElementImpl::attach()
         document->addNamedImageOrForm(oldIdAttr);
         document->addNamedImageOrForm(oldNameAttr);
     }
-
-    NodeBaseImpl::attach();
 }
 
 void HTMLImageElementImpl::detach()
@@ -213,18 +211,28 @@ void HTMLImageElementImpl::detach()
 	document->removeNamedImageOrForm(oldNameAttr);
     }
 
-    NodeBaseImpl::detach();
+    HTMLElementImpl::detach();
 }
 
 long HTMLImageElementImpl::width() const
 {
-    if (!m_render) return getAttribute(ATTR_WIDTH).toInt();
+    if (!m_render) {
+	// check the attribute first for an explicit pixel value
+	DOM::DOMString attrWidth = getAttribute(ATTR_WIDTH);
+	bool ok;
+	long width = attrWidth.string().toLong(&ok);
+	if (ok) {
+	  return width;
+	}
+    }
 
-    // ### make a unified call for this
-    if (changed() || m_render->needsLayout()) {
-        getDocument()->updateRendering();
-        if (getDocument()->view())
-            getDocument()->view()->layout();
+    DOM::DocumentImpl* docimpl = getDocument();
+    if (docimpl) {
+	docimpl->updateLayout();
+    }
+
+    if (!m_render) {
+	return 0;
     }
 
     return m_render->contentWidth();
@@ -232,13 +240,23 @@ long HTMLImageElementImpl::width() const
 
 long HTMLImageElementImpl::height() const
 {
-    if (!m_render) return getAttribute(ATTR_HEIGHT).toInt();
+    if (!m_render) {
+	// check the attribute first for an explicit pixel value
+	DOM::DOMString attrHeight = getAttribute(ATTR_HEIGHT);
+	bool ok;
+	long height = attrHeight.string().toLong(&ok);
+	if (ok) {
+	  return height;
+	}
+    }
 
-    // ### make a unified call for this
-    if (changed() || m_render->needsLayout()) {
-        getDocument()->updateRendering();
-        if (getDocument()->view())
-            getDocument()->view()->layout();
+    DOM::DocumentImpl* docimpl = getDocument();
+    if (docimpl) {
+	docimpl->updateLayout();
+    }
+
+    if (!m_render) {
+	return 0;
     }
 
     return m_render->contentHeight();

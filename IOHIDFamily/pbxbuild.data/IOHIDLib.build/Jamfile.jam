@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = IOHIDFamily ;
-export deferred SRCROOT = /Users/Shared/IOHIDFamily ;
+export deferred SRCROOT = /Volumes/Junk/IOHIDFamily ;
 
 # User-defined project-wide settings for project
 
@@ -64,7 +64,8 @@ HEADERS =
 	IOHIDLib/IOHIDQueueClass.h
 	IOHIDLib/IOHIDLib.h
 	IOHIDLib/IOHIDOutputTransactionClass.h
-	IOHIDFamily/IOHIDUsageTables.h ;
+	IOHIDFamily/IOHIDUsageTables.h
+	IOHIDLib/IOHIDUPSClass.h ;
 ProcessHeaders "<IOHIDLib>IOHIDLib.plugin" : "$(HEADERS)" : "" : BPTag000 ;
 
 # Script Build Phase Files
@@ -83,7 +84,8 @@ SOURCES =
 	IOHIDLib/IOHIDDeviceClass.cpp
 	IOHIDLib/IOHIDIUnknown.cpp
 	IOHIDLib/IOHIDQueueClass.cpp
-	IOHIDLib/IOHIDOutputTransactionClass.cpp ;
+	IOHIDLib/IOHIDOutputTransactionClass.cpp
+	IOHIDLib/IOHIDUPSClass.cpp ;
 ProcessSources "<IOHIDLib>IOHIDLib.plugin" : "$(SOURCES)" : BPTag002 : BPTag003 ;
 
 # Frameworks & Libraries

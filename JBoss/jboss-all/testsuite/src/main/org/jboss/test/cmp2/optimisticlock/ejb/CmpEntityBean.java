@@ -20,7 +20,7 @@ import javax.ejb.EntityContext;
  *    type="CMP"
  *    reentrant="false"
  *    cmp-version="2.x"
- *    primkey-field="integerField"
+ *    primkey-field="id"
  *
  * @jboss.create-table "true"
  * @jboss.remove-table "false"
@@ -39,51 +39,111 @@ public abstract class CmpEntityBean
     * @ejb.persistent-field
     * @ejb.interface-method
     */
-   public abstract Integer getIntegerField();
-   public abstract void setIntegerField(Integer integerField);
+   public abstract Integer getId();
+   public abstract void setId(Integer id);
 
    /**
     * @ejb.persistent-field
     * @ejb.interface-method
     */
-   public abstract String getStringField();
+   public abstract String getStringGroup1();
    /**
     * @ejb.interface-method
     */
-   public abstract void setStringField(String stringField);
+   public abstract void setStringGroup1(String stringField);
 
    /**
     * @ejb.persistent-field
     * @ejb.interface-method
     */
-   public abstract java.util.Date getDateField();
+   public abstract Integer getIntegerGroup1();
    /**
     * @ejb.interface-method
     */
-   public abstract void setDateField(java.util.Date dateField);
+   public abstract void setIntegerGroup1(Integer value);
+
+   /**
+    * @ejb.persistent-field
+    * @ejb.interface-method
+    */
+   public abstract Double getDoubleGroup1();
+   /**
+    * @ejb.interface-method
+    */
+   public abstract void setDoubleGroup1(Double value);
+
+   /**
+    * @ejb.persistent-field
+    * @ejb.interface-method
+    */
+   public abstract String getStringGroup2();
+   /**
+    * @ejb.interface-method
+    */
+   public abstract void setStringGroup2(String stringField);
+
+   /**
+    * @ejb.persistent-field
+    * @ejb.interface-method
+    */
+   public abstract Integer getIntegerGroup2();
+   /**
+    * @ejb.interface-method
+    */
+   public abstract void setIntegerGroup2(Integer value);
+
+   /**
+    * @ejb.persistent-field
+    * @ejb.interface-method
+    */
+   public abstract Double getDoubleGroup2();
+   /**
+    * @ejb.interface-method
+    */
+   public abstract void setDoubleGroup2(Double value);
+
+   /**
+    * @ejb.persistent-field
+    * @ejb.interface-method
+    */
+   public abstract Long getVersionField();
+   /**
+    * @ejb.interface-method
+    */
+   public abstract void setVersionField(Long value);
 
    // EntityBean implementation -------------------------
    /**
     * @ejb.create-method
     */
-   public Integer ejbCreate(Integer integerField,
-                            String stringField,
-                            java.util.Date dateField)
+   public Integer ejbCreate(Integer id,
+                            String stringGroup1,
+                            Integer integerGroup1,
+                            Double doubleGroup1,
+                            String stringGroup2,
+                            Integer integerGroup2,
+                            Double doubleGroup2)
       throws CreateException
    {
-      setIntegerField(integerField);
-      setStringField(stringField);
-      setDateField(dateField);
+      setId(id);
+      setStringGroup1(stringGroup1);
+      setIntegerGroup1(integerGroup1);
+      setDoubleGroup1(doubleGroup1);
+      setStringGroup2(stringGroup2);
+      setIntegerGroup2(integerGroup2);
+      setDoubleGroup2(doubleGroup2);
       return null;
    }
 
-   public void ejbPostCreate(Integer integerField,
-                             String stringField,
-                             java.util.Date dateField)
-   {}
+   public void ejbPostCreate(Integer id,
+                             String stringGroup1,
+                             Integer integerGroup1,
+                             Double doubleGroup1,
+                             String stringGroup2,
+                             Integer integerGroup2,
+                             Double doubleGroup2) {}
 
-   public void ejbRemove()
-      throws RemoveException
+   public void ejbRemove() throws RemoveException
    {}
 
    public void setEntityContext(EntityContext ctx)

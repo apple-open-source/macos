@@ -23,8 +23,8 @@
  */
 
 #ifndef lint
-static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/src/live/libpcap/libpcap/pcap-pf.c,v 1.1.1.1 2001/07/07 00:41:36 bbraun Exp $ (LBL)";
+static const char rcsid[] _U_ =
+    "@(#) $Header: /cvs/root/libpcap/libpcap/pcap-pf.c,v 1.1.1.3 2004/02/05 19:22:28 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -61,11 +61,20 @@ struct rtentry;
 #include <string.h>
 #include <unistd.h>
 
+/*
+ * Make "pcap.h" not include "pcap-bpf.h"; we are going to include the
+ * native OS version, as we need various BPF ioctls from it.
+ */
+#define PCAP_DONT_INCLUDE_PCAP_BPF_H
+#include <net/bpf.h>
+
 #include "pcap-int.h"
 
 #ifdef HAVE_OS_PROTO_H
 #include "os-proto.h"
 #endif
+
+static int pcap_setfilter_pf(pcap_t *, struct bpf_program *);
 
 /*
  * BUFSPACE is the size in bytes of the packet read buffer.  Most tcpdump
@@ -75,8 +84,8 @@ struct rtentry;
  */
 #define BUFSPACE (200 * 256)
 
-int
-pcap_read(pcap_t *pc, int cnt, pcap_handler callback, u_char *user)
+static int
+pcap_read_pf(pcap_t *pc, int cnt, pcap_handler callback, u_char *user)
 {
 	register u_char *p, *bp;
 	struct bpf_insn *fcode;
@@ -126,6 +135,25 @@ pcap_read(pcap_t *pc, int cnt, pcap_handler callback, u_char *user)
 		pad = 0;
 #endif
 	while (cc > 0) {
+		/*
+		 * Has "pcap_breakloop()" been called?
+		 * If so, return immediately - if we haven't read any
+		 * packets, clear the flag and return -2 to indicate
+		 * that we were told to break out of the loop, otherwise
+		 * leave the flag set, so that the *next* call will break
+		 * out of the loop without having read any packets, and
+		 * return the number of packets we've processed so far.
+		 */
+		if (pc->break_loop) {
+			if (n == 0) {
+				pc->break_loop = 0;
+				return (-2);
+			} else {
+				pc->cc = cc;
+				pc->bp = bp;
+				return (n);
+			}
+		}
 		if (cc < sizeof(*sp)) {
 			snprintf(pc->errbuf, sizeof(pc->errbuf),
 			    "pf short read (%d)", cc);
@@ -191,18 +219,64 @@ pcap_read(pcap_t *pc, int cnt, pcap_handler callback, u_char *user)
 	return (n);
 }
 
-int
-pcap_stats(pcap_t *p, struct pcap_stat *ps)
+static int
+pcap_stats_pf(pcap_t *p, struct pcap_stat *ps)
 {
 
+	/*
+	 * If packet filtering is being done in the kernel:
+	 *
+	 *	"ps_recv" counts only packets that passed the filter.
+	 *	This does not include packets dropped because we
+	 *	ran out of buffer space.  (XXX - perhaps it should,
+	 *	by adding "ps_drop" to "ps_recv", for compatibility
+	 *	with some other platforms.  On the other hand, on
+	 *	some platforms "ps_recv" counts only packets that
+	 *	passed the filter, and on others it counts packets
+	 *	that didn't pass the filter....)
+	 *
+	 *	"ps_drop" counts packets that passed the kernel filter
+	 *	(if any) but were dropped because the input queue was
+	 *	full.
+	 *
+	 *	"ps_ifdrop" counts packets dropped by the network
+	 *	inteface (regardless of whether they would have passed
+	 *	the input filter, of course).
+	 *
+	 * If packet filtering is not being done in the kernel:
+	 *
+	 *	"ps_recv" counts only packets that passed the filter.
+	 *
+	 *	"ps_drop" counts packets that were dropped because the
+	 *	input queue was full, regardless of whether they passed
+	 *	the userland filter.
+	 *
+	 *	"ps_ifdrop" counts packets dropped by the network
+	 *	inteface (regardless of whether they would have passed
+	 *	the input filter, of course).
+	 *
+	 * These statistics don't include packets not yet read from
+	 * the kernel by libpcap, but they may include packets not
+	 * yet read from libpcap by the application.
+	 */
 	ps->ps_recv = p->md.TotAccepted;
 	ps->ps_drop = p->md.TotDrops;
 	ps->ps_ifdrop = p->md.TotMissed - p->md.OrigMissed;
 	return (0);
 }
 
+static void
+pcap_close_pf(pcap_t *p)
+{
+	if (p->buffer != NULL)
+		free(p->buffer);
+	if (p->fd >= 0)
+		close(p->fd);
+}
+
 pcap_t *
-pcap_open_live(char *device, int snaplen, int promisc, int to_ms, char *ebuf)
+pcap_open_live(const char *device, int snaplen, int promisc, int to_ms,
+    char *ebuf)
 {
 	pcap_t *p;
 	short enmode;
@@ -217,10 +291,17 @@ pcap_open_live(char *device, int snaplen, int promisc, int to_ms, char *ebuf)
 		return (0);
 	}
 	memset(p, 0, sizeof(*p));
+
+	/*
+	 * XXX - we assume here that "pfopen()" does not, in fact, modify
+	 * its argument, even though it takes a "char *" rather than a
+	 * "const char *" as its first argument.  That appears to be
+	 * the case, at least on Digital UNIX 4.0.
+	 */
 	p->fd = pfopen(device, O_RDONLY);
 	if (p->fd < 0) {
 		snprintf(ebuf, PCAP_ERRBUF_SIZE, "pf open: %s: %s\n\
-your system may not be properly configured; see \"man packetfilter(4)\"\n",
+your system may not be properly configured; see the packetfilter(4) man page\n",
 			device, pcap_strerror(errno));
 		goto bad;
 	}
@@ -265,21 +346,53 @@ your system may not be properly configured; see \"man packetfilter(4)\"\n",
 		p->linktype = DLT_FDDI;
 		break;
 
-	default:
-		/*
-		 * XXX
-		 * Currently, the Ultrix packet filter supports only
-		 * Ethernet and FDDI.  Eventually, support for SLIP and PPP
-		 * (and possibly others: T1?) should be added.
-		 */
-#ifdef notdef
-		warning(
-		   "Packet filter data-link type %d unknown, assuming Ethernet",
-		    devparams.end_dev_type);
+#ifdef ENDT_SLIP
+	case ENDT_SLIP:
+		p->linktype = DLT_SLIP;
+		break;
 #endif
+
+#ifdef ENDT_PPP
+	case ENDT_PPP:
+		p->linktype = DLT_PPP;
+		break;
+#endif
+
+#ifdef ENDT_LOOPBACK
+	case ENDT_LOOPBACK:
+		/*
+		 * It appears to use Ethernet framing, at least on
+		 * Digital UNIX 4.0.
+		 */
 		p->linktype = DLT_EN10MB;
 		p->offset = 2;
 		break;
+#endif
+
+#ifdef ENDT_TRN
+	case ENDT_TRN:
+		p->linktype = DLT_IEEE802;
+		break;
+#endif
+
+	default:
+		/*
+		 * XXX - what about ENDT_IEEE802?  The pfilt.h header
+		 * file calls this "IEEE 802 networks (non-Ethernet)",
+		 * but that doesn't specify a specific link layer type;
+		 * it could be 802.4, or 802.5 (except that 802.5 is
+		 * ENDT_TRN), or 802.6, or 802.11, or....  That's why
+		 * DLT_IEEE802 was hijacked to mean Token Ring in various
+		 * BSDs, and why we went along with that hijacking.
+		 *
+		 * XXX - what about ENDT_HDLC and ENDT_NULL?
+		 * Presumably, as ENDT_OTHER is just "Miscellaneous
+		 * framing", there's not much we can do, as that
+		 * doesn't specify a particular type of header.
+		 */
+		snprintf(ebuf, PCAP_ERRBUF_SIZE, "unknown data-link type %u",
+		    devparams.end_dev_type);
+		goto bad;
 	}
 	/* set truncation */
 #ifdef PCAP_FDDIPAD
@@ -313,49 +426,113 @@ your system may not be properly configured; see \"man packetfilter(4)\"\n",
 			goto bad;
 		}
 	}
+
 	p->bufsize = BUFSPACE;
 	p->buffer = (u_char*)malloc(p->bufsize + p->offset);
+	if (p->buffer == NULL) {
+		strlcpy(ebuf, pcap_strerror(errno), PCAP_ERRBUF_SIZE);
+		goto bad;
+	}
+
+	/*
+	 * "select()" and "poll()" work on packetfilter devices.
+	 */
+	p->selectable_fd = p->fd;
+
+	p->read_op = pcap_read_pf;
+	p->setfilter_op = pcap_setfilter_pf;
+	p->set_datalink_op = NULL;	/* can't change data link type */
+	p->getnonblock_op = pcap_getnonblock_fd;
+	p->setnonblock_op = pcap_setnonblock_fd;
+	p->stats_op = pcap_stats_pf;
+	p->close_op = pcap_close_pf;
 
 	return (p);
  bad:
+	if (p->fd >= 0)
+		close(p->fd);
 	free(p);
 	return (NULL);
 }
 
 int
-pcap_setfilter(pcap_t *p, struct bpf_program *fp)
+pcap_platform_finddevs(pcap_if_t **alldevsp, char *errbuf)
 {
-	/*
-	 * See if BIOCSETF works.  If it does, the kernel supports
-	 * BPF-style filters, and we do not need to do post-filtering.
-	 */
-	p->md.use_bpf = (ioctl(p->fd, BIOCSETF, (caddr_t)fp) >= 0);
-	if (p->md.use_bpf) {
-		struct bpf_version bv;
+	return (0);
+}
 
-		if (ioctl(p->fd, BIOCVERSION, (caddr_t)&bv) < 0) {
-			snprintf(p->errbuf, sizeof(p->errbuf),
-			    "BIOCVERSION: %s", pcap_strerror(errno));
-			return (-1);
+static int
+pcap_setfilter_pf(pcap_t *p, struct bpf_program *fp)
+{
+	struct bpf_version bv;
+
+	/*
+	 * See if BIOCVERSION works.  If not, we assume the kernel doesn't
+	 * support BPF-style filters (it's not documented in the bpf(7)
+	 * or packetfiler(7) man pages, but the code used to fail if
+	 * BIOCSETF worked but BIOCVERSION didn't, and I've seen it do
+	 * kernel filtering in DU 4.0, so presumably BIOCVERSION works
+	 * there, at least).
+	 */
+	if (ioctl(p->fd, BIOCVERSION, (caddr_t)&bv) >= 0) {
+		/*
+		 * OK, we have the version of the BPF interpreter;
+		 * is it the same major version as us, and the same
+		 * or better minor version?
+		 */
+		if (bv.bv_major == BPF_MAJOR_VERSION &&
+		    bv.bv_minor >= BPF_MINOR_VERSION) {
+			/*
+			 * Yes.  Try to install the filter.
+			 */
+			if (ioctl(p->fd, BIOCSETF, (caddr_t)fp) < 0) {
+				snprintf(p->errbuf, sizeof(p->errbuf),
+				    "BIOCSETF: %s", pcap_strerror(errno));
+				return (-1);
+			}
+
+			/*
+			 * OK, that succeeded.  We're doing filtering in
+			 * the kernel.  (We assume we don't have a
+			 * userland filter installed - that'd require
+			 * a previous version check to have failed but
+			 * this one to succeed.)
+			 *
+			 * XXX - this message should be supplied to the
+			 * application as a warning of some sort,
+			 * except that if it's a GUI application, it's
+			 * not clear that it should be displayed in
+			 * a window to annoy the user.
+			 */
+			fprintf(stderr, "tcpdump: Using kernel BPF filter\n");
+			p->md.use_bpf = 1;
+			return (0);
 		}
-		else if (bv.bv_major != BPF_MAJOR_VERSION ||
-			 bv.bv_minor < BPF_MINOR_VERSION) {
-			fprintf(stderr,
-		"requires bpf language %d.%d or higher; kernel is %d.%d",
-				BPF_MAJOR_VERSION, BPF_MINOR_VERSION,
-			      bv.bv_major, bv.bv_minor);
-			/* don't give up, just be inefficient */
-			p->md.use_bpf = 0;
-		}
-	} else {
-		if (install_bpf_program(p, fp) < 0)
-			return (-1);
+
+		/*
+		 * We can't use the kernel's BPF interpreter; don't give
+		 * up, just log a message and be inefficient.
+		 *
+		 * XXX - this should really be supplied to the application
+		 * as a warning of some sort.
+		 */
+		fprintf(stderr,
+	    "tcpdump: Requires BPF language %d.%d or higher; kernel is %d.%d\n",
+		    BPF_MAJOR_VERSION, BPF_MINOR_VERSION,
+		    bv.bv_major, bv.bv_minor);
 	}
 
-	/*XXX this goes in tcpdump*/
-	if (p->md.use_bpf)
-		fprintf(stderr, "tcpdump: Using kernel BPF filter\n");
-	else
-		fprintf(stderr, "tcpdump: Filtering in user process\n");
+	/*
+	 * We couldn't do filtering in the kernel; do it in userland.
+	 */
+	if (install_bpf_program(p, fp) < 0)
+		return (-1);
+
+	/*
+	 * XXX - this message should be supplied by the application as
+	 * a warning of some sort.
+	 */
+	fprintf(stderr, "tcpdump: Filtering in user process\n");
+	p->md.use_bpf = 0;
 	return (0);
 }

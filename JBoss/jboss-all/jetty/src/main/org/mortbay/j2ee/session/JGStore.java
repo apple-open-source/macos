@@ -1,6 +1,6 @@
 // ========================================================================
 // Copyright (c) 2002 Mort Bay Consulting (Australia) Pty. Ltd.
-// $Id: JGStore.java,v 1.1.2.17 2003/07/11 14:27:46 gregwilkins Exp $
+// $Id: JGStore.java,v 1.1.2.21 2003/09/23 14:16:21 slaboure Exp $
 // ========================================================================
 
 package org.mortbay.j2ee.session;
@@ -19,21 +19,21 @@ import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.Vector;
-import org.apache.log4j.Category;
-import org.javagroups.Address;
-import org.javagroups.Channel;
-import org.javagroups.JChannel;
-import org.javagroups.MembershipListener; // we are notified of changes to membership list
-import org.javagroups.MergeView;
-import org.javagroups.Message;
-import org.javagroups.MessageListener; // we are notified of changes to other state
-import org.javagroups.View;
-import org.javagroups.blocks.GroupRequest;
-import org.javagroups.blocks.MessageDispatcher;
-import org.javagroups.blocks.MethodCall;
-import org.javagroups.blocks.RpcDispatcher;
-import org.javagroups.util.Util;
-
+import org.jgroups.Address;
+import org.jgroups.Channel;
+import org.jgroups.JChannel;
+import org.jgroups.MembershipListener; // we are notified of changes to membership list
+import org.jgroups.MergeView;
+import org.jgroups.Message;
+import org.jgroups.MessageListener; // we are notified of changes to other state
+import org.jgroups.View;
+import org.jgroups.blocks.GroupRequest;
+import org.jgroups.blocks.MessageDispatcher;
+import org.jgroups.blocks.MethodCall;
+import org.jgroups.blocks.RpcDispatcher;
+import org.jgroups.util.Util;
+import org.jboss.logging.Logger;
+import org.jboss.logging.Logger;
 //----------------------------------------
 
 // what happens if a member drops away for a while then comes back -
@@ -57,7 +57,7 @@ import org.javagroups.util.Util;
  * publish changes to our state, receive and dispatch notification of
  * changes in other states, initialise our state from other members,
  * allow other members to initialise their state from us - all via
- * JavaGroups...
+ * JGroups...
  *
  * @author <a href="mailto:jules@mortbay.com">Jules Gosnell</a>
  * @version 1.0
@@ -67,6 +67,9 @@ public class
   extends AbstractReplicatedStore
   implements MessageListener, MembershipListener
 {
+  protected Logger _log=Logger.getLogger(JGStore.class);
+
+  // this should be XML in the dd...
   protected String _protocolStack=""+
     "UDP(mcast_addr=228.8.8.8;mcast_port=45566;ip_ttl=32;" +
     "ucast_recv_buf_size=16000;ucast_send_buf_size=16000;" +
@@ -105,7 +108,6 @@ public class
       {
 	_log.error("could not convert "+distributionMode+" to GroupRequest field", e);
       }
-      _log.debug("GroupRequest:"+distributionMode+"="+_distributionModeInternal);
     }
 
   protected String _distributionMode="GET_ALL"; // synchronous/non-sticky
@@ -124,12 +126,14 @@ public class
   public Object
     clone()
     {
+      _log.trace("cloning...");
       JGStore jgs=(JGStore)super.clone();
       jgs.setProtocolStack(getProtocolStack());
       jgs.setSubClusterName(getSubClusterName());
       jgs.setRetrievalTimeOut(getRetrievalTimeOut());
       jgs.setDistributionMode(getDistributionMode());
       jgs.setDistributionTimeOut(getDistributionTimeOut());
+      _log.trace("...cloned");
 
       return jgs;
     }
@@ -146,6 +150,9 @@ public class
   protected void
     init()
     {
+      _log=Logger.getLogger(JGStore.class.getName()+"#"+getContextPath());
+      _log.trace("initialising...");
+
       try
       {
 	// start up our channel...
@@ -190,27 +197,25 @@ public class
 	      return null;
 	    }
 	  });
+	_log.debug("JGroups RpcDispatcher initialised");
 
 	_channel.setOpt(Channel.GET_STATE_EVENTS, Boolean.TRUE);
+	_log.debug("JGroups Channel initialised");
 
 	View view=_channel.getView();
 	if (view!=null)
 	  _members=(Vector)view.getMembers().clone();
 
-	if (_members!=null)
-	{
-	  _members=(Vector)_members.clone(); // we don't own it
-	  _members.remove(_channel.getLocalAddress());
-	}
-	else
-	  _members=new Vector(0);
-
-	// _log.info("current view members: "+_members);
+	_members=(_members==null)?new Vector():(Vector)_members.clone(); // we don't own it
+	if (_log.isDebugEnabled()) _log.debug("JGroups View: "+_members);
+	_members.remove(_channel.getLocalAddress());
       }
       catch (Exception e)
       {
-	_log.error("could not initialise JavaGroups Channel and Dispatcher", e);
+	_log.error("could not initialise JGroups Channel and Dispatcher", e);
       }
+
+      _log.trace("...initialised");
     }
 
   public String
@@ -223,52 +228,64 @@ public class
     start()
     throws Exception
     {
+      _log.trace("starting...");
       super.start();
 
       init();
 
       String channelName=getChannelName();
-      _log.debug("starting ("+channelName+")....");
+      if (_log.isDebugEnabled()) _log.debug("starting JGroups...: ("+channelName+")");
 
       _channel.connect(channelName); // group should be on a per-context basis
+      _log.trace("JGroups Channel connected");
       _dispatcher.start();
+      _log.trace("JGroups Dispatcher started");
 
       if (!_channel.getState(null, getRetrievalTimeOut()))
-	_log.info("could not retrieve current sessions from JavaGroups - assuming this to be initial node");
+	_log.info("cluster state is null - this must be the first node");
 
-      _log.debug("started ("+channelName+")....");
+      _log.debug("...JGroups started");
+      _log.trace("...started");
     }
 
   public void
     stop()
     {
+      _log.trace("stopping...");
       _timer.cancel();
+      _log.trace("Touch Timer stopped");
+
+      if (_log.isDebugEnabled()) _log.debug("stopping JGroups...: ("+getChannelName()+")");
       _dispatcher.stop();
+      _log.trace("JGroups RpcDispatcher stopped");
       _channel.disconnect();
+      _log.trace("JGroups Channel disconnected");
+      _log.debug("...JGroups stopped");
 
       super.stop();
+      _log.trace("...stopped");
     }
 
   public void
     destroy()
     {
+      _log.trace("destroying...");
       _timer=null;
       _dispatcher=null;
       _channel=null;
 
       super.destroy();
+      _log.trace("...destroyed");
     }
 
   //----------------------------------------
   // AbstractReplicatedStore API
 
-
-
-  protected Object _idsLock=new Object();
-  protected Set _ids=new HashSet();
-  protected Timer _timer=new Timer();
-  protected long  _period=0;
-  protected TimerTask _task=new TouchTimerTask();
+  protected Object    _idsLock =new Object();
+  protected Set       _ids     =new HashSet();
+  protected Timer     _timer   =new Timer();
+  protected long      _period  =0;
+  protected TimerTask _task    =new TouchTimerTask();
 
   protected class TouchTimerTask extends TimerTask
   {
@@ -300,7 +317,13 @@ public class
   protected void
     publish(String id, Method method, Object[] argInstances)
     {
-      //      _log.info("publishing: "+id+" - "+methodName);
+      if (_log.isTraceEnabled())
+      {
+	String args="";
+	for (int i=0; i<argInstances.length; i++)
+	  args+=(i>0?",":"")+argInstances[i];
+	if (_log.isTraceEnabled()) _log.trace("publishing method...: "+id+"."+method.getName()+"("+args+")");
+      }
 
       if (_period>0)
       {
@@ -314,7 +337,7 @@ public class
 	    if (_ids.size()==0)
 	    {
 	      _timer.schedule(new TouchTimerTask(), _period); // TODO - reuse old task
-	      _log.info("scheduling timer...");
+	      _log.debug("Touch Timer scheduled: _period");
 	    }
 
 	    _ids.add(id);
@@ -346,20 +369,28 @@ public class
 				      mc,
 				      getDistributionModeInternal(),
 				      getDistributionTimeOut());
+	_log.trace("...method published");
       }
       catch(Exception e)
       {
-	_log.error("problem publishing change in state over JavaGroups", e);
+	_log.error("problem publishing change in state over JGroups", e);
       }
-
     }
 
   // JG doesn't find this method in our superclass ...
   public void
     dispatch(String id, Integer method, Object[] argInstances)
     {
-      //      System.out.println("REMOTE INVOCATION : "+_integerToMethod[method.intValue()].getName()+" : "+id);
-      if (_integerToMethod[method.intValue()].equals(DESTROY_SESSION))
+      Method m=_integerToMethod[method.intValue()];
+      if (_log.isTraceEnabled())
+      {
+	String args="";
+	for (int i=0; i<argInstances.length; i++)
+	  args+=(i>0?",":"")+argInstances[i];
+	if (_log.isTraceEnabled()) _log.trace("dispatching method... : "+id+"."+_integerToMethod[method.intValue()].getName()+"("+args+")");
+      }
+
+      if (m.equals(DESTROY_SESSION))
       {
 	String tmp=(String)argInstances[0]; // id in factory methods
 	//	System.out.println("REMOTE DESTRUCTION : "+tmp); // arg[0] is the id
@@ -384,6 +415,7 @@ public class
       {
 	Thread.currentThread().setContextClassLoader(oldLoader);
       }
+      _log.trace("...method dispatched");
     }
 
   //----------------------------------------
@@ -438,7 +470,7 @@ public class
 	}
 	catch (Exception e)
 	{
-	  _log.error ("Unable to getState from JavaGroups: ", e);
+	  _log.error ("Unable to getState from JGroups: ", e);
 	  return null;
 	}
       }
@@ -469,7 +501,7 @@ public class
 	}
 	catch (Exception e)
 	{
-	  _log.error ("Unable to setState from JavaGroups: ", e);
+	  _log.error ("Unable to setState from JGroups: ", e);
 	}
 
 	AbstractReplicatedStore.setReplicating(true);
@@ -498,26 +530,30 @@ public class
   public void
     block()
     {
-      _log.info("block()");
+      _log.trace("handling JGroups block()...");
+      _log.trace("...JGroups block() handled");
     }
 
   // Called when a member is suspected
   public synchronized void
     suspect(Address suspected_mbr)
     {
-      _log.info("suspect("+suspected_mbr+")");
+      if (_log.isTraceEnabled()) _log.trace("handling JGroups suspect("+suspected_mbr+")...");
+      _log.warn("cluster suspects member may have been lost: "+suspected_mbr);
+      _log.trace("...JGroups suspect() handled");
     }
 
   // Called when channel membership changes
   public synchronized void
     viewAccepted(View newView)
     {
-      _log.info("viewAccepted("+newView+")");
+      if (_log.isTraceEnabled()) _log.trace("handling JGroups viewAccepted("+newView+")...");
 
-      boolean isMerge=(newView instanceof MergeView);
-
-      if(isMerge)
-	_log.warn("merging... NYI: merge view is " + newView);
+      // this is meant to happen if a network split is healed and two
+      // clusters try to reconcile their separate states into one -
+      // an unlikely event.
+      if(newView instanceof MergeView)
+	_log.warn("NYI - merging: view is " + newView);
 
       Vector newMembers=newView.getMembers();
 
@@ -525,8 +561,10 @@ public class
       {
  	_members.clear();
  	_members.addAll(newMembers);
+	_log.info("JGroups View: "+_members);
 	_members.remove(_channel.getLocalAddress());
-	_log.info("current view members: "+_members);
       }
+
+      _log.trace("...JGroups viewAccepted() handled");
     }
 }

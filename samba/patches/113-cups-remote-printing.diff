@@ -1,6 +1,6 @@
---- samba/source/printing/print_cups.c.orig	Thu Mar  6 20:11:07 2003
-+++ samba/source/printing/print_cups.c	Fri Aug 29 14:40:45 2003
-@@ -81,11 +81,13 @@ void cups_printer_fn(void (*fn)(char *, 
+--- samba/source/printing/print_cups.c.orig	Thu Dec 18 14:01:21 2003
++++ samba/source/printing/print_cups.c	Fri Dec 19 08:31:21 2003
+@@ -82,11 +82,13 @@ void cups_printer_fn(void (*fn)(char *, 
  	char		*name,		/* printer-name attribute */
  			*make_model,	/* printer-make-and-model attribute */
  			*info;		/* printer-info attribute */
@@ -15,7 +15,7 @@
  			};       
  
  
-@@ -166,6 +168,7 @@ void cups_printer_fn(void (*fn)(char *, 
+@@ -167,6 +169,7 @@ void cups_printer_fn(void (*fn)(char *, 
  		name       = NULL;
  		make_model = NULL;
  		info       = NULL;
@@ -23,7 +23,7 @@
  
  		while (attr != NULL && attr->group_tag == IPP_TAG_PRINTER)
  		{
-@@ -181,6 +184,10 @@ void cups_printer_fn(void (*fn)(char *, 
+@@ -182,6 +185,10 @@ void cups_printer_fn(void (*fn)(char *, 
  			    attr->value_tag == IPP_TAG_TEXT)
  				info = attr->values[0].string.text;
  
@@ -34,7 +34,7 @@
          		attr = attr->next;
  		}
  
-@@ -189,7 +196,10 @@ void cups_printer_fn(void (*fn)(char *, 
+@@ -190,7 +197,10 @@ void cups_printer_fn(void (*fn)(char *, 
  		*/
  
  		if (name == NULL)
@@ -46,7 +46,7 @@
  
   		if (info == NULL || !info[0])
  			(*fn)(name, make_model);
-@@ -260,6 +270,8 @@ void cups_printer_fn(void (*fn)(char *, 
+@@ -261,6 +271,8 @@ void cups_printer_fn(void (*fn)(char *, 
  		name       = NULL;
  		make_model = NULL;
  		info       = NULL;
@@ -55,7 +55,7 @@
  
  		while (attr != NULL && attr->group_tag == IPP_TAG_PRINTER)
  		{
-@@ -275,6 +287,10 @@ void cups_printer_fn(void (*fn)(char *, 
+@@ -276,6 +288,10 @@ void cups_printer_fn(void (*fn)(char *, 
  			    attr->value_tag == IPP_TAG_TEXT)
  				info = attr->values[0].string.text;
  
@@ -66,7 +66,7 @@
          		attr = attr->next;
  		}
  
-@@ -283,7 +299,10 @@ void cups_printer_fn(void (*fn)(char *, 
+@@ -284,7 +300,10 @@ void cups_printer_fn(void (*fn)(char *, 
  		*/
  
  		if (name == NULL)

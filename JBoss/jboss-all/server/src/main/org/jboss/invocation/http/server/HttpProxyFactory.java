@@ -31,7 +31,7 @@ import org.w3c.dom.Element;
  * MarshalledValue with the Naming proxy as its content.
  *
  * @author Scott.Stark@jboss.org
- * @version $Revision: 1.1.4.6 $
+ * @version $Revision: 1.1.4.7 $
  */
 public class HttpProxyFactory extends ServiceMBeanSupport
    implements HttpProxyFactoryMBean
@@ -54,12 +54,10 @@ public class HttpProxyFactory extends ServiceMBeanSupport
    /** The interface that the HttpInvokerProxy implements */
    private Class exportedInterface;
    private Element interceptorConfig;
-   private ArrayList interceptorClasses = new ArrayList();
+   private ArrayList interceptorClasses;
 
    public HttpProxyFactory()
    {
-      interceptorClasses.add(ClientMethodInterceptor.class);
-      interceptorClasses.add(InvokerInterceptor.class);
    }
 
    public ObjectName getInvokerName()
@@ -137,7 +135,10 @@ public class HttpProxyFactory extends ServiceMBeanSupport
       this.interceptorConfig = config;
       Iterator interceptorElements = MetaData.getChildrenByTagName(interceptorConfig, "interceptor");
       ClassLoader loader = Thread.currentThread().getContextClassLoader();
-      interceptorClasses.clear();
+      if( interceptorClasses != null )
+         interceptorClasses.clear();
+      else
+         interceptorClasses = new ArrayList();
       while( interceptorElements != null && interceptorElements.hasNext() )
       {
          Element ielement = (Element) interceptorElements.next();
@@ -188,6 +189,10 @@ public class HttpProxyFactory extends ServiceMBeanSupport
       Object cacheID = null;
       String proxyBindingName = null;
       Class[] ifaces = {exportedInterface};
+      /* Initialize interceptorClasses with default client interceptor list
+         if no client interceptor configuration was provided */
+      if( interceptorClasses == null )
+         interceptorClasses = defineDefaultInterceptors();
       ClassLoader loader = Thread.currentThread().getContextClassLoader();
       GenericProxyFactory proxyFactory = new GenericProxyFactory();
       theProxy = proxyFactory.createProxy(cacheID, jmxInvokerName,
@@ -214,6 +219,18 @@ public class HttpProxyFactory extends ServiceMBeanSupport
          InitialContext iniCtx = new InitialContext();
          Util.unbind(iniCtx, jndiName);
       }
+   }
+
+   /** Build the default interceptor list. This consists of:
+    * ClientMethodInterceptor
+    * InvokerInterceptor
+    */
+   protected ArrayList defineDefaultInterceptors()
+   {
+      ArrayList tmp = new ArrayList();
+      tmp.add(ClientMethodInterceptor.class);
+      tmp.add(InvokerInterceptor.class);
+      return tmp;
    }
 
    /** Create the Invoker

@@ -37,6 +37,7 @@
 #include "misc/htmltags.h"
 #include "khtmlview.h"
 #include "khtml_part.h"
+#include "render_arena.h"
 
 #include <kapplication.h>
 #include <kcursor.h>
@@ -84,9 +85,10 @@ RenderFrameSet::~RenderFrameSet()
       delete [] m_vSplitVar;
 }
 
-bool RenderFrameSet::nodeAtPoint(NodeInfo& info, int _x, int _y, int _tx, int _ty, bool inside)
+bool RenderFrameSet::nodeAtPoint(NodeInfo& info, int _x, int _y, int _tx, int _ty,
+                                 HitTestAction hitTestAction, bool inside)
 {
-    RenderBox::nodeAtPoint(info, _x, _y, _tx, _ty, inside);
+    RenderBox::nodeAtPoint(info, _x, _y, _tx, _ty, hitTestAction, inside);
 
     inside = m_resizing || canResize(_x, _y);
 
@@ -646,10 +648,12 @@ void RenderFrame::slotViewCleared()
         // Qt creates QScrollView w/ a default style of QFrame::StyledPanel | QFrame::Sunken.
         else
             view->setFrameStyle( QFrame::StyledPanel | QFrame::Sunken );
-#endif
-            
-        view->setVScrollBarMode(element()->scrolling );
+
+#else
         view->setHScrollBarMode(element()->scrolling );
+        view->setVScrollBarMode(element()->scrolling );
+#endif
+
         if(view->inherits("KHTMLView")) {
 #ifdef DEBUG_LAYOUT
             kdDebug(6031) << "frame is a KHTMLview!" << endl;
@@ -805,9 +809,15 @@ void RenderPartObject::updateWidget()
       HTMLIFrameElementImpl *o = static_cast<HTMLIFrameElementImpl *>(element());
       url = o->url.string();
       if (url.isEmpty())
-        url = "about:blank";
+	  url = "about:blank";
       KHTMLView *v = static_cast<KHTMLView *>(m_view);
-      v->part()->requestFrame( this, url, o->name.string(), QStringList(), true );
+      bool requestSucceeded = v->part()->requestFrame( this, url, o->name.string(), QStringList(), true );
+      if (requestSucceeded && url == "about:blank") {
+	  KHTMLPart *newPart = v->part()->findFrame( o->name.string() );
+	  if (newPart && newPart->xmlDocImpl()) {
+	      newPart->xmlDocImpl()->setBaseURL( v->part()->baseURL().url() );
+	  }
+      }
   }
 }
 
@@ -940,13 +950,17 @@ void RenderPartObject::slotViewCleared()
 	  HTMLIFrameElementImpl *frame = static_cast<HTMLIFrameElementImpl *>(element());
 	  if(frame->frameBorder)
 	      frameStyle = QFrame::Box;
-	  scroll = frame->scrolling;
+          scroll = frame->scrolling;
 	  marginw = frame->marginWidth;
 	  marginh = frame->marginHeight;
       }
       view->setFrameStyle(frameStyle);
-      view->setVScrollBarMode(scroll );
-      view->setHScrollBarMode(scroll );
+
+#if !APPLE_CHANGES
+      view->setVScrollBarMode(scroll);
+      view->setHScrollBarMode(scroll);
+#endif
+
       if(view->inherits("KHTMLView")) {
 #ifdef DEBUG_LAYOUT
           kdDebug(6031) << "frame is a KHTMLview!" << endl;
@@ -958,5 +972,35 @@ void RenderPartObject::slotViewCleared()
         }
   }
 }
+
+#if APPLE_CHANGES
+// FIXME: This should not be necessary.  Remove this once WebKit knows to properly schedule
+// layouts using WebCore when objects resize.
+void RenderPart::updateWidgetPositions()
+{
+    if (!m_widget)
+        return;
+    
+    int x, y, width, height;
+    absolutePosition(x,y);
+    x += borderLeft() + paddingLeft();
+    y += borderTop() + paddingTop();
+    width = m_width - borderLeft() - borderRight() - paddingLeft() - paddingRight();
+    height = m_height - borderTop() - borderBottom() - paddingTop() - paddingBottom();
+    QRect newBounds(x,y,width,height);
+    if (newBounds != m_widget->frameGeometry()) {
+        // The widget changed positions.  Update the frame geometry.
+        RenderArena *arena = ref();
+        element()->ref();
+        m_widget->setFrameGeometry(newBounds);
+        element()->deref();
+        deref(arena);
+        
+        QScrollView *view = static_cast<QScrollView *>(m_widget);
+        if (view && view->inherits("KHTMLView"))
+            static_cast<KHTMLView*>(view)->scheduleRelayout();
+    }
+}
+#endif
 
 #include "render_frames.moc"

@@ -69,10 +69,18 @@
         <servlet-name>SecureEJBServlet</servlet-name>
         <servlet-class>org.jboss.test.web.servlets.SecureEJBServlet</servlet-class>
     </servlet>
-    <servlet>
-        <servlet-name>UnsecureEJBServlet</servlet-name>
-        <servlet-class>org.jboss.test.web.servlets.UnsecureEJBServlet</servlet-class>
-    </servlet>
+   <servlet>
+       <servlet-name>UnsecureEJBServlet</servlet-name>
+       <servlet-class>org.jboss.test.web.servlets.UnsecureEJBServlet</servlet-class>
+   </servlet>
+   <servlet>
+       <servlet-name>UnsecureRunAsServlet</servlet-name>
+       <servlet-class>org.jboss.test.web.servlets.UnsecureEJBServlet</servlet-class>
+      <run-as>
+         <description>Assume an InternalUser role to access a private EJB</description>
+         <role-name>InternalUser</role-name>
+      </run-as>
+   </servlet>
     <servlet>
         <servlet-name>SecureEJBServletMT</servlet-name>
         <servlet-class>org.jboss.test.web.servlets.SecureEJBServletMT</servlet-class>
@@ -155,10 +163,14 @@
         <servlet-name>SecureEJBServlet</servlet-name>
         <url-pattern>/restricted/SecureEJBAccess</url-pattern>
     </servlet-mapping>
-    <servlet-mapping>
-        <servlet-name>UnsecureEJBServlet</servlet-name>
-        <url-pattern>/UnsecureEJBAccess</url-pattern>
-    </servlet-mapping>
+   <servlet-mapping>
+       <servlet-name>UnsecureEJBServlet</servlet-name>
+       <url-pattern>/UnsecureEJBAccess</url-pattern>
+   </servlet-mapping>
+   <servlet-mapping>
+       <servlet-name>UnsecureRunAsServlet</servlet-name>
+       <url-pattern>/UnsecureRunAsServlet</url-pattern>
+   </servlet-mapping>
     <servlet-mapping>
         <servlet-name>SecureEJBServletMT</servlet-name>
         <url-pattern>/restricted/SecureEJBAccessMT</url-pattern>
@@ -238,10 +250,14 @@
         <realm-name>JBossTest Servlets</realm-name>
     </login-config>
 
-    <security-role>
-        <description>A AuthorizedUser is one with a valid username and password</description>
-        <role-name>AuthorizedUser</role-name>
-    </security-role>
+   <security-role>
+       <description>An AuthorizedUser is one with a valid username and password</description>
+       <role-name>AuthorizedUser</role-name>
+   </security-role>
+   <security-role>
+       <description>InternalUser is private app role</description>
+       <role-name>InternalUser</role-name>
+   </security-role>
 
 <!-- ### Environment (java:comp/env/ejb) -->
     <env-entry>
@@ -401,14 +417,14 @@
       <ejb-ref-type>Session</ejb-ref-type>
       <local-home>org.jboss.test.web.interfaces.StatelessSessionLocalHome</local-home>
       <local>org.jboss.test.web.interfaces.StatelessSessionLocal</local>
-      <ejb-link>OptimizedEJB</ejb-link>
+      <ejb-link>jbosstest-web-ejbs.jar#OptimizedEJB</ejb-link>
    </ejb-local-ref>
    <ejb-local-ref>
       <ejb-ref-name>ejb/local/SecuredEJB</ejb-ref-name>
       <ejb-ref-type>Session</ejb-ref-type>
       <local-home>org.jboss.test.web.interfaces.StatelessSessionLocalHome</local-home>
       <local>org.jboss.test.web.interfaces.StatelessSessionLocal</local>
-      <ejb-link>OptimizedEJB</ejb-link>
+      <ejb-link>SecuredEJB</ejb-link>
    </ejb-local-ref>
     <!-- A relative ejb-local-ref -->
    <ejb-local-ref>

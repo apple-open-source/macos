@@ -4,10 +4,11 @@ import org.jboss.system.ServiceMBeanSupport;
 import org.jboss.test.classloader.circularity.test.CircularityErrorTests3;
 import org.jboss.test.classloader.circularity.test.CircularLoadTests;
 import org.jboss.test.classloader.circularity.test.DeadlockTests3;
+import org.jboss.test.classloader.circularity.test.RecursiveCCETests;
 
 /** The MBean driver for the circularity class loading unit tests
  * @author Scott.Stark@jboss.org
- * @version $Revision: 1.2.4.8 $
+ * @version $Revision: 1.2.4.9 $
  */
 public class Starter extends ServiceMBeanSupport implements StarterMBean
 {
@@ -120,6 +121,25 @@ public class Starter extends ServiceMBeanSupport implements StarterMBean
       finally
       {
          log.info("Begin testDeadlockCase1");
+      }
+   }
+
+   public void testRecursiveLoadMT() throws Exception
+   {
+      log.info("Begin testRecursiveLoadMT");
+      try
+      {
+         RecursiveCCETests testcase1 = new RecursiveCCETests();
+         testcase1.testRecursiveLoadMT();
+      }
+      catch(Exception e)
+      {
+         log.error("testRecursiveLoadMT", e);
+         throw e;
+      }
+      finally
+      {
+         log.info("Begin testRecursiveLoadMT");
       }
    }
 }

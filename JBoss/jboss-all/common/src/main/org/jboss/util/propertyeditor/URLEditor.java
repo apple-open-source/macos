@@ -9,7 +9,6 @@
 
 package org.jboss.util.propertyeditor;
 
-import java.net.URL;
 import java.net.MalformedURLException;
 
 import org.jboss.util.Strings;
@@ -19,7 +18,7 @@ import org.jboss.util.NestedRuntimeException;
 /**
  * A property editor for {@link java.net.URL}.
  *
- * @version <tt>$Revision: 1.1 $</tt>
+ * @version <tt>$Revision: 1.1.4.1 $</tt>
  * @author  <a href="mailto:jason@planet57.com">Jason Dillon</a>
  */
 public class URLEditor

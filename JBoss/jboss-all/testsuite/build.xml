@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE project [
    <!ENTITY buildmagic SYSTEM "../tools/etc/buildmagic/buildmagic.ent">
+   <!ENTITY libraries SYSTEM "../tools/etc/buildmagic/libraries.ent">
+   <!ENTITY modules SYSTEM "../tools/etc/buildmagic/modules.ent">
    <!ENTITY mqstress SYSTEM "mqstress.xml">
 ]>
 
@@ -13,7 +15,7 @@
 <!--                                                                        -->
 <!-- ====================================================================== -->
 
-<!-- $Id: build.xml,v 1.165.2.85 2003/07/21 23:58:37 starksm Exp $ -->
+<!-- $Id: build.xml,v 1.165.2.123 2003/11/28 15:18:27 cazzius Exp $ -->
 
 <project default="main" name="JBoss/Testsuite">
 
@@ -63,9 +65,8 @@
    -->
 
   <target name="configure" unless="configure.disable">
-    <!-- Give user a chance to override without editing this file
-       (and without typing -D each time they run it) -->
-    <property file=".ant.properties" />
+    <!-- Override properties using the standard local.properties file
+    -->
 
     <!-- =================== -->
     <!-- Basic Configuration -->
@@ -80,109 +81,7 @@
     <!-- Libraries -->
     <!-- ========= -->
 
-    <!-- Java Cryptography Extension (JCE) -->
-    <property name="sun.jce.root" value="${project.thirdparty}/sun/jce"/>
-    <property name="sun.jce.lib" value="${sun.jce.root}/lib"/>
-    <path id="sun.jce.classpath">
-      <pathelement path="${sun.jce.lib}/jce1_2_1.jar"/>
-    </path>
-
-    <!-- Java Secure Sockets Extension (JSSE) -->
-    <property name="sun.jsse.root" value="${project.thirdparty}/sun/jsse"/>
-    <property name="sun.jsse.lib" value="${sun.jsse.root}/lib"/>
-    <path id="sun.jsse.classpath">
-      <pathelement path="${sun.jsse.lib}/jcert.jar"/>
-      <pathelement path="${sun.jsse.lib}/jnet.jar"/>
-      <pathelement path="${sun.jsse.lib}/jsse.jar"/>
-    </path>
-
-    <!-- JavaMail -->
-    <property name="sun.javamail.root" value="${project.thirdparty}/sun/javamail"/>
-    <property name="sun.javamail.lib" value="${sun.javamail.root}/lib"/>
-    <path id="sun.javamail.classpath">
-      <pathelement path="${sun.javamail.lib}/mail.jar"/>
-    </path>
-
-    <!-- Java Servlets -->
-    <property name="sun.servlet.root" value="${project.thirdparty}/sun/servlet"/>
-    <property name="sun.servlet.lib" value="${sun.servlet.root}/lib"/>
-    <path id="sun.servlet.classpath">
-      <pathelement path="${sun.servlet.lib}/servlet.jar"/>
-    </path>
-
-    <!-- Apache Crimson (XML/DOM) -->
-    <property name="apache.crimson.root" value="${project.thirdparty}/apache/crimson"/>
-    <property name="apache.crimson.lib" value="${apache.crimson.root}/lib"/>
-    <path id="apache.crimson.classpath">
-      <pathelement path="${apache.crimson.lib}/crimson.jar"/>
-    </path>
-
-    <!-- Apache Commons -->
-    <property name="apache.commons.root" value="${project.thirdparty}/apache/commons"/>
-    <property name="apache.commons.lib" value="${apache.commons.root}/lib"/>
-    <path id="apache.commons.classpath">
-      <pathelement path="${apache.commons.lib}/commons-collections.jar"/>
-      <pathelement path="${apache.commons.lib}/commons-logging.jar"/>
-    </path>
-
-    <!-- Log4j -->
-    <property name="apache.log4j.root" value="${project.thirdparty}/apache/log4j"/>
-    <property name="apache.log4j.lib" value="${apache.log4j.root}/lib"/>
-    <path id="apache.log4j.classpath">
-      <pathelement path="${apache.log4j.lib}/log4j.jar"/>
-    </path>
-
-    <!-- EDU.oswego.cs.dl.util.concurrent -->
-    <property name="oswego.concurrent.root" value="${project.thirdparty}/oswego/concurrent"/>
-    <property name="oswego.concurrent.lib" value="${oswego.concurrent.root}/lib"/>
-    <path id="oswego.concurrent.classpath">
-      <pathelement path="${oswego.concurrent.lib}/concurrent.jar"/>
-    </path>
-
-    <!-- JacORB -->
-    <property name="jacorb.jacorb.root" value="${project.thirdparty}/jacorb/jacorb"/>
-    <property name="jacorb.jacorb.lib" value="${jacorb.jacorb.root}/lib"/>
-    <path id="jacorb.jacorb.classpath">
-      <pathelement path="${jacorb.jacorb.lib}/jacorb.jar"/>
-    </path>
-
-    <!-- JUnit -->
-    <property name="junit.junit.root" value="${project.thirdparty}/junit/junit"/>
-    <property name="junit.junit.lib" value="${junit.junit.root}/lib"/>
-    <path id="junit.junit.classpath">
-      <pathelement path="${junit.junit.lib}/junit.jar"/>
-    </path>
-
-    <!-- GNU Regexp -->
-    <property name="gnu.regexp.root" value="${project.thirdparty}/gnu/regexp"/>
-    <property name="gnu.regexp.lib" value="${gnu.regexp.root}/lib"/>
-    <path id="gnu.regexp.classpath">
-      <pathelement path="${gnu.regexp.lib}/gnu-regexp.jar"/>
-    </path>
-
-    <!-- JUnitEJB -->
-    <property name="junitejb.junitejb.root"
-       value="${project.thirdparty}/junitejb/junitejb"/>
-    <property name="junitejb.junitejb.lib"
-       value="${junitejb.junitejb.root}/lib"/>
-    <path id="junitejb.junitejb.classpath">
-      <pathelement path="${junitejb.junitejb.lib}/junitejb.jar"/>
-    </path>
-
-    <!-- BCEL -->
-    <property name="apache.bcel.root" value="${project.thirdparty}/apache/bcel"/>
-    <property name="apache.bcel.lib" value="${apache.bcel.root}/lib"/>
-    <path id="apache.bcel.classpath">
-      <pathelement path="${apache.bcel.lib}/bcel.jar"/>
-    </path>
-
-    <!-- Hypersonic -->
-    <property name="hsqldb.root" value="${project.thirdparty}/hsqldb/hsqldb"/>
-    <property name="hsqldb.lib" value="${hsqldb.root}/lib"/>
-    <path id="hsqldb.classpath">
-      <pathelement path="${hsqldb.lib}/hsqldb.jar"/>
-    </path>
-
+    &libraries;
     <!-- The combined library classpath -->
     <path id="library.classpath">
       <path refid="sun.jce.classpath"/>
@@ -192,6 +91,7 @@
       <path refid="apache.crimson.classpath"/>
       <path refid="apache.commons.classpath"/>
       <path refid="apache.log4j.classpath"/>
+      <path refid="apache.axis.classpath"/>
       <path refid="oswego.concurrent.classpath"/>
       <path refid="jacorb.jacorb.classpath"/>
       <path refid="junit.junit.classpath"/>
@@ -203,52 +103,13 @@
       <!-- needed for proxy tests -->
       <path refid="apache.bcel.classpath"/>
       <!-- needed for security login module tests -->
-      <path refid="hsqldb.classpath"/>
+      <path refid="hsqldb.hsqldb.classpath"/>
     </path>
 
     <!-- ======= -->
     <!-- Modules -->
     <!-- ======= -->
-
-    <!-- J2EE -->
-    <property name="jboss.j2ee.root" value="${project.root}/j2ee/output"/>
-    <property name="jboss.j2ee.lib" value="${jboss.j2ee.root}/lib"/>
-    <path id="jboss.j2ee.classpath">
-      <pathelement path="${jboss.j2ee.lib}/jboss-j2ee.jar"/>
-    </path>
-
-    <!-- Common -->
-    <property name="jboss.common.root" value="${project.root}/common/output"/>
-    <property name="jboss.common.lib" value="${jboss.common.root}/lib"/>
-    <path id="jboss.common.classpath">
-      <pathelement path="${jboss.common.lib}/jboss-common.jar"/>
-      <pathelement path="${jboss.common.lib}/testsuite-support.jar"/>
-    </path>
-
-    <!-- System -->
-    <property name="jboss.system.root" value="${project.root}/system/output"/>
-    <property name="jboss.system.lib" value="${jboss.system.root}/lib"/>
-    <path id="jboss.system.classpath">
-      <pathelement path="${jboss.system.lib}/testsuite-support.jar"/>
-    </path>
-
-    <!-- Naming -->
-    <property name="jboss.naming.root" value="${project.root}/naming/output"/>
-    <property name="jboss.naming.lib" value="${jboss.naming.root}/lib"/>
-    <path id="jboss.naming.classpath">
-      <pathelement path="${jboss.naming.lib}/jnpserver.jar"/>
-    </path>
-
-    <!-- Server -->
-    <property name="jboss.server.root" value="${project.root}/server/output"/>
-    <property name="jboss.server.lib" value="${jboss.server.root}/lib"/>
-    <path id="jboss.server.classpath">
-      <pathelement path="${jboss.server.lib}/jboss-client.jar"/>
-      <pathelement path="${jboss.server.lib}/jmx-invoker-adaptor-client.jar"/>
-      <pathelement path="${jboss.server.lib}/jmx-rmi-connector-client.jar"/>
-      <pathelement path="${jboss.server.lib}/testsuite-support.jar"/>
-    </path>
-
+    &modules;
     <!-- InternalServer -->
 <!-- This could be a mistake.  Perhaps, though, it would be a good idea to separate
 tests that need internal jboss classes from those that don't.  When I put it in, only
@@ -258,79 +119,6 @@ the jca XATxConnectionManagerUnitTestCase needed an internal class (the tx manag
     <path id="jboss.internal-server.classpath">
       <pathelement path="${jboss.server.lib}/jboss.jar"/>
       <pathelement path="${jboss.server.lib}/jboss-system.jar"/>
-    </path>
-
-    <!-- Messaging -->
-    <property name="jboss.messaging.root" value="${project.root}/messaging/output"/>
-    <property name="jboss.messaging.lib" value="${jboss.messaging.root}/lib"/>
-    <path id="jboss.messaging.classpath">
-      <pathelement path="${jboss.messaging.lib}/jbossmq-client.jar"/>
-    </path>
-
-    <!-- Security -->
-    <property name="jboss.security.root" value="${project.root}/security/output"/>
-    <property name="jboss.security.lib" value="${jboss.security.root}/lib"/>
-    <path id="jboss.security.classpath">
-      <pathelement path="${jboss.security.lib}/jbosssx-client.jar"/>
-      <pathelement path="${jboss.security.lib}/jbosssx.jar"/>
-      <pathelement path="${jboss.security.lib}/jboss-jaas.jar"/>
-    </path>
-
-    <!-- Connector -->
-    <property name="jboss.connector.root" value="${project.root}/connector/output"/>
-    <property name="jboss.connector.lib" value="${jboss.connector.root}/lib"/>
-    <path id="jboss.connector.classpath">
-      <pathelement path="${jboss.connector.lib}/jboss-jca.sar"/>
-      <pathelement path="${jboss.connector.lib}/jboss-local-jdbc.jar"/>
-      <pathelement path="${jboss.connector.lib}/jboss-common-jdbc-wrapper.jar"/>
-    </path>
-
-     <!-- Cluster -->
-     <property name="jboss.cluster.root" value="${project.root}/cluster/output"/>
-     <property name="jboss.cluster.lib" value="${jboss.cluster.root}/lib"/>
-     <path id="jboss.cluster.classpath">
-       <pathelement path="${jboss.cluster.lib}/jbossha-client.jar"/>
-     </path>
-     <path id="jboss.cluster.all.classpath">
-       <pathelement path="${jboss.cluster.lib}/jbossha.jar"/>
-     </path>
-     
-     <!-- Transaction -->
-     <property name="jboss.transaction.root" value="${project.root}/transaction/output"/>
-     <property name="jboss.transaction.lib" value="${jboss.transaction.root}/lib"/>
-     <path id="jboss.transaction.classpath">
-       <pathelement path="${jboss.transaction.lib}/testsuite-support.jar"/>
-     </path>
-
-     <!-- JBossMX -->
-     <property name="jboss.jmx.root" value="${project.root}/jmx/output"/>
-     <property name="jboss.jmx.lib" value="${jboss.jmx.root}/lib"/>
-     <path id="jboss.jmx.classpath">
-       <pathelement path="${jboss.jmx.lib}/jboss-jmx.jar"/>
-       <pathelement path="${jboss.server.lib}/jboss.jar"/>
-     </path>
-
-    <!-- Management -->
-    <property name="jboss.management.root" value="${project.root}/management/output"/>
-    <property name="jboss.management.lib" value="${jboss.management.root}/lib"/>
-    <path id="jboss.management.classpath">
-      <pathelement path="${jboss.management.lib}/jboss-jsr77-client.jar"/>
-      <pathelement path="${jboss.management.lib}/jboss-management.jar"/>
-    </path>
-
-    <!-- IIOP -->
-    <property name="jboss.iiop.root" value="${project.root}/iiop/output"/>
-    <property name="jboss.iiop.lib" value="${jboss.iiop.root}/lib"/>
-    <path id="jboss.iiop.classpath">
-      <pathelement path="${jboss.iiop.lib}/jboss-iiop-client.jar"/>
-    </path>
-
-    <!-- Varia -->
-    <property name="jboss.varia.root" value="${project.root}/varia/output"/>
-    <property name="jboss.varia.lib" value="${jboss.varia.root}/lib"/>
-    <path id="jboss.varia.classpath">
-      <pathelement path="${jboss.varia.lib}/autonumber-plugin.jar"/>
-      <pathelement path="${jboss.varia.lib}/scheduler-plugin.jar"/>
     </path>
 
     <!-- The combined dependant module classpath -->
@@ -343,12 +131,12 @@ the jca XATxConnectionManagerUnitTestCase needed an internal class (the tx manag
       <path refid="jboss.internal-server.classpath"/>
       <path refid="jboss.messaging.classpath"/>
       <path refid="jboss.security.classpath"/>
-      <path refid="jboss.connector.classpath"/>
+      <path refid="jboss.jca.classpath"/>
       <path refid="jboss.cluster.classpath"/>
-      <path refid="jboss.cluster.all.classpath"/>
       <path refid="jboss.management.classpath"/>
       <path refid="jboss.transaction.classpath"/>
       <path refid="jboss.varia.classpath"/>
+      <path refid="jboss.jbossnet.classpath" />
     </path>
 
     <!-- ===== -->
@@ -388,6 +176,10 @@ the jca XATxConnectionManagerUnitTestCase needed an internal class (the tx manag
       <path refid="dependentmodule.classpath"/>
     </path>
 
+    <path id="javac.classpath">
+      <path refid="thirdparty.classpath"/>
+    </path>
+
     <!-- This module is based on Java 1.2 -->
     <property name="javac.target" value="1.2"/>
 
@@ -403,7 +195,6 @@ the jca XATxConnectionManagerUnitTestCase needed an internal class (the tx manag
       <pathelement path="${classpath}"/>
       <pathelement path="${local.classpath}"/>
       <pathelement path="${project.tools}/lib/ant.jar"/>
-      <pathelement path="${project.tools}/lib/junit.jar"/>
       <pathelement path="${project.tools}/lib/optional.jar"/>
       <path refid="jboss.jmx.classpath"/>
       <path refid="thirdparty.classpath"/>
@@ -445,9 +236,11 @@ marathon.threadcount:       ${marathon.threadcount}
       <fileset dir="${project.thirdparty}/xdoclet/xdoclet/lib">
         <include name="**/*.jar"/>
       </fileset>
+      <fileset dir="${project.root}/jboss.net/output/lib">
+         <include name="xdoclet-*.jar" />
+      </fileset>
     </path>
-    <property name="xdoclet.task.classpath"
-	      refid="xdoclet.task.classpath"/>
+    <property name="xdoclet.task.classpath" refid="xdoclet.task.classpath" />
 
     <property name="xdoclet.mergedir" value="${project.tools}/etc/xdoclet/templates}"/>
 
@@ -555,6 +348,45 @@ marathon.threadcount:       ${marathon.threadcount}
              version="3.0"
 	     destdir="${build.resources}/jmx/eardeployment/b/META-INF"
              mergedir="${source.resources}/jmx/eardeployment/b/"/>
+    </ejbdoclet>
+
+	<!-- eardepends Dependent[A/B] -->
+    <mkdir dir="${build.resources}/jmx/eardepends/depend/META-INF"/>
+    <ejbdoclet destdir="${build.gen-src}"
+	     ejbspec="2.0"
+	     excludedtags="@version,@author"
+             mergedir="${source.resources}/eardepends/dependent/META-INF">
+      <fileset dir="${source.java}">
+        <include name="org/jboss/test/jmx/eardepends/dependent/ejb/*Bean.java"/>
+      </fileset>
+      <packageSubstitution packages="ejb" substituteWith="interfaces"/>
+      <remoteinterface/>
+      <homeinterface/>
+      <deploymentdescriptor xmlencoding ="UTF-8"
+			    destdir="${build.resources}/jmx/eardepends/dependent/META-INF"/>
+      <jboss xmlencoding="UTF-8"
+             version="3.2"
+	     destdir="${build.resources}/jmx/eardepends/dependent/META-INF"
+             mergedir="${source.resources}/jmx/eardepends/dependent/META-INF"/>
+    </ejbdoclet>
+
+    <mkdir dir="${build.resources}/jmx/eardepends/independent/META-INF"/>
+    <ejbdoclet destdir="${build.gen-src}"
+	     ejbspec="2.0"
+	     excludedtags="@version,@author"
+             mergedir="${source.resources}/eardepends/independent/META-INF">
+      <fileset dir="${source.java}">
+        <include name="org/jboss/test/jmx/eardepends/independent/ejb/*Bean.java"/>
+      </fileset>
+      <packageSubstitution packages="ejb" substituteWith="interfaces"/>
+      <remoteinterface/>
+      <homeinterface/>
+      <deploymentdescriptor xmlencoding ="UTF-8"
+			    destdir="${build.resources}/jmx/eardepends/independent/META-INF"/>
+      <jboss xmlencoding="UTF-8"
+             version="3.2"
+	     destdir="${build.resources}/jmx/eardepends/independent/META-INF"
+             mergedir="${source.resources}/jmx/eardepends/independent/META-INF"/>
     </ejbdoclet>
 
     <!-- cmr written after post create -->
@@ -703,6 +535,62 @@ marathon.threadcount:       ${marathon.threadcount}
          destdir="${build.resources}/cmp2/fkupdates/META-INF"
          validatexml="${validatexml}"/>
     </ejbdoclet>
+    
+    <!-- dbindex and post-table-create tests -->
+    <mkdir dir="${build.resources}/cmp2/idxandusersql/META-INF"/>
+    <ejbdoclet destdir="${build.gen-src}"
+	     ejbspec="2.0"
+	     excludedtags="@version,@author"
+             mergedir="${source.etc}/cmp2/idxandusersql">
+      <fileset dir="${source.java}">
+        <include name="org/jboss/test/cmp2/idxandusersql/ejb/*Bean.java"/>
+      </fileset>
+      <remoteinterface/>
+      <localinterface/>
+      <homeinterface/>
+      <localhomeinterface/>
+      <entitypk/>
+      <utilobject cacheHomes="true" includeGUID="false"/>
+      <entitycmp/>
+      <session/>
+      <!--  Don't build the DD, haswe have our own one
+            prepared. Can change in the future if the
+            jboss-xdoclet supports dbindex etc.
+      <deploymentdescriptor
+         destdir="${build.resources}/cmp2/idxandusersql/META-INF"
+         validatexml="${validatexml}"/>
+      <jboss
+         version="3.2"
+         xmlencoding="UTF-8"
+         destdir="${build.resources}/cmp2/idxandusersql/META-INF"
+         validatexml="${validatexml}"/>
+      -->
+    </ejbdoclet>
+    
+    <!-- ejbselect tests -->
+    <mkdir dir="${build.resources}/cmp2/ejbselect/META-INF"/>
+    <ejbdoclet destdir="${build.gen-src}"
+	     ejbspec="2.0"
+	     excludedtags="@version,@author"
+             mergedir="${source.etc}/cmp2/ejbselect">
+      <fileset dir="${source.java}">
+        <include name="org/jboss/test/cmp2/ejbselect/*Bean.java"/>
+      </fileset>
+      <localinterface/>
+      <localhomeinterface/>
+      <entitypk/>
+      <utilobject cacheHomes="true" includeGUID="false"/>
+      <entitycmp/>
+      <session/>
+      <deploymentdescriptor
+         destdir="${build.resources}/cmp2/ejbselect/META-INF"
+         validatexml="${validatexml}"/>
+      <jboss
+         version="3.2"
+         xmlencoding="UTF-8"
+         destdir="${build.resources}/cmp2/ejbselect/META-INF"
+         validatexml="${validatexml}"/>
+    </ejbdoclet>    
 
     <!-- cmp2 relationship stress tests -->
     <mkdir dir="${build.resources}/cmp2/cmrstress/META-INF"/>
@@ -727,6 +615,21 @@ marathon.threadcount:       ${marathon.threadcount}
              datasource="java:/DefaultDS"
              datasourceMapping ="Hypersonic SQL"
              />
+    </ejbdoclet>
+
+    <!-- cmp2 enum tests -->
+    <ejbdoclet destdir="${build.gen-src}"
+	     ejbspec="2.0"
+	     excludedtags="@version,@author"
+             mergedir="${source.resources}/cmp2/enum">
+      <fileset dir="${source.java}">
+        <include name="org/jboss/test/cmp2/enum/ejb/*Bean.java"/>
+      </fileset>
+      <remoteinterface/>
+      <localinterface/>
+      <homeinterface/>
+      <localhomeinterface/>
+      <utilobject cacheHomes="true" includeGUID="false" kind="physical" />
     </ejbdoclet>
 
 <!--undeploy of broken packages-->
@@ -763,6 +666,7 @@ marathon.threadcount:       ${marathon.threadcount}
              <!--mergedir="${source.resources}/jca/ejb"-->
       <fileset dir="${source.java}">
         <include name="org/jboss/test/jca/ejb/*Bean.java"/>
+        <exclude name="org/jboss/test/jca/ejb/Unshareable*Bean.java"/>
       </fileset>
       <packageSubstitution packages="ejb" substituteWith="interfaces"/>
       <remoteinterface/>
@@ -983,11 +887,99 @@ marathon.threadcount:       ${marathon.threadcount}
       <deploymentdescriptor xmlencoding="UTF-8"
                             destdir="${build.resources}/entity/entity/META-INF"/>
       <jboss xmlencoding="UTF-8"
-             version="3.0"
+             version="3.2"
              datasource="java:/DefaultDS"
              typemapping="Hypersonic SQL"
              destdir="${build.resources}/entity/entity/META-INF"/>
     </ejbdoclet>
+
+<!-- JBoss.NET services generation --> 
+    <!-- call wsdl4j emitter --> 
+    <java dir="${build.gen-src}" fork="yes" failOnError="true" className="org.apache.axis.wsdl.WSDL2Java">
+        <arg value="-s" />
+        <arg value="-d" /> <arg value="Session" />
+        <arg value="-Nhttp://net.jboss.org/samples/AddressBook=org.jboss.test.webservice.addr" />
+        <arg value="${source.resources}/webservice/addr/wsr/META-INF/AddressBook.wsdl" />
+        <classpath refid="apache.axis.generate.classpath"/>
+    </java>
+
+    <!-- call wsdl4j emitter -->
+    <java dir="${build.gen-src}" fork="yes" failOnError="true" className="org.apache.axis.wsdl.WSDL2Java">
+        <arg value="-d" /> <arg value="Session" />
+        <arg value="-Nhttp://www.xmethods.net/sd/BabelFishService.wsdl=org.jboss.test.webservice.external.babelfish" />
+        <arg value="${source.resources}/webservice/external/wsr/META-INF/babelfish.wsdl" />
+        <classpath refid="apache.axis.generate.classpath"/>
+    </java>
+
+    <!-- call wsdl4j emitter -->
+    <java dir="${build.gen-src}" fork="yes" failOnError="true" className="org.apache.axis.wsdl.WSDL2Java">
+        <arg value="-d" /> <arg value="Session" />
+        <arg value="-Nurn:GoogleSearch=org.jboss.test.webservice.external.google" />
+        <arg value="${source.resources}/webservice/external/wsr/META-INF/google.wsdl" />
+        <classpath refid="apache.axis.generate.classpath"/>
+    </java>
+
+    <!-- Delete the service impl skeleton as we have an impl -->
+    <delete file="${build.gen-src}/org/jboss/test/webservice/addr/AddressBookSOAPBindingImpl.java"/>
+
+    <taskdef name="webserviceejbdoclet" classname="xdoclet.modules.ejb.EjbDocletTask"
+      classpathref="xdoclet.task.classpath"/>
+    <taskdef name="webservicejmxdoclet" classname="xdoclet.modules.jmx.JMXDocletTask"
+      classpathref="xdoclet.task.classpath"/>
+
+    <webserviceejbdoclet destdir="${build.gen-src}"
+	     ejbspec="2.0"
+	     excludedtags="@version,@author">
+      <fileset dir="${source.java}">
+        <include name="org/jboss/test/webservice/hello/server/Hello*Bean.java"/>
+        <include name="org/jboss/test/webservice/hello/HelloData.java"/>
+      </fileset>
+      <entitycmp cmpspec="2.x"/>
+      <remoteinterface/>
+      <homeinterface/>
+      <deploymentdescriptor xmlencoding ="UTF-8"
+         destdir="${build.resources}/webservice/hello/ejb/META-INF"/>
+      <jboss xmlencoding="UTF-8"
+         version="3.0"
+         destdir="${build.resources}/webservice/hello/ejb/META-INF"/>
+      <jbossnet webDeploymentName="Hello" 
+      	prefix="hello" 
+      	destdir="${build.resources}/webservice/hello/wsr/META-INF"
+      	targetNameSpace="http://net.jboss.org/hello" />
+    </webserviceejbdoclet>
+
+    <webservicejmxdoclet destdir="${build.gen-src}"
+	     excludedtags="@version,@author">
+      <fileset dir="${source.java}">
+        <include name="org/jboss/test/webservice/jmx/JMXTest.java"/>
+      </fileset>
+      <mbeaninterface/>
+      <jbossnet webDeploymentName="JMXTest"
+      	prefix="jmx" 
+      	destdir="${build.resources}/webservice/jmx/wsr/META-INF" 
+      	targetNameSpace="http://net.jboss.org/jmx" />
+    </webservicejmxdoclet>
+
+    <webserviceejbdoclet destdir="${build.gen-src}"
+	     ejbspec="2.0"
+	     excludedtags="@version,@author">
+      <fileset dir="${source.java}">
+        <include name="org/jboss/test/webservice/arrays/ArraysData.java"/>
+        <include name="org/jboss/test/webservice/arrays/server/ArraysBean.java"/>
+      </fileset>
+      <entitycmp cmpspec="2.x"/>
+      <remoteinterface/>
+      <homeinterface/>
+      <deploymentdescriptor xmlencoding ="UTF-8"
+         destdir="${build.resources}/webservice/arrays/ejb/META-INF"/>
+      <jboss xmlencoding="UTF-8"
+         version="3.0"
+         destdir="${build.resources}/webservice/arrays/ejb/META-INF"/>
+      <jbossnet webDeploymentName="Arrays" 
+      	prefix="arrays" 
+      	destdir="${build.resources}/webservice/arrays/wsr/META-INF" 
+      	targetNameSpace="http://net.jboss.org/arrays" />
+    </webserviceejbdoclet>
 
   </target>
 
@@ -1123,6 +1115,7 @@ marathon.threadcount:       ${marathon.threadcount}
                    _jars-bank-new,
                    _jars-bmp,
                    _jars-cts,
+                   _jars-client,
                    _jars-entityexc,
                    _jars-hello,
                    _jars-idgen,
@@ -1158,12 +1151,15 @@ marathon.threadcount:       ${marathon.threadcount}
                    _jars-helloiiop,
                    _jars-bankiiop,
                    _jars-hellojrmpiiop,
+                   _jars-iiop,
                    _jars-excepiiop,
                    _jars-marathon,
                    _jars-entity,
                    _jars-classloader,
                    _jars-tm,
-                   _jars-util">
+                   _jars-util,
+                   _jars-webservice
+                   ">
   </target>
 
   <!--
@@ -1180,7 +1176,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <include name="org/jboss/test/util/**"/>
   </patternset>
 
-  <patternset id="common.test.application.classes">
+  <patternset id="jboss.test.util.ejb.set">
     <include name="org/jboss/test/util/ejb/**"/>
   </patternset>
 
@@ -1204,7 +1200,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <!-- build bank.jar -->
     <jar jarfile="${build.lib}/bank.jar">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/bank/interfaces/**"/>
         <include name="org/jboss/test/bank/ejb/**"/>
         <include name="org/jboss/test/bank/beans/**"/>
@@ -1217,7 +1213,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <!-- build bank.jar -->
     <jar jarfile="${build.lib}/bank-ejb20.jar">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/bank/interfaces/**"/>
         <include name="org/jboss/test/bank/ejb/**"/>
         <include name="org/jboss/test/bank/beans/**"/>
@@ -1248,7 +1244,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <!-- build banknew.jar -->
     <jar jarfile="${build.lib}/banknew.jar">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/banknew/interfaces/**"/>
         <include name="org/jboss/test/banknew/ejb/**"/>
         <include name="org/jboss/test/banknew/beans/**"/>
@@ -1279,7 +1275,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <!-- build bankiiop.jar -->
     <jar jarfile="${build.lib}/bankiiop.jar">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/bankiiop/interfaces/**"/>
         <include name="org/jboss/test/bankiiop/ejb/**"/>
         <include name="org/jboss/test/bankiiop/beans/**"/>
@@ -1310,7 +1306,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <!-- build bmp.jar -->
     <jar jarfile="${build.lib}/bmp.jar">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/bmp/interfaces/**"/>
         <include name="org/jboss/test/bmp/ejb/**"/>
         <include name="org/jboss/test/bmp/beans/**"/>
@@ -1362,16 +1358,20 @@ marathon.threadcount:       ${marathon.threadcount}
       <metainf dir="${build.resources}/cts/META-INF">
         <include name="ejb-jar.xml"/>
         <include name="jboss.xml"/>
+        <include name="jbosscmp-jdbc.xml"/>
       </metainf>
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/cts/interfaces/**"/>
         <include name="org/jboss/test/cts/ejb/**"/>
         <include name="org/jboss/test/cts/beans/**"/>
         <include name="org/jboss/test/cts/jms/**"/>
         <include name="org/jboss/test/cts/keys/**"/>
         <include name="org/jboss/test/cts/test/*_Stub*.class"/>
+        <include name="org/jboss/test/util/ejb/*"/>
       </fileset>
+      <zipfileset src="${junit.junit.lib}/junit.jar"
+        includes="junit/**/*.*"/>
     </jar>
     <!-- build a duplicate cts.jar with new home bindings -->
     <jar jarfile="${build.lib}/cts2.jar">
@@ -1380,7 +1380,7 @@ marathon.threadcount:       ${marathon.threadcount}
         <include name="jboss.xml"/>
       </metainf>
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/cts/interfaces/**"/>
         <include name="org/jboss/test/cts/ejb/**"/>
         <include name="org/jboss/test/cts/beans/**"/>
@@ -1421,7 +1421,7 @@ marathon.threadcount:       ${marathon.threadcount}
     </jar>
     <jar jarfile="${build.lib}/cts-v1cmp.jar">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/cts/ejb/CtsCmp2*.class"/>
         <include name="org/jboss/test/cts/interfaces/CtsCmp2*"/>
       </fileset>
@@ -1485,7 +1485,7 @@ marathon.threadcount:       ${marathon.threadcount}
     </jar>
     <jar jarfile="${build.lib}/cts-v2cmp.jar">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/cts/ejb/CtsCmp2*.class"/>
         <include name="org/jboss/test/cts/interfaces/CtsCmp2*"/>
       </fileset>
@@ -1517,6 +1517,23 @@ marathon.threadcount:       ${marathon.threadcount}
 
   </target>
 
+  <target name="_jars-client">
+    <mkdir dir="${build.lib}"/>
+
+    <jar destfile="${build.lib}/app-client.jar">
+       <metainf dir="${build.resources}/client">
+         <include name="*-client.xml" />
+       </metainf>
+    </jar>
+    <ear earfile="${build.lib}/app-client.ear"
+      appxml="${build.resources}/client/application.xml">
+      <fileset dir="${build.lib}">
+        <include name="cts.jar"/>
+        <include name="app-client.jar"/>
+      </fileset>
+    </ear>
+  </target>
+
   <!-- entityexc test -->
   <target name="_jars-entityexc">
     <mkdir dir="${build.lib}"/>
@@ -1537,7 +1554,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <!-- build entityexc.jar -->
     <jar jarfile="${build.lib}/entityexc.jar">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/entityexc/interfaces/**"/>
         <include name="org/jboss/test/entityexc/ejb/**"/>
       </fileset>
@@ -1568,7 +1585,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <jar jarfile="${build.lib}/hello.jar">
       <metainf dir="${build.resources}/hello/META-INF" />
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/hello/interfaces/**"/>
         <include name="org/jboss/test/hello/ejb/**"/>
       </fileset>
@@ -1596,7 +1613,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <jar jarfile="${build.lib}/helloiiop.jar">
       <metainf dir="${build.resources}/helloiiop/META-INF" />
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/helloiiop/interfaces/**"/>
         <include name="org/jboss/test/helloiiop/ejb/**"/>
       </fileset>
@@ -1624,9 +1641,39 @@ marathon.threadcount:       ${marathon.threadcount}
     <jar jarfile="${build.lib}/hellojrmpiiop.jar">
       <metainf dir="${build.resources}/hellojrmpiiop/META-INF" />
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/hellojrmpiiop/interfaces/**"/>
         <include name="org/jboss/test/hellojrmpiiop/ejb/**"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- iiop parameter passing test -->
+  <target name="_jars-iiop">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build iioptest.jar -->
+    <jar jarfile="${build.lib}/iioptest.jar"
+        manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.client.classes"/>
+        <include name="org/jboss/test/iiop/interfaces/**"/>
+        <include name="org/jboss/test/iiop/util/**"/>
+        <include name="org/jboss/test/iiop/test/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/iiop">
+        <include name="*.*"/>
+      </fileset>
+    </jar>
+
+    <!-- build iiop.jar -->
+    <jar jarfile="${build.lib}/iiop.jar">
+      <metainf dir="${build.resources}/iiop/META-INF" />
+      <fileset dir="${build.classes}">
+        <patternset refid="jboss.test.util.ejb.set"/>
+        <include name="org/jboss/test/iiop/interfaces/**"/>
+        <include name="org/jboss/test/iiop/util/**"/>
+        <include name="org/jboss/test/iiop/ejb/**"/>
       </fileset>
     </jar>
   </target>
@@ -1652,7 +1699,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <jar jarfile="${build.lib}/excepiiop.jar">
       <metainf dir="${build.resources}/excepiiop/META-INF" />
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/excepiiop/interfaces/**"/>
         <include name="org/jboss/test/excepiiop/ejb/**"/>
       </fileset>
@@ -1679,7 +1726,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <!-- build idgen.jar -->
     <jar jarfile="${build.lib}/idgen.jar">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/idgen/interfaces/**"/>
         <include name="org/jboss/test/idgen/ejb/**"/>
         <include name="org/jboss/test/idgen/beans/**"/>
@@ -1710,7 +1757,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <!-- build dbtest.jar -->
     <jar jarfile="${build.lib}/dbtest.jar">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/dbtest/interfaces/**"/>
         <include name="org/jboss/test/dbtest/ejb/**"/>
         <include name="org/jboss/test/dbtest/bean/**"/>
@@ -1741,7 +1788,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <!-- build jmsra.jar -->
     <jar jarfile="${build.lib}/jmsra.jar">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/jmsra/interfaces/**"/>
         <include name="org/jboss/test/jmsra/ejb/**"/>
         <include name="org/jboss/test/jmsra/bean/**"/>
@@ -1772,7 +1819,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <!-- build mdb.jar -->
     <jar jarfile="${build.lib}/mdb.jar">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/mdb/bean/**"/>
       </fileset>
       <fileset dir="${build.resources}/mdb">
@@ -1801,7 +1848,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <!-- build locktest.jar -->
     <jar jarfile="${build.lib}/locktest.jar">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/lock/interfaces/**"/>
         <include name="org/jboss/test/lock/bean/**"/>
       </fileset>
@@ -1831,7 +1878,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <!-- build readahead.jar -->
     <jar jarfile="${build.lib}/readahead.jar">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/readahead/interfaces/**"/>
         <include name="org/jboss/test/readahead/ejb/**"/>
       </fileset>
@@ -1861,7 +1908,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <!-- build xatest.jar -->
     <jar jarfile="${build.lib}/xatest.jar">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/xa/interfaces/**"/>
         <include name="org/jboss/test/xa/bean/**"/>
       </fileset>
@@ -1922,6 +1969,16 @@ marathon.threadcount:       ${marathon.threadcount}
       </fileset>
     </jar>
 
+    <!-- build jcatest-unshared.jar -->
+    <jar jarfile="${build.lib}/jcatest-unshared.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jca/interfaces/Unshareable**"/>
+        <include name="org/jboss/test/jca/ejb/Unshareable**"/>
+      </fileset>
+      <fileset dir="${build.resources}/jca/ejb">
+        <include name="META-INF/*.xml"/>
+      </fileset>
+    </jar>
     <jar jarfile="${build.lib}/jcabanktest.jar">
       <fileset dir="${build.classes}">
         <include name="org/jboss/test/jca/bank/interfaces/**"/>
@@ -1977,6 +2034,13 @@ marathon.threadcount:       ${marathon.threadcount}
       </fileset>
     </jar>
 
+    <jar jarfile="${build.lib}/attrtest.sar">
+      <metainf dir="${build.resources}/jmx/attrs" />
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/attrs/AttrTests*"/>
+      </fileset>
+    </jar>
+
     <jar jarfile="${build.lib}/testdeploya.sar">
       <fileset dir="${build.classes}">
         <include name="org/jboss/test/jmx/mbeana/**"/>
@@ -2026,6 +2090,13 @@ marathon.threadcount:       ${marathon.threadcount}
       </fileset>
       <fileset dir="${build.lib}">
         <include name="testdeploye-util.jar"/>
+      </fileset>
+    </jar>
+
+    <jar jarfile="${build.lib}/jmxproxy.sar">
+      <metainf dir="${build.resources}/jmx/proxy/META-INF" />
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/proxy/*.class"/>
       </fileset>
     </jar>
 
@@ -2198,6 +2269,50 @@ marathon.threadcount:       ${marathon.threadcount}
       </fileset>
       <fileset dir="${build.resources}/jmx/eardeployment/">
         <include name="META-INF/application.xml"/>
+      </fileset>
+    </jar>
+
+	<!-- eardepends test -->
+    <jar jarfile="${build.lib}/eardependsaejb.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/eardepends/dependent/ejb/*.class"/>
+        <include name="org/jboss/test/jmx/eardepends/dependent/interfaces/*.class"/>
+      </fileset>
+      <fileset dir="${build.resources}/jmx/eardepends/dependent">
+        <include name="META-INF/ejb-jar.xml"/>
+        <include name="META-INF/jboss.xml"/>
+      </fileset>
+    </jar>
+
+    <jar jarfile="${build.lib}/eardependsbejb.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/eardepends/independent/ejb/*.class"/>
+        <include name="org/jboss/test/jmx/eardepends/independent/interfaces/*.class"/>
+      </fileset>
+      <fileset dir="${build.resources}/jmx/eardepends/independent">
+        <include name="META-INF/ejb-jar.xml"/>
+        <include name="META-INF/jboss.xml"/>
+      </fileset>
+    </jar>
+
+    <jar jarfile="${build.lib}/eardependsmbean.sar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/eardepends/mbean/*.class"/>
+      </fileset>
+      <fileset dir="${build.resources}/jmx/eardepends/mbean">
+        <include name="META-INF/jboss-service.xml"/>
+      </fileset>
+    </jar>
+
+    <jar jarfile="${build.lib}/eardepends.ear">
+      <fileset dir="${build.lib}">
+        <include name="eardependsaejb.jar"/>
+        <include name="eardependsbejb.jar"/>
+        <include name="eardependsmbean.sar"/>
+      </fileset>
+      <fileset dir="${build.resources}/jmx/eardepends/app">
+        <include name="META-INF/application.xml"/>
+        <include name="META-INF/jboss-app.xml"/>
       </fileset>
     </jar>
 
@@ -2392,10 +2507,37 @@ marathon.threadcount:       ${marathon.threadcount}
       </fileset>
     </jar>
 
+    <rmic base="${build.classes}"
+      sourcebase="${build.classes}"
+      verify="${rmic.verify}"
+      iiop="${rmic.iiop}"
+      iiopopts="${rmic.iiopops}"
+      idl="${rmic.idl}"
+      idlopts="${rmic.idlops}"
+      debug="${rmic.debug}"
+      stubVersion="${rmic.stubVersion}"
+    >
+      <classpath refid="tests.classpath"/>
+      <include name="${rmic.includes}"/>
+      <exclude name="${rmic.excludes}"/>
+      <include name="org/jboss/test/jmx/invoker/Listener.class" />
+    </rmic>
+
+    <!-- ha-invoker adaptor sar -->
+    <jar jarfile="${build.lib}/ha-invoker.sar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/ha/*.class"/>
+      </fileset>
+      <fileset dir="${build.resources}/jmx/ha/">
+        <include name="META-INF/*.xml"/>
+      </fileset>
+    </jar>
+
     <!-- invoker adaptor test sar -->
     <jar jarfile="${build.lib}/invoker-adaptor-test.sar">
       <fileset dir="${build.classes}">
         <include name="org/jboss/test/jmx/invoker/*.class"/>
+        <include name="org/jboss/test/jmx/interceptors/PrincipalInterceptor.class"/>
       </fileset>
       <fileset dir="${build.resources}/jmx/invoker/sar">
         <include name="META-INF/*.xml"/>
@@ -2412,6 +2554,17 @@ marathon.threadcount:       ${marathon.threadcount}
       </fileset>
     </jar>
 
+      <pathconvert targetos="unix" property="codebaseURL">
+         <path path="${build.lib}"/>
+      </pathconvert>
+      <echo message="+++ codebase=${codebaseURL}" />
+      <echo message="+++ build.lib=${build.lib}" />
+      <copy todir="${build.lib}" filtering="true" overwrite="true"
+         file="${source.resources}/jmx/archivestest-service.xml">
+         <filterset>
+            <filter token="codebase" value="file:/${codebaseURL}"/>
+         </filterset>
+      </copy>
   </target>
 
   <!-- naming test -->
@@ -2422,11 +2575,14 @@ marathon.threadcount:       ${marathon.threadcount}
     <!-- build naming.jar -->
     <jar jarfile="${build.lib}/naming.jar">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/naming/ejb/**"/>
         <include name="org/jboss/test/naming/interfaces/**"/>
         <include name="org/jboss/test/util/Debug.class"/>
+        <include name="org/jboss/test/util/ejb/*"/>
       </fileset>
+      <zipfileset src="${junit.junit.lib}/junit.jar"
+        includes="junit/**/*.*"/>
       <fileset dir="${build.resources}/naming/jar">
         <include name="META-INF/*.xml"/>
       </fileset>
@@ -2435,7 +2591,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <!-- build remote-naming.jar -->
     <jar jarfile="${build.lib}/remote-naming.jar">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/naming/ejb/**"/>
         <include name="org/jboss/test/naming/interfaces/**"/>
         <include name="org/jboss/test/util/Debug.class"/>
@@ -2448,7 +2604,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <!-- build naminga.jar -->
     <jar jarfile="${build.lib}/subdir/naminga.jar">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/naming/ejb/**"/>
         <include name="org/jboss/test/naming/interfaces/**"/>
         <include name="org/jboss/test/util/Debug.class"/>
@@ -2461,7 +2617,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <!-- build namingb.jar -->
     <jar jarfile="${build.lib}/namingb.jar">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/naming/ejb/**"/>
         <include name="org/jboss/test/naming/interfaces/**"/>
         <include name="org/jboss/test/util/Debug.class"/>
@@ -2635,7 +2791,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <!-- build threadingBean.jar -->
     <jar jarfile="${build.lib}/threadingBean.jar">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/threading/interfaces/**"/>
         <include name="org/jboss/test/threading/ejb/**"/>
       </fileset>
@@ -2666,7 +2822,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <!-- build deadlock.jar -->
     <jar jarfile="${build.lib}/deadlock.jar">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/deadlock/interfaces/**"/>
         <include name="org/jboss/test/deadlock/bean/**"/>
         <include name="org/somepackage/**"/>
@@ -2699,7 +2855,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <!-- build pooled.jar -->
     <jar jarfile="${build.lib}/pooled.jar">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/pooled/interfaces/**"/>
         <include name="org/jboss/test/pooled/bean/**"/>
         <include name="org/somepackage/**"/>
@@ -2734,7 +2890,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <!-- build testbean.jar -->
     <jar jarfile="${build.lib}/testbean.jar">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/testbean/interfaces/**"/>
         <include name="org/jboss/test/testbean/bean/**"/>
         <!--include name="org/jboss/test/testbean2/interfaces/**"/-->
@@ -2748,7 +2904,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <!-- build testbean2.jar -->
     <jar jarfile="${build.lib}/testbean2.jar">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/testbean/interfaces/**"/>
         <include name="org/jboss/test/testbean2/interfaces/**"/>
         <include name="org/jboss/test/testbean2/bean/**"/>
@@ -2766,7 +2922,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <!-- build testbeancluster.jar -->
     <jar jarfile="${build.lib}/testbeancluster.jar">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/testbean/interfaces/**"/>
         <include name="org/jboss/test/testbeancluster/interfaces/**"/>
         <include name="org/jboss/test/testbean/bean/**"/>
@@ -2799,7 +2955,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <!-- build perf.jar -->
     <jar jarfile="${build.lib}/perf.jar">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/perf/interfaces/**"/>
         <include name="org/jboss/test/perf/ejb/**"/>
       </fileset>
@@ -2810,7 +2966,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <!-- build probe.jar -->
     <jar jarfile="${build.lib}/probe.jar">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/perf/interfaces/Perf*"/>
         <include name="org/jboss/test/perf/interfaces/Probe*"/>
         <include name="org/jboss/test/perf/ejb/Perf*"/>
@@ -2825,7 +2981,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <!-- build secure-perf.jar -->
     <jar jarfile="${build.lib}/secure-perf.jar">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/perf/interfaces/**"/>
         <include name="org/jboss/test/perf/ejb/**"/>
       </fileset>
@@ -2884,7 +3040,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <jar jarfile="${build.lib}/jbosstest-web-ejbs.jar"
          manifest="${build.resources}/web/ejb.mf">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/web/interfaces/**"/>
         <include name="org/jboss/test/web/ejb/**"/>
       </fileset>
@@ -2924,6 +3080,27 @@ marathon.threadcount:       ${marathon.threadcount}
       </fileset>
     </jar>
 
+    <!-- Build manifest-web.war -->
+    <manifest file="${build.resources}/manifest-web.mf">
+       <attribute name="Class-Path" value="jbosstest-web-util.jar"/>
+    </manifest>
+    <war warfile="${build.lib}/manifest-web.war"
+      manifest="${build.resources}/manifest-web.mf"
+	   webxml="${build.resources}/web/WEB-INF/manifest-web.xml">
+      <fileset dir="${build.resources}/web/html/manifest">
+        <include name="**/*.jsp"/>
+      </fileset>
+      <fileset dir="${build.lib}">
+        <include name="jbosstest-web-util.jar" />
+      </fileset>
+    </war>
+    <ear earfile="${build.lib}/manifest-web.ear"
+      appxml="${build.resources}/web/META-INF/application-mf.xml">
+      <fileset dir="${build.lib}">
+        <include name="manifest-web.war"/>
+        <include name="jbosstest-web-util.jar"/>
+      </fileset>
+    </ear>
 
     <!-- build root-web.war -->
     <war warfile="${build.lib}/root-web.war"
@@ -3000,6 +3177,17 @@ marathon.threadcount:       ${marathon.threadcount}
       </fileset>
     </war>
 
+    <!-- war to test DIGEST auth 
+    <war warfile="${build.lib}/digest-auth.war"
+      webxml="${build.resources}/web/WEB-INF/digest-auth-web.xml">
+      <webinf dir="${build.resources}/web/html/other/WEB-INF">
+        <include name="jboss-web.xml"/>
+      </webinf>
+      <fileset dir="${build.resources}/web/html/root">
+        <include name="**/*.html"/>
+      </fileset>
+    </war>
+-->
 
     <!-- build jbosstest-web.ear -->
     <ear earfile="${build.lib}/jbosstest-web.ear"
@@ -3016,6 +3204,9 @@ marathon.threadcount:       ${marathon.threadcount}
         <include name="lib/util.jar"/>
         <include name="websubdir/relative.jar"/>
       </fileset>
+      <fileset dir="${build.resources}/web">
+        <include name="scripts/*"/>
+      </fileset>
     </ear>
 
     <!-- Create an ear with the same war as the jbosstest-web.ear to test
@@ -3023,9 +3214,6 @@ marathon.threadcount:       ${marathon.threadcount}
     -->
     <ear earfile="${build.lib}/jbosstest-web2.ear"
     appxml="${build.resources}/web/META-INF/application2.xml">
-      <metainf dir="${build.resources}/web/META-INF">
-        <include name="jboss-app.xml" />
-      </metainf>
       <fileset dir="${build.lib}">
         <include name="wars/notjbosstest-web.war"/>
       </fileset>
@@ -3052,7 +3240,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <!-- build bench.jar -->
     <jar jarfile="${build.lib}/bench.jar">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/bench/interfaces/**"/>
         <include name="org/jboss/test/bench/ejb/**"/>
       </fileset>
@@ -3223,12 +3411,9 @@ marathon.threadcount:       ${marathon.threadcount}
   <target name="_jars-jsr77">
     <mkdir dir="${build.lib}"/>
 
-    <!-- build jsr77-test.jar -->
-    <jar jarfile="${build.lib}/jsr77-test.jar">
-      <fileset dir="${build.classes}">
-       <include name="org/jboss/test/management/**"/>
-      </fileset>
-    </jar>
+    <!-- Copy the ejb connector -->
+    <copy file="${jboss.management.lib}/ejb-management.jar"
+      todir="${build.lib}"/>
   </target>
 
   <!-- foe-deployer test -->
@@ -3356,15 +3541,14 @@ marathon.threadcount:       ${marathon.threadcount}
     <!-- build cmp2-simple.jar -->
     <jar jarfile="${build.lib}/cmp2-simple.jar">
       <fileset dir="${build.classes}">
+       <patternset refid="jboss.test.util.ejb.set" />
        <include name="org/jboss/test/cmp2/simple/**"/>
       </fileset>
       <fileset dir="${build.resources}/cmp2/simple">
        <include name="**/*.*"/>
       </fileset>
-      <zipfileset src="${junitejb.junitejb.lib}/junitejb.jar"
-        includes="net/**/*.*"/>
       <zipfileset src="${junit.junit.lib}/junit.jar"
-        includes="junit/**/*.*"/>
+        includes="junit/framework/*.*"/>
     </jar>
 
     <!-- build cmp2-commerce.jar -->
@@ -3526,6 +3710,48 @@ marathon.threadcount:       ${marathon.threadcount}
       <zipfileset src="${junit.junit.lib}/junit.jar"
         includes="junit/**/*.*"/>
     </jar>
+    
+    <jar jarfile="${build.lib}/cmp2-idxandusersql.jar">
+      <fileset dir="${build.classes}">
+      	<include name="org/jboss/test/cmp2/idxandusersql/**"/>
+      </fileset>
+      <!--
+      <fileset dir="${build.resources}/cmp2/idxandusersql">
+        <include name="**/*.*"/>
+      </fileset>
+      -->
+      <metainf dir="${source.java}/org/jboss/test/cmp2/idxandusersql/META-INF"/>
+
+
+      <zipfileset src="${junitejb.junitejb.lib}/junitejb.jar"
+        includes="net/**/*.*"/>
+      <zipfileset src="${junit.junit.lib}/junit.jar"
+        includes="junit/**/*.*"/>
+    </jar>      
+
+    <!-- build cmp2-enum.jar -->
+    <jar jarfile="${build.lib}/cmp2-enum.jar">
+      <fileset dir="${build.classes}">
+       <include name="org/jboss/test/cmp2/enum/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/cmp2/enum">
+       <include name="**/*.*"/>
+      </fileset>
+      <zipfileset src="${junitejb.junitejb.lib}/junitejb.jar"
+        includes="net/**/*.*"/>
+      <zipfileset src="${junit.junit.lib}/junit.jar"
+        includes="junit/**/*.*"/>
+    </jar>
+
+    <!-- build cmp2-cmrtansaction.jar -->
+    <jar jarfile="${build.lib}/cmp2-cmrtransaction.jar">
+      <fileset dir="${build.classes}">
+       <include name="org/jboss/test/cmp2/cmrtransaction/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/cmp2/cmrtransaction">
+       <include name="**/*.*"/>
+      </fileset>
+    </jar>
   </target>
 
   <!-- exception tests -->
@@ -3555,7 +3781,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <!-- build compliance.jar -->
     <jar jarfile="${build.lib}/jbossmx-compliance.jar">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/jbossmx/compliance/**"/>
       </fileset>
     </jar>
@@ -3563,7 +3789,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <!-- build implementation.jar -->
     <jar jarfile="${build.lib}/jbossmx-implementation.jar">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/jbossmx/implementation/**"/>
       </fileset>
     </jar>
@@ -3571,7 +3797,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <!-- build performance.jar -->
     <jar jarfile="${build.lib}/jbossmx-performance.jar">
       <fileset dir="${build.classes}">
-        <patternset refid="common.test.application.classes"/>
+        <patternset refid="jboss.test.util.ejb.set"/>
         <include name="org/jboss/test/jbossmx/performance/**"/>
       </fileset>
     </jar>
@@ -3703,11 +3929,20 @@ marathon.threadcount:       ${marathon.threadcount}
         <include name="org/jboss/test/classloader/circularity/support/Base.class"/>
       </fileset>
     </jar>
+    <jar jarfile="${build.lib}/ha.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/classloader/circularity/support/HARMIServerImpl.class"/>
+        <include name="org/jboss/test/classloader/circularity/support/HARMIServer.class"/>
+        <include name="org/jboss/test/classloader/circularity/support/HARMIServerImpl_Stub.class"/>
+      </fileset>
+    </jar>
+
 
     <jar jarfile="${build.lib}/circularity.sar">
       <metainf dir="${source.resources}/classloader/circularity" />
       <fileset dir="${build.classes}">
-        <include name="org/jboss/test/classloader/circularity/**"/>
+        <include name="org/jboss/test/classloader/circularity/*"/>
+        <include name="org/jboss/test/classloader/circularity/test/*"/>
       </fileset>
     </jar>
 
@@ -3720,7 +3955,7 @@ marathon.threadcount:       ${marathon.threadcount}
     </jar>
 
     <!-- build loadingresource.sar -->
-    <jar jarfile="${build.lib}/loadingresource.sar">
+    <jar jarfile="${build.lib}/loading.sar">
       <metainf dir="${source.resources}/classloader/resource">
          <include name="jboss-service.xml" />
       </metainf>
@@ -3738,9 +3973,67 @@ marathon.threadcount:       ${marathon.threadcount}
           <include name="dtds/*" />
         </fileset>
         <fileset dir="${build.lib}">
-          <include name="loadingresource.sar" />
+          <include name="loading.sar" />
         </fileset>
      </ear>
+
+      <!-- Create unpacked loadingresource1 ear -->
+      <property name="ear1.dist"
+         value="${build.lib}/unpacked/loadingresource1.ear" />
+      <mkdir dir="${ear1.dist}/META-INF" />
+      <copy todir="${ear1.dist}/META-INF">
+         <fileset dir="${build.resources}/classloader/resource">
+            <include name="application.xml" />
+            <include name="jboss-app.xml" />
+         </fileset>
+      </copy>
+      <mkdir dir="${ear1.dist}/loading.sar/META-INF" />
+      <unzip src="${build.lib}/loading.sar" dest="${ear1.dist}/loading.sar" />
+      <copy file="${build.resources}/classloader/resource/jboss-serviceX.xml"
+         tofile="${ear1.dist}/loading.sar/META-INF/jboss-service.xml"
+         overwrite="true">
+         <filterset>
+            <filter token="VERSION" value="1"/>
+         </filterset>
+      </copy>
+      <copy file="${build.resources}/classloader/resource/dtds/sampleX.dtd"
+         tofile="${ear1.dist}/dtds/sample1.dtd" />
+      <!-- Create unpacked loadingresource2 ear -->
+      <property name="ear2.dist"
+         value="${build.lib}/unpacked/loadingresource2.ear" />
+      <mkdir dir="${ear2.dist}/META-INF" />
+      <copy todir="${ear2.dist}/META-INF">
+         <fileset dir="${build.resources}/classloader/resource">
+            <include name="application.xml" />
+            <include name="jboss-app.xml" />
+         </fileset>
+      </copy>
+      <mkdir dir="${ear2.dist}/loading.tmp/META-INF" />
+      <unzip src="${build.lib}/loading.sar" dest="${ear2.dist}/loading.tmp" />
+      <copy file="${build.resources}/classloader/resource/jboss-serviceX.xml"
+         tofile="${ear2.dist}/loading.tmp/META-INF/jboss-service.xml"
+         overwrite="true">
+         <filterset>
+            <filter token="VERSION" value="2"/>
+         </filterset>
+      </copy>
+      <copy todir="${ear2.dist}//loading.tmp/dtds">
+         <fileset dir="${build.resources}/classloader/resource/dtds" />
+      </copy>
+      <copy file="${build.resources}/classloader/resource/dtds/sampleX.dtd"
+         tofile="${ear2.dist}/loading.tmp/dtds/sample2.dtd" />
+      <zip destfile="${ear2.dist}/loading.sar" basedir="${ear2.dist}/loading.tmp"/>
+      <delete dir="${ear2.dist}/loading.tmp" />
+
+    <!-- build loadinclazz.sar -->
+    <jar jarfile="${build.lib}/loadingclazz.sar">
+      <metainf dir="${build.resources}/classloader/clazz">
+         <include name="jboss-service.xml" />
+      </metainf>
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/classloader/clazz/**"/>
+      </fileset>
+    </jar>
 
     <!-- Build version 1 of the singleton.jar -->
     <copy tofile="${build.gen-src}/org/jboss/test/classloader/scoping/singleton/MySingleton.java"
@@ -3849,6 +4142,14 @@ marathon.threadcount:       ${marathon.threadcount}
         <include name="org/jboss/test/classloader/classpath/**"/>
       </fileset>
     </jar>
+
+    <!-- build scopedtx.jar -->
+    <jar jarfile="${build.lib}/scopedtx.jar">
+      <metainf dir="${source.resources}/classloader/scoping/transaction/META-INF" />
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/classloader/scoping/transaction/**"/>
+      </fileset>
+    </jar>
   </target>
 
   <!-- entity test -->
@@ -3931,7 +4232,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <mkdir dir="${build.lib}"/>
 
     <!-- build tmtest.sar -->
-    <jar jarfile="${build.lib}/tmtest.sar">
+    <jar destfile="${build.lib}/tmtest.sar">
       <metainf dir="${build.resources}/tm">
          <include name="jboss-service.xml" />
       </metainf>
@@ -3941,6 +4242,188 @@ marathon.threadcount:       ${marathon.threadcount}
       </fileset>
     </jar>
   </target>
+
+   <!-- Web services tests -->
+   <target name="_jars-webservice">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- The addr.wsr -->
+    <mkdir dir="${build.resources}/webservice/addr/wsr/META-INF"/>
+
+    <copy toFile="${build.resources}/webservice/addr/wsr/META-INF/web-service.xml"
+       file="${build.gen-src}/org/jboss/test/webservice/addr/deploy.wsdd"/>
+
+    <jar destfile="${build.lib}/addr.wsr">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/webservice/addr/*.class"/>
+        <exclude name="org/jboss/test/webservice/addr/AddressBookSOAPBindingStub*" />
+      </fileset>
+      <fileset dir="${build.resources}/webservice/addr/wsr" />
+    </jar>
+
+    <jar destfile="${build.lib}/addrtest.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/webservice/addr/*.class"/>
+      </fileset>
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/webservice/addr/*.class"/>
+      </fileset>
+    </jar>
+
+    <!-- The jmx.wsr -->
+    <jar destfile="${build.lib}/jmx.wsr">
+      <fileset dir="${build.resources}/webservice/jmx/wsr">
+        <include name="**/*"/>
+      </fileset>
+    </jar>
+
+    <jar destfile="${build.lib}/jmx-test.sar">
+      <fileset dir="${build.lib}">
+        <include name="jmx.wsr"/>
+      </fileset>
+      <fileset dir="${build.resources}/webservice/jmx/sar/">
+        <include name="**/*"/>
+      </fileset>
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/webservice/jmx/**"/>
+      </fileset>
+    </jar>
+
+    <!-- The wshello.ear and wsr -->
+    <jar destfile="${build.lib}/wshello.wsr">
+      <fileset dir="${build.resources}/webservice/hello/wsr">
+        <include name="**/*"/>
+      </fileset>
+     </jar>
+   
+     <jar destfile="${build.lib}/wshellotest.jar">
+       <fileset dir="${build.classes}">
+         <include name="org/jboss/test/webservice/hello/**"/>
+         <exclude name="org/jboss/test/webservice/hello/server/**"/>
+       </fileset>
+     </jar>
+
+    <!-- build hello.jar -->
+    <jar destfile="${build.lib}/wshello.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/util/**"/>
+        <include name="org/jboss/test/webservice/hello/**"/>
+        <exclude name="org/jboss/test/webservice/hello/*UnitTestCase.*"/>
+      </fileset>
+      <fileset dir="${build.resources}/webservice/hello/ejb/">
+        <include name="**/*.xml"/>
+      </fileset>
+    </jar>
+
+    <ear destfile="${build.lib}/wshello.ear"
+      appxml="${build.resources}/webservice/hello/ear/META-INF/application.xml">
+    	<fileset dir="${build.lib}">
+        <include name="wshello.wsr"/>
+        <include name="wshello.jar"/>
+      </fileset>
+     </ear>
+
+     <!-- The arrays.ear and arrays.wsr -->
+    <jar jarFile="${build.lib}/arrays.wsr">
+      <fileset dir="${build.resources}/webservice/arrays/wsr">
+        <include name="**/*"/>
+      </fileset>
+     </jar>
+   
+     <jar jarFile="${build.lib}/arraystest.jar">
+ 	 <fileset dir="${build.classes}">
+         <include name="org/jboss/test/webservice/arrays/**"/>
+         <exclude name="org/jboss/test/webservice/arrays/server/**"/>
+     </fileset>
+      </jar>
+
+    <!-- build arrays.jar -->
+    <jar jarfile="${build.lib}/arrays.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/util/**"/>
+        <include name="org/jboss/test/webservice/arrays/**"/>
+        <exclude name="org/jboss/test/webservice/arrays/*UnitTestCase.*"/>
+      </fileset>
+      <fileset dir="${build.resources}/webservice/arrays/ejb/">
+        <include name="**/*.xml"/>
+      </fileset>
+    </jar>
+
+    <ear destfile="${build.lib}/arrays.ear"
+      appxml="${build.resources}/webservice/arrays/ear/META-INF/application.xml">
+    	<fileset dir="${build.lib}">
+        <include name="arrays.wsr"/>
+        <include name="arrays.jar"/>
+      </fileset>
+     </ear>
+
+     <!-- The store wsr and ear -->
+     <jar destfile="${build.lib}/store.wsr">
+ 		<fileset dir="${build.classes}">
+        	<include name="org/jboss/test/webservice/store/server/**"/>
+        </fileset>
+        <fileset dir="${build.resources}/webservice/store/wsr">
+         <include name="**/*"/>
+        </fileset>
+     </jar>
+   
+     <jar destfile="${build.lib}/storetest.jar">
+ 		<fileset dir="${build.classes}">
+        	<include name="org/jboss/test/webservice/store/*"/>
+        </fileset>
+     </jar>
+
+    <!-- build store.jar -->
+    <jar destfile="${build.lib}/store.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/webservice/store/**"/>
+        <exclude name="org/jboss/test/webservice/*Test*"/>
+      </fileset>
+      <fileset dir="${build.resources}/webservice/store/jar/">
+        <include name="**/*.xml"/>
+      </fileset>
+    </jar>
+
+    <ear destfile="${build.lib}/store.ear"
+      appxml="${build.resources}/webservice/store/ear/META-INF/application.xml">
+    	<fileset dir="${build.lib}">
+        <include name="store.wsr"/>
+        <include name="store.jar"/>
+      </fileset>
+     </ear>
+
+     <!-- The wsexternal wsr and ear -->
+    <jar destfile="${build.lib}/wsexternal.wsr">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/webservice/external/google/*.class"/>
+        <include name="org/jboss/test/webservice/external/babelfish/*.class"/>
+      </fileset>
+      <fileset dir="${build.resources}/webservice/external/wsr/">
+        <include name="**/*"/>
+      </fileset>
+    </jar>
+
+    <jar destfile="${build.lib}/wsexternal.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/webservice/external/**/*.class"/>
+        <exclude name="org/jboss/test/webservice/external/google/**/*.class"/>
+        <exclude name="org/jboss/test/webservice/external/babelfish/**/*.class"/>
+        <exclude name="org/jboss/test/webservice/external/*Test*"/>
+      </fileset>
+      <fileset dir="${build.resources}/webservice/external/jar/">
+        <include name="**/*"/>
+      </fileset>
+    </jar>
+
+    <ear destfile="${build.lib}/wsexternal.ear"
+      appxml="${build.resources}/webservice/external/ear/META-INF/application.xml">
+    	<fileset dir="${build.lib}">
+        <include name="wsexternal.wsr"/>
+        <include name="wsexternal.jar"/>
+      </fileset>
+     </ear>
+
+   </target>
 
   <!-- ================================================================== -->
   <!-- Install & Release                                                  -->
@@ -4256,6 +4739,7 @@ marathon.threadcount:       ${marathon.threadcount}
 
       <jvmarg value="${junit.jvm.options}"/>
       <sysproperty key="jbosstest.deploy.dir" file="${build.lib}"/>
+      <sysproperty key="jbosstest.secure" value="true"/>
       <sysproperty key="build.testlog" value="${build.testlog}"/>
       <sysproperty key="log4j.configuration" value="file:${build.resources}/log4j.xml"/>
 
@@ -4309,6 +4793,7 @@ marathon.threadcount:       ${marathon.threadcount}
       <sysproperty key="jbosstest.threadcount" value="${jbosstest.threadcount}"/>
       <sysproperty key="jbosstest.iterationcount" value="${jbosstest.iterationcount}"/>
       <sysproperty key="jbosstest.beancount" value="${jbosstest.beancount}"/>
+      <sysproperty key="jbosstest.secure" value="true"/>
 
 
       <classpath>
@@ -4350,9 +4835,9 @@ marathon.threadcount:       ${marathon.threadcount}
 
       <jvmarg value="${junit.jvm.options}"/>
       <sysproperty key="jbosstest.deploy.dir" file="${build.lib}"/>
+      <sysproperty key="jbosstest.secure" value="true"/>
 
       <jvmarg value="-Djava.security.manager"/>
-      <jvmarg value="-Dsecurity.domain=test-domain"/>
       <sysproperty key="java.security.policy"
 		   value="${build.resources}/security/tst.policy"/>
       <sysproperty key="java.security.auth.login.config"
@@ -4396,6 +4881,7 @@ marathon.threadcount:       ${marathon.threadcount}
 
       <jvmarg value="${junit.jvm.options}"/>
       <sysproperty key="jbosstest.deploy.dir" file="${build.lib}"/>
+      <sysproperty key="jbosstest.secure" value="true"/>
 
       <jvmarg value="-Djava.security.manager"/>
       <sysproperty key="java.security.policy"
@@ -4424,6 +4910,7 @@ marathon.threadcount:       ${marathon.threadcount}
 		 fork="${junit.batchtest.fork}">
 
         <fileset dir="${build.classes}">
+          <include name="**/test/jmx/test/SecureJMXInvokerUnitTestCase.class"/>
           <include name="**/test/perf/test/SecurePerfStressTestCase.class"/>
           <include name="**/test/security/test/*StressTestCase.class"/>
         </fileset>
@@ -4455,6 +4942,7 @@ marathon.threadcount:       ${marathon.threadcount}
       <sysproperty key="jboss.thirdparty.dir" file="${project.root}/thirdparty"/>
       <sysproperty key="jboss.tools.dir" file="${project.root}/tools"/>
       <sysproperty key="jbosstest.deploy.dir" file="${build.lib}"/>
+      <sysproperty key="jbosstest.secure" value="true"/>
       <sysproperty key="java.security.auth.login.config"
          value="${build.resources}/security/auth.conf"/>
       <sysproperty key="build.testlog" value="${build.testlog}"/>
@@ -4543,9 +5031,9 @@ marathon.threadcount:       ${marathon.threadcount}
 
       <jvmarg value="${junit.jvm.options}"/>
       <sysproperty key="jbosstest.deploy.dir" file="${build.lib}"/>
+      <sysproperty key="jbosstest.secure" value="true"/>
 
       <jvmarg value="-Djava.security.manager"/>
-      <jvmarg value="-Dsecurity.domain=test-domain"/>
       <sysproperty key="java.security.policy"
 		   value="${build.resources}/security/tst.policy"/>
       <sysproperty key="java.security.auth.login.config"
@@ -4594,7 +5082,6 @@ marathon.threadcount:       ${marathon.threadcount}
       <sysproperty key="jbosstest.deploy.dir" file="${build.lib}"/>
 
       <jvmarg value="-Djava.security.manager"/>
-      <jvmarg value="-Dsecurity.domain=test-domain"/>
       <sysproperty key="java.security.policy"
 		   value="${build.resources}/security/tst.policy"/>
       <sysproperty key="java.security.auth.login.config"
@@ -4647,7 +5134,6 @@ marathon.threadcount:       ${marathon.threadcount}
       <sysproperty key="jbosstest.deploy.dir" file="${build.lib}"/>
 
       <jvmarg value="-Djava.security.manager"/>
-      <jvmarg value="-Dsecurity.domain=test-domain"/>
       <sysproperty key="java.security.policy"
         value="${build.resources}/security/tst.policy"/>
       <sysproperty key="java.security.auth.login.config"
@@ -4696,7 +5182,6 @@ marathon.threadcount:       ${marathon.threadcount}
       <sysproperty key="jbosstest.deploy.dir" file="${build.lib}"/>
 
       <jvmarg value="-Djava.security.manager"/>
-      <jvmarg value="-Dsecurity.domain=test-domain"/>
       <sysproperty key="java.security.policy"
 		   value="${build.resources}/security/tst.policy"/>
       <sysproperty key="java.security.auth.login.config"
@@ -4761,6 +5246,7 @@ marathon.threadcount:       ${marathon.threadcount}
           <include name="**/jbossmx/implementation/**/*TestCase.class"/>
           <!-- Ignore the abstract class -->
           <exclude name="org/jboss/test/jbossmx/implementation/TestCase.class"/>
+          <exclude name="org/jboss/test/jmx/test/SecureJMXInvokerUnitTestCase.class"/>
         </fileset>
       </batchtest>
     </junit>
@@ -4960,7 +5446,7 @@ marathon.threadcount:       ${marathon.threadcount}
      | name in -Dtest=dirname in tests/dirname/test/**TestCase.class
    -->
 
-  <target name="test" depends="maybejars" if="test"
+  <target name="test" depends="init" if="test"
 	  description="Execute a single test.">
     <mkdir dir="${build.reports}"/>
     <mkdir dir="${build.testlog}"/>
@@ -5134,6 +5620,7 @@ marathon.threadcount:       ${marathon.threadcount}
       <sysproperty key="jbosstest.iterationcount" value="${jbosstest.iterationcount}"/>
       <sysproperty key="jbosstest.beancount" value="${jbosstest.beancount}"/>
       <sysproperty key="jbosstest.nodeploy" value="${jbosstest.nodeploy}"/>
+      <sysproperty key="jbosstest.secure" value="true"/>
       <sysproperty key="java.security.auth.login.config"
         value="${build.resources}/security/auth.conf"/>
 
@@ -5166,7 +5653,7 @@ marathon.threadcount:       ${marathon.threadcount}
     <delete dir="${build.reports}"/>
   </target>
 
-  <target name="tests-report" depends="tests-report-html, tests-report-text">
+  <target name="tests-report" depends="tests-report-html, tests-report-text, tests-report-xml">
      <tar tarfile="${module.output}/${TIMENOW}.tgz" compression="gzip" longfile="gnu">
         <tarfileset dir="${build.reports}/html" prefix="${TIMENOW}">
            <include name="**"/>
@@ -5218,6 +5705,33 @@ marathon.threadcount:       ${marathon.threadcount}
        <param name="results_web" expression="${results_web}"/>
     </style>
   </target>
+
+  <target name="tests-report-xml" depends="tests-report-html">
+    <mkdir dir="${build.reports}/xml"/>
+
+    <style basedir="${build.reports}"
+	   destdir="${build.reports}/xml"
+	   extension=".xml"
+	   style="${build.stylesheets}/shortXmlSummary.xsl"
+	   includes="TESTS-TestSuites.xml">
+       <param name="thedate" expression="${TIMENOW}"/>
+       <param name="java_version" expression="${java.version}"/>
+       <param name="java_vendor" expression="${java.vendor}"/>
+       <param name="java_vm_specification_version" 
+
+expression="${java.vm.specification.version}"/>
+       <param name="java_vm_version" expression="${java.vm.version}"/>
+       <param name="java_vm_name" expression="${java.vm.name}"/>
+       <param name="java_vm_info" expression="${java.vm.info}"/>
+       <param name="java_specification_version" expression="${java.specification.version}"/>
+       <param name="java_class_version" expression="${java.class.version}"/>
+       <param name="os_name" expression="${os.name}"/>
+       <param name="os_arch" expression="${os.arch}"/>
+       <param name="os_version" expression="${os.version}"/>
+     </style>
+   </target>
+ 
+
 
   <!-- include the mqstress test - remember that these tests need to be
        manually updated when the version info of the server changes

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE server
+    PUBLIC "-//JBoss//DTD MBean Service 3.2//EN"
+    "http://www.jboss.org/j2ee/dtd/jboss-service_3_2.dtd">
+    
+<server>
+  <mbean code="org.jboss.test.jmx.eardepends.mbean.Test" name="test:name=Test">
+    <depends>jboss.j2ee:service=EJB,jndiName=test/Independent</depends>
+  </mbean>
+</server>

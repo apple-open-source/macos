@@ -593,7 +593,7 @@ enum
 	kHIDUsage_Ord_Instance2	= 0x02,	/* Usage Modifier */
 	kHIDUsage_Ord_Instance3	= 0x03,	/* Usage Modifier */
 	kHIDUsage_Ord_Instance4	= 0x04,	/* Usage Modifier */
-	kHIDUsage_Ord_Instance65535	= 0xFFFF,	/* Usage Modifier */
+	kHIDUsage_Ord_Instance65535	= 0xFFFF	/* Usage Modifier */
 };
 
 /* Telephony Page (0x0B) */

@@ -21,6 +21,8 @@
 
 //#ifdef WITH_ODS_SAM
 #define USE_SETATTRIBUTEVALUE 1
+#define AUTH_GET_POLICY 1
+#define GLOBAL_DEFAULT 1
 
 static int odssam_debug_level = DBGC_ALL;
 
@@ -213,9 +215,7 @@ static tDirStatus odssam_close(struct odssam_privates *ods_state)
 
     if (ods_state->dirRef != NULL) {
 		dirStatus = dsCloseDirService(ods_state->dirRef);
-		if (dirStatus == eDSNoErr)
-        	DEBUG(0,("odssam_close: [%d]dsCloseDirService error\n",dirStatus));		
-    	DEBUG(5,("odssam_close: [%d] dirRef [%ld]\n",dirStatus, ods_state->dirRef));		
+        DEBUG(4,("odssam_close: [%d]dsCloseDirService\n",dirStatus));		
 		ods_state->dirRef = NULL;
     }
     return dirStatus;
@@ -258,8 +258,7 @@ static tDirStatus odssam_close_search_node(struct odssam_privates *ods_state)
     tDirStatus dirStatus = eDSNoErr;
     if (ods_state->searchNodeRef != NULL) {
 		dirStatus = dsCloseDirNode(ods_state->searchNodeRef);
-		if (dirStatus == eDSNoErr)
-			DEBUG(0,("odssam_close_search_node: [%d]dsCloseDirNode error\n",dirStatus));		
+		DEBUG(4,("odssam_close_search_node: [%d]dsCloseDirNode\n",dirStatus));		
 		 ods_state->searchNodeRef = NULL;
     }
     return dirStatus;
@@ -325,8 +324,7 @@ static tDirStatus odssam_close_node(struct odssam_privates *ods_state, tDirNodeR
     tDirStatus dirStatus = eDSNoErr;
     if (nodeReference != NULL && *nodeReference != NULL) {
 		dirStatus = dsCloseDirNode(*nodeReference);
-		if (dirStatus != eDSNoErr)
-		   DEBUG(0,("odssam_close_node: [%d]dsCloseDirNode error\n",dirStatus));
+		 DEBUG(4,("odssam_close_node: [%d]dsCloseDirNode\n",dirStatus));
 		*nodeReference = NULL;
     }
     return dirStatus;
@@ -1110,9 +1108,10 @@ static tDirStatus get_passwordpolicy_attributes(struct odssam_privates *ods_stat
 		} else {
 			status = odssam_open_node(ods_state, dirNode, &nodeReference);
 			if (eDSNoErr != status) goto cleanup;
+#ifdef AUTH_GET_POLICY
 			status = odssam_authenticate_node(ods_state, nodeReference);
 			if (eDSNoErr != status) goto cleanup;
-	
+#endif	
 			if (eDSNoErr == status) {
 				recordType = get_record_type((const char *)userName);
 				status = get_record_ref(ods_state, nodeReference, &recordReference, recordType, userName);
@@ -1410,41 +1409,57 @@ static BOOL init_sam_from_ods (struct odssam_privates *ods_state,
 	}
 
 	if (!get_single_attribute(entry, kDS1AttrSMBHomeDrive, dir_drive)) {
+#ifdef GLOBAL_DEFAULT
 		pdb_set_dir_drive(sampass, talloc_sub_specified(sampass->mem_ctx, 
 								  lp_logon_drive(),
 								  username, domain, 
 								  uid, gid),
 				  PDB_DEFAULT);
+#else
+		pdb_set_dir_drive(sampass, NULL, PDB_SET);
+#endif
 	} else {
 		pdb_set_dir_drive(sampass, dir_drive, PDB_SET);
 	}
 
 	if (!get_single_attribute(entry, kDS1AttrSMBHome, homedir)) {
+#ifdef GLOBAL_DEFAULT
 		pdb_set_homedir(sampass, talloc_sub_specified(sampass->mem_ctx, 
 								  lp_logon_home(),
 								  username, domain, 
 								  uid, gid), 
 				  PDB_DEFAULT);
+#else
+		pdb_set_homedir(sampass, NULL, PDB_SET);
+#endif
 	} else {
 		pdb_set_homedir(sampass, homedir, PDB_SET);
 	}
 
 	if (!get_single_attribute(entry, kDS1AttrSMBScriptPath, logon_script)) {
+#ifdef GLOBAL_DEFAULT
 		pdb_set_logon_script(sampass, talloc_sub_specified(sampass->mem_ctx, 
 								     lp_logon_script(),
 								     username, domain, 
 								     uid, gid), 
 				     PDB_DEFAULT);
+#else
+		pdb_set_logon_script(sampass, NULL, PDB_SET);
+#endif
 	} else {
 		pdb_set_logon_script(sampass, logon_script, PDB_SET);
 	}
 
 	if (!get_single_attribute(entry, kDS1AttrSMBProfilePath, profile_path)) {
+#ifdef GLOBAL_DEFAULT
 		pdb_set_profile_path(sampass, talloc_sub_specified(sampass->mem_ctx, 
 								     lp_logon_path(),
 								     username, domain, 
 								     uid, gid), 
 				     PDB_DEFAULT);
+#else
+		pdb_set_profile_path(sampass, NULL, PDB_SET);
+#endif
 	} else {
 		pdb_set_profile_path(sampass, profile_path, PDB_SET);
 	}

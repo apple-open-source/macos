@@ -1,0 +1,69 @@
+<?xml version="1.0"?>
+<!DOCTYPE web-app PUBLIC
+   "-//Sun Microsystems, Inc.//DTD Web Application 2.3//EN"
+   "http://java.sun.com/dtd/web-app_2_3.dtd">
+
+<web-app>
+
+   <description>Test HTTP Session clustering</description>
+
+   <distributable />
+
+   <servlet>
+      <servlet-name>Init</servlet-name>
+      <jsp-file>/init.jsp</jsp-file>
+   </servlet>
+   <servlet>
+      <servlet-name>Get</servlet-name>
+      <jsp-file>/get.jsp</jsp-file>
+   </servlet>
+   <servlet>
+      <servlet-name>Set</servlet-name>
+      <jsp-file>/set.jsp</jsp-file>
+   </servlet>
+
+   <servlet-mapping>
+      <servlet-name>Init</servlet-name>
+      <url-pattern>/Init</url-pattern>
+   </servlet-mapping>
+   <servlet-mapping>
+      <servlet-name>Get</servlet-name>
+      <url-pattern>/Get</url-pattern>
+   </servlet-mapping>
+   <servlet-mapping>
+      <servlet-name>Set</servlet-name>
+      <url-pattern>/Set</url-pattern>
+   </servlet-mapping>
+
+   <session-config>
+      <session-timeout>1</session-timeout>
+   </session-config>
+
+   <!-- A security constraint that restricts access Edit the roles to what you want and
+   uncomment the WEB-INF/jboss-web.xml/security-domain element to enable
+   secured access.
+   <security-constraint>
+     <web-resource-collection>
+       <web-resource-name>HtmlAdaptor</web-resource-name>
+       <description>An example security config that only allows users with the
+         role JBossAdmin to access the web application
+       </description>
+       <url-pattern>/*</url-pattern>
+       <http-method>GET</http-method>
+       <http-method>POST</http-method>
+     </web-resource-collection>
+     <auth-constraint>
+       <role-name>JBossAdmin</role-name>
+     </auth-constraint>
+   </security-constraint>
+   -->
+
+   <login-config>
+      <auth-method>BASIC</auth-method>
+      <realm-name>JBoss HTTP Session Test</realm-name>
+   </login-config>
+
+   <security-role>
+      <role-name>JBossAdmin</role-name>
+   </security-role>
+</web-app>

@@ -17,10 +17,12 @@ import javax.management.ObjectName;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
+import org.jboss.util.Strings;
 import org.jboss.logging.Logger;
 
 /**
@@ -28,10 +30,9 @@ import org.jboss.logging.Logger;
  *
  * <p>Reads/writes/manages the XML config file for the ServiceBinding Manager module
  *
- * @version $Revision: 1.3.2.1 $
  * @author  <a href="mailto:bitpushr@rochester.rr.com">Mike Finn</a>.
  * @author Scott.Stark@jboss.org
- *
+ * @version $Revision: 1.3.2.3 $
  */
 public class XMLServicesStore implements ServicesStore
 {
@@ -68,7 +69,7 @@ public class XMLServicesStore implements ServicesStore
    {
       Map serverMap = (Map) this.servers.get(serverName);
       ServiceConfig config = null;
-      if( serverMap != null )
+      if (serverMap != null)
       {
          config = (ServiceConfig) serverMap.get(serviceName);
       }
@@ -101,7 +102,7 @@ public class XMLServicesStore implements ServicesStore
       Element serviceBindings = configDoc.getDocumentElement();
       NodeList servers = serviceBindings.getElementsByTagName("server");
       int length = servers.getLength();
-      for(int s = 0; s < length; s ++)
+      for (int s = 0; s < length; s++)
       {
          Element server = (Element) servers.item(s);
          parseServer(server);
@@ -126,7 +127,7 @@ public class XMLServicesStore implements ServicesStore
       HashMap serverConfigurations = new HashMap();
       NodeList serviceConfigs = server.getElementsByTagName("service-config");
       int length = serviceConfigs.getLength();
-      for(int c = 0; c < length; c ++)
+      for (int c = 0; c < length; c++)
       {
          Element config = (Element) serviceConfigs.item(c);
          ServiceConfig serviceConfig = new ServiceConfig();
@@ -148,11 +149,11 @@ public class XMLServicesStore implements ServicesStore
 
       // Parse the delegate info
       String delegateClass = config.getAttribute("delegateClass");
-      if( delegateClass.length() == 0 )
+      if (delegateClass.length() == 0)
          delegateClass = "org.jboss.services.binding.AttributeMappingDelegate";
       Element delegateConfig = null;
       NodeList delegateConfigs = config.getElementsByTagName("delegate-config");
-      if( delegateConfigs.getLength() > 0 )
+      if (delegateConfigs.getLength() > 0)
          delegateConfig = (Element) delegateConfigs.item(0);
       serviceConfig.setServiceConfigDelegateClassName(delegateClass);
       serviceConfig.setServiceConfigDelegateConfig(delegateConfig);
@@ -161,7 +162,7 @@ public class XMLServicesStore implements ServicesStore
       ArrayList bindingsArray = new ArrayList();
       NodeList bindings = config.getElementsByTagName("binding");
       int length = bindings.getLength();
-      for(int b = 0; b < length; b ++)
+      for (int b = 0; b < length; b++)
       {
          Element binding = (Element) bindings.item(b);
          ServiceBinding sb = parseBinding(binding);
@@ -174,20 +175,34 @@ public class XMLServicesStore implements ServicesStore
    }
 
    /** Parse /service-bindings/server/service-config/binding element into
-    a ServiceBinding object.
+    a ServiceBinding object. Any attributes whose value contains a system
+    property reference of the form ${x} will be replaced with the correcsponding
+    System.getProperty("x") value if one exists.
     */
    private ServiceBinding parseBinding(Element binding)
       throws Exception
    {
       String name = binding.getAttribute("name");
+      if (name != null)
+      {
+         name = Strings.replaceProperties(name);
+      }
       String hostName = binding.getAttribute("host");
-      if( hostName.length() == 0 )
+      if (hostName != null)
+      {
+         hostName = Strings.replaceProperties(hostName);
+      }
+      if (hostName.length() == 0)
          hostName = null;
       String portStr = binding.getAttribute("port");
-      if( portStr.length() == 0 )
+      if (portStr != null)
+      {
+         portStr = Strings.replaceProperties(portStr);
+      }
+      if (portStr.length() == 0)
          portStr = "0";
-      log.debug("parseBinding, name='"+name+"', host='"+hostName+"'"
-         + ", port='"+portStr+"'");
+      log.debug("parseBinding, name='" + name + "', host='" + hostName + "'"
+         + ", port='" + portStr + "'");
       int port = Integer.parseInt(portStr);
       ServiceBinding sb = new ServiceBinding(name, hostName, port);
       return sb;

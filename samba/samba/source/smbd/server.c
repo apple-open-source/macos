@@ -250,7 +250,7 @@ static BOOL open_sockets_smbd(BOOL is_daemon, BOOL interactive, const char *smb_
 				set_socket_options(s,"SO_KEEPALIVE"); 
 				set_socket_options(s,user_socket_options);
       
-				if (listen(s, 5) == -1) {
+				if (listen(s, SMBD_LISTEN_BACKLOG) == -1) {
 					DEBUG(0,("listen: %s\n",strerror(errno)));
 					close(s);
 					return False;
@@ -286,7 +286,7 @@ static BOOL open_sockets_smbd(BOOL is_daemon, BOOL interactive, const char *smb_
 			set_socket_options(s,"SO_KEEPALIVE"); 
 			set_socket_options(s,user_socket_options);
 			
-			if (listen(s, 5) == -1) {
+			if (listen(s, SMBD_LISTEN_BACKLOG) == -1) {
 				DEBUG(0,("open_sockets_smbd: listen: %s\n",
 					 strerror(errno)));
 				close(s);
@@ -398,7 +398,7 @@ static BOOL open_sockets_smbd(BOOL is_daemon, BOOL interactive, const char *smb_
 				
 				/* this is needed so that we get decent entries
 				   in smbstatus for port 445 connects */
-				set_remote_machine_name(get_socket_addr(smbd_server_fd()), False);
+				set_remote_machine_name(get_peer_addr(smbd_server_fd()), False);
 				
 				/* Reset global variables in util.c so
 				   that client substitutions will be
@@ -745,7 +745,7 @@ void build_options(BOOL screen);
 	reopen_logs();
 
 	DEBUG(0,( "smbd version %s started.\n", SAMBA_VERSION_STRING));
-	DEBUGADD(0,( "Copyright Andrew Tridgell and the Samba Team 1992-2003\n"));
+	DEBUGADD(0,( "Copyright Andrew Tridgell and the Samba Team 1992-2004\n"));
 
 	DEBUG(2,("uid=%d gid=%d euid=%d egid=%d\n",
 		 (int)getuid(),(int)getgid(),(int)geteuid(),(int)getegid()));

@@ -44,15 +44,18 @@ public:
     virtual void calcHeight();
     virtual void calcMinMaxWidth();
     virtual bool absolutePosition(int &xPos, int&yPos, bool f = false);
-    virtual void close();
-
+    
     int docHeight() const;
     int docWidth() const;
 
     KHTMLView *view() const { return m_view; }
 
-    virtual void repaint(bool immediate=false);
-    virtual void repaintRectangle(int x, int y, int w, int h, bool immediate = false, bool f=false);
+    virtual bool hasOverhangingFloats() { return false; }
+    
+    virtual QRect getAbsoluteRepaintRect();
+    virtual void computeAbsoluteRepaintRect(QRect& r, bool f=false);
+    virtual void repaintViewRectangle(const QRect& r, bool immediate = false);
+    
     virtual void paint(QPainter *, int x, int y, int w, int h, int tx, int ty,
                        PaintAction paintAction);
     void paintObject(QPainter *p, int _x, int _y,
@@ -71,12 +74,13 @@ public:
     void setPrintImages(bool enable) { m_printImages = enable; }
     bool printImages() const { return m_printImages; }
 #if APPLE_CHANGES
-    void setTruncatedAt(int y) { m_truncatedAt = y; m_bestTruncatedAt = m_truncatorWidth = 0; }
-    void setBestTruncatedAt(int y, RenderObject *forRenderer);
+    void setTruncatedAt(int y) { m_truncatedAt = y; m_bestTruncatedAt = m_truncatorWidth = 0; m_forcedPageBreak = false; }
+    void setBestTruncatedAt(int y, RenderObject *forRenderer, bool forcedBreak = false);
     int bestTruncatedAt() const { return m_bestTruncatedAt; }
 private:
     int m_bestTruncatedAt;
     int m_truncatorWidth;
+    bool m_forcedPageBreak;
 public:
 #else
     void setTruncatedAt(int y) { m_truncatedAt = y; }
@@ -90,6 +94,9 @@ public:
     int viewportHeight() const { return m_viewportHeight; }
 
     QRect selectionRect() const;
+    
+    void setMaximalOutlineSize(int o) { m_maximalOutlineSize = o; }
+    int maximalOutlineSize() const { return m_maximalOutlineSize; }
     
 protected:
 
@@ -114,6 +121,8 @@ protected:
     bool m_printingMode;
     bool m_printImages;
     int m_truncatedAt;
+    
+    int m_maximalOutlineSize; // Used to apply a fudge factor to dirty-rect checks on blocks/tables.
 };
 
 };

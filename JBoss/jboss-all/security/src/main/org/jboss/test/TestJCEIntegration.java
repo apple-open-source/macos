@@ -1,12 +1,6 @@
 package org.jboss.test;
 
-import java.io.Serializable;
 import java.math.BigInteger;
-import java.rmi.RemoteException;
-import java.security.AlgorithmParameters;
-import java.security.Key;
-import java.security.KeyException;
-import java.security.MessageDigest;
 import java.security.SecureRandom;
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
@@ -21,16 +15,13 @@ import org.apache.log4j.PatternLayout;
 
 import org.jboss.logging.XLevel;
 import org.jboss.security.Util;
-import org.jboss.security.srp.SRPConf;
 import org.jboss.security.srp.SRPParameters;
-import org.jboss.security.srp.SRPServerInterface;
 import org.jboss.security.srp.SRPClientSession;
-import org.jboss.security.srp.SRPServerSession;
 
 /** Tests of using the Java Cryptography Extension framework with SRP.
 
  @author Scott.Stark@jboss.org
- @version $Revision: 1.2.2.1 $
+ @version $Revision: 1.2.2.2 $
  */
 public class TestJCEIntegration
 {

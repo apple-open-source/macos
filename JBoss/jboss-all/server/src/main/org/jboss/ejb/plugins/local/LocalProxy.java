@@ -18,7 +18,7 @@ import javax.naming.InitialContext;
 
  @author  <a href="mailto:docodan@mvcsoft.com">Daniel OConnor</a>
  @author  <a href="mailto:scott.stark@jboss.org">Scott Stark</a>
- @version $Revision: 1.8.2.1 $
+ @version $Revision: 1.8.2.2 $
  */
 public abstract class LocalProxy implements Serializable
 {
@@ -40,20 +40,20 @@ public abstract class LocalProxy implements Serializable
    /** {@link Object#equals} method reference. */
    protected static final Method EQUALS;
    
-   /** {@link EJBObject#getPrimaryKey} method reference. */
+   /** {@link EJBLocalObject#getPrimaryKey} method reference. */
    protected static final Method GET_PRIMARY_KEY;
    
-   /** {@link EJBObject#getEJBHome} method reference. */
+   /** {@link EJBLocalObject#getEJBLocalHome} method reference. */
    protected static final Method GET_EJB_HOME;
    
-   /** {@link EJBObject#isIdentical} method reference. */
+   /** {@link EJBLocalObject#isIdentical} method reference. */
    protected static final Method IS_IDENTICAL;
    
    protected String jndiName;
    protected transient BaseLocalProxyFactory factory;
 
    /**
-    * Initialize {@link EJBObject} method references.
+    * Initialize {@link EJBLocalObject} method references.
     */
    static
    {
@@ -121,12 +121,20 @@ public abstract class LocalProxy implements Serializable
       Boolean isIdentical = Boolean.FALSE;
       if( ejb != null )
       {
-         final Object pk = ejb.getPrimaryKey();
-         isIdentical = new Boolean(pk.equals(b));
+         isIdentical = new Boolean(ejb.toString().equals(b));
       }
       return isIdentical;
    }
- 
+
+   /**
+    * Implementation of toString for EJBLocalObject.
+    * @return String representation of EJBLocalObject.
+    */
+   String toStringImpl()
+   {
+      return jndiName + ":" + getId();
+   }
+
    public Object invoke(final Object proxy, final Method m, Object[] args)
       throws Throwable
    {
@@ -159,7 +167,7 @@ public abstract class LocalProxy implements Serializable
       }
       else if (m.equals(IS_IDENTICAL))
       {
-         retValue = isIdentical(args[0], id);
+         retValue = isIdentical(args[0], toStringImpl());
       }
       return retValue;
    }

@@ -37,7 +37,7 @@ import org.jboss.system.ServiceMBeanSupport;
  * for JBoss to use.
  *      
  * @author  <a href="mailto:reverbel@ime.usp.br">Francisco Reverbel</a>
- * @version $Revision: 1.2 $
+ * @version $Revision: 1.2.2.1 $
  */
 public class CorbaNamingService
    extends ServiceMBeanSupport
@@ -96,6 +96,7 @@ public class CorbaNamingService
       namingPOA.the_POAManager().activate();
 
       // Create the naming service
+      org.jacorb.naming.NamingContextImpl.init(orb, rootPOA);
       NamingContextImpl ns = new NamingContextImpl(namingPOA);
       byte[] rootContextId = "root".getBytes();
       namingPOA.activate_object_with_id(rootContextId, ns);

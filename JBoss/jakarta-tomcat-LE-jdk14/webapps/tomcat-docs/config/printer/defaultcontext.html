@@ -9,16 +9,16 @@
   configuration properties</em> for Contexts that are automatically
   created.</p>
 
-  <p>See <a href="host.html#Automatic%20Application%20Deployment">Automatic
+  <p>See <a href="host.html#Automatic Application Deployment">Automatic
   Application Deployment</a> and
-  <a href="host.html#User%20Web%20Applications">User Web Applications</a>
+  <a href="host.html#User Web Applications">User Web Applications</a>
   for more information about the circumstances in which Catalina will
   automatically create Contexts for you, based on the configuration
   properties that are stored here.</p>
 
 </blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Attributes"><strong>Attributes</strong></a></font></td></tr><tr><td><blockquote>
 
-  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Common%20Attributes"><strong>Common Attributes</strong></a></font></td></tr><tr><td><blockquote>
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Common Attributes"><strong>Common Attributes</strong></a></font></td></tr><tr><td><blockquote>
 
     <p>All implementations of <strong>DefaultContext</strong>
     support the following attributes:</p>
@@ -55,7 +55,7 @@
   </blockquote></td></tr></table>
 
 
-  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Standard%20Implementation"><strong>Standard Implementation</strong></a></font></td></tr><tr><td><blockquote>
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Standard Implementation"><strong>Standard Implementation</strong></a></font></td></tr><tr><td><blockquote>
 
     <p>The standard implementation of <strong>DefaultContext</strong> is
     <strong>org.apache.catalina.core.DefaultContext</strong>.
@@ -77,10 +77,23 @@
   </blockquote></td></tr></table>
 
 
-</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Special%20Features"><strong>Special Features</strong></a></font></td></tr><tr><td><blockquote>
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Nested Components"><strong>Nested Components</strong></a></font></td></tr><tr><td><blockquote>
+
+  <p>You can nest at most one instance of the following utility components
+  by nesting a corresponding element inside your
+  <strong>DefaultContext</strong> element:</p>
+  <ul>
+  <li><a href="loader.html"><strong>Loader</strong></a> -
+      Configure the web application class loader that will be used to load
+      servlet and bean classes for each web application.  Normally, the
+      default configuration of the class loader will be sufficient.</li>
+
+  </ul>
+
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Special Features"><strong>Special Features</strong></a></font></td></tr><tr><td><blockquote>
 
 
-  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Context%20Parameters"><strong>Context Parameters</strong></a></font></td></tr><tr><td><blockquote>
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Context Parameters"><strong>Context Parameters</strong></a></font></td></tr><tr><td><blockquote>
 
     <p>You can configure named values that will be made visible to
     web applications as servlet context initialization parameters by nesting
@@ -129,7 +142,7 @@
   </blockquote></td></tr></table>
 
 
-  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Environment%20Entries"><strong>Environment Entries</strong></a></font></td></tr><tr><td><blockquote>
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Environment Entries"><strong>Environment Entries</strong></a></font></td></tr><tr><td><blockquote>
 
     <p>You can configure named values that will be made visible to
     web applications as environment entry resources, by nesting
@@ -188,7 +201,7 @@
   </blockquote></td></tr></table>
 
 
-  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Lifecycle%20Listeners"><strong>Lifecycle Listeners</strong></a></font></td></tr><tr><td><blockquote>
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Lifecycle Listeners"><strong>Lifecycle Listeners</strong></a></font></td></tr><tr><td><blockquote>
 
     <p>If you have implemented a Java object that needs to know when this
     <strong>Context</strong> is started or stopped, you can declare it by
@@ -214,13 +227,13 @@
   </blockquote></td></tr></table>
 
 
-  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Resource%20Definitions"><strong>Resource Definitions</strong></a></font></td></tr><tr><td><blockquote>
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Resource Definitions"><strong>Resource Definitions</strong></a></font></td></tr><tr><td><blockquote>
 
     <p>You can declare the characteristics of the resource
     to be returned for JNDI lookups of <code>&lt;resource-ref&gt;</code> and
     <code>&lt;resource-env-ref&gt;</code> elements in the web application
     deployment descriptor.  You <strong>MUST</strong> also define
-    <a href="#Resource%20Parameters">Resource Parameters</a>
+    <a href="#Resource Parameters">Resource Parameters</a>
     for the same resource name, to configure
     the object factory to be used (if not known to Tomcat already), and
     the properties used to configure that object factory.</p>
@@ -282,7 +295,7 @@
   </blockquote></td></tr></table>
 
 
-  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Resource%20Parameters"><strong>Resource Parameters</strong></a></font></td></tr><tr><td><blockquote>
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Resource Parameters"><strong>Resource Parameters</strong></a></font></td></tr><tr><td><blockquote>
 
     <p>This element is used to configure the resource manager (or object
     factory) used to return objects when the web application performs a
@@ -353,7 +366,7 @@
   </blockquote></td></tr></table>
 
 
-  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Resource%20Links"><strong>Resource Links</strong></a></font></td></tr><tr><td><blockquote>
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Resource Links"><strong>Resource Links</strong></a></font></td></tr><tr><td><blockquote>
 
      <p>This element is used to create a link to a global JNDI resource. Doing
      a JNDI lookup on the link name will then return the linked global 

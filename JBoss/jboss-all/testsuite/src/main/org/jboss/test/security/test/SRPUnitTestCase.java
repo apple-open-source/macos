@@ -27,7 +27,7 @@ operations.
  
  
  @author Scott.Stark@jboss.org
- @version $Revision: 1.1.4.4 $
+ @version $Revision: 1.1.4.5 $
  */
 public class SRPUnitTestCase extends JBossTestCase
 {
@@ -125,7 +125,7 @@ public class SRPUnitTestCase extends JBossTestCase
    /**
     * Setup the test suite.
     */
-   public static Test suite()
+   public static Test suite() throws Exception
    {
       TestSuite suite = new TestSuite();
       suite.addTest(new TestSuite(SRPUnitTestCase.class));

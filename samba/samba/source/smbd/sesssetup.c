@@ -141,7 +141,8 @@ static int reply_spnego_kerberos(connection_struct *conn,
 				 DATA_BLOB *secblob)
 {
 	DATA_BLOB ticket;
-	char *client, *p;
+	char *client, *p, *domain;
+	fstring netbios_domain_name;
 	const struct passwd *pw;
 	char *user;
 	int sess_vuid;
@@ -149,7 +150,7 @@ static int reply_spnego_kerberos(connection_struct *conn,
 	DATA_BLOB auth_data;
 	DATA_BLOB ap_rep, ap_rep_wrapped, response;
 	auth_serversupplied_info *server_info = NULL;
-	uint8 session_key[16];
+	DATA_BLOB session_key;
 	uint8 tok_id[2];
 	BOOL foreign = False;
 	DATA_BLOB nullblob = data_blob(NULL, 0);
@@ -164,7 +165,7 @@ static int reply_spnego_kerberos(connection_struct *conn,
 		return ERROR_NT(NT_STATUS_LOGON_FAILURE);
 	}
 
-	ret = ads_verify_ticket(lp_realm(), &ticket, &client, &auth_data, &ap_rep, session_key);
+	ret = ads_verify_ticket(lp_realm(), &ticket, &client, &auth_data, &ap_rep, &session_key);
 
 	data_blob_free(&ticket);
 
@@ -186,7 +187,7 @@ static int reply_spnego_kerberos(connection_struct *conn,
 	}
 
 	*p = 0;
-	if (strcasecmp(p+1, lp_realm()) != 0) {
+	if (!strequal(p+1, lp_realm())) {
 		DEBUG(3,("Ticket for foreign realm %s@%s\n", client, p+1));
 		if (!lp_allow_trusted_domains()) {
 			data_blob_free(&ap_rep);
@@ -198,41 +199,81 @@ static int reply_spnego_kerberos(connection_struct *conn,
 
 	/* this gives a fully qualified user name (ie. with full realm).
 	   that leads to very long usernames, but what else can we do? */
-	asprintf(&user, "%s%s%s", p+1, lp_winbind_separator(), client);
-	
-	pw = Get_Pwnam(user);
-	if (!pw && !foreign) {
-		pw = Get_Pwnam(client);
-		SAFE_FREE(user);
-		user = smb_xstrdup(client);
+
+	domain = p+1;
+
+	{
+		/* If we have winbind running, we can (and must) shorten the
+		   username by using the short netbios name. Otherwise we will
+		   have inconsistent user names. With Kerberos, we get the
+		   fully qualified realm, with ntlmssp we get the short
+		   name. And even w2k3 does use ntlmssp if you for example
+		   connect to an ip address. */
+
+		struct winbindd_request wb_request;
+		struct winbindd_response wb_response;
+		NSS_STATUS wb_result;
+
+		ZERO_STRUCT(wb_request);
+		ZERO_STRUCT(wb_response);
+
+		DEBUG(10, ("Mapping [%s] to short name\n", domain));
+
+		fstrcpy(wb_request.domain_name, domain);
+
+		wb_result = winbindd_request(WINBINDD_DOMAIN_INFO,
+					     &wb_request, &wb_response);
+
+		if (wb_result == NSS_STATUS_SUCCESS) {
+
+			fstrcpy(netbios_domain_name,
+				wb_response.data.domain_info.name);
+			domain = netbios_domain_name;
+
+			DEBUG(10, ("Mapped to [%s]\n", domain));
+		} else {
+			DEBUG(3, ("Could not find short name -- winbind "
+				  "not running?\n"));
+		}
 	}
 
-	SAFE_FREE(client);
-
-	/* setup the string used by %U */
-	sub_set_smb_name(user);
-
-	reload_services(True);
-
+	asprintf(&user, "%s%c%s", domain, *lp_winbind_separator(), client);
+	
+	pw = smb_getpwnam( user );
+	
 	if (!pw) {
 		DEBUG(1,("Username %s is invalid on this system\n",user));
+		SAFE_FREE(user);
+		SAFE_FREE(client);
 		data_blob_free(&ap_rep);
 		return ERROR_NT(NT_STATUS_LOGON_FAILURE);
 	}
 
+	/* setup the string used by %U */
+	
+	sub_set_smb_name(pw->pw_name);
+	reload_services(True);
+	
 	if (!NT_STATUS_IS_OK(ret = make_server_info_pw(&server_info,pw))) {
 		DEBUG(1,("make_server_info_from_pw failed!\n"));
+		SAFE_FREE(user);
+		SAFE_FREE(client);
 		data_blob_free(&ap_rep);
 		return ERROR_NT(ret);
 	}
 
-	/* Copy out the session key from the AP_REQ. */
-	memcpy(server_info->session_key, session_key, sizeof(session_key));
+        /* make_server_info_pw does not set the domain. Without this we end up
+	 * with the local netbios name in substitutions for %D. */
+
+        if (server_info->sam_account != NULL) {
+                pdb_set_domain(server_info->sam_account, domain, PDB_SET);
+        }
 
 	/* register_vuid keeps the server info */
-	sess_vuid = register_vuid(server_info, nullblob, user);
+	sess_vuid = register_vuid(server_info, session_key, nullblob, client);
 
-	free(user);
+	SAFE_FREE(user);
+	SAFE_FREE(client);
 
 	if (sess_vuid == -1) {
 		ret = NT_STATUS_LOGON_FAILURE;
@@ -300,9 +341,10 @@ static BOOL reply_spnego_ntlmssp(connection_struct *conn, char *inbuf, char *out
 	if (NT_STATUS_IS_OK(nt_status)) {
 		int sess_vuid;
 		DATA_BLOB nullblob = data_blob(NULL, 0);
+		DATA_BLOB session_key = data_blob((*auth_ntlmssp_state)->ntlmssp_state->session_key.data, (*auth_ntlmssp_state)->ntlmssp_state->session_key.length);
 
 		/* register_vuid keeps the server info */
-		sess_vuid = register_vuid(server_info, nullblob, (*auth_ntlmssp_state)->ntlmssp_state->user);
+		sess_vuid = register_vuid(server_info, session_key, nullblob, (*auth_ntlmssp_state)->ntlmssp_state->user);
 		(*auth_ntlmssp_state)->server_info = NULL;
 
 		if (sess_vuid == -1) {
@@ -468,7 +510,7 @@ static int reply_sesssetup_and_X_spnego(connection_struct *conn, char *inbuf,
 	DATA_BLOB blob1;
 	int ret;
 	size_t bufrem;
-	fstring native_os, native_lanman;
+	fstring native_os, native_lanman, primary_domain;
 	char *p2;
 	uint16 data_blob_len = SVAL(inbuf, smb_vwv7);
 	enum remote_arch_types ra_type = get_remote_arch();
@@ -477,6 +519,11 @@ static int reply_sesssetup_and_X_spnego(connection_struct *conn, char *inbuf,
 
 	if (global_client_caps == 0) {
 		global_client_caps = IVAL(inbuf,smb_vwv10);
+
+		if (!(global_client_caps & CAP_STATUS32)) {
+			remove_from_common_flags2(FLAGS2_32_BIT_ERROR_CODES);
+		}
+
 	}
 		
 	p = (uint8 *)smb_buf(inbuf);
@@ -497,11 +544,20 @@ static int reply_sesssetup_and_X_spnego(connection_struct *conn, char *inbuf,
 	p2 = inbuf + smb_vwv13 + data_blob_len;
 	p2 += srvstr_pull_buf(inbuf, native_os, p2, sizeof(native_os), STR_TERMINATE);
 	p2 += srvstr_pull_buf(inbuf, native_lanman, p2, sizeof(native_lanman), STR_TERMINATE);
-	DEBUG(3,("NativeOS=[%s] NativeLanMan=[%s]\n", native_os, native_lanman));
+	p2 += srvstr_pull_buf(inbuf, primary_domain, p2, sizeof(primary_domain), STR_TERMINATE);
+	DEBUG(3,("NativeOS=[%s] NativeLanMan=[%s] PrimaryDomain=[%s]\n", 
+		native_os, native_lanman, primary_domain));
 
-	if ( ra_type == RA_WIN2K )
-		ra_lanman_string( native_lanman );
-
+	if ( ra_type == RA_WIN2K ) {
+		/* Windows 2003 doesn't set the native lanman string, 
+		   but does set primary domain which is a bug I think */
+			   
+		if ( !strlen(native_lanman) )
+			ra_lanman_string( primary_domain );
+		else
+			ra_lanman_string( native_lanman );
+	}
+		
 	if (blob1.data[0] == ASN1_APPLICATION(0)) {
 		/* its a negTokenTarg packet */
 		ret = reply_spnego_negotiate(conn, inbuf, outbuf, length, bufsize, blob1);
@@ -556,6 +612,7 @@ int reply_sesssetup_and_X(connection_struct *conn, char *inbuf,char *outbuf,
 	fstring domain;
 	fstring native_os;
 	fstring native_lanman;
+	fstring primary_domain;
 	static BOOL done_sesssetup = False;
 	extern BOOL global_encrypted_passwords_negotiated;
 	extern BOOL global_spnego_negotiated;
@@ -569,6 +626,8 @@ int reply_sesssetup_and_X(connection_struct *conn, char *inbuf,char *outbuf,
 	NTSTATUS nt_status;
 
 	BOOL doencrypt = global_encrypted_passwords_negotiated;
+
+	DATA_BLOB session_key;
 	
 	START_PROFILE(SMBsesssetupX);
 
@@ -617,18 +676,26 @@ int reply_sesssetup_and_X(connection_struct *conn, char *inbuf,char *outbuf,
 		uint16 passlen2 = SVAL(inbuf,smb_vwv8);
 		enum remote_arch_types ra_type = get_remote_arch();
 		char *p = smb_buf(inbuf);    
+		char *save_p = smb_buf(inbuf);
+		uint16 byte_count;
+			
 
-		if(global_client_caps == 0)
+		if(global_client_caps == 0) {
 			global_client_caps = IVAL(inbuf,smb_vwv11);
 		
-		/* client_caps is used as final determination if client is NT or Win95. 
-		   This is needed to return the correct error codes in some
-		   circumstances.
-		*/
+			if (!(global_client_caps & CAP_STATUS32)) {
+				remove_from_common_flags2(FLAGS2_32_BIT_ERROR_CODES);
+			}
+
+			/* client_caps is used as final determination if client is NT or Win95. 
+			   This is needed to return the correct error codes in some
+			   circumstances.
+			*/
 		
-		if(ra_type == RA_WINNT || ra_type == RA_WIN2K || ra_type == RA_WIN95) {
-			if(!(global_client_caps & (CAP_NT_SMBS | CAP_STATUS32))) {
-				set_remote_arch( RA_WIN95);
+			if(ra_type == RA_WINNT || ra_type == RA_WIN2K || ra_type == RA_WIN95) {
+				if(!(global_client_caps & (CAP_NT_SMBS | CAP_STATUS32))) {
+					set_remote_arch( RA_WIN95);
+				}
 			}
 		}
 
@@ -669,11 +736,17 @@ int reply_sesssetup_and_X(connection_struct *conn, char *inbuf,char *outbuf,
 			nt_resp = data_blob(p+passlen1, passlen2);
 		} else {
 			pstring pass;
-			BOOL unic;
-			unic=SVAL(inbuf, smb_flg2) & FLAGS2_UNICODE_STRINGS;
-			srvstr_pull(inbuf, pass, smb_buf(inbuf), 
-				    sizeof(pass),  unic ? passlen2 : passlen1, 
-				    STR_TERMINATE);
+			BOOL unic=SVAL(inbuf, smb_flg2) & FLAGS2_UNICODE_STRINGS;
+
+			if ((ra_type == RA_WINNT) && (passlen2 == 0) && unic && passlen1) {
+				/* NT4.0 stuffs up plaintext unicode password lengths... */
+				srvstr_pull(inbuf, pass, smb_buf(inbuf) + 1,
+					sizeof(pass), passlen1, STR_TERMINATE);
+			} else {
+				srvstr_pull(inbuf, pass, smb_buf(inbuf), 
+					sizeof(pass),  unic ? passlen2 : passlen1, 
+					STR_TERMINATE);
+			}
 			plaintext_password = data_blob(pass, strlen(pass)+1);
 		}
 		
@@ -682,14 +755,31 @@ int reply_sesssetup_and_X(connection_struct *conn, char *inbuf,char *outbuf,
 		p += srvstr_pull_buf(inbuf, domain, p, sizeof(domain), STR_TERMINATE);
 		p += srvstr_pull_buf(inbuf, native_os, p, sizeof(native_os), STR_TERMINATE);
 		p += srvstr_pull_buf(inbuf, native_lanman, p, sizeof(native_lanman), STR_TERMINATE);
-		DEBUG(3,("Domain=[%s]  NativeOS=[%s] NativeLanMan=[%s]\n",
-			 domain,native_os,native_lanman));
 
-		if ( ra_type == RA_WIN2K )
-			ra_lanman_string( native_lanman );
+		/* not documented or decoded by Ethereal but there is one more string 
+		   in the extra bytes which is the same as the PrimaryDomain when using 
+		   extended security.  Windows NT 4 and 2003 use this string to store 
+		   the native lanman string. Windows 9x does not include a string here 
+		   at all so we have to check if we have any extra bytes left */
+		
+		byte_count = SVAL(inbuf, smb_vwv13);
+		if ( PTR_DIFF(p, save_p) < byte_count)
+			p += srvstr_pull_buf(inbuf, primary_domain, p, sizeof(primary_domain), STR_TERMINATE);
+		else 
+			fstrcpy( primary_domain, "null" );
+
+		DEBUG(3,("Domain=[%s]  NativeOS=[%s] NativeLanMan=[%s] PrimaryDomain=[%s]\n",
+			 domain, native_os, native_lanman, primary_domain));
+
+		if ( ra_type == RA_WIN2K ) {
+			if ( strlen(native_lanman) == 0 )
+				ra_lanman_string( primary_domain );
+			else
+				ra_lanman_string( native_lanman );
+		}
 
 	}
-	
+
 	if (SVAL(inbuf,smb_vwv4) == 0) {
 		setup_new_vc_session();
 	}
@@ -769,18 +859,30 @@ int reply_sesssetup_and_X(connection_struct *conn, char *inbuf,char *outbuf,
 
 	free_user_info(&user_info);
 	
-	data_blob_free(&lm_resp);
-	data_blob_clear_free(&plaintext_password);
-	
 	if (!NT_STATUS_IS_OK(nt_status)) {
 		nt_status = do_map_to_guest(nt_status, &server_info, user, domain);
 	}
 	
 	if (!NT_STATUS_IS_OK(nt_status)) {
 		data_blob_free(&nt_resp);
+		data_blob_free(&lm_resp);
+		data_blob_clear_free(&plaintext_password);
 		return ERROR_NT(nt_status_squash(nt_status));
 	}
 
+	if (server_info->nt_session_key.data) {
+		session_key = data_blob(server_info->nt_session_key.data, server_info->nt_session_key.length);
+	} else if (server_info->lm_session_key.length >= 8 && lm_resp.length == 24) {
+		session_key = data_blob(NULL, 16);
+		SMBsesskeygen_lmv1(server_info->lm_session_key.data, lm_resp.data, 
+				   session_key.data);
+	} else {
+		session_key = data_blob(NULL, 0);
+	}
+
+	data_blob_free(&lm_resp);
+	data_blob_clear_free(&plaintext_password);
+	
 	/* it's ok - setup a reply */
 	set_message(outbuf,3,0,True);
 	if (Protocol >= PROTOCOL_NT1) {
@@ -798,7 +900,7 @@ int reply_sesssetup_and_X(connection_struct *conn, char *inbuf,char *outbuf,
 	   to a uid can get through without a password, on the same VC */
 
 	/* register_vuid keeps the server info */
-	sess_vuid = register_vuid(server_info, nt_resp, sub_user);
+	sess_vuid = register_vuid(server_info, session_key, nt_resp, sub_user);
 	data_blob_free(&nt_resp);
 
 	if (sess_vuid == -1) {

@@ -8,27 +8,19 @@
 package org.jboss.ha.hasessionstate.server;
 
 import org.jboss.ha.framework.interfaces.HAPartition;
-import org.jboss.ha.framework.server.HAPartitionImpl;
 import org.jboss.ha.framework.interfaces.HAPartition;
-import org.jboss.ha.framework.interfaces.DistributedReplicantManager;
-import org.jboss.ha.framework.interfaces.DistributedState;
-import org.jboss.ha.framework.interfaces.DistributedState.DSListener;
 import org.jboss.ha.hasessionstate.interfaces.PackagedSession;
 
 import org.jboss.logging.Logger;
 
 import java.util.Iterator;
 import java.util.ArrayList;
-import java.util.List;
-import java.util.HashSet;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Enumeration;
 import java.util.Vector;
 import java.io.Serializable;
 import java.io.IOException;
-import java.rmi.RemoteException;
-import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
 import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
@@ -43,7 +35,6 @@ import javax.naming.Reference;
 import javax.naming.StringRefAddr;
 import javax.naming.Name;
 import javax.naming.Context;
-import javax.naming.NamingException;
 import javax.naming.NameNotFoundException;
 
 import org.jboss.naming.NonSerializableFactory;
@@ -53,10 +44,10 @@ import EDU.oswego.cs.dl.util.concurrent.Mutex;
 /**
  *   Default implementation of HASessionState
  *
- *   @see HASessionState
+ *   @see org.jboss.ha.hasessionstate.interfaces.HASessionState
  *   @author sacha.labourey@cogito-info.ch
  *   @author <a href="bill@burkecentral.com">Bill Burke</a>
- *   @version $Revision: 1.8.2.4 $
+ *   @version $Revision: 1.8.2.5 $
  *
  * <p><b>Revisions:</b><br>
  * <p><b>2002/01/09: billb</b>

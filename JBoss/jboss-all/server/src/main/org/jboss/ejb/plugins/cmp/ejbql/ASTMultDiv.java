@@ -15,17 +15,13 @@ import java.util.List;
  * divide opperators.
  *
  * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
- * @version $Revision: 1.1 $
+ * @version $Revision: 1.1.4.1 $
  */                            
-public class ASTMultDiv extends SimpleNode {
-   public List opps = new ArrayList();
+public final class ASTMultDiv extends SimpleNode {
+   public final List opps = new ArrayList();
 
    public ASTMultDiv(int id) {
       super(id);
-   }
-
-   public ASTMultDiv(EJBQLParser p, int id) {
-      super(p, id);
    }
 
    public void addOpp(String opp) {

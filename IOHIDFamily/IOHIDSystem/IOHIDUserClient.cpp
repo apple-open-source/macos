@@ -32,6 +32,7 @@
 #include <libkern/c++/OSContainers.h>
 
 #include "IOHIDUserClient.h"
+#include "IOHIDParameter.h"
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -149,6 +150,13 @@ IOExternalMethod * IOHIDUserClient::getTargetAndMethodForIndex(
 
 IOReturn IOHIDUserClient::setProperties( OSObject * properties )
 {
+    OSDictionary * dict = OSDynamicCast(OSDictionary, properties);
+    if (dict && dict->getObject(kIOHIDUseKeyswitchKey) && 
+        ( clientHasPrivilege(current_task(), kIOClientPrivilegeAdministrator) != kIOReturnSuccess))
+    {
+        dict->removeObject(kIOHIDUseKeyswitchKey);
+    }
+
     return( owner->setProperties( properties ) );
 }
 
@@ -198,6 +206,13 @@ IOExternalMethod * IOHIDParamUserClient::getTargetAndMethodForIndex(
 
 IOReturn IOHIDParamUserClient::setProperties( OSObject * properties )
 {        
+    OSDictionary * dict = OSDynamicCast(OSDictionary, properties);
+    if (dict && dict->getObject(kIOHIDUseKeyswitchKey) && 
+        ( clientHasPrivilege(current_task(), kIOClientPrivilegeAdministrator) != kIOReturnSuccess))
+    {
+        dict->removeObject(kIOHIDUseKeyswitchKey);
+    }
+
     return( owner->setProperties( properties ) );
 }
 

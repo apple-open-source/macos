@@ -69,6 +69,17 @@ public class SimpleUnitTestCase extends JBossTestCase
       getLog().debug("lookup('') = "+obj);
    }
 
+   public void testNameChanges() throws Exception
+   {
+      getLog().debug("+++ testLookup");
+      InitialContext ctx = getInitialContext();
+      Name name = ctx.getNameParser("").parse("jnp://localhost/jmx");
+      Name copy = (Name) name.clone();
+      Object obj = ctx.lookup(name);
+      getLog().debug("lookup("+name+") = "+obj);
+      assertTrue("name.equals(copy), name="+name, name.equals(copy));
+   }
+
    /** Lookup a name to test basic connectivity and lookup of a known name
     *
     * @throws Exception

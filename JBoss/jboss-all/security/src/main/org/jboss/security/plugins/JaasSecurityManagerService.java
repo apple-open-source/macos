@@ -59,7 +59,7 @@ import org.jboss.util.TimedCachePolicy;
  * @author <a href="on@ibis.odessa.ua">Oleg Nitz</a>
  * @author <a href="rickard@telkel.com">Rickard Oberg</a>
  * @author <a href="mailto:Scott.Stark@jboss.org">Scott Stark</a>
- * @version $Revision: 1.12.4.10 $
+ * @version $Revision: 1.12.4.11 $
  */
 public class JaasSecurityManagerService
    extends ServiceMBeanSupport
@@ -144,7 +144,7 @@ public class JaasSecurityManagerService
     */
    public String getCallbackHandlerClassName()
    {
-      return this.callbackHandlerClassName;
+      return callbackHandlerClassName;
    }
    /** Set the default CallbackHandler implementation class name
     * @see javax.security.auth.callback.CallbackHandler
@@ -152,7 +152,7 @@ public class JaasSecurityManagerService
    public void setCallbackHandlerClassName(String className)
       throws ClassNotFoundException
    {
-      this.callbackHandlerClassName = className;
+      callbackHandlerClassName = className;
       ClassLoader loader = Thread.currentThread().getContextClassLoader();
       callbackHandlerClass = loader.loadClass(callbackHandlerClassName);
    }
@@ -167,7 +167,7 @@ public class JaasSecurityManagerService
     */
    public void setAuthenticationCacheJndiName(String jndiName)
    {
-      this.cacheJndiName = jndiName;
+      cacheJndiName = jndiName;
    }
    /** Get the default timed cache policy timeout.
     @return the default cache timeout in seconds.
@@ -182,7 +182,7 @@ public class JaasSecurityManagerService
     */
    public void setDefaultCacheTimeout(int timeoutInSecs)
    {
-      this.defaultCacheTimeout = timeoutInSecs;
+      defaultCacheTimeout = timeoutInSecs;
    }
    /** Get the default timed cache policy resolution.
     */
@@ -196,7 +196,7 @@ public class JaasSecurityManagerService
     */
    public void setDefaultCacheResolution(int resInSecs)
    {
-      this.defaultCacheResolution = resInSecs;
+      defaultCacheResolution = resInSecs;
    }
 
    /** flush the cache policy for the indicated security domain if one exists.

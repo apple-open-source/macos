@@ -1,0 +1,11 @@
+--- config.h.in.orig	Thu Feb 26 22:46:44 2004
++++ config.h.in	Thu Feb 26 22:47:29 2004
+@@ -856,7 +856,7 @@
+ 
+ /* Define to 1 if your processor stores words with the most significant byte
+    first (like Motorola and SPARC, unlike Intel and VAX). */
+-#undef WORDS_BIGENDIAN
++#define WORDS_BIGENDIAN 1
+ 
+ /* Number of bits in a file offset, on hosts where this is settable. */
+ #undef _FILE_OFFSET_BITS

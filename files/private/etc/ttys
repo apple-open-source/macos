@@ -12,7 +12,7 @@
 # password exists, it will not be possible to enter single-user 
 # mode from a console marked insecure.
 ##
-#console 	"/usr/libexec/getty std.9600"	vt100	on secure
+#console 	"/usr/libexec/getty std.57600"	vt100	on secure
 console "/System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow" vt100 on secure onoption="/usr/libexec/getty std.9600"
 #tahoe's only
 #remote	"/usr/libexec/getty std.1200"	pt	on		# diagnostics
@@ -23,7 +23,7 @@ console "/System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow
 # To make the serial port available for outbound 
 # communications, the tty.serial entry should be turned off
 # (set the 4th field to off).
-tty.serial      "/usr/libexec/getty serial.9600"        vt100   off secure
+tty.serial      "/usr/libexec/getty serial.57600"        vt100   off secure
 
 # Fax reception is off by default, use the 
 # System Preferences panel to enable it.

@@ -15,7 +15,7 @@ import java.io.ObjectStreamException;
  * on the strategy used.
  *
  * @author <a href="mailto:aloubyansky@hotmail.com">Alex Loubyansky</a>
- * @version $Revision: 1.1.2.1 $
+ * @version $Revision: 1.1.2.2 $
  */
 public final class CMPMessage
    implements Serializable
@@ -24,13 +24,8 @@ public final class CMPMessage
    private static int nextOrdinal = 0;
    private static final CMPMessage[] VALUES = new CMPMessage[5];
 
-   public static final CMPMessageKey CMP_MESSAGE_KEY = new CMPMessageKey();
-
-   public static final CMPMessage CREATED = new CMPMessage("CREATED");
-   public static final CMPMessage LOADED =  new CMPMessage("LOADED");
    public static final CMPMessage CHANGED = new CMPMessage("CHANGED");
    public static final CMPMessage ACCESSED = new CMPMessage("ACCESSED");
-   public static final CMPMessage RESETTED = new CMPMessage("RESETTED");
 
    private final transient String name;
    private final int ordinal;
@@ -54,25 +49,5 @@ public final class CMPMessage
       throws ObjectStreamException
    {
       return VALUES[ordinal];
-   }
-
-   // Inner ----------------------------------------------------
-   private static final class CMPMessageKey
-      implements Serializable
-   {
-      // Constructor -------------------------------------------
-      private CMPMessageKey() { }
-
-      // Public ------------------------------------------------
-      public String toString()
-      {
-         return "CMP_MESSAGE_KEY";
-      }
-
-      // Package -----------------------------------------------
-      Object readResolve() throws ObjectStreamException
-      {
-         return CMPMessage.CMP_MESSAGE_KEY;
-      }
    }
 }

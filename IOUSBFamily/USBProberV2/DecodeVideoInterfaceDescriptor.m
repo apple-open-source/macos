@@ -1,16 +1,16 @@
 /*
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
+ *
+ * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -18,7 +18,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -33,34 +33,35 @@
 
     static unsigned char			buf[256];
     static unsigned char			buf2[256];
-    auto IOUSBVCInterfaceDescriptor *		pVideoControlHeader;
-    auto IOUSBVCInputTerminalDescriptor *	pVideoInTermDesc;
-    auto IOUSBVCCameraTerminalDescriptor *	pCameraTermDesc;
-    auto IOUSBVCOutputTerminalDescriptor *	pVideoOutTermDesc;
+    auto IOUSBVCInterfaceDescriptor *		pVideoControlHeader = NULL;
+    auto IOUSBVCInputTerminalDescriptor *	pVideoInTermDesc = NULL;
+    auto IOUSBVCCameraTerminalDescriptor *	pCameraTermDesc = NULL;
+    auto IOUSBVCOutputTerminalDescriptor *	pVideoOutTermDesc = NULL;
     auto IOUSBVCSelectorUnitDescriptor *	pSelectorUnitDesc = NULL;
-    auto IOUSBVCSelectorUnit2Descriptor *	pSelectorUnit2Desc;
-    auto IOUSBVCProcessingUnitDescriptor *	pProcessingUnitDesc;
-    auto IOUSBVCProcessingUnit2Descriptor *	pProcessingUnit2Desc;
-    auto IOUSBVCExtensionUnitDescriptor *	pExtensionUnitDesc;
-    auto IOUSBVCExtensionUnit2Descriptor *	pExtensionUnit2Desc;
-    auto IOUSBVCExtensionUnit3Descriptor *	pExtensionUnit3Desc;
-    auto IOUSBVCInterruptEndpointDescriptor *	pVCInterruptEndpintDesc;
-    auto IOUSBVSInputHeaderDescriptor *		pVSInputHeaderDesc;
-    auto IOUSBVSOutputHeaderDescriptor *	pVSOutputHeaderDesc;
-    auto IOUSBVDC_MJPEGFormatDescriptor *	pMJPEGFormatDesc;
-    auto IOUSBVDC_MJPEGFrameDescriptor *	pMJPEGFrameDesc;
-    auto IOUSBVDC_MJPEGDiscreteFrameDescriptor *	pMJPEGDiscreteFrameDesc;
+    auto IOUSBVCSelectorUnit2Descriptor *	pSelectorUnit2Desc = NULL;
+    auto IOUSBVCProcessingUnitDescriptor *	pProcessingUnitDesc = NULL;
+    auto IOUSBVCProcessingUnit2Descriptor *	pProcessingUnit2Desc = NULL;
+    auto IOUSBVCExtensionUnitDescriptor *	pExtensionUnitDesc = NULL;
+    auto IOUSBVCExtensionUnit2Descriptor *	pExtensionUnit2Desc = NULL;
+    auto IOUSBVCExtensionUnit3Descriptor *	pExtensionUnit3Desc = NULL;
+    auto IOUSBVCInterruptEndpointDescriptor *	pVCInterruptEndpintDesc = NULL;
+    auto IOUSBVSInputHeaderDescriptor *		pVSInputHeaderDesc = NULL;
+    auto IOUSBVSOutputHeaderDescriptor *	pVSOutputHeaderDesc = NULL;
+    auto IOUSBVDC_MJPEGFormatDescriptor *	pMJPEGFormatDesc = NULL;
+    auto IOUSBVDC_MJPEGFrameDescriptor *	pMJPEGFrameDesc = NULL;
+    auto IOUSBVDC_MJPEGDiscreteFrameDescriptor *	pMJPEGDiscreteFrameDesc = NULL;
+    auto IOUSBVDC_ColorFormatDescriptor *       pColorFormatDesc = NULL;
 
     UInt16					i;
     UInt8					*p;
     UInt32					*t;
     char					*s = NULL;
-    GenericAudioDescriptorPtr			desc = (GenericAudioDescriptorPtr) descriptor;
+    IOUSBVCInterfaceDescriptor *                desc = (IOUSBVCInterfaceDescriptor *) descriptor;
     UInt64					uuidHI;
     UInt64					uuidLO;
     char					str[256];
 
-    if ( ((GenericAudioDescriptorPtr)desc)->descType == CS_ENDPOINT )
+    if ( desc->bDescriptorType == CS_ENDPOINT )
     {
         pVCInterruptEndpintDesc = (IOUSBVCInterruptEndpointDescriptor *)desc;
 
@@ -85,12 +86,12 @@
         return;
     }
     
-    if ( ((GenericAudioDescriptorPtr)desc)->descType != CS_INTERFACE )
+    if ( desc->bDescriptorType != CS_INTERFACE )
         return;
 
     if( SC_VIDEOCONTROL == [[thisDevice lastInterfaceClassInfo] subclassNum] )
     {
-        switch ( ((GenericAudioDescriptorPtr)desc)->descSubType )
+        switch ( desc->bDescriptorSubType )
         {
             case VC_DESCRIPTOR_UNDEFINED:
                 sprintf((char *)buf, "Video Control Class Unknown Header");
@@ -119,7 +120,7 @@
     }
     else if( SC_VIDEOSTREAMING == [[thisDevice lastInterfaceClassInfo] subclassNum] )
     {
-        switch ( ((GenericAudioDescriptorPtr)desc)->descSubType )
+        switch ( desc->bDescriptorSubType )
         {
             case VS_UNDEFINED:
                 sprintf((char *)buf, "VDC (Streaming) Unknown Header");
@@ -160,8 +161,17 @@
             case VS_FORMAT_DV:
                 sprintf((char *)buf, "VDC (Streaming) DV Format Descriptor");
                 break;
+            case VS_COLORFORMAT:
+                sprintf((char *)buf, "VDC (Streaming) Color Format Descriptor");
+                break;
+            case VS_FORMAT_VENDOR:
+                sprintf((char *)buf, "VDC (Streaming) Vendor-specific Format Descriptor");
+                break;
+            case VS_FRAME_VENDOR:
+                sprintf((char *)buf, "VDC (Streaming) Vendor-specific Frame Descriptor");
+                break;
             default:
-                sprintf((char *)buf, "Uknown SC_VIDEOSTREAMING SubType Descriptor");
+                sprintf((char *)buf, "Unknown SC_VIDEOSTREAMING SubType Descriptor");
         }
     }
     else
@@ -171,20 +181,29 @@
 
     // Print the Length and contents of this class-specific descriptor
     //
-    sprintf(str, "%u", ((GenericAudioDescriptorPtr)desc)->descLen);
+    sprintf(str, "%u", desc->bLength);
     [thisDevice addProperty:"Length (and contents):" withValue:str atDepth:INTERFACE_LEVEL+1];
     [DescriptorDecoder dumpRawDescriptor:(Byte*)desc forDevice:thisDevice atDepth:INTERFACE_LEVEL+2];
 
     
     if( SC_VIDEOCONTROL == [[thisDevice lastInterfaceClassInfo] subclassNum] ) // Video Control Subclass
     {
-        switch ( ((GenericAudioDescriptorPtr)desc)->descSubType )
+        switch ( desc->bDescriptorSubType )
         {
             case VC_HEADER:
                 pVideoControlHeader = (IOUSBVCInterfaceDescriptor *)desc;
                 i = Swap16(&pVideoControlHeader->bcdVDC);
-                sprintf((char *)buf, "%1x%1x.%1x%1c",
-                        (i>>12)&0x000f, (i>>8)&0x000f, (i>>4)&0x000f, MapNumberToVersion((i>>0)&0x000f));
+                
+                // If release is less than 0x0100, then we need to display the release version
+                if ( (pVideoControlHeader->bcdVDC & 0xFF00) == 0 )
+                {
+                    sprintf((char *)buf, "%1x%1x.%1x%1c", (i>>12)&0x000f, (i>>8)&0x000f, (i>>4)&0x000f, MapNumberToVersion((i>>0)&0x000f));
+                }
+                else
+                {
+                    sprintf((char *)buf, "%1x%1x.%1x%1c", (i>>12)&0x000f, (i>>8)&0x000f, (i>>4)&0x000f, (i>>0)&0x000f);
+                }
+                    
                 [thisDevice addProperty:"Specification Version Number:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 
                 sprintf((char *)buf, "%u", Swap16(&pVideoControlHeader->wTotalLength) );
@@ -261,15 +280,34 @@
                     }
 
                     strcpy((char *)buf, "");
+
+                    /*
+                    // Need to swap the following bmControls field
+                    //
+                    switch ( pCameraTermDesc->bControlSize)
+                    {
+                        case 1: break;
+                        case 2: Swap16(&pCameraTermDesc->bmControls); break;
+                        //case 3: Swap24(&pCameraTermDesc->bmControls); break;
+                        case 3:  break;
+                        case 4: Swap32(&pCameraTermDesc->bmControls); break;
+                    }
+                    */
+                    
                     for (i = 0, p = &pCameraTermDesc->bmControls[0]; i < pCameraTermDesc->bControlSize; i++, p++ )
                     {
-                        // For 0.8, only 18 bits are defined:
+                        // For 1.0, only 19 bits are defined....
+                        // p is pointing to the first byte of a little endian field.
+                        //
+                        // i = 0, p -> D0-D7
+                        // i = 1, p -> D8-D15
+                        // i = 2, p -> D16-D23
+                        // i = 4, p -> D24-D31
                         //
                         if ( i > 2 )
                         {
                             sprintf((char *)buf, "Unknown");
                             [thisDevice addProperty:"" withValue:buf atDepth:INTERFACE_LEVEL+2];
-                            break;
                         }
 
                         if ( (*p) & (1 << 0) )
@@ -435,16 +473,30 @@
                 }
 
                 strcpy((char *)buf, "");
+
+                /*
+                // Need to swap the following bmControls field
+                //
+                switch ( pProcessingUnitDesc->bControlSize)
+                {
+                    case 1: break;
+                    case 2: Swap16(&pProcessingUnitDesc->bmControls); break;
+                    case 3: Swap24(&pCameraTermDesc->bmControls); break;
+                    case 4: Swap32(&pProcessingUnitDesc->bmControls); break;
+                }
+                */
+                
                 for (i = 0, p = &pProcessingUnitDesc->bmControls[0]; i < pProcessingUnitDesc->bControlSize; i++, p++ )
                 {
-                    // For 0.8, only 16 bits are defined:
+                    // For 1.0, only 16 bits are defined:
                     //
-                    if ( i > 1 )
-                    {
-                        sprintf((char *)buf, "Unknown");
-                        [thisDevice addProperty:"" withValue:buf atDepth:INTERFACE_LEVEL+2];
-                        break;
-                    }
+                    // p is pointing to the first byte of a little endian field.
+                    //
+                    // i = 0, p -> D0-D7
+                    // i = 1, p -> D8-D15
+                    // i = 2, p -> D16-D23
+                    // i = 4, p -> D24-D31
+                    //
 
                     if ( (*p) & (1 << 0) )
                     {
@@ -544,7 +596,7 @@
                 sprintf((char *)buf, 	"%u", pExtensionUnitDesc->bNrInPins );
                 [thisDevice addProperty:"Number of In pins:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 
-                for (i = 0, p = &pExtensionUnitDesc->baSourceID[0]; i < pSelectorUnitDesc->bNrInPins; i++, p++ )
+                for (i = 0, p = &pExtensionUnitDesc->baSourceID[0]; i < pExtensionUnitDesc->bNrInPins; i++, p++ )
                 {
                     sprintf((char *)buf2,	"Source ID Pin[%d]:", i);
                     sprintf((char *)buf, "%u", *p );
@@ -564,29 +616,11 @@
                 strcpy((char *)buf, "");
                 for (i = 0, p = &pExtensionUnit2Desc->bmControls[0]; i < pExtensionUnit2Desc->bControlSize; i++, p++ )
                 {
-                    // For 0.8, only 1 bits is defined:
+                    // For 1.0, all bits are vendor specific:
                     //
-                    if ( i == 0 )
-                    {
-                        if ( (*p) & 0x01)
-                        {
-                            sprintf((char *)buf, "Enable Processing");
-                            [thisDevice addProperty:"" withValue:buf atDepth:INTERFACE_LEVEL+2];
-                        }
+                    sprintf((char *)buf, "Vendor Specific Byte[i] = 0x%x", (*p));
+                    [thisDevice addProperty:"" withValue:buf atDepth:INTERFACE_LEVEL+2];
 
-                        if ( (*p) & 0xfe)
-                        {
-                            sprintf((char *)buf, "Using Reserved Bit!");
-                            [thisDevice addProperty:"" withValue:buf atDepth:INTERFACE_LEVEL+2];
-                        }
-                    }
-                    else
-                    if ( i > 1 )
-                    {
-                        sprintf((char *)buf, "Vendor Specific 0x%x", (*p));
-                        [thisDevice addProperty:"" withValue:buf atDepth:INTERFACE_LEVEL+2];
-                        break;
-                    }
                 }
 
                 // At this point, p should be pointing to the iProcessing field:
@@ -610,7 +644,7 @@
     }
     else if( SC_VIDEOSTREAMING == [[thisDevice lastInterfaceClassInfo] subclassNum] ) // Video Streaming Subclass
     {
-        switch ( ((GenericAudioDescriptorPtr)desc)->descSubType )
+        switch ( desc->bDescriptorSubType )
                 {
                     case VS_INPUT_HEADER:
                         pVSInputHeaderDesc = (IOUSBVSInputHeaderDescriptor *)desc;
@@ -808,8 +842,58 @@
                         }
                         break;
                         
-                            default:
-                        sprintf((char *)buf, "AudioStreaming Subclass" );
+                    case VS_COLORFORMAT:
+                        pColorFormatDesc = (IOUSBVDC_ColorFormatDescriptor *)desc;
+                        
+                        switch (pColorFormatDesc->bColorPrimaries)
+                        {
+                            case 0:  s = "Unspecified (Image characteristic unknown)"; break;
+                            case 1:  s = "BT.709, sRGB (default)"; break;
+                            case 2:  s = "BT.470-2(M)"; break;
+                            case 3:  s = "BT.470-2(B,G)"; break;
+                            case 4:  s = "SMPTE 170M"; break;
+                            case 5:  s = "SMPTE 240M"; break;
+                            default: s = "reserved"; break;
+                        }
+                            
+                            sprintf((char *) buf, "%u ( %s )", pColorFormatDesc->bColorPrimaries, s);
+                        [thisDevice addProperty:"Color Primaries:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+                        
+                        switch (pColorFormatDesc->bTransferCharacteristics)
+                        {
+                            case 0:  s = "Unspecified (Image characteristic unknown)"; break;
+                            case 1:  s = "BT.709 (default)"; break;
+                            case 2:  s = "BT.470-2(M)"; break;
+                            case 3:  s = "BT.470-2(B,G)"; break;
+                            case 4:  s = "SMPTE 170M"; break;
+                            case 5:  s = "SMPTE 240M"; break;
+                            case 6:  s = "Linear ( V = Lc)"; break;
+                            case 7:  s = "sRGB (very similar to BT.709)"; break;
+                            default: s = "reserved"; break;
+                        }
+                            
+                        sprintf((char *) buf, "%u ( %s )", pColorFormatDesc->bTransferCharacteristics, s);
+                        [thisDevice addProperty:"Transfer Characteristics:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+                        
+                        switch (pColorFormatDesc->bMatrixCoefficients)
+                        {
+                            case 0:  s = "Unspecified (Image characteristic unknown)"; break;
+                            case 1:  s = "BT.709"; break;
+                            case 2:  s = "FCC"; break;
+                            case 3:  s = "BT.470-2(B,G)"; break;
+                            case 4:  s = "SMPTE 170M (BT.601, default)"; break;
+                            case 5:  s = "SMPTE 240M"; break;
+                            default: s = "reserved"; break;
+                        }
+                            
+                        sprintf((char *) buf, "%u ( %s )", pColorFormatDesc->bMatrixCoefficients, s);
+                        [thisDevice addProperty:"Matrix Coefficients:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+                        
+                        
+                        break;
+                        
+                    default:
+                        sprintf((char *)buf, "Video Streaming Descriptor (0x%x)",desc->bDescriptorSubType );
                         [thisDevice addProperty:buf withValue:"" atDepth:INTERFACE_LEVEL+1];
 	}
      }       

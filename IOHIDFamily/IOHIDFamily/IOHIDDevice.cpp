@@ -239,7 +239,7 @@ void IOHIDDevice::free()
     
     if (_publishNotify)
     {
-        _publishNotify->release();
+        _publishNotify->remove();
         _publishNotify = 0;
     }
     
@@ -929,7 +929,7 @@ IOReturn IOHIDDevice::getReport( IOMemoryDescriptor * report,
                                  IOHIDReportType      reportType,
                                  IOOptionBits         options )
 {
-    return kIOReturnUnsupported;
+    return getReport(report, reportType, options, 0, 0);
 }
 
 //---------------------------------------------------------------------------
@@ -939,7 +939,7 @@ IOReturn IOHIDDevice::setReport( IOMemoryDescriptor * report,
                                  IOHIDReportType      reportType,
                                  IOOptionBits         options = 0 )
 {
-    return kIOReturnUnsupported;
+    return setReport(report, reportType, options, 0, 0);
 }
 
 //---------------------------------------------------------------------------
@@ -1164,28 +1164,32 @@ IOHIDDevice::createElementHierarchy( HIDPreparsedDataRef parseData )
 
 OSArray * IOHIDDevice::newDeviceUsagePairs()
 {
-    IOHIDElement *	element = 0;
-    OSArray *		functions = 0;
-    OSDictionary *	pair = 0;
-    OSNumber *		usage = 0;
-    OSNumber *		usagePage = 0;;
-    UInt32 		elementCount = _elementArray->getCount();    
+    IOHIDElement *	element 	= 0;
+    OSArray *		functions 	= 0;
+    OSDictionary *	pair 		= 0;
+    OSNumber *		usage 		= 0;
+    OSNumber *		usagePage 	= 0;
+    OSNumber *		type 		= 0;
+    UInt32 		elementCount 	= _elementArray->getCount();    
     
     for (int i=0; i<elementCount; i++)
     {
         element = _elementArray->getObject(i);
 
         if ((element->getElementType() == kIOHIDElementTypeCollection) &&
-            (element->getElementCollectionType() == kIOHIDElementCollectionTypeApplication))
+            ((element->getElementCollectionType() == kIOHIDElementCollectionTypeApplication) ||
+            (element->getElementCollectionType() == kIOHIDElementCollectionTypePhysical)))
         {
             if(!functions) functions = OSArray::withCapacity(2);
             
             pair 	= OSDictionary::withCapacity(2);
             usage	= OSNumber::withNumber(element->getUsage(), 32);
             usagePage	= OSNumber::withNumber(element->getUsagePage(), 32);
+            type	= OSNumber::withNumber(element->getElementCollectionType(), 32);
             
             pair->setObject(kIOHIDDeviceUsageKey, usage);
             pair->setObject(kIOHIDDeviceUsagePageKey, usagePage);
+            pair->setObject(kIOHIDElementCollectionTypeKey, type);
             
             UInt32 	pairCount = functions->getCount();
             bool 	found = false;
@@ -1197,11 +1201,23 @@ OSArray * IOHIDDevice::newDeviceUsagePairs()
                     break;
             }
             
-            if (!found) functions->setObject(functions->getCount(), pair);
+            if (!found) 
+            {
+                functions->setObject(functions->getCount(), pair);
+                
+
+                if ( ((element->getUsagePage() == kHIDPage_PowerDevice) || 
+                      (element->getUsagePage() == kHIDPage_BatterySystem)) &&
+                       !getProperty("UPSDevice") )
+                {
+                    setProperty("UPSDevice", kOSBooleanTrue);
+                }
+            }
             
             pair->release();
             usage->release();
             usagePage->release();
+            type->release();
         }
     }
 

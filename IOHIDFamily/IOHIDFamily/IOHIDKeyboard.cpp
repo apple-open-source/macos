@@ -326,8 +326,7 @@ IOHIDKeyboard::handleReport()
             dispatchKeyboardEvent(_usb_2_adb_keymap[0xe0], true, now);  //ADB left-hand CONTROL
 	    _control_key = true;	//determine if we reboot CPU.  Is instance variable.
         }
-	else if ((_oldmodifier & kUSB_LEFT_CONTROL_BIT) && !(modifier & kUSB_LEFT_CONTROL_BIT)
-	    && !(modifier & kUSB_RIGHT_CONTROL_BIT))
+	else if ((_oldmodifier & kUSB_LEFT_CONTROL_BIT) && !(modifier & kUSB_LEFT_CONTROL_BIT))
 	{
 	    //Now check for released modifier keys.  Both right and left modifiers must be
 	    //   checked otherwise Window Server thinks none are held down

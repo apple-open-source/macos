@@ -49,7 +49,7 @@ namespace KJS {
     enum { Title, Referrer, Domain, URL, Body, Location, Cookie,
            Images, Applets, Links, Forms, Anchors, Scripts, All, Clear, Open, Close,
            Write, WriteLn, GetElementsByName, CaptureEvents, ReleaseEvents,
-           BgColor, FgColor, AlinkColor, LinkColor, VlinkColor, LastModified, Height, Width, Dir };
+           BgColor, FgColor, AlinkColor, LinkColor, VlinkColor, LastModified, Height, Width, Dir, DesignMode };
     DOM::Document toDocument() const { return static_cast<DOM::Document>( node ); }
   };
 
@@ -75,7 +75,7 @@ namespace KJS {
       hr_info, mod_info, a_info, img_info, object_info, param_info,
       applet_info, map_info, area_info, script_info, table_info,
       caption_info, col_info, tablesection_info, tr_info,
-      tablecell_info, frameSet_info, frame_info, iFrame_info;
+      tablecell_info, frameSet_info, frame_info, iFrame_info, marquee_info;
 
     enum { HtmlVersion, HeadProfile, LinkHref, LinkRel, LinkMedia,
            LinkCharset, LinkDisabled, LinkHrefLang, LinkRev, LinkTarget, LinkType,
@@ -145,8 +145,10 @@ namespace KJS {
            FrameNoResize, IFrameLongDesc, IFrameDocument, IFrameAlign,
            IFrameFrameBorder, IFrameSrc, IFrameName, IFrameHeight,
            IFrameMarginHeight, IFrameMarginWidth, IFrameScrolling, IFrameWidth, IFrameContentDocument,
+           MarqueeStart, MarqueeStop,
            ElementInnerHTML, ElementTitle, ElementId, ElementDir, ElementLang,
-           ElementClassName, ElementInnerText, ElementDocument, ElementChildren };
+           ElementClassName, ElementInnerText, ElementDocument, ElementChildren, ElementContentEditable,
+           ElementIsContentEditable};
 
     DOM::HTMLElement toElement() const { return static_cast<DOM::HTMLElement>(node); }
   };

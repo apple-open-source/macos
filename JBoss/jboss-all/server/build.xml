@@ -14,7 +14,7 @@
 <!--                                                                        -->
 <!-- ====================================================================== -->
 
-<!-- $Id: build.xml,v 1.104.2.22 2003/07/23 12:05:54 starksm Exp $ -->
+<!-- $Id: build.xml,v 1.104.2.31 2003/11/12 08:46:15 starksm Exp $ -->
 
 <project default="main" name="JBoss/Server">
 
@@ -126,6 +126,7 @@
     <property name="build.gen" value="${module.output}/gen"/>
     <property name="build.resources" value="${module.output}/resources"/>
     <property name="build.reports" value="${module.output}/reports"/>
+    <property name="build.todo" value="${module.output}/todo"/>
 
     <!-- Install/Release structure -->
     <property name="install.id" value="${module.name}-${module.version}"/>
@@ -162,21 +163,6 @@
 
     <!-- Packages to include when generating api documentation -->
     <property name="javadoc.packages" value="org.jboss.*"/>
-
-    <!-- Override JUnit defaults -->
-    <property name="junit.timeout" value="240000"/> <!-- 4 minutes -->
-    <property name="junit.batchtest.todir" value="${build.reports}"/>
-    <property name="junit.jvm.options" value="-Ddummy"/>
-
-    <!-- xdoclet -->
-    <path id="xdoclet.task.classpath">
-      <path refid="javac.classpath"/>
-      <fileset dir="${project.thirdparty}/xdoclet/xdoclet/lib">
-        <include name="**/*.jar"/>
-      </fileset>
-    </path>
-    <property name="xdoclet.task.classpath" 
-	      refid="xdoclet.task.classpath"/>
 
     <!-- default.type.mapping is used in standardjaws.xml and standardjbosscmp-jdbc.xml-->
     <property name="default.type.mapping" value="Hypersonic SQL"/>
@@ -267,6 +253,7 @@
         <include name="org/jboss/ejb/MessageDrivenContainer.java"/>
         <include name="org/jboss/ejb/plugins/AbstractInstanceCache.java"/>
         <include name="org/jboss/ejb/plugins/AbstractInstancePool.java"/>
+        <include name="org/jboss/ejb/plugins/EntityInstanceCache.java"/>
         <include name="org/jboss/ejb/plugins/StatefulSessionFilePersistenceManager.java"/>
         <include name="org/jboss/ejb/plugins/cmp/jdbc/SQLExceptionProcessor.java"/>
         <include name="org/jboss/ejb/plugins/jms/JMSContainerInvoker.java"/>
@@ -411,7 +398,12 @@
   <!-- 
      |  Build all jar files.
     -->
-  <target name="jars" depends="compile" description="Builds all jar files.">
+  <target name="jars" description="Builds all jar files."
+     depends="_buildmagic:build-bypass-check"
+	  unless="build-bypass.on">
+
+    <call target="compile"/>
+
     <mkdir dir="${build.lib}"/>
 
     <!-- jboss.jar -->
@@ -468,11 +460,16 @@
         <include name="org/jboss/invocation/jrmp/interfaces/*"/>
         <include name="org/jboss/invocation/jrmp/server/*Stub.class"/>
         <include name="org/jboss/invocation/pooled/interfaces/*.class"/>
+        <include name="org/jboss/invocation/pooled/io/*.class"/>
         <include name="org/jboss/ejb/CacheKey.class"/>
         <include name="org/jboss/ejb/ListCacheKey.class"/>
+        <include name="org/jboss/ejb/plugins/cmp/jdbc/Mapper.class"/>
         <include name="org/jboss/ejb/plugins/lock/ApplicationDeadlockException.class"/>
+        <include name="org/jboss/ejb/plugins/keygenerator/KeyGenerator.class"/>
+        <include name="org/jboss/ejb/plugins/keygenerator/KeyGeneratorFactory.class"/>
         <include name="org/jboss/monitor/client/*.class"/>
         <include name="org/jboss/naming/*NamingContextFactory*.class"/>
+        <include name="org/jboss/naming/client/**"/>
         <include name="org/jboss/naming/interceptors/*"/>
         <include name="org/jboss/tm/JBossTransactionRolledbackException.class"/>
         <include name="org/jboss/tm/JBossTransactionRolledbackLocalException.class"/>
@@ -504,21 +501,6 @@
         <include name="**/*"/>
       </fileset>
     </jar>
-
-    <!-- jmx-ejb-adaptor.jar
-    <jar jarfile="${build.lib}/jmx-ejb-adaptor.jar"
-         manifest="${build.etc}/default.mf">
-      <fileset dir="${build.classes}">
-        <include name="org/jboss/jmx/ObjectHandler**"/>
-        <include name="org/jboss/jmx/adaptor/ejb/**"/>
-        <include name="org/jboss/jmx/adaptor/interfaces/**"/>
-        <include name="org/jboss/jmx/connector/RemoteMBeanServer.class"/>
-      </fileset>
-      <fileset dir="${build.beans}/ejbadaptor">
-        <include name="META-INF/**"/>
-      </fileset>
-    </jar>
--->
 
     <!-- jmx-invoker-adaptor-client.jar --> 
     <jar jarfile="${build.lib}/jmx-invoker-adaptor-client.jar"
@@ -599,24 +581,9 @@
     <mkdir dir="${build.gen}/getopt"/>
     <unjar src="${gnu.getopt.lib}/getopt.jar" dest="${build.gen}/getopt"/>
 
-    <!-- Build deployer.jar -->
-    <jar jarfile="${build.lib}/deployer.jar" manifest="${build.etc}/manifest/deployer.mf">
-      <fileset dir="${build.classes}">
-        <include name="org/jboss/jmx/service/RemoteDeployer*.class"/>
-      </fileset>
-      <fileset dir="${build.resources}">
-        <include name="log4j.properties"/>
-        <include name="jndi.properties"/>
-      </fileset>
-
-      <!-- Include getopt -->
-      <fileset dir="${build.gen}/getopt">
-        <include name="**"/>
-      </fileset>
-    </jar>
-
     <!-- Build shutdown.jar -->
-    <jar jarfile="${build.lib}/shutdown.jar" manifest="${build.etc}/manifest/shutdown.mf">
+    <jar jarfile="${build.lib}/shutdown.jar"
+      manifest="${build.etc}/manifest/shutdown.mf">
       <fileset dir="${build.classes}">
         <include name="org/jboss/Shutdown*.class"/>
       </fileset>
@@ -650,7 +617,12 @@
     </jar>
 
     <!-- SQLException Processor -->
-    <copy todir="${build.lib}" file="${build.resources}/exception-processor/sqlexception-service.xml"/>
+    <copy todir="${build.lib}"
+      file="${build.resources}/exception-processor/sqlexception-service.xml"/>
+
+    <!-- The J2EE client deployer -->
+    <copy todir="${build.lib}"
+      file="${build.resources}/client-deployer/client-deployer-service.xml" />
 
     <!--
        | JBoss/Testsuite Support
@@ -671,6 +643,9 @@
          <include name="org/jboss/ejb/CacheKey.class"/>
       </fileset>
     </jar>
+
+    <!-- Update the build marker to allow bypassing -->
+    <touch file="${build-bypass.marker}"/>
 
   </target>
 

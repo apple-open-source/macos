@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<projectDescription>
+	<name>testsuite</name>
+	<comment></comment>
+	<projects>
+		<project>cluster</project>
+		<project>common</project>
+		<project>connector</project>
+		<project>j2ee</project>
+		<project>jboss.net</project>
+		<project>jmx</project>
+		<project>management</project>
+		<project>messaging</project>
+		<project>naming</project>
+		<project>security</project>
+		<project>server</project>
+		<project>system</project>
+		<project>tools</project>
+		<project>transaction</project>
+		<project>varia</project>
+	</projects>
+	<buildSpec>
+		<buildCommand>
+			<name>org.eclipse.jdt.core.javabuilder</name>
+			<arguments>
+			</arguments>
+		</buildCommand>
+	</buildSpec>
+	<natures>
+		<nature>org.eclipse.jdt.core.javanature</nature>
+	</natures>
+</projectDescription>

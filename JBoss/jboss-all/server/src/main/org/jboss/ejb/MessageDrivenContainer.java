@@ -37,7 +37,7 @@ import org.jboss.util.NullArgumentException;
  * @author <a href="mailto:docodan@mvcsoft.com">Daniel OConnor</a>
  * @author <a href="mailto:jason@planet57.com">Jason Dillon</a>
  * @author <a href="mailto:Scott.Stark@jboss.org">Scott Stark</a>
- * @version $Revision: 1.23.2.4 $
+ * @version $Revision: 1.23.2.5 $
  *
  * @jmx:mbean extends="org.jboss.ejb.ContainerMBean"
  */
@@ -304,8 +304,8 @@ public class MessageDrivenContainer
          {
             String invokerBinding = (String) it.next();
             EJBProxyFactory ci = (EJBProxyFactory) proxyFactories.get(invokerBinding);
-            ci.setContainer(null);
             ci.destroy();
+            ci.setContainer(null);
             try
             {
                ObjectName containerName = super.getJmxName();

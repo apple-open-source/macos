@@ -5,13 +5,27 @@
  * See terms of license at gnu.org.
  */
 package org.jboss.test.jbossmq.perf;
-import java.util.*;
-import javax.jms.*;
-
-import javax.naming.*;
+import javax.jms.BytesMessage;
+import javax.jms.DeliveryMode;
+import javax.jms.JMSException;
+import javax.jms.Message;
+import javax.jms.MessageListener;
+import javax.jms.Queue;
+import javax.jms.QueueConnection;
+import javax.jms.QueueConnectionFactory;
+import javax.jms.QueueReceiver;
+import javax.jms.QueueSender;
+import javax.jms.QueueSession;
+import javax.jms.Session;
+import javax.jms.Topic;
+import javax.jms.TopicConnection;
+import javax.jms.TopicConnectionFactory;
+import javax.jms.TopicPublisher;
+import javax.jms.TopicSession;
+import javax.jms.TopicSubscriber;
+import javax.naming.Context;
 
 import org.apache.log4j.Category;
-
 import org.jboss.test.JBossTestCase;
 /**
  * JBossMQPerfStressTestCase.java Some simple tests of JBossMQ
@@ -36,7 +50,7 @@ public class JBossMQPerfStressTestCase extends JBossTestCase
    static int TRANS_NONE = 0;
    static int TRANS_INDIVIDUAL = 1;
    static int TRANS_TOTAL = 2;
-   static String[] TRANS_DESC = {"NOT", "individually", "totally"};
+   static String[] TRANS_DESC = { "NOT", "individually", "totally" };
 
    //JMSProviderAdapter providerAdapter;
    static Context context;
@@ -62,7 +76,7 @@ public class JBossMQPerfStressTestCase extends JBossTestCase
    public static void main(String[] args)
    {
 
-      String newArgs[] = {"org.jboss.test.jbossmq.perf.JBossMQPerfStressTestCase"};
+      String newArgs[] = { "org.jboss.test.jbossmq.perf.JBossMQPerfStressTestCase" };
       junit.swingui.TestRunner.main(newArgs);
 
    }
@@ -84,104 +98,111 @@ public class JBossMQPerfStressTestCase extends JBossTestCase
       final int iterationCount = getIterationCount();
       final Category log = getLog();
 
-      Thread sendThread =
-         new Thread()
+      Thread sendThread = new Thread()
+      {
+         /**
+          * Main processing method for the JBossMQPerfStressTestCase object
+          */
+         public void run()
          {
-            /**
-             * Main processing method for the JBossMQPerfStressTestCase object
-             */
-            public void run()
+            try
             {
-               try
+               QueueSession session =
+                  queueConnection.createQueueSession(transacted != TRANS_NONE, Session.AUTO_ACKNOWLEDGE);
+               Queue queue = (Queue) context.lookup(TEST_QUEUE);
+
+               QueueSender sender = session.createSender(queue);
+
+               BytesMessage message = session.createBytesMessage();
+               message.writeBytes(PERFORMANCE_TEST_DATA_PAYLOAD);
+
+               long startTime = System.currentTimeMillis();
+               for (int i = 0; i < iterationCount; i++)
                {
-                  QueueSession session = queueConnection.createQueueSession(transacted != TRANS_NONE, Session.AUTO_ACKNOWLEDGE);
-                  Queue queue = (Queue)context.lookup(TEST_QUEUE);
-
-                  QueueSender sender = session.createSender(queue);
-
-                  BytesMessage message = session.createBytesMessage();
-                  message.writeBytes(PERFORMANCE_TEST_DATA_PAYLOAD);
-
-                  long startTime = System.currentTimeMillis();
-                  for (int i = 0; i < iterationCount; i++)
-                  {
-                     //sender.send(queue, message, persistence, 4, 0);
-                     sender.send(message, persistence, 4, 0);
-                     //getLog().debug("  Sent #"+i);
-                     if (transacted == TRANS_INDIVIDUAL)
-                     {
-                        session.commit();
-                     }
-                  }
-
-                  if (transacted == TRANS_TOTAL)
+                  //sender.send(queue, message, persistence, 4, 0);
+                  sender.send(message, persistence, 4, 0);
+                  //getLog().debug("  Sent #"+i);
+                  if (transacted == TRANS_INDIVIDUAL)
                   {
                      session.commit();
                   }
-
-                  long endTime = System.currentTimeMillis();
-
-                  session.close();
-
-                  long pTime = endTime - startTime;
-                  log.debug("  sent all messages in " + ((double)pTime / 1000) + " seconds. ");
                }
-               catch (Exception e)
+
+               if (transacted == TRANS_TOTAL)
                {
-                  log.error("error", e);
+                  session.commit();
                }
-            }
-         };
 
-      final QueueSession session = queueConnection.createQueueSession(transacted != TRANS_NONE, Session.AUTO_ACKNOWLEDGE);
-      Queue queue = (Queue)context.lookup(TEST_QUEUE);
+               long endTime = System.currentTimeMillis();
+
+               session.close();
+
+               long pTime = endTime - startTime;
+               log.debug("  sent all messages in " + ((double) pTime / 1000) + " seconds. ");
+            }
+            catch (Exception e)
+            {
+               log.error("error", e);
+            }
+         }
+      };
+
+      final QueueSession session =
+         queueConnection.createQueueSession(transacted != TRANS_NONE, Session.AUTO_ACKNOWLEDGE);
+      Queue queue = (Queue) context.lookup(TEST_QUEUE);
       QueueReceiver receiver = session.createReceiver(queue);
 
-      MessageListener listener =
-         new MessageListener()
+      MessageListener listener = new MessageListener()
+      {
+         long startTime = System.currentTimeMillis();
+         int i = 0;
+
+         /**
+          * #Description of the Method
+          *
+          * @param message  Description of Parameter
+          */
+         public void onMessage(Message message)
          {
-            long startTime = System.currentTimeMillis();
-            int i = 0;
-
-            /**
-             * #Description of the Method
-             *
-             * @param message  Description of Parameter
-             */
-            public void onMessage(Message message)
+            try
             {
-               try
+               if (transacted == TRANS_INDIVIDUAL)
+                  session.commit();
+               i++;
+            }
+            catch (JMSException e)
+            {
+               getLog().error("Unable to commit", e);
+               synchronized (this)
                {
-				if( transacted == TRANS_INDIVIDUAL )
-					session.commit();
-                  i++;
-               }
-               catch (JMSException e)
-               {
-                  getLog().error("Unable to commit", e);
-                  synchronized (this)
-                  {
-                     this.notify();
-                  }
-               }
-               if (i >= iterationCount)
-               {
-                  long endTime = System.currentTimeMillis();
-                  long pTime = endTime - startTime;
-                  log.debug("  received all messages in " + ((double)pTime / 1000) + " seconds. ");
-
-                  synchronized (this)
-                  {
-                     this.notify();
-                  }
+                  this.notify();
                }
             }
-         };
+            if (i >= iterationCount)
+            {
+               long endTime = System.currentTimeMillis();
+               long pTime = endTime - startTime;
+               log.debug("  received all messages in " + ((double) pTime / 1000) + " seconds. ");
 
-      getLog().debug("  This test will send " + getIterationCount() + " "
-             + (persistence == DeliveryMode.PERSISTENT ? "persistent" : "non-persistent") + " messages. Each with a payload of "
-             + ((double)PERFORMANCE_TEST_DATA_PAYLOAD.length / 1024) + "Kb"
-             + " Session is " + TRANS_DESC[transacted] + " transacted");
+               synchronized (this)
+               {
+                  this.notify();
+               }
+            }
+         }
+      };
+
+      getLog().debug(
+         "  This test will send "
+            + getIterationCount()
+            + " "
+            + (persistence == DeliveryMode.PERSISTENT ? "persistent" : "non-persistent")
+            + " messages. Each with a payload of "
+            + ((double) PERFORMANCE_TEST_DATA_PAYLOAD.length / 1024)
+            + "Kb"
+            + " Session is "
+            + TRANS_DESC[transacted]
+            + " transacted");
       long startTime = System.currentTimeMillis();
       sendThread.start();
       receiver.setMessageListener(listener);
@@ -200,7 +221,7 @@ public class JBossMQPerfStressTestCase extends JBossTestCase
       sendThread.join();
       long endTime = System.currentTimeMillis();
       long pTime = endTime - startTime;
-      getLog().debug("  All threads finished after: " + ((double)pTime / 1000) + " seconds. ");
+      getLog().debug("  All threads finished after: " + ((double) pTime / 1000) + " seconds. ");
 
    }
 
@@ -221,106 +242,113 @@ public class JBossMQPerfStressTestCase extends JBossTestCase
       final int iterationCount = getIterationCount();
       final Category log = getLog();
 
-      Thread sendThread =
-         new Thread()
+      Thread sendThread = new Thread()
+      {
+         /**
+          * Main processing method for the JBossMQPerfStressTestCase object
+          */
+         public void run()
          {
-            /**
-             * Main processing method for the JBossMQPerfStressTestCase object
-             */
-            public void run()
+            try
             {
-               try
+
+               TopicSession session =
+                  topicConnection.createTopicSession(transacted != TRANS_NONE, Session.AUTO_ACKNOWLEDGE);
+               Topic topic = (Topic) context.lookup(TEST_TOPIC);
+
+               TopicPublisher publisher = session.createPublisher(topic);
+
+               waitForSynchMessage();
+
+               BytesMessage message = session.createBytesMessage();
+               message.writeBytes(PERFORMANCE_TEST_DATA_PAYLOAD);
+
+               long startTime = System.currentTimeMillis();
+               for (int i = 0; i < iterationCount; i++)
                {
-
-                  TopicSession session = topicConnection.createTopicSession(transacted != TRANS_NONE, Session.AUTO_ACKNOWLEDGE);
-                  Topic topic = (Topic)context.lookup(TEST_TOPIC);
-
-                  TopicPublisher publisher = session.createPublisher(topic);
-
-                  waitForSynchMessage();
-
-                  BytesMessage message = session.createBytesMessage();
-                  message.writeBytes(PERFORMANCE_TEST_DATA_PAYLOAD);
-
-                  long startTime = System.currentTimeMillis();
-                  for (int i = 0; i < iterationCount; i++)
-                  {
-                     publisher.publish(message, persistence, 4, 0);
-                     //publisher.publish(topic, message, persistence, 4, 0);
-                     //getLog().debug("  Sent #"+i);
-                     if (transacted == TRANS_INDIVIDUAL)
-                     {
-                        session.commit();
-                     }
-                  }
-
-                  if (transacted == TRANS_TOTAL)
+                  publisher.publish(message, persistence, 4, 0);
+                  //publisher.publish(topic, message, persistence, 4, 0);
+                  //getLog().debug("  Sent #"+i);
+                  if (transacted == TRANS_INDIVIDUAL)
                   {
                      session.commit();
                   }
-
-                  long endTime = System.currentTimeMillis();
-                  session.close();
-
-                  long pTime = endTime - startTime;
-                  log.debug("  sent all messages in " + ((double)pTime / 1000) + " seconds. ");
                }
-               catch (Exception e)
+
+               if (transacted == TRANS_TOTAL)
                {
-                  log.error("error", e);
+                  session.commit();
                }
-            }
-         };
 
-      final TopicSession session = topicConnection.createTopicSession(transacted != TRANS_NONE, Session.AUTO_ACKNOWLEDGE);
-      Topic topic = (Topic)context.lookup(TEST_TOPIC);
+               long endTime = System.currentTimeMillis();
+               session.close();
+
+               long pTime = endTime - startTime;
+               log.debug("  sent all messages in " + ((double) pTime / 1000) + " seconds. ");
+            }
+            catch (Exception e)
+            {
+               log.error("error", e);
+            }
+         }
+      };
+
+      final TopicSession session =
+         topicConnection.createTopicSession(transacted != TRANS_NONE, Session.AUTO_ACKNOWLEDGE);
+      Topic topic = (Topic) context.lookup(TEST_TOPIC);
       TopicSubscriber subscriber = session.createSubscriber(topic);
 
-      MessageListener listener =
-         new MessageListener()
+      MessageListener listener = new MessageListener()
+      {
+         long startTime = System.currentTimeMillis();
+         int i = 0;
+
+         /**
+          * #Description of the Method
+          *
+          * @param message  Description of Parameter
+          */
+         public void onMessage(Message message)
          {
-            long startTime = System.currentTimeMillis();
-            int i = 0;
-
-            /**
-             * #Description of the Method
-             *
-             * @param message  Description of Parameter
-             */
-            public void onMessage(Message message)
+            try
             {
-               try
+               if (transacted == TRANS_INDIVIDUAL)
+                  session.commit();
+               i++;
+            }
+            catch (JMSException e)
+            {
+               getLog().error("Unable to commit", e);
+               synchronized (this)
                {
-				if( transacted == TRANS_INDIVIDUAL )
-					session.commit();
-                  i++;
-               }
-               catch (JMSException e)
-               {
-                  getLog().error("Unable to commit", e);
-                  synchronized (this)
-                  {
-                     this.notify();
-                  }
-               }
-               if (i >= iterationCount)
-               {
-                  long endTime = System.currentTimeMillis();
-                  long pTime = endTime - startTime;
-                  log.debug("  received all messages in " + ((double)pTime / 1000) + " seconds. ");
-
-                  synchronized (this)
-                  {
-                     this.notify();
-                  }
+                  this.notify();
                }
             }
-         };
+            if (i >= iterationCount)
+            {
+               long endTime = System.currentTimeMillis();
+               long pTime = endTime - startTime;
+               log.debug("  received all messages in " + ((double) pTime / 1000) + " seconds. ");
 
-      getLog().debug("  This test will send " + getIterationCount() + " "
-             + (persistence == DeliveryMode.PERSISTENT ? "persistent" : "non-persistent") + " messages. Each with a payload of "
-             + ((double)PERFORMANCE_TEST_DATA_PAYLOAD.length / 1024) + "Kb"
-             + " Session is " + TRANS_DESC[transacted] + " transacted");
+               synchronized (this)
+               {
+                  this.notify();
+               }
+            }
+         }
+      };
+
+      getLog().debug(
+         "  This test will send "
+            + getIterationCount()
+            + " "
+            + (persistence == DeliveryMode.PERSISTENT ? "persistent" : "non-persistent")
+            + " messages. Each with a payload of "
+            + ((double) PERFORMANCE_TEST_DATA_PAYLOAD.length / 1024)
+            + "Kb"
+            + " Session is "
+            + TRANS_DESC[transacted]
+            + " transacted");
       long startTime = System.currentTimeMillis();
       sendThread.start();
       subscriber.setMessageListener(listener);
@@ -340,7 +368,7 @@ public class JBossMQPerfStressTestCase extends JBossTestCase
       sendThread.join();
       long endTime = System.currentTimeMillis();
       long pTime = endTime - startTime;
-      getLog().debug("  All threads finished after: " + ((double)pTime / 1000) + " seconds. ");
+      getLog().debug("  All threads finished after: " + ((double) pTime / 1000) + " seconds. ");
 
    }
 
@@ -360,105 +388,112 @@ public class JBossMQPerfStressTestCase extends JBossTestCase
       final int iterationCount = getIterationCount();
       final Category log = getLog();
 
-      Thread sendThread =
-         new Thread()
+      Thread sendThread = new Thread()
+      {
+         /**
+          * Main processing method for the JBossMQPerfStressTestCase object
+          */
+         public void run()
          {
-            /**
-             * Main processing method for the JBossMQPerfStressTestCase object
-             */
-            public void run()
+            try
             {
-               try
+               QueueSession session =
+                  queueConnection.createQueueSession(transacted != TRANS_NONE, Session.AUTO_ACKNOWLEDGE);
+               Queue queue = (Queue) context.lookup(TEST_QUEUE);
+
+               QueueSender sender = session.createSender(queue);
+
+               BytesMessage message = session.createBytesMessage();
+               message.writeBytes(PERFORMANCE_TEST_DATA_PAYLOAD);
+
+               long startTime = System.currentTimeMillis();
+               for (int i = 0; i < iterationCount; i++)
                {
-                  QueueSession session = queueConnection.createQueueSession(transacted != TRANS_NONE, Session.AUTO_ACKNOWLEDGE);
-                  Queue queue = (Queue)context.lookup(TEST_QUEUE);
-
-                  QueueSender sender = session.createSender(queue);
-
-                  BytesMessage message = session.createBytesMessage();
-                  message.writeBytes(PERFORMANCE_TEST_DATA_PAYLOAD);
-
-                  long startTime = System.currentTimeMillis();
-                  for (int i = 0; i < iterationCount; i++)
-                  {
-                     sender.send( message, persistence, 4, 0);
-                     //sender.send(queue, message, persistence, 4, 0);
-                     //getLog().debug("  Sent #"+i);
-                     if (transacted == TRANS_INDIVIDUAL)
-                     {
-                        session.commit();
-                     }
-                  }
-
-                  if (transacted == TRANS_TOTAL)
+                  sender.send(message, persistence, 4, 0);
+                  //sender.send(queue, message, persistence, 4, 0);
+                  //getLog().debug("  Sent #"+i);
+                  if (transacted == TRANS_INDIVIDUAL)
                   {
                      session.commit();
                   }
-
-                  session.close();
-
-                  long endTime = System.currentTimeMillis();
-
-                  long pTime = endTime - startTime;
-                  log.debug("  sent all messages in " + ((double)pTime / 1000) + " seconds. ");
                }
-               catch (Exception e)
+
+               if (transacted == TRANS_TOTAL)
                {
-                  log.error("error", e);
+                  session.commit();
                }
+
+               session.close();
+
+               long endTime = System.currentTimeMillis();
+
+               long pTime = endTime - startTime;
+               log.debug("  sent all messages in " + ((double) pTime / 1000) + " seconds. ");
             }
-         };
-
-      Thread recvThread =
-         new Thread()
-         {
-            /**
-             * Main processing method for the JBossMQPerfStressTestCase object
-             */
-            public void run()
+            catch (Exception e)
             {
-               try
+               log.error("error", e);
+            }
+         }
+      };
+
+      Thread recvThread = new Thread()
+      {
+         /**
+          * Main processing method for the JBossMQPerfStressTestCase object
+          */
+         public void run()
+         {
+            try
+            {
+
+               QueueSession session =
+                  queueConnection.createQueueSession(transacted != TRANS_NONE, Session.AUTO_ACKNOWLEDGE);
+               Queue queue = (Queue) context.lookup(TEST_QUEUE);
+
+               QueueReceiver receiver = session.createReceiver(queue);
+               long startTime = System.currentTimeMillis();
+               for (int i = 0; i < iterationCount; i++)
                {
-
-                  QueueSession session = queueConnection.createQueueSession(transacted != TRANS_NONE, Session.AUTO_ACKNOWLEDGE);
-                  Queue queue = (Queue)context.lookup(TEST_QUEUE);
-
-                  QueueReceiver receiver = session.createReceiver(queue);
-                  long startTime = System.currentTimeMillis();
-                  for (int i = 0; i < iterationCount; i++)
-                  {
-                     receiver.receive();
-                     //getLog().debug("  Received #"+i);
-                     if (transacted == TRANS_INDIVIDUAL)
-                     {
-                        session.commit();
-                     }
-                  }
-
-                  if (transacted == TRANS_TOTAL)
+                  receiver.receive();
+                  //getLog().debug("  Received #"+i);
+                  if (transacted == TRANS_INDIVIDUAL)
                   {
                      session.commit();
                   }
-
-                  long endTime = System.currentTimeMillis();
-
-                  session.close();
-
-                  long pTime = endTime - startTime;
-                  log.debug("  received all messages in " + ((double)pTime / 1000) + " seconds. ");
-
                }
-               catch (Exception e)
+
+               if (transacted == TRANS_TOTAL)
                {
-                  log.error("error", e);
+                  session.commit();
                }
-            }
-         };
 
-      getLog().debug("  This test will send " + getIterationCount() + " "
-             + (persistence == DeliveryMode.PERSISTENT ? "persistent" : "non-persistent") + " messages. Each with a payload of "
-             + ((double)PERFORMANCE_TEST_DATA_PAYLOAD.length / 1024) + "Kb"
-             + " Session is " + TRANS_DESC[transacted] + " transacted");
+               long endTime = System.currentTimeMillis();
+
+               session.close();
+
+               long pTime = endTime - startTime;
+               log.debug("  received all messages in " + ((double) pTime / 1000) + " seconds. ");
+
+            }
+            catch (Exception e)
+            {
+               log.error("error", e);
+            }
+         }
+      };
+
+      getLog().debug(
+         "  This test will send "
+            + getIterationCount()
+            + " "
+            + (persistence == DeliveryMode.PERSISTENT ? "persistent" : "non-persistent")
+            + " messages. Each with a payload of "
+            + ((double) PERFORMANCE_TEST_DATA_PAYLOAD.length / 1024)
+            + "Kb"
+            + " Session is "
+            + TRANS_DESC[transacted]
+            + " transacted");
       long startTime = System.currentTimeMillis();
       sendThread.start();
       recvThread.start();
@@ -466,7 +501,7 @@ public class JBossMQPerfStressTestCase extends JBossTestCase
       recvThread.join();
       long endTime = System.currentTimeMillis();
       long pTime = endTime - startTime;
-      getLog().debug("  All threads finished after: " + ((double)pTime / 1000) + " seconds. ");
+      getLog().debug("  All threads finished after: " + ((double) pTime / 1000) + " seconds. ");
 
    }
 
@@ -487,110 +522,117 @@ public class JBossMQPerfStressTestCase extends JBossTestCase
       final int iterationCount = getIterationCount();
       final Category log = getLog();
 
-      Thread sendThread =
-         new Thread()
+      Thread sendThread = new Thread()
+      {
+         /**
+          * Main processing method for the JBossMQPerfStressTestCase object
+          */
+         public void run()
          {
-            /**
-             * Main processing method for the JBossMQPerfStressTestCase object
-             */
-            public void run()
+            try
             {
-               try
+
+               TopicSession session =
+                  topicConnection.createTopicSession(transacted != TRANS_NONE, Session.AUTO_ACKNOWLEDGE);
+               Topic topic = (Topic) context.lookup(TEST_TOPIC);
+
+               TopicPublisher publisher = session.createPublisher(topic);
+
+               waitForSynchMessage();
+
+               BytesMessage message = session.createBytesMessage();
+               message.writeBytes(PERFORMANCE_TEST_DATA_PAYLOAD);
+
+               long startTime = System.currentTimeMillis();
+               for (int i = 0; i < iterationCount; i++)
                {
-
-                  TopicSession session = topicConnection.createTopicSession(transacted != TRANS_NONE, Session.AUTO_ACKNOWLEDGE);
-                  Topic topic = (Topic)context.lookup(TEST_TOPIC);
-
-                  TopicPublisher publisher = session.createPublisher(topic);
-
-                  waitForSynchMessage();
-
-                  BytesMessage message = session.createBytesMessage();
-                  message.writeBytes(PERFORMANCE_TEST_DATA_PAYLOAD);
-
-                  long startTime = System.currentTimeMillis();
-                  for (int i = 0; i < iterationCount; i++)
-                  {
-                     publisher.publish(message, persistence, 4, 0);
-                     //publisher.publish(topic, message, persistence, 4, 0);
-                     //getLog().debug("  Sent #"+i);
-                     if (transacted == TRANS_INDIVIDUAL)
-                     {
-                        session.commit();
-                     }
-                  }
-
-                  if (transacted == TRANS_TOTAL)
+                  publisher.publish(message, persistence, 4, 0);
+                  //publisher.publish(topic, message, persistence, 4, 0);
+                  //getLog().debug("  Sent #"+i);
+                  if (transacted == TRANS_INDIVIDUAL)
                   {
                      session.commit();
                   }
-
-                  long endTime = System.currentTimeMillis();
-
-                  session.close();
-
-                  long pTime = endTime - startTime;
-                  log.debug("  sent all messages in " + ((double)pTime / 1000) + " seconds. ");
                }
-               catch (Exception e)
+
+               if (transacted == TRANS_TOTAL)
                {
-                  log.error("error", e);
+                  session.commit();
                }
+
+               long endTime = System.currentTimeMillis();
+
+               session.close();
+
+               long pTime = endTime - startTime;
+               log.debug("  sent all messages in " + ((double) pTime / 1000) + " seconds. ");
             }
-         };
-
-      Thread recvThread =
-         new Thread()
-         {
-            /**
-             * Main processing method for the JBossMQPerfStressTestCase object
-             */
-            public void run()
+            catch (Exception e)
             {
-               try
+               log.error("error", e);
+            }
+         }
+      };
+
+      Thread recvThread = new Thread()
+      {
+         /**
+          * Main processing method for the JBossMQPerfStressTestCase object
+          */
+         public void run()
+         {
+            try
+            {
+
+               TopicSession session =
+                  topicConnection.createTopicSession(transacted != TRANS_NONE, Session.AUTO_ACKNOWLEDGE);
+               Topic topic = (Topic) context.lookup(TEST_TOPIC);
+               TopicSubscriber subscriber = session.createSubscriber(topic);
+
+               sendSynchMessage();
+
+               long startTime = System.currentTimeMillis();
+               for (int i = 0; i < iterationCount; i++)
                {
-
-                  TopicSession session = topicConnection.createTopicSession(transacted != TRANS_NONE, Session.AUTO_ACKNOWLEDGE);
-                  Topic topic = (Topic)context.lookup(TEST_TOPIC);
-                  TopicSubscriber subscriber = session.createSubscriber(topic);
-
-                  sendSynchMessage();
-
-                  long startTime = System.currentTimeMillis();
-                  for (int i = 0; i < iterationCount; i++)
-                  {
-                     subscriber.receive();
-                     //getLog().debug("  Received #"+i);
-                     if (transacted == TRANS_INDIVIDUAL)
-                     {
-                        session.commit();
-                     }
-                  }
-
-                  if (transacted == TRANS_TOTAL)
+                  subscriber.receive();
+                  //getLog().debug("  Received #"+i);
+                  if (transacted == TRANS_INDIVIDUAL)
                   {
                      session.commit();
                   }
-
-                  long endTime = System.currentTimeMillis();
-
-                  session.close();
-
-                  long pTime = endTime - startTime;
-                  log.debug("  received all messages in " + ((double)pTime / 1000) + " seconds. ");
-
                }
-               catch (Exception e)
+
+               if (transacted == TRANS_TOTAL)
                {
-                  log.error("error", e);
+                  session.commit();
                }
-            }
-         };
 
-      getLog().debug("  This test will send " + getIterationCount() + " "
-             + (persistence == DeliveryMode.PERSISTENT ? "persistent" : "non-persistent") + " messages. Each with a payload of "
-             + ((double)PERFORMANCE_TEST_DATA_PAYLOAD.length / 1024) + "Kb"
-             + " Session is " + TRANS_DESC[transacted] + " transacted");
+               long endTime = System.currentTimeMillis();
+
+               session.close();
+
+               long pTime = endTime - startTime;
+               log.debug("  received all messages in " + ((double) pTime / 1000) + " seconds. ");
+
+            }
+            catch (Exception e)
+            {
+               log.error("error", e);
+            }
+         }
+      };
+
+      getLog().debug(
+         "  This test will send "
+            + getIterationCount()
+            + " "
+            + (persistence == DeliveryMode.PERSISTENT ? "persistent" : "non-persistent")
+            + " messages. Each with a payload of "
+            + ((double) PERFORMANCE_TEST_DATA_PAYLOAD.length / 1024)
+            + "Kb"
+            + " Session is "
+            + TRANS_DESC[transacted]
+            + " transacted");
       long startTime = System.currentTimeMillis();
       sendThread.start();
       recvThread.start();
@@ -598,7 +640,7 @@ public class JBossMQPerfStressTestCase extends JBossTestCase
       recvThread.join();
       long endTime = System.currentTimeMillis();
       long pTime = endTime - startTime;
-      getLog().debug("  All threads finished after: " + ((double)pTime / 1000) + " seconds. ");
+      getLog().debug("  All threads finished after: " + ((double) pTime / 1000) + " seconds. ");
 
    }
 
@@ -695,10 +737,10 @@ public class JBossMQPerfStressTestCase extends JBossTestCase
 
          context = getInitialContext();
 
-         QueueConnectionFactory queueFactory = (QueueConnectionFactory)context.lookup(QUEUE_FACTORY);
+         QueueConnectionFactory queueFactory = (QueueConnectionFactory) context.lookup(QUEUE_FACTORY);
          queueConnection = queueFactory.createQueueConnection();
 
-         TopicConnectionFactory topicFactory = (TopicConnectionFactory)context.lookup(TOPIC_FACTORY);
+         TopicConnectionFactory topicFactory = (TopicConnectionFactory) context.lookup(TOPIC_FACTORY);
          topicConnection = topicFactory.createTopicConnection();
 
          getLog().debug("Connection to JBossMQ established.");
@@ -706,13 +748,12 @@ public class JBossMQPerfStressTestCase extends JBossTestCase
 
    }
 
-
    // Emptys out all the messages in a queue
    private void drainQueue() throws Exception
    {
 
       QueueSession session = queueConnection.createQueueSession(false, Session.AUTO_ACKNOWLEDGE);
-      Queue queue = (Queue)context.lookup(TEST_QUEUE);
+      Queue queue = (Queue) context.lookup(TEST_QUEUE);
 
       QueueReceiver receiver = session.createReceiver(queue);
       Message message = receiver.receive(50);
@@ -735,7 +776,7 @@ public class JBossMQPerfStressTestCase extends JBossTestCase
    private void waitForSynchMessage() throws Exception
    {
       QueueSession session = queueConnection.createQueueSession(false, Session.AUTO_ACKNOWLEDGE);
-      Queue queue = (Queue)context.lookup(TEST_QUEUE);
+      Queue queue = (Queue) context.lookup(TEST_QUEUE);
 
       QueueReceiver receiver = session.createReceiver(queue);
       receiver.receive();
@@ -745,7 +786,7 @@ public class JBossMQPerfStressTestCase extends JBossTestCase
    private void sendSynchMessage() throws Exception
    {
       QueueSession session = queueConnection.createQueueSession(false, Session.AUTO_ACKNOWLEDGE);
-      Queue queue = (Queue)context.lookup(TEST_QUEUE);
+      Queue queue = (Queue) context.lookup(TEST_QUEUE);
 
       QueueSender sender = session.createSender(queue);
 

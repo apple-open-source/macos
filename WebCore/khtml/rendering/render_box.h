@@ -32,6 +32,7 @@ namespace khtml {
     class CachedObject;
     
     enum WidthType { Width, MinWidth, MaxWidth };
+    enum HeightType { Height, MinHeight, MaxHeight };
     
 class RenderBox : public RenderContainer
 {
@@ -50,9 +51,7 @@ public:
     virtual void paint(QPainter *p, int _x, int _y, int _w, int _h,
                        int _tx, int _ty, PaintAction paintAction);
 
-    virtual void close();
-
-    virtual void detach(RenderArena* renderArena);
+    virtual void detach();
     
     virtual short minWidth() const { return m_minWidth; }
     virtual short maxWidth() const { return m_maxWidth; }
@@ -85,26 +84,31 @@ public:
 
     virtual void position(InlineBox* box, int from, int len, bool reverse);
     
-    virtual int lowestPosition(bool includeOverflowInterior=true) const;
-    virtual int rightmostPosition(bool includeOverflowInterior=true) const;
+    virtual int lowestPosition(bool includeOverflowInterior=true, bool includeSelf=true) const;
+    virtual int rightmostPosition(bool includeOverflowInterior=true, bool includeSelf=true) const;
+    virtual int leftmostPosition(bool includeOverflowInterior=true, bool includeSelf=true) const;
 
-    virtual void repaint(bool immediate=false);
+    virtual QRect getAbsoluteRepaintRect();
+    virtual void computeAbsoluteRepaintRect(QRect& r, bool f=false);
 
-    virtual void repaintRectangle(int x, int y, int w, int h, bool immediate=false, bool f=false);
-
-    virtual void setPixmap(const QPixmap &, const QRect&, CachedImage *);
-
+#ifdef INCREMENTAL_REPAINTING
+    virtual void repaintDuringLayoutIfMoved(int oldX, int oldY);
+#endif
+    
     virtual short containingBlockWidth() const;
 
     virtual void calcWidth();
     virtual void calcHeight();
 
     int calcWidthUsing(WidthType widthType, int cw, LengthType& lengthType);
+    int calcReplacedWidthUsing(WidthType widthType) const;
+    int calcReplacedHeightUsing(HeightType heightType) const;
     
     virtual short calcReplacedWidth() const;
     virtual int   calcReplacedHeight() const;
 
     virtual int availableHeight() const;
+    int availableHeightUsing(const Length& h) const;
     
     void calcVerticalMargins();
 
@@ -137,9 +141,6 @@ protected:
     virtual QRect getOverflowClipRect(int tx, int ty);
     virtual QRect getClipRect(int tx, int ty);
 
-    // Called to correct the z-index after the style has been changed.
-    void adjustZIndex();
-    
     // the actual height of the contents + borders + padding
     int m_height;
 

@@ -3,22 +3,21 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
+ * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ * Reserved.  This file contains Original Code and/or Modifications of
+ * Original Code as defined in and that are subject to the Apple Public
+ * Source License Version 1.0 (the 'License').  You may not use this file
+ * except in compliance with the License.  Please obtain a copy of the
+ * License at http://www.apple.com/publicsource and read it before using
+ * this file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License."
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -2020,13 +2019,13 @@ enter_syscall(int thread, int type, kd_buf *kd, char *name, double now)
 		   }
 
 		   /* Print timestamp column */
-		   printf(buf);
+		   printf("%s", buf);
 
 		   map = find_thread_map(thread);
 		   if (map) {
 		       sprintf(buf, "  %-25.25s ", name);
 		       nmclen = strlen(buf);
-		       printf(buf);
+		       printf("%s", buf);
 
 		       sprintf(buf, "(%d, 0x%x, 0x%x, 0x%x)", (short)kd->arg1, kd->arg2, kd->arg3, kd->arg4);
 		       argsclen = strlen(buf);
@@ -2043,17 +2042,17 @@ enter_syscall(int thread, int type, kd_buf *kd, char *name, double now)
 
 		       if(clen > 0)
 			 {
-			   printf(buf);   /* print the kdargs */
+			   printf("%s", buf);   /* print the kdargs */
 			   memset(buf, ' ', clen);
 			   buf[clen] = '\0';
-			   printf(buf);
+			   printf("%s", buf);
 			 }
 		       else if ((argsclen + clen) > 0)
 			 {
 			   /* no room so wipe out the kdargs */
 			   memset(buf, ' ', (argsclen + clen));
 			   buf[argsclen + clen] = '\0';
-			   printf(buf);
+			   printf("%s", buf);
 			 }
 
 		       if (columns > MAXCOLS || wideflag)
@@ -2251,7 +2250,7 @@ format_print(struct th_info *ti, char *sc_name, int thread, int type, int error,
             }
             clen = strlen(buf);
        }
-       printf(buf);
+       printf("%s", buf);
 
        /*
 	 Calculate space available to print pathname
@@ -2278,17 +2277,17 @@ format_print(struct th_info *ti, char *sc_name, int thread, int type, int error,
 	   */
 	   memset(&buf[len], ' ', clen - len);
 	   buf[clen] = '\0';
-	   printf(buf);
+	   printf("%s", buf);
 	 }
        else if (clen == len)
 	 {
-	   printf(buf);
+	   printf("%s", buf);
 	 }
        else if ((clen > 0) && (clen < len))
 	 {
 	   /* This prints the tail end of the pathname */
 	   buf[len-clen] = ' ';
-	   printf(&buf[len - clen]);
+	   printf("%s", &buf[len - clen]);
 	 }
 
        usecs = (unsigned long)((now - stime) / divisor);

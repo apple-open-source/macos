@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,45 +23,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc.  All rights reserved.
  *
  *
  */
-//		$Log: PowerMac7_2_SlewCtrlLoop.h,v $
-//		Revision 1.4  2003/06/25 02:16:25  eem
-//		Merged 101.0.21 to TOT, fixed PM72 lproj, included new fan settings, bumped
-//		version to 101.0.22.
-//		
-//		Revision 1.3.4.1  2003/06/20 01:40:01  eem
-//		Although commented out in this submision, there is support here to nap
-//		the processors if the fans are at min, with the intent of keeping the
-//		heat sinks up to temperature.
-//		
-//		Revision 1.3  2003/06/07 01:30:58  eem
-//		Merge of EEM-PM72-ActiveFans-2 branch, with a few extra tweaks.  This
-//		checkin has working PID control for PowerMac7,2 platforms, as well as
-//		a first shot at localized strings.
-//		
-//		Revision 1.2.4.4  2003/05/31 08:11:38  eem
-//		Initial pass at integrating deadline-based timer callbacks for PID loops.
-//		
-//		Revision 1.2.4.3  2003/05/29 03:51:36  eem
-//		Clean up environment dictionary access.
-//		
-//		Revision 1.2.4.2  2003/05/26 10:07:17  eem
-//		Fixed most of the bugs after the last cleanup/reorg.
-//		
-//		Revision 1.2.4.1  2003/05/23 06:36:59  eem
-//		More registration notification stuff.
-//		
-//		Revision 1.2  2003/05/13 02:13:52  eem
-//		PowerMac7_2 Dynamic Power Step support.
-//		
-//		Revision 1.1.2.1  2003/05/12 11:21:12  eem
-//		Support for slewing.
-//		
-//
-//
+
 
 #ifndef _POWERMAC7_2_SLEWCTRLLOOP_H
 #define _POWERMAC7_2_SLEWCTRLLOOP_H

@@ -127,7 +127,7 @@ SamrTestPrivateFunctionsUser
 #define SAMR_UNKNOWN_2a        0x2a
 #define SAMR_UNKNOWN_2b        0x2b
 #define SAMR_GET_USRDOM_PWINFO 0x2c
-#define SAMR_REMOVE_USER_FOREIGN_DOMAIN        0x2d
+#define SAMR_REMOVE_SID_FOREIGN_DOMAIN        0x2d
 #define SAMR_UNKNOWN_2E        0x2e /* looks like an alias for SAMR_QUERY_DOMAIN_INFO */
 #define SAMR_UNKNOWN_2f        0x2f
 #define SAMR_QUERY_DISPINFO3   0x30 /* Alias for SAMR_QUERY_DISPINFO
@@ -189,7 +189,9 @@ typedef struct sam_user_info_23
 	/* uint8 pad[2] */
 	uint32 ptr_logon_hrs; /* pointer to logon hours */
 
-	uint32 unknown_5;     /* 0x0001 0000 */
+	/* Was unknown_5. */
+	uint16 bad_password_count;
+	uint16 logon_count;
 
 	uint8 padding1[6];
 		
@@ -312,7 +314,9 @@ typedef struct sam_user_info_21
 	/* uint8 pad[2] */
 	uint32 ptr_logon_hrs; /* unknown pointer */
 
-	uint32 unknown_5;     /* 0x0002 0000 */
+	/* Was unknown_5. */
+	uint16 bad_password_count;
+	uint16 logon_count;
 
 	uint8 padding1[6];
 		
@@ -1786,21 +1790,21 @@ typedef struct r_samr_chgpasswd_user_info
 } SAMR_R_CHGPASSWD_USER;
 
 
-/* SAMR_Q_REMOVE_USER_FOREIGN_DOMAIN */
-typedef struct q_samr_remove_user_foreign_domain_info
+/* SAMR_Q_REMOVE_SID_FOREIGN_DOMAIN */
+typedef struct q_samr_remove_sid_foreign_domain_info
 {
 	POLICY_HND dom_pol;   /* policy handle */
 	DOM_SID2 sid;         /* SID */
 
-} SAMR_Q_REMOVE_USER_FOREIGN_DOMAIN;
+} SAMR_Q_REMOVE_SID_FOREIGN_DOMAIN;
 
 
-/* SAMR_R_REMOVE_USER_FOREIGN_DOMAIN */
-typedef struct r_samr_remove_user_foreign_domain_info
+/* SAMR_R_REMOVE_SID_FOREIGN_DOMAIN */
+typedef struct r_samr_remove_sid_foreign_domain_info
 {
 	NTSTATUS status;         /* return status */
 
-} SAMR_R_REMOVE_USER_FOREIGN_DOMAIN;
+} SAMR_R_REMOVE_SID_FOREIGN_DOMAIN;
 
 
 

@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -138,6 +136,114 @@ Example:
 </pre>
 */
 #define kIOPropertySCSILogicalUnitNumberKey			"SCSI Logical Unit Number"
+
+
+/*!
+@defined kIOPropertyFibreChannelNodeWorldWideNameKey
+@discussion This key is the unique 64-bit World Wide Name for the device server
+node located at this port.
+
+Requirement: Mandatory for Fibre Channel Interface.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Protocol Characteristics</key>
+	<dict>
+		<key>Physical Interconnect</key>
+		<string>Fibre Channel Interface</string>
+		<key>Physical Interconnect Location</key>
+		<string>External</string>
+		<key>Node World Wide Name</key>
+		<data>0011223344556677</data>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyFibreChannelNodeWorldWideNameKey		"Node World Wide Name"
+
+
+/*!
+@defined kIOPropertyFibreChannelPortWorldWideNameKey
+@discussion This key is the unique 64-bit World Wide Name for the port.
+
+Requirement: Mandatory for Fibre Channel Interface.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Protocol Characteristics</key>
+	<dict>
+		<key>Physical Interconnect</key>
+		<string>Fibre Channel Interface</string>
+		<key>Physical Interconnect Location</key>
+		<string>External</string>
+		<key>Port World Wide Name</key>
+		<data>0011223344556677</data>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyFibreChannelPortWorldWideNameKey		"Port World Wide Name"
+
+
+/*!
+@defined kIOPropertyFibreChannelAddressIdentifierKey
+@discussion This key is the 24-bit Address Identifier (S_ID or D_ID) as
+defined in the FC-FS specification. It contains the address identifier
+of the source or destination Nx_Port.
+
+Requirement: Optional (only necessary for Fibre Channel Interface).
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Protocol Characteristics</key>
+	<dict>
+		<key>Physical Interconnect</key>
+		<string>Fibre Channel Interface</string>
+		<key>Physical Interconnect Location</key>
+		<string>External</string>
+		<key>Address Identifier</key>
+		<data>001122</data>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyFibreChannelAddressIdentifierKey		"Address Identifier"
+
+
+/*!
+@defined kIOPropertyFibreChannelALPAKey
+@discussion This key is the 8-bit Arbitrated Loop Physical Address
+(AL_PA) value as defined in the FC-AL-2 specification.
+
+Requirement: Optional (only necessary for Fibre Channel Interface).
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Protocol Characteristics</key>
+	<dict>
+		<key>Physical Interconnect</key>
+		<string>Fibre Channel Interface</string>
+		<key>Physical Interconnect Location</key>
+		<string>External</string>
+		<key>ALPA</key>
+		<data>04</data>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyFibreChannelALPAKey					"AL_PA"
 
 
 /*!

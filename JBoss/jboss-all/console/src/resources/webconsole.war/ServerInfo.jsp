@@ -1,3 +1,10 @@
+<%--
+ |
+ |  Author: Sacha Labourey    (sacha@jboss.org)
+ |
+ | Distributable under LGPL license.
+ | See terms of license at gnu.org.
+ +--%>
 <%@ taglib uri="/webconsole" prefix="jb" %>
 <jb:mbean id="server" mbean='jboss.system:type=Server' intf="org.jboss.system.server.ServerImplMBean" />
 <jb:mbean id="serverInfo" mbean='jboss.system:type=ServerInfo' intf="org.jboss.system.server.ServerInfoMBean" />
@@ -74,7 +81,7 @@ public String memSize (java.lang.Long lOctets)
                     <p align="left"><font size="1"><b>Built on: </b><%=server.getBuildDate()%></font>
                     </td>
                     <td width="25%" align="center" valign="top">
-                    <h4>Environnement</h4>
+                    <h4>Environment</h4>
                     <p align="left"><font size="1"><b>Start date: </b><%=server.getStartDate()%></font></p>
                     <p align="left"><font size="1"><b>Host: </b><%=serverInfo.getHostName()%> (<%=serverInfo.getHostAddress ()%>)</font></p>
                     <p align="left"><font size="1"><b>Base Location: </b><%=serverConfig.getServerBaseURL()%></font></p>
@@ -96,7 +103,7 @@ public String memSize (java.lang.Long lOctets)
                     <p align="left"><font size="1"><b>#CPU: </b><%=serverInfo.getAvailableProcessors()%></font></p>
                     <p align="left"><font size="1"><b>OS: </b><%=serverInfo.getOSName()%> <%=serverInfo.getOSVersion()%> (<%=serverInfo.getOSArch()%>)</font></td>
                     <td width="25%" align="center" valign="top">
-                    <h4>JVM Environnement</h4>
+                    <h4>JVM Environment</h4>
                     <p align="left"><font size="1"><b>Free Memory: </b><%=memSize(serverInfo.getFreeMemory())%></font></p>
                     <p align="left"><font size="1"><b>Max Memory: </b><%=memSize(serverInfo.getMaxMemory())%></font></p>
                     <p align="left"><font size="1"><b>Total Memory: </b><%=memSize(serverInfo.getTotalMemory())%></font></p>

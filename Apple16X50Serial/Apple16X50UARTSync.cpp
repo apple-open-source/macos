@@ -1463,7 +1463,7 @@ void Apple16X50UARTSync::interrupt()
 Apple16X50UARTSync *Apple16X50UARTSync::
 probeUART(Apple16X50BusInterface *provider, void *refCon, tUART_Type type)
 {
-    UInt32	fifoSize;
+    UInt32	fifoSize, tries=0;
     
     DEBUG_IOLog("Apple16X50UARTSync::probeUART(%p,%p,%s)\n",
                 provider, refCon, IOFindNameForValue(type, gUARTnames));
@@ -1472,8 +1472,11 @@ probeUART(Apple16X50BusInterface *provider, void *refCon, tUART_Type type)
         (!provider->metaCast("com_apple_driver_16X50ACPI")))
         return NULL;	// Only allow us to be instantiated by classes in this project - this is not a publicly usable class
 
-    if (type == kUART_Unknown)
+    while ((kUART_Unknown == type) && (tries++ < 16)) {
+	DEBUG_IOLog("Apple16X50UARTSync::probeUART() - Try # %d\n", tries);
         type = identifyUART(provider, refCon);
+        if ((kUART_Unknown == type) && (tries < 16)) IOSleep(250); // wait 1/4 sec before trying again.
+    }
     
     switch (type) {
         case kUART_16550C :

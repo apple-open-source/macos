@@ -54,7 +54,7 @@ namespace KJS {
     virtual void pushEventHandlerScope(ExecState *exec, ScopeChain &scope) const;
 
     enum { NodeName, NodeValue, NodeType, ParentNode, ParentElement,
-           ChildNodes, FirstChild, LastChild, PreviousSibling, NextSibling,
+           ChildNodes, FirstChild, LastChild, PreviousSibling, NextSibling, Item,
            Attributes, NamespaceURI, Prefix, LocalName, OwnerDocument, InsertBefore,
            ReplaceChild, RemoveChild, AppendChild, HasAttributes, HasChildNodes,
            CloneNode, Normalize, IsSupported, AddEventListener, RemoveEventListener,
@@ -84,6 +84,9 @@ namespace KJS {
     virtual bool toBoolean(ExecState *) const { return true; }
     static const ClassInfo info;
     DOM::NodeList nodeList() const { return list; }
+
+    virtual Value toPrimitive(ExecState *exec, Type preferred = UndefinedType) const;
+
   private:
     DOM::NodeList list;
   };
@@ -252,6 +255,9 @@ namespace KJS {
 
   Value getDOMDocumentNode(ExecState *exec, const DOM::Document &n);
   bool checkNodeSecurity(ExecState *exec, const DOM::Node& n);
+#if APPLE_CHANGES
+  Value getRuntimeObject(ExecState *exec, const DOM::Node &n);
+#endif
   Value getDOMNode(ExecState *exec, const DOM::Node &n);
   Value getDOMNamedNodeMap(ExecState *exec, const DOM::NamedNodeMap &m);
   Value getDOMNodeList(ExecState *exec, const DOM::NodeList &l);

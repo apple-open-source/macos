@@ -23,7 +23,7 @@
  * the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
  *
- * $Id: render_table.h,v 1.24 2003/08/08 22:26:08 hyatt Exp $
+ * $Id: render_table.h,v 1.33 2004/01/07 01:15:20 hyatt Exp $
  */
 #ifndef RENDER_TABLE_H
 #define RENDER_TABLE_H
@@ -84,8 +84,15 @@ public:
     int getColumnPos(int col) const
         { return columnPos[col]; }
 
-    int cellSpacing() const { return spacing; }
-
+    int hBorderSpacing() const { return hspacing; }
+    int vBorderSpacing() const { return vspacing; }
+    
+    bool collapseBorders() const { return style()->borderCollapse(); }
+    int borderLeft() const;
+    int borderRight() const;
+    int borderTop() const;
+    int borderBottom() const;
+    
     Rules getRules() const { return rules; }
 
     const QColor &bgColor() const { return style()->backgroundColor(); }
@@ -99,10 +106,15 @@ public:
     virtual void addChild(RenderObject *child, RenderObject *beforeChild = 0);
     virtual void paint( QPainter *, int x, int y, int w, int h,
                         int tx, int ty, PaintAction paintAction);
+    virtual void paintBoxDecorations(QPainter *p,int _x, int _y,
+                                     int _w, int _h, int _tx, int _ty);
     virtual void layout();
     virtual void calcMinMaxWidth();
     virtual void close();
 
+    virtual RenderBlock* firstLineBlock() const;
+    virtual void updateFirstLetter();
+    
     virtual void setCellWidths( );
 
     virtual void calcWidth();
@@ -148,8 +160,9 @@ public:
 	return c;
     }
 
-    int bordersAndSpacing() const {
-	return borderLeft() + borderRight() + (numEffCols()+1) * cellSpacing();
+    int bordersPaddingAndSpacing() const {
+	return borderLeft() + borderRight() + 
+               (collapseBorders() ? 0 : (paddingLeft() + paddingRight() + (numEffCols()+1) * hBorderSpacing()));
     }
 
     RenderTableCol *colElement( int col );
@@ -157,10 +170,14 @@ public:
     void setNeedSectionRecalc() { needSectionRecalc = true; }
 
     virtual RenderObject* removeChildNode(RenderObject* child);
-#if APPLE_CHANGES
-    virtual RenderTableCell* cellAbove(RenderTableCell* cell) const;
-#endif
 
+    RenderTableCell* cellAbove(const RenderTableCell* cell) const;
+    RenderTableCell* cellBelow(const RenderTableCell* cell) const;
+    RenderTableCell* cellLeft(const RenderTableCell* cell) const;
+    RenderTableCell* cellRight(const RenderTableCell* cell) const;
+ 
+    CollapsedBorderValue* currentBorderStyle() { return m_currentBorder; }
+    
 protected:
 
     void recalcSections();
@@ -175,13 +192,17 @@ protected:
 
     TableLayout *tableLayout;
 
+    CollapsedBorderValue* m_currentBorder;
+    
     Frame frame                 : 4;
     Rules rules                 : 4;
 
     bool has_col_elems		: 1;
-    uint spacing                : 11;
-    uint padding		: 11;
+    uint padding		: 22;
     uint needSectionRecalc	: 1;
+    
+    short hspacing;
+    short vspacing;
 };
 
 // -------------------------------------------------------------------------
@@ -191,7 +212,7 @@ class RenderTableSection : public RenderBox
 public:
     RenderTableSection(DOM::NodeImpl* node);
     ~RenderTableSection();
-    virtual void detach(RenderArena* arena);
+    virtual void detach();
 
     virtual void setStyle(RenderStyle *style);
 
@@ -265,7 +286,7 @@ class RenderTableRow : public RenderContainer
 public:
     RenderTableRow(DOM::NodeImpl* node);
 
-    virtual void detach(RenderArena* arena);
+    virtual void detach();
 
     virtual void setStyle( RenderStyle* );
     virtual const char *renderName() const { return "RenderTableRow"; }
@@ -280,7 +301,7 @@ public:
     virtual void position(int, int, int, int, int, bool, bool, int) {}
 
     virtual void layout();
-    virtual void repaint(bool immediate=false);
+    virtual QRect getAbsoluteRepaintRect();
     
     RenderTable *table() const { return static_cast<RenderTable *>(parent()->parent()); }
     RenderTableSection *section() const { return static_cast<RenderTableSection *>(parent()); }
@@ -297,7 +318,7 @@ class RenderTableCell : public RenderBlock
 public:
     RenderTableCell(DOM::NodeImpl* node);
 
-    virtual void detach(RenderArena* arena);
+    virtual void detach();
 
     virtual const char *renderName() const { return "RenderTableCell"; }
     virtual bool isTableCell() const { return true; }
@@ -323,6 +344,17 @@ public:
     virtual void setWidth( int width );
     virtual void setStyle( RenderStyle *style );
 
+    int borderLeft() const;
+    int borderRight() const;
+    int borderTop() const;
+    int borderBottom() const;
+
+    CollapsedBorderValue collapsedLeftBorder() const;
+    CollapsedBorderValue collapsedRightBorder() const;
+    CollapsedBorderValue collapsedTopBorder() const;
+    CollapsedBorderValue collapsedBottomBorder() const;
+    virtual void collectBorders(QPtrList<CollapsedBorderValue>& borderStyles);
+
     virtual void updateFromElement();
 
     virtual void layout();
@@ -336,12 +368,14 @@ public:
     virtual void paint( QPainter* p, int x, int y,
                         int w, int h, int tx, int ty, PaintAction paintAction);
 
+    void paintCollapsedBorder(QPainter* p, int x, int y, int w, int h);
+    
     virtual void close();
 
     // lie position to outside observers
     virtual int yPos() const { return m_y + _topExtra; }
 
-    virtual void repaintRectangle(int x, int y, int w, int h, bool immediate = false, bool f=false);
+    virtual void computeAbsoluteRepaintRect(QRect& r, bool f=false);
     virtual bool absolutePosition(int &xPos, int &yPos, bool f = false);
 
     virtual short baselinePosition( bool = false ) const;
@@ -356,6 +390,11 @@ public:
     virtual void dump(QTextStream *stream, QString ind = "") const;
 #endif
 
+    virtual void paintObject(QPainter *, int x, int y, int w, int h,
+                             int tx, int ty, PaintAction paintAction);
+    
+    virtual QRect getAbsoluteRepaintRect();
+    
 protected:
     virtual void paintBoxDecorations(QPainter *p,int _x, int _y,
                                      int _w, int _h, int _tx, int _ty);
@@ -390,8 +429,6 @@ public:
     virtual bool isTableCol() const { return true; }
 
     virtual short lineHeight( bool ) const { return 0; }
-    virtual void position(int, int, int, int, int, bool, bool, int) {}
-    virtual void layout() {}
 
     virtual void updateFromElement();
 

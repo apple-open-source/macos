@@ -60,7 +60,8 @@ public:
   bool canResize( int _x, int _y);
   void setResizing(bool e);
 
-  bool nodeAtPoint(NodeInfo& info, int x, int y, int tx, int ty, bool inside=false);
+  bool nodeAtPoint(NodeInfo& info, int x, int y, int tx, int ty,
+                   HitTestAction hitTestAction = HitTestAll, bool inside=false);
 
     DOM::HTMLFrameSetElementImpl *element() const
     { return static_cast<DOM::HTMLFrameSetElementImpl*>(RenderObject::element()); }
@@ -98,6 +99,12 @@ public:
 
     virtual void setWidget( QWidget *widget );
 
+#if APPLE_CHANGES
+    // FIXME: This should not be necessary.  Remove this once WebKit knows to properly schedule
+    // layouts using WebCore when objects resize.
+    void updateWidgetPositions();
+#endif
+    
     /**
      * Called by KHTMLPart to notify the frame object that loading the
      * part was not successfuly. (called either asyncroniously after a

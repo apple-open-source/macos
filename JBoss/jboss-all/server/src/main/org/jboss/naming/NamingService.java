@@ -35,7 +35,7 @@ import org.jnp.server.Main;
  * @author <a href="mailto:rickard.oberg@telkel.com">Rickard Öberg</a>
  * @author <a href="mailto:Scott.Stark@jboss.org">Scott Stark</a>.
  * @author <a href="mailto:andreas@jboss.org">Andreas Schaefer</a>.
- * @version $Revision: 1.34.2.6 $
+ * @version $Revision: 1.34.2.7 $
  *
  * @jmx:mbean name="jboss:service=Naming"
  *            extends="org.jboss.system.ServiceMBean, org.jnp.server.MainMBean"
@@ -80,6 +80,16 @@ public class NamingService
    public void setBindAddress(String host) throws UnknownHostException
    {
       naming.setBindAddress(host);
+   }
+
+   public String getRmiBindAddress()
+   {
+      return naming.getRmiBindAddress();
+   }
+
+   public void setRmiBindAddress(String host) throws UnknownHostException
+   {
+      naming.setRmiBindAddress(host);
    }
 
    public int getBacklog()

@@ -9,8 +9,6 @@
 # Mircosoft extensions are documented here:
 # http://msdn.microsoft.com/workshop/author/css/reference/attributes.asp
 #
-#azimuth
-#
 # CSS_PROP_BACKGROUND_COLOR: 
 #
 background-color
@@ -24,6 +22,8 @@ background-position-y
 
 border-collapse
 border-spacing
+-khtml-border-horizontal-spacing
+-khtml-border-vertical-spacing
 border-top-color
 border-right-color
 border-bottom-color
@@ -52,12 +52,9 @@ color
 content
 counter-increment
 counter-reset
-#cue-after
-#cue-before
 cursor
 direction
 display
-#elevation
 empty-cells
 float
 font-family
@@ -78,14 +75,20 @@ margin-top
 margin-right
 margin-bottom
 margin-left
-marker-offset
+-khtml-marquee
+-khtml-marquee-direction
+-khtml-marquee-increment
+-khtml-marquee-repetition
+-khtml-marquee-speed
+-khtml-marquee-style
 max-height
 max-width
 min-height
 min-width
--khtml-opacity
+opacity
 orphans
 outline-color
+outline-offset
 outline-style
 outline-width
 overflow
@@ -97,22 +100,10 @@ page
 page-break-after
 page-break-before
 page-break-inside
-#pause-after
-#pause-before
-#pitch
-#pitch-range
-#play-during
 position
 quotes
-#richness
 right
 size
-#speak
-#speak-header
-#speak-numeral
-#speak-punctuation
-#speech-rate
-#stress
 table-layout
 text-align
 text-decoration
@@ -124,8 +115,6 @@ top
 unicode-bidi
 vertical-align
 visibility
-#voice-family
-#volume
 white-space
 widows
 width
@@ -140,13 +129,11 @@ border-right
 border-bottom
 border-left
 border-width
-#cue
 font
 list-style
 margin
 outline
 padding
-#pause
 scrollbar-face-color
 scrollbar-shadow-color
 scrollbar-highlight-color

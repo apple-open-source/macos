@@ -55,6 +55,11 @@ public:
 			  CSSM_BOOL deleteKey);
 
 	SecurityServer::ClientSession &clientSession();
+
+	/* Might return SecurityServer::noKey if the key has not yet been instantiated. */
+	SecurityServer::KeyHandle optionalKeyHandle() const;
+
+	/* Will instantiate the key if needed. */
 	SecurityServer::KeyHandle keyHandle();
 
     // ACL retrieval and change operations
@@ -65,6 +70,9 @@ public:
 				AclEntryInfo *&aclInfos, CssmAllocator &allocator);
 	void changeAcl(const AccessCredentials &accessCred,
 				   const AclEdit &aclEdit);
+
+	// Reencode and write to disk if we are a persistant key.
+	void didChangeAcl();
 
 private:
 	CssmAllocator &mAllocator;

@@ -11,7 +11,6 @@ import javax.naming.InitialContext;
 import javax.net.ServerSocketFactory;
 import javax.net.ssl.SSLServerSocketFactory;
 
-import com.sun.net.ssl.KeyManager;
 import com.sun.net.ssl.KeyManagerFactory;
 import com.sun.net.ssl.SSLContext;
 import com.sun.net.ssl.TrustManager;
@@ -30,7 +29,7 @@ import org.jboss.security.SecurityDomain;
  @see org.jboss.security.SecurityDomain
 
 @author  Scott.Stark@jboss.org
-@version $Revision: 1.3.2.2 $
+@version $Revision: 1.3.2.3 $
 */
 public class DomainServerSocketFactory extends SSLServerSocketFactory
 {

@@ -29,7 +29,7 @@ import org.jboss.system.ServiceMBean;
 * ProxyFactory for Clustering
 *
 *  @author <a href="mailto:bill@burkecentral.com">Bill Burke</a>
-*  @version $Revision: 1.8.2.5 $
+*  @version $Revision: 1.8.2.6 $
 *
 *  <p><b>Revisions:</b><br>
 *  <p><b>2002/01/13: billb</b>
@@ -46,7 +46,7 @@ import org.jboss.system.ServiceMBean;
 */
 public class ProxyFactoryHA 
    extends ProxyFactory
-   implements DistributedReplicantManager.ReplicantListener
+   implements DistributedReplicantManager.ReplicantListener, ClusterProxyFactory
 {
    
    protected static Logger log = Logger.getLogger(ProxyFactory.class);

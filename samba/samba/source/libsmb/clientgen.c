@@ -59,7 +59,7 @@ static BOOL client_receive_smb(int fd,char *buffer, unsigned int timeout)
 	BOOL ret;
 
 	for(;;) {
-		ret = receive_smb(fd, buffer, timeout);
+		ret = receive_smb_raw(fd, buffer, timeout);
 
 		if (!ret) {
 			DEBUG(10,("client_receive_smb failed\n"));
@@ -299,9 +299,12 @@ struct cli_state *cli_initialise(struct cli_state *cli)
 	memset(cli->outbuf, 0, cli->bufsize);
 	memset(cli->inbuf, 0, cli->bufsize);
 
+
+#if defined(DEVELOPER)
 	/* just because we over-allocate, doesn't mean it's right to use it */
 	clobber_region(FUNCTION_MACRO, __LINE__, cli->outbuf+cli->bufsize, SAFETY_MARGIN);
 	clobber_region(FUNCTION_MACRO, __LINE__, cli->inbuf+cli->bufsize, SAFETY_MARGIN);
+#endif
 
 	/* initialise signing */
 	cli_null_set_signing(cli);
@@ -335,8 +338,9 @@ close the session
 
 void cli_nt_session_close(struct cli_state *cli)
 {
+	if (cli != NULL) {
 	if (cli->ntlmssp_pipe_state) {
-		ntlmssp_client_end(&cli->ntlmssp_pipe_state);
+		ntlmssp_end(&cli->ntlmssp_pipe_state);
 	}
 
 	if (cli->nt_pipe_fnum != 0)
@@ -344,6 +348,7 @@ void cli_nt_session_close(struct cli_state *cli)
 
 	cli->nt_pipe_fnum = 0;
 	cli->pipe_idx = -1;
+	}
 }
 
 /****************************************************************************
@@ -372,9 +377,10 @@ void cli_close_connection(struct cli_state *cli)
 
 	cli_free_signing_context(cli);
 	data_blob_free(&cli->secblob);
+	data_blob_free(&cli->user_session_key);
 
 	if (cli->ntlmssp_pipe_state) 
-		ntlmssp_client_end(&cli->ntlmssp_pipe_state);
+		ntlmssp_end(&cli->ntlmssp_pipe_state);
 
 	if (cli->mem_ctx) {
 		talloc_destroy(cli->mem_ctx);
@@ -394,11 +400,14 @@ void cli_close_connection(struct cli_state *cli)
 
 void cli_shutdown(struct cli_state *cli)
 {
-	BOOL allocated = cli->allocated;
+	BOOL allocated = False;
+	if (cli != NULL) {
+		allocated = cli->allocated;
 	cli_close_connection(cli);
 	ZERO_STRUCTP(cli);
 	if (allocated)
 		free(cli);
+	}
 }
 
 /****************************************************************************

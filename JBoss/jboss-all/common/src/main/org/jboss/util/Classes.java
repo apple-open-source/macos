@@ -21,8 +21,9 @@ import java.util.Map;
 /**
  * A collection of <code>Class</code> utilities.
  *
- * @version <tt>$Revision: 1.3.2.1 $</tt>
+ * @version <tt>$Revision: 1.3.2.2 $</tt>
  * @author  <a href="mailto:jason@planet57.com">Jason Dillon</a>
+ * @author Scott.Stark@jboss.org
  */
 public final class Classes
 {
@@ -42,7 +43,8 @@ public final class Classes
     * @param classname  Class name.
     * @return           Short class name.
     */
-   public static String stripPackageName(final String classname) {
+   public static String stripPackageName(final String classname)
+   {
       int idx = classname.lastIndexOf(PACKAGE_SEPARATOR);
 
       if (idx != -1)
@@ -57,7 +59,8 @@ public final class Classes
     * @param type    Class name.
     * @return        Short class name.
     */
-   public static String stripPackageName(final Class type) {
+   public static String stripPackageName(final Class type)
+   {
       return stripPackageName(type.getName());
    }
 
@@ -70,10 +73,11 @@ public final class Classes
     *
     * @throws EmptyStringException     Classname is an empty string.
     */
-   public static String getPackageName(final String classname) {
+   public static String getPackageName(final String classname)
+   {
       if (classname.length() == 0)
-          throw new EmptyStringException();
-      
+         throw new EmptyStringException();
+
       int index = classname.lastIndexOf(PACKAGE_SEPARATOR);
       if (index != -1)
          return classname.substring(0, index);
@@ -86,7 +90,8 @@ public final class Classes
     * @param type    Class.
     * @return        Package name.
     */
-   public static String getPackageName(final Class type) {
+   public static String getPackageName(final Class type)
+   {
       return getPackageName(type.getName());
    }
 
@@ -102,7 +107,8 @@ public final class Classes
     *
     * @throws NullArgumentException    Type is <i>null</i>.
     */
-   public static void forceLoad(final Class type) {
+   public static void forceLoad(final Class type)
+   {
       if (type == null)
          throw new NullArgumentException("type");
       
@@ -113,32 +119,39 @@ public final class Classes
       String packageName = Classes.getPackageName(type);
       // System.out.println("package name: " + packageName);
 
-      if (packageName.startsWith("java.") || 
-          packageName.startsWith("javax.")) {
+      if (packageName.startsWith("java.") ||
+         packageName.startsWith("javax."))
+      {
          return;
       }
 
       // System.out.println("forcing class to load: " + type);
 
-      try {
+      try
+      {
          Method methods[] = type.getDeclaredMethods();
          Method method = null;
-         for (int i=0; i<methods.length; i++) {
+         for (int i = 0; i < methods.length; i++)
+         {
             int modifiers = methods[i].getModifiers();
-            if (Modifier.isStatic(modifiers)) {
+            if (Modifier.isStatic(modifiers))
+            {
                method = methods[i];
                break;
             }
          }
 
-         if (method != null) {
+         if (method != null)
+         {
             method.invoke(null, null);
          }
-         else {
+         else
+         {
             type.newInstance();
          }
       }
-      catch (Exception ignore) {
+      catch (Exception ignore)
+      {
          ThrowableHandler.add(ignore);
       }
    }
@@ -175,20 +188,21 @@ public final class Classes
     *
     * @exception IllegalArgumentException    Type is not a primitive class
     */
-   public static Class getPrimitiveTypeForName(final String name) {
-      return (Class)PRIMITIVE_NAME_TYPE_MAP.get(name);
+   public static Class getPrimitiveTypeForName(final String name)
+   {
+      return (Class) PRIMITIVE_NAME_TYPE_MAP.get(name);
    }
-   
+
    /** Map of primitive types to their wrapper classes */
    private static final Class[] PRIMITIVE_WRAPPER_MAP = {
-      Boolean.TYPE,     Boolean.class,
-      Byte.TYPE,        Byte.class,
-      Character.TYPE,   Character.class,
-      Double.TYPE,      Double.class,
-      Float.TYPE,       Float.class,
-      Integer.TYPE,     Integer.class,
-      Long.TYPE,        Long.class,
-      Short.TYPE,       Short.class,
+      Boolean.TYPE, Boolean.class,
+      Byte.TYPE, Byte.class,
+      Character.TYPE, Character.class,
+      Double.TYPE, Double.class,
+      Float.TYPE, Float.class,
+      Integer.TYPE, Integer.class,
+      Long.TYPE, Long.class,
+      Short.TYPE, Short.class,
    };
 
    /**
@@ -199,12 +213,15 @@ public final class Classes
     *
     * @exception IllegalArgumentException    Type is not a primitive class
     */
-   public static Class getPrimitiveWrapper(final Class type) {
-      if (! type.isPrimitive()) {
+   public static Class getPrimitiveWrapper(final Class type)
+   {
+      if (!type.isPrimitive())
+      {
          throw new IllegalArgumentException("type is not a primitive class");
       }
 
-      for (int i=0; i < PRIMITIVE_WRAPPER_MAP.length; i += 2) {
+      for (int i = 0; i < PRIMITIVE_WRAPPER_MAP.length; i += 2)
+      {
          if (type.equals(PRIMITIVE_WRAPPER_MAP[i]))
             return PRIMITIVE_WRAPPER_MAP[i + 1];
       }
@@ -220,9 +237,12 @@ public final class Classes
     * @param type    Class to check.
     * @return        True if the class is a primitive wrapper.
     */
-   public static boolean isPrimitiveWrapper(final Class type) {
-      for (int i=0; i < PRIMITIVE_WRAPPER_MAP.length; i += 2) {
-         if (type.equals(PRIMITIVE_WRAPPER_MAP[i + 1])) {
+   public static boolean isPrimitiveWrapper(final Class type)
+   {
+      for (int i = 0; i < PRIMITIVE_WRAPPER_MAP.length; i += 2)
+      {
+         if (type.equals(PRIMITIVE_WRAPPER_MAP[i + 1]))
+         {
             return true;
          }
       }
@@ -237,14 +257,23 @@ public final class Classes
     * @param type    Class to check.
     * @return        True if the class is a primitive or primitive wrapper.
     */
-   public static boolean isPrimitive(final Class type) {
-      if (type.isPrimitive() || isPrimitiveWrapper(type)) {
+   public static boolean isPrimitive(final Class type)
+   {
+      if (type.isPrimitive() || isPrimitiveWrapper(type))
+      {
          return true;
       }
 
       return false;
    }
-
+   /** Check type against boolean, byte, char, short, int, long, float, double.
+    * @param The java type name
+    * @return true if this is a primative type name.
+    */ 
+   public static boolean isPrimitive(final String type)
+   {
+      return PRIMITIVE_NAME_TYPE_MAP.containsKey(type); 
+   }
 
    /////////////////////////////////////////////////////////////////////////
    //                            Class Loading                            //
@@ -262,21 +291,24 @@ public final class Classes
     *
     * @throws ClassNotFoundException when the <code>classLoader</code> can not find the requested class
     */
-   public static Class loadClass(String className) throws ClassNotFoundException {
-      return loadClass( className, Thread.currentThread().getContextClassLoader() );
+   public static Class loadClass(String className) throws ClassNotFoundException
+   {
+      return loadClass(className, Thread.currentThread().getContextClassLoader());
    }
-   
+
    /**
-    * This method acts equivalently to invoking <code>classLoader.loadClass(className);</code>
-    * but it also supports primitive types and array classes of object types or primitive types.
+    * This method acts equivalently to invoking classLoader.loadClass(className)
+    * but it also supports primitive types and array classes of object types or
+    * primitive types.
     *
-    * @param className    the qualified name of the class or the name of primitive type or array
-    *                     in the same format as returned by the <code>java.lang.Class.getName()</code>
-    *                     method.
+    * @param className the qualified name of the class or the name of primitive
+    * type or array in the same format as returned by the
+    * java.lang.Class.getName() method.
     * @param classLoader  the ClassLoader used to load classes
     * @return             the Class object for the requested className
     *
-    * @throws ClassNotFoundException when the <code>classLoader</code> can not find the requested class
+    * @throws ClassNotFoundException when the <code>classLoader</code> can not
+    * find the requested class
     */
    public static Class loadClass(String className, ClassLoader classLoader)
       throws ClassNotFoundException
@@ -308,11 +340,12 @@ public final class Classes
          // else throw...
          throw new ClassNotFoundException(className);
       }
-      
-      // ...nore does this special notation:
-      //
-      //   Lclassname;  class or interface
-      //
+
+      // Check for a primative type
+      if( isPrimitive(className) == true )
+         return (Class) Classes.PRIMITIVE_NAME_TYPE_MAP.get(className);
+
+      // Check for the internal vm format: Lclassname;
       if (className.charAt(0) == 'L' && className.charAt(className.length() - 1) == ';')
          return classLoader.loadClass(className.substring(1, className.length() - 1));
       
@@ -356,16 +389,16 @@ public final class Classes
     * @throws ClassNotFoundException When a class could not be loaded from
     *         the specified ClassLoader
     */
-   public final static Class[] convertToJavaClasses( Iterator it,
-      ClassLoader cl )
+   public final static Class[] convertToJavaClasses(Iterator it,
+      ClassLoader cl)
       throws ClassNotFoundException
    {
       ArrayList classes = new ArrayList();
-      while( it.hasNext() )
+      while (it.hasNext())
       {
-         classes.add( convertToJavaClass((String)it.next(), cl) );
+         classes.add(convertToJavaClass((String) it.next(), cl));
       }
-      return (Class[]) classes.toArray( new Class[classes.size()] );
+      return (Class[]) classes.toArray(new Class[classes.size()]);
    }
 
    /**
@@ -379,39 +412,39 @@ public final class Classes
     * @throws ClassNotFoundException When the class could not be found by
     *         the specified ClassLoader
     */
-   private final static Class convertToJavaClass( String name,
-      ClassLoader cl )
+   private final static Class convertToJavaClass(String name,
+      ClassLoader cl)
       throws ClassNotFoundException
    {
       int arraySize = 0;
-      while( name.endsWith("[]"))
+      while (name.endsWith("[]"))
       {
-         name = name.substring( 0, name.length() - 2 );
+         name = name.substring(0, name.length() - 2);
          arraySize++;
       }
 
       // Check for a primitive type
-      Class c = (Class)PRIMITIVE_NAME_TYPE_MAP.get( name );
+      Class c = (Class) PRIMITIVE_NAME_TYPE_MAP.get(name);
 
-      if( c == null )
+      if (c == null)
       {
          // No primitive, try to load it from the given ClassLoader
          try
          {
-            c = cl.loadClass( name );
+            c = cl.loadClass(name);
          }
-         catch( ClassNotFoundException cnfe )
+         catch (ClassNotFoundException cnfe)
          {
-            throw new ClassNotFoundException( "Parameter class not found: " +
-               name );
+            throw new ClassNotFoundException("Parameter class not found: " +
+               name);
          }
       }
 
       // if we have an array get the array class
-      if( arraySize > 0 )
+      if (arraySize > 0)
       {
          int[] dims = new int[arraySize];
-         for( int i = 0; i < arraySize; i++ )
+         for (int i = 0; i < arraySize; i++)
          {
             dims[i] = 1;
          }
@@ -422,6 +455,7 @@ public final class Classes
    }
 
 }
+
 /*
 vim:ts=3:sw=3:et
 */

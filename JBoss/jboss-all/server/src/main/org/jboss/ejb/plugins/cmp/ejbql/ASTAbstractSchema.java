@@ -13,9 +13,9 @@ import org.jboss.ejb.plugins.cmp.bridge.EntityBridge;
  * This abstract syntax node represents an abstract schema name.
  *
  * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
- * @version $Revision: 1.1 $
+ * @version $Revision: 1.1.4.1 $
  */                            
-public class ASTAbstractSchema extends SimpleNode {
+public final class ASTAbstractSchema extends SimpleNode {
     public String abstractSchemaName;
     public EntityBridge entity;
 
@@ -23,12 +23,8 @@ public class ASTAbstractSchema extends SimpleNode {
          super(id);
     }
 
-    public ASTAbstractSchema(EJBQLParser p, int id) {
-         super(p, id);
-    }
 
-
-    /** Accept the visitor. **/
+   /** Accept the visitor. **/
     public Object jjtAccept(JBossQLParserVisitor visitor, Object data) {
          return visitor.visit(this, data);
     }

@@ -217,7 +217,7 @@ NTSTATUS cli_lsa_close(struct cli_state *cli, TALLOC_CTX *mem_ctx,
 /** Lookup a list of sids */
 
 NTSTATUS cli_lsa_lookup_sids(struct cli_state *cli, TALLOC_CTX *mem_ctx,
-                             POLICY_HND *pol, int num_sids, DOM_SID *sids, 
+                             POLICY_HND *pol, int num_sids, const DOM_SID *sids, 
                              char ***domains, char ***names, uint32 **types)
 {
 	prs_struct qbuf, rbuf;
@@ -322,6 +322,7 @@ NTSTATUS cli_lsa_lookup_sids(struct cli_state *cli, TALLOC_CTX *mem_ctx,
 
 		} else {
 			(*names)[i] = NULL;
+			(*domains)[i] = NULL;
 			(*types)[i] = SID_NAME_UNKNOWN;
 		}
 	}
@@ -442,7 +443,7 @@ NTSTATUS cli_lsa_lookup_names(struct cli_state *cli, TALLOC_CTX *mem_ctx,
 
 NTSTATUS cli_lsa_query_info_policy(struct cli_state *cli, TALLOC_CTX *mem_ctx,
                                    POLICY_HND *pol, uint16 info_class, 
-                                   fstring domain_name, DOM_SID *domain_sid)
+                                   char **domain_name, DOM_SID **domain_sid)
 {
 	prs_struct qbuf, rbuf;
 	LSA_Q_QUERY_INFO q;
@@ -480,39 +481,40 @@ NTSTATUS cli_lsa_query_info_policy(struct cli_state *cli, TALLOC_CTX *mem_ctx,
 
 	/* Return output parameters */
 
-	ZERO_STRUCTP(domain_sid);
-	domain_name[0] = '\0';
-
 	switch (info_class) {
 
 	case 3:
-		if (r.dom.id3.buffer_dom_name != 0) {
-			unistr2_to_ascii(domain_name,
-					 &r.dom.id3.
-					 uni_domain_name,
-					 sizeof (fstring) - 1);
+		if (domain_name && (r.dom.id3.buffer_dom_name != 0)) {
+			*domain_name = unistr2_tdup(mem_ctx, 
+						   &r.dom.id3.
+						   uni_domain_name);
 		}
 
-		if (r.dom.id3.buffer_dom_sid != 0) {
-			*domain_sid = r.dom.id3.dom_sid.sid;
+		if (domain_sid && (r.dom.id3.buffer_dom_sid != 0)) {
+			*domain_sid = talloc(mem_ctx, sizeof(**domain_sid));
+			if (*domain_sid) {
+				sid_copy(*domain_sid, &r.dom.id3.dom_sid.sid);
+			}
 		}
 
 		break;
 
 	case 5:
 		
-		if (r.dom.id5.buffer_dom_name != 0) {
-			unistr2_to_ascii(domain_name, &r.dom.id5.
-					 uni_domain_name,
-					 sizeof (fstring) - 1);
+		if (domain_name && (r.dom.id5.buffer_dom_name != 0)) {
+			*domain_name = unistr2_tdup(mem_ctx, 
+						   &r.dom.id5.
+						   uni_domain_name);
 		}
 			
-		if (r.dom.id5.buffer_dom_sid != 0) {
-			*domain_sid = r.dom.id5.dom_sid.sid;
+		if (domain_sid && (r.dom.id5.buffer_dom_sid != 0)) {
+			*domain_sid = talloc(mem_ctx, sizeof(**domain_sid));
+			if (*domain_sid) {
+				sid_copy(*domain_sid, &r.dom.id5.dom_sid.sid);
+			}
 		}
-
 		break;
-		
+			
 	default:
 		DEBUG(3, ("unknown info class %d\n", info_class));
 		break;		      
@@ -535,9 +537,9 @@ NTSTATUS cli_lsa_query_info_policy(struct cli_state *cli, TALLOC_CTX *mem_ctx,
 
 NTSTATUS cli_lsa_query_info_policy2(struct cli_state *cli, TALLOC_CTX *mem_ctx,
 				    POLICY_HND *pol, uint16 info_class, 
-				    fstring domain_name, fstring dns_name,
-				    fstring forest_name, GUID *domain_guid,
-				    DOM_SID *domain_sid)
+				    char **domain_name, char **dns_name,
+				    char **forest_name, GUID **domain_guid,
+				    DOM_SID **domain_sid)
 {
 	prs_struct qbuf, rbuf;
 	LSA_Q_QUERY_INFO2 q;
@@ -578,30 +580,37 @@ NTSTATUS cli_lsa_query_info_policy2(struct cli_state *cli, TALLOC_CTX *mem_ctx,
 
 	/* Return output parameters */
 
-	ZERO_STRUCTP(domain_sid);
 	ZERO_STRUCTP(domain_guid);
-	domain_name[0] = '\0';
 
-	if (r.info.dns_dom_info.hdr_nb_dom_name.buffer) {
-		unistr2_to_ascii(domain_name,
-				 &r.info.dns_dom_info.uni_nb_dom_name,
-				 sizeof(fstring) - 1);
+	if (domain_name && r.info.dns_dom_info.hdr_nb_dom_name.buffer) {
+		*domain_name = unistr2_tdup(mem_ctx, 
+					    &r.info.dns_dom_info
+					    .uni_nb_dom_name);
 	}
-	if (r.info.dns_dom_info.hdr_dns_dom_name.buffer) {
-		unistr2_to_ascii(dns_name,
-				 &r.info.dns_dom_info.uni_dns_dom_name,
-				 sizeof(fstring) - 1);
+	if (dns_name && r.info.dns_dom_info.hdr_dns_dom_name.buffer) {
+		*dns_name = unistr2_tdup(mem_ctx, 
+					 &r.info.dns_dom_info
+					 .uni_dns_dom_name);
 	}
-	if (r.info.dns_dom_info.hdr_forest_name.buffer) {
-		unistr2_to_ascii(forest_name,
-				 &r.info.dns_dom_info.uni_forest_name,
-				 sizeof(fstring) - 1);
+	if (forest_name && r.info.dns_dom_info.hdr_forest_name.buffer) {
+		*forest_name = unistr2_tdup(mem_ctx, 
+					    &r.info.dns_dom_info
+					    .uni_forest_name);
 	}
 	
-	memcpy(domain_guid, &r.info.dns_dom_info.dom_guid, sizeof(GUID));
+	if (domain_guid) {
+		*domain_guid = talloc(mem_ctx, sizeof(**domain_guid));
+		memcpy(*domain_guid, 
+		       &r.info.dns_dom_info.dom_guid, 
+		       sizeof(GUID));
+	}
 
-	if (r.info.dns_dom_info.ptr_dom_sid != 0) {
-		*domain_sid = r.info.dns_dom_info.dom_sid.sid;
+	if (domain_sid && r.info.dns_dom_info.ptr_dom_sid != 0) {
+		*domain_sid = talloc(mem_ctx, sizeof(**domain_sid));
+		if (*domain_sid) {
+			sid_copy(*domain_sid, 
+				 &r.info.dns_dom_info.dom_sid.sid);
+		}
 	}
 	
  done:
@@ -1035,9 +1044,9 @@ NTSTATUS cli_lsa_enum_privsaccount(struct cli_state *cli, TALLOC_CTX *mem_ctx,
 	}
 
 	for (i=0; i<r.count; i++) {
-		(*set)[i].luid.low = r.set.set[i].luid.low;
-		(*set)[i].luid.high = r.set.set[i].luid.high;
-		(*set)[i].attr = r.set.set[i].attr;
+		(*set)[i].luid.low = r.set->set[i].luid.low;
+		(*set)[i].luid.high = r.set->set[i].luid.high;
+		(*set)[i].attr = r.set->set[i].attr;
 	}
 
 	*count=r.count;

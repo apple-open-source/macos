@@ -17,19 +17,15 @@ import org.jboss.ejb.plugins.cmp.bridge.CMRFieldBridge;
  * This abstract syntax node represents a path declaration.
  *
  * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
- * @version $Revision: 1.1 $
+ * @version $Revision: 1.1.4.1 $
  */                            
-public class ASTPath extends SimpleNode {
+public final class ASTPath extends SimpleNode {
    public List pathList;
    public List fieldList;
    public int type;
 
    public ASTPath(int id) {
       super(id);
-   }
-
-   public ASTPath(EJBQLParser p, int id) {
-      super(p, id);
    }
 
    public String getPath() {
@@ -40,36 +36,16 @@ public class ASTPath extends SimpleNode {
       return (String)pathList.get(i);
    }
 
-   public boolean isField() {
-      return fieldList.get(fieldList.size()-1) instanceof FieldBridge;
-   }
-
-   public boolean isField(int i) {
-      return fieldList.get(i) instanceof FieldBridge;
-   }
-
    public FieldBridge getField() {
       return (FieldBridge)fieldList.get(fieldList.size()-1);
-   }
-
-   public FieldBridge getField(int i) {
-      return (FieldBridge)fieldList.get(i);
    }
 
    public boolean isCMPField() {
       return fieldList.get(fieldList.size()-1) instanceof CMPFieldBridge;
    }
 
-   public boolean isCMPField(int i) {
-      return fieldList.get(i) instanceof CMPFieldBridge;
-   }
-
    public CMPFieldBridge getCMPField() {
       return (CMPFieldBridge)fieldList.get(fieldList.size()-1);
-   }
-
-   public CMPFieldBridge getCMPField(int i) {
-      return (CMPFieldBridge)fieldList.get(i);
    }
 
    public boolean isCMRField() {
@@ -86,16 +62,6 @@ public class ASTPath extends SimpleNode {
 
    public CMRFieldBridge getCMRField(int i) {
       return (CMRFieldBridge)fieldList.get(i);
-   }
-
-   public boolean isEntityField() {
-      Object field = fieldList.get(fieldList.size()-1);
-      return field instanceof CMRFieldBridge || field instanceof EntityBridge;
-   }
-
-   public boolean isEntityField(int i) {
-      Object field = fieldList.get(i);
-      return field instanceof CMRFieldBridge || field instanceof EntityBridge;
    }
 
    public EntityBridge getEntity() {

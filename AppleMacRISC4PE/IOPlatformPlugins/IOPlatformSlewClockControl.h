@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,21 +23,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc.  All rights reserved.
  *
  *
  */
-//		$Log: IOPlatformSlewClockControl.h,v $
-//		Revision 1.2  2003/05/21 21:58:49  eem
-//		Merge from EEM-PM72-ActiveFans-1 branch with initial crack at active fan
-//		control on Q37.
-//		
-//		Revision 1.1.2.1  2003/05/17 11:08:22  eem
-//		All active fan data present, table event-driven.  PCI power sensors are
-//		not working yet so PCI fan is just set to 67% PWM and forgotten about.
-//		
-//
-//
+
 
 #ifndef _IOPLATFORMSLEWCLOCKCONTROL_H
 #define _IOPLATFORMSLEWCLOCKCONTROL_H
@@ -49,9 +39,12 @@ class IOPlatformSlewClockControl : public IOPlatformControl
 
 	OSDeclareDefaultStructors(IOPlatformSlewClockControl)
 
-	// doesn't accept force update
-	// get current value from node
-	virtual const OSNumber *		fetchCurrentValue( void );	// possibly blocking -- reads from controller driver
+	// we used to override fetchCurrentValue here because we considered the "standard"
+	// mechanism for publishing control current-values to be the control-info dictionary.
+	// The standard has since changed such that the current-value is published as a
+	// property in the control driver (this is what IOHWControl does), and AppleSlewClock
+	// conforms to this also, so this class is now only necessary so that we don't have to
+	// make changes to existing PLISTs.
 
 };
 

@@ -19,7 +19,7 @@
  * the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
  *
- * $Id: css_valueimpl.h,v 1.16 2003/07/23 22:36:07 hyatt Exp $
+ * $Id: css_valueimpl.h,v 1.21 2003/12/13 00:23:54 hyatt Exp $
  */
 #ifndef _CSS_css_valueimpl_h_
 #define _CSS_css_valueimpl_h_
@@ -35,6 +35,7 @@
 namespace khtml {
     class RenderStyle;
     class CachedImage;
+    class DocLoader;
 }
 
 namespace DOM {
@@ -66,7 +67,7 @@ public:
     void setProperty ( const DOMString &propertyString);
     DOM::DOMString item ( unsigned long index );
 
-    DOM::DOMString cssText() const;
+    virtual DOM::DOMString cssText() const;
     void setCssText(DOM::DOMString str);
 
     virtual bool isStyleDeclaration() { return true; }
@@ -103,8 +104,7 @@ public:
 
     virtual unsigned short cssValueType() const = 0;
 
-    virtual DOM::DOMString cssText() const;
-    void setCssText(DOM::DOMString str);
+    virtual DOM::DOMString cssText() const = 0;
 
     virtual bool isValue() { return true; }
     virtual bool isFontValue() { return false; }
@@ -116,10 +116,16 @@ public:
     CSSInheritedValueImpl() : CSSValueImpl() {}
     virtual ~CSSInheritedValueImpl() {}
 
-    virtual unsigned short cssValueType() const { return CSSValue::CSS_INHERIT; }
+    virtual unsigned short cssValueType() const;
     virtual DOM::DOMString cssText() const;
 };
 
+class CSSInitialValueImpl : public CSSValueImpl
+{
+public:
+    virtual unsigned short cssValueType() const;
+    virtual DOM::DOMString cssText() const;
+};
 
 class CSSValueListImpl : public CSSValueImpl
 {
@@ -284,9 +290,12 @@ public:
     CSSImageValueImpl();
     virtual ~CSSImageValueImpl();
 
-    khtml::CachedImage *image() { return m_image; }
+    khtml::CachedImage *image();
+
 protected:
-    khtml::CachedImage *m_image;
+    khtml::DocLoader* m_loader;
+    khtml::CachedImage* m_image;
+    bool m_accessedImage;
 };
 
 class FontFamilyValueImpl : public CSSPrimitiveValueImpl
@@ -308,7 +317,9 @@ public:
     virtual ~FontValueImpl();
 
     virtual unsigned short cssValueType() const { return CSSValue::CSS_CUSTOM; }
-
+    
+    virtual DOM::DOMString cssText() const;
+    
     virtual bool isFontValue() { return true; }
 
     CSSPrimitiveValueImpl *style;
@@ -328,6 +339,8 @@ public:
     virtual ~ShadowValueImpl();
 
     virtual unsigned short cssValueType() const { return CSSValue::CSS_CUSTOM; }
+
+    virtual DOM::DOMString cssText() const;
 
     CSSPrimitiveValueImpl* x;
     CSSPrimitiveValueImpl* y;
@@ -369,6 +382,8 @@ public:
     }
 
     CSSValueImpl *value() { return m_value; }
+
+    DOM::DOMString cssText() const;
 
     // make sure the following fits in 4 bytes.
     int  m_id 		: 29;

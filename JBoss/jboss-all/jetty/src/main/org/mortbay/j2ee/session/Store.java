@@ -1,9 +1,11 @@
 // ========================================================================
 // Copyright (c) 2002 Mort Bay Consulting (Australia) Pty. Ltd.
-// $Id: Store.java,v 1.2.4.2 2002/11/16 21:58:58 jules_gosnell Exp $
+// $Id: Store.java,v 1.2.4.4 2003/07/30 23:18:19 jules_gosnell Exp $
 // ========================================================================
 
 package org.mortbay.j2ee.session;
+
+import javax.servlet.http.HttpServletRequest;
 
 //----------------------------------------
 
@@ -34,10 +36,11 @@ public interface
   void setScavengerPeriod(int secs);
   void setScavengerExtraTime(int secs);
   void setActualMaxInactiveInterval(int secs);
+  int getActualMaxInactiveInterval();
   boolean isDistributed();
 
   // ID allocation
-  String allocateId() throws Exception;
+  String allocateId(HttpServletRequest request) throws Exception;
   void   deallocateId(String id) throws Exception;
 
   // State LifeCycle

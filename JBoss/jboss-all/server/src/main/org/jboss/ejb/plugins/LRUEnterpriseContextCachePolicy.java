@@ -6,20 +6,19 @@
  */
 package org.jboss.ejb.plugins;
 
+import java.util.ArrayList;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.ArrayList;
 
 import org.jboss.deployment.DeploymentException;
 import org.jboss.ejb.EnterpriseContext;
 import org.jboss.logging.Logger;
-import org.jboss.metadata.XmlLoadable;
 import org.jboss.metadata.MetaData;
-import org.jboss.util.LRUCachePolicy;
-import org.w3c.dom.Element;
-
+import org.jboss.metadata.XmlLoadable;
 import org.jboss.monitor.Monitorable;
 import org.jboss.monitor.client.BeanCacheSnapshot;
+import org.jboss.util.LRUCachePolicy;
+import org.w3c.dom.Element;
 
 /**
  * Least Recently Used cache policy for EnterpriseContexts.
@@ -27,7 +26,7 @@ import org.jboss.monitor.client.BeanCacheSnapshot;
  * @see AbstractInstanceCache
  * @author <a href="mailto:simone.bordet@compaq.com">Simone Bordet</a>
  * @author <a href="mailto:bill@jboss.org">Bill Burke</a>
- * @version $Revision: 1.18.2.5 $
+ * @version $Revision: 1.18.2.6 $
  */
 public class LRUEnterpriseContextCachePolicy
    extends LRUCachePolicy
@@ -390,31 +389,16 @@ public class LRUEnterpriseContextCachePolicy
 
          LRUList list = getList();
          long now = System.currentTimeMillis();
-         ArrayList removedEntries = null;
+         ArrayList passivateEntries = null;
          synchronized (m_cache.getCacheLock())
          {
-            for (LRUCacheEntry entry = list.m_tail; entry != null; entry = list.m_tail)
+            for (LRUCacheEntry entry = list.m_tail; entry != null; entry = entry.m_prev)
             {
                if (now - entry.m_time >= getMaxAge())
                {
-                  int initialSize = list.m_count;
-
-                  // Log informations
-                  log(entry.m_key, initialSize);
-
-                  // Kick out of the cache this entry
-                  if (removedEntries == null) removedEntries = new ArrayList();
-                  removedEntries.add(entry.m_object);
-                  m_cache.remove(entry.m_key);
-
-                  int finalSize = list.m_count;
-                  if (initialSize == finalSize)
-                  {
-                     // Here is a bug.
-                     log.error("Cache synchronization bug, initialSize="+initialSize
-                        +", finalSize="+finalSize+", entry="+entry);
-                     break;
-                  }
+                  // Attempt to remove this entry from cache
+                  if (passivateEntries == null) passivateEntries = new ArrayList();
+                  passivateEntries.add(entry);
                }
                else
                {
@@ -425,21 +409,19 @@ public class LRUEnterpriseContextCachePolicy
          // We need to do this outside of cache lock because of deadlock possibilities
          // with EntityInstanceInterceptor and Stateful.  THis is because tryToPassivate
          // calls lock.synch and other interceptor call lock.synch and after call a cache method that locks
-         if (removedEntries != null)
+         if (passivateEntries != null)
          {
-            for (int i = 0; i < removedEntries.size(); i++)
+            for (int i = 0; i < passivateEntries.size(); i++)
             {
-               EnterpriseContext ctx = (EnterpriseContext)removedEntries.get(i);
+               LRUCacheEntry entry = (LRUCacheEntry) passivateEntries.get(i);
                try
                {
-                  m_cache.tryToPassivate(ctx);
+                  m_cache.tryToPassivate((EnterpriseContext) entry.m_object);
                }
                catch (Exception ignored)
                {
                   if (log.isTraceEnabled())
-                  {
                      log.warn("Unable to passivate ctx", ignored);
-                  }
                }
             }
          }
@@ -479,19 +461,35 @@ public class LRUEnterpriseContextCachePolicy
     */
    protected class ContextLRUList extends LRUList
    {
+      boolean trace = log.isTraceEnabled();
+      protected void entryPromotion(LRUCacheEntry entry)
+      {
+         if (trace)
+            log.trace("entryPromotion, entry="+entry);
+            
+         // The cache is full, temporarily increase it
+         if (m_count == m_capacity && m_capacity >= m_maxCapacity)
+         {
+            ++m_capacity;
+            log.warn("Cache has reached maximum capacity for container " +
+                     m_cache.getContainer().getJmxName() +
+                     " - probably because all instances are in use. " + 
+                     "Temporarily increasing the size to " + m_capacity);
+         }
+      }
       protected void entryAdded(LRUCacheEntry entry)
       {
-         if( log.isTraceEnabled() )
+         if (trace)
             log.trace("entryAdded, entry="+entry);
       }
       protected void entryRemoved(LRUCacheEntry entry)
       {
-         if( log.isTraceEnabled() )
+         if (trace)
             log.trace("entryRemoved, entry="+entry);
       }
       protected void capacityChanged(int oldCapacity)
       {
-         if( log.isTraceEnabled() )
+         if (trace)
             log.trace("capacityChanged, oldCapacity="+oldCapacity);
       }
    }

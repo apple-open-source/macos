@@ -60,11 +60,6 @@ private:
 	void			PowerI2S (bool powerOn, UInt32 cellNum);
 	IOReturn		SetPowerSupply (bool powerHi);
   
-	// ***Added for outputting the FCR values to the IORegistry
-	const OSSymbol	*keyLargo_FCRNode;
-	const OSObject	*fcrs[kPangeaFCRCount];  
-	const OSArray	*fcrArray;
-  
 	// callPlatformFunction symbols
 	const OSSymbol 	*keyLargo_resetUniNEthernetPhy;
 	const OSSymbol 	*keyLargo_restoreRegisterState;

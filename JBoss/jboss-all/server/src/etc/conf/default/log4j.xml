@@ -7,7 +7,7 @@
 <!--                                                                       -->
 <!-- ===================================================================== -->
 
-<!-- $Id: log4j.xml,v 1.13.2.5 2003/07/11 04:11:44 starksm Exp $ -->
+<!-- $Id: log4j.xml,v 1.13.2.8 2003/09/23 14:16:27 slaboure Exp $ -->
 
 <!--
    | For more configuration infromation and examples see the Jakarta Log4j
@@ -157,15 +157,20 @@
       <priority value="INFO"/>
    </category>
 
-   <!-- Limit JBoss categories to INFO
+   <!-- Limit JBoss categories to INFO -->
    <category name="org.jboss">
      <priority value="INFO"/>
    </category>
-   -->
 
    <!-- Decrease the priority threshold for the org.jboss.varia category
    <category name="org.jboss.varia">
      <priority value="DEBUG"/>
+   </category>
+   -->
+
+   <!-- Show the evolution of the DataSource pool in the logs [inUse/Available/Max]
+   <category name="org.jboss.resource.connectionmanager.JBossManagedConnectionPool">
+     <priority value="TRACE" class="org.jboss.logging.XLevel"/>
    </category>
    -->
 
@@ -228,7 +233,7 @@
    </root>
 
    <!-- Clustering logging -->
-   <!-- Uncomment the following to redirect the org.javagroups and
+   <!-- Uncomment the following to redirect the org.jgroups and
       org.jboss.ha categories to a cluster.log file.
 
    <appender name="CLUSTER" class="org.jboss.logging.appender.RollingFileAppender">
@@ -242,7 +247,7 @@
        <param name="ConversionPattern" value="%d %-5p [%c] %m%n"/>
      </layout>
    </appender>
-   <category name="org.javagroups">
+   <category name="org.jgroups">
      <priority value="DEBUG" />
      <appender-ref ref="CLUSTER"/>
    </category>

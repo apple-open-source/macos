@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,35 +23,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc.  All rights reserved.
  *
  *
  */
-//		$Log: IOPlatformPIDCtrlLoop.h,v $
-//		Revision 1.5  2003/07/17 06:57:36  eem
-//		3329222 and other sleep stability issues fixed.
-//		
-//		Revision 1.4  2003/07/16 02:02:09  eem
-//		3288772, 3321372, 3328661
-//		
-//		Revision 1.3  2003/06/25 02:16:24  eem
-//		Merged 101.0.21 to TOT, fixed PM72 lproj, included new fan settings, bumped
-//		version to 101.0.22.
-//		
-//		Revision 1.2.4.3  2003/06/21 01:42:07  eem
-//		Final Fan Tweaks.
-//		
-//		Revision 1.2.4.2  2003/06/20 09:07:33  eem
-//		Added rising/falling slew limiters, integral clipping, etc.
-//		
-//		Revision 1.2.4.1  2003/06/19 10:24:16  eem
-//		Pulled common PID code into IOPlatformPIDCtrlLoop and subclassed it with
-//		PowerMac7_2_CPUFanCtrlLoop and PowerMac7_2_PIDCtrlLoop.  Added history
-//		length to meta-state.  No longer adjust T_err when the setpoint changes.
-//		Don't crank the CPU fans for overtemp, just slew slow.
-//		
-//
-//
+
 
 #ifndef _IOPLATFORMPIDCTRLLOOP_H
 #define _IOPLATFORMPIDCTRLLOOP_H
@@ -122,7 +98,7 @@ typedef struct _samplePoint
 	bool timerCallbackActive;
 
 	// PID algorithm helpers
-	virtual const OSNumber *calculateNewTarget( void ) const;
+	virtual ControlValue calculateNewTarget( void ) const;
 	virtual SensorValue calculateDerivativeTerm( void ) const;
 	virtual SensorValue calculateIntegralTerm( void ) const;
 	//SInt32 secondsElapsed( samplePoint * moreRecent, samplePoint * lessRecent );
@@ -131,7 +107,7 @@ typedef struct _samplePoint
 	virtual bool init( void );
 	virtual void free( void );
 
-	virtual const OSNumber * getAggregateSensorValue( void );
+	virtual SensorValue getAggregateSensorValue( void );
 
 	virtual bool cacheMetaState( const OSDictionary * metaState );
 
@@ -145,7 +121,7 @@ public:
 	virtual bool updateMetaState( void );
 	virtual void adjustControls( void );
 	virtual void deadlinePassed( void );
-	virtual void sendNewTarget( const OSNumber * newTarget );
+	virtual void sendNewTarget( ControlValue newTarget );
 
 	virtual void sensorRegistered( IOPlatformSensor * aSensor );
 	virtual void controlRegistered( IOPlatformControl * aControl );

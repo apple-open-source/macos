@@ -17,8 +17,8 @@ import java.util.Iterator;
 import java.util.StringTokenizer;
 
 import javax.management.JMException;
-import javax.management.MalformedObjectNameException;
 import javax.management.MBeanServer;
+import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 import javax.naming.InitialContext;
 import javax.sql.DataSource;
@@ -59,51 +59,52 @@ import javax.sql.DataSource;
  *            extends="org.jboss.varia.scheduler.AbstractScheduleProviderMBean"
  *
  * @author <a href="mailto:andreas@jboss.org">Andreas Schaefer</a>
- * @version $Revision: 1.3.2.1 $
+ * @version $Revision: 1.3.2.2 $
  */
 public class DBScheduleProvider
-   extends AbstractScheduleProvider
-   implements DBScheduleProviderMBean
+      extends AbstractScheduleProvider
+      implements DBScheduleProviderMBean
 {
 
    // -------------------------------------------------------------------------
    // Constants
    // -------------------------------------------------------------------------
-   
+
    // -------------------------------------------------------------------------
    // Members
    // -------------------------------------------------------------------------
-   
+
    private String mDataSourceName;
    private String mSQLStatement;
-   
+
    /** The ID of the Schedule used later to remove it later **/
    private ArrayList mIDList = new ArrayList();
-   
+
    // -------------------------------------------------------------------------
    // Constructors
    // -------------------------------------------------------------------------
-   
+
    /**
     * Default (no-args) Constructor
     **/
    public DBScheduleProvider()
    {
    }
-   
+
    // -------------------------------------------------------------------------
    // SchedulerMBean Methods
    // -------------------------------------------------------------------------
-   
+
    /**
     * @return JNDI name of the Data Source used
     *
     * @jmx:managed-operation
     **/
-   public String getDataSourceName() {
+   public String getDataSourceName()
+   {
       return mDataSourceName;
    }
-   
+
    /**
     * Sets the JNDI name of the Data Source. You have
     * to ensure that the DataSource is available when
@@ -111,110 +112,134 @@ public class DBScheduleProvider
     *
     * @jmx:managed-operation
     **/
-   public void setDataSourceName( String pDataSourceName ) {
+   public void setDataSourceName(String pDataSourceName)
+   {
       mDataSourceName = pDataSourceName;
    }
-   
+
    /**
     * @return SQL Statement used to access the DB
     *
     * @jmx:managed-operation
     **/
-   public String getSQLStatement() {
+   public String getSQLStatement()
+   {
       return mSQLStatement;
    }
-   
+
    /**
     * Sets the SQL Statement used to retrieve the data
     * from the Database
     *
     * @jmx:managed-operation
     **/
-   public void setSQLStatement( String pSQLStatement ) {
+   public void setSQLStatement(String pSQLStatement)
+   {
       mSQLStatement = pSQLStatement;
    }
-   
+
    /**
     * Add the Schedule to the Schedule Manager
     *
     * @jmx:managed-operation
     **/
    public void startProviding()
-      throws Exception
+         throws Exception
    {
       Connection lConnection = null;
       PreparedStatement lStatement = null;
-      try {
-         Object lTemp = new InitialContext().lookup( mDataSourceName );
+      try
+      {
+         Object lTemp = new InitialContext().lookup(mDataSourceName);
          DataSource lDB = (DataSource) lTemp;
          lConnection = lDB.getConnection();
-         lStatement = lConnection.prepareStatement( mSQLStatement );
+         lStatement = lConnection.prepareStatement(mSQLStatement);
          ResultSet lResult = lStatement.executeQuery();
-         while( lResult.next() ) {
+         while (lResult.next())
+         {
             int lID = addSchedule(
-               new ObjectName( lResult.getString( 1 ) ),
-               lResult.getString( 2 ),
-               getSignature( lResult.getString( 3 ) ),
-               getStartDate( lResult.getString( 4 ), lResult.getString( 7 ) ),
-               lResult.getLong( 5 ),
-               lResult.getInt( 6 )
+                  new ObjectName(lResult.getString(1)),
+                  lResult.getString(2),
+                  getSignature(lResult.getString(3)),
+                  getStartDate(lResult.getString(4), lResult.getString(7)),
+                  lResult.getLong(5),
+                  lResult.getInt(6)
             );
-            mIDList.add( new Integer( lID ) );
+            mIDList.add(new Integer(lID));
          }
       }
-      finally {
-         if( lStatement != null ) {
-            try {
+      finally
+      {
+         if (lStatement != null)
+         {
+            try
+            {
                lStatement.close();
             }
-            catch( Exception e ) {}
+            catch (Exception e)
+            {
+            }
          }
-         if( lConnection != null ) {
-            try {
+         if (lConnection != null)
+         {
+            try
+            {
                lConnection.close();
             }
-            catch( Exception e ) {}
+            catch (Exception e)
+            {
+            }
          }
       }
    }
-   
+
    /**
     * Stops the Provider from providing causing
     * the provider to remove the Schedule
     *
     * @jmx:managed-operation
     */
-   public void stopProviding() {
+   public void stopProviding()
+   {
       Iterator i = mIDList.iterator();
-      while( i.hasNext() ) {
+      while (i.hasNext())
+      {
          Integer lID = (Integer) i.next();
-         try {
-            removeSchedule( lID.intValue() );
+         try
+         {
+            removeSchedule(lID.intValue());
          }
-         catch( JMException jme ) {
-            log.error( "Could not remove Schedule in stop providing", jme );
+         catch (JMException jme)
+         {
+            log.error("Could not remove Schedule in stop providing", jme);
          }
       }
    }
-   
+
    /**
     * Converts a string of method arguments (separated by colons) into
     * an array of string
     **/
-   protected String[] getSignature( String pMethodSignature )
+   protected String[] getSignature(String pMethodSignature)
    {
-      if( pMethodSignature == null || "".equals( pMethodSignature.trim() ) ) {
-         return new String[ 0 ];
+      if (pMethodSignature == null || "".equals(pMethodSignature.trim()))
+      {
+         return new String[0];
       }
-      StringTokenizer lTokenizer = new StringTokenizer( pMethodSignature, "," );
-      String[] lReturn = new String[ lTokenizer.countTokens() ];
+
+      StringTokenizer lTokenizer = new StringTokenizer(pMethodSignature, ",");
+      String[] lReturn = new String[lTokenizer.countTokens()];
+
       int i = 0;
-      while( lTokenizer.hasMoreTokens() ) {
-         lReturn[ i++ ] = lTokenizer.nextToken().trim();
+
+      while (lTokenizer.hasMoreTokens())
+      {
+         lReturn[i++] = lTokenizer.nextToken().trim();
       }
+
       return lReturn;
    }
-   
+
    /**
     * Converts the given Data string to a date
     * where not value means 1/1/1970, "NOW" means
@@ -227,48 +252,64 @@ public class DBScheduleProvider
     * @param dateFormat the dateFormat, the locale is
     *        is used when null or blank
     */
-   protected Date getStartDate( String pStartDate, String dateFormat ) {
+   protected Date getStartDate(String pStartDate, String dateFormat)
+   {
       pStartDate = pStartDate == null ? "" : pStartDate.trim();
       Date lReturn = null;
-      if( pStartDate.equals( "" ) ) {
-         lReturn = new Date( 0 );
-      } else
-      if( pStartDate.equals( "NOW" ) ) {
-         lReturn = new Date( new Date().getTime() + 1000 );
-      } else {
-         try {
-            long lDate = new Long( pStartDate ).longValue();
-            lReturn = new Date( lDate );
+
+      if (pStartDate.equals(""))
+      {
+         lReturn = new Date(0);
+      }
+
+      else if (pStartDate.equals("NOW"))
+      {
+         lReturn = new Date(new Date().getTime() + 1000);
+      }
+
+      else
+      {
+         try
+         {
+            long lDate = new Long(pStartDate).longValue();
+            lReturn = new Date(lDate);
          }
-         catch( Exception e ) {
-            try {
+         catch (Exception e)
+         {
+            try
+            {
                SimpleDateFormat dateFormatter = null;
-               if( dateFormat == null || dateFormat.trim().length() == 0 )
+
+               if (dateFormat == null || dateFormat.trim().length() == 0)
+               {
                   dateFormatter = new SimpleDateFormat();
+               }
+
                else
+               {
                   dateFormatter = new SimpleDateFormat(dateFormat);
-               lReturn = dateFormatter.parse( pStartDate );
+               }
+
+               lReturn = dateFormatter.parse(pStartDate);
             }
-            catch( Exception e2 ) {
-               log.error( "Could not parse given date string: " + pStartDate, e2 );
-               throw new InvalidParameterException( "Schedulable Date is not of correct format" );
+            catch (Exception e2)
+            {
+               log.error("Could not parse given date string: " + pStartDate, e2);
+               throw new InvalidParameterException("Schedulable Date is not of correct format");
             }
          }
       }
-      log.debug( "Initial Start Date is set to: " + lReturn );
-      
+      log.debug("Initial Start Date is set to: " + lReturn);
+
       return lReturn;
    }
-   
+
    // -------------------------------------------------------------------------
    // Methods
    // -------------------------------------------------------------------------
-   
-   public ObjectName getObjectName(
-      MBeanServer pServer,
-      ObjectName pName
-   )
-      throws MalformedObjectNameException
+
+   public ObjectName getObjectName(MBeanServer pServer, ObjectName pName)
+         throws MalformedObjectNameException
    {
       return pName == null ? DBScheduleProviderMBean.OBJECT_NAME : pName;
    }

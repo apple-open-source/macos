@@ -95,8 +95,8 @@ void HTMLBaseElementImpl::process()
     if (!inDocument())
 	return;
 
-    if(!m_href.isEmpty())
-	getDocument()->setBaseURL( KURL( getDocument()->view()->part()->url(), m_href.string() ).url() );
+    if(!m_href.isEmpty() && getDocument()->part())
+	getDocument()->setBaseURL( KURL( getDocument()->part()->url(), m_href.string() ).url() );
 
     if(!m_target.isEmpty())
 	getDocument()->setBaseTarget( m_target.string() );
@@ -201,7 +201,7 @@ void HTMLLinkElementImpl::process()
     QString type = m_type.string().lower();
     QString rel = m_rel.string().lower();
 
-    KHTMLPart* part = getDocument()->view() ? getDocument()->view()->part() : 0;
+    KHTMLPart* part = getDocument()->part();
 
     // IE extension: location of small icon for locationbar / bookmarks
 #if APPLE_CHANGES
@@ -220,9 +220,10 @@ void HTMLLinkElementImpl::process()
 
     // Stylesheet
     // This was buggy and would incorrectly match <link rel="alternate">, which has a different specified meaning. -dwh
-    if(m_disabledState != 2 && (type.contains("text/css") || rel == "stylesheet" || (rel.contains("alternate") && rel.contains("stylesheet")))) {
+    if(m_disabledState != 2 && (type.contains("text/css") || rel == "stylesheet" || (rel.contains("alternate") && rel.contains("stylesheet"))) && getDocument()->part()) {
         // no need to load style sheets which aren't for the screen output
         // ### there may be in some situations e.g. for an editor or script to manipulate
+	// also, don't load style sheets for standalone documents
         if( m_media.isNull() || m_media.contains("screen") || m_media.contains("all") || m_media.contains("print") ) {
             m_loading = true;
 

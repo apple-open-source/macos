@@ -1,5 +1,5 @@
 <jboss-app>
    <module>
-      <service>loadingresource.sar</service>
+      <service>loading.sar</service>
    </module>
 </jboss-app>

@@ -9,22 +9,19 @@
 
 package org.jboss.web;
 
-import java.io.File;
 import java.io.IOException;
-
-import java.net.URL;
 import java.net.InetAddress;
+import java.net.URL;
 import java.net.UnknownHostException;
-import java.net.ServerSocket;
-
-import java.util.Properties;
 import java.util.Enumeration;
+import java.util.Properties;
 
-import javax.management.*;
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
 
-import org.jboss.system.ServiceMBeanSupport;
 import org.jboss.system.MissingAttributeException;
-
+import org.jboss.system.ServiceMBeanSupport;
+import org.jboss.system.server.ServerConfigUtil;
 import org.jboss.util.ThrowableHandler;
 
 /**
@@ -35,14 +32,12 @@ import org.jboss.util.ThrowableHandler;
  *      extends="org.jboss.system.ServiceMBean"
  *      name="jboss:service=WebService"
  *
- * @version <tt>$Revision: 1.15 $</tt>
- * @author <a href="mailto:rickard.oberg@telkel.com">Rickard Öberg</a>.
+ * @version <tt>$Revision: 1.15.2.1 $</tt>
+ * @author <a href="mailto:rickard.oberg@telkel.com">Rickard ï¿½berg</a>.
  * @author <a href="mailto:Scott.Stark@jboss.org">Scott Stark</a>.
  * @author <a href="mailto:jason@planet57.com">Jason Dillon</a>
  */
-public class WebService
-   extends ServiceMBeanSupport
-   implements WebServiceMBean
+public class WebService extends ServiceMBeanSupport implements WebServiceMBean
 {
    //
    // jason: WebService and WebServer classes should be merged into one
@@ -99,7 +94,7 @@ public class WebService
    {
       server.setPort(port);
    }
-	
+
    /**
     * Get the WebService listening port.
     * 
@@ -143,7 +138,7 @@ public class WebService
    {
       return server.getBindAddress();
    }
-   
+
    /**
     * Set the specific address the WebService listens on.  This can be used on
     * a multi-homed host for a ServerSocket that will only accept connect requests
@@ -173,7 +168,7 @@ public class WebService
    {
       return server.getBacklog();
    }
-   
+
    /**
     * Set the WebService listen queue backlog limit. The maximum queue length
     * for incoming connection indications (a request to connect) is set to the
@@ -222,13 +217,12 @@ public class WebService
 
       try
       {
-         mimeTypes.load(Thread.currentThread().getContextClassLoader().
-                        getResourceAsStream("org/jboss/web/mime.types"));
-			
+         mimeTypes.load(Thread.currentThread().getContextClassLoader().getResourceAsStream("org/jboss/web/mime.types"));
+
          Enumeration keys = mimeTypes.keys();
          while (keys.hasMoreElements())
          {
-            String extension = (String)keys.nextElement();
+            String extension = (String) keys.nextElement();
             String type = mimeTypes.getProperty(extension);
             server.addMimeType(extension, type);
          }
@@ -239,30 +233,36 @@ public class WebService
       }
 
       String hostname = server.getBindAddress();
-      
+
       // If not user specified hostname given, then try to determine what it should be
       if (hostname == null)
       {
          // First look for the rmi server name
-         try {
+         try
+         {
             hostname = System.getProperty("java.rmi.server.hostname");
          }
-         catch(SecurityException e) {
+         catch (SecurityException e)
+         {
             // ignore, but don't be silent
             ThrowableHandler.addWarning(e);
          }
 
          // else use the localhost name
-         if (hostname == null) {
-            try {
+         if (hostname == null)
+         {
+            try
+            {
                hostname = InetAddress.getLocalHost().getHostName();
             }
-            catch (IOException e) {
+            catch (IOException e)
+            {
                log.error("Failed to get localhost name; ignoring", e);
             }
          }
 
-         if (hostname != null) {
+         if (hostname != null)
+         {
             setHost(hostname);
          }
       }
@@ -278,10 +278,10 @@ public class WebService
    protected void startService() throws Exception
    {
       // Host must be set to continue (either by user or detection)
-      if (getHost() == null) {
+      String address = getHost();
+      if (address == null)
          throw new MissingAttributeException("Host");
-      }
-      
+
       // Start the WebServer running
       server.start();
       log.info("Started WebServer with address: " + server.getBindAddress() + ":" + getPort());
@@ -290,7 +290,9 @@ public class WebService
       String codebase = System.getProperty("java.rmi.server.codebase");
       if (codebase == null)
       {
-         codebase = "http://" + getHost() + ":" + getPort() + "/";
+         address = ServerConfigUtil.fixRemoteAddress(address);
+
+         codebase = "http://" + address + ":" + getPort() + "/";
          System.setProperty("java.rmi.server.codebase", codebase);
       }
       log.info("Using RMI server codebase: " + codebase);

@@ -1,0 +1,24 @@
+<!-- Example External Web Service Descriptor -->
+
+<deployment name="External" 
+	targetNamespace="http://net.jboss.org/external"
+	xmlns:hello="http://net.jboss.org/external"
+	xmlns="http://xml.apache.org/axis/wsdd/"
+        xmlns:jbnet="http://net.jboss.org/server"
+	xmlns:java="http://xml.apache.org/axis/wsdd/providers/java">
+	
+  <ext-service jndiName="BabelFish" 
+	serviceClass="org.jboss.test.webservice.external.babelfish.BabelFishService"
+	serviceImplClass="org.jboss.test.webservice.external.babelfish.BabelFishServiceLocator"/>
+
+  <ext-service jndiName="Google" 
+	serviceClass="org.jboss.test.webservice.external.google.GoogleSearchService" 
+	serviceImplClass="org.jboss.test.webservice.external.google.GoogleSearchServiceLocator"/> 
+
+  <service name="FederatedService" provider="Handler">
+   <parameter name="handlerClass" value="org.jboss.net.axis.server.EJBProvider"/>
+   <parameter name="beanJndiName" value="FederatedService"/>
+   <parameter name="allowedMethods" value="*"/>
+  </service>
+
+</deployment>

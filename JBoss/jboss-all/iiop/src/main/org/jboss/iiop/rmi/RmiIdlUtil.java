@@ -27,7 +27,7 @@ import java.util.Iterator;
  * @author  Aaron Mulder  (ammulder@alumni.princeton.edu)
  * @author  Vinay Menon   (menonv@cpw.co.uk)
  * @author  <a href="mailto:reverbel@ime.usp.br">Francisco Reverbel</a>
- * @version $Revision: 1.2 $
+ * @version $Revision: 1.2.4.2 $
  */
 public class RmiIdlUtil {
 
@@ -302,6 +302,12 @@ public class RmiIdlUtil {
          return false;
 
       /*
+       * It must not be the interface of a CORBA object.
+       */
+      if (org.omg.CORBA.Object.class.isAssignableFrom(type))
+         return false;
+      
+      /*
        * It must not extend java.rmi.Remote directly or indirectly.
        */
       if (java.rmi.Remote.class.isAssignableFrom(type))
@@ -360,6 +366,12 @@ public class RmiIdlUtil {
       
       
       /*
+       * It cannot be a CORBA object.
+       */
+      if (org.omg.CORBA.Object.class.isAssignableFrom(type))
+         return false;
+      
+      /*
        * If class is a non-static inner class then its containing class must
        * also be a conforming RMI/IDL value type.
        *
@@ -372,4 +384,62 @@ public class RmiIdlUtil {
       return true;
    }
 
+   public static boolean isAbstractValueType(Class type) {
+      
+      if (!type.isInterface())
+         return false;
+
+      if (org.omg.CORBA.Object.class.isAssignableFrom(type))
+         return false;
+      
+      boolean cannotBeRemote = false;
+      boolean cannotBeAbstractInterface = false;
+
+      if (java.rmi.Remote.class.isAssignableFrom(type)) {
+         cannotBeAbstractInterface = true;
+      }
+      else {
+         cannotBeRemote = true;
+      }
+
+      Iterator methodIterator = Arrays.asList(type.getMethods()).iterator();
+
+      while (methodIterator.hasNext()) {
+         Method m = (Method)methodIterator.next();
+         
+         if (!throwsRemoteException(m)) {
+            cannotBeAbstractInterface = true;
+            cannotBeRemote = true;
+            break;
+         }
+
+         Iterator it = Arrays.asList(m.getExceptionTypes()).iterator();
+         
+         while (it.hasNext()) {
+            Class exception = (Class)it.next();
+            
+            if (!isRMIIDLExceptionType(exception)) {
+               cannotBeRemote = true;
+               break;
+            }
+         }
+      }
+      
+      if (!cannotBeRemote) {
+         Iterator fieldIterator = Arrays.asList(type.getFields()).iterator();
+      
+         while (fieldIterator.hasNext()) {
+            Field f = (Field)fieldIterator.next();
+         
+            if (f.getType().isPrimitive())
+               continue;
+            if (f.getType().equals(java.lang.String.class))
+                continue;
+            cannotBeRemote = true;
+            break;
+         }
+      }
+      return cannotBeRemote && cannotBeAbstractInterface;
+   }
+    
 }

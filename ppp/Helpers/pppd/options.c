@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -41,7 +39,7 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#define RCSID	"$Id: options.c,v 1.10 2003/08/14 00:00:30 callie Exp $"
+#define RCSID	"$Id: options.c,v 1.10.38.1 2004/02/12 22:00:45 callie Exp $"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -1183,11 +1181,7 @@ option_error __V((char *fmt, ...))
     va_end(args);
     if (phase == PHASE_INITIALIZE)
 	fprintf(stderr, "%s: %s\n", progname, buf);
-#ifdef __APPLE__
-    error(buf);
-#else
     syslog(LOG_ERR, "%s", buf);
-#endif
 }
 
 #if 0

@@ -728,7 +728,7 @@ const char *get_short_archi(const char *long_archi)
 static int get_file_version(files_struct *fsp, char *fname,uint32 *major, uint32 *minor)
 {
 	int     i;
-	char    *buf;
+	char    *buf = NULL;
 	ssize_t byte_count;
 
 	if ((buf=malloc(PE_HEADER_SIZE)) == NULL) {
@@ -739,8 +739,8 @@ static int get_file_version(files_struct *fsp, char *fname,uint32 *major, uint32
 
 	/* Note: DOS_HEADER_SIZE < malloc'ed PE_HEADER_SIZE */
 	if ((byte_count = vfs_read_data(fsp, buf, DOS_HEADER_SIZE)) < DOS_HEADER_SIZE) {
-		DEBUG(3,("get_file_version: File [%s] DOS header too short, bytes read = %d\n",
-				fname, byte_count));
+		DEBUG(3,("get_file_version: File [%s] DOS header too short, bytes read = %lu\n",
+			 fname, (unsigned long)byte_count));
 		goto no_version_info;
 	}
 
@@ -760,16 +760,16 @@ static int get_file_version(files_struct *fsp, char *fname,uint32 *major, uint32
 	}
 
 	if ((byte_count = vfs_read_data(fsp, buf, PE_HEADER_SIZE)) < PE_HEADER_SIZE) {
-		DEBUG(3,("get_file_version: File [%s] Windows header too short, bytes read = %d\n",
-				fname, byte_count));
+		DEBUG(3,("get_file_version: File [%s] Windows header too short, bytes read = %lu\n",
+			 fname, (unsigned long)byte_count));
 		/* Assume this isn't an error... the file just looks sort of like a PE/NE file */
 		goto no_version_info;
 	}
 
 	/* The header may be a PE (Portable Executable) or an NE (New Executable) */
 	if (IVAL(buf,PE_HEADER_SIGNATURE_OFFSET) == PE_HEADER_SIGNATURE) {
-		int num_sections;
-		int section_table_bytes;
+		unsigned int num_sections;
+		unsigned int section_table_bytes;
 		
 		if (SVAL(buf,PE_HEADER_MACHINE_OFFSET) != PE_HEADER_MACHINE_I386) {
 			DEBUG(3,("get_file_version: PE file [%s] wrong machine = 0x%x\n",
@@ -783,6 +783,9 @@ static int get_file_version(files_struct *fsp, char *fname,uint32 *major, uint32
 		/* get the section table */
 		num_sections        = SVAL(buf,PE_HEADER_NUMBER_OF_SECTIONS);
 		section_table_bytes = num_sections * PE_HEADER_SECT_HEADER_SIZE;
+		if (section_table_bytes == 0)
+			goto error_exit;
+
 		SAFE_FREE(buf);
 		if ((buf=malloc(section_table_bytes)) == NULL) {
 			DEBUG(0,("get_file_version: PE file [%s] section table malloc failed bytes = %d\n",
@@ -791,8 +794,8 @@ static int get_file_version(files_struct *fsp, char *fname,uint32 *major, uint32
 		}
 
 		if ((byte_count = vfs_read_data(fsp, buf, section_table_bytes)) < section_table_bytes) {
-			DEBUG(3,("get_file_version: PE file [%s] Section header too short, bytes read = %d\n",
-					fname, byte_count));
+			DEBUG(3,("get_file_version: PE file [%s] Section header too short, bytes read = %lu\n",
+				 fname, (unsigned long)byte_count));
 			goto error_exit;
 		}
 
@@ -801,8 +804,11 @@ static int get_file_version(files_struct *fsp, char *fname,uint32 *major, uint32
 			int sec_offset = i * PE_HEADER_SECT_HEADER_SIZE;
 
 			if (strcmp(".rsrc", &buf[sec_offset+PE_HEADER_SECT_NAME_OFFSET]) == 0) {
-				int section_pos   = IVAL(buf,sec_offset+PE_HEADER_SECT_PTR_DATA_OFFSET);
-				int section_bytes = IVAL(buf,sec_offset+PE_HEADER_SECT_SIZE_DATA_OFFSET);
+				unsigned int section_pos   = IVAL(buf,sec_offset+PE_HEADER_SECT_PTR_DATA_OFFSET);
+				unsigned int section_bytes = IVAL(buf,sec_offset+PE_HEADER_SECT_SIZE_DATA_OFFSET);
+
+				if (section_bytes == 0)
+					goto error_exit;
 
 				SAFE_FREE(buf);
 				if ((buf=malloc(section_bytes)) == NULL) {
@@ -819,10 +825,13 @@ static int get_file_version(files_struct *fsp, char *fname,uint32 *major, uint32
 				}
 
 				if ((byte_count = vfs_read_data(fsp, buf, section_bytes)) < section_bytes) {
-					DEBUG(3,("get_file_version: PE file [%s] .rsrc section too short, bytes read = %d\n",
-							fname, byte_count));
+					DEBUG(3,("get_file_version: PE file [%s] .rsrc section too short, bytes read = %lu\n",
+						 fname, (unsigned long)byte_count));
 					goto error_exit;
 				}
+
+				if (section_bytes < VS_VERSION_INFO_UNICODE_SIZE)
+					goto error_exit;
 
 				for (i=0; i<section_bytes-VS_VERSION_INFO_UNICODE_SIZE; i++) {
 					/* Scan for 1st 3 unicoded bytes followed by word aligned magic value */
@@ -2026,7 +2035,7 @@ static WERROR update_a_printer_2(NT_PRINTER_INFO_LEVEL_2 *info)
 
 	if (info->servername[0]!='\0') {
 		trim_string(info->printername, info->servername, NULL);
-		trim_string(info->printername, "\\", NULL);
+		trim_char(info->printername, '\\', '\0');
 		info->servername[0]='\0';
 	}
 
@@ -2587,7 +2596,8 @@ static WERROR publish_it(NT_PRINTER_INFO_LEVEL *printer)
 	ADS_STATUS ads_rc;
 	TALLOC_CTX *ctx = talloc_init("publish_it");
 	ADS_MODLIST mods = ads_init_mods(ctx);
-	char *prt_dn = NULL, *srv_dn, **srv_cn;
+	char *prt_dn = NULL, *srv_dn, *srv_cn_0;
+	char *srv_dn_utf8, **srv_cn_utf8;
 	void *res = NULL;
 	ADS_STRUCT *ads;
 	const char *attrs[] = {"objectGUID", NULL};
@@ -2634,12 +2644,45 @@ static WERROR publish_it(NT_PRINTER_INFO_LEVEL *printer)
 
 	/* figure out where to publish */
 	ads_find_machine_acct(ads, &res, global_myname());
-	srv_dn = ldap_get_dn(ads->ld, res);
+
+	/* We use ldap_get_dn here as we need the answer
+	 * in utf8 to call ldap_explode_dn(). JRA. */
+
+	srv_dn_utf8 = ldap_get_dn(ads->ld, res);
+	if (!srv_dn_utf8) {
+		ads_destroy(&ads);
+		return WERR_SERVER_UNAVAILABLE;
+	}
 	ads_msgfree(ads, res);
-	srv_cn = ldap_explode_dn(srv_dn, 1);
-	asprintf(&prt_dn, "cn=%s-%s,%s", srv_cn[0], 
+	srv_cn_utf8 = ldap_explode_dn(srv_dn_utf8, 1);
+	if (!srv_cn_utf8) {
+		ldap_memfree(srv_dn_utf8);
+		ads_destroy(&ads);
+		return WERR_SERVER_UNAVAILABLE;
+	}
+	/* Now convert to CH_UNIX. */
+	if (pull_utf8_allocate(&srv_dn, srv_dn_utf8) == (size_t)-1) {
+		ldap_memfree(srv_dn_utf8);
+		ldap_memfree(srv_cn_utf8);
+		ads_destroy(&ads);
+		return WERR_SERVER_UNAVAILABLE;
+	}
+	if (pull_utf8_allocate(&srv_cn_0, srv_cn_utf8[0]) == (size_t)-1) {
+		ldap_memfree(srv_dn_utf8);
+		ldap_memfree(srv_cn_utf8);
+		ads_destroy(&ads);
+		SAFE_FREE(srv_dn);
+		return WERR_SERVER_UNAVAILABLE;
+	}
+
+	ldap_memfree(srv_dn_utf8);
+	ldap_memfree(srv_cn_utf8);
+
+	asprintf(&prt_dn, "cn=%s-%s,%s", srv_cn_0, 
 		 printer->info_2->sharename, srv_dn);
-	ads_memfree(ads, srv_dn);
+
+	SAFE_FREE(srv_dn);
+	SAFE_FREE(srv_cn_0);
 
 	/* publish it */
 	ads_rc = ads_add_printer_entry(ads, prt_dn, ctx, &mods);
@@ -3272,10 +3315,11 @@ static WERROR get_a_printer_2(NT_PRINTER_INFO_LEVEL_2 **info_ptr, const char *sh
 			printername));
 		info.devmode = construct_nt_devicemode(printername);
 	}
-	
-	safe_strcpy(adevice, info.printername, sizeof(adevice)-1);
-	fstrcpy(info.devmode->devicename, adevice);	
 
+	safe_strcpy(adevice, info.printername, sizeof(adevice)-1);
+	if (info.devmode) {
+		fstrcpy(info.devmode->devicename, adevice);	
+	}
 
 	len += unpack_values( &info.data, dbuf.dptr+len, dbuf.dsize-len );
 
@@ -3873,6 +3917,16 @@ NT_PRINTER_INFO_LEVEL_2* dup_printer_2( TALLOC_CTX *ctx, NT_PRINTER_INFO_LEVEL_2
 
 /****************************************************************************
  Get a NT_PRINTER_INFO_LEVEL struct. It returns malloced memory.
+
+ Previously the code had a memory allocation problem because it always
+ used the TALLOC_CTX from the Printer_entry*.   This context lasts 
+ as a long as the original handle is open.  So if the client made a lot 
+ of getprinter[data]() calls, the memory usage would climb.  Now we use
+ a short lived TALLOC_CTX for printer_info_2 objects returned.  We 
+ still use the Printer_entry->ctx for maintaining the cache copy though
+ since that object must live as long as the handle by definition.  
+                                                    --jerry
+
 ****************************************************************************/
 
 WERROR get_a_printer( Printer_entry *print_hnd, NT_PRINTER_INFO_LEVEL **pp_printer, uint32 level, 
@@ -3903,7 +3957,11 @@ WERROR get_a_printer( Printer_entry *print_hnd, NT_PRINTER_INFO_LEVEL **pp_print
 				&& (print_hnd->printer_type==PRINTER_HANDLE_IS_PRINTER) 
 				&& print_hnd->printer_info )
 			{
-				if ( !(printer->info_2 = dup_printer_2(print_hnd->ctx, print_hnd->printer_info->info_2)) ) {
+				/* get_talloc_ctx() works here because we need a short 
+				   lived talloc context */
+
+				if ( !(printer->info_2 = dup_printer_2(get_talloc_ctx(), print_hnd->printer_info->info_2)) ) 
+				{
 					DEBUG(0,("get_a_printer: unable to copy cached printer info!\n"));
 					
 					SAFE_FREE(printer);
@@ -3918,10 +3976,11 @@ WERROR get_a_printer( Printer_entry *print_hnd, NT_PRINTER_INFO_LEVEL **pp_print
 				break;
 			}
 
-			/* no cache for this handle; see if we can match one from another handle */
-			
+			/* no cache for this handle; see if we can match one from another handle.
+			   Make sure to use a short lived talloc ctx */
+
 			if ( print_hnd )
-				result = find_printer_in_print_hnd_cache(print_hnd->ctx, &printer->info_2, sharename);
+				result = find_printer_in_print_hnd_cache(get_talloc_ctx(), &printer->info_2, sharename);
 			
 			/* fail to disk if we don't have it with any open handle */
 
@@ -3939,6 +3998,9 @@ WERROR get_a_printer( Printer_entry *print_hnd, NT_PRINTER_INFO_LEVEL **pp_print
 						print_hnd->printer_info = (NT_PRINTER_INFO_LEVEL *)malloc(sizeof(NT_PRINTER_INFO_LEVEL));
 
 					if ( print_hnd->printer_info ) {
+						/* make sure to use the handle's talloc ctx here since 
+						   the printer_2 object must last until the handle is closed */
+
 						print_hnd->printer_info->info_2 = dup_printer_2(print_hnd->ctx, printer->info_2);
 						
 						/* don't fail the lookup just because the cache update failed */
@@ -4538,7 +4600,7 @@ WERROR nt_printing_setsec(const char *printername, SEC_DESC_BUF *secdesc_ctr)
 
 		/* Make a deep copy of the security descriptor */
 
-		psd = make_sec_desc(mem_ctx, secdesc_ctr->sec->revision,
+		psd = make_sec_desc(mem_ctx, secdesc_ctr->sec->revision, secdesc_ctr->sec->type,
 				    owner_sid, group_sid,
 				    sacl,
 				    dacl,
@@ -4631,7 +4693,7 @@ static SEC_DESC_BUF *construct_default_printer_sdb(TALLOC_CTX *ctx)
 	   NT5 machine. */
 
 	if ((psa = make_sec_acl(ctx, NT4_ACL_REVISION, 3, ace)) != NULL) {
-		psd = make_sec_desc(ctx, SEC_DESC_REVISION,
+		psd = make_sec_desc(ctx, SEC_DESC_REVISION, SEC_DESC_SELF_RELATIVE,
 				    &owner_sid, NULL,
 				    NULL, psa, &sd_size);
 	}
@@ -4707,7 +4769,7 @@ BOOL nt_printing_getsec(TALLOC_CTX *ctx, const char *printername, SEC_DESC_BUF *
 
 			sid_append_rid(&owner_sid, DOMAIN_USER_RID_ADMIN);
 
-			psd = make_sec_desc(ctx, (*secdesc_ctr)->sec->revision,
+			psd = make_sec_desc(ctx, (*secdesc_ctr)->sec->revision, (*secdesc_ctr)->sec->type,
 					    &owner_sid,
 					    (*secdesc_ctr)->sec->grp_sid,
 					    (*secdesc_ctr)->sec->sacl,

@@ -30,7 +30,7 @@ import EDU.oswego.cs.dl.util.concurrent.CountDown;
  *  @author kimptoc
  *  @author d_jencks converted to JBossTestCase and logging.
  *  @author Scott.Stark@jboss.org
- *  @version $Revision: 1.5.2.3 $
+ *  @version $Revision: 1.5.2.4 $
  */
 public class StatelessSessionUnitTestCase
       extends JBossTestCase
@@ -131,6 +131,43 @@ public class StatelessSessionUnitTestCase
          StatelessSession theSession = (StatelessSession) beanHandle.getEJBObject();
          theSession.method1("Hello");
          getLog().debug("Called method1 on handle session bean");
+      }
+      finally
+      {
+         System.setProperties(sysProps);
+      }
+   }
+
+   /** Test of accessing the home interface from the remote interface in an env
+    * new InitialContext() will not work.
+    * @throws Exception
+    */
+   public void testHomeFromRemoteNoDefaultJNDI()
+         throws Exception
+   {
+      getLog().debug("+++ testHomeFromRemoteNoDefaultJNDI()");
+
+      // Override the JNDI variables in the System properties
+      Properties sysProps = System.getProperties();
+      Properties newProps = new Properties(sysProps);
+      newProps.setProperty("java.naming.factory.initial", "badFactory");
+      newProps.setProperty("java.naming.provider.url", "jnp://badhost:12345");
+      System.setProperties(newProps);
+
+      // Do a lookup of the home and create a remote using a custom env
+      Properties env = new Properties();
+      env.setProperty("java.naming.factory.initial", super.getJndiInitFactory());
+      env.setProperty("java.naming.provider.url", super.getJndiURL());
+      try
+      {
+         InitialContext ctx = new InitialContext(env);
+         Object ref = ctx.lookup("ejbcts/StatelessSessionHome");
+         StatelessSessionHome home = (StatelessSessionHome)
+               PortableRemoteObject.narrow(ref, StatelessSessionHome.class);
+         sessionBean = home.create();
+         StatelessSessionHome home2 = (StatelessSessionHome) sessionBean.getEJBHome();
+         StatelessSession bean2 = home2.create();
+         bean2.remove();
       }
       finally
       {

@@ -61,6 +61,11 @@ layer {
 	display: block;
 }
 
+marquee {
+    display: inline-block;
+    overflow: marquee;
+}
+
 address {
 	display: block;
 }
@@ -100,11 +105,10 @@ HR  {
         margin-bottom: 12px; 
         border-style: inset;
         border-width: 1px;
-        margin-left: 1px; /* will be overwritten by ALIGN */ 
-        margin-right: 1px; /* will be overwritten by ALIGN */
-        -khtml-flow-mode: -khtml-around-floats;
-} 
- 
+        margin-left: auto;
+        margin-right: auto;
+}
+
 MAP { 
 	display: inline;
 } 
@@ -117,42 +121,42 @@ MAP {
 H1 { 
 	display: block;
 	font-size: 2em; 
-	margin: .67__qem auto .67em auto;
-	font-weight: bolder;
+	margin: .67__qem 0 .67em 0;
+	font-weight: bold;
 }
       
 H2 { 
 	display: block;
 	font-size: 1.5em; 
-	margin: .83__qem auto .83em auto;
-	font-weight: bolder;
+	margin: .83__qem 0 .83em 0;
+	font-weight: bold;
 }
       
 H3 { 
 	display: block;
 	font-size: 1.17em; 
-	margin: 1__qem auto 1em auto;
-	font-weight: bolder;
+	margin: 1__qem 0 1em 0;
+	font-weight: bold;
 }
       
 H4 {
 	display: block;
-	margin: 1.33__qem auto 1.33em auto;
-	font-weight: bolder;
+	margin: 1.33__qem 0 1.33em 0;
+	font-weight: bold;
 }
 
 H5 { 
 	display: block;
 	font-size: .83em; 
-	margin: 1.67__qem auto 1.67em auto;
-	font-weight: bolder;
+	margin: 1.67__qem 0 1.67em 0;
+	font-weight: bold;
 }
 
 H6 { 
 	display: block;
 	font-size: .67em; 
-	margin: 2.33__qem auto 2.33em auto;
-	font-weight: bolder;
+	margin: 2.33__qem 0 2.33em 0;
+	font-weight: bold;
 }
 
 /* 
@@ -161,11 +165,10 @@ H6 {
 
 TABLE { 
 	display: table;
-	border-collapse: separate;
+        border-collapse: separate;
 	text-align: -khtml-auto;
 	border-spacing: 2px;
 	border-color: gray;
-        -khtml-flow-mode: -khtml-around-floats;
 }
 
 TABLE[align="center"] { 
@@ -315,7 +318,7 @@ FIELDSET {
 }
 
 BUTTON {
-        display: block;
+        display: inline-block;
         border: 2px outset ButtonFace;
         background-color: ButtonFace;
         color: ButtonText;
@@ -329,9 +332,9 @@ BUTTON:active {
 
 /* XXX Need to implement support for CSS2 system fonts, so that I don't have to hard code this.
    -dwh */
-INPUT, TEXTAREA {
-	font: 11px 'Lucida Grande';
-        margin: 0__qem;
+INPUT, TEXTAREA, SELECT, BUTTON {
+    margin: 0__qem;
+    font: 11px 'Lucida Grande';
 }
 
 INPUT[type="hidden"] {
@@ -340,10 +343,6 @@ INPUT[type="hidden"] {
 
 INPUT[type="radio"], INPUT[type="checkbox"] {
         margin: 3px 0.5ex;
-}
-
-SELECT {
-        margin: 0__qem;
 }
 
 OPTION, 
@@ -425,11 +424,11 @@ acronym {
 	font-style: italic;
 }
 
-:focus          { outline: 1px dotted invert }
+:focus          { outline: auto 3px #1f5ccf }
 a:link          { color: #0000EE; text-decoration: underline; }
-a:link:active          { color: red; outline: gray 1px dotted; }
+a:link:active          { color: red }
 a:visited              { color: #551A8B; text-decoration: underline; }
-a:visited:active       { color: red; outline: gray 1px dotted; }
+a:visited:active       { color: red }
 
 /* ### :before is now supported, but we haven't tried reinstating this
    ### rule that was comment out long ago.
@@ -489,10 +488,6 @@ nobr {
 
 wbr {
         white-space: normal;
-}
-
-marquee {
-        display: none;
 }
 
 /* noscript is handled internally, as it depends on the html settings */

@@ -20,8 +20,8 @@
  */
 
 #ifndef lint
-static const char rcsid[] =
-    "@(#) $Header: /cvs/root/tcpdump/tcpdump/machdep.c,v 1.1.1.3 2003/03/17 18:42:16 rbraun Exp $ (LBL)";
+static const char rcsid[] _U_ =
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/machdep.c,v 1.1.1.4 2004/02/05 19:30:52 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -39,8 +39,6 @@ static const char rcsid[] =
 #ifndef HAVE___ATTRIBUTE__
 #define __attribute__(x)
 #endif /* HAVE___ATTRIBUTE__ */
-
-#define _U_	__attribute__((unused))
 
 #ifdef __osf__
 #include <sys/sysinfo.h>

@@ -90,7 +90,7 @@ public:
     bool noResize() { return noresize; }
     void setLocation( const DOMString& str );
 
-    virtual bool isSelectable() const;
+    virtual bool isFocusable() const;
     virtual void setFocus(bool);
 
     DocumentImpl* contentDocument() const;
@@ -103,6 +103,7 @@ public:
 
 protected:
     bool isURLAllowed(const DOMString &) const;
+    virtual void openURL();
 
     DOMString url;
     DOMString name;
@@ -115,7 +116,7 @@ protected:
     bool frameBorderSet : 1;
     bool noresize : 1;
 
- private:
+private:
     void updateForNewURL();
 };
 
@@ -204,11 +205,12 @@ public:
     virtual void recalcStyle( StyleChange ch );
 
 protected:
+    virtual void openURL();
+
     bool needWidgetUpdate;
 };
 
 
-}; //namespace
+} //namespace
 
 #endif
-

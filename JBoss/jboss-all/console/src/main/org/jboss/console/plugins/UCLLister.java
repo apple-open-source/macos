@@ -7,12 +7,12 @@
 
 package org.jboss.console.plugins;
 
-import javax.management.ObjectInstance;
-
 import org.jboss.console.manager.interfaces.ManageableResource;
 import org.jboss.console.manager.interfaces.ResourceTreeNode;
 import org.jboss.console.manager.interfaces.TreeNode;
 import org.jboss.console.plugins.helpers.AbstractPluginWrapper;
+
+import javax.management.ObjectInstance;
 
 /**
  * As the number of UCL can be very big, we use a real Java class which is far
@@ -21,7 +21,7 @@ import org.jboss.console.plugins.helpers.AbstractPluginWrapper;
  * @see <related>
  *
  * @author  <a href="mailto:sacha.labourey@cogito-info.ch">Sacha Labourey</a>.
- * @version $Revision: 1.1.2.1 $
+ * @version $Revision: 1.1.2.2 $
  *
  * <p><b>Revisions:</b>
  *

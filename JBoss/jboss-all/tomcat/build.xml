@@ -1,0 +1,451 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE project [
+   <!ENTITY buildmagic SYSTEM "../tools/etc/buildmagic/buildmagic.ent">
+   <!ENTITY libraries SYSTEM "../tools/etc/buildmagic/libraries.ent">
+   <!ENTITY modules SYSTEM "../tools/etc/buildmagic/modules.ent">
+]>
+
+<!-- ====================================================================== -->
+<!--                                                                        -->
+<!--  JBoss, the OpenSource J2EE webOS                                      -->
+<!--                                                                        -->
+<!--  Distributable under LGPL license.                                     -->
+<!--  See terms of license at http://www.gnu.org.                           -->
+<!--                                                                        -->
+<!-- ====================================================================== -->
+
+<!-- $Id: build.xml,v 1.1.1.1.2.7 2003/11/29 21:23:18 remm Exp $ -->
+
+<project default="main" name="JBoss/Tomcat-4">
+
+  <!--
+     | Include the common Buildmagic elements.
+     |
+     | This defines several different targets, properties and paths.
+     | It also sets up the basic extention tasks amoung other things.
+   -->
+  &buildmagic;
+
+  <!--
+     | Initialize the build system.  Must depend on '_buildmagic:init'.
+     | Other targets should depend on 'init' or things will mysteriously fail.
+   -->
+  <target name="init" unless="init.disable" depends="_buildmagic:init">
+  </target>
+
+  <!--
+     | Configure the build system.
+     |
+     | This target is invoked by the Buildmagic initialization logic and
+     | should contain module specific configuration elements.
+   -->
+  <target name="configure" unless="configure.disable">
+
+    <!-- Module name(s) & version -->
+    <property name="module.name" value="tomcat4"/>
+    <property name="module.Name" value="JBoss Tomcat4 Plugin"/>
+    <property file="module.version" />
+
+    &libraries;
+    <!-- The combined library classpath -->
+    <path id="library.classpath">
+      <path refid="sun.jaxp.classpath"/>
+      <path refid="sun.jaas.classpath"/>
+      <path refid="sun.jsse.classpath"/>
+      <path refid="sun.servlet.classpath"/>
+      <path refid="apache.log4j.classpath"/>
+      <path refid="junit.junit.classpath"/>
+    </path>
+
+    <!-- ======= -->
+    <!-- Modules -->
+    <!-- ======= -->
+
+    <!-- The combined dependent module classpath -->
+    &modules;
+    <path id="dependentmodule.classpath">
+      <path refid="jboss.j2ee.classpath"/>
+      <path refid="jboss.system.classpath"/>
+      <path refid="jboss.security.classpath"/>
+      <path refid="jboss.server.classpath"/>
+      <path refid="jboss.common.classpath"/>
+      <path refid="jboss.jmx.classpath"/>
+      <path refid="jboss.cluster.classpath"/>
+    </path>
+
+    <!-- The combined thirdparty classpath -->
+    <path id="thirdparty.classpath">
+      <path refid="library.classpath"/>
+      <path refid="dependentmodule.classpath"/>
+    </path>
+
+    <!-- Where source files live -->
+    <property name="source.java" value="${module.source}/main"/>
+    <property name="source.etc" value="${module.source}/etc"/>
+    <property name="source.resources" value="${module.source}/resources"/>
+    <property name="source.webapps" value="${module.source}/webapps"/>
+
+    <!-- Where build generated files will go -->
+    <property name="build.classes" value="${module.output}/classes"/>
+    <property name="build.deploy" value="${module.output}/deploy"/>
+    <property name="build.lib" value="${module.output}/lib"/>
+    <property name="build.api" value="${module.output}/api"/>
+    <property name="build.etc" value="${module.output}/etc"/>
+    <property name="build.ejb" value="${module.output}/ejb"/>
+    <property name="build.metadata" value="${module.output}/META-INF"/>
+    <property name="build.reports" value="${module.output}/reports"/>
+    <property name="build.resources" value="${module.output}/resources"/>
+    <property name="build.todo" value="${module.output}/todo"/>
+
+    <!-- This module is based on Java 1.2 -->
+    <property name="javac.target" value="1.2"/>
+
+    <!-- classpath and local.classpath must have a value using with a path -->
+    <property name="classpath" value=""/>
+    <property name="local.classpath" value=""/>
+
+    <!-- The classpath required to build classes. -->
+    <path id="javac.tomcat41.classpath">
+      <pathelement path="${classpath}"/>
+      <pathelement path="${local.classpath}"/>
+      <path refid="thirdparty.classpath"/>
+      <path refid="apache.tomcat41.classpath" />
+    </path>
+
+    <!-- The classpath required to build classes. -->
+    <path id="javac.tomcat50.classpath">
+      <pathelement path="${classpath}"/>
+      <pathelement path="${local.classpath}"/>
+      <path refid="thirdparty.classpath"/>
+      <path refid="apache.tomcat50.classpath" />
+    </path>
+
+    <!-- The classpath required to build classes. -->
+    <path id="javac.classpath">
+      <path refid="javac.tomcat50.classpath"/>
+    </path>
+
+    <!-- The classpath required to build javadocs. -->
+    <path id="javadoc.classpath">
+      <path refid="javac.tomcat50.classpath"/>
+    </path>
+
+    <!-- Packages to include when generating api documentation -->
+    <property name="javadoc.packages" value="org.jboss.*"/>
+
+  </target>
+
+  <!--
+     |  Compile everything.
+     |
+     |  This target should depend on other compile-* targets for each
+     |  different type of compile that needs to be performed, short of
+     |  documentation compiles.
+    -->
+  <target name="compile"
+	  depends="compile-classes, compile-resources, compile-etc"
+	  description="Compile all source files."/>
+
+  <!-- Compile all class files -->
+  <target name="compile-classes" depends="init">
+    <mkdir dir="${build.classes}"/>
+    <javac destdir="${build.classes}"
+           optimize="${javac.optimize}"
+	   target="${javac.target}"
+           debug="${javac.debug}"
+	   depend="${javac.depend}"
+	   verbose="${javac.verbose}"
+	   deprecation="false"
+	   includeAntRuntime="${javac.include.ant.runtime}"
+	   includeJavaRuntime="${javac.include.java.runtime}"
+	   failonerror="${javac.fail.onerror}">
+       <src path="${source.java}"/>
+       <exclude name="org/jboss/web/tomcat/tc5/**"/>
+       <classpath refid="javac.tomcat41.classpath"/>
+    </javac>
+    <javac destdir="${build.classes}"
+           optimize="${javac.optimize}"
+	   target="${javac.target}"
+           debug="${javac.debug}"
+	   depend="${javac.depend}"
+	   verbose="${javac.verbose}"
+	   deprecation="false"
+	   includeAntRuntime="${javac.include.ant.runtime}"
+	   includeJavaRuntime="${javac.include.java.runtime}"
+	   failonerror="${javac.fail.onerror}">
+       <src path="${source.java}"/>
+       <include name="org/jboss/web/tomcat/tc5/**"/>
+       <classpath refid="javac.tomcat50.classpath"/>
+    </javac>
+
+  </target>
+
+  <!-- Compile resource files -->
+  <target name="compile-resources" depends="init">
+    <mkdir dir="${build.resources}"/>
+    <copy todir="${build.resources}" filtering="yes">
+      <fileset dir="${source.resources}">
+         <include name="**/*"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <!-- Compile manifests -->
+  <target name="compile-etc" depends="init">
+    <mkdir dir="${build.etc}"/>
+    <!-- Copy with filtering to replace the following tokens that are
+         used to make up the jar manifest version information.
+     -->
+    <filter token="version.major" value="${version.major}"/>
+    <filter token="version.minor" value="${version.minor}"/>
+    <filter token="version.revision" value="${version.revision}"/>
+    <filter token="version.tag" value="${version.tag}"/>
+    <filter token="version.name" value="${version.name}"/>
+
+    <copy todir="${build.etc}" filtering="yes">
+      <fileset dir="${source.etc}">
+         <include name="**"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <!--
+     | Build all jar files.
+   -->
+  <target name="jars"
+	  description="Build the Service Archive"
+     depends="_buildmagic:build-bypass-check"
+	  unless="build-bypass.on">
+
+    <call target="compile"/>
+
+     <mkdir dir="${build.lib}" />
+     <mkdir dir="${build.deploy}/jbossweb-tomcat41.sar/META-INF" />
+     <mkdir dir="${build.deploy}/jbossweb-tomcat50.sar/META-INF" />
+
+    <!-- Build the jbossweb-tomcat41.sar -->
+    <copy file="${build.resources}/jboss-service-41.xml"
+       tofile="${build.deploy}/jbossweb-tomcat41.sar/META-INF/jboss-service.xml" />
+    <copy file="${build.resources}/servletinfo-xmbean.xml"
+       todir="${build.deploy}/jbossweb-tomcat41.sar/META-INF" />
+     <copy file="${project.tools}/lib/ant.jar"
+        todir="${build.deploy}/jbossweb-tomcat41.sar/" />
+     <copy file="${build.resources}/web.xml"
+        todir="${build.deploy}/jbossweb-tomcat41.sar/" />
+    <copy todir="${build.deploy}/jbossweb-tomcat41.sar">
+       <fileset dir="${apache.tomcat41.root}">
+          <include name="*.jar" />
+       </fileset>
+    </copy>
+    <jar jarfile="${build.deploy}/jbossweb-tomcat41.sar/tomcat41-service.jar"
+         manifest="${build.etc}/default.mf">
+      <!-- The service classes -->
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/**"/>
+        <exclude name="org/jboss/web/tomcat/tc5/*"/>
+      </fileset>
+      <!-- Get the property-files -->
+      <fileset dir="${source.java}">
+        <include name="org/jboss/**/*.properties"/>
+      </fileset>
+    </jar>
+
+    <!-- Build the jbossweb-tomcat50.sar -->
+    <copy file="${build.resources}/jboss-service-50.xml"
+       tofile="${build.deploy}/jbossweb-tomcat50.sar/META-INF/jboss-service.xml" />
+     <copy file="${project.tools}/lib/ant.jar"
+        todir="${build.deploy}/jbossweb-tomcat50.sar/" />
+     <copy file="${build.resources}/web.xml"
+        todir="${build.deploy}/jbossweb-tomcat50.sar" />
+     <copy file="${build.resources}/server-50.xml"
+        tofile="${build.deploy}/jbossweb-tomcat50.sar/server.xml" />
+    <copy todir="${build.deploy}/jbossweb-tomcat50.sar">
+       <fileset dir="${apache.tomcat50.root}">
+          <include name="*.jar" />
+       </fileset>
+    </copy>
+    <jar jarfile="${build.deploy}/jbossweb-tomcat50.sar/tomcat50-service.jar"
+         manifest="${build.etc}/default.mf">
+      <!-- The service classes -->
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/net/**"/>
+        <include name="org/jboss/web/tomcat/Log4j*"/>
+        <include name="org/jboss/web/tomcat/tc5/**"/>
+        <include name="org/jboss/web/tomcat/security/**"/>
+      </fileset>
+      <!-- Get the property-files -->
+      <fileset dir="${source.java}">
+        <include name="org/jboss/**/*.properties"/>
+      </fileset>
+    </jar>
+    <copy todir="${build.deploy}/jbossweb-tomcat50.sar">
+       <fileset dir="${source.webapps}">
+       </fileset>
+    </copy>
+
+    <!-- Update the build marker to allow bypassing -->
+    <touch file="${build-bypass.marker}"/>
+
+  </target>
+
+  <!-- ================================================================== -->
+  <!-- Cleaning                                                           -->
+  <!-- ================================================================== -->
+
+  <!-- Clean up all build output -->
+  <target name="clean"
+	  description="Cleans up most generated files."
+	  depends="_buildmagic:clean">
+  </target>
+
+  <!-- Clean up all generated files -->
+  <target name="clobber"
+	  description="Cleans up all generated files."
+	  depends="_buildmagic:clobber, clean">
+  </target>
+
+  <!-- ================================================================== -->
+  <!-- Misc.                                                              -->
+  <!-- ================================================================== -->
+
+  <target name="main" depends="most"
+     description="Executes the default target (most)."/>
+
+  <target name="most"
+	  description="Executes the default target (jars)."
+	  depends="jars" />
+
+  <target name="all"
+     description="Builds everything."
+     depends="jars, docs"/>
+
+  <!-- The normal JBoss build has to been performed to create
+  -->
+  <target name="bundle-tc5" if="tomcat.dist.exists"
+	  description="Builds the tomcat service and creates a bundled dist"
+	  depends="jars">
+    <property name="jboss-dist" value="jboss-${module.version}" />
+    <property name="jboss-all" value="output/${jboss-dist}/server/all" />
+    <property name="jboss-default" 
+             value="output/${jboss-dist}/server/default" />
+    <property name="jboss-minimal" 
+             value="output/${jboss-dist}/server/minimal" />
+    <property name="jboss-tomcat" 
+             value="output/${jboss-dist}/server/tomcat" />
+
+    <!-- Copy the jboss dist to the bundle directory and exclude the default
+      jbossweb.sar servlet container
+    -->
+    <copy todir="output/${jboss-dist}">
+       <fileset dir="${project.root}/build/output/${jboss-dist}">
+         <exclude name="**/jbossweb-jetty.sar/**" />
+         <exclude name="**/javax.servlet.jar" />
+         <exclude name="**/jbossweb-ejb.jar" />
+       </fileset>
+    </copy>
+
+    <antcall target="bundle-tc5-build">
+       <param name="target.dir" value="${jboss-default}" />
+    </antcall>
+    <antcall target="bundle-tc5-build">
+       <param name="target.dir" value="${jboss-all}" />
+    </antcall>
+
+    <!-- Creating JBoss Express profile -->
+    <mkdir dir="${jboss-tomcat}" />
+    <mkdir dir="${jboss-tomcat}/conf" />
+    <copy todir="${jboss-tomcat}">
+       <fileset dir="${jboss-default}">
+          <exclude name="conf/**" />
+          <exclude name="lib/activation.jar" />
+          <exclude name="lib/bcel.jar" />
+          <exclude name="lib/bsh*" />
+          <exclude name="lib/castor.jar" />
+          <exclude name="lib/counter-plugin.jar" />
+          <!--<exclude name="lib/hsqldb*" />-->
+          <!--<exclude name="lib/jboss-common-jdbc-wrapper.jar" />-->
+          <!--<exclude name="lib/jboss-transaction.jar" />-->
+          <exclude name="lib/jbossmq.jar" />
+          <exclude name="lib/jcert.jar" />
+          <exclude name="lib/jmxri.jar" />
+          <exclude name="lib/jmxtools.jar" />
+          <exclude name="lib/jnet.jar" />
+          <exclude name="lib/jpl*" />
+          <exclude name="lib/jsse.jar" />
+          <exclude name="lib/jts.jar" />
+          <exclude name="lib/mail.jar" />
+          <exclude name="lib/mail-plugin.jar" />
+          <exclude name="lib/properties-plugin.jar" />
+          <exclude name="lib/scheduler-plugin*" />
+          <exclude name="lib/tyrex.jar" />
+          <exclude name="lib/xalan.jar" />
+          <exclude name="lib/xml-apis.jar" />
+          <exclude name="deploy/cache*" />
+          <exclude name="deploy/counter*" />
+          <exclude name="deploy/ejb-management.jar" />
+          <exclude name="deploy/hsqldb*" />
+          <!--<exclude name="deploy/jboss-jca.sar*" />-->
+          <!--<exclude name="deploy/jboss-local-jdbc.rar" />-->
+          <!--<exclude name="deploy/jboss-xa-jdbc.rar" />-->
+          <exclude name="deploy/jbossmq-httpil.sar/**" />
+          <exclude name="deploy/jbossmq*" />
+          <exclude name="deploy/jms*" />
+          <exclude name="deploy/jmx-ejb*" />
+          <exclude name="deploy/mail-service.xml" />
+          <exclude name="deploy/properties-service.xml" />
+          <exclude name="deploy/schedule*" />
+          <!--<exclude name="deploy/transaction*" />-->
+       </fileset>
+    </copy>
+    <copy todir="${jboss-tomcat}/conf">
+       <fileset dir="${jboss-minimal}/conf">
+       </fileset>
+    </copy>
+
+  </target>
+
+  <target name="bundle-tc5-build">
+
+    <!-- Install the emedded tomcat service into the all and default cons -->
+    <mkdir dir="${target.dir}/deploy/jbossweb-tomcat.sar" />
+    <mkdir dir="${target.dir}/deploy/jbossweb-tomcat.sar/META-INF" />
+
+    <copy file="${build.resources}/jboss-service-50.xml"
+      tofile="${target.dir}/deploy/jbossweb-tomcat.sar/META-INF/jboss-service.xml" />
+    <copy file="${build.etc}/default.mf"
+       tofile="${target.dir}/deploy/jbossweb-tomcat.sar/META-INF/MANIFEST.MF" />
+    <copy file="output/deploy/tomcat50-service.jar" 
+         todir="${target.dir}/deploy/jbossweb-tomcat.sar" />
+
+    <copy file="${tomcat.server.root}/conf/web.xml" 
+         todir="${target.dir}/deploy/jbossweb-tomcat.sar" />
+    <copy file="${build.resources}/server-50.xml" 
+        tofile="${target.dir}/deploy/jbossweb-tomcat.sar/server.xml" />
+    <copy file="${build.resources}/jboss-mbeans.xml" 
+         todir="${target.dir}/deploy/jbossweb-tomcat.sar/" />
+
+    <!-- Copy API JARs -->
+    <copy file="${tomcat.server.root}/lib/servlet-api.jar" 
+        tofile="${target.dir}/lib/javax.servlet.jar" />
+    <copy file="${tomcat.server.root}/lib/jsp-api.jar" 
+        tofile="${target.dir}/lib/javax.servlet.jsp.jar" />
+
+    <copy todir="${target.dir}/deploy/jbossweb-tomcat.sar">
+      <fileset dir="${tomcat.server.root}/lib">
+        <exclude name="ant.jar" />
+        <exclude name="jmx.jar" />
+        <exclude name="jsp-api.jar" />
+        <exclude name="mx4j*" />
+        <exclude name="naming-factory.jar" />
+        <exclude name="naming-java.jar" />
+        <exclude name="servlet-api.jar" />
+      </fileset>
+    </copy>
+
+  </target>
+
+  <target name="help"
+          description="Show this help message."
+	  depends="_buildmagic:help:standard"/>
+
+</project>

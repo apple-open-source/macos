@@ -30,13 +30,13 @@ import org.jboss.test.cmp2.cmrstress.interfaces.ChildUtil;
  * 
  * This code is based upon the original test case provided by Andrew May.
  *
- * @version <tt>$Revision: 1.1.2.1 $</tt>
+ * @version <tt>$Revision: 1.1.2.2 $</tt>
  * @author  <a href="mailto:steve@resolvesw.com">Steve Coy</a>.
  *
  * @ejb.bean name="Parent"
  *           type="CMP"
  *           cmp-version="2.x"
- *           view-type="remote"
+ *           view-type="both"
  *           jndi-name="cmrstress/Parent"
  *           primkey-field="id"
  * 
@@ -45,8 +45,8 @@ import org.jboss.test.cmp2.cmrstress.interfaces.ChildUtil;
  * 
  * @ejb.persistence table-name="StressedParent"
  * 
- * @ejb.home generate="remote"
- * @ejb.interface generate="remote"
+ * @@ejb.home generate="both"
+ * @@ejb.interface generate="both"
  * 
  * @ejb.ejb-ref ejb-name="Child"
  *              view-type="local"

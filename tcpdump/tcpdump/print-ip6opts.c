@@ -32,8 +32,8 @@
 #endif
 
 #ifndef lint
-static const char rcsid[] =
-     "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-ip6opts.c,v 1.1.1.3 2003/03/17 18:42:17 rbraun Exp $";
+static const char rcsid[] _U_ =
+     "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-ip6opts.c,v 1.1.1.4 2004/02/05 19:30:54 rbraun Exp $";
 #endif
 
 #ifdef INET6
@@ -305,7 +305,7 @@ hbhopt_print(register const u_char *bp)
 
   trunc:
     fputs("[|HBH]", stdout);
-    return(hbhlen);
+    return(-1);
 }
 
 int
@@ -330,6 +330,6 @@ dstopt_print(register const u_char *bp)
 
   trunc:
     fputs("[|DSTOPT]", stdout);
-    return(dstoptlen);
+    return(-1);
 }
 #endif /* INET6 */

@@ -234,14 +234,24 @@ Element Document::documentElement() const
 
 Element Document::createElement( const DOMString &tagName )
 {
-    if (impl) return ((DocumentImpl *)impl)->createElement(tagName);
-    return 0;
+    if (!impl) return 0;
+    int exceptioncode = 0;
+    ElementImpl *e = ((DocumentImpl *)impl)->createElement(tagName, exceptioncode);
+    if (exceptioncode) {
+        throw DOMException(exceptioncode);
+    }
+    return e;
 }
 
 Element Document::createElementNS( const DOMString &namespaceURI, const DOMString &qualifiedName )
 {
-    if (impl) return ((DocumentImpl *)impl)->createElementNS(namespaceURI,qualifiedName);
-    return 0;
+    if (!impl) return 0;
+    int exceptioncode = 0;
+    ElementImpl *e = ((DocumentImpl *)impl)->createElementNS(namespaceURI, qualifiedName, exceptioncode);
+    if (exceptioncode) {
+        throw DOMException(exceptioncode);
+    }
+    return e;
 }
 
 DocumentFragment Document::createDocumentFragment(  )
@@ -294,7 +304,8 @@ Attr Document::createAttributeNS( const DOMString &namespaceURI, const DOMString
         localName.remove(0, colonpos+1);
     }
 
-    // ### check correctness of parameters
+    if (!DocumentImpl::isValidName(localName)) throw DOMException(DOMException::INVALID_CHARACTER_ERR);
+    // ### check correctness of namespace, prefix?
 
     NodeImpl::Id id = static_cast<DocumentImpl*>(impl)->attrId(namespaceURI.implementation(), localName.implementation(), false /* allocate */);
     Attr r = static_cast<DocumentImpl*>(impl)->createAttribute(id);
@@ -436,11 +447,28 @@ KHTMLView *Document::view() const
     return static_cast<DocumentImpl*>(impl)->view();
 }
 
+KHTMLPart *Document::part() const
+{
+    if (!impl) return 0;
+
+    return static_cast<DocumentImpl*>(impl)->part();
+}
+
+
 DOMString Document::completeURL(const DOMString& url)
 {
     if ( !impl ) return url;
     return static_cast<DocumentImpl*>( impl )->completeURL( url.string() );
 }
+
+DOMString Document::toString() const
+{
+    if (!impl)
+	throw DOMException(DOMException::NOT_FOUND_ERR);
+
+    return static_cast<DocumentImpl*>(impl)->toString();
+}
+
 
 CSSStyleDeclaration Document::getOverrideStyle(const Element &elt, const DOMString &pseudoElt)
 {

@@ -43,9 +43,9 @@ volatile int lastsig;		/* last signal received */
  */
 static sig_atomic_t	alarm_latch = FALSE;
 
-void gotsigalrm(int sig)
+RETSIGTYPE gotsigalrm(int sig)
 {
-    signal(sig, gotsigalrm);
+    set_signal_handler(sig, gotsigalrm);
     lastsig = sig;
     alarm_latch = TRUE;
 }
@@ -109,9 +109,8 @@ int interruptible_idle(int seconds)
     ntimeout.it_value.tv_sec  = seconds;
     ntimeout.it_value.tv_usec = 0;
 
-    siginterrupt(SIGALRM, 1);
     alarm_latch = FALSE;
-    signal(SIGALRM, gotsigalrm);	/* first trap signals */
+    set_signal_handler(SIGALRM, gotsigalrm);	/* first trap signals */
     setitimer(ITIMER_REAL,&ntimeout,NULL);	/* then start timer */
     /* there is a very small window between the next two lines */
     /* which could result in a deadlock.  But this will now be  */
@@ -122,7 +121,7 @@ int interruptible_idle(int seconds)
     ntimeout.it_interval.tv_sec = ntimeout.it_interval.tv_usec = 0;
     ntimeout.it_value.tv_sec  = ntimeout.it_value.tv_usec = 0;
     setitimer(ITIMER_REAL,&ntimeout,NULL);	/* now stop timer */
-    signal(SIGALRM, SIG_IGN);
+    set_signal_handler(SIGALRM, SIG_IGN);
     }
 #else
     /* 
@@ -148,21 +147,21 @@ int interruptible_idle(int seconds)
 #endif
 #else /* EMX */
     alarm_latch = FALSE;
-    signal(SIGALRM, gotsigalrm);
+    set_signal_handler(SIGALRM, gotsigalrm);
     _beginthread(itimerthread, NULL, 32768, NULL);
     /* see similar code above */
     if (!alarm_latch)
 	pause();
-    signal(SIGALRM, SIG_IGN);
+    set_signal_handler(SIGALRM, SIG_IGN);
 #endif /* ! EMX */
     if (lastsig == SIGUSR1 || ((seconds && getuid() == ROOT_UID)
 	&& lastsig == SIGHUP))
        awoken = TRUE;
 
     /* now lock out interrupts again */
-    signal(SIGUSR1, SIG_IGN);
+    set_signal_handler(SIGUSR1, SIG_IGN);
     if (getuid() == ROOT_UID)
-	signal(SIGHUP, SIG_IGN);
+	set_signal_handler(SIGHUP, SIG_IGN);
 
     return(awoken ? lastsig : 0);
 }

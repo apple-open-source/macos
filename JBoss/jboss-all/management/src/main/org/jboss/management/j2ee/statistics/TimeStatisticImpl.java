@@ -13,7 +13,7 @@ import javax.management.j2ee.statistics.TimeStatistic;
  *
  * @author <a href="mailto:marc.fleury@jboss.org">Marc Fleury</a>
  * @author <a href="mailto:andreas@jboss.com">Andreas Schaefer</a>
- * @version $Revision: 1.1.2.3 $
+ * @version $Revision: 1.1.2.4 $
  */
 public class TimeStatisticImpl
       extends StatisticImpl
@@ -155,6 +155,8 @@ public class TimeStatisticImpl
     */
    public void set(long count, long minTime, long maxTime, long totalTime)
    {
+      // update lastSampleTime
+      set(); 
       this.count = count;
       this.minTime = minTime;
       this.maxTime = maxTime;

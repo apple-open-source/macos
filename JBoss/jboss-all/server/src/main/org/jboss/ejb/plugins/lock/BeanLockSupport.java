@@ -16,6 +16,8 @@ import org.jboss.ejb.BeanLock;
 import org.jboss.ejb.Container;
 import org.jboss.invocation.Invocation;
 import org.jboss.logging.Logger;
+import org.jboss.util.deadlock.ApplicationDeadlockException;
+import org.jboss.util.deadlock.Resource;
 import java.util.HashMap;
 import java.util.HashSet;
 
@@ -25,10 +27,9 @@ import java.util.HashSet;
  *
  * @author <a href="bill@burkecentral.com">Bill Burke</a>
  * @author <a href="marc.fleury@jboss.org">Marc Fleury</a>
- * @version $Revision: 1.16.2.10 $
+ * @version $Revision: 1.16.2.11 $
  */
-public abstract class BeanLockSupport
-   implements BeanLock
+public abstract class BeanLockSupport implements Resource, BeanLock
 {
    protected Container container = null;
    
@@ -57,7 +58,8 @@ public abstract class BeanLockSupport
    public Object getId() { return id;}
    public void setTimeout(int timeout) {txTimeout = timeout;}
    public void setContainer(Container container) { this.container = container; }
-	
+   public Object getResourceHolder() { return tx; }
+
    public void sync()
    {
       synchronized(this)
@@ -106,67 +108,4 @@ public abstract class BeanLockSupport
    
    // Private --------------------------------------------------------
    
-   // This following is for deadlock detection
-   protected static HashMap waiting = new HashMap();
-
-   public void deadlockDetection(Transaction miTx)
-      throws ApplicationDeadlockException
-   {
-      if (miTx == null) 
-         return;
-
-      HashSet set = new HashSet();
-      set.add(miTx);
-      
-      Object checkTx = this.tx;
-
-      synchronized(waiting)
-      {
-          addWaiting(miTx);
-
-          while (checkTx != null)
-          {
-             Object waitingFor = waiting.get(checkTx);
-             if (waitingFor != null)
-                waitingFor = ((BeanLock) waitingFor).getTransaction();
-             if (waitingFor != null)
-	       {
-                if (set.contains(waitingFor))
-                {
-                   log.error("Application deadlock detected: " + miTx + " has deadlock conditions.  Two or more transactions contending for same resources and each have locks each other needs.");
-                   removeWaiting(miTx);
-                   throw new ApplicationDeadlockException("Application deadlock detected: Two or more transactions contention.", true);
-                 }
-	           set.add(waitingFor);
-             }
-             checkTx = waitingFor;
-          }
-      }
-   }
-
-   /**
-    * Add a transaction waiting for a lock
-    */
-   public void addWaiting(Transaction tx)
-   {
-      if (tx == null)
-         throw new IllegalArgumentException("Attempt to addWaiting with a null transaction");
-      synchronized (waiting)
-      {
-         waiting.put(tx, this);
-      }
-   }
-
-   /**
-    * Remove a transaction waiting for a lock
-    */
-   public void removeWaiting(Transaction tx)
-   {
-      if (tx == null)
-         throw new IllegalArgumentException("Attempt to removeWaiting with a null transaction");
-      synchronized (waiting)
-      {
-         waiting.remove(tx);
-      }
-   }
 }

@@ -860,3 +860,290 @@ _nss_winbind_initgroups_dyn(char *user, gid_t group, long int *start,
  done:
 	return ret;
 }
+
+
+/* return a list of group SIDs for a user SID */
+NSS_STATUS
+_nss_winbind_getusersids(const char *user_sid, char **group_sids,
+			 int *num_groups,
+			 char *buffer, size_t buf_size, int *errnop)
+{
+	NSS_STATUS ret;
+	struct winbindd_request request;
+	struct winbindd_response response;
+
+#ifdef DEBUG_NSS
+	fprintf(stderr, "[%5d]: getusersids %s\n", getpid(), user_sid);
+#endif
+
+	ZERO_STRUCT(request);
+	ZERO_STRUCT(response);
+
+	strncpy(request.data.sid, user_sid,sizeof(request.data.sid) - 1);
+	request.data.sid[sizeof(request.data.sid) - 1] = '\0';
+
+	ret = winbindd_request(WINBINDD_GETUSERSIDS, &request, &response);
+
+	if (ret != NSS_STATUS_SUCCESS) {
+		goto done;
+	}
+
+	if (buf_size < response.length - sizeof(response)) {
+		ret = NSS_STATUS_TRYAGAIN;
+		errno = *errnop = ERANGE;
+		goto done;
+	}
+
+	*num_groups = response.data.num_entries;
+	*group_sids = buffer;
+	memcpy(buffer, response.extra_data, response.length - sizeof(response));
+	errno = *errnop = 0;
+	
+ done:
+	free_response(&response);
+	return ret;
+}
+
+
+/* map a user or group name to a SID string */
+NSS_STATUS
+_nss_winbind_nametosid(const char *name, char **sid, char *buffer,
+		       size_t buflen, int *errnop)
+{
+	NSS_STATUS ret;
+	struct winbindd_response response;
+	struct winbindd_request request;
+
+#ifdef DEBUG_NSS
+	fprintf(stderr, "[%5d]: nametosid %s\n", getpid(), name);
+#endif
+
+	ZERO_STRUCT(response);
+	ZERO_STRUCT(request);
+
+	strncpy(request.data.name.name, name, 
+		sizeof(request.data.name.name) - 1);
+	request.data.name.name[sizeof(request.data.name.name) - 1] = '\0';
+
+	ret = winbindd_request(WINBINDD_LOOKUPNAME, &request, &response);
+	if (ret != NSS_STATUS_SUCCESS) {
+		*errnop = errno = EINVAL;
+		goto failed;
+	}
+
+	if (buflen < strlen(response.data.sid.sid)+1) {
+		ret = NSS_STATUS_TRYAGAIN;
+		*errnop = errno = ERANGE;
+		goto failed;
+	}
+
+	*errnop = errno = 0;
+	*sid = buffer;
+	strcpy(*sid, response.data.sid.sid);
+
+failed:
+	free_response(&response);
+	return ret;
+}
+
+/* map a sid string to a user or group name */
+NSS_STATUS
+_nss_winbind_sidtoname(const char *sid, char **name, char *buffer,
+		       size_t buflen, int *errnop)
+{
+	NSS_STATUS ret;
+	struct winbindd_response response;
+	struct winbindd_request request;
+	static char sep_char;
+	unsigned needed;
+
+#ifdef DEBUG_NSS
+	fprintf(stderr, "[%5d]: sidtoname %s\n", getpid(), sid);
+#endif
+
+	/* we need to fetch the separator first time through */
+	if (!sep_char) {
+		ZERO_STRUCT(response);
+		ZERO_STRUCT(request);
+
+		ret = winbindd_request(WINBINDD_INFO, &request, &response);
+		if (ret != NSS_STATUS_SUCCESS) {
+			*errnop = errno = EINVAL;
+			goto failed;
+		}
+
+		sep_char = response.data.info.winbind_separator;
+		free_response(&response);
+	}
+
+
+	strncpy(request.data.sid, sid, 
+		sizeof(request.data.sid) - 1);
+	request.data.sid[sizeof(request.data.sid) - 1] = '\0';
+
+	ret = winbindd_request(WINBINDD_LOOKUPSID, &request, &response);
+	if (ret != NSS_STATUS_SUCCESS) {
+		*errnop = errno = EINVAL;
+		goto failed;
+	}
+
+	needed = 
+		strlen(response.data.name.dom_name) +
+		strlen(response.data.name.name) + 2;
+
+	if (buflen < needed) {
+		ret = NSS_STATUS_TRYAGAIN;
+		*errnop = errno = ERANGE;
+		goto failed;
+	}
+
+	snprintf(buffer, needed, "%s%c%s", 
+		 response.data.name.dom_name,
+		 sep_char,
+		 response.data.name.name);
+
+	*name = buffer;
+	*errnop = errno = 0;
+
+failed:
+	free_response(&response);
+	return ret;
+}
+
+/* map a sid to a uid */
+NSS_STATUS
+_nss_winbind_sidtouid(const char *sid, uid_t *uid, int *errnop)
+{
+	NSS_STATUS ret;
+	struct winbindd_response response;
+	struct winbindd_request request;
+
+#ifdef DEBUG_NSS
+	fprintf(stderr, "[%5d]: sidtouid %s\n", getpid(), sid);
+#endif
+
+	ZERO_STRUCT(request);
+	ZERO_STRUCT(response);
+
+	strncpy(request.data.sid, sid, sizeof(request.data.sid) - 1);
+	request.data.sid[sizeof(request.data.sid) - 1] = '\0';
+
+	ret = winbindd_request(WINBINDD_SID_TO_UID, &request, &response);
+	if (ret != NSS_STATUS_SUCCESS) {
+		*errnop = errno = EINVAL;
+		goto failed;
+	}
+
+	*uid = response.data.uid;
+
+failed:
+	return ret;
+}
+
+/* map a sid to a gid */
+NSS_STATUS
+_nss_winbind_sidtogid(const char *sid, gid_t *gid, int *errnop)
+{
+	NSS_STATUS ret;
+	struct winbindd_response response;
+	struct winbindd_request request;
+
+#ifdef DEBUG_NSS
+	fprintf(stderr, "[%5d]: sidtogid %s\n", getpid(), sid);
+#endif
+
+	ZERO_STRUCT(request);
+	ZERO_STRUCT(response);
+
+	strncpy(request.data.sid, sid, sizeof(request.data.sid) - 1);
+	request.data.sid[sizeof(request.data.sid) - 1] = '\0';
+
+	ret = winbindd_request(WINBINDD_SID_TO_GID, &request, &response);
+	if (ret != NSS_STATUS_SUCCESS) {
+		*errnop = errno = EINVAL;
+		goto failed;
+	}
+
+	*gid = response.data.gid;
+
+failed:
+	return ret;
+}
+
+/* map a uid to a SID string */
+NSS_STATUS
+_nss_winbind_uidtosid(uid_t uid, char **sid, char *buffer,
+		      size_t buflen, int *errnop)
+{
+	NSS_STATUS ret;
+	struct winbindd_response response;
+	struct winbindd_request request;
+
+#ifdef DEBUG_NSS
+	fprintf(stderr, "[%5d]: uidtosid %s\n", getpid(), name);
+#endif
+
+	ZERO_STRUCT(response);
+	ZERO_STRUCT(request);
+
+	request.data.uid = uid;
+
+	ret = winbindd_request(WINBINDD_UID_TO_SID, &request, &response);
+	if (ret != NSS_STATUS_SUCCESS) {
+		*errnop = errno = EINVAL;
+		goto failed;
+	}
+
+	if (buflen < strlen(response.data.sid.sid)+1) {
+		ret = NSS_STATUS_TRYAGAIN;
+		*errnop = errno = ERANGE;
+		goto failed;
+	}
+
+	*errnop = errno = 0;
+	*sid = buffer;
+	strcpy(*sid, response.data.sid.sid);
+
+failed:
+	free_response(&response);
+	return ret;
+}
+
+/* map a gid to a SID string */
+NSS_STATUS
+_nss_winbind_gidtosid(gid_t gid, char **sid, char *buffer,
+		      size_t buflen, int *errnop)
+{
+	NSS_STATUS ret;
+	struct winbindd_response response;
+	struct winbindd_request request;
+
+#ifdef DEBUG_NSS
+	fprintf(stderr, "[%5d]: gidtosid %s\n", getpid(), name);
+#endif
+
+	ZERO_STRUCT(response);
+	ZERO_STRUCT(request);
+
+	request.data.gid = gid;
+
+	ret = winbindd_request(WINBINDD_GID_TO_SID, &request, &response);
+	if (ret != NSS_STATUS_SUCCESS) {
+		*errnop = errno = EINVAL;
+		goto failed;
+	}
+
+	if (buflen < strlen(response.data.sid.sid)+1) {
+		ret = NSS_STATUS_TRYAGAIN;
+		*errnop = errno = ERANGE;
+		goto failed;
+	}
+
+	*errnop = errno = 0;
+	*sid = buffer;
+	strcpy(*sid, response.data.sid.sid);
+
+failed:
+	free_response(&response);
+	return ret;
+}

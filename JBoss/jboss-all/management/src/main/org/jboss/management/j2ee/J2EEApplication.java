@@ -24,7 +24,7 @@ import org.jboss.logging.Logger;
  * {@link javax.management.j2ee.J2EEApplication J2EEApplication}.
  *
  * @author  <a href="mailto:andreas@jboss.org">Andreas Schaefer</a>.
- * @version $Revision: 1.10.2.6 $
+ * @version $Revision: 1.10.2.7 $
 
  * @todo When all components of a J2EEApplication is state manageable
  *       this have to be too !!
@@ -74,13 +74,20 @@ public class J2EEApplication
          {
             // We take the modules from the EAR placeholder
             ObjectName[] tmpModules = (ObjectName[])mbeanServer.getAttribute(jsr77Name, "Modules");
+            // Remove the placeholder and register the j2eeApp
+            mbeanServer.unregisterMBean(jsr77Name);
+            mbeanServer.registerMBean(j2eeApp, jsr77Name);
+            // Add the 
             if (tmpModules != null)
+            {
                for (int m=0; m<tmpModules.length; m++)
                   j2eeApp.addChild(tmpModules[m]);
-
-            mbeanServer.unregisterMBean(jsr77Name);
+            }
          }
-         mbeanServer.registerMBean(j2eeApp, jsr77Name);
+         else
+         {
+            mbeanServer.registerMBean(j2eeApp, jsr77Name);
+         }
          log.debug("Created JSR-77 J2EEApplication: " + earName);
       }
       catch (Exception e)

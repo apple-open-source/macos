@@ -88,6 +88,9 @@
 #define LDAP_ATTR_SID			32
 #define LDAP_ATTR_ALGORITHMIC_RID_BASE  33
 #define LDAP_ATTR_NEXT_RID              34
+#define LDAP_ATTR_BAD_PASSWORD_COUNT	35
+#define LDAP_ATTR_LOGON_COUNT		36
+#define LDAP_ATTR_MUNGED_DIAL		37
 
 typedef struct _attrib_map_entry {
 	int		attrib;
@@ -135,6 +138,8 @@ struct smbldap_state {
 
 	time_t last_use;
 	smb_event_id_t event_id;
+
+	struct timeval last_rebind;
 };
 
 #endif 	/* HAVE_LDAP */

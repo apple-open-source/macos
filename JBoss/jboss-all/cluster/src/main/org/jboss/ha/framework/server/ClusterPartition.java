@@ -16,11 +16,12 @@ import javax.management.MalformedObjectNameException;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
-import org.javagroups.Channel;
-import org.javagroups.log.Trace;
+import org.jgroups.Channel;
+import org.jgroups.log.Trace;
 
 import org.jboss.logging.util.LoggerWriter;
 import org.jboss.system.ServiceMBeanSupport;
+import org.jboss.system.ServiceMBean;
 import org.jboss.ha.framework.interfaces.HAPartition;
 import org.w3c.dom.Attr;
 import org.w3c.dom.NamedNodeMap;
@@ -29,19 +30,19 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 /** 
- *   Management Bean for Cluster HAPartitions.  It will start a JavaGroups
+ *   Management Bean for Cluster HAPartitions.  It will start a JGroups
  *   channel and initialize the ReplicantManager and DistributedStateService.
  *
  *   @author <a href="mailto:bill@burkecentral.com">Bill Burke</a>.
  *   @author <a href="mailto:sacha.labourey@cogito-info.ch">Sacha Labourey</a>.
- *   @version $Revision: 1.17.2.6 $
+ *   @version $Revision: 1.17.2.11 $
  */
 public class ClusterPartition
    extends ServiceMBeanSupport 
    implements ClusterPartitionMBean
 {
    // Constants -----------------------------------------------------
-   
+
    // Attributes ----------------------------------------------------
    
    protected String partitionName = org.jboss.metadata.ClusterConfigMetaData.DEFAULT_PARTITION;
@@ -89,7 +90,9 @@ public class ClusterPartition
    */
    protected HAPartitionImpl partition;
    protected boolean deadlock_detection = false;
-   protected org.javagroups.JChannel channel;
+   protected org.jgroups.JChannel channel;
+
+   protected String nodeName = null;
 
    // Static --------------------------------------------------------
    
@@ -160,6 +163,29 @@ public class ClusterPartition
       log.debug("Setting JGProps from xml to: "+jgProps);
    }
 
+   /**
+    * Uniquely identifies this node. MUST be unique accros the whole cluster!
+    * Cannot be changed once the partition has been started
+    */
+   public String getNodeName()
+   {
+      return this.nodeName;
+   }
+
+   public void setNodeName(String node) throws Exception
+   {
+      if (this.getState() == ServiceMBean.CREATED ||
+          this.getState() == ServiceMBean.STARTED ||
+          this.getState() == ServiceMBean.STARTING)
+      {
+         throw new Exception ("Node name cannot be changed once the partition has been started");
+      }
+      else
+      {
+         this.nodeName = node;
+      }
+   }
+
    public boolean getDeadlockDetection()
    {
       return deadlock_detection;
@@ -200,19 +226,19 @@ public class ClusterPartition
    protected void createService()
       throws Exception
    {
-      log.debug("Creating JavaGroups JChannel");
+      log.debug("Creating JGroups JChannel");
 
-      this.channel = new org.javagroups.JChannel(jgProps);
+      this.channel = new org.jgroups.JChannel(jgProps);
       channel.setOpt(Channel.GET_STATE_EVENTS, new Boolean(true));	    
       channel.setOpt(Channel.AUTO_RECONNECT, new Boolean(true));
       channel.setOpt(Channel.AUTO_GETSTATE, new Boolean(true));
 
-      // Force JavaGroups to use log4j
+      // Force JGroups to use log4j
       Logger category = Logger.getLogger("org.javagroups."+partitionName);
       Level priority = category.getEffectiveLevel();
-      /* Set the JavaGroups Trace level based on the log4j Level. The mapping
+      /* Set the JGroups Trace level based on the log4j Level. The mapping
       is:
-      Log4j Level    JavaGroups Trace
+      Log4j Level    JGroups Trace
       TRACE          DEBUG
       DEBUG          ERROR
       INFO           ERROR
@@ -220,7 +246,7 @@ public class ClusterPartition
       WARN           WARN
       FATAL          FATAL
 
-      Neither the JavaGroups Trace.TEST level or Trace.INFO is used as its too
+      Neither the JGroups Trace.TEST level or Trace.INFO is used as its too
       verbose for our notion of DEBUG.
       */
       int traceLevel = Trace.INFO;
@@ -238,8 +264,8 @@ public class ClusterPartition
          traceLevel = Trace.FATAL;
       LoggerWriter log4jWriter = new LoggerWriter(category, priority);
       Trace.setDefaultOutput(traceLevel, log4jWriter);
-      log.info("Set the JavaGroups logging to log4j with category:"+category
-         +", priority: "+priority+", JavaGroupsLevel: "+traceLevel);
+      log.info("Set the JGroups logging to log4j with category:"+category
+         +", priority: "+priority+", JGroupsLevel: "+traceLevel);
       log.debug("Creating HAPartition");
       partition = new HAPartitionImpl(partitionName, channel, deadlock_detection, getServer());
       log.debug("Initing HAPartition: " + partition);
@@ -250,6 +276,17 @@ public class ClusterPartition
    protected void startService() 
       throws Exception
    {
+      // We push the independant name in the protocol stack
+      // before it is connected to the cluster
+      //
+      if (this.nodeName == null || "".equals(this.nodeName))
+         this.nodeName = generateUniqueNodeName ();
+
+      java.util.HashMap staticNodeName = new java.util.HashMap();
+      staticNodeName.put("additional_data", this.nodeName.getBytes());
+      this.channel.down(new org.jgroups.Event(org.jgroups.Event.CONFIG, staticNodeName));
+      this.channel.getProtocolStack().flushEvents(); // temporary fix for JG bug (808170) TODO: REMOVE ONCE JGROUPS IS FIXED
+
       log.debug("Starting ClusterPartition: " + partitionName);
       channel.connect(partitionName);
       
@@ -264,5 +301,94 @@ public class ClusterPartition
       log.debug("Stopping ClusterPartition: " + partitionName);
       partition.closePartition();
       log.info("Stopped ClusterPartition: " + partitionName);
+   }
+
+   protected String generateUniqueNodeName () throws Exception
+   {
+      // we first try to find a simple meaningful name:
+      // 1st) "local-IP:JNDI_PORT" if JNDI is running on this machine
+      // 2nd) "local-IP:JMV_GUID" otherwise
+      // 3rd) return a fully GUID-based representation
+      //
+
+      // Before anything we determine the local host IP (and NOT name as this could be
+      // resolved differently by other nodes...)
+
+      String hostIP = null;
+      try
+      {
+         hostIP = java.net.InetAddress.getLocalHost().getHostAddress();
+      }
+      catch (java.net.UnknownHostException e)
+      {
+         log.debug ("unable to create a GUID for this cluster, check network configuration is correctly setup (getLocalHost has returned an exception)");
+         log.debug ("using a full GUID strategy");
+         return new java.rmi.dgc.VMID().toString();
+      }
+
+      // 1st: is JNDI up and running?
+      //
+      try
+      {
+         javax.management.AttributeList al =
+            this.server.getAttributes(org.jboss.naming.NamingServiceMBean.OBJECT_NAME,
+                                      new String[] {"State", "Port"});
+
+         int status = ((Integer)((javax.management.Attribute)al.get(0)).getValue()).intValue();
+         if (status == ServiceMBean.STARTED)
+         {
+            // we can proceed with the JNDI trick!
+            int port = ((Integer)((javax.management.Attribute)al.get(1)).getValue()).intValue();
+            return hostIP + ":" + port;
+         }
+         else
+         {
+            log.debug("JNDI has been found but the service wasn't started so we cannot " +
+                      "be entirely sure we are the only one that wants to use this PORT " +
+                      "as a GUID on this host.");
+         }
+
+      }
+      catch (javax.management.InstanceNotFoundException e)
+      {
+         log.debug ("JNDI not running here, cannot use this strategy to find a node GUID for the cluster");
+      }
+      catch (javax.management.ReflectionException e)
+      {
+         log.debug ("JNDI querying has returned an exception, cannot use this strategy to find a node GUID for the cluster");
+      }
+
+      // 2nd: host-GUID strategy
+      //
+      String uid = new java.rmi.server.UID().toString();
+      return hostIP + ":" + uid;
+   }
+
+   public String showHistory ()
+   {
+      StringBuffer buff = new StringBuffer();
+      Vector data = new Vector (this.partition.history);
+      for (java.util.Iterator row = data.iterator(); row.hasNext();)
+      {
+         String info = (String) row.next();
+         buff.append(info).append("\n");
+      }
+      return buff.toString();
+   }
+
+   public String showHistoryAsXML ()
+   {
+      StringBuffer buff = new StringBuffer();
+      buff.append("<events>\n");
+      Vector data = new Vector (this.partition.history);
+      for (java.util.Iterator row = data.iterator(); row.hasNext();)
+      {
+         buff.append("   <event>\n      ");
+         String info = (String) row.next();
+         buff.append(info);
+         buff.append("\n   </event>\n");
+      }
+      buff.append("</events>\n");
+      return buff.toString();
    }
 }

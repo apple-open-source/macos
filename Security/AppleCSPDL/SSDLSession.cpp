@@ -46,6 +46,7 @@ SSDLSession::SSDLSession(CSSM_MODULE_HANDLE handle,
   mDL(Module(gGuidAppleFileDL, Cssm::standard())),
   mClientSession(CssmAllocator::standard(), static_cast<PluginSession &>(*this))
 {
+	mClientSession.registerForAclEdits(SSCSPDLSession::didChangeKeyAclCallback, &mSSCSPDLSession);
 	// @@@ mDL.allocator(*static_cast<DatabaseSession *>(this));
 	mDL->allocator(allocator());
 	mDL->version(version);

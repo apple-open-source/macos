@@ -6,6 +6,11 @@
 # takes the simpler approach of installing into a staging directory in /tmp 
 # and then dittoing that into DSTROOT.
 #
+# This Makefile applies patches in configure.patch and configure.in.patch 
+# that are only valid for MySQL 4.0.18.
+# The patch for config.h.in is needed regardless of MySQL version; it
+# makes MySQL generate correct code for PPC when building fat.
+#
 
 # These includes provide the proper paths to system utilities
 
@@ -13,7 +18,7 @@ include $(MAKEFILEPATH)/pb_makefiles/platform.make
 include $(MAKEFILEPATH)/pb_makefiles/commands-$(OS).make
 
 PROJECT_NAME	= MySQL
-MYSQL_VERSION	= mysql-4.0.16
+MYSQL_VERSION	= mysql-4.0.18
 BUILD_DIR	= /usr
 STAGING_DIR 	:= $(shell mktemp -d /tmp/mysql-tmp-XXXXXX)
 SHARE_DIR	= /usr/share
@@ -36,6 +41,7 @@ installsrc:
 	$(SILENT) $(MKDIRS) $(SRCROOT)
 	$(SILENT) $(CP) Makefile $(SRCROOT)
 	$(SILENT) $(CP) $(MYSQL_VERSION).tar.gz $(SRCROOT)
+	$(SILENT) $(CP) configure.patch configure.in.patch config.h.in.patch $(SRCROOT)
 
 mysql: $(OBJROOT)
 	$(SILENT) -$(RM) -rf $(MYSQL_VERSION) mysql
@@ -45,6 +51,10 @@ mysql: $(OBJROOT)
 untar: mysql 
 
 mysql/config.status: untar
+	$(SILENT) $(ECHO) "Patching configure script..."
+	$(SILENT) $(CD) mysql; patch -i ../configure.patch
+	$(SILENT) $(CD) mysql; patch -i ../configure.in.patch
+	$(SILENT) $(CD) mysql; patch -i ../config.h.in.patch
 	$(SILENT) $(ECHO) "Configuring mysql..."
 	$(SILENT) $(CD) mysql;\
 	CFLAGS="-O3 -fno-omit-frame-pointer $$RC_CFLAGS" \
@@ -74,13 +84,15 @@ build: configure
 # Must set DESTDIR to shadow directory
 install: build
 	$(SILENT) $(ECHO) "Installing mysql..."
-	$(SILENT) $(CD) mysql;make install-strip DESTDIR=$(STAGING_DIR)
+	$(SILENT) $(CD) mysql;make install DESTDIR=$(STAGING_DIR)
 	$(SILENT) $(ECHO) "Fixing up $(PROJECT_NAME), staging from $(STAGING_DIR)..."
 	$(SILENT) -$(MV) $(STAGING_DIR)/$(BUILD_DIR)/mysql-test $(STAGING_DIR)/$(MYSQL_SHARE_DIR)
 	for i in $(FILES_TO_REMOVE); do \
 		rm -r -f $(STAGING_DIR)/$(SHARE_DIR)/$$i; \
 	done 
-
+	$(SILENT) -$(STRIP) $(STAGING_DIR)/usr/libexec/* > /dev/null 2>&1
+	$(SILENT) -$(STRIP) $(STAGING_DIR)/usr/lib/mysql/* > /dev/null 2>&1
+	$(SILENT) -$(STRIP) $(STAGING_DIR)/usr/bin/* > /dev/null 2>&1
 	$(SILENT) $(DITTO) $(STAGING_DIR) $(DSTROOT)
 	$(SILENT) $(RM) -r -f $(STAGING_DIR)
 	$(SILENT) $(ECHO) "# The latest information about MySQL is available on the web at http://www.mysql.com."

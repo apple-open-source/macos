@@ -148,7 +148,32 @@
 #define MII_BCM5201_MULTIPHY_SERIALMODE		0x0002
 #define MII_BCM5201_MULTIPHY_SUPERISOLATE	0x0008
 
+	/*** MII BCM5221 Specific:	***/
 
+	/* MII BCM5221 ID:			*/
+
+#define MII_BCM5221_OUI		0x001018
+#define MII_BCM5221_MODEL	0x1E
+#define MII_BCM5221_REV		0x00
+#define MII_BCM5221_ID		((MII_BCM5221_OUI << 10) | (MII_BCM5221_MODEL << 4))
+#define MII_BCM5221_MASK	0xFFFFFFF0
+
+	/* 5221 Shadow registers:	*/
+
+#define MII_BCM5221_AuxiliaryMode4		0x1A
+#define MII_BCM5221_SetIDDQMode				0x0001
+#define MII_BCM5221_EnableClkDuringLowPwr	0x0004
+
+#define MII_BCM5221_AuxiliaryStatus2	0x1B
+#define MII_BCM5221_APD_EnableBit 			0x0020	// Auto Power Detect
+#define MII_BCM5221_5SecSleepTimer			0x0010
+#define MII_BCM5221_APDWakeUPTimer			0x000F
+
+#define MII_BCM5221_AuxiliaryStatus3	0x1C
+#define MII_BC_5221EnableAutoMDIX			0x0800
+
+#define MII_BCM5221_TestRegister		0x1F
+#define MII_BCM5221_ShadowRegEnableBit 		0x0080
 
 
 	/*** MII LXT971 (Level One) Specific:	***/
@@ -181,12 +206,14 @@
 #define MII_BCM5411_MODEL	0x07		// 0x6071
 #define MII_BCM5421_MODEL	0x0E		// 0x60E0
 #define MII_BCM54K2_MODEL	0x2E		// 0x62E0 for K2 ASIC
+#define MII_BCM5462_MODEL	0x0D		// 0x60D0 for vesta
 #define MII_BCM5400_REV		0x01
 #define MII_BCM5400_ID		((MII_BCM5400_OUI << 10) | (MII_BCM5400_MODEL << 4))
 #define MII_BCM5401_ID		((MII_BCM5400_OUI << 10) | (MII_BCM5401_MODEL << 4))
 #define MII_BCM5411_ID		((MII_BCM5400_OUI << 10) | (MII_BCM5411_MODEL << 4))
 #define MII_BCM5421_ID		((MII_BCM5400_OUI << 10) | (MII_BCM5421_MODEL << 4))
 #define MII_BCM54K2_ID		((MII_BCM5400_OUI << 10) | (MII_BCM54K2_MODEL << 4))
+#define MII_BCM5462_ID		((MII_BCM5400_OUI << 10) | (MII_BCM5462_MODEL << 4))
 #define MII_BCM5400_MASK	0xFFFFFFF0
 
 
@@ -215,6 +242,8 @@
 
 #define MII_MARVELL_ID		0x01410C20
 #define MII_MARVELL_ID_1	0x01410C60
+#define MII_MARVELL_ID_2	0x01410CC0		// 88E1111 - required patch - never shipped
+#define MII_MARVELL_ID_2_1	0x01410CC1		// 88E1111 - rev 1 - no patch required.
 #define MII_MARVELL_MASK	0xFFFFFFF0
 
 	/* MII Marvell PHY Specific Control bits:	*/

@@ -18,9 +18,9 @@ import org.jboss.ejb.plugins.cmp.bridge.EntityBridge;
  * This class maintains a map of all entitie bridges in an application by name.
  *
  * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
- * @version $Revision: 1.4 $
+ * @version $Revision: 1.4.2.1 $
  */                            
-public class Catalog {
+public final class Catalog {
    private final Map entityByAbstractSchemaName = new HashMap();
    private final Map entityByEJBName = new HashMap();
    private final Map entityByInterface = new HashMap();
@@ -63,13 +63,5 @@ public class Catalog {
 
    public Set getEJBNames() {
       return Collections.unmodifiableSet(entityByEJBName.keySet());
-   }
-
-   public Set getAbstractSchemaNames() {
-      return Collections.unmodifiableSet(entityByAbstractSchemaName.keySet());
-   }
-
-   public Set getInterfaces() {
-      return Collections.unmodifiableSet(entityByInterface.keySet());
    }
 }

@@ -36,7 +36,7 @@ import java.util.HashMap;
  * @author <a href="mailto:bill@burkecentral.com>Bill Burke</a>
  * @author  <a href="mailto:sacha.labourey@cogito-info.ch">Sacha Labourey</a>.
  * @author Scott.Stark@jboss.org
- * @version $Revision: 1.16.2.7 $
+ * @version $Revision: 1.16.2.8 $
  */
 public class JRMPInvokerHA
    extends JRMPInvoker
@@ -174,7 +174,7 @@ public class JRMPInvokerHA
          }
          rsp.response = rtn;
          
-         return new MarshalledObject(rsp);
+         return rsp;
       }
       catch (InstanceNotFoundException e)
       {

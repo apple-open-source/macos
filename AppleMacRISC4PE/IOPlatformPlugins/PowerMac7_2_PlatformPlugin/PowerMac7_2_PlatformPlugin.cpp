@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,75 +23,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc.  All rights reserved.
  *
  *
  */
-//		$Log: PowerMac7_2_PlatformPlugin.cpp,v $
-//		Revision 1.9  2003/07/20 23:41:11  eem
-//		[3273577] Q37: Systems need to run at Full Speed during test
-//		
-//		Revision 1.8  2003/07/16 02:02:10  eem
-//		3288772, 3321372, 3328661
-//		
-//		Revision 1.7  2003/07/08 04:32:51  eem
-//		3288891, 3279902, 3291553, 3154014
-//		
-//		Revision 1.6  2003/06/25 02:16:25  eem
-//		Merged 101.0.21 to TOT, fixed PM72 lproj, included new fan settings, bumped
-//		version to 101.0.22.
-//		
-//		Revision 1.5.4.2  2003/06/21 01:42:08  eem
-//		Final Fan Tweaks.
-//		
-//		Revision 1.5.4.1  2003/06/20 01:40:01  eem
-//		Although commented out in this submision, there is support here to nap
-//		the processors if the fans are at min, with the intent of keeping the
-//		heat sinks up to temperature.
-//		
-//		Revision 1.5  2003/06/07 01:30:58  eem
-//		Merge of EEM-PM72-ActiveFans-2 branch, with a few extra tweaks.  This
-//		checkin has working PID control for PowerMac7,2 platforms, as well as
-//		a first shot at localized strings.
-//		
-//		Revision 1.4.2.2  2003/05/31 08:11:38  eem
-//		Initial pass at integrating deadline-based timer callbacks for PID loops.
-//		
-//		Revision 1.4.2.1  2003/05/26 10:07:17  eem
-//		Fixed most of the bugs after the last cleanup/reorg.
-//		
-//		Revision 1.4  2003/05/21 21:58:55  eem
-//		Merge from EEM-PM72-ActiveFans-1 branch with initial crack at active fan
-//		control on Q37.
-//		
-//		Revision 1.3.2.1  2003/05/14 22:07:55  eem
-//		Implemented state-driven sensor, cleaned up "const" usage and header
-//		inclusions.
-//		
-//		Revision 1.3  2003/05/13 02:13:52  eem
-//		PowerMac7_2 Dynamic Power Step support.
-//		
-//		Revision 1.2.2.2  2003/05/12 23:08:28  eem
-//		Tell the power manager we support Dynamic Speed Step.  Slewing works on
-//		Q37 Uni and Duals with this change.
-//		
-//		Revision 1.2.2.1  2003/05/12 11:21:12  eem
-//		Support for slewing.
-//		
-//		Revision 1.2  2003/05/10 06:50:36  eem
-//		All sensor functionality included for PowerMac7_2_PlatformPlugin.  Version
-//		is 1.0.1d12.
-//		
-//		Revision 1.1.2.3  2003/05/10 06:32:35  eem
-//		Sensor changes, should be ready to merge to trunk as 1.0.1d12.
-//		
-//		Revision 1.1.2.2  2003/05/03 01:11:40  eem
-//		*** empty log message ***
-//		
-//		Revision 1.1.2.1  2003/05/01 09:28:47  eem
-//		Initial check-in in progress toward first Q37 checkpoint.
-//		
-//		
+
 
 #include "IOPlatformPluginSymbols.h"
 //#include <ppc/machine_routines.h>
@@ -267,8 +203,11 @@ UInt8 PowerMac7_2_PlatformPlugin::probeConfig( void )
 
 #define RESIDUAL_PATH_LEN	64
 
+	OSData * regData;
+	UInt32 reg;
+	const char *chName;
 	OSCollectionIterator *children;
-	IORegistryEntry *cpus;
+	IORegistryEntry *cpus, *fcu, *channel;
 	char residual[RESIDUAL_PATH_LEN];
 	int num_cpus, residual_len = RESIDUAL_PATH_LEN;
 
@@ -276,7 +215,10 @@ UInt8 PowerMac7_2_PlatformPlugin::probeConfig( void )
 	// if this is a uni or dual
 	if ((cpus = IORegistryEntry::fromPath( "/cpus", gIODTPlane, residual, &residual_len, NULL )) == NULL ||
 		(children = OSDynamicCast(OSCollectionIterator, cpus->getChildIterator( gIODTPlane ))) == NULL)
-		return(1);  // assume dual proc as failure case, so we don't let anything burn up inadvertantly
+	{
+
+		return(2);
+	}
 
 	cpus->release();
 
@@ -285,12 +227,48 @@ UInt8 PowerMac7_2_PlatformPlugin::probeConfig( void )
 	children->release();
 
 	if (num_cpus > 1)
-		return(1);
+	{
+
+		
+		if ((fcu = IORegistryEntry::fromPath( "/u3/i2c/fan", gIODTPlane, residual, &residual_len, NULL )) == NULL ||
+			(children = OSDynamicCast(OSCollectionIterator, fcu->getChildIterator( gIODTPlane ))) == NULL)
+		{
+
+			return(2);
+		}
+
+		fcu->release();
+	
+		while ((channel = OSDynamicCast(IORegistryEntry, children->getNextObject())) != 0)
+		{
+			if ((regData = OSDynamicCast(OSData, channel->getProperty("reg"))) == NULL)
+				continue;
+
+			reg = *(UInt32 *)regData->getBytesNoCopy();
+			chName = channel->getName( gIODTPlane );
+
+			//kprintf("PowerMac7_2_PlatformPlugin::probeConfig found fcu channel %s@%02lX\n", chName, reg);
+
+			if (strcmp(chName, "rpm1") == 0 && reg == 0x12)
+			{
+
+				children->release();
+				return(2);
+			}
+		}
+
+
+		children->release();
+		return(1);	// dual
+	}
 	else
-		return(0);
+	{
+		return(0);	// uni
+	}
 
 #undef RESIDUAL_PATH_LEN
 }
+
 
 bool PowerMac7_2_PlatformPlugin::readProcROM( UInt32 procID, UInt16 offset, UInt16 size, UInt8 * buf )
 {

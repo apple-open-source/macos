@@ -6,7 +6,7 @@
 
 Since 5.0:
 
-     * STARTTLS is supportrf in both POP and IMAP.
+     * STARTTLS is supported in both POP and IMAP.
      * ESMTP AUTH (RFC 2554) is supported.
      * Has  the  capability  of  adding trace information to the Received
        header  to  faciliate  mail  filtering  by  mailserver  and remote
@@ -27,9 +27,9 @@ Since 5.0:
        delivered-to  headers looking exactly the same as the ones it adds
        himself, it bounces the message.
      * Added  --smtpname to set username and domain portion of SMTP "RCPT
-       TO" command. >fetchmail@mail.julianhaight.com>.
+       TO" command. <fetchmail@mail.julianhaight.com>.
      * Added  "from"  server's  IP  address  to  inserted  Received  line
-       >fetchmail@mail.julianhaight.com<.
+       <fetchmail@mail.julianhaight.com<.
      * Fetchmail    now    runs   on   BeOS,   thanks   to   David   Reid
        <david@jetnet.co.uk>.
      * In  IMAP,  unseen-message  counting  and  indexing  is now done by
@@ -41,7 +41,8 @@ Since 5.0:
        saying  `aka  netaxs.com'  will match not just netaxs.com but also
        (say) pop3.netaxs.com and mail.netaxs.com.
      * Fetchmail  can  optionally  use  the RFC 2177 IDLE extension on an
-       IMAP server that supports it.
+       IMAP  server  that supports it. On IMAP servers that don't, it can
+       simulate it using periodic NOOP commands.
      * Fetchmail  now recognizes the RFC 2449 extended responses [IN-USE]
        and [LOGIN-DELAY].
      * Fetchmail  running in daemon mode now restarts itself quietly when

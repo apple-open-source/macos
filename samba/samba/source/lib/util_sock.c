@@ -184,8 +184,8 @@ ssize_t read_udp_socket(int fd,char *buf,size_t len)
 	lastip = sock.sin_addr;
 	lastport = ntohs(sock.sin_port);
 
-	DEBUG(10,("read_udp_socket: lastip %s lastport %d read: %d\n",
-			inet_ntoa(lastip), lastport, ret));
+	DEBUG(10,("read_udp_socket: lastip %s lastport %d read: %lu\n",
+			inet_ntoa(lastip), lastport, (unsigned long)ret));
 
 	return(ret);
 }
@@ -216,7 +216,11 @@ ssize_t read_socket_with_timeout(int fd,char *buf,size_t mincnt,size_t maxcnt,un
 		if (mincnt == 0) mincnt = maxcnt;
 		
 		while (nread < mincnt) {
+		#ifdef USES_RECVFROM
+			readret = sys_recvfrom(fd, buf + nread, maxcnt - nread, MSG_WAITALL, NULL, NULL);
+		#else
 			readret = sys_read(fd, buf + nread, maxcnt - nread);
+		#endif
 			
 			if (readret == 0) {
 				DEBUG(5,("read_socket_with_timeout: blocking read. EOF from client.\n"));
@@ -265,7 +269,11 @@ ssize_t read_socket_with_timeout(int fd,char *buf,size_t mincnt,size_t maxcnt,un
 			return -1;
 		}
 		
+	#ifdef USES_RECVFROM
+		readret = sys_recvfrom(fd, buf+nread, maxcnt-nread, MSG_WAITALL, NULL, NULL);
+	#else
 		readret = sys_read(fd, buf+nread, maxcnt-nread);
+	#endif	
 		
 		if (readret == 0) {
 			/* we got EOF on the file descriptor */
@@ -300,7 +308,11 @@ ssize_t read_data(int fd,char *buffer,size_t N)
 	smb_read_error = 0;
 
 	while (total < N) {
+	#ifdef USES_RECVFROM
+		ret = sys_recvfrom(fd,buffer + total,N - total,MSG_WAITALL,NULL,NULL);
+	#else
 		ret = sys_read(fd,buffer + total,N - total);
+	#endif
 
 		if (ret == 0) {
 			DEBUG(10,("read_data: read of %d returned 0. Error = %s\n", (int)(N - total), strerror(errno) ));
@@ -330,7 +342,11 @@ static ssize_t read_socket_data(int fd,char *buffer,size_t N)
 	smb_read_error = 0;
 
 	while (total < N) {
+	#ifdef USES_RECVFROM
+		ret = sys_recvfrom(fd,buffer + total,N - total,MSG_WAITALL,NULL,NULL);
+	#else
 		ret = sys_read(fd,buffer + total,N - total);
+	#endif
 
 		if (ret == 0) {
 			DEBUG(10,("read_socket_data: recv of %d returned 0. Error = %s\n", (int)(N - total), strerror(errno) ));
@@ -460,7 +476,7 @@ static ssize_t read_smb_length_return_keepalive(int fd,char *inbuf,unsigned int 
 			DEBUG(5,("Got keepalive packet\n"));
 	}
 
-	DEBUG(10,("got smb length of %d\n",len));
+	DEBUG(10,("got smb length of %lu\n",(unsigned long)len));
 
 	return(len);
 }
@@ -487,7 +503,8 @@ ssize_t read_smb_length(int fd,char *inbuf,unsigned int timeout)
 			break;
 	}
 
-	DEBUG(10,("read_smb_length: got smb length of %d\n",len));
+	DEBUG(10,("read_smb_length: got smb length of %lu\n",
+		  (unsigned long)len));
 
 	return len;
 }
@@ -497,9 +514,10 @@ ssize_t read_smb_length(int fd,char *inbuf,unsigned int timeout)
  BUFFER_SIZE+SAFETY_MARGIN.
  The timeout is in milliseconds. 
  This function will return on receipt of a session keepalive packet.
+ Doesn't check the MAC on signed packets.
 ****************************************************************************/
 
-BOOL receive_smb(int fd,char *buffer, unsigned int timeout)
+BOOL receive_smb_raw(int fd,char *buffer, unsigned int timeout)
 {
 	ssize_t len,ret;
 
@@ -509,7 +527,7 @@ BOOL receive_smb(int fd,char *buffer, unsigned int timeout)
 
 	len = read_smb_length_return_keepalive(fd,buffer,timeout);
 	if (len < 0) {
-		DEBUG(10,("receive_smb: length < 0!\n"));
+		DEBUG(10,("receive_smb_raw: length < 0!\n"));
 
 		/*
 		 * Correct fix. smb_read_error may have already been
@@ -528,7 +546,7 @@ BOOL receive_smb(int fd,char *buffer, unsigned int timeout)
 	 */
 
 	if (len > (BUFFER_SIZE + LARGE_WRITEX_HDR_SIZE)) {
-		DEBUG(0,("Invalid packet length! (%d bytes).\n",len));
+		DEBUG(0,("Invalid packet length! (%lu bytes).\n",(unsigned long)len));
 		if (len > BUFFER_SIZE + (SAFETY_MARGIN/2)) {
 
 			/*
@@ -550,6 +568,24 @@ BOOL receive_smb(int fd,char *buffer, unsigned int timeout)
 				smb_read_error = READ_ERROR;
 			return False;
 		}
+		
+		/* not all of samba3 properly checks for packet-termination of strings. This
+		   ensures that we don't run off into empty space. */
+		SSVAL(buffer+4,len, 0);
+	}
+
+	return True;
+}
+
+/****************************************************************************
+ Wrapper for receive_smb_raw().
+ Checks the MAC on signed packets.
+****************************************************************************/
+
+BOOL receive_smb(int fd,char *buffer, unsigned int timeout)
+{
+	if (!receive_smb_raw(fd, buffer, timeout)) {
+		return False;
 	}
 
 	/* Check the incoming SMB signature. */
@@ -778,10 +814,15 @@ void client_setfd(int fd)
 
 char *client_name(void)
 {
-	return get_socket_name(client_fd,False);
+	return get_peer_name(client_fd,False);
 }
 
 char *client_addr(void)
+{
+	return get_peer_addr(client_fd);
+}
+
+char *client_socket_addr(void)
 {
 	return get_socket_addr(client_fd);
 }
@@ -822,8 +863,8 @@ static BOOL matchname(char *remotehost,struct in_addr  addr)
 	 * DNS is perverted). We always check the address list, though.
 	 */
 	
-	if (strcasecmp(remotehost, hp->h_name)
-	    && strcasecmp(remotehost, "localhost")) {
+	if (!strequal(remotehost, hp->h_name)
+	    && !strequal(remotehost, "localhost")) {
 		DEBUG(0,("host name/name mismatch: %s != %s\n",
 			 remotehost, hp->h_name));
 		return False;
@@ -850,9 +891,10 @@ static BOOL matchname(char *remotehost,struct in_addr  addr)
  Return the DNS name of the remote end of a socket.
 ******************************************************************/
 
-char *get_socket_name(int fd, BOOL force_lookup)
+char *get_peer_name(int fd, BOOL force_lookup)
 {
 	static pstring name_buf;
+	pstring tmp_name;
 	static fstring addr_buf;
 	struct hostent *hp;
 	struct in_addr addr;
@@ -863,16 +905,18 @@ char *get_socket_name(int fd, BOOL force_lookup)
 	   with dns. To avoid the delay we avoid the lookup if
 	   possible */
 	if (!lp_hostname_lookups() && (force_lookup == False)) {
-		return get_socket_addr(fd);
+		return get_peer_addr(fd);
 	}
 	
-	p = get_socket_addr(fd);
+	p = get_peer_addr(fd);
 
 	/* it might be the same as the last one - save some DNS work */
-	if (strcmp(p, addr_buf) == 0) return name_buf;
+	if (strcmp(p, addr_buf) == 0) 
+		return name_buf;
 
 	pstrcpy(name_buf,"UNKNOWN");
-	if (fd == -1) return name_buf;
+	if (fd == -1) 
+		return name_buf;
 
 	fstrcpy(addr_buf, p);
 
@@ -890,7 +934,12 @@ char *get_socket_name(int fd, BOOL force_lookup)
 		}
 	}
 
-	alpha_strcpy(name_buf, name_buf, "_-.", sizeof(name_buf));
+	/* can't pass the same source and dest strings in when you 
+	   use --enable-developer or the clobber_region() call will 
+	   get you */
+	
+	pstrcpy( tmp_name, name_buf );
+	alpha_strcpy(name_buf, tmp_name, "_-.", sizeof(name_buf));
 	if (strstr(name_buf,"..")) {
 		pstrcpy(name_buf, "UNKNOWN");
 	}
@@ -901,6 +950,29 @@ char *get_socket_name(int fd, BOOL force_lookup)
 /*******************************************************************
  Return the IP addr of the remote end of a socket as a string.
  ******************************************************************/
+
+char *get_peer_addr(int fd)
+{
+	struct sockaddr sa;
+	struct sockaddr_in *sockin = (struct sockaddr_in *) (&sa);
+	int     length = sizeof(sa);
+	static fstring addr_buf;
+
+	fstrcpy(addr_buf,"0.0.0.0");
+
+	if (fd == -1) {
+		return addr_buf;
+	}
+	
+	if (getpeername(fd, &sa, &length) < 0) {
+		DEBUG(0,("getpeername failed. Error was %s\n", strerror(errno) ));
+		return addr_buf;
+	}
+	
+	fstrcpy(addr_buf,(char *)inet_ntoa(sockin->sin_addr));
+	
+	return addr_buf;
+}
 
 char *get_socket_addr(int fd)
 {
@@ -915,7 +987,7 @@ char *get_socket_addr(int fd)
 		return addr_buf;
 	}
 	
-	if (getpeername(fd, &sa, &length) < 0) {
+	if (getsockname(fd, &sa, &length) < 0) {
 		DEBUG(0,("getpeername failed. Error was %s\n", strerror(errno) ));
 		return addr_buf;
 	}

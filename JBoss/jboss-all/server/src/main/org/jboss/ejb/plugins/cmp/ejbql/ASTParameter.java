@@ -11,18 +11,14 @@ package org.jboss.ejb.plugins.cmp.ejbql;
  * This abstract syntax node represents a parameter declaration.
  *
  * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
- * @version $Revision: 1.1 $
+ * @version $Revision: 1.1.4.1 $
  */                            
-public class ASTParameter extends SimpleNode {
+public final class ASTParameter extends SimpleNode {
    public int number;
    public int type;
 
    public ASTParameter(int id) {
       super(id);
-   }
-
-   public ASTParameter(EJBQLParser p, int id) {
-      super(p, id);
    }
 
    public String toString() {

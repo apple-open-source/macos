@@ -11,14 +11,14 @@ package org.jboss.ejb.plugins.cmp.ejbql;
  * This exception is thrown when the EJB-QL parser encounters an unknown path.
  *
  * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
- * @version $Revision: 1.1 $
+ * @version $Revision: 1.1.4.1 $
  */                            
-public class UnknownPathException extends RuntimeException {
-   private String reason;
-   private String path;
-   private String fieldName;
-   private int errorLine;
-   private int errorColumn;
+public final class UnknownPathException extends RuntimeException {
+   private final String reason;
+   private final String path;
+   private final String fieldName;
+   private final int errorLine;
+   private final int errorColumn;
    
    public UnknownPathException(
          String reason,

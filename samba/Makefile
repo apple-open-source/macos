@@ -10,7 +10,7 @@ GnuNoChown      = YES
 GnuAfterInstall = install-startup-xinetd install-config install-logdir install-strip plugins
 
 Extra_CC_Flags  = -no-cpp-precomp -I$(SRCROOT)/libopendirectorycommon \
-		-DWITH_OPENDIRECTORY -DUSES_RECVFROM -DUSES_PWRITE -DUSES_PREAD
+		-DWITH_OPENDIRECTORY -DUSES_RECVFROM
 
 Extra_Configure_Flags = --with-swatdir="$(SHAREDIR)/swat"			\
 			--with-sambabook="$(SHAREDIR)/swat/using_samba"		\
@@ -28,7 +28,6 @@ Extra_Configure_Flags = --with-swatdir="$(SHAREDIR)/swat"			\
 			--with-static-modules=vfs				\
 			--without-libsmbclient					\
 			--with-winbind
-#			--with-tdbsam						
 
 Extra_Install_Flags   = SWATDIR="$(DSTROOT)$(SHAREDIR)/swat"			\
 			SAMBABOOK="$(DSTROOT)$(SHAREDIR)/swat/using_samba"	\
@@ -46,7 +45,7 @@ PATCHES = $(wildcard $(SRCROOT)/patches/*.diff)
 
 Install_Target = install
 
-lazy_install_source:: patch
+lazy_install_source::
 	gcc $(CFLAGS) -c $(SRCROOT)/libopendirectorycommon/libopendirectorycommon.c -o $(OBJROOT)/libopendirectorycommon.o
 	libtool -static -o $(OBJROOT)/libopendirectorycommon.a $(OBJROOT)/libopendirectorycommon.o
 
@@ -81,7 +80,7 @@ install-config:
 
 install-logdir:
 	$(INSTALL) -d -m 755 $(DSTROOT)/private/var/log/samba
-	mkdir -p $(DSTROOT)/private/var/spool/samba
+	$(INSTALL) -d -m 777 $(DSTROOT)/private/var/spool/samba
 
 install-strip:
 	for F in $(DSTROOT)/usr/{s,}bin/*; do	\

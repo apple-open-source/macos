@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -169,14 +166,17 @@ getRepeatingDictionaryType(CFDictionaryRef event)
 // returns false if event occurs at 8PM and now it's 10PM
 // returns true if event occurs at 8PM, now it's 9AM
 static bool
-upcomingToday(CFDictionaryRef event)
+upcomingToday(CFDictionaryRef event, int today_cf)
 {
     CFGregorianDate         greg_now;
     CFTimeZoneRef           tizzy;
     int                     minutes_now;
     int                     minutes_scheduled;
-
+	int						days_mask;
     if(!event) return false;
+    
+    days_mask = getRepeatingDictionaryDayMask(event);
+    if(!(days_mask & (1 << (today_cf-1)))) return false;
     
     // get gregorian date for right now
     tizzy = CFTimeZoneCopySystem();    
@@ -209,7 +209,7 @@ daysUntil(CFDictionaryRef event, int today_cf_day_of_week)
 
     if(0 == days_mask) return -1;
 
-    if(upcomingToday(event)) return 0;
+    if(upcomingToday(event, today_cf_day_of_week)) return 0;
 
     // Note: CF days start counting at 1, the bit mask starts counting at 0.
     // Therefore, since we're tossing the CF day of week into a variable (check)
@@ -219,9 +219,14 @@ daysUntil(CFDictionaryRef event, int today_cf_day_of_week)
     {
         check = (check + 1) % 7;
     }
-
     check -= today_cf_day_of_week;
-    check += 1;
+	check++;	// adjust for CF day of week (1-7) vs. bitmask day of week (0-6)
+    
+    //  If the target day is next week, but earlier in the week than today, 
+	//  check will be negative.  Mod of negative is bogus, so we add an extra
+	//  7 days to make all work.
+
+    check += 7;
     check %= 7;
     if(check == 0) check = 7;
 
@@ -249,7 +254,7 @@ scheduleNextRepeatingEvent(CFDictionaryRef   event)
     cf_day_of_week = CFAbsoluteTimeGetDayOfWeek(
             CFAbsoluteTimeGetCurrent(), tizzy);
     days = daysUntil(event, cf_day_of_week);
-    
+
     greg = CFAbsoluteTimeGetGregorianDate(
                     CFAbsoluteTimeGetCurrent() + days*(60*60*24), 
                     tizzy);
@@ -269,7 +274,8 @@ scheduleNextRepeatingEvent(CFDictionaryRef   event)
 
     if(kIOReturnSuccess != ret)
     {
-        syslog(LOG_INFO, "error 0x%08x scheduling power event!\n", ret);
+        syslog(LOG_INFO, "error 0x%08x scheduling power event at %d/%02d %02d:%02d!\n", ret,
+        	greg.month, greg.day, greg.hour, greg.minute);
     }
     
     CFRelease(ev_date);

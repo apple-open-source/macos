@@ -46,6 +46,7 @@ public:
 protected:
     IOACPIPlatformDevice  *Provider;
     IOMemoryMap           *Map;
+    IOPhysicalAddress     RegBase;
     const char            *Location;
 };
 

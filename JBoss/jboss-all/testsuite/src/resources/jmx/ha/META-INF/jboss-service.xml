@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<server>
+
+   <!-- Create JRMPHA proxy for our service -->
+   <mbean code="org.jboss.proxy.generic.ProxyFactoryHA"
+      name="jboss.test:service=ProxyFactory,name=HAService,protocol=jrmpha">
+
+      <!-- Use the default partition -->
+      <depends optional-attribute-name="PartitionObjectName">jboss:service=DefaultPartition</depends>
+
+      <!-- Use the standard JRMPInvoker from conf/jboss-service.xml -->
+      <depends optional-attribute-name="InvokerName">jboss:service=invoker,type=jrmpha</depends>
+
+      <!-- The load balancing policy -->
+      <attribute name="LoadBalancePolicy">org.jboss.ha.framework.interfaces.RoundRobin</attribute>
+
+      <!-- The target MBean -->
+      <depends optional-attribute-name="TargetName">jboss.test:service=HAService</depends>
+
+      <!-- Where to bind the proxy -->
+      <attribute name="JndiName">jmx/HAService</attribute>
+
+      <!-- The interface exposed to the client -->
+      <attribute name="ExportedInterface">org.jboss.test.jmx.ha.HAServiceRemote</attribute>
+
+      <!-- Client side behaviour -->
+      <attribute name="ClientInterceptors">
+          <interceptors>
+             <interceptor>org.jboss.proxy.ClientMethodInterceptor</interceptor>
+             <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+          </interceptors>
+      </attribute>
+   </mbean>
+
+  <!-- Our service -->
+  <mbean code="org.jboss.test.jmx.ha.HAService" 
+         name="jboss.test:service=HAService">
+  </mbean>
+   
+</server>

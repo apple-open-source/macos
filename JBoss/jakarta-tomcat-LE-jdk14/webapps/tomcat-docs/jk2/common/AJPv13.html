@@ -2,8 +2,8 @@
 <html xmlns="http://www.w3.org/TR/xhtml1/strict">
 <head>
 <title>AJPv13</title>
-<meta content="1999-2002 The Apache Software Foundation" name="copyright"/>
-<meta content="$Date: 2002/11/28 08:52:48 $" name="last-changed"/>
+<meta content="1999-2003 The Apache Software Foundation" name="copyright"/>
+<meta content="$Date: 2003/10/16 07:37:56 $" name="last-changed"/>
 <meta content="danmil@shore.net" name="author"/>
 <meta content="danmil@shore.net" name="email"/>
 <meta content="Jean-Frederic Clere" name="author"/>
@@ -146,6 +146,22 @@
 <tr>
 <td colspan="2" width="150" bgcolor="#cccccc">
 <nobr>
+<a class="menu" href="../common/doccontrib.html">How to Contribute to the Documentation</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../common/tools.html">Tools</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
 <a class="menu" href="../faq.html">FAQ</a>
 </nobr>
 </td>
@@ -222,6 +238,14 @@
 <tr>
 <td colspan="2" width="150" bgcolor="#cccccc">
 <nobr>
+<a class="menu" href="../jk2/configtccom.html">Coyote/JK2 Handlers</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
 <a class="menu" href="../jk2/configtcex.html">Examples</a>
 </nobr>
 </td>
@@ -275,6 +299,14 @@
 <td colspan="2" width="150" bgcolor="#cccccc">
 <nobr>
 <a class="menu" href="../jk2/confighowto.html">Quick Start JK2 Configuration Guide</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/vhosthowto.html">Apache 2.0.43 - Tomcat 4.1.12 - jk2 - virtual host HOWTO</a>
 </nobr>
 </td>
 </tr>
@@ -555,6 +587,16 @@ The web server can send the following messages to the servlet container:
 <td align="left" valign="top" bgcolor="#a0ddf0">Shutdown</td>
 <td align="left" valign="top" bgcolor="#a0ddf0">The web server asks the container to shut itself down.</td>
 </tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">8</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">Ping</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">The web server asks the container to take control (secure login phase).</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">10</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">CPing</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">The web server asks the container to respond quickly with a CPong.</td>
+</tr>
 </table>
 
 </p>
@@ -588,6 +630,11 @@ server:
 <td align="left" valign="top" bgcolor="#a0ddf0">Get Body Chunk</td>
 <td align="left" valign="top" bgcolor="#a0ddf0">Get further data from the request if it hasn't all been transferred
     yet.</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">9</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">CPong Reply</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">The reply to a CPing request</td>
 </tr>
 </table>
 </p>

@@ -644,6 +644,9 @@ NT_USER_TOKEN *create_nt_token(uid_t uid, gid_t gid, int ngroups, gid_t *groups,
  *
  * currently this is a hack, as there is no sam implementation that is capable
  * of groups.
+ *
+ * NOTE!! This function will fail if you pass in a winbind user without 
+ * the domain   --jerry
  ******************************************************************************/
 
 static NTSTATUS get_user_groups(const char *username, uid_t uid, gid_t gid,
@@ -897,7 +900,13 @@ NTSTATUS make_server_info_guest(auth_serversupplied_info **server_info)
 	nt_status = make_server_info_sam(server_info, sampass);
 
 	if (NT_STATUS_IS_OK(nt_status)) {
+		static const char zeros[16];
 		(*server_info)->guest = True;
+		
+		/* annoying, but the Guest really does have a session key, 
+		   and it is all zeros! */
+		(*server_info)->nt_session_key = data_blob(zeros, sizeof(zeros));
+		(*server_info)->lm_session_key = data_blob(zeros, sizeof(zeros));
 	}
 
 	return nt_status;
@@ -917,27 +926,99 @@ static NTSTATUS fill_sam_account(TALLOC_CTX *mem_ctx,
 	fstring dom_user;
 	struct passwd *passwd;
 
-	fstr_sprintf(dom_user, "%s%s%s",
-		     domain, lp_winbind_separator(), username);
+	fstr_sprintf(dom_user, "%s%s%s", domain, lp_winbind_separator(), 
+		username);
 
 	passwd = Get_Pwnam(dom_user);
+	
+	if ( passwd ) {
+		char *p;
+		
+		/* make sure we get the case of the username correct */
+		/* work around 'winbind use default domain = yes' */
+		
+		p = strchr( passwd->pw_name, *lp_winbind_separator() );
+		if ( !p ) 
+			fstr_sprintf(dom_user, "%s%s%s", domain, 
+				lp_winbind_separator(), passwd->pw_name);
+		else 
+			fstrcpy( dom_user, passwd->pw_name );
+	}
+	else {
+		/* if the lookup for DOMAIN\username failed, try again 
+		   with just 'username'.  This is need for accessing the server
+		   as a trust user that actually maps to a local account */
 
-	/* if the lookup for DOMAIN\username failed, try again 
-	   with just 'username'.  This is need for accessing the server
-	   as a trust user that actually maps to a local account */
+		fstrcpy( dom_user, username );
+		passwd = Get_Pwnam( dom_user );
+		
+		/* make sure we get the case of the username correct */
+		if ( passwd )
+			fstrcpy( dom_user, passwd->pw_name );
+	}
 
-	if ( !passwd ) 
-		passwd = Get_Pwnam(username);
-
-	if (passwd == NULL)
+	if ( !passwd )
 		return NT_STATUS_NO_SUCH_USER;
 
 	*uid = passwd->pw_uid;
 	*gid = passwd->pw_gid;
 
-	*found_username = talloc_strdup(mem_ctx, passwd->pw_name);
+	/* This is pointless -- there is no suport for differeing 
+	   unix and windows names.  Make sure to always store the 
+	   one we actually looked up and succeeded. Have I mentioned
+	   why I hate the 'winbind use default domain' parameter?   
+	                                 --jerry              */
+	   
+	*found_username = talloc_strdup(mem_ctx, dom_user);
+	
+	DEBUG(5,("fill_sam_account: located username was [%s]\n",
+		*found_username));
 
 	return pdb_init_sam_pw(sam_account, passwd);
+}
+
+/****************************************************************************
+ Wrapper to allow the getpwnam() call to strip the domain name and 
+ try again in case a local UNIX user is already there.  Also run through 
+ the username if we fallback to the username only.
+ ****************************************************************************/
+ 
+struct passwd *smb_getpwnam( char *domuser )
+{
+	struct passwd *pw = NULL;
+	char *p;
+	fstring mapped_username;
+
+	pw = Get_Pwnam( domuser );
+	if ( pw )
+		return pw;
+
+	/* fallback to looking up just the username */
+
+	p = strchr( domuser, *lp_winbind_separator() );
+
+	if ( p ) {
+		p += 1;
+		fstrcpy( mapped_username, p );
+		map_username( mapped_username );	
+		pw = Get_Pwnam(mapped_username);
+		if (!pw) {
+			/* Don't add a machine account. */
+			if (mapped_username[strlen(mapped_username)-1] == '$')
+				return NULL;
+
+			/* Create local user if requested. */
+			p = strchr( mapped_username, *lp_winbind_separator() );
+			if (p)
+				p += 1;
+			else
+				p = mapped_username;
+			auth_add_user_script(NULL, p);
+			return Get_Pwnam(p);
+		}
+	}
+
+	return pw;
 }
 
 /***************************************************************************
@@ -951,6 +1032,8 @@ NTSTATUS make_server_info_info3(TALLOC_CTX *mem_ctx,
 				auth_serversupplied_info **server_info, 
 				NET_USER_INFO_3 *info3) 
 {
+	static const char zeros[16];
+
 	NTSTATUS nt_status = NT_STATUS_OK;
 	char *found_username;
 	const char *nt_domain;
@@ -995,7 +1078,7 @@ NTSTATUS make_server_info_info3(TALLOC_CTX *mem_ctx,
 
 	if (!(nt_domain = unistr2_tdup(mem_ctx, &(info3->uni_logon_dom)))) {
 		/* If the server didn't give us one, just use the one we sent them */
-		domain = domain;
+		nt_domain = domain;
 	}
 	
 	/* try to fill the SAM account..  If getpwnam() fails, then try the 
@@ -1169,10 +1252,20 @@ NTSTATUS make_server_info_info3(TALLOC_CTX *mem_ctx,
 	(*server_info)->ptok = token; 
 
 	SAFE_FREE(all_group_SIDs);
-	
-	memcpy((*server_info)->session_key, info3->user_sess_key, sizeof((*server_info)->session_key)/* 16 */);
-	memcpy((*server_info)->first_8_lm_hash, info3->padding, 8);
 
+	/* ensure we are never given NULL session keys */
+	
+	if (memcmp(info3->user_sess_key, zeros, sizeof(zeros)) == 0) {
+		(*server_info)->nt_session_key = data_blob(NULL, 0);
+	} else {
+		(*server_info)->nt_session_key = data_blob(info3->user_sess_key, sizeof(info3->user_sess_key));
+	}
+
+	if (memcmp(info3->padding, zeros, sizeof(zeros)) == 0) {
+		(*server_info)->lm_session_key = data_blob(NULL, 0);
+	} else {
+		(*server_info)->lm_session_key = data_blob(info3->padding, 16);
+	}
 	return NT_STATUS_OK;
 }
 
@@ -1215,6 +1308,8 @@ void free_server_info(auth_serversupplied_info **server_info)
 		delete_nt_token( &(*server_info)->ptok );
 		SAFE_FREE((*server_info)->groups);
 		SAFE_FREE((*server_info)->unix_name);
+		data_blob_free(&(*server_info)->lm_session_key);
+		data_blob_free(&(*server_info)->nt_session_key);
 		ZERO_STRUCT(**server_info);
 	}
 	SAFE_FREE(*server_info);

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+    <classpathentry kind="src" path="src/main"/>
+    <classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+    <classpathentry kind="src" path="/common"/>
+    <classpathentry kind="src" path="/system"/>
+    <classpathentry kind="src" path="/jmx"/>
+    <classpathentry kind="lib" path="/thirdparty/jacorb/jacorb/lib/jacorb.jar"/>
+    <classpathentry kind="src" path="/server"/>
+    <classpathentry kind="src" path="/j2ee"/>
+    <classpathentry kind="output" path="output/eclipse-classes"/>
+</classpath>

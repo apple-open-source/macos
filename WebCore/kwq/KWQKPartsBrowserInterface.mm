@@ -26,6 +26,7 @@
 #import "KWQKPartsBrowserInterface.h"
 
 #import "KWQAssertions.h"
+#import "KWQExceptions.h"
 #import "KWQKHTMLPart.h"
 #import "WebCoreBridge.h"
 
@@ -34,7 +35,7 @@ namespace KParts {
 QVariant BrowserInterface::property(const char *name) const
 {
     if (strcmp(name, "historyLength") == 0) {
-        return QVariant([_part->bridge() historyLength]);
+        return QVariant((uint)[_part->bridge() historyLength]);
     }
     ERROR("property %s not implemented", name);
     return QVariant();
@@ -44,7 +45,9 @@ void BrowserInterface::callMethod(const char *name, const QVariant &argument)
 {
     if (strcmp(name, "goHistory(int)") == 0) {
         int distance = argument.toInt();
-        [_part->bridge() goBackOrForward:distance];
+	KWQ_BLOCK_EXCEPTIONS;
+	[_part->bridge() goBackOrForward:distance];
+	KWQ_UNBLOCK_EXCEPTIONS;
         return;
     }
     ERROR("method %s not implemented", name);

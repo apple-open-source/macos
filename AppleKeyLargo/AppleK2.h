@@ -43,7 +43,7 @@
 enum {
     kK2DeviceId41		= 0x41,				// K2
 	kK2Version0			= 0,
-
+    kShastaDeviceId4f	= 0x4f,
 };
 
 enum {
@@ -76,6 +76,10 @@ enum {
     kK2FCR1UATAClkEnable				= 1 << 28,			// UATA_ClkEnable
     kK2FCR1UATAReset					= 1 << 30,			// UATA_Reset_L
     kK2FCR1UATAChooseClk66				= 1 << 31,			// UATA_ChooseClk66
+        // Feature Control Register 1 Definitions new in Shasta
+    kShastaFCR1I2S2CellEnable			= 1 << 4,			// I2S2_Cell_En_H
+    kShastaFCR1I2S2ClkEnable			= 1 << 6,			// I2S2_ClkEnBit_H
+    kShastaFCR1I2S2Enable				= 1 << 7,			// I2S2Enable_H
     
         // Feature Control Register 2 is all different in K2
     kK2FCR2PWM0AutoStopEn				= 1 << 4,			// PWM0AutoStopEn
@@ -110,6 +114,8 @@ enum {
     kK2FCR3EnablePLL0Shutdown			= 1 << 7,			// EnablePLL0Shutdown
     kK2FCR3EnablePLL6Shutdown			= 1 << 8, 			// EnablePLL6Shutdown
     kK2FCR3DynClkStopEnable				= 1 << 11,			// DynClkStopEnable
+        	// Feature Control Register 3 Definitions new in Shasta
+    kShastaFCR3I2S2Clk18Enable			= 1 << 15,			// I2S2_Clk18_EN_h
     
             // Feature Control Register 9 definitions
     kK2FCR9PCI1Clk66isStopped			= 1 << 0,
@@ -228,11 +234,6 @@ private:
     IOService		*fProvider;
     UInt32			fPHandle;
 	
-	// ***Added for outputting the FCR values to the IORegistry
-	const OSSymbol	*k2_FCRNode;
-	const OSObject	*fcrs[kK2FCRCount];  
-	const OSArray	*fcrArray;
-  
 	// callPlatformFunction symbols
 	const OSSymbol 	*keyLargo_resetUniNEthernetPhy;
 	const OSSymbol 	*keyLargo_restoreRegisterState;

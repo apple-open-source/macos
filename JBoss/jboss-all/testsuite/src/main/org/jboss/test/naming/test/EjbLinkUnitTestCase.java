@@ -140,6 +140,18 @@ public class EjbLinkUnitTestCase extends JBossTestCase
         bean.remove();
     }
 
+    public void testEjbNames() throws Exception
+    {      
+        Object obj = getInitialContext().lookup("naming/SessionB");
+        obj = PortableRemoteObject.narrow(obj, TestEjbLinkHome.class);
+        TestEjbLinkHome home = (TestEjbLinkHome) obj;
+        getLog().debug("Found naming/SessionB home: "+home);
+
+       obj = getInitialContext().lookup("naming/SessionB1");
+       obj = PortableRemoteObject.narrow(obj, TestEjbLinkHome.class);
+       home = (TestEjbLinkHome) obj;
+       getLog().debug("Found naming/SessionB1 home: "+home);
+    }
 
    public static Test suite() throws Exception
    {

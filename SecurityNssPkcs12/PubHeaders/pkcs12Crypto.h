@@ -27,6 +27,7 @@
 
 #include <Security/cssmtype.h>
 #include <SecurityNssAsn1/SecNssCoder.h>
+#include <Security/Security.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -132,6 +133,7 @@ CSSM_RETURN p12UnwrapKey(
 CSSM_RETURN p12WrapKey(
 	CSSM_CSP_HANDLE		cspHand,
 	CSSM_KEY_PTR		privKey,
+	const CSSM_ACCESS_CREDENTIALS *privKeyCreds,
 	CSSM_ALGORITHMS		keyAlg,				// of the unwrapping key
 	CSSM_ALGORITHMS		encrAlg,
 	CSSM_ALGORITHMS		pbeHashAlg,			// SHA1, MD5 only

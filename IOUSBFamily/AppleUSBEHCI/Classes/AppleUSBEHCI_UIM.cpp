@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -811,18 +811,30 @@ Ping State/Err == 1
 
     if( (flags & kEHCITDStatus_BuffErr) != 0)
     {	
-	// Buffer over or under run error
+	// Buffer over or under run error - i.e. the controller could not keep up from or to system memory
 	if( (flags & kEHCITDFlags_PID) == (1 << kEHCITDFlags_PIDPhase) )	
 	{	
 	    // An in token
-	    return kOHCIITDConditionDataUnderrun;
+	    return kOHCIITDConditionBufferOverrun;
 	}
 	else
 	{	
 	    // OUT/Status, data going out 
-	    return kOHCIITDConditionDataUnderrun;
+	    return kOHCIITDConditionBufferUnderrun;
 	}
-    }	
+    }
+    
+    if ( (flags & kEHCITDStatus_Babble) != 0)
+    {
+	// Babble means that we had a data overrun
+	// Buffer over or under run error
+	if( (flags & kEHCITDFlags_PID) == (1 << kEHCITDFlags_PIDPhase) )	
+	{	
+	    // An in token
+	    return kOHCIITDConditionDataOverrun;
+	}
+	// for out token, we let the other error processing handle it, since the data over/underrun conditions are IN only
+    }
 
     if( (flags & kEHCITDFlags_Cerr) != 0)
     {	
@@ -1509,7 +1521,7 @@ UInt16
 AppleUSBEHCI::validatePollingRate(short rawPollingRate,  short speed, int *offset, UInt16 *bytesAvailable)
 {
     UInt16 	pollingRate;
-    int 	perFrame, i;
+    int 	i;
     UInt16	availableBandwidth[kEHCIMaxPoll];
 
     pollingRate = rawPollingRate;
@@ -1519,22 +1531,33 @@ AppleUSBEHCI::validatePollingRate(short rawPollingRate,  short speed, int *offse
 	USBLog(5,"%s[%p]::validatePollingRate HS pollingRate raw: %d", getName(), this, pollingRate);
 	if(pollingRate <= 3)
 	{
-	    perFrame = 1<< (pollingRate-1);
+	    // this would be a sub frame polling rate (per microframe) and we will only do frame resolution for now
 	    pollingRate = 1;
 	}
 	else
 	{
 	    if(pollingRate > 16)
 	    {
-		    //return(paramErr);
-		    pollingRate = 16;
+		int	count = 0;
+		// this is an illegal polling rate. however, some HS devices have it
+		// so we will treat this like an OLD polling rate, i.e. a # of ms to poll at
+		// we need to find the lowest power of 2 to accomodate this, just like FS
+		USBLog(1,"%s[%p]::validatePollingRate: illegal HS polling rate (%d), cooking like FS", getName(), this, pollingRate);
+		while( (pollingRate >> count) != 1)
+		    count++;
+	
+		pollingRate = (1 <<  count);
+		USBLog(1,"%s[%p]::validatePollingRate: (illegal)new cooked polling rate (%d)", getName(), this, pollingRate);
 	    }
-	    perFrame = 1;		
-	    pollingRate = 1 << (pollingRate - 3);
+	    else
+	    {
+		// the polling rate is in microframes and is the exponent in 2^(rate-1)
+		pollingRate = 1 << (pollingRate - 4);
+	    }
 	}
 	if(pollingRate > kEHCIMaxPoll)
 	{
-		pollingRate = kEHCIMaxPoll;
+	    pollingRate = kEHCIMaxPoll;
 	}
 	USBLog(5,"%s[%p]::validatePollingRate HS pollingRate cooked: %d", getName(), this, pollingRate);
     }
@@ -1542,7 +1565,6 @@ AppleUSBEHCI::validatePollingRate(short rawPollingRate,  short speed, int *offse
     {
 	// full/low speed device
 	int	count = 0;
-	perFrame = 1;
 	// pollingRate is good
 	USBLog(5,"%s[%p]::validatePollingRate LS/FS pollingRate raw: %d", getName(), this, pollingRate);
 
@@ -1992,9 +2014,17 @@ AppleUSBEHCI::UIMCreateIsochEndpoint(
             // Note new high speed bandwidth
             _isochBandwidthAvail = highSpeedBandWidth;
             
-            pEP->mult = maxPacketSize/2048+1;
-            pEP->oneMPS = maxPacketSize&(2048-1);
-            USBLog(5,"%s[%p]::UIMCreateIsochEndpoint high speed size %d, mult %d: %d, new available: %d",getName(), this, pEP->mult, pEP->oneMPS);
+	    if(maxPacketSize >1024)
+	    {
+		pEP->mult = ((maxPacketSize-1)/1024)+1;
+		pEP->oneMPS = (maxPacketSize+2)/pEP->mult;
+	    }
+	    else
+	    {
+		pEP->mult = 1;
+		pEP->oneMPS = maxPacketSize;
+	    }
+            USBLog(5,"%s[%p]::UIMCreateIsochEndpoint high speed size %d, mult %d: %d",getName(), this, maxPacketSize, pEP->mult, pEP->oneMPS);
         }
         
         return kIOReturnSuccess;
@@ -2026,9 +2056,19 @@ AppleUSBEHCI::UIMCreateIsochEndpoint(
     {
         // Note new Full speed bandwidth
         _isochBandwidthAvail = highSpeedBandWidth;
-		pEP->mult = maxPacketSize/2048+1;
-		pEP->oneMPS = maxPacketSize&(2048-1);
-		USBLog(6,"%s[%p]::UIMCreateIsochEndpoint high speed 2 size %d, mult %d: %d, new available: %d",getName(), this, pEP->mult, pEP->oneMPS);
+	
+	if(maxPacketSize >1024)
+	{
+	    pEP->mult = ((maxPacketSize-1)/1024)+1;
+	    pEP->oneMPS = (maxPacketSize+2)/pEP->mult;
+	}
+	else
+	{
+	    pEP->mult = 1;
+	    pEP->oneMPS = maxPacketSize;
+	}
+			
+	USBLog(6,"%s[%p]::UIMCreateIsochEndpoint high speed 2 size %d, mult %d: %d",getName(), this, maxPacketSize, pEP->mult, pEP->oneMPS);
     }
 
     return kIOReturnSuccess;
@@ -2115,12 +2155,16 @@ AppleUSBEHCI::AbortIsochEP(AppleEHCIIsochEndpointPtr pEP)
 	PutTDonDoneQueue(pEP, pTD);
 	pTD = GetTDfromToDoList(pEP);
     }
+    
+    // since we have no Isoch xactions on the endpoint, we can reset the counter
+    pEP->firstAvailableFrame = 0;
+    pEP->inSlot = kEHCIPeriodicListEntries + 1;    
     // we can go back to processing now
     EnablePeriodicSchedule();
     
     pEP->accumulatedStatus = kIOReturnAborted;
     ReturnIsocDoneQueue(pEP);
-    
+    pEP->accumulatedStatus = kIOReturnSuccess;
     return kIOReturnSuccess;
 }
 
@@ -2129,6 +2173,7 @@ void
 AppleUSBEHCI::returnTransactions(AppleEHCIQueueHead *pED, EHCIGeneralTransferDescriptor *untilThisOne)
 {
     EHCIGeneralTransferDescriptorPtr	doneQueue = NULL, doneTail= NULL;
+    bool				removedSome = false;
 
     USBLog(5, "%s[%p]::returnTransactions, pED(%p) until (%p)", getName(), this, pED, untilThisOne);
     pED->print(5);
@@ -2142,6 +2187,7 @@ AppleUSBEHCI::returnTransactions(AppleEHCIQueueHead *pED, EHCIGeneralTransferDes
     if ((pED->qTD != pED->TailTD) && (pED->qTD != untilThisOne))		// There are transactions on this queue
     {
         USBLog(5, "%s[%p] returnTransactions: removing TDs", getName(), this);
+	removedSome = true;
         if(untilThisOne == NULL)
         {
             untilThisOne = pED->TailTD;	// Return all the transactions on this queue
@@ -2164,7 +2210,10 @@ AppleUSBEHCI::returnTransactions(AppleEHCIQueueHead *pED, EHCIGeneralTransferDes
     
     USBLog(5, "%s[%p]::returnTransactions, pED->qTD (L:%p P:%p) pED->TailTD (L:%p P:%p)", getName(), this, pED->qTD, pED->qTD->pPhysical, pED->TailTD, pED->TailTD->pPhysical);
     USBLog(5, "%s[%p]::returnTransactions: clearing ED bit, qTDFlags = %x", getName(), this, USBToHostLong(pED->GetSharedLogical()->qTDFlags));
-    pED->GetSharedLogical()->qTDFlags = 0;						// Ensure that next TD is fetched (not the ALT)
+    if (removedSome)
+	pED->GetSharedLogical()->qTDFlags = 0;					// Ensure that next TD is fetched (not the ALT) and reset the data toggle
+    else
+	pED->GetSharedLogical()->qTDFlags &= HostToUSBLong(kEHCITDFlags_DT);	// Ensure that next TD is fetched (not the ALT) but keep the data toggle
     if (doneQueue)
     {
 	USBLog(5, "%s[%p]::returnTransactions: calling back the done queue (after ED is made active)", getName(), this);    
@@ -2213,7 +2262,8 @@ IOReturn
 AppleUSBEHCI::HandleEndpointAbort(
     short			functionAddress,
     short			endpointNumber,
-    short			direction)
+    short			direction,
+    bool			clearToggle)
 {
     AppleEHCIQueueHead 		*pED;
     AppleEHCIQueueHead 		*pEDQueueBack;
@@ -2246,6 +2296,8 @@ AppleUSBEHCI::HandleEndpointAbort(
     {
 	HaltAsyncEndpoint(pED, pEDQueueBack);
 	returnTransactions(pED, NULL);				// this will unhalt the EP
+	if (clearToggle)
+	    pED->GetSharedLogical()->qTDFlags &= HostToUSBLong(~kEHCITDFlags_DT);	// Ensure that next TD is fetched (not the ALT) but keep the data toggle
     }
     else
     {
@@ -2274,7 +2326,7 @@ AppleUSBEHCI::UIMAbortEndpoint(
     short			direction)
 {
     // this is probably not correct, but still waiting clarification on the EHCI spec section 4.8.2
-    return HandleEndpointAbort(functionAddress, endpointNumber, direction);
+    return HandleEndpointAbort(functionAddress, endpointNumber, direction, false);
 }
 
 
@@ -2286,7 +2338,7 @@ AppleUSBEHCI::UIMClearEndpointStall(
 {
     
     USBLog(7, "%s[%p]::UIMClearEndpointStall - endpoint %d:%d", getName(), this, functionAddress, endpointNumber);
-    return  HandleEndpointAbort(functionAddress, endpointNumber, direction);
+    return  HandleEndpointAbort(functionAddress, endpointNumber, direction, true);
 }
 
 
@@ -2963,7 +3015,7 @@ AppleUSBEHCI::CreateSplitIsochTransfer(	AppleEHCIIsochEndpointPtr	pEP,
     maxOffset = _frameListSize;
     if (frameNumberStart < pEP->firstAvailableFrame)
     {
-	USBLog(3,"%s[%p]::CreateSplitIsochTransfer: no overlapping frames -  frameNumberStart: %Ld, pEP->firstAvailableFrame: %Ld.  Returning 0x%x",getName(), this, frameNumberStart, pEP->firstAvailableFrame, kIOReturnIsoTooOld);
+	USBLog(3,"%s[%p]::CreateSplitIsochTransfer: no overlapping frames -   EP (%p) frameNumberStart: %Ld, pEP->firstAvailableFrame: %Ld.  Returning 0x%x",getName(), this, pEP, frameNumberStart, pEP->firstAvailableFrame, kIOReturnIsoTooOld);
 	return kIOReturnIsoTooOld;
     }
     pEP->firstAvailableFrame = frameNumberStart;
@@ -3282,16 +3334,10 @@ AppleUSBEHCI::AddIsocFramesToSchedule(AppleEHCIIsochEndpointPtr pEP)
     }
     
     currFrame = pTD->frameNumber;		// start looking at the first available number
-    if(pEP->inSlot > kEHCIPeriodicListEntries)
-    {
-	// This needs to be fixed up when we have variable length lists.
-	pEP->inSlot = currFrame & (kEHCIPeriodicListEntries-1);
-    }
-    while (pEP->inSlot != (currFrame & (kEHCIPeriodicListEntries-1)))
-    {
-	// need to make sure that the match the slot with the frame in the TD
-	pEP->inSlot = (pEP->inSlot + 1) & (kEHCIPeriodicListEntries-1);
-    }
+    
+    // This needs to be fixed up when we have variable length lists.
+    pEP->inSlot = currFrame & (kEHCIPeriodicListEntries-1);
+
     do
     {
 	nextSlot = (pEP->inSlot + 1) & (kEHCIPeriodicListEntries-1);
@@ -3349,13 +3395,16 @@ AppleUSBEHCI::ReturnIsocDoneQueue(AppleEHCIIsochEndpointPtr pEP)
 	if( pTD->completion.action != NULL)
 	{
 	    IOUSBIsocCompletionAction 	pHandler;
-	    IOReturn			ret = kIOReturnSuccess;
 	    
 	    pHandler = pTD->completion.action;
 	    pTD->completion.action = NULL;
-            USBLog(7, "%s[%p]::ReturnIsocDoneQueue- calling handler(%p, %p, %p, %p)", getName(), this, pTD->completion.target, pTD->completion.parameter, ret, pTD->myFrames);
+	    USBLog(7, "%s[%p]::ReturnIsocDoneQueue- calling handler(%p, %p, %p, %p)", getName(), this, pTD->completion.target, pTD->completion.parameter, pEP->accumulatedStatus, pFrames);
 	    (*pHandler) (pTD->completion.target,  pTD->completion.parameter, pEP->accumulatedStatus, pFrames);
-	    pEP->accumulatedStatus = kIOReturnSuccess;
+	    // if the accumukated status is aborted, then we need to keep that status until we are done
+	    // otherwise the status will be in the endpoint when we get to the callback case and will
+	    // be reset afterwards
+	    if (pEP->accumulatedStatus != kIOReturnAborted)
+		pEP->accumulatedStatus = kIOReturnSuccess;
 	    pTD->Deallocate(this);
 	    pTD = GetTDfromDoneQueue(pEP);
 	    if (pTD)

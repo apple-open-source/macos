@@ -1,5 +1,5 @@
---- samba/source/tdb/tdbtool.c.orig	Fri Aug 29 14:17:46 2003
-+++ samba/source/tdb/tdbtool.c	Fri Aug 29 14:40:44 2003
+--- samba/source/tdb/tdbtool.c.orig	Mon Aug 18 23:49:01 2003
++++ samba/source/tdb/tdbtool.c	Fri Dec 19 08:31:20 2003
 @@ -208,9 +208,9 @@ static void insert_tdb(void)
  	}
  

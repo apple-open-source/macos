@@ -97,6 +97,10 @@ public:
     void setMalformed(bool malformed) { m_malformed = malformed; }
     virtual bool isMalformed() { return m_malformed; }
     
+#if APPLE_CHANGES
+    void submitClick();
+#endif
+   
     static void i18nData();
 
     friend class HTMLFormElement;
@@ -119,7 +123,7 @@ public:
     QString oldIdAttr;
     QString oldNameAttr;
 #if APPLE_CHANGES
-    bool formWouldHaveSecureSubmission(DOMString url);
+    bool formWouldHaveSecureSubmission(const DOMString &url);
 #endif
 };
 
@@ -148,7 +152,9 @@ public:
     virtual bool disabled() const;
     void setDisabled(bool _disabled);
 
-    virtual bool isSelectable() const;
+    virtual bool isFocusable() const;
+    virtual bool isKeyboardFocusable() const;
+    virtual bool isMouseFocusable() const;
     virtual bool isEnumeratable() const { return false; }
 
     bool readOnly() const { return m_readOnly; }
@@ -206,7 +212,6 @@ public:
     virtual Id id() const;
     DOMString type() const;
 
-    virtual void attach();
     virtual void parseAttribute(AttributeImpl *attr);
     virtual void defaultEventHandler(EventImpl *evt);
     virtual bool encoding(const QTextCodec*, khtml::encodingList&, bool);
@@ -214,7 +219,10 @@ public:
     virtual bool isSuccessfulSubmitButton() const;
     virtual bool isActivatedSubmit() const;
     virtual void setActivatedSubmit(bool flag);
-        
+
+    virtual void click();
+    virtual void accessKeyAction();
+    
 protected:
     DOMString m_value;
     QString   m_currValue;
@@ -233,7 +241,8 @@ public:
     virtual ~HTMLFieldSetElementImpl();
 
     virtual Id id() const;
-    virtual void attach();
+    
+    virtual bool isFocusable() const;
     
     virtual khtml::RenderObject *createRenderer(RenderArena *, khtml::RenderStyle *);
 
@@ -247,6 +256,10 @@ class HTMLInputElementImpl : public HTMLGenericFormElementImpl
     friend class khtml::RenderLineEdit;
     friend class khtml::RenderRadioButton;
     friend class khtml::RenderFileButton;
+
+#if APPLE_CHANGES
+    friend class HTMLSelectElementImpl;
+#endif
 
 public:
     // do not change the order!
@@ -291,7 +304,9 @@ public:
     virtual void restoreState(QStringList &);
 
     void select();
-    void click();
+    
+    virtual void click();
+    virtual void accessKeyAction();
 
     virtual void parseAttribute(AttributeImpl *attr);
 
@@ -341,6 +356,8 @@ public:
     HTMLLabelElementImpl(DocumentPtr *doc);
     virtual ~HTMLLabelElementImpl();
 
+    virtual bool isFocusable() const;
+    
     virtual Id id() const;
 
     virtual void parseAttribute(AttributeImpl *attr);
@@ -361,8 +378,9 @@ public:
     HTMLLegendElementImpl(DocumentPtr *doc, HTMLFormElementImpl *f = 0);
     virtual ~HTMLLegendElementImpl();
 
+    virtual bool isFocusable() const;
+    
     virtual Id id() const;
-    virtual void attach();
     virtual khtml::RenderObject *createRenderer(RenderArena *, khtml::RenderStyle *);
 
     virtual DOMString type() const;
@@ -418,7 +436,6 @@ public:
 
     virtual void parseAttribute(AttributeImpl *attr);
 
-    virtual void attach();
     virtual khtml::RenderObject *createRenderer(RenderArena *, khtml::RenderStyle *);
     virtual bool encoding(const QTextCodec*, khtml::encodingList&, bool);
 
@@ -436,6 +453,12 @@ public:
      }
     virtual void reset();
     void notifyOptionSelected(HTMLOptionElementImpl *selectedOption, bool selected);
+
+#if APPLE_CHANGES
+    virtual void defaultEventHandler(EventImpl *evt);
+#endif
+
+    virtual void accessKeyAction();
 
 private:
     void recalcListItems();
@@ -459,15 +482,14 @@ public:
 
     DOMString type() const;
 
-    long selectedIndex() const;
-    void setSelectedIndex( long index );
-
     // ### this is just a rough guess
     virtual bool isEnumeratable() const { return false; }
 
     virtual void parseAttribute(AttributeImpl *attr);
     virtual bool encoding(const QTextCodec*, khtml::encodingList&, bool);
-
+protected:
+    DOMString m_challenge;
+    DOMString m_keyType;
 };
 
 // -------------------------------------------------------------------------
@@ -481,6 +503,8 @@ public:
     virtual Id id() const;
     DOMString type() const;
 
+    virtual bool isFocusable() const;
+    
     virtual NodeImpl *insertBefore ( NodeImpl *newChild, NodeImpl *refChild, int &exceptioncode );
     virtual NodeImpl *replaceChild ( NodeImpl *newChild, NodeImpl *oldChild, int &exceptioncode );
     virtual NodeImpl *removeChild ( NodeImpl *oldChild, int &exceptioncode );
@@ -502,6 +526,8 @@ class HTMLOptionElementImpl : public HTMLGenericFormElementImpl
 public:
     HTMLOptionElementImpl(DocumentPtr *doc, HTMLFormElementImpl *f = 0);
 
+    virtual bool isFocusable() const;
+    
     virtual Id id() const;
     DOMString type() const;
 
@@ -517,6 +543,8 @@ public:
     void setSelected(bool _selected);
 
     HTMLSelectElementImpl *getSelect() const;
+
+    virtual void childrenChanged();
 
 protected:
     DOMString m_value;
@@ -559,7 +587,6 @@ public:
     void select (  );
 
     virtual void parseAttribute(AttributeImpl *attr);
-    virtual void attach();
     virtual khtml::RenderObject *createRenderer(RenderArena *, khtml::RenderStyle *);
     virtual bool encoding(const QTextCodec*, khtml::encodingList&, bool);
     virtual void reset();
@@ -571,7 +598,9 @@ public:
     void focus();
 
     virtual bool isEditable();
-
+    
+    virtual void accessKeyAction();
+    
 protected:
     int m_rows;
     int m_cols;

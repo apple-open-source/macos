@@ -48,6 +48,8 @@
 #include "kjs_traversal.h"
 #include "kjs_css.h"
 #include "kjs_events.h"
+#include "xmlhttprequest.h"
+#include "xmlserializer.h"
 
 #include "khtmlview.h"
 #include "khtml_part.h"
@@ -175,7 +177,7 @@ Value Screen::getValueProperty(ExecState *exec, int token) const
 const ClassInfo Window::info = { "Window", 0, &WindowTable, 0 };
 
 /*
-@begin WindowTable 89
+@begin WindowTable 90
   closed	Window::Closed		DontDelete|ReadOnly
   crypto	Window::Crypto		DontDelete|ReadOnly
   defaultStatus	Window::DefaultStatus	DontDelete
@@ -190,7 +192,7 @@ const ClassInfo Window::info = { "Window", 0, &WindowTable, 0 };
   CSSRule	Window::CSSRule		DontDelete
   frames	Window::Frames		DontDelete|ReadOnly
   history	Window::_History	DontDelete|ReadOnly
-  event		Window::Event		DontDelete|ReadOnly
+  event		Window::Event		DontDelete
   innerHeight	Window::InnerHeight	DontDelete|ReadOnly
   innerWidth	Window::InnerWidth	DontDelete|ReadOnly
   length	Window::Length		DontDelete|ReadOnly
@@ -227,10 +229,13 @@ const ClassInfo Window::info = { "Window", 0, &WindowTable, 0 };
   screen	Window::_Screen		DontDelete|ReadOnly
   Image		Window::Image		DontDelete|ReadOnly
   Option	Window::Option		DontDelete|ReadOnly
+  XMLHttpRequest	Window::XMLHttpRequest	DontDelete|ReadOnly
+  XMLSerializer	Window::XMLSerializer	DontDelete|ReadOnly
   alert		Window::Alert		DontDelete|Function 1
   confirm	Window::Confirm		DontDelete|Function 1
   prompt	Window::Prompt		DontDelete|Function 2
   open		Window::Open		DontDelete|Function 3
+  print		Window::Print		DontDelete|Function 2
   setTimeout	Window::SetTimeout	DontDelete|Function 2
   clearTimeout	Window::ClearTimeout	DontDelete|Function 1
   focus		Window::Focus		DontDelete|Function 0
@@ -540,10 +545,17 @@ Value Window::get(ExecState *exec, const Identifier &p) const
       return Value(new ImageConstructorImp(exec, m_part->document()));
     case Option:
       return Value(new OptionConstructorImp(exec, m_part->document()));
+    case XMLHttpRequest:
+      return Value(new XMLHttpRequestConstructorImp(exec, m_part->document()));
+    case XMLSerializer:
+      return Value(new XMLSerializerConstructorImp(exec));
     case Alert:
     case Confirm:
     case Prompt:
     case Open:
+#if APPLE_CHANGES
+    case Print:
+#endif
     case Focus:
     case Blur:
     case Close:
@@ -610,17 +622,17 @@ Value Window::get(ExecState *exec, const Identifier &p) const
         return Undefined();
     case Onkeydown:
       if (isSafeScript(exec))
-        return getListener(exec,DOM::EventImpl::KHTML_KEYDOWN_EVENT);
+        return getListener(exec,DOM::EventImpl::KEYDOWN_EVENT);
       else
         return Undefined();
     case Onkeypress:
       if (isSafeScript(exec))
-        return getListener(exec,DOM::EventImpl::KHTML_KEYPRESS_EVENT);
+        return getListener(exec,DOM::EventImpl::KEYPRESS_EVENT);
       else
         return Undefined();
     case Onkeyup:
       if (isSafeScript(exec))
-        return getListener(exec,DOM::EventImpl::KHTML_KEYUP_EVENT);
+        return getListener(exec,DOM::EventImpl::KEYUP_EVENT);
       else
         return Undefined();
     case Onload:
@@ -689,6 +701,21 @@ Value Window::get(ExecState *exec, const Identifier &p) const
   KHTMLPart *kp = m_part->findFrame( p.qstring() );
   if (kp)
     return Value(retrieve(kp));
+
+  // allow window[1] or parent[1] etc. (#56983)
+  bool ok;
+  unsigned int i = p.toArrayIndex(&ok);
+  if (ok) {
+    QPtrList<KParts::ReadOnlyPart> frames = m_part->frames();
+    unsigned int len = frames.count();
+    if (i < len) {
+      KParts::ReadOnlyPart* frame = frames.at(i);
+      if (frame && frame->inherits("KHTMLPart")) {
+	KHTMLPart *khtml = static_cast<KHTMLPart*>(frame);
+	return Window::retrieve(khtml);
+      }
+    }
+  }
 
   // allow shortcuts like 'Image1' instead of document.images.Image1
   if (isSafeScript(exec) &&
@@ -806,15 +833,15 @@ void Window::put(ExecState* exec, const Identifier &propertyName, const Value &v
       return;
     case Onkeydown:
       if (isSafeScript(exec))
-        setListener(exec,DOM::EventImpl::KHTML_KEYDOWN_EVENT,value);
+        setListener(exec,DOM::EventImpl::KEYDOWN_EVENT,value);
       return;
     case Onkeypress:
       if (isSafeScript(exec))
-        setListener(exec,DOM::EventImpl::KHTML_KEYPRESS_EVENT,value);
+        setListener(exec,DOM::EventImpl::KEYPRESS_EVENT,value);
       return;
     case Onkeyup:
       if (isSafeScript(exec))
-        setListener(exec,DOM::EventImpl::KHTML_KEYUP_EVENT,value);
+        setListener(exec,DOM::EventImpl::KEYUP_EVENT,value);
       return;
     case Onload:
       if (isSafeScript(exec))
@@ -892,6 +919,11 @@ int Window::installTimeout(const UString &handler, int t, bool singleShot)
   return winq->installTimeout(handler, t, singleShot);
 }
 
+int Window::installTimeout(const Value &function, List &args, int t, bool singleShot)
+{
+  return winq->installTimeout(function, args, t, singleShot);
+}
+
 void Window::clearTimeout(int timerId)
 {
   winq->clearTimeout(timerId);
@@ -944,12 +976,6 @@ bool Window::isSafeScript(ExecState *exec) const
   if ( activePart == m_part ) // Not calling from another frame, no problem.
     return true;
 
-  // allow access from the window that opened this one if it made an initially empty document
-  if ( ( activePart == m_part->opener() || activePart == m_part->parentPart() ) && 
-       shouldLoadAsEmptyDocument(m_part->url()) ) {
-    return true;
-  }
-
   // JS may be attempting to access the "window" object, which should be valid,
   // even if the document hasn't been constructed yet.  If the document doesn't
   // exist yet allow JS to access the window object.
@@ -971,9 +997,24 @@ bool Window::isSafeScript(ExecState *exec) const
     return true;
   
   DOM::DOMString thisDomain = thisDocument->domain();
+
+  // if this document is being initially loaded as empty by its parent
+  // or opener, allow access from any document in the same domain as
+  // the parent or opener.
+  if (shouldLoadAsEmptyDocument(m_part->url())) {
+    KHTMLPart *ancestorPart = m_part->opener() ? m_part->opener() : m_part->parentPart();
+    while (ancestorPart && shouldLoadAsEmptyDocument(ancestorPart->url())) {
+      ancestorPart = ancestorPart->parentPart();
+    }
+    
+    if (ancestorPart)
+      thisDomain = ancestorPart->docImpl()->domain();
+  }
+
   //kdDebug(6070) << "current domain:" << actDomain.string() << ", frame domain:" << thisDomain.string() << endl;
   if ( actDomain == thisDomain )
     return true;
+
 #if APPLE_CHANGES
   if (Interpreter::shouldPrintExceptions()) {
       printf("Unsafe JavaScript attempt to access frame with URL %s from frame with URL %s. Domains must match.\n", 
@@ -1019,13 +1060,17 @@ JSEventListener *Window::getJSEventListener(const Value& val, bool html)
     return 0;
   ObjectImp *listenerObject = static_cast<ObjectImp *>(val.imp());
 
-  QPtrListIterator<JSEventListener> it(jsEventListeners);
-  for (; it.current(); ++it)
-    if (it.current()->listenerObjImp() == listenerObject)
-      return it.current();
+  JSEventListener *existingListener = jsEventListeners[listenerObject];
+  if (existingListener)
+    return existingListener;
 
   // Note that the JSEventListener constructor adds it to our jsEventListeners list
   return new JSEventListener(Object(listenerObject), Object(this), html);
+}
+
+JSLazyEventListener *Window::getJSLazyEventListener(const QString& code, bool html)
+{
+  return new JSLazyEventListener(code, Object(this), html);
 }
 
 void Window::clear( ExecState *exec )
@@ -1071,7 +1116,8 @@ Value WindowFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
 
   switch (id) {
   case Window::Alert:
-    part->xmlDocImpl()->updateRendering();
+    if (part && part->xmlDocImpl())
+      part->xmlDocImpl()->updateRendering();
 #if APPLE_CHANGES
     KWQ(part)->runJavaScriptAlert(str);
 #else
@@ -1079,7 +1125,8 @@ Value WindowFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
 #endif
     return Undefined();
   case Window::Confirm:
-    part->xmlDocImpl()->updateRendering();
+    if (part && part->xmlDocImpl())
+      part->xmlDocImpl()->updateRendering();
 #if APPLE_CHANGES
     return Boolean(KWQ(part)->runJavaScriptConfirm(str));
 #else
@@ -1087,7 +1134,8 @@ Value WindowFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
                                                 i18n("OK"), i18n("Cancel")) == KMessageBox::Yes));
 #endif
   case Window::Prompt:
-    part->xmlDocImpl()->updateRendering();
+    if (part && part->xmlDocImpl())
+      part->xmlDocImpl()->updateRendering();
     bool ok;
 #if APPLE_CHANGES
     ok = KWQ(part)->runJavaScriptPrompt(str, args.size() >= 2 ? args[1].toString(exec).qstring() : QString::null, str2);
@@ -1184,21 +1232,21 @@ Value WindowFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
 
 	    QRect screen = QApplication::desktop()->screenGeometry(scnum);
             if (key == "left" || key == "screenx") {
-              winargs.x = val.toInt() + screen.x();
+              winargs.x = (int)val.toFloat() + screen.x();
 	      if (winargs.x < screen.x() || winargs.x > screen.right())
 		  winargs.x = screen.x(); // only safe choice until size is determined
 #if APPLE_CHANGES
 	      winargs.xSet = true;
 #endif
             } else if (key == "top" || key == "screeny") {
-              winargs.y = val.toInt() + screen.y();
+              winargs.y = (int)val.toFloat() + screen.y();
 	      if (winargs.y < screen.y() || winargs.y > screen.bottom())
 		  winargs.y = screen.y(); // only safe choice until size is determined
 #if APPLE_CHANGES
 	      winargs.ySet = true;
 #endif
             } else if (key == "height") {
-              winargs.height = val.toInt() + 2*qApp->style().pixelMetric( QStyle::PM_DefaultFrameWidth ) + 2;
+              winargs.height = (int)val.toFloat() + 2*qApp->style().pixelMetric( QStyle::PM_DefaultFrameWidth ) + 2;
 	      if (winargs.height > screen.height())  // should actually check workspace
 		  winargs.height = screen.height();
               if (winargs.height < 100)
@@ -1207,7 +1255,7 @@ Value WindowFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
 	      winargs.heightSet = true;
 #endif
             } else if (key == "width") {
-              winargs.width = val.toInt() + 2*qApp->style().pixelMetric( QStyle::PM_DefaultFrameWidth ) + 2;
+              winargs.width = (int)val.toFloat() + 2*qApp->style().pixelMetric( QStyle::PM_DefaultFrameWidth ) + 2;
 	      if (winargs.width > screen.width())    // should actually check workspace
 		  winargs.width = screen.width();
               if (winargs.width < 100)
@@ -1315,6 +1363,11 @@ Value WindowFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
         return Undefined();
     }
   }
+#if APPLE_CHANGES
+  case Window::Print:
+    KWQ(part)->print();
+    return Undefined();
+#endif
   case Window::ScrollBy:
     window->updateLayout();
     if(args.size() == 2 && widget)
@@ -1399,13 +1452,12 @@ Value WindowFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
     else if (args.size() >= 2 && v.isA(ObjectType) && Object::dynamicCast(v).implementsCall()) {
       Value func = args[0];
       int i = args[1].toInt32(exec);
-#if 0
-//  ### TODO
-      List *funcArgs = args.copy();
-      funcArgs->removeFirst(); // all args after 2 go to the function
-      funcArgs->removeFirst();
-#endif
-      int r = (const_cast<Window*>(window))->installTimeout(s, i, true /*single shot*/);
+
+      // All arguments after the second should go to the function
+      // FIXME: could be more efficient
+      List funcArgs = args.copyTail().copyTail();
+
+      int r = (const_cast<Window*>(window))->installTimeout(func, funcArgs, i, true /*single shot*/);
       return Number(r);
     }
     else
@@ -1422,13 +1474,12 @@ Value WindowFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
 	     Object::dynamicCast(v).implementsCall()) {
       Value func = args[0];
       int i = args[1].toInt32(exec);
-#if 0
-// ### TODO
-      List *funcArgs = args.copy();
-      funcArgs->removeFirst(); // all args after 2 go to the function
-      funcArgs->removeFirst();
-#endif
-      int r = (const_cast<Window*>(window))->installTimeout(s, i, false);
+
+      // All arguments after the second should go to the function
+      // FIXME: could be more efficient
+      List funcArgs = args.copyTail().copyTail();
+
+      int r = (const_cast<Window*>(window))->installTimeout(func, funcArgs, i, false);
       return Number(r);
     }
     else
@@ -1565,16 +1616,24 @@ void ScheduledAction::execute(Window *window)
         ExecState *exec = interpreter->globalExec();
         Q_ASSERT( window == interpreter->globalObject().imp() );
         Object obj( window );
+	Interpreter::lock();
         func.call(exec,obj,args); // note that call() creates its own execution state for the func call
+	Interpreter::unlock();
 	if ( exec->hadException() ) {
 #if APPLE_CHANGES
 	  if (Interpreter::shouldPrintExceptions()) {
+	    Interpreter::lock();
 	    char *message = exec->exception().toObject(exec).get(exec, messagePropertyName).toString(exec).ascii();
+	    Interpreter::unlock();
 	    printf("(timer):%s\n", message);
 	  }
 #endif
 	  exec->clearException();
 	}
+
+	// Update our document's rendering following the execution of the timeout callback.
+	DOM::DocumentImpl *doc = static_cast<DOM::DocumentImpl*>(window->m_part->document().handle());
+	doc->updateRendering();
       }
     }
   }
@@ -1730,7 +1789,7 @@ Value FrameArray::get(ExecState *exec, const Identifier &p) const
     return Undefined();
 
   QPtrList<KParts::ReadOnlyPart> frames = part->frames();
-  int len = frames.count();
+  unsigned int len = frames.count();
   if (p == lengthPropertyName)
     return Number(len);
   else if (p== "location") // non-standard property, but works in NS and IE
@@ -1744,10 +1803,10 @@ Value FrameArray::get(ExecState *exec, const Identifier &p) const
   // check for the name or number
   KParts::ReadOnlyPart *frame = part->findFrame(p.qstring());
   if (!frame) {
-    int i = (int)p.toDouble();
-    if (i >= 0 && i < len){
+    bool ok;
+    unsigned int i = p.toArrayIndex(&ok);
+    if (ok && i < len)
       frame = frames.at(i);
-    }
   }
 
   // we are potentially fetching a reference to a another Window object here.

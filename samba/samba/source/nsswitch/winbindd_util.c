@@ -21,6 +21,7 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
+#include "includes.h"
 #include "winbindd.h"
 
 #undef DBGC_CLASS
@@ -48,12 +49,21 @@ static const fstring name_deadbeef = "<deadbeef>";
 
 static struct winbindd_domain *_domain_list;
 
+/**
+   When was the last scan of trusted domains done?
+   
+   0 == not ever
+*/
+
+static time_t last_trustdom_scan;
+
 struct winbindd_domain *domain_list(void)
 {
 	/* Initialise list */
 
-	if (!_domain_list)
-		init_domain_list();
+	if (!_domain_list) 
+		if (!init_domain_list()) 
+			return NULL;
 
 	return _domain_list;
 }
@@ -80,18 +90,32 @@ static struct winbindd_domain *add_trusted_domain(const char *domain_name, const
 						  DOM_SID *sid)
 {
 	struct winbindd_domain *domain;
-	char *contact_name;
+	const char *alternative_name = NULL;
+	static const DOM_SID null_sid;
+	
+	/* ignore alt_name if we are not in an AD domain */
+	
+	if ( (lp_security() == SEC_ADS) && alt_name && *alt_name) {
+		alternative_name = alt_name;
+	}
         
 	/* We can't call domain_list() as this function is called from
 	   init_domain_list() and we'll get stuck in a loop. */
 	for (domain = _domain_list; domain; domain = domain->next) {
-		if (strcasecmp(domain_name, domain->name) == 0 ||
-		    strcasecmp(domain_name, domain->alt_name) == 0) {
+		if (strequal(domain_name, domain->name) ||
+		    strequal(domain_name, domain->alt_name)) {
 			return domain;
 		}
-		if (alt_name && *alt_name) {
-			if (strcasecmp(alt_name, domain->name) == 0 ||
-			    strcasecmp(alt_name, domain->alt_name) == 0) {
+		if (alternative_name && *alternative_name) {
+			if (strequal(alternative_name, domain->name) ||
+			    strequal(alternative_name, domain->alt_name)) {
+				return domain;
+			}
+		}
+		if (sid) {
+			if (sid_equal(sid, &null_sid) ) {
+				
+			} else if (sid_equal(sid, &domain->sid)) {
 				return domain;
 			}
 		}
@@ -99,8 +123,7 @@ static struct winbindd_domain *add_trusted_domain(const char *domain_name, const
         
 	/* Create new domain entry */
 
-	if ((domain = (struct winbindd_domain *)
-	     malloc(sizeof(*domain))) == NULL)
+	if ((domain = (struct winbindd_domain *)malloc(sizeof(*domain))) == NULL)
 		return NULL;
 
 	/* Fill in fields */
@@ -108,13 +131,13 @@ static struct winbindd_domain *add_trusted_domain(const char *domain_name, const
 	ZERO_STRUCTP(domain);
 
 	/* prioritise the short name */
-	if (strchr_m(domain_name, '.') && alt_name && *alt_name) {
-		fstrcpy(domain->name, alt_name);
+	if (strchr_m(domain_name, '.') && alternative_name && *alternative_name) {
+		fstrcpy(domain->name, alternative_name);
 		fstrcpy(domain->alt_name, domain_name);
 	} else {
 		fstrcpy(domain->name, domain_name);
-		if (alt_name) {
-			fstrcpy(domain->alt_name, alt_name);
+		if (alternative_name) {
+			fstrcpy(domain->alt_name, alternative_name);
 		}
 	}
 
@@ -126,20 +149,21 @@ static struct winbindd_domain *add_trusted_domain(const char *domain_name, const
 		sid_copy(&domain->sid, sid);
 	}
 	
-	/* see if this is a native mode win2k domain (use realm name if possible) */
+	/* set flags about native_mode, active_directory */
 	   
-	contact_name = *domain->alt_name ? domain->alt_name : domain->name;
-	domain->native_mode = cm_check_for_native_mode_win2k( contact_name );
+	set_dc_type_and_flags( domain );
 	
-	DEBUG(3,("add_trusted_domain: %s is a %s mode domain\n", contact_name,
-		domain->native_mode ? "native" : "mixed (or NT4)" ));
+	DEBUG(3,("add_trusted_domain: %s is an %s %s domain\n", domain->name,
+		 domain->active_directory ? "ADS" : "NT4", 
+		 domain->native_mode ? "native mode" : 
+		 ((domain->active_directory && !domain->native_mode) ? "mixed mode" : "")));
 
 	/* Link to domain list */
 	DLIST_ADD(_domain_list, domain);
         
 	DEBUG(1,("Added domain %s %s %s\n", 
 		 domain->name, domain->alt_name,
-		 sid?sid_string_static(&domain->sid):""));
+		 &domain->sid?sid_string_static(&domain->sid):""));
         
 	return domain;
 }
@@ -150,18 +174,15 @@ static struct winbindd_domain *add_trusted_domain(const char *domain_name, const
 
 void rescan_trusted_domains( void )
 {
-	static time_t last_scan;
 	time_t now = time(NULL);
 	struct winbindd_domain *mydomain = NULL;
 	
 	/* see if the time has come... */
 	
-	if ( (now > last_scan) && ((now-last_scan) < WINBINDD_RESCAN_FREQ) )
+	if ( (now > last_trustdom_scan) && ((now-last_trustdom_scan) < WINBINDD_RESCAN_FREQ) )
 		return;
 		
-	/* get the handle for our domain */
-	
-	if ( (mydomain = find_domain_from_name(lp_workgroup())) == NULL ) {
+	if ( (mydomain = find_our_domain()) == NULL ) {
 		DEBUG(0,("rescan_trusted_domains: Can't find my own domain!\n"));
 		return;
 	}
@@ -170,7 +191,7 @@ void rescan_trusted_domains( void )
 	
 	add_trusted_domains( mydomain );
 
-	last_scan = now;
+	last_trustdom_scan = now;
 	
 	return;	
 }
@@ -196,7 +217,7 @@ void add_trusted_domains( struct winbindd_domain *domain )
 		return;
 	}
 
-	DEBUG(1, ("scanning trusted domain list\n"));
+	DEBUG(5, ("scanning trusted domain list\n"));
 
 	if (!(mem_ctx = talloc_init("init_domain_list")))
 		return;
@@ -217,7 +238,7 @@ void add_trusted_domains( struct winbindd_domain *domain )
 		for(i = 0; i < num_domains; i++) {
 			DEBUG(10,("Found domain %s\n", names[i]));
 			add_trusted_domain(names[i], alt_names?alt_names[i]:NULL,
-				domain->methods, &dom_sids[i]);
+					   domain->methods, &dom_sids[i]);
 					   
 			/* if the SID was empty, we better set it now */
 			
@@ -259,27 +280,46 @@ BOOL init_domain_list(void)
 	/* Free existing list */
 	free_domain_list();
 
-	/* Add ourselves as the first entry */
+	/* Add ourselves as the first entry. */
 	
-	domain = add_trusted_domain( lp_workgroup(), NULL, &cache_methods, NULL);
+	domain = add_trusted_domain( lp_workgroup(), lp_realm(), &cache_methods, NULL);
 	
+	domain->primary = True;
+
+	/* get any alternate name for the primary domain */
+	
+	cache_methods.alternate_name(domain);
+	
+	/* now we have the correct netbios (short) domain name */
+	
+	if ( *domain->name )
+		set_global_myworkgroup( domain->name );
+		
 	if (!secrets_fetch_domain_sid(domain->name, &domain->sid)) {
 		DEBUG(1, ("Could not fetch sid for our domain %s\n",
 			  domain->name));
 		return False;
 	}
 
-	/* get any alternate name for the primary domain */
-	cache_methods.alternate_name(domain);
-
 	/* do an initial scan for trusted domains */
 	add_trusted_domains(domain);
-
+	
+	/* avoid rescanning this right away */
+	last_trustdom_scan = time(NULL);
 	return True;
 }
 
-/* Given a domain name, return the struct winbindd domain info for it 
-   if it is actually working. */
+/** 
+ * Given a domain name, return the struct winbindd domain info for it 
+ *
+ * @note Do *not* pass lp_workgroup() to this function.  domain_list
+ *       may modify it's value, and free that pointer.  Instead, our local
+ *       domain may be found by calling find_our_domain().
+ *       directly.
+ *
+ *
+ * @return The domain structure for the named domain, if it is working.
+ */
 
 struct winbindd_domain *find_domain_from_name(const char *domain_name)
 {
@@ -289,8 +329,9 @@ struct winbindd_domain *find_domain_from_name(const char *domain_name)
 
 	for (domain = domain_list(); domain != NULL; domain = domain->next) {
 		if (strequal(domain_name, domain->name) ||
-		    (domain->alt_name[0] && strequal(domain_name, domain->alt_name)))
+		    (domain->alt_name[0] && strequal(domain_name, domain->alt_name))) {
 			return domain;
+		}
 	}
 
 	/* Not found */
@@ -316,6 +357,24 @@ struct winbindd_domain *find_domain_from_sid(DOM_SID *sid)
 	return NULL;
 }
 
+/* Given a domain sid, return the struct winbindd domain info for it */
+
+struct winbindd_domain *find_our_domain(void)
+{
+	struct winbindd_domain *domain;
+
+	/* Search through list */
+
+	for (domain = domain_list(); domain != NULL; domain = domain->next) {
+		if (domain->primary)
+			return domain;
+	}
+
+	/* Not found */
+
+	return NULL;
+}
+
 /* Lookup a sid in a domain from a name */
 
 BOOL winbindd_lookup_sid_by_name(struct winbindd_domain *domain, 
@@ -324,10 +383,6 @@ BOOL winbindd_lookup_sid_by_name(struct winbindd_domain *domain,
 {
 	NTSTATUS result;
         TALLOC_CTX *mem_ctx;
-	/* Don't bother with machine accounts */
-
-	if (name[strlen(name) - 1] == '$')
-		return False;
 
 	mem_ctx = talloc_init("lookup_sid_by_name for %s\n", name);
 	if (!mem_ctx) 
@@ -458,6 +513,20 @@ BOOL check_domain_env(char *domain_env, char *domain)
 	return False;
 }
 
+/* Is this a domain which we may assume no DOMAIN\ prefix? */
+
+static BOOL assume_domain(const char *domain) {
+	if ((lp_winbind_use_default_domain()  
+		  || lp_winbind_trusted_domains_only()) &&
+	    strequal(lp_workgroup(), domain)) 
+		return True;
+
+	if (strequal(get_global_sam_name(), domain)) 
+		return True;
+	
+	return False;
+}
+
 /* Parse a string of the form DOMAIN/user into a domain and a user */
 
 BOOL parse_domain_user(const char *domuser, fstring domain, fstring user)
@@ -467,10 +536,11 @@ BOOL parse_domain_user(const char *domuser, fstring domain, fstring user)
 	if ( !p ) {
 		fstrcpy(user, domuser);
 		
-		if ( lp_winbind_use_default_domain() )
+		if ( assume_domain(lp_workgroup())) {
 			fstrcpy(domain, lp_workgroup());
-		else
-			fstrcpy( domain, "" );
+		} else {
+			fstrcpy( domain, get_global_sam_name() ); 
+		}
 	} 
 	else {
 		fstrcpy(user, p+1);
@@ -488,13 +558,17 @@ BOOL parse_domain_user(const char *domuser, fstring domain, fstring user)
     'winbind separator' options.
     This means:
 	- omit DOMAIN when 'winbind use default domain = true' and DOMAIN is
-	lp_workgroup
+	lp_workgroup()
+
+    If we are a PDC or BDC, and this is for our domain, do likewise.
+
+    Also, if omit DOMAIN if 'winbind trusted domains only = true', as the 
+    username is then unqualified in unix
 	 
 */
 void fill_domain_username(fstring name, const char *domain, const char *user)
 {
-	if(lp_winbind_use_default_domain() &&
-	    !strcmp(lp_workgroup(), domain)) {
+	if (assume_domain(domain)) {
 		strlcpy(name, user, sizeof(fstring));
 	} else {
 		slprintf(name, sizeof(fstring) - 1, "%s%s%s",
@@ -882,6 +956,5 @@ BOOL get_trust_pw(const char *domain, uint8 ret_pwd[16],
 	}
 	
 	/* Failure */
-	return False;
 }
 

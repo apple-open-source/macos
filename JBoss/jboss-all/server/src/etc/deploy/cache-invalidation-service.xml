@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE server>
-<!-- $Id: cache-invalidation-service.xml,v 1.2.2.3 2003/07/01 10:28:14 slaboure Exp $ -->
+
+<!-- $Id: cache-invalidation-service.xml,v 1.2.2.4 2003/10/13 03:30:22 starksm Exp $ -->
 
 <!-- ===================================================================== -->
 <!--                                                                       -->

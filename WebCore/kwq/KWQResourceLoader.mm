@@ -34,11 +34,10 @@ using KIO::TransferJob;
 
 @implementation KWQResourceLoader
 
-- (id)initWithLoader:(Loader *)loader job:(TransferJob *)job;
+- (id)initWithJob:(TransferJob *)job;
 {
     [super init];
 
-    _loader = loader;
     _job = job;
 
     job->setLoader(self);
@@ -52,20 +51,25 @@ using KIO::TransferJob;
     _handle = [handle retain];
 }
 
-- (void)receivedResponse:(id)response
+- (void)receivedResponse:(NSURLResponse *)response
 {
     ASSERT(response);
-    ASSERT(_loader);
     ASSERT(_job);
-    _loader->receivedResponse(_job, response);
+    _job->emitReceivedResponse(response);
+}
+
+- (void)redirectedToURL:(NSURL *)url
+{
+    ASSERT(url);
+    ASSERT(_job);
+    _job->emitRedirection( KURL(url) );
 }
 
 - (void)addData:(NSData *)data
 {
     ASSERT(data);
-    ASSERT(_loader);
     ASSERT(_job);
-    _loader->slotData(_job, (const char *)[data bytes], [data length]);
+    _job->emitData((const char *)[data bytes], [data length]);
 }
 
 - (void)jobWillBeDeallocated
@@ -86,7 +90,7 @@ using KIO::TransferJob;
     _handle = nil;
 
     if (job) {
-        _loader->slotFinished(job);
+        job->emitResult();
     }
     delete job;
     [handle release];

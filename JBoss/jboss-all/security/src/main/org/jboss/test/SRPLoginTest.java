@@ -8,7 +8,6 @@ import javax.security.auth.login.Configuration;
 import javax.security.auth.login.LoginContext;
 import javax.security.auth.login.LoginException;
 
-import org.jboss.security.SimplePrincipal;
 import org.jboss.security.SecurityPolicy;
 import org.jboss.security.SecurityPolicyParser;
 import org.jboss.security.auth.callback.UsernamePasswordHandler;
@@ -18,7 +17,7 @@ import org.jboss.security.auth.callback.UsernamePasswordHandler;
 @see org.jboss.security.srp.jaas.SRPLoginModule
 
 @author Scott.Stark@jboss.org
-@version $Revision: 1.3 $
+@version $Revision: 1.3.4.1 $
 */
 public class SRPLoginTest extends junit.framework.TestCase
 {

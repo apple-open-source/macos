@@ -10,8 +10,6 @@ package org.jboss.ejb.plugins.cmp.jdbc;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import javax.ejb.EJBException;
 import javax.ejb.NoSuchEntityException;
@@ -20,9 +18,7 @@ import org.jboss.ejb.EntityEnterpriseContext;
 import org.jboss.ejb.plugins.cmp.jdbc.bridge.JDBCFieldBridge;
 import org.jboss.ejb.plugins.cmp.jdbc.bridge.JDBCCMPFieldBridge;
 import org.jboss.ejb.plugins.cmp.jdbc.bridge.JDBCEntityBridge;
-import org.jboss.ejb.plugins.cmp.jdbc.bridge.JDBCCMRFieldBridge;
 import org.jboss.ejb.plugins.cmp.jdbc.metadata.JDBCFunctionMappingMetaData;
-import org.jboss.ejb.plugins.cmp.jdbc.metadata.JDBCReadAheadMetaData;
 import org.jboss.logging.Logger;
 
 /**
@@ -33,40 +29,33 @@ import org.jboss.logging.Logger;
  *
  * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
  * @author <a href="mailto:on@ibis.odessa.ua">Oleg Nitz</a>
- * @author <a href="mailto:rickard.oberg@telkel.com">Rickard Öberg</a>
+ * @author <a href="mailto:rickard.oberg@telkel.com">Rickard ï¿½berg</a>
  * @author <a href="mailto:marc.fleury@telkel.com">Marc Fleury</a>
  * @author <a href="mailto:shevlandj@kpi.com.au">Joe Shevland</a>
  * @author <a href="mailto:justin@j-m-f.demon.co.uk">Justin Forder</a>
  * @author <a href="mailto:dirk@jboss.de">Dirk Zimmermann</a>
  * @author <a href="mailto:danch@nvisia.com">danch (Dan Christopherson)</a>
- * @version $Revision: 1.19.2.10 $
+ * @author <a href="mailto:alex@jboss.org">Alexey Loubyansky</a>
+ * @version $Revision: 1.19.2.20 $
  */
-public class JDBCLoadEntityCommand
+public final class JDBCLoadEntityCommand
 {
    private final JDBCStoreManager manager;
    private final JDBCEntityBridge entity;
    private final Logger log;
+   private final boolean rawLocking;
 
    public JDBCLoadEntityCommand(JDBCStoreManager manager)
    {
       this.manager = manager;
       entity = manager.getEntityBridge();
+      rawLocking = entity.getMetaData().hasRowLocking();
 
       // Create the Log
       log = Logger.getLogger(
-            this.getClass().getName() +
-            "." +
-            manager.getMetaData().getName());
-   }
-
-   /**
-    * Loads entity.
-    * Throws NoSuchEntityException if entity wasn't found.
-    * @param ctx - entity context.
-    */
-   public void execute(EntityEnterpriseContext ctx)
-   {
-      execute(null, ctx);
+              this.getClass().getName() +
+              "." +
+              manager.getMetaData().getName());
    }
 
    /**
@@ -93,6 +82,7 @@ public class JDBCLoadEntityCommand
       execute(requiredField, ctx, true);
    }
 
+
    /**
     * Loads entity or required field.
     * If failIfNotFound is set to true, then NoSuchEntityException is thrown if the
@@ -104,70 +94,74 @@ public class JDBCLoadEntityCommand
     * @param failIfNotFound - whether to fail if entity wasn't loaded.
     * @return true if entity was loaded, false - otherwise.
     */
-   public boolean execute(
-         JDBCCMPFieldBridge requiredField,
-         EntityEnterpriseContext ctx,
-         boolean failIfNotFound) {
-
+   private boolean execute(JDBCCMPFieldBridge requiredField,
+                           EntityEnterpriseContext ctx,
+                           boolean failIfNotFound)
+   {
       // load the instance primary key fields into the context
-      entity.injectPrimaryKeyIntoInstance(ctx, ctx.getId());
+      Object id = ctx.getId();
+      // TODO: when exactly do I need to do the following?
+      entity.injectPrimaryKeyIntoInstance(ctx, id);
 
       // get the read ahead cache
       ReadAheadCache readAheadCache = manager.getReadAheadCache();
 
       // load any preloaded fields into the context
+      //log.info("###### calling loadFromLoadEntity " + entity.getMetaData().getName() + " pk = " + ctx.getId() +  "requiredField: " + requiredField + " thread=" + Thread.currentThread());
       readAheadCache.load(ctx);
+      //log.info("###### done calling loadFromLoadEntity " + entity.getMetaData().getName() + " pk = " + ctx.getId() + " thread=" + Thread.currentThread());
 
       // get the finder results associated with this context, if it exists
-      ReadAheadCache.EntityReadAheadInfo info =
-         readAheadCache.getEntityReadAheadInfo(ctx.getId());
+      ReadAheadCache.EntityReadAheadInfo info = readAheadCache.getEntityReadAheadInfo(id);
 
       // determine the fields to load
-      List loadFields = getLoadFields(requiredField, info.getReadAhead(), ctx);
-
-      // if no there are not load fields return
-      if(loadFields.size() == 0) {
+      JDBCEntityBridge.FieldIterator loadIter = entity.getLoadIterator(requiredField, info.getReadAhead(), ctx);
+      if(!loadIter.hasNext())
          return true;
-      }
 
+      //log.info("###### ejbLoading entity: " + entity.getMetaData().getName() + " thread=" + Thread.currentThread());
       // get the keys to load
       List loadKeys = info.getLoadKeys();
 
       // generate the sql
-      String sql = getSQL(loadFields, loadKeys.size());
+      String sql = (rawLocking ? getRawLockingSQL(loadIter, loadKeys.size()) : getSQL(loadIter, loadKeys.size()));
 
       Connection con = null;
       PreparedStatement ps = null;
-      try {
-         // get the connection
-         con = entity.getDataSource().getConnection();
-
+      ResultSet rs = null;
+      try
+      {
          // create the statement
-         if(log.isDebugEnabled()) {
+         if (log.isDebugEnabled())
+         {
             log.debug("Executing SQL: " + sql);
          }
+
+         // get the connection
+         con = entity.getDataSource().getConnection();
          ps = con.prepareStatement(sql);
 
          // Set the fetch size of the statement
-         if(manager.getEntityBridge().getFetchSize() > 0) {
+         if (manager.getEntityBridge().getFetchSize() > 0)
+         {
             ps.setFetchSize(manager.getEntityBridge().getFetchSize());
          }
 
          // set the parameters
-
          int paramIndex = 1;
-         for(Iterator iter = loadKeys.iterator(); iter.hasNext();) {
-            paramIndex = entity.setPrimaryKeyParameters(
-                  ps, paramIndex, iter.next());
+         for (int i = 0; i < loadKeys.size(); i++)
+         {
+            paramIndex = entity.setPrimaryKeyParameters(ps, paramIndex, loadKeys.get(i));
          }
 
          // execute statement
-         ResultSet rs = ps.executeQuery();
+         rs = ps.executeQuery();
 
          // load results
          boolean mainEntityLoaded = false;
          Object[] ref = new Object[1];
-         while(rs.next()) {
+         while (rs.next())
+         {
             // reset the column index for this row
             int index = 1;
 
@@ -176,26 +170,33 @@ public class JDBCLoadEntityCommand
 
             // if we are loading more then one entity, load the pk from the row
             Object pk = null;
-            if(loadKeys.size() > 1) {
+            if (loadKeys.size() > 1)
+            {
                // load the pk
                index = entity.loadPrimaryKeyResults(rs, index, ref);
                pk = ref[0];
             }
 
             // is this the main entity or a preload entity
-            if(loadKeys.size()==1 || pk.equals(ctx.getId())) {
+            if (loadKeys.size() == 1 || pk.equals(id))
+            {
                // main entity; load the values into the context
-               for(Iterator iter = loadFields.iterator(); iter.hasNext();) {
-                  JDBCFieldBridge field = (JDBCFieldBridge)iter.next();
+               loadIter.reset();
+               while(loadIter.hasNext())
+               {
+                  JDBCCMPFieldBridge field = loadIter.next();
                   index = field.loadInstanceResults(rs, index, ctx);
                   field.setClean(ctx);
                }
                mainEntityLoaded = true;
-            } else {
+            }
+            else
+            {
                // preload entity; load the values into the read ahead cahce
-               for(Iterator iter = loadFields.iterator(); iter.hasNext();) {
-                  JDBCFieldBridge field = (JDBCFieldBridge)iter.next();
-
+               loadIter.reset();
+               while(loadIter.hasNext())
+               {
+                  JDBCCMPFieldBridge field = loadIter.next();
                   // ref must be reset to null before load
                   ref[0] = null;
 
@@ -208,39 +209,81 @@ public class JDBCLoadEntityCommand
             }
          }
 
+         // clear LOAD_REQUIRED flag
+         loadIter.removeAll();
+
          // did we load the main results
-         if(!mainEntityLoaded)
+         if (!mainEntityLoaded)
          {
-            if(failIfNotFound)
+            if (failIfNotFound)
                throw new NoSuchEntityException("Entity not found: primaryKey=" + ctx.getId());
             else
                return false;
          }
          else
             return true;
-      } catch(EJBException e) {
+      }
+      catch (EJBException e)
+      {
          throw e;
-      } catch(Exception e) {
+      }
+      catch (Exception e)
+      {
          throw new EJBException("Load failed", e);
-      } finally {
+      }
+      finally
+      {
+         JDBCUtil.safeClose(rs);
          JDBCUtil.safeClose(ps);
          JDBCUtil.safeClose(con);
       }
    }
 
-   private String getSQL(List loadFields, int keyCount) {
+   private String getSQL(JDBCEntityBridge.FieldIterator loadIter, int keyCount)
+   {
+      StringBuffer sql = new StringBuffer(250);
+      sql.append(SQLUtil.SELECT);
+
+      // if we are loading more then one entity we need to add the primry
+      // key to the load fields to match up the results with the correct entity.
+      JDBCFieldBridge[] primaryKeyFields = entity.getPrimaryKeyFields();
+      if (keyCount > 1)
+      {
+         SQLUtil.getColumnNamesClause(primaryKeyFields, sql);
+         sql.append(SQLUtil.COMMA);
+      }
+      SQLUtil.getColumnNamesClause(loadIter, sql);
+      sql.append(SQLUtil.FROM)
+              .append(entity.getTableName())
+              .append(SQLUtil.WHERE);
+
+      //
+      // where clause
+      String pkWhere = SQLUtil.getWhereClause(primaryKeyFields, new StringBuffer(50)).toString();
+      sql.append('(').append(pkWhere).append(')');
+      for (int i = 1; i < keyCount; i++)
+      {
+         sql.append(SQLUtil.OR).append('(').append(pkWhere).append(')');
+      }
+
+      return sql.toString();
+   }
+
+   private String getRawLockingSQL(JDBCEntityBridge.FieldIterator loadIter, int keyCount)
+   {
       //
       // column names clause
-      StringBuffer columnNamesClause = new StringBuffer();
+      StringBuffer columnNamesClause = new StringBuffer(250);
       // if we are loading more then one entity we need to add the primry
       // key to the load fields to match up the results with the correct
       // entity.
-      if(keyCount > 1) {
-         columnNamesClause.append(SQLUtil.getColumnNamesClause(
-                  entity.getPrimaryKeyFields()));
-         columnNamesClause.append(",");
+      if (keyCount > 1)
+      {
+         SQLUtil.getColumnNamesClause(entity.getPrimaryKeyFields(), columnNamesClause);
+         columnNamesClause.append(SQLUtil.COMMA);
       }
-      columnNamesClause.append(SQLUtil.getColumnNamesClause(loadFields));
+
+      SQLUtil.getColumnNamesClause(loadIter, columnNamesClause);
 
       //
       // table name clause
@@ -248,100 +291,150 @@ public class JDBCLoadEntityCommand
 
       //
       // where clause
-      String pkWhere = SQLUtil.getWhereClause(entity.getPrimaryKeyFields());
-      StringBuffer whereClause = new StringBuffer(
-            (pkWhere.length() + 6) * keyCount + 4);
-      for(int i=0; i<keyCount; i++) {
-         if(i > 0) {
-            whereClause.append(" OR ");
+      String whereClause = SQLUtil.
+              getWhereClause(entity.getPrimaryKeyFields(), new StringBuffer(50)).toString();
+      if (keyCount > 0)
+      {
+         StringBuffer sb = new StringBuffer((whereClause.length() + 6) * keyCount + 4);
+         for (int i = 0; i < keyCount; i++)
+         {
+            if (i > 0)
+               sb.append(SQLUtil.OR);
+            sb.append('(').append(whereClause).append(')');
          }
-         whereClause.append("(").append(pkWhere).append(")");
+         whereClause = sb.toString();
       }
+
+      JDBCFunctionMappingMetaData rowLocking =
+              manager.getMetaData().getTypeMapping().getRowLockingTemplate();
+      if (rowLocking == null)
+      {
+         throw new IllegalStateException(
+                 "row-locking is not allowed for this type of datastore");
+      }
+      else
+      {
+         String[] args = new String[]{
+            columnNamesClause.toString(),
+            tableName,
+            whereClause
+         };
+         return rowLocking.getFunctionSql(args, new StringBuffer(300)).toString();
+      }
+   }
+
+   /*
+   private ArrayList getDeepSQL(long loadMask, int keyCount, StringBuffer theSql)
+   {
+      // table name clause
+      String tableName = entity.getTableName();
 
       //
-      // assemble pieces into final statement
-      if(entity.getMetaData().hasRowLocking()) {
-         JDBCFunctionMappingMetaData rowLocking =
-               manager.getMetaData().getTypeMapping().getRowLockingTemplate();
-         if(rowLocking == null) {
-            throw new IllegalStateException("row-locking is not allowed for " +
-                  "this type of datastore");
-         } else {
-            String[] args = new String[] {
-               columnNamesClause.toString(),
-               tableName,
-               whereClause.toString()};
-            return rowLocking.getFunctionSql(args);
-         }
-      } else {
-         StringBuffer sql = new StringBuffer(
-               7 + columnNamesClause.length() +
-               6 + tableName.length() +
-               7 + whereClause.length());
-
-         sql.append("SELECT ").append(columnNamesClause.toString());
-         sql.append(" FROM ").append(tableName);
-         sql.append(" WHERE ").append(whereClause.toString());
-         return sql.toString();
+      // column names clause
+      StringBuffer columnNamesClause = new StringBuffer(250);
+      StringBuffer leftJoin = new StringBuffer(250);
+      StringBuffer forUpdate = null;
+      if (rowLocking)
+      {
+         forUpdate = new StringBuffer(" FOR UPDATE OF ");
+      }
+      // if we are loading more then one entity we need to add the primry
+      // key to the load fields to match up the results with the correct
+      // entity.
+      if (keyCount > 1)
+      {
+         SQLUtil.getColumnNamesClause(entity.getPrimaryKeyFields(), tableName, columnNamesClause);
+         columnNamesClause.append(SQLUtil.COMMA);
       }
 
-   }
+      SQLUtil.getColumnNamesClause(tableFields, loadMask, tableName, columnNamesClause);
+      if (rowLocking) forUpdate.append(columnNamesClause);
 
-   private List getLoadFields(
-         JDBCCMPFieldBridge requiredField,
-         JDBCReadAheadMetaData readahead,
-         EntityEnterpriseContext ctx) {
 
-      // get the load fields
-      ArrayList loadFields = new ArrayList(entity.getFields().size());
-      if(requiredField == null) {
-
-         if(readahead != null && !readahead.isNone()) {
-            if(log.isTraceEnabled()) {
-               log.trace("Eager-load for entity: readahead=" +  readahead);
+      JDBCCMRFieldBridge[] cmrs = entity.getCMRFields();
+      ArrayList polledCmrs = null;
+      if (cmrs != null)
+      {
+         for (int i = 0; i < cmrs.length; i++)
+         {
+            if (cmrs[i].getMetaData().isDeepReadAhead() == false) continue;
+            JDBCCMP2xFieldBridge[] cmrTableFields = cmrs[i].getForeignKeyFields();
+            if (cmrTableFields == null)
+            {
+               continue;
             }
-            loadFields.addAll(
-                  entity.getLoadGroup(readahead.getEagerLoadGroup()));
-         } else {
-            if(log.isTraceEnabled()) {
-               log.trace("Default eager-load for entity: readahead=" +
-                     readahead);
-            }
-            loadFields.addAll(entity.getEagerLoadFields());
-         }
-      } else {
-         loadFields.add(requiredField);
-         for(Iterator groups = entity.getLazyLoadGroups(); groups.hasNext();) {
-            List group = (List)groups.next();
-            if(group.contains(requiredField)) {
-               for(Iterator fields = group.iterator(); fields.hasNext();) {
-                  JDBCFieldBridge field = (JDBCFieldBridge)fields.next();
-                  if(!loadFields.contains(field)) {
-                     loadFields.add(field);
+            boolean found = false;
+            for (int k = 0; k < cmrTableFields.length && found == false; k++)
+            {
+               JDBCCMPFieldBridge f = cmrTableFields[k].getCmpFieldIAmMappedTo();
+               for (int l = 0; l < tableFields.length; l++)
+               {
+                  if (tableFields[l] == f && (loadMask & tableFields[l].getFieldMask()) != 0)
+                  {
+                     found = true;
+                     break;
                   }
                }
+               for (int l = 0; l < entity.getPrimaryKeyFields().length; l++)
+               {
+                  if (entity.getPrimaryKeyFields()[l] == f)
+                  {
+                     found = true;
+                     break;
+                  }
+
+               }
+            }
+            if (found)
+            {
+               if (polledCmrs == null) polledCmrs = new ArrayList(cmrs.length);
+               polledCmrs.add(cmrs[i]);
+               StringBuffer cmrClause = new StringBuffer(100);
+               columnNamesClause.append(SQLUtil.COMMA);
+               SQLUtil.getColumnNamesClause(cmrs[i].getRelatedJDBCEntity().getTableFields(), cmrs[i].getFieldName(), cmrClause);
+               if (cmrs[i].getRelatedJDBCEntity().getMetaData().hasRowLocking())
+               {
+                  if (forUpdate == null)
+                     forUpdate = new StringBuffer(" FOR UPDATE OF ");
+                  else
+                     forUpdate.append(", ");
+                  forUpdate.append(cmrClause);
+               }
+               columnNamesClause.append(cmrClause);
+               JDBCEntityBridge childEntity = cmrs[i].getRelatedJDBCEntity();
+
+
+               leftJoin.append(SQLUtil.LEFT_OUTER_JOIN)
+                       .append(childEntity.getTableName())
+                       .append(' ')
+                       .append(cmrs[i].getFieldName())
+                       .append(SQLUtil.ON);
+               SQLUtil.getJoinClause(cmrs[i], tableName, cmrs[i].getFieldName(), leftJoin);
+               leftJoin.append(" ");
             }
          }
       }
-
-      // remove any field that is a member of the primary key
-      // or has not timed out or is already loaded
-      for(Iterator fields = loadFields.iterator(); fields.hasNext();) {
-         JDBCFieldBridge field = (JDBCFieldBridge)fields.next();
-
-         // the field removed from loadFields if:
-         // - it is a primary key member (should already be loaded)
-         // - it is already loaded
-         // - it is a read-only _already_loaded_ field that isn't timed out yet
-         // - it is a CMR field with a foreign key mapped to a pk
-         if(field.isPrimaryKeyMember()
-            || field.isLoaded( ctx )
-               && (!field.isReadOnly() || !field.isReadTimedOut(ctx))
-            || field instanceof JDBCCMRFieldBridge
-               && ((JDBCCMRFieldBridge)field).allFkFieldsMappedToPkFields()) {
-            fields.remove();
+      //
+      // where clause
+      String whereClause = SQLUtil.getWhereClause(entity.getPrimaryKeyFields(), new StringBuffer(50)).toString();
+      if (keyCount > 0)
+      {
+         StringBuffer sb = new StringBuffer((whereClause.length() + 6) * keyCount + 4);
+         for (int i = 0; i < keyCount; i++)
+         {
+            if (i > 0)
+               sb.append(SQLUtil.OR);
+            sb.append('(').append(whereClause).append(')');
          }
+         whereClause = sb.toString();
       }
-      return loadFields;
+
+      theSql.append("SELECT ");
+      theSql.append(columnNamesClause.toString());
+      theSql.append(" FROM ").append(tableName).append(" ").append(leftJoin).append(" WHERE ").append(whereClause);
+      if (forUpdate != null) theSql.append(forUpdate);
+
+      return polledCmrs;
    }
+   */
 }

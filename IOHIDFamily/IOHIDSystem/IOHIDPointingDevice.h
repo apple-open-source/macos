@@ -52,6 +52,10 @@ public:
     virtual IOReturn newReportDescriptor(
                         IOMemoryDescriptor ** descriptor ) const;
                                                                 
+    virtual IOReturn getReport( IOMemoryDescriptor * report,
+                                 IOHIDReportType      reportType,
+                                 IOOptionBits         options );
+
     virtual void postMouseEvent(UInt8 buttons, UInt16 x, UInt16 y, UInt8 wheel=0);
     
     inline bool isScrollPresent() {return _isScrollPresent;}

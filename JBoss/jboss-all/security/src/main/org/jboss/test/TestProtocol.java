@@ -6,11 +6,9 @@
  */
 package org.jboss.test;
 
-import java.io.Serializable;
 import java.math.BigInteger;
 import java.rmi.RemoteException;
 import java.security.KeyException;
-import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 import org.apache.log4j.Category;
@@ -30,7 +28,7 @@ import org.jboss.security.srp.SRPServerSession;
 /** Test of the SRP protocol msg exchange sequence.
  
  @author Scott.Stark@jboss.org
- @version $Revision: 1.7.2.2 $
+ @version $Revision: 1.7.2.3 $
  */
 public class TestProtocol extends junit.framework.TestCase
 {

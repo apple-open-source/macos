@@ -108,16 +108,21 @@ void HTMLHRElementImpl::parseAttribute(AttributeImpl *attr)
 {
     switch( attr->id() )
     {
-    case ATTR_ALIGN:
-        if ( strcasecmp( attr->value(), "left") != 0) // _not_ equal
-            addCSSProperty(CSS_PROP_MARGIN_LEFT, CSS_VAL_AUTO);
-        else
-            addCSSProperty(CSS_PROP_MARGIN_LEFT, "1px");
-        if( strcasecmp( attr->value(), "right") != 0)
+    case ATTR_ALIGN: {
+        if (strcasecmp(attr->value(), "left") == 0) {
+            addCSSProperty(CSS_PROP_MARGIN_LEFT, "0");
+	    addCSSProperty(CSS_PROP_MARGIN_RIGHT, CSS_VAL_AUTO);
+	}
+        else if (strcasecmp(attr->value(), "right") == 0) {
+	    addCSSProperty(CSS_PROP_MARGIN_LEFT, CSS_VAL_AUTO);
+	    addCSSProperty(CSS_PROP_MARGIN_RIGHT, "0");
+	}
+	else {
+      	    addCSSProperty(CSS_PROP_MARGIN_LEFT, CSS_VAL_AUTO);
             addCSSProperty(CSS_PROP_MARGIN_RIGHT, CSS_VAL_AUTO);
-        else
-            addCSSProperty(CSS_PROP_MARGIN_RIGHT, "1px");
+	}
         break;
+    }
     case ATTR_WIDTH:
     {
         if(!attr->val()) break;
@@ -231,6 +236,106 @@ long HTMLPreElementImpl::width() const
 void HTMLPreElementImpl::setWidth( long /*w*/ )
 {
     // ###
+}
+
+// -------------------------------------------------------------------------
+
+ // WinIE uses 60ms as the minimum delay by default.
+const int defaultMinimumDelay = 60;
+
+HTMLMarqueeElementImpl::HTMLMarqueeElementImpl(DocumentPtr *doc)
+: HTMLElementImpl(doc),
+  m_minimumDelay(defaultMinimumDelay)
+{
+}
+
+NodeImpl::Id HTMLMarqueeElementImpl::id() const
+{
+    return ID_MARQUEE;
+}
+
+void HTMLMarqueeElementImpl::parseAttribute(AttributeImpl *attr)
+{
+    switch(attr->id())
+    {
+        case ATTR_WIDTH:
+            if (!attr->value().isEmpty())
+                addCSSLength(CSS_PROP_WIDTH, attr->value());
+            else
+                removeCSSProperty(CSS_PROP_WIDTH);
+            break;
+        case ATTR_HEIGHT:
+            if (!attr->value().isEmpty())
+                addCSSLength(CSS_PROP_HEIGHT, attr->value());
+            else
+                removeCSSProperty(CSS_PROP_HEIGHT);
+            break;
+        case ATTR_BGCOLOR:
+            if (!attr->value().isEmpty())
+                addHTMLColor(CSS_PROP_BACKGROUND_COLOR, attr->value());
+            else
+                removeCSSProperty(CSS_PROP_BACKGROUND_COLOR);
+            break;
+        case ATTR_VSPACE:
+            if (!attr->value().isEmpty()) {
+                addCSSLength(CSS_PROP_MARGIN_TOP, attr->value());
+                addCSSLength(CSS_PROP_MARGIN_BOTTOM, attr->value());
+            }
+            else {
+                removeCSSProperty(CSS_PROP_MARGIN_TOP);
+                removeCSSProperty(CSS_PROP_MARGIN_BOTTOM);
+            }
+            break;
+        case ATTR_HSPACE:
+            if (!attr->value().isEmpty()) {
+                addCSSLength(CSS_PROP_MARGIN_LEFT, attr->value());
+                addCSSLength(CSS_PROP_MARGIN_RIGHT, attr->value());
+            }
+            else {
+                removeCSSProperty(CSS_PROP_MARGIN_LEFT);
+                removeCSSProperty(CSS_PROP_MARGIN_RIGHT);
+            }
+            break;
+        case ATTR_SCROLLAMOUNT:
+            if (!attr->value().isEmpty())
+                addCSSLength(CSS_PROP__KHTML_MARQUEE_INCREMENT, attr->value());
+            else
+                removeCSSProperty(CSS_PROP__KHTML_MARQUEE_INCREMENT);
+            break;
+        case ATTR_SCROLLDELAY:
+            if (!attr->value().isEmpty())
+                addCSSLength(CSS_PROP__KHTML_MARQUEE_SPEED, attr->value());
+            else
+                removeCSSProperty(CSS_PROP__KHTML_MARQUEE_SPEED);
+            break;
+        case ATTR_LOOP:
+            if (!attr->value().isEmpty()) {
+                if (attr->value() == "-1" || strcasecmp(attr->value(), "infinite") == 0)
+                    addCSSProperty(CSS_PROP__KHTML_MARQUEE_REPETITION, CSS_VAL_INFINITE);
+                else
+                    addCSSLength(CSS_PROP__KHTML_MARQUEE_REPETITION, attr->value());
+            }
+            else
+                removeCSSProperty(CSS_PROP__KHTML_MARQUEE_REPETITION);
+            break;
+        case ATTR_BEHAVIOR:
+            if (!attr->value().isEmpty())
+                addCSSProperty(CSS_PROP__KHTML_MARQUEE_STYLE, attr->value());
+            else
+                removeCSSProperty(CSS_PROP__KHTML_MARQUEE_STYLE);
+            break;
+        case ATTR_DIRECTION:
+            if (!attr->value().isEmpty())
+                addCSSProperty(CSS_PROP__KHTML_MARQUEE_DIRECTION, attr->value());
+            else
+                removeCSSProperty(CSS_PROP__KHTML_MARQUEE_DIRECTION);
+            break;
+        case ATTR_TRUESPEED:
+            m_minimumDelay = attr->val() ? 0 : defaultMinimumDelay;
+            break;
+        default:
+            HTMLElementImpl::parseAttribute(attr);
+    }
 }
 
 // ------------------------------------------------------------------------

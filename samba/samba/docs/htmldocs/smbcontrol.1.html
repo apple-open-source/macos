@@ -1,4 +1,4 @@
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>smbcontrol</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.60.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="smbcontrol.1"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2>Name</h2><p>smbcontrol &#8212; send messages to smbd, nmbd or winbindd processes</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><tt class="command">smbcontrol</tt>  [-i] [-s]</p></div><div class="cmdsynopsis"><p><tt class="command">smbcontrol</tt>  [destination] [message-type] [parameter]</p></div></div><div class="refsect1" lang="en"><h2>DESCRIPTION</h2><p>This tool is part of the <a href="Samba.7.html"><span class="citerefentry"><span class="refentrytitle">Samba</span>(7)</span></a> suite.</p><p><b class="command">smbcontrol</b> is a very small program, which 
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>smbcontrol</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.61.2"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="smbcontrol.1"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2>Name</h2><p>smbcontrol &#8212; send messages to smbd, nmbd or winbindd processes</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><tt class="command">smbcontrol</tt>  [-i] [-s]</p></div><div class="cmdsynopsis"><p><tt class="command">smbcontrol</tt>  [destination] [message-type] [parameter]</p></div></div><div class="refsect1" lang="en"><h2>DESCRIPTION</h2><p>This tool is part of the <a href="Samba.7.html"><span class="citerefentry"><span class="refentrytitle">Samba</span>(7)</span></a> suite.</p><p><b class="command">smbcontrol</b> is a very small program, which 
 	sends messages to a <a href="smbd.8.html"><span class="citerefentry"><span class="refentrytitle">smbd</span>(8)</span></a>, a <a href="nmbd.8.html"><span class="citerefentry"><span class="refentrytitle">nmbd</span>(8)</span></a>, or a <a href="winbindd.8.html"><span class="citerefentry"><span class="refentrytitle">winbindd</span>(8)</span></a> daemon running on the system.</p></div><div class="refsect1" lang="en"><h2>OPTIONS</h2><div class="variablelist"><dl><dt><span class="term">-h|--help</span></dt><dd><p>Print a summary of command line options.
 </p></dd><dt><span class="term">-s &lt;configuration file&gt;</span></dt><dd><p>The file specified contains the 
 configuration details required by the server.  The 
@@ -9,9 +9,9 @@ to provide. See <tt class="filename">smb.conf</tt> for more information.
 The default configuration file name is determined at 
 compile time.</p></dd><dt><span class="term">-i</span></dt><dd><p>Run interactively. Individual commands 
 		of the form destination message-type parameters can be entered 
-		on STDIN. An empty command line or a &quot;q&quot; will quit the 
+		on STDIN. An empty command line or a "q" will quit the 
 		program.</p></dd><dt><span class="term">destination</span></dt><dd><p>One of <i class="parameter"><tt>nmbd</tt></i>, <i class="parameter"><tt>smbd</tt></i> or a process ID.</p><p>The <i class="parameter"><tt>smbd</tt></i> destination causes the 
-		message to &quot;broadcast&quot; to all smbd daemons.</p><p>The <i class="parameter"><tt>nmbd</tt></i> destination causes the 
+		message to "broadcast" to all smbd daemons.</p><p>The <i class="parameter"><tt>nmbd</tt></i> destination causes the 
 		message to be sent to the nmbd daemon specified in the 
 		<tt class="filename">nmbd.pid</tt> file.</p><p>If a single process ID is given, the message is sent 
 		to only that process.</p></dd><dt><span class="term">message-type</span></dt><dd><p>Type of message to send. See 
@@ -20,18 +20,18 @@ compile time.</p></dd><dt><span class="term">-i</span></dt><dd><p>Run interactiv
 	connections to the named share. Note that this doesn't affect client 
 	connections to any other shares. This message-type takes an argument of the
 	share name for which client connections will be closed, or the
-	&quot;*&quot; character which will close all currently open shares.
+	"*" character which will close all currently open shares.
 	This may be useful if you made changes to the access controls on the share.
 	This message can only be sent to <tt class="constant">smbd</tt>.</p></dd><dt><span class="term">debug</span></dt><dd><p>Set debug level to the value specified by the 
 	parameter. This can be sent to any of the destinations.</p></dd><dt><span class="term">force-election</span></dt><dd><p>This message causes the <b class="command">nmbd</b> daemon to 
 	force a new browse master election. </p></dd><dt><span class="term">ping</span></dt><dd><p>
-	Send specified number of &quot;ping&quot; messages and 
-	wait for the same number of  reply &quot;pong&quot; messages. This can be sent to 
+	Send specified number of "ping" messages and 
+	wait for the same number of  reply "pong" messages. This can be sent to 
 	any of the destinations.</p></dd><dt><span class="term">profile</span></dt><dd><p>Change profile settings of a daemon, based on the 
-	parameter. The parameter can be &quot;on&quot; to turn on profile stats 
-	collection, &quot;off&quot; to turn off profile stats collection, &quot;count&quot;
+	parameter. The parameter can be "on" to turn on profile stats 
+	collection, "off" to turn off profile stats collection, "count"
 	to enable only collection of count stats (time stats are 
-	disabled), and &quot;flush&quot; to zero the current profile stats. This can 
+	disabled), and "flush" to zero the current profile stats. This can 
 	be sent to any smbd or nmbd destinations.</p></dd><dt><span class="term">debuglevel</span></dt><dd><p>
 	Request debuglevel of a certain daemon and write it to stdout. This 
 	can be sent to any of the destinations.</p></dd><dt><span class="term">profilelevel</span></dt><dd><p>

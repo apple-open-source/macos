@@ -1,4 +1,3 @@
-
 /*
  * JBoss, the OpenSource J2EE webOS
  *
@@ -6,47 +5,34 @@
  * See terms of license at gnu.org.
  *
  */
-
 package org.jboss.resource.connectionmanager;
 
 import javax.resource.spi.ConnectionRequestInfo;
 
-
-import javax.security.auth.Subject;
-
-
-import javax.resource.spi.ManagedConnection;
-
-
-
 /**
- * ConnectionRecord.java
- *
- *
- * Created: Sat Jan  5 19:55:24 2002
+ * Information about a connection
  *
  * @author <a href="mailto:d_jencks@users.sourceforge.net">David Jencks</a>
- * @version
+ * @author <a href="mailto:adrian@jboss.org">Adrian Brock</a>
+ * @version $Revision: 1.1.4.1 $
  */
-
 public class ConnectionRecord 
 {
-   ManagedConnection mc;
+   ConnectionListener cl;
    final Object connection;
    final ConnectionRequestInfo cri;
 
-   public ConnectionRecord (final ManagedConnection mc, 
+   public ConnectionRecord (final ConnectionListener cl, 
                             final Object connection, 
                             final ConnectionRequestInfo cri)
    {
-      this.mc = mc;
+      this.cl = cl;
       this.connection = connection;
       this.cri = cri;
    }
 
-   void setManagedConnection(final ManagedConnection mc)
+   void setConnectionListener(final ConnectionListener cl)
    {
-      this.mc = mc;
-   }
-   
-}// ConnectionRecord
+      this.cl = cl;
+   }  
+}

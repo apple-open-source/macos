@@ -3,22 +3,21 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
+ * "Portions Copyright (c) 2000 Apple Computer, Inc.  All Rights
+ * Reserved.  This file contains Original Code and/or Modifications of
+ * Original Code as defined in and that are subject to the Apple Public
+ * Source License Version 1.1 (the 'License').  You may not use this file
+ * except in compliance with the License.  Please obtain a copy of the
+ * License at http://www.apple.com/publicsource and read it before using
+ * this file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License."
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -236,10 +235,46 @@ readboot(dosfs, boot)
 		break;
 	}
 
+	/*
+	 * Verify that the FAT is large enough to hold the number of clusters
+	 * that we think the volume has.  Some digital cameras, and our own
+	 * newfs_msdos, can create volumes whose total sector count is too large.
+	 */
 	if (boot->NumFatEntries < boot->NumClusters) {
-		pfatal("FAT size too small, %u entries won't fit into %u sectors\n",
+		pwarn("FAT size too small, %u entries won't fit into %u sectors\n",
 		       boot->NumClusters, boot->FATsecs);
-		return FSFATAL;
+		boot->NumClusters = boot->NumFatEntries;
+		if (ask(0, "Fix total sectors")) {
+			/* Need to recompute sectors based on clusters */
+			boot->NumSectors = (boot->NumClusters * boot->SecPerClust) + boot->ClusterOffset;
+			if (boot->Sectors) {
+				boot->Sectors = boot->NumSectors;
+				block[19] = boot->NumSectors & 0xFF;
+				block[20] = (boot->NumSectors >> 8) & 0xFF;
+			} else {
+				boot->HugeSectors = boot->NumSectors;
+				block[32] = boot->NumSectors & 0xFF;
+				block[33] = (boot->NumSectors >> 8) & 0xFF;
+				block[34] = (boot->NumSectors >> 16) & 0xFF;
+				block[35] = (boot->NumSectors >> 24) & 0xFF;
+			}
+			if (lseek(dosfs, 0, SEEK_SET) != 0 ||
+				write(dosfs, block, boot->BytesPerSec) != boot->BytesPerSec)
+			{
+				perror("could not write boot sector");
+				return FSFATAL;
+			}
+			ret |= FSBOOTMOD;	/* This flag is currently ignored by checkfilesys() */
+		} else {
+			pwarn("Continuing, assuming %u clusters\n", boot->NumFatEntries-2);
+			/*
+			 * We don't return an error here, so Mac OS X will automatically
+			 * mount the volume without attempting to repair the disk just
+			 * because of this problem (though it will end up fixing this
+			 * problem if there was some other problem that had to be repaired
+			 * before mounting).
+			 */
+		}
 	}
 	boot->ClusterSize = boot->BytesPerSec * boot->SecPerClust;
 

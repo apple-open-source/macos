@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: rap.c,v 1.2 2002/01/08 21:50:57 conrad Exp $
+ * $Id: rap.c,v 1.2.278.1 2004/01/27 22:00:48 lindak Exp $
  *
  * This is very simple implementation of RAP protocol.
  */
@@ -198,7 +198,7 @@ smb_rap_create(int fn, const char *param, const char *data,
 
 	rap = malloc(sizeof(*rap));
 	if (rap == NULL)
-		return NULL;
+		return ENOMEM;
 	bzero(rap, sizeof(*rap));
 	p = rap->r_sparam = rap->r_nparam = strdup(param);
 	rap->r_sdata = rap->r_ndata = strdup(data);

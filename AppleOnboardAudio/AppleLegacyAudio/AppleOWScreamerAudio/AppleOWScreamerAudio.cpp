@@ -72,7 +72,7 @@ static void writeCodecControlReg( volatile awacsOW_regmap_t *ioBaseAwacs, int va
   int          CodecControlReg;
 
 #ifdef DEBUGMODE
-      DEBUG_IOLOG( "PPCSound(awacs): CodecControlReg @ %08x = %08x\n", (int)&ioBaseAwacs->CodecControlRegister, value);
+      debugIOLog (3,  "PPCSound(awacs): CodecControlReg @ %08x = %08x", (int)&ioBaseAwacs->CodecControlRegister, value);
 #endif
 
   OSWriteLittleInt32(&ioBaseAwacs->CodecControlRegister, 0, value );
@@ -89,7 +89,7 @@ static void writeCodecControlReg( volatile awacsOW_regmap_t *ioBaseAwacs, int va
 static void writeSoundControlReg( volatile awacsOW_regmap_t *ioBaseAwacs, int value )
 {
 
-  DEBUG2_IOLOG( "PPCSound(awacs): SoundControlReg = %08x\n", value);
+  debugIOLog (3,  "PPCSound(awacs): SoundControlReg = %08x", value);
   OSWriteLittleInt32( &ioBaseAwacs->SoundControlRegister, 0, value );
   eieio();
 }
@@ -117,7 +117,7 @@ OSDefineMetaClassAndStructors(AppleOWScreamerAudio, IOAudioDevice)
 
 bool AppleOWScreamerAudio::init(OSDictionary *properties)
 {
-    CLOG("+AppleOWScreamerAudio::init\n");
+    debugIOLog (3, "+AppleOWScreamerAudio::init");
     if (!super::init(properties)) {
         return false;
     }
@@ -128,29 +128,29 @@ bool AppleOWScreamerAudio::init(OSDictionary *properties)
     curActiveSpkr = kCpuSpkr;
     gVolLeft = 255;
     gVolRight = 255;
-    CLOG("-AppleOWScreamerAudio::init\n");
+    debugIOLog (3, "-AppleOWScreamerAudio::init");
     return true;
 }
 
 void AppleOWScreamerAudio::free()
 {
-    CLOG("+AppleOWScreamerAudio::free\n");
+    debugIOLog (3, "+AppleOWScreamerAudio::free");
     super::free();
-    CLOG("-AppleOWScreamerAudio::free\n");
+    debugIOLog (3, "-AppleOWScreamerAudio::free");
 }
 
 void AppleOWScreamerAudio::retain() const
 {
-    CLOG("+AppleOWScreamerAudio::retain\n");
+    debugIOLog (3, "+AppleOWScreamerAudio::retain");
     super::retain();
-    CLOG("-AppleOWScreamerAudio::retain\n");
+    debugIOLog (3, "-AppleOWScreamerAudio::retain");
 }
 
 void AppleOWScreamerAudio::release() const
 {
-    CLOG("+AppleOWScreamerAudio::release\n");
+    debugIOLog (3, "+AppleOWScreamerAudio::release");
     super::release();
-    CLOG("-AppleOWScreamerAudio::release\n");
+    debugIOLog (3, "-AppleOWScreamerAudio::release");
 }
 
 bool AppleOWScreamerAudio::start(IOService *provider)
@@ -161,7 +161,7 @@ bool AppleOWScreamerAudio::start(IOService *provider)
     IORegistryEntry *		sound = 0;
     AbsoluteTime		timerInterval;
 
-    CLOG("+ AppleOWScreamerAudio::start\n");
+    debugIOLog (3, "+ AppleOWScreamerAudio::start");
     setManufacturerName("Apple");
     setDeviceName("Built-in audio controller");
     
@@ -239,20 +239,20 @@ bool AppleOWScreamerAudio::start(IOService *provider)
 		driverDMAEngine->setSampleLatencies (kScreamerOWSampleLatency, kScreamerOWSampleLatency);
 
     duringInitialization = false;
-    CLOG("- AppleOWScreamerAudio::start\n");
+    debugIOLog (3, "- AppleOWScreamerAudio::start");
     return true;
 }
 
 void AppleOWScreamerAudio::stop(IOService *provider)
 {
-    CLOG("- AppleOWScreamerAudio::stop\n");
+    debugIOLog (3, "- AppleOWScreamerAudio::stop");
     super::stop(provider);
-    CLOG("- AppleOWScreamerAudio::stop\n");
+    debugIOLog (3, "- AppleOWScreamerAudio::stop");
 }
 
 void AppleOWScreamerAudio::initHardware()
 {
-    CLOG("+ AppleOWScreamerAudio::initHardware\n");
+    debugIOLog (3, "+ AppleOWScreamerAudio::initHardware");
     codecStatus = readCodecStatusReg( ioBase );
     awacsVersion = (codecStatus & kRevisionNumberMask) >> kRevisionNumberShft;
 
@@ -290,12 +290,12 @@ void AppleOWScreamerAudio::initHardware()
     writeCodecControlReg(  ioBase, codecControlRegister[2] );
     writeCodecControlReg(  ioBase, codecControlRegister[4] );
     
-    CLOG("- AppleOWScreamerAudio::initHardware\n");
+    debugIOLog (3, "- AppleOWScreamerAudio::initHardware");
 }
 
 void AppleOWScreamerAudio::recalibrate()
 {
-    CLOG("+ AppleOWScreamerAudio::recalibrate\n");
+    debugIOLog (3, "+ AppleOWScreamerAudio::recalibrate");
     UInt32 tempCodecControlReg1;
 
     tempCodecControlReg1 = codecControlRegister[1];
@@ -307,12 +307,12 @@ void AppleOWScreamerAudio::recalibrate()
     writeCodecControlReg(ioBase, tempCodecControlReg1);
     IOSleep(10);
     writeCodecControlReg(ioBase, codecControlRegister[1]);
-    CLOG("- AppleOWScreamerAudio::recalibrate\n");
+    debugIOLog (3, "- AppleOWScreamerAudio::recalibrate");
 }
 
 IOService* AppleOWScreamerAudio::probe(IOService *provider, SInt32* score){
     IORegistryEntry *sound = 0;
-    CLOG("+ AppleOWScreamerAudio::probe\n");
+    debugIOLog (3, "+ AppleOWScreamerAudio::probe");
     
     super::probe(provider, score);
     *score = kIODefaultProbeScore;
@@ -382,7 +382,7 @@ bool AppleOWScreamerAudio::createPorts(IOAudioEngine *driverDMAEngine)
     IOAudioPort *inputPort = 0;
     IOAudioPort *passThru = 0;
 
-    CLOG("+ AppleOWScreamerAudio::createPorts\n");
+    debugIOLog (3, "+ AppleOWScreamerAudio::createPorts");
     if (!driverDMAEngine) {
         return false;
     }
@@ -547,7 +547,7 @@ bool AppleOWScreamerAudio::createPorts(IOAudioEngine *driverDMAEngine)
     outputPort->release();
     passThru->release();
     
-    CLOG("- AppleOWScreamerAudio::createPorts\n");
+    debugIOLog (3, "- AppleOWScreamerAudio::createPorts");
     return true;
 }
 
@@ -738,7 +738,7 @@ IOReturn   AppleOWScreamerAudio::sndHWSetProgOutput(UInt32 outputBits){
     IOReturn result; 
 	
     result = kIOReturnError;
-    FAIL_IF((outputBits & (kSndHWProgOutput0 | kSndHWProgOutput1)) != outputBits, EXIT);
+    FailIf((outputBits & (kSndHWProgOutput0 | kSndHWProgOutput1)) != outputBits, EXIT);
     
     result = kIOReturnSuccess;
     progOutputReg = sndHWGetRegister(kAWACsProgOutputReg) & ~kAWACsProgOutputField;
@@ -839,7 +839,7 @@ UInt32 	 AppleOWScreamerAudio::sndHWGetActiveInputExclusive(void){
             if (pcmciaReg == kAWACsPCMCIAOn)
                 input = kSndHWInput4;
             else if (inputReg != 0)
-                CLOG("Invalid input setting\n");
+                debugIOLog (3, "Invalid input setting");
             break;
     }
 	

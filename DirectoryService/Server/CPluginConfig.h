@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -42,26 +40,26 @@
 #define	kConfigFilePath		"/Library/Preferences/DirectoryService/DirectoryService.plist"
 #define kDefaultConfig		"<dict>\
 	<key>Version</key>\
-	<string>1.0</string>\
+	<string>1.1</string>\
 	<key>BSD</key>\
 	<string>Inactive</string>\
 	<key>AppleTalk</key>\
-	<string>Inactive</string>\
+	<string>Active</string>\
 	<key>Active Directory</key>\
 	<string>Inactive</string>\
 </dict>"
 #define kServerDefaultConfig	"<dict>\
 	<key>Version</key>\
-	<string>1.0</string>\
+	<string>1.1</string>\
 	<key>AppleTalk</key>\
-	<string>Inactive</string>\
+	<string>Active</string>\
 	<key>Active Directory</key>\
 	<string>Inactive</string>\
 </dict>"
 #define	kJaguarUpdateFilePath		"/Library/Preferences/DirectoryService/.DSJaguarUpdate"
 #define kDefaultUpgradeConfig		"<dict>\
 	<key>Version</key>\
-	<string>1.0</string>\
+	<string>1.1</string>\
 	<key>BSD</key>\
 	<string>Inactive</string>\
 	<key>Active Directory</key>\
@@ -69,10 +67,13 @@
 </dict>"
 #define kServerDefaultUpgradeConfig	"<dict>\
 	<key>Version</key>\
-	<string>1.0</string>\
+	<string>1.1</string>\
 	<key>Active Directory</key>\
 	<string>Inactive</string>\
 </dict>"
+
+#define kVersionKey			"Version"
+#define kAppleTalkPluginKey "AppleTalk"
 
 #define	kActiveValue		"Active"
 #define kInactiveValue		"Inactive"

@@ -7,7 +7,6 @@
 package org.jboss.security;
 
 import java.io.InputStream;
-import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -25,15 +24,10 @@ import javax.security.auth.login.AppConfigurationEntry;
 import javax.security.auth.login.AppConfigurationEntry.LoginModuleControlFlag;
 
 import org.w3c.dom.Document;
-import org.w3c.dom.DOMException;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
-import org.w3c.dom.NamedNodeMap;
-
 import org.xml.sax.InputSource;
-import org.xml.sax.SAXException;
-import org.xml.sax.SAXParseException;
 import org.xml.sax.EntityResolver;
 
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -44,7 +38,7 @@ import javax.xml.parsers.DocumentBuilder;
 DTD that implements IAppPolicyStore for use with the SecurityPolicy class.
 
 @author Scott.Stark@jboss.org
-@version $Revision: 1.2 $
+@version $Revision: 1.2.4.1 $
 */
 public class SecurityPolicyParser implements IAppPolicyStore
 {

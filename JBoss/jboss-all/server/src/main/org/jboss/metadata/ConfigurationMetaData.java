@@ -16,7 +16,7 @@ import org.w3c.dom.Element;
 /** The configuration information for an EJB container.
  *   @author <a href="mailto:sebastien.alborini@m4x.org">Sebastien Alborini</a>
  *   @author <a href="mailto:scott.stark@jboss.org">Scott Stark</a>
- *   @version $Revision: 1.30.2.7 $
+ *   @version $Revision: 1.30.2.8 $
  */
 public class ConfigurationMetaData extends MetaData
 {
@@ -52,6 +52,8 @@ public class ConfigurationMetaData extends MetaData
    private long optionDRefreshRate = 30000;
    private boolean callLogging;
    private boolean syncOnCommitOnly = false;
+   /** if true, INSERT will be issued after ejbPostCreate */
+   private boolean insertAfterEjbPostCreate = false;
    /** The container level security domain */
    private String securityDomain;
    /** The container default invoker binding name */
@@ -142,6 +144,11 @@ public class ConfigurationMetaData extends MetaData
       return syncOnCommitOnly;
    }
 
+   public boolean isInsertAfterEjbPostCreate()
+   {
+      return insertAfterEjbPostCreate;
+   }
+
    public byte getCommitOption()
    {
       return commitOption;
@@ -173,6 +180,9 @@ public class ConfigurationMetaData extends MetaData
 
       // set synchronize on commit only
       syncOnCommitOnly = Boolean.valueOf(getElementContent(getOptionalChild(element, "sync-on-commit-only"), String.valueOf(syncOnCommitOnly))).booleanValue();
+
+      // set insert-after-ejb-post-create
+      insertAfterEjbPostCreate = Boolean.valueOf(getElementContent(getOptionalChild(element, "insert-after-ejb-post-create"), String.valueOf(insertAfterEjbPostCreate))).booleanValue();
 
       // set the instance pool
       instancePool = getElementContent(getOptionalChild(element, "instance-pool"), instancePool);

@@ -21,6 +21,7 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
+#include "includes.h"
 #include "winbindd.h"
 
 #undef DBGC_CLASS
@@ -35,6 +36,8 @@ enum winbindd_result winbindd_check_machine_acct(struct winbindd_cli_state *stat
         int num_retries = 0;
         struct cli_state *cli;
 	uint32 sec_channel_type;
+	struct winbindd_domain *contact_domain;
+
 	DEBUG(3, ("[%5lu]: check machine account\n", (unsigned long)state->pid));
 
 	/* Get trust account password */
@@ -46,11 +49,20 @@ enum winbindd_result winbindd_check_machine_acct(struct winbindd_cli_state *stat
 		goto done;
 	}
 
+
+	contact_domain = find_our_domain();
+        if (!contact_domain) {
+		result = NT_STATUS_CANT_ACCESS_DOMAIN_INFO;
+                DEBUG(1, ("Cannot find our own domain!\n"));
+                goto done;
+        }
+	
         /* This call does a cli_nt_setup_creds() which implicitly checks
            the trust account password. */
-
 	/* Don't shut this down - it belongs to the connection cache code */
-        result = cm_get_netlogon_cli(lp_workgroup(), trust_passwd, sec_channel_type, True, &cli);
+	
+        result = cm_get_netlogon_cli(contact_domain,
+		trust_passwd, sec_channel_type, True, &cli);
 
         if (!NT_STATUS_IS_OK(result)) {
                 DEBUG(3, ("could not open handle to NETLOGON pipe\n"));
@@ -111,7 +123,7 @@ enum winbindd_result winbindd_list_trusted_domains(struct winbindd_cli_state
 
 		/* Skip own domain */
 
-		if (strequal(domain->name, lp_workgroup())) continue;
+		if (domain->primary) continue;
 
 		/* Add domain to list */
 
@@ -186,6 +198,36 @@ enum winbindd_result winbindd_show_sequence(struct winbindd_cli_state *state)
 	state->response.extra_data = extra_data;
 	/* must add one to length to copy the 0 for string termination */
 	state->response.length += strlen(extra_data) + 1;
+
+	return WINBINDD_OK;
+}
+
+enum winbindd_result winbindd_domain_info(struct winbindd_cli_state *state)
+{
+	struct winbindd_domain *domain;
+
+	DEBUG(3, ("[%5lu]: domain_info [%s]\n", (unsigned long)state->pid,
+		  state->request.domain_name));
+
+	domain = find_domain_from_name(state->request.domain_name);
+
+	if (domain == NULL) {
+		DEBUG(3, ("Did not find domain [%s]\n",
+			  state->request.domain_name));
+		return WINBINDD_ERROR;
+	}
+
+	fstrcpy(state->response.data.domain_info.name, domain->name);
+	fstrcpy(state->response.data.domain_info.alt_name, domain->alt_name);
+	fstrcpy(state->response.data.domain_info.sid,
+		sid_string_static(&domain->sid));
+	
+	state->response.data.domain_info.native_mode = domain->native_mode;
+	state->response.data.domain_info.active_directory = domain->active_directory;
+	state->response.data.domain_info.primary = domain->primary;
+
+	state->response.data.domain_info.sequence_number =
+		domain->sequence_number;
 
 	return WINBINDD_OK;
 }

@@ -5,7 +5,7 @@
  * See terms of license at gnu.org.
  */
 
-// $Id: JBossWebApplicationContext.java,v 1.49.2.13 2003/03/19 16:23:45 starksm Exp $
+// $Id: JBossWebApplicationContext.java,v 1.49.2.14 2003/07/26 11:49:40 jules_gosnell Exp $
 
 // A Jetty HttpServer with the interface expected by JBoss'
 // J2EEDeployer...
@@ -50,7 +50,7 @@ public class
   JBossWebApplicationContext
   extends J2EEWebApplicationContext
 {
-  protected Logger              _log;
+  protected Logger              _log=Logger.getLogger(JBossWebApplicationContext.class);
   protected Jetty               _jetty;
   protected WebDescriptorParser _descriptorParser;
   protected WebApplication      _webApp;
@@ -66,7 +66,6 @@ public class
     {
       super(warUrl);
 
-      _log              = Logger.getLogger(getClass().getName());
       _jetty            = jetty;
       _descriptorParser = descriptorParser;
       _webApp           = webApp;
@@ -138,7 +137,7 @@ public class
 	super.initWebXmlElement(element, node); // Greg has now consumed it
 
 	String realmName=getRealmName();
-	_log.debug("setting Realm: "+realmName);
+	if (_log.isDebugEnabled()) _log.debug("setting Realm: "+realmName);
 	_realm=new JBossUserRealm(realmName, _subjAttrName); // we init() it later
 	setRealm(_realm); // cache and reuse ? - TODO
       }
@@ -222,7 +221,8 @@ public class
  	}
       }
 
-      _log.trace("JSP classpath: "+classpath);
+      if (_log.isTraceEnabled()) _log.trace("JSP classpath: "+classpath);
+
       return classpath;
     }
 

@@ -18,7 +18,7 @@
  * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * @(#) $Header: /cvs/Darwin/src/live/libpcap/libpcap/ethertype.h,v 1.1.1.1 2001/07/07 00:41:36 bbraun Exp $ (LBL)
+ * @(#) $Header: /cvs/root/libpcap/libpcap/ethertype.h,v 1.1.1.2 2003/10/14 21:52:39 rbraun Exp $ (LBL)
  */
 
 /*
@@ -93,11 +93,14 @@
 #ifndef ETHERTYPE_AARP
 #define ETHERTYPE_AARP		0x80f3
 #endif
-#ifndef ETHERTYPE_IPV6
-#define ETHERTYPE_IPV6		0x86dd
-#endif
 #ifndef ETHERTYPE_8021Q
 #define ETHERTYPE_8021Q		0x8100
+#endif
+#ifndef ETHERTYPE_IPX
+#define ETHERTYPE_IPX		0x8137
+#endif
+#ifndef ETHERTYPE_IPV6
+#define ETHERTYPE_IPV6		0x86dd
 #endif
 #ifndef	ETHERTYPE_LOOPBACK
 #define	ETHERTYPE_LOOPBACK	0x9000

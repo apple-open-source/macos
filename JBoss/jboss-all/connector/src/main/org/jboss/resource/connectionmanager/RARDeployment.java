@@ -5,35 +5,27 @@
  * See terms of license at gnu.org.
  *
  */
-
 package org.jboss.resource.connectionmanager;
-
-
 
 import java.beans.PropertyEditor;
 import java.beans.PropertyEditorManager;
-import java.io.PrintWriter;
 import java.lang.reflect.Method;
-import java.util.HashMap;
-import java.util.Hashtable;
-import java.util.Map;
-import javax.management.ObjectName;
+
 import javax.management.Notification;
+import javax.management.ObjectName;
 import javax.resource.ResourceException;
 import javax.resource.spi.ConnectionManager;
 import javax.resource.spi.ConnectionRequestInfo;
 import javax.resource.spi.ManagedConnection;
 import javax.resource.spi.ManagedConnectionFactory;
-import javax.security.auth.Subject;
+
 import org.jboss.deployment.DeploymentException;
 import org.jboss.logging.Logger;
-import org.jboss.logging.util.LoggerWriter;
 import org.jboss.metadata.MetaData;
-import org.jboss.naming.Util;
 import org.jboss.resource.RARMetaData;
-import org.jboss.system.Service;
 import org.jboss.system.ServiceMBeanSupport;
 import org.jboss.util.Classes;
+import org.jboss.util.Strings;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -651,12 +643,16 @@ public class RARDeployment
          return;
       } // end of if ()
 
-      // the properties that the deployment descriptor says we need to
-      // set
+      // See if the config has disabled property replacement
+      boolean replace = true;
+      String replaceAttr = mcfProps.getAttribute("replace");
+      if( replaceAttr.length() > 0 )
+         replace = Boolean.valueOf(replaceAttr).booleanValue();
+
+      // the properties that the deployment descriptor says we need to set
       NodeList props = mcfProps.getChildNodes();
       for (int i = 0;  i < props.getLength(); i++ )
       {
-         Node p = props.item(i);
          if (props.item(i).getNodeType() == Node.ELEMENT_NODE)
          {
             Element prop = (Element)props.item(i);
@@ -689,10 +685,9 @@ public class RARDeployment
                }
                if (type == null || type.length() == 0)
                {
-                  type = "java.lang.String";//guess at default, for convenience.
+                  // Default to String for convenience.
+                  type = "java.lang.String";
                } // end of if ()
-
-
 
                // see if it is a primitive type first
                Class clazz = Classes.getPrimitiveTypeForName(type);
@@ -718,6 +713,9 @@ public class RARDeployment
                            "skipping property");
                   continue;
                }
+
+               if( replace == true )
+                  value = Strings.replaceProperties(value);
                log.debug("setting property: " + name + " to value " + value);
                try
                {

@@ -20,7 +20,6 @@ import org.jboss.mx.server.registry.MBeanEntry;
 import org.jboss.mx.server.registry.MBeanRegistry;
 import org.jboss.test.JBossTestCase;
 import org.jboss.mx.util.MBeanProxyExt;
-import org.jboss.util.UnreachableStatementException;
 
 public class LimitOffsetTest extends net.sourceforge.junitejb.EJBTestCase {
    private JDBCEJBQLCompiler compiler;
@@ -72,23 +71,30 @@ public class LimitOffsetTest extends net.sourceforge.junitejb.EJBTestCase {
    {
       compiler.compileJBossQL("SELECT OBJECT(o) FROM OrderX o", Collection.class, params, readAheadMetaData);
       assertEquals("SELECT t0_o.ORDER_NUMBER FROM ORDER_DATA t0_o", compiler.getSQL());
-      assertEquals(0, compiler.getOffset());
-      assertEquals(0, compiler.getLimit());
+      assertEquals(0, compiler.getOffsetParam());
+      assertEquals(0, compiler.getLimitParam());
 
       compiler.compileJBossQL("SELECT OBJECT(o) FROM OrderX o OFFSET ?2", Collection.class, params, readAheadMetaData);
       assertEquals("SELECT t0_o.ORDER_NUMBER FROM ORDER_DATA t0_o", compiler.getSQL());
-      assertEquals(2, compiler.getOffset());
-      assertEquals(0, compiler.getLimit());
+      assertEquals(2, compiler.getOffsetParam());
+      assertEquals(0, compiler.getLimitParam());
 
       compiler.compileJBossQL("SELECT OBJECT(o) FROM OrderX o LIMIT ?1", Collection.class, params, readAheadMetaData);
       assertEquals("SELECT t0_o.ORDER_NUMBER FROM ORDER_DATA t0_o", compiler.getSQL());
-      assertEquals(0, compiler.getOffset());
-      assertEquals(1, compiler.getLimit());
+      assertEquals(0, compiler.getOffsetParam());
+      assertEquals(1, compiler.getLimitParam());
 
       compiler.compileJBossQL("SELECT OBJECT(o) FROM OrderX o OFFSET ?1 LIMIT ?2", Collection.class, params, readAheadMetaData);
       assertEquals("SELECT t0_o.ORDER_NUMBER FROM ORDER_DATA t0_o", compiler.getSQL());
-      assertEquals(1, compiler.getOffset());
-      assertEquals(2, compiler.getLimit());
+      assertEquals(1, compiler.getOffsetParam());
+      assertEquals(2, compiler.getLimitParam());
+
+      compiler.compileJBossQL("SELECT OBJECT(o) FROM OrderX o OFFSET 1 LIMIT 2", Collection.class, null, readAheadMetaData);
+      assertEquals("SELECT t0_o.ORDER_NUMBER FROM ORDER_DATA t0_o", compiler.getSQL());
+      assertEquals(0, compiler.getOffsetParam());
+      assertEquals(0, compiler.getLimitParam());
+      assertEquals(1, compiler.getOffsetValue());
+      assertEquals(2, compiler.getLimitValue());
 
       try
       {

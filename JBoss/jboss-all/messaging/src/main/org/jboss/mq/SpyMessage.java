@@ -15,6 +15,7 @@ import javax.jms.Destination;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.HashSet;
 
 import java.io.Externalizable;
 import java.io.Serializable;
@@ -24,13 +25,15 @@ import java.io.ObjectOutput;
 
 import java.lang.Comparable;
 
+import org.jboss.util.Strings;
+
 /**
  * This class implements javax.jms.Message
  *
  * @author Norbert Lataille (Norbert.Lataille@m4x.org)
  * @author Hiram Chirino (Cojonudo14@hotmail.com)
  * @author David Maplesden (David.Maplesden@orion.co.nz)
- * @version $Revision: 1.19.2.2 $
+ * @version $Revision: 1.19.2.4 $
  */
 public class SpyMessage
    implements Serializable, Message, Comparable, Externalizable
@@ -70,6 +73,25 @@ public class SpyMessage
     * If not set, the container default is used.
     */
    public static final String PROPERTY_REDELIVERY_LIMIT = "JMS_JBOSS_REDELIVERY_LIMIT";
+
+   // Reserved identifiers ----------------------------
+
+   private static final HashSet reservedIdentifiers = new HashSet();
+
+   static
+   {
+      reservedIdentifiers.add("NULL");
+      reservedIdentifiers.add("TRUE");
+      reservedIdentifiers.add("FALSE");
+      reservedIdentifiers.add("NOT");
+      reservedIdentifiers.add("AND");
+      reservedIdentifiers.add("OR");
+      reservedIdentifiers.add("BETWEEN");
+      reservedIdentifiers.add("LIKE");
+      reservedIdentifiers.add("IN");
+      reservedIdentifiers.add("IS");
+      reservedIdentifiers.add("ESCAPE");
+   }
 
    //Those attributes are not transient ---------------
    //Header fields
@@ -388,6 +410,12 @@ public class SpyMessage
       if( name.equals("") )
          throw new IllegalArgumentException( "The name of a property must not be an empty String." );
 
+      if (Strings.isValidJavaIdentifier(name) == false)
+         throw new IllegalArgumentException("The property name '" + name + "' is not a valid java identifier.");
+
+      if (reservedIdentifiers.contains(name))
+         throw new IllegalArgumentException("The property name '" + name + "' is reserved due to selector syntax.");
+
       if (name.regionMatches(false, 0, "JMS_", 0, 4))
       {
          if (name.equals(PROPERTY_SCHEDULED_DELIVERY))
@@ -509,6 +537,8 @@ public class SpyMessage
          header.jmsProperties.put(name, value);
       else if (value instanceof String)
          header.jmsProperties.put(name, value);
+      else if (value == null)
+         header.jmsProperties.put(name, null);
       else
          throw new MessageFormatException("Invalid object type");
    }

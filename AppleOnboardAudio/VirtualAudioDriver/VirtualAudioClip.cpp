@@ -52,25 +52,25 @@ extern "C" {
 
 IOReturn clip24BitSamples(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream)
 {
-    //IOLog("clip24BitSamples(%lx,%lx)\n", firstSampleFrame, numSampleFrames);
+    //debugIOLog (3, "clip24BitSamples(%lx,%lx)", firstSampleFrame, numSampleFrames);
     return kIOReturnSuccess;
 }
 
 IOReturn clip16BitSamples(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream)
 {
-    //IOLog("clip16BitSamples(%lx,%lx)\n", firstSampleFrame, numSampleFrames);
+    //debugIOLog (3, "clip16BitSamples(%lx,%lx)", firstSampleFrame, numSampleFrames);
     return kIOReturnSuccess;
 }
 
 IOReturn process24BitSamples(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream)
 {
-    //IOLog("process24BitSamples(%lx,%lx)\n", firstSampleFrame, numSampleFrames);
+    //debugIOLog (3, "process24BitSamples(%lx,%lx)", firstSampleFrame, numSampleFrames);
     return kIOReturnSuccess;
 }
 
 IOReturn process16BitSamples(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream)
 {
-    //IOLog("process16BitSamples(%lx,%lx)\n", firstSampleFrame, numSampleFrames);
+    //debugIOLog (3, "process16BitSamples(%lx,%lx)", firstSampleFrame, numSampleFrames);
     return kIOReturnSuccess;
 }
 

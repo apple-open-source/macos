@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE server>
-<!-- $Id: transaction-service.xml,v 1.3 2003/07/25 22:03:49 sreich Exp $ -->
+<!-- $Id: transaction-service.xml,v 1.4 2004/01/30 19:47:44 szemanki Exp $ -->
 
 <server>
 
@@ -13,13 +12,19 @@
      | open connections so they may be enrolled in the new tx.
    -->
   <mbean code="org.jboss.resource.connectionmanager.CachedConnectionManager" 
-	 name="jboss.jca:service=CachedConnectionManager">
+         name="jboss.jca:service=CachedConnectionManager">
+    <depends optional-attribute-name="TransactionManagerServiceName">jboss:service=TransactionManager</depends>
+
     <!--SpecCompliant false means JBoss will close connections left open when you 
         return from a method call and generate a loud warning.  SpecCompliant true
         means JBoss will disconnect connection handles left open on return from a
         method call and reconnect them with an appropriate (security, tx) 
         connection on the next call to the same object.-->
     <attribute name="SpecCompliant">true</attribute>
+
+    <!-- Enable connection close debug monitoring -->
+    <attribute name="Debug">true</attribute>
+
   </mbean>
 
 </server>

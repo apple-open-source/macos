@@ -27,8 +27,8 @@
  */
 
 #ifndef lint
-static const char rcsid[] =
-    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-mpls.c,v 1.1.1.2 2003/03/17 18:42:17 rbraun Exp $ (LBL)";
+static const char rcsid[] _U_ =
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-mpls.c,v 1.1.1.3 2004/02/05 19:30:55 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -168,7 +168,7 @@ mpls_print(const u_char *bp, u_int length)
                     case 0x83:
 		        if (vflag>0) {
                             printf("\n\t");
-                            isoclns_print(p, length - (p - bp), length - (p - bp), NULL, NULL);
+                            isoclns_print(p, length - (p - bp), length - (p - bp));
 			    }
 			else printf(", OSI, length: %u",length);
                         break;
@@ -184,3 +184,13 @@ trunc:
 	printf("[|MPLS]");
 }
 
+/*
+ * draft-ietf-mpls-lsp-ping-02.txt
+ */
+void
+mpls_lsp_ping_print(const u_char *pptr, u_int length)
+{
+    printf("UDP, LSP-PING, length: %u", length);
+    if (vflag >1)
+	print_unknown_data(pptr,"\n\t  ", length);
+}

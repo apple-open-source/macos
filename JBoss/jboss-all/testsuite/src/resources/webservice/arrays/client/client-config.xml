@@ -1,0 +1,19 @@
+<!-- Example EJB Web Service Descriptor -->
+
+<deployment name="Arrays" 
+	targetNamespace="http://net.jboss.org/arrays"
+	xmlns:arrays="http://net.jboss.org/arrays"
+	xmlns="http://xml.apache.org/axis/wsdd/"
+        xmlns:jbnet="http://net.jboss.org/server"
+	xmlns:java="http://xml.apache.org/axis/wsdd/providers/java">
+
+  <transport name="http" pivot="java:org.apache.axis.transport.http.HTTPSender">
+  </transport>
+
+    <typeMapping qname="arrays:ArraysData" 
+        type="java:org.jboss.test.webservice.arrays.ArraysData"
+        serializer="org.apache.axis.encoding.ser.BeanSerializerFactory"
+        deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory"
+        encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"/>
+
+</deployment>

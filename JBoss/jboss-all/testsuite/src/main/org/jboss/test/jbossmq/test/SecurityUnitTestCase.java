@@ -20,7 +20,7 @@ import org.jboss.test.jbossmq.MQBase;
  *
  *
  * @author     <a href="pra@tim.se">Peter Antman</a>
- * @version $Revision: 1.2.2.3 $
+ * @version $Revision: 1.2.2.4 $
  */
 public class SecurityUnitTestCase extends MQBase
 {
@@ -603,7 +603,7 @@ public class SecurityUnitTestCase extends MQBase
          
          Exception ex = sub1.getException();
          
-         t1.stop();
+         t1.interrupt();
          Assert.assertTrue("Autz topic subscriber did not work", ex == null);
       }finally
       {
@@ -638,7 +638,7 @@ public class SecurityUnitTestCase extends MQBase
          
          Exception ex = sub1.getException();
          
-         t1.stop();
+         t1.interrupt();
          Assert.assertTrue("Unautz topic subscriber throw wrong exception: " +ex, ex instanceof javax.jms.JMSSecurityException);
       }finally
       {
@@ -918,7 +918,7 @@ public class SecurityUnitTestCase extends MQBase
             ic,
             sub1.getMessageHandled());
          
-         t1.stop();
+         t1.interrupt();
       }finally
       {
          try
@@ -967,7 +967,7 @@ public class SecurityUnitTestCase extends MQBase
          Exception ex = sub1.getException();
          Assert.assertTrue("InvalidPreconfDurSub did not get correct exception:" +ex, ex instanceof javax.jms.JMSSecurityException);
          
-         t1.stop();
+         t1.interrupt();
       }finally
       {
          try
@@ -1032,7 +1032,7 @@ public class SecurityUnitTestCase extends MQBase
             ic,
             sub1.getMessageHandled());
 
-         t1.stop();
+         t1.interrupt();
       }finally
       {
          try
@@ -1082,7 +1082,7 @@ public class SecurityUnitTestCase extends MQBase
          Exception ex = sub1.getException();
          Assert.assertTrue("InvalidDynDurSub did not get correct exception:" +ex, ex instanceof javax.jms.JMSSecurityException);
          
-         t1.stop();
+         t1.interrupt();
       }finally
       {
          try

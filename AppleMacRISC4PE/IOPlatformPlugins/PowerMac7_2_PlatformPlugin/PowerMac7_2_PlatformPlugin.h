@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,46 +23,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc.  All rights reserved.
  *
  *
  */
-//		$Log: PowerMac7_2_PlatformPlugin.h,v $
-//		Revision 1.6  2003/07/20 23:41:11  eem
-//		[3273577] Q37: Systems need to run at Full Speed during test
-//		
-//		Revision 1.5  2003/07/16 02:02:10  eem
-//		3288772, 3321372, 3328661
-//		
-//		Revision 1.4  2003/06/25 02:16:25  eem
-//		Merged 101.0.21 to TOT, fixed PM72 lproj, included new fan settings, bumped
-//		version to 101.0.22.
-//		
-//		Revision 1.3.8.1  2003/06/20 01:40:01  eem
-//		Although commented out in this submision, there is support here to nap
-//		the processors if the fans are at min, with the intent of keeping the
-//		heat sinks up to temperature.
-//		
-//		Revision 1.3  2003/05/13 02:13:52  eem
-//		PowerMac7_2 Dynamic Power Step support.
-//		
-//		Revision 1.2.2.1  2003/05/12 11:21:12  eem
-//		Support for slewing.
-//		
-//		Revision 1.2  2003/05/10 06:50:36  eem
-//		All sensor functionality included for PowerMac7_2_PlatformPlugin.  Version
-//		is 1.0.1d12.
-//		
-//		Revision 1.1.2.3  2003/05/10 06:32:35  eem
-//		Sensor changes, should be ready to merge to trunk as 1.0.1d12.
-//		
-//		Revision 1.1.2.2  2003/05/03 01:11:40  eem
-//		*** empty log message ***
-//		
-//		Revision 1.1.2.1  2003/05/01 09:28:47  eem
-//		Initial check-in in progress toward first Q37 checkpoint.
-//		
-//		
+
 
 #ifndef _POWEMAC7_2_PLATFORMPLUGIN_H
 #define _POWEMAC7_2_PLATFORMPLUGIN_H

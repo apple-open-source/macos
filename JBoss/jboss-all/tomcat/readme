@@ -1,0 +1,2 @@
+The JBoss/Tomcat bundle is now the default. Building the standard
+dist created the JBoss/Tomcat bundle.

@@ -7,20 +7,15 @@
 
 package org.jboss.tm.usertx.server;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Collection;
 import java.util.Iterator;
 
 import java.rmi.RemoteException;
-import java.rmi.server.UnicastRemoteObject;
-import java.rmi.server.Unreferenced;
 
 import javax.naming.InitialContext;
 import javax.naming.Context;
 import javax.naming.NamingException;
 
-import javax.transaction.UserTransaction;
 import javax.transaction.Transaction;
 import javax.transaction.TransactionManager;
 import javax.transaction.Status;
@@ -33,20 +28,31 @@ import javax.transaction.HeuristicRollbackException;
 import org.jboss.logging.Logger;
 import org.jboss.tm.TransactionPropagationContextFactory;
 import org.jboss.tm.usertx.interfaces.UserTransactionSession;
+import org.jboss.util.collection.WeakValueHashMap;
 
-
-/**
- *  The RMI remote UserTransaction session implementation.
+/** A UserTransaction session implementation.
  *  It handles transactions on behalf of a single client.
+ * @author Ole Husgaard
+ * @author Scott.Stark@jboss.org
+ * @version $Revision: 1.7.4.3 $
  */
 public class UserTransactionSessionImpl
-   extends UnicastRemoteObject
-   implements UserTransactionSession, Unreferenced
+   implements UserTransactionSession
 {
    /** Cache a reference to the TM. */
    private static TransactionManager tm = null;
    private static Logger log = Logger.getLogger(UserTransactionSessionImpl.class);
-   
+   /**
+    *  Maps the TPCs of all active transactions to their transactions.
+    */
+   private static WeakValueHashMap activeTx = new WeakValueHashMap();
+   private static UserTransactionSessionImpl instance = new UserTransactionSessionImpl();
+
+   public static UserTransactionSession getInstance()
+   {
+      return instance;
+   }
+
    /**
     *  Get a reference to the transaction manager.
     */
@@ -66,7 +72,7 @@ public class UserTransactionSessionImpl
       }
       return tm;
    }
-   
+
    /** Cache a reference to the TPC Factory. */
    private static TransactionPropagationContextFactory tpcFactory = null;
    
@@ -88,23 +94,8 @@ public class UserTransactionSessionImpl
          }
       }
       return tpcFactory;
-   }
-   
-   /**
-    *  Maps the TPCs of all active transactions to their transactions.
-    */
-   private Map activeTx = new HashMap();
-   
-   
-   /**
-    *  A no-args constructor that throws <code>RemoteException</code>.
-    */
-   public UserTransactionSessionImpl()
-      throws RemoteException
-   {
-      super();
-   }
-   
+   }  
+
    //
    // implements interface UserTransactionSession
    //
@@ -113,9 +104,8 @@ public class UserTransactionSessionImpl
     *  Destroy this session.
     */
    public void destroy()
-   throws RemoteException
+      throws RemoteException
    {
-      unexportObject(this, true);
       unreferenced();
    }
    
@@ -151,13 +141,13 @@ public class UserTransactionSessionImpl
     *  @param tpc The transaction propagation context for the transaction.
     */
    public void commit(Object tpc)
-   throws RemoteException,
-   RollbackException,
-   HeuristicMixedException,
-   HeuristicRollbackException,
-   SecurityException,
-   IllegalStateException,
-   SystemException
+      throws RemoteException,
+      RollbackException,
+      HeuristicMixedException,
+      HeuristicRollbackException,
+      SecurityException,
+      IllegalStateException,
+      SystemException
    {
       Transaction tx = (Transaction)activeTx.get(tpc);
       

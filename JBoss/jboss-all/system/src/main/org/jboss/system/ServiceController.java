@@ -55,7 +55,7 @@ import org.apache.log4j.NDC;
  * @author <a href="mailto:marc.fleury@jboss.org">Marc Fleury</a>
  * @author <a href="mailto:d_jencks@users.sourceforge.net">David Jencks</a>
  * @author <a href="mailto:scott.stark@jboss.org">Scott Stark</a>
- * @version $Revision: 1.18.2.9 $ <p>
+ * @version $Revision: 1.18.2.10 $ <p>
  * @jmx:mbean name="jboss.system:service=ServiceController"
  */
 public class ServiceController
@@ -511,7 +511,7 @@ public class ServiceController
       if (debug)
       {
          log.debug("destroying dependent services for: " + serviceName
-            + " depenent services are: " + ctx.dependsOnMe);
+            + " dependent services are: " + ctx.dependsOnMe);
       }
       ArrayList tmp = new ArrayList(ctx.dependsOnMe);
       for(int n = 0; n < tmp.size(); n ++)

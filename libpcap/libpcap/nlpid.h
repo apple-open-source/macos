@@ -15,7 +15,7 @@
  * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * @(#) $Header: /cvs/Darwin/src/live/libpcap/libpcap/nlpid.h,v 1.1.1.1 2001/07/07 00:41:36 bbraun Exp $ (Juniper)
+ * @(#) $Header: /cvs/root/libpcap/libpcap/nlpid.h,v 1.1.1.2 2004/02/05 19:22:28 rbraun Exp $ (Juniper)
  */
 
 /* Types missing from some systems */
@@ -35,6 +35,21 @@
 #ifndef	ISO10589_ISIS
 #define	ISO10589_ISIS		0x83
 #endif
+/*
+ * this does not really belong in the nlpid.h file
+ * however we need it for generating nice
+ * IS-IS related BPF filters
+ */
+#define ISIS_L1_LAN_IIH      15
+#define ISIS_L2_LAN_IIH      16
+#define ISIS_PTP_IIH         17
+#define ISIS_L1_LSP          18
+#define ISIS_L2_LSP          20
+#define ISIS_L1_CSNP         24
+#define ISIS_L2_CSNP         25
+#define ISIS_L1_PSNP         26
+#define ISIS_L2_PSNP         27
+
 #ifndef ISO8878A_CONS
 #define	ISO8878A_CONS		0x84
 #endif

@@ -39,7 +39,15 @@
 #include "kjs_dom.lut.h"
 #include "khtmlpart_p.h"
 
+#include "html_objectimpl.h"
+
+#if APPLE_CHANGES
+#include <JavaScriptCore/runtime_object.h>
+#endif
+
 using namespace KJS;
+
+using DOM::DOMException;
 
 // -------------------------------------------------------------------------
 /* Source for DOMNodeProtoTable. Use "make hashtables" to regenerate.
@@ -59,6 +67,8 @@ using namespace KJS;
   removeEventListener	DOMNode::RemoveEventListener	DontDelete|Function 3
   dispatchEvent		DOMNode::DispatchEvent	DontDelete|Function 1
   contains	DOMNode::Contains		DontDelete|Function 1
+# "DOM level 0" (from Gecko DOM reference; also in WinIE)
+  item          DOMNode::Item           DontDelete|Function 1
 @end
 */
 DEFINE_PROTOTYPE("DOMNode",DOMNodeProto)
@@ -199,11 +209,11 @@ Value DOMNode::getValueProperty(ExecState *exec, int token) const
   case OnFocus:
     return getListener(DOM::EventImpl::FOCUS_EVENT);
   case OnKeyDown:
-    return getListener(DOM::EventImpl::KHTML_KEYDOWN_EVENT);
+    return getListener(DOM::EventImpl::KEYDOWN_EVENT);
   case OnKeyPress:
-    return getListener(DOM::EventImpl::KHTML_KEYPRESS_EVENT);
+    return getListener(DOM::EventImpl::KEYPRESS_EVENT);
   case OnKeyUp:
-    return getListener(DOM::EventImpl::KHTML_KEYUP_EVENT);
+    return getListener(DOM::EventImpl::KEYUP_EVENT);
   case OnLoad:
     return getListener(DOM::EventImpl::LOAD_EVENT);
   case OnMouseDown:
@@ -319,13 +329,13 @@ void DOMNode::putValue(ExecState *exec, int token, const Value& value, int /*att
     setListener(exec,DOM::EventImpl::FOCUS_EVENT,value);
     break;
   case OnKeyDown:
-    setListener(exec,DOM::EventImpl::KHTML_KEYDOWN_EVENT,value);
+    setListener(exec,DOM::EventImpl::KEYDOWN_EVENT,value);
     break;
   case OnKeyPress:
-    setListener(exec,DOM::EventImpl::KHTML_KEYPRESS_EVENT,value);
+    setListener(exec,DOM::EventImpl::KEYPRESS_EVENT,value);
     break;
   case OnKeyUp:
-    setListener(exec,DOM::EventImpl::KHTML_KEYUP_EVENT,value);
+    setListener(exec,DOM::EventImpl::KEYUP_EVENT,value);
     break;
   case OnLoad:
     setListener(exec,DOM::EventImpl::LOAD_EVENT,value);
@@ -365,13 +375,13 @@ void DOMNode::putValue(ExecState *exec, int token, const Value& value, int /*att
     break;
   case ScrollTop: {
     khtml::RenderObject *rend = node.handle() ? node.handle()->renderer() : 0L;
-    if (rend && rend->layer())
+    if (rend && rend->layer() && rend->style()->hidesOverflow())
         rend->layer()->scrollToYOffset(value.toInt32(exec));
     break;
   }
   case ScrollLeft: {
     khtml::RenderObject *rend = node.handle() ? node.handle()->renderer() : 0L;
-    if (rend && rend->layer())
+    if (rend && rend->layer() && rend->style()->hidesOverflow())
       rend->layer()->scrollToXOffset(value.toInt32(exec));
     break;
   }
@@ -411,8 +421,9 @@ void DOMNode::setListener(ExecState *exec, int eventId, Value func) const
 Value DOMNode::getListener(int eventId) const
 {
     DOM::EventListener *listener = node.handle()->getHTMLEventListener(eventId);
-    if (listener)
-	return static_cast<JSEventListener*>(listener)->listenerObj();
+    JSEventListener *jsListener = static_cast<JSEventListener*>(listener);
+    if ( jsListener && jsListener->listenerObjImp() )
+	return jsListener->listenerObj();
     else
 	return Null();
 }
@@ -473,7 +484,10 @@ Value DOMNodeProtoFunc::tryCall(ExecState *exec, Object &thisObj, const List &ar
 	    bool retval = !impl->checkNoOwner(other.handle(),exceptioncode);
 	    return Boolean(retval && exceptioncode == 0);
 	}
+        return Undefined();
     }
+    case DOMNode::Item:
+      return getDOMNode(exec, node.childNodes().item(static_cast<unsigned long>(args[0].toNumber(exec))));
   }
 
   return Undefined();
@@ -487,6 +501,16 @@ DOMNodeList::~DOMNodeList()
 {
   ScriptInterpreter::forgetDOMObject(list.handle());
 }
+
+Value DOMNodeList::toPrimitive(ExecState *exec, Type /*preferred*/) const
+{
+  if (list.isNull())
+    return Null();
+
+  return String(toString(exec));
+}
+
+
 
 // We have to implement hasProperty since we don't use a hashtable for 'length' and 'item'
 // ## this breaks "for (..in..)" though.
@@ -731,9 +755,9 @@ Value DOMDocument::getValueProperty(ExecState *exec, int token) const
   case ReadyState:
     {
     DOM::DocumentImpl* docimpl = node.handle()->getDocument();
-    if ( docimpl && docimpl->view() )
+    if ( docimpl )
     {
-      KHTMLPart* part = docimpl->view()->part();
+      KHTMLPart* part = docimpl->part();
       if ( part ) {
         if (part->d->m_bComplete) return String("complete");
         if (docimpl->parsing()) return String("loading");
@@ -1293,8 +1317,8 @@ bool KJS::checkNodeSecurity(ExecState *exec, const DOM::Node& n)
     return false;
 
   // Check to see if the currently executing interpreter is allowed to access the specified node
-  KHTMLView *view = n.handle()->getDocument()->view();
-  Window* win = view && view->part() ? Window::retrieveWindow(view->part()) : 0L;
+  KHTMLPart *part = n.handle()->getDocument()->part();
+  Window* win = part ? Window::retrieveWindow(part) : 0L;
   if ( !win || !win->isSafeScript(exec) )
     return false;
   return true;
@@ -1362,6 +1386,19 @@ Value KJS::getDOMNode(ExecState *exec, const DOM::Node &n)
 Value KJS::getDOMNamedNodeMap(ExecState *exec, const DOM::NamedNodeMap &m)
 {
   return Value(cacheDOMObject<DOM::NamedNodeMap, KJS::DOMNamedNodeMap>(exec, m));
+}
+
+Value KJS::getRuntimeObject(ExecState *exec, const DOM::Node &node)
+{
+    DOM::HTMLElement element = static_cast<DOM::HTMLElement>(node);
+    DOM::HTMLAppletElementImpl *appletElement = static_cast<DOM::HTMLAppletElementImpl *>(element.handle());
+    
+    if (appletElement->getAppletInstance()) {
+        // The instance is owned by the applet element.
+        RuntimeObjectImp *appletImp = new RuntimeObjectImp(appletElement->getAppletInstance(), false);
+        return Value(appletImp);
+    }
+    return Undefined();
 }
 
 Value KJS::getDOMNodeList(ExecState *exec, const DOM::NodeList &l)
@@ -1630,24 +1667,32 @@ Value DOMCharacterDataProtoFunc::tryCall(ExecState *exec, Object &thisObj, const
   }
   DOM::CharacterData data = static_cast<DOMCharacterData *>(thisObj.imp())->toData();
   switch(id) {
-    case DOMCharacterData::SubstringData:
-      return getStringOrNull(data.substringData(args[0].toInteger(exec),args[1].toInteger(exec)));
+    case DOMCharacterData::SubstringData: {
+      const int count = args[1].toInteger(exec);
+      if (count < 0)
+        throw DOMException(DOMException::INDEX_SIZE_ERR);
+      return getStringOrNull(data.substringData(args[0].toInteger(exec), count));
+    }
     case DOMCharacterData::AppendData:
       data.appendData(args[0].toString(exec).string());
       return Undefined();
-      break;
     case DOMCharacterData::InsertData:
-      data.insertData(args[0].toInteger(exec),args[1].toString(exec).string());
-      return  Undefined();
-      break;
-    case DOMCharacterData::DeleteData:
-      data.deleteData(args[0].toInteger(exec),args[1].toInteger(exec));
-      return  Undefined();
-      break;
-    case DOMCharacterData::ReplaceData:
-      data.replaceData(args[0].toInteger(exec),args[1].toInteger(exec),args[2].toString(exec).string());
+      data.insertData(args[0].toInteger(exec), args[1].toString(exec).string());
       return Undefined();
-      break;
+    case DOMCharacterData::DeleteData: {
+      const int count = args[1].toInteger(exec);
+      if (count < 0)
+        throw DOMException(DOMException::INDEX_SIZE_ERR);
+      data.deleteData(args[0].toInteger(exec), count);
+      return Undefined();
+    }
+    case DOMCharacterData::ReplaceData: {
+      const int count = args[1].toInteger(exec);
+      if (count < 0)
+        throw DOMException(DOMException::INDEX_SIZE_ERR);
+      data.replaceData(args[0].toInteger(exec), count, args[2].toString(exec).string());
+      return Undefined();
+    }
     default:
       return Undefined();
   }

@@ -20,7 +20,11 @@
     <init-param>
     	<param-name>org.jboss.net.axis.CONFIGURATION_CONTEXT</param-name>
     	<param-value>jboss.net:service=Axis</param-value>
-	</init-param>    	
+	</init-param>
+   <init-param>
+      <param-name>axis.enableListQuery</param-name>
+      <param-value>true</param-value>
+   </init-param>
   </servlet>
 
 	<!-- This is the servlet used for dedicated flash 5 calls. Uncomment

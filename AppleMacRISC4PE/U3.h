@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,35 +23,12 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc.  All rights reserved.
  *
  *  DRI: Dave Radcliffe
  *
  */
-//		$Log: U3.h,v $
-//		Revision 1.7  2003/07/03 01:16:32  raddog
-//		[3313953]U3 PwrMgmt register workaround
-//		
-//		Revision 1.6  2003/06/03 23:03:57  raddog
-//		disable second cpu when unused - 3249029, 3273619
-//		
-//		Revision 1.5  2003/06/03 01:50:24  raddog
-//		U3 sleep changes including calling SPU
-//		
-//		Revision 1.4  2003/05/07 00:14:55  raddog
-//		[3125575] MacRISC4 initial sleep support
-//		
-//		Revision 1.3  2003/04/04 01:27:45  raddog
-//		version 101.0.8
-//		
-//		Revision 1.2  2003/03/04 17:53:20  raddog
-//		[3187811] P76: U3.2.0 systems don't boot
-//		[3187813] MacRISC4CPU bridge saving code can block on interrupt stack
-//		[3138343] Q37 Feature: remove platform functions for U3
-//		
-//		Revision 1.1.1.1  2003/02/04 00:36:43  raddog
-//		initial import into CVS
-//		
+
 
 #ifndef _IOKIT_APPLE_U3_H
 #define _IOKIT_APPLE_U3_H
@@ -63,140 +40,42 @@
 
 #include "IOPlatformFunction.h"
 
-// Uni-North Register Information
-
-#define kUniNVersion               (0x0000)
-#define kUniNVersion107            (0x0003)
-#define kUniNVersion10A            (0x0007)
-#define kUniNVersion150            (0x0011)
-#define kUniNVersion200            (0x0024)
-#define kUniNVersionPangea         (0x00C0)
-#define kUniNVersionIntrepid       (0x00D2)
-#define kUniNVersion3			   (0x0030)		// U3
-
-#define kUniNClockControl          (0x0020)
-#define kUniNFirewireClockEnable   (1 << 2)
-#define kUniNEthernetClockEnable   (1 << 1)
-#define kUniNPCI2ClockEnable       (1 << 0)
-
-#define kUniNPowerMngmnt           (0x0030)
-#define kUniNNormal                (0x00)
-#define kUniNIdle2                 (0x01)
-#define kUniNSleep                 (0x02)
-
-#define kUniNArbCtrl               (0x0040)
-#define kUniNArbCtrlQAckDelayShift (15)
-#define kUniNArbCtrlQAckDelayMask  (0x0e1f8000)
-#define kUniNArbCtrlQAckDelay      (0x30)
-#define kUniNArbCtrlQAckDelay105   (0x00)
-
-#define kUniNHWInitState           (0x0070)
-#define kUniNHWInitStateSleeping   (0x01)
-#define kUniNHWInitStateRunning    (0x02)
-
-// As far as I can tell the clock stop status registers are Intrepid only
-// For K2, similar information is available in FCR9
-#define kUniNClockStopStatus0		(0x150)
-#define kUniNIsStopped49			(1 << (31 - 31))
-#define kUniNIsStopped45			(1 << (31 - 30))
-#define kUniNIsStopped32			(1 << (31 - 29))
-#define kUniNIsStoppedUSB2			(1 << (31 - 28))
-#define kUniNIsStoppedUSB1			(1 << (31 - 27))
-#define kUniNIsStoppedUSB0			(1 << (31 - 26))
-#define kUniNIsStoppedVEO1			(1 << (31 - 25))
-#define kUniNIsStoppedVEO0			(1 << (31 - 24))
-#define kUniNIsStoppedPCI_FB_CLK_OUT (1 << (31 - 23))
-#define kUniNIsStoppedSlot2			(1 << (31 - 22))
-#define kUniNIsStoppedSlot1			(1 << (31 - 21))
-#define kUniNIsStoppedSlot0			(1 << (31 - 20))
-#define kUniNIsStoppedVIA32			(1 << (31 - 19))
-#define kUniNIsStoppedSCC_RTClk32or45 (1 << (31 - 18))
-#define kUniNIsStoppedSCC_RTClk18	(1 << (31 - 17))
-#define kUniNIsStoppedTimer			(1 << (31 - 16))
-#define kUniNIsStoppedI2S1_18		(1 << (31 - 15))
-#define kUniNIsStoppedI2S1_45or49	(1 << (31 - 14))
-#define kUniNIsStoppedI2S0_18		(1 << (31 - 13))
-#define kUniNIsStoppedI2S0_45or49	(1 << (31 - 12))
-#define kUniNIsStoppedAGPDel		(1 << (31 - 11))
-#define kUniNIsStoppedExtAGP		(1 << (31 - 10))
-
-#define kUniNClockStopStatus1		(0x160)
-#define kUniNIsStopped18			(1 << (31 - 31))
-#define kUniNIsStoppedPCI0			(1 << (31 - 30))
-#define kUniNIsStoppedAGP			(1 << (31 - 29))
-#define kUniNIsStopped7PCI1			(1 << (31 - 28))
-#define kUniNIsStoppedUSB2PCI		(1 << (31 - 26))
-#define kUniNIsStoppedUSB1PCI		(1 << (31 - 25))
-#define kUniNIsStoppedUSB0PCI		(1 << (31 - 24))
-#define kUniNIsStoppedKLPCI			(1 << (31 - 23))
-#define kUniNIsStoppedPCI1			(1 << (31 - 22))
-#define kUniNIsStoppedMAX			(1 << (31 - 21))
-#define kUniNIsStoppedATA100		(1 << (31 - 20))
-#define kUniNIsStoppedATA66			(1 << (31 - 19))
-#define kUniNIsStoppedGB			(1 << (31 - 18))
-#define kUniNIsStoppedFW			(1 << (31 - 17))
-#define kUniNIsStoppedPCI2			(1 << (31 - 16))
-#define kUniNIsStoppedBUF_REF_CLK_OUT (1 << (31 - 15))
-#define kUniNIsStoppedCPU			(1 << (31 - 14))
-#define kUniNIsStoppedCPUDel		(1 << (31 - 13))
-#define kUniNIsStoppedPLL4Ref		(1 << (31 - 12))
-
-#define kUniNMPCIMemTimeout			(0x2160)
-#define kUniNMPCIMemTimeoutMask		(0xFF000000)
-#define kUniNMPCIMemGrantTime		(0x0 << 28)
-
-#define kUniNUATAReset				(0x02000000)
-#define kUniNUATAEnable				(0x01000000)
-
-// U3 Control and Power Management registers and defines
-#define kU3ToggleRegister			(0xE0)
-#define kU3PMCStartStop				(1 << (31 - 31))
-#define kU3MPICReset				(1 << (31 - 30))
-#define kU3MPICEnableOutputs		(1 << (31 - 29))
-
-#define kU3PMClockControl			(0xF00)
-#define kU3APIDebugClockEnable		(1 << (31 - 31))
-#define kU3APILogicStopEnable		(1 << (31 - 30))
-#define kU3EnablePLL1Shutdown		(1 << (31 - 29))
-
-#define kU3PMPwrSystem				(0xF10)
-#define kU3PwrSleep					(1 << (31 - 30))
-#define kU3PwrNormal				0
-
-#define kU3PMPwrCPU					(0xF20)
-#define kU3CPUPwrDnEnable0			(1 << (31 - 7))
-#define kU3CPUPwrDnEnable1			(1 << (31 - 6))
-#define kU3CPUPwrDnEnable2			(1 << (31 - 5))
-#define kU3CPUPwrDnEnable3			(1 << (31 - 4))
-#define kU3CPUSleep0				(1 << (31 - 15))
-#define kU3CPUSleep1				(1 << (31 - 14))
-#define kU3CPUSleep2				(1 << (31 - 13))
-#define kU3CPUSleep3				(1 << (31 - 12))
-#define kU3CPUTristateEnable		(1 << (31 - 31))
-
-#define kU3CPUPwrDnEnableAll		(kU3CPUPwrDnEnable0 | kU3CPUPwrDnEnable1 | kU3CPUPwrDnEnable2 | kU3CPUPwrDnEnable3)
-#define kU3CPUSleepAll				(kU3CPUSleep0 | kU3CPUSleep1 | kU3CPUSleep2 | kU3CPUSleep3)
-
-#define kU3PMPwrCPUQuiesce			(0xF30)
-#define kU3PMPwrHT					(0xF40)
-#define kU3PMPLL1Control			(0xF50)
-#define kU3PMPLL2Control			(0xF60)
-#define kU3PMPLL3Control			(0xF70)
-#define kU3PMPLL4Control			(0xF80)
-#define kU3PMPLLVis					(0xF90)
-#define kU3PMSBusArb				(0xFF0)
-#define kU3PMSMax					(0xFFC)
-
-// APIPhy registers
-#define kU3APIPhyConfigRegister1	(0x23030)
-
-// HyperTransport link register offsets
-#define kU3HTLinkConfigRegister		(0x70110)
-#define kU3HTLinkFreqRegister		(0x70120)
 
 #define kIOPCICacheLineSize 	"IOPCICacheLineSize"
 #define kIOPCITimerLatency		"IOPCITimerLatency"
 #define kAAPLSuspendablePorts	"AAPL,SuspendablePorts"
+
+// platform function link to chip fault GPIO
+#define kChipFaultFuncName		"platform-chip-fault"
+
+// internal data structure to track memory parity errors
+typedef struct _u3_parity_error_record_t
+{
+	char	slotName[32];
+	UInt32	count;
+} u3_parity_error_record_t;
+
+#define kU3MaxDIMMSlots			8	// max number of dimm slots we're prepared to handle
+
+#define kU3ECCNotificationIntervalMS	100	// notify clients of outstanding ECC errors at this interval
+
+// memory parity error message type
+#ifndef sub_iokit_platform
+#define sub_iokit_platform				err_sub(0x2A)	// chosen randomly...
+#endif
+
+#ifndef kIOPlatformMessageParityError
+#define kIOPlatformMessageParityError	iokit_family_err( sub_iokit_platform, 0x100 )
+#endif
+
+// message format for client notifications.  MUST NOT EXCEED 64 BYTES!!!
+typedef struct _u3_parity_error_msg_t
+{
+	UInt8	version;	// structure version - using 0x1 for now
+	UInt8	slotIndex;	// the index of the dimm slot this message applies to
+	char	slotName[32];	// an ascii string describing the slot
+	UInt32	count;	// the number of errors encountered since the last notification was sent
+} u3_parity_error_msg_t;
 
 class AppleU3: public ApplePlatformExpert
 {
@@ -210,6 +89,9 @@ public:
 		void *param1, void *param2, void *param3, void *param4);
     virtual IOReturn callPlatformFunction(const char *functionName, bool waitForFunction, 
 		void *param1, void *param2, void *param3, void *param4);
+
+	static void sHandleChipFault( void*, void*, void*, void* );
+	static void sDispatchECCNotifier( void* self, void* refcon );
 
 private:
 	IOMemoryMap				*uniNMemory;
@@ -236,6 +118,20 @@ private:
     const OSSymbol			*symSetPMUSleep;
 	const OSSymbol			*symU3APIPhyDisableProcessor1;
 
+	// chip fault interrupt symbols
+	const OSSymbol			*symChipFaultFunc;
+	const OSSymbol			*symPFIntRegister;
+	const OSSymbol			*symPFIntEnable;
+	const OSSymbol			*symPFIntDisable;
+
+	// thread callout for servicing ecc errors without blocking the workloop
+	thread_call_t			eccErrorCallout;
+
+	// this array holds DIMM slot names if ECC is enabled
+	UInt32					dimmCount;
+	u3_parity_error_record_t	*dimmErrors;	// allocated in setupECC()
+	IOSimpleLock			*dimmLock;
+
     virtual UInt32 readUniNReg(UInt32 offset);
     virtual void writeUniNReg(UInt32 offset, UInt32 data);
 	virtual UInt32 safeReadRegUInt32(UInt32 offset);
@@ -253,6 +149,10 @@ private:
 	virtual bool setHTLinkWidth (UInt32 newLinkOutWidth, UInt32 newLinkInWidth);
 	virtual void u3APIPhyDisableProcessor1 ( void );
 
+	virtual IOReturn	installChipFaultHandler ( IOService * provider );
+	virtual void		eccNotifier( void * refcon );
+	virtual void		setupECC( void );
+	virtual void		setupDARTExcp( void );
 };
 
 #endif /*  _IOKIT_APPLE_U3_H */

@@ -68,8 +68,22 @@ public:
     
     KURL url() const;
 
+    void emitData(const char *, int);
+    void emitRedirection(const KURL &);
+    void emitResult();
+    void emitReceivedResponse(void *);
+
+    QByteArray postData() const;
+    QString method() const;
 private:
+    void assembleResponseHeaders() const;
+
     TransferJobPrivate *d;
+
+    KWQSignal m_data;
+    KWQSignal m_redirection;
+    KWQSignal m_result;
+    KWQSignal m_receivedResponse;
 };
 
 } // namespace KIO

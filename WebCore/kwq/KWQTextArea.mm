@@ -45,15 +45,37 @@
     HARD|PHYSICAL - Text is wrapped, and text is broken into separate lines.
 */
 
+
 @interface NSView (KWQTextArea)
 - (void)_KWQ_setKeyboardFocusRingNeedsDisplay;
+@end
+
+@interface NSTextView (KWQTextArea)
+- (NSParagraphStyle *)_KWQ_typingParagraphStyle;
+- (void)_KWQ_setTypingParagraphStyle:(NSParagraphStyle *)style;
+@end
+
+@interface NSTextStorage (KWQTextArea)
+- (void)_KWQ_setBaseWritingDirection:(NSWritingDirection)direction;
 @end
 
 @interface KWQTextAreaTextView : NSTextView <KWQWidgetHolder>
 {
     QTextEdit *widget;
+    BOOL disabled;
+    BOOL editableIfEnabled;
 }
+
 - (void)setWidget:(QTextEdit *)widget;
+
+- (void)setEnabled:(BOOL)flag;
+- (BOOL)isEnabled;
+
+- (void)setEditableIfEnabled:(BOOL)flag;
+- (BOOL)isEditableIfEnabled;
+
+- (void)updateTextColor;
+
 @end
 
 @implementation KWQTextArea
@@ -65,14 +87,16 @@ const float LargeNumberForText = 1.0e7;
     NSSize size = [self frame].size;
     NSRect textFrame;
     textFrame.origin.x = textFrame.origin.y = 0;
-    if (size.width > 0 && size.height > 0)
-        textFrame.size = [NSScrollView contentSizeForFrameSize:size
-            hasHorizontalScroller:NO hasVerticalScroller:YES borderType:[self borderType]];
-    else {
+    if (size.width > 0 && size.height > 0) {
+        textFrame.size = [[self class] contentSizeForFrameSize:size
+            hasHorizontalScroller:[self hasHorizontalScroller]
+            hasVerticalScroller:[self hasVerticalScroller]
+            borderType:[self borderType]];
+    } else {
         textFrame.size.width = LargeNumberForText;
         textFrame.size.height = LargeNumberForText;
     }
-        
+
     textView = [[KWQTextAreaTextView alloc] initWithFrame:textFrame];
     [textView setRichText:NO];
     [[textView textContainer] setWidthTracksTextView:YES];
@@ -83,7 +107,7 @@ const float LargeNumberForText = 1.0e7;
     NSMutableParagraphStyle *style = [[NSMutableParagraphStyle alloc] init];
     [style setLineBreakMode:NSLineBreakByWordWrapping];
     [style setAlignment:NSLeftTextAlignment];
-    [textView setTypingAttributes:[NSDictionary dictionaryWithObject:style forKey:NSParagraphStyleAttributeName]];
+    [textView _KWQ_setTypingParagraphStyle:style];
     [style release];
     
     [textView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
@@ -131,13 +155,16 @@ const float LargeNumberForText = 1.0e7;
 - (void)dealloc
 {
     [textView release];
+    [_font release];
     
     [super dealloc];
 }
 
 - (void)textDidChange:(NSNotification *)aNotification
 {
-    widget->textChanged();
+    if (!KWQKHTMLPart::handleKeyboardOptionTabInView(self)) {
+        widget->textChanged();
+    }
 }
 
 - (void)setWordWrap:(BOOL)f
@@ -177,7 +204,7 @@ const float LargeNumberForText = 1.0e7;
     
     [style setAlignment:NSLeftTextAlignment];
     
-    [textView setTypingAttributes:[NSDictionary dictionaryWithObject:style forKey:NSParagraphStyleAttributeName]];
+    [textView _KWQ_setTypingParagraphStyle:style];
     [style release];
     
     wrap = f;
@@ -190,9 +217,8 @@ const float LargeNumberForText = 1.0e7;
 
 - (void)setText:(NSString *)s
 {
-    //NSLog(@"extraLineFragmentTextContainer before setString: is %@", [[textView layoutManager] extraLineFragmentTextContainer]);
     [textView setString:s];
-    //NSLog(@"extraLineFragmentTextContainer after setString: is %@", [[textView layoutManager] extraLineFragmentTextContainer]);
+    [textView updateTextColor];
 }
 
 - (NSString *)text
@@ -249,12 +275,27 @@ const float LargeNumberForText = 1.0e7;
 
 - (void)setEditable:(BOOL)flag
 {
-    [textView setEditable:flag];
+    [textView setEditableIfEnabled:flag];
 }
 
 - (BOOL)isEditable
 {
-    return [textView isEditable];
+    return [textView isEditableIfEnabled];
+}
+
+- (void)setEnabled:(BOOL)flag
+{
+    if (flag == [textView isEnabled])
+        return;
+        
+    [textView setEnabled:flag];
+    
+    [self setNeedsDisplay:YES];
+}
+
+- (BOOL)isEnabled
+{
+    return [textView isEnabled];
 }
 
 - (void)setFrame:(NSRect)frameRect
@@ -262,7 +303,7 @@ const float LargeNumberForText = 1.0e7;
     [super setFrame:frameRect];
 
     if ([self wordWrap]) {
-        NSSize contentSize = [NSScrollView contentSizeForFrameSize:frameRect.size
+        NSSize contentSize = [[self class] contentSizeForFrameSize:frameRect.size
             hasHorizontalScroller:[self hasHorizontalScroller]
             hasVerticalScroller:[self hasVerticalScroller]
             borderType:[self borderType]];
@@ -364,9 +405,10 @@ static NSRange RangeOfParagraph(NSString *text, int paragraph)
 
 - (void)setFont:(NSFont *)font
 {
-    //NSLog(@"extraLineFragmentTextContainer before setFont: is %@", [[textView layoutManager] extraLineFragmentTextContainer]);
+    [font retain];
+    [_font release];
+    _font = font;
     [textView setFont:font];
-    //NSLog(@"extraLineFragmentTextContainer after setFont: is %@", [[textView layoutManager] extraLineFragmentTextContainer]);
 }
 
 - (BOOL)becomeFirstResponder
@@ -414,7 +456,20 @@ static NSRange RangeOfParagraph(NSString *text, int paragraph)
 - (void)drawRect:(NSRect)rect
 {
     [super drawRect:rect];
-    if ([KWQKHTMLPart::bridgeForWidget(widget) firstResponder] == textView) {
+    if (![textView isEnabled]) {
+        // draw a disabled bezel border
+        [[NSColor controlColor] set];
+        NSFrameRect(rect);
+        
+        rect = NSInsetRect(rect, 1, 1);
+        [[NSColor controlShadowColor] set];
+        NSFrameRect(rect);
+    
+        rect = NSInsetRect(rect, 1, 1);
+        [[NSColor textBackgroundColor] set];
+        NSRectFill(rect);
+    }
+    else if ([KWQKHTMLPart::bridgeForWidget(widget) firstResponder] == textView) {
         NSSetFocusRingStyle(NSFocusRingOnly);
         NSRectFill([self bounds]);
     }
@@ -433,6 +488,22 @@ static NSRange RangeOfParagraph(NSString *text, int paragraph)
 - (void)setAlignment:(NSTextAlignment)alignment
 {
     [textView setAlignment:alignment];
+}
+
+- (void)setBaseWritingDirection:(NSWritingDirection)direction
+{
+    // Set the base writing direction for typing.
+    NSParagraphStyle *style = [textView _KWQ_typingParagraphStyle];
+    if ([style baseWritingDirection] != direction) {
+        NSMutableParagraphStyle *mutableStyle = [style mutableCopy];
+        [mutableStyle setBaseWritingDirection:direction];
+        [textView _KWQ_setTypingParagraphStyle:mutableStyle];
+        [mutableStyle release];
+    }
+
+    // Set the base writing direction for text.
+    [[textView textStorage] _KWQ_setBaseWritingDirection:direction];
+    [textView setNeedsDisplay:YES];
 }
 
 // This is the only one of the display family of calls that we use, and the way we do
@@ -472,6 +543,23 @@ static NSRange RangeOfParagraph(NSString *text, int paragraph)
     return NO;
 }
 
+- (NSSize)sizeWithColumns:(int)numColumns rows:(int)numRows
+{
+    // Must use font from _font field rather than from the text view's font method,
+    // because the text view will return a substituted font if the first character in
+    // the text view requires font substitution, and we don't want the size to depend on
+    // the text in the text view.
+    
+    NSSize textSize = NSMakeSize(ceil(numColumns * [_font widthOfString:@"0"]), numRows * [_font defaultLineHeightForFont]);
+    NSSize textContainerSize = NSMakeSize(textSize.width + [[textView textContainer] lineFragmentPadding] * 2, textSize.height);
+    NSSize textContainerInset = [textView textContainerInset];
+    NSSize textViewSize = NSMakeSize(textContainerSize.width + textContainerInset.width, textContainerSize.height + textContainerInset.height); 
+    return [[self class] frameSizeForContentSize:textViewSize
+        hasHorizontalScroller:[self hasHorizontalScroller]
+        hasVerticalScroller:[self hasVerticalScroller]
+        borderType:[self borderType]];
+}
+
 @end
 
 @implementation KWQTextAreaTextView
@@ -501,6 +589,8 @@ static NSString *WebContinuousSpellCheckingEnabled = @"WebContinuousSpellCheckin
     self = [super initWithFrame:frame textContainer:aTextContainer];
     [super setContinuousSpellCheckingEnabled:
         [[self class] _isContinuousSpellCheckingEnabledForNewTextAreas]];
+
+    editableIfEnabled = YES;
 
     return self;
 }
@@ -535,8 +625,11 @@ static NSString *WebContinuousSpellCheckingEnabled = @"WebContinuousSpellCheckin
 
 - (BOOL)becomeFirstResponder
 {
-    BOOL become = [super becomeFirstResponder];
+    if (disabled)
+        return NO;
 
+    BOOL become = [super becomeFirstResponder];
+    
     if (become) {
         // Select all the text if we are tabbing in, but otherwise preserve/remember
         // the selection from last time we had focus (to match WinIE).
@@ -550,7 +643,7 @@ static NSString *WebContinuousSpellCheckingEnabled = @"WebContinuousSpellCheckin
 	QFocusEvent event(QEvent::FocusIn);
 	const_cast<QObject *>(widget->eventFilterObject())->eventFilter(widget, &event);
     }
-       
+
     return become;
 }
 
@@ -604,6 +697,8 @@ static NSString *WebContinuousSpellCheckingEnabled = @"WebContinuousSpellCheckin
 
 - (void)mouseDown:(NSEvent *)event
 {
+    if (disabled)
+        return;
     [super mouseDown:event];
     widget->sendConsumedMouseUp();
     widget->clicked();
@@ -611,22 +706,61 @@ static NSString *WebContinuousSpellCheckingEnabled = @"WebContinuousSpellCheckin
 
 - (void)keyDown:(NSEvent *)event
 {
+    if (disabled)
+        return;
     WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(widget);
-    [bridge interceptKeyEvent:event toView:self];
-    // FIXME: In theory, if the bridge intercepted the event we should return not call super.
-    // But the code in the Web Kit that this replaces did not do that, so lets not do it until
-    // we can do more testing to see if it works well.
-    [super keyDown:event];
+    if (![bridge interceptKeyEvent:event toView:self]) {
+	[super keyDown:event];
+    }
 }
 
 - (void)keyUp:(NSEvent *)event
 {
+    if (disabled)
+        return;
     WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(widget);
     [bridge interceptKeyEvent:event toView:self];
-    // FIXME: In theory, if the bridge intercepted the event we should return not call super.
-    // But the code in the Web Kit that this replaces did not do that, so lets not do it until
-    // we can do more testing to see if it works well.
-    [super keyUp:event];
+    // Don't call super because NSTextView will simply pass the
+    // event along the responder chain. This is arguably a bug in
+    // NSTextView; see Radar 3507083.
+}
+
+- (void)setEnabled:(BOOL)flag
+{
+    if (disabled == !flag) {
+        return;
+    }
+
+    disabled = !flag;
+    if (editableIfEnabled) {
+        [self setEditable:!disabled];
+    }
+    [self updateTextColor];
+}
+
+- (BOOL)isEnabled
+{
+    return !disabled;
+}
+
+- (void)setEditableIfEnabled:(BOOL)flag
+{
+    editableIfEnabled = flag;
+    if (!disabled) {
+        [self setEditable:editableIfEnabled];
+    }
+}
+
+- (BOOL)isEditableIfEnabled
+{
+    return editableIfEnabled;
+}
+
+- (void)updateTextColor
+{
+    // Make the text look disabled by changing its color.
+    NSColor *color = disabled ? [NSColor disabledControlTextColor] : [NSColor controlTextColor];
+    [[self textStorage] setForegroundColor:color];
 }
 
 @end
@@ -636,6 +770,67 @@ static NSString *WebContinuousSpellCheckingEnabled = @"WebContinuousSpellCheckin
 - (void)_KWQ_setKeyboardFocusRingNeedsDisplay
 {
     [[self superview] _KWQ_setKeyboardFocusRingNeedsDisplay];
+}
+
+@end
+
+@implementation NSTextView (KWQTextArea)
+
+- (NSParagraphStyle *)_KWQ_typingParagraphStyle
+{
+    NSParagraphStyle *style = [[self typingAttributes] objectForKey:NSParagraphStyleAttributeName];
+    if (style != nil) {
+        return style;
+    }
+    style = [self defaultParagraphStyle];
+    if (style != nil) {
+        return style;
+    }
+    return [NSParagraphStyle defaultParagraphStyle];
+}
+
+- (void)_KWQ_setTypingParagraphStyle:(NSParagraphStyle *)style
+{
+    NSParagraphStyle *immutableStyle = [style copy];
+    NSDictionary *attributes = [self typingAttributes];
+    if (attributes != nil) {
+        NSMutableDictionary *mutableAttributes = [attributes mutableCopy];
+        [mutableAttributes setObject:immutableStyle forKey:NSParagraphStyleAttributeName];
+        attributes = mutableAttributes;
+    } else {
+        attributes = [[NSDictionary alloc] initWithObjectsAndKeys:immutableStyle, NSParagraphStyleAttributeName, nil];
+    }
+    [immutableStyle release];
+    [self setTypingAttributes:attributes];
+    [attributes release];
+}
+
+@end
+
+@implementation NSTextStorage (KWQTextArea)
+
+- (void)_KWQ_setBaseWritingDirection:(NSWritingDirection)direction
+{
+    unsigned end = [self length];
+    NSRange range = NSMakeRange(0, end);
+    if (end != 0) {
+        [self beginEditing];
+        for (unsigned i = 0; i < end; ) {
+            NSRange effectiveRange;
+            NSParagraphStyle *style = [self attribute:NSParagraphStyleAttributeName atIndex:i longestEffectiveRange:&effectiveRange inRange:range];
+            if (style == nil) {
+                style = [NSParagraphStyle defaultParagraphStyle];
+            }
+            if ([style baseWritingDirection] != direction) {
+                NSMutableParagraphStyle *mutableStyle = [style mutableCopy];
+                [mutableStyle setBaseWritingDirection:direction];
+                [self addAttribute:NSParagraphStyleAttributeName value:mutableStyle range:effectiveRange];
+                [mutableStyle release];
+            }
+            i = NSMaxRange(effectiveRange);
+        }
+        [self endEditing];
+    }
 }
 
 @end

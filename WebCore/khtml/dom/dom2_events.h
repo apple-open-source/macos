@@ -34,6 +34,7 @@ class EventException;
 class UIEvent;
 class MouseEvent;
 class MutationEvent;
+class KeyboardEvent;
 class AbstractView;
 
 class EventListenerImpl;
@@ -41,6 +42,7 @@ class EventImpl;
 class UIEventImpl;
 class MouseEventImpl;
 class MutationEventImpl;
+class KeyboardEventImpl;
 
 
 
@@ -213,7 +215,6 @@ public:
      */
     void preventDefault();
 
-
     /**
      * The initEvent method is used to initialize the value of an Event created
      * through the DocumentEvent interface. This method may only be called
@@ -248,14 +249,11 @@ public:
     EventImpl *handle() const;
     bool isNull() const;
 
-    /**
-     * @internal
-     * not part of the DOM
-     *
-     * Returns the module name of the event - this is the same as passed to
-     * Document::createEvent() (e.g. UIEvents)
-     */
-    DOMString eventModuleName();
+    /* Nonstandard extensions needed to support widely used JS event properties */
+    void setCancelBubble(bool cancel);
+    void setDefaultPrevented(bool returnValue);
+    bool getCancelBubble() const;
+    bool defaultPrevented() const;
 
 protected:
     Event(EventImpl *i);
@@ -330,6 +328,12 @@ public:
      *
      */
     int keyCode() const;
+
+    /**
+     * Non-standard extension to support IE-style charCode event property.
+     *
+     */
+    int charCode() const;
 
     /**
      * Non-standard extensions to support Netscape-style pageX and pageY event properties.
@@ -660,6 +664,93 @@ protected:
 };
 
 
+/**
+ * Introduced in DOM Level 3
+ *
+ * The KeyboardEvent interface provides specific contextual information
+ * associated with Keyboard events.
+ *
+ */
+class KeyboardEvent : public UIEvent {
+public:
+    KeyboardEvent();
+    KeyboardEvent(const KeyboardEvent &other);
+    KeyboardEvent(const Event &other);
+    KeyboardEvent & operator = (const KeyboardEvent &other);
+    KeyboardEvent & operator = (const Event &other);
+    virtual ~KeyboardEvent();
+
+    // KeyLocationCode
+    static const unsigned long DOM_KEY_LOCATION_STANDARD      = 0x00;
+    static const unsigned long DOM_KEY_LOCATION_LEFT          = 0x01;
+    static const unsigned long DOM_KEY_LOCATION_RIGHT         = 0x02;
+    static const unsigned long DOM_KEY_LOCATION_NUMPAD        = 0x03;
+    static const unsigned long DOM_KEY_LOCATION_UNKNOWN       = 0x04;
+    
+    /**
+     * Holds the identifier of the key.
+     *
+     */
+    DOMString keyIdentifier() const;
+
+    /**
+     * Contains an indication of the location of they key on the device.
+     *
+     */
+    unsigned long keyLocation() const;
+
+    /**
+     * Used to indicate whether the 'ctrl' key was depressed during the firing
+     * of the event.
+     */
+    bool ctrlKey() const;
+
+    /**
+     * Used to indicate whether the 'shift' key was depressed during the firing
+     * of the event.
+     *
+     */
+    bool shiftKey() const;
+
+    /**
+     * Used to indicate whether the 'alt' key was depressed during the firing
+     * of the event. On some platforms this key may map to an alternative key
+     * name.
+     *
+     */
+    bool altKey() const;
+
+    /**
+     * Used to indicate whether the 'meta' key was depressed during the firing
+     * of the event. On some platforms this key may map to an alternative key
+     * name.
+     *
+     */
+    bool metaKey() const;
+
+    /**
+     * Used to indicate whether the 'alt graph' (?) key was depressed during the firing
+     * of the event. On some platforms this key may map to an alternative key
+     * name.
+     *
+     */
+    bool altGraphKey() const;
+
+    void initKeyboardEvent(const DOMString &typeArg, 
+                                bool canBubbleArg,
+                                bool cancelableArg,
+                                const AbstractView &viewArg, 
+                                const DOMString &keyIdentifierArg, 
+                                unsigned long keyLocationArg, 
+                                bool ctrlKeyArg, 
+                                bool shiftKeyArg, 
+                                bool altKeyArg, 
+                                bool metaKeyArg, 
+                                bool altGraphKeyArg);
+                                       
+protected:
+    KeyboardEvent(KeyboardEventImpl *impl);
+};
 
 }; //namespace
 #endif

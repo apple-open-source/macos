@@ -330,8 +330,8 @@ SSL2ProcessClientMasterKey(SSLBuffer msg, SSLContext *ctx)
     unsigned        clearLength, encryptedLength, keyArgLength;
     UInt32    		secretLength, localKeyModulusLen;
     UInt8           *charPtr;
-    const CSSM_KEY	*decryptKey;
-	CSSM_CSP_HANDLE	decryptCspHand;
+    const CSSM_KEY	*cssmKey;
+	SecKeyRef		decryptKeyRef = NULL;
 	
     if (msg.length < 9) {
 		sslErrorLog("SSL2ProcessClientMasterKey: msg.length error 1\n");
@@ -362,22 +362,25 @@ SSL2ProcessClientMasterKey(SSLBuffer msg, SSLContext *ctx)
 	 * Just as in SSL2EncodeServerHello, which key we use depends on the
 	 * app's config.
 	 */ 
-	if(ctx->encryptPrivKey) {
-		decryptKey = ctx->encryptPrivKey;
-		assert(ctx->encryptKeyCsp != 0);
-		decryptCspHand = ctx->encryptKeyCsp;
+	if(ctx->encryptPrivKeyRef) {
+		decryptKeyRef = ctx->encryptPrivKeyRef;
+		/* FIXME: when 3420180 is implemented, pick appropriate creds here */
 	}
-	else if(ctx->signingPrivKey) {
-		decryptKey = ctx->signingPrivKey;
-		assert(ctx->signingKeyCsp != 0);
-		decryptCspHand = ctx->signingKeyCsp;
+	else if(ctx->signingPrivKeyRef) {
+		decryptKeyRef = ctx->signingPrivKeyRef;
+		/* FIXME: when 3420180 is implemented, pick appropriate creds here */
 	}
 	else {
 		/* app configuration error */
 		sslErrorLog("SSL2ProcessClientMasterKey: No server key!\n");
 		return errSSLBadConfiguration;
 	}
-	localKeyModulusLen = sslKeyLengthInBytes(decryptKey);
+	err = SecKeyGetCSSMKey(decryptKeyRef, &cssmKey);
+	if(err) {
+		sslErrorLog("SSL2ProcessClientMasterKey: SecKeyGetCSSMKey err %d\n", (int)err);
+		return err;
+	}
+	localKeyModulusLen = sslKeyLengthInBytes(cssmKey);
 
     if (encryptedLength != localKeyModulusLen) {
 		sslErrorLog("SSL2ProcessClientMasterKey: encryptedLength error 1\n");
@@ -389,8 +392,7 @@ SSL2ProcessClientMasterKey(SSLBuffer msg, SSLContext *ctx)
         return err;
     
 	err = sslRsaDecrypt(ctx,
-		decryptKey,
-		decryptCspHand,
+		decryptKeyRef,
 		charPtr, 
 		encryptedLength,
 		secretData.data,

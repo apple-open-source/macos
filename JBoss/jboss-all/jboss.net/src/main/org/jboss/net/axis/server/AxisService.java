@@ -5,12 +5,11 @@
  * See terms of license at gnu.org.
  */
 
-// $Id: AxisService.java,v 1.25.2.5 2003/06/27 15:01:02 acoliver2 Exp $
+// $Id: AxisService.java,v 1.25.2.7 2003/11/06 15:36:05 cgjung Exp $
 
 package org.jboss.net.axis.server;
 
 import org.jboss.net.axis.XMLResourceProvider;
-import org.jboss.net.axis.ServiceFactory;
 import org.jboss.net.axis.AttacheableService;
 import org.jboss.net.axis.Deployment;
 
@@ -32,10 +31,13 @@ import org.apache.axis.MessageContext;
 import org.apache.axis.utils.XMLUtils;
 import org.apache.axis.AxisFault;
 import org.apache.axis.server.AxisServer;
+import org.apache.axis.AxisProperties;
 import org.apache.axis.deployment.wsdd.WSDDProvider;
 import org.apache.axis.deployment.wsdd.WSDDUndeployment;
 import org.apache.axis.client.Service;
 import org.apache.axis.EngineConfiguration;
+import org.apache.axis.configuration.EngineConfigurationFactoryFinder;
+import org.apache.axis.EngineConfigurationFactory;
 
 import org.jboss.naming.Util;
 import org.jboss.metadata.MetaData;
@@ -84,12 +86,13 @@ import java.lang.reflect.Proxy;
  * within JMX.
  * @created 27. September 2001
  * @author <a href="mailto:Christoph.Jung@infor.de">Christoph G. Jung</a>
- * @version $Revision: 1.25.2.5 $
+ * @version $Revision: 1.25.2.7 $
  */
 
 public class AxisService
    extends SubDeployerSupport
-   implements AxisServiceMBean, MBeanRegistration {
+   implements AxisServiceMBean, MBeanRegistration
+{
 
    // 
    // Attributes
@@ -99,10 +102,10 @@ public class AxisService
     * A map of current deployment names to the
     * wsdd docs that created them.
     */
-   protected Map deployments= new java.util.HashMap();
+   protected Map deployments = new java.util.HashMap();
 
    /** this is where the axis "web-application" has been installed */
-   protected DeploymentInfo myDeploymentInfo= null;
+   protected DeploymentInfo myDeploymentInfo = null;
 
    /** the engine belonging to this service */
    protected AxisServer axisServer;
@@ -124,9 +127,10 @@ public class AxisService
    //
 
    /** default */
-   public AxisService() {
+   public AxisService()
+   {
       // we fake internationalisation if it is not globally catered
-      Category cat= ((Log4jLoggerPlugin) log.getLoggerPlugin()).getCategory();
+      Category cat = ((Log4jLoggerPlugin) log.getLoggerPlugin()).getCategory();
       if (cat.getResourceBundle() == null)
          cat.setResourceBundle(new DefaultResourceBundle());
    }
@@ -140,22 +144,29 @@ public class AxisService
     */
 
    protected synchronized void deployExternalWebService(Element deployElement)
-      throws DeploymentException {
+      throws DeploymentException
+   {
 
-      try {
-         if (initialContext == null) {
-            initialContext= new InitialContext();
+      try
+      {
+         if (initialContext == null)
+         {
+            initialContext = new InitialContext();
          }
 
-         NamedNodeMap attributes= deployElement.getAttributes();
+         NamedNodeMap attributes = deployElement.getAttributes();
 
-         String jndiName= attributes.getNamedItem("jndiName").getNodeValue();
-         String serviceClassName=
+         String jndiName = attributes.getNamedItem("jndiName").getNodeValue();
+         String serviceClassName =
             attributes.getNamedItem("serviceImplClass").getNodeValue();
-         Object factory=
-            new AttacheableService(serviceClassName, serviceName.toString());
+         Object factory =
+            new AttacheableService(
+               serviceClassName,
+               serviceName.getCanonicalName());
          initialContext.bind(jndiName, factory);
-      } catch (NamingException e) {
+      }
+      catch (NamingException e)
+      {
          throw new DeploymentException(
             "Could not deploy item " + deployElement,
             e);
@@ -163,20 +174,26 @@ public class AxisService
    }
 
    /** undeploys an external web service reference */
-   protected synchronized void undeployExternalWebService(Element deployElement) {
-      try {
-         if (initialContext == null) {
-            initialContext= new InitialContext();
+   protected synchronized void undeployExternalWebService(Element deployElement)
+   {
+      try
+      {
+         if (initialContext == null)
+         {
+            initialContext = new InitialContext();
          }
 
-         NamedNodeMap attributes= deployElement.getAttributes();
+         NamedNodeMap attributes = deployElement.getAttributes();
 
-         String jndiName= attributes.getNamedItem("jndiName").getNodeValue();
+         String jndiName = attributes.getNamedItem("jndiName").getNodeValue();
 
-         if (jndiName != null) {
+         if (jndiName != null)
+         {
             initialContext.unbind(jndiName);
          }
-      } catch (NamingException e) {
+      }
+      catch (NamingException e)
+      {
 
          // what?
 
@@ -198,26 +215,28 @@ public class AxisService
     *  - register Axis servlet in WebContainer
     *  - contact the maindeployer
     */
-   protected void startService() throws Exception {
+   protected void startService() throws Exception
+   {
 
       // find the global config file in classpath
-      URL resource=
+      URL resource =
          getClass().getClassLoader().getResource(
             Constants.AXIS_CONFIGURATION_FILE);
 
-      Category cat= ((Log4jLoggerPlugin) log.getLoggerPlugin()).getCategory();
-      if (resource == null) {
+      Category cat = ((Log4jLoggerPlugin) log.getLoggerPlugin()).getCategory();
+      if (resource == null)
+      {
          cat.l7dlog(
             Priority.WARN,
             Constants.COULD_NOT_FIND_AXIS_CONFIGURATION_0,
-            new Object[] { Constants.AXIS_CONFIGURATION_FILE },
+            new Object[]{Constants.AXIS_CONFIGURATION_FILE},
             null);
          throw new Exception(Constants.COULD_NOT_FIND_AXIS_CONFIGURATION_0);
       }
 
-      serverConfiguration= new XMLResourceProvider(resource);
+      serverConfiguration = new XMLResourceProvider(resource);
 
-      axisServer= new AxisServer(serverConfiguration);
+      axisServer = new AxisServer(serverConfiguration);
       
       // we annotate the server configuration with our serviceName
       serverConfiguration.getGlobalOptions().put(
@@ -225,60 +244,71 @@ public class AxisService
          serviceName.toString());
 
       // find the client config file in classpath
-      resource=
+      resource =
          getClass().getClassLoader().getResource(
             Constants.AXIS_CLIENT_CONFIGURATION_FILE);
 
-      if (resource == null) {
+      if (resource == null)
+      {
          cat.l7dlog(
             Priority.WARN,
             Constants.COULD_NOT_FIND_AXIS_CONFIGURATION_0,
-            new Object[] { Constants.AXIS_CONFIGURATION_FILE },
+            new Object[]{Constants.AXIS_CONFIGURATION_FILE},
             null);
          throw new Exception(Constants.COULD_NOT_FIND_AXIS_CONFIGURATION_0);
       }
 
-      clientConfiguration= new XMLResourceProvider(resource);
+      clientConfiguration = new XMLResourceProvider(resource);
 
       clientConfiguration.buildDeployment();
-      
+
       clientConfiguration.getGlobalOptions().put(
          org.jboss.net.axis.Constants.CONFIGURATION_CONTEXT,
          serviceName.toString());
 
+      // make sure that Axis/Discovery wont register any application classloaders for system lookup
+      AxisProperties.getNameDiscoverer();
       // register our client configuration there 
-      ServiceFactory.registerEngineConfigurationProvider(JMXEngineConfigurationProvider.jecp);
-
+      Class initializeThisFuckingStaticStuff =
+         EngineConfigurationFactoryFinder.class;
+      System.setProperty(
+         EngineConfigurationFactory.SYSTEM_PROPERTY_NAME,
+         JMXEngineConfigurationFactory.class.getName());
       super.startService();
    }
 
    /** what to do to stop axis temporarily --> undeploy the servlet */
-   protected void stopService() throws Exception {
+   protected void stopService() throws Exception
+   {
 
       super.stopService();
 
       // tear down all running web services
       //Is this really what you want to do? Not leave services running anyway? 
-      for (Iterator apps=
+      for (Iterator apps =
          new java.util.ArrayList(deployments.values()).iterator();
-         apps.hasNext();
-         ) {
-         DeploymentInfo info= (DeploymentInfo) apps.next();
-         try {
+           apps.hasNext();
+         )
+      {
+         DeploymentInfo info = (DeploymentInfo) apps.next();
+         try
+         {
             //unregister through server so it's bookeeping is up to date.
             server.invoke(
                MainDeployerMBean.OBJECT_NAME,
                "undeploy",
-               new Object[] { info },
-               new String[] { "org.jboss.deployment.DeploymentInfo" });
-         } catch (Exception e) {
+               new Object[]{info},
+               new String[]{"org.jboss.deployment.DeploymentInfo"});
+         }
+         catch (Exception e)
+         {
             log.error("Could not undeploy deployment " + info, e);
          }
       }
 
       axisServer.stop();
       super.stopService();
-      myDeploymentInfo= null;
+      myDeploymentInfo = null;
    }
 
    //----------------------------------------------------------------------------
@@ -294,9 +324,11 @@ public class AxisService
     *         <tt>accept</tt>s files with names that can be
     *         deployed by this deployer
     */
-   public boolean accepts(DeploymentInfo sdi) {
+   public boolean accepts(DeploymentInfo sdi)
+   {
       if (sdi.shortName.endsWith("-axis.xml")
-         || sdi.localCl.getResource(Constants.WEB_SERVICE_DESCRIPTOR) != null) {
+         || sdi.localCl.getResource(Constants.WEB_SERVICE_DESCRIPTOR) != null)
+      {
          return true;
       }
       return false;
@@ -315,29 +347,39 @@ public class AxisService
     * @throws DeploymentException      Failed to deploy
     */
 
-   public void init(DeploymentInfo sdi) throws DeploymentException {
+   public void init(DeploymentInfo sdi) throws DeploymentException
+   {
       super.init(sdi);
 
-      try {
-         URL metaInfos= null;
+      try
+      {
+         URL metaInfos = null;
 
-         if (sdi.metaData == null) {
-            metaInfos=
+         if (sdi.metaData == null)
+         {
+            metaInfos =
                sdi.localCl.getResource(Constants.WEB_SERVICE_DESCRIPTOR);
-         } else {
-            metaInfos= (URL) sdi.metaData;
+         }
+         else
+         {
+            metaInfos = (URL) sdi.metaData;
          }
 
-         sdi.metaData= XMLUtils.newDocument(metaInfos.openStream());
+         sdi.metaData = XMLUtils.newDocument(metaInfos.openStream());
 
          // Resolve what to watch
-         if (sdi.url.getProtocol().equals("file")) {
-            sdi.watch= metaInfos;
-         } else {
-            // We watch the top only, no directory support
-            sdi.watch= sdi.url;
+         if (sdi.url.getProtocol().equals("file"))
+         {
+            sdi.watch = metaInfos;
          }
-      } catch (Exception e) {
+         else
+         {
+            // We watch the top only, no directory support
+            sdi.watch = sdi.url;
+         }
+      }
+      catch (Exception e)
+      {
          throw new DeploymentException(e);
       }
    }
@@ -351,17 +393,21 @@ public class AxisService
     * @param sdi a <code>DeploymentInfo</code> value
     * @exception DeploymentException if an error occurs
     */
-   public void create(DeploymentInfo sdi) throws DeploymentException {
+   public void create(DeploymentInfo sdi) throws DeploymentException
+   {
       ((Log4jLoggerPlugin) log.getLoggerPlugin()).getCategory().l7dlog(
          Priority.DEBUG,
          Constants.ABOUT_TO_CREATE_AXIS_0,
-         new Object[] { sdi },
+         new Object[]{sdi},
          null);
 
-      if (deployments.containsKey(sdi.url)) {
+      if (deployments.containsKey(sdi.url))
+      {
          throw new DeploymentException(
             "attempting to redeploy a depoyed module! " + sdi.url);
-      } else {
+      }
+      else
+      {
          deployments.put(sdi.url, sdi);
       }
 
@@ -376,54 +422,60 @@ public class AxisService
     * @param sdi a <code>DeploymentInfo</code> value
     * @exception DeploymentException if an error occurs
     */
-   public void start(DeploymentInfo sdi) throws DeploymentException {
+   public void start(DeploymentInfo sdi) throws DeploymentException
+   {
       ((Log4jLoggerPlugin) log.getLoggerPlugin()).getCategory().l7dlog(
          Priority.DEBUG,
          Constants.ABOUT_TO_START_AXIS_0,
-         new Object[] { sdi },
+         new Object[]{sdi},
          null);
 
       // remember old classloader
-      ClassLoader previous= Thread.currentThread().getContextClassLoader();
+      ClassLoader previous = Thread.currentThread().getContextClassLoader();
 
       // build new classloader for naming purposes
-      URLClassLoader serviceLoader=
+      URLClassLoader serviceLoader =
          URLClassLoader.newInstance(new URL[0], sdi.ucl);
 
-      try {
-         InitialContext iniCtx= new InitialContext();
-         Context envCtx= null;
+      try
+      {
+         InitialContext iniCtx = new InitialContext();
+         Context envCtx = null;
 
          // create a new naming context java:comp/env
-         try {
+         try
+         {
             // enter the apartment
             Thread.currentThread().setContextClassLoader(serviceLoader);
-            envCtx= (Context) iniCtx.lookup("java:comp");
-            envCtx= envCtx.createSubcontext("env");
-         } finally {
+            envCtx = (Context) iniCtx.lookup("java:comp");
+            envCtx = envCtx.createSubcontext("env");
+         }
+         finally
+         {
             // enter the apartment
             Thread.currentThread().setContextClassLoader(previous);
          }
 
-         Document doc= (Document) sdi.metaData;
+         Document doc = (Document) sdi.metaData;
          // the original command
-         Element root= doc.getDocumentElement();
+         Element root = doc.getDocumentElement();
          // the deployment command document
-         Document deployDoc= XMLUtils.newDocument();
+         Document deployDoc = XMLUtils.newDocument();
          // the client deployment command document
-         Document deployClientDoc= XMLUtils.newDocument();
+         Document deployClientDoc = XMLUtils.newDocument();
          // create command
-         Element deploy=
+         Element deploy =
             deployDoc.createElementNS(root.getNamespaceURI(), "deployment");
          // create command
-         Element deployClient=
+         Element deployClient =
             deployClientDoc.createElementNS(
                root.getNamespaceURI(),
                "deployment");
 
-         NamedNodeMap attributes= root.getAttributes();
-         for (int count= 0; count < attributes.getLength(); count++) {
-            Attr attribute= (Attr) attributes.item(count);
+         NamedNodeMap attributes = root.getAttributes();
+         for (int count = 0; count < attributes.getLength(); count++)
+         {
+            Attr attribute = (Attr) attributes.item(count);
             deploy.setAttributeNodeNS(
                (Attr) deployDoc.importNode(attribute, true));
             deployClient.setAttributeNodeNS(
@@ -432,32 +484,35 @@ public class AxisService
 
          // and insert the nodes from the original document
          // and sort out the ejb-ref extensions
-         NodeList children= root.getChildNodes();
-         for (int count= 0; count < children.getLength(); count++) {
-            Node actNode= children.item(count);
-            if (actNode instanceof Element) {
-               Element actElement= (Element) actNode;
+         NodeList children = root.getChildNodes();
+         for (int count = 0; count < children.getLength(); count++)
+         {
+            Node actNode = children.item(count);
+            if (actNode instanceof Element)
+            {
+               Element actElement = (Element) actNode;
 
-               if (actElement.getTagName().equals("ejb-ref")) {
+               if (actElement.getTagName().equals("ejb-ref"))
+               {
 
-                  String refName=
+                  String refName =
                      MetaData.getElementContent(
                         MetaData.getUniqueChild(
                            (Element) actNode,
                            "ejb-ref-name"));
-                  String linkName=
+                  String linkName =
                      MetaData.getElementContent(
                         MetaData.getUniqueChild((Element) actNode, "ejb-link"));
 
                   log.warn(
                      "Web Service Deployment "
-                        + sdi
-                        + " makes use of the deprecated ejb-ref feature. "
-                        + "Please adjust any ejb-providing service tag inside your web-service.xml pointing to "
-                        + refName
-                        + " to use the absolute "
-                        + linkName
-                        + " instead.");
+                     + sdi
+                     + " makes use of the deprecated ejb-ref feature. "
+                     + "Please adjust any ejb-providing service tag inside your web-service.xml pointing to "
+                     + refName
+                     + " to use the absolute "
+                     + linkName
+                     + " instead.");
 
                   if (refName == null)
                      throw new DeploymentException(
@@ -467,16 +522,23 @@ public class AxisService
                         Constants.EJB_REF_MUST_HAVE_UNIQUE_LINK);
 
                   Util.bind(envCtx, refName, new LinkRef(linkName));
-               } else if (actElement.getTagName().equals("ext-service")) {
+               }
+               else if (actElement.getTagName().equals("ext-service"))
+               {
                   deployExternalWebService(actElement);
-               } else {
-                  if (!actElement.getTagName().equals("service")) {
+               }
+               else
+               {
+                  if (!actElement.getTagName().equals("service"))
+                  {
                      deployClient.appendChild(
                         deployClientDoc.importNode(actNode, true));
                   }
                   deploy.appendChild(deployDoc.importNode(actNode, true));
                }
-            } else {
+            }
+            else
+            {
                deployClient.appendChild(
                   deployClientDoc.importNode(actNode, true));
                deploy.appendChild(deployDoc.importNode(actNode, true));
@@ -487,7 +549,8 @@ public class AxisService
          deployDoc.appendChild(deploy);
          deployClientDoc.appendChild(deployClient);
 
-         try {
+         try
+         {
             Thread.currentThread().setContextClassLoader(serviceLoader);
             new Deployment(deploy).deployToRegistry(
                ((XMLResourceProvider) axisServer.getConfig()).getDeployment());
@@ -495,93 +558,110 @@ public class AxisService
                clientConfiguration.buildDeployment());
             axisServer.refreshGlobalOptions();
             axisServer.saveConfiguration();
-         } catch (Exception e) {
+         }
+         catch (Exception e)
+         {
             throw new DeploymentException(
                Constants.COULD_NOT_DEPLOY_DESCRIPTOR,
                e);
-         } finally {
+         }
+         finally
+         {
             Thread.currentThread().setContextClassLoader(previous);
          }
-      } catch (NamingException e) {
+      }
+      catch (NamingException e)
+      {
          throw new DeploymentException(
             Constants.COULD_NOT_DEPLOY_DESCRIPTOR,
             e);
-      } catch(ParserConfigurationException parserError) {
-	      throw new DeploymentException(            Constants.COULD_NOT_DEPLOY_DESCRIPTOR,
+      }
+      catch (ParserConfigurationException parserError)
+      {
+         throw new DeploymentException(Constants.COULD_NOT_DEPLOY_DESCRIPTOR,
             parserError);
-      }      
-      
+      }
+
    }
 
    /** 
     * this tiny helper copies all children of the given element that
     * are elements and match the given name to the other element
     */
-   protected void copyChildren(Document sourceDoc, Element source, String match, Element target) {
-      NodeList children= source.getChildNodes();
-      for (int count= 0; count < children.getLength(); count++) {
-         Node actNode= children.item(count);
-         if(actNode instanceof Element) {
-            if(((Element) actNode).getLocalName().equals(match)) {
+   protected void copyChildren(Document sourceDoc, Element source, String match, Element target)
+   {
+      NodeList children = source.getChildNodes();
+      for (int count = 0; count < children.getLength(); count++)
+      {
+         Node actNode = children.item(count);
+         if (actNode instanceof Element)
+         {
+            if (((Element) actNode).getLocalName().equals(match))
+            {
                target.appendChild(sourceDoc.importNode(actNode, true));
             }
          }
       }
    }
-   
+
    /** stop a given deployment */
-   public void stop(DeploymentInfo sdi) throws DeploymentException {
+   public void stop(DeploymentInfo sdi) throws DeploymentException
+   {
       ((Log4jLoggerPlugin) log.getLoggerPlugin()).getCategory().l7dlog(
          Priority.DEBUG,
          Constants.ABOUT_TO_STOP_AXIS_0,
-         new Object[] { sdi },
+         new Object[]{sdi},
          null);
-      if (!deployments.containsKey(sdi.url)) {
+      if (!deployments.containsKey(sdi.url))
+      {
          throw new DeploymentException(
             "Attempting to undeploy a not-deployed unit! " + sdi.url);
       }
       // this was the deployment command
-      Element root= (Element) ((Document) sdi.metaData).getDocumentElement();
+      Element root = (Element) ((Document) sdi.metaData).getDocumentElement();
       // from which we extract an undeployment counterpart
       Document undeployDoc = null;
       try
       {
-        undeployDoc = XMLUtils.newDocument();
+         undeployDoc = XMLUtils.newDocument();
       }
-      catch(ParserConfigurationException parserError)
+      catch (ParserConfigurationException parserError)
       {
-  throw new DeploymentException(            Constants.COULD_NOT_DEPLOY_DESCRIPTOR,
+         throw new DeploymentException(Constants.COULD_NOT_DEPLOY_DESCRIPTOR,
             parserError);
       }
-      Element undeploy=
+      Element undeploy =
          undeployDoc.createElementNS(root.getNamespaceURI(), "undeployment");
       
       // copy over administrational attributes
-      NamedNodeMap attributes= root.getAttributes();
-      for (int count= 0; count < attributes.getLength(); count++) {
-         Attr attribute= (Attr) attributes.item(count);
+      NamedNodeMap attributes = root.getAttributes();
+      for (int count = 0; count < attributes.getLength(); count++)
+      {
+         Attr attribute = (Attr) attributes.item(count);
          undeploy.setAttributeNodeNS(
             (Attr) undeployDoc.importNode(attribute, true));
       }
 
       // external services are just a matter of us
-      NodeList children= root.getElementsByTagName("ext-service");
-      for (int count= 0; count < children.getLength(); count++) {
-         Element actNode= (Element) children.item(count);
+      NodeList children = root.getElementsByTagName("ext-service");
+      for (int count = 0; count < children.getLength(); count++)
+      {
+         Element actNode = (Element) children.item(count);
          undeployExternalWebService(actNode);
       }
 
       // all service and handler entries are copied in the
       // undeployment document
-      copyChildren(undeployDoc,root,"service",undeploy);
-      copyChildren(undeployDoc,root,"handler",undeploy);
-      copyChildren(undeployDoc,root,"typemapping",undeploy);
-      copyChildren(undeployDoc,root,"beanmapping",undeploy);
+      copyChildren(undeployDoc, root, "service", undeploy);
+      copyChildren(undeployDoc, root, "handler", undeploy);
+      copyChildren(undeployDoc, root, "typemapping", undeploy);
+      copyChildren(undeployDoc, root, "beanmapping", undeploy);
 
       // put command into document
       undeployDoc.appendChild(undeploy);
 
-      try {
+      try
+      {
          // and call the administrator
          new WSDDUndeployment(undeploy).undeployFromRegistry(
             ((XMLResourceProvider) axisServer.getConfig()).getDeployment());
@@ -590,34 +670,40 @@ public class AxisService
             clientConfiguration.buildDeployment());
          axisServer.refreshGlobalOptions();
          axisServer.saveConfiguration();
-      } catch (Exception e) {
+      }
+      catch (Exception e)
+      {
          throw new DeploymentException(Constants.COULD_NOT_UNDEPLOY, e);
       }
    }
 
    /** destroy a given deployment */
-   public void destroy(DeploymentInfo sdi) throws DeploymentException {
+   public void destroy(DeploymentInfo sdi) throws DeploymentException
+   {
       ((Log4jLoggerPlugin) log.getLoggerPlugin()).getCategory().l7dlog(
          Priority.DEBUG,
          Constants.ABOUT_TO_DESTROY_AXIS_0,
-         new Object[] { sdi },
+         new Object[]{sdi},
          null);
       deployments.remove(sdi.url);
    }
-   
+
    /** return the associated client configuration */
-   public EngineConfiguration getClientEngineConfiguration() {
+   public EngineConfiguration getClientEngineConfiguration()
+   {
       return clientConfiguration;
    }
-   
+
    /** return the associated server configuration */
-   public EngineConfiguration getServerEngineConfiguration() {
+   public EngineConfiguration getServerEngineConfiguration()
+   {
       return serverConfiguration;
    }
-   
+
    /** return the associated server */
-   public AxisServer getAxisServer() {
+   public AxisServer getAxisServer()
+   {
       return axisServer;
    }
-   
+
 }

@@ -73,11 +73,11 @@ static bool cacheDisabled;
 // Just keep calling next() on this. It's safe from deletions of the current item
 class CachedObjectClientWalker {
 public:
-    CachedObjectClientWalker(const QPtrList<CachedObjectClient> &clients) : _current(0), _iterator(clients) { }
+    CachedObjectClientWalker(const QPtrDict<CachedObjectClient> &clients) : _current(0), _iterator(clients) { }
     CachedObjectClient *next();
 private:
     CachedObjectClient *_current;
-    QPtrListIterator<CachedObjectClient> _iterator;
+    QPtrDictIterator<CachedObjectClient> _iterator;
 };
 
 CachedObject::~CachedObject()
@@ -155,8 +155,7 @@ void CachedObject::setRequest(Request *_request)
 
 void CachedObject::ref(CachedObjectClient *c)
 {
-    m_clients.remove(c);
-    m_clients.append(c);
+    m_clients.insert(c, c);
     Cache::removeFromLRUList(this);
     increaseAccessCount();
 }
@@ -1228,13 +1227,18 @@ void Loader::servePendingRequests()
   }
 
   connect( job, SIGNAL( result( KIO::Job * ) ), this, SLOT( slotFinished( KIO::Job * ) ) );
-  connect( job, SIGNAL( data( KIO::Job*, const QByteArray &)),
-           SLOT( slotData( KIO::Job*, const QByteArray &)));
 
 #if APPLE_CHANGES
+  connect( job, SIGNAL( data( KIO::Job*, const char *, int)),
+           SLOT( slotData( KIO::Job*, const char *, int)));
+  connect( job, SIGNAL( receivedResponse( KIO::Job *, void *)), SLOT( slotReceivedResponse( KIO::Job *, void *)) );
+
   if (KWQServeRequest(this, req, job))
       m_requestsLoading.insert(job, req);
 #else
+  connect( job, SIGNAL( data( KIO::Job*, const QByteArray &)),
+           SLOT( slotData( KIO::Job*, const QByteArray &)));
+
   if ( req->object->schedule() )
       KIO::Scheduler::scheduleJob( job );
 
@@ -1260,11 +1264,11 @@ void Loader::slotFinished( KIO::Job* job )
   {
       r->object->data(r->m_buffer, true);
       emit requestDone( r->m_docLoader, r->object );
-      time_t expireDate = j->queryMetaData("expire-date").toLong();
 #if !APPLE_CHANGES
+      time_t expireDate = j->queryMetaData("expire-date").toLong();
 kdDebug(6060) << "Loader::slotFinished, url = " << j->url().url() << " expires " << ctime(&expireDate) << endl;
-#endif
       r->object->setExpireDate(expireDate, false);
+#endif
   }
 
 #if APPLE_CHANGES
@@ -1284,12 +1288,13 @@ kdDebug(6060) << "Loader::slotFinished, url = " << j->url().url() << " expires "
 }
 
 #if APPLE_CHANGES
-void Loader::receivedResponse(KIO::Job* job, void *response)
+void Loader::slotReceivedResponse(KIO::Job* job, void *response)
 {
     Request *r = m_requestsLoading[job];
     ASSERT(r);
     ASSERT(response);
     r->object->setResponse(response);
+    r->object->setExpireDate(KWQCacheObjectExpiresTime(r->m_docLoader, response), false);
 }
 #endif
 
@@ -1507,8 +1512,10 @@ CachedImage *Cache::requestImage( DocLoader* dl, const DOMString & url, bool rel
         o = im;
     }
 
+#if !APPLE_CHANGES
     o->setExpireDate(_expireDate, true);
-
+#endif
+    
     if(o->type() != CachedObject::Image)
     {
 #ifdef CACHE_DEBUG
@@ -1581,8 +1588,10 @@ CachedCSSStyleSheet *Cache::requestStyleSheet( DocLoader* dl, const DOMString & 
         o = sheet;
     }
 
+#if !APPLE_CHANGES
     o->setExpireDate(_expireDate, true);
-
+#endif
+    
     if(o->type() != CachedObject::CSSStyleSheet)
     {
 #ifdef CACHE_DEBUG
@@ -1665,8 +1674,10 @@ CachedScript *Cache::requestScript( DocLoader* dl, const DOM::DOMString &url, bo
         o = script;
     }
 
+#if !APPLE_CHANGES
     o->setExpireDate(_expireDate, true);
-
+#endif
+    
     if(!(o->type() == CachedObject::Script))
     {
 #ifdef CACHE_DEBUG

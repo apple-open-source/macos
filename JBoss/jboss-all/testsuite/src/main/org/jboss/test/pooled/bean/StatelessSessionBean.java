@@ -11,8 +11,6 @@ import java.rmi.*;
 import javax.ejb.*;
 import javax.naming.InitialContext;
 import javax.naming.Context;
-import org.jboss.test.deadlock.interfaces.*;
-import org.jboss.ejb.plugins.lock.ApplicationDeadlockException;
 
 public class StatelessSessionBean implements SessionBean 
 {

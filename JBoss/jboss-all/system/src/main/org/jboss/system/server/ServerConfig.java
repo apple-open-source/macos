@@ -19,7 +19,7 @@ import java.net.URL;
  * <p>Clients should use {@link ServerConfigLocator} to get an instance of
  *    {@link ServerConfig} and then use it to get the server's configuration bits.
  *
- * @version <tt>$Revision: 1.9.2.2 $</tt>
+ * @version <tt>$Revision: 1.9.2.3 $</tt>
  * @author  <a href="mailto:jason@planet57.com">Jason Dillon</a>
  */
 public interface ServerConfig
@@ -169,6 +169,13 @@ public interface ServerConfig
      * <p>Defaults to <tt><em>SERVER_HOME_URL</em>/lib</tt>/
      */
    String SERVER_LIBRARY_URL = "jboss.server.lib.url";
+
+   /**
+    * Constant that holds the name of the environment property
+    * for specifying the bind address for all jboss services
+    *
+    */
+   String SERVER_BIND_ADDRESS = "jboss.bind.address";
 
     /**
      * Constant that holds the name of the environment property

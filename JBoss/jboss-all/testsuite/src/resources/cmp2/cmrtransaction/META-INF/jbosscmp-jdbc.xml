@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE jbosscmp-jdbc PUBLIC
+    "-//JBoss//DTD JBOSSCMP-JDBC 3.2//EN"
+    "http://www.jboss.org/j2ee/dtd/jbosscmp-jdbc_3_2.dtd">
+
+
+<jbosscmp-jdbc>
+    <defaults>
+        <datasource>java:/DefaultDS</datasource>
+        <datasource-mapping>Hypersonic SQL</datasource-mapping>
+        <create-table>true</create-table>
+        <remove-table>true</remove-table>
+    </defaults>
+
+    <enterprise-beans>
+        <entity>
+            <ejb-name>CMRTreeBean</ejb-name>
+            <table-name>CMRTrees</table-name>
+		</entity>
+    </enterprise-beans>
+</jbosscmp-jdbc>

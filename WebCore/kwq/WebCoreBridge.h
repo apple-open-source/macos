@@ -25,6 +25,10 @@
 
 #import <Foundation/Foundation.h>
 
+#import <WebCore/WebCoreKeyboardAccess.h>
+
+#import <JavaVM/jni.h>
+
 #ifdef __cplusplus
 
 class KWQKHTMLPart;
@@ -54,6 +58,7 @@ typedef khtml::RenderPart KHTMLRenderPart;
 @protocol WebCoreResourceHandle;
 @protocol WebCoreResourceLoader;
 @protocol WebCoreFileButton;
+@protocol WebCoreFileButtonDelegate;
 @protocol WebDOMDocument;
 @protocol WebDOMNode;
 @protocol WebDOMElement;
@@ -68,6 +73,9 @@ extern NSString *WebCoreElementLinkURLKey;
 extern NSString *WebCoreElementLinkTargetFrameKey;
 extern NSString *WebCoreElementLinkLabelKey;
 extern NSString *WebCoreElementLinkTitleKey;
+extern NSString *WebCoreElementTitleKey;
+
+extern NSString *WebCorePageCacheStateKey;
 
 typedef enum {
     WebCoreDeviceScreen,
@@ -138,15 +146,18 @@ typedef enum {
 
 - (void)reapplyStylesForDeviceType:(WebCoreDeviceType)deviceType;
 - (void)forceLayoutAdjustingViewSize:(BOOL)adjustSizeFlag;
-- (void)forceLayoutForPageWidth:(float)pageWidth adjustingViewSize:(BOOL)adjustSizeFlag;
+- (void)forceLayoutWithMinimumPageWidth:(float)minPageWidth maximumPageWidth:(float)maxPageWidth adjustingViewSize:(BOOL)adjustSizeFlag;
 - (void)sendResizeEvent;
 - (BOOL)needsLayout;
-- (void)adjustFrames:(NSRect)rect;
+- (void)setNeedsLayout;
 - (void)drawRect:(NSRect)rect;
 - (void)adjustPageHeightNew:(float *)newBottom top:(float)oldTop bottom:(float)oldBottom limit:(float)bottomLimit;
+- (NSArray*)computePageRectsWithPrintWidth:(float)printWidth printHeight:(float)printHeight;
 
 - (void)setUsesInactiveTextBackgroundColor:(BOOL)uses;
 - (BOOL)usesInactiveTextBackgroundColor;
+
+- (void)setShowsFirstResponder:(BOOL)flag;
 
 - (void)mouseDown:(NSEvent *)event;
 - (void)mouseUp:(NSEvent *)event;
@@ -194,6 +205,7 @@ typedef enum {
 
 - (void)selectAll;
 - (void)deselectAll;
+- (void)deselectText;
 
 - (NSRect)selectionRect;
 - (NSRect)visibleSelectionRect;
@@ -220,6 +232,10 @@ typedef enum {
 
 - (void)adjustViewSize;
 
++ (void)updateAllViews;
+
+- (id)accessibilityTree;
+
 @end
 
 // The WebCoreBridge protocol contains methods for use by the WebCore side of the bridge.
@@ -232,8 +248,9 @@ typedef enum {
 /* Creates a name for an frame unnamed in the HTML.  It should produce repeatable results for loads of the same frameset. */
 - (NSString *)generateFrameName;
 - (void)frameDetached;
+- (NSView *)documentView;
 
-- (void)loadURL:(NSURL *)URL referrer:(NSString *)referrer reload:(BOOL)reload target:(NSString *)target triggeringEvent:(NSEvent *)event form:(NSObject <WebDOMElement> *)form formValues:(NSDictionary *)values;
+- (void)loadURL:(NSURL *)URL referrer:(NSString *)referrer reload:(BOOL)reload onLoadEvent:(BOOL)onLoad target:(NSString *)target triggeringEvent:(NSEvent *)event form:(NSObject <WebDOMElement> *)form formValues:(NSDictionary *)values;
 - (void)postWithURL:(NSURL *)URL referrer:(NSString *)referrer target:(NSString *)target data:(NSData *)data contentType:(NSString *)contentType triggeringEvent:(NSEvent *)event form:(NSObject <WebDOMElement> *)form formValues:(NSDictionary *)values;
 
 - (WebCoreBridge *)createWindowWithURL:(NSURL *)URL frameName:(NSString *)name;
@@ -275,9 +292,14 @@ typedef enum {
 - (BOOL)runJavaScriptConfirmPanelWithMessage:(NSString *)message;
 - (BOOL)runJavaScriptTextInputPanelWithPrompt:(NSString *)prompt defaultText:(NSString *)defaultText returningText:(NSString **)result;
 
-- (id <WebCoreResourceHandle>)startLoadingResource:(id <WebCoreResourceLoader>)loader withURL:(NSURL *)URL;
+- (id <WebCoreResourceHandle>)startLoadingResource:(id <WebCoreResourceLoader>)loader withURL:(NSURL *)URL customHeaders:(NSDictionary *)customHeaders;
+- (id <WebCoreResourceHandle>)startLoadingResource:(id <WebCoreResourceLoader>)loader withURL:(NSURL *)URL customHeaders:(NSDictionary *)customHeaders postData:(NSData *)data;
 - (void)objectLoadedFromCacheWithURL:(NSURL *)URL response:(id)response size:(unsigned)bytes;
+
+- (NSData *)syncLoadResourceWithURL:(NSURL *)URL customHeaders:(NSDictionary *)requestHeaders postData:(NSData *)postData finalURL:(NSURL **)finalNSURL responseHeaders:(NSDictionary **)responseHeaderDict statusCode:(int *)statusCode;
+
 - (BOOL)isReloading;
+- (time_t)expiresTimeForResponse:(NSURLResponse *)response;
 
 - (void)reportClientRedirectToURL:(NSURL *)URL delay:(NSTimeInterval)seconds fireDate:(NSDate *)date lockHistory:(BOOL)lockHistory isJavaScriptFormAction:(BOOL)isJavaScriptFormAction;
 - (void)reportClientRedirectCancelled:(BOOL)cancelWithLoadInProgress;
@@ -294,7 +316,6 @@ typedef enum {
 - (NSArray *)documentState;
 
 - (void)setNeedsReapplyStyles;
-- (void)setNeedsLayout;
 
 // OK to be an NSString rather than an NSURL.
 // This URL is only used for coloring visited links.
@@ -313,7 +334,7 @@ typedef enum {
 
 - (int)getObjectCacheSize;
 
-- (BOOL)frameRequiredForMIMEType:(NSString*)mimeType;
+- (BOOL)frameRequiredForMIMEType:(NSString*)MIMEType URL:(NSURL *)URL;
 
 - (void)loadEmptyDocumentSynchronously;
 
@@ -337,9 +358,19 @@ typedef enum {
 - (BOOL)control:(NSControl *)control isValidObject:(id)obj;
 - (BOOL)control:(NSControl *)control textView:(NSTextView *)textView doCommandBySelector:(SEL)commandSelector;
 
-- (NSView <WebCoreFileButton> *)fileButton;
+- (NSView <WebCoreFileButton> *)fileButtonWithDelegate:(id <WebCoreFileButtonDelegate>)delegate;
 
 - (void)setHasBorder:(BOOL)hasBorder;
+
+- (WebCoreKeyboardUIMode)keyboardUIMode;
+
+- (void)didSetName:(NSString *)name;
+
+- (NSFileWrapper *)fileWrapperForURL:(NSURL *)URL;
+
+- (void)print;
+
+- (jobject)pollForAppletInView:(NSView *)view;
 
 @end
 
@@ -360,6 +391,7 @@ typedef enum {
 
 @protocol WebCoreFileButton <NSObject>
 - (void)setFilename:(NSString *)filename;
+- (void)performClick;
 - (NSString *)filename;
 - (float)baseline;
 - (void)setVisualFrame:(NSRect)rect;
@@ -367,5 +399,8 @@ typedef enum {
 - (NSSize)bestVisualFrameSizeForCharacterCount:(int)count;
 @end
 
-extern NSString *WebCoreFileButtonFilenameChanged;
-extern NSString *WebCoreFileButtonClicked;
+@protocol WebCoreFileButtonDelegate <NSObject>
+- (void)filenameChanged:(NSString *)filename;
+- (void)focusChanged:(BOOL)nowHasFocus;
+- (void)clicked;
+@end

@@ -16,14 +16,17 @@ import java.util.Collection;
 /**
  * Remote home interface for a LOBBean.
  *
- * @see javax.ejb.EJBHome.
+ * @see javax.ejb.EJBHome
  *
- * @version <tt>$Revision: 1.1.2.1 $</tt>
+ * @version <tt>$Revision: 1.1.2.2 $</tt>
  * @author  <a href="mailto:steve@resolvesw.com">Steve Coy</a>
  *
  */
 public interface LOBHome extends EJBHome
 {
+   // Constants -----------------------------------------------------
+   String LOB_HOME_CONTEXT = "cmp2/lob/Lob";
+
    public LOB create(Integer id)
       throws CreateException, RemoteException;
 

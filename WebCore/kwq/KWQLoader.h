@@ -24,6 +24,7 @@
  */
 
 #include "KWQSignal.h"
+#include "QCString.h"
 
 namespace khtml {
     class CachedObject;
@@ -37,12 +38,18 @@ namespace KIO {
 }
 
 bool KWQServeRequest(khtml::Loader *, khtml::Request *, KIO::TransferJob *);
+bool KWQServeRequest(khtml::Loader *, khtml::DocLoader *, KIO::TransferJob *);
+
+QByteArray KWQServeSynchronousRequest(khtml::Loader *, khtml::DocLoader *, KIO::TransferJob *, KURL &finalURL, QString &headers);
+
 void KWQCheckCacheObjectStatus(khtml::DocLoader *, khtml::CachedObject *);
 bool KWQCheckIfReloading(khtml::DocLoader *loader);
 void KWQRetainResponse(void *response);
 void KWQReleaseResponse(void *response);
 void *KWQResponseMIMEType(void *response);
+void *KWQResponseHeaderString(void *response);
 int KWQNumberOfPendingOrLoadingRequests(khtml::DocLoader *dl);
+time_t KWQCacheObjectExpiresTime(khtml::DocLoader *docLoader, void *response);
 
 class KWQLoader
 {

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+   XML Schema used by the SnmpAgent to configure known SNMP Managers
+   
+   $Revision: 1.1.2.3 $
+   
+   Authors
+      <a href="mailto:spol@intracom.gr">Spyros Pollatos</a>
+      <a href="mailto:andd@intracom.gr">Dimitris Andreadis</a>
+-->
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns="http://www.w3.org/2001/XMLSchema">
+    
+   <xsd:annotation>
+      <xsd:documentation xml:lang="en">
+         Schema describes the subscription of managers in order to receive
+         SNMP traps. The key for the subscription is comprised of:
+             1. The manager's address (IP address or host name)
+             2. The listening port
+             3. The required SNMP version
+      </xsd:documentation>
+   </xsd:annotation>
+
+   <xsd:element name="manager-list">
+      <xsd:complexType>
+         <xsd:sequence>
+            <xsd:element name="manager" maxOccurs="unbounded">
+               <xsd:complexType>
+                  <xsd:sequence>
+                     <xsd:element name="address"    type="xsd:string" />
+                     <xsd:element name="port"       type="xsd:integer" />
+                     <xsd:element name="local-port" type="xsd:integer" />
+                     <xsd:element name="version"    type="xsd:integer" />
+                  </xsd:sequence>
+               </xsd:complexType>
+            </xsd:element>
+         </xsd:sequence>
+      </xsd:complexType>
+   </xsd:element>
+</xsd:schema>

@@ -56,7 +56,7 @@ RenderReplaced::RenderReplaced(DOM::NodeImpl* node)
 void RenderReplaced::paint(QPainter *p, int _x, int _y, int _w, int _h,
                            int _tx, int _ty, PaintAction paintAction)
 {
-    if (paintAction != PaintActionForeground)
+    if (paintAction != PaintActionForeground && paintAction != PaintActionOutline && paintAction != PaintActionSelection)
         return;
         
     // if we're invisible or haven't received a layout yet, then just bail.
@@ -66,13 +66,13 @@ void RenderReplaced::paint(QPainter *p, int _x, int _y, int _w, int _h,
     _ty += m_y;
 
     // Early exit if the element touches the edges.
-    if((_tx >= _x + _w) || (_tx + m_width <= _x))
+    int os = 2*maximalOutlineSize(paintAction);
+    if((_tx >= _x + _w + os) || (_tx + m_width <= _x - os))
+        return;
+    if((_ty >= _y + _h + os) || (_ty + m_height <= _y - os))
         return;
 
-    if((_tx >= _x + _w) || (_tx + m_width <= _x))
-        return;
-
-    if(shouldPaintBackgroundOrBorder()) 
+    if(shouldPaintBackgroundOrBorder() && paintAction != PaintActionOutline) 
         paintBoxDecorations(p, _x, _y, _w, _h, _tx, _ty);
 
     paintObject(p, _x, _y, _w, _h, _tx, _ty, paintAction);
@@ -130,7 +130,7 @@ RenderWidget::RenderWidget(DOM::NodeImpl* node)
     ref();
 }
 
-void RenderWidget::detach(RenderArena* renderArena)
+void RenderWidget::detach()
 {
     remove();
 
@@ -141,10 +141,10 @@ void RenderWidget::detach(RenderArena* renderArena)
         m_widget->removeEventFilter( this );
         m_widget->setMouseTracking( false );
     }
-    
-    m_node = 0;
-    
-    deref(renderArena);
+
+    RenderArena* arena = renderArena();
+    setNode(0);
+    deref(arena);
 }
 
 RenderWidget::~RenderWidget()
@@ -190,14 +190,24 @@ void RenderWidget::setQWidget(QWidget *widget, bool deleteWidget)
             connect( m_widget, SIGNAL( destroyed()), this, SLOT( slotWidgetDestructed()));
             m_widget->installEventFilter(this);
             // if we've already received a layout, apply the calculated space to the
-            // widget immediately
-            if (!needsLayout()) {
+            // widget immediately, but we have to have really been full constructed (with a non-null
+            // style pointer).
+            if (!needsLayout() && style()) {
 		resizeWidget( m_widget,
 			      m_width-borderLeft()-borderRight()-paddingLeft()-paddingRight(),
 			      m_height-borderLeft()-borderRight()-paddingLeft()-paddingRight() );
             }
             else
                 setPos(xPos(), -500000);
+
+#if APPLE_CHANGES
+	    if (style()) {
+	        if (style()->visibility() != VISIBLE)
+                    m_widget->hide();
+		else
+		    m_widget->show();
+	    }
+#endif
         }
 	m_view->addChild( m_widget, -500000, 0 );
     }
@@ -208,11 +218,13 @@ void RenderWidget::layout( )
 {
     KHTMLAssert( needsLayout() );
     KHTMLAssert( minMaxKnown() );
+#if !APPLE_CHANGES
     if ( m_widget ) {
 	resizeWidget( m_widget,
 		      m_width-borderLeft()-borderRight()-paddingLeft()-paddingRight(),
 		      m_height-borderLeft()-borderRight()-paddingLeft()-paddingRight() );
     }
+#endif
 
     setNeedsLayout(false);
 }
@@ -236,21 +248,42 @@ void RenderWidget::slotWidgetDestructed()
 void RenderWidget::setStyle(RenderStyle *_style)
 {
     RenderReplaced::setStyle(_style);
-    if(m_widget)
+    if (m_widget)
     {
         m_widget->setFont(style()->font());
-        if (style()->visibility() != VISIBLE) {
+        if (style()->visibility() != VISIBLE)
             m_widget->hide();
-        }
+#if APPLE_CHANGES
+        else
+            m_widget->show();
+#endif
     }
 }
 
 void RenderWidget::paintObject(QPainter *p, int x, int y, int width, int height, int _tx, int _ty,
                                PaintAction paintAction)
 {
-    if (!m_widget || !m_view || paintAction != PaintActionForeground)
+#if APPLE_CHANGES
+    if (!m_widget || !m_view || paintAction != PaintActionForeground ||
+        style()->visibility() != VISIBLE)
         return;
 
+    // Move the widget if necessary.  We normally move and resize widgets during layout, but sometimes
+    // widgets can move without layout occurring (most notably when you scroll a document that
+    // contains fixed positioned elements).
+    int newX = _tx + borderLeft() + paddingLeft();
+    int newY = _ty + borderTop() + paddingTop();
+    if (m_view->childX(m_widget) != newX || m_view->childY(m_widget) != newY)
+        m_widget->move(newX, newY);
+    
+    // Tell the widget to paint now.  This is the only time the widget is allowed
+    // to paint itself.  That way it will composite properly with z-indexed layers.
+    m_widget->paint(p, QRect(x, y, width, height));
+    
+#else
+    if (!m_widget || !m_view || paintAction != PaintActionForeground)
+        return;
+    
     if (style()->visibility() != VISIBLE) {
         m_widget->hide();
         return;
@@ -259,7 +292,6 @@ void RenderWidget::paintObject(QPainter *p, int x, int y, int width, int height,
     int xPos = _tx+borderLeft()+paddingLeft();
     int yPos = _ty+borderTop()+paddingTop();
 
-#if !APPLE_CHANGES
     int childw = m_widget->width();
     int childh = m_widget->height();
     if ( (childw == 2000 || childh == 3072) && m_widget->inherits( "KHTMLView" ) ) {
@@ -293,15 +325,9 @@ void RenderWidget::paintObject(QPainter *p, int x, int y, int width, int height,
 	xPos = xNew;
 	yPos = yNew;
     }
-#endif
 
     m_view->addChild(m_widget, xPos, yPos );
     m_widget->show();
-    
-#if APPLE_CHANGES
-    // Tell the widget to paint now.  This is the only time the widget is allowed
-    // to paint itself.  That way it will composite properly with z-indexed layers.
-    m_widget->paint(p, QRect(x, y, width, height));
 #endif
 }
 
@@ -329,7 +355,8 @@ bool RenderWidget::eventFilter(QObject* /*o*/, QEvent* e)
         if ( QFocusEvent::reason() != QFocusEvent::Popup )
        {
            //kdDebug(6000) << "RenderWidget::eventFilter captures FocusOut" << endl;
-            elem->dispatchHTMLEvent(EventImpl::BLUR_EVENT,false,false);
+            if (elem->getDocument()->focusNode() == elem)
+                elem->getDocument()->setFocusNode(0);
 //             if (  elem->isEditable() ) {
 //                 KHTMLPartBrowserExtension *ext = static_cast<KHTMLPartBrowserExtension *>( elem->view->part()->browserExtension() );
 //                 if ( ext )  ext->editableWidgetBlurred( m_widget );
@@ -420,5 +447,29 @@ void RenderWidget::deref(RenderArena *arena)
     if (!_ref)
         arenaDelete(arena);
 }
+
+#if APPLE_CHANGES
+void RenderWidget::updateWidgetPositions()
+{
+    if (!m_widget)
+        return;
+    
+    int x, y, width, height;
+    absolutePosition(x,y);
+    x += borderLeft() + paddingLeft();
+    y += borderTop() + paddingTop();
+    width = m_width - borderLeft() - borderRight() - paddingLeft() - paddingRight();
+    height = m_height - borderTop() - borderBottom() - paddingTop() - paddingBottom();
+    QRect newBounds(x,y,width,height);
+    if (newBounds != m_widget->frameGeometry()) {
+        // The widget changed positions.  Update the frame geometry.
+        RenderArena *arena = ref();
+        element()->ref();
+        m_widget->setFrameGeometry(newBounds);
+        element()->deref();
+        deref(arena);
+    }
+}
+#endif
 
 #include "render_replaced.moc"

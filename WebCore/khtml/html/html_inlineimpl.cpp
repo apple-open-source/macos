@@ -53,6 +53,53 @@ HTMLAnchorElementImpl::~HTMLAnchorElementImpl()
 {
 }
 
+bool HTMLAnchorElementImpl::isFocusable() const
+{
+    // FIXME: Even if we are not visible, we might have a child that is visible.
+    // Dave wants to fix that some day with a "has visible content" flag or the like.
+    if (!(m_hasAnchor && m_render && m_render->style()->visibility() == VISIBLE))
+        return false;
+
+    // Before calling absoluteRects, check for the common case where the renderer
+    // or one of the continuations is non-empty, since this is a faster check and
+    // almost always returns true.
+    for (RenderObject *r = m_render; r; r = r->continuation()) {
+        if (r->width() > 0 && r->height() > 0)
+            return true;
+    }
+
+    QValueList<QRect> rects;
+    int x = 0, y = 0;
+    m_render->absolutePosition(x, y);
+    m_render->absoluteRects(rects, x, y);
+    for (QValueList<QRect>::ConstIterator it = rects.begin(); it != rects.end(); ++it) {
+        if ((*it).isValid())
+            return true;
+    }
+
+    return false;
+}
+
+bool HTMLAnchorElementImpl::isMouseFocusable() const
+{
+#if APPLE_CHANGES
+    return false;
+#else
+    return isFocusable();
+#endif
+}
+
+bool HTMLAnchorElementImpl::isKeyboardFocusable() const
+{
+    if (!isFocusable())
+        return false;
+    
+    if (!getDocument()->part())
+	return false;
+
+    return getDocument()->part()->tabsToLinks();
+}
+
 NodeImpl::Id HTMLAnchorElementImpl::id() const
 {
     return ID_A;
@@ -64,14 +111,14 @@ void HTMLAnchorElementImpl::defaultEventHandler(EventImpl *evt)
     // Don't make this KEYUP_EVENT again, it makes khtml follow links it shouldn't,
     // when pressing Enter in the combo.
     if ( ( evt->id() == EventImpl::KHTML_CLICK_EVENT ||
-         ( evt->id() == EventImpl::KHTML_KEYDOWN_EVENT && m_focused)) && m_hasAnchor) {
+         ( evt->id() == EventImpl::KEYDOWN_EVENT && m_focused)) && m_hasAnchor) {
         MouseEventImpl *e = 0;
         if ( evt->id() == EventImpl::KHTML_CLICK_EVENT )
             e = static_cast<MouseEventImpl*>( evt );
 
-        KeyEventImpl *k = 0;
-        if (evt->id() == EventImpl::KHTML_KEYDOWN_EVENT)
-            k = static_cast<KeyEventImpl *>( evt );
+        KeyboardEventImpl *k = 0;
+        if (evt->id() == EventImpl::KEYDOWN_EVENT)
+            k = static_cast<KeyboardEventImpl *>( evt );
 
         QString utarget;
         QString url;
@@ -82,11 +129,16 @@ void HTMLAnchorElementImpl::defaultEventHandler(EventImpl *evt)
         }
 
         if ( k ) {
-            if (k->virtKeyVal() != KeyEventImpl::DOM_VK_ENTER) {
+            if (k->keyIdentifier() != "Enter") {
                 HTMLElementImpl::defaultEventHandler(evt);
                 return;
             }
-            if (k->qKeyEvent) k->qKeyEvent->accept();
+            if (k->qKeyEvent()) {
+                k->qKeyEvent()->accept();
+                evt->setDefaultHandled();
+                click();
+                return;
+            }
         }
 
         url = khtml::parseURL(getAttribute(ATTR_HREF)).string();
@@ -138,17 +190,17 @@ void HTMLAnchorElementImpl::defaultEventHandler(EventImpl *evt)
             }
 	    else if ( k )
 	    {
-	      if ( k->checkModifier(Qt::ShiftButton) )
+	      if ( k->shiftKey() )
                 state |= Qt::ShiftButton;
-	      if ( k->checkModifier(Qt::AltButton) )
+	      if ( k->altKey() )
                 state |= Qt::AltButton;
-	      if ( k->checkModifier(Qt::ControlButton) )
+	      if ( k->ctrlKey() )
                 state |= Qt::ControlButton;
 	    }
 
-            if (getDocument() && getDocument()->view()) {
+            if (getDocument() && getDocument()->view() && getDocument()->part()) {
                 getDocument()->view()->resetCursor();
-                getDocument()->view()->part()->
+                getDocument()->part()->
                     urlSelected( url, button, state, utarget );
             }
         }
@@ -175,6 +227,11 @@ void HTMLAnchorElementImpl::parseAttribute(AttributeImpl *attr)
     default:
         HTMLElementImpl::parseAttribute(attr);
     }
+}
+
+void HTMLAnchorElementImpl::accessKeyAction()
+{
+    click();
 }
 
 // -------------------------------------------------------------------------
@@ -219,12 +276,6 @@ void HTMLBRElementImpl::parseAttribute(AttributeImpl *attr)
 RenderObject *HTMLBRElementImpl::createRenderer(RenderArena *arena, RenderStyle *style)
 {
      return new (arena) RenderBR(this);
-}
-
-void HTMLBRElementImpl::attach()
-{
-    createRendererIfNeeded();
-    NodeImpl::attach();
 }
 
 // -------------------------------------------------------------------------

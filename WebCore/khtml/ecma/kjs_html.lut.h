@@ -3,68 +3,78 @@
 namespace KJS {
 
 const struct HashEntry HTMLDocumentTableEntries[] = {
-   { "open", HTMLDocument::Open, DontDelete|Function, 0, 0 },
-   { "scripts", HTMLDocument::Scripts, DontDelete|ReadOnly, 0, 0 },
-   { "releaseEvents", HTMLDocument::ReleaseEvents, DontDelete|Function, 0, 0 },
-   { "all", HTMLDocument::All, DontDelete|ReadOnly, 0, &HTMLDocumentTableEntries[32] },
-   { 0, 0, 0, 0, 0 },
-   { "vlinkColor", HTMLDocument::VlinkColor, DontDelete, 0, 0 },
-   { "anchors", HTMLDocument::Anchors, DontDelete|ReadOnly, 0, 0 },
-   { "close", HTMLDocument::Close, DontDelete|Function, 0, 0 },
-   { 0, 0, 0, 0, 0 },
-   { "dir", HTMLDocument::Dir, DontDelete, 0, 0 },
-   { "images", HTMLDocument::Images, DontDelete|ReadOnly, 0, 0 },
-   { "linkColor", HTMLDocument::LinkColor, DontDelete, 0, 0 },
-   { "domain", HTMLDocument::Domain, DontDelete, 0, 0 },
-   { "height", HTMLDocument::Height, DontDelete|ReadOnly, 0, 0 },
-   { "cookie", HTMLDocument::Cookie, DontDelete, 0, 0 },
-   { "alinkColor", HTMLDocument::AlinkColor, DontDelete, 0, 0 },
-   { "getElementsByName", HTMLDocument::GetElementsByName, DontDelete|Function, 1, 0 },
-   { "applets", HTMLDocument::Applets, DontDelete|ReadOnly, 0, &HTMLDocumentTableEntries[34] },
+   { "width", HTMLDocument::Width, DontDelete|ReadOnly, 0, 0 },
    { "links", HTMLDocument::Links, DontDelete|ReadOnly, 0, 0 },
    { "title", HTMLDocument::Title, DontDelete, 0, 0 },
-   { "location", HTMLDocument::Location, DontDelete, 0, 0 },
+   { "vlinkColor", HTMLDocument::VlinkColor, DontDelete, 0, 0 },
+   { 0, 0, 0, 0, 0 },
+   { "writeln", HTMLDocument::WriteLn, DontDelete|Function, 1, 0 },
+   { 0, 0, 0, 0, 0 },
+   { "forms", HTMLDocument::Forms, DontDelete|ReadOnly, 0, &HTMLDocumentTableEntries[34] },
+   { "scripts", HTMLDocument::Scripts, DontDelete|ReadOnly, 0, &HTMLDocumentTableEntries[38] },
    { "captureEvents", HTMLDocument::CaptureEvents, DontDelete|Function, 0, 0 },
    { 0, 0, 0, 0, 0 },
-   { "clear", HTMLDocument::Clear, DontDelete|Function, 0, 0 },
-   { "referrer", HTMLDocument::Referrer, DontDelete|ReadOnly, 0, &HTMLDocumentTableEntries[31] },
-   { 0, 0, 0, 0, 0 },
-   { "URL", HTMLDocument::URL, DontDelete|ReadOnly, 0, 0 },
-   { "body", HTMLDocument::Body, DontDelete, 0, 0 },
-   { "write", HTMLDocument::Write, DontDelete|Function, 1, &HTMLDocumentTableEntries[33] },
-   { "writeln", HTMLDocument::WriteLn, DontDelete|Function, 1, 0 },
-   { "bgColor", HTMLDocument::BgColor, DontDelete, 0, 0 },
-   { "forms", HTMLDocument::Forms, DontDelete|ReadOnly, 0, 0 },
+   { "write", HTMLDocument::Write, DontDelete|Function, 1, 0 },
    { "fgColor", HTMLDocument::FgColor, DontDelete, 0, 0 },
+   { "linkColor", HTMLDocument::LinkColor, DontDelete, 0, 0 },
+   { "body", HTMLDocument::Body, DontDelete, 0, &HTMLDocumentTableEntries[33] },
+   { 0, 0, 0, 0, 0 },
+   { 0, 0, 0, 0, 0 },
+   { 0, 0, 0, 0, 0 },
+   { "open", HTMLDocument::Open, DontDelete|Function, 0, 0 },
+   { "URL", HTMLDocument::URL, DontDelete|ReadOnly, 0, 0 },
+   { 0, 0, 0, 0, 0 },
    { "lastModified", HTMLDocument::LastModified, DontDelete|ReadOnly, 0, 0 },
-   { "width", HTMLDocument::Width, DontDelete|ReadOnly, 0, 0 }
+   { "images", HTMLDocument::Images, DontDelete|ReadOnly, 0, &HTMLDocumentTableEntries[35] },
+   { 0, 0, 0, 0, 0 },
+   { "domain", HTMLDocument::Domain, DontDelete, 0, 0 },
+   { "location", HTMLDocument::Location, DontDelete, 0, &HTMLDocumentTableEntries[32] },
+   { "cookie", HTMLDocument::Cookie, DontDelete, 0, 0 },
+   { 0, 0, 0, 0, 0 },
+   { 0, 0, 0, 0, 0 },
+   { "referrer", HTMLDocument::Referrer, DontDelete|ReadOnly, 0, 0 },
+   { 0, 0, 0, 0, 0 },
+   { "dir", HTMLDocument::Dir, DontDelete, 0, &HTMLDocumentTableEntries[41] },
+   { "applets", HTMLDocument::Applets, DontDelete|ReadOnly, 0, &HTMLDocumentTableEntries[36] },
+   { "anchors", HTMLDocument::Anchors, DontDelete|ReadOnly, 0, &HTMLDocumentTableEntries[39] },
+   { "clear", HTMLDocument::Clear, DontDelete|Function, 0, 0 },
+   { "close", HTMLDocument::Close, DontDelete|Function, 0, &HTMLDocumentTableEntries[37] },
+   { "getElementsByName", HTMLDocument::GetElementsByName, DontDelete|Function, 1, &HTMLDocumentTableEntries[40] },
+   { "releaseEvents", HTMLDocument::ReleaseEvents, DontDelete|Function, 0, 0 },
+   { "bgColor", HTMLDocument::BgColor, DontDelete, 0, 0 },
+   { "alinkColor", HTMLDocument::AlinkColor, DontDelete, 0, 0 },
+   { "height", HTMLDocument::Height, DontDelete|ReadOnly, 0, 0 },
+   { "designMode", HTMLDocument::DesignMode, DontDelete, 0, 0 }
 };
 
-const struct HashTable HTMLDocumentTable = { 2, 35, HTMLDocumentTableEntries, 31 };
+const struct HashTable HTMLDocumentTable = { 2, 42, HTMLDocumentTableEntries, 32 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
 const struct HashEntry HTMLElementTableEntries[] = {
+   { "lang", KJS::HTMLElement::ElementLang, DontDelete, 0, &HTMLElementTableEntries[12] },
    { 0, 0, 0, 0, 0 },
-   { "innerHTML", KJS::HTMLElement::ElementInnerHTML, DontDelete, 0, &HTMLElementTableEntries[10] },
-   { "title", KJS::HTMLElement::ElementTitle, DontDelete, 0, &HTMLElementTableEntries[8] },
+   { "innerHTML", KJS::HTMLElement::ElementInnerHTML, DontDelete, 0, 0 },
+   { 0, 0, 0, 0, 0 },
+   { "innerText", KJS::HTMLElement::ElementInnerText, DontDelete, 0, 0 },
+   { "document", KJS::HTMLElement::ElementDocument, DontDelete|ReadOnly, 0, &HTMLElementTableEntries[13] },
+   { "className", KJS::HTMLElement::ElementClassName, DontDelete, 0, &HTMLElementTableEntries[14] },
+   { "id", KJS::HTMLElement::ElementId, DontDelete, 0, &HTMLElementTableEntries[11] },
    { 0, 0, 0, 0, 0 },
    { 0, 0, 0, 0, 0 },
-   { "id", KJS::HTMLElement::ElementId, DontDelete, 0, 0 },
    { 0, 0, 0, 0, 0 },
-   { "dir", KJS::HTMLElement::ElementDir, DontDelete, 0, &HTMLElementTableEntries[9] },
-   { "lang", KJS::HTMLElement::ElementLang, DontDelete, 0, 0 },
-   { "className", KJS::HTMLElement::ElementClassName, DontDelete, 0, &HTMLElementTableEntries[11] },
-   { "innerText", KJS::HTMLElement::ElementInnerText, DontDelete, 0, &HTMLElementTableEntries[12] },
-   { "document", KJS::HTMLElement::ElementDocument, DontDelete|ReadOnly, 0, 0 },
-   { "children", KJS::HTMLElement::ElementChildren, DontDelete|ReadOnly, 0, 0 }
+   { "title", KJS::HTMLElement::ElementTitle, DontDelete, 0, &HTMLElementTableEntries[15] },
+   { "dir", KJS::HTMLElement::ElementDir, DontDelete, 0, 0 },
+   { "children", KJS::HTMLElement::ElementChildren, DontDelete|ReadOnly, 0, 0 },
+   { "contentEditable", KJS::HTMLElement::ElementContentEditable, DontDelete, 0, 0 },
+   { "isContentEditable", KJS::HTMLElement::ElementIsContentEditable, DontDelete|ReadOnly, 0, 0 }
 };
 
-const struct HashTable HTMLElementTable = { 2, 13, HTMLElementTableEntries, 8 };
+const struct HashTable HTMLElementTable = { 2, 16, HTMLElementTableEntries, 11 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -74,7 +84,7 @@ const struct HashEntry HTMLHtmlElementTableEntries[] = {
 
 const struct HashTable HTMLHtmlElementTable = { 2, 1, HTMLHtmlElementTableEntries, 1 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -84,7 +94,7 @@ const struct HashEntry HTMLHeadElementTableEntries[] = {
 
 const struct HashTable HTMLHeadElementTable = { 2, 1, HTMLHeadElementTableEntries, 1 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -109,7 +119,7 @@ const struct HashEntry HTMLLinkElementTableEntries[] = {
 
 const struct HashTable HTMLLinkElementTable = { 2, 16, HTMLLinkElementTableEntries, 11 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -119,7 +129,7 @@ const struct HashEntry HTMLTitleElementTableEntries[] = {
 
 const struct HashTable HTMLTitleElementTable = { 2, 1, HTMLTitleElementTableEntries, 1 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -133,7 +143,7 @@ const struct HashEntry HTMLMetaElementTableEntries[] = {
 
 const struct HashTable HTMLMetaElementTable = { 2, 5, HTMLMetaElementTableEntries, 4 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -145,7 +155,7 @@ const struct HashEntry HTMLBaseElementTableEntries[] = {
 
 const struct HashTable HTMLBaseElementTable = { 2, 3, HTMLBaseElementTableEntries, 2 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -157,7 +167,7 @@ const struct HashEntry HTMLIsIndexElementTableEntries[] = {
 
 const struct HashTable HTMLIsIndexElementTable = { 2, 3, HTMLIsIndexElementTableEntries, 2 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -171,7 +181,7 @@ const struct HashEntry HTMLStyleElementTableEntries[] = {
 
 const struct HashTable HTMLStyleElementTable = { 2, 5, HTMLStyleElementTableEntries, 4 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -194,7 +204,7 @@ const struct HashEntry HTMLBodyElementTableEntries[] = {
 
 const struct HashTable HTMLBodyElementTable = { 2, 14, HTMLBodyElementTableEntries, 10 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -216,7 +226,7 @@ const struct HashEntry HTMLFormElementTableEntries[] = {
 
 const struct HashTable HTMLFormElementTable = { 2, 13, HTMLFormElementTableEntries, 11 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -242,7 +252,7 @@ const struct HashEntry HTMLSelectElementTableEntries[] = {
 
 const struct HashTable HTMLSelectElementTable = { 2, 17, HTMLSelectElementTableEntries, 11 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -254,7 +264,7 @@ const struct HashEntry HTMLOptGroupElementTableEntries[] = {
 
 const struct HashTable HTMLOptGroupElementTable = { 2, 3, HTMLOptGroupElementTableEntries, 2 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -274,7 +284,7 @@ const struct HashEntry HTMLOptionElementTableEntries[] = {
 
 const struct HashTable HTMLOptionElementTable = { 2, 11, HTMLOptionElementTableEntries, 8 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -314,7 +324,7 @@ const struct HashEntry HTMLInputElementTableEntries[] = {
 
 const struct HashTable HTMLInputElementTable = { 2, 31, HTMLInputElementTableEntries, 23 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -340,7 +350,7 @@ const struct HashEntry HTMLTextAreaElementTableEntries[] = {
 
 const struct HashTable HTMLTextAreaElementTable = { 2, 17, HTMLTextAreaElementTableEntries, 13 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -358,7 +368,7 @@ const struct HashEntry HTMLButtonElementTableEntries[] = {
 
 const struct HashTable HTMLButtonElementTable = { 2, 9, HTMLButtonElementTableEntries, 7 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -370,7 +380,7 @@ const struct HashEntry HTMLLabelElementTableEntries[] = {
 
 const struct HashTable HTMLLabelElementTable = { 2, 3, HTMLLabelElementTableEntries, 3 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -380,7 +390,7 @@ const struct HashEntry HTMLFieldSetElementTableEntries[] = {
 
 const struct HashTable HTMLFieldSetElementTable = { 2, 1, HTMLFieldSetElementTableEntries, 1 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -393,7 +403,7 @@ const struct HashEntry HTMLLegendElementTableEntries[] = {
 
 const struct HashTable HTMLLegendElementTable = { 2, 4, HTMLLegendElementTableEntries, 3 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -404,7 +414,7 @@ const struct HashEntry HTMLUListElementTableEntries[] = {
 
 const struct HashTable HTMLUListElementTable = { 2, 2, HTMLUListElementTableEntries, 2 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -417,7 +427,7 @@ const struct HashEntry HTMLOListElementTableEntries[] = {
 
 const struct HashTable HTMLOListElementTable = { 2, 4, HTMLOListElementTableEntries, 3 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -427,7 +437,7 @@ const struct HashEntry HTMLDListElementTableEntries[] = {
 
 const struct HashTable HTMLDListElementTable = { 2, 1, HTMLDListElementTableEntries, 1 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -437,7 +447,7 @@ const struct HashEntry HTMLDirectoryElementTableEntries[] = {
 
 const struct HashTable HTMLDirectoryElementTable = { 2, 1, HTMLDirectoryElementTableEntries, 1 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -447,7 +457,7 @@ const struct HashEntry HTMLMenuElementTableEntries[] = {
 
 const struct HashTable HTMLMenuElementTable = { 2, 1, HTMLMenuElementTableEntries, 1 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -458,7 +468,7 @@ const struct HashEntry HTMLLIElementTableEntries[] = {
 
 const struct HashTable HTMLLIElementTable = { 2, 2, HTMLLIElementTableEntries, 2 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -468,7 +478,7 @@ const struct HashEntry HTMLDivElementTableEntries[] = {
 
 const struct HashTable HTMLDivElementTable = { 2, 1, HTMLDivElementTableEntries, 1 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -478,7 +488,7 @@ const struct HashEntry HTMLParagraphElementTableEntries[] = {
 
 const struct HashTable HTMLParagraphElementTable = { 2, 1, HTMLParagraphElementTableEntries, 1 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -488,7 +498,7 @@ const struct HashEntry HTMLHeadingElementTableEntries[] = {
 
 const struct HashTable HTMLHeadingElementTable = { 2, 1, HTMLHeadingElementTableEntries, 1 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -498,7 +508,7 @@ const struct HashEntry HTMLBlockQuoteElementTableEntries[] = {
 
 const struct HashTable HTMLBlockQuoteElementTable = { 2, 1, HTMLBlockQuoteElementTableEntries, 1 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -508,7 +518,7 @@ const struct HashEntry HTMLQuoteElementTableEntries[] = {
 
 const struct HashTable HTMLQuoteElementTable = { 2, 1, HTMLQuoteElementTableEntries, 1 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -518,7 +528,7 @@ const struct HashEntry HTMLPreElementTableEntries[] = {
 
 const struct HashTable HTMLPreElementTable = { 2, 1, HTMLPreElementTableEntries, 1 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -528,7 +538,7 @@ const struct HashEntry HTMLBRElementTableEntries[] = {
 
 const struct HashTable HTMLBRElementTable = { 2, 1, HTMLBRElementTableEntries, 1 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -541,7 +551,7 @@ const struct HashEntry HTMLBaseFontElementTableEntries[] = {
 
 const struct HashTable HTMLBaseFontElementTable = { 2, 4, HTMLBaseFontElementTableEntries, 3 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -554,7 +564,7 @@ const struct HashEntry HTMLFontElementTableEntries[] = {
 
 const struct HashTable HTMLFontElementTable = { 2, 4, HTMLFontElementTableEntries, 3 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -568,7 +578,7 @@ const struct HashEntry HTMLHRElementTableEntries[] = {
 
 const struct HashTable HTMLHRElementTable = { 2, 5, HTMLHRElementTableEntries, 4 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -580,7 +590,7 @@ const struct HashEntry HTMLModElementTableEntries[] = {
 
 const struct HashTable HTMLModElementTable = { 2, 3, HTMLModElementTableEntries, 2 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -623,7 +633,7 @@ const struct HashEntry HTMLAnchorElementTableEntries[] = {
 
 const struct HashTable HTMLAnchorElementTable = { 2, 34, HTMLAnchorElementTableEntries, 24 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -651,7 +661,7 @@ const struct HashEntry HTMLImageElementTableEntries[] = {
 
 const struct HashTable HTMLImageElementTable = { 2, 19, HTMLImageElementTableEntries, 14 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -684,7 +694,7 @@ const struct HashEntry HTMLObjectElementTableEntries[] = {
 
 const struct HashTable HTMLObjectElementTable = { 2, 24, HTMLObjectElementTableEntries, 20 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -698,7 +708,7 @@ const struct HashEntry HTMLParamElementTableEntries[] = {
 
 const struct HashTable HTMLParamElementTable = { 2, 5, HTMLParamElementTableEntries, 4 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -722,7 +732,7 @@ const struct HashEntry HTMLAppletElementTableEntries[] = {
 
 const struct HashTable HTMLAppletElementTable = { 2, 15, HTMLAppletElementTableEntries, 11 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -733,7 +743,7 @@ const struct HashEntry HTMLMapElementTableEntries[] = {
 
 const struct HashTable HTMLMapElementTable = { 2, 2, HTMLMapElementTableEntries, 2 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -761,7 +771,7 @@ const struct HashEntry HTMLAreaElementTableEntries[] = {
 
 const struct HashTable HTMLAreaElementTable = { 2, 19, HTMLAreaElementTableEntries, 15 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -779,7 +789,7 @@ const struct HashEntry HTMLScriptElementTableEntries[] = {
 
 const struct HashTable HTMLScriptElementTable = { 2, 9, HTMLScriptElementTableEntries, 7 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -819,7 +829,7 @@ const struct HashEntry HTMLTableElementTableEntries[] = {
 
 const struct HashTable HTMLTableElementTable = { 2, 31, HTMLTableElementTableEntries, 23 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -829,7 +839,7 @@ const struct HashEntry HTMLTableCaptionElementTableEntries[] = {
 
 const struct HashTable HTMLTableCaptionElementTable = { 2, 1, HTMLTableCaptionElementTableEntries, 1 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -848,7 +858,7 @@ const struct HashEntry HTMLTableColElementTableEntries[] = {
 
 const struct HashTable HTMLTableColElementTable = { 2, 10, HTMLTableColElementTableEntries, 7 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -866,7 +876,7 @@ const struct HashEntry HTMLTableSectionElementTableEntries[] = {
 
 const struct HashTable HTMLTableSectionElementTable = { 2, 9, HTMLTableSectionElementTableEntries, 7 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -887,7 +897,7 @@ const struct HashEntry HTMLTableRowElementTableEntries[] = {
 
 const struct HashTable HTMLTableRowElementTable = { 2, 12, HTMLTableRowElementTableEntries, 11 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -913,7 +923,7 @@ const struct HashEntry HTMLTableCellElementTableEntries[] = {
 
 const struct HashTable HTMLTableCellElementTable = { 2, 17, HTMLTableCellElementTableEntries, 15 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -925,7 +935,7 @@ const struct HashEntry HTMLFrameSetElementTableEntries[] = {
 
 const struct HashTable HTMLFrameSetElementTable = { 2, 3, HTMLFrameSetElementTableEntries, 2 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -946,7 +956,7 @@ const struct HashEntry HTMLFrameElementTableEntries[] = {
 
 const struct HashTable HTMLFrameElementTable = { 2, 12, HTMLFrameElementTableEntries, 9 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -972,7 +982,19 @@ const struct HashEntry HTMLIFrameElementTableEntries[] = {
 
 const struct HashTable HTMLIFrameElementTable = { 2, 17, HTMLIFrameElementTableEntries, 12 };
 
-}; // namespace
+} // namespace
+
+namespace KJS {
+
+const struct HashEntry HTMLMarqueeElementTableEntries[] = {
+   { "start", KJS::HTMLElement::MarqueeStart, DontDelete|Function, 0, &HTMLMarqueeElementTableEntries[2] },
+   { 0, 0, 0, 0, 0 },
+   { "stop", KJS::HTMLElement::MarqueeStop, DontDelete|Function, 0, 0 }
+};
+
+const struct HashTable HTMLMarqueeElementTable = { 2, 3, HTMLMarqueeElementTableEntries, 2 };
+
+} // namespace
 
 namespace KJS {
 
@@ -985,7 +1007,7 @@ const struct HashEntry HTMLCollectionProtoTableEntries[] = {
 
 const struct HashTable HTMLCollectionProtoTable = { 2, 4, HTMLCollectionProtoTableEntries, 3 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -998,4 +1020,4 @@ const struct HashEntry ImageTableEntries[] = {
 
 const struct HashTable ImageTable = { 2, 4, ImageTableEntries, 3 };
 
-}; // namespace
+} // namespace

@@ -7,8 +7,6 @@
  
 package org.jboss.ejb.plugins.cmp.jdbc;
 
-import java.rmi.RemoteException;
-
 import org.jboss.ejb.EntityEnterpriseContext;
 import org.jboss.ejb.plugins.cmp.jdbc.bridge.JDBCEntityBridge;
 
@@ -16,10 +14,10 @@ import org.jboss.ejb.plugins.cmp.jdbc.bridge.JDBCEntityBridge;
  * CMPStoreManager JDBCActivateEntityCommand
  *    
  * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
- * @version $Revision: 1.6.4.2 $
+ * @version $Revision: 1.6.4.4 $
  */
-public class JDBCInitEntityCommand {
-   private JDBCEntityBridge entity;
+public final class JDBCInitEntityCommand {
+   private final JDBCEntityBridge entity;
    
    public JDBCInitEntityCommand(JDBCStoreManager manager) {
       entity = manager.getEntityBridge();

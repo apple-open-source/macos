@@ -5,7 +5,7 @@ namespace KJS {
 const struct HashEntry DOMNodeProtoTableEntries[] = {
    { 0, 0, 0, 0, 0 },
    { "hasAttributes", DOMNode::HasAttributes, DontDelete|Function, 0, 0 },
-   { "normalize", DOMNode::Normalize, DontDelete|Function, 0, 0 },
+   { "normalize", DOMNode::Normalize, DontDelete|Function, 0, &DOMNodeProtoTableEntries[16] },
    { "isSupported", DOMNode::IsSupported, DontDelete|Function, 2, 0 },
    { "removeEventListener", DOMNode::RemoveEventListener, DontDelete|Function, 3, 0 },
    { "hasChildNodes", DOMNode::HasChildNodes, DontDelete|Function, 0, &DOMNodeProtoTableEntries[15] },
@@ -18,12 +18,13 @@ const struct HashEntry DOMNodeProtoTableEntries[] = {
    { 0, 0, 0, 0, 0 },
    { "removeChild", DOMNode::RemoveChild, DontDelete|Function, 1, 0 },
    { "addEventListener", DOMNode::AddEventListener, DontDelete|Function, 3, 0 },
-   { "contains", DOMNode::Contains, DontDelete|Function, 1, 0 }
+   { "contains", DOMNode::Contains, DontDelete|Function, 1, 0 },
+   { "item", DOMNode::Item, DontDelete|Function, 1, 0 }
 };
 
-const struct HashTable DOMNodeProtoTable = { 2, 16, DOMNodeProtoTableEntries, 13 };
+const struct HashTable DOMNodeProtoTable = { 2, 17, DOMNodeProtoTableEntries, 13 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -101,7 +102,7 @@ const struct HashEntry DOMNodeTableEntries[] = {
 
 const struct HashTable DOMNodeTable = { 2, 69, DOMNodeTableEntries, 55 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -115,7 +116,7 @@ const struct HashEntry DOMAttrTableEntries[] = {
 
 const struct HashTable DOMAttrTable = { 2, 5, DOMAttrTableEntries, 5 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -155,7 +156,7 @@ const struct HashEntry DOMDocumentProtoTableEntries[] = {
 
 const struct HashTable DOMDocumentProtoTable = { 2, 31, DOMDocumentProtoTableEntries, 23 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -171,7 +172,7 @@ const struct HashEntry DOMDocumentTableEntries[] = {
 
 const struct HashTable DOMDocumentTable = { 2, 7, DOMDocumentTableEntries, 4 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -199,7 +200,7 @@ const struct HashEntry DOMElementProtoTableEntries[] = {
 
 const struct HashTable DOMElementProtoTable = { 2, 19, DOMElementProtoTableEntries, 17 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -211,7 +212,7 @@ const struct HashEntry DOMElementTableEntries[] = {
 
 const struct HashTable DOMElementTable = { 2, 3, DOMElementTableEntries, 3 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -226,7 +227,7 @@ const struct HashEntry DOMDOMImplementationProtoTableEntries[] = {
 
 const struct HashTable DOMDOMImplementationProtoTable = { 2, 6, DOMDOMImplementationProtoTableEntries, 5 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -242,7 +243,7 @@ const struct HashEntry DOMDocumentTypeTableEntries[] = {
 
 const struct HashTable DOMDocumentTypeTable = { 2, 7, DOMDocumentTypeTableEntries, 6 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -262,7 +263,7 @@ const struct HashEntry DOMNamedNodeMapProtoTableEntries[] = {
 
 const struct HashTable DOMNamedNodeMapProtoTable = { 2, 11, DOMNamedNodeMapProtoTableEntries, 7 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -275,7 +276,7 @@ const struct HashEntry DOMProcessingInstructionTableEntries[] = {
 
 const struct HashTable DOMProcessingInstructionTable = { 2, 4, DOMProcessingInstructionTableEntries, 3 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -287,7 +288,7 @@ const struct HashEntry DOMNotationTableEntries[] = {
 
 const struct HashTable DOMNotationTable = { 2, 3, DOMNotationTableEntries, 2 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -299,7 +300,7 @@ const struct HashEntry DOMEntityTableEntries[] = {
 
 const struct HashTable DOMEntityTable = { 2, 3, DOMEntityTableEntries, 2 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -322,7 +323,7 @@ const struct HashEntry NodeConstructorTableEntries[] = {
 
 const struct HashTable NodeConstructorTable = { 2, 14, NodeConstructorTableEntries, 11 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -350,7 +351,7 @@ const struct HashEntry DOMExceptionConstructorTableEntries[] = {
 
 const struct HashTable DOMExceptionConstructorTable = { 2, 19, DOMExceptionConstructorTableEntries, 15 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -362,7 +363,7 @@ const struct HashEntry DOMCharacterDataTableEntries[] = {
 
 const struct HashTable DOMCharacterDataTable = { 2, 3, DOMCharacterDataTableEntries, 2 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -379,7 +380,7 @@ const struct HashEntry DOMCharacterDataProtoTableEntries[] = {
 
 const struct HashTable DOMCharacterDataProtoTable = { 2, 8, DOMCharacterDataProtoTableEntries, 7 };
 
-}; // namespace
+} // namespace
 
 namespace KJS {
 
@@ -389,4 +390,4 @@ const struct HashEntry DOMTextProtoTableEntries[] = {
 
 const struct HashTable DOMTextProtoTable = { 2, 1, DOMTextProtoTableEntries, 1 };
 
-}; // namespace
+} // namespace

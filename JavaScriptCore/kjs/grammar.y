@@ -77,6 +77,8 @@ using namespace KJS;
   Operator            op;
   PropertyValueNode   *plist;
   PropertyNode        *pnode;
+  CatchNode           *cnode;
+  FinallyNode         *fnode;
 }
 
 %start Program
@@ -130,7 +132,9 @@ using namespace KJS;
 %type <node>  ConditionalExpr AssignmentExpr
 %type <node>  ExprOpt
 %type <node>  CallExpr
-%type <node>  Catch Finally
+
+%type <cnode> Catch
+%type <fnode> Finally
 
 %type <stat>  Statement Block
 %type <stat>  VariableStatement EmptyStatement ExprStatement
@@ -167,7 +171,7 @@ Literal:
   | TRUETOKEN                      { $$ = new BooleanNode(true); }
   | FALSETOKEN                     { $$ = new BooleanNode(false); }
   | NUMBER                         { $$ = new NumberNode($1); }
-  | STRING                         { $$ = new StringNode($1); delete $1; }
+  | STRING                         { $$ = new StringNode($1); }
   | '/'       /* a RegExp ? */     { Lexer *l = Lexer::curr();
                                      if (!l->scanRegExp()) YYABORT;
                                      $$ = new RegExpNode(l->pattern,l->flags);}
@@ -179,12 +183,11 @@ Literal:
 
 PrimaryExpr:
     THIS                           { $$ = new ThisNode(); }
-  | IDENT                          { $$ = new ResolveNode(*$1);
-                                     delete $1; }
+  | IDENT                          { $$ = new ResolveNode(*$1); }
   | Literal
   | ArrayLiteral
   | '(' Expr ')'                   { $$ = new GroupNode($2); }
-  | '{' '}'                        { $$ = new ObjectLiteralNode(0L); }
+  | '{' '}'                        { $$ = new ObjectLiteralNode(); }
   | '{' PropertyNameAndValueList '}'   { $$ = new ObjectLiteralNode($2); }
 ;
 
@@ -217,8 +220,8 @@ PropertyNameAndValueList:
 ;
 
 PropertyName:
-    IDENT                          { $$ = new PropertyNode(*$1); delete $1; }
-  | STRING                         { $$ = new PropertyNode(Identifier(*$1)); delete $1; }
+    IDENT                          { $$ = new PropertyNode(*$1); }
+  | STRING                         { $$ = new PropertyNode(Identifier(*$1)); }
   | NUMBER                         { $$ = new PropertyNode($1); }
 ;
 
@@ -226,7 +229,7 @@ MemberExpr:
     PrimaryExpr
   | FunctionExpr
   | MemberExpr '[' Expr ']'        { $$ = new AccessorNode1($1, $3); }
-  | MemberExpr '.' IDENT           { $$ = new AccessorNode2($1, *$3); delete $3; }
+  | MemberExpr '.' IDENT           { $$ = new AccessorNode2($1, *$3); }
   | NEW MemberExpr Arguments       { $$ = new NewExprNode($2, $3); }
 ;
 
@@ -239,12 +242,11 @@ CallExpr:
     MemberExpr Arguments           { $$ = new FunctionCallNode($1, $2); }
   | CallExpr Arguments             { $$ = new FunctionCallNode($1, $2); }
   | CallExpr '[' Expr ']'          { $$ = new AccessorNode1($1, $3); }
-  | CallExpr '.' IDENT             { $$ = new AccessorNode2($1, *$3);
-                                     delete $3; }
+  | CallExpr '.' IDENT             { $$ = new AccessorNode2($1, *$3); }
 ;
 
 Arguments:
-    '(' ')'                        { $$ = new ArgumentsNode(0L); }
+    '(' ')'                        { $$ = new ArgumentsNode(); }
   | '(' ArgumentList ')'           { $$ = new ArgumentsNode($2); }
 ;
 
@@ -330,12 +332,12 @@ BitwiseANDExpr:
 
 BitwiseXORExpr:
     BitwiseANDExpr
-  | BitwiseXORExpr '^' EqualityExpr { $$ = new BitOperNode($1, OpBitXOr, $3); }
+  | BitwiseXORExpr '^' BitwiseANDExpr { $$ = new BitOperNode($1, OpBitXOr, $3); }
 ;
 
 BitwiseORExpr:
     BitwiseXORExpr
-  | BitwiseORExpr '|' EqualityExpr  { $$ = new BitOperNode($1, OpBitOr, $3); }
+  | BitwiseORExpr '|' BitwiseXORExpr { $$ = new BitOperNode($1, OpBitOr, $3); }
 ;
 
 LogicalANDExpr:
@@ -400,7 +402,7 @@ Statement:
 ;
 
 Block:
-    '{' '}'                        { $$ = new BlockNode(0L); DBG($$, @2, @2); }
+    '{' '}'                        { $$ = new BlockNode(0); DBG($$, @2, @2); }
   | '{' SourceElements '}'          { $$ = new BlockNode($2); DBG($$, @3, @3); }
 ;
 
@@ -428,8 +430,8 @@ VariableDeclarationList:
 ;
 
 VariableDeclaration:
-    IDENT                          { $$ = new VarDeclNode(*$1, 0); delete $1; }
-  | IDENT Initializer              { $$ = new VarDeclNode(*$1, $2); delete $1; }
+    IDENT                          { $$ = new VarDeclNode(*$1, 0); }
+  | IDENT Initializer              { $$ = new VarDeclNode(*$1, $2); }
 ;
 
 Initializer:
@@ -451,7 +453,7 @@ ExprStatement:
 ;
 
 IfStatement: /* shift/reduce conflict due to dangling else */
-    IF '(' Expr ')' Statement      { $$ = new IfNode($3,$5,0L);DBG($$,@1,@4); }
+    IF '(' Expr ')' Statement      { $$ = new IfNode($3,$5,0);DBG($$,@1,@4); }
   | IF '(' Expr ')' Statement ELSE Statement
                                    { $$ = new IfNode($3,$5,$7);DBG($$,@1,@4); }
 ;
@@ -469,17 +471,15 @@ IterationStatement:
             Statement              { $$ = new ForInNode($3, $5, $7);
 	                             DBG($$,@1,@6); }
   | FOR '(' VAR IDENT IN Expr ')'
-            Statement              { $$ = new ForInNode(*$4,0L,$6,$8);
-	                             DBG($$,@1,@7);
-                                     delete $4; }
+            Statement              { $$ = new ForInNode(*$4,0,$6,$8);
+	                             DBG($$,@1,@7); }
   | FOR '(' VAR IDENT Initializer IN Expr ')'
             Statement              { $$ = new ForInNode(*$4,$5,$7,$9);
-	                             DBG($$,@1,@8);
-                                     delete $4; }
+	                             DBG($$,@1,@8); }
 ;
 
 ExprOpt:
-    /* nothing */                  { $$ = 0L; }
+    /* nothing */                  { $$ = 0; }
   | Expr
 ;
 
@@ -489,11 +489,9 @@ ContinueStatement:
                                        $$ = new ContinueNode(); DBG($$,@1,@2);
                                      } else
 				       YYABORT; }
-  | CONTINUE IDENT ';'             { $$ = new ContinueNode(*$2); DBG($$,@1,@3);
-                                     delete $2; }
+  | CONTINUE IDENT ';'             { $$ = new ContinueNode(*$2); DBG($$,@1,@3); }
   | CONTINUE IDENT error           { if (automatic()) {
                                        $$ = new ContinueNode(*$2);DBG($$,@1,@2);
-				       delete $2;
                                      } else
 				       YYABORT; }
 ;
@@ -504,20 +502,18 @@ BreakStatement:
                                        $$ = new BreakNode(); DBG($$,@1,@1);
                                      } else
 				       YYABORT; }
-  | BREAK IDENT ';'                { $$ = new BreakNode(*$2); DBG($$,@1,@3);
-                                     delete $2; }
+  | BREAK IDENT ';'                { $$ = new BreakNode(*$2); DBG($$,@1,@3); }
   | BREAK IDENT error              { if (automatic()) {
                                        $$ = new BreakNode(*$2); DBG($$,@1,@2);
-				       delete $2;
                                      } else
 				       YYABORT;
                                    }
 ;
 
 ReturnStatement:
-    RETURN ';'                     { $$ = new ReturnNode(0L); DBG($$,@1,@2); }
+    RETURN ';'                     { $$ = new ReturnNode(0); DBG($$,@1,@2); }
   | RETURN error                   { if (automatic()) {
-                                       $$ = new ReturnNode(0L); DBG($$,@1,@1);
+                                       $$ = new ReturnNode(0); DBG($$,@1,@1);
                                      } else
 				       YYABORT; }
   | RETURN Expr ';'                { $$ = new ReturnNode($2); }
@@ -538,13 +534,13 @@ SwitchStatement:
 ;
 
 CaseBlock:
-    '{' CaseClausesOpt '}'         { $$ = new CaseBlockNode($2, 0L, 0L); }
+    '{' CaseClausesOpt '}'         { $$ = new CaseBlockNode($2, 0, 0); }
   | '{' CaseClausesOpt DefaultClause CaseClausesOpt '}'
                                    { $$ = new CaseBlockNode($2, $3, $4); }
 ;
 
 CaseClausesOpt:
-    /* nothing */                  { $$ = 0L; }
+    /* nothing */                  { $$ = 0; }
   | CaseClauses
 ;
 
@@ -554,19 +550,18 @@ CaseClauses:
 ;
 
 CaseClause:
-    CASE Expr ':'                  { $$ = new CaseClauseNode($2, 0L); }
+    CASE Expr ':'                  { $$ = new CaseClauseNode($2); }
   | CASE Expr ':' StatementList    { $$ = new CaseClauseNode($2, $4); }
 ;
 
 DefaultClause:
-    DEFAULT ':'                    { $$ = new CaseClauseNode(0L, 0L);; }
-  | DEFAULT ':' StatementList      { $$ = new CaseClauseNode(0L, $3); }
+    DEFAULT ':'                    { $$ = new CaseClauseNode(0); }
+  | DEFAULT ':' StatementList      { $$ = new CaseClauseNode(0, $3); }
 ;
 
 LabelledStatement:
     IDENT ':' Statement            { $3->pushLabel(*$1);
-                                     $$ = new LabelNode(*$1, $3);
-                                     delete $1; }
+                                     $$ = new LabelNode(*$1, $3); }
 ;
 
 ThrowStatement:
@@ -575,12 +570,12 @@ ThrowStatement:
 
 TryStatement:
     TRY Block Catch                { $$ = new TryNode($2, $3); }
-  | TRY Block Finally              { $$ = new TryNode($2, 0L, $3); }
+  | TRY Block Finally              { $$ = new TryNode($2, $3); }
   | TRY Block Catch Finally        { $$ = new TryNode($2, $3, $4); }
 ;
 
 Catch:
-    CATCH '(' IDENT ')' Block      { $$ = new CatchNode(*$3, $5); delete $3; }
+    CATCH '(' IDENT ')' Block      { $$ = new CatchNode(*$3, $5); }
 ;
 
 Finally:
@@ -588,33 +583,31 @@ Finally:
 ;
 
 FunctionDeclaration:
-    FUNCTION IDENT '(' ')' FunctionBody    { $$ = new FuncDeclNode(*$2, 0L, $5);
-                                             delete $2; }
+    FUNCTION IDENT '(' ')' FunctionBody    { $$ = new FuncDeclNode(*$2, $5); }
   | FUNCTION IDENT '(' FormalParameterList ')' FunctionBody
-                                   { $$ = new FuncDeclNode(*$2, $4, $6);
-                                     delete $2; }
+                                   { $$ = new FuncDeclNode(*$2, $4, $6); }
 
 FunctionExpr:
-    FUNCTION '(' ')' FunctionBody  { $$ = new FuncExprNode(0L, $4); }
+    FUNCTION '(' ')' FunctionBody  { $$ = new FuncExprNode($4); }
   | FUNCTION '(' FormalParameterList ')' FunctionBody
                                    { $$ = new FuncExprNode($3, $5); }
 
 ;
 
 FormalParameterList:
-    IDENT                          { $$ = new ParameterNode(*$1); delete $1; }
-  | FormalParameterList ',' IDENT  { $$ = new ParameterNode($1, *$3); delete $3; }
+    IDENT                          { $$ = new ParameterNode(*$1); }
+  | FormalParameterList ',' IDENT  { $$ = new ParameterNode($1, *$3); }
 ;
 
 FunctionBody:
-    '{' '}'  /* TODO: spec ??? */  { $$ = new FunctionBodyNode(0L);
+    '{' '}'  /* TODO: spec ??? */  { $$ = new FunctionBodyNode(0);
 	                             DBG($$, @1, @2);}
   | '{' SourceElements '}'         { $$ = new FunctionBodyNode($2);
 	                             DBG($$, @1, @3);}
 ;
 
 Program:
-    /* nothing, empty script */      { $$ = new ProgramNode(0L);
+    /* nothing, empty script */      { $$ = new ProgramNode(0);
                                      Parser::progNode = $$; }
     | SourceElements                 { $$ = new ProgramNode($1);
                                      Parser::progNode = $$; }
@@ -632,10 +625,10 @@ SourceElement:
 
 %%
 
-int yyerror (const char *)  /* Called by yyparse on error */
+int yyerror (const char * /* s */)  /* Called by yyparse on error */
 {
-//  fprintf(stderr, "ERROR: %s at line %d\n",
-//	  s, KJScript::lexer()->lineNo());
+  // fprintf(stderr, "ERROR: %s at line %d\n",
+  //	  s, KJS::Lexer::curr()->lineNo());
   return 1;
 }
 

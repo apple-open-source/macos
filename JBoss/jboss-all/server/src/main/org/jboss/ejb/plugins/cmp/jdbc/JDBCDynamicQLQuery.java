@@ -10,6 +10,7 @@ package org.jboss.ejb.plugins.cmp.jdbc;
 import java.lang.reflect.Method;
 import java.util.Collection;
 import javax.ejb.FinderException;
+
 import org.jboss.deployment.DeploymentException;
 import org.jboss.ejb.EntityEnterpriseContext;
 import org.jboss.ejb.plugins.cmp.ejbql.Catalog;
@@ -22,66 +23,85 @@ import org.jboss.ejb.plugins.cmp.jdbc.metadata.JDBCReadAheadMetaData;
  * This class generates a query from JBoss-QL.
  *
  * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
- * @version $Revision: 1.2.2.2 $
+ * @author <a href="mailto:alex@jboss.org">Alex Loubyansky</a>
+ * @version $Revision: 1.2.2.9 $
  */
-public class JDBCDynamicQLQuery extends JDBCAbstractQueryCommand {
+public final class JDBCDynamicQLQuery extends JDBCAbstractQueryCommand
+{
    private final Catalog catalog;
-   private JDBCDynamicQLQueryMetaData metadata;
+   private final JDBCDynamicQLQueryMetaData metadata;
 
    public JDBCDynamicQLQuery(
-         JDBCStoreManager manager, 
-         JDBCQueryMetaData q) throws DeploymentException {
+      JDBCStoreManager manager,
+      JDBCQueryMetaData q) throws DeploymentException
+   {
 
       super(manager, q);
-      catalog = (Catalog)manager.getApplicationData("CATALOG");
+      catalog = manager.getCatalog();
       metadata = (JDBCDynamicQLQueryMetaData)q;
    }
 
    public Collection execute(
-         Method finderMethod,
-         Object[] args,
-         EntityEnterpriseContext ctx) throws FinderException {
+      Method finderMethod,
+      Object[] args,
+      EntityEnterpriseContext ctx) throws FinderException
+   {
 
       String dynamicQL = (String)args[0];
-      if(getLog().isDebugEnabled()) {
+      if(getLog().isDebugEnabled())
+      {
          getLog().debug("DYNAMIC-QL: " + dynamicQL);
       }
-      
+
       JDBCEJBQLCompiler compiler = new JDBCEJBQLCompiler(catalog);
 
       // get the parameters
       Object[] parameters = (Object[])args[1];
-      if(parameters == null) {
-         throw new FinderException("Parameters is null");
+      // parameter types
+      Class[] parameterTypes;
+      if(parameters == null)
+      {
+         parameterTypes = new Class[0];
       }
-
-      // get the parameter types
-      Class[] parameterTypes = new Class[parameters.length];
-      for(int i=0; i<parameters.length; i++) {
-         if(parameters[i] == null) {
-            throw new FinderException("Parameter["+i+"] is null");
+      else
+      {
+         // get the parameter types
+         parameterTypes = new Class[parameters.length];
+         for(int i = 0; i < parameters.length; i++)
+         {
+            if(parameters[i] == null)
+            {
+               throw new FinderException("Parameter[" + i + "] is null");
+            }
+            parameterTypes[i] = parameters[i].getClass();
          }
-         parameterTypes[i] = parameters[i].getClass();
       }
 
       // compile the dynamic-ql
-      try {
+      try
+      {
          compiler.compileJBossQL(
-               dynamicQL,
-               finderMethod.getReturnType(),
-               parameterTypes,
-               metadata.getReadAhead());
-      } catch(Throwable t) {
+            dynamicQL,
+            finderMethod.getReturnType(),
+            parameterTypes,
+            metadata.getReadAhead());
+      }
+      catch(Throwable t)
+      {
+         t.printStackTrace();
          throw new FinderException("Error compiling ejbql: " + t);
       }
-      
+
       // set the sql
       setSQL(compiler.getSQL());
-      setOffsetParam(compiler.getOffset());
-      setLimitParam(compiler.getLimit());
+      setOffsetParam(compiler.getOffsetParam());
+      setOffsetValue(compiler.getOffsetValue());
+      setLimitParam(compiler.getLimitParam());
+      setLimitValue(compiler.getLimitValue());
 
       // set select object
-      if(compiler.isSelectEntity()) {
+      if(compiler.isSelectEntity())
+      {
          JDBCEntityBridge selectEntity = compiler.getSelectEntity();
 
          // set the select entity
@@ -89,12 +109,18 @@ public class JDBCDynamicQLQuery extends JDBCAbstractQueryCommand {
 
          // set the preload fields
          JDBCReadAheadMetaData readahead = metadata.getReadAhead();
-         if(readahead.isOnFind()) {
-            String eagerLoadGroup = readahead.getEagerLoadGroup();
-            setPreloadFields(selectEntity.getLoadGroup(eagerLoadGroup));
+         if(readahead.isOnFind())
+         {
+            setEagerLoadGroup(readahead.getEagerLoadGroup());
          }
-      } else {
+      }
+      else if(compiler.isSelectField())
+      {
          setSelectField(compiler.getSelectField());
+      }
+      else
+      {
+         setSelectFunction(compiler.getSelectFunction(), compiler.getStoreManager());
       }
 
       // get the parameter order

@@ -12,7 +12,7 @@ import javax.security.auth.callback.Callback;
  Interpretation of the array is up to the LoginModule.
 
 @author  Scott.Stark@jboss.org
-@version $Revision: 1.1.4.1 $
+@version $Revision: 1.1.4.2 $
 */
 public class ByteArrayCallback implements Callback
 {
@@ -21,7 +21,7 @@ public class ByteArrayCallback implements Callback
 
     /** Initialize the SecurityAssociationCallback
     */
-    public ByteArrayCallback(String propmpt)
+    public ByteArrayCallback(String prompt)
     {
         this.prompt = prompt;
     }

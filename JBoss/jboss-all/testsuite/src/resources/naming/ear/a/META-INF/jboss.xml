@@ -1,11 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <jboss>
-  <enterprise-beans>
-    <session>
-       <ejb-name>SessionA</ejb-name>
-       <jndi-name>naming/SessionA</jndi-name>
-       <local-jndi-name>naming/local/SessionA</local-jndi-name>
-    </session>
-  </enterprise-beans>
+   <enterprise-beans>
+      <session>
+         <ejb-name>SessionA</ejb-name>
+         <jndi-name>naming/SessionA</jndi-name>
+         <local-jndi-name>naming/local/SessionA</local-jndi-name>
+      </session>
+
+      <session>
+         <ejb-name>SessionB</ejb-name>
+         <jndi-name>naming/SessionB1</jndi-name>
+         <local-jndi-name>naming/local/SessionB1</local-jndi-name>
+      </session>
+   </enterprise-beans>
 </jboss>

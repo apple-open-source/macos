@@ -11,17 +11,12 @@ package org.jboss.ejb.plugins.cmp.ejbql;
  * This abstract syntax node represents a from clause.
  *
  * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
- * @version $Revision: 1.1 $
+ * @version $Revision: 1.1.4.1 $
  */                            
-public class ASTFrom extends SimpleNode {
+public final class ASTFrom extends SimpleNode {
    public ASTFrom(int id) {
       super(id);
    }
-
-   public ASTFrom(EJBQLParser p, int id) {
-      super(p, id);
-   }
-
 
    /** Accept the visitor. **/
    public Object jjtAccept(JBossQLParserVisitor visitor, Object data) {

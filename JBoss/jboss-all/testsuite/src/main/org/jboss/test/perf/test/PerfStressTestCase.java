@@ -35,7 +35,7 @@ import org.jboss.test.JBossTestCase;
 /** Test of EJB call invocation overhead.
  
  @author Scott.Stark@jboss.org
- @version $Revision: 1.7.2.1 $
+ @version $Revision: 1.7.2.2 $
  */
 public class PerfStressTestCase extends JBossTestCase
 {
@@ -310,7 +310,7 @@ public class PerfStressTestCase extends JBossTestCase
       getLog().debug(iterationCount+" findByPrimaryKey() invocations = "+elapsed+" ms, "+(elapsed / iterationCount)+" ms/findByPrimaryKey");
    }
 
-   public static Test suite()
+   public static Test suite() throws Exception
    {
       TestSuite suite = new TestSuite();  
       suite.addTest(new TestSuite(PerfStressTestCase.class));

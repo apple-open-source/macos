@@ -41,13 +41,17 @@ public:
     ~KWQFileButton();
     
     void setFilename(const QString &);
+    void click();
     
     QSize sizeForCharacterWidth(int characters) const;
     QRect frameGeometry() const;
     void setFrameGeometry(const QRect &);
-    int baselinePosition() const;
+    int baselinePosition(int height) const;
+
+    virtual FocusPolicy focusPolicy() const;
     
-    void filenameChanged();
+    void filenameChanged(const QString &);
+    void focusChanged(bool);
     void clicked();
 
 private:

@@ -147,8 +147,6 @@ NTSTATUS get_alias_user_groups(TALLOC_CTX *ctx, DOM_SID *sid, int *numgroups, ui
 		return NT_STATUS_UNSUCCESSFUL;
 	}
 
-	become_root();
-	
 	for (i=0;i<num_groups;i++) {
 
 		if (!get_group_from_gid(groups[i], &map)) {
@@ -197,9 +195,8 @@ NTSTATUS get_alias_user_groups(TALLOC_CTX *ctx, DOM_SID *sid, int *numgroups, ui
 		break;
 	}
 
-	unbecome_root();
-	
-	if(num_groups) free(groups);
+	if(num_groups) 
+		free(groups);
 
 	/* now check for the user's gid (the primary group rid) */
 	for (i=0; i<cur_rid && grid!=rids[i]; i++)
@@ -213,14 +210,11 @@ NTSTATUS get_alias_user_groups(TALLOC_CTX *ctx, DOM_SID *sid, int *numgroups, ui
 
 	DEBUG(10,("get_alias_user_groups: looking for gid %d of user %s\n", (int)gid, user_name));
 
-	become_root();
-
 	if(!get_group_from_gid(gid, &map)) {
-		DEBUG(0,("get_alias_user_groups: gid of user %s doesn't exist. Check your /etc/passwd and /etc/group files\n", user_name));
+		DEBUG(0,("get_alias_user_groups: gid of user %s doesn't exist. Check your "
+		"/etc/passwd and /etc/group files\n", user_name));
 		goto done;
 	}	
-
-	unbecome_root();
 
 	/* the primary group isn't an alias */
 	if (map.sid_name_use!=SID_NAME_ALIAS) {
@@ -281,6 +275,7 @@ BOOL get_domain_user_groups(TALLOC_CTX *ctx, int *numgroups, DOM_GID **pgids, SA
 	fstring user_name;
 	uint32 grid;
 	uint32 tmp_rid;
+	BOOL ret;
 
 	*numgroups= 0;
 
@@ -290,15 +285,21 @@ BOOL get_domain_user_groups(TALLOC_CTX *ctx, int *numgroups, DOM_GID **pgids, SA
 	DEBUG(10,("get_domain_user_groups: searching domain groups [%s] is a member of\n", user_name));
 
 	/* we must wrap this is become/unbecome root for ldap backends */
+	
 	become_root();
-
 	/* first get the list of the domain groups */
-	if (!pdb_enum_group_mapping(SID_NAME_DOM_GRP, &map, &num_entries, ENUM_ONLY_MAPPED))
+	ret = pdb_enum_group_mapping(SID_NAME_DOM_GRP, &map, &num_entries, ENUM_ONLY_MAPPED);
+	
+	unbecome_root();
+
+	/* end wrapper for group enumeration */
+
+	
+	if ( !ret )
 		return False;
+		
 	DEBUG(10,("get_domain_user_groups: there are %d mapped groups\n", num_entries));
 
-	unbecome_root();
-	/* end wrapper for group enumeration */
 
 	/* 
 	 * alloc memory. In the worse case, we alloc memory for nothing.
@@ -375,7 +376,7 @@ BOOL get_domain_user_groups(TALLOC_CTX *ctx, int *numgroups, DOM_GID **pgids, SA
  done:
 	*pgids=gids;
 	*numgroups=cur_gid;
-	safe_free(map);
+	SAFE_FREE(map);
 
 	return True;
 }

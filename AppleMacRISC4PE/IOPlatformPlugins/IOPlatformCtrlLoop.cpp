@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,77 +23,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc.  All rights reserved.
  *
  *
  */
-//		$Log: IOPlatformCtrlLoop.cpp,v $
-//		Revision 1.6  2003/07/16 02:02:09  eem
-//		3288772, 3321372, 3328661
-//		
-//		Revision 1.5  2003/06/07 01:30:56  eem
-//		Merge of EEM-PM72-ActiveFans-2 branch, with a few extra tweaks.  This
-//		checkin has working PID control for PowerMac7,2 platforms, as well as
-//		a first shot at localized strings.
-//		
-//		Revision 1.4.2.10  2003/06/06 11:00:42  eem
-//		Drive Bay and U3 zones now also under PID control.
-//		
-//		Revision 1.4.2.9  2003/06/06 08:17:56  eem
-//		Holy Motherfucking shit.  PID is really working.
-//		
-//		Revision 1.4.2.8  2003/06/04 10:21:10  eem
-//		Supports forced PID meta states.
-//		
-//		Revision 1.4.2.7  2003/06/04 00:00:51  eem
-//		More PID stuff, working towards support for forced meta states.
-//		
-//		Revision 1.4.2.6  2003/06/01 14:52:51  eem
-//		Most of the PID algorithm is implemented.
-//		
-//		Revision 1.4.2.5  2003/05/31 08:11:34  eem
-//		Initial pass at integrating deadline-based timer callbacks for PID loops.
-//		
-//		Revision 1.4.2.4  2003/05/29 03:51:34  eem
-//		Clean up environment dictionary access.
-//		
-//		Revision 1.4.2.3  2003/05/23 06:36:57  eem
-//		More registration notification stuff.
-//		
-//		Revision 1.4.2.2  2003/05/23 05:44:40  eem
-//		Cleanup, ctrlloops not get notification for sensor and control registration.
-//		
-//		Revision 1.4.2.1  2003/05/22 01:31:04  eem
-//		Checkin of today's work (fails compilations right now).
-//		
-//		Revision 1.4  2003/05/21 21:58:49  eem
-//		Merge from EEM-PM72-ActiveFans-1 branch with initial crack at active fan
-//		control on Q37.
-//		
-//		Revision 1.3.2.3  2003/05/17 12:55:37  eem
-//		Active fan control works on RPM channels!!!!!!
-//		
-//		Revision 1.3.2.2  2003/05/16 07:08:45  eem
-//		Table-lookup active fan control working with this checkin.
-//		
-//		Revision 1.3.2.1  2003/05/14 22:07:48  eem
-//		Implemented state-driven sensor, cleaned up "const" usage and header
-//		inclusions.
-//		
-//		Revision 1.3  2003/05/13 02:13:51  eem
-//		PowerMac7_2 Dynamic Power Step support.
-//		
-//		Revision 1.2.2.1  2003/05/12 11:21:10  eem
-//		Support for slewing.
-//		
-//		Revision 1.2  2003/05/10 06:50:33  eem
-//		All sensor functionality included for PowerMac7_2_PlatformPlugin.  Version
-//		is 1.0.1d12.
-//		
-//		Revision 1.1.2.1  2003/05/01 09:28:40  eem
-//		Initial check-in in progress toward first Q37 checkpoint.
-//		
-//		
+
 
 #include "IOPlatformPluginDefs.h"
 #include "IOPlatformPluginSymbols.h"

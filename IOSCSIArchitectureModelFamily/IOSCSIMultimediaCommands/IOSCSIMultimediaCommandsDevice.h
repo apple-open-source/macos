@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -32,6 +30,8 @@
 #else
 #include <CoreFoundation/CoreFoundation.h>
 #endif
+
+#include <IOKit/storage/IOStorageDeviceCharacteristics.h>
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -61,24 +61,24 @@ enum
 };
 
 // IOKit property keys and constants
-#define	kIOPropertySupportedCDFeatures		"CD Features"
-#define	kIOPropertySupportedDVDFeatures		"DVD Features"
+#define	kIOPropertySupportedCDFeatures		kIOPropertySupportedCDFeaturesKey
+#define	kIOPropertySupportedDVDFeatures		kIOPropertySupportedDVDFeaturesKey
 #define kIOPropertyLowPowerPolling			"Low Power Polling"
 
 typedef UInt32 CDFeatures;
 enum
 {
-	kCDFeaturesAnalogAudioBit					= 0,	// Analog Audio playback
-	kCDFeaturesReadStructuresBit				= 1,	// CD-ROM
-	kCDFeaturesWriteOnceBit						= 2,	// CD-R
-	kCDFeaturesReWriteableBit					= 3,	// CD-R/W
-	kCDFeaturesCDDAStreamAccurateBit			= 4,	// CD-DA stream accurate
-	kCDFeaturesPacketWriteBit					= 5,	// Packet Writing
-	kCDFeaturesTAOWriteBit						= 6,	// CD Track At Once
-	kCDFeaturesSAOWriteBit						= 7,	// CD Mastering - Session At Once
-	kCDFeaturesRawWriteBit						= 8,	// CD Mastering - Raw
-	kCDFeaturesTestWriteBit						= 9,	// CD Mastering/TAO - Test Write
-	kCDFeaturesBUFWriteBit						= 10	// CD Mastering/TAO - Buffer Underrun Free
+	kCDFeaturesAnalogAudioBit			= 0,	// Analog Audio playback
+	kCDFeaturesReadStructuresBit		= 1,	// CD-ROM
+	kCDFeaturesWriteOnceBit				= 2,	// CD-R
+	kCDFeaturesReWriteableBit			= 3,	// CD-R/W
+	kCDFeaturesCDDAStreamAccurateBit	= 4,	// CD-DA stream accurate
+	kCDFeaturesPacketWriteBit			= 5,	// Packet Writing
+	kCDFeaturesTAOWriteBit				= 6,	// CD Track At Once
+	kCDFeaturesSAOWriteBit				= 7,	// CD Mastering - Session At Once
+	kCDFeaturesRawWriteBit				= 8,	// CD Mastering - Raw
+	kCDFeaturesTestWriteBit				= 9,	// CD Mastering/TAO - Test Write
+	kCDFeaturesBUFWriteBit				= 10	// CD Mastering/TAO - Buffer Underrun Free
 };
 
 enum
@@ -99,38 +99,38 @@ enum
 typedef	UInt32 DVDFeatures;
 enum
 {
-	kDVDFeaturesCSSBit 				= 0,	// DVD-CSS
-	kDVDFeaturesReadStructuresBit 	= 1,	// DVD-ROM
-	kDVDFeaturesWriteOnceBit		= 2,	// DVD-R
-	kDVDFeaturesRandomWriteableBit	= 3,	// DVD-RAM
-	kDVDFeaturesReWriteableBit		= 4,	// DVD-RW
-	kDVDFeaturesTestWriteBit		= 5,	// DVD-R Write - Test Write
-	kDVDFeaturesBUFWriteBit			= 6,	// DVD-R Write - Buffer Underrun Free
-	kDVDFeaturesPlusRBit			= 7,	// DVD+R
-	kDVDFeaturesPlusRWBit			= 8		// DVD+RW (implies backgound format support)
+	kDVDFeaturesCSSBit 					= 0,	// DVD-CSS
+	kDVDFeaturesReadStructuresBit 		= 1,	// DVD-ROM
+	kDVDFeaturesWriteOnceBit			= 2,	// DVD-R
+	kDVDFeaturesRandomWriteableBit		= 3,	// DVD-RAM
+	kDVDFeaturesReWriteableBit			= 4,	// DVD-RW
+	kDVDFeaturesTestWriteBit			= 5,	// DVD-R Write - Test Write
+	kDVDFeaturesBUFWriteBit				= 6,	// DVD-R Write - Buffer Underrun Free
+	kDVDFeaturesPlusRBit				= 7,	// DVD+R
+	kDVDFeaturesPlusRWBit				= 8		// DVD+RW (implies backgound format support)
 };
 
 enum
 {
-	kDVDFeaturesCSSMask 			= (1 << kDVDFeaturesCSSBit),
-	kDVDFeaturesReadStructuresMask 	= (1 << kDVDFeaturesReadStructuresBit),
-	kDVDFeaturesWriteOnceMask		= (1 << kDVDFeaturesWriteOnceBit),
-	kDVDFeaturesRandomWriteableMask	= (1 << kDVDFeaturesRandomWriteableBit),
-	kDVDFeaturesReWriteableMask		= (1 << kDVDFeaturesReWriteableBit),
-	kDVDFeaturesTestWriteMask		= (1 << kDVDFeaturesTestWriteBit),
-	kDVDFeaturesBUFWriteMask		= (1 << kDVDFeaturesBUFWriteBit),
-	kDVDFeaturesPlusRMask			= (1 << kDVDFeaturesPlusRBit),
-	kDVDFeaturesPlusRWMask			= (1 << kDVDFeaturesPlusRWBit)
+	kDVDFeaturesCSSMask 				= (1 << kDVDFeaturesCSSBit),
+	kDVDFeaturesReadStructuresMask 		= (1 << kDVDFeaturesReadStructuresBit),
+	kDVDFeaturesWriteOnceMask			= (1 << kDVDFeaturesWriteOnceBit),
+	kDVDFeaturesRandomWriteableMask		= (1 << kDVDFeaturesRandomWriteableBit),
+	kDVDFeaturesReWriteableMask			= (1 << kDVDFeaturesReWriteableBit),
+	kDVDFeaturesTestWriteMask			= (1 << kDVDFeaturesTestWriteBit),
+	kDVDFeaturesBUFWriteMask			= (1 << kDVDFeaturesBUFWriteBit),
+	kDVDFeaturesPlusRMask				= (1 << kDVDFeaturesPlusRBit),
+	kDVDFeaturesPlusRWMask				= (1 << kDVDFeaturesPlusRWBit)
 };
 
 enum
 {
-	kDiscStatusEmpty 				= 0,
-	kDiscStatusIncomplete			= 1,
-	kDiscStatusComplete				= 2,
-	kDiscStatusOther				= 3,
-	kDiscStatusMask					= 0x03,
-	kDiscStatusErasableMask			= 0x10
+	kDiscStatusEmpty 					= 0,
+	kDiscStatusIncomplete				= 1,
+	kDiscStatusComplete					= 2,
+	kDiscStatusOther					= 3,
+	kDiscStatusMask						= 0x03,
+	kDiscStatusErasableMask				= 0x10
 };
 
 
@@ -153,7 +153,6 @@ enum
 	kMediaStateUnlocked	= 0,
 	kMediaStateLocked 	= 1
 };
-
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -872,11 +871,17 @@ public:
 										   void * 		messageArgument,
 										   vm_size_t 	argSize );
 	
+	/* Added with 10.3.3 */
+	OSMetaClassDeclareReservedUsed ( IOSCSIMultimediaCommandsDevice, 5 );
+	
+protected:
+	
+	virtual void AsyncReadWriteCompletion ( SCSITaskIdentifier completedTask );
+	
 	
 private:
 	
 	// Space reserved for future expansion.
-    OSMetaClassDeclareReservedUnused ( IOSCSIMultimediaCommandsDevice, 	5 );
     OSMetaClassDeclareReservedUnused ( IOSCSIMultimediaCommandsDevice, 	6 );
     OSMetaClassDeclareReservedUnused ( IOSCSIMultimediaCommandsDevice, 	7 );
     OSMetaClassDeclareReservedUnused ( IOSCSIMultimediaCommandsDevice, 	8 );

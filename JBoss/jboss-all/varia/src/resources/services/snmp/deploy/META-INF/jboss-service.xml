@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  $Id: jboss-service.xml,v 1.1.2.2 2003/10/13 16:57:15 andd Exp $
+  
+  The snmp-adaptor is a module used to intercept JMX notifications emitted
+  by MBeans, convert them to traps and send them to SNMP managers. In this
+  respect the snmp-adaptor acts as a SNMP agent. Future versions may offer
+  support for full agent get/set functionality that maps onto MBean
+  attributes or operations.
+  
+  It can be used to integrate JBoss with higher order system/network
+  management platforms (e.g. HP OpenView), thus making the MBeans visible
+  to those systems. The MBean developer can instrument the MBeans by
+  producing notifications for any significant event (e.g. server coldstart).
+  The adaptor can then be configured to intercept and map those notifications
+  to SNMP traps.
+  
+  SnmpAgentService is the main MBean that implements the SNMP agent.
+  It is configured by means of three different configuration files:
+  
+  - managers.xml, configures where to send traps
+  - mbeans.xml, configures the monitored MBeans/notifications types
+  - notifications.xml, specifies the exact mapping of each notification type
+    to a corresponding SNMP trap
+  
+  Have a look at the provided example configuration files for more info.
+  
+  SnmpAgentService produces by default a "coldstart" notification when started.
+  
+  In addition, by setting the HeartBeatPeriod attribute to a value greater
+  than zero, the adaptor configures a Timer MBean to produce heartbeat
+  notifications at regular intervals (measured in seconds).
+  
+  The adaptor itself uses JoeSNMP by OpenNMS for its SNMP engine. The
+  trap generation mechanism can be changed or extended with custom classes
+  able to extract information from notifications subsclasses unknown
+  to the NotificationWrapperSupport class provided with the adaptor.
+  
+  For more information on using or extending this mechanism, please
+  consult the jboss documentation or the source code.
+  
+  TrapdService is a simple MBean that acts as an SNMP Manager. It
+  listens to a configurable port for incoming traps and logs them
+  as DEBUG messages using the system logger. You can modify the log4j
+  configuration to redirect the log output to a file. SnmpAgentService
+  and TrapdService and not dependent with each other.
+
+  Enjoy!
+-->
+<service>
+
+  <!-- A simple trap receiver that acts as an SNMP Manager -->
+  <mbean code="org.jboss.jmx.adaptor.snmp.trapd.TrapdService"
+         name="jboss.jmx:name=SnmpAgent,service=trapd,type=logger">
+           
+    <attribute name="Port">1162</attribute>
+  </mbean>
+  
+  <!-- The SNMP adaptor MBean -->
+  <mbean code="org.jboss.jmx.adaptor.snmp.agent.SnmpAgentService"
+         name="jboss.jmx:name=SnmpAgent,service=snmp,type=adaptor">
+           
+    <attribute name="TrapFactoryClassName">org.jboss.jmx.adaptor.snmp.agent.TrapFactorySupport</attribute>
+    <attribute name="MonitoredObjectsResName">/mbeans.xml</attribute>
+    <attribute name="NotificationMapResName">/notifications.xml</attribute>
+    <attribute name="ManagersResName">/managers.xml</attribute>
+    <attribute name="HeartBeatPeriod">0</attribute>
+        
+    <depends optional-attribute-name="TimerName">
+      <mbean code="javax.management.timer.Timer"
+             name="jboss.jmx:name=SnmpAgent,service=timer,type=heartbeat"/>    
+    </depends>
+  </mbean>
+    
+  <!-- Used for internal testing - ignore
+  <mbean code="org.jboss.jmx.adaptor.snmp.test.NotificationProducerService"
+         name="jboss.jmx:name=SnmpAgent,service=notification,type=producer"/>
+  -->
+</service>

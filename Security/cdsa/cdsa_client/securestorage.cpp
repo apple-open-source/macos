@@ -284,43 +284,19 @@ SSGroupImpl::decodeDataBlob(const CSSM_DATA &dataBlob,
 
 	CssmDataContainer plainText1(allocator);
 	CssmDataContainer plainText2(allocator);
-	try
-	{
-		// Decrypt the data
-		// @@@ Don't use staged decrypt once the AppleCSPDL can do combo
-		// encryption.
-		// Setup decryption context
-		Decrypt decrypt(csp(), algorithm());
-		decrypt.mode(CSSM_ALGMODE_CBCPadIV8);
-		decrypt.padding(CSSM_PADDING_PKCS1);
-		decrypt.initVector(iv);
-		decrypt.key(Key(this));
-		decrypt.cred(AccessCredentials::overlay(cred));
-		decrypt.decrypt(&cipherText, 1, &plainText1, 1);
-		decrypt.final(plainText2);
-	}
-	catch (const CssmError &e)
-	{
-		if (e.cssmError() != CSSMERR_CSP_APPLE_ADD_APPLICATION_ACL_SUBJECT)
-			throw;
 
-		// The user checked to don't ask again checkbox in the rogue app alert.  Let's edit the ACL for this key and add the calling application to it.
-		Key key(this);		// the underlying key
-		SecPointer<Access> access = new Access(*key);	// extract access rights
-		SecPointer<TrustedApplication> thisApp = new TrustedApplication;
-		access->addApplicationToRight(CSSM_ACL_AUTHORIZATION_DECRYPT, thisApp.get());	// add this app
-		access->setAccess(*key, true);	// commit
-
-		// Retry the decrypt operation.
-		Decrypt decrypt(csp(), algorithm());
-		decrypt.mode(CSSM_ALGMODE_CBCPadIV8);
-		decrypt.padding(CSSM_PADDING_PKCS1);
-		decrypt.initVector(iv);
-		decrypt.key(Key(this));
-		decrypt.cred(AccessCredentials::overlay(cred));
-		decrypt.decrypt(&cipherText, 1, &plainText1, 1);
-		decrypt.final(plainText2);
-	}
+	// Decrypt the data
+	// @@@ Don't use staged decrypt once the AppleCSPDL can do combo
+	// encryption.
+	// Setup decryption context
+	Decrypt decrypt(csp(), algorithm());
+	decrypt.mode(CSSM_ALGMODE_CBCPadIV8);
+	decrypt.padding(CSSM_PADDING_PKCS1);
+	decrypt.initVector(iv);
+	decrypt.key(Key(this));
+	decrypt.cred(AccessCredentials::overlay(cred));
+	decrypt.decrypt(&cipherText, 1, &plainText1, 1);
+	decrypt.final(plainText2);
 
 	// Use DL allocator for allocating memory for data.
 	uint32 length = plainText1.Length + plainText2.Length;

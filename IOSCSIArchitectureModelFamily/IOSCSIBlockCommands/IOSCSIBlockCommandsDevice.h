@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -49,19 +47,6 @@ enum
 {
 	kMediaStateUnlocked	= 0,
 	kMediaStateLocked 	= 1
-};
-
-// Write cache bits
-enum
-{	
-	kWriteCacheEnabledBit	= 2,
-	kWriteCacheEnabledMask	= (1 << kWriteCacheEnabledBit)
-};
-
-enum
-{
-	kCachingModePageCode = 0x08,
-	kCachingModePageSize = 128
 };
 
 
@@ -279,9 +264,10 @@ public:
 							UInt64					blockCount,
 							UInt64					blockSize,
 							void * 					clientData );
-
+	
 	IOReturn	GetWriteCacheState ( bool * enabled );	
 	IOReturn	SetWriteCacheState ( bool enabled );
+	void		DetermineMediumGeometry ( void );
 	
 	// ---- Methods for controlling medium state ----
 	virtual IOReturn	EjectTheMedium ( void );
@@ -702,7 +688,8 @@ protected:
 						SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS,
 						SCSICmdField2Byte 			TRANSFER_LENGTH,
 						SCSICmdField1Byte 			CONTROL );
-	
+
+	/* Added with 10.2 */	
 	OSMetaClassDeclareReservedUsed ( IOSCSIBlockCommandsDevice, 1 );
 	
 public:
@@ -713,17 +700,26 @@ public:
 											void * 			messageArgument,
 											vm_size_t 		argSize );
 	
-	
+
+	/* Added with 10.2 */	
 	OSMetaClassDeclareReservedUsed ( IOSCSIBlockCommandsDevice, 2 );
 	
 protected:
 	
 	virtual	void		SetMediumIcon ( void );
 	
+	
+	/* Added with 10.3.3 */		
+	OSMetaClassDeclareReservedUsed ( IOSCSIReducedBlockCommandsDevice, 3 );
+	
+protected:
+
+	virtual	void AsyncReadWriteCompletion ( SCSITaskIdentifier completedTask );
+	
+	
 private:
 	
 	// Space reserved for future expansion.
-	OSMetaClassDeclareReservedUnused ( IOSCSIBlockCommandsDevice, 3 );
 	OSMetaClassDeclareReservedUnused ( IOSCSIBlockCommandsDevice, 4 );
 	OSMetaClassDeclareReservedUnused ( IOSCSIBlockCommandsDevice, 5 );
 	OSMetaClassDeclareReservedUnused ( IOSCSIBlockCommandsDevice, 6 );

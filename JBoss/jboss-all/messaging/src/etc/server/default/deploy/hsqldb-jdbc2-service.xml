@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- $Id: hsqldb-jdbc2-service.xml,v 1.1.2.2 2003/09/03 00:12:29 ejort Exp $ -->
+
+<server>
+
+  <!-- ==================================================================== -->
+  <!-- Persistence and caching using HSQLDB                                 -->
+  <!-- See docs/examples/jms for other configurations                       -->
+  <!-- ==================================================================== -->
+
+  <!--
+     | The destination manager is the core service within JBossMQ
+  -->
+  <mbean code="org.jboss.mq.server.jmx.DestinationManager" name="jboss.mq:service=DestinationManager">
+    <depends optional-attribute-name="MessageCache">jboss.mq:service=MessageCache</depends>
+    <depends optional-attribute-name="PersistenceManager">jboss.mq:service=PersistenceManager</depends>
+    <depends optional-attribute-name="StateManager">jboss.mq:service=StateManager</depends>
+  </mbean>
+
+  <!--
+     | The MessageCache decides where to put JBossMQ message that
+     | are sitting around waiting to be consumed by a client.
+     |
+     | The memory marks are in Megabytes.  Once the JVM memory usage hits
+     | the high memory mark, the old messages in the cache will start getting
+     | stored in the DataDirectory.  As memory usage gets closer to the
+     | Max memory mark, the amount of message kept in the memory cache aproaches 0.
+   -->
+  <mbean code="org.jboss.mq.server.MessageCache"
+	 name="jboss.mq:service=MessageCache">
+    <attribute name="HighMemoryMark">50</attribute>
+    <attribute name="MaxMemoryMark">60</attribute>
+    <attribute name="CacheStore">jboss.mq:service=PersistenceManager</attribute>
+  </mbean>
+
+  <!-- 
+     | The jdbc2 PersistenceManager is the new improved JDBC implementation.
+     | This implementation allows you to control how messages are stored in 
+     | the database.
+     |
+     | Use this PM if you want the reliablity a relational database can offer
+     | you.  The default configuration is known to work with hsqldb, other
+     | databases will requrie teaking of the SqlProperties e.g. changing table
+     | colum definitions to database supported types.
+     |
+     | Take care that the selected blob column type in jms_messages can store
+     | all message data. Some databases (e.g. mySQL) offer blob types with
+     | different maximum capacity (e.g. mySQL-type BLOB=64K, LONGBLOB=2G).
+     |
+     | If you encouter problems with the configured BLOB_TYPE try a different
+     | setting. Valid settings are OBJECT_BLOB, BINARYSTREAM_BLOB and BYTES_BLOB.
+   -->
+  <mbean code="org.jboss.mq.pm.jdbc2.PersistenceManager"
+	 name="jboss.mq:service=PersistenceManager">
+    <depends optional-attribute-name="ConnectionManager">jboss.jca:service=LocalTxCM,name=DefaultDS</depends>
+    <attribute name="SqlProperties">
+      BLOB_TYPE=OBJECT_BLOB
+      INSERT_TX = INSERT INTO JMS_TRANSACTIONS (TXID) values(?)
+      INSERT_MESSAGE = INSERT INTO JMS_MESSAGES (MESSAGEID, DESTINATION, MESSAGEBLOB, TXID, TXOP) VALUES(?,?,?,?,?)
+      SELECT_ALL_UNCOMMITED_TXS = SELECT TXID FROM JMS_TRANSACTIONS
+      SELECT_MAX_TX = SELECT MAX(TXID) FROM JMS_MESSAGES
+      SELECT_MESSAGES_IN_DEST = SELECT MESSAGEID, MESSAGEBLOB FROM JMS_MESSAGES WHERE DESTINATION=?
+      SELECT_MESSAGE = SELECT MESSAGEID, MESSAGEBLOB FROM JMS_MESSAGES WHERE MESSAGEID=? AND DESTINATION=?
+      MARK_MESSAGE = UPDATE JMS_MESSAGES SET TXID=?, TXOP=? WHERE MESSAGEID=? AND DESTINATION=?
+      UPDATE_MESSAGE = UPDATE JMS_MESSAGES SET MESSAGEBLOB=? WHERE MESSAGEID=? AND DESTINATION=?
+      UPDATE_MARKED_MESSAGES = UPDATE JMS_MESSAGES SET TXID=?, TXOP=? WHERE TXOP=?
+      UPDATE_MARKED_MESSAGES_WITH_TX = UPDATE JMS_MESSAGES SET TXID=?, TXOP=? WHERE TXOP=? AND TXID=?
+      DELETE_MARKED_MESSAGES_WITH_TX = DELETE FROM JMS_MESSAGES WHERE TXID IN (SELECT TXID FROM JMS_TRANSACTIONS) AND TXOP=?
+      DELETE_TX = DELETE FROM JMS_TRANSACTIONS WHERE TXID = ?
+      DELETE_MARKED_MESSAGES = DELETE FROM JMS_MESSAGES WHERE TXID=? AND TXOP=?
+      DELETE_MESSAGE = DELETE FROM JMS_MESSAGES WHERE MESSAGEID=? AND DESTINATION=?
+      CREATE_MESSAGE_TABLE = CREATE CACHED TABLE JMS_MESSAGES ( MESSAGEID INTEGER NOT NULL, \
+         DESTINATION VARCHAR(255) NOT NULL, TXID INTEGER, TXOP CHAR(1), \
+         MESSAGEBLOB OBJECT, PRIMARY KEY (MESSAGEID, DESTINATION) )
+      CREATE_TX_TABLE = CREATE CACHED TABLE JMS_TRANSACTIONS ( TXID INTEGER )
+      CREATE_TABLES_ON_STARTUP = TRUE
+    </attribute>
+  </mbean>
+
+</server>

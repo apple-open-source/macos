@@ -164,20 +164,20 @@ bool
 AppleK2SATARoot::start( IOService * provider )
 {
 	DLOG("AppleK2SATARoot: starting\n");
+	
+	static const IOPMPowerState powerStates[ 2 ] = {
+        { 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+        { 1, IOPMPowerOn, IOPMPowerOn, IOPMPowerOn, 0, 0, 0, 0, 0, 0, 0, 0 }
+    };
   
 
     IOPCIDevice *pciNub = (IOPCIDevice *)provider;
 
     if( !super::start( provider))
 	return( false);
-	// enable MMIO mode on fpga device?
-	//UInt32 offset64 = pciNub->configRead32( 0x64 );
-	//offset64 |= (0x00000001 << 14);
-	//pciNub->configWrite32( 0x64, offset64);
 
  	// enable mem access
 	pciNub->setMemoryEnable(true);
-//	pciNub->setIOEnable(true);
     // turn on the bus-mastering enable
  	pciNub->setBusMasterEnable( true );   
 
@@ -211,7 +211,13 @@ AppleK2SATARoot::start( IOService * provider )
 		DLOG("AppleKiwiRoot: failed to start intController\n");
 		return false;
 	}
+    
+	// Show we are awake now:
+    isSleeping = false;
 
+    PMinit();
+    registerPowerDriver(this,(IOPMPowerState *)powerStates,2);
+    joinPMtree(this);
 	
 	// create the stack
 	publishBelow(provider);
@@ -324,7 +330,7 @@ AppleK2SATARoot::publishBelow( IORegistryEntry * root )
 				
 				if( !nub )
 				{
-					IOLog("AppleK2SATARoot failed to create nub\n");
+					DLOG("AppleK2SATARoot failed to create nub\n");
 						return;
 				}
 				
@@ -383,6 +389,42 @@ AppleK2SATARoot::sDeviceInterruptOccurred(OSObject * owner, IOInterruptEventSour
 
 }
 
+IOReturn 
+AppleK2SATARoot::setPowerState ( unsigned long powerStateOrdinal, IOService* whatDevice )
+{
+	if( powerStateOrdinal == 0 
+		&& !(isSleeping) )
+	{
+		DLOG("AppleK2SATARoot power ordinal 0\n");
+		isSleeping = true;
+		
+		/*for( int i = 0; i < 4; i++)
+		{
+			restoreSCR2[i] = OSReadLittleInt( baseAddrFive, 0x48 + (i * 0x100) );
+			restoreSICR1[i] = OSReadLittleInt( baseAddrFive, 0x80 + (i * 0x100) );
+			OSWriteLittleInt32( baseAddrFive, (i * 0x100) + 0x48, restoreSCR2[i] & 0x00000001);  //set the phy into reset mode going into sleep
+		}*/
+	}
+	
+
+	if( powerStateOrdinal == 1
+		&& (isSleeping) )
+	{
+		
+		DLOG("AppleK2SATARoot power ordinal 1\n");
+		isSleeping = false;
+		// time to wake up
+		/*for( int i = 0; i < 4; i++)
+		{
+			OSWriteLittleInt32( baseAddrFive, (i * 0x100) + 0x80, restoreSICR1[i]);
+			OSWriteLittleInt32( baseAddrFive, (i * 0x100) + 0x48, restoreSCR2[i]);
+			OSWriteLittleInt32( baseAddrFive, (i * 0x100) + 0x44, 0xFFFFFFFF); // clear any error bits
+						
+		}*/
+	}
+	return IOPMAckImplied;
+
+}
 
 
 #pragma mark -
@@ -403,7 +445,7 @@ OSDefineMetaClassAndStructors ( AppleK2SATADevice, IOService )
 IOService* 
 AppleK2SATADevice::matchLocation( IOService * /* client */ )
 {
-     IOLog("AppleK2SATADevice matchLocation\n");
+    // DLOG("AppleK2SATADevice matchLocation\n");
 	  return( this );
 }
 
@@ -430,7 +472,7 @@ AppleK2SATADevice::getResources( void )
 #undef super
 #define super IOInterruptController
 
-#define K2SATANumVectors 2
+#define K2SATANumVectors 4
 
 OSDefineMetaClassAndStructors(AppleK2SATAIC, IOInterruptController);
 

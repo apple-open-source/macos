@@ -229,7 +229,7 @@ typedef struct pipes_struct
 	fstring pipe_user_name;
 	struct current_user pipe_user;
 
-	uint8 session_key[16];
+	DATA_BLOB session_key;
 
 	/*
 	 * Set to true when an RPC bind has been done on this pipe.
@@ -402,5 +402,6 @@ struct acct_info
 #include "rpc_dfs.h"
 #include "rpc_ds.h"
 #include "rpc_echo.h"
+#include "rpc_shutdown.h"
 
 #endif /* _NT_DOMAIN_H */

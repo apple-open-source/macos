@@ -4,7 +4,7 @@
  * Distributable under LGPL license.
  * See terms of license at gnu.org.
  */
- 
+
 package org.jboss.ejb.plugins.cmp.jdbc.bridge;
 
 import java.sql.PreparedStatement;
@@ -14,10 +14,13 @@ import org.jboss.ejb.EntityEnterpriseContext;
 import org.jboss.ejb.plugins.cmp.bridge.FieldBridge;
 import org.jboss.ejb.plugins.cmp.jdbc.JDBCType;
 
-public interface JDBCFieldBridge extends FieldBridge {
-   /**
-    * Gets the JDBC type of this field.
-    */
+
+/**
+ * @author <a href="mailto:loubyansky@ua.fm">Alex Loubyansky and others</a>
+ */
+public interface JDBCFieldBridge extends FieldBridge
+{
+   /** Gets the JDBC type of this field. */
    public JDBCType getJDBCType();
 
    /**
@@ -29,20 +32,20 @@ public interface JDBCFieldBridge extends FieldBridge {
    /**
     * Is this field read only.
     * @return true if this field is read only
-    */ 
+    */
    public boolean isReadOnly();
-   
+
+   /**
+    * Has current data read timed out?
+    */
+   public boolean isReadTimedOut(EntityEnterpriseContext ctx);
+
    /**
     * Should an index in the database be generated for this field?
     * @return true if an index should be generated in the database
     */
    public boolean isIndexed();
-      
-   /**
-    * Has current data read timed out?
-    */
-   public boolean isReadTimedOut(EntityEnterpriseContext ctx);
-   
+
    /**
     * Has the data been loaded?
     */
@@ -59,13 +62,10 @@ public interface JDBCFieldBridge extends FieldBridge {
    public void resetPersistenceContext(EntityEnterpriseContext ctx);
 
    /**
-    * Sets the prepared statement parameters with the data from the 
+    * Sets the prepared statement parameters with the data from the
     * instance associated with the context.
     */
-   public int setInstanceParameters(
-         PreparedStatement ps, 
-         int parameterIndex,
-         EntityEnterpriseContext ctx);
+   public int setInstanceParameters(PreparedStatement ps, int parameterIndex, EntityEnterpriseContext ctx);
 
    /**
     * Gets the internal value of this field without user level checks.
@@ -73,7 +73,7 @@ public interface JDBCFieldBridge extends FieldBridge {
     * @return the value of this field
     */
    public Object getInstanceValue(EntityEnterpriseContext ctx);
-      
+
    /**
     * Sets the internal value of this field without user level checks.
     * @param ctx the context for which this field's value should be set
@@ -82,26 +82,20 @@ public interface JDBCFieldBridge extends FieldBridge {
    public void setInstanceValue(EntityEnterpriseContext ctx, Object value);
 
    /**
-    * Loads the data from result set into the instance associated with 
+    * Loads the data from result set into the instance associated with
     * the specified context.
     */
-   public int loadInstanceResults(
-         ResultSet rs,
-         int parameterIndex,
-         EntityEnterpriseContext ctx);
+   public int loadInstanceResults(ResultSet rs, int parameterIndex, EntityEnterpriseContext ctx);
 
    /**
     * Loads the value of this cmp field from result set into argument referance.
     */
-   public int loadArgumentResults(
-         ResultSet rs,
-         int parameterIndex,
-         Object[] argumentRef);
+   public int loadArgumentResults(ResultSet rs, int parameterIndex, Object[] argumentRef);
 
    /**
     * Has the value of this field changes since the last time clean was called.
     */
-   public boolean isDirty(EntityEnterpriseContext ctx);   
+   public boolean isDirty(EntityEnterpriseContext ctx);
 
    /**
     * Mark this field as clean.

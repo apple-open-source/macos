@@ -36,9 +36,7 @@ import org.jboss.mq.TransactionRequest;
 import org.jboss.mq.il.Invoker;
 import org.jboss.mq.il.ServerIL;
 import org.jboss.security.SecurityDomain;
-
-import EDU.oswego.cs.dl.util.concurrent.BoundedBuffer;
-import EDU.oswego.cs.dl.util.concurrent.PooledExecutor;
+import org.jboss.system.server.ServerConfigUtil;
 
 /**
  * Implements the ServerILJMXService which is used to manage the OIL2 IL.
@@ -420,11 +418,13 @@ public final class OIL2ServerILService
          // determine if the socket exception is caused by connection
          // reset by peer. In this case, it's okay to ignore both
          // SocketException and IOException.
-         log.warn("SocketException occured (Connection reset by peer?). Cannot initialize the OILServerILService.");
+         if (running)
+            log.warn("SocketException occured (Connection reset by peer?). Cannot initialize the OIL2ServerILService.");
       }
       catch (IOException e)
       {
-         log.warn("IOException occured. Cannot initialize the OILServerILService.");
+         if (running)
+            log.warn("IOException occured. Cannot initialize the OIL2ServerILService.");
       }
       finally
       {
@@ -493,8 +493,7 @@ public final class OIL2ServerILService
          because this is not a valid address on Win32 while it is for
          *NIX. See BugParade bug #4343286.
          */
-      if (socketAddress.toString().equals("0.0.0.0/0.0.0.0"))
-         socketAddress = InetAddress.getLocalHost();
+      socketAddress = ServerConfigUtil.fixRemoteAddress(socketAddress);
 
       serverIL = new OIL2ServerIL(socketAddress.getHostAddress(), serverSocket.getLocalPort(),
          clientSocketFactoryName, enableTcpNoDelay);
@@ -517,12 +516,21 @@ public final class OIL2ServerILService
    {
       try
       {
-         running = false;
          unbindJNDIReferences();
       }
       catch (Exception e)
       {
          log.error("Exception unbinding from JNDI", e);
+      }
+      try
+      {
+         running = false;
+         if (serverSocket != null)
+            serverSocket.close();
+      }
+      catch (Exception e)
+      {
+         log.debug("Exception stopping server thread", e);
       }
    }
 

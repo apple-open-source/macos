@@ -95,12 +95,20 @@ public:
         tp=0;
         paintBuffer=0;
         formCompletions=0;
-        prevScrollbarVisible = true;
-	timerId = 0;
-        repaintTimerId = 0;
+        layoutTimerId = 0;
         complete = false;
         mousePressed = false;
 	tooltip = 0;
+#ifdef INCREMENTAL_REPAINTING
+        doFullRepaint = true;
+#endif
+#if APPLE_CHANGES
+        vmode = hmode = QScrollView::Auto;
+        firstLayout = true;
+        needToInitScrollBars = true;
+#else
+        prevScrollbarVisible = true;
+#endif
     }
     ~KHTMLViewPrivate()
     {
@@ -121,12 +129,14 @@ public:
         useSlowRepaints = false;
         originalNode = 0;
 	borderTouched = false;
+#if !APPLE_CHANGES
 #ifndef KHTML_NO_SCROLLBARS
         vmode = QScrollView::Auto;
         hmode = QScrollView::Auto;
 #else
         vmode = QScrollView::AlwaysOff;
         hmode = QScrollView::AlwaysOff;
+#endif
 #endif
         scrollBarMoved = false;
         ignoreWheelEvents = false;
@@ -139,13 +149,17 @@ public:
 	clickCount = 0;
 	isDoubleClick = false;
 	scrollingSelf = false;
-	timerId = 0;
-        repaintTimerId = 0;
+	layoutTimerId = 0;
         complete = false;
         mousePressed = false;
-        firstRelayout = true;
+#ifdef INCREMENTAL_REPAINTING
+        doFullRepaint = true;
+#endif        
         layoutSchedulingEnabled = true;
-        updateRect = QRect();
+        layoutSuppressed = false;
+#if APPLE_CHANGES
+        firstLayout = true;
+#endif
     }
 
     QPainter *tp;
@@ -158,10 +172,15 @@ public:
     bool borderTouched:1;
     bool borderStart:1;
     bool scrollBarMoved:1;
-
+#ifdef INCREMENTAL_REPAINTING
+    bool doFullRepaint:1;
+#endif
+    
     QScrollView::ScrollBarMode vmode;
     QScrollView::ScrollBarMode hmode;
+#if !APPLE_CHANGES
     bool prevScrollbarVisible;
+#endif
     bool linkPressed;
     bool useSlowRepaints;
     bool ignoreWheelEvents;
@@ -174,14 +193,16 @@ public:
 
     int prevMouseX, prevMouseY;
     bool scrollingSelf;
-    int timerId;
+    int layoutTimerId;
 
-    int repaintTimerId;
     bool complete;
-    bool firstRelayout;
     bool layoutSchedulingEnabled;
+    bool layoutSuppressed;
+#if APPLE_CHANGES
+    bool firstLayout;
+    bool needToInitScrollBars;
+#endif
     bool mousePressed;
-    QRect updateRect;
     KHTMLToolTip *tooltip;
 };
 
@@ -210,15 +231,21 @@ KHTMLView::KHTMLView( KHTMLPart *part, QWidget *parent, const char *name)
 {
     m_medium = "screen";
 
+#ifndef INCREMENTAL_REPAINTING
     m_layoutObject = 0;
+#endif
     
     m_part = part;
 #if APPLE_CHANGES
     m_part->ref();
 #endif
     d = new KHTMLViewPrivate;
+
+#if !APPLE_CHANGES
     QScrollView::setVScrollBarMode(d->vmode);
     QScrollView::setHScrollBarMode(d->hmode);
+#endif
+    
     connect(kapp, SIGNAL(kdisplayPaletteChanged()), this, SLOT(slotPaletteChanged()));
     connect(this, SIGNAL(contentsMoving(int, int)), this, SLOT(slotScrollBarMoved()));
 
@@ -240,6 +267,10 @@ KHTMLView::KHTMLView( KHTMLPart *part, QWidget *parent, const char *name)
 
 KHTMLView::~KHTMLView()
 {
+#if APPLE_CHANGES
+    resetScrollBars();
+#endif
+
     assert(_refCount == 0);
 
     if (m_part)
@@ -265,6 +296,18 @@ void KHTMLView::clearPart()
         m_part = 0;
     }
 }
+
+#if APPLE_CHANGES
+void KHTMLView::resetScrollBars()
+{
+    // Reset the document's scrollbars back to our defaults before we yield the floor.
+    d->firstLayout = true;
+    suppressScrollBars(true);
+    QScrollView::setVScrollBarMode(d->vmode);
+    QScrollView::setHScrollBarMode(d->hmode);
+    suppressScrollBars(false);
+}
+#endif
 
 void KHTMLView::init()
 {
@@ -299,13 +342,16 @@ void KHTMLView::clear()
     killTimers();
     emit cleared();
 
+#if APPLE_CHANGES
+    suppressScrollBars(true);
+#else
     QScrollView::setHScrollBarMode(d->hmode);
     if (d->vmode==Auto)
         QScrollView::setVScrollBarMode(d->prevScrollbarVisible?AlwaysOn:Auto);
     else
         QScrollView::setVScrollBarMode(d->vmode);
-
     resizeContents(visibleWidth(), visibleHeight());
+#endif
 }
 
 void KHTMLView::hideEvent(QHideEvent* e)
@@ -339,6 +385,16 @@ void KHTMLView::resizeEvent (QResizeEvent* e)
         m_part->xmlDocImpl()->dispatchWindowEvent( EventImpl::RESIZE_EVENT, false, false );
     KApplication::sendPostedEvents(viewport(), QEvent::Paint);
 }
+
+#if APPLE_CHANGES
+void KHTMLView::initScrollBars()
+{
+    if (!d->needToInitScrollBars)
+        return;
+    d->needToInitScrollBars = false;
+    setScrollBarsMode(hScrollBarMode());
+}
+#endif
 
 #if !APPLE_CHANGES
 
@@ -413,38 +469,186 @@ void KHTMLView::adjustViewSize()
     }
 }
 
+void KHTMLView::applyBodyScrollQuirk(khtml::RenderObject* o, ScrollBarMode& hMode, ScrollBarMode& vMode)
+{
+    // Handle the overflow:hidden/scroll quirk for the body elements.  WinIE treats
+    // overflow:hidden and overflow:scroll on <body> as applying to the document's
+    // scrollbars.  The CSS2.1 draft has even added a sentence, "HTML UAs may apply overflow
+    // specified on the body or HTML elements to the viewport."  Since WinIE and Mozilla both
+    // do it, we will do it too for <body> elements.
+    switch(o->style()->overflow()) {
+        case OHIDDEN:
+            hMode = vMode = AlwaysOff;
+            break;
+        case OSCROLL:
+            hMode = vMode = AlwaysOn;
+            break;
+        case OAUTO:
+	    hMode = vMode = Auto;
+            break;
+        default:
+            // Don't set it at all.
+            ;
+    }
+}
+
+bool KHTMLView::inLayout() const
+{
+    return d->layoutSuppressed;
+}
+
+#ifdef INCREMENTAL_REPAINTING
+bool KHTMLView::needsFullRepaint() const
+{
+    return d->doFullRepaint;
+}
+#endif
 
 void KHTMLView::layout()
 {
-    if( m_part->xmlDocImpl() ) {
-        DOM::DocumentImpl *document = m_part->xmlDocImpl();
+    if (d->layoutSuppressed)
+        return;
+    
+    d->layoutSchedulingEnabled=false;
+    killTimer(d->layoutTimerId);
+    d->layoutTimerId = 0;
 
-        khtml::RenderCanvas* root = static_cast<khtml::RenderCanvas *>(document->renderer());
-        if ( !root ) return;
-
-         if (document->isHTMLDocument()) {
-             NodeImpl *body = static_cast<HTMLDocumentImpl*>(document)->body();
-             if(body && body->renderer() && body->id() == ID_FRAMESET) {
-                 QScrollView::setVScrollBarMode(AlwaysOff);
-                 QScrollView::setHScrollBarMode(AlwaysOff);
-                 body->renderer()->setNeedsLayout(true);
-             }
-         }
-
-        _height = visibleHeight();
+    if (!m_part) {
+        // FIXME: Do we need to set _width here?
+        // FIXME: Should we set _height here too?
         _width = visibleWidth();
-
-        //QTime qt;
-        //qt.start();
-        root->setNeedsLayoutAndMinMaxRecalc();
-        // avoid recursing into relayouts because of scrollbar-flicker
-
-        root->layout();
-
-        //kdDebug( 6000 ) << "TIME: layout() dt=" << qt.elapsed() << endl;
-    } else {
-        _width = visibleWidth();
+        return;
     }
+
+    DOM::DocumentImpl* document = m_part->xmlDocImpl();
+    if (!document) {
+        // FIXME: Should we set _height here too?
+        _width = visibleWidth();
+        return;
+    }
+
+    khtml::RenderCanvas* root = static_cast<khtml::RenderCanvas*>(document->renderer());
+    if (!root) {
+        // FIXME: Do we need to set _width or _height here?
+        return;
+    }
+
+    ScrollBarMode hMode = d->hmode;
+    ScrollBarMode vMode = d->vmode;
+    
+    if (document->isHTMLDocument()) {
+        NodeImpl *body = static_cast<HTMLDocumentImpl*>(document)->body();
+        if (body && body->renderer()) {
+            if (body->id() == ID_FRAMESET) {
+                body->renderer()->setNeedsLayout(true);
+                vMode = AlwaysOff;
+                hMode = AlwaysOff;
+            }
+            else if (body->id() == ID_BODY)
+                applyBodyScrollQuirk(body->renderer(), hMode, vMode); // Only applies to HTML UAs, not to XML/XHTML UAs
+        }
+    }
+
+#ifdef INCREMENTAL_REPAINTING
+    d->doFullRepaint = d->firstLayout || root->printingMode();
+#endif
+
+#if APPLE_CHANGES
+    // Now set our scrollbar state for the layout.
+    ScrollBarMode currentHMode = hScrollBarMode();
+    ScrollBarMode currentVMode = vScrollBarMode();
+
+    if (d->firstLayout || (hMode != currentHMode || vMode != currentVMode)) {
+        suppressScrollBars(true);
+        if (d->firstLayout) {
+            d->firstLayout = false;
+            
+            // Set the initial vMode to AlwaysOn if we're auto.
+            if (vMode == Auto)
+                QScrollView::setVScrollBarMode(AlwaysOn); // This causes a vertical scrollbar to appear.
+            // Set the initial hMode to AlwaysOff if we're auto.
+            if (hMode == Auto)
+                QScrollView::setHScrollBarMode(AlwaysOff); // This causes a horizontal scrollbar to disappear.
+        }
+        
+        if (hMode == vMode)
+            QScrollView::setScrollBarsMode(hMode);
+        else {
+            QScrollView::setHScrollBarMode(hMode);
+            QScrollView::setVScrollBarMode(vMode);
+        }
+
+        suppressScrollBars(false, true);
+    }
+#else
+    QScrollView::setHScrollBarMode(hMode);
+    QScrollView::setVScrollBarMode(vMode);
+#endif
+
+#ifdef INCREMENTAL_REPAINTING
+    int oldHeight = _height;
+    int oldWidth = _width;
+#endif
+    
+    _height = visibleHeight();
+    _width = visibleWidth();
+
+#ifdef INCREMENTAL_REPAINTING
+    if (oldHeight != _height || oldWidth != _width)
+        d->doFullRepaint = true;
+#endif
+    
+    RenderLayer* layer = root->layer();
+     
+#ifdef INCREMENTAL_REPAINTING
+    if (!d->doFullRepaint) {
+        layer->computeRepaintRects();
+        root->repaintObjectsBeforeLayout();
+    }
+#endif
+
+    root->layout();
+
+    //kdDebug( 6000 ) << "TIME: layout() dt=" << qt.elapsed() << endl;
+   
+    d->layoutSchedulingEnabled=true;
+    d->layoutSuppressed = false;
+
+    resizeContents(layer->width(), layer->height());
+
+    // Now update the positions of all layers.
+#ifdef INCREMENTAL_REPAINTING
+    layer->updateLayerPositions(d->doFullRepaint);
+#else
+    layer->updateLayerPositions();
+#endif
+
+#if APPLE_CHANGES
+    // We update our widget positions right after doing a layout.
+    root->updateWidgetPositions();
+#endif
+    
+#ifdef INCREMENTAL_REPAINTING
+    if (root->needsLayout())
+#else
+    // Do not allow a full layout if we had a clip object set.
+    if ( root->needsLayout() && !m_layoutObject)
+#endif
+    {
+        //qDebug("needs layout, delaying repaint");
+        scheduleRelayout();
+        return;
+    }
+    setStaticBackground(d->useSlowRepaints);
+
+#ifndef INCREMENTAL_REPAINTING
+    if (m_layoutObject) {
+        m_layoutObject->repaint();
+        m_layoutObject = 0;
+    }
+    else
+        root->repaint();
+#endif    
 }
 
 //
@@ -487,8 +691,6 @@ void KHTMLView::viewportMousePressEvent( QMouseEvent *_mouse )
 
     bool swallowEvent = dispatchMouseEvent(EventImpl::MOUSEDOWN_EVENT,mev.innerNode.handle(),true,
                                            d->clickCount,_mouse,true,DOM::NodeImpl::MousePress);
-    if (mev.innerNode.handle())
-	mev.innerNode.handle()->setPressed();
 
     if (!swallowEvent) {
 	khtml::MousePressEvent event( _mouse, xm, ym, mev.url, mev.target, mev.innerNode );
@@ -536,9 +738,6 @@ void KHTMLView::viewportMouseDoubleClickEvent( QMouseEvent *_mouse )
     dispatchMouseEvent(EventImpl::CLICK_EVENT,mev.innerNode.handle(),true,
 			   d->clickCount,_mouse,true,DOM::NodeImpl::MouseRelease);
 
-    if (mev.innerNode.handle())
-	mev.innerNode.handle()->setPressed(false);
-
     // Qt delivers a release event AND a double click event.
     if (!swallowEvent) {
 	khtml::MouseReleaseEvent event1( _mouse, xm, ym, mev.url, mev.target, mev.innerNode );
@@ -555,9 +754,6 @@ void KHTMLView::viewportMouseDoubleClickEvent( QMouseEvent *_mouse )
     // odd detail value means a single click
     bool swallowEvent = dispatchMouseEvent(EventImpl::MOUSEDOWN_EVENT,mev.innerNode.handle(),true,
                                            d->clickCount,_mouse,true,DOM::NodeImpl::MouseDblClick);
-
-    if (mev.innerNode.handle())
-	mev.innerNode.handle()->setPressed();
 
     if (!swallowEvent) {
 	khtml::MouseDoubleClickEvent event( _mouse, xm, ym, mev.url, mev.target, mev.innerNode );
@@ -585,8 +781,11 @@ void KHTMLView::viewportMouseMoveEvent( QMouseEvent * _mouse )
     int xm, ym;
     viewportToContents(_mouse->x(), _mouse->y(), xm, ym);
 
+    // Treat mouse move events while the mouse is pressed as "read-only" in prepareMouseEvent.
+    // This means that :hover and :active freeze in the state they were in when the mouse
+    // was pressed, rather than updating for nodes the mouse moves over as you hold the mouse down.
     DOM::NodeImpl::MouseEvent mev( _mouse->stateAfter(), DOM::NodeImpl::MouseMove );
-    m_part->xmlDocImpl()->prepareMouseEvent( false, xm, ym, &mev );
+    m_part->xmlDocImpl()->prepareMouseEvent( d->mousePressed, xm, ym, &mev );
 #if APPLE_CHANGES
     if (KWQ(m_part)->passSubframeEventToSubframe(mev))
         return;
@@ -620,10 +819,10 @@ void KHTMLView::viewportMouseMoveEvent( QMouseEvent * _mouse )
 
     switch ( style ? style->cursor() : CURSOR_AUTO) {
     case CURSOR_AUTO:
-        if ( d->mousePressed )
-            // during selection, use an IBeam no matter what we're over
-            c = KCursor::ibeamCursor();
-        else if ( (mev.url.length() || isSubmitImage(mev.innerNode.handle()))
+        if ( d->mousePressed && m_part->hasSelection() )
+	    // during selection, use an IBeam no matter what we're over
+	    c = KCursor::ibeamCursor();
+        else if ( (!mev.url.isNull() || isSubmitImage(mev.innerNode.handle()))
                   && m_part->settings()->changeCursor() )
             c = m_part->urlCursor();
         else if ( !mev.innerNode.isNull()
@@ -641,20 +840,52 @@ void KHTMLView::viewportMouseMoveEvent( QMouseEvent * _mouse )
         c = KCursor::sizeAllCursor();
         break;
     case CURSOR_E_RESIZE:
+#if APPLE_CHANGES
+        c = KCursor::eastResizeCursor();
+        break;
+#endif
     case CURSOR_W_RESIZE:
+#if APPLE_CHANGES
+        c = KCursor::westResizeCursor();
+#else
         c = KCursor::sizeHorCursor();
+#endif
         break;
     case CURSOR_N_RESIZE:
+#if APPLE_CHANGES
+        c = KCursor::northResizeCursor();
+        break;
+#endif
     case CURSOR_S_RESIZE:
+#if APPLE_CHANGES
+        c = KCursor::southResizeCursor();
+#else
         c = KCursor::sizeVerCursor();
+#endif
         break;
     case CURSOR_NE_RESIZE:
+#if APPLE_CHANGES
+        c = KCursor::northEastResizeCursor();
+        break;
+#endif
     case CURSOR_SW_RESIZE:
+#if APPLE_CHANGES
+        c = KCursor::southWestResizeCursor();
+#else
         c = KCursor::sizeBDiagCursor();
+#endif
         break;
     case CURSOR_NW_RESIZE:
+#if APPLE_CHANGES
+        c = KCursor::northWestResizeCursor();
+        break;
+#endif
     case CURSOR_SE_RESIZE:
+#if APPLE_CHANGES
+        c = KCursor::southEastResizeCursor();
+#else
         c = KCursor::sizeFDiagCursor();
+#endif
         break;
     case CURSOR_TEXT:
         c = KCursor::ibeamCursor();
@@ -716,9 +947,6 @@ void KHTMLView::viewportMouseReleaseEvent( QMouseEvent * _mouse )
 	dispatchMouseEvent(EventImpl::CLICK_EVENT,mev.innerNode.handle(),true,
 			   d->clickCount,_mouse,true,DOM::NodeImpl::MouseRelease);
 
-    if (mev.innerNode.handle())
-	mev.innerNode.handle()->setPressed(false);
-
     if (!swallowEvent) {
 	khtml::MouseReleaseEvent event( _mouse, xm, ym, mev.url, mev.target, mev.innerNode );
 	QApplication::sendEvent( m_part, &event );
@@ -736,6 +964,7 @@ void KHTMLView::keyPressEvent( QKeyEvent *_ke )
         }
     }
 
+#if !APPLE_CHANGES
     int offs = (clipper()->height() < 30) ? clipper()->height() : 30;
     if (_ke->state()&ShiftButton)
       switch(_ke->key())
@@ -797,7 +1026,6 @@ void KHTMLView::keyPressEvent( QKeyEvent *_ke )
         case Key_Enter:
         case Key_Return:
 	    // ### FIXME:
-	    // move this code to HTMLAnchorElementImpl::setPressed(false),
 	    // or even better to HTMLAnchorElementImpl::event()
             if (m_part->xmlDocImpl()) {
 		NodeImpl *n = m_part->xmlDocImpl()->focusNode();
@@ -823,6 +1051,7 @@ void KHTMLView::keyPressEvent( QKeyEvent *_ke )
             return;
         }
     _ke->accept();
+#endif
 }
 
 void KHTMLView::keyReleaseEvent(QKeyEvent *_ke)
@@ -1246,6 +1475,22 @@ void KHTMLView::useSlowRepaints()
     setStaticBackground(true);
 }
 
+void KHTMLView::setScrollBarsMode ( ScrollBarMode mode )
+{
+#ifndef KHTML_NO_SCROLLBARS
+    d->vmode = mode;
+    d->hmode = mode;
+    
+#if APPLE_CHANGES
+    QScrollView::setScrollBarsMode(mode);
+#else
+    QScrollView::setVScrollBarMode(mode);
+    QScrollView::setHScrollBarMode(mode);
+#endif
+#else
+    Q_UNUSED( mode );
+#endif
+}
 
 void KHTMLView::setVScrollBarMode ( ScrollBarMode mode )
 {
@@ -1269,14 +1514,13 @@ void KHTMLView::setHScrollBarMode ( ScrollBarMode mode )
 
 void KHTMLView::restoreScrollBar ( )
 {
+#if APPLE_CHANGES
+    suppressScrollBars(false);
+#else
     int ow = visibleWidth();
     QScrollView::setVScrollBarMode(d->vmode);
     if (visibleWidth() != ow)
-    {
         layout();
-//        scheduleRepaint(contentsX(),contentsY(),visibleWidth(),visibleHeight());
-    }
-#if !APPLE_CHANGES
     d->prevScrollbarVisible = verticalScrollBar()->isVisible();
 #endif
 }
@@ -1431,17 +1675,15 @@ bool KHTMLView::dispatchMouseEvent(int eventId, DOM::NodeImpl *targetNode, bool 
         }
         else if (eventId == EventImpl::MOUSEDOWN_EVENT) {
             // Focus should be shifted on mouse down, not on a click.  -dwh
-            if (targetNode->isSelectable())
-                m_part->xmlDocImpl()->setFocusNode(targetNode);
-#if !APPLE_CHANGES
-            // In Safari we don't want to take the focus away from a text field
-            // when we click on, say, a form button. But I suspect this could be
-            // something specific to Macintosh, so I am leaving this code here inside
-            // !APPLE_CHANGES. This will probably change when we do more of the keyboard
-            // navigation work.
-            else
+            // Blur current focus node when a link/button is clicked; this
+            // is expected by some sites that rely on onChange handlers running
+            // from form fields before the button click is processed.
+	    DOM::NodeImpl* nodeImpl = targetNode;
+	    for ( ; nodeImpl && !nodeImpl->isFocusable(); nodeImpl = nodeImpl->parentNode());
+            if (nodeImpl && nodeImpl->isMouseFocusable())
+                m_part->xmlDocImpl()->setFocusNode(nodeImpl);
+            else if (!nodeImpl || !nodeImpl->focused())
                 m_part->xmlDocImpl()->setFocusNode(0);
-#endif
         }
     }
 
@@ -1535,151 +1777,64 @@ void KHTMLView::slotScrollBarMoved()
         d->scrollBarMoved = true;
 }
 
+void KHTMLView::repaintRectangle(const QRect& r, bool immediate)
+{
+#ifndef INCREMENTAL_REPAINTING
+    if (d->layoutTimerId) // Don't bother scheduling a repaint when a layout is pending.
+        return;
+#endif
+
+    updateContents(r, immediate);
+}
+
 void KHTMLView::timerEvent ( QTimerEvent *e )
 {
 //    kdDebug() << "timer event " << e->timerId() << endl;
-    if (e->timerId()==d->timerId)
-    {
-        d->firstRelayout = false;
-        killTimer(d->timerId);
-
-        d->layoutSchedulingEnabled=false;
+    if (e->timerId()==d->layoutTimerId)
         layout();
-        d->layoutSchedulingEnabled=true;
-
-        d->timerId = 0;
-
-        //scheduleRepaint(contentsX(),contentsY(),visibleWidth(),visibleHeight());
-        d->updateRect = QRect(contentsX(),contentsY(),visibleWidth(),visibleHeight());
-    }
-
-    if( m_part && m_part->xmlDocImpl() ) {
-        DOM::DocumentImpl *document = m_part->xmlDocImpl();
-        khtml::RenderCanvas* root = static_cast<khtml::RenderCanvas *>(document->renderer());
-        if (root){
-            // Do not allow a full layout if we had a clip object set.
-            if ( root->needsLayout() && !m_layoutObject) {
-                killTimer(d->repaintTimerId);
-                d->repaintTimerId = 0;
-                //qDebug("needs layout, delaying repaint");
-                scheduleRelayout();
-                return;
-            }
-            resizeContents(root->docWidth(), root->docHeight());
-        }
-    }
-    setStaticBackground(d->useSlowRepaints);
-
-//        kdDebug() << "scheduled repaint "<< d->repaintTimerId  << endl;
-    // If we have an overflow:hidden object, we cache the current update rect and then
-    // clear the update rect, so that when we call repaint(), the union of the layout
-    // object's rect and the current update rect is just the layout object's' rect.
-    QRect oldUpdateRect = d->updateRect;
-    bool hasRepaintTimer = d->repaintTimerId;
-    if (m_layoutObject) {
-        d->updateRect = QRect();
-        m_layoutObject->repaint();
-    }
-    
-    // Now we paint.  This will be either a full paint or just the paint of a clipped
-    // object's area.
-    updateContents( d->updateRect );
-    killTimer(d->repaintTimerId);
-    d->repaintTimerId = 0;
-
-    if (m_layoutObject) {
-        // Restore the update rect, and if we had a repaint pending before the clipped
-        // object did its paint, go ahead and reschedule that paint to occur as soon
-        // as possible.
-        d->updateRect = oldUpdateRect;
-        if (hasRepaintTimer)
-            scheduleRepaint(d->updateRect.x(), d->updateRect.y(), d->updateRect.width(),
-                            d->updateRect.height());
-        m_layoutObject = 0;
-    }
 }
 
+#ifdef INCREMENTAL_REPAINTING
+void KHTMLView::scheduleRelayout()
+#else
 void KHTMLView::scheduleRelayout(khtml::RenderObject* clippedObj)
+#endif
 {
     if (!d->layoutSchedulingEnabled)
         return;
-        
+
+#ifndef INCREMENTAL_REPAINTING
     if (m_layoutObject != clippedObj)
-        m_layoutObject = 0;
+      m_layoutObject = 0;
+#endif
     
-    if (d->timerId)
+    if (d->layoutTimerId)
         return;
 
+#ifndef INCREMENTAL_REPAINTING
     m_layoutObject = clippedObj;
-    
+#endif
+
     bool parsing = false;
     if( m_part->xmlDocImpl() ) {
         parsing = m_part->xmlDocImpl()->parsing();
     }
 
-    d->timerId = startTimer( parsing ? 1000 : 0 );
+    d->layoutTimerId = startTimer( parsing ? 1000 : 0 );
 }
 
 void KHTMLView::unscheduleRelayout()
 {
-    if (!d->timerId)
+#ifndef INCREMENTAL_REPAINTING
+    m_layoutObject = 0;
+#endif
+
+    if (!d->layoutTimerId)
         return;
 
-    killTimer(d->timerId);
-    d->timerId = 0;
+    killTimer(d->layoutTimerId);
+    d->layoutTimerId = 0;
 }
-
-void KHTMLView::unscheduleRepaint()
-{
-    if (!d->repaintTimerId)
-        return;
-
-    killTimer(d->repaintTimerId);
-    d->repaintTimerId = 0;
-}
-
-void KHTMLView::scheduleRepaint(int x, int y, int w, int h)
-{
-
-    //kdDebug() << "scheduleRepaint(" << x << "," << y << "," << w << "," << h << ")" << endl;
-
-
-    bool parsing = false;
-    if( m_part->xmlDocImpl() ) {
-        parsing = m_part->xmlDocImpl()->parsing();
-    }
-
-//     kdDebug() << "parsing " << parsing << endl;
-//     kdDebug() << "complete " << d->complete << endl;
-
-    int time;
-
-    // if complete...
-    if (d->complete)
-        // ...repaint immediatly
-        time = 0;
-    else
-    {
-        if (parsing)
-            // not complete and still parsing
-            time = 300;
-        else
-            // not complete, not parsing, extend the timer if it exists
-            // otherwise, repaint immediatly
-            time = d->repaintTimerId ? 400 : 0;
-    }
-
-    if (d->repaintTimerId) {
-        killTimer(d->repaintTimerId);
-        d->updateRect = d->updateRect.unite(QRect(x,y,w,h));
-    } else
-        d->updateRect = QRect(x,y,w,h);
-
-    d->repaintTimerId = startTimer( time );
-
-//     kdDebug() << "starting timer " << time << endl;
-}
-
 
 void KHTMLView::complete()
 {
@@ -1688,20 +1843,11 @@ void KHTMLView::complete()
     d->complete = true;
 
     // is there a relayout pending?
-    if (d->timerId)
+    if (d->layoutTimerId)
     {
 //         kdDebug() << "requesting relayout now" << endl;
         // do it now
-        killTimer(d->timerId);
-        d->timerId = startTimer( 0 );
-    }
-
-    // is there a repaint pending?
-    if (d->repaintTimerId)
-    {
-//         kdDebug() << "requesting repaint now" << endl;
-        // do it now
-        killTimer(d->repaintTimerId);
-        d->repaintTimerId = startTimer( 1 );
+        killTimer(d->layoutTimerId);
+        d->layoutTimerId = startTimer( 0 );
     }
 }

@@ -410,7 +410,22 @@ bool AppleRS232Serial::start(IOService *provider)
         ALERT(0, 0, "AppleRS232Serial::start - returning false early, Connector or machine incorrect");
         return false;
     }
-    
+
+	/* This section will stop the driver from loading on machines that have debugging enabled */
+	/* This is to address <rdar://problem/3543234> */
+
+	{
+        UInt32	debugFlags;
+        if (!PE_parse_boot_arg("debug", &debugFlags))
+            debugFlags = 0;
+		if (debugFlags & 8)
+		{
+			ALERT(0, 0, "AppleRS232Serial::start - returning false early, Serial debugging is enabled");
+			return false;
+		}
+    }
+	
+	
     matched = (OSString *)getProperty(gIONameMatchedKey);
     if (matched->isEqualTo("ch-a"))
     {

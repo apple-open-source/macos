@@ -10,6 +10,7 @@ archive
 autocomplete
 axis
 background
+behavior
 bgcolor
 bgproperties
 border
@@ -33,12 +34,14 @@ cols
 colspan
 compact
 content
+contenteditable
 coords
 data
 datetime
 declare
 defer
 dir
+direction
 disabled
 enctype
 face
@@ -55,6 +58,7 @@ html
 http-equiv
 id
 ismap
+keytype
 label
 lang
 language
@@ -62,9 +66,11 @@ left
 leftmargin
 link
 longdesc
+loop
 marginheight
 marginwidth
 maxlength
+mayscript
 media
 method
 multiple
@@ -114,6 +120,8 @@ rowspan
 rules
 scheme
 scope
+scrollamount
+scrolldelay
 scrolling
 selected
 shape
@@ -130,6 +138,7 @@ text
 title
 top
 topmargin
+truespeed
 type
 unknown
 usemap

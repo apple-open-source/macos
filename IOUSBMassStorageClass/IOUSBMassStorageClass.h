@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -43,6 +41,8 @@
 
 // Flag to turn debugging for the USB Mass Storage class on and off
 #define USB_MASS_STORAGE_DEBUG	0
+
+#define UNUSED(x) ((void)x)
 
 #pragma mark -
 #pragma mark Vendor Specific Device Support
@@ -304,7 +304,7 @@ protected:
 	enum
 	{
 		// CBW general struture definitions
-		kCommandBlockWrapperSignature	= 'USBC',
+		kCommandBlockWrapperSignature	= OSSwapHostToBigConstInt32 ( 'USBC' ),
 		kByteCountOfCBW					= 31,
 
 		// CBW LUN related definitions
@@ -319,7 +319,7 @@ protected:
 	enum
 	{
 		// CSW general struture definitions
-		kCommandStatusWrapperSingature	= 'USBS',
+		kCommandStatusWrapperSingature	= OSSwapHostToBigConstInt32 ( 'USBS' ),
 		kByteCountOfCSW					= 13,
 
 		// CSW status definitions

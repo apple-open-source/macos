@@ -69,13 +69,13 @@ bool ROMReset (UInt8 *gpioPtr)
     *gpioPtr = outputTristate; OSSynchronizeIO();
     if ( ( *gpioPtr & ( 1 << gpioPIN_RO ) ) == 0 ) {
         IOSleep(1);
-        FailWithAction ((*gpioPtr & ( 1 << gpioPIN_RO )) == 0, debugIOLog("AppleDallasDriver::ROMReset No speaker ROM detected\n"), exit);
+        FailWithAction ((*gpioPtr & ( 1 << gpioPIN_RO )) == 0, debugIOLog (3, "AppleDallasDriver::ROMReset No speaker ROM detected"), exit);
     }
 
     correctTiming = FALSE;
     while (!correctTiming)
     {
-        debugIOLog("[DALLAS] ROM Reset\n");
+        debugIOLog (3, "[DALLAS] ROM Reset");
         correctTiming = TRUE;
         
         clock_get_uptime(&start);
@@ -96,7 +96,7 @@ bool ROMReset (UInt8 *gpioPtr)
             
             if (CMP_ABSOLUTETIME(&now, &finish) > 0) {
                 correctTiming = FALSE;
-                debugIOLog("[DALLAS] ROM Reset: Failed Reset Rising Edge\n");
+                debugIOLog (3, "[DALLAS] ROM Reset: Failed Reset Rising Edge");
             } else if (bit) {
                 bitEdge = TRUE;
             } else {
@@ -118,7 +118,7 @@ bool ROMReset (UInt8 *gpioPtr)
             if (CMP_ABSOLUTETIME(&now, &finish)>0) {
                 correctTiming = FALSE;
                 IOSleep(1);
-				debugIOLog("AppleDallasDriver::ROMReset  Failed to detect Presence Pulse\n");
+				debugIOLog (3, "AppleDallasDriver::ROMReset  Failed to detect Presence Pulse");
             } else if (!bit) {
                 bitEdge = TRUE;
             } else {
@@ -139,7 +139,7 @@ bool ROMReset (UInt8 *gpioPtr)
             
             if (CMP_ABSOLUTETIME(&now, &finish)>0) {
                 correctTiming = FALSE;
-//                debugIOLog("[DALLAS] ROM Reset: Presence Pulse too long\n");
+//                debugIOLog (3, "[DALLAS] ROM Reset: Presence Pulse too long");
             } else if (bit) {
                 bitEdge = TRUE;
             } else {
@@ -149,7 +149,7 @@ bool ROMReset (UInt8 *gpioPtr)
         
         if (!correctTiming)
         {
-            FailWithAction(++errorCount > 10, debugIOLog("[DALLAS] ROM Reset: Too many failures, bailing out\n"), exit);
+            FailWithAction(++errorCount > 10, debugIOLog (3, "[DALLAS] ROM Reset: Too many failures, bailing out"), exit);
         }
         IOSleep(1);  // Give up the cpu after all attempts
     }
@@ -215,7 +215,7 @@ bool ROMSendByte ( UInt8 *gpioPtr, UInt8 theByte, UInt8 msgRefCon )
     bool			res;
     int				bitIndex;
     
-    debug2IOLog("[DALLAS] ROM Send 0x%02X\n", theByte);
+    debugIOLog (3, "[DALLAS] ROM Send 0x%02X", theByte);
 	
 	outputZero      = (*gpioPtr & ( dualEdge << intEdgeSEL )) | ( gpioDDR_OUTPUT << gpioDDR );	// set output select0, altoe=0, ddir=1, output value = 0
 																								// save bit 7
@@ -248,7 +248,7 @@ bool ROMSendByte ( UInt8 *gpioPtr, UInt8 theByte, UInt8 msgRefCon )
 				//	Check to see that bus released within tLOW1 maximum limit of 15 µS
                 if ( CMP_ABSOLUTETIME ( &now, &tLOW ) > 0 ) {
                     correctTiming = FALSE;
-                    debug4IOLog( "... ROM Send Byte: theByte %X, Failed Bit %d Rising Edge, msgRefCon %d\n", 
+                    debugIOLog (3,  "... ROM Send Byte: theByte %X, Failed Bit %d Rising Edge, msgRefCon %d", 
 						(unsigned int)theByte, 
 						(unsigned int)bitIndex, 
 						(unsigned int)msgRefCon );
@@ -275,7 +275,7 @@ bool ROMSendByte ( UInt8 *gpioPtr, UInt8 theByte, UInt8 msgRefCon )
                 
                 if (CMP_ABSOLUTETIME(&now, &tLOW)>0) {
                     correctTiming = FALSE;
-                    debug4IOLog( "... ROM Send Byte: theByte %X, Failed Bit %d Rising Edge, msgRefCon %d\n", 
+                    debugIOLog (3,  "... ROM Send Byte: theByte %X, Failed Bit %d Rising Edge, msgRefCon %d", 
 						(unsigned int)theByte, 
 						(unsigned int)bitIndex, 
 						(unsigned int)msgRefCon );
@@ -294,7 +294,7 @@ bool ROMSendByte ( UInt8 *gpioPtr, UInt8 theByte, UInt8 msgRefCon )
 	}
 
 	IOSleep(1);					// Give up CPU every byte
-	if ( res ) { debugIOLog ( "ROMSendByte FAILED!\n" ); }
+	if ( res ) { debugIOLog (3,  "ROMSendByte FAILED!" ); }
     return res;
 }
 
@@ -397,13 +397,13 @@ bool ROMReadByte (UInt8 *gpioPtr, UInt8* theByte)
         theValue |= ( bit == 0 ? 0 << bitIndex : 1 << bitIndex );
     }
 	if ( res ) {
-		debug4IOLog("[DALLAS] ROMReadByte tRDV failed on bits %X, tRELEASE failed on bits %X, data %X\n", (unsigned int)failedTRdv, (unsigned int)failedTRelease, (unsigned int)theValue );
+		debugIOLog (3, "[DALLAS] ROMReadByte tRDV failed on bits %X, tRELEASE failed on bits %X, data %X", (unsigned int)failedTRdv, (unsigned int)failedTRelease, (unsigned int)theValue );
 	}
 	
     IOSleep(1);														// give up CPU every byte
 	*theByte = theValue;
-    debug2IOLog("[DALLAS]   ROM Read 0x%02x\n", *theByte);
-	if ( res ) { debugIOLog ( "ROMReadByte FAILED!\n" ); }
+    debugIOLog (3, "[DALLAS]   ROM Read 0x%02x", *theByte);
+	if ( res ) { debugIOLog (3,  "ROMReadByte FAILED!" ); }
     return res;
 }
 
@@ -437,9 +437,9 @@ void ROMCheckCRC(UInt8 *bROM)
     }
     
     if (finalCRC != bROM[7]) {
-        debug3IOLog("[DALLAS] CRC Mismatch! 0x%02x 0x%02x\n", finalCRC, bROM[7]);
+        debugIOLog (3, "[DALLAS] CRC Mismatch! 0x%02x 0x%02x", finalCRC, bROM[7]);
     } else {
-        debug2IOLog("[DALLAS] ROM CRC Match: 0x%02x\n", finalCRC);
+        debugIOLog (3, "[DALLAS] ROM CRC Match: 0x%02x", finalCRC);
     }
     
 }
@@ -474,14 +474,14 @@ Exit:
 bool AppleDallasDriver::init (OSDictionary *dict)
 {
     bool res = super::init (dict);
-    debugIOLog ("[DALLAS] AppleDallasDriver Initializing\n");
+    debugIOLog (3, "[DALLAS] AppleDallasDriver Initializing");
     return res;
 }
 
 //================================================================================
 void AppleDallasDriver::free (void)
 {
-    debugIOLog ("AppleDallasDriver Freeing\n");
+    debugIOLog (3, "AppleDallasDriver Freeing");
     CLEAN_RELEASE (gpioRegMem)
     super::free ();
 }
@@ -491,7 +491,7 @@ IOService *AppleDallasDriver::probe (IOService *provider, SInt32 *score)
 {
     
     IOService *res = super::probe (provider, score);
-    debugIOLog ("[DALLAS] AppleDallasDriver Probing\n");
+    debugIOLog (3, "[DALLAS] AppleDallasDriver Probing");
     return res;
 }
 
@@ -509,16 +509,16 @@ bool AppleDallasDriver::readApplicationRegister (UInt8 *bAppReg)
     map = gpioRegMem->map (0);
     FailIf (!map, exit);
     gpioPtr = (UInt8*)map->getVirtualAddress ();
-    debug2IOLog("[DALLAS] GPIO16 Register Value = 0x%02x\n", *gpioPtr);
+    debugIOLog (3, "[DALLAS] GPIO16 Register Value = 0x%02x", *gpioPtr);
 
     FailIf (!gpioPtr, exit);
     
     // Look for ROM present
-    FailWithAction(ROMReset(gpioPtr), debugIOLog("No speaker ROM detected\n"), exit);
+    FailWithAction(ROMReset(gpioPtr), debugIOLog (3, "No speaker ROM detected"), exit);
     
     // Read 64b Application Register
     failure = TRUE;
-    debugIOLog("[DALLAS] Reading 64b Application Register\n");
+    debugIOLog (3, "[DALLAS] Reading 64b Application Register");
 	retryCount = kRetryCountSeed;
     for (index=0; index<8; index++) {
         do {
@@ -586,7 +586,7 @@ bool AppleDallasDriver::readDataROM (UInt8 *bEEPROM,int dallasAddress, int size)
     bool			resultSuccess;
 	int				retryCount, stateMachine;
     
-	debug4IOLog ( "+ AppleDallasDriver::readDataROM ( %X, %X, %X )\n", (unsigned int)bEEPROM, (unsigned int)dallasAddress, (unsigned int)size );
+	debugIOLog (3,  "+ AppleDallasDriver::readDataROM ( %X, %X, %X )", (unsigned int)bEEPROM, (unsigned int)dallasAddress, (unsigned int)size );
     resultSuccess = FALSE;			//	assume that it failed
 	
 	FailIf ( NULL == bEEPROM, exit );
@@ -598,7 +598,7 @@ bool AppleDallasDriver::readDataROM (UInt8 *bEEPROM,int dallasAddress, int size)
     map = gpioRegMem->map (0);
     FailIf (!map, exit);
     gpioPtr = (UInt8*)map->getVirtualAddress ();
-    debug2IOLog( "[DALLAS] GPIO16 Register Value = 0x%02x\n", *gpioPtr );
+    debugIOLog (3,  "[DALLAS] GPIO16 Register Value = 0x%02x", *gpioPtr );
     FailIf (!gpioPtr, exit);
 	
 	stateMachine = kSTATE_RESET_READ_MEMORY;
@@ -608,7 +608,7 @@ bool AppleDallasDriver::readDataROM (UInt8 *bEEPROM,int dallasAddress, int size)
 		switch ( stateMachine ) {
 			case kSTATE_RESET_READ_MEMORY:
 				if ( ROMReset ( gpioPtr ) ) {
-					debug3IOLog ( "... failed at kSTATE_RESET_READ_MEMORY %d, retryCount %d\n", (unsigned int)stateMachine, (unsigned int)retryCount );
+					debugIOLog (3,  "... failed at kSTATE_RESET_READ_MEMORY %d, retryCount %d", (unsigned int)stateMachine, (unsigned int)retryCount );
 					stateMachine = kSTATE_RESET_READ_MEMORY;
 					if ( retryCount ) { retryCount--; }
 				} else {
@@ -617,7 +617,7 @@ bool AppleDallasDriver::readDataROM (UInt8 *bEEPROM,int dallasAddress, int size)
 				break;
 			case kSTATE_CMD_SKIPROM_READ_MEMORY:
 				if ( ROMSendByte ( gpioPtr, kROMSkipROM, stateMachine ) ) {
-					debug3IOLog ( "... failed at kSTATE_CMD_SKIPROM_READ_MEMORY %d, retryCount %d\n", (unsigned int)stateMachine, (unsigned int)retryCount );
+					debugIOLog (3,  "... failed at kSTATE_CMD_SKIPROM_READ_MEMORY %d, retryCount %d", (unsigned int)stateMachine, (unsigned int)retryCount );
 					stateMachine = kSTATE_RESET_READ_MEMORY;
 					if ( retryCount ) { retryCount--; }
 				} else {
@@ -626,7 +626,7 @@ bool AppleDallasDriver::readDataROM (UInt8 *bEEPROM,int dallasAddress, int size)
 				break;
 			case kSTATE_CMD_READ_MEMORY:
 				if ( ROMSendByte ( gpioPtr, kROMReadMemory, stateMachine ) ) {
-					debug3IOLog ( "... failed at kSTATE_CMD_READ_MEMORY %d, retryCount %d\n", (unsigned int)stateMachine, (unsigned int)retryCount );
+					debugIOLog (3,  "... failed at kSTATE_CMD_READ_MEMORY %d, retryCount %d", (unsigned int)stateMachine, (unsigned int)retryCount );
 					stateMachine = kSTATE_RESET_READ_MEMORY;
 					if ( retryCount ) { retryCount--; }
 				} else {
@@ -639,7 +639,7 @@ bool AppleDallasDriver::readDataROM (UInt8 *bEEPROM,int dallasAddress, int size)
 				break;
 			case kSTATE_READ_MEMORY_ADDRESS:
 				if ( ROMSendByte ( gpioPtr, dallasAddress, stateMachine ) ) {					//	ROM address is 0x00
-					debug3IOLog ( "... failed at kSTATE_READ_MEMORY_ADDRESS %d, retryCount %d\n", (unsigned int)stateMachine, (unsigned int)retryCount );
+					debugIOLog (3,  "... failed at kSTATE_READ_MEMORY_ADDRESS %d, retryCount %d", (unsigned int)stateMachine, (unsigned int)retryCount );
 					stateMachine = kSTATE_RESET_READ_MEMORY;
 					if ( retryCount ) { retryCount--; }
 				} else {
@@ -649,7 +649,7 @@ bool AppleDallasDriver::readDataROM (UInt8 *bEEPROM,int dallasAddress, int size)
 				break;
 			case kSTATE_READ_MEMORY_DATA:
 				if ( ROMReadByte ( gpioPtr, &tempData ) ) {
-					debug4IOLog ( "... failed at kSTATE_READ_MEMORY_DATA %d, retryCount %d, byte %d\n", (unsigned int)stateMachine, (unsigned int)retryCount, (unsigned int)index );
+					debugIOLog (3,  "... failed at kSTATE_READ_MEMORY_DATA %d, retryCount %d, byte %d", (unsigned int)stateMachine, (unsigned int)retryCount, (unsigned int)index );
 					stateMachine = kSTATE_RESET_READ_MEMORY;
 					if ( retryCount ) { retryCount--; }
 				} else {
@@ -659,7 +659,7 @@ bool AppleDallasDriver::readDataROM (UInt8 *bEEPROM,int dallasAddress, int size)
 				break;
 			case kSTATE_RESET_READ_SCRATCHPAD:
 				if ( ROMReset ( gpioPtr ) ) {
-					debug3IOLog ( "... failed at kSTATE_RESET_READ_SCRATCHPAD %d, retryCount %d\n", (unsigned int)stateMachine, (unsigned int)retryCount );
+					debugIOLog (3,  "... failed at kSTATE_RESET_READ_SCRATCHPAD %d, retryCount %d", (unsigned int)stateMachine, (unsigned int)retryCount );
 					stateMachine = kSCRATCHPAD_RETRY_STATE;
 					if ( retryCount ) { retryCount--; }
 				} else {
@@ -668,7 +668,7 @@ bool AppleDallasDriver::readDataROM (UInt8 *bEEPROM,int dallasAddress, int size)
 				break;
 			case kSTATE_CMD_SKIPROM_SCRATCHPAD:
 				if ( ROMSendByte ( gpioPtr, kROMSkipROM, stateMachine ) ) {
-					debug3IOLog ( "... failed at kSTATE_CMD_SKIPROM_SCRATCHPAD %d, retryCount %d\n", (unsigned int)stateMachine, (unsigned int)retryCount );
+					debugIOLog (3,  "... failed at kSTATE_CMD_SKIPROM_SCRATCHPAD %d, retryCount %d", (unsigned int)stateMachine, (unsigned int)retryCount );
 					stateMachine = kSCRATCHPAD_RETRY_STATE;
 					if ( retryCount ) { retryCount--; }
 				} else {
@@ -677,7 +677,7 @@ bool AppleDallasDriver::readDataROM (UInt8 *bEEPROM,int dallasAddress, int size)
 				break;
 			case kSTATE_CMD_SCRATCHPAD:
 				if ( ROMSendByte ( gpioPtr, kROMReadScratch, stateMachine ) ) {
-					debug3IOLog ( "... failed at kSTATE_CMD_SCRATCHPAD %d, retryCount %d\n", (unsigned int)stateMachine, (unsigned int)retryCount );
+					debugIOLog (3,  "... failed at kSTATE_CMD_SCRATCHPAD %d, retryCount %d", (unsigned int)stateMachine, (unsigned int)retryCount );
 					stateMachine = kSCRATCHPAD_RETRY_STATE;
 					if ( retryCount ) { retryCount--; }
 				} else {
@@ -686,7 +686,7 @@ bool AppleDallasDriver::readDataROM (UInt8 *bEEPROM,int dallasAddress, int size)
 				break;
 			case kSTATE_SCRATCHPAD_ADDRESS:
 				if ( ROMSendByte ( gpioPtr, dallasAddress, stateMachine ) ) {		//	ROM address is 0x00
-					debug3IOLog ( "... failed at kSTATE_SCRATCHPAD_ADDRESS %d, retryCount %d\n", (unsigned int)stateMachine, (unsigned int)retryCount );
+					debugIOLog (3,  "... failed at kSTATE_SCRATCHPAD_ADDRESS %d, retryCount %d", (unsigned int)stateMachine, (unsigned int)retryCount );
 					stateMachine = kSCRATCHPAD_RETRY_STATE;
 					if ( retryCount ) { retryCount--; }
 				} else {
@@ -696,7 +696,7 @@ bool AppleDallasDriver::readDataROM (UInt8 *bEEPROM,int dallasAddress, int size)
 				break;
 			case kSTATE_READ_SCRATCHPAD:
 				if ( ROMReadByte ( gpioPtr, &bEEPROM[index] ) ) {
-					debug4IOLog ( "... failed at kSTATE_READ_SCRATCHPAD %d, retryCount %d, byte %d\n", (unsigned int)stateMachine, (unsigned int)retryCount, (unsigned int)index );
+					debugIOLog (3,  "... failed at kSTATE_READ_SCRATCHPAD %d, retryCount %d, byte %d", (unsigned int)stateMachine, (unsigned int)retryCount, (unsigned int)index );
 					stateMachine = kSCRATCHPAD_RETRY_STATE;							//	timing failed so retry at scratchpad transaction
 					if ( retryCount ) { retryCount--; }
 				} else {
@@ -706,7 +706,7 @@ bool AppleDallasDriver::readDataROM (UInt8 *bEEPROM,int dallasAddress, int size)
 								index++;
 								if ( index >= size ) { stateMachine = kSTATE_COMPLETED; }
 							} else {
-								debug2IOLog ( "... failed with bad deviceFamily data %X, resetting state machine\n", ((DallasIDPtr)bEEPROM)->deviceFamily );
+								debugIOLog (3,  "... failed with bad deviceFamily data %X, resetting state machine", ((DallasIDPtr)bEEPROM)->deviceFamily );
 								stateMachine = kSTATE_RESET_READ_MEMORY;			//	bad data then retry at copy of EEPROM to scratchpad
 							}
 							break;
@@ -715,7 +715,7 @@ bool AppleDallasDriver::readDataROM (UInt8 *bEEPROM,int dallasAddress, int size)
 								index++;
 								if ( index >= size ) { stateMachine = kSTATE_COMPLETED; }
 							} else {
-								debug2IOLog ( "... failed with bad deviceSubType data %X, resetting state machine\n", ((DallasIDPtr)bEEPROM)->deviceSubType );
+								debugIOLog (3,  "... failed with bad deviceSubType data %X, resetting state machine", ((DallasIDPtr)bEEPROM)->deviceSubType );
 								stateMachine = kSTATE_RESET_READ_MEMORY;			//	bad data then retry at copy of EEPROM to scratchpad
 							}
 							break;
@@ -736,8 +736,8 @@ bool AppleDallasDriver::readDataROM (UInt8 *bEEPROM,int dallasAddress, int size)
 	if ( kSTATE_COMPLETED == stateMachine ) { resultSuccess = TRUE; }
 	
 exit:
-	debug5IOLog ( "- AppleDallasDriver::readDataROM ( %X, %X, %X ) returns %X\n", (unsigned int)bEEPROM, (unsigned int)dallasAddress, (unsigned int)size, (unsigned int)resultSuccess );
-    debug2IOLog("[DALLAS] readDataROM returns %dx\n", (unsigned int)resultSuccess);
+	debugIOLog (3,  "- AppleDallasDriver::readDataROM ( %X, %X, %X ) returns %X", (unsigned int)bEEPROM, (unsigned int)dallasAddress, (unsigned int)size, (unsigned int)resultSuccess );
+    debugIOLog (3, "[DALLAS] readDataROM returns %dx", (unsigned int)resultSuccess);
     return resultSuccess;
 }
 
@@ -755,15 +755,15 @@ bool AppleDallasDriver::readSerialNumberROM (UInt8 *bROM)
     map = gpioRegMem->map (0);
     FailIf (!map, exit);
     gpioPtr = (UInt8*)map->getVirtualAddress ();
-    debug2IOLog("[DALLAS] GPIO16 Register Value = 0x%02x\n", *gpioPtr);
+    debugIOLog (3, "[DALLAS] GPIO16 Register Value = 0x%02x", *gpioPtr);
     FailIf (!gpioPtr, exit);
     
     // Look for ROM present
-    FailWithAction(ROMReset(gpioPtr), debugIOLog("[DALLAS] No speaker ROM detected\n"), exit);
+    FailWithAction(ROMReset(gpioPtr), debugIOLog (3, "[DALLAS] No speaker ROM detected"), exit);
     
     // Read 64b ROM
     failure = TRUE;
-    debugIOLog("[DALLAS] Reading 64b ROM\n");
+    debugIOLog (3, "[DALLAS] Reading 64b ROM");
 	retryCount = kRetryCountSeed;
     while (failure && retryCount) {
         while (failure && retryCount) {
@@ -796,7 +796,7 @@ bool AppleDallasDriver::start(IOService *provider)
     bool             result;
     int				 index;
 
-    debugIOLog ("AppleDallasDriver Starting\n");
+    debugIOLog (3, "AppleDallasDriver Starting");
     
     result = super::start(provider);
 	FailIf (FALSE == result, exit);
@@ -840,7 +840,7 @@ exit:
 //================================================================================
 void AppleDallasDriver::stop (IOService *provider)
 {
-    debugIOLog ("AppleDallasDriver Stopping\n");
+    debugIOLog (3, "AppleDallasDriver Stopping");
     super::stop (provider);
 }
 
@@ -858,7 +858,7 @@ bool AppleDallasDriver::getSpeakerID (UInt8 *bEEPROM)
     UInt8 *				gpioPtr = NULL;
 	UInt8				savedGPIO;
 	
-	debug2IOLog ( "+ AppleDallasDriver::getSpeakerID ( %X )\n", (unsigned int)bEEPROM );
+	debugIOLog (3,  "+ AppleDallasDriver::getSpeakerID ( %X )", (unsigned int)bEEPROM );
 
 	resultSuccess = FALSE;
 	
@@ -866,13 +866,13 @@ bool AppleDallasDriver::getSpeakerID (UInt8 *bEEPROM)
     FailIf (!map, exit);
     gpioPtr = (UInt8*)map->getVirtualAddress ();
 
-    debug2IOLog("... GPIO16 Register Value = 0x%02x\n", *gpioPtr);
+    debugIOLog (3, "... GPIO16 Register Value = 0x%02x", *gpioPtr);
     FailIf (!gpioPtr, exit);
 
 	savedGPIO = *gpioPtr;
 
 	if ( NULL != bEEPROM ) {
-		debug4IOLog ( "... About to readDataROM ( %X, %X, %X )\n", (unsigned int)bEEPROM, (unsigned int)kDallasIDAddress, (unsigned int)sizeof ( SpkrID ) );
+		debugIOLog (3,  "... About to readDataROM ( %X, %X, %X )", (unsigned int)bEEPROM, (unsigned int)kDallasIDAddress, (unsigned int)sizeof ( SpkrID ) );
  		resultSuccess = readDataROM (bEEPROM, kDallasIDAddress, sizeof ( SpkrID ) );
 	}
 
@@ -880,7 +880,7 @@ bool AppleDallasDriver::getSpeakerID (UInt8 *bEEPROM)
 	OSSynchronizeIO();
 	
 exit:
-	debug3IOLog ( "- AppleDallasDriver::getSpeakerID ( %X ) returns %X\n", (unsigned int)bEEPROM, (unsigned int)resultSuccess );
+	debugIOLog (3,  "- AppleDallasDriver::getSpeakerID ( %X ) returns %X", (unsigned int)bEEPROM, (unsigned int)resultSuccess );
 
 	return resultSuccess;
 }

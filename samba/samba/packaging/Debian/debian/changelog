@@ -1,11 +1,69 @@
-samba (3.0.0beta3-0.1) unstable; urgency=low
+samba (3.0.2-0.1) unstable; urgency=low
 
-  * Local build.
+  * New upstream release.
 
- -- Debian User <somebody@somwhere.net>  Tue, 15 Jul 2003 11:05:39 -0400
+ -- Debian User <debian-user@somewhere.net>  Wed,  4 Feb 2004 23:15:46 -0500
 
-samba (3.0.0beta2-2) unstable; urgency=low
+samba (3.0.1-2) unstable; urgency=low
 
+  * Include ntlm_auth's man page.
+  * Don't create directories outside of the source directory during
+    package build time. (closes: #227221, #227238, #225862)
+  * Don't include the "Using Samba" book in the swat package, just a
+    symlink that points to the book included in the samba-doc package.
+
+ -- Eloy A. Paris <peloy@debian.org>  Tue, 13 Jan 2004 13:48:13 -0500
+
+samba (3.0.1-1) unstable; urgency=low
+
+  * New upstream version (closes: #225565)
+  * Add support in the dhcp hook for netbios scope, and handle better
+    the case of multiple DHCP-using interfaces (closes: #224109).
+  * Use "tail -n 1 ..." instead of "tail -1 ..." so POSIX-compliant
+    tail works. Thanks to Paul Eggert <eggert@twinsun.com>.
+  * Include /usr/bin/ntlm_auth in the winbind package.
+  * Run configure with "--with-piddir=/var/run/samba" since the
+    default got changed to /var/run in this new upstream version.
+
+ -- Eloy A. Paris <peloy@debian.org>  Tue, 30 Dec 2003 16:21:31 -0500
+
+samba (3.0.0final-1) unstable; urgency=low
+
+  * It's here, it's here, it's here, Samba 3.0.0 is here!
+  * Incorporate Japanese debconf translations; thanks to Kenshi Muto
+    <kmuto@debian.org>. (closes: #209291)
+
+ -- Eloy A. Paris <peloy@debian.org>  Thu, 25 Sep 2003 13:39:28 -0400
+
+samba (3.0.0beta2+3.0.0rc4-1) unstable; urgency=low
+
+  * New upstream version.
+
+ -- Eloy A. Paris <peloy@debian.org>  Sat, 13 Sep 2003 08:47:56 -0400
+
+samba (3.0.0beta2+3.0.0rc3-1) unstable; urgency=low
+
+  * New upstream release. Last Release Candidate according to the
+    Samba Team. Samba 3.0.0 is around the corner, in a week or so.
+    - Fixes use of non-PIC code in nss shared libraries (closes: #208773)
+    - 'unix password sync' option now runs the unix password program as
+      root again (closes: #209739).
+  * One-line patch to make packages buildable with distcc (closes: #210227)
+
+ -- Eloy A. Paris <peloy@debian.org>  Tue,  9 Sep 2003 07:57:16 -0400
+
+samba (3.0.0beta2+3.0.0rc2-1) unstable; urgency=low
+
+  * New upstream release.
+  * Link against libgnutls7 instead of libgnutls5. (closes: #208151)
+
+ -- Eloy A. Paris <peloy@debian.org>  Tue,  2 Sep 2003 21:37:13 -0400
+
+samba (3.0.0beta2+3.0.0rc1-1) unstable; urgency=low
+
+  * New upstream version (skipped samba 3.0.0beta3 due to time
+    constraints.) This ugly version number will go away when the final
+    Samba 3.0.0 is released.
   * Drag new unpackaged tools into the packages: smbcquotas (smbclient),
     vfs modules (samba), smbtree(1) manpage (smbclient), tdbbackup(8)
     manpage (samba). (closes: #151158)
@@ -17,8 +75,12 @@ samba (3.0.0beta2-2) unstable; urgency=low
       path (closes: #185439)
     - add support for ${misc:Depends} in control for those packages with
       init scripts
+  * Add versioned dependency on libpam-runtime and change
+    /etc/pam.d/samba to use the new common PAM config blocks.
+  * New python2.3-samba package (old python2.2-samba is no more.)
+    (closes: #206171)
 
- -- Steve Langasek <vorlon@debian.org>  Sat, 12 Jul 2003 19:27:31 -0500
+ -- Eloy A. Paris <peloy@debian.org>  Mon, 25 Aug 2003 17:05:14 -0400
 
 samba (3.0.0beta2-1) unstable; urgency=low
 
@@ -468,7 +530,7 @@ samba (2.2.3a-7) unstable; urgency=medium
     running before the upgrade starts.
   * Tweak the wording of debconf templates.
   * Incorporate debconf translations for French, Spanish and Portuguese;
-    thanks to Carlos Valdivia Yagüe <valyag@hotpop.com> (es),
+    thanks to Carlos Valdivia YagÃ¼e <valyag@hotpop.com> (es),
     Andre Luis Lopes <andrelop@ig.com.br> (pt_BR), and Philippe
     Batailler and Denis Barbier <barbier@debian.org> (fr).
     (closes: #142657, #142659, #141551, #141699, #141682)

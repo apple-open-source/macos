@@ -1,25 +1,3 @@
-<!DOCTYPE service-bindings [
-  <!ELEMENT service-bindings (server+)>
-
-  <!ELEMENT server (service-config+)>
-
-  <!ATTLIST server name CDATA  #REQUIRED>
-
-  <!ELEMENT service-config (delegate-config? , binding+)>
-
-  <!ATTLIST service-config  name CDATA  #REQUIRED
-                              delegateClass CDATA  #IMPLIED >
-
-  <!ELEMENT binding EMPTY>
-
-  <!ATTLIST binding  name CDATA  #IMPLIED
-                       host CDATA  #IMPLIED
-                       port CDATA  #IMPLIED >
-  <!ELEMENT delegate-config ANY>
-  <!ATTLIST delegate-config  hostName CDATA  #IMPLIED
-                       portName CDATA  #IMPLIED >
-]>
-
  <!--
  ******************************************************************************
  *                                                                            *
@@ -70,8 +48,10 @@
       <service-config name="jboss:service=Naming"
          delegateClass="org.jboss.services.binding.AttributeMappingDelegate"
       >
-         <delegate-config portName="Port"/>
-         <binding port="1099" />
+         <delegate-config portName="Port" hostName="BindAddress">
+            <attribute name="RmiPort">1098</attribute>
+         </delegate-config>
+         <binding port="1099" host="${jboss.bind.address}"/>
       </service-config>
 
 
@@ -136,6 +116,15 @@
       </service-config>
 
 
+   <!-- ********************* snmp-adaptor.sar ****************** -->
+
+      <service-config name="jboss.jmx:name=SnmpAgent,service=trapd,type=logger"
+         delegateClass="org.jboss.services.binding.AttributeMappingDelegate"
+      >
+         <delegate-config portName="Port" />
+         <binding port="1162" />
+      </service-config>
+
    <!-- ********************* jbossmq-service.xml **************** -->
 
       <!-- JMS related services -->
@@ -151,12 +140,6 @@
       >
          <delegate-config portName="ServerBindPort" />
          <binding port="8090" />
-      </service-config>
-      <service-config name="jboss.mq:service=InvocationLayer,type=UIL"
-         delegateClass="org.jboss.services.binding.AttributeMappingDelegate"
-      >
-         <delegate-config portName="ServerBindPort" />
-         <binding port="8091" />
       </service-config>
 
       <service-config name="jboss.mq:service=InvocationLayer,type=OIL2"
@@ -219,6 +202,7 @@
 
    <!-- ********************* jbossweb-jetty.sar ***************** -->
 
+<!--
 
       <service-config name="jboss.web:service=WebServer"
          delegateClass="org.jboss.services.binding.XSLTConfigDelegate"
@@ -258,11 +242,10 @@
          </delegate-config>
          <binding port="8080" />
       </service-config>
-
+-->
 
    <!-- ********************* jbossweb-tomcat.sar ***************** -->
 
-<!--
       <service-config name="jboss.web:service=WebServer"
          delegateClass="org.jboss.services.binding.XSLTConfigDelegate"
       >
@@ -280,14 +263,23 @@
     <xsl:apply-templates/>
   </xsl:template>
 
-  <xsl:template match="Connector [@className='org.apache.coyote.tomcat4.CoyoteConnector'] [@port='8080']">
-    <Connector className="org.apache.coyote.tomcat4.CoyoteConnector" port="{$port}"/>
-  </xsl:template>
-
-  <xsl:template match="Connector [@className='org.apache.coyote.tomcat4.CoyoteConnector'] [@port='8009']">
-    <Connector className="org.apache.coyote.tomcat4.CoyoteConnector" port="{$portAJP}"/>
-  </xsl:template>
-
+   <xsl:template match = "Connector">
+      <Connector>
+         <xsl:for-each select="@*">
+         <xsl:choose>
+            <xsl:when test="(name() = 'port' and . = '8080')">
+               <xsl:attribute name="port"><xsl:value-of select="$port" /></xsl:attribute>
+            </xsl:when>
+            <xsl:when test="(name() = 'port' and . = '8009')">
+               <xsl:attribute name="port"><xsl:value-of select="$portAJP" /></xsl:attribute>
+            </xsl:when>
+            <xsl:otherwise>
+               <xsl:attribute name="{name()}"><xsl:value-of select="." /></xsl:attribute>
+            </xsl:otherwise>
+         </xsl:choose>
+         </xsl:for-each>
+      </Connector>
+   </xsl:template>
 
   <xsl:template match="*|@*">
     <xsl:copy>
@@ -300,7 +292,6 @@
          </delegate-config>
          <binding port="8080" />
       </service-config>
-      -->
       
    </server>
 
@@ -315,8 +306,10 @@
       <service-config name="jboss:service=Naming"
          delegateClass="org.jboss.services.binding.AttributeMappingDelegate"
       >
-         <delegate-config portName="Port"/>
-         <binding port="1199" />
+         <delegate-config portName="Port" hostName="BindAddress">
+            <attribute name="RmiPort">1198</attribute>
+         </delegate-config>
+         <binding port="1199" host="${jboss.bind.address}"/>
       </service-config>
 
 
@@ -381,6 +374,16 @@
       </service-config>
 
 
+   <!-- ********************* snmp-adaptor.sar ****************** -->
+
+      <service-config name="jboss.jmx:name=SnmpAgent,service=trapd,type=logger"
+         delegateClass="org.jboss.services.binding.AttributeMappingDelegate"
+      >
+         <delegate-config portName="Port" />
+         <binding port="1262" />
+      </service-config>
+
+
    <!-- ********************* jbossmq-service.xml **************** -->
 
       <!-- JMS related services -->
@@ -396,12 +399,6 @@
       >
          <delegate-config portName="ServerBindPort" />
          <binding port="8190" />
-      </service-config>
-      <service-config name="jboss.mq:service=InvocationLayer,type=UIL"
-         delegateClass="org.jboss.services.binding.AttributeMappingDelegate"
-      >
-         <delegate-config portName="ServerBindPort" />
-         <binding port="8191" />
       </service-config>
 
       <service-config name="jboss.mq:service=InvocationLayer,type=OIL2"
@@ -421,7 +418,10 @@
 
    <!-- ********************* hsqldb-ds.xml ********************** -->
 
-      <!-- Hypersonic related services -->
+      <!-- Hypersonic related services 
+      
+            Only if using TCP setup (local file setup by default)
+      
       <service-config name="jboss.jca:service=ManagedConnectionFactory,name=DefaultDS"
          delegateClass="org.jboss.services.binding.XSLTConfigDelegate"
       >
@@ -461,10 +461,11 @@
          <binding port="1801" />
       </service-config>
 
+-->
 
    <!-- ********************* jbossweb-jetty.sar ***************** -->
 
-
+<!--
       <service-config name="jboss.web:service=WebServer"
          delegateClass="org.jboss.services.binding.XSLTConfigDelegate"
       >
@@ -504,10 +505,10 @@
          <binding port="8180" />
       </service-config>
 
-
+-->
    <!-- ********************* jbossweb-tomcat.sar ***************** -->
 
-<!--
+
       <service-config name="jboss.web:service=WebServer"
          delegateClass="org.jboss.services.binding.XSLTConfigDelegate"
       >
@@ -525,14 +526,23 @@
     <xsl:apply-templates/>
   </xsl:template>
 
-  <xsl:template match="Connector [@className='org.apache.coyote.tomcat4.CoyoteConnector'] [@port='8080']">
-    <Connector className="org.apache.coyote.tomcat4.CoyoteConnector" port="{$port}"/>
-  </xsl:template>
-
-  <xsl:template match="Connector [@className='org.apache.coyote.tomcat4.CoyoteConnector'] [@port='8009']">
-    <Connector className="org.apache.coyote.tomcat4.CoyoteConnector" port="{$portAJP}"/>
-  </xsl:template>
-
+   <xsl:template match = "Connector">
+      <Connector>
+         <xsl:for-each select="@*">
+         <xsl:choose>
+            <xsl:when test="(name() = 'port' and . = '8080')">
+               <xsl:attribute name="port"><xsl:value-of select="$port" /></xsl:attribute>
+            </xsl:when>
+            <xsl:when test="(name() = 'port' and . = '8009')">
+               <xsl:attribute name="port"><xsl:value-of select="$portAJP" /></xsl:attribute>
+            </xsl:when>
+            <xsl:otherwise>
+               <xsl:attribute name="{name()}"><xsl:value-of select="." /></xsl:attribute>
+            </xsl:otherwise>
+         </xsl:choose>
+         </xsl:for-each>
+      </Connector>
+   </xsl:template>
 
   <xsl:template match="*|@*">
     <xsl:copy>
@@ -545,7 +555,7 @@
          </delegate-config>
          <binding port="8180" />
       </service-config>
--->
+
 
    </server>
 
@@ -560,8 +570,10 @@
       <service-config name="jboss:service=Naming"
          delegateClass="org.jboss.services.binding.AttributeMappingDelegate"
       >
-         <delegate-config portName="Port"/>
-         <binding port="1299" />
+         <delegate-config portName="Port" hostName="BindAddress">
+            <attribute name="RmiPort">1298</attribute>
+         </delegate-config>
+         <binding port="1299" host="${jboss.bind.address}"/>
       </service-config>
 
 
@@ -626,6 +638,15 @@
       </service-config>
 
 
+   <!-- ********************* snmp-adaptor.sar ****************** -->
+
+      <service-config name="jboss.jmx:name=SnmpAgent,service=trapd,type=logger"
+         delegateClass="org.jboss.services.binding.AttributeMappingDelegate"
+      >
+         <delegate-config portName="Port" />
+         <binding port="1362" />
+      </service-config>
+
    <!-- ********************* jbossmq-service.xml **************** -->
 
       <!-- JMS related services -->
@@ -641,12 +662,6 @@
       >
          <delegate-config portName="ServerBindPort" />
          <binding port="8290" />
-      </service-config>
-      <service-config name="jboss.mq:service=InvocationLayer,type=UIL"
-         delegateClass="org.jboss.services.binding.AttributeMappingDelegate"
-      >
-         <delegate-config portName="ServerBindPort" />
-         <binding port="8291" />
       </service-config>
 
       <service-config name="jboss.mq:service=InvocationLayer,type=OIL2"
@@ -666,7 +681,10 @@
 
    <!-- ********************* hsqldb-ds.xml ********************** -->
 
-      <!-- Hypersonic related services -->
+      <!-- Hypersonic related services
+      
+            Only if using TCP setup (local file setup by default)
+
       <service-config name="jboss.jca:service=ManagedConnectionFactory,name=DefaultDS"
          delegateClass="org.jboss.services.binding.XSLTConfigDelegate"
       >
@@ -706,9 +724,11 @@
          <binding port="1901" />
       </service-config>
 
+       -->
 
    <!-- ********************* jbossweb-jetty.sar ***************** -->
 
+<!--
    
       <service-config name="jboss.web:service=WebServer"
          delegateClass="org.jboss.services.binding.XSLTConfigDelegate"
@@ -749,9 +769,10 @@
          <binding port="8280" />
       </service-config>
 
+--> 
 
    <!-- ********************* jbossweb-tomcat.sar ***************** -->
-<!--
+
       <service-config name="jboss.web:service=WebServer"
          delegateClass="org.jboss.services.binding.XSLTConfigDelegate"
       >
@@ -769,14 +790,23 @@
     <xsl:apply-templates/>
   </xsl:template>
 
-  <xsl:template match="Connector [@className='org.apache.coyote.tomcat4.CoyoteConnector'] [@port='8080']">
-    <Connector className="org.apache.coyote.tomcat4.CoyoteConnector" port="{$port}"/>
-  </xsl:template>
-
-  <xsl:template match="Connector [@className='org.apache.coyote.tomcat4.CoyoteConnector'] [@port='8009']">
-    <Connector className="org.apache.coyote.tomcat4.CoyoteConnector" port="{$portAJP}"/>
-  </xsl:template>
-
+   <xsl:template match = "Connector">
+      <Connector>
+         <xsl:for-each select="@*">
+         <xsl:choose>
+            <xsl:when test="(name() = 'port' and . = '8080')">
+               <xsl:attribute name="port"><xsl:value-of select="$port" /></xsl:attribute>
+            </xsl:when>
+            <xsl:when test="(name() = 'port' and . = '8009')">
+               <xsl:attribute name="port"><xsl:value-of select="$portAJP" /></xsl:attribute>
+            </xsl:when>
+            <xsl:otherwise>
+               <xsl:attribute name="{name()}"><xsl:value-of select="." /></xsl:attribute>
+            </xsl:otherwise>
+         </xsl:choose>
+         </xsl:for-each>
+      </Connector>
+   </xsl:template>
 
   <xsl:template match="*|@*">
     <xsl:copy>
@@ -789,7 +819,7 @@
          </delegate-config>
          <binding port="8280" />
       </service-config>
--->
+
    </server>
 
 </service-bindings>

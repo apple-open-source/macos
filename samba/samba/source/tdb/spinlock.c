@@ -75,7 +75,7 @@ static inline int __spin_is_locked(spinlock_t *lock)
 	return (*lock != 0);
 }
 
-#elif defined(POWERPC_SPINLOCKS) 
+#elif defined(__ppc__) // defined(POWERPC_SPINLOCKS) 
 
 static inline int __spin_trylock(spinlock_t *lock)
 {
@@ -113,7 +113,7 @@ static inline int __spin_is_locked(spinlock_t *lock)
 	return (*lock != 0);
 }
 
-#elif defined(INTEL_SPINLOCKS) 
+#elif defined(__i386__) // defined(INTEL_SPINLOCKS) 
 
 static inline int __spin_trylock(spinlock_t *lock)
 {
@@ -141,6 +141,47 @@ static inline void __spin_lock_init(spinlock_t *lock)
 static inline int __spin_is_locked(spinlock_t *lock)
 {
 	return (*lock != 1);
+}
+
+#elif defined(MIPS_SPINLOCKS) && defined(sgi) && (_COMPILER_VERSION >= 730)
+
+/* Implement spinlocks on IRIX using the MIPSPro atomic fetch operations. See
+ * sync(3) for the details of the intrinsic operations.
+ *
+ * "sgi" and "_COMPILER_VERSION" are always defined by MIPSPro.
+ */
+
+#if defined(STANDALONE)
+
+/* MIPSPro 7.3 has "__inline" as an extension, but not "inline. */
+#define inline __inline
+
+#endif /* STANDALONE */
+
+/* Returns 0 if the lock is acquired, EBUSY otherwise. */
+static inline int __spin_trylock(spinlock_t *lock)
+{
+        unsigned int val;
+        val = __lock_test_and_set(lock, 1);
+        return val == 0 ? 0 : EBUSY;
+}
+
+static inline void __spin_unlock(spinlock_t *lock)
+{
+        __lock_release(lock);
+}
+
+static inline void __spin_lock_init(spinlock_t *lock)
+{
+        __lock_release(lock);
+}
+
+/* Returns 1 if the lock is held, 0 otherwise. */
+static inline int __spin_is_locked(spinlock_t *lock)
+{
+        unsigned int val;
+        val = __add_and_fetch(lock, 0);
+	return val;
 }
 
 #elif defined(MIPS_SPINLOCKS) 
@@ -221,7 +262,11 @@ static void yield_cpu(void)
 
 static int this_is_smp(void)
 {
+#if defined(HAVE_SYSCONF) && defined(SYSCONF_SC_NPROC_ONLN)
+        return (sysconf(_SC_NPROC_ONLN) > 1) ? 1 : 0;
+#else
 	return 0;
+#endif
 }
 
 /*
@@ -372,7 +417,7 @@ int tdb_create_rwlocks(int fd, unsigned int hash_size)
 	unsigned size, i;
 	tdb_rwlock_t *rwlocks;
 
-	size = (hash_size + 1) * sizeof(tdb_rwlock_t);
+	size = TDB_SPINLOCK_SIZE(hash_size);
 	rwlocks = malloc(size);
 	if (!rwlocks)
 		return -1;

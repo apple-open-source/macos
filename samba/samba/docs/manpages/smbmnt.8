@@ -21,11 +21,12 @@
 .SH NAME
 smbmnt \- helper utility for mounting SMB filesystems
 .SH "SYNOPSIS"
-
-.nf
-\fBsmbmnt\fR {mount-point} [-s <share>] [-r] [-u <uid>] [-g <gid>] [-f <mask>] [-d <mask>] [-o <options>] [-h]
-      
-.fi
+.ad l
+.hy 0
+.HP 7
+\fBsmbmnt\fR {mount\-point} [\-s\ <share>] [\-r] [\-u\ <uid>] [\-g\ <gid>] [\-f\ <mask>] [\-d\ <mask>] [\-o\ <options>] [\-h]
+.ad
+.hy
 
 .SH "DESCRIPTION"
 
@@ -44,37 +45,37 @@ smbmount searches the normal PATH for smbmnt\&. You must ensure that the smbmnt 
 .SH "OPTIONS"
 
 .TP
--r
-mount the filesystem read-only
+\-r
+mount the filesystem read\-only
 
 
 .TP
--u uid
+\-u uid
 specify the uid that the files will be owned by
 
 
 .TP
--g gid
+\-g gid
 specify the gid that the files will be owned by
 
 
 .TP
--f mask
+\-f mask
 specify the octal file mask applied
 
 
 .TP
--d mask
+\-d mask
 specify the octal directory mask applied
 
 
 .TP
--o options
-list of options that are passed as-is to smbfs, if this command is run on a 2\&.4 or higher Linux kernel\&.
+\-o options
+list of options that are passed as\-is to smbfs, if this command is run on a 2\&.4 or higher Linux kernel\&.
 
 
 .TP
--h|--help
+\-h|\-\-help
 Print a summary of command line options\&.
 
 

@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- $Id: postgres-jdbc2-service.xml,v 1.1.2.2 2003/09/30 10:19:39 ejort Exp $ -->
+
+<server>
+
+  <!-- ==================================================================== -->
+  <!-- Persistence and caching using Postgres                               -->
+  <!-- IMPORTANT: Remove hsqldb-jdbc2-service.xml                           -->
+  <!-- ==================================================================== -->
+
+  <!--
+     | The destination manager is the core service within JBossMQ
+  -->
+  <mbean code="org.jboss.mq.server.jmx.DestinationManager" name="jboss.mq:service=DestinationManager">
+    <depends optional-attribute-name="MessageCache">jboss.mq:service=MessageCache</depends>
+    <depends optional-attribute-name="PersistenceManager">jboss.mq:service=PersistenceManager</depends>
+    <depends optional-attribute-name="StateManager">jboss.mq:service=StateManager</depends>
+  </mbean>
+
+  <!--
+     | The MessageCache decides where to put JBossMQ message that
+     | are sitting around waiting to be consumed by a client.
+     |
+     | The memory marks are in Megabytes.  Once the JVM memory usage hits
+     | the high memory mark, the old messages in the cache will start getting
+     | stored in the DataDirectory.  As memory usage gets closer to the
+     | Max memory mark, the amount of message kept in the memory cache aproaches 0.
+   -->
+  <mbean code="org.jboss.mq.server.MessageCache"
+	 name="jboss.mq:service=MessageCache">
+    <attribute name="HighMemoryMark">50</attribute>
+    <attribute name="MaxMemoryMark">60</attribute>
+    <attribute name="CacheStore">jboss.mq:service=PersistenceManager</attribute>
+  </mbean>
+
+  <!-- The PersistenceManager is used to store messages to disk. -->
+  <!-- 
+     | The jdbc2 PersistenceManager is the new improved JDBC implementation.
+     | This implementation allows you to control how messages are stored in 
+     | the database.
+     | 
+     | This jdbc2 PM configuration has was supplied by Stephane Nicoll in the forums as an example for Postgres
+   -->
+  <mbean code="org.jboss.mq.pm.jdbc2.PersistenceManager"
+	 name="jboss.mq:service=PersistenceManager">
+    <depends optional-attribute-name="ConnectionManager">jboss.jca:service=LocalTxCM,name=PostgresDS</depends>
+    <attribute name="SqlProperties">
+      BLOB_TYPE=BYTES_BLOB
+      INSERT_TX = INSERT INTO JMS_TRANSACTIONS (TXID) values(?)
+      INSERT_MESSAGE = INSERT INTO JMS_MESSAGES (MESSAGEID, DESTINATION, MESSAGEBLOB, TXID, TXOP) VALUES(?,?,?,?,?)
+      SELECT_ALL_UNCOMMITED_TXS = SELECT TXID FROM JMS_TRANSACTIONS
+      SELECT_MAX_TX = SELECT MAX(TXID) FROM JMS_MESSAGES
+      SELECT_MESSAGES_IN_DEST = SELECT MESSAGEID, MESSAGEBLOB FROM JMS_MESSAGES WHERE DESTINATION=?
+      SELECT_MESSAGE = SELECT MESSAGEID, MESSAGEBLOB FROM JMS_MESSAGES WHERE MESSAGEID=? AND DESTINATION=?
+      MARK_MESSAGE = UPDATE JMS_MESSAGES SET TXID=?, TXOP=? WHERE MESSAGEID=? AND DESTINATION=?
+      UPDATE_MESSAGE = UPDATE JMS_MESSAGES SET MESSAGEBLOB=? WHERE MESSAGEID=? AND DESTINATION=?
+      UPDATE_MARKED_MESSAGES = UPDATE JMS_MESSAGES SET TXID=?, TXOP=? WHERE TXOP=?
+      UPDATE_MARKED_MESSAGES_WITH_TX = UPDATE JMS_MESSAGES SET TXID=?, TXOP=? WHERE TXOP=? AND TXID=?
+      UPDATE_MESSAGE = UPDATE JMS_MESSAGES SET MESSAGEBLOB=? WHERE MESSAGEID=? AND DESTINATION=?
+      UPDATE_MARKED_MESSAGES = UPDATE JMS_MESSAGES SET TXID=?, TXOP=? WHERE TXOP=?
+      UPDATE_MARKED_MESSAGES_WITH_TX = UPDATE JMS_MESSAGES SET TXID=?, TXOP=? WHERE TXOP=? AND TXID=?
+      DELETE_MARKED_MESSAGES_WITH_TX = DELETE FROM JMS_MESSAGES WHERE TXID IN (SELECT TXID FROM JMS_TRANSACTIONS) AND TXOP=?
+      DELETE_TX = DELETE FROM JMS_TRANSACTIONS WHERE TXID = ?
+      DELETE_MARKED_MESSAGES = DELETE FROM JMS_MESSAGES WHERE TXID=? AND TXOP=?
+      DELETE_MESSAGE = DELETE FROM JMS_MESSAGES WHERE MESSAGEID=? AND DESTINATION=?
+      CREATE_MESSAGE_TABLE = CREATE TABLE JMS_MESSAGES (MESSAGEID INTEGER NOT NULL, DESTINATION VARCHAR(150) NOT NULL, TXID INTEGER, TXOP CHAR(1), MESSAGEBLOB BYTEA, PRIMARY KEY (MESSAGEID, DESTINATION))
+      CREATE_TX_TABLE = CREATE TABLE JMS_TRANSACTIONS (TXID INTEGER)
+      CREATE_TABLES_ON_STARTUP = TRUE
+    </attribute>
+  </mbean>
+
+</server>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,73 +23,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc.  All rights reserved.
  *
  *
  */
-//		$Log: PowerMac7_2_CPUPowerSensor.cpp,v $
-//		Revision 1.5  2003/06/07 01:30:58  eem
-//		Merge of EEM-PM72-ActiveFans-2 branch, with a few extra tweaks.  This
-//		checkin has working PID control for PowerMac7,2 platforms, as well as
-//		a first shot at localized strings.
-//		
-//		Revision 1.4.2.7  2003/06/06 08:17:58  eem
-//		Holy Motherfucking shit.  PID is really working.
-//		
-//		Revision 1.4.2.6  2003/06/04 10:21:12  eem
-//		Supports forced PID meta states.
-//		
-//		Revision 1.4.2.5  2003/06/01 14:52:55  eem
-//		Most of the PID algorithm is implemented.
-//		
-//		Revision 1.4.2.4  2003/05/29 03:51:36  eem
-//		Clean up environment dictionary access.
-//		
-//		Revision 1.4.2.3  2003/05/26 10:19:03  eem
-//		Fixed OSNumber leaks.
-//		
-//		Revision 1.4.2.2  2003/05/23 05:44:42  eem
-//		Cleanup, ctrlloops not get notification for sensor and control registration.
-//		
-//		Revision 1.4.2.1  2003/05/22 01:31:05  eem
-//		Checkin of today's work (fails compilations right now).
-//		
-//		Revision 1.4  2003/05/21 21:58:55  eem
-//		Merge from EEM-PM72-ActiveFans-1 branch with initial crack at active fan
-//		control on Q37.
-//		
-//		Revision 1.3.2.3  2003/05/17 11:08:25  eem
-//		All active fan data present, table event-driven.  PCI power sensors are
-//		not working yet so PCI fan is just set to 67% PWM and forgotten about.
-//		
-//		Revision 1.3.2.2  2003/05/16 07:08:48  eem
-//		Table-lookup active fan control working with this checkin.
-//		
-//		Revision 1.3.2.1  2003/05/14 22:07:55  eem
-//		Implemented state-driven sensor, cleaned up "const" usage and header
-//		inclusions.
-//		
-//		Revision 1.3  2003/05/13 02:13:52  eem
-//		PowerMac7_2 Dynamic Power Step support.
-//		
-//		Revision 1.2.2.1  2003/05/12 11:21:12  eem
-//		Support for slewing.
-//		
-//		Revision 1.2  2003/05/10 06:50:36  eem
-//		All sensor functionality included for PowerMac7_2_PlatformPlugin.  Version
-//		is 1.0.1d12.
-//		
-//		Revision 1.1.2.3  2003/05/10 06:32:35  eem
-//		Sensor changes, should be ready to merge to trunk as 1.0.1d12.
-//		
-//		Revision 1.1.2.2  2003/05/03 18:01:29  eem
-//		*** empty log message ***
-//		
-//		Revision 1.1.2.1  2003/05/03 01:11:40  eem
-//		*** empty log message ***
-//		
-//		
-//
+
 
 #include "IOPlatformPluginSymbols.h"
 #include "IOPlatformPlugin.h"
@@ -159,32 +97,28 @@ IOReturn PowerMac7_2_CPUPowerSensor::initPlatformSensor( const OSDictionary * di
 	infoDict->setObject(kIOPPluginRegisteredKey, kOSBooleanTrue );
 
 	// create an empty current-value property
-	setCurrentValue( gIOPPluginZero );
+	SensorValue zeroVal;
+	zeroVal.sensValue = 0;
+	setCurrentValue( zeroVal );
 
 	return( status );
 }
 
-OSNumber *PowerMac7_2_CPUPowerSensor::fetchCurrentValue( void )
+SensorValue PowerMac7_2_CPUPowerSensor::fetchCurrentValue( void )
 {
 	UInt64 buf64;
-	const OSNumber *num1, *num2;
-	UInt32 val1, val2, result;
+	SensorValue val1, val2, result;
 
-	num1 = sourceSensors[0]->getCurrentValue();
-	num2 = sourceSensors[1]->getCurrentValue();
-
-	if (!num1 || !num2) return(NULL);
+	val1 = sourceSensors[0]->getCurrentValue();
+	val2 = sourceSensors[1]->getCurrentValue();
 
 	// accumulate into a 64 bit buffer
-	val1 = num1->unsigned32BitValue();
-	val2 = num2->unsigned32BitValue();
-	buf64 = ((UInt64)val1) * ((UInt64)val2);
-	result = (UInt32)((buf64 >> 16) & 0xFFFFFFFF);
+	buf64 = ((UInt64)val1.sensValue) * ((UInt64)val2.sensValue);
 
-	//SENSOR_DLOG("PowerMac7_2_CPUPowerSensor::fetchCurrentValue %08lX * %08lX = %08lX\n", val1, val2, result);
-	
 	// shift right by 16 to convert back to 16.16 fixed point
-	return(OSNumber::withNumber( result, 32 ));
+	result.sensValue = (SInt32)((buf64 >> 16) & 0xFFFFFFFF);
+
+	return result;
 }
 
 // this sends the polling period to the sensor

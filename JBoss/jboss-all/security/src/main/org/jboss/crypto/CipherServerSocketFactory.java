@@ -7,9 +7,7 @@
 package org.jboss.crypto;
 
 import java.io.IOException;
-import java.io.Serializable;
 import java.net.ServerSocket;
-import java.net.UnknownHostException;
 import java.rmi.server.RMIServerSocketFactory;
 
 
@@ -23,7 +21,7 @@ import java.rmi.server.RMIServerSocketFactory;
  KeyStore.
 
 @author Scott.Stark@jboss.org
-@version $Revision: 1.1 $
+@version $Revision: 1.1.6.1 $
 */
 public class CipherServerSocketFactory implements RMIServerSocketFactory
 {

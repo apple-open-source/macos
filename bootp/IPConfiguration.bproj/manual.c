@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -118,6 +115,18 @@ manual_start(Service_t * service_p, IFEventID_t evid, void * event_data)
 
     switch (evid) {
       case IFEventID_start_e: {
+	  if (manual->arp == NULL) {
+	      /* if the link is up, just assign the IP */
+	      if (service_link_status(service_p)->valid == TRUE 
+		  && service_link_status(service_p)->active == FALSE) {
+		  manual_inactive(service_p);
+		  break;
+	      }
+	      (void)service_set_address(service_p, manual->our_ip, 
+					manual->our_mask, G_ip_zeroes);
+	      service_publish_success(service_p, NULL, 0);
+	      break;
+	  }
 	  manual_cancel_pending_events(service_p);
 	  arp_probe(manual->arp, 
 		    (arp_result_func_t *)manual_start, service_p,
@@ -221,12 +230,9 @@ manual_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
 	      goto stop;
 	  }
 	  manual->arp = arp_client_init(G_arp_session, if_p);
-					
 	  if (manual->arp == NULL) {
-	      my_log(LOG_ERR, "MANUAL %s: arp_client_init failed", 
+	      my_log(LOG_INFO, "MANUAL %s: arp_client_init failed", 
 		     if_name(if_p));
-	      status = ipconfig_status_allocation_failed_e;
-	      goto stop;
 	  }
 	  my_log(LOG_DEBUG, "MANUAL %s: starting", 
 		 if_name(if_p));

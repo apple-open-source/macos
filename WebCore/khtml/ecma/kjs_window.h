@@ -41,6 +41,7 @@ namespace KJS {
   class History;
   class FrameArray;
   class JSEventListener;
+  class JSLazyEventListener;
 
   class Screen : public ObjectImp {
   public:
@@ -89,6 +90,7 @@ namespace KJS {
     virtual void put(ExecState *exec, const Identifier &propertyName, const Value &value, int attr = None);
     virtual bool toBoolean(ExecState *exec) const;
     int installTimeout(const UString &handler, int t, bool singleShot);
+    int installTimeout(const Value &function, List &args, int t, bool singleShot);
     void clearTimeout(int timerId);
 #ifdef APPLE_CHANGES
     bool hasTimeouts();
@@ -99,13 +101,14 @@ namespace KJS {
     bool isSafeScript(ExecState *exec) const;
     Location *location() const;
     JSEventListener *getJSEventListener(const Value &val, bool html = false);
+    JSLazyEventListener *getJSLazyEventListener(const QString &code, bool html = false);
     void clear( ExecState *exec );
     virtual UString toString(ExecState *exec) const;
 
     // Set the current "event" object
     void setCurrentEvent( DOM::Event *evt );
 
-    QPtrList<JSEventListener> jsEventListeners;
+    QPtrDict<JSEventListener> jsEventListeners;
     virtual const ClassInfo* classInfo() const { return &info; }
     static const ClassInfo info;
     enum { Closed, Crypto, DefaultStatus, Status, Document, Node, EventCtor, Range,
@@ -115,11 +118,11 @@ namespace KJS {
            Parent, Personalbar, ScreenX, ScreenY, Scrollbars, Scroll, ScrollBy,
            ScreenTop, ScreenLeft,
            ScrollTo, ScrollX, ScrollY, MoveBy, MoveTo, ResizeBy, ResizeTo, Self, _Window, Top, _Screen,
-           Image, Option, Alert, Confirm, Prompt, Open, SetTimeout, ClearTimeout,
+           Image, Option, Alert, Confirm, Prompt, Open, Print, SetTimeout, ClearTimeout,
            Focus, GetSelection, Blur, Close, SetInterval, ClearInterval, CaptureEvents, 
-           ReleaseEvents, AddEventListener, RemoveEventListener, Onabort, Onblur,
-           Onchange, Onclick, Ondblclick, Ondragdrop, Onerror, Onfocus,
-           Onkeydown, Onkeypress, Onkeyup, Onload, Onmousedown, Onmousemove,
+           ReleaseEvents, AddEventListener, RemoveEventListener, XMLHttpRequest, XMLSerializer,
+	   Onabort, Onblur, Onchange, Onclick, Ondblclick, Ondragdrop, Onerror, 
+	   Onfocus, Onkeydown, Onkeypress, Onkeyup, Onload, Onmousedown, Onmousemove,
            Onmouseout, Onmouseover, Onmouseup, Onmove, Onreset, Onresize,
            Onselect, Onsubmit, Onunload };
   protected:

@@ -51,7 +51,7 @@ import org.jboss.tm.usertx.client.ServerVMClientUserTransaction;
  * @author <a href="mailto:sebastien.alborini@m4x.org">Sebastien Alborini</a>
  * @author <a href="mailto:juha@jboss.org">Juha Lindfors</a>
  * @author <a href="mailto:osh@sparre.dk">Ole Husgaard</a>
- * @version $Revision: 1.50 $
+ * @version $Revision: 1.50.2.1 $
  *
  * Revisions:
  * 2001/06/29: marcf
@@ -65,7 +65,7 @@ public abstract class EnterpriseContext
    // Attributes ----------------------------------------------------
 
    /** Instance logger. */
-   protected Logger log = Logger.getLogger(this.getClass());
+   protected static Logger log = Logger.getLogger(EnterpriseContext.class);
 
    /** The EJB instance */
    Object instance;

@@ -21,6 +21,8 @@
 
 #include <Security/SecCFTypes.h>
 #include <Security/SecRuntime.h>
+#include <Security/threading.h>
+#include <Security/Globals.h>
 
 namespace Security
 {
@@ -84,6 +86,13 @@ CFClass::CFClass(const char *name)
 void
 CFClass::finalizeType(CFTypeRef cf)
 {
+    /*
+     * Called on a CFRelease of any Sec object: single thread through
+     * same lock held by public API calls. This is a recursive lock
+     * so it's safe to do this for CF objects allocated and released
+     * within the Sec layer. 
+     */
+    StLock<Mutex> _(globals().apiLock);
 	SecCFObject *obj = SecCFObject::optional(cf);
 	if (!obj->isNew())
 		obj->~SecCFObject();

@@ -12,6 +12,7 @@ import java.util.HashMap;
 import org.jboss.ejb.Container;
 import org.jboss.monitor.EntityLockMonitor;
 import org.jboss.monitor.LockMonitor;
+import org.jboss.logging.Logger;
 import javax.naming.InitialContext;
 
 /**
@@ -21,17 +22,11 @@ import javax.naming.InitialContext;
  *
  * @author <a href="bill@burkecentral.com">Bill Burke</a>
  * @author <a href="marc.fleury@jboss.org">Marc Fleury</a>
- *
- * @version $Revision: 1.7.4.5 $
- * <p><b>Revisions:</b><br>
- * <p><b>20010802: marcf</b>
- * <ol>
- *   <li>Made bean lock pluggable, container factory passes in lockClass
- *   <li>Removed un-used constructor, added getters and setters
- * </ol>
+ * @author Scott.Stark@jboss.org
  */
 public class BeanLockManager
 {
+   private static Logger log = Logger.getLogger(BeanLockManager.class);
    private HashMap map = new HashMap();
 
    /** The container this manager reports to */
@@ -40,24 +35,25 @@ public class BeanLockManager
    /** Reentrancy of calls */
    private boolean reentrant = false;
    private int txTimeout = 5000;
-	
+   /** The logging trace flag, only set in ctor */
+   private boolean trace;
    public Class lockClass;
    protected LockMonitor monitor = null;
 
    public BeanLockManager(Container container)
    {
       this.container = container;
+      trace = log.isTraceEnabled();
       try
       {
          InitialContext ctx = new InitialContext();
-         EntityLockMonitor elm = (EntityLockMonitor)ctx.lookup(EntityLockMonitor.JNDI_NAME);
+         EntityLockMonitor elm = (EntityLockMonitor) ctx.lookup(EntityLockMonitor.JNDI_NAME);
          String ejbName = container.getBeanMetaData().getEjbName();
          monitor = elm.getEntityLockMonitor(ejbName);
-         //         if (monitor == null) System.out.println("----- monitor is null ------");
       }
       catch (Exception ignored)
       {
-         //         ignored.printStackTrace();
+         // Ignore the lack of an EntityLockMonitor
       }
    }
 
@@ -78,28 +74,31 @@ public class BeanLockManager
    {
       if (id == null)
          throw new IllegalArgumentException("Attempt to get lock ref with a null object");
-      BeanLock lock = (BeanLock)map.get(id);
+      BeanLock lock = (BeanLock) map.get(id);
       if (lock == null)
       {
          try
          {
             lock = (BeanLock) lockClass.newInstance();
-            
             lock.setId(id);
             lock.setTimeout(txTimeout);
-	        lock.setContainer(container);
+            lock.setContainer(container);
+            if( trace )
+               log.trace("Created lock: "+lock);
          }
-         catch (Exception e )
+         catch (Exception e)
          {
-         	// schrouf: should we really proceed with lock object
-         	// in case of exception ?? 
-         	e.printStackTrace();
+            // schrouf: should we really proceed with lock object
+            // in case of exception ?? 
+            log.warn("Failed to initialize lock:"+lock, e);
          }
-         
+
          map.put(id, lock);
       }
       lock.addRef();
-	
+      if( trace )
+         log.trace("Added ref to lock: "+lock);
+
       return lock;
    }
 
@@ -107,26 +106,30 @@ public class BeanLockManager
    {
       if (id == null)
          throw new IllegalArgumentException("Attempt to remove lock ref with a null object");
-      
-      BeanLock lock = (BeanLock)map.get(id);
+
+      BeanLock lock = (BeanLock) map.get(id);
 
       if (lock != null)
       {
-	     try
-	     {
-		    lock.removeRef();
-	     }
-	     finally
-	     {
-		    // schrouf: ALLWAYS ensure proper map lock removal even in case
-		    // of exception within lock.removeRef ! There seems to be a bug
-		    // in the ref counting of QueuedPessimisticEJBLock under certain
-		    // conditions ( lock.ref < 0 should never happen !!! )
-		    if (lock.getRefs() <= 0)
-		    {
-			   map.remove(lock.getId());
-		    }
-	     }
+         try
+         {
+            lock.removeRef();
+            if( trace )
+               log.trace("Remove ref lock:"+lock);
+         }
+         finally
+         {
+            // schrouf: ALLWAYS ensure proper map lock removal even in case
+            // of exception within lock.removeRef ! There seems to be a bug
+            // in the ref counting of QueuedPessimisticEJBLock under certain
+            // conditions ( lock.ref < 0 should never happen !!! )
+            if (lock.getRefs() <= 0)
+            {
+               Object mapLock = map.remove(lock.getId());
+               if( trace )
+                  log.trace("Lock no longer referenced, lock: "+lock);
+            }
+         }
       }
    }
 
@@ -134,15 +137,25 @@ public class BeanLockManager
    {
       if (id == null)
          throw new IllegalArgumentException("Attempt to passivate with a null object");
-      BeanLock lock = (BeanLock)map.get(id);
+      BeanLock lock = (BeanLock) map.get(id);
       if (lock == null)
          throw new IllegalStateException("Attempt to passivate without a lock");
 
       return (lock.getRefs() <= 1);
    }
-	
-   public void setLockCLass(Class lockClass) {this.lockClass=lockClass;}
-   public void setReentrant(boolean reentrant) {this.reentrant = reentrant;}
-   public void setContainer(Container container) {this.container = container;}
-}
 
+   public void setLockCLass(Class lockClass)
+   {
+      this.lockClass = lockClass;
+   }
+
+   public void setReentrant(boolean reentrant)
+   {
+      this.reentrant = reentrant;
+   }
+
+   public void setContainer(Container container)
+   {
+      this.container = container;
+   }
+}

@@ -11,19 +11,14 @@ package org.jboss.ejb.plugins.cmp.ejbql;
  * This abstract syntax node represents a negation opperator.
  *
  * @author <a href="mailto:dain@daingroup.com">Dain Sundstrom</a>
- * @version $Revision: 1.1 $
+ * @version $Revision: 1.1.4.1 $
  */                            
-public class ASTNegation extends SimpleNode {
+public final class ASTNegation extends SimpleNode {
   public ASTNegation(int id) {
     super(id);
   }
 
-  public ASTNegation(EJBQLParser p, int id) {
-    super(p, id);
-  }
-
-
-  /** Accept the visitor. **/
+   /** Accept the visitor. **/
   public Object jjtAccept(JBossQLParserVisitor visitor, Object data) {
     return visitor.visit(this, data);
   }

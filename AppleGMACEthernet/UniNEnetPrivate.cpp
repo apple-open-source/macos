@@ -42,9 +42,7 @@
 
 
 
-/*
- * Private functions
- */
+
 bool UniNEnet::allocateMemory()
 {
 	UInt32		rxRingSize, txRingSize;
@@ -235,14 +233,13 @@ void UniNEnet::flushRings( bool flushTx, bool flushRx )
 
 	ELG( fTxRingElements, fRxRingElements, 'FluR', "flushRings" );
 
-
 	if ( flushTx )			// Free all mbufs from the transmit ring:
 	{
 		for ( i = 0; i < fTxRingElements; i++ )
 		{
 			if ( fTxMbuf[ i ] )
 			{
-				ELG( i, fTxMbuf[ i ], 'flTx', "UniNEnet::flushRings" );
+				ELG( i, fTxMbuf[ i ], 'flTx', "UniNEnet::flushRings - Tx ring" );
 				if ( fTxMbuf[ i ] == txDebuggerPkt )
 					txDebuggerPktInUse = false;
 				else
@@ -258,7 +255,7 @@ void UniNEnet::flushRings( bool flushTx, bool flushRx )
 		{
 			if ( fRxMbuf[ i ] )
 			{
-				ELG( i, fRxMbuf[ i ], 'flRx', "UniNEnet::flushRings" );
+				ELG( i, fRxMbuf[ i ], 'flRx', "UniNEnet::flushRings - Rx ring" );
 				freePacket( fRxMbuf[ i ] );
 				fRxMbuf[i] = 0;
 			}
@@ -268,23 +265,23 @@ void UniNEnet::flushRings( bool flushTx, bool flushRx )
 }/* end flushRings */
 
 
+	/* startChip is called only by monitorLinkStatus.	*/
+
 void UniNEnet::startChip()
 {
-    UInt32  gemReg;
-  
-
 	ELG( this, 0, 'SChp', "startChip" );
+
+	fXIFConfiguration |= kXIFConfiguration_Tx_MII_OE;
+	WRITE_REGISTER( XIFConfiguration, fXIFConfiguration );
 
 	fTxConfiguration |= kTxConfiguration_Tx_DMA_Enable;		// Tx DMA enable
 	WRITE_REGISTER( TxConfiguration, fTxConfiguration );
 
-	gemReg	= READ_REGISTER( RxConfiguration );				// Rx DMA enable
-	gemReg |= kRxConfiguration_Rx_DMA_Enable;
-	WRITE_REGISTER( RxConfiguration, gemReg	 );
+	fRxConfiguration |= kRxConfiguration_Rx_DMA_Enable;		// Rx DMA enable
+	WRITE_REGISTER( RxConfiguration, fRxConfiguration	 );
 
-	gemReg	= READ_REGISTER( TxMACConfiguration );			// Tx MAC enable
-	gemReg |= kTxMACConfiguration_TxMac_Enable;
-	WRITE_REGISTER( TxMACConfiguration, gemReg  );
+	fTxMACConfiguration |= kTxMACConfiguration_TxMac_Enable;
+	WRITE_REGISTER( TxMACConfiguration, fTxMACConfiguration  );
 
 	fRxMACConfiguration	= kRxMACConfiguration_Rx_Mac_Enable;// Rx MAC enable
 	if ( fIsPromiscuous )
@@ -293,11 +290,10 @@ void UniNEnet::startChip()
 	WRITE_REGISTER( RxMACConfiguration, fRxMACConfiguration );
 
 #ifdef LATER 
-	gemReg = ~(kStatus_TX_INT_ME | kStatus_RX_DONE | kStatus_MIF_Interrupt);
+	WRITE_REGISTER( InterruptMask, ~(kStatus_TX_INT_ME | kStatus_RX_DONE | kStatus_MIF_Interrupt) );
 #else
-	gemReg = ~(kStatus_TX_INT_ME | kStatus_RX_DONE);
+	WRITE_REGISTER( InterruptMask, ~(kStatus_TX_INT_ME | kStatus_RX_DONE) );
 #endif // LATER
-	WRITE_REGISTER( InterruptMask, gemReg );
 
 	return;
 }/* end startChip */
@@ -305,24 +301,19 @@ void UniNEnet::startChip()
 
 void UniNEnet::stopChip()
 {
-    UInt32	gemReg;
-
-
 	ELG( READ_REGISTER( TxConfiguration ), READ_REGISTER( RxConfiguration ), 'HChp', "stopChip" );
 
 	fTxConfiguration &= ~kTxConfiguration_Tx_DMA_Enable;	// clear Tx DMA enable
 	WRITE_REGISTER( TxConfiguration, fTxConfiguration );
 
-	gemReg	= READ_REGISTER( RxConfiguration );				// clear Rx DMA enable
-	gemReg &= ~kRxConfiguration_Rx_DMA_Enable;
-	WRITE_REGISTER( RxConfiguration, gemReg	 );
+	fRxConfiguration &= ~kRxConfiguration_Rx_DMA_Enable;	// clear Rx DMA enable
+	WRITE_REGISTER( RxConfiguration, fRxConfiguration	 );
 
 	IOSleep( 1 );	// Give time for DMAs to finish what they're doing.
 
 	fTxMACConfiguration &= ~kTxMACConfiguration_TxMac_Enable;
 	WRITE_REGISTER( TxMACConfiguration, fTxMACConfiguration  );
 
-    fRxMACConfiguration  = READ_REGISTER( RxMACConfiguration );	// clr Rx MAC enable
     fRxMACConfiguration &= ~kRxMACConfiguration_Rx_Mac_Enable;    
 	WRITE_REGISTER( RxMACConfiguration, fRxMACConfiguration  );
 
@@ -392,8 +383,6 @@ void UniNEnet::getPhyType()
 		return;
 	}
 
-	miiResetPHY();
-
 	pPhyType = (UInt16*)&phyType;
 	miiReadWord( pPhyType,   MII_ID0 );
 	miiReadWord( pPhyType+1, MII_ID1 );
@@ -424,14 +413,14 @@ void UniNEnet::getPhyType()
 				// with a Broadcom 5201 at 0x1F.
 			UInt8	temp = phyId;
 			phyId = 0x1F;
-
-		miiResetPHY();	// Reset the supplemental 5201 PH&
+		miiResetPHY();	// Reset the supplemental 5201 PHY
 
 		miiReadWord( &phyWord, MII_BCM5201_MULTIPHY );
 		phyWord |= MII_BCM5201_MULTIPHY_SERIALMODE;
 		miiWriteWord( phyWord, MII_BCM5201_MULTIPHY );
 
 			phyId = temp;
+
 		miiReadWord( &phyWord, MII_BCM5400_AUXCONTROL );
 		phyWord &= ~MII_BCM5400_AUXCONTROL_PWR10BASET;
 		miiWriteWord( phyWord, MII_BCM5400_AUXCONTROL );
@@ -501,7 +490,8 @@ void UniNEnet::getPhyType()
 		fMediumTableCount	=  sizeof( gMediumTableGigabit ) / sizeof( MediumTable ) ;
 	}/* end IF 5411 */
 	else if ( (phyType & MII_BCM5400_MASK) == MII_BCM5421_ID	// 5421:
-		   || (phyType & MII_BCM5400_MASK) == MII_BCM54K2_ID )	// 54K2:
+		   || (phyType & MII_BCM5400_MASK) == MII_BCM54K2_ID	// 54K2:
+		   || (phyType & MII_BCM5400_MASK) == MII_BCM5462_ID )	// 5462:
 	{
 		const IORegistryPlane	*plane = getPlane( kIODeviceTreePlane );
 		IORegistryEntry			*entry;
@@ -565,6 +555,31 @@ void UniNEnet::getPhyType()
 		fpgMediumTable		= gMediumTableGigabit;
 		fMediumTableCount	=  sizeof( gMediumTableGigabit ) / sizeof( MediumTable );
 	}/* end else IF Marvell 88e1011 */
+	else if ( (phyType & MII_MARVELL_MASK) == MII_MARVELL_ID_2 )	// 0x01410CCx 88E1111
+	{
+		fPHYType = 0x1011;				// for now, use same code as older 1011
+		ELG( this, phyId, '1111', "UniNEnet::getPhyType" );
+		setProperty( "PHY type", "Marvell 88E1111" );
+
+		fpgMediumTable		= gMediumTableGigabit;
+		fMediumTableCount	=  sizeof( gMediumTableGigabit ) / sizeof( MediumTable );
+
+		if ( phyType == MII_MARVELL_ID_2 )	// patch only version 0 of 88E1111:
+		{
+			miiWriteWord( 0x000A, 0x01D );
+			miiWriteWord( 0x0821, 0x01E );
+		
+			miiWriteWord( 0x0006, 0x01D );
+			miiWriteWord( 0x8600, 0x01E );
+		
+			miiWriteWord( 0x000B, 0x01D );
+			miiWriteWord( 0x0100, 0x01E );
+		
+			miiWriteWord( 0x0004, 0x01D );
+			miiWriteWord( 0x4850, 0x01E );
+		}
+
+	}/* end else IF Marvell 88E1111 */
 	else if ( (phyType & MII_BCM5201_MASK) == MII_BCM5201_ID )
 	{
 		fPHYType = 0x5201;
@@ -606,6 +621,15 @@ void UniNEnet::getPhyType()
 		fpgMediumTable		= gMediumTable100;
 		fMediumTableCount	=  sizeof( gMediumTable100 ) / sizeof( MediumTable ) ;
 	}
+	else if ( (phyType & MII_LXT971_MASK) == MII_LXT971_ID )
+	{
+		fPHYType = 0x0971;
+		ELG( this, phyId, 'L971', "UniNEnet::getPhyType" );
+		setProperty( "PHY type", "Level One LXT971" );
+
+		fpgMediumTable		= gMediumTable100;
+		fMediumTableCount	=  sizeof( gMediumTable100 ) / sizeof( MediumTable ) ;
+	}
 	else
 	{
 		fPHYType = 0;
@@ -621,26 +645,25 @@ void UniNEnet::getPhyType()
 }/* end getPhyType */
 
 
-/*-------------------------------------------------------------------------
- *
- *
- *
- *-------------------------------------------------------------------------*/
-
 bool UniNEnet::initChip()
 {
-    UInt32          	i, temp;
+    UInt32          	i;
     mach_timespec_t		timeStamp;
     UInt32          	rxFifoSize;
     UInt32          	rxOff, rxOn;
     UInt32          	ui32;
     UInt16       		*p16;
-	UInt16				phyAdrToPoll, phyRegToPoll, phyBitsToMonitor;
-	UInt16				val16;
 	OSNumber			*numObj;
 	UInt32				busSpeed;
 
 	ELG( 0, phyId, 'ChpI', "initChip" );
+
+		/* Initialize the chip but don't start anything until startChip:	*/
+
+	fTxConfiguration	&= ~kTxConfiguration_Tx_DMA_Enable;
+	fRxConfiguration	&= ~kRxConfiguration_Rx_DMA_Enable;
+	fTxMACConfiguration	&= ~kTxMACConfiguration_TxMac_Enable;
+	fRxMACConfiguration	&= ~kRxMACConfiguration_Rx_Mac_Enable;
 
     if ( fBuiltin == false )
     {
@@ -654,29 +677,23 @@ bool UniNEnet::initChip()
 		WRITE_REGISTER( PCSConfiguration,	kPCSConfiguration_Enable );
 		fXIFConfiguration =					kXIFConfiguration_Tx_MII_OE
 										  | kXIFConfiguration_GMIIMODE
-										  | kXIFConfiguration_FDPLXLED;
+										  |	kXIFConfiguration_FDPLXLED;
     }
     else
     {
 		WRITE_REGISTER( DatapathMode, kDatapathMode_GMIIMode );
-		fXIFConfiguration = kXIFConfiguration_Tx_MII_OE;
-   }
+	}
 	WRITE_REGISTER( XIFConfiguration, fXIFConfiguration );
 
 	WRITE_REGISTER( SendPauseCommand,		kSendPauseCommand_default );
-	WRITE_REGISTER( MACControlConfiguration, 0 );
+	WRITE_REGISTER( MACControlType,			kMACControlType_default );
+	WRITE_REGISTER( MACControlConfiguration,fMACControlConfiguration );
 	WRITE_REGISTER( InterruptMask,			kInterruptMask_None );
-	WRITE_REGISTER( TxMACMask,				kTxMACMask_default );
-	WRITE_REGISTER( RxMACMask,				kRxMACMask_default );
+//	WRITE_REGISTER( TxMACMask,				kTxMACMask_default );
+//	WRITE_REGISTER( RxMACMask,				kRxMACMask_default );
 	WRITE_REGISTER( MACControlMask,			kMACControlMask_default );
 
-	fConfiguration	= kConfiguration_TX_DMA_Limit		// default Configuration value
-					| kConfiguration_RX_DMA_Limit
-					| kConfiguration_Infinite_Burst
-					| kConfiguration_RonPaulBit
-					| kConfiguration_EnableBug2Fix;
 	WRITE_REGISTER( Configuration, fConfiguration );	// try the default
-
 	ui32 = READ_REGISTER( Configuration );				// read it back
     if ( (ui32 & kConfiguration_Infinite_Burst) == 0 )	
     {													// not infinite-burst capable:
@@ -734,28 +751,16 @@ bool UniNEnet::initChip()
 	WRITE_REGISTER( TxDescriptorBaseLow, fTxDescriptorRingPhys );
 	WRITE_REGISTER( TxDescriptorBaseHigh, 0 );
 
-	fTxConfiguration	= kTxConfiguration_TxFIFO_Threshold
-						| fTxRingLengthFactor << kTxConfiguration_Tx_Desc_Ring_Size_Shift;
-	WRITE_REGISTER( TxConfiguration, fTxConfiguration );
-
-	fTxMACConfiguration = 0;
-	WRITE_REGISTER( TxMACConfiguration, fTxMACConfiguration );
+	WRITE_REGISTER( TxConfiguration,	fTxConfiguration );
+	WRITE_REGISTER( TxMACConfiguration,	fTxMACConfiguration );
 	IOSleep( 4 );		/// Wait or poll for enable to clear.
-
-    setDuplexMode( (phyId == 0xff) ? true : false );
    
 	WRITE_REGISTER( RxDescriptorBaseLow,	fRxDescriptorRingPhys );
 	WRITE_REGISTER( RxDescriptorBaseHigh,	0 );
 
 	WRITE_REGISTER( RxKick, fRxRingElements - 4 );
+	WRITE_REGISTER( RxConfiguration, fRxConfiguration );
 
-	temp	= kRxConfiguration_RX_DMA_Threshold
-	//		| kRxConfiguration_Batch_Disable	may cause 4x primary interrupts
-			| fRxRingLengthFactor << kRxConfiguration_Rx_Desc_Ring_Size_Shift
-			| kRxConfiguration_Checksum_Start_Offset;
-	WRITE_REGISTER( RxConfiguration, temp );
-
-	fRxMACConfiguration = 0;
 	WRITE_REGISTER( RxMACConfiguration,	fRxMACConfiguration );
 	IOSleep( 4 ); 		// it takes time to clear the enable bit
 
@@ -765,27 +770,27 @@ bool UniNEnet::initChip()
 
 	rxFifoSize	= READ_REGISTER( RxFIFOSize );	// 64-byte (kPauseThresholds_Factor) chunks
 
-    rxOff  = rxFifoSize - (kMaxFrameSize_default * 2 / kPauseThresholds_Factor);
-    rxOn   = kMaxFrameSize_default / kPauseThresholds_Factor + 1;
+	rxOff  = rxFifoSize - (kMaxFrameSize_default * 2 / kPauseThresholds_Factor);
+	rxOn   = kMaxFrameSize_default / kPauseThresholds_Factor + 1;
+	fPauseThresholds	= (rxOff << kPauseThresholds_OFF_Threshold_Shift)
+						| (rxOn	 << kPauseThresholds_ON_Threshold_Shift);
+	WRITE_REGISTER( PauseThresholds, fPauseThresholds );
 
-	WRITE_REGISTER( PauseThresholds,
-					  (rxOff << kPauseThresholds_OFF_Threshold_Shift)
-					| (rxOn	 << kPauseThresholds_ON_Threshold_Shift) );
-
-	temp = kRxBlanking_default_66;	/* built-in is always 66 MHz PCI	*/
+	fRxBlanking = kRxBlanking_default_66;	/* built-in is always 66 MHz PCI	*/
 	if ( !fBuiltin )
 	{		/* Must be GEM card in a slot:	*/
-		temp = kRxBlanking_default_33;			/* assume 33 MHz slot	*/
+		fRxBlanking = kRxBlanking_default_33;			/* assume 33 MHz slot	*/
 		numObj = OSDynamicCast( OSNumber, getProperty( "clock-frequency" ) );
 		if ( numObj )
 		{
 			busSpeed = numObj->unsigned32BitValue();
 			if ( busSpeed > 33333333 )
-				temp = kRxBlanking_default_66;
+				fRxBlanking = kRxBlanking_default_66;
 		}
 	}
-	WRITE_REGISTER( RxBlanking, temp );
+	WRITE_REGISTER( RxBlanking, fRxBlanking );
 
+#ifdef LATER
 	if ( fPHYType == 0x5221 )
 	{
 		phyAdrToPoll	 = phyId;
@@ -802,6 +807,7 @@ bool UniNEnet::initChip()
 		
 		WRITE_REGISTER( MIFConfiguration, val16 );
 	}
+#endif // LATER
 
 	if ( fBuiltin )
 		WRITE_REGISTER( WOLWakeupCSR, 0 );	// Disable Wake on LAN
@@ -862,7 +868,7 @@ void UniNEnet::restartTransmitter()
 		/* Stop the Tx MAC engine:	*/
 
 	WRITE_REGISTER( TxMACConfiguration, 0 );	/* clear kTxMACConfiguration_TxMac_Enable	*/
-	IOSleep( 1 );
+	IOSleep( 4 );
 
 		/* Reset the Tx MAC engine:	*/
 
@@ -901,15 +907,15 @@ void UniNEnet::restartTransmitter()
 void UniNEnet::restartReceiver()
 {
 	UInt16		i, u16;
-	UInt32		x, rxConfig;
+	UInt32		x;
 
 
-	ELG( 0, READ_REGISTER( StatusAlias ), 'StsA', "restartReceiver" );
-	ELG( READ_REGISTER( RxKick ), READ_REGISTER( RxCompletion ), 'RxKC', "restartReceiver" );
-	ELG( READ_REGISTER( RxConfiguration ), READ_REGISTER( RxFIFOReadPointer ), 'RxCR', "restartReceiver" );
-	ELG( READ_REGISTER( RxFIFOShadowWritePointer ), READ_REGISTER( RxFIFOWritePointer ), 'RxWp', "restartReceiver" );
-	ELG( 0, READ_REGISTER( RxFIFOPacketCounter ), 'RxPC', "restartReceiver" );
-	ELG( READ_REGISTER( RxStateMachine ), READ_REGISTER( StateMachine ), '=SMs', "restartReceiver invoked." );
+	ELG( 0, READ_REGISTER( StatusAlias ), 'StsA', "UniNEnet::restartReceiver" );
+	ELG( READ_REGISTER( RxKick ), READ_REGISTER( RxCompletion ), 'RxKC', "UniNEnet::restartReceiver" );
+	ELG( READ_REGISTER( RxConfiguration ), READ_REGISTER( RxFIFOReadPointer ), 'RxCR', "UniNEnet::restartReceiver" );
+	ELG( READ_REGISTER( RxFIFOShadowWritePointer ), READ_REGISTER( RxFIFOWritePointer ), 'RxWp', "UniNEnet::restartReceiver" );
+	ELG( 0, READ_REGISTER( RxFIFOPacketCounter ), 'RxPC', "UniNEnet::restartReceiver" );
+	ALRT( READ_REGISTER( RxStateMachine ), READ_REGISTER( StateMachine ), '=SMs', "UniNEnet::restartReceiver" );
 
 		// Perform software resets to the receiver.
 		// The MAC config register should be re-programmed following
@@ -917,9 +923,8 @@ void UniNEnet::restartReceiver()
 		// the MACControlConfiguration, 0x6038, gets its Pause enable bit reset.
 
 
-	rxConfig	= READ_REGISTER( RxConfiguration );		/* Stop the DMA	*/
-	rxConfig   &= ~kRxConfiguration_Rx_DMA_Enable;
-	WRITE_REGISTER( RxConfiguration, rxConfig );
+	fRxConfiguration &= ~kRxConfiguration_Rx_DMA_Enable;		/* Stop the DMA	*/
+	WRITE_REGISTER( RxConfiguration, fRxConfiguration );
 	IOSleep( 1 );				/* let it finish any frame in progress	*/
 
 		/* Do a global Rx reset:	*/
@@ -932,7 +937,7 @@ void UniNEnet::restartReceiver()
 			break;
 	}
 	if ( i == 0 )
-		ALRT( 0, x, '-SR-', "UniNEnet::stopPHY - timeout on SoftwareReset" );
+		ALRT( 0, x, '-SR-', "UniNEnet::restartReceiver - timeout on SoftwareReset" );
 
 		/* Do a MAC Rx reset;  poll until the reset bit	*/
 		/* is cleared by the hardware:					*/
@@ -971,6 +976,9 @@ void UniNEnet::restartReceiver()
 	for ( i = 0; i < fRxRingElements; ++i )
 		fRxDescriptorRing[ i ].frameDataSize = u16;
 
+	WRITE_REGISTER( RxBlanking,			fRxBlanking );
+	WRITE_REGISTER( PauseThresholds,	fPauseThresholds );
+
     rxCommandHead = 0;
 	WRITE_REGISTER( RxKick, fRxRingElements - 4 );
 
@@ -982,8 +990,8 @@ void UniNEnet::restartReceiver()
 
 		/* Start the Rx DMA again:	*/
 
-	rxConfig |= kRxConfiguration_Rx_DMA_Enable;
-	WRITE_REGISTER( RxConfiguration, rxConfig );
+	fRxConfiguration |= kRxConfiguration_Rx_DMA_Enable;
+	WRITE_REGISTER( RxConfiguration, fRxConfiguration );
 
 	return;
 }/* end restartReceiver */
@@ -1013,9 +1021,10 @@ bool UniNEnet::transmitPacket( struct mbuf *packet )
 		return false;
 	}
 
-	j = txCommandTail;
-    
+	k = j = txCommandTail;
+
 	OSAddAtomic( -segCount, (SInt32*)&fTxElementsAvail );
+	txIntCnt += segCount;
 
     m = packet;
 
@@ -1042,7 +1051,6 @@ bool UniNEnet::transmitPacket( struct mbuf *packet )
 		OSWriteLittleInt32( dp, offsetof( TxDescriptor, bufferAddrLo ), dataPhys );
 		OSWriteLittleInt32( dp, offsetof( TxDescriptor, flags0       ), length );
 		dp->flags1 = 0;
-		txIntCnt++;
 		j = (j + 1) & (fTxRingElements - 1);
 		m = m->m_next;
     }/* end FOR */
@@ -1071,8 +1079,8 @@ bool UniNEnet::transmitPacket( struct mbuf *packet )
 	}
 
     txCommandTail = j;
-
 	WRITE_REGISTER( TxKick, j );
+
     return true;          
 }/* end transmitPacket */
 
@@ -1296,7 +1304,7 @@ bool UniNEnet::receivePackets( bool debuggerParam )
 			/* Reject packets that are runts or that have other mutations.	*/
 
 		if ( receivedFrameSize < (kIOEthernetMinPacketSize - kIOEthernetCRCSize)
-		 ||  receivedFrameSize > (kIOEthernetMaxPacketSize)
+		 ||  receivedFrameSize >  kIOEthernetMaxPacketSize
 		 ||  rxPktStatus & kGEMRxDescFlags_BadCRC )
 		{
             reusePkt = true;
@@ -1362,7 +1370,6 @@ bool UniNEnet::receivePackets( bool debuggerParam )
 			fRxDescriptorRing[i].frameDataSize = OSSwapHostToLittleConstInt16( NETWORK_BUFSIZE | kGEMRxDescFrameSize_Own );
         }
 
-
 		if ( (i & 3) == 3 )		// only kick modulo 4
 		{
 			WRITE_REGISTER( RxKick, (i - 3) );
@@ -1409,37 +1416,36 @@ bool UniNEnet::transmitInterruptOccurred()
 	bool		serviced	= false;
 
 
-	i = READ_REGISTER( TxCompletion );
+	i = READ_REGISTER( TxCompletion );	/// get i from parm - from int status reg
 	ELG( txCommandHead, i, ' Tx+', "UniNEnet::transmitInterruptOccurred" );
+
+	if( i == txCommandHead )
+		return serviced;
+
+	serviced = true;
 
 	while ( i != txCommandHead )	// i and txCommandHead race each other
 	{
-		do		/* This DO loop reduces READ_REGISTERs accessing the PCI bus.	*/
-		{		/* Free the MBufs we just transmitted:	*/
+		KERNEL_DEBUG(	DBG_UniN_TXCOMPLETE | DBG_FUNC_NONE,
+						fTxMbuf[ txCommandHead ], 0, 0, 0, 0 );
+		elemCnt++;
 
-			KERNEL_DEBUG(	DBG_UniN_TXCOMPLETE | DBG_FUNC_NONE,
-							fTxMbuf[ txCommandHead ], 0, 0, 0, 0 );
-			elemCnt++;
-
-			if ( fTxMbuf[ txCommandHead ] )
+		if ( fTxMbuf[ txCommandHead ] )
+		{
+		//	ELG( txCommandHead, fTxMbuf[ txCommandHead ], 'TxPF', "UniNEnet::transmitInterruptOccurred - free the packet" );
+			if ( fTxMbuf[ txCommandHead ] != txDebuggerPkt )
 			{
-			//	ELG( txCommandHead, fTxMbuf[ txCommandHead ], 'TxPF', "UniNEnet::transmitInterruptOccurred - free the packet" );
-				if ( fTxMbuf[ txCommandHead ] != txDebuggerPkt )
-					freePacket( fTxMbuf[ txCommandHead ], kDelayFree );
-				else
-				{
-					ELG( i, txCommandHead, 'TxDb', "UniNEnet::transmitInterruptOccurred - recycling txDebuggerPkt" );
-					txDebuggerPktInUse = false;
-				}
-				fTxMbuf[ txCommandHead ] = 0;
+				freePacket( fTxMbuf[ txCommandHead ], kDelayFree );
 			}
+			else
+			{
+				ELG( i, txCommandHead, 'TxDb', "UniNEnet::transmitInterruptOccurred - recycling txDebuggerPkt" );
+				txDebuggerPktInUse = false;
+			}
+			fTxMbuf[ txCommandHead ] = 0;
+		}
 
-			txCommandHead = (txCommandHead + 1) & (fTxRingElements - 1);
-
-		} while ( i != txCommandHead );		// loop til txCommandHead catches i
-
-		serviced = true;
-		i = READ_REGISTER( TxCompletion );	// see if i advanced during last batch
+		txCommandHead = (txCommandHead + 1) & (fTxRingElements - 1);
 	}/* end WHILE */
 
 	OSAddAtomic( elemCnt, (SInt32*)&fTxElementsAvail );
@@ -1493,7 +1499,7 @@ void UniNEnet::debugTransmitInterruptOccurred()
 		if ( fTxMbuf[ txCommandHead ] )
 		{
 			if ( fTxMbuf[ txCommandHead ] != txDebuggerPkt )
-				debugQueue->enqueue( fTxMbuf[ txCommandHead ] );
+				debugQueue->enqueue( fTxMbuf[ txCommandHead ] );	/// ??? no use kdelay on Joe's Q
 			fTxMbuf[ txCommandHead ] = 0;
 		}
 
@@ -1607,7 +1613,7 @@ void UniNEnet::monitorLinkStatus( bool firstPoll )
 			// this function returns, and we want the duplex setting
 			// on the MAC to match the PHY.
 
-		if ( !fLoopback )
+		if ( !fLoopback && fAutoNegotiate )
 			miiWaitForAutoNegotiation();
 		miiReadWord( &phyStatus, MII_STATUS );
 		miiReadWord( &phyStatus, MII_STATUS );
@@ -1616,7 +1622,8 @@ void UniNEnet::monitorLinkStatus( bool firstPoll )
 	}
 
 	if ( (phyStatus & MII_STATUS_LINK_STATUS)
-	  && (firstPoll || (phyStatus & MII_STATUS_NEGOTIATION_COMPLETE)) )
+	  && (firstPoll || (phyStatus & MII_STATUS_NEGOTIATION_COMPLETE)
+					|| (fAutoNegotiate == false)) )
 	{
 		if ( !fCellClockEnabled )
 			wakeUp( true );			/* the link is up, make sure the cell clock is enabled	*/
@@ -1661,7 +1668,8 @@ void UniNEnet::monitorLinkStatus( bool firstPoll )
 			  ||  ((phyType & MII_BCM5400_MASK) == MII_BCM5401_ID)		/// mlj temporary quick fix
 			  ||  ((phyType & MII_BCM5400_MASK) == MII_BCM5411_ID)		/// mlj temporary quick fix
 			  ||  ((phyType & MII_BCM5400_MASK) == MII_BCM5421_ID)		/// mlj temporary quick fix
-			  ||  ((phyType & MII_BCM5400_MASK) == MII_BCM54K2_ID) )	/// mlj temporary quick fix
+			  ||  ((phyType & MII_BCM5400_MASK) == MII_BCM54K2_ID)		/// mlj temporary quick fix
+			  ||  ((phyType & MII_BCM5400_MASK) == MII_BCM5462_ID) )	/// mlj temporary quick fix
 		{
 			miiReadWord( &linkStatus, MII_BCM5400_AUXSTATUS );
 
@@ -1733,7 +1741,7 @@ void UniNEnet::monitorLinkStatus( bool firstPoll )
 			else fullDuplex =  false;
 		}/* end ELSE IF Marvell */
 
-		setDuplexMode( fullDuplex );    
+		setDuplexMode( fullDuplex );   /* Set up the MAC's registers for duplex.	*/ 
 
 			/* Enable/disable Pause flow control depending on Link Partner:	*/
 
@@ -1938,12 +1946,10 @@ void UniNEnet::updateHashTableMask()
     UInt32      i, x;
 
 
-	fRxMACConfiguration = READ_REGISTER( RxMACConfiguration );
 	ELG( this, fRxMACConfiguration, 'updH', "updateHashTableMask" );
 
 	WRITE_REGISTER( RxMACConfiguration,
-					fRxMACConfiguration & ~(kRxMACConfiguration_Rx_Mac_Enable
-										  | kRxMACConfiguration_Hash_Filter_Enable) );
+					fRxMACConfiguration & ~kRxMACConfiguration_Rx_Mac_Enable );
 		/* Time limit for bits to clear is around 3.2 ms	*/
 	for ( i = 0; i <= 3; ++i )
 	{

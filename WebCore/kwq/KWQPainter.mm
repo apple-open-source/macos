@@ -24,19 +24,25 @@
  */
 
 #import "KWQPainter.h"
-#import "KWQWidget.h"
-#import "KWQFontMetrics.h"
-#import "KWQPixmap.h"
-#import "KWQPtrStack.h"
-#import "KWQPointArray.h"
-#import "KWQPaintDevice.h"
-#import "KWQPrinter.h"
 
 #import "KWQAssertions.h"
-
+#import "KWQExceptions.h"
+#import "KWQFontMetrics.h"
+#import "KWQKHTMLPart.h"
+#import "KWQPaintDevice.h"
+#import "KWQPixmap.h"
+#import "KWQPointArray.h"
+#import "KWQPrinter.h"
+#import "KWQPtrStack.h"
+#import "KWQWidget.h"
+#import "WebCoreGraphicsBridge.h"
 #import "WebCoreImageRenderer.h"
 #import "WebCoreTextRenderer.h"
 #import "WebCoreTextRendererFactory.h"
+
+// NSColor, NSBezierPath, NSGraphicsContext and WebCoreTextRenderer
+// calls in this file are all exception-safe, so we don't block
+// exceptions for those.
 
 struct QPState {
     QPState() : paintingDisabled(false) { }
@@ -48,19 +54,25 @@ struct QPState {
 };
 
 struct QPainterPrivate {
-    QPainterPrivate() : textRenderer(0) { }
-    ~QPainterPrivate() { [textRenderer release]; }
+    QPainterPrivate() : textRenderer(0), focusRingPath(0), focusRingWidth(0), focusRingOffset(0),
+                        hasFocusRingColor(false) { }
+    ~QPainterPrivate() { [textRenderer release]; [focusRingPath release]; }
     QPState state;
     QPtrStack<QPState> stack;
     id <WebCoreTextRenderer> textRenderer;
     QFont textRendererFont;
+    NSBezierPath *focusRingPath;
+    int focusRingWidth;
+    int focusRingOffset;
+    bool hasFocusRingColor;
+    QColor focusRingColor;
 };
 
-QPainter::QPainter() : data(new QPainterPrivate), _isForPrinting(false), _usesInactiveTextBackgroundColor(false)
+QPainter::QPainter() : data(new QPainterPrivate), _isForPrinting(false), _usesInactiveTextBackgroundColor(false), _drawsFocusRing(true)
 {
 }
 
-QPainter::QPainter(bool forPrinting) : data(new QPainterPrivate), _isForPrinting(forPrinting), _usesInactiveTextBackgroundColor(false)
+QPainter::QPainter(bool forPrinting) : data(new QPainterPrivate), _isForPrinting(forPrinting), _usesInactiveTextBackgroundColor(false), _drawsFocusRing(true)
 {
 }
 
@@ -435,9 +447,14 @@ void QPainter::drawPixmap( int x, int y, const QPixmap &pixmap,
         sw = pixmap.width();
     if (sh == -1)
         sh = pixmap.height();
+
+    NSRect inRect = NSMakeRect(x, y, sw, sh);
+    NSRect fromRect = NSMakeRect(sx, sy, sw, sh);
     
-    [pixmap.imageRenderer beginAnimationInRect:NSMakeRect(x, y, sw, sh)
-                                      fromRect:NSMakeRect(sx, sy, sw, sh)];
+    KWQ_BLOCK_EXCEPTIONS;
+    [pixmap.imageRenderer drawImageInRect:inRect
+                                      fromRect:fromRect];
+    KWQ_UNBLOCK_EXCEPTIONS;
 }
 
 void QPainter::drawTiledPixmap( int x, int y, int w, int h,
@@ -446,7 +463,9 @@ void QPainter::drawTiledPixmap( int x, int y, int w, int h,
     if (data->state.paintingDisabled)
         return;
     
+    KWQ_BLOCK_EXCEPTIONS;
     [pixmap.imageRenderer tileInRect:NSMakeRect(x, y, w, h) fromPoint:NSMakePoint(sx, sy)];
+    KWQ_UNBLOCK_EXCEPTIONS;
 }
 
 void QPainter::_updateRenderer(NSString **families)
@@ -454,10 +473,12 @@ void QPainter::_updateRenderer(NSString **families)
     if (data->textRenderer == 0 || data->state.font != data->textRendererFont) {
         data->textRendererFont = data->state.font;
         id <WebCoreTextRenderer> oldRenderer = data->textRenderer;
+	KWQ_BLOCK_EXCEPTIONS;
         data->textRenderer = [[[WebCoreTextRendererFactory sharedFactory]
             rendererWithFont:data->textRendererFont.getNSFont()
             usingPrinterFont:data->textRendererFont.isPrinterFont()] retain];
         [oldRenderer release];
+	KWQ_UNBLOCK_EXCEPTIONS;
     }
 }
     
@@ -488,7 +509,7 @@ void QPainter::drawText(int x, int y, int, int, int alignmentFlags, const QStrin
     [data->textRenderer drawRun:&run style:&style atPoint:NSMakePoint(x, y)];
 }
 
-void QPainter::drawText(int x, int y, const QChar *str, int len, int from, int to, int toAdd, const QColor &backgroundColor, QPainter::TextDirection d, int letterSpacing, int wordSpacing, bool smallCaps)
+void QPainter::drawText(int x, int y, const QChar *str, int len, int from, int to, int toAdd, const QColor &backgroundColor, QPainter::TextDirection d, bool visuallyOrdered, int letterSpacing, int wordSpacing, bool smallCaps)
 {
     if (data->state.paintingDisabled || len <= 0)
         return;
@@ -511,6 +532,7 @@ void QPainter::drawText(int x, int y, const QChar *str, int len, int from, int t
     style.textColor = data->state.pen.color().getNSColor();
     style.backgroundColor = backgroundColor.isValid() ? backgroundColor.getNSColor() : nil;
     style.rtl = d == RTL ? true : false;
+    style.visuallyOrdered = visuallyOrdered;
     style.letterSpacing = letterSpacing;
     style.wordSpacing = wordSpacing;
     style.smallCaps = smallCaps;
@@ -520,7 +542,7 @@ void QPainter::drawText(int x, int y, const QChar *str, int len, int from, int t
     [data->textRenderer drawRun:&run style:&style atPoint:NSMakePoint(x, y)];
 }
 
-void QPainter::drawHighlightForText(int x, int y, const QChar *str, int len, int from, int to, int toAdd, const QColor &backgroundColor, QPainter::TextDirection d, int letterSpacing, int wordSpacing, bool smallCaps)
+void QPainter::drawHighlightForText(int x, int y, const QChar *str, int len, int from, int to, int toAdd, const QColor &backgroundColor, QPainter::TextDirection d, bool visuallyOrdered, int letterSpacing, int wordSpacing, bool smallCaps)
 {
     if (data->state.paintingDisabled || len <= 0)
         return;
@@ -543,6 +565,7 @@ void QPainter::drawHighlightForText(int x, int y, const QChar *str, int len, int
     style.textColor = data->state.pen.color().getNSColor();
     style.backgroundColor = backgroundColor.isValid() ? backgroundColor.getNSColor() : nil;
     style.rtl = d == RTL ? true : false;
+    style.visuallyOrdered = visuallyOrdered;
     style.letterSpacing = letterSpacing;
     style.wordSpacing = wordSpacing;
     style.smallCaps = smallCaps;
@@ -638,11 +661,14 @@ void QPainter::setShadow(int x, int y, int blur, const QColor& color)
         float alpha = [deviceColor alphaComponent];
         const float components[] = { red, green, blue, alpha };
         
+        CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+        CGColorRef color = CGColorCreate(colorSpace, components);
+        CGColorSpaceRelease(colorSpace);
         CGContextSetShadowWithColor(context,
                                     CGSizeMake(x,-y), // y is flipped.
                                     blur, 
-                                    CGColorCreate(CGColorSpaceCreateDeviceRGB(),
-                                                  components));
+                                    color);
+        CGColorRelease(color);
     }
 }
 
@@ -652,3 +678,70 @@ void QPainter::clearShadow()
     CGContextSetShadowWithColor(context, CGSizeZero, 0, NULL);
 }
 
+void QPainter::initFocusRing(int width, int offset)
+{
+    if (!_drawsFocusRing)
+        return;
+
+    clearFocusRing();
+    data->focusRingWidth = width;
+    data->hasFocusRingColor = false;
+    data->focusRingOffset = offset;
+    data->focusRingPath = [[NSBezierPath alloc] init];
+    [data->focusRingPath setWindingRule:NSNonZeroWindingRule];
+}
+
+void QPainter::initFocusRing(int width, int offset, const QColor &color)
+{
+    if (!_drawsFocusRing)
+        return;
+
+    initFocusRing(width, offset);
+    data->hasFocusRingColor = true;
+    data->focusRingColor = color;
+}
+
+void QPainter::addFocusRingRect(int x, int y, int width, int height)
+{
+    if (!_drawsFocusRing)
+        return;
+
+    ASSERT(data->focusRingPath);
+    NSRect rect = NSMakeRect(x, y, width, height);
+    int offset = (data->focusRingWidth-1)/2 + data->focusRingOffset;
+    rect = NSInsetRect(rect, -offset, -offset);
+    [data->focusRingPath appendBezierPathWithRect:rect];
+}
+
+void QPainter::drawFocusRing()
+{
+    if (!_drawsFocusRing)
+        return;
+    
+    ASSERT(data->focusRingPath);
+    if (data->state.paintingDisabled)
+        return;
+
+    if ([data->focusRingPath elementCount] == 0) {
+        ERROR("Request to draw focus ring with no control points");
+        return;
+    }
+    
+    NSRect bounds = [data->focusRingPath bounds];
+    if (!NSIsEmptyRect(bounds)) {
+        int radius = (data->focusRingWidth-1)/2;
+        NSColor *color = data->hasFocusRingColor ? data->focusRingColor.getNSColor() : nil;
+        [NSGraphicsContext saveGraphicsState];
+        [[WebCoreGraphicsBridge sharedBridge] setFocusRingStyle:NSFocusRingOnly radius:radius color:color];
+        [data->focusRingPath fill];
+        [NSGraphicsContext restoreGraphicsState];   
+    }
+}
+
+void QPainter::clearFocusRing()
+{
+    if (data->focusRingPath) {
+        [data->focusRingPath release];
+        data->focusRingPath = nil;
+    }
+}

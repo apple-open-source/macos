@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+    <classpathentry kind="lib" path="lib/ant.jar"/>
+    <classpathentry kind="lib" path="lib/saxon.jar"/>
+    <classpathentry kind="lib" path="lib/buildmagic-tasks.jar"/>
+    <classpathentry kind="lib" path="lib/xalan.jar"/>
+    <classpathentry kind="lib" path="lib/optional.jar"/>
+    <classpathentry kind="lib" path="lib/xercesImpl.jar"/>
+    <classpathentry kind="lib" path="lib/bsf.jar"/>
+    <classpathentry kind="lib" path="lib/remote-mbeanserver.jar"/>
+    <classpathentry kind="lib" path="lib/junit.jar"/>
+    <classpathentry kind="lib" path="lib/crimson.jar"/>
+    <classpathentry kind="lib" path="lib/xml-apis.jar"/>
+    <classpathentry kind="lib" path="lib/pretty.jar"/>
+    <classpathentry kind="lib" path="lib/JavaStyle.jar"/>
+    <classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+    <classpathentry kind="output" path=""/>
+</classpath>

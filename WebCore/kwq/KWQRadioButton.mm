@@ -25,60 +25,84 @@
 
 #import "KWQRadioButton.h"
 
-#import "KWQView.h"
+#import "KWQExceptions.h"
 
-// We empirically determined that radio buttons have these dimensions.
-// It would be better to get this info from AppKit somehow.
-
-#define TOP_MARGIN 3
-#define BOTTOM_MARGIN 3
-#define LEFT_MARGIN 2
-#define RIGHT_MARGIN 2
-
-#define WIDTH 14
-#define HEIGHT 13
-
-#define BASELINE_MARGIN 2
+enum {
+    topMargin,
+    bottomMargin,
+    leftMargin,
+    rightMargin,
+    baselineFudgeFactor,
+    dimWidth,
+    dimHeight
+};
 
 QRadioButton::QRadioButton(QWidget *w)
 {
     NSButton *button = (NSButton *)getView();
+    KWQ_BLOCK_EXCEPTIONS;
     [button setButtonType:NSRadioButton];
+    KWQ_UNBLOCK_EXCEPTIONS;
 }
 
 QSize QRadioButton::sizeHint() const 
 {
-    return QSize(WIDTH, HEIGHT);
+    return QSize(dimensions()[dimWidth], dimensions()[dimHeight]);
 }
 
 QRect QRadioButton::frameGeometry() const
 {
     QRect r = QWidget::frameGeometry();
-    return QRect(r.x() + LEFT_MARGIN, r.y() + TOP_MARGIN,
-        r.width() - (LEFT_MARGIN + RIGHT_MARGIN),
-        r.height() - (TOP_MARGIN + BOTTOM_MARGIN));
+    return QRect(r.x() + dimensions()[leftMargin], r.y() + dimensions()[topMargin],
+        r.width() - (dimensions()[leftMargin] + dimensions()[rightMargin]),
+        r.height() - (dimensions()[topMargin] + dimensions()[bottomMargin]));
 }
 
 void QRadioButton::setFrameGeometry(const QRect &r)
 {
-    QWidget::setFrameGeometry(QRect(r.x() - LEFT_MARGIN, r.y() - TOP_MARGIN,
-        r.width() + LEFT_MARGIN + RIGHT_MARGIN,
-        r.height() + TOP_MARGIN + BOTTOM_MARGIN));
+    QWidget::setFrameGeometry(QRect(r.x() - dimensions()[leftMargin], r.y() - dimensions()[topMargin],
+        r.width() + dimensions()[leftMargin] + dimensions()[rightMargin],
+        r.height() + dimensions()[topMargin] + dimensions()[bottomMargin]));
 }
 
 void QRadioButton::setChecked(bool isChecked)
 {
     NSButton *button = (NSButton *)getView();
+    KWQ_BLOCK_EXCEPTIONS;
     [button setState:isChecked ? NSOnState : NSOffState];
+    KWQ_UNBLOCK_EXCEPTIONS;
 }
 
 bool QRadioButton::isChecked() const
 {
     NSButton *button = (NSButton *)getView();
+    
+    KWQ_BLOCK_EXCEPTIONS;
     return [button state] == NSOnState;
+    KWQ_UNBLOCK_EXCEPTIONS;
+
+    return false;
 }
 
-int QRadioButton::baselinePosition() const
+int QRadioButton::baselinePosition(int height) const
 {
-    return height() - BASELINE_MARGIN;
+    return height - dimensions()[baselineFudgeFactor];
+}
+
+const int *QRadioButton::dimensions() const
+{
+    // We empirically determined these dimensions.
+    // It would be better to get this info from AppKit somehow.
+    static const int w[3][7] = {
+        { 2, 4, 2, 2, 2, 14, 15 },
+        { 3, 3, 2, 2, 2, 12, 13 },
+        { 1, 2, 0, 0, 2, 10, 10 },
+    };
+    NSControl * const button = static_cast<NSControl *>(getView());
+
+    KWQ_BLOCK_EXCEPTIONS;
+    return w[[[button cell] controlSize]];
+    KWQ_UNBLOCK_EXCEPTIONS;
+
+    return w[NSSmallControlSize];
 }

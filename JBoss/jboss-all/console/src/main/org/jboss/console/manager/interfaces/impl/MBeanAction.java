@@ -7,11 +7,11 @@
 
 package org.jboss.console.manager.interfaces.impl;
 
-import javax.management.ObjectName;
-
 import org.jboss.console.navtree.AppletBrowser;
 import org.jboss.console.navtree.AppletTreeAction;
 import org.jboss.console.navtree.TreeContext;
+
+import javax.management.ObjectName;
 
 /**
  * <description>
@@ -19,7 +19,7 @@ import org.jboss.console.navtree.TreeContext;
  * @see <related>
  *
  * @author  <a href="mailto:sacha.labourey@cogito-info.ch">Sacha Labourey</a>.
- * @version $Revision: 1.1.2.1 $
+ * @version $Revision: 1.1.2.2 $
  *
  * <p><b>Revisions:</b>
  *

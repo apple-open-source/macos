@@ -28,8 +28,8 @@
  */
 
 #ifndef lint
-static const char rcsid[] =
-    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-lwres.c,v 1.1.1.2 2003/03/17 18:42:17 rbraun Exp $ (LBL)";
+static const char rcsid[] _U_ =
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-lwres.c,v 1.1.1.3 2004/02/05 19:30:55 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -428,7 +428,7 @@ lwres_print(register const u_char *bp, u_int length)
 			/* XXX grbn points to packed struct */
 			s = (const char *)&grbn->namelen +
 			    sizeof(grbn->namelen);
-			l = EXTRACT_16BITS(&gabn->namelen);
+			l = EXTRACT_16BITS(&grbn->namelen);
 
 			advance = lwres_printname(l, s);
 			if (advance < 0)

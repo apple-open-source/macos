@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,133 +23,26 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc.  All rights reserved.
  *
  *  DRI: Dave Radcliffe
  *
  */
-//		$Log: IOPlatformPlugin.cpp,v $
-//		Revision 1.13  2003/08/01 00:42:30  wgulland
-//		Merging in branch PR-3338565
-//		
-//		Revision 1.12.2.1  2003/07/31 17:53:08  eem
-//		3338565 - q37 intake fan speed is 97% of exhaust fan speed, but still gets
-//		clipped at the same min/max.  This prevents the intake fan speed from falling
-//		below 300 RPM and being turned off by the FCU.  Version bumped to 1.0.1b1.
-//		
-//		Revision 1.12  2003/07/24 21:47:16  eem
-//		[3338565] Q37 Final Fan data
-//		
-//		Revision 1.11  2003/07/18 00:22:22  eem
-//		[3329244] PCI fan conrol algorithm should use integral of power consumed
-//		[3254911] Q37 Platform Plugin must disable debugging accessors before GM
-//		
-//		Revision 1.10  2003/07/17 06:57:36  eem
-//		3329222 and other sleep stability issues fixed.
-//		
-//		Revision 1.9  2003/07/16 02:02:09  eem
-//		3288772, 3321372, 3328661
-//		
-//		Revision 1.8  2003/07/08 04:32:49  eem
-//		3288891, 3279902, 3291553, 3154014
-//		
-//		Revision 1.7  2003/06/25 02:16:24  eem
-//		Merged 101.0.21 to TOT, fixed PM72 lproj, included new fan settings, bumped
-//		version to 101.0.22.
-//		
-//		Revision 1.6.4.1  2003/06/20 01:39:58  eem
-//		Although commented out in this submision, there is support here to nap
-//		the processors if the fans are at min, with the intent of keeping the
-//		heat sinks up to temperature.
-//		
-//		Revision 1.6  2003/06/07 01:30:56  eem
-//		Merge of EEM-PM72-ActiveFans-2 branch, with a few extra tweaks.  This
-//		checkin has working PID control for PowerMac7,2 platforms, as well as
-//		a first shot at localized strings.
-//		
-//		Revision 1.5.2.10  2003/06/06 08:17:56  eem
-//		Holy Motherfucking shit.  PID is really working.
-//		
-//		Revision 1.5.2.9  2003/06/04 10:21:10  eem
-//		Supports forced PID meta states.
-//		
-//		Revision 1.5.2.8  2003/06/04 00:00:51  eem
-//		More PID stuff, working towards support for forced meta states.
-//		
-//		Revision 1.5.2.7  2003/06/01 14:52:51  eem
-//		Most of the PID algorithm is implemented.
-//		
-//		Revision 1.5.2.6  2003/05/31 09:02:06  eem
-//		Fix deadline check.
-//		
-//		Revision 1.5.2.5  2003/05/31 08:11:34  eem
-//		Initial pass at integrating deadline-based timer callbacks for PID loops.
-//		
-//		Revision 1.5.2.4  2003/05/29 03:51:34  eem
-//		Clean up environment dictionary access.
-//		
-//		Revision 1.5.2.3  2003/05/26 10:07:14  eem
-//		Fixed most of the bugs after the last cleanup/reorg.
-//		
-//		Revision 1.5.2.2  2003/05/23 05:44:40  eem
-//		Cleanup, ctrlloops not get notification for sensor and control registration.
-//		
-//		Revision 1.5.2.1  2003/05/22 01:31:04  eem
-//		Checkin of today's work (fails compilations right now).
-//		
-//		Revision 1.5  2003/05/21 21:58:49  eem
-//		Merge from EEM-PM72-ActiveFans-1 branch with initial crack at active fan
-//		control on Q37.
-//		
-//		Revision 1.4.2.3  2003/05/17 11:08:22  eem
-//		All active fan data present, table event-driven.  PCI power sensors are
-//		not working yet so PCI fan is just set to 67% PWM and forgotten about.
-//		
-//		Revision 1.4.2.2  2003/05/16 07:08:45  eem
-//		Table-lookup active fan control working with this checkin.
-//		
-//		Revision 1.4.2.1  2003/05/14 22:07:48  eem
-//		Implemented state-driven sensor, cleaned up "const" usage and header
-//		inclusions.
-//		
-//		Revision 1.4  2003/05/13 02:13:51  eem
-//		PowerMac7_2 Dynamic Power Step support.
-//		
-//		Revision 1.3.2.1  2003/05/12 11:21:10  eem
-//		Support for slewing.
-//		
-//		Revision 1.3  2003/05/10 06:50:33  eem
-//		All sensor functionality included for PowerMac7_2_PlatformPlugin.  Version
-//		is 1.0.1d12.
-//		
-//		Revision 1.2.2.4  2003/05/10 06:32:34  eem
-//		Sensor changes, should be ready to merge to trunk as 1.0.1d12.
-//		
-//		Revision 1.2.2.3  2003/05/05 21:29:37  eem
-//		Checkin 1.1.0d11 for PD distro and submission.  Debugging turned off.
-//		
-//		Revision 1.2.2.2  2003/05/03 01:11:38  eem
-//		*** empty log message ***
-//		
-//		Revision 1.2.2.1  2003/05/01 09:28:40  eem
-//		Initial check-in in progress toward first Q37 checkpoint.
-//		
-//		Revision 1.2  2003/02/18 00:02:05  eem
-//		3146943: timebase enable for MP, bump version to 1.0.1d3.
-//		
-//		Revision 1.1.1.1  2003/02/04 00:36:43  raddog
-//		initial import into CVS
-//		
+
 
 #include "IOPlatformPlugin.h"
 
 #define super IOService
 OSDefineMetaClassAndStructors(IOPlatformPlugin, IOService)
 
+#pragma mark
+#pragma mark *** IOPlatformPluginFamily Global Symbols ***
+
 /*
  * Symbols are declared here, allocated in initSymbols(), and extern'd
  * in IOPlatformPluginTypes.h for easy access by all helper classes.
  */
+
 const OSSymbol * gIOPPluginForceUpdateKey;
 const OSSymbol * gIOPPluginForceUpdateAllKey;
 const OSSymbol * gIOPPluginForceSensorCurValKey;
@@ -204,14 +97,19 @@ const OSNumber * gIOPPluginOne;
 
 IOPlatformPlugin * platformPlugin;
 
+#pragma mark
+#pragma mark *** IOService method overrides ***
+
 /*
- * start
+ * IOService overrides
  */
+
 bool IOPlatformPlugin::start(IOService *nub)
 {
 	mach_timespec_t waitTimeout;
 	AbsoluteTime now;
 	const OSArray * tempArray;
+	IONotifier * restartNotifier;
 
 	//DLOG("IOPlatformPlugin::start - entered\n");
 
@@ -227,26 +125,6 @@ bool IOPlatformPlugin::start(IOService *nub)
 	gIOPPluginZero = OSNumber::withNumber( (unsigned long long) 0, 1);
 	gIOPPluginOne = OSNumber::withNumber( (unsigned long long) 1, 1);
 
-/*
-    // Creates the Workloop and attaches all the event handlers to it:
-    // ---------------------------------------------------------------
-    workLoop = getWorkLoop();
-    if (workLoop == NULL) {
-		IOLog("IOPlatformPlugin::start failed to get a workloop\n");
-        goto failReleaseSymbols;
-    }
-
-    // Creates the command gate for the events that need to be in the queue
-    commandGate = IOCommandGate::commandGate(this, (IOCommandGate::Action)commandGateCaller);
-
-    // and adds it to the workloop:
-    if ((commandGate == NULL) ||
-        (workLoop->addEventSource(commandGate) != kIOReturnSuccess))
-    {
-		IOLog("IOPlatformPlugin::start failed to initialize command gate\n");
-        goto failReleaseCmdGate;
-    }
-*/
 	// allocate the thread call used for timer callbacks
 	timerCallout = thread_call_allocate( (thread_call_func_t) IOPlatformPlugin::timerEventOccured,
 			(thread_call_param_t) this );
@@ -305,6 +183,9 @@ bool IOPlatformPlugin::start(IOService *nub)
         nub->joinPMtree(this);
     }
 
+	// Install power change handler (for restart notification)
+	restartNotifier = registerPrioritySleepWakeInterest(&sysPowerDownHandler, this, 0);
+
 	// HELLO!!
 	registerService();
 
@@ -313,15 +194,6 @@ bool IOPlatformPlugin::start(IOService *nub)
 	publishResource ("IOPlatformPlugin", this);
 	
 	return(true);
-
-/*
-failReleaseCmdGate:
-	if (commandGate)
-	{
-		commandGate->release();
-		commandGate = NULL;
-	}
-*/
 
 failReleaseSymbols:
 	// I am not releasing all the symbols created in initSymbols() because, well,
@@ -337,20 +209,6 @@ failOnly:
 
 void IOPlatformPlugin::stop(IOService *nub)
 {
-/*
-	if (workLoop)
-	{
-		if (commandGate)
-		{
-			workLoop->removeEventSource(commandGate);
-			commandGate->release();
-			commandGate = NULL;
-		}
-
-		// workLoop->release();
-		workLoop = NULL;
-	}
-*/
 	thread_call_cancel(timerCallout);
 	thread_call_free(timerCallout);
 }
@@ -410,6 +268,9 @@ void IOPlatformPlugin::free( void )
 
 	super::free();
 }
+
+#pragma mark
+#pragma mark *** Initialization Routines ***
 
 void IOPlatformPlugin::initSymbols( void )
 {
@@ -546,6 +407,11 @@ bool IOPlatformPlugin::initControls( const OSArray * controlDicts )
 	IOReturn result;
 	int i, count;
 
+	// Allocate the control lists and add the control info array to the registry
+	controls = OSArray::withCapacity(0);
+	controlInfoDicts = OSArray::withCapacity(0);
+	setProperty(gIOPPluginControlDataKey, controlInfoDicts);
+
 	if (controlDicts == NULL)
 	{
 		DLOG("IOPlatformPlugin::initControls no control array\n");
@@ -553,11 +419,6 @@ bool IOPlatformPlugin::initControls( const OSArray * controlDicts )
 		// this is not a fatal error
 		return(true);
 	}
-
-	// Allocate the control lists and add the control info array to the registry
-	controls = OSArray::withCapacity(0);
-	controlInfoDicts = OSArray::withCapacity(0);
-	setProperty(gIOPPluginControlDataKey, controlInfoDicts);
 
 	count = controlDicts->getCount();
 	for (i = 0; i < count; i++)
@@ -623,6 +484,11 @@ bool IOPlatformPlugin::initSensors( const OSArray * sensorDicts )
 	IOReturn result;
 	int i, count;
 
+	// Allocate the sensor info array and put it in the registry
+	sensors = OSArray::withCapacity(0);
+	sensorInfoDicts = OSArray::withCapacity(0);
+	setProperty(gIOPPluginSensorDataKey, sensorInfoDicts);
+
 	if (sensorDicts == NULL)
 	{
 		DLOG("IOPlatformPlugin::initSensors no sensor array\n");
@@ -630,11 +496,6 @@ bool IOPlatformPlugin::initSensors( const OSArray * sensorDicts )
 		// this is not a fatal error
 		return(true);
 	}
-
-	// Allocate the sensor info array and put it in the registry
-	sensors = OSArray::withCapacity(0);
-	sensorInfoDicts = OSArray::withCapacity(0);
-	setProperty(gIOPPluginSensorDataKey, sensorInfoDicts);
 
 	count = sensorDicts->getCount();
 	for (i = 0; i < count; i++)
@@ -700,6 +561,11 @@ bool IOPlatformPlugin::initCtrlLoops( const OSArray * ctrlLoopDicts )
 	IOReturn result;
 	int i, count;
 
+	// allocate the ctrlloop lists and add the ctrlloop info array to the registry
+	ctrlLoops = OSArray::withCapacity(0);
+	ctrlLoopInfoDicts = OSArray::withCapacity(0);
+	setProperty( gIOPPluginCtrlLoopDataKey, ctrlLoopInfoDicts );
+
 	if (ctrlLoopDicts == NULL)
 	{
 		DLOG("IOPlatformPlugin::initCtrlLoops no ctrlloop array\n");
@@ -707,11 +573,6 @@ bool IOPlatformPlugin::initCtrlLoops( const OSArray * ctrlLoopDicts )
 		// this is not a fatal error
 		return(true);
 	}
-
-	// allocate the ctrlloop lists and add the ctrlloop info array to the registry
-	ctrlLoops = OSArray::withCapacity(0);
-	ctrlLoopInfoDicts = OSArray::withCapacity(0);
-	setProperty( gIOPPluginCtrlLoopDataKey, ctrlLoopInfoDicts );
 
 	count = ctrlLoopDicts->getCount();
 	for (i = 0; i < count; i++)
@@ -767,6 +628,22 @@ bool IOPlatformPlugin::initCtrlLoops( const OSArray * ctrlLoopDicts )
 	return(true);
 }
 
+#pragma mark
+#pragma mark *** Machine Config Routines ***
+
+/* Called in ::start(), subclasses should override this routine to properly determine the machine config */
+UInt8 IOPlatformPlugin::probeConfig(void)
+{
+	return 0;	// generic class doesn't know anything about a machine's configs...
+}
+
+/* simple accessor for the (previously probed) machine config */
+UInt8 IOPlatformPlugin::getConfig( void )
+{
+	return machineConfig;
+}
+
+/* a ValidConfigs array from the thermal profile can be passed into this routine, and a flag will be returned which tells whether the current config is listed in the array */
 bool IOPlatformPlugin::validOnConfig( const OSArray * validConfigs )
 {
 	const OSNumber * number;
@@ -789,6 +666,9 @@ bool IOPlatformPlugin::validOnConfig( const OSArray * validConfigs )
 	
 	return( valid );
 }
+
+#pragma mark
+#pragma mark *** Sensor / Control / CtrlLoop Lookup Routines ***
 
 IOPlatformSensor *IOPlatformPlugin::lookupSensorByID( const OSNumber * sensorID ) const
 {
@@ -862,6 +742,10 @@ IOPlatformCtrlLoop *IOPlatformPlugin::lookupCtrlLoopByID( const OSNumber * ctrlL
 	return(result);
 }
 
+#pragma mark
+#pragma mark *** Environment Helpers ***
+
+// Put an arbitrary object into the environment dictionary with the supplied key
 bool IOPlatformPlugin::setEnv( const OSString *aKey, const OSMetaClassBase *anObject )
 {
 	if (envInfo->setObject( aKey, anObject ))
@@ -875,6 +759,7 @@ bool IOPlatformPlugin::setEnv( const OSString *aKey, const OSMetaClassBase *anOb
 	}
 }
 
+// Put an arbitrary object into the environment dictionary with the supplied key
 bool IOPlatformPlugin::setEnv( const char *aKey, const OSMetaClassBase *anObject )
 {
 	if (envInfo->setObject( aKey, anObject ))
@@ -888,6 +773,7 @@ bool IOPlatformPlugin::setEnv( const char *aKey, const OSMetaClassBase *anObject
 	}
 }
 
+// Put an arbitrary object into the environment dictionary with the supplied key
 bool IOPlatformPlugin::setEnv( const OSSymbol *aKey, const OSMetaClassBase *anObject )
 {
 	if (envInfo->setObject( aKey, anObject ))
@@ -904,6 +790,16 @@ bool IOPlatformPlugin::setEnv( const OSSymbol *aKey, const OSMetaClassBase *anOb
 /*
  * Some environment conditions are set per-ctrlloop, so we can track which ctrl loops are causing
  * a condition to exists.  If the array is empty, none of the loops are exhibiting the condition.
+ *
+ * This routine looks for the condition key, and then sets the boolean flag for the indicated
+ * caller.  So if a control loop wants to set the overtemp flag for itself, it can call:
+ *
+ * platformPlugin->setEnvArray( gOverTempSymbol, this, true );
+ *
+ * and the flag can be cleared by calling
+ *
+ * platformPlugin->setEnvArray( gOverTempSymbol, this, false );
+ *
  */
 
 bool IOPlatformPlugin::setEnvArray( const OSSymbol * aKey, const OSObject * setter, bool setting )
@@ -1019,16 +915,18 @@ void IOPlatformPlugin::environmentChanged( void )
 	}
 }
 
-UInt8 IOPlatformPlugin::probeConfig(void)
+#pragma mark
+#pragma mark *** Miscellaneous Helpers ***
+
+void IOPlatformPlugin::sleepSystem( void )
 {
-	return 0;	// generic class doesn't know anything about a machine's configs...
+	DLOG("IOPlatformPlugin::sleepSystem issuing sleep demand\n");
+
+	pmRootDomain->sleepSystem();
 }
 
-UInt8 IOPlatformPlugin::getConfig( void )
-{
-	return machineConfig;
-}
-
+// Iterate the control loop list and find the closest deadline, if any.  Set the timer callback
+// to fire at the deadline.
 void IOPlatformPlugin::setTimeout( const AbsoluteTime now )
 {
 	AbsoluteTime loopDeadline, soonest;
@@ -1079,218 +977,276 @@ void IOPlatformPlugin::setTimeout( const AbsoluteTime now )
 	}
 }
 
-void IOPlatformPlugin::timerHandler( const AbsoluteTime now )
+#pragma mark
+#pragma mark *** Event Handling Helpers ***
+
+IOReturn IOPlatformPlugin::handleEvent(IOPPluginEventData *event)
 {
-	AbsoluteTime loopDeadline;
-	IOPlatformCtrlLoop *loop;
-	int i, count;
+	IOReturn status;
+	AbsoluteTime now;
 
-	//DLOG("IOPlatformPlugin::timerHandler - entered\n");
+	// Cancel any outstanding timer events.  The deadlines will be checked and the timer reset after this
+	// event is serviced.
+	thread_call_cancel(timerCallout);
 
-	// check deadlines and call updateControls() on any control loop whose deadline has
-	// passed ( and is non-zero ).
-	if (ctrlLoops)
+	clock_get_uptime(&now);
+
+	switch (event->eventType)
 	{
-		count = ctrlLoops->getCount();
-		for (i=0; i<count; i++)
-		{
-			if ((loop = OSDynamicCast(IOPlatformCtrlLoop, ctrlLoops->getObject(i))) != NULL)
-			{
-				loopDeadline = loop->getDeadline();
+		case IOPPluginEventTimer:
+			timerHandler(now);
+			status = kIOReturnSuccess;
+			break;
 
-				if (AbsoluteTime_to_scalar(&loopDeadline) != 0 &&
-				    CMP_ABSOLUTETIME(&loopDeadline, &now) <= 0)
-				{
-					//DLOG("IOPlatformPlugin::timerHandler ctrlLoop %d deadline passed\n", i);
-					loop->deadlinePassed();
-				}
-			}
-		}
+		case IOPPluginEventMessage:
+			status = messageHandler((UInt32)event->param1, OSDynamicCast(IOService, (OSMetaClassBase *) event->param2),
+					OSDynamicCast(OSDictionary, (OSMetaClassBase *) event->param3));
+			break;
+
+		case IOPPluginEventSetAggressiveness:
+			status = setAggressivenessHandler((unsigned long) event->param1, (unsigned long) event->param2);
+			break;
+
+		case IOPPluginEventSystemWillSleep:
+			status = sleepHandler();
+			break;
+
+		case IOPPluginEventSystemDidWake:
+			status = wakeHandler();
+			break;
+
+		case IOPPluginEventSystemRestarting:
+			status = restartHandler();
+			break;
+
+		case IOPPluginEventSetProperties:
+			status = setPropertiesHandler( OSDynamicCast(OSObject, (OSMetaClassBase *) event->param1) );
+			break;
+
+		case IOPPluginEventPlatformFunction:
+		default:
+			DLOG("IOPlatformPlugin::handleEvent got unknown event type\n");
+			status = kIOReturnUnsupported;
+			break;
+	}
+
+	// if there were any changes to the environment, notify control loops
+	if (envChanged)
+	{
+		environmentChanged();
+
+		// clear the environment changed flag
+		envChanged = false;
+	}
+
+	// check deadlines and set the timer if necessary
+	if (pluginPowerState != kIOPPluginSleeping) setTimeout(now);
+
+	return(status);
+}
+
+IOReturn IOPlatformPlugin::dispatchEvent(IOPPluginEventData *event)
+{
+	IOReturn status;
+
+	// close the gate
+	IORecursiveLockLock(gate);
+
+	// handle the event
+	status = handleEvent(event);
+
+	// open the gate
+	IORecursiveLockUnlock(gate);
+
+	return(status);
+}
+
+#pragma mark
+#pragma mark *** Unsynchronized Entry Points ***
+
+IOReturn IOPlatformPlugin::setAggressiveness(unsigned long selector, unsigned long newLevel)
+{
+	IOReturn result;
+	IOPPluginEventData saEvent;
+
+	result = super::setAggressiveness(selector, newLevel);
+
+	saEvent.eventType = IOPPluginEventSetAggressiveness;
+	saEvent.param1 = (void *) selector;
+	saEvent.param2 = (void *) newLevel;
+
+	dispatchEvent(&saEvent);
+
+	return(result);
+}
+
+IOReturn IOPlatformPlugin::message( UInt32 type, IOService * provider, void * argument)
+{
+	IOPPluginEventData msgEvent;
+
+	msgEvent.eventType = IOPPluginEventMessage;
+	msgEvent.param1 = (void *) type;
+	msgEvent.param2 = (void *) provider;
+	msgEvent.param3 = (void *) argument;
+
+	return dispatchEvent(&msgEvent);
+}	
+
+IOReturn IOPlatformPlugin::setProperties( OSObject * properties )
+{
+	IOPPluginEventData spEvent;
+
+	spEvent.eventType = IOPPluginEventSetProperties;
+	spEvent.param1 = (void *) properties;
+
+	return dispatchEvent(&spEvent);
+}
+
+/* static */
+void IOPlatformPlugin::timerEventOccured( void *self )
+{
+	IOPPluginEventData tEvent;
+
+	IOPlatformPlugin * me = OSDynamicCast(IOPlatformPlugin, (OSMetaClassBase *) self);
+
+	if (me)
+	{
+		tEvent.eventType = IOPPluginEventTimer;
+
+		me->dispatchEvent(&tEvent);
 	}
 }
 
-IOReturn IOPlatformPlugin::setPropertiesHandler( OSObject * properties )
+IOReturn IOPlatformPlugin::powerStateWillChangeTo( IOPMPowerFlags theFlags, unsigned long, IOService*)
 {
-	IOReturn status = kIOReturnUnsupported;
+	IOPPluginEventData powerStateEvent;
+	IOReturn status = IOPMAckImplied;
 
-#ifdef PLUGIN_DEBUG
-	OSDictionary * commandDict, * forceDict;
-	const OSNumber * id, * value;
-	IOPlatformSensor * sensor;
-	IOPlatformControl * control;
-	IOPlatformCtrlLoop * ctrlLoop;
-	//OSSerialize *s;
-
-	//DLOG("IOPlatformPlugin::setPropertiesHandler - entered\n");
-
-	if ((commandDict = OSDynamicCast(OSDictionary, properties)) == NULL)
-		return kIOReturnBadArgument;
-
-	// look for a force-update request
-	if (commandDict->getObject(gIOPPluginForceUpdateKey) != NULL)
+    if ( ! (theFlags & IOPMPowerOn) )
 	{
-		//DLOG("IOPlatformPlugin::setProperties force-update\n");
+		DLOG("IOPlatformPlugin::powerStateWillChangeTo theFlags = 0x%X\n", theFlags);
+		powerStateEvent.eventType = IOPPluginEventSystemWillSleep;
+		status = dispatchEvent(&powerStateEvent);
+    }
 
-		// force-update is accompanied by either a sensor-id or a ctrl-id
-		if ((id = OSDynamicCast(OSNumber, commandDict->getObject(gIOPPluginSensorIDKey))) != NULL)
-		{
-			if ((sensor = lookupSensorByID(id)) != NULL &&
-			    (value = sensor->fetchCurrentValue()) != NULL)
+    return(status);
+}
+
+IOReturn IOPlatformPlugin::powerStateDidChangeTo( IOPMPowerFlags theFlags, unsigned long, IOService*)
+{
+	IOPPluginEventData powerStateEvent;
+	IOReturn status = IOPMAckImplied;
+
+    if ( theFlags & IOPMPowerOn )
+	{
+		DLOG("IOPlatformPlugin::powerStateDidChangeTo theFlags = 0x%X\n", theFlags);
+		powerStateEvent.eventType = IOPPluginEventSystemDidWake;
+		status = dispatchEvent(&powerStateEvent);
+    }
+
+    return(status);
+}
+
+IOReturn IOPlatformPlugin::sysPowerDownHandler(void *target, void *refCon, UInt32 messageType, IOService *service, void *messageArgument, vm_size_t argSize )
+{
+	IOPPluginEventData powerStateEvent;
+	IOReturn status = IOPMAckImplied;
+
+	IOPlatformPlugin * me = OSDynamicCast(IOPlatformPlugin, (OSMetaClassBase *) target);
+	if (me == NULL)
+		return(status);
+
+    switch (messageType)
+    {
+        case kIOMessageSystemWillSleep:
+            break;
+            
+        case kIOMessageSystemWillPowerOff: // iokit_common_msg(0x250)
+        case kIOMessageSystemWillRestart: // iokit_common_msg(0x310)
+			powerStateEvent.eventType = IOPPluginEventSystemRestarting;
+			status = me->dispatchEvent(&powerStateEvent);
+            break;
+
+        default:
+            break;
+    }
+
+    return(status);
+}
+
+#pragma mark
+#pragma mark *** Synchronized Event Handlers ***
+
+IOReturn IOPlatformPlugin::setAggressivenessHandler(unsigned long selector, unsigned long newLevel)
+{
+	if (selector == kPMSetProcessorSpeed)
+	{
+		const OSNumber * speed;
+
+		DLOG("IOPlatformPlugin::setAggressivenessHandler Dynamic Power Step = %lx\n", newLevel);
+
+		speed = OSNumber::withNumber( (unsigned long long) newLevel, 32 );
+		setEnv(gIOPPluginEnvDynamicPowerStep, speed);
+		speed->release();
+	}
+
+	return(IOPMAckImplied);
+}
+
+
+IOReturn IOPlatformPlugin::messageHandler(UInt32 type, IOService *sender, OSDictionary *dict)
+{
+	IOPlatformSensor * sensorRef;
+	IOPlatformStateSensor * stateSensorRef;
+	OSSerialize *s;
+
+	switch (type)
+	{
+		case kIOPPluginMessageRegister:
+			return registrationHandler( sender, dict );
+
+		case kIOPPluginMessageLowThresholdHit:
+		case kIOPPluginMessageHighThresholdHit:
+
+			sensorRef = lookupSensorByID( OSDynamicCast(OSNumber, dict->getObject(gIOPPluginSensorIDKey)) );
+
+			if ((stateSensorRef = OSDynamicCast(IOPlatformStateSensor, sensorRef)) != NULL)
 			{
-				//DLOG("IOPlatformPlugin::setProperties force-update sensor-id %u\n", id->unsigned16BitValue());
-
-				// update current-value
-				sensor->setCurrentValue( value );
-				value->release();
-				status = kIOReturnSuccess;
+				//DLOG("IOPlatformPlugin::messageHander got threshold message\n");
+				return stateSensorRef->thresholdHit( type == kIOPPluginMessageLowThresholdHit, dict );
 			}
-		}
 
-		else if ((id = OSDynamicCast(OSNumber, commandDict->getObject(gIOPPluginControlIDKey))) != NULL)
-		{
-			if ((control = lookupControlByID( id )) != NULL &&
-				(value = control->fetchCurrentValue()) != NULL)
+			break;
+
+		case kIOPPluginMessageGetPlatformID:
+
+			if ( dict )
 			{
-				//DLOG("IOPlatformPlugin::setProperties force-update control-id %u\n", id->unsigned16BitValue());
-
-				// update current-value
-				control->setCurrentValue( value );
-				value->release();
-				status = kIOReturnSuccess;
+				dict->setObject( kIOPPluginPlatformIDKey, gIOPPluginPlatformID );
 			}
-		}
-	}
 
-	// look for force-update-all request
-	else if ((commandDict->getObject(gIOPPluginForceUpdateAllKey)) != NULL)
-	{
-		//DLOG("IOPlatformPlugin::setProperties force-update-all\n");
+			return kIOReturnSuccess;
 
-		int i, count;
+			break;
 
-		if (sensors)
-		{
-			count = sensors->getCount();
-			for (i=0; i<count; i++)
+		default:
+			if ((s = OSSerialize::withCapacity(2048)) != NULL &&
+			dict->serialize(s))
 			{
-				//DLOG("IOPlatformPlugin::setProperties sensor %d\n", i);
+				DLOG("IOPlatformPlugin::messageHandler - unknown message type %08lx\n"
+				     "    sender: %s\n"
+				     "    dict: %s\n", type, sender->getName(), s->text());
 
-				if ((sensor = OSDynamicCast(IOPlatformSensor, sensors->getObject(i))) != NULL &&
-					(value = sensor->fetchCurrentValue()) != NULL)
-				{
-					sensor->setCurrentValue( value );
-					value->release();
-				}
+				s->release();
 			}
-		}
-
-		if (controls)
-		{
-			count = controls->getCount();
-			for (i=0; i<count; i++)
+			else
 			{
-				DLOG("IOPlatformPlugin::setProperties control %d\n", i);
-
-				if ((control = OSDynamicCast(IOPlatformControl, controls->getObject(i))) != NULL &&
-				    (value = control->fetchCurrentValue()) != NULL)
-				{
-					DLOG("IOPlatformPlugin::setProperties control %d value 0x%08lX\n", i, value->unsigned32BitValue());
-					
-					control->setCurrentValue( value );
-					value->release();
-				}
+				DLOG("IOPlatformPlugin::messageHandler unable to serialize\n");
 			}
-		}
-
-		// everything is updated
-		status = kIOReturnSuccess;
+			break;
 	}
-
-/*
-	else if ((commandDict->getObject(gIOPPluginForceSensorCurValKey)) != NULL)
-	{
-	}
-*/
-
-	// force a control value
-	else if ((value = OSDynamicCast(OSNumber, commandDict->getObject(gIOPPluginForceControlTargetValKey))) != NULL)
-	{
-		if ((id = OSDynamicCast(OSNumber, commandDict->getObject(gIOPPluginControlIDKey))) != NULL &&
-			(control = lookupControlByID(id)) != NULL)
-		{
-			if (control->sendTargetValue( value, true ))
-			{
-				control->getInfoDict()->setObject(gIOPPluginForceControlTargetValKey, value);
-
-				DLOG("IOPlatformPlugin Control ID 0x%08lX Forced to 0x%08lX\n", id->unsigned32BitValue(),
-						value->unsigned32BitValue());
-			}
-		}
-	}
-
-	// release a forced control value
-	else if ((value = OSDynamicCast(OSNumber, commandDict->getObject(gIOPPluginReleaseForcedControlKey))) != NULL)
-	{
-		if ((id = OSDynamicCast(OSNumber, commandDict->getObject(gIOPPluginControlIDKey))) != NULL &&
-		    (control = lookupControlByID(id)) != NULL &&
-			(control->getInfoDict()->getObject(gIOPPluginForceControlTargetValKey)) != NULL)
-		{
-			if (control->sendTargetValue( control->getTargetValue(), true ))
-			{
-				DLOG("IOPlatformPlugin ControlID 0x%08lX Release Forced Value\n", id->unsigned32BitValue());
-				control->getInfoDict()->removeObject(gIOPPluginForceControlTargetValKey);
-			}
-		}
-	}
-
-	// force a control loop meta state
-	else if ((forceDict = OSDynamicCast(OSDictionary, commandDict->getObject(gIOPPluginForceCtrlLoopMetaStateKey))) != NULL)
-	{
-		if ((id = OSDynamicCast(OSNumber, commandDict->getObject(gIOPPluginCtrlLoopIDKey))) != NULL &&
-			(ctrlLoop = lookupCtrlLoopByID(id)) != NULL)
-		{
-			ctrlLoop->getInfoDict()->setObject(gIOPPluginForceCtrlLoopMetaStateKey, forceDict);
-			ctrlLoop->updateMetaState();
-		}
-/*
-		if ((s = OSSerialize::withCapacity(2048)) != NULL &&
-			commandDict->serialize(s))
-		{
-			DLOG("IOPlatformPlugin::setPropertiesHandler force-ctrlloop-meta-state %s\n", s->text());
-		}
-
-		if (s) s->release();
-*/
-	}
-
-	// release a forced control loop meta state
-	else if ((value = OSDynamicCast(OSNumber, commandDict->getObject(gIOPPluginReleaseForcedCtrlLoopKey))) != NULL)
-	{
-		OSSerialize *s;
-
-		if ((s = OSSerialize::withCapacity(2048)) != NULL &&
-			commandDict->serialize(s))
-		{
-			DLOG("IOPlatformPlugin::setPropertiesHandler release-forced-ctrlloop %s\n", s->text());
-		}
-
-		if (s) s->release();
-
-		if ((id = OSDynamicCast(OSNumber, commandDict->getObject(gIOPPluginCtrlLoopIDKey))) != NULL &&
-		    (ctrlLoop = lookupCtrlLoopByID(id)) != NULL &&
-			(ctrlLoop->getInfoDict()->getObject(gIOPPluginForceCtrlLoopMetaStateKey)) != NULL)
-		{
-			DLOG("IOPlatformPlugin CtrlLoopID 0x%08lX Release Forced Ctrl Loop\n", id->unsigned32BitValue());
-			ctrlLoop->getInfoDict()->removeObject(gIOPPluginForceCtrlLoopMetaStateKey);
-			ctrlLoop->updateMetaState();
-		}
-	}
-
-	// DLOG("IOPlatformPlugin::setPropertiesHandler - done\n");
-
-#endif  // PLUGIN_DEBUG
-
-	return(status);
+		
+	return(kIOReturnSuccess);
 }
 
 IOReturn IOPlatformPlugin::registrationHandler( IOService *sender, OSDictionary *dict )
@@ -1338,7 +1294,7 @@ IOReturn IOPlatformPlugin::registrationHandler( IOService *sender, OSDictionary 
 		{
 #ifdef PLUGIN_DEBUG
 			const OSNumber * tempID;
-			tempID = OSDynamicCast(OSNumber, sender->getProperty("sensor-id"));
+			tempID = OSDynamicCast(OSNumber, sender->getProperty(kIOPPluginSensorIDKey));
 #endif
 			DLOG("IOPlatformPlugin::registrationHandler got unknown entity, sensor id 0x%08lX\n",
 				tempID != NULL ? tempID->unsigned32BitValue() : 0xDEADBEEF);
@@ -1352,7 +1308,7 @@ IOReturn IOPlatformPlugin::registrationHandler( IOService *sender, OSDictionary 
 			}
 
 			// initialize the sensor object
-			if ((status = sensor->initPlatformSensor(sender)) != kIOReturnSuccess)
+			if ((status = sensor->initPlatformSensor( sender, dict )) != kIOReturnSuccess)
 			{
 				DLOG("IOPlatformPlugin::registrationHandler failed to init sensor from unlisted registrant\n");
 				sensor->release();
@@ -1411,10 +1367,39 @@ IOReturn IOPlatformPlugin::registrationHandler( IOService *sender, OSDictionary 
 
 			return status;
 		}
-		else
+		else	// the registration is from an unlisted control
 		{
-			DLOG("IOPlatformPlugin::registrationHandler unrecognized control ID %08lX\n", id->unsigned32BitValue());
-			return status;
+#ifdef PLUGIN_DEBUG
+			const OSNumber * tempID;
+			tempID = OSDynamicCast(OSNumber, sender->getProperty(kIOPPluginControlIDKey));
+#endif
+			DLOG("IOPlatformPlugin::registrationHandler got unknown entity, control id 0x%08lX\n",
+				tempID != NULL ? tempID->unsigned32BitValue() : 0xDEADBEEF);
+
+			// create the control object
+			if ((control = OSDynamicCast(IOPlatformControl,
+					OSMetaClass::allocClassWithName(gIOPPluginControlClass))) == NULL)
+			{
+				DLOG("IOPlatformPlugin::registrationHandler failed to allocate IOPlatformControl\n");
+				return(kIOReturnNoResources);
+			}
+
+			if ((status = control->initPlatformControl( sender, dict )) != kIOReturnSuccess)
+			{
+				DLOG("IOPlatformPlugin::registrationHandler failed to init control from unlisted registrant\n");
+				control->release();
+				return(status);
+			}
+
+			// add this new control to the list
+			controls->setObject( control );
+
+			status = control->registerDriver( sender, dict );
+
+			if (status == kIOReturnSuccess)
+				controlInfoDicts->setObject( control->getInfoDict() );
+
+			return(status);
 		}
 	}
 	else
@@ -1424,17 +1409,212 @@ IOReturn IOPlatformPlugin::registrationHandler( IOService *sender, OSDictionary 
 	}
 }
 
-IOReturn IOPlatformPlugin::sleepHandler(void)
+IOReturn IOPlatformPlugin::setPropertiesHandler( OSObject * properties )
 {
+	IOReturn status = kIOReturnUnsupported;
+
+#if IMPLEMENT_SETPROPERTIES
+	OSDictionary * commandDict, * forceDict;
+	const OSNumber * id, * num;
+	ControlValue controlValue;
+	IOPlatformSensor * sensor;
+	IOPlatformControl * control;
+	IOPlatformCtrlLoop * ctrlLoop;
+	//OSSerialize *s;
+
+	//DLOG("IOPlatformPlugin::setPropertiesHandler - entered\n");
+
+	if ((commandDict = OSDynamicCast(OSDictionary, properties)) == NULL)
+		return kIOReturnBadArgument;
+
+	// look for a force-update request
+	if (commandDict->getObject(gIOPPluginForceUpdateKey) != NULL)
+	{
+		//DLOG("IOPlatformPlugin::setProperties force-update\n");
+
+		// force-update is accompanied by either a sensor-id or a ctrl-id
+		if ((id = OSDynamicCast(OSNumber, commandDict->getObject(gIOPPluginSensorIDKey))) != NULL)
+		{
+			if ((sensor = lookupSensorByID(id)) != NULL)
+			{
+				sensor->setCurrentValue( sensor->forceAndFetchCurrentValue() );
+				status = kIOReturnSuccess;
+			}
+		}
+
+		else if ((id = OSDynamicCast(OSNumber, commandDict->getObject(gIOPPluginControlIDKey))) != NULL)
+		{
+			if ((control = lookupControlByID( id )) != NULL)
+			{
+				control->setCurrentValue( control->forceAndFetchCurrentValue() );
+				status = kIOReturnSuccess;
+			}
+		}
+	}
+
+	// look for force-update-all request
+	else if ((commandDict->getObject(gIOPPluginForceUpdateAllKey)) != NULL)
+	{
+		//DLOG("IOPlatformPlugin::setProperties force-update-all\n");
+
+		int i, count;
+
+		if (sensors)
+		{
+			count = sensors->getCount();
+			for (i=0; i<count; i++)
+			{
+				//DLOG("IOPlatformPlugin::setProperties sensor %d\n", i);
+
+				if ((sensor = OSDynamicCast(IOPlatformSensor, sensors->getObject(i))) != NULL)
+				{
+					sensor->setCurrentValue( sensor->forceAndFetchCurrentValue() );
+				}
+			}
+		}
+
+		if (controls)
+		{
+			count = controls->getCount();
+			for (i=0; i<count; i++)
+			{
+				//DLOG("IOPlatformPlugin::setProperties control %d\n", i);
+
+				if ((control = OSDynamicCast(IOPlatformControl, controls->getObject(i))) != NULL)
+				{
+					control->setCurrentValue( control->forceAndFetchCurrentValue() );
+				}
+			}
+		}
+
+		// everything is updated
+		status = kIOReturnSuccess;
+	}
 
 /*
-	// Sleep sequence:
-	kprintf("IOPlatformPlugin::powerStateWillChangeTo (currently unsupported!!) to acknowledge power changes (DOWN) we set napping false\n");
-	IOLog("IOPlatformPlugin::powerStateWillChangeTo (currently unsupported!!) to acknowledge power changes (DOWN) we set napping false\n");
-
-	// xxx- this is placeholder code.  We need to make this happen for each cpu
-	// rememberNap = ml_enable_nap(getCPUNumber(), false);        // Disable napping (the function returns the previous state)
+	else if ((commandDict->getObject(gIOPPluginForceSensorCurValKey)) != NULL)
+	{
+	}
 */
+
+	// force a control value
+	else if ((num = OSDynamicCast(OSNumber, commandDict->getObject(gIOPPluginForceControlTargetValKey))) != NULL)
+	{
+		if ((id = OSDynamicCast(OSNumber, commandDict->getObject(gIOPPluginControlIDKey))) != NULL &&
+			(control = lookupControlByID(id)) != NULL)
+		{
+			controlValue = num->unsigned32BitValue();
+			if (control->sendTargetValue( controlValue, true ))
+			{
+				control->getInfoDict()->setObject(gIOPPluginForceControlTargetValKey, num);
+				//DLOG("IOPlatformPlugin Control ID 0x%08lX Forced to 0x%08lX\n", id->unsigned32BitValue(), controlValue);
+				status = kIOReturnSuccess;
+			}
+		}
+	}
+
+	// release a forced control value
+	else if ((num = OSDynamicCast(OSNumber, commandDict->getObject(gIOPPluginReleaseForcedControlKey))) != NULL)
+	{
+		if ((id = OSDynamicCast(OSNumber, commandDict->getObject(gIOPPluginControlIDKey))) != NULL &&
+		    (control = lookupControlByID(id)) != NULL &&
+			(control->getInfoDict()->getObject(gIOPPluginForceControlTargetValKey)) != NULL)
+		{
+			if (control->sendTargetValue( control->getTargetValue(), true ))
+			{
+				//DLOG("IOPlatformPlugin ControlID 0x%08lX Release Forced Value\n", id->unsigned32BitValue());
+				control->getInfoDict()->removeObject(gIOPPluginForceControlTargetValKey);
+				status = kIOReturnSuccess;
+			}
+		}
+	}
+
+	// force a control loop meta state
+	else if ((forceDict = OSDynamicCast(OSDictionary, commandDict->getObject(gIOPPluginForceCtrlLoopMetaStateKey))) != NULL)
+	{
+		if ((id = OSDynamicCast(OSNumber, commandDict->getObject(gIOPPluginCtrlLoopIDKey))) != NULL &&
+			(ctrlLoop = lookupCtrlLoopByID(id)) != NULL)
+		{
+			ctrlLoop->getInfoDict()->setObject(gIOPPluginForceCtrlLoopMetaStateKey, forceDict);
+			ctrlLoop->updateMetaState();
+			status = kIOReturnSuccess;
+		}
+/*
+		if ((s = OSSerialize::withCapacity(2048)) != NULL &&
+			commandDict->serialize(s))
+		{
+			DLOG("IOPlatformPlugin::setPropertiesHandler force-ctrlloop-meta-state %s\n", s->text());
+		}
+
+		if (s) s->release();
+*/
+	}
+
+	// release a forced control loop meta state
+	else if (OSDynamicCast(OSNumber, commandDict->getObject(gIOPPluginReleaseForcedCtrlLoopKey)) != NULL)
+	{
+/*
+		OSSerialize *s;
+
+		if ((s = OSSerialize::withCapacity(2048)) != NULL &&
+			commandDict->serialize(s))
+		{
+			DLOG("IOPlatformPlugin::setPropertiesHandler release-forced-ctrlloop %s\n", s->text());
+		}
+
+		if (s) s->release();
+*/
+
+		if ((id = OSDynamicCast(OSNumber, commandDict->getObject(gIOPPluginCtrlLoopIDKey))) != NULL &&
+		    (ctrlLoop = lookupCtrlLoopByID(id)) != NULL &&
+			(ctrlLoop->getInfoDict()->getObject(gIOPPluginForceCtrlLoopMetaStateKey)) != NULL)
+		{
+			//DLOG("IOPlatformPlugin CtrlLoopID 0x%08lX Release Forced Ctrl Loop\n", id->unsigned32BitValue());
+			ctrlLoop->getInfoDict()->removeObject(gIOPPluginForceCtrlLoopMetaStateKey);
+			ctrlLoop->updateMetaState();
+			status = kIOReturnSuccess;
+		}
+	}
+
+	// DLOG("IOPlatformPlugin::setPropertiesHandler - done\n");
+
+#endif  // IMPLEMENT_SETPROPERTIES
+
+	return(status);
+}
+
+void IOPlatformPlugin::timerHandler( const AbsoluteTime now )
+{
+	AbsoluteTime loopDeadline;
+	IOPlatformCtrlLoop *loop;
+	int i, count;
+
+	//DLOG("IOPlatformPlugin::timerHandler - entered\n");
+
+	// check deadlines and call updateControls() on any control loop whose deadline has
+	// passed ( and is non-zero ).
+	if (ctrlLoops)
+	{
+		count = ctrlLoops->getCount();
+		for (i=0; i<count; i++)
+		{
+			if ((loop = OSDynamicCast(IOPlatformCtrlLoop, ctrlLoops->getObject(i))) != NULL)
+			{
+				loopDeadline = loop->getDeadline();
+
+				if (AbsoluteTime_to_scalar(&loopDeadline) != 0 &&
+				    CMP_ABSOLUTETIME(&loopDeadline, &now) <= 0)
+				{
+					//DLOG("IOPlatformPlugin::timerHandler ctrlLoop %d deadline passed\n", i);
+					loop->deadlinePassed();
+				}
+			}
+		}
+	}
+}
+
+IOReturn IOPlatformPlugin::sleepHandler(void)
+{
 
 	DLOG("IOPlatformPlugin::sleepHandler - entered\n");
 
@@ -1445,22 +1625,11 @@ IOReturn IOPlatformPlugin::sleepHandler(void)
 
 IOReturn IOPlatformPlugin::wakeHandler(void)
 {
-/*
-	// Wake sequence:
-	kprintf("IOPlatformPlugin::powerStateWillChangeTo (currently unsupported!!) to acknowledge power changes (UP) we set napping %s\n", 
-		rememberNap ? "true" : "false");
-	IOLog("IOPlatformPlugin::powerStateWillChangeTo (currently unsupported!!) to acknowledge power changes (UP) we set napping %s\n", 
-		rememberNap ? "true" : "false");
-
-	// xxx- this is placeholder code.  We need to make this happen for each cpu
-	// ml_enable_nap(getCPUNumber(), rememberNap); 		   // Re-set the nap as it was before.
-*/
 
 	IOPlatformCtrlLoop *loop;
 	int i, count;
 
 	DLOG("IOPlatformPlugin::wakeHandler - entered\n");
-
 
 	// tell all the control loop we just woke up
 	if (ctrlLoops)
@@ -1482,260 +1651,11 @@ IOReturn IOPlatformPlugin::wakeHandler(void)
 	return(IOPMAckImplied);
 }
 
-IOReturn IOPlatformPlugin::messageHandler(UInt32 type, IOService *sender, OSDictionary *dict)
+IOReturn IOPlatformPlugin::restartHandler(void)
 {
-	IOPlatformSensor * sensorRef;
-	IOPlatformStateSensor * stateSensorRef;
-	OSSerialize *s;
+	DLOG("IOPlatformPlugin::restartHandler - entered\n");
 
-	switch (type)
-	{
-		case kIOPPluginMessageRegister:
-			return registrationHandler( sender, dict );
-
-		case kIOPPluginMessageLowThresholdHit:
-		case kIOPPluginMessageHighThresholdHit:
-
-			sensorRef = lookupSensorByID( OSDynamicCast(OSNumber, dict->getObject(gIOPPluginSensorIDKey)) );
-
-			if ((stateSensorRef = OSDynamicCast(IOPlatformStateSensor, sensorRef)) != NULL)
-			{
-				//DLOG("IOPlatformPlugin::messageHander got threshold message\n");
-				return stateSensorRef->thresholdHit( type == kIOPPluginMessageLowThresholdHit, dict );
-			}
-
-			break;
-
-		case kIOPPluginMessageGetPlatformID:
-
-			if ( dict )
-			{
-				dict->setObject( kIOPPluginPlatformIDKey, gIOPPluginPlatformID );
-			}
-
-			return kIOReturnSuccess;
-
-			break;
-
-		default:
-			if ((s = OSSerialize::withCapacity(2048)) != NULL &&
-			dict->serialize(s))
-			{
-				DLOG("IOPlatformPlugin::messageHandler - unknown message type %08lx\n"
-				     "    sender: %s\n"
-				     "    dict: %s\n", type, sender->getName(), s->text());
-
-				s->release();
-			}
-			else
-			{
-				DLOG("IOPlatformPlugin::messageHandler unable to serialize\n");
-			}
-			break;
-	}
-		
-	return(kIOReturnSuccess);
-}
-
-IOReturn IOPlatformPlugin::setAggressivenessHandler(unsigned long selector, unsigned long newLevel)
-{
-	if (selector == kPMSetProcessorSpeed)
-	{
-		const OSNumber * speed;
-
-		DLOG("IOPlatformPlugin::setAggressivenessHandler Dynamic Power Step = %lx\n", newLevel);
-
-		speed = OSNumber::withNumber( (unsigned long long) newLevel, 32 );
-		setEnv(gIOPPluginEnvDynamicPowerStep, speed);
-		speed->release();
-	}
+	pluginPowerState = kIOPPluginSleeping; 	// same as sleep
 
 	return(IOPMAckImplied);
 }
-
-IOReturn IOPlatformPlugin::handleEvent(IOPPluginEventData *event)
-{
-	IOReturn status;
-	AbsoluteTime now;
-
-	// Cancel any outstanding timer events.  The deadlines will be checked and the timer reset after this
-	// event is serviced.
-	thread_call_cancel(timerCallout);
-
-	clock_get_uptime(&now);
-
-	switch (event->eventType)
-	{
-		case IOPPluginEventTimer:
-			timerHandler(now);
-			status = kIOReturnSuccess;
-			break;
-
-		case IOPPluginEventMessage:
-			status = messageHandler((UInt32)event->param1, OSDynamicCast(IOService, (OSMetaClassBase *) event->param2),
-					OSDynamicCast(OSDictionary, (OSMetaClassBase *) event->param3));
-			break;
-
-		case IOPPluginEventSetAggressiveness:
-			status = setAggressivenessHandler((unsigned long) event->param1, (unsigned long) event->param2);
-			break;
-
-		case IOPPluginEventSystemWillSleep:
-			status = sleepHandler();
-			break;
-
-		case IOPPluginEventSystemDidWake:
-			status = wakeHandler();
-			break;
-
-		case IOPPluginEventSetProperties:
-			status = setPropertiesHandler( OSDynamicCast(OSObject, (OSMetaClassBase *) event->param1) );
-			break;
-
-		case IOPPluginEventPlatformFunction:
-		default:
-			DLOG("IOPlatformPlugin::handleEvent got unknown event type\n");
-			status = kIOReturnUnsupported;
-			break;
-	}
-
-	// if there were any changes to the environment, notify control loops
-	if (envChanged)
-	{
-		environmentChanged();
-
-		// clear the environment changed flag
-		envChanged = false;
-	}
-
-	// check deadlines and set the timer if necessary
-	if (pluginPowerState != kIOPPluginSleeping) setTimeout(now);
-
-	return(status);
-}
-
-
-/* static */
-/*
-IOReturn IOPlatformPlugin::commandGateCaller(OSObject *object, void *arg0, void *arg1, void *arg2, void *arg3)
-{
-	IOPlatformPlugin *me;
-	IOPPluginEventData *event;
-
-	if ((me = OSDynamicCast(IOPlatformPlugin, object)) == NULL ||
-	    (event = (IOPPluginEventData *) arg0) == NULL)
-	{
-		DLOG("IOPlatformPlugin::commandGateCaller invalid args\n");
-		return(kIOReturnBadArgument);
-	}
-
-	return me->handleEvent(event);
-}
-*/
-
-IOReturn IOPlatformPlugin::dispatchEvent(IOPPluginEventData *event)
-{
-	IOReturn status;
-
-	// close the gate
-	IORecursiveLockLock(gate);
-
-	// handle the event
-	status = handleEvent(event);
-
-	// open the gate
-	IORecursiveLockUnlock(gate);
-
-	return(status);
-}
-
-IOReturn IOPlatformPlugin::powerStateWillChangeTo( IOPMPowerFlags theFlags, unsigned long, IOService*)
-{
-	IOPPluginEventData powerStateEvent;
-	IOReturn status = IOPMAckImplied;
-
-    if ( ! (theFlags & IOPMPowerOn) )
-	{
-		DLOG("IOPlatformPlugin::powerStateWillChangeTo theFlags = 0x%X\n", theFlags);
-		powerStateEvent.eventType = IOPPluginEventSystemWillSleep;
-		status = dispatchEvent(&powerStateEvent);
-    }
-
-    return(status);
-}
-
-IOReturn IOPlatformPlugin::powerStateDidChangeTo( IOPMPowerFlags theFlags, unsigned long, IOService*)
-{
-	IOPPluginEventData powerStateEvent;
-	IOReturn status = IOPMAckImplied;
-
-    if ( theFlags & IOPMPowerOn )
-	{
-		DLOG("IOPlatformPlugin::powerStateDidChangeTo theFlags = 0x%X\n", theFlags);
-		powerStateEvent.eventType = IOPPluginEventSystemDidWake;
-		status = dispatchEvent(&powerStateEvent);
-    }
-
-    return(status);
-}
-
-IOReturn IOPlatformPlugin::setAggressiveness(unsigned long selector, unsigned long newLevel)
-{
-	IOReturn result;
-	IOPPluginEventData saEvent;
-
-	result = super::setAggressiveness(selector, newLevel);
-
-	saEvent.eventType = IOPPluginEventSetAggressiveness;
-	saEvent.param1 = (void *) selector;
-	saEvent.param2 = (void *) newLevel;
-
-	dispatchEvent(&saEvent);
-
-	return(result);
-}
-
-IOReturn IOPlatformPlugin::message( UInt32 type, IOService * provider, void * argument)
-{
-	IOPPluginEventData msgEvent;
-
-	msgEvent.eventType = IOPPluginEventMessage;
-	msgEvent.param1 = (void *) type;
-	msgEvent.param2 = (void *) provider;
-	msgEvent.param3 = (void *) argument;
-
-	return dispatchEvent(&msgEvent);
-}	
-
-IOReturn IOPlatformPlugin::setProperties( OSObject * properties )
-{
-	IOPPluginEventData spEvent;
-
-	spEvent.eventType = IOPPluginEventSetProperties;
-	spEvent.param1 = (void *) properties;
-
-	return dispatchEvent(&spEvent);
-}
-
-/* static */
-void IOPlatformPlugin::timerEventOccured( void *self )
-{
-	IOPPluginEventData tEvent;
-
-	IOPlatformPlugin * me = OSDynamicCast(IOPlatformPlugin, (OSMetaClassBase *) self);
-
-	if (me)
-	{
-		tEvent.eventType = IOPPluginEventTimer;
-
-		me->dispatchEvent(&tEvent);
-	}
-}
-
-void IOPlatformPlugin::sleepSystem( void )
-{
-	DLOG("IOPlatformPlugin::sleepSystem issuing sleep demand\n");
-
-	pmRootDomain->sleepSystem();
-}
-

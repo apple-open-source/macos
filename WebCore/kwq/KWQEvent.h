@@ -31,6 +31,12 @@
 #include "KWQPointArray.h"
 #include "KWQString.h"
 
+#ifdef __OBJC__
+@class NSEvent;
+#else
+class NSEvent;
+#endif
+
 class QEvent : public Qt {
 public:
 
@@ -45,51 +51,51 @@ public:
         MouseMove,
         FocusIn,
         FocusOut,
-        AccelAvailable,
         KeyPress,
 	KeyRelease,
         Paint,
-	Resize
+        Resize,
+	KParts
     };
 
-    QEvent( Type t ) : _type(t) {}
+    QEvent(Type type) : _type(type) { }
     virtual ~QEvent();
 
     Type type() const { return _type; }
 
 private:
-    QEvent(const QEvent &);
-    QEvent &operator=(const QEvent &);
-
     Type  _type;
 };
 
+typedef QEvent QCustomEvent;
+
 class QMouseEvent : public QEvent {
 public:
-    QMouseEvent(Type type, const QPoint &pos, int button, int state);
-    QMouseEvent(Type type, const QPoint &pos, int button, int state, int clickCount);
-    QMouseEvent(Type type, const QPoint &pos, const QPoint &global, int button, int state);
+    QMouseEvent(Type, const QPoint &pos, int button, int state);
+    QMouseEvent(Type, NSEvent *);
 
-    int x() { return _position.x(); }
-    int y() { return _position.y(); }
-    int globalX() { return _position.x(); } // we never really return global X
-    int globalY() { return _position.y(); } // we never really return global Y
     const QPoint &pos() const { return _position; }
-    ButtonState button() { return _button; }
-    ButtonState state() { return _state; }
-    ButtonState stateAfter();
+    int x() const { return _position.x(); }
+    int y() const { return _position.y(); }
+    int globalX() const { return _position.x(); } // we never really return global X
+    int globalY() const { return _position.y(); } // we never really return global Y
+    ButtonState button() const { return static_cast<ButtonState>(_button); }
+    ButtonState state() const { return static_cast<ButtonState>(_state); }
+    ButtonState stateAfter() const { return static_cast<ButtonState>(_stateAfter); }
+
     int clickCount() { return _clickCount; }
 
 private:
     QPoint _position;
-    ButtonState _button;
-    ButtonState _state;
+    int _button;
+    int _state;
+    int _stateAfter;
     int _clickCount;
 };
 
 class QTimerEvent : public QEvent {
 public:
-    QTimerEvent(int timerId);
+    QTimerEvent(int timerId) : QEvent(Timer), _timerId(timerId) { }
 
     int timerId() const { return _timerId; }
 
@@ -99,32 +105,36 @@ private:
 
 class QKeyEvent : public QEvent {
 public:
-    QKeyEvent(Type type, int key, int ascii, int buttonState, const QString &textVal = QString::null, bool autoRepeat = FALSE, ushort countVal = 1);
+    QKeyEvent(NSEvent *, bool forceAutoRepeat = false);
 
-    int key() const;
-    ButtonState state() const;
-    void accept();
-    void ignore();
-    bool isAutoRepeat() const;
-    bool isAccepted() const;
-    int count()  const;
-    QString text() const;
-    int ascii() const;
- private:
-    int _key;
-    int _ascii;
-    ButtonState _state;
+    ButtonState state() const { return static_cast<ButtonState>(_state); }
+    bool isAccepted() const { return _isAccepted; }
+    QString text() const { return _text; }
+    bool isAutoRepeat() const { return _autoRepeat; }
+    void accept() { _isAccepted = true; }
+    void ignore() { _isAccepted = false; }
+
+    int WindowsKeyCode() const { return _WindowsKeyCode; }
+    QString unmodifiedText() const { return _unmodifiedText; }
+    QString keyIdentifier() const { return _keyIdentifier; }
+
+private:
+    int _state;
     QString _text;
+    QString _unmodifiedText;
+    QString _keyIdentifier;
     bool _autoRepeat;
-    int _count;
     bool _isAccepted;
+    int _WindowsKeyCode;
 };
 
 class QFocusEvent : public QEvent {
 public:
     enum Reason { Popup, Other };
+
+    QFocusEvent(Type type) : QEvent(type) { }
+
     static Reason reason() { return Other; }
-    QFocusEvent (Type type) : QEvent (type) {}
 };
 
 class QHideEvent;
@@ -133,19 +143,8 @@ class QWheelEvent;
 class QContextMenuEvent;
 
 class QResizeEvent : public QEvent {
- public:
-    QResizeEvent() : QEvent(Resize) {}
-};
-
-
-class QCustomEvent : public QEvent {
 public:
-    QCustomEvent(Type type, void *data = 0) : QEvent(type), d(data) { }
-    void *data() const { return d; }
-    void setData(void *data) { d = data; }
-
-private:
-    void *d;
+    QResizeEvent() : QEvent(Resize) { }
 };
 
 #endif

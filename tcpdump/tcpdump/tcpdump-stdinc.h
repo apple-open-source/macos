@@ -1,24 +1,35 @@
 /*
- * Copyright (c) 2002
- *	Politecnico di Torino.  All rights reserved.
+ * Copyright (c) 2002 - 2003
+ * NetGroup, Politecnico di Torino (Italy)
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that: (1) source code distributions
- * retain the above copyright notice and this paragraph in its entirety, (2)
- * distributions including binary code include the above copyright notice and
- * this paragraph in its entirety in the documentation or other materials
- * provided with the distribution, and (3) all advertising materials mentioning
- * features or use of this software display the following acknowledgement:
- * ``This product includes software developed by the Politecnico
- * di Torino, and its contributors.'' Neither the name of
- * the University nor the names of its contributors may be used to endorse
- * or promote products derived from this software without specific prior
- * written permission.
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ * modification, are permitted provided that the following conditions
+ * are met:
  *
- * @(#) $Header: /cvs/root/tcpdump/tcpdump/tcpdump-stdinc.h,v 1.1.1.1 2003/03/17 18:42:20 rbraun Exp $ (LBL)
+ * 1. Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ * notice, this list of conditions and the following disclaimer in the
+ * documentation and/or other materials provided with the distribution.
+ * 3. Neither the name of the Politecnico di Torino nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ *
+ * @(#) $Header: /cvs/root/tcpdump/tcpdump/tcpdump-stdinc.h,v 1.1.1.2 2004/02/05 19:30:58 rbraun Exp $ (LBL)
  */
 
 /*
@@ -62,7 +73,6 @@ typedef char* caddr_t;
 
 #define MAXHOSTNAMELEN	64
 #define	NI_MAXHOST	1025
-#define IPPROTO_EGP 8		/* Exterior Gateway Protocol */
 #define snprintf _snprintf
 #define vsnprintf _vsnprintf
 #define RETSIGTYPE void
@@ -110,7 +120,7 @@ typedef short ino_t;
   #define FOPEN_WRITE_BIN  "wb"
 #else
   #define FOPEN_READ_TXT   "r"
-  #define FOPEN_READ_BIN   FOPEN_READ_BIN
+  #define FOPEN_READ_BIN   FOPEN_READ_TXT
   #define FOPEN_WRITE_TXT  "w"
   #define FOPEN_WRITE_BIN  FOPEN_WRITE_TXT
 #endif

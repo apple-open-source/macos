@@ -15,23 +15,25 @@ import javax.ejb.EJBObject;
 /** A session bean that calls another bean in a seperate deployment
  *
  * @author Scott.Stark@jboss.org
- * @version $Revision: 1.1.2.2 $
+ * @version $Revision: 1.1.2.3 $
  */
 public interface CallerSession
    extends EJBObject
 {
-   /** A call that looks up the peer ejb in the second cts2.jar deployment
-    * and calls simpleCall(false) to test type isolation between jars.
+   /** A call that looks up the cts2.jar CalleeSessionHome from JNDI each
+    * time, creates an instance and calls simpleCall(false) to test type
+    * isolation between jars.
     * @param isCaller
     * @throws RemoteException
     */
-   public void simpleCall(boolean isCaller) throws RemoteException;
-   /** A call that looks up the peer ejb in the second cts2.jar deployment
-    * and calls simpleCall(false) to test type isolation between jars.
+   public CalleeData simpleCall(boolean isCaller) throws RemoteException;
+   /** A call that looks up the cts2.jar CalleeSessionHome from JNDI once
+    * and resuses the home on subsequent calls, creates an instance and calls
+    * simpleCall(false) to test type isolation between jars.
     * @param isCaller
     * @throws RemoteException
     */
-   public void simpleCall2(boolean isCaller) throws RemoteException;
+   public CalleeData simpleCall2(boolean isCaller) throws RemoteException;
 
    /** An entry point
     *
@@ -45,4 +47,12 @@ public interface CallerSession
     */
    public void validateValueMarshalling(ReferenceTest test)
       throws RemoteException;
+
+   public void callAppEx()
+      throws RemoteException, CalleeException;
+
+   /** A method that throws an application exception
+    */
+   public void appEx()
+      throws RemoteException, CalleeException;
 }

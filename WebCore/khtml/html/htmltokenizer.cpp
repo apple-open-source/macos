@@ -466,7 +466,8 @@ void HTMLTokenizer::scriptHandler()
     // We are inside a <script>
     bool doScriptExec = false;
     CachedScript* cs = 0;
-    if (!scriptSrc.isEmpty()) {
+    // don't load external scripts for standalone documents (for now)
+    if (!scriptSrc.isEmpty() && parser->doc()->part()) {
         // forget what we just got; load from src url instead
         if ( !parser->skipMode() ) {
             if ( (cs = parser->doc()->docLoader()->requestScript(scriptSrc, scriptSrcCharset) ))
@@ -550,7 +551,7 @@ void HTMLTokenizer::scriptExecution( const QString& str, QString scriptURL,
                                      int baseLine)
 {
 #if APPLE_CHANGES
-    if (!view->part())
+    if (!view || !view->part())
         return;
 #endif
     bool oldscript = script;
@@ -731,20 +732,19 @@ void HTMLTokenizer::parseEntity(DOMStringIt &src, QChar *&dest, bool start)
 
         case Hexadecimal:
         {
-            int ll = kMin(src.length(), 9-cBufferPos);
+            int ll = kMin(src.length(), 8);
             while(ll--) {
                 QChar csrc(src->lower());
                 cc = csrc.cell();
 
                 if(csrc.row() || !((cc >= '0' && cc <= '9') || (cc >= 'a' && cc <= 'f'))) {
-                    Entity = SearchSemicolon;
                     break;
                 }
                 EntityUnicodeValue = EntityUnicodeValue*16 + (cc - ( cc < 'a' ? '0' : 'a' - 10));
                 cBuffer[cBufferPos++] = cc;
                 ++src;
             }
-            if(cBufferPos == 9) Entity = SearchSemicolon;
+            Entity = SearchSemicolon;
             break;
         }
         case Decimal:
@@ -975,7 +975,7 @@ void HTMLTokenizer::parseTag(DOMStringIt &src)
             while(src.length()) {
                 curchar = *src;
                 if(curchar > ' ') {
-                    if(curchar == '>')
+                    if (curchar == '<' || curchar == '>')
                         tag = SearchEnd;
                     else if(atespace && (curchar == '\'' || curchar == '"'))
                     {
@@ -1215,7 +1215,7 @@ void HTMLTokenizer::parseTag(DOMStringIt &src)
                 qDebug("SearchEnd");
 #endif
             while(src.length()) {
-                if(*src == '>')
+                if (*src == '>' || *src == '<')
                     break;
 
                 if (*src == '/')
@@ -1223,12 +1223,14 @@ void HTMLTokenizer::parseTag(DOMStringIt &src)
 
                 ++src;
             }
-            if(!src.length() && *src != '>') break;
+            if (!src.length() && *src != '>' && *src != '<') break;
 
             searchCount = 0; // Stop looking for '<!--' sequence
             tag = NoTag;
             tquote = NoQuote;
-            ++src;
+
+            if (*src != '<')
+                ++src;
 
             if ( !currToken.id ) //stop if tag is unknown
                 return;
@@ -1239,14 +1241,15 @@ void HTMLTokenizer::parseTag(DOMStringIt &src)
 #endif
             bool beginTag = !currToken.flat && (tagID < ID_CLOSE_TAG);
 
-            if(tagID >= ID_CLOSE_TAG)
+            if (tagID >= ID_CLOSE_TAG)
                 tagID -= ID_CLOSE_TAG;
-            else if ( beginTag && tagID == ID_SCRIPT ) {
+            else if (tagID == ID_SCRIPT) {
                 AttributeImpl* a = 0;
                 scriptSrc = QString::null;
                 scriptSrcCharset = QString::null;
                 if ( currToken.attrs && /* potentially have a ATTR_SRC ? */
-                     parser->doc()->view()->part()->jScriptEnabled() && /* jscript allowed at all? */
+		     parser->doc()->part() &&
+                     parser->doc()->part()->jScriptEnabled() && /* jscript allowed at all? */
                      view /* are we a regular tokenizer or just for innerHTML ? */
                     ) {
                     if ( ( a = currToken.attrs->getAttributeItem( ATTR_SRC ) ) )
@@ -1254,7 +1257,7 @@ void HTMLTokenizer::parseTag(DOMStringIt &src)
                     if ( ( a = currToken.attrs->getAttributeItem( ATTR_CHARSET ) ) )
                         scriptSrcCharset = a->value().string().stripWhiteSpace();
                     if ( scriptSrcCharset.isEmpty() )
-                        scriptSrcCharset = parser->doc()->view()->part()->encoding();
+                        scriptSrcCharset = parser->doc()->part()->encoding();
                     if (!(a = currToken.attrs->getAttributeItem( ATTR_LANGUAGE )))
                         a = currToken.attrs->getAttributeItem(ATTR_TYPE);
                 }
@@ -1291,6 +1294,8 @@ void HTMLTokenizer::parseTag(DOMStringIt &src)
                     script = true;
                     parseSpecial(src);
                 }
+                else if (tagID < ID_CLOSE_TAG) // Handle <script src="foo"/>
+                    scriptHandler();
                 break;
             case ID_STYLE:
                 if (beginTag) {
@@ -1804,8 +1809,6 @@ void HTMLTokenizer::notifyFinished(CachedObject */*finishedObj*/)
         kdDebug( 6036 ) << "Finished loading an external script" << endl;
 #endif
         CachedScript* cs = cachedScript.dequeue();
-        finished = cachedScript.isEmpty();
-        if (finished) loadingExtScript = false;
         DOMString scriptSource = cs->script();
 #ifdef TOKEN_DEBUG
         kdDebug( 6036 ) << "External script is:" << endl << scriptSource.string() << endl;
@@ -1818,6 +1821,10 @@ void HTMLTokenizer::notifyFinished(CachedObject */*finishedObj*/)
         cs->deref(this);
 
 	scriptExecution( scriptSource.string(), cachedScriptUrl );
+        // cachedScript.isEmpty() can change inside the scriptExecution() call above,
+        // so don't test it until afterwards.
+        finished = cachedScript.isEmpty();
+        if (finished) loadingExtScript = false;
 
         // 'script' is true when we are called synchronously from
         // parseScript(). In that case parseScript() will take care
@@ -1830,6 +1837,11 @@ void HTMLTokenizer::notifyFinished(CachedObject */*finishedObj*/)
             // access any members.
         }
     }
+}
+
+bool HTMLTokenizer::isWaitingForScripts()
+{
+    return loadingExtScript;
 }
 
 void HTMLTokenizer::setSrc(const QString &source)

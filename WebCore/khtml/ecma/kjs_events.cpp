@@ -33,6 +33,8 @@
 
 using namespace KJS;
 
+using DOM::KeyboardEvent;
+
 // -------------------------------------------------------------------------
 
 JSEventListener::JSEventListener(Object _listener, const Object &_win, bool _html)
@@ -41,12 +43,16 @@ JSEventListener::JSEventListener(Object _listener, const Object &_win, bool _htm
     //fprintf(stderr,"JSEventListener::JSEventListener this=%p listener=%p\n",this,listener.imp());
     html = _html;
     win = _win;
-    static_cast<Window*>(win.imp())->jsEventListeners.append(this);
+    if (_listener.imp()) {
+      static_cast<Window*>(win.imp())->jsEventListeners.insert(_listener.imp(), this);
+    }
 }
 
 JSEventListener::~JSEventListener()
 {
-    static_cast<Window*>(win.imp())->jsEventListeners.removeRef(this);
+    if (listener.imp()) {
+      static_cast<Window*>(win.imp())->jsEventListeners.remove(listener.imp());
+    }
     //fprintf(stderr,"JSEventListener::~JSEventListener this=%p listener=%p\n",this,listener.imp());
 }
 
@@ -57,7 +63,7 @@ void JSEventListener::handleEvent(DOM::Event &evt, bool isWindowEvent)
     return;
 #endif
   KHTMLPart *part = static_cast<Window*>(win.imp())->part();
-  KJSProxy *proxy = 0L;
+  KJSProxy *proxy = 0;
   if (part)
       proxy = KJSProxy::proxy( part );
 
@@ -77,10 +83,14 @@ void JSEventListener::handleEvent(DOM::Event &evt, bool isWindowEvent)
     if (isWindowEvent) {
         thisObj = win;
     } else {
+        KJS::Interpreter::lock();
         thisObj = Object::dynamicCast(getDOMNode(exec,evt.currentTarget()));
+        KJS::Interpreter::unlock();
         if ( !thisObj.isNull() ) {
             ScopeChain scope = oldScope;
+            KJS::Interpreter::lock();
             static_cast<DOMNode*>(thisObj.imp())->pushEventHandlerScope(exec, scope);
+            KJS::Interpreter::unlock();
             listener.setScope( scope );
         }
     }
@@ -91,7 +101,9 @@ void JSEventListener::handleEvent(DOM::Event &evt, bool isWindowEvent)
     // ... and in the interpreter
     interpreter->setCurrentEvent( &evt );
 
+    KJS::Interpreter::lock();
     Value retval = listener.call(exec, thisObj, args);
+    KJS::Interpreter::unlock();
 
     listener.setScope( oldScope );
 
@@ -129,14 +141,92 @@ DOM::DOMString JSEventListener::eventListenerType()
 	return "_khtml_JSEventListener";
 }
 
+
+Object JSEventListener::listenerObj() const
+{ 
+  return listener; 
+}
+
+JSLazyEventListener::JSLazyEventListener(QString _code, const Object &_win, bool _html)
+  : JSEventListener(Object(), _win, _html),
+    code(_code),
+    parsed(false)
+{
+}
+
+void JSLazyEventListener::handleEvent(DOM::Event &evt, bool isWindowEvent)
+{
+  parseCode();
+  if (!listener.isNull()) {
+    JSEventListener::handleEvent(evt, isWindowEvent);
+  }
+}
+
+
+Object JSLazyEventListener::listenerObj() const
+{
+  parseCode();
+  return listener;
+}
+
+void JSLazyEventListener::parseCode() const
+{
+  if (!parsed) {
+    KHTMLPart *part = static_cast<Window*>(win.imp())->part();
+    KJSProxy *proxy = 0L;
+    if (part)
+      proxy = KJSProxy::proxy( part );
+
+    if (proxy) {
+      KJS::ScriptInterpreter *interpreter = static_cast<KJS::ScriptInterpreter *>(proxy->interpreter());
+      ExecState *exec = interpreter->globalExec();
+
+
+      KJS::Interpreter::lock();
+
+      //KJS::Constructor constr(KJS::Global::current().get("Function").imp());
+      KJS::Object constr = interpreter->builtinFunction();
+      KJS::List args;
+
+      static KJS::String eventString("event");
+
+      args.append(eventString);
+      args.append(KJS::String(code));
+      listener = constr.construct(exec, args); // ### is globalExec ok ?
+
+      KJS::Interpreter::unlock();
+      
+      if ( exec->hadException() ) {
+	exec->clearException();
+
+	// failed to parse, so let's just make this listener a no-op
+	listener = Object();
+      }
+    }
+
+    // no more need to keep the unparsed code around
+    code = QString();
+    
+    if (!listener.isNull()) {
+      static_cast<Window*>(win.imp())->jsEventListeners.insert(listener.imp(), 
+							       (KJS::JSEventListener *)(this));
+    }
+    
+    parsed = true;
+  }
+}
+
 Value KJS::getNodeEventListener(DOM::Node n, int eventId)
 {
     DOM::EventListener *listener = n.handle()->getHTMLEventListener(eventId);
-    if (listener)
-	return static_cast<JSEventListener*>(listener)->listenerObj();
+    JSEventListener *jsListener = static_cast<JSEventListener*>(listener);
+    if ( jsListener && jsListener->listenerObjImp() )
+	return jsListener->listenerObj();
     else
 	return Null();
 }
+
+
 
 // -------------------------------------------------------------------------
 
@@ -237,8 +327,11 @@ Value DOMEvent::getValueProperty(ExecState *exec, int token) const
   case EventPhase:
     return Number((unsigned int)event.eventPhase());
   case Bubbles:
-  case CancelBubble: // MSIE extension. not sure if readable. and returnValue ?
     return Boolean(event.bubbles());
+  case CancelBubble:
+    return Boolean(event.getCancelBubble());
+  case ReturnValue:
+    return Boolean(!event.defaultPrevented());
   case Cancelable:
     return Boolean(event.cancelable());
   case TimeStamp:
@@ -260,12 +353,10 @@ void DOMEvent::putValue(ExecState *exec, int token, const Value& value, int)
 {
   switch (token) {
   case ReturnValue:
-    if (value.toBoolean(exec))
-      event.preventDefault();
+    event.setDefaultPrevented(!value.toBoolean(exec));
     break;
   case CancelBubble:
-    if (value.toBoolean(exec))
-      event.stopPropagation();
+    event.setCancelBubble(value.toBoolean(exec));
     break;
   default:
     break;
@@ -295,24 +386,31 @@ Value DOMEventProtoFunc::tryCall(ExecState *exec, Object & thisObj, const List &
 
 Value KJS::getDOMEvent(ExecState *exec, DOM::Event e)
 {
-  DOMObject *ret;
-  if (e.isNull())
+  DOM::EventImpl *ei = e.handle();
+  if (!ei)
     return Null();
   ScriptInterpreter* interp = static_cast<ScriptInterpreter *>(exec->interpreter());
-  if ((ret = interp->getDOMObject(e.handle())))
-    return Value(ret);
 
-  DOM::DOMString module = e.eventModuleName();
-  if (module == "UIEvents")
-    ret = new DOMUIEvent(exec, static_cast<DOM::UIEvent>(e));
-  else if (module == "MouseEvents")
-    ret = new DOMMouseEvent(exec, static_cast<DOM::MouseEvent>(e));
-  else if (module == "MutationEvents")
-    ret = new DOMMutationEvent(exec, static_cast<DOM::MutationEvent>(e));
-  else
-    ret = new DOMEvent(exec, e);
+  KJS::Interpreter::lock();
 
-  interp->putDOMObject(e.handle(),ret);
+  DOMObject *ret = interp->getDOMObject(ei);
+  if (!ret) {
+    if (ei->isKeyboardEvent())
+      ret = new DOMKeyboardEvent(exec, e);
+    else if (ei->isMouseEvent())
+      ret = new DOMMouseEvent(exec, e);
+    else if (ei->isUIEvent())
+      ret = new DOMUIEvent(exec, e);
+    else if (ei->isMutationEvent())
+      ret = new DOMMutationEvent(exec, e);
+    else
+      ret = new DOMEvent(exec, e);
+
+    interp->putDOMObject(ei, ret);
+  }
+
+  KJS::Interpreter::unlock();
+
   return Value(ret);
 }
 
@@ -359,6 +457,7 @@ const ClassInfo DOMUIEvent::info = { "UIEvent", &DOMEvent::info, &DOMUIEventTabl
   view		DOMUIEvent::View	DontDelete|ReadOnly
   detail	DOMUIEvent::Detail	DontDelete|ReadOnly
   keyCode	DOMUIEvent::KeyCode	DontDelete|ReadOnly
+  charCode	DOMUIEvent::CharCode	DontDelete|ReadOnly
   layerX	DOMUIEvent::LayerX	DontDelete|ReadOnly
   layerY	DOMUIEvent::LayerY	DontDelete|ReadOnly
   pageX		DOMUIEvent::PageX	DontDelete|ReadOnly
@@ -391,6 +490,8 @@ Value DOMUIEvent::getValueProperty(ExecState *exec, int token) const
     return Number(static_cast<DOM::UIEvent>(event).detail());
   case KeyCode:
     return Number(static_cast<DOM::UIEvent>(event).keyCode());
+  case CharCode:
+    return Number(static_cast<DOM::UIEvent>(event).charCode());
   case LayerX:
     return Number(static_cast<DOM::UIEvent>(event).layerX());
   case LayerY:
@@ -563,6 +664,94 @@ Value DOMMouseEventProtoFunc::tryCall(ExecState *exec, Object &thisObj, const Li
                                 args[12].toBoolean(exec), // metaKeyArg
                                 args[13].toInteger(exec), // buttonArg
                                 toNode(args[14])); // relatedTargetArg
+      return Undefined();
+  }
+  return Undefined();
+}
+
+// -------------------------------------------------------------------------
+
+const ClassInfo DOMKeyboardEvent::info = { "KeyboardEvent", &DOMUIEvent::info, &DOMKeyboardEventTable, 0 };
+
+/*
+@begin DOMKeyboardEventTable 5
+  keyIdentifier	DOMKeyboardEvent::KeyIdentifier	DontDelete|ReadOnly
+  keyLocation	DOMKeyboardEvent::KeyLocation	DontDelete|ReadOnly
+  ctrlKey	DOMKeyboardEvent::CtrlKey	DontDelete|ReadOnly
+  shiftKey	DOMKeyboardEvent::ShiftKey	DontDelete|ReadOnly
+  altKey	DOMKeyboardEvent::AltKey	DontDelete|ReadOnly
+  metaKey	DOMKeyboardEvent::MetaKey	DontDelete|ReadOnly
+  altGraphKey	DOMKeyboardEvent::AltGraphKey	DontDelete|ReadOnly
+@end
+@begin DOMKeyboardEventProtoTable 1
+  initKeyboardEvent	DOMKeyboardEvent::InitKeyboardEvent	DontDelete|Function 11
+@end
+*/
+DEFINE_PROTOTYPE("DOMKeyboardEvent", DOMKeyboardEventProto)
+IMPLEMENT_PROTOFUNC(DOMKeyboardEventProtoFunc)
+IMPLEMENT_PROTOTYPE_WITH_PARENT(DOMKeyboardEventProto, DOMKeyboardEventProtoFunc, DOMUIEventProto)
+
+DOMKeyboardEvent::~DOMKeyboardEvent()
+{
+}
+
+const ClassInfo* DOMKeyboardEvent::classInfo() const
+{
+    return &info;
+}
+
+Value DOMKeyboardEvent::tryGet(ExecState *exec, const Identifier &p) const
+{
+#ifdef KJS_VERBOSE
+  kdDebug(6070) << "DOMKeyboardEvent::tryGet " << p.qstring() << endl;
+#endif
+  return DOMObjectLookupGetValue<DOMKeyboardEvent, DOMUIEvent>(exec, p, &DOMKeyboardEventTable, this);
+}
+
+Value DOMKeyboardEvent::getValueProperty(ExecState *exec, int token) const
+{
+  switch (token) {
+  case KeyIdentifier:
+    return String(static_cast<KeyboardEvent>(event).keyIdentifier());
+  case KeyLocation:
+    return Number(static_cast<KeyboardEvent>(event).keyLocation());
+  case CtrlKey:
+    return Boolean(static_cast<KeyboardEvent>(event).ctrlKey());
+  case ShiftKey:
+    return Boolean(static_cast<KeyboardEvent>(event).shiftKey());
+  case AltKey:
+    return Boolean(static_cast<KeyboardEvent>(event).altKey());
+  case MetaKey:
+    return Boolean(static_cast<KeyboardEvent>(event).metaKey());
+  case AltGraphKey:
+    return Boolean(static_cast<KeyboardEvent>(event).altGraphKey());
+  default:
+    kdWarning() << "Unhandled token in DOMKeyboardEvent::getValueProperty : " << token << endl;
+    return Value();
+  }
+}
+
+Value DOMKeyboardEventProtoFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
+{
+  if (!thisObj.inherits(&DOMKeyboardEvent::info)) {
+    Object err = Error::create(exec,TypeError);
+    exec->setException(err);
+    return err;
+  }
+  KeyboardEvent event = static_cast<DOMKeyboardEvent *>(thisObj.imp())->toKeyboardEvent();
+  switch (id) {
+    case DOMKeyboardEvent::InitKeyboardEvent:
+      event.initKeyboardEvent(args[0].toString(exec).string(), // typeArg
+                              args[1].toBoolean(exec), // canBubbleArg
+                              args[2].toBoolean(exec), // cancelableArg
+                              toAbstractView(args[3]), // viewArg
+                              args[4].toString(exec).string(), // keyIdentifier
+                              args[5].toInteger(exec), // keyLocationArg
+                              args[6].toBoolean(exec), // ctrlKeyArg
+                              args[7].toBoolean(exec), // altKeyArg
+                              args[8].toBoolean(exec), // shiftKeyArg
+                              args[9].toBoolean(exec), // metaKeyArg
+                              args[10].toBoolean(exec)); // altGraphKeyArg
       return Undefined();
   }
   return Undefined();

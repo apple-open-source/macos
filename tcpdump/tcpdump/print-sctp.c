@@ -34,8 +34,8 @@
  */
 
 #ifndef lint
-static const char rcsid[] =
-"@(#) $Header: /cvs/root/tcpdump/tcpdump/print-sctp.c,v 1.1.1.2 2003/03/17 18:42:19 rbraun Exp $ (NETLAB/PEL)";
+static const char rcsid[] _U_ =
+"@(#) $Header: /cvs/root/tcpdump/tcpdump/print-sctp.c,v 1.1.1.3 2004/02/05 19:30:56 rbraun Exp $ (NETLAB/PEL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -109,29 +109,19 @@ void sctp_print(const u_char *bp,        /* beginning of sctp packet */
 
 #ifdef INET6
   if (ip6) {
-    if (ip6->ip6_nxt == IPPROTO_SCTP) {
-      (void)printf("%s.%d > %s.%d: sctp",
-        ip6addr_string(&ip6->ip6_src),
-        sourcePort,
-        ip6addr_string(&ip6->ip6_dst),
-        destPort);
-    } else {
-      (void)printf("%d > %d: sctp",
-        sourcePort, destPort);
-    }
+    (void)printf("%s.%d > %s.%d: sctp",
+      ip6addr_string(&ip6->ip6_src),
+      sourcePort,
+      ip6addr_string(&ip6->ip6_dst),
+      destPort);
   } else
 #endif /*INET6*/
   {
-    if (ip->ip_p == IPPROTO_SCTP) {
-      (void)printf("%s.%d > %s.%d: sctp",
-        ipaddr_string(&ip->ip_src),
-        sourcePort,
-        ipaddr_string(&ip->ip_dst),
-        destPort);
-    } else {
-      (void)printf("%d > %d: sctp",
-        sourcePort, destPort);
-    }
+    (void)printf("%s.%d > %s.%d: sctp",
+      ipaddr_string(&ip->ip_src),
+      sourcePort,
+      ipaddr_string(&ip->ip_dst),
+      destPort);
   }
   fflush(stdout);
 
@@ -208,9 +198,17 @@ void sctp_print(const u_char *bp,        /* beginning of sctp packet */
 		if (!xflag && !qflag) {
 			payloadPtr = (const u_char *) (++dataHdrPtr);
 			printf(":");
+			if (htons(chunkDescPtr->chunkLength) <
+			    sizeof(struct sctpDataPart)+
+			    sizeof(struct sctpChunkDesc)+1) {
+				printf("bogus chunk length %u]",
+				    htons(chunkDescPtr->chunkLength));
+				return;
+			}
 			default_print(payloadPtr,
-			      htons(chunkDescPtr->chunkLength)-1 -
-			      sizeof(struct sctpDataPart)-sizeof(struct sctpChunkDesc));
+			      htons(chunkDescPtr->chunkLength) -
+			      (sizeof(struct sctpDataPart)+
+			      sizeof(struct sctpChunkDesc)+1));
 		} else
 			printf("]");
 	      }

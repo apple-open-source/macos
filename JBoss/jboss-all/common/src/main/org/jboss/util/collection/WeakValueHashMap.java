@@ -9,13 +9,10 @@
 
 package org.jboss.util.collection;
 
-import java.util.Iterator;
 import java.util.Map;
 import java.util.AbstractMap;
 import java.util.HashMap;
 import java.util.Set;
-import java.util.AbstractSet;
-import java.util.NoSuchElementException;
 
 import java.lang.ref.WeakReference;
 import java.lang.ref.ReferenceQueue;
@@ -25,7 +22,7 @@ import java.lang.ref.ReferenceQueue;
  * This Map will remove entries when the value in the map has been
  * cleaned from garbage collection
  *
- * @version <tt>$Revision: 1.2.4.1 $</tt>
+ * @version <tt>$Revision: 1.2.4.2 $</tt>
  * @author  <a href="mailto:bill@jboss.org">Bill Burke</a>
  */
 public class WeakValueHashMap

@@ -18,7 +18,7 @@
  * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * @(#) $Header: /cvs/Darwin/src/live/libpcap/libpcap/llc.h,v 1.1.1.1 2001/07/07 00:41:36 bbraun Exp $ (LBL)
+ * @(#) $Header: /cvs/root/libpcap/libpcap/llc.h,v 1.1.1.2 2003/10/14 21:52:39 rbraun Exp $ (LBL)
  */
 
 /*
@@ -58,9 +58,12 @@
 #ifndef LLCSAP_SNAP
 #define	LLCSAP_SNAP		0xaa
 #endif
-#ifndef LLCSAP_ISONS
-#define	LLCSAP_ISONS		0xfe
-#endif
 #ifndef LLCSAP_IPX
 #define LLCSAP_IPX		0xe0
+#endif
+#ifndef LLCSAP_NETBEUI
+#define LLCSAP_NETBEUI		0xf0
+#endif
+#ifndef LLCSAP_ISONS
+#define	LLCSAP_ISONS		0xfe
 #endif

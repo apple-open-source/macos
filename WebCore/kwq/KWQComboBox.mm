@@ -25,29 +25,31 @@
 
 #import "KWQComboBox.h"
 
+#import "KWQButton.h"
+#import "KWQExceptions.h"
+#import "KWQKHTMLPart.h"
 #import "KWQView.h"
 #import "KWQKHTMLPart.h"
+#import "KWQNSViewExtras.h"
 #import "WebCoreBridge.h"
-
 #import "khtmlview.h"
 #import "render_replaced.h"
+
 using khtml::RenderWidget;
 
-// We empirically determined that combo boxes have these extra pixels on all
-// sides. It would be better to get this info from AppKit somehow.
-#define TOP_MARGIN 1
-#define BOTTOM_MARGIN 3
-#define LEFT_MARGIN 3
-#define RIGHT_MARGIN 3
+@interface NSCell (KWQComboBoxKnowsAppKitSecrets)
+- (NSMutableDictionary *)_textAttributes;
+@end
 
-// This is the 2-pixel CELLOFFSET for bordered cells from NSCell.
-#define VERTICAL_FUDGE_FACTOR 2
-
-// When we discovered we needed to measure text widths ourselves, I empirically
-// determined these widths. I don't know what exactly they correspond to in the
-// NSPopUpButtonCell code.
-#define WIDTH_NOT_INCLUDING_TEXT 31
-#define MINIMUM_WIDTH 36
+enum {
+    topMargin,
+    bottomMargin,
+    leftMargin,
+    rightMargin,
+    baselineFudgeFactor,
+    widthNotIncludingText,
+    minimumTextWidth
+};
 
 @interface KWQComboBoxAdapter : NSObject
 {
@@ -60,19 +62,32 @@ using khtml::RenderWidget;
 @interface KWQPopUpButtonCell : NSPopUpButtonCell <KWQWidgetHolder>
 {
     QWidget *widget;
+    NSWritingDirection baseWritingDirection;
 }
-- initWithWidget:(QWidget *)widget;
+
+- (id)initWithWidget:(QWidget *)widget;
+- (void)setBaseWritingDirection:(NSWritingDirection)direction;
+- (NSWritingDirection)baseWritingDirection;
+
 @end
 
 @interface KWQPopUpButton : NSPopUpButton <KWQWidgetHolder>
+{
+    BOOL inNextValidKeyView;
+}
 @end
 
 QComboBox::QComboBox()
-    : _adapter([[KWQComboBoxAdapter alloc] initWithQComboBox:this])
+    : _adapter(0)
     , _widthGood(false)
     , _activated(this, SIGNAL(activated(int)))
 {
+    KWQ_BLOCK_EXCEPTIONS;
+
+    _adapter = [[KWQComboBoxAdapter alloc] initWithQComboBox:this];
     KWQPopUpButton *button = [[KWQPopUpButton alloc] init];
+    setView(button);
+    [button release];
     
     KWQPopUpButtonCell *cell = [[KWQPopUpButtonCell alloc] initWithWidget:this];
     [button setCell:cell];
@@ -82,24 +97,30 @@ QComboBox::QComboBox()
     [button setAction:@selector(action:)];
 
     [[button cell] setControlSize:NSSmallControlSize];
-    [button setFont:[NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
-
-    setView(button);
-
-    [button release];
+    [button setFont:[NSFont systemFontOfSize:[NSFont systemFontSizeForControlSize:NSSmallControlSize]]];
 
     updateCurrentItem();
+
+    KWQ_UNBLOCK_EXCEPTIONS;
 }
 
 QComboBox::~QComboBox()
 {
+    KWQ_BLOCK_EXCEPTIONS;
+
     KWQPopUpButton *button = (KWQPopUpButton *)getView();
     [button setTarget:nil];
     [_adapter release];
+
+    KWQ_UNBLOCK_EXCEPTIONS;
 }
 
-void QComboBox::insertItem(const QString &text, int index)
+void QComboBox::insertItem(const QString &text, int i)
 {
+    KWQ_BLOCK_EXCEPTIONS;
+
+    int index = i;
+
     KWQPopUpButton *button = (KWQPopUpButton *)getView();
     int numItems = [button numberOfItems];
     if (index < 0) {
@@ -116,10 +137,16 @@ void QComboBox::insertItem(const QString &text, int index)
     _widthGood = false;
 
     updateCurrentItem();
+
+    KWQ_UNBLOCK_EXCEPTIONS;
 }
 
 QSize QComboBox::sizeHint() const 
 {
+    NSSize size = {0,0};
+
+    KWQ_BLOCK_EXCEPTIONS;
+
     KWQPopUpButton *button = (KWQPopUpButton *)getView();
     
     float width;
@@ -135,36 +162,40 @@ QSize QComboBox::sizeHint() const
             width = MAX(width, size.width);
         }
         _width = ceil(width);
-        if (_width < MINIMUM_WIDTH - WIDTH_NOT_INCLUDING_TEXT) {
-            _width = MINIMUM_WIDTH - WIDTH_NOT_INCLUDING_TEXT;
+        if (_width < dimensions()[minimumTextWidth]) {
+            _width = dimensions()[minimumTextWidth];
         }
         _widthGood = true;
     }
     
-    return QSize((int)_width + WIDTH_NOT_INCLUDING_TEXT,
-        (int)[[button cell] cellSize].height - (TOP_MARGIN + BOTTOM_MARGIN));
+    size = [[button cell] cellSize];
+
+    KWQ_UNBLOCK_EXCEPTIONS;
+
+    return QSize((int)_width + dimensions()[widthNotIncludingText],
+        (int)size.height - (dimensions()[topMargin] + dimensions()[bottomMargin]));
 }
 
 QRect QComboBox::frameGeometry() const
 {
     QRect r = QWidget::frameGeometry();
-    return QRect(r.x() + LEFT_MARGIN, r.y() + TOP_MARGIN,
-        r.width() - (LEFT_MARGIN + RIGHT_MARGIN),
-        r.height() - (TOP_MARGIN + BOTTOM_MARGIN));
+    return QRect(r.x() + dimensions()[leftMargin], r.y() + dimensions()[topMargin],
+        r.width() - (dimensions()[leftMargin] + dimensions()[rightMargin]),
+        r.height() - (dimensions()[topMargin] + dimensions()[bottomMargin]));
 }
 
 void QComboBox::setFrameGeometry(const QRect &r)
 {
-    QWidget::setFrameGeometry(QRect(-LEFT_MARGIN + r.x(), -TOP_MARGIN + r.y(),
-        LEFT_MARGIN + r.width() + RIGHT_MARGIN,
-        TOP_MARGIN + r.height() + BOTTOM_MARGIN));
+    QWidget::setFrameGeometry(QRect(-dimensions()[leftMargin] + r.x(), -dimensions()[topMargin] + r.y(),
+        dimensions()[leftMargin] + r.width() + dimensions()[rightMargin],
+        dimensions()[topMargin] + r.height() + dimensions()[bottomMargin]));
 }
 
-int QComboBox::baselinePosition() const
+int QComboBox::baselinePosition(int height) const
 {
     // Menu text is at the top.
     KWQPopUpButton *button = (KWQPopUpButton *)getView();
-    return (int)ceil(-TOP_MARGIN + VERTICAL_FUDGE_FACTOR + [[button font] ascender]);
+    return (int)ceil(-dimensions()[topMargin] + dimensions()[baselineFudgeFactor] + [[button font] ascender]);
 }
 
 void QComboBox::clear()
@@ -177,19 +208,29 @@ void QComboBox::clear()
 
 void QComboBox::setCurrentItem(int index)
 {
+    KWQ_BLOCK_EXCEPTIONS;
+
     KWQPopUpButton *button = (KWQPopUpButton *)getView();
     [button selectItemAtIndex:index];
+
+    KWQ_UNBLOCK_EXCEPTIONS;
+
     updateCurrentItem();
 }
 
 bool QComboBox::updateCurrentItem() const
 {
     KWQPopUpButton *button = (KWQPopUpButton *)getView();
+
+    KWQ_BLOCK_EXCEPTIONS;
     int i = [button indexOfSelectedItem];
+
     if (_currentItem == i) {
         return false;
     }
     _currentItem = i;
+    KWQ_UNBLOCK_EXCEPTIONS;
+
     return true;
 }
 
@@ -199,7 +240,74 @@ void QComboBox::itemSelected()
         _activated.call(_currentItem);
     }
 }
- 
+
+void QComboBox::setFont(const QFont &f)
+{
+    QWidget::setFont(f);
+
+    const NSControlSize size = KWQNSControlSizeForFont(f);
+    NSControl * const button = static_cast<NSControl *>(getView());
+
+    KWQ_BLOCK_EXCEPTIONS;
+
+    if (size != [[button cell] controlSize]) {
+        [[button cell] setControlSize:size];
+        [button setFont:[NSFont systemFontOfSize:[NSFont systemFontSizeForControlSize:size]]];
+        _widthGood = false;
+    }
+
+    KWQ_UNBLOCK_EXCEPTIONS;
+}
+
+const int *QComboBox::dimensions() const
+{
+    // We empirically determined these dimensions.
+    // It would be better to get this info from AppKit somehow.
+    static const int w[3][7] = {
+        { 2, 3, 3, 3, 4, 34, 9 },
+        { 1, 3, 3, 3, 3, 31, 5 },
+        { 0, 0, 1, 1, 2, 32, 0 }
+    };
+    NSControl * const button = static_cast<NSControl *>(getView());
+
+    KWQ_BLOCK_EXCEPTIONS;
+    return  w[[[button cell] controlSize]];
+    KWQ_UNBLOCK_EXCEPTIONS;
+
+    return w[NSSmallControlSize];
+}
+
+QWidget::FocusPolicy QComboBox::focusPolicy() const
+{
+    KWQ_BLOCK_EXCEPTIONS;
+    
+    // Add an additional check here.
+    // For now, selects are only focused when full
+    // keyboard access is turned on.
+    unsigned keyboardUIMode = [KWQKHTMLPart::bridgeForWidget(this) keyboardUIMode];
+    if ((keyboardUIMode & WebCoreKeyboardAccessFull) == 0)
+        return NoFocus;
+    
+    KWQ_UNBLOCK_EXCEPTIONS;
+    
+    return QWidget::focusPolicy();
+}
+
+void QComboBox::setWritingDirection(QPainter::TextDirection direction)
+{
+    KWQ_BLOCK_EXCEPTIONS;
+
+    KWQPopUpButton *button = getView();
+    KWQPopUpButtonCell *cell = [button cell];
+    NSWritingDirection d = direction == QPainter::RTL ? NSWritingDirectionRightToLeft : NSWritingDirectionLeftToRight;
+    if ([cell baseWritingDirection] != d) {
+        [cell setBaseWritingDirection:d];
+        [button setNeedsDisplay:YES];
+    }
+
+    KWQ_UNBLOCK_EXCEPTIONS;
+}
+
 @implementation KWQComboBoxAdapter
 
 - initWithQComboBox:(QComboBox *)b
@@ -226,33 +334,13 @@ void QComboBox::itemSelected()
 
 - (BOOL)trackMouse:(NSEvent *)event inRect:(NSRect)rect ofView:(NSView *)view untilMouseUp:(BOOL)flag
 {
-    // We need to "defer loading" and defer timers while we are tracking the menu.
-    // That's because we don't want the new page to load while the user is holding the mouse down.
-    // Normally, this is not a problem because we use a different run loop mode, but pop-up menus
-    // use a Carbon implementation, and it uses the default run loop mode.
-    // See bugs 3021018 and 3242460 for some more information.
-    
     WebCoreBridge *bridge = [KWQKHTMLPart::bridgeForWidget(widget) retain];
-    BOOL wasDeferringLoading = [bridge defersLoading];
-    if (!wasDeferringLoading) {
-        [bridge setDefersLoading:YES];
-    }
-    BOOL wasDeferringTimers = QObject::defersTimers();
-    if (!wasDeferringTimers) {
-        QObject::setDefersTimers(true);
-    }
     BOOL result = [super trackMouse:event inRect:rect ofView:view untilMouseUp:flag];
-    if (!wasDeferringTimers) {
-        QObject::setDefersTimers(false);
-    }
-    if (!wasDeferringLoading) {
-        [bridge setDefersLoading:NO];
-    }
     if (result) {
-        // Give khtml a chance to fix up its event state, since the popup eats all the
+        // Give KHTML a chance to fix up its event state, since the popup eats all the
         // events during tracking.  [NSApp currentEvent] is still the original mouseDown
         // at this point!
-        [bridge part]->doFakeMouseUpAfterWidgetTracking(event);
+        [bridge part]->sendFakeEventsAfterWidgetTracking(event);
     }
     [bridge release];
     return result;
@@ -263,6 +351,30 @@ void QComboBox::itemSelected()
     return widget;
 }
 
+- (void)setBaseWritingDirection:(NSWritingDirection)direction
+{
+    baseWritingDirection = direction;
+}
+
+- (NSWritingDirection)baseWritingDirection
+{
+    return baseWritingDirection;
+}
+
+- (NSMutableDictionary *)_textAttributes
+{
+    NSMutableDictionary *attributes = [super _textAttributes];
+    NSParagraphStyle *style = [attributes objectForKey:NSParagraphStyleAttributeName];
+    ASSERT(style != nil);
+    if ([style baseWritingDirection] != baseWritingDirection) {
+        NSMutableParagraphStyle *mutableStyle = [style mutableCopy];
+        [mutableStyle setBaseWritingDirection:baseWritingDirection];
+        [attributes setObject:mutableStyle forKey:NSParagraphStyleAttributeName];
+        [mutableStyle release];
+    }
+    return attributes;
+}
+
 @end
 
 @implementation KWQPopUpButton
@@ -270,6 +382,63 @@ void QComboBox::itemSelected()
 - (QWidget *)widget
 {
     return [(KWQPopUpButtonCell *)[self cell] widget];
+}
+
+- (BOOL)becomeFirstResponder
+{
+    BOOL become = [super becomeFirstResponder];
+    if (become) {
+        QWidget *widget = [self widget];
+        if (!KWQKHTMLPart::currentEventIsMouseDownInWidget(widget)) {
+            [self _KWQ_scrollFrameToVisible];
+        }
+        QFocusEvent event(QEvent::FocusIn);
+        const_cast<QObject *>(widget->eventFilterObject())->eventFilter(widget, &event);
+    }
+    return become;
+}
+
+- (BOOL)resignFirstResponder
+{
+    BOOL resign = [super resignFirstResponder];
+    if (resign) {
+        QWidget *widget = [self widget];
+        QFocusEvent event(QEvent::FocusOut);
+        const_cast<QObject *>(widget->eventFilterObject())->eventFilter(widget, &event);
+    }
+    return resign;
+}
+
+-(NSView *)nextKeyView
+{
+    QWidget *widget = [self widget];
+    return widget && inNextValidKeyView
+        ? KWQKHTMLPart::nextKeyViewForWidget(widget, KWQSelectingNext)
+        : [super nextKeyView];
+}
+
+-(NSView *)previousKeyView
+{
+    QWidget *widget = [self widget];
+    return widget && inNextValidKeyView
+        ? KWQKHTMLPart::nextKeyViewForWidget(widget, KWQSelectingPrevious)
+        : [super previousKeyView];
+}
+
+-(NSView *)nextValidKeyView
+{
+    inNextValidKeyView = YES;
+    NSView *view = [super nextValidKeyView];
+    inNextValidKeyView = NO;
+    return view;
+}
+
+-(NSView *)previousValidKeyView
+{
+    inNextValidKeyView = YES;
+    NSView *view = [super previousValidKeyView];
+    inNextValidKeyView = NO;
+    return view;
 }
 
 @end

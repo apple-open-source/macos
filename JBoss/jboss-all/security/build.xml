@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE project [
    <!ENTITY buildmagic SYSTEM "../tools/etc/buildmagic/buildmagic.ent">
+   <!ENTITY libraries SYSTEM "../tools/etc/buildmagic/libraries.ent">
+   <!ENTITY modules SYSTEM "../tools/etc/buildmagic/modules.ent">
 ]>
 
 <!-- ====================================================================== -->
@@ -12,7 +14,7 @@
 <!--                                                                        -->
 <!-- ====================================================================== -->
 
-<!-- $Id: build.xml,v 1.28.2.8 2003/05/18 06:28:35 starksm Exp $ -->
+<!-- $Id: build.xml,v 1.28.2.11 2003/11/10 06:45:54 starksm Exp $ -->
 
 <project default="main" name="JBoss/Security">
 
@@ -68,64 +70,7 @@
     <!-- ========= -->
     <!-- Libraries -->
     <!-- ========= -->
-
-    <!-- JavaCC -->
-    <property name="sun.javacc.root" value="${project.thirdparty}/sun/javacc"/>
-    <property name="sun.javacc.lib" value="${sun.javacc.root}/lib"/>
-
-    <!-- Java Authentication and Authorization Service (JAAS) -->
-    <property name="sun.jaas.root" value="${project.thirdparty}/sun/jaas"/>
-    <property name="sun.jaas.lib" value="${sun.jaas.root}/lib"/>
-    <path id="sun.jaas.classpath">
-      <pathelement path="${sun.jaas.lib}/jaas.jar"/>
-    </path>
-
-    <!-- Java Secure Socket Extension (JSSE) -->
-    <property name="sun.jsse.root" value="${project.thirdparty}/sun/jsse"/>
-    <property name="sun.jsse.lib" value="${sun.jsse.root}/lib"/>
-    <path id="sun.jsse.classpath">
-      <fileset dir="${sun.jsse.lib}">
-        <include name="**/*.jar"/>
-      </fileset>
-    </path>
-
-    <!-- Java Cryptography Extension (JCE) -->
-    <property name="sun.jce.root" value="${project.thirdparty}/sun/jce"/>
-    <property name="sun.jce.lib" value="${sun.jce.root}/lib"/>
-    <path id="sun.jce.classpath">
-      <fileset dir="${sun.jce.lib}">
-        <include name="**/*.jar"/>
-      </fileset>
-    </path>
-
-    <!-- Apache Crimson (XML/DOM) -->
-    <property name="apache.crimson.root" value="${project.thirdparty}/apache/crimson"/>
-    <property name="apache.crimson.lib" value="${apache.crimson.root}/lib"/>
-    <path id="apache.crimson.classpath">
-      <pathelement path="${apache.crimson.lib}/crimson.jar"/>
-    </path>
-
-    <!-- Log4j -->
-    <property name="apache.log4j.root" value="${project.thirdparty}/apache/log4j"/>
-    <property name="apache.log4j.lib" value="${apache.log4j.root}/lib"/>
-    <path id="apache.log4j.classpath">
-      <pathelement path="${apache.log4j.lib}/log4j.jar"/>
-    </path>
-
-    <!-- JUnit -->
-    <property name="junit.junit.root" value="${project.thirdparty}/junit/junit"/>
-    <property name="junit.junit.lib" value="${junit.junit.root}/lib"/>
-    <path id="junit.junit.classpath">
-      <pathelement path="${junit.junit.lib}/junit.jar"/>
-    </path>
-
-    <!-- Hypersonic SQL -->
-    <property name="hsqldb.hsqldb.root" value="${project.thirdparty}/hsqldb/hsqldb"/>
-    <property name="hsqldb.hsqldb.lib" value="${hsqldb.hsqldb.root}/lib"/>
-    <path id="hsqldb.hsqldb.classpath">
-      <pathelement path="${hsqldb.hsqldb.lib}/hsqldb.jar"/>
-    </path>
-
+    &libraries;
     <!-- The combined library classpath -->
     <path id="library.classpath">
       <path refid="sun.jsse.classpath"/>
@@ -139,50 +84,7 @@
     <!-- ======= -->
     <!-- Modules -->
     <!-- ======= -->
-
-    <!-- J2EE -->
-    <property name="jboss.j2ee.root" value="${project.root}/j2ee/output"/>
-    <property name="jboss.j2ee.lib" value="${jboss.j2ee.root}/lib"/>
-    <path id="jboss.j2ee.classpath">
-      <pathelement path="${jboss.j2ee.lib}/jboss-j2ee.jar"/>
-    </path>
-
-    <!-- Common -->
-    <property name="jboss.common.root" value="${project.root}/common/output"/>
-    <property name="jboss.common.lib" value="${jboss.common.root}/lib"/>
-    <path id="jboss.common.classpath">
-      <pathelement path="${jboss.common.lib}/jboss-common.jar"/>
-    </path>
-
-    <!-- System -->
-    <property name="jboss.system.root" value="${project.root}/system/output"/>
-    <property name="jboss.system.lib" value="${jboss.system.root}/lib"/>
-    <path id="jboss.system.classpath">
-      <pathelement path="${jboss.system.lib}/jboss-system.jar"/>
-    </path>
-
-    <!-- Naming -->
-    <property name="jboss.naming.root" value="${project.root}/naming/output"/>
-    <property name="jboss.naming.lib" value="${jboss.naming.root}/lib"/>
-    <path id="jboss.naming.classpath">
-      <pathelement path="${jboss.naming.lib}/jnpserver.jar"/>
-    </path>
-
-    <!-- Server -->
-    <property name="jboss.server.root" value="${project.root}/server/output"/>
-    <property name="jboss.server.lib" value="${jboss.server.root}/lib"/>
-    <path id="jboss.server.classpath">
-      <pathelement path="${jboss.server.lib}/jboss.jar"/>
-      <pathelement path="${jboss.server.lib}/jboss-security.jar"/>
-    </path>
-
-    <!-- JMX -->
-    <property name="jboss.jmx.root" value="${project.root}/jmx/output"/>
-    <property name="jboss.jmx.lib" value="${jboss.jmx.root}/lib"/>
-    <path id="jboss.jmx.classpath">
-      <pathelement path="${jboss.jmx.lib}/jboss-jmx.jar"/>
-    </path>
-
+    &modules;
     <!-- The combined dependent module classpath -->
     <path id="dependentmodule.classpath">
       <path refid="jboss.j2ee.classpath"/>
@@ -209,6 +111,7 @@
     <property name="build.etc" value="${module.output}/etc"/>
     <property name="build.parsers" value="${module.output}/parsers"/>
     <property name="build.tests" value="${module.output}/tests"/>
+    <property name="build.todo" value="${module.output}/todo"/>
 
     <!-- Install/Release structure -->
     <property name="install.id" value="${module.name}-${module.version}"/>
@@ -350,7 +253,12 @@
   <!-- 
      |  Build all jar files.
     -->
-  <target name="jars" depends="compile" description="Builds all jar files.">
+  <target name="jars" description="Builds all jar files."
+     depends="_buildmagic:build-bypass-check"
+	  unless="build-bypass.on">
+
+    <call target="compile"/>
+
     <mkdir dir="${build.lib}"/>
 
     <!-- Build jbosssx.jar -->
@@ -400,6 +308,7 @@
         <include name="org/jboss/security/srp/SRPRemoteServer_Stub.class"/>
         <include name="org/jboss/security/srp/SRPRemoteServerInterface.class"/>
         <include name="org/jboss/security/srp/SRPVerifierStore.class"/>
+        <include name="org/jboss/security/srp/SRPVerifierStore$*.class"/>
         <include name="org/jboss/security/srp/jaas/SRPLoginModule.class"/>
         <include name="org/jboss/security/srp/jaas/SRPPrincipal.class"/>
         <include name="org/jboss/security/ssl/ClientSocketFactory.class"/>
@@ -415,6 +324,9 @@
         <include name="org/jboss/test/TestLoginModule.class"/>
       </fileset>
     </jar>
+
+    <!-- Update the build marker to allow bypassing -->
+    <touch file="${build-bypass.marker}"/>
 
   </target>
 

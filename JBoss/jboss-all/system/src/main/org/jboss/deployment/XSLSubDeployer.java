@@ -17,6 +17,7 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMResult;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamSource;
+import javax.xml.transform.stream.StreamResult;
 
 import org.jboss.mx.util.MBeanProxy;
 import org.jboss.util.xml.DOMWriter;
@@ -198,19 +199,12 @@ public class XSLSubDeployer
          setParameters(trans);
          trans.transform(s, r);
          di.document = (Document) r.getNode();
-         log.info("transformed into doc: " + di.document);
          if (log.isDebugEnabled())
          {
-            try 
-            {
-               StringWriter sw = new StringWriter();
-               DOMWriter w = new DOMWriter(sw, false);
-               w.print(di.document, true);
-               log.debug("transformed into doc: " + sw.getBuffer().toString());
-            }
-            catch (UnsupportedEncodingException ignored)
-            {
-            }
+            StringWriter sw = new StringWriter();
+            DOMWriter w = new DOMWriter(sw, false);
+            w.print(di.document, true);
+            log.debug("transformed into doc: " + sw.getBuffer().toString());
          }
       }
       catch (TransformerException ce)
@@ -244,6 +238,7 @@ public class XSLSubDeployer
    protected void setParameters(Transformer trans) throws TransformerException
    {
       //override to set document names etc.
+      trans.setParameter("jboss.server.data.dir", System.getProperty("boss.server.data.dir"));
    }
 
    protected void findDd(DeploymentInfo di) throws DeploymentException

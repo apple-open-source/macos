@@ -100,11 +100,11 @@ class Font
 public:
 #if APPLE_CHANGES
     Font() : letterSpacing(0), wordSpacing(0) {}
-    Font(const FontDef &fd) : fontDef(fd), letterSpacing(0), wordSpacing(0) {}
+    Font(const FontDef &fd, int l, int w) : fontDef(fd), letterSpacing(l), wordSpacing(w) {}
 #else
     Font() : fontDef(), f(), fm( f ), scFont( 0 ), letterSpacing( 0 ), wordSpacing( 0 ) {}
-    Font( const FontDef &fd )
-        :  fontDef( fd ), f(), fm( f ), scFont( 0 ), letterSpacing( 0 ), wordSpacing( 0 )
+    Font( const FontDef &fd, int l, int w )
+        :  fontDef( fd ), f(), fm( f ), scFont( 0 ), letterSpacing( l ), wordSpacing( w )
         {}
 #endif
 
@@ -119,20 +119,25 @@ public:
     void update( QPaintDeviceMetrics *devMetrics ) const;
 
                    
+#if !APPLE_CHANGES
     void drawText( QPainter *p, int x, int y, QChar *str, int slen, int pos, int len, int width,
                    QPainter::TextDirection d, int from=-1, int to=-1, QColor bg=QColor() ) const;
 
-#if APPLE_CHANGES
+#else
+    void drawText( QPainter *p, int x, int y, QChar *str, int slen, int pos, int len, int width,
+                   QPainter::TextDirection d, bool visuallyOrdered = false, int from=-1, int to=-1, QColor bg=QColor() ) const;
     float floatWidth( QChar *str, int slen, int pos, int len ) const;
     void floatCharacterWidths( QChar *str, int slen, int pos, int len, int toAdd, float *buffer) const;
     bool isFixedPitch() const;
     int checkSelectionPoint (QChar *s, int slen, int pos, int len, int toAdd, int x, bool reversed) const;
     void drawHighlightForText( QPainter *p, int x, int y, QChar *str, int slen, int pos, int len, int width,
-                   QPainter::TextDirection d, int from=-1, int to=-1, QColor bg=QColor() ) const;
+                   QPainter::TextDirection d, bool visuallyOrdered = false, int from=-1, int to=-1, QColor bg=QColor() ) const;
 #endif
     int width( QChar *str, int slen, int pos, int len ) const;
     int width( QChar *str, int slen, int pos ) const;
 
+    bool isSmallCaps() const { return fontDef.smallCaps; }
+    
 private:
     FontDef fontDef;
     mutable QFont f;

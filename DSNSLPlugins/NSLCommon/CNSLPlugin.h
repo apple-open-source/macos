@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -250,7 +248,7 @@ protected:
             sInt32				RetrieveResults			( sGetRecordList* inData, CNSLDirNodeRep* nodeRep );
 
             // when node lookup is complete, any nodes that are stale should get unpublished
-            void				ClearOutStaleNodes		( void );		
+    virtual void				ClearOutStaleNodes		( void );		
             
             void				ZeroLastNodeLookupStartTime	( void ) { mLastNodeLookupStartTime = 0; }
             UInt32				GetLastNodeLookupStartTime	( void ) { return mLastNodeLookupStartTime; }

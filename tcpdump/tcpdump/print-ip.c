@@ -20,8 +20,8 @@
  */
 
 #ifndef lint
-static const char rcsid[] =
-    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-ip.c,v 1.1.1.3 2003/03/17 18:42:17 rbraun Exp $ (LBL)";
+static const char rcsid[] _U_ =
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-ip.c,v 1.1.1.4 2004/02/05 19:30:54 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -39,11 +39,7 @@ static const char rcsid[] =
 #include "extract.h"			/* must come after interface.h */
 
 #include "ip.h"
-
-/* Compatibility */
-#ifndef	IPPROTO_ND
-#define	IPPROTO_ND	77
-#endif
+#include "ipproto.h"
 
 /*
  * print the recorded route in an IP RR, LSRR or SSRR option.
@@ -339,6 +335,21 @@ in_cksum_shouldbe(u_int16_t sum, u_int16_t computed_sum)
 	return shouldbe;
 }
 
+#ifndef IP_MF
+#define IP_MF 0x2000
+#endif /* IP_MF */
+#ifndef IP_DF
+#define IP_DF 0x4000
+#endif /* IP_DF */
+#define IP_RES 0x8000
+
+static struct tok ip_frag_values[] = {
+        { IP_MF,        "+" },
+        { IP_DF,        "DF" },
+	{ IP_RES,       "rsvd" }, /* The RFC3514 evil ;-) bit */
+        { 0,            NULL }
+};
+
 /*
  * print an IP datagram.
  */
@@ -347,12 +358,22 @@ ip_print(register const u_char *bp, register u_int length)
 {
 	register const struct ip *ip;
 	register u_int hlen, len, len0, off;
+	const u_char *ipend;
 	register const u_char *cp;
 	u_char nh;
 	int advance;
 	struct protoent *proto;
+	u_int16_t sum, ip_sum;
 
 	ip = (const struct ip *)bp;
+	if (IP_V(ip) != 4) { /* print version if != 4 */
+	    printf("IP%u ", IP_V(ip));
+	    if (IP_V(ip) == 6)
+		printf(", wrong link-layer encapsulation");
+	}
+        else
+	    printf("IP ");
+
 	if ((u_char *)(ip + 1) > snapend) {
 		printf("[|ip]");
 		return;
@@ -363,14 +384,26 @@ ip_print(register const u_char *bp, register u_int length)
 	}
 	hlen = IP_HL(ip) * 4;
 	if (hlen < sizeof (struct ip)) {
-		(void)printf("bad-hlen %d", hlen);
+		(void)printf("bad-hlen %u", hlen);
 		return;
 	}
 
 	len = EXTRACT_16BITS(&ip->ip_len);
 	if (length < len)
-		(void)printf("truncated-ip - %d bytes missing! ",
+		(void)printf("truncated-ip - %u bytes missing! ",
 			len - length);
+	if (len < hlen) {
+		(void)printf("bad-len %u", len);
+		return;
+	}
+
+	/*
+	 * Cut off the snapshot length to the end of the IP payload.
+	 */
+	ipend = bp + len;
+	if (ipend < snapend)
+		snapend = ipend;
+
 	len -= hlen;
 	len0 = len;
 
@@ -393,10 +426,18 @@ ip_print(register const u_char *bp, register u_int length)
             }
 
             if (ip->ip_ttl >= 1)
-                (void)printf(", ttl %u", ip->ip_ttl);    
+                (void)printf(", ttl %3u", ip->ip_ttl);    
 
-            if ((off & 0x3fff) != 0)
-                (void)printf(", id %u", EXTRACT_16BITS(&ip->ip_id));
+	    /*
+	     * for the firewall guys, print id, offset.
+             * On all but the last stick a "+" in the flags portion.
+	     * For unfragmented datagrams, note the don't fragment flag.
+	     */
+
+	    (void)printf(", id %u, offset %u, flags [%s]",
+			     EXTRACT_16BITS(&ip->ip_id),
+			     (off & 0x1fff) * 8,
+			     bittok2str(ip_frag_values, "none", off & 0xe000 ));
 
             (void)printf(", length: %u", EXTRACT_16BITS(&ip->ip_len));
 
@@ -405,6 +446,16 @@ ip_print(register const u_char *bp, register u_int length)
                 ip_optprint((u_char *)(ip + 1), hlen - sizeof(struct ip));
                 printf(" )");
             }
+
+	    if ((u_char *)ip + hlen <= snapend) {
+	        sum = in_cksum((const u_short *)ip, hlen, 0);
+		if (sum != 0) {
+		    ip_sum = EXTRACT_16BITS(&ip->ip_sum);
+		    (void)printf(", bad cksum %x (->%x)!", ip_sum,
+			     in_cksum_shouldbe(ip_sum, sum));
+		}
+	    }
+
             printf(") ");
 	}
 
@@ -416,9 +467,6 @@ ip_print(register const u_char *bp, register u_int length)
 		cp = (const u_char *)ip + hlen;
 		nh = ip->ip_p;
 
-#ifndef IPPROTO_SCTP
-#define IPPROTO_SCTP 132
-#endif
 		if (nh != IPPROTO_TCP && nh != IPPROTO_UDP &&
 		    nh != IPPROTO_SCTP) {
 			(void)printf("%s > %s: ", ipaddr_string(&ip->ip_src),
@@ -427,42 +475,35 @@ ip_print(register const u_char *bp, register u_int length)
 again:
 		switch (nh) {
 
-#ifndef IPPROTO_AH
-#define IPPROTO_AH	51
-#endif
 		case IPPROTO_AH:
 			nh = *cp;
 			advance = ah_print(cp);
+			if (advance <= 0)
+				break;
 			cp += advance;
 			len -= advance;
 			goto again;
 
-#ifndef IPPROTO_ESP
-#define IPPROTO_ESP	50
-#endif
 		case IPPROTO_ESP:
 		    {
 			int enh, padlen;
 			advance = esp_print(cp, (const u_char *)ip, &enh, &padlen);
+			if (advance <= 0)
+				break;
 			cp += advance;
 			len -= advance + padlen;
-			if (enh < 0)
-				break;
 			nh = enh & 0xff;
 			goto again;
 		    }
 
-#ifndef IPPROTO_IPCOMP
-#define IPPROTO_IPCOMP	108
-#endif
 		case IPPROTO_IPCOMP:
 		    {
 			int enh;
 			advance = ipcomp_print(cp, &enh);
+			if (advance <= 0)
+				break;
 			cp += advance;
 			len -= advance;
-			if (enh < 0)
-				break;
 			nh = enh & 0xff;
 			goto again;
 		    }
@@ -480,12 +521,10 @@ again:
 			break;
 
 		case IPPROTO_ICMP:
-			icmp_print(cp, len, (const u_char *)ip);
+		        /* pass on the MF bit plus the offset to detect fragments */
+			icmp_print(cp, len, (const u_char *)ip, (off & 0x3fff));
 			break;
 
-#ifndef IPPROTO_IGRP
-#define IPPROTO_IGRP 9
-#endif
 		case IPPROTO_IGRP:
 			igrp_print(cp, len, (const u_char *)ip);
 			break;
@@ -498,21 +537,15 @@ again:
 			egp_print(cp);
 			break;
 
-#ifndef IPPROTO_OSPF
-#define IPPROTO_OSPF 89
-#endif
 		case IPPROTO_OSPF:
 			ospf_print(cp, len, (const u_char *)ip);
 			break;
 
-#ifndef IPPROTO_IGMP
-#define IPPROTO_IGMP 2
-#endif
 		case IPPROTO_IGMP:
 			igmp_print(cp, len);
 			break;
 
-		case 4:
+		case IPPROTO_IPV4:
 			/* DVMRP multicast tunnel (ip-in-ip encapsulation) */
 			ip_print(cp, len);
 			if (! vflag) {
@@ -522,47 +555,29 @@ again:
 			break;
 
 #ifdef INET6
-#ifndef IP6PROTO_ENCAP
-#define IP6PROTO_ENCAP 41
-#endif
-		case IP6PROTO_ENCAP:
+		case IPPROTO_IPV6:
 			/* ip6-in-ip encapsulation */
 			ip6_print(cp, len);
 			break;
 #endif /*INET6*/
 
-#ifndef IPPROTO_RSVP
-#define IPPROTO_RSVP 46
-#endif
 		case IPPROTO_RSVP:
 			rsvp_print(cp, len);
 			break;
 
-#ifndef IPPROTO_GRE
-#define IPPROTO_GRE 47
-#endif
 		case IPPROTO_GRE:
 			/* do it */
 			gre_print(cp, len);
 			break;
 
-#ifndef IPPROTO_MOBILE
-#define IPPROTO_MOBILE 55
-#endif
 		case IPPROTO_MOBILE:
 			mobile_print(cp, len);
 			break;
 
-#ifndef IPPROTO_PIM
-#define IPPROTO_PIM	103
-#endif
 		case IPPROTO_PIM:
 			pim_print(cp, len);
 			break;
 
-#ifndef IPPROTO_VRRP
-#define IPPROTO_VRRP	112
-#endif
 		case IPPROTO_VRRP:
 			vrrp_print(cp, len, ip->ip_ttl);
 			break;
@@ -575,60 +590,23 @@ again:
 			printf(" %d", len);
 			break;
 		}
-	}
+	} else {
+	    /* Ultra quiet now means that all this stuff should be suppressed */
+	    if (qflag > 1) return;
 
-	/* Ultra quiet now means that all this stuff should be suppressed */
-	/* res 3-Nov-98 */
-	if (qflag > 1) return;
-
-
-	/*
-	 * for fragmented datagrams, print id:size@offset.  On all
-	 * but the last stick a "+".  For unfragmented datagrams, note
-	 * the don't fragment flag.
-	 */
-	len = len0;	/* get the original length */
-	if (off & 0x3fff) {
-		/*
-		 * if this isn't the first frag, we're missing the
-		 * next level protocol header.  print the ip addr
-		 * and the protocol.
-		 */
-		if (off & 0x1fff) {
-			(void)printf("%s > %s:", ipaddr_string(&ip->ip_src),
-				      ipaddr_string(&ip->ip_dst));
-			if ((proto = getprotobynumber(ip->ip_p)) != NULL)
-				(void)printf(" %s", proto->p_name);
-			else
-				(void)printf(" ip-proto-%d", ip->ip_p);
-		}
-#ifndef IP_MF
-#define IP_MF 0x2000
-#endif /* IP_MF */
-#ifndef IP_DF
-#define IP_DF 0x4000
-#endif /* IP_DF */
-		(void)printf(" (frag %u:%u@%u%s)", EXTRACT_16BITS(&ip->ip_id), len,
-			(off & 0x1fff) * 8,
-			(off & IP_MF)? "+" : "");
-
-	} else if (off & IP_DF)
-		(void)printf(" (DF)");
-
-	if (vflag) {
-		u_int16_t sum, ip_sum;
-		const char *sep = "";
-
-		if ((u_char *)ip + hlen <= snapend) {
-			sum = in_cksum((const u_short *)ip, hlen, 0);
-			if (sum != 0) {
-				ip_sum = EXTRACT_16BITS(&ip->ip_sum);
-				(void)printf("%sbad cksum %x (->%x)!", sep,
-					     ip_sum,
-					     in_cksum_shouldbe(ip_sum, sum));
-				sep = ", ";
-			}
-		}
+	    /*
+	     * if this isn't the first frag, we're missing the
+	     * next level protocol header.  print the ip addr
+	     * and the protocol.
+	     */
+	    if (off & 0x1fff) {
+	        (void)printf("%s > %s:", ipaddr_string(&ip->ip_src),
+			     ipaddr_string(&ip->ip_dst));
+		if ((proto = getprotobynumber(ip->ip_p)) != NULL)
+		    (void)printf(" %s", proto->p_name);
+		else
+		    (void)printf(" ip-proto-%d", ip->ip_p);
+	    } 
 	}
 }
 

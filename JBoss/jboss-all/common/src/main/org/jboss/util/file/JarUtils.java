@@ -21,7 +21,7 @@ import java.util.zip.ZipEntry;
 /** A utility class for dealing with Jar files.
 
 @author Scott.Stark@jboss.org
-@version $Revision: 1.4.2.1 $
+@version $Revision: 1.4.2.3 $
 */
 public final class JarUtils
 {
@@ -283,12 +283,30 @@ public final class JarUtils
             out.flush();
             out.close();
             jin.closeEntry();
+            file.setLastModified(entry.getTime());
          }
          entry = jin.getNextEntry();
       }
+      /* Explicity write out the META-INF/MANIFEST.MF so that any headers such
+      as the Class-Path are see for the unpackaged jar
+      */
+      Manifest mf = jin.getManifest();
+      if (mf != null)
+      {
+         File file = new File(dest, "META-INF/MANIFEST.MF");
+         File parent = file.getParentFile();
+         if( parent.exists() == false )
+         {
+            parent.mkdirs();
+         }
+         OutputStream out = new FileOutputStream(file);
+         mf.write(out);
+         out.flush();
+         out.close();
+      }
       jin.close();
    }
-   
+
    /** Given a URL check if its a jar url(jar:<url>!/archive) and if it is,
     extract the archive entry into the given dest directory and return a file
     URL to its location. If jarURL is not a jar url then it is simply returned
@@ -296,7 +314,7 @@ public final class JarUtils
 
     @param jarURL the URL to validate and extract the referenced entry if its
       a jar protocol URL
-    @param dest, the directory into which the nested jar will be extracted.
+    @param dest the directory into which the nested jar will be extracted.
     @return the file: URL for the jar referenced by the jarURL parameter.
     */
    public static URL extractNestedJar(URL jarURL, File dest)
@@ -337,11 +355,10 @@ public final class JarUtils
       FileOutputStream fos = new FileOutputStream(archiveFile);
       BufferedOutputStream bos = new BufferedOutputStream(fos);
       byte[] buffer = new byte[4096];
-      int read, totalRead = 0;
+      int read;
       while( (read = archiveIS.read(buffer)) > 0 )
       {
          bos.write(buffer, 0, read);
-         totalRead += read;
       }
       archiveIS.close();
       bos.close();

@@ -2,13 +2,11 @@ package org.jboss.jmx.adaptor.model;
 
 import java.util.Arrays;
 import java.util.TreeSet;
-import javax.management.MBeanInfo;
-import javax.management.ObjectName;
 
 /** The MBeanData for a given JMX domain name
  *
  * @author Scott.Stark@jboss.org
- * @version $Revision: 1.3.2.1 $
+ * @version $Revision: 1.3.2.2 $
  */
 public class DomainData
 {

@@ -23,8 +23,8 @@
 
 /*
  * Machinery for handling UID lists live here.  This is mainly to support
- * RFC1725-conformant POP3 servers without a LAST command, but may also be
- * useful for making the IMAP4 querying logic UID-oriented, if a future
+ * RFC1725/RFC1939-conformant POP3 servers without a LAST command, but may also
+ * be useful for making the IMAP4 querying logic UID-oriented, if a future
  * revision of IMAP forces me to.
  *
  * These functions are also used by the rest of the code to maintain
@@ -39,7 +39,7 @@
  * This list is initially set up by initialize_saved_list() from the
  * .fetchids file.
  *
- * Early in the query, during the execution of the protocol-specific 
+ * Early in the query, during the execution of the protocol-specific
  * getrange code, the driver expects that the host's `newsaved' member
  * will be filled with a list of UIDs and message numbers representing
  * the mailbox state.  If this list is empty, the server did
@@ -63,8 +63,44 @@
  * be picked up by the next run.  If there are no un-expunged
  * messages, the file is deleted.
  *
- * Note: some comparisons (those used for DNS address lists) are caseblind!  
+ * One disadvantage of UIDL is that all the UIDs have to be downloaded
+ * before a search for new messages can be done. Typically, new messages
+ * are appended to mailboxes. Hence, downloading all UIDs just to download
+ * a few new mails is a waste of bandwidth. If new messages are always at
+ * the end of the mailbox, fast UIDL will decrease the time required to
+ * download new mails.
+ *
+ * During fast UIDL, the UIDs of all messages are not downloaded! The first
+ * unseen message is searched for by using a binary search on UIDs. UIDs
+ * after the first unseen message are downloaded as and when needed.
+ *
+ * The advantages of fast UIDL are (this is noticeable only when the
+ * mailbox has too many mails):
+ *
+ * - There is no need to download the UIDs of all mails right at the start.
+ * - There is no need to save all the UIDs in memory separately in
+ * `newsaved' list.
+ * - There is no need to download the UIDs of seen mail (except for the
+ * first binary search).
+ * - The first new mail is downloaded considerably faster.
+ *
+ * The disadvantages are:
+ *
+ * - Since all UIDs are not downloaded, it is not possible to swap old and
+ * new list. The current state of the mailbox is essentially a merged state
+ * of old and new mails.
+ * - If an intermediate mail has been temporarily refused (say, due to 4xx
+ * code from the smtp server), this mail may not get downloaded.
+ * - If 'flush' is used, such intermediate mails will also get deleted.
+ *
+ * The first two disadvantages can be overcome by doing a linear search
+ * once in a while (say, every 10th poll). Also, with flush, fast UIDL
+ * should be disabled.
+ *
+ * Note: some comparisons (those used for DNS address lists) are caseblind!
  */
+
+int dofastuidl = 0;
 
 /* UIDs associated with un-queried hosts */
 static struct idlist *scratchlist;
@@ -78,8 +114,12 @@ void initialize_saved_lists(struct query *hostlist, const char *idfile)
     struct query *ctl;
 
     /* make sure lists are initially empty */
-    for (ctl = hostlist; ctl; ctl = ctl->next)
-	ctl->skipped = ctl->oldsaved = ctl->newsaved = (struct idlist *)NULL;
+    for (ctl = hostlist; ctl; ctl = ctl->next) {
+	ctl->skipped = (struct idlist *)NULL;
+	ctl->oldsaved = (struct idlist *)NULL;
+	ctl->newsaved = (struct idlist *)NULL;
+	ctl->oldsavedend = &ctl->oldsaved;
+    }
 
     errno = 0;
 
@@ -91,13 +131,13 @@ void initialize_saved_lists(struct query *hostlist, const char *idfile)
      * that all implementations of lstat() will return ENOTDIR
      * rather than plain ENOENT in this case...
      */
-   if (lstat(idfile, &statbuf) < 0) {
-     if (errno == ENOTDIR) 
-    {
-      report(stderr, GT_("lstat: %s: %s\n"), idfile, strerror(errno));
-      exit(PS_IOERR);
+    if (lstat(idfile, &statbuf) < 0) {
+	if (errno == ENOTDIR)
+	{
+	    report(stderr, GT_("lstat: %s: %s\n"), idfile, strerror(errno));
+	    exit(PS_IOERR);
+	}
     }
-   }
 
     /* let's get stored message UIDs from previous queries */
     if ((tmpfp = fopen(idfile, "r")) != (FILE *)NULL)
@@ -131,19 +171,16 @@ void initialize_saved_lists(struct query *hostlist, const char *idfile)
 	     * espescially if the POP server returns an X-UIDL header
 	     * instead of a Message-ID, as GMX's (www.gmx.net) POP3
 	     * StreamProxy V1.0 does.
+	     *
+	     * this is one other trick. The userhost part 
+	     * may contain ' ' in the user part, at least in
+	     * the lotus notes case.
+	     * So we start looking for the '@' after which the
+	     * host will follow with the ' ' seperator finaly id.
 	     */
-	    if ((id = strchr(user, ' ')) != NULL )
+	    if ((delimp1 = strchr(user, '@')) != NULL &&
+		(id = strchr(delimp1,' ')) != NULL)
 	    {
-
-	      /*
-	       * this is one other trick. The userhost part 
-	       * may contain ' ' in the user part, at least in
-	       * the lotus notes case.
-	       * So we start looking for the '@' after which the
-	       * host will follow with the ' ' seperator finaly id.
-	       */
-	        delimp1 = strchr(user, '@');
-	        id = strchr(delimp1,' ');
 	        for (delimp1 = id; delimp1 >= user; delimp1--)
 		    if ((*delimp1 != ' ') && (*delimp1 != '\t'))
 			break;
@@ -231,7 +268,11 @@ void initialize_saved_lists(struct query *hostlist, const char *idfile)
 }
 #endif /* POP3_ENABLE */
 
-struct idlist *save_str(struct idlist **idl, const char *str, flag status)
+/* return a pointer to the last element of the list to help the quick,
+ * constant-time addition to the list, NOTE: this function does not dup
+ * the string, the caller must do that. */
+/*@shared@*/ struct idlist **save_str_quick(/*@shared@*/ struct idlist **idl,
+			       /*@only@*/ char *str, flag status)
 /* save a number/UID pair on the given UID list */
 {
     struct idlist **end;
@@ -242,10 +283,17 @@ struct idlist *save_str(struct idlist **idl, const char *str, flag status)
 
     *end = (struct idlist *)xmalloc(sizeof(struct idlist));
     (*end)->val.status.mark = status;
-    (*end)->id = str ? xstrdup(str) : (char *)NULL;
+    (*end)->id = (unsigned char *)str;
     (*end)->next = NULL;
 
-    return(*end);
+    return end;
+}
+
+/* return the end list element for direct modification */
+struct idlist *save_str(struct idlist **idl, const char *str, flag st)
+{
+    return *save_str_quick(idl, str ? xstrdup(str) : NULL,
+			   st);
 }
 
 void free_str_list(struct idlist **idl)
@@ -293,17 +341,20 @@ void free_str_pair_list(struct idlist **idl)
 }
 #endif
 
-int str_in_list(struct idlist **idl, const char *str, const flag caseblind)
+struct idlist *str_in_list(struct idlist **idl, const char *str, const flag caseblind)
 /* is a given ID in the given list? (comparison may be caseblind) */
 {
-    if (*idl == (struct idlist *)NULL || str == (char *) NULL)
-	return(0);
-    else if (!caseblind && strcmp(str, (*idl)->id) == 0)
-	return(1);
-    else if (caseblind && strcasecmp(str, (*idl)->id) == 0)
-	return(1);
-    else
-	return(str_in_list(&(*idl)->next, str, caseblind));
+    struct idlist *walk;
+    if (caseblind) {
+	for( walk = *idl; walk; walk = walk->next )
+	    if( strcasecmp( str, (char *)walk->id) == 0 )
+		return walk;
+    } else {
+	for( walk = *idl; walk; walk = walk->next )
+	    if( strcmp( str, (char *)walk->id) == 0 )
+		return walk;
+    }
+    return NULL;
 }
 
 int str_nr_in_list( struct idlist **idl, const char *str )
@@ -352,7 +403,7 @@ int count_list( struct idlist **idl)
   return 1 + count_list( &(*idl)->next );
 }
 
-char *str_from_nr_list(struct idlist **idl, int number)
+/*@null@*/ char *str_from_nr_list(struct idlist **idl, long number)
 /* return the number'th string in idl */
 {
     if( !*idl  || number < 0)
@@ -362,8 +413,8 @@ char *str_from_nr_list(struct idlist **idl, int number)
     return str_from_nr_list(&(*idl)->next, number-1);
 }
 
-    
-char *str_find(struct idlist **idl, int number)
+
+char *str_find(struct idlist **idl, long number)
 /* return the id of the given number in the given list. */
 {
     if (*idl == (struct idlist *) 0)
@@ -372,6 +423,16 @@ char *str_find(struct idlist **idl, int number)
 	return((*idl)->id);
     else
 	return(str_find(&(*idl)->next, number));
+}
+
+struct idlist *id_find(struct idlist **idl, long number)
+/* return the id of the given number in the given list. */
+{
+    struct idlist	*idp;
+    for (idp = *idl; idp; idp = idp->next)
+	if (idp->val.status.num == number)
+	    return(idp);
+    return(0);
 }
 
 char *idpair_find(struct idlist **idl, const char *id)
@@ -385,7 +446,7 @@ char *idpair_find(struct idlist **idl, const char *id)
 	return(idpair_find(&(*idl)->next, id));
 }
 
-int delete_str(struct idlist **idl, int num)
+int delete_str(struct idlist **idl, long num)
 /* delete given message from given list */
 {
     struct idlist	*idp;
@@ -434,7 +495,7 @@ void expunge_uids(struct query *ctl)
 {
     struct idlist *idl;
 
-    for (idl = ctl->newsaved; idl; idl = idl->next)
+    for (idl = dofastuidl ? ctl->oldsaved : ctl->newsaved; idl; idl = idl->next)
 	if (idl->val.status.mark == UID_DELETED)
 	    idl->val.status.mark = UID_EXPUNGED;
 }
@@ -447,8 +508,11 @@ void uid_swap_lists(struct query *ctl)
     {
 	struct idlist *idp;
 
-	report_build(stdout, GT_("New UID list from %s:"), ctl->server.pollname);
-	for (idp = ctl->newsaved; idp; idp = idp->next)
+	if (dofastuidl)
+	    report_build(stdout, GT_("Merged UID list from %s:"), ctl->server.pollname);
+	else
+	    report_build(stdout, GT_("New UID list from %s:"), ctl->server.pollname);
+	for (idp = dofastuidl ? ctl->oldsaved : ctl->newsaved; idp; idp = idp->next)
 	    report_build(stdout, " %s = %d", idp->id, idp->val.status.mark);
 	if (!idp)
 	    report_build(stdout, GT_(" <empty>"));
@@ -480,14 +544,52 @@ void uid_swap_lists(struct query *ctl)
 	ctl->oldsaved = ctl->newsaved;
 	ctl->newsaved = (struct idlist *) NULL;
     }
-    else if (outlevel >= O_DEBUG)
+    /* in fast uidl, there is no need to swap lists: the old state of
+     * mailbox cannot be discarded! */
+    else if (outlevel >= O_DEBUG && !dofastuidl)
 	report(stdout, GT_("not swapping UID lists, no UIDs seen this query\n"));
+}
+
+void uid_discard_new_list(struct query *ctl)
+/* finish a query which had errors */
+{
+    /* debugging code */
+    if (ctl->server.uidl && outlevel >= O_DEBUG)
+    {
+	struct idlist *idp;
+
+	/* this is now a merged list! the mails which were seen in this
+	 * poll are marked here. */
+	report_build(stdout, GT_("Merged UID list from %s:"), ctl->server.pollname);
+	for (idp = ctl->oldsaved; idp; idp = idp->next)
+	    report_build(stdout, " %s = %d", idp->id, idp->val.status.mark);
+	if (!idp)
+	    report_build(stdout, GT_(" <empty>"));
+	report_complete(stdout, "\n");
+    }
+
+    if (ctl->newsaved)
+    {
+	/* new state of mailbox is not reliable */
+	if (outlevel >= O_DEBUG)
+	    report(stdout, GT_("discarding new UID list\n"));
+	free_str_list(&ctl->newsaved);
+	ctl->newsaved = (struct idlist *) NULL;
+    }
+}
+
+void uid_reset_num(struct query *ctl)
+/* reset the number associated with each id */
+{
+    struct idlist *idp;
+    for (idp = ctl->oldsaved; idp; idp = idp->next)
+	idp->val.status.num = 0;
 }
 
 void write_saved_lists(struct query *hostlist, const char *idfile)
 /* perform end-of-run write of seen-messages list */
 {
-    int		idcount;
+    long	idcount;
     FILE	*tmpfp;
     struct query *ctl;
     struct idlist *idp;
@@ -495,10 +597,10 @@ void write_saved_lists(struct query *hostlist, const char *idfile)
     /* if all lists are empty, nuke the file */
     idcount = 0;
     for (ctl = hostlist; ctl; ctl = ctl->next) {
-        for (idp = ctl->oldsaved; idp; idp = idp->next)
-            if (idp->val.status.mark == UID_SEEN
-	    			|| idp->val.status.mark == UID_DELETED)
-                idcount++;
+	for (idp = ctl->oldsaved; idp; idp = idp->next)
+	    if (idp->val.status.mark == UID_SEEN
+		    || idp->val.status.mark == UID_DELETED)
+		idcount++;
     }
 
     /* either nuke the file or write updated last-seen IDs */
@@ -512,6 +614,7 @@ void write_saved_lists(struct query *hostlist, const char *idfile)
     {
 	if (outlevel >= O_DEBUG)
 	    report(stdout, GT_("Writing fetchids file.\n"));
+	/* FIXME: do not overwrite the old idfile */
 	if ((tmpfp = fopen(idfile, "w")) != (FILE *)NULL) {
 	    for (ctl = hostlist; ctl; ctl = ctl->next) {
 		for (idp = ctl->oldsaved; idp; idp = idp->next)

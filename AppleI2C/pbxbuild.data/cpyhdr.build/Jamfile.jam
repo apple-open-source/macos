@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = AppleI2C ;
-export deferred SRCROOT = /Volumes/OS9/cvssources/AppleI2C-340.0.3 ;
+export deferred SRCROOT = /Volumes/ATA2/Rohan/I2C/AppleI2C ;
 
 # User-defined project-wide settings for project
 
@@ -69,6 +69,12 @@ ProcessFrameworksAndLibraries "<cpyhdr>cpyhdr$(TOOL_SUFFIX)" : "$(FRAMEWORKS_AND
 # Rez Files
 REZ_FILES = ;
 ProcessRezFiles "<cpyhdr>cpyhdr$(TOOL_SUFFIX)" : "$(REZ_FILES)" : BPTag003 : BPTag004 ;
+
+rule DefineHeaderDependencies
+{
+}
+
+DefineHeaderDependencies "<cpyhdr>cpyhdr$(TOOL_SUFFIX)" ;
 
 EndTool "<cpyhdr>cpyhdr$(TOOL_SUFFIX)" ;
 

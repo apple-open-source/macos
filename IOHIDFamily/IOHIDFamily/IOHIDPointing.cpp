@@ -361,8 +361,10 @@ IOReturn IOHIDPointing::parseReportDescriptor( IOMemoryDescriptor * report,
         if (_provider)
         {
             OSNumber *resolution = OSNumber::withNumber(_resolution, 32);
-            if (resolution)
+            if (resolution) {
                 _provider->setProperty(kIOHIDPointerResolutionKey, resolution);
+                resolution->release();
+            }
         }
         numValueCaps = kMaxValues;
         result = HIDGetSpecificValueCapabilities(kHIDInputReport,
@@ -522,8 +524,10 @@ IOReturn IOHIDPointing::parseReportDescriptor( IOMemoryDescriptor * report,
             // available to get the scrollResolution.  To pass this value to our superclass, we
             // instead must set a property.
             OSNumber *scrollResolution = OSNumber::withNumber(_scrollResolution, 32);
-            if (scrollResolution)
+            if (scrollResolution) {
                 setProperty(kIOHIDScrollResolutionKey, scrollResolution);
+                scrollResolution->release();
+            }
         }
 
         numValueCaps = kMaxValues;
@@ -561,6 +565,7 @@ IOReturn IOHIDPointing::handleReport(
     int		adx = 0, ady = 0, rdx = 0, rdy = 0, scrollWheelDelta = 0, horzScrollDelta = 0;
     AbsoluteTime now;
     bool	inRange = !_hasInRangeReport;
+    bool	reportHandled = false;
     UInt8 *	mouseData;
     IOByteCount	ret_bufsize;
     IOByteCount segmentSize;
@@ -586,6 +591,12 @@ IOReturn IOHIDPointing::handleReport(
         report->readBytes( 0, mouseData, ret_bufsize );
     }
 
+    if (_reportCount > 0) {
+        bootOffset ++;
+        reportID = mouseData[0];
+    }
+
+
     if (_buttonCollection != -1) {
         status = HIDGetButtonsOnPage (kHIDInputReport,
                                       kHIDPage_Button,
@@ -602,19 +613,16 @@ IOReturn IOHIDPointing::handleReport(
                     buttonState |= (1 << (usageList[usageNum] - 1));
                 }
             }
+            reportHandled = true;
         }
     } 
     else if ( _bootProtocol )
     {
-        bootOffset = 0;
-        reportID = 0;
-        if (_reportCount > 0) {
-            bootOffset ++;
-            reportID = mouseData[0];
-        }
-        
         if ((reportID == 0) && (ret_bufsize > bootOffset))
+        {
             buttonState = mouseData[bootOffset];
+            reportHandled = true;
+        }
     }
 
 
@@ -629,6 +637,7 @@ IOReturn IOHIDPointing::handleReport(
                                    ret_bufsize);
         if (status == noErr) {
             pressure = usageValue;
+            reportHandled = true;
         }
     }
 
@@ -659,6 +668,7 @@ IOReturn IOHIDPointing::handleReport(
                         break;
                 }
             }
+            reportHandled = true;
         }
     }
 
@@ -673,6 +683,7 @@ IOReturn IOHIDPointing::handleReport(
                                    ret_bufsize);
         if (status == noErr) {
             scrollWheelDelta = usageValue;
+            reportHandled = true;
         }
     }
 
@@ -687,6 +698,7 @@ IOReturn IOHIDPointing::handleReport(
                                    ret_bufsize);
         if (status == noErr) {
             horzScrollDelta = usageValue;
+            reportHandled = true;
         }
     }
 
@@ -701,6 +713,7 @@ IOReturn IOHIDPointing::handleReport(
                                 ret_bufsize);
         if (status == noErr) {
             adx = usageValue;
+            reportHandled = true;
         }
     }
     
@@ -715,6 +728,7 @@ IOReturn IOHIDPointing::handleReport(
                                 ret_bufsize);
         if (status == noErr) {
             ady = usageValue;
+            reportHandled = true;
         }
     }
     
@@ -729,6 +743,7 @@ IOReturn IOHIDPointing::handleReport(
                                 ret_bufsize);
         if (status == noErr) {
             rdx = usageValue;
+            reportHandled = true;
         }
     }
     
@@ -743,56 +758,49 @@ IOReturn IOHIDPointing::handleReport(
                                 ret_bufsize);
         if (status == noErr) {
             rdy = usageValue;
+            reportHandled = true;
         }
     }
     
     if (_bootProtocol && (_xRelativeCollection == -1) && 
 	(_xAbsoluteCollection == -1))
-    {
-        bootOffset = 1;
-        reportID = 0;
-        if (_reportCount > 0) {
-            bootOffset ++;
-            reportID = mouseData[0];
-        }
-        
-        if ((reportID == 0) && (ret_bufsize > bootOffset))
-            rdx = mouseData[bootOffset];
+    {        
+        if ((reportID == 0) && (ret_bufsize > (bootOffset + 1)))
+            rdx = mouseData[bootOffset + 1];
+            reportHandled = true;
     }
 
     if (_bootProtocol && (_yRelativeCollection == -1) && 
         (_yAbsoluteCollection == -1))
     {
-        bootOffset = 2;
-        reportID=0;
-        if (_reportCount > 0) {
-            bootOffset ++;
-            reportID = mouseData[0];
+        if ((reportID == 0)  && (ret_bufsize > (bootOffset + 2)))
+            rdy = mouseData[bootOffset+2];
+            reportHandled = true;
+    }
+    
+    
+    if ( reportHandled )
+    {
+        clock_get_uptime(&now);
+    
+        if (_absoluteCoordinates && !rdx && !rdy && 
+            !((buttonState != _cachedButtonState) && 
+            (_buttonType == kIOHIDPointingButtonRelative))) {
+            Point newLoc;
+    
+            newLoc.x = adx;
+            newLoc.y = ady;
+    
+            dispatchAbsolutePointerEvent(&newLoc, &_bounds, buttonState, inRange, pressure, _tipPressureMin, _tipPressureMax, 90, now);
+        } else if (rdx || rdy || (buttonState != _cachedButtonState)) {
+            dispatchRelativePointerEvent(rdx, rdy, buttonState, now);
         }
         
-        if ((reportID == 0)  && (ret_bufsize > bootOffset))
-            rdy = mouseData[bootOffset];
-    }
+        _cachedButtonState = buttonState;
     
-    clock_get_uptime(&now);
-
-    if (_absoluteCoordinates && !rdx && !rdy && 
-        !((buttonState != _cachedButtonState) && 
-        (_buttonType == kIOHIDPointingButtonRelative))) {
-        Point newLoc;
-
-        newLoc.x = adx;
-        newLoc.y = ady;
-
-        dispatchAbsolutePointerEvent(&newLoc, &_bounds, buttonState, inRange, pressure, _tipPressureMin, _tipPressureMax, 90, now);
-    } else if (rdx || rdy || (buttonState != _cachedButtonState)) {
-        dispatchRelativePointerEvent(rdx, rdy, buttonState, now);
-    }
-    
-    _cachedButtonState = buttonState;
-
-    if (scrollWheelDelta != 0 || horzScrollDelta != 0) {
-        dispatchScrollWheelEvent(scrollWheelDelta, horzScrollDelta, 0, now);
+        if (scrollWheelDelta != 0 || horzScrollDelta != 0) {
+            dispatchScrollWheelEvent(scrollWheelDelta, horzScrollDelta, 0, now);
+        }
     }
         
     return kIOReturnSuccess;

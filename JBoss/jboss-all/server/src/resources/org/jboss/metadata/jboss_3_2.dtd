@@ -7,8 +7,8 @@ The DOCTYPE is:
       "-//JBoss//DTD JBOSS 3.2//EN"
       "http://www.jboss.org/j2ee/dtd/jboss_3_2.dtd">
 
-$Id: jboss_3_2.dtd,v 1.1.2.15 2003/07/22 19:11:57 ejort Exp $
-$Revision: 1.1.2.15 $
+$Id: jboss_3_2.dtd,v 1.1.2.18 2003/09/18 05:20:38 starksm Exp $
+$Revision: 1.1.2.18 $
 
 Overview of the architecture of jboss.xml
 
@@ -268,7 +268,7 @@ MaxMessages?, MDBConfig? , poa? , register-ejbs-in-jnp-context? , jnp-context?)>
 
   Used in: MDBConfig
 -->
-<!ELEMENT DLQConfig (DestinationQueue , MaxTimesRedelivered , TimeToLive)>
+<!ELEMENT DLQConfig (DestinationQueue , MaxTimesRedelivered , TimeToLive, DLQUser?,  DLQPassword?)>
 <!--
   The jndi name of the queue to use as the dead letter queue.
 
@@ -289,6 +289,20 @@ MaxMessages?, MDBConfig? , poa? , register-ejbs-in-jnp-context? , jnp-context?)>
   Used in: DLQConfig
 -->
 <!ELEMENT TimeToLive (#PCDATA)>
+
+<!--
+  The user for the dlq connection
+
+  Used in: DLQConfig
+-->
+<!ELEMENT DLQUser (#PCDATA)>
+
+<!--
+  The password for the dlq connection
+
+  Used in: DLQConfig
+-->
+<!ELEMENT DLQPassword (#PCDATA)>
 <!--
   The portable object adapter usage, one of
   <poa>per-servent</poa>
@@ -746,7 +760,8 @@ container or ejb depends.
   Used in: container-configurations
 -->
 <!ELEMENT container-configuration (container-name , call-logging?,
- invoker-proxy-binding-name?, sync-on-commit-only?, container-interceptors? ,
+ invoker-proxy-binding-name?, sync-on-commit-only?,
+ insert-after-ejb-post-create?, container-interceptors? ,
  instance-pool? , instance-cache? ,  persistence-manager? , web-class-loader? ,
  locking-policy? ,  container-cache-conf? , container-pool-conf? ,
  commit-option? , optiond-refresh-rate? , security-domain?, cluster-config?,
@@ -802,6 +817,15 @@ calls on finds, selects and removes. If set to true, ejbStore will only be
 called on transaction commit.
 -->
 <!ELEMENT sync-on-commit-only (#PCDATA)>
+
+<!-- The insert-after-ejb-post-create element defines when the INSERT
+ statement will be executed for created entity instance.
+ Possible values are:
+ false - the default value, INSERT will be executed after ejbCreate but before
+         ejbPostCreate;
+ true - INSERT will be executed after ejbPostCreate.
+-->
+<!ELEMENT insert-after-ejb-post-create (#PCDATA)>
 
 <!--
   The container-interceptors element gives the chain of Interceptors
@@ -971,8 +995,8 @@ elements corresponds to the order of the interceptor chain.
   Used in: container-cache-conf (when cache-policy is the LRU cache)
 -->
 <!ELEMENT cache-policy-conf (min-capacity , max-capacity , remover-period? ,
- max-bean-life? , overager-period , max-bean-age , resizer-period ,
- max-cache-miss-period , min-cache-miss-period , cache-load-factor)>
+ max-bean-life? , overager-period? , max-bean-age? , resizer-period? ,
+ max-cache-miss-period? , min-cache-miss-period? , cache-load-factor?)>
 
 <!--
   The minimum capacity of this cache

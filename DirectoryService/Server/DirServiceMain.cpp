@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -84,7 +82,7 @@ CFRunLoopRef		gServerRunLoop = NULL;
 
 #warning VERIFY the version string before each distinct build submission
 static const char* strDaemonAppleVersion = "1.6";
-static const char* strDaemonBuildVersion = "255.1";
+static const char* strDaemonBuildVersion = "255.5";
 
 enum
 {

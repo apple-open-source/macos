@@ -1,0 +1,27 @@
+<!-- This is an Ant build script that creates a custom tomcat5 server
+configuration based on the default configuration that replaces the
+tomcat4.1.x web container with a tomcat5.0.x container
+-->
+<project name="JBoss/Tomcat5 Configuration Build Script" default="config">
+
+   <!-- Override if the script is not run from within the
+   dist/docs/examples/tomcat directory.
+   -->
+   <property name="jboss.dist" value="../../.." />
+
+   <target name="config">
+      <copy todir="${jboss.dist}/server/tomcat5">
+         <fileset dir="${jboss.dist}/server/default">
+            <exclude name="data/**" />
+            <exclude name="log/**" />
+            <exclude name="tmp/**" />
+            <exclude name="work/**" />
+            <exclude name="deploy/jbossweb-tomcat41.sar/**" />
+            <exclude name="lib/javax.servlet.jar" />
+         </fileset>
+      </copy>
+      <copy todir="${jboss.dist}/server/tomcat5/deploy/jbossweb-tomcat50.sar">
+         <fileset dir="jbossweb-tomcat50.sar" />
+      </copy>
+   </target>
+</project>

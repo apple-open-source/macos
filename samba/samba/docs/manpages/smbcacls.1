@@ -21,11 +21,12 @@
 .SH NAME
 smbcacls \- Set or get ACLs on an NT file or directory names
 .SH "SYNOPSIS"
-
-.nf
-\fBsmbcacls\fR {//server/share} {filename} [-D acls] [-M acls] [-A acls] [-S acls] [-C name] [-G name] [-n] [-t] [-U username] [-h] [-d]
-        
-.fi
+.ad l
+.hy 0
+.HP 9
+\fBsmbcacls\fR {//server/share} {filename} [\-D\ acls] [\-M\ acls] [\-a\ acls] [\-S\ acls] [\-C\ name] [\-G\ name] [\-n] [\-t] [\-U\ username] [\-h] [\-d]
+.ad
+.hy
 
 .SH "DESCRIPTION"
 
@@ -41,87 +42,87 @@ The \fBsmbcacls\fR program manipulates NT Access Control Lists (ACLs) on SMB fil
 The following options are available to the \fBsmbcacls\fR program\&. The format of ACLs is described in the section ACL FORMAT
 
 .TP
--A acls
+\-a acls
 Add the ACLs specified to the ACL list\&. Existing access control entries are unchanged\&.
 
 
 .TP
--M acls
+\-M acls
 Modify the mask value (permissions) for the ACLs specified on the command line\&. An error will be printed for each ACL specified that was not already present in the ACL list
 
 
 .TP
--D acls
+\-D acls
 Delete any ACLs specified on the command line\&. An error will be printed for each ACL specified that was not already present in the ACL list\&.
 
 
 .TP
--S acls
+\-S acls
 This command sets the ACLs on the file with only the ones specified on the command line\&. All other ACLs are erased\&. Note that the ACL specified must contain at least a revision, type, owner and group for the call to succeed\&.
 
 
 .TP
--U username
-Specifies a username used to connect to the specified service\&. The username may be of the form "username" in which case the user is prompted to enter in a password and the workgroup specified in the \fBsmb.conf\fR(5) file is used, or "username%password" or "DOMAIN\\username%password" and the password and workgroup names are used as provided\&.
+\-U username
+Specifies a username used to connect to the specified service\&. The username may be of the form "username" in which case the user is prompted to enter in a password and the workgroup specified in the \fBsmb\&.conf\fR(5) file is used, or "username%password" or "DOMAIN\\username%password" and the password and workgroup names are used as provided\&.
 
 
 .TP
--C name
-The owner of a file or directory can be changed to the name given using the \fI-C\fR option\&. The name can be a sid in the form S-1-x-y-z or a name resolved against the server specified in the first argument\&.
+\-C name
+The owner of a file or directory can be changed to the name given using the \fI\-C\fR option\&. The name can be a sid in the form S\-1\-x\-y\-z or a name resolved against the server specified in the first argument\&.
 
 
-This command is a shortcut for -M OWNER:name\&.
-
-
-.TP
--G name
-The group owner of a file or directory can be changed to the name given using the \fI-G\fR option\&. The name can be a sid in the form S-1-x-y-z or a name resolved against the server specified n the first argument\&.
-
-
-This command is a shortcut for -M GROUP:name\&.
+This command is a shortcut for \-M OWNER:name\&.
 
 
 .TP
--n
+\-G name
+The group owner of a file or directory can be changed to the name given using the \fI\-G\fR option\&. The name can be a sid in the form S\-1\-x\-y\-z or a name resolved against the server specified n the first argument\&.
+
+
+This command is a shortcut for \-M GROUP:name\&.
+
+
+.TP
+\-n
 This option displays all ACL information in numeric format\&. The default is to convert SIDs to names and ACE types and masks to a readable string format\&.
 
 
 .TP
--t
+\-t
 Don't actually do anything, only validate the correctness of the arguments\&.
 
 
 .TP
--h|--help
+\-h|\-\-help
 Print a summary of command line options\&.
 
 
 .TP
--V
-Prints the version number for \fBsmbd\fR\&.
+\-V
+Prints the program version number\&.
 
 
 .TP
--s <configuration file>
-The file specified contains the configuration details required by the server\&. The information in this file includes server-specific information such as what printcap file to use, as well as descriptions of all the services that the server is to provide\&. See \fIsmb\&.conf\fR for more information\&. The default configuration file name is determined at compile time\&.
+\-s <configuration file>
+The file specified contains the configuration details required by the server\&. The information in this file includes server\-specific information such as what printcap file to use, as well as descriptions of all the services that the server is to provide\&. See \fIsmb\&.conf\fR for more information\&. The default configuration file name is determined at compile time\&.
 
 
 .TP
--d|--debug=debuglevel
+\-d|\-\-debug=debuglevel
 \fIdebuglevel\fR is an integer from 0 to 10\&. The default value if this parameter is not specified is zero\&.
 
 
-The higher this value, the more detail will be logged to the log files about the activities of the server\&. At level 0, only critical errors and serious warnings will be logged\&. Level 1 is a reasonable level for day to day running - it generates a small amount of information about operations carried out\&.
+The higher this value, the more detail will be logged to the log files about the activities of the server\&. At level 0, only critical errors and serious warnings will be logged\&. Level 1 is a reasonable level for day\-to\-day running \- it generates a small amount of information about operations carried out\&.
 
 
 Levels above 1 will generate considerable amounts of log data, and should only be used when investigating a problem\&. Levels above 3 are designed for use only by developers and generate HUGE amounts of log data, most of which is extremely cryptic\&.
 
 
-Note that specifying this parameter here will override the \fIlog level\fR parameter in the \fIsmb\&.conf\fR file\&.
+Note that specifying this parameter here will override the log level parameter in the \fIsmb\&.conf\fR file\&.
 
 
 .TP
--l|--logfile=logbasename
+\-l|\-\-logfile=logbasename
 File name for log/debug files\&. The extension \fB"\&.client"\fR will be appended\&. The log file is never removed by the client\&.
 
 
@@ -145,10 +146,10 @@ ACL:<sid or name>:<type>/<flags>/<mask>
 The revision of the ACL specifies the internal Windows NT ACL revision for the security descriptor\&. If not specified it defaults to 1\&. Using values other than 1 may cause strange behaviour\&.
 
 .PP
-The owner and group specify the owner and group sids for the object\&. If a SID in the format CWS-1-x-y-z is specified this is used, otherwise the name specified is resolved using the server on which the file or directory resides\&.
+The owner and group specify the owner and group sids for the object\&. If a SID in the format CWS\-1\-x\-y\-z is specified this is used, otherwise the name specified is resolved using the server on which the file or directory resides\&.
 
 .PP
-ACLs specify permissions granted to the SID\&. This SID again can be specified in CWS-1-x-y-z format or as a name in which case it is resolved against the server on which the file or directory resides\&. The type, flags and mask values determine the type of access granted to the SID\&.
+ACLs specify permissions granted to the SID\&. This SID again can be specified in CWS\-1\-x\-y\-z format or as a name in which case it is resolved against the server on which the file or directory resides\&. The type, flags and mask values determine the type of access granted to the SID\&.
 
 .PP
 The type can be either 0 or 1 corresponding to ALLOWED or DENIED access to the SID\&. The flags values are generally zero for file ACLs and either 9 or 2 for directory ACLs\&. Some common flags are:
@@ -179,27 +180,27 @@ The mask is a value which expresses the access right granted to the SID\&. It ca
 
 .TP 3
 \(bu
-\fBR\fR - Allow read access
+\fBR\fR \- Allow read access
 
 .TP
 \(bu
-\fBW\fR - Allow write access
+\fBW\fR \- Allow write access
 
 .TP
 \(bu
-\fBX\fR - Execute permission on the object
+\fBX\fR \- Execute permission on the object
 
 .TP
 \(bu
-\fBD\fR - Delete the object
+\fBD\fR \- Delete the object
 
 .TP
 \(bu
-\fBP\fR - Change permissions
+\fBP\fR \- Change permissions
 
 .TP
 \(bu
-\fBO\fR - Take ownership
+\fBO\fR \- Take ownership
 
 .LP
 
@@ -208,15 +209,15 @@ The following combined permissions can be specified:
 
 .TP 3
 \(bu
-\fBREAD\fR - Equivalent to 'RX' permissions
+\fBREAD\fR \- Equivalent to 'RX' permissions
 
 .TP
 \(bu
-\fBCHANGE\fR - Equivalent to 'RXWD' permissions
+\fBCHANGE\fR \- Equivalent to 'RXWD' permissions
 
 .TP
 \(bu
-\fBFULL\fR - Equivalent to 'RWXDPO' permissions
+\fBFULL\fR \- Equivalent to 'RWXDPO' permissions
 
 .LP
 

@@ -31,6 +31,18 @@
          <ejb-name>ProductCategoryEJB</ejb-name>
          <local-jndi-name>commerce/ProductCategory</local-jndi-name>
       </entity>
+      <entity>
+         <ejb-name>ProductCategoryTypeEJB</ejb-name>
+         <local-jndi-name>commerce/ProductCategoryType</local-jndi-name>
+      </entity>
+      <entity>
+         <ejb-name>ProductCategoryBatchDeleteEJB</ejb-name>
+         <local-jndi-name>commerce/ProductCategoryBatchDelete</local-jndi-name>
+      </entity>
+      <entity>
+         <ejb-name>ProductCategoryTypeBatchDeleteEJB</ejb-name>
+         <local-jndi-name>commerce/ProductCategoryTypeBatchDelete</local-jndi-name>
+      </entity>
       <session>
          <ejb-name>TxTesterEJB</ejb-name>
          <local-jndi-name>commerce/TxTester</local-jndi-name>

@@ -26,71 +26,142 @@
 #import "KWQFileButton.h"
 
 #import "KWQAssertions.h"
+#import "KWQExceptions.h"
 #import "KWQKHTMLPart.h"
+#import "KWQNSViewExtras.h"
 #import "WebCoreBridge.h"
 
-NSString *WebCoreFileButtonFilenameChanged = @"WebCoreFileButtonFilenameChanged";
-NSString *WebCoreFileButtonClicked = @"WebCoreFileButtonClicked";
-
-
-@interface KWQFileButtonAdapter : NSObject
+@interface KWQFileButtonAdapter : NSObject <WebCoreFileButtonDelegate>
 {
     KWQFileButton *button;
 }
 
 - initWithKWQFileButton:(KWQFileButton *)button;
 
+- (void)filenameChanged:(NSString *)filename;
+- (void)focusChanged:(BOOL)nowHasFocus;
+- (void)clicked;
+
 @end
 
 KWQFileButton::KWQFileButton(KHTMLPart *part)
-    : QWidget([KWQ(part)->bridge() fileButton])
-    , _clicked(this, SIGNAL(clicked()))
+    : _clicked(this, SIGNAL(clicked()))
     , _textChanged(this, SIGNAL(textChanged(const QString &)))
-    , _adapter([[KWQFileButtonAdapter alloc] initWithKWQFileButton:this])
+    , _adapter(0)
 {
+    KWQ_BLOCK_EXCEPTIONS;
+
+    _adapter = [[KWQFileButtonAdapter alloc] initWithKWQFileButton:this];
+    setView([KWQ(part)->bridge() fileButtonWithDelegate:_adapter]);
+
+    KWQ_UNBLOCK_EXCEPTIONS;
 }
 
 KWQFileButton::~KWQFileButton()
 {
     _adapter->button = 0;
+    KWQ_BLOCK_EXCEPTIONS;
     [_adapter release];
+    KWQ_UNBLOCK_EXCEPTIONS;
 }
     
 void KWQFileButton::setFilename(const QString &f)
 {
     NSView <WebCoreFileButton> *button = getView();
+
+    KWQ_BLOCK_EXCEPTIONS;
     [button setFilename:f.getNSString()];
+    KWQ_UNBLOCK_EXCEPTIONS;
+}
+
+void KWQFileButton::click()
+{
+    NSView <WebCoreFileButton> *button = getView();
+
+    KWQ_BLOCK_EXCEPTIONS;
+    [button performClick];
+    KWQ_UNBLOCK_EXCEPTIONS;
 }
 
 QSize KWQFileButton::sizeForCharacterWidth(int characters) const
 {
     ASSERT(characters > 0);
     NSView <WebCoreFileButton> *button = getView();
-    return QSize([button bestVisualFrameSizeForCharacterCount:characters]);
+
+    NSSize size = {0,0};
+    KWQ_BLOCK_EXCEPTIONS;
+    size = [button bestVisualFrameSizeForCharacterCount:characters];
+    KWQ_UNBLOCK_EXCEPTIONS;
+
+    return QSize(size);
 }
 
 QRect KWQFileButton::frameGeometry() const
 {
     NSView <WebCoreFileButton> *button = getView();
-    return QRect([button visualFrame]);
+
+    NSRect frame = {{0,0},{0,0}};
+    KWQ_BLOCK_EXCEPTIONS;
+    frame = [button visualFrame];
+    KWQ_UNBLOCK_EXCEPTIONS;
+
+    return QRect(frame);
 }
 
 void KWQFileButton::setFrameGeometry(const QRect &rect)
 {
     NSView <WebCoreFileButton> *button = getView();
+
+    KWQ_BLOCK_EXCEPTIONS;
     [button setVisualFrame:rect];
+    KWQ_UNBLOCK_EXCEPTIONS;
 }
 
-int KWQFileButton::baselinePosition() const
+int KWQFileButton::baselinePosition(int height) const
 {
     NSView <WebCoreFileButton> *button = getView();
-    return (int)(NSMaxY([button frame]) - [button baseline] - [button visualFrame].origin.y);
+
+    KWQ_BLOCK_EXCEPTIONS;
+    return (int)([button frame].origin.y + [button baseline] - [button visualFrame].origin.y);
+    KWQ_UNBLOCK_EXCEPTIONS;
+
+    return 0;
 }
 
-void KWQFileButton::filenameChanged()
+QWidget::FocusPolicy KWQFileButton::focusPolicy() const
 {
-    NSView <WebCoreFileButton> *button = getView();
-    _textChanged.call(QString::fromNSString([button filename]));
+    KWQ_BLOCK_EXCEPTIONS;
+    
+    // Add an additional check here.
+    // For now, file buttons are only focused when full
+    // keyboard access is turned on.
+    unsigned keyboardUIMode = [KWQKHTMLPart::bridgeForWidget(this) keyboardUIMode];
+    if ((keyboardUIMode & WebCoreKeyboardAccessFull) == 0)
+        return NoFocus;
+    
+    KWQ_UNBLOCK_EXCEPTIONS;
+    
+    return QWidget::focusPolicy();
+}
+
+void KWQFileButton::filenameChanged(const QString &filename)
+{
+    _textChanged.call(filename);
+}
+
+void KWQFileButton::focusChanged(bool nowHasFocus)
+{
+    if (nowHasFocus) {
+        if (!KWQKHTMLPart::currentEventIsMouseDownInWidget(this)) {
+            [getView() _KWQ_scrollFrameToVisible];
+        }        
+        QFocusEvent event(QEvent::FocusIn);
+        const_cast<QObject *>(eventFilterObject())->eventFilter(this, &event);
+    }
+    else {
+        QFocusEvent event(QEvent::FocusOut);
+        const_cast<QObject *>(eventFilterObject())->eventFilter(this, &event);
+    }
 }
 
 void KWQFileButton::clicked()
@@ -105,25 +176,25 @@ void KWQFileButton::clicked()
 {
     [super init];
     button = b;
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(filenameChanged:)
-        name:WebCoreFileButtonFilenameChanged object:b->getView()];
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(clicked:)
-        name:WebCoreFileButtonClicked object:b->getView()];
     return self;
 }
 
 - (void)dealloc
 {
-    [[NSNotificationCenter defaultCenter] removeObserver:self];
     [super dealloc];
 }
 
-- (void)filenameChanged:(NSNotification *)notification
+- (void)filenameChanged:(NSString *)filename
 {
-    button->filenameChanged();
+    button->filenameChanged(QString::fromNSString(filename));
 }
 
--(void)clicked:(NSNotification *)notification
+- (void)focusChanged:(BOOL)nowHasFocus
+{
+    button->focusChanged(nowHasFocus);
+}
+
+-(void)clicked
 {
     button->sendConsumedMouseUp();
     button->clicked();

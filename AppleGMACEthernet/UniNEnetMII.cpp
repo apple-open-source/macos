@@ -47,7 +47,7 @@ bool UniNEnet::miiReadWord( UInt16 *dataPtr, UInt16 reg )
 
 	if ( phyId == 0xFF )
 	{
-		ALRT( miiReg, phyId << 16 | reg, 'IdR-', "miiReadWord - phyId not established yet." );
+		ALRT( 0, phyId << 16 | reg, 'IdR-', "miiReadWord - phyId not established yet." );
 		return false;
 	}
 
@@ -86,7 +86,7 @@ bool UniNEnet::miiWriteWord( UInt16 data, UInt16 reg )
 
 	if ( phyId == 0xFF )
 	{
-		ALRT( miiReg, phyId << 16 | reg, 'IdW-', "miiWriteWord - phyId not established yet." );
+		ALRT( data, phyId << 16 | reg, 'IdW-', "miiWriteWord - phyId not established yet." );
 		return false;
 	}
 
@@ -171,36 +171,6 @@ bool UniNEnet::miiWaitForAutoNegotiation()
 
 	return false;
 }/* end miiWaitForAutoNegotiation */
-
-
-	/* Find the first PHY on the MII interface.	*/
-	/* Return TRUE if PHY found					*/
-
-bool UniNEnet::miiFindPHY()
-{
-    int         i;
-    UInt16      phyWord;
-
-
-	ELG( phyId, MII_MAX_PHY, 'miFP', "miiFindPHY" );
-
-   	i = 0;
-    if ( fK2 )	i = 1;	/// K2 has something at 00 (0x10001000) and the PHY at 1
-
-	for ( ; i < MII_MAX_PHY; i++ )
-    {		 			// The first two PHY registers are required:
-		phyId = i;
-        if ( miiReadWord( &phyWord,     MII_STATUS  ) == false )	continue;
-        if ( miiReadWord( &fPHYControl, MII_CONTROL ) == false )	continue;
-
-        if ( phyWord == 0xFFFF && fPHYControl == 0xFFFF )			continue;
-    
-		return true;
-	}/* end FOR */
-
-	phyId = 0xFF;
-    return false;
-}/* end miiFindPHY */
 
 
 bool UniNEnet::miiInitializePHY()

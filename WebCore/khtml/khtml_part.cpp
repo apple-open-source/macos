@@ -99,7 +99,7 @@ using namespace DOM;
 using khtml::Decoder;
 using khtml::RenderObject;
 using khtml::RenderText;
-using khtml::TextRunArray;
+using khtml::InlineTextBoxArray;
 
 using KParts::BrowserInterface;
 
@@ -480,8 +480,10 @@ bool KHTMLPart::openURL( const KURL &url )
 
   connect( d->m_job, SIGNAL( result( KIO::Job * ) ),
            SLOT( slotFinished( KIO::Job * ) ) );
+#if !APPLE_CHANGES
   connect( d->m_job, SIGNAL( data( KIO::Job*, const QByteArray &)),
            SLOT( slotData( KIO::Job*, const QByteArray &)));
+#endif
 
   connect( d->m_job, SIGNAL(redirection(KIO::Job*, const KURL&) ),
            SLOT( slotRedirection(KIO::Job*,const KURL&) ) );
@@ -687,6 +689,18 @@ KJSProxy *KHTMLPart::jScript()
   }
 
   return d->m_jscript;
+}
+
+void KHTMLPart::replaceContentsWithScriptResult( const KURL &url )
+{
+  QString script = KURL::decode_string(url.url().mid(strlen("javascript:")));
+  QVariant ret = executeScript(script);
+  
+  if (ret.type() == QVariant::String) {
+    begin();
+    write(ret.asString());
+    end();
+  }
 }
 
 QVariant KHTMLPart::executeScript( const QString &script, bool forceUserGesture )
@@ -1521,7 +1535,7 @@ void KHTMLPart::write( const char *str, int len )
                 d->m_haveEncoding ? Decoder::UserChosenEncoding : Decoder::EncodingFromHTTPHeader);
         else {
             // Inherit the default encoding from the parent frame if there is one.
-            const char *defaultEncoding = parentPart()
+            const char *defaultEncoding = (parentPart() && parentPart()->d->m_decoder)
                 ? parentPart()->d->m_decoder->encoding() : settings()->encoding().latin1();
             d->m_decoder->setEncoding(defaultEncoding, Decoder::DefaultEncoding);
         }
@@ -1744,10 +1758,12 @@ void KHTMLPart::checkCompleted()
   if (d->m_view) {
 #endif
 
-  // check that the view has not been moved by the user
+#if !APPLE_CHANGES
+  // check that the view has not been moved by the user  
   if ( m_url.encodedHtmlRef().isEmpty() && d->m_view->contentsY() == 0 )
       d->m_view->setContentsPos( d->m_extension->urlArgs().xOffset,
                                  d->m_extension->urlArgs().yOffset );
+#endif
 
   d->m_view->complete();
 
@@ -2046,7 +2062,13 @@ bool KHTMLPart::gotoAnchor( const QString &name )
   int x = 0, y = 0;
   HTMLElementImpl *a = static_cast<HTMLElementImpl *>(n);
   a->getUpperLeftCorner(x, y);
+#if APPLE_CHANGES
+  // Remove the 50 pixel slop factor; some pages expect anchors to be exactly scrolled to.
+  // Also, call recursive version so this will expose correctly from within nested frames.
+  d->m_view->setContentsPosRecursive(x, y);
+#else
   d->m_view->setContentsPos(x-50, y-50);
+#endif
 
   return true;
 }
@@ -2090,6 +2112,30 @@ bool KHTMLPart::onlyLocalReferences() const
 void KHTMLPart::setOnlyLocalReferences(bool enable)
 {
   d->m_onlyLocalReferences = enable;
+}
+
+void KHTMLPart::setEditMode(TristateFlag flag)
+{
+    d->m_inEditMode = flag;
+}
+
+TristateFlag KHTMLPart::editMode() const
+{ 
+    if (d->m_inEditMode != FlagNone)
+        return d->m_inEditMode == FlagEnabled ? FlagEnabled : FlagDisabled;
+    
+    KHTMLPart *part = parentPart();
+    while (part) {
+        if (part->d->m_inEditMode != FlagNone)
+            return part->d->m_inEditMode == FlagEnabled ? FlagEnabled : FlagDisabled;
+        part = part->parentPart();
+    }
+    return FlagNone;
+}
+
+bool KHTMLPart::inEditMode() const
+{
+    return editMode() == FlagEnabled;
 }
 
 void KHTMLPart::findTextBegin(NodeImpl *startNode, int startPos)
@@ -2216,16 +2262,38 @@ bool KHTMLPart::findTextNext( const QString &str, bool forward, bool caseSensiti
     }
 }
 
-QString KHTMLPart::selectedText() const
+QString KHTMLPart::text(const DOM::Range &r) const
 {
-    // FIXME: This whole function should use the render tree and not the DOM tree, since elements could
-    // be hidden using CSS, or additional generated content could be added.  For now, we just make sure
-    // text objects walk their renderers' TextRuns, so that we at least get the whitespace stripped out properly
-    // and obey CSS visibility for text runs.
+  // FIXME: This whole function should use the render tree and not the DOM tree, since elements could
+  // be hidden using CSS, or additional generated content could be added.  For now, we just make sure
+  // text objects walk their renderers' InlineTextBox objects, so that we at least get the whitespace 
+  // stripped out properly and obey CSS visibility for text runs.
+
+  if (r.isNull())
+    return QString();
+
   bool hasNewLine = true;
   bool addedSpace = true;
+  bool needSpace = false;
   QString text;
-  DOM::Node n = d->m_selectionStart;
+  DOM::Node startNode = r.startContainer();
+  DOM::Node endNode = r.endContainer();
+  int startOffset = r.startOffset();
+  int endOffset = r.endOffset();
+  if (!startNode.isNull() && startNode.nodeType() == Node::ELEMENT_NODE) {
+      if (startOffset >= 0 && startOffset < (int)startNode.childNodes().length()) {
+          startNode = startNode.childNodes().item(r.startOffset());
+          startOffset = -1;
+      }
+  }
+  if (!endNode.isNull() && endNode.nodeType() == Node::ELEMENT_NODE) {
+      if (endOffset > 0 && endOffset <= (int)endNode.childNodes().length()) {
+          endNode = endNode.childNodes().item(endOffset - 1);
+          endOffset = -1;
+      }
+  }
+
+  DOM::Node n = startNode;
   while(!n.isNull()) {
       if(n.nodeType() == DOM::Node::TEXT_NODE) {
           if (hasNewLine) {
@@ -2233,46 +2301,48 @@ QString KHTMLPart::selectedText() const
               hasNewLine = false;
           }
           QString str = n.nodeValue().string();
-          int start = (n == d->m_selectionStart) ? d->m_startOffset : -1;
-          int end = (n == d->m_selectionEnd) ? d->m_endOffset : -1;
+          int start = (n == startNode) ? startOffset : -1;
+          int end = (n == endNode) ? endOffset : -1;
           RenderObject* renderer = n.handle()->renderer();
           if (renderer && renderer->isText()) {
               if (renderer->style()->whiteSpace() == khtml::PRE) {
+                  if (needSpace && !addedSpace)
+                      text += ' ';
                   int runStart = (start == -1) ? 0 : start;
                   int runEnd = (end == -1) ? str.length() : end;
                   text += str.mid(runStart, runEnd-runStart);
+                  needSpace = false;
                   addedSpace = str[runEnd-1].direction() == QChar::DirWS;
               }
               else {
                   RenderText* textObj = static_cast<RenderText*>(n.handle()->renderer());
-                  TextRunArray runs = textObj->textRuns();
-                  if (runs.count() == 0 && str.length() > 0 && !addedSpace) {
+                  InlineTextBoxArray runs = textObj->inlineTextBoxes();
+                  if (runs.count() == 0 && str.length() > 0) {
                       // We have no runs, but we do have a length.  This means we must be
                       // whitespace that collapsed away at the end of a line.
-                      text += " ";
-                      addedSpace = true;
+                      needSpace = true;
                   }
                   else {
-                      addedSpace = false;
                       for (unsigned i = 0; i < runs.count(); i++) {
                           int runStart = (start == -1) ? runs[i]->m_start : start;
                           int runEnd = (end == -1) ? runs[i]->m_start + runs[i]->m_len : end;
                           runEnd = QMIN(runEnd, runs[i]->m_start + runs[i]->m_len);
-                          bool spaceBetweenRuns = false;
                           if (runStart >= runs[i]->m_start &&
                               runStart < runs[i]->m_start + runs[i]->m_len) {
-                              text += str.mid(runStart, runEnd - runStart);
-                              start = -1;
-                              spaceBetweenRuns = i+1 < runs.count() && runs[i+1]->m_start > runEnd;
+                              if (i == 0 && runs[0]->m_start == runStart && runStart > 0)
+                                  needSpace = true; // collapsed space at the start
+                              if (needSpace && !addedSpace)
+                                  text += ' ';
+                              QString runText = str.mid(runStart, runEnd - runStart);
+                              runText.replace('\n', ' ');
+                              text += runText;
+                              int nextRunStart = (i+1 < runs.count()) ? runs[i+1]->m_start : str.length();
+                              needSpace = nextRunStart > runEnd; // collapsed space between runs or at the end
                               addedSpace = str[runEnd-1].direction() == QChar::DirWS;
+                              start = -1;
                           }
                           if (end != -1 && runEnd >= end)
                               break;
-
-                          if (spaceBetweenRuns && !addedSpace) {
-                              text += " ";
-                              addedSpace = true;
-                          }
                       }
                   }
               }
@@ -2318,11 +2388,12 @@ QString KHTMLPart::selectedText() const
             break;
         }
       }
-      if(n == d->m_selectionEnd) break;
+      if(n == endNode) break;
       DOM::Node next = n.firstChild();
       if(next.isNull()) next = n.nextSibling();
       while( next.isNull() && !n.parentNode().isNull() ) {
         n = n.parentNode();
+        if(n == endNode) break;
         next = n.nextSibling();
         unsigned short id = n.elementId();
         switch(id) {
@@ -2375,6 +2446,11 @@ QString KHTMLPart::selectedText() const
     return text.mid(start, end-start);
 }
 
+QString KHTMLPart::selectedText() const
+{
+    return text(selection());
+}
+
 bool KHTMLPart::hasSelection() const
 {
   return ( !d->m_selectionStart.isNull() &&
@@ -2383,9 +2459,11 @@ bool KHTMLPart::hasSelection() const
 
 DOM::Range KHTMLPart::selection() const
 {
-    DOM::Range r = document().createRange();DOM::Range();
-    r.setStart( d->m_selectionStart, d->m_startOffset );
-    r.setEnd( d->m_selectionEnd, d->m_endOffset );
+    DOM::Range r = document().createRange();
+    if (hasSelection()) {
+        r.setStart( d->m_selectionStart, d->m_startOffset );
+        r.setEnd( d->m_selectionEnd, d->m_endOffset );
+    }
     return r;
 }
 
@@ -2913,18 +2991,18 @@ bool KHTMLPart::requestFrame( khtml::RenderPart *frame, const QString &url, cons
   (*it).m_frame = frame;
   (*it).m_params = params;
 
-#if !APPLE_CHANGES
   // Support for <frame src="javascript:string">
   if ( url.find( QString::fromLatin1( "javascript:" ), 0, false ) == 0 )
   {
-      QVariant res = executeScript( DOM::Node(frame->element()), KURL::decode_string( url.right( url.length() - 11) ) );
-      KURL myurl;
-      myurl.setProtocol("javascript");
-      if ( res.type() == QVariant::String )
-	myurl.setPath(res.asString());
-      return processObjectRequest(&(*it), myurl, QString("text/html") );
+    if (!processObjectRequest(&(*it), "about:blank", "text/html" ))
+      return false;
+
+    KHTMLPart *newPart = static_cast<KHTMLPart *>(&*(*it).m_part); 
+    newPart->replaceContentsWithScriptResult( url );
+
+    return true;
   }
-#endif // APPLE_CHANGES
+
   return requestObject( &(*it), completeURL( url ));
 }
 
@@ -2940,19 +3018,19 @@ QString KHTMLPart::requestFrameName()
 bool KHTMLPart::requestObject( khtml::RenderPart *frame, const QString &url, const QString &serviceType,
                                const QStringList &params )
 {
-#if !APPLE_CHANGES
-  if (url.isEmpty())
-    return false;
-#endif
   khtml::ChildFrame child;
   QValueList<khtml::ChildFrame>::Iterator it = d->m_objects.append( child );
   (*it).m_frame = frame;
   (*it).m_type = khtml::ChildFrame::Object;
   (*it).m_params = params;
 
+  KURL completedURL;
+  if (!url.isEmpty())
+    completedURL = completeURL(url);
+
   KParts::URLArgs args;
   args.serviceType = serviceType;
-  return requestObject( &(*it), completeURL( url ), args );
+  return requestObject( &(*it), completedURL, args );
 }
 
 bool KHTMLPart::requestObject( khtml::ChildFrame *child, const KURL &url, const KParts::URLArgs &_args )
@@ -3168,8 +3246,11 @@ bool KHTMLPart::processObjectRequest( khtml::ChildFrame *child, const KURL &_url
     // before we could connect the signals, so make sure to send the
     // completed() signal for the child by hand:
     if (url.isEmpty() || url.url() == "about:blank") {
-      KParts::ReadOnlyPart *part = child->m_part;
-      static_cast<KHTMLPart *>(part)->completed();
+      ReadOnlyPart *readOnlyPart = child->m_part;
+      KHTMLPart *part = dynamic_cast<KHTMLPart *>(readOnlyPart);
+      if (part) {
+        part->completed();
+      }
     }
 #else
   if(url.protocol() == "javascript" || url.url() == "about:blank") {
@@ -3492,7 +3573,7 @@ void KHTMLPart::slotParentCompleted()
 
 void KHTMLPart::slotChildStarted( KIO::Job *job )
 {
-  khtml::ChildFrame *child = frame( sender() );
+  khtml::ChildFrame *child = childFrame( sender() );
 
   assert( child );
 
@@ -3519,7 +3600,7 @@ void KHTMLPart::slotChildCompleted()
 
 void KHTMLPart::slotChildCompleted( bool complete )
 {
-  khtml::ChildFrame *child = frame( sender() );
+  khtml::ChildFrame *child = childFrame( sender() );
 
   assert( child );
 
@@ -3536,7 +3617,7 @@ void KHTMLPart::slotChildCompleted( bool complete )
 
 void KHTMLPart::slotChildURLRequest( const KURL &url, const KParts::URLArgs &args )
 {
-  khtml::ChildFrame *child = frame( sender()->parent() );
+  khtml::ChildFrame *child = childFrame( sender()->parent() );
 
   QString frameName = args.frameName.lower();
   if ( !frameName.isEmpty() )
@@ -3594,15 +3675,21 @@ void KHTMLPart::slotChildURLRequest( const KURL &url, const KParts::URLArgs &arg
 
 #endif // APPLE_CHANGES
 
-khtml::ChildFrame *KHTMLPart::frame( const QObject *obj )
+khtml::ChildFrame *KHTMLPart::childFrame( const QObject *obj )
 {
     assert( obj->inherits( "KParts::ReadOnlyPart" ) );
-    const KParts::ReadOnlyPart *part = static_cast<const KParts::ReadOnlyPart *>( obj );
+    const ReadOnlyPart *part = static_cast<const ReadOnlyPart *>( obj );
 
     FrameIt it = d->m_frames.begin();
     FrameIt end = d->m_frames.end();
     for (; it != end; ++it )
-      if ( (KParts::ReadOnlyPart *)(*it).m_part == part )
+      if ( static_cast<ReadOnlyPart *>((*it).m_part) == part )
+        return &(*it);
+
+    it = d->m_objects.begin();
+    end = d->m_objects.end();
+    for (; it != end; ++it )
+      if ( static_cast<ReadOnlyPart *>((*it).m_part) == part )
         return &(*it);
 
     return 0L;
@@ -3676,7 +3763,7 @@ bool KHTMLPart::frameExists( const QString &frameName )
   return (!(*it).m_frame.isNull());
 }
 
-KHTMLPart *KHTMLPart::parentPart()
+KHTMLPart *KHTMLPart::parentPart() const
 {
   if ( !parent() || !parent()->inherits( "KHTMLPart" ) )
     return 0L;
@@ -4055,8 +4142,6 @@ void KHTMLPart::setZoomFactor (int percent)
 #if !APPLE_CHANGES
       QApplication::setOverrideCursor( waitCursor );
 #endif
-    if (d->m_doc->styleSelector())
-      d->m_doc->styleSelector()->computeFontSizes(d->m_doc->paintDeviceMetrics());
     d->m_doc->recalcStyle( NodeImpl::Force );
 #if !APPLE_CHANGES
     QApplication::restoreOverrideCursor();
@@ -4075,6 +4160,9 @@ void KHTMLPart::setZoomFactor (int percent)
   d->m_paDecZoomFactor->setEnabled( d->m_zoomFactor > minZoom );
   d->m_paIncZoomFactor->setEnabled( d->m_zoomFactor < maxZoom );
 #endif
+
+  if (d->m_doc && d->m_doc->renderer() && d->m_doc->renderer()->needsLayout())
+    view()->layout();
 }
 
 void KHTMLPart::setJSStatusBarText( const QString &text )
@@ -4266,7 +4354,7 @@ static bool firstRunAt(RenderObject *renderNode, int y, NodeImpl *&startNode, lo
     for (RenderObject *n = renderNode; n; n = n->nextSibling()) {
         if (n->isText()) {
             RenderText *textRenderer = static_cast<khtml::RenderText *>(n);
-            TextRunArray runs = textRenderer->textRuns();
+            InlineTextBoxArray runs = textRenderer->inlineTextBoxes();
             for (unsigned i = 0; i != runs.count(); i++) {
                 if (runs[i]->m_y == y) {
                     startNode = textRenderer->element();
@@ -4302,7 +4390,7 @@ static bool lastRunAt(RenderObject *renderNode, int y, NodeImpl *&endNode, long 
     
         if (n->isText()) {
             RenderText *textRenderer =  static_cast<khtml::RenderText *>(n);
-            TextRunArray runs = textRenderer->textRuns();
+            InlineTextBoxArray runs = textRenderer->inlineTextBoxes();
             for (int i = (int)runs.count()-1; i >= 0; i--) {
                 if (runs[i]->m_y == y) {
                     endNode = textRenderer->element();
@@ -4326,7 +4414,7 @@ static bool startAndEndLineNodesIncludingNode (DOM::NodeImpl *node, int offset, 
         int pos;
         int selectionPointY;
         khtml::RenderText *renderer = static_cast<khtml::RenderText *>(node->renderer());
-        khtml::TextRun * run = renderer->findTextRun( offset, pos );
+        khtml::InlineTextBox * run = renderer->findNextInlineTextBox( offset, pos );
         DOMString t = node->nodeValue();
         DOM::NodeImpl* startNode;
         DOM::NodeImpl* endNode;
@@ -4360,49 +4448,52 @@ static bool startAndEndLineNodesIncludingNode (DOM::NodeImpl *node, int offset, 
     return false;
 }
 
-static void findWordBoundary(QChar *chars, int len, int position, int *start, int *end){
-    OSStatus status, findStatus = 0;
+static void findWordBoundary(QChar *chars, int len, int position, int *start, int *end)
+{
     TextBreakLocatorRef breakLocator;
-    
-    status = UCCreateTextBreakLocator (NULL, 0, kUCTextBreakWordMask, &breakLocator);
-    if (status == 0){
-        findStatus = UCFindTextBreak (breakLocator,  kUCTextBreakWordMask, NULL, (const UniChar *)chars, (UniCharCount)len, (UniCharArrayOffset)position, (UniCharArrayOffset *)end);
-        findStatus |= UCFindTextBreak (breakLocator,  kUCTextBreakWordMask, kUCTextBreakGoBackwardsMask,  (const UniChar *)chars, (UniCharCount)len, (UniCharArrayOffset)position, (UniCharArrayOffset *)start);
-        UCDisposeTextBreakLocator (&breakLocator);
+    OSStatus status = UCCreateTextBreakLocator(NULL, 0, kUCTextBreakWordMask, &breakLocator);
+    if (status == noErr) {
+        UniCharArrayOffset startOffset, endOffset;
+        status = UCFindTextBreak(breakLocator, kUCTextBreakWordMask, 0, (const UniChar *)chars, len, position, &endOffset);
+        if (status == noErr) {
+            status = UCFindTextBreak(breakLocator, kUCTextBreakWordMask, kUCTextBreakGoBackwardsMask, (const UniChar *)chars, len, position, &startOffset);
+        }
+        UCDisposeTextBreakLocator(&breakLocator);
+        if (status == noErr) {
+            *start = startOffset;
+            *end = endOffset;
+            return;
+        }
     }
     
-    // If carbon fails do a simple space/punctuation boundary check.
-    if (findStatus){
-        if (chars[position].isSpace()){
-            int pos = position;
-            while (chars[pos].isSpace() && pos >= 0)
-                pos--;
-            *start = pos+1;
-            pos = position;
-            while (chars[pos].isSpace() && pos < (int)len)
-                pos++;
-            *end = pos;
-        }
-        else if (chars[position].isPunct()){
-            int pos = position;
-            while (chars[pos].isPunct() && pos >= 0)
-                pos--;
-            *start = pos+1;
-            pos = position;
-            while (chars[pos].isPunct() && pos < (int)len)
-                pos++;
-            *end = pos;
-        }
-        else {
-            int pos = position;
-            while (!chars[pos].isSpace() && !chars[pos].isPunct() && pos >= 0)
-                pos--;
-            *start = pos+1;
-            pos = position;
-            while (!chars[pos].isSpace() && !chars[pos].isPunct() && pos < (int)len)
-                pos++;
-            *end = pos;
-        }
+    // If Carbon fails (why would it?), do a simple space/punctuation boundary check.
+    if (chars[position].isSpace()) {
+        int pos = position;
+        while (chars[pos].isSpace() && pos >= 0)
+            pos--;
+        *start = pos+1;
+        pos = position;
+        while (chars[pos].isSpace() && pos < (int)len)
+            pos++;
+        *end = pos;
+    } else if (chars[position].isPunct()) {
+        int pos = position;
+        while (chars[pos].isPunct() && pos >= 0)
+            pos--;
+        *start = pos+1;
+        pos = position;
+        while (chars[pos].isPunct() && pos < (int)len)
+            pos++;
+        *end = pos;
+    } else {
+        int pos = position;
+        while (!chars[pos].isSpace() && !chars[pos].isPunct() && pos >= 0)
+            pos--;
+        *start = pos+1;
+        pos = position;
+        while (!chars[pos].isSpace() && !chars[pos].isPunct() && pos < (int)len)
+            pos++;
+        *end = pos;
     }
 }
 #endif
@@ -4526,7 +4617,7 @@ void KHTMLPart::khtmlMousePressEvent( khtml::MousePressEvent *event )
                 }
             }
         }
-        if (d->m_selectionStart == 0)
+        if (d->m_selectionStart == 0 || d->m_selectionEnd == 0)
             d->m_doc->clearSelection();
         else{
             d->m_initialSelectionStart = d->m_selectionStart;
@@ -4565,7 +4656,7 @@ void KHTMLPart::khtmlMousePressEvent( khtml::MousePressEvent *event )
                 startAndEndLineNodesIncludingNode (node, startOffset, d->m_selectionStart, d->m_startOffset, d->m_selectionEnd, d->m_endOffset);
             }
         }
-        if (d->m_selectionStart == 0)
+        if (d->m_selectionStart == 0 || d->m_selectionEnd == 0)
             d->m_doc->clearSelection();
         else {
             d->m_initialSelectionStart = d->m_selectionStart;
@@ -5410,6 +5501,16 @@ int KHTMLPart::topLevelFrameCount()
   }
 
   return frameCount;
+}
+
+bool KHTMLPart::tabsToLinks() const
+{
+    return true;
+}
+
+bool KHTMLPart::tabsToAllControls() const
+{
+    return true;
 }
 
 using namespace KParts;

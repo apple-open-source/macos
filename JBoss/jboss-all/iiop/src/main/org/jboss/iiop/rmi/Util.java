@@ -41,7 +41,7 @@ import java.security.NoSuchAlgorithmException;
  *  Specification", version 1.1 (01-06-07).
  *      
  *  @author <a href="mailto:osh@sparre.dk">Ole Husgaard</a>
- *  @version $Revision: 1.3 $
+ *  @version $Revision: 1.3.4.1 $
  */
 public class Util
 {
@@ -82,9 +82,21 @@ public class Util
          return "::java::io::Externalizable";
       if (cls == java.rmi.Remote.class)
          return "::java::rmi::Remote";
+      if (cls == org.omg.CORBA.Object.class)
+         return "::CORBA::Object";
 
-      // interface?
+
+      // remote interface?
       if (cls.isInterface() && java.rmi.Remote.class.isAssignableFrom(cls)) {
+         InterfaceAnalysis ia = InterfaceAnalysis.getInterfaceAnalysis(cls);
+
+         return ia.getIDLModuleName() + "::" + ia.getIDLName();
+      }
+      
+      // IDL interface?
+      if (cls.isInterface() && 
+          org.omg.CORBA.Object.class.isAssignableFrom(cls) &&
+          org.omg.CORBA.portable.IDLEntity.class.isAssignableFrom(cls)) {
          InterfaceAnalysis ia = InterfaceAnalysis.getInterfaceAnalysis(cls);
 
          return ia.getIDLModuleName() + "::" + ia.getIDLName();
