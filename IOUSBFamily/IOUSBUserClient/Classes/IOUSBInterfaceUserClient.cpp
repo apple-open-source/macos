@@ -525,7 +525,7 @@ IOUSBInterfaceUserClient::close()
 {
     IOReturn 	ret = kIOReturnSuccess;
     
-    USBLog(7, "+%s[%p]::close", getName(), this);
+    USBLog(5, "+%s[%p]::close", getName(), this);
     IncrementOutstandingIO();
     
     if (fOwner && !isInactive())
@@ -562,24 +562,36 @@ IOUSBInterfaceUserClient::close()
 IOReturn  
 IOUSBInterfaceUserClient::clientClose( void )
 {
-    USBLog(7, "+%s[%p]::clientClose(%p)", getName(), this, fUserClientBufferInfoListHead);
+    bool    terminateSuccess = false;
+    USBLog(5, "+%s[%p]::clientClose(%p), IO: %d", getName(), this, fUserClientBufferInfoListHead, fOutstandingIO);
 
     // Sleep for 1 ms to allow other threads that are pending to run
     //
     IOSleep(1);
     
-    // If we have any kernelDataBuffer pointers, then release them now
+    // We need to destroy the pipes so that any bandwidth gets returned -- our client has died so keeping them around 
+    // is not useful
     //
-    if (fUserClientBufferInfoListHead != NULL)
+    if ( fDead && fOwner && !isInactive() && fOwner->isOpen(this) )
+        fOwner->ClosePipes();
+    
+    if ( fOutstandingIO == 0 )
     {
-            ReleasePreparedDescriptors();
+        USBLog(5, "+%s[%p]::clientClose closing provider", getName(), this);
+        fOwner->close(this);
+        if ( fDead) release();
+    }
+    else
+    {
+        USBLog(5, "+%s[%p]::clientClose will close provider later", getName(), this);
+        fNeedToClose = true;
     }
 
     fTask = NULL;
 
     terminate();
-
-    USBLog(7, "-%s[%p]::clientClose(%p)", getName(), this, fUserClientBufferInfoListHead);
+    
+    USBLog(5, "-%s[%p]::clientClose(%p)", getName(), this, fUserClientBufferInfoListHead);
 
     return kIOReturnSuccess;			// DONT call super::clientClose, which just returns notSupported
 }
@@ -590,8 +602,10 @@ IOUSBInterfaceUserClient::clientDied( void )
 {
     IOReturn ret;
 
-    USBLog(5, "+%s[%p]::clientDied()", getName(), this);
-
+    USBLog(5, "+%s[%p]::clientDied() IO: %d", getName(), this, fOutstandingIO);
+    
+    retain();                       // We will release once any outstandingIO is finished
+        
     fDead = true;				// don't send any mach messages in this case
     ret = super::clientDied();
 
@@ -681,6 +695,7 @@ IOUSBInterfaceUserClient::LowLatencyIsoReqComplete(void *obj, void *param, IORet
     if (!me)
 	return;
 
+//    USBLog(5, "+%s[%p]::LowLatencyIsoReqComplete (%p)", me->getName(), me, res);
     args[0] = command->GetFrameBase(); 
     
     command->GetAsyncReference(&asyncRef);
@@ -1207,7 +1222,7 @@ IOUSBInterfaceUserClient::AbortPipe(UInt8 pipeRef)
     if (ret)
     {
         if ( ret == kIOUSBUnknownPipeErr )
-            USBLog(5, "%s[%p]::AbortPipe - returning err %x", getName(), this, ret);
+            USBLog(6, "%s[%p]::AbortPipe - returning err %x", getName(), this, ret);
         else
             USBLog(3, "%s[%p]::AbortPipe - returning err %x", getName(), this, ret);
     }
@@ -1287,7 +1302,7 @@ IOUSBInterfaceUserClient::ClearPipeStall(UInt8 pipeRef, bool bothEnds)
 	pipeObj = GetPipeObj(pipeRef);
 	if(pipeObj)
 	{
-	    USBLog(2, "%s[%p]::ClearPipeStall = bothEnds = %d", getName(), this, bothEnds);
+	    USBLog(6, "%s[%p]::ClearPipeStall = bothEnds = %d", getName(), this, bothEnds);
 	    ret = pipeObj->ClearPipeStall(bothEnds);
 	    pipeObj->release();
 	}
@@ -1741,8 +1756,10 @@ IOUSBInterfaceUserClient::LowLatencyReleaseBuffer(LowLatencyUserBufferInfo *data
         //
         if ( kernelDataBuffer->frameListMap )
         {
+            USBLog(3, "+IOUSBInterfaceUserClient[%p]::ReleasePreparedDescriptors releasing frameListMap (@%p)", this, kernelDataBuffer->frameListKernelAddress);
             kernelDataBuffer->frameListMap->release();
             kernelDataBuffer->frameListMap = NULL;
+            kernelDataBuffer->frameListKernelAddress = NULL;
         }
             
         if ( kernelDataBuffer->frameListDescriptor )
@@ -2510,7 +2527,7 @@ void
 IOUSBInterfaceUserClient::stop(IOService * provider)
 {
     
-    USBLog(5, "+%s[%p]::stop(%p)", getName(), this, provider);
+    USBLog(5, "+%s[%p]::stop(%p), IO: %d", getName(), this, provider, fOutstandingIO);
 
     // If we have any kernelDataBuffer pointers, then release them now
     //
@@ -2530,7 +2547,14 @@ IOUSBInterfaceUserClient::free()
 {
     IOReturn ret;
 
-    // USBLog(7, "+%s[%p]::free", getName(), this);
+    USBLog(5, "IOUSBInterfaceUserClient[%p]::free", this);
+    
+    // If we have any kernelDataBuffer pointers, then release them now
+    //
+    if (fUserClientBufferInfoListHead != NULL)
+    {
+        ReleasePreparedDescriptors();
+    }
     
     if ( fFreeUSBLowLatencyCommandPool )
     {
@@ -2596,7 +2620,8 @@ IOUSBInterfaceUserClient::willTerminate( IOService * provider, IOOptionBits opti
         {
             int		i;
 
-            USBLog(4, "%s[%p]::willTerminate - outstanding IO(%d), aborting pipes", getName(), this, ioPending);
+            USBLog(5, "%s[%p]::willTerminate - outstanding IO(%d), aborting pipes", getName(), this, ioPending);
+
             for (i=1; i <= kUSBMaxPipes; i++)
             {
                 pipe = fOwner->GetPipeObj(i-1);
@@ -2647,6 +2672,7 @@ IOUSBInterfaceUserClient::DecrementOutstandingIO(void)
 	{
 	    USBLog(3, "%s[%p]::DecrementOutstandingIO isInactive = %d, outstandingIO = %d - closing device", getName(), this, isInactive(), fOutstandingIO);
 	    fOwner->close(this);
+            if ( fDead) release();
 	}
 	return;
     }
@@ -2689,6 +2715,7 @@ IOUSBInterfaceUserClient::ChangeOutstandingIO(OSObject *target, void *param1, vo
             {
                 USBLog(3, "%s[%p]::ChangeOutstandingIO isInactive = %d, outstandingIO = %d - closing device", me->getName(), me, me->isInactive(), me->fOutstandingIO);
                 me->fOwner->close(me);
+                if ( me->fDead) me->release();
                 }
                 break;
 	    
@@ -2754,11 +2781,16 @@ IOUSBInterfaceUserClient::ReleasePreparedDescriptors(void)
     LowLatencyUserClientBufferInfo *	kernelDataBuffer;
     LowLatencyUserClientBufferInfo *	nextBuffer;
 
+    if ( fOutstandingIO != 0 )
+    {
+        USBLog(5, "+IOUSBInterfaceUserClient[%p]::ReleasePreparedDescriptors: OutstandingIO is NOT 0 (%ld) ", this, fOutstandingIO);
+        return;
+    }
     // If we have any kernelDataBuffer pointers, then release them now
     //
     if (fUserClientBufferInfoListHead != NULL)
     {
-        USBLog(5, "+%s[%p]::stop: fUserClientBufferInfoListHead NOT NULL (%p) ", getName(), this, fUserClientBufferInfoListHead);
+        //USBLog(5, "+%s[%p]::ReleasePreparedDescriptors: fUserClientBufferInfoListHead NOT NULL (%p) ", getName(), this, fUserClientBufferInfoListHead);
     
         nextBuffer = fUserClientBufferInfoListHead;
         kernelDataBuffer = fUserClientBufferInfoListHead;
@@ -2773,9 +2805,12 @@ IOUSBInterfaceUserClient::ReleasePreparedDescriptors(void)
             //
             if ( kernelDataBuffer->frameListMap )
             {
+                USBLog(3, "+IOUSBInterfaceUserClient[%p]::ReleasePreparedDescriptors releasing frameListMap (@ %p)", this, kernelDataBuffer->frameListKernelAddress);
                 kernelDataBuffer->frameListMap->release();
                 kernelDataBuffer->frameListMap = NULL;
-                }
+                kernelDataBuffer->frameListKernelAddress = NULL;
+                
+            }
                 
             if ( kernelDataBuffer->frameListDescriptor )
             {

@@ -20,56 +20,33 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-// There are several different categories of debug messages possible by the IOAudioFamily
-//   1) General debugging messages
-//      - #define DEBUG
-//   2) Function/method logging
-//      - #define DEBUG_CALLS
-//   3) Timer debugging messages - functions called during timer operations (4 per buffer cycle)
-//      - #define DEBUG_TIMER
-//   4) IO debugging messages - called for each IO by the HAL
-//      - #define DEBUG_IO
-//      - Devided into separate input and output logs
-//        - #define DEBUG_INPUT
-//        - #define DEBUG_OUTPUT
-
 #ifndef _IOAUDIODEBUG_H
 #define _IOAUDIODEBUG_H
 
-#ifdef DEBUG_ALL
-#define DEBUG
-#define DEBUG_CALLS
-#define DEBUG_TIMER
-#define DEBUG_IO
-#endif
+#ifdef DEBUG
+	#define DEBUG_LEVEL 1
 
-#ifdef DEBUG_IO
-#define DEBUG_INPUT
-#define DEBUG_OUTPUT
-#endif
+	#include <IOKit/usb/IOUSBLog.h>
 
-#ifdef DEBUG_INPUT
-#define DEBUG_IO
-#endif
+	#define audioDebugIOLog( level, message... ) \
+		do {USBLog( level, message );} while (0)
 
-#ifdef DEBUG_OUTPUT
-#define DEBUG_IO
-#endif
+	#ifdef assert
+		#undef assert
 
-#if defined(DEBUG_TIMER) && defined(DEBUG_CALLS)
-#define DEBUG_TIMER_CALLS
-#endif
+		#define AssertionMessage( cond, file, line ) \
+			"assert \"" #cond "\" failed in " #file " at line " #line
 
-#if defined(DEBUG_INPUT) && defined(DEBUG_CALLS)
-#define DEBUG_INPUT_CALLS
-#endif
+		#define AssertionFailed( cond, file, line ) \
+			panic(AssertionMessage( cond, file, line ));
 
-#if defined(DEBUG_OUTPUT) && defined(DEBUG_CALLS)
-#define DEBUG_OUTPUT_CALLS
+		#define	assert( cond )								\
+			if( !(cond) ) {									\
+				AssertionFailed( cond, __FILE__, __LINE__ )	\
+			}
+	#endif
+#else
+	#define audioDebugIOLog( level, message... ) ;
 #endif
-
-#if defined(DEBUG_IO) && defined(DEBUG_CALLS)
-#define DEBUG_IO_CALLS
-#endif 
 
 #endif /* _IOAUDIODEBUG_H */

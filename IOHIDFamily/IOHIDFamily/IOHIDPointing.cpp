@@ -820,19 +820,11 @@ IOFixed IOHIDPointing::resolution()
 
 
 void IOHIDPointing::propagateProperties()
-{
-    OSData *data = NULL;
-    
-    if (_provider) {
-        data = OSDynamicCast( OSData, _provider->getProperty( kIOHIDPointerAccelerationTableKey ));
-        
-        if (data)
-            setProperty(kIOHIDPointerAccelerationTableKey, data);
-            
-        data = OSDynamicCast( OSData, _provider->getProperty( kIOHIDScrollAccelerationTableKey ));
-        
-        if (data)
-            setProperty(kIOHIDScrollAccelerationTableKey, data);
-    }
+{    
+    if (!_provider) 
+        return;
 
+    setProperty(kIOHIDPointerAccelerationTableKey, _provider->getProperty( kIOHIDPointerAccelerationTableKey ));
+    setProperty(kIOHIDScrollAccelerationTableKey, _provider->getProperty( kIOHIDScrollAccelerationTableKey ));
+    setProperty(kIOHIDCountryCodeKey, _provider->getProperty(kIOHIDCountryCodeKey));
 }

@@ -33,6 +33,7 @@
 #include <IOKit/firewire/IOFWCommand.h>
 #include <IOKit/firewire/IOFireWireDevice.h>
 #import <IOKit/firewire/IOFWDCLProgram.h>
+#import <IOKit/firewire/IOFireWireLink.h>
 
 #include <libkern/c++/OSSet.h>
 #include <libkern/c++/OSCollectionIterator.h>
@@ -228,6 +229,7 @@ IOReturn IOFWIsochChannel::start()
 {
     OSIterator *listenIterator;
     IOFWIsochPort *listen;
+	IOReturn error = kIOReturnSuccess ;
 
     //
 	// start all listeners
@@ -237,9 +239,9 @@ IOReturn IOFWIsochChannel::start()
     if( listenIterator ) 
 	{
         listenIterator->reset();
-        while( (listen = (IOFWIsochPort *)listenIterator->getNextObject()) ) 
+        while( !error && (listen = (IOFWIsochPort *)listenIterator->getNextObject()) ) 
 		{
-            listen->start();
+            error = listen->start();
         }
         listenIterator->release();
     }
@@ -248,12 +250,12 @@ IOReturn IOFWIsochChannel::start()
 	// start the talker
 	//
 	
-	if( fTalker )
+	if( !error && fTalker )
 	{
-		fTalker->start();
+		error = fTalker->start();
 	}
 	
-    return kIOReturnSuccess;
+    return error ;
 }
 
 // stop
@@ -424,11 +426,11 @@ IOReturn IOFWIsochChannel::allocateChannelBegin( 	IOFWSpeed		inSpeed,
 
 	UInt32 			channel = 0;
 
-	FWKLOG(( "IOFWIsochChannel::allocateChannelBegin - entered, fDoIRM = %d, inAllowedChans = 0x%016llx\n", fDoIRM, inAllowedChans ));
+	FWKLOG(( "IOFWIsochChannel::allocateChannelBegin - entered, inSpeed = %d, fDoIRM = %d, inAllowedChans = 0x%016llx\n", inSpeed, fDoIRM, inAllowedChans ));
 
 	IOLockLock( fLock );
 	
-	fSpeed = inSpeed;
+	fSpeed = ( inSpeed == kFWSpeedMaximum ) ? fControl->getLink()->getPhySpeed() : inSpeed ;
 
 	if( fDoIRM )
 	{

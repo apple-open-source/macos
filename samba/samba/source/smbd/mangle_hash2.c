@@ -362,10 +362,8 @@ static void mangle_reset(void)
 /*
   try to find a 8.3 name in the cache, and if found then
   replace the string with the original long name. 
-
-  The filename must be able to hold at least sizeof(fstring) 
 */
-static BOOL check_cache(char *name)
+static BOOL check_cache(char *name, size_t maxlen)
 {
 	u32 hash, multiplier;
 	unsigned int i;
@@ -403,10 +401,10 @@ static BOOL check_cache(char *name)
 
 	if (extension[0]) {
 		M_DEBUG(10,("check_cache: %s -> %s.%s\n", name, prefix, extension));
-		slprintf(name, sizeof(fstring), "%s.%s", prefix, extension);
+		slprintf(name, maxlen, "%s.%s", prefix, extension);
 	} else {
 		M_DEBUG(10,("check_cache: %s -> %s\n", name, prefix));
-		fstrcpy(name, prefix);
+		safe_strcpy(name, prefix, maxlen);
 	}
 
 	return True;
@@ -453,17 +451,13 @@ static BOOL is_legal_name(const char *name)
 			/* Possible start of mb character. */
 			char mbc[2];
 			/*
-			 * We know the following will return 2 bytes. What
-			 * we need to know was if errno was set.
 			 * Note that if CH_UNIX is utf8 a string may be 3
 			 * bytes, but this is ok as mb utf8 characters don't
 			 * contain embedded ascii bytes. We are really checking
 			 * for mb UNIX asian characters like Japanese (SJIS) here.
 			 * JRA.
 			 */
-			errno = 0;
-			convert_string(CH_UNIX, CH_UCS2, name, 2, mbc, 2);
-			if (!errno) {
+			if (convert_string(CH_UNIX, CH_UCS2, name, 2, mbc, 2, False) == 2) {
 				/* Was a good mb string. */
 				name += 2;
 				continue;

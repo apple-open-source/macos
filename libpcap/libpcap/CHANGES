@@ -1,4 +1,16 @@
-@(#) $Header: /cvs/root/libpcap/libpcap/CHANGES,v 1.1.1.3 2004/02/05 19:22:28 rbraun Exp $ (LBL)
+@(#) $Header: /cvs/root/libpcap/libpcap/CHANGES,v 1.1.1.4 2004/05/21 20:31:59 rbraun Exp $ (LBL)
+
+Tue.   March 30, 2004. mcr@sandelman.ottawa.on.ca. Summary for 3.8.3 release
+
+	Fixed minor problem in gencode.c that would appear on 64-bit
+	platforms.
+	Version number is now sane.
+	
+Mon.   March 29, 2004. mcr@sandelman.ottawa.on.ca. Summary for 3.8.2 release
+
+	updates for autoconf 2.5
+	fixes for ppp interfaces for freebsd 4.1
+	pcap gencode can generate code for 802.11, IEEE1394, and pflog.
 
 Wed.   November 12, 2003. mcr@sandelman.ottawa.on.ca. Summary for 0.8 release
 

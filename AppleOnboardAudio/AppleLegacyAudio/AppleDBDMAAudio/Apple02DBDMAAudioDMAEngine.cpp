@@ -512,7 +512,7 @@ IOReturn Apple02DBDMAAudioDMAEngine::performAudioEngineStart()
 	IOPhysicalAddress			commandBufferPhys;
 	IOReturn					result;
 
-    debugIOLog (3, " + Apple02DBDMAAudioDMAEngine::performAudioEngineStart()");
+    debugIOLog (3, "+ Apple02DBDMAAudioDMAEngine::performAudioEngineStart()");
 
 	result = kIOReturnError;
     FailIf (!ioBaseDMAOutput || !dmaCommandBufferOut || !status || !interruptEventSource, Exit);
@@ -555,7 +555,7 @@ IOReturn Apple02DBDMAAudioDMAEngine::performAudioEngineStart()
 	dmaRunState = TRUE;				//	rbm 7.12.02	added for user client support
 	result = kIOReturnSuccess;
 
-    debugIOLog (3, " - Apple02DBDMAAudioDMAEngine::performAudioEngineStart()");
+    debugIOLog (3, "- Apple02DBDMAAudioDMAEngine::performAudioEngineStart()");
 
 Exit:
     return result;

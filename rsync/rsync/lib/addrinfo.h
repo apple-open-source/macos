@@ -107,16 +107,9 @@ extern char *gai_strerror(int);
 #endif /* AI_PASSIVE */
 #endif /* HAVE_GETADDRINFO */
 
-
-
 #ifndef HAVE_SOCKADDR_STORAGE
 struct sockaddr_storage {
-#ifdef HAVE_SOCKADDR_LEN
-	uchar		ss_len;		/* address length */
-	uchar		ss_family;	/* address family */
-#else
-	unsigned short	ss_family;
-#endif
-	unsigned char   fill[126];
+	unsigned long	align;
+	unsigned char	fill[128 - sizeof (unsigned long)];
 };
-#endif /* ndef HAVE_SOCKADDR_STORAGE */
+#endif

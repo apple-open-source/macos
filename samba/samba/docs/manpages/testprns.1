@@ -31,7 +31,7 @@ testprns \- check printer name for validity with smbd
 .SH "DESCRIPTION"
 
 .PP
-This tool is part of the \fBSamba\fR(7) suite\&.
+This tool is part of the \fBsamba\fR(7) suite\&.
 
 .PP
 \fBtestprns\fR is a very simple test program to determine whether a given printer name is valid for use in a service to be provided by \fBsmbd\fR(8)\&.
@@ -45,24 +45,19 @@ This tool is part of the \fBSamba\fR(7) suite\&.
 printername
 The printer name to validate\&.
 
-
-Printer names are taken from the first field in each record in the printcap file, single printer names and sets of aliases separated by vertical bars ("|") are recognized\&. Note that no validation or checking of the printcap syntax is done beyond that required to extract the printer name\&. It may be that the print spooling system is more forgiving or less forgiving than \fBtestprns\fR\&. However, if \fBtestprns\fR finds the printer then \fBsmbd\fR(8) should do so as well\&.
-
+Printer names are taken from the first field in each record in the printcap file, single printer names and sets of aliases separated by vertical bars ("|") are recognized\&. Note that no validation or checking of the printcap syntax is done beyond that required to extract the printer name\&. It may be that the print spooling system is more forgiving or less forgiving than \fBtestprns\fR\&. However, if\fBtestprns\fR finds the printer then \fBsmbd\fR(8) should do so as well\&.
 
 .TP
 printcapname
 This is the name of the printcap file within which to search for the given printer name\&.
 
-
 If no printcap name is specified \fBtestprns \fR will attempt to scan the printcap file name specified at compile time\&.
-
 
 .SH "FILES"
 
 .TP
 \fI/etc/printcap\fR
 This is usually the default printcap file to scan\&. See \fIprintcap (5)\fR\&.
-
 
 .SH "DIAGNOSTICS"
 

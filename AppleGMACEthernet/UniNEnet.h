@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -97,19 +94,18 @@ extern "C"
 		UInt8		*evLogBufp;
 
 		UInt32		startTimeSecs;	// Time buffer wrapped or init'd
-		UInt32		physAddr;		// Physical address of buffer to dump via OF
-		UInt32		alertCount;		// # times Alrt invoked - can be used as trigger
-		UInt32		wrapCount;		// # of times buffer wrapped around
-
 		UInt32		lostEvents;		// # events not logged because evLogFlag was 0
+		UInt32		wrapCount;		// # of times buffer wrapped around
+		UInt32		alertCount;		// # times Alrt invoked - can be used as trigger
+
+		addr64_t	physAddr;		// 64 bit physical address
 		UInt32		res1;			// reserved
 		UInt32		res2;			// reserved
-		UInt32		res3;			// reserved
 	};
 
 
 #if USE_ELG
-#define READ_REGISTER( REG )	(UInt32)(fCellClockEnabled ? OSReadLittleInt32( (void*)&fpRegs->REG, 0 ) :  Alrt( 0, 0, 'REG-', "regs unavail" ) )
+#define READ_REGISTER( REG )	(UInt32)(fCellClockEnabled ? OSReadLittleInt32( (void*)&fpRegs->REG, 0 ) :  Alrt( 0, offsetof( GMAC_Registers, REG ), 'REG-', "UniNEnet: regs unavail" ) )
 #define WRITE_REGISTER( REG, VAL )	writeRegister( &fpRegs->REG, VAL )
 #else
 #define READ_REGISTER( REG ) OSReadLittleInt32( (void*)fpRegs, offsetof( GMAC_Registers, REG ) )
@@ -238,9 +234,8 @@ class UniNEnet: public IOEthernetController
 public:
 
 	elg						*fpELG;			// pointer to ELG structure & buffer
-	IOMemoryDescriptor		*fpELGMemDesc;	// memory descriptor of ELG structure & buffer
+	IOBufferMemoryDescriptor *fpELGMemDesc;	// memory descriptor of ELG structure & buffer
 	volatile GMAC_Registers	*fpRegs;		// pointer to GMAC's registers
-//	GMAC_Registers			*fpRegsPhys;	// for ml_probe_read
 	IOPCIDevice				*nub;
 	IOMemoryMap				*ioMapEnet;
 	volatile IOPPCAddress	ioBaseEnet;
@@ -250,7 +245,7 @@ public:
 	IOPacketQueue			*debugQueue;
 	IOKernelDebugger		*debugger;
 
-	IOWorkLoop				*workLoop;
+	IOWorkLoop				*fWorkLoop;
 	IOInterruptEventSource	*interruptSource;
 	IOTimerEventSource		*timerSource;
 
@@ -272,12 +267,14 @@ public:
 	bool		netifEnabled;
 	bool		debugEnabled;
 	bool		debugTxPoll;
+
 	bool		fIsPromiscuous;
 	bool		multicastEnabled;
 	bool		isFullDuplex;
 	bool		txDebuggerPktInUse;	// for Tx timeout code use only
 	bool		fLoopback;			// PHY is in loopback mode
 	bool		fAutoNegotiate;		// auto negotiate or force speed/duplex
+	bool		fTimerRunning;
 
 	UInt32 		phyType;			// misnomer - really both PHY ID registers
 	UInt8		phyId;				// misnomer - really PHY address 00-1F or FF
@@ -304,7 +301,6 @@ public:
 
 	IOMbufBigMemoryCursor		*fTxMbufCursor;
 	struct IOPhysicalSegment	fTxSegment[ MAX_SEGS_PER_TX_MBUF ];
-	UInt32						fTxElementsAvail;
 
 	TxDescriptor	*fTxDescriptorRing; 	// TX descriptor ring ptr
 	UInt32			fTxDescriptorRingPhys;
@@ -314,10 +310,10 @@ public:
 	UInt32			fRxDescriptorRingPhys;
 	UInt32			fRxRingLengthFactor;
 
-	IOMemoryDescriptor	*fTxRingMemDesc;
-	IOMemoryDescriptor	*fRxRingMemDesc;
+	IOBufferMemoryDescriptor	*fTxRingMemDesc;
+	IOBufferMemoryDescriptor	*fRxRingMemDesc;
 
-	UInt32		txIntCnt;
+	UInt32		txIntCnt;		// counter for Tx interrupt every TX_DESC_PER_INT elements
 	UInt32		txRingIndexLast;
 	UInt32		txWDCount;
     
@@ -340,6 +336,7 @@ public:
 	UInt32		fPauseThresholds;
 
 	UInt32		fIntStatusForTO;			// accumulate Tx & Rx int bits for timer code.
+	UInt32		fTxCompletion;				// avoid reading register - get from status.
 
 private:			// Instance methods:
 	bool		allocateMemory();
@@ -372,7 +369,6 @@ private:			// Instance methods:
 	void		miiWrite( UInt32 miiData, UInt32 dataSize );
 	bool		miiResetPHY();
 	bool		miiWaitForAutoNegotiation();
-	bool		miiInitializePHY();
 
 	UInt32		outputPacket( struct mbuf *m, void *param );
 

@@ -123,6 +123,8 @@ struct AppleEHCIIsochEndpointStruct {
     AppleEHCIIsochListElement  			*toDoEnd;		// ITD or SITD
     AppleEHCIIsochListElement  			*doneQueue;		// ITD or SITD
     AppleEHCIIsochListElement  			*doneEnd;		// ITD or SITD
+    AppleEHCIIsochListElement  			*deferredQueue;		// ITD or SITD
+    AppleEHCIIsochListElement  			*deferredEnd;		// ITD or SITD
     UInt64					firstAvailableFrame;	// next frame available for a transfer on this EP
     UInt32					maxPacketSize;
     UInt32					activeTDs;		// + when added to todo list, - when taken from done queue
@@ -154,9 +156,11 @@ private:
     void AddIsocFramesToSchedule(AppleEHCIIsochEndpointPtr);
     void ReturnIsocDoneQueue(AppleEHCIIsochEndpointPtr);
     void PutTDonToDoList(AppleEHCIIsochEndpointPtr pED, AppleEHCIIsochListElement *pTD);
-    void PutTDonDoneQueue(AppleEHCIIsochEndpointPtr pED, AppleEHCIIsochListElement *pTD);
+    void PutTDonDoneQueue(AppleEHCIIsochEndpointPtr pED, AppleEHCIIsochListElement *pTD, bool checkDeferred);
+    void PutTDonDeferredQueue(AppleEHCIIsochEndpointPtr pED, AppleEHCIIsochListElement *pTD);
     AppleEHCIIsochListElement *GetTDfromToDoList(AppleEHCIIsochEndpointPtr pED);
     AppleEHCIIsochListElement *GetTDfromDoneQueue(AppleEHCIIsochEndpointPtr pED);
+    AppleEHCIIsochListElement *GetTDfromDeferredQueue(AppleEHCIIsochEndpointPtr pED);
     IOReturn AbortIsochEP(AppleEHCIIsochEndpointPtr);
     IOReturn DeleteIsochEP(AppleEHCIIsochEndpointPtr);
     
@@ -237,12 +241,15 @@ protected:
     UInt16 					_outSlot;
 
     AbsoluteTime				_lastCheckedTime;		// Last time we checked the Root Hub for inactivity
+    thread_call_t				_processDoneQueueThread;
 
 
     // methods
     
-    static void InterruptHandler(OSObject *owner, IOInterruptEventSource * source, int count);
-    static bool PrimaryInterruptFilter(OSObject *owner, IOFilterInterruptEventSource *source);
+    static void 				InterruptHandler(OSObject *owner, IOInterruptEventSource * source, int count);
+    static bool 				PrimaryInterruptFilter(OSObject *owner, IOFilterInterruptEventSource *source);
+    static void 				ProcessDoneQueueEntry(OSObject *target, thread_call_param_t endpointPtr);
+
     bool 	FilterInterrupt(int index);
 
     void UIMRootHubStatusChange(void);
@@ -289,7 +296,7 @@ protected:
             short 					functionNumber,
             short					endpointNumber,
             short					direction,
-            AppleEHCIQueueHead				**pEDBack);
+            AppleEHCIListElement			**pLEBack);
     AppleEHCIQueueHead *AllocateQH(void);
     EHCIGeneralTransferDescriptorPtr AllocateTD(void);
     AppleEHCIIsochTransferDescriptor *AllocateITD(void);

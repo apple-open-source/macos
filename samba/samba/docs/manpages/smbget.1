@@ -31,7 +31,7 @@ smbget \- wget-like utility for download files over SMB
 .SH "DESCRIPTION"
 
 .PP
-This tool is part of the \fBSamba\fR(7) suite\&.
+This tool is part of the \fBsamba\fR(7) suite\&.
 
 .PP
 smbget is a simple utility with wget\-like semantics, that can download files from SMB servers\&. You can specify the files you would like to download on the command\-line\&.
@@ -45,86 +45,69 @@ The files should be in the smb\-URL standard, e\&.g\&. use smb://host/share/file
 \-a, \-\-guest
 Work as user guest
 
-
 .TP
 \-r, \-\-resume
 Automatically resume aborted files
-
 
 .TP
 \-R, \-\-recursive
 Recursively download files
 
-
 .TP
 \-u, \-\-username=STRING
 Username to use
-
 
 .TP
 \-p, \-\-password=STRING
 Password to use
 
-
 .TP
 \-w, \-\-workgroup=STRING
 Workgroup to use (optional)
-
 
 .TP
 \-n, \-\-nonprompt
 Don't ask anything (non\-interactive)
 
-
 .TP
 \-d, \-\-debuglevel=INT
 Debuglevel to use
-
 
 .TP
 \-D, \-\-dots
 Show dots as progress indication
 
-
 .TP
 \-P, \-\-keep\-permissions
 Set same permissions on local file as are set on remote file\&.
-
 
 .TP
 \-o, \-\-outputfile
 Write the file that is being download to the specified file\&. Can not be used together with \-R\&.
 
-
 .TP
 \-f, \-\-rcfile
 Use specified rcfile\&. This will be loaded in the order it was specified \- e\&.g\&. if you specify any options before this one, they might get overriden by the contents of the rcfile\&.
-
 
 .TP
 \-q, \-\-quiet
 Be quiet
 
-
 .TP
 \-v, \-\-verbose
 Be verbose
-
 
 .TP
 \-b, \-\-blocksize
 Number of bytes to download in a block\&. Defaults to 64000\&.
 
-
 .TP
 \-?, \-\-help
 Show help message
 
-
 .TP
 \-\-usage
 Display brief usage message
-
 
 .SH "SMB URLS"
 

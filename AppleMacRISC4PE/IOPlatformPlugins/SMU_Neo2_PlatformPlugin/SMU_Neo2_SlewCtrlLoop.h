@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: SMU_Neo2_SlewCtrlLoop.h,v 1.6 2004/06/24 01:35:03 eem Exp $
+ *  File: $Id: SMU_Neo2_SlewCtrlLoop.h,v 1.7 2004/07/08 22:23:32 eem Exp $
  *
  */
 
@@ -74,6 +74,7 @@ protected:
 
 	// this will be used to count to 30 sec at max cooling
 	AbsoluteTime								_criticalDeadline;
+
 
 	/*
 	 *	In case there's no other control loop polling the temperature sensor, use a

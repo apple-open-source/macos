@@ -102,7 +102,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.SCSITaskUserClient;
-				MODULE_VERSION = 1.3.6;
+				MODULE_VERSION = 1.3.7;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -128,7 +128,7 @@
 	<key>CFBundleExecutable</key>
 	<string>SCSITaskUserClient</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.3.6, Copyright Apple Computer, Inc. 1999-2004</string>
+	<string>1.3.7, Copyright Apple Computer, Inc. 1999-2004</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -140,11 +140,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.6</string>
+	<string>1.3.7</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.6</string>
+	<string>1.3.7</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>CDIniter</key>
@@ -339,7 +339,7 @@
 	<key>CFBundleExecutable</key>
 	<string>SCSITaskLib</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.3.6, Copyright Apple Computer, Inc. 1999-2004</string>
+	<string>1.3.7, Copyright Apple Computer, Inc. 1999-2004</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -351,11 +351,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.6</string>
+	<string>1.3.7</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.6</string>
+	<string>1.3.7</string>
 	<key>CFPlugInDynamicRegistration</key>
 	<string>NO</string>
 	<key>CFPlugInFactories</key>
@@ -519,10 +519,12 @@
 			children = (
 				084398C3002809C411CE15B4,
 				ACBC64B60591602D009A73E0,
+				8348D86406F9272E00C3EC25,
 				AC13FCF9067A67B900589427,
 				084398C4002809C411CE15B4,
 				084398C5002809C411CE15B4,
 				084398C6002809C411CE15B4,
+				8368C33406FA51C4007BD2E2,
 				F5D31BB7032D52C301CE15B4,
 				084398CA002809C411CE15B4,
 				084398C9002809C411CE15B4,
@@ -866,7 +868,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIArchitectureModelFamily;
-				MODULE_VERSION = 1.3.6;
+				MODULE_VERSION = 1.3.7;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -897,7 +899,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOSCSIArchitectureModelFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.3.6, Copyright Apple Computer, Inc. 1999-2004</string>
+	<string>1.3.7, Copyright Apple Computer, Inc. 1999-2004</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -909,11 +911,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.6</string>
+	<string>1.3.7</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.6</string>
+	<string>1.3.7</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSCSIPeripheralDeviceNub</key>
@@ -965,7 +967,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIBlockCommandsDevice;
-				MODULE_VERSION = 1.3.6;
+				MODULE_VERSION = 1.3.7;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -990,7 +992,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOSCSIBlockCommandsDevice</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.3.6, Copyright Apple Computer, Inc. 1999-2004</string>
+	<string>1.3.7, Copyright Apple Computer, Inc. 1999-2004</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1002,11 +1004,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.6</string>
+	<string>1.3.7</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.6</string>
+	<string>1.3.7</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSCSIPeripheralDeviceType00</key>
@@ -1217,7 +1219,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIMultimediaCommandsDevice;
-				MODULE_VERSION = 1.3.6;
+				MODULE_VERSION = 1.3.7;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1242,7 +1244,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOSCSIMultimediaCommandsDevice</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.3.6, Copyright Apple Computer, Inc. 1999-2004</string>
+	<string>1.3.7, Copyright Apple Computer, Inc. 1999-2004</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1254,11 +1256,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.6</string>
+	<string>1.3.7</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.6</string>
+	<string>1.3.7</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSCSIPeripheralDeviceType05</key>
@@ -1452,7 +1454,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIReducedBlockCommandsDevice;
-				MODULE_VERSION = 1.3.6;
+				MODULE_VERSION = 1.3.7;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1477,7 +1479,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOSCSIReducedBlockCommandsDevice</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.3.6, Copyright Apple Computer, Inc. 1999-2004</string>
+	<string>1.3.7, Copyright Apple Computer, Inc. 1999-2004</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1489,11 +1491,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.6</string>
+	<string>1.3.7</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.6</string>
+	<string>1.3.7</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSCSIPeripheralDeviceType0E</key>
@@ -1682,6 +1684,9 @@
 				AC13FD06067A67D700589427,
 				AC13FD07067A67D700589427,
 				AC13FD09067A67D700589427,
+				AC19EDEE06E95CBA001A1349,
+				8348D86506F9272E00C3EC25,
+				8368C33506FA51C4007BD2E2,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1716,6 +1721,7 @@
 				AC13FD05067A67D700589427,
 				AC13FD08067A67D700589427,
 				AC13FD0A067A67D700589427,
+				AC19EDED06E95CBA001A1349,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2133,8 +2139,10 @@
 			dstSubfolderSpec = 0;
 			files = (
 				038CD68300B2FEB311CE15BF,
+				8348D86906F9276000C3EC25,
 				038CD68400B2FEB311CE15BF,
 				ACBC64BD0591607F009A73E0,
+				AC19ED8206E94CAC001A1349,
 				038CD68500B2FEB311CE15BF,
 				038CD68600B2FEB311CE15BF,
 				038CD68700B2FEB311CE15BF,
@@ -2357,9 +2365,12 @@
 				F556AFD702FB114801CE15B4,
 				084398DC00280A1011CE15B4,
 				ACBC64BC05916075009A73E0,
+				8348D86806F9275A00C3EC25,
 				084398DD00280A4C11CE15B4,
+				AC19ED8306E94CCD001A1349,
 				084398DE00280A4C11CE15B4,
 				084398DF00280A4C11CE15B4,
+				8368C33706FA5208007BD2E2,
 				F51926930328128801CE15B4,
 				071C63CEFFF0994111CE15B4,
 				071C63CFFFF0994111CE15B4,
@@ -2681,6 +2692,8 @@
 			children = (
 				5C405449011E259A05CE1791,
 				B6CB75A704E32803008272F3,
+				AC19EDEC06E95CBA001A1349,
+				AC19EDEB06E95CBA001A1349,
 				0143F212FFE0C65311CE15BF,
 				0143F230FFE0C65311CE15BF,
 				0143F261FFE0C65311CE15BF,
@@ -3065,6 +3078,52 @@
 			settings = {
 			};
 		};
+		8348D86406F9272E00C3EC25 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = SCSICmds_READ_CAPACITY_Definitions.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8348D86506F9272E00C3EC25 = {
+			fileRef = 8348D86406F9272E00C3EC25;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8348D86806F9275A00C3EC25 = {
+			fileRef = 8348D86406F9272E00C3EC25;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8348D86906F9276000C3EC25 = {
+			fileRef = 8348D86406F9272E00C3EC25;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8368C33406FA51C4007BD2E2 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = SCSIPort.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8368C33506FA51C4007BD2E2 = {
+			fileRef = 8368C33406FA51C4007BD2E2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8368C33706FA5208007BD2E2 = {
+			fileRef = 8368C33406FA51C4007BD2E2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 //830
 //831
 //832
@@ -3197,6 +3256,48 @@
 		};
 		AC13FD0A067A67D700589427 = {
 			fileRef = AC13FD02067A67D700589427;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC19ED8206E94CAC001A1349 = {
+			fileRef = AC13FCF9067A67B900589427;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC19ED8306E94CCD001A1349 = {
+			fileRef = AC13FCF9067A67B900589427;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC19EDEB06E95CBA001A1349 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			name = SCSILibraryRoutines.cpp;
+			path = IOSCSIArchitectureModel/SCSILibraryRoutines.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		AC19EDEC06E95CBA001A1349 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = SCSILibraryRoutines.h;
+			path = IOSCSIArchitectureModel/SCSILibraryRoutines.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		AC19EDED06E95CBA001A1349 = {
+			fileRef = AC19EDEB06E95CBA001A1349;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC19EDEE06E95CBA001A1349 = {
+			fileRef = AC19EDEC06E95CBA001A1349;
 			isa = PBXBuildFile;
 			settings = {
 			};

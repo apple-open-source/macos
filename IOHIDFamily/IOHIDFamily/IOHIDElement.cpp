@@ -848,7 +848,8 @@ bool IOHIDElement::processReport( UInt8                reportID,
                                   void *               reportData,
                                   UInt32               reportBits,
                                   const AbsoluteTime * timestamp,
-                                  IOHIDElement **      next )
+                                  IOHIDElement **      next,
+                                  IOOptionBits         options)
 {
     IOHIDEventQueue * queue;
     bool              changed = false;
@@ -860,6 +861,11 @@ bool IOHIDElement::processReport( UInt8                reportID,
     {
         *next = _nextReportHandler;
         
+        if (_isInterruptReportHandler && (options & kIOHIDReportOptionNotInterrupt))
+        {
+            return false;
+        }
+
         if (IsArrayElement(this) && !IsArrayReportHandler(this))
         {
             *next = _arrayReportHandler;
@@ -1108,6 +1114,9 @@ bool IOHIDElement::getReportType( IOHIDReportType * reportType ) const
 
 bool IOHIDElement::addEventQueue( IOHIDEventQueue * queue )
 {
+    if ( !queue )
+        return false;
+
     if ( _queueArray == 0 )
     {
         _queueArray = OSArray::withCapacity(4);
@@ -1115,6 +1124,8 @@ bool IOHIDElement::addEventQueue( IOHIDEventQueue * queue )
 
     if ( hasEventQueue(queue) == true )
         return false;
+
+    queue->addElement( this );
 
     return _queueArray ? _queueArray->setObject( queue ) : false;
 }
@@ -1125,6 +1136,11 @@ bool IOHIDElement::addEventQueue( IOHIDEventQueue * queue )
 bool IOHIDElement::removeEventQueue( IOHIDEventQueue * queue )
 {
     OSObject * obj = 0;
+    
+    if ( !queue )
+        return false;
+        
+    queue->removeElement( this );
 
     for ( UInt32 i = 0;
           _queueArray && (obj = _queueArray->getObject(i)); i++ )

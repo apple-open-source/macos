@@ -6,7 +6,7 @@
  *  Copyright (C) Paul Ashton                       1997,
  *  Copyright (C) Jeremy Allison                    2001,
  *  Copyright (C) Rafal Szczesniak                  2002,
- *  Copyright (C) Jim McDonough <jmcd@us.ibm.com>   2002.
+ *  Copyright (C) Jim McDonough <jmcd@us.ibm.com>   2002,
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -165,6 +165,17 @@ static void init_lsa_rid2s(DOM_R_REF *ref, DOM_RID2 *rid2,
 
 		status = lookup_name(dom_name, user, &sid, &name_type);
 
+		if((name_type == SID_NAME_UNKNOWN) && (lp_server_role() == ROLE_DOMAIN_MEMBER)  && (strncmp(dom_name, full_name, strlen(dom_name)) != 0)) {
+			DEBUG(5, ("init_lsa_rid2s: domain name not provided and local account not found, using member domain\n"));
+			fstrcpy(dom_name, lp_workgroup());
+			status = lookup_name(dom_name, user, &sid, &name_type);
+		}
+
+		if (name_type == SID_NAME_WKN_GRP) {
+			/* BUILTIN aliases are still aliases :-) */
+			name_type = SID_NAME_ALIAS;
+		}
+
 		DEBUG(5, ("init_lsa_rid2s: %s\n", status ? "found" : 
 			  "not found"));
 
@@ -174,7 +185,7 @@ static void init_lsa_rid2s(DOM_R_REF *ref, DOM_RID2 *rid2,
 			(*mapped_count)++;
 		} else {
 			dom_idx = -1;
-			rid = 0xffffffff;
+			rid = 0;
 			name_type = SID_NAME_UNKNOWN;
 		}
 
@@ -202,11 +213,6 @@ static void init_reply_lookup_names(LSA_R_LOOKUP_NAMES *r_l,
 	r_l->dom_rid      = rid2;
 
 	r_l->mapped_count = mapped_count;
-
-	if (mapped_count == 0)
-		r_l->status = NT_STATUS_NONE_MAPPED;
-	else
-		r_l->status = NT_STATUS_OK;
 }
 
 /***************************************************************************
@@ -252,9 +258,6 @@ static void init_lsa_trans_names(TALLOC_CTX *ctx, DOM_R_REF *ref, LSA_TRANS_NAME
 
 		/* Lookup sid from winbindd */
 
-		memset(dom_name, '\0', sizeof(dom_name));
-		memset(name, '\0', sizeof(name));
-
 		status = lookup_sid(&find_sid, dom_name, name, &sid_name_use);
 
 		DEBUG(5, ("init_lsa_trans_names: %s\n", status ? "found" : 
@@ -262,20 +265,24 @@ static void init_lsa_trans_names(TALLOC_CTX *ctx, DOM_R_REF *ref, LSA_TRANS_NAME
 
 		if (!status) {
 			sid_name_use = SID_NAME_UNKNOWN;
+			memset(dom_name, '\0', sizeof(dom_name));
+			sid_to_string(name, &find_sid);
+			dom_idx = -1;
+
+			DEBUG(10,("init_lsa_trans_names: added unknown user '%s' to "
+				  "referenced list.\n", name ));
 		} else {
 			(*mapped_count)++;
+			/* Store domain sid in ref array */
+			if (find_sid.num_auths == 5) {
+				sid_split_rid(&find_sid, &rid);
+			}
+			dom_idx = init_dom_ref(ref, dom_name, &find_sid);
+
+			DEBUG(10,("init_lsa_trans_names: added user '%s\\%s' to "
+				  "referenced list.\n", dom_name, name ));
+
 		}
-
-		/* Store domain sid in ref array */
-
-		if (find_sid.num_auths == 5) {
-			sid_split_rid(&find_sid, &rid);
-		}
-
-		dom_idx = init_dom_ref(ref, dom_name, &find_sid);
-
-		DEBUG(10,("init_lsa_trans_names: added user '%s\\%s' to "
-			  "referenced list.\n", dom_name, name ));
 
 		init_lsa_trans_name(&trn->name[total], &trn->uni_name[total],
 					sid_name_use, name, dom_idx);
@@ -301,11 +308,6 @@ static void init_reply_lookup_sids(LSA_R_LOOKUP_SIDS *r_l,
 	r_l->dom_ref      = ref;
 	r_l->names        = names;
 	r_l->mapped_count = mapped_count;
-
-	if (mapped_count == 0)
-		r_l->status = NT_STATUS_NONE_MAPPED;
-	else
-		r_l->status = NT_STATUS_OK;
 }
 
 static NTSTATUS lsa_get_generic_sd(TALLOC_CTX *mem_ctx, SEC_DESC **sd, size_t *sd_size)
@@ -348,7 +350,7 @@ static NTSTATUS lsa_get_generic_sd(TALLOC_CTX *mem_ctx, SEC_DESC **sd, size_t *s
 
 static void init_dns_dom_info(LSA_DNS_DOM_INFO *r_l, const char *nb_name,
 			      const char *dns_name, const char *forest_name,
-			      GUID *dom_guid, DOM_SID *dom_sid)
+			      struct uuid *dom_guid, DOM_SID *dom_sid)
 {
 	if (nb_name && *nb_name) {
 		init_unistr2(&r_l->uni_nb_dom_name, nb_name, UNI_FLAGS_NONE);
@@ -373,7 +375,7 @@ static void init_dns_dom_info(LSA_DNS_DOM_INFO *r_l, const char *nb_name,
 
 	/* how do we init the guid ? probably should write an init fn */
 	if (dom_guid) {
-		memcpy(&r_l->dom_guid, dom_guid, sizeof(GUID));
+		memcpy(&r_l->dom_guid, dom_guid, sizeof(struct uuid));
 	}
 	
 	if (dom_sid) {
@@ -665,6 +667,12 @@ done:
 
 	/* set up the LSA Lookup SIDs response */
 	init_lsa_trans_names(p->mem_ctx, ref, names, num_entries, sid, &mapped_count);
+	if (mapped_count == 0)
+		r_u->status = NT_STATUS_NONE_MAPPED;
+	else if (mapped_count != num_entries)
+		r_u->status = STATUS_SOME_UNMAPPED;
+	else
+		r_u->status = NT_STATUS_OK;
 	init_reply_lookup_sids(r_u, ref, names, mapped_count);
 
 	return r_u->status;
@@ -709,6 +717,12 @@ done:
 
 	/* set up the LSA Lookup RIDs response */
 	init_lsa_rid2s(ref, rids, num_entries, names, &mapped_count, p->endian);
+	if (mapped_count == 0)
+		r_u->status = NT_STATUS_NONE_MAPPED;
+	else if (mapped_count != num_entries)
+		r_u->status = STATUS_SOME_UNMAPPED;
+	else
+		r_u->status = NT_STATUS_OK;
 	init_reply_lookup_names(r_u, ref, num_entries, rids, mapped_count);
 
 	return r_u->status;
@@ -1091,7 +1105,6 @@ NTSTATUS _lsa_addprivs(pipes_struct *p, LSA_Q_ADDPRIVS *q_u, LSA_R_ADDPRIVS *r_u
 		/* check if the privilege is already there */
 		if (check_priv_in_privilege(map.priv_set, *luid_attr)){
 			destroy_privilege(&map.priv_set);
-			return NT_STATUS_NO_SUCH_PRIVILEGE;
 		}
 		
 		add_privilege(map.priv_set, *luid_attr);
@@ -1226,7 +1239,7 @@ NTSTATUS _lsa_query_info2(pipes_struct *p, LSA_Q_QUERY_INFO2 *q_u, LSA_R_QUERY_I
 	char *dns_name = NULL;
 	char *forest_name = NULL;
 	DOM_SID *sid = NULL;
-	GUID guid;
+	struct uuid guid;
 	fstring dnsdomname;
 
 	ZERO_STRUCT(guid);
@@ -1250,7 +1263,7 @@ NTSTATUS _lsa_query_info2(pipes_struct *p, LSA_Q_QUERY_INFO2 *q_u, LSA_R_QUERY_I
 
 				/* This should be a 'netbios domain -> DNS domain' mapping */
 				dnsdomname[0] = '\0';
-				get_mydomname(dnsdomname);
+				get_mydnsdomname(dnsdomname);
 				strlower_m(dnsdomname);
 				
 				dns_name = dnsdomname;

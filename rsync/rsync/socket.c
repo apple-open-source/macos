@@ -1,20 +1,20 @@
 /* -*- c-file-style: "linux" -*-
-   
+
    rsync -- fast file replication program
-   
+
    Copyright (C) 1992-2001 by Andrew Tridgell <tridge@samba.org>
    Copyright (C) 2001, 2002 by Martin Pool <mbp@samba.org>
-   
+
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2 of the License, or
    (at your option) any later version.
-   
+
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
-   
+
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
@@ -22,7 +22,7 @@
 
 /**
  * @file socket.c
- * 
+ *
  * Socket functions used in rsync.
  *
  * This file is now converted to use the new-style getaddrinfo()
@@ -36,21 +36,45 @@
 
 /**
  * Establish a proxy connection on an open socket to a web proxy by
- * using the HTTP CONNECT method.
+ * using the CONNECT method. If proxy_user and proxy_pass are not NULL,
+ * they are used to authenticate to the proxy using the "Basic"
+ * proxy-authorization protocol
  **/
-static int establish_proxy_connection(int fd, char *host, int port)
+static int establish_proxy_connection(int fd, char *host, int port,
+				      char *proxy_user, char *proxy_pass)
 {
-	char buffer[1024];
-	char *cp;
+	char *cp, buffer[1024];
+	char *authhdr, authbuf[1024];
+	int len;
 
-	snprintf(buffer, sizeof(buffer), "CONNECT %s:%d HTTP/1.0\r\n\r\n", host, port);
-	if (write(fd, buffer, strlen(buffer)) != (int) strlen(buffer)) {
+	if (proxy_user && proxy_pass) {
+		stringjoin(buffer, sizeof buffer,
+			 proxy_user, ":", proxy_pass, NULL);
+		len = strlen(buffer);
+
+		if ((len*8 + 5) / 6 >= (int)sizeof authbuf) {
+			rprintf(FERROR,
+				"authentication information is too long\n");
+			return -1;
+		}
+
+		base64_encode(buffer, len, authbuf);
+		authhdr = "\r\nProxy-Authorization: Basic ";
+	} else {
+		*authbuf = '\0';
+		authhdr = "";
+	}
+
+	snprintf(buffer, sizeof buffer, "CONNECT %s:%d HTTP/1.0%s%s\r\n\r\n",
+		 host, port, authhdr, authbuf);
+	len = strlen(buffer);
+	if (write(fd, buffer, len) != len) {
 		rprintf(FERROR, "failed to write to proxy: %s\n",
 			strerror(errno));
 		return -1;
 	}
 
-	for (cp = buffer; cp < &buffer[sizeof(buffer) - 1]; cp++) {
+	for (cp = buffer; cp < &buffer[sizeof buffer - 1]; cp++) {
 		if (read(fd, cp, 1) != 1) {
 			rprintf(FERROR, "failed to read from proxy: %s\n",
 				strerror(errno));
@@ -70,8 +94,7 @@ static int establish_proxy_connection(int fd, char *host, int port)
 			buffer);
 		return -1;
 	}
-	for (cp = &buffer[5]; isdigit(* (unsigned char *) cp) || (*cp == '.'); cp++)
-		;
+	for (cp = &buffer[5]; isdigit(*(uchar*)cp) || *cp == '.'; cp++) {}
 	while (*cp == ' ')
 		cp++;
 	if (*cp != '2') {
@@ -81,8 +104,7 @@ static int establish_proxy_connection(int fd, char *host, int port)
 	}
 	/* throw away the rest of the HTTP header */
 	while (1) {
-		for (cp = buffer; cp < &buffer[sizeof(buffer) - 1];
-		     cp++) {
+		for (cp = buffer; cp < &buffer[sizeof buffer - 1]; cp++) {
 			if (read(fd, cp, 1) != 1) {
 				rprintf(FERROR, "failed to read from proxy: %s\n",
 					strerror(errno));
@@ -91,9 +113,9 @@ static int establish_proxy_connection(int fd, char *host, int port)
 			if (*cp == '\n')
 				break;
 		}
-		if ((cp > buffer) && (*cp == '\n'))
+		if (cp > buffer && *cp == '\n')
 			cp--;
-		if ((cp == buffer) && ((*cp == '\n') || (*cp == '\r')))
+		if (cp == buffer && (*cp == '\n' || *cp == '\r'))
 			break;
 	}
 	return 0;
@@ -104,14 +126,13 @@ static int establish_proxy_connection(int fd, char *host, int port)
  * Try to set the local address for a newly-created socket.  Return -1
  * if this fails.
  **/
-int try_bind_local(int s,
-		   int ai_family, int ai_socktype,
+int try_bind_local(int s, int ai_family, int ai_socktype,
 		   const char *bind_address)
 {
 	int error;
 	struct addrinfo bhints, *bres_all, *r;
 
-	memset(&bhints, 0, sizeof(bhints));
+	memset(&bhints, 0, sizeof bhints);
 	bhints.ai_family = ai_family;
 	bhints.ai_socktype = ai_socktype;
 	bhints.ai_flags = AI_PASSIVE;
@@ -160,42 +181,59 @@ int open_socket_out(char *host, int port, const char *bind_address,
 		    int af_hint)
 {
 	int type = SOCK_STREAM;
-	int error;
-	int s;
+	int error, s;
 	struct addrinfo hints, *res0, *res;
 	char portbuf[10];
-	char *h;
+	char *h, *cp;
 	int proxied = 0;
 	char buffer[1024];
-	char *cp;
+	char *proxy_user = NULL, *proxy_pass = NULL;
 
 	/* if we have a RSYNC_PROXY env variable then redirect our
-	 * connetcion via a web proxy at the given address. The format
-	 * is hostname:port */
+	 * connetcion via a web proxy at the given address. */
 	h = getenv("RSYNC_PROXY");
-	proxied = (h != NULL) && (*h != '\0');
+	proxied = h != NULL && *h != '\0';
 
 	if (proxied) {
-		strlcpy(buffer, h, sizeof(buffer));
-		cp = strchr(buffer, ':');
-		if (cp == NULL) {
+		strlcpy(buffer, h, sizeof buffer);
+
+		/* Is the USER:PASS@ prefix present? */
+		if ((cp = strchr(buffer, '@')) != NULL) {
+			*cp++ = '\0';
+			/* The remainder is the HOST:PORT part. */
+			h = cp;
+
+			if ((cp = strchr(buffer, ':')) == NULL) {
+				rprintf(FERROR,
+					"invalid proxy specification: should be USER:PASS@HOST:PORT\n");
+				return -1;
+			}
+			*cp++ = '\0';
+
+			proxy_user = buffer;
+			proxy_pass = cp;
+		} else {
+			/* The whole buffer is the HOST:PORT part. */
+			h = buffer;
+		}
+
+		if ((cp = strchr(h, ':')) == NULL) {
 			rprintf(FERROR,
 				"invalid proxy specification: should be HOST:PORT\n");
 			return -1;
 		}
 		*cp++ = '\0';
-		strcpy(portbuf, cp);
-		h = buffer;
+		strlcpy(portbuf, cp, sizeof portbuf);
 		if (verbose >= 2) {
 			rprintf(FINFO, "connection via http proxy %s port %s\n",
 				h, portbuf);
 		}
 	} else {
-		snprintf(portbuf, sizeof(portbuf), "%d", port);
+		snprintf(portbuf, sizeof portbuf, "%d", port);
 		h = host;
 	}
 
-	memset(&hints, 0, sizeof(hints));
+	memset(&hints, 0, sizeof hints);
 	hints.ai_family = af_hint;
 	hints.ai_socktype = type;
 	error = getaddrinfo(h, portbuf, &hints, &res0);
@@ -215,26 +253,26 @@ int open_socket_out(char *host, int port, const char *bind_address,
 		if (s < 0)
 			continue;
 
-		if (bind_address)
-			if (try_bind_local(s, res->ai_family, type,
-					   bind_address) == -1) {
-				close(s);
-				s = -1;
-				continue;
-			}
-
+		if (bind_address
+		 && try_bind_local(s, res->ai_family, type,
+				   bind_address) == -1) {
+			close(s);
+			s = -1;
+			continue;
+		}
 		if (connect(s, res->ai_addr, res->ai_addrlen) < 0) {
 			close(s);
 			s = -1;
 			continue;
 		}
-		if (proxied &&
-		    establish_proxy_connection(s, host, port) != 0) {
+		if (proxied
+		 && establish_proxy_connection(s, host, port,
+					       proxy_user, proxy_pass) != 0) {
 			close(s);
 			s = -1;
 			continue;
-		} else
-			break;
+		}
+		break;
 	}
 	freeaddrinfo(res0);
 	if (s < 0) {
@@ -258,18 +296,19 @@ int open_socket_out(char *host, int port, const char *bind_address,
  *
  * @param bind_address Local address to use.  Normally NULL to get the stack default.
  **/
-int open_socket_out_wrapped (char *host,
-			     int port,
-			     const char *bind_address,
-			     int af_hint)
+int open_socket_out_wrapped(char *host, int port, const char *bind_address,
+			    int af_hint)
 {
-	char *prog;
+	char *prog = getenv("RSYNC_CONNECT_PROG");
 
-	if ((prog = getenv ("RSYNC_CONNECT_PROG")) != NULL) 
-		return sock_exec (prog);
-	else 
-		return open_socket_out (host, port, bind_address,
-					af_hint);
+	if (verbose >= 2) {
+		rprintf(FINFO, "%sopening tcp connection to %s port %d\n",
+			prog ? "Using RSYNC_CONNECT_PROG instead of " : "",
+			host, port);
+	}
+	if (prog)
+		return sock_exec(prog);
+	return open_socket_out(host, port, bind_address, af_hint);
 }
 
 
@@ -279,72 +318,94 @@ int open_socket_out_wrapped (char *host,
  *
  * Try to be better about handling the results of getaddrinfo(): when
  * opening an inbound socket, we might get several address results,
- * e.g. for the machine's ipv4 and ipv6 name.  
- * 
+ * e.g. for the machine's ipv4 and ipv6 name.
+ *
  * If binding a wildcard, then any one of them should do.  If an address
  * was specified but it's insufficiently specific then that's not our
- * fault.  
- * 
+ * fault.
+ *
  * However, some of the advertized addresses may not work because e.g. we
  * don't have IPv6 support in the kernel.  In that case go on and try all
  * addresses until one succeeds.
- * 
+ *
  * @param bind_address Local address to bind, or NULL to allow it to
  * default.
  **/
-static int open_socket_in(int type, int port, const char *bind_address,
-			  int af_hint)
+static int *open_socket_in(int type, int port, const char *bind_address,
+			   int af_hint)
 {
 	int one=1;
-	int s;
+	int s, *sp, *socks, maxs;
 	struct addrinfo hints, *all_ai, *resp;
 	char portbuf[10];
 	int error;
 
-	memset(&hints, 0, sizeof(hints));
+	memset(&hints, 0, sizeof hints);
 	hints.ai_family = af_hint;
 	hints.ai_socktype = type;
 	hints.ai_flags = AI_PASSIVE;
-	snprintf(portbuf, sizeof(portbuf), "%d", port);
+	snprintf(portbuf, sizeof portbuf, "%d", port);
 	error = getaddrinfo(bind_address, portbuf, &hints, &all_ai);
 	if (error) {
 		rprintf(FERROR, RSYNC_NAME ": getaddrinfo: bind address %s: %s\n",
 			bind_address, gai_strerror(error));
-		return -1;
+		return NULL;
+	}
+
+	/* Count max number of sockets we might open. */
+	for (maxs = 0, resp = all_ai; resp; resp = resp->ai_next, maxs++) {}
+	socks = new_array(int, maxs + 1);
+	if (!socks) {
+		rprintf(FERROR,
+			RSYNC_NAME "couldn't allocate memory for sockets");
+		return NULL;
 	}
 
 	/* We may not be able to create the socket, if for example the
 	 * machine knows about IPv6 in the C library, but not in the
 	 * kernel. */
+	sp = socks + 1; /* Leave room for count at start of array. */
 	for (resp = all_ai; resp; resp = resp->ai_next) {
 		s = socket(resp->ai_family, resp->ai_socktype,
 			   resp->ai_protocol);
 
-		if (s == -1) 
+		if (s == -1) {
 			/* See if there's another address that will work... */
 			continue;
-		
+		}
+
 		setsockopt(s, SOL_SOCKET, SO_REUSEADDR,
 			   (char *)&one, sizeof one);
-		
-		/* now we've got a socket - we need to bind it */
-		if (bind(s, all_ai->ai_addr, all_ai->ai_addrlen) < 0) {
+
+#ifdef IPV6_V6ONLY
+		if (resp->ai_family == AF_INET6) {
+			setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY,
+				   (char *)&one, sizeof one);
+		}
+#endif
+
+		/* Now we've got a socket - we need to bind it. */
+		if (bind(s, resp->ai_addr, resp->ai_addrlen) < 0) {
 			/* Nope, try another */
 			close(s);
 			continue;
 		}
 
-		freeaddrinfo(all_ai);
-		return s;
+		*sp++ = s;
 	}
+	*socks = sp - socks - 1;   /* Save count. */
 
-	rprintf(FERROR, RSYNC_NAME ": open inbound socket on port %d failed: "
-		"%s\n",
-		port, 
-		strerror(errno));
+	if (all_ai)
+		freeaddrinfo(all_ai);
 
-	freeaddrinfo(all_ai);
-	return -1; 
+	if (*socks == 0) {
+		rprintf(FERROR,
+			RSYNC_NAME ": open inbound socket on port %d failed: "
+			"%s\n", port, strerror(errno));
+		free(socks);
+		return NULL;
+	}
+	return socks;
 }
 
 
@@ -354,46 +415,64 @@ static int open_socket_in(int type, int port, const char *bind_address,
 int is_a_socket(int fd)
 {
 	int v;
-	socklen_t l;
-	l = sizeof(int);
+	socklen_t l = sizeof (int);
 
-        /* Parameters to getsockopt, setsockopt etc are very
-         * unstandardized across platforms, so don't be surprised if
-         * there are compiler warnings on e.g. SCO OpenSwerver or AIX.
-         * It seems they all eventually get the right idea.
-         *
-         * Debian says: ``The fifth argument of getsockopt and
-         * setsockopt is in reality an int [*] (and this is what BSD
-         * 4.* and libc4 and libc5 have).  Some POSIX confusion
-         * resulted in the present socklen_t.  The draft standard has
-         * not been adopted yet, but glibc2 already follows it and
-         * also has socklen_t [*]. See also accept(2).''
-         *
-         * We now return to your regularly scheduled programming.  */
-	return(getsockopt(fd, SOL_SOCKET, SO_TYPE, (char *)&v, &l) == 0);
+	/* Parameters to getsockopt, setsockopt etc are very
+	 * unstandardized across platforms, so don't be surprised if
+	 * there are compiler warnings on e.g. SCO OpenSwerver or AIX.
+	 * It seems they all eventually get the right idea.
+	 *
+	 * Debian says: ``The fifth argument of getsockopt and
+	 * setsockopt is in reality an int [*] (and this is what BSD
+	 * 4.* and libc4 and libc5 have).  Some POSIX confusion
+	 * resulted in the present socklen_t.  The draft standard has
+	 * not been adopted yet, but glibc2 already follows it and
+	 * also has socklen_t [*]. See also accept(2).''
+	 *
+	 * We now return to your regularly scheduled programming.  */
+	return getsockopt(fd, SOL_SOCKET, SO_TYPE, (char *)&v, &l) == 0;
+}
+
+
+static RETSIGTYPE sigchld_handler(UNUSED(int val))
+{
+#ifdef WNOHANG
+	while (waitpid(-1, NULL, WNOHANG) > 0) {}
+#endif
+	signal(SIGCHLD, sigchld_handler);
 }
 
 
 void start_accept_loop(int port, int (*fn)(int, int))
 {
-	int s;
+	fd_set deffds;
+	int *sp, maxfd, i, j;
 	extern char *bind_address;
 	extern int default_af_hint;
 
 	/* open an incoming socket */
-	s = open_socket_in(SOCK_STREAM, port, bind_address, default_af_hint);
-	if (s == -1)
+	sp = open_socket_in(SOCK_STREAM, port, bind_address, default_af_hint);
+	if (sp == NULL)
 		exit_cleanup(RERR_SOCKETIO);
 
 	/* ready to listen */
-	if (listen(s, 5) == -1) {
-		close(s);
-		exit_cleanup(RERR_SOCKETIO);
+	FD_ZERO(&deffds);
+	maxfd = -1;
+	for (i = 1; i <= *sp; i++) {
+		if (listen(sp[i], 5) == -1) {
+			for (j = 1; j <= i; j++)
+				close(sp[j]);
+			free(sp);
+			exit_cleanup(RERR_SOCKETIO);
+		}
+		FD_SET(sp[i], &deffds);
+		if (maxfd < sp[i])
+			maxfd = sp[i];
 	}
 
 
 	/* now accept incoming connections - forking a new process
-	   for each incoming connection */
+	 * for each incoming connection */
 	while (1) {
 		fd_set fds;
 		pid_t pid;
@@ -402,37 +481,38 @@ void start_accept_loop(int port, int (*fn)(int, int))
 		socklen_t addrlen = sizeof addr;
 
 		/* close log file before the potentially very long select so
-		   file can be trimmed by another process instead of growing
-		   forever */
+		 * file can be trimmed by another process instead of growing
+		 * forever */
 		log_close();
 
-		FD_ZERO(&fds);
-		FD_SET(s, &fds);
+#ifdef FD_COPY
+		FD_COPY(&deffds, &fds);
+#else
+		fds = deffds;
+#endif
 
-		if (select(s+1, &fds, NULL, NULL, NULL) != 1) {
+		if (select(maxfd + 1, &fds, NULL, NULL, NULL) != 1)
 			continue;
+
+		fd = -1;
+		for (i = 1; i <= *sp; i++) {
+			if (FD_ISSET(sp[i], &fds)) {
+				fd = accept(sp[i], (struct sockaddr *)&addr,
+					    &addrlen);
+				break;
+			}
 		}
 
-		if(!FD_ISSET(s, &fds)) continue;
+		if (fd < 0)
+			continue;
 
-		fd = accept(s,(struct sockaddr *)&addr,&addrlen);
-
-		if (fd == -1) continue;
-
-		signal(SIGCHLD, SIG_IGN);
-
-		/* we shouldn't have any children left hanging around
-		   but I have had reports that on Digital Unix zombies
-		   are produced, so this ensures that they are reaped */
-#ifdef WNOHANG
-                while (waitpid(-1, NULL, WNOHANG) > 0);
-#endif
+		signal(SIGCHLD, sigchld_handler);
 
 		if ((pid = fork()) == 0) {
 			int ret;
-			close(s);
+			close(sp[i]);
 			/* open log file in child before possibly giving
-			   up privileges  */
+			 * up privileges  */
 			log_open();
 			ret = fn(fd, fd);
 			close_all();
@@ -452,6 +532,7 @@ void start_accept_loop(int port, int (*fn)(int, int))
 			close(fd);
 		}
 	}
+	free(sp);
 }
 
 
@@ -497,7 +578,7 @@ struct
 #endif
   {NULL,0,0,0,0}};
 
-	
+
 
 /**
  * Set user socket options
@@ -505,13 +586,16 @@ struct
 void set_socket_options(int fd, char *options)
 {
 	char *tok;
-	if (!options || !*options) return;
+
+	if (!options || !*options)
+		return;
 
 	options = strdup(options);
-	
-	if (!options) out_of_memory("set_socket_options");
 
-	for (tok=strtok(options, " \t,"); tok; tok=strtok(NULL," \t,")) {
+	if (!options)
+		out_of_memory("set_socket_options");
+
+	for (tok = strtok(options, " \t,"); tok; tok = strtok(NULL," \t,")) {
 		int ret=0,i;
 		int value = 1;
 		char *p;
@@ -523,9 +607,10 @@ void set_socket_options(int fd, char *options)
 			got_value = 1;
 		}
 
-		for (i=0;socket_options[i].name;i++)
+		for (i = 0; socket_options[i].name; i++) {
 			if (strcmp(socket_options[i].name,tok)==0)
 				break;
+		}
 
 		if (!socket_options[i].name) {
 			rprintf(FERROR,"Unknown socket option %s\n",tok);
@@ -536,9 +621,10 @@ void set_socket_options(int fd, char *options)
 		case OPT_BOOL:
 		case OPT_INT:
 			ret = setsockopt(fd,socket_options[i].level,
-					 socket_options[i].option,(char *)&value,sizeof(int));
+					 socket_options[i].option,
+					 (char *)&value, sizeof (int));
 			break;
-			
+
 		case OPT_ON:
 			if (got_value)
 				rprintf(FERROR,"syntax error - %s does not take a value\n",tok);
@@ -546,11 +632,12 @@ void set_socket_options(int fd, char *options)
 			{
 				int on = socket_options[i].value;
 				ret = setsockopt(fd,socket_options[i].level,
-						 socket_options[i].option,(char *)&on,sizeof(int));
+						 socket_options[i].option,
+						 (char *)&on, sizeof (int));
 			}
-			break;	  
+			break;
 		}
-		
+
 		if (ret != 0)
 			rprintf(FERROR, "failed to set socket option %s: %s\n", tok,
 				strerror(errno));
@@ -577,15 +664,15 @@ void become_daemon(void)
 #ifdef TIOCNOTTY
 	i = open("/dev/tty", O_RDWR);
 	if (i >= 0) {
-		ioctl(i, (int) TIOCNOTTY, (char *)0);      
+		ioctl(i, (int)TIOCNOTTY, (char *)0);
 		close(i);
 	}
 #endif /* TIOCNOTTY */
 #endif
 	/* make sure that stdin, stdout an stderr don't stuff things
-           up (library functions, for example) */
-	for (i=0;i<3;i++) {
-		close(i); 
+	 * up (library functions, for example) */
+	for (i = 0; i < 3; i++) {
+		close(i);
 		open("/dev/null", O_RDWR);
 	}
 }
@@ -594,7 +681,7 @@ void become_daemon(void)
 /**
  * This is like socketpair but uses tcp. It is used by the Samba
  * regression test code.
- * 
+ *
  * The function guarantees that nobody else can attach to the socket,
  * or if they do that this function fails and the socket gets closed
  * returns 0 on success, -1 on failure the resulting file descriptors
@@ -605,56 +692,65 @@ static int socketpair_tcp(int fd[2])
 	int listener;
 	struct sockaddr_in sock;
 	struct sockaddr_in sock2;
-	socklen_t socklen = sizeof(sock);
+	socklen_t socklen = sizeof sock;
 	int connect_done = 0;
-	
+
 	fd[0] = fd[1] = listener = -1;
 
-	memset(&sock, 0, sizeof(sock));
-	
-	if ((listener = socket(PF_INET, SOCK_STREAM, 0)) == -1) goto failed;
+	memset(&sock, 0, sizeof sock);
 
-        memset(&sock2, 0, sizeof(sock2));
-#ifdef HAVE_SOCKADDR_LEN
-        sock2.sin_len = sizeof(sock2);
+	if ((listener = socket(PF_INET, SOCK_STREAM, 0)) == -1)
+		goto failed;
+
+	memset(&sock2, 0, sizeof sock2);
+#if HAVE_SOCKADDR_IN_LEN
+	sock2.sin_len = sizeof sock2;
 #endif
-        sock2.sin_family = PF_INET;
+	sock2.sin_family = PF_INET;
 
-        bind(listener, (struct sockaddr *)&sock2, sizeof(sock2));
+	bind(listener, (struct sockaddr *)&sock2, sizeof sock2);
 
-	if (listen(listener, 1) != 0) goto failed;
+	if (listen(listener, 1) != 0)
+		goto failed;
 
-	if (getsockname(listener, (struct sockaddr *)&sock, &socklen) != 0) goto failed;
+	if (getsockname(listener, (struct sockaddr *)&sock, &socklen) != 0)
+		goto failed;
 
-	if ((fd[1] = socket(PF_INET, SOCK_STREAM, 0)) == -1) goto failed;
+	if ((fd[1] = socket(PF_INET, SOCK_STREAM, 0)) == -1)
+		goto failed;
 
 	set_nonblocking(fd[1]);
 
 	sock.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 
-	if (connect(fd[1],(struct sockaddr *)&sock,sizeof(sock)) == -1) {
-		if (errno != EINPROGRESS) goto failed;
-	} else {
+	if (connect(fd[1], (struct sockaddr *)&sock, sizeof sock) == -1) {
+		if (errno != EINPROGRESS)
+			goto failed;
+	} else
 		connect_done = 1;
-	}
 
-	if ((fd[0] = accept(listener, (struct sockaddr *)&sock, &socklen)) == -1) goto failed;
+	if ((fd[0] = accept(listener, (struct sockaddr *)&sock, &socklen)) == -1)
+		goto failed;
 
 	close(listener);
 	if (connect_done == 0) {
-		if (connect(fd[1],(struct sockaddr *)&sock,sizeof(sock)) != 0
-		    && errno != EISCONN) goto failed;
+		if (connect(fd[1], (struct sockaddr *)&sock, sizeof sock) != 0
+		    && errno != EISCONN)
+			goto failed;
 	}
 
-	set_blocking (fd[1]);
+	set_blocking(fd[1]);
 
 	/* all OK! */
 	return 0;
 
  failed:
-	if (fd[0] != -1) close(fd[0]);
-	if (fd[1] != -1) close(fd[1]);
-	if (listener != -1) close(listener);
+	if (fd[0] != -1)
+		close(fd[0]);
+	if (fd[1] != -1)
+		close(fd[1]);
+	if (listener != -1)
+		close(listener);
 	return -1;
 }
 
@@ -672,30 +768,22 @@ static int socketpair_tcp(int fd[2])
 int sock_exec(const char *prog)
 {
 	int fd[2];
-	
+
 	if (socketpair_tcp(fd) != 0) {
-		rprintf (FERROR, RSYNC_NAME
-			 ": socketpair_tcp failed (%s)\n",
-			 strerror(errno));
+		rprintf(FERROR, RSYNC_NAME ": socketpair_tcp failed (%s)\n",
+			strerror(errno));
 		return -1;
 	}
+	if (verbose >= 2)
+		rprintf(FINFO, "Running socket program: \"%s\"\n", prog);
 	if (fork() == 0) {
 		close(fd[0]);
 		close(0);
 		close(1);
 		dup(fd[1]);
 		dup(fd[1]);
-		if (verbose > 3) {
-			/* Can't use rprintf because we've forked. */
-			fprintf (stderr,
-				 RSYNC_NAME ": execute socket program \"%s\"\n",
-				 prog);
-		}
-		exit (system (prog));
+		exit(system(prog));
 	}
-	close (fd[1]);
+	close(fd[1]);
 	return fd[0];
 }
-
-
-

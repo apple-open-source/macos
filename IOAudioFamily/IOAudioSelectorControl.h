@@ -46,9 +46,22 @@ public:
 															UInt32 channelID,
 															const char *channelName = 0,
 															UInt32 cntrlID = 0);
+	static IOAudioSelectorControl *createOutputClockSelector(SInt32 initialValue,
+                                                                    UInt32 channelID,
+																	UInt32 clockSource,
+                                                                    const char *channelName = 0,
+                                                                    UInt32 cntrlID = 0);
+	static IOAudioSelectorControl *createInputClockSelector(SInt32 initialValue,
+                                                                    UInt32 channelID,
+																	UInt32 clockSource,
+                                                                    const char *channelName = 0,
+                                                                    UInt32 cntrlID = 0);
 
+    // OSMetaClassDeclareReservedUsed(IOAudioSelectorControl, 0);
 	virtual IOReturn removeAvailableSelection(SInt32 selectionValue);
+    // OSMetaClassDeclareReservedUsed(IOAudioSelectorControl, 1);
 	virtual IOReturn replaceAvailableSelection(SInt32 selectionValue, const char *selectionDescription);
+    // OSMetaClassDeclareReservedUsed(IOAudioSelectorControl, 2);
 	virtual IOReturn replaceAvailableSelection(SInt32 selectionValue, OSString *selectionDescription);
 
 private:

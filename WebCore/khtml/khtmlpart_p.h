@@ -9,7 +9,7 @@
  *                     2000-2001 Simon Hausmann <hausmann@kde.org>
  *                     2000-2001 Dirk Mueller <mueller@kde.org>
  *                     2000 Stefan Schimanski <1Stein@gmx.de>
- * Copyright (C) 2003 Apple Computer, Inc.
+ * Copyright (C) 2004 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -94,7 +94,13 @@ typedef FrameList::Iterator FrameIt;
 
 static int khtml_part_dcop_counter = 0;
 
-enum RedirectionScheduled { noRedirectionScheduled, redirectionScheduled, historyNavigationScheduled, redirectionDuringLoad };
+enum RedirectionScheduled {
+    noRedirectionScheduled,
+    redirectionScheduled,
+    locationChangeScheduled,
+    historyNavigationScheduled,
+    locationChangeScheduledDuringLoad
+};
 
 class KHTMLPartPrivate
 {
@@ -408,6 +414,8 @@ public:
   bool m_executingJavaScriptFormAction;
   
   bool m_cancelWithLoadInProgress;
+
+  QTimer m_lifeSupportTimer;
 };
 
 #endif

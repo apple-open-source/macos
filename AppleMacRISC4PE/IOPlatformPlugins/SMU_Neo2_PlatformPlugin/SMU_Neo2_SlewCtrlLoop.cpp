@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: SMU_Neo2_SlewCtrlLoop.cpp,v 1.9 2004/06/24 01:35:03 eem Exp $
+ *  File: $Id: SMU_Neo2_SlewCtrlLoop.cpp,v 1.10.2.1 2004/07/23 21:02:37 eem Exp $
  *
  */
 
@@ -74,6 +74,7 @@ bool SMU_Neo2_SlewCtrlLoop::init( void )
 	_numSlewPoints = 0;
 	_slewPoints = NULL;
 
+
 	AbsoluteTime_to_scalar( &_criticalDeadline ) = 0;
 
 	gSMU_Neo2_SetVoltageSlewKey = OSSymbol::withCString( "setVoltageSlew" );
@@ -123,6 +124,7 @@ IOReturn SMU_Neo2_SlewCtrlLoop::initPlatformCtrlLoop(const OSDictionary *dict)
 
 	if ((status = IOPlatformCtrlLoop::initPlatformCtrlLoop( dict )) != kIOReturnSuccess)
 		return(status);
+
 
 	/*
 	 *
@@ -477,9 +479,14 @@ bool SMU_Neo2_SlewCtrlLoop::setupSlewing( void )
  ******************************************************************************/
 bool SMU_Neo2_SlewCtrlLoop::setProcessorSlewIndex( unsigned int slewIndex )
 {
+	bool status;
+
 	CTRLLOOP_DLOG( "SMU_Neo2_SlewCtrlLoop::setProcessorSlewIndex slewing to point %d\n", slewIndex );
 
-	if ( _slewControl->sendTargetValue( slewIndex ) )
+	status = _slewControl->sendTargetValue( slewIndex );
+
+
+	if ( status )
 	{
 		_slewControl->setTargetValue( slewIndex );
 		_slewControl->setCurrentValue( _slewControl->forceAndFetchCurrentValue() );
@@ -544,6 +551,16 @@ bool SMU_Neo2_SlewCtrlLoop::setProcessorVoltageIndex( unsigned int slewIndex, un
 		if ( ( _appleSMU = gPlatformPlugin->getAppleSMU() ) == NULL )
 			return( true );
 		}
+
+	// Sanity check the slew point -- slew point zero corresponds to 0 Volts Vcore. We never want
+	// to turn off the voltage to the processor.
+
+	if ( slewIndex == 0 )
+	{
+		IOLog( "SMU_Neo2_SlewCtrlLoop - Attempted to set VID/Slewpoint to 0!! \n" );
+		CTRLLOOP_DLOG( "SMU_Neo2_SlewCtrlLoop::setProcessorVoltageIndex - Attempted to set VID/Slewpoint to 0!! \n" );
+		return ( kIOReturnError );
+	}
 
 	// Handle the mechanics of reducing the processor voltage.  If we are PowerTuning, we only can go down
 	// to /2.  Currently 0 is full speed and 1 is /2.
@@ -819,14 +836,14 @@ bool SMU_Neo2_SlewCtrlLoop::adjustSlewVoltControls( unsigned int dpsTarget, bool
 	else
 	{
 		targetSlewIndex = _numSlewPoints;	// start at the highest sysclk and work backwards
-		do
+
+		while ( targetSlewIndex > 1 )
 		{
 			if ( currentTemp.sensValue < _slewPoints[ targetSlewIndex - 1 ].Tmax.sensValue )
 				break;
 	
 			targetSlewIndex -= 1;	// lower the sysclk to give thermal margin
-	
-		} while ( targetSlewIndex > 1 );
+		}
 	}
 
 	// verify that the target state is valid
@@ -922,14 +939,14 @@ bool SMU_Neo2_SlewCtrlLoop::adjustSlewStepVoltControls( unsigned int dpsTarget, 
 	else
 	{
 		targetSlewIndex = _numSlewPoints;	// start at the highest sysclk and work backwards
-		do
+
+		while ( targetSlewIndex > 1 )
 		{
 			if ( currentTemp.sensValue < _slewPoints[ targetSlewIndex - 1 ].Tmax.sensValue )
 				break;
 	
 			targetSlewIndex -= 1;	// lower the sysclk to give thermal margin
-	
-		} while ( targetSlewIndex > 1 );
+		}
 	}
 
 	// Choose the target step index. Force slow if the current temp exceeds Tmax, or

@@ -1,5 +1,5 @@
 /*
- * "$Id: client.c,v 1.11.4.1 2003/11/14 23:48:30 jlovell Exp $"
+ * "$Id: client.c,v 1.11.4.2 2004/09/23 22:42:27 jlovell Exp $"
  *
  *   Client routines for the Common UNIX Printing System (CUPS) scheduler.
  *
@@ -36,6 +36,7 @@
  *   ShutdownClient()      - Shutdown the receiving end of a connection.
  *   UpdateCGI()           - Read status messages from CGI scripts and programs.
  *   WriteClient()         - Write data to a client as needed.
+ *   SanitizeURI()         - Remove any username and password from a uri.
  *   check_if_modified()   - Decode an "If-Modified-Since" line.
  *   decode_auth()         - Decode an authorization string.
  *   get_file()            - Get a filename and state info.
@@ -2518,6 +2519,33 @@ WriteClient(client_t *con)		/* I - Client connection */
 
 
 /*
+ * 'SanitizeURI()' - Remove any username and password from a uri.
+ */
+
+char *					/* O - sanitized uri */
+SanitizeURI(char *buf,			/* O - buffer for sanitized uri */
+	    int bufsize,		/* I - buffer size */
+	    const char *uri)		/* I - uri to sanitize */
+{
+  char	method[HTTP_MAX_URI],		/* Method portion of URI */
+	username[HTTP_MAX_URI],		/* Username portion of URI */
+	host[HTTP_MAX_URI],		/* Host portion of URI */
+	resource[HTTP_MAX_URI];		/* Resource portion of URI */
+  int	port;				/* Port portion of URI */
+
+
+  httpSeparate(uri, method, username, host, &port, resource);
+
+  if (port)
+    snprintf(buf, bufsize, "%s://%s:%d%s", method, host, port, resource);
+  else
+    snprintf(buf, bufsize, "%s://%s%s", method, host, resource);
+
+  return buf;
+}
+
+
+/*
  * 'check_if_modified()' - Decode an "If-Modified-Since" line.
  */
 
@@ -3333,5 +3361,5 @@ CDSAWriteFunc(SSLConnectionRef connection,	/* I  - SSL/TLS connection */
 
 
 /*
- * End of "$Id: client.c,v 1.11.4.1 2003/11/14 23:48:30 jlovell Exp $".
+ * End of "$Id: client.c,v 1.11.4.2 2004/09/23 22:42:27 jlovell Exp $".
  */

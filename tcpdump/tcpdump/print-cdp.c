@@ -26,7 +26,7 @@
 
 #ifndef lint
 static const char rcsid[] _U_ =
-    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-cdp.c,v 1.1.1.4 2004/02/05 19:30:53 rbraun Exp $ (LBL)";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-cdp.c,v 1.1.1.5 2004/05/21 20:51:30 rbraun Exp $";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -99,9 +99,9 @@ cdp_print(const u_char *pptr, u_int length, u_int caplen)
 
         if (!TTEST2(*tptr, CDP_HEADER_LEN))
                 goto trunc;
-	printf("CDP v%u, ttl: %us", *tptr, *(tptr+1));
+	printf("CDPv%u, ttl: %us", *tptr, *(tptr+1));
         if (vflag)
-                printf(", checksum: %u (unverified)", EXTRACT_16BITS(tptr));
+                printf(", checksum: %u (unverified), length %u", EXTRACT_16BITS(tptr), length);
 	tptr += CDP_HEADER_LEN;
 
 	while (tptr < (pptr+length)) {
@@ -213,6 +213,9 @@ cdp_print(const u_char *pptr, u_int length, u_int caplen)
 			break;
 		tptr = tptr+len;
 	}
+        if (vflag < 1)
+            printf(", length %u",caplen);
+
 	return;
 trunc:
 	printf("[|cdp]");
@@ -240,16 +243,19 @@ cdp_print_addr(const u_char * p, int l)
 	};
 #endif
 
+	TCHECK2(*p, 2);
 	num = EXTRACT_32BITS(p);
 	p += 4;
 
 	while (p < endp && num >= 0) {
+		TCHECK2(*p, 2);
 		if (p + 2 > endp)
 			goto trunc;
 		pt = p[0];		/* type of "protocol" field */
 		pl = p[1];		/* length of "protocol" field */
 		p += 2;
 
+		TCHECK2(p[pl], 2);
 		if (p + pl + 2 > endp)
 			goto trunc;
 		al = EXTRACT_16BITS(&p[pl]);	/* address length */
@@ -262,6 +268,7 @@ cdp_print_addr(const u_char * p, int l)
 			 */
 			p += 3;
 
+			TCHECK2(*p, 4);
 			if (p + 4 > endp)
 				goto trunc;
 			printf("IPv4 (%u) %s",
@@ -279,6 +286,7 @@ cdp_print_addr(const u_char * p, int l)
 			 * Ethertype, address length = 16
 			 */
 			p += 10;
+			TCHECK2(*p, al);
 			if (p + al > endp)
 				goto trunc;
 
@@ -292,16 +300,19 @@ cdp_print_addr(const u_char * p, int l)
 			/*
 			 * Generic case: just print raw data
 			 */
+			TCHECK2(*p, pl);
 			if (p + pl > endp)
 				goto trunc;
 			printf("pt=0x%02x, pl=%d, pb=", *(p - 2), pl);
 			while (pl-- > 0)
 				printf(" %02x", *p++);
+			TCHECK2(*p, 2);
 			if (p + 2 > endp)
 				goto trunc;
 			al = (*p << 8) + *(p + 1);
 			printf(", al=%d, a=", al);
 			p += 2;
+			TCHECK2(*p, al);
 			if (p + al > endp)
 				goto trunc;
 			while (al-- > 0)

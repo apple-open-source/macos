@@ -90,6 +90,8 @@ AppleUSBEHCI::GetRootHubDescriptor(IOUSBHubDescriptor *desc)
     IOUSBHubDescriptor hubDesc;
 	UInt32						HCSParams;
     UInt8 pps;
+    int i, numBytes;
+    UInt8 *dstPtr;
     
 
     hubDesc.length = sizeof(IOUSBHubDescriptor);
@@ -118,13 +120,24 @@ AppleUSBEHCI::GetRootHubDescriptor(IOUSBHubDescriptor *desc)
     hubDesc.powerOnToGood = 50;	// It don't tell us??
     hubDesc.hubCurrent = 0;
 
-    *((UInt16*)&hubDesc.removablePortFlags[0]) = 0;   // All ports are removable
-    *((UInt16 *)&hubDesc.removablePortFlags[2]) = 0;  // EHCI supports 15 ports
-    *((UInt32 *)&hubDesc.removablePortFlags[4]) = 0;  // so zero out the rest
-
-    *((UInt16 *)&hubDesc.pwrCtlPortFlags[0]) = 0xffff; // All ports set 1 as per spec
-    *((UInt16 *)&hubDesc.pwrCtlPortFlags[2]) = 0;  // EHCI supports 15 ports
-    *((UInt32 *)&hubDesc.pwrCtlPortFlags[4]) = 0;  // so zero out the rest
+    numBytes = (hubDesc.numPorts + 1) / 8 + 1;
+    
+    dstPtr = (UInt8 *)&hubDesc.removablePortFlags[0];
+    // Set removable port flags.
+    // All ports are removable.
+    for (i=0; i<numBytes; i++) {
+        *dstPtr++ = 0;
+    }
+    // Set power control flags.
+    // All ports set as 1.
+    for (i=0; i<numBytes; i++) {
+        *dstPtr++ = 0xFF;
+    }
+    
+    // Adjust descriptor length to account for
+    // number of bytes used in removable and power control arrays.
+    hubDesc.length -= ((sizeof(hubDesc.removablePortFlags) - numBytes) +
+                       (sizeof(hubDesc.pwrCtlPortFlags) - numBytes));
 
     if (!desc)
         return kIOReturnNoMemory;
@@ -621,7 +634,9 @@ AppleUSBEHCI::EHCIRootHubResetPort (UInt16 port)
 	_pEHCIRegisters->PortSC[port-1] = HostToUSBLong (value);
 	IOSync();
 	changeBits[port-1] |= kHubPortBeingReset;		// Make a reset change bit change
-	return kIOReturnSuccess;
+    
+        // Pretend the port doesn't exist.
+	return kIOReturnNotResponding;
     }
 	
     value |= kEHCIPortSC_Reset;
@@ -631,6 +646,14 @@ AppleUSBEHCI::EHCIRootHubResetPort (UInt16 port)
     _pEHCIRegisters->PortSC[port-1] = HostToUSBLong (value);
     IOSync();
     
+    // Note:  Section 7.1.7.5 of the USB Spec requires a 50ms reset for RootHub ports, not 10, as we had done prior to Feb 2004.  However, in
+	// testing the 10.3.6 update, (SUPanNavy), the following 2 bugs were traced to this pulse being 50ms:
+	// <rdar://problem/3829981> 7R13: Suntac Slipper X does not work correctly on Navy
+    // <rdar://problem/3841991> SUPanNavy7R20 with USBCDC3.0.1GMc2: iSync hangs while trying to connect to V710.
+	//
+	// Because we have no record of any devices failing when we had the 10ms reset pulse, we are changing it back to 10ms, even tho' it violates
+	// the spec.  We certainly hope not to have to revisit this, but we might.  
+	//
     IOSleep(10);
     
     value = getPortSCForWriting(_pEHCIRegisters, port);
@@ -683,7 +706,8 @@ AppleUSBEHCI::EHCIRootHubResetPort (UInt16 port)
 	_pEHCIRegisters->PortSC[port-1] = HostToUSBLong (value);
 	IOSync();
         
-	return kIOReturnSuccess;
+        // Pretend the port doesn't exist.
+	return kIOReturnNotResponding;
     }
     else
     {

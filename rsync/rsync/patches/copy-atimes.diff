@@ -1,0 +1,569 @@
+--- backup.c	13 Mar 2004 20:18:03 -0000	1.28
++++ backup.c	20 Apr 2004 23:44:16 -0000
+@@ -101,7 +101,7 @@ static int make_bak_dir(char *fullpath)
+ 				    "make_bak_dir stat %s failed: %s\n",
+ 				    full_fname(rel), strerror(errno));
+ 			} else {
+-				set_modtime(fullpath, st.st_mtime);
++				set_times(fullpath, st.st_mtime, time(NULL));
+ 				do_lchown(fullpath, st.st_uid, st.st_gid);
+ 				do_chmod(fullpath, st.st_mode);
+ 			}
+--- batch.c	6 Mar 2004 07:45:52 -0000	1.31
++++ batch.c	20 Apr 2004 23:44:16 -0000
+@@ -342,6 +342,8 @@ void show_flist(int index, struct file_s
+ 		rprintf(FINFO, "flist->flags=%#x\n", fptr[i]->flags);
+ 		rprintf(FINFO, "flist->modtime=%#lx\n",
+ 			(long unsigned) fptr[i]->modtime);
++		rprintf(FINFO, "flist->atime=%#lx\n",
++			(long unsigned) fptr[i]->atime);
+ 		rprintf(FINFO, "flist->length=%.0f\n",
+ 			(double) fptr[i]->length);
+ 		rprintf(FINFO, "flist->mode=%#o\n", (int) fptr[i]->mode);
+--- flist.c	22 Apr 2004 22:17:15 -0000	1.216
++++ flist.c	20 Apr 2004 23:44:17 -0000
+@@ -58,6 +58,7 @@ extern int relative_paths;
+ extern int implied_dirs;
+ extern int copy_links;
+ extern int copy_unsafe_links;
++extern int copy_atimes;
+ extern int protocol_version;
+ extern int sanitize_paths;
+ 
+@@ -140,16 +141,16 @@ static void list_file_entry(struct file_
+ 
+ #if SUPPORT_LINKS
+ 	if (preserve_links && S_ISLNK(f->mode)) {
+-		rprintf(FINFO, "%s %11.0f %s %s -> %s\n",
++		rprintf(FINFO, "%s %11.0f %s %s %s -> %s\n",
+ 			perms,
+ 			(double) f->length, timestring(f->modtime),
+-			f_name(f), f->u.link);
++			timestring(f->atime), f_name(f), f->u.link);
+ 	} else
+ #endif
+-		rprintf(FINFO, "%s %11.0f %s %s\n",
++		rprintf(FINFO, "%s %11.0f %s %s %s\n",
+ 			perms,
+ 			(double) f->length, timestring(f->modtime),
+-			f_name(f));
++			timestring(f->atime), f_name(f));
+ }
+ 
+ 
+@@ -326,6 +327,7 @@ void send_file_entry(struct file_struct 
+ {
+ 	unsigned short flags;
+ 	static time_t modtime;
++	static time_t atime;
+ 	static mode_t mode;
+ 	static uint64 dev;
+ 	static dev_t rdev;
+@@ -341,7 +343,7 @@ void send_file_entry(struct file_struct 
+ 
+ 	if (!file) {
+ 		write_byte(f, 0);
+-		modtime = 0, mode = 0;
++		modtime = 0, atime = 0, mode = 0;
+ 		dev = 0, rdev = makedev(0, 0);
+ 		rdev_major = 0;
+ 		uid = 0, gid = 0;
+@@ -390,6 +392,12 @@ void send_file_entry(struct file_struct 
+ 		flags |= XMIT_SAME_TIME;
+ 	else
+ 		modtime = file->modtime;
++	if (copy_atimes && !S_ISDIR(mode)) {
++		if (file->atime == atime)
++			flags |= XMIT_SAME_ATIME;
++		else
++			atime = file->atime;
++	}
+ 
+ #if SUPPORT_HARD_LINKS
+ 	if (file->link_u.idev) {
+@@ -445,6 +453,8 @@ void send_file_entry(struct file_struct 
+ 		write_int(f, modtime);
+ 	if (!(flags & XMIT_SAME_MODE))
+ 		write_int(f, to_wire_mode(mode));
++	if (copy_atimes && !S_ISDIR(mode) && !(flags & XMIT_SAME_ATIME))
++		write_int(f, atime);
+ 	if (preserve_uid && !(flags & XMIT_SAME_UID)) {
+ 		if (!numeric_ids)
+ 			add_uid(uid);
+@@ -518,6 +528,7 @@ void receive_file_entry(struct file_stru
+     struct file_list *flist, int f)
+ {
+ 	static time_t modtime;
++	static time_t atime;
+ 	static mode_t mode;
+ 	static uint64 dev;
+ 	static dev_t rdev;
+@@ -534,7 +545,7 @@ void receive_file_entry(struct file_stru
+ 	struct file_struct *file;
+ 
+ 	if (!fptr) {
+-		modtime = 0, mode = 0;
++		modtime = 0, atime = 0, mode = 0;
+ 		dev = 0, rdev = makedev(0, 0);
+ 		rdev_major = 0;
+ 		uid = 0, gid = 0;
+@@ -588,6 +599,8 @@ void receive_file_entry(struct file_stru
+ 		modtime = (time_t)read_int(f);
+ 	if (!(flags & XMIT_SAME_MODE))
+ 		mode = from_wire_mode(read_int(f));
++	if (copy_atimes && !S_ISDIR(mode) && !(flags & XMIT_SAME_ATIME))
++		atime = (time_t)read_int(f);
+ 
+ 	if (preserve_uid && !(flags & XMIT_SAME_UID))
+ 		uid = (uid_t)read_int(f);
+@@ -638,6 +651,7 @@ void receive_file_entry(struct file_stru
+ 
+ 	file->flags = flags & XMIT_TOP_DIR ? FLAG_TOP_DIR : 0;
+ 	file->modtime = modtime;
++	file->atime = atime;
+ 	file->length = file_length;
+ 	file->mode = mode;
+ 	file->uid = uid;
+@@ -852,6 +866,7 @@ skip_excludes:
+ 
+ 	file->flags = flags;
+ 	file->modtime = st.st_mtime;
++	file->atime = st.st_atime;
+ 	file->length = st.st_size;
+ 	file->mode = st.st_mode;
+ 	file->uid = st.st_uid;
+--- generator.c	15 Apr 2004 16:55:23 -0000	1.79
++++ generator.c	20 Apr 2004 23:44:17 -0000
+@@ -97,7 +97,7 @@ static int skip_file(char *fname, struct
+ 		return 0;
+ 	}
+ 
+-	return (cmp_modtime(st->st_mtime,file->modtime) == 0);
++	return cmp_time(st->st_mtime,file->modtime) == 0;
+ }
+ 
+ 
+@@ -464,7 +464,7 @@ void recv_generator(char *fname, struct 
+ 		return;
+ 	}
+ 
+-	if (update_only && cmp_modtime(st.st_mtime,file->modtime)>0 && fnamecmp == fname) {
++	if (update_only && cmp_time(st.st_mtime,file->modtime)>0 && fnamecmp == fname) {
+ 		if (verbose > 1)
+ 			rprintf(FINFO,"%s is newer\n",fname);
+ 		return;
+--- options.c	17 Apr 2004 17:07:23 -0000	1.147
++++ options.c	20 Apr 2004 23:44:17 -0000
+@@ -46,6 +46,7 @@ int preserve_devices = 0;
+ int preserve_uid = 0;
+ int preserve_gid = 0;
+ int preserve_times = 0;
++int copy_atimes = 0;
+ int update_only = 0;
+ int cvs_exclude = 0;
+ int dry_run = 0;
+@@ -241,6 +242,7 @@ void usage(enum logcode F)
+   rprintf(F," -g, --group                 preserve group\n");
+   rprintf(F," -D, --devices               preserve devices (root only)\n");
+   rprintf(F," -t, --times                 preserve times\n");
++  rprintf(F," -A, --copy-atimes           copy access times\n");
+   rprintf(F," -S, --sparse                handle sparse files efficiently\n");
+   rprintf(F," -n, --dry-run               show what would have been transferred\n");
+   rprintf(F," -W, --whole-file            copy whole files, no incremental checks\n");
+@@ -346,6 +348,7 @@ static struct poptOption long_options[] 
+   {"group",           'g', POPT_ARG_NONE,   &preserve_gid, 0, 0, 0 },
+   {"devices",         'D', POPT_ARG_NONE,   &preserve_devices, 0, 0, 0 },
+   {"times",           't', POPT_ARG_NONE,   &preserve_times, 0, 0, 0 },
++  {"copy-atimes",     'A', POPT_ARG_NONE,   &copy_atimes, 0, 0, 0 },
+   {"checksum",        'c', POPT_ARG_NONE,   &always_checksum, 0, 0, 0 },
+   {"verbose",         'v', POPT_ARG_NONE,   0,               'v', 0, 0 },
+   {"quiet",           'q', POPT_ARG_NONE,   0,               'q', 0, 0 },
+@@ -823,6 +826,8 @@ void server_options(char **args,int *arg
+ 		argstr[x++] = 'D';
+ 	if (preserve_times)
+ 		argstr[x++] = 't';
++	if (copy_atimes)
++		argstr[x++] = 'A';
+ 	if (preserve_perms)
+ 		argstr[x++] = 'p';
+ 	if (recurse)
+--- proto.h	22 Apr 2004 09:58:09 -0000	1.189
++++ proto.h	20 Apr 2004 23:44:17 -0000
+@@ -242,7 +242,7 @@ int fd_pair(int fd[2]);
+ void print_child_argv(char **cmd);
+ void out_of_memory(char *str);
+ void overflow(char *str);
+-int set_modtime(char *fname, time_t modtime);
++int set_times(char *fname, time_t modtime, time_t atime);
+ int create_directory_path(char *fname, int base_umask);
+ int copy_file(char *source, char *dest, mode_t mode);
+ int robust_unlink(char *fname);
+@@ -266,7 +266,7 @@ int u_strcmp(const char *cs1, const char
+ int unsafe_symlink(const char *dest, const char *src);
+ char *timestring(time_t t);
+ int msleep(int t);
+-int cmp_modtime(time_t file1, time_t file2);
++int cmp_time(time_t file1, time_t file2);
+ int _Insure_trap_error(int a1, int a2, int a3, int a4, int a5, int a6);
+ void *_new_array(unsigned int size, unsigned long num);
+ void *_realloc_array(void *ptr, unsigned int size, unsigned long num);
+--- rsync.c	23 Mar 2004 16:16:15 -0000	1.135
++++ rsync.c	20 Apr 2004 23:44:17 -0000
+@@ -25,6 +25,7 @@
+ extern int verbose;
+ extern int dry_run;
+ extern int preserve_times;
++extern int copy_atimes;
+ extern int am_root;
+ extern int am_server;
+ extern int am_sender;
+@@ -140,17 +141,28 @@ int set_perms(char *fname,struct file_st
+ 		st = &st2;
+ 	}
+ 
+-	if (preserve_times && !S_ISLNK(st->st_mode) &&
+-	    cmp_modtime(st->st_mtime, file->modtime) != 0) {
++	if (!S_ISLNK(st->st_mode) && (preserve_times || copy_atimes)) {
++		time_t atime, mtime;
++
++		if (copy_atimes && !S_ISDIR(st->st_mode)
++		    && cmp_time(st->st_atime, file->atime) != 0) {
++			atime = file->atime;
++			updated = 1;
++		} else
++			atime = st->st_atime;
++		if (preserve_times && cmp_time(st->st_mtime, file->modtime) != 0) {
++			mtime = file->modtime;
++			updated = 1;
++		} else
++			mtime = st->st_mtime;
+ 		/* don't complain about not setting times on directories
+ 		 * because some filesystems can't do it */
+-		if (set_modtime(fname,file->modtime) != 0 &&
++		if (updated && set_times(fname, mtime, atime) != 0 &&
+ 		    !S_ISDIR(st->st_mode)) {
+ 			rprintf(FERROR, "failed to set times on %s: %s\n",
+ 				full_fname(fname), strerror(errno));
+ 			return 0;
+ 		}
+-		updated = 1;
+ 	}
+ 
+ 	change_uid = am_root && preserve_uid && st->st_uid != file->uid;
+--- rsync.h	22 Apr 2004 09:58:24 -0000	1.198
++++ rsync.h	20 Apr 2004 23:44:18 -0000
+@@ -54,6 +54,7 @@
+ #define XMIT_HAS_IDEV_DATA (1<<9)
+ #define XMIT_SAME_DEV (1<<10)
+ #define XMIT_RDEV_MINOR_IS_SMALL (1<<11)
++#define XMIT_SAME_ATIME (1<<12)
+ 
+ /* These flags are used in the live flist data. */
+ 
+@@ -419,6 +420,7 @@ struct file_struct {
+ 		struct hlink *links;
+ 	} link_u;
+ 	time_t modtime;
++	time_t atime;
+ 	uid_t uid;
+ 	gid_t gid;
+ 	mode_t mode;
+--- rsync.yo	24 Apr 2004 06:16:04 -0000	1.164
++++ rsync.yo	24 Apr 2004 07:33:19 -0000
+@@ -299,6 +299,7 @@ verb(
+  -g, --group                 preserve group
+  -D, --devices               preserve devices (root only)
+  -t, --times                 preserve times
++ -A, --copy-atimes           copy access times
+  -S, --sparse                handle sparse files efficiently
+  -n, --dry-run               show what would have been transferred
+  -W, --whole-file            copy whole files, no incremental checks
+@@ -543,6 +544,11 @@ modified cannot be effective; in other w
+ cause the next transfer to behave as if it used -I, and all files will have
+ their checksums compared and show up in log messages even if they haven't
+ changed.
++
++dit(bf(-A, --copy-atimes)) This tells rsync to transfer access times
++along with the files and update them on the remote system.  Note that
++reading the source file may update the atime and hence repeated rsync
++copies with --copy-atimes may copy files unnecessarily.
+ 
+ dit(bf(-n, --dry-run)) This tells rsync to not do any file transfers,
+ instead it will just report the actions it would have taken.
+--- tls.c	9 Apr 2004 20:22:44 -0000	1.19
++++ tls.c	20 Apr 2004 23:44:18 -0000
+@@ -39,6 +39,7 @@
+ 
+ 
+ #include "rsync.h"
++#include "popt.h"
+ 
+ #define PROGRAM "tls"
+ 
+@@ -48,6 +49,7 @@ int read_only = 1;
+ int list_only = 0;
+ int preserve_perms = 0;
+ 
++static int display_atime = 0;
+ 
+ static void failed (char const *what,
+ 		    char const *where)
+@@ -57,14 +59,29 @@ static void failed (char const *what,
+ 	exit (1);
+ }
+ 
++static void storetime(char *dest, time_t t)
++{
++	if (t) {
++		struct tm *mt = gmtime(&t);
+ 
++		sprintf(dest, "%04d-%02d-%02d %02d:%02d:%02d ",
++			mt->tm_year + 1900,
++			mt->tm_mon + 1,
++			mt->tm_mday,
++			mt->tm_hour,
++			mt->tm_min,
++			mt->tm_sec);
++	} else {
++		strcpy(dest, "                    ");
++	}
++}	
+ 
+ static void list_file (const char *fname)
+ {
+ 	STRUCT_STAT buf;
+ 	char permbuf[PERMSTRING_SIZE];
+-	struct tm *mt;
+-	char datebuf[50];
++	char mtimebuf[50];
++	char atimebuf[50];
+ 	char linkbuf[4096];
+ 
+ 	if (do_lstat(fname, &buf) == -1)
+@@ -97,19 +114,8 @@ static void list_file (const char *fname
+ 
+ 	permstring(permbuf, buf.st_mode);
+ 
+-	if (buf.st_mtime) {
+-		mt = gmtime(&buf.st_mtime);
+-
+-		sprintf(datebuf, "%04d-%02d-%02d %02d:%02d:%02d",
+-			mt->tm_year + 1900,
+-			mt->tm_mon + 1,
+-			mt->tm_mday,
+-			mt->tm_hour,
+-			mt->tm_min,
+-			mt->tm_sec);
+-	} else {
+-		strcpy(datebuf, "                   ");
+-	}
++	storetime(mtimebuf, buf.st_mtime);
++	storetime(atimebuf, buf.st_atime);
+ 
+ 	/* TODO: Perhaps escape special characters in fname? */
+ 
+@@ -120,24 +126,55 @@ static void list_file (const char *fname
+ 		    (long)minor(buf.st_rdev));
+ 	} else /* NB: use double for size since it might not fit in a long. */
+ 		printf("%12.0f", (double)buf.st_size);
+-	printf(" %6ld.%-6ld %6ld %s %s%s\n",
++	printf(" %6ld.%-6ld %6ld %s%s%s%s\n",
+ 	       (long)buf.st_uid, (long)buf.st_gid, (long)buf.st_nlink,
+-	       datebuf, fname, linkbuf);
++ 	       mtimebuf, display_atime ? atimebuf : "",
++	       fname, linkbuf);
+ }
+ 
++static struct poptOption long_options[] = {
++  /* longName, shortName, argInfo, argPtr, value, descrip, argDesc */
++  {"atime",           'u', POPT_ARG_NONE,   &display_atime, 0,   0, 0},
++  {"help",            'h', POPT_ARG_NONE,   0,              'h', 0, 0},
++  {0,0,0,0,0,0,0}
++};
++
++static void tls_usage(int ret)
++{
++	fprintf(stderr, "usage: " PROGRAM " [--atime | -u] DIR ...\n"
++	    "Trivial file listing program for portably checking rsync\n");
++	exit(ret);
++}
+ 
+ int
+ main(int argc, char *argv[])
+ {
+-	if (argc < 2) {
+-		fprintf (stderr, "usage: " PROGRAM " DIR ...\n"
+-			 "Trivial file listing program for portably checking rsync\n");
+-		return 1;
++	poptContext pc;
++	const char **extra_args;
++	int opt;
++
++	pc = poptGetContext(PROGRAM, argc, (const char **)argv,
++			    long_options, 0);
++	while ((opt = poptGetNextOpt(pc)) != -1) {
++		switch (opt) {
++		case 'h':
++			tls_usage(0);
++		default:
++			fprintf(stderr,
++			        "%s: %s\n",
++				poptBadOption(pc, POPT_BADOPTION_NOALIAS),
++				poptStrerror(opt));
++			tls_usage(1);
++		}
+ 	}
+ 
+-	for (argv++; *argv; argv++) {
+-		list_file (*argv);
+-	}
++	extra_args = poptGetArgs(pc);
++	if (*extra_args == NULL)
++		tls_usage(1);
++
++	for (; *extra_args; extra_args++)
++		list_file(*extra_args);
++	poptFreeContext(pc);
+ 
+ 	return 0;
+ }
+--- util.c	22 Apr 2004 22:17:15 -0000	1.138
++++ util.c	20 Apr 2004 23:44:19 -0000
+@@ -124,32 +124,40 @@ void overflow(char *str)
+ 
+ 
+ 
+-int set_modtime(char *fname, time_t modtime)
++int set_times(char *fname, time_t modtime, time_t atime)
+ {
+ 	extern int dry_run;
+ 	if (dry_run)
+ 		return 0;
+ 
+ 	if (verbose > 2) {
+-		rprintf(FINFO, "set modtime of %s to (%ld) %s",
++		char mtimebuf[200];
++		char atimebuf[200];
++
++		strlcpy(mtimebuf, timestring(modtime), sizeof(mtimebuf));
++		strlcpy(atimebuf, timestring(atime), sizeof(atimebuf));
++
++		rprintf(FINFO,
++			"set modtime, atime of %s to (%ld) %s, (%ld) %s\n",
+ 			fname, (long) modtime,
+-			asctime(localtime(&modtime)));
++			mtimebuf,
++			(long) atime, atimebuf);
+ 	}
+ 
+ 	{
+ #ifdef HAVE_UTIMBUF
+ 		struct utimbuf tbuf;
+-		tbuf.actime = time(NULL);
++		tbuf.actime = atime;
+ 		tbuf.modtime = modtime;
+ 		return utime(fname,&tbuf);
+ #elif defined(HAVE_UTIME)
+ 		time_t t[2];
+-		t[0] = time(NULL);
++		t[0] = atime;
+ 		t[1] = modtime;
+ 		return utime(fname,t);
+ #else
+ 		struct timeval t[2];
+-		t[0].tv_sec = time(NULL);
++		t[0].tv_sec = atime;
+ 		t[0].tv_usec = 0;
+ 		t[1].tv_sec = modtime;
+ 		t[1].tv_usec = 0;
+@@ -1051,8 +1059,8 @@ int msleep(int t)
+ 
+ 
+ /**
+- * Determine if two file modification times are equivalent (either
+- * exact or in the modification timestamp window established by
++ * Determine if two file  times are equivalent (either
++ * exact or in the timestamp window established by
+  * --modify-window).
+  *
+  * @retval 0 if the times should be treated as the same
+@@ -1061,7 +1069,7 @@ int msleep(int t)
+  *
+  * @retval -1 if the 2nd is later
+  **/
+-int cmp_modtime(time_t file1, time_t file2)
++int cmp_time(time_t file1, time_t file2)
+ {
+ 	extern int modify_window;
+ 
+--- /dev/null	1 Jan 1970 00:00:00 -0000
++++ testsuite/copy-atimes.test	20 Apr 2004 23:44:19 -0000
+@@ -0,0 +1,22 @@
++#! /bin/sh
++
++# Test rsync copying atimes
++
++. $srcdir/testsuite/rsync.fns
++
++set -x
++
++fromdir="$scratchdir/from"
++todir="$scratchdir/to"
++
++mkdir "$fromdir"
++
++touch "$fromdir/foo"
++touch -a -t 200102031717.42 "$fromdir/foo"
++
++TLS_ARGS=--atime
++
++checkit "$RSYNC -rtAgvvv \"$fromdir/\" \"$todir/\"" "$fromdir" "$todir"
++
++# The script would have aborted on error, so getting here means we've won.
++exit 0
+--- testsuite/rsync.fns	4 Feb 2004 07:32:48 -0000	1.59
++++ testsuite/rsync.fns	20 Apr 2004 23:44:19 -0000
+@@ -51,7 +51,7 @@ printmsg() {
+ 
+ 
+ rsync_ls_lR() {
+-    find "$@" -print | sort | xargs "$TOOLDIR/tls"
++    find "$@" -print | sort | xargs "$TOOLDIR/tls" $TLS_ARGS
+ }
+ 
+ rsync_getgroups() { 
+@@ -151,6 +151,8 @@ checkit() {
+     # We can just write everything to stdout/stderr, because the
+     # wrapper hides it unless there is a problem.
+ 
++    ( cd "$2" && rsync_ls_lR . ) > ${TMP}/ls-from 
++
+     echo "Running: \"$1\""  
+     eval "$1" 
+     status=$?
+@@ -159,6 +161,12 @@ checkit() {
+     fi
+ 
+     echo "-------------"
++    echo "check how the directory listings compare with diff:"
++    echo ""
++    ( cd "$3" && rsync_ls_lR . ) > ${TMP}/ls-to 
++    diff $diffopt ${TMP}/ls-from ${TMP}/ls-to || failed=YES
++
++    echo "-------------"
+     echo "check how the files compare with diff:"
+     echo ""
+     for f in `cd "$2"; find . -type f -print `
+@@ -166,12 +174,6 @@ checkit() {
+         diff $diffopt "$2"/"$f" "$3"/"$f" || failed=YES
+     done
+ 
+-    echo "-------------"
+-    echo "check how the directory listings compare with diff:"
+-    echo ""
+-    ( cd "$2" && rsync_ls_lR . ) > ${TMP}/ls-from 
+-    ( cd "$3" && rsync_ls_lR . ) > ${TMP}/ls-to 
+-    diff $diffopt ${TMP}/ls-from ${TMP}/ls-to || failed=YES
+     if [ -z "${failed}" ] ; then
+ 	return 0
+     else

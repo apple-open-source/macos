@@ -76,7 +76,7 @@ public:
 	virtual bool			init (PlatformInterface * inPlatformInterface);
 	virtual void			free ( void );
 
-	virtual IOReturn		restartTransport ( void ) = 0;		//  [3683602]
+	virtual IOReturn		restartTransport ( void ) = 0;			//  [3683602]
 
 	virtual IOReturn		transportSetSampleRate ( UInt32 sampleRate );
 	virtual IOReturn		transportSetSampleWidth ( UInt32 sampleDepth, UInt32 dmaWidth );
@@ -101,7 +101,6 @@ public:
 	
 	virtual IOReturn		transportSetPeakLevel ( UInt32 channelTarget, UInt32 levelMeterValue ) { return kIOReturnError; }
 	virtual UInt32			transportGetPeakLevel ( UInt32 channelTarget ) { return 0; }
-	
 
 	//	------------------------------
 	//	USER CLIENT

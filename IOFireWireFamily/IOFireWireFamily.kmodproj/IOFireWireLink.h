@@ -217,7 +217,10 @@ class IOFireWireLink : public IOService
 		inline IOWorkLoop *					getIsochWorkloop ()									{ return fIsocWorkloop ; }
 		virtual IOFWBufferFillIsochPort *   createBufferFillIsochPort () ;
 
-		virtual IOReturn clipMaxRec2K( bool clipMaxRec ) = 0;
+		virtual IOReturn					clipMaxRec2K( bool clipMaxRec ) = 0;
+		virtual IOFWSpeed					getPhySpeed() = 0 ;
+		
+		virtual void disablePHYPortOnSleep( UInt32 mask );
 		
 	private:
 	
@@ -233,7 +236,8 @@ class IOFireWireLink : public IOService
 	
 	protected:
 	
-		FWOHCIIsocInterruptEventSource*	fIsocInterruptEventSource;
+//		FWOHCIIsocInterruptEventSource*	fIsocInterruptEventSource;
+//		IOEventSource *					
 		IOWorkLoop *					fIsocWorkloop;
 };
 

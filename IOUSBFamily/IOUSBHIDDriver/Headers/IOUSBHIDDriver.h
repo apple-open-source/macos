@@ -149,6 +149,8 @@ public:
 
     virtual OSNumber * newLocationIDNumber() const;
 
+    virtual OSNumber * 	newCountryCodeNumber() const;
+
     virtual IOReturn	getReport( IOMemoryDescriptor * report,
                                 IOHIDReportType      reportType,
                                 IOOptionBits         options = 0 );

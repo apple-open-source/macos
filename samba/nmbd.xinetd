@@ -3,6 +3,7 @@ service netbios-ns
 	disable		= yes
 	socket_type	= dgram
 	protocol	= udp
+	mdns		= no
 	wait		= yes
 	user		= root
 	server		= /usr/sbin/nmbd

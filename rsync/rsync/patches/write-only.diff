@@ -1,0 +1,73 @@
+From: peter pan <lanwanhr@yahoo.com>
+Subject: [PATCH] write only
+Date: Thu, 12 Feb 2004 04:08:00 -0800 (PST)
+
+I've added a write only option to rsyncd.conf which is essentially the opposite
+of read only.  This means that although it's possible someone on our allowed IP
+range could overwrite (or delete) files on the rsync share, they would not be
+allowed to download any files (my primary concern).
+
+J
+
+[Updated to CVS version by Wayne Davison.]
+
+
+--- loadparm.c	4 Feb 2004 07:31:29 -0000	1.50
++++ loadparm.c	22 Apr 2004 23:49:29 -0000
+@@ -119,6 +119,7 @@ typedef struct
+ 	char *comment;
+ 	char *lock_file;
+ 	BOOL read_only;
++	BOOL write_only;
+ 	BOOL list;
+ 	BOOL use_chroot;
+ 	BOOL transfer_logging;
+@@ -151,6 +152,7 @@ static service sDefault =
+ 	NULL,    /* comment */
+ 	DEFAULT_LOCK_FILE,    /* lock file */
+ 	True,    /* read only */
++	False,   /* write only */
+ 	True,    /* list */
+ 	True,    /* use chroot */
+ 	False,   /* transfer logging */
+@@ -277,6 +279,7 @@ static struct parm_struct parm_table[] =
+   {"lock file",        P_STRING,  P_LOCAL,  &sDefault.lock_file,   NULL,   0},
+   {"path",             P_PATH,    P_LOCAL,  &sDefault.path,        NULL,   0},
+   {"read only",        P_BOOL,    P_LOCAL,  &sDefault.read_only,   NULL,   0},
++  {"write only",       P_BOOL,    P_LOCAL,  &sDefault.write_only,  NULL,   0},
+   {"list",             P_BOOL,    P_LOCAL,  &sDefault.list,        NULL,   0},
+   {"use chroot",       P_BOOL,    P_LOCAL,  &sDefault.use_chroot,  NULL,   0},
+   {"ignore nonreadable",P_BOOL,   P_LOCAL,  &sDefault.ignore_nonreadable,  NULL,   0},
+@@ -356,6 +359,7 @@ FN_LOCAL_STRING(lp_comment, comment)
+ FN_LOCAL_STRING(lp_path, path)
+ FN_LOCAL_STRING(lp_lock_file, lock_file)
+ FN_LOCAL_BOOL(lp_read_only, read_only)
++FN_LOCAL_BOOL(lp_write_only, write_only)
+ FN_LOCAL_BOOL(lp_list, list)
+ FN_LOCAL_BOOL(lp_use_chroot, use_chroot)
+ FN_LOCAL_BOOL(lp_transfer_logging, transfer_logging)
+--- main.c	10 Feb 2004 03:54:47 -0000	1.192
++++ main.c	22 Apr 2004 23:49:29 -0000
+@@ -370,6 +370,12 @@ static void do_server_sender(int f_in, i
+ 			(long)getpid());
+ 	}
+ 
++	if (am_daemon && lp_write_only(module_id) && !am_sender) {
++		rprintf(FERROR, "ERROR: module is write only\n");
++		exit_cleanup(RERR_SYNTAX);
++		return;
++	}
++
+ 	if (!relative_paths && !push_dir(dir)) {
+ 		rprintf(FERROR, "push_dir %s failed: %s (3)\n",
+ 			full_fname(dir), strerror(errno));
+--- proto.h	22 Apr 2004 09:58:09 -0000	1.189
++++ proto.h	22 Apr 2004 23:49:29 -0000
+@@ -132,6 +132,7 @@ char *lp_comment(int );
+ char *lp_path(int );
+ char *lp_lock_file(int );
+ BOOL lp_read_only(int );
++BOOL lp_write_only(int );
+ BOOL lp_list(int );
+ BOOL lp_use_chroot(int );
+ BOOL lp_transfer_logging(int );

@@ -3,13 +3,16 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 38;
+	objectVersion = 39;
 	objects = {
 		00F55081007288EA11FF4F98 = {
+			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = Kernel.framework;
 			path = /System/Library/Frameworks/Kernel.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 //000
 //001
@@ -22,9 +25,12 @@
 //013
 //014
 		011774440071097E7F000001 = {
+			explicitFileType = "compiled.mach-o.dylib";
+			fallbackIsa = PBXFileReference;
 			isa = PBXLibraryReference;
 			path = libAudioFloatLib.a;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		011774450071097E7F000001 = {
 			buildPhases = (
@@ -96,8 +102,10 @@
 		0117744B00710CA77F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = PhantomAudioClip.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0117744C00710CA77F000001 = {
 			fileRef = 0117744B00710CA77F000001;
@@ -108,18 +116,23 @@
 		0117744D00710D0C7F000001 = {
 			isa = PBXTargetDependency;
 			target = 011774450071097E7F000001;
+			targetProxy = 94D90B75069DFDCB003382EB;
 		};
 		0117744E00710DAB7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = PhantomAudioEngine.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0117744F00710DAB7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = PhantomAudioEngine.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0117745000710DAB7F000001 = {
 			fileRef = 0117744E00710DAB7F000001;
@@ -147,11 +160,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -161,7 +170,12 @@
 			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
 				OPTIMIZATION_CFLAGS = "-O2";
+				ZERO_LINK = YES;
 			};
 			isa = PBXBuildStyle;
 			name = Development;
@@ -171,6 +185,8 @@
 			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
@@ -179,11 +195,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -199,6 +211,8 @@
 //083
 //084
 		089C1669FE841209C02AAC07 = {
+			buildSettings = {
+			};
 			buildStyles = (
 				06AA1265FFB2107B11CA28AA,
 				06AA1266FFB2107B11CA28AA,
@@ -222,6 +236,7 @@
 			isa = PBXGroup;
 			name = SampleAudioDriver;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C1673FE841209C02AAC07 = {
 			buildPhases = (
@@ -439,6 +454,7 @@
 			isa = PBXGroup;
 			name = Resources;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C167DFE841241C02AAC07 = {
 			children = (
@@ -447,13 +463,16 @@
 			isa = PBXVariantGroup;
 			name = InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C167EFE841241C02AAC07 = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = English;
 			path = English.lproj/InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C1680FE841241C02AAC07 = {
 			fileRef = 089C167DFE841241C02AAC07;
@@ -472,9 +491,12 @@
 //0B3
 //0B4
 		0B81C263FFB7832611CA28AA = {
+			explicitFileType = wrapper.cfbundle;
+			fallbackIsa = PBXFileReference;
 			isa = PBXBundleReference;
 			path = PhantomAudioDriver.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 //0B0
 //0B1
@@ -494,6 +516,7 @@
 			isa = PBXGroup;
 			name = Products;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 //190
 //191
@@ -508,14 +531,18 @@
 		1A224C3EFF42367911CA2CB7 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = PhantomAudioDevice.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		1A224C3FFF42367911CA2CB7 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = PhantomAudioDevice.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		1A224C40FF42367911CA2CB7 = {
 			fileRef = 1A224C3EFF42367911CA2CB7;
@@ -555,12 +582,30 @@
 			name = Source;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 //240
 //241
 //242
 //243
 //244
+//940
+//941
+//942
+//943
+//944
+		94D90B75069DFDCB003382EB = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 011774450071097E7F000001;
+			remoteInfo = libAudioFloatLib;
+		};
+//940
+//941
+//942
+//943
+//944
 //F60
 //F61
 //F62
@@ -569,14 +614,18 @@
 		F6DC3C2B02B7AEF301CD2599 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = PCMBlitterLibPPC.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F6DC3C2C02B7AEF301CD2599 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = PCMBlitterLibPPC.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F6DC3C2D02B7AEF301CD2599 = {
 			fileRef = F6DC3C2B02B7AEF301CD2599;

@@ -27,7 +27,9 @@
 #define super IOAudioControl
 
 OSDefineMetaClassAndStructors(IOAudioLevelControl, IOAudioControl)
-OSMetaClassDefineReservedUnused(IOAudioLevelControl, 0);
+
+OSMetaClassDefineReservedUsed(IOAudioLevelControl, 0);
+
 OSMetaClassDefineReservedUnused(IOAudioLevelControl, 1);
 OSMetaClassDefineReservedUnused(IOAudioLevelControl, 2);
 OSMetaClassDefineReservedUnused(IOAudioLevelControl, 3);
@@ -64,6 +66,12 @@ IOAudioLevelControl *IOAudioLevelControl::createPassThruVolumeControl (SInt32 in
                                         cntrlID,
                                         kIOAudioLevelControlSubTypeVolume,
                                         kIOAudioControlUsagePassThru);
+}
+
+// OSMetaClassDefineReservedUnused(IOAudioLevelControl, 0);
+void IOAudioLevelControl::setLinearScale(bool useLinearScale)
+{
+    setProperty(kIOAudioLevelControlUseLinearScale, useLinearScale, sizeof(bool)*8);
 }
 
 // Original code...
@@ -234,7 +242,14 @@ IOReturn IOAudioLevelControl::addRange(SInt32 minRangeValue,
     
     if (ranges) {
         OSDictionary *newRange;
+		OSArray *newRanges;
+		OSArray *oldRanges;
         
+		oldRanges = ranges;
+        newRanges = OSArray::withArray(ranges);
+		if (!newRanges)
+			return kIOReturnNoMemory;
+		
         newRange = OSDictionary::withCapacity(4);
         if (newRange) {
             OSNumber *number;
@@ -255,7 +270,10 @@ IOReturn IOAudioLevelControl::addRange(SInt32 minRangeValue,
             newRange->setObject(kIOAudioLevelControlMaxDBKey, number);
             number->release();
             
-            ranges->setObject(newRange);
+            newRanges->setObject(newRange);
+            setProperty(kIOAudioLevelControlRangesKey, newRanges);
+			ranges = newRanges;
+			oldRanges->release();
             
             newRange->release();
         } else {

@@ -276,6 +276,8 @@ static NTSTATUS fetch_cache_seqnum( struct winbindd_domain *domain, time_t now )
 	domain->sequence_number = IVAL(data.dptr, 0);
 	domain->last_seq_check  = IVAL(data.dptr, 4);
 	
+	SAFE_FREE(data.dptr);
+
 	/* have we expired? */
 	
 	time_diff = now - domain->last_seq_check;
@@ -339,10 +341,12 @@ static void refresh_sequence_number(struct winbindd_domain *domain, BOOL force)
 
 	get_cache( domain );
 
+#if 0	/* JERRY -- disable as the default cache time is now 5 minutes */
 	/* trying to reconnect is expensive, don't do it too often */
 	if (domain->sequence_number == DOM_SEQUENCE_NONE) {
 		cache_time *= 8;
 	}
+#endif
 
 	time_diff = t - domain->last_seq_check;
 
@@ -593,7 +597,7 @@ static void centry_end(struct cache_entry *centry, const char *format, ...)
 }
 
 static void wcache_save_name_to_sid(struct winbindd_domain *domain, 
-				    NTSTATUS status, 
+				    NTSTATUS status, const char *domain_name,
 				    const char *name, const DOM_SID *sid, 
 				    enum SID_NAME_USE type)
 {
@@ -604,16 +608,17 @@ static void wcache_save_name_to_sid(struct winbindd_domain *domain,
 	centry = centry_start(domain, status);
 	if (!centry)
 		return;
+	centry_put_uint32(centry, type);
 	centry_put_sid(centry, sid);
 	fstrcpy(uname, name);
 	strupper_m(uname);
-	centry_end(centry, "NS/%s", sid_to_string(sid_string, sid));
+	centry_end(centry, "NS/%s/%s", domain_name, uname);
 	DEBUG(10,("wcache_save_name_to_sid: %s -> %s\n", uname, sid_string));
 	centry_free(centry);
 }
 
 static void wcache_save_sid_to_name(struct winbindd_domain *domain, NTSTATUS status, 
-				    const DOM_SID *sid, const char *name, enum SID_NAME_USE type)
+				    const DOM_SID *sid, const char *domain_name, const char *name, enum SID_NAME_USE type)
 {
 	struct cache_entry *centry;
 	fstring sid_string;
@@ -623,6 +628,7 @@ static void wcache_save_sid_to_name(struct winbindd_domain *domain, NTSTATUS sta
 		return;
 	if (NT_STATUS_IS_OK(status)) {
 		centry_put_uint32(centry, type);
+		centry_put_string(centry, domain_name);
 		centry_put_string(centry, name);
 	}
 	centry_end(centry, "SN/%s", sid_to_string(sid_string, sid));
@@ -740,10 +746,12 @@ do_query:
 			/* when the backend is consistent we can pre-prime some mappings */
 			wcache_save_name_to_sid(domain, NT_STATUS_OK, 
 						(*info)[i].acct_name, 
+						domain->name,
 						(*info)[i].user_sid,
 						SID_NAME_USER);
 			wcache_save_sid_to_name(domain, NT_STATUS_OK, 
 						(*info)[i].user_sid,
+						domain->name,
 						(*info)[i].acct_name, 
 						SID_NAME_USER);
 			wcache_save_user(domain, NT_STATUS_OK, &(*info)[i]);
@@ -915,6 +923,7 @@ skip_save:
 /* convert a single name to a sid in a domain */
 static NTSTATUS name_to_sid(struct winbindd_domain *domain,
 			    TALLOC_CTX *mem_ctx,
+			    const char *domain_name,
 			    const char *name,
 			    DOM_SID *sid,
 			    enum SID_NAME_USE *type)
@@ -930,7 +939,7 @@ static NTSTATUS name_to_sid(struct winbindd_domain *domain,
 
 	fstrcpy(uname, name);
 	strupper_m(uname);
-	centry = wcache_fetch(cache, domain, "NS/%s/%s", domain->name, uname);
+	centry = wcache_fetch(cache, domain, "NS/%s/%s", domain_name, uname);
 	if (!centry)
 		goto do_query;
 	*type = (enum SID_NAME_USE)centry_uint32(centry);
@@ -966,10 +975,10 @@ do_query:
 	DEBUG(10,("name_to_sid: [Cached] - doing backend query for name for domain %s\n",
 		domain->name ));
 
-	status = domain->backend->name_to_sid(domain, mem_ctx, name, sid, type);
+	status = domain->backend->name_to_sid(domain, mem_ctx, domain_name, name, sid, type);
 
 	/* and save it */
-	wcache_save_name_to_sid(domain, status, name, sid, *type);
+	wcache_save_name_to_sid(domain, status, domain_name, name, sid, *type);
 
 	/* We can't save the sid to name mapping as we don't know the
 	   correct case of the name without looking it up */
@@ -982,6 +991,7 @@ do_query:
 static NTSTATUS sid_to_name(struct winbindd_domain *domain,
 			    TALLOC_CTX *mem_ctx,
 			    const DOM_SID *sid,
+			    char **domain_name,
 			    char **name,
 			    enum SID_NAME_USE *type)
 {
@@ -998,6 +1008,7 @@ static NTSTATUS sid_to_name(struct winbindd_domain *domain,
 		goto do_query;
 	if (NT_STATUS_IS_OK(centry->status)) {
 		*type = (enum SID_NAME_USE)centry_uint32(centry);
+		*domain_name = centry_string(centry, mem_ctx);
 		*name = centry_string(centry, mem_ctx);
 	}
 	status = centry->status;
@@ -1010,6 +1021,7 @@ static NTSTATUS sid_to_name(struct winbindd_domain *domain,
 
 do_query:
 	*name = NULL;
+	*domain_name = NULL;
 
 	/* If the seq number check indicated that there is a problem
 	 * with this DC, then return that status... except for
@@ -1025,12 +1037,12 @@ do_query:
 	DEBUG(10,("sid_to_name: [Cached] - doing backend query for name for domain %s\n",
 		domain->name ));
 
-	status = domain->backend->sid_to_name(domain, mem_ctx, sid, name, type);
+	status = domain->backend->sid_to_name(domain, mem_ctx, sid, domain_name, name, type);
 
 	/* and save it */
 	refresh_sequence_number(domain, False);
-	wcache_save_sid_to_name(domain, status, sid, *name, *type);
-	wcache_save_name_to_sid(domain, status, *name, sid, *type);
+	wcache_save_sid_to_name(domain, status, sid, *domain_name, *name, *type);
+	wcache_save_name_to_sid(domain, status, *domain_name, *name, sid, *type);
 
 	return status;
 }
@@ -1039,7 +1051,7 @@ do_query:
 /* Lookup user information from a rid */
 static NTSTATUS query_user(struct winbindd_domain *domain, 
 			   TALLOC_CTX *mem_ctx, 
-			   DOM_SID *user_sid, 
+			   const DOM_SID *user_sid, 
 			   WINBIND_USERINFO *info)
 {
 	struct winbind_cache *cache = get_cache(domain);
@@ -1102,7 +1114,7 @@ do_query:
 /* Lookup groups a user is a member of. */
 static NTSTATUS lookup_usergroups(struct winbindd_domain *domain,
 				  TALLOC_CTX *mem_ctx,
-				  DOM_SID *user_sid, 
+				  const DOM_SID *user_sid, 
 				  uint32 *num_groups, DOM_SID ***user_gids)
 {
 	struct winbind_cache *cache = get_cache(domain);
@@ -1185,7 +1197,7 @@ skip_save:
 
 static NTSTATUS lookup_groupmem(struct winbindd_domain *domain,
 				TALLOC_CTX *mem_ctx,
-				DOM_SID *group_sid, uint32 *num_names, 
+				const DOM_SID *group_sid, uint32 *num_names, 
 				DOM_SID ***sid_mem, char ***names, 
 				uint32 **name_types)
 {

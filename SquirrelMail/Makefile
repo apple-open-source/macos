@@ -11,7 +11,7 @@
 # to appropriate places in the file system, and makes symlinks where necessary.
 
 PROJECT_NAME=squirrelmail
-PROJECT_VERSION=1.4.1
+PROJECT_VERSION=1.4.3a
 PROJECT_DIR=$(PROJECT_NAME)-$(PROJECT_VERSION)
 PROJECT_ARCHIVE=$(PROJECT_DIR).tar.gz
 

@@ -31,7 +31,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * @(#) $Header: /cvs/root/libpcap/libpcap/pcap.h,v 1.1.1.3 2004/02/05 19:22:28 rbraun Exp $ (LBL)
+ * @(#) $Header: /cvs/root/libpcap/libpcap/pcap.h,v 1.1.1.4 2004/05/21 20:31:59 rbraun Exp $ (LBL)
  */
 
 #ifndef lib_pcap_h
@@ -240,6 +240,7 @@ int pcap_setmintocopy(pcap_t *p, int size);
 
 #define MODE_CAPT 0
 #define MODE_STAT 1
+#define MODE_MON 2
 
 #else
 /*

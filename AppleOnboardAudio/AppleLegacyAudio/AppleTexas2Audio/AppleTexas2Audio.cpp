@@ -656,7 +656,7 @@ void	AppleTexas2Audio::sndHWInitialize(IOService *provider)
 	//		AnalogPowerDown:		normal
 	//		
 	data[0] = ( kNormalLoad << kFL ) | ( k64fs << kSC ) | TAS_I2S_MODE | ( TAS_WORD_LENGTH << kW0 );
-	Texas2_WriteRegister( kTexas2MainCtrl1Reg, data, kUPDATE_SHADOW );	//	default to normal load mode, 16 bit I2S
+	Texas2_WriteRegister( kTexas2MainCtrl1Reg, data );	//	default to normal load mode, 16 bit I2S
 
 	data[DRC_AboveThreshold]	= kDisableDRC;
 	data[DRC_BelowThreshold]	= kDRCBelowThreshold1to1;
@@ -664,15 +664,15 @@ void	AppleTexas2Audio::sndHWInitialize(IOService *provider)
 	data[DRC_Integration]		= kDRCIntegrationThreshold;
 	data[DRC_Attack]			= kDRCAttachThreshold;
 	data[DRC_Decay]				= kDRCDecayThreshold;
-	Texas2_WriteRegister( kTexas2DynamicRangeCtrlReg, data, kUPDATE_SHADOW );
+	Texas2_WriteRegister( kTexas2DynamicRangeCtrlReg, data );
 
 	for( loopCnt = 0; loopCnt < kTexas2VOLwidth; loopCnt++ )				//	init to volume = muted
 	    data[loopCnt] = 0;
-	Texas2_WriteRegister( kTexas2VolumeCtrlReg, data, kUPDATE_SHADOW );
+	Texas2_WriteRegister( kTexas2VolumeCtrlReg, data );
 
 	data[0] = 0x72;									//	treble = bass = unity 0.0 dB
-	Texas2_WriteRegister( kTexas2TrebleCtrlReg, data, kUPDATE_SHADOW );
-	Texas2_WriteRegister( kTexas2BassCtrlReg, data, kUPDATE_SHADOW );
+	Texas2_WriteRegister( kTexas2TrebleCtrlReg, data );
+	Texas2_WriteRegister( kTexas2BassCtrlReg, data );
 
 	data[0] = 0x10;								//	output mixer output channel to unity = 0.0 dB
 	data[1] = 0x00;
@@ -683,40 +683,40 @@ void	AppleTexas2Audio::sndHWInitialize(IOService *provider)
 	data[6] = 0x00;								//	output mixer analog playthrough channel to mute = -70.0 dB
 	data[7] = 0x00;
 	data[8] = 0x00;
-	Texas2_WriteRegister( kTexas2MixerLeftGainReg, data, kUPDATE_SHADOW );	//	initialize left channel
-	Texas2_WriteRegister( kTexas2MixerRightGainReg, data, kUPDATE_SHADOW );	//	initialize right channel
+	Texas2_WriteRegister( kTexas2MixerLeftGainReg, data );	//	initialize left channel
+	Texas2_WriteRegister( kTexas2MixerRightGainReg, data );	//	initialize right channel
 
 	for( loopCnt = 1; loopCnt < kTexas2BIQwidth; loopCnt++ )				//	all biquads to unity gain all pass mode
 		data[loopCnt] = 0x00;
 	data[0] = 0x10;
 
-	Texas2_WriteRegister( kTexas2LeftBiquad0CtrlReg, data, kUPDATE_SHADOW );
-	Texas2_WriteRegister( kTexas2LeftBiquad1CtrlReg, data, kUPDATE_SHADOW );
-	Texas2_WriteRegister( kTexas2LeftBiquad2CtrlReg, data, kUPDATE_SHADOW );
-	Texas2_WriteRegister( kTexas2LeftBiquad3CtrlReg, data, kUPDATE_SHADOW );
-	Texas2_WriteRegister( kTexas2LeftBiquad4CtrlReg, data, kUPDATE_SHADOW );
-	Texas2_WriteRegister( kTexas2LeftBiquad5CtrlReg, data, kUPDATE_SHADOW );
-	Texas2_WriteRegister( kTexas2LeftBiquad6CtrlReg, data, kUPDATE_SHADOW );
-	Texas2_WriteRegister( kTexas2LeftLoudnessBiquadReg, data, kUPDATE_SHADOW );
+	Texas2_WriteRegister( kTexas2LeftBiquad0CtrlReg, data );
+	Texas2_WriteRegister( kTexas2LeftBiquad1CtrlReg, data );
+	Texas2_WriteRegister( kTexas2LeftBiquad2CtrlReg, data );
+	Texas2_WriteRegister( kTexas2LeftBiquad3CtrlReg, data );
+	Texas2_WriteRegister( kTexas2LeftBiquad4CtrlReg, data );
+	Texas2_WriteRegister( kTexas2LeftBiquad5CtrlReg, data );
+	Texas2_WriteRegister( kTexas2LeftBiquad6CtrlReg, data );
+	Texas2_WriteRegister( kTexas2LeftLoudnessBiquadReg, data );
 
-	Texas2_WriteRegister( kTexas2RightBiquad0CtrlReg, data, kUPDATE_SHADOW );
-	Texas2_WriteRegister( kTexas2RightBiquad1CtrlReg, data, kUPDATE_SHADOW );
-	Texas2_WriteRegister( kTexas2RightBiquad2CtrlReg, data, kUPDATE_SHADOW );
-	Texas2_WriteRegister( kTexas2RightBiquad3CtrlReg, data, kUPDATE_SHADOW );
-	Texas2_WriteRegister( kTexas2RightBiquad4CtrlReg, data, kUPDATE_SHADOW );
-	Texas2_WriteRegister( kTexas2RightBiquad5CtrlReg, data, kUPDATE_SHADOW );
-	Texas2_WriteRegister( kTexas2RightBiquad6CtrlReg, data, kUPDATE_SHADOW );
-	Texas2_WriteRegister( kTexas2RightLoudnessBiquadReg, data, kUPDATE_SHADOW );
+	Texas2_WriteRegister( kTexas2RightBiquad0CtrlReg, data );
+	Texas2_WriteRegister( kTexas2RightBiquad1CtrlReg, data );
+	Texas2_WriteRegister( kTexas2RightBiquad2CtrlReg, data );
+	Texas2_WriteRegister( kTexas2RightBiquad3CtrlReg, data );
+	Texas2_WriteRegister( kTexas2RightBiquad4CtrlReg, data );
+	Texas2_WriteRegister( kTexas2RightBiquad5CtrlReg, data );
+	Texas2_WriteRegister( kTexas2RightBiquad6CtrlReg, data );
+	Texas2_WriteRegister( kTexas2RightLoudnessBiquadReg, data );
 	
 	data[0] = 0x00;	//	loudness gain to mute
-	Texas2_WriteRegister( kTexas2LeftLoudnessBiquadGainReg, data, kUPDATE_SHADOW );
-	Texas2_WriteRegister( kTexas2RightLoudnessBiquadGainReg, data, kUPDATE_SHADOW );
+	Texas2_WriteRegister( kTexas2LeftLoudnessBiquadGainReg, data );
+	Texas2_WriteRegister( kTexas2RightLoudnessBiquadGainReg, data );
 	
 	data[0] = ( kADMNormal << kADM ) | ( kDeEmphasisOFF << kADM ) | ( kPowerDownAnalog << kAPD );
-	Texas2_WriteRegister( kTexas2AnalogControlReg, data, kUPDATE_SHADOW );
+	Texas2_WriteRegister( kTexas2AnalogControlReg, data );
 	
 	data[0] = ( kAllPassFilter << kAP ) | ( kNormalBassTreble << kDL );
-	Texas2_WriteRegister( kTexas2MainCtrl2Reg, data, kUPDATE_SHADOW );
+	Texas2_WriteRegister( kTexas2MainCtrl2Reg, data );
 
 	// All this config should go in a single method: 
 	map = provider->mapDeviceMemoryWithIndex (Apple02DBDMAAudioDMAEngine::kDBDMADeviceIndex);
@@ -730,24 +730,7 @@ void	AppleTexas2Audio::sndHWInitialize(IOService *provider)
     audioI2SControl = AudioI2SControl::create(&tempInfo) ;
     FailIf (NULL == audioI2SControl, Exit);
     audioI2SControl->retain();
-#if 0
-	// This call will set the next of the frame parameters
-	// (clockSource, mclkDivisor,  sclkDivisor)
-	ClockSource				clockSource;
-	UInt32					sclkDivisor;
-	UInt32					mclkDivisor;
-	UInt32					dataFormat;	//	[3060321]	rbm	2 Oct 2002
 
-	dataFormat = ( ( 2 << kNumChannelsInShift ) | kDataIn16 | ( 2 << kNumChannelsOutShift ) | kDataOut16 );	//	[3060321]	rbm	2 Oct 2002
-
-	FailIf (FALSE == audioI2SControl->setSampleParameters (44100, 256, &clockSource, &mclkDivisor, &sclkDivisor, kSndIOFormatI2S64x), Exit);
-	//	[3060321]	The data word format register and serial format register require that the I2S clocks be stopped and
-	//				restarted before the register value is applied to operation of the I2S IOM.  We now pass the data
-	//				word format to setSerialFormatRegister as that method stops the clocks when applying the value
-	//				to the serial format register.  That method now also sets the data word format register while
-	//				the clocks are stopped.		rbm	2 Oct 2002
-	audioI2SControl->setSerialFormatRegister (clockSource, mclkDivisor, sclkDivisor, kSndIOFormatI2S64x, dataFormat);
-#endif
 	err = Texas2_Initialize();			//	flush the shadow contents to the HW
 	IOSleep (1);
 	ToggleAnalogPowerDownWake();
@@ -897,28 +880,30 @@ void AppleTexas2Audio::sndHWPostDMAEngineInit (IOService *provider) {
 		}
 	}
 
-	if (FALSE == IsHeadphoneConnected ()) {
-		SelectOutputAndLoadEQ();			//	[2878119]
-		if (TRUE == hasVideo) {
-			// Tell the video driver about the jack state change in case a video connector was plugged in
-			publishResource (gAppleAudioVideoJackStateKey, kOSBooleanFalse);
-		}
-		if (TRUE == hasSerial) {
-			// Tell the serial driver about the jack state change in case a serial connector was plugged in
-			publishResource (gAppleAudioSerialJackStateKey, kOSBooleanFalse);
-		}
-		if (NULL != dallasIntProvider) {
-			// Set the correct EQ
-			DallasInterruptHandlerTimer (this, 0);
+	if ( kIOAudioDeviceActive == mCurrentPowerState ) {  //  [3731023]		begin   {   Do not perform interrupt dispatch when hardware is not awake
+		if (FALSE == IsHeadphoneConnected ()) {
+			SelectOutputAndLoadEQ();			//	[2878119]
+			if (TRUE == hasVideo) {
+				// Tell the video driver about the jack state change in case a video connector was plugged in
+				publishResource (gAppleAudioVideoJackStateKey, kOSBooleanFalse);
+			}
+			if (TRUE == hasSerial) {
+				// Tell the serial driver about the jack state change in case a serial connector was plugged in
+				publishResource (gAppleAudioSerialJackStateKey, kOSBooleanFalse);
+			}
+			if (NULL != dallasIntProvider) {
+				// Set the correct EQ
+				DallasInterruptHandlerTimer (this, 0);
+			} else {
+				DeviceInterruptService ();
+			}
 		} else {
-			DeviceInterruptService ();
+			if (NULL != headphoneIntProvider) {
+				// Set amp mutes accordingly
+				RealHeadphoneInterruptHandler (0, 0);
+			}
 		}
-	} else {
-		if (NULL != headphoneIntProvider) {
-			// Set amp mutes accordingly
-			RealHeadphoneInterruptHandler (0, 0);
-		}
-	}
+	}													//  }   end		[3731023]
 
 	if (NULL == outVolRight && NULL != outVolLeft) {
 		// If they are running mono at boot time, set the right channel's last value to an illegal value
@@ -927,15 +912,17 @@ void AppleTexas2Audio::sndHWPostDMAEngineInit (IOService *provider) {
 		lastLeftVol = outVolLeft->getIntValue ();
 	}
 
-	//	begin {	[2878119]
-	if (FALSE == IsLineOutConnected ()) {
-		SelectOutputAndLoadEQ();			//	[2878119]
-	} else {
-		if (NULL != lineOutIntProvider) {
-			// Set amp mutes accordingly
-			RealLineOutInterruptHandler (0, 0);
+	if ( kIOAudioDeviceActive == mCurrentPowerState ) {  //  [3731023]		begin   {   Do not perform interrupt dispatch when hardware is not awake
+		//	begin {	[2878119]
+		if (FALSE == IsLineOutConnected ()) {
+			SelectOutputAndLoadEQ();			//	[2878119]
+		} else {
+			if (NULL != lineOutIntProvider) {
+				// Set amp mutes accordingly
+				RealLineOutInterruptHandler (0, 0);
+			}
 		}
-	}
+	}													//  }   end		[3731023]
 	
 	if (NULL != lineOutIntEventSource) {
 		lineOutIntEventSource->enable ();
@@ -963,16 +950,17 @@ IOReturn	AppleTexas2Audio::SetAnalogPowerDownMode( UInt8 mode )
 	UInt8		dataBuffer[kTexas2ANALOGCTRLREGwidth];
 	
 	err = kIOReturnSuccess;
-	if ( kPowerDownAnalog == mode || kPowerNormalAnalog == mode )
-	{
+	if ( kPowerDownAnalog == mode || kPowerNormalAnalog == mode ) {
 		err = Texas2_ReadRegister( kTexas2AnalogControlReg, dataBuffer );
-		if ( kIOReturnSuccess == err )
-		{
+		FailIf ( kIOReturnSuccess != err, Exit );
+		if ( kIOReturnSuccess == err ) {
 			dataBuffer[0] &= ~( kAPD_MASK << kAPD );
 			dataBuffer[0] |= ( mode << kAPD );
-			err = Texas2_WriteRegister( kTexas2AnalogControlReg, dataBuffer, kUPDATE_ALL );
+			err = Texas2_WriteRegister( kTexas2AnalogControlReg, dataBuffer );
+			FailIf ( kIOReturnSuccess != err, Exit );
 		}
 	}
+Exit:
 	return err;
 }
 
@@ -1088,43 +1076,49 @@ UInt32	AppleTexas2Audio::sndHWGetActiveInputExclusive(
 //	other input B mono input port remains unused then the unused mono input
 //	port (i.e. kSndHWInput3 for the left channel or kSndHWInput4 for the
 //	right channel) may be aliased as kSndHWInputNone.
-IOReturn   AppleTexas2Audio::sndHWSetActiveInputExclusive(
-    UInt32 input )
+IOReturn   AppleTexas2Audio::sndHWSetActiveInputExclusive( UInt32 input )
 {
     UInt8		data[kTexas2MaximumRegisterWidth];
-    IOReturn	result = kIOReturnSuccess; 
+    IOReturn	result; 
     
     debugIOLog (3, "+ AppleTexas2Audio::sndHWSetActiveInputExclusive (%ld)", input);
 
 	//	Mask off the current input selection and then OR in the new selections
-	Texas2_ReadRegister (kTexas2AnalogControlReg, data);
+	result = Texas2_ReadRegister (kTexas2AnalogControlReg, data);
+	FailIf ( kIOReturnSuccess != result, Exit );
+
 	data[0] &= ~((1 << kADM) | (1 << kLRB) | (1 << kINP));
     switch (input) {
-        case kSndHWInput1:	data[0] |= ((kADMNormal << kADM) | (kLeftInputForMonaural << kLRB) | (kAnalogInputA << kINP));			
+        case kSndHWInput1:
+			data[0] |= ((kADMNormal << kADM) | (kLeftInputForMonaural << kLRB) | (kAnalogInputA << kINP));			
 			driverDMAEngine->setRightChanDelayInput(false);		// [3173869]
 			break;
-        case kSndHWInput2:	data[0] |= ((kADMNormal << kADM) | (kLeftInputForMonaural << kLRB) | (kAnalogInputB << kINP));			
+        case kSndHWInput2:
+			data[0] |= ((kADMNormal << kADM) | (kLeftInputForMonaural << kLRB) | (kAnalogInputB << kINP));			
 			driverDMAEngine->setRightChanDelayInput(false);		// [3173869]
 			break;
-        case kSndHWInput3:	data[0] |= ((kADMBInputsMonaural << kADM) | (kLeftInputForMonaural << kLRB) | (kAnalogInputB << kINP));	
+        case kSndHWInput3:
+			data[0] |= ((kADMBInputsMonaural << kADM) | (kLeftInputForMonaural << kLRB) | (kAnalogInputB << kINP));	
 			driverDMAEngine->setRightChanDelayInput(true);		// [3173869]
 			break;
-        case kSndHWInput4:	data[0] |= ((kADMBInputsMonaural << kADM) | (kRightInputForMonaural << kLRB) | (kAnalogInputB << kINP));	
+        case kSndHWInput4:
+			data[0] |= ((kADMBInputsMonaural << kADM) | (kRightInputForMonaural << kLRB) | (kAnalogInputB << kINP));	
 			driverDMAEngine->setRightChanDelayInput(true);		// [3173869]
 			break;
         default:			result = kIOReturnError;																					
 			break;
     }
+	FailIf ( kIOReturnSuccess != result, Exit );
+
 	//	If the new input selection remains valid then flush the
 	//	selection setting out to the hardware.
-	if (kIOReturnSuccess == result) {
-		result = Texas2_WriteRegister (kTexas2AnalogControlReg, data, kUPDATE_ALL);
-	}
-	//	Update history of current input selection for sndHWGetActiveInputExclusive
-	if (kIOReturnSuccess == result) {
-		mActiveInput = input;
-	}
+	result = Texas2_WriteRegister ( kTexas2AnalogControlReg, data );
+	FailIf ( kIOReturnSuccess != result, Exit );
 
+	//	Update history of current input selection for sndHWGetActiveInputExclusive
+	mActiveInput = input;
+
+Exit:
     debugIOLog (3, "- AppleTexas2Audio::sndHWSetActiveInputExclusive");
     return(result);
 }
@@ -1150,11 +1144,9 @@ IOReturn AppleTexas2Audio::sndHWSetSystemMute(bool mutestate)
 	debugIOLog (3, "+ AppleTexas2Audio::sndHWSetSystemMute");
 
 	if (true == mutestate) {
-//		if (false == gVolMuteActive) {	// Turn off for 3443797 fix
-			// mute the part
-			gVolMuteActive = mutestate ;
-			result = SetVolumeCoefficients (0, 0);
-//		}
+		// mute the part
+		gVolMuteActive = mutestate ;
+		result = SetVolumeCoefficients (0, 0);
 	} else {
 		// unmute the part
 		gVolMuteActive = mutestate ;
@@ -1170,15 +1162,18 @@ bool AppleTexas2Audio::sndHWSetSystemVolume(UInt32 leftVolume, UInt32 rightVolum
 {
 	bool					result;
 
-	result = false;
+	result = TRUE;
 
 	debugIOLog (3, "+ AppleTexas2Audio::sndHWSetSystemVolume (left: %ld, right %ld)", leftVolume, rightVolume);
-	gVolLeft = leftVolume;
-	gVolRight = rightVolume;
-	result = SetVolumeCoefficients (volumeTable[(UInt32)gVolLeft], volumeTable[(UInt32)gVolRight]);
+	
+	if ( ( gVolLeft != (SInt32)leftVolume ) || ( gVolRight != (SInt32)rightVolume ) ) {
+		gVolLeft = leftVolume;
+		gVolRight = rightVolume;
+		result = ( kIOReturnSuccess == SetVolumeCoefficients ( volumeTable[(UInt32)gVolLeft], volumeTable[(UInt32)gVolRight] ) );
+	}
 
 	debugIOLog (3, "- AppleTexas2Audio::sndHWSetSystemVolume");
-	return (result == kIOReturnSuccess);
+	return result;
 }
 
 // --------------------------------------------------------------------------
@@ -1189,8 +1184,7 @@ IOReturn AppleTexas2Audio::sndHWSetSystemVolume(UInt32 value)
 	IOReturn myReturn = kIOReturnError;
 		
 	// just call the default function in this class with the same val for left and right.
-	if( true == sndHWSetSystemVolume( value, value ))
-	{
+	if ( true == sndHWSetSystemVolume ( value, value ) ) {
 		myReturn = kIOReturnSuccess;
 	}
 
@@ -1229,8 +1223,12 @@ IOReturn AppleTexas2Audio::sndHWSetPlayThrough(bool playthroughstate)
 			rightMixerGain[6] = 0x00;
 		}
 	}
-	err = Texas2_WriteRegister ( kTexas2MixerLeftGainReg, leftMixerGain, kUPDATE_ALL );
-	err = Texas2_WriteRegister ( kTexas2MixerRightGainReg, rightMixerGain, kUPDATE_ALL );
+	err = Texas2_WriteRegister ( kTexas2MixerLeftGainReg, leftMixerGain );
+	FailIf ( kIOReturnSuccess != err, Exit );
+
+	err = Texas2_WriteRegister ( kTexas2MixerRightGainReg, rightMixerGain );
+	FailIf ( kIOReturnSuccess != err, Exit );
+
 Exit:
 	debugIOLog (3, "- AppleTexas2Audio::sndHWSetPlayThrough");
 	return err;
@@ -1465,7 +1463,7 @@ IOReturn AppleTexas2Audio::sndHWSetPowerState(IOAudioDevicePowerState theState)
 
 	debugIOLog (3, "+ AppleTexas2Audio::sndHWSetPowerState (%d)", theState);
 
-	result = kIOReturnSuccess;
+	result = kIOReturnError;
 	switch (theState) {
 		case kIOAudioDeviceActive:
 			result = performDeviceWake ();
@@ -1477,7 +1475,9 @@ IOReturn AppleTexas2Audio::sndHWSetPowerState(IOAudioDevicePowerState theState)
 			result = performDeviceSleep ();
 			break;
 	}
-
+	if ( kIOReturnSuccess == result ) {
+		mCurrentPowerState = theState;
+	}
 	debugIOLog (3, "- AppleTexas2Audio::sndHWSetPowerState");
 	return result;
 }
@@ -2250,7 +2250,7 @@ IOReturn	AppleTexas2Audio::writeCodecReg ( UInt32 selector, void * registerData 
 	IOReturn		err = 0;
 	err = getCodecRegSize ( selector, &codecRegSize );
 	if ( kIOReturnSuccess == err ) {
-		err = Texas2_WriteRegister( (UInt8)selector, (UInt8*)registerData, kFORCE_UPDATE_ALL );
+		err = Texas2_WriteRegister( (UInt8)selector, (UInt8*)registerData );
 	}
 	return err;
 }
@@ -2387,27 +2387,30 @@ IOReturn	AppleTexas2Audio::setPowerState ( UInt32 selector, IOAudioDevicePowerSt
 IOReturn	AppleTexas2Audio::setBiquadCoefficients ( UInt32 selector, void * biquadCoefficients, UInt32 coefficientSize )
 {
 	UInt8			mcr2Data[kTexas2MC2Rwidth];
-	IOReturn		err;
-	IOReturn		totalErr = kIOReturnError;
+	IOReturn		err = kIOReturnSuccess;
 
 	if ( kMaxBiquadWidth >= coefficientSize && NULL != biquadCoefficients && 0 == selector ) {
-		totalErr = kIOReturnSuccess;
 		for ( UInt32 index = 0; index < ( kTexas2NumBiquads * kTexas2MaxStreamCnt ); index ++ ) {
 			if ( kTexas2NumBiquads > index ) {
 				err = SndHWSetOutputBiquad ( kStreamFrontLeft, index, (FourDotTwenty*)biquadCoefficients );
+				FailIf ( kIOReturnSuccess != err, Exit );
 			} else {
 				err = SndHWSetOutputBiquad ( kStreamFrontRight, index - kTexas2NumBiquads, (FourDotTwenty*)biquadCoefficients );
+				FailIf ( kIOReturnSuccess != err, Exit );
 			}
 			(( EQFilterCoefficients*)biquadCoefficients)++;
-			if ( err ) { totalErr = err; }
 		}
-		Texas2_ReadRegister( kTexas2MainCtrl2Reg, mcr2Data );					//	[TAS EQ support]	rbm	10 Oct 2002	begin {
+		err = Texas2_ReadRegister( kTexas2MainCtrl2Reg, mcr2Data );					//	[TAS EQ support]	rbm	10 Oct 2002	begin {
+		FailIf ( kIOReturnSuccess != err, Exit );
+		
 		mcr2Data[0] &= ~( kFilter_MASK << kAP );
 		mcr2Data[0] |= ( kNormalFilter << kAP );
-		Texas2_WriteRegister( kTexas2MainCtrl2Reg, mcr2Data, kUPDATE_ALL);		//	[TAS EQ support]	rbm	10 Oct 2002	} end
+		
+		err = Texas2_WriteRegister( kTexas2MainCtrl2Reg, mcr2Data );		//	[TAS EQ support]	rbm	10 Oct 2002	} end
+		FailIf ( kIOReturnSuccess != err, Exit );
 	}
-
-	return totalErr;
+Exit:
+	return err;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2654,16 +2657,13 @@ void	AppleTexas2Audio::GpioWrite( UInt8* gpioAddress, UInt8 data )
 {
 	UInt8		gpioData;
 	
-	if( NULL != gpioAddress )
-	{
+	if( NULL != gpioAddress ) {
 		if( 0 == data )
 			gpioData = ( gpioDDR_OUTPUT << gpioDDR ) | ( 0 << gpioDATA );
 		else
 			gpioData = ( gpioDDR_OUTPUT << gpioDDR ) | ( 1 << gpioDATA );
 		*gpioAddress = gpioData;
-#ifdef kDEBUG_GPIO
-		debugIOLog (3,  "GpioWrite( 0x%8.0X, 0x%2.0X ), *gpioAddress 0x%2.0X", (unsigned int)gpioAddress, gpioData, *gpioAddress );
-#endif
+		debugIOLog (7,  "GpioWrite( 0x%8.0X, 0x%2.0X ), *gpioAddress 0x%2.0X", (unsigned int)gpioAddress, gpioData, *gpioAddress );
 	}
 }
 
@@ -2673,8 +2673,6 @@ IOReturn AppleTexas2Audio::InitEQSerialMode (UInt32 mode, Boolean restoreOnNorma
 	IOReturn		err;
 	UInt8			initData;
 	UInt8			previousData;
-//	UInt8*			shadowPtr;
-//	UInt8			registerSize;
 	
 	debugIOLog (3, "+ InitEQSerialMode (%8lX, %d)", mode, restoreOnNormal);
 	initData = (kNormalLoad << kFL);
@@ -2682,40 +2680,13 @@ IOReturn AppleTexas2Audio::InitEQSerialMode (UInt32 mode, Boolean restoreOnNorma
 		initData = (kFastLoad << kFL);
 		
 	err = Texas2_ReadRegister (kTexas2MainCtrl1Reg, &previousData);
+	FailIf ( kIOReturnSuccess != err, Exit );
+
 	initData |= ( previousData & ~( 1 << kFL ) );
-	err = Texas2_WriteRegister (kTexas2MainCtrl1Reg, &initData, kFORCE_UPDATE_ALL);
+	err = Texas2_WriteRegister (kTexas2MainCtrl1Reg, &initData);
+	FailIf ( kIOReturnSuccess != err, Exit );
 
-#if 0
-	//	If restoring to normal load mode then restore the settings of all
-	//	registers that have been corrupted by entering fast load mode (i.e.
-	//	volume, bass, treble, mixer1 and mixer2).  Restoration only occurs
-	//	if going from a previous state of Fast Load to a new state of Normal Load.
-	if (kRestoreOnNormal == restoreOnNormal && ((kFastLoad << kFL) == ((kFastLoad << kFL) & previousData))) {
-		if ((kNormalLoad << kFL) == (initData & (kFastLoad << kFL))) {
-
-			GetShadowRegisterInfo( kTexas2VolumeCtrlReg, &shadowPtr, &registerSize );
-			err = Texas2_WriteRegister( kTexas2VolumeCtrlReg, shadowPtr, kFORCE_UPDATE_ALL );
-			FailIf( kIOReturnSuccess != err, Exit );
-			
-			GetShadowRegisterInfo( kTexas2TrebleCtrlReg, &shadowPtr, &registerSize );
-			err = Texas2_WriteRegister( kTexas2TrebleCtrlReg, shadowPtr, kFORCE_UPDATE_ALL );
-			FailIf( kIOReturnSuccess != err, Exit );
-			
-			GetShadowRegisterInfo( kTexas2BassCtrlReg, &shadowPtr, &registerSize );
-			err = Texas2_WriteRegister( kTexas2BassCtrlReg, shadowPtr, kFORCE_UPDATE_ALL );
-			FailIf( kIOReturnSuccess != err, Exit );
-			
-			GetShadowRegisterInfo( kTexas2MixerLeftGainReg, &shadowPtr, &registerSize );
-			err = Texas2_WriteRegister( kTexas2MixerLeftGainReg, shadowPtr, kFORCE_UPDATE_ALL );
-			FailIf( kIOReturnSuccess != err, Exit );
-	
-			GetShadowRegisterInfo( kTexas2MixerRightGainReg, &shadowPtr, &registerSize );
-			err = Texas2_WriteRegister( kTexas2MixerRightGainReg, shadowPtr, kFORCE_UPDATE_ALL );
-			FailIf( kIOReturnSuccess != err, Exit );
-		}
-	}
 Exit:
-#endif
 	debugIOLog (3, "- InitEQSerialMode (%8lX, %d) err = %d", mode, restoreOnNormal, err);
 	return err;
 }
@@ -2794,7 +2765,9 @@ IOReturn AppleTexas2Audio::SetVolumeCoefficients( UInt32 left, UInt32 right )
 	volumeData[4] = right >> 8;												
 	volumeData[3] = right >> 16;
 	
-	err = Texas2_WriteRegister( kTexas2VolumeCtrlReg, volumeData, kUPDATE_ALL );
+	err = Texas2_WriteRegister( kTexas2VolumeCtrlReg, volumeData );
+	FailIf ( kIOReturnSuccess != err, Exit );
+Exit:
 	return err;
 }
 
@@ -3015,7 +2988,7 @@ IOReturn	AppleTexas2Audio::Texas2_Initialize() {
 	{
 		semaphores = 1;
 		do{
-			debugIOLog (3,  "[AppleTexas2Audio] ... RETRYING, retryCount %ld", retryCount );
+			debugIOLog (6,  "[AppleTexas2Audio] ... RETRYING, retryCount %ld", retryCount );
             Texas2_Reset();
 			if ( !IsCodecRESET( true ) ) {
 				if( 0 == oldMode )
@@ -3025,114 +2998,114 @@ IOReturn	AppleTexas2Audio::Texas2_Initialize() {
 				FailIf( kIOReturnSuccess != err, AttemptToRetry );
 				
 				GetShadowRegisterInfo( kTexas2LeftBiquad0CtrlReg, &shadowPtr, &registerSize );
-				err = Texas2_WriteRegister( kTexas2LeftBiquad0CtrlReg, shadowPtr, initMode );
+				err = Texas2_WriteRegister( kTexas2LeftBiquad0CtrlReg, shadowPtr );
 				FailIf( kIOReturnSuccess != err, AttemptToRetry );
 		
 				GetShadowRegisterInfo( kTexas2LeftBiquad1CtrlReg, &shadowPtr, &registerSize );
-				err = Texas2_WriteRegister( kTexas2LeftBiquad1CtrlReg, shadowPtr, initMode );
+				err = Texas2_WriteRegister( kTexas2LeftBiquad1CtrlReg, shadowPtr );
 				FailIf( kIOReturnSuccess != err, AttemptToRetry );
 		
 				GetShadowRegisterInfo( kTexas2LeftBiquad2CtrlReg, &shadowPtr, &registerSize );
-				err = Texas2_WriteRegister( kTexas2LeftBiquad2CtrlReg, shadowPtr, initMode );
+				err = Texas2_WriteRegister( kTexas2LeftBiquad2CtrlReg, shadowPtr );
 				FailIf( kIOReturnSuccess != err, AttemptToRetry );
 		
 				GetShadowRegisterInfo( kTexas2LeftBiquad3CtrlReg, &shadowPtr, &registerSize );
-				err = Texas2_WriteRegister( kTexas2LeftBiquad3CtrlReg, shadowPtr, initMode );
+				err = Texas2_WriteRegister( kTexas2LeftBiquad3CtrlReg, shadowPtr );
 				FailIf( kIOReturnSuccess != err, AttemptToRetry );
 		
 				GetShadowRegisterInfo( kTexas2LeftBiquad4CtrlReg, &shadowPtr, &registerSize );
-				err = Texas2_WriteRegister( kTexas2LeftBiquad4CtrlReg, shadowPtr, initMode );
+				err = Texas2_WriteRegister( kTexas2LeftBiquad4CtrlReg, shadowPtr );
 				FailIf( kIOReturnSuccess != err, AttemptToRetry );
 		
 				GetShadowRegisterInfo( kTexas2LeftBiquad5CtrlReg, &shadowPtr, &registerSize );
-				err = Texas2_WriteRegister( kTexas2LeftBiquad5CtrlReg, shadowPtr, initMode );
+				err = Texas2_WriteRegister( kTexas2LeftBiquad5CtrlReg, shadowPtr );
 				FailIf( kIOReturnSuccess != err, AttemptToRetry );
 				
 				GetShadowRegisterInfo( kTexas2LeftBiquad6CtrlReg, &shadowPtr, &registerSize );
-				err = Texas2_WriteRegister( kTexas2LeftBiquad6CtrlReg, shadowPtr, initMode );
+				err = Texas2_WriteRegister( kTexas2LeftBiquad6CtrlReg, shadowPtr );
 				FailIf( kIOReturnSuccess != err, AttemptToRetry );
 				
 				GetShadowRegisterInfo( kTexas2LeftLoudnessBiquadReg, &shadowPtr, &registerSize );
-				err = Texas2_WriteRegister( kTexas2LeftLoudnessBiquadReg, shadowPtr, initMode );
+				err = Texas2_WriteRegister( kTexas2LeftLoudnessBiquadReg, shadowPtr );
 				FailIf( kIOReturnSuccess != err, AttemptToRetry );
 				
 				GetShadowRegisterInfo( kTexas2RightBiquad0CtrlReg, &shadowPtr, &registerSize );
-				err = Texas2_WriteRegister( kTexas2RightBiquad0CtrlReg, shadowPtr, initMode );
+				err = Texas2_WriteRegister( kTexas2RightBiquad0CtrlReg, shadowPtr );
 				FailIf( kIOReturnSuccess != err, AttemptToRetry );
 		
 				GetShadowRegisterInfo( kTexas2RightBiquad1CtrlReg, &shadowPtr, &registerSize );
-				err = Texas2_WriteRegister( kTexas2RightBiquad1CtrlReg, shadowPtr, initMode );
+				err = Texas2_WriteRegister( kTexas2RightBiquad1CtrlReg, shadowPtr );
 				FailIf( kIOReturnSuccess != err, AttemptToRetry );
 		
 				GetShadowRegisterInfo( kTexas2RightBiquad2CtrlReg, &shadowPtr, &registerSize );
-				err = Texas2_WriteRegister( kTexas2RightBiquad2CtrlReg, shadowPtr, initMode );
+				err = Texas2_WriteRegister( kTexas2RightBiquad2CtrlReg, shadowPtr );
 				FailIf( kIOReturnSuccess != err, AttemptToRetry );
 		
 				GetShadowRegisterInfo( kTexas2RightBiquad3CtrlReg, &shadowPtr, &registerSize );
-				err = Texas2_WriteRegister( kTexas2RightBiquad3CtrlReg, shadowPtr, initMode );
+				err = Texas2_WriteRegister( kTexas2RightBiquad3CtrlReg, shadowPtr );
 				FailIf( kIOReturnSuccess != err, AttemptToRetry );
 		
 				GetShadowRegisterInfo( kTexas2RightBiquad4CtrlReg, &shadowPtr, &registerSize );
-				err = Texas2_WriteRegister( kTexas2RightBiquad4CtrlReg, shadowPtr, initMode );
+				err = Texas2_WriteRegister( kTexas2RightBiquad4CtrlReg, shadowPtr );
 				FailIf( kIOReturnSuccess != err, AttemptToRetry );
 		
 				GetShadowRegisterInfo( kTexas2RightBiquad5CtrlReg, &shadowPtr, &registerSize );
-				err = Texas2_WriteRegister( kTexas2RightBiquad5CtrlReg, shadowPtr, initMode );
+				err = Texas2_WriteRegister( kTexas2RightBiquad5CtrlReg, shadowPtr );
 				FailIf( kIOReturnSuccess != err, AttemptToRetry );
 				
 				GetShadowRegisterInfo( kTexas2RightBiquad6CtrlReg, &shadowPtr, &registerSize );
-				err = Texas2_WriteRegister( kTexas2RightBiquad6CtrlReg, shadowPtr, initMode );
+				err = Texas2_WriteRegister( kTexas2RightBiquad6CtrlReg, shadowPtr );
 				FailIf( kIOReturnSuccess != err, AttemptToRetry );
 				
 				GetShadowRegisterInfo( kTexas2RightLoudnessBiquadReg, &shadowPtr, &registerSize );
-				err = Texas2_WriteRegister( kTexas2RightLoudnessBiquadReg, shadowPtr, initMode );
+				err = Texas2_WriteRegister( kTexas2RightLoudnessBiquadReg, shadowPtr );
 				FailIf( kIOReturnSuccess != err, AttemptToRetry );
 				
 				err = InitEQSerialMode( kSetNormalLoadMode, kDontRestoreOnNormal );								//	set normal load mode for most register initialization
 				FailIf( kIOReturnSuccess != err, AttemptToRetry );
 				
 				GetShadowRegisterInfo( kTexas2DynamicRangeCtrlReg, &shadowPtr, &registerSize );
-				err = Texas2_WriteRegister( kTexas2DynamicRangeCtrlReg, shadowPtr, initMode );
+				err = Texas2_WriteRegister( kTexas2DynamicRangeCtrlReg, shadowPtr );
 				FailIf( kIOReturnSuccess != err, AttemptToRetry );
 					
 				GetShadowRegisterInfo( kTexas2VolumeCtrlReg, &shadowPtr, &registerSize );
-				err = Texas2_WriteRegister( kTexas2VolumeCtrlReg, shadowPtr, initMode );
+				err = Texas2_WriteRegister( kTexas2VolumeCtrlReg, shadowPtr );
 				FailIf( kIOReturnSuccess != err, AttemptToRetry );
 				
 				GetShadowRegisterInfo( kTexas2TrebleCtrlReg, &shadowPtr, &registerSize );
-				err = Texas2_WriteRegister( kTexas2TrebleCtrlReg, shadowPtr, initMode );
+				err = Texas2_WriteRegister( kTexas2TrebleCtrlReg, shadowPtr );
 				FailIf( kIOReturnSuccess != err, AttemptToRetry );
 				
 				GetShadowRegisterInfo( kTexas2BassCtrlReg, &shadowPtr, &registerSize );
-				err = Texas2_WriteRegister( kTexas2BassCtrlReg, shadowPtr, initMode );
+				err = Texas2_WriteRegister( kTexas2BassCtrlReg, shadowPtr );
 				FailIf( kIOReturnSuccess != err, AttemptToRetry );
 				
 				GetShadowRegisterInfo( kTexas2MixerLeftGainReg, &shadowPtr, &registerSize );
-				err = Texas2_WriteRegister( kTexas2MixerLeftGainReg, shadowPtr, initMode );
+				err = Texas2_WriteRegister( kTexas2MixerLeftGainReg, shadowPtr );
 				FailIf( kIOReturnSuccess != err, AttemptToRetry );
 		
 				GetShadowRegisterInfo( kTexas2MixerRightGainReg, &shadowPtr, &registerSize );
-				err = Texas2_WriteRegister( kTexas2MixerRightGainReg, shadowPtr, initMode );
+				err = Texas2_WriteRegister( kTexas2MixerRightGainReg, shadowPtr );
 				FailIf( kIOReturnSuccess != err, AttemptToRetry );
 	
 				GetShadowRegisterInfo( kTexas2LeftLoudnessBiquadGainReg, &shadowPtr, &registerSize );
-				err = Texas2_WriteRegister( kTexas2LeftLoudnessBiquadGainReg, shadowPtr, initMode );
+				err = Texas2_WriteRegister( kTexas2LeftLoudnessBiquadGainReg, shadowPtr );
 				FailIf( kIOReturnSuccess != err, AttemptToRetry );
 				
 				GetShadowRegisterInfo( kTexas2RightLoudnessBiquadGainReg, &shadowPtr, &registerSize );
-				err = Texas2_WriteRegister( kTexas2RightLoudnessBiquadGainReg, shadowPtr, initMode );
+				err = Texas2_WriteRegister( kTexas2RightLoudnessBiquadGainReg, shadowPtr );
 				FailIf( kIOReturnSuccess != err, AttemptToRetry );
 				
 				GetShadowRegisterInfo( kTexas2AnalogControlReg, &shadowPtr, &registerSize );
-				err = Texas2_WriteRegister( kTexas2AnalogControlReg, shadowPtr, initMode );
+				err = Texas2_WriteRegister( kTexas2AnalogControlReg, shadowPtr );
 				FailIf( kIOReturnSuccess != err, AttemptToRetry );
 				
 				GetShadowRegisterInfo( kTexas2MainCtrl2Reg, &shadowPtr, &registerSize );
-				err = Texas2_WriteRegister( kTexas2MainCtrl2Reg, shadowPtr, initMode );
+				err = Texas2_WriteRegister( kTexas2MainCtrl2Reg, shadowPtr );
 				FailIf( kIOReturnSuccess != err, AttemptToRetry );
 				
 				GetShadowRegisterInfo( kTexas2MainCtrl1Reg, &shadowPtr, &registerSize );
-				err = Texas2_WriteRegister( kTexas2MainCtrl1Reg, &oldMode, initMode );			//	restore previous load mode
+				err = Texas2_WriteRegister( kTexas2MainCtrl1Reg, &oldMode );			//	restore previous load mode
 				FailIf( kIOReturnSuccess != err, AttemptToRetry );
 			}
 AttemptToRetry:				
@@ -3197,66 +3170,49 @@ IOReturn 	AppleTexas2Audio::Texas2_ReadRegister(UInt8 regAddr, UInt8* registerDa
 //	load mode for the target register and then restore the previous 'load' 
 //	mode.  All biquad registers should only be loaded while in 'fast load' 
 //	mode.  All other registers should be loaded while in 'normal load' mode.
-IOReturn 	AppleTexas2Audio::Texas2_WriteRegister(UInt8 regAddr, UInt8* registerData, UInt8 mode){
+IOReturn 	AppleTexas2Audio::Texas2_WriteRegister ( UInt8 regAddr, UInt8* registerData ) {
 	UInt8			registerSize;
 	UInt32			regByteIndex;
 	UInt8			*shadowPtr;
-	IOReturn		err;
-	Boolean			updateRequired;
-	Boolean			success;
+	IOReturn		result = kIOReturnSuccess;
+	Boolean			success = FALSE;
 	
-	err = kIOReturnSuccess;
-	updateRequired = false;
-	success = false;
+	debugIOLog ( 6, "+ AppleTexas2Audio::Texas2_WriteRegister ( 0x%2X, %p )", regAddr, registerData );
+	
 	// quiet warnings caused by a complier that can't really figure out if something is going to be used uninitialized or not.
 	registerSize = 0;
 	shadowPtr = NULL;
-	err = GetShadowRegisterInfo( regAddr, &shadowPtr, &registerSize );
-	if( kIOReturnSuccess == err )
-	{
+	
+	result = GetShadowRegisterInfo ( regAddr, &shadowPtr, &registerSize );
+	if ( kIOReturnSuccess == result ) {
 		//	Write through to the shadow register as a 'write through' cache would and
 		//	then write the data to the hardware;
-		if( kUPDATE_SHADOW == mode || kUPDATE_ALL == mode || kFORCE_UPDATE_ALL == mode )
-		{
-			success = true;
-			for( regByteIndex = 0; regByteIndex < registerSize; regByteIndex++ )
-			{
-				if( shadowPtr[regByteIndex] != registerData[regByteIndex] && kUPDATE_ALL == mode )
-					updateRequired = true;
-				shadowPtr[regByteIndex] = registerData[regByteIndex];
-			}
+		for ( regByteIndex = 0; regByteIndex < registerSize; regByteIndex++ ) {
+			shadowPtr[regByteIndex] = registerData[regByteIndex];
 		}
-		if( kUPDATE_HW == mode || updateRequired || kFORCE_UPDATE_ALL == mode )
-		{
+		if ( NULL != audioI2SControl ) {
 			if ( IsCodecRESET( false ) ) {
-				debugIOLog (3,  "... Texas2_WriteRegister( 0x%2.0X, 0x%8.0X ) WHILE TAS3004 IS RESET!!!!", regAddr, (unsigned int)registerData );
+				debugIOLog (3,  "  TAS3004 in RESET!" );
+				result = kIOReturnNotReady;
 			} else {
-				if (openI2C()) {
-					success = interface->writeI2CBus (DEQAddress, regAddr, registerData, registerSize);
+				if ( openI2C() ) {
+					success = interface->writeI2CBus ( DEQAddress, regAddr, registerData, registerSize );
 					closeI2C();
 					//	[3166905]	begin {
 					if ( !success ) {
-						debugIOLog (3,  "%d = interface->writeI2CBus ( %X, %X, %X, %X ) FAILED: RESETTING & FLUSHING CACHE", 
-							(unsigned int)success, (unsigned int)DEQAddress, (unsigned int)regAddr, (unsigned int)registerData, (unsigned int)registerSize );
-						success = Texas2_Initialize();
+						result = Texas2_Initialize();
 					}
 					//	[3166905]	} end
 				} else {
-					debugIOLog (3, "... Texas2_WriteRegistercouldn't open the I2C bus!");
+					debugIOLog (3, "  Could not OPEN I2C driver!");
+					result = kIOReturnNotReady;
 				}
 			}
 		}
 	}
 
-	if( kIOReturnSuccess != err || !success ) {
-		debugIOLog (3, "error 0x%X returned, success == %d in AppleTexas2Audio::Texas2_WriteRegister", err, success);
-		if (kIOReturnSuccess == err) {
-			err = -1;	// force a retry
-		}
-	}
-
-
-    return err;
+	debugIOLog ( 6, "- AppleTexas2Audio::Texas2_WriteRegister ( 0x%2X, %p ) returns 0x%lX", regAddr, registerData, result );
+    return result;
 }
 
 
@@ -3662,38 +3618,58 @@ void AppleTexas2Audio::SelectOutputAndLoadEQ ( void ) {
 	IOReturn			err;
 	EQPrefsElementPtr	eqPrefs;
 	UInt8				volumeData[kTexas2VOLwidth];
+	UInt8				oldVolume[kTexas2VOLwidth];
 	
 	debugIOLog (3,  "+ SelectOutputAndLoadEQ" );
 
-	for ( UInt32 index = 0; index < kTexas2VOLwidth; index++ ) { volumeData[index] = 0; }	//	[2965804] prepare to mute volume
-	Texas2_WriteRegister( kTexas2VolumeCtrlReg, volumeData, kUPDATE_HW );					//	[2965804] mute volume without overwriting cache
-	IOSleep ( kMAX_VOLUME_RAMP_DELAY );														//	[2965804] delay to allow mute to occur
-	SetActiveOutput ( kSndHWOutputNone, kTouchBiquad);	//	[2965804]
+	for ( UInt32 index = 0; index < kTexas2VOLwidth; index++ ) {
+		volumeData[index] = 0;					//	[2965804] prepare to mute volume
+	}
+	
+	err = Texas2_ReadRegister ( kTexas2VolumeCtrlReg, oldVolume );
+	FailIf ( kIOReturnSuccess != err, Exit );
+	
+	err = Texas2_WriteRegister ( kTexas2VolumeCtrlReg, volumeData );								//	[2965804] mute volume without overwriting cache
+	FailIf ( kIOReturnSuccess != err, Exit );
+	
+	IOSleep ( kMAX_VOLUME_RAMP_DELAY );														//	[2965804] delay to allow mute to occur (time = 2400 X fs)
+	
+	err = SetActiveOutput ( kSndHWOutputNone, kTouchBiquad);	//	[2965804]
+	FailIf ( kIOReturnSuccess != err, Exit );
+
 	if ( !disableLoadingEQFromFile ) {
 		err = GetCustomEQCoefficients (layoutID, GetDeviceMatch (), speakerID, &eqPrefs);
 	} else {
 		err = kIOReturnSuccess;
 	}
 	
-	if (kIOReturnSuccess == err && NULL != eqPrefs) {
+	if ( kIOReturnSuccess == err && NULL != eqPrefs ) {
 		//	[2965804]	Changed order to load EQ prior to DRC.  Added muting of stream.
 		err = SndHWSetOutputBiquadGroup (eqPrefs->filterCount, eqPrefs->filter[0].coefficient);
+		FailIf ( kIOReturnSuccess != err, Exit );
 
 		DRCInfo				localDRC;
 
 		//	Set the dynamic range compressor coefficients.
-		localDRC.compressionRatioNumerator	= eqPrefs->drcCompressionRatioNumerator;
+		localDRC.compressionRatioNumerator		= eqPrefs->drcCompressionRatioNumerator;
 		localDRC.compressionRatioDenominator	= eqPrefs->drcCompressionRatioDenominator;
-		localDRC.threshold					= eqPrefs->drcThreshold;
-		localDRC.maximumVolume				= eqPrefs->drcMaximumVolume;
-		localDRC.enable						= (Boolean)((UInt32)(eqPrefs->drcEnable));
+		localDRC.threshold						= eqPrefs->drcThreshold;
+		localDRC.maximumVolume					= eqPrefs->drcMaximumVolume;
+		localDRC.enable							= (Boolean)((UInt32)(eqPrefs->drcEnable));
 
 		err = SndHWSetDRC ((DRCInfoPtr)&localDRC);
+		FailIf ( kIOReturnSuccess != err, Exit );
 	}
-	SetActiveOutput ( ParseDetectCollection(), kTouchBiquad);				//	[2965804] select target amplifier after EQ loading
-	Texas2_ReadRegister( kTexas2VolumeCtrlReg, volumeData );				//	[2965804] get cached volume setting
-	Texas2_WriteRegister( kTexas2VolumeCtrlReg, volumeData, kUPDATE_HW );	//	[2965804] and restore volume setting
-	
+	err = SetActiveOutput ( ParseDetectCollection(), kTouchBiquad);				//	[2965804] select target amplifier after EQ loading
+	FailIf ( kIOReturnSuccess != err, Exit );
+
+	err = Texas2_ReadRegister( kTexas2VolumeCtrlReg, volumeData );				//	[2965804] get cached volume setting
+	FailIf ( kIOReturnSuccess != err, Exit );
+
+	err = Texas2_WriteRegister( kTexas2VolumeCtrlReg, oldVolume );				//	[2965804] and restore volume setting
+	FailIf ( kIOReturnSuccess != err, Exit );
+
+Exit:
 	debugIOLog (3,  "- SelectOutputAndLoadEQ" );
 }
 	
@@ -3865,16 +3841,19 @@ IOReturn AppleTexas2Audio::SetMixerState ( UInt32 mixerState )
     UInt8		mixerData[kTexas2MIXERGAINwidth];
     
     err = Texas2_ReadRegister( kTexas2MixerLeftGainReg, mixerData );
-    if ( kIOReturnSuccess == err ) {
-		switch ( mixerState ) {
-			case kMix0dB:			mixerData[0] = 0x10;		break;
-			case kMixMute:			mixerData[0] = 0x00;		break;
-		}
-		err = Texas2_WriteRegister ( kTexas2MixerLeftGainReg, mixerData, kUPDATE_ALL );
-		if ( kIOReturnSuccess == err ) {
-			err = Texas2_WriteRegister ( kTexas2MixerRightGainReg, mixerData, kUPDATE_ALL );
-		}
-    }
+	FailIf ( kIOReturnSuccess != err, Exit );
+
+	switch ( mixerState ) {
+		case kMix0dB:			mixerData[0] = 0x10;		break;
+		case kMixMute:			mixerData[0] = 0x00;		break;
+	}
+	
+	err = Texas2_WriteRegister ( kTexas2MixerLeftGainReg, mixerData );
+	FailIf ( kIOReturnSuccess != err, Exit );
+
+	err = Texas2_WriteRegister ( kTexas2MixerRightGainReg, mixerData );
+	FailIf ( kIOReturnSuccess != err, Exit );
+Exit:
     return err;
 }
 
@@ -3901,6 +3880,7 @@ void AppleTexas2Audio::SetUnityGainAllPass (void) {
 	DRCInfo			localDRC;
 	int				numBiquads;
 	UInt8			mcr2Data[kTexas2MC2Rwidth];
+	IOReturn		err;
 
 	debugIOLog (3,  "+ SetUnityGainAllPass" );
 	
@@ -3908,10 +3888,13 @@ void AppleTexas2Audio::SetUnityGainAllPass (void) {
 	//	coefficients are applied, the filter will not become unstable
 	//	and result in output instability.
 	mcr2Data[0] = 0;
-	Texas2_ReadRegister( kTexas2MainCtrl2Reg, mcr2Data );
+	err = Texas2_ReadRegister( kTexas2MainCtrl2Reg, mcr2Data );
+	FailIf ( kIOReturnSuccess != err, Exit );
+
 	mcr2Data[0] &= ~( kFilter_MASK << kAP );
 	mcr2Data[0] |= ( kAllPassFilter << kAP );
-	Texas2_WriteRegister( kTexas2MainCtrl2Reg, mcr2Data, kFORCE_UPDATE_ALL );
+	err= Texas2_WriteRegister( kTexas2MainCtrl2Reg, mcr2Data );
+	FailIf ( kIOReturnSuccess != err, Exit );
 
 	numBiquads = kNumberOfTexas2BiquadsPerChannel;
 	
@@ -3920,8 +3903,10 @@ void AppleTexas2Audio::SetUnityGainAllPass (void) {
 	//	make sure that the shadow register accurately reflects the current state so that
 	//	 a data compare in the future does not cause a write operation to be bypassed).
 	for (biquadRefnum = 0; biquadRefnum < numBiquads; biquadRefnum++) {
-		Texas2_WriteRegister (kTexas2LeftBiquad0CtrlReg  + biquadRefnum, (UInt8*)kBiquad0db, kUPDATE_ALL);
-		Texas2_WriteRegister (kTexas2RightBiquad0CtrlReg + biquadRefnum, (UInt8*)kBiquad0db, kUPDATE_ALL);
+		err = Texas2_WriteRegister (kTexas2LeftBiquad0CtrlReg  + biquadRefnum, (UInt8*)kBiquad0db );
+		FailIf ( kIOReturnSuccess != err, Exit );
+		err = Texas2_WriteRegister (kTexas2RightBiquad0CtrlReg + biquadRefnum, (UInt8*)kBiquad0db );
+		FailIf ( kIOReturnSuccess != err, Exit );
 	}
 	SetBiquadInfoToUnityAllPass ();	//	update stored coefficients but don't touch hardware
 	
@@ -3933,8 +3918,9 @@ void AppleTexas2Audio::SetUnityGainAllPass (void) {
 	localDRC.maximumVolume					= kDefaultMaximumVolume;
 	localDRC.enable							= false;
 
-	SndHWSetDRC (&localDRC);
-	
+	err = SndHWSetDRC (&localDRC);
+	FailIf ( kIOReturnSuccess != err, Exit );
+Exit:	
 	debugIOLog (3,  "- SetUnityGainAllPass" );
 }
 
@@ -3999,7 +3985,8 @@ IOReturn AppleTexas2Audio::SndHWSetDRC( DRCInfoPtr theDRCSettings ) {
 		regData[DRC_Attack]			= kDRCAttachThreshold;
 		regData[DRC_Decay]			= kDRCDecayThreshold;
 	}
-	err = Texas2_WriteRegister( kTexas2DynamicRangeCtrlReg, regData, kFORCE_UPDATE_ALL );
+	err = Texas2_WriteRegister( kTexas2DynamicRangeCtrlReg, regData );
+	FailIf ( kIOReturnSuccess != err, Exit );
 
 	//	The current volume setting needs to be scaled against the new range of volume 
 	//	control and applied to the hardware.
@@ -4064,30 +4051,42 @@ IOReturn AppleTexas2Audio::SndHWSetOutputBiquadGroup( UInt32 biquadFilterCount, 
 	FailWithAction( 0 == biquadFilterCount || NULL == biquadCoefficients, err = -50, Exit );
 	err = kIOReturnSuccess;
 	
-	Texas2_ReadRegister( kTexas2MainCtrl2Reg, mcr2Data );			//	bypass the filter while loading coefficients
+	err = Texas2_ReadRegister( kTexas2MainCtrl2Reg, mcr2Data );			//	bypass the filter while loading coefficients
+	FailIf ( kIOReturnSuccess != err, Exit );
+
 	mcr2Data[0] &= ~( kFilter_MASK << kAP );
 	mcr2Data[0] |= ( kAllPassFilter << kAP );
-	Texas2_WriteRegister( kTexas2MainCtrl2Reg, mcr2Data, kUPDATE_ALL );
 
-	InitEQSerialMode( kSetFastLoadMode, kDontRestoreOnNormal );		//	pause the DSP while loading coefficients
+	err = Texas2_WriteRegister( kTexas2MainCtrl2Reg, mcr2Data );
+	FailIf ( kIOReturnSuccess != err, Exit );
+
+	err = InitEQSerialMode( kSetFastLoadMode, kDontRestoreOnNormal );		//	pause the DSP while loading coefficients
+	FailIf ( kIOReturnSuccess != err, Exit );
 	
 	index = 0;
 	do {
 		if( index >= ( biquadFilterCount / 2 ) ) {
 			err = SndHWSetOutputBiquad( kStreamFrontRight, index - ( biquadFilterCount / 2 ), biquadCoefficients );
+			FailIf ( kIOReturnSuccess != err, Exit );
 		} else {
 			err = SndHWSetOutputBiquad( kStreamFrontLeft, index, biquadCoefficients );
+			FailIf ( kIOReturnSuccess != err, Exit );
 		}
 		index++;
 		biquadCoefficients += kNumberOfCoefficientsPerBiquad;
 	} while ( ( index < biquadFilterCount ) && ( kIOReturnSuccess == err ) );
 	
-	InitEQSerialMode( kSetNormalLoadMode, kRestoreOnNormal );		//	enable the DSP
+	err = InitEQSerialMode( kSetNormalLoadMode, kRestoreOnNormal );		//	enable the DSP
+	FailIf ( kIOReturnSuccess != err, Exit );
 
-	Texas2_ReadRegister( kTexas2MainCtrl2Reg, mcr2Data );			//	enable the filters
+	err = Texas2_ReadRegister( kTexas2MainCtrl2Reg, mcr2Data );			//	enable the filters
+	FailIf ( kIOReturnSuccess != err, Exit );
+
 	mcr2Data[0] &= ~( kFilter_MASK << kAP );
 	mcr2Data[0] |= ( kNormalFilter << kAP );
-	Texas2_WriteRegister( kTexas2MainCtrl2Reg, mcr2Data, kUPDATE_ALL );
+	err = Texas2_WriteRegister( kTexas2MainCtrl2Reg, mcr2Data );
+	FailIf ( kIOReturnSuccess != err, Exit );
+
 Exit:
 	return err;
 }
@@ -4101,70 +4100,76 @@ IOReturn AppleTexas2Audio::SetOutputBiquadCoefficients( UInt32 streamID, UInt32 
 	FailWithAction ( kTexas2MaxBiquadRefNum < biquadRefNum || NULL == biquadCoefficients, err = -50, Exit );
 	FailWithAction ( kStreamStereo != streamID && kStreamFrontLeft != streamID && kStreamFrontRight != streamID, err = -50, Exit );
 
-	switch ( biquadRefNum )
-	{
+	switch ( biquadRefNum ) {
 		case kBiquadRefNum_0:
-			switch( streamID )
-			{
-				case kStreamFrontLeft:	err = Texas2_WriteRegister( kTexas2LeftBiquad0CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
-				case kStreamFrontRight:	err = Texas2_WriteRegister( kTexas2RightBiquad0CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
-				case kStreamStereo:		err = Texas2_WriteRegister( kTexas2LeftBiquad0CtrlReg, biquadCoefficients, kUPDATE_ALL );
-										err = Texas2_WriteRegister( kTexas2RightBiquad0CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
+			switch( streamID ) {
+				case kStreamFrontLeft:	err = Texas2_WriteRegister( kTexas2LeftBiquad0CtrlReg, biquadCoefficients );	break;
+				case kStreamFrontRight:	err = Texas2_WriteRegister( kTexas2RightBiquad0CtrlReg, biquadCoefficients );	break;
+				case kStreamStereo:		err = Texas2_WriteRegister( kTexas2LeftBiquad0CtrlReg, biquadCoefficients );
+										FailIf ( kIOReturnSuccess != err, Exit );
+										err = Texas2_WriteRegister( kTexas2RightBiquad0CtrlReg, biquadCoefficients );	break;
 			}
+			FailIf ( kIOReturnSuccess != err, Exit );
 			break;
 		case kBiquadRefNum_1:
-			switch( streamID )
-			{
-				case kStreamFrontLeft:	err = Texas2_WriteRegister( kTexas2LeftBiquad1CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
-				case kStreamFrontRight:	err = Texas2_WriteRegister( kTexas2RightBiquad1CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
-				case kStreamStereo:		err = Texas2_WriteRegister( kTexas2LeftBiquad1CtrlReg, biquadCoefficients, kUPDATE_ALL );
-										err = Texas2_WriteRegister( kTexas2RightBiquad1CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
+			switch( streamID ) {
+				case kStreamFrontLeft:	err = Texas2_WriteRegister( kTexas2LeftBiquad1CtrlReg, biquadCoefficients );	break;
+				case kStreamFrontRight:	err = Texas2_WriteRegister( kTexas2RightBiquad1CtrlReg, biquadCoefficients );	break;
+				case kStreamStereo:		err = Texas2_WriteRegister( kTexas2LeftBiquad1CtrlReg, biquadCoefficients );
+										FailIf ( kIOReturnSuccess != err, Exit );
+										err = Texas2_WriteRegister( kTexas2RightBiquad1CtrlReg, biquadCoefficients );	break;
 			}
+			FailIf ( kIOReturnSuccess != err, Exit );
 			break;
 		case kBiquadRefNum_2:
-			switch( streamID )
-			{
-				case kStreamFrontLeft:	err = Texas2_WriteRegister( kTexas2LeftBiquad2CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
-				case kStreamFrontRight:	err = Texas2_WriteRegister( kTexas2RightBiquad2CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
-				case kStreamStereo:		err = Texas2_WriteRegister( kTexas2LeftBiquad2CtrlReg, biquadCoefficients, kUPDATE_ALL );
-										err = Texas2_WriteRegister( kTexas2RightBiquad2CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
+			switch( streamID ) {
+				case kStreamFrontLeft:	err = Texas2_WriteRegister( kTexas2LeftBiquad2CtrlReg, biquadCoefficients );	break;
+				case kStreamFrontRight:	err = Texas2_WriteRegister( kTexas2RightBiquad2CtrlReg, biquadCoefficients );	break;
+				case kStreamStereo:		err = Texas2_WriteRegister( kTexas2LeftBiquad2CtrlReg, biquadCoefficients );
+										FailIf ( kIOReturnSuccess != err, Exit );
+										err = Texas2_WriteRegister( kTexas2RightBiquad2CtrlReg, biquadCoefficients );	break;
 			}
+			FailIf ( kIOReturnSuccess != err, Exit );
 			break;
 		case kBiquadRefNum_3:
-			switch( streamID )
-			{
-				case kStreamFrontLeft:	err = Texas2_WriteRegister( kTexas2LeftBiquad3CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
-				case kStreamFrontRight:	err = Texas2_WriteRegister( kTexas2RightBiquad3CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
-				case kStreamStereo:		err = Texas2_WriteRegister( kTexas2LeftBiquad3CtrlReg, biquadCoefficients, kUPDATE_ALL );
-										err = Texas2_WriteRegister( kTexas2RightBiquad3CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
+			switch( streamID ) {
+				case kStreamFrontLeft:	err = Texas2_WriteRegister( kTexas2LeftBiquad3CtrlReg, biquadCoefficients );	break;
+				case kStreamFrontRight:	err = Texas2_WriteRegister( kTexas2RightBiquad3CtrlReg, biquadCoefficients );	break;
+				case kStreamStereo:		err = Texas2_WriteRegister( kTexas2LeftBiquad3CtrlReg, biquadCoefficients );
+										FailIf ( kIOReturnSuccess != err, Exit );
+										err = Texas2_WriteRegister( kTexas2RightBiquad3CtrlReg, biquadCoefficients );	break;
 			}
+			FailIf ( kIOReturnSuccess != err, Exit );
 			break;
 		case kBiquadRefNum_4:
-			switch( streamID )
-			{
-				case kStreamFrontLeft:	err = Texas2_WriteRegister( kTexas2LeftBiquad4CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
-				case kStreamFrontRight:	err = Texas2_WriteRegister( kTexas2RightBiquad4CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
-				case kStreamStereo:		err = Texas2_WriteRegister( kTexas2LeftBiquad4CtrlReg, biquadCoefficients, kUPDATE_ALL );
-										err = Texas2_WriteRegister( kTexas2RightBiquad4CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
+			switch( streamID ) {
+				case kStreamFrontLeft:	err = Texas2_WriteRegister( kTexas2LeftBiquad4CtrlReg, biquadCoefficients );	break;
+				case kStreamFrontRight:	err = Texas2_WriteRegister( kTexas2RightBiquad4CtrlReg, biquadCoefficients );	break;
+				case kStreamStereo:		err = Texas2_WriteRegister( kTexas2LeftBiquad4CtrlReg, biquadCoefficients );
+										FailIf ( kIOReturnSuccess != err, Exit );
+										err = Texas2_WriteRegister( kTexas2RightBiquad4CtrlReg, biquadCoefficients );	break;
 			}
+			FailIf ( kIOReturnSuccess != err, Exit );
 			break;
 		case kBiquadRefNum_5:
-			switch( streamID )
-			{
-				case kStreamFrontLeft:	err = Texas2_WriteRegister( kTexas2LeftBiquad5CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
-				case kStreamFrontRight:	err = Texas2_WriteRegister( kTexas2RightBiquad5CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
-				case kStreamStereo:		err = Texas2_WriteRegister( kTexas2LeftBiquad5CtrlReg, biquadCoefficients, kUPDATE_ALL );
-										err = Texas2_WriteRegister( kTexas2RightBiquad5CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
+			switch( streamID ) {
+				case kStreamFrontLeft:	err = Texas2_WriteRegister( kTexas2LeftBiquad5CtrlReg, biquadCoefficients );	break;
+				case kStreamFrontRight:	err = Texas2_WriteRegister( kTexas2RightBiquad5CtrlReg, biquadCoefficients );	break;
+				case kStreamStereo:		err = Texas2_WriteRegister( kTexas2LeftBiquad5CtrlReg, biquadCoefficients );
+										FailIf ( kIOReturnSuccess != err, Exit );
+										err = Texas2_WriteRegister( kTexas2RightBiquad5CtrlReg, biquadCoefficients );	break;
 			}
+			FailIf ( kIOReturnSuccess != err, Exit );
 			break;
 		case kBiquadRefNum_6:
-			switch( streamID )
-			{
-				case kStreamFrontLeft:	err = Texas2_WriteRegister( kTexas2LeftBiquad6CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
-				case kStreamFrontRight:	err = Texas2_WriteRegister( kTexas2RightBiquad6CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
-				case kStreamStereo:		err = Texas2_WriteRegister( kTexas2LeftBiquad6CtrlReg, biquadCoefficients, kUPDATE_ALL );
-										err = Texas2_WriteRegister( kTexas2RightBiquad6CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
+			switch( streamID ) {
+				case kStreamFrontLeft:	err = Texas2_WriteRegister( kTexas2LeftBiquad6CtrlReg, biquadCoefficients );	break;
+				case kStreamFrontRight:	err = Texas2_WriteRegister( kTexas2RightBiquad6CtrlReg, biquadCoefficients );	break;
+				case kStreamStereo:		err = Texas2_WriteRegister( kTexas2LeftBiquad6CtrlReg, biquadCoefficients );
+										FailIf ( kIOReturnSuccess != err, Exit );
+										err = Texas2_WriteRegister( kTexas2RightBiquad6CtrlReg, biquadCoefficients );	break;
 			}
+			FailIf ( kIOReturnSuccess != err, Exit );
 			break;
 	}
 

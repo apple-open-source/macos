@@ -81,6 +81,10 @@ protected:
 	// PowerMaxAdj = PowerMaxROM - AdjStaticFactor
 	SensorValue powerMaxAdj;
 
+	// [3751599] pump max & min RPMs
+	ControlValue outputMaxForPump;
+	ControlValue outputMinForPump;
+
 	// If we've been at max cooling for 30 seconds and are still making no progress,
 	// we have to put the machine to sleep.  This counter is used to determine how
 	// many seconds we've been at max cooling.

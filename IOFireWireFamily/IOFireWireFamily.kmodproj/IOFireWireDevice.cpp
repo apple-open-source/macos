@@ -1603,7 +1603,17 @@ IOReturn IOFireWireDevice::configureNode( void )
 		{
 			fControl->useHalfSizePackets();
 		}
-    }
+		
+		//
+		// tell controller to disable this phy port on sleep
+		//
+		
+		if( fNodeFlags & kIOFWDisablePhyOnSleep && (hopCount() == 1) )
+		{
+//			IOLog( "IOFireWireDevice::configureNode - kIOFWDisablePhyOnSleep %lx\n", fNodeID );
+			fControl->disablePhyPortOnSleepForNodeID( fNodeID & 0x3f );
+		}
+	}
 
 	fControl->openGate();
 	

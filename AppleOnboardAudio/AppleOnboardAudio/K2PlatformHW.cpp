@@ -1587,8 +1587,8 @@ IOReturn	K2HWPlatform::setPlatformState ( PlatformStateStructPtr inState ) {
 		FailIf ( kIOReturnSuccess != result, Exit );
 	}
 	
-	if ( ( kGPIO_Unknown != inState->gpio.gpio_AnalogCodecReset ) && ( inState->gpio.gpio_DigitalCodecReset != getCodecReset ( kCODEC_RESET_Analog ) ) ) {
-		debugIOLog (3,  "K2HWPlatform::setPlatformState setCodecReset ( kCODEC_RESET_Analog, %d )", inState->gpio.gpio_DigitalCodecReset );
+	if ( ( kGPIO_Unknown != inState->gpio.gpio_AnalogCodecReset ) && ( inState->gpio.gpio_AnalogCodecReset != getCodecReset ( kCODEC_RESET_Analog ) ) ) {
+		debugIOLog (3,  "K2HWPlatform::setPlatformState setCodecReset ( kCODEC_RESET_Analog, %d )", inState->gpio.gpio_AnalogCodecReset );
 		result = setCodecReset ( kCODEC_RESET_Analog, inState->gpio.gpio_AnalogCodecReset );
 		FailIf ( kIOReturnSuccess != result, Exit );
 	}

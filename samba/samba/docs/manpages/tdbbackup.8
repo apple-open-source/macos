@@ -31,7 +31,7 @@ tdbbackup \- tool for backing up and for validating the integrity of samba .tdb 
 .SH "DESCRIPTION"
 
 .PP
-This tool is part of the \fBSamba\fR(1) suite\&.
+This tool is part of the \fBsamba\fR(1) suite\&.
 
 .PP
 \fBtdbbackup\fR is a tool that may be used to backup samba \&.tdb files\&. This tool may also be used to verify the integrity of the \&.tdb files prior to samba startup, in which case, if it find file damage and it finds a prior backup it will restore the backup file\&.
@@ -42,16 +42,13 @@ This tool is part of the \fBSamba\fR(1) suite\&.
 \-h
 Get help information\&.
 
-
 .TP
 \-s suffix
 The \fB\-s\fR option allows the adminisistrator to specify a file backup extension\&. This way it is possible to keep a history of tdb backup files by using a new suffix for each backup\&.
 
-
 .TP
 \-v
 The \fB\-v\fR will check the database for damages (currupt data) which if detected causes the backup to be restored\&.
-
 
 .SH "COMMANDS"
 
@@ -76,15 +73,12 @@ Samba \&.tdb files are stored in various locations, be sure to run backup all \&
 .TP 3
 \(bu
 \fBsecrets\&.tdb\fR \- usual location is in the /usr/local/samba/private directory, or on some systems in /etc/samba\&.
-
 .TP
 \(bu
 \fBpassdb\&.tdb\fR \- usual location is in the /usr/local/samba/private directory, or on some systems in /etc/samba\&.
-
 .TP
 \(bu
 \fB*\&.tdb\fR located in the /usr/local/samba/var directory or on some systems in the /var/cache or /var/lib/samba directories\&.
-
 .LP
 
 .SH "VERSION"

@@ -146,3 +146,7 @@ IOFireWireLink :: createBufferFillIsochPort ()
 	return NULL ;
 }
  
+void IOFireWireLink::disablePHYPortOnSleep( UInt32 mask )
+{
+	// nothing to do
+}

@@ -47,7 +47,7 @@
 
 extern vchar_t *eay_str2asn1dn __P((char *, int));
 extern int eay_cmp_asn1dn __P((vchar_t *, vchar_t *));
-extern int eay_check_x509cert __P((vchar_t *, char *));
+extern int eay_check_x509cert __P((vchar_t *, char *, int));
 extern vchar_t *eay_get_x509asn1subjectname __P((vchar_t *));
 extern int eay_get_x509subjectaltname __P((vchar_t *, char **, int *, int));
 extern char *eay_get_x509text __P((vchar_t *));

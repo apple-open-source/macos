@@ -89,6 +89,47 @@ typedef UInt32	SCSICmdField30Bit;
 typedef UInt32	SCSICmdField31Bit;
 typedef UInt32	SCSICmdField4Byte;
 
+// 5 Bytes or smaller fields.
+typedef UInt64	SCSICmdField33Bit;
+typedef UInt64	SCSICmdField34Bit;
+typedef UInt64	SCSICmdField35Bit;
+typedef UInt64	SCSICmdField36Bit;
+typedef UInt64	SCSICmdField37Bit;
+typedef UInt64	SCSICmdField38Bit;
+typedef UInt64	SCSICmdField39Bit;
+typedef UInt64	SCSICmdField5Byte;
+
+// 6 Bytes or smaller fields.
+typedef UInt64	SCSICmdField41Bit;
+typedef UInt64	SCSICmdField42Bit;
+typedef UInt64	SCSICmdField43Bit;
+typedef UInt64	SCSICmdField44Bit;
+typedef UInt64	SCSICmdField45Bit;
+typedef UInt64	SCSICmdField46Bit;
+typedef UInt64	SCSICmdField47Bit;
+typedef UInt64	SCSICmdField6Byte;
+
+// 7 Bytes or smaller fields.
+typedef UInt64	SCSICmdField49Bit;
+typedef UInt64	SCSICmdField50Bit;
+typedef UInt64	SCSICmdField51Bit;
+typedef UInt64	SCSICmdField52Bit;
+typedef UInt64	SCSICmdField53Bit;
+typedef UInt64	SCSICmdField54Bit;
+typedef UInt64	SCSICmdField55Bit;
+typedef UInt64	SCSICmdField7Byte;
+
+// 8 Bytes or smaller fields.
+typedef UInt64	SCSICmdField57Bit;
+typedef UInt64	SCSICmdField58Bit;
+typedef UInt64	SCSICmdField59Bit;
+typedef UInt64	SCSICmdField60Bit;
+typedef UInt64	SCSICmdField61Bit;
+typedef UInt64	SCSICmdField62Bit;
+typedef UInt64	SCSICmdField63Bit;
+typedef UInt64	SCSICmdField8Byte;
+
+
 #pragma mark Field Mask Definitions
 // These are masks that are used to verify that the values passed into the
 // parameters for the fields are not larger than the field size.
@@ -134,14 +175,66 @@ enum
 // 4 Byte or smaller fields.
 enum
 {
-	kSCSICmdFieldMask25Bit 	= 0x01FFFFFF,
-	kSCSICmdFieldMask26Bit 	= 0x03FFFFFF,
-	kSCSICmdFieldMask27Bit 	= 0x07FFFFFF,
-	kSCSICmdFieldMask28Bit 	= 0x0FFFFFFF,
-	kSCSICmdFieldMask29Bit 	= 0x1FFFFFFF,
-	kSCSICmdFieldMask30Bit 	= 0x3FFFFFFF,
-	kSCSICmdFieldMask31Bit 	= 0x7FFFFFFF,
-	kSCSICmdFieldMask4Byte 	= 0xFFFFFFFF
+	kSCSICmdFieldMask25Bit 	= 0x01FFFFFFUL,
+	kSCSICmdFieldMask26Bit 	= 0x03FFFFFFUL,
+	kSCSICmdFieldMask27Bit 	= 0x07FFFFFFUL,
+	kSCSICmdFieldMask28Bit 	= 0x0FFFFFFFUL,
+	kSCSICmdFieldMask29Bit 	= 0x1FFFFFFFUL,
+	kSCSICmdFieldMask30Bit 	= 0x3FFFFFFFUL,
+	kSCSICmdFieldMask31Bit 	= 0x7FFFFFFFUL,
+	kSCSICmdFieldMask4Byte 	= 0xFFFFFFFFUL
+};
+
+// 5 Byte or smaller fields.
+enum
+{
+	kSCSICmdFieldMask33Bit 	= 0x01FFFFFFFFULL,
+	kSCSICmdFieldMask34Bit 	= 0x03FFFFFFFFULL,
+	kSCSICmdFieldMask35Bit 	= 0x07FFFFFFFFULL,
+	kSCSICmdFieldMask36Bit 	= 0x0FFFFFFFFFULL,
+	kSCSICmdFieldMask37Bit 	= 0x1FFFFFFFFFULL,
+	kSCSICmdFieldMask38Bit 	= 0x3FFFFFFFFFULL,
+	kSCSICmdFieldMask39Bit 	= 0x7FFFFFFFFFULL,
+	kSCSICmdFieldMask5Byte 	= 0xFFFFFFFFFFULL
+};
+
+// 6 Byte or smaller fields.
+enum
+{
+	kSCSICmdFieldMask41Bit 	= 0x01FFFFFFFFFFULL,
+	kSCSICmdFieldMask42Bit 	= 0x03FFFFFFFFFFULL,
+	kSCSICmdFieldMask43Bit 	= 0x07FFFFFFFFFFULL,
+	kSCSICmdFieldMask44Bit 	= 0x0FFFFFFFFFFFULL,
+	kSCSICmdFieldMask45Bit 	= 0x1FFFFFFFFFFFULL,
+	kSCSICmdFieldMask46Bit 	= 0x3FFFFFFFFFFFULL,
+	kSCSICmdFieldMask47Bit 	= 0x7FFFFFFFFFFFULL,
+	kSCSICmdFieldMask6Byte 	= 0xFFFFFFFFFFFFULL
+};
+
+// 7 Byte or smaller fields.
+enum
+{
+	kSCSICmdFieldMask49Bit 	= 0x01FFFFFFFFFFFFULL,
+	kSCSICmdFieldMask50Bit 	= 0x03FFFFFFFFFFFFULL,
+	kSCSICmdFieldMask51Bit 	= 0x07FFFFFFFFFFFFULL,
+	kSCSICmdFieldMask52Bit 	= 0x0FFFFFFFFFFFFFULL,
+	kSCSICmdFieldMask53Bit 	= 0x1FFFFFFFFFFFFFULL,
+	kSCSICmdFieldMask54Bit 	= 0x3FFFFFFFFFFFFFULL,
+	kSCSICmdFieldMask55Bit 	= 0x7FFFFFFFFFFFFFULL,
+	kSCSICmdFieldMask7Byte 	= 0xFFFFFFFFFFFFFFULL
+};
+
+// 8 Byte or smaller fields.
+enum
+{
+	kSCSICmdFieldMask57Bit 	= 0x01FFFFFFFFFFFFFFULL,
+	kSCSICmdFieldMask58Bit 	= 0x03FFFFFFFFFFFFFFULL,
+	kSCSICmdFieldMask59Bit 	= 0x07FFFFFFFFFFFFFFULL,
+	kSCSICmdFieldMask60Bit 	= 0x0FFFFFFFFFFFFFFFULL,
+	kSCSICmdFieldMask61Bit 	= 0x1FFFFFFFFFFFFFFFULL,
+	kSCSICmdFieldMask62Bit 	= 0x3FFFFFFFFFFFFFFFULL,
+	kSCSICmdFieldMask63Bit 	= 0x7FFFFFFFFFFFFFFFULL,
+	kSCSICmdFieldMask8Byte 	= 0xFFFFFFFFFFFFFFFFULL
 };
 
 #endif	/* _IOKIT_SCSI_COMMAND_DEFINITIONS_H_ */

@@ -69,6 +69,8 @@ enum {
     kPB65MachineType,
     kPB54MachineType,
     kPB55MachineType,
+    kPB56MachineType,
+    kPB57MachineType,
     kMaxMachineTypes
 };
 

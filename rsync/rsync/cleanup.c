@@ -72,7 +72,7 @@ static char *cleanup_new_fname;
 static struct file_struct *cleanup_file;
 static int cleanup_fd1, cleanup_fd2;
 static struct map_struct *cleanup_buf;
-static int cleanup_pid = 0;
+static pid_t cleanup_pid = 0;
 extern int io_error;
 
 pid_t cleanup_child_pid = -1;
@@ -118,21 +118,24 @@ void _exit_cleanup(int code, const char *file, int line)
 		if (cleanup_fd2 != -1) close(cleanup_fd2);
 		finish_transfer(cleanup_new_fname, fname, cleanup_file);
 	}
-	io_flush();
+	io_flush(FULL_FLUSH);
 	if (cleanup_fname)
 		do_unlink(cleanup_fname);
 	if (code) {
 		kill_all(SIGUSR1);
 	}
-	if ((cleanup_pid != 0) && (cleanup_pid == (int) getpid())) {
+	if (cleanup_pid && cleanup_pid == getpid()) {
 		char *pidf = lp_pid_file();
 		if (pidf && *pidf) {
 			unlink(lp_pid_file());
 		}
 	}
 
-	if (code == 0 && (io_error || log_got_error)) {
-		code = RERR_PARTIAL;
+	if (code == 0) {
+		if ((io_error & ~IOERR_VANISHED) || log_got_error)
+			code = RERR_PARTIAL;
+		else if (io_error)
+			code = RERR_VANISHED;
 	}
 
 	if (code) log_exit(code, file, line);
@@ -163,7 +166,7 @@ void cleanup_set(char *fnametmp, char *fname, struct file_struct *file,
 	cleanup_fd2 = fd2;
 }
 
-void cleanup_set_pid(int pid)
+void cleanup_set_pid(pid_t pid)
 {
 	cleanup_pid = pid;
 }

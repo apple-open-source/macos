@@ -655,3 +655,8 @@ IOReturn IOPlatformSensor::sendForceUpdate( void )
 
 	return(status);
 }
+
+IOService *IOPlatformSensor::getSensorDriver( void )
+{
+	return sensorDriver;
+}

@@ -463,12 +463,12 @@ ADS_STATUS ads_krb5_set_password(const char *kdc_host, const char *princ,
 
 	ADS_STATUS aret;
 	krb5_error_code ret;
-	krb5_context context;
+	krb5_context context = NULL;
 	krb5_principal principal;
 	char *princ_name;
 	char *realm;
 	krb5_creds creds, *credsp;
-	krb5_ccache ccache;
+	krb5_ccache ccache = NULL;
 
 	ret = krb5_init_context(&context);
 	if (ret) {
@@ -578,7 +578,7 @@ static ADS_STATUS ads_krb5_chg_password(const char *kdc_host,
 {
     ADS_STATUS aret;
     krb5_error_code ret;
-    krb5_context context;
+    krb5_context context = NULL;
     krb5_principal princ;
     krb5_get_init_creds_opt opts;
     krb5_creds creds;
@@ -642,7 +642,7 @@ ADS_STATUS kerberos_set_password(const char *kpasswd_server,
 {
     int ret;
 
-    if ((ret = kerberos_kinit_password(auth_principal, auth_password, time_offset))) {
+    if ((ret = kerberos_kinit_password(auth_principal, auth_password, time_offset, NULL))) {
 	DEBUG(1,("Failed kinit for principal %s (%s)\n", auth_principal, error_message(ret)));
 	return ADS_ERROR_KRB5(ret);
     }

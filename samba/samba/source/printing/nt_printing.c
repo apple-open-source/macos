@@ -2,7 +2,7 @@
  *  Unix SMB/CIFS implementation.
  *  RPC Pipe client / server routines
  *  Copyright (C) Andrew Tridgell              1992-2000,
- *  Copyright (C) Jean François Micouleau      1998-2000.
+ *  Copyright (C) Jean FranÃ§ois Micouleau      1998-2000.
  *  Copyright (C) Gerald Carter                2002-2003.
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -365,6 +365,19 @@ BOOL nt_printing_init(void)
 
 
 	return True;
+}
+
+/*******************************************************************
+ Function to allow filename parsing "the old way".
+********************************************************************/
+
+static BOOL driver_unix_convert(char *name,connection_struct *conn,
+		char *saved_last_component, BOOL *bad_path, SMB_STRUCT_STAT *pst)
+{
+	unix_format(name);
+	unix_clean_name(name);
+	trim_string(name,"/","/");
+	return unix_convert(name, conn, saved_last_component, bad_path, pst);
 }
 
 /*******************************************************************
@@ -987,12 +1000,12 @@ static int file_version_is_newer(connection_struct *conn, fstring new_file, fstr
 	/* Get file version info (if available) for previous file (if it exists) */
 	pstrcpy(filepath, old_file);
 
-	unix_convert(filepath,conn,NULL,&bad_path,&stat_buf);
+	driver_unix_convert(filepath,conn,NULL,&bad_path,&stat_buf);
 
 	fsp = open_file_shared(conn, filepath, &stat_buf,
 						   SET_OPEN_MODE(DOS_OPEN_RDONLY),
 						   (FILE_FAIL_IF_NOT_EXIST|FILE_EXISTS_OPEN),
-						   0, 0, &access_mode, &action);
+						   FILE_ATTRIBUTE_NORMAL, 0, &access_mode, &action);
 	if (!fsp) {
 		/* Old file not found, so by definition new file is in fact newer */
 		DEBUG(10,("file_version_is_newer: Can't open old file [%s], errno = %d\n",
@@ -1016,12 +1029,12 @@ static int file_version_is_newer(connection_struct *conn, fstring new_file, fstr
 
 	/* Get file version info (if available) for new file */
 	pstrcpy(filepath, new_file);
-	unix_convert(filepath,conn,NULL,&bad_path,&stat_buf);
+	driver_unix_convert(filepath,conn,NULL,&bad_path,&stat_buf);
 
 	fsp = open_file_shared(conn, filepath, &stat_buf,
 						   SET_OPEN_MODE(DOS_OPEN_RDONLY),
 						   (FILE_FAIL_IF_NOT_EXIST|FILE_EXISTS_OPEN),
-						   0, 0, &access_mode, &action);
+						   FILE_ATTRIBUTE_NORMAL, 0, &access_mode, &action);
 	if (!fsp) {
 		/* New file not found, this shouldn't occur if the caller did its job */
 		DEBUG(3,("file_version_is_newer: Can't open new file [%s], errno = %d\n",
@@ -1132,12 +1145,12 @@ static uint32 get_correct_cversion(const char *architecture, fstring driverpath_
 	 * deriver the cversion. */
 	slprintf(driverpath, sizeof(driverpath)-1, "%s/%s", architecture, driverpath_in);
 
-	unix_convert(driverpath,conn,NULL,&bad_path,&st);
+	driver_unix_convert(driverpath,conn,NULL,&bad_path,&st);
 
 	fsp = open_file_shared(conn, driverpath, &st,
 						   SET_OPEN_MODE(DOS_OPEN_RDONLY),
 						   (FILE_FAIL_IF_NOT_EXIST|FILE_EXISTS_OPEN),
-						   0, 0, &access_mode, &action);
+						   FILE_ATTRIBUTE_NORMAL, 0, &access_mode, &action);
 	if (!fsp) {
 		DEBUG(3,("get_correct_cversion: Can't open file [%s], errno = %d\n",
 				driverpath, errno));
@@ -1403,6 +1416,8 @@ BOOL move_driver_to_download_area(NT_PRINTER_DRIVER_INFO_LEVEL driver_abstract, 
 	pstring inbuf;
 	pstring outbuf;
 	fstring res_type;
+	BOOL bad_path;
+	SMB_STRUCT_STAT st;
 	int ver = 0;
 	int i;
 
@@ -1454,6 +1469,7 @@ BOOL move_driver_to_download_area(NT_PRINTER_DRIVER_INFO_LEVEL driver_abstract, 
 	 */
 	DEBUG(5,("Creating first directory\n"));
 	slprintf(new_dir, sizeof(new_dir)-1, "%s/%d", architecture, driver->cversion);
+	driver_unix_convert(new_dir, conn, NULL, &bad_path, &st);
 	mkdir_internal(conn, new_dir);
 
 	/* For each driver file, archi\filexxx.yyy, if there is a duplicate file
@@ -1480,7 +1496,8 @@ BOOL move_driver_to_download_area(NT_PRINTER_DRIVER_INFO_LEVEL driver_abstract, 
 		slprintf(old_name, sizeof(old_name)-1, "%s/%s", new_dir, driver->driverpath);	
 		if (ver != -1 && (ver=file_version_is_newer(conn, new_name, old_name)) > 0) {
 			NTSTATUS status;
-			status = rename_internals(conn, new_name, old_name, True);
+			driver_unix_convert(new_name, conn, NULL, &bad_path, &st);
+			status = rename_internals(conn, new_name, old_name, 0, True);
 			if (!NT_STATUS_IS_OK(status)) {
 				DEBUG(0,("move_driver_to_download_area: Unable to rename [%s] to [%s]\n",
 						new_name, old_name));
@@ -1488,9 +1505,10 @@ BOOL move_driver_to_download_area(NT_PRINTER_DRIVER_INFO_LEVEL driver_abstract, 
 				unlink_internals(conn, 0, new_name);
 				ver = -1;
 			}
-		}
-		else
+		} else {
+			driver_unix_convert(new_name, conn, NULL, &bad_path, &st);
 			unlink_internals(conn, 0, new_name);
+		}
 	}
 
 	if (driver->datafile && strlen(driver->datafile)) {
@@ -1499,7 +1517,8 @@ BOOL move_driver_to_download_area(NT_PRINTER_DRIVER_INFO_LEVEL driver_abstract, 
 			slprintf(old_name, sizeof(old_name)-1, "%s/%s", new_dir, driver->datafile);	
 			if (ver != -1 && (ver=file_version_is_newer(conn, new_name, old_name)) > 0) {
 				NTSTATUS status;
-				status = rename_internals(conn, new_name, old_name, True);
+				driver_unix_convert(new_name, conn, NULL, &bad_path, &st);
+				status = rename_internals(conn, new_name, old_name, 0, True);
 				if (!NT_STATUS_IS_OK(status)) {
 					DEBUG(0,("move_driver_to_download_area: Unable to rename [%s] to [%s]\n",
 							new_name, old_name));
@@ -1507,9 +1526,10 @@ BOOL move_driver_to_download_area(NT_PRINTER_DRIVER_INFO_LEVEL driver_abstract, 
 					unlink_internals(conn, 0, new_name);
 					ver = -1;
 				}
-			}
-			else
+			} else {
+				driver_unix_convert(new_name, conn, NULL, &bad_path, &st);
 				unlink_internals(conn, 0, new_name);
+			}
 		}
 	}
 
@@ -1520,7 +1540,8 @@ BOOL move_driver_to_download_area(NT_PRINTER_DRIVER_INFO_LEVEL driver_abstract, 
 			slprintf(old_name, sizeof(old_name)-1, "%s/%s", new_dir, driver->configfile);	
 			if (ver != -1 && (ver=file_version_is_newer(conn, new_name, old_name)) > 0) {
 				NTSTATUS status;
-				status = rename_internals(conn, new_name, old_name, True);
+				driver_unix_convert(new_name, conn, NULL, &bad_path, &st);
+				status = rename_internals(conn, new_name, old_name, 0, True);
 				if (!NT_STATUS_IS_OK(status)) {
 					DEBUG(0,("move_driver_to_download_area: Unable to rename [%s] to [%s]\n",
 							new_name, old_name));
@@ -1528,9 +1549,10 @@ BOOL move_driver_to_download_area(NT_PRINTER_DRIVER_INFO_LEVEL driver_abstract, 
 					unlink_internals(conn, 0, new_name);
 					ver = -1;
 				}
-			}
-			else
+			} else {
+				driver_unix_convert(new_name, conn, NULL, &bad_path, &st);
 				unlink_internals(conn, 0, new_name);
+			}
 		}
 	}
 
@@ -1542,7 +1564,8 @@ BOOL move_driver_to_download_area(NT_PRINTER_DRIVER_INFO_LEVEL driver_abstract, 
 			slprintf(old_name, sizeof(old_name)-1, "%s/%s", new_dir, driver->helpfile);	
 			if (ver != -1 && (ver=file_version_is_newer(conn, new_name, old_name)) > 0) {
 				NTSTATUS status;
-				status = rename_internals(conn, new_name, old_name, True);
+				driver_unix_convert(new_name, conn, NULL, &bad_path, &st);
+				status = rename_internals(conn, new_name, old_name, 0, True);
 				if (!NT_STATUS_IS_OK(status)) {
 					DEBUG(0,("move_driver_to_download_area: Unable to rename [%s] to [%s]\n",
 							new_name, old_name));
@@ -1550,9 +1573,10 @@ BOOL move_driver_to_download_area(NT_PRINTER_DRIVER_INFO_LEVEL driver_abstract, 
 					unlink_internals(conn, 0, new_name);
 					ver = -1;
 				}
-			}
-			else
+			} else {
+				driver_unix_convert(new_name, conn, NULL, &bad_path, &st);
 				unlink_internals(conn, 0, new_name);
+			}
 		}
 	}
 
@@ -1573,7 +1597,8 @@ BOOL move_driver_to_download_area(NT_PRINTER_DRIVER_INFO_LEVEL driver_abstract, 
 				slprintf(old_name, sizeof(old_name)-1, "%s/%s", new_dir, driver->dependentfiles[i]);	
 				if (ver != -1 && (ver=file_version_is_newer(conn, new_name, old_name)) > 0) {
 					NTSTATUS status;
-					status = rename_internals(conn, new_name, old_name, True);
+					driver_unix_convert(new_name, conn, NULL, &bad_path, &st);
+					status = rename_internals(conn, new_name, old_name, 0, True);
 					if (!NT_STATUS_IS_OK(status)) {
 						DEBUG(0,("move_driver_to_download_area: Unable to rename [%s] to [%s]\n",
 								new_name, old_name));
@@ -1581,9 +1606,10 @@ BOOL move_driver_to_download_area(NT_PRINTER_DRIVER_INFO_LEVEL driver_abstract, 
 						unlink_internals(conn, 0, new_name);
 						ver = -1;
 					}
-				}
-				else
+				} else {
+					driver_unix_convert(new_name, conn, NULL, &bad_path, &st);
 					unlink_internals(conn, 0, new_name);
+				}
 			}
 		NextDriver: ;
 		}
@@ -2166,7 +2192,7 @@ NT_DEVICEMODE *construct_nt_devicemode(const fstring default_devicename)
 	nt_devmode->mediatype        = 0;
 	nt_devmode->dithertype       = 0;
 
-	/* non utilisés par un driver d'imprimante */
+	/* non utilisÃ©s par un driver d'imprimante */
 	nt_devmode->logpixels        = 0;
 	nt_devmode->bitsperpel       = 0;
 	nt_devmode->pelswidth        = 0;
@@ -2537,7 +2563,7 @@ static BOOL map_nt_printer_info2_to_dsspooler(NT_PRINTER_INFO_LEVEL_2 *info2)
 	map_sz_into_ctr(ctr, SPOOL_REG_PRINTERNAME, info2->sharename);
 	map_sz_into_ctr(ctr, SPOOL_REG_SHORTSERVERNAME, global_myname());
 
-	get_myfullname(longname);
+	get_mydnsfullname(longname);
 	map_sz_into_ctr(ctr, SPOOL_REG_SERVERNAME, longname);
 
 	asprintf(&allocated_string, "\\\\%s\\%s", longname, info2->sharename);
@@ -2576,7 +2602,8 @@ static BOOL map_nt_printer_info2_to_dsspooler(NT_PRINTER_INFO_LEVEL_2 *info2)
 	return True;
 }
 
-static void store_printer_guid(NT_PRINTER_INFO_LEVEL_2 *info2, GUID guid)
+static void store_printer_guid(NT_PRINTER_INFO_LEVEL_2 *info2, 
+			       struct uuid guid)
 {
 	int i;
 	REGVAL_CTR *ctr=NULL;
@@ -2588,7 +2615,7 @@ static void store_printer_guid(NT_PRINTER_INFO_LEVEL_2 *info2, GUID guid)
 
 	regval_ctr_delvalue(ctr, "objectGUID");
 	regval_ctr_addvalue(ctr, "objectGUID", REG_BINARY, 
-			    (char *) &guid, sizeof(GUID));	
+			    (char *) &guid, sizeof(struct uuid));	
 }
 
 static WERROR publish_it(NT_PRINTER_INFO_LEVEL *printer)
@@ -2601,7 +2628,7 @@ static WERROR publish_it(NT_PRINTER_INFO_LEVEL *printer)
 	void *res = NULL;
 	ADS_STRUCT *ads;
 	const char *attrs[] = {"objectGUID", NULL};
-	GUID guid;
+	struct uuid guid;
 	WERROR win_rc = WERR_OK;
 
 	ZERO_STRUCT(guid);
@@ -2691,14 +2718,13 @@ static WERROR publish_it(NT_PRINTER_INFO_LEVEL *printer)
 	
 	/* retreive the guid and store it locally */
 	if (ADS_ERR_OK(ads_search_dn(ads, &res, prt_dn, attrs))) {
-		ads_memfree(ads, prt_dn);
 		ads_pull_guid(ads, res, &guid);
 		ads_msgfree(ads, res);
 		store_printer_guid(printer->info_2, guid);
 		win_rc = mod_a_printer(*printer, 2);
 	} 
 
-	safe_free(prt_dn);
+	SAFE_FREE(prt_dn);
 	ads_destroy(&ads);
 
 	return WERR_OK;
@@ -2785,7 +2811,8 @@ WERROR nt_printer_publish(Printer_entry *print_hnd, int snum, int action)
 	return win_rc;
 }
 
-BOOL is_printer_published(Printer_entry *print_hnd, int snum, GUID *guid)
+BOOL is_printer_published(Printer_entry *print_hnd, int snum, 
+			  struct uuid *guid)
 {
 	NT_PRINTER_INFO_LEVEL *printer = NULL;
 	REGVAL_CTR *ctr;
@@ -2813,8 +2840,8 @@ BOOL is_printer_published(Printer_entry *print_hnd, int snum, GUID *guid)
 		return False;
 	}
 
-	if (regval_size(guid_val) == sizeof(GUID))
-		memcpy(guid, regval_data_p(guid_val), sizeof(GUID));
+	if (regval_size(guid_val) == sizeof(struct uuid))
+		memcpy(guid, regval_data_p(guid_val), sizeof(struct uuid));
 
 	return True;
 }
@@ -2824,7 +2851,8 @@ WERROR nt_printer_publish(Printer_entry *print_hnd, int snum, int action)
 {
 	return WERR_OK;
 }
-BOOL is_printer_published(Printer_entry *print_hnd, int snum, GUID *guid)
+BOOL is_printer_published(Printer_entry *print_hnd, int snum, 
+			  struct uuid *guid)
 {
 	return False;
 }
@@ -3027,6 +3055,7 @@ static int unpack_values(NT_PRINTER_DATA *printer_data, char *buf, int buflen)
 	
 		/* check to see if there are any more registry values */
 		
+		regval_p = NULL;
 		len += tdb_unpack(buf+len, buflen-len, "p", &regval_p);		
 		if ( !regval_p ) 
 			break;
@@ -3292,7 +3321,7 @@ static WERROR get_a_printer_2(NT_PRINTER_INFO_LEVEL_2 **info_ptr, const char *sh
 			info.parameters);
 
 	/* Samba has to have shared raw drivers. */
-	info.attributes |= PRINTER_ATTRIBUTE_SAMBA;
+	info.attributes = PRINTER_ATTRIBUTE_SAMBA;
 
 	/* Restore the stripped strings. */
 	slprintf(info.servername, sizeof(info.servername)-1, "\\\\%s", get_called_name());
@@ -4407,6 +4436,8 @@ static BOOL delete_driver_files( NT_PRINTER_DRIVER_INFO_LEVEL_3 *info_3, struct 
 	DATA_BLOB null_pw;
 	NTSTATUS nt_status;
 	fstring res_type;
+	BOOL bad_path;
+	SMB_STRUCT_STAT  st;
 
 	if ( !info_3 )
 		return False;
@@ -4442,6 +4473,7 @@ static BOOL delete_driver_files( NT_PRINTER_DRIVER_INFO_LEVEL_3 *info_3, struct 
 	
 	if ( *info_3->driverpath ) {
 		if ( (s = strchr( &info_3->driverpath[1], '\\' )) != NULL ) {
+			driver_unix_convert(s, conn, NULL, &bad_path, &st);
 			DEBUG(10,("deleting driverfile [%s]\n", s));
 			unlink_internals(conn, 0, s);
 		}
@@ -4449,6 +4481,7 @@ static BOOL delete_driver_files( NT_PRINTER_DRIVER_INFO_LEVEL_3 *info_3, struct 
 		
 	if ( *info_3->configfile ) {
 		if ( (s = strchr( &info_3->configfile[1], '\\' )) != NULL ) {
+			driver_unix_convert(s, conn, NULL, &bad_path, &st);
 			DEBUG(10,("deleting configfile [%s]\n", s));
 			unlink_internals(conn, 0, s);
 		}
@@ -4456,6 +4489,7 @@ static BOOL delete_driver_files( NT_PRINTER_DRIVER_INFO_LEVEL_3 *info_3, struct 
 	
 	if ( *info_3->datafile ) {
 		if ( (s = strchr( &info_3->datafile[1], '\\' )) != NULL ) {
+			driver_unix_convert(s, conn, NULL, &bad_path, &st);
 			DEBUG(10,("deleting datafile [%s]\n", s));
 			unlink_internals(conn, 0, s);
 		}
@@ -4463,6 +4497,7 @@ static BOOL delete_driver_files( NT_PRINTER_DRIVER_INFO_LEVEL_3 *info_3, struct 
 	
 	if ( *info_3->helpfile ) {
 		if ( (s = strchr( &info_3->helpfile[1], '\\' )) != NULL ) {
+			driver_unix_convert(s, conn, NULL, &bad_path, &st);
 			DEBUG(10,("deleting helpfile [%s]\n", s));
 			unlink_internals(conn, 0, s);
 		}
@@ -4477,6 +4512,7 @@ static BOOL delete_driver_files( NT_PRINTER_DRIVER_INFO_LEVEL_3 *info_3, struct 
 			/* bypass the "\print$" portion of the path */
 			
 			if ( (file = strchr( info_3->dependentfiles[i]+1, '\\' )) != NULL ) {
+				driver_unix_convert(file, conn, NULL, &bad_path, &st);
 				DEBUG(10,("deleting dependent file [%s]\n", file));
 				unlink_internals(conn, 0, file );
 			}
@@ -4984,4 +5020,3 @@ BOOL print_time_access_check(int snum)
 
 	return ok;
 }
-

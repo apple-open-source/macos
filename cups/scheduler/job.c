@@ -1,5 +1,5 @@
 /*
- * "$Id: job.c,v 1.23.4.1 2003/11/14 23:48:30 jlovell Exp $"
+ * "$Id: job.c,v 1.23.4.2 2004/09/26 18:05:07 jlovell Exp $"
  *
  *   Job management routines for the Common UNIX Printing System (CUPS).
  *
@@ -1200,6 +1200,7 @@ StartJob(int       id,			/* I - Job ID */
 		classification[1024],	/* CLASSIFICATION environment variable */
 		content_type[1024],	/* CONTENT_TYPE environment variable */
 		device_uri[1024],	/* DEVICE_URI environment variable */
+		device_uri2[1024],	/* Sanitized device uri */
 		ppd[1024],		/* PPD environment variable */
 		class_name[255],	/* CLASS environment variable */
 		printer_name[255],	/* PRINTER environment variable */
@@ -1698,6 +1699,12 @@ StartJob(int       id,			/* I - Job ID */
              attr->values[0].string.text);
   }
 
+ /*
+  * Create a sanitized version of the device uri for logging purposes
+  */
+
+  SanitizeURI(device_uri2, sizeof(device_uri2), printer->device_uri);
+
   snprintf(path, sizeof(path), "PATH=%s/filter:/bin:/usr/bin", ServerBin);
   snprintf(content_type, sizeof(content_type), "CONTENT_TYPE=%s/%s",
            current->filetypes[current->current_file]->super,
@@ -1811,7 +1818,10 @@ StartJob(int       id,			/* I - Job ID */
   envp[envc] = NULL;
 
   for (i = 0; i < envc; i ++)
-    LogMessage(L_DEBUG, "StartJob: envp[%d]=\"%s\"", i, envp[i]);
+    if (!strncmp(envp[i], "DEVICE_URI=", 11))
+      LogMessage(L_DEBUG, "StartJob: envp[%d]=\"DEVICE_URI=%s\"", i, device_uri2);
+    else
+      LogMessage(L_DEBUG, "StartJob: envp[%d]=\"%s\"", i, envp[i]);
 
   current->current_file ++;
 
@@ -2743,5 +2753,5 @@ set_hold_until(job_t *job, 		/* I - Job to update */
 
 
 /*
- * End of "$Id: job.c,v 1.23.4.1 2003/11/14 23:48:30 jlovell Exp $".
+ * End of "$Id: job.c,v 1.23.4.2 2004/09/26 18:05:07 jlovell Exp $".
  */

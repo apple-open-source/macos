@@ -26,6 +26,10 @@
 #define _IOKIT_HID_IOHIDEVENTQUEUE_H
 
 #include <IOKit/IODataQueue.h>
+#include <IOKit/IOLocks.h>
+#include "IOHIDElement.h"
+
+#define DEFAULT_HID_ENTRY_SIZE  sizeof(IOHIDElementValue) + sizeof(void *)
 
 //---------------------------------------------------------------------------
 // IOHIDEventQueue class.
@@ -39,24 +43,44 @@ class IOHIDEventQueue: public IODataQueue
     OSDeclareDefaultStructors( IOHIDEventQueue )
     
 protected:
-    Boolean	_started;
+    Boolean                 _started;
+    
+    IOLock *                _lock;
+        
+    UInt32                  _currentEntrySize;
+    UInt32                  _maxEntrySize;
+    UInt32                  _numEntries;
+    
+    OSSet *                 _elementSet;
+
+    IOMemoryDescriptor *    _descriptor;
 
     struct ExpansionData { };
     /*! @var reserved
         Reserved for future use.  (Internal use only)  */
     ExpansionData * _reserved;
+    
 
 public:
     static IOHIDEventQueue * withCapacity( UInt32 size );
     
     static IOHIDEventQueue * withEntries( UInt32 numEntries,
                                           UInt32 entrySize );
+                                          
+    virtual void free();
 
     virtual Boolean enqueue( void * data, UInt32 dataSize );
 
-    virtual void start() { _started = true; };
-    virtual void stop()  { _started = false; };
-    virtual Boolean isStarted()  { return _started; };
+    virtual void start();
+    virtual void stop();
+    virtual Boolean isStarted();
+    
+    virtual void addElement( IOHIDElement * element );
+    virtual void removeElement( IOHIDElement * element );
+    
+    virtual UInt32 getEntrySize ();
+
+    virtual IOMemoryDescriptor *getMemoryDescriptor();
 
     OSMetaClassDeclareReservedUnused(IOHIDEventQueue,  0);
     OSMetaClassDeclareReservedUnused(IOHIDEventQueue,  1);

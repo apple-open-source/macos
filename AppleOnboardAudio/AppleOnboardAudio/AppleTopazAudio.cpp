@@ -40,7 +40,7 @@ bool AppleTopazAudio::init(OSDictionary *properties)
 bool AppleTopazAudio::start (IOService * provider) {
 	bool					result;
 
-	debugIOLog (3, "+AppleTopazAudio[%p]::start(%p)", this, provider);
+	debugIOLog (3, "+ AppleTopazAudio[%p]::start(%p)", this, provider);
 
 	result = FALSE;
 	FailIf (!provider, Exit);
@@ -51,7 +51,7 @@ bool AppleTopazAudio::start (IOService * provider) {
 	result = provider->open (this, kFamilyOption_OpenMultiple);
 	
 Exit:
-	debugIOLog (3, "-AppleTopazAudio[%p]::start(%p) returns bool %d", this, provider, result);
+	debugIOLog (3, "- AppleTopazAudio[%p]::start(%p) returns bool %d", this, provider, result);
 	return result;
 }
 
@@ -59,23 +59,23 @@ Exit:
 // call inherited free
 void AppleTopazAudio::free()
 {
-	debugIOLog (3,  "+AppleTopazAudio::free" );
+	debugIOLog (3,  "+ AppleTopazAudio::free" );
 
 	CLEAN_RELEASE ( mTopazPlugin );
 	
 	super::free();
-	debugIOLog (3,  "-AppleTopazAudio::free" );
+	debugIOLog (3,  "- AppleTopazAudio::free" );
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void AppleTopazAudio::initPlugin(PlatformInterface* inPlatformObject) {
 
 	
-	debugIOLog (3,  "+AppleTopazAudio::initPlugin inPlatformObject = %X", (unsigned int)inPlatformObject);
+	debugIOLog (3,  "+ AppleTopazAudio::initPlugin inPlatformObject = %X", (unsigned int)inPlatformObject);
 	
 	mPlatformInterface = inPlatformObject;
 
-	debugIOLog (3,  "-AppleTopazAudio::initPlugin" );
+	debugIOLog (3,  "- AppleTopazAudio::initPlugin" );
 		
 	return;
 }
@@ -85,7 +85,7 @@ bool AppleTopazAudio::willTerminate ( IOService * provider, IOOptionBits options
 
 	bool result = super::willTerminate( provider, options );
 
-	debugIOLog (3, "AppleTopazAudio::willTerminate(%p) returns %d, mAudioDeviceProvider = %p", provider, result, mAudioDeviceProvider);
+	debugIOLog (3, "+ AppleTopazAudio::willTerminate(%p) returns %d, mAudioDeviceProvider = %p", provider, result, mAudioDeviceProvider);
 
 	if (provider == mAudioDeviceProvider) {
 		debugIOLog (3, "closing our provider" );
@@ -100,7 +100,7 @@ bool AppleTopazAudio::willTerminate ( IOService * provider, IOOptionBits options
 bool AppleTopazAudio::requestTerminate ( IOService * provider, IOOptionBits options ) {
 
 	bool result = super::requestTerminate( provider, options );
-	debugIOLog (3, "AppleTopazAudio::requestTerminate(%p) returns %d, mAudioDeviceProvider = %p", provider, result, mAudioDeviceProvider);
+	debugIOLog (3, "± AppleTopazAudio::requestTerminate(%p) returns %d, mAudioDeviceProvider = %p", provider, result, mAudioDeviceProvider);
 
 	return result;
 }
@@ -111,7 +111,7 @@ bool AppleTopazAudio::preDMAEngineInit () {
 	UInt8			data;
 	bool			result = false;
 	
-	debugIOLog (3,  "+AppleTopazAudio::preDMAEngineInit" );
+	debugIOLog (3,  "+ AppleTopazAudio::preDMAEngineInit" );
 
 	FailIf ( NULL == mPlatformInterface, Exit );
 	FailIf ( NULL == mAudioDeviceProvider, Exit );									//  [3648867]
@@ -161,7 +161,7 @@ bool AppleTopazAudio::preDMAEngineInit () {
 	result = mTopazPlugin->preDMAEngineInit ();
 	
 Exit:
-	debugIOLog (3,  "-AppleTopazAudio::preDMAEngineInit err = %X", result );
+	debugIOLog (3,  "- AppleTopazAudio::preDMAEngineInit err = %X", result );
 
 	return result;
 }
@@ -246,7 +246,7 @@ IOReturn AppleTopazAudio::performDeviceWake () {
 		case kCS8420_CODEC:		debugIOLog ( 5,  "+ AppleTopazAudio::performDeviceWake () using AppleTopazPluginCS8420" );		break;
 		default:				debugIOLog ( 5,  "+ AppleTopazAudio::performDeviceWake () using AppleTopazPluginUNKNOWN" );		break;
 	}
-	
+
 	CODEC_Reset ();
 	if ( 0 != mTopazPlugin ) { 
 		result = mTopazPlugin->performDeviceWake (); 
@@ -261,7 +261,7 @@ IOReturn AppleTopazAudio::performDeviceWake () {
 	if ( kTRANSPORT_MASTER_CLOCK == mClockSource ) {
 		mCurrentMachine2State = kMachine2_startState;
 	}
-	
+
 	mOptimizePollForUserClient_counter = kINITIAL_VALUE_FOR_POLL_FOR_USER_CLIENT_COUNT; //  [3686032]   initialize so log will show register dump a while longer
 
 	switch ( mCodecID ) {
@@ -567,7 +567,7 @@ Exit:
 IOReturn AppleTopazAudio::recoverFromFatalError ( FatalRecoverySelector selector ) {
 
 	FailIf ( NULL == mPlatformInterface, Exit );
-	if ( mRecoveryInProcess ) { debugIOLog (7,  "REDUNDANT RECOVERY FROM FATAL ERROR" ); }
+	if ( mRecoveryInProcess ) { debugIOLog (7,  "± REDUNDANT RECOVERY FROM FATAL ERROR" ); }
 	
 	mRecoveryInProcess = true;
 	switch ( selector ) {

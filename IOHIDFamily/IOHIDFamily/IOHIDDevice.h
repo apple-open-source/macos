@@ -116,12 +116,13 @@ private:
         IOHIDPointing *		pointingNub;
         IOHIDKeyboard *		keyboardNub;
         IOHIDConsumer *		consumerNub;
-        OSSet *                 clientSet;
-        IOService *		seizedClient;
+        OSSet *             clientSet;
+        IOService *         seizedClient;
         IOHIDSystem *		hidSystem;
         AbsoluteTime		eventDeadline;
         IONotifier *		publishNotify;
-        OSArray *		inputInterruptElementArray;
+        OSArray *           inputInterruptElementArray;
+		bool				postNullEvents;
     };
     /*! @var reserved
         Reserved for future use.  (Internal use only)  */
@@ -622,7 +623,15 @@ public:
     OSMetaClassDeclareReservedUsed(IOHIDDevice,  6);
     virtual OSNumber * newVendorIDSourceNumber() const;
     
-    OSMetaClassDeclareReservedUnused(IOHIDDevice,  7);
+
+/*! @function newCountryCodeNumber
+    @abstract Returns a number object that describes the country code
+    of the HID device.  
+    @result A number object. The caller must decrement the retain count
+    on the object returned. */
+    OSMetaClassDeclareReservedUsed(IOHIDDevice,  7);
+    virtual OSNumber * newCountryCodeNumber() const;
+
     OSMetaClassDeclareReservedUnused(IOHIDDevice,  8);
     OSMetaClassDeclareReservedUnused(IOHIDDevice,  9);
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 10);

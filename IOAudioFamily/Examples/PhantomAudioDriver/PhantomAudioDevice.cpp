@@ -45,6 +45,7 @@ LIABILITY OR OTHERWISE, EVEN IF APPLE HAS BEEN ADVISED OF THE POSSIBILITY OF SUC
 #include "PhantomAudioEngine.h"
 
 #include <IOKit/audio/IOAudioControl.h>
+#include <IOKit/audio/IOAudioDefines.h>
 #include <IOKit/IOLib.h>
 
 #define super IOAudioDevice
@@ -67,9 +68,13 @@ bool PhantomAudioDevice::initHardware(IOService *provider)
     
     // add the hardware init code here
     
-    setDeviceName("Phantom Audio Device");
-    setDeviceShortName("Phantom");
-    setManufacturerName("My Company");
+	// Pass pointers to the strings so that they can be localized.
+    setDeviceName("DeviceName");
+    setDeviceShortName("DeviceShortName");
+    setManufacturerName("ManufacturerName");
+	// Setting this flag causes the HAL to use the strings passed to it as keys into the Localizable.strings file.
+	// This is true for control names as well as these string names.  Very useful for selector controls (not shown in this example).
+    setProperty (kIOAudioDeviceLocalizedBundleKey, "PhantomAudioDriver.kext");
     
     if (!createAudioEngines()) {
         goto Done;

@@ -10,7 +10,7 @@
 9:AUE_MKNOD:mknod(2):ad
 10:AUE_CHMOD:chmod(2):ad
 11:AUE_CHOWN:chown(2):fm
-12:AUE_UMOUNT:umount(2) - old version:ad
+12:AUE_UNMOUNT:unmount(2):ad
 13:AUE_JUNK:junk:no
 14:AUE_ACCESS:access(2):fa
 15:AUE_KILL:kill(2):pc
@@ -247,7 +247,6 @@
 320:AUE_SETPRIVEXEC:setprivexec(2):pc
 321:AUE_NFSSVC:nfssvc(2):ot
 322:AUE_GETFH:getfh(2):fa
-323:AUE_QUOTACTL:quotactl(2):ad
 324:AUE_ADDPROFILE:system call:pc
 325:AUE_KDEBUGTRACE:system call:pc
 326:AUE_FSTAT:fstat(2):fa

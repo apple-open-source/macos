@@ -21,7 +21,7 @@
 
 #ifndef lint
 static const char rcsid[] _U_ =
-    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-ip.c,v 1.1.1.4 2004/02/05 19:30:54 rbraun Exp $ (LBL)";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-ip.c,v 1.1.1.5 2004/05/21 20:51:30 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -47,14 +47,19 @@ static const char rcsid[] _U_ =
 static void
 ip_printroute(const char *type, register const u_char *cp, u_int length)
 {
-	register u_int ptr = cp[2] - 1;
+	register u_int ptr;
 	register u_int len;
 
+	if (length < 3) {
+		printf(" [bad length %u]", length);
+		return;
+	}
 	printf(" %s{", type);
 	if ((length + 1) & 3)
-		printf(" [bad length %d]", length);
+		printf(" [bad length %u]", length);
+	ptr = cp[2] - 1;
 	if (ptr < 3 || ((ptr + 1) & 3) || ptr > length + 1)
-		printf(" [bad ptr %d]", cp[2]);
+		printf(" [bad ptr %u]", cp[2]);
 
 	type = "";
 	for (len = 3; len < length; len += 4) {
@@ -85,45 +90,54 @@ ip_finddst(const struct ip *ip)
 	length = (IP_HL(ip) << 2) - sizeof(struct ip);
 
 	for (; length > 0; cp += len, length -= len) {
-		int tt = *cp;
+		int tt;
 
+		TCHECK(*cp);
+		tt = *cp;
 		if (tt == IPOPT_NOP || tt == IPOPT_EOL)
 			len = 1;
 		else {
-			if (&cp[1] >= snapend) {
-				return 0;
-			}
+			TCHECK(cp[1]);
 			len = cp[1];
 		}
-		if (len <= 0) {
+		if (len < 2) {
 			return 0;
 		}
-		if (&cp[1] >= snapend || cp + len > snapend) {
-			return 0;
-		}
+		TCHECK2(*cp, len);
 		switch (tt) {
 
 		case IPOPT_SSRR:
 		case IPOPT_LSRR:
+			if (len < 7)
+				return 0;
 			memcpy(&retval, cp + len - 4, 4);
 			return retval;
 		}
 	}
 	return ip->ip_dst.s_addr;
+
+trunc:
+	return 0;
 }
 
 static void
 ip_printts(register const u_char *cp, u_int length)
 {
-	register u_int ptr = cp[2] - 1;
-	register u_int len = 0;
+	register u_int ptr;
+	register u_int len;
 	int hoplen;
 	const char *type;
 
+	if (length < 4) {
+		printf("[bad length %d]", length);
+		return;
+	}
 	printf(" TS{");
 	hoplen = ((cp[3]&0xF) != IPOPT_TS_TSONLY) ? 8 : 4;
 	if ((length - 4) & (hoplen-1))
 		printf("[bad length %d]", length);
+	ptr = cp[2] - 1;
+	len = 0;
 	if (ptr < 4 || ((ptr - 4) & (hoplen-1)) || ptr > length + 1)
 		printf("[bad ptr %d]", cp[2]);
 	switch (cp[3]&0xF) {
@@ -177,24 +191,20 @@ ip_optprint(register const u_char *cp, u_int length)
 	register u_int len;
 
 	for (; length > 0; cp += len, length -= len) {
-		int tt = *cp;
+		int tt;
 
+		TCHECK(*cp);
+		tt = *cp;
 		if (tt == IPOPT_NOP || tt == IPOPT_EOL)
 			len = 1;
 		else {
-			if (&cp[1] >= snapend) {
-				printf("[|ip]");
+			TCHECK(cp[1]);
+			len = cp[1];
+			if (len < 2) {
+				printf("[|ip op len %d]", len);
 				return;
 			}
-			len = cp[1];
-		}
-		if (len <= 0) {
-			printf("[|ip op len %d]", len);
-			return;
-		}
-		if (&cp[1] >= snapend || cp + len > snapend) {
-			printf("[|ip]");
-			return;
+			TCHECK2(*cp, len);
 		}
 		switch (tt) {
 
@@ -238,8 +248,11 @@ ip_optprint(register const u_char *cp, u_int length)
 			printf(" RA");
 			if (len != 4)
 				printf("{%d}", len);
-			else if (cp[2] || cp[3])
-				printf("%d.%d", cp[2], cp[3]);
+			else {
+				TCHECK(cp[3]);
+				if (cp[2] || cp[3])
+					printf("%d.%d", cp[2], cp[3]);
+			}
 			break;
 
 		default:
@@ -247,6 +260,10 @@ ip_optprint(register const u_char *cp, u_int length)
 			break;
 		}
 	}
+	return;
+
+trunc:
+	printf("[|ip]");
 }
 
 /*

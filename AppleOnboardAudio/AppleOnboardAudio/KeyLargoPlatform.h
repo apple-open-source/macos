@@ -184,6 +184,7 @@ public:
 	virtual IOReturn				getPlatformState ( PlatformStateStructPtr outState );
 	virtual IOReturn				setPlatformState ( PlatformStateStructPtr inState );
 	
+	virtual PlatformInterfaceObjectType	getPlatformInterfaceType () { return kPlatformInterfaceType_KeyLargo; }
 private:
 
 	IOWorkLoop*						mWorkLoop;
@@ -238,6 +239,8 @@ private:
 
 	IOService *				mCodecIntProvider;								
 	IOService *				mCodecErrorIntProvider;								
+	IOService *				mComboInDetectIntProvider;								
+	IOService *				mComboOutDetectIntProvider;								
 	IOService *				mDigitalInDetectIntProvider;								
 	IOService *				mDigitalOutDetectIntProvider;								
 	IOService *				mHeadphoneDetectIntProvider;
@@ -253,6 +256,8 @@ private:
 	IOInterruptEventSource *mDigitalInDetectIntEventSource;								
 	IOInterruptEventSource *mCodecInterruptEventSource;								
 	IOInterruptEventSource *mCodecErrorInterruptEventSource;								
+	IOInterruptEventSource *mComboInDetectInterruptEventSource;								
+	IOInterruptEventSource *mComboOutDetectInterruptEventSource;								
 
 	enum extInt_gpio {
 			intEdgeSEL				=	7,		//	bit address:	R/W Enable Dual Edge
@@ -465,6 +470,8 @@ private:
 	virtual IOReturn				setCodecInterruptHandler(IOService* theDevice, void* interruptHandler);
 
 	virtual IOReturn				setCodecErrorInterruptHandler(IOService* theDevice, void* interruptHandler);
+	virtual IOReturn				setComboInDetectInterruptHandler(IOService* theDevice, void* interruptHandler);
+	virtual IOReturn				setComboOutDetectInterruptHandler(IOService* theDevice, void* interruptHandler);
 	
 	inline void 		setKeyLargoRegister(void *klRegister, UInt32 value);	
 	inline UInt32 		getKeyLargoRegister(void *klRegister);

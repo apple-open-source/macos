@@ -45,6 +45,7 @@
 
 #include <IOKit/scsi/SCSICommandDefinitions.h>
 #include <IOKit/scsi/SCSICmds_MODE_Definitions.h>
+#include <IOKit/scsi/SCSICmds_READ_CAPACITY_Definitions.h>
 #include <IOKit/scsi/IOBlockStorageServices.h>
 
 
@@ -92,8 +93,6 @@ OSDefineAbstractStructors ( IOSCSIBlockCommandsDevice, IOSCSIPrimaryCommandsDevi
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 #define kMaxRetryCount						8
-#define kCapacityDataBufferSize				8
-#define kWriteProtectMask					0x80
 #define kAppleKeySwitchProperty				"AppleKeyswitch"
 #define kFibreChannelHDIconKey				"FibreChannelHD.icns"
 #define kFireWireHDIconKey					"FireWireHD.icns"
@@ -478,7 +477,7 @@ UInt64
 IOSCSIBlockCommandsDevice::ReportMediumTotalBlockCount ( void )
 {
 	
-	return fMediumBlockCount;
+	return fMediumBlockCount64;
 	
 }
 
@@ -617,23 +616,23 @@ IOSCSIBlockCommandsDevice::InitializeDeviceSupport ( void )
 	
 	bool	setupSuccessful = false;
 	
-	// Initialize the device characteristics flags
-	fMediaIsRemovable 		= false;
-	
-	// Initialize the medium characteristics
-	fMediumPresent			= false;
-	fMediumIsWriteProtected	= true;
-	fMediumRemovalPrevented	= false;
-	fKnownManualEject		= false;
-	
 	STATUS_LOG ( ( "%s::%s called\n", getName ( ), __FUNCTION__ ) );
 	
 	// Allocate space for our reserved data.
+	// Do this first to make sure that all expansion data is available before
+	// any real work is done since that work may need these.
 	fIOSCSIBlockCommandsDeviceReserved = IONew ( IOSCSIBlockCommandsDeviceExpansionData, 1 );
 	require_nonzero ( fIOSCSIBlockCommandsDeviceReserved, ErrorExit );
 	
 	bzero ( fIOSCSIBlockCommandsDeviceReserved,
 			sizeof ( IOSCSIBlockCommandsDeviceExpansionData ) );
+	
+	// Initialize the device characteristics flags
+	fMediaIsRemovable 		= false;
+	fKnownManualEject		= false;
+	
+	// Initialize the medium characteristics
+	ResetMediumCharacteristics( );
 	
 	// Grab any device information from the IORegistry
 	if ( getProperty ( kIOPropertySCSIDeviceCharacteristicsKey ) != NULL )
@@ -702,8 +701,11 @@ IOSCSIBlockCommandsDevice::InitializeDeviceSupport ( void )
 	
 	STATUS_LOG ( ( "%s::%s setupSuccessful = %d\n", getName ( ),
 					__FUNCTION__, setupSuccessful ) );
-	
-	SetMediumCharacteristics ( 0, 0 );
+
+	// This needs to be called regardless of the state of the Medium Characteristics
+	// to insure that the IORegistry properties for the maximum transfers are set, otherwise,
+	// the IOStorageFamily will use the defaults.
+	SetMediumCharacteristics ( ( UInt64 ) 0, ( UInt64 ) 0 );
 	
 	return setupSuccessful;
 	
@@ -969,18 +971,7 @@ IOSCSIBlockCommandsDevice::ClearNotReadyStatus ( void )
 				if ( validSense == true )
 				{
 					
-					if ( ( ( senseBuffer.SENSE_KEY  & kSENSE_KEY_Mask ) == kSENSE_KEY_NOT_READY  ) &&
-							( senseBuffer.ADDITIONAL_SENSE_CODE == 0x04 ) &&
-							( senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER == 0x00 ) )
-					{
-						
-						STATUS_LOG ( ( "%s::logical unit not ready\n", getName ( ) ) );
-						driveReady = false;
-						IOSleep ( 200 );
-						
-					}
-					
-					else if ( ( ( senseBuffer.SENSE_KEY & kSENSE_KEY_Mask ) == kSENSE_KEY_NOT_READY ) &&
+					if ( ( ( senseBuffer.SENSE_KEY & kSENSE_KEY_Mask ) == kSENSE_KEY_NOT_READY ) &&
 								( senseBuffer.ADDITIONAL_SENSE_CODE == 0x04 ) &&
 							( senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER == 0x01 ) )
 					{
@@ -993,7 +984,9 @@ IOSCSIBlockCommandsDevice::ClearNotReadyStatus ( void )
 					
 					else if ( ( ( senseBuffer.SENSE_KEY & kSENSE_KEY_Mask ) == kSENSE_KEY_NOT_READY  ) &&
 							( senseBuffer.ADDITIONAL_SENSE_CODE == 0x04 ) &&
-							( senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER == 0x02 ) )
+							( ( senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER == 0x00 ) ||
+							  ( senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER == 0x02 ) ||
+							  ( senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER == 0x03 ) ) )
 					{
 						
 						// The drive needs to be spun up. Issue a START_STOP_UNIT to it.
@@ -1192,6 +1185,14 @@ IOSCSIBlockCommandsDevice::DetermineDeviceCharacteristics ( void )
 			
 		}
 		
+		ERROR_LOG ( ( "!!! INQUIRY failed !!!, serviceResponse = %d, taskStatus = %d\n",
+					  serviceResponse, GetTaskStatus ( request ) ) );
+		
+		// Sleep for 1 second to try to let the device come online in case it
+		// just failed by freak occurrence (INQUIRY should NEVER fail, but apparently
+		// it sometimes does...)
+		IOSleep ( 1000 );
+		
 	}
 	
 	require ( succeeded, ReleaseTask );
@@ -1340,14 +1341,43 @@ IOSCSIBlockCommandsDevice::SetMediumCharacteristics (
 							UInt32	blockCount )
 {
 	
+	SetMediumCharacteristics ( ( UInt64 ) blockSize, ( UInt64 ) blockCount );
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetMediumCharacteristics64 - Sets medium characteristics		[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOSCSIBlockCommandsDevice::SetMediumCharacteristics (
+							UInt64	blockSize,
+							UInt64	blockCount )
+{
+	
 	UInt64		maxBlocksRead	= 0;
 	UInt64		maxBlocksWrite	= 0;
 	
-	STATUS_LOG ( ( "mediumBlockSize = %ld, blockCount = %ld\n",
+	STATUS_LOG ( ( "mediumBlockSize = %qd, blockCount = %qd\n",
 					blockSize, blockCount ) );
 	
 	fMediumBlockSize	= blockSize;
-	fMediumBlockCount	= blockCount;
+	fMediumBlockCount64 = blockCount;
+	
+	if ( fMediumBlockCount64 > kREPORT_CAPACITY_MaximumLBA )
+	{
+		
+		// The medium has more LBAs than can be reported in the 32 bit
+		// fMediumBlockCount variable, so set it to the maximum that it can report.
+		fMediumBlockCount = kREPORT_CAPACITY_MaximumLBA;
+		
+	}
+	
+	else
+	{
+		fMediumBlockCount = blockCount;
+	}
 	
 	maxBlocksRead	= ReportDeviceMaxBlocksReadTransfer ( );
 	maxBlocksWrite	= ReportDeviceMaxBlocksWriteTransfer ( );
@@ -1367,10 +1397,13 @@ void
 IOSCSIBlockCommandsDevice::ResetMediumCharacteristics ( void )
 {
 	
-	fMediumBlockSize	= 0;
-	fMediumBlockCount	= 0;
-	fMediumPresent		= false;
-	
+	fMediumBlockSize		= 0;
+	fMediumBlockCount 		= 0;
+	fMediumBlockCount64		= 0;
+	fMediumPresent			= false;
+	fMediumIsWriteProtected	= true;
+	fMediumRemovalPrevented	= false;
+
 }
 
 
@@ -1699,7 +1732,7 @@ IOSCSIBlockCommandsDevice::DetermineMediumCapacity (
 {
 	
 	SCSIServiceResponse		serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
-	UInt32					capacityData[2] = { 0 };
+	SCSI_Capacity_Data		capacityData;
 	IOMemoryDescriptor *	bufferDesc		= NULL;
 	SCSITaskIdentifier		request			= NULL;
 	bool					result			= false;
@@ -1710,8 +1743,10 @@ IOSCSIBlockCommandsDevice::DetermineMediumCapacity (
 	request = GetSCSITask ( );
 	require_nonzero ( request, ErrorExit );
 	
-	bufferDesc = IOMemoryDescriptor::withAddress ( capacityData,
-												   kCapacityDataBufferSize,
+	bzero ( &capacityData, sizeof ( capacityData ) );
+	
+	bufferDesc = IOMemoryDescriptor::withAddress ( &capacityData,
+												   kREPORT_CAPACITY_DataSize,
 												   kIODirectionIn );
 	require_nonzero ( bufferDesc, ReleaseTask );
 	
@@ -1728,11 +1763,51 @@ IOSCSIBlockCommandsDevice::DetermineMediumCapacity (
 		 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
 	{
 		
-		*blockSize 	= ( UInt64 ) OSSwapBigToHostInt32 ( capacityData[1] );
-		*blockCount = ( UInt64 ) ( OSSwapBigToHostInt32 ( capacityData[0] ) + 1 );
-		STATUS_LOG ( ( "%s: Media capacity: %x and block size: %x\n",
-						getName ( ), ( UInt32 ) *blockCount, ( UInt32 ) *blockSize ) );
+		*blockSize 	= OSSwapBigToHostInt32 ( capacityData.BLOCK_LENGTH_IN_BYTES );
+		*blockCount = ( ( UInt64 ) OSSwapBigToHostInt32 ( capacityData.RETURNED_LOGICAL_BLOCK_ADDRESS ) ) + 1;
+		
+		// Since valid capacity data was retreived from the device, set the
+		// result to true here so that if the READ CAPACITY 16 fails for any reason,
+		// the caller will still be notified that valid data was retrieved from the device.		
 		result = true;
+
+		// SBC-2 Spec 5.14 states that if the LBA address is 0xFFFFFFFF (kREPORT_CAPACITY_MaximumLBA),
+		// and the device is SPC-3/SBC-2 compliant, we shall issue a READ_CAPACITY_16 command 
+		if ( ( capacityData.RETURNED_LOGICAL_BLOCK_ADDRESS == kREPORT_CAPACITY_MaximumLBA ) &&
+			 ( GetANSIVersion ( ) >= kINQUIRY_ANSI_VERSION_SCSI_SPC_3_Compliant ) )
+		{
+			
+			SCSI_Capacity_Data_Long  longCapacityData;
+			
+			bzero ( &longCapacityData, sizeof ( longCapacityData ) );
+
+			// We need to release the previous bufferDesc
+			bufferDesc->release ( );
+			bufferDesc = IOMemoryDescriptor::withAddress (  &longCapacityData, 
+															kREPORT_CAPACITY_16_DataSize,
+															kIODirectionIn );
+			require_nonzero ( bufferDesc, ReleaseTask );
+			
+			if ( READ_CAPACITY_16 ( request, bufferDesc, 0, kREPORT_CAPACITY_16_DataSize, 0, 0 ) == true )
+			{
+			
+				serviceResponse = SendCommand ( request, kThirtySecondTimeoutInMS );
+				
+				if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
+					 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
+				{
+					
+					*blockSize  = OSSwapBigToHostInt32 ( longCapacityData.BLOCK_LENGTH_IN_BYTES );
+					*blockCount = OSSwapBigToHostInt64 ( longCapacityData.RETURNED_LOGICAL_BLOCK_ADDRESS ) + 1;
+					
+				}
+				
+			}
+			
+		}
+		
+		STATUS_LOG ( ( "%s: Media capacity: %qx and block size: %qx\n",
+						getName ( ), *blockCount, *blockSize ) );
 		
 	}
 	
@@ -1770,7 +1845,6 @@ IOSCSIBlockCommandsDevice::DetermineMediumGeometry ( void )
 	UInt32						minBufferSize			= 0;
 	UInt16						blockDescriptorLength	= 0;
 	UInt32						modeDataLength			= 0;
-	UInt16						actualSize				= 0;
 	UInt8						headerSize				= 0;
 	UInt8 *						buffer					= NULL;
 	bool						use10ByteModeSense		= true;
@@ -1780,20 +1854,61 @@ IOSCSIBlockCommandsDevice::DetermineMediumGeometry ( void )
 	dict = OSDictionary::withCapacity ( 4 );
 	require_nonzero ( dict, ErrorExit );
 	
-	actualSize = max ( sizeof ( SBCModePageFormatDevice ), sizeof ( SBCModePageRigidDiskGeometry ) );
-	actualSize += sizeof ( SPCModeParameterHeader10 );
-	
-	bufferDesc = IOBufferMemoryDescriptor::withCapacity ( actualSize, kIODirectionIn );
+	bufferDesc = IOBufferMemoryDescriptor::withCapacity ( sizeof ( SPCModeParameterHeader10 ), kIODirectionIn );
 	require_nonzero ( bufferDesc, ReleaseDictionary );
 	
 	buffer = ( UInt8 * ) bufferDesc->getBytesNoCopy ( );
-	bzero ( buffer, actualSize );
+	bzero ( buffer, bufferDesc->getLength ( ) );
 	
 	status = GetModeSense ( bufferDesc,
 							kSBCModePageFormatDeviceCode,
-							sizeof ( SBCModePageFormatDevice ),
+							sizeof ( SPCModeParameterHeader10 ),
 							&use10ByteModeSense );
 	require_success ( status, RigidDisk );
+	
+	if ( use10ByteModeSense )
+	{
+		
+		SPCModeParameterHeader10 *	header = ( SPCModeParameterHeader10 * ) buffer;
+		
+		// Get the length of data the device reports.
+		modeDataLength = OSSwapBigToHostInt16 ( header->MODE_DATA_LENGTH ) + sizeof ( header->MODE_DATA_LENGTH );
+		
+		// Some devices report more data than we need,
+		// and if we ask for the full amount, they don't complete the command,
+		// so, trim the data length to be the size of the header, the block descriptor length reported
+		// and the size of the mode page.
+		modeDataLength = min ( modeDataLength, sizeof ( SPCModeParameterHeader10 ) + header->BLOCK_DESCRIPTOR_LENGTH + sizeof ( SBCModePageFormatDevice ) );
+		
+	}
+	
+	else
+	{
+		
+		SPCModeParameterHeader6 *	header = ( SPCModeParameterHeader6 * ) buffer;
+		
+		// Get the length of data the device reports.
+		modeDataLength = header->MODE_DATA_LENGTH + sizeof ( header->MODE_DATA_LENGTH );
+		
+		// Some devices report more data than we need,
+		// and if we ask for the full amount, they don't complete the command,
+		// so, trim the data length to be the size of the header, the block descriptor length reported
+		// and the size of the mode page.
+		modeDataLength = min ( modeDataLength, sizeof ( SPCModeParameterHeader6 ) + header->BLOCK_DESCRIPTOR_LENGTH + sizeof ( SBCModePageFormatDevice ) );
+		
+	}
+	
+	bufferDesc->release ( );
+	bufferDesc = IOBufferMemoryDescriptor::withCapacity ( modeDataLength, kIODirectionIn );
+	require_nonzero ( bufferDesc, ReleaseDictionary );
+	
+	buffer = ( UInt8 * ) bufferDesc->getBytesNoCopy ( );
+	bzero ( buffer, bufferDesc->getLength ( ) );
+	
+	status = GetModeSense ( bufferDesc,
+							kSBCModePageFormatDeviceCode,
+							modeDataLength,
+							&use10ByteModeSense );
 	
 	if ( use10ByteModeSense )
 	{
@@ -1804,8 +1919,6 @@ IOSCSIBlockCommandsDevice::DetermineMediumGeometry ( void )
 		// are, we skip over them.
 		blockDescriptorLength	= OSSwapBigToHostInt16 ( header->BLOCK_DESCRIPTOR_LENGTH );
 		headerSize				= sizeof ( SPCModeParameterHeader10 );
-		minBufferSize			= sizeof ( header->BLOCK_DESCRIPTOR_LENGTH );
-		modeDataLength			= header->MODE_DATA_LENGTH + sizeof ( header->MODE_DATA_LENGTH );
 		
 	}
 	
@@ -1816,17 +1929,13 @@ IOSCSIBlockCommandsDevice::DetermineMediumGeometry ( void )
 		
 		blockDescriptorLength	= header->BLOCK_DESCRIPTOR_LENGTH;
 		headerSize				= sizeof ( SPCModeParameterHeader6 );
-		minBufferSize			= sizeof ( header->BLOCK_DESCRIPTOR_LENGTH );
-		modeDataLength			= header->MODE_DATA_LENGTH + sizeof ( header->MODE_DATA_LENGTH );
 		
 	}
-
-	modeDataLength = min ( modeDataLength, actualSize );
 	
 	// Ensure that our buffer is of the minimum correct size.
 	// Also, check that the first byte of the page is the
 	// correct PAGE_CODE.
-	minBufferSize += headerSize + blockDescriptorLength + offsetof ( SBCModePageFormatDevice, INTERLEAVE );
+	minBufferSize = headerSize + blockDescriptorLength + offsetof ( SBCModePageFormatDevice, INTERLEAVE );
 	require ( ( modeDataLength >= minBufferSize ), RigidDisk );
 	
 	{
@@ -1870,11 +1979,60 @@ IOSCSIBlockCommandsDevice::DetermineMediumGeometry ( void )
 RigidDisk:	
 	
 	
-	bzero ( buffer, actualSize );
+	bufferDesc->release ( );
+	bufferDesc = IOBufferMemoryDescriptor::withCapacity ( sizeof ( SPCModeParameterHeader10 ), kIODirectionIn );
+	require_nonzero ( bufferDesc, ReleaseDictionary );
+	
+	buffer = ( UInt8 * ) bufferDesc->getBytesNoCopy ( );
+	bzero ( buffer, bufferDesc->getLength ( ) );
 	
 	status = GetModeSense ( bufferDesc,
 							kSBCModePageRigidDiskGeometryCode,
-							sizeof ( SBCModePageRigidDiskGeometry ),
+							sizeof ( SPCModeParameterHeader10 ),
+							&use10ByteModeSense );
+	require_success ( status, ReleaseDescriptor );
+	
+	if ( use10ByteModeSense )
+	{
+		
+		SPCModeParameterHeader10 *	header = ( SPCModeParameterHeader10 * ) buffer;
+		
+		// Get the length of data the device reports.
+		modeDataLength = OSSwapBigToHostInt16 ( header->MODE_DATA_LENGTH ) + sizeof ( header->MODE_DATA_LENGTH );
+		
+		// Some devices report more data than we need,
+		// and if we ask for the full amount, they don't complete the command,
+		// so, trim the data length to be the size of the header, the block descriptor length reported
+		// and the size of the mode page.
+		modeDataLength = min ( modeDataLength, sizeof ( SPCModeParameterHeader10 ) + header->BLOCK_DESCRIPTOR_LENGTH + sizeof ( SBCModePageRigidDiskGeometry ) );
+		
+	}
+	
+	else
+	{
+		
+		SPCModeParameterHeader6 *	header = ( SPCModeParameterHeader6 * ) buffer;
+		
+		// Get the length of data the device reports.
+		modeDataLength = header->MODE_DATA_LENGTH + sizeof ( header->MODE_DATA_LENGTH );
+		
+		// Some devices report more data than we need,
+		// and if we ask for the full amount, they don't complete the command,
+		// so, trim the data length to be the size of the header, the block descriptor length reported
+		// and the size of the mode page.
+		modeDataLength = min ( modeDataLength, sizeof ( SPCModeParameterHeader6 ) + header->BLOCK_DESCRIPTOR_LENGTH + sizeof ( SBCModePageRigidDiskGeometry ) );
+		
+	}
+	
+	bufferDesc->release ( );
+	bufferDesc = IOBufferMemoryDescriptor::withCapacity ( modeDataLength, kIODirectionIn );
+	require_nonzero ( bufferDesc, ReleaseDictionary );
+	
+	buffer = ( UInt8 * ) bufferDesc->getBytesNoCopy ( );
+	bzero ( buffer, bufferDesc->getLength ( ) );	
+	status = GetModeSense ( bufferDesc,
+							kSBCModePageRigidDiskGeometryCode,
+							modeDataLength,
 							&use10ByteModeSense );
 	
 	require_success ( status, ReleaseDescriptor );
@@ -1888,8 +2046,6 @@ RigidDisk:
 		// are, we skip over them.
 		blockDescriptorLength	= OSSwapBigToHostInt16 ( header->BLOCK_DESCRIPTOR_LENGTH );
 		headerSize				= sizeof ( SPCModeParameterHeader10 );
-		minBufferSize			= sizeof ( header->BLOCK_DESCRIPTOR_LENGTH );
-		modeDataLength			= header->MODE_DATA_LENGTH + sizeof ( header->MODE_DATA_LENGTH );
 		
 	}
 	
@@ -1900,17 +2056,13 @@ RigidDisk:
 		
 		blockDescriptorLength	= header->BLOCK_DESCRIPTOR_LENGTH;
 		headerSize				= sizeof ( SPCModeParameterHeader6 );
-		minBufferSize			= sizeof ( header->BLOCK_DESCRIPTOR_LENGTH );
-		modeDataLength			= header->MODE_DATA_LENGTH + sizeof ( header->MODE_DATA_LENGTH );
 		
 	}
-	
-	modeDataLength = min ( modeDataLength, actualSize );
 	
 	// Ensure that our buffer is of the minimum correct size.
 	// Also, check that the first byte of the page is the
 	// correct PAGE_CODE.
-	minBufferSize += headerSize + blockDescriptorLength + offsetof ( SBCModePageRigidDiskGeometry, STARTING_CYLINDER_WRITE_PRECOMPENSATION );
+	minBufferSize = headerSize + blockDescriptorLength + offsetof ( SBCModePageRigidDiskGeometry, STARTING_CYLINDER_WRITE_PRECOMPENSATION );
 	require ( ( modeDataLength >= minBufferSize ), ReleaseDescriptor );
 	
 	{
@@ -1957,7 +2109,7 @@ RigidDisk:
 ReleaseDescriptor:
 	
 	
-	require_nonzero_quiet ( bufferDesc, ErrorExit );
+	require_nonzero_quiet ( bufferDesc, ReleaseDictionary );
 	bufferDesc->release ( );
 	bufferDesc = NULL;
 	
@@ -2058,7 +2210,7 @@ IOSCSIBlockCommandsDevice::DetermineMediumWriteProtectState ( void )
 			 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
 		{
 			
-			if ( ( modeBuffer[3] & kWriteProtectMask ) == 0 )
+			if ( ( modeBuffer[3] & kModeSenseSBCDeviceSpecific_WriteProtectMask ) == 0 )
 			{
 			 	mediumIsProtected = false;
 			}
@@ -2093,7 +2245,7 @@ IOSCSIBlockCommandsDevice::DetermineMediumWriteProtectState ( void )
 			 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
 		{
 			
-			if ( ( modeBuffer[2] & kWriteProtectMask ) == 0 )
+			if ( ( modeBuffer[2] & kModeSenseSBCDeviceSpecific_WriteProtectMask ) == 0 )
 			{
 				mediumIsProtected = false;
 			}
@@ -2633,21 +2785,46 @@ IOSCSIBlockCommandsDevice::IssueRead (
 							void *					clientData )
 {
 	
-	IOReturn 				status 	= kIOReturnNoResources;
-	SCSITaskIdentifier		request	= NULL;
+	IOReturn 				status		= kIOReturnNoResources;
+	SCSITaskIdentifier		request		= NULL;
+	bool					cmdStatus   = false;
 	
 	request = GetSCSITask ( );
 	require_nonzero ( request, ErrorExit );
 	
-	if ( READ_10 (	request,
+	if ( startBlock > kREPORT_CAPACITY_MaximumLBA )
+	{
+
+		cmdStatus = READ_16 ( request,
 					buffer,
-	  				fMediumBlockSize,
+					fMediumBlockSize,
+					0,
+					0,
+					0,
+					0,
+					( SCSICmdField8Byte ) startBlock,
+					( SCSICmdField4Byte ) blockCount,
+					0,
+					0 );
+								
+	}
+	
+	else
+	{
+
+		cmdStatus = READ_10 ( request,
+					buffer,
+					fMediumBlockSize,
 					0,
 					0,
 					0,
 					( SCSICmdField4Byte ) startBlock,
 					( SCSICmdField2Byte ) blockCount,
-					0 ) == true )
+					0 );
+
+	}
+	
+	if ( cmdStatus == true )
 	{
 		
 		// The command was successfully built, now send it
@@ -2661,7 +2838,7 @@ IOSCSIBlockCommandsDevice::IssueRead (
 			SetTaggedTaskIdentifier ( request, GetUniqueTagID ( ) );
 			
 		}
-		
+
 		SendCommand ( request,
 					  fReadTimeoutDuration,
 					  &IOSCSIBlockCommandsDevice::AsyncReadWriteComplete );
@@ -2678,8 +2855,7 @@ IOSCSIBlockCommandsDevice::IssueRead (
 		status	= kIOReturnBadArgument;
 		
 	}
-	
-	
+
 ErrorExit:
 	
 	
@@ -2712,22 +2888,47 @@ IOSCSIBlockCommandsDevice::IssueWrite (
 						UInt64					blockCount,
 						void *					clientData )
 {
-	IOReturn				status	= kIOReturnNoResources;
-	SCSITaskIdentifier		request	= NULL;
+	IOReturn				status		= kIOReturnNoResources;
+	SCSITaskIdentifier		request		= NULL;
+	bool					cmdStatus   = false;
 	
 	request = GetSCSITask ( );
 	require_nonzero ( request, ErrorExit );
 	
-	if ( WRITE_10 ( request,
+	if ( startBlock > kREPORT_CAPACITY_MaximumLBA )
+	{
+		
+		cmdStatus = WRITE_16 ( request,
 					buffer,
-   					fMediumBlockSize,
+					fMediumBlockSize,
+					0,
+					0,
+					0,
+					0,
+					( SCSICmdField8Byte ) startBlock,
+					( SCSICmdField4Byte ) blockCount,
+					0,
+					0 );
+		
+	}	
+	
+	else
+	{
+
+		cmdStatus = WRITE_10 ( request,
+					buffer,
+					fMediumBlockSize,
 					0,
 					0,
 					0,
 					0,
 					( SCSICmdField4Byte ) startBlock,
 					( SCSICmdField2Byte ) blockCount,
-					0 ) == true )
+					0 );
+
+	}
+	
+	if ( cmdStatus == true )
 	{
 		
 		// The command was successfully built, now send it
@@ -2758,8 +2959,7 @@ IOSCSIBlockCommandsDevice::IssueWrite (
 		status	= kIOReturnBadArgument;
 		
 	}	
-	
-	
+
 ErrorExit:
 	
 	

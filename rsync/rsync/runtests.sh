@@ -142,7 +142,7 @@ echo "$0 running in `pwd`"
 echo "    rsync_bin=$rsync_bin"
 echo "    srcdir=$srcdir"
 
-testuser=`whoami || echo UNKNOWN`
+testuser=`id -un || whoami || echo UNKNOWN`
 
 echo "    testuser=$testuser"
 echo "    os=`uname -a`"
@@ -220,6 +220,11 @@ do
 	echo "----- $testbase log follows"
 	cat "$scratchdir/test.log"
 	echo "----- $testbase log ends"
+	if [ -f "$scratchdir/rsyncd.log" ]; then
+	    echo "----- $testbase rsyncd.log follows"
+	    cat "$scratchdir/rsyncd.log"
+	    echo "----- $testbase rsyncd.log ends"
+	fi
     fi
 
     case $result in

@@ -305,7 +305,7 @@
 	ni_status status;
 	ni_id dir;
 	struct sockaddr_in serveraddr;
-	char *servertag, str[MAXPATHLEN + 1], *name;
+	char *servertag, str[MAXPATHLEN + 1], *name, astr[16];
 	LUDictionary *c;
 	ni_entrylist el;
 	int i;
@@ -337,8 +337,13 @@
 	syslock_unlock(rpcLock);
 
 	c = [self dictForAgent:NULL category:LUCategoryNull fromConfig:cdict];
-	sprintf(str, "netinfo://%s/%s:%s", inet_ntoa(serveraddr.sin_addr), servertag, sourcePath);
-	[c setValue:str forKey:"ConfigSource"];
+
+	if (inet_ntop(AF_INET, &(serveraddr.sin_addr), astr, 16) != NULL)
+	{
+		sprintf(str, "netinfo://%s/%s:%s", astr, servertag, sourcePath);
+		[c setValue:str forKey:"ConfigSource"];
+	}
+
 	free(servertag);
 
 	sprintf(str, "%s/agents", sourcePath);

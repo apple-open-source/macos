@@ -21,7 +21,7 @@
  */
 #ifndef lint
 static const char rcsid[] _U_ =
-    "@(#) $Header: /cvs/root/libpcap/libpcap/gencode.c,v 1.1.1.3 2004/02/05 19:22:28 rbraun Exp $ (LBL)";
+    "@(#) $Header: /cvs/root/libpcap/libpcap/gencode.c,v 1.1.1.4 2004/05/21 20:31:59 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -71,6 +71,9 @@ static const char rcsid[] _U_ =
 #include "sll.h"
 #include "arcnet.h"
 #include "pf.h"
+#ifndef offsetof
+#define offsetof(s, e) ((size_t)&((s *)0)->e)
+#endif
 #ifdef INET6
 #ifndef WIN32
 #include <netdb.h>	/* for "struct addrinfo" */
@@ -746,12 +749,6 @@ init_linktype(type)
 		off_nl_nosnap = 12;	/* no 802.2 LLC */
 		return;
 
-	case DLT_PFLOG:
-		off_linktype = 0;
-		off_nl = 28;
-		off_nl_nosnap = 28;	/* no 802.2 LLC */
-		return;
-
 	case DLT_PPP:
 	case DLT_C_HDLC:		/* BSD/OS Cisco HDLC */
 	case DLT_PPP_SERIAL:		/* NetBSD sync/async serial PPP */
@@ -837,7 +834,9 @@ init_linktype(type)
 		 *
 		 * XXX - the header is actually variable-length.  We
 		 * assume a 24-byte link-layer header, as appears in
-		 * data frames in networks with no bridges.
+		 * data frames in networks with no bridges.  If the
+		 * fromds and tods 802.11 header bits are both set,
+		 * it's actually supposed to be 30 bytes.
 		 */
 		off_linktype = 24;
 		off_nl = 32;		/* 802.11+802.2+SNAP */
@@ -860,13 +859,14 @@ init_linktype(type)
 		off_nl_nosnap = 144+27;	/* Prism+802.11+802.2 */
 		return;
 
-	case DLT_IEEE802_11_RADIO:
+	case DLT_IEEE802_11_RADIO_AVS:
 		/*
 		 * Same as 802.11, but with an additional header before
 		 * the 802.11 header, containing a bunch of additional
 		 * information including radio-level information.
 		 *
-		 * The header is 64 bytes long.
+		 * The header is 64 bytes long, at least in its
+		 * current incarnation.
 		 *
 		 * XXX - same variable-length header problem, only
 		 * more so; this header is also variable-length,
@@ -877,6 +877,29 @@ init_linktype(type)
 		off_linktype = 64+24;
 		off_nl = 64+32;		/* Radio+802.11+802.2+SNAP */
 		off_nl_nosnap = 64+27;	/* Radio+802.11+802.2 */
+		return;
+
+	case DLT_IEEE802_11_RADIO:
+		/*
+		 * Same as 802.11, but with an additional header before
+		 * the 802.11 header, containing a bunch of additional
+		 * information including radio-level information.
+		 *
+		 * XXX - same variable-length header problem, only
+		 * even *more* so; this header is also variable-length,
+		 * with the length being the 16-bit number at an offset
+		 * of 2 from the beginning of the radio header, and it's
+		 * device-dependent (different devices might supply
+		 * different amounts of information), so we can't even
+		 * assume a fixed length for the current version of the
+		 * header.
+		 *
+		 * Therefore, currently, only raw "link[N:M]" filtering is
+		 * supported.
+		 */
+		off_linktype = -1;
+		off_nl = -1;
+		off_nl_nosnap = -1;
 		return;
 
 	case DLT_ATM_RFC1483:
@@ -955,6 +978,12 @@ init_linktype(type)
 		off_nl_nosnap = 0;	/* no 802.2 LLC */
 		return;
 
+	case DLT_APPLE_IP_OVER_IEEE1394:
+		off_linktype = 16;
+		off_nl = 18;
+		off_nl_nosnap = 0;	/* no 802.2 LLC */
+		return;
+
 	case DLT_LINUX_IRDA:
 		/*
 		 * Currently, only raw "link[N:M]" filtering is supported.
@@ -963,6 +992,21 @@ init_linktype(type)
 		off_nl = -1;
 		off_nl_nosnap = -1;
 		return;
+
+	case DLT_PFLOG:
+		off_linktype = 0;
+		/* XXX read from header? */
+		off_nl = PFLOG_HDRLEN;
+		off_nl_nosnap = PFLOG_HDRLEN;
+		return;
+
+#ifdef DLT_PFSYNC
+	case DLT_PFSYNC:
+		off_linktype = -1;
+		off_nl = 4;
+		off_nl_nosnap = 4;
+		return;
+#endif
 	}
 	bpf_error("unknown data link type %d", linktype);
 	/* NOTREACHED */
@@ -1547,7 +1591,6 @@ gen_linktype(proto)
 	case DLT_NULL:
 	case DLT_LOOP:
 	case DLT_ENC:
-	case DLT_PFLOG:
 		/*
 		 * For DLT_NULL, the link-layer header is a 32-bit
 		 * word containing an AF_ value in *host* byte order,
@@ -1569,8 +1612,6 @@ gen_linktype(proto)
 		 * This means that, when reading a capture file, just
 		 * checking for our AF_INET6 value won't work if the
 		 * capture file came from another OS.
-		 *
-		 * XXX - what's the byte order for DLT_PFLOG?
 		 */
 		switch (proto) {
 
@@ -1612,6 +1653,23 @@ gen_linktype(proto)
 			proto = htonl(proto);
 		}
 		return (gen_cmp(0, BPF_W, (bpf_int32)proto));
+
+	case DLT_PFLOG:
+		/*
+		 * af field is host byte order in contrast to the rest of
+		 * the packet.
+		 */
+		if (proto == ETHERTYPE_IP)
+			return (gen_cmp(offsetof(struct pfloghdr, af), BPF_B,
+			    (bpf_int32)AF_INET));
+#ifdef INET6
+		else if (proto == ETHERTYPE_IPV6)
+			return (gen_cmp(offsetof(struct pfloghdr, af), BPF_B,
+			    (bpf_int32)AF_INET6));
+#endif /* INET6 */
+		else
+			return gen_false();
+		break;
 
 	case DLT_ARCNET:
 	case DLT_ARCNET_LINUX:
@@ -4974,7 +5032,7 @@ gen_inbound(dir)
 		break;
 
 	case DLT_PFLOG:
-		b0 = gen_cmp(26, BPF_H,
+		b0 = gen_cmp(offsetof(struct pfloghdr, dir), BPF_B,
 		    (bpf_int32)((dir == 0) ? PF_IN : PF_OUT));
 		break;
 
@@ -4991,52 +5049,110 @@ gen_inbound(dir)
 struct block *
 gen_pf_ifname(const char *ifname)
 {
-	if (linktype != DLT_PFLOG) {
-		bpf_error("ifname supported only for DLT_PFLOG");
+	struct block *b0;
+	u_int len, off;
+
+	if (linktype == DLT_PFLOG) {
+		len = sizeof(((struct pfloghdr *)0)->ifname);
+		off = offsetof(struct pfloghdr, ifname);
+	} else {
+		bpf_error("ifname not supported on linktype 0x%x", linktype);
 		/* NOTREACHED */
 	}
-	if (strlen(ifname) >= 16) {
-		bpf_error("ifname interface names can't be larger than 16 characters");
+	if (strlen(ifname) >= len) {
+		bpf_error("ifname interface names can only be %d characters",
+		    len-1);
 		/* NOTREACHED */
 	}
-	return (gen_bcmp(4, strlen(ifname), (const u_char *)ifname));
+	b0 = gen_bcmp(off, strlen(ifname), ifname);
+	return (b0);
 }
 
+/* PF firewall log matched interface */
+struct block *
+gen_pf_ruleset(char *ruleset)
+{
+	struct block *b0;
+
+	if (linktype != DLT_PFLOG) {
+		bpf_error("ruleset not supported on linktype 0x%x", linktype);
+		/* NOTREACHED */
+	}
+	if (strlen(ruleset) >= sizeof(((struct pfloghdr *)0)->ruleset)) {
+		bpf_error("ruleset names can only be %ld characters",
+		    (long)(sizeof(((struct pfloghdr *)0)->ruleset) - 1));
+		/* NOTREACHED */
+	}
+	b0 = gen_bcmp(offsetof(struct pfloghdr, ruleset),
+	    strlen(ruleset), ruleset);
+	return (b0);
+}
 
 /* PF firewall log rule number */
 struct block *
 gen_pf_rnr(int rnr)
 {
-	if (linktype != DLT_PFLOG) {
-		bpf_error("rnr supported only for DLT_PFLOG");
+	struct block *b0;
+
+	if (linktype == DLT_PFLOG) {
+		b0 = gen_cmp(offsetof(struct pfloghdr, rulenr), BPF_W,
+			 (bpf_int32)rnr);
+	} else {
+		bpf_error("rnr not supported on linktype 0x%x", linktype);
 		/* NOTREACHED */
 	}
 
-	return (gen_cmp(20, BPF_H, (bpf_int32)rnr));
+	return (b0);
+}
+
+/* PF firewall log sub-rule number */
+struct block *
+gen_pf_srnr(int srnr)
+{
+	struct block *b0;
+
+	if (linktype != DLT_PFLOG) {
+		bpf_error("srnr not supported on linktype 0x%x", linktype);
+		/* NOTREACHED */
+	}
+
+	b0 = gen_cmp(offsetof(struct pfloghdr, subrulenr), BPF_W,
+	    (bpf_int32)srnr);
+	return (b0);
 }
 
 /* PF firewall log reason code */
 struct block *
 gen_pf_reason(int reason)
 {
-	if (linktype != DLT_PFLOG) {
-		bpf_error("reason supported only for DLT_PFLOG");
+	struct block *b0;
+
+	if (linktype == DLT_PFLOG) {
+		b0 = gen_cmp(offsetof(struct pfloghdr, reason), BPF_B,
+		    (bpf_int32)reason);
+	} else {
+		bpf_error("reason not supported on linktype 0x%x", linktype);
 		/* NOTREACHED */
 	}
 
-	return (gen_cmp(22, BPF_H, (bpf_int32)reason));
+	return (b0);
 }
 
 /* PF firewall log action */
 struct block *
 gen_pf_action(int action)
 {
-	if (linktype != DLT_PFLOG) {
-		bpf_error("action supported only for DLT_PFLOG");
+	struct block *b0;
+
+	if (linktype == DLT_PFLOG) {
+		b0 = gen_cmp(offsetof(struct pfloghdr, action), BPF_B,
+		    (bpf_int32)action);
+	} else {
+		bpf_error("action not supported on linktype 0x%x", linktype);
 		/* NOTREACHED */
 	}
 
-	return (gen_cmp(24, BPF_H, (bpf_int32)action));
+	return (b0);
 }
 
 struct block *

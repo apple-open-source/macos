@@ -22,7 +22,7 @@ LDFLAGS =
 LIBS = -L ${PCAP_DIR}/WPCAP/LIB -lwpcap -lwsock32
 OBJS = \
 	../../addrtoname.o \
-	../../bpf_dump.o \
+	../../gmpls.o \
 	../../gmt2local.o \
 	../../missing/inet_aton.o \
 	../../missing/inet_ntop.o \
@@ -32,15 +32,19 @@ OBJS = \
 	../../missing/strsep.o \
 	../../missing/inet_pton.o \
 	../../machdep.o \
+	../../oui.o \
 	../../parsenfsfh.o \
 	../../print-802_11.o \
 	../../print-ah.o \
+	../../print-aodv.o \
+	../../print-ap1394.o \
 	../../print-arcnet.o \
 	../../print-arp.o \
 	../../print-ascii.o \
 	../../print-atalk.o \
 	../../print-atm.o \
 	../../print-beep.o \
+	../../print-bfd.o \
 	../../print-bgp.o \
 	../../print-bootp.o \
 	../../print-cdp.o \
@@ -82,7 +86,6 @@ OBJS = \
 	../../print-mobility.o \
 	../../print-mpls.o \
 	../../print-msdp.o \
-	../../print-netbios.o \
 	../../print-nfs.o \
 	../../print-ntp.o \
 	../../print-null.o \
@@ -108,6 +111,7 @@ OBJS = \
 	../../print-stp.o \
 	../../print-sunatm.o \
 	../../print-sunrpc.o \
+	../../print-symantec.o \
 	../../print-tcp.o \
 	../../print-telnet.o \
 	../../print-tftp.o \
@@ -122,8 +126,7 @@ OBJS = \
 	../../smbutil.o \
 	../../tcpdump.o \
 	../../util.o \
-	../../Win32/src/getopt.o \
-	../../Win32/Src/w32_fzs.o
+	../../Win32/src/getopt.o
 
 main: ${OBJS}
 	${CC} ${CFLAGS} ${LDFLAGS} -o windump.exe ${OBJS} ${LIBS}

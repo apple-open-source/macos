@@ -16,14 +16,23 @@ set -x
 fromdir="$scratchdir/from"
 todir="$scratchdir/to"
 
+case `id -u` in
+'') ;; # If "id" failed, try to continue...
+0) ;;
+*) test_skipped "Rsync won't copy devices unless we're root" ;;
+esac
+
 # TODO: Need to test whether hardlinks are possible on this OS/filesystem
 
 mkdir "$fromdir"
-mknod "$fromdir/char" c 42 69  || test_skipped "Can't create char device node unless root"
+mknod "$fromdir/char" c 41 67  || test_skipped "Can't create char device node unless root"
+mknod "$fromdir/char2" c 42 68  || test_skipped "Can't create char device node unless root"
+mknod "$fromdir/char3" c 42 69  || test_skipped "Can't create char device node unless root"
 mknod "$fromdir/block" b 42 69 || test_skipped "Can't create block device node unless root"
+mknod "$fromdir/block2" b 42 73 || test_skipped "Can't create block device node unless root"
+mknod "$fromdir/block3" b 105 73 || test_skipped "Can't create block device node unless root"
 
 checkit "$RSYNC -aHvv \"$fromdir/\" \"$todir/\"" "$fromdir" "$todir"
 
+# The script would have aborted on error, so getting here means we've won.
 exit 0
-# last [] may have failed but if we get here then we've won
-

@@ -4,30 +4,28 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").	You may not use this file except in compliance with the
+ * License.	 Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
 
+#include <libkern/OSByteOrder.h>
+#include <IOKit/IOBufferMemoryDescriptor.h>
 #include "UniNEnet.h"
 #include "UniNEnetMII.h"
-#include <libkern/OSByteOrder.h>
 
 #define super IOEthernetController
 
@@ -250,6 +248,16 @@ void UniNEnet::stopPHY()
 			miiWriteWord( val16 | MII_BCM5221_SetIDDQMode, MII_BCM5221_AuxiliaryMode4 );
 			break;
 
+		case 0x5241:
+				// 1: enable shadow register mode
+			miiReadWord( &val16, MII_BCM5221_TestRegister );
+			miiWriteWord( val16 | MII_BCM5221_ShadowRegEnableBit, MII_BCM5221_TestRegister );	
+
+				// 2: Set standby power bit
+			miiReadWord( &val16, MII_BCM5221_AuxiliaryMode4 );
+			miiWriteWord( val16 | MII_BCM5241_StandbyPowerMode, MII_BCM5221_AuxiliaryMode4 );
+			break;
+
 		case 0x5201:
 #if 0
 			miiReadWord( &val16, MII_BCM5201_AUXMODE2 );
@@ -335,7 +343,6 @@ void UniNEnet::startPHY()
 	}
 
 	WRITE_REGISTER( RxKick, fRxRingElements - 4 );	/// Why is this in PHY code?
-//	}
 	return;
 }/* end startPHY */
 

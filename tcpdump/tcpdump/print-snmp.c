@@ -58,7 +58,7 @@
 
 #ifndef lint
 static const char rcsid[] _U_ =
-    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-snmp.c,v 1.1.1.4 2004/02/05 19:30:57 rbraun Exp $ (LBL)";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-snmp.c,v 1.1.1.5 2004/05/21 20:51:30 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -210,7 +210,7 @@ const char *GenericTrap[] = {
 	"authenticationFailure",
 	"egpNeighborLoss",
 	"enterpriseSpecific"
-#define GT_ENTERPRISE 7
+#define GT_ENTERPRISE 6
 };
 #define DECODE_GenericTrap(t) \
 	( t >= 0 && (size_t)t < sizeof(GenericTrap)/sizeof(GenericTrap[0]) \

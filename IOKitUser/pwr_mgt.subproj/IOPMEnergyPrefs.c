@@ -173,14 +173,77 @@ typedef struct {
     unsigned int        fWakeOnACChange;
 } IOPMAggressivenessFactors;
 
+
+//****************************
+//****************************
+//****************************
+
+
+static CFArrayRef      _copySystemProvidedPreferences()
+{
+    io_registry_entry_t		    registry_entry;
+    io_iterator_t		        tmp;
+    CFTypeRef                   ret_type;
+    
+    IOServiceGetMatchingServices(NULL, IOServiceNameMatching("IOPMrootDomain"), &tmp);
+    registry_entry = IOIteratorNext(tmp);
+    IOObjectRelease(tmp);
+
+    ret_type = IORegistryEntryCreateCFProperty(registry_entry, CFSTR("SystemPowerProfiles"),
+            kCFAllocatorDefault, 0);
+
+    if(!isA_CFArray(ret_type)) ret_type = 0;
+
+    IOObjectRelease(registry_entry);
+    return (CFArrayRef)ret_type;
+}
+
+static void             _mergeUnspecifiedSettingsInto(
+    CFMutableDictionaryRef      mergee,
+    CFDictionaryRef             merger)
+{
+    int                         i;
+    int                         count;
+    CFStringRef                 *keys;
+    CFTypeRef                   *vals;
+    CFTypeRef                   safe_val;
+    CFNumberRef                 n1, n0;
+    
+    if(!isA_CFDictionary(mergee) || !isA_CFDictionary(merger)) return;
+
+    i=1;
+    n1 = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &i);
+    i=0;
+    n0 = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &i);
+    
+    count = CFDictionaryGetCount(merger);
+    keys = (CFStringRef *)malloc(sizeof(CFStringRef)*count);
+    vals = (CFTypeRef *)malloc(sizeof(CFTypeRef)*count);
+    if(!keys || !vals) return;
+    CFDictionaryGetKeysAndValues(merger, (void **)keys, (void **)vals);
+    for(i=0; i<count; i++)
+    {
+        if(isA_CFBoolean(vals[i])) {
+            safe_val = (kCFBooleanTrue == vals[i] ? n1:n0);
+        } else {
+            safe_val = vals[i];
+        }
+        // Convert any booleans to numbers
+        CFDictionaryAddValue(mergee, keys[i], safe_val);    
+    }
+    free(keys);
+    free(vals);
+}
+
 static int getDefaultEnergySettings(CFMutableDictionaryRef sys)
 {
-    CFMutableDictionaryRef 	batt = NULL;
-    CFMutableDictionaryRef 	ac = NULL;
-    CFMutableDictionaryRef 	ups = NULL;
-    int			i;
-    CFNumberRef		val;
-    CFStringRef		key;
+    CFMutableDictionaryRef 	            batt = NULL;
+    CFMutableDictionaryRef 	            ac = NULL;
+    CFMutableDictionaryRef 	            ups = NULL;
+    CFArrayRef                          platform_defaults = NULL;
+    int                                 i;
+    CFNumberRef                         val;
+    CFStringRef                         key;
 
 
     // Use pre-existing battery dictionary if possible
@@ -211,50 +274,56 @@ static int getDefaultEnergySettings(CFMutableDictionaryRef sys)
 					 0,  &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
       };
 
-    /*
-     * Note that in the following "poplulation" loops, we're using CFDictionaryAddValue rather
-     * than CFDictionarySetValue. If a value is already present AddValue will not replace it.
-     */
-    
-    /* 
-     * Populate default battery dictionary 
-     */
-    
-    for(i=0; i<kIOPMNumPMFeatures; i++)
+    platform_defaults = _copySystemProvidedPreferences();
+    if(platform_defaults && (1 == CFArrayGetCount(platform_defaults)) )
     {
-        key = CFStringCreateWithCString(kCFAllocatorDefault, energy_features_array[i], kCFStringEncodingMacRoman);
-        val = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &battery_defaults_array[i]);
-        CFDictionaryAddValue(batt, key, val);
-        CFRelease(key);
-        CFRelease(val);
+        // Platform specific default preferences
+        CFDictionaryRef                     profile = CFArrayGetValueAtIndex(platform_defaults, 0);
+        CFDictionaryRef                     sys_default_batt;
+        CFDictionaryRef                     sys_default_ac;
+        CFDictionaryRef                     sys_default_ups;
+                
+        sys_default_batt = CFDictionaryGetValue(profile, CFSTR(kIOPMBatteryPowerKey));
+        _mergeUnspecifiedSettingsInto(batt, sys_default_batt);
+        sys_default_ac = CFDictionaryGetValue(profile, CFSTR(kIOPMBatteryPowerKey));
+        _mergeUnspecifiedSettingsInto(ac, sys_default_ac);
+        sys_default_ups = CFDictionaryGetValue(profile, CFSTR(kIOPMBatteryPowerKey));
+        _mergeUnspecifiedSettingsInto(ups, sys_default_ups);
+
+        CFRelease(platform_defaults);        
+    } else {
+        /*
+         * Note that in the following "poplulation" loops, we're using CFDictionaryAddValue rather
+         * than CFDictionarySetValue. If a value is already present AddValue will not replace it.
+         */
+        // Populate default battery dictionary 
+        for(i=0; i<kIOPMNumPMFeatures; i++)
+        {
+            key = CFStringCreateWithCString(kCFAllocatorDefault, energy_features_array[i], kCFStringEncodingMacRoman);
+            val = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &battery_defaults_array[i]);
+            CFDictionaryAddValue(batt, key, val);
+            CFRelease(key);
+            CFRelease(val);
+        }
+        // Populate default AC dictionary 
+        for(i=0; i<kIOPMNumPMFeatures; i++)
+        {
+            key = CFStringCreateWithCString(kCFAllocatorDefault, energy_features_array[i], kCFStringEncodingMacRoman);
+            val = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &ac_defaults_array[i]);
+            CFDictionaryAddValue(ac, key, val);
+            CFRelease(key);
+            CFRelease(val);
+        }
+        // Populate default UPS dictionary 
+        for(i=0; i<kIOPMNumPMFeatures; i++)
+        {
+            key = CFStringCreateWithCString(kCFAllocatorDefault, energy_features_array[i], kCFStringEncodingMacRoman);
+            val = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &ups_defaults_array[i]);
+            CFDictionaryAddValue(ups, key, val);
+            CFRelease(key);
+            CFRelease(val);
+        }
     }
-
-    /* 
-     * Populate default AC dictionary 
-     */
-
-    for(i=0; i<kIOPMNumPMFeatures; i++)
-    {
-        key = CFStringCreateWithCString(kCFAllocatorDefault, energy_features_array[i], kCFStringEncodingMacRoman);
-        val = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &ac_defaults_array[i]);
-        CFDictionaryAddValue(ac, key, val);
-        CFRelease(key);
-        CFRelease(val);
-    }
-
-    /* 
-     * Populate default UPS dictionary 
-     */
-
-    for(i=0; i<kIOPMNumPMFeatures; i++)
-    {
-        key = CFStringCreateWithCString(kCFAllocatorDefault, energy_features_array[i], kCFStringEncodingMacRoman);
-        val = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &ups_defaults_array[i]);
-        CFDictionaryAddValue(ups, key, val);
-        CFRelease(key);
-        CFRelease(val);
-    }
-
 
     /*
      * Stuff the default values into the "system settings"

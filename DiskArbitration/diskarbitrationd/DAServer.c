@@ -467,47 +467,95 @@ void _DAMediaAppearedCallback( void * context, io_iterator_t notification )
                  * Set the BSD permissions for this media object.
                  */
 
-                if ( DADiskGetUserRUID( disk ) )
+                if ( DADiskGetUserRUID( disk ) == ___UID_UNKNOWN )
                 {
-                    if ( DADiskGetUserRUID( disk ) == ___UID_UNKNOWN )
+                    if ( gDAConsoleUser )
                     {
-                        if ( gDAConsoleUser )
-                        {
 ///w:start
-                            mode_t deviceMode;
-                            uid_t  deviceUser;
+                        mode_t deviceMode;
+                        uid_t  deviceUser;
 
-                            deviceMode = 0640;
-                            deviceUser = gDAConsoleUserUID;
+                        deviceMode = 0640;
+                        deviceUser = gDAConsoleUserUID;
 
-                            if ( users )
+                        if ( users )
+                        {
+                            if ( CFArrayGetCount( users ) > 1 )
                             {
-                                if ( CFArrayGetCount( users ) > 1 )
-                                {
-                                    deviceMode = 0666;
-                                    deviceUser = ___UID_ROOT;
-                                }
+                                deviceMode = 0666;
+                                deviceUser = ___UID_ROOT;
                             }
+                        }
 
-                            if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWritableKey ) == kCFBooleanFalse )
-                            {
-                                deviceMode &= 0444;
-                            }
+                        if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWritableKey ) == kCFBooleanFalse )
+                        {
+                            deviceMode &= 0444;
+                        }
 
-                            chmod( DADiskGetBSDPath( disk, TRUE  ), deviceMode );
-                            chmod( DADiskGetBSDPath( disk, FALSE ), deviceMode );
+                        chmod( DADiskGetBSDPath( disk, TRUE  ), deviceMode );
+                        chmod( DADiskGetBSDPath( disk, FALSE ), deviceMode );
 
-                            chown( DADiskGetBSDPath( disk, TRUE  ), deviceUser, -1 );
-                            chown( DADiskGetBSDPath( disk, FALSE ), deviceUser, -1 );
+                        chown( DADiskGetBSDPath( disk, TRUE  ), deviceUser, -1 );
+                        chown( DADiskGetBSDPath( disk, FALSE ), deviceUser, -1 );
 ///w:stop
 
-                            ___DADisplayUpdateActivity( );
-                        }
+                        ___DADisplayUpdateActivity( );
                     }
-                    else
+                }
+                else
+                {
+                    if ( DADiskGetMode( disk ) )
+                    {
+                        chmod( DADiskGetBSDPath( disk, TRUE  ), DADiskGetMode( disk ) & 0666 );
+                        chmod( DADiskGetBSDPath( disk, FALSE ), DADiskGetMode( disk ) & 0666 );
+                    }
+
+                    if ( DADiskGetUserRGID( disk ) )
+                    {
+                        chown( DADiskGetBSDPath( disk, TRUE  ), -1, DADiskGetUserRGID( disk ) );
+                        chown( DADiskGetBSDPath( disk, FALSE ), -1, DADiskGetUserRGID( disk ) );
+                    }
+
+                    if ( DADiskGetUserRUID( disk ) )
                     {
                         chown( DADiskGetBSDPath( disk, TRUE  ), DADiskGetUserRUID( disk ), -1 );
                         chown( DADiskGetBSDPath( disk, FALSE ), DADiskGetUserRUID( disk ), -1 );
+                    }
+                }
+
+                /*
+                 * Set the BSD link for this media object.
+                 */
+
+                if ( DADiskGetBSDLink( disk, TRUE ) )
+                {
+                    int status;
+
+                    status = strncmp( DADiskGetBSDLink( disk, TRUE ), _PATH_DEV "disk", strlen( _PATH_DEV "disk" ) );
+
+                    if ( status )
+                    {
+                         status = link( DADiskGetBSDPath( disk, TRUE ), DADiskGetBSDLink( disk, TRUE ) );
+
+                        if ( status == 0 )
+                        {
+                            status = link( DADiskGetBSDPath( disk, FALSE ), DADiskGetBSDLink( disk, FALSE ) );
+
+                            if ( status )
+                            {
+                                unlink( DADiskGetBSDLink( disk, TRUE ) );
+                            }
+                        }
+                    }
+
+                    if ( status )
+                    {
+                        DALogDebugHeader( "iokit [0] -> %s", gDAProcessNameID );
+
+                        DALogError( "unable to link %@ to %s.", disk, DADiskGetBSDLink( disk, TRUE ) );
+
+                        DADiskSetBSDLink( disk, TRUE,  NULL );
+                        DADiskSetBSDLink( disk, FALSE, NULL );
                     }
                 }
 
@@ -608,6 +656,12 @@ void _DAMediaDisappearedCallback( void * context, io_iterator_t notification )
             DALogDebugHeader( "iokit [0] -> %s", gDAProcessNameID );
 
             DALogDebug( "  removed disk, id = %@.", disk );
+
+            if ( DADiskGetBSDLink( disk, TRUE ) )
+            {
+                unlink( DADiskGetBSDLink( disk, TRUE  ) );
+                unlink( DADiskGetBSDLink( disk, FALSE ) );
+            }
 
             path = DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey );
 

@@ -266,7 +266,7 @@ protected:
     void		Texas2_Reset_ASSERT ( void );
     void		Texas2_Reset_NEGATE ( void );
 	IOReturn	Texas2_ReadRegister (UInt8 regAddr, UInt8* registerData);
-	IOReturn	Texas2_WriteRegister (UInt8 regAddr, UInt8* registerData, UInt8 mode);
+	IOReturn	Texas2_WriteRegister ( UInt8 regAddr, UInt8* registerData );	//  [3731023]
 	void		GpioWrite (UInt8* gpioAddress, UInt8 data);
 	void		SetBiquadInfoToUnityAllPass (void);
 	void		SetUnityGainAllPass (void);
@@ -370,6 +370,8 @@ protected:
 	UInt8 *				getGPIOAddress (UInt32 gpioSelector);
 	void				GpioWriteByte( UInt8* gpioAddress, UInt8 data );
 	UInt8				GpioReadByte( UInt8* gpioAddress );
+
+	IOAudioDevicePowerState mCurrentPowerState;		//  [3593390]
 
 			// User Client calls
 	virtual UInt8		readGPIO (UInt32 selector);

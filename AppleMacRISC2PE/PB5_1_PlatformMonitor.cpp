@@ -122,7 +122,7 @@ static ConSensorInfo subSensorArray[kMaxSensorIndex];
  * for each sensor.  For this platform, an additional factor is clamshell state, so that is one of the
  * dimensions here.
  */
-static ThresholdInfo	thermalThresholdInfoArray[kMaxSensorIndex][kNumClamshellStates][kMaxThermalStates] =
+static OldThresholdInfo	thermalThresholdInfoArray[kMaxSensorIndex][kNumClamshellStates][kMaxThermalStates] =
 {
 	{	// Sensor 0
 		{	// Clamshell open

@@ -180,6 +180,12 @@ IOSCSIProtocolServices::start ( IOService * provider )
 										kSCSIProtocolFeature_ProtocolAlwaysReportsAutosenseData,
 										NULL );
 	
+#if DEBUG
+	
+	setProperty ( "kSCSIProtocolFeature_ProtocolAlwaysReportsAutosenseData", !fRequiresAutosenseDescriptor );
+	
+#endif	
+	
 	result = true;
 	
 	return result;
@@ -1003,16 +1009,29 @@ IOSCSIProtocolServices::AddSCSITaskToHeadOfQueue ( SCSITask * request )
 		// This is a HEAD_OF_QUEUE task. Put it at the front behind
 		// any autosense tasks already queued up.
 		prev = fSCSITaskQueueHead;
+		
+		// We know fSCSITaskQueueHead is non-NULL at this point,
+		// so it's OK to call prev->GetFollowingSCSITask ( );
 		next = prev->GetFollowingSCSITask ( );
 		
-		while ( next->GetTaskExecutionMode ( ) == kSCSITaskMode_Autosense )
+		// However, there's no guarantee next is non-NULL. We must first
+		// test it, otherwise, we're done and can simply set the chains.
+		if ( next != NULL )
 		{
 			
-			prev = next;
-			next = prev->GetFollowingSCSITask ( );
+			while ( next->GetTaskExecutionMode ( ) == kSCSITaskMode_Autosense )
+			{
+				
+				prev = next;
+				next = prev->GetFollowingSCSITask ( );
+				
+			}
 			
 		}
 		
+		// At this point, next points to the first non-Autosense, non-HEAD_OF_QUEUE
+		// request (or NULL). prev points to either the queue head, or the last
+		// autosense command at the head of the queue.
 		request->EnqueueFollowingSCSITask ( next );
 		prev->EnqueueFollowingSCSITask ( request );
 		

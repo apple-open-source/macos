@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -166,6 +166,12 @@ public:
     void runJavaScriptAlert(const QString &message);
     bool runJavaScriptConfirm(const QString &message);
     bool runJavaScriptPrompt(const QString &message, const QString &defaultValue, QString &result);
+    bool locationbarVisible();
+    bool menubarVisible();
+    bool personalbarVisible();
+    bool scrollbarsVisible();
+    bool statusbarVisible();
+    bool toolbarVisible();
 
     using KHTMLPart::xmlDocImpl;
     khtml::RenderObject *renderer();
@@ -257,6 +263,8 @@ public:
     KJS::Bindings::Instance *getAppletInstanceForView (NSView *aView);
     void addPluginRootObject(const KJS::Bindings::RootObject *root);
     void cleanupPluginRootObjects();
+    
+    bool canGoBackOrForward(int distance) const;
     
 private:
     virtual void khtmlMousePressEvent(khtml::MousePressEvent *);

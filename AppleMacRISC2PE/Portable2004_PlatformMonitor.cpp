@@ -135,22 +135,22 @@ static ConSensorInfo subSensorArray[kMaxSensorIndex];
  * for each sensor.  For this platform, an additional factor is clamshell state, so that is one of the
  * dimensions here.
  */
-static NewThresholdInfo	thermalThresholdInfoArray[kMaxMachineTypes][kMaxSensorIndex][kNumClamshellStates][kMaxThermalStates] =
+static SmallerThresholdInfo  thermalThresholdInfoArray[kMaxMachineTypes][kMaxSensorIndex][kNumClamshellStates][kMaxThermalStates] =
 {
-    {	// PowerBook6,4 values	( Q54A )
+    {
             {	// Sensor 0
                     {	// Clamshell open
                             //	 thresholdLow,			thresholdHigh,			// currentState
-                            {	 TEMP_SENSOR_FMT(0),		TEMP_SENSOR_FMT(54)	},	// kThermalState0 
-                            {	 TEMP_SENSOR_FMT(52),		TEMP_SENSOR_FMT(83)	},	// kThermalState1 
-                            {	 TEMP_SENSOR_FMT(78),		TEMP_SENSOR_FMT(93)	},	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(0),		TEMP_SENSOR_FMT(54)		},	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(52),		TEMP_SENSOR_FMT(83)		},	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(78),		TEMP_SENSOR_FMT(93)		},	// kThermalState2 
                             {	 TEMP_SENSOR_FMT(88),		TEMP_SENSOR_FMT(117)	},	// kThermalState3 
                     },
                     {	// Clamshell closed
                             //	 thresholdLow,			thresholdHigh,			// currentState
-                            {	 TEMP_SENSOR_FMT(0),		TEMP_SENSOR_FMT(59)	},	// kThermalState0 
-                            {	 TEMP_SENSOR_FMT(57),		TEMP_SENSOR_FMT(83)	},	// kThermalState1 
-                            {	 TEMP_SENSOR_FMT(78),		TEMP_SENSOR_FMT(93)	},	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(0),		TEMP_SENSOR_FMT(59)		},	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(57),		TEMP_SENSOR_FMT(83)		},	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(78),		TEMP_SENSOR_FMT(93)		},	// kThermalState2 
                             {	 TEMP_SENSOR_FMT(88),		TEMP_SENSOR_FMT(117)	},	// kThermalState3 
                     },
             },
@@ -219,7 +219,7 @@ static NewThresholdInfo	thermalThresholdInfoArray[kMaxMachineTypes][kMaxSensorIn
                     },
             },
     },
-    {	// PowerBook6,5 values ( Q72 / Q73 )
+    {
             {	// Sensor 0
                     {	// Clamshell open
                             //	 thresholdLow,			thresholdHigh,			// currentState
@@ -301,7 +301,7 @@ static NewThresholdInfo	thermalThresholdInfoArray[kMaxMachineTypes][kMaxSensorIn
                     },
             },
     },
-    {	// PowerBook5,4 values (Q16a)
+    {
             {	// Sensor 0
                     {	// Clamshell open
                             //	 thresholdLow,			thresholdHigh,			// currentState
@@ -383,7 +383,171 @@ static NewThresholdInfo	thermalThresholdInfoArray[kMaxMachineTypes][kMaxSensorIn
                     },
             },
     },
-    {	// PowerBook5,5 values (Q41a)
+    {
+            {	// Sensor 0
+                    {	// Clamshell open
+                            //	 thresholdLow,			thresholdHigh,			// currentState
+                            {	 TEMP_SENSOR_FMT(0),		TEMP_SENSOR_FMT(68)	},	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(66),		TEMP_SENSOR_FMT(110)	},	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(108),		TEMP_SENSOR_FMT(115)	},	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),		TEMP_SENSOR_FMT(117)	},	// kThermalState3 
+                    },
+                    {	// Clamshell closed
+                            //	 thresholdLow,			thresholdHigh,			// currentState
+                            {	 TEMP_SENSOR_FMT(0),		TEMP_SENSOR_FMT(68)	},	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(66),		TEMP_SENSOR_FMT(110)	},	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(108),		TEMP_SENSOR_FMT(115)	},	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),		TEMP_SENSOR_FMT(117)	},	// kThermalState3 
+                    },
+            },
+            {	// Sensor 1
+                    {	// Clamshell open
+                            //	 thresholdLow,			thresholdHigh,			// currentState
+                            {	 TEMP_SENSOR_FMT(0),		TEMP_SENSOR_FMT(68)	},	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(66),		TEMP_SENSOR_FMT(110)	},	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(108),		TEMP_SENSOR_FMT(115)	},	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),		TEMP_SENSOR_FMT(117)	},	// kThermalState3 
+                    },
+                    {	// Clamshell closed
+                            //	 thresholdLow,			thresholdHigh,			// currentState
+                            {	 TEMP_SENSOR_FMT(0),		TEMP_SENSOR_FMT(68)	},	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(66),		TEMP_SENSOR_FMT(110)	},	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(108),		TEMP_SENSOR_FMT(115)	},	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),		TEMP_SENSOR_FMT(117)	},	// kThermalState3 
+                    },
+            },
+            {	// Sensor 2
+                    {	// Clamshell open
+                            //	 thresholdLow,			thresholdHigh,			// currentState
+                            {	 TEMP_SENSOR_FMT(0),		TEMP_SENSOR_FMT(68)	},	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(66),		TEMP_SENSOR_FMT(110)	},	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(108),		TEMP_SENSOR_FMT(115)	},	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),		TEMP_SENSOR_FMT(117)	},	// kThermalState3 
+                    },
+                    {	// Clamshell closed
+                            //	 thresholdLow,			thresholdHigh,			// currentState
+                            {	 TEMP_SENSOR_FMT(0),		TEMP_SENSOR_FMT(68)	},	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(66),		TEMP_SENSOR_FMT(110)	},	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(108),		TEMP_SENSOR_FMT(115)	},	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),		TEMP_SENSOR_FMT(117)	},	// kThermalState3 
+                    },
+            },
+            {	// Sensor 3
+                    {	// Clamshell open
+                            //	 thresholdLow,			thresholdHigh,			// currentState
+                            {	 TEMP_SENSOR_FMT(0),		TEMP_SENSOR_FMT(50)	},	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(45),		TEMP_SENSOR_FMT(110)	},	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(108),		TEMP_SENSOR_FMT(115)	},	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),		TEMP_SENSOR_FMT(117)	},	// kThermalState3 
+                    },
+                    {	// Clamshell closed
+                            //	 thresholdLow,			thresholdHigh,			// currentState
+                            {	 TEMP_SENSOR_FMT(0),		TEMP_SENSOR_FMT(50)	},	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(45),		TEMP_SENSOR_FMT(110)	},	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(108),		TEMP_SENSOR_FMT(115)	},	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),		TEMP_SENSOR_FMT(117)	},	// kThermalState3 
+                    },
+            },
+            {	// Sensor 4
+                    {	// Clamshell open
+                            //	 thresholdLow,			thresholdHigh,			// currentState
+                            {	 TEMP_SENSOR_FMT(0),		TEMP_SENSOR_FMT(110)	},	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(68),		TEMP_SENSOR_FMT(110)	},	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(78),		TEMP_SENSOR_FMT(93)	},	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(88),		TEMP_SENSOR_FMT(117)	},	// kThermalState3 
+                    },
+                    {	// Clamshell closed
+                            //	 thresholdLow,			thresholdHigh,			// currentState
+                            {	 TEMP_SENSOR_FMT(0),		TEMP_SENSOR_FMT(110)	},	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(68),		TEMP_SENSOR_FMT(110)	},	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(78),		TEMP_SENSOR_FMT(93)	},	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(88),		TEMP_SENSOR_FMT(117)	},	// kThermalState3 
+                    },
+            },
+    },
+    {
+            {	// Sensor 0
+                    {	// Clamshell open
+                            //	 thresholdLow,			thresholdHigh,			// currentState
+                            {	 TEMP_SENSOR_FMT(0),		TEMP_SENSOR_FMT(76)	},	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(74),		TEMP_SENSOR_FMT(110)	},	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(108),		TEMP_SENSOR_FMT(115)	},	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),		TEMP_SENSOR_FMT(117)	},	// kThermalState3 
+                    },
+                    {	// Clamshell closed
+                            //	 thresholdLow,			thresholdHigh,			// currentState
+                            {	 TEMP_SENSOR_FMT(0),		TEMP_SENSOR_FMT(76)	},	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(74),		TEMP_SENSOR_FMT(110)	},	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(108),		TEMP_SENSOR_FMT(115)	},	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),		TEMP_SENSOR_FMT(117)	},	// kThermalState3 
+                    },
+            },
+            {	// Sensor 1
+                    {	// Clamshell open
+                            //	 thresholdLow,			thresholdHigh,			// currentState
+                            {	 TEMP_SENSOR_FMT(0),		TEMP_SENSOR_FMT(75)	},	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(73),		TEMP_SENSOR_FMT(110)	},	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(108),		TEMP_SENSOR_FMT(115)	},	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),		TEMP_SENSOR_FMT(117)	},	// kThermalState3 
+                    },
+                    {	// Clamshell closed
+                            //	 thresholdLow,			thresholdHigh,			// currentState
+                            {	 TEMP_SENSOR_FMT(0),		TEMP_SENSOR_FMT(75)	},	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(73),		TEMP_SENSOR_FMT(110)	},	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(108),		TEMP_SENSOR_FMT(115)	},	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),		TEMP_SENSOR_FMT(117)	},	// kThermalState3 
+                    },
+            },
+            {	// Sensor 2
+                    {	// Clamshell open
+                            //	 thresholdLow,			thresholdHigh,			// currentState
+                            {	 TEMP_SENSOR_FMT(0),		TEMP_SENSOR_FMT(82)	},	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(80),		TEMP_SENSOR_FMT(110)	},	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(108),		TEMP_SENSOR_FMT(115)	},	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),		TEMP_SENSOR_FMT(117)	},	// kThermalState3 
+                    },
+                    {	// Clamshell closed
+                            //	 thresholdLow,			thresholdHigh,			// currentState
+                            {	 TEMP_SENSOR_FMT(0),		TEMP_SENSOR_FMT(82)	},	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(80),		TEMP_SENSOR_FMT(110)	},	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(108),		TEMP_SENSOR_FMT(115)	},	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),		TEMP_SENSOR_FMT(117)	},	// kThermalState3 
+                    },
+            },
+            {	// Sensor 3
+                    {	// Clamshell open
+                            //	 thresholdLow,			thresholdHigh,			// currentState
+                            {	 TEMP_SENSOR_FMT(0),		TEMP_SENSOR_FMT(42)	},	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(37),		TEMP_SENSOR_FMT(110)	},	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(108),		TEMP_SENSOR_FMT(115)	},	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),		TEMP_SENSOR_FMT(117)	},	// kThermalState3 
+                    },
+                    {	// Clamshell closed
+                            //	 thresholdLow,			thresholdHigh,			// currentState
+                            {	 TEMP_SENSOR_FMT(0),		TEMP_SENSOR_FMT(42)	},	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(37),		TEMP_SENSOR_FMT(110)	},	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(108),		TEMP_SENSOR_FMT(115)	},	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),		TEMP_SENSOR_FMT(117)	},	// kThermalState3 
+                    },
+            },
+            {	// Sensor 4
+                    {	// Clamshell open
+                            //	 thresholdLow,			thresholdHigh,			// currentState
+                            {	 TEMP_SENSOR_FMT(0),		TEMP_SENSOR_FMT(110)	},	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(68),		TEMP_SENSOR_FMT(110)	},	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(78),		TEMP_SENSOR_FMT(93)	},	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(88),		TEMP_SENSOR_FMT(117)	},	// kThermalState3 
+                    },
+                    {	// Clamshell closed
+                            //	 thresholdLow,			thresholdHigh,			// currentState
+                            {	 TEMP_SENSOR_FMT(0),		TEMP_SENSOR_FMT(110)	},	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(68),		TEMP_SENSOR_FMT(110)	},	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(78),		TEMP_SENSOR_FMT(93)	},	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(88),		TEMP_SENSOR_FMT(117)	},	// kThermalState3 
+                    },
+            },
+    },
+    {
             {	// Sensor 0
                     {	// Clamshell open
                             //	 thresholdLow,			thresholdHigh,			// currentState
@@ -683,6 +847,8 @@ bool Portable2004_PlatformMonitor::start ( IOService * nub )
         else if	(!strcmp(platform_name, "PowerBook6,5")) machineType = kPB65MachineType;
         else if	(!strcmp(platform_name, "PowerBook5,4")) machineType = kPB54MachineType;
         else if	(!strcmp(platform_name, "PowerBook5,5")) machineType = kPB55MachineType;
+        else if	(!strcmp(platform_name, "PowerBook5,6")) machineType = kPB56MachineType;
+        else if	(!strcmp(platform_name, "PowerBook5,7")) machineType = kPB57MachineType;
 	
 	commandGateCaller = &iopmonCommandGateCaller;	// Inform superclass about our caller
 	
@@ -1082,7 +1248,7 @@ IOReturn Portable2004_PlatformMonitor::monitorPower (OSDictionary *dict, IOServi
                       
                         // For Q16A and Q41A with a >= 65W adapter plugged in OR airline adapter,
                         // don't enforce force-reduced-speed conditions.
-                        if (!(((machineType == kPB54MachineType) || (machineType == kPB55MachineType)) && 
+                        if (!(((machineType == kPB54MachineType) || (machineType == kPB55MachineType) || (machineType == kPB56MachineType) || (machineType == kPB57MachineType)) && 
                              (((((value & 0xFF000000) >> 24) > 0) && (((value & 0xFF000000) >> 24) >= 0x41)) ||
                              ((((value & 0xFF000000) >> 24) == 0) && ((value & (kIOPMACInstalled | kIOPMACnoChargeCapability)) == (kIOPMACInstalled | kIOPMACnoChargeCapability)))))) 
                         {

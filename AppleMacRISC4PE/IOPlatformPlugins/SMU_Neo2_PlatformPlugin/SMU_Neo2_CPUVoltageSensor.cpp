@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: SMU_Neo2_CPUVoltageSensor.cpp,v 1.6 2004/06/16 22:14:09 murph Exp $
+ *  File: $Id: SMU_Neo2_CPUVoltageSensor.cpp,v 1.6.4.1 2004/07/22 22:56:01 dirty Exp $
  */
 
 
@@ -47,12 +47,10 @@ IOReturn SMU_Neo2_CPUVoltageSensor::initPlatformSensor( const OSDictionary* dict
 	// offsetValue is a 4.12 signed number.
 
 	if ( !gPlatformPlugin->getSDBPartitionData( kThermalPositioningADCConstantsPartID, 4, 2, ( UInt8 * ) &scalingValue ) )
-		scalingValue = 0x32;
-//		return( kIOReturnError );
+		return( kIOReturnError );
 
 	if ( !gPlatformPlugin->getSDBPartitionData( kThermalPositioningADCConstantsPartID, 6, 2, ( UInt8 * ) &offsetValue ) )
-		offsetValue = 0;
-//		return( kIOReturnError );
+		return( kIOReturnError );
 
 	scalingFactor = scalingValue;
 	offsetFactor = offsetValue;

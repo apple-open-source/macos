@@ -1,6 +1,6 @@
---- samba/source/param/loadparm.c.orig	Thu Dec 18 15:12:46 2003
-+++ samba/source/param/loadparm.c	Fri Dec 19 08:31:14 2003
-@@ -287,6 +287,9 @@ typedef struct
+--- samba/source/param/loadparm.c.orig	Mon May 10 18:25:51 2004
++++ samba/source/param/loadparm.c	Mon May 10 18:31:08 2004
+@@ -285,6 +285,9 @@
  	BOOL bUnixExtensions;
  	BOOL bDisableNetbios;
  	BOOL bKernelChangeNotify;
@@ -10,7 +10,18 @@
  	int restrict_anonymous;
  	int name_cache_timeout;
  	int client_signing;
-@@ -1523,6 +1526,10 @@ static void init_globals(void)
+@@ -1163,6 +1166,10 @@
+ 	{"winbind use default domain", P_BOOL, P_GLOBAL, &Globals.bWinbindUseDefaultDomain, NULL, NULL, FLAG_ADVANCED}, 
+ 	{"winbind trusted domains only", P_BOOL, P_GLOBAL, &Globals.bWinbindTrustedDomainsOnly, NULL, NULL, FLAG_ADVANCED}, 
+ 
++#ifdef WITH_OPENDIRECTORY
++	{"opendirectory", P_BOOL, P_GLOBAL, &Globals.bOpenDirectory, NULL, NULL, FLAG_ADVANCED}, 
++#endif
++
+ 	{NULL,  P_BOOL,  P_NONE,  NULL,  NULL,  NULL,  0}
+ };
+ 
+@@ -1518,6 +1525,10 @@
  	Globals.server_signing = False;
  
  	string_set(&Globals.smb_ports, SMB_PORTS);
@@ -21,7 +32,7 @@
  }
  
  static TALLOC_CTX *lp_talloc;
-@@ -1899,6 +1906,9 @@ FN_GLOBAL_INTEGER(lp_algorithmic_rid_bas
+@@ -1892,6 +1903,9 @@
  FN_GLOBAL_INTEGER(lp_name_cache_timeout, &Globals.name_cache_timeout)
  FN_GLOBAL_INTEGER(lp_client_signing, &Globals.client_signing)
  FN_GLOBAL_INTEGER(lp_server_signing, &Globals.server_signing)
@@ -31,11 +42,11 @@
  
  /* local prototypes */
  
-@@ -4087,6 +4097,7 @@ static void set_default_server_announce_
+@@ -3979,6 +3993,7 @@
  	default_server_announce |= SV_TYPE_WORKSTATION;
  	default_server_announce |= SV_TYPE_SERVER;
  	default_server_announce |= SV_TYPE_SERVER_UNIX;
 +	default_server_announce |= SV_TYPE_PRINTQ_SERVER;
  
- 	switch (lp_announce_as()) {
- 		case ANNOUNCE_AS_NT_SERVER:
+ 	/* note that the flag should be set only if we have a 
+ 	   printer service but nmbd doesn't actually load the 

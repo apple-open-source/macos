@@ -17,7 +17,7 @@
 #  WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
 #  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
 #
-# @(#) $Header: /cvs/root/tcpdump/tcpdump/Makefile.in,v 1.6 2004/02/05 19:41:37 rbraun Exp $ (LBL)
+# @(#) $Header: /cvs/root/tcpdump/tcpdump/Makefile.in,v 1.7 2004/05/21 20:53:31 rbraun Exp $ (LBL)
 
 #
 # Various configurable paths (remember to edit Makefile.in, not Makefile)
@@ -65,9 +65,9 @@ INSTALL_DATA = @INSTALL_DATA@
 	@rm -f $@
 	$(CC) $(CFLAGS) -c $(srcdir)/$*.c
 
-CSRC =	addrtoname.c gmpls.c gmt2local.c machdep.c parsenfsfh.c \
-	print-802_11.c print-ah.c print-arcnet.c print-aodv.c \
-	print-arp.c print-ascii.c print-atalk.c print-atm.c \
+CSRC =	addrtoname.c gmpls.c gmt2local.c machdep.c oui.c parsenfsfh.c \
+	print-802_11.c print-ap1394.c print-ah.c print-arcnet.c \
+	print-aodv.c print-arp.c print-ascii.c print-atalk.c print-atm.c \
 	print-beep.c print-bfd.c print-bgp.c print-bootp.c print-cdp.c \
 	print-chdlc.c print-cip.c print-cnfp.c print-decnet.c \
 	print-domain.c print-dvmrp.c print-enc.c print-egp.c \
@@ -100,7 +100,7 @@ HDR =   addrtoname.h appletalk.h bootp.h decnet.h \
 	ipx.h llc.h machdep.h mib.h nfsfh.h nfsv2.h ntp.h ospf.h \
 	setsignal.h \
 	gnuc.h ipsec_doi.h isakmp.h l2tp.h nameser.h \
-	netbios.h oakley.h ospf6.h ppp.h route6d.h
+	netbios.h oakley.h ospf6.h pf.h ppp.h route6d.h
 
 TAGHDR = \
 	/usr/include/arpa/tftp.h \

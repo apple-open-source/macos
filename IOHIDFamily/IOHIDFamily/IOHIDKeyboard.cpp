@@ -117,7 +117,7 @@ IOHIDKeyboard::start(IOService *provider)
     UInt16 vendorIDVal;
 
     _provider = provider;
-
+    
     _transport	= OSDynamicCast(OSString,provider->getProperty(kIOHIDTransportKey));
     _vendorID	= OSDynamicCast(OSNumber,provider->getProperty(kIOHIDVendorIDKey));
     _productID	= OSDynamicCast(OSNumber,provider->getProperty(kIOHIDProductIDKey));
@@ -127,6 +127,7 @@ IOHIDKeyboard::start(IOService *provider)
     setProperty(kIOHIDVendorIDKey, _vendorID);
     setProperty(kIOHIDProductIDKey, _productID);
     setProperty(kIOHIDLocationIDKey, _locationID);
+    setProperty(kIOHIDCountryCodeKey, provider->getProperty(kIOHIDCountryCodeKey));
 
     productIDVal = _productID ? _productID->unsigned16BitValue() : 0;
     vendorIDVal = _vendorID ? _vendorID->unsigned16BitValue() : 0;
@@ -464,13 +465,6 @@ void IOHIDKeyboard::findSecondaryKeys()
     }
 }
 
-extern "C" { 
-	void Debugger( const char * ); 
-	void boot(int paniced, int howto, char * command);
-#define RB_BOOT		1	/* Causes reboot, not halt.  Is in xnu/bsd/sys/reboot.h */
-
-}
-
 void 
 IOHIDKeyboard::handleReport()
 {
@@ -523,26 +517,22 @@ IOHIDKeyboard::handleReport()
         if ((modifier & kUSB_LEFT_CONTROL_BIT) && !(_oldmodifier & kUSB_LEFT_CONTROL_BIT))
         {
             dispatchKeyboardEvent(_usb_2_adb_keymap[0xe0], true, now);  //ADB left-hand CONTROL
-	    _control_key = true;	//determine if we reboot CPU.  Is instance variable.
         }
 	else if ((_oldmodifier & kUSB_LEFT_CONTROL_BIT) && !(modifier & kUSB_LEFT_CONTROL_BIT))
 	{
 	    //Now check for released modifier keys.  Both right and left modifiers must be
 	    //   checked otherwise Window Server thinks none are held down
 	    dispatchKeyboardEvent(_usb_2_adb_keymap[0xe0], false, now); 
-	    _control_key = false;	
 	}
 
         //right-hand CONTROL modifier
         if ((modifier & kUSB_RIGHT_CONTROL_BIT) && !(_oldmodifier & kUSB_RIGHT_CONTROL_BIT))
         {
             dispatchKeyboardEvent(_usb_2_adb_keymap[0xe4], true, now);  //right-hand CONTROL
-	    _control_key = true;	//determine if we reboot CPU.  Is instance variable.
         }
 	else if ((_oldmodifier & kUSB_RIGHT_CONTROL_BIT) && !(modifier & kUSB_RIGHT_CONTROL_BIT))
 	{
 	    dispatchKeyboardEvent(_usb_2_adb_keymap[0xe4], false, now); 
-	    _control_key = false;	
 	}
 
         //left-hand SHIFT
@@ -586,12 +576,10 @@ IOHIDKeyboard::handleReport()
         if ((modifier & kUSB_LEFT_FLOWER_BIT) && !(_oldmodifier & kUSB_LEFT_FLOWER_BIT))
         {
             dispatchKeyboardEvent(_usb_2_adb_keymap[0xe3], true, now);
-	    _flower_key = true;	//determine if we go into kernel debugger, or reboot CPU
         }
 	else if ((_oldmodifier & kUSB_LEFT_FLOWER_BIT) && !(modifier & kUSB_LEFT_FLOWER_BIT))
 	{
 	    dispatchKeyboardEvent(_usb_2_adb_keymap[0xe3], false, now); 
-	    _flower_key = false;
 	}
 
         if ((modifier & kUSB_RIGHT_FLOWER_BIT) && !(_oldmodifier & kUSB_RIGHT_FLOWER_BIT))
@@ -600,12 +588,10 @@ IOHIDKeyboard::handleReport()
 	    //WARNING... NeXT only recognizes left-hand flower key, so
 	    //  emulate that for now
 	    dispatchKeyboardEvent(_usb_2_adb_keymap[0xe7], true, now);
-	    _flower_key = true;	
         }
 	else if ((_oldmodifier & kUSB_RIGHT_FLOWER_BIT) && !(modifier & kUSB_RIGHT_FLOWER_BIT))
 	{
 	    dispatchKeyboardEvent(_usb_2_adb_keymap[0xe7], false, now); 
-	    _flower_key = false;
 	}
     }
     
@@ -654,46 +640,31 @@ IOHIDKeyboard::handleReport()
             
         alpha = element->getElementValue()->value[0];
         
-	if (alpha == 0) //No keys pressed
-	{
-	    continue;
-	}
-	else if (alpha == 0x66)	   //POWER ON key 
-	{
-	    if ((_control_key) && (_flower_key))  //User wants to reboot
-	    {
-		boot( RB_BOOT, 0, 0 );  //call to xnu/bsd/kern/kern_shutdown.c
-	    }
-	    if (_flower_key)  // Apple CMD modifier must be simultaneously held down
-	    {
-		PE_enter_debugger("USB Programmer Key");
-		//In xnu/pexpert/ppc/pe_interrupt.c  and defined in pexpert.h above
-	    }
-	    //The reason this kernel debugger call is made here instead of KEY UP
-	    //  is that the HID system will see the POWER key and bring up a
-	    //  dialog box to shut down the computer, which is not what we want.
-	}
+        if (alpha == 0) //No keys pressed
+        {
+            continue;
+        }
 
-	//Don't dispatch the same key again which was held down previously
-	found = false;
-	for (i = 0; i < _keyCodeArrayValuePtrArray->getCount(); i++)
-	{
-            if (alpha == _oldArraySelectors[i])
-	    {
-		found = true;
-		break;
-	    }
-	}
-	if (!found)
-	{
-	    //If Debugger() is triggered then I shouldn't show the restart dialog
-	    //  box, but I think developers doing kernel debugging can live with
-	    //  this minor incovenience.  Otherwise I need to do more checking here.
-            if (!filterSecondaryFnSpecialKey(&alpha, true, now))   
-                if (!filterSecondaryFnNonSpecialKey(&alpha, true, now))   
-                    if (!filterSecondaryNumPadKey(&alpha, true, now))   
-                        dispatchKeyboardEvent(_usb_2_adb_keymap[alpha], true, now);  //KEY UP
-	}
+        //Don't dispatch the same key again which was held down previously
+        found = false;
+        for (i = 0; i < _keyCodeArrayValuePtrArray->getCount(); i++)
+        {
+                if (alpha == _oldArraySelectors[i])
+            {
+            found = true;
+            break;
+            }
+        }
+        if (!found)
+        {
+            //If Debugger() is triggered then I shouldn't show the restart dialog
+            //  box, but I think developers doing kernel debugging can live with
+            //  this minor incovenience.  Otherwise I need to do more checking here.
+                if (!filterSecondaryFnSpecialKey(&alpha, true, now))   
+                    if (!filterSecondaryFnNonSpecialKey(&alpha, true, now))   
+                        if (!filterSecondaryNumPadKey(&alpha, true, now))   
+                            dispatchKeyboardEvent(_usb_2_adb_keymap[alpha], true, now);  //KEY UP
+        }
     }
 
     //Save the history for next time
@@ -1064,8 +1035,8 @@ IOHIDKeyboard::defaultKeymapOfLength (UInt32 * length )
             0x02,0x01,0x3b,
             0x03,0x01,0x3a,
             0x04,0x01,0x37,
-            0x05,0x14,0x52,0x41,0x53,0x54,0x55,0x45,0x58,0x57,0x56,0x5b,0x5c,
-            0x43,0x4b,0x51,0x7b,0x7d,0x7e,0x7c,0x4e,0x59,
+            0x05,0x10,0x52,0x41,0x53,0x54,0x55,0x45,0x58,0x57,0x56,0x5b,0x5c,
+            0x43,0x4b,0x51,0x4e,0x59,
             0x06,0x01,0x72,
             0x07,0x01,0x3f, //NX_MODIFIERKEY_SECONDARYFN 8th modifier
             0x09,0x01,0x3c, //Right shift
@@ -1164,8 +1135,8 @@ IOHIDKeyboard::defaultKeymapOfLength (UInt32 * length )
         0x02,0x01,0x3b,
         0x03,0x01,0x3a,
         0x04,0x01,0x37,
-        0x05,0x15,0x52,0x41,0x4c,0x53,0x54,0x55,0x45,0x58,0x57,0x56,0x5b,0x5c,
-        0x43,0x4b,0x51,0x7b,0x7d,0x7e,0x7c,0x4e,0x59,
+        0x05,0x11,0x52,0x41,0x4c,0x53,0x54,0x55,0x45,0x58,0x57,0x56,0x5b,0x5c,
+        0x43,0x4b,0x51,0x4e,0x59,
         0x06,0x01,0x72,
         0x09,0x01,0x3c, //Right shift
         0x0a,0x01,0x3e, //Right control

@@ -72,7 +72,8 @@ public:
 	virtual	UInt32			getMinimumGain (void) {return 0;}
 	virtual UInt32			getDefaultInputGain ( void ) { return 0; }										//	[3514617]	rbm		3 Feb 2004
 	virtual UInt32			getDefaultOutputVolume ( void ) { return 0; }									//	[3560749]	aml
-
+    virtual UInt32          getSiliconVersion ( void ) { return 0; }                                        //              tjg     9 July 2004
+    
 	bool					setVolume (UInt32 leftVolume, UInt32 rightVolume);
 	virtual bool			setCodecVolume (UInt32 leftVolume, UInt32 rightVolume) {return false;}
 	virtual IOReturn		setPlayThrough (bool playthroughState) {return kIOReturnError;}

@@ -334,6 +334,7 @@ bool IOHIDConsumer::start(IOService * provider)
     setProperty(kIOHIDVendorIDKey, _vendorID);
     setProperty(kIOHIDProductIDKey, _productID);
     setProperty(kIOHIDLocationIDKey, _locationID);
+    setProperty(kIOHIDCountryCodeKey, provider->getProperty(kIOHIDCountryCodeKey));
 
     // If this service is a dispatcher, the the _keyboard should have
     // been set and thus no need for the notification.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -63,9 +63,9 @@ OSDefineMetaClassAndStructors(IOPMSlotsMacRISC2,IOService)
 // **********************************************************************************
 bool IOPMSlotsMacRISC2::start ( IOService * nub )
 {
-    OSData *		prop;
+    OSData *			prop;
     IORegistryEntry *	node;
-    UInt32		x;
+    UInt32				x;
     
     auxCapacity = 0;
     rootDomain = NULL;

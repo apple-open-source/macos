@@ -33,7 +33,7 @@
 
 #ifndef lint
 static const char rcsid[] _U_ =
-    "@(#) $Header: /cvs/root/libpcap/libpcap/pcap.c,v 1.1.1.3 2004/02/05 19:22:28 rbraun Exp $ (LBL)";
+    "@(#) $Header: /cvs/root/libpcap/libpcap/pcap.c,v 1.1.1.4 2004/05/21 20:31:59 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -49,7 +49,7 @@ static const char rcsid[] _U_ =
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifndef WIN32
+#ifndef _MSC_VER
 #include <unistd.h>
 #endif
 #include <fcntl.h>
@@ -329,9 +329,11 @@ static struct dlt_choice dlt_choices[] = {
 	DLT_CHOICE(DLT_PRISM_HEADER, "802.11 plus Prism header"),
 	DLT_CHOICE(DLT_IP_OVER_FC, "RFC 2625 IP-over-Fibre Channel"),
 	DLT_CHOICE(DLT_SUNATM, "Sun raw ATM"),
-	DLT_CHOICE(DLT_IEEE802_11_RADIO, "802.11 plus radio information header"),
+	DLT_CHOICE(DLT_IEEE802_11_RADIO, "802.11 plus BSD radio information header"),
+	DLT_CHOICE(DLT_APPLE_IP_OVER_IEEE1394, "Apple IP-over-IEEE 1394"),
 	DLT_CHOICE(DLT_ARCNET_LINUX, "Linux ARCNET"),
 	DLT_CHOICE(DLT_LINUX_IRDA, "Linux IrDA"),
+	DLT_CHOICE(DLT_IEEE802_11_RADIO_AVS, "802.11 plus AVS radio information header"),
 	DLT_CHOICE_SENTINEL
 };
 

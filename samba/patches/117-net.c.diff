@@ -1,0 +1,29 @@
+Index: samba/source/utils/net.c
+===================================================================
+RCS file: /cvs/root/samba/samba/source/utils/net.c,v
+retrieving revision 1.4
+diff -u -d -b -r1.4 net.c
+--- samba/source/utils/net.c.orig	2004/02/11 18:51:56	1.4
++++ samba/source/utils/net.c	2004/06/04 21:28:45
+@@ -40,6 +40,10 @@
+ #include "includes.h"
+ #include "../utils/net.h"
+ 
++#ifdef WITH_OPENDIRECTORY
++#include "libopendirectorycommon.h"
++#endif
++
+ /***********************************************************************/
+ /* Beginning of internationalization section.  Translatable constants  */
+ /* should be kept in this area and referenced in the rest of the code. */
+@@ -669,6 +673,10 @@
+ 	};
+ 
+ 	zero_ip(&opt_dest_ip);
++
++#ifdef WITH_OPENDIRECTORY
++	get_opendirectory_authenticator();
++#endif
+ 
+ 	/* set default debug level to 0 regardless of what smb.conf sets */
+ 	DEBUGLEVEL_CLASS[DBGC_ALL] = 0;

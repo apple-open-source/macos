@@ -59,6 +59,9 @@ IODestroyPlugInInterface(). Do not call Release() on it.
 */
 /*
 	$Log: IOFireWireLib.h,v $
+	Revision 1.34.12.1  2004/09/13 21:10:12  niels
+	*** empty log message ***
+	
 	Revision 1.34  2003/11/20 19:14:08  niels
 	*** empty log message ***
 	
@@ -661,9 +664,10 @@ public:
 		@param size Number of bytes to read
 		@param failOnReset Pass true if the command should only be executed during the FireWire bus generation
 			specified in generation. Pass false to ignore the generation parameter. The generation can be
-			obtained by calling GetBusGeneration()
+			obtained by calling GetBusGeneration(). Must be 'true' when using 64-bit addressing.
+			
 		@param generation The FireWire bus generation during which the command should be executed. Ignored
-			if failOnReset is false.
+			if failOnReset is false. Must be a valid generation number when using 64-bit absolute addressing.
 		@result An IOReturn error code
 	*/
 	IOReturn			(*Read)(IOFireWireLibDeviceRef	self, 
@@ -688,7 +692,7 @@ public:
 			specified in generation. Pass false to ignore the generation parameter. The generation can be
 			obtained by calling GetBusGeneration()
 		@param generation The FireWire bus generation during which the command should be executed. Ignored
-			if failOnReset is false.
+			if failOnReset is false. Must be a valid generation number when using 64-bit absolute addressing.
 		@result An IOReturn error code
 	*/
 	IOReturn			(*ReadQuadlet)(	IOFireWireLibDeviceRef	self, 
@@ -710,9 +714,9 @@ public:
 		@param size Number of bytes to read
 		@param failOnReset Pass true if the command should only be executed during the FireWire bus generation
 			specified in 'generation'. Pass false to ignore the generation parameter. The generation can be
-			obtained by calling GetBusGeneration()
+			obtained by calling GetBusGeneration(). Must be 'true' when using 64-bit addressing.
 		@param generation The FireWire bus generation during which the command should be executed. Ignored
-			if failOnReset is false.
+			if failOnReset is false. Must be a valid generation number when using 64-bit absolute addressing.
 		@result An IOReturn error code
 	*/
 	IOReturn			(*Write)(	IOFireWireLibDeviceRef 	self, 
@@ -735,9 +739,9 @@ public:
 		@param val The value to write
 		@param failOnReset Pass true if the command should only be executed during the FireWire bus generation
 			specified in 'generation'. Pass false to ignore the generation parameter. The generation can be
-			obtained by calling GetBusGeneration()
+			obtained by calling GetBusGeneration(). Must be 'true' when using 64-bit addressing.
 		@param generation The FireWire bus generation during which the command should be executed. Ignored
-			if failOnReset is false.
+			if failOnReset is false. Must be a valid generation number when using 64-bit absolute addressing.
 		@result An IOReturn error code
 	*/
 	IOReturn (*WriteQuadlet)(IOFireWireLibDeviceRef self, io_object_t device, const FWAddress* addr, const UInt32 val, Boolean failOnReset, UInt32 generation) ;
@@ -755,9 +759,9 @@ public:
 		@param newVal Value to set
 		@param failOnReset Pass true if the command should only be executed during the FireWire bus generation
 			specified in 'generation'. Pass false to ignore the generation parameter. The generation can be
-			obtained by calling GetBusGeneration()
+			obtained by calling GetBusGeneration(). Must be 'true' when using 64-bit addressing.
 		@param generation The FireWire bus generation during which the command should be executed. Ignored
-			if failOnReset is false.
+			if failOnReset is false. Must be a valid generation number when using 64-bit absolute addressing.
 		@result An IOReturn error code
 	*/
 	IOReturn (*CompareSwap)(IOFireWireLibDeviceRef self, io_object_t device, const FWAddress* addr, UInt32 cmpVal, UInt32 newVal, Boolean failOnReset, UInt32 generation) ;
@@ -778,9 +782,9 @@ public:
 		@param callback Command completion callback.
 		@param failOnReset Pass true if the command should only be executed during the FireWire bus generation
 			specified in 'generation'. Pass false to ignore the generation parameter. The generation can be
-			obtained by calling GetBusGeneration()
+			obtained by calling GetBusGeneration(). Must be 'true' when using 64-bit addressing.
 		@param generation The FireWire bus generation during which the command should be executed. Ignored
-			if failOnReset is false.
+			if failOnReset is false. Must be a valid generation number when using 64-bit absolute addressing.
 		@result An IOFireWireLibCommandRef interface. See IOFireWireLibCommandRef.
 	*/
 	IOFireWireLibCommandRef (*CreateReadCommand)( IOFireWireLibDeviceRef self, io_object_t device, const FWAddress * addr, void* buf, UInt32 size, IOFireWireLibCommandCallback callback, Boolean failOnReset, UInt32 generation, void* inRefCon, REFIID iid) ;
@@ -797,10 +801,9 @@ public:
 		@param numQuads Number of quadlets to read
 		@param failOnReset Pass true if the command should only be executed during the FireWire bus generation
 			specified in 'generation'. Pass false to ignore the generation parameter. The generation can be
-			obtained by calling GetBusGeneration()
+			obtained by calling GetBusGeneration(). Must be 'true' when using 64-bit addressing.
 		@param generation The FireWire bus generation during which the command should be executed. Ignored
-			if failOnReset is false.
-		@param 
+			if failOnReset is false. Must be a valid generation number when using 64-bit absolute addressing.
 		@result An IOFireWireLibCommandRef interface. See IOFireWireLibCommandRef.*/
 	IOFireWireLibCommandRef (*CreateReadQuadletCommand)( IOFireWireLibDeviceRef self, io_object_t device, const FWAddress * addr, UInt32 quads[], UInt32 numQuads, IOFireWireLibCommandCallback callback, Boolean failOnReset, UInt32 generation, void* inRefCon, REFIID iid) ;
 
@@ -817,9 +820,9 @@ public:
 		@param callback Command completion callback.
 		@param failOnReset Pass true if the command should only be executed during the FireWire bus generation
 			specified in 'generation'. Pass false to ignore the generation parameter. The generation can be
-			obtained by calling GetBusGeneration()
+			obtained by calling GetBusGeneration(). Must be 'true' when using 64-bit addressing.
 		@param generation The FireWire bus generation during which the command should be executed. Ignored
-			if failOnReset is false.
+			if failOnReset is false. Must be a valid generation number when using 64-bit absolute addressing.
 		@result An IOFireWireLibCommandRef interface. See IOFireWireLibCommandRef.*/
 	IOFireWireLibCommandRef (*CreateWriteCommand)( IOFireWireLibDeviceRef self, io_object_t device, const FWAddress * addr, void* buf, UInt32  size, IOFireWireLibCommandCallback callback, Boolean failOnReset, UInt32 generation, void* inRefCon, REFIID iid) ;
 
@@ -836,9 +839,9 @@ public:
 		@param numQuads Number of quadlets to write
 		@param failOnReset Pass true if the command should only be executed during the FireWire bus generation
 			specified in 'generation'. Pass false to ignore the generation parameter. The generation can be
-			obtained by calling GetBusGeneration()
+			obtained by calling GetBusGeneration(). Must be 'true' when using 64-bit addressing.
 		@param generation The FireWire bus generation during which the command should be executed. Ignored
-			if failOnReset is false.
+			if failOnReset is false. Must be a valid generation number when using 64-bit absolute addressing.
 		@result An IOFireWireLibCommandRef interface. See IOFireWireLibCommandRef.
 	*/
 	IOFireWireLibCommandRef (*CreateWriteQuadletCommand)(IOFireWireLibDeviceRef	self, io_object_t device, const FWAddress *	addr, UInt32 quads[], UInt32 numQuads, IOFireWireLibCommandCallback callback, Boolean failOnReset, UInt32 generation, void* inRefCon, REFIID iid) ;
@@ -857,9 +860,9 @@ public:
 		@param callback Command completion callback.
 		@param failOnReset Pass true if the command should only be executed during the FireWire bus generation
 			specified in 'generation'. Pass false to ignore the generation parameter. The generation can be
-			obtained by calling GetBusGeneration()
+			obtained by calling GetBusGeneration(). Must be 'true' when using 64-bit addressing.
 		@param generation The FireWire bus generation during which the command should be executed. Ignored
-			if failOnReset is false.
+			if failOnReset is false. Must be a valid generation number when using 64-bit absolute addressing.
 		@result An IOFireWireLibCommandRef interface. See IOFireWireLibCommandRef.	*/
 	IOFireWireLibCommandRef (*CreateCompareSwapCommand)( IOFireWireLibDeviceRef self, io_object_t device, const FWAddress *  addr, UInt32      cmpVal, UInt32      newVal, IOFireWireLibCommandCallback callback, Boolean failOnReset, UInt32 generation, void* inRefCon, REFIID iid) ;
 
@@ -1392,7 +1395,7 @@ public:
 	IOReturn (*GetSpeedToNode)( IOFireWireLibDeviceRef self, UInt32 checkGeneration, IOFWSpeed* outSpeed) ;
 
 	/*!	@function GetSpeedBetweenNodes
-		@abstract Get maximum transfer speed to device to which this interface is attached.
+		@abstract Get the maximum transfer speed between nodes 'srcNodeID' and 'destNodeID'.
 		@discussion
 		
 			Availability: IOFireWireDeviceInterface_v4 and newer
@@ -1644,7 +1647,9 @@ public:
 			address space occupies on the local machine
 		@param outAddress A pointer to an array to hold the function results. Upon
 			completion, this will contain the addresses of the physical segments this
-			address space occupies on the local machine. */
+			address space occupies on the local machine. If NULL, ioSegmentCount
+			will contain the number of physical segments in the address space.*/
+			
 	void				(*GetPhysicalSegments)(
 								IOFireWireLibPhysicalAddressSpaceRef self,
 								UInt32*				ioSegmentCount,
@@ -1733,9 +1738,9 @@ enum {
 
 #ifndef KERNEL
 //
-// IOFIREWIRELIBCOMMAND_C_GUTS
-// Macro used to insert generic superclass function definitions into all subclass of
-// IOFireWireCommand. Comments for functions contained in this macro follow below:
+// IOFIREWIRELIBCOMMAND_C_GUTS, IOFIREWIRELIBCOMMAND_C_GUTS_v2
+// Macros used to insert generic superclass function definitions into all subclasses of
+// IOFireWireCommand. Comments for functions contained in this macros follow below:
 //
 #define IOFIREWIRELIBCOMMAND_C_GUTS \
 	IOReturn			(*GetStatus)(IOFireWireLibCommandRef	self) ;	\

@@ -40,6 +40,18 @@ static const struct {
 	{-1,NULL}
 };
 
+/**
+ * Set the user session key for a connection
+ * @param cli The cli structure to add it too
+ * @param session_key The session key used.  (A copy of this is taken for the cli struct)
+ *
+ */
+
+static void cli_set_session_key (struct cli_state *cli, const DATA_BLOB session_key) 
+{
+	cli->user_session_key = data_blob(session_key.data, session_key.length);
+}
+
 /****************************************************************************
  Do an old lanman2 style session setup.
 ****************************************************************************/
@@ -47,6 +59,8 @@ static const struct {
 static BOOL cli_session_setup_lanman2(struct cli_state *cli, const char *user, 
 				      const char *pass, size_t passlen, const char *workgroup)
 {
+	DATA_BLOB session_key = data_blob(NULL, 0);
+	DATA_BLOB lm_response = data_blob(NULL, 0);
 	fstring pword;
 	char *p;
 
@@ -66,14 +80,15 @@ static BOOL cli_session_setup_lanman2(struct cli_state *cli, const char *user,
 
 	if (passlen > 0 && (cli->sec_mode & NEGOTIATE_SECURITY_CHALLENGE_RESPONSE) && passlen != 24) {
 		/* Encrypted mode needed, and non encrypted password supplied. */
-		passlen = 24;
-		SMBencrypt(pass,cli->secblob.data,(uchar *)pword);
+		lm_response = data_blob(NULL, 24);
+		SMBencrypt(pass, cli->secblob.data,(uchar *)lm_response.data);
 	} else if ((cli->sec_mode & NEGOTIATE_SECURITY_CHALLENGE_RESPONSE) && passlen == 24) {
 		/* Encrypted mode needed, and encrypted password supplied. */
-		memcpy(pword, pass, passlen);
+		lm_response = data_blob(pass, passlen);
 	} else if (passlen > 0) {
 		/* Plaintext mode needed, assume plaintext supplied. */
 		passlen = clistr_push(cli, pword, pass, sizeof(pword), STR_TERMINATE);
+		lm_response = data_blob(pass, passlen);
 	}
 
 	/* send a session setup command */
@@ -87,10 +102,10 @@ static BOOL cli_session_setup_lanman2(struct cli_state *cli, const char *user,
 	SSVAL(cli->outbuf,smb_vwv3,2);
 	SSVAL(cli->outbuf,smb_vwv4,1);
 	SIVAL(cli->outbuf,smb_vwv5,cli->sesskey);
-	SSVAL(cli->outbuf,smb_vwv7,passlen);
+	SSVAL(cli->outbuf,smb_vwv7,lm_response.length);
 
 	p = smb_buf(cli->outbuf);
-	memcpy(p,pword,passlen);
+	memcpy(p,lm_response.data,lm_response.length);
 	p += passlen;
 	p += clistr_push(cli, p, user, -1, STR_TERMINATE|STR_UPPER);
 	p += clistr_push(cli, p, workgroup, -1, STR_TERMINATE|STR_UPPER);
@@ -110,6 +125,11 @@ static BOOL cli_session_setup_lanman2(struct cli_state *cli, const char *user,
 	/* use the returned vuid from now on */
 	cli->vuid = SVAL(cli->inbuf,smb_uid);	
 	fstrcpy(cli->user_name, user);
+
+	if (session_key.data) {
+		/* Have plaintext orginal */
+		cli_set_session_key(cli, session_key);
+	}
 
 	return True;
 }
@@ -248,18 +268,6 @@ static BOOL cli_session_setup_plaintext(struct cli_state *cli, const char *user,
 	return True;
 }
 
-/**
- * Set the user session key for a connection
- * @param cli The cli structure to add it too
- * @param session_key The session key used.  (A copy of this is taken for the cli struct)
- *
- */
-
-static void cli_set_session_key (struct cli_state *cli, const DATA_BLOB session_key) 
-{
-	cli->user_session_key = data_blob(session_key.data, session_key.length);
-}
-
 /****************************************************************************
    do a NT1 NTLM/LM encrypted session setup - for when extended security
    is not negotiated.
@@ -310,22 +318,39 @@ static BOOL cli_session_setup_nt1(struct cli_state *cli, const char *user,
 			uchar nt_hash[16];
 			E_md4hash(pass, nt_hash);
 
+#ifdef LANMAN_ONLY
+			nt_response = data_blob(NULL, 0);
+#else
 			nt_response = data_blob(NULL, 24);
 			SMBNTencrypt(pass,cli->secblob.data,nt_response.data);
-
+#endif
 			/* non encrypted password supplied. Ignore ntpass. */
 			if (lp_client_lanman_auth()) {
 				lm_response = data_blob(NULL, 24);
-				SMBencrypt(pass,cli->secblob.data, lm_response.data);
+				if (!SMBencrypt(pass,cli->secblob.data, lm_response.data)) {
+					/* Oops, the LM response is invalid, just put 
+					   the NT response there instead */
+					data_blob_free(&lm_response);
+					lm_response = data_blob(nt_response.data, nt_response.length);
+				}
 			} else {
 				/* LM disabled, place NT# in LM field instead */
 				lm_response = data_blob(nt_response.data, nt_response.length);
 			}
 
 			session_key = data_blob(NULL, 16);
+#ifdef LANMAN_ONLY
+			E_deshash(pass, session_key.data);
+			memset(&session_key.data[8], '\0', 8);
+#else
 			SMBsesskeygen_ntv1(nt_hash, NULL, session_key.data);
+#endif
 		}
-		cli_simple_set_signing(cli, session_key, nt_response, 0); 
+#ifdef LANMAN_ONLY
+		cli_simple_set_signing(cli, session_key, lm_response); 
+#else
+		cli_simple_set_signing(cli, session_key, nt_response); 
+#endif
 	} else {
 		/* pre-encrypted password supplied.  Only used for 
 		   security=server, can't do
@@ -358,7 +383,9 @@ static BOOL cli_session_setup_nt1(struct cli_state *cli, const char *user,
 		memcpy(p,nt_response.data, nt_response.length); p += nt_response.length;
 	}
 	p += clistr_push(cli, p, user, -1, STR_TERMINATE);
-	p += clistr_push(cli, p, workgroup, -1, STR_TERMINATE);
+
+	/* Upper case here might help some NTLMv2 implementations */
+	p += clistr_push(cli, p, workgroup, -1, STR_TERMINATE|STR_UPPER);
 	p += clistr_push(cli, p, "Unix", -1, STR_TERMINATE);
 	p += clistr_push(cli, p, "Samba", -1, STR_TERMINATE);
 	cli_setup_bcc(cli, p);
@@ -394,9 +421,7 @@ static BOOL cli_session_setup_nt1(struct cli_state *cli, const char *user,
 end:	
 	data_blob_free(&lm_response);
 	data_blob_free(&nt_response);
-
-	if (!ret)
-		data_blob_free(&session_key);
+	data_blob_free(&session_key);
 	return ret;
 }
 
@@ -521,7 +546,7 @@ static ADS_STATUS cli_session_setup_kerberos(struct cli_state *cli, const char *
 	file_save("negTokenTarg.dat", negTokenTarg.data, negTokenTarg.length);
 #endif
 
-	cli_simple_set_signing(cli, session_key_krb5, null_blob, 0); 
+	cli_simple_set_signing(cli, session_key_krb5, null_blob); 
 			
 	blob2 = cli_session_setup_blob(cli, negTokenTarg);
 
@@ -531,6 +556,7 @@ static ADS_STATUS cli_session_setup_kerberos(struct cli_state *cli, const char *
 	cli_set_session_key(cli, session_key_krb5);
 
 	data_blob_free(&negTokenTarg);
+	data_blob_free(&session_key_krb5);
 
 	if (cli_is_error(cli)) {
 		if (NT_STATUS_IS_OK(cli_nt_error(cli))) {
@@ -553,9 +579,9 @@ static NTSTATUS cli_session_setup_ntlmssp(struct cli_state *cli, const char *use
 	NTSTATUS nt_status;
 	int turn = 1;
 	DATA_BLOB msg1;
-	DATA_BLOB blob;
+	DATA_BLOB blob = data_blob(NULL, 0);
 	DATA_BLOB blob_in = data_blob(NULL, 0);
-	DATA_BLOB blob_out;
+	DATA_BLOB blob_out = data_blob(NULL, 0);
 
 	cli_temp_set_signing(cli);
 
@@ -588,7 +614,7 @@ static NTSTATUS cli_session_setup_ntlmssp(struct cli_state *cli, const char *use
 		
 			/* now send that blob on its way */
 			if (!cli_session_setup_blob_send(cli, msg1)) {
-				DEBUG(3, ("Failed to send NTLMSSP/SPENGO blob to server!\n"));
+				DEBUG(3, ("Failed to send NTLMSSP/SPNEGO blob to server!\n"));
 				nt_status = NT_STATUS_UNSUCCESSFUL;
 			} else {
 				data_blob_free(&msg1);
@@ -643,13 +669,16 @@ static NTSTATUS cli_session_setup_ntlmssp(struct cli_state *cli, const char *use
 		fstrcpy(cli->server_domain, ntlmssp_state->server_domain);
 		cli_set_session_key(cli, ntlmssp_state->session_key);
 
-		/* Using NTLMSSP session setup, signing on the net only starts
-		 * after a successful authentication and the session key has
-		 * been determined, but with a sequence number of 2. This
-		 * assumes that NTLMSSP needs exactly 2 roundtrips, for any
-		 * other SPNEGO mechanism it needs adapting. */
-
-		cli_simple_set_signing(cli, key, null_blob, 2);
+		if (cli_simple_set_signing(cli, key, null_blob)) {
+			
+			/* 'resign' the last message, so we get the right sequence numbers
+			   for checking the first reply from the server */
+			cli_calculate_sign_mac(cli);
+			
+			if (!cli_check_sign_mac(cli, True)) {
+				nt_status = NT_STATUS_ACCESS_DENIED;
+			}
+		}
 	}
 
 	/* we have a reference conter on ntlmssp_state, if we are signing
@@ -714,23 +743,28 @@ ADS_STATUS cli_session_setup_spnego(struct cli_state *cli, const char *user,
 	 * and do not store results */
 
 	if (got_kerberos_mechanism && cli->use_kerberos) {
+		ADS_STATUS rc;
+
 		if (pass && *pass) {
 			int ret;
 			
 			use_in_memory_ccache();
-			ret = kerberos_kinit_password(user, pass, 0 /* no time correction for now */);
+			ret = kerberos_kinit_password(user, pass, 0 /* no time correction for now */, NULL);
 			
 			if (ret){
+				SAFE_FREE(principal);
 				DEBUG(0, ("Kinit failed: %s\n", error_message(ret)));
 				return ADS_ERROR_KRB5(ret);
 			}
 		}
 		
-		return cli_session_setup_kerberos(cli, principal, domain);
+		rc = cli_session_setup_kerberos(cli, principal, domain);
+		SAFE_FREE(principal);
+		return rc;
 	}
 #endif
 
-	free(principal);
+	SAFE_FREE(principal);
 
 ntlmssp:
 
@@ -817,7 +851,7 @@ BOOL cli_session_setup(struct cli_state *cli,
 	if (cli->capabilities & CAP_EXTENDED_SECURITY) {
 		ADS_STATUS status = cli_session_setup_spnego(cli, user, pass, workgroup);
 		if (!ADS_ERR_OK(status)) {
-			DEBUG(3, ("SPENGO login failed: %s\n", ads_errstr(status)));
+			DEBUG(3, ("SPNEGO login failed: %s\n", ads_errstr(status)));
 			return False;
 		}
 		return True;
@@ -871,7 +905,7 @@ BOOL cli_send_tconX(struct cli_state *cli,
 
 	if ((cli->sec_mode & NEGOTIATE_SECURITY_CHALLENGE_RESPONSE) && *pass && passlen != 24) {
 		if (!lp_client_lanman_auth()) {
-			DEBUG(1, ("Server requested LANMAN password but 'client use lanman auth'"
+			DEBUG(1, ("Server requested LANMAN password (share-level security) but 'client use lanman auth'"
 				  " is disabled\n"));
 			return False;
 		}
@@ -1088,6 +1122,8 @@ BOOL cli_negprot(struct cli_state *cli)
 			}
 			cli->sign_info.negotiated_smb_signing = True;
 			cli->sign_info.mandatory_signing = True;
+		} else if (cli->sec_mode & NEGOTIATE_SECURITY_SIGNATURES_ENABLED) {
+			cli->sign_info.negotiated_smb_signing = True;
 		}
 
 	} else if (cli->protocol >= PROTOCOL_LANMAN1) {
@@ -1590,42 +1626,88 @@ struct cli_state *get_ipc_connect(char *server, struct in_addr *server_ip,
 	return NULL;
 }
 
-/* Return the IP address and workgroup of a master browser on the 
-   network. */
+/*
+ * Given the IP address of a master browser on the network, return its
+ * workgroup and connect to it.
+ *
+ * This function is provided to allow additional processing beyond what
+ * get_ipc_connect_master_ip_bcast() does, e.g. to retrieve the list of master
+ * browsers and obtain each master browsers' list of domains (in case the
+ * first master browser is recently on the network and has not yet
+ * synchronized with other master browsers and therefore does not yet have the
+ * entire network browse list)
+ */
+
+struct cli_state *get_ipc_connect_master_ip(struct ip_service * mb_ip, pstring workgroup, struct user_auth_info *user_info)
+{
+        static fstring name;
+	struct cli_state *cli;
+	struct in_addr server_ip; 
+
+        DEBUG(99, ("Looking up name of master browser %s\n",
+                   inet_ntoa(mb_ip->ip)));
+
+        /*
+         * Do a name status query to find out the name of the master browser.
+         * We use <01><02>__MSBROWSE__<02>#01 if *#00 fails because a domain
+         * master browser will not respond to a wildcard query (or, at least,
+         * an NT4 server acting as the domain master browser will not).
+         *
+         * We might be able to use ONLY the query on MSBROWSE, but that's not
+         * yet been tested with all Windows versions, so until it is, leave
+         * the original wildcard query as the first choice and fall back to
+         * MSBROWSE if the wildcard query fails.
+         */
+        if (!name_status_find("*", 0, 0x1d, mb_ip->ip, name) &&
+            !name_status_find(MSBROWSE, 1, 0x1d, mb_ip->ip, name)) {
+
+                DEBUG(99, ("Could not retrieve name status for %s\n",
+                           inet_ntoa(mb_ip->ip)));
+                return NULL;
+        }
+
+        if (!find_master_ip(name, &server_ip)) {
+                DEBUG(99, ("Could not find master ip for %s\n", name));
+                return NULL;
+        }
+
+                pstrcpy(workgroup, name);
+
+                DEBUG(4, ("found master browser %s, %s\n", 
+                  name, inet_ntoa(mb_ip->ip)));
+
+		cli = get_ipc_connect(inet_ntoa(server_ip), &server_ip, user_info);
+
+		return cli;
+    
+}
+
+/*
+ * Return the IP address and workgroup of a master browser on the network, and
+ * connect to it.
+ */
 
 struct cli_state *get_ipc_connect_master_ip_bcast(pstring workgroup, struct user_auth_info *user_info)
 {
 	struct ip_service *ip_list;
 	struct cli_state *cli;
 	int i, count;
-	struct in_addr server_ip; 
+
+        DEBUG(99, ("Do broadcast lookup for workgroups on local network\n"));
 
         /* Go looking for workgroups by broadcasting on the local network */ 
 
         if (!name_resolve_bcast(MSBROWSE, 1, &ip_list, &count)) {
+                DEBUG(99, ("No master browsers responded\n"));
                 return False;
         }
 
 	for (i = 0; i < count; i++) {
-		static fstring name;
+            DEBUG(99, ("Found master browser %s\n", inet_ntoa(ip_list[i].ip)));
 
-		if (!name_status_find("*", 0, 0x1d, ip_list[i].ip, name))
-			continue;
-
-                if (!find_master_ip(name, &server_ip))
-			continue;
-
-                pstrcpy(workgroup, name);
-
-                DEBUG(4, ("found master browser %s, %s\n", 
-                          name, inet_ntoa(ip_list[i].ip)));
-
-		cli = get_ipc_connect(inet_ntoa(server_ip), &server_ip, user_info);
-
-		if (!cli)
-		    continue;
-		
-		return cli;
+            cli = get_ipc_connect_master_ip(&ip_list[i], workgroup, user_info);
+            if (cli)
+                    return(cli);
 	}
 
 	return NULL;

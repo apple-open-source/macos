@@ -25,6 +25,12 @@
  * HISTORY
  *
  *	$Log: IOFWDCLProgram.cpp,v $
+ *	Revision 1.24.10.2  2004/09/14 00:43:29  niels
+ *	*** empty log message ***
+ *	
+ *	Revision 1.24.10.1  2004/09/13 21:10:10  niels
+ *	*** empty log message ***
+ *	
  *	Revision 1.24  2003/12/19 22:07:46  niels
  *	send force stop when channel dies/system sleeps
  *	
@@ -104,9 +110,7 @@ getDCLDataBuffer(
 	return result ;
 }
 
-//extern bool gLogMe ;
-
-IOMemoryMap *
+void
 IODCLProgram :: generateBufferMap( DCLCommand * program )
 {
 	IOVirtualAddress lowAddress = (IOVirtualAddress)-1 ;
@@ -117,7 +121,7 @@ IODCLProgram :: generateBufferMap( DCLCommand * program )
 		IOVirtualRange tempRange ;
 		if ( getDCLDataBuffer( dcl, tempRange ) )
 		{
-			DebugLog( "see range %p +0x%x\n", (void*)(tempRange.address), (unsigned)(tempRange.length) ) ;
+//			DebugLog( "see range %p +0x%x\n", (void*)(tempRange.address), (unsigned)(tempRange.length) ) ;
 			
 			lowAddress = lowAddress <? trunc_page( tempRange.address ) ;
 			highAddress = highAddress >? round_page( tempRange.address + tempRange.length ) ;
@@ -128,19 +132,13 @@ IODCLProgram :: generateBufferMap( DCLCommand * program )
 	
 	if ( lowAddress == 0 )
 	{
-		return NULL ;
+		return ;
 	}
 	
 	IOMemoryDescriptor * desc = IOMemoryDescriptor::withAddress( (void*)lowAddress, highAddress - lowAddress, kIODirectionOutIn ) ;
-//	IOMemoryDescriptor * desc ;
-//	{
-//		IOVirtualRange range = { lowAddress, highAddress - lowAddress } ;
-//		desc = IOMemoryDescriptor::withOptions( &range, 1, 0, kernel_task, kIOMemoryTypeVirtual ) ;
-//	}
-	
+
 	DebugLogCond(!desc, "couldn't make memory descriptor!\n") ;
 
-//	gLogMe = true ;
 	if ( desc && kIOReturnSuccess != desc->prepare() )
 	{
 		ErrorLog("couldn't prepare memory descriptor\n") ;
@@ -148,18 +146,14 @@ IODCLProgram :: generateBufferMap( DCLCommand * program )
 		desc->release() ;
 		desc = NULL ;
 	}
-//	gLogMe = false ;
-	
-	IOMemoryMap * result = NULL ;
+
 	if ( desc )
 	{
-		result = desc->map() ;
+		fBufferMem = desc->map() ;
 		desc->release() ;
 		
-		DebugLogCond(!result, "couldn't make mapping\n") ;
+		DebugLogCond(!fBufferMem, "couldn't make mapping\n") ;
 	}
-	
-	return result ;
 }
 
 IOReturn
@@ -221,8 +215,13 @@ IODCLProgram :: init ( IOFireWireBus :: DCLTaskInfo * info)
 	
 	fExpansionData->resourceFlags = kFWDefaultIsochResourceFlags ;
 
+	bool success = true ;
+	
 	if ( info )
 	{
+		// this part sets up fBufferMem is passed in 'info'
+		
+	
 		if ( ( !info->unused0 && !info->unused1 && !info->unused2 && !info->unused3 && !info->unused4
 			&& ! info->unused5 ) && info->auxInfo )
 		{
@@ -231,18 +230,33 @@ IODCLProgram :: init ( IOFireWireBus :: DCLTaskInfo * info)
 				case 0 :
 				{
 					fBufferMem = info->auxInfo->u.v0.bufferMemoryMap ;
-					fBufferMem->retain() ;
+					if ( fBufferMem )
+					{
+						fBufferMem->retain() ;
+					}
+					
+					break ;
+				}
+
+				case 1 :
+				{
+					fBufferMem = info->auxInfo->u.v1.bufferMemoryMap ;
+					if ( fBufferMem )
+					{
+						fBufferMem->retain() ;
+					}
 					
 					break ;
 				}
 				default :
 					ErrorLog( "unsupported version found in info->auxInfo!\n" ) ;
+					success = false ;
 					break ;
 			} ;
 		}
 	}
 
-    return true ;
+    return success ;
 }
 
 void IODCLProgram::free()
@@ -298,3 +312,20 @@ IODCLProgram :: getBufferMap() const
 {
 	return fBufferMem ;
 }
+
+void
+IODCLProgram :: closeGate()
+{
+}
+
+void
+IODCLProgram :: openGate()
+{
+}
+
+IOReturn
+IODCLProgram :: synchronizeWithIO()
+{
+	return kIOReturnSuccess ;
+}
+

@@ -22,7 +22,7 @@
 
 #include "includes.h"
 
-int am_parent = 1;
+static int am_parent = 1;
 
 /* the last message the was processed */
 int last_message = -1;
@@ -145,7 +145,7 @@ static void msg_exit_server(int msg_type, pid_t src, void *buf, size_t len)
  Have we reached the process limit ?
 ****************************************************************************/
 
-BOOL allowable_number_of_smbd_processes(void)
+static BOOL allowable_number_of_smbd_processes(void)
 {
 	int max_processes = lp_max_smbd_processes();
 
@@ -249,7 +249,10 @@ static BOOL open_sockets_smbd(BOOL is_daemon, BOOL interactive, const char *smb_
 				/* ready to listen */
 				set_socket_options(s,"SO_KEEPALIVE"); 
 				set_socket_options(s,user_socket_options);
-      
+     
+				/* Set server socket to non-blocking for the accept. */
+				set_blocking(s,False); 
+ 
 				if (listen(s, SMBD_LISTEN_BACKLOG) == -1) {
 					DEBUG(0,("listen: %s\n",strerror(errno)));
 					close(s);
@@ -286,6 +289,9 @@ static BOOL open_sockets_smbd(BOOL is_daemon, BOOL interactive, const char *smb_
 			set_socket_options(s,"SO_KEEPALIVE"); 
 			set_socket_options(s,user_socket_options);
 			
+			/* Set server socket to non-blocking for the accept. */
+			set_blocking(s,False); 
+ 
 			if (listen(s, SMBD_LISTEN_BACKLOG) == -1) {
 				DEBUG(0,("open_sockets_smbd: listen: %s\n",
 					 strerror(errno)));
@@ -378,6 +384,9 @@ static BOOL open_sockets_smbd(BOOL is_daemon, BOOL interactive, const char *smb_
 				continue;
 			}
 
+			/* Ensure child is set to blocking mode */
+			set_blocking(smbd_server_fd(),True);
+
 			if (smbd_server_fd() != -1 && interactive)
 				return True;
 			
@@ -405,10 +414,10 @@ static BOOL open_sockets_smbd(BOOL is_daemon, BOOL interactive, const char *smb_
 				   done correctly in the process.  */
 				reset_globals_after_fork();
 
-				/* tdb needs special fork handling */
+				/* tdb needs special fork handling - remove CLEAR_IF_FIRST flags */
 				if (tdb_reopen_all() == -1) {
 					DEBUG(0,("tdb_reopen_all failed.\n"));
-					return False;
+					smb_panic("tdb_reopen_all failed.");
 				}
 
 				return True; 
@@ -500,6 +509,7 @@ BOOL reload_services(BOOL test)
 
 	return(ret);
 }
+
 
 #if DUMP_CORE
 /*******************************************************************
@@ -808,7 +818,25 @@ void build_options(BOOL screen);
 	if (is_daemon)
 		pidfile_create("smbd");
 
+	/* Setup all the TDB's - including CLEAR_IF_FIRST tdb's. */
 	if (!message_init())
+		exit(1);
+
+	if (!session_init())
+		exit(1);
+
+	if (conn_tdb_ctx() == NULL)
+		exit(1);
+
+	if (!locking_init(0))
+		exit(1);
+
+	if (!share_info_db_init())
+		exit(1);
+
+	namecache_enable();
+
+	if (!init_registry())
 		exit(1);
 
 	if (!print_backend_init())
@@ -830,17 +858,6 @@ void build_options(BOOL screen);
 	/*
 	 * everything after this point is run after the fork()
 	 */ 
-
-	namecache_enable();
-
-	if (!locking_init(0))
-		exit(1);
-
-	if (!share_info_db_init())
-		exit(1);
-
-	if (!init_registry())
-		exit(1);
 
 	/* Initialise the password backed before the global_sam_sid
 	   to ensure that we fetch from ldap before we make a domain sid up */

@@ -33,6 +33,7 @@ extern "C" {
 #endif /* __cplusplus */
 
 #define ___GID_ADMIN 80
+#define ___GID_WHEEL 0
 #define ___UID_ROOT  0
 
 #define ___GID_UNKNOWN 99

@@ -549,10 +549,9 @@ ControlValue IOPlatformPIDCtrlLoop::calculateNewTarget( void ) const
 		newTarget = (UInt32)(result > 0) ? result : 0;
 
 		// apply the hard limits
-		if (newTarget < outputMin)
-			newTarget = outputMin;
-		else if (newTarget > outputMax)
-			newTarget = outputMax;
+
+		newTarget = min( newTarget, outputMax );
+		newTarget = max( newTarget, outputMin );
 
 /*
 #ifdef CTRLLOOP_DEBUG

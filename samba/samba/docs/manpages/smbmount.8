@@ -53,19 +53,15 @@ Options to \fBsmbmount\fR are specified as a comma\-separated list of key=value 
 username=<arg>
 specifies the username to connect as\&. If this is not given, then the environment variable \fB USER\fR is used\&. This option can also take the form "user%password" or "user/workgroup" or "user/workgroup%password" to allow the password and workgroup to be specified as part of the username\&.
 
-
 .TP
 password=<arg>
-specifies the SMB password\&. If this option is not given then the environment variable \fBPASSWD\fR is used\&. If it can find no password \fBsmbmount\fR will prompt for a passeword, unless the guest option is given\&.
-
+specifies the SMB password\&. If this option is not given then the environment variable\fBPASSWD\fR is used\&. If it can find no password \fBsmbmount\fR will prompt for a passeword, unless the guest option is given\&.
 
 Note that passwords which contain the argument delimiter character (i\&.e\&. a comma ',') will failed to be parsed correctly on the command line\&. However, the same password defined in the PASSWD environment variable or a credentials file (see below) will be read correctly\&.
 
-
 .TP
 credentials=<filename>
-specifies a file that contains a username and/or password\&. 
-The format of the file is:
+specifies a file that contains a username and/or password\&. The format of the file is: 
 .nf
 
 username = <value>
@@ -75,96 +71,77 @@ password = <value>
 
 This is preferred over having passwords in plaintext in a shared file, such as \fI/etc/fstab\fR\&. Be sure to protect any credentials file properly\&.
 
-
 .TP
 krb
 Use kerberos (Active Directory)\&.
-
 
 .TP
 netbiosname=<arg>
 sets the source NetBIOS name\&. It defaults to the local hostname\&.
 
-
 .TP
 uid=<arg>
 sets the uid that will own all files on the mounted filesystem\&. It may be specified as either a username or a numeric uid\&.
-
 
 .TP
 gid=<arg>
 sets the gid that will own all files on the mounted filesystem\&. It may be specified as either a groupname or a numeric gid\&.
 
-
 .TP
 port=<arg>
 sets the remote SMB port number\&. The default is 139\&.
-
 
 .TP
 fmask=<arg>
 sets the file mask\&. This determines the permissions that remote files have in the local filesystem\&. This is not a umask, but the actual permissions for the files\&. The default is based on the current umask\&.
 
-
 .TP
 dmask=<arg>
 Sets the directory mask\&. This determines the permissions that remote directories have in the local filesystem\&. This is not a umask, but the actual permissions for the directories\&. The default is based on the current umask\&.
-
 
 .TP
 debug=<arg>
 Sets the debug level\&. This is useful for tracking down SMB connection problems\&. A suggested value to start with is 4\&. If set too high there will be a lot of output, possibly hiding the useful output\&.
 
-
 .TP
 ip=<arg>
 Sets the destination host or IP address\&.
-
 
 .TP
 workgroup=<arg>
 Sets the workgroup on the destination
 
-
 .TP
 sockopt=<arg>
-Sets the TCP socket options\&. See the \fBsmb\&.conf\fR(5) \fIsocket options\fR option\&.
-
+Sets the TCP socket options\&. See the \fBsmb\&.conf\fR(5)  \fIsocket options\fR option\&.
 
 .TP
 scope=<arg>
 Sets the NetBIOS scope
 
-
 .TP
 guest
 Don't prompt for a password
-
 
 .TP
 ro
 mount read\-only
 
-
 .TP
 rw
 mount read\-write
-
 
 .TP
 iocharset=<arg>
 sets the charset used by the Linux side for codepage to charset translations (NLS)\&. Argument should be the name of a charset, like iso8859\-1\&. (Note: only kernel 2\&.4\&.0 or later)
 
-
 .TP
 codepage=<arg>
 sets the codepage the server uses\&. See the iocharset option\&. Example value cp850\&. (Note: only kernel 2\&.4\&.0 or later)
 
-
 .TP
 ttl=<arg>
 sets how long a directory listing is cached in milliseconds (also affects visibility of file size and date changes)\&. A higher value means that changes on the server take longer to be noticed but it can give better performance on large directories, especially over long distances\&. Default is 1000ms but something like 10000ms (10 seconds) is probably more reasonable in many cases\&. (Note: only kernel 2\&.4\&.2 or later)
-
 
 .SH "ENVIRONMENT VARIABLES"
 
@@ -191,7 +168,6 @@ One smbfs bug is important enough to mention here, even if it is a bit misplaced
 .TP 3
 \(bu
 Mounts sometimes stop working\&. This is usually caused by smbmount terminating\&. Since smbfs needs smbmount to reconnect when the server disconnects, the mount will eventually go dead\&. An umount/mount normally fixes this\&. At least 2 ways to trigger this bug are known\&.
-
 .LP
 
 .PP

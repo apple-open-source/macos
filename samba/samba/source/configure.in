@@ -14,22 +14,29 @@ AC_ENABLE_SHARED
 # ones...
 AC_PREFIX_DEFAULT(/usr/local/samba)
 
+lockdir="\${VARDIR}/locks"
+piddir="\${VARDIR}/locks"
+mandir="\${prefix}/man"
+logfilebase="\${VARDIR}"
+privatedir="\${prefix}/private"
+libdir="\${prefix}/lib"
+configdir="\${LIBDIR}"
+swatdir="\${prefix}/swat"
+
 AC_ARG_WITH(fhs, 
 [  --with-fhs              Use FHS-compliant paths (default=no)],
-    configdir="${sysconfdir}/samba"
+[ case "$withval" in
+  yes)
     lockdir="\${VARDIR}/lib/samba"
     piddir="\${VARDIR}/run"
     mandir="\${prefix}/share/man"
     logfilebase="\${VARDIR}/log/samba"
     privatedir="\${CONFIGDIR}/private"
     libdir="\${prefix}/lib/samba"
-    swatdir="\${DATADIR}/samba/swat",
-    configdir="\${LIBDIR}"
-    logfilebase="\${VARDIR}"
-    lockdir="\${VARDIR}/locks"
-    piddir="\${VARDIR}/locks"
-    privatedir="\${prefix}/private"
-    swatdir="\${prefix}/swat")
+    configdir="${sysconfdir}/samba"
+    swatdir="\${DATADIR}/samba/swat"
+    ;;
+  esac])
 
 #################################################
 # set private directory location
@@ -98,7 +105,7 @@ AC_ARG_WITH(swatdir,
 #################################################
 # set configuration directory location
 AC_ARG_WITH(configdir,
-[  --with-configdir=DIR    Where to put configuration files (\$libdir)],
+[  --with-configdir=DIR    Where to put configuration files ($libdir)],
 [ case "$withval" in
   yes|no)
   #
@@ -114,7 +121,7 @@ AC_ARG_WITH(configdir,
 #################################################
 # set log directory location
 AC_ARG_WITH(logfilebase,
-[  --with-logfilebase=DIR  Where to put log files (\$(VARDIR))],
+[  --with-logfilebase=DIR  Where to put log files ($VARDIR)],
 [ case "$withval" in
   yes|no)
   #
@@ -124,6 +131,38 @@ AC_ARG_WITH(logfilebase,
   ;;
   * )
     logfilebase="$withval"
+    ;;
+  esac])
+
+#################################################
+# set lib directory location
+AC_ARG_WITH(libdir,
+[  --with-libdir=DIR       Where to put libdir ($libdir)],
+[ case "$withval" in
+  yes|no)
+  #
+  # Just in case anybody does it
+  #
+    AC_MSG_WARN([--with-libdir without argument - will use default])
+  ;;
+  * )
+    libdir="$withval"
+    ;;
+  esac])
+
+#################################################
+# set lib directory location
+AC_ARG_WITH(mandir,
+[  --with-mandir=DIR       Where to put man pages ($mandir)],
+[ case "$withval" in
+  yes|no)
+  #
+  # Just in case anybody does it
+  #
+    AC_MSG_WARN([--with-mandir without argument - will use default])
+  ;;
+  * )
+    mandir="$withval"
     ;;
   esac])
 
@@ -321,7 +360,7 @@ dnl These have to be built static:
 default_static_modules="pdb_smbpasswd pdb_tdbsam rpc_lsa rpc_samr rpc_reg rpc_lsa_ds rpc_wks rpc_net rpc_dfs rpc_srv rpc_spoolss auth_rhosts auth_sam auth_unix auth_winbind auth_server auth_domain auth_builtin"
 
 dnl These are preferably build shared, and static if dlopen() is not available
-default_shared_modules="vfs_recycle vfs_audit vfs_extd_audit vfs_netatalk vfs_fake_perms vfs_default_quota vfs_readonly vfs_cap charset_CP850 charset_CP437"
+default_shared_modules="vfs_recycle vfs_audit vfs_extd_audit vfs_netatalk vfs_fake_perms vfs_default_quota vfs_readonly vfs_cap vfs_expand_msdfs vfs_shadow_copy"
 
 if test "x$developer" = xyes; then
    default_static_modules="$default_static_modules rpc_echo"
@@ -330,7 +369,8 @@ fi
 
 #
 # Config CPPFLAG settings for strange OS's that must be set
-# before other tests.
+# before other tests. Do NOT invoke AC_CHECK_HEADERS within this
+# case statement; its first reference must be unconditional.
 #
 case "$host_os" in
 # Try to work out if this is the native HPUX compiler that uses the -Ae flag.
@@ -443,8 +483,8 @@ case "$host_os" in
 	  *-D_POSIX_C_SOURCE*)
 		;;
 	  *)
-		CPPFLAGS="$CPPFLAGS -D_POSIX_C_SOURCE=199506L"
-		AC_DEFINE(_POSIX_C_SOURCE, 199506L, [Whether to enable POSIX support])
+		CPPFLAGS="$CPPFLAGS -D_POSIX_C_SOURCE=200112L"
+		AC_DEFINE(_POSIX_C_SOURCE, 200112L, [Whether to enable POSIX support])
 		;;
     esac
     case "$CPPFLAGS" in
@@ -542,27 +582,23 @@ main() {
 # is so horribly broken....
 #
     *darwin*)
-		AC_DEFINE(BROKEN_UNICODE_COMPOSE_CHARACTERS, 1, [Does this system use unicode compose characters])
+	AC_DEFINE(BROKEN_UNICODE_COMPOSE_CHARACTERS, 1, [Does this system use unicode compose characters])
 # Add Fink directories for various packages, like dlcompat.
 # Note: iconv does that explicitly below, but other packages
 # don't.
-		CPPFLAGS="$CPPFLAGS -I/sw/include"
-		LDFLAGS="$LDFLAGS -L/sw/lib"
+	CPPFLAGS="$CPPFLAGS -I/sw/include"
+	LDFLAGS="$LDFLAGS -L/sw/lib"
 
 # If we have dlsym_prepend_underscore (from Fink's dlcompat),
 # use that instead of plain dlsym.
 
-		AC_CHECK_LIB(dl,dlopen)
-		AC_CHECK_FUNCS(dlsym_prepend_underscore,[CPPFLAGS="$CPPFLAGS -Ddlsym=dlsym_prepend_underscore"])
+	AC_CHECK_LIB(dl,dlopen)
+	AC_CHECK_FUNCS(dlsym_prepend_underscore,[CPPFLAGS="$CPPFLAGS -Ddlsym=dlsym_prepend_underscore"])
 
-#Add a system specific charset module.
+# Add a system specific charset module.
 
-		default_shared_modules="$default_shared_modules charset_macosxfs"
-		old_CPPFLAGS="$CPPFLAGS"
-		CPPFLAGS="-Iinclude $CPPFLAGS" 
-		AC_CHECK_HEADERS([CoreFoundation/CFStringEncodingConverter.h], [], [AC_CHECK_HEADERS([CFStringEncodingConverter.h])])
-		CPPFLAGS="$old_CPPFLAGS"
-		;;
+	#DISABLE !!!charset_macosxfs!!! default_shared_modules="$default_shared_modules charset_macosxfs"
+	;;
     *hurd*)
         AC_MSG_CHECKING([for LFS support])
         old_CPPFLAGS="$CPPFLAGS"
@@ -599,9 +635,15 @@ AC_CHECK_HEADERS(sys/param.h ctype.h sys/wait.h sys/resource.h sys/ioctl.h sys/i
 AC_CHECK_HEADERS(sys/mman.h sys/filio.h sys/priv.h sys/shm.h string.h strings.h stdlib.h sys/socket.h)
 AC_CHECK_HEADERS(sys/mount.h sys/vfs.h sys/fs/s5param.h sys/filsys.h termios.h termio.h)
 AC_CHECK_HEADERS(sys/termio.h sys/statfs.h sys/dustat.h sys/statvfs.h stdarg.h sys/sockio.h)
-AC_CHECK_HEADERS(security/pam_modules.h security/_pam_macros.h dlfcn.h)
+AC_CHECK_HEADERS(pam/pam_modules.h pam/_pam_macros.h dlfcn.h)
 AC_CHECK_HEADERS(sys/syslog.h syslog.h execinfo.h)
 AC_CHECK_HEADERS(langinfo.h locale.h)
+
+# Look for Darwin headers
+old_CPPFLAGS="$CPPFLAGS"
+CPPFLAGS="-Iinclude $CPPFLAGS"
+AC_CHECK_HEADERS([CoreFoundation/CFStringEncodingConverter.h], [], [AC_CHECK_HEADERS([CFStringEncodingConverter.h])])
+CPPFLAGS="$old_CPPFLAGS"
 
 # In valgrind 1.0.x, it's just valgrind.h.  In 1.9.x+ there's a
 # subdirectory of headers.
@@ -624,7 +666,7 @@ AC_CHECK_HEADERS(shadow.h netinet/ip.h netinet/tcp.h netinet/in_systm.h netinet/
 AC_CHECK_HEADERS(nss.h nss_common.h nsswitch.h ns_api.h sys/security.h security/pam_appl.h security/pam_modules.h)
 AC_CHECK_HEADERS(stropts.h poll.h)
 AC_CHECK_HEADERS(sys/capability.h syscall.h sys/syscall.h)
-AC_CHECK_HEADERS(sys/acl.h sys/attributes.h attr/xattr.h sys/cdefs.h glob.h)
+AC_CHECK_HEADERS(sys/acl.h sys/attributes.h attr/xattr.h sys/xattr.h sys/cdefs.h glob.h)
 
 # For experimental utmp support (lastlog on some BSD-like systems)
 AC_CHECK_HEADERS(utmp.h utmpx.h lastlog.h)
@@ -919,6 +961,8 @@ AC_CHECK_FUNCS(syslog vsyslog timegm)
 AC_CHECK_FUNCS(setlocale nl_langinfo)
 # setbuffer, shmget, shm_open are needed for smbtorture
 AC_CHECK_FUNCS(setbuffer shmget shm_open backtrace_symbols)
+AC_CHECK_HEADERS(libexc.h)
+AC_CHECK_LIB(exc, trace_back_stack)
 
 # syscall() is needed for smbwrapper.
 AC_CHECK_FUNCS(syscall)
@@ -1612,7 +1656,7 @@ fi
 
 
 ICONV_LOCATION=standard
-LOOK_DIRS="/usr /usr/local /sw"
+LOOK_DIRS="/usr /usr/local /sw /opt"
 AC_ARG_WITH(libiconv,
 [  --with-libiconv=BASEDIR Use libiconv in BASEDIR/lib and BASEDIR/include (default=auto) ],
 [
@@ -1627,6 +1671,7 @@ AC_ARG_WITH(libiconv,
 ])
 
 ICONV_FOUND="no"
+libext=""
 for i in $LOOK_DIRS ; do
     save_LIBS=$LIBS
     save_LDFLAGS=$LDFLAGS
@@ -1634,15 +1679,24 @@ for i in $LOOK_DIRS ; do
     CPPFLAGS="$CPPFLAGS -I$i/include"
 dnl This is here to handle -withval stuff for --with-libiconv
 dnl Perhaps we should always add a -L
-    LDFLAGS="$LDFLAGS -L$i/lib"
-    LIBS=
-    export LDFLAGS LIBS CPPFLAGS
+
+dnl Check lib and lib32 library variants to cater for IRIX ABI-specific
+dnl installation paths.
+    for l in "lib" "lib32" ; do
+        LDFLAGS="$LDFLAGS -L$i/$l"
+        LIBS=
+        export LDFLAGS LIBS CPPFLAGS
 dnl Try to find iconv(3)
-    jm_ICONV($i)
+        jm_ICONV($i)
+        if test "$ICONV_FOUND" = yes; then
+            libext="$l"
+            break;
+        fi
+    done
 
     if test "$ICONV_FOUND" = yes; then
 	LDFLAGS=$save_LDFLAGS
-        LIB_ADD_DIR(LDFLAGS, "$i/lib")
+        LIB_ADD_DIR(LDFLAGS, "$i/$libext")
         CFLAGS_ADD_DIR(CPPFLAGS, "$i/include")
         LIBS="$save_LIBS"
         ICONV_LOCATION=$i
@@ -1718,7 +1772,7 @@ dnl ])
            fi
 	   dnl Add the flags we need to CPPFLAGS and LDFLAGS
 	   CFLAGS_ADD_DIR(CPPFLAGS, "$i/include")
-	   LIB_ADD_DIR(LDFLAGS, "$i/lib")
+	   LIB_ADD_DIR(LDFLAGS, "$i/$libext")
 	   export CPPFLAGS
            AC_DEFINE(HAVE_NATIVE_ICONV,1,[Whether to use native iconv])
 	   AC_DEFINE_UNQUOTED(DEFAULT_DOS_CHARSET,$default_dos_charset,[Default dos charset name])
@@ -1734,6 +1788,7 @@ dnl We only need to clean these up here for the next pass through the loop
     LIBS=$save_LIBS
     export LDFLAGS LIBS CPPFLAGS
 done
+unset libext
 
 
 if test x"$ICONV_FOUND" = x"no" -o x"$samba_cv_HAVE_NATIVE_ICONV" != x"yes" ; then
@@ -2210,7 +2265,9 @@ fi
 esac
 
 AC_CACHE_CHECK([for broken nisplus include files],samba_cv_BROKEN_NISPLUS_INCLUDE_FILES,[
-AC_TRY_COMPILE([#include <sys/acl.h>
+AC_TRY_COMPILE([
+#include <sys/types.h>
+#include <sys/acl.h>
 #if defined(HAVE_RPCSVC_NIS_H)
 #include <rpcsvc/nis.h>
 #endif],
@@ -2318,6 +2375,10 @@ if test x"$samba_cv_WITH_AFS" != x"no" ||
     else
     	have_afs_headers=yes
     fi
+fi
+
+if test x"$samba_cv_WITH_FAKE_KASERVER" != x"no"; then
+	AC_CHECK_LIB( crypto, DES_pcbc_encrypt, LIBS="$LIBS -lcrypto" )
 fi
 
 if test x"$samba_cv_WITH_FAKE_KASERVER" != x"no" && test x"$have_afs_headers" == x"yes"; then
@@ -2704,6 +2765,17 @@ if test x"$with_ads_support" != x"no"; then
               [Whether the ENCTYPE_ARCFOUR_HMAC_MD5 key type is available])
   fi
 
+  AC_CACHE_CHECK([for ENCTYPE_ARCFOUR_HMAC],
+                 samba_cv_HAVE_ENCTYPE_ARCFOUR_HMAC,[
+    AC_TRY_COMPILE([#include <krb5.h>],
+      [krb5_enctype enctype; enctype = ENCTYPE_ARCFOUR_HMAC;],
+      samba_cv_HAVE_ENCTYPE_ARCFOUR_HMAC=yes,
+      samba_cv_HAVE_ENCTYPE_ARCFOUR_HMAC=no)])
+  if test x"$samba_cv_HAVE_ENCTYPE_ARCFOUR_HMAC" = x"yes"; then
+    AC_DEFINE(HAVE_ENCTYPE_ARCFOUR_HMAC,1,
+              [Whether the ENCTYPE_ARCFOUR_HMAC key type is available])
+  fi
+
   AC_CACHE_CHECK([for AP_OPTS_USE_SUBKEY],
                  samba_cv_HAVE_AP_OPTS_USE_SUBKEY,[
     AC_TRY_COMPILE([#include <krb5.h>],
@@ -2726,28 +2798,6 @@ if test x"$with_ads_support" != x"no"; then
   if test x"$samba_cv_HAVE_KRB5_PRINC_COMPONENT" = x"yes"; then
     AC_DEFINE(HAVE_KRB5_PRINC_COMPONENT,1,
                [Whether krb5_princ_component is available])
-  fi
-
-  AC_CACHE_CHECK([for memory keytab support],
-		 samba_cv_HAVE_MEMORY_KEYTAB,[
-    AC_TRY_RUN([
-#include<krb5.h>
-  main()
-  {
-    krb5_context context;
-    krb5_keytab keytab;
-    
-    krb5_init_context(&context);
-    if (krb5_kt_resolve(context, "MEMORY:", &keytab))
-      exit(1);
-    exit(0);
-  }], 
-  samba_cv_HAVE_MEMORY_KEYTAB=yes,
-  samba_cv_HAVE_MEMORY_KEYTAB=no)])
-
-  if test x"$samba_cv_HAVE_MEMORY_KEYTAB" = x"yes"; then
-      AC_DEFINE(HAVE_MEMORY_KEYTAB,1,
-               [Whether in-memory keytabs are supported])
   fi
 
   AC_CACHE_CHECK([for key in krb5_keytab_entry],
@@ -2885,9 +2935,9 @@ AC_ARG_WITH(pam,
 [ case "$withval" in
   yes)
     AC_MSG_RESULT(yes)
-    if test x"$ac_cv_header_security_pam_appl_h" = x"no"; then
-       if test x"$ac_cv_header_security_pam_modules_h" = x"no"; then
-	  if test x"$ac_cv_header_security__pam_macros_h" = x"no"; then
+    if test x"$ac_cv_header_pam_pam_appl_h" = x"no"; then
+       if test x"$ac_cv_header_pam_pam_modules_h" = x"no"; then
+	  if test x"$ac_cv_header_pam__pam_macros_h" = x"no"; then
 	     AC_MSG_ERROR(--with-pam specified but no PAM headers found)
 	  fi
        fi
@@ -2919,8 +2969,8 @@ AC_ARG_WITH(pam_smbpass,
 
        if test x$PICFLAGS = x; then
           AC_MSG_ERROR([No support for PIC code])
-       elif test x"$ac_cv_header_security_pam_appl_h" = x"no"; then
-	  AC_MSG_ERROR([No security/pam_appl.h found])
+       elif test x"$ac_cv_header_pam_pam_appl_h" = x"no"; then
+	  AC_MSG_ERROR([No pam/pam_appl.h found])
        elif test x$ac_cv_lib_pam_pam_get_data = xno; then
           AC_MSG_ERROR([No libpam found])
        else
@@ -2959,6 +3009,7 @@ if test x"$samba_cv_HAVE_TRUNCATED_SALT" = x"yes"; then
 	AC_DEFINE(HAVE_TRUNCATED_SALT,1,[Whether crypt needs truncated salt])
 fi
 fi
+
 
 ########################################################################################
 ##
@@ -3690,6 +3741,11 @@ AC_ARG_WITH(acl-support,
   yes)
 
 	case "$host_os" in
+	*darwin*)
+		AC_MSG_RESULT(Using Darwin ACLs)
+		AC_DEFINE(HAVE_DARWIN_ACLS,1,[Whether Darwin ACLs are available])
+		AC_DEFINE(HAVE_ACL_GET_PERM_NP,1,[Whether acl_get_perm_np() is available])
+		;;
 	*sysv5*)
 		AC_MSG_RESULT(Using UnixWare ACLs)
 		AC_DEFINE(HAVE_UNIXWARE_ACLS,1,[Whether UnixWare ACLs are available])
@@ -4039,6 +4095,8 @@ case "$host_os" in
 		# the Linux version.
 		WINBIND_NSS_EXTRA_OBJS="nsswitch/winbind_nss_freebsd.o \
 		    nsswitch/winbind_nss_linux.o"
+		WINBIND_NSS="nsswitch/nss_winbind.$SHLIBEXT"
+		WINBIND_WINS_NSS="nsswitch/nss_wins.$SHLIBEXT"
 		;;
 	*irix*)
 		# IRIX has differently named shared libraries
@@ -4109,7 +4167,7 @@ if test x"$HAVE_WINBIND" = x"yes"; then
 
 	EXTRA_BIN_PROGS="$EXTRA_BIN_PROGS bin/wbinfo\$(EXEEXT)"
 	EXTRA_SBIN_PROGS="$EXTRA_SBIN_PROGS bin/winbindd\$(EXEEXT)"
-        if test x"$BLDSHARED" = x"true"; then
+        if test $BLDSHARED = true; then
 		SHLIB_PROGS="$SHLIB_PROGS $WINBIND_NSS $WINBIND_WINS_NSS"
 
 		if test x"$with_pam" = x"yes"; then
@@ -4201,10 +4259,10 @@ done
 
 for i in `echo $default_shared_modules | sed -e's/,/ /g'`
 do
-	dnl Fall back to static if dlopen() is not available
+	dnl Fall back to static if we cannot build shared libraries
 	eval MODULE_DEFAULT_$i=STATIC
 
-	if test x"$ac_cv_func_dlopen" = xyes; then
+	if test $BLDSHARED = true; then
 		eval MODULE_DEFAULT_$i=SHARED
 	fi
 done
@@ -4292,6 +4350,8 @@ SMB_MODULE(vfs_fake_perms, \$(VFS_FAKE_PERMS_OBJ), "bin/fake_perms.$SHLIBEXT", V
 SMB_MODULE(vfs_default_quota, \$(VFS_DEFAULT_QUOTA_OBJ), "bin/default_quota.$SHLIBEXT", VFS)
 SMB_MODULE(vfs_readonly, \$(VFS_READONLY_OBJ), "bin/readonly.$SHLIBEXT", VFS)
 SMB_MODULE(vfs_cap, \$(VFS_CAP_OBJ), "bin/cap.$SHLIBEXT", VFS)
+SMB_MODULE(vfs_expand_msdfs, \$(VFS_EXPAND_MSDFS_OBJ), "bin/expand_msdfs.$SHLIBEXT", VFS)
+SMB_MODULE(vfs_shadow_copy, \$(VFS_SHADOW_COPY_OBJ), "bin/shadow_copy.$SHLIBEXT", VFS)
 SMB_SUBSYSTEM(VFS,smbd/vfs.o)
 
 AC_DEFINE_UNQUOTED(STRING_STATIC_MODULES, "$string_static_modules", [String list of builtin modules])

@@ -637,13 +637,15 @@ IOFWUserLocalIsochPort :: releasePort ()
 IOReturn
 IOFWUserLocalIsochPort::start()
 {
-	lock() ;
+	// calling fProgram->start() takes the isoch workloop lock, 
+	// so we don't need to call lock() here...
+//	lock() ;
 	
 	IOReturn error = super::start() ;
 	
 	fStarted = (!error) ;
 	
-	unlock() ;
+//	unlock() ;
 	
 	return error ;
 }
@@ -657,7 +659,7 @@ IOFWUserLocalIsochPort :: stop ()
 //	IOFireWireLink * link = fUserClient->getOwner()->getController()->getLink() ;	
 //	link->closeIsochGate () ;	// nnn need replacement?
 
-	lock() ;
+//	lock() ;
 
 	IOReturn error ;
 	
@@ -671,7 +673,7 @@ IOFWUserLocalIsochPort :: stop ()
 		fStarted = false ;
 	}
 
-	unlock() ;
+//	unlock() ;
 	
 //	link->openIsochGate () ;
 
@@ -693,14 +695,7 @@ IOFWUserLocalIsochPort :: s_dclCallProcHandler( DCLCallProc * dcl )
 	
 	if ( dcl->procData )
 	{
-#if 0
-// DEBUG
-		DebugThing * debugThing = (DebugThing*)dcl->procData ;
-		IOFireWireUserClient::sendAsyncResult( (natural_t*)debugThing->asyncRef, kIOReturnSuccess, NULL, 0 ) ;
-		DebugLog("send callback port=%p\n", debugThing->port ) ;
-#else
 		IOFireWireUserClient::sendAsyncResult( (natural_t*)dcl->procData, kIOReturnSuccess, NULL, 0 ) ;
-#endif
 	}	
 }
 
@@ -801,16 +796,13 @@ IOFWUserLocalIsochPort :: modifyJumpDCL ( UInt32 inJumpDCLCompilerData, UInt32 i
 	// point jump to label
 	jumpDCL->pJumpDCLLabel = labelDCL ;
 
-//	if ( ! jumpDCL->compilerData )
-//		return kIOReturnSuccess ;
+//	lock() ;
+	fProgram->closeGate() ;
 
-	lock() ;
-	
-//	DebugLog("notify - jumpDCL=%p, this=%p, fProgram=%p, retains=%d\n", jumpDCL, this, fProgram, fProgram->getRetainCount() ) ;
-	
 	IOReturn error = notify ( kFWDCLModifyNotification, (DCLCommand**) & jumpDCL, 1 ) ;
 
-	unlock() ;
+//	unlock() ;
+	fProgram->openGate() ;
 	
 	return error ;
 }

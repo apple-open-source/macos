@@ -1724,6 +1724,7 @@ void
 clear_partialfilelock(const char *hostname)
 {
 	struct file_lock *ifl, *nfl;
+	enum partialfilelock_status pfsret;
 
 	/* Clear blocking file lock list */
 	clear_blockingfilelock(hostname);
@@ -1737,7 +1738,7 @@ clear_partialfilelock(const char *hostname)
 	 * would mess up the iteration.  Thus, a next element
 	 * must be used explicitly
 	 */
-
+restart:
 	ifl = LIST_FIRST(&nfslocklist_head);
 
 	while (ifl != NULL) {
@@ -1745,8 +1746,21 @@ clear_partialfilelock(const char *hostname)
 
 		if (strncmp(hostname, ifl->client_name, SM_MAXSTRLEN) == 0) {
 			/* Unlock destroys ifl out from underneath */
-			unlock_partialfilelock(ifl);
+			pfsret = unlock_partialfilelock(ifl);
+			if (pfsret != PFL_GRANTED) {
+				/* Uh oh... there was some sort of problem. */
+				/* If we restart the loop, we may get */
+				/* stuck here forever getting errors. */
+				/* So, let's just abort the whole scan. */
+				syslog(LOG_WARNING, "lock clearing for %s failed: %d",
+					hostname, pfsret);
+				break;
+			}
 			/* ifl is NO LONGER VALID AT THIS POINT */
+			/* Note: the unlock may deallocate several existing locks. */
+			/* Therefore, we need to restart the scanning of the list, */
+			/* because nfl could be pointing to a freed lock. */
+			goto restart;
 		}
 		ifl = nfl;
 	}
@@ -2800,6 +2814,7 @@ do_free_all(const char *hostname)
 	struct file_lock *ifl, *nfl;
 	struct sharefile *shrfile, *nshrfile;
 	struct file_share *ifs, *nfs;
+	enum partialfilelock_status pfsret;
 
 	/* clear non-monitored blocking file locks */
 	ifl = LIST_FIRST(&blockedlocklist_head);
@@ -2816,6 +2831,7 @@ do_free_all(const char *hostname)
 	}
 
 	/* clear non-monitored file locks */
+restart:
 	ifl = LIST_FIRST(&nfslocklist_head);
 	while (ifl != NULL) {
 		nfl = LIST_NEXT(ifl, nfslocklist);
@@ -2823,8 +2839,21 @@ do_free_all(const char *hostname)
 		if (((ifl->flags & LOCK_MON) == 0) &&
 		    (strncmp(hostname, ifl->client_name, SM_MAXSTRLEN) == 0)) {
 			/* Unlock destroys ifl out from underneath */
-			unlock_partialfilelock(ifl);
+			pfsret = unlock_partialfilelock(ifl);
+			if (pfsret != PFL_GRANTED) {
+				/* Uh oh... there was some sort of problem. */
+				/* If we restart the loop, we may get */
+				/* stuck here forever getting errors. */
+				/* So, let's just abort the whole scan. */
+				syslog(LOG_WARNING, "unmonitored lock clearing for %s failed: %d",
+					hostname, pfsret);
+				break;
+			}
 			/* ifl is NO LONGER VALID AT THIS POINT */
+			/* Note: the unlock may deallocate several existing locks. */
+			/* Therefore, we need to restart the scanning of the list, */
+			/* because nfl could be pointing to a freed lock. */
+			goto restart;
 		}
 
 		ifl = nfl;

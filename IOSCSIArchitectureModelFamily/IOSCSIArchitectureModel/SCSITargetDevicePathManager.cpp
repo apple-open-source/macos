@@ -43,7 +43,7 @@
 //	Macros
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
-#define DEBUG 												1
+#define DEBUG 												0
 #define DEBUG_ASSERT_COMPONENT_NAME_STRING					"SCSITargetDevicePathManager"
 
 #if DEBUG
@@ -128,9 +128,10 @@ SCSITargetDevicePath::InitWithObjects (
 						IOSCSIProtocolServices * 		interface )
 {
 	
-	bool			result 	= false;
-	OSNumber *		number	= NULL;
-	OSString *		string	= NULL;
+	OSNumber *										number		= NULL;
+	OSString *										string		= NULL;
+	UInt32											domainID	= 0;
+	bool											result 		= false;
 	
 	STATUS_LOG ( ( "SCSITargetDevicePath::InitWithObjects\n" ) );
 	
@@ -144,7 +145,8 @@ SCSITargetDevicePath::InitWithObjects (
 	
 	fDomainIdentifier = GetInterfaceDomainIdentifier ( interface );
 	require_nonzero ( fDomainIdentifier, ReleaseStatistics );
-	fDomainIdentifier = OSNumber::withNumber ( fDomainIdentifier->unsigned32BitValue ( ), 32 );
+	domainID = fDomainIdentifier->unsigned32BitValue ( );
+	fDomainIdentifier = OSNumber::withNumber ( domainID, 32 );
 	fStatistics->setObject ( kIOPropertySCSIDomainIdentifierKey, fDomainIdentifier );
 	
 	number = OSNumber::withNumber ( ( UInt64 ) 0, 64 );
@@ -257,7 +259,7 @@ SCSITargetDevicePath::Inactivate ( void )
 void
 SCSITargetDevicePath::free ( void )
 {
-
+	
 	STATUS_LOG ( ( "+SCSITargetDevicePath::free\n" ) );
 	
 	if ( fStatistics != NULL )
@@ -525,6 +527,29 @@ SCSITargetDevicePathManager::GetPathLayerReference ( SCSITaskIdentifier request 
 	if ( scsiRequest != NULL )
 	{
 		result = scsiRequest->GetPathLayerReference ( );
+	}
+	
+	return result;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetRequestedDataTransferCount -  Gets data xfer count.		[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+UInt64
+SCSITargetDevicePathManager::GetRequestedDataTransferCount (
+										SCSITaskIdentifier request )
+{
+	
+	SCSITask *	scsiRequest = NULL;
+	UInt64		result		= NULL;
+	
+	scsiRequest = OSDynamicCast ( SCSITask, request );
+	if ( scsiRequest != NULL )
+	{
+		result = scsiRequest->GetRequestedDataTransferCount ( );
 	}
 	
 	return result;

@@ -31,7 +31,7 @@ log2pcap \- Extract network traces from Samba log files
 .SH "DESCRIPTION"
 
 .PP
-This tool is part of the \fBSamba\fR(7) suite\&.
+This tool is part of the \fBsamba\fR(7) suite\&.
 
 .PP
 \fBlog2pcap\fR reads in a samba log file and generates a pcap file (readable by most sniffers, such as ethereal or tcpdump) based on the packet dumps in the log file\&.
@@ -45,26 +45,21 @@ The log file must have a \fIlog level\fR of at least \fB5\fR to get the SMB head
 \-h
 If this parameter is specified the output file will be a hex dump, in a format that is readable by the text2pcap utility\&.
 
-
 .TP
 \-q
 Be quiet\&. No warning messages about missing or incomplete data will be given\&.
-
 
 .TP
 logfile
 Samba log file\&. log2pcap will try to read the log from stdin if the log file is not specified\&.
 
-
 .TP
 pcap_file
 Name of the output file to write the pcap (or hexdump) data to\&. If this argument is not specified, output data will be written to stdout\&.
 
-
 .TP
 \-h|\-\-help
 Print a summary of command line options\&.
-
 
 .SH "EXAMPLES"
 

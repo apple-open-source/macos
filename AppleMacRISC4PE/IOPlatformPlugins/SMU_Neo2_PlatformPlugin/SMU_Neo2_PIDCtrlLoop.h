@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: SMU_Neo2_PIDCtrlLoop.h,v 1.4 2004/06/03 21:50:30 eem Exp $
+ *  File: $Id: SMU_Neo2_PIDCtrlLoop.h,v 1.4.6.2 2004/07/30 00:26:24 dirty Exp $
  *
  */
 
@@ -42,6 +42,22 @@ class SMU_Neo2_PIDCtrlLoop : public IOPlatformPIDCtrlLoop
 
 protected:
 
+		// In this class, if we detect a second control in ControlIDsArray,
+		// then we will treat it as the linked control.
+
+		// Even though they are identical, then can have differing min/max values.
+
+	ControlValue			targetValue;
+
+	IOPlatformControl*		linkedControl;
+	ControlValue			linkedControlOutputMin;
+	ControlValue			linkedControlOutputMax;
+
+	ControlValue			minMinimum;
+	ControlValue			maxMaximum;
+
+		virtual			void			free( void );
+
 		virtual			bool			cacheMetaState( const OSDictionary* metaState );
 
 		virtual			ControlValue	calculateNewTarget( void ) const;
@@ -56,6 +72,8 @@ protected:
 public:
 		virtual			IOReturn		initPlatformCtrlLoop(const OSDictionary *dict);
 		virtual			bool			updateMetaState( void );
+
+		virtual			void			sendNewTarget( ControlValue newTarget );
 		virtual			void			controlRegistered( IOPlatformControl* aControl );
 	};
 

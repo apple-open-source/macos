@@ -78,7 +78,7 @@ static struct node_status *lookup_byaddr_backend(char *addr, int *count)
 
 	make_nmb_name(&nname, "*", 0);
 	ip = *interpret_addr2(addr);
-	status = node_status_query(fd,&nname,ip, count);
+	status = node_status_query(fd,&nname,ip, count, NULL);
 
 	close(fd);
 	return status;
@@ -106,6 +106,7 @@ static struct in_addr *lookup_byname_backend(const char *name, int *count)
 		for ( i=0; i<(*count); i++ ) 
 			return_ip[i] = ret[i].ip;
 		
+		free( ret );
 		return return_ip;
 	}
 
@@ -201,7 +202,10 @@ enum winbindd_result winbindd_wins_byname(struct winbindd_cli_state *state)
 		    }
 		    if (i != 0) {
 			/* Clear out the newline character */
-			response[strlen(response)-1] = ' '; 
+		        /* But only if there is something in there, 
+			   otherwise we clobber something in the stack */
+			if (strlen(response))
+				response[strlen(response)-1] = ' '; 
 		    }
 		    fstrcat(response,addr);
 		    fstrcat(response,"\t");

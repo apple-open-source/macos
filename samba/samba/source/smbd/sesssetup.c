@@ -143,7 +143,7 @@ static int reply_spnego_kerberos(connection_struct *conn,
 	DATA_BLOB ticket;
 	char *client, *p, *domain;
 	fstring netbios_domain_name;
-	const struct passwd *pw;
+	struct passwd *pw;
 	char *user;
 	int sess_vuid;
 	NTSTATUS ret;
@@ -154,6 +154,7 @@ static int reply_spnego_kerberos(connection_struct *conn,
 	uint8 tok_id[2];
 	BOOL foreign = False;
 	DATA_BLOB nullblob = data_blob(NULL, 0);
+	fstring real_username;
 
 	ZERO_STRUCT(ticket);
 	ZERO_STRUCT(auth_data);
@@ -239,7 +240,9 @@ static int reply_spnego_kerberos(connection_struct *conn,
 
 	asprintf(&user, "%s%c%s", domain, *lp_winbind_separator(), client);
 	
-	pw = smb_getpwnam( user );
+	/* lookup the passwd struct, create a new user if necessary */
+
+	pw = smb_getpwnam( user, real_username, True );
 	
 	if (!pw) {
 		DEBUG(1,("Username %s is invalid on this system\n",user));
@@ -251,10 +254,11 @@ static int reply_spnego_kerberos(connection_struct *conn,
 
 	/* setup the string used by %U */
 	
-	sub_set_smb_name(pw->pw_name);
+	sub_set_smb_name( real_username );
 	reload_services(True);
 	
-	if (!NT_STATUS_IS_OK(ret = make_server_info_pw(&server_info,pw))) {
+	if (!NT_STATUS_IS_OK(ret = make_server_info_pw(&server_info, real_username, pw))) 
+	{
 		DEBUG(1,("make_server_info_from_pw failed!\n"));
 		SAFE_FREE(user);
 		SAFE_FREE(client);
@@ -278,6 +282,9 @@ static int reply_spnego_kerberos(connection_struct *conn,
 	if (sess_vuid == -1) {
 		ret = NT_STATUS_LOGON_FAILURE;
 	} else {
+		/* current_user_info is changed on new vuid */
+		reload_services( True );
+
 		set_message(outbuf,4,0,True);
 		SSVAL(outbuf, smb_vwv3, 0);
 			
@@ -287,14 +294,14 @@ static int reply_spnego_kerberos(connection_struct *conn,
 		
 		SSVAL(outbuf, smb_uid, sess_vuid);
 
-		if (!server_info->guest) {
+		if (!server_info->guest && !srv_signing_started()) {
 			/* We need to start the signing engine
 			 * here but a W2K client sends the old
 			 * "BSRSPYL " signature instead of the
 			 * correct one. Subsequent packets will
 			 * be correct.
 			 */
-		       	srv_check_sign_mac(inbuf);
+		       	srv_check_sign_mac(inbuf, False);
 		}
 	}
 
@@ -351,6 +358,9 @@ static BOOL reply_spnego_ntlmssp(connection_struct *conn, char *inbuf, char *out
 			nt_status = NT_STATUS_LOGON_FAILURE;
 		} else {
 			
+			/* current_user_info is changed on new vuid */
+			reload_services( True );
+
 			set_message(outbuf,4,0,True);
 			SSVAL(outbuf, smb_vwv3, 0);
 			
@@ -360,14 +370,15 @@ static BOOL reply_spnego_ntlmssp(connection_struct *conn, char *inbuf, char *out
 			
 			SSVAL(outbuf,smb_uid,sess_vuid);
 
-			if (!server_info->guest) {
+			if (!server_info->guest && !srv_signing_started()) {
 				/* We need to start the signing engine
 				 * here but a W2K client sends the old
 				 * "BSRSPYL " signature instead of the
 				 * correct one. Subsequent packets will
 				 * be correct.
 				 */
-			       	srv_check_sign_mac(inbuf);
+
+				srv_check_sign_mac(inbuf, False);
 			}
 		}
 	}
@@ -870,17 +881,12 @@ int reply_sesssetup_and_X(connection_struct *conn, char *inbuf,char *outbuf,
 		return ERROR_NT(nt_status_squash(nt_status));
 	}
 
-	if (server_info->nt_session_key.data) {
-		session_key = data_blob(server_info->nt_session_key.data, server_info->nt_session_key.length);
-	} else if (server_info->lm_session_key.length >= 8 && lm_resp.length == 24) {
-		session_key = data_blob(NULL, 16);
-		SMBsesskeygen_lmv1(server_info->lm_session_key.data, lm_resp.data, 
-				   session_key.data);
+	if (server_info->user_session_key.data) {
+		session_key = data_blob(server_info->user_session_key.data, server_info->user_session_key.length);
 	} else {
 		session_key = data_blob(NULL, 0);
 	}
 
-	data_blob_free(&lm_resp);
 	data_blob_clear_free(&plaintext_password);
 	
 	/* it's ok - setup a reply */
@@ -900,14 +906,18 @@ int reply_sesssetup_and_X(connection_struct *conn, char *inbuf,char *outbuf,
 	   to a uid can get through without a password, on the same VC */
 
 	/* register_vuid keeps the server info */
-	sess_vuid = register_vuid(server_info, session_key, nt_resp, sub_user);
+	sess_vuid = register_vuid(server_info, session_key, nt_resp.data ? nt_resp : lm_resp, sub_user);
 	data_blob_free(&nt_resp);
+	data_blob_free(&lm_resp);
 
 	if (sess_vuid == -1) {
 		return ERROR_NT(NT_STATUS_LOGON_FAILURE);
 	}
 
- 	if (!server_info->guest && !srv_check_sign_mac(inbuf)) {
+	/* current_user_info is changed on new vuid */
+	reload_services( True );
+
+ 	if (!server_info->guest && !srv_signing_started() && !srv_check_sign_mac(inbuf, True)) {
 		exit_server("reply_sesssetup_and_X: bad smb signature");
 	}
 

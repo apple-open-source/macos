@@ -17,7 +17,7 @@ GnuAfterInstall = apple_port
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
-Extra_Configure_Flags = --disable-shared --enable-bdb --enable-ldbm --x-includes=/AppleInternal/Developer/Headers --x-libraries=/usr/local/BerkeleyDB/lib
+Extra_Configure_Flags = --disable-shared --disable-cleartext --enable-bdb --enable-ldbm --x-includes=/AppleInternal/Developer/Headers --x-libraries=/usr/local/BerkeleyDB/lib
 Extra_Configure_Flags += --prefix=${DSTROOT}/private --sysconfdir=${DSTROOT}/private/etc --localstatedir=${DSTROOT}/private/var/db/openldap
 
 Install_Target = install

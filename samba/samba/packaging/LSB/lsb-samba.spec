@@ -1,5 +1,5 @@
 #
-# "$Id: lsb-samba.spec,v 1.11 2004/02/11 18:51:51 nicolai Exp $"
+# "$Id: lsb-samba.spec,v 1.12 2004/07/27 01:32:14 sjones Exp $"
 #
 #   Linux Standards Based RPM "spec" file for SAMBA.
 #
@@ -96,5 +96,5 @@ rm -rf $RPM_BUILD_ROOT
 %dir /var/log/samba
 
 #
-# End of "$Id: lsb-samba.spec,v 1.11 2004/02/11 18:51:51 nicolai Exp $".
+# End of "$Id: lsb-samba.spec,v 1.12 2004/07/27 01:32:14 sjones Exp $".
 #

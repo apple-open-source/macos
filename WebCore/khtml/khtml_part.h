@@ -7,7 +7,7 @@
  *                     2000-2001 Simon Hausmann <hausmann@kde.org>
  *                     2000-2001 Dirk Mueller <mueller@kde.org>
  *                     2000 Stefan Schimanski <1Stein@gmx.de>
- * Copyright (C) 2003 Apple Computer, Inc.
+ * Copyright (C) 2004 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -375,9 +375,15 @@ public:
 
   /**
    * Schedules a redirection after @p delay seconds.
-   * Note that this is used for JavaScript-triggered location changes as well.
    */
-  void scheduleRedirection( double delay, const QString &url, bool lockHistory = true, bool userGesture = false );
+  void scheduleRedirection( double delay, const QString &url, bool lockHistory = true);
+
+  /**
+  * Schedules a location change.
+  * This is used for JavaScript-triggered location changes.
+  */
+  void scheduleLocationChange(const QString &url, bool lockHistory = true, bool userGesture = false);
+  bool isScheduledLocationChangePending() const;
 
   /**
    * Schedules a history navigation operation (go forward, go back, etc.).
@@ -740,6 +746,9 @@ public:
   void decrementFrameCount();
   int topLevelFrameCount();
 
+  // Used to keep the part alive when running a script that might destroy it.
+  void keepAlive();
+
 signals:
   /**
    * Emitted if the cursor is moved over an URL.
@@ -1015,6 +1024,8 @@ private slots:
    */
   void slotClearSelection();
 
+  void slotEndLifeSupport();
+
 private:
 
 
@@ -1087,6 +1098,9 @@ private:
   khtml::ChildFrame *childFrame( const QObject *obj );
 
   khtml::ChildFrame *recursiveFrameRequest( const KURL &url, const KParts::URLArgs &args, bool callParent = true );
+
+  void connectChild(const khtml::ChildFrame *) const;
+  void disconnectChild(const khtml::ChildFrame *) const;
 
   bool checkLinkSecurity(const KURL &linkURL,const QString &message = QString::null, const QString &button = QString::null);
   QVariant executeScript(QString filename, int baseLine, const DOM::Node &n, const QString &script);

@@ -27,7 +27,7 @@ AudioPowerObject* AudioPowerObject::createAudioPowerObject(Apple02Audio *pluginR
 }
     
 bool AudioPowerObject::init(Apple02Audio *pluginRef){
-    debugIOLog (3, "+ AudioPowerObject::init");
+    debugIOLog ( 3, "+ AudioPowerObject::init ( %p )", pluginRef );
  	
 	mMicroSecondsRequired = 50000;
     
@@ -38,7 +38,7 @@ bool AudioPowerObject::init(Apple02Audio *pluginRef){
         audioPluginRef = pluginRef;
         audioPluginRef->retain();
     }
-    debugIOLog (3, "- AudioPowerObject::init");
+    debugIOLog ( 3, "- AudioPowerObject::init ( %p ) returns %d", pluginRef, true );
     return true;
 }
     
@@ -549,10 +549,10 @@ IOReturn AudioProj14PowerObject::setHardwarePowerOn(){
 
 OSDefineMetaClassAndStructors(AudioProj16PowerObject, AudioPowerObject)
 
-AudioProj16PowerObject* AudioProj16PowerObject::createAudioProj16PowerObject(Apple02Audio *pluginRef){
-    AudioProj16PowerObject* myAudioProj16PowerObject = NULL;
+AudioProj16PowerObject* AudioProj16PowerObject::createAudioProj16PowerObject ( Apple02Audio *pluginRef ){
+    AudioProj16PowerObject*		myAudioProj16PowerObject = NULL;
 
-    debugIOLog (3, "+ AudioProj16PowerObject::createAudioProj16PowerObject");
+    debugIOLog ( 3, "+ AudioProj16PowerObject::createAudioProj16PowerObject ( %p )", pluginRef );
     myAudioProj16PowerObject = new AudioProj16PowerObject;
     
     if(myAudioProj16PowerObject) {
@@ -561,32 +561,39 @@ AudioProj16PowerObject* AudioProj16PowerObject::createAudioProj16PowerObject(App
             myAudioProj16PowerObject = 0;
         }            
     }
-    debugIOLog (3, "+ AudioProj16PowerObject::createAudioProj16PowerObject");
-
+    debugIOLog ( 3, "- AudioProj16PowerObject::createAudioProj16PowerObject ( %p ) returns %p", pluginRef, myAudioProj16PowerObject );
     return (myAudioProj16PowerObject);
 }
 
 bool AudioProj16PowerObject::init(Apple02Audio *pluginRef){
-    debugIOLog (3, "+ AudioProj16PowerObject::init");
+	bool		result;
+	
+    debugIOLog ( 3, "+ AudioProj16PowerObject::init ( %p )", pluginRef );
 	mMicroSecondsRequired = 2000000;
-    return (AudioPowerObject::init(pluginRef));
-    debugIOLog (3, "- AudioProj16PowerObject::init");
+    result = (AudioPowerObject::init(pluginRef));
+    debugIOLog ( 3, "- AudioProj16PowerObject::init ( %p ) returns %d", pluginRef, result );
+	return result;
 }
 
 Boolean AudioProj16PowerObject::wantsIdleCalls (void) {
+	debugIOLog ( 3, "± AudioProj16PowerObject::wantsIdleCalls() returns TRUE" );
 	return TRUE;
 }
 
 void AudioProj16PowerObject::setIdlePowerState (void) {
+	debugIOLog ( 3, "+ AudioProj16PowerObject::setIdlePowerState()" );
     if(audioPluginRef) {
 	    audioPluginRef->sndHWSetPowerState(kIOAudioDeviceIdle);
 	}
+	debugIOLog ( 3, "- AudioProj16PowerObject::setIdlePowerState()" );
 }
 
 void AudioProj16PowerObject::setFullPowerState (void) {
+	debugIOLog ( 3, "+ AudioProj16PowerObject::setFullPowerState()" );
     if(audioPluginRef) {
 	    audioPluginRef->sndHWSetPowerState(kIOAudioDeviceActive);
 	}
+	debugIOLog ( 3, "- AudioProj16PowerObject::setFullPowerState()" );
 }
 
 void AudioProj16PowerObject::setHardwarePowerIdleOn ( void ) {
@@ -596,19 +603,21 @@ void AudioProj16PowerObject::setHardwarePowerIdleOn ( void ) {
 IOReturn AudioProj16PowerObject::setHardwarePowerOff(){
     IOReturn result = kIOReturnSuccess;
 
+	debugIOLog ( 3, "+ AudioProj16PowerObject::setHardwarePowerIdleOn()" );
     if(audioPluginRef) {
 	    audioPluginRef->sndHWSetPowerState(kIOAudioDeviceSleep);
 	}
-
+	debugIOLog ( 3, "- AudioProj16PowerObject::setHardwarePowerIdleOn()" );
     return result;
 }
 
 IOReturn AudioProj16PowerObject::setHardwarePowerOn(){
     IOReturn result = kIOReturnSuccess;
     
+	debugIOLog ( 3, "+ AudioProj16PowerObject::setHardwarePowerOn()" );
     if(audioPluginRef) {
 	    audioPluginRef->sndHWSetPowerState(kIOAudioDeviceActive);
 	}
-
+	debugIOLog ( 3, "- AudioProj16PowerObject::setHardwarePowerOn()" );
     return result;
 }

@@ -2,7 +2,7 @@
    Unix SMB/CIFS implementation.
    Samba utility functions
    Copyright (C) Andrew Tridgell 1992-1998
-   Copyright (C) Andrew Bartlett 2001-2002
+   Copyright (C) Andrew Bartlett 2001-2004
    
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -19,6 +19,8 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
+/* These comments regard the code to change the user's unix password: */
+
 /* fork a child process to exec passwd and write to its
  * tty to change a users password. This is running as the
  * user who is attempting to change the password.
@@ -29,9 +31,6 @@
  * The primary source was the poppasswd.c from the authors of POPMail. This software
  * was included as a client to change passwords using the 'passwd' program
  * on the remote machine.
- *
- * This routine is called by set_user_password() in password.c only if ALLOW_PASSWORD_CHANGE
- * is defined in the compiler directives located in the Makefile.
  *
  * This code has been hacked by Bob Nance (nance@niehs.nih.gov) and Evan Patterson
  * (patters2@niehs.nih.gov) at the National Institute of Environmental Health Sciences
@@ -49,19 +48,15 @@
 
 #include "includes.h"
 
-#ifdef WITH_OPENDIRECTORY
-#include <DirectoryService/DirServices.h>
-#include <DirectoryService/DirServicesConst.h>
-#include <DirectoryService/DirServicesUtils.h>
-#endif
-
 extern struct passdb_ops pdb_ops;
 
 static NTSTATUS check_oem_password(const char *user,
-			       uchar * lmdata, const uchar * lmhash,
-			       const uchar * ntdata, const uchar * nthash,
-			       SAM_ACCOUNT **hnd, char *new_passwd,
-			       int new_passwd_size);
+				   uchar password_encrypted_with_lm_hash[516], 
+				   const uchar old_lm_hash_encrypted[16],
+				   uchar password_encrypted_with_nt_hash[516], 
+				   const uchar old_nt_hash_encrypted[16],
+				   SAM_ACCOUNT **hnd, char *new_passwd,
+				   int new_passwd_size);
 
 #if ALLOW_CHANGE_PASSWORD
 
@@ -447,24 +442,13 @@ while we were waiting\n", WTERMSIG(wstat)));
 	return (chstat);
 }
 
-BOOL chgpasswd(const char *name, const char *oldpass, const char *newpass, BOOL as_root)
+BOOL chgpasswd(const char *name, const struct passwd *pass, 
+	       const char *oldpass, const char *newpass, BOOL as_root)
 {
 	pstring passwordprogram;
 	pstring chatsequence;
 	size_t i;
 	size_t len;
-
-	struct passwd *pass;
-
-	if (!name) {
-		DEBUG(1, ("chgpasswd: NULL username specfied !\n"));
-	}
-	
-	pass = Get_Pwnam(name);
-	if (!pass) {
-		DEBUG(1, ("chgpasswd: Username does not exist in system !\n"));
-		return False;
-	}
 
 	if (!oldpass) {
 		oldpass = "";
@@ -477,13 +461,6 @@ BOOL chgpasswd(const char *name, const char *oldpass, const char *newpass, BOOL 
 #endif
 
 	/* Take the passed information and test it for minimum criteria */
-	/* Minimum password length */
-	if (strlen(newpass) < lp_min_passwd_length()) {
-		/* too short, must be at least MINPASSWDLENGTH */
-		DEBUG(0, ("chgpasswd: Password Change: user %s, New password is shorter than minimum password length = %d\n",
-		       name, lp_min_passwd_length()));
-		return (False);	/* inform the user */
-	}
 
 	/* Password is same as old password */
 	if (strcmp(oldpass, newpass) == 0) {
@@ -555,7 +532,7 @@ BOOL chgpasswd(const char *name, const char *oldpass, const char *newpass, BOOL 
 
 	if (as_root) {
 		/* The password program *must* contain the user name to work. Fail if not. */
-		if (strstr(passwordprogram, "%u") == NULL) {
+		if (strstr_m(passwordprogram, "%u") == NULL) {
 			DEBUG(0,("chgpasswd: Running as root the 'passwd program' parameter *MUST* contain \
 the string %%u, and the given string %s does not.\n", passwordprogram ));
 			return False;
@@ -576,9 +553,10 @@ the string %%u, and the given string %s does not.\n", passwordprogram ));
 
 #else /* ALLOW_CHANGE_PASSWORD */
 
-BOOL chgpasswd(const char *name, const char *oldpass, const char *newpass, BOOL as_root)
+BOOL chgpasswd(const char *name, const struct passwd *pass, 
+	       const char *oldpass, const char *newpass, BOOL as_root)
 {
-	DEBUG(0, ("chgpasswd: Password changing not compiled in (user=%s)\n", name));
+	DEBUG(0, ("chgpasswd: Unix Password changing not compiled in (user=%s)\n", name));
 	return (False);
 }
 #endif /* ALLOW_CHANGE_PASSWORD */
@@ -718,31 +696,36 @@ BOOL change_lanman_password(SAM_ACCOUNT *sampass, uchar *pass2)
 ************************************************************/
 
 NTSTATUS pass_oem_change(char *user,
-			 uchar * lmdata, uchar * lmhash,
-			 uchar * ntdata, uchar * nthash)
+			 uchar password_encrypted_with_lm_hash[516], 
+			 const uchar old_lm_hash_encrypted[16],
+			 uchar password_encrypted_with_nt_hash[516], 
+			 const uchar old_nt_hash_encrypted[16])
 {
-	fstring new_passwd;
+	pstring new_passwd;
 	SAM_ACCOUNT *sampass = NULL;
-
 	NTSTATUS nt_status = NT_STATUS_WRONG_PASSWORD;
+	
 #ifdef WITH_OPENDIRECTORY
 	tDirStatus	dir_status = eDSNullParameter;
 	u_int8_t passwordFormat = 0;
 	
 	if (lp_opendirectory()) {
-		if(ntdata != NULL && nthash != NULL)
+		if(password_encrypted_with_nt_hash != NULL && old_nt_hash_encrypted != NULL)
 			passwordFormat = 1; /* 0 - UTF8 | 1 - UCS2 Unicode, >1 == codepage */
 		become_root();
-		dir_status = opendirectory_lmchap2changepasswd(user, lmdata, lmhash, passwordFormat, NULL);
+		dir_status = opendirectory_lmchap2changepasswd(user, password_encrypted_with_lm_hash, old_lm_hash_encrypted, passwordFormat, NULL);
 		unbecome_root();
 		DEBUG(3, ("pass_oem_change: [%d]opendirectory_lmchap2changepasswd passwordFormat(%d)\n", dir_status, passwordFormat));
 		if (eDSNoErr == dir_status)
 			nt_status = NT_STATUS_OK;
 	} else {
 #endif
-		nt_status = check_oem_password(user, lmdata, lmhash, ntdata, nthash,
-				     &sampass, new_passwd, sizeof(new_passwd));
-
+	nt_status = check_oem_password(user, password_encrypted_with_lm_hash, 
+						old_lm_hash_encrypted, 
+						password_encrypted_with_nt_hash, 
+						old_nt_hash_encrypted,
+						&sampass, new_passwd, sizeof(new_passwd));
+	
 	if (!NT_STATUS_IS_OK(nt_status))
 		return nt_status;
 
@@ -762,33 +745,42 @@ NTSTATUS pass_oem_change(char *user,
 }
 
 /***********************************************************
- Code to check the OEM hashed password.
+ Decrypt and verify a user password change.  
 
- this function ignores the 516 byte nt OEM hashed password
- but does use the lm OEM password to check the nt hashed-hash.
+ The 516 byte long buffers are encrypted with the old NT and 
+ old LM passwords, and if the NT passwords are present, both 
+ buffers contain a unicode string.
 
+ After decrypting the buffers, check the password is correct by
+ matching the old hashed passwords with the passwords in the passdb.
+ 
 ************************************************************/
 
 static NTSTATUS check_oem_password(const char *user,
-			       uchar * lmdata, const uchar * lmhash,
-			       const uchar * ntdata, const uchar * nthash,
-			       SAM_ACCOUNT **hnd, char *new_passwd,
-			       int new_passwd_size)
+				   uchar password_encrypted_with_lm_hash[516], 
+				   const uchar old_lm_hash_encrypted[16],
+				   uchar password_encrypted_with_nt_hash[516], 
+				   const uchar old_nt_hash_encrypted[16],
+				   SAM_ACCOUNT **hnd, char *new_passwd,
+				   int new_passwd_size)
 {
 	static uchar null_pw[16];
 	static uchar null_ntpw[16];
 	SAM_ACCOUNT *sampass = NULL;
+	char *password_encrypted;
+	const char *encryption_key;
 	const uint8 *lanman_pw, *nt_pw;
 	uint16 acct_ctrl;
-	int new_pw_len;
-	uchar new_ntp16[16];
-	uchar unenc_old_ntpw[16];
-	uchar new_p16[16];
-	uchar unenc_old_pw[16];
+	uint32 new_pw_len;
+	uchar new_nt_hash[16];
+	uchar old_nt_hash_plain[16];
+	uchar new_lm_hash[16];
+	uchar old_lm_hash_plain[16];
 	char no_pw[2];
 	BOOL ret;
 
-	BOOL nt_pass_set = (ntdata != NULL && nthash != NULL);
+	BOOL nt_pass_set = (password_encrypted_with_nt_hash && old_nt_hash_encrypted);
+	BOOL lm_pass_set = (password_encrypted_with_lm_hash && old_lm_hash_encrypted);
 
 	*hnd = NULL;
 
@@ -801,75 +793,71 @@ static NTSTATUS check_oem_password(const char *user,
 	if (ret == False) {
 		DEBUG(0, ("check_oem_password: getsmbpwnam returned NULL\n"));
 		pdb_free_sam(&sampass);
-		return NT_STATUS_WRONG_PASSWORD;
-		/*
-		  TODO: check what Win2k returns for this:
-		  return NT_STATUS_NO_SUCH_USER; 
-		*/
+		return NT_STATUS_NO_SUCH_USER; 
 	}
 
 	acct_ctrl = pdb_get_acct_ctrl(sampass);
 	
 	if (acct_ctrl & ACB_DISABLED) {
-		DEBUG(0,("check_lanman_password: account %s disabled.\n", user));
+		DEBUG(2,("check_lanman_password: account %s disabled.\n", user));
 		pdb_free_sam(&sampass);
 		return NT_STATUS_ACCOUNT_DISABLED;
 	}
 
-	/* construct a null password (in case one is needed */
-	no_pw[0] = 0;
-	no_pw[1] = 0;
-	nt_lm_owf_gen(no_pw, null_ntpw, null_pw);
+	if (acct_ctrl & ACB_PWNOTREQ && lp_null_passwords()) {
+		/* construct a null password (in case one is needed */
+		no_pw[0] = 0;
+		no_pw[1] = 0;
+		nt_lm_owf_gen(no_pw, null_ntpw, null_pw);
+		lanman_pw = null_pw;
+		nt_pw = null_pw;
 
-	/* save pointers to passwords so we don't have to keep looking them up */
-	lanman_pw = pdb_get_lanman_passwd(sampass);
-	nt_pw = pdb_get_nt_passwd(sampass);
-
-	/* check for null passwords */
-	if (lanman_pw == NULL) {
-		if (!(acct_ctrl & ACB_PWNOTREQ)) {
-			DEBUG(0,("check_oem_password: no lanman password !\n"));
-			pdb_free_sam(&sampass);
-			return NT_STATUS_WRONG_PASSWORD;
+	} else {
+		/* save pointers to passwords so we don't have to keep looking them up */
+		if (lp_lanman_auth()) {
+			lanman_pw = pdb_get_lanman_passwd(sampass);
+		} else {
+			lanman_pw = NULL;
 		}
+		nt_pw = pdb_get_nt_passwd(sampass);
 	}
-	
-	if (pdb_get_nt_passwd(sampass) == NULL && nt_pass_set) {
-		if (!(acct_ctrl & ACB_PWNOTREQ)) {
-			DEBUG(0,("check_oem_password: no ntlm password !\n"));
-			pdb_free_sam(&sampass);
-			return NT_STATUS_WRONG_PASSWORD;
-		}
-	}
-	
-	/* 
-	 * Call the hash function to get the new password.
-	 */
-	SamOEMhash( lmdata, lanman_pw, 516);
 
-	/* 
-	 * The length of the new password is in the last 4 bytes of
-	 * the data buffer.
-	 */
-
-	new_pw_len = IVAL(lmdata, 512);
-
-	if (new_pw_len < 0 || new_pw_len > new_passwd_size - 1) {
-		DEBUG(0,("check_oem_password: incorrect password length (%d).\n", new_pw_len));
+	if (nt_pw && nt_pass_set) {
+		/* IDEAL Case: passwords are in unicode, and we can
+		 * read use the password encrypted with the NT hash 
+		 */
+		password_encrypted = password_encrypted_with_nt_hash;
+		encryption_key = nt_pw;
+	} else if (lanman_pw && lm_pass_set) {
+		/* password may still be in unicode, but use LM hash version */
+		password_encrypted = password_encrypted_with_lm_hash;
+		encryption_key = lanman_pw;
+	} else if (nt_pass_set) {
+		DEBUG(1, ("NT password change supplied for user %s, but we have no NT password to check it with\n", 
+			  user));
+		pdb_free_sam(&sampass);
+		return NT_STATUS_WRONG_PASSWORD;	
+	} else if (lm_pass_set) {
+		DEBUG(1, ("LM password change supplied for user %s, but we have no LanMan password to check it with\n", 
+			  user));
+		pdb_free_sam(&sampass);
+		return NT_STATUS_WRONG_PASSWORD;
+	} else {
+		DEBUG(1, ("password change requested for user %s, but no password supplied!\n", 
+			  user));
 		pdb_free_sam(&sampass);
 		return NT_STATUS_WRONG_PASSWORD;
 	}
 
-	if (nt_pass_set) {
-		/*
-		 * nt passwords are in unicode
-		 */
-		pull_ucs2(NULL, new_passwd, 
-			  (const smb_ucs2_t *)&lmdata[512 - new_pw_len],
-			  new_passwd_size, new_pw_len, 0);
-	} else {
-		memcpy(new_passwd, &lmdata[512 - new_pw_len], new_pw_len);
-		new_passwd[new_pw_len] = 0;
+	/* 
+	 * Decrypt the password with the key 
+	 */
+	SamOEMhash( password_encrypted, encryption_key, 516);
+
+	if ( !decode_pw_buffer(password_encrypted, new_passwd, new_passwd_size, &new_pw_len, 
+			       nt_pass_set ? STR_UNICODE : STR_ASCII)) {
+		pdb_free_sam(&sampass);
+		return NT_STATUS_WRONG_PASSWORD;
 	}
 
 	/*
@@ -877,21 +865,80 @@ static NTSTATUS check_oem_password(const char *user,
 	 * use it as a key to test the passed old password.
 	 */
 
-	nt_lm_owf_gen(new_passwd, new_ntp16, new_p16);
+	if (nt_pass_set) {
+		/* NT passwords, verify the NT hash. */
+		
+		/* Calculate the MD4 hash (NT compatible) of the password */
+		memset(new_nt_hash, '\0', 16);
+		E_md4hash(new_passwd, new_nt_hash);
 
-	if (!nt_pass_set) {
+		if (nt_pw) {
+			/*
+			 * Now use new_nt_hash as the key to see if the old
+			 * password matches.
+			 */
+			D_P16(new_nt_hash, old_nt_hash_encrypted, old_nt_hash_plain);
+			
+			if (memcmp(nt_pw, old_nt_hash_plain, 16)) {
+				DEBUG(0,("check_oem_password: old lm password doesn't match.\n"));
+				pdb_free_sam(&sampass);
+				return NT_STATUS_WRONG_PASSWORD;
+			}
+			
+			/* We could check the LM password here, but there is
+			 * little point, we already know the password is
+			 * correct, and the LM password might not even be
+			 * present. */
+
+			/* Further, LM hash generation algorithms
+			 * differ with charset, so we could
+			 * incorrectly fail a perfectly valid password
+			 * change */
+#ifdef DEBUG_PASSWORD
+			DEBUG(100,
+			      ("check_oem_password: password %s ok\n", new_passwd));
+#endif
+			*hnd = sampass;
+			return NT_STATUS_OK;
+		}
+		
+		if (lanman_pw) {
+			/*
+			 * Now use new_nt_hash as the key to see if the old
+			 * LM password matches.
+			 */
+			D_P16(new_nt_hash, old_lm_hash_encrypted, old_lm_hash_plain);
+			
+			if (memcmp(lanman_pw, old_lm_hash_plain, 16)) {
+				DEBUG(0,("check_oem_password: old lm password doesn't match.\n"));
+				pdb_free_sam(&sampass);
+				return NT_STATUS_WRONG_PASSWORD;
+			}
+#ifdef DEBUG_PASSWORD
+			DEBUG(100,
+			      ("check_oem_password: password %s ok\n", new_passwd));
+#endif
+			*hnd = sampass;
+			return NT_STATUS_OK;
+		}
+	}
+
+	if (lanman_pw && lm_pass_set) {
+
+		E_deshash(new_passwd, new_lm_hash);
+
 		/*
-		 * Now use new_p16 as the key to see if the old
+		 * Now use new_lm_hash as the key to see if the old
 		 * password matches.
 		 */
-		D_P16(new_p16, lmhash, unenc_old_pw);
-
-		if (memcmp(lanman_pw, unenc_old_pw, 16)) {
+		D_P16(new_lm_hash, old_lm_hash_encrypted, old_lm_hash_plain);
+		
+		if (memcmp(lanman_pw, old_lm_hash_plain, 16)) {
 			DEBUG(0,("check_oem_password: old lm password doesn't match.\n"));
 			pdb_free_sam(&sampass);
 			return NT_STATUS_WRONG_PASSWORD;
 		}
-
+		
 #ifdef DEBUG_PASSWORD
 		DEBUG(100,
 		      ("check_oem_password: password %s ok\n", new_passwd));
@@ -900,30 +947,9 @@ static NTSTATUS check_oem_password(const char *user,
 		return NT_STATUS_OK;
 	}
 
-	/*
-	 * Now use new_p16 as the key to see if the old
-	 * password matches.
-	 */
-	D_P16(new_ntp16, lmhash, unenc_old_pw);
-	D_P16(new_ntp16, nthash, unenc_old_ntpw);
-
-	if (memcmp(lanman_pw, unenc_old_pw, 16)) {
-		DEBUG(0,("check_oem_password: old lm password doesn't match.\n"));
-		pdb_free_sam(&sampass);
-		return NT_STATUS_WRONG_PASSWORD;
-	}
-
-	if (memcmp(nt_pw, unenc_old_ntpw, 16)) {
-		DEBUG(0,("check_oem_password: old nt password doesn't match.\n"));
-		pdb_free_sam(&sampass);
-		return NT_STATUS_WRONG_PASSWORD;
-	}
-#ifdef DEBUG_PASSWORD
-	DEBUG(100, ("check_oem_password: password %s ok\n", new_passwd));
-#endif
-
-	*hnd = sampass;
-	return NT_STATUS_OK;
+	/* should not be reached */
+	pdb_free_sam(&sampass);
+	return NT_STATUS_WRONG_PASSWORD;
 }
 
 /***********************************************************
@@ -935,6 +961,8 @@ static NTSTATUS check_oem_password(const char *user,
 
 NTSTATUS change_oem_password(SAM_ACCOUNT *hnd, char *old_passwd, char *new_passwd, BOOL as_root)
 {
+	struct passwd *pass;
+
 	BOOL ret;
 	uint32 min_len;
 
@@ -962,7 +990,10 @@ NTSTATUS change_oem_password(SAM_ACCOUNT *hnd, char *old_passwd, char *new_passw
 /* 		return NT_STATUS_PWD_TOO_SHORT; */
 	}
 
-	/* TODO:  Add cracklib support here */
+	pass = Get_Pwnam(pdb_get_username(hnd));
+	if (!pass) {
+		DEBUG(1, ("check_oem_password: Username does not exist in system !?!\n"));
+	}
 
 	/*
 	 * If unix password sync was requested, attempt to change
@@ -977,7 +1008,7 @@ NTSTATUS change_oem_password(SAM_ACCOUNT *hnd, char *old_passwd, char *new_passw
 	 */
 	
 	if(lp_unix_password_sync() &&
-		!chgpasswd(pdb_get_username(hnd), old_passwd, new_passwd, as_root)) {
+		!chgpasswd(pdb_get_username(hnd), pass, old_passwd, new_passwd, as_root)) {
 		return NT_STATUS_ACCESS_DENIED;
 	}
 

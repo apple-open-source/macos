@@ -557,7 +557,7 @@ bool AppleUSBCDCECMControl::configureECM()
     if (!getFunctionalDescriptors())
     {
         ALERT(0, 0, "configureECM - getFunctionalDescriptors failed");
-        releaseResources();
+//        releaseResources();
         return false;
     }
     
@@ -798,7 +798,10 @@ void AppleUSBCDCECMControl::dataReleased()
     
     XTRACE(this, 0, 0, "dataReleased");
     
-    fCommPipe->Abort();
+	if (fCommPipe)
+	{
+		fCommPipe->Abort();
+	}
     fdataAcquired = false;
     
 }/* end dataReleased */
@@ -850,6 +853,8 @@ bool AppleUSBCDCECMControl::allocateResources()
         if (!fCommPipeMDP)
         {
             XTRACE(this, 0, 0, "allocateResources - Couldn't allocate MDP for interrupt pipe");
+			fControlInterface->release();
+			fControlInterface = NULL;
             return false;
         }
 

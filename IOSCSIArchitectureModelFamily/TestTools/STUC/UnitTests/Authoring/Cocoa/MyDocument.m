@@ -49,7 +49,8 @@
 #import <IOKit/storage/IOMedia.h>
 #import <IOKit/scsi/SCSICommandOperationCodes.h>
 #import <IOKit/scsi/SCSITask.h>
-#import <Carbon/Carbon.h>
+#import <DiskArbitration/DiskArbitration.h>
+#import <CoreFoundation/CoreFoundation.h>
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -63,6 +64,7 @@ enum
 	kStatusOK			= 0
 };
 
+
 #define	kNumBlocks					(1)
 #define	kRequestSize				(2048 * kNumBlocks)
 #define	kMyDocumentString			@"MyDocument"
@@ -70,6 +72,9 @@ enum
 #define kOKString					@"OK"
 #define kCancelString				@"Cancel"
 #define IOBlockStorageDriverString	"IOBlockStorageDriver"
+
+static void
+DiskUnmountCallback ( DADiskRef disk, DADissenterRef dissenter, void * context );
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -304,43 +309,25 @@ ErrorExit:
 {
 	
 	io_service_t	service 	= MACH_PORT_NULL;
-	int				result		= kStatusOK;
+	CFStringRef		bsdName		= NULL;
+	int				result		= kUnmountFailed;
 	
 	// Get a handle to the io_service_t that represents our MMC Device
 	service = [ [ self theAuthoringDeviceTester ] getServiceObject: [ self theAuthoringDevice ] ];
 	require ( ( service != MACH_PORT_NULL ), ErrorExit );
 	
-	result = [ self findWholeMediaBSDName: service ];
-	( void ) IOObjectRelease ( service );
-	
-	
-ErrorExit:
-	
-	
-	return result;
-	
-}
-
-
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	findWholeMediaBSDName
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-
-- ( int ) findWholeMediaBSDName : ( io_service_t ) service
-{
-	
-	CFStringRef				bsdName	= NULL;
-	int						result	= kUnmountFailed;
-	
-	// Get the CF Properties for the IOMedia object
 	bsdName = ( CFStringRef ) IORegistryEntrySearchCFProperty ( service,
 																kIOServicePlane,
 																CFSTR ( kIOBSDNameKey ),
 																kCFAllocatorDefault,
 																kIORegistryIterateRecursively );
-	require ( ( bsdName != NULL ), ErrorExit );
-	result = [ self unmountAllPartitions: bsdName ];
+																
+	// If there isn't a property, no media exists for this device. Proceed as planned...
+	require_action ( ( bsdName != NULL ), ErrorExit, result = kStatusOK );
 	
+	// There was media. Unmount all the partitions associated with this device.
+	result = [ self unmountAllPartitions: bsdName ];
+	IOObjectRelease ( service );
 	CFRelease ( bsdName );
 	
 	
@@ -359,107 +346,63 @@ ErrorExit:
 - ( int ) unmountAllPartitions: ( CFStringRef ) bsdName
 {
 	
-	OSStatus			error		= noErr;
-	struct statfs *		fsStats		= NULL;
-	int					result		= kUnmountFailed;
-	int					numMounts	= 0;
-	unsigned int		index		= 0;
-	FSRef				volFSRef	= { { 0 } };
-	FSCatalogInfo		volumeInfo	= { 0 };
+	DADiskRef			disk	= NULL;
+	DASessionRef		session	= NULL;
+	int					result	= kUnmountFailed;
 	
-	// Get the mount info for all the mountpoints. We will traverse that data
-	// and try and find any mountpoints which have the diskX identifier in them.
-	numMounts = getmntinfo ( &fsStats, MNT_NOWAIT );
-	require ( ( numMounts != 0 ), ErrorExit );
-	
-	for ( index = 0; index < numMounts; index++ )
+	session = DASessionCreate ( kCFAllocatorDefault );
+	if ( session != NULL )
 	{
 		
-		// make a CFStringRef with the name of the BSD dev node/file descriptor
-		CFStringRef cfStringMntOnName  = CFStringCreateWithCString (	NULL,
-																		&fsStats[index].f_mntfromname[5] /* Starting at [5] gets rid of the /dev/ */,
-																		CFStringGetSystemEncoding ( ) );
+		DASessionScheduleWithRunLoop ( session, CFRunLoopGetCurrent ( ), CFSTR ( "MyCallbackMode" ) );
 		
-		// Compare the BSD dev node to the one we have. This is akin to doing a strncmp.
-		if ( CFStringCompareWithOptions ( cfStringMntOnName,
-										  bsdName,
-										  CFRangeMake ( 0, CFStringGetLength ( bsdName ) ),
-										  0 ) == kCFCompareEqualTo )
+		disk = DADiskCreateFromBSDName ( kCFAllocatorDefault, session, CFStringGetCStringPtr ( bsdName, kCFStringEncodingMacRoman ) );
+		if ( disk != NULL )
 		{
 			
-			// Pop up a simple alert panel to warn the user that the disc will be unmounted
-			result = NSRunAlertPanel ( kAlertString,
-									   [ NSString stringWithFormat: @"Are you sure you want to unmount the disc: %s?", &fsStats[index].f_mntonname[9] ],
-									   kOKString,
-									   kCancelString,
-									   nil );
+			SInt32			returnValue = 0;
+			Context			context;
 			
-			if ( result == NSAlertAlternateReturn )
+			context.document 	= self;
+			context.result 		= kUnmountFailed;
+			
+			DADiskUnmount ( disk,
+							kDADiskUnmountOptionWhole,
+							DiskUnmountCallback,
+							&context );
+			
+			returnValue = CFRunLoopRunInMode ( CFSTR ( "MyCallbackMode" ), 20.0, false );
+			if ( ( returnValue == kCFRunLoopRunStopped ) && ( context.result == kStatusOK ) )
 			{
-				
-				// User cancelled unmount.
-				result = kUnmountCancelled;
-				CFRelease ( cfStringMntOnName );
-				cfStringMntOnName = NULL;
-				goto ErrorExit;
-				
-			}
+				result = kStatusOK;
+			}			
 			
-			// Ask Carbon to unmount the partition.
-			error = FSPathMakeRef ( fsStats[index].f_mntonname,
-									&volFSRef,
-									NULL );
-			if ( error != noErr )
-			{				
-				
-				result = kUnmountFailed;
-				CFRelease ( cfStringMntOnName );
-				cfStringMntOnName = NULL;
-				goto ErrorExit;
-				
-			}
-			
-			error = FSGetCatalogInfo (	&volFSRef,
-										kFSCatInfoVolume,
-										&volumeInfo,
-										NULL,
-										NULL,
-										NULL );
-			if ( error != noErr )
-			{
-				
-				result = kUnmountFailed;
-				CFRelease ( cfStringMntOnName );
-				cfStringMntOnName = NULL;
-				goto ErrorExit;
-				
-			}
-			
-			error = FSUnmountVolumeSync ( volumeInfo.volume, 0, NULL );
-			if ( error != noErr )
-			{
-				
-				result = kUnmountFailed;
-				CFRelease ( cfStringMntOnName );
-				cfStringMntOnName = NULL;
-				goto ErrorExit;
-				
-			}
+			CFRelease ( disk );
+			disk = NULL;
 			
 		}
 		
-		CFRelease ( cfStringMntOnName );
-		cfStringMntOnName = NULL;
+		DASessionUnscheduleFromRunLoop ( session, CFRunLoopGetCurrent ( ), CFSTR ( "MyCallbackMode" ) );
+		CFRelease ( session );
 		
 	}
 	
-	result = kStatusOK;
-	
-	
-ErrorExit:
-	
-	
 	return result;
+	
+}
+
+
+- ( void ) diskUnmountCallback: ( DADiskRef ) disk
+					 dissenter: ( DADissenterRef ) dissenter
+					   context: ( Context * ) context
+{
+	
+	if ( dissenter == NULL )
+	{
+		context->result = kStatusOK;
+	}
+	
+	CFRunLoopStop ( CFRunLoopGetCurrent ( ) );
 	
 }
 
@@ -608,7 +551,7 @@ ReleaseExclusiveAccess:
 	
 	
 	err = ( *interface )->ReleaseExclusiveAccess ( interface );
-	require ( ( err == kIOReturnSuccess ), ReleaseTask );
+	require ( ( err == kIOReturnSuccess ), ErrorExit );
 	
 	
 ErrorExit:
@@ -726,5 +669,19 @@ ErrorExit:
 	
 }
 
-
 @end
+
+
+static void
+DiskUnmountCallback ( DADiskRef disk, DADissenterRef dissenter, void * context )
+{
+	
+	Context *		myContext 	= nil;
+	MyDocument *	document	= nil;
+	
+	myContext 	= ( Context * ) context;
+	document	= myContext->document;
+	
+	[ document diskUnmountCallback: disk dissenter: dissenter context: myContext ];
+	
+}

@@ -23,7 +23,7 @@
  */
 #ifndef lint
 static const char rcsid[] _U_ =
-    "@(#) $Header: /cvs/root/tcpdump/tcpdump/addrtoname.c,v 1.1.1.4 2004/02/05 19:30:51 rbraun Exp $ (LBL)";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/addrtoname.c,v 1.1.1.5 2004/05/21 20:51:29 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -103,6 +103,10 @@ win32_gethostbyaddr(const char *addr, int len, int type)
 		memset(&addr6, 0, sizeof(addr6));
 		addr6.sin6_family = AF_INET6;
 		memcpy(&addr6.sin6_addr, addr, len);
+#ifdef __MINGW32__
+		/* MinGW doesn't provide getnameinfo */
+		return NULL;
+#else
 		if (getnameinfo((struct sockaddr *)&addr6, sizeof(addr6),
 			hname, sizeof(hname), NULL, 0, 0)) {
 		    return NULL;
@@ -110,6 +114,7 @@ win32_gethostbyaddr(const char *addr, int len, int type)
 			strcpy(host.h_name, hname);
 			return &host;
 		}
+#endif /* __MINGW32__ */
 		break;
 	default:
 		return NULL;
@@ -190,6 +195,21 @@ static u_int32_t f_localnet;
 /*
  * Return a name for the IP address pointed to by ap.  This address
  * is assumed to be in network byte order.
+ *
+ * NOTE: ap is *NOT* necessarily part of the packet data (not even if
+ * this is being called with the "ipaddr_string()" macro), so you
+ * *CANNOT* use the TCHECK{2}/TTEST{2} macros on it.  Furthermore,
+ * even in cases where it *is* part of the packet data, the caller
+ * would still have to check for a null return value, even if it's
+ * just printing the return value with "%s" - not all versions of
+ * printf print "(null)" with "%s" and a null pointer, some of them
+ * don't check for a null pointer and crash in that case.
+ *
+ * The callers of this routine should, before handing this routine
+ * a pointer to packet data, be sure that the data is present in
+ * the packet buffer.  They should probably do those checks anyway,
+ * as other data at that layer might not be IP addresses, and it
+ * also needs to check whether they're present in the packet buffer.
  */
 const char *
 getname(const u_char *ap)

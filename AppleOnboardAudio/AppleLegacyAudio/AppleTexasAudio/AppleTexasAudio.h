@@ -159,7 +159,7 @@ protected:
 	// information specific to the chip
 	Boolean					gModemSoundActive;
 	Boolean					dontReleaseHPMute;
-
+	
 #if 0
 	// holds the current frame rate settings:
 	ClockSource				clockSource;
@@ -258,11 +258,11 @@ protected:
 	UInt8		GpioGetDDR (UInt8* gpioAddress);
 	IOReturn	TAS3001C_Initialize (UInt32 resetFlag);
 	IOReturn	TAS3001C_ReadRegister (UInt8 regAddr, UInt8* registerData);
-	IOReturn	TAS3001C_WriteRegister (UInt8 regAddr, UInt8* registerData, UInt8 mode);
+	IOReturn	TAS3001C_WriteRegister ( UInt8 regAddr, UInt8* registerData );  //  [3731023]   Deleted 'mode' argument.	23 July 2004 - rbm
 	IOReturn	TAS3001C_Reset (UInt32 resetFlag);
 	void		GpioWrite (UInt8* gpioAddress, UInt8 data);
 	void		SetBiquadInfoToUnityAllPass (void);
-	void		SetUnityGainAllPass (void);
+	IOReturn	SetUnityGainAllPass (void);
 	void		ExcludeHPMuteRelease (UInt32 layout);
 	IOReturn	SndHWSetDRC( DRCInfoPtr theDRCSettings );
 	void		DeviceInterruptService (void);

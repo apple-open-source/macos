@@ -207,6 +207,7 @@ class AppleUSBCDCACMData : public IOSerialDriverSync
     OSDeclareDefaultStructors(AppleUSBCDCACMData);			// Constructor & Destructor stuff
 
 private:
+	AppleUSBCDCACMControl   *fControlDriver;			// Our Control Driver
     UInt16			fSessions;				// Number of active sessions
     bool			fTerminate;				// Are we being terminated (ie the device was unplugged)
     bool			fStopping;				// Are we being "stopped"

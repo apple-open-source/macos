@@ -57,7 +57,8 @@ static NTSTATUS sam_password_ok(const struct auth_context *auth_context,
 	nt_pw = pdb_get_nt_passwd(sampass);
 
 	return ntlm_password_check(mem_ctx, &auth_context->challenge, 
-				   &user_info->lm_resp, &user_info->nt_resp,  
+				   &user_info->lm_resp, &user_info->nt_resp, 
+				   &user_info->lm_interactive_pwd, &user_info->nt_interactive_pwd,
 				   username, 
 				   user_info->smb_name.str, 
 				   user_info->client_domain.str, 
@@ -179,6 +180,7 @@ static NTSTATUS check_sam_security(const struct auth_context *auth_context,
 	NTSTATUS nt_status;
 	DATA_BLOB user_sess_key = data_blob(NULL, 0);
 	DATA_BLOB lm_sess_key = data_blob(NULL, 0);
+	BOOL updated_autolock = False, updated_badpw = False;
 
 	if (!user_info || !auth_context) {
 		return NT_STATUS_UNSUCCESSFUL;
@@ -202,13 +204,50 @@ static NTSTATUS check_sam_security(const struct auth_context *auth_context,
 		return NT_STATUS_NO_SUCH_USER;
 	}
 
+	/* see if autolock flag needs to be updated */
+	if (pdb_get_acct_ctrl(sampass) & ACB_NORMAL)
+		pdb_update_autolock_flag(sampass, &updated_autolock);
+	/* Quit if the account was locked out. */
+	if (pdb_get_acct_ctrl(sampass) & ACB_AUTOLOCK) {
+		DEBUG(3,("check_sam_security: Account for user %s was locked out.\n", pdb_get_username(sampass)));
+		return NT_STATUS_ACCOUNT_LOCKED_OUT;
+	}
+
 	nt_status = sam_password_ok(auth_context, mem_ctx, sampass, 
 				    user_info, &user_sess_key, &lm_sess_key);
 	
 	if (!NT_STATUS_IS_OK(nt_status)) {
+		if (NT_STATUS_EQUAL(nt_status,NT_STATUS_WRONG_PASSWORD) && 
+		    pdb_get_acct_ctrl(sampass) &ACB_NORMAL) {  
+			pdb_increment_bad_password_count(sampass);
+			updated_badpw = True;
+		} else {
+			pdb_update_bad_password_count(sampass, 
+						      &updated_badpw);
+		}
+		if (updated_autolock || updated_badpw){
+			become_root();
+			if(!pdb_update_sam_account(sampass))
+				DEBUG(1, ("Failed to modify entry.\n"));
+			unbecome_root();
+		}
 		pdb_free_sam(&sampass);
 		return nt_status;
 	}
+
+	if ((pdb_get_acct_ctrl(sampass) & ACB_NORMAL) && 
+	    (pdb_get_bad_password_count(sampass) > 0)){
+		pdb_set_bad_password_count(sampass, 0, PDB_CHANGED);
+		pdb_set_bad_password_time(sampass, 0, PDB_CHANGED);
+		updated_badpw = True;
+	}
+
+	if (updated_autolock || updated_badpw){
+		become_root();
+		if(!pdb_update_sam_account(sampass))
+			DEBUG(1, ("Failed to modify entry.\n"));
+		unbecome_root();
+ 	}
 
 	nt_status = sam_account_ok(mem_ctx, sampass, user_info);
 
@@ -222,7 +261,7 @@ static NTSTATUS check_sam_security(const struct auth_context *auth_context,
 		return nt_status;
 	}
 
-	(*server_info)->nt_session_key = user_sess_key;
+	(*server_info)->user_session_key = user_sess_key;
 	(*server_info)->lm_session_key = lm_sess_key;
 
 	return nt_status;

@@ -421,7 +421,7 @@ void AppleTopazPluginCS8416::poll ( void ) {
 void AppleTopazPluginCS8416::notifyHardwareEvent ( UInt32 statusSelector, UInt32 newValue ) {
 	IOReturn		error = kIOReturnError;
 	bool			unlockStatusDetected = FALSE;														//  [3678605]
-	bool			done = FALSE;																		//  [3678605]
+	UInt32			hwInterruptAckLoopCounter = kIRQ_HARDWARE_ACK_SEED_COUNT;							//  [3678605],[3800414]
 
 	switch ( statusSelector ) {
 		case kCodecErrorInterruptStatus:	debugIOLog ( 4, "+ AppleTopazPluginCS8416::notifyHardwareEvent ( %d = kCodecErrorInterruptStatus, %d ), mDelayPollAfterWakeCounter %ld", statusSelector, newValue, mDelayPollAfterWakeCounter );	break;
@@ -439,12 +439,12 @@ void AppleTopazPluginCS8416::notifyHardwareEvent ( UInt32 statusSelector, UInt32
 				//  a loss of external clock and a 'kClockUnLockStatus' message will be posted.  If the RATIO
 				//  remains constant through a sleep / wake cycle then normal handling of the UNLOCK status
 				//  obtained from the receiver error register will resume.
-				if ( 0 != mDelayPollAfterWakeCounter ) {														//  [3678605]
+				if ( 0 != mDelayPollAfterWakeCounter )
+				{																								//  [3678605]
 					mDelayPollAfterWakeCounter--;
 				}
-				if ( 0 == mDelayPollAfterWakeCounter ) {														//  [3678605]
-					//  All hardware is assumed to be running correctly when the 'mDelayPollAfterWakeCounter'
-					//  reaches zero so normal handling of LOCK resumes...
+				if ( 0 == mDelayPollAfterWakeCounter )
+				{																								//  [3678605]
 					do {																						//  [3678605]
 						error = CODEC_ReadRegister ( mapReceiverError, &mShadowRegs[mapReceiverError], 1 );
 						FailIf ( kIOReturnSuccess != error, Exit );
@@ -453,10 +453,15 @@ void AppleTopazPluginCS8416::notifyHardwareEvent ( UInt32 statusSelector, UInt32
 						
 						if ( ( 1 << baUNLOCK ) == ( ( 1 << baUNLOCK ) & mShadowRegs[mapReceiverError] ) ) {
 							unlockStatusDetected = TRUE;
-						} else if ( 0 == mShadowRegs[mapReceiverError] ) {
-							done = TRUE;
 						}
-					} while ( !done );																			//  [3678605]
+						//	If no interrupt occurred then a second access is not required to clear the interrupt status.
+						//	If an interrupt occurred then a second access is needed to clear the interrupt status.	[3800414]
+						hwInterruptAckLoopCounter = 0 == mShadowRegs[mapReceiverError] ? 0 : hwInterruptAckLoopCounter - 1 ;
+						if ( 0 != hwInterruptAckLoopCounter )
+						{
+							IOSleep ( 1 );
+						}
+					} while ( 0 != hwInterruptAckLoopCounter );													//  [3678605]
 					if ( unlockStatusDetected ) {
 						if ( 0 != mUnlockFilterCounter ) {														//  [3678605]
 							mUnlockFilterCounter--;
@@ -470,33 +475,6 @@ void AppleTopazPluginCS8416::notifyHardwareEvent ( UInt32 statusSelector, UInt32
 						debugIOLog ( 4, "  AppleTopazPluginCS8416::notifyHardwareEvent posts kClockLockStatus, mShadowRegs[mapReceiverError] = 0x%0.2X, mUnlockFilterCounter = %ld", mShadowRegs[mapReceiverError], mUnlockFilterCounter );
 						mAudioDeviceProvider->interruptEventHandler ( kClockLockStatus, (UInt32)0 );
 					}
-#if 0   //  {   If the CS8416 is set to RUN only after the MCLK is present (i.e. from 'i2s-a') then toggling RUN is not expected to be required
-				} else if ( ( kPollsToCheckRatioAfterWake == mDelayPollAfterWakeCounter ) && 1 ) {
-					//  If the ratio has changed since sleep then the clock source is assumed to
-					//  have been removed and an kClockUnLockStatus message is posted to any
-					//  AppleOnboardAudio instance that uses this AppleOnboardAudio instance's
-					//  hardware as a clock source.
-					error = CODEC_ReadRegister ( mapOMCK_RMCK_Ratio, NULL, 1 );									//  [3678605]
-					FailIf ( kIOReturnSuccess != error, Exit );
-					
-					debugIOLog ( 4, "  mRatioEnteringSleep 0x%0.2X, mShadowRegs[mapOMCK_RMCK_Ratio] 0x%0.2X", mRatioEnteringSleep, mShadowRegs[mapOMCK_RMCK_Ratio] );
-					if ( ( mShadowRegs[mapOMCK_RMCK_Ratio] != mRatioEnteringSleep ) && ( 0 != mRatioEnteringSleep ) ) {
-						debugIOLog ( 4, "  AppleTopazPluginCS8416::notifyHardwareEvent posts kClockUnLockStatus from ratio change from 0x%0.2X to 0x%0.2X", mRatioEnteringSleep, mShadowRegs[mapOMCK_RMCK_Ratio] );
-						mAudioDeviceProvider->interruptEventHandler ( kClockUnLockStatus, (UInt32)0 );
-					}
-				} else if ( kPollsToRestoreRunAfterWake == mDelayPollAfterWakeCounter ) {
-					//  Toggle RUN and flush the registers to get things going
-					mShadowRegs[mapControl_4] &= ~( 1 << baRun );
-					error = CODEC_WriteRegister ( mapControl_4, mShadowRegs[mapControl_4] );					//  [3678605]
-					FailIf ( kIOReturnSuccess != error, Exit );
-
-					mShadowRegs[mapControl_4] |= ( bvRunning << baRun );
-					error = CODEC_WriteRegister ( mapControl_4, mShadowRegs[mapControl_4] );
-					FailIf ( kIOReturnSuccess != error, Exit );
-
-					error = flushControlRegisters ();															//  [3678605]
-					FailIf ( kIOReturnSuccess != error, Exit );
-#endif  //		}
 				}
 				break;
 			case kCodecInterruptStatus:

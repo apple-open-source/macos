@@ -31,6 +31,7 @@
 #define super	IOService
 
 #include <IOKit/storage/IOStorageDeviceCharacteristics.h>
+#include <IOKit/storage/IOStorageProtocolCharacteristics.h>
 #include "IOSCSIParallelController.h"
 #include "IOSCSIParallelDevice.h"
 #include "IOSCSIParallelCommand.h"
@@ -72,14 +73,17 @@ bool IOSCSIParallelController::start( IOService *forProvider )
     initQueues();
     
 	domainID = ( OSIncrementAtomic ( &sDomainCount ) << 16 );
-	setProperty ( kIOPropertySCSIDomainIdentifierKey, ( UInt64 ) domainID, 64 );
+	setProperty ( kIOPropertySCSIDomainIdentifierKey, ( UInt64 ) domainID, 32 );
+	setProperty ( kIOPropertySCSIInitiatorIdentifierKey, controllerInfo.initiatorId, 64 );
 	
     if ( scanSCSIBus() == false ) 
     {
         provider->close( this );
         return false;
     }
-		
+	
+	registerService ( );
+	
     return true;
 }
 

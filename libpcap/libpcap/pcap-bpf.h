@@ -37,7 +37,7 @@
  *
  *      @(#)bpf.h       7.1 (Berkeley) 5/7/91
  *
- * @(#) $Header: /cvs/root/libpcap/libpcap/pcap-bpf.h,v 1.1.1.1 2004/02/05 19:22:28 rbraun Exp $ (LBL)
+ * @(#) $Header: /cvs/root/libpcap/libpcap/pcap-bpf.h,v 1.1.1.2 2004/05/21 20:31:59 rbraun Exp $ (LBL)
  */
 
 /*
@@ -167,7 +167,9 @@ struct bpf_version {
 #endif
 
 /*
- * 17 is used for DLT_PFLOG in OpenBSD; don't use it for anything else.
+ * 17 is used for DLT_OLD_PFLOG in OpenBSD;
+ *     OBSOLETE: DLT_PFLOG is 117 in OpenBSD now as well. See below.
+ * 18 is used for DLT_PFSYNC in OpenBSD; don't use it for anything else.
  */
 
 #define DLT_ATM_CLIP	19	/* Linux Classical-IP over ATM */
@@ -179,6 +181,15 @@ struct bpf_version {
  */
 #define DLT_PPP_SERIAL	50	/* PPP over serial with HDLC encapsulation */
 #define DLT_PPP_ETHER	51	/* PPP over Ethernet */
+
+/*
+ * The Axent Raptor firewall - now the Symantec Enterprise Firewall - uses
+ * a link-layer type of 99 for the tcpdump it supplies.  The link-layer
+ * header has 6 bytes of unknown data, something that appears to be an
+ * Ethernet type, and 36 bytes that appear to be 0 in at least one capture
+ * I've seen.
+ */
+#define DLT_SYMANTEC_FIREWALL	99
 
 /*
  * Values between 100 and 103 are used in capture file headers as
@@ -272,12 +283,14 @@ struct bpf_version {
 /*
  * OpenBSD DLT_PFLOG; DLT_PFLOG is 17 in OpenBSD, but that's DLT_LANE8023
  * in SuSE 6.3, so we can't use 17 for it in capture-file headers.
+ *
+ * XXX: is there a conflict with DLT_PFSYNC 18 as well?
  */
 #ifdef __OpenBSD__
-#define DLT_PFLOG	17
-#else
-#define DLT_PFLOG	117
+#define DLT_OLD_PFLOG	17
+#define DLT_PFSYNC	18
 #endif
+#define DLT_PFLOG	117
 
 /*
  * Registered for Cisco-internal use.
@@ -337,15 +350,10 @@ struct bpf_version {
 #define DLT_AURORA              126     /* Xilinx Aurora link layer */
 
 /*
- * For future use with 802.11 captures - defined by AbsoluteValue
- * Systems to store a number of bits of link-layer information:
- *
- *	http://www.shaftnet.org/~pizza/software/capturefrm.txt
- *
- * but could and arguably should also be used by non-AVS Linux
- * 802.11 drivers and BSD drivers; that may happen in the future.
+ * BSD header for 802.11 plus a number of bits of link-layer information
+ * including radio information.
  */
-#define DLT_IEEE802_11_RADIO	127	/* 802.11 plus WLAN header */
+#define DLT_IEEE802_11_RADIO	127	/* 802.11 plus BSD radio header */
 
 /*
  * Reserved for the TZSP encapsulation, as per request from
@@ -371,10 +379,10 @@ struct bpf_version {
 #define DLT_ARCNET_LINUX	129	/* ARCNET */
 
 /*
- * juniper-private data link types, as per request from
- * Hannes Gredler <hannes@juniper.net> the DLT_s are used
- * for passing on chassis-internal metainformation like
- * QOS profiles etc.
+ * Juniper-private data link types, as per request from
+ * Hannes Gredler <hannes@juniper.net>.  The DLT_s are used
+ * for passing on chassis-internal metainformation such as
+ * QOS profiles, etc..
  */
 #define DLT_JUNIPER_MLPPP       130
 #define DLT_JUNIPER_MLFR        131
@@ -386,14 +394,14 @@ struct bpf_version {
 #define DLT_JUNIPER_ATM1        137
 
 /*
- * Reserved for Apple IP-over-IEEE 1394, as per a request from Dieter
- * Siegmund <dieter@apple.com>.  The header that would be presented
- * would be an Ethernet-like header:
+ * Apple IP-over-IEEE 1394, as per a request from Dieter Siegmund
+ * <dieter@apple.com>.  The header that's presented is an Ethernet-like
+ * header:
  *
  *	#define FIREWIRE_EUI64_LEN	8
  *	struct firewire_header {
  *		u_char  firewire_dhost[FIREWIRE_EUI64_LEN];
- *		u_char  firewire_dhost[FIREWIRE_EUI64_LEN];
+ *		u_char  firewire_shost[FIREWIRE_EUI64_LEN];
  *		u_short firewire_type;
  *	};
  *
@@ -452,8 +460,12 @@ struct bpf_version {
  * and you may also find that the developers of those applications will
  * not accept patches to let them read those files.
  *
+ * Also, do not use them if somebody might send you a capture using them
+ * for *their* private type and tools using them for *your* private type
+ * would have to read them.
+ *
  * Instead, ask "tcpdump-workers@tcpdump.org" for a new DLT_ value,
- * as per the comment above.
+ * as per the comment above, and use the type you're given.
  */
 #define DLT_USER0		147
 #define DLT_USER1		148
@@ -471,6 +483,26 @@ struct bpf_version {
 #define DLT_USER13		160
 #define DLT_USER14		161
 #define DLT_USER15		162
+
+/*
+ * For future use with 802.11 captures - defined by AbsoluteValue
+ * Systems to store a number of bits of link-layer information
+ * including radio information:
+ *
+ *	http://www.shaftnet.org/~pizza/software/capturefrm.txt
+ *
+ * but could and arguably should also be used by non-AVS Linux
+ * 802.11 drivers; that may happen in the future.
+ */
+#define DLT_IEEE802_11_RADIO_AVS 163	/* 802.11 plus AVS radio header */
+
+/*
+ * Juniper-private data link type, as per request from
+ * Hannes Gredler <hannes@juniper.net>.  The DLT_s are used
+ * for passing on chassis-internal metainformation such as
+ * QOS profiles, etc..
+ */
+#define DLT_JUNIPER_MONITOR     164
 
 /*
  * The instruction encodings.

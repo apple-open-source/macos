@@ -30,7 +30,7 @@ static const char copyright[] _U_ =
     "@(#) Copyright (c) 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 2000\n\
 The Regents of the University of California.  All rights reserved.\n";
 static const char rcsid[] _U_ =
-    "@(#) $Header: /cvs/root/tcpdump/tcpdump/tcpdump.c,v 1.1.1.4 2004/02/05 19:30:58 rbraun Exp $ (LBL)";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/tcpdump.c,v 1.1.1.5 2004/05/21 20:51:30 rbraun Exp $ (LBL)";
 #endif
 
 /*
@@ -205,6 +205,9 @@ static struct printer printers[] = {
 #endif
 #ifdef DLT_ENC
 	{ enc_if_print, 	DLT_ENC },
+#endif
+#ifdef DLT_APPLE_IP_OVER_IEEE1394
+	{ ap1394_if_print,	DLT_APPLE_IP_OVER_IEEE1394 },
 #endif
 	{ NULL,			0 },
 };
@@ -494,6 +497,7 @@ main(int argc, char **argv)
 				      program_name, optarg);
 			(void)fprintf(stderr, "(no libsmi support)\n");
 #endif
+			break;
 
 		case 'O':
 			Oflag = 0;
@@ -940,13 +944,18 @@ dump_packet_and_trunc(u_char *user, const struct pcap_pkthdr *h, const u_char *s
 	 * file could put it over Cflag.
 	 */
 	if (ftell((FILE *)dump_info->p) > Cflag) {
+		/*
+		 * Close the current file and open a new one.
+		 */
+		pcap_dump_close(dump_info->p);
+		if (cnt >= 1000)
+			error("too many output files");
 		name = (char *) malloc(strlen(dump_info->WFileName) + 4);
 		if (name == NULL)
 			error("dump_packet_and_trunc: malloc");
 		strcpy(name, dump_info->WFileName);
 		swebitoa(cnt, name + strlen(dump_info->WFileName));
 		cnt++;
-		pcap_dump_close(dump_info->p);
 		dump_info->p = pcap_dump_open(dump_info->pd, name);
 		free(name);
 		if (dump_info->p == NULL)
@@ -1011,7 +1020,7 @@ print_packet(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 			/*
 			 * Include the link-layer header.
 			 */
-			default_print_unaligned(sp, h->caplen);
+			default_print(sp, h->caplen);
 		} else {
 			/*
 			 * Don't include the link-layer header - and if
@@ -1019,7 +1028,7 @@ print_packet(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 			 * print nothing.
 			 */
 			if (h->caplen > hdrlen)
-				default_print_unaligned(sp + hdrlen,
+				default_print(sp + hdrlen,
 				    h->caplen - hdrlen);
 		}
 	}
@@ -1029,32 +1038,6 @@ print_packet(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 	--infodelay;
 	if (infoprint)
 		info(0);
-}
-
-/* Like default_print() but data need not be aligned */
-void
-default_print_unaligned(register const u_char *cp, register u_int length)
-{
-	register u_int i, s;
-	register int nshorts;
-
-	if (Xflag) {
-		ascii_print(cp, length);
-		return;
-	}
-	nshorts = (u_int) length / sizeof(u_short);
-	i = 0;
-	while (--nshorts >= 0) {
-		if ((i++ % 8) == 0)
-			(void)printf("\n\t\t\t");
-		s = *cp++;
-		(void)printf(" %02x%02x", s, *cp++);
-	}
-	if (length & 1) {
-		if ((i % 8) == 0)
-			(void)printf("\n\t\t\t");
-		(void)printf(" %02x", *cp);
-	}
 }
 
 #ifdef WIN32
@@ -1088,7 +1071,7 @@ default_print_unaligned(register const u_char *cp, register u_int length)
 void
 default_print(register const u_char *bp, register u_int length)
 {
-	default_print_unaligned(bp, length);
+    ascii_print("\n\t", bp, length); /* pass on lf and identation string */
 }
 
 #ifdef SIGINFO

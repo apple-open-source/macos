@@ -21,7 +21,7 @@
 
 #ifndef lint
 static const char rcsid[] _U_ =
-    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-chdlc.c,v 1.1.1.4 2004/02/05 19:30:53 rbraun Exp $ (LBL)";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-chdlc.c,v 1.1.1.5 2004/05/21 20:51:30 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -140,12 +140,11 @@ chdlc_slarp_print(const u_char *cp, u_int length)
 {
 	const struct cisco_slarp *slarp;
 
-	if (length < SLARP_LEN) {
-		printf("[|slarp]");
-		return;
-	}
+	if (length < SLARP_LEN)
+		goto trunc;
 
 	slarp = (const struct cisco_slarp *)cp;
+	TCHECK(*slarp);
         printf("SLARP (length: %u), ",length);
 	switch (EXTRACT_32BITS(&slarp->code)) {
 	case SLARP_REQUEST:
@@ -178,4 +177,8 @@ chdlc_slarp_print(const u_char *cp, u_int length)
 		printf(", (trailing junk: %d bytes)", length - SLARP_LEN);
         if (vflag > 1)
             print_unknown_data(cp+4,"\n\t",length-4);
+	return;
+
+trunc:
+	printf("[|slarp]");
 }

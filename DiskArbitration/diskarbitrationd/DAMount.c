@@ -830,17 +830,37 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
 
 ///w:start
     if ( CFEqual( DAFileSystemGetKind( filesystem ), CFSTR( "hfs" ) ) )
-///w:stop
-    if ( DADiskGetUserRUID( disk ) )
     {
-        ___CFStringInsertFormat( options, 0, CFSTR( "-u=%d," ), DADiskGetUserRUID( disk ) );
+///w:stop
+    if ( DADiskGetMode( disk ) )
+    {
         ___CFStringInsertFormat( options, 0, CFSTR( "-m=%o," ), DADiskGetMode( disk ) );
     }
     else
     {
-        ___CFStringInsertFormat( options, 0, CFSTR( "-u=%d," ), ___UID_UNKNOWN );
-        ___CFStringInsertFormat( options, 0, CFSTR( "-m=%o," ), DADiskGetMode( disk ) );
+        ___CFStringInsertFormat( options, 0, CFSTR( "-m=%o," ), 0755 );
     }
+
+    if ( DADiskGetUserRGID( disk ) )
+    {
+        ___CFStringInsertFormat( options, 0, CFSTR( "-g=%d," ), DADiskGetUserRGID( disk ) );
+    }
+    else
+    {
+        ___CFStringInsertFormat( options, 0, CFSTR( "-g=%d," ), ___GID_UNKNOWN );
+    }
+
+    if ( DADiskGetUserRUID( disk ) )
+    {
+        ___CFStringInsertFormat( options, 0, CFSTR( "-u=%d," ), DADiskGetUserRUID( disk ) );
+    }
+    else
+    {
+        ___CFStringInsertFormat( options, 0, CFSTR( "-u=%d," ), ___UID_UNKNOWN );
+    }
+///w:start
+    }
+///w:stop
 
     CFStringTrim( options, CFSTR( "," ) );
 

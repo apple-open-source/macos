@@ -203,8 +203,8 @@
 // platform flags bit definitions -- 32-bit field
 enum
 {
-	// [3696669] temporary flag to isolate door-ajar response to PowerMac9,1
-	kIOPPluginFlagEnableSafeModeHack	= 0x00000001
+	// No bits are defined yet
+	kIOPPluginFlagNotDefined	= 0x00000001
 };
 
 /*
@@ -253,5 +253,10 @@ typedef union SensorValue {
 
 // Control's current-value and target-value are UInt32 type
 typedef UInt32 ControlValue;
+
+// Thermal zones
+enum {
+	kIOPPluginAGPThermalZone	= 0xFF000002
+};
 
 #endif // _IOPLATFORMPLUGINDEFS_H

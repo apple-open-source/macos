@@ -287,13 +287,14 @@ AppleUSBCDCACMControl *findControlDriverAD(void *me)
     matchingDictionary->release();
     iterator->release();
 
-    if (worked)
-        return tempDriver;
-    else
+    if (!worked)
     {
         XTRACE(me, 0, 0, "findControlDriverAD - Failed");
         return NULL;
     }
+	
+	return tempDriver;
+	
 }/* end findControlDriverAD */
 
 #if LOG_DATA
@@ -998,6 +999,8 @@ bool AppleUSBCDCACMData::start(IOService *provider)
     fSessions = 0;
     fTerminate = false;
     fStopping = false;
+	fControlDriver = NULL;
+	fWorkLoop = NULL;
     
     initStructure();
     
@@ -1392,21 +1395,35 @@ bool AppleUSBCDCACMData::createSerialStream()
 IOReturn AppleUSBCDCACMData::acquirePort(bool sleep, void *refCon)
 {
     IOReturn                ret;
-//    AppleUSBCDCACMControl   *temp;
     
     XTRACE(this, refCon, sleep, "acquirePort");
+	
+		// Check for being acquired after stop has been issued and before start
+		
+	if (fTerminate || fStopping)
+	{
+		XTRACE(this, 0, 0, "acquirePort - Offline");
+		return kIOReturnOffline;
+	}
+	
+		// Make sure we have a valid workloop
+	
+	if (!fWorkLoop)
+    {
+        XTRACE(this, 0, 0, "acquirePort - No workLoop");
+        return kIOReturnOffline;
+    }
     
         // Find the matching control driver first (if we don't already have it)
         
-//    IOLog("acquirePort: = %x\n", (unsigned int)gControlDriver);
-//    if (!gControlDriver)
-//    {
-//        temp = findControlDriverAD(this);
-//        if (temp == NULL)
-//        {
-//            XTRACE(this, 0, 0, "acquirePort - Cannot find control driver, trying to continue...");
-//        }
-//    }
+    if (!fControlDriver)
+    {
+        fControlDriver = findControlDriverAD(this);
+        if (fControlDriver == NULL)
+        {
+            XTRACE(this, 0, 0, "acquirePort - Cannot find control driver, trying to continue...");
+        }
+    }
 
     retain();
     ret = fCommandGate->runAction(acquirePortAction, (void *)sleep);
@@ -1531,23 +1548,14 @@ IOReturn AppleUSBCDCACMData::acquirePortGated(bool sleep)
         
             // Tell the Control driver we're good to go
         
-        {
-            AppleUSBCDCACMControl   *temp = NULL;
-    
-            temp = findControlDriverAD(this);
-            if (temp == NULL)
-            {
-		XTRACE(this, 0, 0, "acquirePortGated - Cannot find control driver, trying to continue...");
-            }
-            else
-            {
-                if (!temp->dataAcquired())
-                {
-                    XTRACE(this, 0, 0, "acquirePortGated - dataAcquired to Control failed");
-                    break;
-                }
-            }		
-        }
+		if (fControlDriver)
+		{
+			if (!fControlDriver->dataAcquired())
+			{
+				XTRACE(this, 0, 0, "acquirePortGated - dataAcquired to Control failed");
+				break;
+			}
+		}
         
         return kIOReturnSuccess;
         
@@ -1662,19 +1670,11 @@ IOReturn AppleUSBCDCACMData::releasePortGated()
 //#endif
         
         // Tell the Control driver the port's been released
-    {
-	AppleUSBCDCACMControl   *temp = NULL;
-    
-	temp = findControlDriverAD(this);
-	if (temp == NULL)
+
+	if (fControlDriver)
 	{
-            XTRACE(this, 0, 0, "releasePortGated - Cannot find control driver, trying to continue...");
+		fControlDriver->dataReleased();
 	}
-	else
-	{
-            temp->dataReleased();
-	}		
-    }
     
     fSessions--;					// reduce number of active sessions
             
@@ -2980,19 +2980,12 @@ void AppleUSBCDCACMData::setLineCoding()
     }
 
         // Now send it to the control driver
-    {
-	AppleUSBCDCACMControl   *temp = NULL;
-    
-	temp = findControlDriverAD(this);
-	if (temp == NULL)
+		
+	if (fControlDriver)
 	{
-            XTRACE(this, 0, 0, "setLineCoding - Cannot find control driver, trying to continue...");
-	}
-	else
-	{
-            temp->USBSendSetLineCoding(fPort.BaudRate, fPort.StopBits, fPort.TX_Parity, fPort.CharLength);
+		fControlDriver->USBSendSetLineCoding(fPort.BaudRate, fPort.StopBits, fPort.TX_Parity, fPort.CharLength);
 	}		
-    }
+	
 }/* end setLineCoding */
 
 /****************************************************************************************************/
@@ -3010,18 +3003,14 @@ void AppleUSBCDCACMData::setLineCoding()
 
 void AppleUSBCDCACMData::setControlLineState(bool RTS, bool DTR)
 {
-    AppleUSBCDCACMControl   *temp = NULL;
 	
     XTRACE(this, 0, 0, "setControlLineState");
-    temp = findControlDriverAD(this);
-    if (temp == NULL)
+
+    if (fControlDriver)
     {
-        XTRACE(this, 0, 0, "setControlLineState - Cannot find control driver, trying to continue...");
-    }
-    else
-    {
-        temp->USBSendSetControlLineState(RTS, DTR);
-    }		
+        fControlDriver->USBSendSetControlLineState(RTS, DTR);
+    }	
+		
 }/* end setControlLineState */
 
 /****************************************************************************************************/
@@ -3038,18 +3027,14 @@ void AppleUSBCDCACMData::setControlLineState(bool RTS, bool DTR)
 
 void AppleUSBCDCACMData::sendBreak(bool sBreak)
 {
-    AppleUSBCDCACMControl   *temp = NULL;
 	
     XTRACE(this, 0, 0, "sendBreak");
-    temp = findControlDriverAD(this);
-    if (temp == NULL)
+
+    if (fControlDriver)
     {
-        XTRACE(this, 0, 0, "sendBreak - Cannot find control driver, trying to continue...");
+        fControlDriver->USBSendBreak(sBreak);
     }
-    else
-    {
-        temp->USBSendBreak(sBreak);
-    }		
+			
 }/* end sendBreak */
 
 /****************************************************************************************************/

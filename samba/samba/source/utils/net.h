@@ -35,6 +35,8 @@
 /* We want an anonymous connection */
 #define NET_FLAGS_ANONYMOUS 16 
 
+/* don't open an RPC pipe */
+#define NET_FLAGS_NO_PIPE 32
 
 extern int opt_maxusers;
 extern const char *opt_comment;
@@ -46,6 +48,7 @@ extern const char *opt_comment;
 extern const char *opt_target_workgroup;
 extern const char *opt_workgroup;
 extern int opt_long_list_entries;
+extern int opt_verbose;
 extern int opt_reboot;
 extern int opt_force;
 extern int opt_machine_pass;
@@ -54,6 +57,11 @@ extern const char *opt_host;
 extern const char *opt_user_name;
 extern const char *opt_password;
 extern BOOL opt_user_specified;
+
+extern BOOL opt_localgroup;
+extern BOOL opt_domaingroup;
+extern const char *opt_newntname;
+extern int opt_rid;
 
 extern BOOL opt_have_ip;
 extern struct in_addr opt_dest_ip;

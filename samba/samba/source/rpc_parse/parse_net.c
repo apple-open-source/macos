@@ -425,6 +425,90 @@ BOOL net_io_r_logon_ctrl(const char *desc, NET_R_LOGON_CTRL *r_l, prs_struct *ps
 }
 
 /*******************************************************************
+ Inits an NET_R_GETDCNAME structure.
+********************************************************************/
+void init_net_q_getdcname(NET_Q_GETDCNAME *r_t, const char *logon_server,
+			  const char *domainname)
+{
+	DEBUG(5,("init_r_getdcname\n"));
+
+	r_t->ptr_logon_server = (logon_server != NULL);
+	init_unistr2(&r_t->uni_logon_server, logon_server, UNI_STR_TERMINATE);
+	r_t->ptr_domainname = (domainname != NULL);
+	init_unistr2(&r_t->uni_domainname, domainname, UNI_STR_TERMINATE);
+}
+
+/*******************************************************************
+ Reads or writes an NET_Q_GETDCNAME structure.
+********************************************************************/
+
+BOOL net_io_q_getdcname(const char *desc, NET_Q_GETDCNAME *r_t, prs_struct *ps,
+			int depth)
+{
+	if (r_t == NULL)
+		return False;
+
+	prs_debug(ps, depth, desc, "net_io_q_getdcname");
+	depth++;
+
+	if (!prs_uint32("ptr_logon_server", ps, depth, &r_t->ptr_logon_server))
+		return False;
+
+	if (!smb_io_unistr2("logon_server", &r_t->uni_logon_server,
+			    r_t->ptr_logon_server, ps, depth))
+		return False;
+
+	if (!prs_align(ps))
+		return False;
+
+	if (!prs_uint32("ptr_domainname", ps, depth, &r_t->ptr_domainname))
+		return False;
+
+	if (!smb_io_unistr2("domainname", &r_t->uni_domainname,
+			    r_t->ptr_domainname, ps, depth))
+		return False;
+
+	return True;
+}
+
+
+/*******************************************************************
+ Inits an NET_R_GETDCNAME structure.
+********************************************************************/
+void init_net_r_getdcname(NET_R_GETDCNAME *r_t, const char *dcname)
+{
+	DEBUG(5,("init_r_getdcname\n"));
+
+	init_unistr2(&r_t->uni_dcname, dcname, UNI_STR_TERMINATE);
+}
+
+/*******************************************************************
+ Reads or writes an NET_R_GETDCNAME structure.
+********************************************************************/
+
+BOOL net_io_r_getdcname(const char *desc, NET_R_GETDCNAME *r_t, prs_struct *ps,
+			int depth)
+{
+	if (r_t == NULL)
+		return False;
+
+	prs_debug(ps, depth, desc, "net_io_r_getdcname");
+	depth++;
+
+	if (!prs_uint32("ptr_dcname", ps, depth, &r_t->ptr_dcname))
+		return False;
+
+	if (!smb_io_unistr2("dcname", &r_t->uni_dcname,
+			    r_t->ptr_dcname, ps, depth))
+		return False;
+
+	if (!prs_ntstatus("status", ps, depth, &r_t->status))
+		return False;
+
+	return True;
+}
+
+/*******************************************************************
  Inits an NET_R_TRUST_DOM_LIST structure.
 ********************************************************************/
 
@@ -1265,7 +1349,7 @@ void init_net_user_info3(TALLOC_CTX *ctx, NET_USER_INFO_3 *usr,
 			 
 			 uint16 logon_count, uint16 bad_pw_count,
  		 	 uint32 num_groups, const DOM_GID *gids,
-			 uint32 user_flgs, uchar nt_session_key[16],
+			 uint32 user_flgs, uchar user_session_key[16],
 			 uchar lm_session_key[16],
  			 const char *logon_srv, const char *logon_dom,
 			 const DOM_SID *dom_sid, const char *other_sids)
@@ -1308,8 +1392,8 @@ void init_net_user_info3(TALLOC_CTX *ctx, NET_USER_INFO_3 *usr,
 	usr->buffer_groups = 1; /* indicates fill in groups, below, even if there are none */
 	usr->user_flgs = user_flgs;
 
-	if (nt_session_key != NULL)
-		memcpy(usr->user_sess_key, nt_session_key, sizeof(usr->user_sess_key));
+	if (user_session_key != NULL)
+		memcpy(usr->user_sess_key, user_session_key, sizeof(usr->user_sess_key));
 	else
 		memset((char *)usr->user_sess_key, '\0', sizeof(usr->user_sess_key));
 

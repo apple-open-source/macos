@@ -241,6 +241,9 @@ public:
 	// this sends the polling period to the sensor
 	virtual bool					sendPollingPeriod( void );
 
+	// accessor for sensorDriver member variable
+	virtual IOService *				getSensorDriver(void);
+
 /*	
 public:
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,6 +41,7 @@
 #include <libkern/c++/OSString.h>
 
 // Generic IOKit includes
+#include <IOKit/IOLib.h>
 #include <IOKit/IOService.h>
 #include <IOKit/IOCommandPool.h>
 #include <IOKit/storage/IOStorageProtocolCharacteristics.h>
@@ -56,7 +57,7 @@
 #define DEBUG_ASSERT_COMPONENT_NAME_STRING					"SPI Controller"
 
 #if DEBUG
-#define SCSI_PARALLEL_INTERFACE_CONTROLLER_DEBUGGING_LEVEL	3
+#define SCSI_PARALLEL_INTERFACE_CONTROLLER_DEBUGGING_LEVEL	0
 #endif
 
 #include "IOSCSIParallelFamilyDebugging.h"
@@ -192,9 +193,9 @@ bool
 IOSCSIParallelInterfaceController::start ( IOService * provider )
 {
 	
-	OSDictionary *	protocolDict 		= NULL;
-	OSNumber *		initiator	 		= NULL;
-	bool			result				= false;
+	OSDictionary *	dict		= NULL;
+	OSNumber *		number		= NULL;
+	bool			result		= false;
 	
 	STATUS_LOG ( ( "IOSCSIParallelInterfaceController start.\n" ) );
 	
@@ -213,7 +214,6 @@ IOSCSIParallelInterfaceController::start ( IOService * provider )
 	fTimerEvent					= NULL;
 	fDispatchEvent				= NULL;
 	fControllerGate				= NULL;
-	fOutstandingRequests 		= 0;
 	fHBAHasBeenInitialized 		= false;
 	fHBACanAcceptClientRequests = false;
 	fClients					= OSSet::withCapacity ( 1 );
@@ -224,14 +224,21 @@ IOSCSIParallelInterfaceController::start ( IOService * provider )
 	result = CreateWorkLoop ( provider );
 	require ( result, WORKLOOP_CREATE_FAILURE );
 	
+	dict = OSDictionary::withCapacity ( 1 );
+	require_nonzero ( dict, CONTROLLER_DICT_FAILURE );
+	
+	setProperty ( kIOPropertyControllerCharacteristicsKey, dict );
+	dict->release ( );
+	dict = NULL;
+	
 	// See if a protocol characteristics property already exists for the controller
-	protocolDict = OSDynamicCast ( OSDictionary, getProperty ( kIOPropertyProtocolCharacteristicsKey ) );
-	if ( protocolDict == NULL )
+	dict = OSDynamicCast ( OSDictionary, getProperty ( kIOPropertyProtocolCharacteristicsKey ) );
+	if ( dict == NULL )
 	{
 		
 		// A Protocol Characteristics dictionary could not be retrieved, so one
 		// will be created.		
-		protocolDict = OSDictionary::withCapacity ( 3 );
+		dict = OSDictionary::withCapacity ( 3 );
 		
 	}
 	
@@ -241,11 +248,11 @@ IOSCSIParallelInterfaceController::start ( IOService * provider )
 		// Since the object did not need to create the protocol 
 		// dictionary, issue a retain to balance out the release that will be 
 		// done later.
-		protocolDict = OSDictionary::withDictionary ( protocolDict );
+		dict = OSDictionary::withDictionary ( dict );
 		
 	}
 	
-	if ( protocolDict != NULL )
+	if ( dict != NULL )
 	{
 		
 		OSString *		string = NULL;
@@ -260,7 +267,7 @@ IOSCSIParallelInterfaceController::start ( IOService * provider )
 			if ( string != NULL )
 			{
 				
-				protocolDict->setObject ( kIOPropertyPhysicalInterconnectTypeKey, string );
+				dict->setObject ( kIOPropertyPhysicalInterconnectTypeKey, string );
 				string->release ( );
 				string = NULL;
 				
@@ -271,7 +278,7 @@ IOSCSIParallelInterfaceController::start ( IOService * provider )
 		else
 		{
 			
-			protocolDict->setObject ( kIOPropertyPhysicalInterconnectTypeKey, string );
+			dict->setObject ( kIOPropertyPhysicalInterconnectTypeKey, string );
 			
 		}
 		
@@ -283,7 +290,7 @@ IOSCSIParallelInterfaceController::start ( IOService * provider )
 			if ( string != NULL )
 			{
 				
-				protocolDict->setObject ( kIOPropertyPhysicalInterconnectLocationKey, string );
+				dict->setObject ( kIOPropertyPhysicalInterconnectLocationKey, string );
 				string->release ( );
 				string = NULL;
 				
@@ -294,7 +301,7 @@ IOSCSIParallelInterfaceController::start ( IOService * provider )
 		else
 		{
 			
-			protocolDict->setObject ( kIOPropertyPhysicalInterconnectLocationKey, string );
+			dict->setObject ( kIOPropertyPhysicalInterconnectLocationKey, string );
 			
 		}
 		
@@ -302,7 +309,7 @@ IOSCSIParallelInterfaceController::start ( IOService * provider )
 		if ( number != NULL )
 		{
 			
-			protocolDict->setObject ( kIOPropertySCSIDomainIdentifierKey, number );
+			dict->setObject ( kIOPropertySCSIDomainIdentifierKey, number );
 			number->release ( );
 			number = NULL;
 			
@@ -312,7 +319,7 @@ IOSCSIParallelInterfaceController::start ( IOService * provider )
 		if ( number != NULL )
 		{
 			
-			protocolDict->setObject ( kIOPropertyReadTimeOutDurationKey, number );
+			dict->setObject ( kIOPropertyReadTimeOutDurationKey, number );
 			
 		}
 		
@@ -320,14 +327,14 @@ IOSCSIParallelInterfaceController::start ( IOService * provider )
 		if ( number != NULL )
 		{
 			
-			protocolDict->setObject ( kIOPropertyWriteTimeOutDurationKey, number );
+			dict->setObject ( kIOPropertyWriteTimeOutDurationKey, number );
 			
 		}
 		
-		setProperty ( kIOPropertyProtocolCharacteristicsKey, protocolDict );
+		setProperty ( kIOPropertyProtocolCharacteristicsKey, dict );
 		
-		// Release it since we either called retain() or created it above.
-		protocolDict->release ( );
+		// Release it since we created it.
+		dict->release ( );
 		
 	}
 	
@@ -338,13 +345,13 @@ IOSCSIParallelInterfaceController::start ( IOService * provider )
 	
 	// Retrieve the Initiator Identifier for this HBA.
 	fInitiatorIdentifier = ReportInitiatorIdentifier ( );
-	initiator = OSNumber::withNumber ( fInitiatorIdentifier, 64 );
-	if ( initiator != NULL )
+	number = OSNumber::withNumber ( fInitiatorIdentifier, 64 );
+	if ( number != NULL )
 	{
 		
-		setProperty ( kIOPropertySCSIInitiatorIdentifierKey, initiator );
-		initiator->release ( );
-		initiator = NULL;
+		setProperty ( kIOPropertySCSIInitiatorIdentifierKey, number );
+		number->release ( );
+		number = NULL;
 		
 	}
 	
@@ -425,8 +432,14 @@ TASK_ALLOCATE_FAILURE:
 	
 INIT_CONTROLLER_FAILURE:
 	// INIT_CONTROLLER_FAILURE:
-	// If execution jumped to this label, the HBA child class failed its
-	// initialization.
+	// If execution jumped to this label, the HBA child class failed to
+	// properly initialize.	Nothing to clean up, so fall through this label to
+	// next exception handling point.
+	
+	
+CONTROLLER_DICT_FAILURE:
+	// If execution jumped to this label, the HBA child class failed to
+	// create its controller characteristics dictionary.
 	
 	// Release the workloop and associated objects.
 	ReleaseWorkLoop ( );
@@ -440,7 +453,8 @@ WORKLOOP_CREATE_FAILURE:
 	fDeviceLock = NULL;
 	
 	
-DEVICE_LOCK_ALLOC_FAILURE:	
+DEVICE_LOCK_ALLOC_FAILURE:
+	// DEVICE_LOCK_ALLOC_FAILURE:
 	// Call the superclass to stop.
 	super::stop ( provider );
 	
@@ -1016,6 +1030,8 @@ IOSCSIParallelInterfaceController::ExecuteParallelTask (
 							SCSIParallelTaskIdentifier 			parallelRequest )
 {
 	
+	SCSIServiceResponse	serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
+	
 	// If the controller has requested a suspend,
 	// return the command and let it add it back to the queue.
 	if ( fHBACanAcceptClientRequests == false )
@@ -1023,7 +1039,9 @@ IOSCSIParallelInterfaceController::ExecuteParallelTask (
 	}
 	
 	// If the controller has not suspended, send the task now
-	return ProcessParallelTask ( parallelRequest );
+	serviceResponse = ProcessParallelTask ( parallelRequest );
+	
+	return serviceResponse;
 	
 }
 
@@ -1763,6 +1781,17 @@ IOSCSIParallelInterfaceController::RemoveDeviceFromTargetList (
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	DoesHBAPerformAutoSense - Default implementation.				   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool 
+IOSCSIParallelInterfaceController::DoesHBAPerformAutoSense ( void )
+{
+	return false;
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	SuspendServices - Suspends services temporarily.				[PROTECTED]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
@@ -1808,7 +1837,7 @@ IOSCSIParallelInterfaceController::NotifyClientsOfBusReset ( void )
 
 void
 IOSCSIParallelInterfaceController::NotifyClientsOfPortStatusChange (
-												SPIPortStatus newStatus )
+												SCSIPortStatus newStatus )
 {
 	
 	OSDictionary *	hbaDict = NULL;
@@ -1823,15 +1852,15 @@ IOSCSIParallelInterfaceController::NotifyClientsOfPortStatusChange (
 		switch ( newStatus )
 		{
 			
-			case kSPIPortStatus_Online:
+			case kSCSIPort_StatusOnline:
 				linkStatus = kIOPropertyPortStatusLinkEstablishedKey;
 				break;
 			
-			case kSPIPortStatus_Offline:
+			case kSCSIPort_StatusOffline:
 				linkStatus = kIOPropertyPortStatusNoLinkEstablishedKey;
 				break;
 			
-			case kSPIPortStatus_Failure:
+			case kSCSIPort_StatusFailure:
 				linkStatus = kIOPropertyPortStatusLinkFailedKey;
 				break;
 			
@@ -1852,7 +1881,7 @@ IOSCSIParallelInterfaceController::NotifyClientsOfPortStatusChange (
 		
 	}
 	
-	messageClients ( kSCSIControllerNotificationPortStatus, ( void * ) newStatus );
+	messageClients ( kSCSIPort_NotificationStatusChange, ( void * ) newStatus );
 	
 }
 
@@ -2547,7 +2576,8 @@ IOSCSIParallelInterfaceController::GetHBATargetDataPointer (
 
 
 // Space reserved for future expansion.
-OSMetaClassDefineReservedUnused ( IOSCSIParallelInterfaceController,  1 );
+OSMetaClassDefineReservedUsed ( IOSCSIParallelInterfaceController,  1 );		// Used for DoesHBAPerformAutoSense
+
 OSMetaClassDefineReservedUnused ( IOSCSIParallelInterfaceController,  2 );
 OSMetaClassDefineReservedUnused ( IOSCSIParallelInterfaceController,  3 );
 OSMetaClassDefineReservedUnused ( IOSCSIParallelInterfaceController,  4 );

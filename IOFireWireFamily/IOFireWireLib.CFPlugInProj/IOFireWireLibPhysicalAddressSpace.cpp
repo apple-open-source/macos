@@ -192,6 +192,12 @@ namespace IOFireWireLib {
 		IOByteCount			outSegmentLengths[],
 		IOPhysicalAddress	outSegments[])
 	{
+		if ( !outSegments || !outSegmentLengths )
+		{
+			*ioSegmentCount = mSegmentCount ;
+			return ;
+		}
+		
 		*ioSegmentCount = *ioSegmentCount <? mSegmentCount ;
 		
 		for( unsigned index=0; index < *ioSegmentCount; ++index )

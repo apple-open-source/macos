@@ -165,7 +165,6 @@ void RenderBlock::addChildToFlow(RenderObject* newChild, RenderObject* beforeChi
             RenderBlock* newBox = createAnonymousBlock();
             RenderBox::addChild(newBox,beforeChild);
             newBox->addChild(newChild);
-            newBox->setPos(newBox->xPos(), -500000);
             return;
         }
     }

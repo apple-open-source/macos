@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 38;
+	objectVersion = 39;
 	objects = {
 		012FA6BBFFBB92717F000001 = {
 			children = (
@@ -15,6 +15,7 @@
 			name = AppleUSBKeyboard;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		012FA6BCFFBB92717F000001 = {
 			children = (
@@ -23,6 +24,7 @@
 			isa = PBXGroup;
 			name = Headers;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		012FA6BDFFBB92717F000001 = {
 			children = (
@@ -32,13 +34,16 @@
 			isa = PBXGroup;
 			name = Classes;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		012FA6BEFFBB93AA7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = AppleUSBComposite.cpp;
 			path = AppleUSBComposite/Classes/AppleUSBComposite.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		012FA6BFFFBB93AA7F000001 = {
 			fileRef = 012FA6BEFFBB93AA7F000001;
@@ -51,9 +56,11 @@
 		012FA6C0FFBB93E47F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = AppleUSBComposite.h;
 			path = AppleUSBComposite/Headers/AppleUSBComposite.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		012FA6C1FFBB93E47F000001 = {
 			fileRef = 012FA6C0FFBB93E47F000001;
@@ -64,23 +71,29 @@
 		012FA6C4FFBB946A7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = Cosmo_USB2ADB.cpp;
 			path = AppleUSBKeyboard/Classes/Cosmo_USB2ADB.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		012FA6C5FFBB946A7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = AppleUSBMouse.h;
 			path = AppleUSBMouse/Headers/AppleUSBMouse.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		012FA6C6FFBB946A7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = AppleUSBMouse.cpp;
 			path = AppleUSBMouse/Classes/AppleUSBMouse.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		012FA6C8FFBB946A7F000001 = {
 			fileRef = 012FA6C5FFBB946A7F000001;
@@ -99,16 +112,20 @@
 		012FA6D3FFBB94F57F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = AppleUSBKeyboard.h;
 			path = AppleUSBKeyboard/Headers/AppleUSBKeyboard.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		012FA6D4FFBB94F57F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = AppleUSBKeyboard.cpp;
 			path = AppleUSBKeyboard/Classes/AppleUSBKeyboard.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01348643FFBB6B687F000001 = {
 			children = (
@@ -120,6 +137,7 @@
 			name = AppleUSBMouse;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01348644FFBB6B687F000001 = {
 			children = (
@@ -128,6 +146,7 @@
 			isa = PBXGroup;
 			name = Headers;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01348645FFBB6B687F000001 = {
 			children = (
@@ -136,6 +155,7 @@
 			isa = PBXGroup;
 			name = Classes;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0134864FFFBB6E597F000001 = {
 			buildPhases = (
@@ -301,6 +321,7 @@
 			isa = PBXGroup;
 			name = AppleUSBComposite;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01348658FFBB76127F000001 = {
 			children = (
@@ -309,6 +330,7 @@
 			isa = PBXGroup;
 			name = Headers;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0134865AFFBB76127F000001 = {
 			children = (
@@ -317,6 +339,7 @@
 			isa = PBXGroup;
 			name = Classes;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0134865DFFBB76127F000001 = {
 			buildPhases = (
@@ -333,7 +356,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBComposite;
-				MODULE_VERSION = 2.0.5;
+				MODULE_VERSION = 2.1.4;
 				OTHER_CFLAGS = "-W -Wall -Wno-unused";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -357,7 +380,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBComposite</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.0.5, Copyright Apple Computer, Inc. 2000-2003</string>
+	<string>2.1.4, Copyright Apple Computer, Inc. 2000-2004</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -369,11 +392,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.0.5</string>
+	<string>2.1.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.0.5</string>
+	<string>2.1.4</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleUSBComposite</key>
@@ -463,13 +486,16 @@
 		01348664FFBB76DD7F000001 = {
 			isa = PBXTargetDependency;
 			target = 0134865DFFBB76127F000001;
+			targetProxy = 3EDD8A41069B067400DC48B9;
 		};
 		015935ABFFB89EA67F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IOUSBUserClientInit.cpp;
 			path = IOUSBUserClient/Classes/IOUSBUserClientInit.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		015935ACFFB89EA67F000001 = {
 			fileRef = 015935ABFFB89EA67F000001;
@@ -482,79 +508,101 @@
 		0179BA2FFFBA18947F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IOUSBBus.cpp;
 			path = IOUSBFamily/Classes/IOUSBBus.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA30FFBA18947F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IOUSBController.cpp;
 			path = IOUSBFamily/Classes/IOUSBController.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA31FFBA18947F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IOUSBController_Errata.cpp;
 			path = IOUSBFamily/Classes/IOUSBController_Errata.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA32FFBA18947F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IOUSBController_Pipes.cpp;
 			path = IOUSBFamily/Classes/IOUSBController_Pipes.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA33FFBA18947F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IOUSBDevice.cpp;
 			path = IOUSBFamily/Classes/IOUSBDevice.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA36FFBA18947F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IOUSBInterface.cpp;
 			path = IOUSBFamily/Classes/IOUSBInterface.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA37FFBA18947F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IOUSBLog.cpp;
 			path = IOUSBFamily/Classes/IOUSBLog.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA38FFBA18947F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IOUSBNub.cpp;
 			path = IOUSBFamily/Classes/IOUSBNub.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA39FFBA18947F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IOUSBPipe.cpp;
 			path = IOUSBFamily/Classes/IOUSBPipe.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA3AFFBA18947F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IOUSBRootHubDevice.cpp;
 			path = IOUSBFamily/Classes/IOUSBRootHubDevice.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA3DFFBA18947F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOUSBRootHubDevice.h;
 			path = IOUSBFamily/Headers/IOUSBRootHubDevice.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA40FFBA18947F000001 = {
 			fileRef = 0179BA3DFFBA18947F000001;
@@ -631,72 +679,92 @@
 		0179BA4FFFBA190D7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOUSBBus.h;
 			path = IOUSBFamily/Headers/IOUSBBus.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA50FFBA190D7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOUSBController.h;
 			path = IOUSBFamily/Headers/IOUSBController.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA51FFBA190D7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOUSBDevice.h;
 			path = IOUSBFamily/Headers/IOUSBDevice.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA54FFBA190D7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOUSBInterface.h;
 			path = IOUSBFamily/Headers/IOUSBInterface.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA55FFBA190D7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOUSBLog.h;
 			path = IOUSBFamily/Headers/IOUSBLog.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA56FFBA190D7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOUSBNub.h;
 			path = IOUSBFamily/Headers/IOUSBNub.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA57FFBA190D7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOUSBPipe.h;
 			path = IOUSBFamily/Headers/IOUSBPipe.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA5AFFBA190D7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = USB.h;
 			path = IOUSBFamily/Headers/USB.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA5BFFBA190D7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = USBHub.h;
 			path = IOUSBFamily/Headers/USBHub.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA5CFFBA190D7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = USBSpec.h;
 			path = IOUSBFamily/Headers/USBSpec.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA5DFFBA190D7F000001 = {
 			fileRef = 0179BA4FFFBA190D7F000001;
@@ -781,6 +849,7 @@
 		0179BA6CFFBA2B817F000001 = {
 			isa = PBXTargetDependency;
 			target = 0179BA6DFFBA2B817F000001;
+			targetProxy = 3EDD8A4D069B067400DC48B9;
 		};
 		0179BA6DFFBA2B817F000001 = {
 			buildPhases = (
@@ -798,7 +867,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBOHCI;
-				MODULE_VERSION = 2.0.8;
+				MODULE_VERSION = 2.1.4;
 				OTHER_CFLAGS = "-W -Wall -Wno-unused";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -822,7 +891,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBOHCI</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.0.8, Copyright Apple Computer, Inc. 2000-2003</string>
+	<string>2.1.4, Copyright Apple Computer, Inc. 2000-2004</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -834,11 +903,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.0.8</string>
+	<string>2.1.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.0.8</string>
+	<string>2.1.4</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleUSBOHCI</key>
@@ -924,6 +993,7 @@
 			isa = PBXGroup;
 			name = AppleUSBOHCI;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA74FFBA2D8A7F000001 = {
 			children = (
@@ -935,27 +1005,34 @@
 			isa = PBXGroup;
 			name = Headers;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA75FFBA2D8A7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = AppleUSBOHCI.h;
 			path = AppleUSBOHCI/Headers/AppleUSBOHCI.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA76FFBA2D8A7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = USBOHCI.h;
 			path = AppleUSBOHCI/Headers/USBOHCI.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA77FFBA2D8A7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = USBOHCIRootHub.h;
 			path = AppleUSBOHCI/Headers/USBOHCIRootHub.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA78FFBA2D8A7F000001 = {
 			children = (
@@ -970,48 +1047,61 @@
 			isa = PBXGroup;
 			name = Classes;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA79FFBA2D8A7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = AppleUSBOHCI.cpp;
 			path = AppleUSBOHCI/Classes/AppleUSBOHCI.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA7AFFBA2D8A7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = AppleUSBOHCI_Interrupts.cpp;
 			path = AppleUSBOHCI/Classes/AppleUSBOHCI_Interrupts.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA7BFFBA2D8A7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = AppleUSBOHCI_Optifixes.cpp;
 			path = AppleUSBOHCI/Classes/AppleUSBOHCI_Optifixes.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA7CFFBA2D8A7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = AppleUSBOHCI_PwrMgmt.cpp;
 			path = AppleUSBOHCI/Classes/AppleUSBOHCI_PwrMgmt.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA7DFFBA2D8A7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = AppleUSBOHCI_RootHub.cpp;
 			path = AppleUSBOHCI/Classes/AppleUSBOHCI_RootHub.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA7EFFBA2D8A7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = AppleUSBOHCI_UIM.cpp;
 			path = AppleUSBOHCI/Classes/AppleUSBOHCI_UIM.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0179BA7FFFBA2D8A7F000001 = {
 			fileRef = 0179BA75FFBA2D8A7F000001;
@@ -1183,10 +1273,12 @@
 		018252AFFFB9EC537F000001 = {
 			isa = PBXTargetDependency;
 			target = 01E71ED5FFB871577F000001;
+			targetProxy = 3EDD8A47069B067400DC48B9;
 		};
 		018252B0FFB9EC537F000001 = {
 			isa = PBXTargetDependency;
 			target = 089C1673FE841209C02AAC07;
+			targetProxy = 3EDD8A46069B067400DC48B9;
 		};
 		018252B1FFB9EC537F000001 = {
 			buildActionMask = 2147483647;
@@ -1285,6 +1377,7 @@
 			isa = PBXGroup;
 			name = IOUSBFamily;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01840EB7FFB9FB147F000001 = {
 			children = (
@@ -1310,6 +1403,7 @@
 			isa = PBXGroup;
 			name = "Public Headers";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01840EB8FFB9FB147F000001 = {
 			children = (
@@ -1331,20 +1425,25 @@
 			isa = PBXGroup;
 			name = Classes;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01A72AF20087AE037F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOUSBCommand.h;
 			path = IOUSBFamily/Headers/IOUSBCommand.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01A72AF40087AE247F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IOUSBCommand.cpp;
 			path = IOUSBFamily/Classes/IOUSBCommand.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01A72AF50087AE247F000001 = {
 			fileRef = 01A72AF40087AE247F000001;
@@ -1365,13 +1464,16 @@
 			};
 		};
 		01AE5996FBC3293E7F000001 = {
-			isa = PBXExecutableFileReference;
+			explicitFileType = "compiled.mach-o.executable";
+			isa = PBXFileReference;
 			path = installhdrs;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		01AE5997FBC3293E7F000001 = {
 			isa = PBXTargetDependency;
 			target = 01AE5998FBC3293E7F000001;
+			targetProxy = 3EDD8A3E069B067400DC48B9;
 		};
 		01AE5998FBC3293E7F000001 = {
 			buildPhases = (
@@ -1548,9 +1650,11 @@
 			};
 		};
 		01CBCF7C007BC49C7F000001 = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = AppleUSBHub.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		01CBCF7D007BC49C7F000001 = {
 			buildPhases = (
@@ -1567,7 +1671,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBHub;
-				MODULE_VERSION = 2.1.0;
+				MODULE_VERSION = 2.1.1;
 				OTHER_CFLAGS = "-W -Wall -Wno-unused";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1766,6 +1870,7 @@
 			isa = PBXGroup;
 			path = AppleUSBHub;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01CBCF85007BC6867F000001 = {
 			children = (
@@ -1775,18 +1880,23 @@
 			isa = PBXGroup;
 			path = Classes;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01CBCF86007BC6867F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = AppleUSBHub.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01CBCF87007BC6867F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = AppleUSBHubPort.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01CBCF88007BC6867F000001 = {
 			children = (
@@ -1796,18 +1906,23 @@
 			isa = PBXGroup;
 			path = Headers;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01CBCF89007BC6867F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = AppleUSBHub.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01CBCF8A007BC6867F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = AppleUSBHubPort.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01CBCF8B007BC6867F000001 = {
 			fileRef = 01CBCF89007BC6867F000001;
@@ -1848,7 +1963,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBUserClient;
-				MODULE_VERSION = 2.1.0;
+				MODULE_VERSION = 2.1.4;
 				OTHER_CFLAGS = "-W -Wall -Wno-unused";
 				OTHER_LDFLAGS = " ";
 				OTHER_REZFLAGS = "";
@@ -1872,7 +1987,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOUSBUserClient</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.1.0, Copyright Apple Computer, Inc. 2000-2004</string>
+	<string>2.1.4, Copyright Apple Computer, Inc. 2000-2004</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1884,11 +1999,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.1.0</string>
+	<string>2.1.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.1.0</string>
+	<string>2.1.4</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOUSBDeviceUserClientInit</key>
@@ -1981,6 +2096,7 @@
 			isa = PBXGroup;
 			name = IOUSBUserClient;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01E71EDAFFB873957F000001 = {
 			children = (
@@ -1991,6 +2107,7 @@
 			isa = PBXGroup;
 			name = Classes;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01E71EDBFFB873957F000001 = {
 			children = (
@@ -1999,6 +2116,7 @@
 			isa = PBXGroup;
 			name = "Public Headers";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01E71EDCFFB873957F000001 = {
 			children = (
@@ -2009,13 +2127,16 @@
 			name = "Private Headers";
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01E71EE4FFB8799F7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOUSBUserClient.h;
 			path = IOUSBUserClient/Headers/IOUSBUserClient.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 //010
 //011
@@ -2030,9 +2151,11 @@
 		0214493B00B41F967F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOUSBLib.h;
 			path = IOUSBFamily/Headers/IOUSBLib.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0214493C00B41F967F000001 = {
 			fileRef = 0214493B00B41F967F000001;
@@ -2061,9 +2184,11 @@
 		0264FBB0009621D87F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOUSBHub.h;
 			path = IOUSBFamily/Headers/IOUSBHub.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0264FBB1009621D87F000001 = {
 			fileRef = 0264FBB0009621D87F000001;
@@ -2072,44 +2197,60 @@
 			};
 		};
 		028C8BBDFFD05B547F000001 = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = AppleUSBComposite.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		028C8BBFFFD05B547F000001 = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = IOUSBLib.bundle;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		028C8BC0FFD05B547F000001 = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = IOUSBHIDDriver.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		028C8BC1FFD05B547F000001 = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = AppleUSBOHCI.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		028C8BC2FFD05B547F000001 = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = AppleUSBMouse.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		028C8BC3FFD05B547F000001 = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = IOUSBFamily.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		028C8BC4FFD05B547F000001 = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = AppleUSBMergeNub.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		028C8BC6FFD05B547F000001 = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = IOUSBUserClient.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		028C8BC9FFD05B547F000001 = {
 			fileRef = 028C8BBDFFD05B547F000001;
@@ -2152,9 +2293,11 @@
 		029D485DFFC9866C7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOUSBDeviceUserClient.h;
 			path = IOUSBUserClient/Headers/IOUSBDeviceUserClient.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		029D485EFFC9866C7F000001 = {
 			fileRef = 029D485DFFC9866C7F000001;
@@ -2165,9 +2308,11 @@
 		029D485FFFC987587F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IOUSBDeviceUserClient.cpp;
 			path = IOUSBUserClient/Classes/IOUSBDeviceUserClient.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		029D4860FFC987587F000001 = {
 			fileRef = 029D485FFFC987587F000001;
@@ -2188,21 +2333,24 @@
 //033
 //034
 		03198266FFB384C57F000001 = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
 				OPTIMIZATION_CFLAGS = "-O0";
+				ZERO_LINK = YES;
 			};
 			isa = PBXBuildStyle;
 			name = Development;
 		};
 		03198267FFB384C57F000001 = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				OPTIMIZATION_CFLAGS = "-O3";
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
@@ -2217,13 +2365,16 @@
 			name = Headers;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0319826BFFB38CAB7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOUSBIUnknown.h;
 			path = IOUSBLib/Headers/IOUSBIUnknown.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0319826CFFB38CAB7F000001 = {
 			fileRef = 0319826BFFB38CAB7F000001;
@@ -2243,13 +2394,16 @@
 			isa = PBXGroup;
 			name = IOUSBLib;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0319826EFFB390817F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOUSBDeviceClass.h;
 			path = IOUSBLib/Headers/IOUSBDeviceClass.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0319826FFFB390817F000001 = {
 			fileRef = 0319826EFFB390817F000001;
@@ -2260,9 +2414,11 @@
 		03198270FFB391BC7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOUSBInterfaceClass.h;
 			path = IOUSBLib/Headers/IOUSBInterfaceClass.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		03198271FFB391BC7F000001 = {
 			fileRef = 03198270FFB391BC7F000001;
@@ -2280,13 +2436,16 @@
 			name = Classes;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		03198274FFB392937F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IOUSBIUnknown.cpp;
 			path = IOUSBLib/Classes/IOUSBIUnknown.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		03198275FFB392937F000001 = {
 			fileRef = 03198274FFB392937F000001;
@@ -2297,10 +2456,12 @@
 			};
 		};
 		03198279FFB4F5127F000001 = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = IOKit.framework;
 			path = /System/Library/Frameworks/IOKit.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		0319827AFFB4F5127F000001 = {
 			fileRef = 03198279FFB4F5127F000001;
@@ -2311,9 +2472,11 @@
 		0319827BFFB4F70A7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IOUSBDeviceClass.cpp;
 			path = IOUSBLib/Classes/IOUSBDeviceClass.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0319827CFFB4F70A7F000001 = {
 			fileRef = 0319827BFFB4F70A7F000001;
@@ -2326,9 +2489,11 @@
 		0319827DFFB763837F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IOUSBInterfaceClass.cpp;
 			path = IOUSBLib/Classes/IOUSBInterfaceClass.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0319827EFFB763837F000001 = {
 			fileRef = 0319827DFFB763837F000001;
@@ -2349,13 +2514,16 @@
 //073
 //074
 		070858B2FFD80BCD7F000001 = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = AppleUSBCDCDriver.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		070858B3FFD80BCD7F000001 = {
 			isa = PBXTargetDependency;
 			target = 070858B4FFD80BCD7F000001;
+			targetProxy = 3EDD8A42069B067400DC48B9;
 		};
 		070858B4FFD80BCD7F000001 = {
 			buildPhases = (
@@ -2522,6 +2690,7 @@
 			isa = PBXGroup;
 			name = AppleUSBCDCDriver;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		070858BBFFD82FF47F000001 = {
 			children = (
@@ -2530,6 +2699,7 @@
 			isa = PBXGroup;
 			name = Headers;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		070858BCFFD82FF47F000001 = {
 			children = (
@@ -2538,13 +2708,16 @@
 			isa = PBXGroup;
 			name = Classes;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		070858BDFFD8312E7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = AppleUSBCDCDriver.cpp;
 			path = AppleUSBCDCDriver/Classes/AppleUSBCDCDriver.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		070858BEFFD8312E7F000001 = {
 			fileRef = 070858BDFFD8312E7F000001;
@@ -2557,9 +2730,11 @@
 		070858BFFFD831617F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = AppleUSBCDCDriver.h;
 			path = AppleUSBCDCDriver/Headers/AppleUSBCDCDriver.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		070858C0FFD831617F000001 = {
 			fileRef = 070858BFFFD831617F000001;
@@ -2584,6 +2759,8 @@
 			};
 		};
 		089C1669FE841209C02AAC07 = {
+			buildSettings = {
+			};
 			buildStyles = (
 				03198266FFB384C57F000001,
 				03198267FFB384C57F000001,
@@ -2646,6 +2823,7 @@
 			isa = PBXGroup;
 			name = IOUSBFamily;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C1671FE841209C02AAC07 = {
 			children = (
@@ -2656,6 +2834,7 @@
 			name = "External Frameworks and Libraries";
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C1673FE841209C02AAC07 = {
 			buildPhases = (
@@ -2787,13 +2966,16 @@
 			name = Strings;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C167EFE841241C02AAC07 = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = English;
 			path = InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 //080
 //081
@@ -2806,10 +2988,12 @@
 //0A3
 //0A4
 		0AA1909FFE8422F4C02AAC07 = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = CoreFoundation.framework;
 			path = /System/Library/Frameworks/CoreFoundation.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		0AA190A0FE8422F4C02AAC07 = {
 			fileRef = 0AA1909FFE8422F4C02AAC07;
@@ -2830,6 +3014,7 @@
 		0E7B26F6007E0F087F000001 = {
 			isa = PBXTargetDependency;
 			target = 01CBCF7D007BC49C7F000001;
+			targetProxy = 3EDD8A4B069B067400DC48B9;
 		};
 		0E7B26F7007E13717F000001 = {
 			fileRef = 01CBCF7C007BC49C7F000001;
@@ -2862,7 +3047,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBHIDDriver;
-				MODULE_VERSION = 2.1.1;
+				MODULE_VERSION = 2.1.4;
 				OTHER_CFLAGS = "-W -Wall -Wno-unused";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -2886,7 +3071,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOUSBHIDDriver</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.1.1, Copyright Apple Computer, Inc. 2000-2004</string>
+	<string>2.1.4, Copyright Apple Computer, Inc. 2000-2004</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -2898,11 +3083,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.1.1</string>
+	<string>2.1.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.1.1</string>
+	<string>2.1.4</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>Generic Keyboard</key>
@@ -2995,6 +3180,7 @@
 			isa = PBXGroup;
 			name = IOUSBHIDDriver;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		19580DBCFFBCA3ED7F000001 = {
 			children = (
@@ -3003,34 +3189,43 @@
 			isa = PBXGroup;
 			name = Headers;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		19580DBDFFBCA3ED7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOUSBHIDDataQueue.h;
 			path = IOUSBHIDDriver/Headers/IOUSBHIDDataQueue.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		19580DBEFFBCA3ED7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOUSBHIDDriver.h;
 			path = IOUSBHIDDriver/Headers/IOUSBHIDDriver.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		19580DBFFFBCA3ED7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOUSBHIDDriverUserClient.h;
 			path = IOUSBHIDDriver/Headers/IOUSBHIDDriverUserClient.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		19580DC0FFBCA3ED7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOUSBHIDSelector.h;
 			path = IOUSBHIDDriver/Headers/IOUSBHIDSelector.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		19580DC1FFBCA3ED7F000001 = {
 			children = (
@@ -3039,20 +3234,25 @@
 			isa = PBXGroup;
 			name = Classes;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		19580DC3FFBCA3ED7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IOUSBHIDDriver.cpp;
 			path = IOUSBHIDDriver/Classes/IOUSBHIDDriver.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		19580DC4FFBCA3ED7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IOUSBHIDDriverUserClient.cpp;
 			path = IOUSBHIDDriver/Classes/IOUSBHIDDriverUserClient.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		19580DC6FFBCA3ED7F000001 = {
 			fileRef = 19580DBEFFBCA3ED7F000001;
@@ -3071,10 +3271,12 @@
 		19580DCDFFBCA56D7F000001 = {
 			isa = PBXTargetDependency;
 			target = 19580DB6FFBCA3597F000001;
+			targetProxy = 3EDD8A48069B067400DC48B9;
 		};
 		19580DD0FFBCABB17F000001 = {
 			isa = PBXTargetDependency;
 			target = 19580DD1FFBCABB17F000001;
+			targetProxy = 3EDD8A3F069B067400DC48B9;
 		};
 		19580DD1FFBCABB17F000001 = {
 			buildPhases = (
@@ -3477,6 +3679,7 @@
 			name = AppleUSBMergeNub;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		19580DDDFFBCAF317F000001 = {
 			children = (
@@ -3485,13 +3688,16 @@
 			isa = PBXGroup;
 			name = Headers;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		19580DDEFFBCAF317F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = AppleUSBMergeNub.h;
 			path = AppleUSBMergeNub/Headers/AppleUSBMergeNub.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		19580DDFFFBCAF317F000001 = {
 			children = (
@@ -3501,13 +3707,16 @@
 			name = Classes;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		19580DE0FFBCAF317F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = AppleUSBMergeNub.cpp;
 			path = AppleUSBMergeNub/Classes/AppleUSBMergeNub.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		19580DE6FFBCAF317F000001 = {
 			fileRef = 19580DDEFFBCAF317F000001;
@@ -3548,6 +3757,7 @@
 			isa = PBXGroup;
 			name = Products;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 //190
 //191
@@ -3562,16 +3772,20 @@
 		3A29FAEEFFD204217F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOUSBInterfaceUserClient.h;
 			path = IOUSBUserClient/Headers/IOUSBInterfaceUserClient.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3A29FAF0FFD21A737F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IOUSBInterfaceUserClient.cpp;
 			path = IOUSBUserClient/Classes/IOUSBInterfaceUserClient.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3A29FAF1FFD21A737F000001 = {
 			fileRef = 3A29FAF0FFD21A737F000001;
@@ -3608,34 +3822,43 @@
 			isa = PBXGroup;
 			name = KLog;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3E03401704F5D97A00AA223D = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = KLog.cpp;
 			path = USBProberV2/KLog/KLog.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3E03401804F5D97A00AA223D = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = KLog.h;
 			path = USBProberV2/KLog/KLog.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3E03401904F5D97A00AA223D = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = KLogClient.cpp;
 			path = USBProberV2/KLog/KLogClient.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3E03401A04F5D97A00AA223D = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = KLogClient.h;
 			path = USBProberV2/KLog/KLogClient.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3E03401B04F5D97A00AA223D = {
 			children = (
@@ -3645,6 +3868,7 @@
 			name = Resources;
 			path = USBProberV2/KLog/Resources;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3E03401D04F5D97A00AA223D = {
 			children = (
@@ -3654,13 +3878,16 @@
 			name = InfoPlist.strings;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3E03401E04F5D97A00AA223D = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = English;
 			path = English.lproj/InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3E03401F04F5D97A00AA223D = {
 			fileRef = 3E03401704F5D97A00AA223D;
@@ -3711,6 +3938,7 @@
 		3E03402D04F5DACF00AA223D = {
 			isa = PBXTargetDependency;
 			target = 3ECD209304F5D7E300E8EEF7;
+			targetProxy = 3EDD8A4E069B067400DC48B9;
 		};
 		3E282B5705BD65990097C32A = {
 			children = (
@@ -3721,6 +3949,7 @@
 			isa = PBXGroup;
 			name = AppleUSBCDCEthernet;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3E282B5805BD65AD0097C32A = {
 			children = (
@@ -3729,6 +3958,7 @@
 			isa = PBXGroup;
 			name = Headers;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3E282B5905BD65B50097C32A = {
 			children = (
@@ -3738,6 +3968,7 @@
 			name = Classes;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3E282B5A05BD65BC0097C32A = {
 			children = (
@@ -3747,6 +3978,7 @@
 			isa = PBXGroup;
 			name = Strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3E282B5C05BD666C0097C32A = {
 			buildActionMask = 2147483647;
@@ -3880,13 +4112,16 @@
 ";
 		};
 		3E282B6205BD666C0097C32A = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = AppleUSBCDCEthernet.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		3E282B6305BD66770097C32A = {
 			isa = PBXTargetDependency;
 			target = 3E282B6105BD666C0097C32A;
+			targetProxy = 3EDD8A45069B067400DC48B9;
 		};
 		3E282B6405BD66960097C32A = {
 			children = (
@@ -3896,13 +4131,16 @@
 			name = InfoPlist.strings;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3E282B6505BD66960097C32A = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = English;
 			path = AppleUSBCDCEthernet/English.lproj/InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3E282B6605BD66960097C32A = {
 			children = (
@@ -3912,13 +4150,16 @@
 			name = Localizable.strings;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3E282B6705BD66960097C32A = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = English;
 			path = AppleUSBCDCEthernet/English.lproj/Localizable.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3E282B6805BD66960097C32A = {
 			fileRef = 3E282B6405BD66960097C32A;
@@ -3935,16 +4176,20 @@
 		3E282B6A05BD66A90097C32A = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = USBCDCEthernet.cpp;
 			path = AppleUSBCDCEthernet/USBCDCEthernet.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3E282B6B05BD66A90097C32A = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = USBCDCEthernet.h;
 			path = AppleUSBCDCEthernet/USBCDCEthernet.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3E282B6C05BD66A90097C32A = {
 			fileRef = 3E282B6A05BD66A90097C32A;
@@ -3967,9 +4212,11 @@
 		3E43121104587E1800000164 = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = English;
 			path = AppleUSBEHCI/Strings/English.lproj/InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3E43121404587E2900000164 = {
 			children = (
@@ -3978,6 +4225,7 @@
 			isa = PBXVariantGroup;
 			name = InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3E43121504587E2900000164 = {
 			fileRef = 3E43121404587E2900000164;
@@ -3987,29 +4235,37 @@
 		};
 		3E652E5504F5261F00C1BD6F = {
 			isa = PBXFileReference;
+			lastKnownFileType = image.tiff;
 			name = clean.tiff;
 			path = USBProberV2/clean.tiff;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3E652E5604F5261F00C1BD6F = {
 			isa = PBXFileReference;
+			lastKnownFileType = image.tiff;
 			name = reload.tiff;
 			path = USBProberV2/reload.tiff;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3E652E5704F5261F00C1BD6F = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = USBLoggerFilterWindowController.h;
 			path = USBProberV2/USBLoggerFilterWindowController.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3E652E5804F5261F00C1BD6F = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = USBLoggerFilterWindowController.m;
 			path = USBProberV2/USBLoggerFilterWindowController.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3E652E5904F5261F00C1BD6F = {
 			fileRef = 3E652E5504F5261F00C1BD6F;
@@ -4043,34 +4299,43 @@
 			name = Frameworks;
 			path = "";
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		3EB871C4041D183100000164 = {
 			fileEncoding = 4;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOUSBAppleIDs.h;
 			path = IOUSBFamily/Headers/IOUSBAppleIDs.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3EC2237604CC7F8800157DE1 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DecodeVideoInterfaceDescriptor.h;
 			path = USBProber/DecodeVideoInterfaceDescriptor.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3EC2237704CC7F8800157DE1 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = DecodeVideoInterfaceDescriptor.m;
 			path = USBProber/DecodeVideoInterfaceDescriptor.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3EC2237804CC7F8800157DE1 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text;
 			name = USBVDCList.txt;
 			path = USBProber/USBVDCList.txt;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3EC65AF404F3C9B8003F7360 = {
 			children = (
@@ -4083,6 +4348,7 @@
 			name = "USB Prober";
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3EC65AFE04F3CA49003F7360 = {
 			children = (
@@ -4102,6 +4368,7 @@
 			isa = PBXGroup;
 			name = Classes;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3EC65AFF04F3CA4D003F7360 = {
 			children = (
@@ -4120,6 +4387,7 @@
 			isa = PBXGroup;
 			name = "Bus Probe";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3EC65B0004F3CA52003F7360 = {
 			children = (
@@ -4132,6 +4400,7 @@
 			name = "Kernel Extensions";
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3EC65B0104F3CA5F003F7360 = {
 			children = (
@@ -4148,6 +4417,7 @@
 			name = IORegistry;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3EC65B0204F3CA64003F7360 = {
 			children = (
@@ -4162,6 +4432,7 @@
 			name = "USB Logger";
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3EC65B0304F3CA79003F7360 = {
 			children = (
@@ -4191,6 +4462,7 @@
 			isa = PBXGroup;
 			name = Decoders;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3EC65B0404F3CA87003F7360 = {
 			children = (
@@ -4200,6 +4472,7 @@
 			name = "Other Sources";
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3EC65B0504F3CA90003F7360 = {
 			children = (
@@ -4218,6 +4491,7 @@
 			isa = PBXGroup;
 			name = Resources;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3EC65B0604F3CA94003F7360 = {
 			children = (
@@ -4228,6 +4502,7 @@
 			name = Frameworks;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3EC65B0704F3CA99003F7360 = {
 			children = (
@@ -4239,6 +4514,7 @@
 			isa = PBXGroup;
 			name = "Linked Frameworks";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3EC65B0804F3CAA5003F7360 = {
 			children = (
@@ -4247,16 +4523,13 @@
 			isa = PBXGroup;
 			name = "Other Frameworks";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD208D04F5D7E300E8EEF7 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -4298,11 +4571,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -4396,440 +4665,566 @@
 ";
 		};
 		3ECD209404F5D7E300E8EEF7 = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = KLog.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		3ECD84DD04F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = BusProbeClass.h;
 			path = USBProberV2/BusProbeClass.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84DE04F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = BusProbeClass.m;
 			path = USBProberV2/BusProbeClass.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84DF04F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = BusProbeController.h;
 			path = USBProberV2/BusProbeController.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84E004F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = BusProbeController.m;
 			path = USBProberV2/BusProbeController.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84E104F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = BusProbeDevice.h;
 			path = USBProberV2/BusProbeDevice.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84E204F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = BusProbeDevice.m;
 			path = USBProberV2/BusProbeDevice.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84E304F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = BusProber.h;
 			path = USBProberV2/BusProber.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84E404F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = BusProber.m;
 			path = USBProberV2/BusProber.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84E504F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = BusProberSharedFunctions.h;
 			path = USBProberV2/BusProberSharedFunctions.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84E604F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = BusProberSharedFunctions.m;
 			path = USBProberV2/BusProberSharedFunctions.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84E804F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DecodeAudioInterfaceDescriptor.h;
 			path = USBProberV2/DecodeAudioInterfaceDescriptor.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84E904F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = DecodeAudioInterfaceDescriptor.m;
 			path = USBProberV2/DecodeAudioInterfaceDescriptor.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84EA04F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DecodeCommClassDescriptor.h;
 			path = USBProberV2/DecodeCommClassDescriptor.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84EB04F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = DecodeCommClassDescriptor.m;
 			path = USBProberV2/DecodeCommClassDescriptor.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84EC04F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DecodeConfigurationDescriptor.h;
 			path = USBProberV2/DecodeConfigurationDescriptor.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84ED04F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = DecodeConfigurationDescriptor.m;
 			path = USBProberV2/DecodeConfigurationDescriptor.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84EE04F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DecodeDeviceDescriptor.h;
 			path = USBProberV2/DecodeDeviceDescriptor.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84EF04F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = DecodeDeviceDescriptor.m;
 			path = USBProberV2/DecodeDeviceDescriptor.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84F004F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DecodeDeviceQualifierDescriptor.h;
 			path = USBProberV2/DecodeDeviceQualifierDescriptor.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84F104F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = DecodeDeviceQualifierDescriptor.m;
 			path = USBProberV2/DecodeDeviceQualifierDescriptor.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84F204F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DecodeEndpointDescriptor.h;
 			path = USBProberV2/DecodeEndpointDescriptor.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84F304F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = DecodeEndpointDescriptor.m;
 			path = USBProberV2/DecodeEndpointDescriptor.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84F404F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DecodeHIDDescriptor.h;
 			path = USBProberV2/DecodeHIDDescriptor.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84F504F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = DecodeHIDDescriptor.m;
 			path = USBProberV2/DecodeHIDDescriptor.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84F604F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DecodeHubDescriptor.h;
 			path = USBProberV2/DecodeHubDescriptor.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84F704F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = DecodeHubDescriptor.m;
 			path = USBProberV2/DecodeHubDescriptor.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84F804F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DecodeInterfaceDescriptor.h;
 			path = USBProberV2/DecodeInterfaceDescriptor.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84F904F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = DecodeInterfaceDescriptor.m;
 			path = USBProberV2/DecodeInterfaceDescriptor.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84FA04F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DecodeVideoInterfaceDescriptor.h;
 			path = USBProberV2/DecodeVideoInterfaceDescriptor.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84FB04F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = DecodeVideoInterfaceDescriptor.m;
 			path = USBProberV2/DecodeVideoInterfaceDescriptor.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84FC04F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DescriptorDecoder.h;
 			path = USBProberV2/DescriptorDecoder.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84FD04F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = DescriptorDecoder.m;
 			path = USBProberV2/DescriptorDecoder.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84FE04F3CB07003312CD = {
 			isa = PBXFileReference;
+			lastKnownFileType = image.tiff;
 			name = detail.tiff;
 			path = USBProberV2/detail.tiff;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD84FF04F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IORegDetailOutlineViewNode.h;
 			path = USBProberV2/IORegDetailOutlineViewNode.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD850004F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = IORegDetailOutlineViewNode.m;
 			path = USBProberV2/IORegDetailOutlineViewNode.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD850104F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IORegInfoGatherer.h;
 			path = USBProberV2/IORegInfoGatherer.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD850204F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = IORegInfoGatherer.m;
 			path = USBProberV2/IORegInfoGatherer.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD850304F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IORegistryController.h;
 			path = USBProberV2/IORegistryController.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD850404F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = IORegistryController.m;
 			path = USBProberV2/IORegistryController.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD850504F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IORegOutlineViewNode.h;
 			path = USBProberV2/IORegOutlineViewNode.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD850604F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = IORegOutlineViewNode.m;
 			path = USBProberV2/IORegOutlineViewNode.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD850704F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = KernelExtensionsController.h;
 			path = USBProberV2/KernelExtensionsController.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD850804F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = KernelExtensionsController.m;
 			path = USBProberV2/KernelExtensionsController.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD850904F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = KextInfoGatherer.h;
 			path = USBProberV2/KextInfoGatherer.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD850A04F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = KextInfoGatherer.m;
 			path = USBProberV2/KextInfoGatherer.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD851304F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = main.m;
 			path = USBProberV2/main.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD851404F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = MainApplicationController.h;
 			path = USBProberV2/MainApplicationController.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD851504F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = MainApplicationController.m;
 			path = USBProberV2/MainApplicationController.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD851604F3CB07003312CD = {
 			isa = PBXFileReference;
+			lastKnownFileType = image.tiff;
 			name = mark.tiff;
 			path = USBProberV2/mark.tiff;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD851704F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = OutlineViewAdditions.h;
 			path = USBProberV2/OutlineViewAdditions.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD851804F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = OutlineViewAdditions.m;
 			path = USBProberV2/OutlineViewAdditions.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD851904F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = OutlineViewNode.h;
 			path = USBProberV2/OutlineViewNode.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD851A04F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = OutlineViewNode.m;
 			path = USBProberV2/OutlineViewNode.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD851B04F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text.script.sh;
 			name = SetKLogPermissions.sh;
 			path = USBProberV2/SetKLogPermissions.sh;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD851C04F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = TableViewWithCopying.h;
 			path = USBProberV2/TableViewWithCopying.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD851D04F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = TableViewWithCopying.m;
 			path = USBProberV2/TableViewWithCopying.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD851E04F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = USBLogger.h;
 			path = USBProberV2/USBLogger.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD851F04F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = USBLogger.m;
 			path = USBProberV2/USBLogger.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD852004F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = USBLoggerController.h;
 			path = USBProberV2/USBLoggerController.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD852104F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = USBLoggerController.m;
 			path = USBProberV2/USBLoggerController.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD852304F3CB07003312CD = {
 			isa = PBXFileReference;
+			lastKnownFileType = image.icns;
 			name = USBProberIcon.icns;
 			path = USBProberV2/USBProberIcon.icns;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD852404F3CB07003312CD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text;
 			name = USBVendors.txt;
 			path = USBProberV2/USBVendors.txt;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ECD852504F3CB07003312CD = {
 			fileRef = 3ECD84DD04F3CB07003312CD;
@@ -5211,13 +5606,16 @@
 			name = InfoPlist.strings;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ED3F24504F3CC01001BF1E8 = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = English;
 			path = USBProberV2/English.lproj/InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ED3F24604F3CC01001BF1E8 = {
 			children = (
@@ -5227,12 +5625,15 @@
 			name = MainMenu.nib;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ED3F24704F3CC01001BF1E8 = {
 			isa = PBXFileReference;
+			lastKnownFileType = wrapper.nib;
 			name = English;
 			path = "USBProberV2/English.lproj/MainMenu-Jaguar.nib";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ED3F24804F3CC01001BF1E8 = {
 			children = (
@@ -5242,12 +5643,15 @@
 			name = MainMenu.nib;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ED3F24904F3CC01001BF1E8 = {
 			isa = PBXFileReference;
+			lastKnownFileType = wrapper.nib;
 			name = English;
 			path = USBProberV2/English.lproj/MainMenu.nib;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ED3F24A04F3CC01001BF1E8 = {
 			fileRef = 3ED3F24404F3CC01001BF1E8;
@@ -5270,33 +5674,43 @@
 		3ED3F24D04F3CC1A001BF1E8 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist;
 			name = Info.plist;
 			path = USBProberV2/Info.plist;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3ED3F24F04F3CD99001BF1E8 = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = Cocoa.framework;
 			path = /System/Library/Frameworks/Cocoa.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		3ED3F25004F3CD99001BF1E8 = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = Foundation.framework;
 			path = /System/Library/Frameworks/Foundation.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		3ED3F25104F3CD99001BF1E8 = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = IOKit.framework;
 			path = /System/Library/Frameworks/IOKit.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		3ED3F25204F3CD99001BF1E8 = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = Security.framework;
 			path = /System/Library/Frameworks/Security.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		3ED3F25304F3CD99001BF1E8 = {
 			fileRef = 3ED3F24F04F3CD99001BF1E8;
@@ -5323,10 +5737,117 @@
 			};
 		};
 		3ED3F25704F3CDB1001BF1E8 = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = AppKit.framework;
 			path = /System/Library/Frameworks/AppKit.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		3EDD8A3E069B067400DC48B9 = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 01AE5998FBC3293E7F000001;
+			remoteInfo = installhdrs;
+		};
+		3EDD8A3F069B067400DC48B9 = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 19580DD1FFBCABB17F000001;
+			remoteInfo = AppleUSBMergeNub;
+		};
+		3EDD8A41069B067400DC48B9 = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 0134865DFFBB76127F000001;
+			remoteInfo = AppleUSBComposite;
+		};
+		3EDD8A42069B067400DC48B9 = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 070858B4FFD80BCD7F000001;
+			remoteInfo = AppleUSBCDCDriver;
+		};
+		3EDD8A43069B067400DC48B9 = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = F5366A7302E8C77501000164;
+			remoteInfo = "USB Prober";
+		};
+		3EDD8A44069B067400DC48B9 = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = F5B09AB503CD27AE01000164;
+			remoteInfo = IOUSBHIDDriverSafeBoot;
+		};
+		3EDD8A45069B067400DC48B9 = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 3E282B6105BD666C0097C32A;
+			remoteInfo = AppleUSBCDCEthernet;
+		};
+		3EDD8A46069B067400DC48B9 = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 089C1673FE841209C02AAC07;
+			remoteInfo = IOUSBLib;
+		};
+		3EDD8A47069B067400DC48B9 = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 01E71ED5FFB871577F000001;
+			remoteInfo = IOUSBUserClient;
+		};
+		3EDD8A48069B067400DC48B9 = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 19580DB6FFBCA3597F000001;
+			remoteInfo = IOUSBHIDDriver;
+		};
+		3EDD8A4A069B067400DC48B9 = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = F5430C690210919001573190;
+			remoteInfo = AppleUSBOpticalMouse;
+		};
+		3EDD8A4B069B067400DC48B9 = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 01CBCF7D007BC49C7F000001;
+			remoteInfo = AppleUSBHub;
+		};
+		3EDD8A4C069B067400DC48B9 = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = F58140760457633501000109;
+			remoteInfo = AppleUSBEHCI;
+		};
+		3EDD8A4D069B067400DC48B9 = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 0179BA6DFFBA2B817F000001;
+			remoteInfo = AppleUSBOHCI;
+		};
+		3EDD8A4E069B067400DC48B9 = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 3ECD209304F5D7E300E8EEF7;
+			remoteInfo = KLog;
 		};
 //3E0
 //3E1
@@ -5341,9 +5862,11 @@
 		DDBEF5050402F87500000108 = {
 			fileEncoding = 4;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = AppleUSBOHCIMemoryBlocks.h;
 			path = AppleUSBOHCI/Headers/AppleUSBOHCIMemoryBlocks.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		DDBEF5060402F87500000108 = {
 			fileRef = DDBEF5050402F87500000108;
@@ -5354,9 +5877,11 @@
 		DDBEF5070402F88D00000108 = {
 			fileEncoding = 4;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = AppleUSBOHCIMemoryBlocks.cpp;
 			path = AppleUSBOHCI/Classes/AppleUSBOHCIMemoryBlocks.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		DDBEF5080402F88D00000108 = {
 			fileRef = DDBEF5070402F88D00000108;
@@ -5376,29 +5901,37 @@
 //F54
 		F5008DF602A6832401000164 = {
 			includeInIndex = 1;
-			isa = PBXFolderReference;
+			isa = PBXFileReference;
+			lastKnownFileType = folder;
 			path = "Deva Example";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5008E1002A6833601000164 = {
 			includeInIndex = 1;
-			isa = PBXFolderReference;
+			isa = PBXFileReference;
+			lastKnownFileType = folder;
 			path = "Ezloader Example";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F505B9C8012177F501573190 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IOUSBWorkLoop.cpp;
 			path = IOUSBFamily/Classes/IOUSBWorkLoop.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F505B9C9012177F501573190 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOUSBWorkLoop.h;
 			path = IOUSBFamily/Headers/IOUSBWorkLoop.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F505B9CA012177F501573190 = {
 			fileRef = F505B9C9012177F501573190;
@@ -5470,9 +6003,11 @@
 			productReference = F50D2CAA0278877A010162FA;
 		};
 		F50D2CAA0278877A010162FA = {
-			isa = PBXExecutableFileReference;
+			explicitFileType = "compiled.mach-o.executable";
+			isa = PBXFileReference;
 			path = UPSTestTool;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		F50D2CAC027887AD010162FA = {
 			fileRef = F5955CE102270501010162FA;
@@ -5509,26 +6044,33 @@
 			isa = PBXGroup;
 			name = IOUSBHIDDriver;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F51191B1039D214F01000164 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DecodeAudioInterfaceDescriptor.h;
 			path = USBProber/DecodeAudioInterfaceDescriptor.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F51191B2039D214F01000164 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = DecodeAudioInterfaceDescriptor.m;
 			path = USBProber/DecodeAudioInterfaceDescriptor.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F517150D022D3AE7010162FA = {
 			includeInIndex = 0;
-			isa = PBXFolderReference;
+			isa = PBXFileReference;
+			lastKnownFileType = folder;
 			path = "Another USB Notification Example";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F517150E022D3AE7010162FA = {
 			fileRef = F517150D022D3AE7010162FA;
@@ -5711,9 +6253,11 @@
 ";
 		};
 		F5366A7402E8C77501000164 = {
-			isa = PBXApplicationReference;
+			explicitFileType = wrapper.application;
+			isa = PBXFileReference;
 			path = "USB Prober.app";
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		F5366A7602E8C85401000164 = {
 			children = (
@@ -5727,6 +6271,7 @@
 			name = "USB Prober Application (Original)";
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366A8202E8C88E01000164 = {
 			children = (
@@ -5736,6 +6281,7 @@
 			isa = PBXGroup;
 			name = "Main Controller";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366A8302E8C89701000164 = {
 			children = (
@@ -5748,6 +6294,7 @@
 			name = Classes;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366A8402E8C89A01000164 = {
 			children = (
@@ -5757,6 +6304,7 @@
 			name = "Other Sources";
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366A8502E8C8A101000164 = {
 			children = (
@@ -5771,6 +6319,7 @@
 			name = Resources;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366A8602E8C8A501000164 = {
 			children = (
@@ -5783,6 +6332,7 @@
 			name = Frameworks;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366A8702E8C8E501000164 = {
 			children = (
@@ -5800,6 +6350,7 @@
 			isa = PBXGroup;
 			name = "Bus Probe";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366A8802E8C8EE01000164 = {
 			children = (
@@ -5809,6 +6360,7 @@
 			isa = PBXGroup;
 			name = IORegistry;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366A8902E8C8F701000164 = {
 			children = (
@@ -5819,6 +6371,7 @@
 			name = "USB Logger";
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366A8A02E8C8FC01000164 = {
 			children = (
@@ -5835,166 +6388,213 @@
 			name = "Other Classes";
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366A8B02E8C97801000164 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = Authorization.h;
 			path = USBProber/Authorization.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366A8C02E8C97801000164 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = Authorization.m;
 			path = USBProber/Authorization.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366A8D02E8C97801000164 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = BusProbeClass.h;
 			path = USBProber/BusProbeClass.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366A8E02E8C97801000164 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = BusProbeClass.m;
 			path = USBProber/BusProbeClass.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366A8F02E8C97801000164 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DecodeHIDReport.h;
 			path = USBProber/DecodeHIDReport.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366A9002E8C97801000164 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = DecodeHIDReport.m;
 			path = USBProber/DecodeHIDReport.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366A9102E8C97801000164 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IORegistryClass.h;
 			path = USBProber/IORegistryClass.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366A9202E8C97801000164 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = IORegistryClass.m;
 			path = USBProber/IORegistryClass.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366A9302E8C97801000164 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = Main.m;
 			path = USBProber/Main.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366A9402E8C97801000164 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = MainController.h;
 			path = USBProber/MainController.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366A9502E8C97801000164 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = MainController.m;
 			path = USBProber/MainController.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366A9602E8C97801000164 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = Node.h;
 			path = USBProber/Node.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366A9702E8C97801000164 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = Node.m;
 			path = USBProber/Node.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366A9802E8C97801000164 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = NodeOutput.h;
 			path = USBProber/NodeOutput.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366A9902E8C97801000164 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = NodeOutput.m;
 			path = USBProber/NodeOutput.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366A9A02E8C97801000164 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = SystemCommands.h;
 			path = USBProber/SystemCommands.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366A9B02E8C97801000164 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = SystemCommands.m;
 			path = USBProber/SystemCommands.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366A9C02E8C97801000164 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = USBClass.h;
 			path = USBProber/USBClass.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366A9D02E8C97801000164 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = USBClass.m;
 			path = USBProber/USBClass.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366A9E02E8C97801000164 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = USBLoggerClass.h;
 			path = USBProber/USBLoggerClass.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366A9F02E8C97801000164 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			name = USBLoggerClass.m;
 			path = USBProber/USBLoggerClass.m;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366AA002E8C97801000164 = {
 			isa = PBXFileReference;
+			lastKnownFileType = image.icns;
 			name = USBProberIcon.icns;
 			path = USBProber/USBProberIcon.icns;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366AA102E8C97801000164 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text;
 			name = USBVendors.txt;
 			path = USBProber/USBVendors.txt;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366AB902E8CA2201000164 = {
 			children = (
@@ -6004,13 +6604,16 @@
 			name = InfoPlist.strings;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366ABA02E8CA2201000164 = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = English;
 			path = USBProber/English.lproj/InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366ABB02E8CA2201000164 = {
 			children = (
@@ -6020,13 +6623,16 @@
 			name = LaunchTime.strings;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366ABC02E8CA2201000164 = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = English;
 			path = USBProber/English.lproj/LaunchTime.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366ABD02E8CA2201000164 = {
 			children = (
@@ -6036,36 +6642,47 @@
 			name = MainMenu.nib;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366ABE02E8CA2201000164 = {
 			isa = PBXFileReference;
+			lastKnownFileType = wrapper.nib;
 			name = English;
 			path = USBProber/English.lproj/MainMenu.nib;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5366AC202E8CA5601000164 = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = Cocoa.framework;
 			path = /System/Library/Frameworks/Cocoa.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		F5366AC302E8CA5601000164 = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = CoreServices.framework;
 			path = /System/Library/Frameworks/CoreServices.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		F5366AC402E8CA5601000164 = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = IOKit.framework;
 			path = /System/Library/Frameworks/IOKit.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		F5366AC502E8CA5601000164 = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = Security.framework;
 			path = /System/Library/Frameworks/Security.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		F5395F7E016D57AA01573190 = {
 			children = (
@@ -6076,13 +6693,16 @@
 			name = Strings;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5395F7F016D57E301573190 = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = InfoPlist.strings;
 			path = AppleUSBCDCDriver/Strings/English.lproj/InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5395F81016D581101573190 = {
 			children = (
@@ -6091,6 +6711,7 @@
 			isa = PBXVariantGroup;
 			name = InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5395F82016D581101573190 = {
 			fileRef = F5395F81016D581101573190;
@@ -6105,13 +6726,16 @@
 			isa = PBXGroup;
 			name = Strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5395F84016D58FD01573190 = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = InfoPlist.strings;
 			path = AppleUSBComposite/Strings/English.lproj/InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5395F86016D596001573190 = {
 			children = (
@@ -6120,6 +6744,7 @@
 			isa = PBXGroup;
 			name = Strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5395F8E016D59DB01573190 = {
 			children = (
@@ -6128,6 +6753,7 @@
 			isa = PBXGroup;
 			name = Strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5395F8F016D59DB01573190 = {
 			children = (
@@ -6137,13 +6763,16 @@
 			name = InfoPlist.strings;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5395F90016D59DB01573190 = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = InfoPlist.strings;
 			path = AppleUSBKeyboard/Strings/English.lproj/InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5395F92016D5A6B01573190 = {
 			children = (
@@ -6152,6 +6781,7 @@
 			isa = PBXGroup;
 			name = Strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5395F93016D5A6B01573190 = {
 			children = (
@@ -6160,13 +6790,16 @@
 			isa = PBXVariantGroup;
 			name = InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5395F94016D5A6B01573190 = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = InfoPlist.strings;
 			path = AppleUSBMergeNub/Strings/English.lproj/InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5395F95016D5A6B01573190 = {
 			fileRef = F5395F93016D5A6B01573190;
@@ -6181,13 +6814,16 @@
 			isa = PBXGroup;
 			name = Strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5395F97016D5AF201573190 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = InfoPlist.strings;
 			path = AppleUSBMouse/Strings/English.lproj/InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5395F99016D5B4601573190 = {
 			children = (
@@ -6196,12 +6832,15 @@
 			isa = PBXGroup;
 			name = Strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5395F9A016D5B4601573190 = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			path = InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 			usesTabs = 1;
 		};
 		F5395F9C016D5B9001573190 = {
@@ -6211,13 +6850,16 @@
 			isa = PBXGroup;
 			name = Strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5395F9D016D5BB001573190 = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = InfoPlist.strings;
 			path = IOUSBHIDDriver/Strings/English.lproj/InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5395F9F016D5BE901573190 = {
 			children = (
@@ -6226,13 +6868,16 @@
 			isa = PBXGroup;
 			name = Strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5395FA0016D5C0A01573190 = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = InfoPlist.strings;
 			path = IOUSBUserClient/Strings/English.lproj/InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5395FA2016D5C1801573190 = {
 			children = (
@@ -6241,6 +6886,7 @@
 			isa = PBXVariantGroup;
 			name = InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5395FA3016D5C1801573190 = {
 			fileRef = F5395FA2016D5C1801573190;
@@ -6255,6 +6901,7 @@
 			isa = PBXVariantGroup;
 			name = InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5395FA5016D5C2501573190 = {
 			fileRef = F5395FA4016D5C2501573190;
@@ -6269,13 +6916,16 @@
 			isa = PBXVariantGroup;
 			name = InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5395FA7016D5C9E01573190 = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = InfoPlist.strings;
 			path = IOUSBFamily/Strings/English.lproj/InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5395FA8016D5C9E01573190 = {
 			fileRef = F5395FA6016D5C9E01573190;
@@ -6292,9 +6942,11 @@
 		F53A94830211FA0601573190 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IOUSBHIDDataQueue.cpp;
 			path = IOUSBHIDDriver/Classes/IOUSBHIDDataQueue.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5430C660210912501573190 = {
 			children = (
@@ -6305,6 +6957,7 @@
 			name = AppleUSBOpticalMouse;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5430C670210912501573190 = {
 			children = (
@@ -6318,11 +6971,14 @@
 			name = Obsolete;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5430C680210919001573190 = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = AppleUSBOpticalMouse.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		F5430C690210919001573190 = {
 			buildPhases = (
@@ -6526,11 +7182,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -6569,11 +7221,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -6585,6 +7233,7 @@
 			isa = PBXVariantGroup;
 			name = InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F547620E016D5D1201573190 = {
 			fileRef = F547620D016D5D1101573190;
@@ -6599,6 +7248,7 @@
 			isa = PBXVariantGroup;
 			name = InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5476210016D5D2E01573190 = {
 			fileRef = F547620F016D5D2E01573190;
@@ -6609,9 +7259,11 @@
 		F549761B0275E06B010162FA = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IOUSBControllerV2.cpp;
 			path = IOUSBFamily/Classes/IOUSBControllerV2.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F549761C0275E06B010162FA = {
 			fileRef = F549761B0275E06B010162FA;
@@ -6622,9 +7274,11 @@
 		F549761D0275E089010162FA = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOUSBControllerV2.h;
 			path = IOUSBFamily/Headers/IOUSBControllerV2.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F549761E0275E089010162FA = {
 			fileRef = F549761D0275E089010162FA;
@@ -6647,11 +7301,14 @@
 			name = "Configd Plugin";
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F549D3700226FF5E010162FA = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = USBUPSSupport.bundle;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		F549D3720226FF5E010162FA = {
 			buildPhases = (
@@ -6750,16 +7407,20 @@
 		F54C711F0172214D01A80064 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IOUSBControllerUserClient.cpp;
 			path = IOUSBFamily/Classes/IOUSBControllerUserClient.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F54C71200172214D01A80064 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOUSBControllerUserClient.h;
 			path = IOUSBFamily/Headers/IOUSBControllerUserClient.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F54C71210172214D01A80064 = {
 			fileRef = F54C71200172214D01A80064;
@@ -6792,13 +7453,16 @@
 			isa = PBXVariantGroup;
 			name = InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F553A87A016D5E9101573190 = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = InfoPlist.strings;
 			path = Strings/English.lproj/InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F553A87B016D5E9101573190 = {
 			fileRef = F553A879016D5E9101573190;
@@ -6809,6 +7473,7 @@
 		F560429D02109AD801573190 = {
 			isa = PBXTargetDependency;
 			target = F5430C690210919001573190;
+			targetProxy = 3EDD8A4A069B067400DC48B9;
 		};
 		F573C3D2016D730C01573190 = {
 			children = (
@@ -6817,13 +7482,16 @@
 			isa = PBXVariantGroup;
 			name = Localizable.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F573C3D3016D730C01573190 = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = Localizable.strings;
 			path = IOUSBFamily/Strings/English.lproj/Localizable.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F573C3D4016D730C01573190 = {
 			fileRef = F573C3D2016D730C01573190;
@@ -6840,6 +7508,7 @@
 			isa = PBXGroup;
 			name = AppleUSBEHCI;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F581406D04575F8201000109 = {
 			children = (
@@ -6856,6 +7525,7 @@
 			isa = PBXGroup;
 			name = Headers;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F581406E04575F8D01000109 = {
 			children = (
@@ -6875,6 +7545,7 @@
 			isa = PBXGroup;
 			name = Classes;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F581406F04575F9801000109 = {
 			children = (
@@ -6883,6 +7554,7 @@
 			isa = PBXGroup;
 			name = Strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F58140710457633501000109 = {
 			buildActionMask = 2147483647;
@@ -6957,7 +7629,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBEHCI;
-				MODULE_VERSION = 2.0.8;
+				MODULE_VERSION = 2.1.4;
 				OTHER_CFLAGS = "-W -Wall -Wno-unused";
 				PRODUCT_NAME = AppleUSBEHCI;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
@@ -6979,7 +7651,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBEHCI</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.0.8, Copyright Apple Computer, Inc. 2000-2003</string>
+	<string>2.1.4, Copyright Apple Computer, Inc. 2000-2004</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -6991,11 +7663,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.0.8</string>
+	<string>2.1.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.0.8</string>
+	<string>2.1.4</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleUSBEHCI</key>
@@ -7041,9 +7713,11 @@
 ";
 		};
 		F58140770457633501000109 = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = AppleUSBEHCI.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		F590EEF1034A864601000105 = {
 			children = (
@@ -7053,6 +7727,7 @@
 			name = InfoPlist.strings;
 			path = AppleUSBOHCI/Strings/English.lproj;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F590EEF2034A864601000105 = {
 			fileRef = F590EEF1034A864601000105;
@@ -7063,9 +7738,11 @@
 		F5955CE102270501010162FA = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = upsconfigd.c;
 			path = Configd/upsconfigd.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5955CE202270501010162FA = {
 			fileRef = F5955CE102270501010162FA;
@@ -7082,24 +7759,31 @@
 			isa = PBXGroup;
 			name = Frameworks;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5955CE4022705A0010162FA = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = CoreFoundation.framework;
 			path = /System/Library/Frameworks/CoreFoundation.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		F5955CE5022705A0010162FA = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = IOKit.framework;
 			path = /System/Library/Frameworks/IOKit.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		F5955CE6022705A0010162FA = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = SystemConfiguration.framework;
 			path = /System/Library/Frameworks/SystemConfiguration.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		F5955CE7022705A0010162FA = {
 			fileRef = F5955CE4022705A0010162FA;
@@ -7122,9 +7806,11 @@
 		F59E553B0199FBD801573190 = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = Localizable.strings;
 			path = AppleUSBCDCDriver/Strings/English.lproj/Localizable.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F59E553D0199FBEF01573190 = {
 			children = (
@@ -7133,6 +7819,7 @@
 			isa = PBXVariantGroup;
 			name = Localizable.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F59E553E0199FBEF01573190 = {
 			fileRef = F59E553D0199FBEF01573190;
@@ -7149,16 +7836,20 @@
 		F5A5AFB70210A22101573190 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = AppleUSBOpticalMouse.cpp;
 			path = AppleUSBOpticalMouse/AppleUSBOpticalMouse.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5A5AFB80210A22101573190 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = AppleUSBOpticalMouse.h;
 			path = AppleUSBOpticalMouse/AppleUSBOpticalMouse.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5A5AFB90210A22101573190 = {
 			fileRef = F5A5AFB80210A22101573190;
@@ -7176,11 +7867,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -7210,11 +7897,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -7372,13 +8055,16 @@
 ";
 		};
 		F5B09AB603CD27AE01000164 = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = IOUSBHIDDriverSafeBoot.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		F5B09AEB03CD2F2601000164 = {
 			isa = PBXTargetDependency;
 			target = F5B09AB503CD27AE01000164;
+			targetProxy = 3EDD8A44069B067400DC48B9;
 		};
 		F5B09AED03CD2FFA01000164 = {
 			fileRef = F5B09AB603CD27AE01000164;
@@ -7389,6 +8075,7 @@
 		F5BCFC7A04583B3C01000109 = {
 			isa = PBXTargetDependency;
 			target = F58140760457633501000109;
+			targetProxy = 3EDD8A4C069B067400DC48B9;
 		};
 		F5BCFC7E04583B7101000109 = {
 			fileRef = F58140770457633501000109;
@@ -7399,65 +8086,83 @@
 		F5BCFC7F04583E7601000109 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = AppleEHCIedMemoryBlock.h;
 			path = AppleUSBEHCI/Headers/AppleEHCIedMemoryBlock.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5BCFC8004583E7601000109 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = AppleEHCIitdMemoryBlock.h;
 			path = AppleUSBEHCI/Headers/AppleEHCIitdMemoryBlock.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5BCFC8104583E7601000109 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = AppleEHCIListElement.h;
 			path = AppleUSBEHCI/Headers/AppleEHCIListElement.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5BCFC8204583E7601000109 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = AppleEHCIsitdMemoryBlock.h;
 			path = AppleUSBEHCI/Headers/AppleEHCIsitdMemoryBlock.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5BCFC8304583E7601000109 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = AppleEHCItdMemoryBlock.h;
 			path = AppleUSBEHCI/Headers/AppleEHCItdMemoryBlock.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5BCFC8404583E7601000109 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = AppleUSBEHCI.h;
 			path = AppleUSBEHCI/Headers/AppleUSBEHCI.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5BCFC8504583E7601000109 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = AppleUSBEHCIHubInfo.h;
 			path = AppleUSBEHCI/Headers/AppleUSBEHCIHubInfo.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5BCFC8604583E7601000109 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = USBEHCI.h;
 			path = AppleUSBEHCI/Headers/USBEHCI.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5BCFC8704583E7601000109 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = USBEHCIRootHub.h;
 			path = AppleUSBEHCI/Headers/USBEHCIRootHub.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5BCFC8804583E7601000109 = {
 			fileRef = F5BCFC7F04583E7601000109;
@@ -7516,86 +8221,110 @@
 		F5BCFC9104583E9E01000109 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = AppleEHCIedMemoryBlock.cpp;
 			path = AppleUSBEHCI/Classes/AppleEHCIedMemoryBlock.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5BCFC9204583E9E01000109 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = AppleEHCIitdMemoryBlock.cpp;
 			path = AppleUSBEHCI/Classes/AppleEHCIitdMemoryBlock.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5BCFC9304583E9E01000109 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = AppleEHCIListElement.cpp;
 			path = AppleUSBEHCI/Classes/AppleEHCIListElement.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5BCFC9404583E9E01000109 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = AppleEHCIsitdMemoryBlock.cpp;
 			path = AppleUSBEHCI/Classes/AppleEHCIsitdMemoryBlock.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5BCFC9504583E9E01000109 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = AppleEHCItdMemoryBlock.cpp;
 			path = AppleUSBEHCI/Classes/AppleEHCItdMemoryBlock.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5BCFC9604583E9E01000109 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = AppleEHCITestMode.cpp;
 			path = AppleUSBEHCI/Classes/AppleEHCITestMode.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5BCFC9704583E9E01000109 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = AppleUSBEHCI_Interrupts.cpp;
 			path = AppleUSBEHCI/Classes/AppleUSBEHCI_Interrupts.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5BCFC9804583E9E01000109 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = AppleUSBEHCI_PwrMgmt.cpp;
 			path = AppleUSBEHCI/Classes/AppleUSBEHCI_PwrMgmt.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5BCFC9904583E9E01000109 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = AppleUSBEHCI_RootHub.cpp;
 			path = AppleUSBEHCI/Classes/AppleUSBEHCI_RootHub.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5BCFC9A04583E9E01000109 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = AppleUSBEHCI_UIM.cpp;
 			path = AppleUSBEHCI/Classes/AppleUSBEHCI_UIM.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5BCFC9B04583E9E01000109 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = AppleUSBEHCI.cpp;
 			path = AppleUSBEHCI/Classes/AppleUSBEHCI.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5BCFC9C04583E9E01000109 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = AppleUSBEHCIHubInfo.cpp;
 			path = AppleUSBEHCI/Classes/AppleUSBEHCIHubInfo.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5BCFC9D04583E9E01000109 = {
 			fileRef = F5BCFC9104583E9E01000109;
@@ -7670,14 +8399,17 @@
 			};
 		};
 		F5C2AE73032E5BA501000164 = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = Kernel.framework;
 			path = /System/Library/Frameworks/Kernel.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		F5C6E0DB0300612F01000164 = {
 			isa = PBXTargetDependency;
 			target = F5366A7302E8C77501000164;
+			targetProxy = 3EDD8A43069B067400DC48B9;
 		};
 		F5D0F2AD016D27BA01573190 = {
 			children = (
@@ -7687,6 +8419,7 @@
 			name = InfoPlist.strings;
 			path = English.lproj;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5D0F2AE016D27BA01573190 = {
 			fileRef = F5D0F2AD016D27BA01573190;
@@ -7703,6 +8436,7 @@
 			name = Strings;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E6DDDD01206E6801000001 = {
 			children = (
@@ -7720,16 +8454,21 @@
 			isa = PBXGroup;
 			path = Examples;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E6DE0001206E6801000001 = {
 			isa = PBXFileReference;
+			lastKnownFileType = text.rtf;
 			path = "Contents (Kernel).rtf";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E6DE0101206E6801000001 = {
 			isa = PBXFileReference;
+			lastKnownFileType = text.rtf;
 			path = "Contents (User Space).rtf";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E6DE2301206E6801000001 = {
 			buildActionMask = 8;
@@ -7752,33 +8491,43 @@
 		};
 		F5E6DE2501206FCF01000001 = {
 			includeInIndex = 0;
-			isa = PBXFolderReference;
+			isa = PBXFileReference;
+			lastKnownFileType = folder;
 			path = "AnchorUSB Driver";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E6DE2601206FCF01000001 = {
 			includeInIndex = 0;
-			isa = PBXFolderReference;
+			isa = PBXFileReference;
+			lastKnownFileType = folder;
 			path = "ClassicNotSeize Driver";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E6DE2701206FCF01000001 = {
 			includeInIndex = 0;
-			isa = PBXFolderReference;
+			isa = PBXFileReference;
+			lastKnownFileType = folder;
 			path = "VendorSpecific Driver";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E6DE2801206FCF01000001 = {
 			includeInIndex = 0;
-			isa = PBXFolderReference;
+			isa = PBXFileReference;
+			lastKnownFileType = folder;
 			path = "USBNotification Example";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E6DE2901206FCF01000001 = {
 			includeInIndex = 0;
-			isa = PBXFolderReference;
+			isa = PBXFileReference;
+			lastKnownFileType = folder;
 			path = "USBSimple Example";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E6DE2A01206FCF01000001 = {
 			fileRef = F5E6DE2501206FCF01000001;
@@ -7845,19 +8594,24 @@
 			isa = PBXGroup;
 			name = Documentation;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5F1995001209AE401000001 = {
 			includeInIndex = 0;
-			isa = PBXFolderReference;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html.documentation;
 			name = IOUSBLib;
 			path = Documentation/IOUSBLib;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5F640C801491E5C01016235 = {
 			isa = PBXFileReference;
+			lastKnownFileType = text.rtf;
 			name = "Classic USB Device Arbitration.rtf";
 			path = "Examples/Classic USB Device Arbitration.rtf";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 	};
 	rootObject = 089C1669FE841209C02AAC07;

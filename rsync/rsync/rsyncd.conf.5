@@ -1,4 +1,4 @@
-.TH "rsyncd\&.conf" "5" "26 Jan 2003" "" "" 
+.TH "rsyncd\&.conf" "5" "30 Apr 2004" "" "" 
 .SH "NAME" 
 rsyncd\&.conf \- configuration file for rsync server
 .SH "SYNOPSIS" 
@@ -17,7 +17,7 @@ available modules\&.
 .PP 
 The file consists of modules and parameters\&. A module begins with the 
 name of the module in square brackets and continues until the next
-module begins\&. Modules contain parameters of the form \'name = value\'\&.
+module begins\&. Modules contain parameters of the form \&'name = value\&'\&.
 .PP 
 The file is line-based - that is, each newline-terminated line represents
 either a comment, a module name or a parameter\&.
@@ -94,12 +94,12 @@ is no motd file\&.
 .IP "\fBlog file\fP" 
 The "log file" option tells the rsync daemon to log
 messages to that file rather than using syslog\&. This is particularly
-useful on systems (such as AIX) where syslog() doesn\'t work for
+useful on systems (such as AIX) where syslog() doesn\&'t work for
 chrooted programs\&.
 .IP 
 .IP "\fBpid file\fP" 
 The "pid file" option tells the rsync daemon to write
-its process id to that file\&.
+its process ID to that file\&.
 .IP 
 .IP "\fBsyslog facility\fP" 
 The "syslog facility" option allows you to
@@ -143,11 +143,31 @@ to the "path" before starting the file transfer with the client\&.  This has
 the advantage of extra protection against possible implementation security
 holes, but it has the disadvantages of requiring super-user privileges, 
 of not being able to follow symbolic links outside of the new root path
-when reading, and of implying the --numeric-ids option because /etc/passwd
-becomes inaccessible\&.  When "use chroot" is false, for security reasons
+when reading, and of complicating the preservation of usernames and groups
+(see below)\&.  When "use chroot" is false, for security reasons,
 symlinks may only be relative paths pointing to other files within the root
-path, and leading slashes are removed from absolute paths\&.  The default for
-"use chroot" is true\&.
+path, and leading slashes are removed from most absolute paths (options
+such as --backup-dir, --compare-dest, etc\&. interpret an absolute path as
+rooted in the module\&'s "path" dir, just as if chroot was specified)\&.
+The default for "use chroot" is true\&.
+.IP 
+In order to preserve usernames and groupnames, rsync needs to be able to
+use the standard library functions for looking up names and IDs (i\&.e\&.
+getpwuid(), getgrgid(), getpwname(), and getgrnam())\&.  This means a
+process in the chroot namespace will need to have access to the resources
+used by these library functions (traditionally /etc/passwd and
+/etc/group)\&.  If these resources are not available, rsync will only be
+able to copy the IDs, just as if the --numeric-ids option had been
+specified\&.
+.IP 
+Note that you are free to setup user/group information in the chroot area
+differently from your normal system\&.  For example, you could abbreviate
+the list of users and groups\&.  Also, you can protect this information
+from being downloaded by adding an exclude rule to the rsync\&.conf file
+(e\&.g\&. "exclude = /etc/")\&.  To protect it from being changed by an upload
+(if the module is not read only), be sure to set the permissions (or
+owner) on the files and/or parent directories so that they cannot be
+written by the daemon\&.
 .IP 
 .IP "\fBmax connections\fP" 
 The "max connections" option allows you to
@@ -177,29 +197,31 @@ setting this to false you can create hidden modules\&. The default is
 for modules to be listable\&.
 .IP 
 .IP "\fBuid\fP" 
-The "uid" option specifies the user name or user id that
+The "uid" option specifies the user name or user ID that
 file transfers to and from that module should take place as when the daemon
 was run as root\&. In combination with the "gid" option this determines what
 file permissions are available\&. The default is uid -2, which is normally
 the user "nobody"\&.
 .IP 
 .IP "\fBgid\fP" 
-The "gid" option specifies the group name or group id that
+The "gid" option specifies the group name or group ID that
 file transfers to and from that module should take place as when the daemon
 was run as root\&. This complements the "uid" option\&. The default is gid -2,
 which is normally the group "nobody"\&.
 .IP 
 .IP "\fBexclude\fP" 
 The "exclude" option allows you to specify a space
-separated list of patterns to add to the exclude list\&. This is equivalent
-to the client specifying these patterns with the --exclude option, except
-that the exclude list is not passed to the client and thus only applies on
-the server: that is, it excludes files received by a client when receiving
-from a server and files deleted on a server when sending to a server, but
-it doesn\'t exclude files sent from a client when sending to a server or
-files deleted on a client when receiving from a server\&.  
+separated list of patterns to add to the exclude list\&.
+This is only superficially equivalent
+to the client specifying these patterns with the --exclude option\&.
 Only one "exclude" option may be specified, but
 you can use "-" and "+" before patterns to specify exclude/include\&.
+.IP 
+Because this exclude list is not passed to the client it only applies on
+the server: that is, it excludes files received by a client when receiving
+from a server and files deleted on a server when sending to a server, but
+it doesn\&'t exclude files sent from a client when sending to a server or
+files deleted on a client when receiving from a server\&.  
 .IP 
 Note that this option is not designed with strong security in
 mind, it is quite possible that a client may find a way to bypass this
@@ -209,26 +231,27 @@ file permissions\&.
 .IP 
 .IP "\fBexclude from\fP" 
 The "exclude from" option specifies a filename
-on the server that contains exclude patterns, one per line\&. This is
-equivalent to the client specifying the --exclude-from option with a
-equivalent file except that it applies only on the server\&.  See also
-the "exclude" option above\&.
+on the server that contains exclude patterns, one per line\&.
+This is only superficially equivalent
+to the client specifying the --exclude-from option with an equivalent file\&.
+See the "exclude" option above\&.
 .IP 
 .IP "\fBinclude\fP" 
 The "include" option allows you to specify a space
 separated list of patterns which rsync should not exclude\&. This is
-equivalent to the client specifying these patterns with the --include
-option except that it applies only on the server\&.  This is useful as it
+only superficially equivalent to the client specifying these patterns
+with the --include option because it applies only on the server\&.
+This is useful as it
 allows you to build up quite complex exclude/include rules\&.  Only one
 "include" option may be specified, but you can use "+" and "-" before
-patterns to switch include/exclude\&.  See also the "exclude" option above\&.
+patterns to switch include/exclude\&.  See the "exclude" option above\&.
 .IP 
 .IP "\fBinclude from\fP" 
 The "include from" option specifies a filename
 on the server that contains include patterns, one per line\&. This is
-equivalent to the client specifying the --include-from option with a
-equivalent file except that it applies only on the server\&.  See also
-the "exclude" option above\&.
+only superficially equivalent to the client specifying the
+--include-from option with a equivalent file\&.
+See the "exclude" option above\&.
 .IP 
 .IP "\fBauth users\fP" 
 The "auth users" option specifies a comma and
@@ -245,7 +268,7 @@ connect without a password (this is called "anonymous rsync")\&.
 See also the \fBCONNECTING TO AN RSYNC SERVER OVER A REMOTE SHELL
 PROGRAM\fP section in rsync(1) for information on how handle an
 rsyncd\&.conf-level username that differs from the remote-shell-level
-username when using a remote shell to connect to a rsync server\&.
+username when using a remote shell to connect to an rsync server\&.
 .IP 
 .IP "\fBsecrets file\fP" 
 The "secrets file" option specifies the name of
@@ -256,7 +279,7 @@ username:password pairs separated by a single colon\&. Any line starting
 with a hash (#) is considered a comment and is skipped\&. The passwords
 can contain any characters but be warned that many operating systems
 limit the length of passwords that can be typed at the client end, so
-you may find that passwords longer than 8 characters don\'t work\&. 
+you may find that passwords longer than 8 characters don\&'t work\&. 
 .IP 
 There is no default for the "secrets file" option, you must choose a name
 (such as \f(CW/etc/rsyncd\&.secrets\fP)\&.  The file must normally not be readable
@@ -265,7 +288,7 @@ by "other"; see "strict modes"\&.
 .IP "\fBstrict modes\fP" 
 The "strict modes" option determines whether or not 
 the permissions on the secrets file will be checked\&.  If "strict modes" is
-true, then the secrets file must not be readable by any user id other
+true, then the secrets file must not be readable by any user ID other
 than the one that the rsync daemon is running under\&.  If "strict modes" is
 false, the check is not performed\&.  The default is true\&.  This option
 was added to accommodate rsync running on the Windows operating system\&.
@@ -280,7 +303,7 @@ Each pattern can be in one of five forms:
 .IP 
 .IP o 
 a dotted decimal IPv4 address of the form a\&.b\&.c\&.d, or an IPv6 address
-of the form a:b:c::d:e:f\&. In this case the incoming machine\'s IP address
+of the form a:b:c::d:e:f\&. In this case the incoming machine\&'s IP address
 must match exactly\&.
 .IP 
 .IP o 
@@ -336,10 +359,10 @@ The default is no "hosts deny" option, which means all hosts can connect\&.
 .IP 
 .IP "\fBignore errors\fP" 
 The "ignore errors" option tells rsyncd to
-ignore IO errors on the server when deciding whether to run the delete
+ignore I/O errors on the server when deciding whether to run the delete
 phase of the transfer\&. Normally rsync skips the --delete step if any
-IO errors have occurred in order to prevent disasterous deletion due
-to a temporary resource shortage or other IO error\&. In some cases this
+I/O errors have occurred in order to prevent disasterous deletion due
+to a temporary resource shortage or other I/O error\&. In some cases this
 test is counter productive so you can use this option to turn off this
 behaviour\&. 
 .IP 
@@ -347,7 +370,7 @@ behaviour\&.
 This tells the rsync server to completely
 ignore files that are not readable by the user\&. This is useful for
 public archives that may have some non-readable files among the
-directories, and the sysadmin doesn\'t want those files to be seen at all\&.
+directories, and the sysadmin doesn\&'t want those files to be seen at all\&.
 .IP 
 .IP "\fBtransfer logging\fP" 
 The "transfer logging" option enables per-file 
@@ -370,7 +393,7 @@ The prefixes that are understood are:
 .IP o 
 %l for the length of the file in bytes
 .IP o 
-%p for the process id of this rsync session
+%p for the process ID of this rsync session
 .IP o 
 %o for the operation, which is either "send" or "recv"
 .IP o 
@@ -397,8 +420,8 @@ in the rsync source code distribution\&.
 .IP 
 .IP "\fBtimeout\fP" 
 The "timeout" option allows you to override the
-clients choice for IO timeout for this module\&. Using this option you
-can ensure that rsync won\'t wait on a dead client forever\&. The timeout
+clients choice for I/O timeout for this module\&. Using this option you
+can ensure that rsync won\&'t wait on a dead client forever\&. The timeout
 is specified in seconds\&. A value of zero means no timeout and is the
 default\&. A good choice for anonymous rsync servers may be 600 (giving
 a 10 minute timeout)\&.
@@ -417,7 +440,7 @@ client that requests compression\&.
 The "dont compress" option allows you to select
 filenames based on wildcard patterns that should not be compressed
 during transfer\&. Compression is expensive in terms of CPU usage so it
-is usually good to not try to compress files that won\'t compress well,
+is usually good to not try to compress files that won\&'t compress well,
 such as already compressed files\&. 
 .IP 
 The "dont compress" option takes a space separated list of
@@ -443,12 +466,42 @@ It should be good enough for most purposes but if you want really top
 quality security then I recommend that you run rsync over ssh\&.
 .PP 
 Also note that the rsync server protocol does not currently provide any
-encryption of the data that is transferred over the link\&. Only
+encryption of the data that is transferred over the connection\&. Only
 authentication is provided\&. Use ssh as the transport if you want
 encryption\&.
 .PP 
 Future versions of rsync may support SSL for better authentication and
 encryption, but that is still being investigated\&.
+.PP 
+.SH "RUNNING AN RSYNC SERVER OVER A REMOTE SHELL PROGRAM" 
+.PP 
+If rsync is run with both the --daemon and --rsh (-e) options, it will
+spawn an rsync daemon using a remote shell connection\&.  Several
+configuration options will not be available unless the remote user is
+root (e\&.g\&. chroot, setuid/setgid, etc\&.)\&.  There is no need to configure
+inetd or the services map to include the rsync server port if you run an
+rsync server only via a remote shell program\&.
+.PP 
+ADVANCED: To run an rsync server out of a single-use ssh key, use the
+"command=\fICOMMAND\fP" syntax in the remote user\&'s authorized_keys entry,
+where command would be
+.PP 
+.RS 
+rsync --server --daemon \&.
+.RE 
+.PP 
+NOTE: rsync\&'s argument parsing expects the trailing "\&.", so make sure
+that it\&'s there\&.  If you want to use an rsyncd\&.conf(5)-style
+configuration file other than the default, you can added a
+--config option to the \fIcommand\fP:
+.PP 
+.RS 
+rsync --server --daemon --config=\fIfile\fP \&.
+.RE 
+.PP 
+Note that the "--server" here is the internal option that rsync uses to
+run the remote version of rsync that it communicates with, and thus you
+should not be using the --server option under normal circumstances\&.
 .PP 
 .SH "EXAMPLES" 
 .PP 
@@ -536,7 +589,7 @@ Please report bugs! The rsync bug tracking system is online at
 http://rsync\&.samba\&.org/
 .PP 
 .SH "VERSION" 
-This man page is current for version 2\&.0 of rsync
+This man page is current for version 2\&.x of rsync\&.
 .PP 
 .SH "CREDITS" 
 .PP 

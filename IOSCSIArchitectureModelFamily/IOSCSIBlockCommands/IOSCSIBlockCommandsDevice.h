@@ -95,6 +95,7 @@ protected:
 		IONotifier *		fPowerDownNotifier;
 		bool				fWriteCacheEnabled;
 		bool				fDeviceIsShared;
+		UInt64				fMediumBlockCount64;
 	};
     IOSCSIBlockCommandsDeviceExpansionData * fIOSCSIBlockCommandsDeviceReserved;
 	
@@ -110,19 +111,37 @@ protected:
 	// manage their own power.
 	#define fDeviceIsShared	fIOSCSIBlockCommandsDeviceReserved->fDeviceIsShared
 	
+	// The fMediumBlockCount64 provides support for 64 bit LBAs and
+	// replaces fMediumBlockCount which only supports 32 bits.
+	// This value should not be directly accessed and instead the member routine 
+	// ReportMediumTotalBlockCount() should be used to retrieve it and the member routine
+	// SetMediumCharacteristics() should be used to set it.
+	#define fMediumBlockCount64	fIOSCSIBlockCommandsDeviceReserved->fMediumBlockCount64
+
+private:
+	/* OBSOLETE. Use IOSCSIPrimaryCommandsDevice::Get/SetANSIVersion */
+	UInt8				fANSIVersion;
+
+protected:
 	// ---- Device Characteristics ----
-	UInt8				fANSIVersion;		/* DEPRECATED. Use IOSCSIPrimaryCommandsDevice::Get/SetANSIVersion */
 	bool				fMediaIsRemovable;
 	
 	// ---- Medium Characteristics ----
 	bool				fMediumPresent;
 	
+private:
 	// The byte count of each physical block on the medium.
+	// This value should not be directly accessed and instead the member routine 
+	// ReportMediumBlockSize() should be used to retrieve it and the member routine
+	// SetMediumCharacteristics() should be used to set it.
 	UInt32				fMediumBlockSize;
 	
 	// The total number of blocks of fMediumBlockSize on the medium.
+	// OBSOLETE.  Use fMediumBlockCount64 instead which allows for support of
+	// devices that have 33 through 64 bit LBA values.
 	UInt32				fMediumBlockCount;
 	
+protected:
 	// Whether the installed medium is protected from writes
 	bool				fMediumIsWriteProtected;
 	
@@ -180,9 +199,15 @@ protected:
 	virtual void		PollForMediaRemoval ( void );
 	
 	// ---- Methods used for handling medium characteristics ----
+	
+	// OBSOLETE - Use the version compatible with 64 bit LBAs instead.
 	virtual void		SetMediumCharacteristics (
 							UInt32 					blockSize,
 							UInt32 					blockCount );
+
+	void				SetMediumCharacteristics (
+							UInt64 					blockSize,
+							UInt64 					blockCount );
 	
 	virtual void		ResetMediumCharacteristics ( void );
 
@@ -329,7 +354,21 @@ protected:
 						SCSICmdField1Byte 			VENDOR_SPECIFIC,
 						SCSICmdField2Byte 			INTERLEAVE,
 						SCSICmdField1Byte 			CONTROL );
-
+	
+	//  Defined in SBC-2 Section 5.41
+	bool FORMAT_UNIT (
+						SCSITaskIdentifier			request,
+						IOMemoryDescriptor *		dataBuffer,
+						IOByteCount					defectListSize,
+						SCSICmdField1Bit			FMTPINFO,
+						SCSICmdField1Bit			RTO_REQ,
+						SCSICmdField1Bit			LONGLIST,
+						SCSICmdField1Bit 			FMTDATA, 
+						SCSICmdField1Bit 			CMPLST,
+						SCSICmdField3Bit 			DEFECT_LIST_FORMAT, 
+						SCSICmdField1Byte 			VENDOR_SPECIFIC, 
+						SCSICmdField1Byte 			CONTROL );
+	  	  
 	virtual bool LOCK_UNLOCK_CACHE (
 						SCSITaskIdentifier			request,
 						SCSICmdField1Bit 			LOCK,
@@ -338,7 +377,21 @@ protected:
 						SCSICmdField2Byte 			NUMBER_OF_BLOCKS,
 						SCSICmdField1Byte 			CONTROL );
 
+	//  Defined in SBC-2 section 5.5
+	bool LOCK_UNLOCK_CACHE (
+						SCSITaskIdentifier			request,
+						SCSICmdField1Bit 			LOCK,
+						SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS,
+						SCSICmdField2Byte 			NUMBER_OF_BLOCKS,
+						SCSICmdField1Byte 			CONTROL );
 
+	bool LOCK_UNLOCK_CACHE_16 (
+						SCSITaskIdentifier			request,
+						SCSICmdField1Bit			LOCK,
+						SCSICmdField8Byte			LOGICAL_BLOCK_ADDRESS,
+						SCSICmdField4Byte			NUMBER_OF_BLOCKS,
+						SCSICmdField1Byte			CONTROL );
+						
 	virtual bool MEDIUM_SCAN (
 						SCSITaskIdentifier			request,
 			 			IOMemoryDescriptor *		dataBuffer,
@@ -359,6 +412,23 @@ protected:
 						SCSICmdField2Byte 			TRANSFER_LENGTH,
 						SCSICmdField1Byte 			CONTROL );
 
+	// Defined in SBC-2 section 5.7
+	bool PREFETCH (
+						SCSITaskIdentifier			request,
+						SCSICmdField1Bit 			IMMED,
+						SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS,
+						SCSICmdField5Bit			GROUP_NUMBER,
+						SCSICmdField2Byte 			TRANSFER_LENGTH,
+						SCSICmdField1Byte 			CONTROL );
+
+	bool PREFETCH_16 (
+						SCSITaskIdentifier			request,
+						SCSICmdField1Bit			IMMED,
+						SCSICmdField8Byte			LOGICAL_BLOCK_ADDRESS,
+						SCSICmdField4Byte			TRANSFER_LENGTH,
+						SCSICmdField5Bit			GROUP_NUMBER,
+						SCSICmdField1Byte			CONTROL );
+		
 	virtual bool READ_6 (
 						SCSITaskIdentifier			request,
 						IOMemoryDescriptor *		dataBuffer,
@@ -378,6 +448,20 @@ protected:
 						SCSICmdField2Byte 			TRANSFER_LENGTH,
 						SCSICmdField1Byte 			CONTROL );
 
+	// Defined in SBC-2 section 5.10
+	bool READ_10 (
+						SCSITaskIdentifier			request,
+						IOMemoryDescriptor *		dataBuffer,
+						UInt32						blockSize,
+						SCSICmdField3Bit 			RDPROTECT,
+						SCSICmdField1Bit 			DPO,
+						SCSICmdField1Bit 			FUA,
+						SCSICmdField1Bit 			FUA_NV,
+						SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS,
+						SCSICmdField5Bit			GROUP_NUMBER,
+						SCSICmdField2Byte 			TRANSFER_LENGTH,
+						SCSICmdField1Byte 			CONTROL );
+
 	virtual bool READ_12 (
 						SCSITaskIdentifier			request,
 						IOMemoryDescriptor *		dataBuffer,
@@ -389,11 +473,46 @@ protected:
 						SCSICmdField4Byte 			TRANSFER_LENGTH,
 						SCSICmdField1Byte 			CONTROL );
 
+	// Defined in SBC-2 section 5.11
+	bool READ_12 (
+						SCSITaskIdentifier			request,
+						IOMemoryDescriptor *		dataBuffer,
+						UInt32						blockSize,
+						SCSICmdField3Bit			RDPROTECT,
+						SCSICmdField1Bit 			DPO,
+						SCSICmdField1Bit 			FUA,
+						SCSICmdField1Bit 			FUA_NV,
+						SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS,
+						SCSICmdField4Byte 			TRANSFER_LENGTH,
+						SCSICmdField5Bit			GROUP_NUMBER,
+						SCSICmdField1Byte 			CONTROL );
+
+	bool READ_16 (
+						SCSITaskIdentifier			request,
+						IOMemoryDescriptor *		dataBuffer,
+						UInt32						blockSize,
+						SCSICmdField3Bit			RDPROTECT,
+						SCSICmdField1Bit			DPO,
+						SCSICmdField1Bit			FUA,
+						SCSICmdField1Bit			FUA_NV,
+						SCSICmdField8Byte			LOGICAL_BLOCK_ADDRESS,
+						SCSICmdField4Byte			TRANSFER_LENGTH,
+						SCSICmdField5Bit			GROUP_NUMBER,
+						SCSICmdField1Byte			CONTROL );
+	
 	virtual bool READ_CAPACITY (
 						SCSITaskIdentifier			request,
 						IOMemoryDescriptor *		dataBuffer,
 						SCSICmdField1Bit 			RELADR,
 						SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS,
+						SCSICmdField1Bit 			PMI,
+						SCSICmdField1Byte 			CONTROL );
+	
+	bool READ_CAPACITY_16 (
+						SCSITaskIdentifier			request,
+						IOMemoryDescriptor *		dataBuffer,
+						SCSICmdField8Byte 			LOGICAL_BLOCK_ADDRESS,
+						SCSICmdField4Byte			ALLOCATION_LENGTH,
 						SCSICmdField1Bit 			PMI,
 						SCSICmdField1Byte 			CONTROL );
 
@@ -432,6 +551,14 @@ protected:
 						SCSICmdField2Byte 			BYTE_TRANSFER_LENGTH,
 						SCSICmdField1Byte 			CONTROL );
 
+	bool READ_LONG_16 (
+						SCSITaskIdentifier			request,
+						IOMemoryDescriptor *		dataBuffer,
+						SCSICmdField8Byte			LOGICAL_BLOCK_ADDRESS,
+						SCSICmdField2Byte			BYTE_TRANSFER_LENGTH,
+						SCSICmdField1Bit			CORRCT,
+						SCSICmdField1Byte			CONTROL );
+		
 	virtual bool READ_UPDATED_BLOCK_10 (
 						SCSITaskIdentifier			request,
 						IOMemoryDescriptor *		dataBuffer,
@@ -446,6 +573,14 @@ protected:
 	virtual bool REASSIGN_BLOCKS (
 						SCSITaskIdentifier			request,
 						IOMemoryDescriptor *		dataBuffer,
+						SCSICmdField1Byte 			CONTROL );
+
+	//  Defined in SBC-2 section 5.20
+	bool REASSIGN_BLOCKS (
+						SCSITaskIdentifier			request,
+						IOMemoryDescriptor *		dataBuffer,
+						SCSICmdField1Bit			LONGLBA,
+						SCSICmdField1Bit			LONGLIST,
 						SCSICmdField1Byte 			CONTROL );
 	
 	virtual bool REBUILD (
@@ -548,6 +683,25 @@ protected:
 						SCSICmdField2Byte 			NUMBER_OF_BLOCKS,
 						SCSICmdField1Byte 			CONTROL );
 
+	// Defined in SBC-2 section 5.22
+	bool SYNCHRONIZE_CACHE (
+						SCSITaskIdentifier			request,
+						SCSICmdField1Bit 			IMMED,
+						SCSICmdField1Bit 			SYNC_NV,
+						SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS,
+						SCSICmdField5Bit			GROUP_NUMBER,
+						SCSICmdField2Byte 			NUMBER_OF_BLOCKS,
+						SCSICmdField1Byte 			CONTROL );
+
+	bool SYNCRONIZE_CACHE_16 (
+						SCSITaskIdentifier			request,
+						SCSICmdField1Bit			SYNC_NV,
+						SCSICmdField1Bit			IMMED,
+						SCSICmdField8Byte			LOGICAL_BLOCK_ADDRESS,
+						SCSICmdField4Byte			NUMBER_OF_BLOCKS,
+						SCSICmdField5Bit			GROUP_NUMBER,
+						SCSICmdField1Byte			CONTROL );
+						
 	virtual bool UPDATE_BLOCK (
 						SCSITaskIdentifier			request,
 						IOMemoryDescriptor *		dataBuffer,
@@ -564,6 +718,17 @@ protected:
 						SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS,
 						SCSICmdField2Byte 			VERIFICATION_LENGTH,
 						SCSICmdField1Byte 			CONTROL );
+	
+	//  Defined in SBC-2 section 5.24
+	bool VERIFY_10 (
+						SCSITaskIdentifier			request,
+						SCSICmdField3Bit 			VRPROTECT,
+						SCSICmdField1Bit 			DPO,
+						SCSICmdField1Bit 			BYTCHK,
+						SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS,
+						SCSICmdField5Bit			GROUP_NUMBER,
+						SCSICmdField2Byte 			VERIFICATION_LENGTH,
+						SCSICmdField1Byte 			CONTROL );
 
 	virtual bool VERIFY_12 (
 						SCSITaskIdentifier			request,
@@ -574,6 +739,27 @@ protected:
 						SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS,
 						SCSICmdField4Byte 			VERIFICATION_LENGTH,
 						SCSICmdField1Byte 			CONTROL );
+
+	//  Defined in SBC-2 section 5.25
+	bool VERIFY_12 (
+						SCSITaskIdentifier			request,
+						SCSICmdField3Bit 			VRPROTECT,
+						SCSICmdField1Bit 			DPO,
+						SCSICmdField1Bit 			BYTCHK,
+						SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS,
+						SCSICmdField5Bit			GROUP_NUMBER,
+						SCSICmdField4Byte 			VERIFICATION_LENGTH,
+						SCSICmdField1Byte 			CONTROL );
+
+	bool VERIFY_16 (
+						SCSITaskIdentifier			request,
+						SCSICmdField3Bit			VRPROTECT,
+						SCSICmdField1Bit			DPO,
+						SCSICmdField1Bit			BYTCHK,
+						SCSICmdField8Byte			LOGICAL_BLOCK_ADDRESS,
+						SCSICmdField4Byte			VERIFICATION_LENGTH,
+						SCSICmdField5Bit			GROUP_NUMBER,
+						SCSICmdField1Byte			CONTROL );
 
 	virtual bool WRITE_6 (
 						SCSITaskIdentifier			request,
@@ -595,6 +781,20 @@ protected:
 						SCSICmdField2Byte 			TRANSFER_LENGTH,
 						SCSICmdField1Byte 			CONTROL );
 
+	//  Defined in SBC-2 section 5.29
+	bool WRITE_10 (
+						SCSITaskIdentifier			request,
+						IOMemoryDescriptor *		dataBuffer,
+						UInt32						blockSize,
+						SCSICmdField3Bit			WRPROTECT,
+						SCSICmdField1Bit 			DPO,
+						SCSICmdField1Bit 			FUA,
+						SCSICmdField1Bit 			FUA_NV,
+						SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS,
+						SCSICmdField5Bit			GROUP_NUMBER,
+						SCSICmdField2Byte 			TRANSFER_LENGTH,
+						SCSICmdField1Byte 			CONTROL );
+
 	virtual bool WRITE_12 (
 						SCSITaskIdentifier			request,
 						IOMemoryDescriptor *		dataBuffer,
@@ -607,6 +807,33 @@ protected:
 						SCSICmdField4Byte 			TRANSFER_LENGTH,
 						SCSICmdField1Byte 			CONTROL );
 
+	//  Defined in SBC-2 section 5.30
+	bool WRITE_12 (
+						SCSITaskIdentifier			request,
+						IOMemoryDescriptor *		dataBuffer,
+						UInt32						blockSize,
+						SCSICmdField3Bit			WRPROTECT,
+						SCSICmdField1Bit 			DPO,
+						SCSICmdField1Bit 			FUA,
+						SCSICmdField1Bit 			FUA_NV,
+						SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS,
+						SCSICmdField5Bit			GROUP_NUMBER,
+						SCSICmdField4Byte 			TRANSFER_LENGTH,
+						SCSICmdField1Byte 			CONTROL );
+
+	bool WRITE_16 (
+						SCSITaskIdentifier			request,
+						IOMemoryDescriptor *		dataBuffer,
+						UInt32						blockSize,
+						SCSICmdField3Bit			WRPROTECT,
+						SCSICmdField1Bit			DPO,
+						SCSICmdField1Bit			FUA,
+						SCSICmdField1Bit			FUA_NV,
+						SCSICmdField8Byte			LOGICAL_BLOCK_ADDRESS,
+						SCSICmdField4Byte			TRANSFER_LENGTH,
+						SCSICmdField5Bit			GROUP_NUMBER,
+						SCSICmdField1Byte			CONTROL );
+				
 	virtual bool WRITE_AND_VERIFY_10 (
 						SCSITaskIdentifier			request,
 						IOMemoryDescriptor *		dataBuffer,
@@ -616,6 +843,19 @@ protected:
 						SCSICmdField1Bit 			BYTCHK,
 						SCSICmdField1Bit 			RELADR,
 						SCSICmdField4Byte			LOGICAL_BLOCK_ADDRESS,
+						SCSICmdField2Byte 			TRANSFER_LENGTH,
+						SCSICmdField1Byte 			CONTROL );
+
+	//  Defined in SBC-2 section 5.33
+	bool WRITE_AND_VERIFY_10 (
+						SCSITaskIdentifier			request,
+						IOMemoryDescriptor *		dataBuffer,
+						UInt32						blockSize,
+						SCSICmdField3Bit			WRPROTECT,
+						SCSICmdField1Bit 			DPO,
+						SCSICmdField1Bit 			BYTCHK,
+						SCSICmdField4Byte			LOGICAL_BLOCK_ADDRESS,
+						SCSICmdField5Bit			GROUP_NUMBER,
 						SCSICmdField2Byte 			TRANSFER_LENGTH,
 						SCSICmdField1Byte 			CONTROL );
 
@@ -630,13 +870,46 @@ protected:
 						SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS,
 						SCSICmdField4Byte 			TRANSFER_LENGTH,
 						SCSICmdField1Byte 			CONTROL );
+	
+	//  Defined in SBC-2 section 5.34
+	bool WRITE_AND_VERIFY_12 (
+						SCSITaskIdentifier			request,
+						IOMemoryDescriptor *		dataBuffer,
+						UInt32						blockSize,
+						SCSICmdField3Bit			WRPROTECT,
+						SCSICmdField1Bit 			DPO,
+						SCSICmdField1Bit 			BYTCHK,
+						SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS,
+						SCSICmdField4Byte 			TRANSFER_LENGTH,
+						SCSICmdField5Bit			GROUP_NUMBER,
+						SCSICmdField1Byte 			CONTROL );
 
+	bool WRITE_AND_VERIFY_16 (
+						SCSITaskIdentifier			request,
+						IOMemoryDescriptor *		dataBuffer,
+						UInt32						blockSize,
+						SCSICmdField3Bit			WRPROTECT,
+						SCSICmdField1Bit 			DPO,
+						SCSICmdField1Bit 			BYTCHK,
+						SCSICmdField8Byte 			LOGICAL_BLOCK_ADDRESS,
+						SCSICmdField4Byte 			TRANSFER_LENGTH,
+						SCSICmdField5Bit			GROUP_NUMBER,
+						SCSICmdField1Byte 			CONTROL );
+						
 	virtual bool WRITE_LONG (
 						SCSITaskIdentifier			request,
 						IOMemoryDescriptor *		dataBuffer,
 						SCSICmdField1Bit 			RELADR,
 						SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS,
 						SCSICmdField2Byte 			TRANSFER_LENGTH,
+						SCSICmdField1Byte 			CONTROL );
+
+	bool WRITE_LONG_16 (
+						SCSITaskIdentifier			request,
+						IOMemoryDescriptor *		dataBuffer,
+						SCSICmdField8Byte 			LOGICAL_BLOCK_ADDRESS,
+						SCSICmdField2Byte 			TRANSFER_LENGTH,
+						SCSICmdField1Bit			CORRCT,
 						SCSICmdField1Byte 			CONTROL );
 
 	virtual bool WRITE_SAME (
@@ -649,13 +922,46 @@ protected:
 						SCSICmdField2Byte 			TRANSFER_LENGTH,
 						SCSICmdField1Byte 			CONTROL );
 
+	//  Defined in SBC-2 section 5.39
+	bool WRITE_SAME (
+						SCSITaskIdentifier			request,
+						IOMemoryDescriptor *		dataBuffer,
+						SCSICmdField3Bit			WRPROTECT,
+						SCSICmdField1Bit 			PBDATA,
+						SCSICmdField1Bit 			LBDATA,
+						SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS,
+						SCSICmdField5Bit			GROUP_NUMBER,
+						SCSICmdField2Byte 			TRANSFER_LENGTH,
+						SCSICmdField1Byte 			CONTROL );
+
+	bool WRITE_SAME_16 (
+						SCSITaskIdentifier			request,
+						IOMemoryDescriptor *		dataBuffer,
+						SCSICmdField3Bit			WRPROTECT,
+						SCSICmdField1Bit			PBDATA,
+						SCSICmdField1Bit			LBDATA,
+						SCSICmdField8Byte			LOGICAL_BLOCK_ADDRESS,
+						SCSICmdField4Byte			TRANSFER_LENGTH,
+						SCSICmdField5Bit			GROUP_NUMBER,
+						SCSICmdField1Byte			CONTROL );
+
 	virtual bool XDREAD (
 						SCSITaskIdentifier			request,
 						IOMemoryDescriptor *		dataBuffer,
 						SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS,
 						SCSICmdField2Byte 			TRANSFER_LENGTH,
 						SCSICmdField1Byte 			CONTROL );
-	
+
+	//  Defined in SBC-2 section 5.42
+	bool XDREAD (
+						SCSITaskIdentifier			request,
+						IOMemoryDescriptor *		dataBuffer,
+						SCSICmdField1Bit			XORPINFO,
+						SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS,
+						SCSICmdField5Bit			GROUP_NUMBER,
+						SCSICmdField2Byte 			TRANSFER_LENGTH,
+						SCSICmdField1Byte 			CONTROL );
+
 	virtual bool XDWRITE (
 						SCSITaskIdentifier			request,
 						IOMemoryDescriptor *		dataBuffer,
@@ -663,6 +969,20 @@ protected:
 						SCSICmdField1Bit 			FUA,
 						SCSICmdField1Bit 			DISABLE_WRITE,
 						SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS,
+						SCSICmdField2Byte 			TRANSFER_LENGTH,
+						SCSICmdField1Byte 			CONTROL );
+
+	//  Defined in SBC-2 section 5.43
+	bool XDWRITE (
+						SCSITaskIdentifier			request,
+						IOMemoryDescriptor *		dataBuffer,
+						SCSICmdField3Bit			WRPROTECT,
+						SCSICmdField1Bit 			DPO,
+						SCSICmdField1Bit 			FUA,
+						SCSICmdField1Bit 			DISABLE_WRITE,
+						SCSICmdField1Bit			FUA_NV,
+						SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS,
+						SCSICmdField5Bit			GROUP_NUMBER,
 						SCSICmdField2Byte 			TRANSFER_LENGTH,
 						SCSICmdField1Byte 			CONTROL );
 
@@ -679,13 +999,41 @@ protected:
 						SCSICmdField4Byte 			TRANSFER_LENGTH,
 						SCSICmdField1Byte 			SECONDARY_ADDRESS,
 						SCSICmdField1Byte 			CONTROL );
-
+	
+	//  Defined in SBC-2 section 5.46
+	bool XDWRITEREAD_10 (
+						SCSITaskIdentifier			request,
+						IOMemoryDescriptor *		dataBuffer,
+						SCSICmdField3Bit			WRPROTECT,
+						SCSICmdField1Bit 			DPO,
+						SCSICmdField1Bit 			FUA,
+						SCSICmdField1Bit 			DISABLE_WRITE,
+						SCSICmdField1Bit 			FUA_NV,
+						SCSICmdField1Bit 			XORPINFO,
+						SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS,
+						SCSICmdField5Bit			GROUP_NUMBER,
+						SCSICmdField2Byte 			TRANSFER_LENGTH,
+						SCSICmdField1Byte 			CONTROL );
+	
 	virtual bool XPWRITE (
 						SCSITaskIdentifier			request,
 						IOMemoryDescriptor *		dataBuffer,
 						SCSICmdField1Bit 			DPO,
 						SCSICmdField1Bit 			FUA,
 						SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS,
+						SCSICmdField2Byte 			TRANSFER_LENGTH,
+						SCSICmdField1Byte 			CONTROL );
+
+	//  Defined in SBC-2 section 5.48
+	bool XPWRITE (
+						SCSITaskIdentifier			request,
+						IOMemoryDescriptor *		dataBuffer,
+						SCSICmdField1Bit 			DPO,
+						SCSICmdField1Bit 			FUA,
+						SCSICmdField1Bit 			FUA_NV,
+						SCSICmdField1Bit 			XORPINFO,
+						SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS,
+						SCSICmdField5Bit			GROUP_NUMBER,
 						SCSICmdField2Byte 			TRANSFER_LENGTH,
 						SCSICmdField1Byte 			CONTROL );
 

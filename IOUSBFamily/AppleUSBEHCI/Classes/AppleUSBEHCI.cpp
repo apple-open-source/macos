@@ -92,7 +92,13 @@ AppleUSBEHCI::free()
     //
     IOLockFree( _intLock );
     IOSimpleLockFree( _wdhLock );
-    
+
+    if (_processDoneQueueThread)
+    {
+        thread_call_cancel(_processDoneQueueThread);
+        thread_call_free(_processDoneQueueThread);
+    }
+
     super::free();
 }
 
@@ -132,6 +138,14 @@ AppleUSBEHCI::start( IOService * provider )
     
     // initialize power management
     initForPM(_device);
+
+    // allocate a thread_call structure
+    _processDoneQueueThread = thread_call_allocate((thread_call_func_t)ProcessDoneQueueEntry, (thread_call_param_t)this);
+    if ( !_processDoneQueueThread )
+    {
+        USBError(1, "%s[%p] could not allocate thread callout function.  Aborting start", getName(), this);
+        return false;
+    }
     
     USBLog(7, "-%s[%p]::start", getName(), this);
     return true;
@@ -527,13 +541,13 @@ AppleUSBEHCI::SetVendorInfo(void)
     OSData		*vendProp, *deviceProp, *revisionProp;
 
     // get this chips vendID, deviceID, revisionID
-    vendProp     = (OSData *) _device->getProperty( "vendor-id" );
+    vendProp     = OSDynamicCast(OSData, _device->getProperty( "vendor-id" ));
     if (vendProp)
         _vendorID = *((UInt32 *) vendProp->getBytesNoCopy());
-    deviceProp   = (OSData *) _device->getProperty( "device-id" );
+    deviceProp   = OSDynamicCast(OSData, _device->getProperty( "device-id" ));
     if (deviceProp)
         _deviceID   = *((UInt32 *) deviceProp->getBytesNoCopy());
-    revisionProp = (OSData *) _device->getProperty( "revision-id" );
+    revisionProp = OSDynamicCast(OSData, _device->getProperty( "revision-id" ));
     if (revisionProp)
         _revisionID = *((UInt32 *) revisionProp->getBytesNoCopy());
 }
@@ -1127,8 +1141,17 @@ AppleUSBEHCI::EnableAsyncSchedule(void)
 
 	if (!stat)
 	{
+	    if (_errataBits & kErrataAgereEHCIAsyncSched)
+	    {
+		_pEHCIRegisters->USBCMD &= HostToUSBLong(~kEHCICMDRunStop);
+		while (!(USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCIHCHaltedBit))
+		    ;
+		_pEHCIRegisters->USBCMD |= HostToUSBLong(kEHCICMDAsyncEnable | kEHCICMDRunStop);
+	    }
+	    else
+	    {
 	    _pEHCIRegisters->USBCMD |= HostToUSBLong(kEHCICMDAsyncEnable);
-	
+	    }
 	    for (i=0; (i < 100) && !(USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCISTSAsyncScheduleStatus); i++)
 		IOSleep(1);
 	    if (i)
@@ -1397,6 +1420,8 @@ AppleUSBEHCI::CreateIsochronousEndpoint(
 	pEP->toDoEnd = NULL;
 	pEP->doneQueue = NULL;
 	pEP->doneEnd = NULL;
+	pEP->deferredQueue = NULL;
+	pEP->deferredEnd = NULL;
 	pEP->firstAvailableFrame = 0;
 	pEP->accumulatedStatus = kIOReturnSuccess;
 	pEP->inSlot = 0;
@@ -1411,6 +1436,8 @@ AppleUSBEHCI::CreateIsochronousEndpoint(
     }
     return pEP;
 }
+
+
 
 IOReturn
 AppleUSBEHCI::message( UInt32 type, IOService * provider,  void * argument )

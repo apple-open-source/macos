@@ -64,6 +64,7 @@ extern CFComparisonResult DADiskCompareDescription( DADiskRef disk, CFStringRef 
 extern DADiskRef          DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media );
 extern DADiskRef          DADiskCreateFromVolumePath( CFAllocatorRef allocator, CFURLRef path );
 extern CFURLRef           DADiskGetBypath( DADiskRef disk );
+extern const char *       DADiskGetBSDLink( DADiskRef disk, Boolean raw );
 extern dev_t              DADiskGetBSDNode( DADiskRef disk );
 extern const char *       DADiskGetBSDPath( DADiskRef disk, Boolean raw );
 extern UInt32             DADiskGetBSDUnit( DADiskRef disk );
@@ -89,6 +90,7 @@ extern void               DADiskInitialize( void );
 extern void               DADiskLog( DADiskRef disk );
 extern Boolean            DADiskMatch( DADiskRef disk, CFDictionaryRef match );
 extern void               DADiskSetBypath( DADiskRef disk, CFURLRef bypath );
+extern void               DADiskSetBSDLink( DADiskRef disk, Boolean raw, const char * link );
 extern void               DADiskSetClaim( DADiskRef disk, DACallbackRef claim );
 extern void               DADiskSetContext( DADiskRef disk, CFTypeRef context );
 extern void               DADiskSetContextRe( DADiskRef disk, CFTypeRef context );

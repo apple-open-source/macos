@@ -52,7 +52,7 @@
 // IOKit SCSI ArchitectureModel Family includes
 #include <IOKit/scsi/SCSITask.h>
 #include <IOKit/scsi/SCSICmds_REQUEST_SENSE_Defs.h>
-
+#include <IOKit/scsi/SCSIPort.h>
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Constants
@@ -167,19 +167,7 @@ enum
 // Notifications
 enum
 {
-	kSCSIControllerNotificationBusReset			= 0x68000000,
-	kSCSIControllerNotificationPortStatus		= 0x68000001
-};
-
-
-// Port status
-typedef UInt32 SPIPortStatus;
-
-enum
-{
-	kSPIPortStatus_Online	= 0,	// Port is online
-	kSPIPortStatus_Offline	= 1,	// Port is offline (e.g. unplugged cable)
-	kSPIPortStatus_Failure	= 2		// Driver has detected unrecoverable port failure (e.g. hardware port failure)
+	kSCSIControllerNotificationBusReset			= 0x68000000
 };
 
 // Forward declaration for the internally used Parallel Device object.
@@ -358,8 +346,27 @@ public:
 	virtual	SCSIServiceResponse TargetResetRequest (
 							SCSITargetIdentifier 		theT ) = 0;
 	
+	
+
+	/*!
+		@function DoesHBAPerformAutoSense
+		@abstract Queries the HBA child class to determine if it automatically
+		performs AutoSense and provides AutoSense data for each I/O. If the HBA
+		allocates space for AutoSense in its HBA specific data region on a per
+		task basis, the HBA should respond true.
+		@discussion	Queries the HBA child class to determine if it automatically
+		performs AutoSense and provides AutoSense data for each I/O. If the HBA
+		allocates space for AutoSense in its HBA specific data region on a per
+		task basis, the HBA should respond true.
+		@result Return true if HBA performs AutoSense into its own private data
+		buffer.
+	*/
+	
+	OSMetaClassDeclareReservedUsed ( IOSCSIParallelInterfaceController, 1 );
+	
+	virtual bool	DoesHBAPerformAutoSense ( void );
+	
 	// Padding for the Client API
-	OSMetaClassDeclareReservedUnused ( IOSCSIParallelInterfaceController, 1 );
 	OSMetaClassDeclareReservedUnused ( IOSCSIParallelInterfaceController, 2 );
 	OSMetaClassDeclareReservedUnused ( IOSCSIParallelInterfaceController, 3 );
 	OSMetaClassDeclareReservedUnused ( IOSCSIParallelInterfaceController, 4 );
@@ -502,7 +509,7 @@ protected:
 		and <IOKit/storage/IOStorageProtocolCharacteristics.h>
 		@param value Pointer to an OSObject (one of type OSData, OSString, etc.)
 		which represents the value for the property. The value must be of the proper type,
-		and size for the specified key.
+		and/or size for the specified key.
 		@result returns true if identifier was properly set, otherwise false. 
 	*/
 	
@@ -809,7 +816,7 @@ protected:
 		parent class and any clients that a port has changed status.
 	*/
 	
-	void	NotifyClientsOfPortStatusChange ( SPIPortStatus newStatus );
+	void	NotifyClientsOfPortStatusChange ( SCSIPortStatus newStatus );
 	
 	/*!
 		@function GetSCSIDomainIdentifier

@@ -1,4 +1,4 @@
-.\" @(#) $Header: /cvs/root/tcpdump/tcpdump/tcpdump.1,v 1.1.1.4 2004/02/05 19:30:58 rbraun Exp $ (LBL)
+.\" @(#) $Header: /cvs/root/tcpdump/tcpdump/tcpdump.1,v 1.1.1.5 2004/05/21 20:51:30 rbraun Exp $ (LBL)
 .\"
 .\"	$NetBSD: tcpdump.8,v 1.9 2003/03/31 00:18:17 perry Exp $
 .\"
@@ -22,7 +22,7 @@
 .\" WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
 .\" MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
 .\"
-.TH TCPDUMP 1  "23 November 2003"
+.TH TCPDUMP 1  "7 January 2004"
 .SH NAME
 tcpdump \- dump traffic on a network
 .SH SYNOPSIS
@@ -146,10 +146,14 @@ in the OS on which
 is running, if the OS reports that information to applications; if not,
 it will be reported as 0).
 .LP
-On platforms that support the SIGINFO signal, such as most BSDs, it will
-report those counts when it receives a SIGINFO signal (generated, for
-example, by typing your ``status'' character, typically control-T) and
-will continue capturing packets.
+On platforms that support the SIGINFO signal, such as most BSDs
+(including Mac OS X) and Digital/Tru64 UNIX, it will report those counts
+when it receives a SIGINFO signal (generated, for example, by typing
+your ``status'' character, typically control-T, although on some
+platforms, such as Mac OS X, the ``status'' character is not set by
+default, so you must set it with
+.BR stty (1)
+in order to use it) and will continue capturing packets.
 .LP
 Reading packets from a network interface may require that you have
 special privileges:
@@ -905,6 +909,22 @@ and
 .B memory
 (applies only to packets logged by OpenBSD's
 .BR pf (4)).
+.IP "\fBrset \fIname\fR"
+True if the packet was logged as matching the specified PF ruleset
+name of an anchored ruleset (applies only to packets logged by
+.BR pf (4)).
+.IP "\fBruleset \fIname\fR"
+Synonomous with the
+.B rset
+modifier.
+.IP "\fBsrnr \fInum\fR"
+True if the packet was logged as matching the specified PF rule number
+of an anchored ruleset (applies only to packets logged by
+.BR pf (4)).
+.IP "\fBsubrulenum \fInum\fR"
+Synonomous with the
+.B srnr
+modifier.
 .IP "\fBaction \fIact\fR"
 True if PF took the specified action when the packet was logged.  Known actions
 are:
@@ -912,7 +932,7 @@ are:
 and
 .B block
 (applies only to packets logged by OpenBSD's
-.BR pf(4)).
+.BR pf (4)).
 .IP "\fBip\fR, \fBip6\fR, \fBarp\fR, \fBrarp\fR, \fBatalk\fR, \fBaarp\fR, \fBdecnet\fR, \fBiso\fR, \fBstp\fR, \fBipx\fR, \fInetbeui\fP"
 Abbreviations for:
 .in +.5i
@@ -2103,7 +2123,7 @@ is made to account for the time lag between when the
 ethernet interface removed the packet from the wire and when the kernel
 serviced the `new packet' interrupt.
 .SH "SEE ALSO"
-traffic(1C), nit(4P), bpf(4), pcap(3)
+stty(1), pcap(3), bpf(4), nit(4P), pfconfig(8)
 .SH AUTHORS
 The original authors are:
 .LP

@@ -34,6 +34,39 @@
 #include "MacRISC2.h"
 #include "IOPlatformMonitor.h"
 
+#define enableUserClientInterface   0
+
+#if enableUserClientInterface    
+#include <IOKit/IOService.h>
+#include <IOKit/IOPlatformExpert.h>
+#include <IOKit/IOTimerEventSource.h>
+#include <IOKit/IOInterruptEventSource.h>
+#include <IOKit/platform/AppleMacIODevice.h>
+#include <IOKit/pwr_mgt/RootDomain.h>
+
+#define kNormal				0
+#define kNoVoltage			1
+#define kDelayAACKOnly		2
+#define kToggleDelayAACK	4
+
+#define kDFSLow				1
+#define kDFSHigh			0
+
+#define kGPULow				1
+#define kGPUHigh			0
+
+#define kSteppedLow			1
+#define kSteppedHigh		0
+
+#ifndef sub_iokit_graphics
+#	define sub_iokit_graphics           err_sub(5)
+#endif
+#ifndef kIOFBLowPowerAggressiveness
+#	define kIOFBLowPowerAggressiveness iokit_family_err(sub_iokit_graphics,1)
+#endif
+
+#endif
+
 class MacRISC2PE;
 class MacRISC2CPUInterruptController;
 
@@ -87,6 +120,23 @@ private:
     const OSSymbol 		*keyLargo_setPowerSupply;
     const OSSymbol 		*uniN_setPowerState;
     const OSSymbol		*uniN_setAACKDelay;
+#if enableUserClientInterface
+    IOWorkLoop			*fWorkLoop;
+    IOTimerEventSource  *fDFSContTimer;
+    IOTimerEventSource  *fGPUContTimer;
+    IOTimerEventSource  *fVStepContTimer;
+    bool				DFS_Status;
+    bool				GPU_Status;
+    bool				vStepped;
+    UInt32				DFSTime;
+    UInt32				GPUTime;
+    UInt32				vStepTime;
+	UInt32				DFScontMode;
+    virtual bool		initTimers(void);
+    virtual void 		DFSContTimerEventOccurred(IOTimerEventSource *sender);
+    virtual void 		GPUContTimerEventOccurred(IOTimerEventSource *sender);
+    virtual void 		vStepContTimerEventOccurred(IOTimerEventSource *sender);
+#endif    
 
 public:
     virtual const OSSymbol *getCPUName(void);
@@ -102,6 +152,20 @@ public:
     virtual void           haltCPU(void);
     virtual void           signalCPU(IOCPU *target);
     virtual void           enableCPUTimeBase(bool enable);
+#if enableUserClientInterface
+    virtual IOReturn		DFS(UInt32 newLevel, UInt32 mode);
+    virtual IOReturn		DFSCont(UInt32 delayTime, UInt32 mode);
+    virtual IOReturn		DFSStopCont(void);
+    virtual IOReturn		SetGPUPower(UInt32 GPUPowerLevel);
+    virtual IOReturn		GPUCont(UInt32 delayTime);
+    virtual IOReturn		GPUStopCont(void);
+    virtual IOReturn		vStep(UInt32 newLevel);
+    virtual IOReturn		vStepCont(UInt32 delayTime);
+    virtual IOReturn		vStepStopCont(void);
+    static  void			DFSTimerEventHandler(OSObject *self, IOTimerEventSource *sender);
+    static  void			GPUTimerEventHandler(OSObject *self, IOTimerEventSource *sender);
+    static  void			vStepTimerEventHandler(OSObject *self, IOTimerEventSource *sender);
+#endif
 };
 
 #endif /* ! _IOKIT_MACRISC2CPU_H */

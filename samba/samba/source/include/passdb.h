@@ -26,6 +26,42 @@
 
 
 /*
+ * fields_present flags meanings
+ * same names as found in samba4 idl files
+ */
+
+#define ACCT_USERNAME		0x00000001
+#define ACCT_FULL_NAME		0x00000002
+#define ACCT_RID		0x00000004
+#define ACCT_PRIMARY_GID	0x00000008
+#define ACCT_ADMIN_DESC		0x00000010
+#define ACCT_DESCRIPTION	0x00000020
+#define ACCT_HOME_DIR		0x00000040
+#define ACCT_HOME_DRIVE		0x00000080
+#define ACCT_LOGON_SCRIPT	0x00000100
+#define ACCT_PROFILE		0x00000200
+#define ACCT_WORKSTATIONS	0x00000400
+#define ACCT_LAST_LOGON		0x00000800
+#define ACCT_LAST_LOGOFF	0x00001000
+#define ACCT_LOGON_HOURS	0x00002000
+#define ACCT_BAD_PWD_COUNT	0x00004000
+#define ACCT_NUM_LOGONS		0x00008000
+#define ACCT_ALLOW_PWD_CHANGE	0x00010000
+#define ACCT_FORCE_PWD_CHANGE	0x00020000
+#define ACCT_LAST_PWD_CHANGE	0x00040000
+#define ACCT_EXPIRY		0x00080000
+#define ACCT_FLAGS		0x00100000
+#define ACCT_CALLBACK		0x00200000
+#define ACCT_COUNTRY_CODE	0x00400000
+#define ACCT_CODE_PAGE		0x00800000
+#define ACCT_NT_PWD_SET		0x01000000
+#define ACCT_LM_PWD_SET		0x02000000
+#define ACCT_PRIVATEDATA	0x04000000
+#define ACCT_EXPIRED_FLAG	0x08000000
+#define ACCT_SEC_DESC		0x10000000
+#define ACCT_OWF_PWD		0x20000000
+
+/*
  * bit flags representing initialized fields in SAM_ACCOUNT
  */
 enum pdb_elements {
@@ -37,6 +73,7 @@ enum pdb_elements {
 	PDB_LOGONTIME,
 	PDB_LOGOFFTIME,
 	PDB_KICKOFFTIME,
+	PDB_BAD_PASSWORD_TIME,
 	PDB_CANCHANGETIME,
 	PDB_MUSTCHANGETIME,
 	PDB_PLAINTEXT_PW,
@@ -56,7 +93,7 @@ enum pdb_elements {
 	PDB_UNKNOWNSTR,
 	PDB_MUNGEDDIAL,
 	PDB_HOURS,
-	PDB_UNKNOWN3,
+	PDB_FIELDS_PRESENT,
 	PDB_BAD_PASSWORD_COUNT,
 	PDB_LOGON_COUNT,
 	PDB_UNKNOWN6,
@@ -88,6 +125,15 @@ enum pdb_value_state {
 #define IS_SAM_SET(x, flag)	(pdb_get_init_flags(x, flag) == PDB_SET)
 #define IS_SAM_CHANGED(x, flag)	(pdb_get_init_flags(x, flag) == PDB_CHANGED)
 #define IS_SAM_DEFAULT(x, flag)	(pdb_get_init_flags(x, flag) == PDB_DEFAULT)
+
+/* cache for bad password lockout data, to be used on replicated SAMs */
+typedef struct logon_cache_struct 
+{
+	time_t entry_timestamp;
+	uint16 acct_ctrl;
+	uint16 bad_password_count;
+	time_t bad_password_time;
+} LOGIN_CACHE;
 		
 typedef struct sam_passwd
 {
@@ -105,6 +151,7 @@ typedef struct sam_passwd
 		time_t logon_time;            /* logon time */
 		time_t logoff_time;           /* logoff time */
 		time_t kickoff_time;          /* kickoff time */
+		time_t bad_password_time;     /* last bad password entered */
 		time_t pass_last_set_time;    /* password last set time */
 		time_t pass_can_change_time;  /* password can change time */
 		time_t pass_must_change_time; /* password must change time */
@@ -131,7 +178,7 @@ typedef struct sam_passwd
 		char* plaintext_pw; /* is Null if not available */
 		
 		uint16 acct_ctrl; /* account info (ACB_xxxx bit-mask) */
-		uint32 unknown_3; /* 0x00ff ffff */
+		uint32 fields_present; /* 0x00ff ffff */
 		
 		uint16 logon_divs; /* 168 - number of hours in a week */
 		uint32 hours_len; /* normally 21 bytes */
@@ -176,6 +223,12 @@ typedef struct sam_group {
 
 } SAM_GROUP;
 
+struct acct_info
+{
+    fstring acct_name; /* account name */
+    fstring acct_desc; /* account name */
+    uint32 rid; /* domain-relative RID */
+};
 
 /*****************************************************************
  Functions to be implemented by the new (v2) passdb API 
@@ -186,7 +239,7 @@ typedef struct sam_group {
  * this SAMBA will load. Increment this if *ANY* changes are made to the interface. 
  */
 
-#define PASSDB_INTERFACE_VERSION 4
+#define PASSDB_INTERFACE_VERSION 5
 
 typedef struct pdb_context 
 {
@@ -231,6 +284,46 @@ typedef struct pdb_context
 					   enum SID_NAME_USE sid_name_use,
 					   GROUP_MAP **rmap, int *num_entries,
 					   BOOL unix_only);
+
+	NTSTATUS (*pdb_find_alias)(struct pdb_context *context,
+				   const char *name, DOM_SID *sid);
+
+	NTSTATUS (*pdb_create_alias)(struct pdb_context *context,
+				     const char *name, uint32 *rid);
+
+	NTSTATUS (*pdb_delete_alias)(struct pdb_context *context,
+				     const DOM_SID *sid);
+
+	NTSTATUS (*pdb_enum_aliases)(struct pdb_context *context,
+				     const DOM_SID *domain_sid,
+				     uint32 start_idx, uint32 num_entries,
+				     uint32 *num_aliases,
+				     struct acct_info **aliases);
+
+	NTSTATUS (*pdb_get_aliasinfo)(struct pdb_context *context,
+				      const DOM_SID *sid,
+				      struct acct_info *info);
+
+	NTSTATUS (*pdb_set_aliasinfo)(struct pdb_context *context,
+				      const DOM_SID *sid,
+				      struct acct_info *info);
+
+	NTSTATUS (*pdb_add_aliasmem)(struct pdb_context *context,
+				     const DOM_SID *alias,
+				     const DOM_SID *member);
+
+	NTSTATUS (*pdb_del_aliasmem)(struct pdb_context *context,
+				     const DOM_SID *alias,
+				     const DOM_SID *member);
+
+	NTSTATUS (*pdb_enum_aliasmem)(struct pdb_context *context,
+				      const DOM_SID *alias,
+				      DOM_SID **members, int *num_members);
+
+	NTSTATUS (*pdb_enum_alias_memberships)(struct pdb_context *context,
+					       const DOM_SID *alias,
+					       DOM_SID **aliases,
+					       int *num);
 
 	void (*free_fn)(struct pdb_context **);
 	
@@ -282,6 +375,39 @@ typedef struct pdb_methods
 				       enum SID_NAME_USE sid_name_use,
 				       GROUP_MAP **rmap, int *num_entries,
 				       BOOL unix_only);
+
+	NTSTATUS (*find_alias)(struct pdb_methods *methods,
+			       const char *name, DOM_SID *sid);
+
+	NTSTATUS (*create_alias)(struct pdb_methods *methods,
+				 const char *name, uint32 *rid);
+
+	NTSTATUS (*delete_alias)(struct pdb_methods *methods,
+				 const DOM_SID *sid);
+
+	NTSTATUS (*enum_aliases)(struct pdb_methods *methods,
+				 const DOM_SID *domain_sid,
+				 uint32 start_idx, uint32 max_entries,
+				 uint32 *num_aliases, struct acct_info **info);
+
+	NTSTATUS (*get_aliasinfo)(struct pdb_methods *methods,
+				  const DOM_SID *sid,
+				  struct acct_info *info);
+
+	NTSTATUS (*set_aliasinfo)(struct pdb_methods *methods,
+				  const DOM_SID *sid,
+				  struct acct_info *info);
+
+	NTSTATUS (*add_aliasmem)(struct pdb_methods *methods,
+				 const DOM_SID *alias, const DOM_SID *member);
+	NTSTATUS (*del_aliasmem)(struct pdb_methods *methods,
+				 const DOM_SID *alias, const DOM_SID *member);
+	NTSTATUS (*enum_aliasmem)(struct pdb_methods *methods,
+				  const DOM_SID *alias, DOM_SID **members,
+				  int *num_members);
+	NTSTATUS (*enum_alias_memberships)(struct pdb_methods *methods,
+					   const DOM_SID *sid,
+					   DOM_SID **aliases, int *num);
 
 	void *private_data;  /* Private data of some kind */
 	

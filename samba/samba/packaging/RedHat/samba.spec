@@ -4,7 +4,7 @@
 Summary: Samba SMB client and server
 Vendor: Samba Team
 Name: samba
-Version: 3.0.2
+Version: 3.0.5
 Release: 1
 License: GNU GPL version 2
 Group: Networking
@@ -159,6 +159,13 @@ make DESTDIR=$RPM_BUILD_ROOT \
 	SAMBABOOK=%{prefix}/share/swat/using_samba \
 	installman installswat installdat installmodules
 cd ..
+
+## don't duplicate the docs.  These are installed with SWAT
+rm -rf docs/htmldocs
+rm -rf docs/manpages
+( cd docs; ln -s %{prefix}/share/swat/help htmldocs )
+
+
 
 # Install the nsswitch wins library
 install -m755 source/nsswitch/libnss_wins.so $RPM_BUILD_ROOT/lib

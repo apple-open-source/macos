@@ -27,8 +27,10 @@
  **/
 
 int modify_window = 0;
+int module_id = -1;
+struct exclude_list_struct server_exclude_list;
 
- void rprintf(enum logcode UNUSED(code), const char *format, ...)
+ void rprintf(UNUSED(enum logcode code), const char *format, ...)
 {
 	va_list ap;
 	va_start(ap, format);
@@ -42,3 +44,27 @@ int modify_window = 0;
 		code, file, line);
 	exit(code);
 }
+
+ int check_exclude(UNUSED(struct exclude_list_struct *listp), UNUSED(char *name),
+		   UNUSED(int name_is_dir))
+{
+	/* This function doesn't really get called in this test context, so
+	 * just return 0. */
+	return 0;
+}
+
+ char *lp_name(UNUSED(int mod))
+{
+    return NULL;
+}
+
+ BOOL lp_use_chroot(UNUSED(int mod))
+{
+    return 0;
+}
+
+ char *lp_path(UNUSED(int mod))
+{
+    return NULL;
+}
+

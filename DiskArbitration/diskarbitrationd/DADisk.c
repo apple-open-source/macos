@@ -27,6 +27,7 @@
 #include "DAInternal.h"
 #include "DALog.h"
 
+#include <grp.h>
 #include <paths.h>
 #include <pwd.h>
 #include <sys/mount.h>
@@ -47,6 +48,7 @@ struct __DADisk
     CFTypeRef              _contextRe;
     CFMutableDictionaryRef _description;
     CFURLRef               _device;
+    char *                 _deviceLink[2];
     dev_t                  _deviceNode;
     char *                 _devicePath[2];
     SInt32                 _deviceUnit;
@@ -118,6 +120,8 @@ static DADiskRef __DADiskCreate( CFAllocatorRef allocator, const char * id )
         disk->_contextRe     = NULL;
         disk->_description   = CFDictionaryCreateMutable( allocator, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
         disk->_device        = NULL;
+        disk->_deviceLink[0] = NULL;
+        disk->_deviceLink[1] = NULL;
         disk->_deviceNode    = 0;
         disk->_devicePath[0] = NULL;
         disk->_devicePath[1] = NULL;
@@ -125,13 +129,13 @@ static DADiskRef __DADiskCreate( CFAllocatorRef allocator, const char * id )
         disk->_filesystem    = NULL;
         disk->_id            = strdup( id );
         disk->_media         = NULL;
-        disk->_mode          = 0755;
+        disk->_mode          = 0;
         disk->_options       = 0;
         disk->_serialization = NULL;
         disk->_state         = 0;
-        disk->_userEGID      = ___GID_ADMIN;
+        disk->_userEGID      = ___GID_WHEEL;
         disk->_userEUID      = ___UID_ROOT;
-        disk->_userRGID      = ___GID_ADMIN;
+        disk->_userRGID      = ___GID_WHEEL;
         disk->_userRUID      = ___UID_ROOT;
 
         assert( disk->_description );
@@ -160,6 +164,8 @@ static void __DADiskDeallocate( CFTypeRef object )
     if ( disk->_contextRe     )  CFRelease( disk->_contextRe );
     if ( disk->_description   )  CFRelease( disk->_description );
     if ( disk->_device        )  CFRelease( disk->_device );
+    if ( disk->_deviceLink[0] )  free( disk->_deviceLink[0] );
+    if ( disk->_deviceLink[1] )  free( disk->_deviceLink[1] );
     if ( disk->_devicePath[0] )  free( disk->_devicePath[0] );
     if ( disk->_devicePath[1] )  free( disk->_devicePath[1] );
     if ( disk->_filesystem    )  CFRelease( disk->_filesystem );
@@ -770,7 +776,7 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
         disk->_userRUID = ___UID_UNKNOWN;
     }
 
-    object = IORegistryEntrySearchCFProperty( device,
+    object = IORegistryEntrySearchCFProperty( media,
                                               kIOServicePlane,
                                               CFSTR( "owner-uid" ),
                                               allocator,
@@ -778,24 +784,52 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
 
     if ( object )
     {
-        struct passwd * user;
-        int             userUID;
-
-        CFNumberGetValue( object, kCFNumberIntType, &userUID );
-        CFRelease( object );
-
-        user = getpwuid( userUID );
-
-        if ( user )
+        if ( CFGetTypeID( object ) == CFNumberGetTypeID( ) )
         {
-            disk->_userEGID = user->pw_gid;
-            disk->_userEUID = user->pw_uid;
-            disk->_userRGID = user->pw_gid;
-            disk->_userRUID = user->pw_uid;
+            int value;
+
+            CFNumberGetValue( object, kCFNumberIntType, &value );
+
+            disk->_userEUID = value;
+            disk->_userRUID = value;
+///w:start
+            struct passwd * user;
+
+            user = getpwuid( value );
+
+            if ( user )
+            {
+                disk->_userEGID = user->pw_gid;
+                disk->_userRGID = user->pw_gid;
+            }
+///w:stop
         }
+
+        CFRelease( object );
     }
 
-    object = IORegistryEntrySearchCFProperty( device,
+    object = IORegistryEntrySearchCFProperty( media,
+                                              kIOServicePlane,
+                                              CFSTR( "owner-gid" ),
+                                              allocator,
+                                              kIORegistryIterateParents | kIORegistryIterateRecursively );
+
+    if ( object )
+    {
+        if ( CFGetTypeID( object ) == CFNumberGetTypeID( ) )
+        {
+            int value;
+
+            CFNumberGetValue( object, kCFNumberIntType, &value );
+
+            disk->_userEGID = value;
+            disk->_userRGID = value;
+        }
+
+        CFRelease( object );
+    }
+
+    object = IORegistryEntrySearchCFProperty( media,
                                               kIOServicePlane,
                                               CFSTR( "owner-mode" ),
                                               allocator,
@@ -803,12 +837,48 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
 
     if ( object )
     {
-        int mode;
+        if ( CFGetTypeID( object ) == CFNumberGetTypeID( ) )
+        {
+            int value;
 
-        CFNumberGetValue( object, kCFNumberIntType, &mode );
+            CFNumberGetValue( object, kCFNumberIntType, &value );
+
+            disk->_mode = value;
+        }
+
         CFRelease( object );
+    }
 
-        disk->_mode = mode;
+    /*
+     * Create the disk state -- media BSD link.
+     */
+
+    object = IORegistryEntrySearchCFProperty( media,
+                                              kIOServicePlane,
+                                              CFSTR( "dev-name" ),
+                                              allocator,
+                                              0 );
+
+    if ( object )
+    {
+        if ( CFGetTypeID( object ) == CFStringGetTypeID( ) )
+        {
+            if ( CFStringGetCString( object, name, sizeof( name ), kCFStringEncodingUTF8 ) )
+            {
+                strcpy( path, _PATH_DEV );
+                strcat( path, name );
+
+                disk->_deviceLink[0] = strdup( path );
+
+                strcpy( path, _PATH_DEV );
+                strcat( path, "r" );
+                strcat( path, name );
+
+                disk->_deviceLink[1] = strdup( path );
+            }
+        }
+
+        CFRelease( object );
     }
 
     IOObjectRelease( device );
@@ -898,6 +968,11 @@ CFURLRef DADiskGetBypath( DADiskRef disk )
     return disk->_bypath;
 }
 
+const char * DADiskGetBSDLink( DADiskRef disk, Boolean raw )
+{
+    return disk->_deviceLink[ raw ? 1 : 0 ];
+}
+
 dev_t DADiskGetBSDNode( DADiskRef disk )
 {
     return disk->_deviceNode;
@@ -955,7 +1030,16 @@ io_service_t DADiskGetIOMedia( DADiskRef disk )
 
 mode_t DADiskGetMode( DADiskRef disk )
 {
-    return disk->_mode;
+    mode_t mode;
+
+    mode = disk->_mode;
+
+    if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWritableKey ) == kCFBooleanFalse )
+    {
+        mode &= 0555;
+    }
+
+    return mode;
 }
 
 Boolean DADiskGetOption( DADiskRef disk, DADiskOption option )
@@ -1124,6 +1208,21 @@ void DADiskSetBypath( DADiskRef disk, CFURLRef bypath )
         CFRetain( bypath );
 
         disk->_bypath = bypath;
+    }
+}
+
+void DADiskSetBSDLink( DADiskRef disk, Boolean raw, const char * link )
+{
+    if ( disk->_deviceLink[ raw ? 1 : 0 ] )
+    {
+        free( disk->_deviceLink[ raw ? 1 : 0 ] );
+
+        disk->_deviceLink[ raw ? 1 : 0 ] = NULL;
+    }
+
+    if ( link )
+    {
+        disk->_deviceLink[ raw ? 1 : 0 ] = strdup( link );
     }
 }
 

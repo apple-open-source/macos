@@ -65,6 +65,14 @@ bool MacRISC2CPU::start(IOService *provider)
     UInt32               maxCPUs, uniNVersion, physCPU;
     ml_processor_info_t  processor_info;
     
+#if enableUserClientInterface    
+	DFScontMode = 0;
+    fWorkLoop = 0;
+    DFS_Status = false;
+    GPU_Status = kGPUHigh;
+	vStepped = false;
+#endif
+
     // callPlatformFunction symbols
     mpic_getProvider = OSSymbol::withCString("mpic_getProvider");
     mpic_getIPIVector= OSSymbol::withCString("mpic_getIPIVector");
@@ -289,6 +297,22 @@ bool MacRISC2CPU::start(IOService *provider)
             }
     }
 
+#if enableUserClientInterface    
+//   
+// UserClient stuff...
+//  
+    fWorkLoop = getWorkLoop();
+    if(!fWorkLoop)
+    {
+            IOLog("MacRISC2CPU::start ERROR: failed to find a fWorkLoop\n");
+    }
+    if(!initTimers()) 
+    {
+            IOLog("MacRISC2CPU::start ERROR: failed to init the timers\n");
+    }
+    
+#endif
+
     registerService();
   
     return true;
@@ -367,7 +391,7 @@ IOReturn MacRISC2CPU::setAggressiveness(UInt32 selector, UInt32 newLevel)
 {
 	bool		doChange = false;
 	IOReturn	result;
-    
+        	    
 	// on machines that use the processor based speed change, we check ignoreSpeedChange to see
 	// if we should ignore speed change requests. this is to avoid changing speed in the middle of
 	// a sleep/wake cycle.
@@ -379,7 +403,8 @@ IOReturn MacRISC2CPU::setAggressiveness(UInt32 selector, UInt32 newLevel)
 		
     result = super::setAggressiveness(selector, newLevel);
 	
-    if ((selector == kPMSetProcessorSpeed) && (macRISC2PE->processorSpeedChangeFlags != kNoSpeedChange)) {
+    if ((selector == kPMSetProcessorSpeed) && (macRISC2PE->processorSpeedChangeFlags != kNoSpeedChange))
+    {
 		/*
 		 * If we're using the platform monitor, then we let the platform monitor handle the standard
 		 * call (i.e., newLevel = 0 or 1).  If it wants a speed change, the platform monitor will
@@ -436,53 +461,64 @@ IOReturn MacRISC2CPU::setAggressiveness(UInt32 selector, UInt32 newLevel)
 						ml_enable_cache_level(3, !newLevel);
 						macRISC2PE->processorSpeedChangeFlags |= kL3CacheEnabled;
 					}
-				} else if (macRISC2PE->processorSpeedChangeFlags & kL3CacheEnabled) {
+				}
+                else if (macRISC2PE->processorSpeedChangeFlags & kL3CacheEnabled)
+                {
 					// Disable it
 					ml_enable_cache_level(3, !newLevel);
 					macRISC2PE->processorSpeedChangeFlags &= ~kL3CacheEnabled;
 				}
 			}
 		}
-		if (!newLevel) {
+        
+		if (!newLevel)
+        {
 			// See if already running slow
-			if (!(macRISC2PE->processorSpeedChangeFlags & kProcessorFast)) {
+			if (!(macRISC2PE->processorSpeedChangeFlags & kProcessorFast))
+            {
 				// Signal to switch
 				doChange = true;
 				macRISC2PE->processorSpeedChangeFlags |= kProcessorFast;
 			}
-		} else if (macRISC2PE->processorSpeedChangeFlags & kProcessorFast) {
+		}
+        else if (macRISC2PE->processorSpeedChangeFlags & kProcessorFast)
+        {
 			// Signal to switch
 			doChange = true;
 			macRISC2PE->processorSpeedChangeFlags &= ~kProcessorFast;
 		}
 
-		if (macRISC2PE->processorSpeedChangeFlags & kPMUBasedSpeedChange) {
+		if (macRISC2PE->processorSpeedChangeFlags & kPMUBasedSpeedChange)
+        {
 			if (doChange) 
 				performPMUSpeedChange (newLevel);
 		} 
-		if ((macRISC2PE->processorSpeedChangeFlags & kProcessorBasedSpeedChange) && doChange && ! (macRISC2PE->processorSpeedChangeFlags & kBusSlewBasedSpeedChange)) {
+        
+		if ((macRISC2PE->processorSpeedChangeFlags & kProcessorBasedSpeedChange) && doChange && ! (macRISC2PE->processorSpeedChangeFlags & kBusSlewBasedSpeedChange))
+        {
 			IOReturn cpfResult = kIOReturnSuccess;
 			
 			if (newLevel == 0)
 				cpfResult = keyLargo->callPlatformFunction (keyLargo_setPowerSupply, false,
 					(void *)1, (void *)0, (void *)0, (void *)0);
 			
-			if (cpfResult == kIOReturnSuccess) {  
+			if (cpfResult == kIOReturnSuccess)
+            {  
 				// Set processor to new speed setting.
-                                
-                                if (needVSetting && (newLevel == 0))
-                                         ml_set_processor_voltage(0);	// High
-                                
-                                if (needAACKDelay && (newLevel == 1))
-                                    uniN->callPlatformFunction (uniN_setAACKDelay, false, (void *)1, (void *)0, (void *)0, (void *)0);
+                
+                if (needVSetting && (newLevel == 0))
+                            ml_set_processor_voltage(0);	// High
+                
+                if (needAACKDelay && (newLevel == 1))
+                    uniN->callPlatformFunction (uniN_setAACKDelay, false, (void *)1, (void *)0, (void *)0, (void *)0);
 
 				ml_set_processor_speed(newLevel ? 1 : 0);
                                 
-                                if (needAACKDelay & (newLevel == 0))
-                                    uniN->callPlatformFunction (uniN_setAACKDelay, false, (void *)0, (void *)0, (void *)0, (void *)0);
-                                
-                                if (needVSetting && (newLevel != 0))
-                                     ml_set_processor_voltage(1);	// Low
+                if (needAACKDelay & (newLevel == 0))
+                    uniN->callPlatformFunction (uniN_setAACKDelay, false, (void *)0, (void *)0, (void *)0, (void *)0);
+                
+                if (needVSetting && (newLevel != 0))
+                        ml_set_processor_voltage(1);	// Low
                                 
 				if (newLevel != 0)
 					cpfResult = keyLargo->callPlatformFunction (keyLargo_setPowerSupply, false,
@@ -578,7 +614,9 @@ void MacRISC2CPU::quiesceCPU(void)
         if (processorSpeedChange) {
             // Send PMU command to speed the system
             pmu->callPlatformFunction("setSpeedNow", false, (void *)currentProcessorSpeed, 0, 0, 0);
-        } else {
+        }
+        else
+        {
 			// Send PMU command to shutdown system before io is turned off
 				pmu->callPlatformFunction("sleepNow", false, 0, 0, 0, 0);
 	
@@ -788,3 +826,379 @@ const OSSymbol *MacRISC2CPU::getCPUName(void)
   
     return OSSymbol::withCString(tmpStr);
 }
+
+#if enableUserClientInterface
+
+// **********************************************************************************
+//
+// !!!!!!!  USER CLIENT ROUTINES  !!!!!!!! 
+//
+// **********************************************************************************
+
+//%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+//
+//  vSTEP code - vSTEP code - vSTEP code
+//
+//%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+IOReturn MacRISC2CPU::vStep(UInt32 newLevel)
+{
+	IOLog("MacRISC2CPU::vStep - START!\n");
+        
+	if (newLevel)
+		vStepped = true;
+	else
+		vStepped = false;
+		
+	performPMUSpeedChange (newLevel);
+	return kIOReturnSuccess;
+}
+
+
+IOReturn MacRISC2CPU::vStepCont(UInt32 delayTime)
+{
+	IOLog("MacRISC2CPU::vStepCont - START - delay time = %ld ms\n", delayTime);
+
+	vStepTime = delayTime;
+
+        fVStepContTimer->setTimeoutMS(vStepTime);
+
+	IOLog("MacRISC2CPU::vStepCont - STOP\n");
+
+	return kIOReturnSuccess;
+}
+
+
+// this is used to stop the continuous slewing started in slewContinuousWithTime
+IOReturn MacRISC2CPU::vStepStopCont(void)
+{
+	IOLog("MacRISC2CPU::vStepStopCont START\n");
+
+	// cancelling this timer stops slewContinuousWithTime 
+	if(fVStepContTimer)
+		fVStepContTimer->cancelTimeout();
+
+	IOLog("MacRISC2CPU::vStepStopCont STOP\n");
+	return kIOReturnSuccess;
+}
+
+
+void MacRISC2CPU::vStepContTimerEventOccurred(IOTimerEventSource *sender)
+{
+	//IOLog("\nMacRISC2CPU::vStepContTimerEventOccurred - START \n");
+	
+	// this timer is used for automatic slewing with a time interval in between slews.
+	// this is for testing purposes only, and will not be called by the OS.
+	if(vStepped == kSteppedLow)
+	{
+		//IOLog("MacRISC2CPU::vStepContTimerEventOccurred - vStep high\n");
+		vStepped = kSteppedHigh;
+		performPMUSpeedChange (kSteppedHigh);
+		fVStepContTimer->setTimeoutMS(vStepTime);
+
+	} else
+	{
+		//IOLog("MacRISC2CPU::vStepContTimerEventOccurred - vStep low\n");
+		vStepped = kSteppedLow;
+		performPMUSpeedChange (kSteppedHigh);		// ****** we only need to go thru the "motions" of vStepping so only go high *****
+		//performPMUSpeedChange (kSteppedLow);
+		fVStepContTimer->setTimeoutMS(vStepTime);
+	}
+		
+	//IOLog("\nMacRISC2CPU::vStepContTimerEventOccurred - STOP \n");
+}
+
+// this routine is called every time fVStepContTimer fires. this is used for continous slewing (testing only).
+void MacRISC2CPU::vStepTimerEventHandler(OSObject *self, IOTimerEventSource *sender)
+{
+	MacRISC2CPU*	mr2cpu = (MacRISC2CPU*)self;
+
+	mr2cpu->vStepContTimerEventOccurred(sender);
+}
+
+//%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+//
+
+
+IOReturn MacRISC2CPU::DFS(UInt32 newLevel, UInt32 mode)
+{
+	IOReturn cpfResult = kIOReturnSuccess;
+	
+	IOLog("MacRISC2CPU::DFS - START!\n");
+        
+	if (newLevel) {
+		if (mode & kToggleDelayAACK)
+			uniN->callPlatformFunction (uniN_setAACKDelay, false, (void *)1, (void *)0, (void *)0, (void *)0);
+		else
+			if (needAACKDelay)
+				uniN->callPlatformFunction (uniN_setAACKDelay, false, (void *)1, (void *)0, (void *)0, (void *)0);
+
+		DFS_Status = kDFSLow;
+		if ( !( mode & kDelayAACKOnly)) {
+			ml_set_processor_speed(newLevel ? 1 : 0);
+			if (!( mode & kNoVoltage ))
+				cpfResult = keyLargo->callPlatformFunction (keyLargo_setPowerSupply, false,
+					(void *)0, (void *)0, (void *)0, (void *)0);
+		}
+	}
+	else {
+		if (!( mode & kNoVoltage ))
+			cpfResult = keyLargo->callPlatformFunction (keyLargo_setPowerSupply, false,
+				(void *)1, (void *)0, (void *)0, (void *)0);
+
+		DFS_Status = kDFSHigh;
+		if ( !( mode & kDelayAACKOnly)) 
+			ml_set_processor_speed(newLevel ? 1 : 0);
+
+		if (mode & kToggleDelayAACK)
+			uniN->callPlatformFunction (uniN_setAACKDelay, false, (void *)0, (void *)0, (void *)0, (void *)0);
+		else
+			if (needAACKDelay)
+				uniN->callPlatformFunction (uniN_setAACKDelay, false, (void *)0, (void *)0, (void *)0, (void *)0);
+	}
+	return kIOReturnSuccess;
+}
+
+
+IOReturn MacRISC2CPU::DFSCont(UInt32 delayTime, UInt32 mode)
+{
+	IOLog("MacRISC2CPU::DFSCont - START - delay time = %ld ms\n", delayTime);
+
+	DFSTime = delayTime;
+
+        fDFSContTimer->setTimeoutMS(DFSTime);
+
+	DFScontMode = mode;
+	
+	IOLog("MacRISC2CPU::DFSCont - STOP\n");
+	return kIOReturnSuccess;
+}
+
+IOReturn MacRISC2CPU::SetGPUPower(UInt32 GPUPowerLevel)
+{
+	IOLog("MacRISC2CPU::SetGPU - START - GPU Power level = %ld\n", GPUPowerLevel);
+
+	pmRootDomain->setAggressiveness (kIOFBLowPowerAggressiveness, GPUPowerLevel);
+	
+	return kIOReturnSuccess;
+}
+
+
+IOReturn MacRISC2CPU::GPUCont(UInt32 delayTime)
+{
+	IOLog("MacRISC2CPU::GPUCont - START - delay time = %ld ms\n", delayTime);
+
+	GPUTime = delayTime;
+
+        fGPUContTimer->setTimeoutMS(GPUTime);
+
+	DFScontMode = 0;
+	
+	return kIOReturnSuccess;
+}
+
+
+// this is used to stop the continuous slewing started in slewContinuousWithTime
+IOReturn MacRISC2CPU::DFSStopCont(void)
+{
+	IOLog("MacRISC2CPU::DFSStopCont START\n");
+
+	// cancelling this timer stops DFSContinuousWithTime 
+	if(fDFSContTimer)
+		fDFSContTimer->cancelTimeout();
+	DFScontMode = 0;							// clear any special modes, i.e. AACK Only, no voltage change...
+	IOLog("MacRISC2CPU::DFSStopCont STOP\n");
+	return kIOReturnSuccess;
+}
+
+// this is used to stop the continuous slewing started in slewContinuousWithTime
+IOReturn MacRISC2CPU::GPUStopCont(void)
+{
+	IOLog("MacRISC2CPU::GPUStopCont START\n");
+
+	// cancelling this timer stops GPUContinuousWithTime 
+	if(fGPUContTimer)
+		fGPUContTimer->cancelTimeout();
+	DFScontMode = 0;							// clear any special modes, i.e. AACK Only, no voltage change...
+	IOLog("MacRISC2CPU::GPUStopCont STOP\n");
+	return kIOReturnSuccess;
+}
+
+
+void MacRISC2CPU::DFSContTimerEventOccurred(IOTimerEventSource *sender)
+{
+	IOReturn cpfResult = kIOReturnSuccess;
+	//IOLog("\nMacRISC2CPU::DFSContTimerEventOccurred - START \n");
+	
+	// this timer is used for automatic slewing with a time interval in between slews.
+	// this is for testing purposes only, and will not be called by the OS.
+	if(DFS_Status == kDFSLow)
+	{
+		//IOLog("MacRISC2CPU::DFSContTimerEventOccurred - set to DFS high\n");
+		DFS_Status = kDFSHigh;
+		if ( ! (DFScontMode & kDelayAACKOnly)) {
+			if ( ! (DFScontMode & kNoVoltage)) 
+				cpfResult = keyLargo->callPlatformFunction (keyLargo_setPowerSupply, false,
+					(void *)1, (void *)0, (void *)0, (void *)0);
+			
+			ml_set_processor_speed(0);
+		}
+
+		if (DFScontMode & kToggleDelayAACK)
+			uniN->callPlatformFunction (uniN_setAACKDelay, false, (void *)0, (void *)0, (void *)0, (void *)0);
+		else
+			if (needAACKDelay)
+				uniN->callPlatformFunction (uniN_setAACKDelay, false, (void *)0, (void *)0, (void *)0, (void *)0);
+
+		//uniN->callPlatformFunction (uniN_setAACKDelay, false, (void *)0, (void *)0, (void *)0, (void *)0);
+		fDFSContTimer->setTimeoutMS(DFSTime);
+
+	} else
+	{
+		//IOLog("MacRISC2CPU::DFSContTimerEventOccurred - set to DFS low\n");
+		DFS_Status = kDFSLow;
+		if (DFScontMode & kToggleDelayAACK)
+			uniN->callPlatformFunction (uniN_setAACKDelay, false, (void *)1, (void *)0, (void *)0, (void *)0);
+		else
+			if (needAACKDelay)
+				uniN->callPlatformFunction (uniN_setAACKDelay, false, (void *)1, (void *)0, (void *)0, (void *)0);
+
+		//uniN->callPlatformFunction (uniN_setAACKDelay, false, (void *)1, (void *)0, (void *)0, (void *)0);
+		
+		if ( ! (DFScontMode & kDelayAACKOnly)) {
+			ml_set_processor_speed(1);
+			if ( ! (DFScontMode & kNoVoltage)) 
+				cpfResult = keyLargo->callPlatformFunction (keyLargo_setPowerSupply, false,
+					(void *)0, (void *)0, (void *)0, (void *)0);
+		}
+		fDFSContTimer->setTimeoutMS(DFSTime);
+	}
+		
+	//IOLog("\nMacRISC2CPU::DFSContTimerEventOccurred - STOP \n");
+}
+
+void MacRISC2CPU::GPUContTimerEventOccurred(IOTimerEventSource *sender)
+{
+	//IOReturn cpfResult = kIOReturnSuccess;
+	//IOLog("\nMacRISC2CPU::GPUContTimerEventOccurred - START \n");
+	
+	// this timer is used for automatic slewing with a time interval in between slews.
+	// this is for testing purposes only, and will not be called by the OS.
+	if(GPU_Status == kGPULow)
+	{
+		IOLog("MacRISC2CPU::GPUContTimerEventOccurred - set to GPU high\n");
+		GPU_Status = kGPUHigh;
+		pmRootDomain->setAggressiveness (kIOFBLowPowerAggressiveness, 0);
+		fGPUContTimer->setTimeoutMS(GPUTime);
+
+	} else
+	{
+		IOLog("MacRISC2CPU::GPUContTimerEventOccurred - set to GPU low\n");
+		GPU_Status = kGPULow;
+		pmRootDomain->setAggressiveness (kIOFBLowPowerAggressiveness, 2);
+		fGPUContTimer->setTimeoutMS(GPUTime);
+	}
+		
+	//IOLog("\nMacRISC2CPU::DFSContTimerEventOccurred - STOP \n");
+}
+
+// this routine is called every time fDFSContTimer fires. this is used for continous slewing (testing only).
+void MacRISC2CPU::DFSTimerEventHandler(OSObject *self, IOTimerEventSource *sender)
+{
+	MacRISC2CPU*	mr2cpu = (MacRISC2CPU*)self;
+
+	mr2cpu->DFSContTimerEventOccurred(sender);
+}
+
+// this routine is called every time fDFSContTimer fires. this is used for continous slewing (testing only).
+void MacRISC2CPU::GPUTimerEventHandler(OSObject *self, IOTimerEventSource *sender)
+{
+	MacRISC2CPU*	mr2cpu = (MacRISC2CPU*)self;
+
+	mr2cpu->GPUContTimerEventOccurred(sender);
+}
+
+
+bool MacRISC2CPU::initTimers(void)
+{
+	//IOLog("MacRISC2CPU::initTimers START\n");
+	
+	// set up the "DFS continuous" timer
+	fDFSContTimer = IOTimerEventSource::timerEventSource(this, DFSTimerEventHandler);
+	if(!fDFSContTimer) {
+		IOLog("MacRISC2CPU::initTimers ERROR: failed to create fDFSContTimer\n");
+		goto MacRISC2CPU_RemoveBothTimers;
+	}
+
+	// add the "DFS continuous" timer to the workloop
+	if(fWorkLoop->addEventSource(fDFSContTimer) != kIOReturnSuccess) {
+		IOLog("MacRISC2CPU::initTimers ERROR: failed to add fDFSContTimer to fWorkLoop\n");
+		fDFSContTimer->release();
+		goto MacRISC2CPU_RemoveBothTimers;
+	}
+
+	// set up the "GPU continuous" timer
+	fGPUContTimer = IOTimerEventSource::timerEventSource(this, GPUTimerEventHandler);
+	if(!fGPUContTimer) {
+		IOLog("MacRISC2CPU::initTimers ERROR: failed to create fGPUContTimer\n");
+		goto MacRISC2CPU_RemoveBothTimers2;
+	}
+
+	// add the "GPU continuous" timer to the workloop
+	if(fWorkLoop->addEventSource(fGPUContTimer) != kIOReturnSuccess) {
+		IOLog("MacRISC2CPU::initTimers ERROR: failed to add fGPUContTimer to fWorkLoop\n");
+		fGPUContTimer->release();
+		goto MacRISC2CPU_RemoveBothTimers2;
+	}
+
+	// set up the "vStep continuous" timer
+	fVStepContTimer = IOTimerEventSource::timerEventSource(this, vStepTimerEventHandler);
+	if(!fVStepContTimer) {
+		IOLog("MacRISC2CPU::initTimers ERROR: failed to create fVStepContTimer\n");
+		goto MacRISC2CPU_RemoveBothTimers3;
+	}
+
+	// add the "vStep continuous" timer to the workloop
+	if(fWorkLoop->addEventSource(fVStepContTimer) != kIOReturnSuccess) {
+		IOLog("MacRISC2CPU::initTimers ERROR: failed to add fVStepContTimer to fWorkLoop\n");
+		fVStepContTimer->release();
+		goto MacRISC2CPU_RemoveBothTimers3;
+	}
+	//IOLog("MacRISC2CPU::initTimers STOP\n");
+	return true;
+
+MacRISC2CPU_RemoveBothTimers:
+
+	// if we fail after we've created and added both the fSlewContTimer and fVoltageDoneTimer
+	// to the workloop, we have to remove and release them here.
+	fWorkLoop->removeEventSource(fDFSContTimer);
+	fDFSContTimer->release();
+
+
+	IOLog("MacRISC2CPU::initTimers STOP EARLY\n");
+	return false;
+
+MacRISC2CPU_RemoveBothTimers2:
+
+	// if we fail after we've created and added both the fSlewContTimer and fVoltageDoneTimer
+	// to the workloop, we have to remove and release them here.
+	fWorkLoop->removeEventSource(fGPUContTimer);
+	fGPUContTimer->release();
+
+
+	IOLog("MacRISC2CPU::initTimers STOP EARLY\n");
+	return false;
+
+
+MacRISC2CPU_RemoveBothTimers3:
+
+	// if we fail after we've created and added both the fSlewContTimer and fVoltageDoneTimer
+	// to the workloop, we have to remove and release them here.
+	fWorkLoop->removeEventSource(fVStepContTimer);
+	fVStepContTimer->release();
+
+
+	IOLog("MacRISC2CPU::initTimers STOP EARLY\n");
+	return false;
+}
+
+#endif

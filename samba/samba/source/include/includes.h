@@ -25,6 +25,10 @@
 #include "config.h"
 #endif
 
+#ifdef WITH_OPENDIRECTORY
+#include <DirectoryService/DirectoryService.h>
+#endif
+
 #include "local.h"
 
 #ifdef AIX
@@ -43,15 +47,6 @@
 #ifdef SUNOS4
 /* on SUNOS4 termios.h conflicts with sys/ioctl.h */
 #undef HAVE_TERMIOS_H
-#endif
-
-#ifdef LINUX
-#ifndef DEFAULT_PRINTING
-#define DEFAULT_PRINTING PRINT_BSD
-#endif
-#ifndef PRINTCAP_NAME
-#define PRINTCAP_NAME "/etc/printcap"
-#endif
 #endif
 
 #ifdef __GNUC__
@@ -347,8 +342,9 @@
 
 #ifdef HAVE_SYS_CAPABILITY_H
 
-#if defined(BROKEN_REDHAT_7_SYSTEM_HEADERS) && !defined(_I386_STATFS_H)
+#if defined(BROKEN_REDHAT_7_SYSTEM_HEADERS) && !defined(_I386_STATFS_H) && !defined(_PPC_STATFS_H)
 #define _I386_STATFS_H
+#define _PPC_STATFS_H
 #define BROKEN_REDHAT_7_STATFS_WORKAROUND
 #endif
 
@@ -356,6 +352,7 @@
 
 #ifdef BROKEN_REDHAT_7_STATFS_WORKAROUND
 #undef _I386_STATFS_H
+#undef _PPC_STATFS_H
 #undef BROKEN_REDHAT_7_STATFS_WORKAROUND
 #endif
 
@@ -399,6 +396,9 @@
 #ifdef HAVE_GICONV
 #include <giconv.h>
 #endif
+#ifdef HAVE_BICONV
+#include <biconv.h>
+#endif
 #endif
 
 #if HAVE_KRB5_H
@@ -437,8 +437,11 @@
 #include <sys/attributes.h>
 #endif
 
+/* mutually exclusive (SuSE 8.2) */
 #if HAVE_ATTR_XATTR_H
 #include <attr/xattr.h>
+#elif HAVE_SYS_XATTR_H
+#include <sys/xattr.h>
 #endif
 
 #if HAVE_LOCALE_H
@@ -616,6 +619,18 @@ typedef int socklen_t;
 #  endif
 #endif
 
+#if defined(HAVE_LONGLONG)
+#define SMB_BIG_UINT unsigned long long
+#define SMB_BIG_INT long long
+#define SBIG_UINT(p, ofs, v) (SIVAL(p,ofs,(v)&0xFFFFFFFF), SIVAL(p,(ofs)+4,(v)>>32))
+#else
+#define SMB_BIG_UINT unsigned long
+#define SMB_BIG_INT long
+#define SBIG_UINT(p, ofs, v) (SIVAL(p,ofs,v),SIVAL(p,(ofs)+4,0))
+#endif
+
+#define SMB_BIG_UINT_BITS (sizeof(SMB_BIG_UINT)*8)
+
 /* this should really be a 64 bit type if possible */
 #define br_off SMB_BIG_UINT
 
@@ -705,18 +720,6 @@ typedef int socklen_t;
 #    define SMB_F_GETLK F_GETLK
 #  endif
 #endif
-
-#if defined(HAVE_LONGLONG)
-#define SMB_BIG_UINT unsigned long long
-#define SMB_BIG_INT long long
-#define SBIG_UINT(p, ofs, v) (SIVAL(p,ofs,(v)&0xFFFFFFFF), SIVAL(p,(ofs)+4,(v)>>32))
-#else
-#define SMB_BIG_UINT unsigned long
-#define SMB_BIG_INT long
-#define SBIG_UINT(p, ofs, v) (SIVAL(p,ofs,v),SIVAL(p,(ofs)+4,0))
-#endif
-
-#define SMB_BIG_UINT_BITS (sizeof(SMB_BIG_UINT)*8)
 
 #ifndef MIN
 #define MIN(a,b) ((a)<(b)?(a):(b))
@@ -1072,9 +1075,9 @@ int vasprintf(char **ptr, const char *format, va_list ap);
 /* default socket options. Dave Miller thinks we should default to TCP_NODELAY
    given the socket IO pattern that Samba uses */
 #ifdef TCP_NODELAY
-#define DEFAULT_SOCKET_OPTIONS "TCP_NODELAY"
+#define DEFAULT_SOCKET_OPTIONS "TCP_NODELAY SO_RCVBUF=64240"
 #else
-#define DEFAULT_SOCKET_OPTIONS ""
+#define DEFAULT_SOCKET_OPTIONS "SO_RCVBUF=64240"
 #endif
 
 /* Load header file for dynamic linking stuff */

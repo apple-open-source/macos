@@ -389,7 +389,7 @@ static BOOL rw_torture3(struct cli_state *c, char *lockfname)
 		{
 			fnum = cli_open(c, lockfname, O_RDONLY, 
 					 DENY_NONE);
-			msleep(10);
+			smb_msleep(10);
 		}
 		if (fnum == -1) {
 			printf("second open read-only of %s failed (%s)\n",
@@ -2493,19 +2493,19 @@ static BOOL run_trans2test(int dummy)
 
 static BOOL new_trans(struct cli_state *pcli, int fnum, int level)
 {
-	char buf[4096];
+	char *buf = NULL;
+	uint32 len;
 	BOOL correct = True;
 
-	memset(buf, 0xff, sizeof(buf));
-
-	if (!cli_qfileinfo_test(pcli, fnum, level, buf)) {
+	if (!cli_qfileinfo_test(pcli, fnum, level, &buf, &len)) {
 		printf("ERROR: qfileinfo (%d) failed (%s)\n", level, cli_errstr(pcli));
 		correct = False;
 	} else {
-		printf("qfileinfo: level %d\n", level);
-		dump_data(0, buf, 256);
+		printf("qfileinfo: level %d, len = %u\n", level, len);
+		dump_data(0, buf, len);
 		printf("\n");
 	}
+	SAFE_FREE(buf);
 	return correct;
 }
 
@@ -2812,8 +2812,8 @@ static BOOL run_deletetest(int dummy)
 	cli_setatr(cli1, fname, 0, 0);
 	cli_unlink(cli1, fname);
 	
-	fnum1 = cli_nt_create_full(cli1, fname, 0, GENERIC_ALL_ACCESS, FILE_ATTRIBUTE_NORMAL,
-				   FILE_SHARE_DELETE, FILE_OVERWRITE_IF, 
+	fnum1 = cli_nt_create_full(cli1, fname, 0, GENERIC_ALL_ACCESS|DELETE_ACCESS, FILE_ATTRIBUTE_NORMAL,
+				   0, FILE_OVERWRITE_IF, 
 				   FILE_DELETE_ON_CLOSE, 0);
 	
 	if (fnum1 == -1) {
@@ -2821,7 +2821,18 @@ static BOOL run_deletetest(int dummy)
 		correct = False;
 		goto fail;
 	}
-	
+
+#if 0 /* JRATEST */
+        {
+                uint32 *accinfo = NULL;
+                uint32 len;
+                cli_qfileinfo_test(cli1, fnum1, SMB_FILE_ACCESS_INFORMATION, (char **)&accinfo, &len);
+		if (accinfo)
+	                printf("access mode = 0x%lx\n", *accinfo);
+                SAFE_FREE(accinfo);
+        }
+#endif
+
 	if (!cli_close(cli1, fnum1)) {
 		printf("[1] close failed (%s)\n", cli_errstr(cli1));
 		correct = False;
@@ -3334,9 +3345,9 @@ static BOOL run_rename(int dummy)
 	}
 
 	if (!cli_rename(cli1, fname, fname1)) {
-		printf("First rename failed (this is correct) - %s\n", cli_errstr(cli1));
+		printf("First rename failed (SHARE_READ) (this is correct) - %s\n", cli_errstr(cli1));
 	} else {
-		printf("First rename succeeded - this should have failed !\n");
+		printf("First rename succeeded (SHARE_READ) - this should have failed !\n");
 		correct = False;
 	}
 
@@ -3360,10 +3371,10 @@ static BOOL run_rename(int dummy)
 	}
 
 	if (!cli_rename(cli1, fname, fname1)) {
-		printf("Second rename failed - this should have succeeded - %s\n", cli_errstr(cli1));
+		printf("Second rename failed (SHARE_DELETE | SHARE_READ) - this should have succeeded - %s\n", cli_errstr(cli1));
 		correct = False;
 	} else {
-		printf("Second rename succeeded\n");
+		printf("Second rename succeeded (SHARE_DELETE | SHARE_READ)\n");
 	}
 
 	if (!cli_close(cli1, fnum1)) {
@@ -3407,10 +3418,10 @@ static BOOL run_rename(int dummy)
 #endif
 
 	if (!cli_rename(cli1, fname, fname1)) {
-		printf("Third rename failed - this should have succeeded - %s\n", cli_errstr(cli1));
+		printf("Third rename failed (SHARE_NONE) - this should have succeeded - %s\n", cli_errstr(cli1));
 		correct = False;
 	} else {
-		printf("Third rename succeeded\n");
+		printf("Third rename succeeded (SHARE_NONE)\n");
 	}
 
 	if (!cli_close(cli1, fnum1)) {
@@ -3421,6 +3432,75 @@ static BOOL run_rename(int dummy)
 	cli_unlink(cli1, fname);
 	cli_unlink(cli1, fname1);
 
+        /*----*/
+
+	fnum1 = cli_nt_create_full(cli1, fname, 0, GENERIC_READ_ACCESS, FILE_ATTRIBUTE_NORMAL,
+				   FILE_SHARE_READ | FILE_SHARE_WRITE, FILE_OVERWRITE_IF, 0, 0);
+
+	if (fnum1 == -1) {
+		printf("Fourth open failed - %s\n", cli_errstr(cli1));
+		return False;
+	}
+
+	if (!cli_rename(cli1, fname, fname1)) {
+		printf("Fourth rename failed (SHARE_READ | SHARE_WRITE) (this is correct) - %s\n", cli_errstr(cli1));
+	} else {
+		printf("Fourth rename succeeded (SHARE_READ | SHARE_WRITE) - this should have failed !\n");
+		correct = False;
+	}
+
+	if (!cli_close(cli1, fnum1)) {
+		printf("close - 4 failed (%s)\n", cli_errstr(cli1));
+		return False;
+	}
+
+	cli_unlink(cli1, fname);
+	cli_unlink(cli1, fname1);
+
+        /*--*/
+
+	fnum1 = cli_nt_create_full(cli1, fname, 0, GENERIC_READ_ACCESS, FILE_ATTRIBUTE_NORMAL,
+				   FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, FILE_OVERWRITE_IF, 0, 0);
+
+	if (fnum1 == -1) {
+		printf("Fifth open failed - %s\n", cli_errstr(cli1));
+		return False;
+	}
+
+	if (!cli_rename(cli1, fname, fname1)) {
+		printf("Fifth rename failed (SHARE_READ | SHARE_WRITE | SHARE_DELETE) - this should have failed ! \n");
+		correct = False;
+	} else {
+		printf("Fifth rename succeeded (SHARE_READ | SHARE_WRITE | SHARE_DELETE) (this is correct) - %s\n", cli_errstr(cli1));
+	}
+
+        /*
+         * Now check if the first name still exists ...
+         */
+
+        /*fnum2 = cli_nt_create_full(cli1, fname, 0, GENERIC_READ_ACCESS, FILE_ATTRIBUTE_NORMAL,
+				   FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, FILE_OVERWRITE_IF, 0, 0);
+
+        if (fnum2 == -1) {
+          printf("Opening original file after rename of open file fails: %s\n",
+              cli_errstr(cli1));
+        }
+        else {
+          printf("Opening original file after rename of open file works ...\n");
+          (void)cli_close(cli1, fnum2);
+          } */
+
+        /*--*/
+
+
+	if (!cli_close(cli1, fnum1)) {
+		printf("close - 5 failed (%s)\n", cli_errstr(cli1));
+		return False;
+	}
+
+	cli_unlink(cli1, fname);
+	cli_unlink(cli1, fname1);
+        
 	if (!torture_close_connection(cli1)) {
 		correct = False;
 	}
@@ -4230,8 +4310,114 @@ BOOL torture_chkpath_test(int dummy)
 	return ret;
 }
 
+static BOOL run_eatest(int dummy)
+{
+	static struct cli_state *cli;
+	const char *fname = "\\eatest.txt";
+	BOOL correct = True;
+	int fnum, i;
+	size_t num_eas;
+	struct ea_struct *ea_list = NULL;
+	TALLOC_CTX *mem_ctx = talloc_init("eatest");
 
+	printf("starting eatest\n");
+	
+	if (!torture_open_connection(&cli)) {
+		return False;
+	}
+	
+	cli_unlink(cli, fname);
+	fnum = cli_nt_create_full(cli, fname, 0,
+				   FIRST_DESIRED_ACCESS, FILE_ATTRIBUTE_ARCHIVE,
+				   FILE_SHARE_NONE, FILE_OVERWRITE_IF, 
+				   0x4044, 0);
 
+	if (fnum == -1) {
+		printf("open failed - %s\n", cli_errstr(cli));
+		return False;
+	}
+
+	for (i = 0; i < 10; i++) {
+		fstring ea_name, ea_val;
+
+		slprintf(ea_name, sizeof(ea_name), "EA_%d", i);
+		memset(ea_val, (char)i+1, i+1);
+		if (!cli_set_ea_fnum(cli, fnum, ea_name, ea_val, i+1)) {
+			printf("ea_set of name %s failed - %s\n", ea_name, cli_errstr(cli));
+			return False;
+		}
+	}
+	
+	cli_close(cli, fnum);
+	for (i = 0; i < 10; i++) {
+		fstring ea_name, ea_val;
+
+		slprintf(ea_name, sizeof(ea_name), "EA_%d", i+10);
+		memset(ea_val, (char)i+1, i+1);
+		if (!cli_set_ea_path(cli, fname, ea_name, ea_val, i+1)) {
+			printf("ea_set of name %s failed - %s\n", ea_name, cli_errstr(cli));
+			return False;
+		}
+	}
+	
+	if (!cli_get_ea_list_path(cli, fname, mem_ctx, &num_eas, &ea_list)) {
+		printf("ea_get list failed - %s\n", cli_errstr(cli));
+		correct = False;
+	}
+
+	printf("num_eas = %d\n", num_eas);
+
+	if (num_eas != 20) {
+		printf("Should be 20 EA's stored... failing.\n");
+		correct = False;
+	}
+
+	for (i = 0; i < num_eas; i++) {
+		printf("%d: ea_name = %s. Val = ", i, ea_list[i].name);
+		dump_data(0, ea_list[i].value.data, ea_list[i].value.length);
+	}
+
+	/* Setting EA's to zero length deletes them. Test this */
+	printf("Now deleting all EA's - case indepenent....\n");
+
+	for (i = 0; i < 20; i++) {
+		fstring ea_name;
+		slprintf(ea_name, sizeof(ea_name), "ea_%d", i);
+		if (!cli_set_ea_path(cli, fname, ea_name, "", 0)) {
+			printf("ea_set of name %s failed - %s\n", ea_name, cli_errstr(cli));
+			return False;
+		}
+	}
+	
+	if (!cli_get_ea_list_path(cli, fname, mem_ctx, &num_eas, &ea_list)) {
+		printf("ea_get list failed - %s\n", cli_errstr(cli));
+		correct = False;
+	}
+
+	printf("num_eas = %d\n", num_eas);
+	for (i = 0; i < num_eas; i++) {
+		printf("%d: ea_name = %s. Val = ", i, ea_list[i].name);
+		dump_data(0, ea_list[i].value.data, ea_list[i].value.length);
+	}
+
+	if (num_eas != 0) {
+		printf("deleting EA's failed.\n");
+		correct = False;
+	}
+
+	/* Try and delete a non existant EA. */
+	if (!cli_set_ea_path(cli, fname, "foo", "", 0)) {
+		printf("deleting non-existant EA 'foo' should succeed. %s\n", cli_errstr(cli));
+		correct = False;
+	}
+
+	talloc_destroy(mem_ctx);
+	if (!torture_close_connection(cli)) {
+		correct = False;
+	}
+	
+	return correct;
+}
 
 static BOOL run_dirtest1(int dummy)
 {
@@ -4464,12 +4650,12 @@ static double create_procs(BOOL (*fn)(int), BOOL *result)
 					printf("pid %d failed to start\n", (int)getpid());
 					_exit(1);
 				}
-				msleep(10);	
+				smb_msleep(10);	
 			}
 
 			child_status[i] = getpid();
 
-			while (child_status[i] && end_timer() < 5) msleep(2);
+			while (child_status[i] && end_timer() < 5) smb_msleep(2);
 
 			child_status_out[i] = fn(i);
 			_exit(0);
@@ -4482,7 +4668,7 @@ static double create_procs(BOOL (*fn)(int), BOOL *result)
 			if (child_status[i]) synccount++;
 		}
 		if (synccount == nprocs) break;
-		msleep(10);
+		smb_msleep(10);
 	} while (end_timer() < 30);
 
 	if (synccount != nprocs) {
@@ -4570,6 +4756,7 @@ static struct {
 	{"IOCTL",  torture_ioctl_test, 0},
 	{"CHKPATH",  torture_chkpath_test, 0},
 	{"FDSESS", run_fdsesstest, 0},
+	{ "EATEST", run_eatest, 0},
 	{NULL, NULL, 0}};
 
 

@@ -1221,8 +1221,7 @@ static BOOL valid_pipe_name(const int pipe_idx, RPC_IFACE *abstract, RPC_IFACE *
 
 static BOOL check_bind_response(RPC_HDR_BA *hdr_ba, const int pipe_idx, RPC_IFACE *transfer)
 {
-	int i = 0;
-
+# if 0	/* JERRY -- apparently ASU forgets to fill in the server pipe name sometimes */
 	if ( hdr_ba->addr.len <= 0)
 		return False;
 		
@@ -1240,6 +1239,7 @@ static BOOL check_bind_response(RPC_HDR_BA *hdr_ba, const int pipe_idx, RPC_IFAC
 		DEBUG(2,("bind_rpc_pipe: pipe name %s unsupported\n", hdr_ba->addr.str));
 		return False;
 	}
+#endif 	/* JERRY */
 
 	/* check the transfer syntax */
 	if ((hdr_ba->transfer.version != transfer->version) ||
@@ -1441,7 +1441,7 @@ BOOL cli_nt_session_open(struct cli_state *cli, const int pipe_idx)
 		cli->nt_pipe_fnum = (uint16)fnum;
 	} else {
 		if ((fnum = cli_open(cli, pipe_names[pipe_idx].client_pipe, O_CREAT|O_RDWR, DENY_NONE)) == -1) {
-			DEBUG(0,("cli_nt_session_open: cli_open failed on pipe %s to machine %s.  Error was %s\n",
+			DEBUG(1,("cli_nt_session_open: cli_open failed on pipe %s to machine %s.  Error was %s\n",
 				 pipe_names[pipe_idx].client_pipe, cli->desthost, cli_errstr(cli)));
 			return False;
 		}
@@ -1453,6 +1453,7 @@ BOOL cli_nt_session_open(struct cli_state *cli, const int pipe_idx)
 			DEBUG(0,("cli_nt_session_open: pipe hnd state failed.  Error was %s\n",
 				  cli_errstr(cli)));
 			cli_close(cli, cli->nt_pipe_fnum);
+			cli->nt_pipe_fnum = 0;
 			return False;
 		}
 	}
@@ -1463,8 +1464,11 @@ BOOL cli_nt_session_open(struct cli_state *cli, const int pipe_idx)
 		DEBUG(2,("cli_nt_session_open: rpc bind to %s failed\n",
 			 get_pipe_name_from_index(pipe_idx)));
 		cli_close(cli, cli->nt_pipe_fnum);
+		cli->nt_pipe_fnum = 0;
 		return False;
 	}
+
+	cli->pipe_idx = pipe_idx;
 
 	/* 
 	 * Setup the remote server name prefixed by \ and the machine account name.

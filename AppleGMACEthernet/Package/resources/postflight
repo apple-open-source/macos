@@ -1,0 +1,18 @@
+#!/bin/sh
+
+echo "source package path: $1"
+echo "package destination: $2"
+echo "mount point of dest: $3"
+echo "installer framework: $4"
+
+#echo "source package path: $1" >   "$3/var/db/args.output"
+#echo "package destination: $2" >>  "$3/var/db/args.output"
+#echo "mount point of dest: $3" >>  "$3/var/db/args.output"
+#echo "installer framework: $4" >>  "$3/var/db/args.output"
+
+/usr/sbin/chown -R root:wheel "$2"
+/usr/bin/touch "$2"
+/usr/bin/touch "$2/.."
+/usr/bin/touch "$2/../.."
+/usr/bin/touch "$2/../../.."
+

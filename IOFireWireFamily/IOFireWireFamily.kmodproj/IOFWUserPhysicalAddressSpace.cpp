@@ -63,7 +63,7 @@ IOFWUserPhysicalAddressSpace::initWithDesc(
 		}
 	}
 
-	DebugLog("new phys addr space - segmentCount=%d length=0x%x\n", fSegmentCount, fMem->getLength() ) ;
+	DebugLog("new phys addr space - segmentCount=%ld length=0x%lx\n", fSegmentCount, (UInt32)fMem->getLength() ) ;
 	
 	return true ;
 }

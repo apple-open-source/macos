@@ -111,9 +111,14 @@ AppleUSBComposite::CompositeDriverInterestHandler(  void * target, void * refCon
 bool
 AppleUSBComposite::ConfigureDevice()
 {
-    IOReturn	err = kIOReturnSuccess;
-    UInt8	prefConfigValue = 0;
-    OSNumber *	prefConfig = NULL;
+    const IOUSBConfigurationDescriptor *    cd = NULL;
+    const IOUSBConfigurationDescriptor *    cdTemp = NULL;
+    IOReturn                                err = kIOReturnSuccess;
+    UInt8                                   prefConfigValue = 0;
+    OSNumber *                              prefConfig = NULL;
+    UInt8                                   i;
+    UInt8                                   maxPower = 0;
+    UInt8                                   numberOfConfigs = 0;
     
     do {
         USBLog(3,"%s[%p]: USB Generic Composite @ %d", getName(), this, _device->GetAddress());
@@ -131,34 +136,77 @@ AppleUSBComposite::ConfigureDevice()
 
         // No preferred configuration so, find the first config/interface
         //
-        if (_device->GetNumConfigurations() < 1)
+        numberOfConfigs = _device->GetNumConfigurations();
+        if ( numberOfConfigs < 1)
         {
             USBError(1, "%s[%p](%s) Could not get any configurations", getName(), this, _device->getName() );
             err = kIOUSBConfigNotFound;
             continue;
         }
 
-        // set the configuration to the first config
-        //
-        const IOUSBConfigurationDescriptor *cd = _device->GetFullConfigurationDescriptor(0);
-        if (!cd)
+       if (numberOfConfigs > 1)
+       {
+           // We have more than 1 configuration.  Select the one with the highest power that is available in the port.  This presumes
+           // that such a configuration is more desirable.
+           //
+           for (i = 0; i < numberOfConfigs; i++) 
+           {
+               cdTemp = _device->GetFullConfigurationDescriptor(i);
+               if (!cdTemp)
+               {
+                   USBLog(3,"%s[%p](%s) ConfigureDevice Config %d does not exist", getName(), this, _device->getName(), i);
+                   continue;
+               }
+               
+               // Get the MaxPower for this configuration.  If we have enough power for it AND it's greater than our previous power
+               // then use this config
+               if( (_device->GetBusPowerAvailable() >= cdTemp->MaxPower) && (cdTemp->MaxPower > maxPower) )
+               {
+                   USBLog(5,"%s[%p](%s) ConfigureDevice Config %d with MaxPower %d", getName(), this, _device->getName(), i, cdTemp->MaxPower );
+                   cd = cdTemp;
+                   maxPower = cdTemp->MaxPower;
+               }
+               else
+               {
+                   USBLog(5,"%s[%p](%s) ConfigureDevice Config %d with MaxPower %d cannot be used (available: %d, previous %d)", getName(), this, _device->getName(), i, cdTemp->MaxPower, _device->GetBusPowerAvailable(), maxPower );
+               }
+           }
+ 
+           if ( !cd )
+           {
+               USBLog(3, "%s[%p](%s) ConfigureDevice failed to find configuration by power", getName(), this, _device->getName() );
+               err = kIOUSBNotEnoughPowerErr;
+               continue;
+           }
+       }
+        else
         {
-            USBLog(1, "%s[%p](%s) GetFullConfigDescriptor(0) returned NULL, retrying", getName(), this, _device->getName() );
-            IOSleep( 300 );
+            // set the configuration to the first config
+            //
             cd = _device->GetFullConfigurationDescriptor(0);
-            if ( !cd )
+            if (!cd)
             {
-                USBError(1, "%s[%p](%s) GetFullConfigDescriptor(0) returned NULL", getName(), this, _device->getName() );
-                break;
+                USBLog(1, "%s[%p](%s) GetFullConfigDescriptor(0) returned NULL, retrying", getName(), this, _device->getName() );
+                IOSleep( 300 );
+                cd = _device->GetFullConfigurationDescriptor(0);
+                if ( !cd )
+                {
+                    USBError(1, "%s[%p](%s) GetFullConfigDescriptor(0) returned NULL", getName(), this, _device->getName() );
+                    err = kIOUSBConfigNotFound;
+                    continue;
+                }
             }
         }
-            
 	
 	if (!_device->open(this))
 	{
             USBError(1, "%s[%p](%s) Could not open device", getName(), this, _device->getName() );
+            err = kIOReturnExclusiveAccess;
 	    break;
 	}
+        
+        // Now, set the Configration
+        //
 	err = _device->SetConfiguration(this, (prefConfig ? prefConfigValue : cd->bConfigurationValue), true);
 	if (err)
 	{
@@ -204,10 +252,13 @@ AppleUSBComposite::ConfigureDevice()
 IOReturn
 AppleUSBComposite::ReConfigureDevice()
 {
-    // IOUSBDevRequest	request;
-    IOReturn 		err = kIOReturnSuccess;
-    IOUSBDevRequest	request;
-    const 		IOUSBConfigurationDescriptor *	cd;
+    const IOUSBConfigurationDescriptor *    cd = NULL;
+    const IOUSBConfigurationDescriptor *    cdTemp = NULL;
+    IOReturn                                err = kIOReturnSuccess;
+    IOUSBDevRequest                         request;
+    UInt8                                   numberOfConfigs = 0;
+    UInt32                                  i;
+    UInt8                                   maxPower = 0;
        
     // Clear out the structure for the request
     //
@@ -237,29 +288,56 @@ AppleUSBComposite::ReConfigureDevice()
     // We have the device open, so now reconfigure it
     //
    
-    // Find the first config/interface
-    if (_device->GetNumConfigurations() < 1)
+    numberOfConfigs = _device->GetNumConfigurations();
+    
+    if (numberOfConfigs > 1)
     {
-        USBLog(3, "%s[%p]::ReConfigureDevice.  no configurations",getName(), this);
+        // We have more than 1 configuration.  Select the one with the highest power that is available in the port.  This presumes
+        // that such a configuration is more desirable.
+        //
+        for (i = 0; i < numberOfConfigs; i++) 
+        {
+            cdTemp = _device->GetFullConfigurationDescriptor(i);
+            if (!cdTemp)
+            {
+                USBLog(3,"%s[%p](%s)::ReConfigureDevice Config %d does not exist", getName(), this, _device->getName(), i);
+                continue;
+            }
+            
+            // Get the MaxPower for this configuration.  If we have enough power for it AND it's greater than our previous power
+            // then use this config
+            if( (_device->GetBusPowerAvailable() >= cdTemp->MaxPower) && (cdTemp->MaxPower > maxPower) )
+            {
+                USBLog(5,"%s[%p](%s)::ReConfigureDevice Config %d with MaxPower %d", getName(), this, _device->getName(), i, cdTemp->MaxPower );
+                cd = cdTemp;
+                maxPower = cdTemp->MaxPower;
+            }
+            else
+            {
+                USBLog(5,"%s[%p](%s)::ReConfigureDevice Config %d with MaxPower %d cannot be used (available: %d, previous %d)", getName(), this, _device->getName(), i, cdTemp->MaxPower, _device->GetBusPowerAvailable(), maxPower );
+            }
+        }
+    }
+    else
+    {
+        // set the configuration to the first config
+        //
+        cd = _device->GetFullConfigurationDescriptor(0);
+        if (!cd)
+        {
+            USBLog(1, "%s[%p](%s)::ReConfigureDevice  GetFullConfigDescriptor(0) returned NULL, retrying", getName(), this, _device->getName() );
+            IOSleep( 300 );
+            cd = _device->GetFullConfigurationDescriptor(0);
+        }
+    }
+        
+    if ( !cd )
+    {
+        USBError(1, "%s[%p](%s)::ReConfigureDevice  GetFullConfigDescriptor(0) returned NULL", getName(), this, _device->getName() );
         err = kIOUSBConfigNotFound;
         goto ErrorExit;
     }
 
-    // set the configuration to the first config
-    cd = _device->GetFullConfigurationDescriptor(0);
-    if (!cd)
-    {
-        USBLog(1, "%s[%p](%s) GetFullConfigDescriptor(0) returned NULL, retrying", getName(), this, _device->getName() );
-        IOSleep( 300 );
-        cd = _device->GetFullConfigurationDescriptor(0);
-        if ( !cd )
-        {
-            USBError(1, "%s[%p](%s) GetFullConfigDescriptor(0) returned NULL", getName(), this, _device->getName() );
-            err = kIOUSBConfigNotFound;
-            goto ErrorExit;
-        }
-    }
-    
     // Send the SET_CONFIG request on the bus
     //
     request.bmRequestType = USBmakebmRequestType(kUSBOut, kUSBStandard, kUSBDevice);

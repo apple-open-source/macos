@@ -117,7 +117,7 @@ BOOL cli_receive_smb(struct cli_state *cli)
 		return ret;
 	}
 
-	if (!cli_check_sign_mac(cli)) {
+	if (!cli_check_sign_mac(cli, True)) {
 		DEBUG(0, ("SMB Signature verification failed on incoming packet!\n"));
 		cli->smb_rw_error = READ_BAD_SIG;
 		close(cli->fd);
@@ -372,6 +372,21 @@ void cli_close_connection(struct cli_state *cli)
 	cli_nt_session_close(cli);
 	cli_nt_netlogon_netsec_session_close(cli);
 
+	/*
+	 * tell our peer to free his resources.  Wihtout this, when an
+	 * application attempts to do a graceful shutdown and calls
+	 * smbc_free_context() to clean up all connections, some connections
+	 * can remain active on the peer end, until some (long) timeout period
+	 * later.  This tree disconnect forces the peer to clean up, since the
+	 * connection will be going away.
+	 *
+	 * Also, do not do tree disconnect when cli->smb_rw_error is DO_NOT_DO_TDIS
+	 * the only user for this so far is smbmount which passes opened connection
+	 * down to kernel's smbfs module.
+	 */
+	if ( (cli->cnum != (uint16)-1) && (cli->smb_rw_error != DO_NOT_DO_TDIS ) )
+		cli_tdis(cli);
+        
 	SAFE_FREE(cli->outbuf);
 	SAFE_FREE(cli->inbuf);
 

@@ -23,12 +23,12 @@ lmhosts \- The Samba NetBIOS hosts file
 .SH "SYNOPSIS"
 
 .PP
-\fIlmhosts\fR is the \fBSamba\fR(7) NetBIOS name to IP address mapping file\&.
+\fIlmhosts\fR is the \fBsamba\fR(7) NetBIOS name to IP address mapping file\&.
 
 .SH "DESCRIPTION"
 
 .PP
-This file is part of the \fBSamba\fR(7) suite\&.
+This file is part of the \fBsamba\fR(7) suite\&.
 
 .PP
 \fIlmhosts\fR is the \fBSamba \fR NetBIOS name to IP address mapping file\&. It is very similar to the \fI/etc/hosts\fR file format, except that the hostname component must correspond to the NetBIOS naming format\&.
@@ -41,14 +41,11 @@ It is an ASCII file containing one line for NetBIOS name\&. The two fields on ea
 .TP 3
 \(bu
 IP Address \- in dotted decimal format\&.
-
 .TP
 \(bu
 NetBIOS Name \- This name format is a maximum fifteen character host name, with an optional trailing '#' character followed by the NetBIOS name type as two hexadecimal digits\&.
 
-
 If the trailing '#' is omitted then the given IP address will be returned for all names that match the given name, whatever the NetBIOS name type in the lookup\&.
-
 .LP
 
 .PP

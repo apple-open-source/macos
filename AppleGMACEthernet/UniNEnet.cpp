@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -36,9 +33,10 @@
 
 //void call_kdp(void);
 
+#include <libkern/OSByteOrder.h>
+#include <IOKit/IOBufferMemoryDescriptor.h>
 #include "UniNEnet.h"
 #include "UniNEnetMII.h"
-#include <libkern/OSByteOrder.h>
 
 
 		/* The GMAC registers are grouped in discontiguous sets.		*/
@@ -81,33 +79,31 @@
 #if USE_ELG
 void UniNEnet::AllocateEventLog( UInt32 size )
 {
-	IOPhysicalAddress	dartAddr;	// physical address in DART
 	mach_timespec_t		time;
+	IOByteCount			length;
 
 
-	fpELG = (elg*)IOMallocContiguous( size, 0x1000, &dartAddr );
-	if ( !fpELG )
+    fpELGMemDesc = IOBufferMemoryDescriptor::withOptions(	kIOMemoryPhysicallyContiguous,
+															kEvLogSize,
+															PAGE_SIZE );
+	if ( !fpELGMemDesc )
 	{
 		kprintf( "AllocateEventLog - UniNEnet evLog allocation failed " );
 		return;
 	}
 
-	fpELGMemDesc = IOMemoryDescriptor::withAddress( (UInt32)fpELG, kEvLogSize, kIODirectionOutIn, kernel_task );
-	fpELGMemDesc->prepare( kIODirectionOutIn );
-#ifdef SMEAGOL
-	fpELG->physAddr = fpELGMemDesc->getPhysicalSegment64( 0, 0x1000 );	// offset: 0; size: 1 page
-#else
-	fpELG->physAddr = dartAddr;
-#endif // SMEAGOL
-#define OPEN_FIRMWARE true
+	fpELGMemDesc->prepare( kIODirectionNone );
+	fpELG = (elg*)fpELGMemDesc->getBytesNoCopy();
+	bzero( fpELG, kEvLogSize );
+	fpELG->physAddr	= fpELGMemDesc->getPhysicalSegment64( 0, &length );	// offset: 0; length
+
+//#define OPEN_FIRMWARE
 #ifdef OPEN_FIRMWARE
-///	IOUnmapPages( kernel_map, (vm_offset_t)fpELG, size );
 	IOSetProcessorCacheMode(	kernel_task,
 								(IOVirtualAddress)fpELG,
 								size,
 								kIOMapWriteThruCache );
 #endif // OPEN_FIRMWARE
-	bzero( fpELG, size );
 
 	fpELG->evLogBuf		= (UInt8*)fpELG + sizeof( struct elg );
 	fpELG->evLogBufe	= (UInt8*)fpELG + kEvLogSize - 0x20; // ??? overran buffer?
@@ -118,10 +114,10 @@ void UniNEnet::AllocateEventLog( UInt32 size )
 //	fpELG->evLogFlag	 = 'step';		// stop at each ELG
 
 	IOGetTime( &time );
-	fpELG->startTimeSecs = time.tv_sec;
+	fpELG->startTimeSecs	= time.tv_sec;
 
-	IOLog( "\033[32mUniNEnet::AllocateEventLog - buffer=%8x phys=%8x \033[0m \n",
-							(unsigned int)fpELG, (unsigned int)dartAddr );
+	IOLog( "\033[32mUniNEnet::AllocateEventLog - buffer=%8x phys=%16llx \033[0m \n",
+							(unsigned int)fpELG, fpELG->physAddr );
 	return;
 }/* end AllocateEventLog */
 
@@ -295,7 +291,6 @@ bool UniNEnet::start( IOService *provider )
 {    
     OSString	*matchEntry;
     OSNumber	*numObj;
-    IOWorkLoop	*myWorkLoop	= getWorkLoop();
 	UInt32		x, xFactor;
 
 
@@ -316,7 +311,7 @@ bool UniNEnet::start( IOService *provider )
 
 		// Invoke superclass's start routine
 
-    if ( !nub || !super::start( provider ) )
+    if ( !nub || !super::start( provider ) )	/* calls createWorkLoop & getWorkLoop	*/
         return false;
 
 	if ( fBuiltin )
@@ -371,8 +366,8 @@ bool UniNEnet::start( IOService *provider )
 	phyId = 0xFF;
 	fLinkStatus = kLinkStatusUnknown;
 
-		/* Get a reference to the IOWorkLoop in our superclass.	*/
-	myWorkLoop = getWorkLoop();
+	if ( !fWorkLoop )
+		return false;
 
     	/* Allocate Interrupt source:	*/
 
@@ -386,7 +381,7 @@ bool UniNEnet::start( IOService *provider )
     {	IOLog( "UniNEnet::start: Couldn't allocate Interrupt event source\n" );    
         return false;
     }
-    if ( myWorkLoop->addEventSource( interruptSource ) != kIOReturnSuccess )
+    if ( fWorkLoop->addEventSource( interruptSource ) != kIOReturnSuccess )
     {	IOLog( "UniNEnet::start - Couldn't add Interrupt event source\n" );    
         return false;
     }     
@@ -401,7 +396,7 @@ bool UniNEnet::start( IOService *provider )
         IOLog( "UniNEnet::start - Couldn't allocate timer event source\n" );
         return false;
     }
-    if ( myWorkLoop->addEventSource( timerSource ) != kIOReturnSuccess )
+    if ( fWorkLoop->addEventSource( timerSource ) != kIOReturnSuccess )
     {
 		IOLog( "UniNEnet::start - Couldn't add timer event source\n" );        
         return false;
@@ -585,7 +580,7 @@ void UniNEnet::free()
 	flushRings( true, true );	// Flush both Tx and Rx rings.
 
 	if ( debugger )			debugger->release();
-    if ( getWorkLoop() )	getWorkLoop()->disableAllEventSources();
+    if ( fWorkLoop )		fWorkLoop->disableAllEventSources();
     if ( timerSource )		timerSource->release();
     if ( interruptSource )	interruptSource->release();
 	if ( txDebuggerPkt )	freePacket( txDebuggerPkt );
@@ -604,17 +599,20 @@ void UniNEnet::free()
 	{	fRxRingMemDesc->complete(  kIODirectionOutIn );
 		fRxRingMemDesc->release();
 	}
-	if ( fTxDescriptorRing )IOFreeContiguous( (void*)fTxDescriptorRing, fTxRingElements * sizeof( TxDescriptor ) );
-	if ( fRxDescriptorRing )IOFreeContiguous( (void*)fRxDescriptorRing, fRxRingElements * sizeof( RxDescriptor ) );
 	if ( fTxMbuf )			IOFree( fTxMbuf, sizeof( mbuf* ) * fTxRingElements );
 	if ( fRxMbuf )			IOFree( fRxMbuf, sizeof( mbuf* ) * fRxRingElements );
 
-	if ( workLoop )			workLoop->release();
+	if ( fWorkLoop )			fWorkLoop->release();
 
 	if ( keyLargo_resetUniNEthernetPhy )
 	{
 		keyLargo_resetUniNEthernetPhy->release();
 		keyLargo_resetUniNEthernetPhy = 0;
+	}
+
+	if ( fpELGMemDesc )
+	{	fpELGMemDesc->complete(  kIODirectionNone );
+		fpELGMemDesc->release();
 	}
 
     super::free();
@@ -624,15 +622,15 @@ void UniNEnet::free()
 
 	/*-------------------------------------------------------------------------
 	 * Override IONetworkController::createWorkLoop() method and create
-	 * a workloop.
-	 *
+	 * a workloop so that we don't use the global workLoop.
+	 * Called by IONetworkController during start.
 	 *-------------------------------------------------------------------------*/
 
 bool UniNEnet::createWorkLoop()
 {
-    workLoop = IOWorkLoop::workLoop();
-
-    return ( workLoop != 0 );
+    fWorkLoop = IOWorkLoop::workLoop();		/* Get our own workloop	*/
+	ELG( 0, fWorkLoop, 'c WL', "UniNEnet::createWorkLoop" );
+    return (fWorkLoop != 0);
 }/* end createWorkLoop */
 
 
@@ -640,9 +638,9 @@ bool UniNEnet::createWorkLoop()
 
 IOWorkLoop* UniNEnet::getWorkLoop() const
 {
-    return workLoop;
+	ELG( 0, fWorkLoop, 'g WL', "UniNEnet::getWorkLoop" );
+	return fWorkLoop;
 }/* end getWorkLoop */
-
 
 
 void UniNEnet::interruptOccurred( IOInterruptEventSource *src, int /*count*/ )
@@ -667,7 +665,7 @@ void UniNEnet::interruptOccurred( IOInterruptEventSource *src, int /*count*/ )
 
 	interruptStatus = READ_REGISTER( Status );
 	ELG( READ_REGISTER( RxCompletion ), interruptStatus, 'Int+', "interruptOccurred - got status" );
-
+	fTxCompletion = interruptStatus >> 19;
 		/* Bump statistics if either the Rx ring or the Rx FIFO overflowed:	*/
 
 	rxMACStatus	= READ_REGISTER( RxMACStatus );				/* NB: Auto-clear register	*/
@@ -676,9 +674,7 @@ void UniNEnet::interruptOccurred( IOInterruptEventSource *src, int /*count*/ )
 		|| rxMACStatus & kRX_MAC_Status_Rx_Overflow )
 	{		/* If either overflowed:	*/
 		ELG( 0, rxMACStatus, 'Rx--', "interruptOccurred - Rx overflow" );
-		if ( interruptStatus & kStatus_Rx_Buffer_Not_Available )
-			 ETHERNET_STAT_ADD( dot3RxExtraEntry.watchdogTimeouts );
-		else ETHERNET_STAT_ADD( dot3RxExtraEntry.overruns );
+		ETHERNET_STAT_ADD( dot3RxExtraEntry.overruns );
 		NETWORK_STAT_ADD( inputErrors );
 	}
 
@@ -788,17 +784,18 @@ void UniNEnet::putToSleep( bool sleepCellClockOnly )
 
 	fReady = false;
 
-	if ( timerSource ) 
-		 timerSource->cancelTimeout();
+	if ( timerSource )
+    {	fTimerRunning = false;
+        timerSource->cancelTimeout();
+    }
 
 	WRITE_REGISTER( InterruptMask, kInterruptMask_None );
 
-	if ( getWorkLoop() )
-		 getWorkLoop()->disableAllInterrupts();
+	fWorkLoop->disableAllInterrupts();
 
 	medium = IONetworkMedium::getMediumWithType( fMediumDict, mediumType );
-	setLinkStatus( kIONetworkLinkValid, medium, 0 ); // Link status is Valid and inactive.
-	
+	setLinkStatus( 0 ); // Link status is unknown - not kIONetworkLinkValid.
+
 	if ( sleepCellClockOnly == false )
 	{
 		stopChip();					// stop the DMA engines.
@@ -811,7 +808,9 @@ void UniNEnet::putToSleep( bool sleepCellClockOnly )
 		disableCellClock();
 
     if ( sleepCellClockOnly )
+    {	fTimerRunning = true;
         timerSource->setTimeoutMS( WATCHDOG_TIMER_MS );
+    }
 
 	if ( fBuiltin )		IODebuggerUnlock( lockState );
     return;
@@ -834,7 +833,7 @@ bool UniNEnet::wakeUp( bool wakeCellClockOnly )
     fReady = false;
 
 	medium = IONetworkMedium::getMediumWithType( fMediumDict, mediumType );
-	setLinkStatus( kIONetworkLinkValid, medium, 0 ); // Link status is Valid and inactive.
+	setLinkStatus( 0 ); // Link status is unknown - not kIONetworkLinkValid.
 
 	if ( fBuiltin )
 		enableCellClock();
@@ -879,7 +878,7 @@ bool UniNEnet::wakeUp( bool wakeCellClockOnly )
 				goto wakeUp_exit;
 			}
 			getPhyType();					// getPhyType also patches PHYs.
-		}
+		}/* end IF builtin */
 
 		if ( !fMediumDict && createMediumTables() == false )
 		{
@@ -887,29 +886,25 @@ bool UniNEnet::wakeUp( bool wakeCellClockOnly )
 			goto wakeUp_exit;
 		}
 
-		startPHY();		//// move actual code here.
+		startPHY();	// sets enables in cell config regs - not PHY related.		/// ??? move actual code here.
+	
+		fRxMACStatus	= 0;
+		fReady			= true;			// set fReady before selectMedium for MLS startChip
 
-		if ( fBuiltin )
-			miiInitializePHY();
-	}
-
-	if ( fMediumType != kIOMediumEthernetAuto )
-	{
 		medium = IONetworkMedium::getMediumWithType( fMediumDict, fMediumType );
 		selectMedium( medium );			// Restore any manual speed/duplex after sleep
+
+		fTimerRunning = true;
+		timerSource->setTimeoutMS( WATCHDOG_TIMER_MS );
+	}/* end IF full wake up	*/
+	else
+	{
+		fRxMACStatus	= 0;
+		fReady			= true;
 	}
 
-	timerSource->setTimeoutMS( WATCHDOG_TIMER_MS );
-
-	if ( getWorkLoop() )
-		 getWorkLoop()->enableAllInterrupts();
-
-	fRxMACStatus	= 0;
-	fReady			= true;
-
-	if ( !wakeCellClockOnly )
-		monitorLinkStatus( true );		// startChip is done here.
-
+	fWorkLoop->enableAllInterrupts();
+	
 wakeUp_exit:
 
 	if ( fBuiltin )		IODebuggerUnlock( lockState );
@@ -1069,7 +1064,6 @@ void UniNEnet::timeoutOccurred( IOTimerEventSource* /*timer*/ )
 {
     IODebuggerLockState	lockState;
 	bool  				doService = false;
-	UInt32				txRingIndex;
 	UInt32				x;
 
 
@@ -1082,7 +1076,7 @@ void UniNEnet::timeoutOccurred( IOTimerEventSource* /*timer*/ )
 
 	ELG( txCommandHead << 16 | txCommandTail, fCellClockEnabled, 'Time', "UniNEnet::timeoutOccurred" );
 
-	if ( fLoopback )
+	if ( !fTimerRunning || fLoopback )	/* cancelTimeout() can let one more event to occur - check fReady	*/
 		return;
 
 		/* If the ethernet cell clock is disabled, monitorLinkStatus	*/
@@ -1124,6 +1118,12 @@ void UniNEnet::timeoutOccurred( IOTimerEventSource* /*timer*/ )
 		fpEtherStats->dot3StatsEntry.internalMacTransmitErrors += x;
 	}
 
+	x = READ_REGISTER( NormalCollisionCounter );
+	if ( x )
+	{	WRITE_REGISTER( NormalCollisionCounter, 0 );
+		fpNetStats->collisions += x;
+	}
+
 	x = READ_REGISTER( FirstAttemptSuccessfulCollisionCounter );
 	if ( x )
 	{	WRITE_REGISTER( FirstAttemptSuccessfulCollisionCounter, 0 );
@@ -1159,7 +1159,7 @@ void UniNEnet::timeoutOccurred( IOTimerEventSource* /*timer*/ )
 
 		/* See if the transmitter is hung:	*/
 
-	txRingIndex = READ_REGISTER( TxCompletion );
+	fTxCompletion = READ_REGISTER( TxCompletion );
 
 	if ( (fIntStatusForTO & kStatus_TX_DONE) || (txCommandHead == txCommandTail) )
 	{							/* If Tx interrupt occurred or nothing to Tx,	*/
@@ -1168,7 +1168,7 @@ void UniNEnet::timeoutOccurred( IOTimerEventSource* /*timer*/ )
 	else
 	{		/* If the hardware Tx pointer did not move since	*/
 			/* the last check, increment the txWDCount.			*/
-		if ( txRingIndex == txRingIndexLast )
+		if ( fTxCompletion == txRingIndexLast )
 		{							/* Transmitter may be stuck.	*/
 			txWDCount++;			/* bump the watchdog count.		*/
 		}
@@ -1212,7 +1212,7 @@ void UniNEnet::timeoutOccurred( IOTimerEventSource* /*timer*/ )
         }/* end IF txWDCount > 8 periods	*/
     }/* end ELSE no transmissions completed this period	*/
 
-	txRingIndexLast = txRingIndex;
+	txRingIndexLast = fTxCompletion;
 
 		/* Check for Rx deafness:	*/
 
@@ -1403,7 +1403,6 @@ IOReturn UniNEnet::selectMedium( const IONetworkMedium *medium )
 	UInt16			controlReg;						// 00 - PHY control register
 	IOReturn		ior;
 	bool			gotReg;
-	IOMediumType	oldMediumType = fMediumType;	// save in case of error
 
 
 			/* If the user sets a speed/duplex unsupported by the hub/switch,		*/
@@ -1413,7 +1412,7 @@ IOReturn UniNEnet::selectMedium( const IONetworkMedium *medium )
 		wakeUp( true );
 
 	gotReg = miiReadWord( &controlReg, MII_CONTROL );
-	ALRT( controlReg, mType, 'sMed', "selectMedium" );
+	ELG( controlReg, mType, 'sMed', "selectMedium" );
 
 	if ( !gotReg || controlReg == 0xFFFF )
 	{
@@ -1433,7 +1432,7 @@ IOReturn UniNEnet::selectMedium( const IONetworkMedium *medium )
 
 	if ( (mType & kIOMediumOptionLoopback) ^ (controlReg & MII_CONTROL_LOOPBACK) )
 	{
-		setLinkStatus( kIONetworkLinkValid );	/* Link status is Valid and inactive	*/
+		setLinkStatus( 0 );	/* Link status is unknown - not kIONetworkLinkValid	*/
 		fPHYStatus	= 0;
 		fLinkStatus	= kLinkStatusUnknown;
 		ELG( 0, mType & kIOMediumOptionLoopback, 'LpBk', "UniNEnet::selectMedium - changing loopback mode." );
@@ -1448,14 +1447,12 @@ IOReturn UniNEnet::selectMedium( const IONetworkMedium *medium )
 		ior = negotiateSpeedDuplex();		
 	}
 
-	if ( ior != kIOReturnSuccess )
+	if ( ior != kIOReturnSuccess && mType != kIOMediumEthernetAuto )
 	{
 			/* Negotiation failed or loopback - just force the user's desires on the PHY:	*/
 		ior = forceSpeedDuplex();
-		if ( ior != kIOReturnSuccess )
-		{	fMediumType = oldMediumType;	// restore last setting
-			return ior;
-		}
+	///	if ( ior != kIOReturnSuccess )	// Radar 3610003 - ignore error if force fails
+	///		return ior;					// user may move cable
 		fAutoNegotiate = false;
 	}
 
@@ -1492,6 +1489,8 @@ IOReturn UniNEnet::negotiateSpeedDuplex()
 			  | MII_ANAR_100BASETX			/* Full/Half bits - no gigabit		*/
 			  | MII_ANAR_10BASET_FD
 			  | MII_ANAR_10BASET );
+
+	anar |= MII_ANAR_PAUSE;					/* Advertise our Pause capability	*/
 
 		/* Set the Speed/Duplex bit that we need:	*/
 
@@ -1540,6 +1539,7 @@ IOReturn UniNEnet::negotiateSpeedDuplex()
 	case 0x0971:									// Level One LXT971:
 	case 0x5201:									// Broadcom 52x1:
 	case 0x5221:
+	case 0x5241:
 		break;
 					/* Gigabit PHYs:	*/
 
@@ -1645,6 +1645,7 @@ IOReturn UniNEnet::forceSpeedDuplex()
 	case 0x0971:										// Level One LXT971:
 	case 0x5201:										// Broadcom PHYs:
 	case 0x5221:
+	case 0x5241:
 	case 0x5400:
 	case 0x5401:
 	case 0x5411:

@@ -145,14 +145,23 @@ public:
 													// for your program's buffers, just call map() on it
 													// and pass the returned object here...
 			} v0 ;
+			
+			struct  // v1
+			{
+				IOMemoryMap * bufferMemoryMap ;				// same as 'bufferMemoryMap' from version 0, above.
+				
+				IOWorkLoop * workloop ;						// A workloop on which to run callbacks for this port..
+															// Can be NULL to use FireWire isochronous workloop...
+															// The workloop will be retained by the program object.
+			} v1 ;
 		} u ;
 	} ;
 	
 	// this struct has been redefined for our next generation isochronous architecture,
 	// but is backwards compatible with the old definition.. This means we should
 	// be safe when an old-style driver is loaded..
-	// Make sure all unused fields are set to 0/NULL and that auxInfo points to
-	// a valid DCLTaskInfoAux struct, defined above.
+	// To use DCLTaskInfo (see createLocalIsochPort) make sure all 'unused' fields are set to 0 or NULL
+	// and that auxInfo points to a valid DCLTaskInfoAux struct, defined above.
 	
 //    typedef void (CallUserProc)(void *refcon, void * userProc, void * dclCommand);
 	struct DCLTaskInfo

@@ -521,7 +521,7 @@ static const struct smb_message_struct {
 /* 0xa2 */ { "SMBntcreateX", reply_ntcreate_and_X, AS_USER | CAN_IPC | QUEUE_IN_OPLOCK },
 /* 0xa3 */ { NULL, NULL, 0 },
 /* 0xa4 */ { "SMBntcancel", reply_ntcancel, 0 },
-/* 0xa5 */ { NULL, NULL, 0 },
+/* 0xa5 */ { "SMBntrename", reply_ntrename, AS_USER | NEED_WRITE | QUEUE_IN_OPLOCK },
 /* 0xa6 */ { NULL, NULL, 0 },
 /* 0xa7 */ { NULL, NULL, 0 },
 /* 0xa8 */ { NULL, NULL, 0 },
@@ -736,7 +736,7 @@ static int switch_message(int type,char *inbuf,char *outbuf,int size,int bufsize
 			if (flags & AS_GUEST) 
 				flags &= ~AS_USER;
 			else
-				return(ERROR_DOS(ERRSRV,ERRaccess));
+				return(ERROR_FORCE_DOS(ERRSRV,ERRbaduid));
 		}
 
 		/* this code is to work around a bug is MS client 3 without

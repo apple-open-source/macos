@@ -90,17 +90,17 @@ typedef struct AOAStateUserClientStruct {
 	UInt32				ucPramVolume;
 	UInt32				ucPowerState;
 	UInt32				ucLayoutID;
-	UInt32				ucReserved_4;
-	UInt32				ucReserved_5;
-	UInt32				ucReserved_6;
-	UInt32				ucReserved_7;
-	UInt32				ucReserved_8;
-	UInt32				ucReserved_9;
-	UInt32				ucReserved_10;
-	UInt32				ucReserved_11;
-	UInt32				ucReserved_12;
-	UInt32				ucReserved_13;
-	UInt32				ucReserved_14;
+	UInt32				uc_fVersion;											//	(for AOAViewer v3.0.1, 18 Aug. 2004 - RBM)
+	UInt32				uc_IOAudioEngineStatus_fCurrentLoopCount;				//	(for AOAViewer v3.0.1, 18 Aug. 2004 - RBM)
+	UInt32				uc_IOAudioEngineStatus_fLastLoopTime_hi;				//	(for AOAViewer v3.0.1, 18 Aug. 2004 - RBM)
+	UInt32				uc_IOAudioEngineStatus_fLastLoopTime_lo;				//	(for AOAViewer v3.0.1, 18 Aug. 2004 - RBM)
+	UInt32				uc_IOAudioEngineStatus_fEraseHeadSampleFrame;			//	(for AOAViewer v3.0.1, 18 Aug. 2004 - RBM)
+	UInt32				uc_IOAudioEngineState;									//	(for AOAViewer v3.0.1, 18 Aug. 2004 - RBM)
+	UInt32				uc_IOAudioStreamFormatExtension_fVersion;				//	(for AOAViewer v3.0.1, 18 Aug. 2004 - RBM)
+	UInt32				uc_IOAudioStreamFormatExtension_fFlags;					//	(for AOAViewer v3.0.1, 18 Aug. 2004 - RBM)
+	UInt32				uc_IOAudioStreamFormatExtension_fFramesPerPacket;		//	(for AOAViewer v3.0.1, 18 Aug. 2004 - RBM)
+	UInt32				uc_IOAudioStreamFormatExtension_fBytesPerPacket;		//	(for AOAViewer v3.0.1, 18 Aug. 2004 - RBM)
+	UInt32				uc_IOAudioEngine_sampleOffset;							//	(for AOAViewer v3.0.1, 18 Aug. 2004 - RBM)
 	UInt32				ucReserved_15;
 	UInt32				ucReserved_16;
 	UInt32				ucReserved_17;
@@ -163,6 +163,7 @@ typedef struct AOAStateUserClientStruct {
 #define kMaxVolumeOffset				"maxVolumeOffset"
 #define kSpeakerID						"SpeakerID"
 #define kMicrophoneID					"MicrophoneID"
+#define kSiliconVersion                 "SiliconVersion"
 #define kPluginRecoveryOrder			"RecoveryOrder"
 #define kClipRoutines					"ClipRoutines"
 #define kEncoding						"Encoding"
@@ -175,6 +176,7 @@ typedef struct AOAStateUserClientStruct {
 #define kMuteAmpWhenClockInterrupted    "MuteAmpWhenClockInterrupted"
 #define kInputsBitmap					"InputsBitmap"
 #define kOutputsBitmap					"OutputsBitmap"
+#define kSuppressBootChimeLevelCtrl		"suppressBootChimeLevelControl" /*  3730863]	*/
 
 #define kTransportIndex					"TransportIndex"				/*  [3648867]   Provides an association between the 'i2s' IO Module and the I2C address of device attached to it.	*/
 																		/*				Used as a <key>TransportIndex</key><integer></integer> value pair where values represent:			*/
@@ -289,6 +291,7 @@ protected:
 	UInt32								mDetectCollection;
 	UInt32								mInternalSpeakerID;
 	UInt32								mInternalMicrophoneID;
+    UInt32                              mSiliconVersion;
 	bool								mCurrentPluginNeedsSoftwareInputGain;
 	bool								mCurrentPluginNeedsSoftwareOutputVolume;
 	UInt32								mAmpRecoveryMuteDuration;
@@ -465,6 +468,8 @@ public:
 
 	AOAStateUserClientStruct	mUCState;
 	
+	virtual void			notifyStreamFormatsPublished ( void );		//  [3743041]
+	
 protected:
 	// Do the link to the IOAudioFamily 
 	// These will help to create the port config through the OF Device Tree
@@ -549,6 +554,7 @@ protected:
 	virtual AppleOnboardAudio* findAOAInstanceWithLayoutID ( UInt32 layoutID );				//	[3515371]	rbm		19 Dec 2003
 	UInt32				mUsesAOAPowerManagement;											//	[3515371]	rbm		26 May 2004
 	UInt32				mSleepsLayoutIDAOAInstance;											//	[3515371]	rbm		26 May 2004
+	bool				mSpressBootChimeLevelControl;										//  [3730863]   rbm		 4 Aug 2004
 	
 protected:
     // The PRAM utility

@@ -27,5 +27,7 @@ RSYNC_CONNECT_PROG="$RSYNC --config=$conf --daemon"
 export RSYNC_CONNECT_PROG
 
 hands_setup
-checkit "$RSYNC -avvz localhost::test-from/ \"$TO/\"" "$FROM" "$TO"
+checkit "$RSYNC -avvvvz localhost::test-from/ \"$TO/\"" "$FROM" "$TO"
 
+# The script would have aborted on error, so getting here means we've won.
+exit 0

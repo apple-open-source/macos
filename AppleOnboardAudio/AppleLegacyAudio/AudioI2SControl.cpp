@@ -298,7 +298,7 @@ void AudioI2SControl::setSerialFormatRegister(ClockSource clockSource, UInt32 mc
 		}
 	}
 
-	// 2] Setup the serial format register & data format register
+	// 2 Setup the serial format register & data format register
 	SetSerialFormatReg ( regValue );
 	dataFormat = newDataFormat;				//	[3060321]	save this to verify value that was used to init!
 	SetDataWordSizesReg ( dataFormat );		//	[3060321]	rbm	2 Oct 2002	MUST OCCUR WHILE CLOCK IS STOPPED
@@ -346,6 +346,7 @@ UInt32 AudioI2SControl::GetSerialFormatReg(void)
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void AudioI2SControl::SetSerialFormatReg(UInt32 value)
 {
+	debugIOLog ( 5, "± AudioI2SControl::SetSerialFormatReg ( 0x%lX )", value );
 	WriteWordLittleEndian(i2sBaseAddress, kI2SSerialFormatOffset, value);
 }
 
@@ -523,9 +524,13 @@ bool AudioI2SControl::clockRun(bool start)
     if (start) {
 		switch ( i2SInterfaceNumber ) {
 			case kUseI2SCell0:
+				KLSetRegister (kFCR1Offset, KLGetRegister (kFCR1Offset) | kI2S0InterfaceEnable);
+				KLSetRegister (kFCR1Offset, KLGetRegister (kFCR1Offset) | kI2S0CellEnable);
 				KLSetRegister (kFCR1Offset, KLGetRegister (kFCR1Offset) | kI2S0ClockEnable);
 				break;
 			case kUseI2SCell1:
+				KLSetRegister (kFCR1Offset, KLGetRegister (kFCR1Offset) | kI2S1InterfaceEnable);
+				KLSetRegister (kFCR1Offset, KLGetRegister (kFCR1Offset) | kI2S1CellEnable);
 				KLSetRegister (kFCR1Offset, KLGetRegister (kFCR1Offset) | kI2S1ClockEnable);
 				break;
 			default:

@@ -45,7 +45,7 @@ static int generate_trn_id(void)
  Parse a node status response into an array of structures.
 ****************************************************************************/
 
-static struct node_status *parse_node_status(char *p, int *num_names)
+static struct node_status *parse_node_status(char *p, int *num_names, struct node_status_extra *extra)
 {
 	struct node_status *ret;
 	int i;
@@ -68,6 +68,12 @@ static struct node_status *parse_node_status(char *p, int *num_names)
 		DEBUG(10, ("%s#%02x: flags = 0x%02x\n", ret[i].name, 
 			   ret[i].type, ret[i].flags));
 	}
+	/*
+	 * Also, pick up the MAC address ...
+	 */
+	if (extra) {
+		memcpy(&extra->mac_addr, p, 6); /* Fill in the mac addr */
+	}
 	return ret;
 }
 
@@ -78,7 +84,8 @@ static struct node_status *parse_node_status(char *p, int *num_names)
 **************************************************************************/
 
 struct node_status *node_status_query(int fd,struct nmb_name *name,
-				      struct in_addr to_ip, int *num_names)
+				      struct in_addr to_ip, int *num_names,
+				      struct node_status_extra *extra)
 {
 	BOOL found=False;
 	int retries = 2;
@@ -149,7 +156,7 @@ struct node_status *node_status_query(int fd,struct nmb_name *name,
 				continue;
 			}
 
-			ret = parse_node_status(&nmb2->answers->rdata[0], num_names);
+			ret = parse_node_status(&nmb2->answers->rdata[0], num_names, extra);
 			free_packet(p2);
 			return ret;
 		}
@@ -163,7 +170,7 @@ struct node_status *node_status_query(int fd,struct nmb_name *name,
  a servers name given its IP. Return the matched name in *name.
 **************************************************************************/
 
-BOOL name_status_find(const char *q_name, int q_type, int type, struct in_addr to_ip, char *name)
+BOOL name_status_find(const char *q_name, int q_type, int type, struct in_addr to_ip, fstring name)
 {
 	struct node_status *status = NULL;
 	struct nmb_name nname;
@@ -190,7 +197,7 @@ BOOL name_status_find(const char *q_name, int q_type, int type, struct in_addr t
 
 	/* W2K PDC's seem not to respond to '*'#0. JRA */
 	make_nmb_name(&nname, q_name, q_type);
-	status = node_status_query(sock, &nname, to_ip, &count);
+	status = node_status_query(sock, &nname, to_ip, &count, NULL);
 	close(sock);
 	if (!status)
 		goto done;
@@ -202,7 +209,7 @@ BOOL name_status_find(const char *q_name, int q_type, int type, struct in_addr t
 	if (i == count)
 		goto done;
 
-	pull_ascii(name, status[i].name, 16, 15, STR_TERMINATE);
+	pull_ascii_nstring(name, sizeof(fstring), status[i].name);
 
 	/* Store the result in the cache. */
 	/* but don't store an entry for 0x1c names here.  Here we have 
@@ -230,7 +237,7 @@ BOOL name_status_find(const char *q_name, int q_type, int type, struct in_addr t
   comparison function used by sort_ip_list
 */
 
-int ip_compare(struct in_addr *ip1, struct in_addr *ip2)
+static int ip_compare(struct in_addr *ip1, struct in_addr *ip2)
 {
 	int max_bits1=0, max_bits2=0;
 	int num_interfaces = iface_count();
@@ -292,7 +299,7 @@ static void sort_ip_list(struct in_addr *iplist, int count)
 	qsort(iplist, count, sizeof(struct in_addr), QSORT_CAST ip_compare);	
 }
 
-void sort_ip_list2(struct ip_service *iplist, int count)
+static void sort_ip_list2(struct ip_service *iplist, int count)
 {
 	if (count <= 1) {
 		return;
@@ -1229,32 +1236,12 @@ BOOL get_pdc_ip(const char *domain, struct in_addr *ip)
 	return True;
 }
 
-/*********************************************************************
- small wrapper function to get the DC list and sort it if neccessary 
-*********************************************************************/
-BOOL get_sorted_dc_list( const char *domain, struct ip_service **ip_list, int *count, BOOL ads_only )
-{
-	BOOL ordered;
-	
-	DEBUG(8,("get_sorted_dc_list: attempting lookup using [%s]\n",
-		(ads_only ? "ads" : lp_name_resolve_order())));
-	
-	if ( !get_dc_list(domain, ip_list, count, ads_only, &ordered) )
-		return False;
-		
-	/* only sort if we don't already have an ordered list */
-	if ( !ordered )
-		sort_ip_list2( *ip_list, *count );
-		
-	return True;
-}
-
 /********************************************************
  Get the IP address list of the domain controllers for
  a domain.
 *********************************************************/
 
-BOOL get_dc_list(const char *domain, struct ip_service **ip_list, 
+static BOOL get_dc_list(const char *domain, struct ip_service **ip_list, 
                  int *count, BOOL ads_only, int *ordered)
 {
 	fstring resolve_order;
@@ -1403,3 +1390,24 @@ BOOL get_dc_list(const char *domain, struct ip_service **ip_list,
 	
 	return internal_resolve_name(domain, 0x1C, ip_list, count, resolve_order);
 }
+
+/*********************************************************************
+ small wrapper function to get the DC list and sort it if neccessary 
+*********************************************************************/
+BOOL get_sorted_dc_list( const char *domain, struct ip_service **ip_list, int *count, BOOL ads_only )
+{
+	BOOL ordered;
+	
+	DEBUG(8,("get_sorted_dc_list: attempting lookup using [%s]\n",
+		(ads_only ? "ads" : lp_name_resolve_order())));
+	
+	if ( !get_dc_list(domain, ip_list, count, ads_only, &ordered) )
+		return False;
+		
+	/* only sort if we don't already have an ordered list */
+	if ( !ordered )
+		sort_ip_list2( *ip_list, *count );
+		
+	return True;
+}
+

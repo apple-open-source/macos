@@ -1,17 +1,6 @@
-In message <20020403094739.GA5434@samba.org> you write:
-> On  3 Apr 2002, Rusty Russell <rusty@rustcorp.com.au> wrote:
-> > In message <20020403020455.GC18851@samba.org> you write:
-> > > Hi,
-> > > 
-> > > I think you said the other day that you had a working --rsyncable
-> > > patch for gzip.  Could I have it please?
-> 
-> Thanks for that.  I'll put it in with our contrib patches and probably
-> merge it soon.
-> 
-> I was actually after the patch to gzip, rather than the fuzzy patch
-> for rsync.  I'd like to try it myself and also distribute it along
-> with rsync.
+From: Rusty Russell <rusty@rustcorp.com.au>
+
+[NOTE: this patch is for _gzip_! --Wayne]
 
 It's pending for actual gzip inclusion!  The maintainer was dug up and
 everything: it'll even be on by default.
@@ -21,7 +10,6 @@ Rusty.
 --
   Anyone who quotes me in their sig is an idiot. -- Rusty Russell.
 
-diff -ur gzip-1.2.4.orig/deflate.c gzip-1.2.4-rsync/deflate.c
 --- gzip-1.2.4.orig/deflate.c	Fri Aug 13 22:35:31 1993
 +++ gzip-1.2.4-rsync/deflate.c	Sat Dec 30 15:33:25 2000
 @@ -121,6 +121,14 @@
@@ -200,7 +188,6 @@ diff -ur gzip-1.2.4.orig/deflate.c gzip-1.2.4-rsync/deflate.c
              strstart++;
              lookahead--;
          }
-diff -ur gzip-1.2.4.orig/gzip.c gzip-1.2.4-rsync/gzip.c
 --- gzip-1.2.4.orig/gzip.c	Thu Aug 19 23:39:43 1993
 +++ gzip-1.2.4-rsync/gzip.c	Fri Dec 29 21:20:54 2000
 @@ -239,6 +239,7 @@
@@ -237,7 +224,6 @@ diff -ur gzip-1.2.4.orig/gzip.c gzip-1.2.4-rsync/gzip.c
  	case 'S':
  #ifdef NO_MULTIPLE_DOTS
              if (*optarg == '.') optarg++;
-diff -ur gzip-1.2.4.orig/gzip.h gzip-1.2.4-rsync/gzip.h
 --- gzip-1.2.4.orig/gzip.h	Fri Aug 13 22:35:33 1993
 +++ gzip-1.2.4-rsync/gzip.h	Sat Dec 30 15:26:56 2000
 @@ -131,6 +131,7 @@
@@ -257,7 +243,6 @@ diff -ur gzip-1.2.4.orig/gzip.h gzip-1.2.4-rsync/gzip.h
  
          /* in bits.c */
  void     bi_init    OF((file_t zipfile));
-diff -ur gzip-1.2.4.orig/gzip.texi gzip-1.2.4-rsync/gzip.texi
 --- gzip-1.2.4.orig/gzip.texi	Thu Aug 19 06:42:50 1993
 +++ gzip-1.2.4-rsync/gzip.texi	Fri Dec 29 21:20:54 2000
 @@ -316,6 +316,14 @@
@@ -275,7 +260,6 @@ diff -ur gzip-1.2.4.orig/gzip.texi gzip-1.2.4-rsync/gzip.texi
  @item --suffix @var{suf}
  @itemx -S @var{suf}
  Use suffix @samp{@var{suf}} instead of @samp{.gz}. Any suffix can be
-diff -ur gzip-1.2.4.orig/trees.c gzip-1.2.4-rsync/trees.c
 --- gzip-1.2.4.orig/trees.c	Wed Aug 18 03:36:32 1993
 +++ gzip-1.2.4-rsync/trees.c	Sat Dec 30 15:37:00 2000
 @@ -850,9 +850,10 @@

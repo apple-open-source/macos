@@ -105,29 +105,29 @@ LUCategory cacheCategory[] =
 char *cacheName[] =
 {
 	"user (by name)",
-	"user (by uid)",	
-	"group (by name)",	
-	"group (by gid)",	
-	"host (by name)",	
-	"host (by Internet address)",	
-	"host (by Ethernet address)",	
-	"host (IPV6 by name)",	
-	"host (by IPV6 address)",	
-	"network (by name)",	
-	"network (by Internet address)",	
-	"service (by name)",	
-	"service (by number)",	
-	"protocol (by name)",	
-	"protocol (by number)",	
-	"rpc (by name)",	
-	"protocol (by number)",	
-	"mount",	
-	"printer",	
-	"bootparam (by name)",	
-	"bootparam (by Internet address)",	
-	"bootparam (by Ethernet address)",	
-	"bootp",	
-	"alias",	
+	"user (by uid)",
+	"group (by name)",
+	"group (by gid)",
+	"host (by name)",
+	"host (by Internet address)",
+	"host (by Ethernet address)",
+	"host (IPV6 by name)",
+	"host (by IPV6 address)",
+	"network (by name)",
+	"network (by Internet address)",
+	"service (by name)",
+	"service (by number)",
+	"protocol (by name)",
+	"protocol (by number)",
+	"rpc (by name)",
+	"protocol (by number)",
+	"mount",
+	"printer",
+	"bootparam (by name)",
+	"bootparam (by Internet address)",
+	"bootparam (by Ethernet address)",
+	"bootp",
+	"alias",
 	"netgroup",
 	"grouplist"
 };
@@ -168,20 +168,23 @@ static CacheAgent *_sharedCacheAgent = nil;
 	LUDictionary *item;
 	LUCategory cat;
 	LUCache *cache;
+	LUArray *exlist;
 
 	if (n >= NCACHE) return;
-	
+
 	cat = cacheCategory[n];
 
 	if (cat >= NCATEGORIES) return;
  
 	cache = cacheStore[n].cache;
 
+	exlist = [[LUArray alloc] init];
+
 	expired = 0;
 	expireAll = 0;
-	
+
 	len = [cache count];
-	for (i = len - 1; i >= 0; i--)
+	for (i = 0; i < len; i++)
 	{
 		item = [cache objectAtIndex:i];
 		if (item == nil) continue;
@@ -189,12 +192,21 @@ static CacheAgent *_sharedCacheAgent = nil;
 		ttl = [item timeToLive];
 		age = [item age];
 
-		if (age > ttl)
+		if ((age > ttl) && (![exlist containsObject:item]))
 		{
-			[cache removeObject:item];
+			[exlist addObject:item];
 			expired++;
 		}
 	}
+
+	len = [exlist count];
+	for (i = 0; i < len; i++)
+	{
+		item = [exlist objectAtIndex:i];
+		[cache removeObject:item];
+	}
+
+	[exlist release];
 
 	if (allStore[cat].all != nil)
 	{
@@ -217,7 +229,7 @@ static CacheAgent *_sharedCacheAgent = nil;
 		[allStore[cat].all release];
 		allStore[cat].all = nil;
 	}
-	
+
 	if (expired > 0)
 	{
 		system_log(LOG_DEBUG, "expired %d object%s in %s cache",
@@ -396,7 +408,7 @@ static CacheAgent *_sharedCacheAgent = nil;
 	}
 
 	for (i = 0; i < NCATEGORIES; i++)
-	{	
+	{
 		config = [configManager configForCategory:i fromConfig:configurationArray];
 		cValidation = [configManager boolForKey:"ValidateCache" dict:config default:gValidation];
 		cMax = [configManager intForKey:"CacheCapacity" dict:config default:gMax];
@@ -462,7 +474,7 @@ static CacheAgent *_sharedCacheAgent = nil;
 
 	s = (LUServer *)cserver;
 	[s release];
-	
+
 	system_log(LOG_DEBUG, "Deallocated CacheAgent 0x%08x\n", (int)self);
 
 	[super dealloc];
@@ -765,7 +777,7 @@ static CacheAgent *_sharedCacheAgent = nil;
 	if (!cacheStore[CServiceName].enabled) return;
 
 	names = [item valuesForKey:"name"];
-	numbers = [item valuesForKey:"number"];
+	numbers = [item valuesForKey:"port"];
 	protocols = [item valuesForKey:"protocol"];
 
 	if (protocols == NULL) return;
@@ -784,7 +796,7 @@ static CacheAgent *_sharedCacheAgent = nil;
 	if (nnames < 0) nnames = 0;
 
 	if (numbers == NULL) nnumbers = 0;
-	nnumbers = [item countForKey:"number"];
+	nnumbers = [item countForKey:"port"];
 	if (nnumbers < 0) nnumbers = 0;
 
 	nprotocols = [item countForKey:"protocol"];
@@ -792,19 +804,26 @@ static CacheAgent *_sharedCacheAgent = nil;
 
 	[item setTimeToLive:cacheStore[CServiceName].ttl];
 	[item setCacheHits:0];
-	[nameCache setObject:item forKeys:names];
 
-	for (i = 0; i < nprotocols; i++)
+	for (i = 0; i < nnames; i++)
 	{
-		for (j = 0; j < nnames; j++)
+		[nameCache setObject:item forKey:names[i]];
+
+		for (j = 0; j < nprotocols; j++)
 		{
-			sprintf(str, "%s/%s", names[j], protocols[i]);
+			sprintf(str, "%s/%s", names[i], protocols[j]);
 			[nameCache setObject:item forKey:str];
 		}
+	}
 
-		for (j = 0; j < nnumbers; j++)
+	for (i = 0; i < nnumbers; i++)
+	{
+		sprintf(str, "%s", numbers[i]);
+		[numberCache setObject:item forKey:str];
+
+		for (j = 0; j < nprotocols; j++)
 		{
-			sprintf(str, "%s/%s", numbers[j], protocols[i]);
+			sprintf(str, "%s/%s", numbers[i], protocols[j]);
 			[numberCache setObject:item forKey:str];
 		}
 	}
@@ -855,7 +874,6 @@ static CacheAgent *_sharedCacheAgent = nil;
 			}
 			else if (streq(key, "ip_address"))
 			{
-				
 				[self addObject:item category:cat toCache:CIPV4NodeAddr key:"ip_address"];
 				[self addEthernetObject:item category:cat toCache:CIPV4NodeMAC];
 			}
@@ -1109,6 +1127,50 @@ static CacheAgent *_sharedCacheAgent = nil;
 	return NO;
 }
 
+- (LUDictionary *)serviceWithName:(char *)name protocol:(char *)prot
+{
+	LUDictionary *item;
+	char *str;
+
+	if (name == NULL) return nil;
+
+	str = NULL;
+	if (prot == NULL) asprintf(&str, "%s", name);
+	else asprintf(&str, "%s/%s", name, prot);
+	if (str == NULL) return nil;
+
+	syslock_lock(cacheLock);
+	item = [cacheStore[CServiceName].cache objectForKey:str];
+	item = [self postProcess:item cache:CServiceName];
+	syslock_unlock(cacheLock);
+
+	free(str);
+
+	return item;
+}
+
+- (LUDictionary *)serviceWithNumber:(int *)number protocol:(char *)prot
+{
+	LUDictionary *item;
+	char *str;
+	
+	if (number == NULL) return nil;
+	
+	str = NULL;
+	if (prot == NULL) asprintf(&str, "%d", *number);
+	else asprintf(&str, "%d/%s", *number, prot);
+	if (str == NULL) return nil;
+	
+	syslock_lock(cacheLock);
+	item = [cacheStore[CServiceNumber].cache objectForKey:str];
+	item = [self postProcess:item cache:CServiceNumber];
+	syslock_unlock(cacheLock);
+	
+	free(str);
+	
+	return item;
+}
+
 - (LUDictionary *)itemWithKey:(char *)key
 	value:(char *)val
 	category:(LUCategory)cat
@@ -1138,7 +1200,7 @@ static CacheAgent *_sharedCacheAgent = nil;
 
 	size += (NCACHE * 20);
 	size += (NCATEGORIES * 12);
-		
+
 	return size;
 }
 

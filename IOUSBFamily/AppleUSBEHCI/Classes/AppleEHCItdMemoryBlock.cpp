@@ -52,6 +52,7 @@ AppleEHCItdMemoryBlock::NewMemoryBlock(void)
     
     me->prepare();
     sharedPtr = (EHCIGeneralTransferDescriptorSharedPtr)me->getBytesNoCopy();
+    bzero(sharedPtr, kEHCIPageSize);
     sharedPhysical = me->getPhysicalSegment(0, &len);
     
     for (i=0; i < TDsPerBlock; i++)

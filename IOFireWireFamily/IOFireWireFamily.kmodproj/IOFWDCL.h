@@ -6,6 +6,9 @@
 *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
 *
 *	$Log: IOFWDCL.h,v $
+*	Revision 1.9.12.1  2004/09/13 21:10:10  niels
+*	*** empty log message ***
+*	
 *	Revision 1.9  2003/10/31 02:40:58  niels
 *	*** empty log message ***
 *	
@@ -78,12 +81,12 @@ class IOFWDCL : public OSObject
 		
 		IOFWDCL*			fBranch ;
 		Callback			fCallback ;
-		UInt32*				fTimeStampPtr ;
+		volatile UInt32 *	fTimeStampPtr ;
 		UInt32				fRangeCount ;
 		IOVirtualRange *	fRanges ;
 		OSSet*				fUpdateList ;
 		OSIterator *		fUpdateIterator ;
-		UInt32*				fUserStatusPtr ;
+		volatile UInt32 *	fUserStatusPtr ;
 		void*				fRefcon ;
 		UInt32				fFlags ;
 		

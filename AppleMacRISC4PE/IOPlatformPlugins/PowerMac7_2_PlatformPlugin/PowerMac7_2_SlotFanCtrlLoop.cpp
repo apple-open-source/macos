@@ -36,16 +36,27 @@ OSDefineMetaClassAndStructors(PowerMac7_2_SlotFanCtrlLoop, IOPlatformPIDCtrlLoop
 
 extern const OSSymbol * gPM72EnvSystemUncalibrated;
 
+bool PowerMac7_2_SlotFanCtrlLoop::init( void )
+{
+	if (!super::init()) return(false);
+
+	activeAGPControl = false;
+
+	agpSensor = NULL;
+	agpControl = NULL;
+
+	return(true);
+}
+
 bool PowerMac7_2_SlotFanCtrlLoop::updateMetaState( void )
 {
 	const OSArray * metaStateArray;
 	const OSDictionary * metaStateDict;
 	const OSNumber * newMetaState;
 
-	// if the shroud is opened, use meta-state 2
-	// else if there is an overtemp condition, use meta-state 1
+	// else if there is an overtemp condition, use meta-state 1 (normal) or 3 (agp card control)
 	// else if there is a forced meta state, use it
-	// else, use meta-state 0
+	// else, use meta-state 0 (normal) or 2 (agp card control)
 
 	if ((metaStateArray = OSDynamicCast(OSArray, infoDict->getObject(gIOPPluginThermalMetaStatesKey))) == NULL)
 	{
@@ -53,19 +64,22 @@ bool PowerMac7_2_SlotFanCtrlLoop::updateMetaState( void )
 		return(false);
 	}
 
-	// Check for overtemp condition
-//	if ((platformPlugin->envArrayCondIsTrue(gIOPPluginEnvInternalOvertemp)) ||
-//	    (platformPlugin->envArrayCondIsTrue(gIOPPluginEnvExternalOvertemp)))
 	if ((platformPlugin->envArrayCondIsTrue(gIOPPluginEnvExternalOvertemp)) ||
 	    (platformPlugin->getEnv(gPM72EnvSystemUncalibrated)) != NULL)
 	{
 		CTRLLOOP_DLOG("PowerMac7_2_SlotFanCtrlLoop::updateMetaState Entering Overtemp Mode\n");
 
-		if ((metaStateDict = OSDynamicCast(OSDictionary, metaStateArray->getObject(1))) != NULL &&
+		// Choose the correct failsafe meta state
+		int failsafeIndex = activeAGPControl ? 3 : 1;
+		const OSNumber* failsafeIndexNum = activeAGPControl ? gIOPPluginThree : gIOPPluginOne;
+
+		CTRLLOOP_DLOG("PowerMac7_2_SlotFanCtrlLoop::updateMetaState Entering Overtemp Mode (%d)\n", failsafeIndex );
+
+		if ((metaStateDict = OSDynamicCast(OSDictionary, metaStateArray->getObject( failsafeIndex ))) != NULL &&
 		    (cacheMetaState( metaStateDict ) == true))
 		{
 			// successfully entered overtemp mode
-			setMetaState( gIOPPluginOne );
+			setMetaState( failsafeIndexNum );
 			return(true);
 		}
 		else
@@ -92,12 +106,18 @@ bool PowerMac7_2_SlotFanCtrlLoop::updateMetaState( void )
 		}
 	}
 
+	// Choose the correct failsafe meta state
+	int normalIndex = activeAGPControl ? 2 : 0;
+	const OSNumber* normalIndexNum = activeAGPControl ? gIOPPluginTwo : gIOPPluginZero;
+
+	CTRLLOOP_DLOG("PowerMac7_2_SlotFanCtrlLoop::updateMetaState Trying for Normal Meta State (%d)\n", normalIndex );
+
 	// Use default "Normal" meta state
-	if ((metaStateDict = OSDynamicCast(OSDictionary, metaStateArray->getObject(0))) != NULL &&
+	if ((metaStateDict = OSDynamicCast(OSDictionary, metaStateArray->getObject( normalIndex ))) != NULL &&
 	    (cacheMetaState( metaStateDict ) == true))
 	{
-		//CTRLLOOP_DLOG("PowerMac7_2_PIDCtrlLoop::updateMetaState use meta state zero\n");
-		setMetaState( gIOPPluginZero );
+
+		setMetaState( normalIndexNum );
 		return(true);
 	}
 	else
@@ -108,6 +128,22 @@ bool PowerMac7_2_SlotFanCtrlLoop::updateMetaState( void )
 	}
 }
 
+SensorValue PowerMac7_2_SlotFanCtrlLoop::getAggregateSensorValue( void )
+{
+	SensorValue powerValue, agpValue;
+
+	powerValue = inputSensor->forceAndFetchCurrentValue();
+	inputSensor->setCurrentValue( powerValue );
+
+	if ( agpSensor )
+	{
+		agpValue = agpSensor->forceAndFetchCurrentValue();
+		agpSensor->setCurrentValue( agpValue );
+	}
+
+	return( activeAGPControl ? agpValue : powerValue );
+}
+
 ControlValue PowerMac7_2_SlotFanCtrlLoop::calculateNewTarget( void ) const
 {
 	SInt32 dRaw, rRaw;
@@ -116,15 +152,6 @@ ControlValue PowerMac7_2_SlotFanCtrlLoop::calculateNewTarget( void ) const
 	SInt32 result;
 	UInt32 newTarget;
 	samplePoint * latest;
-        IORegistryEntry *nvdaRegEntry;
-
-        //handle NV40 card, set PCI Slot Fan to a constant 3000RPM
-        if (((nvdaRegEntry = IORegistryEntry::fromPath("/pci/NVDA,Parent@10", gIODTPlane, 0, 0, 0)) != NULL) &&
-            (nvdaRegEntry -> getProperty("consume-ADC-power") != NULL) ) {
-       		CTRLLOOP_DLOG("NV40 present\n");
-                newTarget = 78;
-                return(newTarget);
-        }
 
 	// if there is an output override, use it
 	if (overrideActive)
@@ -142,8 +169,6 @@ ControlValue PowerMac7_2_SlotFanCtrlLoop::calculateNewTarget( void ) const
 		}
 		else
 		{
-			//result = (SInt32)outputControl->getTargetValue()->unsigned32BitValue();
-
 			// calculate the derivative term
 			// apply the derivative gain
 			// this is 12.20 * 16.16 => 28.36
@@ -167,10 +192,18 @@ ControlValue PowerMac7_2_SlotFanCtrlLoop::calculateNewTarget( void ) const
 			
 			// truncate the fractional part
 			accum >>= 36;
-	
-			//result = (UInt32)(accum < 0 ? 0 : (accum & 0xFFFFFFFF));
-			//result += (SInt32)accum;
-			result = (SInt32)accum;
+
+			// if we're doing AGP Card Control, we use the PID result as a delta with respect to the
+			// previous target. For traditional PCI power control, the result is calculated independent
+			// of the previous result.
+			if ( activeAGPControl )
+			{
+				result = (SInt32)accum + (SInt32)agpControl->getTargetValue();
+			}
+			else
+			{
+				result = (SInt32)accum;
+			}
 		}
 
 		newTarget = (UInt32)(result > 0) ? result : 0;
@@ -181,7 +214,7 @@ ControlValue PowerMac7_2_SlotFanCtrlLoop::calculateNewTarget( void ) const
 		else if (newTarget > outputMax)
 			newTarget = outputMax;
 
-/*
+#if 0
 #ifdef CTRLLOOP_DEBUG
 	if (timerCallbackActive)
 	{
@@ -192,14 +225,14 @@ ControlValue PowerMac7_2_SlotFanCtrlLoop::calculateNewTarget( void ) const
 					  " G_d=%08lX"
 					  " G_r=%08lX"
 					  " T_cur=%08lX"
-					  " Res=%016llX"
-					  " Out=%lu"
+					  " accum=%016llX"
+					  " result=%ld"
 		              " T_err=%08lX"
 					  " pProd=%016llX"
 		              " dRaw=%08lX"
 					  " dProd=%016llX"
 					  " rRaw=%08lX"
-					  " rProd=%016llX",
+					  " rProd=%016llX\n",
 						(tempDesc = OSDynamicCast( OSString, infoDict->getObject(kIOPPluginThermalGenericDescKey))) != NULL ?
 								tempDesc->getCStringNoCopy() : "Unknown CtrlLoop",
 					  G_p,
@@ -207,7 +240,7 @@ ControlValue PowerMac7_2_SlotFanCtrlLoop::calculateNewTarget( void ) const
 					  G_r,
 					  latest->sample.sensValue,
 					  accum,
-					  uResult,
+					  result,
 					  (latest->error.sensValue),
 					  (pProd),
 					  (dRaw),
@@ -217,8 +250,297 @@ ControlValue PowerMac7_2_SlotFanCtrlLoop::calculateNewTarget( void ) const
 #ifdef CTRLLOOP_DEBUG
 	}
 #endif
-*/
+#endif
 	}
 
 	return(newTarget);
+}
+
+void PowerMac7_2_SlotFanCtrlLoop::sendNewTarget( ControlValue newTarget )
+{
+	if ( activeAGPControl )
+	{
+		if (ctrlloopState == kIOPCtrlLoopFirstAdjustment ||
+			ctrlloopState == kIOPCtrlLoopDidWake ||
+			newTarget != agpControl->getTargetValue() )
+		{
+			if (agpControl->sendTargetValue( newTarget ))
+			{
+				agpControl->setTargetValue(newTarget);
+				ctrlloopState = kIOPCtrlLoopAllRegistered;
+			}
+			else
+			{
+				CTRLLOOP_DLOG("PowerMac7_2_SlotFanCtrlLoop::sendNewTarget failed to send AGP target value\n");
+			}
+		}
+
+		if ( outputControl && outputControl->isRegistered() == kOSBooleanTrue )
+		{
+			// If we're in AGP Card Control mode, newTarget is an AGP fan speed. Map it
+			// onto the PCI fan.
+			ControlValue pciFanTarget;
+	
+			// the following equation makes the assumption that the min/max for both fans
+			// is greater than or equal to zero:
+			//
+			// ( pci_target - pci_min ) / ( pci_max - pci_min) = ( agp_target - agp_min ) / ( agp_max - agp_min )
+	
+			pciFanTarget = ( ( pciFanMax - pciFanMin) * ( newTarget - outputMin ) ) / ( outputMax - outputMin ) + pciFanMin;
+	
+			CTRLLOOP_DLOG( "NV40 FAN TARGET: %lu PCI FAN TARGET: %lu\n", newTarget, pciFanTarget );
+	
+			if (ctrlloopState == kIOPCtrlLoopFirstAdjustment ||
+				ctrlloopState == kIOPCtrlLoopDidWake ||
+				pciFanTarget != outputControl->getTargetValue() )
+			{
+				if (outputControl->sendTargetValue( pciFanTarget ))
+				{
+					outputControl->setTargetValue( pciFanTarget );
+					ctrlloopState = kIOPCtrlLoopAllRegistered;
+				}
+				else
+				{
+					CTRLLOOP_DLOG("PowerMac7_2_SlotFanCtrlLoop::sendNewTarget failed to send PCI target value\n");
+				}
+			}
+		}
+	}
+	else
+	{	
+		if (ctrlloopState == kIOPCtrlLoopFirstAdjustment ||
+			ctrlloopState == kIOPCtrlLoopDidWake ||
+			newTarget != outputControl->getTargetValue() )
+		{
+			if (outputControl->sendTargetValue( newTarget ))
+			{
+				outputControl->setTargetValue(newTarget);
+				ctrlloopState = kIOPCtrlLoopAllRegistered;
+			}
+			else
+			{
+				CTRLLOOP_DLOG("PowerMac7_2_SlotFanCtrlLoop::sendNewTarget failed to send target value\n");
+			}
+		}
+	}
+}
+
+void PowerMac7_2_SlotFanCtrlLoop::sensorRegistered( IOPlatformSensor * aSensor )
+{
+	const OSData * zone;
+
+	// see if this is a dynamically-provided AGP sensor, such as a video card temperature sensor
+	if ( aSensor != inputSensor &&
+	     ( ( zone = aSensor->getSensorZone() ) != NULL ) &&
+		 ( *(UInt32 *)zone->getBytesNoCopy() == kIOPPluginAGPThermalZone ) )
+	{
+		CTRLLOOP_DLOG( "PowerMac7_2_SlotFanCtrlLoop::sensorRegistered got AGP sensor 0x%08lX\n",
+				aSensor->getSensorID()->unsigned32BitValue() );
+
+		// This is an AGP sensor. First, disable polling.
+		aSensor->setPollingPeriod( (UInt32) kIOPPluginNoPolling );
+		aSensor->setPollingPeriodNS( (UInt32) kIOPPluginNoPolling );
+		aSensor->sendPollingPeriod();
+
+		// Now, look for the input-target property. If found, save it in the meta state dictionary
+		// and use this sensor to drive the AGP/PCI control loop.
+		IOService* agpSensorDriver;
+		IOService* agpSensorNub;
+		OSData* target;
+
+		if ( ( ( agpSensorDriver = aSensor->getSensorDriver() ) != NULL ) &&
+		     ( ( agpSensorNub = agpSensorDriver->getProvider() ) != NULL ) &&
+			 ( ( target = OSDynamicCast( OSData, agpSensorNub->getProperty( "input-target" ) ) ) != NULL ) )
+		{
+			CTRLLOOP_DLOG( "PowerMac7_2_SlotFanCtrlLoop::sensorRegistered AGP Sensor 0x%08lX has input-target 0x%08lX\n",
+					aSensor->getSensorID()->unsigned32BitValue(), *(UInt32 *)target->getBytesNoCopy() );
+
+			// place the input-target value in the "AGP control" meta state dict
+
+			OSNumber* numTarget;
+			OSArray* metaStateArray;
+			OSDictionary* metaStateDict;
+
+			// grab the meta state array
+			metaStateArray = OSDynamicCast( OSArray, infoDict->getObject( gIOPPluginThermalMetaStatesKey ) );
+
+			// "AGP Control" meta state is at index 2
+			if ( ( metaStateDict = OSDynamicCast( OSDictionary, metaStateArray->getObject( 2 ) ) ) == NULL )
+			{
+				CTRLLOOP_DLOG( "PowerMac7_2_SlotFanCtrlLoop::sensorRegistered Failed to fetch meta state 2\n" );
+				goto AGP_Sensor_Init_Failed;
+			}
+
+			// encapsulate the input-target as an OSNumber and insert it
+			numTarget = OSNumber::withNumber( *(UInt32 *)target->getBytesNoCopy(), 32 );
+			metaStateDict->setObject( kIOPPIDCtrlLoopInputTargetKey, numTarget );
+			numTarget->release();
+
+			// designate this as the AGP sensor to use for input
+
+			agpSensor = aSensor;
+		}
+	}
+
+AGP_Sensor_Init_Failed:
+
+	// if we've found both an agp sensor and an agp control, then switch to AGP control mode
+	if ( !activeAGPControl && agpSensor && agpControl )
+	{
+		CTRLLOOP_DLOG( "PowerMac7_2_SlotFanCtrlLoop::sensorRegistered AGP Card Control active\n" );
+		activeAGPControl = true;
+		updateMetaState();
+	}
+
+	/*
+	 * Decide whether or not to kick off the control algorithm by invoking deadlinePassed().
+	 *
+	 * - if the deadline is already non-zero, the ball is already rolling, so do nothing
+	 *
+	 * - if activeAGPControl is true, we have all the required components for AGP Card Control,
+	 *   so begin the control algorithm.
+	 *
+	 * - if inputSensor and outputControl are registered, we can do tradition PCI fan control,
+	 *   so kick it off.
+	 */
+
+	if ( activeAGPControl ||
+	     ( inputSensor && ( inputSensor->isRegistered() == kOSBooleanTrue ) &&
+	       outputControl && ( outputControl->isRegistered() == kOSBooleanTrue ) ) )
+	{
+		CTRLLOOP_DLOG("PowerMac7_2_SlotFanCtrlLoop::sensorRegistered starting control algorithm, AGP Control = %s\n",
+				activeAGPControl ? "TRUE" : "FALSE" );
+
+		ctrlloopState = kIOPCtrlLoopFirstAdjustment;
+
+		// set the deadline
+		deadlinePassed();
+	}
+}
+
+void PowerMac7_2_SlotFanCtrlLoop::controlRegistered( IOPlatformControl * aControl )
+{
+	const OSData * zone;
+
+	// see if this is a dynamically-provided AGP control, such as a video card fan
+	if ( aControl != outputControl &&
+	     ( ( zone = aControl->getControlZone() ) != NULL ) &&
+		 ( *(UInt32 *)zone->getBytesNoCopy() == kIOPPluginAGPThermalZone ) )
+	{
+		CTRLLOOP_DLOG( "PowerMac7_2_SlotFanCtrlLoop::controlRegistered got AGP control 0x%08lX\n",
+				aControl->getControlID()->unsigned32BitValue() );
+
+		OSNumber* tmpNumber;
+		OSArray* metaStateArray;
+		OSDictionary* metaStateDict;
+
+		// grab the meta state array
+		metaStateArray = OSDynamicCast( OSArray, infoDict->getObject( gIOPPluginThermalMetaStatesKey ) );
+
+		// "AGP Control" meta state is at index 2
+		if ( ( metaStateDict = OSDynamicCast( OSDictionary, metaStateArray->getObject( 2 ) ) ) == NULL )
+		{
+			CTRLLOOP_DLOG( "PowerMac7_2_SlotFanCtrlLoop::controlRegistered Failed to fetch meta state 2\n" );
+			goto AGP_Control_Init_Failed;
+		}
+
+		// When we're in AGP Card Control mode, we use the PID result to drive the AGP
+		// fan, and then we map that fan speed onto the PCI fan. The PCI fan max and min
+		// are specified by two properties in the meta state 2 entry, pci-fan-min and
+		// pci-fan-max
+
+		if ( ( tmpNumber = OSDynamicCast( OSNumber, metaStateDict->getObject( "pci-fan-min" ) ) ) == NULL )
+		{
+			CTRLLOOP_DLOG( "PowerMac7_2_SlotFanCtrlLoop::controlRegistered Failed to fetch pci-fan-min\n" );
+			goto AGP_Control_Init_Failed;
+		}
+		
+		pciFanMin = tmpNumber->unsigned32BitValue();
+
+		if ( ( tmpNumber = OSDynamicCast( OSNumber, metaStateDict->getObject( "pci-fan-max" ) ) ) == NULL )
+		{
+			CTRLLOOP_DLOG( "PowerMac7_2_SlotFanCtrlLoop::controlRegistered Failed to fetch pci-fan-max\n" );
+			goto AGP_Control_Init_Failed;
+		}
+
+		pciFanMax = tmpNumber->unsigned32BitValue();
+
+		CTRLLOOP_DLOG( "PowerMac7_2_SlotFanCtrlLoop::controlRegistered PCI FAN Min: %lu Max: %lu\n",
+				pciFanMin, pciFanMax );
+
+		// Min output (RPM/PWM)
+
+		if ( ( tmpNumber = OSNumber::withNumber( aControl->getControlMinValue(), 16 ) ) == NULL )
+		{
+			CTRLLOOP_DLOG( "PowerMac7_2_SlotFanCtrlLoop::controlRegistered Failed to fetch control's min-value\n" );
+			goto AGP_Control_Init_Failed;
+		}
+
+		CTRLLOOP_DLOG( "PowerMac7_2_SlotFanCtrlLoop::controlRegistered output-min: %lu\n", tmpNumber->unsigned32BitValue() );
+
+		metaStateDict->setObject( kIOPPIDCtrlLoopOutputMinKey, tmpNumber );
+		tmpNumber->release();
+
+		// Max output (RPM/PWM)
+
+		if ( ( tmpNumber = OSNumber::withNumber( aControl->getControlMaxValue(), 16 ) ) == NULL )
+		{
+			CTRLLOOP_DLOG( "PowerMac7_2_SlotFanCtrlLoop::controlRegistered Failed to fetch control's max-value\n" );
+			goto AGP_Control_Init_Failed;
+		}
+
+		CTRLLOOP_DLOG( "PowerMac7_2_SlotFanCtrlLoop::controlRegistered output-max: %lu\n", tmpNumber->unsigned32BitValue() );
+
+		metaStateDict->setObject( kIOPPIDCtrlLoopOutputMaxKey, tmpNumber );
+
+		// "AGP Control Failsafe" meta state is at index 3
+		if ( ( metaStateDict = OSDynamicCast( OSDictionary, metaStateArray->getObject( 3 ) ) ) == NULL )
+		{
+			CTRLLOOP_DLOG( "PowerMac7_2_SlotFanCtrlLoop::controlRegistered Failed to fetch meta state 3\n" );
+			tmpNumber->release();
+			goto AGP_Control_Init_Failed;
+		}
+
+		// Set "output-override" to be "output-max".
+
+		metaStateDict->setObject( kIOPPIDCtrlLoopOutputOverrideKey, tmpNumber );
+		tmpNumber->release();
+
+		// designate this as the AGP sensor to use for input
+
+		agpControl = aControl;
+	}
+
+AGP_Control_Init_Failed:
+
+	// if we've found both an agp sensor and an agp control, then switch to AGP control mode
+	if ( !activeAGPControl && agpSensor && agpControl )
+	{
+		CTRLLOOP_DLOG( "PowerMac7_2_SlotFanCtrlLoop::controlRegistered AGP Card Control active\n" );
+		activeAGPControl = true;
+		updateMetaState();
+	}
+
+	/*
+	 * Decide whether or not to kick off the control algorithm by invoking deadlinePassed().
+	 *
+	 * - if activeAGPControl is true, we have all the required components for AGP Card Control,
+	 *   so begin the control algorithm.
+	 *
+	 * - if inputSensor and outputControl are registered, we can do tradition PCI fan control,
+	 *   so kick it off.
+	 */
+
+	if ( activeAGPControl ||
+	     ( inputSensor && ( inputSensor->isRegistered() == kOSBooleanTrue ) &&
+	       outputControl && ( outputControl->isRegistered() == kOSBooleanTrue ) ) )
+	{
+		CTRLLOOP_DLOG("PowerMac7_2_SlotFanCtrlLoop::controlRegistered starting control algorithm, AGP Control = %s\n",
+				activeAGPControl ? "TRUE" : "FALSE" );
+
+		ctrlloopState = kIOPCtrlLoopFirstAdjustment;
+
+		// set the deadline
+		deadlinePassed();
+	}
 }

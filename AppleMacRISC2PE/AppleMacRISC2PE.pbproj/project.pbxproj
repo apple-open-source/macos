@@ -177,10 +177,10 @@
 				089C1673FE841209C02AAC07,
 				B088C5B303E5BABE05CE0DA1,
 				B00EEA8D0416BED705CE0DA1,
-				0995030C0434DB2B0BCE29CA,
-				099503100434FD1F0BCE29CA,
-				09E4E3FD043BA0B90BCE29CA,
-				2B7DB80F05810D4B005BA39A,
+				2B87C60D069DF0340051FE3E,
+				2B21934A06E915B70097B31E,
+				2B21935406E915F00097B31E,
+				2B21935E06E916010097B31E,
 			);
 		};
 		089C166AFE841209C02AAC07 = {
@@ -212,7 +212,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleMacRISC2PE;
-				MODULE_VERSION = 1.5.0b1;
+				MODULE_VERSION = "\U00011.6.0b5";
 				OTHER_CFLAGS = "\U0001-D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -224,10 +224,10 @@
 			};
 			dependencies = (
 				B088C5CA03E5E91105CE0DA1,
-				09E4E3F0043B96510BCE29CA,
-				09E4E3EF043B964F0BCE29CA,
-				09E4E407043BA0C50BCE29CA,
-				2B8F302D058403CE00891BDE,
+				2B87C61B069DFB010051FE3E,
+				2B21936806E9174A0097B31E,
+				2B21936906E9174C0097B31E,
+				2B21936A06E9174E0097B31E,
 			);
 			isa = PBXBundleTarget;
 			name = AppleMacRISC2PE;
@@ -243,7 +243,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleMacRISC2PE</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleMacRISC2PE version 1.5.0, Copyright 2002-2004 Apple Computer, Inc.</string>
+	<string>AppleMacRISC2PE version 1.6.0, Copyright 2002-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -255,11 +255,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.5.0</string>
+	<string>1.6.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.5.0b1</string>
+	<string>1.6.0b5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>MacRISC2CPU</key>
@@ -822,537 +822,18 @@
 //092
 //093
 //094
-		099503060434DB2B0BCE29CA = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			generatedFileNames = (
-			);
-			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
-		};
-		099503070434DB2B0BCE29CA = {
-			buildActionMask = 2147483647;
-			files = (
-				0995030E0434DB370BCE29CA,
-			);
-			isa = PBXHeadersBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		099503080434DB2B0BCE29CA = {
-			buildActionMask = 2147483647;
-			files = (
-				0995030F0434DB380BCE29CA,
-			);
-			isa = PBXSourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		099503090434DB2B0BCE29CA = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXResourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		0995030A0434DB2B0BCE29CA = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXFrameworksBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		0995030B0434DB2B0BCE29CA = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			generatedFileNames = (
-			);
-			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
-		};
-		0995030C0434DB2B0BCE29CA = {
-			buildPhases = (
-				099503060434DB2B0BCE29CA,
-				099503070434DB2B0BCE29CA,
-				099503080434DB2B0BCE29CA,
-				099503090434DB2B0BCE29CA,
-				0995030A0434DB2B0BCE29CA,
-				0995030B0434DB2B0BCE29CA,
-			);
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "";
-				HEADER_SEARCH_PATHS = "";
-				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = "";
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.driver.PB6_1_PlatformMonitor;
-				MODULE_VERSION = 1.5.0b1;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = PB6_1_PlatformMonitor;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-				WRAPPER_EXTENSION = kext;
-			};
-			dependencies = (
-			);
-			isa = PBXBundleTarget;
-			name = PB6_1_PlatformMonitor;
-			productName = PB6_1_PlatformMonitor;
-			productReference = 0995030D0434DB2B0BCE29CA;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>English</string>
-	<key>CFBundleExecutable</key>
-	<string>PB6_1_PlatformMonitor</string>
-	<key>CFBundleGetInfoString</key>
-	<string></string>
-	<key>CFBundleIconFile</key>
-	<string></string>
-	<key>CFBundleIdentifier</key>
-	<string>com.apple.driver.PB6_1_PlatformMonitor</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>PB6_1_PlatformMonitor</string>
-	<key>CFBundlePackageType</key>
-	<string>KEXT</string>
-	<key>CFBundleShortVersionString</key>
-	<string>1.5.0</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>1.5.0b1</string>
-	<key>IOKitPersonalities</key>
-	<dict>
-		<key>PB6_1_PlatformMonitor</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.PB6_1_PlatformMonitor</string>
-			<key>IOClass</key>
-			<string>PB6_1_PlatformMonitor</string>
-			<key>IONameMatch</key>
-			<string>PowerBook6,1_PlatformMonitor</string>
-			<key>IOProviderClass</key>
-			<string>IOPlatformDevice</string>
-		</dict>
-	</dict>
-	<key>OSBundleLibraries</key>
-	<dict>
-		<key>com.apple.driver.AppleMacRISC2PE</key>
-		<string>1.3.4</string>
-		<key>com.apple.kernel.iokit</key>
-		<string>1.1</string>
-		<key>com.apple.kernel.libkern</key>
-		<string>1.1</string>
-		<key>com.apple.kernel.mach</key>
-		<string>1.1</string>
-	</dict>
-</dict>
-</plist>
-";
-		};
-		0995030D0434DB2B0BCE29CA = {
-			isa = PBXBundleReference;
-			path = PB6_1_PlatformMonitor.kext;
-			refType = 3;
-		};
-		0995030E0434DB370BCE29CA = {
-			fileRef = B0AEE849037337E705CE0D9E;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		0995030F0434DB380BCE29CA = {
-			fileRef = B0AEE847037337D005CE0D9E;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		099503100434FD1F0BCE29CA = {
-			buildPhases = (
-				099503110434FD1F0BCE29CA,
-				099503120434FD1F0BCE29CA,
-				099503140434FD1F0BCE29CA,
-				099503160434FD1F0BCE29CA,
-				099503170434FD1F0BCE29CA,
-				099503180434FD1F0BCE29CA,
-			);
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "";
-				HEADER_SEARCH_PATHS = "";
-				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = "";
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.driver.PB5_1_PlatformMonitor;
-				MODULE_VERSION = 1.5.0b1;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = PB5_1_PlatformMonitor;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-				WRAPPER_EXTENSION = kext;
-			};
-			dependencies = (
-			);
-			isa = PBXBundleTarget;
-			name = PB5_1_PlatformMonitor;
-			productName = PB6_1_PlatformMonitor;
-			productReference = 099503190434FD1F0BCE29CA;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>English</string>
-	<key>CFBundleExecutable</key>
-	<string>PB5_1_PlatformMonitor</string>
-	<key>CFBundleGetInfoString</key>
-	<string></string>
-	<key>CFBundleIconFile</key>
-	<string></string>
-	<key>CFBundleIdentifier</key>
-	<string>com.apple.driver.PB5_1_PlatformMonitor</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>PB5_1_PlatformMonitor</string>
-	<key>CFBundlePackageType</key>
-	<string>KEXT</string>
-	<key>CFBundleShortVersionString</key>
-	<string>1.5.0</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>1.5.0b1</string>
-	<key>IOKitPersonalities</key>
-	<dict>
-		<key>PB5_1_PlatformMonitor</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.PB5_1_PlatformMonitor</string>
-			<key>IOClass</key>
-			<string>PB5_1_PlatformMonitor</string>
-			<key>IONameMatch</key>
-			<string>PowerBook5,1_PlatformMonitor</string>
-			<key>IOProviderClass</key>
-			<string>IOPlatformDevice</string>
-		</dict>
-	</dict>
-	<key>OSBundleLibraries</key>
-	<dict>
-		<key>com.apple.driver.AppleMacRISC2PE</key>
-		<string>1.3.4</string>
-		<key>com.apple.kernel.iokit</key>
-		<string>1.1</string>
-		<key>com.apple.kernel.libkern</key>
-		<string>1.1</string>
-		<key>com.apple.kernel.mach</key>
-		<string>1.1</string>
-	</dict>
-</dict>
-</plist>
-";
-		};
-		099503110434FD1F0BCE29CA = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			generatedFileNames = (
-			);
-			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
-		};
-		099503120434FD1F0BCE29CA = {
-			buildActionMask = 2147483647;
-			files = (
-				0995031A0434FD3E0BCE29CA,
-			);
-			isa = PBXHeadersBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		099503140434FD1F0BCE29CA = {
-			buildActionMask = 2147483647;
-			files = (
-				0995031B0434FD3E0BCE29CA,
-			);
-			isa = PBXSourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		099503160434FD1F0BCE29CA = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXResourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		099503170434FD1F0BCE29CA = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXFrameworksBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		099503180434FD1F0BCE29CA = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			generatedFileNames = (
-			);
-			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
-		};
-		099503190434FD1F0BCE29CA = {
-			isa = PBXBundleReference;
-			path = PB5_1_PlatformMonitor.kext;
-			refType = 3;
-		};
-		0995031A0434FD3E0BCE29CA = {
-			fileRef = 632003E303D342CB0FCE15D6;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		0995031B0434FD3E0BCE29CA = {
-			fileRef = 632003E403D342CB0FCE15D6;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		09E4E3E9043B96180BCE29CA = {
 			buildActionMask = 12;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				09E4E3ED043B963F0BCE29CA,
-				09E4E3EE043B963F0BCE29CA,
-				09E4E553043D24E90BCE29CA,
-				2B05453E0584FC6F007439B6,
+				2B37FC22069DFE82009C5F8B,
+				2BAED05906EBEE0B0098D8A6,
+				2BAED05A06EBEE110098D8A6,
+				2BAED05F06EBEE140098D8A6,
 			);
 			isa = PBXCopyFilesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
-		};
-		09E4E3ED043B963F0BCE29CA = {
-			fileRef = 0995030D0434DB2B0BCE29CA;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		09E4E3EE043B963F0BCE29CA = {
-			fileRef = 099503190434FD1F0BCE29CA;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		09E4E3EF043B964F0BCE29CA = {
-			isa = PBXTargetDependency;
-			target = 0995030C0434DB2B0BCE29CA;
-		};
-		09E4E3F0043B96510BCE29CA = {
-			isa = PBXTargetDependency;
-			target = 099503100434FD1F0BCE29CA;
-		};
-		09E4E3FD043BA0B90BCE29CA = {
-			buildPhases = (
-				09E4E3FE043BA0B90BCE29CA,
-				09E4E3FF043BA0B90BCE29CA,
-				09E4E401043BA0B90BCE29CA,
-				09E4E403043BA0B90BCE29CA,
-				09E4E404043BA0B90BCE29CA,
-				09E4E405043BA0B90BCE29CA,
-			);
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "";
-				HEADER_SEARCH_PATHS = "";
-				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = "";
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.driver.Portable2003_PlatformMonitor;
-				MODULE_VERSION = 1.5.0b1;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = Portable2003_PlatformMonitor;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-				WRAPPER_EXTENSION = kext;
-			};
-			dependencies = (
-			);
-			isa = PBXBundleTarget;
-			name = Portable2003_PlatformMonitor;
-			productName = PB6_1_PlatformMonitor;
-			productReference = 09E4E406043BA0B90BCE29CA;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>English</string>
-	<key>CFBundleExecutable</key>
-	<string>Portable2003_PlatformMonitor</string>
-	<key>CFBundleGetInfoString</key>
-	<string></string>
-	<key>CFBundleIconFile</key>
-	<string></string>
-	<key>CFBundleIdentifier</key>
-	<string>com.apple.driver.Portable2003_PlatformMonitor</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>Portable2003_PlatformMonitor</string>
-	<key>CFBundlePackageType</key>
-	<string>KEXT</string>
-	<key>CFBundleShortVersionString</key>
-	<string>1.5.0</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>1.5.0b1</string>
-	<key>IOKitPersonalities</key>
-	<dict>
-		<key>Portable2003_PlatformMonitor</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.Portable2003_PlatformMonitor</string>
-			<key>IOClass</key>
-			<string>Portable2003_PlatformMonitor</string>
-			<key>IONameMatch</key>
-			<string>Portable2003_PlatformMonitor</string>
-			<key>IOProviderClass</key>
-			<string>IOPlatformDevice</string>
-		</dict>
-	</dict>
-	<key>OSBundleLibraries</key>
-	<dict>
-		<key>com.apple.driver.AppleMacRISC2PE</key>
-		<string>1.3.4</string>
-		<key>com.apple.kernel.iokit</key>
-		<string>1.1</string>
-		<key>com.apple.kernel.libkern</key>
-		<string>1.1</string>
-		<key>com.apple.kernel.mach</key>
-		<string>1.1</string>
-	</dict>
-</dict>
-</plist>
-";
-		};
-		09E4E3FE043BA0B90BCE29CA = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			generatedFileNames = (
-			);
-			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
-		};
-		09E4E3FF043BA0B90BCE29CA = {
-			buildActionMask = 2147483647;
-			files = (
-				09E4E40B043BA0E90BCE29CA,
-			);
-			isa = PBXHeadersBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		09E4E401043BA0B90BCE29CA = {
-			buildActionMask = 2147483647;
-			files = (
-				09E4E40A043BA0E90BCE29CA,
-			);
-			isa = PBXSourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		09E4E403043BA0B90BCE29CA = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXResourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		09E4E404043BA0B90BCE29CA = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXFrameworksBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		09E4E405043BA0B90BCE29CA = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			generatedFileNames = (
-			);
-			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
-		};
-		09E4E406043BA0B90BCE29CA = {
-			isa = PBXBundleReference;
-			path = Portable2003_PlatformMonitor.kext;
-			refType = 3;
-		};
-		09E4E407043BA0C50BCE29CA = {
-			isa = PBXTargetDependency;
-			target = 09E4E3FD043BA0B90BCE29CA;
-		};
-		09E4E408043BA0E90BCE29CA = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = Portable2003_PlatformMonitor.cpp;
-			refType = 4;
-		};
-		09E4E409043BA0E90BCE29CA = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = Portable2003_PlatformMonitor.h;
-			refType = 4;
-		};
-		09E4E40A043BA0E90BCE29CA = {
-			fileRef = 09E4E408043BA0E90BCE29CA;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		09E4E40B043BA0E90BCE29CA = {
-			fileRef = 09E4E409043BA0E90BCE29CA;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		09E4E553043D24E90BCE29CA = {
-			fileRef = 09E4E406043BA0B90BCE29CA;
-			isa = PBXBuildFile;
-			settings = {
-			};
 		};
 //090
 //091
@@ -1384,10 +865,10 @@
 				0B81C263FFB7832611CA28AA,
 				B088C5B403E5BABE05CE0DA1,
 				B00EEA8E0416BED705CE0DA1,
-				0995030D0434DB2B0BCE29CA,
-				099503190434FD1F0BCE29CA,
-				09E4E406043BA0B90BCE29CA,
-				2B7DB81805810D4B005BA39A,
+				2B87C616069DF0340051FE3E,
+				2B21935306E915B70097B31E,
+				2B21935D06E915F00097B31E,
+				2B21936706E916010097B31E,
 			);
 			isa = PBXGroup;
 			name = Products;
@@ -1417,14 +898,14 @@
 				B03B6DF202F9DA0605CE0D9E,
 				B0AEE84503732BF305CE0D9E,
 				B0AEE84D03788C4105CE0D9E,
-				B0AEE849037337E705CE0D9E,
-				B0AEE847037337D005CE0D9E,
-				632003E303D342CB0FCE15D6,
-				632003E403D342CB0FCE15D6,
-				09E4E409043BA0E90BCE29CA,
-				09E4E408043BA0E90BCE29CA,
-				2B8F302B0584013200891BDE,
-				2B8F30290584012800891BDE,
+				2BCFF75806E918D0002A8311,
+				2BCFF75706E918D0002A8311,
+				2BCFF75606E918D0002A8311,
+				2BCFF75406E918D0002A8311,
+				2BCFF75306E918D0002A8311,
+				2BCFF75506E918D0002A8311,
+				2B87C618069DF8A30051FE3E,
+				2B87C617069DF8A30051FE3E,
 				B088C5B903E5BD8505CE0DA1,
 			);
 			isa = PBXGroup;
@@ -1442,20 +923,308 @@
 //2B2
 //2B3
 //2B4
-		2B05453E0584FC6F007439B6 = {
-			fileRef = 2B7DB81805810D4B005BA39A;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		2B7DB80F05810D4B005BA39A = {
+		2B21934A06E915B70097B31E = {
 			buildPhases = (
-				2B7DB81005810D4B005BA39A,
-				2B7DB81105810D4B005BA39A,
-				2B7DB81305810D4B005BA39A,
-				2B7DB81505810D4B005BA39A,
-				2B7DB81605810D4B005BA39A,
-				2B7DB81705810D4B005BA39A,
+				2B21934B06E915B70097B31E,
+				2B21934C06E915B70097B31E,
+				2B21934E06E915B70097B31E,
+				2B21935006E915B70097B31E,
+				2B21935106E915B70097B31E,
+				2B21935206E915B70097B31E,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.PB5_1_PlatformMonitor;
+				MODULE_VERSION = 1.6.0b5;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = PB5_1_PlatformMonitor;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = PB5_1_PlatformMonitor;
+			productName = PB6_1_PlatformMonitor;
+			productReference = 2B21935306E915B70097B31E;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>PB5_1_PlatformMonitor</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.PB5_1_PlatformMonitor</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>PB5_1_PlatformMonitor</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.6.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.6.0b5</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>PB5_1_PlatformMonitor</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.PB5_1_PlatformMonitor</string>
+			<key>IOClass</key>
+			<string>PB5_1_PlatformMonitor</string>
+			<key>IONameMatch</key>
+			<string>PB5_1_PlatformMonitor</string>
+			<key>IOProviderClass</key>
+			<string>IOPlatformDevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.AppleMacRISC2PE</key>
+		<string>1.3.4</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.mach</key>
+		<string>1.1</string>
+	</dict>
+</dict>
+</plist>
+";
+		};
+		2B21934B06E915B70097B31E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		2B21934C06E915B70097B31E = {
+			buildActionMask = 2147483647;
+			files = (
+				2BCFF75A06E91D50002A8311,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2B21934E06E915B70097B31E = {
+			buildActionMask = 2147483647;
+			files = (
+				2BCFF75906E91D4F002A8311,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2B21935006E915B70097B31E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2B21935106E915B70097B31E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2B21935206E915B70097B31E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		2B21935306E915B70097B31E = {
+			isa = PBXBundleReference;
+			path = PB5_1_PlatformMonitor.kext;
+			refType = 3;
+		};
+		2B21935406E915F00097B31E = {
+			buildPhases = (
+				2B21935506E915F00097B31E,
+				2B21935606E915F00097B31E,
+				2B21935806E915F00097B31E,
+				2B21935A06E915F00097B31E,
+				2B21935B06E915F00097B31E,
+				2B21935C06E915F00097B31E,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.Portable2003_PlatformMonitor;
+				MODULE_VERSION = 1.6.0b5;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = Portable2003_PlatformMonitor;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = Portable2003_PlatformMonitor;
+			productName = PB6_1_PlatformMonitor;
+			productReference = 2B21935D06E915F00097B31E;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>Portable2003_PlatformMonitor</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.Portable2003_PlatformMonitor</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Portable2003_PlatformMonitor</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.6.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.6.0b5</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>Portable2003_PlatformMonitor</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.Portable2003_PlatformMonitor</string>
+			<key>IOClass</key>
+			<string>Portable2003_PlatformMonitor</string>
+			<key>IONameMatch</key>
+			<string>Portable2003_PlatformMonitor</string>
+			<key>IOProviderClass</key>
+			<string>IOPlatformDevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.AppleMacRISC2PE</key>
+		<string>1.3.4</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.mach</key>
+		<string>1.1</string>
+	</dict>
+</dict>
+</plist>
+";
+		};
+		2B21935506E915F00097B31E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		2B21935606E915F00097B31E = {
+			buildActionMask = 2147483647;
+			files = (
+				2BAED04606EBE44F0098D8A6,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2B21935806E915F00097B31E = {
+			buildActionMask = 2147483647;
+			files = (
+				2BAED04706EBE4510098D8A6,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2B21935A06E915F00097B31E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2B21935B06E915F00097B31E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2B21935C06E915F00097B31E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		2B21935D06E915F00097B31E = {
+			isa = PBXBundleReference;
+			path = Portable2003_PlatformMonitor.kext;
+			refType = 3;
+		};
+		2B21935E06E916010097B31E = {
+			buildPhases = (
+				2B21935F06E916010097B31E,
+				2B21936006E916010097B31E,
+				2B21936206E916010097B31E,
+				2B21936406E916010097B31E,
+				2B21936506E916010097B31E,
+				2B21936606E916010097B31E,
 			);
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1464,7 +1233,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Portable2004_PlatformMonitor;
-				MODULE_VERSION = 1.5.0b1;
+				MODULE_VERSION = 1.6.0b5;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1478,7 +1247,7 @@
 			isa = PBXBundleTarget;
 			name = Portable2004_PlatformMonitor;
 			productName = PB6_1_PlatformMonitor;
-			productReference = 2B7DB81805810D4B005BA39A;
+			productReference = 2B21936706E916010097B31E;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
 <plist version=\"1.0\">
@@ -1500,11 +1269,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.5.0</string>
+	<string>1.6.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.5.0b1</string>
+	<string>1.6.0b5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>Portable2004_PlatformMonitor</key>
@@ -1534,7 +1303,7 @@
 </plist>
 ";
 		};
-		2B7DB81005810D4B005BA39A = {
+		2B21935F06E916010097B31E = {
 			buildActionMask = 2147483647;
 			files = (
 			);
@@ -1547,37 +1316,37 @@
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
-		2B7DB81105810D4B005BA39A = {
+		2B21936006E916010097B31E = {
 			buildActionMask = 2147483647;
 			files = (
-				2B8F302C0584013200891BDE,
+				2BAED04806EBE4560098D8A6,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		2B7DB81305810D4B005BA39A = {
+		2B21936206E916010097B31E = {
 			buildActionMask = 2147483647;
 			files = (
-				2B8F302A0584012800891BDE,
+				2BAED04906EBE4570098D8A6,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		2B7DB81505810D4B005BA39A = {
+		2B21936406E916010097B31E = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		2B7DB81605810D4B005BA39A = {
+		2B21936506E916010097B31E = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		2B7DB81705810D4B005BA39A = {
+		2B21936606E916010097B31E = {
 			buildActionMask = 2147483647;
 			files = (
 			);
@@ -1590,66 +1359,299 @@
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
-		2B7DB81805810D4B005BA39A = {
+		2B21936706E916010097B31E = {
 			isa = PBXBundleReference;
 			path = Portable2004_PlatformMonitor.kext;
 			refType = 3;
 		};
-		2B8F30290584012800891BDE = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = Portable2004_PlatformMonitor.cpp;
-			refType = 4;
+		2B21936806E9174A0097B31E = {
+			isa = PBXTargetDependency;
+			target = 2B21934A06E915B70097B31E;
 		};
-		2B8F302A0584012800891BDE = {
-			fileRef = 2B8F30290584012800891BDE;
+		2B21936906E9174C0097B31E = {
+			isa = PBXTargetDependency;
+			target = 2B21935406E915F00097B31E;
+		};
+		2B21936A06E9174E0097B31E = {
+			isa = PBXTargetDependency;
+			target = 2B21935E06E916010097B31E;
+		};
+		2B37FC22069DFE82009C5F8B = {
+			fileRef = 2B87C616069DF0340051FE3E;
 			isa = PBXBuildFile;
 			settings = {
 			};
 		};
-		2B8F302B0584013200891BDE = {
+		2B87C60D069DF0340051FE3E = {
+			buildPhases = (
+				2B87C60E069DF0340051FE3E,
+				2B87C60F069DF0340051FE3E,
+				2B87C611069DF0340051FE3E,
+				2B87C613069DF0340051FE3E,
+				2B87C614069DF0340051FE3E,
+				2B87C615069DF0340051FE3E,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.Portable_PlatformMonitor;
+				MODULE_VERSION = 1.6.0b5;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = Portable_PlatformMonitor;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = Portable_PlatformMonitor;
+			productName = PB6_1_PlatformMonitor;
+			productReference = 2B87C616069DF0340051FE3E;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>Portable_PlatformMonitor</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.Portable_PlatformMonitor</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Portable_PlatformMonitor</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.6.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.6.0b5</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>Portable_PlatformMonitor</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.Portable_PlatformMonitor</string>
+			<key>IOClass</key>
+			<string>Portable_PlatformMonitor</string>
+			<key>IONameMatch</key>
+			<string>Portable_PlatformMonitor</string>
+			<key>IOProviderClass</key>
+			<string>IOPlatformDevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.AppleMacRISC2PE</key>
+		<string>1.3.4</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.mach</key>
+		<string>1.1</string>
+	</dict>
+</dict>
+</plist>
+";
+		};
+		2B87C60E069DF0340051FE3E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		2B87C60F069DF0340051FE3E = {
+			buildActionMask = 2147483647;
+			files = (
+				2B87C61A069DF8A30051FE3E,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2B87C611069DF0340051FE3E = {
+			buildActionMask = 2147483647;
+			files = (
+				2B87C619069DF8A30051FE3E,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2B87C613069DF0340051FE3E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2B87C614069DF0340051FE3E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2B87C615069DF0340051FE3E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		2B87C616069DF0340051FE3E = {
+			isa = PBXBundleReference;
+			path = Portable_PlatformMonitor.kext;
+			refType = 3;
+		};
+		2B87C617069DF8A30051FE3E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = Portable_PlatformMonitor.cpp;
+			refType = 4;
+		};
+		2B87C618069DF8A30051FE3E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = Portable_PlatformMonitor.h;
+			refType = 4;
+		};
+		2B87C619069DF8A30051FE3E = {
+			fileRef = 2B87C617069DF8A30051FE3E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2B87C61A069DF8A30051FE3E = {
+			fileRef = 2B87C618069DF8A30051FE3E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2B87C61B069DFB010051FE3E = {
+			isa = PBXTargetDependency;
+			target = 2B87C60D069DF0340051FE3E;
+		};
+		2BAED04606EBE44F0098D8A6 = {
+			fileRef = 2BCFF75606E918D0002A8311;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2BAED04706EBE4510098D8A6 = {
+			fileRef = 2BCFF75406E918D0002A8311;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2BAED04806EBE4560098D8A6 = {
+			fileRef = 2BCFF75306E918D0002A8311;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2BAED04906EBE4570098D8A6 = {
+			fileRef = 2BCFF75506E918D0002A8311;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2BAED05906EBEE0B0098D8A6 = {
+			fileRef = 2B21935306E915B70097B31E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2BAED05A06EBEE110098D8A6 = {
+			fileRef = 2B21935D06E915F00097B31E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2BAED05F06EBEE140098D8A6 = {
+			fileRef = 2B21936706E916010097B31E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2BCFF75306E918D0002A8311 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Portable2004_PlatformMonitor.h;
 			refType = 4;
 		};
-		2B8F302C0584013200891BDE = {
-			fileRef = 2B8F302B0584013200891BDE;
+		2BCFF75406E918D0002A8311 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = Portable2003_PlatformMonitor.cpp;
+			refType = 4;
+		};
+		2BCFF75506E918D0002A8311 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = Portable2004_PlatformMonitor.cpp;
+			refType = 4;
+		};
+		2BCFF75606E918D0002A8311 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = Portable2003_PlatformMonitor.h;
+			refType = 4;
+		};
+		2BCFF75706E918D0002A8311 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = PB5_1_PlatformMonitor.cpp;
+			refType = 4;
+		};
+		2BCFF75806E918D0002A8311 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = PB5_1_PlatformMonitor.h;
+			refType = 4;
+		};
+		2BCFF75906E91D4F002A8311 = {
+			fileRef = 2BCFF75706E918D0002A8311;
 			isa = PBXBuildFile;
 			settings = {
 			};
 		};
-		2B8F302D058403CE00891BDE = {
-			isa = PBXTargetDependency;
-			target = 2B7DB80F05810D4B005BA39A;
+		2BCFF75A06E91D50002A8311 = {
+			fileRef = 2BCFF75806E918D0002A8311;
+			isa = PBXBuildFile;
+			settings = {
+			};
 		};
 //2B0
 //2B1
 //2B2
 //2B3
 //2B4
-//630
-//631
-//632
-//633
-//634
-		632003E303D342CB0FCE15D6 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = PB5_1_PlatformMonitor.h;
-			refType = 4;
-		};
-		632003E403D342CB0FCE15D6 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = PB5_1_PlatformMonitor.cpp;
-			refType = 4;
-		};
-//630
-//631
-//632
-//633
-//634
 //B00
 //B01
 //B02
@@ -1847,7 +1849,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.IOPlatformFunction;
-				MODULE_VERSION = 1.5.0b1;
+				MODULE_VERSION = 1.6.0b5;
 				OTHER_CFLAGS = "-D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1873,7 +1875,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOPlatformFunction</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOPlatformVersion version 1.5.0, Copyright 2003 Apple Computer, Inc.</string>
+	<string>IOPlatformVersion version 1.6.0, Copyright 2003 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1885,11 +1887,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.5.0</string>
+	<string>1.6.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.5.0b1</string>
+	<string>1.6.0b5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOPlatformFunctionDriver</key>
@@ -2021,18 +2023,6 @@
 			isa = PBXBuildFile;
 			settings = {
 			};
-		};
-		B0AEE847037337D005CE0D9E = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = PB6_1_PlatformMonitor.cpp;
-			refType = 4;
-		};
-		B0AEE849037337E705CE0D9E = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = PB6_1_PlatformMonitor.h;
-			refType = 4;
 		};
 		B0AEE84D03788C4105CE0D9E = {
 			fileEncoding = 30;

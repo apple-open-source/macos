@@ -83,8 +83,6 @@ void AppleUSBEHCI::initForPM (IOPCIDevice *provider)
     //  Deal with CardBus USB cards.  Their provider will be a "IOCardBusDevice", as opposed to a "IOPCIDevice"
     //
     _onCardBus = (0 != provider->metaCast("IOCardBusDevice"));
-    if ( _onCardBus )
-        _unloadUIMAcrossSleep = true;
     
     //  Now, look at PCI cards.  Note that the onboard controller's provider is an IOPCIDevice so we cannot use that
     //  to distinguish between USB PCI cards and the on board controller.  Instead, we use the existence of the
@@ -95,12 +93,24 @@ void AppleUSBEHCI::initForPM (IOPCIDevice *provider)
 	if (provider->hasPCIPowerManagement() && (provider->enablePCIPowerManagement() == kIOReturnSuccess))
 	{
 	    _hasPCIPwrMgmt = true;
+            setProperty("Card Type","Built-in");
 	}
         else
         {
             USBLog(1, "%s[%p]::start EHCI controller will be unloaded across sleep",getName(),this);
             _unloadUIMAcrossSleep = true;
+            setProperty("Card Type","PCI");
         }
+    }
+    else
+    {
+        setProperty("Card Type","Built-in");
+    }
+    
+    if ( _onCardBus )
+    {
+        setProperty("Card Type","CardBus");
+        _unloadUIMAcrossSleep = true;
     }
     
     // callPlatformFunction symbols

@@ -134,36 +134,21 @@ IOReturn IOPlatformMonitor::message( UInt32 type, IOService * provider, void * a
 bool IOPlatformMonitor::initSymbols ()
 {
 	//	Create common symbols
-	if (!gIOPMonTypeKey)
-		gIOPMonTypeKey 				= OSSymbol::withCString (kIOPMonTypeKey);
-	if (!gIOPMonConTypeKey)
-		gIOPMonConTypeKey 			= OSSymbol::withCString (kIOPMonControlTypeKey);
-	if (!gIOPMonTypePowerSens)
-		gIOPMonTypePowerSens		= OSSymbol::withCString (kIOPMonTypePowerSens);
-	if (!gIOPMonTypeThermalSens)
-		gIOPMonTypeThermalSens		= OSSymbol::withCString (kIOPMonTypeThermalSens);
-	if (!gIOPMonTypeClamshellSens)
-		gIOPMonTypeClamshellSens	= OSSymbol::withCString (kIOPMonTypeClamshellSens);
-	if (!gIOPMonTypeCPUCon)
-		gIOPMonTypeCPUCon			= OSSymbol::withCString (kIOPMonTypeCPUCon);
-	if (!gIOPMonTypeGPUCon)
-		gIOPMonTypeGPUCon			= OSSymbol::withCString (kIOPMonTypeGPUCon);
-	if (!gIOPMonTypeSlewCon)
-		gIOPMonTypeSlewCon			= OSSymbol::withCString (kIOPMonTypeSlewCon);
-	if (!gIOPMonTypeFanCon)
-		gIOPMonTypeFanCon			= OSSymbol::withCString (kIOPMonTypeFanCon);
-	if (!gIOPMonIDKey)
-		gIOPMonIDKey				= OSSymbol::withCString (kIOPMonIDKey);
-	if (!gIOPMonCPUIDKey)
-		gIOPMonCPUIDKey				= OSSymbol::withCString (kIOPMonCPUIDKey);
-	if (!gIOPMonLowThresholdKey)
-		gIOPMonLowThresholdKey		= OSSymbol::withCString (kIOPMonLowThresholdKey);
-	if (!gIOPMonHighThresholdKey)
-		gIOPMonHighThresholdKey		= OSSymbol::withCString (kIOPMonHighThresholdKey);
-	if (!gIOPMonThresholdValueKey)
-		gIOPMonThresholdValueKey	= OSSymbol::withCString (kIOPMonThresholdValueKey);
-	if (!gIOPMonCurrentValueKey)
-		gIOPMonCurrentValueKey		= OSSymbol::withCString (kIOPMonCurrentValueKey);
+	if (!gIOPMonTypeKey)			gIOPMonTypeKey 				= OSSymbol::withCString (kIOPMonTypeKey);
+	if (!gIOPMonConTypeKey)			gIOPMonConTypeKey 			= OSSymbol::withCString (kIOPMonControlTypeKey);
+	if (!gIOPMonTypePowerSens)		gIOPMonTypePowerSens		= OSSymbol::withCString (kIOPMonTypePowerSens);
+	if (!gIOPMonTypeThermalSens)	gIOPMonTypeThermalSens		= OSSymbol::withCString (kIOPMonTypeThermalSens);
+	if (!gIOPMonTypeClamshellSens)	gIOPMonTypeClamshellSens	= OSSymbol::withCString (kIOPMonTypeClamshellSens);
+	if (!gIOPMonTypeCPUCon)			gIOPMonTypeCPUCon			= OSSymbol::withCString (kIOPMonTypeCPUCon);
+	if (!gIOPMonTypeGPUCon)			gIOPMonTypeGPUCon			= OSSymbol::withCString (kIOPMonTypeGPUCon);
+	if (!gIOPMonTypeSlewCon)		gIOPMonTypeSlewCon			= OSSymbol::withCString (kIOPMonTypeSlewCon);
+	if (!gIOPMonTypeFanCon)			gIOPMonTypeFanCon			= OSSymbol::withCString (kIOPMonTypeFanCon);
+	if (!gIOPMonIDKey)				gIOPMonIDKey				= OSSymbol::withCString (kIOPMonIDKey);
+	if (!gIOPMonCPUIDKey)			gIOPMonCPUIDKey				= OSSymbol::withCString (kIOPMonCPUIDKey);
+	if (!gIOPMonLowThresholdKey)	gIOPMonLowThresholdKey		= OSSymbol::withCString (kIOPMonLowThresholdKey);
+	if (!gIOPMonHighThresholdKey)	gIOPMonHighThresholdKey		= OSSymbol::withCString (kIOPMonHighThresholdKey);
+	if (!gIOPMonThresholdValueKey)	gIOPMonThresholdValueKey	= OSSymbol::withCString (kIOPMonThresholdValueKey);
+	if (!gIOPMonCurrentValueKey)	gIOPMonCurrentValueKey		= OSSymbol::withCString (kIOPMonCurrentValueKey);
 		
 	return true;
 }
@@ -184,90 +169,6 @@ IOReturn IOPlatformMonitor::powerStateWillChangeTo (IOPMPowerFlags, unsigned lon
 IOReturn IOPlatformMonitor::setAggressiveness(unsigned long selector, unsigned long newLevel)
 {
     return super::setAggressiveness(selector, newLevel);
-}
-
-// **********************************************************************************
-// initPowerState
-//
-// **********************************************************************************
-bool IOPlatformMonitor::initPowerState ()
-{
-	return true;
-}
-
-// **********************************************************************************
-// savePowerState
-//
-// **********************************************************************************
-void IOPlatformMonitor::savePowerState ()
-{
-	return;
-}
-
-// **********************************************************************************
-// restorePowerState
-//
-// **********************************************************************************
-bool IOPlatformMonitor::restorePowerState ()
-{
-	// false indicates state did not change
-	return false;
-}
-	
-// **********************************************************************************
-// initThermalState
-//
-// **********************************************************************************
-bool IOPlatformMonitor::initThermalState ()
-{
-	return true;
-}
-
-// **********************************************************************************
-// saveThermalState
-//
-// **********************************************************************************
-void IOPlatformMonitor::saveThermalState ()
-{
-	return;
-}
-
-// **********************************************************************************
-// restoreThermalState
-//
-// **********************************************************************************
-bool IOPlatformMonitor::restoreThermalState ()
-{
-	// false indicates state did not change
-	return false;
-}
-
-// **********************************************************************************
-// initClamshellState
-//
-// **********************************************************************************
-bool IOPlatformMonitor::initClamshellState ()
-{
-	return true;
-}
-
-// **********************************************************************************
-// saveClamshellState
-//
-// **********************************************************************************
-void IOPlatformMonitor::saveClamshellState ()
-{
-	return;
-}
-
-// **********************************************************************************
-// restoreClamshellState
-//
-// **********************************************************************************
-bool IOPlatformMonitor::restoreClamshellState ()
-{
-	// false indicates state did not change
-	return false;
 }
 
 // **********************************************************************************
@@ -452,5 +353,89 @@ bool IOPlatformMonitor::threadCommon (IOPMonCommandThreadSet *threadSet)
 	thread_call_enter(threadSet->workThread);			// invoke it
 	
 	return true;
+}
+
+// **********************************************************************************
+// initPowerState
+//
+// **********************************************************************************
+bool IOPlatformMonitor::initPowerState ()
+{
+	return true;
+}
+
+// **********************************************************************************
+// savePowerState
+//
+// **********************************************************************************
+void IOPlatformMonitor::savePowerState ()
+{
+	return;
+}
+
+// **********************************************************************************
+// restorePowerState
+//
+// **********************************************************************************
+bool IOPlatformMonitor::restorePowerState ()
+{
+	// false indicates state did not change
+	return false;
+}
+	
+// **********************************************************************************
+// initThermalState
+//
+// **********************************************************************************
+bool IOPlatformMonitor::initThermalState ()
+{
+	return true;
+}
+
+// **********************************************************************************
+// saveThermalState
+//
+// **********************************************************************************
+void IOPlatformMonitor::saveThermalState ()
+{
+	return;
+}
+
+// **********************************************************************************
+// restoreThermalState
+//
+// **********************************************************************************
+bool IOPlatformMonitor::restoreThermalState ()
+{
+	// false indicates state did not change
+	return false;
+}
+
+// **********************************************************************************
+// initClamshellState
+//
+// **********************************************************************************
+bool IOPlatformMonitor::initClamshellState ()
+{
+	return true;
+}
+
+// **********************************************************************************
+// saveClamshellState
+//
+// **********************************************************************************
+void IOPlatformMonitor::saveClamshellState ()
+{
+	return;
+}
+
+// **********************************************************************************
+// restoreClamshellState
+//
+// **********************************************************************************
+bool IOPlatformMonitor::restoreClamshellState ()
+{
+	// false indicates state did not change
+	return false;
 }
 

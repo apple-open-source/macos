@@ -23,7 +23,7 @@
 
 #ifndef lint
 static const char rcsid[] _U_ =
-"@(#) $Header: /cvs/root/tcpdump/tcpdump/print-pppoe.c,v 1.1.1.4 2004/02/05 19:30:56 rbraun Exp $ (LBL)";
+"@(#) $Header: /cvs/root/tcpdump/tcpdump/print-pppoe.c,v 1.1.1.5 2004/05/21 20:51:30 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -105,11 +105,7 @@ pppoe_print(register const u_char *bp, u_int length)
 	const u_char *pppoe_packet, *pppoe_payload;
 
 	pppoe_packet = bp;
-	if (pppoe_packet > snapend) {
-		printf("[|pppoe]");
-		return (PPPOE_HDRLEN);
-	}
-
+	TCHECK2(*pppoe_packet, PPPOE_HDRLEN);
 	pppoe_ver  = (pppoe_packet[0] & 0xF0) >> 4;
 	pppoe_type  = (pppoe_packet[0] & 0x0F);
 	pppoe_code = pppoe_packet[1];
@@ -215,4 +211,8 @@ pppoe_print(register const u_char *bp, u_int length)
 		printf(" ");
 		return (PPPOE_HDRLEN + ppp_print(pppoe_payload, pppoe_length));
 	}
+
+trunc:
+	printf("[|pppoe]");
+	return (PPPOE_HDRLEN);
 }

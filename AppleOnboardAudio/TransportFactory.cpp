@@ -11,6 +11,7 @@
 
 #include <I2STransportInterface.h>
 #include <I2SSlaveOnlyTranportInterface.h>
+#include <I2SOpaqueSlaveOnlyTransportInterface.h>
 
 const char* TransportFactory::I2SString = "i2s";
 const char* TransportFactory::I2SSlaveOnlyString = "i2sSlaveOnly";
@@ -27,6 +28,8 @@ TransportInterface* TransportFactory::createTransport ( const OSString* inTransp
 		theTransportObject = new I2STransportInterface();
 	} else if ( inTransportString->isEqualTo ( I2SSlaveOnlyString ) ) {
 		theTransportObject = new I2SSlaveOnlyTransportInterface();
+	} else if ( inTransportString->isEqualTo ( I2SOpaqueSlaveOnlyString ) ) {
+		theTransportObject = new I2SOpaqueSlaveOnlyTransportInterface();
 	} 
 	return theTransportObject;
 }

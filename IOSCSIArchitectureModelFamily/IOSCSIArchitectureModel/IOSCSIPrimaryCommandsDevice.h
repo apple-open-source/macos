@@ -449,6 +449,11 @@ public:
 							SCSICmdField4Byte 			param,
 							SCSICmdField4Byte 			mask );
 	
+	// Validate Parameter used for 33 bit to 8 byte paramaters
+	bool 				IsParameterValid ( 
+							SCSICmdField8Byte 			param,
+							SCSICmdField8Byte 			mask );
+	
 
 	bool 				IsMemoryDescriptorValid (
 							IOMemoryDescriptor * 		dataBuffer );

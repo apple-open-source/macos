@@ -451,12 +451,6 @@ enum semaphores{
 	kResetSemaphoreMask				=	( 1 << 0 )					//	bit address:	1 = reset in progress
 };
 
-enum writeMode{
-	kUPDATE_SHADOW					=	0,
-	kUPDATE_HW						=	1,
-	kUPDATE_ALL						=	2
-};
-
 enum resetRetryCount{
 	kRESET_MAX_RETRY_COUNT			=	5
 };

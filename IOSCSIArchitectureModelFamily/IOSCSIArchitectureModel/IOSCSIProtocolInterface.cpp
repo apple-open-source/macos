@@ -355,37 +355,13 @@ bool
 IOSCSIProtocolInterface::finalize ( IOOptionBits options )
 {
 	
-	if ( fPowerManagementInitialized )
+	if ( fPowerManagementInitialized == true )
 	{
 		
-		bool	powerTransistionStillInProgress = true;
-		
-		// need to wait for power transistion in progress to
-		// finish before finalizing or the transistion will
-		// attempt to complete after we are gone
-		while ( 1 )
-		{
-			
-			powerTransistionStillInProgress = ( bool ) fCommandGate->runAction (
-				( IOCommandGate::Action )
-				&IOSCSIProtocolInterface::sGetPowerTransistionInProgress );
-			
-			if ( powerTransistionStillInProgress )
-			{
-				IOSleep ( 1 );
-			}
-			
-			else
-			{
-				break;
-			}
-			
-		}
+		if ( fPowerTransitionInProgress == true )
+			fCommandGate->commandSleep ( &fPowerTransitionInProgress, THREAD_UNINT ); 
 		
 		fCommandGate->commandWakeup ( &fCurrentPowerState, false );
-		fCommandGate->runAction (
-				( IOCommandGate::Action )
-				&IOSCSIProtocolInterface::sGetPowerTransistionInProgress );			
 		
 		STATUS_LOG ( ( "PMstop about to be called.\n" ) );
 		
@@ -646,27 +622,32 @@ IOSCSIProtocolInterface::sPowerManagement ( thread_call_param_t whichDevice )
 	IOSCSIProtocolInterface *	self;
 	
 	self = ( IOSCSIProtocolInterface * ) whichDevice;
-	if ( ( self != NULL ) && ( self->isInactive ( ) == false ) )
+	if ( self != NULL )
 	{
 		
 		self->retain ( );
-		self->HandlePowerChange ( );
 		
-		self->fPowerAckInProgress = true;	
+		if ( self->isInactive ( ) == false )
+		{
+			
+			self->HandlePowerChange ( );
+			self->fPowerAckInProgress = true;	
+			self->acknowledgeSetPowerState ( );
+			self->fPowerAckInProgress = false;
+			
+		}
 		
-		self->acknowledgeSetPowerState ( );
-		
-		self->fPowerAckInProgress = false;
 		self->fPowerTransitionInProgress = false;
+		
+		// If we are now inactive, wakeup anyone blocked in finalize()
+		// since they're waiting for us to finish...
+		if ( self->isInactive ( ) == true )
+		{
+			self->fCommandGate->commandWakeup ( &self->fPowerTransitionInProgress, false );
+		}
+		
 		self->release ( );
 		
-	}
-	
-	else
-	{
-		
-		self->fPowerTransitionInProgress = false;
-	    
 	}
 	
 }
