@@ -1,4 +1,4 @@
-# $Source: /cvs/Darwin/Services/apache_mod_php/php/ext/sybase/setup.stub,v $
+# $Source: /cvs/Darwin/apache_mod_php/php/ext/sybase/setup.stub,v $
 # $Id: setup.stub,v 1.1.1.1 2000/08/10 02:08:36 wsanchez Exp $
 
 define_option with-sybase 'Sybase support?' yesnodir \

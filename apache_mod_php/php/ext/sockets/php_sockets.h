@@ -13,13 +13,16 @@
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Chris Vandomelen <chrisv@b0rked.dhs.org>                    |
+   |          Sterling Hughes  <sterling@php.net>                         |
+   |                                                                      |
+   | WinSock: Daniel Beulshausen <daniel@php4win.de>                      |
    +----------------------------------------------------------------------+
  */
 
 #ifndef PHP_SOCKETS_H
 #define PHP_SOCKETS_H
 
-/* $Id: php_sockets.h,v 1.1.1.3 2001/07/19 00:20:05 zarzycki Exp $ */
+/* $Id: php_sockets.h,v 1.1.1.4 2001/12/14 22:13:15 zarzycki Exp $ */
 
 #if HAVE_SOCKETS
 
@@ -28,61 +31,90 @@ extern zend_module_entry sockets_module_entry;
 
 #ifdef PHP_WIN32
 #define PHP_SOCKETS_API __declspec(dllexport)
+#include <winsock.h>
 #else
 #define PHP_SOCKETS_API
+#if HAVE_SYS_SOCKET_H
+#include <sys/socket.h>
+#endif
 #endif
 
 PHP_MINIT_FUNCTION(sockets);
 PHP_MINFO_FUNCTION(sockets);
 
-PHP_FUNCTION(fd_alloc);
-PHP_FUNCTION(fd_dealloc);
-PHP_FUNCTION(fd_set);
-PHP_FUNCTION(fd_isset);
-PHP_FUNCTION(fd_clear);
-PHP_FUNCTION(fd_zero);
-PHP_FUNCTION(select);
-PHP_FUNCTION(open_listen_sock);
-PHP_FUNCTION(accept_connect);
-PHP_FUNCTION(set_nonblock);
-PHP_FUNCTION(listen);
-PHP_FUNCTION(close);
-PHP_FUNCTION(write);
-PHP_FUNCTION(read);
-PHP_FUNCTION(getsockname);
-PHP_FUNCTION(getpeername);
-PHP_FUNCTION(socket);
-PHP_FUNCTION(connect);
-PHP_FUNCTION(strerror);
-PHP_FUNCTION(bind);
-PHP_FUNCTION(recv);
-PHP_FUNCTION(send);
-PHP_FUNCTION(recvfrom);
-PHP_FUNCTION(sendto);
-PHP_FUNCTION(build_iovec);
-PHP_FUNCTION(fetch_iovec);
-PHP_FUNCTION(free_iovec);
-PHP_FUNCTION(add_iovec);
-PHP_FUNCTION(delete_iovec);
-PHP_FUNCTION(set_iovec);
-PHP_FUNCTION(recvmsg);
-PHP_FUNCTION(sendmsg);
-PHP_FUNCTION(readv);
-PHP_FUNCTION(writev);
-PHP_FUNCTION(getsockopt);
-PHP_FUNCTION(setsockopt);
-PHP_FUNCTION(socketpair);
-PHP_FUNCTION(shutdown);
+PHP_FUNCTION(socket_fd_alloc);
+PHP_FUNCTION(socket_fd_free);
+PHP_FUNCTION(socket_fd_set);
+PHP_FUNCTION(socket_fd_isset);
+PHP_FUNCTION(socket_fd_clear);
+PHP_FUNCTION(socket_fd_zero);
+PHP_FUNCTION(socket_iovec_alloc);
+PHP_FUNCTION(socket_iovec_free);
+PHP_FUNCTION(socket_iovec_set);
+PHP_FUNCTION(socket_iovec_fetch);
+PHP_FUNCTION(socket_iovec_add);
+PHP_FUNCTION(socket_iovec_delete);
+PHP_FUNCTION(socket_select);
+PHP_FUNCTION(socket_create_listen);
+PHP_FUNCTION(socket_create_pair);
+PHP_FUNCTION(socket_accept);
+PHP_FUNCTION(socket_set_nonblock);
+PHP_FUNCTION(socket_listen);
+PHP_FUNCTION(socket_close);
+PHP_FUNCTION(socket_write);
+PHP_FUNCTION(socket_read);
+PHP_FUNCTION(socket_getsockname);
+PHP_FUNCTION(socket_getpeername);
+PHP_FUNCTION(socket_create);
+PHP_FUNCTION(socket_connect);
+PHP_FUNCTION(socket_strerror);
+PHP_FUNCTION(socket_bind);
+PHP_FUNCTION(socket_recv);
+PHP_FUNCTION(socket_send);
+PHP_FUNCTION(socket_recvfrom);
+PHP_FUNCTION(socket_sendto);
+PHP_FUNCTION(socket_recvmsg);
+PHP_FUNCTION(socket_sendmsg);
+PHP_FUNCTION(socket_readv);
+PHP_FUNCTION(socket_writev);
+PHP_FUNCTION(socket_getopt);
+PHP_FUNCTION(socket_setopt);
+PHP_FUNCTION(socket_shutdown);
+PHP_FUNCTION(socket_last_error);
 
 typedef struct php_iovec {
-	struct iovec *iov_array;
-	unsigned int count;
+	struct iovec	*iov_array;
+	unsigned int	count;
 } php_iovec_t;
 
+#ifndef PHP_WIN32
+typedef int SOCKET;
+#endif
+
 typedef struct {
-	zend_bool use_system_read;
+	SOCKET	bsd_socket;
+	int		type;
+	int		error;
+} php_socket;
+
+typedef struct {
+	fd_set	set;
+	SOCKET	max_fd;
+} php_fd_set;
+
+typedef struct {
+	long family;
+	char info[256];
+} php_sockaddr_storage;
+
+typedef struct {
+	zend_bool	use_system_read;
 } php_sockets_globals;
 
+/* Prototypes */
+int open_listen_sock(php_socket **php_sock, int port, int backlog TSRMLS_DC);
+int accept_connect(php_socket *in_sock, php_socket **new_sock, struct sockaddr *la TSRMLS_DC);
+int php_read(int bsd_socket, void *buf, int maxlen);
 
 #ifdef ZTS
 #define SOCKETSG(v) (sockets_globals->v)
@@ -93,13 +125,10 @@ typedef struct {
 #endif
 
 #else
-
 #define phpext_sockets_ptr NULL
-
 #endif
 
-#endif	/* PHP_SOCKETS_H */
-
+#endif
 
 /*
  * Local variables:
@@ -107,3 +136,4 @@ typedef struct {
  * c-basic-offset: 4
  * End:
  */
+

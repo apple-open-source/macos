@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php.h,v 1.1.1.4 2001/07/19 00:20:37 zarzycki Exp $ */
+/* $Id: php.h,v 1.1.1.5 2001/12/14 22:13:46 zarzycki Exp $ */
 
 #ifndef PHP_H
 #define PHP_H
@@ -26,7 +26,7 @@
 #include <dmalloc.h>
 #endif
 
-#define PHP_API_VERSION 20010119
+#define PHP_API_VERSION 20010901
 
 #define YYDEBUG 0
 
@@ -96,11 +96,13 @@
 	}
 
 #ifndef HAVE_STRLCPY
-PHPAPI size_t strlcpy(char *dst, const char *src, size_t siz);
+PHPAPI size_t php_strlcpy(char *dst, const char *src, size_t siz);
+#define strlcpy php_strlcpy
 #endif
 
 #ifndef HAVE_STRLCAT
-PHPAPI size_t strlcat(char *dst, const char *src, size_t siz);
+PHPAPI size_t php_strlcat(char *dst, const char *src, size_t siz);
+#define strlcat php_strlcat
 #endif
 
 #ifndef HAVE_STRTOK_R
@@ -111,7 +113,7 @@ char *strtok_r(char *s, const char *delim, char **last);
 typedef unsigned int socklen_t;
 #endif
 
-#define CREATE_MUTEX(a,b)
+#define CREATE_MUTEX(a, b)
 #define SET_MUTEX(a)
 #define FREE_MUTEX(a)
 
@@ -186,7 +188,7 @@ char *strerror(int);
 #define LONG_MIN (- LONG_MAX - 1)
 #endif
 
-#if !defined(HAVE_SNPRINTF) || !defined(HAVE_VSNPRINTF) || defined(BROKEN_SPRINTF)
+#if !defined(HAVE_SNPRINTF) || !defined(HAVE_VSNPRINTF) || defined(BROKEN_SPRINTF) || defined(BROKEN_SNPRINTF) || defined(BROKEN_VSNPRINTF)
 #include "snprintf.h"
 #endif
 
@@ -205,32 +207,6 @@ char *strerror(int);
 # endif
 #endif
 
-#define PHP_FN(name) php_if_##name
-#define PHP_NAMED_FUNCTION(name) void name(INTERNAL_FUNCTION_PARAMETERS)
-#define PHP_FUNCTION(name) PHP_NAMED_FUNCTION(PHP_FN(name))
-
-#define PHP_NAMED_FE(php_name, name, arg_types) { #php_name, name, arg_types },
-#define PHP_FE(name, arg_types) PHP_NAMED_FE(name, PHP_FN(name), arg_types)
-#define PHP_FALIAS(name, alias, arg_types) PHP_NAMED_FE(name, PHP_FN(alias), arg_types)
-#define PHP_STATIC_FE(php_name, func_name, arg_types) { php_name, func_name, arg_types },
-
-#define PHP_MINIT(module)	php_minit_##module
-#define PHP_MSHUTDOWN(module)	php_mshutdown_##module
-#define PHP_RINIT(module)	php_rinit_##module
-#define PHP_RSHUTDOWN(module)	php_rshutdown_##module
-#define PHP_MINFO(module)	php_info_##module
-#define PHP_GINIT(module)	php_ginit_##module
-#define PHP_GSHUTDOWN(module)	php_gshutdown_##module
-
-#define PHP_MINIT_FUNCTION(module)	int PHP_MINIT(module)(INIT_FUNC_ARGS)
-#define PHP_MSHUTDOWN_FUNCTION(module)	int PHP_MSHUTDOWN(module)(SHUTDOWN_FUNC_ARGS)
-#define PHP_RINIT_FUNCTION(module)	int PHP_RINIT(module)(INIT_FUNC_ARGS)
-#define PHP_RSHUTDOWN_FUNCTION(module)	int PHP_RSHUTDOWN(module)(SHUTDOWN_FUNC_ARGS)
-#define PHP_MINFO_FUNCTION(module)	void PHP_MINFO(module)(ZEND_MODULE_INFO_FUNC_ARGS)
-#define PHP_GINIT_FUNCTION(module)	int PHP_GINIT(module)(GINIT_FUNC_ARGS)
-#define PHP_GSHUTDOWN_FUNCTION(module)	int PHP_GSHUTDOWN(module)(void)
-
-
 /* global variables */
 extern pval *data;
 #if !defined(PHP_WIN32)
@@ -238,10 +214,18 @@ extern char **environ;
 #define php_sleep sleep
 #endif
 
+#ifdef PHP_PWRITE_64
+ssize_t pwrite(int, void *, size_t, off64_t);
+#endif
+
+#ifdef PHP_PREAD_64
+ssize_t pread(int, void *, size_t, off64_t);
+#endif
+
 void phperror(char *error);
-PHPAPI int php_write(void *buf, uint size);
+PHPAPI int php_write(void *buf, uint size TSRMLS_DC);
 PHPAPI int php_printf(const char *format, ...);
-PHPAPI void php_log_err(char *log_message);
+PHPAPI void php_log_err(char *log_message TSRMLS_DC);
 int Debug(char *format, ...);
 int cfgparse(void);
 
@@ -256,8 +240,6 @@ int cfgparse(void);
 
 /* functions */
 int php_startup_internal_extensions(void);
-int php_global_startup_internal_extensions(void);
-int php_global_shutdown_internal_extensions(void);
 
 int php_mergesort(void *base, size_t nmemb, register size_t size, int (*cmp) (const void *, const void *));
 
@@ -268,14 +250,50 @@ PHPAPI int cfg_get_double(char *varname, double *result);
 PHPAPI int cfg_get_string(char *varname, char **result);
 
 
+/* PHP-named Zend macro wrappers */
+#define PHP_FN					ZEND_FN
+#define PHP_NAMED_FUNCTION		ZEND_NAMED_FUNCTION
+#define PHP_FUNCTION			ZEND_FUNCTION
+
+#define PHP_NAMED_FE	ZEND_NAMED_FE
+#define PHP_FE			ZEND_FE
+#define PHP_FALIAS		ZEND_FALIAS
+#define PHP_STATIC_FE	ZEND_STATIC_FE
+
+#define PHP_MODULE_STARTUP_N	ZEND_MODULE_STARTUP_N
+#define PHP_MODULE_SHUTDOWN_N	ZEND_MODULE_SHUTDOWN_N
+#define PHP_MODULE_ACTIVATE_N	ZEND_MODULE_ACTIVATE_N
+#define PHP_MODULE_DEACTIVATE_N	ZEND_MODULE_DEACTIVATE_N
+#define PHP_MODULE_INFO_N		ZEND_MODULE_INFO_N
+
+#define PHP_MODULE_STARTUP_D	ZEND_MODULE_STARTUP_D
+#define PHP_MODULE_SHUTDOWN_D	ZEND_MODULE_SHUTDOWN_D
+#define PHP_MODULE_ACTIVATE_D	ZEND_MODULE_ACTIVATE_D
+#define PHP_MODULE_DEACTIVATE_D	ZEND_MODULE_DEACTIVATE_D
+#define PHP_MODULE_INFO_D		ZEND_MODULE_INFO_D
+
+/* Compatibility macros */
+#define PHP_MINIT		ZEND_MODULE_STARTUP_N
+#define PHP_MSHUTDOWN	ZEND_MODULE_SHUTDOWN_N
+#define PHP_RINIT		ZEND_MODULE_ACTIVATE_N
+#define PHP_RSHUTDOWN	ZEND_MODULE_DEACTIVATE_N
+#define PHP_MINFO		ZEND_MODULE_INFO_N
+
+#define PHP_MINIT_FUNCTION		ZEND_MODULE_STARTUP_D
+#define PHP_MSHUTDOWN_FUNCTION	ZEND_MODULE_SHUTDOWN_D
+#define PHP_RINIT_FUNCTION		ZEND_MODULE_ACTIVATE_D
+#define PHP_RSHUTDOWN_FUNCTION	ZEND_MODULE_DEACTIVATE_D
+#define PHP_MINFO_FUNCTION		ZEND_MODULE_INFO_D
+
+
 /* Output support */
-#include "ext/standard/php_output.h"
-#define PHPWRITE(str, str_len)		php_body_write((str), (str_len))
-#define PUTS(str)					php_body_write((str), strlen((str)))
-#define PUTC(c)						(php_body_write(&(c), 1), (c))
-#define PHPWRITE_H(str, str_len)	php_header_write((str), (str_len))
-#define PUTS_H(str)					php_header_write((str), strlen((str)))
-#define PUTC_H(c)					(php_header_write(&(c), 1), (c))
+#include "main/php_output.h"
+#define PHPWRITE(str, str_len)		php_body_write((str), (str_len) TSRMLS_CC)
+#define PUTS(str)					php_body_write((str), strlen((str)) TSRMLS_CC)
+#define PUTC(c)						(php_body_write(&(c), 1 TSRMLS_CC), (c))
+#define PHPWRITE_H(str, str_len)	php_header_write((str), (str_len) TSRMLS_CC)
+#define PUTS_H(str)					php_header_write((str), strlen((str)) TSRMLS_CC)
+#define PUTC_H(c)					(php_header_write(&(c), 1 TSRMLS_CC), (c))
 
 #ifdef ZTS
 #define VIRTUAL_DIR
@@ -299,29 +317,29 @@ PHPAPI int cfg_get_string(char *varname, char **result);
 
 #if defined(CRAY) || (defined(__arm) && !defined(LINUX))
 #ifdef __STDC__
-#define XtOffset(p_type,field) _Offsetof(p_type,field)
+#define XtOffset(p_type, field) _Offsetof(p_type, field)
 #else
 #ifdef CRAY2
-#define XtOffset(p_type,field) \
+#define XtOffset(p_type, field) \
     (sizeof(int)*((unsigned int)&(((p_type)NULL)->field)))
 
 #else /* !CRAY2 */
 
-#define XtOffset(p_type,field) ((unsigned int)&(((p_type)NULL)->field))
+#define XtOffset(p_type, field) ((unsigned int)&(((p_type)NULL)->field))
 
 #endif /* !CRAY2 */
 #endif /* __STDC__ */
 #else /* ! (CRAY || __arm) */
 
-#define XtOffset(p_type,field) \
+#define XtOffset(p_type, field) \
     ((long) (((char *) (&(((p_type)NULL)->field))) - ((char *) NULL)))
 
 #endif /* !CRAY */
 
 #ifdef offsetof
-#define XtOffsetOf(s_type,field) offsetof(s_type,field)
+#define XtOffsetOf(s_type, field) offsetof(s_type, field)
 #else
-#define XtOffsetOf(s_type,field) XtOffset(s_type*,field)
+#define XtOffsetOf(s_type, field) XtOffset(s_type*, field)
 #endif
 
 PHPAPI PHP_FUNCTION(warn_not_available);
@@ -333,4 +351,6 @@ PHPAPI PHP_FUNCTION(warn_not_available);
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

@@ -3,7 +3,7 @@ dnl +---------------------------------------------------------------------------
 dnl |  This is where the magic of the extension reallly is.  Depending on what     |
 dnl |  backend the user chooses, this script performs the magic                    |
 dnl +------------------------------------------------------------------------------+
-dnl   $Id: config.m4,v 1.1.1.1 2001/07/19 00:20:32 zarzycki Exp $
+dnl   $Id: config.m4,v 1.1.1.2 2001/12/14 22:13:40 zarzycki Exp $
 
 PHP_ARG_ENABLE(xslt, whether to enable xslt support,
 [  --enable-xslt           Enable xslt support])
@@ -26,6 +26,10 @@ if test "$PHP_XSLT" != "no"; then
     XSLT_LIBNAME=sablot
   fi
 
+  if test -z "$XSLT_BACKEND_NAME"; then
+    AC_MSG_ERROR(No backend specified for XSLT extension.)
+  fi
+
   condition="$XSLT_CHECK_DIR$XSLT_TEST_FILE"
 
   if test -r $condition; then
@@ -45,16 +49,13 @@ if test "$PHP_XSLT" != "no"; then
     AC_MSG_ERROR(not found. Please re-install the $XSLT_BACKEND_NAME distribution)
   fi
 					
-  PHP_ADD_INCLUDE($XSLT_DIR/include)
-  PHP_ADD_LIBRARY_WITH_PATH($XSLT_LIBNAME, $XSLT_DIR/lib, XSLT_SHARED_LIBADD)
-
   if test "$PHP_XSLT_SABLOT" != "no"; then
     found_expat=no
     for i in $PHP_EXPAT_DIR $XSLT_DIR; do
       if test -f $i/lib/libexpat.a -o -f $i/lib/libexpat.so; then
         AC_DEFINE(HAVE_LIBEXPAT2, 1, [ ])
         PHP_ADD_INCLUDE($i/include)
-        PHP_ADD_LIBRARY_WITH_PATH(expat, $i/lib)
+        PHP_ADD_LIBRARY_WITH_PATH(expat, $i/lib, XSLT_SHARED_LIBADD)
         found_expat=yes
       fi
     done
@@ -67,14 +68,12 @@ if test "$PHP_XSLT" != "no"; then
     found_iconv=no
     AC_CHECK_LIB(c, iconv_open, found_iconv=yes)
     if test "$found_iconv" = "no"; then
-      if test "$PHP_ICONV" = "no"; then
-        for i in /usr /usr/local; do
+        for i in /usr /usr/local $ICONV_DIR; do
           if test -f $i/lib/libconv.a -o -f $i/lib/libiconv.so; then
-            PHP_ADD_LIBRARY_WITH_PATH(iconv, $i/lib)
+            PHP_ADD_LIBRARY_WITH_PATH(iconv, $i/lib, XSLT_SHARED_LIBADD)
             found_iconv=yes
           fi
         done
-      fi
     fi
 
     if test "$found_iconv" = "no"; then
@@ -83,7 +82,11 @@ if test "$PHP_XSLT" != "no"; then
  
     AC_DEFINE(HAVE_SABLOT_BACKEND, 1, [ ])
     AC_CHECK_LIB(sablot, SablotSetEncoding, AC_DEFINE(HAVE_SABLOT_SET_ENCODING, 1, [ ]))
+
   fi
+
+  PHP_ADD_INCLUDE($XSLT_DIR/include)
+  PHP_ADD_LIBRARY_WITH_PATH($XSLT_LIBNAME, $XSLT_DIR/lib, XSLT_SHARED_LIBADD)
 
   AC_DEFINE(HAVE_XSLT, 1, [ ])
 fi

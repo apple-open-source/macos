@@ -17,7 +17,7 @@
  */
 
 
-/* $Id: incomplete_class.c,v 1.1.1.3 2001/07/19 00:20:15 zarzycki Exp $ */
+/* $Id: incomplete_class.c,v 1.1.1.4 2001/12/14 22:13:23 zarzycki Exp $ */
 
 #include "php.h"
 #include "basic_functions.h"
@@ -33,6 +33,8 @@
 #define INCOMPLETE_CLASS "__PHP_Incomplete_Class"
 #define MAGIC_MEMBER "__PHP_Incomplete_Class_Name"
 
+/* {{{ incomplete_class_message
+ */
 static void incomplete_class_message(zend_property_reference *ref)
 {
 	char buf[1024];
@@ -49,12 +51,18 @@ static void incomplete_class_message(zend_property_reference *ref)
 
 	php_error(E_ERROR, "%s", buf);
 }
+/* }}} */
 
+/* {{{ incomplete_class_call_func
+ */
 static void incomplete_class_call_func(INTERNAL_FUNCTION_PARAMETERS, zend_property_reference *property_reference)
 {
 	incomplete_class_message(property_reference);
 }
+/* }}} */
 
+/* {{{ incomplete_class_set_property
+ */
 static int incomplete_class_set_property(zend_property_reference *property_reference, zval *value)
 {
 	incomplete_class_message(property_reference);
@@ -62,7 +70,10 @@ static int incomplete_class_set_property(zend_property_reference *property_refer
 	/* does not reach this point */
 	return (0);
 }
+/* }}} */
 
+/* {{{ incomplete_class_get_property
+ */
 static zval incomplete_class_get_property(zend_property_reference *property_reference)
 {
 	zval foo;
@@ -73,8 +84,11 @@ static zval incomplete_class_get_property(zend_property_reference *property_refe
 	memset(&foo, 0, sizeof(zval)); /* shut warnings up */
 	return (foo);
 }
+/* }}} */
 
-zend_class_entry *php_create_incomplete_class(BLS_D)
+/* {{{ php_create_incomplete_class
+ */
+zend_class_entry *php_create_incomplete_class(TSRMLS_D)
 {
 	zend_class_entry incomplete_class;
 
@@ -83,30 +97,36 @@ zend_class_entry *php_create_incomplete_class(BLS_D)
 			incomplete_class_get_property,
 			incomplete_class_set_property);
 
-	BG(incomplete_class) = zend_register_internal_class(&incomplete_class);
-
-	return (BG(incomplete_class));
+	return zend_register_internal_class(&incomplete_class TSRMLS_CC);
 }
+/* }}} */
 
-
+/* {{{ php_lookup_class_name
+ */
 char *php_lookup_class_name(zval *object, size_t *nlen, zend_bool del)
 {
 	zval **val;
 	char *retval = NULL;
+	HashTable *object_properties;
 
-	if (zend_hash_find(object->value.obj.properties, MAGIC_MEMBER, sizeof(MAGIC_MEMBER), (void **) &val) == SUCCESS) {
+	object_properties = Z_OBJPROP_P(object);
+
+	if (zend_hash_find(object_properties, MAGIC_MEMBER, sizeof(MAGIC_MEMBER), (void **) &val) == SUCCESS) {
 		retval = estrndup(Z_STRVAL_PP(val), Z_STRLEN_PP(val));
 
 		if (nlen)
 			*nlen = Z_STRLEN_PP(val);
 
 		if (del)
-			zend_hash_del(object->value.obj.properties, MAGIC_MEMBER, sizeof(MAGIC_MEMBER));
+			zend_hash_del(object_properties, MAGIC_MEMBER, sizeof(MAGIC_MEMBER));
 	}
 
 	return (retval);
 }
+/* }}} */
 
+/* {{{ php_store_class_name
+ */
 void php_store_class_name(zval *object, const char *name, size_t len)
 {
 	zval *val;
@@ -117,5 +137,15 @@ void php_store_class_name(zval *object, const char *name, size_t len)
 	Z_STRVAL_P(val) = estrndup(name, len);
 	Z_STRLEN_P(val) = len;
 
-	zend_hash_update(object->value.obj.properties, MAGIC_MEMBER, sizeof(MAGIC_MEMBER), &val, sizeof(val), NULL);
+	zend_hash_update(Z_OBJPROP_P(object), MAGIC_MEMBER, sizeof(MAGIC_MEMBER), &val, sizeof(val), NULL);
 }
+/* }}} */
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
+ */

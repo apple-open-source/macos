@@ -1,33 +1,22 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP HTML Embedded Scripting Language Version 3.0                     |
+   | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1999 PHP Development Team (See Credits file)           |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This program is free software; you can redistribute it and/or modify |
-   | it under the terms of one of the following licenses:                 |
-   |                                                                      |
-   |  A) the GNU General Public License as published by the Free Software |
-   |     Foundation; either version 2 of the License, or (at your option) |
-   |     any later version.                                               |
-   |                                                                      |
-   |  B) the PHP License as published by the PHP Development Team and     |
-   |     included in the distribution in the file: LICENSE                |
-   |                                                                      |
-   | This program is distributed in the hope that it will be useful,      |
-   | but WITHOUT ANY WARRANTY; without even the implied warranty of       |
-   | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the        |
-   | GNU General Public License for more details.                         |
-   |                                                                      |
-   | You should have received a copy of both licenses referred to here.   |
-   | If you did not, or have any questions about PHP licensing, please    |
-   | contact core@php.net.                                                |
+   | This source file is subject to version 2.02 of the PHP license,      |
+   | that is bundled with this package in the file LICENSE, and is        |
+   | available at through the world-wide-web at                           |
+   | http://www.php.net/license/2_02.txt.                                 |
+   | If you did not receive a copy of the PHP license and are unable to   |
+   | obtain it through the world-wide-web, please send a note to          |
+   | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Sascha Schumann <sascha@schumann.cx>                        |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dba.c,v 1.1.1.4 2001/07/19 00:19:02 zarzycki Exp $ */
+/* $Id: dba.c,v 1.1.1.5 2001/12/14 22:12:09 zarzycki Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -47,6 +36,8 @@
 #include "php_db2.h"
 #include "php_db3.h"
 
+/* {{{ dba_functions[]
+ */
 function_entry dba_functions[] = {
 	PHP_FE(dba_open, NULL)
 	PHP_FE(dba_popen, NULL)
@@ -60,19 +51,24 @@ function_entry dba_functions[] = {
 	PHP_FE(dba_nextkey, NULL)
 	PHP_FE(dba_optimize, NULL)
 	PHP_FE(dba_sync, NULL)
-	{NULL,NULL,NULL}
+	{NULL, NULL, NULL}
 };
+/* }}} */
 
 static PHP_MINIT_FUNCTION(dba);
 static PHP_MSHUTDOWN_FUNCTION(dba);
 static PHP_MINFO_FUNCTION(dba);
 
 zend_module_entry dba_module_entry = {
-	"dba", dba_functions, 
+    STANDARD_MODULE_HEADER,
+	"dba",
+    dba_functions, 
 	PHP_MINIT(dba), 
 	PHP_MSHUTDOWN(dba), 
-	NULL, NULL,
+	NULL,
+    NULL,
 	PHP_MINFO(dba),
+    NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES
 };
 
@@ -82,7 +78,7 @@ ZEND_GET_MODULE(dba)
 
 typedef struct dba_handler {
 	char *name;
-	int (*open)(dba_info *);
+	int (*open)(dba_info * TSRMLS_DC);
 	void (*close)(dba_info *);
 	char* (*fetch)(dba_info *, char *, int, int *);
 	int (*update)(dba_info *, char *, int, char *, int, int);
@@ -179,9 +175,8 @@ static int le_pdb;
 static HashTable ht_keys;
 /* }}} */
 
-/* {{{ helper routines */
-	/* {{{ dba_close */
-
+/* {{{ dba_close 
+ */ 
 static void dba_close(dba_info *info)
 {
 	if(info->hnd) info->hnd->close(info);
@@ -190,12 +185,18 @@ static void dba_close(dba_info *info)
 }
 /* }}} */
 
-static void dba_close_rsrc(zend_rsrc_list_entry *rsrc)
+/* {{{ dba_close_rsrc
+ */
+static void dba_close_rsrc(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
 	dba_info *info = (dba_info *)rsrc->ptr;
+
 	dba_close(info);
 }
+/* }}} */
 
+/* {{{ PHP_MINIT_FUNCTION
+ */
 static PHP_MINIT_FUNCTION(dba)
 {
 	zend_hash_init(&ht_keys, 0, NULL, NULL, 1);
@@ -203,15 +204,21 @@ static PHP_MINIT_FUNCTION(dba)
 	GLOBAL(le_pdb) = zend_register_list_destructors_ex(NULL, dba_close_rsrc, "dba persistent", module_number);
 	return SUCCESS;
 }
+/* }}} */
 
+/* {{{ PHP_MSHUTDOWN_FUNCTION
+ */
 static PHP_MSHUTDOWN_FUNCTION(dba)
 {
 	zend_hash_destroy(&ht_keys);
 	return SUCCESS;
 }
+/* }}} */
 
 #include "ext/standard/php_smart_str.h"
 
+/* {{{ PHP_MINFO_FUNCTION
+ */
 static PHP_MINFO_FUNCTION(dba)
 {
 	dba_handler *hptr;
@@ -233,8 +240,10 @@ static PHP_MINFO_FUNCTION(dba)
 	}
 	php_info_print_table_end();
 }
+/* }}} */
                                 
-
+/* {{{ php_dba_update
+ */
 static void php_dba_update(INTERNAL_FUNCTION_PARAMETERS, int mode)
 {
 	DBA_ID_PARS;
@@ -253,9 +262,12 @@ static void php_dba_update(INTERNAL_FUNCTION_PARAMETERS, int mode)
 		RETURN_TRUE;
 	RETURN_FALSE;
 }
+/* }}} */
 
 #define FREENOW if(args) efree(args); if(key) efree(key)
 
+/* {{{ php_dba_open
+ */
 static void php_dba_open(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 {
 	pval ***args = (pval ***) NULL;
@@ -291,7 +303,7 @@ static void php_dba_open(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 		keylen = 0;
 		
 		for(i = 0; i < ac; i++) {
-			memcpy(key+keylen,Z_STRVAL_PP(args[i]),Z_STRLEN_PP(args[i]));
+			memcpy(key+keylen, Z_STRVAL_PP(args[i]), Z_STRLEN_PP(args[i]));
 			keylen += Z_STRLEN_PP(args[i]);
 		}
 		
@@ -324,7 +336,7 @@ static void php_dba_open(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 			modenr = DBA_TRUNC;
 			break;
 		default:
-			php_error(E_WARNING,"illegal DBA mode: %s",(*args[1])->value.str.val);
+			php_error(E_WARNING, "illegal DBA mode: %s", (*args[1])->value.str.val);
 			FREENOW;
 			RETURN_FALSE;
 	}
@@ -337,7 +349,7 @@ static void php_dba_open(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 	info->argv = args + 3;
 	info->hnd = NULL;
 
-	if(hptr->open(info) != SUCCESS) {
+	if(hptr->open(info TSRMLS_CC) != SUCCESS) {
 		dba_close(info);
 		php_error(E_WARNING, "driver initialization failed");
 		FREENOW;
@@ -355,9 +367,8 @@ static void php_dba_open(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 	FREENOW;
 	RETURN_LONG(listid);
 }
+/* }}} */
 #undef FREENOW
-/* }}} */
-/* }}} */
 
 /* {{{ proto int dba_popen(string path, string mode, string handlername [, string ...])
    Opens path using the specified handler in mode persistently */
@@ -501,3 +512,12 @@ PHP_FUNCTION(dba_sync)
 /* }}} */
 
 #endif
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
+ */

@@ -16,7 +16,7 @@
    |          Zeev Suraski <zeev@zend.com>                                |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_variables.c,v 1.1.1.4 2001/07/19 00:20:39 zarzycki Exp $ */
+/* $Id: php_variables.c,v 1.1.1.5 2001/12/14 22:13:51 zarzycki Exp $ */
 
 #include <stdio.h>
 #include "php.h"
@@ -29,29 +29,30 @@
 #include "zend_globals.h"
 
 
-PHPAPI void php_register_variable(char *var, char *strval, zval *track_vars_array ELS_DC PLS_DC) {
-	php_register_variable_safe(var, strval, strlen(strval), track_vars_array ELS_CC PLS_CC);
+PHPAPI void php_register_variable(char *var, char *strval, zval *track_vars_array TSRMLS_DC)
+{
+	php_register_variable_safe(var, strval, strlen(strval), track_vars_array TSRMLS_CC);
 }
 
 /* binary-safe version */
-PHPAPI void php_register_variable_safe(char *var, char *strval, int str_len, zval *track_vars_array ELS_DC PLS_DC)
+PHPAPI void php_register_variable_safe(char *var, char *strval, int str_len, zval *track_vars_array TSRMLS_DC)
 {
 	zval new_entry;
 
 	/* Prepare value */
 	new_entry.value.str.len = str_len;
 	if (PG(magic_quotes_gpc)) {
-		new_entry.value.str.val = php_addslashes(strval, new_entry.value.str.len, &new_entry.value.str.len, 0);
+		new_entry.value.str.val = php_addslashes(strval, new_entry.value.str.len, &new_entry.value.str.len, 0 TSRMLS_CC);
 	} else {
 		new_entry.value.str.val = estrndup(strval, new_entry.value.str.len);
 	}
 	new_entry.type = IS_STRING;
 
-	php_register_variable_ex(var, &new_entry, track_vars_array ELS_CC PLS_CC);
+	php_register_variable_ex(var, &new_entry, track_vars_array TSRMLS_CC);
 }
 
 
-PHPAPI void php_register_variable_ex(char *var, zval *val, pval *track_vars_array ELS_DC PLS_DC)
+PHPAPI void php_register_variable_ex(char *var, zval *val, pval *track_vars_array TSRMLS_DC)
 {
 	char *p = NULL;
 	char *ip;		/* index pointer */
@@ -123,7 +124,7 @@ PHPAPI void php_register_variable_ex(char *var, zval *val, pval *track_vars_arra
 			} else {
 				if (PG(magic_quotes_gpc) && (index!=var)) {
 					/* no need to addslashes() the index if it's the main variable name */
-					escaped_index = php_addslashes(index, index_len, &index_len, 0);
+					escaped_index = php_addslashes(index, index_len, &index_len, 0 TSRMLS_CC);
 				} else {
 					escaped_index = index;
 				}
@@ -195,8 +196,6 @@ SAPI_POST_HANDLER_FUNC(php_std_post_handler)
 	char *var, *val;
 	char *strtok_buf = NULL;
 	zval *array_ptr = (zval *) arg;
-	ELS_FETCH();
-	PLS_FETCH();
 
 	var = php_strtok_r(SG(request_info).post_data, "&", &strtok_buf);
 
@@ -208,14 +207,14 @@ SAPI_POST_HANDLER_FUNC(php_std_post_handler)
 			*val++ = '\0';
 			php_url_decode(var, strlen(var));
 			val_len = php_url_decode(val, strlen(val));
-			php_register_variable_safe(var, val, val_len, array_ptr ELS_CC PLS_CC);
+			php_register_variable_safe(var, val, val_len, array_ptr TSRMLS_CC);
 		}
 		var = php_strtok_r(NULL, "&", &strtok_buf);
 	}
 }
 
 
-void php_treat_data(int arg, char *str, zval* destArray ELS_DC PLS_DC SLS_DC)
+void php_treat_data(int arg, char *str, zval* destArray TSRMLS_DC)
 {
 	char *res = NULL, *var, *val, *separator=NULL;
 	const char *c_var;
@@ -248,7 +247,7 @@ void php_treat_data(int arg, char *str, zval* destArray ELS_DC PLS_DC SLS_DC)
 	}
 
 	if (arg==PARSE_POST) {
-		sapi_handle_post(array_ptr SLS_CC);
+		sapi_handle_post(array_ptr TSRMLS_CC);
 		return;
 	}
 
@@ -297,7 +296,7 @@ void php_treat_data(int arg, char *str, zval* destArray ELS_DC PLS_DC SLS_DC)
 			*val++ = '\0';
 			php_url_decode(var, strlen(var));
 			val_len = php_url_decode(val, strlen(val));
-			php_register_variable_safe(var, val, val_len, array_ptr ELS_CC PLS_CC);
+			php_register_variable_safe(var, val, val_len, array_ptr TSRMLS_CC);
 		}
 		var = php_strtok_r(NULL, separator, &strtok_buf);
 	}
@@ -312,7 +311,7 @@ void php_treat_data(int arg, char *str, zval* destArray ELS_DC PLS_DC SLS_DC)
 }
 
 
-void php_import_environment_variables(zval *array_ptr ELS_DC PLS_DC)
+void php_import_environment_variables(zval *array_ptr TSRMLS_DC)
 {
 	char **env, *p, *t;
 
@@ -322,7 +321,7 @@ void php_import_environment_variables(zval *array_ptr ELS_DC PLS_DC)
 			continue;
 		}
 		t = estrndup(*env, p - *env);
-		php_register_variable(t, p+1, array_ptr ELS_CC PLS_CC);
+		php_register_variable(t, p+1, array_ptr TSRMLS_CC);
 		efree(t);
 	}
 }
@@ -333,4 +332,6 @@ void php_import_environment_variables(zval *array_ptr ELS_DC PLS_DC)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

@@ -135,12 +135,11 @@ static nsapi_equiv nsapi_client[] = {
 static size_t nsapi_client_size = sizeof(nsapi_client)/sizeof(nsapi_client[0]);
 
 static int
-sapi_nsapi_ub_write(const char *str, unsigned int str_length)
+sapi_nsapi_ub_write(const char *str, unsigned int str_length TSRMLS_DC)
 {
 	int retval;
 	nsapi_request_context *rc;
 
-	SLS_FETCH();
 	rc = (nsapi_request_context *)SG(server_context);
 	retval = net_write(rc->sn->csd, (char *)str, str_length);
 	if (retval == IO_ERROR /*-1*/ || retval == IO_EOF /*0*/)
@@ -149,7 +148,7 @@ sapi_nsapi_ub_write(const char *str, unsigned int str_length)
 }
 
 static int
-sapi_nsapi_header_handler(sapi_header_struct *sapi_header, sapi_headers_struct *sapi_headers SLS_DC)
+sapi_nsapi_header_handler(sapi_header_struct *sapi_header, sapi_headers_struct *sapi_headers TSRMLS_DC)
 {
 	char *header_name, *header_content, *p;
 	nsapi_request_context *rc = (nsapi_request_context *)SG(server_context);
@@ -182,7 +181,7 @@ sapi_nsapi_header_handler(sapi_header_struct *sapi_header, sapi_headers_struct *
 }
 
 static int
-sapi_nsapi_send_headers(sapi_headers_struct *sapi_headers SLS_DC)
+sapi_nsapi_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
 {
 	int retval;
 	nsapi_request_context *rc = (nsapi_request_context *)SG(server_context);
@@ -205,7 +204,7 @@ sapi_nsapi_send_headers(sapi_headers_struct *sapi_headers SLS_DC)
 }
 
 static int
-sapi_nsapi_read_post(char *buffer, uint count_bytes SLS_DC)
+sapi_nsapi_read_post(char *buffer, uint count_bytes TSRMLS_DC)
 {
 	nsapi_request_context *rc = (nsapi_request_context *)SG(server_context);
 	char *read_ptr = buffer, *content_length_str = NULL;
@@ -267,8 +266,7 @@ sapi_nsapi_read_post(char *buffer, uint count_bytes SLS_DC)
 	return bytes_read;
 }
 
-static char *
-sapi_nsapi_read_cookies(SLS_D)
+static char *sapi_nsapi_read_cookies(TSRMLS_D)
 {
 	char *cookie_string;
 	nsapi_request_context *rc = (nsapi_request_context *)SG(server_context);
@@ -278,7 +276,7 @@ sapi_nsapi_read_cookies(SLS_D)
 }
 
 static void
-sapi_nsapi_register_server_variables(zval *track_vars_array ELS_DC SLS_DC PLS_DC)
+sapi_nsapi_register_server_variables(zval *track_vars_array TSRMLS_DC)
 {
 	nsapi_request_context *rc = (nsapi_request_context *)SG(server_context);
 	size_t i;
@@ -288,55 +286,55 @@ sapi_nsapi_register_server_variables(zval *track_vars_array ELS_DC SLS_DC PLS_DC
 	for (i = 0; i < nsapi_reqpb_size; i++) {
 		value = pblock_findval(nsapi_reqpb[i].nsapi_eq, rc->rq->reqpb);
 		if (value) {
-			php_register_variable( (char *)nsapi_reqpb[i].env_var, value, track_vars_array ELS_CC PLS_CC );
+			php_register_variable( (char *)nsapi_reqpb[i].env_var, value, track_vars_array TSRMLS_CC );
 		}
 	}
 	
 	for (i = 0; i < nsapi_headers_size; i++) {
 		value = pblock_findval(nsapi_headers[i].nsapi_eq, rc->rq->headers);
 		if (value) {
-			php_register_variable( (char *)nsapi_headers[i].env_var, value, track_vars_array ELS_CC PLS_CC );
+			php_register_variable( (char *)nsapi_headers[i].env_var, value, track_vars_array TSRMLS_CC );
 		}
 	}
 
 	for (i = 0; i < nsapi_vars_size; i++) {
 		value = pblock_findval(nsapi_vars[i].nsapi_eq, rc->rq->vars);
 		if (value) {
-			php_register_variable( (char *)nsapi_vars[i].env_var, value, track_vars_array ELS_CC PLS_CC );
+			php_register_variable( (char *)nsapi_vars[i].env_var, value, track_vars_array TSRMLS_CC );
 		}
 	}
 
 	for (i = 0; i < nsapi_client_size; i++) {
 		value = pblock_findval(nsapi_client[i].nsapi_eq, rc->sn->client);
 		if (value) {
-			php_register_variable( (char *)nsapi_client[i].env_var, value, track_vars_array ELS_CC PLS_CC );
+			php_register_variable( (char *)nsapi_client[i].env_var, value, track_vars_array TSRMLS_CC );
 		}
 	}
 	
 	value = session_dns(rc->sn);
 	if (value) {
-		php_register_variable("REMOTE_HOST", value, track_vars_array ELS_CC PLS_CC );
+		php_register_variable("REMOTE_HOST", value, track_vars_array TSRMLS_CC );
 	}
 	sprintf(buf, "%d", conf_getglobals()->Vport);
-	php_register_variable("SERVER_PORT", buf, track_vars_array ELS_CC PLS_CC );
-	php_register_variable("SERVER_NAME", util_hostname(), track_vars_array ELS_CC PLS_CC );
-	php_register_variable("SERVER_URL", http_uri2url("", ""), track_vars_array ELS_CC PLS_CC );
-	php_register_variable("HTTPS", (security_active ? "ON" : "OFF"), track_vars_array ELS_CC PLS_CC );
-/*	php_register_variable("SERVER_SOFTWARE", MAGNUS_VERSION_STRING, track_vars_array ELS_CC PLS_CC ); */
+	php_register_variable("SERVER_PORT", buf, track_vars_array TSRMLS_CC );
+	php_register_variable("SERVER_NAME", util_hostname(), track_vars_array TSRMLS_CC );
+	php_register_variable("SERVER_URL", http_uri2url("", ""), track_vars_array TSRMLS_CC );
+	php_register_variable("HTTPS", (security_active ? "ON" : "OFF"), track_vars_array TSRMLS_CC );
+/*	php_register_variable("SERVER_SOFTWARE", MAGNUS_VERSION_STRING, track_vars_array TSRMLS_CC ); */
 
 	/*
 	 * Special PHP_SELF variable.
 	 */
 	value = pblock_findval("uri", rc->rq->reqpb);
 	if ( value != NULL ) {
-		php_register_variable("PHP_SELF", value, track_vars_array ELS_CC PLS_CC );
+		php_register_variable("PHP_SELF", value, track_vars_array TSRMLS_CC );
  	}
 }
   
 static void
 nsapi_log_message(char *message)
 {
-	SLS_FETCH();
+	TSRMLS_FETCH();
 	nsapi_request_context *rc = (nsapi_request_context *)SG(server_context);
 	log_error(LOG_INFORM, "PHP_log_message", rc->sn, rc->rq,
 		"%s", message);
@@ -392,7 +390,7 @@ nsapi_free(void *addr)
 }
 
 static void
-nsapi_request_ctor(NSLS_D SLS_DC)
+nsapi_request_ctor(NSLS_D TSRMLS_DC)
 {
 	char *query_string = pblock_findval("query", NSG(rq)->reqpb);
 	char *uri = pblock_findval("uri", NSG(rq)->reqpb);
@@ -433,7 +431,7 @@ nsapi_request_ctor(NSLS_D SLS_DC)
 }
 
 static void
-nsapi_request_dtor(NSLS_D SLS_DC)
+nsapi_request_dtor(NSLS_D TSRMLS_DC)
 {
 	nsapi_free(SG(request_info).query_string);
 	nsapi_free(SG(request_info).request_uri);
@@ -443,16 +441,11 @@ nsapi_request_dtor(NSLS_D SLS_DC)
 }
 
 int 
-nsapi_module_main(NSLS_D SLS_DC)
+nsapi_module_main(NSLS_D TSRMLS_DC)
 {
-	int result;
 	zend_file_handle file_handle;
 
-	CLS_FETCH();
-	ELS_FETCH();
-	PLS_FETCH();
-
-	if (php_request_startup(CLS_C ELS_CC PLS_CC SLS_CC) == FAILURE) {
+	if (php_request_startup(TSRMLS_C) == FAILURE) {
 		return FAILURE;
 	}
 
@@ -466,7 +459,7 @@ nsapi_module_main(NSLS_D SLS_DC)
 		"Parsing [%s]", SG(request_info).path_translated);
 #endif
 
-	php_execute_script(&file_handle CLS_CC ELS_CC PLS_CC);
+	php_execute_script(&file_handle TSRMLS_CC);
 	php_request_shutdown(NULL);
 
 #if defined(NSAPI_DEBUG)
@@ -506,7 +499,7 @@ php4_execute(pblock *pb, Session *sn, Request *rq)
 	int retval;
 	nsapi_request_context *request_context;
 
-	SLS_FETCH();
+	TSRMLS_FETCH();
 
 	request_context = (nsapi_request_context *)MALLOC(sizeof(nsapi_request_context));
 	request_context->pb = pb;
@@ -516,9 +509,9 @@ php4_execute(pblock *pb, Session *sn, Request *rq)
 
 	SG(server_context) = request_context;
 
-	nsapi_request_ctor(NSLS_C SLS_CC);
-	retval = nsapi_module_main(NSLS_C SLS_CC);
-	nsapi_request_dtor(NSLS_C SLS_CC);
+	nsapi_request_ctor(NSLS_C TSRMLS_CC);
+	retval = nsapi_module_main(NSLS_C TSRMLS_CC);
+	nsapi_request_dtor(NSLS_C TSRMLS_CC);
 
 	FREE(request_context);
 

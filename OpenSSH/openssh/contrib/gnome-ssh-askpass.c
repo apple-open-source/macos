@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Damien Miller.  All rights reserved.
+ * Copyright (c) 2000-2002 Damien Miller.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -20,6 +20,18 @@
  * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/*
+ * This is a simple GNOME SSH passphrase grabber. To use it, set the 
+ * environment variable SSH_ASKPASS to point to the location of 
+ * gnome-ssh-askpass before calling "ssh-add < /dev/null". 
+ *
+ * There is only two run-time options: if you set the environment variable
+ * "GNOME_SSH_ASKPASS_GRAB_SERVER=true" then gnome-ssh-askpass will grab
+ * the X server. If you set "GNOME_SSH_ASKPASS_GRAB_POINTER=true", then the 
+ * pointer will be grabbed too. These may have some benefit to security if 
+ * you don't trust your X server. We grab the keyboard always.
  */
 
 /*
@@ -57,9 +69,11 @@ passphrase_dialog(char *message)
 {
 	char *passphrase;
 	char **messages;
-	int result, i;
-	
+	int result, i, grab_server, grab_pointer;
 	GtkWidget *dialog, *entry, *label;
+
+	grab_server = (getenv("GNOME_SSH_ASKPASS_GRAB_SERVER") != NULL);
+	grab_pointer = (getenv("GNOME_SSH_ASKPASS_GRAB_POINTER") != NULL);
 
 	dialog = gnome_dialog_new("OpenSSH", GNOME_STOCK_BUTTON_OK,
 	    GNOME_STOCK_BUTTON_CANCEL, NULL);
@@ -89,9 +103,10 @@ passphrase_dialog(char *message)
 	gtk_widget_show_all(dialog);
 
 	/* Grab focus */
-	XGrabServer(GDK_DISPLAY());
-	if (gdk_pointer_grab(dialog->window, TRUE, 0, NULL, NULL, 
-	    GDK_CURRENT_TIME))
+	if (grab_server)
+		XGrabServer(GDK_DISPLAY());
+	if (grab_pointer && gdk_pointer_grab(dialog->window, TRUE, 0, 
+	    NULL, NULL, GDK_CURRENT_TIME))
 		goto nograb;
 	if (gdk_keyboard_grab(dialog->window, FALSE, GDK_CURRENT_TIME))
 		goto nograbkb;
@@ -103,8 +118,10 @@ passphrase_dialog(char *message)
 	result = gnome_dialog_run(GNOME_DIALOG(dialog));
 
 	/* Ungrab */
-	XUngrabServer(GDK_DISPLAY());
-	gdk_pointer_ungrab(GDK_CURRENT_TIME);
+	if (grab_server)
+		XUngrabServer(GDK_DISPLAY());
+	if (grab_pointer)
+		gdk_pointer_ungrab(GDK_CURRENT_TIME);
 	gdk_keyboard_ungrab(GDK_CURRENT_TIME);
 	gdk_flush();
 
@@ -126,7 +143,8 @@ passphrase_dialog(char *message)
  nograbkb:
 	gdk_pointer_ungrab(GDK_CURRENT_TIME);
  nograb:
-	XUngrabServer(GDK_DISPLAY());
+	if (grab_server)
+		XUngrabServer(GDK_DISPLAY());
 	gnome_dialog_close(GNOME_DIALOG(dialog));
 	
 	report_failed_grab();

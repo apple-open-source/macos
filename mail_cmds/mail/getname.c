@@ -1,5 +1,3 @@
-/*	$NetBSD: getname.c,v 1.6 1998/07/26 22:07:27 mycroft Exp $	*/
-
 /*
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,32 +31,32 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)getname.c	8.1 (Berkeley) 6/6/93";
-#else
-__RCSID("$NetBSD: getname.c,v 1.6 1998/07/26 22:07:27 mycroft Exp $");
 #endif
+static const char rcsid[] =
+  "$FreeBSD: src/usr.bin/mail/getname.c,v 1.3 2001/05/27 20:26:22 mikeh Exp $";
 #endif /* not lint */
 
 #include "rcv.h"
+#include <pwd.h>
 #include "extern.h"
 
 /* Getname / getuserid for those with hashed passwd data base). */
 
 /*
- * Search the passwd file for a uid.  Return name on success, NOSTR on failure
+ * Search the passwd file for a uid. Return name on success, NULL on failure.
  */
-const char *
+char *
 getname(uid)
 	int uid;
 {
 	struct passwd *pw;
 
 	if ((pw = getpwuid(uid)) == NULL)
-		return NOSTR;
-	return pw->pw_name;
+		return (NULL);
+	return (pw->pw_name);
 }
 
 /*
@@ -72,6 +70,6 @@ getuserid(name)
 	struct passwd *pw;
 
 	if ((pw = getpwnam(name)) == NULL)
-		return -1;
-	return pw->pw_uid;
+		return (-1);
+	return (pw->pw_uid);
 }

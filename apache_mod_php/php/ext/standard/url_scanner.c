@@ -15,7 +15,7 @@
    | Author: Hartmut Holzgraefe <hartmut@six.de>                          |
    +----------------------------------------------------------------------+
  */
-/* $Id: url_scanner.c,v 1.1.1.4 2001/07/19 00:20:23 zarzycki Exp $ */
+/* $Id: url_scanner.c,v 1.1.1.5 2001/12/14 22:13:29 zarzycki Exp $ */
 
 #include "php.h"
 
@@ -47,11 +47,12 @@ PHP_RSHUTDOWN_FUNCTION(url_scanner)
 	return SUCCESS;
 }
 
-
+/* {{{ url_attr_addon
+ */
 static char *url_attr_addon(const char *tag,const char *attr,const char *val,const char *buf)
 {
 	int flag = 0;
-	PLS_FETCH();
+	TSRMLS_FETCH();
 
 	if(!strcasecmp(tag,"a") && !strcasecmp(attr,"href")) {
 		flag = 1;
@@ -83,9 +84,12 @@ static char *url_attr_addon(const char *tag,const char *attr,const char *val,con
 	} 
 	return NULL;
 }
+/* }}} */
 
 #define US BG(url_adapt_state)
 
+/* {{{ url_adapt_ext
+ */
 char *url_adapt_ext(const char *src, size_t srclen, const char *name, const char *val, size_t *newlen)
 {
 	char buf[1024];
@@ -94,12 +98,15 @@ char *url_adapt_ext(const char *src, size_t srclen, const char *name, const char
 
 	return url_adapt(src, srclen, buf, newlen);
 }
+/* }}} */
 
+/* {{{ url_adapt
+ */
 char *url_adapt(const char *src, size_t srclen, const char *data, size_t *newlen)
 {
 	char *out,*outp;
 	int maxl,n;
-	BLS_FETCH();
+	TSRMLS_FETCH();
 
 	if(src==NULL) {
 		US.state=STATE_NORMAL;
@@ -365,5 +372,14 @@ char *url_adapt(const char *src, size_t srclen, const char *data, size_t *newlen
 	*outp='\0';
 	return out;
 }
-
+/* }}} */
 #endif
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
+ */

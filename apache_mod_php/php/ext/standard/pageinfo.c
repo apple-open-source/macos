@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: pageinfo.c,v 1.1.1.3 2001/07/19 00:20:17 zarzycki Exp $ */
+/* $Id: pageinfo.c,v 1.1.1.4 2001/12/14 22:13:25 zarzycki Exp $ */
 
 #include "php.h"
 #include "pageinfo.h"
@@ -41,27 +41,42 @@
 
 #include "ext/standard/basic_functions.h"
 
-static void php_statpage(BLS_D)
+/* {{{ php_statpage
+ */
+static void php_statpage(TSRMLS_D)
 {
 	struct stat *pstat;
 
-	pstat = sapi_get_stat();
+	pstat = sapi_get_stat(TSRMLS_C);
 
-	if (BG(page_uid)==-1) {
+	if (BG(page_uid)==-1 || BG(page_gid)==-1) {
 		if(pstat) {
 			BG(page_uid)   = pstat->st_uid;
+			BG(page_gid)   = pstat->st_gid;
 			BG(page_inode) = pstat->st_ino;
 			BG(page_mtime) = pstat->st_mtime;
 		} 
 	}
 }
+/* }}} */
 
+/* {{{ php_getuid
+ */
 long php_getuid(void)
 {
-	BLS_FETCH();
+	TSRMLS_FETCH();
 
-	php_statpage(BLS_C);
+	php_statpage(TSRMLS_C);
 	return (BG(page_uid));
+}
+/* }}} */
+
+long php_getgid(void)
+{
+	TSRMLS_FETCH();
+
+	php_statpage(TSRMLS_C);
+	return (BG(page_gid));
 }
 
 /* {{{ proto int getmyuid(void)
@@ -75,6 +90,21 @@ PHP_FUNCTION(getmyuid)
 		RETURN_FALSE;
 	} else {
 		RETURN_LONG(uid);
+	}
+}
+/* }}} */
+
+/* {{{ proto int getmygid(void)
+   Get PHP script owner's GID */
+PHP_FUNCTION(getmygid)
+{
+	long gid;
+	
+	gid = php_getgid();
+	if (gid < 0) {
+		RETURN_FALSE;
+	} else {
+		RETURN_LONG(gid);
 	}
 }
 /* }}} */
@@ -98,9 +128,7 @@ PHP_FUNCTION(getmypid)
    Get the inode of the current script being parsed */
 PHP_FUNCTION(getmyinode)
 {
-	BLS_FETCH();
-
-	php_statpage(BLS_C);
+	php_statpage(TSRMLS_C);
 	if (BG(page_inode) < 0) {
 		RETURN_FALSE;
 	} else {
@@ -113,9 +141,7 @@ PHP_FUNCTION(getmyinode)
    Get time of last page modification */
 PHP_FUNCTION(getlastmod)
 {
-	BLS_FETCH();
-
-	php_statpage(BLS_C);
+	php_statpage(TSRMLS_C);
 	if (BG(page_mtime) < 0) {
 		RETURN_FALSE;
 	} else {
@@ -123,3 +149,12 @@ PHP_FUNCTION(getlastmod)
 	}
 }
 /* }}} */
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
+ */

@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: php_pgsql.h,v 1.1.1.4 2001/07/19 00:19:52 zarzycki Exp $ */
+/* $Id: php_pgsql.h,v 1.1.1.5 2001/12/14 22:13:03 zarzycki Exp $ */
 
 #ifndef PHP_PGSQL_H
 #define PHP_PGSQL_H
@@ -112,6 +112,7 @@ typedef struct pgLofp {
 typedef struct _php_pgsql_result_handle {
 	PGconn *conn;
 	PGresult *result;
+	int row;
 } pgsql_result_handle;
 
 typedef struct {
@@ -122,25 +123,17 @@ typedef struct {
 	int le_lofp,le_string;
 	int ignore_notices;
 	char *last_notice;
+	uint last_notice_len;
 } php_pgsql_globals;
 
 
 #ifdef ZTS
-# define PGLS_D	php_pgsql_globals *pgsql_globals
-# define PGLS_DC	, PGLS_D
-# define PGLS_C	pgsql_globals
-# define PGLS_CC , PGLS_C
-# define PGG(v) (pgsql_globals->v)
-# define PGLS_FETCH()	php_pgsql_globals *pgsql_globals = ts_resource(pgsql_globals_id)
+# define PGG(v) TSRMG(pgsql_globals_id, php_pgsql_globals *, v)
 #else
-# define PGLS_D
-# define PGLS_DC
-# define PGLS_C
-# define PGLS_CC
 # define PGG(v) (pgsql_globals.v)
-# define PGLS_FETCH()
 extern PHP_PGSQL_API php_pgsql_globals pgsql_globals;
 #endif
+
 #endif
 
 #else

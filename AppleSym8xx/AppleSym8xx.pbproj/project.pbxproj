@@ -196,7 +196,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleSym8xx;
-				MODULE_VERSION = 1.0.1f1;
+				MODULE_VERSION = 1.1.0;
 				OPTIMIZATION_CFLAGS = "";
 				OTHER_CFLAGS = "-fpermissive";
 				OTHER_LDFLAGS = "";
@@ -234,11 +234,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.1</string>
+	<string>1.1.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.1f1</string>
+	<string>1.1.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleSym8xx</key>

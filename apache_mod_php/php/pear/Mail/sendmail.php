@@ -20,14 +20,25 @@ require_once 'Mail.php';
 
 /**
  * Sendmail implementation of the PEAR Mail:: interface.
+ * @access public
+ * @package Mail
+ * @version $Revision: 1.1.1.3 $
  */
 class Mail_sendmail extends Mail {
     
 	/**
-     * The location of the sendmail binary on the filesystem.
+     * The location of the sendmail or sendmail wrapper binary on the
+     * filesystem.
      * @var string
      */
     var $sendmail_path = '/usr/sbin/sendmail';
+    
+	/**
+     * Any extra command-line parameters to pass to the sendmail or
+     * sendmail wrapper binary.
+     * @var string
+     */
+    var $sendmail_args = '';
     
 	/**
      * Constructor.
@@ -37,35 +48,40 @@ class Mail_sendmail extends Mail {
      *     sendmail_path    The location of the sendmail binary on the
      *                      filesystem. Defaults to '/usr/sbin/sendmail'.
      *
+     *     sendmail_args    Any extra parameters to pass to the sendmail
+     *                      or sendmail wrapper binary.
+     *
      * If a parameter is present in the $params array, it replaces the
      * default.
      *
-     * @param array Hash containing any parameters different from the
+     * @param array $params Hash containing any parameters different from the
      *              defaults.
+     * @access public
      */	
     function Mail_sendmail($params)
     {
         if (isset($params['sendmail_path'])) $this->sendmail_path = $params['sendmail_path'];
+        if (isset($params['sendmail_args'])) $this->sendmail_args = $params['sendmail_args'];
     }
     
 	/**
      * Implements Mail::send() function using the sendmail
      * command-line binary.
      * 
-     * @param mixed Either a comma-seperated list of recipients
+     * @param mixed $recipients Either a comma-seperated list of recipients
      *              (RFC822 compliant), or an array of recipients,
      *              each RFC822 valid. This may contain recipients not
      *              specified in the headers, for Bcc:, resending
      *              messages, etc.
      *
-     * @param array The array of headers to send with the mail, in an
+     * @param array $headers The array of headers to send with the mail, in an
      *              associative array, where the array key is the
      *              header name (ie, 'Subject'), and the array value
      *              is the header value (ie, 'test'). The header
      *              produced from those values would be 'Subject:
      *              test'.
      *
-     * @param string The full text of the message body, including any
+     * @param string $body The full text of the message body, including any
      *               Mime parts, etc.
      *
      * @return mixed Returns true on success, or a PEAR_Error
@@ -90,7 +106,7 @@ class Mail_sendmail extends Mail {
         $result = 0;
         if (@is_executable($this->sendmail_path)) {
             $from = escapeShellCmd($from);
-            $mail = popen($this->sendmail_path . " -i -f$from -- $recipients", 'w');
+            $mail = popen($this->sendmail_path . (!empty($this->sendmail_args) ? ' ' . $this->sendmail_args : '') . " -f$from -- $recipients", 'w');
             fputs($mail, $text_headers);
             fputs($mail, "\n");  // newline to end the headers section
             fputs($mail, $body);
@@ -99,7 +115,6 @@ class Mail_sendmail extends Mail {
             return new PEAR_Error('sendmail [' . $this->sendmail_path . '] not executable');
         }
         
-        // Return.
         if ($result != 0) {
             return new PEAR_Error('sendmail returned error code ' . $result);
         }

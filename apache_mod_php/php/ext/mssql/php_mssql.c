@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Frank M. Kromann frank@frontbase.com>                       |
+   | Authors: Frank M. Kromann <frank@frontbase.com>                      |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_mssql.c,v 1.1.1.3 2001/07/19 00:19:25 zarzycki Exp $ */
+/* $Id: php_mssql.c,v 1.1.1.4 2001/12/14 22:12:40 zarzycki Exp $ */
 
 #ifdef COMPILE_DL_MSSQL
 #define HAVE_MSSQL 1
@@ -36,10 +36,17 @@
 #if HAVE_MSSQL
 #define SAFE_STRING(s) ((s)?(s):"")
 
-static int le_result, le_link, le_plink;
+#define MSSQL_ASSOC		1<<0
+#define MSSQL_NUM		1<<1
+#define MSSQL_BOTH		(MSSQL_ASSOC|MSSQL_NUM)
+
+static int le_result, le_link, le_plink, le_statement;
 
 static void php_mssql_get_column_content_with_type(mssql_link *mssql_ptr,int offset,zval *result, int column_type);
 static void php_mssql_get_column_content_without_type(mssql_link *mssql_ptr,int offset,zval *result, int column_type);
+
+static void _mssql_bind_hash_dtor(void *data);
+static unsigned char a3_arg_force_ref[] = { 3, BYREF_NONE, BYREF_NONE, BYREF_FORCE };
 
 function_entry mssql_functions[] = {
 	PHP_FE(mssql_connect,				NULL)
@@ -66,11 +73,16 @@ function_entry mssql_functions[] = {
 	PHP_FE(mssql_next_result,			NULL)
 	PHP_FE(mssql_min_error_severity,	NULL)
 	PHP_FE(mssql_min_message_severity,	NULL)
+ 	PHP_FE(mssql_init,					NULL)
+ 	PHP_FE(mssql_bind,					a3_arg_force_ref)
+ 	PHP_FE(mssql_execute,				NULL)
+ 	PHP_FE(mssql_guid_string,			NULL)
 	{NULL, NULL, NULL}
 };
 
 zend_module_entry mssql_module_entry = 
 {
+	STANDARD_MODULE_HEADER,
 	"mssql", 
 	mssql_functions, 
 	PHP_MINIT(mssql), 
@@ -78,6 +90,7 @@ zend_module_entry mssql_module_entry =
 	PHP_RINIT(mssql), 
 	PHP_RSHUTDOWN(mssql), 
 	PHP_MINFO(mssql), 
+        NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES
 };
 
@@ -92,6 +105,7 @@ ZEND_GET_MODULE(mssql)
 static PHP_INI_DISP(display_text_size)
 {
 	char *value;
+	TSRMLS_FETCH();
 	
     if (type == PHP_INI_DISPLAY_ORIG && ini_entry->modified) {
 		value = ini_entry->orig_value;
@@ -116,6 +130,7 @@ PHP_INI_BEGIN()
 	STD_PHP_INI_ENTRY_EX("mssql.min_message_severity",	"10",	PHP_INI_ALL,	OnUpdateInt,	cfg_min_message_severity,	zend_mssql_globals,		mssql_globals,	display_link_numbers)
 	STD_PHP_INI_BOOLEAN("mssql.compatability_mode",		"0",	PHP_INI_ALL,	OnUpdateBool,	compatability_mode,			zend_mssql_globals,		mssql_globals)
 	STD_PHP_INI_ENTRY_EX("mssql.connect_timeout",    	"5",	PHP_INI_ALL,	OnUpdateInt,	connect_timeout,			zend_mssql_globals,		mssql_globals,	display_link_numbers)
+	STD_PHP_INI_ENTRY_EX("mssql.timeout",      			"60",	PHP_INI_ALL,	OnUpdateInt,	timeout,					zend_mssql_globals,		mssql_globals,	display_link_numbers)
 	STD_PHP_INI_ENTRY_EX("mssql.textsize",   			"-1",	PHP_INI_ALL,	OnUpdateInt,	textsize,					zend_mssql_globals,		mssql_globals,	display_text_size)
 	STD_PHP_INI_ENTRY_EX("mssql.textlimit",   			"-1",	PHP_INI_ALL,	OnUpdateInt,	textlimit,					zend_mssql_globals,		mssql_globals,	display_text_size)
 	STD_PHP_INI_ENTRY_EX("mssql.batchsize",   			"0",	PHP_INI_ALL,	OnUpdateInt,	batchsize,					zend_mssql_globals,		mssql_globals,	display_link_numbers)
@@ -124,7 +139,8 @@ PHP_INI_END()
 /* error handler */
 static int php_mssql_error_handler(DBPROCESS *dbproc, int severity, int dberr, int oserr, char *dberrstr, char *oserrstr)
 {
-	MSSQLLS_FETCH();
+	TSRMLS_FETCH();
+
 	if (severity >= MS_SQL_G(min_error_severity)) {
 		php_error(E_WARNING,"MS SQL error:  %s (severity %d)", dberrstr, severity);
 	}
@@ -134,7 +150,8 @@ static int php_mssql_error_handler(DBPROCESS *dbproc, int severity, int dberr, i
 /* message handler */
 static int php_mssql_message_handler(DBPROCESS *dbproc, DBINT msgno,int msgstate, int severity,char *msgtext,char *srvname, char *procname,DBUSMALLINT line)
 {
-	MSSQLLS_FETCH();
+	TSRMLS_FETCH();
+
 	if (severity >= MS_SQL_G(min_message_severity)) {
 		php_error(E_WARNING,"MS SQL message:  %s (severity %d)", msgtext, severity);
 	}
@@ -143,9 +160,8 @@ static int php_mssql_message_handler(DBPROCESS *dbproc, DBINT msgno,int msgstate
 	return 0;
 }
 
-static int _clean_invalid_results(list_entry *le)
+static int _clean_invalid_results(list_entry *le TSRMLS_DC)
 {
-	MSSQLLS_FETCH();
 	if (le->type == le_result) {
 		mssql_link *mssql_ptr = ((mssql_result *) le->ptr)->mssql_ptr;
 		
@@ -183,17 +199,26 @@ static void _free_result(mssql_result *result, int free_fields)
 	}
 }
 
-static void _free_mssql_result(zend_rsrc_list_entry *rsrc)
+static void _free_mssql_statement(mssql_statement *statement)
+{
+	if (statement->binds) {
+		zend_hash_destroy(statement->binds);
+		efree(statement->binds);
+	}
+	
+	efree(statement);
+}
+
+static void _free_mssql_result(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
 	mssql_result *result = (mssql_result *)rsrc->ptr;
+
 	_free_result(result, 1);
 	efree(result);
 }
 
-static void php_mssql_set_default_link(int id)
+static void php_mssql_set_default_link(int id TSRMLS_DC)
 {
-	MSSQLLS_FETCH();
-
 	if (MS_SQL_G(default_link)!=-1) {
 		zend_list_delete(MS_SQL_G(default_link));
 	}
@@ -201,14 +226,12 @@ static void php_mssql_set_default_link(int id)
 	zend_list_addref(id);
 }
 
-static void _close_mssql_link(zend_rsrc_list_entry *rsrc)
+static void _close_mssql_link(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
 	mssql_link *mssql_ptr = (mssql_link *)rsrc->ptr;
-	MSSQLLS_FETCH();
-	ELS_FETCH();
 
 	mssql_ptr->valid = 0;
-	zend_hash_apply(&EG(regular_list),(int (*)(void *))_clean_invalid_results);
+	zend_hash_apply(&EG(regular_list),(apply_func_t) _clean_invalid_results TSRMLS_CC);
 	dbclose(mssql_ptr->link);
 	dbfreelogin(mssql_ptr->login);
 	efree(mssql_ptr);
@@ -216,28 +239,34 @@ static void _close_mssql_link(zend_rsrc_list_entry *rsrc)
 }
 
 
-static void _close_mssql_plink(zend_rsrc_list_entry *rsrc)
+static void _close_mssql_plink(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
 	mssql_link *mssql_ptr = (mssql_link *)rsrc->ptr;
-	MSSQLLS_FETCH();
 
 	dbclose(mssql_ptr->link);
 	dbfreelogin(mssql_ptr->login);
-	efree(mssql_ptr);
+	free(mssql_ptr);
 	MS_SQL_G(num_persistent)--;
 	MS_SQL_G(num_links)--;
+}
+
+static void _mssql_bind_hash_dtor(void *data)
+{
+	mssql_bind *bind= (mssql_bind *) data;
+
+   	zval_ptr_dtor(&(bind->zval));
 }
 
 static void php_mssql_init_globals(zend_mssql_globals *mssql_globals)
 {
 	long compatability_mode;
 
-	MS_SQL_G(num_persistent) = 0;
+	mssql_globals->num_persistent = 0;
 	if (cfg_get_long("mssql.compatability_mode", &compatability_mode) == SUCCESS) {
 		if (compatability_mode) {
-			MS_SQL_G(get_column_content) = php_mssql_get_column_content_without_type;	
+			mssql_globals->get_column_content = php_mssql_get_column_content_without_type;	
 		} else {
-			MS_SQL_G(get_column_content) = php_mssql_get_column_content_with_type;
+			mssql_globals->get_column_content = php_mssql_get_column_content_with_type;
 		}
 	}
 }
@@ -248,6 +277,7 @@ PHP_MINIT_FUNCTION(mssql)
 
 	REGISTER_INI_ENTRIES();
 
+	le_statement = register_list_destructors(_free_mssql_statement, NULL);
 	le_result = zend_register_list_destructors_ex(_free_mssql_result, NULL, "mssql result", module_number);
 	le_link = zend_register_list_destructors_ex(_close_mssql_link, NULL, "mssql link", module_number);
 	le_plink = zend_register_list_destructors_ex(NULL, _close_mssql_plink, "mssql link persistent", module_number);
@@ -256,6 +286,21 @@ PHP_MINIT_FUNCTION(mssql)
 	if (dbinit()==FAIL) {
 		return FAILURE;
 	}
+
+	/* BEGIN MSSQL data types for mssql_bind */
+	REGISTER_LONG_CONSTANT("MSSQL_ASSOC", MSSQL_ASSOC, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("MSSQL_NUM", MSSQL_NUM, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("MSSQL_BOTH", MSSQL_BOTH, CONST_CS | CONST_PERSISTENT);
+
+	REGISTER_LONG_CONSTANT("SQLTEXT",SQLTEXT, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SQLVARCHAR",SQLVARCHAR, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SQLCHAR",SQLCHAR, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SQLINT1",SQLINT1, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SQLINT2",SQLINT2, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SQLINT4",SQLINT4, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SQLBIT",SQLBIT, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SQLFLT8",SQLFLT8, CONST_CS | CONST_PERSISTENT);
+	/* END MSSQL data types for mssql_sp_bind */
 
 	dberrhandle((DBERRHANDLE_PROC) php_mssql_error_handler);
 	dbmsghandle((DBMSGHANDLE_PROC) php_mssql_message_handler);
@@ -272,8 +317,6 @@ PHP_MSHUTDOWN_FUNCTION(mssql)
 
 PHP_RINIT_FUNCTION(mssql)
 {
-	MSSQLLS_FETCH();
-	
 	MS_SQL_G(default_link) = -1;
 	MS_SQL_G(num_links) = MS_SQL_G(num_persistent);
 	MS_SQL_G(appname) = estrndup("PHP 4.0",7);
@@ -282,14 +325,14 @@ PHP_RINIT_FUNCTION(mssql)
 	MS_SQL_G(min_message_severity) = MS_SQL_G(cfg_min_message_severity);
 	if (MS_SQL_G(connect_timeout) < 1) MS_SQL_G(connect_timeout) = 1;
 	dbsetlogintime(MS_SQL_G(connect_timeout));
+	if (MS_SQL_G(timeout) < 0) MS_SQL_G(timeout) = 60;
+	dbsettime(MS_SQL_G(timeout));
 
 	return SUCCESS;
 }
 
 PHP_RSHUTDOWN_FUNCTION(mssql)
 {
-	MSSQLLS_FETCH();
-
 	STR_FREE(MS_SQL_G(appname));
 	if (MS_SQL_G(server_message)) {
 		STR_FREE(MS_SQL_G(server_message));
@@ -300,7 +343,6 @@ PHP_RSHUTDOWN_FUNCTION(mssql)
 PHP_MINFO_FUNCTION(mssql)
 {
 	char buf[32];
-	MSSQLLS_FETCH();
 
 	php_info_print_table_start();
 	php_info_print_table_header(2, "MSSQL Support", "enabled");
@@ -317,15 +359,13 @@ PHP_MINFO_FUNCTION(mssql)
 
 }
 
-void php_mssql_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
+static void php_mssql_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 {
 	char *user, *passwd, *host;
 	char *hashed_details;
 	int hashed_details_length;
 	mssql_link mssql, *mssql_ptr;
 	char buffer[32];
-	MSSQLLS_FETCH();
-/*	PLS_FETCH(); */
 
 	switch(ZEND_NUM_ARGS()) {
 		case 0: /* defaults */
@@ -462,13 +502,12 @@ void php_mssql_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 			}
 
 			/* hash it up */
-			mssql_ptr = (mssql_link *) emalloc(sizeof(mssql_link));
+			mssql_ptr = (mssql_link *) malloc(sizeof(mssql_link));
 			memcpy(mssql_ptr, &mssql, sizeof(mssql_link));
 			new_le.type = le_plink;
 			new_le.ptr = mssql_ptr;
 			if (zend_hash_update(&EG(persistent_list), hashed_details, hashed_details_length + 1, &new_le, sizeof(list_entry), NULL)==FAILURE) {
-				new_le.refcount++;
-				efree(mssql_ptr);
+				free(mssql_ptr);
 				efree(hashed_details);
 				dbfreelogin(mssql.login);
 				RETURN_FALSE;
@@ -533,7 +572,7 @@ void php_mssql_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 			if (ptr && (type==le_link || type==le_plink)) {
 				zend_list_addref(link);
 				return_value->value.lval = link;
-				php_mssql_set_default_link(link);
+				php_mssql_set_default_link(link TSRMLS_CC);
 				return_value->type = IS_RESOURCE;
 				efree(hashed_details);
 				return;
@@ -584,18 +623,17 @@ void php_mssql_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 		new_index_ptr.ptr = (void *) return_value->value.lval;
 		new_index_ptr.type = le_index_ptr;
 		if (zend_hash_update(&EG(regular_list), hashed_details, hashed_details_length + 1,(void *) &new_index_ptr, sizeof(list_entry),NULL)==FAILURE) {
-			new_index_ptr.refcount++;
 			efree(hashed_details);
 			RETURN_FALSE;
 		}
 		MS_SQL_G(num_links)++;
 	}
 	efree(hashed_details);
-	php_mssql_set_default_link(return_value->value.lval);
+	php_mssql_set_default_link(return_value->value.lval TSRMLS_CC);
 }
 
 
-static int php_mssql_get_default_link(INTERNAL_FUNCTION_PARAMETERS MSSQLLS_DC)
+static int php_mssql_get_default_link(INTERNAL_FUNCTION_PARAMETERS)
 {
 	if (MS_SQL_G(default_link)==-1) { /* no link opened yet, implicitly open one */
 		ht = 0;
@@ -629,12 +667,10 @@ PHP_FUNCTION(mssql_close)
 	zval **mssql_link_index=NULL;
 	int id;
 	mssql_link *mssql_ptr;
-	MSSQLLS_FETCH();
-
 	
 	switch (ZEND_NUM_ARGS()) {
 		case 0:
-			id = php_mssql_get_default_link(INTERNAL_FUNCTION_PARAM_PASSTHRU MSSQLLS_CC);
+			id = php_mssql_get_default_link(INTERNAL_FUNCTION_PARAM_PASSTHRU);
 			CHECK_LINK(id);
 			break;
 		case 1:
@@ -666,15 +702,13 @@ PHP_FUNCTION(mssql_select_db)
 	zval **db, **mssql_link_index;
 	int id;
 	mssql_link  *mssql_ptr;
-	MSSQLLS_FETCH();
-
 	
 	switch(ZEND_NUM_ARGS()) {
 		case 1:
 			if (zend_get_parameters_ex(1, &db)==FAILURE) {
 				RETURN_FALSE;
 			}
-			id = php_mssql_get_default_link(INTERNAL_FUNCTION_PARAM_PASSTHRU MSSQLLS_CC);
+			id = php_mssql_get_default_link(INTERNAL_FUNCTION_PARAM_PASSTHRU);
 			CHECK_LINK(id);
 			break;
 		case 2:
@@ -705,7 +739,7 @@ PHP_FUNCTION(mssql_select_db)
 static void php_mssql_get_column_content_with_type(mssql_link *mssql_ptr,int offset,zval *result, int column_type)
 {
 	if (dbdatlen(mssql_ptr->link,offset) == 0) {
-		var_reset(result);
+		ZVAL_NULL(result);
 		return;
 	}
 
@@ -718,7 +752,7 @@ static void php_mssql_get_column_content_with_type(mssql_link *mssql_ptr,int off
 			result->value.lval = (long) anyintcol(offset);
 			result->type = IS_LONG;
 			break;
-		}
+		} 
 		case SQLCHAR:
 		case SQLVARCHAR:
 		case SQLTEXT: {
@@ -771,7 +805,7 @@ static void php_mssql_get_column_content_with_type(mssql_link *mssql_ptr,int off
 				result->type = IS_STRING;
 			} else {
 				php_error(E_WARNING,"MS SQL:  column %d has unknown data type (%d)", offset, coltype(offset));
-				var_reset(result);
+				ZVAL_FALSE(result);
 			}
 		}
 	}
@@ -780,7 +814,7 @@ static void php_mssql_get_column_content_with_type(mssql_link *mssql_ptr,int off
 static void php_mssql_get_column_content_without_type(mssql_link *mssql_ptr,int offset,zval *result, int column_type)
 {
 	if (dbdatlen(mssql_ptr->link,offset) == 0) {
-		var_reset(result);
+		ZVAL_NULL(result);
 		return;
 	}
 
@@ -813,16 +847,15 @@ static void php_mssql_get_column_content_without_type(mssql_link *mssql_ptr,int 
 		result->type = IS_STRING;
 	} else {
 		php_error(E_WARNING,"MS SQL:  column %d has unknown data type (%d)", offset, coltype(offset));
-		var_reset(result);
+		ZVAL_FALSE(result);
 	}
 }
 
-int _mssql_fetch_batch(mssql_link *mssql_ptr, mssql_result *result, int retvalue) 
+static int _mssql_fetch_batch(mssql_link *mssql_ptr, mssql_result *result, int retvalue TSRMLS_DC) 
 {
 	int i, j = 0;
 	int *column_types;
 	char computed_buf[16];
-	MSSQLLS_FETCH();
 
 	column_types = (int *) emalloc(sizeof(int) * result->num_fields);
 	for (i=0; i<result->num_fields; i++) {
@@ -897,12 +930,11 @@ int _mssql_fetch_batch(mssql_link *mssql_ptr, mssql_result *result, int retvalue
 
 /* {{{ proto int mssql_fetch_batch(string result_index)
    Returns the next batch of records */
-PHP_FUNCTION(mssql_fetch_batch) {
+PHP_FUNCTION(mssql_fetch_batch)
+{
 	zval **mssql_result_index;
 	mssql_result *result;
 	mssql_link *mssql_ptr;
-	MSSQLLS_FETCH();
-
 	
 	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &mssql_result_index)==FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -916,7 +948,7 @@ PHP_FUNCTION(mssql_fetch_batch) {
 	mssql_ptr = result->mssql_ptr;
 	_free_result(result, 0);
 	result->cur_row=result->num_rows=0;
-	result->num_rows = _mssql_fetch_batch(mssql_ptr, result, result->lastresult);
+	result->num_rows = _mssql_fetch_batch(mssql_ptr, result, result->lastresult TSRMLS_CC);
 	RETURN_LONG(result->num_rows);
 }
 /* }}} */
@@ -931,7 +963,6 @@ PHP_FUNCTION(mssql_query)
 	mssql_result *result;
 	int id, num_fields;
 	int batchsize;
-	MSSQLLS_FETCH();
 
 	batchsize = MS_SQL_G(batchsize);
 	switch(ZEND_NUM_ARGS()) {
@@ -939,7 +970,7 @@ PHP_FUNCTION(mssql_query)
 			if (zend_get_parameters_ex(1, &query)==FAILURE) {
 				RETURN_FALSE;
 			}
-			id = php_mssql_get_default_link(INTERNAL_FUNCTION_PARAM_PASSTHRU MSSQLLS_CC);
+			id = php_mssql_get_default_link(INTERNAL_FUNCTION_PARAM_PASSTHRU);
 			CHECK_LINK(id);
 			break;
 		case 2:
@@ -1000,7 +1031,7 @@ PHP_FUNCTION(mssql_query)
 	result->cur_field=result->cur_row=result->num_rows=0;
 
 	result->fields = (mssql_field *) emalloc(sizeof(mssql_field)*result->num_fields);
-	result->num_rows = _mssql_fetch_batch(mssql_ptr, result, retvalue);
+	result->num_rows = _mssql_fetch_batch(mssql_ptr, result, retvalue TSRMLS_CC);
 	
 	ZEND_REGISTER_RESOURCE(return_value, result, le_result);
 }
@@ -1008,10 +1039,10 @@ PHP_FUNCTION(mssql_query)
 
 /* {{{ proto int mssql_rows_affected(int conn_id)
    Returns the number of records affected by the query */
-PHP_FUNCTION(mssql_rows_affected) {
+PHP_FUNCTION(mssql_rows_affected)
+{
 	zval **mssql_link_index;
 	mssql_link *mssql_ptr;
-	MSSQLLS_FETCH();
 
 	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &mssql_link_index)==FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -1029,8 +1060,6 @@ PHP_FUNCTION(mssql_free_result)
 {
 	zval **mssql_result_index;
 	mssql_result *result;
-	MSSQLLS_FETCH();
-
 	
 	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &mssql_result_index)==FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -1051,8 +1080,6 @@ PHP_FUNCTION(mssql_free_result)
    Gets the last message from the MS-SQL server */
 PHP_FUNCTION(mssql_get_last_message)
 {
-	MSSQLLS_FETCH();
-
 	RETURN_STRING(MS_SQL_G(server_message),1);
 }
 
@@ -1064,8 +1091,6 @@ PHP_FUNCTION(mssql_num_rows)
 {
 	zval **mssql_result_index;
 	mssql_result *result;
-	MSSQLLS_FETCH();
-
 	
 	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &mssql_result_index)==FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -1085,8 +1110,6 @@ PHP_FUNCTION(mssql_num_fields)
 {
 	zval **mssql_result_index;
 	mssql_result *result;
-	MSSQLLS_FETCH();
-
 	
 	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &mssql_result_index)==FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -1100,55 +1123,35 @@ PHP_FUNCTION(mssql_num_fields)
 
 /* }}} */
 
-/* {{{ proto array mssql_fetch_row(int result_id)
-   Returns an array of the current row in the result set specified by result_id */
-PHP_FUNCTION(mssql_fetch_row)
+static void php_mssql_fetch_hash(INTERNAL_FUNCTION_PARAMETERS, int result_type)
 {
-	zval **mssql_result_index;
-	int i;
+	zval **mssql_result_index, **resulttype = NULL;
 	mssql_result *result;
-	zval *field_content;
-	MSSQLLS_FETCH();
+	int i;
 
-	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &mssql_result_index)==FAILURE) {
-		WRONG_PARAM_COUNT;
+	switch (ZEND_NUM_ARGS()) {
+		case 1:
+			if (zend_get_parameters_ex(1, &mssql_result_index)==FAILURE) {
+				RETURN_FALSE;
+			}
+			if (!result_type) {
+				result_type = MSSQL_BOTH;
+			}
+			break;
+		case 2:
+			if (zend_get_parameters_ex(2, &mssql_result_index, &resulttype)==FAILURE) {
+				RETURN_FALSE;
+			}
+			convert_to_long_ex(resulttype);
+			result_type = (*resulttype)->value.lval;
+			break;
+		default:
+			WRONG_PARAM_COUNT;
+			break;
 	}
 
 	ZEND_FETCH_RESOURCE(result, mssql_result *, mssql_result_index, -1, "MS SQL-result", le_result);	
-	
-	if (result->cur_row >= result->num_rows) {
-		RETURN_FALSE;
-	}
-	
-	array_init(return_value);
-	for (i=0; i<result->num_fields; i++) {
-		MAKE_STD_ZVAL(field_content);
-		*field_content = result->data[result->cur_row][i];
-		ZVAL_COPY_CTOR(field_content);
-		zend_hash_index_update(return_value->value.ht, i, (void *) &field_content, sizeof(zval *), NULL);
-		field_content->refcount++;
-	}
-	result->cur_row++;
-}
 
-/* }}} */
-
-static void php_mssql_fetch_hash(INTERNAL_FUNCTION_PARAMETERS)
-{
-	zval **mssql_result_index;
-	mssql_result *result;
-	int i;
-	zval *tmp;
-	MSSQLLS_FETCH();
-	PLS_FETCH();
-
-	
-	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &mssql_result_index)==FAILURE) {
-		WRONG_PARAM_COUNT;
-	}
-
-	ZEND_FETCH_RESOURCE(result, mssql_result *, mssql_result_index, -1, "MS SQL-result", le_result);	
-	
 	if (result->cur_row >= result->num_rows) {
 		RETURN_FALSE;
 	}
@@ -1158,39 +1161,84 @@ static void php_mssql_fetch_hash(INTERNAL_FUNCTION_PARAMETERS)
 	}
 	
 	for (i=0; i<result->num_fields; i++) {
-		MAKE_STD_ZVAL(tmp);
-		*tmp = result->data[result->cur_row][i];
-		ZVAL_COPY_CTOR(tmp);
-		if (PG(magic_quotes_runtime) && tmp->type == IS_STRING) {
-			tmp->value.str.val = php_addslashes(tmp->value.str.val, tmp->value.str.len, &tmp->value.str.len,1);
+		if (Z_TYPE(result->data[result->cur_row][i]) != IS_NULL) {
+			char *data;
+			int data_len;
+			int should_copy;
+
+			if (Z_TYPE(result->data[result->cur_row][i]) == IS_STRING) {
+				if (PG(magic_quotes_runtime)) {
+					data = php_addslashes(Z_STRVAL(result->data[result->cur_row][i]), Z_STRLEN(result->data[result->cur_row][i]), &result->data[result->cur_row][i].value.str.len, 1 TSRMLS_CC);
+					should_copy = 0;
+				}
+				else
+				{
+					data = Z_STRVAL(result->data[result->cur_row][i]);
+					data_len = Z_STRLEN(result->data[result->cur_row][i]);
+					should_copy = 1;
+				}
+
+				if (result_type & MSSQL_NUM) {
+					add_index_stringl(return_value, i, data, data_len, should_copy);
+					should_copy = 1;
+				}
+				
+				if (result_type & MSSQL_ASSOC) {
+					add_assoc_stringl(return_value, result->fields[i].name, data, data_len, should_copy);
+				}
+			}
+			else if (Z_TYPE(result->data[result->cur_row][i]) == IS_LONG) {
+				if (result_type & MSSQL_NUM)
+					add_index_long(return_value, i, result->data[result->cur_row][i].value.lval);
+				
+				if (result_type & MSSQL_ASSOC)
+					add_assoc_long(return_value, result->fields[i].name, result->data[result->cur_row][i].value.lval);
+			}
+			else if (Z_TYPE(result->data[result->cur_row][i]) == IS_DOUBLE) {
+				if (result_type & MSSQL_NUM)
+					add_index_double(return_value, i, result->data[result->cur_row][i].value.dval);
+				
+				if (result_type & MSSQL_ASSOC)
+					add_assoc_double(return_value, result->fields[i].name, result->data[result->cur_row][i].value.dval);
+			}
 		}
-		zend_hash_index_update(return_value->value.ht, i, (void *) &tmp, sizeof(zval *), NULL);
-		tmp->refcount++;
-		zend_hash_update(return_value->value.ht, result->fields[i].name, strlen(result->fields[i].name)+1, (void *) &tmp, sizeof(zval *), NULL);
-		tmp->refcount++;
+		else
+		{
+			if (result_type & MSSQL_NUM)
+				add_index_null(return_value, i);
+			if (result_type & MSSQL_ASSOC)
+				add_assoc_null(return_value, result->fields[i].name);
+		}
 	}
 	result->cur_row++;
 }
 
-/* {{{ proto object mssql_fetch_object(int result_id)
+/* {{{ proto array mssql_fetch_row(int result_id [, int result_type])
+   Returns an array of the current row in the result set specified by result_id */
+PHP_FUNCTION(mssql_fetch_row)
+{
+	php_mssql_fetch_hash(INTERNAL_FUNCTION_PARAM_PASSTHRU, MSSQL_NUM);
+}
+
+/* }}} */
+
+/* {{{ proto object mssql_fetch_object(int result_id [, int result_type])
    Returns a psuedo-object of the current row in the result set specified by result_id */
 PHP_FUNCTION(mssql_fetch_object)
 {
-	php_mssql_fetch_hash(INTERNAL_FUNCTION_PARAM_PASSTHRU);
+	php_mssql_fetch_hash(INTERNAL_FUNCTION_PARAM_PASSTHRU, MSSQL_ASSOC);
 	if (return_value->type==IS_ARRAY) {
-		return_value->type=IS_OBJECT;
-		return_value->value.obj.properties = return_value->value.ht;
-		return_value->value.obj.ce = &zend_standard_class_def;
+		object_and_properties_init(return_value, &zend_standard_class_def, return_value->value.ht);
 	}
 }
 
 /* }}} */
 
-/* {{{ proto array mssql_fetch_array(int result_id)
+/* {{{ proto array mssql_fetch_array(int result_id [, int result_type])
    Returns an associative array of the current row in the result set specified by result_id */
 PHP_FUNCTION(mssql_fetch_array)
 {
-	php_mssql_fetch_hash(INTERNAL_FUNCTION_PARAM_PASSTHRU);
+	php_mssql_fetch_hash(INTERNAL_FUNCTION_PARAM_PASSTHRU, MSSQL_BOTH);
 }
 
 /* }}} */
@@ -1202,8 +1250,6 @@ PHP_FUNCTION(mssql_data_seek)
 {
 	zval **mssql_result_index, **offset;
 	mssql_result *result;
-	MSSQLLS_FETCH();
-
 
 	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &mssql_result_index, &offset)==FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -1280,8 +1326,6 @@ PHP_FUNCTION(mssql_fetch_field)
 	zval **mssql_result_index, **offset;
 	int field_offset;
 	mssql_result *result;
-	MSSQLLS_FETCH();
-
 
 	switch (ZEND_NUM_ARGS()) {
 		case 1:
@@ -1335,8 +1379,6 @@ PHP_FUNCTION(mssql_field_length)
 	zval **mssql_result_index, **offset;
 	int field_offset;
 	mssql_result *result;
-	MSSQLLS_FETCH();
-
 
 	switch (ZEND_NUM_ARGS()) {
 		case 1:
@@ -1384,8 +1426,6 @@ PHP_FUNCTION(mssql_field_name)
 	zval **mssql_result_index, **offset;
 	int field_offset;
 	mssql_result *result;
-	MSSQLLS_FETCH();
-
 
 	switch (ZEND_NUM_ARGS()) {
 		case 1:
@@ -1434,8 +1474,6 @@ PHP_FUNCTION(mssql_field_type)
 	zval **mssql_result_index, **offset;
 	int field_offset;
 	mssql_result *result;
-	MSSQLLS_FETCH();
-
 
 	switch (ZEND_NUM_ARGS()) {
 		case 1:
@@ -1484,8 +1522,6 @@ PHP_FUNCTION(mssql_field_seek)
 	zval **mssql_result_index, **offset;
 	int field_offset;
 	mssql_result *result;
-	MSSQLLS_FETCH();
-
 
 	if (ZEND_NUM_ARGS()!=2 || zend_get_parameters_ex(2, &mssql_result_index, &offset)==FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -1514,8 +1550,6 @@ PHP_FUNCTION(mssql_result)
 	zval **row, **field, **mssql_result_index;
 	int field_offset=0;
 	mssql_result *result;
-	MSSQLLS_FETCH();
-
 
 	if (ZEND_NUM_ARGS()!=3 || zend_get_parameters_ex(3, &mssql_result_index, &row, &field)==FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -1568,8 +1602,6 @@ PHP_FUNCTION(mssql_next_result)
 	int retvalue;
 	mssql_result *result;
 	mssql_link *mssql_ptr;
-	MSSQLLS_FETCH();
-
 
 	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &mssql_result_index)==FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -1590,7 +1622,7 @@ PHP_FUNCTION(mssql_next_result)
 
 		result->num_fields = dbnumcols(mssql_ptr->link);
 		result->fields = (mssql_field *) emalloc(sizeof(mssql_field)*result->num_fields);
-		result->num_rows = _mssql_fetch_batch(mssql_ptr, result, retvalue);
+		result->num_rows = _mssql_fetch_batch(mssql_ptr, result, retvalue TSRMLS_CC);
 		RETURN_TRUE;
 	}
 
@@ -1603,8 +1635,6 @@ PHP_FUNCTION(mssql_next_result)
 PHP_FUNCTION(mssql_min_error_severity)
 {
 	zval **severity;
-	MSSQLLS_FETCH();
-
 	
 	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &severity)==FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -1620,14 +1650,436 @@ PHP_FUNCTION(mssql_min_error_severity)
 PHP_FUNCTION(mssql_min_message_severity)
 {
 	zval **severity;
-	MSSQLLS_FETCH();
-
 	
 	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &severity)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long_ex(severity);
 	MS_SQL_G(min_message_severity) = (*severity)->value.lval;
+}
+/* }}} */
+
+/* {{{ proto int mssql_init(string sp_name [, int conn_id])
+   Initializes a stored procedure or a remote stored procedure  */
+PHP_FUNCTION(mssql_init)
+{
+	zval **sp_name, **mssql_link_index;
+	mssql_link *mssql_ptr;
+	mssql_statement *statement;
+	int id;
+	
+	switch(ZEND_NUM_ARGS()) {
+		case 1:
+			if (zend_get_parameters_ex(1, &sp_name)==FAILURE) {
+				RETURN_FALSE;
+			}
+			id = php_mssql_get_default_link(INTERNAL_FUNCTION_PARAM_PASSTHRU);
+			CHECK_LINK(id);
+			break;
+
+		case 2:
+			if (zend_get_parameters_ex(2, &sp_name, &mssql_link_index)==FAILURE) {
+				RETURN_FALSE;
+			}
+			id = -1;
+			break;
+
+		default:
+			WRONG_PARAM_COUNT;
+			break;
+	}
+
+	ZEND_FETCH_RESOURCE2(mssql_ptr, mssql_link *, mssql_link_index, id, "MS SQL-Link", le_link, le_plink);
+	
+	convert_to_string_ex(sp_name);
+	
+	if (dbrpcinit(mssql_ptr->link, (*sp_name)->value.str.val,0)==FAIL) {
+		php_error(E_WARNING,"MS SQL:  unable to init stored procedure");
+		RETURN_FALSE;
+	}
+
+	statement=NULL;
+	statement = ecalloc(1,sizeof(mssql_statement));
+	
+	if (statement!=NULL) {
+		statement->link = mssql_ptr;
+		statement->executed=FALSE;
+	}
+	else {
+		php_error(E_WARNING,"mssql_init: unable to allocate statement");
+		RETURN_FALSE;
+	}
+
+	statement->id = zend_list_insert(statement,le_statement);
+	
+	RETURN_RESOURCE(statement->id);
+}
+/* }}} */
+
+/* {{{ proto int mssql_bind(int stmt, string param_name, mixed var, int type 
+		[, int is_output[, int is_null[, int maxlen]])
+   Adds a parameter to a stored procedure or a remote stored procedure  */
+PHP_FUNCTION(mssql_bind)
+{
+	int	type, is_output, is_null, datalen, maxlen;
+	zval **stmt, **param_name, **var, **yytype;
+	mssql_link *mssql_ptr;
+	mssql_statement *statement;
+	mssql_bind bind,*bindp;
+	int id, status;
+	LPBYTE value;
+
+	id=0;
+	status=0;
+
+	/* BEGIN input validation */
+	switch(ZEND_NUM_ARGS()) {
+		case 4: 
+			if (zend_get_parameters_ex(4, &stmt, &param_name, &var, &yytype)==FAILURE) {
+				RETURN_FALSE;
+			}
+			convert_to_long_ex(yytype);
+			type=(*yytype)->value.lval;
+			is_null=FALSE;
+			is_output=FALSE;
+			maxlen=-1;
+	
+			break;
+						
+		case 5: {
+			zval **yyis_output;
+
+				if (zend_get_parameters_ex(5, &stmt, &param_name, &var, &yytype, &yyis_output)==FAILURE) {
+					RETURN_FALSE;
+				}
+				convert_to_long_ex(yytype);
+				convert_to_long_ex(yyis_output);
+				type=(*yytype)->value.lval;
+				is_null=FALSE;
+				is_output=(*yyis_output)->value.lval;
+				maxlen=-1;	
+			}
+			break;	
+
+		case 6: {
+				zval **yyis_output, **yyis_null;
+
+				if (zend_get_parameters_ex(6, &stmt, &param_name, &var, &yytype, &yyis_output, &yyis_null)==FAILURE) {
+					RETURN_FALSE;
+				}
+				convert_to_long_ex(yytype);
+				convert_to_long_ex(yyis_output);
+				convert_to_long_ex(yyis_null);
+				type=(*yytype)->value.lval;
+				is_output=(*yyis_output)->value.lval;
+				is_null=(*yyis_null)->value.lval;
+				maxlen=-1;
+			}
+			break;
+		
+		case 7: {
+				zval **yyis_output, **yyis_null, **yymaxlen;
+
+				if (zend_get_parameters_ex(7, &stmt, &param_name, &var, &yytype, &yyis_output, &yyis_null, &yymaxlen)==FAILURE) {
+					RETURN_FALSE;
+				}
+				convert_to_long_ex(yytype);
+				convert_to_long_ex(yyis_output);
+				convert_to_long_ex(yyis_null);
+				convert_to_long_ex(yymaxlen);
+				type=(*yytype)->value.lval;
+				is_output=(*yyis_output)->value.lval;
+				is_null=(*yyis_null)->value.lval;
+				maxlen=(*yymaxlen)->value.lval;				
+			}
+			break;	
+		
+		default:
+			WRONG_PARAM_COUNT;
+			break;
+	}
+	/* END input validation */
+	
+	ZEND_FETCH_RESOURCE(statement, mssql_statement *, stmt, -1, "MS SQL-Statement", le_statement);
+	if (statement==NULL) {
+		RETURN_FALSE;
+	}
+	mssql_ptr=statement->link;
+
+	/* modify datalen and maxlen according to dbrpcparam documentation */
+	if ( (type==SQLVARCHAR) || (type==SQLCHAR) || (type==SQLTEXT) )	{	/* variable-length type */
+		if (is_null) {
+			maxlen=0;
+			datalen=0;
+		}
+		else {
+			convert_to_string_ex(var);
+			datalen=(*var)->value.str.len;
+			value=(LPBYTE)(*var)->value.str.val;
+		}
+	}
+	else	{	/* fixed-length type */
+		if (is_null)	{
+			datalen=0;
+		}
+		else {
+			datalen=-1;
+		}
+		maxlen=-1;
+
+		switch (type)	{
+
+			case SQLFLT8:
+				convert_to_double_ex(var);
+				value=(LPBYTE)(&(*var)->value.dval);
+				break;
+
+			case SQLINT1:
+			case SQLINT2:
+			case SQLINT4:
+				convert_to_long_ex(var);
+				value=(LPBYTE)(&(*var)->value.lval);
+				break;
+
+			default:
+				php_error(E_WARNING,"mssql_bind: unsupported type");
+				RETURN_FALSE;
+				break;
+		}
+	}
+
+	convert_to_string_ex(param_name);
+	
+	if (is_output) {
+		status=DBRPCRETURN;
+	}
+	
+	/* hashtable of binds */
+	if (! statement->binds) {
+		ALLOC_HASHTABLE(statement->binds);
+		zend_hash_init(statement->binds, 13, NULL, _mssql_bind_hash_dtor, 0);
+	}
+
+	memset((void*)&bind,0,sizeof(mssql_bind));
+	zend_hash_add(statement->binds,(*param_name)->value.str.val,(*param_name)->value.str.len,&bind,sizeof(mssql_bind),(void **)&bindp);
+	bindp->zval=*var;
+	zval_add_ref(var);
+
+	/* no call to dbrpcparam if RETVAL */
+	if ( strcmp("RETVAL",(*param_name)->value.str.val)!=0 ) {						
+		if (dbrpcparam(mssql_ptr->link, (*param_name)->value.str.val, (BYTE)status, type, maxlen, datalen, (LPCBYTE)value)==FAIL) {
+			php_error(E_WARNING,"MS SQL:  Unable to set parameter");
+			RETURN_FALSE;
+		}
+	}
+
+	RETURN_TRUE;
+}
+/* }}} */
+
+/* {{{ proto int mssql_execute(int stmt)
+   Executes a stored procedure on a MS-SQL server database */
+PHP_FUNCTION(mssql_execute)
+{
+	zval **stmt;
+	int retvalue,retval_results;
+	mssql_link *mssql_ptr;
+	mssql_statement *statement;
+	mssql_bind *bind;
+	mssql_result *result;
+	int num_fields,num_rets,type;	
+	int blocks_initialized=1;
+	int i;
+	int batchsize;
+	int ac = ZEND_NUM_ARGS();
+	char *parameter;
+
+	batchsize = MS_SQL_G(batchsize);
+	if (ac !=1 || zend_get_parameters_ex(1, &stmt)==FAILURE) {
+        WRONG_PARAM_COUNT;
+    }
+
+	ZEND_FETCH_RESOURCE(statement, mssql_statement *, stmt, -1, "MS SQL-Statement", le_statement);
+
+	mssql_ptr=statement->link;
+
+	if (dbrpcexec(mssql_ptr->link)==FAIL || dbsqlok(mssql_ptr->link)==FAIL) {
+		php_error(E_WARNING,"MS SQL:  stored procedure execution failed.");
+		RETURN_FALSE;
+	}
+
+	retval_results=dbresults(mssql_ptr->link);
+
+	if (retval_results==FAIL) {
+		php_error(E_WARNING,"MS SQL:  could not retrieve results");
+		RETURN_FALSE;
+	}
+
+	/* The following is just like mssql_query, fetch all rows from the server into 
+	 *	the row buffer. We add here the RETVAL and OUTPUT parameters stuff
+	 */
+	result=NULL;
+	/* if multiple recordsets in a stored procedure were supported, we would 
+	   use a "while (retval_results!=NO_MORE_RESULTS)" instead an "if" */
+	if (retval_results==SUCCEED) {
+		if ( (retvalue=(dbnextrow(mssql_ptr->link)))!=NO_MORE_ROWS ) {
+			num_fields = dbnumcols(mssql_ptr->link);
+			if (num_fields <= 0) {
+				RETURN_TRUE;
+			}
+			
+			result = (mssql_result *) emalloc(sizeof(mssql_result));
+		
+			result->batchsize = batchsize;
+			result->blocks_initialized = 1;
+			result->data = (zval **) emalloc(sizeof(zval *)*MSSQL_ROWS_BLOCK);
+			result->mssql_ptr = mssql_ptr;
+			result->cur_field=result->cur_row=result->num_rows=0;
+			result->num_fields = num_fields;
+
+			result->fields = (mssql_field *) emalloc(sizeof(mssql_field)*num_fields);
+			result->num_rows = _mssql_fetch_batch(mssql_ptr, result, retvalue TSRMLS_CC);
+		}
+		retval_results=dbresults(mssql_ptr->link);
+	}
+	
+	if (retval_results==SUCCEED) {
+		php_error(E_WARNING,"mssql_execute:  multiple recordsets from a stored procedure not supported yet! (Skipping...)");
+		retval_results=dbresults(mssql_ptr->link);
+		
+		while (retval_results==SUCCEED) {
+			retval_results=dbresults(mssql_ptr->link);
+		}
+	}
+
+	if (retval_results==NO_MORE_RESULTS) {
+		/* Now to fetch RETVAL and OUTPUT values*/
+		num_rets = dbnumrets(mssql_ptr->link);
+		
+		if (num_rets!=0) {
+			for (i = 1; i <= num_rets; i++) {
+				parameter=(char*)dbretname(mssql_ptr->link, i);
+				type=dbrettype(mssql_ptr->link, i);
+							
+				if (statement->binds!=NULL ) {	/*	Maybe a non-parameter sp	*/
+					if (zend_hash_find(statement->binds, parameter, strlen(parameter), (void**)&bind)==SUCCESS) {
+						switch (type) {
+							case SQLBIT:
+							case SQLINT1:
+							case SQLINT2:
+							case SQLINT4:
+								convert_to_long_ex(&bind->zval);
+								bind->zval->value.lval=*((int *)(dbretdata(mssql_ptr->link,i)));
+								break;
+				
+							case SQLFLT8:
+								convert_to_double_ex(&bind->zval);
+								bind->zval->value.dval=*((double *)(dbretdata(mssql_ptr->link,i)));
+								break;
+
+							case SQLCHAR:
+							case SQLVARCHAR:
+							case SQLTEXT:
+								convert_to_string_ex(&bind->zval);
+								bind->zval->value.str.len=dbretlen(mssql_ptr->link,i);
+								bind->zval->value.str.val = estrndup(dbretdata(mssql_ptr->link,i),bind->zval->value.str.len);
+								break;
+						}
+					}
+					else {
+						php_error(E_WARNING,"mssql_execute: an output parameter variable was not provided");
+					}
+				}
+			}
+		}
+		
+		if (statement->binds!=NULL ) {	/*	Maybe a non-parameter sp	*/
+			if (zend_hash_find(statement->binds, "RETVAL", 6, (void**)&bind)==SUCCESS) {
+				if (dbhasretstat(mssql_ptr->link)) {
+					convert_to_long_ex(&bind->zval);
+					bind->zval->value.lval=dbretstatus(mssql_ptr->link);
+				}
+				else {
+					php_error(E_WARNING,"mssql_execute: stored procedure has no return value. Nothing was returned into RETVAL");
+				}
+			}
+		}
+	}
+
+	if (result==NULL) {
+		RETURN_TRUE;	/* no recordset returned ...*/
+	}
+	else {
+		ZEND_REGISTER_RESOURCE(return_value, result, le_result);
+	}
+}
+/* }}} */
+
+/* {{{ proto string mssql_guid_string(string binary [,int short_format])
+   Converts a 16 byte binary GUID to a string  */
+PHP_FUNCTION(mssql_guid_string)
+{
+	zval **binary, **short_format;
+	int sf = 0;
+	char buffer[32+1];
+	char buffer2[36+1];
+	
+	switch(ZEND_NUM_ARGS()) {
+		case 1:
+			if (zend_get_parameters_ex(1, &binary)==FAILURE) {
+				RETURN_FALSE;
+			}
+			convert_to_string_ex(binary);
+			break;
+		case 2:
+			if (zend_get_parameters_ex(2, &binary, &short_format)==FAILURE) {
+				RETURN_FALSE;
+			}
+			convert_to_string_ex(binary);
+			convert_to_long_ex(short_format);
+			sf = (*short_format)->value.lval;
+			break;
+
+		default:
+			WRONG_PARAM_COUNT;
+			break;
+	}
+
+	dbconvert(NULL, SQLBINARY, (BYTE*)(*binary)->value.str.val, 16, SQLCHAR, buffer, -1);
+
+	if (sf) {
+		php_strtoupper(buffer, 32);
+		RETURN_STRING(buffer, 1);
+	}
+	else {
+		int i;
+		for (i=0; i<4; i++) {
+			buffer2[2*i] = buffer[6-2*i];
+			buffer2[2*i+1] = buffer[7-2*i];
+		}
+		buffer2[8] = '-';
+		for (i=0; i<2; i++) {
+			buffer2[9+2*i] = buffer[10-2*i];
+			buffer2[10+2*i] = buffer[11-2*i];
+		}
+		buffer2[13] = '-';
+		for (i=0; i<2; i++) {
+			buffer2[14+2*i] = buffer[14-2*i];
+			buffer2[15+2*i] = buffer[15-2*i];
+		}
+		buffer2[18] = '-';
+		for (i=0; i<4; i++) {
+			buffer2[19+i] = buffer[16+i];
+		}
+		buffer2[23] = '-';
+		for (i=0; i<12; i++) {
+			buffer2[24+i] = buffer[20+i];
+		}
+		buffer2[36] = 0;
+
+		php_strtoupper(buffer2, 36);
+		RETURN_STRING(buffer2, 1);
+	}
 }
 /* }}} */
 

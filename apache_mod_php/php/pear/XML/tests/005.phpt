@@ -1,5 +1,7 @@
 --TEST--
 XML Parser: mixing character encodings
+--SKIPIF--
+<?php if (!extension_loaded("xml")) echo 'skip'; ?>
 --FILE--
 <?php // -*- C++ -*-
 //

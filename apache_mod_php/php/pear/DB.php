@@ -17,7 +17,7 @@
 // |          Tomas V.V.Cox <cox@idecnet.com>                             |
 // +----------------------------------------------------------------------+
 //
-// $Id: DB.php,v 1.1.1.4 2001/07/19 00:20:40 zarzycki Exp $
+// $Id: DB.php,v 1.1.1.5 2001/12/14 22:13:58 zarzycki Exp $
 //
 // Database independent query interface.
 //
@@ -32,7 +32,7 @@ require_once "PEAR.php";
  * version of it in DB::errorMessage().
  */
 
-define("DB_OK",                         0);
+define("DB_OK",                         1);
 define("DB_ERROR",                     -1);
 define("DB_ERROR_SYNTAX",              -2);
 define("DB_ERROR_CONSTRAINT",          -3);
@@ -57,6 +57,7 @@ define("DB_ERROR_NOT_LOCKED",         -21);
 define("DB_ERROR_VALUE_COUNT_ON_ROW", -22);
 define("DB_ERROR_INVALID_DSN",        -23);
 define("DB_ERROR_CONNECT_FAILED",     -24);
+define("DB_ERROR_EXTENSION_NOT_FOUND",-25);
 
 /*
  * Warnings are not detected as errors by DB::isError(), and are not
@@ -73,14 +74,20 @@ define('DB_WARNING_READ_ONLY', -1001);
  *
  * The prepare/execute model in DB is mostly borrowed from the ODBC
  * extension, in a query the "?" character means a scalar parameter.
- * There is one extension though, a "*" character means an opaque
+ * There are two extensions though, a "&" character means an opaque
  * parameter.  An opaque parameter is simply a file name, the real
- * data are in that file (useful for stuff like putting uploaded files
- * into your database).
+ * data are in that file (useful for putting uploaded files into your
+ * database and such). The "!" char means a parameter that must be
+ * left as it is.
+ * They modify the quote behavoir:
+ * DB_PARAM_SCALAR (?) => 'original string quoted'
+ * DB_PARAM_OPAQUE (&) => 'string from file quoted'
+ * DB_PARAM_MISC   (!) => original string
  */
 
 define('DB_PARAM_SCALAR', 1);
 define('DB_PARAM_OPAQUE', 2);
+define('DB_PARAM_MISC',   3);
 
 /*
  * These constants define different ways of returning binary data
@@ -116,6 +123,12 @@ define('DB_FETCHMODE_ORDERED', 1);
  */
 
 define('DB_FETCHMODE_ASSOC', 2);
+
+/**
+* Column data as object properties
+*/
+
+define('DB_FETCHMODE_OBJECT', 3);
 
 /**
  * For multi-dimensional results: normally the first level of arrays
@@ -164,6 +177,7 @@ define('DB_TABLEINFO_FULL', 3);
  *              connections, the object returned is an instance of this
  *              class.
  *
+ * @package  DB
  * @version  2
  * @author   Stig Bakken <ssb@fast.no>
  * @since    PHP 4.0
@@ -172,7 +186,8 @@ define('DB_TABLEINFO_FULL', 3);
 class DB
 {
     /**
-     * Create a new DB object for the specified database type
+     * Create a new DB connection object for the specified database
+     * type
      *
      * @param $type string database type, for example "mysql"
      *
@@ -197,23 +212,25 @@ class DB
     }
 
     /**
-     * Create a new DB object and connect to the specified database
+     * Create a new DB connection object and connect to the specified
+     * database
      *
      * @param $dsn mixed "data source name", see the DB::parseDSN
      * method for a description of the dsn format.  Can also be
      * specified as an array of the format returned by DB::parseDSN.
      *
-     * @param $options mixed if boolean (or scalar), tells whether
-     * this connection should be persistent (for backends that support
-     * this).  This parameter can also be an array of options, see
-     * DB_common::setOption for more information on connection
-     * options.
+     * @param $options mixed An associative array of option names and
+     * their values.  For backwards compatibility, this parameter may
+     * also be a boolean that tells whether the connection should be
+     * persistent.  See DB_common::setOption for more information on
+     * connection options.
      *
      * @return object a newly created DB connection object, or a DB
      * error object on error
      *
      * @see DB::parseDSN
      * @see DB::isError
+     * @see DB_common::setOption
      */
     function &connect($dsn, $options = false)
     {
@@ -297,7 +314,9 @@ class DB
      */
     function isManip($query)
     {
-        if (preg_match('/^\s*"?(INSERT|UPDATE|DELETE|REPLACE|CREATE|DROP|ALTER|GRANT|REVOKE)\s+/i', $query)) {
+        $manips = 'INSERT|UPDATE|DELETE|'.'REPLACE|CREATE|DROP|'.
+                  'ALTER|GRANT|REVOKE|'.'LOCK|UNLOCK';
+        if (preg_match('/^\s*"?('.$manips.')\s+/i', $query)) {
             return true;
         }
         return false;
@@ -314,9 +333,9 @@ class DB
      */
     function isWarning($value)
     {
-        return is_object($value) &&
-            (get_class( $value ) == "db_warning" ||
-             is_subclass_of($value, "db_warning"));
+        return (is_object($value) &&
+                (get_class($value) == "db_warning" ||
+                 is_subclass_of($value, "db_warning")));
     }
 
     /**
@@ -329,6 +348,7 @@ class DB
      */
     function errorMessage($value)
     {
+        static $errorMessages;
         if (!isset($errorMessages)) {
             $errorMessages = array(
                 DB_ERROR                    => 'unknown error',
@@ -351,11 +371,13 @@ class DB
                 DB_ERROR_SYNTAX             => 'syntax error',
                 DB_ERROR_UNSUPPORTED        => 'not supported',
                 DB_ERROR_VALUE_COUNT_ON_ROW => 'value count on row',
-                DB_ERROR_INVALID_DSN        => "invalid DSN",
-                DB_ERROR_CONNECT_FAILED     => "connect failed",
+                DB_ERROR_INVALID_DSN        => 'invalid DSN',
+                DB_ERROR_CONNECT_FAILED     => 'connect failed',
                 DB_OK                       => 'no error',
                 DB_WARNING                  => 'unknown warning',
-                DB_WARNING_READ_ONLY        => 'read only'
+                DB_WARNING_READ_ONLY        => 'read only',
+                DB_ERROR_NEED_MORE_DATA     => 'insufficient data supplied',
+                DB_ERROR_EXTENSION_NOT_FOUND=> 'extension not found'
             );
         }
 
@@ -363,7 +385,7 @@ class DB
             $value = $value->getCode();
         }
 
-        return $errorMessages[$value];
+        return isset($errorMessages[$value]) ? $errorMessages[$value] : $errorMessages[DB_ERROR];
     }
 
     /**
@@ -439,7 +461,7 @@ class DB
 
         // Get (if found): username and password
         // $dsn => username:password@protocol+hostspec/database
-        if (($at = strpos($dsn,'@')) !== false) {
+        if (($at = strrpos($dsn,'@')) !== false) {
             $str = substr($dsn, 0, $at);
             $dsn = substr($dsn, $at + 1);
             if (($pos = strpos($str, ':')) !== false) {
@@ -492,13 +514,10 @@ class DB
     function assertExtension($name)
     {
         if (!extension_loaded($name)) {
-            $dlext = (substr(PHP_OS, 0, 3) == 'WIN') ? '.dll' : '.so';
+            $dlext = OS_WINDOWS ? '.dll' : '.so';
             @dl($name . $dlext);
         }
-        if (!extension_loaded($name)) {
-            return false;
-        }
-        return true;
+        return extension_loaded($name);
     }
 }
 
@@ -506,6 +525,7 @@ class DB
  * DB_Error implements a class for reporting portable database error
  * messages.
  *
+ * @package  DB
  * @author Stig Bakken <ssb@fast.no>
  */
 class DB_Error extends PEAR_Error
@@ -538,6 +558,7 @@ class DB_Error extends PEAR_Error
  * DB_Warning implements a class for reporting portable database
  * warning messages.
  *
+ * @package  DB
  * @author Stig Bakken <ssb@fast.no>
  */
 class DB_Warning extends PEAR_Error
@@ -571,6 +592,7 @@ class DB_Warning extends PEAR_Error
  * A new instance of this class will be returned by the DB implementation
  * after processing a query that returns data.
  *
+ * @package  DB
  * @author Stig Bakken <ssb@fast.no>
  */
 
@@ -578,6 +600,7 @@ class DB_result
 {
     var $dbh;
     var $result;
+    var $row_counter = null;
 
     /**
      * DB_result constructor.
@@ -592,36 +615,110 @@ class DB_result
     }
 
     /**
-     * Fetch and return a row of data (it uses fetchInto for that)
-     * @param   $fetchmode  format of fetched row array
-     * @param   $rownum     the absolute row number to fetch
+     * Fetch and return a row of data (it uses driver->fetchInto for that)
+     * @param int $fetchmode  format of fetched row
+     * @param int $rownum     the row number to fetch
      *
-     * @return  array   a row of data, or false on error
+     * @return  array a row of data, NULL on no more rows or PEAR_Error on error
      */
     function fetchRow($fetchmode = DB_FETCHMODE_DEFAULT, $rownum=null)
     {
-        $res = $this->fetchInto($arr, $fetchmode, $rownum);
+        if ($fetchmode === DB_FETCHMODE_DEFAULT) {
+            $fetchmode = $this->dbh->fetchmode;
+        }
+        if ($fetchmode === DB_FETCHMODE_OBJECT) {
+            $fetchmode = DB_FETCHMODE_ASSOC;
+            $object_class = $this->dbh->fetchmode_object_class;
+        }
+        if ($this->dbh->limit_from !== null) {
+            if ($this->row_counter === null) {
+                $this->row_counter = $this->dbh->limit_from;
+                // For Interbase
+                if ($this->dbh->features['limit'] == false) {
+                    $i = 0;
+                    while ($i++ < $this->dbh->limit_from) {
+                        $this->dbh->fetchInto($this->result, $arr, $fetchmode);
+                    }
+                }
+            }
+            if ($this->row_counter >= (
+                    $this->dbh->limit_from + $this->dbh->limit_count))
+            {
+                return null;
+            }
+            if ($this->dbh->features['limit'] == 'emulate') {
+                $rownum = $this->row_counter;
+            }
+
+            $this->row_counter++;
+        }
+        $res = $this->dbh->fetchInto($this->result, $arr, $fetchmode, $rownum);
         if ($res !== DB_OK) {
             return $res;
+        }
+        if (isset($object_class)) {
+            // default mode specified in DB_common::fetchmode_object_class property
+            if ($object_class == 'stdClass') {
+                $ret = (object) $arr;
+            } else {
+                $ret =& new $object_class($arr);
+            }
+            return $ret;
         }
         return $arr;
     }
 
     /**
-     * Fetch a row of data into an existing array.
+     * Fetch a row of data into an existing variable.
      *
-     * @param   $arr                reference to data array
-     * @param   $fetchmode  format of fetched row array
-     * @param   $rownum     the absolute row number to fetch
+     * @param  mixed $arr        reference to data containing the row
+     * @param  int   $fetchmode  format of fetched row
+     * @param  int   $rownum     the row number to fetch
      *
-     * @return  int     error code
+     * @return  mixed  DB_OK on success, NULL on no more rows or
+     *                 a DB_Error object on error
      */
     function fetchInto(&$arr, $fetchmode = DB_FETCHMODE_DEFAULT, $rownum=null)
     {
         if ($fetchmode === DB_FETCHMODE_DEFAULT) {
             $fetchmode = $this->dbh->fetchmode;
         }
-        return $this->dbh->fetchInto($this->result, $arr, $fetchmode, $rownum);
+        if ($fetchmode === DB_FETCHMODE_OBJECT) {
+            $fetchmode = DB_FETCHMODE_ASSOC;
+            $object_class = $this->dbh->fetchmode_object_class;
+        }
+        if ($this->dbh->limit_from !== null) {
+            if ($this->row_counter === null) {
+                $this->row_counter = $this->dbh->limit_from;
+                // For Interbase
+                if ($this->dbh->features['limit'] == false) {
+                    $i = 0;
+                    while ($i++ < $this->dbh->limit_from) {
+                        $this->dbh->fetchInto($this->result, $arr, $fetchmode);
+                    }
+                }
+            }
+            if ($this->row_counter >= (
+                    $this->dbh->limit_from + $this->dbh->limit_count))
+            {
+                return null;
+            }
+            if ($this->dbh->features['limit'] == 'emulate') {
+                $rownum = $this->row_counter;
+            }
+
+            $this->row_counter++;
+        }
+        $res = $this->dbh->fetchInto($this->result, $arr, $fetchmode, $rownum);
+        if (($res === DB_OK) && isset($object_class)) {
+            // default mode specified in DB_common::fetchmode_object_class property
+            if ($object_class == 'stdClass') {
+                $arr = (object) $arr;
+            } else {
+                $arr = new $object_class($arr);
+            }
+        }
+        return $res;
     }
 
     /**
@@ -645,6 +742,16 @@ class DB_result
     }
 
     /**
+     * Get the next result if a batch of queries was executed.
+     *
+     * @return bool true if a new result is available or false if not.
+     */
+    function nextResult()
+    {
+        return $this->dbh->nextResult($this->result);
+    }
+
+    /**
      * Frees the resources allocated for this result set.
      * @return  int     error code
      */
@@ -661,6 +768,25 @@ class DB_result
     function tableInfo($mode = null)
     {
         return $this->dbh->tableInfo($this->result, $mode);
+    }
+
+    function getRowCounter()
+    {
+        return $this->row_counter;
+    }
+}
+
+/**
+* Pear DB Row Object
+* @see DB_common::setFetchMode()
+*/
+class DB_row
+{
+    function DB_row(&$arr)
+    {
+        for (reset($arr); $key = key($arr); next($arr)) {
+            $this->$key = &$arr[$key];
+        }
     }
 }
 

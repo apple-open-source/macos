@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: scanf.c,v 1.1.1.4 2001/07/19 00:20:21 zarzycki Exp $ */
+/* $Id: scanf.c,v 1.1.1.5 2001/12/14 22:13:27 zarzycki Exp $ */
 
 /*
    scanf.c --
@@ -125,9 +125,10 @@ typedef struct CharSet {
 static char *BuildCharSet(CharSet *cset, char *format);
 static int	CharInSet(CharSet *cset, int ch);
 static void	ReleaseCharSet(CharSet *cset);
+static inline void scan_set_error_return(int numVars, pval **return_value);
 
 
-/*
+/* {{{ BuildCharSet
  *----------------------------------------------------------------------
  *
  * BuildCharSet --
@@ -144,7 +145,6 @@ static void	ReleaseCharSet(CharSet *cset);
  *
  *----------------------------------------------------------------------
  */
-
 static char * BuildCharSet(CharSet *cset, char *format)
 {
     char *ch, start;
@@ -234,8 +234,9 @@ static char * BuildCharSet(CharSet *cset, char *format)
     }
     return format;
 }
+/* }}} */
 
-/*
+/* {{{ CharInSet
  *----------------------------------------------------------------------
  *
  * CharInSet --
@@ -250,7 +251,6 @@ static char * BuildCharSet(CharSet *cset, char *format)
  *
  *----------------------------------------------------------------------
  */
-
 static int CharInSet(CharSet *cset, int c)
 {
     char ch = (char) c;
@@ -273,8 +273,9 @@ static int CharInSet(CharSet *cset, int c)
     }
     return (cset->exclude ? !match : match);    
 }
+/* }}} */
 
-/*
+/* {{{ ReleaseCharSet
  *----------------------------------------------------------------------
  *
  * ReleaseCharSet --
@@ -289,7 +290,6 @@ static int CharInSet(CharSet *cset, int c)
  *
  *----------------------------------------------------------------------
  */
-
 static void ReleaseCharSet(CharSet *cset)
 {
     efree((char *)cset->chars);
@@ -297,8 +297,9 @@ static void ReleaseCharSet(CharSet *cset)
         efree((char *)cset->ranges);
     }
 }
+/* }}} */
 
-/*
+/* {{{ ValidateFormat
  *----------------------------------------------------------------------
  *
  * ValidateFormat --
@@ -319,9 +320,7 @@ static void ReleaseCharSet(CharSet *cset)
  *
  *----------------------------------------------------------------------
 */
-
-
-PHPAPI int ValidateFormat(char *format,int numVars,int *totalSubs)
+PHPAPI int ValidateFormat(char *format, int numVars, int *totalSubs)
 {
 #define STATIC_LIST_SIZE 16
     int gotXpg, gotSequential, value, i, flags;
@@ -329,6 +328,7 @@ PHPAPI int ValidateFormat(char *format,int numVars,int *totalSubs)
     int staticAssign[STATIC_LIST_SIZE];
     int *nassign = staticAssign;
     int objIndex, xpgSize, nspace = STATIC_LIST_SIZE;
+	TSRMLS_FETCH();
 
     /*
      * Initialize an array that records the number of times a variable
@@ -409,7 +409,7 @@ PHPAPI int ValidateFormat(char *format,int numVars,int *totalSubs)
         if (gotXpg) {
             mixedXPG:
               php_error(E_WARNING,
-                "cannot mix \"%\" and \"%n$\" conversion specifiers in %s", get_active_function_name() );
+                "cannot mix \"%\" and \"%n$\" conversion specifiers in %s", get_active_function_name(TSRMLS_C) );
             goto error;
         }
 
@@ -457,7 +457,7 @@ PHPAPI int ValidateFormat(char *format,int numVars,int *totalSubs)
               break;
 	    case 'c':
 	    	/* we differ here with the TCL implementation in allowing for */
-	    	/* a character width specification,to be more consistent with */
+	    	/* a character width specification, to be more consistent with */
 	    	/* ANSI. since Zend auto allocates space for vars, this is no */
 	    	/* problem - cc                                               */
                 /*
@@ -496,7 +496,7 @@ PHPAPI int ValidateFormat(char *format,int numVars,int *totalSubs)
             goto error;
 	    default:
             {
-             php_error(E_WARNING,"bad scan conversion character \"%c\"", ch);
+             php_error(E_WARNING, "bad scan conversion character \"%c\"", ch);
              goto error;
            }
 	}
@@ -567,7 +567,7 @@ PHPAPI int ValidateFormat(char *format,int numVars,int *totalSubs)
         if (gotXpg) {
             php_error(E_WARNING, "\"%n$\" argument index out of range");
         } else {
-            php_error(E_WARNING,"different numbers of variable names and field specifiers");
+            php_error(E_WARNING, "different numbers of variable names and field specifiers");
         }
 
     error:
@@ -577,10 +577,10 @@ PHPAPI int ValidateFormat(char *format,int numVars,int *totalSubs)
     return SCAN_ERROR_INVALID_FORMAT;
 #undef STATIC_LIST_SIZE
 }
+/* }}} */
 
-
-
-/* This is the internal function which does processing on behalf of
+/* {{{ php_sscanf_internal
+ * This is the internal function which does processing on behalf of
  * both sscanf() and fscanf()
  * 
  * parameters :
@@ -592,9 +592,9 @@ PHPAPI int ValidateFormat(char *format,int numVars,int *totalSubs)
  *		return_value set with the results of the scan
  */
 
-PHPAPI int php_sscanf_internal(	char *string,char *format,
-				int argCount,zval ***args,
-				int varStart,pval **return_value)
+PHPAPI int php_sscanf_internal(	char *string, char *format,
+				int argCount, zval ***args,
+				int varStart, pval **return_value TSRMLS_DC)
 {
     int  numVars, nconversions, totalVars = -1;
     int  i, value, result;
@@ -623,8 +623,8 @@ PHPAPI int php_sscanf_internal(	char *string,char *format,
 	}
 	
 #if 0 
-	zend_printf("<br>in sscanf_internal : <br> string is \"%s\",format = \"%s\"<br> NumVars = %d. VarStart = %d<br>-------------------------<br>",
-					string,format,numVars,varStart);	
+	zend_printf("<br>in sscanf_internal : <br> string is \"%s\", format = \"%s\"<br> NumVars = %d. VarStart = %d<br>-------------------------<br>",
+					string, format, numVars, varStart);	
 #endif	
     /*
      * Check for errors in the format string.
@@ -642,8 +642,8 @@ PHPAPI int php_sscanf_internal(	char *string,char *format,
 	if (numVars) {
 		for (i = varStart;i < argCount;i++){
 			if ( ! PZVAL_IS_REF( *args[ i ] ) ) {	
-				php_error(E_WARNING,"Parameter %d to %s() must be passed by reference",
-								i, get_active_function_name());			
+				php_error(E_WARNING, "Parameter %d to %s() must be passed by reference",
+								i, get_active_function_name(TSRMLS_C));
 				scan_set_error_return(numVars, return_value);
 				return SCAN_ERROR_VAR_PASSED_BYVAL;
 			}
@@ -1227,10 +1227,11 @@ PHPAPI int php_sscanf_internal(	char *string,char *format,
 
     return result;
 }
-
+/* }}} */
 
 /* the compiler choked when i tried to make this a macro    */
-inline void scan_set_error_return(int numVars,pval **return_value) {
+static inline void scan_set_error_return(int numVars, pval **return_value)
+{
 	if (numVars) {
 		(*return_value)->type = IS_LONG;
 		(*return_value)->value.lval = SCAN_ERROR_EOF;  /* EOF marker */
@@ -1242,3 +1243,11 @@ inline void scan_set_error_return(int numVars,pval **return_value) {
 }
 
 
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
+ */

@@ -19,7 +19,7 @@ typedef char * caddr_t;
 #define S_IFBLK		_IFBLK
 #define	S_IFLNK		_IFLNK
 #define chdir(path) SetCurrentDirectory(path)
-#define mkdir(a,b)	_mkdir(a)
+#define mkdir(a, b)	_mkdir(a)
 #define rmdir(a)	_rmdir(a)
 #define getpid		_getpid
 #define php_sleep(t)	Sleep(t*1000)
@@ -39,7 +39,9 @@ typedef long pid_t;
 #define M_PI             3.14159265358979323846
 #define M_TWOPI         (M_PI * 2.0)
 #define M_PI_2           1.57079632679489661923
+#ifndef M_PI_4
 #define M_PI_4           0.78539816339744830962
+#endif
 
 #if !PHP_DEBUG
 #ifdef inline

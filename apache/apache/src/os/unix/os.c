@@ -107,13 +107,13 @@ void *ap_os_dso_load(const char *path)
 
 #elif defined(HAVE_DYLD)
     NSObjectFileImage image;
-    NSModule ret;
+    NSModule handle;
     if (NSCreateObjectFileImageFromFile(path, &image) !=
         NSObjectFileImageSuccess)
         return NULL;
-    ret = NSLinkModule(image, path, TRUE);
+    handle = NSLinkModule(image, path, TRUE);
     NSDestroyObjectFileImage(image);
-    return ret;
+    return handle;
 
 #elif defined(OSF1) || defined(SEQUENT) ||\
     (defined(__FreeBSD_version) && (__FreeBSD_version >= 220000))

@@ -17,7 +17,7 @@
    |          Hartmut Holzgraefe <hholzgra@php.net>                       |
    +----------------------------------------------------------------------+
  */
-/* $Id: ftp_fopen_wrapper.c,v 1.1.1.2 2001/07/19 00:20:14 zarzycki Exp $ */
+/* $Id: ftp_fopen_wrapper.c,v 1.1.1.3 2001/12/14 22:13:22 zarzycki Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
@@ -77,8 +77,9 @@ static int php_get_ftp_result(int socketd)
 	return strtol(tmp_line, NULL, 10);
 }
 
-
-FILE *php_fopen_url_wrap_ftp(char *path, char *mode, int options, int *issock, int *socketd, char **opened_path)
+/* {{{ php_fopen_url_wrap_ftp
+ */
+FILE *php_fopen_url_wrap_ftp(const char *path, char *mode, int options, int *issock, int *socketd, char **opened_path TSRMLS_DC)
 {
 	FILE *fp=NULL;
 	php_url *resource=NULL;
@@ -89,14 +90,14 @@ FILE *php_fopen_url_wrap_ftp(char *path, char *mode, int options, int *issock, i
 	int i;
 	char *tpath, *ttpath;
 	
-	resource = url_parse((char *) path);
+	resource = php_url_parse((char *) path);
 	if (resource == NULL) {
 		php_error(E_WARNING, "Invalid URL specified, %s", path);
 		*issock = BAD_URL;
 		return NULL;
 	} else if (resource->path == NULL) {
 		php_error(E_WARNING, "No file-path specified");
-		free_url(resource);
+		php_url_free(resource);
 		*issock = BAD_URL;
 		return NULL;
 	}
@@ -109,12 +110,12 @@ FILE *php_fopen_url_wrap_ftp(char *path, char *mode, int options, int *issock, i
 		goto errexit;
 #if 0
 	if ((fpc = fdopen(*socketd, "r+")) == NULL) {
-		free_url(resource);
+		php_url_free(resource);
 		return NULL;
 	}
 #ifdef HAVE_SETVBUF
 	if ((setvbuf(fpc, NULL, _IONBF, 0)) != 0) {
-		free_url(resource);
+		php_url_free(resource);
 		fclose(fpc);
 		return NULL;
 	}
@@ -179,7 +180,7 @@ FILE *php_fopen_url_wrap_ftp(char *path, char *mode, int options, int *issock, i
 		/* when reading file, it must exist */
 		if (result > 299 || result < 200) {
 			php_error(E_WARNING, "File not found");
-			free_url(resource);
+			php_url_free(resource);
 			SOCK_FCLOSE(*socketd);
 			*socketd = 0;
 			errno = ENOENT;
@@ -189,7 +190,7 @@ FILE *php_fopen_url_wrap_ftp(char *path, char *mode, int options, int *issock, i
 		/* when writing file, it must NOT exist */
 		if (result <= 299 && result >= 200) {
 			php_error(E_WARNING, "File already exists");
-			free_url(resource);
+			php_url_free(resource);
 			SOCK_FCLOSE(*socketd);
 			*socketd = 0;
 			errno = EEXIST;
@@ -215,7 +216,7 @@ FILE *php_fopen_url_wrap_ftp(char *path, char *mode, int options, int *issock, i
 		/* make sure we got a 227 response */
 		if (strncmp(tmp_line, "227", 3))
 			goto errexit;
-		/* parse pasv command (129,80,95,25,13,221) */
+		/* parse pasv command (129, 80, 95, 25, 13, 221) */
 		tpath = tmp_line;
 		/* skip over the "227 Some message " part */
 		for (tpath += 4; *tpath && !isdigit((int) *tpath); tpath++);
@@ -284,30 +285,40 @@ FILE *php_fopen_url_wrap_ftp(char *path, char *mode, int options, int *issock, i
 #if 0
 	if (mode[0] == 'r') {
 		if ((fp = fdopen(*socketd, "r+")) == NULL) {
-			free_url(resource);
+			php_url_free(resource);
 			return NULL;
 		}
 	} else {
 		if ((fp = fdopen(*socketd, "w+")) == NULL) {
-			free_url(resource);
+			php_url_free(resource);
 			return NULL;
 		}
 	}
 #ifdef HAVE_SETVBUF
 	if ((setvbuf(fp, NULL, _IONBF, 0)) != 0) {
-		free_url(resource);
+		php_url_free(resource);
 		fclose(fp);
 		return NULL;
 	}
 #endif
 #endif
-	free_url(resource);
+	php_url_free(resource);
 	*issock = 1;
 	return (fp);
 
  errexit:
-	free_url(resource);
+	php_url_free(resource);
 	SOCK_FCLOSE(*socketd);
 	*socketd = 0;
 	return NULL;
 }
+/* }}} */
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
+ */

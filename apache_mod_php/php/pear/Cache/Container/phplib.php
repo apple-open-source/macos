@@ -16,7 +16,7 @@
 // |          Sebastian Bergmann <sb@sebastian-bergmann.de>               |
 // +----------------------------------------------------------------------+
 //
-// $Id: phplib.php,v 1.1.1.1 2001/07/19 00:20:43 zarzycki Exp $
+// $Id: phplib.php,v 1.1.1.2 2001/12/14 22:14:12 zarzycki Exp $
 
 require_once 'Cache/Container.php';
 
@@ -50,7 +50,7 @@ require_once 'Cache/Container.php';
 *
 * 
 * @author   Ulf Wendel  <ulf.wendel@phpdoc.de>, Sebastian Bergmann <sb@sebastian-bergmann.de>
-* @version  $Id: phplib.php,v 1.1.1.1 2001/07/19 00:20:43 zarzycki Exp $
+* @version  $Id: phplib.php,v 1.1.1.2 2001/12/14 22:14:12 zarzycki Exp $
 * @package  Cache
 * @see      save()
 */
@@ -61,7 +61,7 @@ class Cache_Container_phplib extends Cache_Container {
     * 
     * @see  Cache_Container_file::$filename_prefix
     */  
-    var $cache_table = "cache";
+    var $cache_table = 'cache';
 
     /**
     * PHPLib object
@@ -76,16 +76,16 @@ class Cache_Container_phplib extends Cache_Container {
     * @var  string  
     * @see  $db_path, $local_path
     */
-    var $db_class = "";
+    var $db_class = '';
 
     /**
     * Filename of your local.inc
     * 
-    * If empty, "local.inc" is assumed.
+    * If empty, 'local.inc' is assumed.
     *
     * @var       string
     */
-    var $local_file = "";
+    var $local_file = '';
 
     /**
     * Include path for you local.inc
@@ -99,7 +99,7 @@ class Cache_Container_phplib extends Cache_Container {
     * @var  string  path to your local.inc - make sure to add a trailing slash
     * @see  $local_file
     */
-    var $local_path = "";
+    var $local_path = '';
 
     /**
     * Creates an instance of a phplib db class to use it for storage.
@@ -116,12 +116,12 @@ class Cache_Container_phplib extends Cache_Container {
     *                   see $local_path for some hints.s
     * @see  $local_path
     */
-    function Cache_Container_phplib($options = "") {
+    function Cache_Container_phplib($options = '') {
         if (is_array($options))
-            $this->setOptions($options,  array_merge($this->allowed_options, array("db_class", "db_file", "db_path", "local_file", "local_path")));
+            $this->setOptions($options,  array_merge($this->allowed_options, array('db_class', 'db_file', 'db_path', 'local_file', 'local_path')));
 
         if (!$this->db_class)
-            return new Cache_Error("No database class specified.", __FILE__, __LINE__);
+            return new Cache_Error('No database class specified.', __FILE__, __LINE__);
 
         // include the required files
         if ($this->db_file)
@@ -152,7 +152,7 @@ class Cache_Container_phplib extends Cache_Container {
                             $group
                           );
         $this->db->query($query);
-        return array($this->db->f("expires"), $this->decode($this->db->f("cachedata")), $this->db->f("userdata"));
+        return array($this->db->f('expires'), $this->decode($this->db->f('cachedata')), $this->db->f('userdata'));
     } // end func fetch
 
     /**
@@ -177,7 +177,7 @@ class Cache_Container_phplib extends Cache_Container {
         return (boolean)$this->db->affected_rows(); 
     } // end func save
 
-    function delete($id, $group) {
+    function remove($id, $group) {
         $this->flushPreload($id, $group);
         $this->db->query(
                         sprintf("DELETE FROM %s WHERE id = '%s' AND cachegroup = '%s'",
@@ -188,7 +188,7 @@ class Cache_Container_phplib extends Cache_Container {
                     );
 
         return (boolean)$this->db->affected_rows();
-    } // end func delete
+    } // end func remove
 
     function flush($group) {
         $this->flushPreload();
@@ -232,7 +232,7 @@ class Cache_Container_phplib extends Cache_Container {
 
         $this->db->query($query);
         $this->db->Next_Record();
-        $cachesize = $this->db->f("CacheSize");
+        $cachesize = $this->db->f('CacheSize');
         //if cache is to big.
         if ($cachesize > $this->highwater)
         {
@@ -245,10 +245,10 @@ class Cache_Container_phplib extends Cache_Container {
             $keep_size=0;
             while ($keep_size < $this->lowwater && $this->db->Next_Record() )
             {
-                $keep_size += $this->db->f("size");
+                $keep_size += $this->db->f('size');
             }
             //delete all entries, which were changed before the "lowwwater mark"
-            $query = sprintf('delete from %s where changed <= '.$this->db->f("changed"),
+            $query = sprintf('delete from %s where changed <= '.$this->db->f('changed'),
                                      $this->cache_table
                                    );
 

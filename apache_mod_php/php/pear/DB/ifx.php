@@ -16,6 +16,8 @@
 // | Authors:    Tomas V.V.Cox <cox@idecnet.com>                           |
 // +----------------------------------------------------------------------+
 //
+// $Id: ifx.php,v 1.1.1.2 2001/12/14 22:14:21 zarzycki Exp $
+//
 // Database independent query interface definition for PHP's Informix
 // extension.
 //
@@ -24,6 +26,8 @@
 // For more info on Informix errors see:
 // http://www.informix.com/answers/english/ierrors.htm
 //
+// TODO:
+//  -set needed env Informix vars on connect
 
 require_once 'DB/common.php';
 
@@ -41,7 +45,8 @@ class DB_ifx extends DB_common
         $this->features = array(
             'prepare' => false,
             'pconnect' => true,
-            'transactions' => false
+            'transactions' => false,
+            'limit' => 'emulate'
         );
         $this->errorcode_map = array(
             '-201'    => DB_ERROR_SYNTAX,
@@ -68,6 +73,9 @@ class DB_ifx extends DB_common
      */
     function connect(&$dsninfo, $persistent = false)
     {
+        if (!DB::assertExtension('informix'))
+            return $this->raiseError(DB_ERROR_EXTENSION_NOT_FOUND);
+
         $this->dsn = $dsninfo;
         $dbhost = $dsninfo['hostspec'] ? '@' . $dsninfo['hostspec'] : '';
         $dbname = $dsninfo['database'] ? $dsninfo['database'] . $dbhost : '';
@@ -75,9 +83,10 @@ class DB_ifx extends DB_common
         $pw = $dsninfo['password'] ? $dsninfo['password'] : '';
 
         $connect_function = $persistent ? 'ifx_pconnect' : 'ifx_connect';
+
         $this->connection = @$connect_function($dbname, $user, $pw);
-        if ($this->connection == false) {
-            return $this->raiseError(DB_ERROR_CONNECT_FAILED);
+        if (!is_resource($this->connection)) {
+            return $this->ifxraiseError(DB_ERROR_CONNECT_FAILED);
         }
         return DB_OK;
     }
@@ -89,7 +98,9 @@ class DB_ifx extends DB_common
      */
     function disconnect()
     {
-        return @ifx_close($this->connection);
+        $ret = @ifx_close($this->connection);
+        $this->connection = null;
+        return $ret;
     }
 
     /**
@@ -105,13 +116,14 @@ class DB_ifx extends DB_common
     function simpleQuery($query)
     {
         $this->last_query = $query;
-        // the scroll is needed for fetching absolute row numbers
-        // in a select query result
-        $cursor = (preg_match('/(SELECT)/i', $query)) ? IFX_SCROLL : null;
-        if (!$result = @ifx_prepare($query, $this->connection, $cursor)) {
-            return $this->ifxraiseError();
+        if (preg_match('/(SELECT)/i', $query)) {    //TESTME: Use !DB::isManip()?
+            // the scroll is needed for fetching absolute row numbers
+            // in a select query result
+            $result = @ifx_query($query, $this->connection, IFX_SCROLL);
+        } else {
+            $result = @ifx_query($query, $this->connection);
         }
-        if (!@ifx_do($result)) {
+        if (!$result) {
             return $this->ifxraiseError();
         }
         $this->affected = ifx_affected_rows ($result);
@@ -122,6 +134,24 @@ class DB_ifx extends DB_common
         }
         return DB_OK;
     }
+
+    // {{{ nextResult()
+
+    /**
+     * Move the internal ifx result pointer to the next available result
+     *
+     * @param a valid fbsql result resource
+     *
+     * @access public
+     *
+     * @return true if a result is available otherwise return false
+     */
+    function nextResult($result)
+    {
+        return false;
+    }
+
+    // }}}
 
     /**
      * Gets the number of rows affected by the last query.
@@ -180,7 +210,7 @@ class DB_ifx extends DB_common
             foreach ($row as $key => $val) {
                 $order[$i++] = $val;
             }
-            $row = &$order;
+            $row = $order;
         }
         return DB_OK;
     }
@@ -260,6 +290,25 @@ class DB_ifx extends DB_common
     {
         return ifx_error() . ' ' . ifx_errormsg();
     }
+
+    // {{{ getSpecialQuery()
+
+    /**
+    * Returns the query needed to get some backend info
+    * @param string $type What kind of info you want to retrieve
+    * @return string The SQL query string
+    */
+    function getSpecialQuery($type)
+    {
+        switch ($type) {
+            case 'tables':
+            default:
+                return null;
+        }
+        return $sql;
+    }
+
+    // }}}
 }
 
 ?>

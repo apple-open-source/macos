@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.4 2001/07/19 00:19:22 zarzycki Exp $
+dnl $Id: config.m4,v 1.1.1.5 2001/12/14 22:12:34 zarzycki Exp $
 dnl 
 
 PHP_ARG_WITH(mcrypt, for mcrypt support,

@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: quot_print.c,v 1.1.1.3 2001/07/19 00:20:21 zarzycki Exp $ */
+/* $Id: quot_print.c,v 1.1.1.4 2001/12/14 22:13:27 zarzycki Exp $ */
 
 #include <stdlib.h>
 
@@ -63,7 +63,7 @@ PHP_FUNCTION(quoted_printable_decode)
 	char *str_in, *str_out;
 	int i = 0, j = 0, k;
 	
-    if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1,&arg1)==FAILURE) 
+    if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg1)==FAILURE) 
     {
     	WRONG_PARAM_COUNT;
     }
@@ -127,3 +127,12 @@ PHP_FUNCTION(quoted_printable_decode)
     RETVAL_STRINGL(str_out, j, 0);
 }
 /* }}} */
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
+ */

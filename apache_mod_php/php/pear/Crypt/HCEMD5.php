@@ -17,52 +17,56 @@
 // |          Chuck Hagenbuch <chuck@horde.org>                           |
 // +----------------------------------------------------------------------+
 
-/*
-  Description:
-  
-  The MIME Functions are tested and work symmetrically with the
-  Crypt::HCE_MD5 package (0.45) (without the KEYBUG Flag ..).
-  
-  Shamelessly stolen from Eric Estabrooks, eric@urbanrage.com
-  Crypt::HCE_MD5 package:
-  
-  This package implements a chaining block cipher using a one way
-  hash. This method of encryption is the same that is used by radius
-  (RFC2138) and is also described in Applied Cryptography by Bruce
-  Schneider (p. 353 / "Karn").
-  
-  Two interfaces are provided in the package. The first is straight
-  block encryption/decryption the second does base64 mime
-  encoding/decoding of the encrypted/decrypted blocks.
-  
-  The idea is the the two sides have a shared secret that supplies one
-  of the keys and a randomly generated block of bytes provides the
-  second key. The random key is passed in cleartext between the two
-  sides.
-  
-  Usage:
-  require_once 'Crypt/HCEMD5.php';
-  $key = 'my secret key';
-  srand((double)microtime()*32767);
-  $rand = rand(1, 32767);
-  $rand = pack('i*', $rand);
-  $message = 'text to encrypt';
-  $hcemd5 = new Crypt_HCEMD5($key, $rand);
-  
-  // These Functions work with mime decoded Data
-  $ciphertext = $hcemd5->encodeMime($message);
-  $cleartext = $hcemd5->decodeMime($ciphertext);
-  
-  // These Functions work with binary Data
-  $ciphertext = $hcemd5->encrypt($message);
-  $cleartext = $hcemd5->decrypt($ciphertext);
-  
-  // These Functions work with mime decoded Data the selfrand
-  // functions put the random value infront of the encrypted data to
-  // be restored later
-  $ciphertext = $hcemd5->encodeMimeSelfRand($message);
-  $new_hcemd5 = new Crypt_HCEMD5($key, '');
-  $cleartext = $new_hcemd5->DecodeMimeSelfRand($ciphertext);
+/**
+* Class to emulate Perl's Crypt::HCE_MD5 module
+* 
+* The MIME Functions are tested and work symmetrically with the
+* Crypt::HCE_MD5 package (0.45) (without the KEYBUG Flag ..).
+* 
+* Shamelessly stolen from Eric Estabrooks, eric@urbanrage.com
+* Crypt::HCE_MD5 package:
+* 
+* This package implements a chaining block cipher using a one way
+* hash. This method of encryption is the same that is used by radius
+* (RFC2138) and is also described in Applied Cryptography by Bruce
+* Schneider (p. 353 / "Karn").
+* 
+* Two interfaces are provided in the package. The first is straight
+* block encryption/decryption the second does base64 mime
+* encoding/decoding of the encrypted/decrypted blocks.
+* 
+* The idea is the the two sides have a shared secret that supplies one
+* of the keys and a randomly generated block of bytes provides the
+* second key. The random key is passed in cleartext between the two
+* sides.
+* 
+* Usage:
+* require_once 'Crypt/HCEMD5.php';
+* $key = 'my secret key';
+* srand((double)microtime()*32767);
+* $rand = rand(1, 32767);
+* $rand = pack('i*', $rand);
+* $message = 'text to encrypt';
+* $hcemd5 = new Crypt_HCEMD5($key, $rand);
+* 
+* // These Functions work with mime decoded Data
+* $ciphertext = $hcemd5->encodeMime($message);
+* $cleartext = $hcemd5->decodeMime($ciphertext);
+* 
+* // These Functions work with binary Data
+* $ciphertext = $hcemd5->encrypt($message);
+* $cleartext = $hcemd5->decrypt($ciphertext);
+* 
+* // These Functions work with mime decoded Data the selfrand
+* // functions put the random value infront of the encrypted data to
+* // be restored later
+* $ciphertext = $hcemd5->encodeMimeSelfRand($message);
+* $new_hcemd5 = new Crypt_HCEMD5($key, '');
+* $cleartext = $new_hcemd5->DecodeMimeSelfRand($ciphertext);
+*
+* @version $Id: HCEMD5.php,v 1.1.1.3 2001/12/14 22:14:15 zarzycki Exp $
+* @access public
+* @package Crypt
 */
 class Crypt_HCEMD5 {
     

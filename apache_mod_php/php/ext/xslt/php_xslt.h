@@ -20,6 +20,7 @@
 #define _PHP_XSLT_H
 
 #include "php.h"
+#include "ext/standard/php_filestat.h"
 
 #ifdef HAVE_XSLT
 
@@ -50,9 +51,12 @@ extern void xslt_free_arguments(xslt_args *);
 
 extern void xslt_assign_handler(struct xslt_function **, zval **);
 extern void xslt_free_handler(struct xslt_function *);
-extern void xslt_call_function(char *, struct xslt_function *, int, zval **, zval **);
+extern void xslt_call_function(char *, zval *, int, zval **, zval **);
 
 extern void xslt_debug(char *, char *, ...);
+
+extern void xslt_make_array(zval **zarr, char ***carr);
+extern void xslt_free_array(char **arr);
 
 #endif
 

@@ -1,5 +1,5 @@
-# $Source: /cvs/Darwin/Services/apache_mod_php/php/ext/xml/config.m4,v $
-# $Id: config.m4,v 1.1.1.2 2001/07/19 00:20:29 zarzycki Exp $
+# $Source: /cvs/Darwin/apache_mod_php/php/ext/xml/config.m4,v $
+# $Id: config.m4,v 1.1.1.3 2001/12/14 22:13:36 zarzycki Exp $
 
 dnl Fallback for --with-xml[=DIR]
 AC_ARG_WITH(xml,[],enable_xml=$withval)
@@ -21,31 +21,28 @@ PHP_ARG_WITH(expat-dir, external libexpat install dir,
 if test "$PHP_XML" = "yes"; then
 if test "$PHP_EXPAT_DIR" = "no"; then
 
-  PHP_EXTENSION(xml, $ext_shared)
-  PHP_SUBST(EXPAT_SHARED_LIBADD)
-  AC_DEFINE(HAVE_LIBEXPAT, 1, [ ])
-
-  CPPFLAGS="$CPPFLAGS -DXML_BYTE_ORDER=$order"
-  EXPAT_INTERNAL_LIBADD="expat/libexpat.la"	    
-  PHP_SUBST(EXPAT_INTERNAL_LIBADD)
-  EXPAT_SUBDIRS="expat"	    
-  PHP_SUBST(EXPAT_SUBDIRS)
-  LIB_BUILD($ext_builddir/expat,$ext_shared,yes)
-  LIB_BUILD($ext_builddir/expat/xmlparse,$ext_shared,yes)
-  LIB_BUILD($ext_builddir/expat/xmltok,$ext_shared,yes)
-  PHP_ADD_INCLUDE($ext_srcdir/expat/xmltok)
-  PHP_ADD_INCLUDE($ext_srcdir/expat/xmlparse)
-  PHP_FAST_OUTPUT($ext_builddir/expat/Makefile $ext_builddir/expat/xmlparse/Makefile $ext_builddir/expat/xmltok/Makefile)
+    AC_DEFINE(HAVE_LIBEXPAT, 1, [ ])
+    AC_DEFINE(HAVE_LIBEXPAT_BUNDLED, 1, [ ])
+    XML_CPPFLAGS=-DXML_BYTE_ORDER=$order
+    EXPAT_INTERNAL_LIBADD=expat/libexpat.la
+    PHP_SUBST(EXPAT_INTERNAL_LIBADD)
+    PHP_SUBST(XML_CPPFLAGS)
+    EXPAT_SUBDIRS=expat
+    PHP_SUBST(EXPAT_SUBDIRS)
+    PHP_SUBST(EXPAT_SHARED_LIBADD)
+    PHP_EXTENSION(xml, $ext_shared)
+    LIB_BUILD($ext_builddir/expat,$ext_shared,yes)
+    PHP_ADD_INCLUDE($ext_srcdir/expat)
+    PHP_FAST_OUTPUT($ext_builddir/expat/Makefile)
 
 else
   
   PHP_EXTENSION(xml, $ext_shared)
   PHP_SUBST(EXPAT_SHARED_LIBADD)
   AC_DEFINE(HAVE_LIBEXPAT,  1, [ ])
-  AC_DEFINE(HAVE_LIBEXPAT2, 1, [Whether external expat libs are used])
 
   for i in $PHP_XML $PHP_EXPAT_DIR; do
-    if test -f $i/lib/libexpat.a -o -f $i/lib/libexpat.s? ; then
+    if test -f $i/lib/libexpat.a -o -f $i/lib/libexpat.$SHLIB_SUFFIX_NAME ; then
       EXPAT_DIR=$i
     fi
   done

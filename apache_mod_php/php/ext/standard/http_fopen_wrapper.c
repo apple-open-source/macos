@@ -17,7 +17,7 @@
    |          Hartmut Holzgraefe <hholzgra@php.net>                       |
    +----------------------------------------------------------------------+
  */
-/* $Id: http_fopen_wrapper.c,v 1.1.1.2 2001/07/19 00:20:15 zarzycki Exp $ */
+/* $Id: http_fopen_wrapper.c,v 1.1.1.3 2001/12/14 22:13:23 zarzycki Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
@@ -68,7 +68,9 @@
 
 #define HTTP_HEADER_BLOCK_SIZE		128
 
-FILE *php_fopen_url_wrap_http(char *path, char *mode, int options, int *issock, int *socketd, char **opened_path)
+/* {{{ php_fopen_url_wrap_http
+ */
+FILE *php_fopen_url_wrap_http(const char *path, char *mode, int options, int *issock, int *socketd, char **opened_path TSRMLS_DC)
 {
 	FILE *fp=NULL;
 	php_url *resource=NULL;
@@ -84,7 +86,7 @@ FILE *php_fopen_url_wrap_http(char *path, char *mode, int options, int *issock, 
 	char *http_header_line;
 	int http_header_line_length, http_header_line_size;
 
-	resource = url_parse((char *) path);
+	resource = php_url_parse((char *) path);
 	if (resource == NULL) {
 		php_error(E_WARNING, "Invalid URL specified, %s", path);
 		*issock = BAD_URL;
@@ -99,17 +101,17 @@ FILE *php_fopen_url_wrap_http(char *path, char *mode, int options, int *issock, 
 	if (*socketd == -1) {
 		SOCK_FCLOSE(*socketd);
 		*socketd = 0;
-		free_url(resource);
+		php_url_free(resource);
 		return NULL;
 	}
 #if 0
 	if ((fp = fdopen(*socketd, "r+")) == NULL) {
-		free_url(resource);
+		php_url_free(resource);
 		return NULL;
 	}
 #ifdef HAVE_SETVBUF
 	if ((setvbuf(fp, NULL, _IONBF, 0)) != 0) {
-		free_url(resource);
+		php_url_free(resource);
 		return NULL;
 	}
 #endif
@@ -118,7 +120,7 @@ FILE *php_fopen_url_wrap_http(char *path, char *mode, int options, int *issock, 
 	strcpy(hdr_line, "GET ");
 	
 	/* tell remote http which file to get */
-	if (resource->path != NULL) {
+	if (resource->path != NULL && *resource->path) {
 		strlcat(hdr_line, resource->path, sizeof(hdr_line));
 	} else {
 		strlcat(hdr_line, "/", sizeof(hdr_line));
@@ -135,7 +137,7 @@ FILE *php_fopen_url_wrap_http(char *path, char *mode, int options, int *issock, 
 	if (resource->user != NULL && resource->pass != NULL) {
 		scratch = (char *) emalloc(strlen(resource->user) + strlen(resource->pass) + 2);
 		if (!scratch) {
-			free_url(resource);
+			php_url_free(resource);
 			return NULL;
 		}
 		strcpy(scratch, resource->user);
@@ -269,12 +271,28 @@ FILE *php_fopen_url_wrap_http(char *path, char *mode, int options, int *issock, 
 	if (!reqok) {
 		SOCK_FCLOSE(*socketd);
 		*socketd = 0;
-		free_url(resource);
 		if (location[0] != '\0') {
 			zval **response_header_new, *entry, **entryp;
-			ELS_FETCH();
+			char new_path[512];
 
-			fp = php_fopen_url_wrap_http(location, mode, options, issock, socketd, opened_path);
+			*new_path='\0';
+			if (strlen(location)<8 || strncasecmp(location, "http://", 7)) {
+				strcpy(new_path, "http://");
+				strlcat(new_path, resource->host, sizeof(new_path));
+				if (resource->port != 80) {
+					snprintf(new_path+strlen(new_path), sizeof(new_path)-strlen(new_path)-1, ":%d", resource->port);
+				}
+				if (*location != '/') {
+					php_dirname(resource->path, strlen(resource->path));
+					snprintf (new_path+strlen(new_path), sizeof(new_path)-strlen(new_path)-1, "%s/", resource->path);
+				}
+				strlcat(new_path, location, sizeof(new_path));
+			}
+			else {
+				strlcpy(new_path, location, sizeof(new_path));
+			}
+			php_url_free(resource);
+			fp = php_fopen_url_wrap_http(new_path, mode, options, issock, socketd, opened_path TSRMLS_CC);
 			if (zend_hash_find(EG(active_symbol_table), "http_response_header", sizeof("http_response_header"), (void **) &response_header_new) == SUCCESS) {
 				entryp = &entry;
 				MAKE_STD_ZVAL(entry);
@@ -289,16 +307,26 @@ FILE *php_fopen_url_wrap_http(char *path, char *mode, int options, int *issock, 
 			}
 			goto out;
 		} else {
+			php_url_free(resource);
 			fp = NULL;
 			goto out;
 		}
 	}
-	free_url(resource);
+	php_url_free(resource);
 	*issock = 1;
  out:
 	{
-		ELS_FETCH();
 		ZEND_SET_SYMBOL(EG(active_symbol_table), "http_response_header", response_header);
 	}	
 	return (fp);
 }
+/* }}} */
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
+ */

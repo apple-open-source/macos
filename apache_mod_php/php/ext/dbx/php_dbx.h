@@ -20,6 +20,8 @@
    +----------------------------------------------------------------------+
 */
 
+/* $Id: php_dbx.h,v 1.1.1.2 2001/12/14 22:12:14 zarzycki Exp $ */
+
 #ifndef ZEND_PHP_DBX_H
 #define ZEND_PHP_DBX_H
 
@@ -38,8 +40,8 @@ extern zend_module_entry dbx_module_entry;
 
 ZEND_MINIT_FUNCTION(dbx);
 ZEND_MSHUTDOWN_FUNCTION(dbx);
-/*/ ZEND_RINIT_FUNCTION(dbx); /*/
-/*/ ZEND_RSHUTDOWN_FUNCTION(dbx); /*/
+/* ZEND_RINIT_FUNCTION(dbx); */
+/* ZEND_RSHUTDOWN_FUNCTION(dbx); */
 
 ZEND_MINFO_FUNCTION(dbx);
 
@@ -49,8 +51,7 @@ ZEND_FUNCTION(dbx_query);
 ZEND_FUNCTION(dbx_error);
 
 ZEND_FUNCTION(dbx_sort);
-ZEND_FUNCTION(dbx_cmp_asc);
-ZEND_FUNCTION(dbx_cmp_desc);
+ZEND_FUNCTION(dbx_compare);
 
 /* 
   	Declare any global variables you may need between the BEGIN
@@ -70,19 +71,9 @@ ZEND_END_MODULE_GLOBALS(dbx)
 */
 
 #ifdef ZTS
-#define DBXLS_D	zend_dbx_globals *dbx_globals
-#define DBXLS_DC	, DBXLS_D
-#define DBXLS_C	dbx_globals
-#define DBXLS_CC , DBXLS_C
-#define DBXG(v) (dbx_globals->v)
-#define DBXLS_FETCH() zend_dbx_globals *dbx_globals = ts_resource(dbx_globals_id)
+#define DBXG(v) TSRMG(dbx_globals_id, zend_dbx_globals *, v)
 #else
-#define DBXLS_D
-#define DBXLS_DC
-#define DBXLS_C
-#define DBXLS_CC
 #define DBXG(v) (dbx_globals.v)
-#define DBXLS_FETCH()
 #endif
 
 #endif	/* ZEND_PHP_DBX_H */

@@ -1,4 +1,4 @@
-# $Id: configure.ac,v 1.1.1.1 2001/12/01 00:46:29 bbraun Exp $
+# $Id: configure.ac,v 1.1.1.2 2002/03/08 21:07:24 wsanchez Exp $
 
 AC_INIT
 AC_CONFIG_SRCDIR([ssh.c])
@@ -63,9 +63,10 @@ case "$host" in
 	AC_DEFINE(BROKEN_GETADDRINFO)
 	dnl AIX handles lastlog as part of its login message
 	AC_DEFINE(DISABLE_LASTLOG)
+	AC_DEFINE(HAVE_BOGUS_SYS_QUEUE_H)
 	;;
 *-*-cygwin*)
-	LIBS="$LIBS -lregex /usr/lib/textmode.o"
+	LIBS="$LIBS /usr/lib/textmode.o"
 	AC_DEFINE(HAVE_CYGWIN)
 	AC_DEFINE(USE_PIPES)
 	AC_DEFINE(DISABLE_SHADOW)
@@ -122,6 +123,7 @@ case "$host" in
 	check_for_libcrypt_later=1
 	AC_DEFINE(DONT_TRY_OTHER_AF)
 	AC_DEFINE(PAM_TTY_KLUDGE)
+	AC_DEFINE(HAVE_BOGUS_SYS_QUEUE_H)
 	inet6_default_4in6=yes
 	;;
 mips-sony-bsd|mips-sony-newsos4)
@@ -184,6 +186,7 @@ mips-sony-bsd|mips-sony-newsos4)
 	LDFLAGS="$LDFLAGS -L/usr/local/lib"
 	LIBS="$LIBS -lc89"
 	AC_DEFINE(HAVE_BOGUS_SYS_QUEUE_H)
+	AC_DEFINE(USE_PIPES)
 	;;
 *-sni-sysv*)
 	CPPFLAGS="$CPPFLAGS -I/usr/local/include"
@@ -317,45 +320,17 @@ AC_ARG_WITH(libs,
 	]	
 )
 
-AC_ARG_WITH(pcre,
-	[  --with-pcre[[=PATH]]      Override built in regex library with pcre
-                            (optionally in PATH)],
-	[
-		case "$withval" in
-		no) ;;
-		*)
-			if test "x$withval" != "xyes"; then
-				if test -d "$withval/lib"; then
-					if test -n "${need_dash_r}"; then
-						LDFLAGS="-L${withval}/lib -R${withval}/lib ${LDFLAGS}"
-					else
-						LDFLAGS="-L${withval}/lib ${LDFLAGS}"
-					fi
-				else
-					if test -n "${need_dash_r}"; then
-						LDFLAGS="-L${withval} -R${withval} ${LDFLAGS}"
-					else
-						LDFLAGS="-L${withval} ${LDFLAGS}"
-					fi
-				fi
-				if test -d "$withval/include"; then
-					CPPFLAGS="-I${withval}/include ${CPPFLAGS}"
-				else
-					CPPFLAGS="-I${withval} ${CPPFLAGS}"
-				fi
-			fi
-
-			AC_CHECK_HEADER(pcreposix.h,
-				AC_CHECK_LIB(pcre, pcre_info,[
-					AC_DEFINE(HAVE_LIBPCRE)
-					LIBS="$LIBS -lpcreposix -lpcre"
-					no_comp_check=yes],
-					AC_MSG_ERROR([*** unable to locate pcre library ***])),
-				AC_MSG_ERROR([*** unable to locate pcreposix.h include file ***]))
-			;;
-		esac
-	]	
-)
+# Checks for header files.
+AC_CHECK_HEADERS(bstring.h crypt.h endian.h floatingpoint.h \
+	getopt.h glob.h lastlog.h limits.h login.h \
+	login_cap.h maillock.h netdb.h netgroup.h \
+	netinet/in_systm.h paths.h poll.h pty.h \
+	security/pam_appl.h shadow.h stddef.h stdint.h \
+	strings.h sys/bitypes.h sys/bsdtty.h sys/cdefs.h \
+	sys/poll.h sys/queue.h sys/select.h sys/stat.h \
+	sys/stropts.h sys/sysmacros.h sys/time.h \
+	sys/ttcompat.h sys/un.h time.h ttyent.h usersec.h \
+	util.h utime.h utmp.h utmpx.h)
 
 # Checks for libraries.
 AC_CHECK_FUNC(yp_match, , AC_CHECK_LIB(nsl, yp_match))
@@ -371,10 +346,25 @@ fi
 AC_CHECK_FUNC(getspnam, ,
 	AC_CHECK_LIB(gen, getspnam, LIBS="$LIBS -lgen"))
 
+AC_ARG_WITH(rpath,
+	[  --without-rpath         Disable auto-added -R linker paths],
+	[
+		if test "x$withval" = "xno" ; then	
+			need_dash_r=""
+		fi
+		if test "x$withval" = "xyes" ; then
+			need_dash_r=1
+		fi
+	]
+)
+
 dnl zlib is required
 AC_ARG_WITH(zlib,
 	[  --with-zlib=PATH        Use zlib in PATH],
 	[
+		if test "x$withval" = "xno" ; then
+			AC_MSG_ERROR([*** zlib is required ***])
+		fi
 		if test -d "$withval/lib"; then
 			if test -n "${need_dash_r}"; then
 				LDFLAGS="-L${withval}/lib -R${withval}/lib ${LDFLAGS}"
@@ -398,23 +388,6 @@ AC_ARG_WITH(zlib,
 
 AC_CHECK_LIB(z, deflate, ,AC_MSG_ERROR([*** zlib missing - please install first or check config.log ***]))
 
-# We don't want to check if we did an pcre override.
-if test -z "$no_comp_check" ; then
-	AC_CHECK_FUNC(regcomp, 
-		[ AC_DEFINE(HAVE_REGCOMP)],
-		[
-			AC_CHECK_LIB(pcre, pcre_info, 
-			[
-				AC_DEFINE(HAVE_LIBPCRE)
-				LIBS="$LIBS -lpcreposix -lpcre"
-			],
-			[
-				AC_MSG_ERROR([*** No regex library found.])
-			])
-		]
-	)
-fi
-
 dnl UnixWare 2.x
 AC_CHECK_FUNC(strcasecmp, 
 	[], [ AC_CHECK_LIB(resolv, strcasecmp, LIBS="$LIBS -lresolv") ]
@@ -429,18 +402,6 @@ AC_SEARCH_LIBS(login, util bsd, [AC_DEFINE(HAVE_LOGIN)])
 AC_CHECK_FUNCS(logout updwtmp logwtmp)
 
 AC_FUNC_STRFTIME
-
-# Checks for header files.
-AC_CHECK_HEADERS(bstring.h crypt.h endian.h floatingpoint.h \
-	getopt.h glob.h lastlog.h limits.h login.h \
-	login_cap.h maillock.h netdb.h netgroup.h \
-	netinet/in_systm.h paths.h poll.h pty.h regex.h \
-	security/pam_appl.h shadow.h stddef.h stdint.h \
-	strings.h sys/bitypes.h sys/bsdtty.h sys/cdefs.h \
-	sys/poll.h sys/queue.h sys/select.h sys/stat.h \
-	sys/stropts.h sys/sysmacros.h sys/time.h \
-	sys/ttcompat.h sys/un.h time.h ttyent.h usersec.h \
-	util.h utime.h utmp.h utmpx.h)
 
 # Check for ALTDIRFUNC glob() extension
 AC_MSG_CHECKING(for GLOB_ALTDIRFUNC support)
@@ -507,9 +468,16 @@ AC_ARG_WITH(skey,
 			LIBS="-lskey $LIBS"
 			SKEY_MSG="yes" 
 	
-			AC_CHECK_FUNC(skey_keyinfo,
-				[],
+			AC_MSG_CHECKING([for s/key support])
+			AC_TRY_RUN(
 				[
+#include <stdio.h>
+#include <skey.h>
+int main() { char *ff = skey_keyinfo(""); ff=""; return 0; }
+				],
+				[AC_MSG_RESULT(yes)],
+				[
+					AC_MSG_RESULT(no)
 					AC_MSG_ERROR([** Incomplete or missing s/key libraries.])
 				])
 		fi
@@ -546,7 +514,8 @@ AC_ARG_WITH(tcp-wrappers,
 					CPPFLAGS="-I${withval} ${CPPFLAGS}"
 				fi
 			fi
-			LIBS="-lwrap $LIBS"
+			LIBWRAP="-lwrap"
+			LIBS="$LIBWRAP $LIBS"
 			AC_MSG_CHECKING(for libwrap)
 			AC_TRY_LINK(
 				[
@@ -557,12 +526,14 @@ AC_ARG_WITH(tcp-wrappers,
 				[
 					AC_MSG_RESULT(yes)
 					AC_DEFINE(LIBWRAP)
+					AC_SUBST(LIBWRAP)
 					TCPW_MSG="yes"
 				],
 				[
 					AC_MSG_ERROR([*** libwrap missing])
 				]
 			)
+			LIBS="$saved_LIBS"
 		fi
 	]
 )
@@ -678,6 +649,12 @@ AC_ARG_WITH(pam,
 			PAM_MSG="yes"
 
 			AC_DEFINE(USE_PAM)
+			if test $ac_cv_lib_dl_dlopen = yes; then
+				LIBPAM="-lpam -ldl"
+			else
+				LIBPAM="-lpam"
+			fi
+			AC_SUBST(LIBPAM)
 		fi
 	]
 )
@@ -865,11 +842,203 @@ else
 	fi
 fi
 
+# Sanity check OpenSSL headers
+AC_MSG_CHECKING([whether OpenSSL's headers match the library])
+AC_TRY_RUN(
+	[
+#include <string.h>
+#include <openssl/opensslv.h>
+int main(void) { return(SSLeay() == OPENSSL_VERSION_NUMBER ? 0 : 1); }
+	],
+	[
+		AC_MSG_RESULT(yes)
+	],
+	[
+		AC_MSG_RESULT(no)
+		AC_MSG_ERROR(Your OpenSSL headers do not match your library)
+	]
+)
+
 # Some Linux systems (Slackware) need crypt() from libcrypt, *not* the 
 # version in OpenSSL. Skip this for PAM
 if test "x$PAM_MSG" = "xno" -a "x$check_for_libcrypt_later" = "x1"; then
 	AC_CHECK_LIB(crypt, crypt, LIBS="$LIBS -lcrypt")
 fi
+
+
+### Configure cryptographic random number support
+
+# Check wheter OpenSSL seeds itself
+AC_MSG_CHECKING([whether OpenSSL's PRNG is internally seeded])
+AC_TRY_RUN(
+	[
+#include <string.h>
+#include <openssl/rand.h>
+int main(void) { return(RAND_status() == 1 ? 0 : 1); }
+	],
+	[
+		OPENSSL_SEEDS_ITSELF=yes
+		AC_MSG_RESULT(yes)
+	],
+	[
+		AC_MSG_RESULT(no)
+		# Default to use of the rand helper if OpenSSL doesn't
+		# seed itself
+		USE_RAND_HELPER=yes
+	]
+)
+
+
+# Do we want to force the use of the rand helper?
+AC_ARG_WITH(rand-helper,
+	[  --with-rand-helper      Use subprocess to gather strong randomness ],
+	[
+		if test "x$withval" = "xno" ; then
+			# Force use of OpenSSL's internal RNG, even if 
+			# the previous test showed it to be unseeded.
+			if test -z "$OPENSSL_SEEDS_ITSELF" ; then
+				AC_MSG_WARN([*** Forcing use of OpenSSL's non-self-seeding PRNG])
+				OPENSSL_SEEDS_ITSELF=yes
+				USE_RAND_HELPER=""
+			fi
+		else
+			USE_RAND_HELPER=yes
+		fi
+	],
+)	
+
+# Which randomness source do we use?
+if test ! -z "$OPENSSL_SEEDS_ITSELF" -a -z "$USE_RAND_HELPER" ; then
+	# OpenSSL only
+	AC_DEFINE(OPENSSL_PRNG_ONLY)
+	RAND_MSG="OpenSSL internal ONLY"
+	INSTALL_SSH_RAND_HELPER=""
+elif test ! -z "$USE_RAND_HELPER" ; then
+	# install rand helper
+	RAND_MSG="ssh-rand-helper"
+	INSTALL_SSH_RAND_HELPER="yes"
+fi
+AC_SUBST(INSTALL_SSH_RAND_HELPER)
+
+### Configuration of ssh-rand-helper
+
+# PRNGD TCP socket
+AC_ARG_WITH(prngd-port,
+	[  --with-prngd-port=PORT  read entropy from PRNGD/EGD TCP localhost:PORT],
+	[
+		case "$withval" in
+		no)
+			withval=""
+			;;
+		[[0-9]]*)
+			;;
+		*)
+			AC_MSG_ERROR(You must specify a numeric port number for --with-prngd-port)
+			;;
+		esac
+		if test ! -z "$withval" ; then
+			PRNGD_PORT="$withval"
+			AC_DEFINE_UNQUOTED(PRNGD_PORT, $PRNGD_PORT)
+		fi
+	]
+)
+
+# PRNGD Unix domain socket
+AC_ARG_WITH(prngd-socket,
+	[  --with-prngd-socket=FILE read entropy from PRNGD/EGD socket FILE (default=/var/run/egd-pool)],
+	[
+		case "$withval" in
+		yes)
+			withval="/var/run/egd-pool"
+			;;
+		no)
+			withval=""
+			;;
+		/*)
+			;;
+		*)
+			AC_MSG_ERROR(You must specify an absolute path to the entropy socket)
+			;;
+		esac
+
+		if test ! -z "$withval" ; then
+			if test ! -z "$PRNGD_PORT" ; then
+				AC_MSG_ERROR(You may not specify both a PRNGD/EGD port and socket)
+			fi
+			if test ! -r "$withval" ; then
+				AC_MSG_WARN(Entropy socket is not readable)
+			fi
+			PRNGD_SOCKET="$withval"
+			AC_DEFINE_UNQUOTED(PRNGD_SOCKET, "$PRNGD_SOCKET")
+		fi
+	],
+	[
+		# Check for existing socket only if we don't have a random device already
+		if test "$USE_RAND_HELPER" = yes ; then
+			AC_MSG_CHECKING(for PRNGD/EGD socket)
+			# Insert other locations here
+			for sock in /var/run/egd-pool /dev/egd-pool /etc/entropy; do
+				if test -r $sock && $TEST_MINUS_S_SH -c "test -S $sock -o -p $sock" ; then
+					PRNGD_SOCKET="$sock"
+					AC_DEFINE_UNQUOTED(PRNGD_SOCKET, "$PRNGD_SOCKET")
+					break;
+				fi
+			done
+			if test ! -z "$PRNGD_SOCKET" ; then
+				AC_MSG_RESULT($PRNGD_SOCKET)
+			else
+				AC_MSG_RESULT(not found)
+			fi
+		fi
+	]
+)
+
+# Change default command timeout for hashing entropy source
+entropy_timeout=200
+AC_ARG_WITH(entropy-timeout,
+	[  --with-entropy-timeout  Specify entropy gathering command timeout (msec)],
+	[
+		if test "x$withval" != "xno" ; then
+			entropy_timeout=$withval
+		fi
+	]	
+)
+
+AC_DEFINE_UNQUOTED(ENTROPY_TIMEOUT_MSEC, $entropy_timeout)
+
+# These programs are used by the command hashing source to gather entropy 
+OSSH_PATH_ENTROPY_PROG(PROG_LS, ls)
+OSSH_PATH_ENTROPY_PROG(PROG_NETSTAT, netstat)
+OSSH_PATH_ENTROPY_PROG(PROG_ARP, arp)
+OSSH_PATH_ENTROPY_PROG(PROG_IFCONFIG, ifconfig)
+OSSH_PATH_ENTROPY_PROG(PROG_JSTAT, jstat)
+OSSH_PATH_ENTROPY_PROG(PROG_PS, ps)
+OSSH_PATH_ENTROPY_PROG(PROG_SAR, sar)
+OSSH_PATH_ENTROPY_PROG(PROG_W, w)
+OSSH_PATH_ENTROPY_PROG(PROG_WHO, who)
+OSSH_PATH_ENTROPY_PROG(PROG_LAST, last)
+OSSH_PATH_ENTROPY_PROG(PROG_LASTLOG, lastlog)
+OSSH_PATH_ENTROPY_PROG(PROG_DF, df)
+OSSH_PATH_ENTROPY_PROG(PROG_VMSTAT, vmstat)
+OSSH_PATH_ENTROPY_PROG(PROG_UPTIME, uptime)
+OSSH_PATH_ENTROPY_PROG(PROG_IPCS, ipcs)
+OSSH_PATH_ENTROPY_PROG(PROG_TAIL, tail)
+
+# Where does ssh-rand-helper get its randomness from?
+INSTALL_SSH_PRNG_CMDS=""
+if test ! -z "$INSTALL_SSH_RAND_HELPER" ; then
+	if test ! -z "$PRNGD_PORT" ; then
+		RAND_HELPER_MSG="TCP localhost:$PRNGD_PORT"
+	elif test ! -z "$PRNGD_SOCKET" ; then
+		RAND_HELPER_MSG="Unix domain socket \"$PRNGD_SOCKET\""
+	else
+		RAND_HELPER_MSG="Command hashing (timeout $entropy_timeout)"
+		RAND_HELPER_CMDHASH=yes
+		INSTALL_SSH_PRNG_CMDS="yes"
+	fi
+fi
+AC_SUBST(INSTALL_SSH_PRNG_CMDS)
+
 
 # Cheap hack to ensure NEWS-OS libraries are arranged right.
 if test ! -z "$SONY" ; then
@@ -951,6 +1120,19 @@ if test -z "$have_int64_t" ; then
 	)
 fi
 
+if test -z "$have_int64_t" ; then
+    AC_MSG_CHECKING([for int64_t type in sys/bitypes.h])
+	AC_TRY_COMPILE(
+		[ #include <sys/bitypes.h> ], 
+		[ int64_t a; a = 1],
+		[
+			AC_DEFINE(HAVE_INT64_T)
+			AC_MSG_RESULT(yes)
+		],
+		[ AC_MSG_RESULT(no) ]
+	)
+fi
+
 AC_CACHE_CHECK([for u_intXX_t types], ac_cv_have_u_intxx_t, [
 	AC_TRY_COMPILE(
 		[ #include <sys/types.h> ], 
@@ -988,6 +1170,19 @@ AC_CACHE_CHECK([for u_int64_t types], ac_cv_have_u_int64_t, [
 if test "x$ac_cv_have_u_int64_t" = "xyes" ; then
 	AC_DEFINE(HAVE_U_INT64_T)
 	have_u_int64_t=1
+fi
+
+if test -z "$have_u_int64_t" ; then
+    AC_MSG_CHECKING([for u_int64_t type in sys/bitypes.h])
+	AC_TRY_COMPILE(
+		[ #include <sys/bitypes.h> ], 
+		[ u_int64_t a; a = 1],
+		[
+			AC_DEFINE(HAVE_U_INT64_T)
+			AC_MSG_RESULT(yes)
+		],
+		[ AC_MSG_RESULT(no) ]
+	)
 fi
 
 if test -z "$have_u_intxx_t" ; then
@@ -1057,6 +1252,8 @@ if test "x$ac_cv_have_u_char" = "xyes" ; then
 fi
 
 TYPE_SOCKLEN_T
+
+AC_CHECK_TYPES(sig_atomic_t,,,[#include <signal.h>])
 
 AC_CACHE_CHECK([for size_t], ac_cv_have_size_t, [
 	AC_TRY_COMPILE(
@@ -1587,97 +1784,6 @@ AC_CHECK_FILE("/dev/ptc",
 )
 
 # Options from here on. Some of these are preset by platform above
-
-# Check for user-specified random device, otherwise check /dev/urandom
-AC_ARG_WITH(random,
-	[  --with-random=FILE      read entropy from FILE (default=/dev/urandom)],
-	[
-		if test "x$withval" != "xno" ; then
-			RANDOM_POOL="$withval";
-			AC_DEFINE_UNQUOTED(RANDOM_POOL, "$RANDOM_POOL")
-		fi
-	],
-	[
-		# Check for random device
-		AC_CHECK_FILE("/dev/urandom",
-			[
-				RANDOM_POOL="/dev/urandom"; 
-				AC_SUBST(RANDOM_POOL)
-				AC_DEFINE_UNQUOTED(RANDOM_POOL, "$RANDOM_POOL")
-			]
-		)
-	]
-)
-
-# Check for PRNGD/EGD pool file
-AC_ARG_WITH(prngd-port,
-	[  --with-prngd-port=PORT  read entropy from PRNGD/EGD localhost:PORT],
-	[
-		if test ! -z "$withval" -a "x$withval" != "xno" ; then
-			PRNGD_PORT="$withval"
-			AC_DEFINE_UNQUOTED(PRNGD_PORT, $PRNGD_PORT)
-		fi
-	]
-)
-
-# Check for PRNGD/EGD pool file
-AC_ARG_WITH(prngd-socket,
-	[  --with-prngd-socket=FILE read entropy from PRNGD/EGD socket FILE (default=/var/run/egd-pool)],
-	[
-		if test "x$withval" != "xno" ; then
-			PRNGD_SOCKET="$withval"
-			AC_DEFINE_UNQUOTED(PRNGD_SOCKET, "$PRNGD_SOCKET")
-		fi
-	],
-	[
-		# Check for existing socket only if we don't have a random device already
-		if test -z "$RANDOM_POOL" ; then
-			AC_MSG_CHECKING(for PRNGD/EGD socket)
-			# Insert other locations here
-			for sock in /var/run/egd-pool /dev/egd-pool /etc/entropy; do
-				if test -r $sock && $TEST_MINUS_S_SH -c "test -S $sock -o -p $sock" ; then
-					PRNGD_SOCKET="$sock"
-					AC_DEFINE_UNQUOTED(PRNGD_SOCKET, "$PRNGD_SOCKET")
-					break;
-				fi
-			done
-			if test ! -z "$PRNGD_SOCKET" ; then
-				AC_MSG_RESULT($PRNGD_SOCKET)
-			else
-				AC_MSG_RESULT(not found)
-			fi
-		fi
-	]
-)
-
-
-# detect pathnames for entropy gathering commands, if we need them
-INSTALL_SSH_PRNG_CMDS=""
-rm -f prng_commands
-if (test -z "$RANDOM_POOL" && test -z "$PRNGD") ; then
-	# Use these commands to collect entropy
-	OSSH_PATH_ENTROPY_PROG(PROG_LS, ls)
-	OSSH_PATH_ENTROPY_PROG(PROG_NETSTAT, netstat)
-	OSSH_PATH_ENTROPY_PROG(PROG_ARP, arp)
-	OSSH_PATH_ENTROPY_PROG(PROG_IFCONFIG, ifconfig)
-	OSSH_PATH_ENTROPY_PROG(PROG_JSTAT, jstat)
-	OSSH_PATH_ENTROPY_PROG(PROG_PS, ps)
-	OSSH_PATH_ENTROPY_PROG(PROG_SAR, sar)
-	OSSH_PATH_ENTROPY_PROG(PROG_W, w)
-	OSSH_PATH_ENTROPY_PROG(PROG_WHO, who)
-	OSSH_PATH_ENTROPY_PROG(PROG_LAST, last)
-	OSSH_PATH_ENTROPY_PROG(PROG_LASTLOG, lastlog)
-	OSSH_PATH_ENTROPY_PROG(PROG_DF, df)
-	OSSH_PATH_ENTROPY_PROG(PROG_VMSTAT, vmstat)
-	OSSH_PATH_ENTROPY_PROG(PROG_UPTIME, uptime)
-	OSSH_PATH_ENTROPY_PROG(PROG_IPCS, ipcs)
-	OSSH_PATH_ENTROPY_PROG(PROG_TAIL, tail)
-
-	INSTALL_SSH_PRNG_CMDS="yes"
-fi
-AC_SUBST(INSTALL_SSH_PRNG_CMDS)
-
-
 AC_ARG_WITH(mantype,
 	[  --with-mantype=man|cat|doc  Set man page type],
 	[
@@ -1869,12 +1975,13 @@ AC_ARG_WITH(4in6,
 )
 
 # Whether to enable BSD auth support
+BSD_AUTH_MSG=no
 AC_ARG_WITH(bsd-auth,
 	[  --with-bsd-auth         Enable BSD auth support],
 	[
 		if test "x$withval" != "xno" ; then	
 			AC_DEFINE(BSD_AUTH)
-			bsd_auth=yes
+			BSD_AUTH_MSG=yes
 		fi
 	]
 )
@@ -2141,43 +2248,24 @@ else
 fi	
 
 
-# Change default command timeout for builtin PRNG
-entropy_timeout=200
-AC_ARG_WITH(entropy-timeout,
-	[  --with-entropy-timeout  Specify entropy gathering command timeout (msec)],
-	[
-		if test "x$withval" != "xno" ; then
-			entropy_timeout=$withval
-		fi
-	]	
-)
-AC_DEFINE_UNQUOTED(ENTROPY_TIMEOUT_MSEC, $entropy_timeout)
-
-
 if test ! -z "$blibpath" ; then
 	LDFLAGS="$LDFLAGS -blibpath:$blibpath"
 	AC_MSG_WARN([Please check and edit -blibpath in LDFLAGS in Makefile])
 fi
 
-AC_EXEEXT
+dnl remove pam and dl because they are in $LIBPAM
+if test "$PAM_MSG" = yes ; then
+	LIBS=`echo $LIBS | sed 's/-lpam //'`
+fi
+if test "$ac_cv_lib_pam_pam_set_item" = yes ; then
+	LIBS=`echo $LIBS | sed 's/-ldl //'`
+fi
 
+AC_EXEEXT
 AC_CONFIG_FILES([Makefile openbsd-compat/Makefile scard/Makefile ssh_prng_cmds])
 AC_OUTPUT
 
 # Print summary of options
-
-if test ! -z "$RANDOM_POOL" ; then
-	RAND_MSG="Device ($RANDOM_POOL)"
-else
-	if test ! -z "$PRNGD_PORT" ; then
-		RAND_MSG="PRNGD/EGD (port localhost:$PRNGD_PORT)"
-	elif test ! -z "$PRNGD_SOCKET" ; then
-		RAND_MSG="PRNGD/EGD (socket $PRNGD_SOCKET)"
-	else
-		RAND_MSG="Builtin (timeout $entropy_timeout)"
-		BUILTIN_RNG=1
-	fi
-fi
 
 # Someone please show me a better way :)
 A=`eval echo ${prefix}` ; A=`eval echo ${A}`
@@ -2198,7 +2286,6 @@ echo "               Askpass program: $E"
 echo "                  Manual pages: $F"
 echo "                      PID file: $G"
 echo "        sshd default user PATH: $H"
-echo "      Random number collection: $RAND_MSG"
 echo "                Manpage format: $MANTYPE"
 echo "                   PAM support: ${PAM_MSG}"
 echo "            KerberosIV support: $KRB4_MSG"
@@ -2210,9 +2297,10 @@ echo "          MD5 password support: $MD5_MSG"
 echo "   IP address in \$DISPLAY hack: $DISPLAY_HACK_MSG"
 echo "      Use IPv4 by default hack: $IPV4_HACK_MSG"
 echo "       Translate v4 in v6 hack: $IPV4_IN6_HACK_MSG"
-
-if test ! -z "$bsd_auth"; then
-	echo "              BSD Auth support: yes"
+echo "              BSD Auth support: $BSD_AUTH_MSG"
+echo "          Random number source: $RAND_MSG"
+if test ! -z "$USE_RAND_HELPER" ; then
+	echo " ssh-rand-helper collects from: $RAND_HELPER_MSG"
 fi
 
 echo ""
@@ -2222,27 +2310,29 @@ echo "          Compiler: ${CC}"
 echo "    Compiler flags: ${CFLAGS}"
 echo "Preprocessor flags: ${CPPFLAGS}"
 echo "      Linker flags: ${LDFLAGS}"
-echo "         Libraries: ${LIBS}"
+echo "         Libraries: ${LIBWRAP} ${LIBPAM} ${LIBS}"
 
 echo ""
 
 if test "x$PAM_MSG" = "xyes" ; then
-	echo "PAM is enabled. You may need to install a PAM control file for sshd,"
-	echo "otherwise password authentication may fail. Example PAM control files"
-	echo "can be found in the contrib/ subdirectory"
-	echo ""
-fi
-
-if test ! -z "$BUILTIN_RNG" ; then
-	echo "WARNING: you are using the builtin random number collection service."
-	echo "Please read WARNING.RNG and request that your OS vendor includes"
-	echo "/dev/random in future versions of their OS."
+	echo "PAM is enabled. You may need to install a PAM control file "
+	echo "for sshd, otherwise password authentication may fail. "
+	echo "Example PAM control files can be found in the contrib/ " 
+	echo "subdirectory"
 	echo ""
 fi
 
 if test ! -z "$NO_SFTP"; then
-	echo "sftp-server will be disabled.  Your compiler does not support"
-	echo "64bit integers."
+	echo "sftp-server will be disabled.  Your compiler does not "
+	echo "support 64bit integers."
+	echo ""
+fi
+
+if test ! -z "$RAND_HELPER_CMDHASH" ; then
+	echo "WARNING: you are using the builtin random number collection "
+	echo "service. Please read WARNING.RNG and request that your OS "
+	echo "vendor includes kernel-based random number collection in "
+	echo "future versions of your OS."
 	echo ""
 fi
 

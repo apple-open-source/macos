@@ -42,6 +42,7 @@ PHP_FUNCTION(ircg_html_encode);
 PHP_FUNCTION(ircg_ignore_add);
 PHP_FUNCTION(ircg_ignore_del);
 PHP_FUNCTION(ircg_kick);
+PHP_FUNCTION(ircg_fetch_error_msg);
 PHP_FUNCTION(ircg_topic);
 PHP_FUNCTION(ircg_channel_mode);
 PHP_FUNCTION(ircg_disconnect);
@@ -50,6 +51,7 @@ PHP_FUNCTION(ircg_lookup_format_messages);
 PHP_FUNCTION(ircg_register_format_messages);
 PHP_FUNCTION(ircg_nickname_escape);
 PHP_FUNCTION(ircg_nickname_unescape);
+PHP_FUNCTION(ircg_get_username);
 
 PHP_MINIT_FUNCTION(ircg);
 PHP_MSHUTDOWN_FUNCTION(ircg);
@@ -76,11 +78,9 @@ ZEND_END_MODULE_GLOBALS(ircg)
 */
 
 #ifdef ZTS
-#define IRCGG(v) (ircg_globals->v)
-#define IRCGLS_FETCH() php_ircg_globals *ircg_globals = ts_resource(ircg_globals_id)
+#define IRCGG(v) TSRMG(ircg_globals_id, php_ircg_globals *, v)
 #else
 #define IRCGG(v) (ircg_globals.v)
-#define IRCGLS_FETCH()
 #endif
 
 #endif	/* PHP_IRCG_H */

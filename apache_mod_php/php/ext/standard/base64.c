@@ -15,7 +15,7 @@
    | Author: Jim Winstead (jimw@php.net)                                  |
    +----------------------------------------------------------------------+
  */
-/* $Id: base64.c,v 1.1.1.3 2001/07/19 00:20:06 zarzycki Exp $ */
+/* $Id: base64.c,v 1.1.1.4 2001/12/14 22:13:16 zarzycki Exp $ */
 
 #include <string.h>
 
@@ -151,12 +151,13 @@ unsigned char *php_base64_decode(const unsigned char *str, int length, int *ret_
 
 /* {{{ proto string base64_encode(string str)
    Encodes string using MIME base64 algorithm */
-PHP_FUNCTION(base64_encode) {
+PHP_FUNCTION(base64_encode)
+{
 	pval **str;
 	unsigned char *result;
 	int ret_length;
 
-	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1,&str) == FAILURE) {
+	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &str) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(str);
@@ -172,12 +173,13 @@ PHP_FUNCTION(base64_encode) {
 
 /* {{{ proto string base64_decode(string str)
    Decodes string using MIME base64 algorithm */
-PHP_FUNCTION(base64_decode) {
+PHP_FUNCTION(base64_decode)
+{
 	pval **str;
 	unsigned char *result;
 	int ret_length;
 
-	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1,&str) == FAILURE) {
+	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &str) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(str);
@@ -196,4 +198,6 @@ PHP_FUNCTION(base64_decode) {
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vimo<600: sw=4 ts=4 tw=78
  */

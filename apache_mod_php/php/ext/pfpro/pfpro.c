@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: pfpro.c,v 1.1.1.3 2001/07/19 00:19:52 zarzycki Exp $ */
+/* $Id: pfpro.c,v 1.1.1.4 2001/12/14 22:13:02 zarzycki Exp $ */
 
 /* {{{ includes */
 
@@ -57,6 +57,7 @@ function_entry pfpro_functions[] = {
 
 /* {{{ Zend module entry */
 zend_module_entry pfpro_module_entry = {
+	STANDARD_MODULE_HEADER,
 	"pfpro",
 	pfpro_functions,
 	PHP_MINIT(pfpro),
@@ -64,6 +65,7 @@ zend_module_entry pfpro_module_entry = {
 	PHP_RINIT(pfpro),					/* request start */
 	PHP_RSHUTDOWN(pfpro),				/* request end */
 	PHP_MINFO(pfpro),
+    NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES
 };
 /* }}} */
@@ -76,7 +78,13 @@ ZEND_GET_MODULE(pfpro)
 
 /* {{{ initialization defaults */
 PHP_INI_BEGIN()
-	STD_PHP_INI_ENTRY("pfpro.defaulthost",		"test.signio.com",	PHP_INI_ALL, OnUpdateString,	defaulthost,			php_pfpro_globals,	pfpro_globals)
+#if PFPRO_VERSION < 3
+	STD_PHP_INI_ENTRY("pfpro.defaulthost",		"test.signio.com",
+	PHP_INI_ALL, OnUpdateString,	defaulthost, php_pfpro_globals,	pfpro_globals) 
+#else
+	STD_PHP_INI_ENTRY("pfpro.defaulthost",		"test-payflow.verisign.com",
+	PHP_INI_ALL, OnUpdateString,	defaulthost, php_pfpro_globals,	pfpro_globals)
+#endif
 	STD_PHP_INI_ENTRY("pfpro.defaultport",			"443",			PHP_INI_ALL, OnUpdateInt,		defaultport,			php_pfpro_globals,	pfpro_globals)
 	STD_PHP_INI_ENTRY("pfpro.defaulttimeout",		"30",			PHP_INI_ALL, OnUpdateInt,		defaulttimeout,			php_pfpro_globals,	pfpro_globals)
 	STD_PHP_INI_ENTRY("pfpro.proxyaddress",			"",				PHP_INI_ALL, OnUpdateString,	proxyaddress,			php_pfpro_globals,	pfpro_globals)
@@ -100,8 +108,6 @@ PHP_MSHUTDOWN_FUNCTION(pfpro)
 
 PHP_RINIT_FUNCTION(pfpro)
 {
-	PFPROLS_FETCH();
-
 	PFPROG(initialized) = 0;
 
     return SUCCESS;
@@ -109,8 +115,6 @@ PHP_RINIT_FUNCTION(pfpro)
 
 PHP_RSHUTDOWN_FUNCTION(pfpro)
 {
-	PFPROLS_FETCH();
-
 	if (PFPROG(initialized) == 1) {
 		pfproCleanup();
 	}
@@ -147,8 +151,6 @@ PHP_FUNCTION(pfpro_version)
    Initializes the Payflow Pro library */
 PHP_FUNCTION(pfpro_init)
 {
-	PFPROLS_FETCH();
-
 	if (ZEND_NUM_ARGS() != 0) {
 		WRONG_PARAM_COUNT;
 	}
@@ -165,8 +167,6 @@ PHP_FUNCTION(pfpro_init)
    Shuts down the Payflow Pro library */
 PHP_FUNCTION(pfpro_cleanup)
 {
-	PFPROLS_FETCH();
-
 	if (ZEND_NUM_ARGS() != 0) {
 		WRONG_PARAM_COUNT;
 	}
@@ -202,8 +202,6 @@ PHP_FUNCTION(pfpro_process_raw)
 	int context;
 	char *response;
 #endif
-
-	PFPROLS_FETCH();
 
 	if (ZEND_NUM_ARGS() < 1 || ZEND_NUM_ARGS() > 8) {
 		WRONG_PARAM_COUNT;
@@ -332,8 +330,6 @@ PHP_FUNCTION(pfpro_process)
     char *p1, *p2, *p_end,          /* Pointers for string manipulation */
         *sp1, *sp2,
         *pdelim1="&", *pdelim2="=";
-
-	PFPROLS_FETCH();
 
 	if (ZEND_NUM_ARGS() < 1 || ZEND_NUM_ARGS() > 8) {
 		WRONG_PARAM_COUNT;
@@ -599,4 +595,6 @@ PHP_FUNCTION(pfpro_process)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

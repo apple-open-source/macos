@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: assert.c,v 1.1.1.4 2001/07/19 00:20:06 zarzycki Exp $ */
+/* $Id: assert.c,v 1.1.1.5 2001/12/14 22:13:16 zarzycki Exp $ */
 
 /* {{{ includes/startup/misc */
 
@@ -29,56 +29,63 @@ typedef struct {
 	long bail;
 	long warning;
 	long quiet_eval;
-	char *default_callback;
-	char *callback;
+	zval *callback;
 } php_assert_globals;
 
 #ifdef ZTS
-#define ASSERTLS_D php_assert_globals *assert_globals
-#define ASSERTLS_DC , ASSERTLS_D
-#define ASSERTLS_C assert_globals
-#define ASSERTLS_CC , ASSERTLS_CC
-#define ASSERT(v) (assert_globals->v)
-#define ASSERTLS_FETCH() php_assert_globals *assert_globals = ts_resource(assert_globals_id)
+#define ASSERTG(v) TSRMG(assert_globals_id, php_assert_globals *, v)
 int assert_globals_id;
 #else
-#define ASSERTLS_D
-#define ASSERTLS_DC
-#define ASSERTLS_C
-#define ASSERTLS_CC
-#define ASSERT(v) (assert_globals.v)
-#define ASSERTLS_FETCH()
+#define ASSERTG(v) (assert_globals.v)
 php_assert_globals assert_globals;
 #endif
 
 #define SAFE_STRING(s) ((s)?(s):"")
 
-#define ASSERT_ACTIVE       1
-#define ASSERT_CALLBACK     2
-#define ASSERT_BAIL         3
-#define ASSERT_WARNING      4
-#define ASSERT_QUIET_EVAL   5
+enum {
+	ASSERT_ACTIVE=1,
+	ASSERT_CALLBACK,
+	ASSERT_BAIL,
+	ASSERT_WARNING,
+	ASSERT_QUIET_EVAL
+};
+
+static PHP_INI_MH(OnChangeCallback)
+{
+	if (ASSERTG(callback)) {
+		zval_ptr_dtor(&ASSERTG(callback));
+	}
+
+	MAKE_STD_ZVAL(ASSERTG(callback));
+
+	if (new_value) {
+		ZVAL_STRINGL(ASSERTG(callback), new_value, new_value_length, 1);
+	} else {
+		ZVAL_EMPTY_STRING(ASSERTG(callback));
+	}
+
+	return SUCCESS;
+}
 
 PHP_INI_BEGIN()
 	 STD_PHP_INI_ENTRY("assert.active",	    "1",	PHP_INI_ALL,	OnUpdateInt,		active,	 			php_assert_globals,		assert_globals)
 	 STD_PHP_INI_ENTRY("assert.bail",	    "0",	PHP_INI_ALL,	OnUpdateInt,		bail,	 			php_assert_globals,		assert_globals)
 	 STD_PHP_INI_ENTRY("assert.warning",	"1",	PHP_INI_ALL,	OnUpdateInt,		warning, 			php_assert_globals,		assert_globals)
-	 STD_PHP_INI_ENTRY("assert.callback",   NULL,	PHP_INI_ALL,	OnUpdateString,		default_callback, 	php_assert_globals,		assert_globals)
+	 PHP_INI_ENTRY    ("assert.callback",   NULL,   PHP_INI_ALL,    OnChangeCallback)
 	 STD_PHP_INI_ENTRY("assert.quiet_eval", "0",	PHP_INI_ALL,	OnUpdateInt,		quiet_eval,		 	php_assert_globals,		assert_globals)
 PHP_INI_END()
 
-static void php_assert_init_globals(ASSERTLS_D)
+static void php_assert_init_globals(php_assert_globals *assert_globals_p TSRMLS_DC)
 {
-	ASSERT(callback) = 0;
+	ASSERTG(callback) = NULL;
 }
 
 PHP_MINIT_FUNCTION(assert)
 {
-
 #ifdef ZTS
-	assert_globals_id = ts_allocate_id(sizeof(php_assert_globals), (ts_allocate_ctor) php_assert_init_globals, NULL);
+	ts_allocate_id(&assert_globals_id, sizeof(php_assert_globals), (ts_allocate_ctor) php_assert_init_globals, NULL);
 #else
-	php_assert_init_globals(ASSERTLS_C);
+	php_assert_init_globals(&assert_globals TSRMLS_CC);
 #endif
 
 	REGISTER_INI_ENTRIES();
@@ -94,28 +101,17 @@ PHP_MINIT_FUNCTION(assert)
 
 PHP_MSHUTDOWN_FUNCTION(assert)
 {
-	return SUCCESS;
-}
-
-PHP_RINIT_FUNCTION(assert)
-{
-	ASSERTLS_FETCH();
-
-	if (ASSERT(callback)) { 
-		efree(ASSERT(callback));
-		ASSERT(callback) = NULL;
+	if (ASSERTG(callback)) {
+		zval_ptr_dtor(&ASSERTG(callback));
 	}
-
 	return SUCCESS;
 }
 
 PHP_RSHUTDOWN_FUNCTION(assert)
 {
-	ASSERTLS_FETCH();
-
-	if (ASSERT(callback)) { 
-		efree(ASSERT(callback));
-		ASSERT(callback) = NULL;
+	if (ASSERTG(callback)) { 
+		zval_ptr_dtor(&ASSERTG(callback));
+		ASSERTG(callback) = NULL;
 	}
 
 	return SUCCESS;
@@ -134,15 +130,12 @@ PHP_MINFO_FUNCTION(assert)
 
 PHP_FUNCTION(assert)
 {
-	pval **assertion;	
+	zval **assertion;	
 	int val;
 	char *myeval = NULL;
-	char *cbfunc;
 	char *compiled_string_description;
-	CLS_FETCH();
-	ASSERTLS_FETCH();
 	
-	if (! ASSERT(active)) {
+	if (! ASSERTG(active)) {
 		RETURN_TRUE;
 	}
 
@@ -154,93 +147,72 @@ PHP_FUNCTION(assert)
 		zval retval;
 		int old_error_reporting = 0; /* shut up gcc! */
 
-		myeval = (*assertion)->value.str.val;
+		myeval = Z_STRVAL_PP(assertion);
 
-		if (ASSERT(quiet_eval)) {
+		if (ASSERTG(quiet_eval)) {
 			old_error_reporting = EG(error_reporting);
 			EG(error_reporting) = 0;
 		}
 
-		compiled_string_description = zend_make_compiled_string_description("assert code");
-		if (zend_eval_string(myeval, &retval, compiled_string_description CLS_CC ELS_CC) == FAILURE) {
+		compiled_string_description = zend_make_compiled_string_description("assert code" TSRMLS_CC);
+		if (zend_eval_string(myeval, &retval, compiled_string_description TSRMLS_CC) == FAILURE) {
 			efree(compiled_string_description);
 			zend_error(E_ERROR, "Failure evaluating code:\n%s\n", myeval);
 			/* zend_error() does not return in this case. */
 		}
 		efree(compiled_string_description);
 
-		if (ASSERT(quiet_eval)) {
+		if (ASSERTG(quiet_eval)) {
 			EG(error_reporting) = old_error_reporting;
 		}
 
 		convert_to_boolean(&retval);
-		val = retval.value.lval;
+		val = Z_LVAL(retval);
 	} else {
 		convert_to_boolean_ex(assertion);
-		val = (*assertion)->value.lval;
+		val = Z_LVAL_PP(assertion);
 	}
 
 	if (val) {
 		RETURN_TRUE;
 	}
 
-	if (ASSERT(callback)) {
-		cbfunc = ASSERT(callback);
-	} else if (ASSERT(default_callback)) {
-		cbfunc = ASSERT(default_callback);
-	} else {
-		cbfunc = NULL;
-	}
-
-	if (cbfunc) {
-		zval *args[5];
+	if (ASSERTG(callback)) {
+		zval *args[4];
 		zval *retval;
 		int i;
-		uint lineno = zend_get_executed_lineno(ELS_C);
-		char *filename = zend_get_executed_filename(ELS_C);
-		/*
-		char *function = get_active_function_name();
-		*/
+		uint lineno = zend_get_executed_lineno(TSRMLS_C);
+		char *filename = zend_get_executed_filename(TSRMLS_C);
 
 		MAKE_STD_ZVAL(args[0]);
 		MAKE_STD_ZVAL(args[1]);
 		MAKE_STD_ZVAL(args[2]);
-		MAKE_STD_ZVAL(args[3]);
-		/*
-		MAKE_STD_ZVAL(args[4]);
-		*/
 
-		args[0]->type = IS_STRING; args[0]->value.str.val = estrdup(SAFE_STRING(cbfunc)); 	args[0]->value.str.len = strlen(args[0]->value.str.val);
-		args[1]->type = IS_STRING; args[1]->value.str.val = estrdup(SAFE_STRING(filename)); args[1]->value.str.len = strlen(args[1]->value.str.val);
-		args[2]->type = IS_LONG;   args[2]->value.lval    = lineno;      
-		args[3]->type = IS_STRING; args[3]->value.str.val = estrdup(SAFE_STRING(myeval));   args[3]->value.str.len = strlen(args[3]->value.str.val);
-		/*
-		  this is always "assert" so it's useless
-		  args[4]->type = IS_STRING; args[4]->value.str.val = estrdup(SAFE_STRING(function));         args[4]->value.str.len = strlen(args[4]->value.str.val);
-		*/
+		ZVAL_STRING(args[0], SAFE_STRING(filename), 1);
+		ZVAL_LONG (args[1], lineno);
+		ZVAL_STRING(args[2], SAFE_STRING(myeval), 1);
 		
 		MAKE_STD_ZVAL(retval);
-		retval->type = IS_BOOL;
-		retval->value.lval = 0;
+		ZVAL_FALSE(retval);
 
 		/* XXX do we want to check for error here? */
-		call_user_function(CG(function_table), NULL, args[0], retval, 3, args+1);
+		call_user_function(CG(function_table), NULL, ASSERTG(callback), retval, 3, args TSRMLS_CC);
 
-		for (i = 0; i < 4; i++) {
+		for (i = 0; i <= 2; i++) {
 			zval_ptr_dtor(&(args[i]));
 		}
 		zval_ptr_dtor(&retval);
 	}
 
-	if (ASSERT(warning)) {
+	if (ASSERTG(warning)) {
 		if (myeval) {
-			php_error(E_WARNING,"Assertion \"%s\" failed",myeval);
+			php_error(E_WARNING, "Assertion \"%s\" failed", myeval);
 		} else {
-			php_error(E_WARNING,"Assertion failed");
+			php_error(E_WARNING, "Assertion failed");
 		}
 	}
 
-	if (ASSERT(bail)) {
+	if (ASSERTG(bail)) {
 		zend_bailout();
 	}
 }
@@ -251,11 +223,9 @@ PHP_FUNCTION(assert)
 
 PHP_FUNCTION(assert_options)
 {
-	pval **what,**value;
+	pval **what, **value;
 	int oldint;
-	char *oldstr;
 	int ac = ZEND_NUM_ARGS();
-	ASSERTLS_FETCH();
 	
 	if (ac < 1 || ac > 2 || zend_get_parameters_ex(ac, &what, &value) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -265,57 +235,54 @@ PHP_FUNCTION(assert_options)
 
 	switch ((*what)->value.lval) {
 	case ASSERT_ACTIVE:
-		oldint = ASSERT(active);
+		oldint = ASSERTG(active);
 		if (ac == 2) {
 			convert_to_long_ex(value);
-			ASSERT(active) = (*value)->value.lval;
+			ASSERTG(active) = Z_LVAL_PP(value);
 		}
 		RETURN_LONG(oldint);
 		break;
 
 	case ASSERT_BAIL:
-		oldint = ASSERT(bail);
+		oldint = ASSERTG(bail);
 		if (ac == 2) {
 			convert_to_long_ex(value);
-			ASSERT(bail) = (*value)->value.lval;
+			ASSERTG(bail) = Z_LVAL_PP(value);
 		}
 		RETURN_LONG(oldint);
 		break;
 
 	case ASSERT_QUIET_EVAL:
-		oldint = ASSERT(quiet_eval);
+		oldint = ASSERTG(quiet_eval);
 		if (ac == 2) {
 			convert_to_long_ex(value);
-			ASSERT(quiet_eval) = (*value)->value.lval;
+			ASSERTG(quiet_eval) = Z_LVAL_PP(value);
 		}
 		RETURN_LONG(oldint);
 		break;
 
 	case ASSERT_WARNING:
-		oldint = ASSERT(warning);
+		oldint = ASSERTG(warning);
 		if (ac == 2) {
 			convert_to_long_ex(value);
-			ASSERT(warning) = (*value)->value.lval;
+			ASSERTG(warning) = Z_LVAL_PP(value);
 		}
 		RETURN_LONG(oldint);
 		break;
 
 	case ASSERT_CALLBACK:
-		oldstr = ASSERT(callback);
-		RETVAL_STRING(SAFE_STRING(oldstr),1);
-
 		if (ac == 2) {
-			if (oldstr) {
-				efree(oldstr);
-			} 
-			convert_to_string_ex(value);
-			ASSERT(callback) = estrndup((*value)->value.str.val,(*value)->value.str.len);
+			if (ASSERTG(callback)) {
+				zval_ptr_dtor(&ASSERTG(callback));
+			}
+			ASSERTG(callback) = *value;
+			zval_add_ref(value);
 		}
-		return;
+		RETURN_TRUE;
 		break;
 
 	default:
-		php_error(E_WARNING,"Unknown value %d.",(*what)->value.lval);
+		php_error(E_WARNING, "Unknown value %d.", Z_LVAL_PP(what));
 		break;
 	}
 
@@ -329,4 +296,6 @@ PHP_FUNCTION(assert_options)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

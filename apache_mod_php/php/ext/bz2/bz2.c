@@ -16,12 +16,12 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: bz2.c,v 1.1.1.2 2001/07/19 00:18:56 zarzycki Exp $ */
+/* $Id: bz2.c,v 1.1.1.3 2001/12/14 22:11:59 zarzycki Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
- 
+
 #include "php.h"
 #include "php_bz2.h"
 
@@ -60,6 +60,7 @@ function_entry bz2_functions[] = {
 };
 
 zend_module_entry bz2_module_entry = {
+	STANDARD_MODULE_HEADER,
 	"bz2",
 	bz2_functions,
 	PHP_MINIT(bz2),
@@ -67,6 +68,7 @@ zend_module_entry bz2_module_entry = {
 	NULL,
 	NULL,
 	PHP_MINFO(bz2),
+	NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES
 };
 
@@ -76,7 +78,7 @@ ZEND_GET_MODULE(bz2)
 
 static int  le_bz2;
 
-static void php_bz2_close(zend_rsrc_list_entry *);
+static void php_bz2_close(zend_rsrc_list_entry *rsrc TSRMLS_DC);
 static void php_bz2_error(INTERNAL_FUNCTION_PARAMETERS, int);
 
 PHP_MINIT_FUNCTION(bz2)
@@ -104,6 +106,7 @@ PHP_FUNCTION(bzopen)
 	        **mode;   /* The mode to open the stream with */
 	BZFILE   *bz;     /* The compressed file stream */
 	FILE     *fp;     /* If filepointer is given, its placed in here */
+	char	*path;
 	
 	if (ZEND_NUM_ARGS() != 2 ||
 	    zend_get_parameters_ex(2, &file, &mode) == FAILURE) {
@@ -114,7 +117,14 @@ PHP_FUNCTION(bzopen)
 	/* If it's not a resource its a string containing the filename to open */
 	if (Z_TYPE_PP(file) != IS_RESOURCE) {
 		convert_to_string_ex(file);
-		bz = BZ2_bzopen(Z_STRVAL_PP(file), Z_STRVAL_PP(mode));
+
+#ifdef VIRTUAL_DIR
+	virtual_filepath(Z_STRVAL_PP(file), &path TSRMLS_CC);
+#else
+	path = Z_STRVAL_PP(file);
+#endif  
+
+		bz = BZ2_bzopen(path, Z_STRVAL_PP(mode));
 	} 
 	/* If it is a resource, than its a 'FILE *' resource */
 	else {
@@ -374,9 +384,10 @@ PHP_FUNCTION(bzdecompress)
 
 /* {{{ php_bz2_close() 
    Closes a BZip2 file pointer */
-static void php_bz2_close(zend_rsrc_list_entry *rsrc)
+static void php_bz2_close(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
 	BZFILE *bz = (BZFILE *) rsrc->ptr;  /* The BZip2 File pointer */
+
 	BZ2_bzclose(bz);
 }
 /* }}} */
@@ -405,13 +416,13 @@ static void php_bz2_error(INTERNAL_FUNCTION_PARAMETERS, int opt)
 		RETURN_LONG(errnum);
 		break;
 	case PHP_BZ_ERRSTR:
-		RETURN_STRING(errstr, 1);
+		RETURN_STRING((char*)errstr, 1);
 		break;
 	case PHP_BZ_ERRBOTH:
 		array_init(return_value);
 		
 		add_assoc_long  (return_value, "errno",  errnum);
-		add_assoc_string(return_value, "errstr", errstr, 1);
+		add_assoc_string(return_value, "errstr", (char*)errstr, 1);
 		
 		break;
 	}
@@ -420,11 +431,11 @@ static void php_bz2_error(INTERNAL_FUNCTION_PARAMETERS, int opt)
 
 #endif
 
-
 /*
  * Local variables:
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

@@ -19,7 +19,7 @@
  */
 
 
-/* $Id: datetime.c,v 1.1.1.4 2001/07/19 00:20:11 zarzycki Exp $ */
+/* $Id: datetime.c,v 1.1.1.6 2002/03/20 03:24:25 zarzycki Exp $ */
 
 
 #include "php.h"
@@ -75,6 +75,8 @@ PHP_FUNCTION(time)
 }
 /* }}} */
 
+/* {{{ php_mktime
+ */
 void php_mktime(INTERNAL_FUNCTION_PARAMETERS, int gm)
 {
 	pval **arguments[7];
@@ -83,7 +85,7 @@ void php_mktime(INTERNAL_FUNCTION_PARAMETERS, int gm)
 	int i, gmadjust, seconds, arg_count = ZEND_NUM_ARGS();
 	int is_dst = -1;
 
-	if (arg_count > 7 || zend_get_parameters_array_ex(arg_count,arguments) == FAILURE) {
+	if (arg_count > 7 || zend_get_parameters_array_ex(arg_count, arguments) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	/* convert supplied arguments to longs */
@@ -97,7 +99,7 @@ void php_mktime(INTERNAL_FUNCTION_PARAMETERS, int gm)
 	/*
 	** Set default time parameters with local time values,
 	** EVEN when some GMT time parameters are specified!
-	** This may give strange result, with PHP gmmktime(0,0,0),
+	** This may give strange result, with PHP gmmktime(0, 0, 0),
 	** which is assumed to return GMT midnight time
 	** for today (in localtime), so that the result time may be
 	** AFTER or BEFORE the current time.
@@ -117,16 +119,16 @@ void php_mktime(INTERNAL_FUNCTION_PARAMETERS, int gm)
 	*/
 	switch(arg_count) {
 	case 7:
-		ta->tm_isdst = is_dst = (*arguments[6])->value.lval;
+		ta->tm_isdst = is_dst = Z_LVAL_PP(arguments[6]);
 		/* fall-through */
 	case 6:
 		/* special case: 
 		   a zero in year, month and day is considered illegal
 		   as it would be interpreted as 30.11.1999 otherwise
 		*/
-		if (  (  (*arguments[5])->value.lval==0)
-			  &&((*arguments[4])->value.lval==0)
-			  &&((*arguments[3])->value.lval==0)
+		if (  (  Z_LVAL_PP(arguments[5])==0)
+			  &&(Z_LVAL_PP(arguments[4])==0)
+			  &&(Z_LVAL_PP(arguments[3])==0)
 			  ) {
 			RETURN_LONG(-1);
 		}
@@ -141,26 +143,26 @@ void php_mktime(INTERNAL_FUNCTION_PARAMETERS, int gm)
 		** But it cannot represent ancestral dates prior to year 1001.
 		** Additionally, input parameters of 0..70 are mapped to 100..170
 		*/
-		if ((*arguments[5])->value.lval < 70)
-			ta->tm_year = (*arguments[5])->value.lval + 100;
+		if (Z_LVAL_PP(arguments[5]) < 70)
+			ta->tm_year = Z_LVAL_PP(arguments[5]) + 100;
 		else
-			ta->tm_year = (*arguments[5])->value.lval
-			  - (((*arguments[5])->value.lval > 1000) ? 1900 : 0);
+			ta->tm_year = Z_LVAL_PP(arguments[5])
+			  - ((Z_LVAL_PP(arguments[5]) > 1000) ? 1900 : 0);
 		/* fall-through */
 	case 5:
-		ta->tm_mday = (*arguments[4])->value.lval;
+		ta->tm_mday = Z_LVAL_PP(arguments[4]);
 		/* fall-through */
 	case 4:
-		ta->tm_mon = (*arguments[3])->value.lval - 1;
+		ta->tm_mon = Z_LVAL_PP(arguments[3]) - 1;
 		/* fall-through */
 	case 3:
-		ta->tm_sec = (*arguments[2])->value.lval;
+		ta->tm_sec = Z_LVAL_PP(arguments[2]);
 		/* fall-through */
 	case 2:
-		ta->tm_min = (*arguments[1])->value.lval;
+		ta->tm_min = Z_LVAL_PP(arguments[1]);
 		/* fall-through */
 	case 1:
-		ta->tm_hour = (*arguments[0])->value.lval;
+		ta->tm_hour = Z_LVAL_PP(arguments[0]);
 		/* fall-through */
 	case 0:
 		break;
@@ -190,6 +192,7 @@ void php_mktime(INTERNAL_FUNCTION_PARAMETERS, int gm)
 
 	RETURN_LONG(seconds);
 }
+/* }}} */
 
 /* {{{ proto int mktime(int hour, int min, int sec, int mon, int day, int year)
    Get UNIX timestamp for a date */
@@ -207,14 +210,20 @@ PHP_FUNCTION(gmmktime)
 }
 /* }}} */
 
+/* {{{ php_date
+ */
 static void
 php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 {
 	pval **format, **timestamp;
 	time_t the_time;
 	struct tm *ta, tmbuf;
-	int i, size = 0, length, h, beat;
+	int i, size = 0, length, h, beat, fd, wd, yd, wk;
 	char tmp_buff[32];
+#if !HAVE_TM_GMTOFF
+	long tzone;
+	char *tname[2]= {"GMT Standard Time", "BST"};
+#endif
 
 	switch(ZEND_NUM_ARGS()) {
 	case 1:
@@ -228,7 +237,7 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 			WRONG_PARAM_COUNT;
 		}
 		convert_to_long_ex(timestamp);
-		the_time = (*timestamp)->value.lval;
+		the_time = Z_LVAL_PP(timestamp);
 		break;
 	default:
 		WRONG_PARAM_COUNT;
@@ -237,16 +246,23 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 
 	if (gm) {
 		ta = php_gmtime_r(&the_time, &tmbuf);
+#if !HAVE_TM_GMTOFF
+		tzone = 0;
+#endif
 	} else {
 		ta = php_localtime_r(&the_time, &tmbuf);
+#if !HAVE_TM_GMTOFF
+		tzone = timezone;
+		tname[0] = tzname[0];
+#endif
 	}
 
 	if (!ta) {			/* that really shouldn't happen... */
 		php_error(E_WARNING, "unexpected error in date()");
 		RETURN_FALSE;
 	}
-	for (i = 0; i < (*format)->value.str.len; i++) {
-		switch ((*format)->value.str.val[i]) {
+	for (i = 0; i < Z_STRLEN_PP(format); i++) {
+		switch (Z_STRVAL_PP(format)[i]) {
 			case 'r':		/* rfc822 format */
 				size += 31;
 				break;
@@ -261,7 +277,7 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 #if HAVE_TM_ZONE
 				size += strlen(ta->tm_zone);
 #elif HAVE_TZNAME
-				size += strlen(tzname[0]);
+				size += strlen(tname[0]);
 #endif
 				break;
 			case 'Z':		/* timezone offset in seconds */
@@ -294,10 +310,11 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 			case 'a':		/* am/pm */
 			case 'S':		/* standard english suffix for the day of the month (e.g. 3rd, 2nd, etc) */
 			case 't':		/* days in current month */
+			case 'W':		/* ISO-8601 week number of year, weeks starting on Monday */
 				size += 2;
 				break;
 			case '\\':
-				if(i < (*format)->value.str.len-1) {
+				if(i < Z_STRLEN_PP(format)-1) {
 					i++;
 				}
 				size ++;
@@ -311,149 +328,149 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 		}
 	}
 
-	return_value->value.str.val = (char *) emalloc(size + 1);
-	return_value->value.str.val[0] = '\0';
+	Z_STRVAL_P(return_value) = (char *) emalloc(size + 1);
+	Z_STRVAL_P(return_value)[0] = '\0';
 
-	for (i = 0; i < (*format)->value.str.len; i++) {
-		switch ((*format)->value.str.val[i]) {
+	for (i = 0; i < Z_STRLEN_PP(format); i++) {
+		switch (Z_STRVAL_PP(format)[i]) {
 			case '\\':
-				if(i < (*format)->value.str.len-1) {
+				if(i < Z_STRLEN_PP(format)-1) {
 					char ch[2];
-					ch[0]=(*format)->value.str.val[i+1];
+					ch[0]=Z_STRVAL_PP(format)[i+1];
 					ch[1]='\0';
-					strcat(return_value->value.str.val, ch);
+					strcat(Z_STRVAL_P(return_value), ch);
 					i++;
 				}
 				break;
 			case 'U':		/* seconds since the epoch */
 				sprintf(tmp_buff, "%ld", (long)the_time); /* SAFE */
-				strcat(return_value->value.str.val, tmp_buff);
+				strcat(Z_STRVAL_P(return_value), tmp_buff);
 				break;
 			case 'F':		/* month, textual, full */
-				strcat(return_value->value.str.val, mon_full_names[ta->tm_mon]);
+				strcat(Z_STRVAL_P(return_value), mon_full_names[ta->tm_mon]);
 				break;
 			case 'l':		/* day (of the week), textual, full */
-				strcat(return_value->value.str.val, day_full_names[ta->tm_wday]);
+				strcat(Z_STRVAL_P(return_value), day_full_names[ta->tm_wday]);
 				break;
 			case 'Y':		/* year, numeric, 4 digits */
 				sprintf(tmp_buff, "%d", ta->tm_year + 1900);  /* SAFE */
-				strcat(return_value->value.str.val, tmp_buff);
+				strcat(Z_STRVAL_P(return_value), tmp_buff);
 				break;
 			case 'M':		/* month, textual, 3 letters */
-				strcat(return_value->value.str.val, mon_short_names[ta->tm_mon]);
+				strcat(Z_STRVAL_P(return_value), mon_short_names[ta->tm_mon]);
 				break;
 			case 'D':		/* day (of the week), textual, 3 letters */
-				strcat(return_value->value.str.val, day_short_names[ta->tm_wday]);
+				strcat(Z_STRVAL_P(return_value), day_short_names[ta->tm_wday]);
 				break;
 			case 'z':		/* day (of the year) */
 				sprintf(tmp_buff, "%d", ta->tm_yday);  /* SAFE */
-				strcat(return_value->value.str.val, tmp_buff);
+				strcat(Z_STRVAL_P(return_value), tmp_buff);
 				break;
 			case 'y':		/* year, numeric, 2 digits */
 				sprintf(tmp_buff, "%02d", ((ta->tm_year)%100));  /* SAFE */
-				strcat(return_value->value.str.val, tmp_buff);
+				strcat(Z_STRVAL_P(return_value), tmp_buff);
 				break;
 			case 'm':		/* month, numeric */
 				sprintf(tmp_buff, "%02d", ta->tm_mon + 1);  /* SAFE */
-				strcat(return_value->value.str.val, tmp_buff);
+				strcat(Z_STRVAL_P(return_value), tmp_buff);
 				break;
 			case 'n':      /* month, numeric, no leading zeros */
 				sprintf(tmp_buff, "%d", ta->tm_mon + 1);  /* SAFE */
-				strcat(return_value->value.str.val, tmp_buff);
+				strcat(Z_STRVAL_P(return_value), tmp_buff);
 				break;
 			case 'd':		/* day of the month, numeric */
 				sprintf(tmp_buff, "%02d", ta->tm_mday);  /* SAFE */
-				strcat(return_value->value.str.val, tmp_buff);
+				strcat(Z_STRVAL_P(return_value), tmp_buff);
 				break;
 			case 'j':
 				sprintf(tmp_buff, "%d", ta->tm_mday); /* SAFE */
-				strcat(return_value->value.str.val, tmp_buff);
+				strcat(Z_STRVAL_P(return_value), tmp_buff);
 				break;
 			case 'H':		/* hour, numeric, 24 hour format */
 				sprintf(tmp_buff, "%02d", ta->tm_hour);  /* SAFE */
-				strcat(return_value->value.str.val, tmp_buff);
+				strcat(Z_STRVAL_P(return_value), tmp_buff);
 				break;
 			case 'h':		/* hour, numeric, 12 hour format */
 				h = ta->tm_hour % 12; if (h==0) h = 12;
 				sprintf(tmp_buff, "%02d", h);  /* SAFE */
-				strcat(return_value->value.str.val, tmp_buff);
+				strcat(Z_STRVAL_P(return_value), tmp_buff);
 				break;
 			case 'G':      /* hour, numeric, 24 hour format, no leading zeros */
 				sprintf(tmp_buff, "%d", ta->tm_hour);  /* SAFE */
-				strcat(return_value->value.str.val, tmp_buff);
+				strcat(Z_STRVAL_P(return_value), tmp_buff);
 				break;
 			case 'g':      /* hour, numeric, 12 hour format, no leading zeros */
 				h = ta->tm_hour % 12; if (h==0) h = 12;
 				sprintf(tmp_buff, "%d", h);  /* SAFE */
-				strcat(return_value->value.str.val, tmp_buff);
+				strcat(Z_STRVAL_P(return_value), tmp_buff);
 				break;
 			case 'i':		/* minutes, numeric */
 				sprintf(tmp_buff, "%02d", ta->tm_min);  /* SAFE */
-				strcat(return_value->value.str.val, tmp_buff);
+				strcat(Z_STRVAL_P(return_value), tmp_buff);
 				break;
 			case 's':		/* seconds, numeric */
 				sprintf(tmp_buff, "%02d", ta->tm_sec);  /* SAFE */ 
-				strcat(return_value->value.str.val, tmp_buff);
+				strcat(Z_STRVAL_P(return_value), tmp_buff);
 				break;
 			case 'A':		/* AM/PM */
-				strcat(return_value->value.str.val, (ta->tm_hour >= 12 ? "PM" : "AM"));
+				strcat(Z_STRVAL_P(return_value), (ta->tm_hour >= 12 ? "PM" : "AM"));
 				break;
 			case 'a':		/* am/pm */
-				strcat(return_value->value.str.val, (ta->tm_hour >= 12 ? "pm" : "am"));
+				strcat(Z_STRVAL_P(return_value), (ta->tm_hour >= 12 ? "pm" : "am"));
 				break;
 			case 'S':		/* standard english suffix, e.g. 2nd/3rd for the day of the month */
 				if (ta->tm_mday >= 10 && ta->tm_mday <= 19) {
-					strcat(return_value->value.str.val, "th");
+					strcat(Z_STRVAL_P(return_value), "th");
 				} else {
 					switch (ta->tm_mday % 10) {
 						case 1:
-							strcat(return_value->value.str.val, "st");
+							strcat(Z_STRVAL_P(return_value), "st");
 							break;
 						case 2:
-							strcat(return_value->value.str.val, "nd");
+							strcat(Z_STRVAL_P(return_value), "nd");
 							break;
 						case 3:
-							strcat(return_value->value.str.val, "rd");
+							strcat(Z_STRVAL_P(return_value), "rd");
 							break;
 						default:
-							strcat(return_value->value.str.val, "th");
+							strcat(Z_STRVAL_P(return_value), "th");
 							break;
 					}
 				}
 				break;
 			case 't':		/* days in current month */
 				sprintf(tmp_buff, "%2d", phpday_tab[isleap((ta->tm_year+1900))][ta->tm_mon] );
-				strcat(return_value->value.str.val, tmp_buff);
+				strcat(Z_STRVAL_P(return_value), tmp_buff);
 				break;
 			case 'w':		/* day of the week, numeric EXTENSION */
 				sprintf(tmp_buff, "%01d", ta->tm_wday);  /* SAFE */
-				strcat(return_value->value.str.val, tmp_buff);
+				strcat(Z_STRVAL_P(return_value), tmp_buff);
 				break;
 			case 'O':		/* GMT offset in [+-]HHMM format */
 #if HAVE_TM_GMTOFF				
 				sprintf(tmp_buff, "%c%02d%02d", (ta->tm_gmtoff < 0) ? '-' : '+', abs(ta->tm_gmtoff / 3600), abs( ta->tm_gmtoff % 3600));
 #else
-				sprintf(tmp_buff, "%c%02d%02d", ((ta->tm_isdst ? timezone - 3600:timezone)>0)?'-':'+',abs((ta->tm_isdst ? timezone - 3600 : timezone) / 3600), abs((ta->tm_isdst ? timezone - 3600 : timezone) % 3600));
+				sprintf(tmp_buff, "%c%02d%02d", ((ta->tm_isdst ? tzone - 3600:tzone)>0)?'-':'+', abs((ta->tm_isdst ? tzone - 3600 : tzone) / 3600), abs((ta->tm_isdst ? tzone - 3600 : tzone) % 3600));
 #endif
-				strcat(return_value->value.str.val, tmp_buff);
+				strcat(Z_STRVAL_P(return_value), tmp_buff);
 				break;
 			case 'Z':		/* timezone offset in seconds */
 #if HAVE_TM_GMTOFF
 				sprintf(tmp_buff, "%ld", ta->tm_gmtoff);
 #else
-				sprintf(tmp_buff, "%ld", ta->tm_isdst ? -(timezone - 3600) : -timezone);
+				sprintf(tmp_buff, "%ld", ta->tm_isdst ? -(tzone- 3600) : -tzone);
 #endif
-				strcat(return_value->value.str.val, tmp_buff);
+				strcat(Z_STRVAL_P(return_value), tmp_buff);
 				break;
 			case 'L':		/* boolean for leapyear */
 				sprintf(tmp_buff, "%d", (isleap((ta->tm_year+1900)) ? 1 : 0 ) );
-				strcat(return_value->value.str.val, tmp_buff);
+				strcat(Z_STRVAL_P(return_value), tmp_buff);
 				break;
 			case 'T':		/* timezone name */
 #if HAVE_TM_ZONE
-				strcat(return_value->value.str.val, ta->tm_zone);
+				strcat(Z_STRVAL_P(return_value), ta->tm_zone);
 #elif HAVE_TZNAME
-				strcat(return_value->value.str.val, tzname[0]);
+				strcat(Z_STRVAL_P(return_value), tname[0]);
 #endif
 				break;
 			case 'B':	/* Swatch Beat a.k.a. Internet Time */
@@ -464,11 +481,11 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 				}
 				beat = beat % 1000;
 				sprintf(tmp_buff, "%03d", beat); /* SAFE */
-				strcat(return_value->value.str.val, tmp_buff);
+				strcat(Z_STRVAL_P(return_value), tmp_buff);
 				break;
 			case 'I':
 				sprintf(tmp_buff, "%d", ta->tm_isdst);
-				strcat(return_value->value.str.val, tmp_buff);
+				strcat(Z_STRVAL_P(return_value), tmp_buff);
 				break;
 			case 'r':
 #if HAVE_TM_GMTOFF				
@@ -493,24 +510,36 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 					ta->tm_hour,
 					ta->tm_min,
 					ta->tm_sec,
-					((ta->tm_isdst ? timezone - 3600 : timezone) > 0) ? '-' : '+',
-					abs((ta->tm_isdst ? timezone - 3600 : timezone) / 3600),
-					abs((ta->tm_isdst ? timezone - 3600 : timezone) % 3600)
+					((ta->tm_isdst ? tzone - 3600 : tzone) > 0) ? '-' : '+',
+					abs((ta->tm_isdst ? tzone - 3600 : tzone) / 3600),
+					abs((ta->tm_isdst ? tzone - 3600 : tzone) % 3600)
 				);
 #endif
-				strcat(return_value->value.str.val, tmp_buff);
+				strcat(Z_STRVAL_P(return_value), tmp_buff);
+				break;
+			case 'W':		/* ISO-8601 week number of year, weeks starting on Monday */
+				wd = ta->tm_wday==0 ? 7 : ta->tm_wday;
+				yd = ta->tm_yday + 1;
+				fd = (7 + (wd - yd) % 7 ) % 7;
+				wk = ( (yd + fd - 1) / 7 ) + 1;
+				if (fd>3) {
+					wk--;
+				}
+				sprintf(tmp_buff, "%d", wk);  /* SAFE */
+				strcat(Z_STRVAL_P(return_value), tmp_buff);
 				break;
 
 			default:
-				length = strlen(return_value->value.str.val);
-				return_value->value.str.val[length] = (*format)->value.str.val[i];
-				return_value->value.str.val[length + 1] = '\0';
+				length = strlen(Z_STRVAL_P(return_value));
+				Z_STRVAL_P(return_value)[length] = Z_STRVAL_PP(format)[i];
+				Z_STRVAL_P(return_value)[length + 1] = '\0';
 				break;
 		}
 	}
-	return_value->value.str.len = strlen(return_value->value.str.val);
-	return_value->type = IS_STRING;
+	Z_STRLEN_P(return_value) = strlen(Z_STRVAL_P(return_value));
+	Z_TYPE_P(return_value) = IS_STRING;
 }
+/* }}} */
 
 /* {{{ proto string date(string format [, int timestamp])
    Format a local time/date */
@@ -549,13 +578,13 @@ PHP_FUNCTION(localtime)
 			break;
 		case 1:
 			convert_to_long_ex(timestamp_arg);
-			timestamp = (*timestamp_arg)->value.lval;
+			timestamp = Z_LVAL_PP(timestamp_arg);
 			break;
 		case 2:
 			convert_to_long_ex(timestamp_arg);
 			convert_to_long_ex(assoc_array_arg);
-			timestamp = (*timestamp_arg)->value.lval;
-			assoc_array = (*assoc_array_arg)->value.lval;
+			timestamp = Z_LVAL_PP(timestamp_arg);
+			assoc_array = Z_LVAL_PP(assoc_array_arg);
 			break;
 	}
 	ta = php_localtime_r(&timestamp, &tmbuf);
@@ -598,11 +627,11 @@ PHP_FUNCTION(getdate)
 
 	if (ZEND_NUM_ARGS() == 0) {
 		timestamp = time(NULL);
-	} else if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1,&timestamp_arg) == FAILURE) {
+	} else if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &timestamp_arg) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	} else {
 		convert_to_long_ex(timestamp_arg);
-		timestamp = (*timestamp_arg)->value.lval;
+		timestamp = Z_LVAL_PP(timestamp_arg);
 	}
 
 	ta = php_localtime_r(&timestamp, &tmbuf);
@@ -628,12 +657,13 @@ PHP_FUNCTION(getdate)
 }
 /* }}} */
 
-/* Return date string in standard format for http headers */
+/* {{{ php_std_date
+   Return date string in standard format for http headers */
 char *php_std_date(time_t t)
 {
 	struct tm *tm1, tmbuf;
 	char *str;
-	PLS_FETCH();
+	TSRMLS_FETCH();
 
 	tm1 = php_gmtime_r(&t, &tmbuf);
 	str = emalloc(81);
@@ -656,7 +686,7 @@ char *php_std_date(time_t t)
 	str[79]=0;
 	return (str);
 }
-
+/* }}} */
 
 /* {{{ proto bool checkdate(int month, int day, int year)
    Returns true(1) if it is a valid date in gregorian calendar */
@@ -670,8 +700,8 @@ PHP_FUNCTION(checkdate)
 		WRONG_PARAM_COUNT;
 	}
 
-	if((*year)->type == IS_STRING) {
-		res = is_numeric_string((*year)->value.str.val, (*year)->value.str.len, NULL, NULL);
+	if(Z_TYPE_PP(year) == IS_STRING) {
+		res = is_numeric_string(Z_STRVAL_PP(year), Z_STRLEN_PP(year), NULL, NULL, 0);
 		if(res!=IS_LONG && res !=IS_DOUBLE) {
 			RETURN_FALSE;	
 		}
@@ -679,9 +709,9 @@ PHP_FUNCTION(checkdate)
 	convert_to_long_ex(day);
 	convert_to_long_ex(month);
 	convert_to_long_ex(year);
-	y = (*year)->value.lval;
-	m = (*month)->value.lval;
-	d = (*day)->value.lval;
+	y = Z_LVAL_PP(year);
+	m = Z_LVAL_PP(month);
+	d = Z_LVAL_PP(day);
 
 	if (y < 1 || y > 32767) {
 		RETURN_FALSE;
@@ -692,15 +722,17 @@ PHP_FUNCTION(checkdate)
 	if (d < 1 || d > phpday_tab[isleap(y)][m - 1]) {
 		RETURN_FALSE;
 	}
-	RETURN_TRUE;				/* True : This month,day,year arguments are valid */
+	RETURN_TRUE;				/* True : This month, day, year arguments are valid */
 }
 /* }}} */
 
 #if HAVE_STRFTIME
+/* {{{ _php_strftime
+ */
 void _php_strftime(INTERNAL_FUNCTION_PARAMETERS, int gm)
 {
 	pval **format_arg, **timestamp_arg;
-	char *format,*buf;
+	char *format, *buf;
 	time_t timestamp;
 	struct tm *ta, tmbuf;
 	int max_reallocs = 5;
@@ -708,17 +740,17 @@ void _php_strftime(INTERNAL_FUNCTION_PARAMETERS, int gm)
 
 	switch (ZEND_NUM_ARGS()) {
 		case 1:
-			if (zend_get_parameters_ex(1,&format_arg)==FAILURE) {
+			if (zend_get_parameters_ex(1, &format_arg)==FAILURE) {
 				RETURN_FALSE;
 			}
 			time(&timestamp);
 			break;
 		case 2:
-			if (zend_get_parameters_ex(2, &format_arg,&timestamp_arg)==FAILURE) {
+			if (zend_get_parameters_ex(2, &format_arg, &timestamp_arg)==FAILURE) {
 				RETURN_FALSE;
 			}
 			convert_to_long_ex(timestamp_arg);
-			timestamp = (*timestamp_arg)->value.lval;
+			timestamp = Z_LVAL_PP(timestamp_arg);
 			break;
 		default:
 			WRONG_PARAM_COUNT;
@@ -726,13 +758,13 @@ void _php_strftime(INTERNAL_FUNCTION_PARAMETERS, int gm)
 	}
 
 	convert_to_string_ex(format_arg);
-	if ((*format_arg)->value.str.len==0) {
+	if (Z_STRLEN_PP(format_arg)==0) {
 		RETURN_FALSE;
 	}
 	if (timestamp < 0) {
 		RETURN_FALSE;
 	}
-	format = (*format_arg)->value.str.val;
+	format = Z_STRVAL_PP(format_arg);
 	if (gm) {
 		ta = php_gmtime_r(&timestamp, &tmbuf);
 	} else {
@@ -740,19 +772,21 @@ void _php_strftime(INTERNAL_FUNCTION_PARAMETERS, int gm)
 	}
 
 	buf = (char *) emalloc(buf_len);
-	while ((real_len=strftime(buf,buf_len,format,ta))==buf_len || real_len==0) {
+	while ((real_len=strftime(buf, buf_len, format, ta))==buf_len || real_len==0) {
 		buf_len *= 2;
 		buf = (char *) erealloc(buf, buf_len);
 		if(!--max_reallocs) break;
 	}
 	
 	if(real_len && real_len != buf_len) {
-		buf = (char *) erealloc(buf,real_len+1);
+		buf = (char *) erealloc(buf, real_len+1);
 		RETURN_STRINGL(buf, real_len, 0);
 	}
 	efree(buf);
 	RETURN_FALSE;
 }
+/* }}} */
+
 /* {{{ proto string strftime(string format [, int timestamp])
    Format a local time/date according to locale settings */
 PHP_FUNCTION(strftime)
@@ -804,4 +838,6 @@ PHP_FUNCTION(strtotime)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

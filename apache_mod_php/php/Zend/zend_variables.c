@@ -31,25 +31,6 @@ ZEND_API char *empty_string = "";	/* in order to save emalloc() and efree() time
 									 * The macro STR_FREE() will not efree() it.
 									 */
 
-/* this function MUST set the value for the variable to an empty string */
-/* and empty strings must be evaluated as FALSE */
-ZEND_API inline void var_reset(zval *var)
-{
-#if 0
-	var->type = IS_STRING;
-	var->value.str.val = empty_string;
-	var->value.str.len = 0;
-#else
-	var->type = IS_BOOL;
-	var->value.lval = 0;
-#endif
-}
-
-ZEND_API inline void var_uninit(zval *var)
-{
-	var->type = IS_NULL;
-}
-		
 
 ZEND_API void _zval_dtor(zval *zvalue ZEND_FILE_LINE_DC)
 {
@@ -59,11 +40,12 @@ ZEND_API void _zval_dtor(zval *zvalue ZEND_FILE_LINE_DC)
 	switch(zvalue->type) {
 		case IS_STRING:
 		case IS_CONSTANT:
+			CHECK_ZVAL_STRING_REL(zvalue);
 			STR_FREE_REL(zvalue->value.str.val);
 			break;
 		case IS_ARRAY:
 		case IS_CONSTANT_ARRAY: {
-				ELS_FETCH();
+				TSRMLS_FETCH();
 
 				if (zvalue->value.ht && (zvalue->value.ht != &EG(symbol_table))) {
 					zend_hash_destroy(zvalue->value.ht);
@@ -75,9 +57,12 @@ ZEND_API void _zval_dtor(zval *zvalue ZEND_FILE_LINE_DC)
 			zend_hash_destroy(zvalue->value.obj.properties);
 			FREE_HASHTABLE(zvalue->value.obj.properties);
 			break;
-		case IS_RESOURCE:
-			/* destroy resource */
-			zend_list_delete(zvalue->value.lval);
+		case IS_RESOURCE:	{
+				TSRMLS_FETCH();
+
+				/* destroy resource */
+				zend_list_delete(zvalue->value.lval);
+			}
 			break;
 		case IS_LONG:
 		case IS_DOUBLE:
@@ -99,8 +84,11 @@ ZEND_API void zval_add_ref(zval **p)
 ZEND_API int _zval_copy_ctor(zval *zvalue ZEND_FILE_LINE_DC)
 {
 	switch (zvalue->type) {
-		case IS_RESOURCE:
-			zend_list_addref(zvalue->value.lval);
+		case IS_RESOURCE: {
+				TSRMLS_FETCH();
+
+				zend_list_addref(zvalue->value.lval);
+			}
 			break;
 		case IS_BOOL:
 		case IS_LONG:
@@ -114,18 +102,16 @@ ZEND_API int _zval_copy_ctor(zval *zvalue ZEND_FILE_LINE_DC)
 					return SUCCESS;
 				}
 			}
+			CHECK_ZVAL_STRING_REL(zvalue);
 			zvalue->value.str.val = (char *) estrndup_rel(zvalue->value.str.val, zvalue->value.str.len);
 			break;
 		case IS_ARRAY:
 		case IS_CONSTANT_ARRAY: {
 				zval *tmp;
 				HashTable *original_ht = zvalue->value.ht;
-				ELS_FETCH();
+				TSRMLS_FETCH();
 
-				if (!zvalue->value.ht) {
-					var_reset(zvalue);
-					return FAILURE;
-				} else if (zvalue->value.ht==&EG(symbol_table)) {
+				if (zvalue->value.ht == &EG(symbol_table)) {
 					return SUCCESS; /* do nothing */
 				}
 				ALLOC_HASHTABLE_REL(zvalue->value.ht);
@@ -141,6 +127,40 @@ ZEND_API int _zval_copy_ctor(zval *zvalue ZEND_FILE_LINE_DC)
 				zend_hash_init(zvalue->value.obj.properties, 0, NULL, ZVAL_PTR_DTOR, 0);
 				zend_hash_copy(zvalue->value.obj.properties, original_ht, (copy_ctor_func_t) zval_add_ref, (void *) &tmp, sizeof(zval *));
 			}
+			break;
+	}
+	return SUCCESS;
+}
+
+
+ZEND_API int zval_persist(zval *zvalue TSRMLS_DC)
+{
+	switch (zvalue->type) {
+		case IS_RESOURCE:
+			return FAILURE; /* resources cannot be persisted */
+			break;
+		case IS_BOOL:
+		case IS_LONG:
+		case IS_NULL:
+			break;
+		case IS_CONSTANT:
+		case IS_STRING:
+			if (zvalue->value.str.val) {
+				if (zvalue->value.str.len==0) {
+					zvalue->value.str.val = empty_string;
+					return SUCCESS;
+				}
+			}
+			persist_alloc(zvalue->value.str.val);
+			break;
+		case IS_ARRAY:
+		case IS_CONSTANT_ARRAY:
+			persist_alloc(zvalue->value.ht);
+			zend_hash_apply(zvalue->value.ht, (apply_func_t) zval_persist TSRMLS_CC);
+			break;
+		case IS_OBJECT:
+			persist_alloc(zvalue->value.obj.properties);
+			zend_hash_apply(zvalue->value.obj.properties, (apply_func_t) zval_persist TSRMLS_CC);
 			break;
 	}
 	return SUCCESS;

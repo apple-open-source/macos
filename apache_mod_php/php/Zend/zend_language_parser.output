@@ -1548,9 +1548,9 @@ rule 156  expr_without_variable -> cvar '=' expr
 rule 157  expr_without_variable -> cvar '=' '&' w_cvar
 rule 158  expr_without_variable -> cvar '=' '&' function_call
 rule 159  @36 ->		/* empty */
-rule 160  expr_without_variable -> cvar '=' '&' T_NEW class_name @36 ctor_arguments
+rule 160  expr_without_variable -> cvar '=' '&' T_NEW static_or_variable_string @36 ctor_arguments
 rule 161  @37 ->		/* empty */
-rule 162  expr_without_variable -> T_NEW class_name @37 ctor_arguments
+rule 162  expr_without_variable -> T_NEW static_or_variable_string @37 ctor_arguments
 rule 163  expr_without_variable -> cvar T_PLUS_EQUAL expr
 rule 164  expr_without_variable -> cvar T_MINUS_EQUAL expr
 rule 165  expr_without_variable -> cvar T_MUL_EQUAL expr
@@ -1623,14 +1623,14 @@ rule 231  function_call -> T_STRING '(' @45 function_call_parameter_list ')'
 rule 232  @46 ->		/* empty */
 rule 233  function_call -> cvar '(' @46 function_call_parameter_list ')'
 rule 234  @47 ->		/* empty */
-rule 235  function_call -> T_STRING T_PAAMAYIM_NEKUDOTAYIM T_STRING '(' @47 function_call_parameter_list ')'
-rule 236  exit_expr ->		/* empty */
-rule 237  exit_expr -> '(' ')'
-rule 238  exit_expr -> '(' expr ')'
-rule 239  ctor_arguments ->		/* empty */
-rule 240  ctor_arguments -> '(' function_call_parameter_list ')'
-rule 241  class_name -> T_STRING
-rule 242  class_name -> r_cvar
+rule 235  function_call -> T_STRING T_PAAMAYIM_NEKUDOTAYIM static_or_variable_string '(' @47 function_call_parameter_list ')'
+rule 236  static_or_variable_string -> T_STRING
+rule 237  static_or_variable_string -> r_cvar
+rule 238  exit_expr ->		/* empty */
+rule 239  exit_expr -> '(' ')'
+rule 240  exit_expr -> '(' expr ')'
+rule 241  ctor_arguments ->		/* empty */
+rule 242  ctor_arguments -> '(' function_call_parameter_list ')'
 rule 243  common_scalar -> T_LNUMBER
 rule 244  common_scalar -> T_DNUMBER
 rule 245  common_scalar -> T_CONSTANT_ENCAPSED_STRING
@@ -1744,9 +1744,9 @@ $ (-1)
 '&' (38) 107 111 118 121 141 157 158 160 188 309 310 311 312
 '\'' (39) 257
 '(' (40) 16 19 22 25 29 31 45 48 51 53 59 63 66 96 99 136 139 155 210
-    227 231 233 235 237 238 240 252 301 335 336 339
+    227 231 233 235 239 240 242 252 301 335 336 339
 ')' (41) 16 19 22 25 29 31 45 48 51 53 59 63 66 96 99 136 139 155 210
-    227 231 233 235 237 238 240 252 301 335 336 339
+    227 231 233 235 239 240 242 252 301 335 336 339
 '*' (42) 193
 '+' (43) 191 198 250
 ',' (44) 56 80 110 111 112 113 119 120 121 122 127 128 142 143 147
@@ -1818,7 +1818,7 @@ T_ELSE (300) 101 103
 T_ENDIF (301) 19
 T_LNUMBER (302) 243
 T_DNUMBER (303) 244
-T_STRING (304) 63 66 68 70 79 80 136 139 231 235 241 249 253 293 314
+T_STRING (304) 63 66 68 70 79 80 136 139 231 235 236 249 253 293 314
     328 332
 T_STRING_VARNAME (305) 254 330
 T_VARIABLE (306) 106 107 108 109 110 111 112 113 124 127 128 129 130
@@ -1995,7 +1995,7 @@ non_empty_parameter_list (190)
     on left: 106 107 108 109 110 111 112 113, on right: 104 110 111
     112 113
 function_call_parameter_list (191)
-    on left: 114 115, on right: 231 233 235 240
+    on left: 114 115, on right: 231 233 235 242
 non_empty_function_call_parameter_list (192)
     on left: 116 117 118 119 120 121, on right: 114 119 120 121
 global_var_list (193)
@@ -2062,11 +2062,11 @@ function_call (219)
     on left: 232, on right: 233
 @47 (222)
     on left: 234, on right: 235
-exit_expr (223)
-    on left: 236 237 238, on right: 223
-ctor_arguments (224)
-    on left: 239 240, on right: 160 162
-class_name (225)
+static_or_variable_string (223)
+    on left: 236 237, on right: 160 162 235
+exit_expr (224)
+    on left: 238 239 240, on right: 223
+ctor_arguments (225)
     on left: 241 242, on right: 160 162
 common_scalar (226)
     on left: 243 244 245 246 247, on right: 248 255
@@ -2086,10 +2086,10 @@ expr (232)
     147 148 152 153 155 156 163 164 165 166 167 168 169 170 171 172
     173 179 181 183 185 186 187 188 189 190 191 192 193 194 195 196
     197 198 199 200 201 202 203 204 205 206 207 208 209 210 213 216
-    217 218 219 220 221 222 225 229 238 278 281 283 291 294 305 306
+    217 218 219 220 221 222 225 229 240 278 281 283 291 294 305 306
     307 308 309 311 329 330 337 338 339 340 341
 r_cvar (233)
-    on left: 269, on right: 125 242 267
+    on left: 269, on right: 125 237 267
 w_cvar (234)
     on left: 270, on right: 48 51 72 118 121 157 309 310 311 312
 rw_cvar (235)
@@ -3287,13 +3287,13 @@ state 22
 
 state 23
 
-    expr_without_variable  ->  T_NEW . class_name @37 ctor_arguments   (rule 162)
+    expr_without_variable  ->  T_NEW . static_or_variable_string @37 ctor_arguments   (rule 162)
 
     T_STRING	shift, and go to state 103
     T_VARIABLE	shift, and go to state 30
     '$' 	shift, and go to state 60
 
-    class_name	go to state 104
+    static_or_variable_string	go to state 104
     r_cvar	go to state 105
     cvar	go to state 106
     cvar_without_objects	go to state 77
@@ -3309,7 +3309,7 @@ state 24
 
     '(' 	shift, and go to state 107
 
-    $default	reduce using rule 236 (exit_expr)
+    $default	reduce using rule 238 (exit_expr)
 
     exit_expr	go to state 108
 
@@ -3343,7 +3343,7 @@ state 27
 state 28
 
     function_call  ->  T_STRING . '(' @45 function_call_parameter_list ')'   (rule 231)
-    function_call  ->  T_STRING . T_PAAMAYIM_NEKUDOTAYIM T_STRING '(' @47 function_call_parameter_list ')'   (rule 235)
+    function_call  ->  T_STRING . T_PAAMAYIM_NEKUDOTAYIM static_or_variable_string '(' @47 function_call_parameter_list ')'   (rule 235)
     scalar  ->  T_STRING .   (rule 253)
 
     T_PAAMAYIM_NEKUDOTAYIM	shift, and go to state 110
@@ -4093,7 +4093,7 @@ state 76
     expr_without_variable  ->  cvar . '=' expr   (rule 156)
     expr_without_variable  ->  cvar . '=' '&' w_cvar   (rule 157)
     expr_without_variable  ->  cvar . '=' '&' function_call   (rule 158)
-    expr_without_variable  ->  cvar . '=' '&' T_NEW class_name @36 ctor_arguments   (rule 160)
+    expr_without_variable  ->  cvar . '=' '&' T_NEW static_or_variable_string @36 ctor_arguments   (rule 160)
     expr_without_variable  ->  cvar . T_PLUS_EQUAL expr   (rule 163)
     expr_without_variable  ->  cvar . T_MINUS_EQUAL expr   (rule 164)
     expr_without_variable  ->  cvar . T_MUL_EQUAL expr   (rule 165)
@@ -5002,15 +5002,15 @@ state 102
 
 state 103
 
-    class_name  ->  T_STRING .   (rule 241)
+    static_or_variable_string  ->  T_STRING .   (rule 236)
 
-    $default	reduce using rule 241 (class_name)
+    $default	reduce using rule 236 (static_or_variable_string)
 
 
 
 state 104
 
-    expr_without_variable  ->  T_NEW class_name . @37 ctor_arguments   (rule 162)
+    expr_without_variable  ->  T_NEW static_or_variable_string . @37 ctor_arguments   (rule 162)
 
     $default	reduce using rule 161 (@37)
 
@@ -5020,9 +5020,9 @@ state 104
 
 state 105
 
-    class_name  ->  r_cvar .   (rule 242)
+    static_or_variable_string  ->  r_cvar .   (rule 237)
 
-    $default	reduce using rule 242 (class_name)
+    $default	reduce using rule 237 (static_or_variable_string)
 
 
 
@@ -5036,8 +5036,8 @@ state 106
 
 state 107
 
-    exit_expr  ->  '(' . ')'   (rule 237)
-    exit_expr  ->  '(' . expr ')'   (rule 238)
+    exit_expr  ->  '(' . ')'   (rule 239)
+    exit_expr  ->  '(' . expr ')'   (rule 240)
 
     T_INCLUDE	shift, and go to state 3
     T_INCLUDE_ONCE	shift, and go to state 4
@@ -5169,9 +5169,19 @@ state 109
 
 state 110
 
-    function_call  ->  T_STRING T_PAAMAYIM_NEKUDOTAYIM . T_STRING '(' @47 function_call_parameter_list ')'   (rule 235)
+    function_call  ->  T_STRING T_PAAMAYIM_NEKUDOTAYIM . static_or_variable_string '(' @47 function_call_parameter_list ')'   (rule 235)
 
-    T_STRING	shift, and go to state 204
+    T_STRING	shift, and go to state 103
+    T_VARIABLE	shift, and go to state 30
+    '$' 	shift, and go to state 60
+
+    static_or_variable_string	go to state 204
+    r_cvar	go to state 105
+    cvar	go to state 106
+    cvar_without_objects	go to state 77
+    reference_variable	go to state 78
+    compound_variable	go to state 79
+    simple_indirect_reference	go to state 80
 
 
 
@@ -5779,7 +5789,7 @@ state 129
     expr_without_variable  ->  cvar . '=' expr   (rule 156)
     expr_without_variable  ->  cvar . '=' '&' w_cvar   (rule 157)
     expr_without_variable  ->  cvar . '=' '&' function_call   (rule 158)
-    expr_without_variable  ->  cvar . '=' '&' T_NEW class_name @36 ctor_arguments   (rule 160)
+    expr_without_variable  ->  cvar . '=' '&' T_NEW static_or_variable_string @36 ctor_arguments   (rule 160)
     expr_without_variable  ->  cvar . T_PLUS_EQUAL expr   (rule 163)
     expr_without_variable  ->  cvar . T_MINUS_EQUAL expr   (rule 164)
     expr_without_variable  ->  cvar . T_MUL_EQUAL expr   (rule 165)
@@ -7610,7 +7620,7 @@ state 180
     expr_without_variable  ->  cvar '=' . expr   (rule 156)
     expr_without_variable  ->  cvar '=' . '&' w_cvar   (rule 157)
     expr_without_variable  ->  cvar '=' . '&' function_call   (rule 158)
-    expr_without_variable  ->  cvar '=' . '&' T_NEW class_name @36 ctor_arguments   (rule 160)
+    expr_without_variable  ->  cvar '=' . '&' T_NEW static_or_variable_string @36 ctor_arguments   (rule 160)
 
     T_INCLUDE	shift, and go to state 3
     T_INCLUDE_ONCE	shift, and go to state 4
@@ -8604,11 +8614,11 @@ state 199
 
 state 200
 
-    expr_without_variable  ->  T_NEW class_name @37 . ctor_arguments   (rule 162)
+    expr_without_variable  ->  T_NEW static_or_variable_string @37 . ctor_arguments   (rule 162)
 
     '(' 	shift, and go to state 313
 
-    $default	reduce using rule 239 (ctor_arguments)
+    $default	reduce using rule 241 (ctor_arguments)
 
     ctor_arguments	go to state 314
 
@@ -8616,9 +8626,9 @@ state 200
 
 state 201
 
-    exit_expr  ->  '(' ')' .   (rule 237)
+    exit_expr  ->  '(' ')' .   (rule 239)
 
-    $default	reduce using rule 237 (exit_expr)
+    $default	reduce using rule 239 (exit_expr)
 
 
 
@@ -8649,7 +8659,7 @@ state 202
     expr_without_variable  ->  expr . '>' expr   (rule 208)
     expr_without_variable  ->  expr . T_IS_GREATER_OR_EQUAL expr   (rule 209)
     expr_without_variable  ->  expr . '?' @42 expr ':' @43 expr   (rule 213)
-    exit_expr  ->  '(' expr . ')'   (rule 238)
+    exit_expr  ->  '(' expr . ')'   (rule 240)
 
     T_LOGICAL_OR	shift, and go to state 152
     T_LOGICAL_XOR	shift, and go to state 153
@@ -8741,7 +8751,7 @@ state 203
 
 state 204
 
-    function_call  ->  T_STRING T_PAAMAYIM_NEKUDOTAYIM T_STRING . '(' @47 function_call_parameter_list ')'   (rule 235)
+    function_call  ->  T_STRING T_PAAMAYIM_NEKUDOTAYIM static_or_variable_string . '(' @47 function_call_parameter_list ')'   (rule 235)
 
     '(' 	shift, and go to state 317
 
@@ -9053,7 +9063,7 @@ state 215
     expr_without_variable  ->  cvar . '=' expr   (rule 156)
     expr_without_variable  ->  cvar . '=' '&' w_cvar   (rule 157)
     expr_without_variable  ->  cvar . '=' '&' function_call   (rule 158)
-    expr_without_variable  ->  cvar . '=' '&' T_NEW class_name @36 ctor_arguments   (rule 160)
+    expr_without_variable  ->  cvar . '=' '&' T_NEW static_or_variable_string @36 ctor_arguments   (rule 160)
     expr_without_variable  ->  cvar . T_PLUS_EQUAL expr   (rule 163)
     expr_without_variable  ->  cvar . T_MINUS_EQUAL expr   (rule 164)
     expr_without_variable  ->  cvar . T_MUL_EQUAL expr   (rule 165)
@@ -11122,7 +11132,7 @@ state 294
 
     expr_without_variable  ->  cvar '=' '&' . w_cvar   (rule 157)
     expr_without_variable  ->  cvar '=' '&' . function_call   (rule 158)
-    expr_without_variable  ->  cvar '=' '&' . T_NEW class_name @36 ctor_arguments   (rule 160)
+    expr_without_variable  ->  cvar '=' '&' . T_NEW static_or_variable_string @36 ctor_arguments   (rule 160)
 
     T_NEW	shift, and go to state 376
     T_STRING	shift, and go to state 377
@@ -12032,7 +12042,7 @@ state 312
 
 state 313
 
-    ctor_arguments  ->  '(' . function_call_parameter_list ')'   (rule 240)
+    ctor_arguments  ->  '(' . function_call_parameter_list ')'   (rule 242)
 
     T_INCLUDE	shift, and go to state 3
     T_INCLUDE_ONCE	shift, and go to state 4
@@ -12098,7 +12108,7 @@ state 313
 
 state 314
 
-    expr_without_variable  ->  T_NEW class_name @37 ctor_arguments .   (rule 162)
+    expr_without_variable  ->  T_NEW static_or_variable_string @37 ctor_arguments .   (rule 162)
 
     $default	reduce using rule 162 (expr_without_variable)
 
@@ -12106,9 +12116,9 @@ state 314
 
 state 315
 
-    exit_expr  ->  '(' expr ')' .   (rule 238)
+    exit_expr  ->  '(' expr ')' .   (rule 240)
 
-    $default	reduce using rule 238 (exit_expr)
+    $default	reduce using rule 240 (exit_expr)
 
 
 
@@ -12127,7 +12137,7 @@ state 316
 
 state 317
 
-    function_call  ->  T_STRING T_PAAMAYIM_NEKUDOTAYIM T_STRING '(' . @47 function_call_parameter_list ')'   (rule 235)
+    function_call  ->  T_STRING T_PAAMAYIM_NEKUDOTAYIM static_or_variable_string '(' . @47 function_call_parameter_list ')'   (rule 235)
 
     $default	reduce using rule 234 (@47)
 
@@ -12189,7 +12199,7 @@ state 322
     expr_without_variable  ->  cvar . '=' expr   (rule 156)
     expr_without_variable  ->  cvar . '=' '&' w_cvar   (rule 157)
     expr_without_variable  ->  cvar . '=' '&' function_call   (rule 158)
-    expr_without_variable  ->  cvar . '=' '&' T_NEW class_name @36 ctor_arguments   (rule 160)
+    expr_without_variable  ->  cvar . '=' '&' T_NEW static_or_variable_string @36 ctor_arguments   (rule 160)
     expr_without_variable  ->  cvar . T_PLUS_EQUAL expr   (rule 163)
     expr_without_variable  ->  cvar . T_MINUS_EQUAL expr   (rule 164)
     expr_without_variable  ->  cvar . T_MUL_EQUAL expr   (rule 165)
@@ -13270,13 +13280,13 @@ state 375
 
 state 376
 
-    expr_without_variable  ->  cvar '=' '&' T_NEW . class_name @36 ctor_arguments   (rule 160)
+    expr_without_variable  ->  cvar '=' '&' T_NEW . static_or_variable_string @36 ctor_arguments   (rule 160)
 
     T_STRING	shift, and go to state 103
     T_VARIABLE	shift, and go to state 30
     '$' 	shift, and go to state 60
 
-    class_name	go to state 433
+    static_or_variable_string	go to state 433
     r_cvar	go to state 105
     cvar	go to state 106
     cvar_without_objects	go to state 77
@@ -13289,7 +13299,7 @@ state 376
 state 377
 
     function_call  ->  T_STRING . '(' @45 function_call_parameter_list ')'   (rule 231)
-    function_call  ->  T_STRING . T_PAAMAYIM_NEKUDOTAYIM T_STRING '(' @47 function_call_parameter_list ')'   (rule 235)
+    function_call  ->  T_STRING . T_PAAMAYIM_NEKUDOTAYIM static_or_variable_string '(' @47 function_call_parameter_list ')'   (rule 235)
 
     T_PAAMAYIM_NEKUDOTAYIM	shift, and go to state 110
     '(' 	shift, and go to state 111
@@ -13468,7 +13478,7 @@ state 390
 
 state 391
 
-    ctor_arguments  ->  '(' function_call_parameter_list . ')'   (rule 240)
+    ctor_arguments  ->  '(' function_call_parameter_list . ')'   (rule 242)
 
     ')' 	shift, and go to state 440
 
@@ -13567,7 +13577,7 @@ state 393
 
 state 394
 
-    function_call  ->  T_STRING T_PAAMAYIM_NEKUDOTAYIM T_STRING '(' @47 . function_call_parameter_list ')'   (rule 235)
+    function_call  ->  T_STRING T_PAAMAYIM_NEKUDOTAYIM static_or_variable_string '(' @47 . function_call_parameter_list ')'   (rule 235)
 
     T_INCLUDE	shift, and go to state 3
     T_INCLUDE_ONCE	shift, and go to state 4
@@ -14451,7 +14461,7 @@ state 432
 
 state 433
 
-    expr_without_variable  ->  cvar '=' '&' T_NEW class_name . @36 ctor_arguments   (rule 160)
+    expr_without_variable  ->  cvar '=' '&' T_NEW static_or_variable_string . @36 ctor_arguments   (rule 160)
 
     $default	reduce using rule 159 (@36)
 
@@ -14670,9 +14680,9 @@ state 439
 
 state 440
 
-    ctor_arguments  ->  '(' function_call_parameter_list ')' .   (rule 240)
+    ctor_arguments  ->  '(' function_call_parameter_list ')' .   (rule 242)
 
-    $default	reduce using rule 240 (ctor_arguments)
+    $default	reduce using rule 242 (ctor_arguments)
 
 
 
@@ -14698,7 +14708,7 @@ state 442
 
 state 443
 
-    function_call  ->  T_STRING T_PAAMAYIM_NEKUDOTAYIM T_STRING '(' @47 function_call_parameter_list . ')'   (rule 235)
+    function_call  ->  T_STRING T_PAAMAYIM_NEKUDOTAYIM static_or_variable_string '(' @47 function_call_parameter_list . ')'   (rule 235)
 
     ')' 	shift, and go to state 497
 
@@ -14737,7 +14747,7 @@ state 446
     expr_without_variable  ->  cvar . '=' expr   (rule 156)
     expr_without_variable  ->  cvar . '=' '&' w_cvar   (rule 157)
     expr_without_variable  ->  cvar . '=' '&' function_call   (rule 158)
-    expr_without_variable  ->  cvar . '=' '&' T_NEW class_name @36 ctor_arguments   (rule 160)
+    expr_without_variable  ->  cvar . '=' '&' T_NEW static_or_variable_string @36 ctor_arguments   (rule 160)
     expr_without_variable  ->  cvar . T_PLUS_EQUAL expr   (rule 163)
     expr_without_variable  ->  cvar . T_MINUS_EQUAL expr   (rule 164)
     expr_without_variable  ->  cvar . T_MUL_EQUAL expr   (rule 165)
@@ -15576,11 +15586,11 @@ state 489
 
 state 490
 
-    expr_without_variable  ->  cvar '=' '&' T_NEW class_name @36 . ctor_arguments   (rule 160)
+    expr_without_variable  ->  cvar '=' '&' T_NEW static_or_variable_string @36 . ctor_arguments   (rule 160)
 
     '(' 	shift, and go to state 313
 
-    $default	reduce using rule 239 (ctor_arguments)
+    $default	reduce using rule 241 (ctor_arguments)
 
     ctor_arguments	go to state 535
 
@@ -15706,7 +15716,7 @@ state 496
 
 state 497
 
-    function_call  ->  T_STRING T_PAAMAYIM_NEKUDOTAYIM T_STRING '(' @47 function_call_parameter_list ')' .   (rule 235)
+    function_call  ->  T_STRING T_PAAMAYIM_NEKUDOTAYIM static_or_variable_string '(' @47 function_call_parameter_list ')' .   (rule 235)
 
     $default	reduce using rule 235 (function_call)
 
@@ -16320,7 +16330,7 @@ state 534
 
 state 535
 
-    expr_without_variable  ->  cvar '=' '&' T_NEW class_name @36 ctor_arguments .   (rule 160)
+    expr_without_variable  ->  cvar '=' '&' T_NEW static_or_variable_string @36 ctor_arguments .   (rule 160)
 
     $default	reduce using rule 160 (expr_without_variable)
 

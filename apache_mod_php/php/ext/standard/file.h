@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: file.h,v 1.1.1.4 2001/07/19 00:20:13 zarzycki Exp $ */
+/* $Id: file.h,v 1.1.1.5 2001/12/14 22:13:20 zarzycki Exp $ */
 
 /* Synced with php 3.0 revision 1.30 1999-06-16 [ssb] */
 
@@ -63,19 +63,21 @@ PHP_FUNCTION(flock);
 PHP_FUNCTION(fd_set);
 PHP_FUNCTION(fd_isset);
 PHP_FUNCTION(select);
+#if (!defined(PHP_WIN32) && !defined(__BEOS__) && HAVE_REALPATH) || defined(ZTS)
 PHP_FUNCTION(realpath);
+#endif
 PHP_NAMED_FUNCTION(php_if_ftruncate);
 PHP_NAMED_FUNCTION(php_if_fstat);
 
 /* temporary function for testing streams */
 PHP_FUNCTION(fopenstream);
 
-
 PHPAPI int php_set_sock_blocking(int socketd, int block);
 PHPAPI int php_file_le_fopen(void);
+PHPAPI int php_file_le_stream(void);
 PHPAPI int php_file_le_popen(void);
 PHPAPI int php_file_le_socket(void);
-PHPAPI int php_copy_file(char *src, char *dest);
+PHPAPI int php_copy_file(char *src, char *dest TSRMLS_DC);
 
 #define META_DEF_BUFSIZE 8192
 
@@ -91,34 +93,37 @@ typedef enum _php_meta_tags_token {
 	TOK_OTHER
 } php_meta_tags_token;
 
-php_meta_tags_token php_next_meta_token(FILE *, int, int, int *, int *, char **, int *);
+typedef struct _php_meta_tags_data {
+  FILE *fp;
+  int socketd;
+  int issock;
+  int ulc;
+  int lc;
+  char *input_buffer;
+  char *token_data;
+  int token_len;
+  int in_meta;
+} php_meta_tags_data;
+
+php_meta_tags_token php_next_meta_token(php_meta_tags_data *);
 
 typedef struct {
-	int fgetss_state;
-	int pclose_ret;
-	HashTable ht_fsock_keys;
-	HashTable ht_fsock_socks;
-	struct php_sockbuf *phpsockbuf;
-	size_t def_chunk_size;
+  int fgetss_state;
+  int pclose_ret;
+  HashTable ht_fsock_keys;
+  HashTable ht_fsock_socks;
+  struct php_sockbuf *phpsockbuf;
+  size_t def_chunk_size;
 } php_file_globals;
 
 #ifdef ZTS
-#define FLS_D php_file_globals *file_globals
-#define FLS_DC , FLS_D
-#define FLS_C file_globals
-#define FLS_CC , FLS_C
-#define FG(v) (file_globals->v)
-#define FLS_FETCH() php_file_globals *file_globals = ts_resource(file_globals_id)
+#define FG(v) TSRMG(file_globals_id, php_file_globals *, v)
 extern int file_globals_id;
 #else
-#define FLS_D	void
-#define FLS_DC
-#define FLS_C
-#define FLS_CC
 #define FG(v) (file_globals.v)
-#define FLS_FETCH()
 extern php_file_globals file_globals;
 #endif
 
 
 #endif /* FILE_H */
+

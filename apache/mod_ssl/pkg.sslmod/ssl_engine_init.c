@@ -1086,6 +1086,8 @@ void ssl_init_ModuleKill(void *data)
     EVP_cleanup();
 #endif
 
+    ssl_util_thread_cleanup();
+
     return;
 }
 

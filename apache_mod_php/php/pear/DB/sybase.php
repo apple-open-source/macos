@@ -16,7 +16,7 @@
 // | Authors: Sterling Hughes <sterling@php.net>                          |
 // +----------------------------------------------------------------------+
 //
-// $Id: sybase.php,v 1.1.1.3 2001/07/19 00:20:45 zarzycki Exp $
+// $Id: sybase.php,v 1.1.1.4 2001/12/14 22:14:30 zarzycki Exp $
 //
 // Database independent query interface definition for PHP's Sybase
 // extension.
@@ -44,7 +44,8 @@ class DB_sybase extends DB_common
         $this->features = array(
             'prepare' => false,
             'pconnect' => true,
-            'transactions' => false
+            'transactions' => false,
+            'limit' => 'emulate'
         );
     }
 
@@ -53,11 +54,35 @@ class DB_sybase extends DB_common
 
     function connect($dsninfo, $persistent = false)
     {
+        if (!DB::assertExtension('sybase'))
+            return $this->raiseError(DB_ERROR_EXTENSION_NOT_FOUND);
+
         $this->dsn = $dsninfo;
+        $user = $dsninfo['username'];
+        $pw   = $dsninfo['password'];
+
         $dbhost = $dsninfo['hostspec'] ? $dsninfo['hostspec'] : 'localhost';
         $connect_function = $persistent ? 'sybase_pconnect' : 'sybase_connect';
-        $conn = $dbhost ? $connect_function($dbhost) : false;
-        $dsninfo['database'] && @sybase_select_db($dsninfo['database'], $conn);
+
+        if ($dbhost && $user && $pw) {
+            $conn = $connect_function($dbhost, $user, $pw);
+        } elseif ($dbhost && $user) {
+            $conn = $connect_function($dbhost, $user);
+        } elseif ($dbhost) {
+            $conn = $connect_function($dbhost);
+        } else {
+            $conn = $connect_function();
+        }
+
+        if (!$conn) {
+            return $this->raiseError(DB_ERROR_CONNECT_FAILED);
+        }
+
+        if ($dsninfo['database']) {
+            if (!@sybase_select_db($dsninfo['database'], $conn)) {
+                return $this->raiseError(DB_ERROR_NODBSELECTED);
+            }
+        }
         $this->connection = $conn;
         return DB_OK;
     }
@@ -67,7 +92,9 @@ class DB_sybase extends DB_common
 
     function disconnect()
     {
-        return @sybase_close($this->connection);
+        $ret = @sybase_close($this->connection);
+        $this->connection = null;
+        return $ret;
     }
 
     // }}}
@@ -87,21 +114,34 @@ class DB_sybase extends DB_common
     }
 
     // }}}
+    // {{{ nextResult()
+
+    /**
+     * Move the internal sybase result pointer to the next available result
+     *
+     * @param a valid fbsql result resource
+     *
+     * @access public
+     *
+     * @return true if a result is available otherwise return false
+     */
+    function nextResult($result)
+    {
+        return false;
+    }
+
+    // }}}
     // {{{ fetchRow()
-    function &fetchRow($result, $fetchmode = DB_FETCHMODE_DEFAULT)
+    function &fetchRow($result, $fetchmode = DB_FETCHMODE_DEFAULT, $rownum=null)
     {
         if ($fetchmode == DB_FETCHMODE_DEFAULT) {
             $fetchmode = $this->fetchmode;
         }
-        $row = ($fetchmode & DB_FETCHMODE_ASSOC) ? @sybase_fetch_array($result) : @sybase_fetch_row($result);
-        if (!$row) {
-            if ($errmsg = sybase_get_last_message()) {
-                return $this->raiseError($errmsg);
-            } else {
-                return null;
-            }
+        $res = $this->fetchInto ($result, $arr, $fetchmode, $rownum);
+        if ($res !== DB_OK) {
+            return $res;
         }
-        return $row;
+        return $arr;
     }
 
     // }}}
@@ -114,16 +154,15 @@ class DB_sybase extends DB_common
                 return $this->raiseError();
             }
         }
-        if ($fetchmode == DB_FETCHMODE_DEFAULT) {
-            $fetchmode = $this->fetchmode;
-        }
         $ar = ($fetchmode & DB_FETCHMODE_ASSOC) ? @sybase_fetch_array($result) : @sybase_fetch_row($result);
         if (!$ar) {
-            if ($errmsg = sybase_get_last_message()) {
-                return $this->raiseError($errmsg);
-            } else {
+            // reported not work as seems that sybase_get_last_message()
+            // always return a message here
+            //if ($errmsg = sybase_get_last_message()) {
+            //    return $this->raiseError($errmsg);
+            //} else {
                 return null;
-            }
+            //}
         }
         return DB_OK;
     }
@@ -157,6 +196,50 @@ class DB_sybase extends DB_common
     }
 
     // }}}
+    // {{{ affectedRows()
+
+    /**
+     * Gets the number of rows affected by the data manipulation
+     * query.  For other queries, this function returns 0.
+     *
+     * @return number of rows affected by the last query
+     */
+
+    function affectedRows()
+    {
+        if (DB::isManip($this->last_query)) {
+            $result = @sybase_affected_rows($this->connection);
+        } else {
+            $result = 0;
+        }
+        return $result;
+     }
+
+    // }}}
+    // {{{ getSpecialQuery()
+
+    /**
+    * Returns the query needed to get some backend info
+    * @param string $type What kind of info you want to retrieve
+    * @return string The SQL query string
+    */
+    function getSpecialQuery($type)
+    {
+        switch ($type) {
+            case 'tables':
+                $sql = "select name from sysobjects where type = 'U' order by name";
+                break;
+            case 'views':
+                $sql = "select name from sysobjects where type = 'V'";
+                break;
+            default:
+                return null;
+        }
+        return $sql;
+    }
+
+    // }}}
+
 }
 
 /*

@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: exec.h,v 1.1.1.4 2001/07/19 00:20:12 zarzycki Exp $ */
+/* $Id: exec.h,v 1.1.1.5 2001/12/14 22:13:20 zarzycki Exp $ */
 
 #ifndef EXEC_H
 #define EXEC_H
@@ -29,4 +29,7 @@ PHP_FUNCTION(passthru);
 PHP_FUNCTION(shell_exec);
 
 char *php_escape_shell_cmd(char *);
+char *php_escape_shell_arg(char *);
+int php_Exec(int type, char *cmd, pval *array, pval *return_value TSRMLS_DC);
+
 #endif /* EXEC_H */

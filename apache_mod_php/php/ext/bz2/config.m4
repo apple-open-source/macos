@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.1.1.2 2001/07/19 00:18:57 zarzycki Exp $
+dnl $Id: config.m4,v 1.1.1.3 2001/12/14 22:12:00 zarzycki Exp $
 dnl config.m4 for extension BZip2
 
 PHP_ARG_WITH(bz2, for BZip2 support,

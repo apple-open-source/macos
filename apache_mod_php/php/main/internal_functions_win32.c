@@ -18,9 +18,10 @@
  */
 
 
-/* $Id: internal_functions_win32.c,v 1.1.1.3 2001/07/19 00:20:36 zarzycki Exp $ */
+/* $Id: internal_functions_win32.c,v 1.1.1.4 2001/12/14 22:13:45 zarzycki Exp $ */
 
-
+/* {{{ includes
+ */
 #include "php.h"
 #include "php_main.h"
 #include "zend_modules.h"
@@ -46,7 +47,6 @@
 #include "ext/standard/php_ext_syslog.h"
 #include "ext/standard/php_standard.h"
 #include "ext/standard/php_lcg.h"
-#include "ext/standard/php_output.h"
 #include "ext/standard/php_array.h"
 #include "ext/standard/php_assert.h"
 #include "ext/calendar/php_calendar.h"
@@ -60,7 +60,11 @@
 #include "ext/xml/php_xml.h"
 #include "ext/wddx/php_wddx.h"
 #include "ext/mysql/php_mysql.h"
+#include "ext/mbstring/mbstring.h"
+/* }}} */
 
+/* {{{ php_builtin_extensions[]
+ */
 zend_module_entry *php_builtin_extensions[] = {
 	phpext_standard_ptr,
 #if WITH_BCMATH
@@ -70,6 +74,9 @@ zend_module_entry *php_builtin_extensions[] = {
 	COM_module_ptr,
 	VARIANT_module_ptr,
 	phpext_ftp_ptr,
+#if defined(MBSTR_ENC_TRANS)
+	phpext_mbstring_ptr,
+#endif
 	phpext_mysql_ptr,
 	phpext_odbc_ptr,
 	phpext_pcre_ptr,
@@ -77,6 +84,7 @@ zend_module_entry *php_builtin_extensions[] = {
 	phpext_xml_ptr,
 	phpext_wddx_ptr
 };
+/* }}} */
 
 #define EXTCOUNT (sizeof(php_builtin_extensions)/sizeof(zend_module_entry *))
 
@@ -86,20 +94,12 @@ int php_startup_internal_extensions(void)
 	return php_startup_extensions(php_builtin_extensions, EXTCOUNT);
 }
 
-int php_global_startup_internal_extensions(void)
-{
-	return php_global_startup_extensions(php_builtin_extensions, EXTCOUNT);
-}
-
-int php_global_shutdown_internal_extensions(void)
-{
-	return php_global_shutdown_extensions(php_builtin_extensions, EXTCOUNT);
-}
-
 
 /*
  * Local variables:
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_content_types.c,v 1.1.1.3 2001/07/19 00:20:37 zarzycki Exp $ */
+/* $Id: php_content_types.c,v 1.1.1.4 2001/12/14 22:13:47 zarzycki Exp $ */
 
 #include "php.h"
 #include "SAPI.h"
@@ -24,34 +24,42 @@
 
 #include "php_content_types.h"
 
+/* {{{ php_post_entries[]
+ */
 static sapi_post_entry php_post_entries[] = {
 	{ DEFAULT_POST_CONTENT_TYPE,	sizeof(DEFAULT_POST_CONTENT_TYPE)-1,	sapi_read_standard_form_data,	php_std_post_handler },
 	{ MULTIPART_CONTENT_TYPE,		sizeof(MULTIPART_CONTENT_TYPE)-1,		sapi_read_standard_form_data,	rfc1867_post_handler },
 	{ NULL, 0, NULL }
 };
+/* }}} */
 
-
+/* {{{ SAPI_POST_READER_FUNC
+ */
 SAPI_POST_READER_FUNC(php_default_post_reader)
 {
 	char *data;
-	ELS_FETCH();
 
-	sapi_read_standard_form_data(SLS_C);
-	data = estrndup(SG(request_info).post_data,SG(request_info).post_data_length);
+	if(!SG(request_info).post_data) sapi_read_standard_form_data(TSRMLS_C);
+	data = estrndup(SG(request_info).post_data, SG(request_info).post_data_length);
 	SET_VAR_STRINGL("HTTP_RAW_POST_DATA", data, SG(request_info).post_data_length);
 }
+/* }}} */
 
-
+/* {{{ php_startup_sapi_content_types
+ */
 int php_startup_sapi_content_types(void)
 {
 	sapi_register_post_entries(php_post_entries);
 	sapi_register_default_post_reader(php_default_post_reader);
 	return SUCCESS;
 }
+/* }}} */
 
 /*
  * Local variables:
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

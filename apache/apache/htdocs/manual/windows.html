@@ -416,12 +416,14 @@
         Apache for Windows has the ability to load modules at
         runtime, without recompiling the server. If Apache is
         compiled normally, it will install a number of optional
-        modules in the <code>\modules</code> directory. To activate
+        modules in the <code>modules</code> directory. To activate
         these, or other modules, the new <a
         href="mod/mod_so.html#loadmodule">LoadModule</a> directive
-        must be used. For example, to active the status module, use
+        must be used. For example, to activate the status module, use
         the following (in addition to the status-activating
-        directives in <code>access.conf</code>): 
+        directives in <code>httpd.conf</code> - see <a
+        href="mod/mod_status.html">the mod_status docs</a> for more
+        details.): 
 <pre>
     LoadModule status_module modules/mod_status.so
 </pre>
@@ -431,8 +433,7 @@
         modules</a> is also available. Note that some 3rd party
         modules may be distributed in the old style names,
         ApacheModuleFoo.dll. Always set the LoadModule command as
-        directed as documented by the 3rd party module's own
-        documentation.</p>
+        directed by the 3rd party module's own documentation.</p>
       </li>
 
       <li>Apache for Windows version 1.3 series is implemented in

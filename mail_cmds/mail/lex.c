@@ -1,5 +1,3 @@
-/*	$NetBSD: lex.c,v 1.11 1997/10/19 05:03:29 lukem Exp $	*/
-
 /*
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,16 +31,17 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)lex.c	8.2 (Berkeley) 4/20/95";
-#else
-__RCSID("$NetBSD: lex.c,v 1.11 1997/10/19 05:03:29 lukem Exp $");
 #endif
+static const char rcsid[] =
+  "$FreeBSD: src/usr.bin/mail/lex.c,v 1.13 2001/12/19 21:50:22 ache Exp $";
 #endif /* not lint */
 
 #include "rcv.h"
+#include <errno.h>
+#include <fcntl.h>
 #include "extern.h"
 
 /*
@@ -51,7 +50,10 @@ __RCSID("$NetBSD: lex.c,v 1.11 1997/10/19 05:03:29 lukem Exp $");
  * Lexical processing of commands.
  */
 
-char	*prompt = "& ";
+const char	*prompt = "& ";
+
+extern const struct cmd cmdtab[];
+extern const char *version;	
 
 /*
  * Set up editing on the given file name.
@@ -64,44 +66,33 @@ setfile(name)
 	char *name;
 {
 	FILE *ibuf;
-	int i;
+	int i, fd;
 	struct stat stb;
-	char isedit = *name != '%';
+	char isedit = *name != '%' || getuserid(myname) != getuid();
 	char *who = name[1] ? name + 1 : myname;
+	char tempname[PATHSIZE];
 	static int shudclob;
-	extern char *tempMesg;
-	extern int errno;
 
-	if ((name = expand(name)) == NOSTR)
-		return -1;
+	if ((name = expand(name)) == NULL)
+		return (-1);
 
 	if ((ibuf = Fopen(name, "r")) == NULL) {
 		if (!isedit && errno == ENOENT)
 			goto nomail;
-		perror(name);
-		return(-1);
+		warn("%s", name);
+		return (-1);
 	}
 
 	if (fstat(fileno(ibuf), &stb) < 0) {
-		perror("fstat");
-		Fclose(ibuf);
+		warn("fstat");
+		(void)Fclose(ibuf);
 		return (-1);
 	}
 
-	switch (stb.st_mode & S_IFMT) {
-	case S_IFDIR:
-		Fclose(ibuf);
-		errno = EISDIR;
-		perror(name);
-		return (-1);
-
-	case S_IFREG:
-		break;
-
-	default:
-		Fclose(ibuf);
-		errno = EINVAL;
-		perror(name);
+	if (S_ISDIR(stb.st_mode) || !S_ISREG(stb.st_mode)) {
+		(void)Fclose(ibuf);
+		errno = S_ISDIR(stb.st_mode) ? EISDIR : EINVAL;
+		warn("%s", name);
 		return (-1);
 	}
 
@@ -125,28 +116,26 @@ setfile(name)
 	if ((i = open(name, 1)) < 0)
 		readonly++;
 	else
-		close(i);
+		(void)close(i);
 	if (shudclob) {
-		fclose(itf);
-		fclose(otf);
+		(void)fclose(itf);
+		(void)fclose(otf);
 	}
 	shudclob = 1;
 	edit = isedit;
-	strcpy(prevfile, mailname);
+	strlcpy(prevfile, mailname, sizeof(prevfile));
 	if (name != mailname)
-		strcpy(mailname, name);
+		strlcpy(mailname, name, sizeof(mailname));
 	mailsize = fsize(ibuf);
-	if ((otf = fopen(tempMesg, "w")) == NULL) {
-		perror(tempMesg);
-		exit(1);
-	}
-	(void) fcntl(fileno(otf), F_SETFD, 1);
-	if ((itf = fopen(tempMesg, "r")) == NULL) {
-		perror(tempMesg);
-		exit(1);
-	}
-	(void) fcntl(fileno(itf), F_SETFD, 1);
-	rm(tempMesg);
+	(void)snprintf(tempname, sizeof(tempname),
+	    "%s/mail.RxXXXXXXXXXX", tmpdir);
+	if ((fd = mkstemp(tempname)) == -1 || (otf = fdopen(fd, "w")) == NULL)
+		err(1, "%s", tempname);
+	(void)fcntl(fileno(otf), F_SETFD, 1);
+	if ((itf = fopen(tempname, "r")) == NULL)
+		err(1, "%s", tempname);
+	(void)fcntl(fileno(itf), F_SETFD, 1);
+	(void)rm(tempname);
 	setptr(ibuf, 0);
 	setmsize(msgCount);
 	/*
@@ -154,16 +143,16 @@ setfile(name)
 	 * the mail file, so reset mailsize to be where
 	 * we really are in the file...
 	 */
-	mailsize = ftell(ibuf);
-	Fclose(ibuf);
+	mailsize = ftello(ibuf);
+	(void)Fclose(ibuf);
 	relsesigs();
 	sawcom = 0;
 	if (!edit && msgCount == 0) {
 nomail:
 		fprintf(stderr, "No mail for %s\n", who);
-		return -1;
+		return (-1);
 	}
-	return(0);
+	return (0);
 }
 
 /*
@@ -173,27 +162,27 @@ nomail:
 int
 incfile()
 {
-	int newsize;
+	off_t newsize;
 	int omsgCount = msgCount;
 	FILE *ibuf;
 
 	ibuf = Fopen(mailname, "r");
 	if (ibuf == NULL)
-		return -1;
+		return (-1);
 	holdsigs();
 	newsize = fsize(ibuf);
 	if (newsize == 0)
-		return -1;		/* mail box is now empty??? */
+		return (-1);		/* mail box is now empty??? */
 	if (newsize < mailsize)
-		return -1;              /* mail box has shrunk??? */
+		return (-1);		/* mail box has shrunk??? */
 	if (newsize == mailsize)
-		return 0;               /* no new mail */
+		return (0);		/* no new mail */
 	setptr(ibuf, mailsize);
 	setmsize(msgCount);
-	mailsize = ftell(ibuf);
-	Fclose(ibuf);
+	mailsize = ftello(ibuf);
+	(void)Fclose(ibuf);
 	relsesigs();
-	return(msgCount - omsgCount);
+	return (msgCount - omsgCount);
 }
 
 int	*msgvec;
@@ -206,22 +195,17 @@ int	reset_on_stop;			/* do a reset() if stopped */
 void
 commands()
 {
-	int eofloop = 0;
-	int n;
+	int n, eofloop = 0;
 	char linebuf[LINESIZE];
-#if __GNUC__
-	/* Avoid longjmp clobbering */
-	(void) &eofloop;
-#endif
 
 	if (!sourcing) {
 		if (signal(SIGINT, SIG_IGN) != SIG_IGN)
-			signal(SIGINT, intr);
+			(void)signal(SIGINT, intr);
 		if (signal(SIGHUP, SIG_IGN) != SIG_IGN)
-			signal(SIGHUP, hangup);
-		signal(SIGTSTP, stop);
-		signal(SIGTTOU, stop);
-		signal(SIGTTIN, stop);
+			(void)signal(SIGHUP, hangup);
+		(void)signal(SIGTSTP, stop);
+		(void)signal(SIGTTOU, stop);
+		(void)signal(SIGTTIN, stop);
 	}
 	setexit();
 	for (;;) {
@@ -229,13 +213,13 @@ commands()
 		 * Print the prompt, if needed.  Clear out
 		 * string space, and flush the output.
 		 */
-		if (!sourcing && value("interactive") != NOSTR) {
-			if ((value("autoinc") != NOSTR) && (incfile() > 0))
+		if (!sourcing && value("interactive") != NULL) {
+			if ((value("autoinc") != NULL) && (incfile() > 0))
 				printf("New mail has arrived.\n");
 			reset_on_stop = 1;
-			printf(prompt);
+			printf("%s", prompt);
 		}
-		fflush(stdout);
+		(void)fflush(stdout);
 		sreset();
 		/*
 		 * Read a line of commands from the current input
@@ -264,8 +248,8 @@ commands()
 				unstack();
 				continue;
 			}
-			if (value("interactive") != NOSTR &&
-			    value("ignoreeof") != NOSTR &&
+			if (value("interactive") != NULL &&
+			    value("ignoreeof") != NULL &&
 			    ++eofloop < 25) {
 				printf("Use \"quit\" to quit.\n");
 				continue;
@@ -292,10 +276,9 @@ execute(linebuf, contxt)
 {
 	char word[LINESIZE];
 	char *arglist[MAXARGC];
-	const struct cmd *com = NULL;
+	const struct cmd *com;
 	char *cp, *cp2;
-	int c;
-	int muvec[2];
+	int c, muvec[2];
 	int e = 1;
 
 	/*
@@ -307,7 +290,7 @@ execute(linebuf, contxt)
 	 * lexical conventions.
 	 */
 
-	for (cp = linebuf; isspace(*cp); cp++)
+	for (cp = linebuf; isspace((unsigned char)*cp); cp++)
 		;
 	if (*cp == '!') {
 		if (sourcing) {
@@ -315,10 +298,10 @@ execute(linebuf, contxt)
 			goto out;
 		}
 		shell(cp+1);
-		return(0);
+		return (0);
 	}
 	cp2 = word;
-	while (*cp && index(" \t0123456789$^.:/-+*'\"", *cp) == NOSTR)
+	while (*cp != '\0' && strchr(" \t0123456789$^.:/-+*'\"", *cp) == NULL)
 		*cp2++ = *cp++;
 	*cp2 = '\0';
 
@@ -331,9 +314,9 @@ execute(linebuf, contxt)
 	 */
 
 	if (sourcing && *word == '\0')
-		return(0);
+		return (0);
 	com = lex(word);
-	if (com == NONE) {
+	if (com == NULL) {
 		printf("Unknown command: \"%s\"\n", word);
 		goto out;
 	}
@@ -345,7 +328,7 @@ execute(linebuf, contxt)
 
 	if ((com->c_argtype & F) == 0)
 		if ((cond == CRCV && !rcvmode) || (cond == CSEND && rcvmode))
-			return(0);
+			return (0);
 
 	/*
 	 * Process the arguments to the command, depending
@@ -386,8 +369,7 @@ execute(linebuf, contxt)
 		if ((c = getmsglist(cp, msgvec, com->c_msgflag)) < 0)
 			break;
 		if (c  == 0) {
-			*msgvec = first(com->c_msgflag,
-				com->c_msgmask);
+			*msgvec = first(com->c_msgflag, com->c_msgmask);
 			msgvec[1] = 0;
 		}
 		if (*msgvec == 0) {
@@ -416,7 +398,7 @@ execute(linebuf, contxt)
 		 * Just the straight string, with
 		 * leading blanks removed.
 		 */
-		while (isspace(*cp))
+		while (isspace((unsigned char)*cp))
 			cp++;
 		e = (*com->c_func)(cp);
 		break;
@@ -426,16 +408,16 @@ execute(linebuf, contxt)
 		 * A vector of strings, in shell style.
 		 */
 		if ((c = getrawlist(cp, arglist,
-				sizeof arglist / sizeof *arglist)) < 0)
+		    sizeof(arglist) / sizeof(*arglist))) < 0)
 			break;
 		if (c < com->c_minargs) {
 			printf("%s requires at least %d arg(s)\n",
-				com->c_name, com->c_minargs);
+			    com->c_name, com->c_minargs);
 			break;
 		}
 		if (c > com->c_maxargs) {
 			printf("%s takes no more than %d arg(s)\n",
-				com->c_name, com->c_maxargs);
+			    com->c_name, com->c_maxargs);
 			break;
 		}
 		e = (*com->c_func)(arglist);
@@ -460,16 +442,16 @@ out:
 	 */
 	if (e) {
 		if (e < 0)
-			return 1;
+			return (1);
 		if (loading)
-			return 1;
+			return (1);
 		if (sourcing)
 			unstack();
-		return 0;
+		return (0);
 	}
 	if (com == NULL)
-		return(0);
-	if (value("autoprint") != NOSTR && com->c_argtype & P)
+		return (0);
+	if (value("autoprint") != NULL && com->c_argtype & P)
 		if ((dot->m_flag & MDELETED) == 0) {
 			muvec[0] = dot - &message[0] + 1;
 			muvec[1] = 0;
@@ -477,7 +459,7 @@ out:
 		}
 	if (!sourcing && (com->c_argtype & T) == 0)
 		sawcom = 1;
-	return(0);
+	return (0);
 }
 
 /*
@@ -489,9 +471,9 @@ setmsize(sz)
 	int sz;
 {
 
-	if (msgvec != 0)
-		free((char *) msgvec);
-	msgvec = (int *) calloc((unsigned) (sz + 1), sizeof *msgvec);
+	if (msgvec != NULL)
+		(void)free(msgvec);
+	msgvec = calloc((unsigned)(sz + 1), sizeof(*msgvec));
 }
 
 /*
@@ -499,17 +481,27 @@ setmsize(sz)
  * to the passed command "word"
  */
 
-const struct cmd *
+__const struct cmd *
 lex(word)
 	char word[];
 {
-	extern const struct cmd cmdtab[];
 	const struct cmd *cp;
 
-	for (cp = &cmdtab[0]; cp->c_name != NOSTR; cp++)
+	/*
+	 * ignore trailing chars after `#'
+	 *
+	 * lines with beginning `#' are comments
+	 * spaces before `#' are ignored in execute()
+	 */
+
+	if (*word == '#')
+	    *(word+1) = '\0';
+
+
+	for (cp = &cmdtab[0]; cp->c_name != NULL; cp++)
 		if (isprefix(word, cp->c_name))
-			return(cp);
-	return(NONE);
+			return (cp);
+	return (NULL);
 }
 
 /*
@@ -518,16 +510,16 @@ lex(word)
  */
 int
 isprefix(as1, as2)
-	char *as1, *as2;
+	const char *as1, *as2;
 {
-	char *s1, *s2;
+	const char *s1, *s2;
 
 	s1 = as1;
 	s2 = as2;
 	while (*s1++ == *s2)
 		if (*s2++ == '\0')
-			return(1);
-	return(*--s1 == '\0');
+			return (1);
+	return (*--s1 == '\0');
 }
 
 /*
@@ -556,7 +548,7 @@ intr(s)
 	close_all_files();
 
 	if (image >= 0) {
-		close(image);
+		(void)close(image);
 		image = -1;
 	}
 	fprintf(stderr, "Interrupt\n");
@@ -573,12 +565,12 @@ stop(s)
 	sig_t old_action = signal(s, SIG_DFL);
 	sigset_t nset;
 
-	sigemptyset(&nset);
-	sigaddset(&nset, s);
-	sigprocmask(SIG_UNBLOCK, &nset, NULL);
-	kill(0, s);
-	sigprocmask(SIG_BLOCK, &nset, NULL);
-	signal(s, old_action);
+	(void)sigemptyset(&nset);
+	(void)sigaddset(&nset, s);
+	(void)sigprocmask(SIG_UNBLOCK, &nset, NULL);
+	(void)kill(0, s);
+	(void)sigprocmask(SIG_BLOCK, &nset, NULL);
+	(void)signal(s, old_action);
 	if (reset_on_stop) {
 		reset_on_stop = 0;
 		reset(0);
@@ -611,7 +603,7 @@ announce()
 	vec[0] = mdot;
 	vec[1] = 0;
 	dot = &message[mdot - 1];
-	if (msgCount > 0 && value("noheader") == NOSTR) {
+	if (msgCount > 0 && value("noheader") == NULL) {
 		inithdr++;
 		headers(vec);
 		inithdr = 0;
@@ -627,8 +619,8 @@ newfileinfo(omsgCount)
 	int omsgCount;
 {
 	struct message *mp;
-	int u, n, mdot, d, s, l;
-	char fname[PATHSIZE], zname[PATHSIZE], *ename;
+	int u, n, mdot, d, s;
+	char fname[PATHSIZE+1], zname[PATHSIZE+1], *ename;
 
 	for (mp = &message[omsgCount]; mp < &message[msgCount]; mp++)
 		if (mp->m_flag & MNEW)
@@ -653,13 +645,11 @@ newfileinfo(omsgCount)
 			s++;
 	}
 	ename = mailname;
-	if (getfold(fname) >= 0) {
-		l = strlen(fname);
-		if (l < PATHSIZE - 1)
-			fname[l++] = '/';
-		if (strncmp(fname, mailname, l) == 0) {
-			snprintf(zname, PATHSIZE, "+%s",
-			    mailname + l);
+	if (getfold(fname, sizeof(fname) - 1) >= 0) {
+		strcat(fname, "/");
+		if (strncmp(fname, mailname, strlen(fname)) == 0) {
+			(void)snprintf(zname, sizeof(zname), "+%s",
+			    mailname + strlen(fname));
 			ename = zname;
 		}
 	}
@@ -679,7 +669,7 @@ newfileinfo(omsgCount)
 	if (readonly)
 		printf(" [Read only]");
 	printf("\n");
-	return(mdot);
+	return (mdot);
 }
 
 /*
@@ -688,13 +678,12 @@ newfileinfo(omsgCount)
 
 /*ARGSUSED*/
 int
-pversion(v)
-	void *v;
+pversion(e)
+	int e;
 {
-	extern char *version;
 
 	printf("Version %s\n", version);
-	return(0);
+	return (0);
 }
 
 /*
@@ -716,5 +705,5 @@ load(name)
 	loading = 0;
 	sourcing = 0;
 	input = oldin;
-	Fclose(in);
+	(void)Fclose(in);
 }

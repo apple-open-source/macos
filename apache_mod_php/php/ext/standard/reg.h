@@ -17,7 +17,7 @@
 */
 
 
-/* $Id: reg.h,v 1.1.1.3 2001/07/19 00:20:21 zarzycki Exp $ */
+/* $Id: reg.h,v 1.1.1.4 2001/12/14 22:13:27 zarzycki Exp $ */
 
 #ifndef REG_H
 #define REG_H
@@ -42,19 +42,9 @@ PHP_MINFO_FUNCTION(regex);
 
 
 #ifdef ZTS
-#define REGLS_D php_reg_globals *reg_globals
-#define REGLS_DC , REGLS_D
-#define REGLS_C reg_globals
-#define REGLS_CC , REGLS_C
-#define REG(v) (reg_globals->v)
-#define REGLS_FETCH() php_reg_globals *reg_globals = ts_resource(reg_globals_id)
+#define REG(v) TSRMG(reg_globals_id, php_reg_globals *, v)
 #else
-#define REGLS_D
-#define REGLS_DC
-#define REGLS_C
-#define REGLS_CC
 #define REG(v) (reg_globals.v)
-#define REGLS_FETCH()
 #endif
 
 #endif /* REG_H */

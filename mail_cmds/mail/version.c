@@ -1,5 +1,3 @@
-/*	$NetBSD: version.c,v 1.5 1997/10/19 05:04:07 lukem Exp $	*/
-
 /*
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,17 +31,16 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)version.c	8.1 (Berkeley) 6/6/93";
-#else
-__RCSID("$NetBSD: version.c,v 1.5 1997/10/19 05:04:07 lukem Exp $");
 #endif
+static const char rcsid[] =
+  "$FreeBSD: src/usr.bin/mail/version.c,v 1.3 2001/05/27 20:26:22 mikeh Exp $";
 #endif /* not lint */
 
 /*
  * Just keep track of the date/sid of this version of Mail.
  * Load this file first to get a "total" Mail version.
  */
-char	*version = "8.1 6/6/93";
+const char	*version = "8.1 6/6/93";

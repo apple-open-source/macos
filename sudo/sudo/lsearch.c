@@ -32,10 +32,10 @@
 
 #include "config.h"
 
-#include <stdio.h>
 #include <sys/types.h>
+#include <stdio.h>
 #ifdef HAVE_UNISTD_H
-#include <unistd.h>
+# include <unistd.h>
 #endif /* HAVE_UNISTD_H */
 
 #include "compat.h"
@@ -45,7 +45,7 @@
 static const char sccsid[] = "@(#)lsearch.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #ifndef lint
-static const char rcsid[] = "$Sudo: lsearch.c,v 1.17 2000/03/22 15:53:09 millert Exp $";
+static const char rcsid[] = "$Sudo: lsearch.c,v 1.18 2001/12/14 19:52:48 millert Exp $";
 #endif /* lint */
 
 typedef int (*cmp_fn_t) __P((const VOID *, const VOID *));

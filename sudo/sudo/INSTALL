@@ -1,4 +1,4 @@
-Installation instructions for Sudo 1.6.3
+Installation instructions for Sudo 1.6.5
 ========================================
 
 Sudo uses a `configure' script to probe the capabilities and type
@@ -29,8 +29,7 @@ For most systems and configurations it is possible simply to:
        building sudo.  Before you actually run configure you
        should read the `Available configure options' section
        to see if there are any special options you may want
-       or need.  Also of interest may be the section on
-       `Mixing password authentication schemes'.
+       or need.
 
     4) Edit the configure-generated Makefile if you wish to
        change any of the default paths (alternately you could
@@ -69,13 +68,16 @@ Configuration:
   --cache-file=FILE
 	Cache test results in FILE
 
-  --help
+  --config-cache, -C
+	Alias for `--cache-file=config.cache'
+
+  --help, -h
 	Print the usage/help info
 
-  --no-create
+  --no-create, -n
 	Do not create output files
 
-  --quiet, --silent
+  --quiet, --silent, -q
 	Do not print `checking...' messages
 
 Directory and file names:
@@ -187,12 +189,35 @@ Special features/options:
 	access DCE via PAM before using this option.
 
   --with-logincap
-	Enable support for BSD login classes on FreeBSD and BSD/OS.  This
-	adds support for the login classes specified in /etc/login.conf.
+	Enable support for BSD login classes where available (OS-dependent).
+	This adds support for the login classes specified in /etc/login.conf.
 	By default, a login class is not applied unless the 'use_loginclass'
 	option is defined in sudoers or the user specifies a class on the
-	command line.  It does *not*, however cause sudo to use BSD
-	authentication.
+	command line.
+
+  --with-bsdauth
+        Enable support for BSD authentication on BSD/OS and OpenBSD.
+        This option assumes --with-logincap as well.  It is not
+        possible to mix BSD authentication with other authentication
+        methods (and there really should be no need to do so).  Note
+        that only the newer BSD authentication API is supported.
+        If you don't have /usr/include/bsd_auth.h then you cannot
+        use this.
+
+  --disable-root-mailer
+        By default sudo will run the mailer as root when tattling
+        on a user so as to prevent that user from killing the mailer.
+        With this option, sudo will run the mailer as the invoking
+        user which some people consider to be safer.
+
+  --disable-saved-ids
+	Disable use of POSIX saved IDs.  Normally, sudo will try to
+	use POSIX saved IDs if they are supported.  However, some
+	implementations are broken.
+
+  --disable-setreuid
+	Disable use of the setreuid() function for operating systems
+	where it is broken.  4.4BSD has setreuid() but it doesn't really work.
 
   --disable-sia
 	Disable SIA support.  This is the "Security Integration Architecture"
@@ -233,7 +258,7 @@ Special features/options:
 	on some SysV-based OS's using STREAMS.
 
   --without-passwd
-	This option authentication via the passwd (or shadow) file.
+	This option excludes authentication via the passwd (or shadow) file.
 	It should only be used when another, alternate, authentication
 	scheme is in use.
 
@@ -251,7 +276,8 @@ The following options are also configurable at runtime:
   --with-logging=TYPE
 	How you want to do your logging.  You may choose "syslog", "file",
 	or "both".  Setting this to "syslog" is nice because you can keep all
-	of your sudo logs in one place (see the FAQ).  The default is "syslog".
+	of your sudo logs in one place (see the sample.syslog.conf file).
+	The default is "syslog".
 
   --with-logfac=FACILITY
 	Determines which syslog facility to log to.  This requires a 4.3BSD
@@ -378,7 +404,9 @@ The following options are also configurable at runtime:
 	just like the original sudo(8).  This is off by default.
 
   --with-all-insults
-	Include all the insult sets listed below.
+	Include all the insult sets listed below.  You must either specify
+	--with-insults or enable insults in the sudoers file for this to
+	have any effect.
 
   --with-classic-insults
 	Uses insults from sudo "classic."  If you just specify --with-insults
@@ -393,12 +421,13 @@ The following options are also configurable at runtime:
 
   --with-hal-insults
 	Uses 2001-like insults when an incorrect password is entered.
-	You must specify --with-insults as well for this to have any effect.
+	You must either specify --with-insults or enable insults in the
+	sudoers file for this to have any effect.
 
   --with-goons-insults
 	Insults the user with lines from the "Goon Show" when an incorrect
-	password is entered.  You must specify --with-insults as well for
-	this to have any effect.
+	password is entered.  You must either specify --with-insults or
+	enable insults in the sudoers file for this to have any effect.
 
   --with-secure-path[=path]
 	Path used for every command run from sudo(8).  If you don't trust the
@@ -413,15 +442,20 @@ The following options are also configurable at runtime:
 	Don't print the lecture the first time a user runs sudo.
 
   --with-editor=path
-	Specify the default editor used by visudo (and the only editor used
-	unless --with-env-editor is specified).  The default is the path
-	to vi on your system.
+	Specify the default editor path for use by visudo.  This may be
+	a single pathname or a colon-separated list of editors.  In
+	the latter case, visudo will choose the editor that matches
+	the user's USER environment variable or the first editor in
+	the list that exists.  The default is the path to vi on your system.
 
   --with-env-editor
 	Makes visudo consult the EDITOR and VISUAL environment variables before
-	falling back on the default editor.  Note that this may create a
-	security hole as most editors allow a user to get a shell (which would
-	be a root shell and hence, no logging).
+	falling back on the default editor list (as specified by --with-editor).
+	Note that this may create a security hole as it allows the user to
+	run any arbitrary command as root without logging.  A safer alternative
+	is to use a colon-separated list of editors with the --with-env-editor
+	option.  visudo will then only use the EDITOR or VISUAL if they match
+	a value specified via --with-editor.
 
   --disable-authentication
         By default, sudo requires the user to authenticate via a
@@ -568,12 +602,15 @@ Linux:
     the "#define HAVE_LSEARCH 1" line in config.h and add lsearch.o
     to the LIBOBJS line in the Makefile.
 
-    It is not possible to access the sudoers file via NFS on Linux.
-    This is due to a bug in the Linux client-side NFS implementation.
-    It has been fixed in the developement kernel but, as of Aug 27,
-    1999, the fixes have not made it into the mainstream kernel.
-    There is a workaround on the sudo ftp site, linux_nfs.patch,
-    if you need to NFS-mount sudoers on Linux.
+    If you are using a Linux kernel older than 2.4 it is not possible
+    to access the sudoers file via NFS.  This is due to a bug in
+    the Linux client-side NFS implementation that has since been
+    fixed.  There is a workaround on the sudo ftp site, linux_nfs.patch,
+    if you need to NFS-mount sudoers on older Linux kernels.
+
+    Linux kernels 2.2.16-2.2.19 appear to have broken POSIX saved
+    ID support.  You must run configure with the --disable-saved-ids
+    flag to get a working sudo.
 
 Mac OS X:
     It has been reported that for sudo to work on Mac OS X it must

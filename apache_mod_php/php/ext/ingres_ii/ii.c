@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: ii.c,v 1.1.1.3 2001/07/19 00:19:17 zarzycki Exp $ */
+/* $Id: ii.c,v 1.1.1.4 2001/12/14 22:12:27 zarzycki Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -38,7 +38,7 @@
 ZEND_DECLARE_MODULE_GLOBALS(ii)
 
 /* True globals, no need for thread safety */
-static int le_ii_link,le_ii_plink;
+static int le_ii_link, le_ii_plink;
 
 #define SAFE_STRING(s) ((s)?(s):"")
 
@@ -67,14 +67,16 @@ function_entry ii_functions[] = {
 };
 
 zend_module_entry ingres_ii_module_entry = {
-  "ingres_ii",
-  ii_functions,
-  PHP_MINIT(ii),
-  PHP_MSHUTDOWN(ii),
-  PHP_RINIT(ii),
-  PHP_RSHUTDOWN(ii),
-  PHP_MINFO(ii),
-  STANDARD_MODULE_PROPERTIES
+	STANDARD_MODULE_HEADER,
+	"ingres_ii",
+	ii_functions,
+	PHP_MINIT(ii),
+	PHP_MSHUTDOWN(ii),
+	PHP_RINIT(ii),
+	PHP_RSHUTDOWN(ii),
+	PHP_MINFO(ii),
+    NO_VERSION_YET,
+	STANDARD_MODULE_PROPERTIES
 };
 
 #ifdef COMPILE_DL_INGRES_II
@@ -123,7 +125,7 @@ static int _rollback_transaction(II_LINK *link)
   IIAPI_ROLLBACKPARM rollbackParm;
   
   if(link->stmtHandle && _close_statement(link)) {
-    php_error(E_WARNING,"Ingres II:  Unable to close statement !!");
+    php_error(E_WARNING, "Ingres II:  Unable to close statement !!");
     return 1;
   }
   
@@ -143,13 +145,12 @@ static int _rollback_transaction(II_LINK *link)
   return 0;
 }
 
-static void _close_ii_link(II_LINK *link)
+static void _close_ii_link(II_LINK *link TSRMLS_DC)
 {
   IIAPI_DISCONNPARM disconnParm;
-  IILS_FETCH();
 
   if(link->tranHandle && _rollback_transaction(link)) {
-    php_error(E_WARNING,"Ingres II:  Unable to rollback transaction !!");
+    php_error(E_WARNING, "Ingres II:  Unable to rollback transaction !!");
   }
 
   disconnParm.dc_genParm.gp_callback = NULL;
@@ -167,21 +168,21 @@ static void _close_ii_link(II_LINK *link)
    and releasing associated resources after rolling back the
    active transaction (if any)
 */
-static void php_close_ii_link(zend_rsrc_list_entry *rsrc)
+static void php_close_ii_link(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
 	II_LINK *link = (II_LINK *)rsrc->ptr;
-	_close_ii_link(link);
+
+	_close_ii_link(link TSRMLS_CC);
 }
 
 
 /* closes the given persistent link, see _close_ii_link
 */
-static void _close_ii_plink(zend_rsrc_list_entry *rsrc)
+static void _close_ii_plink(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
 	II_LINK *link = (II_LINK *)rsrc->ptr;
-	IILS_FETCH();
 	
-	_close_ii_link(link);
+	_close_ii_link(link TSRMLS_CC);
 	IIG(num_persistent)--;
 }
 
@@ -189,16 +190,15 @@ static void _close_ii_plink(zend_rsrc_list_entry *rsrc)
    used when the request ends to 'refresh' the link for use
    by the next request
 */
-static void _clean_ii_plink(zend_rsrc_list_entry *rsrc)
+static void _clean_ii_plink(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
-	II_LINK *link = (II_LINK *)rsrc->ptr;
+  II_LINK *link = (II_LINK *)rsrc->ptr;
   IIAPI_AUTOPARM autoParm;
-  IILS_FETCH();
 
   if(link->autocommit) {
 
     if(link->stmtHandle && _close_statement(link)) {
-      php_error(E_WARNING,"Ingres II:  Unable to close statement !!");
+      php_error(E_WARNING, "Ingres II:  Unable to close statement !!");
     }
       
     autoParm.ac_genParm.gp_callback = NULL;
@@ -210,7 +210,7 @@ static void _clean_ii_plink(zend_rsrc_list_entry *rsrc)
     ii_sync(&(autoParm.ac_genParm));
 
     if(ii_success(&(autoParm.ac_genParm))==II_FAIL) {
-      php_error(E_WARNING,"Ingres II:  Unable to disable autocommit");
+      php_error(E_WARNING, "Ingres II:  Unable to disable autocommit");
     }
     
     link->autocommit = 0;
@@ -218,15 +218,14 @@ static void _clean_ii_plink(zend_rsrc_list_entry *rsrc)
   }
 
   if(link->tranHandle && _rollback_transaction(link)) {
-    php_error(E_WARNING,"Ingres II:  Unable to rollback transaction !!");
+    php_error(E_WARNING, "Ingres II:  Unable to rollback transaction !!");
   }
 } 
 
 /* sets the default link
 */
-static void php_ii_set_default_link(int id)
+static void php_ii_set_default_link(int id TSRMLS_DC)
 {
-	IILS_FETCH();
 
 	if (IIG(default_link)!=-1) {
 		zend_list_delete(IIG(default_link));
@@ -239,7 +238,7 @@ static void php_ii_set_default_link(int id)
    if none has been set, tries to open a new one with default
    parameters
 */
-static int php_ii_get_default_link(INTERNAL_FUNCTION_PARAMETERS IILS_DC)
+static int php_ii_get_default_link(INTERNAL_FUNCTION_PARAMETERS)
 {
 	if (IIG(default_link)==-1) { /* no link opened yet, implicitly open one */
 		ht = 0;
@@ -248,18 +247,22 @@ static int php_ii_get_default_link(INTERNAL_FUNCTION_PARAMETERS IILS_DC)
 	return IIG(default_link);
 }
 
+static void php_ii_globals_init(zend_ii_globals *ii_globals)
+{
+	ii_globals->num_persistent = 0;
+}
+
 /* Module initialization
 */
 PHP_MINIT_FUNCTION(ii)
 {
   IIAPI_INITPARM initParm;
   
+  ZEND_INIT_MODULE_GLOBALS(ii, php_ii_globals_init, NULL);
   REGISTER_INI_ENTRIES();
   
   le_ii_link = zend_register_list_destructors_ex(php_close_ii_link, NULL, "ingres", module_number);
   le_ii_plink = zend_register_list_destructors_ex(_clean_ii_plink, _close_ii_plink, "ingres persistent", module_number);
-
-  IIG(num_persistent) = 0;
 
   /* Constants registration */
   REGISTER_LONG_CONSTANT("INGRES_ASSOC", II_ASSOC, CONST_CS | CONST_PERSISTENT);
@@ -299,8 +302,6 @@ PHP_MSHUTDOWN_FUNCTION(ii)
 */
 PHP_RINIT_FUNCTION(ii)
 {
-  IILS_FETCH();
-
   IIG(default_link) = -1;
   IIG(num_links) = IIG(num_persistent);
   return SUCCESS;
@@ -310,8 +311,6 @@ PHP_RINIT_FUNCTION(ii)
 */
 PHP_RSHUTDOWN_FUNCTION(ii)
 {
-  IILS_FETCH();
-
   if (IIG(default_link)!=-1) {
     zend_list_delete(IIG(default_link));
     IIG(default_link) = -1;
@@ -324,7 +323,6 @@ PHP_RSHUTDOWN_FUNCTION(ii)
 PHP_MINFO_FUNCTION(ii)
 {
   char buf[32];
-  IILS_FETCH();
 
   php_info_print_table_start();
   php_info_print_table_header(2, "Ingres II Support", "enabled");
@@ -352,7 +350,7 @@ static int ii_sync(IIAPI_GENPARM *genParm)
   }
 
   if (waitParm.wt_status != IIAPI_ST_SUCCESS) {
-    php_error(E_WARNING,"Ingres II:  Unexpected failure of IIapi_wait()");
+    php_error(E_WARNING, "Ingres II:  Unexpected failure of IIapi_wait()");
     return 0;
   }
   return 1;
@@ -369,14 +367,14 @@ static int ii_success(IIAPI_GENPARM *genParm)
     return II_NO_DATA;
   default:
     if(genParm->gp_errorHandle == NULL) { /* no error message available */
-      php_error(E_WARNING,"Ingres II:  Server or API error - no error message available");
+      php_error(E_WARNING, "Ingres II:  Server or API error - no error message available");
     } else {
       IIAPI_GETEINFOPARM getEInfoParm;
 
       getEInfoParm.ge_errorHandle = genParm->gp_errorHandle;
       IIapi_getErrorInfo(&getEInfoParm);
-      php_error(E_WARNING,"Ingres II:  Server or API error : %s", getEInfoParm.ge_message);
-      php_error(E_WARNING,"Ingres II:  SQLSTATE : %s", getEInfoParm.ge_SQLSTATE);
+      php_error(E_WARNING, "Ingres II:  Server or API error : %s", getEInfoParm.ge_message);
+      php_error(E_WARNING, "Ingres II:  SQLSTATE : %s", getEInfoParm.ge_SQLSTATE);
     }
     return II_FAIL;
   }
@@ -384,7 +382,7 @@ static int ii_success(IIAPI_GENPARM *genParm)
 
 /* Actually handles connection creation, either persistent or not
 */
-static void php_ii_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
+static void php_ii_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 {
   zval **database, **username, **password;
   char *db, *user, *pass;
@@ -393,8 +391,6 @@ static void php_ii_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
   int hashed_details_length;
   IIAPI_CONNPARM connParm;
   II_LINK *link;
-  IILS_FETCH();
-  PLS_FETCH();
   
   /* Setting db, user and pass according to sql_safe_mode, parameters and/or default values */
   argc = ZEND_NUM_ARGS();
@@ -402,14 +398,14 @@ static void php_ii_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
   if (PG(sql_safe_mode)) {
     
     if (argc>0) {
-      php_error(E_NOTICE,"SQL safe mode in effect - ignoring host/user/password information");
+      php_error(E_NOTICE, "SQL safe mode in effect - ignoring host/user/password information");
     }
     
     db = pass = NULL;
     user=php_get_current_user();
     hashed_details_length = strlen(user) + sizeof("ingres___")-1;
     hashed_details = (char *) emalloc(hashed_details_length+1);
-    sprintf(hashed_details,"ingres__%s_",user);
+    sprintf(hashed_details, "Ingres__%s_", user);
   } else {
     db = IIG(default_database);
     user = IIG(default_user);
@@ -438,13 +434,13 @@ static void php_ii_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
     
     hashed_details_length = sizeof("ingres___")-1 + strlen(SAFE_STRING(db))+strlen(SAFE_STRING(user))+strlen(SAFE_STRING(pass));
     hashed_details = (char *) emalloc(hashed_details_length+1);
-    sprintf(hashed_details,"ingres_%s_%s_%s",SAFE_STRING(db), SAFE_STRING(user), SAFE_STRING(pass));
+    sprintf(hashed_details, "Ingres_%s_%s_%s", SAFE_STRING(db), SAFE_STRING(user), SAFE_STRING(pass));
   }
   
   /* if asked for unauthorized persistency, issue a warning
      and go for a non-persistent link */
   if (persistent && !IIG(allow_persistent)) {
-    php_error(E_WARNING,"Ingres II:  Persistent links disabled !");
+    php_error(E_WARNING, "Ingres II:  Persistent links disabled !");
     persistent = 0;
   }
   
@@ -457,12 +453,12 @@ static void php_ii_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
       list_entry new_le;
       
       if (IIG(max_links)!=-1 && IIG(num_links)>=IIG(max_links)) {
-	php_error(E_WARNING,"Ingres II:  Too many open links (%d)",IIG(num_links));
+	php_error(E_WARNING, "Ingres II:  Too many open links (%d)", IIG(num_links));
 	efree(hashed_details);
 	RETURN_FALSE;
       }
       if (IIG(max_persistent)!=-1 && IIG(num_persistent)>=IIG(max_persistent)) {
-	php_error(E_WARNING,"Ingres II:  Too many open persistent links (%d)",IIG(num_persistent));
+	php_error(E_WARNING, "Ingres II:  Too many open persistent links (%d)", IIG(num_persistent));
 	efree(hashed_details);
 	RETURN_FALSE;
       }
@@ -481,7 +477,7 @@ static void php_ii_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
 
       if(!ii_sync(&(connParm.co_genParm)) || ii_success(&(connParm.co_genParm)) == II_FAIL) {
 	efree(hashed_details);
-	php_error(E_WARNING,"Ingres II:  Unable to connect to database (%s)", db);
+	php_error(E_WARNING, "Ingres II:  Unable to connect to database (%s)", db);
 	RETURN_FALSE;
       }
 
@@ -497,7 +493,7 @@ static void php_ii_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
       new_le.type = le_ii_plink;
       new_le.ptr = link;
       if (zend_hash_update(&EG(persistent_list), hashed_details, hashed_details_length+1, (void *) &new_le, sizeof(list_entry), NULL)==FAILURE) {
-	php_error(E_WARNING,"Ingres II:  Unable to hash (%s)", hashed_details);
+	php_error(E_WARNING, "Ingres II:  Unable to hash (%s)", hashed_details);
 	free(link);
 	efree(hashed_details);
 	RETURN_FALSE;
@@ -515,14 +511,14 @@ static void php_ii_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
     }
     ZEND_REGISTER_RESOURCE(return_value, link, le_ii_plink);
   } else { /* non persistent */
-    list_entry *index_ptr,new_index_ptr;
+    list_entry *index_ptr, new_index_ptr;
     
     /* first we check the hash for the hashed_details key.  if it exists,
      * it should point us to the right offset where the actual link sits.
      * if it doesn't, open a new link, add it to the resource list,
      * and add a pointer to it with hashed_details as the key.
      */
-    if (zend_hash_find(&EG(regular_list),hashed_details,hashed_details_length+1,(void **) &index_ptr)==SUCCESS) {
+    if (zend_hash_find(&EG(regular_list), hashed_details, hashed_details_length+1, (void **) &index_ptr)==SUCCESS) {
       int type;
       void *ptr;
       
@@ -530,22 +526,22 @@ static void php_ii_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
 	RETURN_FALSE;
       }
       link = (II_LINK *) index_ptr->ptr;
-      ptr = zend_list_find((int) link,&type);   /* check if the link is still there */
+      ptr = zend_list_find((int) link, &type);   /* check if the link is still there */
       if (ptr && (type==le_ii_link || type==le_ii_plink)) {
 	zend_list_addref((int) link);
 	return_value->value.lval = (int) link;
 
-	php_ii_set_default_link((int) link);
+	php_ii_set_default_link((int) link TSRMLS_CC);
 
 	return_value->type = IS_RESOURCE;
 	efree(hashed_details);
 	return;
       } else {
-	zend_hash_del(&EG(regular_list),hashed_details,hashed_details_length+1);
+	zend_hash_del(&EG(regular_list), hashed_details, hashed_details_length+1);
       }
     }
     if (IIG(max_links)!=-1 && IIG(num_links)>=IIG(max_links)) {
-      php_error(E_WARNING,"Ingres II:  Too many open links (%d)",IIG(num_links));
+      php_error(E_WARNING, "Ingres II:  Too many open links (%d)", IIG(num_links));
       efree(hashed_details);
       RETURN_FALSE;
     }
@@ -564,7 +560,7 @@ static void php_ii_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
 
       if(!ii_sync(&(connParm.co_genParm)) || ii_success(&(connParm.co_genParm)) == II_FAIL) {
 	efree(hashed_details);
-	php_error(E_WARNING,"Ingres II:  Unable to connect to database (%s)", db);
+	php_error(E_WARNING, "Ingres II:  Unable to connect to database (%s)", db);
 	RETURN_FALSE;
       }
 
@@ -582,8 +578,8 @@ static void php_ii_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
       /* add it to the hash */
       new_index_ptr.ptr = (void *) return_value->value.lval;
       new_index_ptr.type = le_index_ptr;
-      if (zend_hash_update(&EG(regular_list),hashed_details,hashed_details_length+1,(void *) &new_index_ptr, sizeof(list_entry), NULL)==FAILURE) {
-	php_error(E_WARNING,"Ingres II:  Unable to hash (%s)", hashed_details);
+      if (zend_hash_update(&EG(regular_list), hashed_details, hashed_details_length+1, (void *) &new_index_ptr, sizeof(list_entry), NULL)==FAILURE) {
+	php_error(E_WARNING, "Ingres II:  Unable to hash (%s)", hashed_details);
 	free(link);
 	efree(hashed_details);
 	RETURN_FALSE;
@@ -592,7 +588,7 @@ static void php_ii_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
   }
 
   efree(hashed_details);
-  php_ii_set_default_link(return_value->value.lval);
+  php_ii_set_default_link(return_value->value.lval TSRMLS_CC);
 }
 
 /* {{{ proto resource ingres_connect([string database [, string username [, string password]]])
@@ -619,7 +615,6 @@ PHP_FUNCTION(ingres_close)
   int argc;
   int link_id = -1;
   II_LINK *ii_link;
-  IILS_FETCH();
   
   argc = ZEND_NUM_ARGS();
   if (argc > 1 || (argc && zend_get_parameters_ex(argc, &link) == FAILURE)){
@@ -659,7 +654,6 @@ PHP_FUNCTION(ingres_query)
   II_LINK *ii_link;
   IIAPI_QUERYPARM queryParm;
   IIAPI_GETDESCRPARM getDescrParm;
-  IILS_FETCH();
   
   argc = ZEND_NUM_ARGS();
   if (argc < 1 || argc > 2 || zend_get_parameters_ex(argc, &query, &link) == FAILURE){
@@ -667,7 +661,7 @@ PHP_FUNCTION(ingres_query)
   }
   
   if (argc < 2) {
-    link_id = php_ii_get_default_link(INTERNAL_FUNCTION_PARAM_PASSTHRU IILS_CC);
+    link_id = php_ii_get_default_link(INTERNAL_FUNCTION_PARAM_PASSTHRU);
   }
   ZEND_FETCH_RESOURCE2(ii_link, II_LINK *, link, link_id, "Ingres II Link", le_ii_link, le_ii_plink);
   
@@ -675,7 +669,7 @@ PHP_FUNCTION(ingres_query)
 
   /* if there's already an active statement, close it */
   if(ii_link->stmtHandle && _close_statement(ii_link)) {
-    php_error(E_WARNING,"Ingres II:  Unable to close statement !!");
+    php_error(E_WARNING, "Ingres II:  Unable to close statement !!");
     RETURN_FALSE;
   }
   
@@ -732,7 +726,6 @@ PHP_FUNCTION(ingres_num_rows)
   int link_id = -1;
   II_LINK *ii_link;
   IIAPI_GETQINFOPARM getQInfoParm;
-  IILS_FETCH();
   
   argc = ZEND_NUM_ARGS();
   if (argc > 1 || zend_get_parameters_ex(argc, &link) == FAILURE){
@@ -740,7 +733,7 @@ PHP_FUNCTION(ingres_num_rows)
   }
   
   if (argc < 1) {
-    link_id = php_ii_get_default_link(INTERNAL_FUNCTION_PARAM_PASSTHRU IILS_CC);
+    link_id = php_ii_get_default_link(INTERNAL_FUNCTION_PARAM_PASSTHRU);
   }
 
   ZEND_FETCH_RESOURCE2(ii_link, II_LINK *, link, link_id, "Ingres II Link", le_ii_link, le_ii_plink);
@@ -774,7 +767,6 @@ PHP_FUNCTION(ingres_num_fields)
   int argc;
   int link_id = -1;
   II_LINK *ii_link;
-  IILS_FETCH();
   
   argc = ZEND_NUM_ARGS();
   if (argc > 1 || zend_get_parameters_ex(argc, &link) == FAILURE){
@@ -782,7 +774,7 @@ PHP_FUNCTION(ingres_num_fields)
   }
   
   if (argc < 1) {
-    link_id = php_ii_get_default_link(INTERNAL_FUNCTION_PARAM_PASSTHRU IILS_CC);
+    link_id = php_ii_get_default_link(INTERNAL_FUNCTION_PARAM_PASSTHRU);
   }
 
   ZEND_FETCH_RESOURCE2(ii_link, II_LINK *, link, link_id, "Ingres II Link", le_ii_link, le_ii_plink);
@@ -808,7 +800,6 @@ static void php_ii_field_info(INTERNAL_FUNCTION_PARAMETERS, int info_type)
   char *name, *fun_name;
   int index;
   II_LINK *ii_link;
-  IILS_FETCH();
   
   argc = ZEND_NUM_ARGS();
   if (argc < 1 || argc > 2 || zend_get_parameters_ex(argc, &idx, &link) == FAILURE){
@@ -816,7 +807,7 @@ static void php_ii_field_info(INTERNAL_FUNCTION_PARAMETERS, int info_type)
   }
 
   if (argc < 2) {
-    link_id = php_ii_get_default_link(INTERNAL_FUNCTION_PARAM_PASSTHRU IILS_CC);
+    link_id = php_ii_get_default_link(INTERNAL_FUNCTION_PARAM_PASSTHRU);
   }
 
   ZEND_FETCH_RESOURCE2(ii_link, II_LINK *, link, link_id, "Ingres II Link", le_ii_link, le_ii_plink);
@@ -845,9 +836,10 @@ static void php_ii_field_info(INTERNAL_FUNCTION_PARAMETERS, int info_type)
       fun_name = "ii_field_scale";
       break;
     default:
+      fun_name = "foobar";
       break;
     }
-    php_error(E_WARNING,"Ingres II:  %s() called with wrong index (%d)",fun_name,index);
+    php_error(E_WARNING, "Ingres II:  %s() called with wrong index (%d)", fun_name, index);
     RETURN_FALSE;
   }
 
@@ -861,23 +853,23 @@ static void php_ii_field_info(INTERNAL_FUNCTION_PARAMETERS, int info_type)
     break;
   case II_FIELD_INFO_TYPE:
     switch((ii_link->descriptor[index - 1]).ds_dataType) {
-    case IIAPI_BYTE_TYPE: RETURN_STRING("IIAPI_BYTE_TYPE",1);
-    case IIAPI_CHA_TYPE: RETURN_STRING("IIAPI_CHA_TYPE",1);
-    case IIAPI_CHR_TYPE: RETURN_STRING("IIAPI_CHR_TYPE",1);
-    case IIAPI_DEC_TYPE: RETURN_STRING("IIAPI_DEC_TYPE",1);
-    case IIAPI_DTE_TYPE: RETURN_STRING("IIAPI_DTE_TYPE",1);
-    case IIAPI_FLT_TYPE: RETURN_STRING("IIAPI_FLT_TYPE",1);
-    case IIAPI_INT_TYPE: RETURN_STRING("IIAPI_INT_TYPE",1);
-    case IIAPI_LOGKEY_TYPE: RETURN_STRING("IIAPI_LOGKEY_TYPE",1);
-    case IIAPI_LBYTE_TYPE: RETURN_STRING("IIAPI_LBYTE_TYPE",1);
-    case IIAPI_LVCH_TYPE: RETURN_STRING("IIAPI_LVCH_TYPE",1);
-    case IIAPI_MNY_TYPE: RETURN_STRING("IIAPI_MNY_TYPE",1);
-    case IIAPI_TABKEY_TYPE: RETURN_STRING("IIAPI_TABKEY_TYPE",1);
-    case IIAPI_TXT_TYPE: RETURN_STRING("IIAPI_TXT_TYPE",1);
-    case IIAPI_VBYTE_TYPE: RETURN_STRING("IIAPI_VBYTE_TYPE",1);
-    case IIAPI_VCH_TYPE: RETURN_STRING("IIAPI_VCH_TYPE",1);
+    case IIAPI_BYTE_TYPE: RETURN_STRING("IIAPI_BYTE_TYPE", 1);
+    case IIAPI_CHA_TYPE: RETURN_STRING("IIAPI_CHA_TYPE", 1);
+    case IIAPI_CHR_TYPE: RETURN_STRING("IIAPI_CHR_TYPE", 1);
+    case IIAPI_DEC_TYPE: RETURN_STRING("IIAPI_DEC_TYPE", 1);
+    case IIAPI_DTE_TYPE: RETURN_STRING("IIAPI_DTE_TYPE", 1);
+    case IIAPI_FLT_TYPE: RETURN_STRING("IIAPI_FLT_TYPE", 1);
+    case IIAPI_INT_TYPE: RETURN_STRING("IIAPI_INT_TYPE", 1);
+    case IIAPI_LOGKEY_TYPE: RETURN_STRING("IIAPI_LOGKEY_TYPE", 1);
+    case IIAPI_LBYTE_TYPE: RETURN_STRING("IIAPI_LBYTE_TYPE", 1);
+    case IIAPI_LVCH_TYPE: RETURN_STRING("IIAPI_LVCH_TYPE", 1);
+    case IIAPI_MNY_TYPE: RETURN_STRING("IIAPI_MNY_TYPE", 1);
+    case IIAPI_TABKEY_TYPE: RETURN_STRING("IIAPI_TABKEY_TYPE", 1);
+    case IIAPI_TXT_TYPE: RETURN_STRING("IIAPI_TXT_TYPE", 1);
+    case IIAPI_VBYTE_TYPE: RETURN_STRING("IIAPI_VBYTE_TYPE", 1);
+    case IIAPI_VCH_TYPE: RETURN_STRING("IIAPI_VCH_TYPE", 1);
     default:
-      php_error(E_WARNING,"Ingres II:  Unknown Ingres data type");
+      php_error(E_WARNING, "Ingres II:  Unknown Ingres data type");
       RETURN_FALSE;
       break;
     }
@@ -908,7 +900,7 @@ static void php_ii_field_info(INTERNAL_FUNCTION_PARAMETERS, int info_type)
 static char *php_ii_field_name(II_LINK *ii_link, int index)
 {
   if(index < 1 || index > ii_link->fieldCount) {
-    php_error(E_WARNING,"Ingres II:  php_ii_field_name() called with wrong index (%d)",index);
+    php_error(E_WARNING, "Ingres II:  php_ii_field_name() called with wrong index (%d)", index);
     return NULL;
   }
   
@@ -965,7 +957,7 @@ PHP_FUNCTION(ingres_field_scale)
 
 /* Convert complex Ingres data types to php-usable ones
 */
-#define IIAPI_CONVERT(destType,destSize,precision) {\
+#define IIAPI_CONVERT(destType, destSize, precision) {\
               convertParm.cv_srcDesc.ds_dataType = (ii_link->descriptor[i+k-2]).ds_dataType;\
 	      convertParm.cv_srcDesc.ds_nullable = (ii_link->descriptor[i+k-2]).ds_nullable;\
 	      convertParm.cv_srcDesc.ds_length = (ii_link->descriptor[i+k-2]).ds_length;\
@@ -1004,13 +996,12 @@ static void php_ii_fetch(INTERNAL_FUNCTION_PARAMETERS, II_LINK *ii_link, int res
   IIAPI_GETCOLPARM getColParm;
   IIAPI_DATAVALUE *columnData;
   IIAPI_CONVERTPARM convertParm;
-  int i,j,k;
+  int i, j, k;
   int more;
-  double value_double;
-  long value_long;
+  double value_double=0;
+  long value_long=0;
   char *value_char_p;
   int len, should_copy, correct_length;
-  PLS_FETCH();
 
   /* array initialization */
   if (array_init(return_value)==FAILURE) {
@@ -1060,7 +1051,7 @@ static void php_ii_fetch(INTERNAL_FUNCTION_PARAMETERS, II_LINK *ii_link, int res
       more = getColParm.gc_moreSegments;
       if(more){ /* more segments of LBYTE or LVCH element to come */
 	/* Multi segment LBYTE and LVCH elements not supported yet */
-	php_error(E_ERROR,"Ingres II:  Multi segment LBYTE and LVCH elements not supported yet");
+	php_error(E_ERROR, "Ingres II:  Multi segment LBYTE and LVCH elements not supported yet");
       } else {
 	for(k=1; k<=j; k++) {
 	  if(columnData[k-1].dv_null) { /* NULL value ? */
@@ -1079,7 +1070,7 @@ static void php_ii_fetch(INTERNAL_FUNCTION_PARAMETERS, II_LINK *ii_link, int res
 	    case IIAPI_DEC_TYPE:  /* decimal (fixed point number) */
 	    case IIAPI_MNY_TYPE:  /* money */
 	      /* convert to floating point number */
-	      IIAPI_CONVERT(IIAPI_FLT_TYPE,sizeof(II_FLOAT8),53);
+	      IIAPI_CONVERT(IIAPI_FLT_TYPE, sizeof(II_FLOAT8), 53);
 	      /* NO break */
 	    case IIAPI_FLT_TYPE:  /* floating point number */
 	      switch(columnData[k-1].dv_length) {
@@ -1090,7 +1081,7 @@ static void php_ii_fetch(INTERNAL_FUNCTION_PARAMETERS, II_LINK *ii_link, int res
 		value_double = (double) *((II_FLOAT8 *) columnData[k-1].dv_value);
 		break;
 	      default:
-		php_error(E_WARNING,"Ingres II:  Invalid size for IIAPI_FLT_TYPE data (%d)",columnData[k-1].dv_length);
+		php_error(E_WARNING, "Ingres II:  Invalid size for IIAPI_FLT_TYPE data (%d)", columnData[k-1].dv_length);
 		break;
 	      }
 	      if(result_type & II_NUM) {
@@ -1112,7 +1103,7 @@ static void php_ii_fetch(INTERNAL_FUNCTION_PARAMETERS, II_LINK *ii_link, int res
 		value_long = (long) *((II_INT4 *) columnData[k-1].dv_value);
 		break;
 	      default:
-		php_error(E_WARNING,"Ingres II:  Invalid size for IIAPI_INT_TYPE data (%d)",columnData[k-1].dv_length);
+		php_error(E_WARNING, "Ingres II:  Invalid size for IIAPI_INT_TYPE data (%d)", columnData[k-1].dv_length);
 		break;
 	      }
 	      if(result_type & II_NUM) {
@@ -1139,11 +1130,11 @@ static void php_ii_fetch(INTERNAL_FUNCTION_PARAMETERS, II_LINK *ii_link, int res
 	    case IIAPI_DTE_TYPE:    /* date */
 	      /* eventualy convert date to string */
 	      if((ii_link->descriptor[i+k-2]).ds_dataType==IIAPI_DTE_TYPE) {
-		IIAPI_CONVERT(IIAPI_CHA_TYPE,32,0);
+		IIAPI_CONVERT(IIAPI_CHA_TYPE, 32, 0);
 	      }
 	      /* use php_addslashes if asked to */
 	      if(PG(magic_quotes_runtime)) {
-		value_char_p = php_addslashes((char *) columnData[k-1].dv_value,columnData[k-1].dv_length,&len,0);
+		value_char_p = php_addslashes((char *) columnData[k-1].dv_value, columnData[k-1].dv_length, &len, 0 TSRMLS_CC);
 		should_copy = 0;
 	      } else {
 		value_char_p = (char *) columnData[k-1].dv_value;
@@ -1164,7 +1155,7 @@ static void php_ii_fetch(INTERNAL_FUNCTION_PARAMETERS, II_LINK *ii_link, int res
 	      }
 	      break;
 	    default:
-	      php_error(E_WARNING,"Ingres II:  Invalid SQL data type in fetched field (%d -- length : %d)",(ii_link->descriptor[i+k-2]).ds_dataType,columnData[k-1].dv_length);
+	      php_error(E_WARNING, "Ingres II:  Invalid SQL data type in fetched field (%d -- length : %d)", (ii_link->descriptor[i+k-2]).ds_dataType, columnData[k-1].dv_length);
 	      break;
 	    }
 	  }
@@ -1191,7 +1182,6 @@ PHP_FUNCTION(ingres_fetch_array)
   int argc;
   int link_id = -1;
   II_LINK *ii_link;
-  IILS_FETCH();
   
   argc = ZEND_NUM_ARGS();
   if (argc > 2 || zend_get_parameters_ex(argc, &result_type, &link) == FAILURE){
@@ -1199,7 +1189,7 @@ PHP_FUNCTION(ingres_fetch_array)
   }
 
   if (argc != 2) {
-    link_id = php_ii_get_default_link(INTERNAL_FUNCTION_PARAM_PASSTHRU IILS_CC);
+    link_id = php_ii_get_default_link(INTERNAL_FUNCTION_PARAM_PASSTHRU);
   }
 
   if (argc != 0) {
@@ -1208,8 +1198,7 @@ PHP_FUNCTION(ingres_fetch_array)
 
   ZEND_FETCH_RESOURCE2(ii_link, II_LINK *, link, link_id, "Ingres II Link", le_ii_link, le_ii_plink);
 
-  php_ii_fetch(INTERNAL_FUNCTION_PARAM_PASSTHRU, ii_link,
-	       (argc == 0 ? II_BOTH : Z_LVAL_PP(result_type)));
+  php_ii_fetch(INTERNAL_FUNCTION_PARAM_PASSTHRU, ii_link, (argc == 0 ? II_BOTH : Z_LVAL_PP(result_type)));
 }
 /* }}} */
 
@@ -1221,7 +1210,6 @@ PHP_FUNCTION(ingres_fetch_row)
   int argc;
   int link_id = -1;
   II_LINK *ii_link;
-  IILS_FETCH();
   
   argc = ZEND_NUM_ARGS();
   if (argc > 1 || zend_get_parameters_ex(argc, &link) == FAILURE){
@@ -1229,7 +1217,7 @@ PHP_FUNCTION(ingres_fetch_row)
   }
 
   if (argc != 1) {
-    link_id = php_ii_get_default_link(INTERNAL_FUNCTION_PARAM_PASSTHRU IILS_CC);
+    link_id = php_ii_get_default_link(INTERNAL_FUNCTION_PARAM_PASSTHRU);
   }
 
   ZEND_FETCH_RESOURCE2(ii_link, II_LINK *, link, link_id, "Ingres II Link", le_ii_link, le_ii_plink);
@@ -1246,7 +1234,6 @@ PHP_FUNCTION(ingres_fetch_object)
   int argc;
   int link_id = -1;
   II_LINK *ii_link;
-  IILS_FETCH();
   
   argc = ZEND_NUM_ARGS();
   if (argc > 2 || zend_get_parameters_ex(argc, &result_type, &link) == FAILURE){
@@ -1254,7 +1241,7 @@ PHP_FUNCTION(ingres_fetch_object)
   }
 
   if (argc != 2) {
-    link_id = php_ii_get_default_link(INTERNAL_FUNCTION_PARAM_PASSTHRU IILS_CC);
+    link_id = php_ii_get_default_link(INTERNAL_FUNCTION_PARAM_PASSTHRU);
   }
 
   if (argc != 0) {
@@ -1263,8 +1250,7 @@ PHP_FUNCTION(ingres_fetch_object)
 
   ZEND_FETCH_RESOURCE2(ii_link, II_LINK *, link, link_id, "Ingres II Link", le_ii_link, le_ii_plink);
 
-  php_ii_fetch(INTERNAL_FUNCTION_PARAM_PASSTHRU, ii_link,
-	       (argc == 0 ? II_BOTH : Z_LVAL_PP(result_type)));
+  php_ii_fetch(INTERNAL_FUNCTION_PARAM_PASSTHRU, ii_link, (argc == 0 ? II_BOTH : Z_LVAL_PP(result_type)));
   if(Z_TYPE_P(return_value)==IS_ARRAY) {
     convert_to_object(return_value);
   }
@@ -1279,7 +1265,6 @@ PHP_FUNCTION(ingres_rollback)
   int argc;
   int link_id = -1;
   II_LINK *ii_link;
-  IILS_FETCH();
   
   argc = ZEND_NUM_ARGS();
   if (argc > 1 || (argc && zend_get_parameters_ex(argc, &link) == FAILURE)){
@@ -1307,7 +1292,6 @@ PHP_FUNCTION(ingres_commit)
   int link_id = -1;
   II_LINK *ii_link;
   IIAPI_COMMITPARM commitParm;
-  IILS_FETCH();
   
   argc = ZEND_NUM_ARGS();
   if (argc > 1 || (argc && zend_get_parameters_ex(argc, &link) == FAILURE)){
@@ -1320,7 +1304,7 @@ PHP_FUNCTION(ingres_commit)
   ZEND_FETCH_RESOURCE2(ii_link, II_LINK *, link, link_id, "Ingres II Link", le_ii_link, le_ii_plink);
 
   if(ii_link->stmtHandle && _close_statement(ii_link)) {
-    php_error(E_WARNING,"Ingres II:  Unable to close statement !!");
+    php_error(E_WARNING, "Ingres II:  Unable to close statement !!");
     RETURN_FALSE;
   }
 
@@ -1349,7 +1333,6 @@ PHP_FUNCTION(ingres_autocommit)
   int link_id = -1;
   II_LINK *ii_link;
   IIAPI_AUTOPARM autoParm;
-  IILS_FETCH();
   
   argc = ZEND_NUM_ARGS();
   if (argc > 1 || (argc && zend_get_parameters_ex(argc, &link) == FAILURE)){

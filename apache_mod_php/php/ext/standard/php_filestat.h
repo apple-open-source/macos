@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_filestat.h,v 1.1.1.4 2001/07/19 00:20:19 zarzycki Exp $ */
+/* $Id: php_filestat.h,v 1.1.1.5 2001/12/14 22:13:26 zarzycki Exp $ */
 
 #ifndef PHP_FILESTAT_H
 #define PHP_FILESTAT_H
@@ -43,11 +43,34 @@ PHP_FUNCTION(is_link);
 PHP_FUNCTION(file_exists);
 PHP_NAMED_FUNCTION(php_if_stat);
 PHP_NAMED_FUNCTION(php_if_lstat);
-PHP_FUNCTION(diskfreespace);
+PHP_FUNCTION(disk_total_space);
+PHP_FUNCTION(disk_free_space);
 PHP_FUNCTION(chown);
 PHP_FUNCTION(chgrp);
 PHP_FUNCTION(chmod);
 PHP_FUNCTION(touch);
 PHP_FUNCTION(clearstatcache);
+
+#define MAKE_LONG_ZVAL_INCREF(name, val)\
+	MAKE_STD_ZVAL(name); \
+	ZVAL_LONG(name, val); \
+	name->refcount++; 
+
+#ifdef PHP_WIN32
+#define S_IRUSR S_IREAD
+#define S_IWUSR S_IWRITE
+#define S_IXUSR S_IEXEC
+#define S_IRGRP S_IREAD
+#define S_IWGRP S_IWRITE
+#define S_IXGRP S_IEXEC
+#define S_IROTH S_IREAD
+#define S_IWOTH S_IWRITE
+#define S_IXOTH S_IEXEC
+
+#undef getgid
+#define getgroups(a, b) 0
+#define getgid() 1
+#define getuid() 1
+#endif
 
 #endif /* PHP_FILESTAT_H */

@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_swf.h,v 1.1.1.4 2001/07/19 00:20:25 zarzycki Exp $ */
+/* $Id: php_swf.h,v 1.1.1.5 2001/12/14 22:13:31 zarzycki Exp $ */
 
 #ifndef PHP_SWF_H
 #define PHP_SWF_H
@@ -29,9 +29,9 @@ extern zend_module_entry swf_module_entry;
 PHP_MINIT_FUNCTION(swf);
 PHP_MINFO_FUNCTION(swf);
 PHP_RINIT_FUNCTION(swf);
-extern void php_swf_define(INTERNAL_FUNCTION_PARAMETERS, int opt);
-extern void php_swf_fill_bitmap(INTERNAL_FUNCTION_PARAMETERS, int opt);
-extern void php_swf_geo_same(INTERNAL_FUNCTION_PARAMETERS, int opt);
+void php_swf_define(INTERNAL_FUNCTION_PARAMETERS, int opt);
+void php_swf_fill_bitmap(INTERNAL_FUNCTION_PARAMETERS, int opt);
+void php_swf_geo_same(INTERNAL_FUNCTION_PARAMETERS, int opt);
 PHP_FUNCTION(swf_openfile);
 PHP_FUNCTION(swf_closefile);
 PHP_FUNCTION(swf_labelframe);
@@ -107,13 +107,9 @@ ZEND_BEGIN_MODULE_GLOBALS(swf)
 ZEND_END_MODULE_GLOBALS(swf)
 
 #ifdef ZTS
-#define SWFLS_D zend_swf_globals *swf_globals
-#define SWFG(v) (swf_globals->v)
-#define SWFLS_FETCH() zend_swf_globals *swf_globals = ts_resource(swf_globals_id)
+#define SWFG(v) TSRMG(swf_globals_id, zend_swf_globals *, v)
 #else
-#define SWFLS_D
 #define SWFG(v) (swf_globals.v)
-#define SWFLS_FETCH()
 #endif
 
 #else

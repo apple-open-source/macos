@@ -1,4 +1,6 @@
-
+dnl
+dnl $Id: config.m4,v 1.1.1.5 2001/12/14 22:13:14 zarzycki Exp $
+dnl
 
 PHP_ARG_WITH(snmp,for SNMP support,
 [  --with-snmp[=DIR]       Include SNMP support.  DIR is the SNMP base
@@ -8,57 +10,69 @@ PHP_ARG_WITH(snmp,for SNMP support,
                           to build as a dl and still specify DIR.])
 
   if test "$PHP_SNMP" != "no"; then
+
     if test "$PHP_SNMP" = "yes"; then
-      SNMP_INCDIR=/usr/local/include
-      SNMP_LIBDIR=/usr/local/lib
-      test -f /usr/local/include/ucd-snmp/snmp.h && SNMP_INCDIR=/usr/local/include/ucd-snmp
-	  test -f /usr/include/ucd-snmp/snmp.h && SNMP_INCDIR=/usr/include/ucd-snmp
-	  test -f /usr/include/snmp/snmp.h && SNMP_INCDIR=/usr/include/snmp
-	  test -f /usr/include/snmp/include/ucd-snmp/snmp.h && SNMP_INCDIR=/usr/include/snmp/include/ucd-snmp
-	  test -f /usr/lib/libsnmp.a && SNMP_LIBDIR=/usr/lib
-	  test -f /usr/lib/libsnmp.so && SNMP_LIBDIR=/usr/lib
-	  test -f /usr/local/lib/libsnmp.a && SNMP_LIBDIR=/usr/local/lib
-	  test -f /usr/local/lib/libsnmp.so && SNMP_LIBDIR=/usr/local/lib
-	  test -f /usr/local/snmp/lib/libsnmp.a && SNMP_LIBDIR=/usr/local/snmp/lib
-	  test -f /usr/local/snmp/lib/libsnmp.so && SNMP_LIBDIR=/usr/local/snmp/lib
+      for i in /usr/include /usr/local/include; do
+        test -f $i/snmp.h                       && SNMP_INCDIR=$i
+        test -f $i/ucd-snmp/snmp.h              && SNMP_INCDIR=$i/ucd-snmp
+        test -f $i/snmp/snmp.h                  && SNMP_INCDIR=$i/snmp
+        test -f $i/snmp/include/ucd-snmp/snmp.h && SNMP_INCDIR=$i/snmp/include/ucd-snmp
+      done
+      for i in /usr /usr/snmp /usr/local /usr/local/snmp; do
+        test -f $i/lib/libsnmp.a -o -f $i/lib/libsnmp.$SHLIB_SUFFIX_NAME && SNMP_LIBDIR=$i/lib
+      done
     else
       SNMP_INCDIR=$PHP_SNMP/include
-      test -d $PHP_SNMP/include/ucd-snmp && SNMP_INCDIR=$withval/include/ucd-snmp
+      test -d $PHP_SNMP/include/ucd-snmp && SNMP_INCDIR=$PHP_SNMP/include/ucd-snmp
       SNMP_LIBDIR=$PHP_SNMP/lib
     fi
+
+    if test -z "$SNMP_INCDIR"; then
+      AC_MSG_ERROR(snmp.h not found. Check your SNMP installation.)
+    elif test -z "$SNMP_LIBDIR"; then
+      AC_MSG_ERROR(libsnmp not found. Check your SNMP installation.)
+    fi
+
+    old_CPPFLAGS=$CPPFLAGS
+    CPPFLAGS=-I$SNMP_INCDIR
+    AC_CHECK_HEADERS(default_store.h)
+    if test "$ac_cv_header_default_store_h" = "yes"; then
+      AC_MSG_CHECKING(for OpenSSL support in SNMP libraries)
+      AC_EGREP_CPP(yes,[
+        #include <ucd-snmp-config.h>
+        #if USE_OPENSSL
+        yes
+        #endif
+      ],[
+        SNMP_SSL=yes
+      ],[
+        SNMP_SSL=no
+      ])
+    fi
+    CPPFLAGS=$old_CPPFLAGS
+    AC_MSG_RESULT($SNMP_SSL)
+  
+    if test "$SNMP_SSL" = "yes"; then
+      if test "$PHP_OPENSSL" != "no"; then
+        PHP_ADD_LIBRARY(ssl,   1, SNMP_SHARED_LIBADD)
+        PHP_ADD_LIBRARY(crypto,1, SNMP_SHARED_LIBADD)
+      else
+        AC_MSG_ERROR(The UCD-SNMP in this system is build with SSL support. 
+
+        Add --with-openssl<=DIR> to your configure line.)
+      fi
+    fi
+
+    AC_CHECK_LIB(kstat, kstat_read, [ PHP_ADD_LIBRARY(kstat,,SNMP_SHARED_LIBADD) ])
+
     AC_DEFINE(HAVE_SNMP,1,[ ])
     PHP_ADD_INCLUDE($SNMP_INCDIR)
     PHP_ADD_LIBRARY_WITH_PATH(snmp, $SNMP_LIBDIR, SNMP_SHARED_LIBADD)
-	old_CPPFLAGS="$CPPFLAGS"
-	CPPFLAGS="$INCLUDES $CPPFLAGS"
-	AC_CHECK_HEADERS(default_store.h)
-	if test "$ac_cv_header_default_store_h" = "yes"; then
-		dnl UCD SNMP 4.1.x
-		AC_TRY_RUN([
-#include <ucd-snmp-config.h>
-main() { exit(USE_OPENSSL != 1); }
-		],[
-			SNMP_SSL=yes
-		],[
-			SNMP_SSL=no
-		],[
-			SNMP_SSL=no
-		])
-		if test "$SNMP_SSL" = "yes"; then
-			PHP_SETUP_OPENSSL
-		fi
-	fi
-	CPPFLAGS="$old_CPPFLAGS"
-	PHP_EXTENSION(snmp,$ext_shared)
-	PHP_SUBST(SNMP_SHARED_LIBADD)
-	AC_CHECK_LIB(kstat, kstat_read, [
-	  PHP_ADD_LIBRARY(kstat,,SNMP_SHARED_LIBADD)
-        ])
-    SNMP_INCLUDE="-I$SNMP_INCDIR"
+
+    PHP_EXTENSION(snmp, $ext_shared)
+    PHP_SUBST(SNMP_SHARED_LIBADD)
   fi
-PHP_SUBST(SNMP_LIBDIR)
-PHP_SUBST(SNMP_INCLUDE)
-PHP_SUBST(KSTAT_LIBS)
+
 
 AC_MSG_CHECKING(whether to enable UCD SNMP hack)
 AC_ARG_ENABLE(ucd-snmp-hack,

@@ -23,31 +23,34 @@
 
 #include "zend.h"
 
-#define INIT_FUNC_ARGS		int type, int module_number ELS_DC
-#define INIT_FUNC_ARGS_PASSTHRU	type, module_number ELS_CC
-#define SHUTDOWN_FUNC_ARGS	int type, int module_number
-#define SHUTDOWN_FUNC_ARGS_PASSTHRU type, module_number
-#define ZEND_MODULE_INFO_FUNC_ARGS zend_module_entry *zend_module
-#define ZEND_MODULE_INFO_FUNC_ARGS_PASSTHRU zend_module
+#define INIT_FUNC_ARGS		int type, int module_number TSRMLS_DC
+#define INIT_FUNC_ARGS_PASSTHRU	type, module_number TSRMLS_CC
+#define SHUTDOWN_FUNC_ARGS	int type, int module_number TSRMLS_DC
+#define SHUTDOWN_FUNC_ARGS_PASSTHRU type, module_number TSRMLS_CC
+#define ZEND_MODULE_INFO_FUNC_ARGS zend_module_entry *zend_module TSRMLS_DC
+#define ZEND_MODULE_INFO_FUNC_ARGS_PASSTHRU zend_module TSRMLS_CC
 #define GINIT_FUNC_ARGS		void
 #define GINIT_FUNC_ARGS_PASSTHRU
 
 ZEND_API extern unsigned char first_arg_force_ref[];
-ZEND_API extern unsigned char first_arg_allow_ref[];
 ZEND_API extern unsigned char second_arg_force_ref[];
-ZEND_API extern unsigned char second_arg_allow_ref[];
+ZEND_API extern unsigned char third_arg_force_ref[];
 
-#define ZEND_MODULE_API_NO 20001222
+#define ZEND_MODULE_API_NO 20010901
 #ifdef ZTS
 #define USING_ZTS 1
 #else
 #define USING_ZTS 0
 #endif
 
-#define STANDARD_MODULE_PROPERTIES_EX 0, 0, 0, NULL, 0, ZEND_DEBUG, USING_ZTS, ZEND_MODULE_API_NO
+#define STANDARD_MODULE_HEADER sizeof(zend_module_entry), ZEND_MODULE_API_NO, ZEND_DEBUG, USING_ZTS
+
+#define STANDARD_MODULE_PROPERTIES_EX 0, 0, 0, NULL, 0
 
 #define STANDARD_MODULE_PROPERTIES \
 	NULL, NULL, STANDARD_MODULE_PROPERTIES_EX
+
+#define NO_VERSION_YET NULL
 
 #define MODULE_PERSISTENT 1
 #define MODULE_TEMPORARY 2
@@ -55,6 +58,10 @@ ZEND_API extern unsigned char second_arg_allow_ref[];
 typedef struct _zend_module_entry zend_module_entry;
 
 struct _zend_module_entry {
+    unsigned short size;
+	unsigned int zend_api;
+	unsigned char zend_debug;
+	unsigned char zts;
 	char *name;
 	zend_function_entry *functions;
 	int (*module_startup_func)(INIT_FUNC_ARGS);
@@ -62,6 +69,7 @@ struct _zend_module_entry {
 	int (*request_startup_func)(INIT_FUNC_ARGS);
 	int (*request_shutdown_func)(SHUTDOWN_FUNC_ARGS);
 	void (*info_func)(ZEND_MODULE_INFO_FUNC_ARGS);
+	char *version;
 	int (*global_startup_func)(void);
 	int (*global_shutdown_func)(void);
 	int globals_id;
@@ -69,17 +77,14 @@ struct _zend_module_entry {
 	unsigned char type;
 	void *handle;
 	int module_number;
-	unsigned char zend_debug;
-	unsigned char zts;
-	unsigned int zend_api;
 };
 
 
 extern ZEND_API HashTable module_registry;
 
 void module_destructor(zend_module_entry *module);
-int module_registry_cleanup(zend_module_entry *module);
-int module_registry_request_startup(zend_module_entry *module);
+int module_registry_cleanup(zend_module_entry *module TSRMLS_DC);
+int module_registry_request_startup(zend_module_entry *module TSRMLS_DC);
 
 #define ZEND_MODULE_DTOR (void (*)(void *)) module_destructor
 #endif

@@ -15,7 +15,7 @@
    | Authors: Stig Venaas <venaas@uninett.no>                             |
    +----------------------------------------------------------------------+
  */
-/* $Id: network.c,v 1.1.1.2 2001/07/19 00:20:37 zarzycki Exp $ */
+/* $Id: network.c,v 1.1.1.3 2001/12/14 22:13:46 zarzycki Exp $ */
 
 #include "php.h"
 
@@ -31,6 +31,10 @@
 #include <sys/types.h>
 #if HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
+#endif
+
+#ifndef _FCNTL_H
+#include <fcntl.h>
 #endif
 
 #ifndef PHP_WIN32
@@ -68,6 +72,8 @@ int		 inet_aton(const char *, struct in_addr *);
 #  define PHP_GAI_STRERROR(x) (gai_strerror(x))
 #else
 #  define PHP_GAI_STRERROR(x) (php_gai_strerror(x))
+/* {{{ php_gai_strerror
+ */
 static char *php_gai_strerror(int code)
 {
         static struct {
@@ -101,9 +107,12 @@ static char *php_gai_strerror(int code)
         
         return "Unknown error";
 }
+/* }}} */
 #endif
 #endif
 
+/* {{{ php_network_freeaddresses
+ */
 static void php_network_freeaddresses(struct sockaddr **sal)
 {
 	struct sockaddr **sap;
@@ -114,7 +123,10 @@ static void php_network_freeaddresses(struct sockaddr **sal)
 		efree(*sap);
 	efree(sal);
 }
+/* }}} */
 
+/* {{{ php_network_getaddresses
+ */
 static int php_network_getaddresses(const char *host, struct sockaddr ***sal)
 {
 	struct sockaddr **sap;
@@ -184,6 +196,7 @@ static int php_network_getaddresses(const char *host, struct sockaddr ***sal)
 	*sap = NULL;
 	return 0;
 }
+/* }}} */
 
 /* {{{ php_connect_nonb */
 PHPAPI int php_connect_nonb(int sockfd,
@@ -262,7 +275,7 @@ ok:
 }
 /* }}} */
 
-/*
+/* {{{ php_hostconnect
  * Creates a socket of type socktype and connects to the given host and
  * port, returns the created socket on success, else returns -1.
  * timeout gives timeout in seconds, 0 means blocking mode.
@@ -326,11 +339,13 @@ int php_hostconnect(char *host, unsigned short port, int socktype, int timeout)
 	php_network_freeaddresses(psal);
 	return s;
 }
+/* }}} */
 
 /*
  * Local variables:
  * tab-width: 8
  * c-basic-offset: 8
  * End:
- * vim: ts=4 sw=4 tw=78
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

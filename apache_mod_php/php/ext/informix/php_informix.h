@@ -1,35 +1,25 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP HTML Embedded Scripting Language Version 4.0                     |
+   | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-1999 PHP Development Team (See Credits file)      |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This program is free software; you can redistribute it and/or modify |
-   | it under the terms of one of the following licenses:                 |
-   |                                                                      |
-   |  A) the GNU General Public License as published by the Free Software |
-   |     Foundation; either version 2 of the License, or (at your option) |
-   |     any later version.                                               |
-   |                                                                      |
-   |  B) the PHP License as published by the PHP Development Team and     |
-   |     included in the distribution in the file: LICENSE                |
-   |                                                                      |
-   | This program is distributed in the hope that it will be useful,      |
-   | but WITHOUT ANY WARRANTY; without even the implied warranty of       |
-   | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the        |
-   | GNU General Public License for more details.                         |
-   |                                                                      |
-   | You should have received a copy of both licenses referred to here.   |
-   | If you did not, or have any questions about PHP licensing, please    |
-   | contact core@php.net.                                                |
+   | This source file is subject to version 2.02 of the PHP license,      |
+   | that is bundled with this package in the file LICENSE, and is        |
+   | available at through the world-wide-web at                           |
+   | http://www.php.net/license/2_02.txt.                                 |
+   | If you did not receive a copy of the PHP license and are unable to   |
+   | obtain it through the world-wide-web, please send a note to          |
+   | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Danny Heijl <Danny.Heijl@cevi.be>, initial cut (ODS 7)      |
    |          Christian Cartus <chc@idgruppe.de>, blobs, and IUS 9        |
    |          Jouni Ahto <jouni.ahto@exdec.fi>, configuration stuff       |
    | based on mysql code by: Zeev Suraski <zeev@php.net>                  |
    +----------------------------------------------------------------------+
- */
+*/
 
+/* $Id: php_informix.h,v 1.1.1.4 2001/12/14 22:12:27 zarzycki Exp $ */
 
 #ifndef PHP_INFORMIX_H
 #define PHP_INFORMIX_H
@@ -39,7 +29,6 @@
 #else
 #define PHP_IFX_API
 #endif
-
 
 #if HAVE_IFX                        /* with Informix */
 
@@ -110,56 +99,29 @@ PHP_FUNCTION(ifxus_seek_slob);
 PHP_FUNCTION(ifxus_tell_slob);
 #endif
 
-typedef struct {
+ZEND_BEGIN_MODULE_GLOBALS(ifx)
 	long default_link;
-	long num_links,num_persistent;
-	long max_links,max_persistent;
+	long num_links, num_persistent;
+	long max_links, max_persistent;
 	long allow_persistent;
 	char *default_host, *default_user, *default_password;
 	int connectionid;
 	int cursorid;
-        int sv_sqlcode;      /* saved informix SQLCODE value */
-        long blobinfile;     /* 0=save in memory, 1=save in file */
-        long textasvarchar;  /* 0=as id, 1=as varchar */
-        long byteasvarchar;  /* 0=as id, 1=as varchar */
-        long charasvarchar;  /* 0=don't strip trailing blanks, 1=strip */
-        long nullformat;     /* 0=NULL as "", 1= NULL as "NULL" */
-        char *nullvalue;     /* "" */
-        char *nullstring;    /* "NULL" */
-} php_ifx_globals;           /* formerly "ifx_module" in the php3 version */
-
-typedef struct {
-	int le_result;
-        int le_link;
-        int le_plink;
-        int le_idresult;
-} php_ifx_listids;
-
-#define IFXL(v) (ifx_listids.v)
-
-#ifndef ZTS
-extern php_ifx_globals ifx_globals;
-#endif
+	int sv_sqlcode;      /* saved informix SQLCODE value */
+	long blobinfile;     /* 0=save in memory, 1=save in file */
+	long textasvarchar;  /* 0=as id, 1=as varchar */
+	long byteasvarchar;  /* 0=as id, 1=as varchar */
+	long charasvarchar;  /* 0=don't strip trailing blanks, 1=strip */
+	long nullformat;     /* 0=NULL as "", 1= NULL as "NULL" */
+	char nullvalue[1];   /* "" */
+	char nullstring[5];  /* "NULL" */
+ZEND_END_MODULE_GLOBALS(ifx)
 
 #ifdef ZTS
-# define IFXLS_D	php_ifx_globals *ifx_globals
-# define IFXLS_DC	, IFXLS_D
-# define IFXLS_C	ifx_globals
-# define IFXLS_CC , IFXLS_C
-# define IFXG(v) (ifx_globals->v)
-# define IFXLS_FETCH()	php_ifx_globals *ifx_globals = ts_resource(ifx_globals_id)
-# define IFX_TLS_VARS char *globals; IFXLS_FETCH(); globals = (char *)ifx_globals;
+# define IFXG(v) TSRMG(ifx_globals_id, zend_ifx_globals *, v)
 #else
-# define IFXLS_D
-# define IFXLS_DC
-# define IFXLS_C
-# define IFXLS_CC
 # define IFXG(v) (ifx_globals.v)
-# define IFXLS_FETCH()
-# define IFX_TLS_VARS char *globals = (char *)&ifx_globals
-extern ZEND_API php_ifx_globals ifx_globals;
 #endif
-
 
 #define MAX_RESID          64
 #define BLOBINFILE 0      /* 0=in memory, 1=in file */
@@ -170,43 +132,39 @@ typedef struct ifx_res {
 	char cursorid[16];
 	char descrpid[16];
 	char statemid[16];
-        int  isscroll;
-        int  ishold;
-        int  iscursory;
-        int  paramquery;
+	int  isscroll;
+	int  ishold;
+	int  iscursory;
+	int  paramquery;
 	int  numcols;
 	int  rowid;
-        int  affected_rows;
-        long sqlerrd[6];
-        int res_id[MAX_RESID];
+	int  affected_rows;
+	long sqlerrd[6];
+	int res_id[MAX_RESID];
 } IFX_RES;
 
-
-
-
-
 typedef struct _IFX_IDRES {
- 	  int type;
-          union {
-           struct {
-  	    int mode;
-	    loc_t blob_data;
-	   } BLOBRES;
-	   struct {
-	     char *char_data;
-	     int len;
- 	   } CHARRES;
+	int type;
+	union {
+		struct {
+			int mode;
+			loc_t blob_data;
+		} BLOBRES;
+
+		struct {
+			char *char_data;
+			int len;
+		} CHARRES;
+
 #if HAVE_IFX_IUS
-	   struct {
-            ifx_lo_t slob_data;
-            ifx_lo_create_spec_t *createspec;
-            int lofd;
- 	   } SLOBRES;
+		struct {
+			ifx_lo_t slob_data;
+			ifx_lo_create_spec_t *createspec;
+			int lofd;
+		} SLOBRES;
 #endif
-	  } DATARES;
+	} DATARES;
 } IFX_IDRES;
-
-
 
 #define BLOB DATARES.BLOBRES
 #define CHAR DATARES.CHARRES
@@ -215,13 +173,8 @@ typedef struct _IFX_IDRES {
 #define SLOB DATARES.SLOBRES
 #endif
 
-
-#else                                /* not HAVE_IFX  */
-
+#else /* not HAVE_IFX  */
 #define ifx_module_ptr NULL
-
 #endif
-
 #define phpext_informix_ptr ifx_module_ptr
-
 #endif /* PHP_INFORMIX_H */

@@ -16,33 +16,55 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_var.h,v 1.1.1.4 2001/07/19 00:20:21 zarzycki Exp $ */
+/* $Id: php_var.h,v 1.1.1.5 2001/12/14 22:13:27 zarzycki Exp $ */
 
 #ifndef PHP_VAR_H
 #define PHP_VAR_H
+
+#include "ext/standard/php_smart_str_public.h"
 
 PHP_FUNCTION(var_dump);
 PHP_FUNCTION(serialize);
 PHP_FUNCTION(unserialize);
 
-void php_var_dump(pval **struc, int level);
+void php_var_dump(zval **struc, int level TSRMLS_DC);
 
 /* typdef HashTable php_serialize_data_t; */
 #define php_serialize_data_t HashTable
 
-void php_var_serialize(pval *buf, pval **struc, php_serialize_data_t *var_hash);
-int php_var_unserialize(pval **rval, const char **p, const char *max, php_serialize_data_t *var_hash);
+PHPAPI void php_var_serialize(smart_str *buf, zval **struc, php_serialize_data_t *var_hash TSRMLS_DC);
+PHPAPI int php_var_unserialize(zval **rval, const char **p, const char *max, php_serialize_data_t *var_hash TSRMLS_DC);
 
 #define PHP_VAR_SERIALIZE_INIT(var_hash) \
-   zend_hash_init(&(var_hash),10,NULL,NULL,0)
+   zend_hash_init(&(var_hash), 10, NULL, NULL, 0)
 #define PHP_VAR_SERIALIZE_DESTROY(var_hash) \
    zend_hash_destroy(&(var_hash))
 
 #define PHP_VAR_UNSERIALIZE_INIT(var_hash) \
-   zend_hash_init(&(var_hash),10,NULL,NULL,0)
+   zend_hash_init(&(var_hash), 10, NULL, NULL, 0)
 #define PHP_VAR_UNSERIALIZE_DESTROY(var_hash) \
    zend_hash_destroy(&(var_hash))
 
-PHPAPI zend_class_entry *php_create_empty_class(char *class_name,int len);
+#define PHP_VAR_UNSERIALIZE_ZVAL_CHANGED(var_hash, ozval, nzval) \
+if (var_hash) { \
+    HashPosition pos; \
+    zval **zval_ref; \
+    zend_hash_internal_pointer_reset_ex(var_hash, &pos); \
+    while (zend_hash_get_current_data_ex(var_hash, (void **) &zval_ref, &pos) == SUCCESS) { \
+        if (*zval_ref == ozval) { \
+            char *string_key; \
+            uint str_key_len; \
+            ulong num_key; \
+							\
+            zend_hash_get_current_key_ex(var_hash, &string_key, &str_key_len, &num_key, 1, &pos); \
+            /* this is our hash and it _will_ be number indexed! */ \
+            zend_hash_index_update(var_hash, num_key, &nzval, sizeof(zval *), NULL); \
+            break; \
+        }  \
+        zend_hash_move_forward_ex(var_hash, &pos); \
+    } \
+}
+
+PHPAPI zend_class_entry *php_create_empty_class(char *class_name, int len);
 
 #endif /* PHP_VAR_H */

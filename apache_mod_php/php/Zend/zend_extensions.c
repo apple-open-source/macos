@@ -43,31 +43,37 @@ int zend_load_extension(char *path)
 	extension_version_info = (zend_extension_version_info *) DL_FETCH_SYMBOL(handle, "extension_version_info");
 	new_extension = (zend_extension *) DL_FETCH_SYMBOL(handle, "zend_extension_entry");
 	if (!extension_version_info || !new_extension) {
-		fprintf(stderr, "%s doesn't appear to be a valid Zend extension\n", path);
-		return FAILURE;
+		/* Try to see if we can find the symbols with an underscore in front of them */
+		extension_version_info = (zend_extension_version_info *) DL_FETCH_SYMBOL(handle, "_extension_version_info");
+		new_extension = (zend_extension *) DL_FETCH_SYMBOL(handle, "_zend_extension_entry");
+
+		if (!extension_version_info || !new_extension) {
+			fprintf(stderr, "%s doesn't appear to be a valid Zend extension\n", path);
+			return FAILURE;
+		}
 	}
 
 
 	/* allow extension to proclaim compatibility with any Zend version */
 	if (extension_version_info->zend_extension_api_no != ZEND_EXTENSION_API_NO &&(!new_extension->api_no_check || new_extension->api_no_check(ZEND_EXTENSION_API_NO) != SUCCESS)) {
 		if (extension_version_info->zend_extension_api_no > ZEND_EXTENSION_API_NO) {
-			fprintf(stderr, "%s requires Zend Engine API version %d\n"
-					"The installed Zend Engine API version is %d\n\n",
+			fprintf(stderr, "%s requires Zend Engine API version %d.\n"
+					"The Zend Engine API version %d which is installed, is outdated.\n\n",
 					new_extension->name,
 					extension_version_info->zend_extension_api_no,
 					ZEND_EXTENSION_API_NO);
 			DL_UNLOAD(handle);
 			return FAILURE;
 		} else if (extension_version_info->zend_extension_api_no < ZEND_EXTENSION_API_NO) {
-			fprintf(stderr, "%s designed to be used with the Zend Engine API %d is outdated\n"
-					"It requires a more recent version of the Zend Engine\n"
-					"The installed Zend Engine API version is %d\n"
-					"Contact %s at %s for a later version of this module.\n\n",
+			fprintf(stderr, "%s requires Zend Engine API version %d.\n"
+					"The Zend Engine API version %d which is installed, is newer.\n"
+					"Contact %s at %s for a later version of %s.\n\n",
 					new_extension->name,
 					extension_version_info->zend_extension_api_no,
 					ZEND_EXTENSION_API_NO,
 					new_extension->author,
-					new_extension->URL);
+					new_extension->URL,
+					new_extension->name);
 			DL_UNLOAD(handle);
 			return FAILURE;
 		} 
@@ -114,7 +120,7 @@ int zend_register_extension(zend_extension *new_extension, DL_HANDLE handle)
 }
 
 
-static void zend_extension_shutdown(zend_extension *extension)
+static void zend_extension_shutdown(zend_extension *extension TSRMLS_DC)
 {
 #if ZEND_EXTENSIONS_SUPPORT
 	if (extension->shutdown) {
@@ -153,9 +159,9 @@ int zend_startup_extensions()
 }
 
 
-void zend_shutdown_extensions()
+void zend_shutdown_extensions(TSRMLS_D)
 {
-	zend_llist_apply(&zend_extensions, (void (*)(void *)) zend_extension_shutdown);
+	zend_llist_apply(&zend_extensions, (llist_apply_func_t) zend_extension_shutdown TSRMLS_CC);
 	zend_llist_destroy(&zend_extensions);
 }
 
@@ -170,7 +176,7 @@ void zend_extension_dtor(zend_extension *extension)
 }
 
 
-static void zend_extension_message_dispatcher(zend_extension *extension, int num_args, va_list args)
+static void zend_extension_message_dispatcher(zend_extension *extension, int num_args, va_list args TSRMLS_DC)
 {
 	int message;
 	void *arg;
@@ -186,7 +192,9 @@ static void zend_extension_message_dispatcher(zend_extension *extension, int num
 
 ZEND_API void zend_extension_dispatch_message(int message, void *arg)
 {
-	zend_llist_apply_with_arguments(&zend_extensions, (llist_apply_with_args_func_t) zend_extension_message_dispatcher, 2, message, arg);
+	TSRMLS_FETCH();
+
+	zend_llist_apply_with_arguments(&zend_extensions, (llist_apply_with_args_func_t) zend_extension_message_dispatcher TSRMLS_CC, 2, message, arg);
 }
 
 

@@ -2,7 +2,7 @@ Maintainers for DB database backends/drivers:
 
 ibase     : 
 msql      : 
-mssql     : 
+mssql     : Frank M. Kromann <frank@frontbase.com>
 mysql     : Stig Bakken <ssb@fast.no>
 oci8      : 
 odbc      : 

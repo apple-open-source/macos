@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: bcmath.c,v 1.1.1.4 2001/07/19 00:18:53 zarzycki Exp $ */
+/* $Id: bcmath.c,v 1.1.1.5 2001/12/14 22:11:56 zarzycki Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -44,6 +44,7 @@ function_entry bcmath_functions[] = {
 };
 
 zend_module_entry bcmath_module_entry = {
+	STANDARD_MODULE_HEADER,
 	"bcmath",
     bcmath_functions,
 	PHP_MINIT(bcmath),
@@ -51,6 +52,7 @@ zend_module_entry bcmath_module_entry = {
 	PHP_RINIT(bcmath),
 	NULL,
 	PHP_MINFO(bcmath),
+	NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES
 };
 
@@ -89,10 +91,10 @@ PHP_MINIT_FUNCTION(bcmath)
 	extern bc_num _one_;
 	extern bc_num _two_;
 
-	_zero_ = bc_new_num (1,0);
-	_one_  = bc_new_num (1,0);
+	_zero_ = bc_new_num (1, 0);
+	_one_  = bc_new_num (1, 0);
 	_one_->n_value[0] = 1;
-	_two_  = bc_new_num (1,0);
+	_two_  = bc_new_num (1, 0);
 	_two_->n_value[0] = 2;
 	persist_alloc(_zero_);
 	persist_alloc(_one_);
@@ -117,7 +119,7 @@ PHP_MSHUTDOWN_FUNCTION(bcmath)
 
 PHP_RINIT_FUNCTION(bcmath)
 {
-	if (cfg_get_long("bcmath.scale",&bc_precision)==FAILURE) {
+	if (cfg_get_long("bcmath.scale", &bc_precision)==FAILURE) {
 		bc_precision=0;
 	}
 	return SUCCESS;
@@ -126,27 +128,27 @@ PHP_RINIT_FUNCTION(bcmath)
 
 PHP_MINFO_FUNCTION(bcmath)
 {
-  php_info_print_table_start();
-  php_info_print_table_row(2, "BCMath support", "enabled");
-  php_info_print_table_end();
+	php_info_print_table_start();
+	php_info_print_table_row(2, "BCMath support", "enabled");
+	php_info_print_table_end();
 }
 
 /* {{{ proto string bcadd(string left_operand, string right_operand [, int scale])
    Returns the sum of two arbitrary precision numbers */
 PHP_FUNCTION(bcadd)
 {
-	pval **left, **right,**scale_param;
+	pval **left, **right, **scale_param;
 	bc_num first, second, result;
 	int scale=bc_precision;
 
 	switch (ZEND_NUM_ARGS()) {
 		case 2:
-				if (zend_get_parameters_ex(2, &left,&right) == FAILURE) {
+				if (zend_get_parameters_ex(2, &left, &right) == FAILURE) {
 		        	WRONG_PARAM_COUNT;
     			}
 				break;
 		case 3:
-				if (zend_get_parameters_ex(3, &left,&right, &scale_param) == FAILURE) {
+				if (zend_get_parameters_ex(3, &left, &right, &scale_param) == FAILURE) {
 		        	WRONG_PARAM_COUNT;
     			}
 				convert_to_long_ex(scale_param);
@@ -161,9 +163,9 @@ PHP_FUNCTION(bcadd)
 	bc_init_num(&first);
 	bc_init_num(&second);
 	bc_init_num(&result);
-	bc_str2num(&first,(*left)->value.str.val,scale);
-	bc_str2num(&second,(*right)->value.str.val,scale);
-	bc_add (first,second,&result, scale);
+	bc_str2num(&first, (*left)->value.str.val, scale);
+	bc_str2num(&second, (*right)->value.str.val, scale);
+	bc_add (first, second, &result, scale);
 	return_value->value.str.val = bc_num2str(result);
 	return_value->value.str.len = strlen(return_value->value.str.val);
 	return_value->type = IS_STRING;
@@ -178,18 +180,18 @@ PHP_FUNCTION(bcadd)
    Returns the difference between two arbitrary precision numbers */
 PHP_FUNCTION(bcsub)
 {
-	pval **left, **right,**scale_param;
+	pval **left, **right, **scale_param;
 	bc_num first, second, result;
 	int scale=bc_precision;
 
 	switch (ZEND_NUM_ARGS()) {
 		case 2:
-				if (zend_get_parameters_ex(2, &left,&right) == FAILURE) {
+				if (zend_get_parameters_ex(2, &left, &right) == FAILURE) {
 		        	WRONG_PARAM_COUNT;
     			}
 				break;
 		case 3:
-				if (zend_get_parameters_ex(3, &left,&right, &scale_param) == FAILURE) {
+				if (zend_get_parameters_ex(3, &left, &right, &scale_param) == FAILURE) {
 		        	WRONG_PARAM_COUNT;
     			}
 				convert_to_long_ex(scale_param);
@@ -204,9 +206,9 @@ PHP_FUNCTION(bcsub)
 	bc_init_num(&first);
 	bc_init_num(&second);
 	bc_init_num(&result);
-	bc_str2num(&first,(*left)->value.str.val,scale);
-	bc_str2num(&second,(*right)->value.str.val,scale);
-	bc_sub (first,second,&result, scale);
+	bc_str2num(&first, (*left)->value.str.val, scale);
+	bc_str2num(&second, (*right)->value.str.val, scale);
+	bc_sub (first, second, &result, scale);
 	return_value->value.str.val = bc_num2str(result);
 	return_value->value.str.len = strlen(return_value->value.str.val);
 	return_value->type = IS_STRING;
@@ -221,18 +223,18 @@ PHP_FUNCTION(bcsub)
    Returns the multiplication of two arbitrary precision numbers */
 PHP_FUNCTION(bcmul)
 {
-	pval **left, **right,**scale_param;
+	pval **left, **right, **scale_param;
 	bc_num first, second, result;
 	int scale=bc_precision;
 
 	switch (ZEND_NUM_ARGS()) {
 		case 2:
-				if (zend_get_parameters_ex(2, &left,&right) == FAILURE) {
+				if (zend_get_parameters_ex(2, &left, &right) == FAILURE) {
 		        	WRONG_PARAM_COUNT;
     			}
 				break;
 		case 3:
-				if (zend_get_parameters_ex(3, &left,&right, &scale_param) == FAILURE) {
+				if (zend_get_parameters_ex(3, &left, &right, &scale_param) == FAILURE) {
 		        	WRONG_PARAM_COUNT;
     			}
 				convert_to_long_ex(scale_param);
@@ -247,9 +249,9 @@ PHP_FUNCTION(bcmul)
 	bc_init_num(&first);
 	bc_init_num(&second);
 	bc_init_num(&result);
-	bc_str2num(&first,(*left)->value.str.val,scale);
-	bc_str2num(&second,(*right)->value.str.val,scale);
-	bc_multiply (first,second,&result, scale);
+	bc_str2num(&first, (*left)->value.str.val, scale);
+	bc_str2num(&second, (*right)->value.str.val, scale);
+	bc_multiply (first, second, &result, scale);
 	return_value->value.str.val = bc_num2str(result);
 	return_value->value.str.len = strlen(return_value->value.str.val);
 	return_value->type = IS_STRING;
@@ -264,18 +266,18 @@ PHP_FUNCTION(bcmul)
    Returns the quotient of two arbitrary precision numbers (division) */
 PHP_FUNCTION(bcdiv)
 {
-	pval **left, **right,**scale_param;
+	pval **left, **right, **scale_param;
 	bc_num first, second, result;
 	int scale=bc_precision;
 
 	switch (ZEND_NUM_ARGS()) {
 		case 2:
-				if (zend_get_parameters_ex(2, &left,&right) == FAILURE) {
+				if (zend_get_parameters_ex(2, &left, &right) == FAILURE) {
 		        	WRONG_PARAM_COUNT;
     			}
 				break;
 		case 3:
-				if (zend_get_parameters_ex(3, &left,&right, &scale_param) == FAILURE) {
+				if (zend_get_parameters_ex(3, &left, &right, &scale_param) == FAILURE) {
 		        	WRONG_PARAM_COUNT;
     			}
 				convert_to_long_ex(scale_param);
@@ -290,16 +292,16 @@ PHP_FUNCTION(bcdiv)
 	bc_init_num(&first);
 	bc_init_num(&second);
 	bc_init_num(&result);
-	bc_str2num(&first,(*left)->value.str.val,scale);
-	bc_str2num(&second,(*right)->value.str.val,scale);
-	switch (bc_divide (first,second,&result, scale)) {
+	bc_str2num(&first, (*left)->value.str.val, scale);
+	bc_str2num(&second, (*right)->value.str.val, scale);
+	switch (bc_divide (first, second, &result, scale)) {
 		case 0: /* OK */
 			return_value->value.str.val = bc_num2str(result);
 			return_value->value.str.len = strlen(return_value->value.str.val);
 			return_value->type = IS_STRING;
 			break;
 		case -1: /* division by zero */
-			php_error(E_WARNING,"Division by zero");
+			php_error(E_WARNING, "Division by zero");
 			break;
 	}
 	bc_free_num(&first);
@@ -318,7 +320,7 @@ PHP_FUNCTION(bcmod)
 
 	switch (ZEND_NUM_ARGS()) {
 		case 2:
-				if (zend_get_parameters_ex(2, &left,&right) == FAILURE) {
+				if (zend_get_parameters_ex(2, &left, &right) == FAILURE) {
 		        	WRONG_PARAM_COUNT;
     			}
 				break;
@@ -331,16 +333,16 @@ PHP_FUNCTION(bcmod)
 	bc_init_num(&first);
 	bc_init_num(&second);
 	bc_init_num(&result);
-	bc_str2num(&first,(*left)->value.str.val,0);
-	bc_str2num(&second,(*right)->value.str.val,0);
-	switch (bc_modulo(first,second,&result, 0)) {
+	bc_str2num(&first, (*left)->value.str.val, 0);
+	bc_str2num(&second, (*right)->value.str.val, 0);
+	switch (bc_modulo(first, second, &result, 0)) {
 		case 0:
 			return_value->value.str.val = bc_num2str(result);
 			return_value->value.str.len = strlen(return_value->value.str.val);
 			return_value->type = IS_STRING;
 			break;
 		case -1:
-			php_error(E_WARNING,"Division by zero");
+			php_error(E_WARNING, "Division by zero");
 			break;
 	}
 	bc_free_num(&first);
@@ -354,18 +356,18 @@ PHP_FUNCTION(bcmod)
    Returns the value of an arbitrary precision number raised to the power of another */
 PHP_FUNCTION(bcpow)
 {
-	pval **left, **right,**scale_param;
+	pval **left, **right, **scale_param;
 	bc_num first, second, result;
 	int scale=bc_precision;
 
 	switch (ZEND_NUM_ARGS()) {
 		case 2:
-				if (zend_get_parameters_ex(2, &left,&right) == FAILURE) {
+				if (zend_get_parameters_ex(2, &left, &right) == FAILURE) {
 		        	WRONG_PARAM_COUNT;
     			}
 				break;
 		case 3:
-				if (zend_get_parameters_ex(3, &left,&right, &scale_param) == FAILURE) {
+				if (zend_get_parameters_ex(3, &left, &right, &scale_param) == FAILURE) {
 		        	WRONG_PARAM_COUNT;
     			}
 				convert_to_long_ex(scale_param);
@@ -380,9 +382,9 @@ PHP_FUNCTION(bcpow)
 	bc_init_num(&first);
 	bc_init_num(&second);
 	bc_init_num(&result);
-	bc_str2num(&first,(*left)->value.str.val,scale);
-	bc_str2num(&second,(*right)->value.str.val,scale);
-	bc_raise (first,second,&result, scale); 
+	bc_str2num(&first, (*left)->value.str.val, scale);
+	bc_str2num(&second, (*right)->value.str.val, scale);
+	bc_raise (first, second, &result, scale); 
 	return_value->value.str.val = bc_num2str(result);
 	return_value->value.str.len = strlen(return_value->value.str.val);
 	return_value->type = IS_STRING;
@@ -397,7 +399,7 @@ PHP_FUNCTION(bcpow)
    Returns the square root of an arbitray precision number */
 PHP_FUNCTION(bcsqrt)
 {
-	pval **left,**scale_param;
+	pval **left, **scale_param;
 	bc_num result;
 	int scale=bc_precision;
 
@@ -408,7 +410,7 @@ PHP_FUNCTION(bcsqrt)
     			}
 				break;
 		case 2:
-				if (zend_get_parameters_ex(2, &left,&scale_param) == FAILURE) {
+				if (zend_get_parameters_ex(2, &left, &scale_param) == FAILURE) {
 		        	WRONG_PARAM_COUNT;
     			}
 				convert_to_long_ex(scale_param);
@@ -420,13 +422,13 @@ PHP_FUNCTION(bcsqrt)
 	}
 	convert_to_string_ex(left);
 	bc_init_num(&result);
-	bc_str2num(&result,(*left)->value.str.val,scale);
+	bc_str2num(&result, (*left)->value.str.val, scale);
 	if (bc_sqrt (&result, scale) != 0) {
 		return_value->value.str.val = bc_num2str(result);
 		return_value->value.str.len = strlen(return_value->value.str.val);
 		return_value->type = IS_STRING;
 	} else {
-		php_error(E_WARNING,"Square root of negative number");
+		php_error(E_WARNING, "Square root of negative number");
 	}
 	bc_free_num(&result);
 	return;
@@ -443,12 +445,12 @@ PHP_FUNCTION(bccomp)
 
 	switch (ZEND_NUM_ARGS()) {
 		case 2:
-				if (zend_get_parameters_ex(2, &left,&right) == FAILURE) {
+				if (zend_get_parameters_ex(2, &left, &right) == FAILURE) {
 		        	WRONG_PARAM_COUNT;
     			}
 				break;
 		case 3:
-				if (zend_get_parameters_ex(3, &left,&right, &scale_param) == FAILURE) {
+				if (zend_get_parameters_ex(3, &left, &right, &scale_param) == FAILURE) {
 		        	WRONG_PARAM_COUNT;
     			}
 				convert_to_long_ex(scale_param);
@@ -464,9 +466,9 @@ PHP_FUNCTION(bccomp)
 	bc_init_num(&first);
 	bc_init_num(&second);
 
-	bc_str2num(&first,(*left)->value.str.val,scale);
-	bc_str2num(&second,(*right)->value.str.val,scale);
-	return_value->value.lval = bc_compare(first,second);
+	bc_str2num(&first, (*left)->value.str.val, scale);
+	bc_str2num(&second, (*right)->value.str.val, scale);
+	return_value->value.lval = bc_compare(first, second);
 	return_value->type = IS_LONG;
 
 	bc_free_num(&first);
@@ -481,7 +483,7 @@ PHP_FUNCTION(bcscale)
 {
 	pval **new_scale;
 	
-	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1,&new_scale)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &new_scale)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	
@@ -499,4 +501,6 @@ PHP_FUNCTION(bcscale)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.3 2001/07/19 00:47:42 zarzycki Exp $
+dnl $Id: config.m4,v 1.4 2002/03/21 09:17:10 zarzycki Exp $
 
 PHP_ARG_WITH(informix,for Informix support,
 [  --with-informix[=DIR]   Include Informix support.  DIR is the Informix base
@@ -26,8 +26,15 @@ if test "$PHP_INFORMIX" != "no"; then
     PHP_ADD_LIBPATH($PHP_INFORMIX/lib/esql, INFORMIX_SHARED_LIBADD)
   fi
 
-  IFX_LIBS=`$INFORMIXDIR/bin/esql -libs -shared | sed -e 's/-lm$//'`
-  dnl  -lm twice otherwise?
+  dnl Check if thread safety flags are needed
+  if test "$enable_experimental_zts" = "yes"; then
+    IFX_ESQL_FLAGS="-thread"   
+    CPPFLAGS="$CPPFLAGS -DIFX_THREAD"
+  else
+    IFX_ESQL_FLAGS=""
+  fi
+
+  IFX_LIBS=`THREADLIB=POSIX $INFORMIXDIR/bin/esql $IFX_ESQL_FLAGS -libs`
   IFX_LIBS=`echo $IFX_LIBS | sed -e 's/Libraries to be used://g' -e 's/esql: error -55923: No source or object file\.//g'`
   dnl Seems to get rid of newlines.
   dnl According to Perls DBD-Informix, might contain these strings.
@@ -44,9 +51,9 @@ if test "$PHP_INFORMIX" != "no"; then
 
   if test $IFX_VERSION -ge "900"; then
     AC_DEFINE(HAVE_IFX_IUS,1,[ ])
-    IFX_ESQL_FLAGS="-EDHAVE_IFX_IUS"
+    IFX_ESQL_FLAGS="$IFX_ESQL_FLAGS -EDHAVE_IFX_IUS"
   else
-    IFX_ESQL_FLAGS="-EUHAVE_IFX_IUS"
+    IFX_ESQL_FLAGS="$IFX_ESQL_FLAGS -EUHAVE_IFX_IUS"
   fi
   PHP_SUBST(IFX_ESQL_FLAGS)
 
@@ -57,17 +64,29 @@ if test "$PHP_INFORMIX" != "no"; then
         PHP_ADD_LIBPATH($ext_builddir, INFORMIX_SHARED_LIBADD)
         PHP_ADD_LIBRARY_DEFER(phpifx, 1, INFORMIX_SHARED_LIBADD)
         ;;
+      -lm)
+        ;;
+      -lc)
+        ;;
       -l*)
-        lib=`echo $i|sed -e "s/^-l//"`
+        lib=`echo $i | cut -c 3-`
         PHP_ADD_LIBRARY_DEFER($lib, 1, INFORMIX_SHARED_LIBADD)
         ;;
       *.a)
-        lib=`echo $i|sed -e "s#^/.*/lib##g;s#\.a##g"`
-        PHP_ADD_LIBRARY_DEFER($lib, 1, INFORMIX_SHARED_LIBADD)
+        case "`uname -s 2>/dev/null`" in
+          UnixWare | SCO_SV | UNIX_SV)
+            DLIBS="$DLIBS $i"
+            ;;
+          *)
+            ac_dir="`echo $i|sed 's#[^/]*$##;s#\/$##'`"
+            ac_lib="`echo $i|sed 's#^/.*/lib##g;s#\.a##g'`"
+            DLIBS="$DLIBS -L$ac_dir -l$ac_lib"
+            ;;
+        esac
         ;;
     esac
   done
-  
+
   AC_DEFINE(HAVE_IFX,1,[ ])
   PHP_SUBST(INFORMIXDIR)
   PHP_SUBST(IFX_LIBOBJS)

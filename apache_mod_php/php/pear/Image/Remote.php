@@ -17,7 +17,7 @@
 // | Authors: Mika Tuupola <tuupola@appelsiini.net>                       |
 // +----------------------------------------------------------------------+
 //
-// $Id: Remote.php,v 1.1.1.1 2001/07/19 00:20:49 zarzycki Exp $
+// $Id: Remote.php,v 1.1.1.2 2001/12/14 22:14:56 zarzycki Exp $
 
 define("GIF_SIGNATURE_LENGTH",      3);
 define("GIF_VERSION_LENGTH",        3);
@@ -62,35 +62,110 @@ define("M_APP0",  0xE0);   /* Application-specific marker, type N */
 define("M_APP12", 0xEC);   /* (we don't bother to list all 16 APPn's) */
 define("M_COM",   0xFE);   /* COMment */
 
-class Image_Remote 
+require_once('PEAR.php');
+
+/**
+  * Image_Remote - retrieve size from remote image files.
+  *
+  * Class can be used to get size information from remote 
+  * image files without downloading the whole image file. 
+  * It mimics the GetImageSize() PHP function but works on  
+  * remote images. Gif, jpeg and png currently supported. 
+  * 
+  * NOTE: Since PHP 4.0.5 URL support was added also to PHP's native
+  * GetImageSize().
+  *
+  * Usage:
+  *   
+  *   $i = new Image_Remote("http://www.example.com/test.png");
+  *   if (PEAR::isError($i)) {
+  *       print "ERROR: " . $i->getMessage();
+  *   } else { 
+  *       $data = $i->getImageSize();
+  *   }
+  *   
+  *
+  * @access public
+  * @author Mika Tuupola <tuupola@appelsiini.net>
+  * @version $Revision: 1.1.1.2 $
+  */
+
+
+class Image_Remote
 {
-    var $url;         // the url we should be handling
-    var $purl;        // parsed url
+
+  /**
+    * The URL to fetch size from
+    *
+    * @var  string
+    */
+    var $url;         
+
+  /**
+    * Parsed URL
+    *
+    * @var  array
+    */
+    var $purl;  
+
+  /**
+    * Filesize of the remote image
+    *
+    * @var  integer
+    */      
+
     var $filesize;    // filesize of the remote file
-    var $mimetype;    // mimetype of the remote url
-    var $imagetype;   // imagetype
+
+  /**
+    * Mimetype of the remote image
+    *
+    * @var  string
+    */
+    var $mimetype;   
+
+  /**
+    * Imagetype of the remote image
+    *
+    * @var  integer
+    */
+    var $imagetype;  
+
+  /**
+    * Width of the remote image
+    *
+    * @var  integer
+    */
     var $width;       // image width
+
+  /**
+    * Height of the remote image
+    *
+    * @var  integer
+    */
     var $height;      // image height
+
+  /**
+    * Some useless extrainfo
+    *
+    * @var  string
+    */
     var $extra;       // some useless extrainfo
+
+
+  /**
+    * Error of the last method call
+    *
+    * @var  string
+    */
     var $errstr;      // error of the last method call
 
-    /**
-     * Image_Remote is a class to retrieve information on remote
-     * imagefiles without actually downloading the whole image.
-     * It mimics the GetImageSize() PHP function but works on 
-     * remote images. Gif, jpeg and png currently supported.
-     *
-     * Usage:
-     *
-     *   $i = new Image_Remote("http://www.example.com/test.png");
-     *   $data = $i->getImageSize();
-     *
-     * @param string $input URL of the remote image. Currently supports 
-     *        only http.
-     *
-     * @author Mika Tuupola <tuupola@appelsiini.net>
-     * @version $Revision: 1.1.1.1 $
-     */
+  /**
+    * Constructor
+    * 
+    * @param 	string 	foo URL of the remote image. Currently supports only http.
+    * @return 	object
+    *
+    */
 
     function Image_Remote($input) 
     {
@@ -110,21 +185,24 @@ class Image_Remote
         } else {
             $this->errstr = "Only http supported.";
         }
+    
+        if ($this->errstr) {
+            $this = new PEAR_Error($this->errstr);
+        }
+
     } // constructor
 
   
-    /**
-     * Gets information on the remote image. Imitates PHP's native 
-     * GetImageSize. 
-     * 
-     * http://www.php.net/manual/function.getimagesize.php  
-     *
-     * @return array where array[0] contains the width of the image,
-     *         array[1] contains the height of the image, array[2] contains
-     *         an integer indicating type of the image. 1 = GIF, 2 = JPG, 
-     *         3 = PNG. array[3] contains a string in WIDTH="X" HEIGHT="X" 
-     *         format.
-     */
+  /**
+    * Return information on the remote image. 
+    *
+    * Imitates PHP's native GetImageSize. 
+    * 
+    * http://www.php.net/manual/function.getimagesize.php  
+    *
+    * @access 	public
+    * @return 	array 
+    */
     function getImageSize() 
     {
         $retval = array(0,0,0,"");
@@ -137,19 +215,29 @@ class Image_Remote
         return($retval);   
     }
 
-    /**
-     * Gets the URL of the remote image. This is actually the same URL
-     * which was given to the constructor. However it sometimes comes
-     * handy to be able to retrieve the URL again from the object.
-     * 
-     * @return string URL
-     */
+  /**
+    * Return the URL of the remote image. 
+    *
+    * This is actually the same URL which was given to the constructor.  
+    * However it sometimes comes handy to be able to retrieve the URL  
+    * again from the object. 
+    * 
+    * @access	public
+    * @return 	string
+    */
+
     function getImageURL() 
     {
         $retval = $this->url;
         return($retval);
     }
 
+  /**
+    * Fetch information of the remote image. 
+    *
+    * @access	private
+    * @return 	boolean
+    */
     function _fetchImageInfo() 
     {
 
@@ -233,6 +321,12 @@ class Image_Remote
     } // _fetchImageInfo
 
 
+  /**
+    * Parse GIF header
+    *
+    * @access	private
+    * @return 	void
+    */
     function _fetchAndParseGIFHeader($fd) 
     {
         if (!$fd) {
@@ -251,6 +345,12 @@ class Image_Remote
         }
     }
 
+  /**
+    * Parse PNG header
+    *
+    * @access	private
+    * @return 	void
+    */
     function _fetchAndParsePNGHeader($fd) 
     {
 
@@ -281,6 +381,12 @@ class Image_Remote
     //
     // ftp://ftp.elq.org/pub/php3/elqGetImageFormat/elqGetImageFormat.php3
 
+  /**
+    * Parse JPEG header
+    *
+    * @access	private
+    * @return 	void
+    */
     function _fetchAndParseJPGHeader($fd) 
     {
 
@@ -358,6 +464,12 @@ class Image_Remote
         }
     }
 
+  /**
+    * Host byte order to decimal long
+    *
+    * @access	private
+    * @return 	integer
+    */
     function _htodecl($bytes) 
     {
         $b1 = ord($bytes[0]);
@@ -367,6 +479,12 @@ class Image_Remote
         return($b1 + $b2 + $b3 + $b4);
     }
 
+  /**
+    * Host byte order to decimal short
+    *
+    * @access	private
+    * @return 	integer
+    */
     function _htodecs($bytes) 
     {
         $b1 = ord($bytes[0]);
@@ -374,6 +492,12 @@ class Image_Remote
         return($b1 + $b2);
     }
 
+  /**
+    * Network byte order to decimal long
+    *
+    * @access	private
+    * @return 	integer
+    */
     function _ntodecl($bytes) 
     {
         $b1 = ord($bytes[3]);
@@ -383,6 +507,12 @@ class Image_Remote
         return($b1 + $b2 + $b3 + $b4); 
     }
 
+  /**
+    * Network byte order to decimal short
+    *
+    * @access	private
+    * @return 	integer
+    */
     function _ntodecs($bytes) 
     {
         $b1 = ord($bytes[1]);

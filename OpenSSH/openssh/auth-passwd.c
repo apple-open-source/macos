@@ -36,12 +36,11 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: auth-passwd.c,v 1.23 2001/06/26 16:15:23 dugsong Exp $");
+RCSID("$OpenBSD: auth-passwd.c,v 1.24 2002/03/04 12:43:06 markus Exp $");
 
 #if !defined(USE_PAM) && !defined(HAVE_OSF_SIA)
 
 #include "packet.h"
-#include "xmalloc.h"
 #include "log.h"
 #include "servconf.h"
 #include "auth.h"
@@ -212,7 +211,11 @@ auth_password(Authctxt *authctxt, const char *password)
 	else
 		encrypted_password = crypt(password, salt);
 # else
+#  ifdef HAVE_SCO_PROTECTED_PW
+	encrypted_password = bigcrypt(password, salt);
+#  else
 	encrypted_password = crypt(password, salt);
+#  endif /* HAVE_SCO_PROTECTED_PW */
 # endif /* __hpux */
 #endif /* HAVE_MD5_PASSWORDS */
 

@@ -17,7 +17,7 @@
 */
 
 
-/* $Id: php_mysql.h,v 1.1.1.4 2001/07/19 00:19:25 zarzycki Exp $ */
+/* $Id: php_mysql.h,v 1.1.1.5 2001/12/14 22:12:41 zarzycki Exp $ */
 
 #ifndef PHP_MYSQL_H
 #define PHP_MYSQL_H
@@ -38,18 +38,20 @@ extern zend_module_entry mysql_module_entry;
 
 #define mysql_module_ptr &mysql_module_entry
 
-extern PHP_MINIT_FUNCTION(mysql);
-extern PHP_RINIT_FUNCTION(mysql);
-extern PHP_MSHUTDOWN_FUNCTION(mysql);
-extern PHP_RSHUTDOWN_FUNCTION(mysql);
+PHP_MINIT_FUNCTION(mysql);
+PHP_RINIT_FUNCTION(mysql);
+PHP_MSHUTDOWN_FUNCTION(mysql);
+PHP_RSHUTDOWN_FUNCTION(mysql);
 PHP_MINFO_FUNCTION(mysql);
 
 PHP_FUNCTION(mysql_connect);
 PHP_FUNCTION(mysql_pconnect);
 PHP_FUNCTION(mysql_close);
 PHP_FUNCTION(mysql_select_db);
+#if MYSQL_VERSION_ID < 40000
 PHP_FUNCTION(mysql_create_db);
 PHP_FUNCTION(mysql_drop_db);
+#endif
 PHP_FUNCTION(mysql_query);
 PHP_FUNCTION(mysql_unbuffered_query);
 PHP_FUNCTION(mysql_db_query);
@@ -96,19 +98,9 @@ ZEND_BEGIN_MODULE_GLOBALS(mysql)
 ZEND_END_MODULE_GLOBALS(mysql)
 
 #ifdef ZTS
-# define MySLS_D	zend_mysql_globals *mysql_globals
-# define MySLS_DC	, MySLS_D
-# define MySLS_C	mysql_globals
-# define MySLS_CC , MySLS_C
-# define MySG(v) (mysql_globals->v)
-# define MySLS_FETCH()	zend_mysql_globals *mysql_globals = ts_resource(mysql_globals_id)
+# define MySG(v) TSRMG(mysql_globals_id, zend_mysql_globals *, v)
 #else
-# define MySLS_D
-# define MySLS_DC
-# define MySLS_C
-# define MySLS_CC
 # define MySG(v) (mysql_globals.v)
-# define MySLS_FETCH()
 #endif
 
 

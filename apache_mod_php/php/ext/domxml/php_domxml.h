@@ -1,8 +1,8 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_domxml.h,v 1.1.1.4 2001/07/19 00:19:05 zarzycki Exp $ */
+/* $Id: php_domxml.h,v 1.1.1.6 2002/03/20 03:20:34 zarzycki Exp $ */
 
 #ifndef PHP_DOMXML_H
 #define PHP_DOMXML_H
@@ -34,33 +34,100 @@ extern zend_module_entry domxml_module_entry;
 #define domxml_module_ptr &domxml_module_entry
 
 /* directory functions */
-extern PHP_MINIT_FUNCTION(domxml);
-extern PHP_MINFO_FUNCTION(domxml);
+PHP_MINIT_FUNCTION(domxml);
+PHP_RINIT_FUNCTION(domxml);
+PHP_MINFO_FUNCTION(domxml);
+PHP_FUNCTION(domxml_version);
 PHP_FUNCTION(xmldoc);
 PHP_FUNCTION(xmldocfile);
 PHP_FUNCTION(xmltree);
 PHP_FUNCTION(domxml_new_xmldoc);
 
 /* Class Document methods */
-PHP_FUNCTION(domxml_root);
+PHP_FUNCTION(domxml_doc_doctype);
+PHP_FUNCTION(domxml_doc_implementation);
+PHP_FUNCTION(domxml_doc_document_element);
+PHP_FUNCTION(domxml_doc_create_element);
+PHP_FUNCTION(domxml_doc_create_text_node);
+PHP_FUNCTION(domxml_doc_create_comment);
+PHP_FUNCTION(domxml_doc_create_processing_instruction);
+PHP_FUNCTION(domxml_doc_create_attribute);
+PHP_FUNCTION(domxml_doc_create_cdata_section);
+PHP_FUNCTION(domxml_doc_create_entity_reference);
+PHP_FUNCTION(domxml_doc_imported_node);
 PHP_FUNCTION(domxml_add_root);
 PHP_FUNCTION(domxml_intdtd);
 PHP_FUNCTION(domxml_dumpmem);
 
+/* Class DocumentType methods */
+PHP_FUNCTION(domxml_doctype_name);
+PHP_FUNCTION(domxml_doctype_entities);
+PHP_FUNCTION(domxml_doctype_notations);
+PHP_FUNCTION(domxml_doctype_public_id);
+PHP_FUNCTION(domxml_doctype_system_id);
+PHP_FUNCTION(domxml_doctype_internal_subset);
+
+/* Class Notation methods */
+PHP_FUNCTION(domxml_notation_public_id);
+PHP_FUNCTION(domxml_notation_system_id);
+
 /* Class Node methods */
-PHP_FUNCTION(domxml_attributes);
-PHP_FUNCTION(domxml_get_attribute);
-PHP_FUNCTION(domxml_set_attribute);
-PHP_FUNCTION(domxml_children);
-PHP_FUNCTION(domxml_last_child);
-PHP_FUNCTION(domxml_parent);
+PHP_FUNCTION(domxml_node_attributes);
+PHP_FUNCTION(domxml_node_children);
+PHP_FUNCTION(domxml_node_first_child);
+PHP_FUNCTION(domxml_node_last_child);
+PHP_FUNCTION(domxml_node_next_sibling);
+PHP_FUNCTION(domxml_node_previous_sibling);
+PHP_FUNCTION(domxml_node_owner_document);
+PHP_FUNCTION(domxml_node_insert_before);
+PHP_FUNCTION(domxml_node_append_child);
+PHP_FUNCTION(domxml_node_add_child);
+PHP_FUNCTION(domxml_node_has_attributes);
+PHP_FUNCTION(domxml_node_has_child_nodes);
+PHP_FUNCTION(domxml_node_parent);
+PHP_FUNCTION(domxml_node_prefix);
 PHP_FUNCTION(domxml_node);
-PHP_FUNCTION(domxml_unlink_node);
-PHP_FUNCTION(domxml_new_child);
-PHP_FUNCTION(domxml_set_content);
+PHP_FUNCTION(domxml_clone_node);
+PHP_FUNCTION(domxml_node_unlink_node);
+PHP_FUNCTION(domxml_node_new_child);
+PHP_FUNCTION(domxml_node_set_content);
+PHP_FUNCTION(domxml_node_text_concat);
+PHP_FUNCTION(domxml_node_set_name);
+PHP_FUNCTION(domxml_node_name);
+PHP_FUNCTION(domxml_node_type);
+PHP_FUNCTION(domxml_node_value);
+PHP_FUNCTION(domxml_is_blank_node);
 
 /* Class Attribute methods */
-PHP_FUNCTION(domxml_attrname);
+PHP_FUNCTION(domxml_attr_name);
+PHP_FUNCTION(domxml_attr_value);
+PHP_FUNCTION(domxml_attr_specified);
+
+/* Class Element methods */
+PHP_FUNCTION(domxml_element);
+PHP_FUNCTION(domxml_elem_tagname);
+PHP_FUNCTION(domxml_elem_get_attribute);
+PHP_FUNCTION(domxml_elem_set_attribute);
+PHP_FUNCTION(domxml_elem_remove_attribute);
+PHP_FUNCTION(domxml_elem_get_attribute_node);
+PHP_FUNCTION(domxml_elem_set_attribute_node);
+PHP_FUNCTION(domxml_elem_get_element_by_tagname);
+
+/* Class CData methods */
+PHP_FUNCTION(domxml_cdata_length);
+
+/* Class Notation methods */
+PHP_FUNCTION(domxml_notation_public_id);
+PHP_FUNCTION(domxml_notation_system_id);
+
+/* Class Entity methods */
+PHP_FUNCTION(domxml_entity_public_id);
+PHP_FUNCTION(domxml_entity_system_id);
+PHP_FUNCTION(domxml_entity_notation_name);
+
+/* Class ProcessingInstructions */
+PHP_FUNCTION(domxml_pi_target);
+PHP_FUNCTION(domxml_pi_data);
 
 /* Class XPathContext methods */
 #if defined(LIBXML_XPATH_ENABLED)
@@ -73,8 +140,8 @@ PHP_FUNCTION(xpath_eval_expression);
 PHP_FUNCTION(xptr_new_context);
 PHP_FUNCTION(xptr_eval);
 #endif
-
 PHP_FUNCTION(domxml_test);
+
 #else
 #define domxml_module_ptr NULL
 #endif /* HAVE_DOMXML */

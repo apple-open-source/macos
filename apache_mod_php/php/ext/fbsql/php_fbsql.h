@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_fbsql.h,v 1.1.1.1 2001/07/19 00:19:06 zarzycki Exp $ */
+/* $Id: php_fbsql.h,v 1.1.1.2 2001/12/14 22:12:17 zarzycki Exp $ */
 
 #define HAVE_FBSQL 1
 
@@ -34,10 +34,10 @@ extern zend_module_entry fbsql_module_entry;
 
 #include <FBCAccess/FBCAccess.h>
 
-extern PHP_MINIT_FUNCTION(fbsql);
-extern PHP_MSHUTDOWN_FUNCTION(fbsql);
-extern PHP_RINIT_FUNCTION(fbsql);
-extern PHP_RSHUTDOWN_FUNCTION(fbsql);
+PHP_MINIT_FUNCTION(fbsql);
+PHP_MSHUTDOWN_FUNCTION(fbsql);
+PHP_RINIT_FUNCTION(fbsql);
+PHP_RSHUTDOWN_FUNCTION(fbsql);
 PHP_MINFO_FUNCTION(fbsql);
 PHP_FUNCTION(fbsql_connect);
 PHP_FUNCTION(fbsql_pconnect);
@@ -48,6 +48,7 @@ PHP_FUNCTION(fbsql_create_db);
 PHP_FUNCTION(fbsql_drop_db);
 PHP_FUNCTION(fbsql_start_db);
 PHP_FUNCTION(fbsql_stop_db);
+PHP_FUNCTION(fbsql_db_status);
 PHP_FUNCTION(fbsql_query);
 PHP_FUNCTION(fbsql_db_query);
 PHP_FUNCTION(fbsql_list_dbs);
@@ -85,7 +86,11 @@ PHP_FUNCTION(fbsql_username);
 PHP_FUNCTION(fbsql_password);
 PHP_FUNCTION(fbsql_warnings);
 
+PHP_FUNCTION(fbsql_get_autostart_info);
+//PHP_FUNCTION(fbsql_set_autostart_info);
+
 static void php_fbsql_fetch_hash(INTERNAL_FUNCTION_PARAMETERS, int result_type);
+static void php_fbsql_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistant);
 
 ZEND_BEGIN_MODULE_GLOBALS(fbsql)
    long allowPersistent;
@@ -103,28 +108,14 @@ ZEND_BEGIN_MODULE_GLOBALS(fbsql)
    char *userPassword;
    long persistantCount;
    long linkCount;
-   long databaseCount;
-   long resultCount;
+   long linkIndex;
 
-   unsigned int linkIndex;
-   int databaseIndex;
-   int resultIndex;
 ZEND_END_MODULE_GLOBALS(fbsql)
 
 #ifdef ZTS
-# define FBSQLLS_D		zend_fbsql_globals *fbsql_globals
-# define FBSQLLS_DC		, FBSQLLS_D
-# define FBSQLLS_C		fbsql_globals
-# define FBSQLLS_CC		, FBSQLLS_C
-# define FB_SQL_G(v)	(fbsql_globals->v)
-# define FBSQLLS_FETCH()	zend_fbsql_globals *fbsql_globals = ts_resource(fbsql_globals_id)
+# define FB_SQL_G(v) TSRMG(fbsql_globals_id, zend_fbsql_globals *, v)
 #else
-# define FBSQLLS_D
-# define FBSQLLS_DC
-# define FBSQLLS_C
-# define FBSQLLS_CC
 # define FB_SQL_G(v)	(fbsql_globals.v)
-# define FBSQLLS_FETCH()
 #endif
 
 

@@ -61,6 +61,7 @@ function_entry muscat_functions[] = {
 };
 
 zend_module_entry muscat_module_entry = {
+    STANDARD_MODULE_HEADER,
 	"muscat",
 	muscat_functions,
 	PHP_MINIT(muscat),
@@ -68,6 +69,7 @@ zend_module_entry muscat_module_entry = {
 	PHP_RINIT(muscat),		/* Replace with NULL if there's nothing to do at request start */
 	PHP_RSHUTDOWN(muscat),	/* Replace with NULL if there's nothing to do at request end */
 	PHP_MINFO(muscat),
+    NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES
 };
 
@@ -112,9 +114,6 @@ PHP_MINIT_FUNCTION(muscat)
 
 PHP_MSHUTDOWN_FUNCTION(muscat)
 {
-/* Remove comments if you have entries in php.ini
-	UNREGISTER_INI_ENTRIES();
-*/
 	return SUCCESS;
 }
 
@@ -229,7 +228,7 @@ PHP_FUNCTION(muscat_setup_net)
 	zval_copy_ctor(handle->handles.muscatnet_handle.socketr);
 
 	// but for our convenience extract the FD
-	what=zend_fetch_resource(socket_arg,-1,"Socket-Handle",NULL,1,php_file_le_socket());
+	what=zend_fetch_resource(socket_arg TSRMLS_CC,-1,"Socket-Handle",NULL,1,php_file_le_socket());
         ZEND_VERIFY_RESOURCE(what);
 	handle->handles.muscatnet_handle.socketd=*(int*)what;
 	php_set_sock_blocking(handle->handles.muscatnet_handle.socketd,1);
@@ -254,7 +253,7 @@ PHP_FUNCTION(muscat_setup_net_)
 	*handle->handles.muscatnet_handle.socketr=*return_value;
 	zval_copy_ctor(handle->handles.muscatnet_handle.socketr);
 	// but for our convenience extract the FD
-	what=zend_fetch_resource(&return_value,-1,"File-Handle",NULL,1,php_file_le_socket);
+	what=zend_fetch_resource(&return_value TSRMLS_CC,-1,"File-Handle",NULL,1,php_file_le_socket);
         ZEND_VERIFY_RESOURCE(what);
 	handle->handles.muscatnet_handle.socketd=*(int*)what;
 	_discard(handle);
@@ -271,7 +270,6 @@ PHP_FUNCTION(muscat_give)
 	char *string = NULL;
 	_muscat_handle *handle;
 	int r;
-	MUSCATLS_FETCH();
 
 	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &Muscat_handle_arg, &string_arg) == FAILURE){
 		WRONG_PARAM_COUNT;
@@ -296,7 +294,6 @@ PHP_FUNCTION(muscat_get)
 	zval **Muscat_handle_arg;
 	_muscat_handle *handle;
 	int r;
-	MUSCATLS_FETCH();
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &Muscat_handle_arg) == FAILURE){
 		WRONG_PARAM_COUNT;
@@ -325,7 +322,6 @@ PHP_FUNCTION(muscat_close)
 {
 	zval **muscat_handle_arg;
 	_muscat_handle *handle;
-	MUSCATLS_FETCH();
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &muscat_handle_arg) == FAILURE){
 		WRONG_PARAM_COUNT;

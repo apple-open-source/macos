@@ -1,7 +1,7 @@
 include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Postamble.Common
 
-INSTALL_AS_GROUP    = mail
-INSTALL_PERMISSIONS = 2555
+INSTALL_AS_GROUP    = wheel
+INSTALL_PERMISSIONS = 555
 
 after_install::
 	$(INSTALL_DIRECTORY) $(DSTROOT)$(MISCDIR)

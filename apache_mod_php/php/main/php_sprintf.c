@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_sprintf.c,v 1.1.1.3 2001/07/19 00:20:38 zarzycki Exp $ */
+/* $Id: php_sprintf.c,v 1.1.1.4 2001/12/14 22:13:50 zarzycki Exp $ */
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -40,3 +40,12 @@ php_sprintf (char*s, const char* format, ...)
 }
 
 #endif /* BROKEN_SPRINTF */
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
+ */

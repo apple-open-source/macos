@@ -44,13 +44,12 @@
 #include "php_apache.h"
 
 static int
-php_apache_sapi_ub_write(const char *str, uint str_length)
+php_apache_sapi_ub_write(const char *str, uint str_length TSRMLS_DC)
 {
 	apr_bucket *b;
 	apr_bucket_brigade *bb;
 	php_struct *ctx;
 	uint now;
-	SLS_FETCH();
 
 	ctx = SG(server_context);
 
@@ -72,7 +71,7 @@ php_apache_sapi_ub_write(const char *str, uint str_length)
 }
 
 static int
-php_apache_sapi_header_handler(sapi_header_struct *sapi_header, sapi_headers_struct *sapi_headers SLS_DC)
+php_apache_sapi_header_handler(sapi_header_struct *sapi_header, sapi_headers_struct *sapi_headers TSRMLS_DC)
 {
 	php_struct *ctx = SG(server_context);
 	char *val;
@@ -100,7 +99,7 @@ php_apache_sapi_header_handler(sapi_header_struct *sapi_header, sapi_headers_str
 }
 
 static int
-php_apache_sapi_send_headers(sapi_headers_struct *sapi_headers SLS_DC)
+php_apache_sapi_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
 {
 	php_struct *ctx = SG(server_context);
 
@@ -110,7 +109,7 @@ php_apache_sapi_send_headers(sapi_headers_struct *sapi_headers SLS_DC)
 }
 
 static int
-php_apache_sapi_read_post(char *buf, uint count_bytes SLS_DC)
+php_apache_sapi_read_post(char *buf, uint count_bytes TSRMLS_DC)
 {
 	int n;
 	int to_read;
@@ -131,7 +130,7 @@ php_apache_sapi_read_post(char *buf, uint count_bytes SLS_DC)
 }
 
 static char *
-php_apache_sapi_read_cookies(SLS_D)
+php_apache_sapi_read_cookies(TSRMLS_D)
 {
 	php_struct *ctx = SG(server_context);
 	const char *http_cookie;
@@ -143,7 +142,7 @@ php_apache_sapi_read_cookies(SLS_D)
 }
 
 static void
-php_apache_sapi_register_variables(zval *track_vars_array ELS_DC SLS_DC PLS_DC)
+php_apache_sapi_register_variables(zval *track_vars_array TSRMLS_DC)
 {
 	php_struct *ctx = SG(server_context);
 	apr_array_header_t *arr = apr_table_elts(ctx->f->r->subprocess_env);
@@ -151,10 +150,10 @@ php_apache_sapi_register_variables(zval *track_vars_array ELS_DC SLS_DC PLS_DC)
 	
 	APR_ARRAY_FOREACH_OPEN(arr, key, val)
 		if (!val) val = empty_string;
-		php_register_variable(key, val, track_vars_array ELS_CC PLS_CC);
+		php_register_variable(key, val, track_vars_array TSRMLS_CC);
 	APR_ARRAY_FOREACH_CLOSE()
 		
-	php_register_variable("PHP_SELF", ctx->f->r->uri, track_vars_array ELS_CC PLS_CC);
+	php_register_variable("PHP_SELF", ctx->f->r->uri, track_vars_array TSRMLS_CC);
 }
 
 static void
@@ -180,7 +179,7 @@ php_apache_sapi_flush(void *server_context)
 static void php_apache_sapi_log_message(char *msg)
 {
 	php_struct *ctx;
-	SLS_FETCH();
+	TSRMLS_FETCH();
 
 	ctx = SG(server_context);
 
@@ -239,7 +238,7 @@ static int php_input_filter(ap_filter_t *f, apr_bucket_brigade *bb,
 	const char *str;
 	apr_ssize_t n;
 	apr_status_t rv;
-	SLS_FETCH();
+	TSRMLS_FETCH();
 
 	ctx = SG(server_context);
 
@@ -261,13 +260,10 @@ static int php_input_filter(ap_filter_t *f, apr_bucket_brigade *bb,
 	return APR_SUCCESS;
 }
 
-static void php_apache_request_ctor(ap_filter_t *f, php_struct *ctx SLS_DC)
+static void php_apache_request_ctor(ap_filter_t *f, php_struct *ctx TSRMLS_DC)
 {
 	char *content_type;
 	const char *auth;
-	CLS_FETCH();
-	ELS_FETCH();
-	PLS_FETCH();
 	
 	PG(during_request_startup) = 0;
 	SG(sapi_headers).http_response_code = 200;
@@ -278,7 +274,7 @@ static void php_apache_request_ctor(ap_filter_t *f, php_struct *ctx SLS_DC)
 	SG(request_info).request_method = f->r->method;
 	SG(request_info).request_uri = safe_strdup(f->r->uri);
 	f->r->no_local_copy = 1;
-	content_type = sapi_get_default_content_type(SLS_C);
+	content_type = sapi_get_default_content_type(TSRMLS_C);
 	f->r->content_type = apr_pstrdup(f->r->pool, content_type);
 	SG(request_info).post_data = ctx->post_data;
 	SG(request_info).post_data_length = ctx->post_len;
@@ -289,12 +285,12 @@ static void php_apache_request_ctor(ap_filter_t *f, php_struct *ctx SLS_DC)
 	apr_table_unset(f->r->headers_out, "ETag");
 	apr_table_unset(f->r->headers_in, "Connection");
 	auth = apr_table_get(f->r->headers_in, "Authorization");
-	php_handle_auth_data(auth SLS_CC);
+	php_handle_auth_data(auth TSRMLS_CC);
 
-	php_request_startup(CLS_C ELS_CC PLS_CC SLS_CC);
+	php_request_startup(TSRMLS_C);
 }
 
-static void php_apache_request_dtor(ap_filter_t *f SLS_DC)
+static void php_apache_request_dtor(ap_filter_t *f TSRMLS_DC)
 {
 	php_request_shutdown(NULL);
 
@@ -308,11 +304,8 @@ static int php_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 {
 	php_struct *ctx;
 	apr_bucket *b;
-	apr_status_t rv;
-	const char *str;
-	apr_ssize_t n;
 	void *conf = ap_get_module_config(f->r->per_dir_config, &php4_module);
-	SLS_FETCH();
+	TSRMLS_FETCH();
 
 	ctx = SG(server_context);
 	INIT_CTX;
@@ -330,23 +323,18 @@ static int php_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 		
 		ctx->state++;
 
-		php_apache_request_ctor(f, ctx SLS_CC);
+		php_apache_request_ctor(f, ctx TSRMLS_CC);
 	}
 
 	/* moves all buckets from bb to ctx->bb */
-	ap_save_brigade(f, &ctx->bb, &bb);
+	ap_save_brigade(f, &ctx->bb, &bb, f->r->pool);
 
 	/* If we have received all data from the previous filters,
 	 * we "flatten" the buckets by creating a single string buffer.
 	 */
 	if (ctx->state == 1 && APR_BUCKET_IS_EOS(APR_BRIGADE_LAST(ctx->bb))) {
-		int fd;
 		zend_file_handle zfd;
-		smart_str content = {0};
 		apr_bucket *eos;
-		CLS_FETCH();
-		ELS_FETCH();
-		PLS_FETCH();
 
 		/* We want to execute only one script per request.
 		 * A bug in Apache or other filters could cause us
@@ -356,54 +344,31 @@ static int php_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 		ctx->state = 2;
 
 		/* Handle phpinfo/phpcredits/built-in images */
-		if (php_handle_special_queries(SLS_C PLS_CC)) 
-			goto ok;
-	
-		/* Loop over all buckets and put them into the buffer */	
-		APR_BRIGADE_FOREACH(b, ctx->bb) {
-			rv = apr_bucket_read(b, &str, &n, 1);
-			if (rv == APR_SUCCESS && n > 0)
-				smart_str_appendl(&content, str, n);
+		if (!php_handle_special_queries(TSRMLS_C)) {
+
+			b = APR_BRIGADE_FIRST(ctx->bb);
+			
+			if (APR_BUCKET_IS_FILE(b)) {
+				const char *path;
+
+				apr_file_name_get(&path, ((apr_bucket_file *) b->data)->fd);
+				
+				zfd.type = ZEND_HANDLE_FILENAME;
+				zfd.filename = (char *) path;
+				zfd.free_filename = 0;
+				zfd.opened_path = NULL;
+
+				php_execute_script(&zfd TSRMLS_CC);
+			} else {
+				
+#define NO_DATA "The PHP Filter did not receive suitable input data"
+				
+				eos = apr_bucket_transient_create(NO_DATA, sizeof(NO_DATA)-1);
+				APR_BRIGADE_INSERT_HEAD(bb, eos);
+			}
 		}
 		
-		/* Empty script */
-		if (!content.c) goto skip_execution;
-		
-		smart_str_0(&content);
-
-		/* 
-		 * This hack is used only for testing purposes and will
-		 * go away when the scripting engine will be able to deal
-		 * with something more complex than files/-handles.
-		 */
-		
-#if 1
-#define FFFF "/tmp/really_silly"
-		fd = open(FFFF, O_WRONLY|O_TRUNC|O_CREAT, 0600);
-		
-		write(fd, content.c, content.len);
-
-		close(fd);
-
-		zfd.type = ZEND_HANDLE_FILENAME;
-		zfd.filename = FFFF;
-		zfd.free_filename = 0;
-		zfd.opened_path = NULL;
-		
-		php_execute_script(&zfd CLS_CC ELS_CC PLS_CC);
-#else
-		CG(in_compilation) = 1;
-		zend_eval_string(content, NULL, "foo" CLS_CC ELS_CC);
-#endif
-
-		smart_str_free(&content);
-		goto ok;
-skip_execution:
-#define NO_DATA "php_filter did not get ANY data"
-		eos = apr_bucket_transient_create(NO_DATA, sizeof(NO_DATA)-1);
-		APR_BRIGADE_INSERT_HEAD(bb, eos);
-ok:
-		php_apache_request_dtor(f SLS_CC);
+		php_apache_request_dtor(f TSRMLS_CC);
 
 		SG(server_context) = 0;
 		/* Pass EOS bucket to next filter to signal end of request */

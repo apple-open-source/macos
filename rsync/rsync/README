@@ -90,11 +90,14 @@ Options
 SETUP
 -----
 
-Rsync uses rsh or ssh for communication. It does not need to be setuid
-and requires no special privileges for installation. It does not
-require a inetd entry or a daemon. You must, however, have a working
-rsh or ssh system. Using ssh is recommended for its security
-features. 
+Rsync normally uses rsh or ssh for communication.  It does not need to
+be setuid and requires no special privileges for installation.  You
+must, however, have a working rsh or ssh system. Using ssh is
+recommended for its security features.
+
+Alternatively, rsync can run in `daemon' mode, listening on a socket.
+This is generally used for public file distribution, although
+authentication and access control are available.
 
 To install rsync, first run the "configure" script. This will create a
 Makefile and config.h appropriate for your system. Then type
@@ -125,8 +128,7 @@ There is a mailing list for the discussion of rsync and its
 applications. It is open to anyone to join. I will announce new
 versions on this list. 
 
-To join the mailing list send mail to listproc@samba.org with
-no subject and a body of "subscribe rsync Your Name".
+To join the mailing list see the web page at http://lists.samba.org/
 
 To send mail to everyone on the list send it to rsync@samba.org
 
@@ -141,9 +143,7 @@ This will give you access to the bug tracking system used by the
 developers of rsync and will allow you to look at other bug reports or
 submit a new bug report.
 
-If you don't have web access then mail bug reports to
-rsync-bugs@samba.org or (if you think it will be of interest to lots
-of people) send it to rsync@samba.org
+If you don't have web access then mail bug reports to rsync@samba.org.
 
 
 CVS TREE
@@ -153,22 +153,24 @@ If you want to get the very latest version of rsync direct from the
 source code repository then you can use anonymous cvs. You will need a
 recent version of cvs then use the following commands:
 
-	cvs -d :pserver:cvs@cvs.samba.org:/cvsroot login
+	cvs -d :pserver:cvs@pserver.samba.org:/cvsroot login
 	Password: cvs
 
-	cvs -d :pserver:cvs@cvs.samba.org:/cvsroot co rsync
+	cvs -d :pserver:cvs@pserver.samba.org:/cvsroot co rsync
 
-Look at the cvs documentation for more details.
+Look at the cvs documentation, or http://samba.org/cvs.html, for more
+details.
 
 
 COPYRIGHT
 ---------
 
-Rsync was written by Andrew Tridgell and Paul Mackerras, and is
-available under the Gnu Public License.
+rsync was originally written by Andrew Tridgell and has been improved
+by many developers around the world.  rsync may be used, modified and
+redistributed only under the terms of the GNU General Public License,
+found in the file COPYING in this distribution, or at 
 
-tridge@samba.org
-paulus@cs.anu.edu.au
+  http://www.fsf.org/licenses/gpl.html
 
 
 AVAILABILITY

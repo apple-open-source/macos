@@ -436,7 +436,7 @@ extern "C" {
 
 #define SERVER_BASEVENDOR   "Apache Group"
 #define SERVER_BASEPRODUCT  "Apache"
-#define SERVER_BASEREVISION "1.3.22"
+#define SERVER_BASEREVISION "1.3.23"
 #define SERVER_BASEVERSION  SERVER_BASEPRODUCT "/" SERVER_BASEREVISION
 
 #define SERVER_PRODUCT  SERVER_BASEPRODUCT
@@ -457,7 +457,7 @@ API_EXPORT(const char *) ap_get_server_built(void);
  * Always increases along the same track as the source branch.
  * For example, Apache 1.4.2 would be '10402100', 2.5b7 would be '20500007'.
  */
-#define APACHE_RELEASE 10322100
+#define APACHE_RELEASE 10323100
 
 #define SERVER_PROTOCOL "HTTP/1.1"
 #ifndef SERVER_SUPPORT
@@ -1139,8 +1139,8 @@ API_EXPORT(int)    ap_checkconv(struct request_rec *r);    /* for downloads */
 API_EXPORT(int)    ap_checkconv_in(struct request_rec *r); /* for uploads */
 #endif /*#ifdef CHARSET_EBCDIC*/
 
-char *ap_get_local_host(pool *);
-unsigned long ap_get_virthost_addr(char *hostname, unsigned short *port);
+API_EXPORT(char *) ap_get_local_host(pool *);
+API_EXPORT(unsigned long) ap_get_virthost_addr(char *hostname, unsigned short *port);
 
 extern API_VAR_EXPORT time_t ap_restart_time;
 

@@ -8,7 +8,7 @@
 Project               = sudo
 UserType              = Administrator
 ToolType              = Commands
-Extra_Configure_Flags = --with-password-timeout=0
+Extra_Configure_Flags = --with-password-timeout=0 --disable-setreuid
 Extra_Install_Flags   = sysconfdir="$(DSTROOT)$(ETCDIR)"
 
 # It's a GNU Source project

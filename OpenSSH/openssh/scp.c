@@ -75,7 +75,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: scp.c,v 1.85 2001/10/01 08:06:28 markus Exp $");
+RCSID("$OpenBSD: scp.c,v 1.86 2001/12/05 03:56:39 itojun Exp $");
 
 #include "xmalloc.h"
 #include "atomicio.h"
@@ -548,14 +548,13 @@ syserr:			run_err("%s: %s", name, strerror(errno));
 #ifdef HAVE_LONG_LONG_INT
 		snprintf(buf, sizeof buf, "C%04o %lld %s\n",
 		    (u_int) (stb.st_mode & FILEMODEMASK),
-		    (long long) stb.st_size, last);
+		    (long long)stb.st_size, last);
 #else
 		/* XXX: Handle integer overflow? */
 		snprintf(buf, sizeof buf, "C%04o %lu %s\n",
 		    (u_int) (stb.st_mode & FILEMODEMASK),
 		    (u_long) stb.st_size, last);
 #endif
-
 		if (verbose_mode) {
 			fprintf(stderr, "Sending file modes: %s", buf);
 			fflush(stderr);
@@ -930,7 +929,7 @@ screwup:
 }
 
 int
-response()
+response(void)
 {
 	char ch, *cp, resp, rbuf[2048];
 
@@ -963,7 +962,7 @@ response()
 }
 
 void
-usage()
+usage(void)
 {
 	(void) fprintf(stderr,
 	    "usage: scp [-pqrvBC46] [-F config] [-S ssh] [-P port] [-c cipher] [-i identity]\n"

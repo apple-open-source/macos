@@ -7,8 +7,8 @@
 #include <stdio.h>
 #include <fcntl.h>
 
-#include "dbf.h"
 #include "php.h"
+#include "dbf.h"
 
 void free_dbf_head(dbhead_t *dbh);
 int get_dbf_field(dbhead_t *dbh, dbfield_t *dbf);
@@ -220,17 +220,17 @@ char *get_dbf_f_fmt(dbfield_t *dbf)
 	return (char *)strdup(format);
 }
 
-dbhead_t *dbf_open(char *dp, int o_flags)
+dbhead_t *dbf_open(char *dp, int o_flags TSRMLS_DC)
 {
 	int fd;
 	char *cp;
 	dbhead_t *dbh;
 
 	cp = dp;
-	if ((fd = VCWD_OPEN((cp, o_flags|O_BINARY))) < 0) {
+	if ((fd = VCWD_OPEN(cp, o_flags|O_BINARY)) < 0) {
 		cp = (char *)malloc(256);
 		strcpy(cp, dp); strcat(cp, ".dbf");
-		if ((fd = VCWD_OPEN((cp, o_flags))) < 0) {
+		if ((fd = VCWD_OPEN(cp, o_flags)) < 0) {
 			perror("open");
 			return NULL;
 		}
@@ -260,3 +260,12 @@ void dbf_head_info(dbhead_t *dbh)
 			cur_f->db_type, cur_f->db_flen, cur_f->db_fdc);
 	}
 }
+ 
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
+ */

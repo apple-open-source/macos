@@ -1,5 +1,7 @@
 --TEST--
 XML Parser: parse simple string
+--SKIPIF--
+<?php if (!extension_loaded("xml")) echo 'skip'; ?>
 --FILE--
 <?php
 //

@@ -1,4 +1,4 @@
-# Mac OS X 10.1.3
+# Mac OS X 10.1.4
 AppleADBButtons	2.2
 AppleADBDisplay	1.1
 AppleADBKeyboard	2.3.2d1
@@ -22,7 +22,7 @@ AppleOnboardAudio	172.3
 ApplePS2Controller	2
 ApplePS2Keyboard	3
 ApplePS2Mouse	3
-AppleSym8xx	1.0.1f1.2
+AppleSym8xx	110.0.2
 AppleTalk	66.3
 AppleUSBProKeyboard	1.9.5
 AppleVIA	1.1
@@ -65,19 +65,19 @@ Libstreams	23
 Libsystem	55
 Liby	10
 NKEMgr	5.3
-OpenSSH	13
+OpenSSH	16
 OpenSSL	7.1
 Security	30.1
 SharedIP	27
 Startup	78
-SystemKEXT	13
+SystemKEXT	17
 UserNotification	11
 adv_cmds	36
-apache	649
+apache	650
 apache_mod_dav	7
 apache_mod_hfs_apple	3
-apache_mod_php	6.2
-apache_mod_ssl	7
+apache_mod_php	7
+apache_mod_ssl	8
 architecture	229
 at_cmds	42
 autoconf	8
@@ -117,7 +117,7 @@ gnumake	104
 gnutar	410.1
 gnuzip	11
 grep	6.1
-groff	10
+groff	11
 headerdoc	5.1
 hfs	110
 isoutil	19
@@ -127,7 +127,7 @@ less	3
 libpcap	2.1
 libtelnet	1
 m4	4
-mail_cmds	10
+mail_cmds	12.1.1
 man	151
 misc_cmds	6
 ncftp	6
@@ -144,10 +144,10 @@ ppp	57.3
 procmail	2
 project_makefiles	124.4
 rcs	10
-rsync	5.1
+rsync	8.1
 sendmail	26.2
 shell_cmds	18
-sudo	4
+sudo	5.1
 system_cmds	196
 tcl	3.1
 tcp_wrappers	4
@@ -159,7 +159,7 @@ usertemplate	8
 usrtemplate	10
 vi	5.1
 volfs	23
-xnu	201.19
+xnu	201.19.3
 yacc	4
 zlib	5
 zsh	28

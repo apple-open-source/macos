@@ -57,11 +57,19 @@
 
     <p>MD5 authentication provides a more secure password system,
     but only works with supporting browsers. As of this writing
-    (July 1996), the majority of browsers do not support digest
-    authentication. Therefore, we do not recommend using this
-    feature on a large Internet site. However, for personal and
-    intra-net use, where browser users can be controlled, it is
-    ideal.</p>
+    (January 2002), the only major browsers which support digest
+    authentication are <a href="http://www.opera.com/">Opera 4.0</a>,
+    <a href="http://www.microsoft.com/windows/ie/">MS Internet 
+    Explorer 5.0</a> and <a href="http://www.w3.org/Amaya/">Amaya</a>. 
+    Therefore, we do not recommend using this feature on a large 
+    Internet site. However, for personal and intra-net use, where 
+    browser users can be controlled, it is ideal.</p>
+
+    <p>See also <a href="mod_auth_digest.html">mod_auth_digest</a>,
+    which is an updated version of this module, in order to determine
+    whether you want to use that module instead. In either case, if
+    you are using one, you should not use the other, as they share
+    some of the same configuration directives.</p>
     <hr />
 
     <h2><a id="authdigestfile"
@@ -84,9 +92,14 @@
     authentication. <em>Filename</em> is the absolute path to the
     user file.</p>
 
+    <p>Example</p>
+
+    <code>AuthDigestFile /usr/local/apache/passwords/passwords.digest</code>
+
     <p>The digest file uses a special format. Files in this format
-    can be created using the "htdigest" utility found in the
-    support/ subdirectory of the Apache distribution.</p>
+    can be created using the "<a href="../programs/htdigest.html">htdigest</a>"
+    utility found in the support/ subdirectory of the Apache distribution.</p>
+
         <hr />
 
     <h3 align="CENTER">Apache HTTP Server Version 1.3</h3>

@@ -20,6 +20,8 @@
    +----------------------------------------------------------------------+
  */
 
+/* $Id: oracle.c,v 1.1.1.5 2001/12/14 22:12:55 zarzycki Exp $ */
+
 /* comment out the next line if you're on Oracle 7.x and don't have the olog 
    call. */
  
@@ -66,18 +68,20 @@ PHP_ORA_API php_ora_globals ora_globals;
 #define ORA_FETCHINTO_ASSOC (1<<0)
 #define ORA_FETCHINTO_NULLS (1<<1)
 
-static oraCursor *ora_get_cursor(HashTable *, pval **);
+static oraCursor *ora_get_cursor(HashTable *, pval ** TSRMLS_DC);
 static char *ora_error(Cda_Def *);
 static int ora_describe_define(oraCursor *);
-static int _close_oraconn(zend_rsrc_list_entry *rsrc);
-static int _close_oracur(oraCursor *cur);
+static int _close_oraconn(zend_rsrc_list_entry *rsrc TSRMLS_DC);
+static int _close_oracur(oraCursor *cur TSRMLS_DC);
 static int _ora_ping(oraConnection *conn);
-int ora_set_param_values(oraCursor *cursor, int isout);
+int ora_set_param_values(oraCursor *cursor, int isout TSRMLS_DC);
 
 void ora_do_logon(INTERNAL_FUNCTION_PARAMETERS, int persistent);
 
 static int le_conn, le_pconn, le_cursor; 
 
+/* {{{ prototypes
+ */
 PHP_FUNCTION(ora_bind);
 PHP_FUNCTION(ora_close);
 PHP_FUNCTION(ora_commit);
@@ -107,7 +111,10 @@ PHP_RINIT_FUNCTION(oracle);
 PHP_MSHUTDOWN_FUNCTION(oracle);
 PHP_RSHUTDOWN_FUNCTION(oracle);
 PHP_MINFO_FUNCTION(oracle);
+/* }}} */
 
+/* {{{ oracle_functions[]
+ */
 function_entry oracle_functions[] = {
 	PHP_FE(ora_bind,								NULL)
 	PHP_FE(ora_close,								NULL)
@@ -134,8 +141,12 @@ function_entry oracle_functions[] = {
 	PHP_FE(ora_rollback,							NULL)
 	{NULL, NULL, NULL}
 };
+/* }}} */
 
+/* {{{ oracle_module_entry
+ */
 zend_module_entry oracle_module_entry = {
+    STANDARD_MODULE_HEADER,
 	"oracle",
 	oracle_functions,
 	PHP_MINIT(oracle),       /* extension-wide startup function */
@@ -143,9 +154,13 @@ zend_module_entry oracle_module_entry = {
     PHP_RINIT(oracle),       /* per-request startup function */
     PHP_RSHUTDOWN(oracle),   /* per-request shutdown function */
     PHP_MINFO(oracle),
+    NO_VERSION_YET,
     STANDARD_MODULE_PROPERTIES
 };
+/* }}} */
 
+/* {{{ ora_func_tab[]
+ */
 static const text *ora_func_tab[] =
 {(text *) "unused",
 /*  1, 2  */ (text *) "unused", (text *) "OSQL",
@@ -180,15 +195,17 @@ static const text *ora_func_tab[] =
 /* 59, 60 */ (text *) "unused", (text *) "ODESCR",
 /* 61, 62 */ (text *) "unused", (text *) "OBNDRA"
 };
+/* }}} */
 
 #ifdef COMPILE_DL_ORACLE
 ZEND_GET_MODULE(oracle)
 #endif
 
-static int _close_oraconn(zend_rsrc_list_entry *rsrc)
+/* {{{ _close_oraconn
+ */
+static int _close_oraconn(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
 	oraConnection *conn = (oraConnection *)rsrc->ptr;
-	ORALS_FETCH();
 	
 	conn->open = 0;
 
@@ -206,7 +223,10 @@ static int _close_oraconn(zend_rsrc_list_entry *rsrc)
 
 	return 1;
 }
+/* }}} */
 
+/* {{{ pval_ora_param_destructor
+ */
 static void
 pval_ora_param_destructor(oraParam *param)
 {
@@ -214,12 +234,13 @@ pval_ora_param_destructor(oraParam *param)
 		efree(param->progv);
 	}
 }
+/* }}} */
 
-
-static int _close_oracur(oraCursor *cur)
+/* {{{ _close_oracur
+ */
+static int _close_oracur(oraCursor *cur TSRMLS_DC)
 {
 	int i;
-	ORALS_FETCH();
 
 	if (cur){
 		if (cur->query){
@@ -252,14 +273,21 @@ static int _close_oracur(oraCursor *cur)
 	
 	return 1;
 }
+/* }}} */
 
-static void php_close_ora_cursor(zend_rsrc_list_entry *rsrc)
+/* {{{ php_close_ora_cursor
+ */
+static void php_close_ora_cursor(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
 	oraCursor *cur = (oraCursor *)rsrc->ptr;
-	_close_oracur(cur);
-}
 
-static void php_ora_init_globals(ORALS_D)
+	_close_oracur(cur TSRMLS_CC);
+}
+/* }}} */
+
+/* {{{ php_ora_init_globals
+ */
+static void php_ora_init_globals(php_ora_globals *ora_globals_p TSRMLS_DC)
 {
 	if (cfg_get_long("oracle.allow_persistent",
 			 &ORA(allow_persistent))
@@ -284,14 +312,16 @@ static void php_ora_init_globals(ORALS_D)
 	
 	memset((void*) &ORA(db_err_conn),0,sizeof(ORA(db_err_conn)));
 }
+/* }}} */
 
+/* {{{ PHP_MINIT_FUNCTION
+ */
 PHP_MINIT_FUNCTION(oracle)
 {
-
 #ifdef ZTS
-	ora_globals_id = ts_allocate_id(sizeof(php_ora_globals), (ts_allocate_ctor) php_ora_init_globals, NULL);
+	ts_allocate_id(&ora_globals_id, sizeof(php_ora_globals), (ts_allocate_ctor) php_ora_init_globals, NULL);
 #else
-	php_ora_init_globals(ORALS_C);
+	php_ora_init_globals(&ora_globals TSRMLS_CC);
 #endif
 
 	le_cursor = zend_register_list_destructors_ex(php_close_ora_cursor, NULL, "oracle cursor", module_number);
@@ -311,11 +341,12 @@ PHP_MINIT_FUNCTION(oracle)
 
 	return SUCCESS;
 }
+/* }}} */
 
+/* {{{ PHP_RINIT_FUNCTION
+ */
 PHP_RINIT_FUNCTION(oracle)
 {
-	ORALS_FETCH();
-	
 	ORA(num_links) = 
 		ORA(num_persistent);
 	/*
@@ -325,24 +356,28 @@ PHP_RINIT_FUNCTION(oracle)
 	*/
 	return SUCCESS;
 }
+/* }}} */
 
-
+/* {{{ PHP_MSHUTDOWN_FUNCTION
+ */
 PHP_MSHUTDOWN_FUNCTION(oracle)
 {
-	ORALS_FETCH();
-
 	zend_hash_destroy(ORA(conns));
 	free(ORA(conns));
-
 	return SUCCESS;
 }
+/* }}} */
 
+/* {{{ PHP_RSHUTDOWN_FUNCTION
+ */
 PHP_RSHUTDOWN_FUNCTION(oracle)
 {
 	return SUCCESS;
-
 }
+/* }}} */
 
+/* {{{ _ora_ping
+ */
 static int _ora_ping(oraConnection *conn)
 {
 	Cda_Def cda;
@@ -360,6 +395,7 @@ static int _ora_ping(oraConnection *conn)
 	return 1;
 
 }
+/* }}} */
 
 /*
    ** PHP functions
@@ -381,6 +417,8 @@ PHP_FUNCTION(ora_plogon)
 }
 /* }}} */
 
+/* {{{ ora_do_logon
+ */
 void ora_do_logon(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 {
 	char *user,*passwd;
@@ -388,7 +426,6 @@ void ora_do_logon(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 	char *hashed_details;
 	int hashed_details_length;
 	oraConnection *db_conn;
-	ORALS_FETCH();
 
 	if (zend_get_parameters_ex(2, &arg1, &arg2) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -553,6 +590,7 @@ void ora_do_logon(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 
 	efree(hashed_details);
 }
+/* }}} */
 
 /* {{{ proto int ora_logoff(int connection)
    Close an Oracle connection */
@@ -736,7 +774,7 @@ PHP_FUNCTION(ora_parse)
 		RETURN_FALSE;
 	}
 
-	if (!(cursor = ora_get_cursor(&EG(regular_list),curs))){
+	if (!(cursor = ora_get_cursor(&EG(regular_list),curs TSRMLS_CC))){
 		efree(query);
 		RETURN_FALSE;
 	}
@@ -786,7 +824,7 @@ PHP_FUNCTION(ora_bind)
 		WRONG_PARAM_COUNT;
 	}
 
-	cursor = ora_get_cursor(&EG(regular_list), curs);
+	cursor = ora_get_cursor(&EG(regular_list), curs TSRMLS_CC);
 	if (cursor == NULL) {
 		RETURN_FALSE;
 	}
@@ -796,7 +834,7 @@ PHP_FUNCTION(ora_bind)
 	convert_to_long_ex(plen);
 
 	if (cursor->params == NULL) {
-		cursor->params = (HashTable *)emalloc(sizeof(HashTable));
+		ALLOC_HASHTABLE(cursor->params);
 		if (!cursor->params ||
 			zend_hash_init(cursor->params, 19, NULL,
 						   HASH_DTOR pval_ora_param_destructor, 0) == FAILURE) {
@@ -876,7 +914,7 @@ PHP_FUNCTION(ora_exec)
 	if (zend_get_parameters_ex(1, &arg) == FAILURE)
 		WRONG_PARAM_COUNT;
 
-	if ((cursor = ora_get_cursor(&EG(regular_list), arg)) == NULL) {
+	if ((cursor = ora_get_cursor(&EG(regular_list), arg TSRMLS_CC)) == NULL) {
 		RETURN_FALSE;
 	}
 
@@ -888,7 +926,7 @@ PHP_FUNCTION(ora_exec)
 	}
 
 	if(cursor->nparams > 0){
-		if(!ora_set_param_values(cursor, 0)){
+		if(!ora_set_param_values(cursor, 0 TSRMLS_CC)){
 			RETURN_FALSE;
 		}
 	}
@@ -900,7 +938,7 @@ PHP_FUNCTION(ora_exec)
 	}
 	
 	if(cursor->nparams > 0){
-		if(!ora_set_param_values(cursor, 1)){
+		if(!ora_set_param_values(cursor, 1 TSRMLS_CC)){
 			RETURN_FALSE;
 		}
 	}
@@ -918,7 +956,7 @@ PHP_FUNCTION(ora_numcols)
 	if (zend_get_parameters_ex(1, &arg) == FAILURE)
 		WRONG_PARAM_COUNT;
 
-	if ((cursor = ora_get_cursor(&EG(regular_list), arg)) == NULL) {
+	if ((cursor = ora_get_cursor(&EG(regular_list), arg TSRMLS_CC)) == NULL) {
 		RETURN_FALSE;
 	}
 
@@ -936,7 +974,7 @@ PHP_FUNCTION(ora_numrows)
 	if(zend_get_parameters_ex(1, &arg) == FAILURE)
 		WRONG_PARAM_COUNT;
 
-	if((cursor = ora_get_cursor(&EG(regular_list), arg)) == NULL) {
+	if((cursor = ora_get_cursor(&EG(regular_list), arg TSRMLS_CC)) == NULL) {
 		RETURN_FALSE;
 	}
 
@@ -992,7 +1030,7 @@ PHP_FUNCTION(ora_do)
 	if (oparse(&cursor->cda, query, (sb4) - 1, 1, VERSION_7)){
 		php_error(E_WARNING, "Ora_Do failed (%s)",
 				  ora_error(&cursor->cda));
-		_close_oracur(cursor);
+		_close_oracur(cursor TSRMLS_CC);
 		RETURN_FALSE;
 	}
 	
@@ -1000,13 +1038,13 @@ PHP_FUNCTION(ora_do)
 	if (cursor->cda.ft == FT_SELECT) {
 		if (ora_describe_define(cursor) < 0){
 			/* error message is given by ora_describe_define() */
-			_close_oracur(cursor);
+			_close_oracur(cursor TSRMLS_CC);
 			RETURN_FALSE;
 		}
 		if (oexfet(&cursor->cda, 1, 0, 0)) {
 			php_error(E_WARNING, "Ora_Do failed (%s)",
 					  ora_error(&cursor->cda));
-			_close_oracur(cursor);
+			_close_oracur(cursor TSRMLS_CC);
 			RETURN_FALSE;
 		}
 		cursor->fetched = 1;
@@ -1014,7 +1052,7 @@ PHP_FUNCTION(ora_do)
 		if (oexec(&cursor->cda)) {
 			php_error(E_WARNING, "Ora_Do failed (%s)",
 					  ora_error(&cursor->cda));
-			_close_oracur(cursor);
+			_close_oracur(cursor TSRMLS_CC);
 			RETURN_FALSE;
 		}
 	}
@@ -1034,7 +1072,7 @@ PHP_FUNCTION(ora_fetch)
 		WRONG_PARAM_COUNT;
 	}
 
-	if ((cursor = ora_get_cursor(&EG(regular_list), arg)) == NULL) {
+	if ((cursor = ora_get_cursor(&EG(regular_list), arg TSRMLS_CC)) == NULL) {
 		RETURN_FALSE;
 	}
 
@@ -1082,7 +1120,7 @@ PHP_FUNCTION(ora_fetch_into)
 	}
 	
 	/* Find the cursor */
-	if ((cursor = ora_get_cursor(&EG(regular_list), curs)) == NULL) {
+	if ((cursor = ora_get_cursor(&EG(regular_list), curs TSRMLS_CC)) == NULL) {
 		RETURN_FALSE;
 	}
 
@@ -1204,7 +1242,7 @@ PHP_FUNCTION(ora_columnname)
 		WRONG_PARAM_COUNT;
 	}
 
-	if ((cursor = ora_get_cursor(&EG(regular_list), curs)) == NULL) {
+	if ((cursor = ora_get_cursor(&EG(regular_list), curs TSRMLS_CC)) == NULL) {
 		RETURN_FALSE;
 	}
 
@@ -1242,7 +1280,7 @@ PHP_FUNCTION(ora_columntype)
 		WRONG_PARAM_COUNT;
 	}
 
-	if ((cursor = ora_get_cursor(&EG(regular_list), curs)) == NULL) {
+	if ((cursor = ora_get_cursor(&EG(regular_list), curs TSRMLS_CC)) == NULL) {
 		RETURN_FALSE;
 	}
 
@@ -1310,7 +1348,7 @@ PHP_FUNCTION(ora_columnsize)
 		WRONG_PARAM_COUNT;
 	}
 	/* Find the cursor */
-	if ((cursor = ora_get_cursor(&EG(regular_list), curs)) == NULL) {
+	if ((cursor = ora_get_cursor(&EG(regular_list), curs TSRMLS_CC)) == NULL) {
 		RETURN_FALSE;
 	}
 
@@ -1350,7 +1388,7 @@ PHP_FUNCTION(ora_getcolumn)
 		WRONG_PARAM_COUNT;
 	}
 
-	if ((cursor = ora_get_cursor(&EG(regular_list), curs)) == NULL) {
+	if ((cursor = ora_get_cursor(&EG(regular_list), curs TSRMLS_CC)) == NULL) {
 		RETURN_FALSE;
 	}
 
@@ -1472,14 +1510,13 @@ PHP_FUNCTION(ora_error)
 	void *res;
 	int what;
 	int argc = ZEND_NUM_ARGS();
-	ORALS_FETCH();
 
 	if (argc < 0 || argc >> 1 || zend_get_parameters_ex(argc, &arg) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
 	if (argc == 1) {
-		res = zend_fetch_resource(arg, -1,"Oracle-Connection/Cursor",&what,3,le_conn, le_pconn, le_cursor);
+		res = zend_fetch_resource(arg TSRMLS_CC, -1,"Oracle-Connection/Cursor",&what,3,le_conn, le_pconn, le_cursor);
 		ZEND_VERIFY_RESOURCE(res);
 
 		if (what == le_cursor) {
@@ -1505,14 +1542,13 @@ PHP_FUNCTION(ora_errorcode)
 	void *res;
 	int what;
 	int argc = ZEND_NUM_ARGS();
-	ORALS_FETCH();
 
 	if (argc < 0 || argc >> 1 || zend_get_parameters_ex(argc, &arg) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
 	if (argc == 1) {
-		res = zend_fetch_resource(arg, -1,"Oracle-Connection/Cursor",&what,3,le_conn, le_pconn, le_cursor);
+		res = zend_fetch_resource(arg TSRMLS_CC, -1,"Oracle-Connection/Cursor",&what,3,le_conn, le_pconn, le_cursor);
 		ZEND_VERIFY_RESOURCE(res);
 
 		if (what == le_cursor) {
@@ -1528,9 +1564,10 @@ PHP_FUNCTION(ora_errorcode)
 }
 /* }}} */
 
+/* {{{ PHP_MINFO_FUNCTION
+ */
 PHP_MINFO_FUNCTION(oracle)
 {
-
 	php_info_print_table_start();
 	php_info_print_table_row(2, "Oracle Support", "enabled");
 #ifndef PHP_WIN32
@@ -1540,20 +1577,21 @@ PHP_MINFO_FUNCTION(oracle)
 #endif
 	php_info_print_table_end();
 }
-
+/* }}} */
 
 /*
 ** Functions internal to this module.
 */
 
+/* {{{ ora_get_cursor
+ */
 static oraCursor *
-ora_get_cursor(HashTable *list, pval **ind)
+ora_get_cursor(HashTable *list, pval **ind TSRMLS_DC)
 {
 	oraCursor *cursor;
 	oraConnection *db_conn;
-	ORALS_FETCH();
 
-	cursor = (oraCursor *) zend_fetch_resource(ind, -1, "Oracle-Cursor", NULL, 1, le_cursor);
+	cursor = (oraCursor *) zend_fetch_resource(ind TSRMLS_CC, -1, "Oracle-Cursor", NULL, 1, le_cursor);
 	if (! cursor) {
 		return NULL;
 	}
@@ -1565,7 +1603,10 @@ ora_get_cursor(HashTable *list, pval **ind)
 
 	return cursor;
 }
+/* }}} */
 
+/* {{{ ora_error
+ */
 static char *
 ora_error(Cda_Def * cda)
 {
@@ -1586,7 +1627,10 @@ ora_error(Cda_Def * cda)
 	}
 	return (char *) errmsg;
 }
+/* }}} */
 
+/* {{{ ora_describe_define
+ */
 static sword
 ora_describe_define(oraCursor * cursor)
 {
@@ -1677,15 +1721,16 @@ ora_describe_define(oraCursor * cursor)
 	}
 	return 1;
 }
+/* }}} */
 
-int ora_set_param_values(oraCursor *cursor, int isout)
+/* {{{ ora_set_param_values
+ */
+int ora_set_param_values(oraCursor *cursor, int isout TSRMLS_DC)
 {
 	char *paramname;
 	oraParam *param;
 	pval **pdata;
 	int i, len, plen;
-
-	ELS_FETCH();
 
 	zend_hash_internal_pointer_reset(cursor->params);
 
@@ -1732,6 +1777,7 @@ int ora_set_param_values(oraCursor *cursor, int isout)
 
 	return 1;
 }
+/* }}} */
 
 #endif							/* HAVE_ORACLE */
 
@@ -1740,4 +1786,6 @@ int ora_set_param_values(oraCursor *cursor, int isout)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

@@ -1,4 +1,3 @@
-/*	$NetBSD: def.h,v 1.11 1998/04/02 10:31:09 kleink Exp $	*/
 /*
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -32,7 +31,8 @@
  * SUCH DAMAGE.
  *
  *	@(#)def.h	8.4 (Berkeley) 4/20/95
- *	$NetBSD: def.h,v 1.11 1998/04/02 10:31:09 kleink Exp $
+ *
+ * $FreeBSD: src/usr.bin/mail/def.h,v 1.8 2001/12/18 20:52:09 mikeh Exp $
  */
 
 /*
@@ -41,20 +41,12 @@
  * Author: Kurt Shoens (UCB) March 25, 1978
  */
 
-#include <sys/types.h>
-#include <sys/file.h>
-#include <sys/ioctl.h>
-#include <sys/stat.h>
 #include <sys/param.h>
-#include <sys/time.h>
-#include <sys/wait.h>
+#include <sys/stat.h>
 
 #include <ctype.h>
 #include <err.h>
-#include <errno.h>
-#include <fcntl.h>
 #include <paths.h>
-#include <pwd.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -62,6 +54,7 @@
 #include <termios.h>
 #include <time.h>
 #include <unistd.h>
+
 #include "pathnames.h"
 
 #define	APPEND				/* New mail goes to end of mailbox */
@@ -71,17 +64,16 @@
 #define	PATHSIZE	MAXPATHLEN	/* Size of pathnames throughout */
 #define	HSHSIZE		59		/* Hash size for aliases and vars */
 #define	LINESIZE	BUFSIZ		/* max readable line width */
-#define	STRINGSIZE	((unsigned) 128)/* Dynamic allocation units */
+#define	STRINGSIZE	((unsigned)128)	/* Dynamic allocation units */
 #define	MAXARGC		1024		/* Maximum list of raw strings */
-#define	NOSTR		((char *) 0)	/* Null string pointer */
 #define	MAXEXP		25		/* Maximum expansion of aliases */
 
 #define	equal(a, b)	(strcmp(a,b)==0)/* A nice function to string compare */
 
 struct message {
 	short	m_flag;			/* flags, see below */
-	long	m_block;		/* block number of this message */
 	short	m_offset;		/* offset in block of message */
+	long	m_block;		/* block number of this message */
 	long	m_size;			/* Bytes in the message */
 	long	m_lines;		/* Lines in the message */
 };
@@ -105,8 +97,8 @@ struct message {
 /*
  * Given a file address, determine the block number it represents.
  */
-#define blockof(off)			((int) ((off) / 4096))
-#define offsetof(off)			((int) ((off) % 4096))
+#define blockof(off)			((int)((off) / 4096))
+#define boffsetof(off)			((int)((off) % 4096))
 #define positionof(block, offset)	((off_t)(block) * 4096 + (offset))
 
 /*
@@ -115,8 +107,8 @@ struct message {
  * in lex.c
  */
 struct cmd {
-	char	*c_name;		/* Name of command */
-	int	(*c_func) __P((void *));/* Implementor of the command */
+	const	char *c_name;		/* Name of command */
+	int	(*c_func)();		/* Implementor of the command */
 	short	c_argtype;		/* Type of arglist (see below) */
 	short	c_msgflag;		/* Required flags of messages */
 	short	c_msgmask;		/* Relevant flags of messages */
@@ -167,12 +159,14 @@ struct headline {
 #define	GSUBJECT 2		/* Likewise, Subject: line */
 #define	GCC	4		/* And the Cc: line */
 #define	GBCC	8		/* And also the Bcc: line */
-#define	GMASK	(GTO|GSUBJECT|GCC|GBCC)
+#define	GREPLYTO 0x10		/* And the Reply-To: line */
+#define	GINREPLYTO 0x20		/* The In-Reply-To: line */
+#define	GMASK	(GTO|GSUBJECT|GCC|GBCC|GREPLYTO|GINREPLYTO)
 				/* Mask of places from whence */
 
-#define	GNL	16		/* Print blank line after */
-#define	GDEL	32		/* Entity removed from list */
-#define	GCOMMA	64		/* detract puts in commas */
+#define	GNL	0x40		/* Print blank line after */
+#define	GDEL	0x80		/* Entity removed from list */
+#define	GCOMMA	0x100		/* detract puts in commas */
 
 /*
  * Structure used to pass about the current
@@ -180,11 +174,13 @@ struct headline {
  */
 
 struct header {
-	struct name *h_to;		/* Dynamic "To:" string */
-	char *h_subject;		/* Subject string */
-	struct name *h_cc;		/* Carbon copies string */
-	struct name *h_bcc;		/* Blind carbon copies */
-	struct name *h_smopts;		/* Sendmail options */
+	struct	name *h_bcc;		/* Blind carbon copies */
+	struct	name *h_cc;		/* Carbon copies string */
+	struct	name *h_smopts;		/* Sendmail options */
+	struct	name *h_to;		/* Dynamic "To:" string */
+	char	*h_inreplyto;		/* Reference */
+	char	*h_replyto;		/* Reply address */
+	char	*h_subject;		/* Subject string */
 };
 
 /*
@@ -223,20 +219,14 @@ struct grouphead {
 	struct	group *g_list;		/* Users in group. */
 };
 
-#define	NIL	((struct name *) 0)	/* The nil pointer for namelists */
-#define	NONE	((struct cmd *) 0)	/* The nil pointer to command tab */
-#define	NOVAR	((struct var *) 0)	/* The nil pointer to variables */
-#define	NOGRP	((struct grouphead *) 0)/* The nil grouphead pointer */
-#define	NOGE	((struct group *) 0)	/* The nil group pointer */
-
 /*
  * Structure of the hash table of ignored header fields
  */
 struct ignoretab {
-	int i_count;			/* Number of entries */
-	struct ignore {
-		struct ignore *i_link;	/* Next ignored field in bucket */
-		char *i_field;		/* This ignored field */
+	int	i_count;			/* Number of entries */
+	struct	ignore {
+		struct	ignore *i_link;	/* Next ignored field in bucket */
+		char	*i_field;	/* This ignored field */
 	} *i_head[HSHSIZE];
 };
 

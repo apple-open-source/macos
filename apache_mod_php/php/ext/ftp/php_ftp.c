@@ -1,34 +1,22 @@
-
 /*
    +----------------------------------------------------------------------+
-   | PHP HTML Embedded Scripting Language Version 3.0                     |
+   | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-1999 PHP Development Team (See Credits file)      |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This program is free software; you can redistribute it and/or modify |
-   | it under the terms of one of the following licenses:                 |
-   |                                                                      |
-   |  A) the GNU General Public License as published by the Free Software |
-   |     Foundation; either version 2 of the License, or (at your option) |
-   |     any later version.                                               |
-   |                                                                      |
-   |  B) the PHP License as published by the PHP Development Team and     |
-   |     included in the distribution in the file: LICENSE                |
-   |                                                                      |
-   | This program is distributed in the hope that it will be useful,      |
-   | but WITHOUT ANY WARRANTY; without even the implied warranty of       |
-   | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the        |
-   | GNU General Public License for more details.                         |
-   |                                                                      |
-   | You should have received a copy of both licenses referred to here.   |
-   | If you did not, or have any questions about PHP licensing, please    |
-   | contact core@php.net.                                                |
+   | This source file is subject to version 2.02 of the PHP license,      |
+   | that is bundled with this package in the file LICENSE, and is        |
+   | available at through the world-wide-web at                           |
+   | http://www.php.net/license/2_02.txt.                                 |
+   | If you did not receive a copy of the PHP license and are unable to   |
+   | obtain it through the world-wide-web, please send a note to          |
+   | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Andrew Skalski      <askalski@chek.com>                     |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_ftp.c,v 1.1.1.4 2001/07/19 00:19:10 zarzycki Exp $ */
+/* $Id: php_ftp.c,v 1.1.1.5 2001/12/14 22:12:20 zarzycki Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -74,6 +62,7 @@ function_entry php_ftp_functions[] = {
 };
 
 zend_module_entry php_ftp_module_entry = {
+    STANDARD_MODULE_HEADER,
 	"ftp",
 	php_ftp_functions,
 	PHP_MINIT(ftp),
@@ -81,6 +70,7 @@ zend_module_entry php_ftp_module_entry = {
 	NULL,
 	NULL,
 	PHP_MINFO(ftp),
+    NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES
 };
 
@@ -88,9 +78,10 @@ zend_module_entry php_ftp_module_entry = {
 ZEND_GET_MODULE(php_ftp)
 #endif
 
-static void ftp_destructor_ftpbuf(zend_rsrc_list_entry *rsrc)
+static void ftp_destructor_ftpbuf(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
 	ftpbuf_t *ftp = (ftpbuf_t *)rsrc->ptr;
+
 	ftp_close(ftp);
 }
 
@@ -110,9 +101,9 @@ PHP_MINIT_FUNCTION(ftp)
 
 PHP_MINFO_FUNCTION(ftp)
 {
-  php_info_print_table_start();
-  php_info_print_table_row(2, "FTP support", "enabled");
-  php_info_print_table_end();
+	php_info_print_table_start();
+	php_info_print_table_row(2, "FTP support", "enabled");
+	php_info_print_table_end();
 }
 
 
@@ -630,7 +621,8 @@ PHP_FUNCTION(ftp_fput)
 	pval		*arg1, *arg2, *arg3, *arg4;
 	ftpbuf_t	*ftp;
 	ftptype_t	xtype;
-	FILE		*fp;
+	int		type;
+	void		*rsrc;
 
 	/* arg1 - ftp
 	 * arg2 - remote file
@@ -645,10 +637,11 @@ PHP_FUNCTION(ftp_fput)
 
 	FTPBUF(ftp, arg1);
 	convert_to_string(arg2);
-	FILEP(fp, arg3);
+   	rsrc = zend_fetch_resource(&arg3 TSRMLS_CC,-1,"File-Handle", &type, 3, php_file_le_fopen(), php_file_le_popen(), php_file_le_socket());
+	ZEND_VERIFY_RESOURCE(rsrc);   
 	XTYPE(xtype, arg4);
 
-	if (!ftp_put(ftp, Z_STRVAL_P(arg2), fp, xtype)) {
+	if (!ftp_put(ftp, Z_STRVAL_P(arg2), (FILE*)rsrc, *(int*) rsrc, (type==php_file_le_socket()), xtype)) {
 		php_error(E_WARNING, "ftp_put: %s", ftp->inbuf);
 		RETURN_FALSE;
 	}
@@ -691,7 +684,7 @@ PHP_FUNCTION(ftp_put)
 		php_error(E_WARNING, "error opening %s", Z_STRVAL_P(arg3));
 		RETURN_FALSE;
 	}
-	if (	!ftp_put(ftp, Z_STRVAL_P(arg2), infp, xtype) ||
+	if (	!ftp_put(ftp, Z_STRVAL_P(arg2), infp, 0, 0, xtype) ||
 		ferror(infp))
 	{
 		fclose(infp);
@@ -863,3 +856,11 @@ PHP_FUNCTION(ftp_quit)
 /* }}} */
 
 #endif /* HAVE_FTP */
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * indent-tabs-mode: t
+ * End:
+ */

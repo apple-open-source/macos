@@ -46,11 +46,13 @@ function_entry mhash_functions[] = {
 static PHP_MINIT_FUNCTION(mhash);
 
 zend_module_entry mhash_module_entry = {
+	STANDARD_MODULE_HEADER,
 	"mhash",
 	mhash_functions,
 	PHP_MINIT(mhash), NULL,
 	NULL, NULL,
 	NULL,
+    NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES,
 };
 
@@ -71,7 +73,7 @@ static PHP_MINIT_FUNCTION(mhash)
 			snprintf(buf, 127, "MHASH_%s", name);
 			zend_register_long_constant(buf, strlen(buf) + 1,
 						    i, CONST_PERSISTENT,
-						    module_number ELS_CC);
+						    module_number TSRMLS_CC);
 			free(name);
 		}
 	}
@@ -83,6 +85,10 @@ static PHP_MINIT_FUNCTION(mhash)
    Gets the number of available hashes */
 PHP_FUNCTION(mhash_count)
 {
+	if (ZEND_NUM_ARGS() != 0) {
+		WRONG_PARAM_COUNT;
+	}
+
 	RETURN_LONG(mhash_count());
 }
 
@@ -225,7 +231,7 @@ PHP_FUNCTION(mhash_keygen_s2k)
 	password = Z_STRVAL_PP(input_password);
 	password_len = Z_STRLEN_PP(input_password);
 
-	salt_len = Z_STRLEN_PP(input_salt);
+	salt_len = MIN(Z_STRLEN_PP(input_salt), SALT_SIZE);
 
 	if (salt_len > mhash_get_keygen_salt_size(KEYGEN_S2K_SALTED)) {
 		sprintf( error, "The specified salt [%d] is more bytes than the required by the algorithm [%d]\n", salt_len, mhash_get_keygen_salt_size(KEYGEN_S2K_SALTED));
@@ -233,8 +239,9 @@ PHP_FUNCTION(mhash_keygen_s2k)
 		php_error(E_WARNING, error);
 	}
 
-	memset( salt, 0, SALT_SIZE);
-	memcpy( salt, Z_STRVAL_PP(input_salt), salt_len);
+	memcpy(salt, Z_STRVAL_PP(input_salt), salt_len);
+	if (salt_len < SALT_SIZE)
+		memset(salt + salt_len, 0, SALT_SIZE - salt_len);
 	salt_len=SALT_SIZE;
 	
 /*	if (salt_len==0) {
@@ -266,8 +273,15 @@ PHP_FUNCTION(mhash_keygen_s2k)
 		RETURN_FALSE;
 	}
 }
-
 /* }}} */
 
-
 #endif
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
+ */

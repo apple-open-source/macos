@@ -61,6 +61,12 @@ class Net_SMTP extends PEAR {
 	var $esmtp;
     
     /**
+     * The last line read from the server.
+     * @var string
+     */
+    var $lastline;
+    
+    /**
      * Constructor
      *
      * Instantiates a new Net_SMTP object, overriding any defaults
@@ -183,7 +189,7 @@ class Net_SMTP extends PEAR {
 		/* Note: 251 is also a valid response code */
         
 		if (PEAR::isError($this->socket->write("RCPT TO:<$forward_path>\r\n"))) { return new PEAR_Error('write to socket failed'); }
-		if (!($this->validateResponse('250'))) { return new PEAR_Error('250 OK not received'); }
+		if (!($this->validateResponse('250'))) { return new PEAR_Error($this->lastline); }
         
 		return true;
 	}
@@ -200,7 +206,7 @@ class Net_SMTP extends PEAR {
 	function data($data) {
 		$data = preg_replace("/([^\r]{1})\n/", "\\1\r\n", $data);
 		$data = preg_replace("/\n\n/", "\n\r\n", $data);
-		$data = preg_replace("/^(\..*)/", ".\\1", $data);
+		$data = preg_replace("/\n\./", "\n..", $data);
         
 		if (PEAR::isError($this->socket->write("DATA\r\n"))) { return new PEAR_Error('write to socket failed'); }
 		if (!($this->validateResponse('354'))) { return new PEAR_Error('354 not received'); }
@@ -339,13 +345,13 @@ class Net_SMTP extends PEAR {
      * @access private
      */
 	function validateResponse($code) {
-		while ($response = $this->socket->readLine()) {
-			$reply_code = strtok($response, ' ');
+		while ($this->lastline = $this->socket->readLine()) {
+			$reply_code = strtok($this->lastline, ' ');
 			if (!(strcmp($code, $reply_code))) {
 				$this->code = $reply_code;
 				return true;
 			} else {
-				$reply_code = strtok($response, '-');
+				$reply_code = strtok($this->lastline, '-');
 				if (strcmp($code, $reply_code)) {
 					$this->code = $reply_code;
 					return false;
@@ -371,20 +377,20 @@ class Net_SMTP extends PEAR {
 	function validateAndParseResponse($code, &$arguments) {
 		$arguments = array();
         
-		while ($response = $this->socket->readLine()) {
-			$reply_code = strtok($response, ' ');
+		while ($this->lastline = $this->socket->readLine()) {
+			$reply_code = strtok($this->lastline, ' ');
 			if (!(strcmp($code, $reply_code))) {
-				$arguments[] = substr($response, strlen($code) + 1, strlen($response) - strlen($code) - 1);
+				$arguments[] = substr($this->lastline, strlen($code) + 1, strlen($this->lastline) - strlen($code) - 1);
 				$this->code = $reply_code;
 				return true;
 			} else {
-				$reply_code = strtok($response, '-');
+				$reply_code = strtok($this->lastline, '-');
 				if (strcmp($code, $reply_code)) {
 					$this->code = $reply_code;
 					return false;
 				}
 			}
-			$arguments[] = substr($response, strlen($code) + 1, strlen($response) - strlen($code) - 1);
+			$arguments[] = substr($this->lastline, strlen($code) + 1, strlen($this->lastline) - strlen($code) - 1);
 		}
         
         return false;

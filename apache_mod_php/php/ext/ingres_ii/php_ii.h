@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_ii.h,v 1.1.1.3 2001/07/19 00:19:17 zarzycki Exp $ */
+/* $Id: php_ii.h,v 1.1.1.4 2001/12/14 22:12:28 zarzycki Exp $ */
 
 #ifndef PHP_II_H
 #define PHP_II_H
@@ -78,19 +78,9 @@ ZEND_END_MODULE_GLOBALS(ii)
 #define II_BOTH  (II_ASSOC|II_NUM)
 
 #ifdef ZTS
-#define IILS_D zend_ii_globals *ii_globals
-#define IILS_DC , IILS_D
-#define IILS_C ii_globals
-#define IILS_CC , IILS_C
-#define IIG(v) (ii_globals->v)
-#define IILS_FETCH() zend_ii_globals *ii_globals = ts_resource(ii_globals_id)
+#define IIG(v) TSRMG(ii_globals_id, zend_ii_globals *, v)
 #else
-#define IILS_D
-#define IILS_DC
-#define IILS_C
-#define IILS_CC
 #define IIG(v) (ii_globals.v)
-#define IILS_FETCH()
 #endif
 
 #else

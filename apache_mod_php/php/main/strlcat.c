@@ -44,7 +44,7 @@ static char *rcsid = "$OpenBSD: strlcat.c,v 1.2 1999/06/17 16:28:58 millert Exp 
  * will be copied.  Always NUL terminates (unless siz == 0).
  * Returns strlen(src); if retval >= siz, truncation occurred.
  */
-PHPAPI size_t strlcat(dst, src, siz)
+PHPAPI size_t php_strlcat(dst, src, siz)
 	char *dst;
 	const char *src;
 	size_t siz;
@@ -75,3 +75,12 @@ PHPAPI size_t strlcat(dst, src, siz)
 }
 
 #endif /* !HAVE_STRLCAT */
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
+ */

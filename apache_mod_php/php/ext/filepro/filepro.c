@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: filepro.c,v 1.1.1.4 2001/07/19 00:19:07 zarzycki Exp $ */
+/* $Id: filepro.c,v 1.1.1.5 2001/12/14 22:12:18 zarzycki Exp $ */
 
 /*
   filePro 4.x support developed by Chad Robinson, chadr@brttech.com
@@ -78,7 +78,8 @@ static signed int fp_keysize = -1;			/* Size of key records */
 static FP_FIELD *fp_fieldlist = NULL;		/* List of fields */
 #endif
 
-
+/* {{{ PHP_MINIT_FUNCTION
+ */
 PHP_MINIT_FUNCTION(filepro)
 {
 #ifdef THREAD_SAFE
@@ -104,7 +105,10 @@ PHP_MINIT_FUNCTION(filepro)
 
 	return SUCCESS;
 }
+/* }}} */
 
+/* {{{ PHP_MSHUTDOWN_FUNCTION
+ */
 PHP_MSHUTDOWN_FUNCTION(filepro)
 {
 #ifdef THREAD_SAFE
@@ -116,16 +120,17 @@ PHP_MSHUTDOWN_FUNCTION(filepro)
 	SET_MUTEX(fp_mutex);
 	numthreads--;
 	if (!numthreads){
-	if (!TlsFree(FPTls)){
-		FREE_MUTEX(fp_mutex);
-		return 0;
-	}}
+		if (!TlsFree(FPTls)){
+			FREE_MUTEX(fp_mutex);
+			return 0;
+		}
+	}
 	FREE_MUTEX(fp_mutex);
 #endif
 #endif
 	return SUCCESS;
 }
-
+/* }}} */
 
 function_entry filepro_functions[] = {
 	PHP_FE(filepro,									NULL)
@@ -139,7 +144,8 @@ function_entry filepro_functions[] = {
 };
 
 zend_module_entry filepro_module_entry = {
-	"filepro", filepro_functions, PHP_MINIT(filepro), PHP_MSHUTDOWN(filepro), NULL, NULL, NULL, STANDARD_MODULE_PROPERTIES
+	STANDARD_MODULE_HEADER,
+	"filepro", filepro_functions, PHP_MINIT(filepro), PHP_MSHUTDOWN(filepro), NULL, NULL, NULL, NO_VERSION_YET, STANDARD_MODULE_PROPERTIES
 };
 
 
@@ -193,7 +199,6 @@ PHP_FUNCTION(filepro)
 	char *strtok_buf = NULL;
 	int i;
 	FP_FIELD *new_field, *tmp;
-	PLS_FETCH();
 	FP_TLS_VARS;
 
 	if (ZEND_NUM_ARGS() != 1 || getParameters(ht, 1, &dir) == FAILURE) {
@@ -214,7 +219,7 @@ PHP_FUNCTION(filepro)
 		RETURN_FALSE;
 	}
 	
-	if (php_check_open_basedir(workbuf)) {
+	if (php_check_open_basedir(workbuf TSRMLS_CC)) {
 		RETURN_FALSE;
 	}
 
@@ -267,7 +272,7 @@ PHP_FUNCTION(filepro)
 	}
 	fclose(fp);
 		
-	FP_GLOBAL(fp_database) = estrndup(dir->value.str.val,dir->value.str.len);
+	FP_GLOBAL(fp_database) = estrndup(dir->value.str.val, dir->value.str.len);
 
 	RETVAL_TRUE;
 }
@@ -291,7 +296,6 @@ PHP_FUNCTION(filepro_rowcount)
 	char workbuf[MAXPATHLEN];
 	char readbuf[256];
 	int recsize = 0, records = 0;
-	PLS_FETCH();
 	FP_TLS_VARS;
 
 	if (ZEND_NUM_ARGS() != 0) {
@@ -313,7 +317,7 @@ PHP_FUNCTION(filepro_rowcount)
 		RETURN_FALSE;
 	}
 	
-	if (php_check_open_basedir(workbuf)) {
+	if (php_check_open_basedir(workbuf TSRMLS_CC)) {
 		RETURN_FALSE;
 	}
 
@@ -364,7 +368,7 @@ PHP_FUNCTION(filepro_fieldname)
 	
 	for (i = 0, lp = FP_GLOBAL(fp_fieldlist); lp; lp = lp->next, i++) {
 		if (i == fno->value.lval) {
-			RETURN_STRING(lp->name,1);
+			RETURN_STRING(lp->name, 1);
 		}
 	}
 
@@ -405,7 +409,7 @@ PHP_FUNCTION(filepro_fieldtype)
 	
 	for (i = 0, lp = FP_GLOBAL(fp_fieldlist); lp; lp = lp->next, i++) {
 		if (i == fno->value.lval) {
-			RETURN_STRING(lp->format,1);
+			RETURN_STRING(lp->format, 1);
 		}
 	}
 	php_error(E_WARNING,
@@ -498,7 +502,6 @@ PHP_FUNCTION(filepro_retrieve)
 	char readbuf[1024]; /* FIX - Work out better buffering! */
     int i, fnum, rnum;
     long offset;
-	PLS_FETCH();
 	FP_TLS_VARS;
 
 	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &rno, &fno) == FAILURE) {
@@ -538,7 +541,7 @@ PHP_FUNCTION(filepro_retrieve)
 		RETURN_FALSE;
 	}
 	
-	if (php_check_open_basedir(workbuf)) {
+	if (php_check_open_basedir(workbuf TSRMLS_CC)) {
 		RETURN_FALSE;
 	}
 
@@ -557,7 +560,7 @@ PHP_FUNCTION(filepro_retrieve)
     }
     readbuf[lp->width] = '\0';
     fclose(fp);
-	RETURN_STRING(readbuf,1);
+	RETURN_STRING(readbuf, 1);
 }
 /* }}} */
 
@@ -568,4 +571,6 @@ PHP_FUNCTION(filepro_retrieve)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

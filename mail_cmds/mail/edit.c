@@ -1,5 +1,3 @@
-/*	$NetBSD: edit.c,v 1.7 1997/11/25 17:58:17 bad Exp $	*/
-
 /*
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,16 +31,16 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)edit.c	8.1 (Berkeley) 6/6/93";
-#else
-__RCSID("$NetBSD: edit.c,v 1.7 1997/11/25 17:58:17 bad Exp $");
 #endif
+static const char rcsid[] =
+  "$FreeBSD: src/usr.bin/mail/edit.c,v 1.8 2001/12/19 21:50:22 ache Exp $";
 #endif /* not lint */
 
 #include "rcv.h"
+#include <fcntl.h>
 #include "extern.h"
 
 /*
@@ -55,24 +53,22 @@ __RCSID("$NetBSD: edit.c,v 1.7 1997/11/25 17:58:17 bad Exp $");
  * Edit a message list.
  */
 int
-editor(v)
-	void *v;
+editor(msgvec)
+	int *msgvec;
 {
-	int *msgvec = v;
 
-	return edit1(msgvec, 'e');
+	return (edit1(msgvec, 'e'));
 }
 
 /*
  * Invoke the visual editor on a message list.
  */
 int
-visual(v)
-	void *v;
+visual(msgvec)
+	int *msgvec;
 {
-	int *msgvec = v;
 
-	return edit1(msgvec, 'v');
+	return (edit1(msgvec, 'v'));
 }
 
 /*
@@ -85,8 +81,7 @@ edit1(msgvec, type)
 	int *msgvec;
 	int type;
 {
-	int c;
-	int i;
+	int c, i;
 	FILE *fp;
 	struct message *mp;
 	off_t size;
@@ -102,7 +97,7 @@ edit1(msgvec, type)
 			char *p;
 
 			printf("Edit message %d [ynq]? ", msgvec[i]);
-			if (fgets(buf, sizeof buf, stdin) == 0)
+			if (fgets(buf, sizeof(buf), stdin) == 0)
 				break;
 			for (p = buf; *p == ' ' || *p == '\t'; p++)
 				;
@@ -116,11 +111,11 @@ edit1(msgvec, type)
 		sigint = signal(SIGINT, SIG_IGN);
 		fp = run_editor(setinput(mp), mp->m_size, type, readonly);
 		if (fp != NULL) {
-			(void) fseek(otf, 0L, 2);
-			size = ftell(otf);
+			(void)fseeko(otf, (off_t)0, SEEK_END);
+			size = ftello(otf);
 			mp->m_block = blockof(size);
-			mp->m_offset = offsetof(size);
-			mp->m_size = fsize(fp);
+			mp->m_offset = boffsetof(size);
+			mp->m_size = (long)fsize(fp);
 			mp->m_lines = 0;
 			mp->m_flag |= MODIFY;
 			rewind(fp);
@@ -131,12 +126,12 @@ edit1(msgvec, type)
 					break;
 			}
 			if (ferror(otf))
-				perror("/tmp");
-			(void) Fclose(fp);
+				warnx("/tmp");
+			(void)Fclose(fp);
 		}
-		(void) signal(SIGINT, sigint);
+		(void)signal(SIGINT, sigint);
 	}
-	return 0;
+	return (0);
 }
 
 /*
@@ -154,48 +149,50 @@ run_editor(fp, size, type, readonly)
 	FILE *nf = NULL;
 	int t;
 	time_t modtime;
-	char *edit;
+	char *edit, tempname[PATHSIZE];
 	struct stat statb;
-	extern char *tempEdit;
 
-	if ((t = creat(tempEdit, readonly ? 0400 : 0600)) < 0) {
-		perror(tempEdit);
+	(void)snprintf(tempname, sizeof(tempname),
+	    "%s/mail.ReXXXXXXXXXX", tmpdir);
+	if ((t = mkstemp(tempname)) == -1 ||
+	    (nf = Fdopen(t, "w")) == NULL) {
+		warn("%s", tempname);
 		goto out;
 	}
-	if ((nf = Fdopen(t, "w")) == NULL) {
-		perror(tempEdit);
-		(void) unlink(tempEdit);
+	if (readonly && fchmod(t, 0400) == -1) {
+		warn("%s", tempname);
+		(void)rm(tempname);
 		goto out;
 	}
 	if (size >= 0)
 		while (--size >= 0 && (t = getc(fp)) != EOF)
-			(void) putc(t, nf);
+			(void)putc(t, nf);
 	else
 		while ((t = getc(fp)) != EOF)
-			(void) putc(t, nf);
-	(void) fflush(nf);
-	if (ferror(nf)) {
-		(void) Fclose(nf);
-		perror(tempEdit);
-		(void) unlink(tempEdit);
-		nf = NULL;
-		goto out;
-	}
+			(void)putc(t, nf);
+	(void)fflush(nf);
 	if (fstat(fileno(nf), &statb) < 0)
 		modtime = 0;
 	else
 		modtime = statb.st_mtime;
+	if (ferror(nf)) {
+		(void)Fclose(nf);
+		warnx("%s", tempname);
+		(void)rm(tempname);
+		nf = NULL;
+		goto out;
+	}
 	if (Fclose(nf) < 0) {
-		perror(tempEdit);
-		(void) unlink(tempEdit);
+		warn("%s", tempname);
+		(void)rm(tempname);
 		nf = NULL;
 		goto out;
 	}
 	nf = NULL;
-	if ((edit = value(type == 'e' ? "EDITOR" : "VISUAL")) == NOSTR)
+	if ((edit = value(type == 'e' ? "EDITOR" : "VISUAL")) == NULL)
 		edit = type == 'e' ? _PATH_EX : _PATH_VI;
-	if (run_command(edit, 0, -1, -1, tempEdit, NOSTR, NOSTR) < 0) {
-		(void) unlink(tempEdit);
+	if (run_command(edit, 0, -1, -1, tempname, NULL, NULL) < 0) {
+		(void)rm(tempname);
 		goto out;
 	}
 	/*
@@ -203,26 +200,26 @@ run_editor(fp, size, type, readonly)
 	 * temporary and return.
 	 */
 	if (readonly) {
-		(void) unlink(tempEdit);
+		(void)rm(tempname);
 		goto out;
 	}
-	if (stat(tempEdit, &statb) < 0) {
-		perror(tempEdit);
+	if (stat(tempname, &statb) < 0) {
+		warn("%s", tempname);
 		goto out;
 	}
 	if (modtime == statb.st_mtime) {
-		(void) unlink(tempEdit);
+		(void)rm(tempname);
 		goto out;
 	}
 	/*
 	 * Now switch to new file.
 	 */
-	if ((nf = Fopen(tempEdit, "a+")) == NULL) {
-		perror(tempEdit);
-		(void) unlink(tempEdit);
+	if ((nf = Fopen(tempname, "a+")) == NULL) {
+		warn("%s", tempname);
+		(void)rm(tempname);
 		goto out;
 	}
-	(void) unlink(tempEdit);
+	(void)rm(tempname);
 out:
-	return nf;
+	return (nf);
 }

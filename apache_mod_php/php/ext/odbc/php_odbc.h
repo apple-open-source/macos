@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_odbc.h,v 1.1.1.4 2001/07/19 00:19:41 zarzycki Exp $ */
+/* $Id: php_odbc.h,v 1.1.1.5 2001/12/14 22:12:53 zarzycki Exp $ */
 
 #ifndef PHP_ODBC_H
 #define PHP_ODBC_H
@@ -108,6 +108,14 @@ PHP_FUNCTION(solid_fetch_prev);
 
 #elif defined(HAVE_UNIXODBC) /* unixODBC library */
 
+#ifdef CHAR
+#undef CHAR
+#endif
+
+#ifdef SQLCHAR
+#undef SQLCHAR
+#endif
+
 #define ODBC_TYPE "unixODBC"
 #include <sql.h>
 #include <sqlext.h>
@@ -186,10 +194,10 @@ extern zend_module_entry odbc_module_entry;
 
 
 /* user functions */
-extern PHP_MINIT_FUNCTION(odbc);
-extern PHP_MSHUTDOWN_FUNCTION(odbc);
-extern PHP_RINIT_FUNCTION(odbc);
-extern PHP_RSHUTDOWN_FUNCTION(odbc);
+PHP_MINIT_FUNCTION(odbc);
+PHP_MSHUTDOWN_FUNCTION(odbc);
+PHP_RINIT_FUNCTION(odbc);
+PHP_RSHUTDOWN_FUNCTION(odbc);
 PHP_MINFO_FUNCTION(odbc);
 
 PHP_FUNCTION(odbc_error);
@@ -314,7 +322,7 @@ void odbc_del_result(HashTable *list, int count);
 int odbc_add_conn(HashTable *list, HDBC conn);
 odbc_connection *odbc_get_conn(HashTable *list, int count);
 void odbc_del_conn(HashTable *list, int ind);
-int odbc_bindcols(odbc_result *result);
+int odbc_bindcols(odbc_result *result TSRMLS_DC);
 
 #define ODBC_SQL_ERROR_PARAMS odbc_connection *conn_resource, ODBC_SQL_STMT_T stmt, char *func
 
@@ -324,19 +332,9 @@ void odbc_sql_error(ODBC_SQL_ERROR_PARAMS);
 #define IS_SQL_BINARY(x) (x == SQL_BINARY || x == SQL_VARBINARY || x == SQL_LONGVARBINARY)
 
 #ifdef ZTS
-# define ODBCLS_D	php_odbc_globals *odbc_globals
-# define ODBCLS_DC	, ODBCLS_D
-# define ODBCLS_C	odbc_globals
-# define ODBCLS_CC , ODBCLS_C
-# define ODBCG(v) (odbc_globals->v)
-# define ODBCLS_FETCH()	php_odbc_globals *odbc_globals = ts_resource(odbc_globals_id)
+# define ODBCG(v) TSRMG(odbc_globals_id, php_odbc_globals *, v)
 #else
-# define ODBCLS_D
-# define ODBCLS_DC
-# define ODBCLS_C
-# define ODBCLS_CC
 # define ODBCG(v) (odbc_globals.v)
-# define ODBCLS_FETCH()
 extern ZEND_API php_odbc_globals odbc_globals;
 #endif
 

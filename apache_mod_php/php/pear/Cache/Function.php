@@ -1,29 +1,39 @@
 <?php
 /**
 * Function_Cache
-* 
+*
 * Purpose:
-* 
+*
 *   Caching the result and output of functions.
-* 
+*
 * Example:
-* 
-*     require_once "Cache/Function.php";
 *
-*     $FUNCTION_CACHE_CONTAINER = "file";
-*     $FUNCTION_CACHE_CONTAINER_OPTIONS = array(
-*         "cache_dir" => "/tmp/",
-*         "filename_prefix" => "cache_");
+*   require_once 'Cache/Function.php';
 *
-*     function foo($string)
-*     {
-*         print $string . "<br>";
-*         for($i=1;$i<10000000;$i++){}
-*         return strrev($string);
+*   class foo {
+*     function bar($test) {
+*       echo "foo::bar($test)<br>";
 *     }
-* 
-*     print cached_function_call("foo", "test");
-* 
+*   }
+*
+*   class bar {
+*     function foobar($object) {
+*       echo '$'.$object.'->foobar('.$object.')<br>';
+*     }
+*   }
+*
+*   $bar = new bar;
+*
+*   function foobar() {
+*     echo 'foobar()';
+*   }
+*
+*   $cache = new Cache_Function();
+*
+*   $cache->call('foo::bar', 'test');
+*   $cache->call('bar->foobar', 'bar');
+*   $cache->call('foobar');
+*
 * Note:
 * 
 *   You cannot cache every function. You should only cache 
@@ -35,7 +45,7 @@
 * @module       Function_Cache
 * @modulegroup  Function_Cache
 * @package      Cache
-* @version      $Revision: 1.1.1.1 $
+* @version      $Revision: 1.1.1.2 $
 * @access       public
 */
 
@@ -55,59 +65,95 @@
 // | Authors: Sebastian Bergmann <sb@sebastian-bergmann.de>               |
 // +----------------------------------------------------------------------+
 //
-// $Id: Function.php,v 1.1.1.1 2001/07/19 00:20:43 zarzycki Exp $
+// $Id: Function.php,v 1.1.1.2 2001/12/14 22:14:05 zarzycki Exp $
 
 require_once 'Cache.php';
 
-/**
-* Calls a cacheable function or method.
-*
-* @return mixed $result
-* @access public
-*/
-function cached_function_call()
-{
-    global $FUNCTION_CACHE_CONTAINER, $FUNCTION_CACHE_CONTAINER_OPTIONS;
-    static $cache;
+class Cache_Function extends Cache {
+    var $expires;
 
-    // create Cache object, if needed
-    if (!is_object($cache))
+    /**
+    * Constructor
+    *
+    * @param    string  Name of container class
+    * @param    array   Array with container class options
+    * @param    integer Number of seconds for which to cache
+    */
+    function Cache_Function($container  = 'file',
+                            $container_options = array('cache_dir'       => '.',
+                                                       'filename_prefix' => 'cache_'
+                                                      ),
+                            $expires = 3600
+                           )
     {
-        $cache = new Cache($FUNCTION_CACHE_CONTAINER, $FUNCTION_CACHE_CONTAINER_OPTIONS);
+      $this->Cache($container, $container_options);
+      $this->expires = $expires;      
     }
 
-    // get arguments
-    $arguments = func_get_args();
-
-    // generate cache id
-    $id = md5(serialize($arguments));
-
-    // query cache
-    $cached_object = $cache->get($id);
-
-    // cache hit
-    if ($cached_object != NULL)
-    {
-        $output = $cached_object[0];
-        $result = $cached_object[1];
+    /**
+    * PEAR-Deconstructor
+    * Call deconstructor of parent
+    */
+    function _Cache_Function() {
+        $this->_Cache();
     }
 
-    // cache miss
-    else
-    {
-        $function_name = array_shift($arguments);
+    /**
+    * Calls a cacheable function or method.
+    *
+    * @return mixed $result
+    * @access public
+    */
+    function call() {
+        // get arguments
+        $arguments = func_get_args();
 
-        // call function, save output and result
-        ob_start();
-        $result = call_user_func_array($function_name, $arguments);
-        $output = ob_get_contents();
-        ob_end_clean();
+        // generate cache id
+        $id = md5(serialize($arguments));
 
-        // store output and result of function call in cache
-        $cache->save($id, array($output, $result));
+        // query cache
+        $cached_object = $this->get($id, 'function_cache');
+
+        if ($cached_object != NULL) {
+            // cache hit: return cached output and result
+
+            $output = $cached_object[0];
+            $result = $cached_object[1];
+
+        } else {
+            // cache miss: call function, store output and result in cache
+
+            ob_start();
+            $target = array_shift($arguments);
+
+            // classname::staticMethod
+            if (strstr($target, '::')) {
+                list($class, $method) = explode('::', $target);
+
+                $result = call_user_method_array($method, $class, $arguments);
+            }
+
+            // object->method
+            elseif (strstr($target, '->')) {
+                list($object, $method) = explode('->', $target);
+                global $$object;
+
+                $result = call_user_method_array($method, $$object, $arguments);
+            }
+
+            // function
+            else {
+                $result = call_user_func_array($target, $arguments);
+            }
+
+            $output = ob_get_contents();
+            ob_end_clean();
+
+            $this->save($id, array($output, $result), $this->expires, 'function_cache');
+        }
+
+        echo $output;
+        return $result;
     }
-
-    print $output;
-    return $result;
 }
 ?>

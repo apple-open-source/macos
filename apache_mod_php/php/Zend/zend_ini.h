@@ -29,36 +29,36 @@
 #ifndef XtOffsetOf
 # if defined(CRAY) || (defined(__arm) && !defined(LINUX))
 # ifdef __STDC__
-# define XtOffset(p_type,field) _Offsetof(p_type,field)
+# define XtOffset(p_type, field) _Offsetof(p_type, field)
 # else
 # ifdef CRAY2
-# define XtOffset(p_type,field) \
+# define XtOffset(p_type, field) \
     (sizeof(int)*((unsigned int)&(((p_type)NULL)->field)))
 
 # else /* !CRAY2 */
 
-# define XtOffset(p_type,field) ((unsigned int)&(((p_type)NULL)->field))
+# define XtOffset(p_type, field) ((unsigned int)&(((p_type)NULL)->field))
 
 # endif /* !CRAY2 */
 # endif /* __STDC__ */
 # else /* ! (CRAY || __arm) */
 
-# define XtOffset(p_type,field) \
+# define XtOffset(p_type, field) \
     ((long) (((char *) (&(((p_type)NULL)->field))) - ((char *) NULL)))
 
 # endif /* !CRAY */
 
 # ifdef offsetof
-# define XtOffsetOf(s_type,field) offsetof(s_type,field)
+# define XtOffsetOf(s_type, field) offsetof(s_type, field)
 # else
-# define XtOffsetOf(s_type,field) XtOffset(s_type*,field)
+# define XtOffsetOf(s_type, field) XtOffset(s_type*, field)
 # endif
 
 #endif
 
 typedef struct _zend_ini_entry zend_ini_entry;
 
-#define ZEND_INI_MH(name) int name(zend_ini_entry *entry, char *new_value, uint new_value_length, void *mh_arg1, void *mh_arg2, void *mh_arg3, int stage)
+#define ZEND_INI_MH(name) int name(zend_ini_entry *entry, char *new_value, uint new_value_length, void *mh_arg1, void *mh_arg2, void *mh_arg3, int stage TSRMLS_DC)
 #define ZEND_INI_DISP(name) void name(zend_ini_entry *ini_entry, int type)
 
 struct _zend_ini_entry {
@@ -82,17 +82,17 @@ struct _zend_ini_entry {
 };
 
 
-ZEND_API int zend_ini_startup(ELS_D);
-ZEND_API int zend_ini_shutdown(ELS_D);
-ZEND_API int zend_ini_deactivate(ELS_D);
+ZEND_API int zend_ini_startup(TSRMLS_D);
+ZEND_API int zend_ini_shutdown(TSRMLS_D);
+ZEND_API int zend_ini_deactivate(TSRMLS_D);
 
-ZEND_API int zend_copy_ini_directives(ELS_D);
+ZEND_API int zend_copy_ini_directives(TSRMLS_D);
 
-ZEND_API void zend_ini_sort_entries(ELS_D);
+ZEND_API void zend_ini_sort_entries(TSRMLS_D);
 
-ZEND_API int zend_register_ini_entries(zend_ini_entry *ini_entry, int module_number);
-ZEND_API void zend_unregister_ini_entries(int module_number);
-ZEND_API void zend_ini_refresh_caches(int stage ELS_DC);
+ZEND_API int zend_register_ini_entries(zend_ini_entry *ini_entry, int module_number TSRMLS_DC);
+ZEND_API void zend_unregister_ini_entries(int module_number TSRMLS_DC);
+ZEND_API void zend_ini_refresh_caches(int stage TSRMLS_DC);
 ZEND_API int zend_alter_ini_entry(char *name, uint name_length, char *new_value, uint new_value_length, int modify_type, int stage);
 ZEND_API int zend_restore_ini_entry(char *name, uint name_length, int stage);
 ZEND_API void display_ini_entries(zend_module_entry *module);
@@ -100,7 +100,6 @@ ZEND_API void display_ini_entries(zend_module_entry *module);
 ZEND_API long zend_ini_long(char *name, uint name_length, int orig);
 ZEND_API double zend_ini_double(char *name, uint name_length, int orig);
 ZEND_API char *zend_ini_string(char *name, uint name_length, int orig);
-zend_ini_entry *get_ini_entry(char *name, uint name_length);
 
 ZEND_API int zend_ini_register_displayer(char *name, uint name_length, void (*displayer)(zend_ini_entry *ini_entry, int type));
 
@@ -162,8 +161,8 @@ ZEND_API ZEND_INI_DISP(display_link_numbers);
 #define INI_ORIG_BOOL(name) ((zend_bool) INI_ORIG_INT(name))
 
 
-#define REGISTER_INI_ENTRIES() zend_register_ini_entries(ini_entries, module_number)
-#define UNREGISTER_INI_ENTRIES() zend_unregister_ini_entries(module_number)
+#define REGISTER_INI_ENTRIES() zend_register_ini_entries(ini_entries, module_number TSRMLS_CC)
+#define UNREGISTER_INI_ENTRIES() zend_unregister_ini_entries(module_number TSRMLS_CC)
 #define DISPLAY_INI_ENTRIES() display_ini_entries(zend_module)
 
 #define REGISTER_INI_DISPLAYER(name, displayer) zend_ini_register_displayer((name), sizeof(name), displayer)
@@ -191,5 +190,10 @@ typedef void (*zend_ini_parser_cb_t)(zval *arg1, zval *arg2, int callback_type, 
 int zend_parse_ini_file(zend_file_handle *fh, zend_bool unbuffered_errors, zend_ini_parser_cb_t ini_parser_cb, void *arg);
 #define ZEND_INI_PARSER_ENTRY	1
 #define ZEND_INI_PARSER_SECTION	2
+
+typedef struct _zend_ini_parser_param {
+	zend_ini_parser_cb_t ini_parser_cb;
+	void *arg;
+} zend_ini_parser_param;
 
 #endif /* ZEND_INI_H */

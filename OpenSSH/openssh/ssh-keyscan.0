@@ -61,12 +61,12 @@ SECURITY
 EXAMPLES
      Print the rsa1 host key for machine hostname:
 
-     ssh-keyscan hostname
+     $ ssh-keyscan hostname
 
      Find all hosts from the file ssh_hosts which have new or different keys
      from those in the sorted file ssh_known_hosts:
 
-     ssh-keyscan -t rsa,dsa -f ssh_hosts | \
+     $ ssh-keyscan -t rsa,dsa -f ssh_hosts | \
              sort -u - ssh_known_hosts | diff ssh_known_hosts -
 
 FILES
@@ -84,7 +84,7 @@ FILES
 
      Where keytype is either ``ssh-rsa'' or ``ssh-dsa''.
 
-     /etc/ssh_known_hosts
+     /etc/ssh/ssh_known_hosts
 
 BUGS
      It generates "Connection closed by remote host" messages on the consoles

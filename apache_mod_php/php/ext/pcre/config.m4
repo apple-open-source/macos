@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.1.1.2 2001/07/19 00:19:44 zarzycki Exp $
+dnl $Id: config.m4,v 1.1.1.3 2001/12/14 22:12:56 zarzycki Exp $
 dnl config.m4 for extension pcre
 
 dnl By default we'll compile and link against the bundled PCRE library
@@ -16,7 +16,6 @@ if test "$PHP_PCRE_REGEX" != "no"; then
     PCRE_LIBADD=pcrelib/libpcre.la
     PCRE_SHARED_LIBADD=pcrelib/libpcre.la
     PCRE_SUBDIRS=pcrelib
-    CPPFLAGS="$CPPFLAGS -DSUPPORT_UTF8"
     PHP_SUBST(PCRE_LIBADD)
     PHP_SUBST(PCRE_SUBDIRS)
     AC_DEFINE(HAVE_BUNDLED_PCRE, 1, [ ])
@@ -43,8 +42,8 @@ if test "$PHP_PCRE_REGEX" != "no"; then
       AC_MSG_ERROR(The PCRE extension requires PCRE library version >= 2.08)
     fi
 
-    test -f $PHP_PCRE_REGEX/libpcre.a && PCRE_LIBDIR="$PHP_PCRE_REGEX"
-    test -f $PHP_PCRE_REGEX/lib/libpcre.a && PCRE_LIBDIR="$PHP_PCRE_REGEX/lib"
+    test -f $PHP_PCRE_REGEX/libpcre.a && PCRE_LIBDIR=$PHP_PCRE_REGEX
+    test -f $PHP_PCRE_REGEX/lib/libpcre.a && PCRE_LIBDIR=$PHP_PCRE_REGEX/lib
 
     if test -z "$PCRE_LIBDIR" ; then
       AC_MSG_ERROR(Could not find libpcre.a in $PHP_PCRE_REGEX)

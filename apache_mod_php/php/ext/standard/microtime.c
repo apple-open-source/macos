@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: microtime.c,v 1.1.1.2 2001/07/19 00:20:17 zarzycki Exp $ */
+/* $Id: microtime.c,v 1.1.1.3 2001/12/14 22:13:24 zarzycki Exp $ */
 
 #include "php.h"
 
@@ -66,7 +66,6 @@ PHP_FUNCTION(microtime)
 		RETURN_FALSE;
 }
 /* }}} */
-
 
 /* {{{ proto array gettimeofday(void)
    Returns the current time as array */
@@ -140,10 +139,11 @@ PHP_FUNCTION(getrusage)
 
 /* }}} */
 
-
 /*
  * Local variables:
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

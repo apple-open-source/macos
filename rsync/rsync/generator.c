@@ -1,6 +1,10 @@
-/* 
-   Copyright (C) Andrew Tridgell 1996
+/* -*- c-file-style: "linux" -*-
+
+   rsync -- fast file replication program
+   
+   Copyright (C) 1996-2000 by Andrew Tridgell 
    Copyright (C) Paul Mackerras 1996
+   Copyright (C) 2002 by Martin Pool <mbp@samba.org>
    
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -27,6 +31,7 @@ extern int am_root;
 extern int preserve_devices;
 extern int preserve_hard_links;
 extern int update_only;
+extern int opt_ignore_existing;
 extern int whole_file;
 extern int block_size;
 extern int csum_length;
@@ -35,6 +40,8 @@ extern int size_only;
 extern int io_timeout;
 extern int remote_version;
 extern int always_checksum;
+extern int modify_window;
+extern char *compare_dest;
 
 
 /* choose whether to skip a particular file */
@@ -49,8 +56,21 @@ static int skip_file(char *fname,
 	   of the file time to determine whether to sync */
 	if (always_checksum && S_ISREG(st->st_mode)) {
 		char sum[MD4_SUM_LENGTH];
+		char fnamecmpdest[MAXPATHLEN];
+
+		if (compare_dest != NULL) {
+			if (access(fname, 0) != 0) {
+				snprintf(fnamecmpdest,MAXPATHLEN,"%s/%s",
+						    compare_dest,fname);
+				fname = fnamecmpdest;
+			}
+		}
 		file_checksum(fname,sum,st->st_size);
-		return (memcmp(sum,file->sum,csum_length) == 0);
+		if (remote_version < 21) {
+			return (memcmp(sum,file->sum,2) == 0);
+		} else {
+			return (memcmp(sum,file->sum,MD4_SUM_LENGTH) == 0);
+		}
 	}
 
 	if (size_only) {
@@ -61,7 +81,7 @@ static int skip_file(char *fname,
 		return 0;
 	}
 
-	return (st->st_mtime == file->modtime);
+	return (cmp_modtime(st->st_mtime,file->modtime) == 0);
 }
 
 
@@ -83,22 +103,29 @@ static int adapt_block_size(struct file_struct *file, int bsize)
 /*
   send a sums struct down a fd
   */
-static void send_sums(struct sum_struct *s,int f_out)
+static void send_sums(struct sum_struct *s, int f_out)
 {
-	int i;
+	if (s) {
+		size_t i;
 
-  /* tell the other guy how many we are going to be doing and how many
-     bytes there are in the last chunk */
-	write_int(f_out,s?s->count:0);
-	write_int(f_out,s?s->n:block_size);
-	write_int(f_out,s?s->remainder:0);
-	if (s)
-		for (i=0;i<s->count;i++) {
-			write_int(f_out,s->sums[i].sum1);
-			write_buf(f_out,s->sums[i].sum2,csum_length);
+		/* tell the other guy how many we are going to be
+		   doing and how many bytes there are in the last
+		   chunk */
+		write_int(f_out, s->count);
+		write_int(f_out, s->n);
+		write_int(f_out, s->remainder);
+
+		for (i = 0; i < s->count; i++) {
+			write_int(f_out, s->sums[i].sum1);
+			write_buf(f_out, s->sums[i].sum2, csum_length);
 		}
+	} else {
+		/* we don't have checksums */
+		write_int(f_out, 0);
+		write_int(f_out, block_size);
+		write_int(f_out, 0);
+	}
 }
-
 
 /*
   generate a stream of signatures/checksums that describe a buffer
@@ -130,8 +157,8 @@ static struct sum_struct *generate_sums(struct map_struct *buf,OFF_T len,int n)
 	}
 
 	if (verbose > 3)
-		rprintf(FINFO,"count=%d rem=%d n=%d flength=%d\n",
-			s->count,s->remainder,s->n,(int)s->flength);
+		rprintf(FINFO,"count=%d rem=%d n=%d flength=%.0f\n",
+			s->count,s->remainder,s->n,(double)s->flength);
 
 	s->sums = (struct sum_buf *)malloc(sizeof(s->sums[0])*s->count);
 	if (!s->sums) out_of_memory("generate_sums");
@@ -148,8 +175,8 @@ static struct sum_struct *generate_sums(struct map_struct *buf,OFF_T len,int n)
 		s->sums[i].i = i;
 
 		if (verbose > 3)
-			rprintf(FINFO,"chunk[%d] offset=%d len=%d sum1=%08x\n",
-				i,(int)s->sums[i].offset,s->sums[i].len,s->sums[i].sum1);
+			rprintf(FINFO,"chunk[%d] offset=%.0f len=%d sum1=%08x\n",
+				i,(double)s->sums[i].offset,s->sums[i].len,s->sums[i].sum1);
 
 		len -= n1;
 		offset += n1;
@@ -159,6 +186,15 @@ static struct sum_struct *generate_sums(struct map_struct *buf,OFF_T len,int n)
 }
 
 
+
+/*
+ * Acts on file number I from FLIST, whose name is fname.
+ *
+ * First fixes up permissions, then generates checksums for the file.
+ *
+ * (This comment was added later by mbp who was trying to work it out;
+ * it might be wrong.)
+ */ 
 void recv_generator(char *fname,struct file_list *flist,int i,int f_out)
 {  
 	int fd;
@@ -171,6 +207,8 @@ void recv_generator(char *fname,struct file_list *flist,int i,int f_out)
 	char fnamecmpbuf[MAXPATHLEN];
 	extern char *compare_dest;
 	extern int list_only;
+	extern int preserve_perms;
+	extern int only_existing;
 
 	if (list_only) return;
 
@@ -179,11 +217,35 @@ void recv_generator(char *fname,struct file_list *flist,int i,int f_out)
 
 	statret = link_stat(fname,&st);
 
+	if (only_existing && statret == -1 && errno == ENOENT) {
+		/* we only want to update existing files */
+		if (verbose > 1) rprintf(FINFO, RSYNC_NAME
+					 ": not creating new file \"%s\"\n",fname);
+		return;
+	}
+
+	if (statret == 0 && 
+	    !preserve_perms && 
+	    (S_ISDIR(st.st_mode) == S_ISDIR(file->mode))) {
+		/* if the file exists already and we aren't perserving
+                   presmissions then act as though the remote end sent
+                   us the file permissions we already have */
+		file->mode = (file->mode & _S_IFMT) | (st.st_mode & ~_S_IFMT);
+	}
+
 	if (S_ISDIR(file->mode)) {
-		if (dry_run) return;
+                /* The file to be received is a directory, so we need
+                 * to prepare appropriately.  If there is already a
+                 * file of that name and it is *not* a directory, then
+                 * we need to delete it.  If it doesn't exist, then
+                 * recursively create it. */
+          
+		if (dry_run) return; /* XXXX -- might cause inaccuracies?? -- mbp */
 		if (statret == 0 && !S_ISDIR(st.st_mode)) {
 			if (robust_unlink(fname) != 0) {
-				rprintf(FERROR,"unlink %s : %s\n",fname,strerror(errno));
+				rprintf(FERROR, RSYNC_NAME
+					": recv_generator: unlink \"%s\" to make room for directory: %s\n",
+                                        fname,strerror(errno));
 				return;
 			}
 			statret = -1;
@@ -192,11 +254,13 @@ void recv_generator(char *fname,struct file_list *flist,int i,int f_out)
 			if (!(relative_paths && errno==ENOENT && 
 			      create_directory_path(fname)==0 && 
 			      do_mkdir(fname,file->mode)==0)) {
-				rprintf(FERROR,"mkdir %s : %s (2)\n",
+				rprintf(FERROR, RSYNC_NAME ": recv_generator: mkdir \"%s\": %s (2)\n",
 					fname,strerror(errno));
 			}
 		}
-		if (set_perms(fname,file,NULL,0) && verbose) 
+		/* f_out is set to -1 when doing final directory 
+		   permission and modification time repair */
+		if (set_perms(fname,file,NULL,0) && verbose && (f_out != -1)) 
 			rprintf(FINFO,"%s/\n",fname);
 		return;
 	}
@@ -209,7 +273,7 @@ void recv_generator(char *fname,struct file_list *flist,int i,int f_out)
 
 		if (safe_symlinks && unsafe_symlink(file->link, fname)) {
 			if (verbose) {
-				rprintf(FINFO,"ignoring unsafe symlink %s -> %s\n",
+				rprintf(FINFO,RSYNC_NAME ": ignoring unsafe symlink \"%s\" -> \"%s\"\n",
 					fname,file->link);
 			}
 			return;
@@ -218,20 +282,26 @@ void recv_generator(char *fname,struct file_list *flist,int i,int f_out)
 			l = readlink(fname,lnk,MAXPATHLEN-1);
 			if (l > 0) {
 				lnk[l] = 0;
+				/* A link already pointing to the
+				 * right place -- no further action
+				 * required. */
 				if (strcmp(lnk,file->link) == 0) {
 					set_perms(fname,file,&st,1);
 					return;
 				}
-			}
+			}  
+			/* Not a symlink, so delete whatever's
+			 * already there and put a new symlink
+			 * in place. */			   
+			delete_file(fname);
 		}
-		delete_file(fname);
 		if (do_symlink(file->link,fname) != 0) {
-			rprintf(FERROR,"link %s -> %s : %s\n",
+			rprintf(FERROR,RSYNC_NAME": symlink \"%s\" -> \"%s\": %s\n",
 				fname,file->link,strerror(errno));
 		} else {
 			set_perms(fname,file,NULL,0);
 			if (verbose) {
-				rprintf(FINFO,"%s -> %s\n",
+				rprintf(FINFO,RSYNC_NAME": %s -> %s\n",
 					fname,file->link);
 			}
 		}
@@ -264,12 +334,14 @@ void recv_generator(char *fname,struct file_list *flist,int i,int f_out)
 
 	if (preserve_hard_links && check_hard_link(file)) {
 		if (verbose > 1)
-			rprintf(FINFO,"%s is a hard link\n",f_name(file));
+			rprintf(FINFO, RSYNC_NAME
+				": \"%s\" is a hard link\n",f_name(file));
 		return;
 	}
 
 	if (!S_ISREG(file->mode)) {
-		rprintf(FINFO,"skipping non-regular file %s\n",fname);
+		rprintf(FINFO, RSYNC_NAME
+			": skipping non-regular file \"%s\"\n",fname);
 		return;
 	}
 
@@ -278,7 +350,7 @@ void recv_generator(char *fname,struct file_list *flist,int i,int f_out)
 	if ((statret == -1) && (compare_dest != NULL)) {
 		/* try the file at compare_dest instead */
 		int saveerrno = errno;
-		slprintf(fnamecmpbuf,MAXPATHLEN,"%s/%s",compare_dest,fname);
+		snprintf(fnamecmpbuf,MAXPATHLEN,"%s/%s",compare_dest,fname);
 		statret = link_stat(fnamecmpbuf,&st);
 		if (!S_ISREG(st.st_mode))
 			statret = -1;
@@ -294,7 +366,9 @@ void recv_generator(char *fname,struct file_list *flist,int i,int f_out)
 			if (!dry_run) send_sums(NULL,f_out);
 		} else {
 			if (verbose > 1)
-				rprintf(FERROR,"recv_generator failed to open %s\n",fname);
+				rprintf(FERROR, RSYNC_NAME
+					": recv_generator failed to open \"%s\": %s\n",
+					fname, strerror(errno));
 		}
 		return;
 	}
@@ -310,7 +384,13 @@ void recv_generator(char *fname,struct file_list *flist,int i,int f_out)
 		return;
 	}
 
-	if (update_only && st.st_mtime > file->modtime && fnamecmp == fname) {
+	if (opt_ignore_existing && fnamecmp == fname) { 
+		if (verbose > 1)
+			rprintf(FINFO,"%s exists\n",fname);
+		return;
+	} 
+
+	if (update_only && cmp_modtime(st.st_mtime,file->modtime)>0 && fnamecmp == fname) {
 		if (verbose > 1)
 			rprintf(FINFO,"%s is newer\n",fname);
 		return;
@@ -334,11 +414,13 @@ void recv_generator(char *fname,struct file_list *flist,int i,int f_out)
 	}
 
 	/* open the file */  
-	fd = open(fnamecmp,O_RDONLY);
+	fd = do_open(fnamecmp, O_RDONLY, 0);
 
 	if (fd == -1) {
-		rprintf(FERROR,"failed to open %s : %s\n",fnamecmp,strerror(errno));
-		rprintf(FERROR,"skipping %s\n",fname);
+		rprintf(FERROR,RSYNC_NAME": failed to open \"%s\", continuing : %s\n",fnamecmp,strerror(errno));
+		/* pretend the file didn't exist */
+		write_int(f_out,i);
+		send_sums(NULL,f_out);
 		return;
 	}
 
@@ -349,7 +431,7 @@ void recv_generator(char *fname,struct file_list *flist,int i,int f_out)
 	}
 
 	if (verbose > 3)
-		rprintf(FINFO,"gen mapped %s of size %d\n",fnamecmp,(int)st.st_size);
+		rprintf(FINFO,"gen mapped %s of size %.0f\n",fnamecmp,(double)st.st_size);
 
 	s = generate_sums(buf,st.st_size,adapt_block_size(file, block_size));
 
@@ -376,6 +458,11 @@ void generate_files(int f,struct file_list *flist,char *local_name,int f_recv)
 		rprintf(FINFO,"generator starting pid=%d count=%d\n",
 			(int)getpid(),flist->count);
 
+	/* we expect to just sit around now, so don't exit on a
+	   timeout. If we really get a timeout then the other process should
+	   exit */
+	io_timeout = 0;
+
 	for (i = 0; i < flist->count; i++) {
 		struct file_struct *file = flist->files[i];
 		mode_t saved_mode = file->mode;
@@ -386,6 +473,8 @@ void generate_files(int f,struct file_list *flist,char *local_name,int f_recv)
 		   them. This is then fixed after the files are transferred */
 		if (!am_root && S_ISDIR(file->mode)) {
 			file->mode |= S_IWUSR; /* user write */
+                        /* XXX: Could this be causing a problem on SCO?  Perhaps their
+                         * handling of permissions is strange? */
 		}
 
 		recv_generator(local_name?local_name:f_name(file),
@@ -402,11 +491,6 @@ void generate_files(int f,struct file_list *flist,char *local_name,int f_recv)
 		rprintf(FINFO,"generate_files phase=%d\n",phase);
 
 	write_int(f,-1);
-
-	/* we expect to just sit around now, so don't exit on a
-	   timeout. If we really get a timeout then the other process should
-	   exit */
-	io_timeout = 0;
 
 	if (remote_version >= 13) {
 		/* in newer versions of the protocol the files can cycle through

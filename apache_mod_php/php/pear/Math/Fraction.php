@@ -16,71 +16,64 @@
 // | Authors: Sebastian Bergmann <sb@sebastian-bergmann.de>               |
 // +----------------------------------------------------------------------+
 //
-// $Id: Fraction.php,v 1.1.1.2 2001/07/19 00:20:50 zarzycki Exp $
+// $Id: Fraction.php,v 1.1.1.3 2001/12/14 22:14:58 zarzycki Exp $
 //
 
-  /**
-  * Math::Math_Fraction
-  * 
-  * Purpose:
-  * 
-  *   Class for handling fractions.
-  * 
-  * Example:
-  * 
-  *   $a = new Math_Fraction( 1, 2 );
-  *   $b = new Math_Fraction( 3, 4 );
-  * 
-  *   $a->add( $b );
-  * 
-  * @author   Sebastian Bergmann <sb@sebastian-bergmann.de>
-  * @version  $Revision: 1.1.1.2 $
-  * @access   public
-  */
+/**
+* Math::Math_Fraction
+* 
+* Purpose:
+* 
+*   Class for handling fractions.
+* 
+* Example:
+* 
+*   $a = new Math_Fraction( 1, 2 );
+*   $b = new Math_Fraction( 3, 4 );
+* 
+*   $a->add( $b );
+* 
+* @author   Sebastian Bergmann <sb@sebastian-bergmann.de>
+* @version  $Revision: 1.1.1.3 $
+* @access   public
+* @package  Numbers
+*/
 
-  require_once "Math/Util.php";
+require_once 'Math/Util.php';
 
-  class Math_Fraction
-  {
-    // {{{ properties
-
+class Math_Fraction
+{
     /**
-    * zaehler of the fraction
+    * numerator of the fraction
     *
-    * @var    int zaehler
+    * @var    int numerator
     * @access public
     */
 
-    var $zaehler;
+    var $numerator;
 
     /**
-    * nenner of the fraction
+    * denominator of the fraction
     *
-    * @var    int nenner
+    * @var    int denominator
     * @access public
     */
 
-    var $nenner;
-
-    // }}}
-    // {{{ Math_Fraction( $zaehler, $nenner )
+    var $denominator;
 
     /**
-    * Constructor.
+    * Constructor
     *
-    * @param  int zaehler
-    * @param  int nenner
+    * @param  int numerator
+    * @param  int denominator
     * @access public
     */
 
-    function Math_Fraction( $zaehler, $nenner = 1 )
+    function Math_Fraction($numerator, $denominator = 1)
     {
-      $this->zaehler  = $zaehler;
-      $this->nenner   = $nenner;
+        $this->numerator   = $numerator;
+        $this->denominator = $denominator;
     }
-
-    // }}}
-    // {{{ add( $fraction, $overwrite_with_result )
 
     /**
     * Add another fraction to this one.
@@ -92,22 +85,16 @@
     * @see    sub, mul, div
     */
 
-    function add( $fraction, $overwrite_with_result = true )
+    function add($fraction, $overwrite_with_result = true)
     {
-      // check, if argument is a fraction
-      $fraction = $this->_check_fraction( $fraction );
+        $fraction = $this->_check_fraction($fraction);
 
-      // add
-      $result = new Math_Fraction( ( $this->zaehler + $fraction->zaehler ), 
-                                   ( $this->nenner  * $fraction->nenner  )
-                                 );
+        $result = new Math_Fraction(($this->numerator   + $fraction->numerator), 
+                                    ($this->denominator * $fraction->denominator)
+                                   );
 
-      // handle result
-      return $this->_return( $result, $overwrite_with_result );
+        return $this->_return($result, $overwrite_with_result);
     }
-
-    // }}}
-    // {{{ sub( $fraction, $overwrite_with_result )
 
     /**
     * Subtract another fraction from this one.
@@ -119,22 +106,16 @@
     * @see    add, mul, div
     */
 
-    function sub( $fraction, $overwrite_with_result = true )
+    function sub($fraction, $overwrite_with_result = true)
     {
-      // check, if argument is a fraction
-      $fraction = $this->_check_fraction( $fraction );
+        $fraction = $this->_check_fraction($fraction);
 
-      // subtract
-      $result = new Math_Fraction( ( $this->zaehler - $fraction->zaehler ), 
-                                   ( $this->nenner  * $fraction->nenner  )
-                                 );
+        $result = new Math_Fraction(($this->numerator   - $fraction->numerator), 
+                                    ($this->denominator * $fraction->denominator)
+                                   );
 
-      // handle result
-      return $this->_return( $result, $overwrite_with_result );
+        return $this->_return($result, $overwrite_with_result);
     }
-
-    // }}}
-    // {{{ mul( $fraction, $overwrite_with_result )
 
     /**
     * Multiply another fraction with this one.
@@ -146,22 +127,16 @@
     * @see    add, sub, div
     */
 
-    function mul( $fraction, $overwrite_with_result = true )
+    function mul($fraction, $overwrite_with_result = true)
     {
-      // check, if argument is a fraction
-      $fraction = $this->_check_fraction( $fraction );
+        $fraction = $this->_check_fraction( $fraction );
 
-      // multiply
-      $result = new Math_Fraction( ( $this->zaehler * $fraction->zaehler ), 
-                                   ( $this->nenner  * $fraction->nenner  )
-                                 );
+        $result = new Math_Fraction(($this->numerator   * $fraction->numerator), 
+                                    ($this->denominator * $fraction->denominator)
+                                   );
 
-      // handle result
-      return $this->_return( $result, $overwrite_with_result );
+        return $this->_return($result, $overwrite_with_result);
     }
-
-    // }}}
-    // {{{ div( $fraction, $overwrite_with_result )
 
     /**
     * Divide this fraction by another one.
@@ -173,22 +148,16 @@
     * @see    add, sub, mul
     */
 
-    function div( $fraction, $overwrite_with_result = true )
+    function div($fraction, $overwrite_with_result = true)
     {
-      // check, if argument is a fraction
-      $fraction = $this->_check_fraction( $fraction );
+        $fraction = $this->_check_fraction( $fraction );
 
-      // divide
-      $result = new Math_Fraction( ( $this->zaehler * $fraction->nenner  ), 
-                                   ( $this->nenner  * $fraction->zaehler )
-                                 );
+        $result = new Math_Fraction(($this->numerator   * $fraction->denominator), 
+                                    ($this->denominator * $fraction->numerator)
+                                   );
 
-      // handle result
-      return $this->_return( $result, $overwrite_with_result );
+        return $this->_return($result, $overwrite_with_result);
     }
-
-    // }}}
-    // {{{ normalize()
 
     /**
     * Normalize this fraction.
@@ -198,16 +167,11 @@
 
     function normalize()
     {
-      // get greatest common divisor
-      $gcd = gcd( $this->zaehler, $this->nenner );
+        $gcd = Math_Util::gcd($this->numerator, $this->denominator);
 
-      // divide zaehler / nenner by gcd
-      $this->zaehler = $this->zaehler / $gcd;
-      $this->nenner  = $this->nenner  / $gcd;
+        $this->numerator   = $this->numerator   / $gcd;
+        $this->denominator = $this->denominator / $gcd;
     }
-
-    // }}}
-    // {{{ dump()
 
     /**
     * Dump this fraction.
@@ -217,11 +181,8 @@
 
     function dump()
     {
-      print $this->get();
+        echo $this->get();
     }
-
-    // }}}
-    // {{{ get()
 
     /**
     * Get string representation of this fraction.
@@ -232,58 +193,45 @@
 
     function get()
     {
-      return $this->zaehler . " / " . $this->nenner;
+        return $this->numerator . ' / ' . $this->denominator;
     }
-
-    // }}}
-    // {{{ _check_fraction( $fraction )
 
     /**
     * Check, if a varaible holds a Math_Fraction object.
     *
     * @param  Math_Fraction fraction to be checked
     * @return Math_Fraction checked fraction
-    * @access public
+    * @access private
     */
 
-    function _check_fraction( $fraction )
+    function _check_fraction($fraction)
     {
-      if( get_class( $fraction ) != "math_fraction" )
-      {
-        $fraction = new Math_Fraction( $fraction );
-      }
+        if (get_class($fraction) != 'math_fraction') {
+          $fraction = new Math_Fraction( $fraction );
+        }
 
-      return $fraction;
+        return $fraction;
     }
-
-    // }}}
-    // {{{ _return( $result, $overwrite_with_result )
 
     /**
     * Handle the return or storage of a result from add, sub, mul or div.
     *
-    * @param Math_Fraction  result
-    * @param boolean        overwrite_with_result
+    * @param  Math_Fraction  result
+    * @param  boolean        overwrite_with_result
     * @return Math_Fraction result (if overwrite_with_result == false)
-    * @access public
+    * @access private
     */
 
-    function _return( $result, $overwrite_with_result )
+    function _return($result, $overwrite_with_result)
     {
-      $result->normalize();
+        $result->normalize();
 
-      if( $overwrite_with_result )
-      {
-        $this->zaehler  = $result->zaehler;
-        $this->nenner   = $result->nenner;
-      }
-
-      else
-      {
-        return $result;
-      }
+        if ($overwrite_with_result) {
+          $this->numerator   = $result->numerator;
+          $this->denominator = $result->denominator;
+        } else {
+          return $result;
+        }
     }
-
-    // }}}
-  }
+}
 ?>

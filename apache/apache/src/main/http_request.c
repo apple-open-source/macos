@@ -417,7 +417,8 @@ static int directory_walk(request_rec *r)
     ap_no2slash(test_filename);
     num_dirs = ap_count_dirs(test_filename);
 
-    if (!ap_os_is_filename_valid(r->filename)) {
+    if (!ap_os_is_filename_valid(r->filename) &&
+        !(r->method_number == M_OPTIONS && !strcmp(r->uri, "*"))) {
         ap_log_rerror(APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, r,
                       "Filename is not valid: %s", r->filename);
         return HTTP_FORBIDDEN;
@@ -1313,7 +1314,7 @@ static void process_request_internal(request_rec *r)
     ap_finalize_request_protocol(r);
 }
 
-void ap_process_request(request_rec *r)
+API_EXPORT(void) ap_process_request(request_rec *r)
 {
     int old_stat;
 

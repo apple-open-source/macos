@@ -1,4 +1,4 @@
-<?
+<?php
 /* vim: set expandtab tabstop=4 shiftwidth=4: */
 // +----------------------------------------------------------------------+
 // | PHP version 4.0                                                      |
@@ -16,7 +16,7 @@
 // | Authors: Adam Daniel <adaniel1@eesus.jnj.com>                        |
 // +----------------------------------------------------------------------+
 //
-// $Id: Page.php,v 1.1.1.1 2001/07/19 00:20:49 zarzycki Exp $
+// $Id: Page.php,v 1.1.1.2 2001/12/14 22:14:55 zarzycki Exp $
 
 require_once "HTML/Common.php";
 
@@ -133,7 +133,6 @@ class HTML_Page extends HTML_Common {
             header("Pragma: no-cache");
         }
         $strHtml = $this->toHtml();
-        header("Content-Length: " . strlen($strHtml));
         print $strHtml;
     } // end func display
 

@@ -12,7 +12,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: ssh-keygen.c,v 1.83 2001/10/25 21:14:32 markus Exp $");
+RCSID("$OpenBSD: ssh-keygen.c,v 1.94 2002/02/25 16:33:27 markus Exp $");
 
 #include <openssl/evp.h>
 #include <openssl/pem.h>
@@ -73,8 +73,7 @@ int convert_to_ssh2 = 0;
 int convert_from_ssh2 = 0;
 int print_public = 0;
 
-/* default to RSA for SSH-1 */
-char *key_type_name = "rsa1";
+char *key_type_name = NULL;
 
 /* argv0 */
 #ifdef HAVE___PROGNAME
@@ -91,21 +90,25 @@ ask_filename(struct passwd *pw, const char *prompt)
 	char buf[1024];
 	char *name = NULL;
 
-	switch (key_type_from_name(key_type_name)) {
-	case KEY_RSA1:
-		name = _PATH_SSH_CLIENT_IDENTITY;
-		break;
-	case KEY_DSA:
-		name = _PATH_SSH_CLIENT_ID_DSA;
-		break;
-	case KEY_RSA:
+	if (key_type_name == NULL)
 		name = _PATH_SSH_CLIENT_ID_RSA;
-		break;
-	default:
-		fprintf(stderr, "bad key type");
-		exit(1);
-		break;
-	}
+	else
+		switch (key_type_from_name(key_type_name)) {
+		case KEY_RSA1:
+			name = _PATH_SSH_CLIENT_IDENTITY;
+			break;
+		case KEY_DSA:
+			name = _PATH_SSH_CLIENT_ID_DSA;
+			break;
+		case KEY_RSA:
+			name = _PATH_SSH_CLIENT_ID_RSA;
+			break;
+		default:
+			fprintf(stderr, "bad key type");
+			exit(1);
+			break;
+		}
+
 	snprintf(identity_file, sizeof(identity_file), "%s/%s", pw->pw_dir, name);
 	fprintf(stderr, "%s (%s): ", prompt, identity_file);
 	fflush(stderr);
@@ -147,7 +150,7 @@ static void
 do_convert_to_ssh2(struct passwd *pw)
 {
 	Key *k;
-	int len;
+	u_int len;
 	u_char *blob;
 	struct stat st;
 
@@ -188,12 +191,12 @@ buffer_get_bignum_bits(Buffer *b, BIGNUM *value)
 	if (buffer_len(b) < bytes)
 		fatal("buffer_get_bignum_bits: input buffer too small: "
 		    "need %d have %d", bytes, buffer_len(b));
-	BN_bin2bn((u_char *)buffer_ptr(b), bytes, value);
+	BN_bin2bn(buffer_ptr(b), bytes, value);
 	buffer_consume(b, bytes);
 }
 
 static Key *
-do_convert_private_ssh2_from_blob(u_char *blob, int blen)
+do_convert_private_ssh2_from_blob(u_char *blob, u_int blen)
 {
 	Buffer b;
 	Key *key = NULL;
@@ -272,7 +275,7 @@ do_convert_private_ssh2_from_blob(u_char *blob, int blen)
 		break;
 	}
 	rlen = buffer_len(&b);
-	if(rlen != 0)
+	if (rlen != 0)
 		error("do_convert_private_ssh2_from_blob: "
 		    "remaining bytes in key blob %d", rlen);
 	buffer_free(&b);
@@ -333,7 +336,7 @@ do_convert_from_ssh2(struct passwd *pw)
 		*p = '\0';
 		strlcat(encoded, line, sizeof(encoded));
 	}
-	blen = uudecode(encoded, (u_char *)blob, sizeof(blob));
+	blen = uudecode(encoded, blob, sizeof(blob));
 	if (blen < 0) {
 		fprintf(stderr, "uudecode failed.\n");
 		exit(1);
@@ -355,7 +358,8 @@ do_convert_from_ssh2(struct passwd *pw)
 		exit(1);
 	}
 	key_free(k);
-	fprintf(stdout, "\n");
+	if (!private)
+		fprintf(stdout, "\n");
 	fclose(fp);
 	exit(0);
 }
@@ -393,7 +397,7 @@ do_print_public(struct passwd *pw)
 		debug("#bytes %d", len); \
 		if (BN_bn2bin(prv->rsa->x, elements[i]) < 0) \
 			goto done; \
-	} while(0)
+	} while (0)
 
 static int
 get_AUT0(char *aut0)
@@ -534,7 +538,9 @@ do_fingerprint(struct passwd *pw)
 	FILE *f;
 	Key *public;
 	char *comment = NULL, *cp, *ep, line[16*1024], *fp;
-	int i, skip = 0, num = 1, invalid = 1, rep, fptype;
+	int i, skip = 0, num = 1, invalid = 1;
+	enum fp_rep rep;
+	enum fp_type fptype;
 	struct stat st;
 
 	fptype = print_bubblebabble ? SSH_FP_SHA1 : SSH_FP_MD5;
@@ -668,7 +674,7 @@ do_change_passphrase(struct passwd *pw)
 			read_passphrase("Enter new passphrase (empty for no "
 			    "passphrase): ", RP_ALLOW_STDIN);
 		passphrase2 = read_passphrase("Enter same passphrase again: ",
-		     RP_ALLOW_STDIN);
+		    RP_ALLOW_STDIN);
 
 		/* Verify that they are the same. */
 		if (strcmp(passphrase1, passphrase2) != 0) {
@@ -746,7 +752,7 @@ do_change_comment(struct passwd *pw)
 		fprintf(stderr, "Comments are only supported for RSA1 keys.\n");
 		key_free(private);
 		exit(1);
-	}	
+	}
 	printf("Key now has comment '%s'\n", comment);
 
 	if (identity_comment) {
@@ -833,7 +839,7 @@ usage(void)
 int
 main(int ac, char **av)
 {
-	char dotsshdir[16 * 1024], comment[1024], *passphrase1, *passphrase2;
+	char dotsshdir[MAXPATHLEN], comment[1024], *passphrase1, *passphrase2;
 	char *reader_id = NULL;
 	Key *private, *public;
 	struct passwd *pw;
@@ -845,8 +851,6 @@ main(int ac, char **av)
 	extern char *optarg;
 
 	__progname = get_progname(av[0]);
-	init_rng();
-	seed_rng();
 
 	SSLeay_add_all_algorithms();
 
@@ -962,8 +966,14 @@ main(int ac, char **av)
 #endif /* SMARTCARD */
 	}
 
+	init_rng();
+	seed_rng();
 	arc4random_stir();
 
+	if (key_type_name == NULL) {
+		printf("You must specify a key type (-t).\n");
+		usage();
+	}
 	type = key_type_from_name(key_type_name);
 	if (type == KEY_UNSPEC) {
 		fprintf(stderr, "unknown key type %s\n", key_type_name);

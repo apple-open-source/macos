@@ -46,6 +46,8 @@ extern zend_module_entry xslt_module_entry;
 #define XSLT_ERRSTR(handle)    ((handle)->err->str)
 #define XSLT_LOG(handle)       ((handle)->err->log)
 
+#define XSLT_FUNCH_FREE(__var) if (__var) zval_ptr_dtor(&(__var)); 
+
 PHP_MINIT_FUNCTION(xslt);
 PHP_MINFO_FUNCTION(xslt);
 
@@ -62,29 +64,29 @@ PHP_FUNCTION(xslt_errno);
 PHP_FUNCTION(xslt_free);
 
 struct scheme_handlers {
-	struct xslt_function *get_all;
-	struct xslt_function *open;
-	struct xslt_function *get;
-	struct xslt_function *put;
-	struct xslt_function *close;
+	zval *get_all;
+	zval *open;
+	zval *get;
+	zval *put;
+	zval *close;
 };
 
 struct sax_handlers {
-	struct xslt_function *doc_start;
-	struct xslt_function *element_start;
-	struct xslt_function *element_end;
-	struct xslt_function *namespace_start;
-	struct xslt_function *namespace_end;
-	struct xslt_function *comment;
-	struct xslt_function *pi;
-	struct xslt_function *characters;
-	struct xslt_function *doc_end;
+	zval *doc_start;
+	zval *element_start;
+	zval *element_end;
+	zval *namespace_start;
+	zval *namespace_end;
+	zval *comment;
+	zval *pi;
+	zval *characters;
+	zval *doc_end;
 };
 
 struct xslt_handlers {
 	struct scheme_handlers   scheme;
 	struct sax_handlers      sax;
-	struct xslt_function    *error;
+	zval                    *error;
 };
 
 struct xslt_processor {
@@ -95,6 +97,7 @@ struct xslt_processor {
 struct xslt_log {
 	char *path;
 	int   fd;
+	int   do_log;
 };
 
 struct xslt_error {

@@ -16,6 +16,8 @@
    +----------------------------------------------------------------------+
  */
 
+/* $Id: mod_user.c,v 1.1.1.5 2001/12/14 22:13:12 zarzycki Exp $ */
+
 #include "php.h"
 #include "php_session.h"
 #include "mod_user.h"
@@ -53,11 +55,11 @@ static zval *ps_call_handler(zval *func, int argc, zval **argv)
 {
 	int i;
 	zval *retval = NULL;
-	ELS_FETCH();
+	TSRMLS_FETCH();
 	
 	MAKE_STD_ZVAL(retval);
 	if (call_user_function(EG(function_table), NULL, func, retval, 
-				argc, argv) == FAILURE) {
+				argc, argv TSRMLS_CC) == FAILURE) {
 		zval_ptr_dtor(&retval);
 		retval = NULL;
 	}
@@ -172,3 +174,12 @@ PS_GC_FUNC(user)
 
 	FINISH;
 }
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
+ */

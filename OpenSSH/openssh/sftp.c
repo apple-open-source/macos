@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001 Damien Miller.  All rights reserved.
+ * Copyright (c) 2001,2002 Damien Miller.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,9 +24,8 @@
 
 #include "includes.h"
 
-RCSID("$OpenBSD: sftp.c,v 1.21 2001/09/19 19:24:19 stevesk Exp $");
+RCSID("$OpenBSD: sftp.c,v 1.26 2002/02/12 12:32:27 djm Exp $");
 
-/* XXX: commandline mode */
 /* XXX: short-form remote directory listings (like 'ls -C') */
 
 #include "buffer.h"
@@ -46,11 +45,12 @@ extern char *__progname;
 char *__progname;
 #endif
 
-char *ssh_program = _PATH_SSH_PROGRAM;
 FILE* infile;
+size_t copy_buffer_len = 32768;
+size_t num_requests = 16;
 
 static void
-connect_to_server(char **args, int *in, int *out, pid_t *sshpid)
+connect_to_server(char *path, char **args, int *in, int *out, pid_t *sshpid)
 {
 	int c_in, c_out;
 #ifdef USE_PIPES
@@ -81,8 +81,8 @@ connect_to_server(char **args, int *in, int *out, pid_t *sshpid)
 		close(*out);
 		close(c_in);
 		close(c_out);
-		execv(ssh_program, args);
-		fprintf(stderr, "exec: %s: %s\n", ssh_program, strerror(errno));
+		execv(path, args);
+		fprintf(stderr, "exec: %s: %s\n", path, strerror(errno));
 		exit(1);
 	}
 
@@ -93,9 +93,12 @@ connect_to_server(char **args, int *in, int *out, pid_t *sshpid)
 static void
 usage(void)
 {
+	extern char *__progname;
+	
 	fprintf(stderr,
-	    "usage: sftp [-1Cv] [-b batchfile] [-F config] [-o option] [-s subsystem|path]\n"
-	    "            [-S program] [user@]host[:file [file]]\n");
+	    "usage: %s [-vC1] [-b batchfile] [-o option] [-s subsystem|path] [-B buffer_size]\n"
+	    "            [-F config] [-P direct server path] [-S program]\n"
+	    "            [user@]host[:file [file]]\n", __progname);
 	exit(1);
 }
 
@@ -107,6 +110,7 @@ main(int argc, char **argv)
 	char *host, *userhost, *cp, *file2;
 	int debug_level = 0, sshver = 2;
 	char *file1 = NULL, *sftp_server = NULL;
+	char *ssh_program = _PATH_SSH_PROGRAM, *sftp_direct = NULL;
 	LogLevel ll = SYSLOG_LEVEL_INFO;
 	arglist args;
 	extern int optind;
@@ -114,7 +118,7 @@ main(int argc, char **argv)
 
 	__progname = get_progname(argv[0]);
 	args.list = NULL;
-	addargs(&args, "ssh");         /* overwritten with ssh_program */
+	addargs(&args, "ssh");		/* overwritten with ssh_program */
 	addargs(&args, "-oFallBackToRsh no");
 	addargs(&args, "-oForwardX11 no");
 	addargs(&args, "-oForwardAgent no");
@@ -122,7 +126,7 @@ main(int argc, char **argv)
 	ll = SYSLOG_LEVEL_INFO;
 	infile = stdin;		/* Read from STDIN unless changed by -b */
 
-	while ((ch = getopt(argc, argv, "1hvCo:s:S:b:F:")) != -1) {
+	while ((ch = getopt(argc, argv, "1hvCo:s:S:b:B:F:P:R:")) != -1) {
 		switch (ch) {
 		case 'C':
 			addargs(&args, "-C");
@@ -157,54 +161,78 @@ main(int argc, char **argv)
 			} else
 				fatal("Filename already specified.");
 			break;
+		case 'P':
+			sftp_direct = optarg;
+			break;
+		case 'B':
+			copy_buffer_len = strtol(optarg, &cp, 10);
+			if (copy_buffer_len == 0 || *cp != '\0')
+				fatal("Invalid buffer size \"%s\"", optarg);
+			break;
+		case 'R':
+			num_requests = strtol(optarg, &cp, 10);
+			if (num_requests == 0 || *cp != '\0')
+				fatal("Invalid number of requests \"%s\"", 
+				    optarg);
+			break;
 		case 'h':
 		default:
 			usage();
 		}
 	}
 
-	if (optind == argc || argc > (optind + 2))
-		usage();
+	if (sftp_direct == NULL) {
+		if (optind == argc || argc > (optind + 2))
+			usage();
 
-	userhost = xstrdup(argv[optind]);
-	file2 = argv[optind+1];
+		userhost = xstrdup(argv[optind]);
+		file2 = argv[optind+1];
 
-	if ((cp = colon(userhost)) != NULL) {
-		*cp++ = '\0';
-		file1 = cp;
-	}
+		if ((cp = colon(userhost)) != NULL) {
+			*cp++ = '\0';
+			file1 = cp;
+		}
 
-	if ((host = strchr(userhost, '@')) == NULL)
-		host = userhost;
-	else {
-		*host++ = '\0';
-		if (!userhost[0]) {
-			fprintf(stderr, "Missing username\n");
+		if ((host = strchr(userhost, '@')) == NULL)
+			host = userhost;
+		else {
+			*host++ = '\0';
+			if (!userhost[0]) {
+				fprintf(stderr, "Missing username\n");
+				usage();
+			}
+			addargs(&args, "-l%s",userhost);
+		}
+
+		host = cleanhostname(host);
+		if (!*host) {
+			fprintf(stderr, "Missing hostname\n");
 			usage();
 		}
-		addargs(&args, "-l%s",userhost);
+
+		log_init(argv[0], ll, SYSLOG_FACILITY_USER, 1);
+		addargs(&args, "-oProtocol %d", sshver);
+
+		/* no subsystem if the server-spec contains a '/' */
+		if (sftp_server == NULL || strchr(sftp_server, '/') == NULL)
+			addargs(&args, "-s");
+
+		addargs(&args, "%s", host);
+		addargs(&args, "%s", (sftp_server != NULL ? 
+		    sftp_server : "sftp"));
+		args.list[0] = ssh_program;
+
+		fprintf(stderr, "Connecting to %s...\n", host);
+		connect_to_server(ssh_program, args.list, &in, &out, 
+		    &sshpid);
+	} else {
+		args.list = NULL;
+		addargs(&args, "sftp-server");
+
+		fprintf(stderr, "Attaching to %s...\n", sftp_direct);
+		connect_to_server(sftp_direct, args.list, &in, &out, 
+		    &sshpid);
 	}
-
-	host = cleanhostname(host);
-	if (!*host) {
-		fprintf(stderr, "Missing hostname\n");
-		usage();
-	}
-
-	log_init(argv[0], ll, SYSLOG_FACILITY_USER, 1);
-	addargs(&args, "-oProtocol %d", sshver);
-
-	/* no subsystem if the server-spec contains a '/' */
-	if (sftp_server == NULL || strchr(sftp_server, '/') == NULL) 
-		addargs(&args, "-s");
-
-	addargs(&args, "%s", host);
-	addargs(&args, "%s", (sftp_server != NULL ? sftp_server : "sftp"));
-	args.list[0] = ssh_program;
-
-	fprintf(stderr, "Connecting to %s...\n", host);
-
-	connect_to_server(args.list, &in, &out, &sshpid);
 
 	interactive_loop(in, out, file1, file2);
 

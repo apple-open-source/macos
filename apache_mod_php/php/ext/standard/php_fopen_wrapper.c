@@ -17,10 +17,13 @@
    |          Hartmut Holzgraefe <hholzgra@php.net>                       |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_fopen_wrapper.c,v 1.1.1.2 2001/07/19 00:20:19 zarzycki Exp $ */
+/* $Id: php_fopen_wrapper.c,v 1.1.1.3 2001/12/14 22:13:26 zarzycki Exp $ */
 
 #include <stdio.h>
 #include <stdlib.h>
+#if HAVE_UNISTD_H
+#include <unistd.h>
+#endif
 
 #include "php.h"
 #include "php_globals.h"
@@ -28,20 +31,31 @@
 #include "php_fopen_wrappers.h"
 
 
-
-FILE *php_fopen_url_wrap_php(char *path, char *mode, int options, int *issock, int *socketd, char **opened_path)
+/* {{{ php_fopen_url_wrap_php
+ */
+FILE *php_fopen_url_wrap_php(const char *path, char *mode, int options, int *issock, int *socketd, char **opened_path TSRMLS_DC)
 {
 	const char *res = path + 6;
 
 	*issock = 0;
 	
 	if (!strcasecmp(res, "stdin")) {
-		return fdopen(STDIN_FILENO, mode);
+		return fdopen(dup(STDIN_FILENO), mode);
 	} else if (!strcasecmp(res, "stdout")) {
-		return fdopen(STDOUT_FILENO, mode);
+		return fdopen(dup(STDOUT_FILENO), mode);
 	} else if (!strcasecmp(res, "stderr")) {
-		return fdopen(STDERR_FILENO, mode);
+		return fdopen(dup(STDERR_FILENO), mode);
 	}
 	
 	return NULL;
 }
+/* }}} */
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
+ */

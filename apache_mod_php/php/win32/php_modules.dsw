@@ -99,6 +99,18 @@ Package=<4>
 
 ###############################################################################
 
+Project: "dbx"=..\ext\dbx\dbx.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
 Project: "domxml"=..\ext\domxml\domxml.dsp - Package Owner=<4>
 
 Package=<5>
@@ -303,6 +315,18 @@ Package=<4>
 
 ###############################################################################
 
+Project: "mbstring"=..\ext\mbstring\mbstring.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
 Project: "mcrypt"=..\ext\mcrypt\mcrypt.dsp - Package Owner=<4>
 
 Package=<5>
@@ -352,6 +376,18 @@ Package=<4>
 ###############################################################################
 
 Project: "mssql"=..\ext\mssql\mssql.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "notes"=..\ext\notes\notes.dsp - Package Owner=<4>
 
 Package=<5>
 {{{
@@ -435,7 +471,7 @@ Package=<4>
 
 ###############################################################################
 
-Project: "sablot"=..\ext\sablot\sablot.dsp - Package Owner=<4>
+Project: "shmop"=..\ext\shmop\shmop.dsp - Package Owner=<4>
 
 Package=<5>
 {{{
@@ -459,7 +495,31 @@ Package=<4>
 
 ###############################################################################
 
+Project: "sockets"=..\ext\sockets\sockets.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
 Project: "sybase_ct"=..\ext\sybase_ct\sybase_ct.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "xslt"=..\ext\xslt\xslt.dsp - Package Owner=<4>
 
 Package=<5>
 {{{

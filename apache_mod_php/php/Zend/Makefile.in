@@ -67,6 +67,8 @@ CC = @CC@
 CXX = @CXX@
 CXXCPP = @CXXCPP@
 DLLTOOL = @DLLTOOL@
+ECHO = @ECHO@
+EXEEXT = @EXEEXT@
 EXPANDED_BINDIR = @EXPANDED_BINDIR@
 EXPANDED_DATADIR = @EXPANDED_DATADIR@
 EXPANDED_EXTENSION_DIR = @EXPANDED_EXTENSION_DIR@
@@ -84,26 +86,21 @@ LN_S = @LN_S@
 MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
 OBJDUMP = @OBJDUMP@
+OBJEXT = @OBJEXT@
 PACKAGE = @PACKAGE@
 PROG_SENDMAIL = @PROG_SENDMAIL@
 RANLIB = @RANLIB@
+STRIP = @STRIP@
 VERSION = @VERSION@
 YACC = @YACC@
-ZEND_SCANNER = @ZEND_SCANNER@
 
 AUTOMAKE_OPTIONS = foreign
-EXTRA_LTLIBRARIES = libZend_cc.la libZend_c.la
-noinst_LTLIBRARIES = $(ZEND_SCANNER) libZend.la
+noinst_LTLIBRARIES = libZend.la
 
-libZend_cc_la_SOURCES = zend_language_scanner_cc.cc zend_ini_scanner_cc.cc
-libZend_c_la_SOURCES = zend_language_scanner.c zend_ini_scanner.c
-
-libZend_la_SOURCES =  	zend_language_parser.y 	zend_ini_parser.y 	zend_alloc.c zend_compile.c zend_constants.c zend_dynamic_array.c 	zend_execute.c zend_execute_API.c zend_highlight.c zend_llist.c 	zend_opcode.c zend_operators.c zend_ptr_stack.c zend_stack.c 	zend_variables.c zend.c zend_API.c zend_extensions.c zend_hash.c 	zend_list.c zend_indent.c zend_builtin_functions.c zend_sprintf.c 	zend_ini.c
+libZend_la_SOURCES =  	zend_language_parser.y zend_language_scanner.l 	zend_ini_parser.y zend_ini_scanner.l 	zend_alloc.c zend_compile.c zend_constants.c zend_dynamic_array.c 	zend_execute.c zend_execute_API.c zend_highlight.c zend_llist.c 	zend_opcode.c zend_operators.c zend_ptr_stack.c zend_stack.c 	zend_variables.c zend.c zend_API.c zend_extensions.c zend_hash.c 	zend_list.c zend_indent.c zend_builtin_functions.c zend_sprintf.c 	zend_ini.c
 
 
-libZend_la_LIBADD = $(ZEND_SCANNER)
 libZend_la_LDFLAGS = @EXTRA_LIBS@
-libZend_la_DEPENDENCIES = $(ZEND_SCANNER)
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = ../main/php_config.h
 CONFIG_CLEAN_FILES = 
@@ -114,25 +111,16 @@ DEFS = @DEFS@ -I. -I$(srcdir) -I../main
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
-libZend_cc_la_LDFLAGS = 
-libZend_cc_la_LIBADD = 
-libZend_cc_la_OBJECTS =  zend_language_scanner_cc.lo \
-zend_ini_scanner_cc.lo
-libZend_c_la_LDFLAGS = 
-libZend_c_la_LIBADD = 
-libZend_c_la_OBJECTS =  zend_language_scanner.lo zend_ini_scanner.lo
-libZend_la_OBJECTS =  zend_language_parser.lo zend_ini_parser.lo \
-zend_alloc.lo zend_compile.lo zend_constants.lo zend_dynamic_array.lo \
-zend_execute.lo zend_execute_API.lo zend_highlight.lo zend_llist.lo \
-zend_opcode.lo zend_operators.lo zend_ptr_stack.lo zend_stack.lo \
-zend_variables.lo zend.lo zend_API.lo zend_extensions.lo zend_hash.lo \
-zend_list.lo zend_indent.lo zend_builtin_functions.lo zend_sprintf.lo \
-zend_ini.lo
-CXXFLAGS = @CXXFLAGS@
-CXXCOMPILE = $(CXX) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
-LTCXXCOMPILE = $(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
-CXXLD = $(CXX)
-CXXLINK = $(LIBTOOL) --mode=link $(CXXLD) $(LIBTOOL_MODULE_FLAG) $(AM_CXXFLAGS) $(CXXFLAGS) $(LDFLAGS) -o $@
+libZend_la_LIBADD = 
+libZend_la_OBJECTS =  zend_language_parser.lo zend_language_scanner.lo \
+zend_ini_parser.lo zend_ini_scanner.lo zend_alloc.lo zend_compile.lo \
+zend_constants.lo zend_dynamic_array.lo zend_execute.lo \
+zend_execute_API.lo zend_highlight.lo zend_llist.lo zend_opcode.lo \
+zend_operators.lo zend_ptr_stack.lo zend_stack.lo zend_variables.lo \
+zend.lo zend_API.lo zend_extensions.lo zend_hash.lo zend_list.lo \
+zend_indent.lo zend_builtin_functions.lo zend_sprintf.lo zend_ini.lo
+LEX_OUTPUT_ROOT = @LEX_OUTPUT_ROOT@
+LEXLIB = @LEXLIB@
 YLWRAP = $(srcdir)/ylwrap
 CFLAGS = @CFLAGS@
 COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -140,19 +128,20 @@ LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $
 CCLD = $(CC)
 LINK = $(LIBTOOL) --mode=link $(CCLD) $(LIBTOOL_MODULE_FLAG) $(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
 DIST_COMMON =  Makefile.am Makefile.in acinclude.m4 configure.in ylwrap \
-zend_ini_parser.c zend_language_parser.c
+zend_ini_parser.c zend_ini_scanner.c zend_language_parser.c \
+zend_language_scanner.c
 
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
 TAR = gtar
 GZIP_ENV = --best
-SOURCES = $(libZend_cc_la_SOURCES) $(libZend_c_la_SOURCES) $(libZend_la_SOURCES)
-OBJECTS = $(libZend_cc_la_OBJECTS) $(libZend_c_la_OBJECTS) $(libZend_la_OBJECTS)
+SOURCES = $(libZend_la_SOURCES)
+OBJECTS = $(libZend_la_OBJECTS)
 
 all: all-redirect
 .SUFFIXES:
-.SUFFIXES: .S .c .cc .lo .o .s .y
+.SUFFIXES: .S .c .l .lo .o .obj .s .y
 $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ Makefile.am $(top_srcdir)/configure.in $(ACLOCAL_M4) 
 	cd $(top_srcdir) && $(AUTOMAKE) --foreign --include-deps Zend/Makefile
 
@@ -173,6 +162,11 @@ maintainer-clean-noinstLTLIBRARIES:
 .c.o:
 	$(COMPILE) -c $<
 
+# FIXME: We should only use cygpath when building on Windows,
+# and only if it is available.
+.c.obj:
+	$(COMPILE) -c `cygpath -w $<`
+
 .s.o:
 	$(COMPILE) -c $<
 
@@ -181,6 +175,7 @@ maintainer-clean-noinstLTLIBRARIES:
 
 mostlyclean-compile:
 	-rm -f *.o core *.core
+	-rm -f *.$(OBJEXT)
 
 clean-compile:
 
@@ -190,13 +185,13 @@ distclean-compile:
 maintainer-clean-compile:
 
 .c.lo:
-	$(LTCOMPILE) -c $<
+	$(LIBTOOL) --mode=compile $(COMPILE) -c $<
 
 .s.lo:
-	$(LTCOMPILE) -c $<
+	$(LIBTOOL) --mode=compile $(COMPILE) -c $<
 
 .S.lo:
-	$(LTCOMPILE) -c $<
+	$(LIBTOOL) --mode=compile $(COMPILE) -c $<
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -208,18 +203,10 @@ distclean-libtool:
 
 maintainer-clean-libtool:
 
-libZend_cc.la: $(libZend_cc_la_OBJECTS) $(libZend_cc_la_DEPENDENCIES)
-	$(CXXLINK)  $(libZend_cc_la_LDFLAGS) $(libZend_cc_la_OBJECTS) $(libZend_cc_la_LIBADD) $(LIBS)
-
-libZend_c.la: $(libZend_c_la_OBJECTS) $(libZend_c_la_DEPENDENCIES)
-	$(LINK)  $(libZend_c_la_LDFLAGS) $(libZend_c_la_OBJECTS) $(libZend_c_la_LIBADD) $(LIBS)
-
 libZend.la: $(libZend_la_OBJECTS) $(libZend_la_DEPENDENCIES)
 	$(LINK)  $(libZend_la_LDFLAGS) $(libZend_la_OBJECTS) $(libZend_la_LIBADD) $(LIBS)
-.cc.o:
-	$(CXXCOMPILE) -c $<
-.cc.lo:
-	$(LTCXXCOMPILE) -c $<
+.l.c:
+	$(SHELL) $(YLWRAP) "$(LEX)" $< $(LEX_OUTPUT_ROOT).c $@ -- $(AM_LFLAGS) $(LFLAGS)
 .y.c:
 	$(SHELL) $(YLWRAP) "$(YACC)" $< y.tab.c $*.c y.tab.h $*.h -- $(AM_YFLAGS) $(YFLAGS)
 zend_ini_parser.h: zend_ini_parser.c
@@ -305,7 +292,7 @@ distclean-generic:
 	-rm -f config.cache config.log stamp-h stamp-h[0-9]*
 
 maintainer-clean-generic:
-	-test -z "zend_ini_parserhzend_ini_parserczend_language_parserhzend_language_parserc" || rm -f zend_ini_parserh zend_ini_parserc zend_language_parserh zend_language_parserc
+	-test -z "zend_ini_scannerlzend_language_scannerlzend_ini_parserhzend_ini_parserczend_language_parserhzend_language_parserc" || rm -f zend_ini_scannerl zend_language_scannerl zend_ini_parserh zend_ini_parserc zend_language_parserh zend_language_parserc
 mostlyclean-am:  mostlyclean-noinstLTLIBRARIES mostlyclean-compile \
 		mostlyclean-libtool mostlyclean-tags \
 		mostlyclean-generic
@@ -348,17 +335,14 @@ maintainer-clean-generic clean mostlyclean distclean maintainer-clean
 
 # automake isn't too clever about "non-standard" use of lex and yacc
 
-$(libZend_la_OBJECTS) zend_language_scanner.lo zend_language_scanner_cc.lo: zend_language_parser.h
+$(libZend_la_OBJECTS): zend_language_parser.h
 
-zend_ini_scanner.lo zend_ini_scanner_cc.lo: zend_ini_parser.h
+zend_ini_scanner.lo: zend_ini_parser.h
 
 # Language parser/scanner rules
 
 zend_language_scanner.c: $(srcdir)/zend_language_scanner.l
-	$(LEX) -Pzend -o$@ -i $(srcdir)/zend_language_scanner.l
-
-zend_language_scanner_cc.cc: $(srcdir)/zend_language_scanner.l
-	$(LEX) -+ -B -i -S$(srcdir)/flex.skl -Pzend -o$@ $(srcdir)/zend_language_scanner.l
+	$(LEX) -Pzend -S$(srcdir)/flex.skl -o$@ -i $(srcdir)/zend_language_scanner.l
 
 zend_language_parser.h: zend_language_parser.c
 zend_language_parser.c: $(srcdir)/zend_language_parser.y
@@ -370,10 +354,8 @@ zend_ini_parser.c: $(srcdir)/zend_ini_parser.y
 	$(YACC) -p ini_ -v -d $(srcdir)/zend_ini_parser.y -o zend_ini_parser.c
 
 zend_ini_scanner.c: $(srcdir)/zend_ini_scanner.l
-	$(LEX) -Pini_ -o$@ -i $(srcdir)/zend_ini_scanner.l
+	$(LEX) -Pini_ -S$(srcdir)/flex.skl -o$@ -i $(srcdir)/zend_ini_scanner.l
 
-zend_ini_scanner_cc.cc: $(srcdir)/zend_ini_scanner.l
-	$(LEX) -+ -B -i -S$(srcdir)/flex.skl -Pini_ -o$@ $(srcdir)/zend_ini_scanner.l
 zend_ini_parser.h: zend_ini_parser.c
 
 depend:

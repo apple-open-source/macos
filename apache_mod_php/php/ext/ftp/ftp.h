@@ -1,34 +1,23 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP HTML Embedded Scripting Language Version 3.0                     |
+   | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-1999 PHP Development Team (See Credits file)      |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This program is free software; you can redistribute it and/or modify |
-   | it under the terms of one of the following licenses:                 |
-   |                                                                      |
-   |  A) the GNU General Public License as published by the Free Software |
-   |     Foundation; either version 2 of the License, or (at your option) |
-   |     any later version.                                               |
-   |                                                                      |
-   |  B) the PHP License as published by the PHP Development Team and     |
-   |     included in the distribution in the file: LICENSE                |
-   |                                                                      |
-   | This program is distributed in the hope that it will be useful,      |
-   | but WITHOUT ANY WARRANTY; without even the implied warranty of       |
-   | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the        |
-   | GNU General Public License for more details.                         |
-   |                                                                      |
-   | You should have received a copy of both licenses referred to here.   |
-   | If you did not, or have any questions about PHP licensing, please    |
-   | contact core@php.net.                                                |
+   | This source file is subject to version 2.02 of the PHP license,      |
+   | that is bundled with this package in the file LICENSE, and is        |
+   | available at through the world-wide-web at                           |
+   | http://www.php.net/license/2_02.txt.                                 |
+   | If you did not receive a copy of the PHP license and are unable to   |
+   | obtain it through the world-wide-web, please send a note to          |
+   | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors:                                                             |
    |          Andrew Skalski      <askalski@chek.com>                     |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: ftp.h,v 1.1.1.4 2001/07/19 00:19:10 zarzycki Exp $ */
+/* $Id: ftp.h,v 1.1.1.5 2001/12/14 22:12:20 zarzycki Exp $ */
 
 #ifndef	FTP_H
 #define	FTP_H
@@ -141,11 +130,11 @@ int		ftp_pasv(ftpbuf_t *ftp, int pasv);
 int		ftp_get(ftpbuf_t *ftp, FILE *outfp, const char *path,
 			ftptype_t type);
 
-/* stores the data from infp as a file on the remote server
+/* stores the data from a file, socket, or process as a file on the remote server
  * returns true on success, false on error
  */
 int		ftp_put(ftpbuf_t *ftp, const char *path, FILE *infp,
-			ftptype_t type);
+			int insocket, int issock, ftptype_t type);
 
 /* returns the size of the given file, or -1 on error */
 int		ftp_size(ftpbuf_t *ftp, const char *path);

@@ -1,34 +1,22 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP HTML Embedded Scripting Language Version 3.0                     |
+   | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-1999 PHP Development Team (See Credits file)      |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This program is free software; you can redistribute it and/or modify |
-   | it under the terms of one of the following licenses:                 |
-   |                                                                      |
-   |  A) the GNU General Public License as published by the Free Software |
-   |     Foundation; either version 2 of the License, or (at your option) |
-   |     any later version.                                               |
-   |                                                                      |
-   |  B) the PHP License as published by the PHP Development Team and     |
-   |     included in the distribution in the file: LICENSE                |
-   |                                                                      |
-   | This program is distributed in the hope that it will be useful,      |
-   | but WITHOUT ANY WARRANTY; without even the implied warranty of       |
-   | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the        |
-   | GNU General Public License for more details.                         |
-   |                                                                      |
-   | You should have received a copy of both licenses referred to here.   |
-   | If you did not, or have any questions about PHP licensing, please    |
-   | contact core@php.net.                                                |
+   | This source file is subject to version 2.02 of the PHP license,      |
+   | that is bundled with this package in the file LICENSE, and is        |
+   | available at through the world-wide-web at                           |
+   | http://www.php.net/license/2_02.txt.                                 |
+   | If you did not receive a copy of the PHP license and are unable to   |
+   | obtain it through the world-wide-web, please send a note to          |
+   | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors:                                                             |
-   |          Andrew Skalski      <askalski@chek.com>                     |
+   | Authors: Andrew Skalski      <askalski@chek.com>                     |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: ftp.c,v 1.1.1.3 2001/01/25 04:59:17 wsanchez Exp $ */
+/* $Id: ftp.c,v 1.1.1.4 2001/12/14 22:12:19 zarzycki Exp $ */
 
 #include "php.h"
 
@@ -57,6 +45,7 @@
 #endif
 
 #include "ftp.h"
+#include "ext/standard/fsock.h"
 
 /* define closesocket macro for portability */
 #ifndef PHP_WIN32
@@ -108,7 +97,8 @@ union ipbox {
 	unsigned char	c[8];
 };
 
-
+/* {{{ ftp_open
+ */
 ftpbuf_t*
 ftp_open(const char *host, short port)
 {
@@ -172,8 +162,10 @@ bail:
 	free(ftp);
 	return NULL;
 }
+/* }}} */
 
-
+/* {{{ ftp_close
+ */
 ftpbuf_t*
 ftp_close(ftpbuf_t *ftp)
 {
@@ -185,8 +177,10 @@ ftp_close(ftpbuf_t *ftp)
 	free(ftp);
 	return NULL;
 }
+/* }}} */
 
-
+/* {{{ ftp_gc
+ */
 void
 ftp_gc(ftpbuf_t *ftp)
 {
@@ -198,8 +192,10 @@ ftp_gc(ftpbuf_t *ftp)
 	free(ftp->syst);
 	ftp->syst = NULL;
 }
+/* }}} */
 
-
+/* {{{ ftp_quit
+ */
 int
 ftp_quit(ftpbuf_t *ftp)
 {
@@ -216,8 +212,10 @@ ftp_quit(ftpbuf_t *ftp)
 
 	return 1;
 }
+/* }}} */
 
-
+/* {{{ ftp_login
+ */
 int
 ftp_login(ftpbuf_t *ftp, const char *user, const char *pass)
 {
@@ -238,8 +236,10 @@ ftp_login(ftpbuf_t *ftp, const char *user, const char *pass)
 		return 0;
 	return (ftp->resp == 230);
 }
+/* }}} */
 
-
+/* {{{ ftp_reinit
+ */
 int
 ftp_reinit(ftpbuf_t *ftp)
 {
@@ -255,8 +255,10 @@ ftp_reinit(ftpbuf_t *ftp)
 
 	return 1;
 }
+/* }}} */
 
-
+/* {{{ ftp_syst
+ */
 const char*
 ftp_syst(ftpbuf_t *ftp)
 {
@@ -283,8 +285,10 @@ ftp_syst(ftpbuf_t *ftp)
 
 	return ftp->syst;
 }
+/* }}} */
 
-
+/* {{{ ftp_pwd
+ */
 const char*
 ftp_pwd(ftpbuf_t *ftp)
 {
@@ -312,8 +316,10 @@ ftp_pwd(ftpbuf_t *ftp)
 
 	return ftp->pwd;
 }
+/* }}} */
 
-
+/* {{{ ftp_exec
+ */
 int
 ftp_exec(ftpbuf_t *ftp, const char *cmd)
 {
@@ -326,8 +332,10 @@ ftp_exec(ftpbuf_t *ftp, const char *cmd)
 
 	return 1;
 }
+/* }}} */
 
-
+/* {{{ ftp_chdir
+ */
 int
 ftp_chdir(ftpbuf_t *ftp, const char *dir)
 {
@@ -344,8 +352,10 @@ ftp_chdir(ftpbuf_t *ftp, const char *dir)
 
 	return 1;
 }
+/* }}} */
 
-
+/* {{{ ftp_cdup
+ */
 int
 ftp_cdup(ftpbuf_t *ftp)
 {
@@ -362,8 +372,10 @@ ftp_cdup(ftpbuf_t *ftp)
 
 	return 1;
 }
+/* }}} */
 
-
+/* {{{ ftp_mkdir
+ */
 char*
 ftp_mkdir(ftpbuf_t *ftp, const char *dir)
 {
@@ -390,8 +402,10 @@ ftp_mkdir(ftpbuf_t *ftp, const char *dir)
 
 	return mkd;
 }
+/* }}} */
 
-
+/* {{{ ftp_rmdir
+ */
 int
 ftp_rmdir(ftpbuf_t *ftp, const char *dir)
 {
@@ -405,22 +419,28 @@ ftp_rmdir(ftpbuf_t *ftp, const char *dir)
 
 	return 1;
 }
+/* }}} */
 
-
+/* {{{ ftp_nlist
+ */
 char**
 ftp_nlist(ftpbuf_t *ftp, const char *path)
 {
 	return ftp_genlist(ftp, "NLST", path);
 }
+/* }}} */
 
-
+/* {{{ ftp_list
+ */
 char**
 ftp_list(ftpbuf_t *ftp, const char *path)
 {
 	return ftp_genlist(ftp, "LIST", path);
 }
+/* }}} */
 
-
+/* {{{ ftp_type
+ */
 int
 ftp_type(ftpbuf_t *ftp, ftptype_t type)
 {
@@ -448,8 +468,10 @@ ftp_type(ftpbuf_t *ftp, ftptype_t type)
 
 	return 1;
 }
+/* }}} */
 
-
+/* {{{ ftp_pasv
+ */
 int
 ftp_pasv(ftpbuf_t *ftp, int pasv)
 {
@@ -492,8 +514,10 @@ ftp_pasv(ftpbuf_t *ftp, int pasv)
 
 	return 1;
 }
+/* }}} */
 
-
+/* {{{ ftp_get
+ */
 int
 ftp_get(ftpbuf_t *ftp, FILE *outfp, const char *path, ftptype_t type)
 {
@@ -554,10 +578,12 @@ bail:
 	data_close(data);
 	return 0;
 }
+/* }}} */
 
-
+/* {{{ ftp_put
+ */
 int
-ftp_put(ftpbuf_t *ftp, const char *path, FILE *infp, ftptype_t type)
+ftp_put(ftpbuf_t *ftp, const char *path, FILE *infp, int insocket, int issock, ftptype_t type)
 {
 	databuf_t		*data = NULL;
 	int			size;
@@ -583,7 +609,7 @@ ftp_put(ftpbuf_t *ftp, const char *path, FILE *infp, ftptype_t type)
 
 	size = 0;
 	ptr = data->buf;
-	while ((ch = getc(infp)) != EOF) {
+	while ((ch = FP_FGETC(insocket, infp, issock))!=EOF && !FP_FEOF(insocket, infp, issock)) {
 		/* flush if necessary */
 		if (FTP_BUFSIZE - size < 2) {
 			if (my_send(data->fd, data->buf, size) != size)
@@ -604,7 +630,7 @@ ftp_put(ftpbuf_t *ftp, const char *path, FILE *infp, ftptype_t type)
 	if (size && my_send(data->fd, data->buf, size) != size)
 		goto bail;
 
-	if (ferror(infp))
+	if (!issock && ferror(infp))
 		goto bail;
 
 	data = data_close(data);
@@ -617,8 +643,10 @@ bail:
 	data_close(data);
 	return 0;
 }
+/* }}} */
 
-
+/* {{{ ftp_size
+ */
 int
 ftp_size(ftpbuf_t *ftp, const char *path)
 {
@@ -632,8 +660,10 @@ ftp_size(ftpbuf_t *ftp, const char *path)
 
 	return atoi(ftp->inbuf);
 }
+/* }}} */
 
-
+/* {{{ ftp_mdtm
+ */
 time_t
 ftp_mdtm(ftpbuf_t *ftp, const char *path)
 {
@@ -675,8 +705,10 @@ ftp_mdtm(ftpbuf_t *ftp, const char *path)
 
 	return stamp;
 }
+/* }}} */
 
-
+/* {{{ ftp_delete
+ */
 int
 ftp_delete(ftpbuf_t *ftp, const char *path)
 {
@@ -690,8 +722,10 @@ ftp_delete(ftpbuf_t *ftp, const char *path)
 
 	return 1;
 }
+/* }}} */
 
-
+/* {{{ ftp_rename
+ */
 int
 ftp_rename(ftpbuf_t *ftp, const char *src, const char *dest)
 {
@@ -710,8 +744,10 @@ ftp_rename(ftpbuf_t *ftp, const char *src, const char *dest)
 
 	return 1;
 }
+/* }}} */
 
-
+/* {{{ ftp_site
+ */
 int
 ftp_site(ftpbuf_t *ftp, const char *cmd)
 {
@@ -725,9 +761,12 @@ ftp_site(ftpbuf_t *ftp, const char *cmd)
 
 	return 1;
 }
+/* }}} */
 
 /* static functions */
 
+/* {{{ ftp_putcmd
+ */
 int
 ftp_putcmd(ftpbuf_t *ftp, const char *cmd, const char *args)
 {
@@ -754,8 +793,10 @@ ftp_putcmd(ftpbuf_t *ftp, const char *cmd, const char *args)
 
 	return 1;
 }
+/* }}} */
 
-
+/* {{{ ftp_readline
+ */
 int
 ftp_readline(ftpbuf_t *ftp)
 {
@@ -802,8 +843,10 @@ ftp_readline(ftpbuf_t *ftp)
 
 	return 0;
 }
+/* }}} */
 
-
+/* {{{ ftp_getresp
+ */
 int
 ftp_getresp(ftpbuf_t *ftp)
 {
@@ -844,8 +887,10 @@ ftp_getresp(ftpbuf_t *ftp)
 
 	return 1;
 }
+/* }}} */
 
-
+/* {{{ my_send
+ */
 int
 my_send(int s, void *buf, size_t len)
 {
@@ -879,8 +924,10 @@ my_send(int s, void *buf, size_t len)
 
 	return len;
 }
+/* }}} */
 
-
+/* {{{ my_recv
+ */
 int
 my_recv(int s, void *buf, size_t len)
 {
@@ -904,8 +951,10 @@ my_recv(int s, void *buf, size_t len)
 
 	return recv(s, buf, len, 0);
 }
+/* }}} */
 
-
+/* {{{ my_connect
+ */
 int
 my_connect(int s, const struct sockaddr *addr, int addrlen)
 #ifndef PHP_WIN32
@@ -957,7 +1006,10 @@ my_connect(int s, const struct sockaddr *addr, int addrlen)
 	return connect(s, addr, addrlen);
 }
 #endif
+/* }}} */
 
+/* {{{ my_accept
+ */
 int
 my_accept(int s, struct sockaddr *addr, int *addrlen)
 {
@@ -981,8 +1033,10 @@ my_accept(int s, struct sockaddr *addr, int *addrlen)
 
 	return accept(s, addr, addrlen);
 }
+/* }}} */
 
-
+/* {{{ ftp_getdata
+ */
 databuf_t*
 ftp_getdata(ftpbuf_t *ftp)
 {
@@ -991,7 +1045,7 @@ ftp_getdata(ftpbuf_t *ftp)
 	struct sockaddr_in	addr;
 	int			size;
 	union ipbox		ipbox;
-	char			arg[sizeof("255,255,255,255,255,255")];
+	char			arg[sizeof("255, 255, 255, 255, 255, 255")];
 
 
 	/* ask for a passive connection if we need one */
@@ -1081,8 +1135,10 @@ bail:
 	free(data);
 	return NULL;
 }
+/* }}} */
 
-
+/* {{{ data_accept
+ */
 databuf_t*
 data_accept(databuf_t *data)
 {
@@ -1104,8 +1160,10 @@ data_accept(databuf_t *data)
 
 	return data;
 }
+/* }}} */
 
-
+/* {{{ data_close
+ */
 databuf_t*
 data_close(databuf_t *data)
 {
@@ -1118,8 +1176,10 @@ data_close(databuf_t *data)
 	free(data);
 	return NULL;
 }
+/* }}} */
 
-
+/* {{{ ftp_genlist
+ */
 char**
 ftp_genlist(ftpbuf_t *ftp, const char *cmd, const char *path)
 {
@@ -1219,5 +1279,15 @@ bail:
 	free(ret);
 	return NULL;
 }
+/* }}} */
 
 #endif /* HAVE_FTP */
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
+ */

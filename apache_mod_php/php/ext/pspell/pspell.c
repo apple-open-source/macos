@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: pspell.c,v 1.1.1.3 2001/07/19 00:19:54 zarzycki Exp $ */
+/* $Id: pspell.c,v 1.1.1.5 2002/03/20 03:23:03 zarzycki Exp $ */
 
 #define IS_EXT_MODULE
 
@@ -45,6 +45,8 @@
 #define PSPELL_SPEED_MASK_INTERNAL 3L
 #define PSPELL_RUN_TOGETHER 8L
 
+/* {{{ pspell_functions[]
+ */
 function_entry pspell_functions[] = {
 	PHP_FE(pspell_new,		NULL)
 	PHP_FE(pspell_new_personal,		NULL)
@@ -63,31 +65,39 @@ function_entry pspell_functions[] = {
 	PHP_FE(pspell_config_personal,		NULL)
 	PHP_FE(pspell_config_repl,		NULL)
 	PHP_FE(pspell_config_save_repl,		NULL)
+	{NULL, NULL, NULL}
 };
+/* }}} */
 
 static int le_pspell, le_pspell_config;
 
 zend_module_entry pspell_module_entry = {
-	"pspell", pspell_functions, PHP_MINIT(pspell), NULL, NULL, NULL, PHP_MINFO(pspell), STANDARD_MODULE_PROPERTIES
+    STANDARD_MODULE_HEADER,
+	"pspell", pspell_functions, PHP_MINIT(pspell), NULL, NULL, NULL, PHP_MINFO(pspell), NO_VERSION_YET, STANDARD_MODULE_PROPERTIES
 };
 
 #ifdef COMPILE_DL_PSPELL
 ZEND_GET_MODULE(pspell)
 #endif
 
-static void php_pspell_close(zend_rsrc_list_entry *rsrc)
+static void php_pspell_close(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
 	PspellManager *manager = (PspellManager *)rsrc->ptr;
+
 	delete_pspell_manager(manager);
 }
 
-static void php_pspell_close_config(zend_rsrc_list_entry *rsrc)
+static void php_pspell_close_config(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
 	PspellConfig *config = (PspellConfig *)rsrc->ptr;
+
 	delete_pspell_config(config);
 }
 
-PHP_MINIT_FUNCTION(pspell){
+/* {{{ PHP_MINIT_FUNCTION
+ */
+PHP_MINIT_FUNCTION(pspell)
+{
 	REGISTER_MAIN_LONG_CONSTANT("PSPELL_FAST", PSPELL_FAST, CONST_PERSISTENT | CONST_CS);
 	REGISTER_MAIN_LONG_CONSTANT("PSPELL_NORMAL", PSPELL_NORMAL, CONST_PERSISTENT | CONST_CS);
 	REGISTER_MAIN_LONG_CONSTANT("PSPELL_BAD_SPELLERS", PSPELL_BAD_SPELLERS, CONST_PERSISTENT | CONST_CS);
@@ -96,10 +106,12 @@ PHP_MINIT_FUNCTION(pspell){
 	le_pspell_config = zend_register_list_destructors_ex(php_pspell_close_config, NULL, "pspell config", module_number);
 	return SUCCESS;
 }
+/* }}} */
 
 /* {{{ proto int pspell_new(string language [, string spelling [, string jargon [, string encoding [, int mode]]]])
    Load a dictionary */
-PHP_FUNCTION(pspell_new){
+PHP_FUNCTION(pspell_new)
+{
 	zval **language,**spelling,**jargon,**encoding,**pmode;
 	long mode = 0L,  speed = 0L;
 	int argc;
@@ -175,7 +187,8 @@ PHP_FUNCTION(pspell_new){
 
 /* {{{ proto int pspell_new_personal(string personal, string language [, string spelling [, string jargon [, string encoding [, int mode]]]])
    Load a dictionary with a personal wordlist*/
-PHP_FUNCTION(pspell_new_personal){
+PHP_FUNCTION(pspell_new_personal)
+{
 	zval **personal, **language,**spelling,**jargon,**encoding,**pmode;
 	long mode = 0L,  speed = 0L;
 	int argc;
@@ -257,7 +270,8 @@ PHP_FUNCTION(pspell_new_personal){
 
 /* {{{ proto int pspell_new_config(int config)
    Load a dictionary based on the given config */
-PHP_FUNCTION(pspell_new_config){
+PHP_FUNCTION(pspell_new_config)
+{
 	int type;
 	zval **conf;
 	int argc;
@@ -289,7 +303,8 @@ PHP_FUNCTION(pspell_new_config){
 
 /* {{{ proto int pspell_check(int pspell, string word)
    Returns true if word is valid */
-PHP_FUNCTION(pspell_check){
+PHP_FUNCTION(pspell_check)
+{
 	int type;
 	zval **scin,**word;
 	PspellManager *manager;
@@ -531,7 +546,8 @@ PHP_FUNCTION(pspell_save_wordlist)
 
 /* {{{ proto int pspell_config_create(string language [, string spelling [, string jargon [, string encoding]]])
    Create a new config to be used later to create a manager */
-PHP_FUNCTION(pspell_config_create){
+PHP_FUNCTION(pspell_config_create)
+{
 	zval **language,**spelling,**jargon,**encoding;
 	int argc;
 	int ind;
@@ -579,7 +595,8 @@ PHP_FUNCTION(pspell_config_create){
 
 /* {{{ proto int pspell_config_runtogether(int conf, bool runtogether)
    Consider run-together words as valid components */
-PHP_FUNCTION(pspell_config_runtogether){
+PHP_FUNCTION(pspell_config_runtogether)
+{
 	int type;
 	zval **sccin, **runtogether;
 	int argc;
@@ -607,7 +624,8 @@ PHP_FUNCTION(pspell_config_runtogether){
 
 /* {{{ proto int pspell_config_mode(int conf, long mode)
    Select mode for config (PSPELL_FAST, PSPELL_NORMAL or PSPELL_BAD_SPELLERS) */
-PHP_FUNCTION(pspell_config_mode){
+PHP_FUNCTION(pspell_config_mode)
+{
 	int type;
 	zval **sccin, **mode;
 	int argc;
@@ -643,7 +661,8 @@ PHP_FUNCTION(pspell_config_mode){
 
 /* {{{ proto int pspell_config_ignore(int conf, int ignore)
    Ignore words <= n chars */
-PHP_FUNCTION(pspell_config_ignore){
+PHP_FUNCTION(pspell_config_ignore)
+{
 	int type;
 	zval **sccin, **pignore;
 	int argc;
@@ -693,7 +712,8 @@ PHP_FUNCTION(pspell_config_ignore){
 
 /* {{{ proto int pspell_config_personal(int conf, string personal)
    Use a personal dictionary for this config */
-PHP_FUNCTION(pspell_config_personal){
+PHP_FUNCTION(pspell_config_personal)
+{
 	int type;
 	zval **sccin, **personal;
 	int argc;
@@ -721,7 +741,8 @@ PHP_FUNCTION(pspell_config_personal){
 
 /* {{{ proto int pspell_config_repl(int conf, string repl)
    Use a personal dictionary with replacement pairs for this config */
-PHP_FUNCTION(pspell_config_repl){
+PHP_FUNCTION(pspell_config_repl)
+{
 	int type;
 	zval **sccin, **repl;
 	int argc;
@@ -751,7 +772,8 @@ PHP_FUNCTION(pspell_config_repl){
 
 /* {{{ proto int pspell_config_save_repl(int conf, bool save)
    Save replacement pairs when personal list is saved for this config */
-PHP_FUNCTION(pspell_config_save_repl){
+PHP_FUNCTION(pspell_config_save_repl)
+{
 	int type;
 	zval **sccin, **save;
 	int argc;
@@ -777,11 +799,23 @@ PHP_FUNCTION(pspell_config_save_repl){
 }
 /* }}} */
 
+/* {{{ PHP_MINFO_FUNCTION
+ */
 PHP_MINFO_FUNCTION(pspell)
 {
 	php_info_print_table_start();
 	php_info_print_table_row(2, "PSpell Support", "enabled");
 	php_info_print_table_end();
 }
+/* }}} */
 
 #endif
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
+ */

@@ -1,7 +1,7 @@
 #ifndef _DEFINES_H
 #define _DEFINES_H
 
-/* $Id: defines.h,v 1.1.1.10 2001/12/01 00:46:29 bbraun Exp $ */
+/* $Id: defines.h,v 1.1.1.11 2002/03/08 21:07:25 wsanchez Exp $ */
 
 /* Necessary headers */
 
@@ -141,6 +141,14 @@ enum
 # define	NFDBITS (8 * sizeof(unsigned long))
 #endif
 
+/*
+SCO Open Server 3 has INADDR_LOOPBACK defined in rpc/rpc.h but
+including rpc/rpc.h breaks Solaris 6
+*/
+#ifndef INADDR_LOOPBACK
+#define INADDR_LOOPBACK ((ulong)0x7f000001)
+#endif
+
 /* Types */
 
 /* If sys/types.h does not supply intXX_t, supply them ourselves */
@@ -161,7 +169,11 @@ typedef char int8_t;
 typedef short int int16_t;
 # else
 #  ifdef _CRAY
+#   if (SIZEOF_SHORT_INT == 4)
+typedef short int16_t;
+#   else
 typedef long  int16_t;
+#   endif
 #  else
 #   error "16 bit int type not found."
 #  endif /* _CRAY */
@@ -194,7 +206,11 @@ typedef unsigned char u_int8_t;
 typedef unsigned short int u_int16_t;
 #  else
 #   ifdef _CRAY
+#    if (SIZEOF_SHORT_INT == 4)
+typedef unsigned short u_int16_t;
+#    else
 typedef unsigned long  u_int16_t;
+#    endif
 #   else
 #    error "16 bit int type not found."
 #   endif
@@ -268,6 +284,11 @@ typedef int sa_family_t;
 typedef int pid_t;
 # define HAVE_PID_T
 #endif /* HAVE_PID_T */
+
+#ifndef HAVE_SIG_ATOMIC_T
+typedef int sig_atomic_t;
+# define HAVE_SIG_ATOMIC_T
+#endif /* HAVE_SIG_ATOMIC_T */
 
 #ifndef HAVE_MODE_T
 typedef int mode_t;
@@ -356,6 +377,16 @@ struct winsize {
 #define _PATH_XAUTH XAUTH_PATH
 #endif /* XAUTH_PATH */
 
+/* derived from XF4/xc/lib/dps/Xlibnet.h */
+#ifndef X_UNIX_PATH
+#  ifdef __hpux
+#    define X_UNIX_PATH "/var/spool/sockets/X11/%u"
+#  else
+#    define X_UNIX_PATH "/tmp/.X11-unix/X%u"
+#  endif
+#endif /* X_UNIX_PATH */
+#define _PATH_UNIX_X X_UNIX_PATH
+
 #ifndef _PATH_TTY
 # define _PATH_TTY "/dev/tty"
 #endif
@@ -436,7 +467,7 @@ struct winsize {
 #endif /* !defined(HAVE_MEMMOVE) && defined(HAVE_BCOPY) */
 
 #if !defined(HAVE_ATEXIT) && defined(HAVE_ON_EXIT)
-# define atexit(a, NULL) on_exit(a, NULL)
+# define atexit(a) on_exit(a, NULL)
 #else
 # if defined(HAVE_XATEXIT)
 #  define atexit(a) xatexit(a)

@@ -1,5 +1,3 @@
-/*	$NetBSD: temp.c,v 1.7 1998/07/26 22:07:27 mycroft Exp $	*/
-
 /*
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,13 +31,12 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)temp.c	8.1 (Berkeley) 6/6/93";
-#else
-__RCSID("$NetBSD: temp.c,v 1.7 1998/07/26 22:07:27 mycroft Exp $");
 #endif
+static const char rcsid[] =
+  "$FreeBSD: src/usr.bin/mail/temp.c,v 1.8 2001/05/27 20:26:22 mikeh Exp $";
 #endif /* not lint */
 
 #include "rcv.h"
@@ -51,49 +48,45 @@ __RCSID("$NetBSD: temp.c,v 1.7 1998/07/26 22:07:27 mycroft Exp $");
  * Give names to all the temporary files that we will need.
  */
 
-char	*tempMail;
-char	*tempQuit;
-char	*tempEdit;
-char	*tempResid;
-char	*tempMesg;
 char	*tmpdir;
 
 void
 tinit()
 {
-	const char *cp;
+	char *cp;
 
-	if ((tmpdir = getenv("TMPDIR")) == NULL) {
+	if ((tmpdir = getenv("TMPDIR")) == NULL || *tmpdir == '\0')
 		tmpdir = _PATH_TMP;
+	if ((tmpdir = strdup(tmpdir)) == NULL)
+		errx(1, "Out of memory");
+	/* Strip trailing '/' if necessary */
+	cp = tmpdir + strlen(tmpdir) - 1;
+	while (cp > tmpdir && *cp == '/') {
+		*cp = '\0';
+		cp--;
 	}
-
-	tempMail  = tempnam (tmpdir, "Rs");
-	tempResid = tempnam (tmpdir, "Rq");
-	tempQuit  = tempnam (tmpdir, "Rm");
-	tempEdit  = tempnam (tmpdir, "Re");
-	tempMesg  = tempnam (tmpdir, "Rx");
 
 	/*
 	 * It's okay to call savestr in here because main will
 	 * do a spreserve() after us.
 	 */
-	if (myname != NOSTR) {
-		if (getuserid(myname) < 0) {
-			printf("\"%s\" is not a user of this system\n",
-			    myname);
-			exit(1);
-		}
+	if (myname != NULL) {
+		if (getuserid(myname) < 0)
+			errx(1, "\"%s\" is not a user of this system", myname);
 	} else {
-		if ((cp = username()) == NOSTR) {
-			myname = "nobody";
+		if ((cp = username()) == NULL) {
+			myname = "ubluit";
 			if (rcvmode)
-				exit(1);
+				errx(1, "Who are you!?");
 		} else
 			myname = savestr(cp);
 	}
-	if ((cp = getenv("HOME")) == NOSTR)
-		cp = ".";
-	homedir = savestr(cp);
+	if ((cp = getenv("HOME")) == NULL || *cp == '\0' ||
+	    strlen(cp) >= PATHSIZE)
+		homedir = NULL;
+	else
+		homedir = savestr(cp);
 	if (debug)
-		printf("user = %s, homedir = %s\n", myname, homedir);
+		printf("user = %s, homedir = %s\n", myname,
+		    homedir ? homedir : "NONE");
 }

@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: gettext.c,v 1.1.1.4 2001/07/19 00:19:12 zarzycki Exp $ */
+/* $Id: gettext.c,v 1.1.1.5 2001/12/14 22:12:22 zarzycki Exp $ */
 
 #include <stdio.h>
 #ifdef HAVE_CONFIG_H
@@ -31,6 +31,8 @@
 #include <libintl.h>
 #include "ext/standard/info.h"
 
+/* {{{ php_gettext_functions[]
+ */
 function_entry php_gettext_functions[] = {
 	PHP_FE(textdomain,			NULL)
 	PHP_FE(gettext,				NULL)
@@ -40,9 +42,11 @@ function_entry php_gettext_functions[] = {
 	PHP_FE(bindtextdomain,		NULL)
     {NULL, NULL, NULL}
 };
+/* }}} */
 
 zend_module_entry php_gettext_module_entry = {
-	"gettext", php_gettext_functions, NULL, NULL, NULL, NULL, PHP_MINFO(gettext), STANDARD_MODULE_PROPERTIES
+    STANDARD_MODULE_HEADER,
+	"gettext", php_gettext_functions, NULL, NULL, NULL, NULL, PHP_MINFO(gettext), NO_VERSION_YET, STANDARD_MODULE_PROPERTIES
 };
 
 #ifdef COMPILE_DL_GETTEXT
@@ -52,7 +56,7 @@ ZEND_GET_MODULE(php_gettext)
 PHP_MINFO_FUNCTION(gettext)
 {
 	php_info_print_table_start();
-	php_info_print_table_row(2, "GNU GetText Support", "enabled");
+	php_info_print_table_row(2, "GetText Support", "enabled");
 	php_info_print_table_end();
 }
 
@@ -173,4 +177,6 @@ PHP_FUNCTION(bindtextdomain)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

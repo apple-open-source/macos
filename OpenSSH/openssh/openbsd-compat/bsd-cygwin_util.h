@@ -13,7 +13,7 @@
  * binary mode on Windows systems.
  */
 
-/* $Id: bsd-cygwin_util.h,v 1.1.1.2 2001/05/03 16:51:26 zarzycki Exp $ */
+/* $Id: bsd-cygwin_util.h,v 1.1.1.3 2002/03/08 21:07:46 wsanchez Exp $ */
 
 #ifndef _BSD_CYGWIN_UTIL_H
 #define _BSD_CYGWIN_UTIL_H
@@ -24,8 +24,9 @@
 
 int binary_open(const char *filename, int flags, ...);
 int binary_pipe(int fd[2]);
-int check_nt_auth(int pwd_authenticated, uid_t uid);
+int check_nt_auth(int pwd_authenticated, struct passwd *pw);
 int check_ntsec(const char *filename);
+void register_9x_service(void);
 
 #define open binary_open
 #define pipe binary_pipe

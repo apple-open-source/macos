@@ -17,7 +17,7 @@
 |          Steven Lawrance <slawrance@technologist.com>                |
 +----------------------------------------------------------------------+
 */
-/* $Id: snmp.c,v 1.1.1.4 2001/07/19 00:20:05 zarzycki Exp $ */
+/* $Id: snmp.c,v 1.1.1.5 2001/12/14 22:13:15 zarzycki Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -79,6 +79,8 @@ void php_snmp(INTERNAL_FUNCTION_PARAMETERS, int st);
 /* constant - can be shared among threads */
 static oid objid_mib[] = {1, 3, 6, 1, 2, 1};
 
+/* {{{ snmp_functions[]
+ */
 function_entry snmp_functions[] = {
 		PHP_FE(snmpget, NULL)
 		PHP_FE(snmpwalk, NULL)
@@ -89,8 +91,12 @@ function_entry snmp_functions[] = {
 		PHP_FE(snmpset, NULL)
     {NULL,NULL,NULL}
 };
+/* }}} */
 
+/* {{{ snmp_module_entry
+ */
 zend_module_entry snmp_module_entry = {
+	STANDARD_MODULE_HEADER,
 	"snmp",
 	snmp_functions,
 	PHP_MINIT(snmp),
@@ -98,8 +104,10 @@ zend_module_entry snmp_module_entry = {
 	NULL,
 	NULL,
 	PHP_MINFO(snmp),
+    NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES
 };
+/* }}} */
 
 #ifdef COMPILE_DL_SNMP
 ZEND_GET_MODULE(snmp)
@@ -107,12 +115,17 @@ ZEND_GET_MODULE(snmp)
 
 /* THREAD_LS snmp_module php_snmp_module; - may need one of these at some point */
 
+/* {{{ PHP_MINIT_FUNCTION
+ */
 PHP_MINIT_FUNCTION(snmp)
 {
 	init_mib();
 	return SUCCESS;
 }
+/* }}} */
 
+/* {{{ PHP_MINFO_FUNCTION
+ */
 PHP_MINFO_FUNCTION(snmp)
 {
 	php_info_print_table_start();
@@ -120,9 +133,10 @@ PHP_MINFO_FUNCTION(snmp)
 	php_info_print_table_row(2, "UCD-SNMP Version", VersionInfo);
 	php_info_print_table_end();
 }
+/* }}} */
 
-
-/*
+/* {{{ php_snmp
+*
 * Generic SNMP object fetcher
 *
 * st=1   snmpget() - query an agent and return a single value.
@@ -152,7 +166,10 @@ void php_snmp(INTERNAL_FUNCTION_PARAMETERS, int st) {
 	int myargc = ZEND_NUM_ARGS();
     char type = (char) 0;
     char *value = (char *) 0;
-	
+	char hostname[MAX_NAME_LEN];
+	int remote_port = 161;
+	char *pptr;
+
 	if (myargc < 3 || myargc > 7 ||
 		zend_get_parameters_ex(myargc, &a1, &a2, &a3, &a4, &a5, &a6, &a7) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -214,7 +231,14 @@ void php_snmp(INTERNAL_FUNCTION_PARAMETERS, int st) {
 	
 	memset(&session, 0, sizeof(struct snmp_session));
 
-	session.peername = (*a1)->value.str.val;
+	strcpy (hostname, (*a1)->value.str.val);
+	if ((pptr = strchr (hostname, ':'))) {
+		remote_port = strtol (pptr + 1, NULL, 0);
+		*pptr = 0;
+	}
+
+	session.peername = hostname;
+	session.remote_port = remote_port;
 	session.version = SNMP_VERSION_1;
 	/*
 	* FIXME: potential memory leak
@@ -242,9 +266,18 @@ void php_snmp(INTERNAL_FUNCTION_PARAMETERS, int st) {
 	if (st >= 2) {
 		memmove((char *)name, (char *)root, rootlen * sizeof(oid));
 		name_length = rootlen;
-		if (array_init(return_value) == FAILURE) {
-			php_error(E_WARNING, "Cannot prepare result array");
-			RETURN_FALSE;
+		switch(st) {
+			case 2:
+			case 3:
+				if (array_init(return_value) == FAILURE) {
+					php_error(E_WARNING, "Cannot prepare result array");
+					snmp_close(ss);
+					RETURN_FALSE;
+				}
+				break;
+			default:
+				RETVAL_TRUE;
+				break;
 		}
 	}
 
@@ -255,6 +288,7 @@ void php_snmp(INTERNAL_FUNCTION_PARAMETERS, int st) {
 			name_length = MAX_NAME_LEN;
 			if ( !read_objid(objid, name, &name_length) ) {
 				php_error(E_WARNING,"Invalid object identifier: %s\n", objid);
+				snmp_close(ss);
 				RETURN_FALSE;
 			}
 			snmp_add_null_var(pdu, name, name_length);
@@ -262,6 +296,7 @@ void php_snmp(INTERNAL_FUNCTION_PARAMETERS, int st) {
 			pdu = snmp_pdu_create(SNMP_MSG_SET);
 			if (snmp_add_var(pdu, name, name_length, type, value)) {
 				php_error(E_WARNING,"Could not add variable: %s\n", name);
+				snmp_close(ss);
 				RETURN_FALSE;
 			}
 		} else if (st >= 2) {
@@ -326,14 +361,17 @@ retry:
 							goto retry;
 						}
 					}
+					snmp_close(ss);
 					RETURN_FALSE;
 				}
 			}
 		} else if (status == STAT_TIMEOUT) {
 			php_error(E_WARNING,"No Response from %s\n", (*a1)->value.str.val);
+			snmp_close(ss);
 			RETURN_FALSE;
 		} else {    /* status == STAT_ERROR */
 			php_error(E_WARNING,"An error occurred, Quitting...\n");
+			snmp_close(ss);
 			RETURN_FALSE;
 		}
 		if (response) {
@@ -342,50 +380,63 @@ retry:
 	} /* keepwalking */
 	snmp_close(ss);
 }
+/* }}} */
 
 /* {{{ proto string snmpget(string host, string community, string object_id [, int timeout [, int retries]]) 
    Fetch a SNMP object */
-PHP_FUNCTION(snmpget) {
+PHP_FUNCTION(snmpget)
+{
 	php_snmp(INTERNAL_FUNCTION_PARAM_PASSTHRU,1);
 }
 /* }}} */
 
 /* {{{ proto array snmpwalk(string host, string community, string object_id [, int timeout [, int retries]]) 
    Return all objects under the specified object id */
-PHP_FUNCTION(snmpwalk) {
+PHP_FUNCTION(snmpwalk)
+{
 	php_snmp(INTERNAL_FUNCTION_PARAM_PASSTHRU,2);
 }
 /* }}} */
 
 /* {{{ proto array snmprealwalk(string host, string community, string object_id [, int timeout [, int retries]])
    Return all objects including their respective object id withing the specified one */
-PHP_FUNCTION(snmprealwalk) {
+PHP_FUNCTION(snmprealwalk)
+{
 	php_snmp(INTERNAL_FUNCTION_PARAM_PASSTHRU,3);
 }
 /* }}} */
 
 /* {{{ proto bool snmp_get_quick_print(void)
    Return the current status of quick_print */
-PHP_FUNCTION(snmp_get_quick_print) {
+PHP_FUNCTION(snmp_get_quick_print)
+{
+	if (ZEND_NUM_ARGS() != 0) {
+		WRONG_PARAM_COUNT;
+	}
+
 	RETURN_LONG(snmp_get_quick_print() ? 1 : 0);
 }
 /* }}} */
 
 /* {{{ proto void snmp_set_quick_print(int quick_print)
    Return all objects including their respective object id withing the specified one */
-PHP_FUNCTION(snmp_set_quick_print) {
-	zval **a1;
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &a1) == FAILURE) {
-		WRONG_PARAM_COUNT;
+PHP_FUNCTION(snmp_set_quick_print)
+{
+	int argc = ZEND_NUM_ARGS();
+	long a1;
+
+	if (zend_parse_parameters(argc TSRMLS_CC, "l", &a1) == FAILURE) {
+		return;
 	}
-	convert_to_long_ex(a1);
-	snmp_set_quick_print((int)(*a1)->value.lval);
+
+	snmp_set_quick_print((int)a1);
 }
 /* }}} */
 
 /* {{{ proto int snmpset(string host, string community, string object_id, string type, mixed value [, int timeout [, int retries]]) 
    Set the value of a SNMP object */
-PHP_FUNCTION(snmpset) {
+PHP_FUNCTION(snmpset)
+{
 	php_snmp(INTERNAL_FUNCTION_PARAM_PASSTHRU,11);
 }
 /* }}} */
@@ -393,8 +444,10 @@ PHP_FUNCTION(snmpset) {
 #endif
 
 /*
-* Local variables:
-* tab-width: 4
-* c-basic-offset: 4
-* End:
-*/
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
+ */

@@ -55,14 +55,14 @@ static struct sum_struct *receive_sums(int f)
 	s->sums = (struct sum_buf *)malloc(sizeof(s->sums[0])*s->count);
 	if (!s->sums) out_of_memory("receive_sums");
 
-	for (i=0;i<s->count;i++) {
+	for (i=0; i < (int) s->count;i++) {
 		s->sums[i].sum1 = read_int(f);
 		read_buf(f,s->sums[i].sum2,csum_length);
 
 		s->sums[i].offset = offset;
 		s->sums[i].i = i;
 
-		if (i == s->count-1 && s->remainder != 0) {
+		if (i == (int) s->count-1 && s->remainder != 0) {
 			s->sums[i].len = s->remainder;
 		} else {
 			s->sums[i].len = s->n;
@@ -70,8 +70,8 @@ static struct sum_struct *receive_sums(int f)
 		offset += s->sums[i].len;
 
 		if (verbose > 3)
-			rprintf(FINFO,"chunk[%d] len=%d offset=%d sum1=%08x\n",
-				i,s->sums[i].len,(int)s->sums[i].offset,s->sums[i].sum1);
+			rprintf(FINFO,"chunk[%d] len=%d offset=%.0f sum1=%08x\n",
+				i,s->sums[i].len,(double)s->sums[i].offset,s->sums[i].sum1);
 	}
 
 	s->flength = offset;
@@ -83,9 +83,9 @@ static struct sum_struct *receive_sums(int f)
 
 void send_files(struct file_list *flist,int f_out,int f_in)
 { 
-	int fd;
+	int fd = -1;
 	struct sum_struct *s;
-	struct map_struct *buf;
+	struct map_struct *buf = NULL;
 	STRUCT_STAT st;
 	char fname[MAXPATHLEN];  
 	int i;
@@ -93,11 +93,16 @@ void send_files(struct file_list *flist,int f_out,int f_in)
 	int phase = 0;
 	extern struct stats stats;		
 	struct stats initial_stats;
+	extern int write_batch;   /* dw */
+	extern int read_batch;    /* dw */
+	int checksums_match;   /* dw */
+	int buff_len;  /* dw */
+	char buff[CHUNK_SIZE];    /* dw */
+	int j;   /* dw */
+	int done;   /* dw */
 
 	if (verbose > 2)
 		rprintf(FINFO,"send_files starting\n");
-
-	setup_readbuffer(f_in);
 
 	while (1) {
 		int offset=0;
@@ -159,56 +164,109 @@ void send_files(struct file_list *flist,int f_out,int f_in)
 			rprintf(FERROR,"receive_sums failed\n");
 			return;
 		}
-	  
-		fd = open(fname,O_RDONLY);
-		if (fd == -1) {
-			io_error = 1;
-			rprintf(FERROR,"send_files failed to open %s: %s\n",
-				fname,strerror(errno));
-			free_sums(s);
-			continue;
-		}
-	  
-		/* map the local file */
-		if (do_fstat(fd,&st) != 0) {
-			io_error = 1;
-			rprintf(FERROR,"fstat failed : %s\n",strerror(errno));
-			free_sums(s);
-			close(fd);
-			return;
-		}
-	  
-		if (st.st_size > 0) {
-			buf = map_file(fd,st.st_size);
-		} else {
-			buf = NULL;
-		}
-	  
-		if (verbose > 2)
-			rprintf(FINFO,"send_files mapped %s of size %d\n",
-				fname,(int)st.st_size);
 
-		write_int(f_out,i);
+		if (write_batch)
+		    write_batch_csum_info(&i,flist->count,s);
 	  
-		write_int(f_out,s->count);
-		write_int(f_out,s->n);
-		write_int(f_out,s->remainder);
+		if (!read_batch) {
+			fd = do_open(fname, O_RDONLY, 0);
+			if (fd == -1) {
+				io_error = 1;
+				rprintf(FERROR,"send_files failed to open %s: %s\n",
+					fname,strerror(errno));
+				free_sums(s);
+				continue;
+			}
+	  
+			/* map the local file */
+			if (do_fstat(fd,&st) != 0) {
+				io_error = 1;
+				rprintf(FERROR,"fstat failed : %s\n",strerror(errno));
+				free_sums(s);
+				close(fd);
+				return;
+			}
+	  
+			if (st.st_size > 0) {
+				buf = map_file(fd,st.st_size);
+			} else {
+				buf = NULL;
+			}
+	  
+			if (verbose > 2)
+				rprintf(FINFO,"send_files mapped %s of size %.0f\n",
+					fname,(double)st.st_size);
+
+			write_int(f_out,i);
+	  
+			if (write_batch)
+				write_batch_delta_file((char *)&i,sizeof(i));
+
+			write_int(f_out,s->count);
+			write_int(f_out,s->n);
+			write_int(f_out,s->remainder);
+		}
 	  
 		if (verbose > 2)
-			rprintf(FINFO,"calling match_sums %s\n",fname);
+			if (!read_batch)
+			    rprintf(FINFO,"calling match_sums %s\n",fname);
 	  
 		if (!am_server) {
 			log_transfer(file, fname+offset);
 		}
 
 		set_compression(fname);
-	  
-		match_sums(f_out,s,buf,st.st_size);
 
-		log_send(file, &initial_stats);
-	  	  
-		if (buf) unmap_file(buf);
-		close(fd);
+                if (read_batch) { /* dw */
+                   /* read checksums originally computed on sender side */
+                   read_batch_csum_info(i, s, &checksums_match);
+                   if (checksums_match) {
+                       read_batch_delta_file( (char *) &j, sizeof(int) );
+                       if (j != i) {    /* if flist index entries don't match*/ 
+                          rprintf(FINFO,"index mismatch in send_files\n");
+                          rprintf(FINFO,"read index = %d flist ndx = %d\n",j,i);
+                          close_batch_delta_file();
+                          close_batch_csums_file();
+                          exit_cleanup(1);
+                       }
+                       else {
+                         write_int(f_out,j);
+                         write_int(f_out,s->count);
+                         write_int(f_out,s->n);
+                         write_int(f_out,s->remainder);
+                         done=0;
+                         while (!done) {
+                            read_batch_delta_file( (char *) &buff_len, sizeof(int) );
+                            write_int(f_out,buff_len);
+                            if (buff_len == 0) {
+                               done = 1;
+                            }
+                            else {
+                               if (buff_len > 0) {
+                                  read_batch_delta_file(buff, buff_len);
+                                  write_buf(f_out,buff,buff_len);
+                               }
+                            }
+                         }  /* end while  */
+                         read_batch_delta_file( buff, MD4_SUM_LENGTH);
+                         write_buf(f_out, buff, MD4_SUM_LENGTH);
+
+                       }  /* j=i */
+                   } else {  /* not checksum match */
+                      rprintf (FINFO,"readbatch & checksums don't match\n");
+                      rprintf (FINFO,"filename=%s is being skipped\n",
+			       fname);
+                      continue;
+                   }
+                } else  {
+		    match_sums(f_out,s,buf,st.st_size);
+		    log_send(file, &initial_stats);
+                }
+
+		if (!read_batch) { /* dw */
+		    if (buf) unmap_file(buf);
+		    close(fd);
+		}
 	  
 		free_sums(s);
 	  
@@ -222,6 +280,11 @@ void send_files(struct file_list *flist,int f_out,int f_in)
 	match_report();
 
 	write_int(f_out,-1);
+	if (write_batch || read_batch) { /* dw */
+	    close_batch_csums_file();
+	    close_batch_delta_file();
+	}
+
 }
 
 

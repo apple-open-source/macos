@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.2 2001/07/19 00:19:51 zarzycki Exp $
+dnl $Id: config.m4,v 1.1.1.3 2001/12/14 22:13:01 zarzycki Exp $
 dnl
 
 PHP_ARG_WITH(pdflib,whether to include PDFlib support,
@@ -13,7 +13,7 @@ if test "$PHP_PDFLIB" != "no"; then
   PHP_SUBST(PDFLIB_SHARED_LIBADD)
   PHP_EXTENSION(pdf, $ext_shared)
 
-  case "$PHP_PDFLIB" in
+  case $PHP_PDFLIB in
     yes)
       AC_CHECK_LIB(pdf, PDF_show_boxed, [
         AC_DEFINE(HAVE_PDFLIB,1,[ ])
@@ -30,13 +30,13 @@ if test "$PHP_PDFLIB" != "no"; then
       PHP_ADD_LIBRARY(z,, PDFLIB_SHARED_LIBADD)
     ;;
     *)
-      test -f $PHP_PDFLIB/include/pdflib.h && PDFLIB_INCLUDE="$PHP_PDFLIB/include"
+      test -f $PHP_PDFLIB/include/pdflib.h && PDFLIB_INCLUDE=$PHP_PDFLIB/include
       if test -n "$PDFLIB_INCLUDE" ; then
 
         if test "$PHP_ZLIB_DIR" = "no"; then
           AC_MSG_ERROR(PDF extension requires ZLIB. Use --with-zlib-dir=<DIR>)
         fi
-        
+
         PHP_ADD_LIBRARY_WITH_PATH(z, $PHP_ZLIB_DIR/lib, PDFLIB_SHARED_LIBADD)
  
         PHP_ARG_WITH(jpeg-dir, for the location of libjpeg, 

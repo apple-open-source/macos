@@ -7,7 +7,7 @@
 ## 
 ## Annotated patch file: eapi.patch
 ## Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved. 
-## Created on: 16-Oct-2001
+## Created on: 23-Feb-2002
 ##
 ## This file assembles changes to existing Apache source files
 ## between the original Apache and the patched variant. It can be
@@ -24,8 +24,8 @@
 | patches and configured the shared memory support via the MM library.
 +---------------------------------------------------------------------------
 Index: src/Configuration.tmpl
---- src/Configuration.tmpl	2001/10/16 11:47:06	1.1.1.6
-+++ src/Configuration.tmpl	2001/10/16 11:57:38	1.22
+--- src/Configuration.tmpl	28 Jan 2002 19:21:21 -0000	1.1.1.7
++++ src/Configuration.tmpl	28 Jan 2002 19:40:56 -0000	1.23
 @@ -68,6 +105,24 @@
  #TARGET=
  
@@ -56,9 +56,9 @@ Index: src/Configuration.tmpl
 | Patch in implementation of the EAPI rule.
 +---------------------------------------------------------------------------
 Index: src/Configure
---- src/Configure	2001/10/16 11:47:06	1.1.1.16
-+++ src/Configure	2001/10/16 11:57:38	1.18
-@@ -1860,6 +1860,72 @@
+--- src/Configure	28 Jan 2002 19:21:21 -0000	1.1.1.17
++++ src/Configure	23 Feb 2002 16:40:42 -0000	1.20
+@@ -1866,6 +1866,72 @@
  fi
  
  ####################################################################
@@ -79,7 +79,7 @@ Index: src/Configure
 +    esac
 +    #   MM Shared Memory Library support for EAPI
 +    if [ "x$EAPI_MM" = "x" ]; then
-+        EAPI_MM=`egrep '^EAPI_MM=' $file | tail -1 | awk -F= '{print $2}'`
++        EAPI_MM=`egrep '^EAPI_MM=' $file | sed -n -e '$p' | awk -F= '{print $2}'`
 +    fi
 +    if [ "x$EAPI_MM" != "x" ]; then
 +        case $EAPI_MM in
@@ -136,8 +136,8 @@ Index: src/Configure
 | Add the build support for the ap_hook.c and ap_ctx.c sources (Unix)
 +---------------------------------------------------------------------------
 Index: src/ap/Makefile.tmpl
---- src/ap/Makefile.tmpl	2001/05/20 08:16:15	1.1.1.7
-+++ src/ap/Makefile.tmpl	2001/05/20 08:23:01	1.7
+--- src/ap/Makefile.tmpl	20 May 2001 08:16:15 -0000	1.1.1.7
++++ src/ap/Makefile.tmpl	20 May 2001 08:23:01 -0000	1.7
 @@ -6,7 +6,8 @@
  LIB=libap.a
  
@@ -153,8 +153,8 @@ Index: src/ap/Makefile.tmpl
 | Add the build support for the ap_hook.c and ap_ctx.c sources (Win32)
 +---------------------------------------------------------------------------
 Index: src/ap/ap.mak
---- src/ap/ap.mak	2001/10/16 11:47:06	1.1.1.9
-+++ src/ap/ap.mak	2001/10/16 11:57:38	1.9
+--- src/ap/ap.mak	16 Oct 2001 11:47:06 -0000	1.1.1.9
++++ src/ap/ap.mak	16 Oct 2001 11:57:38 -0000	1.9
 @@ -50,6 +50,9 @@
  	-@erase "$(INTDIR)\ap_cpystrn.obj"
  	-@erase "$(INTDIR)\ap_fnmatch.obj"
@@ -201,10 +201,10 @@ Index: src/ap/ap.mak
 | EAPI-aware modules and standard modules.
 +---------------------------------------------------------------------------
 Index: src/include/ap_mmn.h
---- src/include/ap_mmn.h	2001/01/23 11:35:07	1.1.1.8
-+++ src/include/ap_mmn.h	2001/01/23 11:48:05	1.8
-@@ -233,7 +233,23 @@
-  * 19990320.10          - add ap_is_rdirectory() and ap_stripprefix()
+--- src/include/ap_mmn.h	28 Jan 2002 19:21:22 -0000	1.1.1.9
++++ src/include/ap_mmn.h	28 Jan 2002 19:40:56 -0000	1.9
+@@ -237,7 +237,23 @@
+  *                        structure
   */
  
 +/* 
@@ -233,10 +233,10 @@ Index: src/include/ap_mmn.h
 | shared memory pools.
 +---------------------------------------------------------------------------
 Index: src/include/ap_alloc.h
---- src/include/ap_alloc.h	2001/02/28 19:40:47	1.1.1.3
-+++ src/include/ap_alloc.h	2001/02/28 19:44:33	1.4
+--- src/include/ap_alloc.h	28 Jan 2002 19:21:22 -0000	1.1.1.4
++++ src/include/ap_alloc.h	28 Jan 2002 19:40:56 -0000	1.5
 @@ -95,6 +95,15 @@
- pool * ap_init_alloc(void);		/* Set up everything */
+ API_EXPORT(pool *) ap_init_alloc(void);		/* Set up everything */
  void ap_cleanup_alloc(void);
  API_EXPORT(pool *) ap_make_sub_pool(pool *);	/* All pools are subpools of permanent_pool */
 +#if defined(EAPI)
@@ -256,8 +256,8 @@ Index: src/include/ap_alloc.h
 | Add the additional context variable `ctx' for BUFF structures.
 +---------------------------------------------------------------------------
 Index: src/include/buff.h
---- src/include/buff.h	2001/01/23 11:35:07	1.1.1.4
-+++ src/include/buff.h	2001/01/23 11:48:05	1.8
+--- src/include/buff.h	28 Jan 2002 19:21:23 -0000	1.1.1.5
++++ src/include/buff.h	28 Jan 2002 19:40:56 -0000	1.9
 @@ -125,6 +125,10 @@
      /* transport handle, for RPC binding handle or some such */
      void *t_handle;
@@ -269,7 +269,7 @@ Index: src/include/buff.h
  #ifdef B_SFIO
      Sfio_t *sf_in;
      Sfio_t *sf_out;
-@@ -176,6 +180,10 @@
+@@ -180,6 +184,10 @@
  /* Internal routines */
  API_EXPORT(int) ap_bflsbuf(int c, BUFF *fb);
  API_EXPORT(int) ap_bfilbuf(BUFF *fb);
@@ -285,8 +285,8 @@ Index: src/include/buff.h
 | Add the four additional Apache API module hooks.
 +---------------------------------------------------------------------------
 Index: src/include/http_config.h
---- src/include/http_config.h	2001/01/23 11:35:07	1.1.1.8
-+++ src/include/http_config.h	2001/01/23 11:48:05	1.10
+--- src/include/http_config.h	28 Jan 2002 19:21:23 -0000	1.1.1.9
++++ src/include/http_config.h	28 Jan 2002 19:40:56 -0000	1.11
 @@ -276,6 +276,65 @@
      void (*child_exit) (server_rec *, pool *);
  #endif
@@ -359,8 +359,8 @@ Index: src/include/http_config.h
 | global module context.
 +---------------------------------------------------------------------------
 Index: src/include/http_conf_globals.h
---- src/include/http_conf_globals.h	2001/10/16 11:47:12	1.1.1.9
-+++ src/include/http_conf_globals.h	2001/10/16 11:57:38	1.10
+--- src/include/http_conf_globals.h	28 Jan 2002 19:21:22 -0000	1.1.1.10
++++ src/include/http_conf_globals.h	28 Jan 2002 19:40:56 -0000	1.11
 @@ -95,6 +95,9 @@
  #endif
  extern int ap_dump_settings;
@@ -379,20 +379,6 @@ Index: src/include/http_conf_globals.h
 | some modules need a generic timeout mechanism.
 +---------------------------------------------------------------------------
 Index: src/include/http_main.h
---- src/include/http_main.h	2001/10/16 11:47:12	1.1.1.6
-+++ src/include/http_main.h	2001/10/16 11:57:38	1.6
-@@ -125,7 +125,11 @@
- API_EXPORT(void) ap_sync_scoreboard_image(void);
- int ap_update_child_status(int child_num, int status, request_rec *r);
- void ap_time_process_request(int child_num, int status);
-+#ifdef EAPI
-+API_EXPORT(unsigned int) ap_set_callback_and_alarm(void (*fn) (int), int x);
-+#else
- unsigned int ap_set_callback_and_alarm(void (*fn) (int), int x);
-+#endif
- API_EXPORT(int) ap_check_alarm(void);
- 
- void setup_signal_names(char *prefix);
 
 +---------------------------------------------------------------------------
 | First add support for the HTTPS protocol scheme via hooks,
@@ -402,8 +388,8 @@ Index: src/include/http_main.h
 | function.
 +---------------------------------------------------------------------------
 Index: src/include/httpd.h
---- src/include/httpd.h	2001/10/16 11:47:12	1.1.1.16
-+++ src/include/httpd.h	2001/10/16 11:57:38	1.26
+--- src/include/httpd.h	28 Jan 2002 19:21:23 -0000	1.1.1.17
++++ src/include/httpd.h	28 Jan 2002 19:40:56 -0000	1.27
 @@ -70,7 +70,19 @@
  /* Headers in which EVERYONE has an interest... */
  
@@ -509,8 +495,8 @@ Index: src/include/httpd.h
 | Patch the shared memory pool support into the Apache pool facility.
 +---------------------------------------------------------------------------
 Index: src/main/alloc.c
---- src/main/alloc.c	2001/01/23 11:35:08	1.1.1.10
-+++ src/main/alloc.c	2001/01/23 11:48:05	1.17
+--- src/main/alloc.c	28 Jan 2002 19:21:24 -0000	1.1.1.11
++++ src/main/alloc.c	28 Jan 2002 19:40:56 -0000	1.18
 @@ -64,6 +64,10 @@
   */
  
@@ -587,17 +573,16 @@ Index: src/main/alloc.c
      (void) ap_acquire_mutex(alloc_mutex);
      old_free_list = block_freelist;
      block_freelist = blok;
-@@ -342,7 +369,11 @@
+@@ -342,6 +369,10 @@
  #endif
  
      (void) ap_release_mutex(alloc_mutex);
 +#if defined(EAPI) && defined(EAPI_MM)
 +    if (blok->h.is_shm)
 +        (void)ap_mm_unlock(mm);
- #endif
 +#endif
+ #endif
  }
- 
  
 @@ -350,7 +381,11 @@
   * if necessary.  Must be called with alarms blocked.
@@ -974,34 +959,9 @@ Index: src/main/alloc.c
 | modules to intercept the I/O processing via hooks.
 +---------------------------------------------------------------------------
 Index: src/main/buff.c
---- src/main/buff.c	2001/01/23 11:35:08	1.1.1.10
-+++ src/main/buff.c	2001/01/23 11:48:05	1.18
-@@ -127,7 +127,11 @@
-   select() sometimes returns 1 even though the write will block. We must work around this.
- */
- 
-+#ifdef EAPI
-+API_EXPORT(int) sendwithtimeout(int sock, const char *buf, int len, int flags)
-+#else /* EAPI */
- int sendwithtimeout(int sock, const char *buf, int len, int flags)
-+#endif /* EAPI */
- {
-     int iostate = 1;
-     fd_set fdset;
-@@ -195,8 +199,11 @@
-     return (rv);
- }
- 
--
-+#ifdef EAPI
-+API_EXPORT(int) recvwithtimeout(int sock, char *buf, int len, int flags)
-+#else /* EAPI */
- int recvwithtimeout(int sock, char *buf, int len, int flags)
-+#endif /* EAPI */
- {
-     int iostate = 1;
-     fd_set fdset;
-@@ -274,6 +281,9 @@
+--- src/main/buff.c	28 Jan 2002 19:21:24 -0000	1.1.1.11
++++ src/main/buff.c	28 Jan 2002 19:40:57 -0000	1.19
+@@ -273,6 +273,9 @@
      }
      else
  #endif
@@ -1011,17 +971,17 @@ Index: src/main/buff.c
  	rv = read(fb->fd_in, buf, nbyte);
      
      return rv;
-@@ -285,6 +295,9 @@
+@@ -284,6 +287,9 @@
  
- #if defined (WIN32) || defined(NETWARE)
+ #if defined (WIN32) || defined(NETWARE) || defined(CYGWIN_WINSOCK) 
      if (fb->flags & B_SOCKET) {
 +#ifdef EAPI
 +	if (!ap_hook_call("ap::buff::recvwithtimeout", &rv, fb, buf, nbyte))
 +#endif /* EAPI */
- 	rv = recvwithtimeout(fb->fd_in, buf, nbyte, 0);
+ 	rv = ap_recvwithtimeout(fb->fd_in, buf, nbyte, 0);
  	if (rv == SOCKET_ERROR)
  	    errno = WSAGetLastError();
-@@ -332,6 +345,9 @@
+@@ -331,6 +337,9 @@
      }
      else
  #endif
@@ -1031,19 +991,19 @@ Index: src/main/buff.c
  #if defined (B_SFIO)
  	rv = sfwrite(fb->sf_out, buf, nbyte);
  #else
-@@ -358,6 +374,9 @@
- 
+@@ -361,6 +370,9 @@
+    
  #if defined(WIN32) || defined(NETWARE)
      if (fb->flags & B_SOCKET) {
 +#ifdef EAPI
 +	if (!ap_hook_call("ap::buff::sendwithtimeout", &rv, fb, buf, nbyte))
 +#endif /* EAPI */
- 	rv = sendwithtimeout(fb->fd, buf, nbyte, 0);
+ 	rv = ap_sendwithtimeout(fb->fd, buf, nbyte, 0);
  	if (rv == SOCKET_ERROR)
  	    errno = WSAGetLastError();
-@@ -438,6 +457,10 @@
- 		       (size_t) SF_UNBOUND, 1, SF_WRITE);
- #endif
+@@ -444,6 +456,10 @@
+     fb->callback_data = NULL;
+     fb->filter_callback = NULL;
  
 +#ifdef EAPI
 +    fb->ctx = ap_ctx_new(p);
@@ -1052,7 +1012,7 @@ Index: src/main/buff.c
      return fb;
  }
  
-@@ -1084,6 +1107,9 @@
+@@ -1096,6 +1112,9 @@
      i = 0;
      while (i < nvec) {
  	do
@@ -1069,8 +1029,8 @@ Index: src/main/buff.c
 | variables are initialized.
 +---------------------------------------------------------------------------
 Index: src/main/http_config.c
---- src/main/http_config.c	2001/10/16 11:47:13	1.1.1.12
-+++ src/main/http_config.c	2001/10/16 11:57:38	1.15
+--- src/main/http_config.c	28 Jan 2002 19:21:24 -0000	1.1.1.13
++++ src/main/http_config.c	28 Jan 2002 19:40:57 -0000	1.16
 @@ -599,6 +599,20 @@
  	m->name = tmp;
      }
@@ -1172,9 +1132,9 @@ Index: src/main/http_config.c
 | is added plus the initialization of one more `ctx' variable.
 +---------------------------------------------------------------------------
 Index: src/main/http_main.c
---- src/main/http_main.c	2001/10/16 11:47:14	1.1.1.15
-+++ src/main/http_main.c	2001/10/16 11:57:39	1.37
-@@ -280,6 +280,9 @@
+--- src/main/http_main.c	28 Jan 2002 19:21:24 -0000	1.1.1.16
++++ src/main/http_main.c	28 Jan 2002 19:40:57 -0000	1.38
+@@ -279,6 +279,9 @@
  
  int ap_dump_settings = 0;
  API_VAR_EXPORT int ap_extended_status = 0;
@@ -1184,7 +1144,7 @@ Index: src/main/http_main.c
  
  /*
   * The max child slot ever assigned, preserved across restarts.  Necessary
-@@ -462,6 +465,30 @@
+@@ -461,6 +464,30 @@
      }
  }
  
@@ -1215,7 +1175,7 @@ Index: src/main/http_main.c
  #ifndef NETWARE
  static APACHE_TLS int volatile exit_after_unblock = 0;
  #endif
-@@ -1435,6 +1462,10 @@
+@@ -1509,6 +1536,10 @@
  	    ap_log_transaction(log_req);
  	}
  
@@ -1226,7 +1186,7 @@ Index: src/main/http_main.c
  	ap_bsetflag(save_req->connection->client, B_EOUT, 1);
  	ap_bclose(save_req->connection->client);
  	
-@@ -1443,6 +1474,9 @@
+@@ -1517,6 +1548,9 @@
          ap_longjmp(jmpbuffer, 1);
      }
      else {			/* abort the connection */
@@ -1236,19 +1196,7 @@ Index: src/main/http_main.c
  	ap_bsetflag(current_conn->client, B_EOUT, 1);
  	ap_bclose(current_conn->client);
  	current_conn->aborted = 1;
-@@ -1508,7 +1542,11 @@
- }
- #endif
- 
-+#ifdef EAPI
-+API_EXPORT(unsigned int) ap_set_callback_and_alarm(void (*fn) (int), int x)
-+#else
- unsigned int ap_set_callback_and_alarm(void (*fn) (int), int x)
-+#endif
- {
-     unsigned int old;
- 
-@@ -1744,10 +1782,16 @@
+@@ -1818,10 +1852,16 @@
      /* Send any leftover data to the client, but never try to again */
  
      if (ap_bflush(r->connection->client) == -1) {
@@ -1265,7 +1213,7 @@ Index: src/main/http_main.c
      ap_bsetflag(r->connection->client, B_EOUT, 1);
  
      /* Close our half of the connection --- send the client a FIN */
-@@ -2475,6 +2519,9 @@
+@@ -2549,6 +2589,9 @@
      /* Clear the pool - including any registered cleanups */
      ap_destroy_pool(pglobal);
  #endif
@@ -1275,7 +1223,7 @@ Index: src/main/http_main.c
      exit(code);
  }
  
-@@ -3469,6 +3516,24 @@
+@@ -3544,6 +3587,24 @@
      conn->remote_addr = *remaddr;
      conn->remote_ip = ap_pstrdup(conn->pool,
  			      inet_ntoa(conn->remote_addr.sin_addr));
@@ -1300,7 +1248,7 @@ Index: src/main/http_main.c
  
      return conn;
  }
-@@ -3891,6 +3956,15 @@
+@@ -3972,6 +4033,15 @@
      printf("Server's Module Magic Number: %u:%u\n",
  	   MODULE_MAGIC_NUMBER_MAJOR, MODULE_MAGIC_NUMBER_MINOR);
      printf("Server compiled with....\n");
@@ -1316,7 +1264,7 @@ Index: src/main/http_main.c
  #ifdef TPF
      show_os_specific_compile_settings();
  #endif
-@@ -4057,6 +4131,22 @@
+@@ -4144,6 +4214,22 @@
      ap_server_pre_read_config  = ap_make_array(pcommands, 1, sizeof(char *));
      ap_server_post_read_config = ap_make_array(pcommands, 1, sizeof(char *));
      ap_server_config_defines   = ap_make_array(pcommands, 1, sizeof(char *));
@@ -1339,7 +1287,7 @@ Index: src/main/http_main.c
  }
  
  #ifndef MULTITHREAD
-@@ -4476,6 +4566,9 @@
+@@ -4576,6 +4662,9 @@
  
  	    ap_sync_scoreboard_image();
  	    if (ap_scoreboard_image->global.running_generation != ap_my_generation) {
@@ -1349,7 +1297,7 @@ Index: src/main/http_main.c
  		ap_bclose(conn_io);
  		clean_child_exit(0);
  	    }
-@@ -4504,6 +4597,9 @@
+@@ -4604,6 +4693,9 @@
  	 */
  
  #ifdef NO_LINGCLOSE
@@ -1359,7 +1307,7 @@ Index: src/main/http_main.c
  	ap_bclose(conn_io);	/* just close it */
  #else
  	if (r && r->connection
-@@ -4514,6 +4610,9 @@
+@@ -4614,6 +4706,9 @@
  	    lingering_close(r);
  	}
  	else {
@@ -1369,7 +1317,7 @@ Index: src/main/http_main.c
  	    ap_bsetflag(conn_io, B_EOUT, 1);
  	    ap_bclose(conn_io);
  	}
-@@ -5273,16 +5372,31 @@
+@@ -5373,16 +5468,31 @@
  	    usage(argv[0]);
  	}
      }
@@ -1401,7 +1349,7 @@ Index: src/main/http_main.c
      }
  
      child_timeouts = !ap_standalone || one_process;
-@@ -5413,6 +5527,10 @@
+@@ -5513,6 +5623,10 @@
  	    ap_destroy_pool(r->pool);
  	}
  
@@ -1412,7 +1360,7 @@ Index: src/main/http_main.c
  	ap_bclose(cio);
      }
      exit(0);
-@@ -5759,6 +5877,9 @@
+@@ -5889,6 +6003,9 @@
  	ap_kill_cleanups_for_socket(ptrans, csd);
  
  #ifdef NO_LINGCLOSE
@@ -1422,7 +1370,7 @@ Index: src/main/http_main.c
  	ap_bclose(conn_io);	/* just close it */
  #else
  	if (r && r->connection
-@@ -5769,6 +5890,9 @@
+@@ -5899,6 +6016,9 @@
  	    lingering_close(r);
  	}
  	else {
@@ -1432,7 +1380,7 @@ Index: src/main/http_main.c
  	    ap_bsetflag(conn_io, B_EOUT, 1);
  	    ap_bclose(conn_io);
  	}
-@@ -7316,6 +7440,10 @@
+@@ -7444,6 +7564,10 @@
      if (!conf_specified)
          ap_cpystrn(ap_server_confname, SERVER_CONFIG_FILE, sizeof(ap_server_confname));
  
@@ -1443,7 +1391,7 @@ Index: src/main/http_main.c
      if (!ap_os_is_path_absolute(ap_server_confname))
          ap_cpystrn(ap_server_confname,
                     ap_server_root_relative(pcommands, ap_server_confname),
-@@ -7355,6 +7483,9 @@
+@@ -7483,6 +7607,9 @@
      }
  #else /* ndef WIN32 */
      server_conf = ap_read_config(pconf, ptrans, ap_server_confname);
@@ -1459,9 +1407,9 @@ Index: src/main/http_main.c
 | conn_rec structures.
 +---------------------------------------------------------------------------
 Index: src/main/http_request.c
---- src/main/http_request.c	2001/05/20 08:16:18	1.1.1.12
-+++ src/main/http_request.c	2001/05/20 08:23:02	1.12
-@@ -1374,6 +1374,10 @@
+--- src/main/http_request.c	28 Jan 2002 19:21:25 -0000	1.1.1.13
++++ src/main/http_request.c	28 Jan 2002 19:40:57 -0000	1.13
+@@ -1375,6 +1375,10 @@
  
      new->method          = r->method;
      new->method_number   = r->method_number;
@@ -1478,9 +1426,9 @@ Index: src/main/http_request.c
 | request_rec structures.
 +---------------------------------------------------------------------------
 Index: src/main/http_protocol.c
---- src/main/http_protocol.c	2001/10/16 11:47:14	1.1.1.14
-+++ src/main/http_protocol.c	2001/10/16 11:57:39	1.14
-@@ -1110,6 +1110,10 @@
+--- src/main/http_protocol.c	28 Jan 2002 19:21:25 -0000	1.1.1.15
++++ src/main/http_protocol.c	28 Jan 2002 19:40:57 -0000	1.15
+@@ -1151,6 +1151,10 @@
      r->status          = HTTP_REQUEST_TIME_OUT;  /* Until we get a request */
      r->the_request     = NULL;
  
@@ -1491,7 +1439,7 @@ Index: src/main/http_protocol.c
  #ifdef CHARSET_EBCDIC
      ap_bsetflag(r->connection->client, B_ASCII2EBCDIC, r->ebcdic.conv_in  = 1);
      ap_bsetflag(r->connection->client, B_EBCDIC2ASCII, r->ebcdic.conv_out = 1);
-@@ -1258,6 +1262,11 @@
+@@ -1299,6 +1303,11 @@
      rnew->read_body       = REQUEST_NO_BODY;
  
      rnew->main = (request_rec *) r;
@@ -1502,15 +1450,15 @@ Index: src/main/http_protocol.c
 +
  }
  
- void ap_finalize_sub_req_protocol(request_rec *sub)
+ API_EXPORT(void) ap_finalize_sub_req_protocol(request_rec *sub)
 
 +---------------------------------------------------------------------------
 | Add support for loading both EAPI and AP13 modules.
 +---------------------------------------------------------------------------
 Index: src/modules/standard/mod_so.c
---- src/modules/standard/mod_so.c	2001/05/20 08:16:21	1.1.1.7
-+++ src/modules/standard/mod_so.c	2001/05/20 08:23:02	1.8
-@@ -266,11 +266,24 @@
+--- src/modules/standard/mod_so.c	28 Jan 2002 19:21:28 -0000	1.1.1.8
++++ src/modules/standard/mod_so.c	28 Jan 2002 19:40:57 -0000	1.9
+@@ -269,11 +269,24 @@
       * Make sure the found module structure is really a module structure
       * 
       */
@@ -1544,8 +1492,8 @@ Index: src/modules/standard/mod_so.c
 | one hook for creating new %x tags at all.
 +---------------------------------------------------------------------------
 Index: src/modules/standard/mod_log_config.c
---- src/modules/standard/mod_log_config.c	2001/01/23 11:35:12	1.1.1.11
-+++ src/modules/standard/mod_log_config.c	2001/01/23 11:48:08	1.24
+--- src/modules/standard/mod_log_config.c	23 Jan 2001 11:35:12 -0000	1.1.1.11
++++ src/modules/standard/mod_log_config.c	23 Jan 2001 11:48:08 -0000	1.24
 @@ -262,6 +262,9 @@
  typedef const char *(*item_key_func) (request_rec *, char *);
  
@@ -1637,8 +1585,8 @@ Index: src/modules/standard/mod_log_config.c
 | variables from other modules.
 +---------------------------------------------------------------------------
 Index: src/modules/standard/mod_rewrite.c
---- src/modules/standard/mod_rewrite.c	2001/10/16 11:47:16	1.1.1.12
-+++ src/modules/standard/mod_rewrite.c	2001/10/16 11:57:39	1.10
+--- src/modules/standard/mod_rewrite.c	28 Jan 2002 19:21:27 -0000	1.1.1.13
++++ src/modules/standard/mod_rewrite.c	28 Jan 2002 19:40:57 -0000	1.11
 @@ -3678,6 +3678,15 @@
      }
  #endif /* ndef WIN32 && NETWARE*/
@@ -1661,9 +1609,9 @@ Index: src/modules/standard/mod_rewrite.c
 | the status HTML page.
 +---------------------------------------------------------------------------
 Index: src/modules/standard/mod_status.c
---- src/modules/standard/mod_status.c	2001/05/20 08:16:21	1.1.1.12
-+++ src/modules/standard/mod_status.c	2001/05/20 08:23:02	1.9
-@@ -715,6 +752,12 @@
+--- src/modules/standard/mod_status.c	28 Jan 2002 19:21:28 -0000	1.1.1.13
++++ src/modules/standard/mod_status.c	28 Jan 2002 19:40:57 -0000	1.10
+@@ -717,6 +754,12 @@
  </table>\n", r);
  #endif
  	}
@@ -1682,8 +1630,8 @@ Index: src/modules/standard/mod_status.c
 | recognize more schemes by intercepting this processing.
 +---------------------------------------------------------------------------
 Index: src/modules/proxy/mod_proxy.c
---- src/modules/proxy/mod_proxy.c	2001/10/16 11:47:15	1.1.1.9
-+++ src/modules/proxy/mod_proxy.c	2001/10/16 11:57:39	1.16
+--- src/modules/proxy/mod_proxy.c	28 Jan 2002 19:21:26 -0000	1.1.1.10
++++ src/modules/proxy/mod_proxy.c	28 Jan 2002 19:40:57 -0000	1.17
 @@ -215,6 +215,9 @@
  static int proxy_fixup(request_rec *r)
  {
@@ -1693,7 +1641,7 @@ Index: src/modules/proxy/mod_proxy.c
 +#endif /* EAPI */
  
      if (r->proxyreq == NOT_PROXY || strncmp(r->filename, "proxy:", 6) != 0)
- 	return DECLINED;
+         return DECLINED;
 @@ -222,6 +225,14 @@
      url = &r->filename[6];
  
@@ -1707,7 +1655,7 @@ Index: src/modules/proxy/mod_proxy.c
 +    else
 +#endif /* EAPI */
      if (strncasecmp(url, "http:", 5) == 0)
- 	return ap_proxy_http_canon(r, url + 5, "http", DEFAULT_HTTP_PORT);
+         return ap_proxy_http_canon(r, url + 5, "http", DEFAULT_HTTP_PORT);
      else if (strncasecmp(url, "ftp:", 4) == 0)
 @@ -237,9 +248,44 @@
  static void proxy_init(server_rec *r, pool *p)
@@ -1718,8 +1666,8 @@ Index: src/modules/proxy/mod_proxy.c
 +                AP_HOOK_SIG3(void,ptr,ptr), AP_HOOK_ALL, r, p);
 +#endif
  }
--
  
+-
 +#ifdef EAPI
 +static void proxy_addmod(module *m)
 +{
@@ -1755,10 +1703,10 @@ Index: src/modules/proxy/mod_proxy.c
  
  /* Send a redirection if the request contains a hostname which is not */
  /* fully qualified, i.e. doesn't have a domain name appended. Some proxy */
-@@ -369,6 +415,14 @@
- 		/* CONNECT is a special method that bypasses the normal
- 		 * proxy code.
- 		 */
+@@ -370,6 +416,14 @@
+                 /* CONNECT is a special method that bypasses the normal
+                  * proxy code.
+                  */
 +#ifdef EAPI
 +		if (!ap_hook_use("ap::mod_proxy::handler",
 +				 AP_HOOK_SIG7(int,ptr,ptr,ptr,ptr,int,ptr),
@@ -1767,20 +1715,20 @@ Index: src/modules/proxy/mod_proxy.c
 +				 ents[i].hostname, ents[i].port, 
 +				 ents[i].protocol) || rc == DECLINED) {
 +#endif /* EAPI */
- 		if (r->method_number == M_CONNECT)
- 		    rc = ap_proxy_connect_handler(r, cr, url, ents[i].hostname,
- 					       ents[i].port);
-@@ -378,6 +432,9 @@
- 					    ents[i].port);
- 		else
- 		    rc = DECLINED;
+                 if (r->method_number == M_CONNECT)
+                     rc = ap_proxy_connect_handler(r, cr, url, ents[i].hostname,
+                                                ents[i].port);
+@@ -379,6 +433,9 @@
+                                             ents[i].port);
+                 else
+                     rc = DECLINED;
 +#ifdef EAPI
 +		}
 +#endif /* EAPI */
  
- 		/* an error or success */
- 		if (rc != DECLINED && rc != HTTP_BAD_GATEWAY)
-@@ -391,6 +448,14 @@
+                 /* an error or success */
+                 if (rc != DECLINED && rc != HTTP_BAD_GATEWAY)
+@@ -392,6 +449,14 @@
   * give up??
   */
      /* handle the scheme */
@@ -1793,12 +1741,12 @@ Index: src/modules/proxy/mod_proxy.c
 +        return rc;
 +#endif /* EAPI */
      if (r->method_number == M_CONNECT)
- 	return ap_proxy_connect_handler(r, cr, url, NULL, 0);
+         return ap_proxy_connect_handler(r, cr, url, NULL, 0);
      if (strcasecmp(scheme, "http") == 0)
-@@ -955,6 +1020,12 @@
-     NULL,			/* child_init */
-     NULL,			/* child_exit */
-     proxy_detect		/* post read-request */
+@@ -956,6 +1021,12 @@
+     NULL,                       /* child_init */
+     NULL,                       /* child_exit */
+     proxy_detect                /* post read-request */
 +#ifdef EAPI
 +   ,proxy_addmod,		/* EAPI: add_module */
 +    proxy_remmod,		/* EAPI: remove_module */
@@ -1814,20 +1762,20 @@ Index: src/modules/proxy/mod_proxy.c
 | to enhance it by intercepting this processing.
 +---------------------------------------------------------------------------
 Index: src/modules/proxy/proxy_http.c
---- src/modules/proxy/proxy_http.c	2001/10/16 11:47:15	1.1.1.11
-+++ src/modules/proxy/proxy_http.c	2001/10/16 11:57:39	1.19
-@@ -190,6 +190,9 @@
+--- src/modules/proxy/proxy_http.c	28 Jan 2002 19:21:26 -0000	1.1.1.12
++++ src/modules/proxy/proxy_http.c	28 Jan 2002 19:40:57 -0000	1.20
+@@ -166,6 +166,9 @@
+     char *destportstr = NULL;
      const char *urlptr = NULL;
-     const char *datestr;
-     struct tbl_do_args tdo;
+     const char *datestr, *urlstr;
 +#ifdef EAPI
 +    char *peer;
 +#endif
  
      void *sconf = r->server->module_config;
      proxy_server_conf *conf =
-@@ -208,6 +211,12 @@
- 	return HTTP_BAD_REQUEST;
+@@ -186,6 +189,12 @@
+         return HTTP_BAD_REQUEST;
      urlptr += 3;
      destport = DEFAULT_HTTP_PORT;
 +#ifdef EAPI
@@ -1838,27 +1786,27 @@ Index: src/modules/proxy/proxy_http.c
 +#endif /* EAPI */
      strp = strchr(urlptr, '/');
      if (strp == NULL) {
- 	desthost = ap_pstrdup(p, urlptr);
-@@ -245,12 +254,18 @@
- 	err = ap_proxy_host2addr(proxyhost, &server_hp);
- 	if (err != NULL)
- 	    return DECLINED;	/* try another */
+         desthost = ap_pstrdup(p, urlptr);
+@@ -223,12 +232,18 @@
+         err = ap_proxy_host2addr(proxyhost, &server_hp);
+         if (err != NULL)
+             return DECLINED;    /* try another */
 +#ifdef EAPI
 +	peer = ap_psprintf(p, "%s:%u", proxyhost, proxyport);  
 +#endif
      }
      else {
- 	server.sin_port = htons(destport);
- 	err = ap_proxy_host2addr(desthost, &server_hp);
- 	if (err != NULL)
- 	    return ap_proxyerror(r, HTTP_INTERNAL_SERVER_ERROR, err);
+         server.sin_port = htons((unsigned short)destport);
+         err = ap_proxy_host2addr(desthost, &server_hp);
+         if (err != NULL)
+             return ap_proxyerror(r, HTTP_INTERNAL_SERVER_ERROR, err);
 +#ifdef EAPI
 +	peer =  ap_psprintf(p, "%s:%u", desthost, destport);  
 +#endif
      }
  
-     sock = ap_psocket(p, PF_INET, SOCK_STREAM, IPPROTO_TCP);
-@@ -307,13 +322,41 @@
+ 
+@@ -301,14 +316,42 @@
      f = ap_bcreate(p, B_RDWR | B_SOCKET);
      ap_bpushfd(f, sock, sock);
  
@@ -1876,7 +1824,7 @@ Index: src/modules/proxy/proxy_http.c
 +
      ap_hard_timeout("proxy send", r);
      ap_bvputs(f, r->method, " ", proxyhost ? url : urlptr, " HTTP/1.0" CRLF,
- 	   NULL);
+            NULL);
 +#ifdef EAPI
 +    {
 +	int rc = DECLINED;
@@ -1892,21 +1840,22 @@ Index: src/modules/proxy/proxy_http.c
 +        }
 +    }
 +#else /* EAPI */
+     /* Send Host: now, adding it to req_hdrs wouldn't be much better */
      if (destportstr != NULL && destport != DEFAULT_HTTP_PORT)
- 	ap_bvputs(f, "Host: ", desthost, ":", destportstr, CRLF, NULL);
+         ap_bvputs(f, "Host: ", desthost, ":", destportstr, CRLF, NULL);
      else
- 	ap_bvputs(f, "Host: ", desthost, CRLF, NULL);
+         ap_bvputs(f, "Host: ", desthost, CRLF, NULL);
 +#endif /* EAPI */
  
      if (conf->viaopt == via_block) {
- 	/* Block all outgoing Via: headers */
+         /* Block all outgoing Via: headers */
 
 +---------------------------------------------------------------------------
 | Add EAPI hooks in module structure for APXS generated samples.
 +---------------------------------------------------------------------------
 Index: src/support/apxs.pl
---- src/support/apxs.pl	2001/05/20 08:16:25	1.1.1.10
-+++ src/support/apxs.pl	2001/05/20 08:23:03	1.10
+--- src/support/apxs.pl	20 May 2001 08:16:25 -0000	1.1.1.10
++++ src/support/apxs.pl	20 May 2001 08:23:03 -0000	1.10
 @@ -703,5 +703,11 @@
      NULL,                  /* child_init                          */
      NULL,                  /* child_exit                          */
@@ -1925,8 +1874,8 @@ Index: src/support/apxs.pl
 | and similar braindead platforms as DSO.
 +---------------------------------------------------------------------------
 Index: src/support/httpd.exp
---- src/support/httpd.exp	2001/02/28 19:40:56	1.1.1.9
-+++ src/support/httpd.exp	2001/02/28 19:44:35	1.11
+--- src/support/httpd.exp	28 Feb 2001 19:40:56 -0000	1.1.1.9
++++ src/support/httpd.exp	28 Feb 2001 19:44:35 -0000	1.11
 @@ -422,3 +422,59 @@
  XML_SetUnparsedEntityDeclHandler
  XML_SetUserData
@@ -1993,12 +1942,12 @@ Index: src/support/httpd.exp
 | Windows 95 and similar braindead platforms as DDL.
 +---------------------------------------------------------------------------
 Index: src/ApacheCore.def
---- src/ApacheCore.def	2001/01/23 11:35:01	1.1.1.7
-+++ src/ApacheCore.def	2001/03/03 10:46:41	1.11
-@@ -389,3 +389,69 @@
- 	ap_stripprefix @380
-         ap_os_dso_load @381
-         ap_os_dso_error @382
+--- src/ApacheCore.def	28 Jan 2002 19:21:21 -0000	1.1.1.8
++++ src/ApacheCore.def	28 Jan 2002 19:40:56 -0000	1.12
+@@ -442,3 +442,67 @@
+         ap_update_child_status @434
+         ap_sendwithtimeout @435
+         ap_recvwithtimeout @436
 +	
 +	; EAPI extended symbols
 +	; note; no ID's, so these all bind by name rather than ordinal since 
@@ -2018,8 +1967,6 @@ Index: src/ApacheCore.def
 +	ap_hook_use
 +	ap_hook_call
 +	ap_set_callback_and_alarm
-+	recvwithtimeout
-+	sendwithtimeout
 +	ap_acquire_pool
 +	ap_make_shared_sub_pool
 +	ap_release_pool

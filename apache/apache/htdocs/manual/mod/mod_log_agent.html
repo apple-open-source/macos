@@ -50,7 +50,7 @@
     <hr />
 
     <h2><a id="agentlog" name="agentlog">AgentLog</a></h2>
-    <!--%plaintext &lt;?INDEX {\tt AgentLog} directive&gt; -->
+
     <a href="directive-dict.html#Syntax"
     rel="Help"><strong>Syntax:</strong></a> AgentLog
     <em>file-pipe</em><br />
@@ -94,7 +94,15 @@
     than the user that starts the server.</p>
 
     <p>This directive is provided for compatibility with NCSA
-    1.4.</p>
+    1.4. The same result can be obtained by using the <a
+    href="mod_log_config.html#logformat">LogFormat</a> and <a
+    href="mod_log_config.html#customlog">CustomLog</a> directives as
+    shown in the following example:</p>
+
+<pre>
+    LogFormat "%{User-agent}i" agent
+    CustomLog logs/agent_log agent
+</pre>
 
     <p>    <hr />
 

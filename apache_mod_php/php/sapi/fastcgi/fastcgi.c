@@ -43,22 +43,26 @@
 #include "fcgi_config.h"
 #include "fcgiapp.h"
 #include <stdio.h>
+#if HAVE_STDLIB_H
 #include <stdlib.h>
+#endif
+#if HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <sys/wait.h>
 #include <sys/stat.h>
 
-
-#define TLS_D
-#define TLS_DC
-#define TLS_C
-#define TLS_CC
-#define TLS_FETCH()
-
+#if HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+#if HAVE_SIGNAL_H
+#include <signal.h>
+#endif
 
 FCGX_Stream *in, *out, *err;
 FCGX_ParamArray envp;
 char *path_info = NULL;
+struct sigaction act, old_term, old_quit, old_int;
 
 /* Our original environment from when the FastCGI first started */
 char **orig_env;
@@ -71,8 +75,23 @@ char **cgi_env;
  */
 char **merge_env;
 
+/**
+ * Number of child processes that will get created to service requests
+ */
+static int children = 8;
 
-static int sapi_fastcgi_ub_write(const char *str, uint str_length)
+/**
+ * Set to non-zero if we are the parent process
+ */
+static int parent = 1;
+
+/**
+ * Process group
+ */
+static pid_t pgroup;
+
+
+static int sapi_fastcgi_ub_write(const char *str, uint str_length TSRMLS_DC)
 {
 	uint sent = FCGX_PutStr( str, str_length, out );
 	return sent;
@@ -87,7 +106,7 @@ static void sapi_fastcgi_flush( void *server_context )
 }
 
 
-static void sapi_fastcgi_send_header(sapi_header_struct *sapi_header, void *server_context)
+static void sapi_fastcgi_send_header(sapi_header_struct *sapi_header, void *server_context TSRMLS_DC)
 {
 	if( sapi_header ) {
 #ifdef DEBUG_FASTCGI
@@ -98,12 +117,11 @@ static void sapi_fastcgi_send_header(sapi_header_struct *sapi_header, void *serv
 	FCGX_PutStr( "\r\n", 2, out );
 }
 
-static int sapi_fastcgi_read_post(char *buffer, uint count_bytes SLS_DC)
+static int sapi_fastcgi_read_post(char *buffer, uint count_bytes TSRMLS_DC)
 {
 	size_t read_bytes = 0, tmp;
 	int c;
 	char *pos = buffer;
-	TLS_FETCH();
 
 	while( count_bytes ) {
 		c = FCGX_GetStr( pos, count_bytes, in );
@@ -115,28 +133,28 @@ static int sapi_fastcgi_read_post(char *buffer, uint count_bytes SLS_DC)
 	return read_bytes;
 }
 
-static char *sapi_fastcgi_read_cookies(SLS_D)
+static char *sapi_fastcgi_read_cookies(TSRMLS_D)
 {
 	return getenv( "HTTP_COOKIE" );
 }
 
 
-static void sapi_fastcgi_register_variables(zval *track_vars_array ELS_DC SLS_DC PLS_DC)
+static void sapi_fastcgi_register_variables(zval *track_vars_array TSRMLS_DC)
 {
 	char *self = getenv("REQUEST_URI");
 	char *ptr = strchr( self, '?' );
 
 	/*
-         * note that the environment will already have been set up
-         * via fastcgi_module_main(), below.
-         *
-         * fastcgi_module_main() -> php_request_startup() ->
-         * php_hash_environment() -> php_import_environment_variables()
-         */
+	 * note that the environment will already have been set up
+	 * via fastcgi_module_main(), below.
+	 *
+	 * fastcgi_module_main() -> php_request_startup() ->
+	 * php_hash_environment() -> php_import_environment_variables()
+	 */
 
 	/* strip query string off this */
 	if ( ptr ) *ptr = 0;
-	php_register_variable( "PHP_SELF", getenv("REQUEST_URI"), track_vars_array ELS_CC PLS_CC);
+	php_register_variable( "PHP_SELF", getenv("REQUEST_URI"), track_vars_array TSRMLS_CC);
 	if ( ptr ) *ptr = '?';
 }
 
@@ -173,26 +191,23 @@ static sapi_module_struct fastcgi_sapi_module = {
 	STANDARD_SAPI_MODULE_PROPERTIES
 };
 
-static void fastcgi_module_main(TLS_D SLS_DC)
+static void fastcgi_module_main(TSRMLS_D)
 {
 	zend_file_handle file_handle;
-	CLS_FETCH();
-	ELS_FETCH();
-	PLS_FETCH();
 
 	file_handle.type = ZEND_HANDLE_FILENAME;
 	file_handle.filename = SG(request_info).path_translated;
 	file_handle.free_filename = 0;
 	file_handle.opened_path = NULL;
 
-	if (php_request_startup(CLS_C ELS_CC PLS_CC SLS_CC) == SUCCESS) {
-		php_execute_script(&file_handle CLS_CC ELS_CC PLS_CC);
+	if (php_request_startup(TSRMLS_C) == SUCCESS) {
+		php_execute_script(&file_handle TSRMLS_CC);
+		php_request_shutdown(NULL);
 	}
-	php_request_shutdown(NULL);
 }
 
 
-static void init_request_info( SLS_D )
+static void init_request_info( TSRMLS_D )
 {
 	char *content_length = getenv("CONTENT_LENGTH");
 	char *content_type = getenv( "CONTENT_TYPE" );
@@ -219,7 +234,7 @@ static void init_request_info( SLS_D )
 	   char *ptr;
 	   while( ptr = strrchr(pt,'/') ) {
 	      *ptr = 0;
-	      if ( stat(pt,&st) == 0 && S_ISREG(st.st_mode) ) {
+	      if ( stat(pt, &st) == 0 && S_ISREG(st.st_mode) ) {
 		 /*
 		  * okay, we found the base script!
 		  * work out how many chars we had to strip off;
@@ -249,7 +264,7 @@ static void init_request_info( SLS_D )
 #ifdef DEBUG_FASTCGI
 	fprintf( stderr, "Authorization: %s\n", auth );
 #endif
-	php_handle_auth_data(auth SLS_CC);
+	php_handle_auth_data(auth TSRMLS_CC);
 
 
 }
@@ -271,6 +286,27 @@ void fastcgi_php_shutdown(void)
 }
 
 
+/**
+ * Clean up child processes upon exit
+ */
+void fastcgi_cleanup(int signal)
+{
+	int i;
+
+#ifdef DEBUG_FASTCGI
+	fprintf( stderr, "FastCGI shutdown, pid %d\n", getpid() );
+#endif
+
+	sigaction( SIGTERM, &old_term, 0 );
+
+	/* Kill all the processes in our process group */
+	kill( -pgroup, SIGTERM );
+
+	/* We should exit at this point, but MacOSX doesn't seem to */
+	exit( 0 );
+}
+
+
 int main(int argc, char *argv[])
 {
 	int exit_status = SUCCESS;
@@ -280,15 +316,20 @@ int main(int argc, char *argv[])
 	char *argv0=NULL;
 	char *script_file=NULL;
 	zend_llist global_vars;
-	int children = 8;
 	int max_requests = 500;
 	int requests = 0;
 	int status;
 	int env_size, cgi_env_size;
 
-#ifdef FASTCGI_DEBUG
-	fprintf( stderr, "Initialising now!\n" );
+#ifdef DEBUG_FASTCGI
+	fprintf( stderr, "Initialising now, pid %d!\n", getpid() );
 #endif
+
+	if( FCGX_IsCGI() ) {
+		fprintf( stderr, "The FastCGI version of PHP cannot be "
+			 "run as a CGI application\n" );
+		exit( 1 );
+	}
 
 	/* Calculate environment size */
 	env_size = 0;
@@ -306,7 +347,7 @@ int main(int argc, char *argv[])
 
 #ifdef HAVE_SIGNAL_H
 #if defined(SIGPIPE) && defined(SIG_IGN)
-	signal(SIGPIPE,SIG_IGN); /* ignore SIGPIPE in standalone mode so
+	signal(SIGPIPE, SIG_IGN); /* ignore SIGPIPE in standalone mode so
 				    that sockets created via fsockopen()
 				    don't kill PHP if the remote site
 				    closes it.	in apache|apxs mode apache
@@ -342,21 +383,46 @@ int main(int argc, char *argv[])
 	}
 
 	if( children ) {
-		int parent = 1;
 		int running = 0;
+		int i;
+		pid_t pid;
+
+		/* Create a process group for ourself & children */
+		setsid();
+		pgroup = getpgrp();
+#ifdef DEBUG_FASTCGI
+		fprintf( stderr, "Process group %d\n", pgroup );
+#endif
+
+		/* Set up handler to kill children upon exit */
+		act.sa_flags = 0;
+		act.sa_handler = fastcgi_cleanup;
+		if( sigaction( SIGTERM, &act, &old_term ) ||
+		    sigaction( SIGINT, &act, &old_int ) ||
+		    sigaction( SIGQUIT, &act, &old_quit )) {
+			perror( "Can't set signals" );
+			exit( 1 );
+		}
+
 		while( parent ) {
 			do {
-#ifdef FASTCGI_DEBUG
+#ifdef DEBUG_FASTCGI
 				fprintf( stderr, "Forking, %d running\n",
 					 running );
 #endif
-				switch( fork() ) {
+				pid = fork();
+				switch( pid ) {
 				case 0:
 					/* One of the children.
 					 * Make sure we don't go round the
 					 * fork loop any more
 					 */
 					parent = 0;
+
+					/* don't catch our signals */
+					sigaction( SIGTERM, &old_term, 0 );
+					sigaction( SIGQUIT, &old_quit, 0 );
+					sigaction( SIGINT, &old_int, 0 );
 					break;
 				case -1:
 					perror( "php (pre-forking)" );
@@ -370,6 +436,10 @@ int main(int argc, char *argv[])
 			} while( parent && ( running < children ));
 
 			if( parent ) {
+#ifdef DEBUG_FASTCGI
+				fprintf( stderr, "Wait for kids, pid %d\n",
+					 getpid() );
+#endif
 				wait( &status );
 				running--;
 			}
@@ -377,35 +447,35 @@ int main(int argc, char *argv[])
 	}
 
 	/* Main FastCGI loop */
-#ifdef FASTCGI_DEBUG
+#ifdef DEBUG_FASTCGI
 	fprintf( stderr, "Going into accept loop\n" );
 #endif
 
 	while( FCGX_Accept( &in, &out, &err, &cgi_env ) >= 0 ) {
 
-#ifdef FASTCGI_DEBUG
+#ifdef DEBUG_FASTCGI
 		fprintf( stderr, "Got accept\n" );
 #endif
 
-                cgi_env_size = 0;
-                while( cgi_env[ cgi_env_size ] ) { cgi_env_size++; }
-                merge_env = malloc( (env_size+cgi_env_size)*sizeof(char*) );
-                if( !merge_env ) {
-                   perror( "Can't malloc environment" );
-                   exit( 1 );
-                }
-                memcpy( merge_env, orig_env, (env_size-1)*sizeof(char *) );
-                memcpy( merge_env + env_size - 1,
-                        cgi_env, (cgi_env_size+1)*sizeof(char *) );
-                environ = merge_env;
+		cgi_env_size = 0;
+		while( cgi_env[ cgi_env_size ] ) { cgi_env_size++; }
+		merge_env = malloc( (env_size+cgi_env_size)*sizeof(char*) );
+		if( !merge_env ) {
+		   perror( "Can't malloc environment" );
+		   exit( 1 );
+		}
+		memcpy( merge_env, orig_env, (env_size-1)*sizeof(char *) );
+		memcpy( merge_env + env_size - 1,
+			cgi_env, (cgi_env_size+1)*sizeof(char *) );
+		environ = merge_env;
 
-		init_request_info( TLS_C SLS_CC );
+		init_request_info(TSRMLS_C);
 		SG(server_context) = (void *) 1; /* avoid server_context==NULL checks */
 		CG(extended_info) = 0;		      
 		SG(request_info).argv0 = argv0;		       
 		zend_llist_init(&global_vars, sizeof(char *), NULL, 0);
 
-		fastcgi_module_main( TLS_C SLS_CC );
+		fastcgi_module_main(TSRMLS_C);
 		if( path_info ) {
 		   free( path_info );
 		   path_info = NULL;
@@ -424,7 +494,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-#ifdef FASTCGI_DEBUG
+#ifdef DEBUG_FASTCGI
 	fprintf( stderr, "Exiting...\n" );
 #endif
 	return 0;

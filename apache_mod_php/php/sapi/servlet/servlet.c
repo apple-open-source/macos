@@ -114,9 +114,8 @@ void ThrowServletException (JNIEnv *jenv, char *msg) {
  * sapi callbacks
  */
 
-static int sapi_servlet_ub_write(const char *str, uint str_length)
+static int sapi_servlet_ub_write(const char *str, uint str_length TSRMLS_DC)
 {
-	SLS_FETCH();
 	if (!SG(server_context)) {
 		fprintf(stderr, str);
 		return 0;
@@ -142,9 +141,8 @@ static int sapi_servlet_ub_write(const char *str, uint str_length)
 }
 
 
-static void sapi_servlet_send_header(sapi_header_struct *sapi_header, void *server_context)
+static void sapi_servlet_send_header(sapi_header_struct *sapi_header, void *server_context TSRMLS_DC)
 {
-	SLS_FETCH();
 	if (!sapi_header) return;
 	if (!SG(server_context)) return;
 
@@ -162,7 +160,7 @@ static void sapi_servlet_send_header(sapi_header_struct *sapi_header, void *serv
 }
 
 
-static int sapi_servlet_read_post(char *buffer, uint count_bytes SLS_DC)
+static int sapi_servlet_read_post(char *buffer, uint count_bytes TSRMLS_DC)
 {
 	if (count_bytes == 0) {
 		return 0;
@@ -190,7 +188,7 @@ static int sapi_servlet_read_post(char *buffer, uint count_bytes SLS_DC)
 }
 
 
-static char *sapi_servlet_read_cookies(SLS_D)
+static char *sapi_servlet_read_cookies(TSRMLS_D)
 {
 	JNIEnv *jenv = ((servlet_request*)SG(server_context))->jenv;
 	jobject servlet = ((servlet_request*)SG(server_context))->servlet;
@@ -251,11 +249,6 @@ JNIEXPORT void JNICALL Java_net_php_servlet_startup
 
 #ifdef ZTS
 	tsrm_startup(1, 1, 0, NULL);
-#else
-	if (setjmp(EG(bailout))!=0) {
-		ThrowServletException(jenv,"bailout");
-		return;
-	}
 #endif
 
 	sapi_startup(&servlet_sapi_module);
@@ -276,8 +269,9 @@ JNIEXPORT void JNICALL Java_net_php_servlet_startup
 JNIEXPORT void JNICALL Java_net_php_servlet_shutdown
 	(JNIEnv *jenv, jobject self)
 {
-	php_module_shutdown();
-	php_global_shutdown_extensions(additional_php_extensions, EXTCOUNT);
+	TSRMLS_FETCH();
+
+	php_module_shutdown(TSRMLS_C);
 #ifdef ZTS
 	tsrm_shutdown();
 #endif
@@ -296,7 +290,7 @@ JNIEXPORT jlong JNICALL Java_net_php_servlet_define
 	pval *pzval;
 	jlong addr = 0;
 	const char *nameAsUTF = (*jenv)->GetStringUTFChars(jenv, name, 0);
-	ELS_FETCH();
+	TSRMLS_FETCH();
 
 	MAKE_STD_ZVAL(pzval);
 	addr = (jlong)(long) pzval;
@@ -319,105 +313,95 @@ JNIEXPORT void JNICALL Java_net_php_servlet_send
 	 jstring contentType, jint contentLength, 
 	 jstring authUser, jboolean display_source_mode)
 {
-
 	zend_file_handle file_handle;
+	int retval;
 #ifndef VIRTUAL_DIR
 	char cwd[MAXPATHLEN];
 #endif
-	SLS_FETCH();
-	PLS_FETCH();
-	CLS_FETCH();
-	ELS_FETCH();
+	TSRMLS_FETCH();
 
-#ifdef ZTS
-	if (setjmp(EG(bailout))!=0) {
-		ThrowServletException(jenv,"bailout");
-		return;
-	}
-#endif
+	zend_first_try {
+		SG(server_context) = emalloc(sizeof(servlet_request));
+		((servlet_request*)SG(server_context))->jenv=jenv;
+		((servlet_request*)SG(server_context))->servlet=self;
+		((servlet_request*)SG(server_context))->cookies=0;
 
-	SG(server_context) = emalloc(sizeof(servlet_request));
-	((servlet_request*)SG(server_context))->jenv=jenv;
-	((servlet_request*)SG(server_context))->servlet=self;
-	((servlet_request*)SG(server_context))->cookies=0;
+		CG(extended_info) = 0;
 
-	CG(extended_info) = 0;
+		/*
+		 * Initialize the request
+		 */
+		SETSTRING( SG(request_info).auth_user, authUser );
+		SETSTRING( SG(request_info).request_method, requestMethod );
+		SETSTRING( SG(request_info).query_string, queryString );
+		SETSTRING( SG(request_info).request_uri, requestURI );
+		SETSTRING( SG(request_info).content_type, contentType );
+		SG(sapi_headers).http_response_code = 200;
+		SG(request_info).content_length = contentLength;
+		SG(request_info).auth_password = NULL;
+		if (php_request_startup(TSRMLS_C)==FAILURE) {
+			ThrowServletException(jenv,"request startup failure");
+			return;
+		}
 
-	/*
-	 * Initialize the request
-	 */
-	SETSTRING( SG(request_info).auth_user, authUser );
-	SETSTRING( SG(request_info).request_method, requestMethod );
-	SETSTRING( SG(request_info).query_string, queryString );
-	SETSTRING( SG(request_info).request_uri, requestURI );
-	SETSTRING( SG(request_info).content_type, contentType );
-	SG(sapi_headers).http_response_code = 200;
-	SG(request_info).content_length = contentLength;
-	SG(request_info).auth_password = NULL;
-	if (php_request_startup(CLS_C ELS_CC PLS_CC SLS_CC)==FAILURE) {
-		ThrowServletException(jenv,"request startup failure");
-		return;
-	}
-
-	/*
-	 * Parse the file
-	 */
-	SETSTRING( SG(request_info).path_translated, pathTranslated );
+		/*
+		 * Parse the file
+		 */
+		SETSTRING( SG(request_info).path_translated, pathTranslated );
 #ifdef VIRTUAL_DIR
-	file_handle.handle.fp = php_fopen_primary_script();
+		retval = php_fopen_primary_script(&file_handle TSRMLS_CC);
 #else
-	/*
-	 * The java runtime doesn't like the working directory to be
-	 * changed, so save it and change it back as quickly as possible
-	 * in the hopes that Java doesn't notice.
-	 */
-	getcwd(cwd,MAXPATHLEN);
-	file_handle.handle.fp = php_fopen_primary_script();
-	chdir(cwd);
+		/*
+		 * The java runtime doesn't like the working directory to be
+		 * changed, so save it and change it back as quickly as possible
+		 * in the hopes that Java doesn't notice.
+		 */
+		getcwd(cwd, MAXPATHLEN);
+		retval = php_fopen_primary_script(&file_handle TSRMLS_CC);
+		chdir(cwd);
 #endif
-	file_handle.filename = SG(request_info).path_translated;
-	file_handle.opened_path = NULL;
-	file_handle.free_filename = 0;
-	file_handle.type = ZEND_HANDLE_FP;
+		
+		if (retval == FAILURE) {
+			php_request_shutdown((void *) 0);
+			php_module_shutdown(TSRMLS_C);
+			ThrowIOException(jenv, file_handle.filename);
+			return;
+		}
 
-	if (!file_handle.handle.fp) {
-		php_request_shutdown((void *) 0);
-		php_module_shutdown();
-		ThrowIOException(jenv,file_handle.filename);
-		return;
-	}
+		/*
+		 * Execute the request
+		 */
+		Java_net_php_reflect_setEnv(jenv, 0);
 
-	/*
-	 * Execute the request
-	 */
-	Java_net_php_reflect_setEnv(jenv, 0);
+		if (display_source_mode) {
+			zend_syntax_highlighter_ini syntax_highlighter_ini;
 
-    if (display_source_mode) {
-        zend_syntax_highlighter_ini syntax_highlighter_ini;
+			if (open_file_for_scanning(&file_handle TSRMLS_CC)==SUCCESS) {
+				php_get_highlight_struct(&syntax_highlighter_ini);
+				sapi_send_headers(TSRMLS_C);
+				zend_highlight(&syntax_highlighter_ini TSRMLS_CC);
+			}
+		} else {
+			php_execute_script(&file_handle TSRMLS_CC);
+			php_header();			/* Make sure headers have been sent */
+		}
 
-        if (open_file_for_scanning(&file_handle CLS_CC)==SUCCESS) {
-            php_get_highlight_struct(&syntax_highlighter_ini);
-	    sapi_send_headers();
-            zend_highlight(&syntax_highlighter_ini);
-        }
-    } else {
-	    php_execute_script(&file_handle CLS_CC ELS_CC PLS_CC);
-	    php_header();			/* Make sure headers have been sent */
-    }
+		/*
+		 * Clean up
+		 */
+		
+		FREESTRING(SG(request_info).request_method);
+		FREESTRING(SG(request_info).query_string);
+		FREESTRING(SG(request_info).request_uri);
+		FREESTRING(SG(request_info).path_translated);
+		FREESTRING(SG(request_info).content_type);
+		FREESTRING(((servlet_request*)SG(server_context))->cookies);    
+		efree(SG(server_context));
+		SG(server_context)=0;
 
-	/*
-	 * Clean up
-	 */
-	
-	FREESTRING(SG(request_info).request_method);
-	FREESTRING(SG(request_info).query_string);
-	FREESTRING(SG(request_info).request_uri);
-	FREESTRING(SG(request_info).path_translated);
-	FREESTRING(SG(request_info).content_type);
-	FREESTRING(((servlet_request*)SG(server_context))->cookies);    
-	efree(SG(server_context));
-	SG(server_context)=0;
-
-    if (!display_source_mode) php_request_shutdown((void *) 0);
+		if (!display_source_mode) php_request_shutdown((void *) 0);
+	} zend_catch {
+		ThrowServletException(jenv,"bailout");
+	} zend_end_try();
 }
 

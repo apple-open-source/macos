@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: fsock.c,v 1.1.1.4 2001/07/19 00:20:14 zarzycki Exp $ */
+/* $Id: fsock.c,v 1.1.1.5 2001/12/14 22:13:21 zarzycki Exp $ */
 
 /* Synced with php 3.0 revision 1.121 1999-06-18 [ssb] */
 /* Synced with php 3.0 revision 1.133 1999-07-21 [sas] */
@@ -89,8 +89,17 @@ extern int le_fp;
 		efree(key);				\
 	}
 
-#define SEARCHCR() \
-	p = memchr(READPTR(sock), '\n', MIN(TOREAD(sock), maxlen));
+#define SEARCHCR() do {												\
+	if (TOREAD(sock)) {												\
+		for (p = READPTR(sock), pe = p + MIN(TOREAD(sock), maxlen);	\
+				*p != '\n'; ) 										\
+			if (++p >= pe) { 										\
+				p = NULL; 											\
+				break; 												\
+			}														\
+	} else															\
+		p = NULL;													\
+} while (0)
 
 #ifdef PHP_WIN32
 #define EWOULDBLOCK WSAEWOULDBLOCK
@@ -124,7 +133,7 @@ PHPAPI int php_lookup_hostname(const char *addr, struct in_addr *in)
 PHPAPI int php_is_persistent_sock(int sock)
 {
 	char *key;
-	FLS_FETCH();
+	TSRMLS_FETCH();
 
 	if (zend_hash_find(&FG(ht_fsock_socks), (char *) &sock, sizeof(sock),
 				(void **) &key) == SUCCESS) {
@@ -151,9 +160,8 @@ static void php_fsockopen(INTERNAL_FUNCTION_PARAMETERS, int persistent) {
 	unsigned short portno;
 	unsigned long conv;
 	char *key = NULL;
-	FLS_FETCH();
 
-	if (arg_count > 5 || arg_count < 2 || zend_get_parameters_array_ex(arg_count,args)==FAILURE) {
+	if (arg_count > 5 || arg_count < 2 || zend_get_parameters_array_ex(arg_count, args)==FAILURE) {
 		CLOSE_SOCK(1);
 		WRONG_PARAM_COUNT;
 	}
@@ -166,11 +174,11 @@ static void php_fsockopen(INTERNAL_FUNCTION_PARAMETERS, int persistent) {
 			/* fall-through */
 		case 4:
 			zval_dtor(*args[3]);
-			ZVAL_STRING(*args[3],"",1);
+			ZVAL_STRING(*args[3], "", 1);
 			/* fall-through */
 		case 3:
 			zval_dtor(*args[2]);
-			ZVAL_LONG(*args[2],0);
+			ZVAL_LONG(*args[2], 0);
 			break;
 	}
 	convert_to_string_ex(args[0]);
@@ -184,7 +192,7 @@ static void php_fsockopen(INTERNAL_FUNCTION_PARAMETERS, int persistent) {
 				(void *) &sockp) == SUCCESS) {
 		CLOSE_SOCK(0);
 		*sock = *sockp;
-		ZEND_REGISTER_RESOURCE(return_value,sock,php_file_le_socket());
+		ZEND_REGISTER_RESOURCE(return_value, sock, php_file_le_socket());
 		return;
 	}
 
@@ -196,7 +204,7 @@ static void php_fsockopen(INTERNAL_FUNCTION_PARAMETERS, int persistent) {
 			udp = 1;
 		}
 
-		socketd = socket(AF_INET,udp ? SOCK_DGRAM : SOCK_STREAM,0);
+		socketd = socket(AF_INET, udp ? SOCK_DGRAM : SOCK_STREAM, 0);
 
 		if (socketd == SOCK_ERR) {
 			CLOSE_SOCK(1);
@@ -205,7 +213,7 @@ static void php_fsockopen(INTERNAL_FUNCTION_PARAMETERS, int persistent) {
 
 		server.sin_family = AF_INET;
 
-		if(php_lookup_hostname(udp ? &(*args[0])->value.str.val[6] : (*args[0])->value.str.val,&server.sin_addr)) {
+		if(php_lookup_hostname(udp ? &(*args[0])->value.str.val[6] : (*args[0])->value.str.val, &server.sin_addr)) {
 			CLOSE_SOCK(1);
 			RETURN_FALSE;
 		}
@@ -217,11 +225,11 @@ static void php_fsockopen(INTERNAL_FUNCTION_PARAMETERS, int persistent) {
 
 			if (arg_count>2) {
 				zval_dtor(*args[2]);
-				ZVAL_LONG(*args[2],errno);
+				ZVAL_LONG(*args[2], errno);
 			}
 			if (arg_count>3) {
 				zval_dtor(*args[3]);
-				ZVAL_STRING(*args[3],strerror(errno),1);
+				ZVAL_STRING(*args[3], strerror(errno), 1);
 			}
 			RETURN_FALSE;
 		}
@@ -229,7 +237,7 @@ static void php_fsockopen(INTERNAL_FUNCTION_PARAMETERS, int persistent) {
 	} else {
 		/* Unix domain socket.  s->strval is socket name. */
 		struct  sockaddr_un unix_addr;
-		socketd = socket(AF_UNIX,SOCK_STREAM,0);
+		socketd = socket(AF_UNIX, SOCK_STREAM, 0);
 		if (socketd == SOCK_ERR) {
 			CLOSE_SOCK(1);
 			RETURN_FALSE;
@@ -243,11 +251,11 @@ static void php_fsockopen(INTERNAL_FUNCTION_PARAMETERS, int persistent) {
 			CLOSE_SOCK(1);
 			if (arg_count>2) {
 				zval_dtor(*args[2]);
-				ZVAL_LONG(*args[2],errno);
+				ZVAL_LONG(*args[2], errno);
 			}
 			if (arg_count>3) {
 				zval_dtor(*args[3]);
-				ZVAL_STRING(*args[3],strerror(errno),1);
+				ZVAL_STRING(*args[3], strerror(errno), 1);
 			}
 			RETURN_FALSE;
 		}
@@ -275,7 +283,7 @@ static void php_fsockopen(INTERNAL_FUNCTION_PARAMETERS, int persistent) {
 	}
 	if(key) efree(key);
 
-	ZEND_REGISTER_RESOURCE(return_value,sock,php_file_le_socket());
+	ZEND_REGISTER_RESOURCE(return_value, sock, php_file_le_socket());
 }
 /* }}} */
 
@@ -302,7 +310,7 @@ PHP_FUNCTION(pfsockopen)
 			FG(phpsockbuf) = sock->next; \
 		pefree(sock, sock->persistent)
 
-PHPAPI void php_cleanup_sockbuf(int persistent FLS_DC)
+PHPAPI void php_cleanup_sockbuf(int persistent TSRMLS_DC)
 {
 	php_sockbuf *now, *next;
 
@@ -317,13 +325,13 @@ PHPAPI void php_cleanup_sockbuf(int persistent FLS_DC)
 #define TOREAD(sock) ((sock)->writepos - (sock)->readpos)
 #define READPTR(sock) ((sock)->readbuf + (sock)->readpos)
 #define WRITEPTR(sock) ((sock)->readbuf + (sock)->writepos)
-#define SOCK_FIND(sock,socket) \
+#define SOCK_FIND(sock, socket) \
       php_sockbuf *sock; \
-      FLS_FETCH(); \
-      sock = php_sockfind(socket FLS_CC); \
-      if(!sock) sock = php_sockcreate(socket FLS_CC)
+      TSRMLS_FETCH(); \
+      sock = php_sockfind(socket TSRMLS_CC); \
+      if(!sock) sock = php_sockcreate(socket TSRMLS_CC)
 
-static php_sockbuf *php_sockfind(int socket FLS_DC)
+static php_sockbuf *php_sockfind(int socket TSRMLS_DC)
 {
 	php_sockbuf *buf = NULL, *tmp;
 
@@ -336,7 +344,7 @@ static php_sockbuf *php_sockfind(int socket FLS_DC)
 	return buf;
 }
 
-static php_sockbuf *php_sockcreate(int socket FLS_DC)
+static php_sockbuf *php_sockcreate(int socket TSRMLS_DC)
 {
 	php_sockbuf *sock;
 	int persistent = php_is_persistent_sock(socket);
@@ -363,7 +371,7 @@ PHPAPI php_sockbuf *php_get_socket(int socket)
 PHPAPI size_t php_sock_set_def_chunk_size(size_t size)
 {
 	size_t old;
-	FLS_FETCH();
+	TSRMLS_FETCH();
 
 	old = FG(def_chunk_size);
 
@@ -377,9 +385,9 @@ PHPAPI int php_sockdestroy(int socket)
 {
 	int ret = 0;
 	php_sockbuf *sock;
-	FLS_FETCH();
+	TSRMLS_FETCH();
 
-	sock = php_sockfind(socket FLS_CC);
+	sock = php_sockfind(socket TSRMLS_CC);
 	if(sock) {
 		ret = 1;
 		SOCK_DESTROY(sock);
@@ -404,9 +412,9 @@ PHPAPI int php_sock_close(int socket)
 {
 	int ret = 0;
 	php_sockbuf *sock;
-	FLS_FETCH();
+	TSRMLS_FETCH();
 
-	sock = php_sockfind(socket FLS_CC);
+	sock = php_sockfind(socket TSRMLS_CC);
 	if(sock) {
 		if(!sock->persistent) {
 			SOCK_CLOSE(sock->socket);
@@ -540,7 +548,7 @@ PHPAPI void php_sockset_timeout(int socket, struct timeval *timeout)
  */
 static char * php_sock_fgets_internal(char * buf, size_t maxlen, php_sockbuf * sock)
 {
-	char *p = NULL;
+	char *p = NULL, *pe;
 	char *ret = NULL;
 	size_t amount = 0;
 
@@ -678,13 +686,14 @@ static int php_sockop_flush(php_stream * stream)
 static int php_sockop_cast(php_stream * stream, int castas, void ** ret)
 {
 	php_sockbuf * sock = (php_sockbuf*)stream->abstract;
+	TSRMLS_FETCH();
 
 	switch(castas)	{
 		case PHP_STREAM_AS_STDIO:
 			if (ret)	{
 				/* DANGER!: data buffered in stream->readbuf will be forgotten! */
 				if (TOREAD(sock) > 0)
-					zend_error(E_WARNING, "%s(): buffered data lost during conversion to FILE*!", get_active_function_name());
+					zend_error(E_WARNING, "%s(): buffered data lost during conversion to FILE*!", get_active_function_name(TSRMLS_C));
 				*ret = fdopen(sock->socket, stream->mode);
 				if (*ret)
 					return SUCCESS;
@@ -737,6 +746,7 @@ PHPAPI size_t php_sock_fread(char *ptr, size_t size, int socket)
 }
 
 /* }}} */
+
 /* {{{ module start/shutdown functions */
 
 	/* {{{ php_msock_destroy */
@@ -750,9 +760,7 @@ PHPAPI void php_msock_destroy(int *data)
 
 PHP_RSHUTDOWN_FUNCTION(fsock)
 {
-	FLS_FETCH();
-
-	php_cleanup_sockbuf(0 FLS_CC);
+	php_cleanup_sockbuf(0 TSRMLS_CC);
 	return SUCCESS;
 }
 /* }}} */
@@ -761,5 +769,6 @@ PHP_RSHUTDOWN_FUNCTION(fsock)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

@@ -2,7 +2,7 @@
 /*                                          */
 /* John Ellson   ellson@lucent.com          */
 
-/* $Id: gdttf.c,v 1.1.1.3 2001/01/25 04:59:19 wsanchez Exp $ */
+/* $Id: gdttf.c,v 1.1.1.4 2001/12/14 22:12:21 zarzycki Exp $ */
 
 #include "php.h"
 
@@ -60,10 +60,10 @@ extern int gdImageColorResolve(gdImagePtr, int, int, int);
 #endif
 
 #ifndef MAX
-#define MAX(a,b) ((a)>(b)?(a):(b))
+#define MAX(a, b) ((a)>(b)?(a):(b))
 #endif
 #ifndef MIN
-#define MIN(a,b) ((a)<(b)?(a):(b))
+#define MIN(a, b) ((a)<(b)?(a):(b))
 #endif
 
 typedef struct {
@@ -332,17 +332,18 @@ fontFetch ( char **error, void *key )
 	fontkey_t		*b=(fontkey_t *)key;
 	int				i, n, map_found;
 	short			platform, encoding;
+	TSRMLS_FETCH();
 
 	a = (font_t *)malloc(sizeof(font_t));
 #ifdef VIRTUAL_DIR
 	/* a->fontname will be freed in fontRelease() later on */
-	if (virtual_filepath(b->fontname, &a->fontname)) {
+	if (virtual_filepath(b->fontname, &a->fontname TSRMLS_CC)) {
 		*error = "Could not find/open font";
 		return NULL;
 	}
 #else
 	a->fontname = (char *)malloc(strlen(b->fontname) + 1);
-	strcpy(a->fontname,b->fontname);
+	strcpy(a->fontname, b->fontname);
 #endif
 	a->ptsize = b->ptsize;
 	a->angle = b->angle;
@@ -507,10 +508,10 @@ glyphFetch ( char **error, void *key )
 	crect[5] = (int)(xmax * sin_a + ymax * cos_a);
 	crect[6] = (int)(xmin * cos_a - ymax * sin_a);
 	crect[7] = (int)(xmin * sin_a + ymax * cos_a);
-	a->xmin = MIN(MIN(crect[0],crect[2]),MIN(crect[4],crect[6]));
-	a->xmax = MAX(MAX(crect[0],crect[2]),MAX(crect[4],crect[6]));
-	a->ymin = MIN(MIN(crect[1],crect[3]),MIN(crect[5],crect[7]));
-	a->ymax = MAX(MAX(crect[1],crect[3]),MAX(crect[5],crect[7]));
+	a->xmin = MIN(MIN(crect[0], crect[2]), MIN(crect[4], crect[6]));
+	a->xmax = MAX(MAX(crect[0], crect[2]), MAX(crect[4], crect[6]));
+	a->ymin = MIN(MIN(crect[1], crect[3]), MIN(crect[5], crect[7]));
+	a->ymax = MAX(MAX(crect[1], crect[3]), MAX(crect[5], crect[7]));
 
 	/* allocate bitmap large enough for character */
 	a->Bit.rows = (a->ymax - a->ymin + 32 + 64) / 64;

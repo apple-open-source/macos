@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: formatted_print.c,v 1.1.1.3 2001/07/19 00:20:13 zarzycki Exp $ */
+/* $Id: formatted_print.c,v 1.1.1.4 2001/12/14 22:13:21 zarzycki Exp $ */
 
 #include <math.h>				/* modf() */
 #include "php.h"
@@ -136,11 +136,11 @@ static char *php_convert_to_decimal(double arg, int ndigits, int *decpt, int *si
 
 
 inline static void
-php_sprintf_appendchar(char **buffer, int *pos, int *size, char add)
+php_sprintf_appendchar(char **buffer, int *pos, int *size, char add TSRMLS_DC)
 {
 	if ((*pos + 1) >= *size) {
 		*size <<= 1;
-		PRINTF_DEBUG(("%s: ereallocing buffer to %d bytes\n", get_active_function_name(), *size));
+		PRINTF_DEBUG(("%s: ereallocing buffer to %d bytes\n", get_active_function_name(TSRMLS_C), *size));
 		*buffer = erealloc(*buffer, *size);
 	}
 	PRINTF_DEBUG(("sprintf: appending '%c', pos=\n", add, *pos));
@@ -195,19 +195,20 @@ php_sprintf_appendstring(char **buffer, int *pos, int *size, char *add,
 
 
 inline static void
-php_sprintf_appendint(char **buffer, int *pos, int *size, int number,
+php_sprintf_appendint(char **buffer, int *pos, int *size, long number,
 						int width, char padding, int alignment)
 {
 	char numbuf[NUM_BUF_SIZE];
-	register unsigned int magn, nmagn, i = NUM_BUF_SIZE - 1, neg = 0;
+	register unsigned long magn, nmagn;
+	register unsigned int i = NUM_BUF_SIZE - 1, neg = 0;
 
 	PRINTF_DEBUG(("sprintf: appendint(%x, %x, %x, %d, %d, '%c', %d)\n",
 				  *buffer, pos, size, number, width, padding, alignment));
 	if (number < 0) {
 		neg = 1;
-		magn = ((unsigned int) -(number + 1)) + 1;
+		magn = ((unsigned long) -(number + 1)) + 1;
 	} else {
-		magn = (unsigned int) number;
+		magn = (unsigned long) number;
 	}
 
 	/* Can't right-pad 0's on integers */
@@ -218,7 +219,7 @@ php_sprintf_appendint(char **buffer, int *pos, int *size, int number,
 	do {
 		nmagn = magn / 10;
 
-		numbuf[--i] = (magn - (nmagn * 10)) + '0';
+		numbuf[--i] = (unsigned char)(magn - (nmagn * 10)) + '0';
 		magn = nmagn;
 	}
 	while (magn > 0 && i > 0);
@@ -233,11 +234,13 @@ php_sprintf_appendint(char **buffer, int *pos, int *size, int number,
 }
 
 inline static void
-php_sprintf_appenduint(char **buffer, int *pos, int *size, int number,
-						int width, char padding, int alignment)
+php_sprintf_appenduint(char **buffer, int *pos, int *size,
+					   unsigned long number,
+					   int width, char padding, int alignment)
 {
 	char numbuf[NUM_BUF_SIZE];
-	register unsigned int magn, nmagn, i = NUM_BUF_SIZE - 1;
+	register unsigned long magn, nmagn;
+	register unsigned int i = NUM_BUF_SIZE - 1;
 
 	PRINTF_DEBUG(("sprintf: appenduint(%x, %x, %x, %d, %d, '%c', %d)\n",
 				  *buffer, pos, size, number, width, padding, alignment));
@@ -251,7 +254,7 @@ php_sprintf_appenduint(char **buffer, int *pos, int *size, int number,
 	do {
 		nmagn = magn / 10;
 
-		numbuf[--i] = (magn - (nmagn * 10)) + '0';
+		numbuf[--i] = (unsigned char)(magn - (nmagn * 10)) + '0';
 		magn = nmagn;
 	}
 	while (magn > 0 && i > 0);
@@ -337,12 +340,13 @@ php_sprintf_appenddouble(char **buffer, int *pos,
 
 
 inline static void
-php_sprintf_append2n(char **buffer, int *pos, int *size, int number,
+php_sprintf_append2n(char **buffer, int *pos, int *size, long number,
 					 int width, char padding, int alignment, int n,
 					 char *chartable, int expprec)
 {
 	char numbuf[NUM_BUF_SIZE];
-	register unsigned int num, i = NUM_BUF_SIZE - 1, neg = 0;
+	register unsigned long num;
+	register unsigned int  i = NUM_BUF_SIZE - 1;
 	register int andbits = (1 << n) - 1;
 
 	PRINTF_DEBUG(("sprintf: append2n(%x, %x, %x, %d, %d, '%c', %d, %d, %x)\n",
@@ -350,13 +354,7 @@ php_sprintf_append2n(char **buffer, int *pos, int *size, int number,
 				  chartable));
 	PRINTF_DEBUG(("sprintf: append2n 2^%d andbits=%x\n", n, andbits));
 
-	if (number < 0) {
-		neg = 1;
-		num = ((unsigned int) -(number + 1)) + 1;
-	} else {
-		num = (unsigned int) number;
-	}
-
+	num = (unsigned long) number;
 	numbuf[i] = '\0';
 
 	do {
@@ -365,20 +363,17 @@ php_sprintf_append2n(char **buffer, int *pos, int *size, int number,
 	}
 	while (num > 0);
 
-	if (neg) {
-		numbuf[--i] = '-';
-	}
 	php_sprintf_appendstring(buffer, pos, size, &numbuf[i], width, 0,
 							 padding, alignment, (NUM_BUF_SIZE - 1) - i,
-							 neg, expprec);
+							 0, expprec);
 }
 
 
-inline static int
+inline static long
 php_sprintf_getnumber(char *buffer, int *pos)
 {
 	char *endptr;
-	register int num = strtol(&buffer[*pos], &endptr, 10);
+	register long num = strtol(&buffer[*pos], &endptr, 10);
 	register int i = 0;
 
 	if (endptr != NULL) {
@@ -389,8 +384,7 @@ php_sprintf_getnumber(char *buffer, int *pos)
 	return num;
 }
 
-
-/*
+/* {{{ php_formatted_print
  * New sprintf implementation for PHP.
  *
  * Modifiers:
@@ -414,23 +408,40 @@ php_sprintf_getnumber(char *buffer, int *pos)
  *
  */
 static char *
-php_formatted_print(int ht, int *len)
+php_formatted_print(int ht, int *len, int use_array TSRMLS_DC)
 {
-	pval ***args;
+	zval ***args, **z_format, **array;
 	int argc, size = 240, inpos = 0, outpos = 0, temppos;
 	int alignment, width, precision, currarg, adjusting, argnum;
 	char *format, *result, padding;
 
 	argc = ZEND_NUM_ARGS();
 
-	if (argc < 1) {
-		WRONG_PARAM_COUNT_WITH_RETVAL(NULL);
-	}
-	args = (pval ***)emalloc(argc * sizeof(pval *));
+	if (use_array) {
+		int i = 1;
 
-	if (zend_get_parameters_array_ex(argc, args) == FAILURE) {
-		efree(args);
-		WRONG_PARAM_COUNT_WITH_RETVAL(NULL);
+		if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(argc, &z_format, &array) == FAILURE) {
+			WRONG_PARAM_COUNT_WITH_RETVAL(NULL);
+		}
+		SEPARATE_ZVAL(array);
+		convert_to_array_ex(array);
+		argc = 1 + zend_hash_num_elements(Z_ARRVAL_PP(array));
+		args = (zval ***)emalloc(argc * sizeof(zval *));
+		args[0] = z_format;
+		for (zend_hash_internal_pointer_reset(Z_ARRVAL_PP(array));
+			 zend_hash_get_current_data(Z_ARRVAL_PP(array), (void **)&args[i++]) == SUCCESS;
+			 zend_hash_move_forward(Z_ARRVAL_PP(array)));
+	} else {
+		if (argc < 1) {
+			WRONG_PARAM_COUNT_WITH_RETVAL(NULL);
+		}
+
+		args = (zval ***)emalloc(argc * sizeof(zval *));
+
+		if (zend_get_parameters_array_ex(argc, args) == FAILURE) {
+			efree(args);
+			WRONG_PARAM_COUNT_WITH_RETVAL(NULL);
+		}
 	}
 	convert_to_string_ex(args[0]);
 	format = (*args[0])->value.str.val;
@@ -444,15 +455,15 @@ php_formatted_print(int ht, int *len)
 		PRINTF_DEBUG(("sprintf: format[%d]='%c'\n", inpos, format[inpos]));
 		PRINTF_DEBUG(("sprintf: outpos=%d\n", outpos));
 		if (format[inpos] != '%') {
-			php_sprintf_appendchar(&result, &outpos, &size, format[inpos++]);
+			php_sprintf_appendchar(&result, &outpos, &size, format[inpos++] TSRMLS_CC);
 		} else if (format[inpos + 1] == '%') {
-			php_sprintf_appendchar(&result, &outpos, &size, '%');
+			php_sprintf_appendchar(&result, &outpos, &size, '%' TSRMLS_CC);
 			inpos += 2;
 		} else {
 			if (currarg >= argc && format[inpos + 1] != '%') {
 				efree(result);
 				efree(args);
-				php_error(E_WARNING, "%s(): too few arguments",get_active_function_name());
+				php_error(E_WARNING, "%s(): too few arguments", get_active_function_name(TSRMLS_C));
 				return NULL;
 			}
 			/* starting a new format specifier, reset variables */
@@ -476,7 +487,7 @@ php_formatted_print(int ht, int *len)
 				if (argnum >= argc) {
 					efree(result);
 					efree(args);
-					php_error(E_WARNING, "%s(): too few arguments",get_active_function_name());
+					php_error(E_WARNING, "%s(): too few arguments", get_active_function_name(TSRMLS_C));
 					return NULL;
 				}
 
@@ -576,7 +587,7 @@ php_formatted_print(int ht, int *len)
 				case 'c':
 					convert_to_long_ex(args[argnum]);
 					php_sprintf_appendchar(&result, &outpos, &size,
-										(char) (*args[argnum])->value.lval);
+										(char) (*args[argnum])->value.lval TSRMLS_CC);
 					break;
 
 				case 'o':
@@ -612,7 +623,7 @@ php_formatted_print(int ht, int *len)
 					break;
 
 				case '%':
-					php_sprintf_appendchar(&result, &outpos, &size, '%');
+					php_sprintf_appendchar(&result, &outpos, &size, '%' TSRMLS_CC);
 
 					break;
 				default:
@@ -629,6 +640,7 @@ php_formatted_print(int ht, int *len)
 	*len = outpos;	
 	return result;
 }
+/* }}} */
 
 /* {{{ proto string sprintf(string format [, mixed arg1 [, mixed ...]])
    Return a formatted string */
@@ -637,10 +649,25 @@ PHP_FUNCTION(user_sprintf)
 	char *result;
 	int len;
 	
-	if ((result=php_formatted_print(ht,&len))==NULL) {
+	if ((result=php_formatted_print(ht, &len, 0 TSRMLS_CC))==NULL) {
 		RETURN_FALSE;
 	}
-	RETVAL_STRINGL(result,len,1);
+	RETVAL_STRINGL(result, len, 1);
+	efree(result);
+}
+/* }}} */
+
+/* {{{ proto string vsprintf(string format, array args)
+   Return a formatted string */
+PHP_FUNCTION(vsprintf)
+{
+	char *result;
+	int len;
+	
+	if ((result=php_formatted_print(ht, &len, 1 TSRMLS_CC))==NULL) {
+		RETURN_FALSE;
+	}
+	RETVAL_STRINGL(result, len, 1);
 	efree(result);
 }
 /* }}} */
@@ -652,10 +679,25 @@ PHP_FUNCTION(user_printf)
 	char *result;
 	int len;
 	
-	if ((result=php_formatted_print(ht,&len))==NULL) {
+	if ((result=php_formatted_print(ht, &len, 0 TSRMLS_CC))==NULL) {
 		RETURN_FALSE;
 	}
-	PHPWRITE(result,len);
+	PHPWRITE(result, len);
+	efree(result);
+}
+/* }}} */
+
+/* {{{ proto int printf(string format, array args)
+   Output a formatted string */
+PHP_FUNCTION(vprintf)
+{
+	char *result;
+	int len;
+	
+	if ((result=php_formatted_print(ht, &len, 1 TSRMLS_CC))==NULL) {
+		RETURN_FALSE;
+	}
+	PHPWRITE(result, len);
 	efree(result);
 }
 /* }}} */
@@ -665,4 +707,6 @@ PHP_FUNCTION(user_printf)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

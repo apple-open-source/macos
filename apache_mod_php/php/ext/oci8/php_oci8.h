@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_oci8.h,v 1.1.1.4 2001/07/19 00:19:40 zarzycki Exp $ */
+/* $Id: php_oci8.h,v 1.1.1.5 2001/12/14 22:12:52 zarzycki Exp $ */
 
 #if HAVE_OCI8
 # ifndef PHP_OCI8_H
@@ -151,8 +151,8 @@ typedef struct {
 	oci_define *define;
 	int piecewise;
 	ub4 cb_retlen;
-   ub2 scale;
-   ub2 precision;    	
+	ub2 scale;
+	ub2 precision;    	
 } oci_out_column;
 
 typedef struct {
@@ -181,6 +181,8 @@ typedef struct {
 	HashTable *user;
 
     OCIEnv *pEnv;
+
+	int in_call;
 } php_oci_globals;
 
 extern zend_module_entry oci8_module_entry;
@@ -191,19 +193,9 @@ extern zend_module_entry oci8_module_entry;
 #define OCI_PIECE_SIZE    (64*1024)-1
 
 #ifdef ZTS
-#define OCILS_D php_oci_globals *oci_globals
-#define OCILS_DC , OCILS_D
-#define OCILS_C oci_globals
-#define OCILS_CC , OCILS_C
-#define OCI(v) (oci_globals->v)
-#define OCILS_FETCH() php_oci_globals *oci_globals = ts_resource(oci_globals_id)
+#define OCI(v) TSRMG(oci_globals_id, php_oci_globals *, v)
 #else
-#define OCILS_D
-#define OCILS_DC
-#define OCILS_C
-#define OCILS_CC
 #define OCI(v) (oci_globals.v)
-#define OCILS_FETCH()
 #endif
 
 #else /* !HAVE_OCI8 */

@@ -8,7 +8,7 @@
 ##
 ## Annotated patch file: sslsup.patch
 ## Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved. 
-## Created on: 16-Oct-2001
+## Created on: 23-Feb-2002
 ##
 ## This file assembles changes to existing Apache source files
 ## between the original Apache and the patched variant. It can be
@@ -29,8 +29,8 @@
 | already done by APACI for the HTTP port (80).
 +---------------------------------------------------------------------------
 Index: configure
---- configure	2001/10/16 11:46:53	1.1.1.12
-+++ configure	2001/10/16 11:57:37	1.24
+--- configure	16 Oct 2001 11:46:53 -0000	1.1.1.12
++++ configure	16 Oct 2001 11:57:37 -0000	1.24
 @@ -258,6 +258,9 @@
  iflags_script="-m 755"
  iflags_data="-m 644"
@@ -127,8 +127,8 @@ Index: configure
 | additionally installed.
 +---------------------------------------------------------------------------
 Index: Makefile.tmpl
---- Makefile.tmpl	2001/10/16 11:46:53	1.1.1.10
-+++ Makefile.tmpl	2001/10/16 11:57:37	1.42
+--- Makefile.tmpl	28 Jan 2002 19:21:20 -0000	1.1.1.11
++++ Makefile.tmpl	28 Jan 2002 19:40:56 -0000	1.43
 @@ -141,10 +141,14 @@
  suexec_safepath = @suexec_safepath@
  suexec_umask    = @suexec_umask@
@@ -274,7 +274,7 @@ Index: Makefile.tmpl
  	fi
  	@echo "<=== [programs]"
  
-@@ -512,6 +586,15 @@
+@@ -514,6 +588,15 @@
  		 echo ""; \
  		 cat $(TOP)/conf/$${conf}-dist ) |\
  		 sed -e '/# LoadModule/r $(TOP)/$(SRC)/.apaci.install.conf' \
@@ -290,9 +290,9 @@ Index: Makefile.tmpl
  			-e 's;@@ServerRoot@@/htdocs/manual;$(manualdir);' \
  			-e 's;@@ServerRoot@@/htdocs;$(htdocsdir);' \
  			-e 's;@@ServerRoot@@/icons;$(iconsdir);' \
-@@ -531,9 +614,12 @@
- 			-e 's;User nobody;User $(conf_user);' \
+@@ -534,9 +617,12 @@
  			-e 's;Group #-1;Group $(conf_group);' \
+ 			-e 's;Group "#-1";Group $(conf_group);' \
  			-e 's;Port 80;Port $(conf_port);' \
 +			-e 's;Listen 80;Listen $(conf_port);' \
 +			-e 's;Listen 443;Listen $(conf_port_ssl);' \
@@ -304,7 +304,7 @@ Index: Makefile.tmpl
  		echo "$(INSTALL_DATA) $(TOP)/conf/$${conf}-dist[*] $(root)$(sysconfdir)/$${target_conf}.default"; \
  		$(INSTALL_DATA) $(TOP)/$(SRC)/.apaci.install.tmp $(root)$(sysconfdir)/$${target_conf}.default; \
  		if [ ! -f "$(root)$(sysconfdir)/$${target_conf}" ]; then \
-@@ -553,6 +639,91 @@
+@@ -556,6 +642,91 @@
  			echo "[PRESERVING EXISTING CONFIG FILE: $(root)$(sysconfdir)/$${conf}]"; \
  		fi; \
  	done
@@ -403,8 +403,8 @@ Index: Makefile.tmpl
 | script.
 +---------------------------------------------------------------------------
 Index: src/Makefile.tmpl
---- src/Makefile.tmpl	2001/10/16 11:47:06	1.1.1.10
-+++ src/Makefile.tmpl	2001/10/16 11:57:38	1.19
+--- src/Makefile.tmpl	16 Oct 2001 11:47:06 -0000	1.1.1.10
++++ src/Makefile.tmpl	16 Oct 2001 11:57:38 -0000	1.19
 @@ -11,6 +11,12 @@
    $(OSDIR)/libos.a \
    ap/libap.a
@@ -439,8 +439,8 @@ Index: src/Makefile.tmpl
 | `startssl' adds a -DSSL define when starting httpd.
 +---------------------------------------------------------------------------
 Index: src/support/apachectl
---- src/support/apachectl	2001/01/23 11:35:14	1.1.1.6
-+++ src/support/apachectl	2001/01/23 11:48:09	1.8
+--- src/support/apachectl	23 Jan 2001 11:35:14 -0000	1.1.1.6
++++ src/support/apachectl	23 Jan 2001 11:48:09 -0000	1.8
 @@ -75,6 +75,18 @@
  	    ERROR=3
  	fi
@@ -474,8 +474,8 @@ Index: src/support/apachectl
 | environment variables mod_ssl provides to CGI scripts.
 +---------------------------------------------------------------------------
 Index: src/support/suexec.c
---- src/support/suexec.c	2001/05/20 08:16:26	1.1.1.9
-+++ src/support/suexec.c	2001/05/20 08:23:03	1.9
+--- src/support/suexec.c	20 May 2001 08:16:26 -0000	1.1.1.9
++++ src/support/suexec.c	20 May 2001 08:23:03 -0000	1.9
 @@ -228,7 +228,13 @@
      cidx++;
  

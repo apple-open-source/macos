@@ -1,5 +1,5 @@
 dnl Autoconf macros for groff.
-dnl Copyright (C) 1989, 1990, 1991, 1992, 1995 Free Software Foundation, Inc.
+dnl Copyright (C) 1989-1995, 2001 Free Software Foundation, Inc.
 dnl 
 dnl This file is part of groff.
 dnl 
@@ -55,7 +55,7 @@ dnl Bison generated parsers have problems with C++ compilers other than g++.
 dnl So byacc is preferred over bison.
 dnl
 AC_DEFUN(GROFF_PROG_YACC,
-[AC_CHECK_PROGS(YACC, byacc 'bison -y', yacc)])
+[AC_CHECK_PROGS(YACC, byacc 'bison -y', yacc)])dnl
 dnl
 dnl
 dnl GROFF_CSH_HACK(if hack present, if not present)
@@ -94,131 +94,74 @@ dnl
 dnl
 AC_DEFUN(GROFF_POSIX,
 [AC_MSG_CHECKING([whether -D_POSIX_SOURCE is necessary])
-AC_LANG_SAVE
-AC_LANG_CPLUSPLUS
+AC_LANG_PUSH(C++)
 AC_TRY_COMPILE([#include <stdio.h>
 extern "C" { void fileno(int); }],,
 AC_MSG_RESULT(yes);AC_DEFINE(_POSIX_SOURCE),
 AC_MSG_RESULT(no))
-AC_LANG_RESTORE])dnl
+AC_LANG_POP(C++)])dnl
 dnl
 dnl
-AC_DEFUN(GROFF_GETOPT,
-[AC_LANG_SAVE
-AC_LANG_CPLUSPLUS
-AC_MSG_CHECKING([declaration of getopt in stdlib.h])
+dnl srand() of SunOS 4.1.3 has return type int instead of void
+dnl
+AC_DEFUN(GROFF_SRAND,
+[AC_LANG_PUSH(C++)
+AC_MSG_CHECKING([for return type of srand])
 AC_TRY_COMPILE([#include <stdlib.h>
-extern "C" { void getopt(int); }],,
-AC_MSG_RESULT(no),
-AC_MSG_RESULT(yes);AC_DEFINE(STDLIB_H_DECLARES_GETOPT))
-AC_MSG_CHECKING([declaration of getopt in unistd.h])
-AC_TRY_COMPILE([#include <sys/types.h>
-#include <unistd.h>
-extern "C" { void getopt(int); }],,
-AC_MSG_RESULT(no),
-AC_MSG_RESULT(yes);AC_DEFINE(UNISTD_H_DECLARES_GETOPT))
-AC_LANG_RESTORE])dnl
-dnl
-dnl
-AC_DEFUN(GROFF_PUTENV,
-[AC_LANG_SAVE
-AC_LANG_CPLUSPLUS
-AC_MSG_CHECKING([declaration of putenv])
-AC_TRY_COMPILE([#include <stdlib.h>
-extern "C" { void putenv(int); }],,
-AC_MSG_RESULT(no),
-AC_MSG_RESULT(yes);AC_DEFINE(STDLIB_H_DECLARES_PUTENV))
-AC_LANG_RESTORE])dnl
-dnl
-dnl
-AC_DEFUN(GROFF_POPEN,
-[AC_LANG_SAVE
-AC_LANG_CPLUSPLUS
-AC_MSG_CHECKING([declaration of popen])
-AC_TRY_COMPILE([#include <stdio.h>
-extern "C" { void popen(int); }],,
-AC_MSG_RESULT(no),
-AC_MSG_RESULT(yes);AC_DEFINE(STDIO_H_DECLARES_POPEN))
-AC_LANG_RESTORE])dnl
-dnl
-dnl
-AC_DEFUN(GROFF_PCLOSE,
-[AC_LANG_SAVE
-AC_LANG_CPLUSPLUS
-AC_MSG_CHECKING([declaration of pclose])
-AC_TRY_COMPILE([#include <stdio.h>
-extern "C" { void pclose(int); }],,
-AC_MSG_RESULT(no),
-AC_MSG_RESULT(yes);AC_DEFINE(STDIO_H_DECLARES_PCLOSE))
-AC_LANG_RESTORE])dnl
+extern "C" { void srand(unsigned int); }],,
+AC_MSG_RESULT(void);AC_DEFINE(RET_TYPE_SRAND_IS_VOID),
+AC_MSG_RESULT(int))
+AC_LANG_POP(C++)])dnl
 dnl
 dnl
 AC_DEFUN(GROFF_SYS_NERR,
-[AC_LANG_SAVE
-AC_LANG_CPLUSPLUS
+[AC_LANG_PUSH(C++)
 AC_MSG_CHECKING([for sys_nerr in <errno.h> or <stdio.h>])
 AC_TRY_COMPILE([#include <errno.h>
 #include <stdio.h>],
 [int k; k = sys_nerr;],
 AC_MSG_RESULT(yes);AC_DEFINE(HAVE_SYS_NERR),
 AC_MSG_RESULT(no))
-AC_LANG_RESTORE])dnl
+AC_LANG_POP(C++)])dnl
 dnl
 dnl
 AC_DEFUN(GROFF_SYS_ERRLIST,
-[AC_LANG_SAVE
-AC_LANG_CPLUSPLUS
-AC_MSG_CHECKING([for sys_errlist[] in <errno.h> or <stdio.h>])
+[AC_MSG_CHECKING([for sys_errlist[] in <errno.h> or <stdio.h>])
 AC_TRY_COMPILE([#include <errno.h>
 #include <stdio.h>],
 [int k; k = (int)sys_errlist[0];],
 AC_MSG_RESULT(yes);AC_DEFINE(HAVE_SYS_ERRLIST),
-AC_MSG_RESULT(no))
-AC_LANG_RESTORE])dnl
-dnl
-dnl
-AC_DEFUN(GROFF_HYPOT,
-[AC_LANG_SAVE
-AC_LANG_CPLUSPLUS
-AC_MSG_CHECKING([declaration of hypot])
-AC_TRY_COMPILE([#include <math.h>
-extern "C" { double hypot(double,double); }],,
-AC_MSG_RESULT(no),
-AC_MSG_RESULT(yes);AC_DEFINE(MATH_H_DECLARES_HYPOT))
-AC_LANG_RESTORE])dnl
+AC_MSG_RESULT(no))])dnl
 dnl
 dnl
 AC_DEFUN(GROFF_OSFCN_H,
-[AC_LANG_SAVE
-AC_LANG_CPLUSPLUS
+[AC_LANG_PUSH(C++)
 AC_MSG_CHECKING([C++ <osfcn.h>])
 AC_TRY_COMPILE([#include <osfcn.h>],
 [read(0, 0, 0); open(0, 0);],
 AC_MSG_RESULT(yes);AC_DEFINE(HAVE_CC_OSFCN_H),
 AC_MSG_RESULT(no))
-AC_LANG_RESTORE])dnl
+AC_LANG_POP(C++)])dnl
 dnl
 dnl
 AC_DEFUN(GROFF_LIMITS_H,
-[AC_LANG_SAVE
-AC_LANG_CPLUSPLUS
+[AC_LANG_PUSH(C++)
 AC_MSG_CHECKING([C++ <limits.h>])
 AC_TRY_COMPILE([#include <limits.h>],
 [int x = INT_MIN; int y = INT_MAX; int z = UCHAR_MAX;],
 AC_MSG_RESULT(yes);AC_DEFINE(HAVE_CC_LIMITS_H),
 AC_MSG_RESULT(no))
-AC_LANG_RESTORE])dnl
+AC_LANG_POP(C++)])dnl
 dnl
 dnl
 AC_DEFUN(GROFF_TIME_T,
-[AC_LANG_SAVE
-AC_LANG_CPLUSPLUS
+[AC_LANG_PUSH(C++)
 AC_MSG_CHECKING([for declaration of time_t])
 AC_TRY_COMPILE([#include <time.h>],
 [time_t t = time(0); struct tm *p = localtime(&t);],
 AC_MSG_RESULT(yes),
 AC_MSG_RESULT(no);AC_DEFINE(LONG_FOR_TIME_T))
-AC_LANG_RESTORE])dnl
+AC_LANG_POP(C++)])dnl
 dnl
 dnl
 AC_DEFUN(GROFF_STRUCT_EXCEPTION,
@@ -230,26 +173,24 @@ AC_MSG_RESULT(no))])dnl
 dnl
 dnl
 AC_DEFUN(GROFF_ARRAY_DELETE,
-[AC_LANG_SAVE
-AC_LANG_CPLUSPLUS
+[AC_LANG_PUSH(C++)
 AC_MSG_CHECKING([whether ANSI array delete syntax supported])
 AC_TRY_COMPILE(,
 changequote(,)dnl
 char *p = new char[5]; delete [] p;changequote([,]),
 AC_MSG_RESULT(yes),
 AC_MSG_RESULT(no);AC_DEFINE(ARRAY_DELETE_NEEDS_SIZE))
-AC_LANG_RESTORE])dnl
+AC_LANG_POP(C++)])dnl
 dnl
 dnl
 dnl
 AC_DEFUN(GROFF_TRADITIONAL_CPP,
-[AC_LANG_SAVE
-AC_LANG_CPLUSPLUS
+[AC_LANG_PUSH(C++)
 AC_MSG_CHECKING([traditional preprocessor])
 AC_TRY_COMPILE([#define name2(a,b) a/**/b],[int name2(foo,bar);],
 AC_MSG_RESULT(yes);AC_DEFINE(TRADITIONAL_CPP),
 AC_MSG_RESULT(no))
-AC_LANG_RESTORE])dnl
+AC_LANG_POP(C++)])dnl
 dnl
 dnl
 AC_DEFUN(GROFF_WCOREFLAG,
@@ -286,12 +227,17 @@ if test -z "$PAGE"; then
 		descfile=$prefix/share/groff/font/devps/DESC
 	elif test -r $prefix/lib/groff/font/devps/DESC; then
 		descfile=$prefix/lib/groff/font/devps/DESC
+	else
+		for f in $prefix/share/groff/*/font/devps/DESC; do
+			if test -r $f; then
+				descfile=$f
+				break
+			fi
+		done
 	fi
 	if test -n "$descfile" \
 	  && grep "^paperlength 841890" $descfile >/dev/null 2>&1; then
 		PAGE=A4
-	else
-		PAGE=letter
 	fi
 fi
 if test -z "$PAGE"; then
@@ -299,7 +245,8 @@ if test -z "$PAGE"; then
 	    /etc/resolv.conf 2>/dev/null`
 	if test -z "$dom"; then
 		dom=`(domainname) 2>/dev/null | tr -d '+'`
-		if test -z "$dom"; then
+		if test -z "$dom" \
+		  || test "$dom" = '(none)'; then
 			dom=`(hostname) 2>/dev/null | grep '\.'`
 		fi
 	fi
@@ -318,10 +265,8 @@ AC_SUBST(PAGE)])dnl
 dnl
 dnl
 AC_DEFUN(GROFF_CXX_CHECK,
-[AC_REQUIRE([AC_C_CROSS])
-AC_REQUIRE([AC_PROG_CXX])
-AC_LANG_SAVE
-AC_LANG_CPLUSPLUS
+[AC_REQUIRE([AC_PROG_CXX])
+AC_LANG_PUSH(C++)
 if test "$cross_compiling" = no; then
 	AC_MSG_CHECKING([that C++ compiler can compile simple program])
 fi
@@ -353,8 +298,7 @@ AC_TRY_LINK([#include <stdio.h>],
 [fopen(0, 0);],
 AC_MSG_RESULT(yes),
 AC_MSG_RESULT(no);AC_MSG_ERROR([header files do not support C++ (if you are using a version of gcc/g++ earlier than 2.5, you should install libg++)]))
-AC_LANG_RESTORE
-])dnl
+AC_LANG_POP(C++)])dnl
 dnl
 dnl
 AC_DEFUN(GROFF_TMAC,
@@ -413,8 +357,7 @@ elif test -n "$sys_tmac_prefix"; then
 	rm -f conftest.sol
 fi
 AC_MSG_RESULT([$tmac_wrap])
-AC_SUBST(tmac_wrap)
-])dnl
+AC_SUBST(tmac_wrap)])dnl
 dnl
 dnl
 AC_DEFUN(GROFF_G,
@@ -426,8 +369,7 @@ else
 	AC_MSG_RESULT(no)
 	g=
 fi
-AC_SUBST(g)
-])dnl
+AC_SUBST(g)])dnl
 dnl
 dnl
 dnl We need the path to install-sh to be absolute.
@@ -435,8 +377,7 @@ dnl
 AC_DEFUN(GROFF_INSTALL_SH,
 [AC_REQUIRE([AC_CONFIG_AUX_DIR_DEFAULT])dnl
 ac_dir=`cd $ac_aux_dir; pwd`
-ac_install_sh="$ac_dir/install-sh -c"
-])dnl
+ac_install_sh="$ac_dir/install-sh -c"])dnl
 dnl
 dnl
 dnl At least one UNIX system, Apple Macintosh Rhapsody 5.5,
@@ -444,5 +385,102 @@ dnl does not have -lm.
 dnl
 AC_DEFUN(GROFF_LIBM,
 [AC_CHECK_LIB(m,sin,LIBM=-lm)
-AC_SUBST(LIBM)
-])
+AC_SUBST(LIBM)])dnl
+dnl
+dnl
+dnl We need top_srcdir to be absolute.
+dnl
+AC_DEFUN(GROFF_SRCDIR,
+[ac_srcdir_defaulted=no
+srcdir=`cd $srcdir; pwd`])dnl
+dnl
+dnl
+dnl This simplifies Makefile rules.
+dnl
+AC_DEFUN(GROFF_BUILDDIR,
+[top_builddir=`pwd`
+AC_SUBST(top_builddir)])dnl
+dnl
+dnl
+dnl Check for EBCDIC - stolen from the OS390 Unix LYNX port
+dnl
+AC_DEFUN(GROFF_EBCDIC,
+[AC_MSG_CHECKING([whether character set is EBCDIC])
+AC_TRY_COMPILE(,
+[/* Treat any failure as ASCII for compatibility with existing art.
+    Use compile-time rather than run-time tests for cross-compiler
+    tolerance. */
+#if '0' != 240
+make an error "Character set is not EBCDIC"
+#endif],
+groff_cv_ebcdic="yes"
+ TTYDEVDIRS="font/devcp1047"
+ AC_MSG_RESULT(yes)
+ AC_DEFINE(IS_EBCDIC_HOST),
+groff_cv_ebcdic="no"
+ TTYDEVDIRS="font/devascii font/devlatin1 font/devutf8"
+ AC_MSG_RESULT(no))
+AC_SUBST(TTYDEVDIRS)])dnl
+dnl
+dnl
+dnl Check for OS/390 Unix.  We test for EBCDIC also -- the Linux port (with
+dnl gcc) to OS/390 uses ASCII internally.
+dnl
+AC_DEFUN(GROFF_OS390,
+[if test "$groff_cv_ebcdic" = "yes"; then
+	AC_MSG_CHECKING([for OS/390 Unix])
+	case `uname` in
+	OS/390)
+		CFLAGS="$CFLAGS -D_ALL_SOURCE"
+		AC_MSG_RESULT(yes) ;;
+	*)
+		AC_MSG_RESULT(no) ;;
+	esac
+fi])dnl
+dnl
+dnl
+dnl Check whether we need a declaration for a function.
+dnl
+dnl Stolen from GNU bfd.
+dnl
+AC_DEFUN(GROFF_NEED_DECLARATION,
+[AC_MSG_CHECKING([whether $1 must be declared])
+AC_LANG_PUSH(C++)
+AC_CACHE_VAL(groff_cv_decl_needed_$1,
+[AC_TRY_COMPILE([
+#include <stdio.h>
+#ifdef HAVE_STRING_H
+#include <string.h>
+#endif
+#ifdef HAVE_STRINGS_H
+#include <strings.h>
+#endif
+#ifdef HAVE_STDLIB_H
+#include <stdlib.h>
+#endif
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+#ifdef HAVE_MATH_H
+#include <math.h>
+#endif],
+[char *(*pfn) = (char *(*)) $1],
+groff_cv_decl_needed_$1=no,
+groff_cv_decl_needed_$1=yes)])
+AC_MSG_RESULT($groff_cv_decl_needed_$1)
+if test $groff_cv_decl_needed_$1 = yes; then
+	AC_DEFINE([NEED_DECLARATION_]translit($1, [a-z], [A-Z]))
+fi
+AC_LANG_POP(C++)])dnl
+dnl
+dnl
+dnl Check for mkstemp() and its function prototype.
+dnl
+AC_DEFUN(GROFF_MKSTEMP,
+[AC_CHECK_FUNC(mkstemp,
+[AC_DEFINE(HAVE_MKSTEMP)
+AC_MSG_CHECKING([for mkstemp prototype in <stdlib.h>])
+AC_EGREP_CPP(mkstemp,
+[#include <stdlib.h>],
+AC_MSG_RESULT(yes);AC_DEFINE(HAVE_MKSTEMP_PROTO),
+AC_MSG_RESULT(no))])])

@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: flock_compat.c,v 1.1.1.3 2001/07/19 00:20:13 zarzycki Exp $ */
+/* $Id: flock_compat.c,v 1.1.1.4 2001/12/14 22:13:20 zarzycki Exp $ */
 
 #include <php.h>
 #include <errno.h>
@@ -152,15 +152,13 @@ int flock(int fd, int operation)
 #endif /* !defined(HAVE_FLOCK) */
 
 #if !(HAVE_INET_ATON)
-
-/* 
+/* {{{ inet_aton
  * Check whether "cp" is a valid ascii representation
  * of an Internet address and convert to a binary address.
  * Returns 1 if the address is valid, 0 if not.
  * This replaces inet_addr, the return value from which
  * cannot distinguish between failure and a local broadcast address.
  */
-
 int inet_aton(const char *cp, struct in_addr *ap)
 {
     int dots = 0;
@@ -214,5 +212,14 @@ int inet_aton(const char *cp, struct in_addr *ap)
 
     return 1;    
 }
-
+/* }}} */
 #endif /* !HAVE_INET_ATON */
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
+ */

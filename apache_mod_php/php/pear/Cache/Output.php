@@ -17,7 +17,7 @@
 // |          Vinai Kopp <kopp@netzarbeiter.de>                           |
 // +----------------------------------------------------------------------+
 //
-// $Id: Output.php,v 1.1.1.1 2001/07/19 00:20:43 zarzycki Exp $
+// $Id: Output.php,v 1.1.1.2 2001/12/14 22:14:07 zarzycki Exp $
 
 require_once 'Cache.php';
 
@@ -35,20 +35,20 @@ require_once 'Cache.php';
 * Usage example:
 *
 *  // place this somewhere in a central config file
-*  define(CACHE_STORAGE_CLASS, "file");
+*  define(CACHE_STORAGE_CLASS, 'file');
 *  // file storage needs a dir to put the cache files
-*  define(CACHE_DIR, "/var/tmp/");
+*  define(CACHE_DIR, '/var/tmp/');
 *
 *  // get a cache object
-*  $cache = new Cache_Output(CACHE_STORAGE_CLASS, array("cache_dir" => CACHE_DIR));
+*  $cache = new Cache_Output(CACHE_STORAGE_CLASS, array('cache_dir' => CACHE_DIR));
 *
 *  // compute the unique handle.
 *  // if your script depends on Cookie and HTTP Post data as well
 *  // you should use:
 *  // $cache_handle = array(
-*  //                       "file" => $REQUEST_URI,
-*  //                       "post" => $HTTP_POST_VAS"
-*  //                       "cookie"  => $HTTP_COOKIE_VARS
+*  //                       'file' => $REQUEST_URI,
+*  //                       'post' => $HTTP_POST_VARS,
+*  //                       'cookie'  => $HTTP_COOKIE_VARS
 *  //                    );
 *  // But be warned, using all GET or POST Variables as a seed
 *  // can be used for a DOS attack. Calling http://www.example.com/example.php?whatever
@@ -59,7 +59,7 @@ require_once 'Cache.php';
 *  // to end the time consumptiong script script execution and use the cached value!
 *  if ($content = $cache->start($cache_handle)) {
 *     print $content;
-*     print "<p>Cache hit</p>";
+*     print '<p>Cache hit</p>';
 *     die();
 *  }
 *
@@ -102,7 +102,7 @@ class Cache_Output extends Cache {
     * @var  string
     * @see  start(), end()
     */
-    var $output_id = "";
+    var $output_id = '';
 
     /**
     * Group passed to start()
@@ -110,7 +110,7 @@ class Cache_Output extends Cache {
     * @var  string
     * @see  start(), end()
     */
-    var $output_group = "";
+    var $output_group = '';
 
     /**
     * PEAR-Deconstructor
@@ -129,9 +129,9 @@ class Cache_Output extends Cache {
     * @return   string
     * @access   public
     */
-    function start($id, $group = "default") {
+    function start($id, $group = 'default') {
         if (!$this->caching)
-            return "";
+            return '';
 
         // this is already cached return it from the cache so that the user
         // can use the cache content and stop script execution
@@ -146,7 +146,7 @@ class Cache_Output extends Cache {
         ob_start();
         ob_implicit_flush(false);
 
-        return "";
+        return '';
     } // end func start
 
     /*
@@ -158,7 +158,7 @@ class Cache_Output extends Cache {
     * @access   public
     * @see      endPrint(), endGet(), Container::getExpiresAbsolute()
     */
-    function end($expire = 0, $userdata = "") {
+    function end($expire = 0, $userdata = '') {
         $content = ob_get_contents();
         ob_end_clean();
 
@@ -174,7 +174,7 @@ class Cache_Output extends Cache {
     *
     * @brother  end()
     */
-    function endPrint($expire = 0, $userdata = "") {
+    function endPrint($expire = 0, $userdata = '') {
         print $this->end($expire, $userdata);
     } // end func endPrint
 
@@ -193,8 +193,8 @@ class Cache_Output extends Cache {
         $content = ob_get_contents();
         ob_end_clean();
 
-        $this->output_id = "";
-        $this->output_group = "";
+        $this->output_id = '';
+        $this->output_group = '';
 
         return $content;
     } // end func endGet

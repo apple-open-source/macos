@@ -1,5 +1,3 @@
-/*	$NetBSD: send.c,v 1.9 1998/08/25 20:59:38 ross Exp $	*/
-
 /*
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,13 +31,12 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)send.c	8.1 (Berkeley) 6/6/93";
-#else
-__RCSID("$NetBSD: send.c,v 1.9 1998/08/25 20:59:38 ross Exp $");
 #endif
+static const char rcsid[] =
+  "$FreeBSD: src/usr.bin/mail/send.c,v 1.12 2001/12/19 22:25:11 ache Exp $";
 #endif /* not lint */
 
 #include "rcv.h"
@@ -58,11 +55,8 @@ __RCSID("$NetBSD: send.c,v 1.9 1998/08/25 20:59:38 ross Exp $");
  * If doign is given, suppress ignored header fields.
  * prefix is a string to prepend to each output line.
  */
-#ifdef __APPLE__
-__private_extern__
-#endif
 int
-send(mp, obuf, doign, prefix)
+sendmessage(mp, obuf, doign, prefix)
 	struct message *mp;
 	FILE *obuf;
 	struct ignoretab *doign;
@@ -70,22 +64,19 @@ send(mp, obuf, doign, prefix)
 {
 	long count;
 	FILE *ibuf;
-	char line[LINESIZE];
-	int ishead, infld, ignoring = 0, dostat, firstline;
-	char *cp, *cp2;
-	int c = 0;
-	int length;
-	int prefixlen = 0;
+	char *cp, *cp2, line[LINESIZE];
+	int ishead, infld, ignoring, dostat, firstline;
+	int c, length, prefixlen;
 
 	/*
 	 * Compute the prefix string, without trailing whitespace
 	 */
-	if (prefix != NOSTR) {
+	if (prefix != NULL) {
 		cp2 = 0;
-		for (cp = prefix; *cp; cp++)
+		for (cp = prefix; *cp != '\0'; cp++)
 			if (*cp != ' ' && *cp != '\t')
 				cp2 = cp;
-		prefixlen = cp2 == 0 ? 0 : cp2 - prefix + 1;
+		prefixlen = cp2 == NULL ? 0 : cp2 - prefix + 1;
 	}
 	ibuf = setinput(mp);
 	count = mp->m_size;
@@ -97,11 +88,11 @@ send(mp, obuf, doign, prefix)
 	 * Process headers first
 	 */
 	while (count > 0 && ishead) {
-		if (fgets(line, LINESIZE, ibuf) == NULL)
+		if (fgets(line, sizeof(line), ibuf) == NULL)
 			break;
 		count -= length = strlen(line);
 		if (firstline) {
-			/* 
+			/*
 			 * First line is the From line, so no headers
 			 * there to worry about
 			 */
@@ -131,10 +122,11 @@ send(mp, obuf, doign, prefix)
 			/*
 			 * Pick up the header field if we have one.
 			 */
-			for (cp = line; (c = *cp++) && c != ':' && !isspace(c);)
+			for (cp = line; (c = *cp++) != '\0' && c != ':' &&
+			    !isspace((unsigned char)c);)
 				;
 			cp2 = --cp;
-			while (isspace(*cp++))
+			while (isspace((unsigned char)*cp++))
 				;
 			if (cp[-1] != ':') {
 				/*
@@ -148,7 +140,7 @@ send(mp, obuf, doign, prefix)
 				}
 				if (doign != ignoreall)
 					/* add blank line */
-					(void) putc('\n', obuf);
+					(void)putc('\n', obuf);
 				ishead = 0;
 				ignoring = 0;
 			} else {
@@ -156,7 +148,7 @@ send(mp, obuf, doign, prefix)
 				 * If it is an ignored field and
 				 * we care about such things, skip it.
 				 */
-				*cp2 = 0;	/* temporarily null terminate */
+				*cp2 = '\0';	/* temporarily null terminate */
 				if (doign && isign(line, doign))
 					ignoring = 1;
 				else if ((line[0] == 's' || line[0] == 'S') &&
@@ -182,16 +174,16 @@ send(mp, obuf, doign, prefix)
 			 * Strip trailing whitespace from prefix
 			 * if line is blank.
 			 */
-			if (prefix != NOSTR) {
+			if (prefix != NULL) {
 				if (length > 1)
 					fputs(prefix, obuf);
 				else
-					(void) fwrite(prefix, sizeof *prefix,
-							prefixlen, obuf);
+					(void)fwrite(prefix, sizeof(*prefix),
+					    prefixlen, obuf);
 			}
-			(void) fwrite(line, sizeof *line, length, obuf);
+			(void)fwrite(line, sizeof(*line), length, obuf);
 			if (ferror(obuf))
-				return -1;
+				return (-1);
 		}
 	}
 	/*
@@ -199,9 +191,9 @@ send(mp, obuf, doign, prefix)
 	 */
 	if (doign == ignoreall)
 		count--;		/* skip final blank line */
-	if (prefix != NOSTR)
+	if (prefix != NULL)
 		while (count > 0) {
-			if (fgets(line, LINESIZE, ibuf) == NULL) {
+			if (fgets(line, sizeof(line), ibuf) == NULL) {
 				c = 0;
 				break;
 			}
@@ -213,26 +205,26 @@ send(mp, obuf, doign, prefix)
 			if (c > 1)
 				fputs(prefix, obuf);
 			else
-				(void) fwrite(prefix, sizeof *prefix,
-						prefixlen, obuf);
-			(void) fwrite(line, sizeof *line, c, obuf);
+				(void)fwrite(prefix, sizeof(*prefix),
+				    prefixlen, obuf);
+			(void)fwrite(line, sizeof(*line), c, obuf);
 			if (ferror(obuf))
-				return -1;
+				return (-1);
 		}
 	else
 		while (count > 0) {
 			c = count < LINESIZE ? count : LINESIZE;
-			if ((c = fread(line, sizeof *line, c, ibuf)) <= 0)
+			if ((c = fread(line, sizeof(*line), c, ibuf)) <= 0)
 				break;
 			count -= c;
-			if (fwrite(line, sizeof *line, c, obuf) != c)
-				return -1;
+			if (fwrite(line, sizeof(*line), c, obuf) != c)
+				return (-1);
 		}
 	if (doign == ignoreall && c > 0 && line[c - 1] != '\n')
 		/* no final blank line */
 		if ((c = getc(ibuf)) != EOF && putc(c, obuf) == EOF)
-			return -1;
-	return 0;
+			return (-1);
+	return (0);
 }
 
 /*
@@ -251,10 +243,10 @@ statusput(mp, obuf, prefix)
 		*cp++ = 'R';
 	if ((mp->m_flag & MNEW) == 0)
 		*cp++ = 'O';
-	*cp = 0;
-	if (statout[0])
+	*cp = '\0';
+	if (statout[0] != '\0')
 		fprintf(obuf, "%sStatus: %s\n",
-			prefix == NOSTR ? "" : prefix, statout);
+			prefix == NULL ? "" : prefix, statout);
 }
 
 /*
@@ -262,9 +254,9 @@ statusput(mp, obuf, prefix)
  * which does all the dirty work.
  */
 int
-mail(to, cc, bcc, smopts, subject)
+mail(to, cc, bcc, smopts, subject, replyto)
 	struct name *to, *cc, *bcc, *smopts;
-	char *subject;
+	char *subject, *replyto;
 {
 	struct header head;
 
@@ -273,8 +265,10 @@ mail(to, cc, bcc, smopts, subject)
 	head.h_cc = cc;
 	head.h_bcc = bcc;
 	head.h_smopts = smopts;
+	head.h_replyto = replyto;
+	head.h_inreplyto = NULL;
 	mail1(&head, 0);
-	return(0);
+	return (0);
 }
 
 
@@ -283,19 +277,20 @@ mail(to, cc, bcc, smopts, subject)
  * the mail routine below.
  */
 int
-sendmail(v)
-	void *v;
+sendmail(str)
+	char *str;
 {
-	char *str = v;
 	struct header head;
 
 	head.h_to = extract(str, GTO);
-	head.h_subject = NOSTR;
-	head.h_cc = NIL;
-	head.h_bcc = NIL;
-	head.h_smopts = NIL;
+	head.h_subject = NULL;
+	head.h_cc = NULL;
+	head.h_bcc = NULL;
+	head.h_smopts = NULL;
+	head.h_replyto = value("REPLYTO");
+	head.h_inreplyto = NULL;
 	mail1(&head, 0);
-	return(0);
+	return (0);
 }
 
 /*
@@ -319,19 +314,21 @@ mail1(hp, printheaders)
 	 */
 	if ((mtf = collect(hp, printheaders)) == NULL)
 		return;
-	if (value("interactive") != NOSTR) {
-		if (value("askcc") != NOSTR || value("askbcc") != NOSTR) {
-			if (value("askcc") != NOSTR)
+	if (value("interactive") != NULL) {
+		if (value("askcc") != NULL || value("askbcc") != NULL) {
+			if (value("askcc") != NULL)
 				grabh(hp, GCC);
-			if (value("askbcc") != NOSTR)
+			if (value("askbcc") != NULL)
 				grabh(hp, GBCC);
 		} else {
 			printf("EOT\n");
-			(void) fflush(stdout);
+			(void)fflush(stdout);
 		}
 	}
 	if (fsize(mtf) == 0) {
-		if (hp->h_subject == NOSTR)
+		if (value("dontsendempty") != NULL)
+			goto out;
+		if (hp->h_subject == NULL)
 			printf("No message, no subject; hope that's ok\n");
 		else
 			printf("Null message body; hope that's ok\n");
@@ -343,7 +340,7 @@ mail1(hp, printheaders)
 	 */
 	senderr = 0;
 	to = usermap(cat(hp->h_bcc, cat(hp->h_to, hp->h_cc)));
-	if (to == NIL) {
+	if (to == NULL) {
 		printf("No recipients specified\n");
 		senderr++;
 	}
@@ -367,13 +364,13 @@ mail1(hp, printheaders)
 		char **t;
 
 		printf("Sendmail arguments:");
-		for (t = namelist; *t != NOSTR; t++)
+		for (t = namelist; *t != NULL; t++)
 			printf(" \"%s\"", *t);
 		printf("\n");
 		goto out;
 	}
-	if ((cp = value("record")) != NOSTR)
-		(void) savemail(expand(cp), mtf);
+	if ((cp = value("record")) != NULL)
+		(void)savemail(expand(cp), mtf);
 	/*
 	 * Fork, set up the temporary mail file as standard
 	 * input for "mail", and exec with the user list we generated
@@ -381,34 +378,34 @@ mail1(hp, printheaders)
 	 */
 	pid = fork();
 	if (pid == -1) {
-		perror("fork");
+		warn("fork");
 		savedeadletter(mtf);
 		goto out;
 	}
 	if (pid == 0) {
 		sigset_t nset;
-		sigemptyset(&nset);
-		sigaddset(&nset, SIGHUP);
-		sigaddset(&nset, SIGINT);
-		sigaddset(&nset, SIGQUIT);
-		sigaddset(&nset, SIGTSTP);
-		sigaddset(&nset, SIGTTIN);
-		sigaddset(&nset, SIGTTOU);
+		(void)sigemptyset(&nset);
+		(void)sigaddset(&nset, SIGHUP);
+		(void)sigaddset(&nset, SIGINT);
+		(void)sigaddset(&nset, SIGQUIT);
+		(void)sigaddset(&nset, SIGTSTP);
+		(void)sigaddset(&nset, SIGTTIN);
+		(void)sigaddset(&nset, SIGTTOU);
 		prepare_child(&nset, fileno(mtf), -1);
-		if ((cp = value("sendmail")) != NOSTR)
+		if ((cp = value("sendmail")) != NULL)
 			cp = expand(cp);
 		else
 			cp = _PATH_SENDMAIL;
 		execv(cp, namelist);
-		perror(cp);
+		warn("%s", cp);
 		_exit(1);
 	}
-	if (value("verbose") != NOSTR)
-		(void) wait_child(pid);
+	if (value("verbose") != NULL)
+		(void)wait_child(pid);
 	else
 		free_child(pid);
 out:
-	(void) Fclose(mtf);
+	(void)Fclose(mtf);
 }
 
 /*
@@ -422,21 +419,22 @@ fixhead(hp, tolist)
 {
 	struct name *np;
 
-	hp->h_to = NIL;
-	hp->h_cc = NIL;
-	hp->h_bcc = NIL;
-	for (np = tolist; np != NIL; np = np->n_flink) {
+	hp->h_to = NULL;
+	hp->h_cc = NULL;
+	hp->h_bcc = NULL;
+	for (np = tolist; np != NULL; np = np->n_flink) {
+		/* Don't copy deleted addresses to the header */
 		if (np->n_type & GDEL)
-			continue;	/* Don't copy deleted addresses to the header */
+			continue;
 		if ((np->n_type & GMASK) == GTO)
 			hp->h_to =
-				cat(hp->h_to, nalloc(np->n_name, np->n_type));
+			    cat(hp->h_to, nalloc(np->n_name, np->n_type));
 		else if ((np->n_type & GMASK) == GCC)
 			hp->h_cc =
-				cat(hp->h_cc, nalloc(np->n_name, np->n_type));
+			    cat(hp->h_cc, nalloc(np->n_name, np->n_type));
 		else if ((np->n_type & GMASK) == GBCC)
 			hp->h_bcc =
-				cat(hp->h_bcc, nalloc(np->n_name, np->n_type));
+			    cat(hp->h_bcc, nalloc(np->n_name, np->n_type));
 	}
 }
 
@@ -449,43 +447,48 @@ infix(hp, fi)
 	struct header *hp;
 	FILE *fi;
 {
-	extern char *tempMail;
 	FILE *nfo, *nfi;
-	int c;
+	int c, fd;
+	char tempname[PATHSIZE];
 
-	if ((nfo = Fopen(tempMail, "w")) == NULL) {
-		perror(tempMail);
-		return(fi);
+	(void)snprintf(tempname, sizeof(tempname),
+	    "%s/mail.RsXXXXXXXXXX", tmpdir);
+	if ((fd = mkstemp(tempname)) == -1 ||
+	    (nfo = Fdopen(fd, "w")) == NULL) {
+		warn("%s", tempname);
+		return (fi);
 	}
-	if ((nfi = Fopen(tempMail, "r")) == NULL) {
-		perror(tempMail);
-		(void) Fclose(nfo);
-		return(fi);
+	if ((nfi = Fopen(tempname, "r")) == NULL) {
+		warn("%s", tempname);
+		(void)Fclose(nfo);
+		(void)rm(tempname);
+		return (fi);
 	}
-	(void) rm(tempMail);
-	(void) puthead(hp, nfo, GTO|GSUBJECT|GCC|GBCC|GNL|GCOMMA);
+	(void)rm(tempname);
+	(void)puthead(hp, nfo,
+	    GTO|GSUBJECT|GCC|GBCC|GREPLYTO|GINREPLYTO|GNL|GCOMMA);
 	c = getc(fi);
 	while (c != EOF) {
-		(void) putc(c, nfo);
+		(void)putc(c, nfo);
 		c = getc(fi);
 	}
 	if (ferror(fi)) {
-		perror("read");
+		warnx("read");
 		rewind(fi);
-		return(fi);
+		return (fi);
 	}
-	(void) fflush(nfo);
+	(void)fflush(nfo);
 	if (ferror(nfo)) {
-		perror(tempMail);
-		(void) Fclose(nfo);
-		(void) Fclose(nfi);
+		warn("%s", tempname);
+		(void)Fclose(nfo);
+		(void)Fclose(nfi);
 		rewind(fi);
-		return(fi);
+		return (fi);
 	}
-	(void) Fclose(nfo);
-	(void) Fclose(fi);
+	(void)Fclose(nfo);
+	(void)Fclose(fi);
 	rewind(nfi);
-	return(nfi);
+	return (nfi);
 }
 
 /*
@@ -501,17 +504,21 @@ puthead(hp, fo, w)
 	int gotcha;
 
 	gotcha = 0;
-	if (hp->h_to != NIL && w & GTO)
+	if (hp->h_to != NULL && w & GTO)
 		fmt("To:", hp->h_to, fo, w&GCOMMA), gotcha++;
-	if (hp->h_subject != NOSTR && w & GSUBJECT)
+	if (hp->h_subject != NULL && w & GSUBJECT)
 		fprintf(fo, "Subject: %s\n", hp->h_subject), gotcha++;
-	if (hp->h_cc != NIL && w & GCC)
+	if (hp->h_cc != NULL && w & GCC)
 		fmt("Cc:", hp->h_cc, fo, w&GCOMMA), gotcha++;
-	if (hp->h_bcc != NIL && w & GBCC)
+	if (hp->h_bcc != NULL && w & GBCC)
 		fmt("Bcc:", hp->h_bcc, fo, w&GCOMMA), gotcha++;
+	if (hp->h_replyto != NULL && w & GREPLYTO)
+		fprintf(fo, "Reply-To: %s\n", hp->h_replyto), gotcha++;
+	if (hp->h_inreplyto != NULL && w & GINREPLYTO)
+		fprintf(fo, "In-Reply-To: <%s>\n", hp->h_inreplyto), gotcha++;
 	if (gotcha && w & GNL)
-		(void) putc('\n', fo);
-	return(0);
+		(void)putc('\n', fo);
+	return (0);
 }
 
 /*
@@ -519,7 +526,7 @@ puthead(hp, fo, w)
  */
 void
 fmt(str, np, fo, comma)
-	char *str;
+	const char *str;
 	struct name *np;
 	FILE *fo;
 	int comma;
@@ -530,22 +537,22 @@ fmt(str, np, fo, comma)
 	col = strlen(str);
 	if (col)
 		fputs(str, fo);
-	for (; np != NIL; np = np->n_flink) {
-		if (np->n_flink == NIL)
+	for (; np != NULL; np = np->n_flink) {
+		if (np->n_flink == NULL)
 			comma = 0;
 		len = strlen(np->n_name);
 		col++;		/* for the space */
 		if (col + len + comma > 72 && col > 4) {
-			fputs("\n    ", fo);
+			fprintf(fo, "\n    ");
 			col = 4;
 		} else
-			putc(' ', fo);
+			fprintf(fo, " ");
 		fputs(np->n_name, fo);
 		if (comma)
-			putc(',', fo);
+			fprintf(fo, ",");
 		col += len + comma;
 	}
-	putc('\n', fo);
+	fprintf(fo, "\n");
 }
 
 /*
@@ -564,18 +571,18 @@ savemail(name, fi)
 	time_t now;
 
 	if ((fo = Fopen(name, "a")) == NULL) {
-		perror(name);
+		warn("%s", name);
 		return (-1);
 	}
-	(void) time(&now);
+	(void)time(&now);
 	fprintf(fo, "From %s %s", myname, ctime(&now));
-	while ((i = fread(buf, 1, sizeof buf, fi)) > 0)
-		(void) fwrite(buf, 1, i, fo);
-	(void) putc('\n', fo);
-	(void) fflush(fo);
+	while ((i = fread(buf, 1, sizeof(buf), fi)) > 0)
+		(void)fwrite(buf, 1, i, fo);
+	fprintf(fo, "\n");
+	(void)fflush(fo);
 	if (ferror(fo))
-		perror(name);
-	(void) Fclose(fo);
+		warn("%s", name);
+	(void)Fclose(fo);
 	rewind(fi);
 	return (0);
 }

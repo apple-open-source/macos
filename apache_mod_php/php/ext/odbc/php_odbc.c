@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_odbc.c,v 1.1.1.4 2001/07/19 00:19:41 zarzycki Exp $ */
+/* $Id: php_odbc.c,v 1.1.1.5 2001/12/14 22:12:53 zarzycki Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -71,6 +71,8 @@ static int le_result, le_conn, le_pconn;
 
 static unsigned char a3_arg3_and_3_force_ref[] = { 3, BYREF_NONE, BYREF_FORCE, BYREF_FORCE };
 
+/* {{{ odbc_functions[]
+ */
 function_entry odbc_functions[] = {
     PHP_FE(odbc_error, NULL)
     PHP_FE(odbc_errormsg, NULL)
@@ -128,8 +130,12 @@ function_entry odbc_functions[] = {
 	PHP_FALIAS(odbc_field_precision, odbc_field_len, NULL)
 	{ NULL, NULL, NULL }
 };
+/* }}} */
 
+/* {{{ odbc_module_entry
+ */
 zend_module_entry odbc_module_entry = {
+	STANDARD_MODULE_HEADER,
     "odbc", 
 	odbc_functions, 
 	PHP_MINIT(odbc), 
@@ -137,8 +143,10 @@ zend_module_entry odbc_module_entry = {
     PHP_RINIT(odbc), 
 	PHP_RSHUTDOWN(odbc), 
 	PHP_MINFO(odbc), 
+    NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES
 };
+/* }}} */
 
 #ifdef ZTS
 int odbc_globals_id;
@@ -150,7 +158,9 @@ ZEND_API php_odbc_globals odbc_globals;
 ZEND_GET_MODULE(odbc)
 #endif
 
-static void _free_odbc_result(zend_rsrc_list_entry *rsrc)
+/* {{{ _free_odbc_result
+ */
+static void _free_odbc_result(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
 	odbc_result *res = (odbc_result *)rsrc->ptr;
 	int i;
@@ -178,11 +188,11 @@ static void _free_odbc_result(zend_rsrc_list_entry *rsrc)
 		efree(res);
 	}
 }
+/* }}} */
 
-/*
+/* {{{ safe_odbc_disconnect
  * disconnect, and if it fails, then issue a rollback for any pending transaction (lurcher)
  */
-
 static void safe_odbc_disconnect( void *handle )
 {
 	int ret;
@@ -194,12 +204,13 @@ static void safe_odbc_disconnect( void *handle )
 		SQLDisconnect( handle );
 	}
 }
+/* }}} */
 
-static void _close_odbc_conn(zend_rsrc_list_entry *rsrc)
+/* {{{ _close_odbc_conn
+ */
+static void _close_odbc_conn(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
 	odbc_connection *conn = (odbc_connection *)rsrc->ptr;
-
-	ODBCLS_FETCH();
 
    	safe_odbc_disconnect(conn->hdbc);
 	SQLFreeConnect(conn->hdbc);
@@ -207,11 +218,11 @@ static void _close_odbc_conn(zend_rsrc_list_entry *rsrc)
 	efree(conn);
 	ODBCG(num_links)--;
 }
+/* }}} */
 
-static void _close_odbc_pconn(zend_rsrc_list_entry *rsrc)
+static void _close_odbc_pconn(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
 	odbc_connection *conn = (odbc_connection *)rsrc->ptr;
-	ODBCLS_FETCH();
 	
 	safe_odbc_disconnect(conn->hdbc);
 	SQLFreeConnect(conn->hdbc);
@@ -225,6 +236,7 @@ static void _close_odbc_pconn(zend_rsrc_list_entry *rsrc)
 static PHP_INI_DISP(display_link_nums)
 {
 	char *value;
+	TSRMLS_FETCH();
 
 	if (type == PHP_INI_DISPLAY_ORIG && ini_entry->modified) {
 		value = ini_entry->orig_value;
@@ -246,6 +258,7 @@ static PHP_INI_DISP(display_link_nums)
 static PHP_INI_DISP(display_defPW)
 {
 	char *value;
+	TSRMLS_FETCH();
 
 	if (type == PHP_INI_DISPLAY_ORIG && ini_entry->modified) {
 		value = ini_entry->orig_value;
@@ -269,6 +282,7 @@ static PHP_INI_DISP(display_defPW)
 static PHP_INI_DISP(display_binmode)
 {
 	char *value;
+	TSRMLS_FETCH();
 	
     if (type == PHP_INI_DISPLAY_ORIG && ini_entry->modified) {
 		value = ini_entry->orig_value;
@@ -296,6 +310,7 @@ static PHP_INI_DISP(display_binmode)
 static PHP_INI_DISP(display_lrl)
 {
 	char *value;
+	TSRMLS_FETCH();
 
 	if (type == PHP_INI_DISPLAY_ORIG && ini_entry->modified) {
 		value = ini_entry->orig_value;
@@ -336,7 +351,7 @@ PHP_INI_BEGIN()
 PHP_INI_END()
 
 #ifdef ZTS
-static void php_odbc_init_globals(php_odbc_globals *odbc_globals)
+static void php_odbc_init_globals(php_odbc_globals *odbc_globals_p TSRMLS_DC)
 {
 	ODBCG(num_persistent) = 0;
 }
@@ -344,15 +359,13 @@ static void php_odbc_init_globals(php_odbc_globals *odbc_globals)
 
 PHP_MINIT_FUNCTION(odbc)
 {
-	ODBCLS_D;
 #ifdef SQLANY_BUG
 	ODBC_SQL_CONN_T foobar;
 	RETCODE rc;
 #endif
 
 #ifdef ZTS
-	odbc_globals_id = ts_allocate_id(sizeof(php_odbc_globals), php_odbc_init_globals, NULL);
-	odbc_globals = ts_resource(odbc_globals_id);
+	ts_allocate_id(&odbc_globals_id, sizeof(php_odbc_globals), php_odbc_init_globals, NULL);
 #else
 	ODBCG(num_persistent) = 0;
 #endif
@@ -443,8 +456,6 @@ PHP_MINIT_FUNCTION(odbc)
 
 PHP_RINIT_FUNCTION(odbc)
 {
-	ODBCLS_FETCH();
-	
 	ODBCG(defConn) = -1;
 	ODBCG(num_links) = ODBCG(num_persistent);
     memset(ODBCG(laststate), '\0', 6);
@@ -459,8 +470,6 @@ PHP_RSHUTDOWN_FUNCTION(odbc)
 
 PHP_MSHUTDOWN_FUNCTION(odbc)
 {
-	ODBCLS_FETCH();
-
 	UNREGISTER_INI_ENTRIES();
 	return SUCCESS;
 }
@@ -468,7 +477,6 @@ PHP_MSHUTDOWN_FUNCTION(odbc)
 PHP_MINFO_FUNCTION(odbc)
 {
 	char buf[32];
-	ODBCLS_FETCH();
 
 	php_info_print_table_start();
 	php_info_print_table_header(2, "ODBC Support", "enabled");
@@ -497,7 +505,7 @@ void odbc_sql_error(ODBC_SQL_ERROR_PARAMS)
 	RETCODE rc;
     ODBC_SQL_ENV_T henv;
     ODBC_SQL_CONN_T conn;
-	ODBCLS_FETCH();
+	TSRMLS_FETCH();
 
     if (conn_resource) {
         henv = conn_resource->henv;
@@ -537,8 +545,6 @@ void php_odbc_fetch_attribs(INTERNAL_FUNCTION_PARAMETERS, int mode)
 {
 	odbc_result *result;
 	pval **pv_res, **pv_flag;
-	ODBCLS_FETCH();
-	PLS_FETCH();
 
 	if (zend_get_parameters_ex(2, &pv_res, &pv_flag) == FAILURE)
 		WRONG_PARAM_COUNT;
@@ -561,13 +567,12 @@ void php_odbc_fetch_attribs(INTERNAL_FUNCTION_PARAMETERS, int mode)
 }
 
 
-int odbc_bindcols(odbc_result *result)
+int odbc_bindcols(odbc_result *result TSRMLS_DC)
 {
 	RETCODE rc;
     int i;
     SWORD       colnamelen; /* Not used */
 	SDWORD      displaysize;
-	ODBCLS_FETCH();
 
     result->values = (odbc_result_value *)
 		emalloc(sizeof(odbc_result_value)*result->numcols);
@@ -626,7 +631,6 @@ void odbc_transact(INTERNAL_FUNCTION_PARAMETERS, int type)
 	odbc_connection *conn;
 	RETCODE rc;
 	pval **pv_conn;
-	ODBCLS_FETCH();
 	
  	if (zend_get_parameters_ex(1, &pv_conn) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -643,9 +647,8 @@ void odbc_transact(INTERNAL_FUNCTION_PARAMETERS, int type)
 	RETURN_TRUE;
 }
 
-static int _close_pconn_with_id(list_entry *le, int *id)
+static int _close_pconn_with_id(list_entry *le, int *id TSRMLS_DC)
 {
-
 	if(le->type == le_pconn && (((odbc_connection *)(le->ptr))->id == *id)){
 		return 1;
 	}else{
@@ -709,7 +712,11 @@ PHP_FUNCTION(odbc_close_all)
 	int type;
 	int i;
 	int nument;
-	
+
+	if (ZEND_NUM_ARGS() != 0) {
+		WRONG_PARAM_COUNT;
+	}
+
 	nument = zend_hash_next_free_element(&EG(regular_list));
 	
 	/* Loop through list and close all statements */
@@ -732,7 +739,7 @@ PHP_FUNCTION(odbc_close_all)
 				zend_list_delete(i);
 				/* Delete the persistent connection */
 				zend_hash_apply_with_argument(&EG(persistent_list), 
-					(int (*)(void *, void *)) _close_pconn_with_id, (void *) &i);
+					(apply_func_arg_t) _close_pconn_with_id, (void *) &i TSRMLS_CC);
 			}
 		}
 	}
@@ -837,7 +844,7 @@ PHP_FUNCTION(odbc_prepare)
     SQLNumResultCols(result->stmt, &(result->numcols));
 
 	if (result->numcols > 0) {
-        if (!odbc_bindcols(result)) {
+        if (!odbc_bindcols(result TSRMLS_CC)) {
 			efree(result);
             RETURN_FALSE;
 		}
@@ -874,18 +881,22 @@ PHP_FUNCTION(odbc_execute)
 	RETCODE rc;
 	
 	numArgs = ZEND_NUM_ARGS();
-	if (numArgs == 1) {
-		if (zend_get_parameters_ex(1, &pv_res) == FAILURE)
+	switch(numArgs) {
+		case 1:
+			if (zend_get_parameters_ex(1, &pv_res) == FAILURE)
+				WRONG_PARAM_COUNT;
+			break;
+		case 2:
+			if (zend_get_parameters_ex(2, &pv_res, &pv_param_arr) == FAILURE)
+				WRONG_PARAM_COUNT;
+			if ((*pv_param_arr)->type != IS_ARRAY) {
+				php_error(E_WARNING, "No array passed to odbc_execute()");
+				return;
+			}
+			break;
+		default:
 			WRONG_PARAM_COUNT;
-	} else {
-		if (zend_get_parameters_ex(2, &pv_res, &pv_param_arr) == FAILURE)
-			WRONG_PARAM_COUNT;
-
-        if ((*pv_param_arr)->type != IS_ARRAY) {
-            php_error(E_WARNING, "No array passed to odbc_execute()");
-            return;
-        }
-    }
+	}
 
 	ZEND_FETCH_RESOURCE(result, odbc_result *, pv_res, -1, "ODBC result", le_result);
 	
@@ -1016,7 +1027,7 @@ PHP_FUNCTION(odbc_execute)
 		SQLNumResultCols(result->stmt, &(result->numcols));
 
 		if (result->numcols > 0) {
-			if (!odbc_bindcols(result)) {
+			if (!odbc_bindcols(result TSRMLS_CC)) {
 				efree(result);
 				RETVAL_FALSE;
 			}
@@ -1036,7 +1047,6 @@ PHP_FUNCTION(odbc_cursor)
 	char *cursorname;
    	odbc_result *result;
 	RETCODE rc;
-	ODBCLS_FETCH();
 
 	if (zend_get_parameters_ex(1, &pv_res) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -1062,7 +1072,6 @@ PHP_FUNCTION(odbc_cursor)
 	 		SDWORD  error;        /* Not used */
 			char    errormsg[255];
 			SWORD   errormsgsize; /* Not used */
-			ODBCLS_FETCH();
 
 			SQLError( result->conn_ptr->henv, result->conn_ptr->hdbc,
 						result->stmt, state, &error, errormsg,
@@ -1177,7 +1186,7 @@ PHP_FUNCTION(odbc_exec)
 	
 	/* For insert, update etc. cols == 0 */
 	if (result->numcols > 0) {
-        if (!odbc_bindcols(result)) {
+        if (!odbc_bindcols(result TSRMLS_CC)) {
 			efree(result);
             RETURN_FALSE;
 		}
@@ -1330,12 +1339,10 @@ static void php_odbc_fetch_hash(INTERNAL_FUNCTION_PARAMETERS, int result_type)
    Fetch a result row as an object */
 PHP_FUNCTION(odbc_fetch_object)
 {
- php_odbc_fetch_hash(INTERNAL_FUNCTION_PARAM_PASSTHRU, ODBC_OBJECT);
- if (return_value->type==IS_ARRAY) {
-  return_value->type=IS_OBJECT;
-  return_value->value.obj.properties = return_value->value.ht;
-  return_value->value.obj.ce = &zend_standard_class_def;
- }
+	php_odbc_fetch_hash(INTERNAL_FUNCTION_PARAM_PASSTHRU, ODBC_OBJECT);
+	if (Z_TYPE_P(return_value) == IS_ARRAY) {
+		object_and_properties_init(return_value, &zend_standard_class_def, return_value->value.ht);
+	}
 }
 /* }}} */
 
@@ -1343,7 +1350,7 @@ PHP_FUNCTION(odbc_fetch_object)
    Fetch a result row as an associative array */
 PHP_FUNCTION(odbc_fetch_array)
 {
-        php_odbc_fetch_hash(INTERNAL_FUNCTION_PARAM_PASSTHRU, ODBC_OBJECT);
+	php_odbc_fetch_hash(INTERNAL_FUNCTION_PARAM_PASSTHRU, ODBC_OBJECT);
 }
 /* }}} */
 #endif
@@ -1867,12 +1874,23 @@ PHP_FUNCTION(odbc_free_result)
 {
 	pval **pv_res;
 	odbc_result *result;
+	int i;
 
 	if (zend_get_parameters_ex(1, &pv_res) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
 	ZEND_FETCH_RESOURCE(result, odbc_result *, pv_res, -1, "ODBC result", le_result);
+	if (result->values) {
+		for (i = 0; i < result->numcols; i++) {
+			if (result->values[i].value) {
+				efree(result->values[i].value);
+			}
+		}
+		efree(result->values);
+		result->values = NULL;
+	}
+			
 	zend_list_delete(result->id);
 	
 	RETURN_TRUE;
@@ -1895,7 +1913,7 @@ PHP_FUNCTION(odbc_pconnect)
 }
 /* }}} */
 
-int odbc_sqlconnect(odbc_connection **conn, char *db, char *uid, char *pwd, int cur_opt, int persistent ODBCLS_DC)
+int odbc_sqlconnect(odbc_connection **conn, char *db, char *uid, char *pwd, int cur_opt, int persistent TSRMLS_DC)
 {
 	RETCODE rc;
 	
@@ -1994,8 +2012,6 @@ void odbc_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 	odbc_connection *db_conn;
 	char *hashed_details;
 	int hashed_len, len, cur_opt;
-	ODBCLS_FETCH();
-	PLS_FETCH();
 
 	/*  Now an optional 4th parameter specifying the cursor type
 	 *  defaulting to the cursors default
@@ -2078,7 +2094,7 @@ try_and_get_another_connection:
 				RETURN_FALSE;
 			}
 			
-			if (!odbc_sqlconnect(&db_conn, db, uid, pwd, cur_opt, 1 ODBCLS_CC)) {
+			if (!odbc_sqlconnect(&db_conn, db, uid, pwd, cur_opt, 1 TSRMLS_CC)) {
 				efree(hashed_details);
 				RETURN_FALSE;
 			}
@@ -2115,7 +2131,7 @@ try_and_get_another_connection:
 					SQL_DATA_SOURCE_READ_ONLY, 
 					d_name, sizeof(d_name), &len);
 
-				if(ret != SQL_SUCCESS){
+				if(ret != SQL_SUCCESS || len == 0) {
 					zend_hash_del(&EG(persistent_list), hashed_details, hashed_len + 1);
 					safe_odbc_disconnect(db_conn->hdbc);
 					SQLFreeConnect(db_conn->hdbc);
@@ -2152,7 +2168,7 @@ try_and_get_another_connection:
 			RETURN_FALSE;
 		}
 
-		if (!odbc_sqlconnect(&db_conn, db, uid, pwd, cur_opt, 0 ODBCLS_CC)) {
+		if (!odbc_sqlconnect(&db_conn, db, uid, pwd, cur_opt, 0 TSRMLS_CC)) {
 			efree(hashed_details);
 			RETURN_FALSE;
 		}
@@ -2183,13 +2199,12 @@ PHP_FUNCTION(odbc_close)
 	int type;
 	int is_pconn = 0;
 	int found_resource_type = le_conn;
-	ODBCLS_FETCH();
 
     if (zend_get_parameters_ex(1, &pv_conn) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
-	conn = (odbc_connection *) zend_fetch_resource(pv_conn, -1, "ODBC-Link", &found_resource_type, 2, le_conn, le_pconn);
+	conn = (odbc_connection *) zend_fetch_resource(pv_conn TSRMLS_CC, -1, "ODBC-Link", &found_resource_type, 2, le_conn, le_pconn);
 	if (found_resource_type==le_pconn) {
 		is_pconn = 1;
 	}
@@ -2210,7 +2225,7 @@ PHP_FUNCTION(odbc_close)
 	
 	if(is_pconn){
 		zend_hash_apply_with_argument(&EG(persistent_list),
-			(int (*)(void *, void *)) _close_pconn_with_id, (void *) &((*pv_conn)->value.lval));	
+			(apply_func_arg_t) _close_pconn_with_id, (void *) &((*pv_conn)->value.lval) TSRMLS_CC);	
 	}
 }
 /* }}} */
@@ -2234,7 +2249,7 @@ PHP_FUNCTION(odbc_num_rows)
 /* }}} */
 
 #if !defined(HAVE_SOLID) && !defined(HAVE_SOLID_30)
-/* {{{ proto bool next_result(int result_id)
+/* {{{ proto bool odbc_next_result(int result_id)
    Checks if multiple results are avaiable */
 PHP_FUNCTION(odbc_next_result)
 {
@@ -2267,7 +2282,7 @@ PHP_FUNCTION(odbc_next_result)
 		SQLNumResultCols(result->stmt, &(result->numcols));
 
 		if (result->numcols > 0) {
-			if (!odbc_bindcols(result)) {
+			if (!odbc_bindcols(result TSRMLS_CC)) {
 				efree(result);
 				RETVAL_FALSE;
 			}
@@ -2513,8 +2528,6 @@ static void php_odbc_lasterror(INTERNAL_FUNCTION_PARAMETERS, int mode)
             strlcpy(ptr, conn->lasterrormsg, len+1);
         }
     } else {
-		ODBCLS_FETCH();
-
         if (mode == 0) {
             strlcpy(ptr, ODBCG(laststate), len+1);
         } else {
@@ -2670,7 +2683,7 @@ PHP_FUNCTION(odbc_tables)
 	SQLNumResultCols(result->stmt, &(result->numcols));
 
 	if (result->numcols > 0) {
-        if (!odbc_bindcols(result)) {
+        if (!odbc_bindcols(result TSRMLS_CC)) {
 			efree(result);
             RETURN_FALSE;
 		}
@@ -2750,7 +2763,7 @@ PHP_FUNCTION(odbc_columns)
 	SQLNumResultCols(result->stmt, &(result->numcols));
 
 	if (result->numcols > 0) {
-        if (!odbc_bindcols(result)) {
+        if (!odbc_bindcols(result TSRMLS_CC)) {
 			efree(result);
             RETURN_FALSE;
 		}
@@ -2829,7 +2842,7 @@ PHP_FUNCTION(odbc_columnprivileges)
 	SQLNumResultCols(result->stmt, &(result->numcols));
 
 	if (result->numcols > 0) {
-        if (!odbc_bindcols(result)) {
+        if (!odbc_bindcols(result TSRMLS_CC)) {
 			efree(result);
             RETURN_FALSE;
 		}
@@ -2929,7 +2942,7 @@ PHP_FUNCTION(odbc_foreignkeys)
 	SQLNumResultCols(result->stmt, &(result->numcols));
 
 	if (result->numcols > 0) {
-        if (!odbc_bindcols(result)) {
+        if (!odbc_bindcols(result TSRMLS_CC)) {
 			efree(result);
             RETURN_FALSE;
 		}
@@ -3002,7 +3015,7 @@ PHP_FUNCTION(odbc_gettypeinfo)
 	SQLNumResultCols(result->stmt, &(result->numcols));
 
 	if (result->numcols > 0) {
-        if (!odbc_bindcols(result)) {
+        if (!odbc_bindcols(result TSRMLS_CC)) {
 			efree(result);
             RETURN_FALSE;
 		}
@@ -3077,7 +3090,7 @@ PHP_FUNCTION(odbc_primarykeys)
 	SQLNumResultCols(result->stmt, &(result->numcols));
 
 	if (result->numcols > 0) {
-        if (!odbc_bindcols(result)) {
+        if (!odbc_bindcols(result TSRMLS_CC)) {
 			efree(result);
             RETURN_FALSE;
 		}
@@ -3160,7 +3173,7 @@ PHP_FUNCTION(odbc_procedurecolumns)
 	SQLNumResultCols(result->stmt, &(result->numcols));
 
 	if (result->numcols > 0) {
-        if (!odbc_bindcols(result)) {
+        if (!odbc_bindcols(result TSRMLS_CC)) {
 			efree(result);
             RETURN_FALSE;
 		}
@@ -3241,7 +3254,7 @@ PHP_FUNCTION(odbc_procedures)
 	SQLNumResultCols(result->stmt, &(result->numcols));
 
 	if (result->numcols > 0) {
-        if (!odbc_bindcols(result)) {
+        if (!odbc_bindcols(result TSRMLS_CC)) {
 			efree(result);
             RETURN_FALSE;
 		}
@@ -3330,7 +3343,7 @@ PHP_FUNCTION(odbc_specialcolumns)
     SQLNumResultCols(result->stmt, &(result->numcols));
 
 	if (result->numcols > 0) {
-        if (!odbc_bindcols(result)) {
+        if (!odbc_bindcols(result TSRMLS_CC)) {
 			efree(result);
             RETURN_FALSE;
 		}
@@ -3414,7 +3427,7 @@ PHP_FUNCTION(odbc_statistics)
     SQLNumResultCols(result->stmt, &(result->numcols));
 
 	if (result->numcols > 0) {
-        if (!odbc_bindcols(result)) {
+        if (!odbc_bindcols(result TSRMLS_CC)) {
 			efree(result);
             RETURN_FALSE;
 		}
@@ -3490,7 +3503,7 @@ PHP_FUNCTION(odbc_tableprivileges)
     SQLNumResultCols(result->stmt, &(result->numcols));
 
 	if (result->numcols > 0) {
-        if (!odbc_bindcols(result)) {
+        if (!odbc_bindcols(result TSRMLS_CC)) {
 			efree(result);
             RETURN_FALSE;
 		}
@@ -3511,4 +3524,6 @@ PHP_FUNCTION(odbc_tableprivileges)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

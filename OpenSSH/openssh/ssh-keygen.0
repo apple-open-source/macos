@@ -4,7 +4,7 @@ NAME
      ssh-keygen - authentication key generation, management and conversion
 
 SYNOPSIS
-     ssh-keygen [-q] [-b bits] [-t type] [-N new_passphrase] [-C comment]
+     ssh-keygen [-q] [-b bits] -t type [-N new_passphrase] [-C comment]
                 [-f output_keyfile]
      ssh-keygen -p [-P old_passphrase] [-N new_passphrase] [-f keyfile]
      ssh-keygen -i [-f input_keyfile]
@@ -18,9 +18,9 @@ SYNOPSIS
 
 DESCRIPTION
      ssh-keygen generates, manages and converts authentication keys for
-     ssh(1).  ssh-keygen defaults to generating a RSA1 key for use by SSH proM--
-     tocol version 1.  Specifying the -t option instead creates a key for use
-     by SSH protocol version 2.
+     ssh(1).  ssh-keygen can create RSA keys for use by SSH protocol version 1
+     and RSA or DSA keys for use by SSH protocol version 2. The type of key to
+     be generated is specified with the -t option.
 
      Normally each user wishing to use SSH with RSA or DSA authentication runs
      this once to create the authentication key in $HOME/.ssh/identity,
@@ -31,11 +31,15 @@ DESCRIPTION
      store the private key.  The public key is stored in a file with the same
      name but ``.pub'' appended.  The program also asks for a passphrase.  The
      passphrase may be empty to indicate no passphrase (host keys must have an
-     empty passphrase), or it may be a string of arbitrary length.  Good
-     passphrases are 10-30 characters long and are not simple sentences or
-     otherwise easily guessable (English prose has only 1-2 bits of entropy
-     per character, and provides very bad passphrases).  The passphrase can be
-     changed later by using the -p option.
+     empty passphrase), or it may be a string of arbitrary length.  A
+     passphrase is similar to a password, except it can be a phrase with a
+     series of words, punctuation, numbers, whitespace, or any string of charM--
+     acters you want.  Good passphrases are 10-30 characters long, are not
+     simple sentences or otherwise easily guessable (English prose has only
+     1-2 bits of entropy per character, and provides very bad passphrases),
+     and contain a mix of upper and lowercase letters, numbers, and non-
+     alphanumeric characters.  The passphrase can be changed later by using
+     the -p option.
 
      There is no way to recover a lost passphrase.  If the passphrase is lost
      or forgotten, a new key must be generated and copied to the corresponding
@@ -94,7 +98,7 @@ DESCRIPTION
      -t type
              Specifies the type of the key to create.  The possible values are
              ``rsa1'' for protocol version 1 and ``rsa'' or ``dsa'' for protoM--
-             col version 2.  The default is ``rsa1''.
+             col version 2.
 
      -B      Show the bubblebabble digest of specified private or public key
              file.

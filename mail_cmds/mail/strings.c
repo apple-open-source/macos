@@ -1,5 +1,3 @@
-/*	$NetBSD: strings.c,v 1.6 1997/10/19 05:03:54 lukem Exp $	*/
-
 /*
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,13 +31,12 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)strings.c	8.1 (Berkeley) 6/6/93";
-#else
-__RCSID("$NetBSD: strings.c,v 1.6 1997/10/19 05:03:54 lukem Exp $");
 #endif
+static const char rcsid[] =
+  "$FreeBSD: src/usr.bin/mail/strings.c,v 1.4 2001/05/27 20:26:22 mikeh Exp $";
 #endif /* not lint */
 
 /*
@@ -66,16 +63,15 @@ salloc(size)
 	int size;
 {
 	char *t;
-	int s;
+	int s, index;
 	struct strings *sp;
-	int index;
 
 	s = size;
-	s += (sizeof (char *) - 1);
-	s &= ~(sizeof (char *) - 1);
+	s += (sizeof(char *) - 1);
+	s &= ~(sizeof(char *) - 1);
 	index = 0;
 	for (sp = &stringdope[0]; sp < &stringdope[NSPACE]; sp++) {
-		if (sp->s_topFree == NOSTR && (STRINGSIZE << index) >= s)
+		if (sp->s_topFree == NULL && (STRINGSIZE << index) >= s)
 			break;
 		if (sp->s_nleft >= s)
 			break;
@@ -83,18 +79,17 @@ salloc(size)
 	}
 	if (sp >= &stringdope[NSPACE])
 		errx(1, "String too large");
-	if (sp->s_topFree == NOSTR) {
+	if (sp->s_topFree == NULL) {
 		index = sp - &stringdope[0];
-		sp->s_topFree = malloc(STRINGSIZE << index);
-		if (sp->s_topFree == NOSTR)
-			errx(1, "No room for space %d", index);
+		if ((sp->s_topFree = malloc(STRINGSIZE << index)) == NULL)
+			err(1, "No room for space %d", index);
 		sp->s_nextFree = sp->s_topFree;
 		sp->s_nleft = STRINGSIZE << index;
 	}
 	sp->s_nleft -= s;
 	t = sp->s_nextFree;
 	sp->s_nextFree += s;
-	return(t);
+	return (t);
 }
 
 /*
@@ -112,7 +107,7 @@ sreset()
 		return;
 	index = 0;
 	for (sp = &stringdope[0]; sp < &stringdope[NSPACE]; sp++) {
-		if (sp->s_topFree == NOSTR)
+		if (sp->s_topFree == NULL)
 			continue;
 		sp->s_nextFree = sp->s_topFree;
 		sp->s_nleft = STRINGSIZE << index;
@@ -130,5 +125,5 @@ spreserve()
 	struct strings *sp;
 
 	for (sp = &stringdope[0]; sp < &stringdope[NSPACE]; sp++)
-		sp->s_topFree = NOSTR;
+		sp->s_topFree = NULL;
 }

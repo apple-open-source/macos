@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: basic_functions.h,v 1.1.1.4 2001/07/19 00:20:07 zarzycki Exp $ */
+/* $Id: basic_functions.h,v 1.1.1.5 2001/12/14 22:13:17 zarzycki Exp $ */
 
 #ifndef BASIC_FUNCTIONS_H
 #define BASIC_FUNCTIONS_H
@@ -39,7 +39,6 @@ PHP_MSHUTDOWN_FUNCTION(basic);
 PHP_RINIT_FUNCTION(basic);
 PHP_RSHUTDOWN_FUNCTION(basic);
 PHP_MINFO_FUNCTION(basic);
-PHP_GINIT_FUNCTION(basic);
 
 PHP_FUNCTION(constant);
 PHP_FUNCTION(intval);
@@ -78,6 +77,7 @@ PHP_FUNCTION(is_array);
 PHP_FUNCTION(is_object);
 PHP_FUNCTION(is_scalar);
 PHP_FUNCTION(is_callable);
+PHP_FUNCTION(import_request_variables);
 
 PHP_FUNCTION(error_log);
 
@@ -108,10 +108,6 @@ PHP_FUNCTION(getprotobynumber);
 
 PHP_NAMED_FUNCTION(php_if_crc32);
 
-PHP_FUNCTION(get_loaded_extensions);
-PHP_FUNCTION(extension_loaded);
-PHP_FUNCTION(get_extension_funcs);
-
 PHP_FUNCTION(register_tick_function);
 PHP_FUNCTION(unregister_tick_function);
 
@@ -127,14 +123,16 @@ typedef unsigned int php_stat_len;
 typedef int php_stat_len;
 #endif
 
-PHPAPI int _php_error_log(int opt_err,char *message,char *opt,char *headers);
+PHPAPI int _php_error_log(int opt_err, char *message, char *opt, char *headers TSRMLS_DC);
 
 #if SIZEOF_INT == 4
 /* Most 32-bit and 64-bit systems have 32-bit ints */
 typedef unsigned int php_uint32;
+typedef signed int php_int32;
 #elif SIZEOF_LONG == 4
 /* 16-bit systems? */
 typedef unsigned long php_uint32;
+typedef signed int php_int32;
 #else
 #error Need type which holds 32 bits
 #endif
@@ -144,10 +142,12 @@ typedef unsigned long php_uint32;
 typedef struct {
 	HashTable *user_shutdown_function_names;
 	HashTable putenv_ht;
+	zval *strtok_zval;
 	char *strtok_string;
 	char *locale_string;
-	char *strtok_pos1;
-	char *strtok_pos2;
+	char *strtok_last;
+	char strtok_table[256];
+	ulong strtok_len;
 	char str_ebuf[40];
 	zval **array_walk_func_name;
 	zval **user_compare_func_name;
@@ -160,6 +160,7 @@ typedef struct {
  
 	/* pageinfo.c */
 	long page_uid;
+	long page_gid;
 	long page_inode;
 	long page_mtime;
 
@@ -196,20 +197,10 @@ typedef struct {
 } php_basic_globals;
 
 #ifdef ZTS
-#define BLS_D php_basic_globals *basic_globals
-#define BLS_DC , BLS_D
-#define BLS_C basic_globals
-#define BLS_CC , BLS_C
-#define BG(v) (basic_globals->v)
-#define BLS_FETCH() php_basic_globals *basic_globals = ts_resource(basic_globals_id)
+#define BG(v) TSRMG(basic_globals_id, php_basic_globals *, v)
 extern int basic_globals_id;
 #else
-#define BLS_D
-#define BLS_DC
-#define BLS_C
-#define BLS_CC
 #define BG(v) (basic_globals.v)
-#define BLS_FETCH()
 extern php_basic_globals basic_globals;
 #endif
 

@@ -36,32 +36,33 @@
 #define MAX_LENGTH_OF_LONG 18
 #define MAX_LENGTH_OF_DOUBLE 32
 
-ZEND_API int add_function(zval *result, zval *op1, zval *op2);
-ZEND_API int sub_function(zval *result, zval *op1, zval *op2);
-ZEND_API int mul_function(zval *result, zval *op1, zval *op2);
-ZEND_API int div_function(zval *result, zval *op1, zval *op2);
-ZEND_API int mod_function(zval *result, zval *op1, zval *op2);
-ZEND_API int boolean_xor_function(zval *result, zval *op1, zval *op2);
-ZEND_API int boolean_not_function(zval *result, zval *op1);
-ZEND_API int bitwise_not_function(zval *result, zval *op1);
-ZEND_API int bitwise_or_function(zval *result, zval *op1, zval *op2);
-ZEND_API int bitwise_and_function(zval *result, zval *op1, zval *op2);
-ZEND_API int bitwise_xor_function(zval *result, zval *op1, zval *op2);
-ZEND_API int shift_left_function(zval *result, zval *op1, zval *op2);
-ZEND_API int shift_right_function(zval *result, zval *op1, zval *op2);
-ZEND_API int concat_function(zval *result, zval *op1, zval *op2);
+ZEND_API int add_function(zval *result, zval *op1, zval *op2 TSRMLS_DC);
+ZEND_API int sub_function(zval *result, zval *op1, zval *op2 TSRMLS_DC);
+ZEND_API int mul_function(zval *result, zval *op1, zval *op2 TSRMLS_DC);
+ZEND_API int div_function(zval *result, zval *op1, zval *op2 TSRMLS_DC);
+ZEND_API int mod_function(zval *result, zval *op1, zval *op2 TSRMLS_DC);
+ZEND_API int boolean_xor_function(zval *result, zval *op1, zval *op2 TSRMLS_DC);
+ZEND_API int boolean_not_function(zval *result, zval *op1 TSRMLS_DC);
+ZEND_API int bitwise_not_function(zval *result, zval *op1 TSRMLS_DC);
+ZEND_API int bitwise_or_function(zval *result, zval *op1, zval *op2 TSRMLS_DC);
+ZEND_API int bitwise_and_function(zval *result, zval *op1, zval *op2 TSRMLS_DC);
+ZEND_API int bitwise_xor_function(zval *result, zval *op1, zval *op2 TSRMLS_DC);
+ZEND_API int shift_left_function(zval *result, zval *op1, zval *op2 TSRMLS_DC);
+ZEND_API int shift_right_function(zval *result, zval *op1, zval *op2 TSRMLS_DC);
+ZEND_API int concat_function(zval *result, zval *op1, zval *op2 TSRMLS_DC);
 
-ZEND_API int is_equal_function(zval *result, zval *op1, zval *op2);
-ZEND_API int is_identical_function(zval *result, zval *op1, zval *op2);
-ZEND_API int is_not_identical_function(zval *result, zval *op1, zval *op2);
-ZEND_API int is_not_equal_function(zval *result, zval *op1, zval *op2);
-ZEND_API int is_smaller_function(zval *result, zval *op1, zval *op2);
-ZEND_API int is_smaller_or_equal_function(zval *result, zval *op1, zval *op2);
-static inline int is_numeric_string(char *str, int length, long *lval, double *dval)
+ZEND_API int is_equal_function(zval *result, zval *op1, zval *op2 TSRMLS_DC);
+ZEND_API int is_identical_function(zval *result, zval *op1, zval *op2 TSRMLS_DC);
+ZEND_API int is_not_identical_function(zval *result, zval *op1, zval *op2 TSRMLS_DC);
+ZEND_API int is_not_equal_function(zval *result, zval *op1, zval *op2 TSRMLS_DC);
+ZEND_API int is_smaller_function(zval *result, zval *op1, zval *op2 TSRMLS_DC);
+ZEND_API int is_smaller_or_equal_function(zval *result, zval *op1, zval *op2 TSRMLS_DC);
+
+static inline int is_numeric_string(char *str, int length, long *lval, double *dval, zend_bool allow_errors)
 {
 	long local_lval;
 	double local_dval;
-	char *end_ptr;
+	char *end_ptr_long, *end_ptr_double;
 	int conv_base=10;
 
 	if (!length) {
@@ -73,12 +74,16 @@ static inline int is_numeric_string(char *str, int length, long *lval, double *d
 		conv_base=16;
 	}
 	errno=0;
-	local_lval = strtol(str, &end_ptr, conv_base);
-	if (errno!=ERANGE && end_ptr == str+length) { /* integer string */
-		if (lval) {
-			*lval = local_lval;
+	local_lval = strtol(str, &end_ptr_long, conv_base);
+	if (errno!=ERANGE) {
+		if (end_ptr_long == str+length) { /* integer string */
+			if (lval) {
+				*lval = local_lval;
+			}
+			return IS_LONG;
 		}
-		return IS_LONG;
+	} else {
+		end_ptr_long=NULL;
 	}
 
 	if (conv_base==16) { /* hex string, under UNIX strtod() messes it up */
@@ -86,40 +91,52 @@ static inline int is_numeric_string(char *str, int length, long *lval, double *d
 	}
 
 	errno=0;
-	local_dval = strtod(str, &end_ptr);
-	if (errno!=ERANGE && end_ptr == str+length) { /* floating point string */
-		if (! zend_finite(local_dval)) {
-			/* "inf","nan" and maybe other weird ones */
-			return 0;
-		}
-
-		if (dval) {
-			*dval = local_dval;
-		}
-#if 0&&WITH_BCMATH
-		if (length>16) {
-			register char *ptr=str, *end=str+length;
-			
-			while (ptr<end) {
-				switch(*ptr++) {
-					case 'e':
-					case 'E':
-						/* scientific notation, not handled by the BC library */
-						return IS_DOUBLE;
-						break;
-					default:
-						break;
-				}
+	local_dval = strtod(str, &end_ptr_double);
+	if (errno!=ERANGE) {
+		if (end_ptr_double == str+length) { /* floating point string */
+			if (! zend_finite(local_dval)) {
+				/* "inf","nan" and maybe other weird ones */
+				return 0;
 			}
-			return FLAG_IS_BC;
-		} else {
-			return IS_DOUBLE;
-		}
+
+			if (dval) {
+				*dval = local_dval;
+			}
+#if 0&&WITH_BCMATH
+			if (length>16) {
+				register char *ptr=str, *end=str+length;
+				
+				while (ptr<end) {
+					switch(*ptr++) {
+						case 'e':
+						case 'E':
+							/* scientific notation, not handled by the BC library */
+							return IS_DOUBLE;
+							break;
+						default:
+							break;
+					}
+				}
+				return FLAG_IS_BC;
+			} else {
+				return IS_DOUBLE;
+			}
 #else
-		return IS_DOUBLE;
+			return IS_DOUBLE;
 #endif
+		}
+	} else {
+		end_ptr_double=NULL;
 	}
-	
+	if (allow_errors) {
+		if (end_ptr_double>end_ptr_long && dval) {
+			*dval = local_dval;
+			return IS_DOUBLE;
+		} else if (end_ptr_long && lval) {
+			*lval = local_lval;
+			return IS_LONG;
+		}
+	}
 	return 0;
 }
 
@@ -127,7 +144,7 @@ ZEND_API int increment_function(zval *op1);
 ZEND_API int decrement_function(zval *op2);
 
 BEGIN_EXTERN_C()
-ZEND_API void convert_scalar_to_number(zval *op);
+ZEND_API void convert_scalar_to_number(zval *op TSRMLS_DC);
 ZEND_API void _convert_to_string(zval *op ZEND_FILE_LINE_DC);
 ZEND_API void convert_to_long(zval *op);
 ZEND_API void convert_to_double(zval *op);
@@ -147,9 +164,9 @@ ZEND_API double zend_string_to_double(const char *number, zend_uint length);
 END_EXTERN_C()
 
 ZEND_API int zval_is_true(zval *op);
-ZEND_API int compare_function(zval *result, zval *op1, zval *op2);
-ZEND_API int numeric_compare_function(zval *result, zval *op1, zval *op2);
-ZEND_API int string_compare_function(zval *result, zval *op1, zval *op2);
+ZEND_API int compare_function(zval *result, zval *op1, zval *op2 TSRMLS_DC);
+ZEND_API int numeric_compare_function(zval *result, zval *op1, zval *op2 TSRMLS_DC);
+ZEND_API int string_compare_function(zval *result, zval *op1, zval *op2 TSRMLS_DC);
 
 ZEND_API void zend_str_tolower(char *str, unsigned int length);
 ZEND_API int zend_binary_zval_strcmp(zval *s1, zval *s2);
@@ -162,9 +179,9 @@ ZEND_API int zend_binary_strcasecmp(char *s1, uint len1, char *s2, uint len2);
 ZEND_API int zend_binary_strncasecmp(char *s1, uint len1, char *s2, uint len2, uint length);
 
 ZEND_API void zendi_smart_strcmp(zval *result, zval *s1, zval *s2);
-ZEND_API void zend_compare_symbol_tables(zval *result, HashTable *ht1, HashTable *ht2);
-ZEND_API void zend_compare_arrays(zval *result, zval *a1, zval *a2);
-ZEND_API void zend_compare_objects(zval *result, zval *o1, zval *o2);
+ZEND_API void zend_compare_symbol_tables(zval *result, HashTable *ht1, HashTable *ht2 TSRMLS_DC);
+ZEND_API void zend_compare_arrays(zval *result, zval *a1, zval *a2 TSRMLS_DC);
+ZEND_API void zend_compare_objects(zval *result, zval *o1, zval *o2 TSRMLS_DC);
 
 ZEND_API int zend_atoi(const char *str, int str_len);
 
@@ -205,7 +222,7 @@ ZEND_API int zend_atoi(const char *str, int str_len);
 		if (!(*ppzv)->is_ref) {										\
 			SEPARATE_ZVAL(ppzv);									\
 		}															\
-		convert_scalar_to_number(*ppzv);							\
+		convert_scalar_to_number(*ppzv TSRMLS_CC);					\
 	}
 
 
@@ -216,6 +233,7 @@ ZEND_API int zend_atoi(const char *str, int str_len);
 #define Z_STRVAL(zval)		(zval).value.str.val
 #define Z_STRLEN(zval)		(zval).value.str.len
 #define Z_ARRVAL(zval)		(zval).value.ht
+#define Z_OBJ(zval)			&(zval).value.obj
 #define Z_OBJPROP(zval)		(zval).value.obj.properties
 #define Z_OBJCE(zval)		(zval).value.obj.ce
 #define Z_RESVAL(zval)		(zval).value.lval
@@ -226,6 +244,7 @@ ZEND_API int zend_atoi(const char *str, int str_len);
 #define Z_STRVAL_P(zval_p)		Z_STRVAL(*zval_p)
 #define Z_STRLEN_P(zval_p)		Z_STRLEN(*zval_p)
 #define Z_ARRVAL_P(zval_p)		Z_ARRVAL(*zval_p)
+#define Z_OBJ_P(zval_p)			Z_OBJ(*zval_p)
 #define Z_OBJPROP_P(zval_p)		Z_OBJPROP(*zval_p)
 #define Z_OBJCE_P(zval_p)		Z_OBJCE(*zval_p)
 #define Z_RESVAL_P(zval_p)		Z_RESVAL(*zval_p)
@@ -236,6 +255,7 @@ ZEND_API int zend_atoi(const char *str, int str_len);
 #define Z_STRVAL_PP(zval_pp)	Z_STRVAL(**zval_pp)
 #define Z_STRLEN_PP(zval_pp)	Z_STRLEN(**zval_pp)
 #define Z_ARRVAL_PP(zval_pp)	Z_ARRVAL(**zval_pp)
+#define Z_OBJ_PP(zval_pp)		Z_OBJ(**zval_pp)
 #define Z_OBJPROP_PP(zval_pp)	Z_OBJPROP(**zval_pp)
 #define Z_OBJCE_PP(zval_pp)		Z_OBJCE(**zval_pp)
 #define Z_RESVAL_PP(zval_pp)	Z_RESVAL(**zval_pp)

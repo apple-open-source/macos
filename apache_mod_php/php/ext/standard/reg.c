@@ -17,7 +17,7 @@
    |          Jaakko Hyvätti <jaakko@hyvatti.iki.fi>                      | 
    +----------------------------------------------------------------------+
  */
-/* $Id: reg.c,v 1.1.1.3 2001/07/19 00:20:21 zarzycki Exp $ */
+/* $Id: reg.c,v 1.1.1.4 2001/12/14 22:13:27 zarzycki Exp $ */
 
 #include <stdio.h>
 #include "php.h"
@@ -46,12 +46,14 @@ typedef struct {
 	int cflags;
 } reg_cache;
 
+/* {{{ _php_regcomp
+ */
 static int _php_regcomp(regex_t *preg, const char *pattern, int cflags)
 {
 	int r = 0;
 	int patlen = strlen(pattern);
 	reg_cache *rc = NULL;
-	REGLS_FETCH();
+	TSRMLS_FETCH();
 	
 	if(zend_hash_find(&REG(ht_rc), (char *) pattern, patlen+1, (void **) &rc) == FAILURE ||
 			rc->cflags != cflags) {
@@ -70,6 +72,7 @@ static int _php_regcomp(regex_t *preg, const char *pattern, int cflags)
 	
 	return r;
 }
+/* }}} */
 
 static void _free_reg_cache(reg_cache *rc) 
 {
@@ -79,9 +82,9 @@ static void _free_reg_cache(reg_cache *rc)
 #undef regfree
 #define regfree(a);
 #undef regcomp
-#define regcomp(a,b,c) _php_regcomp(a,b,c)
+#define regcomp(a, b, c) _php_regcomp(a, b, c)
 	
-static void php_reg_init_globals(php_reg_globals *reg_globals) 
+static void php_reg_init_globals(php_reg_globals *reg_globals TSRMLS_DC)
 {
 	zend_hash_init(&reg_globals->ht_rc, 0, NULL, (void (*)(void *)) _free_reg_cache, 1);
 }
@@ -89,9 +92,9 @@ static void php_reg_init_globals(php_reg_globals *reg_globals)
 PHP_MINIT_FUNCTION(regex)
 {
 #ifdef ZTS
-	reg_globals_id = ts_allocate_id(sizeof(php_reg_globals), (ts_allocate_ctor) php_reg_init_globals, NULL);
+	ts_allocate_id(&reg_globals_id, sizeof(php_reg_globals), (ts_allocate_ctor) php_reg_init_globals, NULL);
 #else
-	php_reg_init_globals(&reg_globals);
+	php_reg_init_globals(&reg_globals TSRMLS_CC);
 #endif
 
 	return SUCCESS;
@@ -99,8 +102,6 @@ PHP_MINIT_FUNCTION(regex)
 
 PHP_MSHUTDOWN_FUNCTION(regex)
 {
-	REGLS_FETCH();
-
 	zend_hash_destroy(&REG(ht_rc));
 	return SUCCESS;
 }
@@ -119,7 +120,7 @@ PHP_MINFO_FUNCTION(regex)
    call to ereg() or eregi() with the optional third argument. */
 #define  NS  10
 
-/*
+/* {{{ php_reg_eprint
  * php_reg_eprint - convert error number to name
  */
 static void php_reg_eprint(int err, regex_t *re) {
@@ -158,7 +159,10 @@ static void php_reg_eprint(int err, regex_t *re) {
 	STR_FREE(buf);
 	STR_FREE(message);
 }
+/* }}} */
 
+/* {{{ php_ereg
+ */
 static void php_ereg(INTERNAL_FUNCTION_PARAMETERS, int icase)
 {
 	pval **regex,			/* Regular expression */
@@ -187,10 +191,6 @@ static void php_ereg(INTERNAL_FUNCTION_PARAMETERS, int icase)
 	case 3:
 		if (zend_get_parameters_ex(3, &regex, &findin, &array) == FAILURE) {
 			WRONG_PARAM_COUNT;
-		}
-		if (!ParameterPassedByReference(ht, 3)) {
-			php_error(E_WARNING, "Array to be filled with values must be passed by reference.");
-			RETURN_FALSE;
 		}
 		break;
 	default:
@@ -263,6 +263,7 @@ static void php_ereg(INTERNAL_FUNCTION_PARAMETERS, int icase)
 	}
 	regfree(&re);
 }
+/* }}} */
 
 /* {{{ proto int ereg(string pattern, string string [, array registers])
    Regular expression match */
@@ -280,7 +281,8 @@ PHP_FUNCTION(eregi)
 }
 /* }}} */
 
-/* this is the meat and potatoes of regex replacement! */
+/* {{{ php_reg_replace
+ * this is the meat and potatoes of regex replacement! */
 char *php_reg_replace(const char *pattern, const char *replace, const char *string, int icase, int extended)
 {
 	regex_t re;
@@ -418,7 +420,10 @@ char *php_reg_replace(const char *pattern, const char *replace, const char *stri
 	/* whew. */
 	return (buf);
 }
+/* }}} */
 
+/* {{{ php_ereg_replace
+ */
 static void php_ereg_replace(INTERNAL_FUNCTION_PARAMETERS, int icase)
 {
 	pval **arg_pattern,
@@ -435,7 +440,7 @@ static void php_ereg_replace(INTERNAL_FUNCTION_PARAMETERS, int icase)
 
 	if ((*arg_pattern)->type == IS_STRING) {
 		if ((*arg_pattern)->value.str.val && (*arg_pattern)->value.str.len)
-			pattern = estrndup((*arg_pattern)->value.str.val,(*arg_pattern)->value.str.len);
+			pattern = estrndup((*arg_pattern)->value.str.val, (*arg_pattern)->value.str.len);
 		else
 			pattern = empty_string;
 	} else {
@@ -468,13 +473,14 @@ static void php_ereg_replace(INTERNAL_FUNCTION_PARAMETERS, int icase)
 	if (ret == (char *) -1) {
 		RETVAL_FALSE;
 	} else {
-		RETVAL_STRING(ret,1);
+		RETVAL_STRING(ret, 1);
 		STR_FREE(ret);
 	}
 	STR_FREE(string);
 	STR_FREE(replace);
 	STR_FREE(pattern);
 }
+/* }}} */
 
 /* {{{ proto string ereg_replace(string pattern, string replacement, string string)
    Replace regular expression */
@@ -492,6 +498,8 @@ PHP_FUNCTION(eregi_replace)
 }
 /* }}} */
 
+/* {{{ php_split
+ */
 static void php_split(INTERNAL_FUNCTION_PARAMETERS, int icase)
 {
 	pval **spliton, **str, **arg_count = NULL;
@@ -586,6 +594,7 @@ static void php_split(INTERNAL_FUNCTION_PARAMETERS, int icase)
 
 	regfree(&re);
 }
+/* }}} */
 
 /* ("root", "passwd", "uid", "gid", "other:stuff:like:/bin/sh")
    = split(":", $passwd_file, 5); */
@@ -608,7 +617,6 @@ PHP_FUNCTION(spliti)
 }
 
 /* }}} */
-
 
 /* {{{ proto string sql_regcase(string string)
    Make regular expression for case insensitive match */
@@ -646,11 +654,11 @@ PHPAPI PHP_FUNCTION(sql_regcase)
 }
 /* }}} */
 
-
-
 /*
  * Local variables:
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

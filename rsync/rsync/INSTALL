@@ -1,0 +1,42 @@
+To build and install rsync
+
+  $ ./configure
+  $ make
+  # make install
+
+You may set the installation directory and other parameters by options
+to ./configure.  To see them, use:
+
+  $ ./configure --help
+
+As of 2.4.7, rsync uses Eric Troan's popt option-parsing library.  A
+cut-down copy of release 1.5 is included in the rsync distribution,
+and will be used it there is no popt library on your build host, or if
+the --with-included-popt option is passed to ./configure.
+
+
+
+HP-UX NOTES
+-----------
+
+The HP-UX 10.10 "bundled" C compiler seems not to be able to cope with
+ANSI C.  You may see this error message in config.log if ./configure
+fails:
+
+  (Bundled) cc: "configure", line 2162: error 1705: Function prototypes are an ANSI feature.
+
+Install gcc or HP's "ANSI/C Compiler".
+
+
+
+MAC OSX NOTES
+-------------
+
+Mac OS X (Darwin) seems to have an IPv6 stack, but it does not
+completely implement the "New Sockets" API.  
+
+<http://www.ipv6.org/impl/mac.html> says that Apple do not support
+IPv6 yet.  If your build fails, try again with --disable-ipv6.
+
+
+

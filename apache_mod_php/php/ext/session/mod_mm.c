@@ -1,8 +1,8 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,11 +16,13 @@
    +----------------------------------------------------------------------+
  */
 
+/* $Id: mod_mm.c,v 1.1.1.6 2002/03/20 03:23:42 zarzycki Exp $ */
 
 #include "php.h"
 
 #ifdef HAVE_LIBMM
 
+#include <unistd.h>
 #include <mm.h>
 #include <time.h>
 #include <sys/stat.h>
@@ -29,116 +31,145 @@
 
 #include "php_session.h"
 #include "mod_mm.h"
+#include "SAPI.h"
 
-#define PS_MM_PATH "/tmp/session_mm"
+#ifdef ZTS
+# error mm is not thread-safe
+#endif
+
+#define PS_MM_FILE "session_mm_"
+
+/* For php_uint32 */
+#include "ext/standard/basic_functions.h"
 
 /*
  * this list holds all data associated with one session 
  */
 
 typedef struct ps_sd {
-	struct ps_sd *next, *prev;
-	time_t ctime;
-	char *key;
+	struct ps_sd *next;
+	php_uint32 hv;		/* hash value of key */
+	time_t ctime;		/* time of last change */
 	void *data;
-	size_t datalen;
+	size_t datalen;		/* amount of valid data */
+	size_t alloclen;	/* amount of allocated memory for data */
+	char key[1];		/* inline key */
 } ps_sd;
 
 typedef struct {
 	MM *mm;
 	ps_sd **hash;
+	php_uint32 hash_max;
+	php_uint32 hash_cnt;
+	pid_t owner;
 } ps_mm;
 
 static ps_mm *ps_mm_instance = NULL;
 
-/* should be a prime */
-#define HASH_SIZE 577
-
 #if 0
-#define ps_mm_debug(a...) fprintf(stderr, a)
+#define ps_mm_debug(a) printf a
 #else
-#define ps_mm_debug
+#define ps_mm_debug(a)
 #endif
 
-#define BITS_IN_int (sizeof(int) * CHAR_BIT)
-#define THREE_QUARTERS ((int) ((BITS_IN_int * 3) / 4))
-#define ONE_EIGTH ((int) (BITS_IN_int / 8))
-#define HIGH_BITS (~((unsigned int)(~0) >> ONE_EIGTH))
-
-/*
- * Weinberger's generic hash algorithm, adapted by Holub
- * (published in [Holub 1990])
- */
-
-static unsigned int ps_sd_hash(const char *data)
+static inline php_uint32 ps_sd_hash(const char *data, int len)
 {
-	unsigned int val, i;
+	php_uint32 h;
+	const char *e = data + len;
 	
-	for (val = 0; *data; data++) {
-		val = (val << ONE_EIGTH) + *data;
-		if ((i = val & HIGH_BITS) != 0)
-			val = (val ^ (i >> THREE_QUARTERS)) & ~HIGH_BITS;
+	for (h = 2166136261U; data < e; ) {
+		h *= 16777619;
+		h ^= *data++;
 	}
 	
-	return val;
+	return h;
 }
 
-
-static ps_sd *ps_sd_new(ps_mm *data, const char *key, const void *sdata, size_t sdatalen)
+static void hash_split(ps_mm *data)
 {
-	unsigned int h;
+	php_uint32 nmax;
+	ps_sd **nhash;
+	ps_sd **ohash, **ehash;
+	ps_sd *ps, *next;
+	
+	nmax = ((data->hash_max + 1) << 1) - 1;
+	nhash = mm_calloc(data->mm, nmax + 1, sizeof(*data->hash));
+	
+	if (!nhash) {
+		/* no further memory to expand hash table */
+		return;
+	}
+
+	ehash = data->hash + data->hash_max + 1;
+	for (ohash = data->hash; ohash < ehash; ohash++) {
+		for (ps = *ohash; ps; ps = next) {
+			next = ps->next;
+			ps->next = nhash[ps->hv & nmax];
+			nhash[ps->hv & nmax] = ps;
+		}
+	}
+	mm_free(data->mm, data->hash);
+
+	data->hash = nhash;
+	data->hash_max = nmax;
+}
+
+static ps_sd *ps_sd_new(ps_mm *data, const char *key)
+{
+	php_uint32 hv, slot;
 	ps_sd *sd;
-
-	h = ps_sd_hash(key) % HASH_SIZE;
+	int keylen;
 	
-	sd = mm_malloc(data->mm, sizeof(*sd));
-	if (!sd)
+	keylen = strlen(key);
+	
+	sd = mm_malloc(data->mm, sizeof(ps_sd) + keylen);
+	if (!sd) {
+		php_error(E_WARNING, "mm_malloc failed, avail %d, err %s", mm_available(data->mm), mm_error());
 		return NULL;
+	}
+
+	hv = ps_sd_hash(key, keylen);
+	slot = hv & data->hash_max;
+	
 	sd->ctime = 0;
+	sd->hv = hv;
+	sd->data = NULL;
+	sd->alloclen = sd->datalen = 0;
 	
-	sd->data = mm_malloc(data->mm, sdatalen);
-	if (!sd->data) {
-		mm_free(data->mm, sd);
-		return NULL;
-	}
+	memcpy(sd->key, key, keylen + 1);
+	
+	sd->next = data->hash[slot];
+	data->hash[slot] = sd;
 
-	sd->datalen = sdatalen;
+	data->hash_cnt++;
 	
-	sd->key = mm_strdup(data->mm, key);
-	if (!sd->key) {
-		mm_free(data->mm, sd->data);
-		mm_free(data->mm, sd);
-		return NULL;
+	if (!sd->next) {
+		if (data->hash_cnt >= data->hash_max)
+			hash_split(data);
 	}
 	
-	memcpy(sd->data, sdata, sdatalen);
-	
-	if ((sd->next = data->hash[h]))
-		sd->next->prev = sd;
-	sd->prev = NULL;
-	
-	ps_mm_debug("inserting %s(%p) into %d\n", key, sd, h);
-	
-	data->hash[h] = sd;
+	ps_mm_debug(("inserting %s(%p) into slot %d\n", key, sd, slot));
 
 	return sd;
 }
 
 static void ps_sd_destroy(ps_mm *data, ps_sd *sd)
 {
-	unsigned int h;
+	php_uint32 slot;
 
-	h = ps_sd_hash(sd->key) % HASH_SIZE;
-	
-	if (sd->next)
-		sd->next->prev = sd->prev;
-	if (sd->prev)
-		sd->prev->next = sd->next;
-	
-	if (data->hash[h] == sd)
-		data->hash[h] = sd->next;
+	slot = ps_sd_hash(sd->key, strlen(sd->key)) & data->hash_max;
+
+	if (data->hash[slot] == sd)
+		data->hash[slot] = sd->next;
+	else {
+		ps_sd *prev;
+
+		/* There must be some entry before the one we want to delete */
+		for (prev = data->hash[slot]; prev->next != sd; prev = prev->next);
+		prev->next = sd->next;
+	}
 		
-	mm_free(data->mm, sd->key);
+	data->hash_cnt--;
 	if (sd->data) 
 		mm_free(data->mm, sd->data);
 	mm_free(data->mm, sd);
@@ -146,23 +177,26 @@ static void ps_sd_destroy(ps_mm *data, ps_sd *sd)
 
 static ps_sd *ps_sd_lookup(ps_mm *data, const char *key, int rw)
 {
-	unsigned int h;
-	ps_sd *ret;
+	php_uint32 hv, slot;
+	ps_sd *ret, *prev;
 
-	h = ps_sd_hash(key) % HASH_SIZE;
-
-	for (ret = data->hash[h]; ret; ret = ret->next)
-		if (!strcmp(ret->key, key)) 
+	hv = ps_sd_hash(key, strlen(key));
+	slot = hv & data->hash_max;
+	
+	for (prev = NULL, ret = data->hash[slot]; ret; prev = ret, ret = ret->next)
+		if (ret->hv == hv && !strcmp(ret->key, key)) 
 			break;
-
-	if (ret && rw && ret != data->hash[h]) {
-		data->hash[h]->prev = ret;
-		ret->next = data->hash[h];
-		data->hash[h] = ret;
-		ps_mm_debug("optimizing\n");
+	
+	if (ret && rw && ret != data->hash[slot]) {
+		/* Move the entry to the top of the linked list */
+		
+		if (prev)
+			prev->next = ret->next;
+		ret->next = data->hash[slot];
+		data->hash[slot] = ret;
 	}
 
-	ps_mm_debug(stderr, "lookup(%s): ret=%p,h=%d\n", key, ret, h);
+	ps_mm_debug(("lookup(%s): ret=%p,hv=%u,slot=%d\n", key, ret, hv, slot));
 	
 	return ret;
 }
@@ -175,12 +209,15 @@ ps_module ps_mod_mm = {
 
 static int ps_mm_initialize(ps_mm *data, const char *path)
 {
+	data->owner = getpid();
 	data->mm = mm_create(0, path);
 	if (!data->mm) {
 		return FAILURE;
 	}
 
-	data->hash = mm_calloc(data->mm, HASH_SIZE, sizeof(*data->hash));
+	data->hash_cnt = 0;
+	data->hash_max = 511;
+	data->hash = mm_calloc(data->mm, data->hash_max + 1, sizeof(ps_sd *));
 	if (!data->hash) {
 		mm_destroy(data->mm);
 		return FAILURE;
@@ -194,7 +231,12 @@ static void ps_mm_destroy(ps_mm *data)
 	int h;
 	ps_sd *sd, *next;
 
-	for (h = 0; h < HASH_SIZE; h++)
+	/* This function is called during each module shutdown,
+	   but we must not release the shared memory pool, when
+	   an Apache child dies! */
+	if (data->owner != getpid()) return;
+
+	for (h = 0; h < data->hash_max + 1; h++)
 		for (sd = data->hash[h]; sd; sd = next) {
 			next = sd->next;
 			ps_sd_destroy(data, sd);
@@ -202,24 +244,53 @@ static void ps_mm_destroy(ps_mm *data)
 	
 	mm_free(data->mm, data->hash);
 	mm_destroy(data->mm);
+	free(data);
 }
 
-PHP_GINIT_FUNCTION(ps_mm)
+PHP_MINIT_FUNCTION(ps_mm)
 {
+	int save_path_len = strlen(PS(save_path));
+	int mod_name_len = strlen(sapi_module.name);
+	char *ps_mm_path, euid[30];
+	int ret;
+
 	ps_mm_instance = calloc(sizeof(*ps_mm_instance), 1);
-	if (ps_mm_initialize(ps_mm_instance, PS_MM_PATH) != SUCCESS) {
+   	if (!ps_mm_instance)
+		return FAILURE;
+
+	if (!sprintf(euid,"%d", geteuid())) 
+		return FAILURE;
+		
+    /* Directory + '/' + File + Module Name + Effective UID + \0 */	
+	ps_mm_path = do_alloca(save_path_len+1+sizeof(PS_MM_FILE)+mod_name_len+strlen(euid)+1);
+	
+	memcpy(ps_mm_path, PS(save_path), save_path_len + 1);
+	if (save_path_len > 0 && ps_mm_path[save_path_len - 1] != DEFAULT_SLASH) {
+		ps_mm_path[save_path_len] = DEFAULT_SLASH;
+		ps_mm_path[save_path_len+1] = '\0';
+	}
+	strcat(ps_mm_path, PS_MM_FILE);
+	strcat(ps_mm_path, sapi_module.name);
+	strcat(ps_mm_path, euid);
+	
+	ret = ps_mm_initialize(ps_mm_instance, ps_mm_path);
+		
+	free_alloca(ps_mm_path);
+   
+	if (ret != SUCCESS) {
+		free(ps_mm_instance);
 		ps_mm_instance = NULL;
 		return FAILURE;
 	}
+	
 	php_session_register_module(&ps_mod_mm);
 	return SUCCESS;
 }
 
-PHP_GSHUTDOWN_FUNCTION(ps_mm)
+PHP_MSHUTDOWN_FUNCTION(ps_mm)
 {
 	if (ps_mm_instance) {
 		ps_mm_destroy(ps_mm_instance);
-		free(ps_mm_instance);
 		return SUCCESS;
 	}
 	return FAILURE;
@@ -227,7 +298,7 @@ PHP_GSHUTDOWN_FUNCTION(ps_mm)
 
 PS_OPEN_FUNC(mm)
 {
-	ps_mm_debug("open: ps_mm_instance=%p\n", ps_mm_instance);
+	ps_mm_debug(("open: ps_mm_instance=%p\n", ps_mm_instance));
 	
 	if (!ps_mm_instance)
 		return FAILURE;
@@ -248,21 +319,22 @@ PS_READ_FUNC(mm)
 {
 	PS_MM_DATA;
 	ps_sd *sd;
-	int ret = FAILURE;
 
 	mm_lock(data->mm, MM_LOCK_RD);
 	
 	sd = ps_sd_lookup(data, key, 0);
 	if (sd) {
 		*vallen = sd->datalen;
-		*val = emalloc(sd->datalen);
+		*val = emalloc(sd->datalen + 1);
 		memcpy(*val, sd->data, sd->datalen);
-		ret = SUCCESS;
+		(*val)[sd->datalen] = '\0';
 	}
-
+	else {
+		*val = estrdup("");
+	}
 	mm_unlock(data->mm);
 	
-	return ret;
+ 	return SUCCESS;
 }
 
 PS_WRITE_FUNC(mm)
@@ -270,28 +342,33 @@ PS_WRITE_FUNC(mm)
 	PS_MM_DATA;
 	ps_sd *sd;
 
-	if (vallen == 0) return SUCCESS;
-	
 	mm_lock(data->mm, MM_LOCK_RW);
 
 	sd = ps_sd_lookup(data, key, 1);
 	if (!sd) {
-		sd = ps_sd_new(data, key, val, vallen);
-		ps_mm_debug(stderr, "new one for %s\n", key);
-	} else {
-		ps_mm_debug(stderr, "found existing one for %s\n", key);
-		mm_free(data->mm, sd->data);
-		sd->datalen = vallen;
-		sd->data = mm_malloc(data->mm, vallen);
-		if (!sd->data) {
-			ps_sd_destroy(data, sd);
-			sd = NULL;
-		} else
-			memcpy(sd->data, val, vallen);
+		sd = ps_sd_new(data, key);
+		ps_mm_debug(("new entry for %s\n", key));
 	}
 
-	if (sd)
-		time(&sd->ctime);
+	if (sd) {
+		if (vallen >= sd->alloclen) {
+			if (data->mm) 
+				mm_free(data->mm, sd->data);
+			sd->alloclen = vallen + 1;
+			sd->data = mm_malloc(data->mm, sd->alloclen);
+
+			if (!sd->data) {
+				ps_sd_destroy(data, sd);
+				php_error(E_WARNING, "cannot allocate new data segment");
+				sd = NULL;
+			}
+		}
+		if (sd) {
+			sd->datalen = vallen;
+			memcpy(sd->data, val, vallen);
+			time(&sd->ctime);
+		}
+	}
 
 	mm_unlock(data->mm);
 	
@@ -317,24 +394,27 @@ PS_DESTROY_FUNC(mm)
 PS_GC_FUNC(mm) 
 {
 	PS_MM_DATA;
-	int h;
-	time_t now;
+	time_t limit;
+	ps_sd **ohash, **ehash;
 	ps_sd *sd, *next;
 	
 	*nrdels = 0;
-	ps_mm_debug("gc\n");
-	
-	mm_lock(data->mm, MM_LOCK_RW);
-	
-	time(&now);
+	ps_mm_debug(("gc\n"));
+		
+	time(&limit);
 
-	for (h = 0; h < HASH_SIZE; h++)
-		for (sd = data->hash[h]; sd; sd = next) {
+	limit -= maxlifetime;
+
+	mm_lock(data->mm, MM_LOCK_RW);
+
+	ehash = data->hash + data->hash_max + 1;
+	for (ohash = data->hash; ohash < ehash; ohash++)
+		for (sd = *ohash; sd; sd = next) {
 			next = sd->next;
-			ps_mm_debug("looking at %s\n", sd->key);
-			if ((now - sd->ctime) > maxlifetime) {
+			if (sd->ctime < limit) {
+				ps_mm_debug(("purging %s\n", sd->key));
 				ps_sd_destroy(data, sd);
-				*nrdels++;
+				(*nrdels)++;
 			}
 		}
 
@@ -344,13 +424,23 @@ PS_GC_FUNC(mm)
 }
 
 zend_module_entry php_session_mm_module = {
-	"Session MM",
+	STANDARD_MODULE_HEADER,
+	"session mm",
 	NULL,
-	NULL, NULL,
+	PHP_MINIT(ps_mm), PHP_MSHUTDOWN(ps_mm),
 	NULL, NULL,
 	NULL,
-	PHP_GINIT(ps_mm), PHP_GSHUTDOWN(ps_mm),
-	STANDARD_MODULE_PROPERTIES_EX
+    NO_VERSION_YET,
+	STANDARD_MODULE_PROPERTIES
 };
 
 #endif
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
+ */

@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_xml.h,v 1.1.1.4 2001/07/19 00:20:29 zarzycki Exp $ */
+/* $Id: php_xml.h,v 1.1.1.5 2001/12/14 22:13:37 zarzycki Exp $ */
 
 #ifndef PHP_XML_H
 #define PHP_XML_H
@@ -33,14 +33,9 @@ extern zend_module_entry xml_module_entry;
 
 #endif
 
-#if defined(HAVE_LIBEXPAT) && defined(PHP_XML_INTERNAL)
+#if defined(PHP_XML_INTERNAL)
 
-#ifdef HAVE_LIBEXPAT2
 #include <expat.h>
-#else
-#include <xmltok.h>
-#include <xmlparse.h>
-#endif
 
 #ifdef PHP_WIN32
 #define PHP_XML_API __declspec(dllexport)
@@ -71,10 +66,8 @@ typedef struct {
 	zval *notationDeclHandler;
 	zval *externalEntityRefHandler;
 	zval *unknownEncodingHandler;
-#ifdef HAVE_LIBEXPAT2
 	zval *startNamespaceDeclHandler;
 	zval *endNamespaceDeclHandler;
-#endif
 	zval *object;
 
 	zval *data;
@@ -114,9 +107,7 @@ enum php_xml_option {
 #define XML_MAXLEVEL 255 /* XXX this should be dynamic */
 	
 PHP_FUNCTION(xml_parser_create);
-#ifdef HAVE_LIBEXPAT2
 PHP_FUNCTION(xml_parser_create_ns);
-#endif
 PHP_FUNCTION(xml_set_object);
 PHP_FUNCTION(xml_set_element_handler);
 PHP_FUNCTION(xml_set_character_data_handler);
@@ -125,10 +116,8 @@ PHP_FUNCTION(xml_set_default_handler);
 PHP_FUNCTION(xml_set_unparsed_entity_decl_handler);
 PHP_FUNCTION(xml_set_notation_decl_handler);
 PHP_FUNCTION(xml_set_external_entity_ref_handler);
-#ifdef HAVE_LIBEXPAT2
 PHP_FUNCTION(xml_set_start_namespace_decl_handler);
 PHP_FUNCTION(xml_set_end_namespace_decl_handler);
-#endif
 PHP_FUNCTION(xml_parse);
 PHP_FUNCTION(xml_get_error_code);
 PHP_FUNCTION(xml_error_string);
@@ -150,19 +139,9 @@ PHPAPI char *xml_utf8_decode(const XML_Char *, int, int *, const XML_Char *);
 #define phpext_xml_ptr xml_module_ptr
 
 #ifdef ZTS
-#define XMLLS_D php_xml_globals *xml_globals
-#define XMLLS_DC , PSLS_D
-#define XMLLS_C xml_globals
-#define XMLLS_CC , XMLLS_C
-#define XML(v) (xml_globals->v)
-#define XMLLS_FETCH() php_xml_globals *xml_globals = ts_resource(xml_globals_id)
+#define XML(v) TSRMG(xml_globals_id, php_xml_globals *, v)
 #else
-#define XMLLS_D
-#define XMLLS_DC
-#define XMLLS_C
-#define XMLLS_CC
 #define XML(v) (xml_globals.v)
-#define XMLLS_FETCH()
 #endif
 
 #endif /* PHP_XML_H */

@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.1.1.1 2001/07/19 00:19:23 zarzycki Exp $
+dnl $Id: config.m4,v 1.1.1.2 2001/12/14 22:12:36 zarzycki Exp $
 dnl config.m4 for extension libming
 
 PHP_ARG_WITH(ming, whether to include ming support,

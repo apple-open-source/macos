@@ -1,5 +1,8 @@
 <?php
 
+$dbh->setErrorHandling(PEAR_ERROR_RETURN);
+$dbh->query("DROP TABLE phptest_fk");
+
 $dbh->setErrorHandling(PEAR_ERROR_DIE);
 $dbh->query("INSERT INTO phptest VALUES(1, 'one', 'One', '2001-02-16')");
 $dbh->query("INSERT INTO phptest VALUES(2, 'two', 'Two', '2001-02-15')");
