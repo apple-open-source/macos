@@ -439,7 +439,6 @@ int get_first_tuple(client_handle_t handle, tuple_t *tuple)
     if (s->state & SOCKET_CARDBUS) {
 	u_int ptr;
 #ifdef __MACOSX__
-	// MACOSXXX - what about multi function cards?
 	IOPCCardReadConfigLong(s->cap.cardbus_nub[0], 0x28, &ptr);
 #else
 	pcibios_read_config_dword(s->cap.cardbus, 0, 0x28, &ptr);

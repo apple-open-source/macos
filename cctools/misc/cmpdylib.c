@@ -288,13 +288,15 @@ char *arch_name)
 {
 	if(ofile->file_type == OFILE_FAT){
 	    if(ofile->arch_type != OFILE_Mach_O ||
-	       ofile->mh->filetype != MH_DYLIB)
+	       (ofile->mh->filetype != MH_DYLIB &&
+	        ofile->mh->filetype != MH_DYLIB_STUB))
 	    fatal("for architecture %s file: %s is not a dynamic shared "
 		  "library", ofile->arch_flag.name, ofile->file_name);
 	}
 	else
 	    if(ofile->file_type != OFILE_Mach_O ||
-	       ofile->mh->filetype != MH_DYLIB)
+	       (ofile->mh->filetype != MH_DYLIB &&
+	        ofile->mh->filetype != MH_DYLIB_STUB))
 		fatal("file: %s is not a dynamic shared library",
 		      ofile->file_name);
 }
@@ -362,7 +364,7 @@ enum bool new_api_allowed)
 	}
 	for(i = 0; i < old_st->nsyms; i++){
 	    if(old_symbols[i].n_un.n_strx != 0 &&
-	       old_symbols[i].n_un.n_strx > old_st->strsize){
+	       (unsigned long)old_symbols[i].n_un.n_strx > old_st->strsize){
 		if(arch_name != NULL)
 		    fatal("malformed dynamic shared library: %s (for "
 			"architecture %s) (bad string table index for symbol "
@@ -422,7 +424,7 @@ enum bool new_api_allowed)
 	}
 	for(i = 0; i < new_st->nsyms; i++){
 	    if(new_symbols[i].n_un.n_strx != 0 &&
-	       new_symbols[i].n_un.n_strx > new_st->strsize){
+	       (unsigned long)new_symbols[i].n_un.n_strx > new_st->strsize){
 		if(arch_name != NULL)
 		    fatal("malformed dynamic shared library: %s (for "
 			"architecture %s) (bad string table index for symbol "

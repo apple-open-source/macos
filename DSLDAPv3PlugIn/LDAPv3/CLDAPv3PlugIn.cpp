@@ -113,9 +113,6 @@ sInt32 DSSearchLDAP (	CLDAPNode		   &inLDAPSessionMgr,
     {
         ldapReturnCode = LDAP_LOCAL_ERROR;
     }
-	inLDAPSessionMgr.UnLockSession(inContext);
-	if (serverctrls)  ldap_controls_free( serverctrls );
-	if (clientctrls)  ldap_controls_free( clientctrls );
 	switch(ldapReturnCode)
 	{
 		case LDAP_SUCCESS:
@@ -132,26 +129,33 @@ sInt32 DSSearchLDAP (	CLDAPNode		   &inLDAPSessionMgr,
 			siResult = eDSRecordNotFound;
 			break;
 	}
+	
+	inLDAPSessionMgr.UnLockSession(inContext, (siResult == eDSCannotAccessSession), false);
+	
+	if (serverctrls)  ldap_controls_free( serverctrls );
+	if (clientctrls)  ldap_controls_free( clientctrls );
+
 	return(siResult);
 } // DSSearchLDAP
 
-void DSGetSearchLDAPResult (	CLDAPNode		   &inLDAPSessionMgr,
+sInt32 DSGetSearchLDAPResult (	CLDAPNode		   &inLDAPSessionMgr,
 								sLDAPContextData   *inContext,
 								int					inSearchTO,
 								LDAPMessage		  *&inResult,
 								int					all,
 								int				   &inLDAPMsgId,
 								int				   &inLDAPReturnCode,
-								bool				bThrowOnNoEntry);
-void DSGetSearchLDAPResult (	CLDAPNode		   &inLDAPSessionMgr,
+								bool				bErrorOnNoEntry);
+sInt32 DSGetSearchLDAPResult (	CLDAPNode		   &inLDAPSessionMgr,
 								sLDAPContextData   *inContext,
 								int					inSearchTO,
 								LDAPMessage		  *&inResult,
 								int					all,
 								int				   &inLDAPMsgId,
 								int				   &inLDAPReturnCode,
-								bool				bThrowOnNoEntry)
+								bool				bErrorOnNoEntry)
 {
+	sInt32			siResult 			= eDSNoErr;
 	LDAP		   *aHost				= nil;
 
 	aHost = inLDAPSessionMgr.LockSession(inContext);
@@ -173,7 +177,8 @@ void DSGetSearchLDAPResult (	CLDAPNode		   &inLDAPSessionMgr,
 	{
 		inLDAPReturnCode = LDAP_LOCAL_ERROR;
 	}
-	inLDAPSessionMgr.UnLockSession(inContext);
+	inLDAPSessionMgr.UnLockSession(inContext, (inLDAPReturnCode == -1), false);
+	
 	
 	switch(inLDAPReturnCode)
 	{
@@ -218,24 +223,28 @@ void DSGetSearchLDAPResult (	CLDAPNode		   &inLDAPSessionMgr,
 						if (ctrls)  ldap_controls_free( ctrls );
 					}
 				}
-				if (bThrowOnNoEntry) throw( (sInt32)eDSRecordNotFound );
+				//no need to set siResult unless bErrorOnNoEntry
+				//since some calls can't handle the return of LDAP_RES_SEARCH_RESULT
+				if (bErrorOnNoEntry)
+				{
+					siResult = eDSRecordNotFound;
+				}
+				break;
 			}
-			break;
 		case LDAP_TIMEOUT:
-			throw( (sInt32)eDSServerTimeout );
-		case LDAP_SUCCESS:
+			siResult = eDSServerTimeout;
+			break;
 		case -1:
+			siResult = eDSCannotAccessSession;
+			break;
+		case LDAP_SUCCESS:
 		default:
-			//nothing found?
-			if (bThrowOnNoEntry)
-			{
-				throw( (sInt32)eDSRecordNotFound );
-			}
-			else
-			{
-				throw( (sInt32)eDSNoErr );
-			}
+			//nothing found? even with LDAP_SUCCESS
+			siResult = eDSRecordNotFound;
+			break;
 	} //switch(ldapReturnCode)
+	
+	return (siResult);
 }
 
 void DSGetExtendedLDAPResult (	LDAP			   *inHost,
@@ -2010,6 +2019,7 @@ sInt32 CLDAPv3PlugIn::GetAllRecords (	char			   *inRecType,
 	CDataBuff		   *aAttrData		= nil;
     char			   *queryFilter		= nil;
 	char			  **attrs			= nil;
+	sInt32				searchResult	= eDSNoErr;
 
 
 	//TODO why not optimize and save the queryFilter in the continue data for the next call in?
@@ -2064,7 +2074,6 @@ sInt32 CLDAPv3PlugIn::GetAllRecords (	char			   *inRecType,
 			int numRetries = 2;
 			while (true)
 			{
-				sInt32 searchResult = eDSNoErr;
 				searchResult = DSSearchLDAP(	fLDAPSessionMgr,
 												inContext,
 												inNativeRecType,
@@ -2074,8 +2083,24 @@ sInt32 CLDAPv3PlugIn::GetAllRecords (	char			   *inRecType,
 												ldapMsgId,
 												ldapReturnCode);
 												
-				if (searchResult == eDSRecordNotFound) throw( (sInt32)eDSNoErr );
-				if (searchResult == eDSCannotAccessSession)
+				if (	(searchResult == eDSNoErr) &&
+						((inContinue->fTotalRecCount < inContinue->fLimitRecSearch) || (inContinue->fLimitRecSearch == 0)) )
+				{
+					searchResult = DSGetSearchLDAPResult (	fLDAPSessionMgr,
+															inContext,
+															searchTO,
+															result,
+															LDAP_MSG_ONE,
+															ldapMsgId,
+															ldapReturnCode,
+															false);
+				}
+
+				if (searchResult == eDSRecordNotFound)
+				{
+					throw( (sInt32)eDSNoErr );
+				}
+				else if (searchResult == eDSCannotAccessSession)
 				{
 					if (numRetries == 0)
 					{
@@ -2087,41 +2112,54 @@ sInt32 CLDAPv3PlugIn::GetAllRecords (	char			   *inRecType,
 						numRetries--;
 					}
 				}
+				else if (searchResult == eDSServerTimeout)
+				{
+					throw( (sInt32)eDSServerTimeout );
+				}
 				else
 				{
 					break;
 				}
-			}
+			}//while
 			
             inContinue->msgId = ldapMsgId;
         } // msgId == 0
         else
         {
             ldapMsgId = inContinue->msgId;
+			if ( (inContinue->fTotalRecCount < inContinue->fLimitRecSearch) || (inContinue->fLimitRecSearch == 0) )
+			{
+				//check if there is a carried LDAP message in the context
+				//with a rebind here in between context calls we still have the previous result
+				//however, the next call will start right over in the whole context of the ldap_search
+				if (inContinue->pResult != nil)
+				{
+					result = inContinue->pResult;
+					ldapReturnCode = LDAP_RES_SEARCH_ENTRY;
+				}
+				//retrieve a new LDAP message
+				else
+				{
+					searchResult = DSGetSearchLDAPResult (	fLDAPSessionMgr,
+															inContext,
+															searchTO,
+															result,
+															LDAP_MSG_ONE,
+															ldapMsgId,
+															ldapReturnCode,
+															false);
+					if (searchResult == eDSCannotAccessSession)
+					{
+						throw( (sInt32)eDSCannotAccessSession );
+					}
+					else if (searchResult == eDSServerTimeout)
+					{
+						throw( (sInt32)eDSServerTimeout );
+					}
+				}
+			}
         }
         
-		if ( (inContinue->fTotalRecCount < inContinue->fLimitRecSearch) || (inContinue->fLimitRecSearch == 0) )
-		{
-			//check it there is a carried LDAP message in the context
-			if (inContinue->pResult != nil)
-			{
-				result = inContinue->pResult;
-				ldapReturnCode = LDAP_RES_SEARCH_ENTRY;
-			}
-			//retrieve a new LDAP message
-			else
-			{
-				DSGetSearchLDAPResult (	fLDAPSessionMgr,
-										inContext,
-										searchTO,
-										result,
-										LDAP_MSG_ONE,
-										ldapMsgId,
-										ldapReturnCode,
-										false);
-			}//retrieve a new LDAP message
-		}//if ( (inContinue->fTotalRecCount < inContinue->fLimitRecSearch) || (inContinue->fLimitRecSearch == 0) )
-
 		while ( 	( (ldapReturnCode == LDAP_RES_SEARCH_ENTRY) || (ldapReturnCode == LDAP_RES_SEARCH_RESULT) )
 					&& !(bufferFull)
 					&& (	(inContinue->fTotalRecCount < inContinue->fLimitRecSearch) ||
@@ -3852,6 +3890,7 @@ sInt32 CLDAPv3PlugIn::GetTheseRecords (	char			   *inConstRecName,
 	CDataBuff			   *aAttrData		= nil;
 	CDataBuff			   *aRecData		= nil;
 	char				  **attrs			= nil;
+	sInt32					searchResult	= eDSNoErr;
 
 	//TODO why not optimize and save the queryFilter in the continue data for the next call in?
 	
@@ -3906,7 +3945,6 @@ sInt32 CLDAPv3PlugIn::GetTheseRecords (	char			   *inConstRecName,
 			int numRetries = 2;
 			while (true)
 			{
-				sInt32 searchResult = eDSNoErr;
 				searchResult = DSSearchLDAP(	fLDAPSessionMgr,
 												inContext,
 												inNativeRecType,
@@ -3916,8 +3954,24 @@ sInt32 CLDAPv3PlugIn::GetTheseRecords (	char			   *inConstRecName,
 												ldapMsgId,
 												ldapReturnCode);
 												
-				if (searchResult == eDSRecordNotFound) throw( (sInt32)eDSNoErr );
-				if (searchResult == eDSCannotAccessSession)
+				if (	(searchResult == eDSNoErr) &&
+						((inContinue->fTotalRecCount < inContinue->fLimitRecSearch) || (inContinue->fLimitRecSearch == 0)) )
+				{
+					searchResult = DSGetSearchLDAPResult (	fLDAPSessionMgr,
+															inContext,
+															searchTO,
+															result,
+															LDAP_MSG_ONE,
+															ldapMsgId,
+															ldapReturnCode,
+															false);
+				}
+
+				if (searchResult == eDSRecordNotFound)
+				{
+					throw( (sInt32)eDSNoErr );
+				}
+				else if (searchResult == eDSCannotAccessSession)
 				{
 					if (numRetries == 0)
 					{
@@ -3929,43 +3983,55 @@ sInt32 CLDAPv3PlugIn::GetTheseRecords (	char			   *inConstRecName,
 						numRetries--;
 					}
 				}
+				else if (searchResult == eDSServerTimeout)
+				{
+					throw( (sInt32)eDSServerTimeout );
+				}
 				else
 				{
 					break;
 				}
-			}
+			}//while
 			
             inContinue->msgId = ldapMsgId;
         } // msgId == 0
         else
         {
             ldapMsgId = inContinue->msgId;
+			if ( (inContinue->fTotalRecCount < inContinue->fLimitRecSearch) || (inContinue->fLimitRecSearch == 0) )
+			{
+				//check if there is a carried LDAP message in the context
+				//with a rebind here in between context calls we still have the previous result
+				//however, the next call will start right over in the whole context of the ldap_search
+				if (inContinue->pResult != nil)
+				{
+					result = inContinue->pResult;
+					ldapReturnCode = LDAP_RES_SEARCH_ENTRY;
+				}
+				//retrieve a new LDAP message
+				else
+				{
+					searchResult = DSGetSearchLDAPResult (	fLDAPSessionMgr,
+															inContext,
+															searchTO,
+															result,
+															LDAP_MSG_ONE,
+															ldapMsgId,
+															ldapReturnCode,
+															false);
+					if (searchResult == eDSCannotAccessSession)
+					{
+						throw( (sInt32)eDSCannotAccessSession );
+					}
+					else if (searchResult == eDSServerTimeout)
+					{
+						throw( (sInt32)eDSServerTimeout );
+					}
+				}
+			}
         }
         
-		if ( (inContinue->fTotalRecCount < inContinue->fLimitRecSearch) || (inContinue->fLimitRecSearch == 0) )
-		{
-			//check if there is a carried LDAP message in the context
-			//KW with a rebind here in between context calls we still have the previous result
-			//however, the next call will start right over in the whole context of the ldap_search
-			if (inContinue->pResult != nil)
-			{
-				result = inContinue->pResult;
-				ldapReturnCode = LDAP_RES_SEARCH_ENTRY;
-			}
-			//retrieve a new LDAP message
-			else
-			{
-				DSGetSearchLDAPResult (	fLDAPSessionMgr,
-										inContext,
-										searchTO,
-										result,
-										LDAP_MSG_ONE,
-										ldapMsgId,
-										ldapReturnCode,
-										false);
-			}
-		}
-
+        
 		while ( 	( (ldapReturnCode == LDAP_RES_SEARCH_ENTRY) || (ldapReturnCode == LDAP_RES_SEARCH_RESULT) )
 					&& !(bufferFull)
 					&& (	(inContinue->fTotalRecCount < inContinue->fLimitRecSearch) ||
@@ -5047,6 +5113,7 @@ sInt32 CLDAPv3PlugIn::OpenRecord ( sOpenRecord *inData )
 	bool				bOCANDGroup		= false;
 	CFArrayRef			OCSearchList	= nil;
 	ber_int_t			scope			= LDAP_SCOPE_SUBTREE;
+	sInt32				searchResult	= eDSNoErr;
 
 
 	try
@@ -5114,7 +5181,6 @@ sInt32 CLDAPv3PlugIn::OpenRecord ( sOpenRecord *inData )
 			int numRetries = 2;
 			while (true)
 			{
-				sInt32 searchResult = eDSNoErr;
 				searchResult = DSSearchLDAP(	fLDAPSessionMgr,
 												pContext,
 												pLDAPRecType,
@@ -5123,15 +5189,27 @@ sInt32 CLDAPv3PlugIn::OpenRecord ( sOpenRecord *inData )
 												NULL,
 												ldapMsgId,
 												ldapReturnCode);
-												
+				if (searchResult == eDSNoErr)
+				{
+					//retrieve the actual LDAP record data for use internally
+					//useful only from the read-only perspective
+					//TODO KW when write capability is added, we will need to re-read the result after a write
+					searchResult = DSGetSearchLDAPResult (	fLDAPSessionMgr,
+															pContext,
+															searchTO,
+															result,
+															LDAP_MSG_ONE,
+															ldapMsgId,
+															ldapReturnCode,
+															true);
+				}
+				bResultFound = false;
 				if (searchResult == eDSRecordNotFound)
 				{
-					bResultFound = false;
 					break;
 				}
 				else if (searchResult == eDSCannotAccessSession)
 				{
-					bResultFound = false;
 					if (numRetries == 0)
 					{
 						throw( (sInt32)eDSCannotAccessSession );
@@ -5142,28 +5220,17 @@ sInt32 CLDAPv3PlugIn::OpenRecord ( sOpenRecord *inData )
 						numRetries--;
 					}
 				}
+				else if (searchResult == eDSServerTimeout)
+				{
+					break;
+				}
 				else
 				{
 					bResultFound = true;
 					break;
 				}
-			}
+			} // while
 			
-	        if (bResultFound)
-	        {
-				//retrieve the actual LDAP record data for use internally
-				//useful only from the read-only perspective
-				//TODO KW when write capability is added, we will need to re-read the result after a write
-				DSGetSearchLDAPResult (	fLDAPSessionMgr,
-										pContext,
-										searchTO,
-										result,
-										LDAP_MSG_ONE,
-										ldapMsgId,
-										ldapReturnCode,
-										true);
-	        }
-		
 			if ( queryFilter != nil )
 			{
 				delete( queryFilter );
@@ -5246,6 +5313,10 @@ sInt32 CLDAPv3PlugIn::OpenRecord ( sOpenRecord *inData )
 		
 			gLDAPContextTable->AddItem( inData->fOutRecRef, pRecContext );
 		} // if bResultFound and ldapReturnCode okay
+		else
+		{
+	     	siResult = searchResult;
+		}
 	}
 
 	catch ( sInt32 err )
@@ -5275,6 +5346,12 @@ sInt32 CLDAPv3PlugIn::OpenRecord ( sOpenRecord *inData )
 	{
 		delete( queryFilter );
 		queryFilter = nil;
+	}
+
+	if ( result != nil )
+	{
+		ldap_msgfree( result );
+		result = nil;
 	}
 
 	return( siResult );
@@ -7764,6 +7841,7 @@ sInt32 CLDAPv3PlugIn::FindAllRecords (	char			   *inConstAttrName,
 	CDataBuff		   *aAttrData		= nil;
     char			   *queryFilter		= nil;
 	char			  **attrs			= nil;
+	sInt32				searchResult	= eDSNoErr;
 
 	//TODO why not optimize and save the queryFilter in the continue data for the next call in?
 	
@@ -7817,7 +7895,6 @@ sInt32 CLDAPv3PlugIn::FindAllRecords (	char			   *inConstAttrName,
 			int numRetries = 2;
 			while (true)
 			{
-				sInt32 searchResult = eDSNoErr;
 				searchResult = DSSearchLDAP(	fLDAPSessionMgr,
 												inContext,
 												inNativeRecType,
@@ -7827,8 +7904,24 @@ sInt32 CLDAPv3PlugIn::FindAllRecords (	char			   *inConstAttrName,
 												ldapMsgId,
 												ldapReturnCode);
 												
-				if (searchResult == eDSRecordNotFound) throw( (sInt32)eDSNoErr );
-				if (searchResult == eDSCannotAccessSession)
+				if (	(searchResult == eDSNoErr) &&
+						((inContinue->fTotalRecCount < inContinue->fLimitRecSearch) || (inContinue->fLimitRecSearch == 0)) )
+				{
+					searchResult = DSGetSearchLDAPResult (	fLDAPSessionMgr,
+															inContext,
+															searchTO,
+															result,
+															LDAP_MSG_ONE,
+															ldapMsgId,
+															ldapReturnCode,
+															false);
+				}
+
+				if (searchResult == eDSRecordNotFound)
+				{
+					throw( (sInt32)eDSNoErr );
+				}
+				else if (searchResult == eDSCannotAccessSession)
 				{
 					if (numRetries == 0)
 					{
@@ -7840,40 +7933,53 @@ sInt32 CLDAPv3PlugIn::FindAllRecords (	char			   *inConstAttrName,
 						numRetries--;
 					}
 				}
+				else if (searchResult == eDSServerTimeout)
+				{
+					throw( (sInt32)eDSServerTimeout );
+				}
 				else
 				{
 					break;
 				}
-			}
+			}//while
 			
             inContinue->msgId = ldapMsgId;
         } // msgId == 0
         else
         {
             ldapMsgId = inContinue->msgId;
+			if ( (inContinue->fTotalRecCount < inContinue->fLimitRecSearch) || (inContinue->fLimitRecSearch == 0) )
+			{
+				//check if there is a carried LDAP message in the context
+				//with a rebind here in between context calls we still have the previous result
+				//however, the next call will start right over in the whole context of the ldap_search
+				if (inContinue->pResult != nil)
+				{
+					result = inContinue->pResult;
+					ldapReturnCode = LDAP_RES_SEARCH_ENTRY;
+				}
+				//retrieve a new LDAP message
+				else
+				{
+					searchResult = DSGetSearchLDAPResult (	fLDAPSessionMgr,
+															inContext,
+															searchTO,
+															result,
+															LDAP_MSG_ONE,
+															ldapMsgId,
+															ldapReturnCode,
+															false);
+					if (searchResult == eDSCannotAccessSession)
+					{
+						throw( (sInt32)eDSCannotAccessSession );
+					}
+					else if (searchResult == eDSServerTimeout)
+					{
+						throw( (sInt32)eDSServerTimeout );
+					}
+				}
+			}
         }
-        
-		if ( (inContinue->fTotalRecCount < inContinue->fLimitRecSearch) || (inContinue->fLimitRecSearch == 0) )
-		{
-			//check it there is a carried LDAP message in the context
-			if (inContinue->pResult != nil)
-			{
-				result = inContinue->pResult;
-				ldapReturnCode = LDAP_RES_SEARCH_ENTRY;
-			}
-			//retrieve a new LDAP message
-			else
-			{
-				DSGetSearchLDAPResult (	fLDAPSessionMgr,
-										inContext,
-										searchTO,
-										result,
-										LDAP_MSG_ONE,
-										ldapMsgId,
-										ldapReturnCode,
-										false);
-			}
-		}
 
 		while ( 	( (ldapReturnCode == LDAP_RES_SEARCH_ENTRY) || (ldapReturnCode == LDAP_RES_SEARCH_RESULT) )
 					&& !(bufferFull)
@@ -8072,6 +8178,7 @@ sInt32 CLDAPv3PlugIn::FindTheseRecords (	char			   *inConstAttrType,
 	CDataBuff			   *aRecData		= nil;
 	CDataBuff			   *aAttrData		= nil;
 	char				  **attrs			= nil;
+	sInt32					searchResult	= eDSNoErr;
 
 	//TODO why not optimize and save the queryFilter in the continue data for the next call in?
 	
@@ -8126,7 +8233,6 @@ sInt32 CLDAPv3PlugIn::FindTheseRecords (	char			   *inConstAttrType,
 			int numRetries = 2;
 			while (true)
 			{
-				sInt32 searchResult = eDSNoErr;
 				searchResult = DSSearchLDAP(	fLDAPSessionMgr,
 												inContext,
 												inNativeRecType,
@@ -8136,8 +8242,24 @@ sInt32 CLDAPv3PlugIn::FindTheseRecords (	char			   *inConstAttrType,
 												ldapMsgId,
 												ldapReturnCode);
 												
-				if (searchResult == eDSRecordNotFound) throw( (sInt32)eDSNoErr );
-				if (searchResult == eDSCannotAccessSession)
+				if (	(searchResult == eDSNoErr) &&
+						((inContinue->fTotalRecCount < inContinue->fLimitRecSearch) || (inContinue->fLimitRecSearch == 0)) )
+				{
+					searchResult = DSGetSearchLDAPResult (	fLDAPSessionMgr,
+															inContext,
+															searchTO,
+															result,
+															LDAP_MSG_ONE,
+															ldapMsgId,
+															ldapReturnCode,
+															false);
+				}
+
+				if (searchResult == eDSRecordNotFound)
+				{
+					throw( (sInt32)eDSNoErr );
+				}
+				else if (searchResult == eDSCannotAccessSession)
 				{
 					if (numRetries == 0)
 					{
@@ -8149,40 +8271,53 @@ sInt32 CLDAPv3PlugIn::FindTheseRecords (	char			   *inConstAttrType,
 						numRetries--;
 					}
 				}
+				else if (searchResult == eDSServerTimeout)
+				{
+					throw( (sInt32)eDSServerTimeout );
+				}
 				else
 				{
 					break;
 				}
-			}
+			}//while
 			
             inContinue->msgId = ldapMsgId;
         } // msgId == 0
         else
         {
             ldapMsgId = inContinue->msgId;
+			if ( (inContinue->fTotalRecCount < inContinue->fLimitRecSearch) || (inContinue->fLimitRecSearch == 0) )
+			{
+				//check if there is a carried LDAP message in the context
+				//with a rebind here in between context calls we still have the previous result
+				//however, the next call will start right over in the whole context of the ldap_search
+				if (inContinue->pResult != nil)
+				{
+					result = inContinue->pResult;
+					ldapReturnCode = LDAP_RES_SEARCH_ENTRY;
+				}
+				//retrieve a new LDAP message
+				else
+				{
+					searchResult = DSGetSearchLDAPResult (	fLDAPSessionMgr,
+															inContext,
+															searchTO,
+															result,
+															LDAP_MSG_ONE,
+															ldapMsgId,
+															ldapReturnCode,
+															false);
+					if (searchResult == eDSCannotAccessSession)
+					{
+						throw( (sInt32)eDSCannotAccessSession );
+					}
+					else if (searchResult == eDSServerTimeout)
+					{
+						throw( (sInt32)eDSServerTimeout );
+					}
+				}
+			}
         }
-        
-		if ( (inContinue->fTotalRecCount < inContinue->fLimitRecSearch) || (inContinue->fLimitRecSearch == 0) )
-		{
-			//check if there is a carried LDAP message in the context
-			if (inContinue->pResult != nil)
-			{
-				result = inContinue->pResult;
-				ldapReturnCode = LDAP_RES_SEARCH_ENTRY;
-			}
-			//retrieve a new LDAP message
-			else
-			{
-				DSGetSearchLDAPResult (	fLDAPSessionMgr,
-										inContext,
-										searchTO,
-										result,
-										LDAP_MSG_ONE,
-										ldapMsgId,
-										ldapReturnCode,
-										false);
-			}
-		}
 
 		while ( 	( (ldapReturnCode == LDAP_RES_SEARCH_ENTRY) || (ldapReturnCode == LDAP_RES_SEARCH_RESULT) )
 					&& !(bufferFull)
@@ -8788,7 +8923,7 @@ sInt32 CLDAPv3PlugIn::DoPasswordServerAuth(
 						result = eDSAuthFailed;
 					}
 				}// if aHost != nil
-				gLDAPv3Plugin->fLDAPSessionMgr.UnLockSession(inContext, bNewMutex);
+				gLDAPv3Plugin->fLDAPSessionMgr.UnLockSession(inContext, false, bNewMutex);
             }
         }
     }
@@ -9581,6 +9716,7 @@ sInt32 CLDAPv3PlugIn::GetAuthAuthority ( sLDAPContextData *inContext, tDataBuffe
 	CFArrayRef		OCSearchList		= nil;
 	struct berval **berVal				= nil;
 	ber_int_t		scope				= LDAP_SCOPE_SUBTREE;
+	sInt32			searchResult		= eDSNoErr;
     
 	try
 	{
@@ -9679,7 +9815,6 @@ sInt32 CLDAPv3PlugIn::GetAuthAuthority ( sLDAPContextData *inContext, tDataBuffe
 			int numRetries = 2;
 			while (true)
 			{
-				sInt32 searchResult = eDSNoErr;
 				searchResult = DSSearchLDAP(	inLDAPSessionMgr,
 												inContext,
 												pLDAPRecType,
@@ -9688,15 +9823,27 @@ sInt32 CLDAPv3PlugIn::GetAuthAuthority ( sLDAPContextData *inContext, tDataBuffe
 												attrs,
 												ldapMsgId,
 												ldapReturnCode);
-												
+				if (searchResult == eDSNoErr)
+				{
+					//retrieve the actual LDAP record data for use internally
+					//useful only from the read-only perspective
+					//TODO KW when write capability is added, we will need to re-read the result after a write
+					searchResult = DSGetSearchLDAPResult (	inLDAPSessionMgr,
+															inContext,
+															searchTO,
+															result,
+															LDAP_MSG_ONE,
+															ldapMsgId,
+															ldapReturnCode,
+															true);
+				}
+				bResultFound = false;
 				if (searchResult == eDSRecordNotFound)
 				{
-					bResultFound = false;
 					break;
 				}
 				else if (searchResult == eDSCannotAccessSession)
 				{
-					bResultFound = false;
 					if (numRetries == 0)
 					{
 						throw( (sInt32)eDSCannotAccessSession );
@@ -9707,28 +9854,17 @@ sInt32 CLDAPv3PlugIn::GetAuthAuthority ( sLDAPContextData *inContext, tDataBuffe
 						numRetries--;
 					}
 				}
+				else if (searchResult == eDSServerTimeout)
+				{
+					break;
+				}
 				else
 				{
 					bResultFound = true;
 					break;
 				}
-			}
+			} // while
 			
-	        if ( bResultFound )
-	        {
-				//retrieve the actual LDAP record data for use internally
-				//useful only from the read-only perspective
-				//KW when write capability is added, we will need to re-read the result after a write
-				DSGetSearchLDAPResult (	inLDAPSessionMgr,
-										inContext,
-										searchTO,
-										result,
-										LDAP_MSG_ONE,
-										ldapMsgId,
-										ldapReturnCode,
-										true);
-	        }
-		
 			if (queryFilter != nil)
 			{
 				delete (queryFilter);
@@ -9807,12 +9943,9 @@ sInt32 CLDAPv3PlugIn::GetAuthAuthority ( sLDAPContextData *inContext, tDataBuffe
 			}// if aHost != nil
 			fLDAPSessionMgr.UnLockSession(inContext);
 		} // if bResultFound and ldapReturnCode okay
-
-		//no check for LDAP_TIMEOUT on ldapReturnCode since we will return nil
-		if ( result != nil )
+		else
 		{
-			ldap_msgfree( result );
-			result = nil;
+	     	siResult = searchResult;
 		}
 	}
 
@@ -9854,6 +9987,12 @@ sInt32 CLDAPv3PlugIn::GetAuthAuthority ( sLDAPContextData *inContext, tDataBuffe
 	{
 		delete( queryFilter );
 		queryFilter = nil;
+	}
+	
+	if ( result != nil )
+	{
+		ldap_msgfree( result );
+		result = nil;
 	}
 	
 	return( siResult );
@@ -9942,6 +10081,7 @@ sInt32 CLDAPv3PlugIn::DoUnixCryptAuth ( sLDAPContextData *inContext, tDataBuffer
 	bool			bOCANDGroup			= false;
 	CFArrayRef		OCSearchList		= nil;
 	ber_int_t		scope				= LDAP_SCOPE_SUBTREE;
+	sInt32			searchResult		= eDSNoErr;
 	
 	try
 	{
@@ -10036,7 +10176,6 @@ sInt32 CLDAPv3PlugIn::DoUnixCryptAuth ( sLDAPContextData *inContext, tDataBuffer
 			int numRetries = 2;
 			while (true)
 			{
-				sInt32 searchResult = eDSNoErr;
 				searchResult = DSSearchLDAP(	inLDAPSessionMgr,
 												inContext,
 												pLDAPRecType,
@@ -10045,15 +10184,27 @@ sInt32 CLDAPv3PlugIn::DoUnixCryptAuth ( sLDAPContextData *inContext, tDataBuffer
 												attrs,
 												ldapMsgId,
 												ldapReturnCode);
-												
+				if (searchResult == eDSNoErr)
+				{
+					//retrieve the actual LDAP record data for use internally
+					//useful only from the read-only perspective
+					//TODO KW when write capability is added, we will need to re-read the result after a write
+					searchResult = DSGetSearchLDAPResult (	inLDAPSessionMgr,
+															inContext,
+															searchTO,
+															result,
+															LDAP_MSG_ONE,
+															ldapMsgId,
+															ldapReturnCode,
+															true);
+				}
+				bResultFound = false;
 				if (searchResult == eDSRecordNotFound)
 				{
-					bResultFound = false;
 					break;
 				}
 				else if (searchResult == eDSCannotAccessSession)
 				{
-					bResultFound = false;
 					if (numRetries == 0)
 					{
 						throw( (sInt32)eDSCannotAccessSession );
@@ -10064,28 +10215,17 @@ sInt32 CLDAPv3PlugIn::DoUnixCryptAuth ( sLDAPContextData *inContext, tDataBuffer
 						numRetries--;
 					}
 				}
+				else if (searchResult == eDSServerTimeout)
+				{
+					break;
+				}
 				else
 				{
 					bResultFound = true;
 					break;
 				}
-			}
+			} // while
 			
-	        if ( bResultFound )
-	        {
-				//retrieve the actual LDAP record data for use internally
-				//useful only from the read-only perspective
-				//KW when write capability is added, we will need to re-read the result after a write
-				DSGetSearchLDAPResult (	inLDAPSessionMgr,
-										inContext,
-										searchTO,
-										result,
-										LDAP_MSG_ONE,
-										ldapMsgId,
-										ldapReturnCode,
-										true);
-	        }
-		
 			if (queryFilter != nil)
 			{
 				delete (queryFilter);
@@ -10363,7 +10503,7 @@ sInt32 CLDAPv3PlugIn::DoClearTextAuth ( sLDAPContextData *inContext, tDataBuffer
 						siResult = eDSAuthFailed;
 					}
 				}//if aHost != nil
-				gLDAPv3Plugin->fLDAPSessionMgr.UnLockSession(inContext, bNewMutex);
+				gLDAPv3Plugin->fLDAPSessionMgr.UnLockSession(inContext, false, bNewMutex);
 			}
 			else //no session ie. authCheckOnly
 			{
@@ -10423,6 +10563,7 @@ char* CLDAPv3PlugIn::GetDNForRecordName ( char* inRecName, sLDAPContextData *inC
 	bool				bOCANDGroup		= false;
 	CFArrayRef			OCSearchList	= nil;
 	ber_int_t			scope			= LDAP_SCOPE_SUBTREE;
+	sInt32				searchResult	= eDSNoErr;
 
 
 	try
@@ -10479,7 +10620,6 @@ char* CLDAPv3PlugIn::GetDNForRecordName ( char* inRecName, sLDAPContextData *inC
 			int numRetries = 2;
 			while (true)
 			{
-				sInt32 searchResult = eDSNoErr;
 				searchResult = DSSearchLDAP(	inLDAPSessionMgr,
 												inContext,
 												pLDAPRecType,
@@ -10488,15 +10628,27 @@ char* CLDAPv3PlugIn::GetDNForRecordName ( char* inRecName, sLDAPContextData *inC
 												NULL,
 												ldapMsgId,
 												ldapReturnCode);
-												
+				if (searchResult == eDSNoErr)
+				{
+					//retrieve the actual LDAP record data for use internally
+					//useful only from the read-only perspective
+					//TODO KW when write capability is added, we will need to re-read the result after a write
+					searchResult = DSGetSearchLDAPResult (	inLDAPSessionMgr,
+															inContext,
+															searchTO,
+															result,
+															LDAP_MSG_ONE,
+															ldapMsgId,
+															ldapReturnCode,
+															true);
+				}
+				bResultFound = false;
 				if (searchResult == eDSRecordNotFound)
 				{
-					bResultFound = false;
 					break;
 				}
 				else if (searchResult == eDSCannotAccessSession)
 				{
-					bResultFound = false;
 					if (numRetries == 0)
 					{
 						throw( (sInt32)eDSCannotAccessSession );
@@ -10507,28 +10659,17 @@ char* CLDAPv3PlugIn::GetDNForRecordName ( char* inRecName, sLDAPContextData *inC
 						numRetries--;
 					}
 				}
+				else if (searchResult == eDSServerTimeout)
+				{
+					break;
+				}
 				else
 				{
 					bResultFound = true;
 					break;
 				}
-			}
+			} // while
 			
-	        if ( bResultFound )
-	        {
-				//retrieve the actual LDAP record data for use internally
-				//useful only from the read-only perspective
-				//KW when write capability is added, we will need to re-read the result after a write
-				DSGetSearchLDAPResult (	inLDAPSessionMgr,
-										inContext,
-										searchTO,
-										result,
-										LDAP_MSG_ONE,
-										ldapMsgId,
-										ldapReturnCode,
-										true);
-	        }
-		
 			if (queryFilter != nil)
 			{
 				delete (queryFilter);
@@ -10880,6 +11021,7 @@ sInt32 CLDAPv3PlugIn::GetRecRefLDAPMessage ( sLDAPContextData *inRecContext, LDA
 	bool				bOCANDGroup		= false;
 	CFArrayRef			OCSearchList	= nil;
 	ber_int_t			scope			= LDAP_SCOPE_SUBTREE;
+	sInt32				searchResult	= eDSNoErr;
 
 	try
 	{
@@ -10939,7 +11081,6 @@ sInt32 CLDAPv3PlugIn::GetRecRefLDAPMessage ( sLDAPContextData *inRecContext, LDA
 			int numRetries = 2;
 			while (true)
 			{
-				sInt32 searchResult = eDSNoErr;
 				searchResult = DSSearchLDAP(	fLDAPSessionMgr,
 												inRecContext,
 												pLDAPRecType,
@@ -10948,15 +11089,27 @@ sInt32 CLDAPv3PlugIn::GetRecRefLDAPMessage ( sLDAPContextData *inRecContext, LDA
 												NULL,
 												ldapMsgId,
 												ldapReturnCode);
-												
+				if (searchResult == eDSNoErr)
+				{
+					//retrieve the actual LDAP record data for use internally
+					//useful only from the read-only perspective
+					//TODO KW when write capability is added, we will need to re-read the result after a write
+					searchResult = DSGetSearchLDAPResult (	fLDAPSessionMgr,
+															inRecContext,
+															searchTO,
+															result,
+															LDAP_MSG_ONE,
+															ldapMsgId,
+															ldapReturnCode,
+															true);
+				}
+				bResultFound = false;
 				if (searchResult == eDSRecordNotFound)
 				{
-					bResultFound = false;
 					break;
 				}
 				else if (searchResult == eDSCannotAccessSession)
 				{
-					bResultFound = false;
 					if (numRetries == 0)
 					{
 						throw( (sInt32)eDSCannotAccessSession );
@@ -10967,28 +11120,17 @@ sInt32 CLDAPv3PlugIn::GetRecRefLDAPMessage ( sLDAPContextData *inRecContext, LDA
 						numRetries--;
 					}
 				}
+				else if (searchResult == eDSServerTimeout)
+				{
+					break;
+				}
 				else
 				{
 					bResultFound = true;
 					break;
 				}
-			}
+			} // while
 			
-	        if ( bResultFound )
-	        {
-				//retrieve the actual LDAP record data for use internally
-				//useful only from the read-only perspective
-				//KW when write capability is added, we will need to re-read the result after a write
-				DSGetSearchLDAPResult (	fLDAPSessionMgr,
-										inRecContext,
-										searchTO,
-										result,
-										LDAP_MSG_ONE,
-										ldapMsgId,
-										ldapReturnCode,
-										true);
-	        }
-		
 			if ( queryFilter != nil )
 			{
 				delete( queryFilter );
@@ -11015,18 +11157,9 @@ sInt32 CLDAPv3PlugIn::GetRecRefLDAPMessage ( sLDAPContextData *inRecContext, LDA
 		{
 			siResult = eDSNoErr;
 		} // if bResultFound and ldapReturnCode okay
-		else if (ldapReturnCode == LDAP_TIMEOUT)
-		{
-	     	siResult = eDSServerTimeout;
-			if ( result != nil )
-			{
-				ldap_msgfree( result );
-				result = nil;
-			}
-		}
 		else
 		{
-	     	siResult = eDSRecordNotFound;
+	     	siResult = searchResult;
 			if ( result != nil )
 			{
 				ldap_msgfree( result );

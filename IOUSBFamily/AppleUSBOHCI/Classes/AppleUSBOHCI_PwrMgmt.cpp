@@ -3,18 +3,21 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.  
- * Please see the License for the specific language governing rights and 
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
  * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
@@ -124,7 +127,7 @@ static IOPMPowerState ourPowerStatesKL[number_of_power_states] = {
 
 
 // this section needs to get moved to the IOPCIFamily
-#define DEBUG_PCI_PWR_MGMT 0
+#define DEBUG_PCI_PWR_MGMT 1
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 // initForPM
@@ -163,13 +166,13 @@ void AppleUSBOHCI::initForPM (IOPCIDevice *provider)
     //
     if ( !provider->getProperty("AAPL,clock-id") && !_onCardBus && !((getPlatform()->getChipSetType() == kChipSetTypeGossamer) && getPlatform()->getMachineType() == kGossamerTypeYosemite) )
     {
-	if (hasPCIPwrMgmt() && (enablePCIPwrMgmt() == kIOReturnSuccess))
+	if (provider->hasPCIPowerManagement() && (provider->enablePCIPowerManagement() == kIOReturnSuccess))
 	{
 	    _hasPCIPwrMgmt = true;
 	}
         else
         {
-            USBLog(2, "%s[%p]::start OHCI controller will be unloaded across sleep",getName(),this);
+            USBError(1, "%s[%p]::start OHCI controller will be unloaded across sleep",getName(),this);
             _unloadUIMAcrossSleep = true;
         }
     }
@@ -260,7 +263,7 @@ AppleUSBOHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
     
     USBLog(4,"%s[%p]::setPowerState (%ld) bus %d", getName(), this, powerStateOrdinal, _busNumber );
     IOSleep(5);
-    
+
     //	If we are not going to sleep, then we need to take the gate, otherwise, we need to wake up    
     //
     if (_ohciBusState != kOHCIBusStateSuspended)
@@ -288,12 +291,16 @@ AppleUSBOHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
             
             if ( _rootHubDevice )
             {
+                USBLog(2, "%s[%p] Terminating root hub in setPowerState()", getName(), this);
                 _rootHubDevice->terminate(kIOServiceRequired | kIOServiceSynchronous);
                 _rootHubDevice->detachAll(gIOUSBPlane);
                 _rootHubDevice->release();
                 _rootHubDevice = NULL;
+                USBLog(2, "%s[%p] Terminated root hub in setPowerState()", getName(), this);
             }
+            SuspendUSBBus();
             UIMFinalizeForPowerDown();
+            _ohciAvailable = false;									// tell the interrupt filter routine that we are off
         }
         else 
         {
@@ -305,22 +312,13 @@ AppleUSBOHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
         }
         _ohciBusState = kOHCIBusStateSuspended;
         _idleSuspend = false;
-        
-	// on PCI PM machines, arm the PME and go to state D3
-	if (_hasPCIPwrMgmt)
-	{
-	    _pOHCIRegisters->hcInterruptDisable = HostToUSBLong (kOHCIHcInterrupt_MIE);			// disable interrupts during D3 state
-	    _ohciAvailable = false;									// tell the interrupt filter routine that we are off
-	    // this code (or something like it) belongs in the IOPCIFamily
-	    if (PMsleepEnabled && PMcontrolStatus && sleepControlBits)
-	    {
-#if DEBUG_PCI_PWR_MGMT
-		IOLog("%s[%p]::setPowerState(SLEEP) - setting PMCS to %x\n", getName(), this, sleepControlBits);
-#endif
-		saveDeviceState( _device );
-		_device->configWrite16(PMcontrolStatus, sleepControlBits);
-	    }
-	}            
+
+        // on PCI PM machines, arm the PME and go to state D3
+        if (_hasPCIPwrMgmt)
+        {
+            _pOHCIRegisters->hcInterruptDisable = HostToUSBLong (kOHCIHcInterrupt_MIE);			// disable interrupts during D3 state
+            _ohciAvailable = false;									// tell the interrupt filter routine that we are off
+        }
     }
     
     if ( powerStateOrdinal == kOHCISetPowerLevelIdleSuspend )
@@ -352,9 +350,11 @@ AppleUSBOHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
                 IOReturn	err = kIOReturnSuccess;
 
                 USBLog(5, "%s[%p]: Re-loading UIM if necessary (%d)", getName(), this, _uimInitialized );
+
                 if ( !_uimInitialized )
                     UIMInitializeForPowerUp();
 
+                _ohciAvailable = true;										// tell the interrupt filter routine that we are on
 		_ohciBusState = kOHCIBusStateRunning;
                 if ( _rootHubDevice == NULL )
                 {
@@ -375,34 +375,15 @@ AppleUSBOHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
             USBLog(2, "%s[%p] setPowerState powering on USB", getName(), this);
 	
             _remote_wakeup_occurred = true;	//doesn't matter how we woke up
-        
-	    if (_hasPCIPwrMgmt)
-	    {
-		if (PMsleepEnabled && PMcontrolStatus && sleepControlBits)
-		{
-		    if ((_device->configRead16(PMcontrolStatus) & kPCIPMCSPowerStateMask) != kPCIPMCSPowerStateD0)
-		    {
-#if DEBUG_PCI_PWR_MGMT
-			IOLog("%s[%p]::setPowerState(ON) - moving PMCS from %x to D0\n", getName(), this, _device->configRead16(PMcontrolStatus));
-#endif
-			_device->configWrite16(PMcontrolStatus, kPCIPMCSPMEStatus | kPCIPMCSPowerStateD0);
-		    }
-		    else
-		    {
-#if DEBUG_PCI_PWR_MGMT
-			IOLog("%s[%p]::setPowerState(ON) - PMCS already at D0 (%x)\n", getName(), this, _device->configRead16(PMcontrolStatus));
-#endif
-			_device->configWrite16(PMcontrolStatus, kPCIPMCSPMEStatus);
-			IOSleep(10);				// let it settle
-		    }
-		restoreDeviceState( _device );
-		_ohciAvailable = true;										// tell the interrupt filter routine that we are off
-		_pOHCIRegisters->hcInterruptEnable = HostToUSBLong (kOHCIHcInterrupt_MIE);			// enable interrupts now that we are out of D3 state
-		USBLog(4, "%s[%p]::setPowerState - after reenabling interrupts, hcInterruptEnable = %p", getName(), this, USBToHostLong(_pOHCIRegisters->hcInterruptEnable));
-		}
-	    }
+
+            if (_hasPCIPwrMgmt)
+            {
+                _ohciAvailable = true;										// tell the interrupt filter routine that we are on
+                _pOHCIRegisters->hcInterruptEnable = HostToUSBLong (kOHCIHcInterrupt_MIE);			// enable interrupts now that we are out of D3 state
+                USBLog(4, "%s[%p]::setPowerState - after reenabling interrupts, hcInterruptEnable = %p", getName(), this, USBToHostLong(_pOHCIRegisters->hcInterruptEnable));
+            }
             ResumeUSBBus();
-	    _ohciBusState = kOHCIBusStateRunning;
+            _ohciBusState = kOHCIBusStateRunning;
         }
         LastRootHubPortStatusChanged(true);
         _idleSuspend = false;
@@ -479,37 +460,11 @@ AppleUSBOHCI::SuspendUSBBus()
     
     // check for the WDH register to see if we need to process is [2405732]
     //
-    something = USBToHostLong(_pOHCIRegisters->hcInterruptStatus) & kOHCIHcInterrupt_WDH;
-    if (something)
-    {	/*
-            // at this point we need to clear the hccaDoneHead register by queuing up a processdonequeue
-            // which won't actually run until we wake up, but that's ok- it allows the controller to move
-            // the stuff off of the hcDoneHead queue before we put the bus into suspend state
-            // get the pointer to the list (logical address)
-            PhysAddr = (UInt32) USBToHostLong(*(UInt32 *)(_pHCCA + 0x84));
-            PhysAddr &= kOHCIHeadPMask; // mask off interrupt bits
-            pHCDoneTD = PhysicalToLogical (PhysAddr);
-            // write to 0 to the HCCA DoneHead ptr so we won't look at it anymore.
-            *(UInt32 *)(_pHCCA + 0x84) = 0L;  
-                            
-            QueueSecondaryInterruptHandler((SecondaryInterruptHandler2)OHCIUIMDoDoneQueueProcessing, nil, (void *)pHCDoneTD, (void *)false);
-            // Since we have a copy of the queue to process, we can let the host update it again.
-            pOHCIRegisters->hcInterruptStatus = USBToHostLong(kOHCIHcInterrupt_WDH);
-    
-            // wait for SOF again to make sure that the hcDoneHead has a chance to get emptied
-            pOHCIRegisters->hcInterruptStatus = USBToHostLong(kOHCIHcInterrupt_SF);
-            DelayForHardware(DurationToAbsolute(1*durationMillisecond));
-            something = USBToHostLong(pOHCIRegisters->hcInterruptStatus) & kOHCIInterruptSOFMask;
-            if(!something)
-            {	// This should have been set, just in case wait another ms 
-                    DelayForHardware(DurationToAbsolute(1*durationMillisecond));
-            }
-            */
-            USBError(1,"%s[%p] DANGER! WDH processing needs to get done before suspending", getName(), this);
+    if ( _writeDoneHeadInterrupt )
+    {
+        USBError(1,"%s[%p] Processing WDH before suspending", getName(), this);
+        PollInterrupts();
     }
-    
-    //Next line doesn't help in remote wakeup        
-    //_pOHCIRegisters->hcControl = USBToHostLong (kOHCIHcControl_RWE);
     
     //This line is necessary even though UIMInitialize sets kOHCIHcInterrupt_RD
     //  with kOHCIDefaultInterrupts.  Is something clobbering this register?
@@ -583,174 +538,4 @@ AppleUSBOHCI::ResumeUSBBus()
             USBLog(2, "%s[%p]: Bus already operational", getName(), this);
             break;
     }
-}
-
-
-// these methods and definitions are temporary. they really belong in the IOPCIFamily code. however, we needed to provide them here for expedience 
-// for P58b
-bool AppleUSBOHCI::hasPCIPwrMgmt(IOOptionBits state)
-{
-    UInt8	pciPMCapOffset;
-    UInt16	pciPMCapReg;
-    UInt16	requiredSleepState = 0;
-    OSObject	*anObject;
-    OSData	*aString;
-
-    sleepControlBits = 0;		// on a new query, we reset the proper sleep control bits
-    if (!PMcontrolStatus)
-    {
-	// need to find out if there is a Pwr Mgmt control/status register
-	_device->findPCICapability(kIOPCIPowerManagementCapability, &pciPMCapOffset);
-	if (pciPMCapOffset > 0x3f)					// must be > 3f, section 3.1
-	{
-#if DEBUG_PCI_PWR_MGMT
-	    IOLog("%s[%p]::hasPCIPwrMgmt found pciPMCapOffset %d\n", getName(), this, pciPMCapOffset);
-#endif
-	    PMcontrolStatus = pciPMCapOffset+4;
-	}
-    }
-    if (PMcontrolStatus)
-    {
-	pciPMCapReg = _device->configRead16(PMcontrolStatus-2);
-#if DEBUG_PCI_PWR_MGMT
-	IOLog("%s[%p]::hasPCIPwrMgmt found pciPMCapReg %x\n", getName(), this, pciPMCapReg);
-#endif
-	if (state)
-	{
-	    requiredSleepState = state;
-	    switch (state) {
-		case kPCIPMCPMESupportFromD3Cold:
-		case kPCIPMCPMESupportFromD3Hot:
-		    sleepControlBits = (kPCIPMCSPMEStatus | kPCIPMCSPMEEnable | kPCIPMCSPowerStateD3);
-		    break;
-		case kPCIPMCPMESupportFromD2:
-		    sleepControlBits = (kPCIPMCSPMEStatus | kPCIPMCSPMEEnable | kPCIPMCSPowerStateD2);
-		    break;
-		case kPCIPMCPMESupportFromD1:
-		    sleepControlBits = (kPCIPMCSPMEStatus | kPCIPMCSPMEEnable | kPCIPMCSPowerStateD1);
-		    break;
-		default:
-		    requiredSleepState = 0;
-	    }
-	}
-	else
-	{
-	    anObject = _device->getProperty("sleep-power-state");
-	    aString = OSDynamicCast(OSData, anObject);
-	    if (aString)
-	    {
-#if DEBUG_PCI_PWR_MGMT
-		IOLog("%s[%p]::hasPCIPwrMgmt found sleep-power-state string %p\n", getName(), this, aString);
-#endif
-    
-		if (aString->isEqualTo("D3cold", 6))
-		{
-		    requiredSleepState = kPCIPMCPMESupportFromD3Cold;
-		    sleepControlBits = (kPCIPMCSPMEStatus | kPCIPMCSPMEEnable | kPCIPMCSPowerStateD3);
-		}
-		else if (aString->isEqualTo("D3Hot", 5))
-		{
-		    requiredSleepState = kPCIPMCPMESupportFromD3Hot;
-		    sleepControlBits = (kPCIPMCSPMEStatus | kPCIPMCSPMEEnable | kPCIPMCSPowerStateD3);
-		}
-	    }
-	}
-	if (requiredSleepState)
-	{
-#if DEBUG_PCI_PWR_MGMT
-	    IOLog("%s[%p]::hasPCIPwrMgmt checking for requiredSleepState %x\n", getName(), this, requiredSleepState);
-#endif
-	    if ( pciPMCapReg & requiredSleepState )
-	    {
-		PMcontrolStatus = pciPMCapOffset+4;
-#if DEBUG_PCI_PWR_MGMT
-		IOLog("%s[%p]::hasPCIPwrMgmt - PMcontrolStatus is %d\n", getName(), this, PMcontrolStatus);
-#endif
-	    }
-	}
-    }
-    return sleepControlBits ? true : false;
-}
-    
-IOReturn AppleUSBOHCI::enablePCIPwrMgmt(IOOptionBits state)
-{
-    IOReturn	ret = kIOReturnSuccess;
-    
-    if (!PMcontrolStatus)
-	ret = kIOReturnBadArgument;
-    else
-    {
-	switch (state) {
-	    case kPCIPMCSPowerStateD3:
-	    case kPCIPMCSPowerStateD2:
-	    case kPCIPMCSPowerStateD1:
-		sleepControlBits = state | kPCIPMCSPMEStatus | kPCIPMCSPMEEnable;
-		// intentional fall through
-	    case 0xffffffff:				// default case - use bits gleaned from hasPCIPwrMgmt
-		if (!sleepControlBits)
-		{
-#if DEBUG_PCI_PWR_MGMT
-		    IOLog("%s[%p] - enablePCIPwrMgmt - no sleep control bits - not enabling", getName(), this);
-#endif
-		    ret = kIOReturnBadArgument;
-		}
-		else
-		{
-#if DEBUG_PCI_PWR_MGMT
-		    IOLog("%s[%p] - enablePCIPwrMgmt, enabling", getName(), this);
-#endif
-		    PMsleepEnabled = true;
-		}
-		break;
-		
-	    case kPCIPMCSPowerStateD0:			// disables PM
-		sleepControlBits = 0;
-		PMsleepEnabled = false;
-		break;
-		
-	    default:
-		PMsleepEnabled = false;
-		ret = kIOReturnBadArgument;
-		break;
-	}
-    }
-    return ret;
-}
-
-enum { kSavedConfigSize = 64 };
-enum { kSavedConfigs = 16 };
-
-IOReturn AppleUSBOHCI::saveDeviceState( IOPCIDevice * device,
-                                       IOOptionBits options )
-{
-    int		i;
-
-    if( !savedConfig)
-        savedConfig = IONew( UInt32, kSavedConfigSize );
-    if( !savedConfig)
-        return( kIOReturnNotReady );
-
-    for( i = 1; i < kSavedConfigs; i++)
-	savedConfig[i] = device->configRead32( i * 4 );
-
-    return( kIOReturnSuccess );
-}
-
-IOReturn AppleUSBOHCI::restoreDeviceState( IOPCIDevice * device,
-                                          IOOptionBits options )
-{
-    int		i;
-
-    if( !savedConfig)
-        return( kIOReturnNotReady );
-
-    for( i = 2; i < kSavedConfigs; i++)
-	device->configWrite32( i * 4, savedConfig[ i ]);
-
-    device->configWrite32( kIOPCIConfigCommand, savedConfig[1]);
-
-    IODelete( savedConfig, UInt32, kSavedConfigSize);
-    savedConfig = NULL;
-
-    return( kIOReturnSuccess );
 }

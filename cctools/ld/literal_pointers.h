@@ -41,7 +41,7 @@ struct literal_pointer_data {
     unsigned long nliterals;	/* total number of literal pointers in the */
 				/*  input files merged into this section  */
     unsigned long nprobes;	/* number of hash probes */
-#endif DEBUG
+#endif /* DEBUG */
 };
 
 /* the number of entries in the hash table */
@@ -104,4 +104,4 @@ __private_extern__ void print_literal_pointer_data(
 __private_extern__ void literal_pointer_data_stats(
     struct literal_pointer_data *data,
     struct merged_section *ms);
-#endif DEBUG
+#endif /* DEBUG */

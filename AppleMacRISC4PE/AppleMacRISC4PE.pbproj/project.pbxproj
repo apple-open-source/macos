@@ -1,0 +1,3017 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 38;
+	objects = {
+		06AA1264FFB2107B11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		06AA1265FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "-O0";
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		06AA1266FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		06AA1267FFB2110C11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+//060
+//061
+//062
+//063
+//064
+//080
+//081
+//082
+//083
+//084
+		089C1669FE841209C02AAC07 = {
+			buildStyles = (
+				06AA1265FFB2107B11CA28AA,
+				06AA1266FFB2107B11CA28AA,
+			);
+			isa = PBXProject;
+			mainGroup = 089C166AFE841209C02AAC07;
+			projectDirPath = "";
+			targets = (
+				089C1673FE841209C02AAC07,
+				B0ED8C9E03BA371E05A80123,
+				B4D5938D0458832300CE0E5B,
+			);
+		};
+		089C166AFE841209C02AAC07 = {
+			children = (
+				247142CAFF3F8F9811CA285C,
+				19C28FB6FE9D52B211CA2CBB,
+			);
+			isa = PBXGroup;
+			name = AppleMacRISC4PE;
+			refType = 4;
+		};
+		089C1673FE841209C02AAC07 = {
+			buildPhases = (
+				06AA1267FFB2110C11CA28AA,
+				089C1674FE841209C02AAC07,
+				089C1675FE841209C02AAC07,
+				089C1676FE841209C02AAC07,
+				089C1677FE841209C02AAC07,
+				089C1679FE841209C02AAC07,
+				B06D1B7403CCEDBE05CE0D9E,
+				06AA1264FFB2107B11CA28AA,
+			);
+			buildSettings = {
+				BUILD_SETTING = "";
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_GROUP = wheel;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleMacRISC4PE;
+				MODULE_VERSION = 1.0.1b3;
+				OTHER_CFLAGS = "-fpermissive -D_BIG_ENDIAN";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleMacRISC4PE;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+				B4E56AEB0458AD7B00CE0E5B,
+			);
+			isa = PBXBundleTarget;
+			name = AppleMacRISC4PE;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = AppleMacRISC4PE;
+			productReference = 0B81C263FFB7832611CA28AA;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleMacRISC4PE</string>
+	<key>CFBundleGetInfoString</key>
+	<string>AppleMacRISC2PE version 1.0.1, Copyright 2003 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleMacRISC4PE</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AppleMacRISC4PE</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.1</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.1b3</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>MacRISC4CPU</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleMacRISC4PE</string>
+			<key>IOClass</key>
+			<string>MacRISC4CPU</string>
+			<key>IOProbeScore</key>
+			<integer>1000</integer>
+			<key>IOPropertyMatch</key>
+			<dict>
+				<key>cpu-device-type</key>
+				<string>MacRISC4CPU</string>
+			</dict>
+			<key>IOProviderClass</key>
+			<string>IOPlatformDevice</string>
+		</dict>
+		<key>MacRISC4PE</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleMacRISC4PE</string>
+			<key>IOClass</key>
+			<string>MacRISC4PE</string>
+			<key>IONameMatch</key>
+			<string>MacRISC4</string>
+			<key>IOProbeScore</key>
+			<integer>10000</integer>
+			<key>IOProviderClass</key>
+			<string>IOPlatformExpertDevice</string>
+			<key>powertreedesc</key>
+			<array>
+				<dict>
+					<key>children</key>
+					<array>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>multiple-parent</key>
+									<integer>0</integer>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb0u048</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>AAPL,clock-id</key>
+								<string>usb0u048</string>
+								<key>name</key>
+								<string>usb</string>
+							</dict>
+						</dict>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>multiple-parent</key>
+									<integer>1</integer>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb1u148</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>AAPL,clock-id</key>
+								<string>usb1u148</string>
+								<key>name</key>
+								<string>usb</string>
+							</dict>
+						</dict>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>multiple-parent</key>
+									<integer>2</integer>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb2u248</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>AAPL,clock-id</key>
+								<string>usb2u248</string>
+								<key>name</key>
+								<string>usb</string>
+							</dict>
+						</dict>
+					</array>
+					<key>device</key>
+					<dict>
+						<key>IOClass</key>
+						<string>IOPMUSBMacRISC4</string>
+					</dict>
+				</dict>
+				<dict>
+					<key>children</key>
+					<array>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>multiple-parent</key>
+									<integer>0</integer>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb0u048</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>IOClass</key>
+								<string>USBKeyLargo</string>
+								<key>usb</key>
+								<integer>0</integer>
+							</dict>
+						</dict>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>multiple-parent</key>
+									<integer>1</integer>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb1u148</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>IOClass</key>
+								<string>USBKeyLargo</string>
+								<key>usb</key>
+								<integer>1</integer>
+							</dict>
+						</dict>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>multiple-parent</key>
+									<integer>2</integer>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb2u248</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>IOClass</key>
+								<string>USBKeyLargo</string>
+								<key>usb</key>
+								<integer>2</integer>
+							</dict>
+						</dict>
+					</array>
+					<key>device</key>
+					<dict>
+						<key>IOClass</key>
+						<string>KeyLargo</string>
+					</dict>
+				</dict>
+				<dict>
+					<key>children</key>
+					<array>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb2u048</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>IOClass</key>
+								<string>USBKeyLargo</string>
+								<key>usb</key>
+								<integer>0</integer>
+							</dict>
+						</dict>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb3u148</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>IOClass</key>
+								<string>USBKeyLargo</string>
+								<key>usb</key>
+								<integer>1</integer>
+							</dict>
+						</dict>
+					</array>
+					<key>device</key>
+					<dict>
+						<key>IOClass</key>
+						<string>KeyLargo</string>
+					</dict>
+				</dict>
+				<dict>
+					<key>children</key>
+					<array>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb4u048</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>IOClass</key>
+								<string>USBKeyLargo</string>
+								<key>usb</key>
+								<integer>0</integer>
+							</dict>
+						</dict>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb5u148</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>IOClass</key>
+								<string>USBKeyLargo</string>
+								<key>usb</key>
+								<integer>1</integer>
+							</dict>
+						</dict>
+					</array>
+					<key>device</key>
+					<dict>
+						<key>IOClass</key>
+						<string>KeyLargo</string>
+					</dict>
+				</dict>
+				<dict>
+					<key>children</key>
+					<array>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb6u048</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>IOClass</key>
+								<string>USBKeyLargo</string>
+								<key>usb</key>
+								<integer>0</integer>
+							</dict>
+						</dict>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb7u148</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>IOClass</key>
+								<string>USBKeyLargo</string>
+								<key>usb</key>
+								<integer>1</integer>
+							</dict>
+						</dict>
+					</array>
+					<key>device</key>
+					<dict>
+						<key>IOClass</key>
+						<string>KeyLargo</string>
+					</dict>
+				</dict>
+				<dict>
+					<key>children</key>
+					<array>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb8u048</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>IOClass</key>
+								<string>USBKeyLargo</string>
+								<key>usb</key>
+								<integer>0</integer>
+							</dict>
+						</dict>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb9u148</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>IOClass</key>
+								<string>USBKeyLargo</string>
+								<key>usb</key>
+								<integer>1</integer>
+							</dict>
+						</dict>
+					</array>
+					<key>device</key>
+					<dict>
+						<key>IOClass</key>
+						<string>KeyLargo</string>
+					</dict>
+				</dict>
+			</array>
+		</dict>
+		<key>U3</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleMacRISC4PE</string>
+			<key>IOClass</key>
+			<string>AppleU3</string>
+			<key>IONameMatch</key>
+			<string>u3</string>
+			<key>IOProviderClass</key>
+			<string>IOPlatformDevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.0.0</string>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.IOPlatformFunction</key>
+		<string>1.0.0</string>
+		<key>com.apple.iokit.IOPCIFamily</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.mach</key>
+		<string>1.1</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Root</string>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		089C1674FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				1A224C40FF42367911CA2CB7,
+				B0ED8C4903BA2E5805A80123,
+				B0ED8C4D03BA2EA705A80123,
+				F5BE3E9F03DE17CB01CE6C36,
+				F5BE3EA303DE17F801CE6C36,
+				F552014503EC692301CE6C40,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1675FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1676FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				1A224C41FF42367911CA2CB7,
+				B0ED8C4B03BA2E7605A80123,
+				B0ED8C4F03BA2EB305A80123,
+				F5BE3EA103DE17D901CE6C36,
+				F5BE3EA503DE181B01CE6C36,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1677FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1679FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+//080
+//081
+//082
+//083
+//084
+//0B0
+//0B1
+//0B2
+//0B3
+//0B4
+		0B81C263FFB7832611CA28AA = {
+			isa = PBXBundleReference;
+			path = AppleMacRISC4PE.kext;
+			refType = 3;
+		};
+//0B0
+//0B1
+//0B2
+//0B3
+//0B4
+//190
+//191
+//192
+//193
+//194
+		19C28FB6FE9D52B211CA2CBB = {
+			children = (
+				0B81C263FFB7832611CA28AA,
+				B0ED8C9F03BA371E05A80123,
+				B4D5938E0458832300CE0E5B,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+//190
+//191
+//192
+//193
+//194
+//1A0
+//1A1
+//1A2
+//1A3
+//1A4
+		1A224C3EFF42367911CA2CB7 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = MacRISC4PE.h;
+			refType = 4;
+		};
+		1A224C3FFF42367911CA2CB7 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = MacRISC4PE.cpp;
+			refType = 4;
+		};
+		1A224C40FF42367911CA2CB7 = {
+			fileRef = 1A224C3EFF42367911CA2CB7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		1A224C41FF42367911CA2CB7 = {
+			fileRef = 1A224C3FFF42367911CA2CB7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+//1A0
+//1A1
+//1A2
+//1A3
+//1A4
+//240
+//241
+//242
+//243
+//244
+		247142CAFF3F8F9811CA285C = {
+			children = (
+				1A224C3EFF42367911CA2CB7,
+				1A224C3FFF42367911CA2CB7,
+				B0ED8C4803BA2E5805A80123,
+				B0ED8C4A03BA2E7605A80123,
+				B0ED8C4C03BA2EA705A80123,
+				B0ED8C4E03BA2EB305A80123,
+				F5BE3E9E03DE17CB01CE6C36,
+				F5BE3EA003DE17D901CE6C36,
+				F5BE3EA203DE17F801CE6C36,
+				F5BE3EA403DE181B01CE6C36,
+				B06D1B2703C6427605CE0D9E,
+				B0ED8C5403BA2F3205A80123,
+			);
+			isa = PBXGroup;
+			name = Source;
+			path = "";
+			refType = 4;
+		};
+//240
+//241
+//242
+//243
+//244
+//B00
+//B01
+//B02
+//B03
+//B04
+		B06D1B2703C6427605CE0D9E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOPlatformFunction.h;
+			refType = 4;
+		};
+		B06D1B7403CCEDBE05CE0D9E = {
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				B4E56AE504588D6200CE0E5B,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B0ED8C4803BA2E5805A80123 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = MacRISC4CPU.h;
+			refType = 4;
+		};
+		B0ED8C4903BA2E5805A80123 = {
+			fileRef = B0ED8C4803BA2E5805A80123;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B0ED8C4A03BA2E7605A80123 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = MacRISC4CPU.cpp;
+			refType = 4;
+		};
+		B0ED8C4B03BA2E7605A80123 = {
+			fileRef = B0ED8C4A03BA2E7605A80123;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B0ED8C4C03BA2EA705A80123 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = U3.h;
+			refType = 4;
+		};
+		B0ED8C4D03BA2EA705A80123 = {
+			fileRef = B0ED8C4C03BA2EA705A80123;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B0ED8C4E03BA2EB305A80123 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = U3.cpp;
+			refType = 4;
+		};
+		B0ED8C4F03BA2EB305A80123 = {
+			fileRef = B0ED8C4E03BA2EB305A80123;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B0ED8C5003BA2EF905A80123 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = IOPlatformPlugin.h;
+			path = IOPlatformPlugins/IOPlatformPlugin.h;
+			refType = 4;
+		};
+		B0ED8C5203BA2F1805A80123 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = IOPlatformPlugin.cpp;
+			path = IOPlatformPlugins/IOPlatformPlugin.cpp;
+			refType = 4;
+		};
+		B0ED8C5403BA2F3205A80123 = {
+			children = (
+				B4490BC40472E45F00CE0E5B,
+				B4A5CF65046BB3C000CE0F51,
+				B0ED8C5003BA2EF905A80123,
+				B0ED8C5203BA2F1805A80123,
+				B0F5A72A03D740D405CE0DA1,
+				B0F5A72C03D740F005CE0DA1,
+				B4673E64041E8FD800CE0E5B,
+				B4673E65041E8FD800CE0E5B,
+				B424C3F50414118C00CE0E5B,
+				B424C3F40414118C00CE0E5B,
+				B44D941304762FDB00CE0E5B,
+				B44D941404762FDB00CE0E5B,
+				B44D941704763BCF00CE0E5B,
+				B44D941804763BCF00CE0E5B,
+				B424C3F70414118C00CE0E5B,
+				B424C3F60414118C00CE0E5B,
+				B4D89C210474529300CE0F51,
+				B4D89C220474529300CE0F51,
+				B41095CB04899BBE00CE0E5B,
+				B41095CC04899BBE00CE0E5B,
+				B0ED8C5503BA308705A80123,
+				B40E15C004140F1500CE0E5B,
+			);
+			isa = PBXGroup;
+			name = IOPlatformPlugins;
+			refType = 4;
+		};
+		B0ED8C5503BA308705A80123 = {
+			children = (
+				B0ED8C5603BA30AD05A80123,
+				B0ED8C5803BA30C705A80123,
+			);
+			isa = PBXGroup;
+			name = MacRISC4_PlatformPlugin;
+			refType = 4;
+		};
+		B0ED8C5603BA30AD05A80123 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = MacRISC4_PlatformPlugin.h;
+			path = IOPlatformPlugins/MacRISC4_PlatformPlugin/MacRISC4_PlatformPlugin.h;
+			refType = 4;
+		};
+		B0ED8C5803BA30C705A80123 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = MacRISC4_PlatformPlugin.cpp;
+			path = IOPlatformPlugins/MacRISC4_PlatformPlugin/MacRISC4_PlatformPlugin.cpp;
+			refType = 4;
+		};
+		B0ED8C9803BA371E05A80123 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		B0ED8C9903BA371E05A80123 = {
+			buildActionMask = 2147483647;
+			files = (
+				B0ED8CA303BA3B6F05A80123,
+				B0ED8CA503BA3B7305A80123,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B0ED8C9A03BA371E05A80123 = {
+			buildActionMask = 2147483647;
+			files = (
+				B0ED8CA403BA3B7205A80123,
+				B0ED8CA603BA3B7505A80123,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B0ED8C9B03BA371E05A80123 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B0ED8C9C03BA371E05A80123 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B0ED8C9D03BA371E05A80123 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		B0ED8C9E03BA371E05A80123 = {
+			buildPhases = (
+				B0ED8C9803BA371E05A80123,
+				B0ED8C9903BA371E05A80123,
+				B0ED8C9A03BA371E05A80123,
+				B0ED8C9B03BA371E05A80123,
+				B0ED8C9C03BA371E05A80123,
+				B0ED8C9D03BA371E05A80123,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_OWNER = root;
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.MacRISC4PlatformPlugin;
+				MODULE_VERSION = 1.0.1d22;
+				OTHER_CFLAGS = "-fpermissive -D_BIG_ENDIAN";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = MacRISC4PlatformPlugin;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = MacRISC4PlatformPlugin;
+			productName = MacRISC4PlatformPlugin;
+			productReference = B0ED8C9F03BA371E05A80123;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>MacRISC4PlatformPlugin</string>
+	<key>CFBundleGetInfoString</key>
+	<string>MacRISC4PlatformPlugin version 1.0.1, Copyright 2003 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.MacRISC4PlatformPlugin</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>MacRISC4PlatformPlugin</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.1</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.1d22</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>MacRISC4_PlatformPlugin</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.MacRISC4PlatformPlugin</string>
+			<key>IOClass</key>
+			<string>MacRISC4_PlatformPlugin</string>
+			<key>IONameMatch</key>
+			<string>MacRISC4_PlatformPlugin</string>
+			<key>IOProviderClass</key>
+			<string>IOPlatformDevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.AppleMacRISC4PE</key>
+		<string>1.0.0</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.mach</key>
+		<string>1.1</string>
+	</dict>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		B0ED8C9F03BA371E05A80123 = {
+			isa = PBXBundleReference;
+			path = MacRISC4PlatformPlugin.kext;
+			refType = 3;
+		};
+		B0ED8CA303BA3B6F05A80123 = {
+			fileRef = B0ED8C5603BA30AD05A80123;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B0ED8CA403BA3B7205A80123 = {
+			fileRef = B0ED8C5203BA2F1805A80123;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B0ED8CA503BA3B7305A80123 = {
+			fileRef = B0ED8C5003BA2EF905A80123;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B0ED8CA603BA3B7505A80123 = {
+			fileRef = B0ED8C5803BA30C705A80123;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B0F5A72A03D740D405CE0DA1 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = IOPlatformSensor.h;
+			path = IOPlatformPlugins/IOPlatformSensor.h;
+			refType = 4;
+		};
+		B0F5A72C03D740F005CE0DA1 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = IOPlatformSensor.cpp;
+			path = IOPlatformPlugins/IOPlatformSensor.cpp;
+			refType = 4;
+		};
+//B00
+//B01
+//B02
+//B03
+//B04
+//B40
+//B41
+//B42
+//B43
+//B44
+		B40D746104625C2200CE0E5B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = PowerMac7_2_CPUPowerSensor.cpp;
+			path = IOPlatformPlugins/PowerMac7_2_PlatformPlugin/PowerMac7_2_CPUPowerSensor.cpp;
+			refType = 4;
+		};
+		B40D746204625C2200CE0E5B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = PowerMac7_2_CPUPowerSensor.h;
+			path = IOPlatformPlugins/PowerMac7_2_PlatformPlugin/PowerMac7_2_CPUPowerSensor.h;
+			refType = 4;
+		};
+		B40D746304625C2200CE0E5B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lineEnding = 0;
+			name = PowerMac7_2_CPUTempSensor.cpp;
+			path = IOPlatformPlugins/PowerMac7_2_PlatformPlugin/PowerMac7_2_CPUTempSensor.cpp;
+			refType = 4;
+		};
+		B40D746404625C2200CE0E5B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = PowerMac7_2_CPUTempSensor.h;
+			path = IOPlatformPlugins/PowerMac7_2_PlatformPlugin/PowerMac7_2_CPUTempSensor.h;
+			refType = 4;
+		};
+		B40D746504625C2200CE0E5B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = PowerMac7_2_ScaledSensor.cpp;
+			path = IOPlatformPlugins/PowerMac7_2_PlatformPlugin/PowerMac7_2_ScaledSensor.cpp;
+			refType = 4;
+		};
+		B40D746604625C2200CE0E5B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = PowerMac7_2_ScaledSensor.h;
+			path = IOPlatformPlugins/PowerMac7_2_PlatformPlugin/PowerMac7_2_ScaledSensor.h;
+			refType = 4;
+		};
+		B40D746704625C2200CE0E5B = {
+			fileRef = B40D746104625C2200CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B40D746804625C2200CE0E5B = {
+			fileRef = B40D746204625C2200CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B40D746B04625C2200CE0E5B = {
+			fileRef = B40D746504625C2200CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B40D746C04625C2200CE0E5B = {
+			fileRef = B40D746604625C2200CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B40D746E04627F5100CE0E5B = {
+			fileRef = B40D746404625C2200CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B40D746F04627F5100CE0E5B = {
+			fileRef = B40D746304625C2200CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B40E15C004140F1500CE0E5B = {
+			children = (
+				B424C3FD041411C700CE0E5B,
+				B424C3FC041411C700CE0E5B,
+				B40D746204625C2200CE0E5B,
+				B40D746104625C2200CE0E5B,
+				B40D746404625C2200CE0E5B,
+				B40D746304625C2200CE0E5B,
+				B40D746604625C2200CE0E5B,
+				B40D746504625C2200CE0E5B,
+				B418455B04B4F27A00CE0E5B,
+				B418455C04B4F27A00CE0E5B,
+				B418455F04B4F86900CE0E5B,
+				B418456004B4F86900CE0E5B,
+				B47C3D27046F94B700CE0E5B,
+				B47C3D28046F94B700CE0E5B,
+				B4B6ED1A041FC43E00CE0E5B,
+				B4B6ED1B041FC43E00CE0E5B,
+				B4E5E9C3049096D900CE0F51,
+				B4E5E9C4049096D900CE0F51,
+				B443D8DA047E9F1800CE0E5B,
+				B443D8DB047E9F1800CE0E5B,
+				B4756DCB0459E10600CE0F51,
+			);
+			isa = PBXGroup;
+			name = PowerMac7_2_PlatformPlugin;
+			path = "";
+			refType = 4;
+		};
+		B41095CB04899BBE00CE0E5B = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			name = IOPlatformPIDCtrlLoop.h;
+			path = IOPlatformPlugins/IOPlatformPIDCtrlLoop.h;
+			refType = 4;
+		};
+		B41095CC04899BBE00CE0E5B = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			name = IOPlatformPIDCtrlLoop.cpp;
+			path = IOPlatformPlugins/IOPlatformPIDCtrlLoop.cpp;
+			refType = 4;
+		};
+		B411A28F0474B6D400CE0F51 = {
+			fileRef = B4D89C210474529300CE0F51;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B411A2900474B6D500CE0F51 = {
+			fileRef = B4D89C220474529300CE0F51;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B418455B04B4F27A00CE0E5B = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			name = PowerMac7_2_PCIPowerSensor.h;
+			path = IOPlatformPlugins/PowerMac7_2_PlatformPlugin/PowerMac7_2_PCIPowerSensor.h;
+			refType = 4;
+		};
+		B418455C04B4F27A00CE0E5B = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			name = PowerMac7_2_PCIPowerSensor.cpp;
+			path = IOPlatformPlugins/PowerMac7_2_PlatformPlugin/PowerMac7_2_PCIPowerSensor.cpp;
+			refType = 4;
+		};
+		B418455D04B4F27A00CE0E5B = {
+			fileRef = B418455B04B4F27A00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B418455E04B4F27A00CE0E5B = {
+			fileRef = B418455C04B4F27A00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B418455F04B4F86900CE0E5B = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			name = PowerMac7_2_UniProcCPUBExhaustFanControl.h;
+			path = IOPlatformPlugins/PowerMac7_2_PlatformPlugin/PowerMac7_2_UniProcCPUBExhaustFanControl.h;
+			refType = 4;
+		};
+		B418456004B4F86900CE0E5B = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			name = PowerMac7_2_UniProcCPUBExhaustFanControl.cpp;
+			path = IOPlatformPlugins/PowerMac7_2_PlatformPlugin/PowerMac7_2_UniProcCPUBExhaustFanControl.cpp;
+			refType = 4;
+		};
+		B418456104B4F86900CE0E5B = {
+			fileRef = B418455F04B4F86900CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B418456204B4F86900CE0E5B = {
+			fileRef = B418456004B4F86900CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B424C3F40414118C00CE0E5B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = IOPlatformControl.cpp;
+			path = IOPlatformPlugins/IOPlatformControl.cpp;
+			refType = 4;
+		};
+		B424C3F50414118C00CE0E5B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = IOPlatformControl.h;
+			path = IOPlatformPlugins/IOPlatformControl.h;
+			refType = 4;
+		};
+		B424C3F60414118C00CE0E5B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = IOPlatformCtrlLoop.cpp;
+			path = IOPlatformPlugins/IOPlatformCtrlLoop.cpp;
+			refType = 4;
+		};
+		B424C3F70414118C00CE0E5B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = IOPlatformCtrlLoop.h;
+			path = IOPlatformPlugins/IOPlatformCtrlLoop.h;
+			refType = 4;
+		};
+		B424C3FC041411C700CE0E5B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = PowerMac7_2_PlatformPlugin.cpp;
+			path = IOPlatformPlugins/PowerMac7_2_PlatformPlugin/PowerMac7_2_PlatformPlugin.cpp;
+			refType = 4;
+		};
+		B424C3FD041411C700CE0E5B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = PowerMac7_2_PlatformPlugin.h;
+			path = IOPlatformPlugins/PowerMac7_2_PlatformPlugin/PowerMac7_2_PlatformPlugin.h;
+			refType = 4;
+		};
+		B443D8DA047E9F1800CE0E5B = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			name = PowerMac7_2_SlotFanCtrlLoop.h;
+			path = IOPlatformPlugins/PowerMac7_2_PlatformPlugin/PowerMac7_2_SlotFanCtrlLoop.h;
+			refType = 4;
+		};
+		B443D8DB047E9F1800CE0E5B = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			name = PowerMac7_2_SlotFanCtrlLoop.cpp;
+			path = IOPlatformPlugins/PowerMac7_2_PlatformPlugin/PowerMac7_2_SlotFanCtrlLoop.cpp;
+			refType = 4;
+		};
+		B443D8DE047E9F9A00CE0E5B = {
+			fileRef = B443D8DA047E9F1800CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B443D8DF047E9F9B00CE0E5B = {
+			fileRef = B443D8DB047E9F1800CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B447F355045F11C900CE0E5B = {
+			fileRef = B0F5A72A03D740D405CE0DA1;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B447F356045F11C900CE0E5B = {
+			fileRef = B0F5A72C03D740F005CE0DA1;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B447F357045F174600CE0E5B = {
+			fileRef = B424C3F50414118C00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B447F358045F174800CE0E5B = {
+			fileRef = B424C3F70414118C00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B4490BC40472E45F00CE0E5B = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			name = IOPlatformPluginDefs.h;
+			path = IOPlatformPlugins/IOPlatformPluginDefs.h;
+			refType = 4;
+		};
+		B4490BC50472E45F00CE0E5B = {
+			fileRef = B4490BC40472E45F00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B44D941304762FDB00CE0E5B = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			name = IOPlatformSlewClockControl.h;
+			path = IOPlatformPlugins/IOPlatformSlewClockControl.h;
+			refType = 4;
+		};
+		B44D941404762FDB00CE0E5B = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			name = IOPlatformSlewClockControl.cpp;
+			path = IOPlatformPlugins/IOPlatformSlewClockControl.cpp;
+			refType = 4;
+		};
+		B44D941504762FDB00CE0E5B = {
+			fileRef = B44D941304762FDB00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B44D941604762FDB00CE0E5B = {
+			fileRef = B44D941404762FDB00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B44D941704763BCF00CE0E5B = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			name = IOPlatformPWMFanControl.h;
+			path = IOPlatformPlugins/IOPlatformPWMFanControl.h;
+			refType = 4;
+		};
+		B44D941804763BCF00CE0E5B = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			name = IOPlatformPWMFanControl.cpp;
+			path = IOPlatformPlugins/IOPlatformPWMFanControl.cpp;
+			refType = 4;
+		};
+		B44D941904763BCF00CE0E5B = {
+			fileRef = B44D941704763BCF00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B44D941A04763BCF00CE0E5B = {
+			fileRef = B44D941804763BCF00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B4561575046E6BCB00CE0E5B = {
+			fileRef = B424C3F40414118C00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B4673E64041E8FD800CE0E5B = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			name = IOPlatformStateSensor.h;
+			path = IOPlatformPlugins/IOPlatformStateSensor.h;
+			refType = 4;
+		};
+		B4673E65041E8FD800CE0E5B = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			name = IOPlatformStateSensor.cpp;
+			path = IOPlatformPlugins/IOPlatformStateSensor.cpp;
+			refType = 4;
+		};
+		B4756DCB0459E10600CE0F51 = {
+			children = (
+				B491DEFE04A935BA00CE0E5B,
+			);
+			isa = PBXGroup;
+			name = Resources;
+			refType = 4;
+		};
+		B47C3D27046F94B700CE0E5B = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			name = PowerMac7_2_SlewCtrlLoop.h;
+			path = IOPlatformPlugins/PowerMac7_2_PlatformPlugin/PowerMac7_2_SlewCtrlLoop.h;
+			refType = 4;
+		};
+		B47C3D28046F94B700CE0E5B = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			name = PowerMac7_2_SlewCtrlLoop.cpp;
+			path = IOPlatformPlugins/PowerMac7_2_PlatformPlugin/PowerMac7_2_SlewCtrlLoop.cpp;
+			refType = 4;
+		};
+		B47C3D29046F94B700CE0E5B = {
+			fileRef = B47C3D27046F94B700CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B47C3D2A046F94B700CE0E5B = {
+			fileRef = B47C3D28046F94B700CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B47C3D2B046F96E400CE0E5B = {
+			fileRef = B424C3F60414118C00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B491DEFE04A935BA00CE0E5B = {
+			children = (
+				B491DEFF04A935BA00CE0E5B,
+			);
+			isa = PBXVariantGroup;
+			name = Localizable.strings;
+			path = "";
+			refType = 4;
+		};
+		B491DEFF04A935BA00CE0E5B = {
+			fileEncoding = 10;
+			isa = PBXFileReference;
+			name = English;
+			path = IOPlatformPlugins/PowerMac7_2_PlatformPlugin/English.lproj/Localizable.strings;
+			refType = 4;
+		};
+		B491DF0004A935BA00CE0E5B = {
+			fileRef = B491DEFE04A935BA00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B493F13B04723DA700CE0E5B = {
+			fileRef = B4673E64041E8FD800CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B493F13C04723DA800CE0E5B = {
+			fileRef = B4673E65041E8FD800CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B4A5CF65046BB3C000CE0F51 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			name = IOPlatformPluginSymbols.h;
+			path = IOPlatformPlugins/IOPlatformPluginSymbols.h;
+			refType = 4;
+		};
+		B4A5CF66046BB3C100CE0F51 = {
+			fileRef = B4A5CF65046BB3C000CE0F51;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B4B6ED1A041FC43E00CE0E5B = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			name = PowerMac7_2_CPUFanCtrlLoop.h;
+			path = IOPlatformPlugins/PowerMac7_2_PlatformPlugin/PowerMac7_2_CPUFanCtrlLoop.h;
+			refType = 4;
+		};
+		B4B6ED1B041FC43E00CE0E5B = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			name = PowerMac7_2_CPUFanCtrlLoop.cpp;
+			path = IOPlatformPlugins/PowerMac7_2_PlatformPlugin/PowerMac7_2_CPUFanCtrlLoop.cpp;
+			refType = 4;
+		};
+		B4D593870458832300CE0E5B = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		B4D593880458832300CE0E5B = {
+			buildActionMask = 2147483647;
+			files = (
+				B4D59393045887AD00CE0E5B,
+				B4D5939F045887B700CE0E5B,
+				B4D593A1045887C200CE0E5B,
+				B447F355045F11C900CE0E5B,
+				B447F357045F174600CE0E5B,
+				B447F358045F174800CE0E5B,
+				B40D746804625C2200CE0E5B,
+				B40D746C04625C2200CE0E5B,
+				B40D746E04627F5100CE0E5B,
+				B4A5CF66046BB3C100CE0F51,
+				B47C3D29046F94B700CE0E5B,
+				B493F13B04723DA700CE0E5B,
+				B4490BC50472E45F00CE0E5B,
+				B411A28F0474B6D400CE0F51,
+				B44D941504762FDB00CE0E5B,
+				B44D941904763BCF00CE0E5B,
+				B443D8DE047E9F9A00CE0E5B,
+				B4E5E9A4048E9D4800CE0F51,
+				B4F0E47504A132E000CE0E5B,
+				B4F0E47C04A17B8200CE0E5B,
+				B418455D04B4F27A00CE0E5B,
+				B418456104B4F86900CE0E5B,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B4D593890458832300CE0E5B = {
+			buildActionMask = 2147483647;
+			files = (
+				B4D59392045887AC00CE0E5B,
+				B4D5939E045887B600CE0E5B,
+				B447F356045F11C900CE0E5B,
+				B40D746704625C2200CE0E5B,
+				B40D746B04625C2200CE0E5B,
+				B40D746F04627F5100CE0E5B,
+				B4561575046E6BCB00CE0E5B,
+				B47C3D2A046F94B700CE0E5B,
+				B47C3D2B046F96E400CE0E5B,
+				B493F13C04723DA800CE0E5B,
+				B411A2900474B6D500CE0F51,
+				B44D941604762FDB00CE0E5B,
+				B44D941A04763BCF00CE0E5B,
+				B443D8DF047E9F9B00CE0E5B,
+				B4E5E9A3048E9D4800CE0F51,
+				B4F0E47604A132E100CE0E5B,
+				B4F0E47D04A17B8300CE0E5B,
+				B418455E04B4F27A00CE0E5B,
+				B418456204B4F86900CE0E5B,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B4D5938A0458832300CE0E5B = {
+			buildActionMask = 2147483647;
+			files = (
+				B491DF0004A935BA00CE0E5B,
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B4D5938B0458832300CE0E5B = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B4D5938C0458832300CE0E5B = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		B4D5938D0458832300CE0E5B = {
+			buildPhases = (
+				B4D593870458832300CE0E5B,
+				B4D593880458832300CE0E5B,
+				B4D593890458832300CE0E5B,
+				B4D5938A0458832300CE0E5B,
+				B4D5938B0458832300CE0E5B,
+				B4D5938C0458832300CE0E5B,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.PowerMac7_2_PlatformPlugin;
+				MODULE_VERSION = 1.0.1b3;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = PowerMac7_2_PlatformPlugin;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = PowerMac7_2_PlatformPlugin;
+			productName = PowerMac7_2_PlatformPlugin;
+			productReference = B4D5938E0458832300CE0E5B;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>PowerMac7_2_PlatformPlugin</string>
+	<key>CFBundleGetInfoString</key>
+	<string>PowerMac7_2_PlatformPlugin version 1.0.1, Copyright 2003 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.PowerMac7_2_PlatformPlugin</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>PowerMac7_2_PlatformPlugin</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.1</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.1b3</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>PowerMac7_2_PlatformPlugin</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.PowerMac7_2_PlatformPlugin</string>
+			<key>IOClass</key>
+			<string>PowerMac7_2_PlatformPlugin</string>
+			<key>IONameMatch</key>
+			<string>PowerMac7_2_PlatformPlugin</string>
+			<key>IOPlatformThermalProfile</key>
+			<dict>
+				<key>ConfigArray</key>
+				<array>
+					<dict>
+						<key>Desc-Key</key>
+						<string>CFG_UNI</string>
+						<key>Description</key>
+						<string>Uniprocessor</string>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>CFG_DUAL</string>
+						<key>Description</key>
+						<string>Dual Processor</string>
+					</dict>
+				</array>
+				<key>ControlArray</key>
+				<array>
+					<dict>
+						<key>Desc-Key</key>
+						<string>SLEW</string>
+						<key>IOClass</key>
+						<string>IOPlatformSlewClockControl</string>
+						<key>control-id</key>
+						<integer>16</integer>
+						<key>location</key>
+						<string>Clock Slew</string>
+						<key>type</key>
+						<string>slew</string>
+						<key>version</key>
+						<integer>0</integer>
+						<key>zone</key>
+						<data>
+						AAAAAA==
+						</data>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>CPUA_INTAKE_FAN</string>
+						<key>control-id</key>
+						<integer>17152</integer>
+						<key>location</key>
+						<string>CPU A Intake Fan</string>
+						<key>type</key>
+						<string>fan-rpm</string>
+						<key>version</key>
+						<integer>1</integer>
+						<key>zone</key>
+						<data>
+						AAAAAA==
+						</data>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>CPUA_EXHAUST_FAN</string>
+						<key>control-id</key>
+						<integer>17408</integer>
+						<key>location</key>
+						<string>CPU A Exhaust Fan</string>
+						<key>type</key>
+						<string>fan-rpm</string>
+						<key>version</key>
+						<integer>1</integer>
+						<key>zone</key>
+						<data>
+						AAAAAA==
+						</data>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>CPUB_INTAKE_FAN</string>
+						<key>ValidConfigs</key>
+						<array>
+							<integer>1</integer>
+						</array>
+						<key>control-id</key>
+						<integer>17664</integer>
+						<key>location</key>
+						<string>CPU B Intake Fan</string>
+						<key>type</key>
+						<string>fan-rpm</string>
+						<key>version</key>
+						<integer>1</integer>
+						<key>zone</key>
+						<data>
+						AAAAAA==
+						</data>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>CPUB_EXHAUST_FAN</string>
+						<key>ValidConfigs</key>
+						<array>
+							<integer>1</integer>
+						</array>
+						<key>control-id</key>
+						<integer>17920</integer>
+						<key>location</key>
+						<string>CPU B Exhaust Fan</string>
+						<key>type</key>
+						<string>fan-rpm</string>
+						<key>version</key>
+						<integer>1</integer>
+						<key>zone</key>
+						<data>
+						AAAAAA==
+						</data>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>CPUB_EXHAUST_FAN</string>
+						<key>IOClass</key>
+						<string>PowerMac7_2_UniProcCPUBExhaustFanControl</string>
+						<key>ValidConfigs</key>
+						<array>
+							<integer>0</integer>
+						</array>
+						<key>control-id</key>
+						<integer>17920</integer>
+						<key>location</key>
+						<string>CPU B Exhaust Fan</string>
+						<key>output-override</key>
+						<integer>800</integer>
+						<key>type</key>
+						<string>fan-rpm</string>
+						<key>version</key>
+						<integer>1</integer>
+						<key>zone</key>
+						<data>
+						AAAAAA==
+						</data>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>DRIVEBAY_FAN</string>
+						<key>control-id</key>
+						<integer>16896</integer>
+						<key>location</key>
+						<string>Drive Bay Fan</string>
+						<key>type</key>
+						<string>fan-rpm</string>
+						<key>version</key>
+						<integer>1</integer>
+						<key>zone</key>
+						<data>
+						AAAAAQ==
+						</data>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>BACKSIDE_FAN</string>
+						<key>IOClass</key>
+						<string>IOPlatformPWMFanControl</string>
+						<key>control-id</key>
+						<integer>18688</integer>
+						<key>location</key>
+						<string>U3/Backside Fan</string>
+						<key>ticks-per-cycle</key>
+						<integer>255</integer>
+						<key>type</key>
+						<string>fan-pwm</string>
+						<key>version</key>
+						<integer>1</integer>
+						<key>zone</key>
+						<data>
+						AAAABA==
+						</data>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>SLOT_FAN</string>
+						<key>IOClass</key>
+						<string>IOPlatformPWMFanControl</string>
+						<key>control-id</key>
+						<integer>18944</integer>
+						<key>location</key>
+						<string>AGP/PCI Slot Fan</string>
+						<key>ticks-per-cycle</key>
+						<integer>255</integer>
+						<key>type</key>
+						<string>fan-pwm</string>
+						<key>version</key>
+						<integer>1</integer>
+						<key>zone</key>
+						<data>
+						AAAAAg==
+						</data>
+					</dict>
+				</array>
+				<key>CreationDate</key>
+				<string>Wed Jul 23 17:28:56 PDT 2003</string>
+				<key>CtrlLoopArray</key>
+				<array>
+					<dict>
+						<key>ControlIDArray</key>
+						<array>
+							<integer>16</integer>
+						</array>
+						<key>Description</key>
+						<string>Clock Slew</string>
+						<key>IOClass</key>
+						<string>PowerMac7_2_SlewCtrlLoop</string>
+						<key>MetaStateArray</key>
+						<array>
+							<dict>
+								<key>Description</key>
+								<string>Dynamic Power Step</string>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Force Reduced Speed</string>
+							</dict>
+						</array>
+						<key>ctrlloop-id</key>
+						<integer>0</integer>
+					</dict>
+					<dict>
+						<key>ControlIDArray</key>
+						<array>
+							<integer>16896</integer>
+						</array>
+						<key>Description</key>
+						<string>Drive Bay Fan</string>
+						<key>IOClass</key>
+						<string>PowerMac7_2_PIDCtrlLoop</string>
+						<key>MetaStateArray</key>
+						<array>
+							<dict>
+								<key>Description</key>
+								<string>Normal</string>
+								<key>G_d</key>
+								<data>
+								AeAAAA==
+								</data>
+								<key>G_p</key>
+								<data>
+								AFAAAA==
+								</data>
+								<key>G_r</key>
+								<data>
+								AAAAAA==
+								</data>
+								<key>history-length</key>
+								<integer>2</integer>
+								<key>input-target</key>
+								<integer>2621440</integer>
+								<key>interval</key>
+								<integer>5</integer>
+								<key>output-max</key>
+								<integer>4000</integer>
+								<key>output-min</key>
+								<integer>300</integer>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Failsafe</string>
+								<key>interval</key>
+								<integer>5</integer>
+								<key>output-override</key>
+								<integer>4000</integer>
+							</dict>
+						</array>
+						<key>SensorIDArray</key>
+						<array>
+							<integer>4</integer>
+						</array>
+						<key>ctrlloop-id</key>
+						<integer>1</integer>
+						<key>meta-state-format</key>
+						<string>PID</string>
+					</dict>
+					<dict>
+						<key>ControlIDArray</key>
+						<array>
+							<integer>17408</integer>
+							<integer>17152</integer>
+						</array>
+						<key>Description</key>
+						<string>CPU A Fans</string>
+						<key>IOClass</key>
+						<string>PowerMac7_2_CPUFanCtrlLoop</string>
+						<key>MetaStateArray</key>
+						<array>
+							<dict>
+								<key>garbage</key>
+								<string>nothing</string>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Failsafe</string>
+								<key>interval</key>
+								<integer>5</integer>
+								<key>output-override</key>
+								<integer>3700</integer>
+							</dict>
+						</array>
+						<key>PM72-CPU-PID-datasets</key>
+						<array>
+							<dict>
+								<key>Description</key>
+								<string>Normal (1.6 GHz 90W)</string>
+								<key>G_d</key>
+								<data>
+								BVAAAA==
+								</data>
+								<key>G_p</key>
+								<data>
+								AFAAAA==
+								</data>
+								<key>G_r</key>
+								<data>
+								AACPXA==
+								</data>
+								<key>history-length</key>
+								<integer>10</integer>
+								<key>input-max</key>
+								<integer>4259840</integer>
+								<key>input-target</key>
+								<integer>4128768</integer>
+								<key>interval</key>
+								<integer>1</integer>
+								<key>output-max</key>
+								<integer>3200</integer>
+								<key>output-min</key>
+								<integer>300</integer>
+								<key>pid-dataset-source</key>
+								<string>Thermal Profile PList</string>
+								<key>pid-dataset-version</key>
+								<data>
+								AAEA2w==
+								</data>
+								<key>power-max</key>
+								<integer>5898240</integer>
+								<key>power-max-adjustment</key>
+								<integer>983040</integer>
+								<key>processor-bin</key>
+								<data>
+								MThG
+								</data>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Normal (1.8 GHz 100W)</string>
+								<key>G_d</key>
+								<data>
+								BVAAAA==
+								</data>
+								<key>G_p</key>
+								<data>
+								AFAAAA==
+								</data>
+								<key>G_r</key>
+								<data>
+								AACPXA==
+								</data>
+								<key>history-length</key>
+								<integer>10</integer>
+								<key>input-max</key>
+								<integer>4259840</integer>
+								<key>input-target</key>
+								<integer>4128768</integer>
+								<key>interval</key>
+								<integer>1</integer>
+								<key>output-max</key>
+								<integer>3200</integer>
+								<key>output-min</key>
+								<integer>300</integer>
+								<key>pid-dataset-source</key>
+								<string>Thermal Profile PList</string>
+								<key>pid-dataset-version</key>
+								<data>
+								AAEA2w==
+								</data>
+								<key>power-max</key>
+								<integer>6553600</integer>
+								<key>power-max-adjustment</key>
+								<integer>983040</integer>
+								<key>processor-bin</key>
+								<data>
+								MjZG
+								</data>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Normal (2.0 GHz 90W)</string>
+								<key>G_d</key>
+								<data>
+								BkAAAA==
+								</data>
+								<key>G_p</key>
+								<data>
+								AIAAAA==
+								</data>
+								<key>G_r</key>
+								<data>
+								AAC4Ug==
+								</data>
+								<key>history-length</key>
+								<integer>6</integer>
+								<key>input-max</key>
+								<integer>3735552</integer>
+								<key>input-target</key>
+								<integer>3604480</integer>
+								<key>interval</key>
+								<integer>1</integer>
+								<key>output-max</key>
+								<integer>3200</integer>
+								<key>output-min</key>
+								<integer>300</integer>
+								<key>pid-dataset-source</key>
+								<string>Thermal Profile PList</string>
+								<key>pid-dataset-version</key>
+								<data>
+								AAEAsQ==
+								</data>
+								<key>power-max</key>
+								<integer>5898240</integer>
+								<key>power-max-adjustment</key>
+								<integer>983040</integer>
+								<key>processor-bin</key>
+								<data>
+								MzRD
+								</data>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Normal (2.0 GHz 100W)</string>
+								<key>G_d</key>
+								<data>
+								BkAAAA==
+								</data>
+								<key>G_p</key>
+								<data>
+								AIAAAA==
+								</data>
+								<key>G_r</key>
+								<data>
+								AAC4Ug==
+								</data>
+								<key>history-length</key>
+								<integer>6</integer>
+								<key>input-max</key>
+								<integer>3932160</integer>
+								<key>input-target</key>
+								<integer>3801088</integer>
+								<key>interval</key>
+								<integer>1</integer>
+								<key>output-max</key>
+								<integer>3200</integer>
+								<key>output-min</key>
+								<integer>300</integer>
+								<key>pid-dataset-source</key>
+								<string>Thermal Profile PList</string>
+								<key>pid-dataset-version</key>
+								<data>
+								AAEA2w==
+								</data>
+								<key>power-max</key>
+								<integer>6553600</integer>
+								<key>power-max-adjustment</key>
+								<integer>983040</integer>
+								<key>processor-bin</key>
+								<data>
+								MzRC
+								</data>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Normal (2.0 GHz 110W)</string>
+								<key>G_d</key>
+								<data>
+								BkAAAA==
+								</data>
+								<key>G_p</key>
+								<data>
+								AIAAAA==
+								</data>
+								<key>G_r</key>
+								<data>
+								AAC4Ug==
+								</data>
+								<key>history-length</key>
+								<integer>6</integer>
+								<key>input-max</key>
+								<integer>4194304</integer>
+								<key>input-target</key>
+								<integer>4063232</integer>
+								<key>interval</key>
+								<integer>1</integer>
+								<key>output-max</key>
+								<integer>3200</integer>
+								<key>output-min</key>
+								<integer>300</integer>
+								<key>pid-dataset-source</key>
+								<string>Thermal Profile PList</string>
+								<key>pid-dataset-version</key>
+								<data>
+								AAEA2w==
+								</data>
+								<key>power-max</key>
+								<integer>7208960</integer>
+								<key>power-max-adjustment</key>
+								<integer>983040</integer>
+								<key>processor-bin</key>
+								<data>
+								MzRB
+								</data>
+							</dict>
+						</array>
+						<key>SensorIDArray</key>
+						<array>
+							<integer>11</integer>
+							<integer>13</integer>
+							<integer>14</integer>
+							<integer>48</integer>
+						</array>
+						<key>cpu-id</key>
+						<integer>0</integer>
+						<key>ctrlloop-id</key>
+						<integer>2</integer>
+						<key>intake-scaling-factor</key>
+						<integer>63570</integer>
+						<key>meta-state-format</key>
+						<string>PM72-CPU-PID</string>
+					</dict>
+					<dict>
+						<key>ControlIDArray</key>
+						<array>
+							<integer>17920</integer>
+							<integer>17664</integer>
+						</array>
+						<key>Description</key>
+						<string>CPU B Fans</string>
+						<key>IOClass</key>
+						<string>PowerMac7_2_CPUFanCtrlLoop</string>
+						<key>MetaStateArray</key>
+						<array>
+							<dict>
+								<key>nothing</key>
+								<string>garbage</string>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Failsafe</string>
+								<key>interval</key>
+								<integer>5</integer>
+								<key>output-override</key>
+								<integer>3700</integer>
+							</dict>
+						</array>
+						<key>PM72-CPU-PID-datasets</key>
+						<array>
+							<dict>
+								<key>Description</key>
+								<string>Normal (2.0 GHz 90W)</string>
+								<key>G_d</key>
+								<data>
+								BkAAAA==
+								</data>
+								<key>G_p</key>
+								<data>
+								AIAAAA==
+								</data>
+								<key>G_r</key>
+								<data>
+								AAC4Ug==
+								</data>
+								<key>history-length</key>
+								<integer>6</integer>
+								<key>input-max</key>
+								<integer>3735552</integer>
+								<key>input-target</key>
+								<integer>3604480</integer>
+								<key>interval</key>
+								<integer>1</integer>
+								<key>output-max</key>
+								<integer>3200</integer>
+								<key>output-min</key>
+								<integer>300</integer>
+								<key>pid-dataset-source</key>
+								<string>Thermal Profile PList</string>
+								<key>pid-dataset-version</key>
+								<data>
+								AAEAsQ==
+								</data>
+								<key>power-max</key>
+								<integer>5898240</integer>
+								<key>power-max-adjustment</key>
+								<integer>983040</integer>
+								<key>processor-bin</key>
+								<data>
+								MzRD
+								</data>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Normal (2.0 GHz 100W)</string>
+								<key>G_d</key>
+								<data>
+								BkAAAA==
+								</data>
+								<key>G_p</key>
+								<data>
+								AIAAAA==
+								</data>
+								<key>G_r</key>
+								<data>
+								AAC4Ug==
+								</data>
+								<key>history-length</key>
+								<integer>6</integer>
+								<key>input-max</key>
+								<integer>3932160</integer>
+								<key>input-target</key>
+								<integer>3801088</integer>
+								<key>interval</key>
+								<integer>1</integer>
+								<key>output-max</key>
+								<integer>3200</integer>
+								<key>output-min</key>
+								<integer>300</integer>
+								<key>pid-dataset-source</key>
+								<string>Thermal Profile PList</string>
+								<key>pid-dataset-version</key>
+								<data>
+								AAEA2w==
+								</data>
+								<key>power-max</key>
+								<integer>6553600</integer>
+								<key>power-max-adjustment</key>
+								<integer>983040</integer>
+								<key>processor-bin</key>
+								<data>
+								MzRC
+								</data>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Normal (2.0 GHz 110W)</string>
+								<key>G_d</key>
+								<data>
+								BkAAAA==
+								</data>
+								<key>G_p</key>
+								<data>
+								AIAAAA==
+								</data>
+								<key>G_r</key>
+								<data>
+								AAC4Ug==
+								</data>
+								<key>history-length</key>
+								<integer>6</integer>
+								<key>input-max</key>
+								<integer>4194304</integer>
+								<key>input-target</key>
+								<integer>4063232</integer>
+								<key>interval</key>
+								<integer>1</integer>
+								<key>output-max</key>
+								<integer>3200</integer>
+								<key>output-min</key>
+								<integer>300</integer>
+								<key>pid-dataset-source</key>
+								<string>Thermal Profile PList</string>
+								<key>pid-dataset-version</key>
+								<data>
+								AAEA2w==
+								</data>
+								<key>power-max</key>
+								<integer>7208960</integer>
+								<key>power-max-adjustment</key>
+								<integer>983040</integer>
+								<key>processor-bin</key>
+								<data>
+								MzRB
+								</data>
+							</dict>
+						</array>
+						<key>SensorIDArray</key>
+						<array>
+							<integer>16</integer>
+							<integer>18</integer>
+							<integer>19</integer>
+							<integer>49</integer>
+						</array>
+						<key>ValidConfigs</key>
+						<array>
+							<integer>1</integer>
+						</array>
+						<key>cpu-id</key>
+						<integer>1</integer>
+						<key>ctrlloop-id</key>
+						<integer>3</integer>
+						<key>intake-scaling-factor</key>
+						<integer>63570</integer>
+						<key>meta-state-format</key>
+						<string>PM72-CPU-PID</string>
+					</dict>
+					<dict>
+						<key>ControlIDArray</key>
+						<array>
+							<integer>18688</integer>
+						</array>
+						<key>Description</key>
+						<string>U3/Backside Fan</string>
+						<key>IOClass</key>
+						<string>PowerMac7_2_PIDCtrlLoop</string>
+						<key>MetaStateArray</key>
+						<array>
+							<dict>
+								<key>Description</key>
+								<string>Normal</string>
+								<key>G_d</key>
+								<data>
+								AoAAAA==
+								</data>
+								<key>G_p</key>
+								<data>
+								AFAAAA==
+								</data>
+								<key>G_r</key>
+								<data>
+								AAAAAA==
+								</data>
+								<key>history-length</key>
+								<integer>2</integer>
+								<key>input-target</key>
+								<integer>4259840</integer>
+								<key>interval</key>
+								<integer>5</integer>
+								<key>output-max</key>
+								<integer>100</integer>
+								<key>output-min</key>
+								<integer>20</integer>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Failsafe</string>
+								<key>interval</key>
+								<integer>5</integer>
+								<key>output-override</key>
+								<integer>100</integer>
+							</dict>
+						</array>
+						<key>SensorIDArray</key>
+						<array>
+							<integer>7</integer>
+						</array>
+						<key>ctrlloop-id</key>
+						<integer>4</integer>
+						<key>meta-state-format</key>
+						<string>PID</string>
+					</dict>
+					<dict>
+						<key>ControlIDArray</key>
+						<array>
+							<integer>18944</integer>
+						</array>
+						<key>Description</key>
+						<string>PCI Slot Fan</string>
+						<key>IOClass</key>
+						<string>PowerMac7_2_SlotFanCtrlLoop</string>
+						<key>MetaStateArray</key>
+						<array>
+							<dict>
+								<key>Description</key>
+								<string>Normal</string>
+								<key>G_d</key>
+								<data>
+								AAAAAA==
+								</data>
+								<key>G_p</key>
+								<data>
+								AAAAAA==
+								</data>
+								<key>G_r</key>
+								<data>
+								AAIAAA==
+								</data>
+								<key>history-length</key>
+								<integer>8</integer>
+								<key>input-target</key>
+								<integer>0</integer>
+								<key>interval</key>
+								<integer>1</integer>
+								<key>output-max</key>
+								<integer>100</integer>
+								<key>output-min</key>
+								<integer>20</integer>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Failsafe</string>
+								<key>interval</key>
+								<integer>1</integer>
+								<key>output-override</key>
+								<integer>100</integer>
+							</dict>
+						</array>
+						<key>SensorIDArray</key>
+						<array>
+							<integer>21248</integer>
+						</array>
+						<key>ctrlloop-id</key>
+						<integer>5</integer>
+						<key>meta-state-format</key>
+						<string>PID</string>
+					</dict>
+				</array>
+				<key>SensorArray</key>
+				<array>
+					<dict>
+						<key>Desc-Key</key>
+						<string>PCI Power 3v</string>
+						<key>IOClass</key>
+						<string>PowerMac7_2_PCIPowerSensor</string>
+						<key>sensor-id</key>
+						<integer>20480</integer>
+						<key>type</key>
+						<string>power</string>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>PCI Power 5v</string>
+						<key>IOClass</key>
+						<string>PowerMac7_2_PCIPowerSensor</string>
+						<key>sensor-id</key>
+						<integer>20736</integer>
+						<key>type</key>
+						<string>power</string>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>PCI Power 12v</string>
+						<key>IOClass</key>
+						<string>PowerMac7_2_PCIPowerSensor</string>
+						<key>sensor-id</key>
+						<integer>20992</integer>
+						<key>type</key>
+						<string>power</string>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>PCI Power Combined</string>
+						<key>IOClass</key>
+						<string>PowerMac7_2_PCIPowerSensor</string>
+						<key>sensor-id</key>
+						<integer>21248</integer>
+						<key>type</key>
+						<string>power</string>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>DRIVEBAY</string>
+						<key>IOClass</key>
+						<string>IOPlatformSensor</string>
+						<key>sensor-id</key>
+						<integer>4</integer>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>MAX6690LOC_U3</string>
+						<key>sensor-id</key>
+						<integer>6</integer>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>MAX6690RMT_U3</string>
+						<key>IOClass</key>
+						<string>IOPlatformSensor</string>
+						<key>sensor-id</key>
+						<integer>7</integer>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>MAX6690LOC_MLB</string>
+						<key>sensor-id</key>
+						<integer>8</integer>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>MAX6690RMT_MLB</string>
+						<key>sensor-id</key>
+						<integer>9</integer>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>AD7417TEMP_CPUA</string>
+						<key>sensor-id</key>
+						<integer>10</integer>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>AD7417AD1_CPUA</string>
+						<key>IOClass</key>
+						<string>PowerMac7_2_CPUTempSensor</string>
+						<key>cpu-id</key>
+						<integer>0</integer>
+						<key>sensor-id</key>
+						<integer>11</integer>
+						<key>type</key>
+						<string>temperature</string>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>AD7417AD2_CPUA</string>
+						<key>IOClass</key>
+						<string>PowerMac7_2_ScaledSensor</string>
+						<key>scaling-factor</key>
+						<data>
+						AAADIA==
+						</data>
+						<key>sensor-id</key>
+						<integer>12</integer>
+						<key>type</key>
+						<string>current</string>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>AD7417AD3_CPUA</string>
+						<key>IOClass</key>
+						<string>PowerMac7_2_ScaledSensor</string>
+						<key>scaling-factor</key>
+						<data>
+						AAAAoA==
+						</data>
+						<key>sensor-id</key>
+						<integer>13</integer>
+						<key>type</key>
+						<string>voltage</string>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>AD7417AD4_CPUA</string>
+						<key>IOClass</key>
+						<string>PowerMac7_2_ScaledSensor</string>
+						<key>scaling-factor</key>
+						<data>
+						AAAfQA==
+						</data>
+						<key>sensor-id</key>
+						<integer>14</integer>
+						<key>type</key>
+						<string>current</string>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>FAKE_POWER_CPUA</string>
+						<key>IOClass</key>
+						<string>PowerMac7_2_CPUPowerSensor</string>
+						<key>I_V_inputs</key>
+						<array>
+							<integer>13</integer>
+							<integer>14</integer>
+						</array>
+						<key>location</key>
+						<string>CPU A POWER</string>
+						<key>sensor-id</key>
+						<integer>48</integer>
+						<key>type</key>
+						<string>power</string>
+						<key>version</key>
+						<integer>1</integer>
+						<key>zone</key>
+						<data>
+						AAAAAA==
+						</data>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>AD7417TEMP_CPUB</string>
+						<key>ValidConfigs</key>
+						<array>
+							<integer>1</integer>
+						</array>
+						<key>sensor-id</key>
+						<integer>15</integer>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>AD7417AD1_CPUB</string>
+						<key>IOClass</key>
+						<string>PowerMac7_2_CPUTempSensor</string>
+						<key>ValidConfigs</key>
+						<array>
+							<integer>1</integer>
+						</array>
+						<key>cpu-id</key>
+						<integer>1</integer>
+						<key>sensor-id</key>
+						<integer>16</integer>
+						<key>type</key>
+						<string>temperature</string>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>AD7417AD2_CPUB</string>
+						<key>IOClass</key>
+						<string>PowerMac7_2_ScaledSensor</string>
+						<key>ValidConfigs</key>
+						<array>
+							<integer>1</integer>
+						</array>
+						<key>scaling-factor</key>
+						<data>
+						AAADIA==
+						</data>
+						<key>sensor-id</key>
+						<integer>17</integer>
+						<key>type</key>
+						<string>current</string>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>AD7417AD3_CPUB</string>
+						<key>IOClass</key>
+						<string>PowerMac7_2_ScaledSensor</string>
+						<key>ValidConfigs</key>
+						<array>
+							<integer>1</integer>
+						</array>
+						<key>scaling-factor</key>
+						<data>
+						AAAAoA==
+						</data>
+						<key>sensor-id</key>
+						<integer>18</integer>
+						<key>type</key>
+						<string>voltage</string>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>AD7417AD4_CPUB</string>
+						<key>IOClass</key>
+						<string>PowerMac7_2_ScaledSensor</string>
+						<key>ValidConfigs</key>
+						<array>
+							<integer>1</integer>
+						</array>
+						<key>scaling-factor</key>
+						<data>
+						AAAfQA==
+						</data>
+						<key>sensor-id</key>
+						<integer>19</integer>
+						<key>type</key>
+						<string>current</string>
+					</dict>
+					<dict>
+						<key>Desc-Key</key>
+						<string>FAKE_POWER_CPUB</string>
+						<key>IOClass</key>
+						<string>PowerMac7_2_CPUPowerSensor</string>
+						<key>I_V_inputs</key>
+						<array>
+							<integer>18</integer>
+							<integer>19</integer>
+						</array>
+						<key>ValidConfigs</key>
+						<array>
+							<integer>1</integer>
+						</array>
+						<key>location</key>
+						<string>CPU B POWER</string>
+						<key>sensor-id</key>
+						<integer>49</integer>
+						<key>type</key>
+						<string>power</string>
+						<key>version</key>
+						<integer>1</integer>
+						<key>zone</key>
+						<data>
+						AAAAAA==
+						</data>
+					</dict>
+				</array>
+			</dict>
+			<key>IOProviderClass</key>
+			<string>IOPlatformDevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.kernel.iokit</key>
+		<string>6.5</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>6.5</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Safe Boot</string>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		B4D5938E0458832300CE0E5B = {
+			isa = PBXBundleReference;
+			path = PowerMac7_2_PlatformPlugin.kext;
+			refType = 3;
+		};
+		B4D59392045887AC00CE0E5B = {
+			fileRef = B424C3FC041411C700CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B4D59393045887AD00CE0E5B = {
+			fileRef = B424C3FD041411C700CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B4D5939E045887B600CE0E5B = {
+			fileRef = B0ED8C5203BA2F1805A80123;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B4D5939F045887B700CE0E5B = {
+			fileRef = B0ED8C5003BA2EF905A80123;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B4D593A1045887C200CE0E5B = {
+			fileRef = B06D1B2703C6427605CE0D9E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B4D89C210474529300CE0F51 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			name = IOPlatformTableCtrlLoop.h;
+			path = IOPlatformPlugins/IOPlatformTableCtrlLoop.h;
+			refType = 4;
+		};
+		B4D89C220474529300CE0F51 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			name = IOPlatformTableCtrlLoop.cpp;
+			path = IOPlatformPlugins/IOPlatformTableCtrlLoop.cpp;
+			refType = 4;
+		};
+		B4E56AE504588D6200CE0E5B = {
+			fileRef = B4D5938E0458832300CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B4E56AEB0458AD7B00CE0E5B = {
+			isa = PBXTargetDependency;
+			target = B4D5938D0458832300CE0E5B;
+		};
+		B4E5E9A3048E9D4800CE0F51 = {
+			fileRef = B4B6ED1B041FC43E00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B4E5E9A4048E9D4800CE0F51 = {
+			fileRef = B4B6ED1A041FC43E00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B4E5E9C3049096D900CE0F51 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			name = PowerMac7_2_PIDCtrlLoop.h;
+			path = IOPlatformPlugins/PowerMac7_2_PlatformPlugin/PowerMac7_2_PIDCtrlLoop.h;
+			refType = 4;
+		};
+		B4E5E9C4049096D900CE0F51 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			name = PowerMac7_2_PIDCtrlLoop.cpp;
+			path = IOPlatformPlugins/PowerMac7_2_PlatformPlugin/PowerMac7_2_PIDCtrlLoop.cpp;
+			refType = 4;
+		};
+		B4F0E47504A132E000CE0E5B = {
+			fileRef = B41095CB04899BBE00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B4F0E47604A132E100CE0E5B = {
+			fileRef = B41095CC04899BBE00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B4F0E47C04A17B8200CE0E5B = {
+			fileRef = B4E5E9C3049096D900CE0F51;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B4F0E47D04A17B8300CE0E5B = {
+			fileRef = B4E5E9C4049096D900CE0F51;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//B40
+//B41
+//B42
+//B43
+//B44
+//F50
+//F51
+//F52
+//F53
+//F54
+		F552014503EC692301CE6C40 = {
+			fileRef = B06D1B2703C6427605CE0D9E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5BE3E9E03DE17CB01CE6C36 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOPMSlotsMacRISC4.h;
+			refType = 4;
+		};
+		F5BE3E9F03DE17CB01CE6C36 = {
+			fileRef = F5BE3E9E03DE17CB01CE6C36;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5BE3EA003DE17D901CE6C36 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOPMSlotsMacRISC4.cpp;
+			refType = 4;
+		};
+		F5BE3EA103DE17D901CE6C36 = {
+			fileRef = F5BE3EA003DE17D901CE6C36;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5BE3EA203DE17F801CE6C36 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOPMUSBMacRISC4.h;
+			refType = 4;
+		};
+		F5BE3EA303DE17F801CE6C36 = {
+			fileRef = F5BE3EA203DE17F801CE6C36;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5BE3EA403DE181B01CE6C36 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOPMUSBMacRISC4.cpp;
+			refType = 4;
+		};
+		F5BE3EA503DE181B01CE6C36 = {
+			fileRef = F5BE3EA403DE181B01CE6C36;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+	};
+	rootObject = 089C1669FE841209C02AAC07;
+}

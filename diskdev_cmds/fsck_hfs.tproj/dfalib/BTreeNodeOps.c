@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -34,7 +35,7 @@
 */
 
 #include "BTreePrivate.h"
-
+#include "hfs_endian.h"
 
 
 ///////////////////////// BTree Module Node Operations //////////////////////////
@@ -145,6 +146,9 @@ OSStatus	GetNode		(BTreeControlBlockPtr	 btreePtr,
 	}
 	++btreePtr->numGetNodes;
 	
+	SWAP_BT_NODE(nodePtr, (btreePtr->fcbPtr->fcbVolume->vcbSignature == kHFSPlusSigWord),
+			btreePtr->fcbPtr->fcbFileID, 0);
+
 	//
 	// Optimization
 	// Only call CheckNode if the node came from disk.
@@ -290,6 +294,12 @@ OSStatus	ReleaseNode	(BTreeControlBlockPtr	 btreePtr,
 	
 	if (nodePtr->buffer != nil)
 	{
+		/*
+		 * The nodes must remain in the cache as big endian!
+		 */
+		SWAP_BT_NODE(nodePtr, (btreePtr->fcbPtr->fcbVolume->vcbSignature == kHFSPlusSigWord),
+			btreePtr->fcbPtr->fcbFileID, 1);
+
 		releaseNodeProc = btreePtr->releaseBlockProc;
 		err = releaseNodeProc (btreePtr->fcbPtr,
 							   nodePtr,
@@ -306,6 +316,45 @@ OSStatus	ReleaseNode	(BTreeControlBlockPtr	 btreePtr,
 	return err;
 }
 
+
+/*-------------------------------------------------------------------------------
+
+Routine:	TrashNode	-	Call FS Agent to release node obtained by GetNode, and
+							not store it...mark it as bad.
+
+Function:	Informs the FS Agent that a BTree node may be released and thrown away.
+
+Input:		btreePtr		- pointer to BTree control block
+			nodeNum			- number of node to release
+						
+Result:		noErr		- success
+			!= noErr	- failure
+-------------------------------------------------------------------------------*/
+
+OSStatus	TrashNode	(BTreeControlBlockPtr	 btreePtr,
+						 NodePtr				 nodePtr )
+{
+	OSStatus			 err;
+	ReleaseBlockProcPtr	 releaseNodeProc;
+	
+
+	err = noErr;
+	
+	if (nodePtr->buffer != nil)
+	{
+		releaseNodeProc = btreePtr->releaseBlockProc;
+		err = releaseNodeProc (btreePtr->fcbPtr,
+							   nodePtr,
+							   kReleaseBlock | kTrashBlock );
+		PanicIf (err, "\TrashNode: releaseNodeProc returned error.");
+		++btreePtr->numReleaseNodes;
+	}
+
+	nodePtr->buffer			= nil;
+	nodePtr->blockHeader	= nil;
+	
+	return err;
+}
 
 
 /*-------------------------------------------------------------------------------
@@ -342,6 +391,8 @@ OSStatus	UpdateNode	(BTreeControlBlockPtr	 btreePtr,
 		}
 
 	//	LogStartTime(kTraceReleaseNode);
+		SWAP_BT_NODE(nodePtr, (btreePtr->fcbPtr->fcbVolume->vcbSignature == kHFSPlusSigWord),
+			btreePtr->fcbPtr->fcbFileID, 1);
 
 		releaseNodeProc = btreePtr->releaseBlockProc;
 		err = releaseNodeProc (btreePtr->fcbPtr,
@@ -470,8 +521,11 @@ static void PrintNode(const NodeDescPtr node, UInt16 nodeSize, UInt32 nodeNumber
 	lp = (UInt32*) node;
 	offset = 0;
 	
-	while (rows-- > 0)
-		printf("%04X: %08X %08X %08X %08X\n", (u_int)offset++, *lp++, *lp++, *lp++, *lp++);
+	while (rows-- > 0) {
+		printf( "%04X: %08X %08X %08X %08X\n", (u_int)offset++, 
+				*(lp + 0), *(lp + 1), *(lp + 2), *(lp + 3) );
+		lp += 4;
+	}
 }
 #endif
 

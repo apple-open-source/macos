@@ -123,7 +123,7 @@ void)
 	 * If the there is a handler and we are not doing return on error
 	 * call the user's handler.
 	 */
-	if(user_multiple_handler != NULL && return_on_error == FALSE){
+	if(user_undefined_handler != NULL && return_on_error == FALSE){
 	    /*
 	     * Call the user's undefined symbol handler while there are
 	     * undefined symbols and the handler is set.
@@ -136,6 +136,13 @@ void)
 		set_lock();
 	    }
 	}
+
+	/*
+	 * See if the user_undefined_handler linked in some code that resolves
+	 * the missing symbols
+	 */
+	if(undefined_list.next == &undefined_list)
+		return(TRUE);
 
 	/* create the error message */
 	error("Undefined symbols:");

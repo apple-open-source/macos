@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -63,12 +66,14 @@ private:
 	IOFireWireSBP2ManagementORB * 	fLUNResetORB;
 	
 	// /!\ WARNING! NOT USED left behind for legacy binary reasons
-	IOSimpleLock * fQueueLock;
+	IOSimpleLock *					fQueueLock;
 	
-	UInt32	fLoginRetryCount;
-	bool	fDeferRegisterService;
-	bool	fNeedLogin;
-	bool	fPhysicallyConnected;
+	UInt32							fLoginRetryCount;
+	bool							fDeferRegisterService;
+	bool							fNeedLogin;
+    
+    // /!\ WARNING! NOT USED left behind for legacy binary reasons
+	bool							fPhysicallyConnected;
 	
 	static void
 	StatusNotifyStatic ( void * refCon, FWSBP2NotifyParamsPtr params );
@@ -92,8 +97,7 @@ private:
 	virtual void
 	FetchAgentResetComplete ( IOReturn status );
 	
-	static void
-	LoginCompletionStatic ( void * refCon, FWSBP2LoginCompleteParams * params );
+	static void LoginCompletionStatic ( void * refCon, FWSBP2LoginCompleteParams * params );
 	
 	static void
 	LogoutCompletionStatic ( void * refCon, FWSBP2LogoutCompleteParams * params );
@@ -111,22 +115,29 @@ private:
 						UInt8				quadletCount,
 						SCSI_Sense_Data *	targetData );
 	
-	virtual void 
-	ConnectToDevice ( void );
+	virtual void ConnectToDevice ( void );
 	
-	virtual void
-	DisconnectFromDevice ( void );
+	virtual void DisconnectFromDevice ( void );
 	
-	virtual bool
-	IsDeviceCPUInDiskMode ( void );
-	
-	virtual IOReturn
-	AllocateResources ( void );
-	
-	virtual void
-	DeallocateResources ( void );
-	
+	virtual bool IsDeviceCPUInDiskMode ( void );
+
 protected:
+    
+	/*!
+		@function AllocateResources
+		@abstract Allocate Resources.
+		@discussion	Called from start method to allocate needed resources.
+	*/
+    
+	virtual IOReturn AllocateResources ( void );
+    
+	/*!
+		@function DeallocateResources
+		@abstract Deallocate Resources.
+		@discussion	Called from cleanUp method to deallocate resources.
+	*/
+    
+	virtual void DeallocateResources ( void );
 	
 	enum SBP2LoginState
 	{
@@ -360,16 +371,28 @@ public:
 	*/
 	
 	virtual void cleanUp ( void );
+
+protected:
 	
-	
+	virtual IOReturn login ( void );
+    OSMetaClassDeclareReservedUsed ( IOFireWireSerialBusProtocolTransport, 1 );
+    
+	virtual IOReturn submitLogin ( void );
+    OSMetaClassDeclareReservedUsed ( IOFireWireSerialBusProtocolTransport, 2 );
+    
+	virtual void loginLost ( void );
+    OSMetaClassDeclareReservedUsed ( IOFireWireSerialBusProtocolTransport, 3 );
+    
+    void loginSuspended ( void );
+	OSMetaClassDeclareReservedUsed ( IOFireWireSerialBusProtocolTransport, 4 );
+   
+	virtual void loginResumed ( void );
+	OSMetaClassDeclareReservedUsed ( IOFireWireSerialBusProtocolTransport, 5 );
+		
 private:
 	
 	// binary compatibility reserved method space
-	OSMetaClassDeclareReservedUnused ( IOFireWireSerialBusProtocolTransport, 1 );
-	OSMetaClassDeclareReservedUnused ( IOFireWireSerialBusProtocolTransport, 2 );
-	OSMetaClassDeclareReservedUnused ( IOFireWireSerialBusProtocolTransport, 3 );
-	OSMetaClassDeclareReservedUnused ( IOFireWireSerialBusProtocolTransport, 4 );
-	OSMetaClassDeclareReservedUnused ( IOFireWireSerialBusProtocolTransport, 5 );
+    
 	OSMetaClassDeclareReservedUnused ( IOFireWireSerialBusProtocolTransport, 6 );
 	OSMetaClassDeclareReservedUnused ( IOFireWireSerialBusProtocolTransport, 7 );
 	OSMetaClassDeclareReservedUnused ( IOFireWireSerialBusProtocolTransport, 8 );

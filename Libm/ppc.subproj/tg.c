@@ -39,7 +39,7 @@
 *                                                                              *
 *    Modification history:                                                     *
 *    November  06 2001: commented out warning about Intel architectures.       *
-*    July      20 2001: replaced __setflm with fegetenvd/fesetenvd.            *
+*    July      20 2001: replaced __setflm with FEGETENVD/FESETENVD.            *
 *                       replaced DblInHex typedef with hexdouble.              *
 *    September 07 2001: added #ifdef __ppc__.                                  *
 *    September 19 2001: added macros to detect PowerPC and correct compiler.   *
@@ -99,7 +99,7 @@ static const hexdouble infinity = HEXDOUBLE(0x7ff00000, 0x00000000);
 *                                 T   A   N                                    *
 ********************************************************************************
 *******************************************************************************/
-
+#ifdef notdef
 double tan (   double x  )
       {
       register double absOfX, intquo ,arg, argtail, aSquared, aThird, aFourth,
@@ -140,11 +140,11 @@ double tan (   double x  )
             
       static const double kMinNormal = 2.2250738585072014e-308;  // 0x1.0p-1022
      
-      absOfX = __fabs( x );
+      absOfX = __FABS( x );
       
       tablePointer = ( struct tableEntry * ) ( tanatantable - ( 16 * 14 ) );      // init tbl ptr
-      fegetenvd( OldEnvironment.d );                     // save env, set default
-      fesetenvd( 0.0 );
+      FEGETENVD( OldEnvironment.d );                     // save env, set default
+      FESETENVD( 0.0 );
       
 /*******************************************************************************
 *     |x| < 0.7853980064392090732                                              *
@@ -155,7 +155,7 @@ double tan (   double x  )
 
             if ( absOfX == 0.0 )
                 {
-                fesetenvd( OldEnvironment.d );       	// restore caller's mode
+                FESETENVD( OldEnvironment.d );       	// restore caller's mode
                 return x; 				// +0 -0 preserved
                 }
                 
@@ -183,7 +183,7 @@ double tan (   double x  )
                   if ( fabs ( result ) < kMinNormal )
                         OldEnvironment.i.lo |= FE_UNDERFLOW;
                         
-                  fesetenvd( OldEnvironment.d );             // restore caller's mode
+                  FESETENVD( OldEnvironment.d );             // restore caller's mode
                   return result;
                   }
             
@@ -211,14 +211,14 @@ double tan (   double x  )
                         aThird = -aThird;
                         result = ( temp1 * aThird - y );
                         }
-                  fesetenvd( OldEnvironment.d );             // restore caller's mode
+                  FESETENVD( OldEnvironment.d );             // restore caller's mode
                   return result;
                   }
             }
       
       if ( x != x )                                          // x is a NaN
             {
-            fesetenvd( OldEnvironment.d );                   // restore caller's mode
+            FESETENVD( OldEnvironment.d );                   // restore caller's mode
             return ( x );
             }
       
@@ -231,7 +231,7 @@ double tan (   double x  )
             if ( absOfX == infinity.d ) 
                   {                                          // infinite case is invalid
                   OldEnvironment.i.lo |= SET_INVALID;
-                  fesetenvd( OldEnvironment.d );             // restore caller's mode
+                  FESETENVD( OldEnvironment.d );             // restore caller's mode
                   return ( nan ( TRIG_NAN ) );               // return NaN
                   }
             
@@ -239,7 +239,7 @@ double tan (   double x  )
                   {                                          // loop to reduce x below
                   intquo = x * k2ByPi;                       // ¹*2^53 in magnitude
                   x = ( x - intquo * kPiBy2 ) - intquo * kPiBy2Tail;
-                  absOfX = __fabs( x );
+                  absOfX = __FABS( x );
                   }
 
 /*******************************************************************************
@@ -248,7 +248,7 @@ double tan (   double x  )
             
             intquo = ( x * k2ByPi + kRintBig ) - kRintBig;
             x = ( x - intquo * kPiBy2 ) - intquo * kPiBy2Tail;
-            absOfX = __fabs( x );
+            absOfX = __FABS( x );
             }
       
 /*******************************************************************************
@@ -266,7 +266,7 @@ double tan (   double x  )
       iz = zD.i.lo & 1UL;                                    // quo modulo 2
       intquo = zD.d - kRint;                                 // Rint( x )
       arg = ( x - intquo*kPiBy2 ) - intquo*kPiBy2Tail;       // reduced arg ( head )
-      absOfX = __fabs( arg );
+      absOfX = __FABS( arg );
       aD.d = 256.0*absOfX + kRint;
       argtail = ( ( x - intquo*kPiBy2 ) - arg ) - intquo*kPiBy2Tail; // red. arg tail
       
@@ -299,7 +299,7 @@ double tan (   double x  )
                         w = v - temp1 * aThird;
                         result = ( w - u );
                         }
-                  fesetenvd( OldEnvironment.d );             // restore caller's mode
+                  FESETENVD( OldEnvironment.d );             // restore caller's mode
                   return result;   
                   }
             
@@ -322,13 +322,13 @@ double tan (   double x  )
                   
                   aFourth = ( u - temp2 ) + s;
                   
-                  if ( __fabs ( temp2 ) < k2ToM1023 ) 
+                  if ( __FABS ( temp2 ) < k2ToM1023 ) 
                         {                                    // huge result
                         if ( arg > 0 ) 
                               result = ( 1.0 / temp2 );
                         else 
                               result = ( 1.0 / ( -temp2 ) );
-                        fesetenvd( OldEnvironment.d );        // restore caller's mode
+                        FESETENVD( OldEnvironment.d );        // restore caller's mode
                         return result;   
                         }
                   
@@ -343,7 +343,7 @@ double tan (   double x  )
                         temp1 = -temp1;
                         result = ( temp1 * u + u );
                         }
-                  fesetenvd( OldEnvironment.d );             // restore caller's mode
+                  FESETENVD( OldEnvironment.d );             // restore caller's mode
                   return result;   
                   }
             } 
@@ -386,7 +386,7 @@ double tan (   double x  )
       
       if ( iz == 0 ) 
             {                                                        // tangent approximation
-            fesetenvd( OldEnvironment.d );                           // restore caller's mode
+            FESETENVD( OldEnvironment.d );                           // restore caller's mode
             if ( arg > 0.0 )
                   result = ( y + temp1 * s );
             else
@@ -394,7 +394,7 @@ double tan (   double x  )
                   y = -y;
                   result = ( y - temp1 * s );
                   }
-            fesetenvd( OldEnvironment.d );                           // restore caller's mode
+            FESETENVD( OldEnvironment.d );                           // restore caller's mode
             return result;   
             }
       
@@ -412,11 +412,431 @@ double tan (   double x  )
                   w = -w;
                   result = ( u * w + u );
                   }
-            fesetenvd( OldEnvironment.d );                            // restore caller's mode
+            FESETENVD( OldEnvironment.d );                            // restore caller's mode
             return result;   
             }
       }
+#else
+static const double ts11 = 8.898406739539066157565e-3,
+            ts9  = 2.186936821731655951177e-2,
+            ts7  = 5.396825413618260185395e-2,
+            ts5  = 0.1333333333332513155016,
+            ts3  = 0.3333333333333333333333;
+static const double tt7  = 0.05396875452473400572649,
+            tt5  = 0.1333333333304691192925,
+            tt3  = 0.3333333333333333357614;
+static const double k2ToM1023 = 1.112536929253600692e-308; // 0x1.0p-1023
+static long indexTable[] =
+    {  
+    16,  17,  18,  19,  20,  21,  22,  23,  24,  25,  26,
+    27,  28,  29,  30,  31,  32,  33,  34,  35,  36,  37,
+    38,  39,  40,  41,  42,  43,  44,  45,  47,  48,  49,
+    50,  51,  52,  53,  54,  55,  56,  57,  58,  59,  60,
+    61,  62,  63,  64,  65,  66,  68,  69,  70,  71,  72,
+    73,  74,  75,  76,  77,  78,  79,  81,  82,  83,  84,
+    85,  86,  87,  88,  89,  91,  92,  93,  94,  95,  96,
+    97,  98,  100, 101, 102, 103, 104, 105, 107, 108, 109,
+    110, 111, 113, 114, 115, 116, 117, 119, 120, 121, 122,
+    123, 125, 126, 127, 128, 130, 131, 132, 133, 135, 136,
+    137, 139, 140, 141, 142, 144, 145, 146, 148, 149, 150,
+    152, 153, 154, 156, 157, 159, 160, 161, 163, 164, 166,
+    167, 168, 170, 171, 173, 174, 176, 177, 179, 180, 182,
+    183, 185, 186, 188, 189, 191, 192, 194, 196, 197, 199,
+    200, 202, 204, 205, 207, 209, 210, 212, 214, 215, 217,
+    219, 220, 222, 224, 226, 228, 229, 231, 233, 235, 237,
+    238, 240, 242, 244, 246, 248, 250, 252, 254, 256, 256
+    };
+    
+static const double kMinNormal = 2.2250738585072014e-308;  // 0x1.0p-1022
+static const double kPiDiv4 = 0.7853980064392090732;
 
+double tan (   double x  )
+{
+      register double absOfX, intquo ,arg, argtail, aSquared, aThird, aFourth,
+                      temp1, temp2, s, u, v, w, y, result;
+      long tableIndex;
+      unsigned long iz;
+      hexdouble zD, aD, OldEnvironment;
+      struct tableEntry *tablePointer;
+     
+      register double FPR_env, FPR_z, FPR_one, FPR_PiDiv4, FPR_256, FPR_piScale;
+      register double FPR_t, FPR_u, FPR_inf, FPR_pi53, FPR_2divPi, FPR_PiDiv2, FPR_PiDiv2Tail, FPR_kRintBig, FPR_kRint;
+      register unsigned long GPR_f;
+      register struct tableEntry *pT;
+
+      FEGETENVD( FPR_env );                     	// save env, set default
+      
+      FPR_z = 0.0;			 		tablePointer = ( struct tableEntry * ) ( tanatantable - ( 16 * 14 ) );      
+      absOfX = __FABS( x );
+      FPR_PiDiv4 = kPiDiv4;		 		FPR_256 = 256.0;
+      FPR_kRint = kRint;		 		FPR_one = 1.0;
+      FPR_PiDiv2 = kPiBy2;
+
+      __ENSURE( FPR_PiDiv2, FPR_PiDiv4, FPR_256); 
+      __ENSURE( FPR_z, FPR_kRint, FPR_one); 
+      
+      FESETENVD( FPR_z );
+      
+/*******************************************************************************
+*     |x| < 0.7853980064392090732                                              *
+*******************************************************************************/
+
+      if ( absOfX < FPR_PiDiv4 ) 
+      {  
+
+            FPR_t = __FMADD( FPR_256, absOfX, FPR_kRint ); 
+            aD.d = FPR_t;
+            
+            if ( absOfX == FPR_z )
+            {
+                FESETENVD( FPR_env );       		// restore caller's mode
+                return x; 				// +0 -0 preserved
+            }
+                
+
+/*******************************************************************************
+*     |x| < 0.0625                                                             *
+*******************************************************************************/
+            
+            if ( aD.i.lo < 16UL ) // No Store/Load hazard thanks to the imediately preceding branch
+            {
+                  register double FPR_ts3, FPR_ts5, FPR_ts7, FPR_ts9, FPR_ts11, FPR_Min;
+                  
+                  aSquared = __FMUL( absOfX, absOfX );	FPR_Min = kMinNormal;
+                  __ORI_NOOP;
+
+                  FPR_ts11 = ts11;		 	FPR_ts9 = ts9;
+                  
+                  FPR_ts7 = ts7;		 	FPR_ts5 = ts5;
+                  
+                  FPR_ts3 = ts3;			aThird = __FMUL( absOfX, aSquared );
+                  
+                  temp1 = __FMADD( FPR_ts11, aSquared, FPR_ts9 );
+                  
+                  temp1 = __FMADD( temp1, aSquared, FPR_ts7 );
+                  
+                  temp1 = __FMADD( temp1, aSquared, FPR_ts5 );
+                  
+                  temp1 = __FMADD( temp1, aSquared, FPR_ts3 );
+                                    
+                  if ( x > FPR_z )
+                        result = __FMADD( temp1, aThird, absOfX );
+                  else 
+                  {
+                        aThird = -aThird;
+                        result = __FMSUB( temp1, aThird, absOfX );
+                  }
+                        
+                  FESETENVD( FPR_env );             	// restore caller's mode
+                  
+                  if ( __FABS ( result ) < FPR_Min ) 
+                        __PROG_UF_INEXACT( FPR_Min );
+                  else
+                        __PROG_INEXACT( FPR_PiDiv2 );
+
+                  return result;
+            }
+            
+/*******************************************************************************
+*     .0625 <= x < .7853980064392090732.                                       *
+*******************************************************************************/
+            else 
+            {
+                  register double FPR_tt3, FPR_tt5, FPR_tt7, FPR_sqr, FPR_f0;
+                  
+                  tableIndex = indexTable[aD.i.lo - 16];
+                  pT = &(tablePointer[tableIndex]);
+                  FPR_f0 = pT->f0;
+                  
+                  w = absOfX - FPR_f0;  		// w = deltax
+                  y = pT->p;            		// y = Tan from table
+                  FPR_tt3 = tt3;
+
+                  FPR_tt7 = tt7;			FPR_tt5 = tt5;
+                  
+                  FPR_sqr = __FMUL( w, w );		// calculate delta Tan
+                  
+                  temp1 = __FMADD( FPR_tt7, FPR_sqr, FPR_tt5 );
+                  
+                  temp1 = __FMADD( temp1, FPR_sqr, FPR_tt3 );
+                  
+                  temp1 = __FMADD( temp1, __FMUL( FPR_sqr, w ), w );
+                  
+                  v = __FMUL(y, temp1 );
+                  
+                  aSquared = __FMUL( v, v );		aThird = FPR_one + v;
+                  
+                  aFourth = __FMUL( aSquared,aSquared );w = __FMADD( aThird, aSquared, aThird );
+                  
+                  aThird = __FMADD( w, aFourth, w );	temp1 = __FMADD( v, y, temp1 );
+                  
+                  if ( x > FPR_z )			// fix final sign
+                        result = __FMADD( temp1, aThird, y );
+                  else 
+                  {
+                        aThird = -aThird;
+                        result = __FMSUB( temp1, aThird, y );
+                  }
+                  
+                  FESETENVD( FPR_env );            	 // restore caller's mode
+                  __PROG_INEXACT( FPR_PiDiv2 );
+                  
+                  return result;
+            }
+      }
+      
+      if ( x != x )                                 	// x is a NaN
+      {
+            FESETENVD( FPR_env );                   	// restore caller's mode
+            return ( x );
+      }
+      
+/*******************************************************************************
+*     |x| > ¹/4 and perhaps |x| > kPiScale42.                                  *
+*******************************************************************************/
+
+      FPR_piScale = kPiScale42;	 			FPR_PiDiv2Tail = kPiBy2Tail;
+      FPR_2divPi = k2ByPi; 			 	FPR_pi53 = kPiScale53;
+      FPR_inf = infinity.d; 		 		FPR_kRintBig = kRintBig;
+      __ENSURE( FPR_2divPi, FPR_PiDiv2, FPR_piScale );
+
+      if ( absOfX > FPR_piScale ) 
+      {                                                	// |x| is huge or infinite
+            if ( absOfX == FPR_inf )  
+            {                               	  	// infinite case is invalid
+                  OldEnvironment.d = FPR_env;
+                  OldEnvironment.i.lo |= SET_INVALID;
+                  FESETENVD( OldEnvironment.d );  	// restore caller's mode
+                  return ( nan ( TRIG_NAN ) );    	// return NaN
+            }
+            
+            while ( absOfX > FPR_pi53 )  
+            {                               	  	// loop to reduce x below
+                  intquo = __FMUL( x, FPR_2divPi );	// ¹*2^53 in magnitude
+                  FPR_t = __FNMSUB( intquo, FPR_PiDiv2, x );
+                  x = __FNMSUB( intquo, FPR_PiDiv2Tail, FPR_t );
+                  absOfX = __FABS ( x ) ;
+            }
+
+/*******************************************************************************
+*     final reduction of x to magnitude between 0 and 2*¹.                     *
+*******************************************************************************/
+            FPR_t = __FMADD( x, FPR_2divPi, FPR_kRintBig );
+            intquo = FPR_t - FPR_kRintBig;
+            FPR_t = __FNMSUB( intquo, FPR_PiDiv2, x );
+            x = __FNMSUB( intquo, FPR_PiDiv2Tail, FPR_t );
+            absOfX = __FABS( x );
+      }
+      
+/*******************************************************************************
+*     ¹/4 < x < ¹*2^42                                                         *
+*******************************************************************************/
+      
+/*******************************************************************************
+*     Further argument reduction is probably necessary.  A double-double       *
+*     reduced argument is determined ( arg|argtail ).                          *
+*******************************************************************************/
+      FPR_t = __FMADD( x, FPR_2divPi, FPR_kRint );
+      intquo = FPR_t - FPR_kRint; 
+      zD.d = FPR_t;
+      
+      FPR_t = __FNMSUB( intquo, FPR_PiDiv2, x );
+      arg = __FNMSUB( intquo, FPR_PiDiv2Tail, FPR_t );
+      
+      absOfX = __FABS( arg );	 			FPR_t -= arg;
+      GPR_f = zD.i.lo;
+      
+      FPR_u = __FMADD( FPR_256, absOfX, FPR_kRint ); 
+      aD.d = FPR_u;
+      __ORI_NOOP;
+      __ORI_NOOP;
+      
+      argtail = __FNMSUB( intquo, FPR_PiDiv2Tail, FPR_t );
+      
+/*******************************************************************************
+*     |arg| < .0625.                                                           *
+*******************************************************************************/
+
+      if ( aD.i.lo < 16UL ) // No Store/Load hazard, NOOPs above push this issue to next cycle.
+      {
+            register double FPR_ts3, FPR_ts5, FPR_ts7, FPR_ts9, FPR_ts11;
+            
+            aSquared = __FMUL( absOfX, absOfX );
+            u = absOfX;
+            v = argtail; 
+            
+            FPR_ts11 = ts11;		 		FPR_ts9 = ts9;
+            
+            FPR_ts7 = ts7;		 		FPR_ts5 = ts5;
+            
+            FPR_ts3 = ts3;           			iz = GPR_f & 1UL; // quo modulo 2
+
+            temp1 = __FMADD( FPR_ts11, aSquared, FPR_ts9 );
+            
+            temp1 = __FMADD( temp1, aSquared, FPR_ts7 );
+            
+            temp1 = __FMADD( temp1, aSquared, FPR_ts5 );
+            
+            temp1 = __FMADD( temp1, aSquared, FPR_ts3 );
+            
+            aThird = __FMUL( aSquared, u );
+            
+/*******************************************************************************
+*     tangent approximation starts here.                                       *
+*******************************************************************************/
+
+            if ( iz == 0 ) 
+            {
+                  if ( arg > FPR_z ) 
+                  {                                    	// positive arg
+                        w = __FMADD( temp1, aThird, v );
+                        result =  ( w + u );
+                  }
+                  else 
+                  {                                    	// negative arg
+                        w = __FNMSUB( temp1, aThird, v );
+                        result = ( w - u );
+                  }
+                        
+                  FESETENVD( FPR_env );             	// restore caller's mode
+                  __PROG_INEXACT( FPR_PiDiv2 );
+                  
+                  return result;   
+            }
+            
+/*******************************************************************************
+*     cotangent approximation starts here.                                     *
+*******************************************************************************/
+            else 
+            {
+                  register double FPR_k2ToM1023;
+                  
+                  FPR_k2ToM1023 = k2ToM1023;
+                  
+                  if ( arg > FPR_z ) 
+                  {                                    	// positive argument
+                        s = __FMADD( temp1, aThird, v );
+                        temp2 = s + u;
+                  }
+                  else 
+                  {                                    	// negative argument
+                        s = __FMSUB( temp1, aThird, v );
+                        temp2 = s + u;
+                  }
+                  
+                  aFourth = ( u - temp2 ) + s;
+                  
+                  if ( __FABS ( temp2 ) < k2ToM1023 ) 
+                  {                                    	// huge result
+                        if ( arg > FPR_z ) 
+                              result = ( FPR_one / temp2 );
+                        else 
+                              result = ( FPR_one / ( -temp2 ) );
+                              
+                        FESETENVD( FPR_env );		// restore caller's mode
+                        __PROG_INEXACT( FPR_PiDiv2 );
+                        
+                        return result;   
+                  }
+                  
+                  u = FPR_one / temp2;
+                  v = __FNMSUB( u, temp2, FPR_one );
+                  temp1 = __FMSUB( aFourth, u, v );
+                  
+                  if ( arg > FPR_z )
+                        result = __FMSUB( temp1, u, u );
+                  else 
+                        result = __FNMSUB( temp1, u, u );
+                  
+                  FESETENVD( FPR_env );             // restore caller's mode
+                  __PROG_INEXACT( FPR_PiDiv2 );
+                  
+                  return result;   
+            }
+      } 
+      
+/*******************************************************************************
+*     The following code covers the case where the reduced argument has        *
+*     magnitude greater than 0.0625 but less than ¹/4.                         *
+*******************************************************************************/
+      
+      tableIndex = indexTable [ aD.i.lo - 16 ];
+      
+      if ( arg > FPR_z ) 
+      {                                                        	     // positive argument
+            w = absOfX - tablePointer [tableIndex].f0 + argtail;     // argument delta
+            aSquared = __FMUL( w, w );
+            v = absOfX - tablePointer [tableIndex].f0 - w + argtail; // tail of argument delta
+      }
+      else 
+      {                                                        	     // negative argument
+            w = absOfX - tablePointer [tableIndex].f0 - argtail;     // argument delta
+            aSquared = __FMUL( w, w );
+            v = absOfX - tablePointer [tableIndex].f0 - w - argtail; // tail of argument delta
+      }
+      {
+      register double FPR_tt3, FPR_tt5, FPR_tt7;
+      
+      FPR_t = v + w;					FPR_u = __FMUL( aSquared, w );
+      y = tablePointer[tableIndex].p;			FPR_tt3 = tt3;
+
+      FPR_tt7 = tt7;					FPR_tt5 = tt5;
+      
+      temp1 = __FMADD( FPR_tt7, aSquared, FPR_tt5 );
+    
+      temp1 = __FMADD( temp1, aSquared, FPR_tt3 );
+    
+      temp1 = __FMADD( temp1, FPR_u, FPR_t );
+      
+      v = __FMUL( y, temp1 );                                         // Tan( delta )
+      }
+
+/*******************************************************************************
+*      polynomial approx of 1/(1-v)                                            *
+*******************************************************************************/
+
+      aSquared = __FMUL( v, v );	      		iz = GPR_f & 1UL; // quo modulo 2
+      aThird = FPR_one + v;
+      aFourth = __FMUL( aSquared, aSquared );
+      w = __FMADD( aThird, aSquared, aThird );
+      aThird = __FMADD( w, aFourth, w );		// aThird = 1/(1-v)
+      s = __FMUL( __FMADD( y, y, FPR_one ), aThird );
+      
+      if ( iz == 0 ) 
+      {                                   		// tangent approximation
+            if ( arg > FPR_z )
+                  result = __FMADD( temp1, s, y );
+            else
+            {
+                  y = -y;
+                  result = __FNMSUB( temp1, s, y );
+            }
+                  
+            FESETENVD( FPR_env );             		// restore caller's mode
+            __PROG_INEXACT( FPR_PiDiv2 );
+            
+            return result;   
+      }
+      else 
+      {                                          	// cotangent approx
+            w = __FMADD( temp1, s, y );
+            aFourth = __FMADD( temp1, s, ( y - w ) );
+            u = FPR_one / w;
+            v = __FNMSUB( u, w, FPR_one);
+            w = __FMSUB( u, aFourth, v );
+            
+            if ( arg > FPR_z )
+                  result = __FMSUB( u, w, u );
+            else 
+                  result = __FNMSUB( u, w, u );
+            
+            FESETENVD( FPR_env );             		// restore caller's mode
+            __PROG_INEXACT( FPR_PiDiv2 );
+            
+            return result;   
+      }
+}
+#endif
 #ifdef notdef
 float tanf( float x )
 {

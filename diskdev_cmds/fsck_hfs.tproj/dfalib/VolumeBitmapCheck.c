@@ -2,21 +2,24 @@
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -105,8 +108,12 @@ static void       BMS_MaxDepth(BMS_Node * root, int depth, int *maxdepth);
 int
 BitMapCheckBegin(SGlobPtr g)
 {
+	Boolean				isHFSPlus;
+
 	if (gBitMapInited)
 		return (0);
+
+	isHFSPlus = VolumeObjectIsHFSPlus( );
 
 	gFullBitmapSegment = (UInt32 *)malloc(kBytesPerSegment);
 	memset((void *)gFullBitmapSegment, 0xff, kBytesPerSegment);
@@ -126,7 +133,7 @@ BitMapCheckBegin(SGlobPtr g)
 	gBitMapInited = 1;
 	gBitsMarked = 0;
 
-	if (g->isHFSPlus) {
+	if (isHFSPlus) {
 		UInt16	alignBits;
 		
 		/*
@@ -348,13 +355,13 @@ CaptureBitmapBits(UInt32 startBit, UInt32 bitCount)
 			bitMask &= ~(kAllBitsSetInWord >> (firstBit + numBits)); // turn off bits after last
 		}
 
-		if (*currentWord & bitMask) {
+		if (SWAP_BE32(*currentWord) & bitMask) {
 			overlap = true;
 
 		//	printf("(1) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
 		}
 		
-		*currentWord |= bitMask;  /* set the bits in the bitmap */
+		*currentWord |= SWAP_BE32(bitMask);  /* set the bits in the bitmap */
 		
 		bitCount -= numBits;
 		++currentWord;
@@ -380,13 +387,13 @@ CaptureBitmapBits(UInt32 startBit, UInt32 bitCount)
 			wordsLeft = kWordsPerSegment;
 		}
 		
-		if (*currentWord & bitMask) {
+		if (SWAP_BE32(*currentWord) & bitMask) {
 			overlap = true;
 
 		//	printf("(2) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
 		}
 		
-		*currentWord |= bitMask;  /* set the bits in the bitmap */
+		*currentWord |= SWAP_BE32(bitMask);  /* set the bits in the bitmap */
 
 		bitCount -= kBitsPerWord;
 		++currentWord;
@@ -410,13 +417,13 @@ CaptureBitmapBits(UInt32 startBit, UInt32 bitCount)
 			wordsLeft = kWordsPerSegment;
 		}
 		
-		if (*currentWord & bitMask) {
+		if (SWAP_BE32(*currentWord) & bitMask) {
 			overlap = true;
 
 		//	printf("(3) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
 		}
 		
-		*currentWord |= bitMask;  /* set the bits in the bitmap */
+		*currentWord |= SWAP_BE32(bitMask);  /* set the bits in the bitmap */
 
 		TestSegmentBitmap(startBit);
 	}
@@ -481,13 +488,13 @@ ReleaseBitmapBits(UInt32 startBit, UInt32 bitCount)
 			bitMask &= ~(kAllBitsSetInWord >> (firstBit + numBits)); // turn off bits after last
 		}
 
-		if ((*currentWord & bitMask) != bitMask) {
+		if ((SWAP_BE32(*currentWord) & bitMask) != bitMask) {
 			overlap = true;
 
 		//	printf("(1) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
 		}
 		
-		*currentWord &= ~bitMask;  /* clear the bits in the bitmap */
+		*currentWord &= SWAP_BE32(~bitMask);  /* clear the bits in the bitmap */
 		
 		bitCount -= numBits;
 		++currentWord;
@@ -513,13 +520,13 @@ ReleaseBitmapBits(UInt32 startBit, UInt32 bitCount)
 			wordsLeft = kWordsPerSegment;
 		}
 		
-		if ((*currentWord & bitMask) != bitMask) {
+		if ((SWAP_BE32(*currentWord) & bitMask) != bitMask) {
 			overlap = true;
 
 		//	printf("(2) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
 		}
 		
-		*currentWord &= ~bitMask;  /* clear the bits in the bitmap */
+		*currentWord &= SWAP_BE32(~bitMask);  /* clear the bits in the bitmap */
 
 		bitCount -= kBitsPerWord;
 		++currentWord;
@@ -543,13 +550,13 @@ ReleaseBitmapBits(UInt32 startBit, UInt32 bitCount)
 			wordsLeft = kWordsPerSegment;
 		}
 		
-		if ((*currentWord & bitMask) != bitMask) {
+		if ((SWAP_BE32(*currentWord) & bitMask) != bitMask) {
 			overlap = true;
 
 		//	printf("(3) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
 		}
 		
-		*currentWord &= ~bitMask;  /* set the bits in the bitmap */
+		*currentWord &= SWAP_BE32(~bitMask);  /* set the bits in the bitmap */
 
 		TestSegmentBitmap(startBit);
 	}
@@ -575,10 +582,12 @@ CheckVolumeBitMap(SGlobPtr g, Boolean repair)
 	ReleaseBlockOptions relOpt;
 	SFCB * fcb;
 	SVCB * vcb;
+	Boolean	 isHFSPlus;
 	int err = 0;
 	
 	vcb = g->calculatedVCB;
 	fcb = g->calculatedAllocationsFCB;
+	isHFSPlus = VolumeObjectIsHFSPlus( );
 	
 	if ( vcb->vcbFreeBlocks != (vcb->vcbTotalBlocks - gBitsMarked) ) {
 		vcb->vcbFreeBlocks = vcb->vcbTotalBlocks - gBitsMarked;
@@ -588,11 +597,11 @@ CheckVolumeBitMap(SGlobPtr g, Boolean repair)
 	vbmBlockP = (UInt8 *)NULL;
 	block.buffer = (void *)NULL;
 	relOpt = kReleaseBlock;
-	if ( g->isHFSPlus )
+	if ( isHFSPlus )
 		bitsWithinFileBlkMask = (fcb->fcbBlockSize * 8) - 1;
 	else
 		bitsWithinFileBlkMask = (kHFSBlockSize * 8) - 1;
-	fileBlk = (g->isHFSPlus ? 0 : vcb->vcbVBMSt);
+	fileBlk = (isHFSPlus ? 0 : vcb->vcbVBMSt);
 
 	/* 
 	 * Loop through all the bitmap segments and compare
@@ -605,7 +614,7 @@ CheckVolumeBitMap(SGlobPtr g, Boolean repair)
 		 * When we cross file block boundries read a new block from disk.
 		 */
 		if ((bit & bitsWithinFileBlkMask) == 0) {
-			if (g->isHFSPlus) {
+			if (isHFSPlus) {
 				if (block.buffer) {
 					err = ReleaseFileBlock(fcb, &block, relOpt);
 					ReturnIfError(err);
@@ -613,10 +622,10 @@ CheckVolumeBitMap(SGlobPtr g, Boolean repair)
 				err = GetFileBlock(fcb, fileBlk, kGetBlock, &block);
 			} else /* plain HFS */ {
 				if (block.buffer) {
-					err = ReleaseVolumeBlock(vcb, &block, relOpt);
+					err = ReleaseVolumeBlock(vcb, &block, relOpt | kSkipEndianSwap);
 					ReturnIfError(err);
 				}
-				err = GetVolumeBlock(vcb, fileBlk, kGetBlock, &block);
+				err = GetVolumeBlock(vcb, fileBlk, kGetBlock | kSkipEndianSwap, &block);
 			}
 			ReturnIfError(err);
 
@@ -625,10 +634,9 @@ CheckVolumeBitMap(SGlobPtr g, Boolean repair)
 			g->TarBlock = fileBlk;
 			++fileBlk;
 		}
-
 		if (memcmp(buffer, vbmBlockP + (bit & bitsWithinFileBlkMask)/8, kBytesPerSegment) == 0)
 			continue;
-						
+
 		if (repair) {
 			bcopy(buffer, vbmBlockP + (bit & bitsWithinFileBlkMask)/8, kBytesPerSegment);
 			relOpt = kForceWriteBlock;
@@ -659,10 +667,10 @@ CheckVolumeBitMap(SGlobPtr g, Boolean repair)
 	}
 
 	if (block.buffer) {
-		if (g->isHFSPlus)
+		if (isHFSPlus)
 			(void) ReleaseFileBlock(fcb, &block, relOpt);
 		else
-			(void) ReleaseVolumeBlock(vcb, &block, relOpt);
+			(void) ReleaseVolumeBlock(vcb, &block, relOpt | kSkipEndianSwap);
 	}
 
 	return (0);

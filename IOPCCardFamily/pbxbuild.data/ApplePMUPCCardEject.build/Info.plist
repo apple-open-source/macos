@@ -6,6 +6,8 @@
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>ApplePMUPCCardEject</string>
+	<key>CFBundleGetInfoString</key>
+	<string>ApplePMUPCCardEject 1.0.0, Copyright 2002 Apple Computer, Inc.</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.iokit.ApplePMUPCCardEject</string>
 	<key>CFBundleInfoDictionaryVersion</key>

@@ -94,13 +94,13 @@ static OSArray *	gAvailableMemRanges = 0;
 //static OSArray *	gAvailableIRQRanges = 0;
 
 // "globals" variables
-static IOWorkLoop *	gIOPCCardWorkLoop = 0;
-IOCommandGate *		gIOPCCardCommandGate = 0;
+IOWorkLoop *		gIOPCCardWorkLoop = 0;
 OSSet *	 		gIOPCCardMappedBridgeSpace = 0;
+void *			gCardServicesGate = 0;
 
 // resource variables
-static IODeviceMemory * gDynamicBridgeSpace;
-static IODeviceMemory *	gDynamicBridgeIOSpace;
+IORangeAllocator *	gSharedMemoryRange;
+IORangeAllocator *	gSharedIORange;
 
 //*****************************************************************************
 //				helper functions
@@ -135,34 +135,16 @@ read_tuple(client_handle_t handle, cisdata_t code, void *parse, u_int attributes
 }
 
 bool static
-wackBridgeBusNumbers(IOPCIDevice * bridgeDevice)
+checkBridgeBusIDs(IOPCIDevice * bridgeDevice)
 {
-    UInt32	value = bridgeDevice->configRead32(CB_PRIMARY_BUS);
-    DEBUG(2, "wackBridgeBusNumbers sub/cardbus/pci before 0x%x\n", value & 0xffffff);
-#ifdef PCMCIA_DEBUG
-    // debug card 
-    if ((value & 0x00ffff00) == 0x000400) {
-	static int nextBus = 1;
-		
-	value &= 0xff0000ff;
-	value |= (nextBus << 8) | ((nextBus+3) << 16);
-	bridgeDevice->configWrite32(CB_PRIMARY_BUS, value);
+    UInt32 value = bridgeDevice->configRead32(CB_PRIMARY_BUS);
 
-	nextBus += 5;
-    }
-#endif
-    if (!(value & 0x00ffffff)) {
-	static int nextBus = 1;
+    if (((value & 0x00ff0000) == 0) || ((value & 0x0000ff00) == 0)) {
 
-	value |= (nextBus << 8) | ((nextBus+3) << 16);
-	bridgeDevice->configWrite32(CB_PRIMARY_BUS, value);
-		
-	nextBus += 5;
+	IOLog("IOPCCardBridge::checkBridgeBusIDs invalid sub/cardbus/pci settings of 0x%x\n",
+	      value & 0xffffff);
+	return false;
     }
-#ifdef PCMCIA_DEBUG
-    value = bridgeDevice->configRead32(CB_PRIMARY_BUS);
-#endif
-    DEBUG(2, "wackBridgeBusNumbers sub/cardbus/pci after  0x%x\n", value & 0xffffff);
 
     return true;
 }
@@ -198,7 +180,7 @@ hasPCIExpansionChassis(IOService * provider)
 
 OSDefineMetaClassAndStructorsWithInit(IOPCCardBridge, IOPCI2PCIBridge, IOPCCardBridge::metaInit());
 
-OSMetaClassDefineReservedUsed(IOPCCardBridge,  0);		// requestCardEjection
+OSMetaClassDefineReservedUnused(IOPCCardBridge,  0);
 OSMetaClassDefineReservedUnused(IOPCCardBridge,  1);
 OSMetaClassDefineReservedUnused(IOPCCardBridge,  2);
 OSMetaClassDefineReservedUnused(IOPCCardBridge,  3);
@@ -239,7 +221,8 @@ IOPCCardBridge::metaInit(void)
     zone_check = TRUE;
 #endif
     gIOPCCardBridgeLock = IOLockAlloc();
-
+    gCardServicesGate = (void *)IOPCCardBridge::cardServicesGate;
+    
     init_pcmcia_cs();
 }
 
@@ -262,8 +245,6 @@ IOPCCardBridge::free(void)
 	gIOPCCardGlobalsInited--;
     } else if (gIOPCCardGlobalsInited == 1) {
 	gIOPCCardMappedBridgeSpace->release();
-	gIOPCCardWorkLoop->removeEventSource(gIOPCCardCommandGate);
-	gIOPCCardCommandGate->release();
 	gIOPCCardWorkLoop->release();
 	gIOPCCardGlobalsInited = 0;
     }
@@ -271,8 +252,8 @@ IOPCCardBridge::free(void)
     if (gIOPCCardResourcesInited > 1) {
 	gIOPCCardResourcesInited--;
     } else if (gIOPCCardResourcesInited == 1) {
-	gDynamicBridgeSpace->release();
-	gDynamicBridgeIOSpace->release();
+	gSharedMemoryRange->release();
+	gSharedIORange->release();
 	gIOPCCardResourcesInited = 0;
     }
     
@@ -286,13 +267,13 @@ IOPCCardBridge::free(void)
 UInt8
 IOPCCardBridge::firstBusNum(void)
 {
-    return bridgeDevice->configRead8(0x19);
+    return bridgeDevice->configRead8(CB_CARDBUS_BUS);
 }
 
 UInt8 
 IOPCCardBridge::lastBusNum(void)
 {
-    return bridgeDevice->configRead8(0x1a);
+    return bridgeDevice->configRead8(CB_SUBORD_BUS);
 }
 
 void
@@ -446,6 +427,7 @@ IOPCCardBridge::getConfigurationSettings(void)
 {
     // Get the settings for this platforms memory, io ports, and irq ranges.
     OSData * modelData = 0;
+    OSData * compatibleData = 0;
     IORegistryEntry * root = 0;
     
     IOLockLock(gIOPCCardBridgeLock);
@@ -457,22 +439,21 @@ IOPCCardBridge::getConfigurationSettings(void)
 
 	if((root = IORegistryEntry::fromPath( "/", gIODTPlane ))) {
 	    modelData = OSDynamicCast(OSData, root->getProperty("model"));
+	    compatibleData = OSDynamicCast(OSData, root->getProperty("compatible"));
 	    root->release();
 	}
-	if (!modelData) {
-	    IOLog("IOPCCardBridge::getConfigurationSettings: can't find this platform's model name in registry?\n");
-	    IOLockUnlock(gIOPCCardBridgeLock); 
-	    return false;
-	}
-	char * modelName = (char *)modelData->getBytesNoCopy();
-	
 	OSDictionary * config = OSDynamicCast(OSDictionary, getProperty("Configuration Settings"));
 	if (!config) {
 	    IOLog("IOPCCardBridge::getConfigurationSettings: Configuration Settings is not set?\n");
 	    IOLockUnlock(gIOPCCardBridgeLock); 
 	    return false;
 	}
-	OSDictionary * settings = OSDynamicCast(OSDictionary, config->getObject(modelName));
+
+	OSDictionary * settings = NULL;
+	if (modelData)
+	    settings = OSDynamicCast(OSDictionary, config->getObject((char *)modelData->getBytesNoCopy()));
+	if (compatibleData && !settings)
+	    settings = OSDynamicCast(OSDictionary, config->getObject((char *)compatibleData->getBytesNoCopy()));
 
 	// the plist settings are meant to make up for machines that don't have a
 	// Open Firmware capable of properly describing the needed configuration
@@ -486,12 +467,18 @@ IOPCCardBridge::getConfigurationSettings(void)
 		return true;
 	    }
 	    IOLog("IOPCCardBridge::getOFConfigurationSettings: failed to the configure machine\n");
+	    IOLockUnlock(gIOPCCardBridgeLock); 
+	    return false;
 	}
 #ifdef PCMCIA_DEBUG
-	if (!settings) settings = OSDynamicCast(OSDictionary, config->getObject("Test Machine"));
+	if (!settings) {
+	    settings = OSDynamicCast(OSDictionary, config->getObject("Test Machine"));
+	    if (settings) IOLog("IOPCCardBridge::getConfigurationSettings: defaulting to test machine settings\n");
+	}
 #endif
 	if (!settings) {
-	    IOLog("IOPCCardBridge::getConfigurationSettings: unable to configure model name \"%s\".\n", modelName);
+	    IOLog("IOPCCardBridge::getConfigurationSettings: unable to configure model name \"%s\".\n", 
+			 config->getObject((char *)modelData->getBytesNoCopy()));
 	    IOLockUnlock(gIOPCCardBridgeLock); 
 	    return false;
 	}
@@ -530,7 +517,7 @@ IOPCCardBridge::getConfigurationSettings(void)
 }
 
 bool
-IOPCCardBridge::configureDynamicBridgeSpace(void)
+IOPCCardBridge::configureBridgeRanges(void)
 {
     unsigned int	i, max;
     int 		ret = 0;
@@ -539,14 +526,31 @@ IOPCCardBridge::configureDynamicBridgeSpace(void)
     const unsigned int	maxRangeIndex = 16;	// arbitary
     IOPhysicalRange	ranges[maxRangeIndex];
     
-    // setup pci bridge numbering
-    if (!wackBridgeBusNumbers(bridgeDevice)) return false;
-    
     IOLockLock(gIOPCCardBridgeLock);
 
-    // we only want to do this once
+    // first, highjack the super's bridgeMemoryRange and bridgeIORange
+    // the pccard code shares these ranges between multiple controller objects
+
+    if (!gIOPCCardResourcesInited) {
+	gSharedMemoryRange = IORangeAllocator::withRange(0, 1, 0, IORangeAllocator::kLocking);
+	gSharedIORange = IORangeAllocator::withRange(0, 1, 0, IORangeAllocator::kLocking);
+	if (!gSharedMemoryRange || !gSharedIORange) {
+	    IOLockUnlock(gIOPCCardBridgeLock);
+	    return false;
+	}
+    }
+
+    bridgeMemoryRanges->release();
+    bridgeMemoryRanges = gSharedMemoryRange;
+    bridgeMemoryRanges->retain();
+    setProperty("Bridge Memory Ranges", bridgeMemoryRanges);
+
+    bridgeIORanges->release();
+    bridgeIORanges = gSharedIORange;
+    bridgeIORanges->retain();
+    setProperty("Bridge IO Ranges", bridgeIORanges);
+
     if (gIOPCCardResourcesInited) {
-    
     	gIOPCCardResourcesInited++;
     } else {
 
@@ -568,8 +572,8 @@ IOPCCardBridge::configureDynamicBridgeSpace(void)
 	    if (range->getLength() != 8) return false;
 	
 	    p = (IOPhysicalAddress *)range->getBytesNoCopy();
-	    memStart = *p++;
-	    memEnd = *p;
+	    memStart = OSReadBigInt32(p, 0);
+	    memEnd   = OSReadBigInt32(p, sizeof(memStart));
 	    memLength = (memEnd + 1) - memStart;
 	    
 	    DEBUG(1, "adding bridge mem space 0x%x-0x%x\n", memStart, memEnd);
@@ -595,8 +599,6 @@ IOPCCardBridge::configureDynamicBridgeSpace(void)
 	    ranges[i].length =  (IOByteCount)memLength;
 	}
 
-	gDynamicBridgeSpace = (IODeviceMemory *)IOMemoryDescriptor::withPhysicalRanges(ranges, max, kIODirectionNone);
-
 	// add I/O port ranges
 	IOPhysicalAddress 	ioStart = 0;
 	IOPhysicalAddress 	ioEnd = 0;
@@ -611,8 +613,8 @@ IOPCCardBridge::configureDynamicBridgeSpace(void)
 	    if (range->getLength() != 8) return false;
 	
 	    p = (IOPhysicalAddress *)range->getBytesNoCopy();
-	    ioStart = *p++;
-	    ioEnd = *p;
+	    ioStart = OSReadBigInt32(p, 0);
+	    ioEnd   = OSReadBigInt32(p, sizeof(ioStart));
 	    ioLength = (ioEnd + 1) - ioStart;
 	    
 	    DEBUG(1, "adding bridge io  space 0x%x-0x%x\n", ioStart, ioEnd);
@@ -644,31 +646,56 @@ IOPCCardBridge::configureDynamicBridgeSpace(void)
 	    ranges[i].length =  (IOByteCount)ioLength;
 	}
 
-	gDynamicBridgeIOSpace = (IODeviceMemory *)IOMemoryDescriptor::withPhysicalRanges(ranges, max, kIODirectionNone);
-
 	gIOPCCardResourcesInited = 1;
     }
     
-    dynamicBridgeSpace = gDynamicBridgeSpace;
-    dynamicBridgeSpace->retain();
-    dynamicBridgeIOSpace = gDynamicBridgeIOSpace;
-    dynamicBridgeIOSpace->retain();
-
     IOLockUnlock(gIOPCCardBridgeLock);
 
     return true;
 }
 
-IODeviceMemory *
-IOPCCardBridge::getDynamicBridgeSpace(void)
+bool
+IOPCCardBridge::configureInterruptController(void)
 {
-    return dynamicBridgeSpace;
-}
+    IOReturn	error;
 
-IODeviceMemory *
-IOPCCardBridge::getDynamicBridgeIOSpace(void)
-{
-    return dynamicBridgeIOSpace;
+    // Allocate the interruptController instance.
+    interruptController = new IOPCCardInterruptController;
+    if (interruptController == NULL) return false;
+  
+    // call the interruptController's init method.
+    error = interruptController->initInterruptController(bridgeDevice);
+    if (error != kIOReturnSuccess) return false;
+  
+    // install interruptController
+    IOInterruptAction handler = interruptController->getInterruptHandlerAddress();
+    bridgeDevice->registerInterrupt(0, interruptController, handler, 0);
+
+    // Construct the unique name for this interrupt controller
+    UInt32 uniqueNumber = (bridgeDevice->getBusNumber() << 16) |
+	(bridgeDevice->getDeviceNumber() << 8) |
+	bridgeDevice->getFunctionNumber();
+    char * uniqueName = kInterruptControllerNamePrefix "12345678";
+    sprintf(uniqueName, "%s%08x", kInterruptControllerNamePrefix, uniqueNumber);
+    interruptControllerName = (OSSymbol *)OSSymbol::withCString(uniqueName);
+    if (!interruptControllerName) return false;
+
+    // Register the interrupt controller so clients can find it.
+    getPlatform()->registerInterruptController(interruptControllerName, interruptController);
+    interruptControllerName->release();
+
+    // install CSC interrupt handler (behind workloop) into interruptController
+    interruptSource = IOInterruptEventSource::interruptEventSource((OSObject *)		this,
+								   (IOInterruptEventAction)&IOPCCardBridge::interruptDispatcher,
+								   (IOService *)		0,
+								   (int) 			0);
+    if (!interruptSource) return false;
+    if (gIOPCCardWorkLoop->addEventSource(interruptSource)) return false;
+
+    // Finally, enable interrupts
+    bridgeDevice->enableInterrupt(0);
+	
+    return true;
 }
 
 //*****************************************************************************
@@ -1045,6 +1072,65 @@ IOPCCardBridge::publishCardBusNub(IOCardBusDevice * nub, UInt32 socketIndex, UIn
     return super::publishNub(nub, socketIndex);
 }
 
+bool
+IOPCCardBridge::releaseBridgeRanges(IOService * nub)
+{
+    OSArray * ranges = nub->getDeviceMemory();
+    if (!ranges) return true;
+    UInt32 count = ranges->getCount();
+
+    IOCardBusDevice * cardbus = OSDynamicCast(IOCardBusDevice, nub);
+    IOPCCard16Device * pccard16 = OSDynamicCast(IOPCCard16Device, nub);
+
+    if (!cardbus && !pccard16) return false;
+
+    IODeviceMemory * memRange;
+    for (UInt32 index = 0; index < count; index++) {
+
+	memRange = (IODeviceMemory *)ranges->getObject(index);
+	if (memRange) {
+
+	    // lucky us, the values for these flags overlap
+	    enum { kIO, kMem, kBogus } windowType = kBogus;
+
+	    UInt32 space;
+	    if (cardbus) {
+		IOPCIAddressSpace flags; flags.bits = memRange->getTag();
+		space = flags.s.space;
+		if (space == kIOPCIIOSpace) windowType = kIO;
+		else if (space == kIOPCI32BitMemorySpace) windowType = kMem;
+	    } else {
+		space = memRange->getTag();
+		if (space == IOPCCARD16_IO_WINDOW) windowType = kIO;
+		else if (space == IOPCCARD16_MEMORY_WINDOW) windowType = kMem;
+	    }
+
+	    IOPhysicalAddress start = memRange->getPhysicalAddress();
+	    IOByteCount size = memRange->getLength();
+
+	    switch (windowType) {
+
+	    case kIO:
+		start &= 0xffff; size &= 0xffff;
+		DEBUG(1, "releasing io bridge range start = 0x%x, size = 0x%x\n", start, size);
+		gSharedIORange->deallocate(start, size);
+		break;
+
+	    case kMem:
+		DEBUG(1, "releasing mem bridge range start = 0x%x, size = 0x%x\n", start, size);
+		gSharedMemoryRange->deallocate(start, size);
+		break;
+
+	    default:
+		IOLog("IOPCCard: WARNING, IOPCCardBridge::releaseBridgeRanges() attempted to release"
+		      " a %s range of type = 0x%x, start = 0x%x, size = 0x%x\n",
+		      cardbus ? "cardbus" : "pccard16", space, start, size);
+	    }
+	}
+    }
+    return true;
+}
+
 //*****************************************************************************
 
 int
@@ -1207,7 +1293,11 @@ IOPCCardBridge::cardRemovalHandler(u_long sn)
 	nub = OSDynamicCast(IOService, s->nubs->getObject(fn));
  	IOLog("IOPCCard: calling terminate on socket %d function %d nub %p.\n", sn, fn, nub);
 	if (nub && !nub->terminate(kIOServiceRequired | kIOServiceSynchronous)) {
-	    IOLog("IOPCCard: terminate failed on nub 0x%x.\n", nub);
+	    IOLog("IOPCCard: terminate failed on nub %p.\n", nub);
+	}
+
+	if (!releaseBridgeRanges(nub)) {
+	    IOLog("IOPCCard: releaseBridgeRanges failed on nub %p.\n", nub);
 	}
 
 	s->nubs->removeObject(fn);
@@ -1281,18 +1371,19 @@ IOPCCardBridge::interruptDispatcher(void)
 IOPCCard16Device *
 IOPCCardBridge::createPCCard16Nub(UInt8 socket, UInt8 function)
 {
+    IOPCCard16Device * nub = 0;
     OSDictionary * propTable = 0;
     bool isBound = false;
 
-    IOPCCard16Device *nub = new IOPCCard16Device;
-    if (!nub) return 0;
-
-    nub->socket = socket;
-    nub->function = function;
-
     do {
-	if (!nub->bindCardServices()) break;
-	isBound = true;
+	nub = new IOPCCard16Device;
+	if (!nub) break;
+
+	nub->socket = socket;
+	nub->function = function;
+
+	isBound = nub->bindCardServices();
+	if (!isBound) break;
 
 	propTable = constructPCCard16Properties(nub);
 	if (!propTable) break;
@@ -1303,6 +1394,7 @@ IOPCCardBridge::createPCCard16Nub(UInt8 socket, UInt8 function)
 	addNubInterruptProperties(propTable);
 
 	if (!nub->init(propTable)) break;
+	propTable->release();
 
 	socket_table[socket].nubs->setObject(nub);
 	nub->release();
@@ -1313,14 +1405,16 @@ IOPCCardBridge::createPCCard16Nub(UInt8 socket, UInt8 function)
     
     if (isBound) nub->unbindCardServices();
     if (propTable) propTable->release();
-    nub->release();
+    if (nub) nub->release();
     return 0;
 }
 
 IOCardBusDevice *
 IOPCCardBridge::createCardBusNub(UInt8 socket, UInt8 function)
 {
-    IOPCIAddressSpace	space;
+    IOCardBusDevice * nub = 0;
+    OSDictionary * propTable = 0;
+    IOPCIAddressSpace space;
 
     space.bits = 0;
     space.s.busNum = firstBusNum();
@@ -1334,31 +1428,36 @@ IOPCCardBridge::createCardBusNub(UInt8 socket, UInt8 function)
         return 0;
     }
 
-    OSDictionary * propTable = constructCardBusProperties(space);
-    if (propTable) {
-	IOCardBusDevice *nub = new IOCardBusDevice;
-	if (!nub) {
-	    propTable->release();
-	    return 0;
-	}
+    do {
+	nub = new IOCardBusDevice;
+	if (!nub) break;
+
 	nub->socket = socket;
 	nub->function = function;
+	nub->parent = this;	// IOPCIDevice
+
+	propTable = constructCardBusProperties(space);
+	if (!propTable) break;
 
 	spaceFromProperties(propTable, &((struct IOCardBusDevice *)nub)->space);
-	nub->parent = this;
-
+	
 	if (ioDeviceMemory())
 	    nub->ioMap = ioDeviceMemory()->map();
 
 	addNubInterruptProperties(propTable);
 
-	if (!nub->init(propTable)) propTable->release();
+	if (!nub->init(propTable)) break;
+	propTable->release();
 
 	socket_table[socket].nubs->setObject(nub);
 	nub->release();
 
 	return nub;
-    }
+
+    } while (false);
+
+    if (propTable) propTable->release();
+    if (nub) nub->release();
     return 0;
 }
 
@@ -1434,12 +1533,15 @@ IOPCCardBridge::probe(IOService * provider, SInt32 * score)
 
     bridgeDevice = OSDynamicCast(IOPCIDevice, provider);
     if (!bridgeDevice) return 0;
-
+    
     // OF uses the "ranges" property differently when we have a
-    // pci expansion chassis attached, just skip looking at it
+    // pci expansion chassis attached, just skip looking at
     pciExpansionChassis = hasPCIExpansionChassis(provider);
     if (!pciExpansionChassis) {
 	if (!getConfigurationSettings()) return 0;
+
+	// double check pci bridge numbering
+	if (!checkBridgeBusIDs(bridgeDevice)) return 0;
     }
 
     return super::probe(provider, score);
@@ -1468,96 +1570,40 @@ IOPCCardBridge::start(IOService * provider)
 	return status;
     }
 
+    bool success = false;
+    IOLockLock(gIOPCCardBridgeLock);
+    if (gIOPCCardGlobalsInited) {
+    	gIOPCCardGlobalsInited++;
+	success = true;
+    } else {
+
+	gIOPCCardMappedBridgeSpace = OSSet::withCapacity(16);
+	gIOPCCardWorkLoop = IOWorkLoop::workLoop();
+
+	success = gIOPCCardMappedBridgeSpace && gIOPCCardWorkLoop;
+
+	if (success) gIOPCCardGlobalsInited = 1;
+    }
+    IOLockUnlock(gIOPCCardBridgeLock);
+
+    if (!success) return false;
+	
     do {
-	bool success = false;
-    
-	IOLockLock(gIOPCCardBridgeLock);
-	if (gIOPCCardGlobalsInited) {
-	
-	    gIOPCCardGlobalsInited++;
-	    success = true;
-	} else {
-
-	    gIOPCCardMappedBridgeSpace = OSSet::withCapacity(16);
-	    gIOPCCardWorkLoop = IOWorkLoop::workLoop();
-	    gIOPCCardCommandGate = IOCommandGate::commandGate((OSObject *)0x50434344, (IOCommandGate::Action)cardServicesGate);
-
-	    success = gIOPCCardMappedBridgeSpace && gIOPCCardWorkLoop && gIOPCCardCommandGate;
-	    success &= !gIOPCCardWorkLoop->addEventSource(gIOPCCardCommandGate);
-
-	    if (success) gIOPCCardGlobalsInited = 1;
-	}
-	IOLockUnlock(gIOPCCardBridgeLock);
-
-	if (!success) break;
-	
-	// tell PCI Family to not cache our config space registers
-	bridgeDevice->setProperty(kIOPMPCIConfigSpaceVolatileKey, kOSBooleanFalse);
-
-	// mark config space backup as unused
-	bridgeConfig[0] = 0;
-
 	// this ends up calling configure
 	if (!super::start(provider)) break;
 	
 	// set current pm state
 	changePowerStateTo(kIOPCIDeviceOnState);
 
-	// Allocate the interruptController instance.
-	interruptController = new IOPCCardInterruptController;
-	if (interruptController == NULL) break;
-  
-	// call the interruptController's init method.
-	error = interruptController->initInterruptController(provider);
-	if (error != kIOReturnSuccess) break;
-  
-	// install interruptController
-	IOInterruptAction handler = interruptController->getInterruptHandlerAddress();
-	provider->registerInterrupt(0, interruptController, handler, 0);
-
-	// Construct the unique name for this interrupt controller
-	UInt32 uniqueNumber = (bridgeDevice->getBusNumber() << 16) |
-			      (bridgeDevice->getDeviceNumber() << 8) |
-			       bridgeDevice->getFunctionNumber();
-	char * uniqueName = kInterruptControllerNamePrefix "12345678";
-	sprintf(uniqueName, "%s%08x", kInterruptControllerNamePrefix, uniqueNumber);
-	interruptControllerName = (OSSymbol *)OSSymbol::withCString(uniqueName);
-	if (!interruptControllerName) break;
-
-	// Register the interrupt controller so clients can find it.
-	getPlatform()->registerInterruptController(interruptControllerName, interruptController);
-	interruptControllerName->release();
-
-	// install CSC interrupt handler (behind workloop) into interruptController
-	interruptSource = IOInterruptEventSource::interruptEventSource((OSObject *)		this,
-								       (IOInterruptEventAction)&IOPCCardBridge::interruptDispatcher,
-								       (IOService *)		0,
-								       (int) 			0);
-	if (!interruptSource) break;
-	if (gIOPCCardWorkLoop->addEventSource(interruptSource)) break;
-
-	// Finally, enable interrupts
-	bridgeDevice->enableInterrupt(0);
-
-	// configure bridge, notify CS of dynamic address spaces
-	configureDynamicBridgeSpace();
-
-	// enable card's PCI response
-	bridgeDevice->setMemoryEnable(true);
-	bridgeDevice->setIOEnable(true);
-	bridgeDevice->setBusMasterEnable(true);
-
-	// map in the CardBus/ExCA Registers
-	cardBusRegisterMap = bridgeDevice->mapDeviceMemoryWithRegister(0x10);
-	if (!cardBusRegisterMap) break;
-
 	// kick off probe inside workloop
-	error = gIOPCCardCommandGate->runCommand((void *)kCSGateProbeBridge, (void *)this, NULL, NULL) == 0;
-	
+	error = gIOPCCardWorkLoop->runAction((IOWorkLoop::Action)cardServicesGate, NULL,
+					     (void *)kCSGateProbeBridge, (void *)this, NULL, NULL);
+  	if (error) break;
+
 	// make us visible to user land
 	registerService();
 	
-	return error;
+	return true;
 
     } while (false);
 
@@ -1573,9 +1619,31 @@ IOPCCardBridge::configure(IOService * provider)
 {
     DEBUG(2, "IOPCCardBridge::configure\n");
 
-//	this is wrong for cardbus controllers
-//	return super::configure(provider);
+    // if a expansion chassis is attached, it is already configured.
+    if (pciExpansionChassis) return true;
     
+    // tell PCI Family to not cache our config space registers
+    bridgeDevice->setProperty(kIOPMPCIConfigSpaceVolatileKey, kOSBooleanFalse);
+    bridgeStateSaved = false;
+
+    // configure bridge memory, notify CS of available address space
+    if (!configureBridgeRanges()) return false;
+
+    // set up our interrupt controller
+    if (!configureInterruptController()) return false;
+
+    // enable card's PCI response
+    bridgeDevice->setMemoryEnable(true);
+    bridgeDevice->setIOEnable(true);
+    bridgeDevice->setBusMasterEnable(true);
+    
+    // map in the CardBus/ExCA Registers
+    cardBusRegisterMap = bridgeDevice->mapDeviceMemoryWithRegister(0x10);
+    if (!cardBusRegisterMap) return false;
+
+    //	this is wrong for cardbus controllers
+    //	return super::configure(provider);
+
     return true;
 }
 
@@ -1584,8 +1652,6 @@ IOPCCardBridge::stop(IOService * provider)
 {
     DEBUG(2, "IOPCCardBridge::stop\n");
 
-    if (dynamicBridgeSpace)	dynamicBridgeSpace->release();
-    if (dynamicBridgeIOSpace)	dynamicBridgeIOSpace->release();
     if (cardBusRegisterMap)	cardBusRegisterMap->release();	
 
     if (interruptSource) {
@@ -1607,14 +1673,36 @@ IOPCCardBridge::setPowerState(unsigned long powerState,
     DEBUG(1, "IOPCCardBridge::setPowerState state=%d\n", powerState);
 
     if (pciExpansionChassis)
-	return super::setPowerState(powerState, whatDevice);  // NOOP
+	return super::setPowerState(powerState, whatDevice);	// NOOP
 
-    return gIOPCCardCommandGate->runCommand((void *)kCSGateSetBridgePower, (void *)this, (void *)powerState, (void *)whatDevice);
+    return gIOPCCardWorkLoop->runAction((IOWorkLoop::Action)cardServicesGate, NULL,
+					(void *)kCSGateSetBridgePower, (void *)this, (void *)powerState, (void *)whatDevice);
 }
 
-/*
- *	turn off power to all cards on this bridge
- */
+void
+IOPCCardBridge::saveBridgeState(void)
+{
+    UInt32 cnt;
+
+    for (cnt = 0; cnt < kIOPCCardBridgeRegCount; cnt++)
+    {
+        bridgeConfig[cnt] = bridgeDevice->configRead32(cnt * 4);
+    }
+    bridgeStateSaved = true;
+}
+
+void
+IOPCCardBridge::restoreBridgeState(void)
+{
+    UInt32 cnt;
+
+    if (!bridgeStateSaved) return;
+    
+    for (cnt = 0; cnt < kIOPCCardBridgeRegCount; cnt++)
+    {
+        bridgeDevice->configWrite32(cnt * 4, bridgeConfig[cnt]);
+    }
+}
 
 IOReturn
 IOPCCardBridge::setBridgePowerState(unsigned long powerState,
@@ -1625,15 +1713,11 @@ IOPCCardBridge::setBridgePowerState(unsigned long powerState,
     DEBUG(1, "IOPCCardBridge::setBridgePowerState state=%d\n", powerState);
 
     // save/restore bridge state
-    for (unsigned cnt = 0; cnt < kIOPCCardBridgeRegCount; cnt++)
-    {
-	if (powerState == kIOPCIDeviceOnState) {
-	    if (bridgeConfig[0] != 0)
-		bridgeDevice->configWrite32(cnt * 4, bridgeConfig[cnt]);
-	}
-	if (powerState == kIOPCIDeviceOffState) {
-	    bridgeConfig[cnt] = bridgeDevice->configRead32(cnt * 4);
-	}
+    if (powerState == kIOPCIDeviceOnState) {
+	restoreBridgeState();
+    }
+    if (powerState == kIOPCIDeviceOffState) {
+	saveBridgeState();
     }
 
     // for all sockets on this bridge do
@@ -1714,6 +1798,7 @@ IOPCCardBridge::configureSocket(IOService * nub, config_req_t * configuration)
     int ret = CardServices(RequestConfiguration, handle, configuration, NULL);
     if (ret) {
 	cs_error(handle, RequestConfiguration, ret);
+	s->state &= ~SOCKET_CONFIG;
 	return ret;
     }
     
@@ -1776,7 +1861,8 @@ IOPCCardBridge::requestCardEjection(IOService * bridgeDevice)
 	    socket_table[i].bridge && 
 	    socket_table[i].bridge->getProvider() == bridgeDevice) {
 		
-		return gIOPCCardCommandGate->runCommand((void *)EjectCard, socket_table[i].handle, 0, 0);
+	    return gIOPCCardWorkLoop->runAction((IOWorkLoop::Action)cardServicesGate, NULL,
+						(void *)EjectCard, socket_table[i].handle, NULL, NULL);
 	}
     }
     return CS_BAD_ADAPTER;

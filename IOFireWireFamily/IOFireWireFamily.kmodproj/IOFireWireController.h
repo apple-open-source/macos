@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -54,10 +57,12 @@ class IOFireWireLink;
 class IOFireLog;
 class IOFireLogPublisher;
 class IOFireWireSBP2ORB;
+class IOFireWireSBP2Login;
 class IOFireWireROMCache;
 class IOFireWireLocalNode;
 class IOFWWorkLoop;
 class IOFireWireIRM;
+class IOFireWirePowerManager;
 
 // Phy packet defs.
 
@@ -248,6 +253,56 @@ struct IOFWNodeScan {
 };
 
 #define kMaxPendingTransfers kFWAsynchTTotal
+
+class IOFireWireController;
+
+#pragma mark -
+
+/*! 
+	@class IOFireWireControllerAux
+*/
+
+class IOFireWireControllerAux : public IOFireWireBusAux
+{
+    OSDeclareDefaultStructors(IOFireWireControllerAux)
+
+	friend class IOFireWireController;
+	
+protected:
+	
+	IOFireWireController * 		fPrimary;
+	
+	/*! 
+		@struct ExpansionData
+		@discussion This structure will be used to expand the capablilties of the class in the future.
+    */  
+	  
+    struct ExpansionData { };
+
+	/*! 
+		@var reserved
+		Reserved for future use.  (Internal use only)  
+	*/
+    
+	ExpansionData * reserved;
+
+    virtual bool init( IOFireWireController * primary );
+	virtual	void free();
+	
+private:
+    OSMetaClassDeclareReservedUnused(IOFireWireControllerAux, 0);
+    OSMetaClassDeclareReservedUnused(IOFireWireControllerAux, 1);
+    OSMetaClassDeclareReservedUnused(IOFireWireControllerAux, 2);
+    OSMetaClassDeclareReservedUnused(IOFireWireControllerAux, 3);
+    OSMetaClassDeclareReservedUnused(IOFireWireControllerAux, 4);
+    OSMetaClassDeclareReservedUnused(IOFireWireControllerAux, 5);
+    OSMetaClassDeclareReservedUnused(IOFireWireControllerAux, 6);
+    OSMetaClassDeclareReservedUnused(IOFireWireControllerAux, 7);
+
+};
+
+#pragma mark -
+
 /*! @class IOFireWireController
 */
 class IOFireWireController : public IOFireWireBus
@@ -294,6 +349,7 @@ protected:
     friend class IOFWAddressSpace;
     friend class IOFWPseudoAddressSpace;
     friend class IOFireWireSBP2ORB;
+	friend class IOFireWireSBP2Login;
 	friend class IOFWLocalIsochPort;
 	friend class IOFWCommand;
 	friend class IOFireWireDevice;
@@ -305,8 +361,10 @@ protected:
 	friend class IOFireWireAVCUnit;
     friend class IOFireWireAVCCommand;
     friend class IOFireLog;
+	friend class IOFireWirePowerManager;
 	friend class IOFWWriteQuadCommand;
 	friend class IOFWWriteCommand;
+	friend class IOFWCompareAndSwapCommand;
 	
     IOFireWireLink *		fFWIM;
     IOFWWorkLoop *	fWorkLoop;
@@ -381,8 +439,13 @@ protected:
 	IOFWSecurityMode 		fSecurityMode;
 	IONotifier * 		fKeyswitchNotifier;
 	
-	IOFireWireIRM *			fIRM;
+	IOFireWireIRM *				fIRM;
+	IOFireWirePowerManager *	fBusPowerManager;
 	
+	bool 			fGapCountMismatch;
+	
+	UInt8		fHopCounts[(kFWMaxNodesPerBus+1)*kFWMaxNodesPerBus];
+
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the class in the future.
     */    
@@ -435,6 +498,8 @@ protected:
     virtual IOReturn allocAddress(IOFWAddressSpace *space);
     virtual void freeAddress(IOFWAddressSpace *space);
 
+	IOFireWireBusAux * createAuxiliary( void );
+	
 public:
 
     // Initialization
@@ -445,7 +510,7 @@ public:
     virtual bool finalize( IOOptionBits options );
     virtual bool requestTerminate( IOService * provider, IOOptionBits options );
 
-    // Power management
+	// Power management
     virtual IOReturn setPowerState ( unsigned long powerStateOrdinal, IOService* whatDevice );
 
     // Implement IOService::getWorkLoop
@@ -468,28 +533,65 @@ public:
     virtual IOReturn resetBus();
 
     // Send async request packets
-    virtual IOReturn asyncRead(UInt32 generation, UInt16 nodeID, UInt16 addrHi, UInt32 addrLo,
-                                int speed, int label, int size, IOFWAsyncCommand *cmd);
+    virtual IOReturn asyncRead(	UInt32 				generation, 
+								UInt16 				nodeID, 
+								UInt16 				addrHi, 
+								UInt32 				addrLo,
+                                int 				speed, 
+								int 				label, 
+								int 				size, 
+								IOFWAsyncCommand *	cmd );
 
-    virtual IOReturn asyncWrite(UInt32 generation, UInt16 nodeID, UInt16 addrHi, UInt32 addrLo,
-                int speed, int label, IOMemoryDescriptor *buf, IOByteCount offset,
-                int size, IOFWAsyncCommand *cmd);
-    virtual IOReturn asyncWrite(UInt32 generation, UInt16 nodeID, UInt16 addrHi, UInt32 addrLo,
-                                int speed, int label, void *data, int size, IOFWAsyncCommand *cmd);
+    virtual IOReturn asyncWrite(	UInt32 					generation, 
+									UInt16 					nodeID, 
+									UInt16 					addrHi, 
+									UInt32 					addrLo,
+									int 					speed, 
+									int 					label, 
+									IOMemoryDescriptor *	buf, 
+									IOByteCount 			offset,
+									int 					size, 
+									IOFWAsyncCommand *		cmd );
+				
+    /* DEPRECATED */ virtual IOReturn asyncWrite(	UInt32 				generation, 
+	/* DEPRECATED */								UInt16 				nodeID, 
+	/* DEPRECATED */								UInt16 				addrHi, 
+	/* DEPRECATED */								UInt32 				addrLo,
+	/* DEPRECATED */								int 				speed, 
+	/* DEPRECATED */								int 				label, 
+	/* DEPRECATED */								void *				data, 
+	/* DEPRECATED */								int 				size, 
+	/* DEPRECATED */								IOFWAsyncCommand *	cmd );
 
-    virtual IOReturn asyncLock(UInt32 generation, UInt16 nodeID, UInt16 addrHi, UInt32 addrLo,
-                        int speed, int label, int type, void *data, int size, IOFWAsyncCommand *cmd);
+    /* DEPRECATED */ virtual IOReturn asyncLock(	UInt32 				generation, 
+	/* DEPRECATED */								UInt16 				nodeID, 
+	/* DEPRECATED */								UInt16 				addrHi, 
+	/* DEPRECATED */								UInt32 				addrLo,
+	/* DEPRECATED */								int 				speed, 
+	/* DEPRECATED */								int 				label, 
+	/* DEPRECATED */								int 				type, 
+	/* DEPRECATED */								void *				data, 
+	/* DEPRECATED */								int 				size, 
+	/* DEPRECATED */								IOFWAsyncCommand *	cmd);
 
 
     // Send async read response packets
     // useful for pseudo address spaces that require servicing outside the FireWire work loop.
-    virtual IOReturn asyncReadResponse(UInt32 generation, UInt16 nodeID, int speed,
-                                       IOMemoryDescriptor *buf, IOByteCount offset, int len,
-                                       IOFWRequestRefCon refcon);
+    virtual IOReturn asyncReadResponse(	UInt32 					generation, 
+										UInt16 					nodeID, 
+										int 					speed,
+										IOMemoryDescriptor *	buf, 
+										IOByteCount 			offset, 
+										int 					len,
+										IOFWRequestRefCon 		refcon );
 
-    virtual IOReturn asyncLockResponse( UInt32 generation, UInt16 nodeID, int speed,
-                                        IOMemoryDescriptor *buf, IOByteCount offset, int len,
-                                        IOFWRequestRefCon refcon );
+    virtual IOReturn asyncLockResponse( UInt32 					generation, 
+										UInt16 					nodeID, 
+										int 					speed,
+                                        IOMemoryDescriptor *	buf, 
+										IOByteCount 			offset, 
+										int 					len,
+                                        IOFWRequestRefCon 		refcon );
                                        
     // Try to fix whatever might have caused the other device to not respond
     virtual IOReturn handleAsyncTimeout(IOFWAsyncCommand *cmd);
@@ -611,7 +713,35 @@ protected:
 	virtual void setSecurityMode( IOFWSecurityMode mode );
 	virtual IOFWSecurityMode getSecurityMode( void );
 
-	virtual IOReturn asyncWrite(	UInt32 					generation, 
+	virtual IOReturn createTimeoutQ( void );
+	virtual void destroyTimeoutQ( void );
+	virtual IOReturn createPendingQ( void );
+	virtual void destroyPendingQ( void );
+
+	virtual UInt32 countNodeIDChildren( UInt16 nodeID );
+
+public:
+	virtual UInt32 hopCount(UInt16 nodeAAddress, UInt16 nodeBAddress );
+	virtual UInt32 hopCount(UInt16 nodeAAddress );
+	
+	virtual IOFireWirePowerManager * getBusPowerManager( void );
+
+protected:
+	virtual void handleARxReqIntComplete();
+
+    virtual IOReturn asyncLock(	UInt32 					generation, 
+								UInt16 					nodeID, 
+								UInt16 					addrHi, 
+								UInt32 					addrLo,
+								int 					speed, 
+								int 					label, 
+								int 					type, 
+								IOMemoryDescriptor *	buf, 
+								IOByteCount 			offset,
+								int 					size, 
+								IOFWAsyncCommand *		cmd );
+
+    virtual IOReturn asyncWrite(	UInt32 					generation, 
 									UInt16 					nodeID, 
 									UInt16 					addrHi, 
 									UInt32 					addrLo,
@@ -622,20 +752,7 @@ protected:
 									int 					size, 
 									IOFWAsyncCommand *		cmd,
 									IOFWWriteFlags 			flags );
-									
-	virtual IOReturn asyncWrite(	UInt32 				generation, 
-									UInt16 				nodeID, 
-									UInt16 				addrHi, 
-									UInt32 				addrLo,
-									int 				speed, 
-									int 				label, 
-									void *				data, 
-									int 				size, 
-									IOFWAsyncCommand *	cmd,
-									IOFWWriteFlags 		flags );
-
-	virtual void handleARxReqIntComplete();
-
+											
 private:
     OSMetaClassDeclareReservedUnused(IOFireWireController, 0);
     OSMetaClassDeclareReservedUnused(IOFireWireController, 1);

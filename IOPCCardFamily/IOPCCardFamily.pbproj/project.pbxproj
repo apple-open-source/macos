@@ -94,12 +94,6 @@
 			isa = PBXBuildStyle;
 			name = Deployment;
 		};
-		01CA7D6C000FEEBC11CA299A = {
-			fileRef = 089C167DFE841241C02AAC07;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		01D330D8FF7FF22211CA299A = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
@@ -194,7 +188,7 @@
 	<key>CFBundleExecutable</key>
 	<string>ApplePMUPCCardEject</string>
 	<key>CFBundleGetInfoString</key>
-	<string></string>
+	<string>ApplePMUPCCardEject 1.0.0, Copyright 2002 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -486,7 +480,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOPCCardFamily;
-				MODULE_VERSION = 1.3.2;
+				MODULE_VERSION = 1.4.0;
 				OTHER_CFLAGS = " -no-cpp-precomp";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -513,7 +507,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOPCCardFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOPCCardFamily version 1.3.2, Copyright 2003 Apple Computer, Inc.</string>
+	<string>IOPCCardFamily 1.4.0, Copyright 2000-2003 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -525,11 +519,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.2</string>
+	<string>1.4.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.2</string>
+	<string>1.4.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOPCCardFamily</key>
@@ -729,7 +723,7 @@
 				<key>Card Services</key>
 				<integer>3</integer>
 				<key>Driver Services</key>
-				<integer>4</integer>
+				<integer>3</integer>
 				<key>i82365</key>
 				<integer>2</integer>
 			</dict>
@@ -748,13 +742,13 @@
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.iokit.IOPCIFamily</key>
-		<string>1.1.0</string>
+		<string>1.3</string>
 		<key>com.apple.kernel.iokit</key>
-		<string>1.1.0</string>
+		<string>6.0</string>
 		<key>com.apple.kernel.libkern</key>
-		<string>1.1.0</string>
+		<string>6.0</string>
 		<key>com.apple.kernel.mach</key>
-		<string>1.1.0</string>
+		<string>6.0</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Root</string>
@@ -800,7 +794,6 @@
 		089C1675FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
-				01CA7D6C000FEEBC11CA299A,
 			);
 			isa = PBXResourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -839,34 +832,18 @@
 		};
 		089C167CFE841241C02AAC07 = {
 			children = (
-				089C167DFE841241C02AAC07,
+				01D330D8FF7FF22211CA299A,
+				01D330D9FF7FF22211CA299A,
+				01228F1DFF71C46AC0A8010A,
 				01228F11FF71C3DEC0A8010A,
 				01228F13FF71C46AC0A8010A,
 				01228F14FF71C46AC0A8010A,
 				01228F15FF71C46AC0A8010A,
 				01228F1AFF71C46AC0A8010A,
 				01228F1BFF71C46AC0A8010A,
-				01228F1DFF71C46AC0A8010A,
-				01D330D8FF7FF22211CA299A,
-				01D330D9FF7FF22211CA299A,
 			);
 			isa = PBXGroup;
-			name = Resources;
-			refType = 4;
-		};
-		089C167DFE841241C02AAC07 = {
-			children = (
-				089C167EFE841241C02AAC07,
-			);
-			isa = PBXVariantGroup;
-			name = InfoPlist.strings;
-			refType = 4;
-		};
-		089C167EFE841241C02AAC07 = {
-			fileEncoding = 10;
-			isa = PBXFileReference;
-			name = English;
-			path = English.lproj/InfoPlist.strings;
+			name = README;
 			refType = 4;
 		};
 //080

@@ -18,7 +18,7 @@ CFILES = fsck_hfs.c strings.c utilities.c cache.c
 
 SUBPROJECTS = dfalib
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble makestrings
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble makestrings fsck_hfs.8
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

@@ -396,6 +396,8 @@ SCSITaskUserClient::start ( IOService * provider )
 					 fCommandGate->release ( );
 					 fCommandGate = NULL );
 	
+	fWorkLoop = workLoop;
+	
 	
 GENERAL_ERR:
 	
@@ -433,6 +435,16 @@ void
 SCSITaskUserClient::free ( void )
 {
 	
+	// Remove the command gate from the workloop
+	if ( fWorkLoop != NULL )
+	{
+		
+		fWorkLoop->removeEventSource ( fCommandGate );
+		fWorkLoop = NULL;
+		
+	}
+	
+	// Release the command gate
 	if ( fCommandGate != NULL )
 	{
 		
@@ -2368,24 +2380,38 @@ SCSITaskUserClient::HandleTerminate ( IOService * provider )
 	
 	check ( provider );
 	
+	// Wait for any outstanding I/O to finish. No new I/O can occur since we
+	// are marked as terminated.
 	while ( fOutstandingCommands != 0 )
 	{
 		IOSleep ( 10 );
 	}
 	
+	// Check if we have our provider open.
 	if ( provider->isOpen ( this ) )
 	{
 		
+		// Yes we do, so close the connection
 		STATUS_LOG ( ( "Closing provider\n" ) );
 		provider->close ( this, kIOSCSITaskUserClientAccessMask );
 		
 	}
 	
+	// Get the workloop before calling detach(), otherwise it won't work
+	// (it traverses the IORegistry and detach() removes us from the IORegistry).
+	workLoop = getWorkLoop ( );
+	check ( workLoop );
+	
+	// Decouple us from the IORegistry.
 	detach ( provider );
 	fProvider = NULL;
 	
+	// Clean up work.
+	
+	// 1) Release exclusive access to the device
 	ReleaseExclusiveAccess ( );
 	
+	// 2) Release any tasks not cleaned up by the userspace code.
 	for ( UInt32 index = 0; index < kMaxSCSITaskArraySize; index++ )
 	{
 		
@@ -2398,10 +2424,6 @@ SCSITaskUserClient::HandleTerminate ( IOService * provider )
 		ReleaseTask ( index );
 		
 	}
-	
-	workLoop = getWorkLoop ( );
-	if ( workLoop != NULL )
-		workLoop->removeEventSource ( fCommandGate );
 	
 	return status;
 	

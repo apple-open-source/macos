@@ -2026,7 +2026,7 @@ static const struct m68k_opcode m68k_opcodes[] =
 {"cpushl",	one(0xf428),		one(0xff38),		"cS0s",	"4" },
 {"cpushp",	one(0xf430),		one(0xff38),		"cS0s",	"4" },
 
-#endif BUILTIN_MMUS
+#endif /* BUILTIN_MMUS */
 
 #ifdef m68851
  /* name */	/* opcode */		/* match */		/* args */

@@ -224,6 +224,18 @@ IOSCSIPeripheralDeviceNub::start ( IOService * provider )
 		characterDict->setObject ( kIOPropertyPhysicalInterconnectLocationKey, obj );
 	}
 	
+	obj = fProvider->getProperty ( kIOPropertyReadTimeOutDurationKey );	
+	if ( obj != NULL );
+	{
+		characterDict->setObject ( kIOPropertyReadTimeOutDurationKey, obj );
+	}
+	
+	obj = fProvider->getProperty ( kIOPropertyWriteTimeOutDurationKey );	
+	if ( obj != NULL );
+	{
+		characterDict->setObject ( kIOPropertyWriteTimeOutDurationKey, obj );
+	}
+	
 	setProperty ( kIOPropertyProtocolCharacteristicsKey, characterDict );
 	
 	characterDict->release ( );
@@ -841,33 +853,45 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
 														   kSenseDefaultSize,
 														   0 );
 				serviceResponse = SendTask ( request );
-				if(( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
-					( request->GetTaskStatus ( ) == kSCSITaskStatus_GOOD ))
+				if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
+					 ( request->GetTaskStatus ( ) == kSCSITaskStatus_GOOD ) )
 				{
 					// Check that the REQUEST SENSE command completed successfully.
 					validSense = true;
-				}				
+				}
+				
 			}
 			
 			// If valid sense data was obtained, parse it now to see if it was considered
 			// an ILLEGAL REQUEST and if so it was most likely due to accessing an invalid
 			// Logical unit on the device.
-			if( validSense == true )
+			if ( validSense == true )
 			{
+				
+				#if VERIFY_SENSE_DATA_VALID
+				
 				// Check that the SENSE DATA is valid
-				if ((senseBuffer.VALID_RESPONSE_CODE & kSENSE_DATA_VALID_Mask) == kSENSE_DATA_VALID)
+				if ( ( senseBuffer.VALID_RESPONSE_CODE & kSENSE_DATA_VALID_Mask ) == kSENSE_DATA_VALID )
+				
+				// We obtained traces showing that some devices don't actually set the valid sense data
+				// bit when sense data is definitely valid! Because of this, we don't actually check the
+				// valid bit and just look at the data which is returned. Too bad...
+				
+				#endif /* VERIFY_SENSE_DATA_VALID */
+				
 				{
+					
 					// Check the sense data to see if the TUR was sent to an invalid LUN and if so,
 					// abort trying to access this Logical Unit.
-					if( ((senseBuffer.SENSE_KEY & kSENSE_KEY_Mask) == kSENSE_KEY_ILLEGAL_REQUEST) &&
-						( senseBuffer.ADDITIONAL_SENSE_CODE == 0x25 ) &&
-				 		( senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER == 0x00 ))					
-				 {
+					if ( ( ( senseBuffer.SENSE_KEY & kSENSE_KEY_Mask ) == kSENSE_KEY_ILLEGAL_REQUEST ) &&
+						   ( senseBuffer.ADDITIONAL_SENSE_CODE == 0x25 ) &&
+						   ( senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER == 0x00 ) )
+				 	{
 						goto ReleaseTask;
 					}
-						
-					//require( (senseBuffer.SENSE_KEY & kSENSE_KEY_Mask != kSENSE_KEY_ILLEGAL_REQUEST), ReleaseTask );
+					
 				}
+				
 			}
 			
 		}

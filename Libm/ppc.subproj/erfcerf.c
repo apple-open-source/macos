@@ -220,8 +220,8 @@ double erf ( double x )
                   break;
             }
 
-            fegetenvd( OldEnvironment.d );               // save environment, set default
-            fesetenvd( 0.0 );
+            FEGETENVD( OldEnvironment.d );               // save environment, set default
+            FESETENVD( 0.0 );
 
       result = 1.0;
       result = ErrFunApprox ( x, result, which );
@@ -232,9 +232,9 @@ double erf ( double x )
 
       result = copysign ( result, x);
 
-      fegetenvd( NewEnvironment.d );
+      FEGETENVD( NewEnvironment.d );
       OldEnvironment.i.lo |= ( NewEnvironment.i.lo & EXCEPT_MASK );  // Merge new exceptions into old environment
-      fesetenvd( OldEnvironment.d );         //   restore caller's environment
+      FESETENVD( OldEnvironment.d );         //   restore caller's environment
        
       return ( result );
       }
@@ -275,8 +275,8 @@ double erfc ( double x )
                   break;
             }
             
-            fegetenvd( OldEnvironment.d );               // save environment, set default
-            fesetenvd( 0.0 );
+            FEGETENVD( OldEnvironment.d );               // save environment, set default
+            FESETENVD( 0.0 );
 	
       result = 0.0;
       result = ErrFunApprox ( x, result, which );
@@ -288,9 +288,9 @@ double erfc ( double x )
       if ( x < 0.0 )
             result = 2.0 - result;
       
-      fegetenvd( NewEnvironment.d );
+      FEGETENVD( NewEnvironment.d );
       OldEnvironment.i.lo |= ( NewEnvironment.i.lo & EXCEPT_MASK );  // Merge new exceptions into old environment
-      fesetenvd( OldEnvironment.d );         //   restore caller's environment
+      FESETENVD( OldEnvironment.d );         //   restore caller's environment
      
       return ( result );
       }
@@ -367,9 +367,9 @@ static double ErrFunApprox ( double arg, double result, int which )
                         if ( which == 1 )
                                 {
                                 hexdouble OldEnvironment;
-                                fegetenvd( OldEnvironment.d );
+                                FEGETENVD( OldEnvironment.d );
                                 OldEnvironment.i.lo |= FE_UNDERFLOW;
-                                fesetenvd( OldEnvironment.d );
+                                FESETENVD( OldEnvironment.d );
                                 }
                         return result;
                         }
@@ -403,9 +403,9 @@ static double ErrFunApprox ( double arg, double result, int which )
 		if ( which == 0 )
                     {
                     hexdouble OldEnvironment;
-                    fegetenvd( OldEnvironment.d );
+                    FEGETENVD( OldEnvironment.d );
                     OldEnvironment.i.lo &= ~FE_UNDERFLOW;
-                    fesetenvd( OldEnvironment.d );
+                    FESETENVD( OldEnvironment.d );
                     }
 	
 	return ( which ) ? result : ( 0.5 - result ) + 0.5;

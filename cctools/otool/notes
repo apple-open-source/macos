@@ -3,6 +3,78 @@ TODO:
 - HPPA, bring the private version of mach/hppa/thread_status.h in sync with
   the kernel header and change ofile_print.c to recognize new thread states.
 
+Changes for the 5.12 release (the cctools-466 release):
+- Fixed the incorrect cast on the comparison of the nlist struct's n_strx field
+  where the value being compared to was casted to a long.  The correct fix was
+  to cast n_strx to an unsigned long.  This is because the test is:
+
+	if(something.n_un.n_strx >= string_size)
+	    error(...)
+
+  And the incorrect cast like this:
+
+	if(something.n_un.n_strx >= (long)string_size)
+	    error(...)
+
+  will not catch the case when n_strx is negative.  So the correct cast is:
+
+	if((unsigned long)something.n_un.n_strx >= string_size)
+	    error(...)
+
+  which was made in print_indirect_symbols() in ofile_print.c and a number of
+  other places.
+
+Changes for the 5.12 release (the cctools-465 release):
+- Fixed the disassembly of "movd -12(%ebp),%mm0" which incorrectly disassembled
+  without the displacement.  Radar bug #3206331.
+
+Changes for the 5.12 release (the cctools-464 release):
+- Made changes to build cleanly with gcc3.3
+  - Removed -Wno-precomp from the Makefile
+  - Fixed warnings for "comparison between signed and unsigned" in main.c,
+    ofile_print.c, m68k_disasm.c, i860_disasm.c, m88k_disasm.c, i386_disasm.c,
+    ppc_disasm.c, hppa_disasm.c, sparc_disasm.c, and print_objc.c .
+
+Changes for the 5.11 release (the cctools-463 release):
+- Added support for the MH_DYLIB_STUB filetype. Radar bug #3193744.
+  - Changed processor() in main.c when printing the section contents from
+    an MH_DYLIB_STUB that has indirect symbol table entries to force the section
+    size to zero and not try to print the contents that were stripped.
+  - Added the printing of the MH_DYLIB_STUB filetype to print_mach_header() in
+    ofile_print.c .
+
+Changes for the 5.11 release (the cctools-450 release):
+- Fixed the disassembly of movd instructions that used GPR registers so things
+  like:
+        movd %edx, %xmm0
+        movd %xmm0, %edx
+  disassembled correctly.  Radar bug #3117176.
+
+Changes for the 5.11 release (the cctools-454 release):
+- Fixed a bug in disassembling a bad i386 instruction that had a value for a
+  segment register greater than 6.  The array SEGREG[] was changed to add two
+  more entries to cover all 8 possible values with the last two values being
+  "%?6" and "%?7" for the illegal values.  Radar bug #3144846.
+
+Changes for the 5.11 release (the cctools-439 release):
+- Made the needed changes to main.c and ofile_print.c for VEO support.  Radar
+  bug #3068161.
+- Added the disassembly of the SSE2 instructions.  Radar bug #2972491.
+- Changed the disassembly of i386 opcode "fildl" and "fistpl" to not use the
+  'l' suffix because of the added i386 opcode "fildll" to be the same as "fildq"
+  and "fistpll" to be the same as "fistpq" (done for Radar bug #2909568).
+
+Changes for the 5.11 release (the cctools-437 release):
+- Fixed the disassembly of jbsr ppc instruction's (those with JBSR relocation
+  entries) so the "true target address" is correctly printed.  This fix is in
+  print_immediate() in ppc_disasm.c where the value should just be other_half
+  not "other_half + value".  Radar bug #3046962.
+- Fixed the printing of the pair JBSR relocation when it is a scattered
+  relocation to point at the r_value as the other half "<- other_half".  This
+  fix is in print_relocs() in ofile_print.c.  Radar bug #3046962.
+- Added the disassembly of the fxsave instruction in i386_disasm.c. Radar bug
+  #2972491.
+
 Changes for the 5.10 release (the cctools-422 release):
 - Added the disassembly of some pentium pro instructions in i386_disasm.c.
   Radar bug #2928507.

@@ -200,7 +200,11 @@ void IOAudioClientBufferSet::cancelWatchdogTimer()
 
 	if (NULL != userClient) {
 		userClient->lockBuffers();
-		timerPending = false;
+		if (timerPending) {
+			timerPending = false;
+			if (thread_call_cancel(watchdogThreadCall))
+				release();
+		}
 		userClient->unlockBuffers();
 	}
 }
@@ -695,7 +699,7 @@ IOReturn IOAudioEngineUserClient::clientMemoryForType(UInt32 type, UInt32 *flags
 #endif
 
     switch(type) {
-        case kStatusBuffer:
+        case kIOAudioStatusBuffer:
             assert(audioEngine);
             
             sharedMemory = (void *)audioEngine->getStatus();

@@ -1,3 +1,13 @@
+Changes for the 5.12 release (the cctools-464 release):
+- Made changes to build cleanly with gcc3.3
+  - Removed -Wno-precomp from the Makefile
+  - Fixed warning for "comparison between signed and unsigned" in archive.c
+
+Changes for the 5.12 release (the cctools-450 release):
+- Added a switch statement for the errno value after the flock() call in
+  archive.c to deal with the fact that NFS can now do locking.  Radar bug
+  #3105943.
+
 Changes for the 5.10 release (the cctools-396 release):
 - Added support for the -s option from freebsd which is:
        s      Write an object-file index into the archive, or up-

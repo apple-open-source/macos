@@ -100,6 +100,30 @@ ApplePCCardSampleEnabler::sortConfigurations(void)
     
     IOLog("ApplePCCardSampleEnabler::sortConfigurations entered\n");
 
+    IOSleep(500);
+    for (unsigned i=0; i < tableEntryCount; i++) {
+	cistpl_cftable_entry_t *cfg = configTable[i];
+
+	IOLog("sortConfig index=0x%x, vcc %d vpp %d vpp1 %d", cfg->index, 
+	      (cfg->vcc.present  & (1<<CISTPL_POWER_VNOM)) ? (int)cfg->vcc.param[CISTPL_POWER_VNOM] : 0,
+	      (cfg->vpp1.present & (1<<CISTPL_POWER_VNOM)) ? (int)cfg->vpp1.param[CISTPL_POWER_VNOM] : 0,
+	      (cfg->vpp2.present & (1<<CISTPL_POWER_VNOM)) ? (int)cfg->vpp2.param[CISTPL_POWER_VNOM] : 0);
+	if (cfg->io.nwin) {
+	    IOLog(" io (desc=0x%x)", cfg->io.flags);
+	    for (unsigned j=0; j < cfg->io.nwin; j++) {
+		IOLog(", 0x%x-0x%x", cfg->io.win[j].base, cfg->io.win[j].base + cfg->io.win[j].len - 1);
+	    }
+	}
+	if (cfg->mem.nwin) {
+	    IOLog(" mem sizes");
+	    for (unsigned j=0; j < cfg->mem.nwin; j++) {
+		IOLog(" 0x%x", cfg->mem.win[j].len);
+	    }
+	}
+	IOLog("\n");
+    }
+    IOSleep(500);
+    
     return super::sortConfigurations();
 }
 
@@ -119,6 +143,8 @@ class ApplePCCardSample : public IOService
 
     unsigned				windowCount;
     IOMemoryMap 			* windowMap[10];
+    
+    bool				cardPresent;
 
 public:
     virtual IOService * probe(IOService *provider, SInt32 *score);
@@ -147,9 +173,11 @@ IOService*
 ApplePCCardSample::probe(IOService * provider, SInt32 * score)
 {
     IOLog("ApplePCCardSample::probe(provider=%p, score=0x%x) starting\n", provider, (int)*score);
-
+    
     nub = OSDynamicCast(IOPCCard16Device, provider);
     if (!nub) return NULL;
+
+    cardPresent = true;
 
     if (!super::probe(provider, score)) return NULL;
 
@@ -202,6 +230,8 @@ ApplePCCardSample::start(IOService * provider)
 	IOLog("%s: provider is not of class IOPCCard16Device?\n", getName());
 	return false;
     }
+
+    cardPresent = true;
 
     static const IOPMPowerState myPowerStates[ kIOPCCard16DevicePowerStateCount ] = 
     {
@@ -279,8 +309,6 @@ ApplePCCardSample::start(IOService * provider)
 	    getName(), (config.Attributes & CONF_VALID_CLIENT) ? "" : "not ", config.ConfigBase, 
 	    config.BasePort1, config.NumPorts1, config.BasePort2, config.NumPorts2);
     
-
-
     // find out how many windows we have configured
     windowCount = nub->getWindowCount();
 
@@ -316,7 +344,7 @@ ApplePCCardSample::stop(IOService * provider)
 	return;
     }
 
-    // unmap in the windows
+    // unmap the windows
     for (unsigned i=0; i < windowCount; i++) {
 
 	IOLog("%s: unmapping window index %d, size = 0x%x\n", getName(), i, (int)nub->getWindowSize(i));
@@ -358,6 +386,9 @@ ApplePCCardSample::setPowerState(unsigned long powerState, IOService * whatDevic
 
 	IOLog("ApplePCCardSample::setPowerState setting power state to on\n");
 
+	// reenable the interrupt delivery.
+	if (workLoop) workLoop->enableAllInterrupts();
+
 	// are we still alive?
 	dumpWindows();
 
@@ -370,10 +401,16 @@ ApplePCCardSample::setPowerState(unsigned long powerState, IOService * whatDevic
 
 	// any windows that were created by calling
 	// mapDeviceMemoryWithIndex() will be unmapped by the PC Card
-	// family in between the off and on power states.  If you have
-	// timers (or whatever) that could go off during that time you
-	// should either stop them here or keep track of your device's
-	// state with this object's instance variables.
+	// Family spanning the time between the off and on power
+	// states.  If you have interrupts, timers (or whatever) that
+	// could go off during this time, you should either stop them
+	// here or keep track of your device's state with this
+	// object's instance variables to avoid accessing any of these
+	// windows.
+
+	// this is a good idea even if you are not expecting any
+	// interrupts, some cards generate spurious interrupts
+	if (workLoop) workLoop->disableAllInterrupts();
 
 	IOLog("ApplePCCardSample::setPowerState setting power state to off\n");
 	break;
@@ -425,6 +462,8 @@ ApplePCCardSample::message(UInt32 type, IOService * provider, void * argument)
 	    // this event is telling you that the card has been
 	    // removed, this is a good place to set a flag telling the
 	    // driver that the hardware is no longer present
+	    
+	    cardPresent = false;
 
 	    // note: if the card has been removed your driver will
 	    // also be terminated very shortly after receiving this
@@ -490,11 +529,21 @@ void
 ApplePCCardSample::interruptOccurred(IOInterruptEventSource * src, int i)
 {
     IOLog("ApplePCCardSample::interruptOccurred, nub=%p, src=%p, i=0x%x.\n", nub, src, i);
+    if (!cardPresent) {
+	IOLog("%s::interruptOccurred, ignoring interrupt, the card is not present\n", getName());
+	return;
+    }
+
 }
 
 void
 ApplePCCardSample::dumpWindows()
 {
+    if (!cardPresent) {
+	IOLog("%s::dumpWindows, aborting, the card is not present\n", getName());
+	return;
+    }
+    
     for (unsigned i=0; i < windowCount; i++) {
     
 	if (nub->getWindowType(i) == IOPCCARD16_MEMORY_WINDOW) {

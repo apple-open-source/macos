@@ -1,4 +1,4 @@
-Wed Jun  5 16:22:57 2002
+Mon May 12 16:04:11 2003
 
 
 Input file: !
@@ -13,11 +13,7 @@ numtests, errorcount, numerrors, flagerrors, enverrors, rnderrors   ../noship.su
 
 Input file: !../noship.subproj/vectors/TVann.text
 
-Input file: ! tests 4{OPQTRUXYZ}, no case 'Z': in harness
-
 Input file: !../noship.subproj/vectors/TVAnnuity.3.TEXT
-
-Input file: ! no case 'Z': in harness
 
 Input file: ../noship.subproj/vectors/TVasinacos.3.TEXT
 numtests, errorcount, numerrors, flagerrors, enverrors, rnderrors   ../noship.subproj/vectors/TVasinacos.3.TEXT
@@ -29,7 +25,7 @@ numtests, errorcount, numerrors, flagerrors, enverrors, rnderrors   ../noship.su
 
 Input file: ../noship.subproj/vectors/TVB2D2B.TEXT
 numtests, errorcount, numerrors, flagerrors, enverrors, rnderrors   ../noship.subproj/vectors/TVB2D2B.TEXT
-   3333          0          0           0          0          0
+   693          0          0           0          0          0
 
 Input file: ../noship.subproj/vectors/TVceil.3.TEXT
 numtests, errorcount, numerrors, flagerrors, enverrors, rnderrors   ../noship.subproj/vectors/TVceil.3.TEXT
@@ -41,11 +37,7 @@ numtests, errorcount, numerrors, flagerrors, enverrors, rnderrors   ../noship.su
 
 Input file: !../noship.subproj/vectors/TVCompound1.3.TEXT
 
-Input file: ! no case 'Y': in harness
-
 Input file: !../noship.subproj/vectors/TVCompound2.3.TEXT
-
-Input file: ! no case 'Y': in harness
 
 Input file: ../noship.subproj/vectors/TVcopysign.3.TEXT
 numtests, errorcount, numerrors, flagerrors, enverrors, rnderrors   ../noship.subproj/vectors/TVcopysign.3.TEXT
@@ -130,23 +122,8 @@ numtests, errorcount, numerrors, flagerrors, enverrors, rnderrors   ../noship.su
    132          0          0           0          0          0
 
 Input file: ../noship.subproj/vectors/TVlog10.3.TEXT
-48	=d	0x0c06e93f      0x5da2824c 0 0 x 0xc06f4000      0x00000000 ! log10(1.0e-250)
-log10  r = 0c06e93f 5da2824c   1.00e-250    n = 00000000 00000000   0.00e+00
-expected     c06f4000 00000000   -2.50e+02    x
-computed     c06f4000 00000001   -2.50e+02    x   NUM ERROR -1,
-
-48	=d	0x46300000	0x00000000	0x0	0x0	x	0x403e1a5e	0x2df92e9e
-log10  r = 46300000 00000000   1.27e+30    n = 00000000 00000000   0.00e+00
-expected     403e1a5e 2df92e9e   3.01e+01    x
-computed     403e1a5e 2df92e9f   3.01e+01    x   NUM ERROR 1,
-
-48	=d	0x39b00000	0x00000000	0x0	0x0	x	0xc03e1a5e	0x2df92e9e
-log10  r = 39b00000 00000000   7.89e-31    n = 00000000 00000000   0.00e+00
-expected     c03e1a5e 2df92e9e   -3.01e+01    x
-computed     c03e1a5e 2df92e9f   -3.01e+01    x   NUM ERROR -1,
-
 numtests, errorcount, numerrors, flagerrors, enverrors, rnderrors   ../noship.subproj/vectors/TVlog10.3.TEXT
-    39          3          3           0          0          0
+    39          0          0           0          0          0
 
 Input file: ../noship.subproj/vectors/TVlogarithms.3.TEXT
 numtests, errorcount, numerrors, flagerrors, enverrors, rnderrors   ../noship.subproj/vectors/TVlogarithms.3.TEXT
@@ -291,25 +268,10 @@ numtests, errorcount, numerrors, flagerrors, enverrors, rnderrors   ../noship.su
     64          0          0           0          0          0
 
 Input file: ../noship.subproj/vectors/Log10Vecs.text
-48 =d  0x00000000 0x00000002   0x00000000 0x00000000     x  0xc0743015 0x3d3b1b95
-log10  r = 00000000 00000002   9.88e-324    n = 00000000 00000000   0.00e+00
-expected     c0743015 3d3b1b95   -3.23e+02    x
-computed     c0743015 3d3b1b96   -3.23e+02    x   NUM ERROR -1,
-
 numtests, errorcount, numerrors, flagerrors, enverrors, rnderrors   ../noship.subproj/vectors/Log10Vecs.text
-    65          1          1           0          0          0
+    65          0          0           0          0          0
 
 Input file: ../noship.subproj/vectors/Log1pVecs.text
-4Q =d  0xbfefffff 0xfffffffd   0x00000000 0x00000000     x  0xc041d1b0 0x2751cfe2
-log1p  r = bfefffff fffffffd   -1.00e+00    n = 00000000 00000000   0.00e+00
-expected     c041d1b0 2751cfe2   -3.56e+01    x
-computed     c041d1b0 2751cfe1   -3.56e+01    x   NUM ERROR 1,
-
-4Q =d  0xbfefffff 0xfffffffc   0x00000000 0x00000000     x  0xc041acdd 0x632f662b
-log1p  r = bfefffff fffffffc   -1.00e+00    n = 00000000 00000000   0.00e+00
-expected     c041acdd 632f662b   -3.54e+01    x
-computed     c041acdd 632f662a   -3.54e+01    x   NUM ERROR 1,
-
 4Q =d  0x3fefffff 0xffffffff   0x00000000 0x00000000     x  0x3fe62e42 0xfefa39ef
 log1p  r = 3fefffff ffffffff   1.00e+00    n = 00000000 00000000   0.00e+00
 expected     3fe62e42 fefa39ef   6.93e-01    x
@@ -326,7 +288,7 @@ expected     3fe62e42 fefa39f2   6.93e-01    x
 computed     3fe62e42 fefa39f1   6.93e-01    x   NUM ERROR -1,
 
 numtests, errorcount, numerrors, flagerrors, enverrors, rnderrors   ../noship.subproj/vectors/Log1pVecs.text
-    65          5          5           0          0          0
+    65          3          3           0          0          0
 
 Input file: ../noship.subproj/vectors/LogVecs.text
 numtests, errorcount, numerrors, flagerrors, enverrors, rnderrors   ../noship.subproj/vectors/LogVecs.text
@@ -346,10 +308,10 @@ numtests, errorcount, numerrors, flagerrors, enverrors, rnderrors   ../noship.su
 
 Input file: ! Take vectors from the vector generator server
 
-Input file: !U17.202.45.142
+Input file: !U17.202.41.168
 
 
 numtests, errorcount, NUMerrors, FLAGerrors, ENVRMerrs, ROUNDerrs
- 11866         15         15           0          0           0
-Wed Jun  5 16:22:57 2002
+  9226          9          9           0          0           0
+Mon May 12 16:04:11 2003
 

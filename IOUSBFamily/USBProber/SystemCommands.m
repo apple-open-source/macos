@@ -3,18 +3,21 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.  
- * Please see the License for the specific language governing rights and 
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
  * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
@@ -81,73 +84,75 @@ AuthorizationRef myAuthorizationRef;
         NSTask *kextstat=[[NSTask alloc] init];
         NSPipe *pipe=[[NSPipe alloc] init];
         NSFileHandle *handle;
+        NSData *resultData;
+        NSString *resultString;
         
         [kextstat setLaunchPath:@"/usr/sbin/kextstat"];
         [kextstat setStandardOutput:pipe];
-        handle=[pipe fileHandleForReading];
+        
         [kextstat launch];
-        [pipe release];
-        [kextstat release];
 
-        return [[NSString alloc] initWithData:[handle readDataToEndOfFile] encoding:NSASCIIStringEncoding];
+        resultData = [[pipe fileHandleForReading] readDataToEndOfFile];
+        resultString = [[NSString alloc] initWithData:resultData encoding:NSASCIIStringEncoding];
+
+        [kextstat release];
+        [pipe release];
+        
+        return [resultString autorelease];
     }
 }
 
 +(NSString *)grep:(NSString *)inputString arguments:(NSArray *)greparguments
 {
-            NSPipe *inputPipe=[[NSPipe alloc] init];
-            NSPipe *outputPipe=[[NSPipe alloc] init];
-            NSTask *grep=[[NSTask alloc] init];
-            NSFileHandle *handle;
-            NSData *grepdata;
+    NSString *resultString;
+    NSPipe *inputPipe = [[NSPipe alloc] init];
+    NSPipe *outputPipe = [[NSPipe alloc] init];
+    NSTask *grepTask = [[NSTask alloc] init];
+    NSData *inputStringAsData = [inputString dataUsingEncoding:NSASCIIStringEncoding];
+    NSData *resultData;
 
-            [grep setLaunchPath:@"/usr/bin/egrep"];
+    [grepTask setLaunchPath:@"/usr/bin/grep"];
+    [grepTask setStandardInput:inputPipe];
+    [grepTask setStandardOutput:outputPipe];
+    [grepTask setArguments:greparguments];
 
-            [grep setStandardInput:inputPipe];
-            [grep setStandardOutput:outputPipe];
-            [grep setArguments:greparguments];
-            
-            handle=[outputPipe fileHandleForReading];
+    [grepTask launch];
+    
+    [[inputPipe fileHandleForWriting] writeData:inputStringAsData];
+    [[inputPipe fileHandleForWriting] closeFile];
+    resultData = [[outputPipe fileHandleForReading] readDataToEndOfFile];
+    resultString = [[NSString alloc] initWithData:resultData encoding:NSASCIIStringEncoding];
 
-            grepdata = [inputString dataUsingEncoding:NSASCIIStringEncoding];
-            
-            [[inputPipe fileHandleForWriting] writeData:grepdata];
-            [[inputPipe fileHandleForWriting] closeFile];
-            [grep launch];
-            
-            [grep release];
-            [inputPipe release];
-            [outputPipe release];
-                        
-            return [[NSString alloc] initWithData:[handle readDataToEndOfFile] encoding:NSASCIIStringEncoding];
+    [grepTask release];
+    [inputPipe release];
+    [outputPipe release];
+    return [resultString autorelease];
 }
 
 +(NSString *)awk:(NSString *)inputString arguments:(NSArray *)awkarguments
 {
-    NSPipe *inputPipe=[[NSPipe alloc] init];
-    NSPipe *outputPipe=[[NSPipe alloc] init];
-    NSTask *awk=[[NSTask alloc] init];
-    NSFileHandle *handle;
-    NSData *awkdata;
+    NSString *resultString;
+    NSPipe *inputPipe = [[NSPipe alloc] init];
+    NSPipe *outputPipe = [[NSPipe alloc] init];
+    NSTask *awkTask = [[NSTask alloc] init];
+    NSData *inputStringAsData = [inputString dataUsingEncoding:NSASCIIStringEncoding];
+    NSData *resultData;
 
-    [awk setLaunchPath:@"/usr/bin/awk"];
+    [awkTask setLaunchPath:@"/usr/bin/awk"];
+    [awkTask setStandardInput:inputPipe];
+    [awkTask setStandardOutput:outputPipe];
+    [awkTask setArguments:awkarguments];
 
-    [awk setStandardInput:inputPipe];
-    [awk setStandardOutput:outputPipe];
-    [awk setArguments:awkarguments];
+    [awkTask launch];
 
-    handle=[outputPipe fileHandleForReading];
-
-    awkdata = [inputString dataUsingEncoding:NSASCIIStringEncoding];
-
-    [[inputPipe fileHandleForWriting] writeData:awkdata];
+    [[inputPipe fileHandleForWriting] writeData:inputStringAsData];
     [[inputPipe fileHandleForWriting] closeFile];
-    [awk launch];
+    resultData = [[outputPipe fileHandleForReading] readDataToEndOfFile];
+    resultString = [[NSString alloc] initWithData:resultData encoding:NSASCIIStringEncoding];
 
-    [awk release];
+    [awkTask release];
     [inputPipe release];
     [outputPipe release];
-
-    return [[NSString alloc] initWithData:[handle readDataToEndOfFile] encoding:NSASCIIStringEncoding];
+    return [resultString autorelease];
 }
 @end

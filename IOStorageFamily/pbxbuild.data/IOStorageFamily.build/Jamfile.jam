@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = IOStorageFamily ;
-export deferred SRCROOT = /Volumes/Users/markaria/Active/IOStorageFamily ;
+export deferred SRCROOT = /Volumes/Users/markaria/Active/IOStorageFamily-26-7-HEAD ;
 
 # User-defined project-wide settings for project
 
@@ -19,7 +19,7 @@ export deferred _PBDEVELOPMENT_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/IOSto
 
 # Implicitly computed build settings for target "IOStorageFamily"
 export deferred CLONE_HEADERS = NO ;
-export deferred PFE_FILE_C_DIALECTS = "c++" ;
+export deferred PFE_FILE_C_DIALECTS = c++ ;
 export deferred TARGETNAME = $(TARGET_NAME) ;
 export deferred TARGET_NAME = IOStorageFamily ;
 
@@ -31,7 +31,7 @@ export deferred KERNEL_MODULE = YES ;
 export deferred LIBRARY_SEARCH_PATHS =  ;
 export deferred MODULE_IOKIT = YES ;
 export deferred MODULE_NAME = com.apple.iokit.IOStorageFamily ;
-export deferred MODULE_VERSION = 1.2.3 ;
+export deferred MODULE_VERSION = 1.2.4 ;
 export deferred OTHER_CFLAGS =  ;
 export deferred OTHER_LDFLAGS =  ;
 export deferred OTHER_REZFLAGS =  ;
@@ -43,7 +43,6 @@ export deferred WRAPPER_EXTENSION = kext ;
 if "$(BUILD_STYLE)" = Development {
 	export deferred COPY_PHASE_STRIP = NO ;
 	export deferred OPTIMIZATION_CFLAGS = -O0 ;
-	export deferred USE_GCC3 = YES ;
 }
 
 if "$(BUILD_STYLE)" = Deployment {
@@ -107,6 +106,12 @@ ProcessRezFiles "<IOStorageFamily>IOStorageFamily.kext" : "$(REZ_FILES)" : BPTag
 # Script Build Phase Files
 SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/IOStorageFamily.build/BPTag006-script.sh" ;
 ProcessScriptBuildPhaseFiles "<IOStorageFamily>IOStorageFamily.kext" : "$(SCRIPT_BUILD_PHASE_FILES)" : BPTag005 : BPTag006 ;
+
+rule DefineHeaderDependencies
+{
+}
+
+DefineHeaderDependencies "<IOStorageFamily>IOStorageFamily.kext" ;
 
 EndBundle "<IOStorageFamily>IOStorageFamily.kext" ;
 

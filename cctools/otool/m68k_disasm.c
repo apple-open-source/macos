@@ -1945,9 +1945,10 @@ enum bool verbose)
 				       sect + length,
 				       fpsize[(specop1 >> 10) & 0x7]);
 		    if(((specop1 >> 10) & 0x7) == 0x3){
-			printf("{#%u}\n", specop1 & 0x0040 ?
-			       (specop1 & 0x7f) | 0xffffff80 :
-				specop1 & 0x7f);
+			printf("{#%u}\n", (unsigned int)(specop1 & 0x0040) ?
+			       (unsigned int)(specop1 & 0x7f) |
+				(unsigned int)0xffffff80 :
+				(unsigned int)(specop1 & 0x7f));
 		    } else if(((specop1 >> 10) & 0x7) == 0x7){
 			printf("{%s}\n", dregs[(specop1 >> 4) & 0x7]);
 		    } else

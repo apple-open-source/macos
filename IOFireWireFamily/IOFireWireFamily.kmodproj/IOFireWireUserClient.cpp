@@ -3,19 +3,22 @@
 *
 * @APPLE_LICENSE_HEADER_START@
 * 
-* The contents of this file constitute Original Code as defined in and
-* are subject to the Apple Public Source License Version 1.1 (the
-* "License").  You may not use this file except in compliance with the
-* License.  Please obtain a copy of the License at
-* http://www.apple.com/publicsource and read it before using this file.
+* Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
 * 
-* This Original Code and all software distributed under the License are
-* distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+* This file contains Original Code and/or Modifications of Original Code
+* as defined in and that are subject to the Apple Public Source License
+* Version 2.0 (the 'License'). You may not use this file except in
+* compliance with the License. Please obtain a copy of the License at
+* http://www.opensource.apple.com/apsl/ and read it before using this
+* file.
+* 
+* The Original Code and all software distributed under the License are
+* distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
 * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
 * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
-* License for the specific language governing rights and limitations
-* under the License.
+* FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+* Please see the License for the specific language governing rights and
+* limitations under the License.
 * 
 * @APPLE_LICENSE_HEADER_END@
 */
@@ -28,6 +31,21 @@
 */
 /*
 	$Log: IOFireWireUserClient.cpp,v $
+	Revision 1.63.2.2  2003/07/10 20:41:15  collin
+	*** empty log message ***
+	
+	Revision 1.63.2.1  2003/06/24 02:36:28  collin
+	*** empty log message ***
+	
+	Revision 1.63  2003/04/22 02:45:28  collin
+	*** empty log message ***
+	
+	Revision 1.62  2003/03/17 01:05:22  collin
+	*** empty log message ***
+	
+	Revision 1.61  2003/03/01 00:10:07  collin
+	*** empty log message ***
+	
 	Revision 1.60  2002/11/20 00:34:27  niels
 	fix minor bug in getAsyncTargetAndMethodForIndex
 	
@@ -113,7 +131,8 @@ IOFireWireUserClient::start( IOService * provider )
 	if(!IOUserClient::start(provider))
 		return false;
 	fOwner = (IOFireWireNub *)provider;
-
+	fOwner->retain();
+	
 	//
 	// Got the owner, so initialize the call structures
 	//
@@ -404,6 +423,8 @@ IOFireWireUserClient::free()
 	deallocateSets() ;
 
 	IOLockFree(fSetLock) ;	
+	
+	fOwner->release();
 	
 	IOUserClient::free() ;
 }
@@ -1229,7 +1250,10 @@ IOReturn
 IOFireWireUserClient::userClose()
 {
 	IOReturn result = kIOReturnSuccess ;
-	
+
+	if ( getProvider() == NULL )
+		return kIOReturnSuccess ;
+			
 	if (!fOwner->isOpen( this ))
 		result = kIOReturnNotOpen ;
 	else
@@ -1284,7 +1308,7 @@ IOFireWireUserClient::read( const ReadParams* inParams, IOByteCount* outBytesTra
 	mem = IOMemoryDescriptor::withAddress((vm_address_t)inParams->buf, (IOByteCount)inParams->size, kIODirectionIn, fTask);
 	if(!mem)
 		return kIOReturnNoMemory;
-
+		
 	if ( inParams->isAbs )
 		cmd = this->createReadCommand( inParams->generation, inParams->addr, mem, NULL, NULL ) ;
 	else
@@ -1374,7 +1398,16 @@ IOFireWireUserClient::write( const WriteParams* inParams, IOByteCount* outBytesT
 	}
 
 	IOReturn 				err ;
-	err = cmd->submit();
+
+	err = mem->prepare() ;
+
+	if ( err )
+		IOLog("%s %u: IOFireWireUserClient::write: prepare failed\n", __FILE__, __LINE__) ;
+	else		
+	{
+		err = cmd->submit();	// We block here until the command finishes
+		mem->complete() ;
+	}
 
 	// We block here until the command finishes
 	if( !err )
@@ -1399,12 +1432,12 @@ IOFireWireUserClient::compareSwap( const CompareSwapParams* inParams, UInt64* ol
 
 	if ( inParams->isAbs )
 	{
-		cmd = this->createCompareAndSwapCommand( inParams->generation, inParams->addr, (UInt32*)& inParams->cmpVal, 
+        cmd = this->createCompareAndSwapCommand( inParams->generation, inParams->addr, (UInt32*)& inParams->cmpVal, 
 				(UInt32*)& inParams->swapVal, inParams->size, NULL, NULL ) ;
 	}
 	else
 	{
-		if ( cmd = fOwner->createCompareAndSwapCommand( inParams->addr, (UInt32*)& inParams->cmpVal, (UInt32*)& inParams->swapVal, 
+        if ( cmd = fOwner->createCompareAndSwapCommand( inParams->addr, (UInt32*)& inParams->cmpVal, (UInt32*)& inParams->swapVal, 
 				inParams->size, NULL, NULL, inParams->failOnReset ) )
 		{
 			cmd->setGeneration( inParams->generation ) ;
@@ -1508,7 +1541,7 @@ IOFireWireUserClient::getOSStringData( KernOSStringRef inStringRef, UInt32 inStr
 	
 	UInt32 len = MIN(inStringLen, inStringRef->getLength()) ;
 
-	IOMemoryDescriptor*	mem = IOMemoryDescriptor::withAddress((vm_address_t)inStringBuffer, len, kIODirectionOut, fTask) ;
+	IOMemoryDescriptor*	mem = IOMemoryDescriptor::withAddress((vm_address_t)inStringBuffer, len, kIODirectionOutIn, fTask) ;
 	if (!mem)
 		return kIOReturnNoMemory ;
 
@@ -1535,7 +1568,7 @@ IOFireWireUserClient::getOSDataData(
 		return kIOReturnBadArgument ;
 	
 	UInt32 len = MIN(inDataRef->getLength(), inDataLen) ;
-	IOMemoryDescriptor*	mem = IOMemoryDescriptor::withAddress((vm_address_t)inDataBuffer, len, kIODirectionOut, fTask) ;
+	IOMemoryDescriptor*	mem = IOMemoryDescriptor::withAddress((vm_address_t)inDataBuffer, len, kIODirectionOutIn, fTask) ;
 	if (!mem)
 		return kIOReturnNoMemory ;
 	
@@ -2242,12 +2275,17 @@ IOFireWireUserClient::configDirectoryGetNumEntries(
 IOReturn
 IOFireWireUserClient::allocatePhysicalAddressSpace( PhysicalAddressSpaceCreateParams* inParams, KernPhysicalAddrSpaceRef* outKernAddrSpaceRef)
 {
-	IOMemoryDescriptor*	mem = IOMemoryDescriptor::withAddress((vm_address_t)inParams->backingStore, inParams->size, kIODirectionNone, fTask) ;
+	IOMemoryDescriptor*	mem = IOMemoryDescriptor::withAddress((vm_address_t)inParams->backingStore, inParams->size, kIODirectionOutIn, fTask) ;
 	IOFWUserClientPhysicalAddressSpace*	addrSpace = new IOFWUserClientPhysicalAddressSpace ;
 	IOReturn	result = kIOReturnSuccess ;
 	
 	if (!mem || !addrSpace)
 		result = kIOReturnNoMemory ;
+	
+	if( kIOReturnSuccess == result )
+	{
+		result = mem->prepare();
+	}
 	
 	if (kIOReturnSuccess == result)
 	{

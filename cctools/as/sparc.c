@@ -86,13 +86,13 @@ static struct hash_control *op_hash = NULL;
 static void s_proc PARAMS ((int));
 static void s_ignore PARAMS ((int));
 extern void s_seg PARAMS ((int));
-#else	NeXT_MOD
+#else	/* NeXT_MOD */
 static void s_data1 PARAMS ((void));
 static void s_seg PARAMS ((int));
 static void s_proc PARAMS ((int));
 static void s_reserve PARAMS ((int));
 static void s_common PARAMS ((int));
-#endif	NeXT_MOD
+#endif	/* NeXT_MOD */
 
 const pseudo_typeS md_pseudo_table[] =
 {
@@ -109,7 +109,7 @@ const pseudo_typeS md_pseudo_table[] =
   {"half", cons, 2},
   /* these are custom handlers for SUN SPARC assembler only */
 
-#else	NeXT_MOD
+#else	/* NeXT_MOD */
   {"seg", s_seg, 0},
   {"align", s_align_bytes, 0},	/* Defaulting is invalid (0) */
   {"common", s_common, 0},
@@ -121,7 +121,7 @@ const pseudo_typeS md_pseudo_table[] =
   {"seg", s_seg, 0},
   {"skip", s_space, 0},
   {"word", cons, 4},
-#endif	NeXT_MOD
+#endif	/* NeXT_MOD */
   {NULL, 0, 0},
 };
 
@@ -222,7 +222,7 @@ md_begin ()
 {
   register const char *retval = NULL;
   int lose = 0;
-  register unsigned int i = 0;
+  register int i = 0;
 
   op_hash = hash_new ();
 
@@ -992,7 +992,7 @@ sparc_ip (str)
       if (match == 0)
 	{
 	  /* Args don't match. */
-	  if (((unsigned) (&insn[1] - sparc_opcodes)) < NUMOPCODES
+	  if (((int) (&insn[1] - sparc_opcodes)) < NUMOPCODES
 	      && !strcmp (insn->name, insn[1].name))
 	    {
 	      ++insn;

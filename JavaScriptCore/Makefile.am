@@ -1,0 +1,20 @@
+SUBDIRS = pcre kjs
+
+# FIXME: need to build the other kjs test program too
+
+INCLUDES = -I $(top_srcdir)/JavaScriptCore/kjs
+noinst_PROGRAMS = kjs/testkjs
+kjs_testkjs_SOURCES = kjs/testkjs.cpp
+kjs_testkjs_DEPENDENCIES = JavaScriptCore-stamp
+kjs_testkjs_LDFLAGS = -F$(SYMROOTS) -framework JavaScriptCore
+
+all-am: JavaScriptCore-stamp
+JavaScriptCore-stamp: kjs/*.cpp kjs/*.h
+	pbxbuild -buildstyle $(BUILDSTYLE) OBJROOT=$(SYMROOTS) SYMROOT=$(SYMROOTS) DSTROOT=$(SYMROOTS) && touch $@
+clean-am:
+	pbxbuild clean OBJROOT=$(SYMROOTS) SYMROOT=$(SYMROOTS) DSTROOT=$(SYMROOTS)
+	rm -rf $(SYMROOTS)/JavaScriptCore.build
+	rm -rf $(SYMROOTS)/JavaScriptCore.framework
+	rm -rf $(SYMROOTS)/Safari.app/Frameworks/JavaScriptCore.framework
+
+CLEANFILES = JavaScriptCore-stamp

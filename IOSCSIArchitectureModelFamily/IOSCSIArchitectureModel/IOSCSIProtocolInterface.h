@@ -58,6 +58,16 @@
 // This property is a string, although if it exists it should always be true.
 #define kIOPropertySCSIManualEjectKey				"Manual Eject"
 
+// This key is used to define the Read Time Out for a particular device
+// This property overrides all of the protocol defaults
+// This Property is a value, in miliseconds
+#define kIOPropertyReadTimeOutDurationKey			"Read Time Out Duration"
+
+// This key is used to define the Maximum Write Time Out for a particular protocol
+// This property overrides all of the protocol defaults
+// This Property is a value, in miliseconds
+#define kIOPropertyWriteTimeOutDurationKey			"Write Time Out Duration"
+
 
 #if defined(KERNEL) && defined(__cplusplus)
 

@@ -61,7 +61,7 @@ int nchars)
        as_fatal("with -n a section directive must be seen before assembly "
 		"can begin");
     }
-    if (obstack_room (&frags) < nchars) {
+    if ((int)(obstack_room(&frags)) < nchars) {
 	unsigned int n,oldn;
 	long oldc;
 
@@ -70,14 +70,14 @@ int nchars)
 	oldn=(unsigned)-1;
 	oldc=frags.chunk_size;
 	frags.chunk_size=2*nchars;
-	while((n=obstack_room(&frags))<nchars && n<oldn) {
+	while((int)(n=obstack_room(&frags)) < nchars && n < oldn) {
 		frag_wane(frag_now);
 		frag_new(0);
 		oldn=n;
 	}
 	frags.chunk_size=oldc;
     }
-    if (obstack_room (&frags) < nchars)
+    if ((int)(obstack_room(&frags)) < nchars)
 	as_fatal ("Can't extend frag %d. chars", nchars);
 }
 
@@ -227,19 +227,40 @@ fragS *fragP)
 /*
  *			frag_align()
  *
- * Make a frag for ".align foo,bar". Call is "frag_align (foo,bar);".
- * Foo & bar are absolute integers.
+ * Make an rs_align frag for:
+ *   .align power_of_2_alignment, fill_expression, fill_size, max_bytes_to_fill
+ * the fill_size must be 1, 2 or 4.  An rs_align frag stores the
+ * power_of_2_alignment in the fr_offset field of the frag, the fill_expression
+ * in the fr_literal bytes, the fill_size in the fr_var field and the
+ * max_bytes_to_fill in the fr_subtype field.  We call frag_var() with max_chars
+ * parameter large enough to hold the fill_expression of fill_size plus the
+ * maximum number of partial bytes that may be needed to be zeroed before the
+ * fill.
  *
  * Call to close off the current frag with a ".align", then start a new
  * (so far empty) frag, in the same subsegment as the last frag.
  */
 void
 frag_align(
-int alignment,
-int fill_character)
+int power_of_2_alignment,
+char *fill,
+int fill_size,
+int max_bytes_to_fill)
 {
-    *(frag_var (rs_align, 1, 1, (relax_substateT)0, (symbolS *)0,
- (long)alignment, (char *)0)) = fill_character;
+    void *fr_literal;
+
+	fr_literal = (void *)
+	    frag_var(rs_align,				/* type */
+		     fill_size + (fill_size - 1),	/* max_chars */
+		     fill_size,				/* var */
+		     (relax_substateT)max_bytes_to_fill,/* subtype */
+		     (symbolS *)0,			/* symbol */
+		     (long)power_of_2_alignment,	/* offset */
+		     (char *)0);			/* opcode */
+    if(fill_size == 1 || fill_size == 2 || fill_size == 4)
+	memcpy(fr_literal, fill, fill_size);
+    else
+	as_warn("Invalid width for fill expression.");
 }
 
 /* end: frags.c */

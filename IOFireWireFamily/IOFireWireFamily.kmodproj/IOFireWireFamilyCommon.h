@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -29,11 +32,20 @@
  */
 /*
 	$Log: IOFireWireFamilyCommon.h,v $
-	Revision 1.39.8.2  2003/03/15 21:11:57  collin
-	optimizations for IP
+	Revision 1.44  2003/03/17 01:05:22  collin
+	*** empty log message ***
 	
-	Revision 1.39.8.1  2003/03/12 21:26:48  niels
-	skip cycle support for plaid
+	Revision 1.43  2003/03/07 01:26:06  collin
+	*** empty log message ***
+	
+	Revision 1.42  2003/02/19 22:33:17  niels
+	add skip cycle DCL
+	
+	Revision 1.41  2003/02/18 00:14:01  collin
+	*** empty log message ***
+	
+	Revision 1.40  2003/02/17 21:47:52  collin
+	*** empty log message ***
 	
 	Revision 1.39  2002/12/05 19:08:37  niels
 	remove trailing commas from enums in IOFireWireFamilyCommon.h
@@ -170,6 +182,7 @@ in the kernel and in user space
 
 // e00087d0
 #define kIOFWMessageServiceIsRequestingClose 			(UInt32)iokit_fw_err(2000)
+#define kIOFWMessagePowerStateChanged 					(UInt32)iokit_fw_err(2001)
 
 // =================================================================
 // Pseudo address space response codes
@@ -790,7 +803,7 @@ enum
 
 enum IOFWWriteFlags
 {
-	kIOFWWriteFlagsNone				= 0x00000000,
+	kIOFWWriteFlagsNone				= 0x0000000,
 	kIOFWWriteFlagsDeferredNotify 	= 0x00000001
 };
 

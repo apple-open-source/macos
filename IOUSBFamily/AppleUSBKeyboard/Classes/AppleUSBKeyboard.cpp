@@ -3,18 +3,21 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.  
- * Please see the License for the specific language governing rights and 
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
  * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
@@ -78,6 +81,8 @@ AppleUSBKeyboard::start(IOService * provider)
     UInt16			productID;
     OSNumber 			*xml_swap_CTRL_CAPSLOCK;
     IOWorkLoop			*wl;
+    OSNumber *			locationIDProperty;
+    UInt32			locationID = 0;
     
     USBLog(3, "%s[%p]::start - beginning - retain count = %d", getName(), this, getRetainCount());
     IncrementOutstandingIO();			// make sure we don't close this before we are done starting
@@ -104,7 +109,7 @@ AppleUSBKeyboard::start(IOService * provider)
 
     // Fix hardware bug in iMac USB keyboard mapping for ISO keyboards
     // This should really be done in personalities.
-    if ( _device->GetVendorID() == kIOUSBVendorIDAppleComputer)
+    if (_device->GetVendorID() == kIOUSBVendorIDAppleComputer)
     {
         productID = _device->GetProductID();
         if ((productID == kprodUSBAndyISOKbd) || (productID == kprodUSBCosmoISOKbd) || ( productID == kprodQ6ISOKbd) || (productID == kprodUSBProF16ISOKbd) ) 
@@ -202,7 +207,13 @@ AppleUSBKeyboard::start(IOService * provider)
             break;
         }
 
-        USBError(1, "%s[%p]::start USB Generic Keyboard @ %d (0x%x)", getName(), this, _interface->GetDevice()->GetAddress(), strtol(_interface->GetDevice()->getLocation(), (char **)NULL, 16));
+        locationIDProperty = (OSNumber *) provider->getProperty(kUSBDevicePropertyLocationID);
+        if ( locationIDProperty )
+        {
+            locationID = locationIDProperty->unsigned32BitValue();
+        }
+
+        USBLog(1, "%s[%p]::start USB Generic Keyboard @ %d (0x%x)", getName(), this, _device->GetAddress(), locationID);
 
 	// OK- so this is not totally kosher in the IOKit world. You are supposed to call super::start near the BEGINNING
 	// of your own start method. However, the IOHIKeyboard::start method invokes registerService, which we don't want to

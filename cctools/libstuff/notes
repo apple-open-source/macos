@@ -5,6 +5,69 @@
 TODO:
 - Deal with LC_PREPAGE and unknown load commands that don't need to be swapped.
 
+Changes for the 5.12 release (the cctools-466 release):
+- Fixed the incorrect casts on the comparison of the nlist struct's n_strx field
+  where the value being compared to was casted to a long.  The correct fix was
+  to cast n_strx to an unsigned long.
+- Added the missing checking of the dylib_module struct in ofile.c so that it
+  would not return an ofile struct with a bad dylib_module.  Also fixed a number
+  of places the routine Mach_O_error() was called to print an error message but
+  the code failed to return a failure status.  Radar bug #3208399.
+
+Changes for the 5.12 release (the cctools-464 release):
+- Made changes to build cleanly with gcc3.3
+  - Removed -Wno-precomp from the Makefile
+  - Fixed warnings for "comparison between signed and unsigned" in writeout.c,
+    symbol_list.c, ofile_get_word.c, round.c, ofile.c, and best_arch.c .
+
+Changes for the 5.12 release (the cctools-462 release):
+- Added support for MH_DYLIB_STUB libraries.  Radar bug #3193744.
+  - Did NOT change writeout() in writeout.c to handle the timestamp in 
+    MH_DYLIB_STUB filetypes like MH_DYLIB filetypes as the timestamp should
+    not be changed or else this would mess up building prebound.
+  - Changed the routines in ofile.c to handle MH_DYLIB_STUB filetypes like
+    MH_DYLIB filetypes.
+  - Changed check_object() in checkout.c to handle MH_DYLIB_STUB filetypes like
+    MH_DYLIB filetypes.
+
+Changes for the 5.12 release (the cctools-457 release):
+- Changed ofile_map() added ofile_map_from_memory() which is everything from
+  the original ofile_map() except mapping the file.  This is needed so the
+  NSCreateObjectFileImageFromMemory() api can be implemented.  Radar bug
+  #3131622.
+
+Changes for the 5.12 release (the cctools-455 release):
+- Changed the code in dylib_roots.c to remove the check that the actual path of
+  a binary equals the install name of the dynamic library.  Radar bug #3147668.
+
+Changes for the 5.12 release (the cctools-450 release):
+- Changed get_segalign_from_flag() in arch.c to have 4K returned for i386 also.
+  Radar bug #3120579.
+
+Changes for the 5.12 release (the cctools-449 release):
+- Added the arch flag i686 to be the same as pentpro in arch.c. Radar bug
+  #3111977.
+
+Changes for the 5.11 release (the cctools-444 release):
+- Added the file symbol_list.c which contains the code from strip.c for the
+  symbol lists.  Now also used by ld(1)'s -exported_symbols_list and
+  -unexported_symbols_list options.  Radar bug #3083844.
+- Picked up fix to LocForDylib() in SymLoc.c that was crashing when the
+  DylibProjects directory was empty.  Radar bug #3079374.
+
+Changes for the 5.11 release (the cctools-440 release):
+- Fixed the warnings about extra tokens at end of #endif directive in ofile.c
+  (Radar bug #3072042).
+
+Changes for the 5.11 release (the cctools-439 release):
+- Made the needed changes to arch.c, get_arch_from_host.c, ofile.c, reloc.c,
+  swap_headers.c & best_arch.c for VEO support.  Radar bug #3068161.
+
+Changes for the 5.11 release (the cctools-438 release):
+- Added the following entry to the table in macosx_deployment_target.c :
+    { "10.3", MACOSX_DEPLOYMENT_TARGET_10_3 },
+  Radar bug #3049974.
+
 Changes for the 5.10 release (the cctools-416 release):
 - Changed writeout() in writeout.c to not update the LC_ID_DYLIB timestamp if
   the new dont_update_LC_ID_DYLIB_timestamp is TRUE.  Radar bug #2914003.
@@ -23,7 +86,7 @@ Changes for the 5.10 release (the cctools-412 release):
   symLocForDylib() or dstLocForDylib().  Radar bug #2882324.
 
 Changes for the 5.10 release (the cctools-411 release):
-- Added the header file macosx_deployment_target.c to libstuff so that both the
+- Added the file macosx_deployment_target.c to libstuff so that both the
   ld(1) code and the seg_addr_table(1) code can use the same code. Radar bug
   #2848945.
 

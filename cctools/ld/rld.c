@@ -25,7 +25,7 @@
 #ifdef SHLIB
 #include "shlib.h"
 #undef moninitrld
-#endif SHLIB
+#endif /* SHLIB */
 #ifdef RLD
 /*
  * This file contains the functions of the RLD package.
@@ -613,7 +613,7 @@ long obj_size)
 		 * Write the entire output file.
 		 */
 		if(write(fd, output_addr, output_size + symbol_size) !=
-		   output_size + symbol_size){
+		   (int)(output_size + symbol_size)){
 		    system_error("can't write output file: %s",output_filename);
 #ifdef KLD
 		    internal_kld_unload(TRUE);
@@ -825,7 +825,7 @@ const char *base_filename,
 char *base_addr,
 long base_size)
 {
-    long size;
+    unsigned long size;
     char *addr;
     int fd;
     struct stat stat_buf;
@@ -977,7 +977,7 @@ long base_size)
 #endif /* __LITTLE_ENDIAN__ */
     
 		if(sizeof(struct fat_header) + fat_header->nfat_arch *
-		sizeof(struct fat_arch) > size){
+		   sizeof(struct fat_arch) > (unsigned long)size){
 		    error("fat file: %s truncated or malformed (fat_arch "
 			"structs would extend past the end of the file)",
 			base_name);
@@ -1639,7 +1639,7 @@ const char *output_filename)
 	     * Write the entire output file.
 	     */
 	    if(write(fd, output_addr, output_size + symbol_size) !=
-	       output_size + symbol_size){
+	       (int)(output_size + symbol_size)){
 		system_error("can't write output file: %s",output_filename);
 		(void)unlink(output_filename);
 		return_value = 0;
@@ -1698,7 +1698,7 @@ void)
 	    for(j = 0; j < rld_loaded_state[i].nobject_filenames; j++)
 		print("\t\t%s\n", rld_loaded_state[i].object_filenames[j]);
 	}
-#endif RLD_TEST
+#endif /* RLD_TEST */
 }
 #endif /* !(defined(KLD) && defined(__STATIC__)) */
 
@@ -2164,4 +2164,4 @@ _NSGetMachExecuteHeader(void)
 }
 #endif /* defined(KLD) && defined(__STATIC__) */
 
-#endif RLD
+#endif /* RLD */

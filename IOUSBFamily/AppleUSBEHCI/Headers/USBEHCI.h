@@ -1,0 +1,557 @@
+/*
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+#ifndef _USBEHCI_H_
+#define _USBEHCI_H_
+
+#ifndef	__IOKIT_IOTYPES_H
+#include <IOKit/IOTypes.h>
+#endif
+
+#ifndef _IOKIT_IOUSBCOMMAND_H
+#include <IOKit/usb/IOUSBCommand.h>
+#endif
+
+typedef	char *Ptr;
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// EHCI register file.
+//
+
+enum{a=1};
+
+enum
+{
+        kEHCIBit0					= (1 << 0),
+        kEHCIBit1					= (1 << 1),
+        kEHCIBit2					= (1 << 2),
+        kEHCIBit3					= (1 << 3),
+        kEHCIBit4					= (1 << 4),
+        kEHCIBit5					= (1 << 5),
+        kEHCIBit6					= (1 << 6),
+        kEHCIBit7					= (1 << 7),
+        kEHCIBit8					= (1 << 8),
+        kEHCIBit9					= (1 << 9),
+        kEHCIBit10					= (1 << 10),
+        kEHCIBit11					= (1 << 11),
+        kEHCIBit12					= (1 << 12),
+        kEHCIBit13					= (1 << 13),
+        kEHCIBit14					= (1 << 14),
+        kEHCIBit15					= (1 << 15),
+        kEHCIBit16					= (1 << 16),
+        kEHCIBit17					= (1 << 17),
+        kEHCIBit18					= (1 << 18),
+        kEHCIBit19					= (1 << 19),
+        kEHCIBit20					= (1 << 20),
+        kEHCIBit21					= (1 << 21),
+        kEHCIBit22					= (1 << 22),
+        kEHCIBit23					= (1 << 23),
+        kEHCIBit24					= (1 << 24),
+        kEHCIBit25					= (1 << 25),
+        kEHCIBit26					= (1 << 26),
+        kEHCIBit27					= (1 << 27),
+        kEHCIBit28					= (1 << 28),
+        kEHCIBit29					= (1 << 29),
+        kEHCIBit30					= (1 << 30),
+        kEHCIBit31					= (1 << 31)
+};
+
+#define EHCIBitRange(start, end)				\
+(								\
+        ((((UInt32) 0xFFFFFFFF) << (31 - (end))) >>		\
+         ((31 - (end)) + (start))) <<				\
+        (start)							\
+)
+
+#define EHCIBitRangePhase(start, end)				\
+        (start)
+
+enum
+{
+    kEHCIPageSize			= 4096,
+    kEHCIPagesPerTD			= 5
+};
+#define kEHCIPageOffsetMask	( kEHCIPageSize - 1 )		// mask off just the offset bits (low 12)
+#define kEHCIPageMask 		(~(kEHCIPageOffsetMask))	// mask off just the page number (high 20)
+
+enum{
+	kEHCIMaxPoll 			= 256,
+	kEHCIMaxPeriodicBandwidth 	= 54000
+	};
+enum{
+	kEHCIPeriodicListEntries 	= 1024,
+	kEHCIPeriodicFrameListsize 	= 4096
+	};
+
+
+// This belongs in USB.h
+enum {
+    kUSBMaxHSIsocFrameReqCount = (3*1024) // max size (bytes) of any one Isoc frame
+};
+
+
+enum
+{
+	kEHCIPortSC_Connect		= kEHCIBit0,
+	kEHCIPortSC_ConnectChange	= kEHCIBit1,
+	kEHCIPortSC_Enabled		= kEHCIBit2,
+	kEHCIPortSC_EnableChange	= kEHCIBit3,
+	kEHCIPortSC_OverCurrent		= kEHCIBit4,
+	kEHCIPortSC_OCChange		= kEHCIBit5,
+	kEHCIPortSC_Resume		= kEHCIBit6,
+	kEHCIPortSC_Suspend		= kEHCIBit7,
+	kEHCIPortSC_Reset		= kEHCIBit8,
+	kEHCIPortSC_LineSt		= EHCIBitRange (10, 11),
+	kEHCIPortSC_LineStPhase		= EHCIBitRangePhase (10, 11),
+	kEHCIPortSC_Power		= kEHCIBit12,
+	kEHCIPortSC_Owner		= kEHCIBit13,
+	kEHCIPortSC_TestControl		= EHCIBitRange(16, 19),
+	kEHCIPortSC_TestControlPhase	= EHCIBitRangePhase(16, 19),
+	kEHCIPortSC_WKCNNT_E		= kEHCIBit20,
+	kEHCIPortSC_WKDSCNNT_E		= kEHCIBit21,
+
+	
+	kEHCILine_Low			= 1
+};
+
+
+enum
+{
+	kEHCINumPortsMask	= EHCIBitRange (0, 3),
+	kEHCIPPCMask 		= kEHCIBit4,	
+
+	kx = 0
+};
+
+enum{
+	kEHCITermFlag = 1
+	};
+
+
+enum{
+	kEHCITyp_iTD 				= 0,
+	kEHCITyp_QH 				= 1,
+	kEHCITyp_siTD 				= 2,
+	kEHCIEDNextED_Typ			= EHCIBitRange (1,  2),
+	kEHCIEDNextED_TypPhase		= EHCIBitRangePhase (1,  2),
+	kEHCIEDTDPtrMask			= EHCIBitRange (5,  31)
+
+	};
+enum
+{
+	// Endpoint Characteristics - see EHCI spec table 3-19
+	kEHCIEDFlags_FA			= EHCIBitRange (0,  6),
+	kEHCIEDFlags_FAPhase		= EHCIBitRangePhase (0, 6),
+	kEHCIEDFlags_EN			= EHCIBitRange (8, 11),
+	kEHCIEDFlags_ENPhase		= EHCIBitRangePhase (8, 11),
+	kEHCIEDFlags_S			= EHCIBitRange (12, 13),
+	kEHCIEDFlags_SPhase		= EHCIBitRangePhase (12, 13),
+	kEHCIEDFlags_MPS		= EHCIBitRange (16, 26),
+	kEHCIEDFlags_MPSPhase		= EHCIBitRangePhase (16, 26),
+
+	kEHCIEDFlags_C			= EHCIBitRange (27, 27),
+	kEHCIEDFlags_CPhase		= EHCIBitRangePhase (27, 27),
+	kEHCIEDFlags_H			= EHCIBitRange (15, 15),
+	kEHCIEDFlags_HPhase		= EHCIBitRangePhase (15, 15),
+	kEHCIEDFlags_DTC		= EHCIBitRange (14, 14),
+	kEHCIEDFlags_DTCPhase		= EHCIBitRangePhase (14, 14),
+
+	// Endpoint capabilities - see EHCI spec table 3-20 
+	kEHCIEDSplitFlags_Mult		= EHCIBitRange (30, 31),
+	kEHCIEDSplitFlags_MultPhase	= EHCIBitRangePhase (30, 31),
+	kEHCIEDSplitFlags_Port		= EHCIBitRange (23, 29),
+	kEHCIEDSplitFlags_PortPhase	= EHCIBitRangePhase (23, 29),
+	kEHCIEDSplitFlags_HubAddr	= EHCIBitRange (16, 22),
+	kEHCIEDSplitFlags_HubAddrPhase	= EHCIBitRangePhase (16, 22),
+	kEHCIEDSplitFlags_CMask		= EHCIBitRange (8, 15),
+	kEHCIEDSplitFlags_CMaskPhase	= EHCIBitRangePhase (8, 15),
+	kEHCIEDSplitFlags_SMask		= EHCIBitRange (0, 7),
+	kEHCIEDSplitFlags_SMaskPhase	= EHCIBitRangePhase (0, 7),
+
+	kUniqueNumNoDirMask		= kEHCIEDFlags_EN | kEHCIEDFlags_FA,
+
+
+	kEHCIEDDirectionTD			= 2,
+//	kEHCIEDDirectionOut			= 1,
+//	kEHCIEDDirectionIn			= 2,
+
+//	kEHCIGTDPIDOut				= 0,
+//	kEHCIGTDPIDIn				= 1,
+//	kEHCIGTDPIDSetup			= 2,
+
+	kEHCIEDFormatGeneralTD		= 0,
+	kEHCIEDFormatIsochronousTD	= 1
+	
+	};
+
+enum
+{
+	kEHCITDFlags_Status		= EHCIBitRange (0, 7),
+	kEHCITDFlags_StatusPhase	= EHCIBitRangePhase (0, 7),
+	kEHCITDFlags_PID		= EHCIBitRange (8, 9),
+	kEHCITDFlags_PIDPhase		= EHCIBitRangePhase (8, 9),
+	kEHCITDFlags_Cerr		= EHCIBitRange (10, 11),
+	kEHCITDFlags_CerrPhase		= EHCIBitRangePhase (10, 11),
+	kEHCITDFlags_C_Page		= EHCIBitRange (12, 14),
+	kEHCITDFlags_C_PagePhase	= EHCIBitRangePhase (12, 14),
+	kEHCITDFlags_IOC		= EHCIBitRange (15, 15),
+	kEHCITDFlags_IOCPhase		= EHCIBitRangePhase (15, 15),
+	kEHCITDFlags_Bytes		= EHCIBitRange (16, 30),
+	kEHCITDFlags_BytesPhase		= EHCIBitRangePhase (16, 30),
+	kEHCITDFlags_DT			= EHCIBitRange (31, 31),
+	kEHCITDFlags_DTPhase		= EHCIBitRangePhase (31, 31),
+	
+	kEHCITDioc			= kEHCIBit15,
+
+    /* don't confuse these with Isoc errors, these are EHCI_TD errors */
+	kEHCITDStatus_Active		= kEHCIBit7,
+	kEHCITDStatus_Halted		= kEHCIBit6,
+	kEHCITDStatus_BuffErr		= kEHCIBit5,
+	kEHCITDStatus_Babble		= kEHCIBit4,
+	kEHCITDStatus_XactErr		= kEHCIBit3,
+	kEHCITDStatus_MissedUF		= kEHCIBit2,
+	kEHCITDStatus_SplitXState	= kEHCIBit1,
+	kEHCITDStatus_PingState		= kEHCIBit0,
+
+    /* Isoc fields in the transaction fields  */
+    
+	kEHCI_ITDTr_Offset		= EHCIBitRange (0, 11),
+	kEHCI_ITDTr_OffsetPhase		= EHCIBitRangePhase (0, 11),
+	kEHCI_ITDTr_Page		= EHCIBitRange (12, 14),
+	kEHCI_ITDTr_PagePhase		= EHCIBitRangePhase (12, 14),
+	kEHCI_ITDTr_IOC			= kEHCIBit15,
+	kEHCI_ITDTr_Len			= EHCIBitRange (16, 27),
+	kEHCI_ITDTr_LenPhase		= EHCIBitRangePhase (16, 27),
+    /* Isoc status bits are different. */
+	kEHCI_ITDStatus_Active		= kEHCIBit31,
+	kEHCI_ITDStatus_BuffErr		= kEHCIBit30,
+	kEHCI_ITDStatus_Babble		= kEHCIBit29,
+	kEHCI_ITDStatus_XactErr		= kEHCIBit28,
+
+    /* Isoc in the buffer fields */
+	kEHCI_ITDBuf_Ptr		= EHCIBitRange (12, 31),
+	kEHCI_ITDBuf_PtrPhase		= EHCIBitRangePhase (12, 31),
+	kEHCI_ITDBuf_FnAddr		= EHCIBitRange (0, 6),
+	kEHCI_ITDBuf_FnAddrPhase	= EHCIBitRangePhase (0, 6),
+	kEHCI_ITDBuf_R			= kEHCIBit8,
+	kEHCI_ITDBuf_EP			= EHCIBitRange (8, 11),
+	kEHCI_ITDBuf_EPPhase		= EHCIBitRangePhase (8, 11),
+	kEHCI_ITDBuf_IO			= kEHCIBit11,
+	kEHCI_ITDBuf_MPS		= EHCIBitRange (0, 10),
+	kEHCI_ITDBuf_MPSPhase		= EHCIBitRangePhase (0, 10),
+	kEHCI_ITDBuf_Mult		= EHCIBitRange (0, 1),
+	kEHCI_ITDBuf_MultPhase		= EHCIBitRangePhase (0, 1),
+
+    // split Isoc section (Figure 3-5)
+	// route flags
+	kEHCIsiTDRouteDirection		= EHCIBitRange(31, 31),
+	kEHCIsiTDRouteDirectionPhase	= EHCIBitRangePhase(31, 31),
+	kEHCIsiTDRoutePortNumber	= EHCIBitRange(24, 30),
+	kEHCIsiTDRoutePortNumberPhase	= EHCIBitRangePhase(24, 30),
+	// bit 23 is reserved
+	kEHCIsiTDRouteHubAddr		= EHCIBitRange(16, 22),
+	kEHCIsiTDRouteHubAddrPhase	= EHCIBitRangePhase(16, 22),
+	// bits 12-15 are reserved
+	kEHCIsiTDRouteEndpoint		= EHCIBitRange(8, 11),
+	kEHCIsiTDRouteEndpointPhase	= EHCIBitRangePhase(8, 11),
+	// bit 7 is reserved
+	kEHCIsiTDRouteDeviceAddr	= EHCIBitRange(0, 6),
+	kEHCIsiTDRouteDeviceAddrPhase	= EHCIBitRangePhase(0, 6),
+	
+	// time flags
+	kEHCIsiTDTimeCMask		= EHCIBitRange(8, 15),
+	kEHCIsiTDTimeCMaskPhase		= EHCIBitRangePhase(8, 15),
+	kEHCIsiTDTimeSMask		= EHCIBitRange(0, 7),
+	kEHCIsiTDTimeSMaskPhase		= EHCIBitRangePhase(0, 7),
+	
+	// stat flags
+	kEHCIsiTDStatIOC		= EHCIBitRange(31, 31),
+	kEHCIsiTDStatIOCPhase		= EHCIBitRangePhase(31, 31),
+	kEHCIsiTDStatPageSelect		= EHCIBitRange(30, 30),
+	kEHCIsiTDStatPageSelectPhase	= EHCIBitRangePhase(30, 30),
+	// bits 26-29 are reserved
+	kEHCIsiTDStatLength		= EHCIBitRange(16, 25),
+	kEHCIsiTDStatLengthPhase	= EHCIBitRangePhase(16, 25),
+	kEHCIsiTDStatCSplitProg		= EHCIBitRange(8, 15),
+	kEHCIsiTDStatCSplitProgPhase	= EHCIBitRangePhase(8, 15),
+	kEHCIsiTDStatStatus		= EHCIBitRange(0, 7),
+	kEHCIsiTDStatStatusActive	= EHCIBitRange(7, 7),
+	kEHCIsiTDStatStatusERR		= EHCIBitRange(6, 6),	// ERR from transaction translator
+	kEHCIsiTDStatStatusDBE		= EHCIBitRange(5, 5),	// data buffer err (over/underrun)
+	kEHCIsiTDStatStatusBabble	= EHCIBitRange(4, 4),	// babble detected
+	kEHCIsiTDStatStatusXActErr	= EHCIBitRange(3, 3),	// invalid response (IN only)
+	kEHCIsiTDStatStatusMMF		= EHCIBitRange(2, 2),	// missed micro-frame
+	kEHCIsiTDStatStatusPhase	= EHCIBitRangePhase(0, 7),
+	
+	// buffer pointer 1 extra bits
+	kEHCIsiTDBuffPtr1TP		= EHCIBitRange(3, 4),
+	kEHCIsiTDBuffPtr1TPPhase	= EHCIBitRangePhase(3, 4)
+	
+};
+
+enum {
+
+// These are the OHCI codes to map EHCI status to
+	kOHCIITDConditionCRC					= 1,
+	kOHCIITDConditionBitStuffing			= 2,
+	kOHCIITDConditionDataToggleMismatch		= 3,
+	kOHCIITDConditionStall					= 4,
+	kOHCIITDConditionDeviceNotResponding	= 5,
+	kOHCIITDConditionPIDCheckFailure		= 6,
+	kOHCIITDConditionUnExpectedPID			= 7,
+	kOHCIITDConditionDataOverrun			= 8,
+	kOHCIITDConditionDataUnderrun			= 9,
+	kOHCIITDConditionBufferOverrun			= 12,
+	kOHCIITDConditionBufferUnderrun			= 13
+
+};
+
+typedef  UInt8		EHCIEDFormat;			// really only need 1 bit
+
+struct EHCICapRegistersStruct
+{
+
+
+//	volatile UInt32				CapVer;
+	// This is documented as several smaller regs, but that doesn't work.
+	volatile UInt8				CapLength;
+	volatile UInt8				Reserved;
+	volatile UInt16				HCIVersion;
+
+	volatile UInt32				HCSParams;
+	volatile UInt32				HCCParams;
+	volatile UInt8				HCSPPortroute[15];
+};
+
+typedef struct EHCICapRegistersStruct
+								EHCICapRegisters,
+								*EHCICapRegistersPtr;
+
+typedef struct EHCIRegistersStruct
+								EHCIRegisters,
+								*EHCIRegistersPtr;
+typedef struct EHCIRegistersStruct
+                    EHCIRegisters,
+                    *EHCIRegistersPtr;
+
+typedef struct EHCIRegistersStruct *EHCIRegistersPtr;
+
+typedef struct EHCIQueueHeadShared
+                    EHCIQueueHeadShared,
+                    *EHCIQueueHeadSharedPtr;
+
+typedef struct EHCIGeneralTransferDescriptorShared
+		    EHCIGeneralTransferDescriptorShared,
+		    *EHCIGeneralTransferDescriptorSharedPtr;
+
+typedef struct EHCIIsochTransferDescriptorShared
+                    EHCIIsochTransferDescriptorShared,
+                    *EHCIIsochTransferDescriptorSharedPtr;
+		    
+typedef struct EHCISplitIsochTransferDescriptorShared
+		    EHCISplitIsochTransferDescriptorShared,
+		    *EHCISplitIsochTransferDescriptorSharedPtr;
+
+struct EHCIRegistersStruct
+{
+	volatile UInt32				USBCMD;
+	volatile UInt32				USBSTS;
+	volatile UInt32				USBIntr;
+	volatile UInt32				FRIndex;
+	volatile UInt32				CTRLDSSegment;
+	volatile UInt32				PeriodicListBase;
+	volatile UInt32				AsyncListAddr;
+	volatile UInt32				Reserved[9];
+	volatile UInt32				ConfigFlag;
+	volatile UInt32				PortSC[1];
+};
+
+// This is the "shared" data area between the controller and the UIM. It is 48 bytes long, but since it must be on a 32 byte
+// boundary, and since we allocate them back to back, we pad to 64 bytes
+
+struct EHCIQueueHeadShared
+{
+	volatile IOPhysicalAddress				nextQH;				// 0x00 Pointer to next ED (physical)
+	volatile UInt32						flags;				// 0x04 
+	volatile UInt32						splitFlags;			// 0x08 Routing for split transactions
+	volatile IOPhysicalAddress				CurrqTDPtr;			// 0x0c pointer to last TD (physical address)
+	volatile IOPhysicalAddress				NextqTDPtr;			// 0x10 pointer to first TD (physical)
+	volatile IOPhysicalAddress				AltqTDPtr;			// 0x14 pointer to first TD (physical)
+	volatile UInt32						qTDFlags;			// 0x18
+	volatile IOPhysicalAddress				BuffPtr[5];			// 0x1C - 2F	
+	UInt32							padding[4];			// 0x30-0x3C
+};
+
+
+struct EHCIGeneralTransferDescriptorShared
+{
+	volatile IOPhysicalAddress			nextTD;				// 0x00 Pointer to next transfer descriptor (physical)
+	volatile IOPhysicalAddress			altTD;				// 0x04 Pointer to next transfer descriptor on short packet(physical)
+	volatile UInt32					flags;				// 0x08 Data controlling transfer.
+	volatile IOPhysicalAddress			BuffPtr[5];			// 0x0c-0x1f  buffer pointer (physical)
+};
+
+
+struct EHCIIsochTransferDescriptorShared
+{
+	volatile IOPhysicalAddress				nextiTD;			// 0x00 Pointer to next transfer descriptor (physical)
+	UInt32							Transaction0;		// 0x04 status, len, offset etc.
+	UInt32							Transaction1;		// 0x08 status, len, offset etc.
+	UInt32							Transaction2;		// 0x0c status, len, offset etc.
+	UInt32							Transaction3;		// 0x10 status, len, offset etc.
+	UInt32							Transaction4;		// 0x14 status, len, offset etc.
+	UInt32							Transaction5;		// 0x18 status, len, offset etc.
+	UInt32							Transaction6;		// 0x1c status, len, offset etc.
+	UInt32							Transaction7;		// 0x20 status, len, offset etc.
+	IOPhysicalAddress					bufferPage0;		// 0x24 Buffer Page 0 (physical)
+	IOPhysicalAddress					bufferPage1;		// 0x28 Buffer Page 1 (physical)
+	IOPhysicalAddress					bufferPage2;		// 0x2c Buffer Page 2 (physical)
+	IOPhysicalAddress					bufferPage3;		// 0x30 Buffer Page 3 (physical)
+	IOPhysicalAddress					bufferPage4;		// 0x34 Buffer Page 4 (physical)
+	IOPhysicalAddress					bufferPage5;		// 0x38 Buffer Page 5 (physical)
+	IOPhysicalAddress					bufferPage6;		// 0x3c Buffer Page 6 (physical)
+};											// 0x40 length of structure
+
+
+struct EHCISplitIsochTransferDescriptorShared
+{
+    volatile IOPhysicalAddress				nextSITD;		// 0x00 Physical Ptr to next descriptor (QH, sitd, itd, or fstn)
+    volatile UInt32					routeFlags;		// 0x04 How to route the packet
+    volatile UInt32					timeFlags;		// 0x08 which microframe to go on
+    volatile UInt32					statFlags;		// 0x0c status information
+    volatile UInt32					buffPtr0;		// 0x10 page 0 pointer and offset
+    volatile UInt32					buffPtr1;		// 0x14 page 1 pointer and other flags
+    volatile IOPhysicalAddress				backPtr;		// 0x18 back pointer
+    UInt32						padding;		// 0x1c make sure we are 32 byte aligned
+};
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+* * * * * *
+ * Configuration Registers
+ *
+ */
+enum 
+{
+	kConfigStart			= 0x00,
+	cwVendorID			= 0x00,			/* 0x1000									*/
+	cwDeviceID			= 0x02,			/* 0x0003									*/
+	cwCommand			= 0x04,
+	cwStatus			= 0x06,
+	clUSBBASE			= 0x10,
+	kConfigEnd			= 0x1000
+};
+
+/*
+ * 0x04 cwCommand					Command Register (read/write)
+ */
+enum 
+{
+	cwCommandSERREnable		= kEHCIBit8,
+	cwCommandEnableParityError	= kEHCIBit6,
+	cwCommandEnableBusMaster	= kEHCIBit2,		/* Set this on initialization			*/
+	cwCommandEnableMemorySpace	= kEHCIBit1,		/* Respond at Base Address One if set	*/
+	cwCommandEnableIOSpace		= kEHCIBit0		/* Respond at Base Address Zero if set	*/
+};
+
+// Config space defs.
+enum
+{
+	kEHCIConfigRegBaseAddressRegisterNumber	= 0x10
+};
+
+enum
+{
+	kEHCIPortRoutingBit = kEHCIBit0
+};
+
+enum
+{ 	// STS bits, not int status
+    kEHCISTSAsyncScheduleStatus = kEHCIBit15,
+    kEHCISTSPeriodicScheduleStatus = kEHCIBit14
+};
+
+
+
+enum
+{    // Interrupt enables and status bits in USBSTS/USBIntr
+
+    kEHCIHCHaltedBit = kEHCIBit12,
+    kEHCIAAEIntBit = kEHCIBit5,
+    kEHCIHostErrorIntBit = kEHCIBit4,
+    kEHCIFrListRolloverIntBit = kEHCIBit3,
+    kEHCIPortChangeIntBit = kEHCIBit2,
+    kEHCIErrorIntBit = kEHCIBit1,
+    kEHCICompleteIntBit = kEHCIBit0,
+    kEHCIIntBits = (kEHCIAAEIntBit | kEHCIHostErrorIntBit | kEHCIFrListRolloverIntBit | 
+				    kEHCIPortChangeIntBit | kEHCIErrorIntBit | kEHCICompleteIntBit)
+};
+
+enum
+{   // CMD reg fields
+    kEHCICMDRunStop = kEHCIBit0,
+    kEHCICMDHCReset = kEHCIBit1,
+
+    kEHCICMDFrameListSizeMask = EHCIBitRange(2,3),
+    kEHCICMDFrameListSizeOffset = (1<<2),
+    
+    kEHCICMDPeriodicEnable = kEHCIBit4,
+    kEHCICMDAsyncEnable = kEHCIBit5,
+    kEHCICMDAsyncDoorbell = kEHCIBit6,
+
+    kEHCICMDAsyncParkModeCountMask = EHCIBitRange(8,9),
+    kEHCICMDAsyncParkModeCountMaskPhase = EHCIBitRangePhase(8,9),
+    kEHCICMDAsyncParkModeEnable = kEHCIBit11,
+
+    kEHCICMDIntThresholdMask = EHCIBitRange(16,23),
+    kEHCICMDIntThresholdOffset = EHCIBitRangePhase(16,23)
+
+};
+
+enum 
+{
+    kEHCIBulkTransferOutType		= 1,
+    kEHCIBulkTransferInType		= 2,
+    kEHCIControlSetupType		= 3,
+    kEHCIControlDataType		= 4,
+    kEHCIControlStatusType 		= 5,
+    kEHCIInterruptInType		= 6,
+    kEHCIInterruptOutType		= 7,
+//	kEHCIOptiLSBug			= 8,
+    kEHCIIsochronousType		= 9,
+    kEHCITDasBufferType			= 10
+};
+
+// bits in the FRIndex register
+enum
+{
+    kEHCIFRIndexMillisecondMask		= EHCIBitRange (3, 13),
+    kEHCIFrameNumberIncrement		= kEHCIBit11,
+    // please note: if the Frame List Size in the USBCMD register changes, this needs to change as well
+    kEHCIFRIndexRolloverBit		= kEHCIBit13,
+    kEHCIMicroFrameNumberIncrement	= kEHCIBit14		// ok, not really in the register, but related to the above
+};
+
+#pragma mark ---end----
+#endif

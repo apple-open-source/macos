@@ -324,7 +324,7 @@ public:
     virtual void setValueChangeHandler(DataValueChangeHandler dataValueChangeHandler, OSObject *target);
     virtual void setValueChangeHandler(ObjectValueChangeHandler objectValueChangeHandler, OSObject *target);
 
-    virtual void IOAudioControl::setValueChangeTarget(OSObject *target);
+    virtual void setValueChangeTarget(OSObject *target);
 
     /*!
      * @function flushValue

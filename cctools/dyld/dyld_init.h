@@ -81,6 +81,8 @@ extern enum bool profile_server;
 extern enum bool prebinding;
 extern enum bool launched;
 extern enum bool executable_prebound;
+extern enum bool all_twolevel_modules_prebound;
+extern enum bool trying_to_use_prebinding_post_launch;
 
 extern char *executables_path;
 extern unsigned long executables_pathlen;

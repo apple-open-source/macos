@@ -35,7 +35,7 @@ unsigned long addr,
 unsigned long *word,
 void *get_word_data /* struct mach_object_file *ofile */ )
 {
-    int i, j;
+    unsigned long i, j;
     struct load_command *lc;
     struct segment_command *sg;
     struct section *s;

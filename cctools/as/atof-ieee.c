@@ -431,7 +431,7 @@ int exponent_bits)
 #ifndef NeXT_MOD
 				if(tmp_bits>LITTLENUM_NUMBER_OF_BITS ||
 				   (lp[n]&mask[tmp_bits])!=mask[tmp_bits])
-#endif NeXT_MOD
+#endif /* NeXT_MOD */
 				{
 					unsigned long int carry;
 

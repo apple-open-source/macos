@@ -2,21 +2,24 @@
  * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -34,6 +37,7 @@
 
 #include "FWDebugging.h"
 #include "IOFireWireSBP2Diagnostics.h"
+#include "IOFWSBP2PseudoAddressSpace.h"
 
 extern const OSSymbol *gUnit_Characteristics_Symbol;
 extern const OSSymbol *gManagement_Agent_Offset_Symbol;
@@ -50,6 +54,8 @@ OSMetaClassDefineReservedUnused(IOFireWireSBP2Login, 5);
 OSMetaClassDefineReservedUnused(IOFireWireSBP2Login, 6);
 OSMetaClassDefineReservedUnused(IOFireWireSBP2Login, 7);
 OSMetaClassDefineReservedUnused(IOFireWireSBP2Login, 8);
+
+#pragma mark -
 
 // initWithLUN
 //
@@ -274,7 +280,6 @@ IOReturn IOFireWireSBP2Login::getUnitInformation( void )
     return status;
 }
 
-/////////////////////////////////////////////////////////////////////
 // allocateResources
 //
 // allocate addressSpaces (ORBs, status registers, response registers)
@@ -290,7 +295,7 @@ IOReturn IOFireWireSBP2Login::allocateResources( void )
 
     if( status == kIOReturnSuccess )
     {
-        fLoginORBAddressSpace = IOFWPseudoAddressSpace::simpleRead( fControl, &fLoginORBAddress, sizeof(FWSBP2LoginORB), &fLoginORB );
+        fLoginORBAddressSpace = IOFWSBP2PseudoAddressSpace::simpleRead( fControl, &fLoginORBAddress, sizeof(FWSBP2LoginORB), &fLoginORB );
     	if ( fLoginORBAddressSpace == NULL )
         	status = kIOReturnNoMemory;
     }
@@ -306,9 +311,9 @@ IOReturn IOFireWireSBP2Login::allocateResources( void )
 
     if( status == kIOReturnSuccess )
     {
-        fLoginResponseAddressSpace = IOFWPseudoAddressSpace::simpleRW( fControl, &fLoginResponseAddress,
-                                                                       sizeof(FWSBP2LoginResponse), 
-																	   &fLoginResponse );
+        fLoginResponseAddressSpace = IOFWSBP2PseudoAddressSpace::simpleRW( 	fControl, &fLoginResponseAddress,
+																			sizeof(FWSBP2LoginResponse), 
+																			&fLoginResponse );
         if ( fLoginResponseAddressSpace == NULL )
             status = kIOReturnNoMemory;
     }
@@ -342,9 +347,11 @@ IOReturn IOFireWireSBP2Login::allocateResources( void )
 
     if( status == kIOReturnSuccess )
     {
-        fStatusBlockAddressSpace = fUnit->createPseudoAddressSpace( &fStatusBlockAddress, sizeof(FWSBP2StatusBlock),
-                                                                    NULL, IOFireWireSBP2Login::statusBlockWriteStatic,
-                                                                    this );
+        fStatusBlockAddressSpace = fUnit->createPseudoAddressSpace(	&fStatusBlockAddress, 
+																	sizeof(FWSBP2StatusBlock),
+																	NULL, 
+																	IOFireWireSBP2Login::statusBlockWriteStatic,
+																	this );
         if ( fStatusBlockAddressSpace == NULL )
             status = kIOReturnNoMemory;
     }
@@ -535,6 +542,12 @@ IOReturn IOFireWireSBP2Login::allocateResources( void )
 			if( fFetchAgentWriteCommand == NULL )
 				status = kIOReturnNoMemory;
 		}
+        
+        if( status == kIOReturnSuccess )
+        {
+            // extra long timeout to support Kodak still camera
+            fFetchAgentWriteCommand->setTimeout( 3000 * 125 );
+        }
 	}
     else
 	{
@@ -553,6 +566,12 @@ IOReturn IOFireWireSBP2Login::allocateResources( void )
 			if( fFetchAgentWriteCommand == NULL )
 				status = kIOReturnNoMemory;
 		}
+        
+        if( status == kIOReturnSuccess )
+        {
+            // extra long timeout to support Kodak still camera
+            fFetchAgentWriteCommand->setTimeout( 3000 * 125 );
+        }
 	}
 	
 	//
@@ -874,6 +893,7 @@ void IOFireWireSBP2Login::free( void )
 	OSObject::free();
 }
 
+#pragma mark -
 /////////////////////////////////////////////////////////////////////
 // accessors
 //
@@ -1159,30 +1179,26 @@ IOReturn IOFireWireSBP2Login::setPassword( void * buf, UInt32 len )
     return status;
 }
 
+// setLoginGeneration
+//
+//
 
-/////////////////////////////////////////////////////////////////////
-
-void IOFireWireSBP2Login::completeLogout( IOReturn state, const void *buf, UInt32 len )
+void IOFireWireSBP2Login::setLoginGeneration( UInt32 generation )
 {
-	FWKLOG( ( "IOFireWireSBP2Login : completeLogout\n" ) );
-
-	fTarget->endIOCriticalSection();
-			
-    if( fLogoutCompletionCallback != NULL )
-    {
-        FWSBP2LogoutCompleteParams		params;
-
-        params.login = this;
-        params.generation = fLoginGeneration;
-
-        params.status = state;
-        params.statusBlock = (FWSBP2StatusBlock*)buf;
-        params.statusBlockLength = len;
-
-        (*fLogoutCompletionCallback)(fLogoutCompletionRefCon, &params);
-    }
+	fUserLoginGeneration = generation;
+	fUserLoginGenerationSet = true;
 }
 
+// clearLoginGeneration
+//
+//
+
+void IOFireWireSBP2Login::clearLoginGeneration( void )
+{
+	fUserLoginGenerationSet = false;	
+}
+	
+#pragma mark -
 /////////////////////////////////////////////////////////////////////
 //
 // login path
@@ -1195,7 +1211,7 @@ void IOFireWireSBP2Login::completeLogout( IOReturn state, const void *buf, UInt3
 IOReturn IOFireWireSBP2Login::submitLogin( void )
 {
     IOReturn status = kIOReturnSuccess;
-	
+		
 	status = fGate->runAction( staticExecuteLogin );
 	
 	return status;
@@ -1218,7 +1234,9 @@ IOReturn IOFireWireSBP2Login::initialExecuteLogin( void )
 	fLoginRetryCount = fLoginRetryMax;
 
 	status = executeLogin();
-	if( status != kIOReturnSuccess && fLoginRetryCount != 0 )
+	if( status != kIOReturnSuccess && 
+		status != kIOFireWireBusReset && 
+		fLoginRetryCount != 0 )
 	{
 		fLoginRetryCount--;
 		startLoginRetryTimer();
@@ -1272,15 +1290,31 @@ IOReturn IOFireWireSBP2Login::executeLogin( void )
     // get local node and generation
     // note: these two are latched affter command gen is set and before submit is called
     // if these are old command will fail
-    fUnit->getNodeIDGeneration(fLoginGeneration, fLoginNodeID, fLocalNodeID);
-	fLoginWriteInProgress = true;
+    fUnit->getNodeIDGeneration(fLoginGeneration, fLoginNodeID, fLocalNodeID);	
+		
+	if( fUserLoginGenerationSet && fUserLoginGeneration != fLoginGeneration )
+	{
+		status = kIOFireWireBusReset;
+	}
 	
-	status = fTarget->beginIOCriticalSection();
+	if( status == kIOReturnSuccess )
+	{
+		fLoginWriteInProgress = true;
+		status = fTarget->beginIOCriticalSection();
+	}
 	
 	if( status == kIOReturnSuccess )
 	{
 		fInCriticalSection = true;
 		status = fLoginWriteCommand->submit();
+		
+		if( status == kIOFireWireBusReset && !fUserLoginGenerationSet )
+		{
+			// only return bus reset error if the user 
+			// requested a login on a partcular bus generation
+			status = kIOReturnError;
+		}
+		
 		if( status != kIOReturnSuccess )
 		{
 			fInCriticalSection = false;
@@ -1420,7 +1454,9 @@ void IOFireWireSBP2Login::completeLogin( IOReturn state, const void *buf, UInt32
 		fTarget->endIOCriticalSection();
 	}
 	
-	if( state != kIOReturnSuccess && fLoginRetryCount != 0 )
+	if( state != kIOReturnSuccess && 
+		state != kIOFireWireBusReset && 
+		fLoginRetryCount != 0 )
 	{
 		fLoginRetryCount--;
 		startLoginRetryTimer();
@@ -1689,6 +1725,7 @@ UInt32 IOFireWireSBP2Login::statusBlockWrite( UInt16 nodeID, IOFWSpeed &speed, F
     return kFWResponseComplete;
 }
 
+#pragma mark -
 /////////////////////////////////////////////////////////////////////
 //
 // reconnect path
@@ -2178,6 +2215,7 @@ void IOFireWireSBP2Login::sendReconnectNotificationWithStatusBlock( UInt32 event
     fTarget->messageClients( event, &params );
 }
 
+#pragma mark -
 /////////////////////////////////////////////////////////////////////
 //
 // logout path
@@ -2323,6 +2361,27 @@ void IOFireWireSBP2Login::logoutTimeout( IOReturn status, IOFireWireBus *bus, IO
      }
 }
 
+void IOFireWireSBP2Login::completeLogout( IOReturn state, const void *buf, UInt32 len )
+{
+	FWKLOG( ( "IOFireWireSBP2Login : completeLogout\n" ) );
+
+	fTarget->endIOCriticalSection();
+			
+    if( fLogoutCompletionCallback != NULL )
+    {
+        FWSBP2LogoutCompleteParams		params;
+
+        params.login = this;
+        params.generation = fLoginGeneration;
+
+        params.status = state;
+        params.statusBlock = (FWSBP2StatusBlock*)buf;
+        params.statusBlockLength = len;
+
+        (*fLogoutCompletionCallback)(fLogoutCompletionRefCon, &params);
+    }
+}
+
 void IOFireWireSBP2Login::clearAllTasksInSet( void )
 {
 	// send reset notification for each orb
@@ -2383,6 +2442,7 @@ void IOFireWireSBP2Login::clearAllTasksInSet( void )
 	fLastORBAddress = FWAddress(0,0);
 }
 
+#pragma mark -
 /////////////////////////////////////////////////////////////////////
 //
 // command block ORB routines
@@ -3039,7 +3099,39 @@ void IOFireWireSBP2Login::sendTimeoutNotification( IOFireWireSBP2ORB * orb )
     }
 }
 
+// setAddressLoForLoginORBAndResponse
+//
+//
 
+void IOFireWireSBP2Login::setAddressLoForLoginORBAndResponse( UInt32 addressLoORB, UInt32 addressLoResponse )
+{
+	IOFWSBP2PseudoAddressSpace * space;
+	UInt32 addressLoORBMasked = addressLoORB & 0xfffffff0;
+	UInt32 addressLoResponseMasked = addressLoResponse & 0xfffffff0;
+	
+	fControl->closeGate();
+	
+	FWKLOG(( "IOFireWireSBP2Login::setAddressLoForLoginORBAndResponse - set ORB addressLo to 0x%08lx, set Response addressLo to 0x%08lx\n", addressLoORBMasked, addressLoResponseMasked ));
+	
+	space = OSDynamicCast( IOFWSBP2PseudoAddressSpace, fLoginORBAddressSpace );
+	if( space != NULL )
+	{
+		fLoginORBAddress.addressLo = addressLoORBMasked;
+		space->setAddressLo( addressLoORBMasked );
+	}
+	
+	space = OSDynamicCast( IOFWSBP2PseudoAddressSpace, fLoginResponseAddressSpace );
+	if( space != NULL )
+	{
+		fLoginResponseAddress.addressLo = addressLoResponseMasked;
+		fLoginORB.loginResponseAddressLo = fLoginResponseAddress.addressLo;
+		space->setAddressLo( addressLoResponseMasked );
+	}
+	
+	fControl->openGate();
+}
+
+#pragma mark -
 //////////////////////////////////////////////////////////////////////////////////////////
 // friend class wrappers
 

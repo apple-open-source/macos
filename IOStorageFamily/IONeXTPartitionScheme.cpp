@@ -65,7 +65,7 @@ OSDefineMetaClassAndStructors(IONeXTPartitionScheme, IOPartitionScheme);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-bool IONeXTPartitionScheme::init(OSDictionary * properties = 0)
+bool IONeXTPartitionScheme::init(OSDictionary * properties)
 {
     //
     // Initialize this object's minimal state.

@@ -1,0 +1,220 @@
+/*
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+
+// public
+#import <IOKit/firewire/IOFireWireController.h>
+
+// protected
+#import <IOKit/firewire/IOFWWorkLoop.h>
+#import <IOKit/firewire/IOFireWireLink.h>
+
+// private
+#import "IOFWQEventSource.h"
+
+// system
+#import <IOKit/IOTimerEventSource.h>
+
+// createTimeoutQ
+//
+//
+
+IOReturn IOFireWireController::createTimeoutQ( void )
+{
+    // Create Timer Event source and queue event source,
+    // do before power management so the PM code can access the workloop
+    fTimer = IOTimerEventSource::timerEventSource( this, clockTick );
+    if(!fTimer)
+	{
+		return false;
+	}
+	
+    fTimeoutQ.fTimer = fTimer;
+	
+	fWorkLoop->addEventSource( fTimer );
+	
+	return kIOReturnSuccess;
+}
+
+// destroyTimeoutQ
+//
+//
+
+void IOFireWireController::destroyTimeoutQ( void )
+{
+	fWorkLoop->removeEventSource(fTimer);
+    fTimer->release();
+}
+
+// headChanged
+//
+//
+
+void IOFireWireController::timeoutQ::headChanged(IOFWCommand *oldHead)
+{
+
+#if 0
+    {
+        IOFWCommand *t = fHead;
+        if(oldHead)
+            IOLog("IOFireWireController::timeoutQ::headChanged(%s:%p)\n",
+                oldHead->getMetaClass()->getClassName(), oldHead);
+        else
+            IOLog("IOFireWireController::timeoutQ::headChanged(0)\n");
+            
+        while(t) {
+            AbsoluteTime d = t->getDeadline();
+            IOLog("%s:%p deadline %lx:%lx\n",
+                t->getMetaClass()->getClassName(), t, d.hi, d.lo);
+            t = t->getNext();
+        }
+    }
+#endif
+    
+	if(!fHead) 
+	{
+        //IOLog("timeoutQ empty\n");
+        fTimer->cancelTimeout();
+    }
+    else 
+	{
+        fTimer->wakeAtTime(fHead->getDeadline());
+        //AbsoluteTime now;
+        //clock_get_uptime(&now);
+        //IOLog("timeoutQ waketime %lx:%lx (now %lx:%lx)\n",
+        //        fHead->getDeadline().hi, fHead->getDeadline().lo, now.hi, now.lo);
+    }
+
+}
+
+// busReset
+//
+//
+
+void IOFireWireController::timeoutQ::busReset()
+{
+
+#if 0
+    {
+        IOFWCommand *t = fHead;
+        if(oldHead)
+            IOLog("IOFireWireController::timeoutQ::headChanged(%s:%p)\n",
+                oldHead->getMetaClass()->getClassName(), oldHead);
+        else
+            IOLog("IOFireWireController::timeoutQ::headChanged(0)\n");
+            
+        while(t) {
+            AbsoluteTime d = t->getDeadline();
+            IOLog("%s:%p deadline %lx:%lx\n",
+                t->getMetaClass()->getClassName(), t, d.hi, d.lo);
+            t = t->getNext();
+        }
+    }
+#endif
+
+    IOFWCommand *cmd;
+    cmd = fHead;
+    while(cmd) 
+	{
+        IOFWCommand *next;
+        next = cmd->getNext();
+        if(cmd->cancelOnReset()) 
+		{
+            cmd->cancel(kIOFireWireBusReset);
+        }
+        cmd = next;
+    }
+	
+}
+
+// clockTick
+//
+//
+
+void IOFireWireController::clockTick(OSObject *obj, IOTimerEventSource *src)
+{
+    IOFireWireController *me = (IOFireWireController *)obj;
+
+    // Check the list of pending commands
+    me->processTimeout(src);
+}
+
+// processTimeout
+//
+//
+
+void IOFireWireController::processTimeout(IOTimerEventSource *src)
+{
+    // complete() might take significant time, enough to cause
+    // a later command to timeout too, so we loop here until there is no timeout.
+    while (fTimeoutQ.fHead) 
+	{
+        AbsoluteTime now, dead;
+        clock_get_uptime(&now);
+
+#if 0
+        IOLog("processTimeout, time is %lx:%lx\n", now.hi, now.lo);
+        {
+            IOFWCommand *t = fTimeoutQ.fHead;
+            while(t) {
+                AbsoluteTime d = t->getDeadline();
+                IOLog("%s:%p deadline %lx:%lx\n",
+                    t->getMetaClass()->getClassName(), t, d.hi, d.lo);
+                t = t->getNext();
+            }
+        }
+#endif
+        dead = fTimeoutQ.fHead->getDeadline();
+        if(CMP_ABSOLUTETIME(&dead, &now) == 1)
+            break;	// Command with earliest deadline is OK.
+
+        // Make sure there isn't a packet waiting.
+        fFWIM->handleInterrupts(1);
+
+        // Which may have changed the queue - see if earliest deadline has changed.
+        if(!fTimeoutQ.fHead)
+            break;
+
+        if(CMP_ABSOLUTETIME(&dead, &fTimeoutQ.fHead->getDeadline()) != 0)
+            continue;
+
+        //IOLog("Cmd 0x%x timing out\r", fTimeoutQ.fHead);
+
+        fTimeoutQ.fHead->cancel(kIOReturnTimeout);
+    };
+    
+	if(fTimeoutQ.fHead) 
+	{
+        src->wakeAtTime(fTimeoutQ.fHead->getDeadline());
+        //AbsoluteTime now;
+        //clock_get_uptime(&now);
+        //IOLog("processTimeout, timeoutQ waketime %lx:%lx (now %lx:%lx)\n",
+        //        fTimeoutQ.fHead->getDeadline().hi, fTimeoutQ.fHead->getDeadline().lo, now.hi, now.lo);
+    }
+    else 
+	{
+        //IOLog("processTimeout, timeoutQ empty\n");
+        src->cancelTimeout();
+    }
+}

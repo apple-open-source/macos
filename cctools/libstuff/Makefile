@@ -17,7 +17,7 @@ USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ]; then \
 ifeq "mwccppc" "$(notdir $(CC))"
   CFLAGS = $(OFLAG) -g -gccinc -I$(SRCROOT)/../include
 else
-  CFLAGS = $(OFLAG) -g -I$(SRCROOT)/../include -Wall -Wno-precomp $(X_CFLAGS)
+  CFLAGS = $(OFLAG) -g -I$(SRCROOT)/../include -Wall $(X_CFLAGS)
 endif
 
 ifneq "" "$(wildcard /bin/mkdirs)"
@@ -40,7 +40,8 @@ CFILES = allocate.c errors.c arch.c execute.c bytesex.c round.c hppa.c \
 	  set_arch_flag_name.c seg_addr_table.c dylib_table.c \
 	  breakout.c writeout.c checkout.c fatal_arch.c ofile_get_word.c \
 	  vm_flush_cache.c hash_string.c dylib_roots.c guess_short_name.c \
-	  SymLoc.c get_arch_from_host.c crc32.c macosx_deployment_target.c
+	  SymLoc.c get_arch_from_host.c crc32.c macosx_deployment_target.c \
+	  symbol_list.c
 OBJS = $(CFILES:.c=.o)
 INSTALL_FILES = $(CFILES) Makefile notes
 

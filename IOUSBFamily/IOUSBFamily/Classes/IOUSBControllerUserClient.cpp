@@ -3,18 +3,21 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.  
- * Please see the License for the specific language governing rights and 
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
  * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
@@ -108,6 +111,22 @@ IOUSBControllerUserClient::sMethods[kNumUSBControllerMethods] =
 		2,							// # of params in
 		0							// # of params out
 	}
+,
+	{	// kUSBControllerUserClientReadRegister
+		(IOService*)kMethodObjectThis,				// object
+		( IOMethod )&IOUSBControllerUserClient::ReadRegister,	// func
+		kIOUCScalarIScalarO,					// flags
+		2,							// # of params in
+		1							// # of params out
+	}
+,
+	{	// kUSBControllerUserClientWriteRegister
+		(IOService*)kMethodObjectThis,				// object
+		( IOMethod )&IOUSBControllerUserClient::WriteRegister,	// func
+		kIOUCScalarIScalarO,					// flags
+		3,							// # of params in
+		0							// # of params out
+	}
 };
 
 const IOItemCount 
@@ -175,6 +194,13 @@ IOUSBControllerUserClient::start( IOService * provider )
     if(!super::start(provider))
         return false;
 
+    fMemMap = fOwner->getProvider()->mapDeviceMemoryWithIndex(0);
+    if (!fMemMap)
+    {
+	USBLog(1, "IOUSBControllerUserClient::start - unable to get a memory map");
+	return kIOReturnNoResources;
+    }
+
     return true;
 }
 
@@ -182,9 +208,9 @@ IOUSBControllerUserClient::start( IOService * provider )
 IOReturn 
 IOUSBControllerUserClient::open(bool seize)
 {
-    IOOptionBits	options = seize ?  (IOOptionBits)kIOServiceSeize : 0;
+    IOOptionBits	options = seize ? (IOOptionBits) kIOServiceSeize : 0;
 
-    IOLog("+IOUSBControllerUserClient::open\n");
+    USBLog(1, "+IOUSBControllerUserClient::open");
     if (!fOwner)
         return kIOReturnNotAttached;
 
@@ -248,8 +274,8 @@ IOUSBControllerUserClient::SetDebuggingType(KernelDebuggingOutputType inType)
 IOReturn
 IOUSBControllerUserClient::GetDebuggingLevel(KernelDebugLevel * inLevel)
 {
-     IOLog("+IOUSBControllerUserClient::GetDebuggingLevel\n");
-   if (!fOwner)
+    IOLog("+IOUSBControllerUserClient::GetDebuggingLevel\n");
+    if (!fOwner)
         return kIOReturnNotAttached;
     
     *inLevel = KernelDebugGetLevel();
@@ -284,12 +310,71 @@ IOUSBControllerUserClient::SetTestMode(UInt32 mode, UInt32 port)
 }
 
 
+IOReturn
+IOUSBControllerUserClient::ReadRegister(UInt32 offset, UInt32 size, void *value)
+{
+    UInt8	bVal;
+    UInt16	wVal;
+    UInt32	lVal;
+    
+    USBLog(1, "+IOUSBControllerUserClient::ReadRegister Offset(0x%x), Size (%d)", (int)offset, (int)size);
+    if (!fOwner)
+        return kIOReturnNotAttached;
+    
+    if (!fMemMap)
+	return kIOReturnNoResources;
+	
+    switch (size)
+    {
+	case 8:
+	    bVal = *((UInt8 *)fMemMap->getVirtualAddress() + offset);
+	    *(UInt8*)value = bVal;
+	    USBLog(1, "IOUSBControllerUserClient::ReadRegister - got byte value %p", bVal);
+	    break;
+	    
+	case 16:
+	    wVal = OSReadLittleInt16((void*)(fMemMap->getVirtualAddress()), offset);
+	    *(UInt16*)value = wVal;
+	    USBLog(1, "IOUSBControllerUserClient::ReadRegister - got word value %p", wVal);
+	    break;
+	    
+	case 32:
+	    lVal = OSReadLittleInt32((void*)(fMemMap->getVirtualAddress()), offset);
+	    *(UInt32*)value = lVal;
+	    USBLog(1, "IOUSBControllerUserClient::ReadRegister - got long value %p", lVal);
+	    break;
+	    
+	default:
+	    USBLog(1, "IOUSBControllerUserClient::ReadRegister - invalid size");
+	    return kIOReturnBadArgument;
+    }
+    return kIOReturnSuccess;
+}
+
+
+IOReturn
+IOUSBControllerUserClient::WriteRegister(UInt32 offset, UInt32 size, UInt32 value)
+{
+    USBLog(1, "+IOUSBControllerUserClient::WriteRegister Offset(0x%x), Size (%d) Value (0x%x)", (int)offset, (int)size, (int)value);
+
+    if (!fOwner)
+        return kIOReturnNotAttached;
+    
+    return kIOReturnSuccess;
+}
+
 void 
 IOUSBControllerUserClient::stop( IOService * provider )
 {
     IOLog("IOUSBControllerUserClient::stop\n");
 
     super::stop( provider );
+
+    if (fMemMap)
+    {
+	fMemMap->release();
+	fMemMap = NULL;
+    }
 }
 
 IOReturn 
@@ -305,30 +390,5 @@ IOUSBControllerUserClient::clientClose( void )
     return( kIOReturnSuccess );
 }
 
-/*
-IOReturn
-IOUSBControllerUserClient::clientMemoryForType( UInt32 type, IOOptionBits * options, IOMemoryDescriptor ** memory )
-{
-    IOMemoryMap *    baseAddress;
-    
-    IOLog("IOUSBControllerUserClient::stop\n");
 
-    if (!fOwner)
-        return kIOReturnNotAttached;
 
-    // Get the _deviceBase from the OHCI driver
-    //
-    baseAddress = fOwner->GetBaseAddress();
-
-    if ( baseAddress )
-    {
-        IOLog("Got BaseAddress 0x%x\n",baseAddress->getVirtualAddress());
-        fOHCIRegistersDescriptor = baseAddress->getMemoryDescriptor();
-    }
-    if (fOHCIRegistersDescriptor)
-    {
-        *memory = fOHCIRegistersDescriptor;
-        *options = 0;
-    }
-}
-*/

@@ -50,6 +50,8 @@
 				02848074FFCB4D3D11CE233C,
 				043801560002B0C411CE2282,
 				043801570002B0C411CE2282,
+				F5D1B4A603F8C1BB01126B9C,
+				F5D1B4A703F8C1BB01126B9C,
 				F5278E6100D571A901CE2124,
 			);
 			isa = PBXGroup;
@@ -87,7 +89,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireSBP2;
-				MODULE_VERSION = 1.2.3;
+				MODULE_VERSION = 1.3.4;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -112,7 +114,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireSBP2</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.2.3, Copyright Apple Computer, Inc. 2002</string>
+	<string>IOFireWireSBP2 version 1.3.4, Copyright 2003 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -124,11 +126,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.3</string>
+	<string>1.3.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.3</string>
+	<string>1.3.4</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOFireWireSBP2</key>
@@ -161,7 +163,7 @@
 				<key>IOCFPlugInTypes</key>
 				<dict>
 					<key>A45B8156-B51B-11D4-AB4B-000A277E7234</key>
-					<string>IOFireWireSBP2Lib.plugin</string>
+					<string>IOFireWireSBP2.kext/Contents/PlugIns/IOFireWireSBP2Lib.plugin</string>
 				</dict>
 				<key>IOUserClientClass</key>
 				<string>IOFireWireSBP2UserClient</string>
@@ -212,6 +214,7 @@
 				0284808DFFCB4DC711CE233C,
 				043801580002B0C411CE2282,
 				015B61DB00A36AE011CE233E,
+				F5D1B4A803F8C1BB01126B9C,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -234,6 +237,7 @@
 				02848081FFCB4D3D11CE233C,
 				043801590002B0C411CE2282,
 				015B61DC00A36AE011CE233E,
+				F5D1B4A903F8C1BB01126B9C,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -309,7 +313,7 @@
 			);
 			buildSettings = {
 				INSTALLHDRS_COPY_PHASE = YES;
-				INSTALL_PATH = /System/Library/Extensions;
+				INSTALL_PATH = /System/Library/Extensions/IOFireWireSBP2.kext/Contents/PlugIns/;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "-bundle -undefined error";
 				OTHER_REZFLAGS = "";
@@ -322,7 +326,7 @@
 			);
 			isa = PBXBundleTarget;
 			name = IOFireWireSBP2Lib;
-			productInstallPath = /System/Library/Extensions;
+			productInstallPath = /System/Library/Extensions/IOFireWireSBP2.kext/Contents/PlugIns/;
 			productName = IOFireWireSBP2Lib;
 			productReference = 00F0F46FFFCA290111CE233C;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
@@ -334,7 +338,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireSBP2Lib</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.2.3, Copyright Apple Computer, Inc. 2002</string>
+	<string>IOFireWireSBP2 version 1.3.4, Copyright 2003 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -346,11 +350,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.3</string>
+	<string>1.3.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.3</string>
+	<string>1.3.4</string>
 	<key>CFPlugInDynamicRegistration</key>
 	<string>NO</string>
 	<key>CFPlugInFactories</key>
@@ -507,11 +511,13 @@
 			};
 		};
 		015B61D900A36AE011CE233E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOFireWireSBP2Diagnostics.h;
 			refType = 4;
 		};
 		015B61DA00A36AE011CE233E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOFireWireSBP2Diagnostics.cpp;
 			refType = 4;
@@ -545,6 +551,7 @@
 //023
 //024
 		02848066FFCB4CC111CE233C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = FWDebugging.h;
 			refType = 4;
@@ -573,61 +580,73 @@
 			refType = 4;
 		};
 		0284806AFFCB4D3D11CE233C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOFireWireSBP2Login.cpp;
 			refType = 4;
 		};
 		0284806BFFCB4D3D11CE233C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOFireWireSBP2Login.h;
 			refType = 4;
 		};
 		0284806CFFCB4D3D11CE233C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOFireWireSBP2LUN.cpp;
 			refType = 4;
 		};
 		0284806DFFCB4D3D11CE233C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOFireWireSBP2LUN.h;
 			refType = 4;
 		};
 		0284806EFFCB4D3D11CE233C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOFireWireSBP2ManagementORB.cpp;
 			refType = 4;
 		};
 		0284806FFFCB4D3D11CE233C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOFireWireSBP2ManagementORB.h;
 			refType = 4;
 		};
 		02848070FFCB4D3D11CE233C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOFireWireSBP2ORB.cpp;
 			refType = 4;
 		};
 		02848071FFCB4D3D11CE233C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOFireWireSBP2ORB.h;
 			refType = 4;
 		};
 		02848072FFCB4D3D11CE233C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOFireWireSBP2Target.cpp;
 			refType = 4;
 		};
 		02848073FFCB4D3D11CE233C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOFireWireSBP2Target.h;
 			refType = 4;
 		};
 		02848074FFCB4D3D11CE233C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOFireWireSBP2UserClient.cpp;
 			refType = 4;
 		};
 		02848075FFCB4D3D11CE233C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOFireWireSBP2UserClient.h;
 			refType = 4;
@@ -727,53 +746,63 @@
 			};
 		};
 		02848082FFCB4DC711CE233C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireSBP2UserClientCommon.h;
 			path = Common/IOFireWireSBP2UserClientCommon.h;
 			refType = 2;
 		};
 		02848083FFCB4DC711CE233C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireSBP2Lib.h;
 			path = IOFireWireSBP2Lib/IOFireWireSBP2Lib.h;
 			refType = 2;
 		};
 		02848084FFCB4DC711CE233C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOFireWireSBP2LibLogin.cpp;
 			refType = 4;
 		};
 		02848085FFCB4DC711CE233C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOFireWireSBP2LibLogin.h;
 			refType = 4;
 		};
 		02848086FFCB4DC711CE233C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOFireWireSBP2LibLUN.cpp;
 			refType = 4;
 		};
 		02848087FFCB4DC711CE233C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOFireWireSBP2LibLUN.h;
 			refType = 4;
 		};
 		02848088FFCB4DC711CE233C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOFireWireSBP2LibMgmtORB.cpp;
 			refType = 4;
 		};
 		02848089FFCB4DC711CE233C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOFireWireSBP2LibMgmtORB.h;
 			refType = 4;
 		};
 		0284808AFFCB4DC711CE233C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOFireWireSBP2LibORB.cpp;
 			refType = 4;
 		};
 		0284808BFFCB4DC711CE233C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOFireWireSBP2LibORB.h;
 			refType = 4;
@@ -921,11 +950,13 @@
 //043
 //044
 		043801560002B0C411CE2282 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOFireWireSBP2LSIWorkaroundDescriptor.h;
 			refType = 4;
 		};
 		043801570002B0C411CE2282 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOFireWireSBP2LSIWorkaroundDescriptor.cpp;
 			refType = 4;
@@ -987,6 +1018,30 @@
 			};
 			isa = PBXBuildStyle;
 			name = FireLog;
+		};
+		F5D1B4A603F8C1BB01126B9C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOFWSBP2PseudoAddressSpace.h;
+			refType = 4;
+		};
+		F5D1B4A703F8C1BB01126B9C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOFWSBP2PseudoAddressSpace.cpp;
+			refType = 4;
+		};
+		F5D1B4A803F8C1BB01126B9C = {
+			fileRef = F5D1B4A603F8C1BB01126B9C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5D1B4A903F8C1BB01126B9C = {
+			fileRef = F5D1B4A703F8C1BB01126B9C;
+			isa = PBXBuildFile;
+			settings = {
+			};
 		};
 	};
 	rootObject = 00F0F431FFCA255711CE233C;

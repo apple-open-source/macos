@@ -255,8 +255,6 @@ ATADeviceNub::executeCommand(IOATACommand* command)
 /*---------------------------------------------------------------------------
 
 
-This function will be deprecated in the future. Device nubs in general should 
-Never issue commands of any form to a device.
 
 
 ---------------------------------------------------------------------------*/
@@ -330,6 +328,7 @@ ATADeviceNub::getDeviceID( void )
 	cmd->refCon = (void*) completion;
 	cmd->refCon2 = (void*) this;
 	
+	desc->prepare(kIODirectionIn);
 	// tell the bus to exec the command
 	DLOG("Sending ID command to bus controller\n");	
 	IOReturn err =	executeCommand( cmd);	
@@ -337,8 +336,17 @@ ATADeviceNub::getDeviceID( void )
 
 	completion->sync->wait();
 	
+	desc->complete( kIODirectionIn );
+	
 	IOFree( completion, sizeof(completionInfo));
 
+	if( cmd->getResult() )
+	{
+		err = cmd->getResult();
+	}
+	
+	freeCommand(cmd);
+	
 #if defined(__BIG_ENDIAN__)
 // The identify device info needs to be byte-swapped on ppc (big-endian) 
 // systems becuase it is data that is produced by the drive, read across a 
@@ -403,6 +411,24 @@ ATADeviceNub::publishBusProperties( void )
 		case kPCCardSocket:
  			string = OSString::withCString( kATAPCCardSocketString );	
 		break;
+
+		case kInternalSATA:
+ 			string = OSString::withCString( kATAInternalSATAString );	
+		break;
+
+		case kSATABay:
+ 			string = OSString::withCString( kATASATABayString );	
+		break;
+		
+		case kInternalSATA2:
+ 			string = OSString::withCString( kATAInternalSATA2 );	
+		break;
+		
+		
+		case kSATA2Bay:
+ 			string = OSString::withCString( kATASATA2BayString );	
+		break;
+
 	
  		default:
  			string = OSString::withCString( kATAUnkownSocketString );

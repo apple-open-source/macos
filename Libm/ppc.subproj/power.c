@@ -109,6 +109,8 @@ struct expTableEntry
       double f;
       };
 
+#ifdef notdef
+
 static double PowerInner ( double, double );
 static double _NearbyInt ( double x ); 
 
@@ -145,10 +147,10 @@ double pow ( double base, double exponent )
                         {
                         if ( _NearbyInt ( exponent ) != exponent )          // exponent is non-integer
 							{
-                            fegetenvd( OldEnvironment.d );
+                            FEGETENVD( OldEnvironment.d );
 							OldEnvironment.i.lo |= SET_INVALID;
 							result = nan ( POWER_NAN );
-                            fesetenvd( OldEnvironment.d );
+                            FESETENVD( OldEnvironment.d );
 							return result;
 							}
 							
@@ -164,7 +166,7 @@ double pow ( double base, double exponent )
                         if ( exponent > 0.0 ) 
                               return ( ( isExpOddInt ) ? base : 0.0 );
                         else                                 // exponent < 0.0
-                              return ( ( isExpOddInt ) ? 1.0/base : 1.0/__fabs( base ) );
+                              return ( ( isExpOddInt ) ? 1.0/base : 1.0/__FABS( base ) );
                         }
                   }
             else if (base != base)
@@ -188,7 +190,7 @@ double pow ( double base, double exponent )
             {												// exponent is +-Inf
             if ( base != base )
                   return base;
-            absBase = __fabs( base );
+            absBase = __FABS( base );
             if ( ( exponent > 0 && absBase > 1 ) || ( exponent < 0 && absBase < 1 ) )
                   return huge.d;
             else if ( ( exponent > 0 && absBase < 1 ) || ( exponent < 0 && absBase > 1 ) )
@@ -210,13 +212,13 @@ static double _NearbyInt ( double x )
       xInHex.d = x;
       if ( ( xInHex.i.hi & 0x7ffffffful ) < 0x43300000ul ) 
             {                                                // |x| < 2.0^52
-            fegetenvd( OldEnvironment );               // save environment, set default
-            fesetenvd( 0.0 );
+            FEGETENVD( OldEnvironment );               // save environment, set default
+            FESETENVD( 0.0 );
             if ( xInHex.i.hi & 0x80000000ul )             // x non-positive
                   x = ( ( x - twoTo52 ) + twoTo52 );
             else
                   x = ( ( x + twoTo52 ) - twoTo52 ); 
-            fesetenvd( OldEnvironment );
+            FESETENVD( OldEnvironment );
             return x;
             }
       else                                                   // |x| >= 2.0^52
@@ -285,8 +287,8 @@ static double PowerInner ( double base, double exponent )
             i = ( i >> 12 ) + 64;                            // table lookup index
             }
             
-      fegetenvd( OldEnvironment.d );               // save environment, set default
-      fesetenvd( 0.0 );
+      FEGETENVD( OldEnvironment.d );               // save environment, set default
+      FESETENVD( 0.0 );
       
       z = ( u.d - logTablePointer[i].X ) * logTablePointer[i].G;
       zLow = ( ( u.d - logTablePointer[i].X ) - z * logTablePointer[i].X ) * logTablePointer[i].G;
@@ -297,7 +299,7 @@ static double PowerInner ( double base, double exponent )
             v.d = base;
             if ( ( v.i.hi == 0x3ff00000 ) && ( v.i.lo == 0x0 ) ) 
                   {                                          //base = 1.0
-                  fesetenvd( OldEnvironment.d );
+                  FESETENVD( OldEnvironment.d );
                   return 1.0;
                   }
             temp1  = d8 * zSquared + d6;
@@ -343,12 +345,12 @@ static double PowerInner ( double base, double exponent )
             }
       
       temp1 = d * ln2;
-      temp2 = __fmsub(d, ln2, temp1); // d * ln2 - temp1;
+      temp2 = __FMSUB(d, ln2, temp1); // d * ln2 - temp1;
       z     = temp1 + result;
-      zLow  = temp1 - z + result + __fmadd(d, ln2Tail, tail + temp2); // ( d * ln2Tail + tail + temp2 );
+      zLow  = temp1 - z + result + __FMADD(d, ln2Tail, tail + temp2); // ( d * ln2Tail + tail + temp2 );
       temp3 = exponent * zLow; 
-      x     = __fmadd(exponent, z, temp3); // exponent * z + temp3;
-      xLow  = __fmsub(exponent, z, x) + temp3; // ( exponent * z - x ) + temp3;
+      x     = __FMADD(exponent, z, temp3); // exponent * z + temp3;
+      xLow  = __FMSUB(exponent, z, x) + temp3; // ( exponent * z - x ) + temp3;
  
       if ( base == _NearbyInt(base) && exponent > 0 && exponent == _NearbyInt(exponent))
       {
@@ -379,12 +381,12 @@ static double PowerInner ( double base, double exponent )
             temp1  = temp2 * zSquared + z;
             result = scale.d * expTablePointer[i].f;
 #if 1
-            temp2  = __prod( result , ( temp1 + ( zLow + zLow * temp1 ) )); // thwart gcc MAF
+            temp2  = __FMUL( result , ( temp1 + ( zLow + zLow * temp1 ) )); // thwart gcc MAF
 #else
             temp2  = result * ( temp1 + ( zLow + zLow * temp1 ) );
 #endif
             result += temp2;
-            fesetenvd( OldEnvironment.d );
+            FESETENVD( OldEnvironment.d );
             return result;
             }
       
@@ -417,7 +419,7 @@ static double PowerInner ( double base, double exponent )
             temp2  = temp1 + temp2 * z;
             temp1  = temp2 * zSquared + z;
             result = scale.d * expTablePointer[i].f;
-            temp2  = __prod( result , ( temp1 + ( zLow + zLow * temp1 ) ) ); // __prod thwarts gcc MAF
+            temp2  = __FMUL( result , ( temp1 + ( zLow + zLow * temp1 ) ) ); // __FMUL thwarts gcc MAF
             u.d  = ( result + temp2 ) * power;
             }
       else if ( x > maxExp ) 
@@ -431,9 +433,518 @@ static double PowerInner ( double base, double exponent )
       else if ( i == 0x0 )
             OldEnvironment.i.lo |= (FE_UNDERFLOW | FE_INEXACT); // zero: set underflow/inexact flag
       
-      fesetenvd( OldEnvironment.d );
+      FESETENVD( OldEnvironment.d );
       return u.d;
       }
+#else
+
+static double PowerInner ( double, double, hexdouble );
+static double _NearbyInt ( double x ); 
+
+double pow ( double base, double exponent ) 
+{
+      register long int isExpOddInt;
+      double absBase, result;
+      hexdouble u, v, OldEnvironment;
+      register unsigned long int expExp;
+      
+      register unsigned long GPR_mant, GPR_exp;
+      register double FPR_z, FPR_half, FPR_one, FPR_t;
+      
+      v.d = exponent;										u.d = base;
+      GPR_mant = 0x000ffffful;								GPR_exp = 0x7ff00000ul;
+      FPR_z = 0.0;											FPR_one = 1.0;
+      __ENSURE( FPR_z, FPR_z, FPR_one );
+      
+      if ( ( ( v.i.hi & GPR_mant ) | v.i.lo ) == 0 ) 
+      {														 // exponent is power of 2 (or +-Inf)
+            expExp = v.i.hi & 0xfff00000ul;
+            if ( expExp == 0x40000000 ) 
+                  return base * base;               // if exponent == 2.0
+            else if ( exponent == FPR_z ) 
+                  return FPR_one;                            // if exponent == 0.0
+            else if ( expExp == 0x3ff00000 ) 
+                  return base;                               // if exponent == 1.0
+            else if ( expExp == 0xbff00000 ) 
+                  return FPR_one/base;                       // if exponent == -1.0
+      }
+            
+      if ( ( v.i.hi & GPR_exp ) < GPR_exp ) 
+      {                                                		 // exponent is finite
+            if ( ( u.i.hi & GPR_exp ) < GPR_exp ) 
+            {                                          		 // base is finite
+                  if ( base > FPR_z ) 
+                        return PowerInner( base, exponent, u ); // base is positive
+                  else if ( base < FPR_z ) 
+                  {
+                        if ( _NearbyInt ( exponent ) != exponent )          // exponent is non-integer
+                        {
+                            FEGETENVD( OldEnvironment.d );
+							OldEnvironment.i.lo |= SET_INVALID;
+							result = nan ( POWER_NAN );
+                            FESETENVD( OldEnvironment.d );
+							return result;
+                        }
+                        
+                        FPR_half = 0.5;
+                        u.i.hi ^= 0x80000000;
+                        result = PowerInner( -base, exponent, u );
+                        FPR_t = FPR_half * exponent;			// XXX undeserved UF INEXACT for tiny exponent XXX
+                        if ( _NearbyInt ( FPR_t ) != FPR_t ) // exponent is odd
+                              result = - result;
+                        return ( result );
+                  }
+                  else 
+                  {                                    		  // base is 0.0:
+                        if ( _NearbyInt ( exponent ) == exponent ) // exponent is integral
+                        {
+                            FPR_half = 0.5;
+                            FPR_t = FPR_half * exponent;		// XXX undeserved UF INEXACT for tiny exponent XXX
+                            isExpOddInt = ( _NearbyInt ( FPR_t ) != FPR_t );
+                        }
+                        else
+                            isExpOddInt = 0;
+                            
+                        if ( exponent > FPR_z ) 
+                              return ( ( isExpOddInt ) ? base : FPR_z );
+                        else                                 // exponent < 0.0
+                              return ( ( isExpOddInt ) ? FPR_one/base : FPR_one/__FABS( base ) );
+                  }
+            }
+            else if (base != base)
+                    return base;
+            else
+            {                                                // base == +-Inf
+                if ( base > FPR_z ) 
+                    return ( exponent > FPR_z ) ? huge.d : FPR_z;
+                else 
+                {
+                    if ( _NearbyInt ( exponent ) == exponent ) // exponent is integral
+                    {
+                        FPR_half = 0.5;
+                        FPR_t = FPR_half * exponent;		// XXX undeserved UF INEXACT for tiny exponent XXX
+                        isExpOddInt = ( _NearbyInt ( FPR_t ) != FPR_t );
+                    }
+                    else
+                        isExpOddInt = 0;
+                    return ( exponent > 0 ) ? 
+                                ( isExpOddInt ? -huge.d : +huge.d ) : ( isExpOddInt ? -FPR_z : FPR_z );
+                }
+            }
+      }
+      else if ( exponent != exponent ) 
+            return base + exponent;
+      else
+      {														// exponent is +-Inf
+            if ( base != base )
+                  return base;
+            absBase = __FABS( base );
+            if ( ( exponent > FPR_z && absBase > FPR_one ) || ( exponent < FPR_z && absBase < FPR_one ) )
+                  return huge.d;
+            else if ( ( exponent > FPR_z && absBase < FPR_one ) || ( exponent < FPR_z && absBase > FPR_one ) )
+                  return FPR_z;
+            else                                             // now: Abs( base ) == 1.0
+                  return FPR_one;
+      }
+}
+
+/*******************************************************************************
+*      Private function _NearbyInt.                                            *
+*******************************************************************************/
+
+// If x is integral, returns x.
+// If x is not an integer, returns either floor(x) or ceil(x) (i.e. some vaule
+// different than x). On this basis, _NearbyInt can be used to detect integral x.
+// Arithmetic could raise INEXACT, so protect callers flags.
+
+static double _NearbyInt ( double x ) 
+{
+      register double result, FPR_env, FPR_absx, FPR_Two52, FPR_z;
+      
+      FPR_absx = __FABS( x );
+      FPR_z = 0.0;											FPR_Two52 = twoTo52;
+      
+      FEGETENVD( FPR_env );
+      __ENSURE( FPR_z, FPR_Two52, FPR_z );
+      
+      if ( FPR_absx < FPR_Two52 )							// |x| < 2.0^52
+      {
+            FESETENVD( FPR_z );
+            if ( x < FPR_z )
+                  result = ( ( x - FPR_Two52 ) + FPR_Two52 );
+            else
+                  result = ( ( x + FPR_Two52 ) - FPR_Two52 ); 
+            FESETENVD( FPR_env );
+            return result;
+      }
+      else                                                   // |x| >= 2.0^52
+            return ( x );
+}
+
+// Called when our environment is installed (and callers is stashed safely aside).
+static inline double _NearbyIntDfltEnv ( double x ) 
+{
+      register double result, FPR_absx, FPR_Two52, FPR_z;
+      
+      FPR_absx = __FABS( x );
+      FPR_z = 0.0;											FPR_Two52 = twoTo52;
+      
+      __ENSURE( FPR_z, FPR_Two52, FPR_z );
+      
+      if ( FPR_absx < FPR_Two52 )							// |x| < 2.0^52
+      {
+            if ( x < FPR_z )
+                  result = ( ( x - FPR_Two52 ) + FPR_Two52 );
+            else
+                  result = ( ( x + FPR_Two52 ) - FPR_Two52 ); 
+            return result;
+      }
+      else                                                   // |x| >= 2.0^52
+            return ( x );
+}
+
+static const double kMinNormal = 2.2250738585072014e-308;  // 0x1.0p-1022
+static const double kMaxNormal = 1.7976931348623157e308;
+static const hexdouble kConvULDouble     = HEXDOUBLE(0x43300000, 0x00000000); // for *unsigned* to double
+
+static double PowerInner ( double base, double exponent, hexdouble u ) 
+{
+      hexdouble dInHex, scale, exp;
+      register long int i, n;
+      register double z, zLow, high, low, zSquared, temp1, temp2, temp3, result, tail,
+                      d, x, xLow, y, yLow, power;
+      struct logTableEntry *logTablePointer = ( struct logTableEntry * ) logTable;
+      struct expTableEntry *expTablePointer = ( struct expTableEntry * ) expTable + 177;
+      
+      register double FPR_env, FPR_z, FPR_half, FPR_one, FPR_512, FPR_t, FPR_G, FPR_X, FPR_ud;
+      register double FPR_q, FPR_kConvDouble;
+      register struct logTableEntry *pT;
+      register struct expTableEntry *pE;
+      
+      FPR_z = 0.0;											FPR_one = 1.0;
+      FPR_half = 0.5;										FPR_512 = 512.0;
+      FPR_kConvDouble = kConvULDouble.d;					dInHex.i.hi = 0x43300000; 	// store upper half
+         
+      if ( base == FPR_one ) 
+            return FPR_one;
+    
+      if ( u.i.hi >= 0x000ffffful )                  		// normal case
+      {
+            FPR_q = 1023.0;
+      }
+      else 
+      {                                                		// denormal case             
+            u.d = __FMUL( base, twoTo128 );                 // scale to normal range
+            FPR_q = 1151.0;
+      }
+
+      dInHex.i.lo = u.i.hi >> 20; 							// store lower half
+
+      i = u.i.hi & 0x000fffff;
+      u.i.hi = i | 0x3ff00000;
+
+      FEGETENVD( FPR_env);               					// save environment, set default
+      __ENSURE( FPR_z, FPR_half, FPR_512 );					__ENSURE( FPR_z, FPR_half, FPR_one );
+      FESETENVD( FPR_z );
+
+      // Handle exact integral powers and roots of two specially
+      if ( 0 == (( u.i.hi & 0x000fffff ) | u.i.lo) )		// base is power of 2
+      {
+            d = dInHex.d;									// float load double
+            d -= FPR_kConvDouble; 							// subtract magic value
+            d -= FPR_q;
+
+            z = __FMUL( d, exponent );
+            if ( z == _NearbyIntDfltEnv( z ) )
+            {
+                // Clip z so conversion to int is safe
+                if (z > 2097.0)
+                    n = 2098;
+                else if (z < -2098.0)
+                    n = -2099;
+                else
+                    n = z;									// The common case. Emits fctiwz, stfd
+
+                FESETENVD( FPR_env );
+                return scalbn( FPR_one, n );				// lwz "n" -- make sure this is on cycle following stfd!
+            }
+      }
+            
+      if ( u.i.hi & 0x00080000 ) 
+      {                                                		// 1.5 <= x < 2.0
+            n = 1;
+            i = ( i >> 13 ) & 0x3f;                         // table lookup index
+            FPR_ud = __FMUL( u.d, FPR_half );
+            u.d = FPR_ud;
+      }
+      else 
+      {                                                		// 1.0 <= x < 1.5
+            n = 0;
+            i = ( i >> 12 ) + 64;                           // table lookup index
+            FPR_ud = u.d;
+      }
+            
+      pT = &(logTablePointer[i]);
+      
+      FPR_X = pT->X;										FPR_G = pT->G;
+      FPR_t = FPR_ud - FPR_X;
+      
+      z = __FMUL( FPR_t, FPR_G );
+      
+      zSquared = __FMUL( z, z ); 							FPR_t = __FNMSUB( z, FPR_X, FPR_t );
+      zLow = __FMUL( FPR_t, FPR_G );
+      
+      
+      if ( n == 0 ) 
+      {                                                		// n = 0
+            register double FPR_Fd, FPR_d2, FPR_d3, FPR_d4, FPR_d5, FPR_d6, FPR_d7, FPR_d8;
+                        
+            FPR_d8 = d8;									FPR_d6 = d6;
+
+            FPR_d7 = d7;									FPR_d5 = d5;
+            
+            FPR_Fd = pT->F.d; 
+
+            temp1 = __FMADD( FPR_d8, zSquared, FPR_d6);		temp2 = __FMADD( FPR_d7, zSquared, FPR_d5);
+            FPR_d4 = d4;								
+            
+            FPR_d3 = d3;
+            temp3 = z + FPR_Fd;								FPR_t = __FNMSUB( z, zLow, zLow );
+            
+            temp1 = __FMADD( temp1, zSquared, FPR_d4);		temp2 = __FMADD( temp2, zSquared, FPR_d3);
+            FPR_d2 = d2;								
+            
+            temp1 = __FMADD( temp1, z, temp2);				low = FPR_Fd - temp3 + z + FPR_t;		
+
+            temp2 = __FMADD( temp1, z, FPR_d2);			
+            
+            FPR_t = __FMADD( temp2, zSquared, low );
+            
+            result = FPR_t + temp3;
+            
+            tail = temp3 - result + FPR_t;
+      }
+      else if ( pT->F.i.hi != 0 ) 
+      {                                                		// n = 1
+            register double FPR_Fd, FPR_ln2, FPR_ln2Tail, FPR_c2, FPR_c3, FPR_c4, FPR_c5, FPR_c6;
+                        
+            FPR_c6 = c6;									FPR_c4 = c4;
+            
+            FPR_c5 = c5;									FPR_c3 = c3;
+            
+            temp3 = __FMADD( FPR_c6, zSquared, FPR_c4 );	temp2  = __FMADD( FPR_c5, zSquared, FPR_c3);
+            FPR_ln2Tail = ln2Tail;
+            
+            FPR_ln2 = ln2;									FPR_Fd = pT->F.d;
+            low = FPR_ln2Tail + zLow;					
+            
+            high   = z + FPR_Fd;							temp3 = __FMUL( temp3, zSquared );
+            FPR_c2 = c2;								
+                        
+            zLow = FPR_Fd - high + z;						temp1  = FPR_ln2 + low;
+                        
+            temp2 = __FMADD( temp2, z, temp3 ) + FPR_c2;	low = ( FPR_ln2 - temp1 ) + low;
+            
+            temp3  = high + temp1;
+            
+            temp1  = ( temp1 - temp3 ) + high;
+            
+            FPR_t = __FMADD( temp2, zSquared, low );
+            
+            result = ( ( FPR_t + temp1 ) + zLow ) + temp3;
+            
+            tail   = temp3 - result + zLow + temp1 + FPR_t;
+      }
+      else 
+      {                                                // n = 1.
+            register double FPR_ln2, FPR_ln2Tail, FPR_d2, FPR_d3, FPR_d4, FPR_d5, FPR_d6, FPR_d7, FPR_d8;
+                        
+            FPR_d8 = d8;									FPR_d6 = d6;
+            
+            FPR_d7 = d7;									FPR_d5 = d5;
+            
+            temp1 = __FMADD( FPR_d8, zSquared, FPR_d6);		temp2 = __FMADD( FPR_d7, zSquared, FPR_d5);
+            FPR_ln2Tail = ln2Tail;
+            
+            FPR_ln2 = ln2;
+            low    = FPR_ln2Tail + zLow;					__ORI_NOOP;
+            
+            FPR_d4 = d4;									FPR_d3 = d3;
+            
+            temp1 = __FMADD( temp1, zSquared, FPR_d4);		temp2 = __FMADD( temp2, zSquared, FPR_d3);
+            FPR_d2 = d2;								
+            
+            temp1 = __FMADD( temp1, z, temp2);				temp3  = FPR_ln2 + low;
+
+            temp2 = __FMADD( temp1, z, FPR_d2);				low    = ( FPR_ln2 - temp3 ) + low;
+                                    
+            FPR_t = __FMADD( temp2, zSquared, low );
+            
+            result = ( FPR_t + z ) + temp3;
+            
+            tail   = temp3 - result + z + FPR_t;
+      }
+      
+      {
+            register double FPR_ln2, FPR_ln2Tail;
+            
+            d = dInHex.d;									// float load double
+            d -= FPR_kConvDouble; 							// subtract magic value
+            d -= FPR_q;
+            
+            FPR_ln2 = ln2;									FPR_ln2Tail = ln2Tail;
+            
+            temp1 = __FMUL( d, FPR_ln2 );						
+            
+            temp2 = __FMSUB( d, FPR_ln2, temp1 ); 			z = temp1 + result;
+            
+            FPR_t = tail + temp2;						
+            
+            zLow = temp1 - z + result + __FMADD(d, FPR_ln2Tail, FPR_t); 
+            
+            temp3 = exponent * zLow;                   
+
+            x = __FMADD( exponent, z, temp3 );
+            
+            xLow = __FMSUB( exponent, z, x ) + temp3;
+      }
+       
+      if ( __FABS( x ) < FPR_512 ) 
+      {                                                    	// abs( x ) < 512
+            register double FPR_ln2, FPR_ln2Tail, FPR_ln2Inv, FPR_kRint, FPR_f;
+            register double FPR_cc0, FPR_cc1, FPR_cc2, FPR_cc3, FPR_cc4;
+            
+            FPR_ln2 = ln2;									FPR_ln2Tail = ln2Tail;
+            FPR_ln2Inv = oneOverLn2;						FPR_kRint = kRint;
+            
+            FPR_t = __FMADD( x, FPR_ln2Inv, FPR_kRint );
+            exp.d = FPR_t;
+
+            FPR_t -= FPR_kRint;
+            
+            y = __FNMSUB( FPR_ln2, FPR_t, x);				yLow = __FMUL( FPR_ln2Tail, FPR_t );
+            
+            u.d = __FMADD( FPR_512, y, FPR_kRint );
+            
+            scale.i.lo = 0;
+            scale.i.hi = ( exp.i.lo + 1023 ) << 20;
+            
+            FPR_cc0 = cc0;									FPR_cc2 = cc2;
+            FPR_cc1 = cc1;									FPR_cc3 = cc3;
+            FPR_cc4 = cc4;								
+     
+            i = u.i.lo;
+            
+            pE = &(expTablePointer[i]);
+            
+            d = y - pE->x;
+            z = d - yLow;
+            
+            zSquared = __FMUL( z, z );						zLow = d - z - yLow + xLow;
+            
+            FPR_t = scale.d;								FPR_f = pE->f;
+            
+            temp1  = __FMADD( FPR_cc0, zSquared, FPR_cc2 );	temp2  = __FMADD( FPR_cc1, zSquared, FPR_cc3 );
+            
+            temp1  = __FMADD( temp1, zSquared, FPR_cc4 );
+            
+            temp2  = __FMADD( temp2, z, temp1 );
+            
+            temp1  = __FMADD( temp2, zSquared, z );			result = __FMUL( FPR_t, FPR_f );
+
+            temp2  = __FMUL( result , ( temp1 + ( zLow + zLow * temp1 ) )); // __FMUL thwarts gcc MAF
+
+            result += temp2;
+            
+            if ( exponent > FPR_z && base == _NearbyIntDfltEnv(base) && exponent == _NearbyIntDfltEnv(exponent))
+            {
+                FESETENVD( FPR_env ); /* NOTHING: +ve integral base and +ve integral exponent deliver exact result */
+            }
+            else
+            {
+                FESETENVD( FPR_env );
+                __PROG_INEXACT ( FPR_ln2 );
+            }
+                
+            return result;
+      }
+      
+      if ( ( x <= maxExp ) && ( x > min2Exp ) ) 
+      {
+            register double FPR_ln2, FPR_ln2Tail, FPR_ln2Inv, FPR_kRint, FPR_f;
+            register double FPR_cc0, FPR_cc1, FPR_cc2, FPR_cc3, FPR_cc4;
+            
+            FPR_ln2 = ln2;									FPR_ln2Tail = ln2Tail;
+            FPR_ln2Inv = oneOverLn2;						FPR_kRint = kRint;
+            
+            FPR_t = __FMADD( x, FPR_ln2Inv, FPR_kRint );
+            exp.d = FPR_t;
+            
+            if ( x >= FPR_512 ) 
+            {
+                  power = 2.0;
+                  scale.i.lo = 0;
+                  scale.i.hi = ( exp.i.lo + 1023 - 1 ) << 20;
+            }
+            else 
+            {
+                  power = denormal;
+                  scale.i.lo = 0;
+                  scale.i.hi = ( exp.i.lo + 1023 + 128 ) << 20;
+            }
+            
+            FPR_t -= FPR_kRint;
+            exp.d = FPR_t;
+            
+            y = __FNMSUB( FPR_ln2, FPR_t, x);				yLow = __FMUL( FPR_ln2Tail, FPR_t );
+            
+            u.d = __FMADD( FPR_512, y, FPR_kRint );
+            
+            FPR_cc0 = cc0;									FPR_cc2 = cc2;
+            FPR_cc1 = cc1;									FPR_cc3 = cc3;
+            FPR_cc4 = cc4;								
+            
+            i = u.i.lo;
+            
+            pE = &(expTablePointer[i]);
+            
+            d = y - pE->x;
+            z = d - yLow;
+            
+            zSquared = __FMUL( z, z );						zLow = d - z - yLow + xLow;
+ 
+            FPR_t = scale.d;								FPR_f = pE->f;
+            
+            temp1  = __FMADD( FPR_cc0, zSquared, FPR_cc2 );	temp2  = __FMADD( FPR_cc1, zSquared, FPR_cc3 );
+            
+            temp1  = __FMADD( temp1, zSquared, FPR_cc4 );
+            
+            temp2  = __FMADD( temp2, z, temp1 );
+            
+            temp1  = __FMADD( temp2, zSquared, z );
+            
+            result = __FMUL( FPR_t, FPR_f );
+            
+            temp2  = __FMUL( result , ( temp1 + ( zLow + zLow * temp1 ) ) ); // __FMUL thwarts gcc MAF
+            
+            result  = ( result + temp2 ) * power;
+      }
+      else if ( x > maxExp ) 
+            result = huge.d;
+      else 
+            result = FPR_z;
+      
+      FESETENVD( FPR_env );
+      if ( __FABS( result ) == huge.d ) 
+            __PROG_OF_INEXACT( kMaxNormal );  				// Inf: set overflow/inexact flag
+      else if ( result == FPR_z )
+            __PROG_UF_INEXACT( kMinNormal ); 				// zero: set underflow/inexact flag
+      else
+            __PROG_INEXACT ( ln2 );
+      
+      return result;
+}
+#endif
 
 #ifdef notdef
 float powf ( float x, float y )

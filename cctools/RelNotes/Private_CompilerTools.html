@@ -1,34 +1,653 @@
 <HTML>
-<!--This file created 7/12/02 5:34 PM by Claris Home Page version 3.0-->
+<!--This file created 4/3/03 2:08 PM by Claris Home Page version 3.0-->
 <HEAD>
    <TITLE>Private Compiler Tools Release Notes</TITLE>
    <META NAME=GENERATOR CONTENT="Claris Home Page 3.0">
-   <X-CLARIS-WINDOW TOP=67 BOTTOM=842 LEFT=203 RIGHT=833>
+   <X-CLARIS-WINDOW TOP=81 BOTTOM=848 LEFT=240 RIGHT=870>
    <X-CLARIS-TAGVIEW MODE=minimal>
 <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
 </HEAD>
 <BODY BGCOLOR="#FFFFFF">
-<P><FONT SIZE="-1">MacOS X 10.2 Release Copyright 2002 by Apple
-Computer, Inc. All Rights Reserved.</FONT></P>
+<P><FONT SIZE="-1">Mac OS X June 2003 Developer Release Copyright
+2003 by Apple Computer, Inc. All Rights Reserved.</FONT></P>
 
-<H2>Private MacOS X 10.2 Release Notes:<BR>
-Compiler Tools (cctools-435)</H2>
+<H2>Private Mac OS X June 2003 Developer Release Notes:<BR>
+Compiler Tools (cctools-466)</H2>
 
-<P>This file contains release notes for the 5.10 release of the
-Compiler Tools for the MacOS X 10.2 Release. This file contains
-information about the following topics:</P>
+<P>This file contains release notes for the 5.12 release of the
+Compiler Tools for the Mac OS X June 2003 Developer Release. This
+file contains information about the following topics:</P>
 
 <UL>
-   <LI>The MacOS X Mach-O GNU-based assemblers</LI>
+   <LI>The Mac OS X Mach-O GNU-based assemblers</LI>
    
-   <LI>The MacOS X Mach-O static link editor</LI>
+   <LI>The Mac OS X Mach-O static link editor</LI>
    
-   <LI>The MacOS X Mach-O dynamic link editor</LI>
+   <LI>The Mac OS X Mach-O dynamic link editor</LI>
    
    <LI>Mach-O object tools (<B>nm</B>, <B>otool</B>, and so on)</LI>
 </UL>
 
 <P>&nbsp;</P>
+
+<H2>Notes Specific to Release 5.12 (Mac OS X June 2003 Developer
+Release)</H2>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-465 for
+the 5.12 MacOS June 2003 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in nm(1), and other object tools, that could cause
+   it to crash on a malformed dynamic library with bad module table
+   entries. (Radar bug #3208399).</LI>
+   
+   <LI>Added the <B>-undefined dynamic_lookup</B> option to
+   <I>ld</I>(1) to allow two-level namespace images to have their
+   remaining undefined symbols marked to be dynamically looked up at
+   runtime. This option is only allowed when MACOSX_DEPLOYMENT_TARGET
+   is set to <B>10.3</B> or greater (since this requires a new
+   version of dyld). As such this option is not described yet in the
+   public compiler tools release notes. (Radar bug #3210803).</LI>
+   
+   <LI>Fixed the problem with gprof(1) crashing introduced when
+   fixing warnings in the code in cctools-464 (Radar bug
+   #3212306).</LI>
+   
+   <LI>Added the <B>-undefined define_a_way</B> option to
+   <I>ld</I>(1) as a work a round to not having dead-code stripping
+   that also strips out references to undefined symbols from the dead
+   code. Which leads to link time failures due to undefined symbols.
+   With this option <I>ld</I>(1) defines the remaining undefined
+   symbols as private definitions and allows the link to succeed. The
+   program then runs as long as it does not use any of the undefined
+   symbols. (Radar bug #3216770).</LI>
+   
+   <LI>Fixed a bug in <I>libtool</I>(1) when the <B>-static</B>
+   option is used to create an archive library that caused it to
+   crash when the input object files do not contain symbols that will
+   be in the archive table of contents. (Radar bug #3217471).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-465 for
+the 5.12 MacOS June 2003 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Added the .p2align&#91;wl&#93; directives to the assembler
+   which take the form:
+   
+   <UL>
+      <LI>.p2align&#91;wl&#93; align, &#91;fill&#91;,
+      max_bytes_to_fill&#93;&#93;</LI>
+   </UL>
+   
+   <P>and allows a maximum number of bytes to fill to be specified.
+   (Radar bug #3207027).</P></LI>
+   
+   <LI>Fixed a bug in otool(1)'s disassembly of "movd -12(%ebp),
+   %mm0" which was disassembling incorrectly without the
+   displacement. (Radar bug #3206331).</LI>
+   
+   <LI>Changed the dynamic link editor to align its stack on a 16
+   byte (SSE2) boundary. (Radar bug #3204580).</LI>
+   
+   <LI>Changed the static link editor's handing of begin include/end
+   include stab groups (BINCL/ENCL) such that if the starting BINCL
+   has a non-zero checksum it is preserved and then the static link
+   editor does not calculate the a checksum for the group. (Radar bug
+   #3201935).</LI>
+   
+   <LI>Fixed the assembler's
+   
+   <UL>
+      <LI>.fill repeat_expression , fill_size , fill_expression</LI>
+   </UL>
+   
+   <P>directive where for a fill_size of anything but 1 it was is
+   broken. (Radar bug #3201031).</P></LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-464 for
+the 5.12 MacOS June 2003 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Fixed a spelling error in &lt;mach-o/loader.h&gt; in the
+   MH_NOMULTIDEFS comment. (Radar bug #3198288).</LI>
+   
+   <LI>Added the API NSHasModInitObjectFileImage() to
+   &lt;mach-o/dyld.h&gt;. (Radar bug #3196951).</LI>
+   
+   <LI>Updated the cctools-464 project to build with gcc-3.3.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-462 for
+the 5.12 MacOS June 2003 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Added support for dynamic shared library stubs. (Radar bug
+   #3193744).</LI>
+   
+   <LI>Implemented the NSGetSectionDataInObjectFileImage() API which
+   was previously stubbed out. (Radar bug #3194204).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-461 for
+the 5.12 MacOS June 2003 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Added the new NSLINKMODULE_OPTION_TRAILING_PHYS_NAME option to
+   the NSLinkModule(3) to allow ZeroLink so it can specify both the
+   logical name of the image and the physical name of the object file
+   . (Radar bug #3190599).</LI>
+   
+   <LI>Fixed a problem with the static linker not correctly detecting
+   the case when the relocated displacement of 14-bit PowerPC branch
+   instruction did not reach. (Radar bug #3190434).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-460 for
+the 5.12 MacOS June 2003 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in install_name_tool(1) that caused it to crash
+   when changing the shared library names to shorter names. (Radar
+   bug #3161586).</LI>
+   
+   <LI>Changed the assembler to allow for the code generation for
+   fix-n-continue to use symbol pointers for local symbols. (Radar
+   bug #3182683).</LI>
+   
+   <LI>Added the new NSLINKMODULE_OPTION_DONT_CALL_MOD_INIT_ROUTINES
+   option to the NSLinkModule(3) to not run module initializers to be
+   used for fix-n-continue. (Radar bug #3183011).</LI>
+   
+   <LI>Fixed the building of libdyld so that it can be linked against
+   without getting an out of date table of contents error. (Radar bug
+   #3183053).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-459 for
+the 5.12 MacOS June 2003 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Install the Tachyon special pre-release of dyld for zero-link
+   in
+   /System/Library/PrivateFrameworks/ZeroLink.framework/Versions/A/Resources/dyld.
+   (Radar bug #3180833).</LI>
+   
+   <LI>Implemented the following API's<BR>
+   NSSymbolDefinitionCountInObjectFileImage<BR>
+   NSSymbolDefinitionNameInObjectFileImage<BR>
+   NSSymbolReferenceCountInObjectFileImage<BR>
+   NSSymbolReferenceNameInObjectFileImage<BR>
+   NSIsSymbolDefinedInObjectFileImage<BR>
+   which were previously stubbed out. (Radar bug #3179011).</LI>
+   
+   <LI>Fixed a bug in the dynamic linker so that when the undefined
+   handler loaded the needed symbol it would correctly check to see
+   if there were any more undefined symbols and if not resume the
+   program instead of exit. (Radar bug #3178607).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-457 for
+the 5.12 MacOS June 2003 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Change the i386 assembler to not treat the pause instruction
+   as optional so it can be assembled without requiring
+   -force_cpusubtype_ALL (Radar bug #3173226).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-456 for
+the 5.12 MacOS June 2003 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Implemented NSCreateObjectFileImageFromMemory() which was
+   previously stubbed out. (Radar bug #3131622).</LI>
+   
+   <LI>Fixed a bug in the static link editor that was not removing
+   the symbol stubs of private extern coalesced symbols when creating
+   a single module dynamic library. (Radar bug #3163714).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-455 for
+the 5.12 MacOS June 2003 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Changed the environment variable XBS_TRACE_BUNDLE_LOADER to
+   LD_TRACE_BUNDLE_LOADER. Radar bug #3152604).</LI>
+   
+   <LI>Picked up the internal libsyminfo library which has API to
+   extract export/import information from Mach-O files. (Radar bug
+   #3145742).</LI>
+   
+   <LI>Backed out the change to the dynamic linker to force any
+   module containing an initialization or termination routine to be
+   fully bound when any symbol in the module is bound. This caused
+   launch time regressions in programs not built with
+   -prebind_all_twolevel_modules. (Radar bug #3158070).</LI>
+   
+   <LI>Fixed a bug in the dynamic linker that caused loading a bundle
+   into a program that is built with -prebind_all_twolevel_modules to
+   crash. (Radar bug #3148967).</LI>
+   
+   <LI>Fixed a bug in the redo_prebinding(3) API that incorrectly
+   caused a error return in the case that there is a fat file that
+   the architecture we don't care about which depends on a library in
+   another fat file and the time stamps for the libraries don't match
+   instead of ignoring it as it should. (Radar bug #3144552).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-454 for
+the 5.12 MacOS June 2003 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Changed the seg_addr_table(1) tool to no longer require that
+   the actual path of a dynamic library equals the install name of
+   the dynamic library (Radar bug #3147668).</LI>
+   
+   <LI>Fixed a bug in the redo_prebinding code that would cause it to
+   not correctly set the bits in the linked_module bit vector for
+   modules referenced via private externs (Radar bug #3126383).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-453 for
+the 5.12 MacOS June 2003 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in otool(1)'s i386 disassembler when disassembling
+   an instruction with a bad segment register encoding that caused it
+   to crash (Radar bug #3144846).</LI>
+   
+   <LI>Fixed a bug in ld(1) when using the -m flag when there are
+   multiply defined private external symbols that cause an internal
+   error. (Radar bug #3143764).</LI>
+   
+   <LI>Change the assembler's .include directive to automatically
+   find files in the same directotry as the file including it if
+   assembled in a different directory (Radar bug #3139454).</LI>
+   
+   <LI>Change the assembler to no longer have a fixed sized input
+   buffer so it can assembler the very long stabs lines generated by
+   the compiler (Radar bug #3138898).</LI>
+   
+   <LI>Updated the prebinding release notes to reflect the change of
+   the range of split address libraries from 10.1 to 10,2. (Radar bug
+   #3135553).</LI>
+   
+   <LI>Fixed a bug in the seg_addr_table(1) tool that did not
+   correctly generate an error message when a split library was
+   allocated an address in the alternate area. (Radar bug
+   #3138181).</LI>
+   
+   <LI>Fixed a bug in ld(1) when using the -i flag with a private
+   external symbol that cause an internal error. (Radar bug
+   #3134759).</LI>
+   
+   <LI>Changed the dynamic linker to force any module containing an
+   initialization or termination routine to be fully bound when any
+   symbol in the module is bound. The effect this will have is that
+   if a C++ executable has a constructor the entire program will be
+   fully bound at launch time. (Radar bug #3016816).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-452 for
+the 5.12 MacOS June 2003 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Changed the dyld's dyld_mach_thread_self() to match the
+   updated system's implementation to check if the port is not
+   MACH_PORT_NULL before deallocating the port (Radar bug
+   #3133910).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-451 for
+the 5.12 MacOS June 2003 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in the bug fix for Radar bug #3124262 (below in
+   cctools-451). This caused fix_prebinding to crash (Radar bug
+   #3133589).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-450 for
+the 5.12 MacOS June 2003 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in the redo_prebinding code that would cause it to
+   loose the -prebind_all_twolevel_modules state if the binary had a
+   new dependency (Radar bug #3124262).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-449 for
+the 5.12 MacOS June 2003 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in the assembler that was incorrectly causing an
+   error message for a section difference expresion using a symbol at
+   the end of a section for a .lcomm symbol (Radar bug
+   #3123561).</LI>
+   
+   <LI>Changed the static linker's default segment alignment for the
+   i386 architecture is 4K instead of 8K (Radar bug #3120579).</LI>
+   
+   <LI>Fixed the i386 assembler so that the i386 movd instructions
+   using GPR registers are assembled correctly (Radar bug
+   #3117280).</LI>
+   
+   <LI>Fixed otool's disassembler so that the i386 movd instructions
+   using GPR registers is correctly disassembled (Radar bug
+   #3117176).</LI>
+   
+   <LI>Fixed the i386 assembler so that it will assemble mov to/from
+   segment register instructions in 32-bit mode (Radar bug
+   #3114720).</LI>
+   
+   <LI>Fixed the cctools Makefile so that the project can be built
+   when in a directory which has a space in the name (Radar bug
+   #3114622).</LI>
+   
+   <LI>Fixed ld(1)'s -S symbol stripping option to strip symbols in
+   sections marked with the section attribute
+   S_ATTR_STRIP_STATIC_SYMS (Radar bug #3114458).</LI>
+   
+   <LI>Fixed ld(1)'s -x symbol stripping option to strip private
+   externs symbol that get turned into statics (Radar bug
+   #3114182).</LI>
+   
+   <LI>Changed the ar(1) tool to deal with creating files on NFS
+   servers that support file locking (Radar bug #3105943)</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-448 for
+the 5.12 MacOS June 2003 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Changed the i386 assembler use the ALL subtype even if a
+   processor specific instruction is used. And added the -arch i686
+   flag to be the same as -arch pentpro flag (Radar bug
+   #3111977)</LI>
+   
+   <LI>Fixed a memory leak in the dynamic linker with the
+   NSUnLinkModule() API that leaked the memory for the moduleName
+   parameter of the NSLinkModule() API (Radar bug #3073359).</LI>
+   
+   <LI>Changed the dynamic linker to use the prebinding of dynamic
+   libraries loaded via runtime APIs if possible (Radar bug
+   #3055389).</LI>
+   
+   <LI>Changed the gprof(1) man page to include "dyld(1) and the
+   DYLD_IMAGE_SUFFIX environment variable" in the SEE ALSO section
+   (Radar bug #2572028).</LI>
+   
+   <LI>Changed the assembler to generate an error message for a
+   subtraction expression that uses a label at the end of a section
+   and suggest how to create an assembly time constant expression
+   (Radar bug #2259427).</LI>
+   
+   <LI>Changed the assembler error message for a non-relocatable
+   subtraction expression to print the file and line number along
+   with which symbol is undefined (Radar bug #2254439).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-447 for
+the 5.12 MacOS June 2003 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Fixed nm(1) to print the OPT for the N_OPT stab gcc2_compiled.
+   stab produced by the compiler (Radar bug #3104328).</LI>
+   
+   <LI>Fixed ld(1)'s -x option to strip out all stabs including the
+   N_OPT gcc2_compiled. stab produced by the compiler (Radar bug
+   #3104019).</LI>
+   
+   <LI>Changed the dynamic linker to make the internal routine
+   relocate_symbol_pointers more efficient (Radar bug #3102491).</LI>
+   
+   <LI>Backed out the change in the dynamic linker to force any
+   module containing an initialization or termination routine to be
+   fully bound when any symbol in the module is bound. The original
+   Radar bug was #3016816 but this change caused a preformance
+   regression (Radar bug #3101666).</LI>
+   
+   <LI>Fixed the i386 assembler so it assembles the cmpxchg8b
+   instruction correctly (Radar bug #3099684).</LI>
+   
+   <LI>Added the _dyld_get_image_header_containing_address() SPI that
+   returns a pointer to the mach header if the address is a dyld
+   image. See the dyld(3) man page for more detailes (Radar bug
+   #2967928).</LI>
+   
+   <LI>Changed the dynamic linker to not leak memory when using the
+   NSADDIMAGE_OPTION_WITH_SEARCHING option with NSAddImage() and
+   loading a malformed library (Radar bug #2956804).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-446 for
+the 5.11 MacOS November 2002 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Changed the NXGetArchInfoFromName() API to work with VEO
+   binaries (Radar bug #3096745).</LI>
+   
+   <LI>Changed the dynamic linker to make the API
+   _dyld_image_containing_address more efficient (Radar bug
+   #3096691).</LI>
+   
+   <LI>Fixed a bug in the static link editor that was causing dynamic
+   libraries that had nothing referenced in them that also were used
+   indirectly that did have symbols indirectly referenced in them to
+   be marked as weak libraries when they shouldn't have been, (Radar
+   bug #3094497).</LI>
+   
+   <LI>Changed the dynamic linker to not cause fix_prebinding to be
+   notified if the problem dynamic library is non-prebound (Radar bug
+   #3091026).</LI>
+   
+   <LI>Changed the assembler to pad sections containing instructions
+   with nops (Radar bug #3073763).</LI>
+   
+   <LI>Added the SPI _dyld_all_twolevel_modules_prebound() that can
+   be used to check if all libraries are currently being used as
+   two-level namespace libraires, are prebound and all modules in
+   them are bound (Radar bug #3055372).</LI>
+   
+   <LI>Added the <B>-noprebind_all_twolevel_modules</B> flag that
+   overrides the setting of the environment variable
+   LD_PREBIND_ALL_TWOLEVEL_MODULES static linker (Radar bug
+   #3055372).</LI>
+   
+   <LI>Changed the dynamic linker to force any module containing an
+   initialization or termination routine to be fully bound when any
+   symbol in the module is bound. The effect this will have is that
+   if a C++ executable has a constructor the entire program will be
+   fully bound at launch time. (Radar bug #3016816).</LI>
+</UL>
+
+<H2>Notes Specific to Release 5.11 (Mac OS X November 2002 Developer
+Release)</H2>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-445 for
+the 5.11 MacOS November 2002 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in the static linker that caused it to crash when
+   an export lists was specified that did not include common symbols
+   that was not dynamically referenced. (Radar bug #3088916).</LI>
+   
+   <LI>Changed the static linker so that the <B>-s</B> option can
+   when used building an executable that uses the dynamic linker that
+   results in the same size output as <I>strip</I>(1) with no options
+   (Radar bug #3089997).</LI>
+   
+   <LI>Changed libtool(1) so that it passes the -x option to the
+   static linker (Radar bug #3088301).</LI>
+   
+   <LI>Changed the i386 assembler so that it allows all of the
+   supported operands to the cmpxchg8b (Radar bug #3089041).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-444 for
+the 5.11 MacOS November 2002 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Changed the static linker so that the <B>-s</B> option can be
+   used when building an executable that uses the dynamic linker that
+   results in the same output as <I>strip</I>(1) with no options
+   (Radar bug #2545288).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-443 for
+the 5.11 MacOS November 2002 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Export lists can now be specified to the static link editor
+   with the new options <B>-exported_symbols_list </B><I>filename
+   </I>and<I> </I><B>-unexported_symbols_list </B><I>filename</I>.
+   See the ld(1) man page for more details. (Radar bug
+   #3083844).</LI>
+   
+   <LI>Fixed a bug in the seg_addr_table(1) tool that was causing it
+   to crash when the -release does not have a DylibProjects file in
+   its directory. (Radar bug #3079374).</LI>
+   
+   <LI>Fixed a bug in the static linker when doing an ld(1) -r
+   building kexts where a jbsr to a symbol that is undefined in
+   output file is relocated wrong (Radar bug #3054747).</LI>
+   
+   <LI>Fixed the formating on the arch(3) man page (Radar bug
+   #2903710).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-442 for
+the 5.11 MacOS November 2002 Developer release) </FONT></H5>
+
+<UL>
+   <LI>The static link editor can now build dynamic libraries as a
+   single module with the new option -single_moule. The default
+   remains the same and can explicitly specified with -multi_module.
+   (Radar bug #3080780).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-441 for
+the 5.11 MacOS November 2002 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Fixed the ld(1) man page to not reference the obsolete
+   CALL_ON_MODULE_BIND pragma where it now references the current
+   CALL_ON_LOAD pragma (Radar bug #3078181).</LI>
+   
+   <LI>Changed where the i386 assembler gets installed so it will be
+   on the developer CD and not in the Local package (Radar bug
+   #3074138).</LI>
+   
+   <LI>Changed the i386 assembler to take an fxch instruction with no
+   operands (Radar bug #3073760).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-439 for
+the 5.11 MacOS November 2002 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Fixed the headers (and source code) so that they won't get the
+   "extra tokens at end of #endif directive" warnings (Radar bug
+   #3072042).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-438 for
+the 5.11 MacOS November 2002 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Added support for the VEO cpu type (Radar bug #3068161).</LI>
+   
+   <LI>Added the install_name(3) API for extracting install_name
+   value from dylibs to libredo_prebinding (Radar bug #3065586).</LI>
+   
+   <LI>Changed the needs_redo_prebinding(3) API to check all archs if
+   allow_missing_archs is zero (Radar bug #3065577).</LI>
+   
+   <LI>Changed the libtool(1) command to allow the -no_arch_warnings
+   option as a no-op when -dynamic is specified (Radar bug
+   #3064819).</LI>
+   
+   <LI>Changed the static link editor to remove partial output files
+   when coredumping (Radar bug #3062745).</LI>
+   
+   <LI>Made a fix to the a bug fix in cctools-436 for Radar bug
+   #3037279 in the static link editor that was not removing a symbol
+   stubs for private weak definitions (Radar bug #3054990).</LI>
+   
+   <LI>Fixed a bug in the static link editor that fail to mark a
+   dynamic library weak if all of the references to it were weak when
+   the library had internal references (Radar bug #3051119).</LI>
+   
+   <LI>Updated the code in the make_dyld_image_data_writable(3) dyld
+   debug API to use the dyld preferred address in Mac OS X 10.2 as
+   its initial guess when scaning memory looking for dyld (Radar bug
+   #3042819).</LI>
+   
+   <LI>Removed the support for the dyld DYLD_MEM_PROTECT feature
+   (Radar bug #3035901).</LI>
+   
+   <LI>Added support for the Intel SSE2/SSE/MMX instructions in
+   otool(1)'s disassembler (Radar bug #2972491).</LI>
+   
+   <LI>Finished the support for the Intel SSE2/SSE/MMX instructions
+   in the assembler (Radar bug #2972486).</LI>
+   
+   <LI>Added the .align32 assembler directive that takes a 32bit fill
+   value for use by the compiler with -falign-loops. (Radar bug
+   #2680692).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-437 for
+the 5.11 MacOS November 2002 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Added the value 10.3 to be one of the known values allowed for
+   environment variable MACOSX_DEPLOYMENT_TARGET (Radar bug
+   #3049974).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-436 for
+the 5.11 MacOS November 2002 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Added most of the Intel SSE2/SSE/MMX instructions to the
+   assembler (Radar bug #2972486).</LI>
+   
+   <LI>Fixed many bugs in ld(1) and kld(3) having to do with the
+   relocation of the PowerPC pseudo instruction jbsr which are
+   generated with the compiler -mlong_branch option (Radar bug
+   #3046962).</LI>
+   
+   <LI>Changed the cctools project to not build a -static compiled
+   libredo_prebinding library (Radar bug #3000895).</LI>
+   
+   <LI>Updated the nm(1) tool to print the new stab entry containing
+   full compiler flags, compiler version and the optimization level
+   (Radar bug #3000792).</LI>
+   
+   <LI>Fixed a bug the static link editor that can cause it to crash
+   when dealing with a truncated dynamic library (Radar bug
+   #2999466).</LI>
+   
+   <LI>Fixed the static link editor error message handling of an
+   archive that does not have the needed architecture when the
+   -no_arch_warnings is used (Radar bug #2986587).</LI>
+   
+   <LI>Fixed a crash that can occur in the nmedit(1) tool if the list
+   of symbols contains duplicate symbol names (Radar bug
+   #2962899).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-435 for
+the 5.10 MacOS 10.2 release) </FONT></H5>
+
+<UL>
+   <LI>Fixed a bug the static link editor that was incorrectly
+   removing a symbol stub for a weak definition (Radar bug
+   #3037279).</LI>
+</UL>
 
 <H1>Notes Specific to Release 5.10 (Mac OS X 10.2)</H1>
 

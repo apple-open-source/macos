@@ -1,3 +1,135 @@
+
+/********************************************************************************
+*                                                                               *
+*                         Binary to decimal conversions                         *
+*                                                                               *
+*   SIGDIGLEN   Significant decimal digits.                                     *
+*                                                                               *
+*   decimal     A record which provides an intermediate unpacked form for       *
+*               programmers who wish to do their own parsing of numeric input   *
+*               or formatting of numeric output.                                *
+*                                                                               *
+*   decform     Controls each conversion to a decimal string.  The style field  *
+*               is either FLOATDECIMAL or FIXEDDECIMAL. If FLOATDECIMAL, the    *
+*               value of the field digits is the number of significant digits.  *
+*               If FIXEDDECIMAL value of the field digits is the number of      *
+*               digits to the right of the decimal point.                       *
+*                                                                               *
+*   num2dec     Converts a double_t to a decimal record using a decform.        *
+*   dec2num     Converts a decimal record d to a double_t value.                *
+*   dec2str     Converts a decform and decimal to a string using a decform.     *
+*   str2dec     Converts a string to a decimal struct.                          *
+*   dec2d       Similar to dec2num except a double is returned (68k only).      *
+*   dec2f       Similar to dec2num except a float is returned.                  *
+*   dec2s       Similar to dec2num except a short is returned.                  *
+*   dec2l       Similar to dec2num except a long is returned.                   *
+*                                                                               *
+********************************************************************************/
+#if TARGET_CPU_PPC
+    #define SIGDIGLEN      36  
+#elif TARGET_CPU_68K
+    #define SIGDIGLEN      20
+#elif TARGET_CPU_X86
+    #define SIGDIGLEN      20
+#endif
+#define      DECSTROUTLEN   80               /* max length for dec2str output */
+#define      FLOATDECIMAL   ((char)(0))
+#define      FIXEDDECIMAL   ((char)(1))
+struct decimal {
+    char                            sgn;                        /* sign 0 for +, 1 for - */
+    char                            unused;
+    short                           exp;                        /* decimal exponent */
+    struct {
+        unsigned char                   length;
+        unsigned char                   text[SIGDIGLEN];        /* significant digits */
+        unsigned char                   unused;
+    }                               sig;
+};
+typedef struct decimal decimal;
+
+struct decform {
+    char                            style;                      /*  FLOATDECIMAL or FIXEDDECIMAL */
+    char                            unused;
+    short                           digits;
+};
+typedef struct decform decform;
+/*
+ *  num2dec()
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.0 and later in CoreServices.framework
+ *    CarbonLib:        in CarbonLib 1.0 and later
+ *    Non-Carbon CFM:   in MathLib 1.0 and later
+ */
+extern void  num2dec(const decform *f, double_t x, decimal *d)                                 AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER;
+
+
+/*
+ *  dec2num()
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.0 and later in CoreServices.framework
+ *    CarbonLib:        in CarbonLib 1.0 and later
+ *    Non-Carbon CFM:   in MathLib 1.0 and later
+ */
+extern double_t  dec2num(const decimal * d)                   AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER;
+
+
+/*
+ *  dec2str()
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.0 and later in CoreServices.framework
+ *    CarbonLib:        in CarbonLib 1.0 and later
+ *    Non-Carbon CFM:   in MathLib 1.0 and later
+ */
+extern void  dec2str(const decform *f, const decimal *d, char *s)                                 AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER;
+
+
+/*
+ *  str2dec()
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.0 and later in CoreServices.framework
+ *    CarbonLib:        in CarbonLib 1.0 and later
+ *    Non-Carbon CFM:   in MathLib 1.0 and later
+ */
+extern void  str2dec(const char *s, short *ix, decimal *d, short *vp)                            AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER;
+
+
+/*
+ *  dec2f()
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.0 and later in CoreServices.framework
+ *    CarbonLib:        in CarbonLib 1.0 and later
+ *    Non-Carbon CFM:   in MathLib 1.0 and later
+ */
+extern float  dec2f(const decimal * d)                        AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER;
+
+
+/*
+ *  dec2s()
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.0 and later in CoreServices.framework
+ *    CarbonLib:        in CarbonLib 1.0 and later
+ *    Non-Carbon CFM:   in MathLib 1.0 and later
+ */
+extern short  dec2s(const decimal * d)                        AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER;
+
+
+/*
+ *  dec2l()
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.0 and later in CoreServices.framework
+ *    CarbonLib:        in CarbonLib 1.0 and later
+ *    Non-Carbon CFM:   in MathLib 1.0 and later
+ */
+extern long  dec2l(const decimal * d)                         AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER;
+
+#ifdef notdef
 /*
  * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  *
@@ -162,6 +294,6 @@ void axb2c ( big *a, big *b, big *c, int finishRounding );
 void adivb2c ( big *a, big *b, big *c );
 void biggetsig ( big *s, decimal *d );
 
-
+#endif
 
 

@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -194,18 +195,20 @@ OSStatus	SearchTree	(BTreeControlBlockPtr	 btreePtr,
 	NodeRec		nodeRec;
 	UInt16		index;
 	Boolean		keyFound;
+	SInt8		nodeKind;				//	Kind of current node (index/leaf)
 	KeyPtr		keyPtr;
 	UInt8 *		dataPtr;
 	UInt16		dataSize;
 	
 	
-	if (btreePtr->treeDepth == 0)						// is the tree empty?
+	curNodeNum		= btreePtr->rootNode;
+	level			= btreePtr->treeDepth;
+	
+	if (level == 0)						// is the tree empty?
 	{
 		err = fsBTEmptyErr;
 		goto ErrorExit;
 	}
-	
-	curNodeNum		= btreePtr->rootNode;
 	
 	//ее for debugging...
 	treePathTable [0].node		= 0;
@@ -231,15 +234,43 @@ OSStatus	SearchTree	(BTreeControlBlockPtr	 btreePtr,
 		{
 			goto ErrorExit;
 		}
-		
-		keyFound = SearchNode (btreePtr, nodeRec.buffer, searchKey, &index);
 
-		level = ((BTNodeDescriptor*)nodeRec.buffer)->height;	//ее or --level;
-		
+        //
+        //	[2550929] Sanity check the node height and node type.  We expect
+        //	particular values at each iteration in the search.  This checking
+        //	quickly finds bad pointers, loops, and other damage to the
+        //	hierarchy of the B-tree.
+        //
+        if (((BTNodeDescriptor*)nodeRec.buffer)->height != level)
+        {
+                err = fsBTInvalidNodeErr;
+                goto ReleaseAndExit;
+        }
+        nodeKind = ((BTNodeDescriptor*)nodeRec.buffer)->kind;
+        if (level == 1)
+        {
+            //	Nodes at level 1 must be leaves, by definition
+            if (nodeKind != kBTLeafNode)
+            {
+                err = fsBTInvalidNodeErr;
+                goto ReleaseAndExit;           
+            }
+        }
+        else
+        {
+            //	A node at any other depth must be an index node
+            if (nodeKind != kBTIndexNode)
+            {
+                err = fsBTInvalidNodeErr;
+                goto ReleaseAndExit;
+            }
+        }
+        		
+		keyFound = SearchNode (btreePtr, nodeRec.buffer, searchKey, &index);
 
 		treePathTable [level].node		= curNodeNum;
 
-		if ( ((BTNodeDescriptor*)nodeRec.buffer)->kind == kBTLeafNode)
+        if (nodeKind == kBTLeafNode)
 		{
 			treePathTable [level].index = index;
 			break;			// were done...
@@ -250,13 +281,29 @@ OSStatus	SearchTree	(BTreeControlBlockPtr	 btreePtr,
 
 		treePathTable [level].index = index;
 		
-		GetRecordByIndex (btreePtr, nodeRec.buffer, index, &keyPtr, &dataPtr, &dataSize);
+		err = GetRecordByIndex (btreePtr, nodeRec.buffer, index, &keyPtr, &dataPtr, &dataSize);
+        if (err != noErr)
+        {
+            //	[2550929] If we got an error, it is probably because the index was bad
+            //	(typically a corrupt node that confused SearchNode).  Invalidate the node
+            //	so we won't accidentally use the corrupted contents.  NOTE: the Mac OS 9
+            //	sources call this InvalidateNode.
+            
+                (void) TrashNode(btreePtr, &nodeRec);
+                goto ErrorExit;
+        }
+
+        //	Get the child pointer out of this index node.  We're now done with the current
+        //	node and can continue the search with the child node.
 		curNodeNum = *(UInt32 *)dataPtr;
 		err = ReleaseNode (btreePtr, &nodeRec);
 		if (err != noErr)
 		{
 			goto ErrorExit;
 		}
+        
+        //	The child node should be at a level one less than the parent.
+        --level;
 	}
 	
 	*nodeNum			= curNodeNum;
@@ -267,6 +314,10 @@ OSStatus	SearchTree	(BTreeControlBlockPtr	 btreePtr,
 		return	noErr;			// searchKey found, index identifies record in node
 	else
 		return	fsBTRecordNotFoundErr;	// searchKey not found, index identifies insert point
+
+ReleaseAndExit:
+    (void) ReleaseNode(btreePtr, &nodeRec);
+    //	fall into ErrorExit
 
 ErrorExit:
 	

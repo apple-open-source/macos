@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -146,9 +147,9 @@ struct list secondlevel[] = {
 	{ kernname, KERN_MAXID },	/* CTL_KERN */
 	{ vmname, VM_MAXID },		/* CTL_VM */
 	{ 0, 0 },			/* CTL_VFS */
-    { 0, 0 },		/* CTL_NET */
+	{ 0, 0 },			/* CTL_NET */
 	{ 0, CTL_DEBUG_MAXID },		/* CTL_DEBUG */
-	{ hwname, HW_MAXID },		/* CTL_HW */
+	{ 0,0 },			/* CTL_HW */
 #ifdef CTL_MACHDEP_NAMES
 	{ machdepname, CPU_MAXID },	/* CTL_MACHDEP */
 #else
@@ -169,7 +170,7 @@ void usage();
 
 static void 	parse(char *string, int flags);
 static int	oidfmt(int *, int, char *, u_int *);
-static int	show_var(int *, int);
+static int	show_var(int *, int, int);
 static int	sysctl_all (int *oid, int len);
 static int	name2oid(char *, int *);
 
@@ -350,7 +351,7 @@ old_parse(string, flags)
 		break;
 
 	case CTL_VM:
-		if (mib[1] == VM_LOADAVG) {
+		if (mib[1] == VM_LOADAVG) {	/* XXX this is bogus */
 			double loads[3];
 
 			getloadavg(loads, 3);
@@ -693,7 +694,7 @@ parse(char *string, int flags)
 			foundSome = 1;
 			old_parse (string, flags);
 		} else {
-			i = show_var(mib, len);
+			i = show_var(mib, len, 1);
 			if (!i && !bflag)
 				putchar('\n');
 		}
@@ -730,7 +731,7 @@ parse(char *string, int flags)
 					kind & CTLTYPE);
 		}
 
-		i = show_var(mib, len);
+		i = show_var(mib, len, 1);
 		if (sysctl(mib, len, 0, 0, newval, newsize) == -1) {
 			if (!i && !bflag)
 				putchar('\n');
@@ -753,7 +754,7 @@ parse(char *string, int flags)
 			printf(" -> ");
 		i = nflag;
 		nflag = 1;
-		j = show_var(mib, len);
+		j = show_var(mib, len, 1);
 		if (!j && !bflag)
 			putchar('\n');
 		nflag = i;
@@ -886,7 +887,7 @@ oidfmt(int *oid, int len, char *fmt, u_int *kind)
  */
 
 static int
-show_var(int *oid, int nlen)
+show_var(int *oid, int nlen, int show_masked)
 {
 	u_char buf[BUFSIZ], *val, *mval, *p;
 	char name[BUFSIZ], /* descr[BUFSIZ], */ *fmt;
@@ -932,11 +933,25 @@ show_var(int *oid, int nlen)
 		err(1, "sysctl fmt %d %d %d", i, j, errno);
 
 	kind = *(u_int *)buf;
+	if (!show_masked && (kind & CTLFLAG_MASKED)) {
+		retval = 1;
+		goto RETURN;
+	}
 
 	fmt = (char *)(buf + sizeof(u_int));
+	
+	/* XXX special-case hack for hw.physmem */
+	if ((oid[0] == CTL_HW) && (oid[1] == HW_PHYSMEM))
+		fmt = "IU";
 
 	p = val;
 	switch (*fmt) {
+	case '-':
+		/* deprecated, do not print */
+		retval = 0;
+		goto RETURN;
+		
+
 	case 'A':
 		if (!nflag)
 			printf("%s: ", name);
@@ -984,6 +999,24 @@ show_var(int *oid, int nlen)
 		printf("%p", *(void **)p);
 		retval = 0;
 		goto RETURN;
+
+	case 'Q':
+		if (!nflag)
+			printf("%s: ", name);
+		fmt++;
+		val = "";
+		while (len >= sizeof(long long)) {
+			if(*fmt == 'U')
+				printf("%s%llu", val, *(unsigned long long *)p);
+			else
+				printf("%s%lld", val, *(long long *)p);
+			val = " ";
+			len -= sizeof (long long);
+			p += sizeof (long long);
+		}
+		retval = 0;
+		goto RETURN;
+
 
 	case 'T':
 	case 'S':
@@ -1060,7 +1093,7 @@ sysctl_all (int *oid, int len)
 			if (name2[i] != oid[i])
 				return 0;
 
-		i = show_var(name2, l2);
+		i = show_var(name2, l2, 0);
 		if (!i && !bflag)
 			putchar('\n');
 

@@ -29,6 +29,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "expr.h"
 #include "md.h"
 #include "obstack.h"
+#include "input-scrub.h"
 
 #ifdef SPARC
 /* internal relocation types not to be emitted */
@@ -63,6 +64,7 @@ void)
     fragS *fragP;
     relax_addressT slide, tmp;
     symbolS *symbolP;
+    unsigned long nbytes, fill_size, repeat_expression, partial_bytes;
 
 	if(frchain_root == NULL)
 	    return;
@@ -196,16 +198,48 @@ void)
 		switch(fragP->fr_type){
 		case rs_align:
 		case rs_org:
+		    /* convert this frag to an rs_fill type */
 		    fragP->fr_type = rs_fill;
-		    know(fragP->fr_var == 1);
+		    /*
+		     * Calculate the number of bytes the variable part of the
+		     * the rs_fill frag will need to fill.  Then calculate this
+		     * as the fill_size * repeat_expression + partial_bytes.
+		     */
 		    know(fragP->fr_next != NULL);
-		    fragP->fr_offset = fragP->fr_next->fr_address -
-				       fragP->fr_address -
-				       fragP->fr_fix;
-		    if(fragP->fr_offset < 0){
+		    nbytes = fragP->fr_next->fr_address -
+			     fragP->fr_address -
+			     fragP->fr_fix;
+		    if(nbytes < 0){
 			as_warn("rs_org invalid, dot past value by %ld bytes",
-				fragP->fr_offset);
-			fragP->fr_offset = 0;
+				nbytes);
+			nbytes = 0;
+		    }
+		    fill_size = fragP->fr_var;
+		    repeat_expression = nbytes / fill_size;
+		    partial_bytes = nbytes - (repeat_expression * fill_size);
+		    /*
+		     * Now set the fr_offset to the fill repeat_expression
+		     * since this is now an rs_fill type.  The fr_var is still
+		     * the fill_size.
+		     */
+		    fragP->fr_offset = repeat_expression;
+		    /*
+		     * For rs_align frags there may be partial_bytes to fill
+		     * with zeros before we can fill with the fill_expression
+		     * of fill_size.  When the rs_align frag was created it was
+		     * created with fill_size-1 extra bytes in the fixed part.
+		     */
+		    if(partial_bytes != 0){
+			/* moved the fill_expression bytes foward */
+			memmove(fragP->fr_literal +fragP->fr_fix +partial_bytes,
+				fragP->fr_literal +fragP->fr_fix,
+				fragP->fr_var);
+    			/* zero out the partial_bytes */
+    			memset(fragP->fr_literal + fragP->fr_fix,
+			       '\0',
+			       partial_bytes);
+			/* adjust the fixed part of the frag */
+    			fragP->fr_fix += partial_bytes;
 		    }
 		    break;
 
@@ -259,6 +293,9 @@ int nsect)
     fragS *fragP;
     int	add_symbol_N_TYPE;
     int	add_symbol_nsect;
+#ifndef SPARC
+    int sub_symbol_nsect;
+#endif
 
 	/*
 	 * The general fix expression is "fx_addsy - fx_subsy + fx_offset".
@@ -351,6 +388,25 @@ int nsect)
 			value += add_symbolP->sy_value - sub_symbolP->sy_value;
 #else
 		    value += add_symbolP->sy_value - sub_symbolP->sy_value;
+		    sub_symbol_nsect = sub_symbolP->sy_other;
+		    if(is_end_section_address(add_symbol_nsect,
+					      add_symbolP->sy_value) ||
+		       is_end_section_address(sub_symbol_nsect,
+					      sub_symbolP->sy_value)){
+			layout_line = fixP->line;
+			layout_file = fixP->file;
+			as_warn("section difference relocatable subtraction "
+				"expression, \"%s\" minus \"%s\" using a "
+				"symbol at the end of section will not "
+				"produce an assembly time constant",
+				add_symbolP->sy_name, sub_symbolP->sy_name);
+			as_warn("use a symbol with a constant value created "
+				"with an assignment instead of the expression, "
+				"L_const_sym = %s - %s", add_symbolP->sy_name,
+				sub_symbolP->sy_name);
+			layout_line = 0;
+			layout_file = NULL;
+		    }
 #endif
 		    goto down;
 		}
@@ -368,9 +424,19 @@ int nsect)
 		 * relocation entry for (two undefined symbols, etc.).
 		 */
 	        else{
-		     as_warn("Can't emit reloc {- symbol \"%s\"} @ file "
-			     "address %ld.", sub_symbolP->sy_name,
-			     fragP->fr_address + where);
+		     layout_line = fixP->line;
+		     layout_file = fixP->file;
+		     as_warn("non-relocatable subtraction expression, \"%s\" "
+			     "minus \"%s\"", add_symbolP->sy_name,
+			     sub_symbolP->sy_name);
+		     if((add_symbolP->sy_type & N_TYPE) == N_UNDF)
+			as_warn("symbol: \"%s\" can't be undefined in a "
+				"subtraction expression", add_symbolP->sy_name);
+		     if((sub_symbolP->sy_type & N_TYPE) == N_UNDF)
+			as_warn("symbol: \"%s\" can't be undefined in a "
+				"subtraction expression", sub_symbolP->sy_name);
+		     layout_line = 0;
+		     layout_file = NULL;
 		}
 	    }
 
@@ -473,6 +539,31 @@ down:
 	     */
 	    md_number_to_imm((unsigned char *)place, value, size, fixP, nsect);
 	    fixP->fx_value = value;
+
+	    /*
+	     * If this is a non-lazy pointer section and this fix is for a
+	     * local symbol without an subtract symbol then cause this not to
+	     * generate a relocation entry.  This is used with code gen for
+	     * fix-n-continue where the compiler generates indirection for
+	     * static data references.  So the assembly looks like this:
+	     *
+	     * 	.non_lazy_symbol_pointer
+	     * 	L_i$non_lazy_ptr:
+       	     * 	.indirect_symbol _i
+       	     * 	.long   _i
+	     *
+	     * this allows the value of the symbol to be set into the pointer
+	     * but not cause the relocation entry to be created.  The code in
+	     * write_object() then changes the indirect symbol table entry to
+	     * INDIRECT_SYMBOL_LOCAL when the symbol is local.  This is what
+	     * the static and dynamic linkers expect and will then cause the
+	     * pointer to be correctly relocated.
+	     */
+	    if(is_section_non_lazy_symbol_pointers(nsect) &&
+	       (add_symbolP->sy_type & N_EXT) != N_EXT &&
+	       sub_symbolP == NULL){
+		fixP->fx_addsy = NULL; /* no relocation entry */
+	    }
 	}
 }
 
@@ -509,12 +600,13 @@ int nsect)
     relax_substateT this_state;
 
     long growth;
-    long was_address;
+    unsigned long was_address;
     long offset;
     symbolS *symbolP;
     long target;
     long after;
     long aim;
+    unsigned long oldoff, newoff;
 
 	growth = 0;
 
@@ -531,7 +623,25 @@ int nsect)
 		break;
 
 	    case rs_align:
-		address += relax_align(address, fragP->fr_offset);
+		offset = relax_align (address, (int) fragP->fr_offset);
+		/*
+		 * If a maximum number of bytes to fill was specified for this
+		 * align (stored in fr_subtype) then check to see if this align
+		 * can be done.  If not ignore it.  If so and this alignment is
+		 * larger than any previous alignment then this becomes the
+		 * section's alignment.
+		 */
+		if(fragP->fr_subtype != 0){
+		    if(offset > (long)fragP->fr_subtype){
+			offset = 0;
+		    }
+		    else{
+			if(frchain_now->frch_section.align <
+			   (unsigned long)fragP->fr_offset)
+			    frchain_now->frch_section.align = fragP->fr_offset;
+		    }
+		}
+		address += offset;
 		break;
 
 	    case rs_org:
@@ -572,10 +682,19 @@ int nsect)
 		    break;
 
 		case rs_align:
-		    growth = relax_align((relax_addressT)
-					 (address + fragP->fr_fix), offset) -
-			     relax_align((relax_addressT)
-					 (was_address + fragP->fr_fix), offset);
+		    oldoff = relax_align(was_address + fragP->fr_fix, offset);
+		    newoff = relax_align(address + fragP->fr_fix, offset);
+		    /*
+		     * Check if a maximum number of bytes to fill was specified
+		     * for this align (stored in fr_subtype).
+		     */
+		    if(fragP->fr_subtype != 0){
+			if(oldoff > fragP->fr_subtype)
+			    oldoff = 0;
+			if(newoff > fragP->fr_subtype)
+			    newoff = 0;
+		    }
+		    growth = newoff - oldoff;
 		    break;
 
 		case rs_org:

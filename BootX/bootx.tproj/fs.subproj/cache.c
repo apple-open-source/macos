@@ -25,7 +25,7 @@
 /*
  *  cache.c - A simple cache for file systems meta-data.
  *
- *  Copyright (c) 2000 Apple Computer, Inc.
+ *  Copyright (c) 2000 - 2003 Apple Computer, Inc.
  *
  *  DRI: Josh de Cesare
  */
@@ -40,7 +40,7 @@ struct CacheEntry {
 };
 typedef struct CacheEntry CacheEntry;
 
-#define kCacheSize            (0x80000)
+#define kCacheSize            (kFSCacheSize)
 #define kCacheMinBlockSize    (0x200)
 #define kCacheMaxBlockSize    (0x4000)
 #define kCacheMaxEntries      (kCacheSize / kCacheMinBlockSize)
@@ -50,7 +50,7 @@ static long       gCacheBlockSize;
 static long       gCacheNumEntries;
 static long       gCacheTime;
 static CacheEntry gCacheEntries[kCacheMaxEntries];
-static char       gCacheBuffer[kCacheSize];
+static char       *gCacheBuffer = (char *)kFSCacheAddr;
 
 unsigned long     gCacheHits;
 unsigned long     gCacheMisses;

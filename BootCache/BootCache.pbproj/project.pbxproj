@@ -109,8 +109,8 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.BootCache;
-				MODULE_VERSION = 12.3;
-				OTHER_CFLAGS = "-traditional-cpp -Wall";
+				MODULE_VERSION = 16;
+				OTHER_CFLAGS = "-no-cpp-precomp -Wall";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = BootCache;
@@ -145,11 +145,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>12.3</string>
+	<string>16</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>12.3</string>
+	<string>16</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>BootCache</key>
@@ -399,7 +399,7 @@
 			);
 			buildSettings = {
 				INSTALL_PATH = /System/Library/LoginPlugins;
-				OTHER_CFLAGS = "-traditional-cpp -Wall";
+				OTHER_CFLAGS = "-no-cpp-precomp -Wall";
 				OTHER_LDFLAGS = "-bundle -twolevel_namespace";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = BootCache;
@@ -435,11 +435,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>12.3</string>
+	<string>16</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>12.3</string>
+	<string>16</string>
 	<key>NSMainNibFile</key>
 	<string>BootCacheLoginPlugin</string>
 	<key>NSPrincipalClass</key>
@@ -708,7 +708,7 @@
 			);
 			buildSettings = {
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/BootCache.kext/Contents/Resources/";
-				OTHER_CFLAGS = "-traditional-cpp -Wall";
+				OTHER_CFLAGS = "-no-cpp-precomp -Wall";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = BootCacheControl;

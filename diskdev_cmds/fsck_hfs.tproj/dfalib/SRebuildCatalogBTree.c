@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 2002 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -40,7 +41,6 @@
 #endif
 
 #include "Scavenger.h"
-#include "hfs_endian.h"
 #include "../cache.h"
 
 /* internal routine prototypes */
@@ -69,7 +69,7 @@ static void PrintLeafNodeRec( HFSPlusCatalogFolder * thePtr );
 
 void SETOFFSET ( void *buffer, UInt16 btNodeSize, SInt16 recOffset, SInt16 vecOffset );
 #define SETOFFSET( buf,ndsiz,offset,rec )		\
-	( *(SInt16 *)((UInt8 *)(buf) + (ndsiz) + (-2 * (rec))) = (SWAP_BE16 (offset)) )
+	( *(SInt16 *)((UInt8 *)(buf) + (ndsiz) + (-2 * (rec))) = (offset) )
 
 
 //_________________________________________________________________________________
@@ -138,6 +138,8 @@ OSErr	RebuildCatalogBTree( SGlobPtr theSGlobPtr )
  
  	theSGlobPtr->TarID = kHFSCatalogFileID;  /* target = catalog file */
 	theSGlobPtr->TarBlock = 0;
+	myBlockDescriptor.buffer = NULL;
+	myVCBPtr = theSGlobPtr->calculatedVCB;
 
 	myErr = BTScanInitialize( theSGlobPtr->calculatedCatalogFCB, 
 							  &theSGlobPtr->scanState );
@@ -149,48 +151,48 @@ OSErr	RebuildCatalogBTree( SGlobPtr theSGlobPtr )
 	// aborted if an error was found that would trigger a catalog rebuild.  For example,
 	// if a leaf record was found to have a keys out of order then the verify phase of the
 	// B-Tree check would be aborted and we would come directly (if allowable) to here.
-	myVCBPtr = theSGlobPtr->calculatedVCB;
 	isHFSPlus = ( myVCBPtr->vcbSignature == kHFSPlusSigWord );
-	
+
+	myErr = GetVolumeObjectVHBorMDB( &myBlockDescriptor );
+	if ( noErr != myErr )
+		goto ExitThisRoutine;
+
 	if ( isHFSPlus )
 	{
-		HFSPlusVolumeHeader	*		myMDBPtr;
+		HFSPlusVolumeHeader	*		myVHBPtr;
 		
-		myErr = GetVolumeBlock( myVCBPtr, (myVCBPtr->vcbEmbeddedOffset / 512) + 2, 
-								kGetBlock, &myBlockDescriptor );
-		if ( noErr != myErr )
-			goto ExitThisRoutine;
-		myMDBPtr = (HFSPlusVolumeHeader	*) myBlockDescriptor.buffer;
-		myVCBPtr->vcbFreeBlocks = myMDBPtr->freeBlocks;
-		myVCBPtr->vcbFileCount = myMDBPtr->fileCount;
-		myVCBPtr->vcbFolderCount = myMDBPtr->folderCount;
+		myVHBPtr = (HFSPlusVolumeHeader	*) myBlockDescriptor.buffer;
+		myVCBPtr->vcbFreeBlocks = myVHBPtr->freeBlocks;
+		myVCBPtr->vcbFileCount = myVHBPtr->fileCount;
+		myVCBPtr->vcbFolderCount = myVHBPtr->folderCount;
+		myVCBPtr->vcbEncodingsBitmap = myVHBPtr->encodingsBitmap;
+		myVCBPtr->vcbRsrcClumpSize = myVHBPtr->rsrcClumpSize;
+		myVCBPtr->vcbDataClumpSize = myVHBPtr->dataClumpSize;
 		
 		//	check out creation and last mod dates
-		myVCBPtr->vcbCreateDate	= myMDBPtr->createDate;	
-		myVCBPtr->vcbModifyDate	= myMDBPtr->modifyDate;		
-		myVCBPtr->vcbCheckedDate = myMDBPtr->checkedDate;		
-		myVCBPtr->vcbBackupDate = myMDBPtr->backupDate;	
-		myVCBPtr->vcbCatalogFile->fcbClumpSize = myMDBPtr->catalogFile.clumpSize;
+		myVCBPtr->vcbCreateDate	= myVHBPtr->createDate;	
+		myVCBPtr->vcbModifyDate	= myVHBPtr->modifyDate;		
+		myVCBPtr->vcbCheckedDate = myVHBPtr->checkedDate;		
+		myVCBPtr->vcbBackupDate = myVHBPtr->backupDate;	
+		myVCBPtr->vcbCatalogFile->fcbClumpSize = myVHBPtr->catalogFile.clumpSize;
 
 		//	verify volume attribute flags
-		if ( ((UInt16)myMDBPtr->attributes & VAtrb_Msk) == 0 )
-			myVCBPtr->vcbAttributes = (UInt16)myMDBPtr->attributes;
+		if ( ((UInt16)myVHBPtr->attributes & VAtrb_Msk) == 0 )
+			myVCBPtr->vcbAttributes = (UInt16)myVHBPtr->attributes;
 		else 
 			myVCBPtr->vcbAttributes = VAtrb_DFlt;
-		CopyMemory( myMDBPtr->finderInfo, myVCBPtr->vcbFinderInfo, sizeof(myVCBPtr->vcbFinderInfo) );
+		CopyMemory( myVHBPtr->finderInfo, myVCBPtr->vcbFinderInfo, sizeof(myVCBPtr->vcbFinderInfo) );
 	}
 	else
 	{
 		HFSMasterDirectoryBlock	*	myMDBPtr;
-		
-		myErr = GetVolumeBlock( myVCBPtr, MDB_BlkN, kGetBlock, &myBlockDescriptor );
-		if ( noErr != myErr )
-			goto ExitThisRoutine;
 		myMDBPtr = (HFSMasterDirectoryBlock	*) myBlockDescriptor.buffer;
 		myVCBPtr->vcbFreeBlocks = myMDBPtr->drFreeBks;
 		myVCBPtr->vcbFileCount = myMDBPtr->drFilCnt;
 		myVCBPtr->vcbFolderCount = myMDBPtr->drDirCnt;
+		myVCBPtr->vcbDataClumpSize = myMDBPtr->drClpSiz;
 		myVCBPtr->vcbCatalogFile->fcbClumpSize = myMDBPtr->drCTClpSiz;
+		myVCBPtr->vcbNmRtDirs = myMDBPtr->drNmRtDirs;
 
 		//	check out creation and last mod dates
 		myVCBPtr->vcbCreateDate	= myMDBPtr->drCrDate;		
@@ -206,6 +208,7 @@ OSErr	RebuildCatalogBTree( SGlobPtr theSGlobPtr )
 		CopyMemory( myMDBPtr->drFndrInfo, myVCBPtr->vcbFinderInfo, sizeof(myMDBPtr->drFndrInfo) );
 	}
 	(void) ReleaseVolumeBlock( myVCBPtr, &myBlockDescriptor, kReleaseBlock );
+	myBlockDescriptor.buffer = NULL;
 
 	// create the new catalog BTree file
 	myErr = CreateNewCatalogBTree( theSGlobPtr );
@@ -311,6 +314,9 @@ OSErr	RebuildCatalogBTree( SGlobPtr theSGlobPtr )
 	(void) DeleteCatalogBTree( theSGlobPtr, theSGlobPtr->calculatedRepairFCB );
 
 ExitThisRoutine:
+	if ( myBlockDescriptor.buffer != NULL )
+		(void) ReleaseVolumeBlock( myVCBPtr, &myBlockDescriptor, kReleaseBlock );
+
 	if ( myErr != noErr && myFCBPtr != NULL ) 
 		(void) DeleteCatalogBTree( theSGlobPtr, myFCBPtr );
 	BTScanTerminate( &theSGlobPtr->scanState  );
@@ -465,29 +471,29 @@ static OSErr InitializeBTree(	BTreeControlBlock * theBTreeCBPtr,
 	/* FILL IN THE NODE DESCRIPTOR:  */
 	myNodeDescPtr 		= (BTNodeDescriptor *) myBufferPtr;
 	myNodeDescPtr->kind 	= kBTHeaderNode;
-	myNodeDescPtr->numRecords = SWAP_BE16 (3);
+	myNodeDescPtr->numRecords = 3;
 	myOffset = sizeof( BTNodeDescriptor );
 
 	SETOFFSET( myBufferPtr, theBTreeCBPtr->nodeSize, myOffset, 1 );
 
 	/* FILL IN THE HEADER RECORD:  */
 	myHeaderRecPtr = (BTHeaderRec *)((UInt8 *)myBufferPtr + myOffset);
-	myHeaderRecPtr->treeDepth		= SWAP_BE16 (1);
-	myHeaderRecPtr->rootNode		= SWAP_BE32 (1);
-	myHeaderRecPtr->firstLeafNode	= SWAP_BE32 (1);
-	myHeaderRecPtr->lastLeafNode	= SWAP_BE32 (1);
-	myHeaderRecPtr->nodeSize		= SWAP_BE16 (theBTreeCBPtr->nodeSize);
-	myHeaderRecPtr->totalNodes		= SWAP_BE32 (theBTreeCBPtr->totalNodes);
-	myHeaderRecPtr->freeNodes		= SWAP_BE32 (SWAP_BE32 (myHeaderRecPtr->totalNodes) - 2);  /* header and leaf */
-	myHeaderRecPtr->clumpSize		= SWAP_BE32 (theBTreeCBPtr->fcbPtr->fcbClumpSize);
+	myHeaderRecPtr->treeDepth		= 1;
+	myHeaderRecPtr->rootNode		= 1;
+	myHeaderRecPtr->firstLeafNode	= 1;
+	myHeaderRecPtr->lastLeafNode	= 1;
+	myHeaderRecPtr->nodeSize		= theBTreeCBPtr->nodeSize;
+	myHeaderRecPtr->totalNodes		= theBTreeCBPtr->totalNodes;
+	myHeaderRecPtr->freeNodes		= myHeaderRecPtr->totalNodes - 2;  /* header and leaf */
+	myHeaderRecPtr->clumpSize		= theBTreeCBPtr->fcbPtr->fcbClumpSize;
 
 	if ( isHFSPlus ) 
 	{
-		myHeaderRecPtr->attributes	|= SWAP_BE32 (kBTVariableIndexKeysMask + kBTBigKeysMask);
-		myHeaderRecPtr->maxKeyLength = SWAP_BE16 (kHFSPlusCatalogKeyMaximumLength);
+		myHeaderRecPtr->attributes	|= (kBTVariableIndexKeysMask + kBTBigKeysMask);
+		myHeaderRecPtr->maxKeyLength = kHFSPlusCatalogKeyMaximumLength;
 	} 
 	else 
-		myHeaderRecPtr->maxKeyLength = SWAP_BE16 (kHFSCatalogKeyMaximumLength);
+		myHeaderRecPtr->maxKeyLength = kHFSCatalogKeyMaximumLength;
 
 	myOffset += sizeof( BTHeaderRec );
 	SETOFFSET( myBufferPtr, theBTreeCBPtr->nodeSize, myOffset, 2 );
@@ -502,18 +508,18 @@ static OSErr InitializeBTree(	BTreeControlBlock * theBTreeCBPtr,
 							- kBTreeHeaderUserBytes
 							- (4 * sizeof(SInt16)) );
 
-	if ( SWAP_BE32 (myHeaderRecPtr->totalNodes) > myNodeBitsInHeader ) 
+	if ( myHeaderRecPtr->totalNodes > myNodeBitsInHeader ) 
 	{
 		UInt32	nodeBitsInMapNode;
 		
-		myNodeDescPtr->fLink = SWAP_BE32 (SWAP_BE32 (myHeaderRecPtr->lastLeafNode) + 1);
+		myNodeDescPtr->fLink = myHeaderRecPtr->lastLeafNode + 1;
 		nodeBitsInMapNode = 8 * (theBTreeCBPtr->nodeSize
 								- sizeof(BTNodeDescriptor)
 								- (2 * sizeof(SInt16))
 								- 2 );
-		*theMapNodeCountPtr = (SWAP_BE32 (myHeaderRecPtr->totalNodes) - myNodeBitsInHeader +
+		*theMapNodeCountPtr = (myHeaderRecPtr->totalNodes - myNodeBitsInHeader +
 			(nodeBitsInMapNode - 1)) / nodeBitsInMapNode;
-		myHeaderRecPtr->freeNodes = SWAP_BE32 (SWAP_BE32 (myHeaderRecPtr->freeNodes) - *theMapNodeCountPtr);
+		myHeaderRecPtr->freeNodes = myHeaderRecPtr->freeNodes - *theMapNodeCountPtr;
 	}
 
 	/* 
@@ -521,7 +527,7 @@ static OSErr InitializeBTree(	BTreeControlBlock * theBTreeCBPtr,
 	 * Note - worst case (32MB alloc blk) will have only 18 nodes in use.
 	 */
 	myBitMapPtr = ((UInt8 *)myBufferPtr + myOffset);
-	temp = SWAP_BE32 (myHeaderRecPtr->totalNodes) - SWAP_BE32 (myHeaderRecPtr->freeNodes);
+	temp = myHeaderRecPtr->totalNodes - myHeaderRecPtr->freeNodes;
 
 	/* Working a byte at a time is endian safe */
 	while ( temp >= 8 ) 
@@ -536,7 +542,7 @@ static OSErr InitializeBTree(	BTreeControlBlock * theBTreeCBPtr,
 	SETOFFSET( myBufferPtr, theBTreeCBPtr->nodeSize, myOffset, 4 );
 
 	*theBytesUsedPtr = 
-		( SWAP_BE32 (myHeaderRecPtr->totalNodes) - SWAP_BE32 (myHeaderRecPtr->freeNodes) - *theMapNodeCountPtr ) 
+		( myHeaderRecPtr->totalNodes - myHeaderRecPtr->freeNodes - *theMapNodeCountPtr ) 
 			* theBTreeCBPtr->nodeSize;
 
 	/* write header node */
@@ -608,7 +614,7 @@ static OSErr WriteMapNodes(	BTreeControlBlock * theBTreeCBPtr,
 	
 		myNodeDescPtr = (BTNodeDescriptor *) myNode.buffer;
 		myNodeDescPtr->kind			= kBTMapNode;
-		myNodeDescPtr->numRecords	= SWAP_BE16 (1);
+		myNodeDescPtr->numRecords	= 1;
 		
 		/* note: must be long word aligned (hence the extra -2) */
 		mapRecordBytes = theBTreeCBPtr->nodeSize - sizeof(BTNodeDescriptor) - 2 * sizeof(SInt16) - 2;	
@@ -617,7 +623,7 @@ static OSErr WriteMapNodes(	BTreeControlBlock * theBTreeCBPtr,
 		SETOFFSET( myNodeDescPtr, theBTreeCBPtr->nodeSize, sizeof(BTNodeDescriptor) + mapRecordBytes, 2) ;
 
 		if ( (i + 1) < theNodeCount )
-			myNodeDescPtr->fLink = SWAP_BE32 (++theFirstMapNode);  /* point to next map node */
+			myNodeDescPtr->fLink = ++theFirstMapNode;  /* point to next map node */
 		else
 			myNodeDescPtr->fLink = 0;  /* this is the last map node */
 

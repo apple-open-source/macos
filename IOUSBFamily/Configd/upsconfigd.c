@@ -3,18 +3,21 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.  
- * Please see the License for the specific language governing rights and 
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
  * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
@@ -47,6 +50,8 @@ OSStatus	USBPowerGetCapacityLimits (USBReference inReference, UInt32 *warningLev
 
 
 // Definition of STAND_ALONE_TEST_TOOL is in command line additions for both configd targets.
+// Note that to run this a standalone tool, you need to run it as root, as the SC calls are privileged.
+//
 #ifndef STAND_ALONE_TEST_TOOL
     #define STAND_ALONE_TEST_TOOL 0
 #endif
@@ -105,6 +110,7 @@ enum
     kRemainingCapacityIndex,
     kRunTimeToEmptyIndex,
     kACPresentIndex,
+    kCapacityModeIndex,
     kNumberOfUPSElements
 };
 
@@ -137,14 +143,6 @@ enum
     kMaxPowerDevices = 10
 };
 
-// UPSes don't send data until it changes and we can't use HID Manager yet to ask for reports 
-// to initialize the elements, so don't bother calling HID Manager to get 0's.  Once the HID
-// Manager changes, we can set the following to 1
-//
-// HID Manager is changing to do a lazy read of values if we haven't had a real report yet.
-// Change my code in expectation that values will be correct.
-//
-
 //================================================================================================
 //   Globals
 //================================================================================================
@@ -152,7 +150,6 @@ enum
 static IONotificationPortRef	gNotifyPort;				// 
 static io_iterator_t		gAddedIter;				// 
 static UPSDeviceData *		gUPSDataRef[kMaxPowerDevices];		// Private Data
-
 
 //================================================================================================
 //   Utility routines for managing our UPS Data Refs
@@ -215,72 +212,92 @@ static kern_return_t CreatePowerManagerUPSEntry(UPSDeviceData *upsDataRef)
     CFDictionaryAddValue(upsDictRef, CFSTR(kIOPSPowerSourceStateKey), CFSTR(kIOPSACPowerValue));
     
 
-    // Initialize kIOPSCurrentCapacityKey
-    //	From the HID Power Devices USB Usage Tables: For Battery Capacity units, the industry uses
-    // "mAh" (milliampere-hour). To fit with HID Units coding rules, use "As" (Ampere-seconds)
-    // (1 mAh = 3.6 As).
-    //	For Power Manager, we will be sharing capacity with Power Book battery capacities, so
-    // we want a consistent measure. For now we have settled on percentage of full capacity.
-    // So i will have to divide maximum capactiy AmpSec by current capacity AmpSec before returning
-    // the value.
-    //	To do: In finding cookies for the various input reports, i have not seen reports for maximum
-    // capacity (or current capacity either). In the future, include a pass to look through feature
-    // reports for these values.
+    //  The HID Usage Tables for Power Devices specify that the Capacity Mode can be set or read
+    //  with the units as follows:
+    //  0: maH
+    //  1: mwH
+    //  2: %
+    //  3: Boolean support only
     //
-    elementValue = 100;
-    elementNumRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &elementValue);
-    CFDictionaryAddValue(upsDictRef, CFSTR(kIOPSCurrentCapacityKey), elementNumRef);
-    CFRelease(elementNumRef);
-///////////////////////// For values that correspond to cookies, update cookie values at same time to show what we set values to.
+    //  So, we need to make sure that the capacity mode is set to 2, i.e. %.  That way we can
+    //  define a Max Capacity of 100% and use the current capacity as a percentage.
+    //
+    //  The Power Manager implicitly assumes that the clients will divide current/max capacities
+    //  to get at a percentage of full capacity of the UPS.  Internal batteries actually seem
+    //  to publish these capacities as absolute units (of something).  We achieve the same
+    //  result by using percentages.
+    //
+
+    // еее We need to set the CapacityMode to % at this point, as all our other values depend on
+    // еее this.
+    //
+    
+    if ( upsDataRef->elementInfo[kRemainingCapacityIndex].cookie != 0 )
+    {
+        //  Initialize kIOPSCurrentCapacityKey
+        //
+        //  For Power Manager, we will be sharing capacity with Power Book battery capacities, so
+        //  we want a consistent measure. For now we have settled on percentage of full capacity.
+        //
+        elementValue = 100;
+        elementNumRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &elementValue);
+        CFDictionaryAddValue(upsDictRef, CFSTR(kIOPSCurrentCapacityKey), elementNumRef);
+        CFRelease(elementNumRef);
+    }
 
 
-    // Initialize kIOPSMaxCapacityKey
-    //
-    // Don't know max capacity at this time. OS 9 PowerClass.c just initialized to 100%,
-    // which fits very well with what we decided above for current capacity.
+    // Initialize kIOPSMaxCapacityKey.  Since we are  using percentages, always initialize to 100%.
     //
     elementValue = 100;
     elementNumRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &elementValue);
     CFDictionaryAddValue(upsDictRef, CFSTR(kIOPSMaxCapacityKey), elementNumRef);
     CFRelease(elementNumRef);
 
-
-    // Initialize kIOPSTimeToEmptyKey (OS 9 PowerClass.c assumed 100 milliwatt-hours)
-    //
-    elementValue = 100;
-    elementNumRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &elementValue);
-    CFDictionaryAddValue(upsDictRef, CFSTR(kIOPSTimeToEmptyKey), elementNumRef);
-    CFRelease(elementNumRef);
-
+    
+    if ( upsDataRef->elementInfo[kRunTimeToEmptyIndex].cookie != 0 )
+    {
+        // Initialize kIOPSTimeToEmptyKey (OS 9 PowerClass.c assumed 100 milliwatt-hours)
+        //
+        elementValue = 100;
+        elementNumRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &elementValue);
+        CFDictionaryAddValue(upsDictRef, CFSTR(kIOPSTimeToEmptyKey), elementNumRef);
+        CFRelease(elementNumRef);
+    }
+    
+/*    
     // Initialize kIOPSTimeToFullChargeKey (OS 9 PowerClass.c assumption (in milliwatt-hours(%?))
     //
     elementValue = 0;
     elementNumRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &elementValue);
     CFDictionaryAddValue(upsDictRef, CFSTR(kIOPSTimeToFullChargeKey), elementNumRef);
     CFRelease(elementNumRef);
+*/
 
+    if ( upsDataRef->elementInfo[kVoltageIndex].cookie != 0 )
+    {
+        // Initialize kIOPSVoltageKey (OS 9 PowerClass.c assumed millivolts. (Shouldn't that be 130,000 millivolts for AC?))
+        // Actually, Power Devices Usage Tables say units will be in Volts. However we have to check what exponent is used
+        // because that may make the value we get in centiVolts (exp = -2). So it looks like OS 9 sources said
+        // millivolts, but used centivolts. Our final answer should device by proper exponent to get back to Volts.
+        //
+        elementValue = 13 * 1000 / 100;
+        elementNumRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &elementValue);
+        CFDictionaryAddValue(upsDictRef, CFSTR(kIOPSVoltageKey), elementNumRef);
+        CFRelease(elementNumRef);
+    }
 
-    // Initialize kIOPSVoltageKey (OS 9 PowerClass.c assumed millivolts. (Shouldn't that be 130,000 millivolts for AC?))
-    // Actually, Power Devices Usage Tables say units will be in Volts. However we have to check what exponent is used
-    // because that may make the value we get in centiVolts (exp = -2). So it looks like OS 9 sources said
-    // millivolts, but used centivolts. Our final answer should device by proper exponent to get back to Volts.
-    //
-    elementValue = 13 * 1000 / 100;
-    elementNumRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &elementValue);
-    CFDictionaryAddValue(upsDictRef, CFSTR(kIOPSVoltageKey), elementNumRef);
-    CFRelease(elementNumRef);
-
-
-    // Initialize kIOPSCurrentKey (What would be a good amperage to initialize to?) Same discussion as for
-    // Volts, where the unit for current is Amps. But with typical exponents (-2), we get centiAmps. Hmm...
-    // typical current for USB may be 500 milliAmps, which would be .5 A. Since that is not an integer,
-    // that may be why our displays get larger numberw
-    //
-    elementValue = 1;	// Just a guess!
-    elementNumRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &elementValue);
-    CFDictionaryAddValue(upsDictRef, CFSTR(kIOPSCurrentKey), elementNumRef);    
-    CFRelease(elementNumRef);
-
+    if ( upsDataRef->elementInfo[kCurrentIndex].cookie != 0 )
+    {
+        // Initialize kIOPSCurrentKey (What would be a good amperage to initialize to?) Same discussion as for
+        // Volts, where the unit for current is Amps. But with typical exponents (-2), we get centiAmps. Hmm...
+        // typical current for USB may be 500 milliAmps, which would be .5 A. Since that is not an integer,
+        // that may be why our displays get larger numberw
+        //
+        elementValue = 1;	// Just a guess!
+        elementNumRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &elementValue);
+        CFDictionaryAddValue(upsDictRef, CFSTR(kIOPSCurrentKey), elementNumRef);    
+        CFRelease(elementNumRef);
+    }
 
     upsStore = SCDynamicStoreCreate(NULL, CFSTR("UPS Power Manager"), NULL, NULL);
 
@@ -316,6 +333,64 @@ static kern_return_t CreatePowerManagerUPSEntry(UPSDeviceData *upsDataRef)
     return status;
 }
 
+//================================================================================================
+//
+//	GetCurrentValueForElement()
+//
+//	Uses HID Manager to find latest value of an element from the UPS
+//
+//
+//================================================================================================
+//
+kern_return_t	GetCurrentValueForElement( UPSDeviceData *upsDataRef, IOHIDEventStruct *upsEvent, int elementIndex )
+{
+    kern_return_t 	status = kIOReturnSuccess;
+
+    #if UPS_TOOL_DEBUG
+    printf ("  GetElementValueForCookie (%d)\n", elementIndex);
+    #endif
+
+    if ((upsDataRef == NULL) || (upsDataRef->hidDeviceInterface == NULL) || (upsDataRef->upsDictRef == NULL))
+    {
+        #if UPS_TOOL_DEBUG
+        printf ("GetElementValueForCookie: some setup routine failed (%p,%p,%p)\n", upsDataRef, upsDataRef->hidDeviceInterface, upsDataRef->upsDictRef );
+        #endif
+        return kIOReturnNoResources;
+    }
+
+    if (upsDataRef->elementInfo[elementIndex].cookie == 0)
+    {
+        #if UPS_TOOL_DEBUG
+        printf ("GetElementValueForCookie: No cookie for element (%d)\n", elementIndex);
+        #endif
+        return kIOReturnNoResources;
+    }
+
+    status = (*upsDataRef->hidDeviceInterface)->open(upsDataRef->hidDeviceInterface, 0);
+    if ( status != kIOReturnSuccess )
+    {
+        #if UPS_TOOL_DEBUG
+        printf ("GetElementValueForCookie: could not open HIDLib: 0x%x\n", status);
+        #endif
+        return kIOReturnNoResources;
+    }
+
+    // Query the HID Manager for this element's current value
+    //
+    status = (*upsDataRef->hidDeviceInterface)->getElementValue(upsDataRef->hidDeviceInterface,
+                                                                upsDataRef->elementInfo[elementIndex].cookie,
+                                                                upsEvent);
+
+    if ( (*upsDataRef->hidDeviceInterface)->close(upsDataRef->hidDeviceInterface) != kIOReturnSuccess)
+    {
+        #if UPS_TOOL_DEBUG
+        printf ("UpdateHIDMgrElement: could not close IOHIDLib\n" );
+        #endif
+    }
+
+    return status;
+}
+
 
 //================================================================================================
 //
@@ -326,9 +401,6 @@ static kern_return_t CreatePowerManagerUPSEntry(UPSDeviceData *upsDataRef)
 //	This will set values in the sys config structure, but it is counting on code that follows
 // this to call SCDynamicStoreSetValue to let Power Manager know about them.
 //
-//	Note: Because this routine assumes that if getElementValue returns 0, it is uninitialized,
-// this is not suitable to be called from the report handling routines where 0 may be a valid
-// value that is sent.
 //
 //================================================================================================
 //
@@ -338,25 +410,40 @@ static void UpdateHIDMgrElement(UPSDeviceData *upsDataRef, UInt8 index)
     UInt32 elementValue;
     CFNumberRef numRef;
     kern_return_t status;
-    
-    #if UPS_TOOL_DEBUG
-    printf ("  UpdateHIDMgrElement %d\n", index);
-    #endif
 
+#if UPS_TOOL_DEBUG
+    printf ("  UpdateHIDMgrElement %d\n", index);
+#endif
+    
     // Validate arguments
     //
     if (index >= kNumberOfUPSElements)
+    {
+        #if UPS_TOOL_DEBUG
+        printf ("UpdateHIDMgrElement: index out of range (%d,%d)\n", kNumberOfUPSElements, index);
+        #endif
         return;
-
+    }
+    
     // Is it possible for one of the setup routines to fail before we get here.
     //
     if ((upsDataRef == NULL) || (upsDataRef->hidDeviceInterface == NULL) || (upsDataRef->upsDictRef == NULL))
+    {
+        #if UPS_TOOL_DEBUG
+        printf ("UpdateHIDMgrElement: some setup routine failed (%p,%p,%p)\n", upsDataRef, upsDataRef->hidDeviceInterface, upsDataRef->upsDictRef );
+        #endif
         return;
-
+    }
+    
     // Can only update HID elements that have valid cookies
     //
     if (upsDataRef->elementInfo[index].cookie == 0)
-        return;
+    {
+        #if UPS_TOOL_DEBUG
+        printf ("UpdateHIDMgrElement: element %d does not have a valid cookie\n", index );
+        #endif
+        return; 
+    }
 
     // Note: At the current time, when we getElementValue, if there has been no report to set the actual value,
     // HID Manager will report 0. In PowerClass.c from OS 9, we solved this problem by doing a getReport on each
@@ -365,6 +452,15 @@ static void UpdateHIDMgrElement(UPSDeviceData *upsDataRef, UInt8 index)
     // to getElementValue. In the same time frame that those other problems should be solved, HID Manager will
     // also test to see if the requested element has not been initialized, it will go ahead and make the getReport
     // call behind our back.
+    
+    status = (*upsDataRef->hidDeviceInterface)->open(upsDataRef->hidDeviceInterface, 0);
+    if ( status != kIOReturnSuccess )
+    {
+        #if UPS_TOOL_DEBUG
+        printf ("UpdateHIDMgrElement: could not open HIDLib: 0x%x\n", status);
+        #endif
+        return;
+    }
     
     status = (*upsDataRef->hidDeviceInterface)->getElementValue(upsDataRef->hidDeviceInterface, 
                                                     upsDataRef->elementInfo[index].cookie,
@@ -377,32 +473,41 @@ static void UpdateHIDMgrElement(UPSDeviceData *upsDataRef, UInt8 index)
         switch (index)
         {
             case kVoltageIndex:
-                // If 0, assume non-initialized value.
-                elementValue = (elementValue) ? elementValue : 130;
+                #if UPS_TOOL_DEBUG
+                printf ("UpdateHIDMgrElement: kVoltageIndex: %ld\n", elementValue);
+                #endif
                 numRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &elementValue);
                 CFDictionarySetValue(upsDataRef->upsDictRef, CFSTR(kIOPSVoltageKey), numRef);
                 CFRelease(numRef);
                 break;
  
             case kCurrentIndex:
-                // If 0, assume non-initialized value.
-                elementValue = (elementValue) ? elementValue :  1;
+                #if UPS_TOOL_DEBUG
+                printf ("UpdateHIDMgrElement: kCurrentIndex: %ld\n", elementValue);
+                #endif
                 numRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &elementValue);
                 CFDictionarySetValue(upsDataRef->upsDictRef, CFSTR(kIOPSCurrentKey), numRef);
                 CFRelease(numRef);
                 break;
  
             case kRemainingCapacityIndex:
-                // If 0, assume non-initialized value.
-                elementValue = (elementValue) ? elementValue : 100;
+                #if UPS_TOOL_DEBUG
+                printf ("UpdateHIDMgrElement: kRemainingCapacityIndex: %ld\n", elementValue);
+                #endif
                 numRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &elementValue);
                 CFDictionarySetValue(upsDataRef->upsDictRef, CFSTR(kIOPSCurrentCapacityKey), numRef);
                 CFRelease(numRef);
                 break;
 
             case kRunTimeToEmptyIndex:
-                // If 0, assume non-initialized value.
-                elementValue = (elementValue) ? elementValue : 100;
+                // The spec says that this value is in minutes.  However, it also states that the
+                // units for Time values are in seconds.  We could check the unit and unitExponent
+                // to make sure that they are correct, but the only valid value is secs, so why bother.
+                //
+                elementValue = elementValue / 60;
+                #if UPS_TOOL_DEBUG
+                printf ("UpdateHIDMgrElement: kRunTimeToEmptyIndex: %ld\n", elementValue);
+                #endif
                 numRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &elementValue);
                 CFDictionarySetValue(upsDataRef->upsDictRef, CFSTR(kIOPSTimeToEmptyKey), numRef);
                 CFRelease(numRef);
@@ -418,11 +523,17 @@ static void UpdateHIDMgrElement(UPSDeviceData *upsDataRef, UInt8 index)
                 // Since we want to fall through to acPresent, just reverse discharging flag and 
                 // fall through to charging case first.
                 //
+                #if UPS_TOOL_DEBUG
+                printf ("UpdateHIDMgrElement: kDischargingIndex: %ld\n", elementValue);
+                #endif
                 elementValue = (elementValue) ? FALSE : TRUE;
                 //break;
                 //	Fall through to charging case to do actual set.
 
             case kChargingIndex:
+                #if UPS_TOOL_DEBUG
+                printf ("UpdateHIDMgrElement: kChargingIndex: %ld\n", elementValue);
+                #endif
                 if (elementValue)
                     CFDictionarySetValue(upsDataRef->upsDictRef, CFSTR(kIOPSIsChargingKey), kCFBooleanTrue);
                 else
@@ -435,6 +546,9 @@ static void UpdateHIDMgrElement(UPSDeviceData *upsDataRef, UInt8 index)
                 //	Fall through to acPresent case to also set it.
  
             case kACPresentIndex:
+                #if UPS_TOOL_DEBUG
+                printf ("UpdateHIDMgrElement: kACPresentIndex: %ld\n", elementValue);
+                #endif
                 if (elementValue)
                     CFDictionarySetValue(upsDataRef->upsDictRef, CFSTR(kIOPSPowerSourceStateKey), CFSTR(kIOPSACPowerValue));
                 else
@@ -448,6 +562,20 @@ static void UpdateHIDMgrElement(UPSDeviceData *upsDataRef, UInt8 index)
         }
 
         upsDataRef->elementInfo[index].currentValue = elementValue;
+    }
+    else
+    {
+        #if UPS_TOOL_DEBUG
+        printf ("UpdateHIDMgrElement: getElementValue for %d returned 0x%x\n", index, status );
+        #endif
+    }
+    status = (*upsDataRef->hidDeviceInterface)->close(upsDataRef->hidDeviceInterface);
+    if ( status != kIOReturnSuccess )
+    {
+        #if UPS_TOOL_DEBUG
+        printf ("UpdateHIDMgrElement: could not close IOHIDLib\n" );
+        #endif
+        return;
     }
 }
 
@@ -524,6 +652,12 @@ static void StorePowerCookies(long type, long usagePage, long usage, IOHIDElemen
                 SCLog(TRUE, LOG_NOTICE, CFSTR("UPSSupport: found kHIDUsage_BS_ACPresent cookie"));
                 #endif
                 upsDataRef->elementInfo[kACPresentIndex].cookie = cookie;
+                break;
+            case kHIDUsage_BS_CapacityMode:
+                #if UPS_DEBUG
+                SCLog(TRUE, LOG_NOTICE, CFSTR("UPSSupport: found kHIDUsage_BS_CapacityMode cookie"));
+                #endif
+                upsDataRef->elementInfo[kCapacityModeIndex].cookie = cookie;
                 break;
         }
     }
@@ -662,13 +796,16 @@ static void FindUPSCookies(CFMutableDictionaryRef properties, UPSDeviceData *ups
 static void UPSPollingTimer(CFRunLoopTimerRef timer, void *info)
 {
     IOHIDEventStruct 	event;
+    IOHIDEventStruct 	hidEvent;
     AbsoluteTime 	zeroTime = {0,0};
     HRESULT 		result;
     UInt8		i;
+    SInt32		minutes;
     CFNumberRef		numRef;
     Boolean		update;
     Boolean		updateIsCharging;
     Boolean		newIsCharging;
+    IOReturn		status;
 
     // For each UPS, look at the HID queue and see if we have any information in it
     //
@@ -676,12 +813,12 @@ static void UPSPollingTimer(CFRunLoopTimerRef timer, void *info)
     {
         if ( gUPSDataRef[i] != NULL && gUPSDataRef[i]->hidQueue != NULL)
         {
-            update = FALSE;
-            updateIsCharging = FALSE;
-            newIsCharging = FALSE;
-
             while ( (result = (*(gUPSDataRef[i]->hidQueue))->getNextEvent(gUPSDataRef[i]->hidQueue, &event, zeroTime, 0)) != kIOReturnUnderrun)
             {
+                update = FALSE;
+                updateIsCharging = FALSE;
+                newIsCharging = FALSE;
+
                 if (result != kIOReturnSuccess)
                 {
                      #if UPS_DEBUG
@@ -705,9 +842,9 @@ static void UPSPollingTimer(CFRunLoopTimerRef timer, void *info)
                     if (event.elementCookie == gUPSDataRef[i]->elementInfo[kRemainingCapacityIndex].cookie)
                     { 
                         #if UPS_TOOL_DEBUG
-                        printf ("  Remaining Capacity\n");
+                        printf ("  Remaining Capacity (%ld, %ld, %ld)\n", event.value, gUPSDataRef[i]->elementInfo[kRemainingCapacityIndex].currentValue, gUPSDataRef[i]->elementInfo[kChargingIndex].currentValue );
                         #endif
-                        
+                            
                         // Only update if it's a new value.
                         if (gUPSDataRef[i]->elementInfo[kRemainingCapacityIndex].currentValue != event.value)
                         {
@@ -717,23 +854,52 @@ static void UPSPollingTimer(CFRunLoopTimerRef timer, void *info)
                             CFDictionarySetValue(gUPSDataRef[i]->upsDictRef, CFSTR(kIOPSCurrentCapacityKey), numRef);
                             update = TRUE;
                             CFRelease( numRef );
+
+                            // Get the Run Time To Empty value when we update remaining capacity
+                            //
+                            status = GetCurrentValueForElement( gUPSDataRef[i], &hidEvent, kRunTimeToEmptyIndex);
+                            if ( status == kIOReturnSuccess )
+                            {
+                                #if UPS_TOOL_DEBUG
+                                printf("  Got new value for kRunTimeToEmpty after capacity changed (%ld)\n", hidEvent.value);
+                                #endif
+
+                                // Only update if it's a new value. Note that we change the value from secs to minutes, and since it's integer arithmetic, we
+                                // drop the remainder
+                                //
+                                minutes = hidEvent.value / 60;
+
+                                if (gUPSDataRef[i]->elementInfo[kRunTimeToEmptyIndex].currentValue != minutes)
+                                {
+                                    gUPSDataRef[i]->elementInfo[kRunTimeToEmptyIndex].currentValue = minutes;
+
+                                    numRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &minutes);
+                                    CFDictionarySetValue(gUPSDataRef[i]->upsDictRef, CFSTR(kIOPSTimeToEmptyKey), numRef);
+                                    CFRelease( numRef );
+                                }
+                            }
+                            
                         }
                     }
-                    
+                   
                     // Run Time To Empty
                     //
                     else if (event.elementCookie == gUPSDataRef[i]->elementInfo[kRunTimeToEmptyIndex].cookie)
                     {
                         #if UPS_TOOL_DEBUG
-                        printf ("  Run Time to Empty\n");
+                        printf ("  Run Time to Empty (%ld, %ld, %ld)\n", event.value, gUPSDataRef[i]->elementInfo[kRunTimeToEmptyIndex].currentValue, gUPSDataRef[i]->elementInfo[kChargingIndex].currentValue );
                         #endif
                         
-                        // Only update if it's a new value.
-                        if (gUPSDataRef[i]->elementInfo[kRunTimeToEmptyIndex].currentValue != event.value)
-                        {
-                            gUPSDataRef[i]->elementInfo[kRunTimeToEmptyIndex].currentValue = event.value;
+                        // Only update if it's a new value. Note that we change the value from secs to minutes, and since it's integer arithmetic, we
+                        // drop the remainder
+                        //
+                        minutes = event.value / 60;
+                        
+                        if (gUPSDataRef[i]->elementInfo[kRunTimeToEmptyIndex].currentValue != minutes)
+                        {                            
+                            gUPSDataRef[i]->elementInfo[kRunTimeToEmptyIndex].currentValue = minutes;
                             
-                            numRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &event.value);
+                            numRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &minutes);
                             CFDictionarySetValue(gUPSDataRef[i]->upsDictRef, CFSTR(kIOPSTimeToEmptyKey), numRef);
                             update = TRUE;
                             CFRelease( numRef );
@@ -844,19 +1010,24 @@ static void UPSPollingTimer(CFRunLoopTimerRef timer, void *info)
                     // AC Present message when going from battery to AC. However, i have seen cases where
                     // there is no ACPresent == false messages to indicate we are on battery power. In that
                     // case, we have to infer from getting a discharging message that we must also be on
-                    // battery power at that time.
+                    // battery power at that time.  We also should infer that if the remaining capacity is
+                    // going down OR the time to empty is going down that we are discharging and our we are
+                    // on battery
                     //
                     if (updateIsCharging)
                     {
                         if (newIsCharging)
                         {
-                            CFDictionarySetValue(gUPSDataRef[i]->upsDictRef, CFSTR(kIOPSIsChargingKey),
+                           CFDictionarySetValue(gUPSDataRef[i]->upsDictRef, CFSTR(kIOPSIsChargingKey),
                                                 kCFBooleanTrue);
                             gUPSDataRef[i]->elementInfo[kChargingIndex].currentValue = TRUE;
                             gUPSDataRef[i]->elementInfo[kDischargingIndex].currentValue = FALSE;
 
                             if (gUPSDataRef[i]->elementInfo[kACPresentIndex].currentValue != TRUE)
                             {
+                                #if UPS_TOOL_DEBUG
+                                printf ("  Updating dictionary to AC Present\n");
+                                #endif
                                 gUPSDataRef[i]->elementInfo[kACPresentIndex].currentValue = TRUE;
                                 CFDictionarySetValue(gUPSDataRef[i]->upsDictRef, CFSTR(kIOPSPowerSourceStateKey),
                                                         CFSTR(kIOPSACPowerValue));
@@ -871,6 +1042,9 @@ static void UPSPollingTimer(CFRunLoopTimerRef timer, void *info)
 
                             if (gUPSDataRef[i]->elementInfo[kACPresentIndex].currentValue != FALSE)
                             {
+                                #if UPS_TOOL_DEBUG
+                                printf ("  Updating dictionary to Battery Power\n");
+                                #endif
                                 gUPSDataRef[i]->elementInfo[kACPresentIndex].currentValue = FALSE;
                                 CFDictionarySetValue(gUPSDataRef[i]->upsDictRef, CFSTR(kIOPSPowerSourceStateKey),
                                                         CFSTR(kIOPSBatteryPowerValue));
@@ -883,6 +1057,9 @@ static void UPSPollingTimer(CFRunLoopTimerRef timer, void *info)
                     //
                     if (update)
                     {
+                        #if UPS_TOOL_DEBUG
+                        printf ("calling SCDynamicStoreSetValue\n");
+                        #endif
                         SCDynamicStoreSetValue(gUPSDataRef[i]->upsStore, gUPSDataRef[i]->upsStoreKey, 
                                                 gUPSDataRef[i]->upsDictRef);
                     }  // if update
@@ -971,13 +1148,7 @@ void DeviceNotification( void *		refCon,
         upsDataRef->locationID = 0;
         
         // We no longer delete the sys config entry, but just tell everyone it is off line
-        CFDictionarySetValue(upsDataRef->upsDictRef, CFSTR(kIOPSPowerSourceStateKey), CFSTR("Off Line"));
-        upsDataRef->elementInfo[kACPresentIndex].currentValue = FALSE;       
-
-        CFDictionarySetValue(upsDataRef->upsDictRef, CFSTR(kIOPSIsChargingKey), kCFBooleanFalse);
-        upsDataRef->elementInfo[kChargingIndex].currentValue = FALSE;       
-        upsDataRef->elementInfo[kDischargingIndex].currentValue = TRUE;       
-
+        //
         CFDictionarySetValue(upsDataRef->upsDictRef, CFSTR(kIOPSIsPresentKey), kCFBooleanFalse);
         upsDataRef->isPresent = FALSE;
 
@@ -1212,13 +1383,6 @@ void  InformPowerMangerOfUPS( UPSDeviceData * upsDataRef )
     //                                
     CFDictionarySetValue(upsDataRef->upsDictRef, CFSTR(kIOPSNameKey), upsDataRef->nameStr);
     
-    CFDictionarySetValue(upsDataRef->upsDictRef, CFSTR(kIOPSPowerSourceStateKey), CFSTR(kIOPSACPowerValue));
-    upsDataRef->elementInfo[kACPresentIndex].currentValue = TRUE;       
-
-    CFDictionarySetValue(upsDataRef->upsDictRef, CFSTR(kIOPSIsChargingKey), kCFBooleanTrue);
-    upsDataRef->elementInfo[kChargingIndex].currentValue = TRUE;       
-    upsDataRef->elementInfo[kDischargingIndex].currentValue = FALSE;       
-
     CFDictionarySetValue(upsDataRef->upsDictRef, CFSTR(kIOPSIsPresentKey), kCFBooleanTrue);
     upsDataRef->isPresent = TRUE;
 
@@ -1418,6 +1582,7 @@ static void HIDDeviceAdded(void *refCon, io_iterator_t iterator)
     CFMutableDictionaryRef 	properties = NULL;
     CFNumberRef			number = NULL;
     UInt32			primaryUsagePage = 0;
+    int 			i;
                 
     #if UPS_TOOL_DEBUG
     printf ("Entering HIDDeviceAdded\n");
@@ -1453,7 +1618,7 @@ static void HIDDeviceAdded(void *refCon, io_iterator_t iterator)
                 if ( upsDataRef )
                 {
                     #if UPS_TOOL_DEBUG
-                    printf("UPSSupport: Device added at location 0x%lx\n", upsDataRef->locationID);
+                    printf("UPSSupport: Device added at location 0x%8.8lx\n", upsDataRef->locationID);
                     #endif
 
                     // Create the CF plugin for this device
@@ -1461,6 +1626,10 @@ static void HIDDeviceAdded(void *refCon, io_iterator_t iterator)
                     kr = CreateCFPluginForDevice( hidDevice, upsDataRef );
                     if ( kr == kIOReturnSuccess )
                     {
+                        // Put the cookies Power Manager interested in into upsDataRef.
+                        //
+                        FindUPSCookies(properties, upsDataRef);
+
                         // If we have no system config store, we have to create it.
                         //
                         if (!(upsDataRef->upsDictRef))
@@ -1470,17 +1639,15 @@ static void HIDDeviceAdded(void *refCon, io_iterator_t iterator)
                         
                         if (kr == KERN_SUCCESS)
                         {
-                            // Put the cookies Power Manager interested in into upsDataRef.
-                            //
-                            FindUPSCookies(properties, upsDataRef);
         
                             // We either have newly intialized values in the sys config memory or what
                             // existed previously. Ask HID Manager what the current values are.
                             //
-                            // еее Commented out due to error in getElementValue in Jaguar 6B57, leave initial values еее
-                            //      for (i = 0; i < kNumberOfUPSElements; i++)
-                            //          UpdateHIDMgrElement(upsDataRef, i);
-                        
+                            for (i = 0; i < kNumberOfUPSElements; i++)
+                            {
+                                UpdateHIDMgrElement(upsDataRef, i);
+                            }
+                            
                             // Now that we have all the data for the Power Manager, let it know that
                             // it's all there
                             //
@@ -1498,7 +1665,25 @@ static void HIDDeviceAdded(void *refCon, io_iterator_t iterator)
                                 #endif
                             }
                         }
+                        else
+                        {
+#if UPS_TOOL_DEBUG
+                            printf("UPSSupport: Error (0x%8.8x) creating PowerManagerUPSEntry.  Probably not running as root?\n", kr);
+#endif
+                        }
                     }
+                    else
+                    {
+#if UPS_TOOL_DEBUG
+                        printf("UPSSupport: Error (0x%8.8x) creating plugIn for device.\n", kr);
+#endif
+                    }
+                }
+                else
+                {
+#if UPS_TOOL_DEBUG
+                    printf("UPSSupport: No upsDataRef!\n");
+#endif
                 }
             }
             

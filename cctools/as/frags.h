@@ -95,8 +95,10 @@ extern char *frag_var(
 extern void frag_wane(
     fragS *fragP);
 extern void frag_align(
-    int alignment,
-    int fill_character);
+    int power_of_2_alignment,
+    char *fill,
+    int fill_size,
+    int max_bytes_to_fill);
 
 /*
  * A macro to speed up appending exactly 1 char

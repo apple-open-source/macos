@@ -34,14 +34,14 @@
  * @abstract Used to identify the type of memory requested by a client process to be mapped into its process space
  * @discussion This is the parameter to the type field of IOMapMemory when called on an IOAudioEngine.  This is
  *  only intended for use by the Audio Device API library.
- * @constant kSampleBuffer This requests the IOAudioEngine's sample buffer
- * @constant kStatus This requests the IOAudioEngine's status buffer.  It's type is IOAudioEngineStatus.
- * @constant kMixBuffer This requests the IOAudioEngine's mix buffer
+ * @constant kIOAudioSampleBuffer This requests the IOAudioEngine's sample buffer
+ * @constant kIOAudioStatusBuffer This requests the IOAudioEngine's status buffer.  It's type is IOAudioEngineStatus.
+ * @constant kIOAudioMixBuffer This requests the IOAudioEngine's mix buffer
 */
 typedef enum _IOAudioEngineMemory {
-    kStatusBuffer 	= 0,
-    kSampleBuffer	= 1,
-    kMixBuffer		= 2
+    kIOAudioStatusBuffer 			= 0,
+    kIOAudioSampleBuffer			= 1,
+    kIOAudioMixBuffer				= 2,
 } IOAudioEngineMemory;
 
 /*!
@@ -251,7 +251,9 @@ enum {
 	kIOAudioToggleControlSubTypeiSubAttach		= 'atch',
     kIOAudioSelectorControlSubTypeOutput		= 'outp',
     kIOAudioSelectorControlSubTypeInput			= 'inpt',
-    kIOAudioSelectorControlSubTypeClockSource	= 'clck'
+    kIOAudioSelectorControlSubTypeClockSource	= 'clck',
+    kIOAudioSelectorControlSubTypeDestination	= 'dest',
+	kIOAudioSelectorControlSubTypeChannelImpedance	= 'cimp'
 };
 
 enum {
@@ -304,8 +306,8 @@ enum {
 
 enum {
     kIOAudioStreamNumericRepresentationSignedInt	= 'sint',
-    kIOAudioStreamNumericRepresentationUnsignedInt	= 'uint'
-// Need float format(s) here
+    kIOAudioStreamNumericRepresentationUnsignedInt	= 'uint',
+	kIOAudioStreamNumericRepresentationIEEE754Float = 'flot'
 };
 
 enum {
@@ -390,7 +392,10 @@ enum {
 	EXTERNAL_LEGACY_AUDIO_CONNECTOR					= 0x0604,
 	EXTERNAL_SPDIF_INTERFACE						= 0x0605,
 	EXTERNAL_1394_DA_STREAM							= 0x0606,
-	EXTERNAL_1394_DV_STREAM_SOUNDTRACK				= 0x0607
+	EXTERNAL_1394_DV_STREAM_SOUNDTRACK				= 0x0607,
+	EXTERNAL_ADAT									= 0x0608,
+	EXTERNAL_TDIF									= 0x0609,
+	EXTERNAL_MADI									= 0x060A
 };
 
 // Embedded terminal types

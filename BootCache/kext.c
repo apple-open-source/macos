@@ -72,7 +72,7 @@
 /*
  * Wire the cache buffer.
  */
-#define WIRE_BUFFER
+/*#define WIRE_BUFFER*/
 
 /*
  * Ignore the prefetch attribute on playlist entries.
@@ -1078,6 +1078,7 @@ BC_strategy(struct buf *bp)
 		if (bp->b_data == NULL) {
 			ubc_upl_unmap((upl_t)bp->b_pagelist);	/* ignore result */
 		}
+		BC_cache->c_stats.ss_strategy_stolen++;
 		goto bypass;
 	}
 	
@@ -1457,7 +1458,7 @@ BC_copyin_playlist(size_t length, void *uptr)
 	BC_cache->c_buffer_blocks = CB_BYTE_TO_BLOCK(BC_cache, size);
 	BC_cache->c_buffer_pages = CB_BLOCK_TO_PAGE(BC_cache, BC_cache->c_buffer_blocks);
 	if ((BC_cache->c_blockmap =
-		_MALLOC(BC_cache->c_buffer_blocks / CB_MAPFIELDBYTES,
+		_MALLOC(BC_cache->c_buffer_blocks / (CB_MAPFIELDBITS / CB_MAPFIELDBYTES),
 		    M_TEMP, M_WAITOK)) == NULL) {
 		message("can't allocate %d bytes for blockmap",
 		    BC_cache->c_buffer_blocks / CB_MAPFIELDBYTES);
@@ -1465,7 +1466,7 @@ BC_copyin_playlist(size_t length, void *uptr)
 		goto out;
 	}
 	if ((BC_cache->c_pagemap =
-		_MALLOC(BC_cache->c_buffer_pages / CB_MAPFIELDBYTES,
+		_MALLOC(BC_cache->c_buffer_pages / (CB_MAPFIELDBITS / CB_MAPFIELDBYTES),
 		    M_TEMP, M_WAITOK)) == NULL) {
 		message("can't allocate %d bytes for pagemap",
 		    BC_cache->c_buffer_pages / CB_MAPFIELDBYTES);
@@ -1869,11 +1870,11 @@ BC_sysctl SYSCTL_HANDLER_ARGS
 
 	/* get the commande structure and validate */
 	if ((error = SYSCTL_IN(req, &bc, sizeof(bc))) != 0) {
-		message("couldn't get command");
+		debug("couldn't get command");
 		return(error);
 	}
 	if (bc.bc_magic != BC_MAGIC) {
-		message("bad command magic");
+		debug("bad command magic");
 		return(EINVAL);
 	}
 
@@ -1969,7 +1970,6 @@ BC_sysctl SYSCTL_HANDLER_ARGS
 /*
  * Initialise the block of pages we use to back our data.
  *
- * XXX errors here need to clean up.
  */
 static int
 BC_alloc_pagebuffer(size_t size)
@@ -1979,7 +1979,7 @@ BC_alloc_pagebuffer(size_t size)
 	int i;
 
 	BC_cache->c_mapsize = size;
-	
+
 	/*
 	 * Create a VM region object (our private map).
 	 */
@@ -1991,7 +1991,7 @@ BC_alloc_pagebuffer(size_t size)
 		return(ENOMEM);
 	}
 	BC_cache->c_map = convert_port_entry_to_map(BC_cache->c_map_port);
-	
+
 	/*
 	 * Allocate and wire pages into our submap.
 	 */
@@ -2144,14 +2144,6 @@ BC_free_page(int page)
 	    BC_cache->c_mapbase + (page * PAGE_SIZE),	/* offset */
 	    PAGE_SIZE);					/* length */
 
-	pmap_remove(kernel_pmap, 
-	    BC_cache->c_mapbase 
-	    + (page * PAGE_SIZE) 
-	    + BC_cache->c_buffer, 
-	    BC_cache->c_mapbase
-	    + ((page+1) * PAGE_SIZE) 
-	    + BC_cache->c_buffer);
-
 	/*
 	 * Push the page completely out of the object.
 	 */
@@ -2161,7 +2153,6 @@ BC_free_page(int page)
 		UPL_POP_DUMP,				/* operation */
 		NULL,					/* phys_entry */
 		NULL);					/* flags */
-	
 }
 
 /*

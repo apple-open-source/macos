@@ -186,6 +186,10 @@ struct nlist *symbol)
 	    if(GET_LIBRARY_ORDINAL(symbol->n_desc) == EXECUTABLE_ORDINAL)
 		primary_image = &object_images.images[0].image;
 	    else if(GET_LIBRARY_ORDINAL(symbol->n_desc) ==
+		    DYNAMIC_LOOKUP_ORDINAL &&
+		    image->ndependent_images != DYNAMIC_LOOKUP_ORDINAL)
+		primary_image = NULL;
+	    else if(GET_LIBRARY_ORDINAL(symbol->n_desc) ==
 		    SELF_LIBRARY_ORDINAL){
 		/*
 		 * For two-level libraries that reference symbols
@@ -198,7 +202,7 @@ struct nlist *symbol)
 	    else{
 		/* could make this check
 		if(GET_LIBRARY_ORDINAL(symbol->n_desc) - 1 >
-		   image.ndependent_images)
+		   image->ndependent_images)
 		    <<< bad LIBRARY_ORDINAL in object file >>>
 		*/
 		primary_image = image->dependent_images[
@@ -287,6 +291,7 @@ enum bool all_symbols)
     struct symtab_command *st;
     struct dysymtab_command *dyst;
     struct image *image;
+    enum bool bind_fully;
     enum bool flat_reference;
 
 	/*
@@ -309,6 +314,17 @@ enum bool all_symbols)
 	else
 	    flat_reference = TRUE;
 
+	bind_fully = FALSE;
+#ifdef FULLY_BIND_MOD_INIT_ROUTINES
+	/*
+	 * If this image has any module init or term routines force the image
+	 * to be fully bound.
+	 */
+	if(object_images.images[0].image.init != NULL ||
+	   object_images.images[0].image.term != NULL)
+	    bind_fully = TRUE;
+#endif /* FULLY_BIND_MOD_INIT_ROUTINES */
+
 	for(i = dyst->iundefsym; i < dyst->iundefsym + dyst->nundefsym; i++){
 	    if(executable_bind_at_load == TRUE ||
 	       all_symbols == TRUE ||
@@ -320,7 +336,7 @@ enum bool all_symbols)
 		     image->linkedit_segment->fileoff) +
 		    symbols[i].n_un.n_strx;
 		add_to_undefined_list(symbol_name, symbols + i, image,
-		    FALSE, flat_reference);
+		    bind_fully, flat_reference);
 	    }
 	}
 }
@@ -1405,6 +1421,18 @@ enum bool launching_with_prebound_libraries)
 	     linkedit_segment->fileoff);
 	module_index = module - library_image->modules;
 	dylib_module = dylib_modules + module_index;
+
+#ifdef FULLY_BIND_MOD_INIT_ROUTINES
+	/*
+	 * If this module has any module init or term routines force the module
+	 * to be fully bound.
+	 */
+	if(bind_fully == FALSE && dylib_module->ninit_nterm != 0){
+	    bind_fully = TRUE;
+	    bind_now = TRUE;
+	}
+#endif /* FULLY_BIND_MOD_INIT_ROUTINES */
+
 	if(force_flat_namespace == FALSE)
 	    flat_reference = (image->mh->flags & MH_TWOLEVEL) != MH_TWOLEVEL;
 	else
@@ -1991,6 +2019,19 @@ enum bool bind_fully)
 	else
 	    flat_reference = TRUE;
 
+#ifdef FULLY_BIND_MOD_INIT_ROUTINES
+	/*
+	 * If this image has any module init or term routines force the image
+	 * to be fully bound.
+	 */
+	if(bind_fully == FALSE && 
+	   (object_image->image.init != NULL ||
+	    object_image->image.init != NULL)){
+	    bind_fully = TRUE;
+	    bind_now = TRUE;
+	}
+#endif /* FULLY_BIND_MOD_INIT_ROUTINES */
+
 	/*
 	 * If this module is in the LINKED state or BEING_LINKED state skip
 	 * checking for multiply defined symbols and move on to added undefined
@@ -2458,7 +2499,8 @@ struct indr_loop_list *indr_loop)
 			 * number of sub images we have a valid hint and we
 			 * first search that sub image for this symbol.
 			 */
-			if((hint->isub_image - 1) < primary_image->nsub_images){
+			if((unsigned long)(hint->isub_image - 1) <
+			   primary_image->nsub_images){
 			    if(primary_image->sub_images[hint->isub_image - 1]->
 			       mh->filetype == MH_DYLIB){
 				outer_library_image = (struct library_image *)
@@ -3713,12 +3755,16 @@ struct image *image)
 		if(GET_LIBRARY_ORDINAL(symbol->n_desc) == EXECUTABLE_ORDINAL)
 		    primary_image = &object_images.images[0].image;
 		else if(GET_LIBRARY_ORDINAL(symbol->n_desc) ==
+			DYNAMIC_LOOKUP_ORDINAL &&
+			image->ndependent_images != DYNAMIC_LOOKUP_ORDINAL)
+		    primary_image = symbol_list->image;
+		else if(GET_LIBRARY_ORDINAL(symbol->n_desc) ==
 			SELF_LIBRARY_ORDINAL)
 		    primary_image = image;
 		else{
 		    /* could make this check
 		    if(GET_LIBRARY_ORDINAL(symbol->n_desc) - 1 >
-		       image.ndependent_images)
+		       image->ndependent_images)
 			<<< bad LIBRARY_ORDINAL in object file >>>
 		    */
 		    primary_image = image->dependent_images[
@@ -3876,12 +3922,16 @@ struct image *image)
 		if(GET_LIBRARY_ORDINAL(symbol->n_desc) == EXECUTABLE_ORDINAL)
 		    primary_image = &object_images.images[0].image;
 		else if(GET_LIBRARY_ORDINAL(symbol->n_desc) ==
+			DYNAMIC_LOOKUP_ORDINAL &&
+			image->ndependent_images != DYNAMIC_LOOKUP_ORDINAL)
+		    primary_image = symbol_list->image;
+		else if(GET_LIBRARY_ORDINAL(symbol->n_desc) ==
 			SELF_LIBRARY_ORDINAL)
 		    primary_image = image;
 		else{
 		    /* could make this check
 		    if(GET_LIBRARY_ORDINAL(symbol->n_desc) - 1 >
-		       image.ndependent_images)
+		       image->ndependent_images)
 			<<< bad LIBRARY_ORDINAL in object file >>>
 		    */
 		    primary_image = image->dependent_images[
@@ -4118,7 +4168,7 @@ struct image *image,
 unsigned long value,
 enum bool only_lazy_pointers)
 {
-    unsigned long i, j, k, section_type;
+    unsigned long i, j, k, section_type, size, vmaddr_slide, reserved1, addr;
     struct load_command *lc;
     struct segment_command *sg;
     struct section *s;
@@ -4135,6 +4185,7 @@ enum bool only_lazy_pointers)
 	 */
 	lc = (struct load_command *)((char *)image->mh +
 				     sizeof(struct mach_header));
+        vmaddr_slide = image->vmaddr_slide;
 	for(i = 0; i < image->mh->ncmds; i++){
 	    switch(lc->cmd){
 	    case LC_SEGMENT:
@@ -4142,16 +4193,17 @@ enum bool only_lazy_pointers)
 		s = (struct section *)
 		    ((char *)sg + sizeof(struct segment_command));
 		for(j = 0 ; j < sg->nsects ; j++){
+		    size = s->size;
+		    reserved1 = s->reserved1;
+		    addr = s->addr;
 		    section_type = s->flags & SECTION_TYPE;
 		    if((section_type == S_NON_LAZY_SYMBOL_POINTERS &&
 			only_lazy_pointers == FALSE) ||
 		       section_type == S_LAZY_SYMBOL_POINTERS){
-			for(k = 0; k < s->size / sizeof(unsigned long); k++){
-			    if(indirect_symtab[s->reserved1 + k] == 
-			       symbol_index){
-				*((long *)(image->vmaddr_slide +
-					   s->addr + (k * sizeof(long)))) =
-					value;
+			for(k = 0; k < size / sizeof(unsigned long); k++){
+			    if(indirect_symtab[reserved1 + k] == symbol_index){
+				*((long *)(vmaddr_slide + addr +
+					   (k * sizeof(long)))) = value;
 			    }
 			}
 		    }
@@ -4612,6 +4664,8 @@ link_in_need_modules(
 enum bool bind_now,
 enum bool release_lock_flag)
 {
+    enum bool tried_to_use_prebinding_post_launch;
+
 	DYLD_TRACE_SYMBOLS_START(DYLD_TRACE_link_in_need_modules);
 
 	/*
@@ -4646,6 +4700,20 @@ enum bool release_lock_flag)
 	    unload_remove_on_error_libraries();
             DYLD_TRACE_SYMBOLS_END(DYLD_TRACE_link_in_need_modules);
 	    return(FALSE);
+	}
+
+	/*
+	 * If when loading libraries and its dependent libraries we tried to
+	 * use the prebinding then we need to cache this in a local variable.
+	 * Then we need to setup the libraries that can have their prebinding
+	 * used and undo those that could not.  Later we then need to cause the
+	 * module init routines to be run in those prebound libraries. 
+	 */
+	tried_to_use_prebinding_post_launch = 
+	    trying_to_use_prebinding_post_launch;
+	if(tried_to_use_prebinding_post_launch == TRUE){
+	    find_twolevel_prebound_lib_subtrees();
+	    undo_prebound_images(TRUE);
 	}
 
 	/*
@@ -4696,10 +4764,28 @@ enum bool release_lock_flag)
 	call_image_init_routines(FALSE);
 
 	/*
+	 * First cause the the module init routines to be run for in those
+	 * prebound libraries if we used the prebinding in some of them.
+	 */
+	if(tried_to_use_prebinding_post_launch == TRUE){
+	    /*
+	     * Now call module initialization routines for modules that have
+	     * been linked in from the post launch prebound libraries being used
+	     * prebound.
+	     */
+	    call_module_initializers(FALSE, FALSE, TRUE);
+	    /*
+	     * Now clear the trying_to_use_prebinding_post_launch variable and
+	     * any libraries that had the trying_to_use_prebinding_post_launch
+	     * field set.
+	     */
+	    clear_trying_to_use_prebinding_post_launch();
+	}
+	/*
 	 * Now call module initialization routines for modules that have been
 	 * linked in.
 	 */
-	call_module_initializers(FALSE, bind_now);
+	call_module_initializers(FALSE, bind_now, FALSE);
 
 	if(release_lock_flag){
 	    /* release lock for dyld data structures */

@@ -83,4 +83,4 @@
 #define	REG_PAIR(name0, name1, the_name)			\
 	name0##_##name1.the_name
 
-#endif  _ARCH_M88K_REG_HELP_H_
+#endif  /* _ARCH_M88K_REG_HELP_H_ */

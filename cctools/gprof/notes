@@ -3,6 +3,23 @@ TODO:
   stuff).
 - Add multi-arch support for findcalls() and make work better (use disasm).
 
+Changes for the 5.12 release (the cctools-466 release):
+- Fixed the incorrect casts on the comparison of the nlist struct's n_strx field
+  where the value being compared to was casted to a long.  The correct fix was
+  to cast n_strx to an unsigned long.
+- Backed out one of the changes below that made "index" in doflags() in arcs.c
+  an unsigned long when it should have been left as a long.  Radar bug #3212306.
+
+Changes for the 5.12 release (the cctools-464 release):
+- Made changes to build cleanly with gcc3.3
+  - Removed -Wno-precomp from the Makefile and added RC_OS = macos
+  - Fixed warnings for "comparison between signed and unsigned" in gprof.c,
+    arcs.c, printgprof.c and getnfile.c .
+
+Changes for the 5.11 release (the cctools-440 release):
+- Fixed the warnings about extra tokens at end of #endif directive in
+  dfn.c, getnfile.c and printgprof.c (Radar bug #3072042).
+
 Changes for the 5.10 release (the cctools-421 release):
 - Changed new_sample_set() in gprof.c to not read the samples one at a time
   but to allocate a buffer for the samples and read them all at once.  This

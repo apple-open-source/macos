@@ -95,7 +95,7 @@ struct regs {
 #define	r_r0	r_o0
 #define	r_sp	r_o6
 
-#endif !__ASSEMBLER__
+#endif /* !__ASSEMBLER__ */
 
 /*
  * Floating point definitions.
@@ -148,7 +148,7 @@ struct	fpu {
 #define	fpu_q		Fpu_q
 #define	fpu_qcnt	Fpu_qcnt
 
-#endif !__ASSEMBLER__
+#endif /* !__ASSEMBLER__ */
 
 
 /*
@@ -273,7 +273,7 @@ struct rwindow {
 #define	rw_fp	rw_in[6]		/* frame pointer */
 #define	rw_rtn	rw_in[7]		/* return address */
 
-#endif !__ASSEMBLER__
+#endif /* !__ASSEMBLER__ */
 
 
 /*

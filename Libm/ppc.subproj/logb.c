@@ -52,7 +52,7 @@
 *     October   17 1994: replaced all environmental functions with __setflm.   *
 *     May       28 1997: made speed improvements.                              *
 *     April     30 2001: first mac os x port using gcc.                        *
-*     July      16 2001: replaced __setflm with fegetenvd/fesetenvd.           *
+*     July      16 2001: replaced __setflm with FEGETENVD/FESETENVD.           *
 *     August    28 2001: added description of logb function.                   *
 *     September 06 2001: added #if __ppc__.                                    *
 *     September 09 2001: added more comments.                                  *
@@ -130,9 +130,9 @@ double logb (  double x  )
       else if ( x == 0.0 ) 
       {                                                  // zero
             hexdouble OldEnvironment;
-            fegetenvd( OldEnvironment.d );             // raise zero divide for DOMAIN error
+            FEGETENVD( OldEnvironment.d );             // raise zero divide for DOMAIN error
             OldEnvironment.i.lo |= FE_DIVBYZERO;
-            fesetenvd( OldEnvironment.d );
+            FESETENVD( OldEnvironment.d );
             return ( minusInf.d );			 // return -infinity
       }
       else 
@@ -205,9 +205,9 @@ float logbf (  float x  )
       else if ( x == 0.0 ) 
       {                                                  // zero
             hexdouble OldEnvironment;
-            fegetenvd( OldEnvironment.d );             // raise zero divide for DOMAIN error
+            FEGETENVD( OldEnvironment.d );             // raise zero divide for DOMAIN error
             OldEnvironment.i.lo |= FE_DIVBYZERO;
-            fesetenvd( OldEnvironment.d );
+            FESETENVD( OldEnvironment.d );
             return ( minusInff.fval );			 // return -infinity
       }
       else 

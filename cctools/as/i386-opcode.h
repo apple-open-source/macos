@@ -26,7 +26,7 @@ static const template i386_optab[] = {
 { "mov", 2, 0xb0, _, ShortFormW, {Imm, Reg, 0} },
 { "mov", 2, 0xc6, _,  W|Modrm,  {Imm, Reg|Mem, 0} },
 #ifdef NeXT_MOD /* bug fix for "movw %ds,64(%edx)" */
-{ "mov", 2, 0x8c, _, D|Modrm,  {SReg3|SReg2, Reg16|Mem, 0} },
+{ "mov", 2, 0x8c, _, D|Modrm,  {SReg3|SReg2, Reg|Mem, 0} },
 #else
 { "mov", 2, 0x8c, _, D|Modrm,  {SReg3|SReg2, Reg16|Mem16, 0} },
 #endif
@@ -476,76 +476,376 @@ static const template i386_optab[] = {
 
 #if defined(i486) || defined (i586)
 #define BSWAP_OPCODE 0x0fc8
-{"bswap",	1, 0x0fc8, _,    NoModrm,  {Reg32,           0,	0}, "4" },
-{"xadd",	2, 0x0fc0, _,  W|  Modrm,    {Reg,     Reg|Mem, 0}, "4" },
-{"cmpxchg",	2, 0x0fb0, _,  W|  Modrm,    {Reg,     Reg|Mem, 0}, "4" },
-{"invd",	0, 0x0f08, _,    NoModrm,      {0,           0,	0}, "4" },
-{"invlpg",	1, 0x0f01, 7,      Modrm,    {Mem,           0,	0}, "4" },
-{"wbinvd",	0, 0x0f09, _,    NoModrm,      {0,           0,	0}, "4" },
+{"bswap",	1, 0x0fc8, _,    NoModrm,  {Reg32,           0,	0}, /*"4"*/ },
+{"xadd",	2, 0x0fc0, _,  W|  Modrm,    {Reg,     Reg|Mem, 0}, /*"4"*/ },
+{"cmpxchg",	2, 0x0fb0, _,  W|  Modrm,    {Reg,     Reg|Mem, 0}, /*"4"*/ },
+{"invd",	0, 0x0f08, _,    NoModrm,      {0,           0,	0}, /*"4"*/ },
+{"invlpg",	1, 0x0f01, 7,      Modrm,    {Mem,           0,	0}, /*"4"*/ },
+{"wbinvd",	0, 0x0f09, _,    NoModrm,      {0,           0,	0}, /*"4"*/ },
 #endif /* defined (i486) || defined (i586) */
 
 #ifdef i586
 /* cmpxchg8b - here Mem32 means 32 bit pointer to a 64bit entity */
-{"cmpxchg8b",	1, 0x0fc7, _,       Modrm,  {Mem32,           0, 0}, "5" },
-{"cpuid",	0, 0x0fa2, _,     NoModrm,      {0,           0, 0}, "5" },
-{"rdtsc",	0, 0x0f31, _,     NoModrm,      {0,           0, 0}, "5" },
-{"rdmsr",	0, 0x0f32, _,     NoModrm,      {0,           0, 0}, "5" },
-{"wrmsr",	0, 0x0f30, _,     NoModrm,      {0,           0, 0}, "5" },
-{"rsm",		0, 0x0faa, _,     NoModrm,      {0,           0, 0}, "5" },
+{"cmpxchg8b",	1, 0x0fc7, 1,       Modrm,    {Mem,           0, 0}, /*"5"*/ },
+{"cpuid",	0, 0x0fa2, _,     NoModrm,      {0,           0, 0}, /*"5"*/ },
+{"rdtsc",	0, 0x0f31, _,     NoModrm,      {0,           0, 0}, /*"5"*/ },
+{"rdmsr",	0, 0x0f32, _,     NoModrm,      {0,           0, 0}, /*"5"*/ },
+{"wrmsr",	0, 0x0f30, _,     NoModrm,      {0,           0, 0}, /*"5"*/ },
+{"rsm",		0, 0x0faa, _,     NoModrm,      {0,           0, 0}, /*"5"*/ },
 #endif /* i586 */
 
 #ifdef i686
 /* Pentium Pro extensions */
-{"rdpmc", 0, 0x0f33, _, NoModrm, {0, 0, 0}, "6" },
+{"rdpmc", 0, 0x0f33, _, NoModrm, {0, 0, 0}, /*"6"*/ },
         
-{"ud2", 0, 0x0fff, _, NoModrm, {0, 0, 0}, "6" }, /* official undefined instr. */
-
-{"cmovo",  2, 0x0f40, _, Modrm|ReverseRegRegmem, {WordReg|WordMem, WordReg, 0},
- "6"},
-{"cmovno", 2, 0x0f41, _, Modrm|ReverseRegRegmem, {WordReg|WordMem, WordReg, 0},
- "6"},
-{"cmovb",  2, 0x0f42, _, Modrm|ReverseRegRegmem, {WordReg|WordMem, WordReg, 0},
- "6"},
-{"cmovae", 2, 0x0f43, _, Modrm|ReverseRegRegmem, {WordReg|WordMem, WordReg, 0},
- "6"},
-{"cmove",  2, 0x0f44, _, Modrm|ReverseRegRegmem, {WordReg|WordMem, WordReg, 0},
- "6"},
-{"cmovne", 2, 0x0f45, _, Modrm|ReverseRegRegmem, {WordReg|WordMem, WordReg, 0},
- "6"},
-{"cmovbe", 2, 0x0f46, _, Modrm|ReverseRegRegmem, {WordReg|WordMem, WordReg, 0},
- "6"},
-{"cmova",  2, 0x0f47, _, Modrm|ReverseRegRegmem, {WordReg|WordMem, WordReg, 0},
- "6"},
-{"cmovs",  2, 0x0f48, _, Modrm|ReverseRegRegmem, {WordReg|WordMem, WordReg, 0},
- "6"},
-{"cmovns", 2, 0x0f49, _, Modrm|ReverseRegRegmem, {WordReg|WordMem, WordReg, 0},
- "6"},
-{"cmovp",  2, 0x0f4a, _, Modrm|ReverseRegRegmem, {WordReg|WordMem, WordReg, 0},
- "6"},
-{"cmovnp", 2, 0x0f4b, _, Modrm|ReverseRegRegmem, {WordReg|WordMem, WordReg, 0},
- "6"},
-{"cmovl",  2, 0x0f4c, _, Modrm|ReverseRegRegmem, {WordReg|WordMem, WordReg, 0},
- "6"},
-{"cmovge", 2, 0x0f4d, _, Modrm|ReverseRegRegmem, {WordReg|WordMem, WordReg, 0},
- "6"},
-{"cmovle", 2, 0x0f4e, _, Modrm|ReverseRegRegmem, {WordReg|WordMem, WordReg, 0},
- "6"},
-{"cmovg",  2, 0x0f4f, _, Modrm|ReverseRegRegmem, {WordReg|WordMem, WordReg, 0},
- "6"},
-{"fcmovb", 2, 0xdac0, _, ShortForm, {FloatReg, FloatAcc, 0}, "6" },
-{"fcmove", 2, 0xdac8, _, ShortForm, {FloatReg, FloatAcc, 0}, "6" },
-{"fcmovbe",2, 0xdad0, _, ShortForm, {FloatReg, FloatAcc, 0}, "6" },
-{"fcmovu", 2, 0xdad8, _, ShortForm, {FloatReg, FloatAcc, 0}, "6" },
-{"fcmovnb", 2, 0xdbc0, _, ShortForm, {FloatReg, FloatAcc, 0}, "6" },
-{"fcmovne", 2, 0xdbc8, _, ShortForm, {FloatReg, FloatAcc, 0}, "6" },
-{"fcmovnbe",2, 0xdbd0, _, ShortForm, {FloatReg, FloatAcc, 0}, "6" },
-{"fcmovnu", 2, 0xdbd8, _, ShortForm, {FloatReg, FloatAcc, 0}, "6" },
-
-{"fcomi",  2, 0xdbf0, _, ShortForm, {FloatReg, FloatAcc, 0}, "6" },
-{"fucomi", 2, 0xdbe8, _, ShortForm, {FloatReg, FloatAcc, 0}, "6" },
-{"fcomip", 2, 0xdff0, _, ShortForm, {FloatReg, FloatAcc, 0}, "6" },
-{"fucomip",2, 0xdfe8, _, ShortForm, {FloatReg, FloatAcc, 0}, "6" },
+{"ud2", 0, 0x0fff, _, NoModrm, {0, 0, 0}, /*"6"*/ }, /* official undefined instr. */
 #endif /* i686 */
+
+#define Mem512 (Mem32|Disp|BaseIndex)
+
+  {"fxrstor", 1, 0x0fae, 1, Modrm, {Mem512, 0, 0}, /*"6"*/ },
+  {"fxsave", 1, 0x0fae, 0, Modrm, {Mem512, 0, 0}, /*"6"*/ },
+  {"sysenter", 0, 0x0f34, _, NoModrm, {0, 0, 0}, /*"6"*/ },
+  {"sysexit", 0, 0x0f35, _, NoModrm, {0, 0, 0}, /*"6"*/ },
+
+#define def_cmov(name,opc) \
+  {name,2,opc,_,Modrm|ReverseRegRegmem,{Reg16|Mem16|Disp|BaseIndex,Reg16,0}, /*"6"*/ }, \
+  {name,2,opc,_,Modrm|ReverseRegRegmem,{Reg32|Mem32|Disp|BaseIndex,Reg32,0}, /*"6"*/ },
+
+  def_cmov("cmova", 0x0f47)
+  def_cmov("cmovae", 0x0f43)
+  def_cmov("cmovb", 0x0f42)
+  def_cmov("cmovbe", 0x0f46)
+  def_cmov("cmovc", 0x0f42)
+  def_cmov("cmove", 0x0f44)
+  def_cmov("cmovg", 0x0f4f)
+  def_cmov("cmovge", 0x0f4d)
+  def_cmov("cmovl", 0x0f4c)
+  def_cmov("cmovle", 0x0f4e)
+  def_cmov("cmovna", 0x0f46)
+  def_cmov("cmovnae", 0x0f42)
+  def_cmov("cmovnb", 0x0f43)
+  def_cmov("cmovnbe", 0x0f47)
+  def_cmov("cmovnc", 0x0f43)
+  def_cmov("cmovne", 0x0f45)
+  def_cmov("cmovng", 0x0f4e)
+  def_cmov("cmovnge", 0x0f4c)
+  def_cmov("cmovnl", 0x0f4d)
+  def_cmov("cmovnle", 0x0f4f)
+  def_cmov("cmovo", 0x0f40)
+  def_cmov("cmovno", 0x0f41)
+  def_cmov("cmovs", 0x0f48)
+  def_cmov("cmovns", 0x0f49)
+  def_cmov("cmovp", 0x0f4a)
+  def_cmov("cmovnp", 0x0f4b)
+
+  {"fcomi", 2, 0xdbf0, _, ShortForm, {FloatReg, FloatAcc, 0}, /*"6"*/ },
+  {"fcomip", 2, 0xdff0, _, ShortForm, {FloatReg, FloatAcc, 0}, /*"6"*/ },
+  {"fucomi", 2, 0xdbe8, _, ShortForm, {FloatReg, FloatAcc, 0}, /*"6"*/ },
+  {"fucomip", 2, 0xdfe8, _, ShortForm, {FloatReg, FloatAcc, 0}, /*"6"*/ },
+  {"fcmovb", 2, 0xdac0, _, ShortForm, {FloatReg, FloatAcc, 0}, /*"6"*/ },
+  {"fcmove", 2, 0xdac8, _, ShortForm, {FloatReg, FloatAcc, 0}, /*"6"*/ },
+  {"fcmovbe", 2, 0xdad0, _, ShortForm, {FloatReg, FloatAcc, 0}, /*"6"*/ },
+  {"fcmovu", 2, 0xdad8, _, ShortForm, {FloatReg, FloatAcc, 0}, /*"6"*/ },
+  {"fcmovnb", 2, 0xdbc0, _, ShortForm, {FloatReg, FloatAcc, 0}, /*"6"*/ },
+  {"fcmovne", 2, 0xdbc8, _, ShortForm, {FloatReg, FloatAcc, 0}, /*"6"*/ },
+  {"fcmovnbe", 2, 0xdbd0, _, ShortForm, {FloatReg, FloatAcc, 0}, /*"6"*/ },
+  {"fcmovnu", 2, 0xdbd8, _, ShortForm, {FloatReg, FloatAcc, 0}, /*"6"*/ },
+
+/* SSE extensions */
+#define RR   ReverseRegRegmem
+#define mm   RegMM
+#define xmm  RegXMM
+#define r32  Reg32
+#define m128 (Mem32|Disp|BaseIndex)
+#define m64  (Mem32|Disp|BaseIndex)
+#define m32  (Mem32|Disp|BaseIndex)
+#define m16  (Mem32|Disp|BaseIndex)
+#define m8   (Mem32|Disp|BaseIndex)
+
+  {"addpd", 2, 0x660f58, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"addps", 2, 0x0f58, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"addsd", 2, 0xf20f58, _, RR|Modrm, {xmm|m64, xmm, 0},"O"},
+  {"addss", 2, 0xf30f58, _, RR|Modrm, {xmm|m32, xmm, 0},"O"},
+  {"andnpd", 2, 0x660f55, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"andnps", 2, 0x0f55, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"andpd", 2, 0x660f54, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"andps", 2, 0x0f54, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"clflush", 1, 0x0fae, 7, Modrm, {m8, 0, 0},"O"},
+  {"cmppd", 3, 0x660fc2, _, RR|Modrm, {Imm8, xmm|m128, xmm},"O"},
+  {"cmpps", 3, 0x0fc2, _, RR|Modrm, {Imm8, xmm|m128, xmm},"O"},
+  {"cmpsd", 3, 0xf20fc2, _, RR|Modrm, {Imm8, xmm|m64, xmm},"O"},
+  {"cmpss", 3, 0xf30fc2, _, RR|Modrm, {Imm8, xmm|m32, xmm},"O"},
+  {"comisd", 2, 0x660f2f, _, RR|Modrm, {xmm|m64, xmm, 0},"O"},
+  {"comiss", 2, 0x0f2f, _, RR|Modrm, {xmm|m32, xmm, 0},"O"},
+  {"cvtdq2pd", 2, 0xf30fe6, _, RR|Modrm, {xmm|m64, xmm, 0},"O"},
+  {"cvtdq2ps", 2, 0x0f5b, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"cvtpd2dq", 2, 0xf20fe6, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"cvtpd2pi", 2, 0x660f2d, _, RR|Modrm, {xmm|m128, mm, 0},"O"},
+  {"cvtpd2ps", 2, 0x660f5a, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"cvtpi2pd", 2, 0x660f2a, _, RR|Modrm, {mm|m64, xmm, 0},"O"},
+  {"cvtpi2ps", 2, 0x0f2a, _, RR|Modrm, {mm|m64, xmm, 0},"O"},
+  {"cvtps2pd", 2, 0x0f5a, _, RR|Modrm, {xmm|m64, xmm, 0},"O"},
+  {"cvtps2pi", 2, 0x0f2d, _, RR|Modrm, {xmm|m64, mm, 0},"O"},
+  {"cvtsd2si", 2, 0xf20f2d, _, RR|Modrm, {xmm|m64, r32, 0},"O"},
+  {"cvtsd2ss", 2, 0xf20f5a, _, RR|Modrm, {xmm|m64, xmm, 0},"O"},
+  {"cvtsi2sd", 2, 0xf20f2a, _, RR|Modrm, {r32|m32, xmm, 0},"O"},
+  {"cvtsi2ss", 2, 0xf30f2a, _, RR|Modrm, {r32|m32, xmm, 0},"O"},
+  {"cvtss2sd", 2, 0xf30f5a, _, RR|Modrm, {xmm|m32, xmm, 0},"O"},
+  {"cvtss2si", 2, 0xf30f2d, _, RR|Modrm, {xmm|m32, Reg32, 0},"O"},
+  {"cvttpd2pi", 2, 0x660f2c, _, RR|Modrm, {xmm|m128, mm, 0},"O"},
+  {"cvttpd2dq", 2, 0x660fe6, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"cvttps2dq", 2, 0xf30f5b, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"cvttps2pi", 2, 0x0f2c, _, RR|Modrm, {xmm|m64, mm, 0},"O"},
+  {"cvttsd2si", 2, 0xf20f2c, _, RR|Modrm, {xmm|m64, r32, 0},"O"},
+  {"cvttss2si", 2, 0xf30f2c, _, RR|Modrm, {xmm|m32, r32, 0},"O"},
+  {"cvtps2dq", 2, 0x660f5b, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"divpd", 2, 0x660f5e, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"divps", 2, 0x0f5e, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"divsd", 2, 0xf20f5e, _, RR|Modrm, {xmm|m64, xmm, 0},"O"},
+  {"divss", 2, 0xf30f5e, _, RR|Modrm, {xmm|m32, xmm, 0},"O"},
+  {"emms", 0, 0x0f77, _, NoModrm, {0, 0, 0} },
+  {"ldmxcsr", 1, 0x0fae, 2, Modrm, {m32, 0, 0},"O"},
+  {"lfence", 0, 0x0faee8, _, NoModrm, {0, 0, 0},"O"},
+  {"maskmovdqu", 2, 0x660ff7, _, RR|Modrm, {xmm, xmm, 0},"O"},
+  {"maskmovq", 2, 0x0ff7, _, RR|Modrm, {mm, mm, 0},"O"},
+  {"maxpd", 2, 0x660f5f, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"maxps", 2, 0x0f5f, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"maxsd", 2, 0xf20f5f, _, RR|Modrm, {xmm|m64, xmm, 0},"O"},
+  {"maxss", 2, 0xf30f5f, _, RR|Modrm, {xmm|m32, xmm, 0},"O"},
+  {"mfence", 0, 0x0faef0, _, NoModrm, {0, 0, 0},"O"},
+  {"minpd", 2, 0x660f5d, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"minps", 2, 0x0f5d, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"minsd", 2, 0xf20f5d, _, RR|Modrm, {xmm|m64, xmm, 0},"O"},
+  {"minss", 2, 0xf30f5d, _, RR|Modrm, {xmm|m32, xmm, 0},"O"},
+  {"movapd", 2, 0x660f28, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"movapd", 2, 0x660f29, _, RR|Modrm, {xmm, xmm|m128, 0},"O"},
+  {"movaps", 2, 0x0f28, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"movaps", 2, 0x0f29, _, RR|Modrm, {xmm, xmm|m128, 0},"O"},
+  {"movd", 2, 0x0f6e, _, RR|Modrm, {r32|m32, mm, 0},"O"},
+  {"movd", 2, 0x0f7e, _, RR|Modrm, {mm, r32|m32, 0},"O"},
+  {"movd", 2, 0x660f6e, _, RR|Modrm, {r32|m32, xmm, 0},"O"},
+  {"movd", 2, 0x660f7e, _, Modrm, {xmm, r32|m32, 0},"O"},
+  {"movdq2q", 2, 0xf20fd6, _, RR|Modrm, {xmm, mm, 0},"O"},
+  {"movdqa", 2, 0x660f6f, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"movdqa", 2, 0x660f7f, _, RR|Modrm, {xmm, xmm|m128, 0},"O"},
+  {"movdqu", 2, 0xf30f6f, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"movdqu", 2, 0xf30f7f, _, RR|Modrm, {xmm, xmm|m128, 0},"O"},
+  {"movhlps", 2, 0x0f12, _, RR|Modrm, {xmm, xmm, 0},"O"},
+  {"movhpd", 2, 0x660f16, _, RR|Modrm, {m64, xmm, 0},"O"},
+  {"movhpd", 2, 0x660f17, _, RR|Modrm, {xmm, m64, 0},"O"},
+  {"movhps", 2, 0x0f16, _, RR|Modrm, {m64, xmm, 0},"O"},
+  {"movhps", 2, 0x0f17, _, RR|Modrm, {xmm, m64, 0},"O"},
+  {"movlhps", 2, 0x0f16, _, RR|Modrm, {xmm, xmm, 0},"O"},
+  {"movlpd", 2, 0x660f12, _, RR|Modrm, {m64, xmm, 0},"O"},
+  {"movlpd", 2, 0x660f13, _, RR|Modrm, {xmm, m64, 0},"O"},
+  {"movlps", 2, 0x0f12, _, RR|Modrm, {m64, xmm, 0},"O"},
+  {"movlps", 2, 0x0f13, _, RR|Modrm, {xmm, m64, 0},"O"},
+  {"movmskpd", 2, 0x660f50, _, RR|Modrm, {xmm, r32, 0},"O"},
+  {"movmskps", 2, 0x0f50, _, RR|Modrm, {xmm, r32, 0},"O"},
+  {"movntdq", 2, 0x660fe7, _, RR|Modrm, {xmm, m128, 0},"O"},
+  {"movnti", 2, 0x0fc3, _, RR|Modrm, {r32, m32, 0},"O"},
+  {"movntpd", 2, 0x660f2b, _, RR|Modrm, {xmm, m128, 0},"O"},
+  {"movntps", 2, 0x0f2b, _, RR|Modrm, {xmm, m128, 0},"O"},
+  {"movntq", 2, 0x0fe7, _, RR|Modrm, {mm, m64, 0},"O"},
+  {"movq", 2, 0x0f6f, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"movq", 2, 0x0f7f, _, RR|Modrm, {mm, mm|m64, 0},"O"},
+  {"movq", 2, 0x660fd6, _, RR|Modrm, {xmm|m64, xmm, 0},"O"},
+  {"movq", 2, 0xf30f7e, _, RR|Modrm, {xmm, xmm|m64, 0},"O"},
+  {"movq2dq", 2, 0xf30fd6, _, RR|Modrm, {mm, xmm, 0},"O"},
+  {"movsd", 2, 0xf20f10, _, RR|Modrm, {xmm|m64, xmm, 0},"O"},
+  {"movsd", 2, 0xf20f11, _, RR|Modrm, {xmm, xmm|m64, 0},"O"},
+  {"movss", 2, 0xf30f10, _, RR|Modrm, {xmm|m32, xmm, 0},"O"},
+  {"movss", 2, 0xf30f11, _, RR|Modrm, {xmm, xmm|m32, 0},"O"},
+  {"movupd", 2, 0x660f10, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"movupd", 2, 0x660f11, _, RR|Modrm, {xmm, xmm|m128, 0},"O"},
+  {"movups", 2, 0x0f10, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"movups", 2, 0x0f11, _, RR|Modrm, {xmm, xmm|m128, 0},"O"},
+  {"mulpd", 2, 0x660f59, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"mulps", 2, 0x0f59, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"mulsd", 2, 0xf20f59, _, RR|Modrm, {xmm|m64, xmm, 0},"O"},
+  {"mulss", 2, 0xf30f59, _, RR|Modrm, {xmm|m32, xmm, 0},"O"},
+  {"orpd", 2, 0x660f56, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"orps", 2, 0x0f56, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"packssdw", 2, 0x0f6b, _, RR|Modrm, {mm|m64,mm,0},"O"},
+  {"packssdw", 2, 0x660f6b, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"packsswb", 2, 0x0f63, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"packsswb", 2, 0x660f63, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"packuswb", 2, 0x0f67, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"packuswb", 2, 0x660f67, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"paddb", 2, 0x0ffc, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"paddb", 2, 0x660ffc, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"paddd", 2, 0x0ffe, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"paddd", 2, 0x660ffe, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"paddq", 2, 0x0fd4, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"paddq", 2, 0x660fd4, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"paddsb", 2, 0x0fec, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"paddsb", 2, 0x660fec, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"paddsw", 2, 0x0fed, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"paddsw", 2, 0x660fed, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"paddusb", 2, 0x0fdc, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"paddusb", 2, 0x660fdc, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"paddusw", 2, 0x0fdd, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"paddusw", 2, 0x660fdd, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"paddw", 2, 0x0ffd, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"paddw", 2, 0x660ffd, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"pand", 2, 0x0fdb, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"pand", 2, 0x660fdb, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"pandn", 2, 0x0fdf, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"pandn", 2, 0x660fdf, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"pause", 0, 0xf390, _, RR|NoModrm, {0, 0, 0},},
+  {"pavgb", 2, 0x0fe0, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"pavgb", 2, 0x660fe0, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"pavgw", 2, 0x0fe3, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"pavgw", 2, 0x660fe3, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"pcmpeqb", 2, 0x0f74, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"pcmpeqb", 2, 0x660f74, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"pcmpeqd", 2, 0x0f76, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"pcmpeqd", 2, 0x660f76, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"pcmpeqw", 2, 0x0f75, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"pcmpeqw", 2, 0x660f75, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"pcmpgtb", 2, 0x0f64, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"pcmpgtb", 2, 0x660f64, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"pcmpgtd", 2, 0x0f66, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"pcmpgtd", 2, 0x660f66, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"pcmpgtw", 2, 0x0f65, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"pcmpgtw", 2, 0x660f65, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"pextrw", 3, 0x0fc5, _, RR|Modrm, {Imm8, mm, r32},"O"},
+  {"pextrw", 3, 0x660fc5, _, RR|Modrm, {Imm8, xmm, r32},"O"},
+  {"pinsrw", 3, 0x0fc4, _, RR|Modrm, {Imm8, r32|m16, mm},"O"},
+  {"pinsrw", 3, 0x660fc4, _, RR|Modrm, {Imm8, r32|m16, xmm},"O"},
+  {"pmaddwd", 2, 0x0ff5, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"pmaddwd", 2, 0x660ff5, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"pmaxsw", 2, 0x0fee, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"pmaxsw", 2, 0x660fee, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"pmaxub", 2, 0x0fde, _, RR|Modrm, {mm|m64, mm, 0},"O"}, 
+  {"pmaxub", 2, 0x660fde, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"pminsw", 2, 0x0fea, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"pminsw", 2, 0x660fea, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"pminub", 2, 0x0fda, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"pminub", 2, 0x660fda, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"pmovmskb", 2, 0x0fd7, _, RR|Modrm, {mm, r32, 0},"O"},
+  {"pmovmskb", 2, 0x660fd7, _, RR|Modrm, {xmm, r32, 0},"O"},
+  {"pmulhuw", 2, 0x0fe4, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"pmulhuw", 2, 0x660fe4, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"pmulhw", 2, 0x0fe5, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"pmulhw", 2, 0x660fe5, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"pmullw", 2, 0x0fd5, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"pmullw", 2, 0x660fd5, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"pmuludq", 2, 0x0ff4, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"pmuludq", 2, 0x660ff4, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"por", 2, 0x0feb, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"por", 2, 0x660feb, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"prefetcht0", 1, 0x0f18, 1, Modrm, {m8, 0, 0},"O"},
+  {"prefetcht1", 1, 0x0f18, 2, Modrm, {m8, 0, 0},"O"},
+  {"prefetcht2", 1, 0x0f18, 3, Modrm, {m8, 0, 0},"O"},
+  {"prefetchnta", 1, 0x0f18, 0, Modrm, {m8, 0, 0},"O"},
+  {"psadbw", 2, 0x0ff6, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"psadbw", 2, 0x660ff6, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"pshufd", 3, 0x660f70, _, RR|Modrm, {Imm8, xmm|m128, xmm},"O"},
+  {"pshufhw", 3, 0xf30f70, _, RR|Modrm, {Imm8, xmm|m128, xmm},"O"},
+  {"pshuflw", 3, 0xf20f70, _, RR|Modrm, {Imm8, xmm|m128, xmm},"O"},
+  {"pshufw", 3, 0x0f70, _, RR|Modrm, {Imm8, mm|m64, mm},"O"},
+  {"pslld", 2, 0x0f72, 6, Modrm, {Imm8, mm, 0},"O"},
+  {"pslld", 2, 0x0ff2, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"pslld", 2, 0x660f72, 6, Modrm, {Imm8, xmm, 0},"O"},
+  {"pslld", 2, 0x660ff2, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"pslldq", 2, 0x660f73, 7, Modrm, {Imm8, xmm, 0},"O"},
+  {"psllq", 2, 0x0f73, 6, Modrm, {Imm8, mm, 0},"O"},
+  {"psllq", 2, 0x0ff3, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"psllq", 2, 0x660f73, 6, Modrm, {Imm8, xmm, 0},"O"},
+  {"psllq", 2, 0x660ff3, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"psllw", 2, 0x0f71, 6, Modrm, {Imm8, mm, 0},"O"},
+  {"psllw", 2, 0x0ff1, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"psllw", 2, 0x660f71, 6, Modrm, {Imm8, xmm, 0},"O"},
+  {"psllw", 2, 0x660ff1, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"psrad", 2, 0x0f72, 4, Modrm, {Imm8, mm, 0},"O"},
+  {"psrad", 2, 0x0fe2, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"psrad", 2, 0x660f72, 4, Modrm, {Imm8, xmm, 0},"O"},
+  {"psrad", 2, 0x660fe2, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"psraw", 2, 0x0f71, 4, Modrm, {Imm8, mm, 0},"O"},
+  {"psraw", 2, 0x0fe1, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"psraw", 2, 0x660f71, 4, Modrm, {Imm8, xmm, 0},"O"},
+  {"psraw", 2, 0x660fe1, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"psrld", 2, 0x0f72, 2, Modrm, {Imm8, mm, 0},"O"},
+  {"psrld", 2, 0x0fd2, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"psrld", 2, 0x660f72, 2, Modrm, {Imm8, xmm, 0},"O"},
+  {"psrld", 2, 0x660fd2, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"psrldq", 2, 0x660f73, 3, Modrm, {Imm8, xmm, 0},"O"},
+  {"psrlq", 2, 0x0f73, 2, Modrm, {Imm8, mm, 0},"O"},
+  {"psrlq", 2, 0x0fd3, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"psrlq", 2, 0x660f73, 2, Modrm, {Imm8, xmm, 0},"O"},
+  {"psrlq", 2, 0x660fd3, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"psrlw", 2, 0x0f71, 2, Modrm, {Imm8, mm, 0},"O"},
+  {"psrlw", 2, 0x0fd1, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"psrlw", 2, 0x660f71, 2, Modrm, {Imm8, xmm, 0},"O"},
+  {"psrlw", 2, 0x660fd1, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"psubb", 2, 0x0ff8, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"psubb", 2, 0x660ff8, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"psubd", 2, 0x0ffa, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"psubd", 2, 0x660ffa, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"psubq", 2, 0x0ffb, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"psubq", 2, 0x660ffb, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"psubsb", 2, 0x0fe8, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"psubsb", 2, 0x660fe8, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"psubsw", 2, 0x0fe9, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"psubsw", 2, 0x660fe9, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"psubusb", 2, 0x0fd8, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"psubusb", 2, 0x660fd8, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"psubusw", 2, 0x0fd9, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"psubusw", 2, 0x660fd9, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"psubw", 2, 0x0ff9, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"psubw", 2, 0x660ff9, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"punpckhbw", 2, 0x0f68, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"punpckhbw", 2, 0x660f68, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"punpckhdq", 2, 0x0f6a, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"punpckhdq", 2, 0x660f6a, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"punpckhqdq", 2, 0x660f6d, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"punpckhwd", 2, 0x0f69, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"punpckhwd", 2, 0x660f69, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"punpcklbw", 2, 0x0f60, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"punpcklbw", 2, 0x660f60, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"punpckldq", 2, 0x0f62, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"punpckldq", 2, 0x660f62, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"punpcklqdq", 2, 0x660f6c, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"punpcklwd", 2, 0x0f61, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"punpcklwd", 2, 0x660f61, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"pxor", 2, 0x0fef, _, RR|Modrm, {mm|m64, mm, 0},"O"},
+  {"pxor", 2, 0x660fef, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"rcpps", 2, 0x0f53, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"rcpss", 2, 0xf30f53, _, RR|Modrm, {xmm|m32, xmm, 0},"O"},
+  {"rsqrtps", 2, 0x0f52, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"rsqrtss", 2, 0xf30f52, _, RR|Modrm, {xmm|m32, xmm, 0},"O"},
+  {"sfence", 0, 0x0faef8, _, NoModrm, {0, 0, 0},"O"},
+  {"shufpd", 3, 0x660fc6, _, RR|Modrm, {Imm8, xmm|m128, xmm},"O"},
+  {"shufps", 3, 0x0fc6, _, RR|Modrm, {Imm8, xmm|m128, xmm},"O"},
+  {"sortsd", 2, 0xf20f51, _, RR|Modrm, {xmm|m64, xmm, 0},"O"},
+  {"sqrtpd", 2, 0x660f51, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"sqrtps", 2, 0x0f51, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"sqrtss", 2, 0xf30f51, _, RR|Modrm, {xmm|m32, xmm, 0},"O"},
+  {"sqrtsd", 2, 0xf20f51, _, RR|Modrm, {xmm|m64, xmm, 0},"O"},
+  {"stmxcsr", 1, 0x0fae, 3, Modrm, {m32, 0, 0},"O"},
+  {"subpd", 2, 0x660f5c, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"subps", 2, 0x0f5c, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"subsd", 2, 0xf20f5c, _, RR|Modrm, {xmm|m64, xmm, 0},"O"},
+  {"subss", 2, 0xf30f5c, _, RR|Modrm, {xmm|m32, xmm, 0},"O"},
+  {"ucomisd", 2, 0x660f2e, _, RR|Modrm, {xmm|m64, xmm, 0},"O"},
+  {"ucomiss", 2, 0x0f2e, _, RR|Modrm, {xmm|m32, xmm, 0},"O"},
+  {"unpckhpd", 2, 0x660f15, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"unpckhps", 2, 0x0f15, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"unpcklpd", 2, 0x660f14, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"unpcklps", 2, 0x0f14, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"xorpd", 2, 0x660f57, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"xorps", 2, 0x0f57, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+#undef RR
+#undef mm
+#undef xmm
+#undef r32
+#undef m128
+#undef m64
+#undef m32
+#undef m16
+#undef m8
 
 /* floating point instructions */
 
@@ -586,6 +886,7 @@ static const template i386_optab[] = {
 
 /* exchange %st<n> with %st0 */
 {"fxch", 1, 0xd9c8, _, ShortForm, {FloatReg, 0, 0} },
+{"fxch", 0, 0xd9c9, _, ShortForm, {0, 0, 0} }, /* exchange %st0, %st1 */
 
 /* comparison (without pop) */
 {"fcom", 0, 0xd8d1, _, ShortForm, {0, 0, 0} }, /* compare %st0, %st1 */
@@ -850,6 +1151,14 @@ static const reg_entry i386_regtab[] = {
 #endif /* defined(i486) || defined(i586) */
   {"tr6", Test, 6}, {"tr7", Test, 7},
 #endif /* !defined(STRICT_i586) */
+  /* SSE registers */
+  {"mm0", RegMM, 0},   {"mm1", RegMM, 1},  {"mm2", RegMM, 2},
+  {"mm3", RegMM, 3},   {"mm4", RegMM, 4},  {"mm5", RegMM, 5},
+  {"mm6", RegMM, 6},   {"mm7", RegMM, 7},
+  {"xmm0", RegXMM, 0}, {"xmm1", RegXMM, 1}, {"xmm2", RegXMM, 2},
+  {"xmm3", RegXMM, 3}, {"xmm4", RegXMM, 4}, {"xmm5", RegXMM, 5},
+  {"xmm6", RegXMM, 6}, {"xmm7", RegXMM, 7},
+
   /* float registers */
   {"st(0)", FloatReg|FloatAcc, 0},
   {"st", FloatReg|FloatAcc, 0},

@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = IONetworkingFamily ;
-export deferred SRCROOT = /Volumes/MacOS/Build/IONetworkingFamily ;
+export deferred SRCROOT = /automount/Servers/riemann/homes/aragorn/jliu/Projects/IONetworkingFamily ;
 
 # User-defined project-wide settings for project
 

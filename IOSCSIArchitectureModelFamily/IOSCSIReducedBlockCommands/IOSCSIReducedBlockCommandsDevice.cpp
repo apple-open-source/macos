@@ -1932,7 +1932,7 @@ IOSCSIReducedBlockCommandsDevice::IssueRead (
 	{
 		
 		// The command was successfully built, now send it
-		serviceResponse = SendCommand ( request, 0 );
+		serviceResponse = SendCommand ( request, fReadTimeoutDuration );
 		
 		if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
 			 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
@@ -1996,7 +1996,7 @@ IOSCSIReducedBlockCommandsDevice::IssueRead (
 		
 		SetApplicationLayerReference ( request, clientData );
 		SendCommand ( request,
-					  0,
+					  fReadTimeoutDuration,
 					  &IOSCSIReducedBlockCommandsDevice::AsyncReadWriteComplete );
 		
 		status = kIOReturnSuccess;
@@ -2048,7 +2048,7 @@ IOSCSIReducedBlockCommandsDevice::IssueWrite (
 	{
 		
 		// The command was successfully built, now send it
-		serviceResponse = SendCommand ( request, 0 );
+		serviceResponse = SendCommand ( request, fWriteTimeoutDuration );
 		
 		if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
 			 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
@@ -2113,7 +2113,7 @@ IOSCSIReducedBlockCommandsDevice::IssueWrite (
 		
 		SetApplicationLayerReference ( request, clientData );
 		SendCommand ( request,
-					  0,
+					  fWriteTimeoutDuration,
 					  &IOSCSIReducedBlockCommandsDevice::AsyncReadWriteComplete );
 		
 		status = kIOReturnSuccess;
@@ -2210,9 +2210,9 @@ IOSCSIReducedBlockCommandsDevice::AsyncReadWriteComplete (
 		
 	}
 	
-	taskOwner->ReleaseSCSITask ( request );
-	
 	IOReducedBlockServices::AsyncReadWriteComplete ( clientData, status, actCount );
+	
+	taskOwner->ReleaseSCSITask ( request );
 	
 	return;
 	

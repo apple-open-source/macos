@@ -45,9 +45,17 @@
 
 #import "stuff/bool.h"
 #import "mach-o/dyld.h"
+#import "mach-o/getsect.h"
 #import "stuff/ofile.h"
 #import "stuff/arch.h"
 #import "stuff/errors.h"
+
+static const char* nlist_bsearch_strings;
+static const char* toc_bsearch_strings;
+static const struct nlist* toc_bsearch_symbols;
+#import "inline_strcmp.h"
+#import "inline_bsearch.h"
+
 
 #import "ofi.h"
 
@@ -100,9 +108,11 @@ static enum bool ofi_free(
 static enum bool ofi_valid(
     struct ofi *ofi);
 
-static NSObjectFileImageReturnCode NSCreateImageFromFile(
+static NSObjectFileImageReturnCode NSCreateImageFromFileOrMemory(
     enum bool coreFile,
     const char *pathName,
+    void *address,
+    unsigned long size, 
     NSObjectFileImage *objectFileImage);
 
 /*
@@ -117,7 +127,26 @@ NSCreateObjectFileImageFromFile(
 const char *pathName,
 NSObjectFileImage *objectFileImage)
 {
-	return(NSCreateImageFromFile(FALSE, pathName, objectFileImage));
+	return(NSCreateImageFromFileOrMemory(FALSE, pathName, NULL, 0,
+					     objectFileImage));
+}
+
+/*
+ * NSCreateObjectFileImageFromMemory() creates an NSObjectFileImage for the
+ * object file mapped into memory at address of size length if the object file
+ * is a correct Mach-O file that can be loaded with NSloadModule().  For return
+ * codes of NSObjectFileImageFailure and NSObjectFileImageFormat an error
+ * message is printed to stderr.  All other codes cause no printing. 
+ */
+NSObjectFileImageReturnCode
+NSCreateObjectFileImageFromMemory(
+void *address,
+unsigned long size, 
+NSObjectFileImage *objectFileImage)
+{
+	return(NSCreateImageFromFileOrMemory(FALSE,
+		"NSCreateObjectFileImageFromMemory() call",
+		address, size, objectFileImage));
 }
 
 /*
@@ -131,18 +160,25 @@ NSCreateCoreFileImageFromFile(
 const char *pathName,
 NSObjectFileImage *objectFileImage)
 {
-	return(NSCreateImageFromFile(TRUE, pathName, objectFileImage));
+	return(NSCreateImageFromFileOrMemory(TRUE, pathName, NULL, 0,
+					     objectFileImage));
 }
 
 /*
- * NSCreateImageFromFile() is the internal shared routine to implemement
- * NSCreateObjectFileImageFromFile() and NSCreateCoreFileImageFromFile().
+ * NSCreateImageFromFileOrMemory() is the internal shared routine to implemement
+ * NSCreateObjectFileImageFromFile(), NSCreateObjectFileImageFromMemory() and
+ * NSCreateCoreFileImageFromFile().
+ *
+ * If address is not NULL then it and size are used as the memory of the object
+ * file in memory.  Else the pathName is open(2)'ed and mapped in.
  */
 static
 NSObjectFileImageReturnCode
-NSCreateImageFromFile(
+NSCreateImageFromFileOrMemory(
 enum bool coreFile,
 const char *pathName,
+void *address,
+unsigned long size, 
 NSObjectFileImage *objectFileImage)
 {
     struct arch_flag host_arch_flag;
@@ -184,7 +220,12 @@ NSObjectFileImage *objectFileImage)
 	    goto done;
 	}
 
-	o = ofile_map(pathName, &host_arch_flag, NULL, &(ofi->ofile), FALSE);
+	if(address != NULL)
+	    o = ofile_map_from_memory(address, size, pathName, &host_arch_flag,
+				      NULL, &(ofi->ofile),FALSE);
+	else
+	    o = ofile_map(pathName, &host_arch_flag, NULL, &(ofi->ofile),FALSE);
+
 	if(o != NSObjectFileImageSuccess){
 	    /* error was reported by ofile_map() if required */
 	    (void)ofi_free(ofi);
@@ -251,36 +292,6 @@ done:
 #endif
 	}
 	return(o);
-}
-
-NSObjectFileImageReturnCode
-NSCreateObjectFileImageFromMemory(
-void *address,
-unsigned long size, 
-NSObjectFileImage *objectFileImage)
-{
-#ifndef __OPENSTEP__
-    static char ***NXArgv_pointer = NULL;
-
-	if(NXArgv_pointer == NULL)
-	    NXArgv_pointer = _NSGetArgv();
-	progname = (*NXArgv_pointer)[0];
-#else /* defined(__OPENSTEP__) */
-#ifndef __DYNAMIC__
-    extern char **NXArgv;
-
-	progname = NXArgv[0];
-#else
-    static char ***NXArgv_pointer = NULL;
-
-	if(NXArgv_pointer == NULL)
-	    _dyld_lookup_and_bind("_NXArgv",
-		(unsigned long *)&NXArgv_pointer, NULL);
-	progname = (*NXArgv_pointer)[0];
-#endif
-#endif /* __OPENSTEP__ */
-
-	return(NSObjectFileImageFailure);
 }
 
 /*
@@ -558,50 +569,253 @@ NSObjectFileImage objectFileImage)
 	return(TRUE);
 }
 
+/*
+ * GetObjectFileImageSymbols() is passed the object file image and indirectly
+ * returns the dynamic symbol table, symbol table, and strings when this routine
+ * returns TRUE.  If not this returns FALSE and the return values are set to
+ * NULL.
+ */
+static
+enum bool
+GetObjectFileImageSymbols(
+NSObjectFileImage objectFileImage, 
+const struct dysymtab_command **dyst,
+const struct nlist **symbols, 
+const char **strings)
+{
+    const struct ofile *ofile;
+    const struct load_command *lc;
+    const struct symtab_command *st;
+    unsigned long i;
+
+	st = NULL;
+	*dyst = NULL;
+	ofile = (struct ofile *)objectFileImage;
+	lc = ofile->load_commands;
+	for(i = 0; i < ofile->mh->ncmds; i++){
+	    switch(lc->cmd){
+	    case LC_SYMTAB:
+		st = (struct symtab_command *)lc;
+		*symbols = (struct nlist *)(ofile->object_addr + st->symoff);
+		*strings = ofile->object_addr + st->stroff;
+		break;
+	    case LC_DYSYMTAB:
+		*dyst = (struct dysymtab_command *)lc;
+		break;
+	    }
+	    if((st != NULL) && (*dyst != NULL)){
+		return(TRUE);
+	    }
+	    lc = (struct load_command *)(((char *)lc)+ lc->cmdsize);
+	}
+	*dyst = NULL;
+	*symbols = NULL;
+	*strings = NULL;
+	return(FALSE);
+}
+
+/*
+ * NSSymbolDefinitionCountInObjectFileImage() returns the number of symbol
+ * definitions in the NSObjectFileImage.
+ */
 unsigned long
 NSSymbolDefinitionCountInObjectFileImage(
 NSObjectFileImage objectFileImage)
 {
+    const struct dysymtab_command *dyst;
+    const struct nlist *symbols;
+    const char *strings;
+    
+	if(GetObjectFileImageSymbols(objectFileImage, &dyst, &symbols,&strings))
+	    return(dyst->nextdefsym);
+
 	return(0);
 }
 
+/*
+ * NSSymbolDefinitionNameInObjectFileImage() returns the name of the i'th
+ * symbol definitions in the NSObjectFileImage.  If the ordinal specified is
+ * outside the range [0..NSSymbolDefinitionCountInObjectFileImage], NULL will
+ * be returned.
+ */
 const char *
 NSSymbolDefinitionNameInObjectFileImage(
 NSObjectFileImage objectFileImage,
 unsigned long ordinal)
 {
+    const struct dysymtab_command *dyst;
+    const struct nlist *symbols;
+    const char *strings;
+    
+	if(GetObjectFileImageSymbols(objectFileImage, &dyst, &symbols,
+				     &strings)){
+	    if(ordinal < dyst->nextdefsym){
+		return(strings +
+		       symbols[dyst->iextdefsym + ordinal].n_un.n_strx);
+	    }
+	}
 	return(NULL);
 }
 
+/*
+ * NSSymbolReferenceCountInObjectFileImage() returns the number of references
+ * to undefined symbols the NSObjectFileImage.
+ */
 unsigned long
 NSSymbolReferenceCountInObjectFileImage(
 NSObjectFileImage objectFileImage)
 {
+    const struct dysymtab_command *dyst;
+    const struct nlist *symbols;
+    const char *strings;
+    
+	if(GetObjectFileImageSymbols(objectFileImage, &dyst, &symbols,&strings))
+	    return(dyst->nundefsym);
 	return(0);
 }
 
+/*
+ * NSSymbolReferenceNameInObjectFileImage() returns the name of the i'th
+ * undefined symbol in the NSObjectFileImage. If the ordinal specified is
+ * outside the range [0..NSSymbolReferenceCountInObjectFileImage], NULL will be
+ * returned.
+ */
 const char *
 NSSymbolReferenceNameInObjectFileImage(
 NSObjectFileImage objectFileImage,
 unsigned long ordinal,
 enum bool *tentative_definition) /* can be NULL */
 {
+    const struct dysymtab_command *dyst;
+    const struct nlist *symbols, *symbol;
+    const char *strings;
+    
+	if(GetObjectFileImageSymbols(objectFileImage, &dyst, &symbols,
+				     &strings)){
+	    if(ordinal < dyst->nundefsym){
+		symbol = symbols + dyst->iundefsym + ordinal;
+		if(tentative_definition != NULL){
+		    if((symbol->n_type & N_TYPE) == N_UNDF &&
+			symbol->n_value != 0)
+			*tentative_definition = TRUE;
+		    else
+			*tentative_definition = FALSE;
+		}
+		return(strings + symbol->n_un.n_strx);
+	    }
+	}
+	if(tentative_definition != NULL)
+	    *tentative_definition = FALSE;
 	return(NULL);
 }
 
+/*
+ * NSIsSymbolDefinedInObjectFileImage() returns TRUE if the specified symbol
+ * name has a definition in the NSObjectFileImage and FALSE otherwise.
+ */
 enum bool
 NSIsSymbolDefinedInObjectFileImage(
 NSObjectFileImage objectFileImage,
 const char *symbolName)
 {
+    const struct dysymtab_command *dyst;
+    const struct nlist *symbols, *symbol;
+    const char *strings;
+    
+	if(GetObjectFileImageSymbols(objectFileImage, &dyst, &symbols,
+				     &strings)){
+	    nlist_bsearch_strings = strings;
+	    symbol = inline_bsearch_nlist(symbolName,
+					  symbols + dyst->iextdefsym,
+					  dyst->nextdefsym);
+	    if(symbol != NULL) 
+		return(TRUE);
+	}
 	return(FALSE);
 }
 
+/*
+ * NSGetSectionDataInObjectFileImage() returns a pointer to the section contents
+ * in the NSObjectFileImage for the specified segmentName and sectionName if
+ * it exists and it is not a zerofill section.  If not it returns NULL.  If
+ * the parameter size is not NULL the size of the section is also returned
+ * indirectly through that pointer.
+ */
 void *
 NSGetSectionDataInObjectFileImage(
 NSObjectFileImage objectFileImage,
 const char *segmentName,
-const char *sectionName)
+const char *sectionName,
+unsigned long *size) /* can be NULL */
 {
+    const struct ofile *ofile;
+    struct load_command *lc;
+    struct segment_command *sg;
+    struct section *s;
+    unsigned long i, j;
+
+	ofile = (struct ofile *)objectFileImage;
+	lc = ofile->load_commands;
+	for(i = 0; i < ofile->mh->ncmds; i++){
+	    switch(lc->cmd){
+	    case LC_SEGMENT:
+		sg = (struct segment_command *)lc;
+		s = (struct section *)
+		    ((char *)sg + sizeof(struct segment_command));
+		for(j = 0; j < sg->nsects; j++){
+		    if(strncmp(s->segname, segmentName,
+			       sizeof(s->segname)) == 0 &&
+		       strncmp(s->sectname, sectionName,
+			       sizeof(s->sectname)) == 0){
+			if((s->flags & SECTION_TYPE) == S_ZEROFILL){
+			    if(size != NULL)
+				*size = 0;
+			    return(NULL);
+			}
+			if(size != NULL)
+			    *size = s->size;
+			return((void *)((unsigned long)(ofile->mh) +
+					s->offset));
+		    }
+		    s++;
+		}
+	    }
+	    lc = (struct load_command *)(((char *)lc)+ lc->cmdsize);
+	}
+	if(size != NULL)
+	    *size = 0;
 	return(NULL);
+}
+
+/*
+ * NSHasModInitObjectFileImage() returns TRUE if the NSObjectFileImage has any
+ * module initialization sections and FALSE it it does not.
+ */
+enum bool
+NSHasModInitObjectFileImage(
+NSObjectFileImage objectFileImage)
+{
+    const struct ofile *ofile;
+    struct load_command *lc;
+    struct segment_command *sg;
+    struct section *s;
+    unsigned long i, j;
+
+	ofile = (struct ofile *)objectFileImage;
+	lc = ofile->load_commands;
+	for(i = 0; i < ofile->mh->ncmds; i++){
+	    switch(lc->cmd){
+	    case LC_SEGMENT:
+		sg = (struct segment_command *)lc;
+		s = (struct section *)
+		    ((char *)sg + sizeof(struct segment_command));
+		for(j = 0; j < sg->nsects; j++){
+		    if((s->flags & SECTION_TYPE) == S_MOD_INIT_FUNC_POINTERS)
+			return(TRUE);
+		    s++;
+		}
+	    }
+	    lc = (struct load_command *)(((char *)lc)+ lc->cmdsize);
+	}
+	return(FALSE);
 }

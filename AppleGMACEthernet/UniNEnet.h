@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -97,6 +100,11 @@ extern "C"
 		UInt32		physAddr;		// Physical address of buffer to dump via OF
 		UInt32		alertCount;		// # times Alrt invoked - can be used as trigger
 		UInt32		wrapCount;		// # of times buffer wrapped around
+
+		UInt32		lostEvents;		// # events not logged because evLogFlag was 0
+		UInt32		res1;			// reserved
+		UInt32		res2;			// reserved
+		UInt32		res3;			// reserved
 	};
 
 
@@ -105,8 +113,8 @@ extern "C"
 #define READ_REGISTER( REG )	(UInt32)(fCellClockEnabled ? OSReadLittleInt32( (void*)&fpRegs->REG, 0 ) :  Alrt( 0, 0, 'REG-', "regs unavail" ) )
 #define WRITE_REGISTER( REG, VAL )	writeRegister( &fpRegs->REG, VAL )
 #else
-#define READ_REGISTER( REG ) OSReadLittleInt32( (void*)&fpRegs->REG, 0 )
-#define WRITE_REGISTER( REG, VAL )	OSWriteLittleInt32( (void*)&fpRegs->REG, 0, VAL )
+#define READ_REGISTER( REG ) OSReadLittleInt32( (void*)fpRegs, offsetof( GMAC_Registers, REG ) )
+#define WRITE_REGISTER( REG, VAL )	OSWriteLittleInt32( (void*)fpRegs, offsetof( GMAC_Registers, REG ), VAL )
 #endif // USE_ELG
 
 
@@ -156,13 +164,9 @@ extern "C"
 #define DBG_UniN_TXCOMPLETE    DRVDBG_CODE( DBG_DRVNETWORK, (DBG_UniN_ENET+4) )
 #define DBG_UniN_RXCOMPLETE    DRVDBG_CODE( DBG_DRVNETWORK, (DBG_UniN_ENET+5) )
 
-	enum
-	{
-		kGMACUserClientCookie	= 123		// pass to IOServiceOpen
-	};
 
 	enum
-	{		/* command bytes to send to the user client:	*/
+	{		/* command values to send to the user client:	*/
 		kGMACUserCmd_GetLog		= 0x30,		// get entire GMAC ELG buffer
 		kGMACUserCmd_GetRegs	= 0x31,		// get GMAC registers
 		kGMACUserCmd_GetPHY		= 0x32,		// get PHY  registers
@@ -175,7 +179,15 @@ extern "C"
 	};
 
 
-class UniNEnet;
+	struct UCRequest				/* User Client Request structure:	*/
+	{
+		UInt32		reqID;			/* one of the kGMACUserCmd_ requests enum'd above	*/
+		UInt8*		pLogBuffer;		/* pointer to user's log buffer						*/
+		UInt32		bufSize;		/* size of the log buffer							*/
+	};
+
+
+	class UniNEnet;
 
 
 class UniNEnetUserClient : public IOUserClient
@@ -186,6 +198,7 @@ private:
 	UniNEnet			*fProvider;
 	IOExternalMethod	fMethods[1];		// just one method
 	task_t				fTask;
+	IOMemoryMap			*fmap;				// memory map of the client's buffer
 
 public:
     static UniNEnetUserClient*	withTask( task_t owningTask );	// Constructor
@@ -221,8 +234,9 @@ class UniNEnet: public IOEthernetController
 public:
 
 	elg						*fpELG;			// pointer to ELG structure & buffer
+	IOMemoryDescriptor		*fpELGMemDesc;	// memory descriptor of ELG structure & buffer
 	volatile GMAC_Registers	*fpRegs;		// pointer to GMAC's registers
-	GMAC_Registers			*fpRegsPhys;	// for ml_probe_read
+//	GMAC_Registers			*fpRegsPhys;	// for ml_probe_read
 	IOPCIDevice				*nub;
 	IOMemoryMap				*ioMapEnet;
 	volatile IOPPCAddress	ioBaseEnet;
@@ -247,6 +261,7 @@ public:
 	IOEthernetAddress	 	myAddress;
 
 	bool		fBuiltin;			// UniN builtin = 1; PCI card = 0
+	bool		fK2;
 	bool		fReady;
 	bool		fWOL;				// WakeOnLAN desired.
 	bool		fCellClockEnabled;
@@ -256,6 +271,8 @@ public:
 	bool		fIsPromiscuous;
 	bool		multicastEnabled;
 	bool		isFullDuplex;
+	bool		txDebuggerPktInUse;	// for Tx timeout code use only
+	bool		fLoopback;			// PHY is in loopback mode
 
 	UInt32 		phyType;			// misnomer - really both PHY ID registers
 	UInt8		phyId;				// misnomer - really PHY address 00-1F or FF
@@ -280,23 +297,26 @@ public:
 	UInt32		txCommandHead;  			// TX ring descriptor index
 	UInt32		txCommandTail;
 	UInt32		rxCommandHead;				// RX ring descriptor index
-	UInt32		rxCommandTail;				/// rxCommandTail is not used anywhere
+
+	IOMbufBigMemoryCursor		*fTxMbufCursor;
+	struct IOPhysicalSegment	fTxSegment[ MAX_SEGS_PER_TX_MBUF ];
+	UInt32						fTxElementsAvail;
 
 	TxDescriptor	*fTxDescriptorRing; 	// TX descriptor ring ptr
 	UInt32			fTxDescriptorRingPhys;
-	UInt32			fTxElementsAvail;
 	UInt32			fTxRingLengthFactor;
 
 	RxDescriptor	*fRxDescriptorRing;  	// Rx descriptor ring ptr
 	UInt32			fRxDescriptorRingPhys;
 	UInt32			fRxRingLengthFactor;
 
+	IOMemoryDescriptor	*fTxRingMemDesc;
+	IOMemoryDescriptor	*fRxRingMemDesc;
+
 	UInt32		txIntCnt;
 	UInt32		txRingIndexLast;
-///	UInt32		txWDInterrupts;
 	UInt32		txWDCount;
     
-///	UInt32		rxWDInterrupts;
 	UInt32		rxWDCount;
 
 	UInt16		hashTableUseCount[ 256 ];
@@ -334,7 +354,6 @@ private:			// Instance methods:
 	void		restartReceiver();
 	void		putToSleep( bool pangeaClockOnly );
 	bool		wakeUp( bool pangeaClockOnly );
-	void		sendDummyPacket();
 	void		resetHashTableMask();
 	void		addToHashTableMask( UInt8 *addr );
 	void		removeFromHashTableMask( UInt8 *addr );
@@ -343,11 +362,11 @@ private:			// Instance methods:
 	void		sendPacket( void *pkt, UInt32 pkt_len );
 	void		receivePacket( void *pkt, UInt32 *pkt_len, UInt32 timeout );
 	void		miiWrite( UInt32 miiData, UInt32 dataSize );
-	bool		miiResetPHY( UInt8 phy );
-	bool		miiWaitForAutoNegotiation( UInt8 phy );
-//	void		miiRestartAutoNegotiation( UInt8 phy );
-	bool		miiFindPHY( UInt8 *phy_num );
-	bool		miiInitializePHY( UInt8 phy );
+	bool		miiResetPHY();
+	bool		miiWaitForAutoNegotiation();
+//	void		miiRestartAutoNegotiation();
+	bool		miiFindPHY();
+	bool		miiInitializePHY();
 
 	UInt32		outputPacket( struct mbuf *m, void *param );
 
@@ -413,6 +432,8 @@ public:		// Override methods:
 											bool				isOutput );
 
 	virtual IOReturn 	selectMedium( const IONetworkMedium *medium );
+	IOReturn			negotiateSpeedDuplex();
+	IOReturn			forceSpeedDuplex();
 
 	    // Power management methods:
 
@@ -426,10 +447,7 @@ public:		// Override methods:
 		// UserClient public access methods:
 
 	virtual IOReturn	newUserClient( task_t, void*, UInt32, IOUserClient** );
-	bool				miiReadWord(  UInt16 *dataPtr, UInt16 reg, UInt8 phy );
-    bool				miiWriteWord( UInt16 data,     UInt16 reg, UInt8 phy );
-
-	IOReturn			negotiateSpeedDuplex( UInt16 controlReg );
-	IOReturn			forceSpeedDuplex(     UInt16 controlReg );
+	bool				miiReadWord(  UInt16 *dataPtr, UInt16 reg );
+    bool				miiWriteWord( UInt16 data,     UInt16 reg );
 
 };/* end class UniNEnet */

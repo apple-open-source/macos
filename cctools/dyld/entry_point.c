@@ -76,7 +76,7 @@ struct thread_command *thread_command)
 	    }
 #endif
 #ifdef __i386__
-	    if(flavor == i386_THREAD_STATE){
+	    if(flavor == (unsigned long)i386_THREAD_STATE){
 		cpu = (i386_thread_state_t *)p;
 		return(cpu->eip);
 	    }

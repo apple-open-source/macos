@@ -96,4 +96,4 @@ struct m68k_thread_state_user_reg {
 #define M68K_THREAD_STATE_USER_REG_COUNT \
 	(sizeof (struct m68k_thread_state_user_reg) / sizeof (int))
 
-#endif	_MACH_M68K_THREAD_STATUS_
+#endif	/* _MACH_M68K_THREAD_STATUS_ */

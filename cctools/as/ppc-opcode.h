@@ -24,6 +24,7 @@ enum optype {
     SNUM,	/* signed number */
     NUM0,	/* number (where 1<<width is the same as 0) */
     MBE,	/* mask defined by MB and ME fields */
+    FXM,	/* 8-bit mask with only one bit set */
     ZERO	/* the number zero */
 };
 
@@ -711,10 +712,11 @@ static const struct ppc_opcode ppc_opcodes[] = {
 
  { 0x7c0002a6, "mfspr",   {{21,5,GREG}, {11,10,SPREG}} },
  { 0x7c0003a6, "mtspr",   {{11,10,SPREG},{21,5,GREG}} },
- { 0x7c000120, "mtcrf",   {{12,8,NUM},  {21,5,GREG}} },
+ { 0x7c000120, "mtcrf",   {{12,8,FXM},  {21,5,GREG}} },
  { 0x7c000400, "mcrxr",   {{21,5,CRFONLY}}  },
  { 0x7c000400, "mcrxr",   {{23,3,NUM}}  },
  { 0x7c000026, "mfcr",    {{21,5,GREG}} },
+ { 0x7c100026, "mfcr",    {{21,5,GREG}, {12,8,FXM}} },
 
 /* Move to/from spr mnemonics (assember extended mnemonics) */
  { 0x7c0102a6, "mfxer",   {{21,5,GREG}} },
@@ -996,6 +998,7 @@ static const struct ppc_opcode ppc_opcodes[] = {
  { 0x7c0007ac, "icbi",    {{16,5,G0REG}, {11,5,GREG}} },
  { 0x4c00012c, "isync",   },
  { 0x7c00022c, "dcbt",    {{16,5,G0REG}, {11,5,GREG}} },
+ { 0x7c00022c, "dcbt",    {{16,5,G0REG}, {11,5,GREG}, {21,2,NUM}} },
  { 0x7c0001ec, "dcbtst",  {{16,5,G0REG}, {11,5,GREG}} },
  { 0x7c00022c, "dcbt128", {{16,5,G0REG}, {11,5,GREG}, {21,4,NUM}},
    IMPL64|OPTIONAL },

@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = IOPCCardFamily ;
-export deferred SRCROOT = /Volumes/home/ras/IOPCCardFamily ;
+export deferred SRCROOT = /Volumes/home/sandbox/pccard/IOPCCardFamily ;
 
 # User-defined project-wide settings for project
 

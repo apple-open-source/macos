@@ -402,7 +402,11 @@ static void s_ppcasm_end(int value);
  */
 static const pseudo_typeS pseudo_table[] = {
 #if !defined(I860) /* i860 has it's own align and org */
-  { "align",	s_align,	0	},
+  { "align",	s_align,	1	},
+  { "align32",	s_align,	4	},
+  { "p2align",	s_align,	1	},
+  { "p2alignw",	s_align,	2	},
+  { "p2alignl",	s_align,	4	},
   { "org",	s_org,		0	},
 #endif
 #ifndef M88K /* m88k has it's own abs that uses the s_abs() in here */
@@ -1489,42 +1493,115 @@ int value)
 
 #if !defined(I860) /* i860 has it's own align and org */
 /*
- * s_align() implements the pseudo op
- *	.align expression [ , fill_expression ]
+ * s_align() implements the pseudo ops
+ *  .align    align_expression [ , 1byte_fill_expression [,max_bytes_to_fill]]
+ *  .p2align  align_expression [ , 1byte_fill_expression [,max_bytes_to_fill]]
+ *  .p2alignw align_expression [ , 2byte_fill_expression [,max_bytes_to_fill]]
+ *  .p2alignl align_expression [ , 4byte_fill_expression [,max_bytes_to_fill]]
+ *  .align32  align_expression [ , 4byte_fill_expression [,max_bytes_to_fill]]
+ * Where align_expression is a power of 2 alignment.
+ * 
+ * The parameter fill_size can only be 1, 2 or 4 which is the size of the
+ * fill_expression.
  */
 static
 void
 s_align(
-int value)
+int fill_size)
 {
-	int temp;
-	long temp_fill;
+    int power_of_2_alignment;
+    long temp_fill, fill_specified, max_bytes_to_fill;
+    char fill[4];
 
-	temp = get_absolute_expression();
+	if(fill_size != 1 && fill_size != 2 && fill_size != 4)
+	    as_warn("Internal error, s_align() called with bad fill_size %d",
+		    fill_size);
+
+	power_of_2_alignment = get_absolute_expression();
 #define MAX_ALIGNMENT (15)
-	if(temp > MAX_ALIGNMENT)
-	    as_warn("Alignment too large: %d. assumed.", temp = MAX_ALIGNMENT);
-	else if(temp < 0){
+	if(power_of_2_alignment > MAX_ALIGNMENT)
+	    as_warn("Alignment too large: %d. assumed.",
+		    power_of_2_alignment = MAX_ALIGNMENT);
+	else if(power_of_2_alignment < 0){
 	    as_warn("Alignment negative. 0 assumed.");
-	    temp = 0;
+	    power_of_2_alignment = 0;
 	}
+	temp_fill = 0;
+	fill_specified = 0;
+	max_bytes_to_fill = 0;
 	if(*input_line_pointer == ','){
 	    input_line_pointer ++;
 	    temp_fill = get_absolute_expression ();
+	    fill_specified = 1;
+	    if(*input_line_pointer == ','){
+		input_line_pointer ++;
+		max_bytes_to_fill = get_absolute_expression ();
+	    }
 	}
-	else
-	    temp_fill = 0;
-
-	/* Only make a frag if we HAVE to. . . */
-	if(temp != 0)
-	    frag_align(temp, (int)temp_fill);
 
 	/*
-	 * If this alignment is larger than any previous alignment then this
-	 * becomes the section's alignment.
+	 * If the fill has not been specified and this section has
+	 * machine instructions then pad the section with nops.
 	 */
-	if(frchain_now->frch_section.align < temp)
-	    frchain_now->frch_section.align = temp;
+	if(fill_specified == 0 &&
+	   ((frchain_now->frch_section.flags & S_ATTR_SOME_INSTRUCTIONS) ==
+	     S_ATTR_SOME_INSTRUCTIONS ||
+	    (frchain_now->frch_section.flags & S_ATTR_PURE_INSTRUCTIONS) ==
+	     S_ATTR_PURE_INSTRUCTIONS) ){
+#ifdef M68K
+	    if(power_of_2_alignment >= 1){
+		temp_fill = 0x4e71; /* m68k nop */
+		fill_size = 2; /* 2 byte fill size */
+	    }
+#endif /* M68K */
+#ifdef I386
+	    temp_fill = 0x90; /* i386 nop */
+	    fill_size = 1; /* 1 byte fill size */
+#endif /* I386 */
+#ifdef HPPA
+	    if(power_of_2_alignment >= 2){
+		temp_fill = 0x08000240; /* hppa nop */
+		fill_size = 4; /* 4 byte fill size */
+	    }
+#endif /* HPPA */
+#ifdef SPARC
+	    if(power_of_2_alignment >= 2){
+		temp_fill = 0x01000000; /* sparc nop */
+		fill_size = 4; /* 4 byte fill size */
+	    }
+#endif /* SPARC */
+#ifdef M88K
+	    if(power_of_2_alignment >= 2){
+		temp_fill = 0xf4005800; /* m88k 'or r0,r0,r0' instruction */
+		fill_size = 4; /* 4 byte fill size */
+	    }
+#endif /* M88K */
+#ifdef PPC
+	    if(power_of_2_alignment >= 2){
+		temp_fill = 0x60000000; /* ppc nop */
+		fill_size = 4; /* 4 byte fill size */
+	    }
+#endif /* PPC */
+	    ; /* empty statement for other architectures */
+	}
+
+	md_number_to_chars(fill, temp_fill, fill_size);
+
+	/* Only make a frag if we HAVE to. . . */
+	if(power_of_2_alignment != 0)
+	    frag_align(power_of_2_alignment, fill, fill_size,max_bytes_to_fill);
+
+	/*
+	 * If there is not a max_bytes_to_fill specified and this alignment is
+	 * larger than any previous alignment then this becomes the section's
+	 * alignment.  If there is a max_bytes_to_fill then this is handled in
+	 * relax_section() if the alignment can be done without exceeding
+	 * max_bytes_to_fill.
+	 */
+	if(max_bytes_to_fill == 0 &&
+           frchain_now->frch_section.align <
+	   (unsigned long)power_of_2_alignment)
+	    frchain_now->frch_section.align = power_of_2_alignment;
 
 	demand_empty_rest_of_line();
 }
@@ -1576,7 +1653,7 @@ int value)
 	    return;
 	}
 	if(symbolP->sy_value != 0){
-	    if(symbolP->sy_value != temp)
+	    if(symbolP->sy_value != (unsigned long)temp)
 		as_warn("Length of .comm \"%s\" is already %ld. Not changed "
 			"to %d.", symbolP->sy_name, symbolP->sy_value, temp);
 	}
@@ -1720,11 +1797,11 @@ int value)
 		temp_size != 1 &&
 		temp_size != 2 &&
 		temp_size != 4){
-	    as_warn("Repeat must be 0,1,2 or 4, .fill ignored");
+	    as_warn(".fill size must be 0,1,2 or 4, .fill ignored");
 	    temp_size = 0;
 	}
 	else if(temp_repeat <= 0){
-	    as_warn("Repeat < 0, .fill ignored");
+	    as_warn(".fill repeat <= 0, .fill ignored");
 	    temp_size = 0;
 	}
 	temp_fill = get_absolute_expression();
@@ -1939,7 +2016,7 @@ int value)
 	     * If this alignment is larger than any previous alignment then this
 	     * becomes the section's alignment.
 	     */
-	    if(bss->frch_section.align < align)
+	    if(bss->frch_section.align < (unsigned long)align)
 		bss->frch_section.align = align;
 	}
 	else
@@ -2533,7 +2610,7 @@ int value)
 	     * If this alignment is larger than any previous alignment then this
 	     * becomes the section's alignment.
 	     */
-	    if(frcP->frch_section.align < align)
+	    if(frcP->frch_section.align < (unsigned long)align)
 		frcP->frch_section.align = align;
 	}
 	*p = 0;
@@ -2998,7 +3075,7 @@ int nbytes) /* nbytes == 1 for .byte, 2 for .word, 4 for .long */
 	 * Input_line_pointer -> 1st char after pseudo-op-code and could legally
 	 * be a end-of-line. (Or, less legally an eof - which we cope with.)
 	 */
-	if(nbytes >= sizeof(long int))
+	if(nbytes >= (int)sizeof(long int))
 	    mask = 0;
 	else 
 	    mask = ~0 << (BITS_PER_CHAR * nbytes); /* Don't store these bits. */
@@ -3976,7 +4053,10 @@ char *macro_contents)
 	obstack_1grow(&macros, '\n');
 	while((c = *macro_contents++)){
 	    if(c == '$'){
-		if((*macro_contents >= '0') && (*macro_contents <= '9')){
+		if(*macro_contents == '$'){
+		    macro_contents++;
+		}
+		else if((*macro_contents >= '0') && (*macro_contents <= '9')){
 		    index = *macro_contents++ - '0';
 		    last_input_line_pointer = macro_contents;
 		    macro_contents = arguments[index];

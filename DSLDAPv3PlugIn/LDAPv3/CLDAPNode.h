@@ -140,7 +140,7 @@ public:
 
 	void			GetSchema		( sLDAPContextData *inContext );
 	LDAP* 			LockSession		( sLDAPContextData *inContext );
-	void			UnLockSession	( sLDAPContextData *inContext, bool inNewMutex = false );
+	void			UnLockSession	( sLDAPContextData *inContext, bool inHasFailed = false, bool inNewMutex = false );
 	void			CheckIdles		( void );
 	void			ActiveConnection( char *inNodeName );
 	void			IdleConnection	( char *inNodeName );

@@ -24,7 +24,7 @@
  */
 #ifdef SHLIB
 #include "shlib.h"
-#endif SHLIB
+#endif /* SHLIB */
 /*
  * This file contains the routines that deal with 4 byte literals sections.
  * A literal in this section must beable to me moved freely with respect to
@@ -88,7 +88,7 @@ struct section_map *section_map)
 #ifdef DEBUG
 	data->nfiles++;
 	data->nliterals += nliteral4s;
-#endif DEBUG
+#endif /* DEBUG */
 
 	fine_relocs = allocate(nliteral4s * sizeof(struct fine_reloc));
 	memset(fine_relocs, '\0', nliteral4s * sizeof(struct fine_reloc));
@@ -220,7 +220,7 @@ struct merged_section *ms)
 	}
 #ifndef RLD
 	output_flush(ms->s.offset, offset - ms->s.offset);
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 }
 
 /*
@@ -295,4 +295,4 @@ struct merged_section *ms)
 	print("    average number of literals per file %g\n",
 	      (double)((double)data->nliterals / (double)(data->nfiles)));
 }
-#endif DEBUG
+#endif /* DEBUG */

@@ -53,7 +53,7 @@
 *                        computationally.                                      *
 *     July      01 1997: this function no longer honors the rounding mode.     *
 *                        corrected an error for nan arguments.                 *
-*     July      20 2001: replaced __setflm with fegetenvd/fesetenvd.           *
+*     July      20 2001: replaced __setflm with FEGETENVD/FESETENVD.           *
 *                        replaced DblInHex typedef with hexdouble.             *
 *     September 07 2001: added #ifdef __ppc__.                                 *
 *     September 09 2001: added more comments.                                  *
@@ -119,6 +119,7 @@ struct tableEntry                             /* tanatantable entry structure */
 
 extern const unsigned long tanatantable[];
 
+#ifdef notdef
 double atan ( double x )
       {
       hexdouble argument, reducedX, OldEnvironment;
@@ -126,7 +127,7 @@ double atan ( double x )
       struct tableEntry *tablePointer;
       register unsigned long int xHead;
 
-      fabsOfx = __fabs ( x );
+      fabsOfx = __FABS ( x );
       argument.d = x;
       xHead = argument.i.hi & 0x7fffffff;
 
@@ -140,7 +141,7 @@ double atan ( double x )
 *     |x| > 1.0 or NaN.                                                        *
 *******************************************************************************/
       
-      fegetenvd( OldEnvironment.d );
+      FEGETENVD( OldEnvironment.d );
       if ( xHead > 0x3ff00000) 
             {
 
@@ -178,7 +179,7 @@ double atan ( double x )
                             result = ( ( ( temp1 - yTail ) - resultTail ) + resultHead );
                         else
                             result = ( ( ( yTail - temp1 ) + resultTail ) - resultHead );
-                        fesetenvd( OldEnvironment.d );                     /* restore the environment    */
+                        FESETENVD( OldEnvironment.d );                     /* restore the environment    */
                         return result;
                         }
             
@@ -199,7 +200,7 @@ double atan ( double x )
                         result = ( ( PiOver2Tail - z * temp1 ) + resultHead );
                   else
                         result = ( ( z * temp1 - PiOver2Tail ) - resultHead );      
-                  fesetenvd( OldEnvironment.d );                            /* restore the environment    */
+                  FESETENVD( OldEnvironment.d );                            /* restore the environment    */
                   return result;
                   }
 
@@ -222,7 +223,7 @@ double atan ( double x )
                             result =  ( - Pi.d * 0.5 - PiOver2Tail );
                     }
                   }
-            fesetenvd( OldEnvironment.d );                                  /* restore the environment    */
+            FESETENVD( OldEnvironment.d );                                  /* restore the environment    */
             return result;
             }
       
@@ -251,7 +252,7 @@ double atan ( double x )
             else 
                   result = - z * temp1 - tablePointer[reducedX.i.lo].f0;
             OldEnvironment.i.lo |= FE_INEXACT;
-            fesetenvd( OldEnvironment.d );                                  /* restore the environment    */
+            FESETENVD( OldEnvironment.d );                                  /* restore the environment    */
             return result;
             }
 
@@ -261,7 +262,7 @@ double atan ( double x )
 
       if ( fabsOfx == 0.0 )
             {
-            fesetenvd( OldEnvironment.d );                                  /* restore the environment    */
+            FESETENVD( OldEnvironment.d );                                  /* restore the environment    */
             return x; /* +0 or -0 preserved */
             }
             
@@ -278,9 +279,446 @@ double atan ( double x )
             OldEnvironment.i.lo |= FE_UNDERFLOW;
 
       OldEnvironment.i.lo |= FE_INEXACT;
-      fesetenvd( OldEnvironment.d );                                         /* restore the environment    */
+      FESETENVD( OldEnvironment.d );                                         /* restore the environment    */
       return result;
       }
+#else
+
+static const hexdouble Big       = HEXDOUBLE(0x434d0297, 0x00000000);
+
+double atan ( double x )
+{
+      hexdouble reducedX;
+      register double fabsOfx, xSquared, xFourth, xThird, temp1, temp2, result, y, z;
+      struct tableEntry *tablePointer;
+
+      register double FPR_env, FPR_z, FPR_half, FPR_one, FPR_256, FPR_kMinNormal;
+      register double FPR_PiDiv2, FPR_PiDiv2Tail, FPR_kRint;
+      register double FPR_c13, FPR_c11, FPR_c9, FPR_c7, FPR_c5, FPR_c3, FPR_r, FPR_t;
+      register struct tableEntry *pT;
+
+      fabsOfx = __FABS ( x );
+      
+      if (x != x)
+            return x;
+            
+      FPR_z = 0.0;						FPR_half = 0.5;
+      
+      FPR_one = 1.0;						FPR_256 = 256.0;
+      
+      FPR_PiDiv2 = PiOver2;					FPR_PiDiv2Tail = PiOver2Tail;
+      
+      FPR_kRint = Rint;						FPR_t = Big.d;
+
+/*******************************************************************************
+*     initialization of table pointer.                                         *
+*******************************************************************************/
+
+      tablePointer = ( struct tableEntry * ) ( tanatantable - ( 16 * 14 ) );
+
+/*******************************************************************************
+*     |x| > 1.0 or NaN.                                                        *
+*******************************************************************************/
+
+      FEGETENVD( FPR_env );
+      __ENSURE( FPR_z, FPR_kRint, FPR_256 ); __ENSURE( FPR_half, FPR_one, FPR_PiDiv2 );
+
+      if ( fabsOfx > FPR_one ) 
+      {
+            __ORI_NOOP;
+            y = FPR_one / fabsOfx;  // Executes in issue slot 1 hence FPU 1
+            __ORI_NOOP;
+
+/*******************************************************************************
+*     |x| is nontrivial.                                                       *
+*******************************************************************************/
+
+            if ( fabsOfx < FPR_t ) 
+            {
+                  register double yTail, z, resultHead, resultTail;
+                  
+                  xSquared = __FMUL( y, y ); 
+                  FPR_t = 16.0;
+                  FPR_r = __FMADD( FPR_256, y, FPR_kRint );
+                  
+                  __ORI_NOOP;
+                  __ORI_NOOP;
+                  __ORI_NOOP;
+                  reducedX.d = FPR_r;
+
+/*******************************************************************************
+*     |x| > 16.0                                                               *
+*******************************************************************************/
+                  if ( fabsOfx > FPR_t ) 
+                  {
+                        xFourth = __FMUL( xSquared, xSquared );		xThird  = __FMUL( xSquared, y );
+                        FPR_c13 = c13;					
+                        
+                        FPR_t = __FNMSUB( fabsOfx, y, FPR_one );	resultHead   = FPR_PiDiv2 - y;
+                        FPR_c11 = c11;					
+                        
+                        FPR_c9 = c9;
+                        yTail   = __FMUL( y, FPR_t ); 			resultTail   = ( resultHead - FPR_PiDiv2 ) + y;
+                        
+                        FPR_c7 = c7;
+                        temp1   = __FMADD( xFourth, FPR_c13, FPR_c9);	temp2   = __FMADD( xFourth, FPR_c11, FPR_c7 );
+                            
+                        FPR_c5 = c5;					FPR_c3 = c3;
+                        temp1   = __FMADD( xFourth, temp1, FPR_c5 );	temp2   = __FMADD( xFourth, temp2, FPR_c3 );
+                                
+                        temp1   = __FMADD( xSquared, temp1, temp2 );
+                        
+                        temp1   = __FNMSUB( xThird, temp1, FPR_PiDiv2Tail );    /* correction for ¹/2         */
+                        
+                        if ( x > FPR_z )                                     	/* adjust sign of result      */
+                            result = ( ( ( temp1 - yTail ) - resultTail ) + resultHead );
+                        else
+                            result = ( ( ( yTail - temp1 ) + resultTail ) - resultHead );
+                            
+                        FESETENVD( FPR_env );                     		/* restore the environment    */
+                        __PROG_INEXACT( FPR_PiDiv2 );
+
+                        return result;
+                  }
+            
+/*******************************************************************************
+*     1 <= |x| <= 16  use table-driven approximation for arctg(y = 1/|x|).     *
+*******************************************************************************/
+                  
+                  pT = &(tablePointer[reducedX.i.lo]);		FPR_t = __FNMSUB( fabsOfx, y, FPR_one );
+                
+                  FPR_c13 = pT->p;				FPR_c11 = pT->f5;
+                  yTail = __FMUL( y, FPR_t );                    z = y - FPR_c13 + yTail;	/* x delta    */
+                              
+                  FPR_c9 = pT->f4;				FPR_c7 = pT->f3;
+                  temp1 = __FMADD( FPR_c11, z, FPR_c9 );	__ORI_NOOP;
+            
+                  temp1 = __FMADD( temp1, z, FPR_c7 );		__ORI_NOOP;
+                  FPR_c5 = pT->f2;				FPR_c3 = pT->f1;
+            
+                  FPR_t = pT->f0;
+                  temp1 = __FMADD( temp1, z, FPR_c5 );
+                  temp1 = __FMADD( temp1, z, FPR_c3 );
+                                                
+                  resultHead = FPR_PiDiv2 - FPR_t;   				/* zeroth order term          */
+                  
+                 if ( x > FPR_z )                                            	/* adjust for sign of x       */
+                        result = ( __FNMSUB( z, temp1, FPR_PiDiv2Tail ) + resultHead );
+                  else
+                        result = ( __FMSUB( z, temp1, FPR_PiDiv2Tail ) - resultHead );  
+                            
+                  FESETENVD( FPR_env );                     			/* restore the environment    */
+                  __PROG_INEXACT( FPR_PiDiv2 );
+                  
+                  return result;
+            }
+
+/*******************************************************************************
+*     |x| is huge, or INF.                                                     *
+*     For x = INF, then the expression ¹/2 ± ¹tail would return the round up   *
+*     or down version of atan if rounding is taken into consideration.         *
+*     otherwise, just ±¹/2 would be delivered.                                 *
+*******************************************************************************/
+            else 
+            {                                                         		/* |x| is huge, or INF        */
+                  FESETENVD( FPR_env );                     			/* restore the environment    */
+                  FPR_t = Pi.d;
+                  if ( x > FPR_z )                                       	/* positive x returns ¹/2     */
+                        result = __FMADD( FPR_t, FPR_half, FPR_PiDiv2Tail );
+                  else                                                      	/* negative x returns -¹/2    */
+                        result =  ( - FPR_t * FPR_half - FPR_PiDiv2Tail );
+                            
+                  __PROG_INEXACT( FPR_PiDiv2 );
+                  return result;
+            }
+      }
+      
+
+/*******************************************************************************
+*     |x| <= 1.0.                                                              *
+*******************************************************************************/
+
+      FPR_t = .0625;
+      reducedX.d = __FMADD( FPR_256, fabsOfx, FPR_kRint );
+      xSquared = __FMUL( x, x );
+    
+/*******************************************************************************
+*     1.0/16 < |x| < 1  use table-driven approximation for arctg(x).           *
+*******************************************************************************/
+      if ( fabsOfx > FPR_t ) 
+      {
+            pT = &(tablePointer[reducedX.i.lo]);		__ORI_NOOP;
+            
+            FPR_c13 = pT->p;					FPR_c11 = pT->f5;
+            z = fabsOfx - FPR_c13;                    		__ORI_NOOP;	/* x delta */
+            
+            FPR_c9 = pT->f4;					FPR_c7 = pT->f3;
+            temp1 = __FMADD( FPR_c11, z, FPR_c9 );		__ORI_NOOP;
+            
+            temp1 = __FMADD( temp1, z, FPR_c7 );		__ORI_NOOP;
+            FPR_c5 = pT->f2;					FPR_c3 = pT->f1;
+            
+            FPR_t = pT->f0;
+            temp1 = __FMADD( temp1, z, FPR_c5 );
+            temp1 = __FMADD( temp1, z, FPR_c3 );
+                        
+            if ( x > FPR_z )                                    		/* adjust for sign of x       */
+                  result = __FMADD( z, temp1, FPR_t );
+            else 
+                  result = - z * temp1 - FPR_t;
+
+            FESETENVD( FPR_env );                               		/* restore the environment    */
+            __PROG_INEXACT( FPR_PiDiv2 );
+            
+            return result;
+      }
+
+/*******************************************************************************
+*     |x| <= 1.0/16 fast, simple polynomial approximation.                     *
+*******************************************************************************/
+
+      if ( fabsOfx == FPR_z )
+      {
+            FESETENVD( FPR_env );                               		/* restore the environment    */
+            return x; 								/* +0 or -0 preserved */
+      }
+            
+      xFourth = __FMUL( xSquared, xSquared );			xThird  = __FMUL( xSquared, x );
+      FPR_c13 = c13;						FPR_c11 = c11;
+    
+      FPR_c9 = c9;						FPR_c7 = c7;
+      temp1   = __FMADD( xFourth, FPR_c13, FPR_c9);		temp2   = __FMADD( xFourth, FPR_c11, FPR_c7 );
+        
+      FPR_c5 = c5;						FPR_c3 = c3;
+      temp1   = __FMADD( xFourth, temp1, FPR_c5 );		temp2   = __FMADD( xFourth, temp2, FPR_c3 );
+        
+      temp1   = __FMADD( xSquared, temp1, temp2 );
+      FPR_kMinNormal = kMinNormal;
+
+      result = __FMADD( xThird, temp1, x );
+      
+      FESETENVD( FPR_env );                                     		/* restore the environment    */
+      if ( __FABS( result ) >= FPR_kMinNormal )
+      {
+            __PROG_INEXACT( FPR_PiDiv2 );
+            return result;
+      }
+      else
+      {
+            __PROG_UF_INEXACT( FPR_kMinNormal );
+            return result;
+      }
+}
+
+//
+// For atan2(). Mean and lean.
+//
+double atanCore ( double fabsOfx ) // absolute value is passed by caller!
+{
+      hexdouble reducedX;
+      register double xSquared, xFourth, xThird, temp1, temp2, result, z;
+      struct tableEntry *tablePointer;
+
+      register double FPR_z, FPR_256, FPR_kRint;
+      register double FPR_c13, FPR_c11, FPR_c9, FPR_c7, FPR_c5, FPR_c3, FPR_r, FPR_s, FPR_t;
+      register struct tableEntry *pT;
+
+      
+      FPR_256 = 256.0;						FPR_kRint = Rint;
+      
+      FPR_r = __FMADD( FPR_256, fabsOfx, FPR_kRint );
+      reducedX.d = FPR_r;
+      
+      FPR_s = .0625;						FPR_z = 0.0;
+    
+/*******************************************************************************
+*     initialization of table pointer.                                         *
+*******************************************************************************/
+
+      tablePointer = ( struct tableEntry * ) ( tanatantable - ( 16 * 14 ) );
+      xSquared = __FMUL( fabsOfx, fabsOfx );		__ENSURE( FPR_z, FPR_z, FPR_s );
+      
+/*******************************************************************************
+*     |x| <= 1.0.                                                              *
+*******************************************************************************/
+    
+/*******************************************************************************
+*     1.0/16 < |x| < 1  use table-driven approximation for arctg(x).           *
+*******************************************************************************/
+
+      if ( fabsOfx > FPR_s ) 
+      {            
+            pT = &(tablePointer[reducedX.i.lo]);
+                        
+            FPR_c13 = pT->p;					FPR_c11 = pT->f5;
+            z = fabsOfx - FPR_c13;                    		__ORI_NOOP;		/* x delta */
+            
+            FPR_c9 = pT->f4;					FPR_c7 = pT->f3;
+            temp1 = __FMADD( FPR_c11, z, FPR_c9 );		__ORI_NOOP;
+            
+            temp1 = __FMADD( temp1, z, FPR_c7 );		__ORI_NOOP;
+            FPR_c5 = pT->f2;					FPR_c3 = pT->f1;
+            
+            FPR_t = pT->f0;
+            temp1 = __FMADD( temp1, z, FPR_c5 );
+            temp1 = __FMADD( temp1, z, FPR_c3 );
+                        
+            result = __FMADD( z, temp1, FPR_t );
+
+            return result;
+      }
+
+/*******************************************************************************
+*     |x| <= 1.0/16 fast, simple polynomial approximation.                     *
+*******************************************************************************/
+
+      if ( fabsOfx == FPR_z )
+            return fabsOfx;
+            
+      xFourth = __FMUL( xSquared, xSquared );			xThird  = __FMUL( xSquared, fabsOfx );
+      FPR_c13 = c13;						FPR_c11 = c11;
+    
+      FPR_c9 = c9;						FPR_c7 = c7;
+      temp1   = __FMADD( xFourth, FPR_c13, FPR_c9);		temp2   = __FMADD( xFourth, FPR_c11, FPR_c7 );
+        
+      FPR_c5 = c5;						FPR_c3 = c3;
+      temp1   = __FMADD( xFourth, temp1, FPR_c5 );		temp2   = __FMADD( xFourth, temp2, FPR_c3 );
+        
+      temp1   = __FMADD( xSquared, temp1, temp2 );
+
+      result = __FMADD( xThird, temp1, fabsOfx );
+      
+      return result;
+}
+
+double atanCoreInv ( double fabsOfx ) // absolute value is passed by caller!
+{
+      hexdouble reducedX;
+      register double xSquared, xFourth, xThird, temp1, temp2, result, y;
+      struct tableEntry *tablePointer;
+
+      register double FPR_z, FPR_half, FPR_one, FPR_256;
+      register double FPR_PiDiv2, FPR_PiDiv2Tail, FPR_kRint;
+      register double FPR_c13, FPR_c11, FPR_c9, FPR_c7, FPR_c5, FPR_c3, FPR_r, FPR_s, FPR_t;
+      register struct tableEntry *pT;
+
+      FPR_s = Big.d; 						y = 1.0 / fabsOfx; // slot 1 hence fpu1
+      
+      FPR_z = 0.0;						FPR_half = 0.5;
+      
+      FPR_one = 1.0;						FPR_256 = 256.0;
+      
+      FPR_PiDiv2 = PiOver2;					FPR_PiDiv2Tail = PiOver2Tail;
+      
+      __ENSURE( FPR_half, FPR_one, FPR_PiDiv2 ); //slot 0 hence fpu0
+      FPR_kRint = Rint;
+      __ENSURE( FPR_z, FPR_kRint, FPR_256 ); //slot 3 hence fpu0
+    
+
+/*******************************************************************************
+*     initialization of table pointer.                                         *
+*******************************************************************************/
+
+      tablePointer = ( struct tableEntry * ) ( tanatantable - ( 16 * 14 ) );
+
+/*******************************************************************************
+*     |x| > 1.0 or NaN.                                                        *
+*******************************************************************************/
+      {
+
+/*******************************************************************************
+*     |x| is nontrivial.                                                       *
+*******************************************************************************/
+
+            if ( fabsOfx < FPR_s )
+            {
+                  register double yTail, z, resultHead, resultTail;
+                  
+                  FPR_r = __FMADD( FPR_256, y, FPR_kRint );  
+                  FPR_s = 16.0;
+                  xSquared = __FMUL( y, y ); 
+
+                  __ORI_NOOP;
+                  __ORI_NOOP;
+                  __ORI_NOOP;
+                  reducedX.d = FPR_r;
+
+/*******************************************************************************
+*     |x| > 16.0                                                               *
+*******************************************************************************/
+                  if ( fabsOfx > FPR_s ) 
+                  {
+                        xFourth = __FMUL( xSquared, xSquared );		xThird  = __FMUL( xSquared, y );
+                        FPR_c13 = c13;					
+                        
+                        FPR_t = __FNMSUB( fabsOfx, y, FPR_one );	resultHead   = FPR_PiDiv2 - y;
+                        FPR_c11 = c11;					
+                        
+                        FPR_c9 = c9;
+                        yTail   = __FMUL( y, FPR_t ); 			resultTail   = ( resultHead - FPR_PiDiv2 ) + y;
+                        
+                        FPR_c7 = c7;
+                        temp1   = __FMADD( xFourth, FPR_c13, FPR_c9);	temp2   = __FMADD( xFourth, FPR_c11, FPR_c7 );
+                            
+                        FPR_c5 = c5;					FPR_c3 = c3;
+                        temp1   = __FMADD( xFourth, temp1, FPR_c5 );	temp2   = __FMADD( xFourth, temp2, FPR_c3 );
+                                
+                        temp1   = __FMADD( xSquared, temp1, temp2 );
+                        
+                        temp1   = __FNMSUB( xThird, temp1, FPR_PiDiv2Tail );    /* correction for ¹/2         */
+                        
+                        result = ( ( ( temp1 - yTail ) - resultTail ) + resultHead );
+                            
+                        return result;
+                  }
+            
+/*******************************************************************************
+*     1 <= |x| <= 16  use table-driven approximation for arctg(y = 1/|x|).     *
+*******************************************************************************/
+                 
+                  pT = &(tablePointer[reducedX.i.lo]);		FPR_t = __FNMSUB( fabsOfx, y, FPR_one );
+                
+                  FPR_c13 = pT->p;				FPR_c11 = pT->f5;
+                  yTail = __FMUL( y, FPR_t );                    z = y - FPR_c13 + yTail;	/* x delta    */
+                              
+                  FPR_c9 = pT->f4;				FPR_c7 = pT->f3;
+                  temp1 = __FMADD( FPR_c11, z, FPR_c9 );	__ORI_NOOP;
+            
+                  temp1 = __FMADD( temp1, z, FPR_c7 );		__ORI_NOOP;
+                  FPR_c5 = pT->f2;				FPR_c3 = pT->f1;
+            
+                  FPR_t = pT->f0;
+                  temp1 = __FMADD( temp1, z, FPR_c5 );
+                  temp1 = __FMADD( temp1, z, FPR_c3 );
+                                                
+                  resultHead = FPR_PiDiv2 - FPR_t;   				/* zeroth order term          */
+                  
+                  result = ( __FNMSUB( z, temp1, FPR_PiDiv2Tail ) + resultHead );
+                            
+                  return result;
+            }
+
+/*******************************************************************************
+*     |x| is huge, INF, or NaN.                                                *
+*     For x = INF, then the expression ¹/2 ± ¹tail would return the round up   *
+*     or down version of atan if rounding is taken into consideration.         *
+*     otherwise, just ±¹/2 would be delivered.                                 *
+*******************************************************************************/
+            else 
+            {                                                         		/* |x| is huge, INF, or NaN   */
+                  if ( fabsOfx != fabsOfx )                                             	/* NaN argument is returned   */
+                        result = fabsOfx;
+                  else 
+                  {
+                    /* positive x returns ¹/2     */
+                    FPR_t = Pi.d;
+                    result = __FMADD( FPR_t, FPR_half, FPR_PiDiv2Tail );
+                  }                
+                  return result;
+            }
+      }
+}
+#endif
 
 #ifdef notdef
 float atanf( float x )

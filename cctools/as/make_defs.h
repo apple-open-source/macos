@@ -2,4 +2,4 @@
 
 typedef char *make_string_t;
 
-#endif _MAKE_DEFS_
+#endif /* _MAKE_DEFS_ */

@@ -1,24 +1,103 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
+#define	__APPLE_API_PRIVATE
+#include <machine/cpu_capabilities.h>
+#undef	__APPLE_API_PRIVATE
+
+// Bzero has migrated to the comm page.
+
+        .text
+        .globl	_bzero
+        .globl	_memset
+
+        .align	5
+_bzero:								// void	bzero(void *b, size_t len);
+        ba		_COMM_PAGE_BZERO
+        
+        .align	5
+_memset:							// void *   memset(void *b, int c, size_t len);
+        andi.	r9,r4,0xFF			// copy "c" and test for 0
+        mr		r4,r5				// move length down to where bzero() expects it
+        beqa++	_COMM_PAGE_BZERO	// c==0, so treat like bzero()
+
+// The nonzero memset() case is uncommon.
+        
+        cmplwi	r5,8				// too short to align?
+        rlwimi	r9,r9,8,16,23		// replicate c to all 4 bytes
+        neg		r7,r3				// start to compute #bytes to word align
+        mr		r8,r3				// copy ptr so we can preserve r3
+        rlwimi	r9,r9,16,0,15
+        blt		4f					// fewer than 8 bytes
+        andi.	r0,r7,3				// get #bytes to word align
+        mtcrf	0x01,r7				// set up #bytes to word align
+        sub		r5,r5,r0			// adjust length for word alignment
+        srwi	r6,r5,3				// get #8-byte chunks to memset()
+        cmplwi	cr1,r6,0			// any chunks?
+        mtctr	r6
+        beq		3f					// already word aligned (r6!=0)
+
+        bf		31,1f				// odd byte?
+        stb		r9,0(r8)
+        addi	r8,r8,1
+1:
+        bf		30,2f				// halfword?
+        sth		r9,0(r8)
+        addi	r8,r8,2
+2:
+        bne		cr1,3f				// handle 8-byte chunks
+        b		4f					// no chunks
+        
+        .align	5
+3:
+        stw		r9,0(r8)
+        stw		r9,4(r8)
+        addi	r8,r8,8
+        bdnz	3b
+
+// Store up to 8 leftover bytes.
+//	r9 = value in all 4 bytes
+//	r8 = ptr
+//	r5 = length
+
+4:
+        mtcrf	0x01,r5				// move remaining length to cr7
+        bf		29,6f
+        stw		r9,0(r8)
+        addi	r8,r8,4
+6:
+        bf		30,7f
+        sth		r9,0(r8)
+        addi	r8,r8,2
+7:
+        bflr	31
+        stb		r9,0(r8)
+        blr
+        
+ 
+#if 0
 //
 // =============================
 // BZERO and MEMSET FOR Mac OS X
@@ -200,3 +279,4 @@ Lmemset1:
         bflr	31
         stb		rv,0(rp)
         blr
+#endif	/* 0 */

@@ -157,9 +157,10 @@ IOCardBusDevice::getCardServicesHandle(void)
 }
 
 int
-IOCardBusDevice::cardServices(int func, void * arg1 = 0, void * arg2 = 0, void * arg3 = 0)
+IOCardBusDevice::cardServices(int func, void * arg1 /* = 0 */, void * arg2 /* = 0 */, void * arg3 /* = 0*/)
 {
-    return gIOPCCardCommandGate->runCommand((void *)func, arg1, arg2, arg3);
+    return gIOPCCardWorkLoop->runAction((IOWorkLoop::Action)gCardServicesGate, NULL,
+					(void *)func, arg1, arg2, arg3);
 }
 
 int
@@ -205,6 +206,7 @@ IOCardBusDevice::bindCardServices(void)
     bind_req.Function = function;
     bind_req.dev_info = &bindName;
     ret = CardServices(BindDevice, &bind_req);
+    if (ret) return false;
 
     client_reg_t client_reg;
     client_reg.dev_info = &bindName;
@@ -589,9 +591,10 @@ IOPCCard16Device::getCardServicesHandle(void)
 }
 
 int
-IOPCCard16Device::cardServices(int func, void * arg1 = 0, void * arg2 = 0, void * arg3 = 0)
+IOPCCard16Device::cardServices(int func, void * arg1 /* = 0 */, void * arg2 /* = 0 */, void * arg3 /* = 0 */)
 {
-    return gIOPCCardCommandGate->runCommand((void *)func, arg1, arg2, arg3);
+    return gIOPCCardWorkLoop->runAction((IOWorkLoop::Action)gCardServicesGate, NULL,
+					(void *)func, arg1, arg2, arg3);
 }
 
 int
@@ -738,7 +741,7 @@ IOPCCard16Device::matchLocation(IOService * client)
 //*****************************************************************************
 
 bool
-IOPCCard16Device::installEnabler(IOPCCard16Enabler *customEnabler = 0)
+IOPCCard16Device::installEnabler(IOPCCard16Enabler *customEnabler /* = 0 */)
 {
     if (enabler) {
 	if (!enabler->detach(this)) return false;
@@ -761,7 +764,7 @@ IOPCCard16Device::installEnabler(IOPCCard16Enabler *customEnabler = 0)
 }
 
 bool
-IOPCCard16Device::configure(UInt32 index = 0)
+IOPCCard16Device::configure(UInt32 index /* = 0 */)
 {
     if (!enabler) {
 	if (!installEnabler()) return false;
@@ -843,7 +846,7 @@ IOPCCard16Device::ioDeviceMemory(void)
 
 #ifdef __ppc__
 UInt32
-IOPCCard16Device::ioRead32( UInt16 offset, IOMemoryMap * map = 0 )
+IOPCCard16Device::ioRead32( UInt16 offset, IOMemoryMap * map /* = 0 */)
 {
     UInt32	value;
 
@@ -860,7 +863,7 @@ IOPCCard16Device::ioRead32( UInt16 offset, IOMemoryMap * map = 0 )
 }
 
 UInt16
-IOPCCard16Device::ioRead16( UInt16 offset, IOMemoryMap * map = 0 )
+IOPCCard16Device::ioRead16( UInt16 offset, IOMemoryMap * map /* = 0 */)
 {
     UInt16	value;
 
@@ -877,7 +880,7 @@ IOPCCard16Device::ioRead16( UInt16 offset, IOMemoryMap * map = 0 )
 }
 
 UInt8
-IOPCCard16Device::ioRead8( UInt16 offset, IOMemoryMap * map = 0 )
+IOPCCard16Device::ioRead8( UInt16 offset, IOMemoryMap * map /* = 0 */ )
 {
     UInt32	value;
 
@@ -895,7 +898,7 @@ IOPCCard16Device::ioRead8( UInt16 offset, IOMemoryMap * map = 0 )
 
 void
 IOPCCard16Device::ioWrite32( UInt16 offset, UInt32 value,
-			     IOMemoryMap * map = 0 )
+			     IOMemoryMap * map /* = 0 */ )
 {
     if( 0 == map) {
 	map = ioMap;
@@ -909,7 +912,7 @@ IOPCCard16Device::ioWrite32( UInt16 offset, UInt32 value,
 
 void
 IOPCCard16Device::ioWrite16( UInt16 offset, UInt16 value,
-			     IOMemoryMap * map = 0 )
+			     IOMemoryMap * map /* = 0 */ )
 {
     if( 0 == map) {
 	map = ioMap;
@@ -923,7 +926,7 @@ IOPCCard16Device::ioWrite16( UInt16 offset, UInt16 value,
 
 void
 IOPCCard16Device::ioWrite8( UInt16 offset, UInt8 value,
-			    IOMemoryMap * map = 0 )
+			    IOMemoryMap * map /* = 0 */ )
 {
     if( 0 == map) {
 	map = ioMap;
@@ -948,7 +951,7 @@ IOPCCard16Device::ioWrite8( UInt16 offset, UInt8 value,
 #include "pio.h"
 
 UInt32
-IOPCCard16Device::ioRead32( UInt16 offset, IOMemoryMap * map = 0 )
+IOPCCard16Device::ioRead32( UInt16 offset, IOMemoryMap * map /* = 0 */ )
 {
     UInt32	value;
 
@@ -961,7 +964,7 @@ IOPCCard16Device::ioRead32( UInt16 offset, IOMemoryMap * map = 0 )
 }
 
 UInt16
-IOPCCard16Device::ioRead16( UInt16 offset, IOMemoryMap * map = 0 )
+IOPCCard16Device::ioRead16( UInt16 offset, IOMemoryMap * map /* = 0 */)
 {
     UInt16	value;
 
@@ -974,7 +977,7 @@ IOPCCard16Device::ioRead16( UInt16 offset, IOMemoryMap * map = 0 )
 }
 
 UInt8
-IOPCCard16Device::ioRead8( UInt16 offset, IOMemoryMap * map = 0 )
+IOPCCard16Device::ioRead8( UInt16 offset, IOMemoryMap * map /* = 0 */ )
 {
     UInt32	value;
 
@@ -988,7 +991,7 @@ IOPCCard16Device::ioRead8( UInt16 offset, IOMemoryMap * map = 0 )
 
 void
 IOPCCard16Device::ioWrite32( UInt16 offset, UInt32 value,
-			     IOMemoryMap * map = 0 )
+			     IOMemoryMap * map /* = 0 */ )
 {
     if( 0 == map)
 	map = ioMap;
@@ -998,7 +1001,7 @@ IOPCCard16Device::ioWrite32( UInt16 offset, UInt32 value,
 
 void
 IOPCCard16Device::ioWrite16( UInt16 offset, UInt16 value,
-			     IOMemoryMap * map = 0 )
+			     IOMemoryMap * map /* = 0 */ )
 {
     if( 0 == map)
 	map = ioMap;
@@ -1008,7 +1011,7 @@ IOPCCard16Device::ioWrite16( UInt16 offset, UInt16 value,
 
 void
 IOPCCard16Device::ioWrite8( UInt16 offset, UInt8 value,
-			    IOMemoryMap * map = 0 )
+			    IOMemoryMap * map /* = 0 */ )
 {
     if( 0 == map)
 	map = ioMap;

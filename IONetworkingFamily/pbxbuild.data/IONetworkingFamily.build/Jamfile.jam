@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = IONetworkingFamily ;
-export deferred SRCROOT = /Volumes/MacOS/Build/IONetworkingFamily ;
+export deferred SRCROOT = /automount/Servers/riemann/homes/aragorn/jliu/Projects/IONetworkingFamily ;
 
 # User-defined project-wide settings for project
 
@@ -31,7 +31,7 @@ export deferred KERNEL_MODULE = YES ;
 export deferred LIBRARY_SEARCH_PATHS =  ;
 export deferred MODULE_IOKIT = YES ;
 export deferred MODULE_NAME = com.apple.iokit.IONetworkingFamily ;
-export deferred MODULE_VERSION = 1.2 ;
+export deferred MODULE_VERSION = 1.3.1 ;
 export deferred OTHER_CFLAGS = -fpermissive ;
 export deferred OTHER_LDFLAGS =  ;
 export deferred OTHER_REZFLAGS =  ;

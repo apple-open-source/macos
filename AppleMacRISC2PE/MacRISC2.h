@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -68,6 +71,7 @@ class MacRISC2PE : public ApplePlatformExpert
     OSDeclareDefaultStructors(MacRISC2PE);
   
     friend class MacRISC2CPU;
+    friend class Portable2003_PlatformMonitor;
   
 private:
 	struct PlatformPowerBits {
@@ -89,6 +93,7 @@ private:
     UInt32					processorSpeedChangeFlags;
 	bool					isPortable;
 	bool					doPlatformPowerMonitor;
+        bool					hasPMon;
 	// Possible power states we care about
     PlatformPowerBits		powerMonWeakCharger;
     PlatformPowerBits		powerMonBatteryWarning;
@@ -98,6 +103,7 @@ private:
 	
 	IOService				*ioPMonNub;
 	IOPlatformMonitor		*ioPMon;
+	IOService				*plFuncNub;
 
     void getDefaultBusSpeeds(long *numSpeeds, unsigned long **speedList);
     void enableUniNEthernetClock(bool enable, IOService *nub);
@@ -105,7 +111,6 @@ private:
     void enableUniNFireWireCablePower(bool enable);
     IOReturn accessUniN15PerformanceRegister(bool write, long regNumber, unsigned long *data);
     IOReturn platformPowerMonitor(UInt32 *powerFlags);
-	IOReturn instantiatePlatformFunctions (IOService *nub, OSArray **pfArray);
   
     void PMInstantiatePowerDomains ( void );
     void PMRegisterDevice(IOService * theNub, IOService * theDevice);
@@ -131,6 +136,7 @@ enum {
 	kClamshellClosedSpeedChange		= (1 << 4),
 	kEnvironmentalSpeedChange		= (1 << 5),
 	kForceDisableL3					= (1 << 6),
+        kBusSlewBasedSpeedChange		= (1 << 7),
 	// Hi bits reflect current state information
 	kProcessorFast					= (1 << 31),
 	kL3CacheEnabled					= (1 << 30),

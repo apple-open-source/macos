@@ -26,7 +26,7 @@ RC_CFLAGS =
 
 INSTALLSRC_SUBDIRS = $(COMMON_SUBDIRS) ar file include
 COMMON_SUBDIRS = libstuff as gprof misc libmacho ld dyld libdyld \
-		 mkshlib otool profileServer RelNotes man
+		 mkshlib otool profileServer RelNotes man cbtlibs
 ifeq "macos" "$(RC_OS)"
   APPLE_SUBDIRS := $(shell if [ "$(RC_RELEASE)" = "Beaker"  ] || \
 			      [ "$(RC_RELEASE)" = "Bunsen"  ] || \
@@ -58,7 +58,7 @@ all clean:
 	    [ "$(OBJROOT)" != "" ] && \
 	    [ "$(SYMROOT)" != "" ];			\
 	then								\
-	    CWD=`pwd`; cd $(DSTROOT); DSTROOT=`pwd`; cd $$CWD;		\
+	    CWD=`pwd`; cd "$(DSTROOT)"; DSTROOT=`pwd`; cd "$$CWD";	\
 	    for i in `echo $(SUBDIRS)`;					\
 	      do							\
 		    echo =========== $(MAKE) $@ for $$i =============;	\
@@ -71,7 +71,7 @@ all clean:
 			SYMROOT=$(SYMROOT)/$$i $@) || exit 1 ;		\
 	      done							\
 	else								\
-	    CWD=`pwd`; cd $(DSTROOT); DSTROOT=`pwd`; cd $$CWD;		\
+	    CWD=`pwd`; cd "$(DSTROOT)"; DSTROOT=`pwd`; cd "$$CWD";	\
 	    for i in `echo $(SUBDIRS)`;					\
 	      do							\
 		    echo =========== $(MAKE) $@ for $$i =============;	\
@@ -96,7 +96,7 @@ install:
 	        echo "Unknown project name $$projName";			\
 		exit 1;							\
 	    fi;								\
-	    CWD=`pwd`; cd $(DSTROOT); DSTROOT=`pwd`; cd $$CWD;		\
+	    CWD=`pwd`; cd "$(DSTROOT)"; DSTROOT=`pwd`; cd "$$CWD";	\
 	    echo =========== $(MAKE) $$target =============;		\
 	    $(MAKE) RC_CFLAGS="$(RC_CFLAGS)"				\
 		RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"			\
@@ -106,7 +106,7 @@ install:
 		OBJROOT=$(OBJROOT)					\
 		SYMROOT=$(SYMROOT) $$target;				\
 	else								\
-	    CWD=`pwd`; cd $(DSTROOT); DSTROOT=`pwd`; cd $$CWD;		\
+	    CWD=`pwd`; cd "$(DSTROOT)"; DSTROOT=`pwd`; cd "$$CWD";	\
 	    echo =========== $(MAKE) install_tools =============;	\
 	    $(MAKE) RC_CFLAGS="$(RC_CFLAGS)" RC_ARCHS="$(RC_ARCHS)" 	\
 		RC_OS="$(RC_OS)" SUBDIRS="$(SUBDIRS)"			\
@@ -117,7 +117,7 @@ install:
 install_tools: installhdrs
 	@if [ $(SRCROOT) ];						\
 	then								\
-	    CWD=`pwd`; cd $(DSTROOT); DSTROOT=`pwd`; cd $$CWD;		\
+	    CWD=`pwd`; cd "$(DSTROOT)"; DSTROOT=`pwd`; cd "$$CWD";	\
 	    for i in `echo $(SUBDIRS)`;					\
 	      do							\
 		    echo ======== $(MAKE) install for $$i ============;	\
@@ -131,7 +131,7 @@ install_tools: installhdrs
 	      done;							\
 	    if [ $(RC_RELEASE) ];					\
 	    then							\
-	      CWD=`pwd`; cd $(DSTROOT); DSTROOT=`pwd`; cd $$CWD;	\
+	      CWD=`pwd`; cd "$(DSTROOT)"; DSTROOT=`pwd`; cd "$$CWD";	\
 	      for i in `echo $(SUBDIRS)`;				\
 	        do							\
 		    echo ===== $(MAKE) shlib_clean for $$i ==========;	\
@@ -145,7 +145,7 @@ install_tools: installhdrs
 	      done							\
 	    fi								\
 	else								\
-	    CWD=`pwd`; cd $(DSTROOT); DSTROOT=`pwd`; cd $$CWD;		\
+	    CWD=`pwd`; cd "$(DSTROOT)"; DSTROOT=`pwd`; cd "$$CWD";	\
 	    for i in `echo $(SUBDIRS)`;					\
 	      do							\
 		    echo ========= $(MAKE) install for $$i ===========;	\
@@ -170,7 +170,7 @@ ofiles_install:
 lib_ofiles lib_ofiles_install: installhdrs
 	@if [ $(SRCROOT) ];						\
 	then								\
-	    CWD=`pwd`; cd $(DSTROOT); DSTROOT=`pwd`; cd $$CWD;		\
+	    CWD=`pwd`; cd "$(DSTROOT)"; DSTROOT=`pwd`; cd "$$CWD";	\
 	    echo =========== $(MAKE) all for libstuff =============;	\
 	    (cd libstuff; $(MAKE) RC_CFLAGS="$(RC_CFLAGS)"		\
 		RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"			\
@@ -206,8 +206,15 @@ lib_ofiles lib_ofiles_install: installhdrs
 		SRCROOT=$(SRCROOT)/misc					\
 		OBJROOT=$(OBJROOT)/misc					\
 		SYMROOT=$(SYMROOT)/misc $@) || exit 1;			\
+	    echo =========== $(MAKE) $@ for cbtlibs =============;	\
+	    (cd cbtlibs; $(MAKE) RC_CFLAGS="$(RC_CFLAGS)"		\
+		RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"			\
+		DSTROOT=$$DSTROOT					\
+		SRCROOT=$(SRCROOT)/cbtlibs\
+		OBJROOT=$(OBJROOT)/cbtlibs\
+		SYMROOT=$(SYMROOT)/cbtlibs $@) || exit 1;		\
 	else								\
-	    CWD=`pwd`; cd $(DSTROOT); DSTROOT=`pwd`; cd $$CWD;		\
+	    CWD=`pwd`; cd "$(DSTROOT)"; DSTROOT=`pwd`; cd "$$CWD";	\
 	    echo =========== $(MAKE) all for libstuff =============;	\
 	    (cd libstuff; $(MAKE) RC_CFLAGS="$(RC_CFLAGS)"		\
 		RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"			\
@@ -226,6 +233,9 @@ lib_ofiles lib_ofiles_install: installhdrs
 		DSTROOT=$$DSTROOT $@) || exit 1;			\
 	    echo =========== $(MAKE) $@ for misc =============;		\
 	    (cd misc; $(MAKE) RC_CFLAGS="$(RC_CFLAGS)"			\
+		RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"			\
+		DSTROOT=$$DSTROOT $@) || exit 1;			\
+	    (cd cbtlibs; $(MAKE) RC_CFLAGS="$(RC_CFLAGS)"		\
 		RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"			\
 		DSTROOT=$$DSTROOT $@) || exit 1;			\
 	fi

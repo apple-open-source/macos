@@ -2,21 +2,24 @@
  * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -75,7 +78,8 @@ bool IOFireWireSBP2Target::start( IOService *provider )
 	
     fOpenFromTarget = false;
     fOpenFromLUNCount = 0;
-		
+	fIOCriticalSectionCount = 0;
+	
 	//
 	// create symbols
 	//
@@ -163,11 +167,37 @@ bool IOFireWireSBP2Target::start( IOService *provider )
     return true;
 }
 
+// stop
+//
+//
+
 void IOFireWireSBP2Target::stop( IOService *provider )
 {
-    FWKLOG( ( "IOFireWireSBP2Target : stopped\n" ) );
+    FWKLOG( ( "IOFireWireSBP2Target::stop\n" ) );
 
     IOService::stop(provider);
+}
+
+// free
+//
+//
+
+void IOFireWireSBP2Target::free( void )
+{
+	FWKLOG( ( "IOFireWireSBP2Target::free\n" ) );
+
+	if( fIOCriticalSectionCount != 0 )
+	{
+		IOLog( "IOFireWireSBP2Target::free - fIOCriticalSectionCount == %d!\n", fIOCriticalSectionCount );
+	}
+	
+	while( fIOCriticalSectionCount != 0 )
+	{
+		fIOCriticalSectionCount--;
+		fControl->enableSoftwareBusResets();
+	}
+	
+	IOService::free();
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -888,6 +918,10 @@ IOReturn IOFireWireSBP2Target::beginIOCriticalSection( void )
 	{
 		FWKLOG(( "IOFireWireSBP2Target::beginIOCriticalSection fControl->disableSoftwareBusResets()\n" ));
 		status = fControl->disableSoftwareBusResets();
+		if( status == kIOReturnSuccess )
+		{
+			fIOCriticalSectionCount++;
+		}
 	}
 
 	FWKLOG(( "IOFireWireSBP2Target::beginIOCriticalSection status = 0x%08lx\n", (UInt32)status ));
@@ -906,6 +940,15 @@ void IOFireWireSBP2Target::endIOCriticalSection( void )
 	if( fFlags & kIOFWSBP2FailsOnBusResetsDuringIO )
 	{
 		FWKLOG(( "IOFireWireSBP2Target::endIOCriticalSection fControl->enableSoftwareBusResets()\n" ));
-		fControl->enableSoftwareBusResets();
+		
+		if( fIOCriticalSectionCount != 0 )
+		{
+			fIOCriticalSectionCount--;
+			fControl->enableSoftwareBusResets();
+		}
+		else
+		{
+			IOLog( "IOFireWireSBP2Target::endIOCriticalSection - fIOCriticalSectionCount == 0!\n" );
+		}
 	}
 }

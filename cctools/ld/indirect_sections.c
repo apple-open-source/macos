@@ -24,7 +24,7 @@
  */
 #ifdef SHLIB
 #include "shlib.h"
-#endif SHLIB
+#endif /* SHLIB */
 /*
  * This file contains the routines that deal with indirect sections (both
  * lazy and non-lazy symbol pointer sections as well as symbol stub sections). 
@@ -173,7 +173,7 @@ struct section_map *section_map)
 #ifdef DEBUG
 	data->nfiles++;
 	data->nitems += nitems;
-#endif DEBUG
+#endif /* DEBUG */
 
 	/*
 	 * First deal with the contents of the indirect section and determine
@@ -371,7 +371,13 @@ printf("in indirect_section_merge() got INDIRECT_SYMBOL_LOCAL or INDIRECT_SYMBOL
 			(merged_symbol->definition_object->section_maps[
 			 merged_symbol->nlist.n_sect - 1].
 			 s->flags & SECTION_TYPE) == S_COALESCED){
-		    if(output_for_dyld && has_dynamic_linker_command)
+		    if((output_for_dyld && has_dynamic_linker_command &&
+		       (((merged_symbol->nlist.n_desc & N_WEAK_DEF) !=
+			 N_WEAK_DEF) ||
+		       ((merged_symbol->nlist.n_type & N_PEXT) == N_PEXT &&
+			keep_private_externs == FALSE) ) ) ||
+		       (filetype == MH_DYLIB && multi_module_dylib == FALSE &&
+			(merged_symbol->nlist.n_type & N_PEXT) == N_PEXT) )
 			fine_relocs[i].indirect_defined = TRUE;
 		    else
 			fine_relocs[i].indirect_defined = FALSE;
@@ -383,7 +389,7 @@ printf("in indirect_section_merge() got INDIRECT_SYMBOL_LOCAL or INDIRECT_SYMBOL
 		if((merged_symbol->nlist.n_type & N_TYPE) == N_ABS)
 		    section_map->absolute_indirect_defineds = TRUE;
 
-		if(filetype == MH_DYLIB ||
+		if((filetype == MH_DYLIB && multi_module_dylib == TRUE) ||
 		   section_type == S_NON_LAZY_SYMBOL_POINTERS ||
 		   fine_relocs[i].indirect_defined == FALSE){
 		    fine_relocs[i].output_offset = lookup_indirect_item(
@@ -682,15 +688,16 @@ account_for_size:
 		    merged_symbol = (struct merged_symbol *)
 				    merged_symbol->nlist.n_value;
 		/*
-		 * For dynamic shared library format files the merged sections
-		 * that could have had external relocation entries must be
-		 * resolved to private extern symbols.  This is because for
-		 * MH_DYLIB files all modules share the merged sections and the
-		 * entire section gets relocated when the library is mapped in.
-		 * So the above restriction assures the merged section will get
-		 * relocated properly and can be shared amoung library modules.
+		 * For multi module dynamic shared library format files the
+		 * merged sections that could have had external relocation
+		 * entries must be resolved to private extern symbols.  This is
+		 * because for multi module MH_DYLIB files all modules share the
+		 * merged sections and the entire section gets relocated when
+		 * the library is mapped in. So the above restriction assures
+		 * the merged section will get relocated properly and can be
+		 * shared amoung library modules.
 		 */
-		if(filetype == MH_DYLIB){
+		if(filetype == MH_DYLIB && multi_module_dylib == TRUE){
 		    /*
 		     * If the symbol is undefined or not a private extern it is
 		     * an error for in this section for a MH_DYLIB file.
@@ -701,19 +708,20 @@ account_for_size:
 			merged_symbol->defined_in_dylib == TRUE)){
 			if(merged_symbol->error_flagged_for_dylib == 0){
 			    error_with_cur_obj("illegal undefined reference "
-				"for MH_DYLIB output file to symbol: %s from "
-				"section (%.16s,%.16s) relocation entry: %lu",
-				merged_symbol->nlist.n_un.n_name,
-				s->segname, s->sectname, i);
+				"for multi module MH_DYLIB output file to "
+				"symbol: %s from section (%.16s,%.16s) "
+				"relocation entry: %lu",
+				merged_symbol->nlist.n_un.n_name, s->segname,
+				s->sectname, i);
 			    merged_symbol->error_flagged_for_dylib = 1;
 			}
 		    }
 		    else if((merged_symbol->nlist.n_type & N_PEXT) != N_PEXT){
 			if(merged_symbol->error_flagged_for_dylib == 0){
 			    error_with_cur_obj("illegal external reference for "
-				"MH_DYLIB output file to symbol: %s (not a "
-				"private extern symbol) from section (%.16s,"
-				"%.16s) relocation entry: %lu",
+				"multi module MH_DYLIB output file to symbol: "
+				"%s (not a private extern symbol) from section "
+				"(%.16s,%.16s) relocation entry: %lu",
 				merged_symbol->nlist.n_un.n_name,
 				s->segname, s->sectname, i);
 			    merged_symbol->error_flagged_for_dylib = 1;
@@ -757,18 +765,19 @@ account_for_size:
 		/*
 		 * The number of relocation entries in the output file is based
 		 * on one of three different cases:
-		 *  The output file is a dynamic shared library file
+		 *  The output file is a multi module dynamic shared library
 		 *  The output file has a dynamic linker load command
 		 *  The output does not have a dynamic linker load command
 		 */
-		if(filetype == MH_DYLIB){
+		if(filetype == MH_DYLIB && multi_module_dylib == TRUE){
 		    /*
-		     * For dynamic shared library files there are no external
-		     * relocation entries that will be left as external as
-		     * checked above.  Only non-position-independent local
-		     * relocation entries are kept.  Modules of dylibs are not
-		     * linked together and can only be slid keeping all sections
-		     * relative to each other the same.
+		     * For multi module dynamic shared library files there are
+		     * no external relocation entries that will be left as
+		     * external as checked above.  Only non-position-independent
+		     * local relocation entries are kept.  Modules of multi
+		     * module dylibs are not linked together and can only be
+		     * slid keeping all sections relative to each other the
+		     * same.
 		     */
 		    if(pic == FALSE)
 			ms->nlocrel += 1 + pair;
@@ -829,7 +838,7 @@ account_for_size:
 		ms->s.nreloc += 1 + pair;
 		nreloc += 1 + pair;
 	    }
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 	    i += pair;
 	}
 	/*
@@ -1293,7 +1302,7 @@ void)
 	if(nindirectsyms == 0)
 	    return;
 	if(strip_level == STRIP_ALL)
-	    fatal("can't use -s with input files containg indirect symbols "
+	    fatal("can't use -s with input files containing indirect symbols "
 		  "(output file must contain at least global symbols, for "
 		  "maximum stripping use -x)");
 	indirect_symbols = (unsigned long *)(output_addr +
@@ -1376,6 +1385,6 @@ void)
 #ifndef RLD
 	output_flush(output_dysymtab_info.dysymtab_command.indirectsymoff,
 		     nindirect_symbols * sizeof(unsigned long));
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 }
 #endif /* !defined(SA_RLD) */

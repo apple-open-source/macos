@@ -260,8 +260,8 @@ static double lgammaApprox ( double x )
                       corrector, xMinus1, xMinus2, xMinus4; 
       hexdouble OldEnvironment;
       
-      fegetenvd( OldEnvironment.d );               // save environment, set default
-      fesetenvd( 0.0 );
+      FEGETENVD( OldEnvironment.d );               // save environment, set default
+      FESETENVD( 0.0 );
       
 /*******************************************************************************
 *     The next switch will decipher what sort of argument we have. If argument *
@@ -272,18 +272,18 @@ static double lgammaApprox ( double x )
             {
             case FP_NAN:
                   x *= 2.0;                  /* quiets NaN */
-                  fesetenvd( OldEnvironment.d );         //   restore caller's environment
+                  FESETENVD( OldEnvironment.d );         //   restore caller's environment
                   return x;
                   
             case FP_ZERO:
                   x = Huge.d;
                   OldEnvironment.i.lo |= FE_DIVBYZERO;
-                  fesetenvd( OldEnvironment.d );
+                  FESETENVD( OldEnvironment.d );
                   return x;
 
             case FP_INFINITE:
                   x = Huge.d;
-                  fesetenvd( OldEnvironment.d );
+                  FESETENVD( OldEnvironment.d );
                   return x;
                   
             default:                  /*      NORMALNUM and DENORMALNUM      */
@@ -308,7 +308,7 @@ static double lgammaApprox ( double x )
             if ( x <= -twoTo52 ) // big negative integer?
                 {
                 OldEnvironment.i.lo |= FE_DIVBYZERO;
-                fesetenvd( OldEnvironment.d );
+                FESETENVD( OldEnvironment.d );
                 return Huge.d;
                 }
                 
@@ -319,13 +319,13 @@ static double lgammaApprox ( double x )
             if ( IsItAnInt == 0.0 ) // negative integer?
                 {
                 OldEnvironment.i.lo |= FE_DIVBYZERO;
-                fesetenvd( OldEnvironment.d );
+                FESETENVD( OldEnvironment.d );
                 return Huge.d;
                 }
             else
                 a = sin ( pi * IsItAnInt );
             
-            fesetenvd( OldEnvironment.d );
+            FESETENVD( OldEnvironment.d );
             return log ( pi / fabs ( a * x ) ) - lgammaApprox ( -x );
             }
       
@@ -337,7 +337,7 @@ static double lgammaApprox ( double x )
       if ( x > xbig )
             {
             OldEnvironment.i.lo |= FE_OVERFLOW;
-            fesetenvd( OldEnvironment.d );
+            FESETENVD( OldEnvironment.d );
             return Huge.d;
             }
 
@@ -349,7 +349,7 @@ static double lgammaApprox ( double x )
 
       if ( y <= eps )
             {
-            fesetenvd( OldEnvironment.d );
+            FESETENVD( OldEnvironment.d );
             return ( - log ( y ) );
             }
 
@@ -443,7 +443,7 @@ static double lgammaApprox ( double x )
             result += y * ( corrector - 1.0 );
             }
       
-      fesetenvd( OldEnvironment.d );
+      FESETENVD( OldEnvironment.d );
       x = rint ( x ); // INEXACT set as a side effect for non integer x  
       return result;
       }
@@ -458,13 +458,13 @@ double lgamma ( double x )
         double y1 = trunc ( -x );
         hexdouble OldEnvironment;
         
-        fegetenvd( OldEnvironment.d );               // save environment, set default
-        fesetenvd( 0.0 );
+        FEGETENVD( OldEnvironment.d );               // save environment, set default
+        FESETENVD( 0.0 );
         
         if ( y1 == trunc ( y1 * 0.5 ) * 2.0 ) 
             signgam = -1;
             
-        fesetenvd( OldEnvironment.d );
+        FESETENVD( OldEnvironment.d );
     }
     
     return g;
@@ -482,13 +482,13 @@ double lgamma_r ( double x, int *psigngam )
         double y1 = trunc ( -x );
         hexdouble OldEnvironment;
         
-        fegetenvd( OldEnvironment.d );               // save environment, set default
-        fesetenvd( 0.0 );
+        FEGETENVD( OldEnvironment.d );               // save environment, set default
+        FESETENVD( 0.0 );
         
         if ( y1 == trunc ( y1 * 0.5 ) * 2.0 && psigngam) 
             *psigngam = -1;
             
-        fesetenvd( OldEnvironment.d );
+        FESETENVD( OldEnvironment.d );
     }
     
     return g;

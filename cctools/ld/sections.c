@@ -24,7 +24,7 @@
  */
 #ifdef SHLIB
 #include "shlib.h"
-#endif SHLIB
+#endif /* SHLIB */
 /*
  * This file contains the routines to manage the merging of the sections that
  * appear in the headers of the input files.  It builds a merged section table
@@ -84,7 +84,7 @@ __private_extern__ struct merged_segment *merged_segments = NULL;
  * segments.
  */
 __private_extern__ struct merged_segment *original_merged_segments = NULL;
-#endif RLD
+#endif /* RLD */
 
 /*
  * The total number relocation entries, used only in layout() to help
@@ -251,11 +251,11 @@ static unsigned long scatter_copy_relocs(
     struct section_map *map,
     struct relocation_info *relocs,
     struct relocation_info *output_relocs);
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 #ifdef DEBUG
 static void print_load_symbol_hash_table(
     void);
-#endif DEBUG
+#endif /* DEBUG */
 
 /*
  * merge_sections() merges the sections of the current object file (cur_obj)
@@ -522,7 +522,7 @@ struct section *s)
 		}
 #ifdef RLD
 		ms->set_num = cur_set;
-#endif RLD
+#endif /* RLD */
 		return(ms);
 	    }
 	    p = &(msg->next);
@@ -539,7 +539,7 @@ struct section *s)
 	msg->filename = outputfile;
 #ifdef RLD
 	msg->set_num = cur_set;
-#endif RLD
+#endif /* RLD */
 	if((s->flags & SECTION_TYPE) == S_ZEROFILL)
 	    q = &(msg->zerofill_sections);
 	else
@@ -623,7 +623,7 @@ struct section *s)
 	}
 #ifdef RLD
 	ms->set_num = cur_set;
-#endif RLD
+#endif /* RLD */
 	return(ms);
 }
 
@@ -737,7 +737,7 @@ merge_literal_sections(void)
 	    }
 	    q = &(msg->next);
 	}
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 
 	/*
 	 * Merged the literals for each object for each section that is a 
@@ -758,7 +758,7 @@ merge_literal_sections(void)
 #ifdef RLD
 		if(cur_obj->set_num != cur_set)
 		    continue;
-#endif RLD
+#endif /* RLD */
 		for(j = 0; j < cur_obj->nsection_maps; j++){
 		    ms = cur_obj->section_maps[j].output_section;
 		    if((ms->s.flags & SECTION_TYPE) == S_CSTRING_LITERALS ||
@@ -799,7 +799,7 @@ merge_literal_sections(void)
 	    }
 	    q = &(msg->next);
 	}
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 	/*
 	 * Now that the the literals are all merged merge the literal pointers
 	 * for each object for each section that is a a literal pointer section.
@@ -819,7 +819,7 @@ merge_literal_sections(void)
 #ifdef RLD
 		if(cur_obj->set_num != cur_set)
 		    continue;
-#endif RLD
+#endif /* RLD */
 		for(j = 0; j < cur_obj->nsection_maps; j++){
 		    ms = cur_obj->section_maps[j].output_section;
 		    if((ms->s.flags & SECTION_TYPE) == S_LITERAL_POINTERS)
@@ -894,7 +894,7 @@ layout_ordered_sections(void)
 #ifdef DEBUG
 	if(debug & (1 << 13))
 	    print_name_arrays();
-#endif DEBUG
+#endif /* DEBUG */
 
 	/*
 	 * For each merged section that has a load order file layout all objects
@@ -1085,7 +1085,7 @@ struct merged_section *ms)
 		    if(debug & (1 << 14))
 			print_load_order(load_orders, nload_orders, ms,
 					 cur_obj, "names and values");
-#endif DEBUG
+#endif /* DEBUG */
 
 		    /*
 		     * Sort the load order map by symbol value so the
@@ -1114,7 +1114,7 @@ struct merged_section *ms)
 		    if(debug & (1 << 15))
 			print_load_order(load_orders, nload_orders, ms,
 					 cur_obj, "sizes and offsets");
-#endif DEBUG
+#endif /* DEBUG */
 
 		    /*
 		     * Now sort the load order map by symbol name so
@@ -1129,7 +1129,7 @@ struct merged_section *ms)
 		    if(debug & (1 << 16))
 			print_load_order(load_orders, nload_orders, ms,
 					 cur_obj, "sorted by name");
-#endif DEBUG
+#endif /* DEBUG */
 		    /*
 		     * Increment the number of load_symbol needed for
 		     * this section by the number of symbols in this
@@ -1161,7 +1161,7 @@ struct merged_section *ms)
 #ifdef DEBUG
 	if(debug & (1 << 13))
 	    print_load_symbol_hash_table();
-#endif DEBUG
+#endif /* DEBUG */
 
 	/*
 	 * Parse the load order file by changing '\n' to '\0'.
@@ -1366,7 +1366,7 @@ struct merged_section *ms)
 				cur_obj->cur_section_map->load_orders,
 				cur_obj->cur_section_map->nload_orders,
 				ms, cur_obj, "file orders assigned");
-#endif DEBUG
+#endif /* DEBUG */
 		load_order = cur_obj->cur_section_map->load_orders;
 		n = cur_obj->cur_section_map->nload_orders;
 
@@ -1486,7 +1486,7 @@ struct merged_section *ms)
 				cur_obj->cur_section_map->load_orders,
 				cur_obj->cur_section_map->nload_orders,
 				ms, cur_obj, "all orders assigned");
-#endif DEBUG
+#endif /* DEBUG */
 	    }
 	}
 	if(sectorder_detail == FALSE){
@@ -2616,7 +2616,7 @@ unsigned long norders)
 		order_load_maps[i].symbol_name);
 	    }
 	}
-#endif DEBUG
+#endif /* DEBUG */
 
 	qsort(order_load_maps,
 	      norders,
@@ -2725,16 +2725,16 @@ void)
 		    /*
 		     * It is an error if one of these types of merged sections
 		     * has an external relocation entry and the output is a
-		     * dynamic library.  As no library module will "own" it and
-		     * it will never get used by the dynamic linker and the
-		     * item relocated.
+		     * multi module dynamic library.  As in a multi module dylib
+		     * no library module will "own" it and it will never get
+		     * used by the dynamic linker and the item relocated.
 		     */
 		    if(ms->nextrel != 0){
-			if(filetype == MH_DYLIB)
+			if(filetype == MH_DYLIB && multi_module_dylib == TRUE)
 			    fatal("internal error: layout_relocs_for_dyld() "
 			      "called with external relocation entries for "
-			      "merged section (%.16s,%.16s) for MH_DYLIB "
-			      "output", ms->s.segname, ms->s.sectname);
+			      "merged section (%.16s,%.16s) for multi module "
+			      "MH_DYLIB output", ms->s.segname, ms->s.sectname);
 /* TODO: can this ever get here?  even if not MH_DYLIB? */
 			ms->iextrel = nextrel;
 			nextrel += ms->nextrel;
@@ -2974,7 +2974,8 @@ unsigned long *nextrel)
 		    else if(arch_flag.cputype == CPU_TYPE_I386)
 			generic_reloc(fake_contents, fake_relocs, &fake_map,
 				      TRUE);
-		    else if(arch_flag.cputype == CPU_TYPE_POWERPC)
+		    else if(arch_flag.cputype == CPU_TYPE_POWERPC ||
+			    arch_flag.cputype == CPU_TYPE_VEO)
 			ppc_reloc(fake_contents, fake_relocs, &fake_map);
 		    else if(arch_flag.cputype == CPU_TYPE_MC88000)
 			m88k_reloc(fake_contents, fake_relocs, &fake_map);
@@ -2985,7 +2986,7 @@ unsigned long *nextrel)
 #ifndef RLD
 		    else if(arch_flag.cputype == CPU_TYPE_I860)
 			i860_reloc(fake_contents, fake_relocs, map);
-#endif RLD
+#endif /* RLD */
 
 		    /* now pick up the correct resulting r_symbolnum */
 		    r_symbolnum = fake_relocs[0].r_symbolnum;
@@ -3036,18 +3037,19 @@ unsigned long *nextrel)
 	    /*
 	     * The number of relocation entries in the output file is based on
 	     * one of three different cases:
-	     * 	The output file is a dynamic shared library file
+	     * 	The output file is a multi module dynamic shared library
 	     *  The output file has a dynamic linker load command
 	     *  The output does not have a dynamic linker load command
 	     */
-	    if(filetype == MH_DYLIB){
+	    if(filetype == MH_DYLIB && multi_module_dylib == TRUE){
 		/*
-		 * For dynamic shared library files all external relocations are
-		 * kept as external relocation entries except for references to
-		 * private externs (which are kept as locals) and all non-
-		 * position-independent local relocation entries are kept.
-		 * Modules of dylibs are not linked together and can only be
-		 * slid keeping all sections relative to each other the same.
+		 * For multi module dynamic shared library files all external
+		 * relocations are kept as external relocation entries except
+		 * for references to private externs (which are kept as locals) 
+		 * and all non-position-independent local relocation entries
+		 * are kept. Modules of multi module dylibs are not linked
+		 * together and can only be slid keeping all sections relative
+		 * to each other the same.
 		 */
 		if(r_extern && (merged_symbol->nlist.n_type & N_PEXT) == 0){
 		    (*nextrel) += 1 + pair;
@@ -3103,7 +3105,7 @@ unsigned long *nextrel)
 	if(prev_nlocrel != cur_obj->nlocrel)
 	    map->output_section->s.flags |= S_ATTR_LOC_RELOC;
 }
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 
 /*
  * output_literal_sections() causes each merged literal section to be copied
@@ -3146,7 +3148,7 @@ output_sections_from_files(void)
     struct merged_section **content, *ms;
 #ifdef DEBUG
     kern_return_t r;
-#endif DEBUG
+#endif /* DEBUG */
 
 	p = &merged_segments;
 	while(*p){
@@ -3171,14 +3173,14 @@ output_sections_from_files(void)
 				   ms->contents_filename, ms->s.segname,
 				   ms->s.sectname);
 		    ms->file_addr = NULL;
-#endif DEBUG
+#endif /* DEBUG */
 		}
 		content = &(ms->next);
 	    }
 	    p = &(msg->next);
 	}
 }
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 
 /*
  * output_section() copies the contents of a section and it's relocation entries
@@ -3249,7 +3251,7 @@ struct section_map *map)
 	    else
 		output_flush(map->output_section->s.offset + map->flush_offset,
 			     map->s->size + (map->offset - map->flush_offset));
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 	    return;
 	}
 	else
@@ -3314,7 +3316,8 @@ struct section_map *map)
 	    generic_reloc(contents, relocs, map, FALSE);
 	else if(arch_flag.cputype == CPU_TYPE_I386)
 	    generic_reloc(contents, relocs, map, TRUE);
-	else if(arch_flag.cputype == CPU_TYPE_POWERPC)
+	else if(arch_flag.cputype == CPU_TYPE_POWERPC ||
+		arch_flag.cputype == CPU_TYPE_VEO)
 	    ppc_reloc(contents, relocs, map);
 	else if(arch_flag.cputype == CPU_TYPE_MC88000)
 	    m88k_reloc(contents, relocs, map);
@@ -3325,7 +3328,7 @@ struct section_map *map)
 #ifndef RLD
 	else if(arch_flag.cputype == CPU_TYPE_I860)
 	    i860_reloc(contents, relocs, map);
-#endif RLD
+#endif /* RLD */
 	else
 	    fatal("internal error: output_section() called with unknown "
 		  "cputype (%d) set", arch_flag.cputype);
@@ -3481,7 +3484,7 @@ struct section_map *map)
 			 nreloc * sizeof(struct relocation_info));
 	    map->output_section->output_nrelocs += nreloc;
 	}
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 }
 
 #ifndef RLD
@@ -3952,19 +3955,19 @@ unsigned long *nextrel)
 	    /*
 	     * The relocation entries in the output file is based on one of
 	     * three different cases:
-	     * 	The output file is a dynamic shared library file
+	     * 	The output file is a multi module dynamic shared library
 	     *  The output file has a dynamic linker load command
 	     *  The output does not have a dynamic linker load command
 	     */
-	    if(filetype == MH_DYLIB){
+	    if(filetype == MH_DYLIB && multi_module_dylib == TRUE){
 		/*
-		 * For dynamic shared library files all external relocations are
-		 * kept as external relocation entries except for references to
-		 * private externs (which are have been turned into locals and
-		 * kept as locals) and all non-position-independent local
-		 * relocation entrie are kept.  Modules of dylibs are not linked
-		 * together and can only be slid keeping all sections relative
-		 * to each other the same.
+		 * For multi module dynamic shared library files all external
+		 * relocations are kept as external relocation entries except
+		 * for references to private externs (which are have been turned
+		 * into locals and kept as locals) and all non-position-
+		 * independent local relocation entrie are kept. Modules of
+		 * multi module dylibs are not linked together and can only be
+		 * slid keeping all sections relative to each other the same.
 		 */
 		if(r_extern){
 		    reloc->r_address += addr_adjust;
@@ -4284,7 +4287,7 @@ flush_scatter_copied_sections(void)
 	    p = &(msg->next);
 	}
 }
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 
 #ifdef RLD
 /*
@@ -4491,7 +4494,7 @@ remove_merged_sections(void)
 	    prev_msg = msg;
 	}
 }
-#endif RLD
+#endif /* RLD */
 
 #ifdef DEBUG
 /*
@@ -4525,7 +4528,7 @@ char *string)
 	    print("\tflags %lu\n", msg->sg.flags);
 #ifdef RLD
 	    print("\tset_num %lu\n", msg->set_num);
-#endif RLD
+#endif /* RLD */
 	    print("\tfilename %s\n", msg->filename);
 	    print("\tcontent_sections\n");
 	    for(ms = msg->content_sections; ms ; ms = ms->next){
@@ -4541,7 +4544,7 @@ char *string)
 		      section_flags[ms->s.flags & SECTION_TYPE]);
 #ifdef RLD
 		print("\t\tset_num %d\n", ms->set_num);
-#endif RLD
+#endif /* RLD */
 		if(ms->relocated == TRUE)
     		    print("\t    relocated TRUE\n");
 		else
@@ -4587,7 +4590,7 @@ char *string)
 		      section_flags[ms->s.flags & SECTION_TYPE]);
 #ifdef RLD
 		print("\t\tset_num %lu\n", ms->set_num);
-#endif RLD
+#endif /* RLD */
 	    }
 	}
 }
@@ -4749,4 +4752,4 @@ print_load_symbol_hash_table(void)
 	    }
 	}
 }
-#endif DEBUG
+#endif /* DEBUG */

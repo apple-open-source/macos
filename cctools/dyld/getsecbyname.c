@@ -38,7 +38,7 @@ const char *sectname)
 {
     struct segment_command *sgp;
     struct section *sp;
-    long i, j;
+    unsigned long i, j;
         
 	sgp = (struct segment_command *)
 	      ((char *)mhp + sizeof(struct mach_header));

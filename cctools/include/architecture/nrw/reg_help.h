@@ -53,9 +53,9 @@
 /* Register addresses */
 #if	__ASSEMBLER__
 # define	REG_ADDR(type, addr)	(addr)
-#else	__ASSEMBLER__
+#else	/* __ASSEMBLER__ */
 # define	REG_ADDR(type, addr)	(*(volatile type *)(addr))
-#endif	__ASSEMBLER__
+#endif	/* __ASSEMBLER__ */
 
 /* Cast a register to be an unsigned */
 #define	CONTENTS(foo)	(*(unsigned *) &(foo))
@@ -65,4 +65,4 @@
 #define	STRINGIFY(x)	__STR(x)
 
 
-#endif	_NRW_REG_HELP_H_
+#endif	/* _NRW_REG_HELP_H_ */

@@ -325,14 +325,7 @@ sInt32	CLDAPNode::RebindSession(	char	   *inNodeName,
 	if (aLDAPNodeMapI != fLDAPNodeMap.end())
 	{
 		pLDAPNodeStruct = aLDAPNodeMapI->second;
-		//check if host already rebound ie. only relevant when in a Continue
-		//since we cannot rebind for this context but a rebind has already taken place
-		if (pLDAPNodeStruct->fHost != inHost)
-		{
-			siResult = eDSOpenNodeFailed;
-		}
-		
-		if (siResult == eDSNoErr)
+		if (pLDAPNodeStruct->bHasFailed)
 		{
 			if (pLDAPNodeStruct->fHost != nil)
 			{
@@ -354,6 +347,7 @@ sInt32	CLDAPNode::RebindSession(	char	   *inNodeName,
 			
 			if (siResult == eDSNoErr)
 			{
+				pLDAPNodeStruct->bHasFailed = false;
 				//set the out parameters now
 				*outLDAPHost = pLDAPNodeStruct->fHost;
 			}
@@ -361,6 +355,9 @@ sInt32	CLDAPNode::RebindSession(	char	   *inNodeName,
 		else
 		{
 			fLDAPNodeOpenMutex.Signal();
+			//set the out parameter with the existing handle since
+			//the handle has already been reset
+			*outLDAPHost = pLDAPNodeStruct->fHost;
 		}
 	}
 	else //no entry in fLDAPNodeMap
@@ -1151,6 +1148,7 @@ sInt32 CLDAPNode::BindProc ( sLDAPNodeStruct *inLDAPNodeStruct )
 			else if ( ldap_result2error(inLDAPHost, result, 1) != LDAP_SUCCESS )
 			{
 				//NN fLDAPNodeOpenMutex.Wait();
+				inLDAPNodeStruct->bHasFailed = true;
 				inLDAPNodeStruct->fHost = inLDAPHost;
 				//NN fLDAPNodeOpenMutex.Signal();
 				throw( (sInt32)eDSCannotAccessSession );
@@ -1508,7 +1506,7 @@ LDAP* CLDAPNode::LockSession( sLDAPContextData *inContext )
 //	* UnLock Session
 // ---------------------------------------------------------------------------
 
-void CLDAPNode::UnLockSession( sLDAPContextData *inContext, bool inNewMutex )
+void CLDAPNode::UnLockSession( sLDAPContextData *inContext, bool inHasFailed, bool inNewMutex )
 {
 	sLDAPNodeStruct		   *pLDAPNodeStruct		= nil;
 	LDAPNodeMapI			aLDAPNodeMapI;
@@ -1534,6 +1532,10 @@ void CLDAPNode::UnLockSession( sLDAPContextData *inContext, bool inNewMutex )
 		
 			if (pLDAPNodeStruct != nil)
 			{
+				if (inHasFailed)
+				{
+					pLDAPNodeStruct->bHasFailed = true;
+				}
 				if (pLDAPNodeStruct->fLDAPSessionMutex != nil)
 				{
 					pLDAPNodeStruct->fLDAPSessionMutex->Signal();

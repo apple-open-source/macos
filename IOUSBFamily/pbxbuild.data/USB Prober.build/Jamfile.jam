@@ -1,0 +1,115 @@
+# Jamfile for target "USB Prober" of project "IOUSBFamily"
+
+
+JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
+
+# Implicitly computed project-wide settings for project
+export deferred DEVELOPMENT_LANGUAGE = English ;
+export deferred PROJECT = $(PROJECT_NAME) ;
+export deferred PROJECT_NAME = IOUSBFamily ;
+export deferred SRCROOT = /Volumes/Home/Latest/Smeagol/IOUSBFamily-200.4.1 ;
+
+# User-defined project-wide settings for project
+
+# Target "USB Prober"
+
+export deferred _INFO_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/USB Prober.build/Info.plist" ;
+export deferred _PKGINFO_FILE_PATH = "$(SRCROOT)/pbxbuild.data/USB Prober.build/PkgInfo" ;
+export deferred _PBDEVELOPMENT_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/USB Prober.build/pbdevelopment.plist" ;
+
+# Implicitly computed build settings for target "USB Prober"
+export deferred CLONE_HEADERS = NO ;
+export deferred PFE_FILE_C_DIALECTS = objective-c ;
+export deferred TARGETNAME = $(TARGET_NAME) ;
+export deferred TARGET_NAME = "USB Prober" ;
+
+# User-defined build settings for target "USB Prober"
+export deferred CURRENT_PROJECT_VERSION = 2.0.5 ;
+export deferred INSTALL_PATH = "$(SYSTEM_DEVELOPER_APPS_DIR)" ;
+export deferred OTHER_CFLAGS =  ;
+export deferred OTHER_LDFLAGS =  ;
+export deferred OTHER_REZFLAGS =  ;
+export deferred PRODUCT_NAME = "USB Prober" ;
+export deferred SECTORDER_FLAGS =  ;
+export deferred USE_GCC3_PFE_SUPPORT = YES ;
+export deferred WARNING_CFLAGS = -Wmost -Wno-four-char-constants -Wno-unknown-pragmas ;
+export deferred WRAPPER_EXTENSION = app ;
+
+if "$(BUILD_STYLE)" = Development {
+	export deferred COPY_PHASE_STRIP = NO ;
+	export deferred OPTIMIZATION_CFLAGS = -O0 ;
+}
+
+if "$(BUILD_STYLE)" = Deployment {
+	export deferred COPY_PHASE_STRIP = YES ;
+	export deferred OPTIMIZATION_CFLAGS = -O3 ;
+}
+
+
+ConditionalDefinitions _ ;
+commitdeferred ;
+
+
+BeginApplication "<USB Prober>USB Prober.app" ;
+
+# Headers
+HEADERS =
+	USBProber/Authorization.h
+	USBProber/BusProbeClass.h
+	USBProber/DecodeHIDReport.h
+	USBProber/IORegistryClass.h
+	USBProber/MainController.h
+	USBProber/Node.h
+	USBProber/NodeOutput.h
+	USBProber/SystemCommands.h
+	USBProber/USBClass.h
+	USBProber/USBLoggerClass.h
+	USBProber/DecodeAudioInterfaceDescriptor.h ;
+ProcessHeaders "<USB Prober>USB Prober.app" : "$(HEADERS)" : "" : BPTag000 ;
+
+# Resources
+USBProber/English.lproj/InfoPlist.strings_REGION = English ;
+USBProber/English.lproj/LaunchTime.strings_REGION = English ;
+USBProber/English.lproj/MainMenu.nib_REGION = English ;
+RESOURCES =
+	USBProber/USBProberIcon.icns
+	USBProber/USBVendors.txt
+	USBProber/English.lproj/InfoPlist.strings
+	USBProber/English.lproj/LaunchTime.strings
+	USBProber/English.lproj/MainMenu.nib ;
+ProcessResources "<USB Prober>USB Prober.app" : "$(RESOURCES)" : BPTag000 : BPTag001 ;
+
+# Sources
+SOURCES =
+	USBProber/Authorization.m
+	USBProber/BusProbeClass.m
+	USBProber/DecodeHIDReport.m
+	USBProber/IORegistryClass.m
+	USBProber/Main.m
+	USBProber/MainController.m
+	USBProber/Node.m
+	USBProber/NodeOutput.m
+	USBProber/SystemCommands.m
+	USBProber/USBClass.m
+	USBProber/USBLoggerClass.m
+	USBProber/DecodeAudioInterfaceDescriptor.m ;
+ProcessSources "<USB Prober>USB Prober.app" : "$(SOURCES)" : BPTag001 : BPTag002 ;
+
+# Frameworks & Libraries
+/System/Library/Frameworks/Cocoa.framework_ATTRIBUTES = AbsolutePath ;
+/System/Library/Frameworks/CoreServices.framework_ATTRIBUTES = AbsolutePath ;
+/System/Library/Frameworks/IOKit.framework_ATTRIBUTES = AbsolutePath ;
+/System/Library/Frameworks/Security.framework_ATTRIBUTES = AbsolutePath ;
+FRAMEWORKS_AND_LIBRARIES =
+	/System/Library/Frameworks/Cocoa.framework
+	/System/Library/Frameworks/CoreServices.framework
+	/System/Library/Frameworks/IOKit.framework
+	/System/Library/Frameworks/Security.framework ;
+ProcessFrameworksAndLibraries "<USB Prober>USB Prober.app" : "$(FRAMEWORKS_AND_LIBRARIES)" : BPTag002 : BPTag003 ;
+
+# Rez Files
+REZ_FILES = ;
+ProcessRezFiles "<USB Prober>USB Prober.app" : "$(REZ_FILES)" : BPTag003 : BPTag004 ;
+
+EndApplication "<USB Prober>USB Prober.app" ;
+

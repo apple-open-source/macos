@@ -97,7 +97,7 @@ struct rep_sect {
 
 /* These variables are set in the routine map_input() */
 static void *input_addr;	/* address of where the input file is mapped */
-static long input_size;		/* size of the input file */
+static unsigned long input_size;/* size of the input file */
 static long input_mode;		/* mode of the input file */
 static struct mach_header *mhp;	/* pointer to the input file's mach header */
 static struct load_command
@@ -219,7 +219,7 @@ void
 map_input(void)
 {
     int fd;
-    long i;
+    unsigned long i;
     struct stat stat_buf;
     kern_return_t r;
     struct load_command l, *lcp;
@@ -323,7 +323,7 @@ static
 void
 extract_sections(void)
 {
-    long i, j, errors;
+    unsigned long i, j, errors;
     struct load_command *lcp;
     struct segment_command *sgp;
     struct section *sp;
@@ -357,7 +357,7 @@ extract_sections(void)
 					   O_TRUNC, 0666)) == -1)
 				system_fatal("can't create: %s", ep->filename);
 			     if(write(fd, (char *)input_addr + sp->offset,
-				     sp->size) != sp->size)
+				     sp->size) != (int)sp->size)
 				system_fatal("can't write: %s", ep->filename);
 			     if(close(fd) == -1)
 				system_fatal("can't close: %s", ep->filename);
@@ -389,9 +389,9 @@ static
 void
 replace_sections(void)
 {
-    long i, j, k, l, errors, nsegs, nsects;
-    long high_reloc_seg, low_noreloc_seg, high_noreloc_seg, low_linkedit;
-    long oldvmaddr, oldoffset, newvmaddr, newoffset, oldsectsize, newsectsize;
+    unsigned long i, j, k, l, errors, nsegs, nsects, high_reloc_seg;
+    unsigned long low_noreloc_seg, high_noreloc_seg, low_linkedit, oldvmaddr;
+    unsigned long oldoffset, newvmaddr, newoffset, oldsectsize, newsectsize;
     struct load_command lc, *lcp;
     struct segment_command *sgp, *linkedit_sgp;
     struct section *sp;
@@ -704,7 +704,8 @@ replace_sections(void)
 	    		    mach_fatal(r, "Can't map file: %s", rp->filename);
 			for(l = rp->size + 1; l < sp->size; l++)
 			    *((char *)sect_addr + l) = '\0';
-			if(write(outfd, (char *)sect_addr,sp->size) != sp->size)
+			if(write(outfd, (char *)sect_addr,sp->size) !=
+			   (int)sp->size)
 			    system_fatal("can't write new section contents for "
 					 "section (%s,%s) to output file: %s", 
 					 rp->segname, rp->sectname, output);
@@ -725,7 +726,7 @@ replace_sections(void)
 				  "end of the file)",input, sp->segname,
 				  sp->sectname);
 			if(write(outfd,(char *)input_addr + sects[k + j].offset,
-			   sp->size) != sp->size)
+			   sp->size) != (int)sp->size)
 			    system_fatal("can't write section contents for "
 					 "section (%s,%s) to output file: %s", 
 					 rp->segname, rp->sectname, output);
@@ -748,7 +749,7 @@ replace_sections(void)
 			      "(segment: %s extends past the end of "
 			      "the file)", input, segs[i].sgp->segname);
 		    if(write(outfd, (char *)input_addr + segs[i].fileoff,
-		       segs[i].sgp->filesize) != segs[i].sgp->filesize)
+		       segs[i].sgp->filesize) != (int)segs[i].sgp->filesize)
 			system_fatal("can't write segment contents for "
 				     "segment: %s to output file: %s", 
 				     segs[i].sgp->segname, output);

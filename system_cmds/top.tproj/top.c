@@ -1660,12 +1660,11 @@ void screen_update()
 			                wire_resident_size,
 			                free_size;
 
-			active_resident_size = vm_stat.active_count * pagesize;
-			inactive_resident_size = vm_stat.inactive_count * pagesize;
-			wire_resident_size = vm_stat.wire_count * pagesize;
-			total_resident_size = (vm_stat.active_count + vm_stat.inactive_count +
-						vm_stat.wire_count) * pagesize;
-			free_size = vm_stat.free_count   * pagesize;
+			active_resident_size = (unsigned long long) vm_stat.active_count * (unsigned long long) pagesize;
+			inactive_resident_size = (unsigned long long) vm_stat.inactive_count * (unsigned long long) pagesize;
+			wire_resident_size = (unsigned long long) vm_stat.wire_count * (unsigned long long) pagesize;
+			total_resident_size = (unsigned long long) (vm_stat.active_count + vm_stat.inactive_count + vm_stat.wire_count) * (unsigned long long) pagesize;
+			free_size = (unsigned long long) vm_stat.free_count   * (unsigned long long) pagesize;
 
 			sprintf(tbuf, "PhysMem:  ");
 			clen = strlen(tbuf);

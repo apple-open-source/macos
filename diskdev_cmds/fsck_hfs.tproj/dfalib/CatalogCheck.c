@@ -2,21 +2,24 @@
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -90,8 +93,8 @@ CheckCatalogBTree( SGlobPtr GPtr )
 	int hfsplus;
 	
 	gScavGlobals = GPtr;
-	hfsplus = gScavGlobals->isHFSPlus;
-	
+	hfsplus = VolumeObjectIsHFSPlus( );
+
 	ClearMemory(&gCIS, sizeof(gCIS));
 	gCIS.parentID = kHFSRootParentID;
 	gCIS.nextCNID = kHFSFirstUserCatalogNodeID;
@@ -101,7 +104,7 @@ CheckCatalogBTree( SGlobPtr GPtr )
 
 	/* for compatibility, init these globals */
 	gScavGlobals->TarID = kHFSCatalogFileID;
-	gScavGlobals->TarBlock = gScavGlobals->idSector;
+	GetVolumeObjectBlockNum( &gScavGlobals->TarBlock );
 
 	/*
 	 * Check out the BTree structure
@@ -162,11 +165,13 @@ CheckCatalogBTree( SGlobPtr GPtr )
 static int
 CheckCatalogRecord(const HFSPlusCatalogKey *key, const CatalogRecord *rec, UInt16 reclen)
 {
-	int result = 0;
+	int 						result = 0;
+	Boolean						isHFSPlus;
 
+	isHFSPlus = VolumeObjectIsHFSPlus( );
 	++gScavGlobals->itemsProcessed;
 
-	if (!gScavGlobals->isHFSPlus)
+	if (!isHFSPlus)
 		return CheckCatalogRecord_HFS((HFSCatalogKey *)key, rec, reclen);
 
 	gScavGlobals->CNType = rec->recordType;
@@ -324,15 +329,6 @@ CheckDirectory(const HFSPlusCatalogKey * key, const HFSPlusCatalogFolder * dir)
 
 	dirID = dir->folderID;
 
-	if (dirID == kHFSRootFolderID) {
-		size_t len;
-
-		(void) utf_encodestr(key->nodeName.unicode,
-					key->nodeName.length * 2,
-					gScavGlobals->volumeName, &len);
-		gScavGlobals->volumeName[len] = '\0';
-	}
-
 	if (dir->flags != 0) {
 		RcdError(gScavGlobals, E_CatalogFlagsNotZero);
 		gScavGlobals->CBTStat |= S_ReservedNotZero;
@@ -348,7 +344,7 @@ CheckDirectory(const HFSPlusCatalogKey * key, const HFSPlusCatalogFolder * dir)
 
 	gCIS.encodings |= (1 << MapEncodingToIndex(dir->textEncoding & 0x7F));
 
-        CheckBSDInfo(key, &dir->bsdInfo, true);
+	CheckBSDInfo(key, &dir->bsdInfo, true);
 	
 	CheckCatalogName(key->nodeName.length, &key->nodeName.unicode[0], key->parentID, false);
 	
@@ -399,7 +395,7 @@ CheckFile(const HFSPlusCatalogKey * key, const HFSPlusCatalogFile * file)
 
 	gCIS.encodings |= (1 << MapEncodingToIndex(file->textEncoding & 0x7F));
 
-        CheckBSDInfo(key, &file->bsdInfo, false);
+	CheckBSDInfo(key, &file->bsdInfo, false);
 
 	/* check out data fork extent info */
 	result = CheckFileExtents(gScavGlobals, file->fileID, 0,
@@ -443,8 +439,8 @@ CheckFile(const HFSPlusCatalogKey * key, const HFSPlusCatalogFile * file)
 	}
 
 	/* Collect indirect link info for later */
-	if (file->userInfo.fdType == kHardLinkFileType  &&
-            file->userInfo.fdCreator == kHFSPlusCreator)
+	if (SWAP_BE32(file->userInfo.fdType) == kHardLinkFileType  &&
+            SWAP_BE32(file->userInfo.fdCreator) == kHFSPlusCreator)
 		CaptureHardLink(gCIS.hardLinkRef, file->bsdInfo.special.iNodeNum);
 
 	CheckCatalogName(key->nodeName.length, &key->nodeName.unicode[0], key->parentID, false);
@@ -508,11 +504,6 @@ CheckDirectory_HFS(const HFSCatalogKey * key, const HFSCatalogFolder * dir)
 	int result = 0;
 
 	dirID = dir->folderID;
-
-	if (dirID == kHFSRootFolderID) {
-		bcopy(&key->nodeName[1], gScavGlobals->volumeName, key->nodeName[0]);
-		gScavGlobals->volumeName[key->nodeName[0]] = '\0';
-	}
 
 	if (dir->flags != 0) {
 		RcdError(gScavGlobals, E_CatalogFlagsNotZero);
@@ -1029,18 +1020,20 @@ UniqueDotName( 	SGlobPtr GPtr,
 static int
 RecordBadAllocation(UInt32 parID, char * filename, UInt32 forkType, UInt32 oldBlkCnt, UInt32 newBlkCnt)
 {
-	RepairOrderPtr p;
-	char goodstr[16];
-	char badstr[16];
-	int n;
-	
+	RepairOrderPtr 			p;
+	char 					goodstr[16];
+	char 					badstr[16];
+	int 					n;
+	Boolean 				isHFSPlus;
+
+	isHFSPlus = VolumeObjectIsHFSPlus( );
 	PrintError(gScavGlobals, E_PEOF, 1, filename);
 	sprintf(goodstr, "%d", newBlkCnt);
 	sprintf(badstr, "%d", oldBlkCnt);
 	PrintError(gScavGlobals, E_BadValue, 2, goodstr, badstr);
 
 	/* Only HFS+ is repaired here */
-	if ( !gScavGlobals->isHFSPlus )
+	if ( !isHFSPlus )
 		return (E_PEOF);
 
 	n = strlen(filename);
@@ -1070,18 +1063,20 @@ RecordBadAllocation(UInt32 parID, char * filename, UInt32 forkType, UInt32 oldBl
 static int
 RecordTruncation(UInt32 parID, char * filename, UInt32 forkType, UInt64 oldSize, UInt64 newSize)
 {
-	RepairOrderPtr p;
-	char oldSizeStr[48];
-	char newSizeStr[48];
-	int n;
-	
+	RepairOrderPtr	 		p;
+	char 					oldSizeStr[48];
+	char 					newSizeStr[48];
+	int 					n;
+	Boolean 				isHFSPlus;
+
+	isHFSPlus = VolumeObjectIsHFSPlus( );
 	PrintError(gScavGlobals, E_LEOF, 1, filename);
 	sprintf(oldSizeStr, "%qd", oldSize);
 	sprintf(newSizeStr, "%qd", newSize);
 	PrintError(gScavGlobals, E_BadValue, 2, newSizeStr, oldSizeStr);
 
 	/* Only HFS+ is repaired here */
-	if ( !gScavGlobals->isHFSPlus )
+	if ( !isHFSPlus )
 		return (E_LEOF);
 
 	n = strlen(filename);
@@ -1115,14 +1110,17 @@ RecordTruncation(UInt32 parID, char * filename, UInt32 forkType, UInt64 oldSize,
 static int
 CaptureMissingThread(UInt32 threadID, const HFSPlusCatalogKey *nextKey)
 {
-	MissingThread *mtp;
-	char idStr[16];
+	MissingThread 			*mtp;
+	char 					idStr[16];
+	Boolean 				isHFSPlus;
 
+	isHFSPlus = VolumeObjectIsHFSPlus( );
+	
 	sprintf(idStr, "%d", threadID);
 	PrintError(gScavGlobals, E_NoThd, 1, idStr);
 
 	/* Only HFS+ missing threads are repaired here */
-	if ( !gScavGlobals->isHFSPlus)
+	if ( !isHFSPlus)
 		return (E_NoThd);
 	
 	mtp = (MissingThread *) AllocateClearMemory(sizeof(MissingThread));
@@ -1428,5 +1426,4 @@ static void PrintName( int theCount, const UInt8 *theNamePtr, Boolean isUnicodeS
     printf( "\n" );
 
 } /* PrintName */
-
 

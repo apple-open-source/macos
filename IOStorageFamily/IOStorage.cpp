@@ -84,7 +84,7 @@ bool IOStorage::open(IOService *     client,
 IOReturn IOStorage::read(IOService *          client,
                          UInt64               byteStart,
                          IOMemoryDescriptor * buffer,
-                         UInt64 *             actualByteCount = 0)
+                         UInt64 *             actualByteCount)
 {
     //
     // Read data from the storage object at the specified byte offset into the
@@ -119,7 +119,7 @@ IOReturn IOStorage::read(IOService *          client,
 IOReturn IOStorage::write(IOService *          client,
                           UInt64               byteStart,
                           IOMemoryDescriptor * buffer,
-                          UInt64 *             actualByteCount = 0)
+                          UInt64 *             actualByteCount)
 {
     //
     // Write data into the storage object at the specified byte offset from the

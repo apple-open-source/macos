@@ -52,12 +52,8 @@ static char *ReadFileBlock(InodePtr fileInode, long fragNum, long blockOffset,
 static long ReadFile(InodePtr fileInode, long *length);
 
 
-#define kDevBlockSize (0x200)    // Size of each disk block.
-#define kDiskLableBlock (15)     // Block the DL is in.
-
 static CICell    gCurrentIH;
 static long long gPartitionBase;
-static char      gDLBuf[8192];
 static char      gFSBuf[SBSIZE];
 static struct fs *gFS;
 static long      gBlockSize;
@@ -74,9 +70,6 @@ static Inode     gFileInode;
 
 long UFSInitPartition(CICell ih)
 {
-  disk_label_t *dl;
-  partition_t  *part;
-  
   if (ih == gCurrentIH) return 0;
   
   printf("UFSInitPartition: %x\n", ih);
@@ -92,30 +85,7 @@ long UFSInitPartition(CICell ih)
   
   gFS = (struct fs *)gFSBuf;
   if (gFS->fs_magic != FS_MAGIC) {
-    // Did not find it... Look for the Disk Label.
-    // Look for the Disk Label
-    Seek(ih, 1ULL * kDevBlockSize * kDiskLableBlock);
-    Read(ih, (long)gDLBuf, 8192);
-    
-    dl = (disk_label_t *)gDLBuf;
-    byte_swap_disklabel_in(dl);
-    
-    if (dl->dl_version != DL_VERSION) {
-      return -1;
-    }
-    
-    part = &dl->dl_part[0];
-    gPartitionBase = (1ULL * (dl->dl_front + part->p_base) * dl->dl_secsize) -
-      (1ULL * (dl->dl_label_blkno - kDiskLableBlock) * kDevBlockSize);
-    
-    // Re-read the Super Block.
-    Seek(ih, gPartitionBase + SBOFF);
-    Read(ih, (long)gFSBuf, SBSIZE);
-    
-    gFS = (struct fs *)gFSBuf;
-    if (gFS->fs_magic != FS_MAGIC) {
-      return -1;
-    }
+    return -1;
   }
   
   // Calculate the block size and set up the block cache.

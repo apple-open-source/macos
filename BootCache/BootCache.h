@@ -8,6 +8,8 @@
 #define BC_BOOT_HISTFILE	"/tmp/BootCache.history"
 #define BC_BOOT_LOGFILE		"/tmp/BootCache.log"
 #define BC_CONTROL_TOOL		"/System/Library/Extensions/BootCache.kext/Contents/Resources/BootCacheControl"
+#define BC_KEXTUNLOAD		"/sbin/kextunload"
+#define BC_BUNDLE_ID		"com.apple.BootCache"
 
 /*
  * Command stucture, passed via sysctl.
@@ -114,6 +116,7 @@ struct BC_statistics {
 	u_int	ss_strategy_bypassed;	/* strategy calls we bypassed */
 	u_int	ss_strategy_bypass_active; /* strategy calls we bypassed reading */
 	u_int	ss_strategy_blocked;	/* strategy calls that blocked */
+	u_int	ss_strategy_stolen;	/* aborts due to pages stolen while blocked */
 
 	/* extents */
 	u_int	ss_total_extents;	/* number of extents in the cache */
@@ -155,4 +158,5 @@ extern int	BC_stop(struct BC_history_entry **, int *);
 extern int	BC_print_statistics(char *, struct BC_statistics *);
 extern int	BC_print_history(char *, struct BC_history_entry *, int);
 extern int	BC_tag_history(void);
+extern int	BC_unload(void);
 #endif

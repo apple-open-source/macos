@@ -106,7 +106,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireAVC;
-				MODULE_VERSION = 1.2.3;
+				MODULE_VERSION = 1.2.7;
 				OTHER_CFLAGS = "-DFIREWIREPRIVATE";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -132,7 +132,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireAVC</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOFireWireAVC version 1.2.2, Copyright 2002 Apple Computer, Inc.</string>
+	<string>IOFireWireAVC version 1.2.7, Copyright 2003 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -144,11 +144,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.3</string>
+	<string>1.2.7</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.3</string>
+	<string>1.2.7</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOFireWireAVC</key>
@@ -236,7 +236,7 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
+			shouldUseHeadermap = 0;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -360,12 +360,14 @@
 //1A3
 //1A4
 		1A224C3EFF42367911CA2CB7 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireAVCUnit.h;
 			path = IOFireWireAVC/IOFireWireAVCUnit.h;
 			refType = 4;
 		};
 		1A224C3FFF42367911CA2CB7 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireAVCUnit.cpp;
 			path = IOFireWireAVC/IOFireWireAVCUnit.cpp;
@@ -428,12 +430,14 @@
 //8C3
 //8C4
 		8C274CA0018F448104CE206D = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWirePCRSpace.cpp;
 			path = IOFireWireAVC/IOFireWirePCRSpace.cpp;
 			refType = 4;
 		};
 		8C274CA1018F448104CE206D = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWirePCRSpace.h;
 			path = IOFireWireAVC/IOFireWirePCRSpace.h;
@@ -505,6 +509,7 @@
 			};
 		};
 		8C29B9A7019B162504CE206E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireAVCUserClientCommon.h;
 			path = IOFireWireAVC/IOFireWireAVCUserClientCommon.h;
@@ -523,6 +528,7 @@
 			};
 		};
 		8C29B9AA019B17B304CE206E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireAVCUserClient.cpp;
 			path = IOFireWireAVC/IOFireWireAVCUserClient.cpp;
@@ -535,6 +541,7 @@
 			};
 		};
 		8C29B9AC019B181104CE206E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireAVCUserClient.h;
 			path = IOFireWireAVC/IOFireWireAVCUserClient.h;
@@ -547,12 +554,14 @@
 			};
 		};
 		8C2A8E8B0190D8BB04CE206D = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireAVCRequestSpace.cpp;
 			path = IOFireWireAVC/IOFireWireAVCRequestSpace.cpp;
 			refType = 4;
 		};
 		8C2A8E8C0190D8BB04CE206D = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireAVCRequestSpace.h;
 			path = IOFireWireAVC/IOFireWireAVCRequestSpace.h;
@@ -571,6 +580,7 @@
 			};
 		};
 		8C2D18F7019C8DB604CE206E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireAVCLibProtocol.c;
 			path = IOFireWireAVCLib/IOFireWireAVCLibProtocol.c;
@@ -583,12 +593,14 @@
 			};
 		};
 		8C2DA8C7019C864904CE206E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireAVCProtocolUserClient.cpp;
 			path = IOFireWireAVC/IOFireWireAVCProtocolUserClient.cpp;
 			refType = 4;
 		};
 		8C2DA8C8019C864904CE206E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireAVCProtocolUserClient.h;
 			path = IOFireWireAVC/IOFireWireAVCProtocolUserClient.h;
@@ -607,6 +619,7 @@
 			};
 		};
 		8C35357901809B2B04CE206D = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireAVCCommand.cpp;
 			path = IOFireWireAVC/IOFireWireAVCCommand.cpp;
@@ -619,6 +632,7 @@
 			};
 		};
 		8C35357B01809B5304CE206D = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireAVCCommand.h;
 			path = IOFireWireAVC/IOFireWireAVCCommand.h;
@@ -633,6 +647,7 @@
 			};
 		};
 		8C35357D0180A4C604CE206D = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireAVCConsts.h;
 			path = IOFireWireAVC/IOFireWireAVCConsts.h;
@@ -687,7 +702,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireAVCLib</string>
 	<key>CFBundleGetInfoString</key>
-	<string></string>
+	<string>IOFireWireAVC version 1.2.7, Copyright 2003 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -699,11 +714,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.3</string>
+	<string>1.2.7</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.3</string>
+	<string>1.2.7</string>
 	<key>CFPlugInFactories</key>
 	<dict>
 		<key>3F4057BC-D479-11D5-9F05-0003934B81A0</key>
@@ -775,6 +790,7 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		8C7A0D94019B08CD04CE206E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireAVCLib.h;
 			path = IOFireWireAVCLib/IOFireWireAVCLib.h;
@@ -882,12 +898,14 @@
 //F63
 //F64
 		F6F8ECA502342C4001298369 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireAVCLibUnit.cpp;
 			path = IOFireWireAVCLib/IOFireWireAVCLibUnit.cpp;
 			refType = 4;
 		};
 		F6F8ECA602342C4001298369 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireAVCLibUnit.h;
 			path = IOFireWireAVCLib/IOFireWireAVCLibUnit.h;
@@ -906,12 +924,14 @@
 			};
 		};
 		F6F8ECAC023455D501298369 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireAVCLibConsumer.cpp;
 			path = IOFireWireAVCLib/IOFireWireAVCLibConsumer.cpp;
 			refType = 4;
 		};
 		F6F8ECAD023455D501298369 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOFireWireAVCLibConsumer.h;
 			path = IOFireWireAVCLib/IOFireWireAVCLibConsumer.h;

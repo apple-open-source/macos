@@ -1,12 +1,4 @@
 To Do:
-- Remove the -static libredo_prebinding.a that was added for Radar bug #2922145
-  and move libredo_prebinding.dylib back to the .a file.
-- Add support in nm(1) for printing the new stab entries for Radar bug #2940311
-  which should be:
-	N_PARAMS	0x86
-	N_VERSION	0x88
-	N_OLEVEL	0x8A
-  See Derek Kumar's email of 7/9/2002.
 - Change to Doug's approach to relayout, namely something like reserving the
   last 10% of the load region for new dylibs and then evenly spacing the
   existing dylibs in the other 90% (for split libs).  See email of 11/6/2000.
@@ -15,7 +7,69 @@ To Do:
   could have been set otherwise and does not print the next line.
 - Maybe add fat support for segedit(1)
 
-Changes for the 5.10 release (the cctools-435.4 release):
+Changes for the 5.12 release (the cctools-466 release):
+- Fixed a bug in libtool(1) for the -static option that caused it to crash if
+  the objects contained no symbols to put in the table of contents.  Radar bug
+  #3217471.
+- Fixed the incorrect casts on the comparison of the nlist struct's n_strx field
+  where the value being compared to was casted to a long.  The correct fix was
+  to cast n_strx to an unsigned long.
+- Changed print_mach_symbols() in nm.c to print "(dynamically looked up)" for
+  the library ordinal DYNAMIC_LOOKUP_ORDINAL which are looked up dynamically
+  with flat namespace semantics in two-level namespace images.  Radar bug
+  #3210803.
+- Changed get_primary_lib() in redo_prebinding.c to check for the library
+  ordinal DYNAMIC_LOOKUP_ORDINAL and return NULL.  Radar bug #3210803.
+
+Changes for the 5.12 release (the cctools-464 release):
+- Made changes to build cleanly with gcc3.3
+  - Removed -Wno-precomp from the Makefile
+  - Fixed warnings for "comparison between signed and unsigned" in lipo.c,
+    size.c, strings.c, nm.c, libtool.c, checksyms.c, indr.c, strip.c, segedit.c,
+    kern_tool.c, cmpdylib.c, dylib_pcsampler.c, pagestuff.c, redo_prebinding.c,
+    seg_addr_table.c, check_dylib.c, seg_hack.c and install_name_tool.c.
+
+Changes for the 5.12 release (the cctools-463 release):
+- Added support for MH_DYLIB_STUB libraries.  Radar bug #3193744.
+  - Added the testing for MH_DYLIB_STUB along with MH_DYLIB in add_member()
+    in libtool.c .
+  - Added the testing for MH_DYLIB_STUB along with MH_DYLIB in
+    translate_object() in indr.c in the error check.
+  - Added a case for MH_DYLIB_STUB in type_buf() in file.c (note this is the
+    old file(1) command and is no longer used).
+  - Added the testing for MH_DYLIB_STUB along with MH_DYLIB in check_dylib()
+    in cmpdylib.c in 2 places.
+  - Added the testing for MH_DYLIB_STUB along with MH_DYLIB in checksyms() and
+    in check_dynamic_binary() in checksyms.c in 3 places in all.
+  - Added the testing for MH_DYLIB_STUB along with MH_DYLIB in check_hints.c .
+
+Changes for the 5.12 release (the cctools-461 release):
+- Fixed a bug in install_name_tool(1) that caused it to crash when the new
+  load commands were smaller than the old load commands.  Radar bug #3161586.
+
+Changes for the 5.12 release (the cctools-456 release):
+- Fixed a bug in the redo_prebinding code when the allow_missing_architectures
+  parameter to the redo_prebinding() API is non-zero.  In the routine
+  load_library() an extra check is needed to not cause an error if we are
+  allowing missing architectures.  The case where this happens is when there
+  is a fat file that the architecture we don't care about depends on a library
+  in another fat file but the time stamps for the libraries don't match.
+  Radar bug #3144552.
+
+Changes for the 5.12 release (the cctools-455 release):
+- Fixed a bug in the redo_prebinding code in the routine link_library_module()
+  in redo_prebinding.c.  The problem was that when a reference to a private
+  extern was found only the module containing it was marked linked.  A call
+  to link_library_module() for that module was needed to pull in its
+  dependencies and get those modules marked as LINKED.  Radar bug #3126383.
+
+Changes for the 5.12 release (the cctools-454 release):
+- Fixed a bug where seg_addr_table doesn't catch when an address is assigned in
+  the "alternate" area.  seg_addr_table(1) was using the wrong constant to
+  check the validity of newly assigned addresses, the fix is to use the correct
+  constant.  Radar bug #3138181.
+
+Changes for the 5.12 release (the cctools-452 release):
 - Fixed the bug fix done for Radar bug #3124262 below in the redo_prebinding
   code. The copied code from the above loop was wrong as it changed this:
                    if(libs[i].module_states[j] == LINKED)
@@ -31,10 +85,59 @@ Changes for the 5.10 release (the cctools-435.4 release):
                                 MH_TWOLEVEL))
   which used the correct index variables.  Radar bug #3133589.
 
-Changes for the 5.10 release (the cctools-435.3 release):
+Changes for the 5.12 release (the cctools-451 release):
 - Fixed a bug in the redo_prebinding code that did not set the all the bits
   in the linked_modules bit vector for any new LC_PREBOUND_DYLIB load commands
   when prebind_all_twolevel_modules was TRUE.  Radar bug #3124262.
+
+Changes for the 5.12 release (the cctools-448 release):
+- Added an entry stabnames[] array in nm.c for N_OPT that is emitted with
+  gcc2_compiled and in gcc source.  Radar bug #3104328.
+
+Changes for the 5.12 release (the cctools-447 release):
+- Fixed a bug in add_member() in libtool.c when get_arch_family_from_cputype()
+  returns NULL.
+
+Changes for the 5.11 release (the cctools-446 release):
+- Added passing -x from libtool to ld.  Radar bug #3088301.
+
+Changes for the 5.11 release (the cctools-444 release):
+- Added passing -exported_symbols_list & -unexported_symbols_list from libtool
+  to ld.  Radar bug #3083844.
+- Factored out some of the symbol list stuff out of strip.c into libstuff so
+  ld(1)'s -exported_symbols_list and -unexported_symbols_list options can use
+  it.  Radar bug #3083844.
+
+Changes for the 5.11 release (the cctools-443 release):
+- Added passing -single_module & -multi_module from libtool to ld.  Also added
+  passing -u flags.  Radar #3080780.
+
+Changes for the 5.11 release (the cctools-440 release):
+- Fixed the warnings about extra tokens at end of #endif directive in
+  check_hints.c, strip.c and make_defs.h (Radar bug #3072042).
+
+Changes for the 5.11 release (the cctools-439 release):
+- Made the needed changes to lipo.c for VEO support.  Radar bug #3068161.
+- Added the install_name() API to redo_prebinding.c . Radar bug #3065586.
+- Changed needs_redo_prebinding() in redo_prebinding.c to check all archs if
+  allow_missing_archs is zero.  Radar bug #3065577.
+- Added parsing out -no_arch_warnings to libtool(1), which is then ignored,
+  so it can be passed to it.  Radar bug #3064819.
+
+Changes for the 5.11 release (the cctools-437 release):
+- Backed out Radar bug #2922145 and changed the Makefile back to only create
+  only -dynamic compiled libredo_prebinding.a. Radar bug #3000895.
+- Add support in nm(1) for printing the new stab entries for Radar bug #2940311
+  which should be:
+	N_PARAMS	0x86
+	N_VERSION	0x88
+	N_OLEVEL	0x8A
+  Also needed to fix a couple of places that did not check the N_STAB being zero
+  before checking the N_TYPE bits to be N_INDR (which N_OLEVEL has).
+  Radar bug #3000792.
+- Fixed a bug in setup_symbol_list() in strip.c in the code that removes
+  duplicates from the list.  The second loop limit needed to loop for one
+  less.  Radar bug #2962899.
 
 Changes for the 5.10 release (the cctools-435 release):
 - Fixed bugs in the libredo_prebinding API's of object_file_type() and

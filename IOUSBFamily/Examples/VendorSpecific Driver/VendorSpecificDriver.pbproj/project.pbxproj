@@ -65,6 +65,7 @@
 				06AA1265FFB2107B11CA28AA,
 				06AA1266FFB2107B11CA28AA,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 089C166AFE841209C02AAC07;
 			projectDirPath = "";
@@ -161,7 +162,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;

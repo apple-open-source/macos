@@ -2,7 +2,7 @@ OFLAG = -O
 ifeq "mwccppc" "$(notdir $(CC))"
   CFLAGS = -g $(OFLAG) -I$(SRCROOT)/../include
 else
-  CFLAGS = -g $(OFLAG) -Wall -Wno-precomp -I$(SRCROOT)/../include
+  CFLAGS = -g $(OFLAG) -Wall -I$(SRCROOT)/../include
 endif
 
 LIBSTUFF = -L$(SYMROOT)/../libstuff -lstuff

@@ -53,7 +53,7 @@
 *     10 Sep 01  ali added more comments.                                      *
 *     09 Sep 01  ali added macros to detect PowerPC and correct compiler.      *
 *     28 Aug 01  ram  added #ifdef __ppc__.                                    *
-*     13 Jul 01  ram  Replaced __setflm with fegetenvd/fesetenvd.              *
+*     13 Jul 01  ram  Replaced __setflm with FEGETENVD/FESETENVD.              *
 *                            replaced DblInHex typedef with hexdouble.         *
 *     03 Mar 01  ali  first port to os x using gcc, added the crucial          *
 *                       __setflm definition.                                   *
@@ -114,7 +114,6 @@ static const hexsingle HugeF = { 0x7F800000 };
 #define HUGEF HugeF.fval
 
 static const double twoTo52  = 4503599627370496.0;
-static const float twoTo23  = 8388608.0;
 
 /*******************************************************************************
 *                                                                              *
@@ -213,7 +212,7 @@ float roundf ( float x )
       
       argument.fval = x;
       xHead = argument.lval & 0x7fffffff;              // xHead <- |x|
-      target = ( argument.lval < 0x80000000 );         // flag positive sign
+      target = ( (unsigned long)argument.lval < 0x80000000ul );         // flag positive sign
       
       if ( xHead < 0x4b000000ul ) 
 /*******************************************************************************
@@ -387,7 +386,7 @@ long int lroundf ( float x )
        
        argument.fval = x;
        xhi = argument.lval & 0x7fffffff;                    // high 32 bits of x
-       target = ( argument.lval < 0x80000000 );             // flag positive sign
+       target = ( (unsigned long)argument.lval < 0x80000000ul );             // flag positive sign
  
        if ( xhi > 0x4f800000ul ) 
 /*******************************************************************************
@@ -543,7 +542,7 @@ float truncf ( float x )
        
        argument.fval = x;
        xhi = argument.lval & 0x7fffffff;                         // xhi <- |x|
-       target = ( argument.lval < 0x80000000 );                  // flag positive sign
+       target = ( (unsigned long)argument.lval < 0x80000000ul );                  // flag positive sign
        
        if ( xhi < 0x4b000000ul ) 
 /*******************************************************************************

@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -43,10 +46,12 @@ OSDefineMetaClassAndStructors(USBKeyLargo, IOService);
 //   initialize the driver for a specific bus, so that the driver knows which bus
 //   it is responsable for.
 bool
-USBKeyLargo::initForBus(UInt32 busNumber)
+USBKeyLargo::initForBus(UInt32 busNumber, SInt32 devID)
 {
 	setProperty("usb", (UInt64)busNumber, 32);
 	setProperty("IOClass", "USBKeyLargo");
+
+	keyLargoDeviceId = devID;
 
 	// initialize for Power Management
 	initForPM(getProvider());
@@ -165,18 +170,23 @@ void USBKeyLargo::turnOffUSB(UInt32 busNumber)
 
     // now some stuff in FCR0 which cannot be done all at once
 
-    // clear the Cell Enable bits for USB (turns off the 48 MHz clocks)
+    // clear the Cell Enable bits for USB (turns off the 48 MHz clocks) - but not on Intrepid
 
-	if (busNumber != 2) {
-		regData = 0;
-		regMask = (busNumber == 0) ? kKeyLargoFCR0USB0CellEnable : kKeyLargoFCR0USB1CellEnable;
-        
-		provider->safeWriteRegUInt32(kKeyLargoFCR0, regMask, regData);
-	} else {	// Intrepid only
-		regData = 0;
-		regMask = kIntrepidFCR1USB2CellEnable;
-        
-		provider->safeWriteRegUInt32(kKeyLargoFCR1, regMask, regData);
+	if (keyLargoDeviceId != kIntrepidDeviceId3e) {
+		if (busNumber != 2) {
+			regData = 0;
+			regMask = (busNumber == 0) ? kKeyLargoFCR0USB0CellEnable : kKeyLargoFCR0USB1CellEnable;
+			
+			provider->safeWriteRegUInt32(kKeyLargoFCR0, regMask, regData);
+		}
+		/* 
+		else {	// Intrepid only
+			regData = 0;
+			regMask = kIntrepidFCR1USB2CellEnable;
+			
+			provider->safeWriteRegUInt32(kKeyLargoFCR1, regMask, regData);
+		}
+		*/
 	}
 
     // NEED A 600 nanosecond delay in here
@@ -232,7 +242,7 @@ void USBKeyLargo::turnOnUSB(UInt32 busNumber)
 		regData = regMask = (busNumber == 0) ? (kKeyLargoFCR0USB0CellEnable) : (kKeyLargoFCR0USB1CellEnable);
 		
 		provider->safeWriteRegUInt32(kKeyLargoFCR0, regMask, regData);
-	
+		
 		// now turn off the remote wakeup bits
 		if (busNumber == 0) {
 			regMask = kKeyLargoFCR4USB0SleepBitsSet | kKeyLargoFCR4USB0SleepBitsClear;
@@ -255,6 +265,45 @@ void USBKeyLargo::turnOnUSB(UInt32 busNumber)
 		provider->safeWriteRegUInt32(kKeyLargoFCR3, regMask, regData);
 	}
     
+	if (keyLargoDeviceId == kIntrepidDeviceId3e) {
+		UInt32 					clockStopMask0, clockStopMask1;
+		volatile UInt32 		clockStopStatus0, clockStopStatus1;
+		UInt32 					count = 0;
+		static const OSSymbol 	*symReadIntrepidClockStopStatus;
+		
+		if (!symReadIntrepidClockStopStatus)
+			symReadIntrepidClockStopStatus = OSSymbol::withCString("readIntrepidClockStopStatus");
+		
+		if (busNumber == 0) {
+			clockStopMask0 = kIntrepidIsStoppedUSB0;
+			clockStopMask1 = kIntrepidIsStoppedUSB1PCI;
+		} else if (busNumber == 1) {
+			clockStopMask0 = kIntrepidIsStoppedUSB1;
+			clockStopMask1 = kIntrepidIsStoppedUSB1PCI;
+		} else if (busNumber == 2) {
+			clockStopMask0 = kIntrepidIsStoppedUSB2;
+			clockStopMask1 = kIntrepidIsStoppedUSB2PCI;
+		} else {	// shouldn't happen
+			clockStopMask0 = 0;
+			clockStopMask1 = 0;
+		}
+		
+		// Wait for clocks to settle
+		do {
+			IODelay (500);
+			// Clock stop registers are Intrepid Uni-N control registers
+			if (provider->callPlatformFunction (symReadIntrepidClockStopStatus, false, (void *)&clockStopStatus0, 
+				(void *)&clockStopStatus1, (void *)0, (void *)0) != kIOReturnSuccess) 
+					break;
+	
+			if (count++ > 100) {
+				IOLog ("USBKeyLargo::turnOnUSB bus %ld - giving up after 100 tries\n", busNumber);
+				break;
+			}
+			// Keep trying if all relevant clock stop bits have not been cleared
+		} while ((clockStopStatus0 & clockStopMask0) || (clockStopStatus1 & clockStopMask1));
+	}
+	
 	return;
 }
 

@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -31,12 +34,73 @@
 #ifndef _IOKIT_IOFIREWIRENUB_H
 #define _IOKIT_IOFIREWIRENUB_H
 
+// public
 #include <IOKit/IOService.h>
 #include <IOKit/firewire/IOFWCommand.h>
 #include <IOKit/firewire/IOFWAddressSpace.h>
+
 class IOFireWireController;
 class IOFireWireBus;
 class IOConfigDirectory;
+class IOFireWireNub;
+
+#pragma mark -
+
+/*! 
+	@class IOFireWireNubAux
+*/
+
+class IOFireWireNubAux : public OSObject
+{
+    OSDeclareDefaultStructors(IOFireWireNubAux)
+
+	friend class IOFireWireNub;
+	
+protected:
+	
+	IOFireWireNub * 		fPrimary;
+	
+	/*! 
+		@struct ExpansionData
+		@discussion This structure will be used to expand the capablilties of the class in the future.
+    */  
+	  
+    struct ExpansionData { };
+
+	/*! 
+		@var reserved
+		Reserved for future use.  (Internal use only)  
+	*/
+    
+	ExpansionData * reserved;
+
+    virtual bool init( IOFireWireNub * primary );
+	virtual	void free();
+
+	virtual UInt32 hopCount( IOFireWireNub * nub );
+	virtual UInt32 hopCount( void );
+	
+private:
+    OSMetaClassDeclareReservedUnused(IOFireWireNubAux, 0);
+    OSMetaClassDeclareReservedUnused(IOFireWireNubAux, 1);
+    OSMetaClassDeclareReservedUnused(IOFireWireNubAux, 2);
+    OSMetaClassDeclareReservedUnused(IOFireWireNubAux, 3);
+    OSMetaClassDeclareReservedUnused(IOFireWireNubAux, 4);
+    OSMetaClassDeclareReservedUnused(IOFireWireNubAux, 5);
+    OSMetaClassDeclareReservedUnused(IOFireWireNubAux, 6);
+    OSMetaClassDeclareReservedUnused(IOFireWireNubAux, 7);
+    OSMetaClassDeclareReservedUnused(IOFireWireNubAux, 8);
+    OSMetaClassDeclareReservedUnused(IOFireWireNubAux, 9);
+    OSMetaClassDeclareReservedUnused(IOFireWireNubAux, 10);
+    OSMetaClassDeclareReservedUnused(IOFireWireNubAux, 11);
+    OSMetaClassDeclareReservedUnused(IOFireWireNubAux, 12);
+    OSMetaClassDeclareReservedUnused(IOFireWireNubAux, 13);
+    OSMetaClassDeclareReservedUnused(IOFireWireNubAux, 14);
+    OSMetaClassDeclareReservedUnused(IOFireWireNubAux, 15);
+	
+};
+
+#pragma mark -
 
 /*! @class IOFireWireNub
 */
@@ -45,7 +109,8 @@ class IOFireWireNub : public IOService
     OSDeclareAbstractStructors(IOFireWireNub)
 
     friend class IOFireWireController;
-    
+    friend class IOFireWireNubAux;
+   
 /*------------------Useful info about device (also available in the registry)--------*/
 protected:
     int			fDeviceSpeed;	// Max supported by device
@@ -69,6 +134,8 @@ protected:
     UInt32		fNodeFlags;
     
 	OSSet *	 fConfigDirectorySet;
+
+	IOFireWireNubAux * fAuxiliary;
 		
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the class in the future.
@@ -172,10 +239,19 @@ public:
 	virtual IOReturn setConfigDirectory( IOConfigDirectory *directory );
 
     virtual IOReturn getConfigDirectoryRef( IOConfigDirectory *&dir );
-	    
+
+	inline UInt32 hopCount( IOFireWireNub * nub )
+		{ return fAuxiliary->hopCount( nub ); }
+		
+	inline UInt32 hopCount( void )
+		{ return fAuxiliary->hopCount(); }
+		
+protected:
+	virtual IOFireWireNubAux * createAuxiliary( void );
+    
 private:
     OSMetaClassDeclareReservedUsed(IOFireWireNub, 0);
-	OSMetaClassDeclareReservedUnused(IOFireWireNub, 1);
+	OSMetaClassDeclareReservedUsed(IOFireWireNub, 1);
     OSMetaClassDeclareReservedUnused(IOFireWireNub, 2);
     OSMetaClassDeclareReservedUnused(IOFireWireNub, 3);
 

@@ -50,7 +50,7 @@ struct cstring_data {
     unsigned long ninput_strings;/* number of strings in the input file */
     unsigned long noutput_strings;/* number of strings in the output file */
     unsigned long nprobes;	/* number of hash probes */
-#endif DEBUG
+#endif /* DEBUG */
 };
 
 /* the number of entries in the hash table */
@@ -109,4 +109,4 @@ __private_extern__ void print_cstring_data(
 __private_extern__ void cstring_data_stats(
     struct cstring_data *data,
     struct merged_section *ms);
-#endif DEBUG
+#endif /* DEBUG */

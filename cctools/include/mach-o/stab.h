@@ -92,6 +92,7 @@
 #define	N_STSYM	0x26	/* static symbol: name,,n_sect,type,address */
 #define	N_LCSYM	0x28	/* .lcomm symbol: name,,n_sect,type,address */
 #define N_BNSYM 0x2e	/* begin nsect sym: 0,,n_sect,0,address */
+#define N_OPT	0x3c	/* emitted with gcc2_compiled and in gcc source */
 #define	N_RSYM	0x40	/* register sym: name,,NO_SECT,type,register */
 #define	N_SLINE	0x44	/* src line: 0,,n_sect,linenumber,address */
 #define N_ENSYM 0x4e	/* end nsect sym: 0,,n_sect,0,address */
@@ -100,6 +101,9 @@
 #define	N_LSYM	0x80	/* local sym: name,,NO_SECT,type,offset */
 #define N_BINCL	0x82	/* include file beginning: name,,NO_SECT,0,sum */
 #define	N_SOL	0x84	/* #included file name: name,,n_sect,0,address */
+#define	N_PARAMS  0x86	/* compiler parameters: name,,NO_SECT,0,0 */
+#define	N_VERSION 0x88	/* compiler version: name,,NO_SECT,0,0 */
+#define	N_OLEVEL  0x8A	/* compiler -O level: name,,NO_SECT,0,0 */
 #define	N_PSYM	0xa0	/* parameter: name,,NO_SECT,type,offset */
 #define N_EINCL	0xa2	/* include file end: name,,NO_SECT,0,0 */
 #define	N_ENTRY	0xa4	/* alternate entry: name,,n_sect,linenumber,address */
@@ -116,4 +120,4 @@
  */
 #define	N_PC	0x30	/* global pascal symbol: name,,NO_SECT,subtype,line */
 
-#endif _MACHO_STAB_H_
+#endif /* _MACHO_STAB_H_ */

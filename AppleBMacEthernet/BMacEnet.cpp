@@ -68,7 +68,7 @@ OSDefineMetaClassAndStructors( BMacEnet, IOEthernetController )
  *
  *-------------------------------------------------------------------------*/
 
-bool BMacEnet::init(OSDictionary * properties = 0)
+bool BMacEnet::init( OSDictionary* properties )
 {
     if ( super::init(properties) == false )
         return false;
@@ -212,58 +212,67 @@ bool BMacEnet::start(IOService * provider)
 	IOWorkLoop * myWorkLoop = getWorkLoop();
 	assert(myWorkLoop);
 
-	//
-	// Allocate three IOInterruptEventSources.
-	//
-	rxIntSrc = IOInterruptEventSource::interruptEventSource
-            (this,
-             (IOInterruptEventAction) &BMacEnet::interruptOccurredForSource,
-             provider, PROVIDER_DMA_RX);
-        if (!rxIntSrc
-        || (myWorkLoop->addEventSource(rxIntSrc) != kIOReturnSuccess)) {
-		IOLog("Ethernet(BMac): rxIntSrc init failure\n");
+		// Allocate three IOInterruptEventSources:
+
+	rxIntSrc = IOInterruptEventSource::interruptEventSource(
+					this,
+					(IOInterruptEventAction)&BMacEnet::interruptOccurred,
+					provider,
+					PROVIDER_DMA_RX );
+	if ( !rxIntSrc || (myWorkLoop->addEventSource( rxIntSrc ) != kIOReturnSuccess) )
+	{
+		IOLog( "BMacEnet::start - rxIntSrc init failure\n" );
 		return false;
 	}
 
-	intES = IOInterruptEventSource::interruptEventSource
-            (this,
-             (IOInterruptEventAction) &BMacEnet::interruptOccurredForSource,
-             provider, PROVIDER_DMA_TX);
-        if (intES) {
-            bool res = (myWorkLoop->addEventSource(intES) != kIOReturnSuccess);
-            intES->release();
-            if (res) {
-		IOLog("Ethernet(BMac): PROVIDER_DMA_TX add failure\n");
-                return false;
-            }
-        }
-        else {
-		IOLog("Mace: PROVIDER_DMA_TX init failure\n");
+	intES = IOInterruptEventSource::interruptEventSource(
+					this,
+					(IOInterruptEventAction)&BMacEnet::interruptOccurred,
+					provider,
+					PROVIDER_DMA_TX );
+	if ( intES )
+	{
+		bool res = (myWorkLoop->addEventSource( intES ) != kIOReturnSuccess );
+		intES->release();
+		if ( res )
+		{
+			IOLog( "BMacEnet::start -  PROVIDER_DMA_TX add failure\n" );
+			return false;
+		}
+	}
+	else
+	{
+		IOLog( "BMacEnet::start - PROVIDER_DMA_TX init failure\n" );
 		return false;
 	}
-	
-	intES = IOInterruptEventSource::interruptEventSource
-            (this,
-             (IOInterruptEventAction) &BMacEnet::interruptOccurredForSource,	
-	     provider, PROVIDER_DEV);	
-	if (intES) {	
-	    bool res = (myWorkLoop->addEventSource(intES) != kIOReturnSuccess);	
-	    intES->release();	
-	    if (res) {
-		IOLog("Ethernet(BMac): PROVIDER_DEV add failure\n");	
-	        return false;	
-	    }	
-	}	
-	else {
-		IOLog("Ethernet(BMac): PROVIDER_DEV init failure\n");
+
+	intES = IOInterruptEventSource::interruptEventSource(
+					this,
+					(IOInterruptEventAction)&BMacEnet::interruptOccurred,
+					provider,
+					PROVIDER_DEV );
+	if ( intES )
+	{
+	    bool res = (myWorkLoop->addEventSource( intES ) != kIOReturnSuccess);
+	    intES->release();
+	    if ( res )
+		{
+			IOLog( "BMacEnet::start - PROVIDER_DEV add failure\n" );
+			return false;
+	    }
+	}
+	else
+	{
+		IOLog( "BMacEnet::start - PROVIDER_DEV init failure\n" );
 		return false;
 	}
-	
-	timerSrc = IOTimerEventSource::timerEventSource
-            (this, (IOTimerEventSource::Action) &BMacEnet::timeoutOccurred);
-	if (!timerSrc
-	|| (myWorkLoop->addEventSource(timerSrc) != kIOReturnSuccess)) {
-		IOLog("Ethernet(BMac): timerSrc init failure\n");
+
+	timerSrc = IOTimerEventSource::timerEventSource(
+					this,
+					(IOTimerEventSource::Action)&BMacEnet::timerPopped );
+	if ( !timerSrc || (myWorkLoop->addEventSource( timerSrc ) != kIOReturnSuccess) )
+	{
+		IOLog( "BMacEnet::start - timerSrc init failure\n" );
 		return false;
 	}
 
@@ -375,10 +384,16 @@ void BMacEnet::free()
 	for (i = 0; i < MEMORY_MAP_COUNT; i++)
 		if (maps[i]) maps[i]->release();
 
-	if (dmaMemory.ptr)
+	if ( dmaCommandsDesc )
+	{	dmaCommandsDesc->complete(  kIODirectionOutIn );
+		dmaCommandsDesc->release();
+		dmaCommandsDesc = 0;
+	}
+
+	if ( dmaCommands )
 	{
-		IOFree(dmaMemory.ptrReal, dmaMemory.sizeReal);
-		dmaMemory.ptr = 0;
+		IOFreeContiguous( dmaCommands, dmaCommandsSize );
+		dmaCommands = 0;
 	}
 
     if ( workLoop )
@@ -388,7 +403,9 @@ void BMacEnet::free()
     }
 
 	super::free();
-}
+	return;
+}/* end free */
+
 
 /*-------------------------------------------------------------------------
  * Override IONetworkController::createWorkLoop() method and create
@@ -420,8 +437,14 @@ IOWorkLoop * BMacEnet::getWorkLoop() const
  *
  *-------------------------------------------------------------------------*/
 
-void BMacEnet::interruptOccurredForSource(IOInterruptEventSource *src,
-		 int /*count*/)
+void BMacEnet::interruptOccurred( OSObject *me, IOInterruptEventSource *src, int /*count*/ )
+{
+	((BMacEnet*)me)->handleInterrupt( src );
+	return;
+}/* end interruptOccurred */
+
+
+void BMacEnet::handleInterrupt( IOInterruptEventSource *src )
 {
 	bool doFlushQueue = false;
 	bool doService    = false;
@@ -466,7 +489,9 @@ void BMacEnet::interruptOccurredForSource(IOInterruptEventSource *src,
 	 */
 	if ( doService && netifEnabled )
 		transmitQueue->service();
-}
+	return;
+}/* end handleInterrupt */
+
 
 /*-------------------------------------------------------------------------
  *
@@ -762,7 +787,14 @@ IOReturn BMacEnet::disable(IOKernelDebugger * /*debugger*/)
  *
  *-------------------------------------------------------------------------*/
 
-void BMacEnet::timeoutOccurred(IOTimerEventSource * /*timer*/)
+void BMacEnet::timerPopped( OSObject *me, IOTimerEventSource* /*timer*/ )
+{
+	((BMacEnet*)me)->handleTimerPop();
+	return;
+}/* end timerPopped */
+
+
+void BMacEnet::handleTimerPop()
 {
     u_int32_t       dmaStatus;
 	bool            doFlushQueue = false;
@@ -863,11 +895,10 @@ void BMacEnet::timeoutOccurred(IOTimerEventSource * /*timer*/)
 		transmitQueue->service();
 	}
 
-    /*
-     * Restart the watchdog timer
-     */
-	timerSrc->setTimeoutMS(WATCHDOG_TIMER_MS);
-}
+	timerSrc->setTimeoutMS( WATCHDOG_TIMER_MS );	/* Restart the watchdog timer	*/
+	return;
+}/* end handleTimerPop */
+
 
 /*-------------------------------------------------------------------------
  *

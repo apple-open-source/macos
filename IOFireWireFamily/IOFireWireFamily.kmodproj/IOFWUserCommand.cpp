@@ -43,8 +43,6 @@ IOFWUserCommand::free()
 		fMem->complete() ;
 		fMem->release() ;
 	}
-	
-	OSObject::free() ;
 }
 
 void
@@ -159,7 +157,7 @@ IOFWUserReadCommand::initWithSubmitParams(
 	
 	if (result)
 	{
-		fMem = IOMemoryDescriptor::withAddress( (vm_address_t) inParams->newBuffer, inParams->newBufferSize, kIODirectionOut, fUserClient->getOwningTask() ) ;
+		fMem = IOMemoryDescriptor::withAddress( (vm_address_t) inParams->newBuffer, inParams->newBufferSize, kIODirectionIn, fUserClient->getOwningTask() ) ;
 		result = (NULL != fMem) ;
 	}
 	
@@ -224,7 +222,7 @@ IOFWUserReadCommand::submit(
 			
 			if (NULL == (fMem = IOMemoryDescriptor::withAddress( (vm_address_t) inParams->newBuffer, 
 													inParams->newBufferSize, 
-													kIODirectionOut, 
+													kIODirectionIn, 
 													fUserClient->getOwningTask())) )
 			{
 				error = kIOReturnNoMemory ;
@@ -373,7 +371,7 @@ IOFWUserWriteCommand::initWithSubmitParams(
 	
 	if (result)
 	{
-		fMem = IOMemoryDescriptor::withAddress( (vm_address_t) inParams->newBuffer, inParams->newBufferSize, kIODirectionIn, fUserClient->getOwningTask() ) ;
+		fMem = IOMemoryDescriptor::withAddress( (vm_address_t) inParams->newBuffer, inParams->newBufferSize, kIODirectionOut, fUserClient->getOwningTask() ) ;
 		result = (NULL != fMem) ;
 	}
 	

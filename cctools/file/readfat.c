@@ -55,7 +55,7 @@ int nbytes)
     unsigned char tmpbuf[HOWMANY+1];	/* one extra for terminating '\0' */
     
 
-	if(nbytes < sizeof(struct fat_header)){
+	if(nbytes < (int)sizeof(struct fat_header)){
 	    return;
 	}
 	memcpy(&fat_header, buf, sizeof(struct fat_header));
@@ -63,7 +63,7 @@ int nbytes)
 	swap_fat_header(&fat_header, NX_LittleEndian);
 #endif /* __LITTLE_ENDIAN__ */
 	arch_size = fat_header.nfat_arch * sizeof(struct fat_arch);
-	if(arch_size + sizeof(struct fat_header) > nbytes){
+	if(arch_size + sizeof(struct fat_header) > (unsigned long)nbytes){
 	    return;
 	}
 	arch_buf = malloc(nbytes);
@@ -83,7 +83,7 @@ int nbytes)
 	    /*
 	     * try looking at the first HOWMANY bytes
 	     */
-	    if ((tbytes = read(fd, (char *)tmpbuf, HOWMANY)) == -1) {
+	    if ((int)(tbytes = read(fd, (char *)tmpbuf, HOWMANY)) == -1) {
 		error("read failed (%s).\n", strerror(errno));
 		/*NOTREACHED*/
 	    }

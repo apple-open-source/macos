@@ -39,11 +39,13 @@
 #include <mach-o/reloc.h>
 #include <mach-o/nlist.h>
 #include <mach-o/stab.h>
-#include <stuff/breakout.h>
-#include <stuff/allocate.h>
-#include <stuff/errors.h>
-#include <stuff/round.h>
+#include "stuff/breakout.h"
+#include "stuff/allocate.h"
+#include "stuff/errors.h"
+#include "stuff/round.h"
 #include "stuff/reloc.h"
+#include "stuff/reloc.h"
+#include "stuff/symbol_list.h"
 
 /* These are set from the command line arguments */
 char *progname;		/* name of the program for error messages (argv[0]) */
@@ -77,11 +79,6 @@ static enum bool default_dyld_executable = FALSE;
  * save_symbols is the names of the symbols from the -s <file> argument.
  * remove_symbols is the names of the symbols from the -R <file> argument.
  */
-struct symbol_list {
-    char *name;		/* name of the global symbol */
-    struct nlist *sym;	/* pointer to the nlist structure for this symbol */
-    enum bool seen;	/* set if the symbol is seen in the input file */
-};
 static struct symbol_list *save_symbols = NULL;
 static unsigned long nsave_symbols = 0;
 static struct symbol_list *remove_symbols = NULL;
@@ -107,12 +104,12 @@ static enum bool *nmedits = NULL;
  * and the new counts of local, defined external and undefined symbols.
  */
 static struct nlist *new_symbols = NULL;
-static long new_nsyms = 0;
+static unsigned long new_nsyms = 0;
 static char *new_strings = NULL;
-static long new_strsize = 0;
-static long new_nlocalsym = 0;
-static long new_nextdefsym = 0;
-static long new_nundefsym = 0;
+static unsigned long new_strsize = 0;
+static unsigned long new_nlocalsym = 0;
+static unsigned long new_nextdefsym = 0;
+static unsigned long new_nundefsym = 0;
 
 /*
  * These hold the new table of contents, reference table and module table for
@@ -170,9 +167,9 @@ static enum bool strip_symtab(
     struct member *member,
     struct object *object,
     struct nlist *symbols,
-    long nsyms,
+    unsigned long nsyms,
     char *strings,
-    long strsize,
+    unsigned long strsize,
     struct dylib_table_of_contents *tocs,
     unsigned long ntoc,
     struct dylib_module *mods,
@@ -203,9 +200,9 @@ static enum bool edit_symtab(
     struct member *member,
     struct object *object,
     struct nlist *symbols,
-    long nsyms,
+    unsigned long nsyms,
     char *strings,
-    long strsize,
+    unsigned long strsize,
     struct dylib_table_of_contents *tocs,
     unsigned long ntoc,
     struct dylib_module *mods,
@@ -213,19 +210,6 @@ static enum bool edit_symtab(
     struct dylib_reference *refs,
     unsigned long nextrefsyms);
 #endif /* NMEDIT */
-
-static void setup_symbol_list(
-    char *file,
-    struct symbol_list **list,
-    unsigned long *size);
-
-static int cmp_qsort_name(
-    const struct symbol_list *sym1,
-    const struct symbol_list *sym2);
-
-static int cmp_bsearch(
-    const char *name,
-    const struct symbol_list *sym);
 
 #ifndef NMEDIT
 static void setup_debug_filenames(
@@ -261,7 +245,8 @@ int argc,
 char *argv[],
 char *envp[])
 {
-    unsigned long i, j, args_left, files_specified;
+    int i;
+    unsigned long j, args_left, files_specified;
     struct arch_flag *arch_flags;
     unsigned long narch_flags;
     enum bool all_archs;
@@ -422,16 +407,16 @@ char *envp[])
 	if(Rfile){
 	    setup_symbol_list(Rfile, &remove_symbols, &nremove_symbols);
 	    if(sfile){
-		for(i = 0; i < nremove_symbols ; i++){
-		    sp = bsearch(remove_symbols[i].name,
+		for(j = 0; j < nremove_symbols ; j++){
+		    sp = bsearch(remove_symbols[j].name,
 				 save_symbols, nsave_symbols,
 				 sizeof(struct symbol_list),
 				 (int (*)(const void *, const void *))
-				    cmp_bsearch);
+				    symbol_list_bsearch);
 		    if(sp != NULL){
 			error("symbol name: %s is listed in both -s %s and -R "
 			      "%s files (can't be both saved and removed)",
-			      remove_symbols[i].name, sfile, Rfile);
+			      remove_symbols[j].name, sfile, Rfile);
 		    }
 		}
 		if(errors)
@@ -754,7 +739,7 @@ struct object *object)
     unsigned long nextrefsyms;
     unsigned long *indirectsyms;
     unsigned long nindirectsyms;
-    long i, j, k;
+    unsigned long i, j, k;
     struct load_command *lc;
     struct segment_command *sg;
     struct section *s;
@@ -1424,120 +1409,6 @@ struct object *object)
 	}
 }
 
-/*
- * This is called to setup a symbol list from a file.  It reads the file with
- * the strings in it and places them in an array of symbol_list structures and
- * then sorts them by name.
- *
- * The file that contains the symbol names must have symbol names one per line,
- * leading and trailing white space is removed and lines starting with a '#'
- * and lines with only white space are ignored.
- */
-static
-void
-setup_symbol_list(
-char *file,
-struct symbol_list **list,
-unsigned long *size)
-{
-    int fd, i, j, len, strings_size;
-    struct stat stat_buf;
-    char *strings, *p, *line;
-
-	if((fd = open(file, O_RDONLY)) < 0){
-	    system_error("can't open: %s", file);
-	    return;
-	}
-	if(fstat(fd, &stat_buf) == -1){
-	    system_error("can't stat: %s", file);
-	    close(fd);
-	    return;
-	}
-	strings_size = stat_buf.st_size;
-	strings = (char *)allocate(strings_size + 2);
-	strings[strings_size] = '\n';
-	strings[strings_size + 1] = '\0';
-	if(read(fd, strings, strings_size) != strings_size){
-	    system_error("can't read: %s", file);
-	    close(fd);
-	    return;
-	}
-	/*
-	 * Change the newlines to '\0' and count the number of lines with
-	 * symbol names.  Lines starting with '#' are comments and lines
-	 * contain all space characters do not contain symbol names.
-	 */
-	p = strings;
-	line = p;
-	for(i = 0; i < strings_size + 1; i++){
-	    if(*p == '\n' || *p == '\r'){
-		*p = '\0';
-		if(*line != '#'){
-		    while(*line != '\0' && isspace(*line))
-			line++;
-		    if(*line != '\0')
-			(*size)++;
-		}
-		p++;
-		line = p;
-	    }
-	    else{
-		p++;
-	    }
-	}
-	*list = (struct symbol_list *)
-		allocate((*size) * sizeof(struct symbol_list));
-
-	/*
-	 * Place the strings in the list trimming leading and trailing spaces
-	 * from the lines with symbol names.
-	 */
-	p = strings;
-	line = p;
-	for(i = 0; i < (*size); ){
-	    p += strlen(p) + 1;
-	    if(*line != '#' && *line != '\0'){
-		while(*line != '\0' && isspace(*line))
-		    line++;
-		if(*line != '\0'){
-		    (*list)[i].name = line;
-		    (*list)[i].seen = FALSE;
-		    i++;
-		    len = strlen(line);
-		    j = len - 1;
-		    while(j > 0 && isspace(line[j])){
-			j--;
-		    }
-		    if(j > 0 && j + 1 < len && isspace(line[j+1]))
-			line[j+1] = '\0';
-		}
-	    }
-	    line = p;
-	}
-
-	qsort(*list, *size, sizeof(struct symbol_list),
-	      (int (*)(const void *, const void *))cmp_qsort_name);
-
-	/* remove duplicates on the list */
-	for(i = 0; i < (*size); i++){
-	    if(i + 1 < (*size)){
-		if(strcmp((*list)[i].name, (*list)[i+1].name) == 0){
-		    for(j = 1; j < (*size) - i; j++){
-			(*list)[i + j].name = (*list)[i + j + 1].name;
-		    }
-		    *size = *size - 1;
-		}
-	    }
-	}
-
-#ifdef DEBUG
-	printf("symbol list:\n");
-	for(i = 0; i < (*size); i++){
-	    printf("0x%x name = %s\n", &((*list)[i]),(*list)[i].name);
-	}
-#endif DEBUG
-}
-
 #ifndef NMEDIT
 /*
  * This is called if there is a -d option specified.  It reads the file with
@@ -1593,7 +1464,7 @@ char *dfile)
 	for(i = 0; i < ndebug_filenames; i++){
 	    printf("filename = %s\n", debug_filenames[i]);
 	}
-#endif DEBUG
+#endif /* DEBUG */
 }
 
 /*
@@ -1610,9 +1481,9 @@ struct arch *arch,
 struct member *member,
 struct object *object,
 struct nlist *symbols,
-long nsyms,
+unsigned long nsyms,
 char *strings,
-long strsize,
+unsigned long strsize,
 struct dylib_table_of_contents *tocs,
 unsigned long ntoc,
 struct dylib_module *mods,
@@ -1622,7 +1493,8 @@ unsigned long nextrefsyms,
 unsigned long *indirectsyms,
 unsigned long nindirectsyms)
 {
-    long i, j, k, n, inew_syms, save_debug, missing_syms, missing_symbols;
+    unsigned long i, j, k, n, inew_syms, save_debug, missing_syms;
+    unsigned long missing_symbols;
     char *p, *q, **pp, *basename;
     struct symbol_list *sp;
     unsigned long new_ext_strsize, len, *changes, inew_undefsyms;
@@ -1687,7 +1559,7 @@ unsigned long nindirectsyms)
 	for(i = 0; i < nsyms; i++){
 	    if(symbols[i].n_un.n_strx != 0){
 		if(symbols[i].n_un.n_strx < 0 ||
-		   symbols[i].n_un.n_strx > strsize){
+		   (unsigned long)symbols[i].n_un.n_strx > strsize){
 		    error_arch(arch, member, "bad string index for symbol "
 			       "table entry %ld in: ", i);
 		    return(FALSE);
@@ -1839,7 +1711,7 @@ unsigned long nindirectsyms)
 				     save_symbols, nsave_symbols,
 				     sizeof(struct symbol_list),
 				     (int (*)(const void *, const void *))
-					cmp_bsearch);
+					symbol_list_bsearch);
 			if(sp != NULL){
 			    if(sp->sym == NULL){
 				sp->sym = &(symbols[i]);
@@ -1886,7 +1758,7 @@ unsigned long nindirectsyms)
 				 remove_symbols, nremove_symbols,
 				 sizeof(struct symbol_list),
 				 (int (*)(const void *, const void *))
-				    cmp_bsearch);
+				    symbol_list_bsearch);
 		    if(sp != NULL){
 			if((symbols[i].n_type & N_TYPE) == N_UNDF ||
 			   (symbols[i].n_type & N_TYPE) == N_PBUD){
@@ -1961,7 +1833,7 @@ unsigned long nindirectsyms)
 				 save_symbols, nsave_symbols,
 				 sizeof(struct symbol_list),
 				 (int (*)(const void *, const void *))
-				    cmp_bsearch);
+				    symbol_list_bsearch);
 		    if(sp != NULL){
 			if(sp->sym != NULL &&
 			   (sp->sym->n_type & N_PEXT) != N_PEXT){
@@ -2468,30 +2340,6 @@ const struct undef_map *sym2)
 }
 #endif /* !defined(NMEDIT) */
 
-/*
- * Function for qsort for comparing symbol list names.
- */
-static
-int
-cmp_qsort_name(
-const struct symbol_list *sym1,
-const struct symbol_list *sym2)
-{
-	return(strcmp(sym1->name, sym2->name));
-}
-
-/*
- * Function for bsearch for finding a symbol.
- */
-static
-int
-cmp_bsearch(
-const char *name,
-const struct symbol_list *sym)
-{
-	return(strcmp(name, sym->name));
-}
-
 #ifndef NMEDIT
 /*
  * Function for qsort for comparing object names.
@@ -2526,9 +2374,9 @@ struct arch *arch,
 struct member *member,
 struct object *object,
 struct nlist *symbols,
-long nsyms,
+unsigned long nsyms,
 char *strings,
-long strsize,
+unsigned long strsize,
 struct dylib_table_of_contents *tocs,
 unsigned long ntoc,
 struct dylib_module *mods,
@@ -2668,7 +2516,7 @@ unsigned long nextrefsyms)
 	    len = 0;
 	    if(symbols[i].n_un.n_strx != 0){
 		if(symbols[i].n_un.n_strx < 0 ||
-		   symbols[i].n_un.n_strx > strsize){
+		   (unsigned long)symbols[i].n_un.n_strx > strsize){
 		    error_arch(arch, member, "bad string index for symbol "
 			       "table entry %lu in: ", i);
 		    return(FALSE);
@@ -2696,7 +2544,7 @@ unsigned long nextrefsyms)
 					 remove_symbols, nremove_symbols,
 					 sizeof(struct symbol_list),
 					 (int (*)(const void *, const void *))
-					    cmp_bsearch);
+					    symbol_list_bsearch);
 			    if(sp != NULL){
 				if(sp->sym != NULL){
 				    error_arch(arch, member, "more than one "
@@ -2720,7 +2568,7 @@ unsigned long nextrefsyms)
 					 save_symbols, nsave_symbols,
 					 sizeof(struct symbol_list),
 					 (int (*)(const void *, const void *))
-					    cmp_bsearch);
+					    symbol_list_bsearch);
 			    if(sp != NULL){
 				if(sp->sym != NULL){
 				    error_arch(arch, member, "more than one "
@@ -2739,7 +2587,7 @@ unsigned long nextrefsyms)
 				 remove_symbols, nremove_symbols,
 				 sizeof(struct symbol_list),
 				 (int (*)(const void *, const void *))
-				    cmp_bsearch);
+				    symbol_list_bsearch);
 		    if(sp != NULL){
 			if(sp->sym != NULL){
 			    error_arch(arch, member, "more than one symbol "
@@ -2778,7 +2626,7 @@ unsigned long nextrefsyms)
 				 save_symbols, nsave_symbols,
 				 sizeof(struct symbol_list),
 				 (int (*)(const void *, const void *))
-				    cmp_bsearch);
+				    symbol_list_bsearch);
 		    if(sp != NULL){
 			if(sp->sym != NULL){
 			    error_arch(arch, member, "more than one symbol "
@@ -2911,19 +2759,19 @@ change_symbol:
 		if((global_name[0] == '+' || global_name[0] == '-') &&
 		   global_name[1] == '['){
 		    j = 2;
-		    while(j + symbols[i].n_un.n_strx < strsize &&
+		    while(j + (unsigned long)symbols[i].n_un.n_strx < strsize &&
 			  global_name[j] != ']')
 			j++;
-		    if(j + symbols[i].n_un.n_strx < strsize &&
+		    if(j + (unsigned long)symbols[i].n_un.n_strx < strsize &&
 		       global_name[j] == ']')
 			j++;
 		}
 		else
 		    j = 0;
-		while(j + symbols[i].n_un.n_strx < strsize &&
+		while(j + (unsigned long)symbols[i].n_un.n_strx < strsize &&
 		      global_name[j] != ':')
 		    j++;
-		if(j + symbols[i].n_un.n_strx >= strsize){
+		if(j + (unsigned long)symbols[i].n_un.n_strx >= strsize){
 		    error_arch(arch, member, "bad N_STAB symbol name for entry "
 			"%lu (does not contain ':' separating name from type) "
 			"in: ", i);
@@ -2946,7 +2794,8 @@ change_symbol:
 			symbols[i].n_sect = (*global_symbol)->n_sect;
 			symbols[i].n_value = (*global_symbol)->n_value;
 			symbols[i].n_desc = (*global_symbol)->n_desc;
-			if(j + 1 + symbols[i].n_un.n_strx >= strsize ||
+			if(j + 1 + (unsigned long)symbols[i].n_un.n_strx >=
+			   strsize ||
 			   global_name[j+1] != 'G'){
 			    error_arch(arch, member, "bad N_GSYM symbol name "
 				"for entry %lu (does not have type 'G' after "
@@ -2956,7 +2805,8 @@ change_symbol:
 		        global_name[j+1] = 'S';
 		    }
 		    else{ /* symbols[i].n_type == N_FUN */
-			if(j + 1 + symbols[i].n_un.n_strx >= strsize ||
+			if(j + 1 + (unsigned long)symbols[i].n_un.n_strx >=
+			   strsize ||
 			   global_name[j+1] == 'F'){
 			    global_name[j+1] = 'f';
 			}

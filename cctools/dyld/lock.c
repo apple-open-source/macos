@@ -271,10 +271,11 @@ dyld_mach_thread_self(void)
 	    my_thread = cached_thread;
 	}
 	else{
+	    if(cached_thread != MACH_PORT_NULL)
 #ifdef __MACH30__
-	    (void)mach_port_deallocate(mach_task_self(), cached_thread);
+	    	(void)mach_port_deallocate(mach_task_self(), cached_thread);
 #else
-	    (void)port_deallocate(mach_task_self(), cached_thread);
+	    	(void)port_deallocate(mach_task_self(), cached_thread);
 #endif
 	    my_thread = mach_thread_self();
 	    cached_thread = my_thread;

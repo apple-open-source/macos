@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -89,8 +92,10 @@ bool Intel82557::pciConfigInit(IOPCIDevice * provider)
     // To allow the device to use the PCI Memory Write and Invalidate
     // command, it must know the correct cache line size. The only
     // supported cache line sizes are 8 and 16 Dwords.
-    
-    provider->configWrite8( kIOPCIConfigCacheLineSize, 8 );
+    //
+    // Do not modify the cache line size register. Leave this up
+    // to the platform's firmware.
+    // provider->configWrite8( kIOPCIConfigCacheLineSize, 8 );
 
     // Locate the PM register block of this device in its PCI config space.
 
@@ -108,7 +113,7 @@ bool Intel82557::pciConfigInit(IOPCIDevice * provider)
             magicPacketSupported = true;
         }
         
-        // Clear PME# and set power state to d0.
+        // Clear PME# and set power state to D0.
 
         provider->configWrite16( kPCIPMCSR, 0x8000 );
         IOSleep( 10 );
@@ -195,7 +200,6 @@ bool Intel82557::initDriver(IOService * provider)
 bool Intel82557::getDefaultSettings()
 {
 	OSNumber *  numObj;
-    OSBoolean * boolObj;
 
     // Check for PHY address override.
 	//
@@ -209,8 +213,7 @@ bool Intel82557::getDefaultSettings()
     // Check for Verbose flag.
 	//
     verbose = false;
-	boolObj = OSDynamicCast( OSBoolean, getProperty("Verbose") );
-	if ( boolObj && boolObj->isTrue() )
+	if ( getProperty("Verbose") == kOSBooleanTrue )
     {
 		IOLog("%s: verbose mode enabled\n", getName());
 		verbose = true;
@@ -219,12 +222,24 @@ bool Intel82557::getDefaultSettings()
     // Check for Flow-Control enable flag.
 	//
     flowControl = false;
-    boolObj = OSDynamicCast( OSBoolean, getProperty("Flow Control") );
-	if ( boolObj && boolObj->isTrue() )
+    if ( getProperty("Flow Control") == kOSBooleanTrue )
     {
-		IOLog("%s: 802.3x flow control enabled\n", getName());
+		VPRINT("%s: 802.3x flow control enabled\n", getName());
 		flowControl = true;
 	}
+
+    // The number of bytes that must be present in the FIFO before the
+    // transmission on the wire begins. The value read from the table
+    // is divided by 8 to yield the value programmed to the TxCB.
+    // The range is from 1 to 0xE0.
+
+    txThreshold8 = TCB_TX_THRESHOLD;
+    numObj = OSDynamicCast( OSNumber, getProperty("Transmit Threshold") );
+    if ( numObj && numObj->unsigned32BitValue() >= 8 )
+    {
+        txThreshold8 = min( 0xE0, numObj->unsigned32BitValue() / 8 );
+        VPRINT("%s: transmit threshold 0x%x\n", getName(), txThreshold8);
+    }
 
 	return true;
 }
@@ -236,13 +251,16 @@ bool Intel82557::getDefaultSettings()
 
 bool Intel82557::start( IOService * provider )
 {
-    bool ret = false;
+    bool ret     = false;
+    bool started = false;
 
     do {
         // Start our superclass first.
 
         if ( super::start(provider) == false )
             break;
+
+        started = true;
 
         // Cache our provider to an instance variable.
 
@@ -308,13 +326,13 @@ bool Intel82557::start( IOService * provider )
 
         if ( coldInit() == false )
         {
-            IOLog("%s: coldInit failed\n", getName());
+            VPRINT("%s: coldInit failed\n", getName());
             break;
         }
 
         if ( hwInit() == false )
         {
-            IOLog("%s: hwInit failed\n", getName());
+            VPRINT("%s: hwInit failed\n", getName());
             break;
         }
 
@@ -323,7 +341,7 @@ bool Intel82557::start( IOService * provider )
         _phyPublishMedia();
         if ( publishMediumDictionary(mediumDict) == false )
         {
-            IOLog("%s: publishMediumDictionary failed\n", getName());
+            VPRINT("%s: publishMediumDictionary failed\n", getName());
 			break;
         }
 
@@ -365,7 +383,11 @@ bool Intel82557::start( IOService * provider )
         ret = true;
     }
     while ( false );
-    
+
+    // Issue a stop on failure.
+
+    if (started && !ret) super::stop(provider);
+
     return ret;
 }
 
@@ -459,9 +481,9 @@ void Intel82557::free()
     RELEASE( pciNub       );
     RELEASE( workLoop     );
 
-	_freeMemPage( &shared );
-	_freeMemPage( &txRing );
-	_freeMemPage( &rxRing );
+	freePageBlock( &shared );
+	freePageBlock( &txRing );
+	freePageBlock( &rxRing );
 
     if ( powerOffThreadCall )
     {
@@ -501,7 +523,7 @@ bool Intel82557::enableAdapter(UInt32 level)
 
             if ( hwInit() == false )
             {
-                IOLog("%s: hwInit failed\n", getName());
+                VPRINT("%s: hwInit failed\n", getName());
                 break;
             }
 
@@ -516,7 +538,7 @@ bool Intel82557::enableAdapter(UInt32 level)
 			// Set current medium.
 			//
 			if (selectMedium(getCurrentMedium()) != kIOReturnSuccess)
-				IOLog("%s: selectMedium error\n", getName());
+				VPRINT("%s: selectMedium error\n", getName());
 
 			// Start the watchdog timer.
 			//
@@ -548,7 +570,7 @@ bool Intel82557::enableAdapter(UInt32 level)
 	}
 
 	if (!ret)
-		IOLog("%s::%s error in level %ld\n", getName(), __FUNCTION__, level);
+		VPRINT("%s::%s error in level %ld\n", getName(), __FUNCTION__, level);
 
 	return ret;
 }
@@ -615,7 +637,7 @@ bool Intel82557::disableAdapter(UInt32 level)
 	}
 
 	if (!ret)
-		IOLog("%s::%s error in level %ld\n", getName(), __FUNCTION__, level);
+		VPRINT("%s::%s error in level %ld\n", getName(), __FUNCTION__, level);
 
 	return ret;
 }
@@ -776,7 +798,7 @@ IOReturn Intel82557::setMulticastList(IOEthernetAddress * addrs, UInt32 count)
 
     if ( mcSetup(addrs, count) == false )
     {
-    	IOLog("%s: set multicast list failed\n", getName());
+    	VPRINT("%s: set multicast list failed\n", getName());
 		ret = kIOReturnIOError;
 	}
 	return ret;
@@ -844,7 +866,7 @@ IOReturn Intel82557::selectMedium(const IONetworkMedium * medium)
 	// Update the current medium property.
 	//
 	if ( r && !setCurrentMedium(medium) )
-		IOLog("%s: setCurrentMedium error\n", getName());
+		VPRINT("%s: setCurrentMedium error\n", getName());
 
 	return ( r ? kIOReturnSuccess : kIOReturnIOError );
 }

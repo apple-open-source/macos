@@ -1,4 +1,4 @@
-.TH REDO_PREBINDING 3 "May 22, 2002" "Apple Computer, Inc."
+.TH REDO_PREBINDING 3 "October 3, 2002" "Apple Computer, Inc."
 .SH NAME
 redo_prebinding library functions
 .SH SYNOPSIS
@@ -8,6 +8,11 @@ redo_prebinding library functions
 #include <mach-o/redo_prebinding.h>
 .sp .5
 extern char ** dependent_libs(
+	const char *file_name,
+	const char *program_name,
+	char **error_message);
+.sp .5
+extern char * install_name(
 	const char *file_name,
 	const char *program_name,
 	char **error_message);
@@ -113,6 +118,25 @@ pointer). If unsuccessful
 .I dependent_libs returns
 NULL.
 .PP
+.IR install_name ()
+takes a
+.I file_name
+of a binary and returns a malloc(3)'ed pointer to a
+.SM NULL
+terminated string containing the install_name value for the binary. If
+unsuccessful install_name() returns
+.SM NULL.
+ In particular,
+.SM NULL
+is returned if the binary is not a dylib and there is no error_message
+set.  If the all of the arch's are dylibs but all the install names don't
+match
+.SM NULL
+is returned and a error_message is set.  If some but not all of
+the archs are dylibs
+.SM NULL
+is returned and a error_message is set.
+.PP
 .IR redo_prebinding ()
 takes a
 .I file_name
@@ -182,8 +206,7 @@ and determines if it is a binary and if its prebinding is uptodate.  It returns
 one of the return values below depending on the state of the binary and
 libraries.  If the parameter
 .I allow_missing_architectures
-is zero then the value returned is based on the first architecture for fat
-files.  If the parameter
+is zero then architectures for fat files are checked.  If the parameter
 .I allow_missing_architectures
 is non-zero then the value returned is based on the cputype specified by
 .I allow_missing_architectures.

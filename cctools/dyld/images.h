@@ -51,14 +51,22 @@ enum link_state {
 };
 
 struct image {
-    char *name;			/* Image name for reporting errors. */
+    char *physical_name;	/* physical image name (file name), same as */
+				/*  name below if the NSLinkModule() option */
+				/*  NSLINKMODULE_OPTION_TRAILING_PHYS_NAME is */
+				/*  not used. */
     unsigned long vmaddr_slide; /* The amount the vmaddresses are slid in the */
 				/*  image from the staticly link addresses. */
     struct mach_header *mh;	/* The mach header of the image. */
     unsigned long valid;	/* TRUE if this is struct is valid */
     /*
      * The above four fields can't change without breaking gdb(1) see the
-     * comments in <mach-o/dyld_gdb.h>.
+     * comments in <mach-o/dyld_gdb.h> for gdb_dyld_version 1.
+     */
+    char *name;			/* Image name for reporting errors. */
+    /*
+     * Also the above field can't change without breaking gdb(1) for
+     * gdb_dyld_version 2, see the comments in <mach-o/dyld_gdb.h>.
      */
     unsigned long vmaddr_size;  /* The size of the vm this image uses */
     unsigned long seg1addr;	/* The address of the first segment */
@@ -80,6 +88,7 @@ struct image {
 #endif
     unsigned long
       prebound:1,		/* Link states set from prebound state */
+      all_modules_linked:1,	/* set if all the modules are linked */
       change_protect_on_reloc:1,/* The image has relocations in read-only */
 				/*  segments and protection needs to change. */
       cache_sync_on_reloc:1,	/* The image has relocations for instructions */
@@ -99,13 +108,24 @@ struct image {
       image_can_use_hints:1,	/* set when the hints are usable in this image*/
       subs_can_use_hints:1,	/* set when the hints are usable for images */
 				/*  that have this image as a sub image */
+      dont_call_mod_init:1,	/* don't call any module init routines, this */
+			        /*  is currently only for object images */
       /*
        * This is set for library images when the NSAddImage() option 
        * NSADDIMAGE_OPTION_MATCH_FILENAME_BY_INSTALLNAME is used.
        */
       match_filename_by_installname:1,
 
-      unused:16;
+      /*
+       * This is set library images when we are trying to use its prebinding
+       * after the program is launched.  This is only done if all libraries
+       * previously loaded are prebound, two-level and have all modules
+       * bound.
+       */
+      trying_to_use_prebinding_post_launch:1,
+
+
+      unused:13;
     /*
      * For two-level namespace images this is the array of pointers to the
      * dependent images and the count of them.
@@ -274,8 +294,12 @@ extern void unload_remove_on_error_libraries(
 extern void clear_remove_on_error_libraries(
     void);
 
+extern void clear_trying_to_use_prebinding_post_launch(
+    void);
+
 extern struct object_image *map_bundle_image(
     char *name,
+    char *physical_name,
     char *object_addr,
     unsigned long object_size);
 
@@ -292,8 +316,11 @@ extern void shared_pcsample_buffer(
 extern enum bool set_images_to_prebound(
     void);
 
-extern void undo_prebound_images(
+extern void set_all_twolevel_modules_prebound(
     void);
+
+extern void undo_prebound_images(
+    enum bool post_launch_libraries_only);
 
 extern void find_twolevel_prebound_lib_subtrees(
     void);
@@ -308,6 +335,9 @@ extern char *executables_name;
 
 extern char *save_string(
     char *name);
+
+extern void unsave_string(
+    char *string);
 
 extern void create_executables_path(
     char *exec_path);

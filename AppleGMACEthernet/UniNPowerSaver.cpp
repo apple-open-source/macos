@@ -4,19 +4,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").	You may not use this file except in compliance with the
- * License.	 Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -169,13 +172,9 @@ void UniNEnet::stopPHY()
 
 
 	if ( fWOL == false )
-	{
-			// disabling MIF interrupts on the 5201 is explicit
+	{		// disabling MIF interrupts on the 5201 is explicit
 		if ( fPHYType == 0x5201 )
-		{
-			miiWriteWord( 0x0000, MII_BCM5201_INTERRUPT, kPHYAddr0 );
-				// 0 or 0x1f or phyId?	miiFindPHY returns any integer
-		}
+			miiWriteWord( 0x0000, MII_BCM5201_INTERRUPT );
 	}
 
 		/* Turn off PHY status-change polling to prevent immediate wakeup:	*/
@@ -184,10 +183,10 @@ void UniNEnet::stopPHY()
 	WRITE_REGISTER( MIFConfiguration, val32 );
 
 		// 5th ADDR in Broadcom PHY docs
-	miiReadWord( &val16, MII_LINKPARTNER, kPHYAddr0 );	
+	miiReadWord( &val16, MII_LINKPARTNER );	
 
 		// don't know why OS9 writes it back unchanged
-	miiWriteWord( val16, MII_LINKPARTNER, kPHYAddr0 );	
+	miiWriteWord( val16, MII_LINKPARTNER );	
 
 	if ( fWOL )
 	{
@@ -228,7 +227,6 @@ void UniNEnet::stopPHY()
 			// superisolate the transceiver
 		WRITE_REGISTER( SoftwareReset, kSoftwareReset_TX | kSoftwareReset_RX );
 
-			// kSoftwareReset_RSTOUT too???
 		i = 0;
 		do
 		{
@@ -253,39 +251,36 @@ void UniNEnet::stopPHY()
 #if 0
 				// The 5400 has read/write privilege on this bit,
 				// but 5201 is read-only.
-			miiWriteWord( MII_CONTROL_POWERDOWN, MII_CONTROL, kPHYAddr0 );
+			miiWriteWord( MII_CONTROL_POWERDOWN, MII_CONTROL );
 #endif
 			break;
 
 		case 0x5221:
 				// 1: enable shadow mode registers in 5221 (0x1A-0x1E)
-			miiReadWord( &val16, MII_BCM5221_TestRegister, kPHYAddr0 );
-			miiWriteWord( val16 | MII_BCM5221_ShadowRegEnableBit, MII_BCM5221_TestRegister, kPHYAddr0 );	
+			miiReadWord( &val16, MII_BCM5221_TestRegister );
+			miiWriteWord( val16 | MII_BCM5221_ShadowRegEnableBit, MII_BCM5221_TestRegister );	
 
 				// 2: Force IDDQ mode for max power savings
 				// remember..after setting IDDQ mode we have to "hard" reset
 				// the PHY in order to access it.
-			miiReadWord( &val16, MII_BCM5221_AuxiliaryMode4, kPHYAddr0 );
-			miiWriteWord( val16 | MII_BCM5221_SetIDDQMode, MII_BCM5221_AuxiliaryMode4, kPHYAddr0 );
+			miiReadWord( &val16, MII_BCM5221_AuxiliaryMode4 );
+			miiWriteWord( val16 | MII_BCM5221_SetIDDQMode, MII_BCM5221_AuxiliaryMode4 );
 			break;
 
 		case 0x5201:
 #if 0
-			miiReadWord( &val16, MII_BCM5201_AUXMODE2, kPHYAddr0 );
-			miiWriteWord( val16 & ~MII_BCM5201_AUXMODE2_LOWPOWER,
-						  MII_BCM5201_AUXMODE2, kPHYAddr0 );
+			miiReadWord( &val16, MII_BCM5201_AUXMODE2 );
+			miiWriteWord( val16 & ~MII_BCM5201_AUXMODE2_LOWPOWER,  MII_BCM5201_AUXMODE2 );
 #endif
 
-			miiWriteWord( MII_BCM5201_MULTIPHY_SUPERISOLATE,
-						  MII_BCM5201_MULTIPHY,
-						  kPHYAddr0 );
+			miiWriteWord( MII_BCM5201_MULTIPHY_SUPERISOLATE, MII_BCM5201_MULTIPHY );
 			break;
 
 
 		case 0x5411:
 		case 0x5421:
 		default:
-			miiWriteWord( MII_CONTROL_POWERDOWN, MII_CONTROL, kPHYAddr0 );
+			miiWriteWord( MII_CONTROL_POWERDOWN, MII_CONTROL );
 			break;
 		}/* end SWITCH on PHY type */
 
@@ -352,15 +347,13 @@ void UniNEnet::startPHY()
 			// These 2 lines should take the PHY out of superisolate mode.
 		 	// All MII inputs are ignored until the PHY is out of isolate mode.
 
-		miiReadWord( &val16, MII_BCM5201_MULTIPHY, kPHYAddr0 );
-		miiWriteWord( val16 & ~MII_BCM5201_MULTIPHY_SUPERISOLATE,
-					  MII_BCM5201_MULTIPHY, kPHYAddr0 );
+		miiReadWord( &val16, MII_BCM5201_MULTIPHY );
+		miiWriteWord( val16 & ~MII_BCM5201_MULTIPHY_SUPERISOLATE, MII_BCM5201_MULTIPHY );
 
 #if 0
 			// Automatically go into low power mode if no link
-		miiReadWord( &val16, MII_BCM5201_AUXMODE2, kPHYAddr0 );
-		miiWriteWord( val16 | MII_BCM5201_AUXMODE2_LOWPOWER,
-					  MII_BCM5201_AUXMODE2, kPHYAddr0 );
+		miiReadWord( &val16, MII_BCM5201_AUXMODE2 );
+		miiWriteWord( val16 | MII_BCM5201_AUXMODE2_LOWPOWER, MII_BCM5201_AUXMODE2 );
 #endif
 	}
 
@@ -390,9 +383,12 @@ bool UniNEnet::hardwareResetPHY()
 ///	if ( result != kIOReturnSuccess )
 ///		return false;
 
-		// Clear Powerdown and reset:
-	miiWriteWord( MII_CONTROL_RESET, MII_CONTROL, kPHYAddr0 );
-	IOSleep( 10 );
+	phyId = fK2 ? 1 : 0;
+	if ( phyId != 0xFF )
+	{		// If PHY location is known, clear Powerdown and reset:
+		miiWriteWord( MII_CONTROL_RESET, MII_CONTROL );
+		IOSleep( 10 );
+	}
 	return true;	/// return value not used.
 }/* end hardwareResetPHY */
 

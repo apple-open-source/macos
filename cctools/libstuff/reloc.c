@@ -54,6 +54,7 @@ cpu_type_t cputype)
 	    return(I860_RELOC_PAIR);
 	    break;
 	case CPU_TYPE_POWERPC:
+	case CPU_TYPE_VEO:
 	    return(PPC_RELOC_PAIR);
 	    break;
 	case CPU_TYPE_HPPA:
@@ -98,6 +99,7 @@ unsigned long r_type)
 		return(TRUE);
 	    break;
 	case CPU_TYPE_POWERPC:
+	case CPU_TYPE_VEO:
 	    if(r_type == PPC_RELOC_HI16 ||
 	       r_type == PPC_RELOC_LO16 ||
 	       r_type == PPC_RELOC_HA16 ||
@@ -159,6 +161,7 @@ unsigned long r_type)
 		return(TRUE);
 	    break;
 	case CPU_TYPE_POWERPC:
+	case CPU_TYPE_VEO:
 	    if(r_type == PPC_RELOC_SECTDIFF ||
 	       r_type == PPC_RELOC_HI16_SECTDIFF ||
 	       r_type == PPC_RELOC_LO16_SECTDIFF ||

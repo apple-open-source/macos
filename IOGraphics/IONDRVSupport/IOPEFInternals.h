@@ -3,70 +3,25 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-
-
-/*
-    File:       zPEF.h
-
-    Contains:   PEF format declarations.
-
-    Version:    Maxwell
-
-    Copyright:  © 1992-1996 by Apple Computer, Inc., all rights reserved.
-
-    File Ownership:
-
-        DRI:                Alan Lillich
-
-        Other Contact:      <<unknown>>
-
-        Technology:         Core Runtime
-
-    Writers:
-
-        (AWL)   Alan Lillich
-        (ELE)   Erik Eidt
-
-     Change History (most recent first):
-
-         <7>     2/28/96    AWL     Adapt for new container handler model.
-         <6>     4/12/95    AWL     Fix bit field problem.
-         <5>     8/29/94    AWL     Remove "never" share mode.
-         <4>     8/23/94    AWL     Update section sharing constants.
-         <3>     4/28/94    AWL     Simplify cross address space use for booting.
-         <2>     4/11/94    AWL     Use 68K alignment for the export symbol structure.
-         <1>     2/15/94    AWL     Initial checkin for kernel based CFM.
-
-         -------------------------------------------------------------------------------------
-
-            <7>   8/26/93    AWL        Move CFTypes.h and CFLoader.h up with other Apple private headers.
-            <5>     7/8/93   AWL        (&ELE) Fixed version field names in import file IDs
-            <4>     6/9/93   JRG        ELE & AWL Changes:
-            <4>  06/08/93    AWL        (&ELE) Added more standard section types and packed data opcodes.
-            <3>   9/23/92    ELE        added precomputed hash table for improved runtime performance.
-
-     Version 1.3 Erik Eidt 9/23/92  updated for new hash table capabilities
-     Version 1.2 Erik Eidt 7/8/92   updated for new relocations and other loader section size optimizations
-     Version 1.1 Cheryl Lins 5/27/92 updated for PEF 1.2 definition
-     Version 1.0 Cheryl Lins 4/7/92 initial version
-*/
-
 
 #ifndef __IOPEFINTERNALS__
 #define __IOPEFINTERNALS__ 1
@@ -366,33 +321,6 @@ enum {
             ( (((UInt8)(opcode)) << kPEFPkDataOpcodeShift) | ((UInt8)(count5)) )
 
 
-
-
-
-/*
-    File:       CodeFragmentContainerPriv.h
- 
-    Contains:   Physical container routines of the ModernOS version of CFM.
- 
-    Version:    Maxwell
- 
-    DRI:        Alan Lillich
- 
-    Copyright:  © 1984-1996 by Apple Computer, Inc.
-                All rights reserved.
- 
-    BuildInfo:  Built by:           Simon Douglas
-                With Interfacer:    2.0d13   (PowerPC native)
-                From:               CodeFragmentContainerPriv.i
-                    Revision:       9
-                    Dated:          10/9/96
-                    Last change by: AWL
-                    Last comment:   Remove special SMP sharing, using prepare option instead.
- 
-    Bugs:       Report bugs to Radar component ÒSystem InterfacesÓ, ÒLatestÓ
-                List the version information (from above) in the Problem Description.
- 
-*/
 /*
  -------------------------------------------------------------------------------------------
  This file contains what used to be called the CFLoader interface.  The name was changed to
@@ -618,7 +546,7 @@ typedef void (*CFContReleaseMem)(LogicalAddress address);
  Container Handler Routines
  ==========================
 */
-typedef OSStatus (*CFCont_OpenContainer)(LogicalAddress mappedAddress, LogicalAddress runningAddress, ByteCount containerLength, KernelProcessID runningProcessID, const CFContHashedName *cfragName, CFContOpenOptions options, CFContAllocateMem Allocate, CFContReleaseMem Release, CFContHandlerRef *containerRef, CFContHandlerProcsPtr *handlerProcs);
+typedef OSStatus (*CFCont_OpenContainer)(LogicalAddress mappedAddress, LogicalAddress runningAddress, ByteCount containerLength, CFContOpenOptions options, CFContAllocateMem Allocate, CFContReleaseMem Release, CFContHandlerRef *containerRef, CFContHandlerProcsPtr *handlerProcs, UInt32 * createDate);
 typedef OSStatus (*CFCont_CloseContainer)(CFContHandlerRef containerRef, CFContCloseOptions options);
 typedef OSStatus (*CFCont_GetContainerInfo)(CFContHandlerRef containerRef, PBVersion infoVersion, CFContContainerInfo *containerInfo);
 /* -------------------------------------------------------------------------------------------*/
@@ -726,45 +654,6 @@ extern OSStatus CFContGetContainerHandlers(ItemCount requestedCount, ItemCount *
 #endif
 
 
-
-
-
-
-/*
-    File:       PEFLoader.h
-
-    Contains:   PEF Loader Interface.
-
-    Version:    Maxwell
-
-    Copyright:  © 1992-1996 by Apple Computer, Inc., all rights reserved.
-
-    File Ownership:
-
-        DRI:                Alan Lillich
-
-        Other Contact:      <<unknown>>
-
-        Technology:         Core Runtime
-
-    Writers:
-
-        (AWL)   Alan Lillich
-        (ELE)   Erik Eidt
-
-     Change History (most recent first):
-
-         <7>     8/23/96    AWL     (1379028) Propagate changes from CodeFragmentContainerPriv.
-         <6>     2/28/96    AWL     Adapt for new container handler model.
-         <5>     6/20/94    AWL     Move private PEF loader info struct here to be visible to the
-                                    booting "wacky" PEF loader.
-         <4>      6/8/94    AWL     Make all CFL routines visible for direct use in special cases
-                                    such as booting.
-         <3>     5/16/94    AWL     Fix typo.
-         <2>     2/25/94    AWL     Update for Q&D solution to loading across address spaces.
-         <1>     2/15/94    AWL     Initial checkin for kernel based CFM.
-*/
-
 // ===========================================================================================
 
 enum {
@@ -807,13 +696,12 @@ typedef struct PEFPrivateInfo   PEFPrivateInfo;
 extern OSStatus PEF_OpenContainer       ( LogicalAddress            mappedAddress,
                                           LogicalAddress            runningAddress,
                                           ByteCount                 containerLength,
-                                          KernelProcessID           runningProcessID,
-                                          const CFContHashedName *  cfragName,
                                           CFContOpenOptions         options,
                                           CFContAllocateMem         Allocate,
                                           CFContReleaseMem          Release,
                                           CFContHandlerRef *        containerRef_o,
-                                          CFContHandlerProcs * *    handlerProcs_o );
+                                          CFContHandlerProcs * *    handlerProcs_o,
+					  UInt32 *		    createDate );
 
 extern OSStatus PEF_CloseContainer      ( CFContHandlerRef          containerRef,
                                           CFContCloseOptions        options );

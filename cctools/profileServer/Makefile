@@ -1,10 +1,11 @@
+RC_OS = macos
 OFLAG = -O
 
 ifeq "mwccppc" "$(notdir $(CC))"
   CFLAGS = $(OFLAG) -g \
 	 -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR)
 else
-  CFLAGS = $(OFLAG) -g -Wall -Wno-precomp \
+  CFLAGS = $(OFLAG) -g -Wall \
 	 -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR)
 endif
 

@@ -3,18 +3,21 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.  
- * Please see the License for the specific language governing rights and 
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
  * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
@@ -22,6 +25,12 @@
 #ifndef _IOKIT_IOUSBCONTROLLER_H
 #define _IOKIT_IOUSBCONTROLLER_H
 
+//================================================================================================
+//
+//   Headers
+//
+//================================================================================================
+//
 #include <libkern/c++/OSArray.h>
 
 #include <IOKit/IOService.h>
@@ -38,19 +47,28 @@
 #include <IOKit/usb/IOUSBCommand.h>
 #include <IOKit/usb/IOUSBWorkLoop.h>
 
-/*
- * Errata
- * These indicate the anomolies of the various chips sets.  Test
- * for these in errataBits.
- */
-enum {
+
+//================================================================================================
+//
+//   Types and Constants
+//
+//================================================================================================
+//
+enum
+{
     kErrataCMDDisableTestMode		= (1 << 0),		// turn off UHCI test mode
     kErrataOnlySinglePageTransfers	= (1 << 1),		// Don't cross page boundaries in a single transfer
     kErrataRetryBufferUnderruns		= (1 << 2),		// Don't cross page boundaries in a single transfer
     kErrataLSHSOpti			= (1 << 3),		// Don't cross page boundaries in a single transfer
     kErrataDisableOvercurrent		= (1 << 4),		// Always set the NOCP bit in rhDescriptorA register
     kErrataLucentSuspendResume		= (1 << 5),		// Don't allow port suspend at the root hub
-    kErrataNeedsWatchdogTimer		= (1 << 6)		// Use Watchdog timer to reset confused controllers
+    kErrataNeedsWatchdogTimer		= (1 << 6),		// Use Watchdog timer to reset confused controllers
+    kErrataNeedsPortPowerOff		= (1 << 7)		// Power off the ports and back on again to clear weird status.
+};
+
+enum
+{
+    kUSBWatchdogTimeoutMS = 1000
 };
 
 
@@ -67,7 +85,8 @@ enum {
      @field errata      Bit field flagging which errata to apply to device.
 */
 
-struct ErrataListEntryStruct {
+struct ErrataListEntryStruct
+{
     UInt16 				vendID;
     UInt16 				deviceID;
     UInt16 				revisionLo;
@@ -75,25 +94,38 @@ struct ErrataListEntryStruct {
     UInt32 				errata;
 };
 
-typedef struct ErrataListEntryStruct
-                    ErrataListEntry,
-                    *ErrataListEntryPtr;
-
-void IOUSBSyncCompletion(void *target, void * parameter,
-                                  IOReturn	status,
-                                  UInt32	bufferSizeRemaining);
-
-void  IOUSBSyncIsoCompletion(void *target, void * parameter,
-                                  IOReturn	status,
-                                  IOUSBIsocFrame *pFrames);
+typedef struct ErrataListEntryStruct  ErrataListEntry, *ErrataListEntryPtr;
 
 
-// forward definitions
+//================================================================================================
+//
+//   Routines used to implement synchronous I/O
+//
+//================================================================================================
+//
+void IOUSBSyncCompletion(void *target, void * parameter, IOReturn status, UInt32 bufferSizeRemaining);
+
+void  IOUSBSyncIsoCompletion(void *target, void * parameter, IOReturn status, IOUSBIsocFrame *pFrames);
+
+
+//================================================================================================
+//
+//   Forward Declarations
+//
+//================================================================================================
+//
 class IOUSBDevice;
 class IOUSBLog;
 class IOUSBRootHubDevice;
 class IOMemoryDescriptor;
 
+
+//================================================================================================
+//
+//   IOUSBController Class
+//
+//================================================================================================
+//
 /*!
     @class IOUSBController
     @abstract Base class for USB hardware driver
@@ -116,7 +148,7 @@ protected:
     IOUSBRootHubDevice *	_rootHubDevice;
     UInt32			_devZeroLock;
     static UInt32		_busCount;
-    static bool			gUsedBusIDs[16];
+    static bool			gUsedBusIDs[256];
     
     struct ExpansionData 
     {
@@ -130,21 +162,24 @@ protected:
         UInt32			_currentSizeOfCommandPool;
         UInt32			_currentSizeOfIsocCommandPool;
         UInt8			_controllerSpeed;	// Controller speed, passed down for splits
+        thread_call_t		_terminatePCCardThread;
         bool			_addressPending[128];
     };
     ExpansionData *_expansionData;
-    
-#define _freeUSBCommandPool		_expansionData->freeUSBCommandPool
-#define _freeUSBIsocCommandPool		_expansionData->freeUSBIsocCommandPool
-#define _watchdogUSBTimer		_expansionData->watchdogUSBTimer
-#define _controllerTerminating		_expansionData->_terminating
-#define _watchdogTimerActive		_expansionData->_watchdogTimerActive
-#define _pcCardEjected			_expansionData->_pcCardEjected
-#define _busNumber			_expansionData->_busNumber
-#define _currentSizeOfCommandPool	_expansionData->_currentSizeOfCommandPool
-#define _currentSizeOfIsocCommandPool	_expansionData->_currentSizeOfIsocCommandPool
-#define _controllerSpeed		_expansionData->_controllerSpeed
-#define _addressPending			_expansionData->_addressPending
+
+    //
+    #define _freeUSBCommandPool			_expansionData->freeUSBCommandPool
+    #define _freeUSBIsocCommandPool		_expansionData->freeUSBIsocCommandPool
+    #define _watchdogUSBTimer			_expansionData->watchdogUSBTimer
+    #define _controllerTerminating		_expansionData->_terminating
+    #define _watchdogTimerActive		_expansionData->_watchdogTimerActive
+    #define _pcCardEjected			_expansionData->_pcCardEjected
+    #define _busNumber				_expansionData->_busNumber
+    #define _currentSizeOfCommandPool		_expansionData->_currentSizeOfCommandPool
+    #define _currentSizeOfIsocCommandPool	_expansionData->_currentSizeOfIsocCommandPool
+    #define _controllerSpeed			_expansionData->_controllerSpeed
+    #define _terminatePCCardThread		_expansionData->_terminatePCCardThread
+    #define _addressPending			_expansionData->_addressPending
 
     // The following methods do not use and upper case initial letter because they are part of IOKit
     //
@@ -248,7 +283,9 @@ protected:
                                                     IOUSBLowLatencyIsocFrame	*pFrames );
                                                     
     static void			WatchdogTimer(OSObject *target, IOTimerEventSource *sender);
-    
+
+    static void 		TerminatePCCard(OSObject *target);
+
     static IOReturn		ProtectedDevZeroLock(OSObject *target, void* lock, void *, void *, void*);
 
     USBDeviceAddress		GetNewAddress( void );
@@ -268,7 +305,7 @@ protected:
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Invokes the specified completion action of the request.  If
     // the completion action is unspecified, no action is taken.
-    void 		Complete(
+    void 			Complete(
                                             IOUSBCompletion	completion,
                                             IOReturn		status,
                                             UInt32		actualByteCount = 0 );
@@ -1024,12 +1061,8 @@ public:
 private:
     void	IncreaseIsocCommandPool();
     void 	IncreaseCommandPool();
-    
-};
-
-enum
-{
-    kUSBWatchdogTimeoutMS = 1000
+    void	ParsePCILocation(const char *str, int *deviceNum, int *functionNum);
+    int		ValueOfHexDigit(char c);
 };
 
 #endif /* ! _IOKIT_IOUSBCONTROLLER_H */

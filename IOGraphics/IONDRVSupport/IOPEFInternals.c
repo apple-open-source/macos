@@ -3,109 +3,25 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-
-/*
-    File:       PEFLoader.c
- 
-    Contains:   PEF loader implementation.
- 
-    Version:    Maxwell
- 
-    Copyright:  © 1994-1996 by Apple Computer, Inc., all rights reserved.
- 
-    File Ownership:
- 
-        DRI:                Alan Lillich
- 
-        Other Contact:      <<unknown>>
- 
-        Technology:         Core Runtime
- 
-    Writers:
- 
-        (AWL)   Alan Lillich
-        (ELE)   Erik Eidt
- 
-     Change History (most recent first):
- 
-        <26>     10/4/96    AWL     Disable partial unpacking tests.
-        <25>     9/26/96    AWL     Fix assertions to have the right polarity.
-        <24>     9/18/96    AWL     Simplify UnpackPartialSection.
-        <23>     8/27/96    AWL     Support partial unpacking in PEF_UnpackSection.
-        <22>     8/23/96    AWL     (1379028) Propagate changes from CodeFragmentContainerPriv.
-        <21>     8/16/96    AWL     Isolate memory utilities to work with both CFM and ProtoCFM.
-        <20>     4/18/96    AWL     (1342167) Fix problems with relocations for in-place sections.
-        <19>      4/2/96    AWL     (1336962) Fix checks for missing optional parameters.
-        <18>      3/7/96    AWL     Remove unused variable in PEF_UnpackSection.
-        <17>     2/28/96    AWL     Adapt for new container handler model.
-        <16>     1/19/96    AWL     Changes for D11.
-        <15>    10/10/95    AWL     Minor cleanup for CodeWarrior's strict checking.
-        <14>     6/14/95    AWL     Pick up flags from CFMWhere ASAP.
-        <13>     5/23/95    AWL     Introduce temporary hack to workaround build problem for 68K
-                                    ModernOS booting code. *** THIS BREAKS REAL 68K BUILDS! ***
-        <12>      2/8/95    AWL     Update debug output calls.
-        <11>    12/14/94    AWL     Changes for Maxwell D4 build.
-        <10>     12/2/94    AWL     Disable reexported import optimization because of problems with
-                                    missing weak libraries. It could be put back later with the
-                                    addition of a "resolvedImports" bit vector.
-         <9>      9/9/94    AWL     Switch to the "real" API and SPI headers.
-         <8>      9/2/94    AWL     Error codes are now in Errors.h.
-         <7>     7/28/94    AWL     Return cfragSymbolNotFound instead of paramErr from
-                                    PLFindExportInfo. (#1177313)
-         <6>     7/12/94    AWL     Fix load-in-place processing in SetRegionAddress.
-         <5>     6/20/94    AWL     Allow the CFL info pointer to be NULL for a "get procs" call to
-                                    OpenContainer.
-         <4>      5/9/94    AWL     Change PLGetSpecialSectionInfo to handle some of the wierdness
-                                    in nonloaded sections.
-         <3>     4/28/94    AWL     Simplify cross address space use for booting. Fix problem with
-                                    load in place, should not require SetRegionAddress.
-         <2>     2/25/94    AWL     Update for Q&D solution to loading across address spaces.
-                                    Fix problem in PLGetSpecialSectionInfo switch statement.
-         <1>     2/15/94    AWL     Initial checkin for kernel based CFM.
- 
-          ------------------------------------------------------------------------------------
- 
-        <31>    09/15/93    AWL     (&ELE) Add CFL prefix to hash functions.
-        <30>    09/08/93    ELE     (&AWL) Fix sneaky little typo that causes load failure.
-        <29>    08/30/93    AWL     Add declaration so that 68K native CFM compiles.
-        <28>    08/26/93    AWL     Move CFTypes.h and CFLoader.h up with other Apple private
-                                    headers.
-        <26>    07/08/93    AWL     (&ELE) Fixed version field names in import file IDs.
-                                    Remove version < 0 checks as versions are unsigned.
-        <25>    06/16/93    ELE     ELE & AWL Change to New Pool allocation.
-        <24>    06/09/93    ELE     ELE & AWL Fix bug in GetSpecialSection for debugger.
-        <23>    06/09/93    JRG     ELE & AWL Changes:
-        <22>    06/08/93    ELE     (&AWL) Shift to allocation bottleneck.  Added support for
-                                    packed data sections.  Switched to new CFLoader section
-                                    attribute bits.
-        <21>    02/15/93    ELE     Changed NewPtr->NewPtrSys
-        <20>    02/03/93    ELE     Added architecture pass thru to GetVersion per CFL Spec.
-        <19>    12/23/92    ELE     Fixed bug where init routine was being returned for the
-                                    term routine.
-        <17>    10/29/92    ELE     GetVersion - added dateStamp.
-        <16>    10/01/92    ELE     fix bug in use in place, update of header!
-        <15>    10/01/92    ELE     fix bug in use in place!
-        <14>    09/28/92    ELE     needed to update field expIndex from Find/GetExportInfo.
-        <13>    09/23/92    ELE     updated to new PEF format, updated to new CF Loader SPI.
-        <12>    09/23/92    ELE     Latest version.
- 
-*/
 
 #if __ppc__
 
@@ -113,13 +29,10 @@
 
 // ===========================================================================================
 
-#define PEF_Assert(a)          if( !(a)) kprintf("PEF_Assert:")
-#define PEF_BlockMove(src,dst,len) memcpy(dst,src,len)
-#define PEF_BlockClear(dst,len)    memset(dst,0,len)
-extern Boolean  PCFM_CompareBytes   ( const Byte *  left,
-                                          const Byte *  right,
-                                          ByteCount     count );
-#define PEF_CompareBytes(a,b,c) PCFM_CompareBytes(a,b,c)
+#define PEF_Assert(a)			if( !(a)) kprintf("PEF_Assert:")
+#define PEF_BlockMove(src,dst,len)	memcpy(dst,src,len)
+#define PEF_BlockClear(dst,len)		memset(dst,0,len)
+#define PEF_CompareBytes(a,b,c)		(0 == bcmp(a,b,c))
 
 #define EnableCFMDebugging	0
 
@@ -272,13 +185,12 @@ static void GetSectionName  ( PEFPrivateInfo *      pefPrivate,
 OSStatus    PEF_OpenContainer   ( LogicalAddress            mappedAddress,
                                   LogicalAddress            runningAddress,
                                   ByteCount                 containerLength,
-                                  KernelProcessID           runningProcessID,
-                                  const CFContHashedName *  cfragName,
                                   CFContOpenOptions         options,
                                   CFContAllocateMem         Allocate,
                                   CFContReleaseMem          Release,
                                   CFContHandlerRef *        containerRef,
-                                  CFContHandlerProcsPtr *   handlerProcs )
+                                  CFContHandlerProcsPtr *   handlerProcs,
+				  UInt32 *		    createDate )
 {
 #pragma unused ( containerLength )
     #pragma unused ( runningProcessID )
@@ -317,6 +229,8 @@ OSStatus    PEF_OpenContainer   ( LogicalAddress            mappedAddress,
             (fileHeader->versionNumber != kPEFVersion))
         goto FragmentFormatError;
 
+    if (createDate)
+	*createDate = fileHeader->dateTimeStamp;
 
     // -----------------------------------------------
     // Allocate and initialize the private info block.

@@ -263,3 +263,39 @@ unsigned long n_sect)
 	}
 	return(0); /* FALSE */
 }
+
+unsigned long
+is_section_non_lazy_symbol_pointers(
+unsigned long n_sect)
+{
+    struct frchain *frchainP;
+
+	for(frchainP = frchain_root; frchainP; frchainP = frchainP->frch_next){
+	    if(frchainP->frch_nsect == n_sect &&
+	       (frchainP->frch_section.flags & SECTION_TYPE) ==
+	        S_NON_LAZY_SYMBOL_POINTERS)
+		return(1); /* TRUE */
+	}
+	return(0); /* FALSE */
+}
+
+unsigned long
+is_end_section_address(
+unsigned long n_sect,
+unsigned long addr)
+{
+    struct frchain *frchainP;
+
+	for(frchainP = frchain_root; frchainP; frchainP = frchainP->frch_next){
+	    if(frchainP->frch_nsect == n_sect){
+		if((frchainP->frch_section.flags & SECTION_TYPE) == S_ZEROFILL)
+		    return(0); /* FALSE */
+		if(frchainP->frch_last->fr_address == addr)
+		    return(1); /* TRUE */
+		else
+		    return(0); /* FALSE */
+	    }
+	}
+	return(0); /* FALSE */
+}
+

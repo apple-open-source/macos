@@ -211,7 +211,7 @@ float powf(float x, float y)
 	}
 	else if ((j&0x7fffffff)>0x43160000)		/* z <= -150 */
 	    return s*tiny*tiny;				/* underflow */
-	else if (j==0xc3160000){			/* z == -150 */
+	else if ((unsigned long)j==0xc3160000ul){	/* z == -150 */
 	    if(p_l<=z-p_h) return s*tiny*tiny;		/* underflow */
 	}
     /*

@@ -10,6 +10,7 @@
 				075F51E7FFE0D67811CE15BF,
 				075F51E8FFE0D67811CE15BF,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 075F51C7FFE0D39C11CE15BF;
 			productRefGroup = 075F51D9FFE0D39C11CE15BF;
@@ -20,8 +21,8 @@
 		};
 		075F51C7FFE0D39C11CE15BF = {
 			children = (
-				8D81654300FFF2FB05CE163F,
-				075F51D0FFE0D39C11CE15BF,
+				4C01D9400415AB6600CE163E,
+				4C01D9420415AB7C00CE163E,
 				075F51D9FFE0D39C11CE15BF,
 			);
 			isa = PBXGroup;
@@ -29,6 +30,7 @@
 			refType = 4;
 		};
 		075F51D0FFE0D39C11CE15BF = {
+			fileEncoding = 30;
 			indentWidth = 4;
 			isa = PBXFileReference;
 			path = IOFireWireSerialBusProtocolTransport.cpp;
@@ -61,18 +63,19 @@
 				075F51E4FFE0D39C11CE15BF,
 			);
 			buildSettings = {
+				BUILD_SETTING = "";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireSerialBusProtocolTransport;
-				MODULE_VERSION = 1.2.3;
+				MODULE_VERSION = 1.2.4;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireSerialBusProtocolTransport;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WARNING_CFLAGS = "-W -Wall -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
 			};
 			dependencies = (
@@ -91,7 +94,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireSerialBusProtocolTransport</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.2.3, Copyright Apple Computer, Inc. 1999-2002</string>
+	<string>1.2.4, Copyright Apple Computer, Inc. 1999-2003</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -103,11 +106,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.3</string>
+	<string>1.2.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.3</string>
+	<string>1.2.4</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOFireWireSerialBusProtocolTransport</key>
@@ -146,7 +149,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		075F51DCFFE0D39C11CE15BF = {
 			buildActionMask = 2147483647;
@@ -165,6 +167,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				8D81654400FFF2FB05CE163F,
+				4C01D9410415AB6600CE163E,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -253,6 +256,37 @@
 //072
 //073
 //074
+//4C0
+//4C1
+//4C2
+//4C3
+//4C4
+		4C01D9400415AB6600CE163E = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = IOFireWireSerialBusProtocolTransportDebugging.h;
+			refType = 4;
+		};
+		4C01D9410415AB6600CE163E = {
+			fileRef = 4C01D9400415AB6600CE163E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4C01D9420415AB7C00CE163E = {
+			children = (
+				8D81654300FFF2FB05CE163F,
+				075F51D0FFE0D39C11CE15BF,
+			);
+			isa = PBXGroup;
+			name = Source;
+			refType = 4;
+		};
+//4C0
+//4C1
+//4C2
+//4C3
+//4C4
 //8D0
 //8D1
 //8D2
@@ -265,6 +299,7 @@
 			};
 		};
 		8D81654300FFF2FB05CE163F = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOFireWireSerialBusProtocolTransport.h;
 			refType = 4;

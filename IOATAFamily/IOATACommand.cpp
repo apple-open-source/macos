@@ -107,6 +107,7 @@ IOATACommand::free()
 
 	getExtendedLBA()->release();
 	IOFree( fExpansionData, sizeof( ExpansionData) );
+	super::free();
 
 }
 /*-----------------------------------------------------------------------------

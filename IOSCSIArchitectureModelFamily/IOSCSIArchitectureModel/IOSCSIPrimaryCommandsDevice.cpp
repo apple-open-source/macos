@@ -142,6 +142,12 @@ IOSCSIPrimaryCommandsDevice::start ( IOService * provider )
 	OSObject *		obj				= NULL;
 	bool			result			= false;
 	
+	OSDictionary *	dict			= NULL;
+	OSNumber *		timeOutValue 	= NULL;
+	
+	OSNumber *		value			= NULL;
+	
+	
 	// Call our super class' start routine so that all inherited
 	// behavior is initialized.	
 	require ( super::start ( provider ), ErrorExit );
@@ -176,6 +182,18 @@ IOSCSIPrimaryCommandsDevice::start ( IOService * provider )
 	string = ( OSString * ) GetProtocolDriver ( )->getProperty ( kIOPropertySCSIProductRevisionLevel );	
 	check ( string );
 	fDeviceCharacteristicsDictionary->setObject ( kIOPropertyProductRevisionLevelKey, string );
+	
+	value = ( OSNumber * ) GetProtocolDriver ( )->getProperty ( kIOPropertyReadTimeOutDurationKey );	
+	if ( value != NULL );
+	{
+		fDeviceCharacteristicsDictionary->setObject ( kIOPropertyReadTimeOutDurationKey, value );
+	}
+	
+	value = ( OSNumber * ) GetProtocolDriver ( )->getProperty ( kIOPropertyWriteTimeOutDurationKey );	
+	if ( value != NULL );
+	{
+		fDeviceCharacteristicsDictionary->setObject ( kIOPropertyWriteTimeOutDurationKey, value );
+	}
 	
 	// Now create the required command sets used by the class
 	require ( CreateCommandSetObjects ( ), FreeDeviceDictionary );
@@ -255,6 +273,52 @@ IOSCSIPrimaryCommandsDevice::start ( IOService * provider )
 		
 		iterator->release ( );
 		iterator = NULL;
+		
+	}
+	
+	// assume device will use infinite time outs
+	fReadTimeoutDuration	= 0;
+	fWriteTimeoutDuration	= 0;
+	
+	// determine the protocol-specific default read/write time out values 
+	dict = GetProtocolCharacteristicsDictionary ( );
+	if ( dict != NULL )
+	{
+		
+		timeOutValue = OSDynamicCast ( OSNumber, dict->getObject ( kIOPropertyReadTimeOutDurationKey ) );
+		
+		if ( timeOutValue != NULL )
+		{
+			fReadTimeoutDuration = timeOutValue->unsigned32BitValue ( );
+		}
+		
+		timeOutValue = OSDynamicCast ( OSNumber, dict->getObject ( kIOPropertyWriteTimeOutDurationKey ) );
+		
+		if ( timeOutValue != NULL )
+		{
+			fWriteTimeoutDuration = timeOutValue->unsigned32BitValue ( );
+		}
+		
+	}
+	
+	// check if we should override the maximum read/write time outs with a device-specific
+	dict = GetDeviceCharacteristicsDictionary ( );
+	if ( dict != NULL )
+	{
+		
+		timeOutValue = OSDynamicCast ( OSNumber, dict->getObject ( kIOPropertyReadTimeOutDurationKey ) );
+		
+		if ( timeOutValue != NULL )
+		{
+			fReadTimeoutDuration = timeOutValue->unsigned32BitValue ( );
+		}
+		
+		timeOutValue = OSDynamicCast ( OSNumber, dict->getObject ( kIOPropertyWriteTimeOutDurationKey ) );
+		
+		if ( timeOutValue != NULL )
+		{
+			fWriteTimeoutDuration = timeOutValue->unsigned32BitValue ( );
+		}
 		
 	}
 	

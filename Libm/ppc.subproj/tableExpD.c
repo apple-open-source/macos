@@ -42,7 +42,7 @@
 *     April    28 1997: port of the ibm/taligent exp routines.                 *
 *     July     16 1997: changed the rounding direction sensitivity of          *
 *                       delivered results to default rounding at all times.    *
-*     August   28 2001: replaced __setflm with fegetenvd/fesetenvd.            *
+*     August   28 2001: replaced __setflm with FEGETENVD/FESETENVD.            *
 *                       replaced DblInHex typedef with hexdouble.              *
 *                       used standard exception symbols from fenv.h.           *
 *                       added #ifdef __ppc__.                                  *
@@ -114,6 +114,9 @@ struct expTableEntry
       double f;
       };
 
+static const double kMinNormal = 2.2250738585072014e-308;  // 0x1.0p-1022
+static const double kMaxNormal = 1.7976931348623157e308;
+
 #if !defined(BUILDING_FOR_CARBONCORE_LEGACY)
 
 /*******************************************************************************
@@ -125,6 +128,7 @@ struct expTableEntry
 *    Raised exceptions are inexact, overflow & inexact and underflow & inexact.*
 *                                                                              *
 *******************************************************************************/
+#ifdef notdef
 double exp ( double x ) 
       {
       hexdouble scale, xInHex, yInHex, OldEnvironment;
@@ -139,8 +143,8 @@ double exp ( double x )
                   return 1.0;
             scale.d = 0.0;
             
-            fegetenvd ( OldEnvironment.d );                  // save old environment, set default
-            fesetenvd ( 0.0 );
+            FEGETENVD ( OldEnvironment.d );                  // save old environment, set default
+            FESETENVD ( 0.0 );
             yInHex.d = x * oneOverLn2 + rintFactor;
             scale.i.hi = ( yInHex.i.lo + 1023 ) << 20;
             yInHex.d -= rintFactor;
@@ -160,15 +164,15 @@ double exp ( double x )
             result = scale.d * tablePointer[i].f;
             temp1 = result * ( temp2 + ( zTail + zTail * temp2 ) );
             result += temp1;
-            fesetenvd ( OldEnvironment.d );
+            FESETENVD ( OldEnvironment.d );
             return result;
             }
       
       if ( ( x <= maxExp ) && ( x > minExp ) ) 
             {
             scale.d = 0.0;
-            fegetenvd ( OldEnvironment.d );                  // save old environment, set default
-            fesetenvd ( 0.0 );
+            FEGETENVD ( OldEnvironment.d );                  // save old environment, set default
+            FESETENVD ( 0.0 );
             yInHex.d = x * oneOverLn2 + rintFactor;
             if ( x >= 512.0 ) 
                   {
@@ -197,7 +201,7 @@ double exp ( double x )
             result = scale.d * tablePointer[i].f;
             temp1 = result * ( temp2 + ( zTail + zTail * temp2 ) ); 
             result = ( result + temp1 ) * power;
-            fesetenvd ( OldEnvironment.d );
+            FESETENVD ( OldEnvironment.d );
             return result;
             }
       else if ( x != x ) 
@@ -208,21 +212,173 @@ double exp ( double x )
             return +0.0;
       else if ( x > maxExp )
             {
-            fegetenvd ( OldEnvironment.d );                  // get old environment
+            FEGETENVD ( OldEnvironment.d );                  // get old environment
             result = infinity.d;
             OldEnvironment.i.lo |= FE_INEXACT | FE_OVERFLOW;
-            fesetenvd ( OldEnvironment.d );
+            FESETENVD ( OldEnvironment.d );
             return result;
             }
       else 
             {
-            fegetenvd ( OldEnvironment.d );                  // get old environment
+            FEGETENVD ( OldEnvironment.d );                  // get old environment
             result = +0.0;
             OldEnvironment.i.lo |= FE_INEXACT | FE_UNDERFLOW;
-            fesetenvd ( OldEnvironment.d );
+            FESETENVD ( OldEnvironment.d );
             return result;
             }
       }
+#else
+double exp ( double x ) 
+{
+      hexdouble scale, xInHex, yInHex;
+      register double d, y, yTail, z, zTail, z2, temp1, temp2, power, result;
+      register long int i;
+      register struct expTableEntry *tablePointer, *pT;
+      
+      register double FPR_oneOverLn2, FPR_rintFactor, FPR_ln2Head, FPR_ln2Tail, FPR_h, FPR_z, FPR_512, FPR_scale;
+      register double FPR_env, FPR_x, FPR_f, FPR_cm1, FPR_c0, FPR_c1, FPR_c2;
+      
+      FPR_x = __FABS( x );
+      
+      FPR_z = 0.0;				 	FPR_512 = 512.0;
+      FPR_oneOverLn2 = oneOverLn2; 		 	FPR_rintFactor = rintFactor;
+      FPR_ln2Head = ln2Head; 		 		FPR_ln2Tail = ln2Tail;
+      tablePointer = ( struct expTableEntry * ) expTable + 177; 
+      
+      FEGETENVD ( FPR_env );                  		// save old environment, set default
+      __ENSURE( FPR_z, FPR_512, FPR_oneOverLn2 );	__ENSURE( FPR_ln2Head, FPR_ln2Tail, FPR_rintFactor );
+      FESETENVD ( FPR_z );
+    
+      // Compute FPR_h and store it to yInHex as early as possible, even for cases that don't need it
+      FPR_h = __FMADD( x, FPR_oneOverLn2, FPR_rintFactor );
+      yInHex.d = FPR_h; 		
+      FPR_h -= FPR_rintFactor;
+
+      if ( FPR_x < FPR_512 )
+      {
+            if ( x != FPR_z )
+            {
+            
+                scale.i.hi = ( yInHex.i.lo + 1023 ) << 20;  scale.i.lo = 0;
+
+                y = __FNMSUB( FPR_ln2Head, FPR_h, x );	yTail = __FMUL( FPR_ln2Tail, FPR_h );
+
+                xInHex.d = __FMADD( FPR_512, y, FPR_rintFactor ); 
+
+                __ORI_NOOP;
+                __ORI_NOOP;
+                __ORI_NOOP;
+                i = xInHex.i.lo;
+            
+                pT = &(tablePointer[i]);
+            
+                FPR_x = pT->x; 				FPR_f = pT->f;
+            
+                d = y - FPR_x; 			
+
+                z = d - yTail; 
+                FPR_cm1 = cm1; 			 	FPR_c1 = c1;
+                FPR_c0 = c0; 			 	FPR_c2 = c2;
+
+                z2 = __FMUL( z, z );  		 	zTail = d - z - yTail;
+
+                temp1 = __FMADD( FPR_cm1, z2, FPR_c1 ); temp2 = __FMADD( FPR_c0, z2, FPR_c2 );
+
+                temp1 = __FMADD( temp1, z, temp2 );
+                FPR_scale = scale.d;
+
+                temp2 = __FMADD( temp1, z2, z );
+
+                temp1 = __FMADD( zTail, temp2, zTail );	result = __FMUL( FPR_scale, FPR_f );
+                    
+                temp1 = temp1 + temp2;
+
+                result = __FMADD( result, temp1, result );
+
+                FESETENVD ( FPR_env );
+                __PROG_INEXACT( FPR_oneOverLn2 );
+                return result;
+            } 
+            else
+            {
+                FESETENVD ( FPR_env );
+                return 1.0;
+            }
+      }
+      
+      if ( ( x <= maxExp ) && ( x > minExp ) ) 
+      {            
+            if ( x >= FPR_512 ) 
+            {
+                  power = 2.0;
+                  scale.i.hi = ( yInHex.i.lo + 1022 ) << 20; scale.i.lo = 0;
+            }
+            else 
+            {
+                  power = denormal;
+                  scale.i.hi = ( yInHex.i.lo + 1023+128 ) << 20; scale.i.lo = 0;
+            }
+
+            y = __FNMSUB( FPR_ln2Head, FPR_h, x ); 	 yTail = __FMUL( FPR_ln2Tail, FPR_h );
+            FPR_scale = scale.d;
+
+            xInHex.d = __FMADD( FPR_512, y, FPR_rintFactor ); 
+
+            __ORI_NOOP;
+            __ORI_NOOP;
+            __ORI_NOOP;
+            i = xInHex.i.lo;
+            
+            pT = &(tablePointer[i]);
+            
+            FPR_x = pT->x; 			 	FPR_f = pT->f;
+            
+            d = y - FPR_x; 			 	result = __FMUL( FPR_scale, FPR_f );
+
+            z = d - yTail; 
+            FPR_cm1 = cm1; 			 	FPR_c1 = c1;
+            FPR_c0 = c0; 				 FPR_c2 = c2;
+
+            z2 = __FMUL( z, z );  		 	zTail = d - z - yTail;
+
+            temp1 = __FMADD( FPR_cm1, z2, FPR_c1 ); 	temp2 = __FMADD( FPR_c0, z2, FPR_c2 );
+
+            temp1 = __FMADD( temp1, z, temp2 );
+
+            temp2 = __FMADD( temp1, z2, z );
+
+            temp1 = __FMADD( zTail, temp2, zTail );
+            
+            temp1 = temp1 + temp2;
+
+            result = __FMADD( result, temp1, result );
+            
+            result = __FMUL( result, power );
+            
+            FESETENVD ( FPR_env );
+            __PROG_INEXACT( FPR_oneOverLn2 );
+            return result;
+      }
+      
+      FESETENVD ( FPR_env );
+      if ( x != x ) 
+            return x;
+      else if ( x == infinity.d ) 
+            return infinity.d;
+      else if ( x == -infinity.d ) 
+            return FPR_z;
+      else if ( x > maxExp )
+      {
+            __PROG_OF_INEXACT( kMaxNormal );
+            return infinity.d;
+      }
+      else 
+      {
+            __PROG_UF_INEXACT( kMinNormal );
+            return FPR_z;
+      }
+}
+#endif
 
 #ifdef notdef
 float expf( float x)
@@ -236,7 +392,7 @@ float expf( float x)
 *    The expm1 function.  						       *
 *                                                                              *
 *******************************************************************************/
-
+#ifdef notdef
 double expm1 ( double x ) 
       {
       hexdouble scale, invScale, xInHex, yInHex, OldEnvironment;
@@ -251,8 +407,8 @@ double expm1 ( double x )
             {                                                // abs( x ) < 512
             scale.d = 0.0;
             invScale.d = 0.0;
-            fegetenvd ( OldEnvironment.d );                  // save old environment, set default
-            fesetenvd ( 0.0 );
+            FEGETENVD ( OldEnvironment.d );                  // save old environment, set default
+            FESETENVD ( 0.0 );
             if ( xpower < 0x3c800000ul ) 
                   {                                          // |x| < 2^( -55 )
                   if ( x == 0.0 ) 
@@ -266,7 +422,7 @@ double expm1 ( double x )
                         else
                             OldEnvironment.i.lo |= FE_INEXACT;  // set inexact
                         }
-                  fesetenvd ( OldEnvironment.d );
+                  FESETENVD ( OldEnvironment.d );
                   return x;
                   } 
             yInHex.d = x * oneOverLn2 + rintFactor;
@@ -294,7 +450,7 @@ double expm1 ( double x )
             d = tablePointer[i].f - invScale.d;
             temp2 = temp1 + ( zTail + zTail * temp1 );
             result = ( d + tablePointer[i].f * temp2 ) * scale.d;
-            fesetenvd ( OldEnvironment.d );
+            FESETENVD ( OldEnvironment.d );
             return result;
             }
       
@@ -302,8 +458,8 @@ double expm1 ( double x )
             {
             scale.d = 0.0;
             invScale.d = 0.0;
-            fegetenvd ( OldEnvironment.d );                  // save old environment, set default
-            fesetenvd ( 0.0 );
+            FEGETENVD ( OldEnvironment.d );                  // save old environment, set default
+            FESETENVD ( 0.0 );
             yInHex.d = x * oneOverLn2 + rintFactor;
             if ( x >= 512.0 ) 
                   {
@@ -319,7 +475,7 @@ double expm1 ( double x )
                   if ( scale.i.hi < ( 168<<20 ) ) 
                         {
                         OldEnvironment.i.lo |= FE_INEXACT;  // set inexact flag
-                        fesetenvd ( OldEnvironment.d );
+                        FESETENVD ( OldEnvironment.d );
                         return -1.0;
                         }
                   }
@@ -347,7 +503,7 @@ double expm1 ( double x )
             d = tablePointer[i].f - f * invScale.d;
             temp2 = temp1 + ( zTail + zTail * temp1 );
             result = ( ( d + tablePointer[i].f * temp2 ) * scale.d ) * power;
-            fesetenvd ( OldEnvironment.d );
+            FESETENVD ( OldEnvironment.d );
             return result;
             }
       else if ( x != x ) 
@@ -358,25 +514,207 @@ double expm1 ( double x )
             return -1.0;
       else if ( x > maxExp )
             {
-            fegetenvd ( OldEnvironment.d );                  // get old environment
+            FEGETENVD ( OldEnvironment.d );                  // get old environment
             result = infinity.d;
             OldEnvironment.i.lo |= FE_INEXACT | FE_OVERFLOW;
-            fesetenvd ( OldEnvironment.d );
+            FESETENVD ( OldEnvironment.d );
             return result;
             }
       else 
             {
-            fegetenvd ( OldEnvironment.d );                  // get old environment
+            FEGETENVD ( OldEnvironment.d );                  // get old environment
             result = -1.0;
 #if 0 /* XXX scp: test vectors don't want this to underflow */
             OldEnvironment.i.lo |= FE_INEXACT | FE_UNDERFLOW;
 #else
             OldEnvironment.i.lo |= FE_INEXACT;
 #endif
-            fesetenvd ( OldEnvironment.d );
+            FESETENVD ( OldEnvironment.d );
             return result;
             }
       }
+#else
+
+static const hexdouble k2M55   = HEXDOUBLE(0x3c800000, 0x00000000);
+
+double expm1 ( double x ) 
+{
+      hexdouble scale, invScale, xInHex, yInHex;
+      register double d, y, yTail, z, zTail, z2, temp1, temp2, power, result, f;
+      register long int i;
+      register struct expTableEntry *tablePointer, *pT;
+
+      register double FPR_oneOverLn2, FPR_rintFactor, FPR_ln2Head, FPR_ln2Tail, FPR_h, FPR_z, FPR_512, FPR_scale;
+      register double FPR_env, FPR_x, FPR_f, FPR_cc0, FPR_cc1, FPR_cc2, FPR_cc3, FPR_cc4, FPR_iscale;
+      
+      FPR_x = __FABS( x );
+      
+      FPR_z = 0.0;				 	FPR_512 = 512.0;
+      FPR_oneOverLn2 = oneOverLn2; 		 	FPR_rintFactor = rintFactor;
+      FPR_ln2Head = ln2Head; 		 		FPR_ln2Tail = ln2Tail;
+      tablePointer = ( struct expTableEntry * ) expTable + 177;
+
+      FEGETENVD ( FPR_env );                  // save old environment, set default
+      __ENSURE( FPR_z, FPR_512, FPR_oneOverLn2 );	__ENSURE( FPR_ln2Head, FPR_ln2Tail, FPR_rintFactor ); 
+      FESETENVD ( FPR_z );
+    
+      // Compute FPR_h and store it to yInHex as early as possible, even for cases that don't need it
+      FPR_h = __FMADD( x, FPR_oneOverLn2, FPR_rintFactor );
+      yInHex.d = FPR_h; 		
+      FPR_h -= FPR_rintFactor;
+
+      if ( FPR_x < FPR_512 )
+      {
+            if ( FPR_x < k2M55.d )
+            {
+                  FESETENVD ( FPR_env );
+                  if ( x == FPR_z ) 
+                  {
+                        /* NOTHING */
+                  }
+                  else 
+                  {
+                        if ( FPR_x < kMinNormal )
+                            __PROG_UF_INEXACT( kMinNormal );
+                        else
+                            __PROG_INEXACT( FPR_oneOverLn2 );
+                  }
+                  return x;
+            } 
+                  
+            scale.i.hi = ( yInHex.i.lo + 1023 ) << 20;  scale.i.lo = 0;
+
+            y = __FNMSUB( FPR_ln2Head, FPR_h, x ); 	yTail = __FMUL( FPR_ln2Tail, FPR_h );
+            
+            xInHex.d = __FMADD( FPR_512, y, FPR_rintFactor ); 
+            invScale.i.hi = 0x7fe00000 - scale.i.hi; invScale.i.lo = 0;
+
+            i = xInHex.i.lo;
+            
+            pT = &(tablePointer[i]);
+            
+            FPR_x = pT->x; 			 	FPR_f = pT->f;
+            
+            d = y - FPR_x; 	
+            FPR_cc4 = cc4;
+            
+            z = d - yTail;
+            FPR_cc0 = cc0; 			 	FPR_cc2 = cc2;
+            FPR_cc1 = cc1; 			 	FPR_cc3 = cc3;			
+
+            z2 = __FMUL( z, z );  		 	zTail = d - z - yTail;
+            
+            temp1 = __FMADD( FPR_cc0, z2, FPR_cc2 );   	temp2 = __FMADD( FPR_cc1, z2, FPR_cc3 );
+            
+            temp1 = __FMADD( temp1, z2, FPR_cc4 );	
+            
+            temp2 = __FMADD( temp2, z, temp1 );
+            FPR_iscale = invScale.d;		
+            
+            temp1 = __FMADD( temp2, z2, z );
+            
+            temp2 = __FMADD( zTail, temp1, zTail );
+            
+            temp2 = temp1 + temp2; 			 d = FPR_f - FPR_iscale;
+            FPR_scale = scale.d;
+        
+            temp1 = __FMADD( FPR_f, temp2, d );
+            
+            result = __FMUL( temp1, FPR_scale );
+            
+            FESETENVD ( FPR_env );
+            __PROG_INEXACT( FPR_oneOverLn2 );
+            return result;
+      }
+      
+      if ( ( x <= maxExp ) && ( x > minExp ) ) 
+      {
+            if ( x >= FPR_512 ) 
+            {
+                  power = 2.0;
+                  f = 0.5;
+                  scale.i.hi = ( yInHex.i.lo + 1022 ) << 20; scale.i.lo = 0;
+            }
+            else 
+            {
+                  power = denormal;
+                  f = oneOverDenorm;
+                  scale.i.hi = ( yInHex.i.lo + 1023+128 ) << 20; scale.i.lo = 0;
+                  if ( scale.i.hi < ( 168<<20 ) ) 
+                  {
+                        FESETENVD ( FPR_env );
+                        __PROG_INEXACT( FPR_oneOverLn2 );
+                        return -1.0;
+                  }
+            }
+                  
+            y = __FNMSUB( FPR_ln2Head, FPR_h, x ); 	yTail = __FMUL( FPR_ln2Tail, FPR_h );
+            FPR_scale = scale.d;
+
+            xInHex.d = __FMADD( FPR_512, y, FPR_rintFactor ); 
+            invScale.i.hi = 0x7fe00000 - scale.i.hi; 	invScale.i.lo = 0;
+
+            i = xInHex.i.lo;
+            
+            pT = &(tablePointer[i]);
+            
+            FPR_x = pT->x; 			 	FPR_f = pT->f;
+            
+            d = y - FPR_x; 	
+            FPR_iscale = invScale.d;		 	FPR_cc4 = cc4;
+
+            z = d - yTail;			
+            FPR_cc0 = cc0; 			 	FPR_cc2 = cc2;
+            FPR_cc1 = cc1; 			 	FPR_cc3 = cc3;			
+
+            z2 = __FMUL( z, z );  		 	zTail = d - z - yTail;
+            
+            temp1 = __FMADD( FPR_cc0, z2, FPR_cc2 );   	temp2 = __FMADD( FPR_cc1, z2, FPR_cc3 );
+            
+            temp1 = __FMADD( temp1, z2, FPR_cc4 );	d = __FNMSUB( f, FPR_iscale, FPR_f );
+            
+            temp2 = __FMADD( temp2, z, temp1 );
+            
+            temp1 = __FMADD( temp2, z2, z );
+            
+            temp2 = __FMADD( zTail, temp1, zTail );
+            
+            temp2 = temp1 + temp2;
+            
+            temp1 = __FMADD( FPR_f, temp2, d );
+            
+            result = __FMUL( temp1, FPR_scale );
+
+            result = __FMUL( result, power );
+            
+            FESETENVD ( FPR_env );
+            __PROG_INEXACT( FPR_oneOverLn2 );
+            return result;
+      }
+      
+      FESETENVD ( FPR_env );
+      if ( x != x ) 
+            return x;
+      else if ( x == infinity.d ) 
+            return infinity.d;
+      else if ( x == -infinity.d ) 
+            return -1.0;
+      else if ( x > maxExp )
+      {
+            __PROG_OF_INEXACT( kMaxNormal );
+            return infinity.d;
+      }
+      else 
+      {
+#if 0 /* XXX scp: test vectors don't want this to underflow */
+            __PROG_UF_INEXACT( kMinNormal );
+#else
+            __PROG_INEXACT( FPR_oneOverLn2 );
+#endif
+            return -1.0;
+      }
+}
+#endif
 
 #ifdef notdef
 float expm1f( float x )
@@ -393,6 +731,7 @@ float expm1f( float x )
 *                                                                              *
 *******************************************************************************/
 
+#ifdef notdef
 double exp2 ( double x ) 
       {
       hexdouble scale, xInHex, yInHex, OldEnvironment;
@@ -406,8 +745,9 @@ double exp2 ( double x )
             if ( ( ( xInHex.i.hi & 0x7fffffff ) | xInHex.i.lo ) == 0x0ul ) 
                   return 1.0;
             scale.d = 0.0;
-            fegetenvd ( OldEnvironment.d );                  // save old environment, set default
-            fesetenvd ( 0.0 );
+            
+            FEGETENVD ( OldEnvironment.d );                  // save old environment, set default
+            FESETENVD ( 0.0 );
             yInHex.d = x + rintFactor;
             scale.i.hi = ( yInHex.i.lo + 1023 ) << 20;
             yInHex.d -= rintFactor;
@@ -427,15 +767,15 @@ double exp2 ( double x )
             result = scale.d * tablePointer[i].f;
             temp1 = result * ( temp2 + ( zTail + zTail * temp2 ) ); 
             result += temp1;
-            fesetenvd ( OldEnvironment.d );
+            FESETENVD ( OldEnvironment.d );
             return result;
             }
       
       if ( ( x < maxExp2 ) && ( x > minExp2 ) ) 
             {
             scale.d = 0.0;
-            fegetenvd ( OldEnvironment.d );                  // save old environment, set default
-            fesetenvd ( 0.0 );
+            FEGETENVD ( OldEnvironment.d );                  // save old environment, set default
+            FESETENVD ( 0.0 );
             if (x < minNormExp2)
                 OldEnvironment.i.lo |= FE_UNDERFLOW;  // set underflow flag
             yInHex.d = x + rintFactor;
@@ -466,7 +806,7 @@ double exp2 ( double x )
             result = scale.d * tablePointer[i].f;
             temp1 = result * ( temp2 + ( zTail + zTail * temp2 ) );
             result = ( result + temp1 ) * power;
-            fesetenvd ( OldEnvironment.d );
+            FESETENVD ( OldEnvironment.d );
             return result;
             }
       else if ( x != x ) 
@@ -477,21 +817,190 @@ double exp2 ( double x )
             return +0.0;
       else if ( x > maxExp )
             {
-            fegetenvd ( OldEnvironment.d );                  // get old environment
+            FEGETENVD ( OldEnvironment.d );                  // get old environment
             result = infinity.d;
             OldEnvironment.i.lo |= FE_INEXACT | FE_OVERFLOW;
-            fesetenvd ( OldEnvironment.d );
+            FESETENVD ( OldEnvironment.d );
             return result;
             }
       else 
             {
-            fegetenvd ( OldEnvironment.d );                  // get old environment
+            FEGETENVD ( OldEnvironment.d );                  // get old environment
             result = +0.0;
             OldEnvironment.i.lo |= FE_INEXACT | FE_UNDERFLOW;
-            fesetenvd ( OldEnvironment.d );
+            FESETENVD ( OldEnvironment.d );
             return result;
             }
       }
+#else
+double exp2 ( double x ) 
+{
+      hexdouble OldEnvironment, scale, xInHex, yInHex;
+      register double d, y, yTail, z, zTail, z2, temp1, temp2, power, result;
+      register long int i;
+      register struct expTableEntry *tablePointer, *pT;
+      
+      register double FPR_oneOverLn2, FPR_rintFactor, FPR_ln2Head, FPR_ln2Tail, FPR_h, FPR_z, FPR_512, FPR_scale;
+      register double FPR_env, FPR_diff, FPR_x, FPR_f, FPR_cm1, FPR_c0, FPR_c1, FPR_c2;
+      
+      FPR_x = __FABS( x );
+      
+      FPR_z = 0.0;				 	FPR_512 = 512.0;
+      FPR_oneOverLn2 = oneOverLn2; 		 	FPR_rintFactor = rintFactor;
+      FPR_ln2Head = ln2Head; 				FPR_ln2Tail = ln2Tail;
+      tablePointer = ( struct expTableEntry * ) expTable + 177; 
+      
+      FEGETENVD ( FPR_env );                  // save old environment, set default
+      __ENSURE( FPR_z, FPR_512, FPR_oneOverLn2 );	__ENSURE( FPR_ln2Head, FPR_ln2Tail, FPR_rintFactor );
+      FESETENVD ( FPR_z );
+    
+      // Compute FPR_h and store it to yInHex as early as possible, even for cases that don't need it
+      FPR_h = x + FPR_rintFactor;
+      yInHex.d = FPR_h; 		
+      FPR_h -= FPR_rintFactor;
+      
+      FPR_diff = x - FPR_h;
+      
+      if ( FPR_x < FPR_512 )
+      {
+            if ( FPR_x != FPR_z )
+            {            
+                scale.i.hi = ( yInHex.i.lo + 1023 ) << 20;  scale.i.lo = 0;
+            
+                y = __FMUL( FPR_ln2Head, FPR_diff );	yTail = __FMUL( FPR_ln2Tail, FPR_diff );
+            
+                xInHex.d = __FMADD( FPR_512, y, FPR_rintFactor ); 
+            
+                __ORI_NOOP;
+                __ORI_NOOP;
+                __ORI_NOOP;
+                i = xInHex.i.lo;
+            
+                pT = &(tablePointer[i]);
+            
+             	FPR_x = pT->x; 			 	FPR_f = pT->f;
+            
+                d = y - FPR_x; 			
+
+                z = d - yTail; 
+                FPR_cm1 = cm1; 			 	FPR_c1 = c1;
+                FPR_c0 = c0; 			 	FPR_c2 = c2;
+
+                z2 = __FMUL( z, z );  		 	zTail = d - z - yTail;
+
+                temp1 = __FMADD( FPR_cm1, z2, FPR_c1 ); temp2 = __FMADD( FPR_c0, z2, FPR_c2 );
+
+                temp1 = __FMADD( temp1, z, temp2 );
+
+                temp2 = __FMADD( temp1, z2, z );
+                FPR_scale = scale.d;
+
+                temp1 = __FMADD( zTail, temp2, zTail );
+            
+                temp1 = temp1 + temp2;			 result = __FMUL( FPR_scale, FPR_f );
+
+                result = __FMADD( result, temp1, result );
+            
+                FESETENVD ( FPR_env );
+                if ( FPR_diff != FPR_z)
+                    __PROG_INEXACT( FPR_oneOverLn2 );
+                
+                return result;
+            } 
+            else
+            {
+                FESETENVD ( FPR_env );
+                return 1.0;
+            }
+      }
+
+      if ( ( x < maxExp2 ) && ( x > minExp2 ) ) 
+      {
+            if ( x >= FPR_512 ) 
+            {
+                  power = 2.0;
+                  scale.i.hi = ( yInHex.i.lo + 1022 ) << 20; scale.i.lo = 0;
+            }
+            else 
+            {
+                  power = denormal;
+                  scale.i.hi = ( yInHex.i.lo + 1023+128 ) << 20; scale.i.lo = 0;
+            }
+
+            FPR_diff = x - FPR_h;
+            FPR_scale = scale.d;
+            
+            y = __FMUL( FPR_ln2Head, FPR_diff );  	yTail = __FMUL( FPR_ln2Tail, FPR_diff );
+            
+            xInHex.d = __FMADD( FPR_512, y, FPR_rintFactor ); 
+
+            __ORI_NOOP;
+            __ORI_NOOP;
+            __ORI_NOOP;
+            i = xInHex.i.lo;
+            
+            pT = &(tablePointer[i]);
+                
+            FPR_x = pT->x; 			 	FPR_f = pT->f;
+            
+            d = y - FPR_x; 			 	result = __FMUL( FPR_scale, FPR_f );
+
+            z = d - yTail; 
+            FPR_cm1 = cm1; 			 	FPR_c1 = c1;
+            FPR_c0 = c0; 			 	FPR_c2 = c2;
+
+            z2 = __FMUL( z, z );  		 	zTail = d - z - yTail;
+
+            temp1 = __FMADD( FPR_cm1, z2, FPR_c1 ); 	temp2 = __FMADD( FPR_c0, z2, FPR_c2 );
+
+            temp1 = __FMADD( temp1, z, temp2 );
+
+            temp2 = __FMADD( temp1, z2, z );
+
+            temp1 = __FMADD( zTail, temp2, zTail );
+            
+            temp1 = temp1 + temp2;
+
+            result = __FMADD( result, temp1, result );
+            
+            result = __FMUL( result, power );
+            
+            FESETENVD ( FPR_env );
+            if ( x < minNormExp2 )
+            {
+                OldEnvironment.d = FPR_env;
+                OldEnvironment.i.lo |= FE_UNDERFLOW;  	// set underflow flag
+                
+                if ( FPR_h != x )
+                    OldEnvironment.i.lo |= FE_INEXACT;  // set inexact flag
+                
+                FESETENVD ( OldEnvironment.d );
+            }
+            else if ( FPR_h != x )
+                __PROG_INEXACT( FPR_oneOverLn2 );
+
+            return result;
+      }
+      
+      FESETENVD ( FPR_env );
+      if ( x != x ) 
+            return x;
+      else if ( x == infinity.d ) 
+            return infinity.d;
+      else if ( x == -infinity.d ) 
+            return FPR_z;
+      else if ( x > maxExp )
+      {
+            __PROG_OF_INEXACT( kMaxNormal );
+            return infinity.d;
+      }
+      else 
+      {
+            __PROG_UF_INEXACT( kMinNormal );
+            return FPR_z;
+      }
+}
+#endif
 
 #ifdef notdef
 float exp2f( float x)

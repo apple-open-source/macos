@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -103,70 +106,6 @@ CFContStringHash    CFContHashName  ( BytePtr   nameText,
 }   // CFContHashName ()
 
 
-// ¤
-// ===========================================================================================
-// PCFM_CompareBytes ()
-// ====================
-
-
-Boolean PCFM_CompareBytes   ( const Byte *  left,
-                              const Byte *  right,
-                              ByteCount     count )
-{
-    // !!! Blechola!  Switch to a standard routine ASAP!
-
-    UInt32 *    wLeft;
-    UInt32 *    wRight;
-    UInt8 *     bLeft;
-    UInt8 *     bRight;
-
-    ByteCount   leftMiss    = (UInt32)left & 0x00000003;
-    ByteCount   rightMiss   = (UInt32)right & 0x00000003;
-
-
-    bLeft   = (UInt8 *) left;
-    bRight  = (UInt8 *) right;
-
-    if ((leftMiss != 0) && (rightMiss != 0))
-    {
-        ByteCount   align   = leftMiss;
-        if (align > count)
-            align = count;
-        while (align > 0)
-        {
-            if (*bLeft++ != *bRight++)
-                goto NoMatch;
-            align -= 1;
-            count -= 1;
-        }
-    }
-
-    wLeft   = (UInt32 *) bLeft;
-    wRight  = (UInt32 *) bRight;
-    while (count >= 4)
-    {
-        if (*wLeft++ != *wRight++)
-            goto NoMatch;
-        count -= 4;
-    }
-
-    bLeft   = (UInt8 *) wLeft;
-    bRight  = (UInt8 *) wRight;
-    while (count > 0)
-    {
-        if (*bLeft++ != *bRight++)
-            goto NoMatch;
-        count -= 1;
-    }
-
-    return true;
-
-
-NoMatch:
-    return false;
-
-}   // PCFM_CompareBytes ()
-
 // ===========================================================================================
 
 LogicalAddress PCodeAllocateMem( ByteCount size );
@@ -189,7 +128,8 @@ PCodeReleaseMem( LogicalAddress address )
 // ===========================================================================================
 
 OSStatus
-PCodeOpen( LogicalAddress container, ByteCount containerSize, PCodeInstance * instance )
+PCodeOpen( LogicalAddress container, ByteCount containerSize, 
+	    PCodeInstance * instance, UInt32 * createDate )
 {
     OSStatus            err;
     InstanceVars     *  inst;
@@ -198,10 +138,11 @@ PCodeOpen( LogicalAddress container, ByteCount containerSize, PCodeInstance * in
     *instance = inst;
 
     inst->pef = (BytePtr) container;
-    // procID, name, options
-    err = PEF_OpenContainer( container, container, containerSize, 0, 0, 0,
+    // procID, name, 
+    err = PEF_OpenContainer( container, container, containerSize, 0 /*options*/,
                              PCodeAllocateMem, PCodeReleaseMem,
-                             &inst->cRef, &inst->cProcs );
+                             &inst->cRef, &inst->cProcs,
+			     createDate );
     if (err)
         LOG( "PEF_OpenContainer = %ld\n", err );
 

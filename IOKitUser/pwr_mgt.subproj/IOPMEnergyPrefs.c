@@ -51,7 +51,7 @@
 #define kACAutomaticRestart             0
 #define kACWakeOnLAN                    1
 #define kACReduceProcessorSpeed         0
-#define kACDynamicPowerStep             0
+#define kACDynamicPowerStep             1
 
 /*
  *      Battery

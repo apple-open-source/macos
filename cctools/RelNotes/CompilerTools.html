@@ -1,13 +1,13 @@
 <HTML>
-<!--This file created 1/7/02 2:10 PM by Claris Home Page version 3.0-->
+<!--This file created 4/3/03 10:28 AM by Claris Home Page version 3.0-->
 <HEAD>
-   <TITLE>Mac OS X 10.1 Compiler Tools Release Notes</TITLE>
+   <TITLE>Mac OS X Compiler Tools Release Notes</TITLE>
    <META NAME=GENERATOR CONTENT="Claris Home Page 3.0">
    <X-CLARIS-WINDOW TOP=54 BOTTOM=861 LEFT=64 RIGHT=714>
    <X-CLARIS-TAGVIEW MODE=minimal>
 </HEAD>
 <BODY BGCOLOR="#FFFFFF">
-<H1>Mac OS X 10.2 Release Notes:<BR>
+<H1>Mac OS X June 2003 Developer Release Notes:<BR>
 Compiler Tools</H1>
 
 <P><!-- start of path --> <TABLE BORDER=0 CELLSPACING=0 WIDTH=600 valign=left>
@@ -21,8 +21,9 @@ Compiler Tools</H1>
 <BR>
 <!-- end of path --> <A HREF="index.html"><IMG SRC="Images/up.gif" WIDTH=36 HEIGHT=16 BORDER=0 ALIGN=bottom></A></P>
 
-<P>These notes are for the Mac OS X 10.2 Release of the compiler
-tools. They contain information about the following topics:</P>
+<P>These notes are for the MacOS X June 2003 Developer Release of the
+compiler tools. They contain information about the following
+topics:</P>
 
 <UL>
    <LI>The Mac OS X Mach-O GNU-based assemblers</LI>
@@ -34,6 +35,62 @@ tools. They contain information about the following topics:</P>
    <LI>Mach-O object file tools (<B>nm</B>, <B>otool</B>, and so
    on)</LI>
 </UL>
+
+<H2>Notes Specific to Mac OS X June 2003 Developer Release</H2>
+
+<H2>New Features</H2>
+
+<H3><FONT SIZE="+1">The static linker now has a work around for not
+having dead code stripping</FONT></H3>
+
+<P>Added the <B>-undefined define_a_way</B> option to <I>ld</I>(1) as
+a work a round to not having dead-code stripping that also strips out
+references to undefined symbols from the dead code. Which leads to
+link time failures due to undefined symbols. With this option
+<I>ld</I>(1) defines the remaining undefined symbols as private
+definitions and allows the link to succeed. The program then runs as
+long as it does not use any of the undefined symbols.</P>
+
+<H2>Notes Specific to Mac OS X November 2002 Developer Release</H2>
+
+<H2>New Features</H2>
+
+<H3><FONT SIZE="+1">Exports lists can now be specified to the static
+linker</FONT></H3>
+
+<P>The static link editor, <I>ld</I>(1), now has two new options,
+<B>-exported_symbols_list </B><I>filename </I>and<I>
+</I><B>-unexported_symbols_list </B><I>filename </I>to limit the
+global symbols in the linked output file. This was previously done by
+with an <I>nmedit</I>(1). By using the new options to <I>ld</I>(1)
+the use of <I>nmedit</I>(1) can be eliminated resulting in faster
+build times.</P>
+
+<H3><FONT SIZE="+1">The static linker now can build single module
+dynamic libraries</FONT></H3>
+
+<P>The static link editor, <I>ld</I>(1), now has a new option,
+<B>-single_module</B>, to build a dynamic library containing only one
+module. This was previously done by first creating a master.o file
+with an <I>ld</I>(1) <B>-r</B> step and then using the master.o to
+created the dynamic library. By using the new <B>-single_module</B>
+option to <I>ld</I>(1) this first step can be eliminated resulting in
+faster build times.</P>
+
+<P>The default in the static link editor remains the same and dynamic
+libraries are built with multiple modules. The new flag
+<B>-multi_module</B> has also been added to allow this to be
+explicitly specified.</P>
+
+<H3><FONT SIZE="+1">The static linker's -s option now works like
+strip on dynamic executables</FONT></H3>
+
+<P>The static link editor's <B>-s</B> option can now be used to strip
+an executable that use the dynamic link editor. This will produce the
+same result as running <I>strip</I>(1) with no options on the
+executable. By using the <B>-s</B> option when building an executable
+the <I>strip</I>(1) step can be eliminated resulting in faster build
+times.</P>
 
 <H2>Notes Specific to Mac OS X 10.2 Release</H2>
 

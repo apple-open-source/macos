@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOPCCardFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOPCCardFamily version 1.3.2, Copyright 2003 Apple Computer, Inc.</string>
+	<string>IOPCCardFamily 1.4.0, Copyright 2000-2003 Apple Computer, Inc.</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.iokit.IOPCCardFamily</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -17,11 +17,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.2</string>
+	<string>1.4.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.2</string>
+	<string>1.4.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOPCCardFamily</key>
@@ -221,7 +221,7 @@
 				<key>Card Services</key>
 				<integer>3</integer>
 				<key>Driver Services</key>
-				<integer>4</integer>
+				<integer>3</integer>
 				<key>i82365</key>
 				<integer>2</integer>
 			</dict>
@@ -240,13 +240,13 @@
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.iokit.IOPCIFamily</key>
-		<string>1.1.0</string>
+		<string>1.3</string>
 		<key>com.apple.kernel.iokit</key>
-		<string>1.1.0</string>
+		<string>6.0</string>
 		<key>com.apple.kernel.libkern</key>
-		<string>1.1.0</string>
+		<string>6.0</string>
 		<key>com.apple.kernel.mach</key>
-		<string>1.1.0</string>
+		<string>6.0</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Root</string>

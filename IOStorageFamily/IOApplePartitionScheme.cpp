@@ -57,7 +57,7 @@ OSDefineMetaClassAndStructors(IOApplePartitionScheme, IOPartitionScheme);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-bool IOApplePartitionScheme::init(OSDictionary * properties = 0)
+bool IOApplePartitionScheme::init(OSDictionary * properties)
 {
     //
     // Initialize this object's minimal state.
@@ -598,16 +598,29 @@ bool IOApplePartitionScheme::attachMediaObjectToDeviceTree( IOMedia * media )
     // Attach the given media object to the device tree plane.
     //
 
-    IOService * service;
-    SInt32      unit = -1;
+    const char * name = 0;
+    IOService *  service;
+    SInt32       unit = -1;
 
     for ( service = this; service; service = service->getProvider() )
     {
         OSNumber * number;
+        OSString * string;
 
         if ( (number = OSDynamicCast(OSNumber, service->getProperty("IOUnit"))))
         {
-            unit = number->unsigned32BitValue();
+            if ( unit == -1 )
+            {
+                unit = number->unsigned32BitValue();
+            }
+        }
+
+        if ( (string = OSDynamicCast(OSString, service->getProperty("IOUnitName"))))
+        {
+            if ( name == 0 )
+            {
+                name = string->getCStringNoCopy();
+            }
         }
 
         if ( service->inPlane(gIODTPlane) )
@@ -623,11 +636,7 @@ bool IOApplePartitionScheme::attachMediaObjectToDeviceTree( IOMedia * media )
 
             while ( (child = children->getNextObject()) )
             {
-                const char * location = child->getLocation(gIODTPlane);
-                const char * name     = child->getName(gIODTPlane);
-
-                if ( name     == 0 || strcmp(name,     "" ) != 0 ||
-                     location == 0 || strchr(location, ':') == 0 )
+                if ( OSDynamicCast(IOMedia, child) == 0 )
                 {
                     child->detachAll(gIODTPlane);
                 }
@@ -639,10 +648,12 @@ bool IOApplePartitionScheme::attachMediaObjectToDeviceTree( IOMedia * media )
             {
                 char location[ sizeof("hhhhhhhh:dddddddddd") ];
 
+                if ( name == 0 )  name = "";
+
                 sprintf(location, "%lx:", unit);
                 strcat(location, media->getLocation());
                 media->setLocation(location, gIODTPlane);
-                media->setName("", gIODTPlane);
+                media->setName(name, gIODTPlane);
 
                 return true;
             }

@@ -312,7 +312,7 @@
 3Z	d	Em2	2	x	2
 3Z	d	E	2	x	2+1
 3Z	d	1u1	2	x	2d2+1
-3Z	d	1d1	2	x	3m2i1
+3Z	d	1d1	2	x	3m2
 3Z	d	1	2	OK	3m2
 3Z	d	1i1	2	x	3m2d1
 3Z	d	3	2	OK	5m4
@@ -344,7 +344,7 @@
 3Z	d	0i2	3	x	3
 3Z	d	0i8	3	x	3
 3Z	d	Em3	3	x	3-4
-3Z	d	E	3	x	3
+3Z	d	E	3	x	3d1
 3Z	d	1u1	3	x	3d3+1
 3Z	d	1d1	3	x	7m3i1
 3Z	d	1	3	OK	7m3
@@ -363,7 +363,7 @@
 3Z	d	-0i2	3	x	3
 3Z	d	-0i3	3	x	3
 3Z	d	-Ed7	3	x	3+1
-3Z	d	-E	3	x	3
+3Z	d	-E	3	x	3d1
 3Z	d	-1u1	3	x	3i3+1
 3Z	d	-1d1	3	x	1i1p192
 3Z	d	-1	3	z	H
@@ -414,7 +414,7 @@
 3Z	d	Ed7	64	x	64
 3Z	d	E	64	x	64+1
 3Z	d	1u1	64	x	1d65p6+2
-3Z	d	1	64	OK	1d1
+3Z	d	1	64	OK	1
 3Z	d	4	64	x	1m2
 3Z	d	Hm1	64	x	E
 3Z	d	H	64	OK	0
@@ -645,11 +645,11 @@
 3Z	d	0i1	-1	x	-1	Note:	Result	exact.
 3Z	d	E	-1	x	-1+1	Note:	Result	exact.
 3Z	d	1u1	-1	x	-1+1	Note:	Result	exact.
-3Z	d	1d1	-1	x	-1+1	Note:	Result	exact.
+3Z	d	1d1	-1	x	-1d1+1	Note:	Result	exact.
 3Z	d	1	-1	OK	-1
 3Z	d	1i1	-1	x	-1-2	Note:	Result	exact.
-3Z	d	2	-1	x	-1	Note:	Result	exact.
-3Z	d	255	-1	OK	-1
+3Z	d	2	-1	x	-1i1	Note:	Result	exact.
+3Z	d	255	-1	OK	-1d2
 3Z	d	257	-1	x	-1	Note:	Result	exact.
 3Z	d	Hm1	-1	x	-1	Note:	Result	exact.
 3Z	d	H	-1	OK	-1
@@ -675,12 +675,12 @@
 3Z	d	0i3	-2	x	-2
 3Z	d	E	-2	x	-2+1
 3Z	d	1u1	-2	x	-2+2
-3Z	d	1d1	-2	x	-3+1
+3Z	d	1d1	-2	x	-3d1+1
 3Z	d	1	-2	OK	-3
 3Z	d	1i1	-2	x	-3-1
-3Z	d	2	-2	x	-4	Note:	Result	exact.
-3Z	d	255	-2	OK	-257
-3Z	d	257	-2	x	-259	Note:	Result	exact.
+3Z	d	2	-2	x	-4i1	Note:	Result	exact.
+3Z	d	255	-2	OK	-257d2
+3Z	d	257	-2	x	-259d1	Note:	Result	exact.
 3Z	d	Hm1	-2	x	-Hm1
 3Z	d	H	-2	OK	-H
 3Z	d	Q	-2	OK	Q
@@ -706,10 +706,10 @@
 3Z	d	Ed4	-4	x	-4+1
 3Z	d	E	-4	x	-4+1
 3Z	d	1u1	-4	x	-4i2+1
-3Z	d	1d1	-4	x	-15d1+2
-3Z	d	1	-4	OK	-15
+3Z	d	1d1	-4	x	-15d4+2
+3Z	d	1	-4	OK	-15d1
 3Z	d	1i1	-4	x	-15i1-3
-3Z	d	2	-4	x	-40+1	Note:	Result	exact.
+3Z	d	2	-4	x	-40i2+1	Note:	Result	exact.
 3Z	d	Hm1	-4	ox	-H
 3Z	d	H	-4	OK	-H
 3Z	d	Q	-4	OK	Q
@@ -735,7 +735,7 @@
 3Z	d	0i7	-64	x	-64
 3Z	d	E	-64	x	-64+1
 3Z	d	1u1	-64	x	-1i32p6+1
-3Z	d	1	-64	OK	-1d1p64
+3Z	d	1	-64	OK	-1d9d4p64
 3Z	d	Hm1	-64	ox	-H
 3Z	d	H	-64	OK	-H
 3Z	d	Q	-64	OK	Q

@@ -49,15 +49,15 @@
 
 #ifndef	MACRO_BEGIN
 # define		MACRO_BEGIN	do {
-#endif	MACRO_BEGIN
+#endif	/* MACRO_BEGIN */
 
 #ifndef	MACRO_END
 # define		MACRO_END	} while (0)
-#endif	MACRO_END
+#endif	/* MACRO_END */
 
 #ifndef	MACRO_RETURN
 # define		MACRO_RETURN	if (1) return
-#endif	MACRO_RETURN
+#endif	/* MACRO_RETURN */
 
-#endif	_NRW_MACRO_HELP_H_
+#endif	/* _NRW_MACRO_HELP_H_ */
 

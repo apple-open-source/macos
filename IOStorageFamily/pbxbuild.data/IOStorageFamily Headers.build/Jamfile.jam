@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = IOStorageFamily ;
-export deferred SRCROOT = /Volumes/Users/markaria/Active/IOStorageFamily ;
+export deferred SRCROOT = /Volumes/Users/markaria/Active/IOStorageFamily-26-7-HEAD ;
 
 # User-defined project-wide settings for project
 
@@ -32,7 +32,6 @@ export deferred WARNING_CFLAGS = -Wmost -Wno-four-char-constants -Wno-unknown-pr
 if "$(BUILD_STYLE)" = Development {
 	export deferred COPY_PHASE_STRIP = NO ;
 	export deferred OPTIMIZATION_CFLAGS = -O0 ;
-	export deferred USE_GCC3 = YES ;
 }
 
 if "$(BUILD_STYLE)" = Deployment {
@@ -108,6 +107,12 @@ if $(DEPLOYMENT_POSTPROCESSING) = YES {
 else {
 	NoOp "<IOStorageFamily Headers>IOStorageFamily Headers$(TOOL_SUFFIX)" : "$(SCRIPT_BUILD_PHASE_FILES)" : BPTag005 : BPTag006 ;
 }
+
+rule DefineHeaderDependencies
+{
+}
+
+DefineHeaderDependencies "<IOStorageFamily Headers>IOStorageFamily Headers$(TOOL_SUFFIX)" ;
 
 EndTool "<IOStorageFamily Headers>IOStorageFamily Headers$(TOOL_SUFFIX)" ;
 

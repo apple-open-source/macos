@@ -59,7 +59,7 @@
 *     June       27  2001: ported routine to OSX, replaced calls to fenv.c     *
 *                          with inline routines. This technique caused the     *
 *                          routine to speed up by a factor of three.           *
-*     July       16  2001: replaced __setflm with fegetenvd/fesetenvd.         *
+*     July       16  2001: replaced __setflm with FEGETENVD/FESETENVD.         *
 *     August     28  2001: added description of routine.                       *
 *     September  05  2001: added #ifdef __ppc__.                               *
 *     September  10  2001: added macros to detect PowerPC and correct compiler.*
@@ -173,7 +173,7 @@ static double __nextafter ( double x, double y )
       fenv_t envp;
       
 //    Save old environment
-      fegetenvd(temp.d);
+      FEGETENVD(temp.d);
       envp = temp.i.lo;
       
 //    Clear all flags in temp variable and set rounding to nearest
@@ -190,7 +190,7 @@ static double __nextafter ( double x, double y )
             if ((newexc & FE_INVALID) != 0)
                   temp.i.lo |= SET_INVALID;
             temp.i.lo |=  newexc & ( FE_INEXACT | FE_DIVBYZERO | FE_UNDERFLOW | FE_OVERFLOW );
-            fesetenvd(temp.d);
+            FESETENVD(temp.d);
             if ( ( x ==  0.0 ) && ( y == 0.0 )) // (*0, -0)-> -0, (*0, +0)-> +0 i.e. "y"
                 return y;
             else
@@ -210,7 +210,7 @@ static double __nextafter ( double x, double y )
       else if ( ( ( x < 0.0 ) && ( x < y ) ) || ( ( x > 0.0 ) && ( x > y ) ) )
             {            /*  Always clear intermediate spurious inexact.     */
             temp.i.lo = (temp.i.lo & FE_NO_RND) | FE_TOWARDZERO;
-            fesetenvd(temp.d);
+            FESETENVD(temp.d);
             arg = ( x < 0.0 ) ? x + EPSILON.d : x - EPSILON.d;
             temp.i.lo &= ~( FE_INEXACT | FE_UNDERFLOW );
             if ((temp.i.lo & FE_ALL_EXCEPT) == 0)
@@ -219,7 +219,7 @@ static double __nextafter ( double x, double y )
       else if ( ( x < 0.0 ) && ( x > y ) )
             {
             temp.i.lo = (temp.i.lo & FE_NO_RND) | FE_DOWNWARD;
-            fesetenvd(temp.d);
+            FESETENVD(temp.d);
             arg = x - EPSILON.d;
             temp.i.lo &= ~( FE_INEXACT | FE_UNDERFLOW );
             if ((temp.i.lo & FE_ALL_EXCEPT) == 0)
@@ -228,7 +228,7 @@ static double __nextafter ( double x, double y )
       else
             {
             temp.i.lo = (temp.i.lo & FE_NO_RND) | FE_UPWARD;
-            fesetenvd(temp.d);
+            FESETENVD(temp.d);
             arg = x + EPSILON.d;
             temp.i.lo &= ~( FE_INEXACT | FE_UNDERFLOW );
             if ((temp.i.lo & FE_ALL_EXCEPT) == 0)
@@ -266,7 +266,7 @@ static double __nextafter ( double x, double y )
       if ((newexc & FE_INVALID) != 0)
             temp.i.lo |= SET_INVALID;
       temp.i.lo |=  newexc & ( FE_INEXACT | FE_DIVBYZERO | FE_UNDERFLOW | FE_OVERFLOW );
-      fesetenvd(temp.d);
+      FESETENVD(temp.d);
       
       return arg;
       }
@@ -300,7 +300,7 @@ float nextafterf ( float x, float y )
       fenv_t envp;
       
 //    Save old environment
-      fegetenvd(temp.d);
+      FEGETENVD(temp.d);
       envp = temp.i.lo;
       
 //    Clear all flags in temp variable and set rounding to nearest
@@ -317,7 +317,7 @@ float nextafterf ( float x, float y )
             if ((newexc & FE_INVALID) != 0)
                   temp.i.lo |= SET_INVALID;
             temp.i.lo |=  newexc & ( FE_INEXACT | FE_DIVBYZERO | FE_UNDERFLOW | FE_OVERFLOW );
-            fesetenvd(temp.d);
+            FESETENVD(temp.d);
             if ( ( x ==  0.0 ) && ( y == 0.0 )) // (*0, -0)-> -0, (*0, +0)-> +0
                 return y;
             else
@@ -337,7 +337,7 @@ float nextafterf ( float x, float y )
       else if ( ( ( x < 0.0 ) && ( x < y ) ) || ( ( x > 0.0 ) && ( x > y ) ) )
             {            /*  Always clear intermediate spurious inexact.     */
             temp.i.lo = (temp.i.lo & FE_NO_RND) | FE_TOWARDZERO;
-            fesetenvd(temp.d);
+            FESETENVD(temp.d);
             arg = ( x < 0.0 ) ? x + EPSILON.fval : x - EPSILON.fval;
             temp.i.lo &= ~( FE_INEXACT | FE_UNDERFLOW );
             if ((temp.i.lo & FE_ALL_EXCEPT) == 0)
@@ -346,7 +346,7 @@ float nextafterf ( float x, float y )
       else if ( ( x < 0.0 ) && ( x > y ) )
             {
             temp.i.lo = (temp.i.lo & FE_NO_RND) | FE_DOWNWARD;
-            fesetenvd(temp.d);
+            FESETENVD(temp.d);
             arg = x - EPSILON.fval;
             temp.i.lo &= ~( FE_INEXACT | FE_UNDERFLOW );
             if ((temp.i.lo & FE_ALL_EXCEPT) == 0)
@@ -355,7 +355,7 @@ float nextafterf ( float x, float y )
       else
             {
             temp.i.lo = (temp.i.lo & FE_NO_RND) | FE_UPWARD;
-            fesetenvd(temp.d);
+            FESETENVD(temp.d);
             arg = x + EPSILON.fval;
             temp.i.lo &= ~( FE_INEXACT | FE_UNDERFLOW );
             if ((temp.i.lo & FE_ALL_EXCEPT) == 0)
@@ -392,7 +392,7 @@ float nextafterf ( float x, float y )
       if ((newexc & FE_INVALID) != 0)
             temp.i.lo |= SET_INVALID;
       temp.i.lo |=  newexc & ( FE_INEXACT | FE_DIVBYZERO | FE_UNDERFLOW | FE_OVERFLOW );
-      fesetenvd(temp.d);
+      FESETENVD(temp.d);
       
       return arg;
       }

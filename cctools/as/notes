@@ -4,7 +4,6 @@ TODO for coalesced symbols:
 
 TODO:
 - Add MacOS line termination \r .
-- Add MMX stuff.
 
 Known bugs:
 - The assembly line:
@@ -25,6 +24,266 @@ Bugs to be fixed:
 - The m68k "jmp @(_foo)" is not legal and needs to be flaged.
 - The PowerPC extended branch mnemonic like beqlrl need to take a CRFONLY or
   a number shifted over by 2 (like the fcmpu instruction).
+
+Changes for the 5.12 release (the cctools-465 release):
+- Added the following directives:
+    .p2align[wl] align, [fill[, max_bytes_to_fill]]
+  as well as now allow max_bytes_to_fill with:
+    .align align, [fill[, max_bytes_to_fill]]
+    .align32 align, [fill[, max_bytes_to_fill]]
+  Radar bug #3207027.
+  - Added entries for .p2align, p2alignw and p2lalignl in the array
+    pseudo_table[] in read.c .
+  - Changed s_align() in read.c to parse out the option max_bytes_to_fill
+    argument.  Then passed the max_bytes_to_fill as a new fourth argument to
+    frag_align().  And not set the section's alignment if max_bytes_to_fill is
+    non-zero.
+  - Changed the call to frag_align() in s_even() in m68k.c and s_align() in
+    i860.c to pass 0 as the new fourth argument to frag_align().
+  - Changed frag_align() in frags.c and frags.h to take a new fourth argument
+    max_bytes_to_fill.  This is saved in the frag struct field fr_subtype.
+  - Changed relax_section() in layout.c to not do the alignment if it takes more
+    than max_bytes_to_fill bytes (if non-zero).  If max_bytes_to_fill is
+    non-zero and the alignment is done then the section's alignment is set.
+- Fixed a bug in the .fill directive:
+	.fill repeat_expression , fill_size , fill_expression
+  for a fill_size of anything but 1 was broken.  Radar bug #3201031.
+  - Also fixed two error messages in s_fill() in read.c to correctly indicate
+    which argument (the repeat_expression or fill_size) was in error.
+  - Changed write_object() in write_object.c where it writes out the section
+    contents of the variable repeated part of a frag.  The fill_size is stored
+    in an rs_fill frag in the fr_var field, the repeat_expression is in the
+    fr_offset field and the fill_expression are in the bytes at fr_literal.
+  - The above change to write_object() in write_object.c uncovered bugs with
+    how rs_align frags were created in frag_align() in frags.c and handled in
+    layout_addresses() in layout.c due to the partial bytes needed before the
+    fill_expression of the fill_size.
+    - frag_align() in frags.c now calls frag_var() with max_chars parameter
+      large enough to hold the fill_expression of fill_size plus the maximum
+      number of partial bytes that may be needed to be zeroed before the fill.
+    - The second argument to frag_align() was change to a char * from an int
+      so the the caller can properly convert the fill expression to the target
+      byte sex.  This change was maded in both frags.c and frags.h .
+    - s_align() in read.c, s_even() in m68k.c and s_align() in i860.c were
+      change to call md_number_to_chars() on the fill expression and convert it
+      to a char (or array of chars).  A pointer to this char is then passed to
+      frag_align().  Other changes were made to add comments and change
+      variable names to make things more understandable to the reader.
+
+Changes for the 5.12 release (the cctools-464 release):
+- Made changes to build cleanly with gcc3.3
+  - Removed -Wno-precomp from the Makefile
+  - Fixed warnings for "comparison between signed and unsigned" in driver.c,
+    expr.c, frags.c, layout.c, read.c, write_object.c, m68k.c, m88k.c, i386.c
+    i860.c, ppc.c, hppa.c and sparc.c .
+
+Changes for the 5.12 release (the cctools-461 release):
+- Changed the assembler to support the code gen for fix-n-continue where the
+  compiler generates indirection for static data references.  The assembly
+  for a non-lazy pointer to a local symbol looks like this:
+
+	.non_lazy_symbol_pointer
+	L_i$non_lazy_ptr:
+	.indirect_symbol _i            
+	.long   _i
+
+  With the difference between this and a non-lazy pointer to a global symbol
+  being the ".long 0" for a global symbol.  The initialization allows the value
+  of the symbol to be set into the pointer.  Code was added in fixup_section()
+  in layout.c to not cause the relocation entry to be created.  Code was also
+  added in write_object() in write_object.c that changes the indirect symbol
+  table entry to INDIRECT_SYMBOL_LOCAL when the symbol is local.  This is what
+  the static and dynamic linkers expect and will then cause the pointer to be
+  correctly relocated.  
+
+  The routine is_section_non_lazy_symbol_pointers() was added in sections.[ch]
+  for fixup_section() to use.
+
+  Radar bug #3182683.
+
+Changes for the 5.12 release (the cctools-458 release):
+- Changed the i386 pause instruction so that it is not marked Optional (in
+  i386-opcode.h) so it does not require the -force_cpusubtype_ALL option.
+  Radar bug #3173226.
+ 
+Changes for the 5.12 release (the cctools-454 release):
+- Fixed a problem with .include not finding the included file if the included
+  file is in the same directory as the source file but the source file is not
+  assembled from the directory containing the source file.  Radar bug #3139454.
+  - Added the varable input_dir to input-scrub.c and set its value to the
+    directory part of the file name in input_scrub_new_file().
+  - Changed read_an_include_file() to check if the include file does not start
+    with a '/' and if so look for the file with the input_dir first.
+- Changed input_scrub_next_buffer() in input-scrub.c where it previously
+  caused a error message for "Source line too long." to now reallocate the
+  buffer and adjust things to read more from the input.  Also added saving
+  and restoring buffer_length in read_an_include_file().  Radar bug #3138898.
+
+Changes for the 5.12 release (the cctools-450 release):
+- Fixed the i386 opcode entry for the movd opcode which takes xmm,r/m32 operands
+  which had the encoding switched for the reg and r_m bits of the ModR/M byte.
+  It was:
+  {"movd", 2, 0x660f7e, _, RR|Modrm, {xmm, r32|m32, 0},"O"},
+  and was changed to:
+  {"movd", 2, 0x660f7e, _, Modrm, {xmm, r32|m32, 0},"O"},
+  (Radar bug #3117280).
+- Fixed a bug in is_end_section_address() to sections.c so that it alwasy
+  returns FALSE when the section is a zerofill section.  Radar bug #3123561.
+- Fixed the i386 opcode entry for the mov opcode which took segment registers
+  to take a Reg not just a Reg16.  It was:
+  { "mov", 2, 0x8c, _, D|Modrm,  {SReg3|SReg2, Reg16|Mem, 0} },
+  and was changed to:
+  { "mov", 2, 0x8c, _, D|Modrm,  {SReg3|SReg2, Reg|Mem, 0} },
+  (Radar bug #3114720).
+
+Changes for the 5.12 release (the cctools-449 release):
+- Removed the specific cpusubtype markings on all i386 instructions.  Also added
+  -arch i686 to as.c to be the same as -arch pentpro. Radar bug #3111977.
+- Changed the error message for non-relocatable subtraction expression so that
+  it would indicate the source file and line and which of the symbols were
+  undefined (Radar bug #2254439).
+  - Changed the fix struct in fixes.h to have a file and line fields for the
+    file name and line number.
+  - Added as_file_and_line() to input-scrub.c to return the current file
+    name and line number.
+  - Added the variables layout_file and layout_line to input-scrub.[ch] and
+    changed as_warn() to use them if no input_file_is_open and layout_line is
+    not zero.
+  - Changed fix_new() in fixes.c to call as_file_and_line() and fill in the
+    file and line fields of the fix struct it creates.
+  - Changed the error message generated in fixup_section() in layout.c at the
+    point it has something that it can't generate a relocation entry when there
+    is a subtraction expression.  This also sets layout_file and layout_line
+    from the file and line fields in the fix struct before calling as_warn().
+- Added an error message for a relocatable subtraction expression when one of
+  the symbols is at the end of a section (Radar bug #2259427).
+  - Added is_end_section_address() to section.[ch] which returns a boolean
+    value if the address passed for the section number passed is at the end of
+    the section.
+  - Added code in fixup_section() in layout.c when processing a section
+    difference to check the symbol address using is_end_section_address() and
+    generating an error message is either address is at the end of the section.
+
+Changes for the 5.12 release (the cctools-448 release):
+- Fixed the i386 opcode entry for the cmpxchg8b opcode which had None, _, in the
+  extension_opcode field which should have been a 1.  It was:
+  {"cmpxchg8b",	1, 0x0fc7, _,       Modrm,    {Mem,           0, 0}, "5" },
+  and was changed to:
+  {"cmpxchg8b",	1, 0x0fc7, 1,       Modrm,    {Mem,           0, 0}, "5" },
+  (Radar bug #3099684).
+
+Changes for the 5.12 release (the cctools-447 release):
+- Changed s_align() in read.c to put out nops if the section has machine
+  instructions.  Also changed frag_align() in frags.c to allow a size of 2 for
+  m68k nop padding.  Did not change the i860 stuff as it pads just the text
+  section (Radar bug #3073763).
+
+Changes for the 5.11 release (the cctools-446 release):
+- Changed the i386 assembler opcode table entry for cmpxchg8b (in i386-opcode.h)
+  from taking just a Mem32:
+  {"cmpxchg8b",	1, 0x0fc7, _,       Modrm,  {Mem32,           0, 0}, "5" },
+  to taking a Mem:
+  {"cmpxchg8b",	1, 0x0fc7, _,       Modrm,    {Mem,           0, 0}, "5" },
+  (Radar bug #3089041).
+
+Changes for the 5.11 release (the cctools-442 release):
+- Moved the i386 assembler to not be installed as a local assembler.
+  Radar bug #3074138.
+- Added the missing i386 opcode table entry for the an fxch with no operands:
+ {"fxch", 0, 0xd9c9, _, ShortForm, {0, 0, 0} }, /* exchange %st0, %st1 */
+ Radar bug #3073760.
+
+Changes for the 5.11 release (the cctools-440 release):
+- Fixed the warnings about extra tokens at end of #endif directive in
+  m68k-check.c, m68k.c, m88k.c, sparc.c, m68k-opcode.h, make_defs.h,
+  atof-ieee.c and m88k-opcode.h (Radar bug #3072042).
+
+Changes for the 5.11 release (the cctools-439 release):
+- Picked up the changes for the .align32 directive.  The changes were in frags.c
+  and frags.h in frag_align(), read.c in s_align() and the pseudo_table[] array,
+  write_object.c in write_object().  And calls to frag_align() in m68k.c and
+  i860.c . Radar bug #2680692.
+- Changed all the SSE2 instructions an marked them as "optional" so that the
+  -force_cpusubtype_ALL must be used.  Radar bug #2972486.
+- Changed back way instructions such fcmovb are marked so they were marked i686 
+  instructions as in the fix to Radar bug #2928507 (this change was lost in the
+  changes to cctools-437 in intergrating the partial fixes to Radar bug
+  #2972486).
+- Updated i386-check.c to allow it be used with otool's disassembler to check
+  opcodes.  Cases for RegMM and RegXMM were added as well as tables for each.
+  Radar bug #2972486.
+- Because of the added i386 opcode "fildll" to be the same as "fildq" and
+  "fistpll" to be the same as "fistpq" (done for Radar bug #2909568) code in
+  i386-check.c was added to not add the 'l' suffix to "fildl" and "fistpl".
+- Added built in macros to the i386 assembler for the two-operand SSE2 compare
+  pseudo-ops in i386.c and loaded them in md_begin(). Radar bug #2972486.
+- To allow a literal '$' to be used in a macro, expand_macro() in read.c was
+  changed to output a single '$' when the macro contains two "$$" in a row.
+  Radar bug #2972486.
+- Fixed the bugs in the following instruction opcodes:
+  {"sysenter", 0, 0x0f34, _, NoModrm, {0, 0, 0}},
+  {"sysexit", 0, 0x0f35, _, NoModrm, {0, 0, 0}},
+  where originally they had Modrm which should have been NoModrm as these
+  instructions have no operands.  This cause these instructions to be assembled
+  with a trailing 0x00 byte. Radar bug #2972486.
+- Fixed a bug in the following SSE2 instruction opcode
+  {"pinsrw", 3, 0x0fc4, _, RR|Modrm, {Imm8, r32|m16, mm}},
+  where the "mm" was "0" which caused the following two legal instructions to
+  not assemble at all:
+	pinsrw $0x1,(%ecx),%mm1
+	pinsrw $0x2,%edx,%mm2
+  Radar bug #2972486.
+- Fixed a bug in the movq SSE2 instruction opcodes.  The opcodes for register
+  to memory and memory to register were switch.  The old ones were:
+   {"movq", 2, 0x660fd6, _, RR|Modrm, {xmm, xmm|m64, 0}},
+   {"movq", 2, 0xf30f7e, _, RR|Modrm, {xmm|m64, xmm, 0}},
+  The corrected ones were:
+   {"movq", 2, 0x660fd6, _, RR|Modrm, {xmm|m64, xmm, 0}},
+   {"movq", 2, 0xf30f7e, _, RR|Modrm, {xmm, xmm|m64, 0}},
+  Which made these instructions:
+	movq 0x93939393(%eax),%xmm3
+	movq %xmm4,0x94949494(%eax)
+  assemble as:
+	movq %xmm3,0x93939393(%eax)
+	movq 0x94949494(%eax),%xmm4
+  Radar bug #2972486.
+- Fixed a bug in the following SSE2 instruction opcode:
+  {"pcmpeqw", 2, 0x660f75, _, RR|Modrm, {xmm|m128, xmm, 0}},
+  the trailing 75 was incorrectly a 74 making the following instruction:
+	pcmpeqw 0x90909090(%eax),%xmm2
+  assemble as ('b'-byte not 'w'-word):
+	pcmpeqb 0x90909090(%eax),%xmm2
+  Radar bug #2972486.
+- Fixed a bug in the following SSE2 instruction opcode:
+  {"pcmpgtw", 2, 0x660f65, _, RR|Modrm, {xmm|m128, xmm, 0}},
+  the trailing 65 was incorrectly a 64 making the following instruction:
+	pcmpgtw 0x90909090(%eax),%xmm2
+  assemble as ('b'-byte not 'w'-word):
+	pcmpgtb 0x90909090(%eax),%xmm2
+  Radar bug #2972486.
+
+Changes for the 5.11 release (the cctools-437 release):
+- Picked up the changes to assembler the i386 SSE2/SSE/MMX instructions.
+  This is not yet complete.  The changes include changing the way instructions
+  such fcmovb should are marked.  They were marked i686 instructions as in the
+  fix to Radar bug #2928507 but now are unmarked.  Also the pseudo-ops like
+  cmpeqps are not yet supported.  Radar bug #2972486.
+- Fixed a bug in fix_to_relocation_entries() in write_object.c where it sets
+  the "true target address" into the r_address field of the PAIR relocation
+  entry for a PPC_RELOC_JBSR.  In the case the symbol is not undefined then
+  r_address should be set to the absolute address of the "true target address".
+  The bug was the code was subtracting sect_addr which was the section address
+  of the section that the relocation entry is in (nothing to do with the target
+  of the relocation which is fixP->fx_value). The change makes the undefined
+  symbol case and the defined symbol case the same as both are storing
+  fixP->fx_value in the "other_part" of the PAIR relocation entry.  For an
+  external relocation entry this is the offset from the symbol and for a local
+  relocation entry this the "true target address".  The other change is to use
+  a scattered relocation entry for the PAIR if it is a local relocation entry
+  and the "true target address" has the high bit set or if it is an external
+  relocation entry and the offset has the high bit set.  As a non-scattered
+  relocation entry limits the "other_part" to 31 bits when stored in the
+  r_address field.  Radar bug #3046962.
 
 Changes for the 5.10 release (the cctools-422 release):
 - Added some pentium pro instructions.  Radar bug #2928507.

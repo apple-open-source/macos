@@ -349,7 +349,7 @@ apc@(num8,reg:sz:scale)		--> *(apc+num8+reg*scale)
 #define BAC	(BAD+8)		/* 64,65,66,67, 68,69,70,71 */
 #define PSR	(BAC+8)		/* 72 */
 #define PCSR	(PSR+1)		/* 73 */
-#endif m68851
+#endif /* m68851 */
 
 
 /* Note that COPNUM==processor #1 -- COPNUM+7==#8, which stores as 000 */
@@ -2257,7 +2257,7 @@ char *instring)
 
 		case 'O':
 			tmpreg= (opP->mode==DREG)
-				? 0x20+opP->reg-DATA
+				? (int)(0x20+opP->reg-DATA)
 				: (get_num(opP->con1,40)&0x1F);
 			install_operand(s[1],tmpreg);
 			break;
@@ -3043,10 +3043,10 @@ obstack_alloc(&robyn,sizeof(struct m68_incant));
 			as_fatal("Internal Error:  Can't hash %s: %s",ins->name,retval);
 	}
 
-	for (i = 0; i < sizeof(mklower_table) ; i++)
+	for (i = 0; i < (int)sizeof(mklower_table) ; i++)
 		mklower_table[i] = (isupper(c = (char) i)) ? tolower(c) : c;
 
-	for (i = 0 ; i < sizeof(notend_table) ; i++) {
+	for (i = 0 ; i < (int)sizeof(notend_table) ; i++) {
 		notend_table[i] = 0;
 		alt_notend_table[i] = 0;
 	}
@@ -3877,18 +3877,22 @@ void
 s_even(
 int value)
 {
-	register int temp;
+	register int power_of_2_alignment;
 	register long int temp_fill;
+	char fill;
 
-	temp = 1;		/* JF should be 2? */
+	/* power of 2 alignment, 2^1 or 2 byte (even) alignment */
+	power_of_2_alignment = 1;
 	temp_fill = get_absolute_expression ();
-	frag_align(temp, (int)temp_fill);
+	md_number_to_chars(&fill, temp_fill, 1);
+	frag_align(power_of_2_alignment, &fill, 1, 0);
 	/*
 	 * If this alignment is larger than any previous alignment then this
 	 * becomes the section's alignment.
 	 */
-	if(frchain_now->frch_section.align < temp)
-	    frchain_now->frch_section.align = temp;
+	if(frchain_now->frch_section.align <
+	   (unsigned long)power_of_2_alignment)
+	    frchain_now->frch_section.align = power_of_2_alignment;
 	demand_empty_rest_of_line();
 }
 

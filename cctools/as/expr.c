@@ -358,7 +358,7 @@ statement */
 				 right.X_add_symbol);
 		seg2 = expr_part(&resultP->X_subtract_symbol,
 				 right.X_subtract_symbol);
-		if(seg1 == -1 || seg2 == -1){
+		if((int)seg1 == -1 || (int)seg2 == -1){
 		    as_warn("Can't relocate expression. Absolute 0 assumed.");
 		    resultP->X_seg        = SEG_ABSOLUTE;
 		    resultP->X_add_number = 0;

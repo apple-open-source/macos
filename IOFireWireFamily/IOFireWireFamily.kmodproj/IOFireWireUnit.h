@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -28,14 +31,60 @@
 #ifndef _IOKIT_IOFIREWIREUNIT_H
 #define _IOKIT_IOFIREWIREUNIT_H
 
+// public
 #include <IOKit/firewire/IOFireWireNub.h>
+
 class IOFireWireDevice;
+class IOFireWireUnit;
+
+#pragma mark -
+
+/*! 
+	@class IOFireWireUnitAux
+*/
+
+class IOFireWireUnitAux : public IOFireWireNubAux
+{
+    OSDeclareDefaultStructors(IOFireWireUnitAux)
+
+	friend class IOFireWireUnit;
+	
+protected:
+	
+	/*! 
+		@struct ExpansionData
+		@discussion This structure will be used to expand the capablilties of the class in the future.
+    */  
+	  
+    struct ExpansionData { };
+
+	/*! 
+		@var reserved
+		Reserved for future use.  (Internal use only)  
+	*/
+    
+	ExpansionData * reserved;
+
+    virtual bool init( IOFireWireUnit * primary );
+	virtual	void free();
+	
+private:
+    OSMetaClassDeclareReservedUnused(IOFireWireUnitAux, 0);
+    OSMetaClassDeclareReservedUnused(IOFireWireUnitAux, 1);
+    OSMetaClassDeclareReservedUnused(IOFireWireUnitAux, 2);
+    OSMetaClassDeclareReservedUnused(IOFireWireUnitAux, 3);
+	
+};
+
+#pragma mark -
 
 /*! @class IOFireWireUnit
 */
 class IOFireWireUnit : public IOFireWireNub
 {
     OSDeclareDefaultStructors(IOFireWireUnit)
+
+	friend class IOFireWireUnitAux;
 
 protected:
     IOFireWireDevice *fDevice;	// The device unit is part of
@@ -59,6 +108,8 @@ public:
      */
     virtual bool attach(IOService * provider );
 
+    virtual void free();
+	
     /*
      * Matching language support
      * Match on the following properties of the unit:
@@ -90,6 +141,10 @@ public:
     virtual IOFWPhysicalAddressSpace *createPhysicalAddressSpace(IOMemoryDescriptor *mem);
     virtual IOFWPseudoAddressSpace *createPseudoAddressSpace(FWAddress *addr, UInt32 len,
                     FWReadCallback reader, FWWriteCallback writer, void *refcon);
+
+protected:
+	
+	virtual IOFireWireNubAux * createAuxiliary( void );
 	    
 private:
     OSMetaClassDeclareReservedUnused(IOFireWireUnit, 0);

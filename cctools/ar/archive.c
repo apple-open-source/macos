@@ -93,7 +93,7 @@ int
 open_archive(mode)
 	int mode;
 {
-	int created, fd, nr;
+	int created, fd, nr, r;
 	char buf[SARMAG];
 	
 	created = 0;
@@ -118,9 +118,46 @@ open_archive(mode)
 	 * error then someone is already working on this library (or
 	 * it's going across NFS).
 	 */
-opened:	if (flock(fd, LOCK_EX|LOCK_NB) && errno != EOPNOTSUPP)
-		error(archive);
-	
+opened:
+	r = flock(fd, LOCK_EX|LOCK_NB);
+	if (r) {
+		switch (errno)
+		{
+		/* Something interupted us let's not try again. */
+		case EINTR:
+
+		/* Coding errors */
+		case EACCES:
+		case EBADF:
+		case EMFILE:
+		case EINVAL:
+		case ESRCH:
+		case EAGAIN:
+		case EFAULT:
+		case EROFS:
+		case EOVERFLOW:
+		case EFBIG:
+
+		/* Something bad happened  so no point in going on. */
+		case EISDIR:
+		case EDEADLK:
+		case ESTALE:
+			error(archive);
+			break;
+
+		/* Locking is supported but we are out of resources right now */
+		case ENOLCK:
+
+		/* Locking seems to not be working */
+		case ENOTSUP:
+		case EHOSTUNREACH:
+		case EBADRPC:
+		default:
+			/* Filesystem does not support locking */
+			break;
+		}
+	}
+
 	/*
 	 * If not created, O_RDONLY|O_RDWR indicates that it has to be
 	 * in archive format.
@@ -242,7 +279,7 @@ put_arobj(cfp, sb)
 	CF *cfp;
 	struct stat *sb;
 {
-	int lname;
+	unsigned int lname;
 	char *name;
 	struct ar_hdr *hdr;
 	off_t size;
@@ -303,12 +340,13 @@ put_arobj(cfp, sb)
 	 * which is required for object files in archives.
 	 */
 	if (lname) {
-		if (write(cfp->wfd, name, lname) != lname)
+		if (write(cfp->wfd, name, lname) != (int)lname)
 			error(cfp->wname);
 		already_written = lname;
 		if ((lname % 4) != 0) {
 			static char pad[3] = "\0\0\0";
-			if (write(cfp->wfd, pad, 4-(lname%4)) !=  4-(lname%4))
+			if (write(cfp->wfd, pad, 4-(lname%4)) !=
+			    (int)(4-(lname%4)))
 				error(cfp->wname);
 			already_written += 4 - (lname % 4);
 		}

@@ -79,4 +79,4 @@ struct sparc_thread_state_fpu {
 	( SPARC_THREAD_STATE_FLAVOR_COUNT *              \
 		(sizeof (struct thread_state_flavor) / sizeof(int)))
 
-#endif	_MACH_SPARC_THREAD_STATUS_H_
+#endif	/* _MACH_SPARC_THREAD_STATUS_H_ */

@@ -60,5 +60,5 @@ __private_extern__ void print_load_fvmlibs_list(
     void);
 __private_extern__ void print_fvmlib_segments(
     void);
-#endif DEBUG
-#endif !defined(RLD)
+#endif /* DEBUG */
+#endif /* !defined(RLD) */

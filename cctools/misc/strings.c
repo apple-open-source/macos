@@ -114,7 +114,8 @@ char **argv,
 char **envp)
 {
     struct flags flags;
-    unsigned long i, j, nfiles;
+    int i;
+    unsigned long j, nfiles;
     char *endp;
     struct arch_flag *arch_flags;
     unsigned long narch_flags;

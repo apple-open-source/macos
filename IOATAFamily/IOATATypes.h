@@ -54,6 +54,10 @@
 #define kATAInternalSocketString "internal"
 #define kATAMediaBaySocketString "media-bay"
 #define kATAPCCardSocketString "pccard"
+#define kATAInternalSATAString "serial-ata"
+#define kATASATABayString "sata-bay"
+#define kATAInternalSATA2 "serial-ata-2"
+#define kATASATA2BayString "sata-2-bay"
 #define kATAUnkownSocketString "unknown"
 
 
@@ -76,7 +80,11 @@ enum ataSocketType{
 	kUnknownSocket	= 0,
 	kInternalATASocket,
 	kMediaBaySocket	,
-	kPCCardSocket
+	kPCCardSocket,
+	kInternalSATA,
+	kSATABay,
+	kInternalSATA2,
+	kSATA2Bay
 
 } ;
 

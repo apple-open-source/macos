@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -117,23 +120,43 @@ public:
 	// Check for hardware interrupts (typically from a timeout call)
 	virtual void 					handleInterrupts(int count) = 0;
 
-	virtual IOReturn 				resetBus() = 0;
+	virtual IOReturn 				resetBus( bool useIBR = false ) = 0;
+
 	virtual IOReturn 				asyncRead(UInt16 nodeID, UInt16 addrHi, UInt32 addrLo, 
 											int speed, int label, int size, IOFWAsyncCommand *cmd) = 0;
+
 	virtual IOReturn 				asyncReadQuadResponse(UInt16 nodeID, int speed, 
 											int label, int rcode, UInt32 data) = 0;
+
 	virtual IOReturn				asyncReadResponse(UInt16 nodeID, int speed,
 										int label, int rcode, IOMemoryDescriptor *buf,
 										IOByteCount offset, int len) = 0;
-	virtual IOReturn				asyncWrite(UInt16 nodeID, UInt16 addrHi, UInt32 addrLo,
-											int speed, int label, IOMemoryDescriptor *buf, IOByteCount offset,
-											int size, IOFWAsyncCommand *cmd, IOFWWriteFlags flags ) = 0;
-	virtual IOReturn 				asyncWrite(UInt16 nodeID, UInt16 addrHi, UInt32 addrLo, int speed, int label, 
-											   void *data, int size, IOFWAsyncCommand *cmd, IOFWWriteFlags flags ) = 0;
+
+	virtual IOReturn				asyncWrite(	UInt16 					nodeID, 
+												UInt16 					addrHi, 
+												UInt32 					addrLo,
+												int 					speed, 
+												int 					label, 
+												IOMemoryDescriptor *	buf, 
+												IOByteCount 			offset,
+												int 					size, 
+												IOFWAsyncCommand *		cmd,
+												IOFWWriteFlags 			flags ) = 0;
+	
 	virtual IOReturn 				asyncWriteResponse(UInt16 nodeID, int speed, 
 											int label, int rcode, UInt16 addrHi) = 0;
-	virtual IOReturn 				asyncLock(UInt16 nodeID, UInt16 addrHi, UInt32 addrLo, 
-											int speed, int label, int type, void *data, int size, IOFWAsyncCommand *cmd) = 0;
+										
+	virtual IOReturn asyncLock(	UInt16					destID, 
+								UInt16 					addrHi, 
+								UInt32 					addrLo, 
+								int 					speed, 
+								int 					label, 
+								int 					type, 
+								IOMemoryDescriptor *	buf, 
+								IOByteCount 			offset, 
+								int 					length, 
+								IOFWAsyncCommand *		cmd ) = 0;
+								
 	virtual IOReturn 				asyncLockResponse(UInt16 nodeID, int speed, 
 											int label, int rcode, int type, void *data, int len) = 0;
 
@@ -168,15 +191,6 @@ public:
 	// don't forget about the isoch workloop:
 	virtual void			closeIsochGate() ;
 	virtual void			openIsochGate() ;
-	
-	virtual	IOReturn asyncStreamTransmit(
-														UInt32					channel,
-														int						speed,		
-														UInt32					sync,
-														UInt32					tag,
-														void					* buf,		
-														int						len,
-														IOFWAsyncStreamCommand 	* cmd ) = 0;
 
 	virtual	IOReturn asyncStreamTransmit(
 														UInt32					channel,
@@ -189,12 +203,12 @@ public:
 														IOFWAsyncStreamCommand	* cmd ) = 0;
 
 	virtual void setSecurityMode( IOFWSecurityMode mode ) = 0;
-	
-	void handleARxReqIntComplete( void )
+
+    void handleARxReqIntComplete( void )
         { fControl->handleARxReqIntComplete(); };
-	
+
 	virtual void flushWaitingPackets( void ) = 0;
-	
+		
 private:
     OSMetaClassDeclareReservedUnused(IOFireWireLink, 0);
     OSMetaClassDeclareReservedUnused(IOFireWireLink, 1);

@@ -39,37 +39,42 @@ double   copysign ( double arg2, double arg1 );
 double	 fabs ( double x );
 double   nan   ( const char *string );
 
-/* gcc 2.95 inlines fabs() and fabsf() of its own accord (as single instructions!) */ 
-#define      __fabs(x)	fabs(x)
-#define      __fabsf(x)	fabsf(x)
+#include "ppc_intrinsics.h"
 
-#define __fmadd(x, y, z) \
+#define __FMADD __fmadd
+#define __FMADDS __fmadds
+#define __FMSUB __fmsub
+#define __FNMSUB __fnmsub
+#define __FMUL __fmul
+
+/* N.B. gcc 2.95 inlines fabs() and fabsf() of its own accord. */ 
+#define      __FABS(x)	fabs(x)
+#define      __FABSF(x)	fabsf(x)
+
+#define __ORI_NOOP \
+({ \
+    asm volatile ( "ori r0, r0, 0" ); /* NOOP */ \
+})  
+
+#define __ENSURE(x, y, z) \
 ({ \
     double __value, __argx = (x), __argy = (y), __argz = (z); \
     asm volatile ("fmadd %0,%1,%2,%3" : "=f" (__value): "f" (__argx), "f" (__argy), "f" (__argz)); \
     __value; \
-})  
-
-#define __fmaddf(x, y, z) \
-({ \
-    float __value, __argx = (x), __argy = (y), __argz = (z); \
-    asm volatile ("fmadds %0,%1,%2,%3" : "=f" (__value): "f" (__argx), "f" (__argy), "f" (__argz)); \
-    __value; \
-})  
-
-#define __fmsub(x, y, z) \
-({ \
-    double __value, __argx = (x), __argy = (y), __argz = (z); \
-    asm volatile ("fmsub %0,%1,%2,%3" : "=f" (__value): "f" (__argx), "f" (__argy), "f" (__argz)); \
-    __value; \
-})  
-
-#define __prod(x, y) \
+}) 
+ 
+#define __PROD(x, y) \
 ({ \
     double __value, __argx = (x), __argy = (y); \
     asm volatile ("fmul %0,%1,%2" : "=f" (__value): "f" (__argx), "f" (__argy)); \
     __value; \
 })  
+
+#define __PROG_INEXACT( x ) (void)__PROD( x, x ) /* Raises INEXACT for suitable choice of x */
+
+#define __PROG_UF_INEXACT( x ) (void)__PROD( x, x ) /* Raises UNDERFLOW and INEXACT for suitable choice of x e.g. MIN_NORMAL */
+
+#define __PROG_OF_INEXACT( x ) (void)__PROD( x, x ) /* Raises OVERFLOW and INEXACT for suitable choice of x e.g. MAX_NORMAL */
 
 /******************************************************************************
 *       Single precision                                                      *

@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -379,7 +380,7 @@ static OSErr ReadBitmapBlock(
 		blockNum = bit / kBitsPerBlock;   /* block offset within bitmap */
 		blockNum += vcb->vcbVBMSt;        /* block within whole volume  */
 		
-		err = GetVolumeBlock(vcb, blockNum, kGetBlock, block);
+		err = GetVolumeBlock(vcb, blockNum, kGetBlock | kSkipEndianSwap, block);
 
 	} else {
 		// HFS+:  "bit" is the allocation block number that we are looking for  
@@ -403,7 +404,7 @@ static OSErr ReleaseBitmapBlock(
 	OSErr err;
 
 	if (vcb->vcbSignature == kHFSSigWord)
-		err = ReleaseVolumeBlock (vcb, block, options);
+		err = ReleaseVolumeBlock (vcb, block, options | kSkipEndianSwap);
 	else
 		err = ReleaseFileBlock (vcb->vcbAllocationFile, block, options);
 
@@ -504,7 +505,7 @@ static OSErr BlockAllocateAny(
 	UInt32			*actualNumBlocks)
 {
 	OSErr			err;
-	register UInt32	block;			//	current block number
+	register UInt32	block = 0;		//	current block number
 	register UInt32	currentWord;	//	Pointer to current word within bitmap block
 	register UInt32	bitMask;		//	Word with given bits already set (ready to OR in)
 	register UInt32	wordsLeft;		//	Number of words left in this bitmap block
@@ -535,7 +536,7 @@ static OSErr BlockAllocateAny(
 		wordIndexInBlock = (startingBlock & kBitsWithinBlockMask) / kBitsPerWord;
 		buffer += wordIndexInBlock;
 		wordsLeft = kWordsPerBlock - wordIndexInBlock;
-		currentWord = *buffer;
+		currentWord = SWAP_BE32(*buffer);
 		bitMask = kHighBitInWordMask >> (startingBlock & kBitsWithinWordMask);
 	}
 	
@@ -568,7 +569,7 @@ static OSErr BlockAllocateAny(
 
 				wordsLeft = kWordsPerBlock;
 			}
-			currentWord = *buffer;
+			currentWord = SWAP_BE32(*buffer);
 		}
 	}
 
@@ -605,7 +606,7 @@ static OSErr BlockAllocateAny(
 		//	Next bit
 		bitMask >>= 1;
 		if (bitMask == 0) {
-			*buffer = currentWord;					//	update value in bitmap
+			*buffer = SWAP_BE32(currentWord);	// update value in bitmap
 			
 			//	Next word
 			bitMask = kHighBitInWordMask;
@@ -624,10 +625,10 @@ static OSErr BlockAllocateAny(
 
 				wordsLeft = kWordsPerBlock;
 			}
-			currentWord = *buffer;
+			currentWord = SWAP_BE32(*buffer);
 		}
 	}
-	*buffer = currentWord;							//	update the last change
+	*buffer = SWAP_BE32(currentWord);	// update the last change
 
 Exit:
 	if (err == noErr) {
@@ -711,13 +712,13 @@ static OSErr BlockMarkAllocated(
 			bitMask &= ~(kAllBitsSetInWord >> (firstBit + numBits));	//	turn off bits after last
 		}
 #if DEBUG_BUILD
-		if ((*currentWord & bitMask) != 0) {
+		if ((*currentWord & SWAP_BE32(bitMask)) != 0) {
 			DebugStr("\pFATAL: blocks already allocated!");
 			err = fsDSIntErr;
 			goto Exit;
 		}
 #endif
-		*currentWord |= bitMask;					//	set the bits in the bitmap
+		*currentWord |= SWAP_BE32(bitMask);				//	set the bits in the bitmap
 		numBlocks -= numBits;						//	adjust number of blocks left to allocate
 
 		++currentWord;								//	move to next word
@@ -754,7 +755,7 @@ static OSErr BlockMarkAllocated(
 			goto Exit;
 		}
 #endif
-		*currentWord = bitMask;
+		*currentWord = SWAP_BE32(bitMask);
 		numBlocks -= kBitsPerWord;
 
 		++currentWord;								//	move to next word
@@ -785,13 +786,13 @@ static OSErr BlockMarkAllocated(
 			wordsLeft = kWordsPerBlock;
 		}
 #if DEBUG_BUILD
-		if ((*currentWord & bitMask) != 0) {
+		if ((*currentWord & SWAP_BE32(bitMask)) != 0) {
 			DebugStr("\pFATAL: blocks already allocated!");
 			err = fsDSIntErr;
 			goto Exit;
 		}
 #endif
-		*currentWord |= bitMask;						//	set the bits in the bitmap
+		*currentWord |= SWAP_BE32(bitMask);						//	set the bits in the bitmap
 
 		//	No need to update currentWord or wordsLeft
 	}
@@ -870,13 +871,13 @@ static OSErr BlockMarkFree(
 			bitMask &= ~(kAllBitsSetInWord >> (firstBit + numBits));	//	turn off bits after last
 		}
 #if DEBUG_BUILD
-		if ((*currentWord & bitMask) != bitMask) {
+		if ((*currentWord & SWAP_BE32(bitMask)) != SWAP_BE32(bitMask)) {
 			DebugStr("\pFATAL: blocks not allocated!");
 			err = fsDSIntErr;
 			goto Exit;
 		}
 #endif
-		*currentWord &= ~bitMask;					//	clear the bits in the bitmap
+		*currentWord &= SWAP_BE32(~bitMask);			// clear the bits in the bitmap
 		numBlocks -= numBits;						//	adjust number of blocks left to free
 
 		++currentWord;								//	move to next word
@@ -943,13 +944,13 @@ static OSErr BlockMarkFree(
 			wordsLeft = kWordsPerBlock;
 		}
 #if DEBUG_BUILD
-		if ((*currentWord & bitMask) != bitMask) {
+		if ((*currentWord & SWAP_BE32(bitMask)) != SWAP_BE32(bitMask)) {
 			DebugStr("\pFATAL: blocks not allocated!");
 			err = fsDSIntErr;
 			goto Exit;
 		}
 #endif
-		*currentWord &= ~bitMask;						//	clear the bits in the bitmap
+		*currentWord &= SWAP_BE32(~bitMask);						//	clear the bits in the bitmap
 
 		//	No need to update currentWord or wordsLeft
 	}
@@ -1100,7 +1101,7 @@ static OSErr BlockFindContiguous(
 		currentWord		= buffer + wordIndexInBlock;
 				
 		wordsLeft		= wordIndexInBlock;
-		tempWord		= *currentWord;
+		tempWord		= SWAP_BE32(*currentWord);
 		bitMask			= kHighBitInWordMask >> ( currentBlock & kBitsWithinWordMask );
 		currentSector	= currentBlock / kBitsPerBlock;
 	}
@@ -1150,7 +1151,7 @@ static OSErr BlockFindContiguous(
 					
 				wordsLeft	= ( currentBlock & kBitsWithinBlockMask ) / kBitsPerWord;
 				currentWord	= buffer + wordsLeft;
-				tempWord	= *currentWord;
+				tempWord	= SWAP_BE32(*currentWord);
 				bitMask		= kHighBitInWordMask >> ( currentBlock & kBitsWithinWordMask );
 
 				continue;												//	Back to the while loop
@@ -1187,7 +1188,7 @@ NextWord:
 				wordsLeft		= kWordsPerBlock - 1;
 			}
 			
-			tempWord = *currentWord;							//	Grab the current word
+			tempWord = SWAP_BE32(*currentWord);							//	Grab the current word
 
 			//
 			//	If we found a whole word of free blocks, quickly skip over it.
@@ -1250,7 +1251,7 @@ NextWord:
 
 		wordIndexInBlock = (currentBlock & kBitsWithinBlockMask) / kBitsPerWord;
 		currentWord		= buffer + wordIndexInBlock;
-		tempWord		= *currentWord;
+		tempWord		= SWAP_BE32(*currentWord);
 		wordsLeft		= kWordsPerBlock - wordIndexInBlock;
 		bitMask			= kHighBitInWordMask >> (currentBlock & kBitsWithinWordMask);
 	}
@@ -1294,7 +1295,7 @@ NextWord:
 					currentWord		= buffer;
 					wordsLeft		= kWordsPerBlock;
 				}
-				tempWord = *currentWord;			//	grab the current word
+				tempWord = SWAP_BE32(*currentWord);	// grab the current word
 			}
 		}
 	}

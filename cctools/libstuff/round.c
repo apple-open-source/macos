@@ -30,9 +30,9 @@
  * round() rounds v to a multiple of r.
  */
 __private_extern__
-long
+unsigned long
 round(
-long v,
+unsigned long v,
 unsigned long r)
 {
 	r--;

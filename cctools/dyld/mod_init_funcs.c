@@ -65,7 +65,8 @@ static enum bool call_module_initializers_for_objects(
 void
 call_module_initializers(
 enum bool make_delayed_calls,
-enum bool bind_now)
+enum bool bind_now,
+enum bool post_launch_libraries_only)
 {
     unsigned long i;
     struct library_images *q;
@@ -111,7 +112,8 @@ enum bool bind_now)
 #endif /* !defined(__GONZO_BUNSEN_BEAKER__) && !defined(__HERA__) */
 #endif /* __ppc__ */
 			make_delayed_calls,
-			bind_now);
+			bind_now,
+			post_launch_libraries_only);
 	    }
 	    q = q->next_images;
 	}while(q != NULL);
@@ -157,7 +159,8 @@ int *facilities_used,
 #endif /* !defined(__GONZO_BUNSEN_BEAKER__) && !defined(__HERA__) */
 #endif /* __ppc__ */
 enum bool make_delayed_calls,
-enum bool bind_now)
+enum bool bind_now,
+enum bool post_launch_libraries_only)
 {
     unsigned long j, k;
     enum link_state link_state;
@@ -188,6 +191,8 @@ enum bool bind_now)
 
 	    if(link_state != REGISTERING &&
 	       (make_delayed_calls == FALSE ||
+		(link_state != LINKED && link_state != FULLY_LINKED)) &&
+		(post_launch_libraries_only == FALSE ||
 		(link_state != LINKED && link_state != FULLY_LINKED)))
 		continue;
 
@@ -296,19 +301,23 @@ enum bool bind_now)
 		    continue;
 
 		if(delay_mod_init == FALSE || make_delayed_calls == TRUE){
-		    slide_value = p->images[i].image.vmaddr_slide;
-		    n = p->images[i].image.init->size / sizeof(unsigned long);
-		    for(j = 0; j < n; j++){
-			addr = *((long *)
-			     (p->images[i].image.init->addr + slide_value) + j);
-			func = (void(*)(void))addr;
-			DYLD_TRACE_CALLOUT_START(
-			    DYLD_TRACE_module_init_for_object, func);
-			release_lock();
-			func();
-			set_lock();
-			DYLD_TRACE_CALLOUT_END(
-			    DYLD_TRACE_module_init_for_object, func);
+		    if(p->images[i].image.dont_call_mod_init == FALSE){
+			slide_value = p->images[i].image.vmaddr_slide;
+			n = p->images[i].image.init->size /
+			    sizeof(unsigned long);
+			for(j = 0; j < n; j++){
+			    addr = *((long *)
+				     (p->images[i].image.init->addr +
+				      slide_value) + j);
+			    func = (void(*)(void))addr;
+			    DYLD_TRACE_CALLOUT_START(
+				DYLD_TRACE_module_init_for_object, func);
+			    release_lock();
+			    func();
+			    set_lock();
+			    DYLD_TRACE_CALLOUT_END(
+				DYLD_TRACE_module_init_for_object, func);
+			}
 		    }
 		}
 		link_state = GET_LINK_STATE(p->images[i].module);

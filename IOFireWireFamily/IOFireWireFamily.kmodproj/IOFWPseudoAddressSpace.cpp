@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -52,34 +55,13 @@ bool IOFWPseudoAddressSpaceAux::init( IOFWAddressSpace * primary )
 	
 	// init super
 	
-    if( !IOFWAddressSpaceAux::init( primary ) )
-        success = false;
+    success = IOFWAddressSpaceAux::init( primary );
 	
 	// create member variables
 	
 	if( success )
 	{
-		fMembers = (MemberVariables*)IOMalloc( sizeof(MemberVariables) );
-		if( fMembers == NULL )
-			success = false;
-	}
-	
-	// zero member variables
-	
-	if( success )
-	{
-		bzero( fMembers, sizeof(MemberVariables) );
-	}
-
-	// clean up on failure
-	
-	if( !success )
-	{
-		if( fMembers != NULL )
-		{
-			IOFree( fMembers, sizeof(MemberVariables) );
-			fMembers = NULL;
-		}
+		success = createMemberVariables();
 	}
 			
 	return success;
@@ -91,15 +73,59 @@ bool IOFWPseudoAddressSpaceAux::init( IOFWAddressSpace * primary )
 
 void IOFWPseudoAddressSpaceAux::free()
 {	
-	if( fMembers != NULL )
-	{		
-		// free member variables
+	destroyMemberVariables();
 		
+	IOFWAddressSpaceAux::free();
+}
+
+// createMemberVariables
+//
+//
+
+bool IOFWPseudoAddressSpaceAux::createMemberVariables( void )
+{
+	bool success = true;
+	
+	if( fMembers == NULL )
+	{
+		// create member variables
+		
+		if( success )
+		{
+			fMembers = (MemberVariables*)IOMalloc( sizeof(MemberVariables) );
+			if( fMembers == NULL )
+				success = false;
+		}
+		
+		// zero member variables
+		
+		if( success )
+		{
+			bzero( fMembers, sizeof(MemberVariables) );
+		}
+		
+		// clean up on failure
+		
+		if( !success )
+		{
+			destroyMemberVariables();
+		}
+	}
+	
+	return success;
+}
+
+// destroyMemberVariables
+//
+//
+
+void IOFWPseudoAddressSpaceAux::destroyMemberVariables( void )
+{
+	if( fMembers != NULL )
+	{
 		IOFree( fMembers, sizeof(MemberVariables) );
 		fMembers = NULL;
 	}
-	
-	IOFWAddressSpaceAux::free();
 }
 
 // handleARxReqIntComplete
@@ -125,7 +151,7 @@ void IOFWPseudoAddressSpaceAux::setARxReqIntCompleteHandler( void * refcon, IOFW
 }
 
 #pragma mark -
-
+	
 /*
  * Pseudo firewire addresses usually represent emulated registers of some kind.
  * Accesses to these addresses will result in the owner being notified.
@@ -279,7 +305,7 @@ IOFWPseudoAddressSpace::simpleRWFixed(IOFireWireBus *control,
             break;
         }
         
-		me->fDesc = IOMemoryDescriptor::withAddress((void *)data, len, kIODirectionOut);
+		me->fDesc = IOMemoryDescriptor::withAddress((void *)data, len, kIODirectionOutIn);
         if(!me->fDesc) 
 		{
             me->release();
@@ -312,7 +338,7 @@ IOFWPseudoAddressSpace *IOFWPseudoAddressSpace::simpleRW(IOFireWireBus *control,
             break;
         }
         
-		me->fDesc = IOMemoryDescriptor::withAddress(data, len, kIODirectionOut);
+		me->fDesc = IOMemoryDescriptor::withAddress(data, len, kIODirectionOutIn);
         if(!me->fDesc) 
 		{
             me->release();
@@ -444,13 +470,13 @@ UInt32 IOFWPseudoAddressSpace::doRead( UInt16 nodeID, IOFWSpeed &speed, FWAddres
 {
 	if( !isTrustedNode( nodeID ) )
 		return kFWResponseAddressError;
-
+	
     if(addr.addressHi != fBase.addressHi)
 		return kFWResponseAddressError;
     
 	if(addr.addressLo < fBase.addressLo)
 		return kFWResponseAddressError;
-    
+   
 	if(addr.addressLo + len > fBase.addressLo+fLen)
 		return kFWResponseAddressError;
     
@@ -470,7 +496,7 @@ UInt32 IOFWPseudoAddressSpace::doWrite(UInt16 nodeID, IOFWSpeed &speed, FWAddres
 	if( !isTrustedNode( nodeID ) )
 		return kFWResponseAddressError;
 
-    if(addr.addressHi != fBase.addressHi)
+   if(addr.addressHi != fBase.addressHi)
 		return kFWResponseAddressError;
     
 	if(addr.addressLo < fBase.addressLo)
@@ -505,4 +531,3 @@ UInt32 IOFWPseudoAddressSpace::contains(FWAddress addr)
     
 	return fLen - offset;
 }
-

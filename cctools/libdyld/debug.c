@@ -743,7 +743,7 @@ struct _dyld_debug_task_state *state)
 	    return(DYLD_FAILURE);
 	}
 	state->debug_thread_resume_count = 0;
-	for(i = 0; i < info.suspend_count; i++){
+	for(i = 0; i < (unsigned int)(info.suspend_count); i++){
 	    k = thread_resume(state->debug_thread);
 	    if(k == KERN_SUCCESS)
 		/* the thread has been resumed */
@@ -866,7 +866,7 @@ ppc_thread_state_t *cpu)
 	printf("      xer  0x%08x\n", cpu->xer);
 	printf("      srr1 0x%08x\n", cpu->srr1);
 }
-#endif __ppc__
+#endif /* __ppc__ */
 #ifdef hppa
 void
 printf_hp_pa_integer_thread_state(
@@ -1235,7 +1235,7 @@ task_port_t target_task)
 	 */
 	mh = NULL;
 	mh_address = 0;
-	address = 0x41100000;
+	address = 0x8fe00000;
 #ifdef __MACH30__
 	infoCnt = VM_REGION_BASIC_INFO_COUNT;
 	k = vm_region(target_task, &address, &size, VM_REGION_BASIC_INFO,
@@ -2055,7 +2055,7 @@ vm_offset_t stack_size)
 
 	return(DYLD_SUCCESS);
 }
-#endif m68k
+#endif /* m68k */
 
 #ifdef hppa
 static
@@ -2315,7 +2315,7 @@ vm_offset_t stack_size)
 
 	return(DYLD_SUCCESS);
 }
-#endif __ppc__
+#endif /* __ppc__ */
 
 /*
  * When a error occurs in the dyld debug API's the user registered function

@@ -127,14 +127,10 @@ private:
     unsigned int              rxCommandTail;
     unsigned int              rxMaxCommand;        
 
-    struct {
-        void *   ptr;
-        u_int    size;
-        void *   ptrReal;
-        u_int    sizeReal;
-    } dmaMemory;
-
-    unsigned char *           dmaCommands;
+    UInt8*					dmaCommands;
+    UInt32					dmaCommandsPhys;
+    UInt32					dmaCommandsSize;
+	IOMemoryDescriptor*		dmaCommandsDesc;
     enet_txdma_cmd_t *        txDMACommands;    // TX descriptor ring ptr
     unsigned int              txDMACommandsPhys;
 
@@ -187,7 +183,7 @@ private:
 
 #ifdef DEBUG
     void _dumpRegisters();
-    void _dumpDesc(void * addr, u_int32_t size);
+    void _dumpDesc( void* addr, UInt32 physAddr, u_int32_t size );
     void _dump_srom();
 #endif DEBUG
 
@@ -216,9 +212,10 @@ private:
 
     UInt32 outputPacket(struct mbuf * m, void * param);
 
-    void interruptOccurredForSource(IOInterruptEventSource * src, int count);
-
-    void timeoutOccurred(IOTimerEventSource * timer);
+	static void	interruptOccurred( OSObject *me, IOInterruptEventSource *src, int count );
+	static void	timerPopped( OSObject *me, IOTimerEventSource* timer );
+	void handleInterrupt( IOInterruptEventSource* src );
+	void handleTimerPop();
 
     void monitorLinkStatus( bool firstPoll = false );
 

@@ -1,3 +1,103 @@
+Changes for the 5.12 release (the cctools-466 release):
+- Added the DYNAMIC_LOOKUP_ORDINAL to <mach-o/nlist.h> and reduced the value of
+  MAX_LIBRARY_ORDINAL by one.  This is to allow dynamic flat namespace lookups
+  in twolevel namespace images.  Radar bug #3210803.
+
+Changes for the 5.12 release (the cctools-464 release):
+- Fixed a spelling error in <mach-o/loader.h> where "alwasys" should be "always"
+  Radar bug #3198288.
+- Added the prototype for the SPI NSHasModInitObjectFileImage() to
+  <mach-o/dyld.h> .  Radar bug #3196951.
+- Made changes to build cleanly with gcc3.3
+  - Change the prototype for round() in "stuff/round.h" to used unsigned long
+    in the two places it use long.
+
+Changes for the 5.12 release (the cctools-463 release):
+- Changed the prototype of NSGetSectionDataInObjectFileImage() from
+    /* not yet implemented */
+    extern void * NSGetSectionDataInObjectFileImage(
+	NSObjectFileImage objectFileImage,
+	const char *segmentName,
+	const char *sectionName);
+  to the now implemented prototype:
+    extern void * NSGetSectionDataInObjectFileImage(
+	NSObjectFileImage objectFileImage,
+	const char *segmentName,
+	unsigned long *size); /* can be NULL */
+  Radar bug #3194204.
+- Added the constant:
+    #define	MH_DYLIB_STUB	0x9	/* shared library stub for static */
+					/*  linking only, no section contents */
+  to <mach-o/loader.h> .  Radar bug #3193744.
+
+Changes for the 5.12 release (the cctools-462 release):
+- Added the constant:
+    #define NSLINKMODULE_OPTION_TRAILING_PHYS_NAME 0x10
+  to <mach-o/dyld.h> and comments to <mach-o/dyld_gdb.h> .  Radar bug #3190599.
+
+Changes for the 5.12 release (the cctools-461 release):
+- Added the constant:
+    #define NSLINKMODULE_OPTION_DONT_CALL_MOD_INIT_ROUTINES 0x8
+  to <mach-o/dyld.h> .  Radar bug #3183011.
+
+Changes for the 5.12 release (the cctools-460 release):
+- Removed the /* not yet implemented */ comment off of the following prototypes
+  in <mach-o/dyld.h> :
+    NSSymbolDefinitionCountInObjectFileImage
+    NSSymbolDefinitionNameInObjectFileImage
+    NSSymbolReferenceCountInObjectFileImage
+    NSSymbolReferenceNameInObjectFileImage
+    NSIsSymbolDefinedInObjectFileImage
+  As there are now implemented.  Radar bug #3179011.
+
+Changes for the 5.12 release (the cctools-457 release):
+- Added ofile_map_from_memory() to "stuff/ofile.h".  This is needed so the
+  NSCreateObjectFileImageFromMemory() api can be implemented.  Radar bug
+  #3131622.
+
+Changes for the 5.12 release (the cctools-456 release):
+- Picked up the header file <cbt/libsyminfo.h>.  Radar bug 3145742.
+
+Changes for the 5.12 release (the cctools-448 release):
+- Added the N_OPT constant to <mach-o/stabs.h> which is emitted with
+  gcc2_compiled and in gcc source.  Radar bug #3104328.
+- Added the _dyld_get_image_header_containing_address() SPI prototype to
+  <mach-o/dyld.h> (also added the missing _dyld_image_containing_address()
+  prototype).  Radar bug #2967928.
+
+Changes for the 5.12 release (the cctools-447 release):
+- Added the _dyld_all_twolevel_modules_prebound() SPI prototype to
+  <mach-o/dyld.h>.  Radar bug #3055372.
+
+Changes for the 5.11 release (the cctools-444 release):
+- Added the file <stuff/symbol_list.h> which contains the interface for the
+  symbol lists code taken from strip.c.  Now also used by ld(1)'s
+  -exported_symbols_list and -unexported_symbols_list options.  Radar bug
+  #3083844.
+
+Changes for the 5.11 release (the cctools-439 release):
+- Added the VEO cputype and its subtypes to <mach/machine.h>.  Radar bug
+  #3068161.
+- Added the install_name() API to <mach-o/redo_prebinding.h> .
+  Radar bug #3065586.
+
+Changes for the 5.11 release (the cctools-440 release):
+- Fixed the warnings about extra tokens at end of #endif directive in
+  <mach-o/loader.h>, <mach/m68k/thread_status.h>, <architecture/nrw/reg_help.h>,
+  <architecture/m88k/reg_help.h>, <mach/m88k/thread_status.h>,
+  <mach/i860/thread_status.h>, <architecture/sparc/reg.h>,
+  <mach/sparc/thread_status.h>, <mach-o/nlist.h>, <architecture/m88k/fp_regs.h>,
+  <gnu/exec.h>, <mach/machine.h>, <architecture/nrw/macro_help.h>,
+  <mach-o/gmon.h> and <mach-o/stab.h> (Radar bug #3072042).
+
+Changes for the 5.11 release (the cctools-438 release):
+- Added the constant MACOSX_DEPLOYMENT_TARGET_10_3 to the header file
+  <stuff/macosx_deployment_target.h>.  Radar bug #3049974.
+
+Changes for the 5.11 release (the cctools-437 release):
+- Added the new N_PARAMS, N_VERSION and N_OLEVEL defines to <mach-o/stab.h>.
+  Radar bug #3000792.
+
 Changes for the 5.10 release (the cctools-422 release):
 - Added the section attribute S_ATTR_STRIP_STATIC_SYMS to <mach-o/loader.h>.
   Radar bug #2945659.

@@ -44,7 +44,7 @@
 *     September19 1994: changed all the environemntal enquiries to __setflm.   *
 *     October  06 1994: initialized CurrentEnvironment to correct an invalid   *
 *                        flag problem.                                         *
-*     July     23 2001: replaced __setflm with fegetenvd/fesetenvd;            *
+*     July     23 2001: replaced __setflm with FEGETENVD/FESETENVD;            *
 *                       replaced DblInHex typedef with hexdouble.              *
 *     September 07 2001: added #ifdef __ppc__.                                 *
 *     September 09 2001: added more comments.                                  *
@@ -92,7 +92,7 @@ static const double pi = 3.141592653589793116e+00;
 *     This function is odd.  The positive interval is computed and for         *
 *     negative values, the sign is reflected in the computation.               *
 *******************************************************************************/
-
+#ifdef notdef
 double atan2 ( double y, double x )
       {
       register double result;
@@ -108,8 +108,8 @@ double atan2 ( double y, double x )
       if ( ( x != x ) || ( y != y ) )
             return x + y;
       
-      fegetenvd( OldEnvironment.d );
-      fesetenvd( 0.0 );
+      FEGETENVD( OldEnvironment.d );
+      FESETENVD( 0.0 );
 
 /*******************************************************************************
 *     The next switch will decipher what sort of argument we have:             *
@@ -155,7 +155,7 @@ double atan2 ( double y, double x )
                               }
                         }
                   OldEnvironment.i.lo |= CurrentEnvironment.i.lo;
-                  fesetenvd( OldEnvironment.d );
+                  FESETENVD( OldEnvironment.d );
                   return x;
             case FP_INFINITE:
                   if ( x > 0.0 )
@@ -177,7 +177,7 @@ double atan2 ( double y, double x )
                               x = copysign ( 0.75 * pi, y );
                         }
                   OldEnvironment.i.lo |= CurrentEnvironment.i.lo;
-                  fesetenvd( OldEnvironment.d );
+                  FESETENVD( OldEnvironment.d );
                   return x;
             default:
                   break;
@@ -194,13 +194,13 @@ double atan2 ( double y, double x )
                         x = copysign ( pi, y );
                         }
                   OldEnvironment.i.lo |= CurrentEnvironment.i.lo;
-                  fesetenvd( OldEnvironment.d );
+                  FESETENVD( OldEnvironment.d );
                   return x;
             case FP_INFINITE:
                   CurrentEnvironment.i.lo |= FE_INEXACT;
                   x = copysign ( 0.5 * pi, y );
                   OldEnvironment.i.lo |= CurrentEnvironment.i.lo;
-                  fesetenvd( OldEnvironment.d );
+                  FESETENVD( OldEnvironment.d );
                   return x;
             default:
                   break;
@@ -212,8 +212,8 @@ double atan2 ( double y, double x )
 *     this point will only receive normal or denormal numbers.                 *
 *******************************************************************************/
       
-      result = atan ( __fabs ( y / x ) );
-      fegetenvd( CurrentEnvironment.d );
+      result = atan ( __FABS ( y / x ) );
+      FEGETENVD( CurrentEnvironment.d );
       CurrentEnvironment.i.lo &= ~( FE_UNDERFLOW | FE_OVERFLOW );
       if ( __signbitd ( x ) )
             result = pi - result;
@@ -231,10 +231,185 @@ double atan2 ( double y, double x )
             }
             
       OldEnvironment.i.lo |= CurrentEnvironment.i.lo;
-      fesetenvd( OldEnvironment.d );
+      FESETENVD( OldEnvironment.d );
 
       return ( copysign ( result, y ) );
       }
+#else
+
+static volatile double kMinNormal = 2.2250738585072014e-308;  // 0x1.0p-1022
+static volatile double kMaxNormal = 1.7976931348623157e308;
+static volatile double kHalf = 0.5;
+
+extern double atanCore ( double );
+extern double atanCoreInv ( double );
+
+double atan2 ( double y, double x )
+{
+      register double result;      
+      register double FPR_env, FPR_z, FPR_half, FPR_pi, FPR_kMinNormal, FPR_kMaxNormal, FPR_absx, FPR_absy, FPR_t;
+      
+      FPR_z = 0.0;					
+      
+/*******************************************************************************
+*     If argument is SNaN then a QNaN has to be returned and the invalid       *
+*     flag signaled.                                                           * 
+*******************************************************************************/
+
+      if ( ( x != x ) || ( y != y ) )
+            return x + y;
+      
+      FEGETENVD( FPR_env );
+      FESETENVD( FPR_z );
+      
+      __ORI_NOOP;	// takes slot 0  following the mtfsf
+      FPR_t = y / x;	// takes slot 1 (hence fpu1) following the mtfsf
+      FPR_pi = pi;
+      
+      FPR_kMinNormal = kMinNormal;			FPR_kMaxNormal = kMaxNormal; 
+           
+      FPR_absy = __FABS ( y );
+      FPR_half = kHalf;                                
+      FPR_absx = __FABS ( x );
+                  
+/*******************************************************************************
+*     The next switch will decipher what sort of argument we have:             *
+*                                                                              *
+*     atan2 ( ±0, x ) = ±0, if x > 0,                                          *
+*     atan2 ( ±0, +0) = ±0,                                                    *
+*     atan2 ( ±0, x ) = ±π, if x < 0,                                          *
+*     atan2 ( ±0, -0) = ±π,                                                    *
+*     atan2 ( y, ±0 ) = π/2, if y > 0,                                         *
+*     atan2 ( y, ±0 ) = -π/2, if y < 0,                                        *
+*     atan2 ( ±y, ∞ ) = ±0, for finite y > 0,                                  *
+*     atan2 ( ±∞, x ) = ±π/2, for finite x,                                    *
+*     atan2 ( ±y, -∞) = ±π, for finite y > 0,                                  *
+*     atan2 ( ±∞, ∞ ) = ±π/4,                                                  *
+*     atan2 ( ±∞, -∞) = ±3π/4.                                                 *
+*                                                                              *
+*     note that the non obvious cases are y and x both infinite or both zero.  *
+*     for more information, see “Branch Cuts for Complex Elementary Functions, *
+*     or much Much Ado About Nothing’s Sign bit”, by W. Kahan, Proceedings of  *
+*     the joint IMA/SIAM conference on The state of the Art in Numerical       *
+*     Analysis, 14-18 April 1986, Clarendon Press (1987).                      *
+*                                                                              *
+*     atan2(y,0) does not raise the divide-by-zero exception, nor does         *
+*     atan2(0,0) raise the invalid exception.                                  *
+*******************************************************************************/
+
+      if ( FPR_absx <= FPR_kMaxNormal ) // slot 0 hence fpu0
+      {
+            if ( x == FPR_z ) // slot 0 hence fpu 0
+            {
+                  if ( y > FPR_z )
+                        result = __FMUL( FPR_half, FPR_pi );
+                  else if ( y < FPR_z )
+                        result = __FMUL( -FPR_half, FPR_pi );
+                  else
+                  {
+                        if ( __signbitd ( x ) ) // x is +-0
+                              result = copysign ( FPR_pi, y ); // y is +-0
+                        else
+                        {
+                              FESETENVD( FPR_env );
+                              return y;			// Exact zero result.
+                        }
+                  }
+                  FESETENVD( FPR_env );
+                  __PROG_INEXACT( FPR_pi );
+                  return result;
+            }
+      }
+      else
+      {	    // Infinite x
+            if ( x > FPR_z )
+            {
+                if ( FPR_absy <= FPR_kMaxNormal )
+                {
+                        FESETENVD( FPR_env );
+                        result = copysign ( FPR_z, y );
+                        return result;
+                }
+                else
+                {
+                        if ( y > FPR_z )
+                            result = __FMUL( 0.25f, FPR_pi );
+                        else
+                            result = __FMUL( -0.25f, FPR_pi );
+                }
+            }
+            else
+            {
+                if ( FPR_absy <= FPR_kMaxNormal )
+                        result = copysign ( FPR_pi, y );
+                else
+                {
+                        if ( y > FPR_z )
+                            result = __FMUL( 0.75f, FPR_pi );
+                        else
+                            result = __FMUL( -0.75f, FPR_pi );
+                }
+            }
+            FESETENVD( FPR_env );
+            __PROG_INEXACT( FPR_pi );
+            return result;
+      }
+      
+      if ( FPR_absy <= FPR_kMaxNormal )
+      {
+            if ( y == FPR_z )
+            {
+                  if ( x > FPR_z )
+                  {
+                        FESETENVD( FPR_env );
+                        return y;
+                  }
+                  else
+                        result = copysign ( FPR_pi, y ); // y is +-0
+                        
+                  FESETENVD( FPR_env );
+                  __PROG_INEXACT( FPR_pi );
+                  return result;
+            }
+      }
+      else
+      {		  // Infinite y
+                  if ( y > FPR_z )
+                        result =  __FMUL( FPR_half, FPR_pi );
+                  else
+                        result =  __FMUL( -FPR_half, FPR_pi );
+                  FESETENVD( FPR_env );
+                  __PROG_INEXACT( FPR_pi );
+                  return result;
+      }
+      
+/*******************************************************************************
+*     End of the special case section. atan2 is mostly a collection of special *
+*     case functions.  Next we will carry out the main computation which at    *
+*     this point will only receive non-zero normal or denormal numbers.        *
+*******************************************************************************/
+      if (FPR_absy > FPR_absx)
+            result = atanCoreInv ( __FABS( FPR_t ) );
+      else
+            result = atanCore ( __FABS( FPR_t ) );
+      
+      if ( x < FPR_z )
+            result = FPR_pi - result;
+            
+      FPR_t = __FABS( result );
+
+      FESETENVD( FPR_env );
+      if ( FPR_t >= FPR_kMinNormal || FPR_t == FPR_z )
+            __PROG_INEXACT( FPR_pi );
+      else
+            __PROG_UF_INEXACT( FPR_kMinNormal );
+
+      if ( y > FPR_z )
+            return result;
+      else
+            return -result;
+}
+#endif
 
 #ifdef notdef
 float atan2f( float y, float x)

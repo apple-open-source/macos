@@ -3,22 +3,29 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.  
- * Please see the License for the specific language governing rights and 
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
  * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
+#ifndef _USBOHCI_H_
+#define _USBOHCI_H_
+
 #include <IOKit/IOTypes.h>
 
 typedef	char *Ptr;
@@ -106,32 +113,21 @@ enum {
 //
 // OHCI type defs.
 //
-typedef UInt32		PhysicalPtr;
-
 typedef struct OHCIRegistersStruct
                     OHCIRegisters,
                     *OHCIRegistersPtr;
 
-typedef struct OHCIIntHeadStruct
-                    OHCIIntHead,
-                    *OHCIIntHeadPtr;
+typedef struct OHCIEndpointDescriptorShared
+                    OHCIEndpointDescriptorShared,
+                    *OHCIEndpointDescriptorSharedPtr;
 
-typedef struct OHCIEndpointDescriptorStruct
-                    OHCIEndpointDescriptor,
-                    *OHCIEndpointDescriptorPtr;
+typedef struct OHCIGeneralTransferDescriptorShared
+                    OHCIGeneralTransferDescriptorShared,
+                    *OHCIGeneralTransferDescriptorSharedPtr;
 
-typedef struct OHCIGeneralTransferDescriptorStruct
-                    OHCIGeneralTransferDescriptor,
-                    *OHCIGeneralTransferDescriptorPtr;
-
-typedef struct OHCIIsochTransferDescriptorStruct
-                    OHCIIsochTransferDescriptor,
-                    *OHCIIsochTransferDescriptorPtr;
-
-typedef struct OHCIPhysicalLogicalStruct
-                    OHCIPhysicalLogical,
-                    *OHCIPhysicalLogicalPtr;
-
+typedef struct OHCIIsochTransferDescriptorShared
+                    OHCIIsochTransferDescriptorShared,
+                    *OHCIIsochTransferDescriptorSharedPtr;
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -526,72 +522,33 @@ enum {
 
 //typedef short RootHubID;
 
-// Interrupt head struct
-struct OHCIIntHeadStruct
+struct OHCIEndpointDescriptorShared
 {
-    OHCIEndpointDescriptorPtr		pHead;
-    OHCIEndpointDescriptorPtr		pTail;
-    UInt32				pHeadPhysical;
-    int					nodeBandwidth;
-};
+    UInt32				flags;			// 0x00 control
+    IOPhysicalAddress			tdQueueTailPtr;		// 0x04 pointer to last TD (physical address)
+    IOPhysicalAddress			tdQueueHeadPtr;		// 0x08 pointer to first TD (physical)
+    IOPhysicalAddress			nextED;			// 0x0c Pointer to next ED (physical)
+};								// 0x10 length of structure
 
-struct OHCIEndpointDescriptorStruct
-{
-    UInt32			flags;			// 0x00 control
-    PhysicalPtr			tdQueueTailPtr;		// 0x04 pointer to last TD (physical address)
-    PhysicalPtr			tdQueueHeadPtr;		// 0x08 pointer to first TD (physical)
-    PhysicalPtr			nextED;			// 0x0c Pointer to next ED (physical)
-    OHCIEndpointDescriptorPtr	pLogicalNext;		// 0x10
-    PhysicalPtr			pPhysical;		// 0x14
-    void*			pLogicalTailP;		// 0x18
-    void*			pLogicalHeadP;		// 0x1c
-};	// 0x20 length of structure
-
-struct OHCIGeneralTransferDescriptorStruct
+struct OHCIGeneralTransferDescriptorShared
 {
     volatile UInt32			ohciFlags;		// 0x00 Data controlling transfer.
-    volatile PhysicalPtr		currentBufferPtr;	// 0x04 Current buffer pointer (physical)
-    volatile PhysicalPtr		nextTD;			// 0x08 Pointer to next transfer descriptor
-    PhysicalPtr				bufferEnd;		// 0x0c Pointer to end of buffer (physical)
-    IOUSBCommand	    	  	*command;		// 0x10 the command associated with this TD
-    UInt32				lastFrame;		// 0x14 the lower 32 bits the last time we checked this TD
-    UInt32				lastRemaining;		// 0x18 the "remaining" count the last time we checked
-    OHCIEndpointDescriptorPtr		pEndpoint;		// 0x1c pointer to TD's Endpoint
-    UInt16				pType;			// 0x20 Note this must appear at the same offset (32) in GTD & ITD structs
-    UInt16				uimFlags;		// 0x22 Note this must appear at the same offset (34) in GTD & ITD structs
-    PhysicalPtr				pPhysical;		// 0x24 Note this must appear at the same offset (36) in GTD & ITD structs
-    OHCIGeneralTransferDescriptorPtr	pLogicalNext;		// 0x28 Note this must appear at the same offset (40) in GTD & ITD structs
-    UInt32				bufferSize;		// 0x2c used only by control transfers to keep track of data buffers size leftover
-								// 0x30 total length
-};
+    volatile IOPhysicalAddress		currentBufferPtr;	// 0x04 Current buffer pointer (physical)
+    volatile IOPhysicalAddress		nextTD;			// 0x08 Pointer to next transfer descriptor
+    IOPhysicalAddress			bufferEnd;		// 0x0c Pointer to end of buffer (physical)
+};								// 0x10 total length
 
-struct OHCIIsochTransferDescriptorStruct
+
+struct OHCIIsochTransferDescriptorShared
 {
     UInt32				flags;		// 0x00 Condition code/FrameCount/DelayInterrrupt/StartingFrame.
-    PhysicalPtr				bufferPage0;	// 0x04 Buffer Page 0 (physical)
-    PhysicalPtr				nextTD;		// 0x08 Pointer to next transfer descriptor (physical)
-    PhysicalPtr				bufferEnd;	// 0x0c Pointer to end of buffer (physical)
+    IOPhysicalAddress			bufferPage0;	// 0x04 Buffer Page 0 (physical)
+    IOPhysicalAddress			nextTD;		// 0x08 Pointer to next transfer descriptor (physical)
+    IOPhysicalAddress			bufferEnd;	// 0x0c Pointer to end of buffer (physical)
     UInt16				offset[8];	// 0x10
-    UInt16				pType;		// 0x20 Note this must appear at the same offset (32) in GTD & ITD structs
-    UInt16				uimFlags;	// 0x22 Note this must appear at the same offset (34) in GTD & ITD structs
-    UInt32				pPhysical;	// 0x24 Note this must appear at the same offset (36) in GTD & ITD structs
-    OHCIIsochTransferDescriptorPtr	pLogicalNext;	// 0x28 Note this must appear at the same offset (40) in GTD & ITD structs
-    IOUSBIsocCompletion  		completion;	// 0x2c callback for Isoch transactions
-    IOUSBIsocFrame *			pIsocFrame;	// 0x38 ptr to USLs status and length array
-    UInt32				frameNum;	// 0x3c	index to pIsocFrame array
-							// 0x40 total length
-};
-
-struct OHCIPhysicalLogicalStruct
-{
-    UInt32				LogicalStart;
-    UInt32				LogicalEnd;
-    UInt32				PhysicalStart;
-    UInt32				PhysicalEnd;
-    UInt32				type;
-    OHCIPhysicalLogicalStruct *		pNext;
-};
+};							// 0x20 total length
 
 #define kOHCIPageOffsetMask	( kOHCIPageSize - 1 )		// mask off just the offset bits (low 12)
 #define kOHCIPageMask 		(~(kOHCIPageOffsetMask))	// mask off just the page number (high 20)
 
+#endif

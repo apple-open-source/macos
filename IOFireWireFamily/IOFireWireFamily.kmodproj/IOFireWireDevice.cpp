@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -47,6 +50,63 @@
 #import "IORemoteConfigDirectory.h"
 #import "IOFireWireROMCache.h"
 
+OSDefineMetaClassAndStructors(IOFireWireDeviceAux, IOFireWireNubAux);
+OSMetaClassDefineReservedUnused(IOFireWireDeviceAux, 0);
+OSMetaClassDefineReservedUnused(IOFireWireDeviceAux, 1);
+OSMetaClassDefineReservedUnused(IOFireWireDeviceAux, 2);
+OSMetaClassDefineReservedUnused(IOFireWireDeviceAux, 3);
+
+#pragma mark -
+
+// init
+//
+//
+
+bool IOFireWireDeviceAux::init( IOFireWireDevice * primary )
+{
+	bool success = true;		// assume success
+	
+	// init super
+	
+    if( !IOFireWireNubAux::init( primary ) )
+        success = false;
+	
+	if( success )
+	{
+		fTerminated = false;
+	}
+	
+	return success;
+}
+
+// isTerminated
+//
+//
+
+bool IOFireWireDeviceAux::isTerminated( void )
+{
+	return (fTerminated || fPrimary->isInactive());
+}
+
+// isTerminated
+//
+//
+
+void IOFireWireDeviceAux::setTerminated( bool terminated )
+{
+	fTerminated = terminated;
+}
+
+// free
+//
+//
+
+void IOFireWireDeviceAux::free()
+{	    
+	IOFireWireNubAux::free();
+}
+
+#pragma mark -
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 OSDefineMetaClassAndStructors(IOFireWireDevice, IOFireWireNub)
@@ -221,6 +281,26 @@ bool IOFireWireDevice::init(OSDictionary *propTable, const IOFWNodeScan *info)
     return fROMLock != NULL;
 }
 
+// createAuxiliary
+//
+// virtual method for creating auxiliary object.  subclasses needing to subclass 
+// the auxiliary object can override this.
+
+IOFireWireNubAux * IOFireWireDevice::createAuxiliary( void )
+{
+	IOFireWireDeviceAux * auxiliary;
+    
+	auxiliary = new IOFireWireDeviceAux;
+
+    if( auxiliary != NULL && !auxiliary->init(this) ) 
+	{
+        auxiliary->release();
+        auxiliary = NULL;
+    }
+	
+    return auxiliary;
+}
+
 void IOFireWireDevice::terminateDevice(void *refcon)
 {
     IOFireWireDevice *me = (IOFireWireDevice *)refcon;
@@ -255,7 +335,6 @@ void IOFireWireDevice::terminateDevice(void *refcon)
 
 	me->fControl->openGate();
 }
-
 
 void IOFireWireDevice::free()
 {
@@ -1206,7 +1285,13 @@ IOReturn IOFireWireDevice::message( UInt32 mess, IOService * provider,
         messageClients( mess );
         return kIOReturnSuccess;
     }
-    
+
+	if( kIOFWMessagePowerStateChanged == mess )
+	{
+		messageClients( mess );
+		return kIOReturnSuccess;
+	}
+	    
     return IOService::message(mess, provider, argument );
 }
 
@@ -1287,7 +1372,8 @@ void IOFireWireDevice::handleClose( IOService * forClient, IOOptionBits options 
                 IOService::handleClose( this, options );
                 
                 // terminate if we're no longer on the bus and haven't already been terminated.
-                if( fNodeID == kFWBadNodeID && !isInactive() ) {
+                if( fNodeID == kFWBadNodeID && !isTerminated() ) {
+					setTerminated( true );
                     IOCreateThread(terminateDevice, this);
                 }
             }
@@ -1301,9 +1387,12 @@ void IOFireWireDevice::handleClose( IOService * forClient, IOOptionBits options 
             IOService::handleClose( forClient, options );
             
             // terminate if we're no longer on the bus
-            if( fNodeID == kFWBadNodeID && !isInactive() )
+            if( fNodeID == kFWBadNodeID && !isTerminated() )
+			{
+				setTerminated( true );
                 IOCreateThread(terminateDevice, this);
-        }
+			}
+		}
     }
 }
 

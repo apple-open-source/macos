@@ -236,7 +236,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IONetworkingFamily;
-				MODULE_VERSION = 1.2;
+				MODULE_VERSION = 1.3.1;
 				OTHER_CFLAGS = "-fpermissive";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -262,7 +262,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IONetworkingFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>Version 1.2, Copyright 2000-2001 Apple Computer, Inc.</string>
+	<string>Version 1.3.1, Copyright 2000-2003 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -274,11 +274,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2</string>
+	<string>1.3.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2</string>
+	<string>1.3.1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IONetworkStack</key>

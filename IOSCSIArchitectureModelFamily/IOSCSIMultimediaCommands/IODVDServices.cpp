@@ -81,18 +81,6 @@
 #endif
 
 
-#if (_DVD_USE_DATA_CACHING_)
-#define	_CACHE_BLOCK_COUNT_	5
-#define _CACHE_BLOCK_SIZE_	2352
-// Turn cache logging on and off
-#if ( 0 )
-#define CACHE_LOG(x)		IOLog x
-#else
-#define CACHE_LOG(x)
-#endif
-#endif
-
-
 #define	super IODVDBlockStorageDevice
 OSDefineMetaClassAndStructors ( IODVDServices, IODVDBlockStorageDevice );
 
@@ -128,13 +116,6 @@ struct BlockServicesClientData
 	// The internally needed parameters.
 	UInt32						retriesLeft;
 	
-#if (_DVD_USE_DATA_CACHING_)
-	// Strutures used for the Data Cache support
-	UInt8 * 					transferSegBuffer;
-	IOMemoryDescriptor *		transferSegDesc;
-	UInt32						transferStart;
-	UInt32						transferCount;
-#endif	
 };
 typedef struct BlockServicesClientData	BlockServicesClientData;
 
@@ -186,25 +167,6 @@ IODVDServices::start ( IOService * provider )
 								kSCSITaskUserClientIniterKey ), ErrorExit );
 		
 	}
-	
-#if (_DVD_USE_DATA_CACHING_)
-	// Setup the data cache structures
-	
-	// Allocate a data cache for 5 blocks of CDDA data 
-	fDataCacheStorage = ( UInt8 * ) IOMalloc ( _CACHE_BLOCK_COUNT_ * _CACHE_BLOCK_SIZE_ );
-	require_nonzero ( fDataCacheStorage, ErrorExit );
-	
-	fDataCacheStartBlock = 0;
-	fDataCacheBlockCount = 0;
-	
-	// Allocate the mutex for accessing the data cache.
-	fDataCacheLock = IOSimpleLockAlloc ( );
-	require_nonzero_action ( fDataCacheLock,
-							 ErrorExit,
-							 IOFree ( fDataCacheStorage,
-							 		  _CACHE_BLOCK_COUNT_ * _CACHE_BLOCK_SIZE_ ) );
-	
-#endif
 	
 	setProperty ( kIOPropertyProtocolCharacteristicsKey,
 				  fProvider->GetProtocolCharacteristicsDictionary ( ) );
@@ -353,53 +315,7 @@ IODVDServices::doAsyncReadCD ( 	IOMemoryDescriptor *	buffer,
 	IOReturn					status		= kIOReturnNotAttached;
 	
 	require ( ( isInactive ( ) == false ), ErrorExit );
-	
-#if (_DVD_USE_DATA_CACHING_)
-	// Only do caching if the requested sector is CDDA
-	if ( sectorType == kCDSectorTypeCDDA )
-	{
 		
-		// Check to see if all requested data is in the cache.  If it is, no need to send a command
-		// to the device.
-		IOSimpleLockLock ( fDataCacheLock );
-		if ( fDataCacheBlockCount != 0 )
-		{
-			
-			// Check to see if this request could possibly be fulfilled by the data
-			// that is currently in the cache.
-			// This is possible if the following conditions apply:
-			// 1. The request is the same or smaller than the number of blocks that currently
-			// resides in the cache.
-			// 2. The starting request block is greater than the starting block of the cache.
-			// 3. The ending request block is the same or less than the end block in the cache.
-			if ( ( nblks <= fDataCacheBlockCount ) && ( block >= fDataCacheStartBlock ) && 
-				( block + nblks <= fDataCacheStartBlock + fDataCacheBlockCount) )
-			{
-				
-				UInt32		startByte = ( block - fDataCacheStartBlock ) * _CACHE_BLOCK_SIZE_;
-				
-				// All the data for the request is in the cache, complete the request now.
-				buffer->writeBytes ( 0, &fDataCacheStorage[startByte], ( nblks * _CACHE_BLOCK_SIZE_ ) );
-				
-				// Release the lock for the Queue
-				IOSimpleLockUnlock ( fDataCacheLock );
-				
-				// Call the client's completion
-				IOStorage::complete ( completion, kIOReturnSuccess, ( nblks * _CACHE_BLOCK_SIZE_ ) );
-				
-				status = kIOReturnSuccess;
-				goto Exit;
-				
-			}
-			
-		}
-		
-		// Release the lock for the Queue
-		IOSimpleLockUnlock ( fDataCacheLock );
-		
-	}
-#endif
-	
 	clientData = IONew ( BlockServicesClientData, 1 );
 	require_nonzero_action ( clientData, ErrorExit, status = kIOReturnNoResources );
 	
@@ -423,103 +339,7 @@ IODVDServices::doAsyncReadCD ( 	IOMemoryDescriptor *	buffer,
 	clientData->retriesLeft 				= kNumberRetries;
 	
 	fProvider->CheckPowerState ( );
-	
-#if (_DVD_USE_DATA_CACHING_)
-	// Only do caching if the requested sector is CDDA
-	if ( sectorType == kCDSectorTypeCDDA )
-	{
 		
-		// Allocate a buffer before grabbing the lock.  Use the size of the complete request to
-		// guarantee that it is large enough.
-		clientData->transferSegBuffer = ( UInt8 * ) IOMalloc ( nblks * _CACHE_BLOCK_SIZE_ );
-		if ( clientData->transferSegBuffer != NULL )
-		{
-			
-			IOSimpleLockLock ( fDataCacheLock );
-			
-			// Determine what data can be used from the cache
-			if ( ( fDataCacheBlockCount != 0 ) &&			// If the cache has valid data,
-				 ( block > fDataCacheStartBlock ) && 		// and the starting block is the same or greater than the cache start
-				 ( nblks > fDataCacheBlockCount ) && 		// and the block count is the same or greater than the cache count
-				 ( block < ( fDataCacheStartBlock + fDataCacheBlockCount ) ) ) // and the starting block is not beyond the end of the cache
-			{
-				
-				UInt32 offsetBlk;
-				
-				// There is data in the cache of interest, figure out amount from cache and amount to transfer.
-				
-				CACHE_LOG ( ( "IODVDServices::doAsyncReadCD called, block = %ld\n", block ) );
-				CACHE_LOG ( ( "IODVDServices::doAsyncReadCD called, nblks = %ld\n", nblks ) );
-				CACHE_LOG ( ( "IODVDServices::doAsyncReadCD called, fDataCacheStartBlock = %ld\n", fDataCacheStartBlock ) );
-				CACHE_LOG ( ( "IODVDServices::doAsyncReadCD called, fDataCacheBlockCount = %ld\n", fDataCacheBlockCount ) );
-
-				// Calculate the starting position in the cache
-				offsetBlk = ( block - fDataCacheStartBlock );
-				CACHE_LOG ( ( "IODVDServices::doAsyncReadCD called, offsetBlk = %ld\n", offsetBlk ) );
-				
-				// Calculate number of blocks that needs to come from disc
-				clientData->transferCount = nblks - ( fDataCacheBlockCount - offsetBlk );
-				CACHE_LOG ( ( "IODVDServices::doAsyncReadCD called, clientData->transferCount = %ld\n", clientData->transferCount ) );
-				
-				// Calculate starting block to read from disc
-				clientData->transferStart = block + ( fDataCacheBlockCount - offsetBlk );
-				CACHE_LOG ( ( "IODVDServices::doAsyncReadCD called, clientData->transferStart = %ld\n", clientData->transferStart ) );
-							
-				// Create memory descriptor for transfer buffer.
-				clientData->transferSegDesc = IOMemoryDescriptor::withAddress (
-													clientData->transferSegBuffer,
-													clientData->transferCount * _CACHE_BLOCK_SIZE_,
-													kIODirectionIn );
-				
-				if ( clientData->transferSegDesc != NULL )
-				{
-					
-					// Copy data from cache into client's buffer
-					buffer->writeBytes ( 0,
-										 &fDataCacheStorage[offsetBlk * _CACHE_BLOCK_SIZE_],
-										 ( ( fDataCacheBlockCount - offsetBlk ) * _CACHE_BLOCK_SIZE_ ) );
-					
-					// Release the lock for the Queue
-					IOSimpleLockUnlock ( fDataCacheLock );
-					status = fProvider->AsyncReadCD ( clientData->transferSegDesc,
-													clientData->transferStart,
-													clientData->transferCount,
-													sectorArea,
-													sectorType,
-													( void * ) clientData );
-					goto Exit;
-					
-				}
-				
-				CACHE_LOG ( ( "IODVDServices::doAsyncReadCD called, transferSegDesc = NULL\n" ) );
-				
-			}
-			
-			CACHE_LOG ( ( "IODVDServices::doAsyncReadCD called, transferSegBuffer = NULL\n" ) );
-			
-			// Release the lock for the data cache
-			IOSimpleLockUnlock ( fDataCacheLock );
-			
-		}
-		
-		if ( clientData->transferSegBuffer != NULL )
-		{
-			
-			// If memory was allocated for the transfer, release it now since it is not needed.	
-			IOFree ( clientData->transferSegBuffer, ( nblks * _CACHE_BLOCK_SIZE_ ) );
-			
-		}
-		
-	}
-	
-	// Make sure that this is cleared out to
-	// avoid doing any cache operations in the completion.
-	clientData->transferSegBuffer 	= NULL;
-	clientData->transferSegDesc 	= NULL;
-	clientData->transferStart 		= block;
-	clientData->transferCount		= nblks;
-#endif
-	
 	status = fProvider->AsyncReadCD ( buffer,
 									  block,
 									  nblks,
@@ -529,7 +349,6 @@ IODVDServices::doAsyncReadCD ( 	IOMemoryDescriptor *	buffer,
 	
 	
 ErrorExit:
-Exit:
 	
 	
 	return status;
@@ -574,15 +393,6 @@ IODVDServices::doAsyncReadWrite ( IOMemoryDescriptor *	buffer,
 	clientData->retriesLeft 				= kNumberRetries;
 	
 	fProvider->CheckPowerState ( );
-	
-#if (_DVD_USE_DATA_CACHING_)
-	// Make sure that this is cleared out to
-	// avoid doing any cache operations in the completion.
-	clientData->transferSegBuffer	= NULL;
-	clientData->transferSegDesc		= NULL;
-	clientData->transferStart		= 0;
-	clientData->transferCount		= 0;
-#endif
 	
 	status = fProvider->AsyncReadWrite ( buffer, block, nblks, ( void * ) clientData );
 	
@@ -712,12 +522,6 @@ IODVDServices::doEjectMedia ( void )
 	IOReturn	status = kIOReturnNotAttached;
 	
 	require ( ( isInactive ( ) == false ), ErrorExit );
-	
-#if (_DVD_USE_DATA_CACHING_)
-	// We got an eject call, invalidate the data cache
-	fDataCacheStartBlock = 0;
-	fDataCacheBlockCount = 0;
-#endif
 	
 	// Make sure we don't go away while the command in being executed.
 	retain ( );
@@ -1751,37 +1555,6 @@ IODVDServices::AsyncReadWriteComplete ( void * 			clientData,
 		if ( bsClientData->clientReadCDCall == true )
 		{
 			
-#if (_DVD_USE_DATA_CACHING_)
-			
-			if ( ( bsClientData->transferSegDesc != NULL ) &&
-				 ( bsClientData->transferCount != 0 ) )
-			{
-				
-				requestStatus = owner->fProvider->AsyncReadCD (
-									bsClientData->transferSegDesc,
-									bsClientData->transferStart,
-									bsClientData->transferCount,
-									bsClientData->clientSectorArea,
-									bsClientData->clientSectorType,
-									clientData );
-				
-			}
-			
-			else
-			{
-				
-				requestStatus = owner->fProvider->AsyncReadCD (
-									bsClientData->clientBuffer,
-									bsClientData->clientStartingBlock,
-									bsClientData->clientRequestedBlockCount,
-									bsClientData->clientSectorArea,
-									bsClientData->clientSectorType,
-									clientData );
-				
-			}
-
-#else	/* !_DVD_USE_DATA_CACHING_ */
-			
 			requestStatus = owner->fProvider->AsyncReadCD (
 									bsClientData->clientBuffer,
 									bsClientData->clientStartingBlock,
@@ -1789,8 +1562,6 @@ IODVDServices::AsyncReadWriteComplete ( void * 			clientData,
 									bsClientData->clientSectorArea,
 									bsClientData->clientSectorType,
 									clientData );
-			
-#endif	/* _DVD_USE_DATA_CACHING_ */
 			
 		}
 		
@@ -1819,70 +1590,6 @@ IODVDServices::AsyncReadWriteComplete ( void * 			clientData,
 
 	if ( commandComplete == true )
 	{		
-
-#if (_DVD_USE_DATA_CACHING_)
-		// Check to see if there was a temporary transfer buffer
-		if ( bsClientData->transferSegBuffer != NULL )
-		{
-			
-			// Make sure that the transfer completed successfully.
-			if ( status == kIOReturnSuccess )
-			{
-				
-				// Copy the data from the temporary buffer into the client's
-				// buffer.
-				( bsClientData->clientBuffer )->writeBytes ( ( ( bsClientData->clientRequestedBlockCount - bsClientData->transferCount ) * _CACHE_BLOCK_SIZE_ ), 
-						bsClientData->transferSegBuffer, ( bsClientData->transferCount * _CACHE_BLOCK_SIZE_ ) );
-				
-				// Make sure that the actualByteCount is updated to include the amount of data that
-				// came from the cache also
-				actualByteCount = ( bsClientData->clientRequestedBlockCount * _CACHE_BLOCK_SIZE_ );
-				
-			}
-			
-			( bsClientData->transferSegDesc )->release ( );
-			
-			// Since the buffer is the entire size of the client's requested transfer ( not just the amount transferred), 
-			// make sure to release the whole allocation.
-			IOFree ( bsClientData->transferSegBuffer, ( bsClientData->clientRequestedBlockCount * _CACHE_BLOCK_SIZE_ ) );
-			
-		}
-		
-		// Make sure that the transfer completed successfully.
-		if ( status == kIOReturnSuccess )
-		{
-			
-			// Check to see if this was a Read CD call for a CDDA sector and if so,
-			// store cache data.
-			if ( ( bsClientData->clientReadCDCall == true ) && ( bsClientData->clientSectorType == kCDSectorTypeCDDA ) )
-			{
-				
-				// Save the last blocks into the data cache
-				IOSimpleLockLock ( owner->fDataCacheLock );
-				
-				// Check if the number of blocks tranferred is larger or equal to that
-				// of the cache.  If not leave the cache alone.
-				if ( bsClientData->clientRequestedBlockCount >= _CACHE_BLOCK_COUNT_ )
-				{
-					
-					UInt32	offset;
-					
-					// Calculate the beginning of data to copy into cache.
-					offset = ( ( bsClientData->clientRequestedBlockCount - _CACHE_BLOCK_COUNT_ ) * _CACHE_BLOCK_SIZE_ );
-					( bsClientData->clientBuffer )->readBytes ( offset, owner->fDataCacheStorage,
-								( _CACHE_BLOCK_COUNT_ * _CACHE_BLOCK_SIZE_ ) );
-					
-					owner->fDataCacheStartBlock = bsClientData->clientStartingBlock + ( bsClientData->clientRequestedBlockCount - _CACHE_BLOCK_COUNT_ );
-					owner->fDataCacheBlockCount = _CACHE_BLOCK_COUNT_;
-					
-				}
-				
-				IOSimpleLockUnlock ( owner->fDataCacheLock );
-				
-			}
-		
-		}
-#endif
 		
 		IODelete ( clientData, BlockServicesClientData, 1 );
 		
@@ -1911,31 +1618,7 @@ IODVDServices::AsyncReadWriteComplete ( void * 			clientData,
 void
 IODVDServices::free ( void )
 {
-	
-#if (_DVD_USE_DATA_CACHING_)
-	// Release the data cache structures
-	if ( fDataCacheStorage != NULL )
-	{
 		
-		IOFree ( fDataCacheStorage,
-				 ( _CACHE_BLOCK_COUNT_ * _CACHE_BLOCK_SIZE_ ) );
-		fDataCacheStorage = NULL;
-		
-	}
-	
-	fDataCacheStartBlock = 0;
-	fDataCacheBlockCount = 0;
-	
-	if ( fDataCacheLock != NULL )
-	{
-		
-		// Free the data cache mutex.
-		IOSimpleLockFree ( fDataCacheLock );
-		fDataCacheLock = NULL;
-		
-	}
-#endif
-	
     super::free ( );
 	
 }

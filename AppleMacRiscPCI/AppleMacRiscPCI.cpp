@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -40,12 +43,16 @@
 #include <IOKit/IORangeAllocator.h>
 #include <IOKit/IODeviceTreeSupport.h>
 #include <IOKit/IOPlatformExpert.h>
+#include <IOKit/IOMapper.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/assert.h>
 
 #include "AppleMacRiscPCI.h"
 
-#define ALLOC_AGP_RANGE	0
+#define NO_FASTWRITE		0
+#define NO_NVIDIA_FASTWRITE	0
+
+#define ALLOC_AGP_RANGE		0
 
 #ifndef kIOAGPCommandValueKey
 #define kIOAGPCommandValueKey	"IOAGPCommandValue"
@@ -61,6 +68,8 @@ OSDefineMetaClassAndStructors(AppleMacRiscVCI, AppleMacRiscPCI)
 
 OSDefineMetaClassAndStructors(AppleMacRiscAGP, AppleMacRiscPCI)
 
+OSDefineMetaClassAndStructors(AppleMacRiscHT, IOPCIBridge)
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 bool AppleMacRiscPCI::start( IOService * provider )
@@ -73,16 +82,18 @@ bool AppleMacRiscPCI::start( IOService * provider )
     IORegistryEntry *		bridge;
     OSData *			busProp;
 
-    IORegistryEntry		*parent, *uniNRegEntry;
+    IORegistryEntry		*uniNRegEntry;
     OSData               	*tmpData;
     
+    // Match the name of the provider to weed out the memory controller
     if( !IODTMatchNubWithKeys(provider, "('pci', 'vci')"))
 	return( false);
 
-    if( IODTMatchNubWithKeys(provider, "'uni-north'"))
+    // Match the compatible property to find modern MacRISC PCI bridges
+    if( IODTMatchNubWithKeys(provider, "('uni-north', 'u3-agp')"))
 	configDataOffsetMask = 0x7;
     else
-	configDataOffsetMask = 0x3;      
+	configDataOffsetMask = 0x3;
 
     if( 0 == (lock = IOSimpleLockAlloc()))
 	return( false );
@@ -96,18 +107,16 @@ bool AppleMacRiscPCI::start( IOService * provider )
 
     //
     // Disable AGP for P58/P69 U2 (v2.0) due to stablity issues
-    //
-    parent = provider->getParentEntry(gIODTPlane);
-    
     // Get the Uni-N Version.
-    uniNRegEntry = parent->fromPath("/uni-n", gIODTPlane);
-        
-    if (uniNRegEntry != NULL)
+    uniNRegEntry = IORegistryEntry::fromPath("/uni-n", gIODTPlane);
+    if (!uniNRegEntry)
+	uniNRegEntry = IORegistryEntry::fromPath("/u3", gIODTPlane);
+    if (uniNRegEntry)
     {
         tmpData = OSDynamicCast(OSData, uniNRegEntry->getProperty("device-rev"));
-            
-        if (tmpData != NULL)
+        if (tmpData)
             uniNVersion = *(long *)tmpData->getBytesNoCopy();
+	uniNRegEntry->release();
     }
             
     bridge = provider;
@@ -152,8 +161,10 @@ bool AppleMacRiscPCI::start( IOService * provider )
 	return( false);
 
     busProp = (OSData *) bridge->getProperty("bus-range");
-    if( busProp)
-	primaryBus = *((UInt32 *) busProp->getBytesNoCopy());
+    if( busProp) {
+	secondaryBus = *((UInt32 *) busProp->getBytesNoCopy());
+	subordinateBus = *((UInt32 *) busProp->getBytesNoCopy() + 1);
+    }
     
     return( super::start( provider));
 }
@@ -165,12 +176,12 @@ bool AppleMacRiscPCI::configure( IOService * provider )
     bool	ok;
 
     if( getProvider()->getProperty( "DisableRDG") != 0 ) {
-      modeSelects = configRead32( getBridgeSpace(), kMacRISCModeSelect );
-      modeSelects |= kMacRISCModeSelectRDGBit;
-      configWrite32( getBridgeSpace(), kMacRISCModeSelect, modeSelects );
+      modeSelects = configRead32( getBridgeSpace(), kMacRISCPCIModeSelect );
+      modeSelects |= kMacRISCPCIModeSelectRDGBit;
+      configWrite32( getBridgeSpace(), kMacRISCPCIModeSelect, modeSelects );
     }
 
-    addressSelects = configRead32( getBridgeSpace(), kMacRISCAddressSelect );
+    addressSelects = configRead32( getBridgeSpace(), kMacRISCPCIAddressSelect );
 
     coarseAddressMask	= addressSelects >> 16;
     fineAddressMask	= addressSelects & 0xffff;
@@ -225,12 +236,12 @@ bool AppleMacRiscVCI::configure( IOService * provider )
 
 UInt8 AppleMacRiscPCI::firstBusNum( void )
 {
-    return( primaryBus );
+    return( secondaryBus );
 }
 
 UInt8 AppleMacRiscPCI::lastBusNum( void )
 {
-    return( firstBusNum() );
+    return( subordinateBus );
 }
 
 IOPCIAddressSpace AppleMacRiscPCI::getBridgeSpace( void )
@@ -238,8 +249,8 @@ IOPCIAddressSpace AppleMacRiscPCI::getBridgeSpace( void )
     IOPCIAddressSpace	space;
 
     space.bits = 0;
-    space.s.busNum = primaryBus;
-    space.s.deviceNum = kBridgeSelfDevice;
+    space.s.busNum = secondaryBus;
+    space.s.deviceNum = kPCIBridgeSelfDevice;
 
     return( space );
 }
@@ -250,9 +261,9 @@ inline bool AppleMacRiscPCI::setConfigSpace( IOPCIAddressSpace space,
     UInt32	addrCycle;
 
     offset &= 0xfc;
-    if( space.s.busNum == primaryBus) {
+    if( space.s.busNum == secondaryBus) {
 
-	if( space.s.deviceNum < kBridgeSelfDevice)
+	if( space.s.deviceNum < kPCIBridgeSelfDevice)
 	    return( false);
 
         // primary config cycle
@@ -275,7 +286,6 @@ inline bool AppleMacRiscPCI::setConfigSpace( IOPCIAddressSpace space,
 
     return( true );
 }
-
 
 UInt32 AppleMacRiscPCI::configRead32( IOPCIAddressSpace space,
 					UInt8 offset )
@@ -417,6 +427,259 @@ void AppleMacRiscPCI::configWrite8( IOPCIAddressSpace space,
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+bool AppleMacRiscHT::start( IOService * provider )
+{
+    IOPhysicalAddress		ioPhysAddrs[2];
+    IOPhysicalAddress		ioPhysLengths[2];
+    OSArray *			array;
+    IODeviceMemory::InitElement	rangeList[ 4 ];
+    IODeviceMemory *		md;
+    IORegistryEntry *		bridge;
+    OSData *			busProp;
+
+    bridge = provider;
+
+    md = provider->getDeviceMemoryWithIndex(0);
+    if (md == 0)
+	return 0;
+    ioPhysAddrs[0] = md->getPhysicalAddress();
+    ioPhysLengths[0] = md->getLength();
+
+    md = provider->getDeviceMemoryWithIndex(1);
+    if (md == 0)
+	return 0;
+    ioPhysAddrs[1] = md->getPhysicalAddress();
+    ioPhysLengths[1] = md->getLength();
+
+    /* define more explicit ranges */
+    
+    rangeList[0].start	= ioPhysAddrs[0];
+    rangeList[0].length = 0x01000000UL;
+    rangeList[1].start	= ioPhysAddrs[0] + 0x01000000;
+    rangeList[1].length	= 0x01000000UL;
+    rangeList[2].start	= ioPhysAddrs[0] + 0x02000000;
+    rangeList[2].length = 0x00400000UL;
+    rangeList[3].start	= ioPhysAddrs[1];
+    rangeList[3].length = ioPhysLengths[1];
+
+    IORangeAllocator * platformRanges;
+    platformRanges = IOService::getPlatform()->getPhysicalRangeAllocator();
+    assert( platformRanges );
+    platformRanges->allocateRange( ioPhysAddrs[0], ioPhysLengths[0] );
+
+    array = IODeviceMemory::arrayFromList( rangeList, 4 );
+    if( !array)
+	return( false);
+
+    provider->setDeviceMemory( array );
+    ioMemory = (IODeviceMemory *) array->getObject( 2 );
+    array->release();
+
+    /* map registers */
+
+    if( (configType0Map = provider->mapDeviceMemoryWithIndex( 0 )))
+        configType0 = (volatile UInt8 *) configType0Map->getVirtualAddress();
+    if( (configType1Map = provider->mapDeviceMemoryWithIndex( 1 )))
+        configType1 = (volatile UInt8 *) configType1Map->getVirtualAddress();
+    if( (configSelfMap = provider->mapDeviceMemoryWithIndex( 3 )))
+        configSelf = (volatile UInt8 *) configSelfMap->getVirtualAddress();
+
+    if( !configType0 || !configType1 || !configSelf)
+	return( false);
+
+    busProp = (OSData *) bridge->getProperty("bus-range");
+    if( busProp)
+	primaryBus = *((UInt32 *) busProp->getBytesNoCopy());
+
+    return( super::start( provider));
+}
+
+bool AppleMacRiscHT::configure( IOService * provider )
+{
+    UInt32	addressSelects;
+    UInt32	index;
+    bool	ok;
+
+    addressSelects = configRead32( getBridgeSpace(), kMacRISCHTAddressSelect );
+
+    coarseAddressMask	= addressSelects >> 16;
+    fineAddressMask	= addressSelects & 0xffff;
+
+    for( index = 0; index < 15; index++ ) {
+	if( coarseAddressMask & (1 << index)) {
+	    ok = addBridgeMemoryRange( index << 28, 0x10000000, true );
+	}
+    }
+
+//    if( coarseAddressMask & (1 << 15))	// F segment
+	for( index = 0; index < 15; index++ ) {
+	    if( fineAddressMask & (1 << index)) {
+		ok = addBridgeMemoryRange( (0xf0 | index) << 24,
+						0x01000000, true );
+	    }
+	}
+
+    ok = addBridgeIORange( 0, 0x10000 );
+
+    return( super::configure( provider));
+}
+
+void AppleMacRiscHT::free()
+{
+    if( configType0Map)
+	configType0Map->release();
+    if( configType1Map)
+	configType1Map->release();
+    if( configSelfMap)
+	configSelfMap->release();
+
+    super::free();
+}
+
+IODeviceMemory * AppleMacRiscHT::ioDeviceMemory( void )
+{
+    return( ioMemory);
+}
+
+IOPCIAddressSpace AppleMacRiscHT::getBridgeSpace( void )
+{
+    IOPCIAddressSpace	space;
+
+    space.bits = 0;
+    space.s.busNum = primaryBus;
+    space.s.deviceNum = kHTBridgeSelfDevice;
+
+    return( space );
+}
+
+volatile UInt8 * AppleMacRiscHT::setConfigSpace( IOPCIAddressSpace space,
+                                            UInt8 offset )
+{
+    volatile UInt8 * configData;
+
+    offset &= 0xfc;
+    if( space.s.busNum == primaryBus) {
+
+	if( space.s.deviceNum == kHTBridgeSelfDevice) {
+            // primary config cycle on self
+            configData = configSelf + (offset << 2);
+        } else {
+            // primary config cycle
+            configData = configType0 + ((space.bits & 0xffffff00) | offset);
+        }
+    } else {
+
+        // pass thru config cycle
+        configData = configType1 + ((space.bits & 0xffffff00) | offset);
+    }
+
+    return( configData );
+}
+
+UInt32 AppleMacRiscHT::configRead32( IOPCIAddressSpace space,
+					UInt8 offset )
+{
+    volatile UInt8 * configData;
+    UInt32	     data;
+
+    configData = setConfigSpace( space, offset );
+
+    offset = offset & 3 & 4;
+
+    data = OSReadSwapInt32( configData, offset );
+    eieio();
+
+    return( data );
+}
+
+void AppleMacRiscHT::configWrite32( IOPCIAddressSpace space, 
+					UInt8 offset, UInt32 data )
+{
+    volatile UInt8 * configData;
+
+    configData = setConfigSpace( space, offset );
+
+    offset = offset & 3 & 4;
+
+    OSWriteSwapInt32( configData, offset, data );
+    eieio();
+    /* read to sync */
+    (void) OSReadSwapInt32( configData, offset );
+    eieio();
+    sync();
+    isync();
+}
+
+UInt16 AppleMacRiscHT::configRead16( IOPCIAddressSpace space,
+					UInt8 offset )
+{
+    volatile UInt8 * configData;
+    UInt16	     data;
+
+    configData = setConfigSpace( space, offset );
+
+    offset = offset & 3 & 6;
+
+    data = OSReadSwapInt16( configData, offset );
+    eieio();
+
+    return( data );
+}
+
+void AppleMacRiscHT::configWrite16( IOPCIAddressSpace space, 
+					UInt8 offset, UInt16 data )
+{
+    volatile UInt8 * configData;
+
+    configData = setConfigSpace( space, offset );
+
+    offset = offset & 3 & 6;
+
+    OSWriteSwapInt16( configData, offset, data );
+    eieio();
+    /* read to sync */
+    (void) OSReadSwapInt16( configData, offset );
+    eieio();
+    sync();
+    isync();
+}
+
+UInt8 AppleMacRiscHT::configRead8( IOPCIAddressSpace space,
+					UInt8 offset )
+{
+    volatile UInt8 * configData;
+    UInt16	     data;
+
+    configData = setConfigSpace( space, offset );
+
+    offset = offset & 3;
+
+    data = configData[ offset ];
+    eieio();
+
+    return( data );
+}
+
+void AppleMacRiscHT::configWrite8( IOPCIAddressSpace space, 
+					UInt8 offset, UInt8 data )
+{
+    volatile UInt8 * configData;
+
+    configData = setConfigSpace( space, offset );
+
+    offset = offset & 3;
+
+    configData[ offset ] = data;
+    eieio();
+    /* read to sync */
+    data = configData[ offset ];
+    eieio();
+    sync();
+    isync();
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
 #undef super
 #define super AppleMacRiscPCI
 
@@ -429,7 +692,13 @@ bool AppleMacRiscAGP::configure( IOService * provider )
 
     if( false && (uniNVersion >= 0x10)) {
 	// causes problems with nv25 SBA
-	gartCtrl |= kGART_DISSBADET;
+	gartCtrl |= kGART_DIS_SBA_DET;
+    }
+
+    isU3 = IODTMatchNubWithKeys(provider, "u3-agp");
+    if (isU3) {
+	gartCtrl |= kGART_PERF_RD;
+	isU32     = (uniNVersion > 0x30);
     }
 
     return( super::configure( provider));
@@ -448,18 +717,53 @@ IOPCIDevice * AppleMacRiscAGP::createNub( OSDictionary * from )
 	    && findPCICapability( space, kIOPCIAGPCapability, &masterAGPRegisters ));
 
     // more of P58/P69 AGP disable code from start
-    if( isAGP && (uniNVersion == 0x20))
+    if( isAGP 
+     && ((0 != getProvider()->getProperty("AAPL,noAGP")) || (uniNVersion == 0x20)))
     {
         isAGP = false;
-        IOLog("AGP mode disabled on this machine\n");
+        IOLog("AGP disabled on this machine\n");
     }
     
-    if( isAGP) {
+    if( isAGP)
+    {
+	UInt64	   flags;
+	OSNumber * num;
+
+	num = OSDynamicCast(OSNumber, getProperty(kIOAGPBusFlagsKey));
+	if (num)
+	    flags = num->unsigned64BitValue();
+	else
+	    flags = 0;
+
+	if (isU32)
+	    flags &= ~kIOAGPGartInvalidate;
+	else
+	    flags |= kIOAGPGartInvalidate;
+#if 1
+	if (isU3 || (uniNVersion < 0x08))
+	    flags |= kIOAGPDisablePageSpans;
+#else
+	if ((uniNVersion < 0x08) || (isU3 && (uniNVersion < 0x33)))
+	    flags |= kIOAGPDisablePageSpans;
+#endif
+	if (isU3 && (uniNVersion < 0x34))
+	    flags |= kIOAGPDisableUnaligned;
+	if (uniNVersion < 0x20)
+	    flags |= kIOAGPDisableAGPWrites;
+	if (uniNVersion == 0x30)
+	    flags |= kIOAGPDisablePCIReads | kIOAGPDisablePCIWrites;
+
+	num = OSNumber::withNumber(flags, 64);
 	nub = new IOAGPDevice;
-        if( nub)
+        if (nub)
             ((IOAGPDevice *)nub)->masterAGPRegisters = masterAGPRegisters;
-	from->setObject( kIOAGPBusFlagsKey, getProperty(kIOAGPBusFlagsKey));
-    } else
+	if (num)
+	{
+	    from->setObject(kIOAGPBusFlagsKey, num);
+	    num->release();
+	}
+    }
+    else
         nub = super::createNub( from );
 
     return( nub );
@@ -475,7 +779,8 @@ IOReturn AppleMacRiscAGP::createAGPSpace( IOAGPDevice * master,
     IOReturn		err;
     IOPCIAddressSpace 	target = getBridgeSpace();
     IOPhysicalLength	agpLength;
-    IOPhysicalAddress	gartPhys;
+    UInt64		gartPhys;
+    OSData *		data;
 
     enum { agpSpacePerPage = 4 * 1024 * 1024 };
     enum { agpBytesPerGartByte = 1024 };
@@ -483,27 +788,57 @@ IOReturn AppleMacRiscAGP::createAGPSpace( IOAGPDevice * master,
 
     destroyAGPSpace( master );
 
+    if (isU32 && !dummyPage)
+	dummyPage = IOBufferMemoryDescriptor::withOptions(0, page_size, page_size);
+    if (dummyPage) {
+	IOPhysicalLength len;
+	dummyPhys = dummyPage->getPhysicalSegment64(0, &len);
+        configWrite32( target, kUniNDUMMY_PAGE, dummyPhys >> PAGE_SHIFT );
+    }
+
     agpCommandMask = 0xffffffff;
-    agpCommandMask &= ~kIOAGPFastWrite;
 //  agpCommandMask &= ~kIOAGPSideBandAddresssing;
 
+    if (isU3)
+	agpCommandMask &= ~kIOAGPFastWrite;
+
+#if NO_FASTWRITE
+    agpCommandMask &= ~kIOAGPFastWrite;
+#else	/* NO_FASTWRITE */
     {
 	// There's an nVidia NV11 ROM (revision 1017) that says that it can do fast writes,
 	// but can't, and can often lock the machine up when fast writes are enabled.
-	
 	#define kNVIDIANV11EntryName	"NVDA,NVMac"
+	#define kNVIDIAEntryName	"NVDA,"
 	#define kNVROMRevPropertyName 	"rom-revision"
-	#define kNVBadRevision			'1017'
+	#define kNVBadRevision		'1017'
+
+#if NO_NVIDIA_FASTWRITE
+
+	if( 0 == strncmp( kNVIDIAEntryName, master->getName(), strlen(kNVIDIAEntryName)))
+	    agpCommandMask &= ~kIOAGPFastWrite;
+
+#else	/* NO_NVIDIA_FASTWRITE */
 
 	const UInt32    badRev = kNVBadRevision;
-	OSData *	data;
 
 	if( (0 == strcmp( kNVIDIANV11EntryName, master->getName()))
 	 && (data = OSDynamicCast(OSData, master->getProperty(kNVROMRevPropertyName)))
-	 && (data->isEqualTo( &badRev, sizeof(badRev) )))
-
+	 && (data->isEqualTo( &badRev, sizeof(badRev)))	 )
 	    agpCommandMask &= ~kIOAGPFastWrite;
+
+#endif	/* !NO_NVIDIA_FASTWRITE */
     }
+#endif	/* !NO_FASTWRITE */
+
+    if ((data = OSDynamicCast(OSData, getProvider()->getProperty("AAPL,agp-clear"))))
+	agpCommandMask &= ~*((UInt32 *)data->getBytesNoCopy());
+    if ((data = OSDynamicCast(OSData, getProvider()->getProperty("AAPL,agp-set"))))
+	agpCommandSet |= *((UInt32 *)data->getBytesNoCopy());
+    if ((data = OSDynamicCast(OSData, master->getProperty("AAPL,agp-clear"))))
+	agpCommandMask &= ~*((UInt32 *)data->getBytesNoCopy());
+    if ((data = OSDynamicCast(OSData, master->getProperty("AAPL,agp-set"))))
+	agpCommandSet |= *((UInt32 *)data->getBytesNoCopy());
 
     agpLength = *length;
     if( !agpLength)
@@ -513,14 +848,17 @@ IOReturn AppleMacRiscAGP::createAGPSpace( IOAGPDevice * master,
 
     err = kIOReturnVMError;
     do {
+        ppnum_t physPage;
 
 	gartLength = agpLength / agpBytesPerGartByte;
-	gartArray = (volatile UInt32 *) IOMallocContiguous( 
-				gartLength, 4096, &gartPhys );
-	if( !gartArray)
-	    continue;
+        gartHandle = IOMapper::NewARTTable(gartLength, (void **) &gartArray, &physPage);
+        if (!gartHandle)
+            continue;
+        gartPhys = ptoa_64(physPage);
+
         // IOMapPages( kernel_map, gartArray, gartPhys, gartLength, kIOMapInhibitCache );
-        bzero( (void *) gartArray, gartLength);
+	bzero( (void *) gartArray, gartLength);
+	flush_dcache( (vm_offset_t) gartArray, gartLength, false);
 
 #if ALLOC_AGP_RANGE
         IORangeAllocator * platformRanges
@@ -551,11 +889,15 @@ IOReturn AppleMacRiscAGP::createAGPSpace( IOAGPDevice * master,
         configWrite32( target, kMacRISCAddressSelect,
 				(coarseAddressMask << 16) | fineAddressMask );
 #endif
-        configWrite32( target, kUniNAGP_BASE, agpBaseIndex << 28 );
 
-        assert( 0 == (gartPhys & 0xfff));
+	UInt32 gartBaseExt = 0;
+	if (isU3)
+	    gartBaseExt = (gartPhys >> 32);
+
+        configWrite32( target, kUniNAGP_BASE, (agpBaseIndex << 28) | gartBaseExt );
+
         configWrite32( target, kUniNGART_BASE,
-     			gartPhys | (agpLength / agpSpacePerPage));
+     			(gartPhys & ~PAGE_MASK) | (agpLength / agpSpacePerPage));
 
         err = kIOReturnSuccess;
 
@@ -625,6 +967,37 @@ IOOptionBits AppleMacRiscAGP::getAGPStatus( IOAGPDevice * master,
     return( configRead32( target, kUniNINTERNAL_STATUS ) );
 }
 
+inline void AppleMacRiscAGP::configSetClearMask( IOPCIAddressSpace space, 
+						 UInt8 offset, UInt32 data, UInt32 mask )
+{
+    IOInterruptState ints;
+
+    ints = IOSimpleLockLockDisableInterrupt( lock );
+
+    if( setConfigSpace( space, offset )) {
+
+        offset = offset & configDataOffsetMask & 4;
+
+        OSWriteSwapInt32( configData, offset, data | mask );
+        eieio();
+	/* read to sync */
+        (void) OSReadSwapInt32( configData, offset );
+        eieio();
+	sync();
+	isync();
+
+        OSWriteSwapInt32( configData, offset, data );
+        eieio();
+	/* read to sync */
+        (void) OSReadSwapInt32( configData, offset );
+        eieio();
+	sync();
+	isync();
+    }
+
+    IOSimpleLockUnlockEnableInterrupt( lock, ints );
+}
+
 IOReturn AppleMacRiscAGP::commitAGPMemory( IOAGPDevice * master, 
 				      IOMemoryDescriptor * memory,
 				      IOByteCount agpOffset,
@@ -633,7 +1006,7 @@ IOReturn AppleMacRiscAGP::commitAGPMemory( IOAGPDevice * master,
     IOPCIAddressSpace 	target = getBridgeSpace();
     IOReturn		err = kIOReturnSuccess;
     UInt32		offset = 0;
-    IOPhysicalAddress	physAddr;
+    addr64_t		phys64;
     IOByteCount		len;
     IOByteCount         agpFlushStart, flushLength;
 
@@ -642,15 +1015,20 @@ IOReturn AppleMacRiscAGP::commitAGPMemory( IOAGPDevice * master,
     assert( agpOffset < systemLength );
     agpOffset /= (page_size / 4);
     agpFlushStart = agpOffset;
-    while( (physAddr = memory->getPhysicalSegment( offset, &len ))) {
 
+    while( (phys64 = memory->getPhysicalSegment64(offset, &len)))
+    {
 	offset += len;
-	len = (len + 0xfff) & ~0xfff;
+	len = (len + PAGE_MASK) & ~PAGE_MASK;
 	while( len > 0) {
-	    OSWriteLittleInt32( gartArray, agpOffset,
-				((physAddr & ~0xfff) | 1));
+	    if (isU3)
+		OSWriteBigInt32( gartArray, agpOffset,
+				    (((UInt32)(phys64 >> PAGE_SHIFT)) | 0x80000000));
+	    else
+		OSWriteLittleInt32( gartArray, agpOffset,
+				    ((phys64 & ~PAGE_MASK) | 1));
 	    agpOffset += 4;
-	    physAddr += page_size;
+	    phys64 += page_size;
 	    len -= page_size;
 	}
     }
@@ -673,12 +1051,13 @@ IOReturn AppleMacRiscAGP::commitAGPMemory( IOAGPDevice * master,
     len = OSReadLittleInt32( gartArray, agpOffset - 4 );
     sync();
     isync();
+
+    if (isU32) {
+	configSetClearMask( target, kUniNGART_CTRL, gartCtrl | kGART_EN, kGART_INV );
     
-    if( kIOAGPGartInvalidate & options) {
-        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN | kGART_INV );
-        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN );
-        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN | kGART_2xRESET);
-        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN );
+    } else if( kIOAGPGartInvalidate & options) {
+	configSetClearMask( target, kUniNGART_CTRL, gartCtrl | kGART_EN, kGART_INV );
+	configSetClearMask( target, kUniNGART_CTRL, gartCtrl | kGART_EN, kGART_2xRESET );
     }
 
     return( err );
@@ -704,11 +1083,11 @@ IOReturn AppleMacRiscAGP::releaseAGPMemory( IOAGPDevice * master,
 
 //    agpRange->deallocate( agpOffset, length );
 
-    length = (length + 0xfff) & ~0xfff;
+    length = (length + PAGE_MASK) & ~PAGE_MASK;
     agpOffset /= page_size;
     agpFlushStart = agpOffset;
     while( length > 0) {
-	gartArray[ agpOffset++ ] = 0;
+	gartArray[agpOffset++] = 0;
 	length -= page_size;
     }
     
@@ -724,15 +1103,16 @@ IOReturn AppleMacRiscAGP::releaseAGPMemory( IOAGPDevice * master,
     flush_dcache( ((vm_offset_t) gartArray)+agpFlushStart, flushLength, false);
     sync();
     isync();
-    length = OSReadLittleInt32( gartArray, 4 * (agpOffset - 1) );
+    length = OSReadLittleInt32( gartArray, agpOffset - 4 );
     sync();
     isync();
 
-    if( kIOAGPGartInvalidate & options) {
-        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN | kGART_INV );
-        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN );
-        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN | kGART_2xRESET);
-        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN );
+    if (isU32) {
+	configSetClearMask( target, kUniNGART_CTRL, gartCtrl | kGART_EN, kGART_INV );
+    
+    } else if( kIOAGPGartInvalidate & options) {
+	configSetClearMask( target, kUniNGART_CTRL, gartCtrl | kGART_EN, kGART_INV );
+	configSetClearMask( target, kUniNGART_CTRL, gartCtrl | kGART_EN, kGART_2xRESET );
     }
 
     return( err );
@@ -759,6 +1139,7 @@ IOReturn AppleMacRiscAGP::setAGPEnable( IOAGPDevice * _master,
 
 	command = kIOAGPSideBandAddresssing
                 | kIOAGPFastWrite
+                | kIOAGP3Mode
 		| kIOAGP4xDataRate | kIOAGP2xDataRate | kIOAGP1xDataRate;
 	command &= targetStatus;
 	command &= masterStatus;
@@ -769,15 +1150,36 @@ IOReturn AppleMacRiscAGP::setAGPEnable( IOAGPDevice * _master,
             IOLog("AGP 4x mode disabled on this machine\n");
         }
 
-	if( command & kIOAGP4xDataRate)
-	    command &= ~(kIOAGP2xDataRate | kIOAGP1xDataRate);
-	else if( command & kIOAGP2xDataRate)
-	    command &= ~(kIOAGP1xDataRate);
-	else if( 0 == (command & kIOAGP1xDataRate))
-            return( kIOReturnUnsupported );
+        command &= agpCommandMask;
+        command |= agpCommandSet;
+
+	if (isU32)
+	    _master->setProperty("AAPL,agp3-mode", (command & kIOAGP3Mode) ? kOSBooleanTrue : kOSBooleanFalse);
+
+	if (isU32 && (command & kIOAGP3Mode))
+	{
+	    command &= ~kIOAGP4xDataRate;
+	    if( command & kIOAGP8xDataRateMode3)
+		command &= ~(kIOAGP4xDataRateMode3 | kIOAGPFastWrite);
+	    else if( 0 == (command & kIOAGP4xDataRateMode3))
+		return( kIOReturnUnsupported );
+	}
+	else
+	{
+	    if( command & kIOAGP4xDataRate)
+		command &= ~(kIOAGP2xDataRate | kIOAGP1xDataRate);
+	    else { 
+		if (isU3)
+		    return( kIOReturnUnsupported );
+    
+		if( command & kIOAGP2xDataRate)
+		    command &= ~(kIOAGP1xDataRate);
+		else if( 0 == (command & kIOAGP1xDataRate))
+		    return( kIOReturnUnsupported );
+	    }
+	}
 
 	command |= kIOAGPEnable;
-        command &= agpCommandMask;
 
 	if( targetStatus > masterStatus)
 	    targetStatus = masterStatus;
@@ -870,9 +1272,9 @@ IOReturn AppleMacRiscAGP::saveDeviceState( IOPCIDevice * device,
     ret = super::saveDeviceState( device, options);
 
     if( agpDev && (ret == kIOReturnSuccess)) {
-        agpDev->savedConfig[ kUniNAGP_BASE / 4 ] = agpSave[0];
-        agpDev->savedConfig[ kUniNGART_BASE / 4 ] = agpSave[1];
-        agpDev->savedConfig[ (targetAGPRegisters + kIOPCIConfigAGPCommandOffset) / 4 ] = agpSave[2];
+        agpDev->savedConfig[ 16 ] = agpSave[0];
+        agpDev->savedConfig[ 17 ] = agpSave[1];
+        agpDev->savedConfig[ 18 ] = agpSave[2];
     }
 
     return( ret );
@@ -888,9 +1290,9 @@ IOReturn AppleMacRiscAGP::restoreDeviceState( IOPCIDevice * device,
 
     agpDev = OSDynamicCast( IOAGPDevice, device);
     if( agpDev && device->savedConfig) {
-        agpSave[0] = agpDev->savedConfig[ kUniNAGP_BASE / 4 ];
-        agpSave[1] = agpDev->savedConfig[ kUniNGART_BASE / 4 ];
-        agpSave[2] = agpDev->savedConfig[ (targetAGPRegisters + kIOPCIConfigAGPCommandOffset) / 4 ];
+        agpSave[0] = agpDev->savedConfig[ 16 ];
+        agpSave[1] = agpDev->savedConfig[ 17 ];
+        agpSave[2] = agpDev->savedConfig[ 18 ];
     }
     
     ret = super::restoreDeviceState( device, options);

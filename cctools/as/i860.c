@@ -167,7 +167,7 @@ int value)
     register long int temp_fill;
     unsigned int i = 0;
     unsigned int bytes;
-    char *toP;
+    char *toP, fill;
 
     bytes = temp = get_absolute_expression ();
 #define MAX_ALIGNMENT (1 << 15)
@@ -215,7 +215,8 @@ int value)
     }
     /* Only make a frag if we HAVE to. . . */
     if (temp) {
-	frag_align (temp, (int)temp_fill);
+	md_number_to_chars(&fill, temp_fill, 1);
+	frag_align(temp, &fill, 1, 0);
     }
     /*
      * If this alignment is larger than any previous alignment then this
@@ -289,7 +290,7 @@ md_begin(
 void)
 {
     register char *retval = NULL;
-    register int i;
+    unsigned long i;
     int j = 0;
 
     insn_count = 0;
@@ -1030,10 +1031,10 @@ int nsect)
 {
     unsigned long opcode;
 
-    if ( nsect == text_nsect && (n % 4) != 0 )
+    if ( nsect == (int)text_nsect && (n % 4) != 0 )
     	as_warn("Immediate write of non-aligned data into text segment." );
 	
-    if (nsect != text_nsect ||
+    if (nsect != (int)text_nsect ||
 	fixP->fx_r_type == NO_RELOC ||
 	fixP->fx_r_type == I860_RELOC_VANILLA)
     {

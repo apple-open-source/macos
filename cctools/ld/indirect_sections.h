@@ -56,7 +56,7 @@ struct indirect_section_data {
     unsigned long nitems;	/* total number of items in the input files */
 				/*  merged into this section */
     unsigned long nprobes;	/* number of hash probes */
-#endif DEBUG
+#endif /* DEBUG */
 };
 
 /* the number of entries in the hash table */

@@ -512,7 +512,7 @@ unsigned long *throttle)
 		    write_size = (file + file_size) - p;
 		else
 		    write_size = WRITE_SIZE;
-		if(write(fd, p, write_size) != write_size){
+		if(write(fd, p, write_size) != (int)write_size){
 		    system_error("can't write output file: %s", output);
 		    goto cleanup;
 		}
@@ -561,7 +561,7 @@ unsigned long *throttle)
 	}
 	else{
 no_throttle:
-	    if(write(fd, file, file_size) != file_size){
+	    if(write(fd, file, file_size) != (int)file_size){
 		system_error("can't write output file: %s", output);
 		goto cleanup;
 	    }
@@ -808,7 +808,7 @@ enum bool library_warnings)
 		    strings_size = object->output_strings_size;
 		}
 		for(j = 0; j < nsymbols; j++){
-		    if(symbols[j].n_un.n_strx > strings_size)
+		    if((unsigned long)symbols[j].n_un.n_strx > strings_size)
 			continue;
 		    if(toc_symbol(symbols + j, commons_in_toc,
 		       object->sections) == TRUE){
@@ -999,7 +999,7 @@ struct arch *arch,
 char *output,
 enum bool library_warnings)
 {
-    long i;
+    unsigned long i;
     enum bool multiple_defs;
     struct member *member;
 
@@ -1009,7 +1009,7 @@ enum bool library_warnings)
 	 * only once (marked by changing the sign of their ran_off).
 	 */
 	multiple_defs = FALSE;
-	for(i = 0; i < (long)arch->toc_nranlibs - 1; i++){
+	for(i = 0; i < arch->toc_nranlibs - 1; i++){
 	    if(strcmp(arch->toc_ranlibs[i].ran_un.ran_name,
 		      arch->toc_ranlibs[i+1].ran_un.ran_name) == 0){
 		if(multiple_defs == FALSE){

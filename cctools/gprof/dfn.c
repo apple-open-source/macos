@@ -242,7 +242,7 @@ nltype *childp)
 		    printname(tailp);
 		    printf("\n");
 		}
-#endif DEBUG
+#endif /* DEBUG */
 	    }
 	    /*
 	     * if what we think is the top of the cycle

@@ -68,7 +68,7 @@
 
 // This protocol characteristics key is used to inform the system that the protocol
 // supports having multiple devices that act as initiators.
-#define kIOPropertySCSIProtocolMultiInitKey		"Multiple Initiators"
+#define kIOPropertySCSIProtocolMultiInitKey			"Multiple Initiators"
 
 
 //

@@ -24,7 +24,7 @@
  */
 #ifdef SHLIB
 #include "shlib.h"
-#endif SHLIB
+#endif /* SHLIB */
 /*
  * This file contains the routines that deal with indirect sections (both
  * lazy and non-lazy symbol pointer sections as well as symbol stub sections). 
@@ -212,7 +212,7 @@ struct section_map *section_map)
 	if(debug & (1 << 14))
 	    print_load_order(load_orders, count, ms,
 			     cur_obj, "names and values");
-#endif DEBUG
+#endif /* DEBUG */
 
 	/*
 	 * Sort the load order map by symbol value so the
@@ -243,7 +243,7 @@ struct section_map *section_map)
 	if(debug & (1 << 15))
 	    print_load_order(load_orders, count, ms,
 			     cur_obj, "sizes and offsets");
-#endif DEBUG
+#endif /* DEBUG */
 
 	/*
 	 * First deal with the contents of section for each symbol and determine
@@ -580,15 +580,15 @@ struct section_map *section_map)
 		/*
 		 * The number of relocation entries in the output file is based
 		 * on one of three different cases:
-		 *  The output file is a dynamic shared library file
+		 *  The output file is a multi module dynamic shared library
 		 *  The output file has a dynamic linker load command
 		 *  The output does not have a dynamic linker load command
 		 */
-		if(filetype == MH_DYLIB){
+		if(filetype == MH_DYLIB && multi_module_dylib == TRUE){
 		    /*
-		     * For dynamic shared library files the modules are kept
-		     * separate so external relocation entries on input will be 
-		     * external relocation entries on output.  For local
+		     * For a multi module dynamic shared library the modules are
+		     * kept separate so external relocation entries on input
+		     * will be external relocation entries on output.  For local
 		     * relocation entries only non-position-independent local
 		     * relocation entries are kept.  Modules of dylibs are not
 		     * linked together and can only be slid keeping all sections
@@ -632,7 +632,7 @@ struct section_map *section_map)
 		ms->s.nreloc += 1 + pair;
 		nreloc += 1 + pair;
 	    }
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 	    i += pair;
 	}
 	/*

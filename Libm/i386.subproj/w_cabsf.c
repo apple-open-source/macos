@@ -12,7 +12,7 @@ __RCSID("$NetBSD: w_cabsf.c,v 1.4 2001/01/06 00:15:00 christos Exp $");
 
 #include <math.h>
 
-float cabsf(_complexf z)
+float cabsf(__complexf_t z)
 {
 	return hypotf(z.Real, z.Imag);
 }

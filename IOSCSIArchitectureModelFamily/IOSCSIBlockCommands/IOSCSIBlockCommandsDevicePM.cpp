@@ -465,7 +465,7 @@ IOSCSIBlockCommandsDevice::HandlePowerChange ( void )
 						
 							STATUS_LOG ( ( "Sending START_STOP_UNIT to drive to turn it off\n" ) );
 							
-							if ( START_STOP_UNIT ( request, 0, 0x05, 0, 0, 0 ) == true )
+							if ( START_STOP_UNIT ( request, 1, 0x05, 0, 0, 0 ) == true )
 							{
 								
 								serviceResponse = SendCommand ( request, 0 );
@@ -480,7 +480,7 @@ IOSCSIBlockCommandsDevice::HandlePowerChange ( void )
 							STATUS_LOG ( ( "Power conditions not supported, make sure drive is spun down\n" ) );
 						
 							// At a minimum, make sure the drive is spun down
-							if ( START_STOP_UNIT ( request, 0, 0, 0, 0, 0 ) == true )
+							if ( START_STOP_UNIT ( request, 1, 0, 0, 0, 0 ) == true )
 							{
 								
 								serviceResponse = SendCommand ( request, 0 );
@@ -488,6 +488,9 @@ IOSCSIBlockCommandsDevice::HandlePowerChange ( void )
 							}
 							
 						}
+						
+						// Give the drive some time to park the heads.
+						IOSleep ( 500 );
 						
 					}
 					
@@ -527,12 +530,15 @@ IOSCSIBlockCommandsDevice::HandlePowerChange ( void )
 					STATUS_LOG ( ( "At minimum, make sure drive is spun down.\n" ) );
 					
 					// At a minimum, make sure the drive is spun down
-					if ( START_STOP_UNIT ( request, 0, 0, 0, 0, 0 ) == true )
+					if ( START_STOP_UNIT ( request, 1, 0, 0, 0, 0 ) == true )
 					{
 						
 						serviceResponse = SendCommand ( request, 0 );
 						
 					}
+					
+					// Give the drive some time to park the heads.
+					IOSleep ( 500 );
 					
 				}
 				
@@ -551,12 +557,15 @@ IOSCSIBlockCommandsDevice::HandlePowerChange ( void )
 				{
 					
 					// At a minimum, make sure the drive is spun down
-					if ( START_STOP_UNIT ( request, 0, 0, 0, 0, 0 ) == true )
+					if ( START_STOP_UNIT ( request, 1, 0, 0, 0, 0 ) == true )
 					{
 						
 						serviceResponse = SendCommand ( request, 0 );
 						
 					}
+					
+					// Give the drive some time to park the heads.
+					IOSleep ( 500 );
 					
 				}
 				

@@ -71,3 +71,10 @@ extern frchainS *section_new(
 
 extern unsigned long is_section_coalesced(
     unsigned long n_sect);
+
+extern unsigned long is_section_non_lazy_symbol_pointers(
+    unsigned long n_sect);
+
+extern unsigned long is_end_section_address(
+    unsigned long n_sect,
+    unsigned long addr);

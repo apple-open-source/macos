@@ -3,18 +3,21 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.  
- * Please see the License for the specific language governing rights and 
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
  * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
@@ -213,12 +216,6 @@ IOUSBPipe::Read(IOMemoryDescriptor * buffer, UInt64 frameStart, UInt32 numFrames
         if (err == kIOReturnSuccess) {
             err = syncer->wait();
 
-            // any err coming back in the callback indicates a stalled pipe
-            if (err && (err != kIOUSBTransactionTimeout))
-            {
-                USBLog(2, "IOUSBPipe[%p]::Read  - i/o err (0x%x) on sync call - stalling pipe", this, err);
-                _correctStatus = kIOUSBPipeStalled;
-            }
         }
         else {
             syncer->release(); syncer->release();
@@ -227,12 +224,6 @@ IOUSBPipe::Read(IOMemoryDescriptor * buffer, UInt64 frameStart, UInt32 numFrames
     else {
         err = _controller->IsocIO(buffer, frameStart, numFrames, pFrames,
                 _address, &_endpoint, completion);
-    }
-
-    if (err == kIOUSBPipeStalled)
-    {
-        USBLog(2, "IOUSBPipe[%p]::Read (isoch) - controller returned stalled pipe, changing status", this);
-        _correctStatus = kIOUSBPipeStalled;
     }
 
     return(err);
@@ -275,12 +266,6 @@ IOUSBPipe::Write(IOMemoryDescriptor * buffer, UInt64 frameStart, UInt32 numFrame
         if (err == kIOReturnSuccess)
         {
             err = syncer->wait();
-            // any err coming back in the callback indicates a stalled pipe
-            if (err && (err != kIOUSBTransactionTimeout))
-            {
-                USBLog(2, "IOUSBPipe[%p]::Write  - i/o err (0x%x) on sync call - stalling pipe", this, err);
-                _correctStatus = kIOUSBPipeStalled;
-            }
         }
         else {
             syncer->release(); syncer->release();
@@ -290,12 +275,6 @@ IOUSBPipe::Write(IOMemoryDescriptor * buffer, UInt64 frameStart, UInt32 numFrame
     {
         err = _controller->IsocIO(buffer, frameStart, numFrames, pFrames, _address, &_endpoint, completion);
 
-    }
-
-    if (err == kIOUSBPipeStalled)
-    {
-        USBLog(2, "IOUSBPipe[%p]::Write (isoch) - controller returned stalled pipe, changing status", this);
-        _correctStatus = kIOUSBPipeStalled;
     }
 
     return(err);
@@ -548,7 +527,7 @@ IOUSBPipe::Read(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 complet
         tap.action = &IOUSBSyncCompletion;
         tap.parameter = bytesRead;
 
-        err = _controller->Read(buffer, _address, &_endpoint, &tap, noDataTimeout, completionTimeout);
+        err = _controller->Read(buffer, _address, &_endpoint, &tap, noDataTimeout, completionTimeout, reqCount);
         if (err == kIOReturnSuccess)
 	{
             err = syncer->wait();
@@ -612,7 +591,7 @@ IOUSBPipe::Write(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 comple
         tap.action = &IOUSBSyncCompletion;
         tap.parameter = NULL;
 
-        err = _controller->Write(buffer, _address, &_endpoint, &tap, noDataTimeout, completionTimeout);
+        err = _controller->Write(buffer, _address, &_endpoint, &tap, noDataTimeout, completionTimeout, reqCount);
         if (err == kIOReturnSuccess) 
 	{
             err = syncer->wait();
@@ -793,13 +772,6 @@ IOUSBPipe::Read( IOMemoryDescriptor *	buffer,
         if (err == kIOReturnSuccess) {
             err = syncer->wait();
 
-            // any err coming back in the callback indicates a stalled pipe
-            //
-            if (err && (err != kIOUSBTransactionTimeout))
-            {
-                USBLog(2, "IOUSBPipe[%p]::Read (Low Latency Isoc)  - i/o err (0x%x) on sync call - stalling pipe", this, err);
-                _correctStatus = kIOUSBPipeStalled;
-            }
         }
         else {
             syncer->release(); syncer->release();
@@ -807,12 +779,6 @@ IOUSBPipe::Read( IOMemoryDescriptor *	buffer,
     }
     else {
         err = _controller->IsocIO(buffer, frameStart, numFrames, pFrames, _address, &_endpoint, completion, updateFrequency);
-    }
-
-    if (err == kIOUSBPipeStalled)
-    {
-        USBLog(2, "IOUSBPipe[%p]::Read (Low Latency Isoc) - controller returned stalled pipe, changing status",this);
-        _correctStatus = kIOUSBPipeStalled;
     }
 
     return err;
@@ -856,12 +822,7 @@ IOUSBPipe::Write(IOMemoryDescriptor * buffer, UInt64 frameStart, UInt32 numFrame
         if (err == kIOReturnSuccess)
         {
             err = syncer->wait();
-            // any err coming back in the callback indicates a stalled pipe
-            if (err && (err != kIOUSBTransactionTimeout))
-            {
-                USBLog(2, "IOUSBPipe[%p]::Write  (Low Latency Isoc) - i/o err (0x%x) on sync call - stalling pipe", this, err);
-                _correctStatus = kIOUSBPipeStalled;
-            }
+
         }
         else {
             syncer->release(); syncer->release();
@@ -871,12 +832,6 @@ IOUSBPipe::Write(IOMemoryDescriptor * buffer, UInt64 frameStart, UInt32 numFrame
     {
         err = _controller->IsocIO(buffer, frameStart, numFrames, pFrames, _address, &_endpoint, completion, updateFrequency);
 
-    }
-
-    if (err == kIOUSBPipeStalled)
-    {
-        USBLog(2, "IOUSBPipe[%p]::Write  (Low Latency Isoc) - controller returned stalled pipe, changing status", this);
-        _correctStatus = kIOUSBPipeStalled;
     }
 
     return err;

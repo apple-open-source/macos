@@ -68,6 +68,9 @@ the opcode table in i386-opcode.h.
 #define Reg32   0x4		/* 32 bit reg */
 #define Reg     (Reg8|Reg16|Reg32)    /* gen'l register */
 #define WordReg (Reg16|Reg32)	/* for push/pop operands */
+#define RegMM  0x100         /* 64 bit reg  */
+#define RegXMM 0x40000000    /* 128 bit reg */
+#define RegALL (Reg|RegMM|RegXMM)
 /* immediate */
 #define Imm8    0x8		/* 8 bit immediate */
 #define Imm8S	0x10		/* 8 bit immediate sign extended */

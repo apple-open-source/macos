@@ -2,21 +2,24 @@
  * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
-                                                               * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- *
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -136,12 +139,21 @@ errexit:
     int	currentInterfaceNum = 0;
     UInt8 lastInterfaceSubClass = 0;
     IOUSBDeviceDescriptor dev;
+    UInt8	speed = 0;
+    USBDeviceAddress address = 0;
+    
         int iconfig;
         NSString *aTempString;
         char tempCString[500];
 
 
-    len = GetDescriptor(deviceIntf, kUSBDeviceDesc, 0, &dev, sizeof(dev));
+        // Get the connection Speed for this device
+        GetDeviceSpeed( deviceIntf, &speed );
+        
+        // Get the connection Speed for this device
+        GetDeviceAddress( deviceIntf, &address );
+
+        len = GetDescriptor(deviceIntf, kUSBDeviceDesc, 0, &dev, sizeof(dev));
 
     if (len > 0) {
 
@@ -153,8 +165,8 @@ errexit:
         // Create a new child node for this device
         newNode =  [[Node alloc] init];
 
-	// Set the node's name to be the device's location
-	[newNode setItemName:[NSString stringWithFormat:@"USB device @ 0x%08lX: .............................................",locationID]]; 
+        // Set the node's name to be the device's location
+        [newNode setItemName:[NSString stringWithFormat:@"%s Speed device @ %d (0x%08lX): .............................................",(speed == kUSBDeviceSpeedHigh ? "High" : (speed == kUSBDeviceSpeedLow ? "Low" : "Full")), address, locationID]];
 
         [newNode setItemValue:NULL]; // since I'm not actually gathering anything yet
         [busprobeRootNode addChild:newNode];
@@ -310,7 +322,8 @@ errexit:
     {
         // Create a new child node for this device
         newNode =  [[Node alloc] init];
-        [newNode setItemName:[NSString stringWithFormat:@"USB device @ 0x%08lX: .............................................",locationID]]; // Set the node's name to be the device's location
+        //[newNode setItemName:[NSString stringWithFormat:@"USB device @ 0x%08lX: .............................................",locationID]]; // Set the node's name to be the device's location
+        [newNode setItemName:[NSString stringWithFormat:@"%s Speed device @ %d (0x%08lX): .............................................",(speed == kUSBDeviceSpeedHigh ? "High" : (speed == kUSBDeviceSpeedLow ? "Low" : "Full")), address, locationID]];
 
 
         [newNode setItemValue: @"Unknown device (did not respond do inquiry)"];
@@ -466,7 +479,8 @@ int GetDescriptor(IOUSBDeviceInterface **deviceIntf, UInt8 descType, UInt8 descI
     req.pData = buf;
 
     verify_noerr(err = (*deviceIntf)->DeviceRequest(deviceIntf, &req));
-    if (err) return -1;
+    if (err)
+        return -1;
     return req.wLenDone;
 }
 
@@ -485,6 +499,24 @@ int GetDescriptorFromInterface(IOUSBDeviceInterface **deviceIntf, UInt8 descType
     verify_noerr(err = (*deviceIntf)->DeviceRequest(deviceIntf, &req));
     if (err) return -1;
     return req.wLenDone;
+}
+
+int GetDeviceSpeed( IOUSBDeviceInterface **deviceIntf, UInt8 * speed )
+{
+    IOReturn err;
+
+    verify_noerr(err = (*deviceIntf)->GetDeviceSpeed(deviceIntf, speed));
+    if (err) return -1;
+    return 0;
+}
+
+int GetDeviceAddress( IOUSBDeviceInterface **deviceIntf, USBDeviceAddress * address )
+{
+    IOReturn err;
+
+    verify_noerr(err = (*deviceIntf)->GetDeviceAddress(deviceIntf, address));
+    if (err) return -1;
+    return 0;
 }
 
 // ________________________________________________________________________________________________
@@ -610,8 +642,19 @@ int	GetStringDescriptor(IOUSBDeviceInterface **deviceIntf, UInt8 descIndex, void
 	    
         case kUSBDataClass:
 	    cls = "Data";
-	    break;
-	    
+            switch (pcls[1])
+            {
+                case kUSBCommDirectLineSubClass:	sub = "Direct Line Model";  break;
+                case kUSBCommAbstractSubClass:		sub = "Abstract Model";   break;
+                case kUSBCommTelephoneSubClass:		sub = "Telephone Model"; break;
+                case kUSBCommMultiChannelSubClass:	sub = "Multi Channel Model"; break;
+                case kUSBCommCAPISubClass:		sub = "CAPI Model"; break;
+                case kUSBCommEthernetNetworkingSubClass:sub = "Ethernet Networking Model";  break;
+                case kUSBATMNetworkingSubClass:		sub = "ATM Networking Model";  break;
+                default:				sub = "Unknown Comm Class Model";  break;
+            }
+            break;
+            
         case 0xE0:
 	    cls = "Bluetooth Wireless Controller";
 	    break;

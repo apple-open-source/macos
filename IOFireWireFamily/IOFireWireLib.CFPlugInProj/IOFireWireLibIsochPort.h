@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -237,18 +240,6 @@ namespace IOFireWireLib {
 		protected:
 			typedef ::IOFireWireLibLocalIsochPortRef	PortRef ;
 		
-		protected:
-
-			DCLCommand*									mDCLProgram ;
-			UInt32										mStartEvent ;
-			UInt32										mStartState ;
-			UInt32										mStartMask ;
-			UInt32										mExpectedStopTokens ;
-			unsigned									mDeferredReleaseCount ;
-			io_async_ref_t								mAsyncRef ;
-			pthread_mutex_t								mMutex ;		
-			IOFireWireLibIsochPortFinalizeCallback		mFinalizeCallback ;
-
 		public:
 									LocalIsochPort( IUnknownVTbl* interface, Device& inUserClient, bool inTalking,
 														DCLCommand* inDCLProgram, UInt32 inStartEvent, UInt32 inStartState,
@@ -263,13 +254,24 @@ namespace IOFireWireLib {
 			// local port methods:
 			IOReturn				ModifyJumpDCL( DCLJump* inJump, DCLLabelStruct* inLabel ) ;
 			IOReturn				ModifyTransferPacketDCLSize( DCLTransferPacket* dcl, IOByteCount newSize ) ;			
-			void					DCLCallProcHandler( void* refcon, IOReturn result ) ;
-			static void				S_DCLCallProcHandler( void* refcon, IOReturn result, LocalIsochPort* me) ;
+			static void				DCLCallProcHandler( void* inRefCon, IOReturn result, LocalIsochPort* me) ;
 			void					Lock() ;
 			void					Unlock() ;
 		
 			// utility functions:
-			void					PrintDCLProgram( const DCLCommand* inProgram, UInt32 inLength ) ;		
+			void					PrintDCLProgram( const DCLCommand* inProgram, UInt32 inLength ) ;
+		
+		protected:
+			DCLCommand*				mDCLProgram ;
+			UInt32							mStartEvent ;
+			UInt32							mStartState ;
+			UInt32							mStartMask ;
+			UInt32							mExpectedStopTokens ;
+			Boolean							mDeferredRelease ;
+			
+			io_async_ref_t					mAsyncRef ;
+		
+			pthread_mutex_t					mMutex ;		
 	} ;
 	
 	// ============================================================
@@ -285,7 +287,6 @@ namespace IOFireWireLib {
 		typedef ::IOFireWireLibLocalIsochPortRef PortRef ;
 		
 		public:
-		
 			LocalIsochPortCOM( Device& userclient, bool inTalking, DCLCommand* inDCLProgram, UInt32 inStartEvent,
 					UInt32 inStartState, UInt32 inStartMask, IOVirtualRange inDCLProgramRanges[], 
 					UInt32 inDCLProgramRangeCount, IOVirtualRange inBufferRanges[], UInt32 inBufferRangeCount) ;
@@ -319,10 +320,8 @@ namespace IOFireWireLib {
 			static IOReturn			SModifyTransferPacketDCLSize( PortRef self, DCLTransferPacket* dcl, IOByteCount newSize ) ;
 			static IOReturn			SModifyTransferPacketDCLBuffer( PortRef self, DCLTransferPacket* dcl, void* newBuffer ) ;
 			static IOReturn			SModifyTransferPacketDCL( PortRef self, DCLTransferPacket* dcl, void* newBuffer, IOByteCount newSize ) ;
-			static IOReturn			S_SetFinalizeCallback( IOFireWireLibLocalIsochPortRef self, IOFireWireLibIsochPortFinalizeCallback finalizeCallback ) ;
-			
+
 		protected:
-		
 			static Interface	sInterface ;
 	} ;
 	

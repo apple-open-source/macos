@@ -24,7 +24,7 @@
  */
 #ifdef SHLIB
 #include "shlib.h"
-#endif SHLIB
+#endif /* SHLIB */
 /*
  * This file contains the routines that deal with literal pointers sections.
  * A literal pointer must point to something in another literal section.  And
@@ -136,7 +136,7 @@ struct section_map *section_map)
 #ifdef DEBUG
     data->nfiles++;
     data->nliterals += nliterals;
-#endif DEBUG
+#endif /* DEBUG */
     /*
      * The size is not zero an it has as many relocation entries as literals so
      * this section is being relocated.
@@ -150,8 +150,8 @@ struct section_map *section_map)
      */
     fine_relocs = allocate(nliterals * sizeof(struct fine_reloc));
     memset(fine_relocs, '\0', nliterals * sizeof(struct fine_reloc));
-    for(i = 0; i < nliterals; i++){
-	fine_relocs[i].output_offset = -1;
+    for(j = 0; j < nliterals; j++){
+	fine_relocs[j].output_offset = -1;
     }
     section_map->fine_relocs = fine_relocs;
     section_map->nfine_relocs = nliterals;
@@ -375,15 +375,16 @@ struct section_map *section_map)
 		continue;
 	    }
 	    /*
-	     * For dynamic shared library format files the merged sections that
-	     * could have had external relocation entries must be resolved to
-	     * private extern symbols.  This is because for MH_DYLIB files all
-	     * modules share the merged sections and the entire section gets
-	     * relocated when the library is mapped in.  So the above
-	     * restriction assures the merged section will get relocated
-	     * properly and can be shared amoung library modules.
+	     * For multi module dynamic shared library format files the
+	     * merged sections that could have had external relocation
+	     * entries must be resolved to private extern symbols.  This is
+	     * because for multi module MH_DYLIB files all modules share the
+	     * merged sections and the entire section gets relocated when
+	     * the library is mapped in. So the above restriction assures
+	     * the merged section will get relocated properly and can be
+	     * shared amoung library modules.
 	     */
-	    if(filetype == MH_DYLIB){
+	    if(filetype == MH_DYLIB && multi_module_dylib == TRUE){
 		/*
 		 * If the symbol is undefined or not a private extern it is an
 		 * error for in this section for a MH_DYLIB file.
@@ -391,21 +392,22 @@ struct section_map *section_map)
 		if(merged_symbol->nlist.n_type == (N_EXT | N_UNDF)){
 		    if(merged_symbol->error_flagged_for_dylib == 0){
 			error_with_cur_obj("illegal undefined reference for "
-			    "MH_DYLIB output file to symbol: %s from a literal "
-			    "pointer section (section (%.16s,%.16s) relocation "
-			    "entry: %lu)", merged_symbol->nlist.n_un.n_name,
-			    s->segname, s->sectname, i);
+			    "multi module MH_DYLIB output file to symbol: %s "
+			    "from a literal pointer section (section (%.16s,"
+			    "%.16s) relocation entry: %lu)",
+			    merged_symbol->nlist.n_un.n_name, s->segname,
+			    s->sectname, i);
 			merged_symbol->error_flagged_for_dylib = 1;
 		    }
 		}
 		else if((merged_symbol->nlist.n_type & N_PEXT) != N_PEXT){
 		    if(merged_symbol->error_flagged_for_dylib == 0){
 			error_with_cur_obj("illegal external reference for "
-			    "MH_DYLIB output file to symbol: %s (not a private "
-			    "extern symbol) from a literal pointer section "
-			    "(section (%.16s,%.16s) relocation entry: %lu)",
-			    merged_symbol->nlist.n_un.n_name, s->segname,
-			    s->sectname, i);
+			    "multi module MH_DYLIB output file to symbol: %s "
+			    "(not a private extern symbol) from a literal "
+			    "pointer section (section (%.16s,%.16s) relocation "
+			    "entry: %lu)", merged_symbol->nlist.n_un.n_name,
+			    s->segname, s->sectname, i);
 			merged_symbol->error_flagged_for_dylib = 1;
 		    }
 		}
@@ -568,7 +570,7 @@ struct section_map *section_map)
 	 * for this literal does not have an output_offset of -1 it is an error
 	 * because we have seen it before.
 	 */ 
-	if(fine_relocs[r_address/4].output_offset != -1){
+	if((int)(fine_relocs[r_address/4].output_offset) != -1){
 	    error_with_cur_obj("more than one relocation entry for literal "
 		"pointer at address 0x%x (r_address 0x%x) in section "
 		"(%.16s,%.16s)", (unsigned int)(s->addr + r_address),
@@ -607,16 +609,16 @@ enum bool defined)
 	    /*
 	     * The number of relocation entries in the output file is based
 	     * on one of three different cases:
-	     *  The output file is a dynamic shared library file
+	     *  The output file is a multi module dynamic shared library
 	     *  The output file has a dynamic linker load command
 	     *  The output does not have a dynamic linker load command
 	     */
-	    if(filetype == MH_DYLIB){
+	    if(filetype == MH_DYLIB && multi_module_dylib == TRUE){
 		/*
-		 * For dynamic shared library files there are no external
-		 * relocation entries that will be left as external as
-		 * checked above.  Only non-sectdiff local relocation
-		 * entries are kept.  Modules of dylibs are not linked
+		 * For a multi module dynamic shared library there are no
+		 * external relocation entries that will be left as external as
+		 * checked above.  Only non-sectdiff local relocation entries
+		 * are kept.  Modules of multi module dylibs are not linked
 		 * together and can only be slid keeping all sections
 		 * relative to each other the same.
 		 */
@@ -992,7 +994,7 @@ struct merged_section *ms)
     struct relocation_info *reloc, *extreloc, *r;
     struct scattered_relocation_info *sreloc;
     unsigned long r_address;
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 
 	/*
 	 * Put the literal pointers into the output file.
@@ -1150,7 +1152,7 @@ struct merged_section *ms)
 			     ms->s.nreloc * sizeof(struct relocation_info));
 	    }
 	}
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 
 	literal_pointer_free(data);
 }
@@ -1260,4 +1262,4 @@ struct merged_section *ms)
 	      (double)((double)data->nprobes / (double)(data->nliterals)));
 	}
 }
-#endif DEBUG
+#endif /* DEBUG */

@@ -165,7 +165,7 @@ int firstdiff (unsigned long *a, unsigned long *b, int length);
 // wider decimal (see above)
 /////////////////////////////////////////////////////////////////////////
 
-void num2dec( const decform *f, double_t x, decimal *d ) {	//	<5/23/94 klh>
+void num2dec( const decform *f, double x, decimal *d ) {	//	<5/23/94 klh>
 decform df;
 long logx, len, scale;
 

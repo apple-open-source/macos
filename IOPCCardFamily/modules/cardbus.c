@@ -373,7 +373,7 @@ int cb_alloc(socket_info_t *s)
 #else
     tmp.next = pci_devices; pci_devices = &tmp;
 #endif
-#endif
+#endif __MACOSX__
 
     /* The APA1480 did not like reading the vendor ID first */
     pci_readw(&tmp, PCI_DEVICE_ID, &dev);
@@ -390,17 +390,19 @@ int cb_alloc(socket_info_t *s)
 	/* Count functions */
 #ifdef __MACOSX__
 	// start at one
-	for (fn = 1; fn < 8; fn++) {
-	    tmp.nub = IOPCCardCreateCardBusNub(s->cap.pccard_nub, s->sock, fn);
-	    if (!tmp.nub) break;
+	fn = 1;
+	for (i = 1; i < 8; i++) {
+	    tmp.nub = IOPCCardCreateCardBusNub(s->cap.pccard_nub, s->sock, i);
+	    if (!tmp.nub) continue;
 	    pci_readw(&tmp, PCI_VENDOR_ID, &v);
 	    if (v != vend) {
 		IOPCCardReleaseNub(tmp.nub);
 		s->cap.cardbus_nub[fn] = 0;
-		break;
+		continue;
 	    }
 	    s->cap.cardbus_nub[fn] = tmp.nub;
 	    IOPCCardRetainNub(s->cap.cardbus_nub[fn]);
+	    fn++;
 	}
 	printk(KERN_INFO "cs: cb_alloc(bus %d): found %d functions\n", bus, fn);
 #else
@@ -409,7 +411,7 @@ int cb_alloc(socket_info_t *s)
 	    pci_readw(&tmp, PCI_VENDOR_ID, &v);
 	    if (v != vend) break;
 	}
-#endif
+#endif __MACOSX__
     } else fn = 1;
     s->functions = fn;
     
@@ -418,11 +420,12 @@ int cb_alloc(socket_info_t *s)
     memset(c, 0, fn * sizeof(struct cb_config_t));
     s->cb_config = c;
 
-    for (i = 0; i < fn; i++) {
 #ifdef __MACOSX__
+    for (i = 0; i < fn; i++) {
 	c[i].dev.nub = s->cap.cardbus_nub[i];
-#endif
-#ifdef __LINUX__ // macosx
+    }
+#else // macosx
+    for (i = 0; i < fn; i++) {
 	c[i].dev.bus = s->cap.cb_bus;
 	c[i].dev.devfn = i;
 #ifdef NEWER_LINUX_PCI
@@ -431,11 +434,9 @@ int cb_alloc(socket_info_t *s)
 #else
 	if (i < fn-1) {
 	    c[i].dev.sibling = c[i].dev.next = &c[i+1].dev;
-#endif __LINUX__ // macosx
 	}
 #endif
     }
-#ifdef __LINUX__ // macosx
 #ifdef NEWER_LINUX_PCI
     list_del(&tmp.global_list);
 #else
@@ -456,7 +457,7 @@ int cb_alloc(socket_info_t *s)
 	pci_proc_attach_device(&c[i].dev);
 #endif
     }
-#endif __LINUX__ // macosx
+#endif __MACOSX__
     return CS_SUCCESS;
 }
 
@@ -703,10 +704,10 @@ void cb_release(socket_info_t *s)
 
 void cb_enable(socket_info_t *s)
 {
-    u_char i, j;
+    u_char i, j, bus = s->cap.cardbus;
     cb_config_t *c = s->cb_config;
     
-    DEBUG(0, "cs: cb_enable(bus %d)\n", s->cap.cardbus);
+    DEBUG(0, "cs: cb_enable(bus %d)\n", bus);
     
     /* Configure bridge */
 #ifdef __MACOSX__

@@ -618,7 +618,7 @@ unsigned long nbytes)
 	if(buf == NULL)
 	    fatal("no room for dyld state (malloc failed)");
 
-	if(read(fd, buf, nbytes) != nbytes)
+	if(read(fd, buf, nbytes) != (int)nbytes)
 	    system_fatal("malformed gmon.out file: %s (can't read dyld state)",
 			 filename);
 
@@ -695,10 +695,10 @@ enum bool old_style)
 	 * bytes of the 2byte samples that follow it.  Try to make sure this
 	 * is reasonable and that what's left in the file is at least that big.
 	 */
-	if(header.ncnt < sizeof(header))
+	if((size_t)header.ncnt < sizeof(header))
 	    fatal("gmon.out file: %s malformed (ncnt field less than the "
 		  "size of the expected header)", filename);
-	if(header.ncnt > nbytes)
+	if((unsigned long)header.ncnt > nbytes)
 	    fatal("gmon.out file: %s malformed (ncnt field greater than "
 		  "the byte count for it in the file)", filename);
 	if(header.hpc < header.lpc)
@@ -808,7 +808,7 @@ enum bool old_style)
 	if(samples == NULL)
 	    system_fatal("can't allocate buffer of size: %lu for samples from "
 			 "gmon.out file: %s", size, filename);
-	if(read(fd, samples, size) != size)
+	if(read(fd, samples, size) != (int)size)
 	    system_fatal("can't read samples from gmon.out file: %s", filename);
 	for(j = 0; j < sample_sets[i].nsamples; j++){
 	    sample = samples[j];
