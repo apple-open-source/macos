@@ -2,7 +2,7 @@
 /*
  *  This file is part of the KDE libraries
  *  Copyright (C) 2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2003 Apple Computer, Inc.
+ *  Copyright (C) 2004 Apple Computer, Inc.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -197,10 +197,12 @@ const ClassInfo Window::info = { "Window", 0, &WindowTable, 0 };
   innerWidth	Window::InnerWidth	DontDelete|ReadOnly
   length	Window::Length		DontDelete|ReadOnly
   location	Window::_Location	DontDelete
+  locationbar	Window::Locationbar	DontDelete
   name		Window::Name		DontDelete
   navigator	Window::_Navigator	DontDelete|ReadOnly
   clientInformation	Window::ClientInformation	DontDelete|ReadOnly
   konqueror	Window::_Konqueror	DontDelete|ReadOnly
+  menubar	Window::Menubar		DontDelete|ReadOnly
   offscreenBuffering	Window::OffscreenBuffering	DontDelete|ReadOnly
   opener	Window::Opener		DontDelete|ReadOnly
   outerHeight	Window::OuterHeight	DontDelete|ReadOnly
@@ -214,6 +216,8 @@ const ClassInfo Window::info = { "Window", 0, &WindowTable, 0 };
   screenLeft	Window::ScreenLeft	DontDelete|ReadOnly
   screenTop	Window::ScreenTop	DontDelete|ReadOnly
   scrollbars	Window::Scrollbars	DontDelete|ReadOnly
+  statusbar	Window::Statusbar	DontDelete|ReadOnly
+  toolbar	Window::Toolbar		DontDelete|ReadOnly
   scroll	Window::Scroll		DontDelete|Function 2
   scrollBy	Window::ScrollBy	DontDelete|Function 2
   scrollTo	Window::ScrollTo	DontDelete|Function 2
@@ -278,7 +282,19 @@ const ClassInfo Window::info = { "Window", 0, &WindowTable, 0 };
 IMPLEMENT_PROTOFUNC(WindowFunc)
 
 Window::Window(KHTMLPart *p)
-  : ObjectImp(/*no proto*/), m_part(p), screen(0), history(0), frames(0), loc(0), m_evt(0)
+  : ObjectImp(/*no proto*/)
+  , m_part(p)
+  , screen(0)
+  , history(0)
+  , frames(0)
+  , loc(0)
+  , m_locationbar(0)
+  , m_menubar(0)
+  , m_personalbar(0)
+  , m_scrollbars(0)
+  , m_statusbar(0)
+  , m_toolbar(0)
+  , m_evt(0)
 {
   winq = new WindowQObject(this);
   //kdDebug(6070) << "Window::Window this=" << this << " part=" << m_part << " " << m_part->name() << endl;
@@ -338,6 +354,48 @@ Location *Window::location() const
   return loc;
 }
 
+BarInfo *Window::locationbar(ExecState *exec) const
+{
+  if (!m_locationbar)
+    const_cast<Window*>(this)->m_locationbar = new BarInfo(exec, m_part, BarInfo::Locationbar);
+  return m_locationbar;
+}
+
+BarInfo *Window::menubar(ExecState *exec) const
+{
+  if (!m_menubar)
+    const_cast<Window*>(this)->m_menubar = new BarInfo(exec, m_part, BarInfo::Menubar);
+  return m_menubar;
+}
+
+BarInfo *Window::personalbar(ExecState *exec) const
+{
+  if (!m_personalbar)
+    const_cast<Window*>(this)->m_personalbar = new BarInfo(exec, m_part, BarInfo::Personalbar);
+  return m_personalbar;
+}
+
+BarInfo *Window::statusbar(ExecState *exec) const
+{
+  if (!m_statusbar)
+    const_cast<Window*>(this)->m_statusbar = new BarInfo(exec, m_part, BarInfo::Statusbar);
+  return m_statusbar;
+}
+
+BarInfo *Window::toolbar(ExecState *exec) const
+{
+  if (!m_toolbar)
+    const_cast<Window*>(this)->m_toolbar = new BarInfo(exec, m_part, BarInfo::Toolbar);
+  return m_toolbar;
+}
+
+BarInfo *Window::scrollbars(ExecState *exec) const
+{
+  if (!m_scrollbars)
+    const_cast<Window*>(this)->m_scrollbars = new BarInfo(exec, m_part, BarInfo::Scrollbars);
+  return m_scrollbars;
+}
+
 // reference our special objects during garbage collection
 void Window::mark()
 {
@@ -351,6 +409,18 @@ void Window::mark()
   //kdDebug(6070) << "Window::mark " << this << " marking loc=" << loc << endl;
   if (loc && !loc->marked())
     loc->mark();
+  if (m_locationbar && !m_locationbar->marked())
+    m_locationbar->mark();
+  if (m_menubar && !m_menubar->marked())
+    m_menubar->mark();
+  if (m_personalbar && !m_personalbar->marked())
+    m_personalbar->mark();
+  if (m_scrollbars && !m_scrollbars->marked())
+    m_scrollbars->mark();
+  if (m_statusbar && !m_statusbar->marked())
+    m_statusbar->mark();
+  if (m_toolbar && !m_toolbar->marked())
+    m_toolbar->mark();
 }
 
 bool Window::hasProperty(ExecState * /*exec*/, const Identifier &/*p*/) const
@@ -472,6 +542,10 @@ Value Window::get(ExecState *exec, const Identifier &p) const
     case _Konqueror:
       return Value(new Konqueror(m_part));
 #endif
+    case Locationbar:
+      return Value(locationbar(exec));
+    case Menubar:
+      return Value(menubar(exec));
     case OffscreenBuffering:
       return Boolean(true);
     case Opener:
@@ -501,7 +575,7 @@ Value Window::get(ExecState *exec, const Identifier &p) const
     case Parent:
       return Value(retrieve(m_part->parentPart() ? m_part->parentPart() : (KHTMLPart*)m_part));
     case Personalbar:
-      return Undefined(); // ###
+      return Value(personalbar(exec));
     case ScreenLeft:
     case ScreenX: {
       if (!m_part->view())
@@ -529,7 +603,11 @@ Value Window::get(ExecState *exec, const Identifier &p) const
       return Number(m_part->view()->contentsY());
     }
     case Scrollbars:
-      return Undefined(); // ###
+      return Value(scrollbars(exec));
+    case Statusbar:
+      return Value(statusbar(exec));
+    case Toolbar:
+      return Value(toolbar(exec));
     case Self:
     case _Window:
       return Value(retrieve(m_part));
@@ -795,11 +873,9 @@ void Window::put(ExecState* exec, const Identifier &propertyName, const Value &v
           bool userGesture = static_cast<ScriptInterpreter *>(exec->interpreter())->wasRunByUserGesture();
 #if APPLE_CHANGES
           // We want a new history item if this JS was called via a user gesture
-          m_part->scheduleRedirection(0, dstUrl, !userGesture, userGesture);
+          m_part->scheduleLocationChange(dstUrl, !userGesture, userGesture);
 #else
-          m_part->scheduleRedirection(0,
-                                      dstUrl,
-                                      false /*don't lock history*/, userGesture);
+          m_part->scheduleLocationChange(dstUrl, false /*don't lock history*/, userGesture);
 #endif
         }
       }
@@ -1319,7 +1395,7 @@ Value WindowFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
           while ( part->parentPart() )
               part = part->parentPart();
           bool userGesture = static_cast<ScriptInterpreter *>(exec->interpreter())->wasRunByUserGesture();
-          part->scheduleRedirection(0, url.url(), false/*don't lock history*/, userGesture);
+          part->scheduleLocationChange(url.url(), false/*don't lock history*/, userGesture);
           return Window::retrieve(part);
       }
       if ( uargs.frameName == "_parent" )
@@ -1328,7 +1404,7 @@ Value WindowFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
           if ( part->parentPart() )
               part = part->parentPart();
           bool userGesture = static_cast<ScriptInterpreter *>(exec->interpreter())->wasRunByUserGesture();
-          part->scheduleRedirection(0, url.url(), false/*don't lock history*/, userGesture);
+          part->scheduleLocationChange(url.url(), false/*don't lock history*/, userGesture);
           return Window::retrieve(part);
       }
       uargs.serviceType = "text/html";
@@ -1342,7 +1418,7 @@ Value WindowFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
         khtmlpart->setOpener(part);
         khtmlpart->setOpenedByJS(true);
         if (khtmlpart->document().isNull()) {
-          khtmlpart->begin();
+          part->docImpl()->baseURL() == 0 ? khtmlpart->begin() : khtmlpart->begin(part->docImpl()->baseURL());
           khtmlpart->write("<HTML><BODY>");
           khtmlpart->end();
 
@@ -1358,7 +1434,7 @@ Value WindowFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
         if (!url.isEmpty()) {
           bool userGesture = static_cast<ScriptInterpreter *>(exec->interpreter())->wasRunByUserGesture();
           // FIXME: Need to pass referrer here.
-          khtmlpart->scheduleRedirection(0, url.url(), false, userGesture);
+          khtmlpart->scheduleLocationChange(url.url(), false, userGesture);
 	}
 #else
         uargs.serviceType = QString::null;
@@ -1982,9 +2058,9 @@ void Location::put(ExecState *exec, const Identifier &p, const Value &v, int att
   bool userGesture = static_cast<ScriptInterpreter *>(exec->interpreter())->wasRunByUserGesture();
 #if APPLE_CHANGES
   // We want a new history item if this JS was called via a user gesture
-  m_part->scheduleRedirection(0, url.url(), !userGesture, userGesture);
+  m_part->scheduleLocationChange(url.url(), !userGesture, userGesture);
 #else
-  m_part->scheduleRedirection(0, url.url(), false /*don't lock history*/, userGesture);
+  m_part->scheduleLocationChange(url.url(), false /*don't lock history*/, userGesture);
 #endif
 }
 
@@ -2023,14 +2099,14 @@ Value LocationFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
       KHTMLPart* p = Window::retrieveActive(exec)->part();
       if ( p ) {
 	bool userGesture = static_cast<ScriptInterpreter *>(exec->interpreter())->wasRunByUserGesture();
-        part->scheduleRedirection(0, p->htmlDocument().completeURL(str).string(), true /*lock history*/, userGesture);
+        part->scheduleLocationChange(p->htmlDocument().completeURL(str).string(), true /*lock history*/, userGesture);
       }
       break;
     }
     case Location::Reload:
     {
       bool userGesture = static_cast<ScriptInterpreter *>(exec->interpreter())->wasRunByUserGesture();
-      part->scheduleRedirection(0, part->url().url(), true/*lock history*/, userGesture);
+      part->scheduleLocationChange(part->url().url(), true/*lock history*/, userGesture);
       break;
     }
     case Location::ToString:
@@ -2039,6 +2115,69 @@ Value LocationFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
   } else
     kdDebug(6070) << "LocationFunc::tryExecute - no part!" << endl;
   return Undefined();
+}
+
+////////////////////// BarInfo Object ////////////////////////
+
+const ClassInfo BarInfo::info = { "BarInfo", 0, 0, 0 };
+/*
+@begin BarInfoTable 1
+  visible                BarInfo::Visible		         DontDelete|ReadOnly
+@end
+*/
+BarInfo::BarInfo(ExecState *exec, KHTMLPart *p, Type barType) 
+  : ObjectImp(exec->interpreter()->builtinObjectPrototype())
+  , m_part(p)
+  , m_type(barType)
+{
+}
+
+BarInfo::~BarInfo()
+{
+}
+
+Value BarInfo::get(ExecState *exec, const Identifier &p) const
+{
+  if (m_part.isNull())
+    return Undefined();
+  
+  const HashEntry *entry = Lookup::findEntry(&BarInfoTable, p);
+  if (entry && entry->value == Visible) {
+    switch (m_type) {
+    case Locationbar:
+#if APPLE_CHANGES
+      return Boolean(KWQ(m_part)->locationbarVisible());
+#endif
+    case Menubar: 
+#if APPLE_CHANGES
+      return Boolean(KWQ(m_part)->locationbarVisible());
+#endif
+    case Personalbar:
+#if APPLE_CHANGES
+      return Boolean(KWQ(m_part)->personalbarVisible());
+#endif
+    case Scrollbars: 
+#if APPLE_CHANGES
+      return Boolean(KWQ(m_part)->scrollbarsVisible());
+#endif
+    case Statusbar:
+#if APPLE_CHANGES
+      return Boolean(KWQ(m_part)->statusbarVisible());
+#endif
+    case Toolbar:
+#if APPLE_CHANGES
+      return Boolean(KWQ(m_part)->toolbarVisible());
+#endif
+    default:
+      return Boolean(false);
+    }
+  }
+  
+  return Undefined();
+}
+
+void BarInfo::put(ExecState *exec, const Identifier &p, const Value &v, int attr)
+{
 }
 
 ////////////////////// History Object ////////////////////////

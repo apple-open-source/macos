@@ -156,7 +156,7 @@ if [ -f prototype ]; then
 fi
 
 # Setup version from version.h
-VERSION=3.0.2
+VERSION=3.0.5
 sed -e "s|__VERSION__|$VERSION|" -e "s|__ARCH__|`uname -p`|" -e "s|__BASEDIR__|$INSTALL_BASE|g" pkginfo.master >pkginfo
 
 sed -e "s|__BASEDIR__|$INSTALL_BASE|g" inetd.conf.master >inetd.conf

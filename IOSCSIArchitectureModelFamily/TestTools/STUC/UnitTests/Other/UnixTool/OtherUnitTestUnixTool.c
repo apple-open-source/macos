@@ -1286,14 +1286,10 @@ StripWhiteSpace ( char * buffer, SInt32 length )
 	for ( index = ( length - 1 ); index >= 0; index-- )
 	{
 		
-		if ( buffer[index] == 0 )
-			break;
-		
 		if ( buffer[index] != ' ' )
 			break;
 		
-		if ( buffer[index] == ' ' )
-			buffer[index] = 0;
+		buffer[index] = 0;
 		
 	}
 	

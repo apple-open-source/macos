@@ -60,8 +60,18 @@ public:
                                                                 const char *channelName,
                                                                 UInt32 cntrlID);
 
+	// OSMetaClassDefineReservedUnused(IOAudioLevelControl, 0);
+    /*!
+	 * @function setLinearScale
+     * @abstract This function tells CoreAudio if it should apply a curve to the scaler representation of the volume.
+	 * @param useLinearScale TRUE instructs CoreAudio to not apply a curve to the scaler representation of the volume,
+	 * FALSE instructs CoreAudio to apply a curve, which is CoreAudio's default behavior.
+     */
+	virtual void setLinearScale(bool useLinearScale);
+
 private:
-    OSMetaClassDeclareReservedUnused(IOAudioLevelControl, 0);
+    OSMetaClassDeclareReservedUsed(IOAudioLevelControl, 0);
+
     OSMetaClassDeclareReservedUnused(IOAudioLevelControl, 1);
     OSMetaClassDeclareReservedUnused(IOAudioLevelControl, 2);
     OSMetaClassDeclareReservedUnused(IOAudioLevelControl, 3);

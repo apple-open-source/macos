@@ -94,6 +94,8 @@ static BOOL winbindd_fill_pwent(char *dom_name, char *user_name,
 	safe_strcpy(pw->pw_shell, shell, 
 		    sizeof(pw->pw_shell) - 1);
 	
+	SAFE_FREE(shell);
+
 	/* Password - set to "x" as we can't generate anything useful here.
 	   Authentication can be done using the pam_winbind module. */
 
@@ -153,7 +155,7 @@ enum winbindd_result winbindd_getpwnam(struct winbindd_cli_state *state)
 	
 	/* Get rid and name type from name */
 
-	if (!winbindd_lookup_sid_by_name(domain, name_user, &user_sid, &name_type)) {
+	if (!winbindd_lookup_sid_by_name(domain, domain->name, name_user, &user_sid, &name_type)) {
 		DEBUG(1, ("user '%s' does not exist\n", name_user));
 		return WINBINDD_ERROR;
 	}
@@ -360,6 +362,8 @@ enum winbindd_result winbindd_setpwent(struct winbindd_cli_state *state)
 		DLIST_ADD(state->getpwent_state, domain_state);
 	}
         
+	state->getpwent_initialized = True;
+        
 	return WINBINDD_OK;
 }
 
@@ -370,6 +374,7 @@ enum winbindd_result winbindd_endpwent(struct winbindd_cli_state *state)
 	DEBUG(3, ("[%5lu]: endpwent\n", (unsigned long)state->pid));
 
 	free_getent_state(state->getpwent_state);    
+	state->getpwent_initialized = False;
 	state->getpwent_state = NULL;
         
 	return WINBINDD_OK;
@@ -501,6 +506,9 @@ enum winbindd_result winbindd_getpwent(struct winbindd_cli_state *state)
 	       sizeof(struct winbindd_pw));
 
 	user_list = (struct winbindd_pw *)state->response.extra_data;
+
+	if (!state->getpwent_initialized)
+		winbindd_setpwent(state);
 	
 	if (!(ent = state->getpwent_state))
 		return WINBINDD_ERROR;

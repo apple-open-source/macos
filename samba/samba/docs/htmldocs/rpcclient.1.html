@@ -1,11 +1,11 @@
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>rpcclient</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.61.2"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="rpcclient.1"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2>Name</h2><p>rpcclient &#8212; tool for executing client side 
-	MS-RPC functions</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><tt class="command">rpcclient</tt>  [-A authfile] [-c &lt;command string&gt;] [-d debuglevel] [-h] [-l logfile] [-N] [-s &lt;smb config file&gt;] [-U username[%password]] [-W workgroup] [-N] [-I destinationIP] {server}</p></div></div><div class="refsect1" lang="en"><h2>DESCRIPTION</h2><p>This tool is part of the <a href="Samba.7.html"><span class="citerefentry"><span class="refentrytitle">Samba</span>(7)</span></a> suite.</p><p><b class="command">rpcclient</b> is a utility initially developed
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>rpcclient</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.64.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="rpcclient.1"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2>Name</h2><p>rpcclient &#8212; tool for executing client side 
+	MS-RPC functions</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><tt class="command">rpcclient</tt>  [-A authfile] [-c &lt;command string&gt;] [-d debuglevel] [-h] [-l logdir] [-N] [-s &lt;smb config file&gt;] [-U username[%password]] [-W workgroup] [-N] [-I destinationIP] {server}</p></div></div><div class="refsect1" lang="en"><a name="id2432572"></a><h2>DESCRIPTION</h2><p>This tool is part of the <a href="samba.7.html"><span class="citerefentry"><span class="refentrytitle">samba</span>(7)</span></a> suite.</p><p><span><b class="command">rpcclient</b></span> is a utility initially developed
 	to test MS-RPC functionality in Samba itself.  It has undergone 
 	several stages of development and stability.  Many system administrators
 	have now written scripts around it to manage Windows NT clients from 
-	their UNIX workstation. </p></div><div class="refsect1" lang="en"><h2>OPTIONS</h2><div class="variablelist"><dl><dt><span class="term">server</span></dt><dd><p>NetBIOS name of Server to which to connect. 
+	their UNIX workstation. </p></div><div class="refsect1" lang="en"><a name="id2432603"></a><h2>OPTIONS</h2><div class="variablelist"><dl><dt><span class="term">server</span></dt><dd><p>NetBIOS name of Server to which to connect. 
 		The server can be  any SMB/CIFS server.  The name is 
-		resolved using the <a class="indexterm" name="id2802372"></a>name resolve order line from <a href="smb.conf.5.html"><span class="citerefentry"><span class="refentrytitle">smb.conf</span>(5)</span></a>.</p></dd><dt><span class="term">-c|--command='command string'</span></dt><dd><p>execute semicolon separated commands (listed 
+		resolved using the <a class="indexterm" name="id2432621"></a>name resolve order line from <a href="smb.conf.5.html"><span class="citerefentry"><span class="refentrytitle">smb.conf</span>(5)</span></a>.</p></dd><dt><span class="term">-c|--command='command string'</span></dt><dd><p>execute semicolon separated commands (listed 
 		below)) </p></dd><dt><span class="term">-I IP-address</span></dt><dd><p><i class="replaceable"><tt>IP address</tt></i> is the address of the server to connect to. 
 		It should be specified in standard "a.b.c.d" notation. </p><p>Normally the client would attempt to locate a named 
 		SMB/CIFS server by looking it up via the NetBIOS name resolution 
@@ -35,10 +35,10 @@ amounts of log data, and should only be used when
 investigating a problem. Levels above 3 are designed for 
 use only by developers and generate HUGE amounts of log
 data, most of which is extremely cryptic.</p><p>Note that specifying this parameter here will 
-override the <a class="indexterm" name="id2799791"></a>log level parameter
-in the <tt class="filename">smb.conf</tt> file.</p></dd><dt><span class="term">-l|--logfile=logbasename</span></dt><dd><p>File name for log/debug files. The extension
-<tt class="constant">".client"</tt> will be appended. The log file is
-never removed by the client.
+override the <a class="indexterm" name="id2480010"></a>log level parameter
+in the <tt class="filename">smb.conf</tt> file.</p></dd><dt><span class="term">-l|--logfile=logdirectory</span></dt><dd><p>Base directory name for log/debug files. The extension
+<tt class="constant">".progname"</tt> will be appended (e.g. log.smbclient, 
+log.smbd, etc...). The log file is never removed by the client.
 </p></dd><dt><span class="term">-N</span></dt><dd><p>If specified, this parameter suppresses the normal
 password prompt from the client to the user. This is useful when
 accessing a service that does not require a password. </p><p>Unless a password is specified on the command line or
@@ -66,15 +66,15 @@ variables. If this method is used, make certain that the permissions
 on the file restrict access from unwanted users.  See the
 <i class="parameter"><tt>-A</tt></i> for more details. </p><p>Be cautious about including passwords in scripts. Also, on
 many systems the command line of a running process may be seen
-via the <b class="command">ps</b> command.  To be safe always allow
-<b class="command">rpcclient</b> to prompt for a password and type
+via the <span><b class="command">ps</b></span> command.  To be safe always allow
+<span><b class="command">rpcclient</b></span> to prompt for a password and type
 it in directly. </p></dd><dt><span class="term">-n &lt;primary NetBIOS name&gt;</span></dt><dd><p>This option allows you to override
 the NetBIOS name that Samba uses for itself. This is identical
-to setting the <a class="indexterm" name="id2800111"></a>netbios name parameter in the <tt class="filename">smb.conf</tt> file. 
+to setting the <a class="indexterm" name="id2431687"></a>netbios name parameter in the <tt class="filename">smb.conf</tt> file. 
 However, a command
 line setting will take precedence over settings in
 <tt class="filename">smb.conf</tt>.</p></dd><dt><span class="term">-i &lt;scope&gt;</span></dt><dd><p>This specifies a NetBIOS scope that
-<b class="command">nmblookup</b> will use to communicate with when
+<span><b class="command">nmblookup</b></span> will use to communicate with when
 generating NetBIOS names. For details on the use of NetBIOS
 scopes, see rfc1001.txt and rfc1002.txt. NetBIOS scopes are
 <span class="emphasis"><em>very</em></span> rarely used, only set this parameter
@@ -87,17 +87,17 @@ SAM (as opposed to the Domain SAM). </p></dd><dt><span class="term">-O socket op
 socket. See the socket options parameter in
 the <tt class="filename">smb.conf</tt> manual page for the list of valid
 options. </p></dd><dt><span class="term">-h|--help</span></dt><dd><p>Print a summary of command line options.
-</p></dd></dl></div></div><div class="refsect1" lang="en"><h2>COMMANDS</h2><div class="refsect2" lang="en"><h3>LSARPC</h3><div class="variablelist"><dl><dt><span class="term">lsaquery</span></dt><dd><p>Query info policy</p></dd><dt><span class="term">lookupsids</span></dt><dd><p>Resolve a list 
+</p></dd></dl></div></div><div class="refsect1" lang="en"><a name="id2431783"></a><h2>COMMANDS</h2><div class="refsect2" lang="en"><a name="id2431789"></a><h3>LSARPC</h3><div class="variablelist"><dl><dt><span class="term">lsaquery</span></dt><dd><p>Query info policy</p></dd><dt><span class="term">lookupsids</span></dt><dd><p>Resolve a list 
 		of SIDs to usernames.
 		</p></dd><dt><span class="term">lookupnames</span></dt><dd><p>Resolve a list 
 		of usernames to SIDs.
-		</p></dd><dt><span class="term">enumtrusts</span></dt><dd><p>Enumerate trusted domains</p></dd><dt><span class="term">enumprivs</span></dt><dd><p>Enumerate privileges</p></dd><dt><span class="term">getdispname</span></dt><dd><p>Get the privilege name</p></dd><dt><span class="term">lsaenumsid</span></dt><dd><p>Enumerate the LSA SIDS</p></dd><dt><span class="term">lsaenumprivsaccount</span></dt><dd><p>Enumerate the privileges of an SID</p></dd><dt><span class="term">lsaenumacctrights</span></dt><dd><p>Enumerate the rights of an SID</p></dd><dt><span class="term">lsaenumacctwithright</span></dt><dd><p>Enumerate accounts with a right</p></dd><dt><span class="term">lsaaddacctrights</span></dt><dd><p>Add rights to an account</p></dd><dt><span class="term">lsaremoveacctrights</span></dt><dd><p>Remove rights from an account</p></dd><dt><span class="term">lsalookupprivvalue</span></dt><dd><p>Get a privilege value given its name</p></dd><dt><span class="term">lsaquerysecobj</span></dt><dd><p>Query LSA security object</p></dd></dl></div></div><div class="refsect2" lang="en"><h3>LSARPC-DS</h3><div class="variablelist"><dl><dt><span class="term">dsroledominfo</span></dt><dd><p>Get Primary Domain Information</p></dd></dl></div><p> </p><p><span class="emphasis"><em>DFS</em></span></p><div class="variablelist"><dl><dt><span class="term">dfsexist</span></dt><dd><p>Query DFS support</p></dd><dt><span class="term">dfsadd</span></dt><dd><p>Add a DFS share</p></dd><dt><span class="term">dfsremove</span></dt><dd><p>Remove a DFS share</p></dd><dt><span class="term">dfsgetinfo</span></dt><dd><p>Query DFS share info</p></dd><dt><span class="term">dfsenum</span></dt><dd><p>Enumerate dfs shares</p></dd></dl></div></div><div class="refsect2" lang="en"><h3>REG</h3><div class="variablelist"><dl><dt><span class="term">shutdown</span></dt><dd><p>Remote Shutdown</p></dd><dt><span class="term">abortshutdown</span></dt><dd><p>Abort Shutdown</p></dd></dl></div></div><div class="refsect2" lang="en"><h3>SRVSVC</h3><div class="variablelist"><dl><dt><span class="term">srvinfo</span></dt><dd><p>Server query info</p></dd><dt><span class="term">netshareenum</span></dt><dd><p>Enumerate shares</p></dd><dt><span class="term">netfileenum</span></dt><dd><p>Enumerate open files</p></dd><dt><span class="term">netremotetod</span></dt><dd><p>Fetch remote time of day</p></dd></dl></div></div><div class="refsect2" lang="en"><h3>SAMR</h3><div class="variablelist"><dl><dt><span class="term">queryuser</span></dt><dd><p>Query user info</p></dd><dt><span class="term">querygroup</span></dt><dd><p>Query group info</p></dd><dt><span class="term">queryusergroups</span></dt><dd><p>Query user groups</p></dd><dt><span class="term">querygroupmem</span></dt><dd><p>Query group membership</p></dd><dt><span class="term">queryaliasmem</span></dt><dd><p>Query alias membership</p></dd><dt><span class="term">querydispinfo</span></dt><dd><p>Query display info</p></dd><dt><span class="term">querydominfo</span></dt><dd><p>Query domain info</p></dd><dt><span class="term">enumdomusers</span></dt><dd><p>Enumerate domain users</p></dd><dt><span class="term">enumdomgroups</span></dt><dd><p>Enumerate domain groups</p></dd><dt><span class="term">enumalsgroups</span></dt><dd><p>Enumerate alias groups</p></dd><dt><span class="term">createdomuser</span></dt><dd><p>Create domain user</p></dd><dt><span class="term">samlookupnames</span></dt><dd><p>Look up names</p></dd><dt><span class="term">samlookuprids</span></dt><dd><p>Look up names</p></dd><dt><span class="term">deletedomuser</span></dt><dd><p>Delete domain user</p></dd><dt><span class="term">samquerysecobj</span></dt><dd><p>Query SAMR security object</p></dd><dt><span class="term">getdompwinfo</span></dt><dd><p>Retrieve domain password info</p></dd><dt><span class="term">lookupdomain</span></dt><dd><p>Look up domain</p></dd></dl></div></div><div class="refsect2" lang="en"><h3>SPOOLSS</h3><div class="variablelist"><dl><dt><span class="term">adddriver &lt;arch&gt; &lt;config&gt; [&lt;version&gt;]</span></dt><dd><p>
+		</p></dd><dt><span class="term">enumtrusts</span></dt><dd><p>Enumerate trusted domains</p></dd><dt><span class="term">enumprivs</span></dt><dd><p>Enumerate privileges</p></dd><dt><span class="term">getdispname</span></dt><dd><p>Get the privilege name</p></dd><dt><span class="term">lsaenumsid</span></dt><dd><p>Enumerate the LSA SIDS</p></dd><dt><span class="term">lsaenumprivsaccount</span></dt><dd><p>Enumerate the privileges of an SID</p></dd><dt><span class="term">lsaenumacctrights</span></dt><dd><p>Enumerate the rights of an SID</p></dd><dt><span class="term">lsaenumacctwithright</span></dt><dd><p>Enumerate accounts with a right</p></dd><dt><span class="term">lsaaddacctrights</span></dt><dd><p>Add rights to an account</p></dd><dt><span class="term">lsaremoveacctrights</span></dt><dd><p>Remove rights from an account</p></dd><dt><span class="term">lsalookupprivvalue</span></dt><dd><p>Get a privilege value given its name</p></dd><dt><span class="term">lsaquerysecobj</span></dt><dd><p>Query LSA security object</p></dd></dl></div></div><div class="refsect2" lang="en"><a name="id2429259"></a><h3>LSARPC-DS</h3><div class="variablelist"><dl><dt><span class="term">dsroledominfo</span></dt><dd><p>Get Primary Domain Information</p></dd></dl></div><p> </p><p><span class="emphasis"><em>DFS</em></span></p><div class="variablelist"><dl><dt><span class="term">dfsexist</span></dt><dd><p>Query DFS support</p></dd><dt><span class="term">dfsadd</span></dt><dd><p>Add a DFS share</p></dd><dt><span class="term">dfsremove</span></dt><dd><p>Remove a DFS share</p></dd><dt><span class="term">dfsgetinfo</span></dt><dd><p>Query DFS share info</p></dd><dt><span class="term">dfsenum</span></dt><dd><p>Enumerate dfs shares</p></dd></dl></div></div><div class="refsect2" lang="en"><a name="id2429329"></a><h3>REG</h3><div class="variablelist"><dl><dt><span class="term">shutdown</span></dt><dd><p>Remote Shutdown</p></dd><dt><span class="term">abortshutdown</span></dt><dd><p>Abort Shutdown</p></dd></dl></div></div><div class="refsect2" lang="en"><a name="id2429355"></a><h3>SRVSVC</h3><div class="variablelist"><dl><dt><span class="term">srvinfo</span></dt><dd><p>Server query info</p></dd><dt><span class="term">netshareenum</span></dt><dd><p>Enumerate shares</p></dd><dt><span class="term">netfileenum</span></dt><dd><p>Enumerate open files</p></dd><dt><span class="term">netremotetod</span></dt><dd><p>Fetch remote time of day</p></dd></dl></div></div><div class="refsect2" lang="en"><a name="id2429398"></a><h3>SAMR</h3><div class="variablelist"><dl><dt><span class="term">queryuser</span></dt><dd><p>Query user info</p></dd><dt><span class="term">querygroup</span></dt><dd><p>Query group info</p></dd><dt><span class="term">queryusergroups</span></dt><dd><p>Query user groups</p></dd><dt><span class="term">querygroupmem</span></dt><dd><p>Query group membership</p></dd><dt><span class="term">queryaliasmem</span></dt><dd><p>Query alias membership</p></dd><dt><span class="term">querydispinfo</span></dt><dd><p>Query display info</p></dd><dt><span class="term">querydominfo</span></dt><dd><p>Query domain info</p></dd><dt><span class="term">enumdomusers</span></dt><dd><p>Enumerate domain users</p></dd><dt><span class="term">enumdomgroups</span></dt><dd><p>Enumerate domain groups</p></dd><dt><span class="term">enumalsgroups</span></dt><dd><p>Enumerate alias groups</p></dd><dt><span class="term">createdomuser</span></dt><dd><p>Create domain user</p></dd><dt><span class="term">samlookupnames</span></dt><dd><p>Look up names</p></dd><dt><span class="term">samlookuprids</span></dt><dd><p>Look up names</p></dd><dt><span class="term">deletedomuser</span></dt><dd><p>Delete domain user</p></dd><dt><span class="term">samquerysecobj</span></dt><dd><p>Query SAMR security object</p></dd><dt><span class="term">getdompwinfo</span></dt><dd><p>Retrieve domain password info</p></dd><dt><span class="term">lookupdomain</span></dt><dd><p>Look up domain</p></dd></dl></div></div><div class="refsect2" lang="en"><a name="id2492557"></a><h3>SPOOLSS</h3><div class="variablelist"><dl><dt><span class="term">adddriver &lt;arch&gt; &lt;config&gt; [&lt;version&gt;]</span></dt><dd><p>
 		Execute an AddPrinterDriver() RPC to install the printer driver 
 		information on the server.  Note that the driver files should 
 		already exist in the directory returned by  
-		<b class="command">getdriverdir</b>.  Possible values for 
+		<span><b class="command">getdriverdir</b></span>.  Possible values for 
 		<i class="parameter"><tt>arch</tt></i> are the same as those for 
-		the <b class="command">getdriverdir</b> command.
+		the <span><b class="command">getdriverdir</b></span> command.
 		The <i class="parameter"><tt>config</tt></i> parameter is defined as 
 		follows: </p><pre class="programlisting">
 Long Printer Name:\
@@ -121,9 +121,9 @@ Comma Separated list of Files
 		&lt;sharename&gt; &lt;drivername&gt; &lt;port&gt;</span></dt><dd><p>
 		Add a printer on the remote server.  This printer 
  		will be automatically shared.  Be aware that the printer driver 
-		must already be installed on the server (see <b class="command">adddriver</b>) 
+		must already be installed on the server (see <span><b class="command">adddriver</b></span>) 
 		and the <i class="parameter"><tt>port</tt></i>must be a valid port name (see
-		<b class="command">enumports</b>.</p></dd><dt><span class="term">deldriver</span></dt><dd><p>Delete the 
+		<span><b class="command">enumports</b></span>.</p></dd><dt><span class="term">deldriver</span></dt><dd><p>Delete the 
 		specified printer driver for all architectures.  This
 		does not delete the actual driver files from the server,
 		only the entry from the server's list of drivers.
@@ -146,7 +146,7 @@ Comma Separated list of Files
 		and share printers.  Refer to the MS Platform SDK documentation for 
 		more details of the various flags and calling options. Currently
 		supported info levels are 1, 2 and 5.</p></dd><dt><span class="term">getdata &lt;printername&gt; &lt;valuename;&gt;</span></dt><dd><p>Retrieve the data for a given printer setting.  See 
-		the  <b class="command">enumdata</b> command for more information.  
+		the  <span><b class="command">enumdata</b></span> command for more information.  
 		This command corresponds to the GetPrinterData() MS Platform 
 		SDK function. </p></dd><dt><span class="term">getdataex</span></dt><dd><p>Get
 		printer driver data with
@@ -169,13 +169,13 @@ Comma Separated list of Files
 		against a given printer. </p></dd><dt><span class="term">setdriver &lt;printername&gt;
 		&lt;drivername&gt;</span></dt><dd><p>Execute a SetPrinter() command to update the printer driver
 		associated with an installed printer.  The printer driver must
-		already be correctly installed on the print server.  </p><p>See also the <b class="command">enumprinters</b> and 
-		<b class="command">enumdrivers</b> commands for obtaining a list of
-		of installed printers and drivers.</p></dd><dt><span class="term">addform</span></dt><dd><p>Add form</p></dd><dt><span class="term">setform</span></dt><dd><p>Set form</p></dd><dt><span class="term">getform</span></dt><dd><p>Get form</p></dd><dt><span class="term">deleteform</span></dt><dd><p>Delete form</p></dd><dt><span class="term">enumforms</span></dt><dd><p>Enumerate form</p></dd><dt><span class="term">setprinter</span></dt><dd><p>Set printer comment</p></dd><dt><span class="term">setprinterdata</span></dt><dd><p>Set REG_SZ printer data</p></dd><dt><span class="term">rffpcnex</span></dt><dd><p>Rffpcnex test</p></dd></dl></div></div><div class="refsect2" lang="en"><h3>NETLOGON</h3><div class="variablelist"><dl><dt><span class="term">logonctrl2</span></dt><dd><p>Logon Control 2</p></dd><dt><span class="term">logonctrl</span></dt><dd><p>Logon Control</p></dd><dt><span class="term">samsync</span></dt><dd><p>Sam Synchronisation</p></dd><dt><span class="term">samdeltas</span></dt><dd><p>Query Sam Deltas</p></dd><dt><span class="term">samlogon</span></dt><dd><p>Sam Logon</p></dd></dl></div></div><div class="refsect2" lang="en"><h3>GENERAL COMMANDS</h3><div class="variablelist"><dl><dt><span class="term">debuglevel</span></dt><dd><p>Set the current
+		already be correctly installed on the print server.  </p><p>See also the <span><b class="command">enumprinters</b></span> and 
+		<span><b class="command">enumdrivers</b></span> commands for obtaining a list of
+		of installed printers and drivers.</p></dd><dt><span class="term">addform</span></dt><dd><p>Add form</p></dd><dt><span class="term">setform</span></dt><dd><p>Set form</p></dd><dt><span class="term">getform</span></dt><dd><p>Get form</p></dd><dt><span class="term">deleteform</span></dt><dd><p>Delete form</p></dd><dt><span class="term">enumforms</span></dt><dd><p>Enumerate form</p></dd><dt><span class="term">setprinter</span></dt><dd><p>Set printer comment</p></dd><dt><span class="term">setprinterdata</span></dt><dd><p>Set REG_SZ printer data</p></dd><dt><span class="term">rffpcnex</span></dt><dd><p>Rffpcnex test</p></dd></dl></div></div><div class="refsect2" lang="en"><a name="id2492957"></a><h3>NETLOGON</h3><div class="variablelist"><dl><dt><span class="term">logonctrl2</span></dt><dd><p>Logon Control 2</p></dd><dt><span class="term">logonctrl</span></dt><dd><p>Logon Control</p></dd><dt><span class="term">samsync</span></dt><dd><p>Sam Synchronisation</p></dd><dt><span class="term">samdeltas</span></dt><dd><p>Query Sam Deltas</p></dd><dt><span class="term">samlogon</span></dt><dd><p>Sam Logon</p></dd></dl></div></div><div class="refsect2" lang="en"><a name="id2493018"></a><h3>GENERAL COMMANDS</h3><div class="variablelist"><dl><dt><span class="term">debuglevel</span></dt><dd><p>Set the current
 		debug level used to log information.</p></dd><dt><span class="term">help (?)</span></dt><dd><p>Print a listing of all 
 		known commands or extended help  on a particular command. 
-		</p></dd><dt><span class="term">quit (exit)</span></dt><dd><p>Exit <b class="command">rpcclient
-		</b>.</p></dd></dl></div></div></div><div class="refsect1" lang="en"><h2>BUGS</h2><p><b class="command">rpcclient</b> is designed as a developer testing tool 
+		</p></dd><dt><span class="term">quit (exit)</span></dt><dd><p>Exit <span><b class="command">rpcclient
+		</b></span>.</p></dd></dl></div></div></div><div class="refsect1" lang="en"><a name="id2493061"></a><h2>BUGS</h2><p><span><b class="command">rpcclient</b></span> is designed as a developer testing tool 
 	and may not be robust in certain areas (such as command line parsing).  
 	It has been known to  generate a core dump upon failures when invalid 
 	parameters where passed to the interpreter. </p><p>From Luke Leighton's original rpcclient man page:</p><p><span class="emphasis"><em>WARNING!</em></span> The MSRPC over SMB code has 
@@ -188,8 +188,8 @@ Comma Separated list of Files
 	versions of <a href="smbd.8.html"><span class="citerefentry"><span class="refentrytitle">smbd</span>(8)</span></a> and <a href="rpcclient.1.html"><span class="citerefentry"><span class="refentrytitle">rpcclient</span>(1)</span></a> that are incompatible for some commands or  services. Additionally, 
 	the developers are sending reports to Microsoft,  and problems found 
 	or reported to Microsoft are fixed in Service Packs,  which may 
-	result in incompatibilities.</p></div><div class="refsect1" lang="en"><h2>VERSION</h2><p>This man page is correct for version 3.0 of the Samba 
-	suite.</p></div><div class="refsect1" lang="en"><h2>AUTHOR</h2><p>The original Samba software and related utilities 
+	result in incompatibilities.</p></div><div class="refsect1" lang="en"><a name="id2493120"></a><h2>VERSION</h2><p>This man page is correct for version 3.0 of the Samba 
+	suite.</p></div><div class="refsect1" lang="en"><a name="id2493132"></a><h2>AUTHOR</h2><p>The original Samba software and related utilities 
 	were created by Andrew Tridgell. Samba is now developed
 	by the Samba Team as an Open Source project similar 
 	to the way the Linux kernel is developed.</p><p>The original rpcclient man page was written by Matthew 

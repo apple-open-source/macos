@@ -551,7 +551,6 @@ IOUSBHIDDriver::getMaxReportSize()
 
 }
 
-
 OSString * 
 IOUSBHIDDriver::newManufacturerString() const
 {
@@ -571,6 +570,36 @@ IOUSBHIDDriver::newManufacturerString() const
         return OSString::withCString(manufacturerString);
     else
         return NULL;
+}
+
+
+//=============================================================================================
+//
+//  newCountryCodeNumber
+//
+//=============================================================================================
+//
+OSNumber *
+IOUSBHIDDriver::newCountryCodeNumber() const
+{
+    IOUSBHIDDescriptor 		*theHIDDesc;
+    
+    if (!_interface)
+    {
+        USBLog(2, "%s[%p]::newCountryCodeNumber - no _interface", getName(), this);
+        return NULL;
+    }
+    
+    // From the interface descriptor, get the HID descriptor.
+    theHIDDesc = (IOUSBHIDDescriptor *)_interface->FindNextAssociatedDescriptor(NULL, kUSBHIDDesc);
+    
+    if (theHIDDesc == NULL)
+    {
+        USBLog(2, "%s[%p]::newCountryCodeNumber - FindNextAssociatedDescriptor(NULL, kUSBHIDDesc) failed", getName(), this);
+        return NULL;
+    }
+    
+    return OSNumber::withNumber((unsigned long long)theHIDDesc->hidCountryCode, 8);
 }
 
 
@@ -743,7 +772,9 @@ IOUSBHIDDriver::willTerminate( IOService * provider, IOOptionBits options )
     // what we used to do in the message method (this happens first)
     USBLog(3, "%s[%p]::willTerminate isInactive = %d", getName(), this, isInactive());
     if (_interruptPipe)
+    {
 	_interruptPipe->Abort();
+    }
 
     return super::willTerminate(provider, options);
 }
@@ -1133,7 +1164,9 @@ IOUSBHIDDriver::CheckForDeadDevice()
                 USBLog(3, "%s[%p]: Detected an kIONotResponding error but still connected.  Resetting port", getName(), this);
                 
                 if (_interruptPipe)
+                {
                     _interruptPipe->Abort();  // This will end up closing the interface as well.
+                }
 
                 // OK, let 'er rip.  Let's do the reset thing
                 //

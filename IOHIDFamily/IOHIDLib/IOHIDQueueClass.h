@@ -46,6 +46,7 @@ protected:
 
     struct InterfaceMap fHIDQueue;
     mach_port_t fAsyncPort;
+	bool fAsyncPortIsCreated;
     CFRunLoopSourceRef fCFSource;
     
     // if created, how we were created
@@ -55,6 +56,8 @@ protected:
     UInt32 fCreatedDepth;
     unsigned int fQueueRef;
     
+    bool fQueueEntrySizeChanged;
+    
     // ptr to shared memory for queue
     IODataQueueMemory * fQueueMappedMemory;
     vm_size_t		fQueueMappedMemorySize;
@@ -63,8 +66,9 @@ protected:
     IOHIDDeviceClass *	fOwningDevice;
     
     // CFMachPortCallBack routine for IOHIDQueue
-    static void queueEventSourceCallback(CFMachPortRef *cfPort, mach_msg_header_t *msg, CFIndex size, void *info);
+    static void queueEventSourceCallback(CFMachPortRef cfPort, mach_msg_header_t *msg, CFIndex size, void *info);
     
+	IOReturn setAsyncPort(mach_port_t port);
     // Related IOHIDQueue call back info
     IOHIDCallbackFunction	fEventCallback;
     void *			fEventTarget;

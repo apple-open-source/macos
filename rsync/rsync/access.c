@@ -27,7 +27,7 @@
 static int match_hostname(char *host, char *tok)
 {
 	if (!host || !*host) return 0;
-	return (fnmatch(tok, host, 0) == 0);
+	return wildmatch(tok, host);
 }
 
 static int match_binary(char *b1, char *b2, char *mask, int addrlen)
@@ -73,11 +73,24 @@ static int match_address(char *addr, char *tok)
 #endif
 	char mask[16];
 	char *a = NULL, *t = NULL;
+	unsigned int len;
 
 	if (!addr || !*addr) return 0;
 
 	p = strchr(tok,'/');
-	if (p) *p = 0;
+	if (p) {
+		*p = '\0';
+		len = p - tok;
+	}
+	else
+		len = strlen(tok);
+
+	/* Fail quietly if tok is a hostname (not an address) */
+	if (strspn(tok, ".0123456789") != len
+#ifdef INET6
+	 && !strchr(tok, ':')
+#endif
+		) return 0;
 
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = PF_UNSPEC;
@@ -93,7 +106,10 @@ static int match_address(char *addr, char *tok)
 	if (p)
 		*p++ = '/';
 	if (gai) {
-		rprintf(FERROR,"malformed address %s\n", tok);
+		rprintf(FERROR,
+			"error matching address %s: %s\n",
+			tok,
+			gai_strerror(gai));
 		freeaddrinfo(resa);
 		return 0;
 	}

@@ -37,12 +37,34 @@ class PowerMac7_2_SlotFanCtrlLoop : public IOPlatformPIDCtrlLoop
 	OSDeclareDefaultStructors(PowerMac7_2_SlotFanCtrlLoop)
 
 protected:
-	//virtual const OSNumber *calculateNewTarget( void ) const;
+	/*!
+		@var activeAGPControl If true, then a valid AGP Sensor and AGP Control have registered. In this
+		case it is assumed that agpSensor and agpControl are non-NULL and the input-target, output-max
+		and output-min have been populated in the AGP Card Control meta state (at index 2). If false,
+		standard PCI power measurements will drive the control algorithm.
+	*/
+	bool					activeAGPControl;
+
+	IOPlatformSensor*		agpSensor;
+	IOPlatformControl*		agpControl;
+
+	ControlValue			pciFanMin;
+	ControlValue			pciFanMax;
+
+	virtual ControlValue	calculateNewTarget( void ) const;
+
+	virtual bool			init( void );
+
+	virtual SensorValue		getAggregateSensorValue( void );
 
 public:
 
 	virtual bool updateMetaState( void );
-	virtual ControlValue calculateNewTarget( void ) const;
+	virtual void sendNewTarget( ControlValue newTarget );
+
+	virtual void sensorRegistered( IOPlatformSensor * aSensor );
+	virtual void controlRegistered( IOPlatformControl * aControl );
+
 };
 
 #endif // _POWERMAC7_2_SLOTFANCTRLLOOP_H

@@ -18,7 +18,7 @@
  * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * @(#) $Header: /cvs/root/tcpdump/tcpdump/interface.h,v 1.1.1.4 2004/02/05 19:30:52 rbraun Exp $ (LBL)
+ * @(#) $Header: /cvs/root/tcpdump/tcpdump/interface.h,v 1.1.1.5 2004/05/21 20:51:29 rbraun Exp $ (LBL)
  */
 
 #ifndef tcpdump_interface_h
@@ -191,11 +191,11 @@ extern const char *dnnum_string(u_short);
 #include <pcap.h>
 
 extern int print_unknown_data(const u_char *, const char *,int);
-extern void ascii_print_with_offset(const u_char *, u_int, u_int);
-extern void ascii_print(const u_char *, u_int);
-extern void hex_print_with_offset(const u_char *, u_int, u_int);
+extern void ascii_print_with_offset(const u_char *, const u_char *, u_int, u_int);
+extern void ascii_print(const u_char *, const u_char *, u_int);
+extern void hex_print_with_offset(const u_char *, const u_char *, u_int, u_int);
 extern void telnet_print(const u_char *, u_int);
-extern void hex_print(const u_char *, u_int);
+extern void hex_print(const u_char *, const u_char *, u_int);
 extern int ether_encap_print(u_short, const u_char *, u_int, u_int, u_short *);
 extern int llc_print(const u_char *, u_int, u_int, const u_char *,
 	const u_char *, u_short *);
@@ -222,8 +222,7 @@ extern u_int pflog_if_print(const struct pcap_pkthdr *, const u_char *);
 extern u_int arcnet_if_print(const struct pcap_pkthdr *, const u_char *);
 extern u_int arcnet_linux_if_print(const struct pcap_pkthdr *, const u_char *);
 extern void ether_print(const u_char *, u_int, u_int);
-extern u_int ether_if_print(const struct pcap_pkthdr *,
-	const u_char *);
+extern u_int ether_if_print(const struct pcap_pkthdr *, const u_char *);
 extern u_int token_print(const u_char *, u_int, u_int);
 extern u_int token_if_print(const struct pcap_pkthdr *, const u_char *);
 extern void fddi_print(const u_char *, u_int, u_int);
@@ -232,6 +231,7 @@ extern u_int fr_if_print(const struct pcap_pkthdr *, const u_char *);
 extern u_int ieee802_11_if_print(const struct pcap_pkthdr *, const u_char *);
 extern u_int ieee802_11_radio_if_print(const struct pcap_pkthdr *,
 	const u_char *);
+extern u_int ap1394_if_print(const struct pcap_pkthdr *, const u_char *);
 extern void gre_print(const u_char *, u_int);
 extern void icmp_print(const u_char *, u_int, const u_char *, int);
 extern void igmp_print(const u_char *, u_int);

@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -67,10 +64,10 @@
 #define kDeviceTypeString "pci-ide"
 #define kDevicetypeKey "device_type"
 #define kNameKey "name"
+#define kCellRevisionKey "cell-revision"
 #define kNameString "s-ata"
 #define kCompatibleKey "compatible"
 #define kCompatibleString "k2-s-ata"
-
 
 //---------------------------------------------------------------------------
 
@@ -93,7 +90,7 @@ AppleK2SATARoot::init(OSDictionary* properties)
  	baseZeroMap = baseOneMap = baseTwoMap = baseThreeMap = baseFourMap = baseFiveMap = 0;
 	baseAddrZero = baseAddrOne = baseAddrTwo = baseAddrThree = baseAddrFour = baseAddrFive = 0;
 	nubIntSrc = 0;
-   
+	cellRevision = 0;
 	   
     if (super::init(properties) == false)
     {
@@ -142,6 +139,16 @@ AppleK2SATARoot::probe(IOService* provider,	SInt32*	score)
 		return 0;
 		
 	}
+
+	
+	OSData* cellVersion = OSDynamicCast( OSData, provider->getProperty( kCellRevisionKey ) );
+	if(  cellVersion != 0)
+	{
+	
+		cellRevision = 1;
+	
+	}
+
 
 	IOPCIDevice* pciNub = (IOPCIDevice*) provider;
 	
@@ -414,15 +421,84 @@ AppleK2SATARoot::setPowerState ( unsigned long powerStateOrdinal, IOService* wha
 		DLOG("AppleK2SATARoot power ordinal 1\n");
 		isSleeping = false;
 		// time to wake up
-		/*for( int i = 0; i < 4; i++)
+
+		// force a physical reset of the Phy/link layer per vendor instructions.
+		// we need to do a read/modify/write of register 4, bit 3 
+		
+		// select port 1 & 2
+//		writeMDIO( 0x7, 2);
+//		UInt16 testReg = 0;
+//		readMDIO( 0xA, testReg);
+//		IOLog("AppleK2SATARoot testReg = %x\n", testReg);
+//		writeMDIO(0xA, 0xA860);
+//		readMDIO( 0xA, testReg);
+//		IOLog("AppleK2SATARoot testReg = %x\n", testReg);
+//		writeMDIO(0xA, 0x9820);
+		
+		if( cellRevision )
 		{
-			OSWriteLittleInt32( baseAddrFive, (i * 0x100) + 0x80, restoreSICR1[i]);
-			OSWriteLittleInt32( baseAddrFive, (i * 0x100) + 0x48, restoreSCR2[i]);
-			OSWriteLittleInt32( baseAddrFive, (i * 0x100) + 0x44, 0xFFFFFFFF); // clear any error bits
-						
-		}*/
+			UInt16 reg4Val = 0;
+			
+			readMDIO( 0x04, reg4Val);
+			writeMDIO( 0x04, reg4Val | 0x0008); // set bit 3
+			IODelay(200);  // wait 200us
+			writeMDIO( 0x04, reg4Val); //reset bit 3 to 0
+			IODelay(250); // wait 250us
+			
+			DLOG("AppleK2SATARoot reset analog layer %x\n", reg4Val);
+		}		
 	}
 	return IOPMAckImplied;
+
+}
+
+
+IOReturn 
+AppleK2SATARoot::readMDIO( UInt8 registerAddr, UInt16& value )
+{
+		UInt32 mdioRet = 0;
+		UInt32 mdioControl = (registerAddr & 0x1F) | 0x00004000;  // register selection goes in 4:0, read command is bit 14
+
+		OSWriteLittleInt32( baseAddrFive, 0x8c, mdioControl);
+
+		// MDIO register is at base addr + 0x8c
+		
+		mdioRet = OSReadLittleInt32(baseAddrFive, 0x8c );
+		while( !(mdioRet & 0x00008000) )
+		{
+		
+			mdioRet = OSReadLittleInt32(baseAddrFive, 0x8c );
+			IODelay(100);
+		}
+
+	value =  (UInt16) (mdioRet >> 16);
+
+	return 0;
+}
+
+IOReturn 
+AppleK2SATARoot::writeMDIO( UInt8 registerAddr, UInt16 value )
+{
+
+	UInt32 mdioRet = 0;
+	UInt32 mdioControl = (registerAddr & 0x1F) | 0x00002000 | ((UInt32)value << 16);  // register selection goes in 4:0, write command is bit 13, data goes in upper word 31:16
+
+	OSWriteLittleInt32( baseAddrFive, 0x8c, mdioControl);
+
+	// MDIO register is at base addr + 0x8c
+	
+	mdioRet = OSReadLittleInt32(baseAddrFive, 0x8c );
+	while( !(mdioRet & 0x00008000) )
+	{
+	
+		mdioRet = OSReadLittleInt32(baseAddrFive, 0x8c );
+		IODelay(100);
+	}
+
+
+
+	return 0;
+	
 
 }
 

@@ -1,0 +1,241 @@
+Patch from Mark Curtis to implement the --inplace option.
+
+--- match.c	3 Jan 2004 19:28:03 -0000	1.60
++++ match.c	27 Apr 2004 23:26:09 -0000
+@@ -22,6 +22,7 @@
+ extern int verbose;
+ extern int am_server;
+ extern int do_progress;
++extern int inplace;
+ 
+ typedef unsigned short tag;
+ 
+@@ -197,6 +198,10 @@ static void hash_search(int f,struct sum
+ 			/* also make sure the two blocks are the same length */
+ 			l = MIN((OFF_T)s->blength, len-offset);
+ 			if (l != s->sums[i].len)
++				continue;
++
++			/* if inplace, make sure the offset is greater than where we are */
++			if (inplace && offset > s->sums[i].offset)
+ 				continue;
+ 
+ 			if (verbose > 3)
+--- options.c	17 Apr 2004 17:07:23 -0000	1.147
++++ options.c	27 Apr 2004 23:26:10 -0000
+@@ -91,6 +91,7 @@ int ignore_errors = 0;
+ int modify_window = 0;
+ int blocking_io = -1;
+ int checksum_seed = 0;
++int inplace = 0;
+ unsigned int block_size = 0;
+ 
+ 
+@@ -231,6 +232,7 @@ void usage(enum logcode F)
+   rprintf(F,"     --backup-dir            make backups into this directory\n");
+   rprintf(F,"     --suffix=SUFFIX         backup suffix (default %s w/o --backup-dir)\n",BACKUP_SUFFIX);
+   rprintf(F," -u, --update                update only (don't overwrite newer files)\n");
++  rprintf(F,"     --inplace               update the destination file inplace *SEE MAN PAGE*\n");
+   rprintf(F," -l, --links                 copy symlinks as symlinks\n");
+   rprintf(F," -L, --copy-links            copy the referent of all symlinks\n");
+   rprintf(F,"     --copy-unsafe-links     copy the referent of \"unsafe\" symlinks\n");
+@@ -321,6 +323,7 @@ static struct poptOption long_options[] 
+   {"delete",           0,  POPT_ARG_NONE,   &delete_mode, 0, 0, 0 },
+   {"existing",         0,  POPT_ARG_NONE,   &only_existing, 0, 0, 0 },
+   {"ignore-existing",  0,  POPT_ARG_NONE,   &opt_ignore_existing, 0, 0, 0 },
++  {"inplace",          0,  POPT_ARG_NONE,   &inplace, 0, 0, 0 },
+   {"delete-after",     0,  POPT_ARG_NONE,   0,              OPT_DELETE_AFTER, 0, 0 },
+   {"delete-excluded",  0,  POPT_ARG_NONE,   0,              OPT_DELETE_EXCLUDED, 0, 0 },
+   {"force",            0,  POPT_ARG_NONE,   &force_delete, 0, 0, 0 },
+@@ -723,6 +726,9 @@ int parse_arguments(int *argc, const cha
+ 	if (do_progress && !verbose)
+ 		verbose = 1;
+ 
++	if (inplace && keep_partial)
++		keep_partial = 0;
++
+ 	if (files_from) {
+ 		char *colon;
+ 		if (*argc != 2 && !(am_server && am_sender && *argc == 1)) {
+@@ -938,6 +944,9 @@ void server_options(char **args,int *arg
+ 
+ 	if (opt_ignore_existing && am_sender)
+ 		args[ac++] = "--ignore-existing";
++
++	if (inplace)
++		args[ac++] = "--inplace";
+ 
+ 	if (tmpdir) {
+ 		args[ac++] = "--temp-dir";
+--- receiver.c	27 Apr 2004 19:51:33 -0000	1.76
++++ receiver.c	27 Apr 2004 23:26:10 -0000
+@@ -45,6 +45,7 @@ extern int cleanup_got_literal;
+ extern int module_id;
+ extern int ignore_errors;
+ extern int orig_umask;
++extern int inplace;
+ 
+ static void delete_one(char *fn, int is_dir)
+ {
+@@ -249,16 +250,28 @@ static int receive_data(int f_in,struct 
+ 			sum_update(map,len);
+ 		}
+ 
+-		if (fd != -1 && write_file(fd,map,len) != (int) len) {
+-			rprintf(FERROR, "write failed on %s: %s\n",
+-				full_fname(fname), strerror(errno));
+-			exit_cleanup(RERR_FILEIO);
++		if (!inplace || offset != offset2) {
++			if (fd != -1 && write_file(fd,map,len) != (int) len) {
++				rprintf(FERROR, "write failed on %s: %s\n",
++					full_fname(fname), strerror(errno));
++				exit_cleanup(RERR_FILEIO);
++			}
++		} else {
++			flush_write_file(fd);
++			if (do_lseek(fd,(OFF_T)len,SEEK_CUR) != offset+len) {
++				rprintf(FERROR, "lseek failed on %s: %s, %lli, %lli, %i\n",
++					full_fname(fname), strerror(errno), do_lseek(fd,0,SEEK_CUR), (offset+len), i);
++				exit_cleanup(RERR_FILEIO);
++			}
+ 		}
+ 		offset += len;
+ 	}
+ 
+ 	flush_write_file(fd);
+ 
++	if (inplace)
++		ftruncate(fd, offset);
++
+ 	if (do_progress)
+ 		end_progress(total_size);
+ 
+@@ -410,37 +423,50 @@ int recv_files(int f_in,struct file_list
+ 		} else
+ 			mapbuf = NULL;
+ 
+-		if (!get_tmpname(fnametmp,fname)) {
+-			if (mapbuf) unmap_file(mapbuf);
+-			if (fd1 != -1) close(fd1);
+-			continue;
+-		}
++		/* We now check to see if we are writing file "inplace" */
++		if (inplace)  {
++			fd2 = do_open(fnamecmp, O_WRONLY|O_CREAT, 0);
++			if (fd2 == -1) {
++				rprintf(FERROR, "open %s failed: %s\n",
++					full_fname(fnametmp), strerror(errno));
++				receive_data(f_in,mapbuf,-1,NULL,file->length);
++				if (mapbuf) unmap_file(mapbuf);
++				if (fd1 != -1) close(fd1);
++				continue;
++			}
++		} else {
++			if (!get_tmpname(fnametmp,fname)) {
++				if (mapbuf) unmap_file(mapbuf);
++				if (fd1 != -1) close(fd1);
++				continue;
++			}
+ 
+-		strlcpy(template, fnametmp, sizeof template);
++			strlcpy(template, fnametmp, sizeof template);
+ 
+-		/* we initially set the perms without the
+-		 * setuid/setgid bits to ensure that there is no race
+-		 * condition. They are then correctly updated after
+-		 * the lchown. Thanks to snabb@epipe.fi for pointing
+-		 * this out.  We also set it initially without group
+-		 * access because of a similar race condition. */
+-		fd2 = do_mkstemp(fnametmp, file->mode & INITACCESSPERMS);
+-
+-		/* in most cases parent directories will already exist
+-		 * because their information should have been previously
+-		 * transferred, but that may not be the case with -R */
+-		if (fd2 == -1 && relative_paths && errno == ENOENT &&
+-		    create_directory_path(fnametmp, orig_umask) == 0) {
+-			strlcpy(fnametmp, template, sizeof fnametmp);
++			/* we initially set the perms without the
++			 * setuid/setgid bits to ensure that there is no race
++			 * condition. They are then correctly updated after
++			 * the lchown. Thanks to snabb@epipe.fi for pointing
++			 * this out.  We also set it initially without group
++			 * access because of a similar race condition. */
+ 			fd2 = do_mkstemp(fnametmp, file->mode & INITACCESSPERMS);
+-		}
+-		if (fd2 == -1) {
+-			rprintf(FERROR, "mkstemp %s failed: %s\n",
+-				full_fname(fnametmp), strerror(errno));
+-			receive_data(f_in,mapbuf,-1,NULL,file->length);
+-			if (mapbuf) unmap_file(mapbuf);
+-			if (fd1 != -1) close(fd1);
+-			continue;
++
++			/* in most cases parent directories will already exist
++			 * because their information should have been previously
++			 * transferred, but that may not be the case with -R */
++			if (fd2 == -1 && relative_paths && errno == ENOENT
++			    && create_directory_path(fnametmp, orig_umask) == 0) {
++				strlcpy(fnametmp, template, sizeof fnametmp);
++				fd2 = do_mkstemp(fnametmp, file->mode & INITACCESSPERMS);
++			}
++			if (fd2 == -1) {
++				rprintf(FERROR, "mkstemp %s failed: %s\n",
++					full_fname(fnametmp), strerror(errno));
++				receive_data(f_in,mapbuf,-1,NULL,file->length);
++				if (mapbuf) unmap_file(mapbuf);
++				if (fd1 != -1) close(fd1);
++				continue;
++			}
+ 		}
+ 
+ 		cleanup_set(fnametmp, fname, file, mapbuf, fd1, fd2);
+--- rsync.c	23 Mar 2004 16:16:15 -0000	1.135
++++ rsync.c	27 Apr 2004 23:26:11 -0000
+@@ -33,6 +33,7 @@ extern int preserve_uid;
+ extern int preserve_gid;
+ extern int preserve_perms;
+ extern int make_backups;
++extern int inplace;
+ 
+ 
+ /*
+@@ -234,6 +235,11 @@ void finish_transfer(char *fname, char *
+ 
+ 	if (make_backups && !make_backup(fname))
+ 		return;
++
++	if (inplace) {
++		set_perms(fname,file,NULL,0);
++		return;
++	}
+ 
+ 	/* move tmp file over real file */
+ 	ret = robust_rename(fnametmp, fname, file->mode & INITACCESSPERMS);
+--- rsync.yo	27 Apr 2004 03:55:37 -0000	1.165
++++ rsync.yo	27 Apr 2004 23:26:12 -0000
+@@ -289,6 +289,7 @@ verb(
+      --backup-dir            make backups into this directory
+      --suffix=SUFFIX         backup suffix (default ~ w/o --backup-dir)
+  -u, --update                update only (don't overwrite newer files)
++     --inplace               update the destination file inplace
+  -l, --links                 copy symlinks as symlinks
+  -L, --copy-links            copy the referent of all symlinks
+      --copy-unsafe-links     copy the referent of "unsafe" symlinks
+@@ -475,6 +476,17 @@ is on the objects.  In other words, if t
+ symlink where the destination has a file, the transfer would occur
+ regardless of the timestamps.  This might change in the future (feel
+ free to comment on this on the mailing list if you have an opinion).
++
++dit(bf(--inplace)) This causes rsync not to create a new copy of the file
++and then move it into place.  Instead rsync will overwrite the existing
++file, meaning that the rsync algorithm can't extract the full ammount of
++network reduction it might otherwise.
++
++This option is useful for transfer of large files with block based changes
++and also on systems that are disk bound not network bound.
++
++WARNING: If the transfer is interrupted, you will have an inconsistent file
++and the transfer should be run again.
+ 
+ dit(bf(-l, --links)) When symlinks are encountered, recreate the
+ symlink on the destination.

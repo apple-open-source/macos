@@ -1280,7 +1280,7 @@ oakley_validate_auth(iph1)
 			switch (iph1->rmconf->certtype) {
 			case ISAKMP_CERT_X509SIGN:
 				error = eay_check_x509cert(&iph1->cert_p->cert,
-					lcconf->pathinfo[LC_PATHTYPE_CERT]);
+					lcconf->pathinfo[LC_PATHTYPE_CERT], 0);
 				break;
 			default:
 				plog(LLV_ERROR, LOCATION, NULL,

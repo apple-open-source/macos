@@ -1,0 +1,78 @@
+--- rsync.c	23 Mar 2004 16:16:15 -0000	1.135
++++ rsync.c	22 Apr 2004 23:43:44 -0000
+@@ -235,6 +235,9 @@ void finish_transfer(char *fname, char *
+ 	if (make_backups && !make_backup(fname))
+ 		return;
+ 
++	/* Change permissions before putting the file into place. */
++	set_perms(fnametmp, file, NULL, 0);
++
+ 	/* move tmp file over real file */
+ 	ret = robust_rename(fnametmp, fname, file->mode & INITACCESSPERMS);
+ 	if (ret < 0) {
+@@ -242,8 +245,9 @@ void finish_transfer(char *fname, char *
+ 		    ret == -2 ? "copy" : "rename",
+ 		    full_fname(fnametmp), fname, strerror(errno));
+ 		do_unlink(fnametmp);
+-	} else {
+-		set_perms(fname,file,NULL,0);
++	} else if (ret == 1) {
++		/* The file got copied, so set the permissions again. */
++		set_perms(fname, file, NULL, 0);
+ 	}
+ }
+ 
+--- t_stub.c	22 Apr 2004 09:58:11 -0000	1.7
++++ t_stub.c	22 Apr 2004 23:43:44 -0000
+@@ -26,6 +26,7 @@
+  * functions, so that module test harnesses can run standalone.
+  **/
+ 
++int am_root = 0;
+ int modify_window = 0;
+ int module_id = -1;
+ struct exclude_list_struct server_exclude_list;
+--- util.c	22 Apr 2004 22:17:15 -0000	1.138
++++ util.c	22 Apr 2004 23:43:44 -0000
+@@ -28,6 +28,7 @@
+ #include "rsync.h"
+ 
+ extern int verbose;
++extern int am_root;
+ extern struct exclude_list_struct server_exclude_list;
+ 
+ int sanitize_paths = 0;
+@@ -263,6 +264,8 @@ int copy_file(char *source, char *dest, 
+ 		return -1;
+ 	}
+ 
++	if (!am_root && !(mode & S_IWUSR))
++		mode |= S_IWUSR;
+ 	ofd = do_open(dest, O_WRONLY | O_CREAT | O_TRUNC | O_EXCL, mode);
+ 	if (ofd == -1) {
+ 		rprintf(FERROR,"open %s: %s\n",
+@@ -354,8 +357,8 @@ int robust_unlink(char *fname)
+ #endif
+ }
+ 
+-/* Returns 0 on success, -1 on most errors, and -2 if we got an error
+- * trying to copy the file across file systems. */
++/* Returns 0 on successful rename, 1 if we successfully copied the file
++ * across filesystems, -2 if copy_file() failed, and -1 on other errors. */
+ int robust_rename(char *from, char *to, int mode)
+ {
+ 	int tries = 4;
+@@ -372,10 +375,12 @@ int robust_rename(char *from, char *to, 
+ 			break;
+ #endif
+ 		case EXDEV:
++			if (!am_root && !(mode & S_IRUSR))
++				do_chmod(from, (mode & CHMOD_BITS) | S_IRUSR);
+ 			if (copy_file(from, to, mode) != 0)
+ 				return -2;
+ 			do_unlink(from);
+-			return 0;
++			return 1;
+ 		default:
+ 			return -1;
+ 		}

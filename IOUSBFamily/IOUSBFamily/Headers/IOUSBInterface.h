@@ -40,6 +40,8 @@
 */
 class IOUSBInterface : public IOUSBNub
 {
+    friend class IOUSBInterfaceUserClient;
+    
     OSDeclareDefaultStructors(IOUSBInterface)
 
 protected:

@@ -39,12 +39,19 @@
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 #import <Cocoa/Cocoa.h>
+#import <DiskArbitration/DiskArbitration.h>
 #import <IOKit/scsi/SCSITaskLib.h>
 #import "AuthoringDeviceTester.h"
 
 
+typedef struct Context
+{
+	id		document;
+	int		result;
+} Context;
+
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-// NB: This code example requires Jaguar or later in order to work.
+// NB: This code example requires Tiger or later in order to work.
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 @interface MyDocument : NSDocument
@@ -73,12 +80,14 @@
 
 - ( void ) runExclusiveTestSuite: ( SCSITaskDeviceInterface ** ) interface;
 - ( int ) unmountMedia;
-- ( int ) findWholeMediaBSDName: ( io_service_t ) ioMediaNub;
 - ( int ) unmountAllPartitions: ( CFStringRef ) bsdName;
 
 - ( IBAction ) switchTest: ( id ) sender;
 - ( IBAction ) getExclusiveAccess: ( id ) sender;
 - ( IBAction ) isExclusiveAccessAvailable: ( id ) sender;
+- ( void ) diskUnmountCallback: ( DADiskRef ) disk
+					 dissenter: ( DADissenterRef ) dissenter
+					   context: ( Context * ) context;
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ

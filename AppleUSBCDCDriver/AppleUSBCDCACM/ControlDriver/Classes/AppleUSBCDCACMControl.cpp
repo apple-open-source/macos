@@ -143,6 +143,82 @@ exit:
 }/* end findKernelLoggerAC */
 #endif
 
+/****************************************************************************************************/
+//
+//		Function:	findCDCDriverAC
+//
+//		Inputs:		controlAddr - my address
+//
+//		Outputs:	
+//
+//		Desc:		Finds the initiating CDC driver
+//
+/****************************************************************************************************/
+
+AppleUSBCDC *findCDCDriverAC(void *controlAddr)
+{
+    AppleUSBCDCACMControl	*me = (AppleUSBCDCACMControl *)controlAddr;
+    AppleUSBCDC		*CDCDriver = NULL;
+    bool		driverOK = false;
+    OSIterator		*iterator = NULL;
+    OSDictionary	*matchingDictionary = NULL;
+    
+    XTRACE(me, 0, 0, "findCDCDriverAC");
+        
+        // Get matching dictionary
+       	
+    matchingDictionary = IOService::serviceMatching("AppleUSBCDC");
+    if (!matchingDictionary)
+    {
+        XTRACE(me, 0, 0, "findCDCDriverAC - Couldn't create a matching dictionary");
+        return NULL;
+    }
+    
+	// Get an iterator
+	
+    iterator = IOService::getMatchingServices(matchingDictionary);
+    if (!iterator)
+    {
+        XTRACE(me, 0, 0, "findCDCDriverAC - No AppleUSBCDC driver found!");
+        matchingDictionary->release();
+        return NULL;
+    }
+
+    	// Iterate until we find our matching CDC driver
+                
+    CDCDriver = (AppleUSBCDC *)iterator->getNextObject();
+    while (CDCDriver)
+    {
+        XTRACE(me, 0, CDCDriver, "findCDCDriverAC - CDC driver candidate");
+        
+        if (me->fControlInterface->GetDevice() == CDCDriver->getCDCDevice())
+        {
+            XTRACE(me, 0, CDCDriver, "findCDCDriverAD - Found our CDC driver");
+            driverOK = CDCDriver->confirmControl(kUSBAbstractControlModel, me->fControlInterface);
+            break;
+        }
+        CDCDriver = (AppleUSBCDC *)iterator->getNextObject();
+    }
+
+    matchingDictionary->release();
+    iterator->release();
+    
+    if (!CDCDriver)
+    {
+        XTRACE(me, 0, 0, "findCDCDriverAC - CDC driver not found");
+        return NULL;
+    }
+   
+    if (!driverOK)
+    {
+        XTRACE(me, kUSBAbstractControlModel, 0, "findCDCDriverAC - Not my interface");
+        return NULL;
+    }
+
+    return CDCDriver;
+    
+}/* end findCDCDriverAC */
+
 	// Encode the 4 modem status bits (so we only make one call to setState)
 
 static UInt32 sMapModemStates[16] = 
@@ -470,7 +546,7 @@ bool AppleUSBCDCACMControl::configureACM()
     if (!getFunctionalDescriptors())
     {
         XTRACE(this, 0, 0, "configureACM - getFunctionalDescriptors failed");
-        releaseResources();
+//        releaseResources();
         return false;
     }
     
@@ -500,6 +576,7 @@ bool AppleUSBCDCACMControl::getFunctionalDescriptors()
     CMFunctionalDescriptor		*CMFDesc;		// call management functional descriptor
     ACMFunctionalDescriptor		*ACMFDesc;		// abstract control management functional descriptor
     UnionFunctionalDescriptor		*UNNFDesc;		// union functional descriptor
+	AppleUSBCDC				*CDCDriver = NULL;
        
     XTRACE(this, 0, 0, "getFunctionalDescriptors");
     
@@ -507,7 +584,7 @@ bool AppleUSBCDCACMControl::getFunctionalDescriptors()
 	
     fCMCapabilities = CM_ManagementData + CM_ManagementOnData;
     fACMCapabilities = ACM_DeviceSuppControl + ACM_DeviceSuppBreak;
-    fDataInterfaceNumber = 0xff;
+    fDataInterfaceNumber = 0xFF;
     
     do
     {
@@ -531,7 +608,7 @@ bool AppleUSBCDCACMControl::getFunctionalDescriptors()
                 case CM_FunctionalDescriptor:
                     (const FunctionalDescriptorHeader*)CMFDesc = funcDesc;
                     XTRACE(this, funcDesc->bDescriptorType, funcDesc->bDescriptorSubtype, "getFunctionalDescriptors - CM Functional Descriptor");
-                    if (fDataInterfaceNumber != 0xff)
+                    if (fDataInterfaceNumber != 0xFF)
                     {
                         if (fDataInterfaceNumber != CMFDesc->bDataInterface)
                         {
@@ -569,7 +646,7 @@ bool AppleUSBCDCACMControl::getFunctionalDescriptors()
                             XTRACE(this, fCommInterfaceNumber, UNNFDesc->bMasterInterface, "getFunctionalDescriptors - Master interface incorrect");
                         }
 
-						if (fDataInterfaceNumber == 0xff)
+						if (fDataInterfaceNumber == 0xFF)
                         {
                             fDataInterfaceNumber = UNNFDesc->bSlaveInterface[0];	// Use the first slave (may get overwritten by CMF)
                         }
@@ -592,11 +669,24 @@ bool AppleUSBCDCACMControl::getFunctionalDescriptors()
     } while(!gotDescriptors);
     
         // If we get this far and actually have a data interface number we're good to go (maybe...)
+		// If not ask the CDC driver if there's only one data interface so we can assume that one
 
-    if (fDataInterfaceNumber == 0xff)
+    if (fDataInterfaceNumber == 0xFF)
     {
         XTRACE(this, 0, 0, "getFunctionalDescriptors - No data interface specified");
-        return false;
+		CDCDriver = findCDCDriverAC(this);
+		if (CDCDriver)
+		{
+			if (CDCDriver->fDataInterfaceNumber != 0xFF)
+			{
+				fDataInterfaceNumber = CDCDriver->fDataInterfaceNumber;
+				XTRACE(this, fACMCapabilities, fDataInterfaceNumber, "getFunctionalDescriptors - Data interface number (assumed from CDC driver)");
+			} else {
+				return false;
+			}
+		} else {
+			return false;
+		}
     } else {
         XTRACE(this, fACMCapabilities, fDataInterfaceNumber, "getFunctionalDescriptors - Data interface number");
 		
@@ -950,6 +1040,8 @@ bool AppleUSBCDCACMControl::allocateResources()
     if (!fCommPipe)
     {
         XTRACE(this, 0, 0, "allocateResources - no comm pipe.");
+		fControlInterface->release();
+        fControlInterface = NULL;
         return false;
     }
     XTRACE(this, epReq.maxPacketSize << 16 |epReq.interval, fCommPipe, "allocateResources - comm pipe.");
@@ -960,6 +1052,8 @@ bool AppleUSBCDCACMControl::allocateResources()
     if (!fCommPipeMDP)
     {
         XTRACE(this, 0, 0, "allocateResources - Couldn't allocate MDP for interrupt pipe");
+		fControlInterface->release();
+        fControlInterface = NULL;
         return false;
     }
 

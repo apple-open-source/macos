@@ -29,6 +29,15 @@
  */
 /*
 	$Log: IOFireWireFamilyCommon.h,v $
+	Revision 1.50.6.1.4.2  2004/09/13 21:40:38  niels
+	*** empty log message ***
+	
+	Revision 1.50.6.1.4.1  2004/09/13 21:10:10  niels
+	*** empty log message ***
+	
+	Revision 1.50.6.1  2004/06/17 00:13:22  gecko1
+	Add port disable on sleep changes for iPod
+	
 	Revision 1.50  2003/11/07 21:01:18  niels
 	*** empty log message ***
 	
@@ -876,7 +885,8 @@ enum
     kIOFWDisablePhysicalAccess 		= (1 << 0),
 	kIOFWDisableAllPhysicalAccess 	= (1 << 1),
 	kIOFWEnableRetryOnAckD			= (1 << 2),
-	kIOFWLimitAsyncPacketSize			= (1 << 3)
+	kIOFWLimitAsyncPacketSize		= (1 << 3),
+	kIOFWDisablePhyOnSleep			= (1 << 4)
 };
 
 //

@@ -206,7 +206,7 @@ bool AppleTAS3004Audio::preDMAEngineInit()
 	data[0] = ( kNormalLoad << kFL ) | ( k64fs << kSC ) | TAS_I2S_MODE | ( TAS_WORD_LENGTH << kW0 );
 	err = CODEC_WriteRegister( kTAS3004MainCtrl1Reg, data, kUPDATE_SHADOW );	//	default to normal load mode, 16 bit I2S
 	FailMessage ( kIOReturnSuccess != err );
-	
+
 	data[DRC_AboveThreshold]	= kDisableDRC;
 	data[DRC_BelowThreshold]	= 0;
 	data[DRC_Threshold]			= 0;
@@ -426,7 +426,7 @@ IOReturn AppleTAS3004Audio::setCodecMute(bool mutestate)
 IOReturn AppleTAS3004Audio::setCodecMute (bool muteState, UInt32 streamType) {
 	IOReturn		result = kIOReturnSuccess;
 	
-	debugIOLog (3, "+ AppleTAS3004Audio::setMute (%d, %4s)", muteState, (char*)&streamType);
+	debugIOLog (3, "+ AppleTAS3004Audio::setCodecMute (%d, %4s)", muteState, (char*)&streamType);
 
 	switch ( streamType ) {
 		case kAnalogAudioSelector:
@@ -442,7 +442,7 @@ IOReturn AppleTAS3004Audio::setCodecMute (bool muteState, UInt32 streamType) {
 			result = kIOReturnError;
 			break;
 	}
-	debugIOLog (3, "- AppleTAS3004Audio::setMute (%d, %4s) returns %X", muteState, (char*)&streamType, result);
+	debugIOLog (3, "- AppleTAS3004Audio::setCodecMute (%d, %4s) returns %X", muteState, (char*)&streamType, result);
 	return result;
 }
 
@@ -554,7 +554,7 @@ Exit:
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 IOReturn	AppleTAS3004Audio::setSampleRate ( UInt32 sampleRate ) {
 	IOReturn		result = kIOReturnBadArgument;
-
+	
 	debugIOLog (5,  "+ AppleTAS3004Audio:: setSampleRate ( %d )", (unsigned int) sampleRate );
 	if ( ( kMinimumTAS3004SampleRate <= sampleRate ) && ( kMaximumTAS3004SampleRate >= sampleRate ) ) {
 		CODEC_Initialize();
@@ -889,7 +889,7 @@ IOReturn	AppleTAS3004Audio::CODEC_Initialize() {
 		mSemaphores = 1;
 		do{
 //			if ( 0 != retryCount ) { debugIOLog (3,  "[AppleTAS3004Audio] ... RETRYING, retryCount %ld", retryCount ); }
-			debugIOLog (6,  "  ... Resetting TAS3004" );
+			debugIOLog (6,  "   ... Resetting TAS3004" );
             CODEC_Reset();
 
 			if( 0 == oldMode )
@@ -1109,11 +1109,9 @@ IOReturn 	AppleTAS3004Audio::CODEC_WriteRegister(UInt8 regAddr, UInt8* registerD
 	{
 		//	Write through to the shadow register as a 'write through' cache would and
 		//	then write the data to the hardware;
-		if( kUPDATE_SHADOW == mode || kUPDATE_ALL == mode || kFORCE_UPDATE_ALL == mode )
-		{
+		if( kUPDATE_SHADOW == mode || kUPDATE_ALL == mode || kFORCE_UPDATE_ALL == mode ) {
 			success = true;
-			for( regByteIndex = 0; regByteIndex < registerSize; regByteIndex++ )
-			{
+			for( regByteIndex = 0; regByteIndex < registerSize; regByteIndex++ ) {
 				if ( shadowPtr[regByteIndex] != registerData[regByteIndex] ) {
 					shadowPtr[regByteIndex] = registerData[regByteIndex];
 					if ( kUPDATE_SHADOW != mode ) {									//  [3647247]   do not attempt to write to the hw if a cache only write is requested!
@@ -1337,7 +1335,7 @@ void AppleTAS3004Audio::disableProcessing ( Boolean inRealtime ) {
 		FailMessage ( kIOReturnSuccess != err );
 		err = CODEC_WriteRegister( kTAS3004RightBiquad6CtrlReg, &data[0], kUPDATE_ALL );
 		FailMessage ( kIOReturnSuccess != err );
-
+	
 		if (FALSE == inRealtime) {	
 			//	[3454015]  If hardware was not muted then restore the volume setting.
 			InitEQSerialMode ( kSetNormalLoadMode );			//	and resume running the DSP

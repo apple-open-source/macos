@@ -30,7 +30,7 @@ BOOL opt_dual_daemon = True;
 
 /* Reload configuration */
 
-static BOOL reload_services_file(BOOL test)
+static BOOL reload_services_file(void)
 {
 	BOOL ret;
 
@@ -40,7 +40,6 @@ static BOOL reload_services_file(BOOL test)
 		pstrcpy(fname,lp_configfile());
 		if (file_exist(fname,NULL) && !strcsequal(fname,dyn_CONFIGFILE)) {
 			pstrcpy(dyn_CONFIGFILE,fname);
-			test = False;
 		}
 	}
 
@@ -194,7 +193,7 @@ static void msg_reload_services(int msg_type, pid_t src, void *buf, size_t len)
 {
         /* Flush various caches */
 	flush_caches();
-	reload_services_file(True);
+	reload_services_file();
 }
 
 /* React on 'smbcontrol winbindd shutdown' in the same way as on SIGTERM*/
@@ -256,6 +255,7 @@ static struct dispatch_table dispatch_table[] = {
 	{ WINBINDD_SID_TO_GID, winbindd_sid_to_gid, "SID_TO_GID" },
 	{ WINBINDD_GID_TO_SID, winbindd_gid_to_sid, "GID_TO_SID" },
 	{ WINBINDD_UID_TO_SID, winbindd_uid_to_sid, "UID_TO_SID" },
+	{ WINBINDD_ALLOCATE_RID, winbindd_allocate_rid, "ALLOCATE_RID" },
 
 	/* Miscellaneous */
 
@@ -786,7 +786,7 @@ int main(int argc, char **argv)
 		{ "foreground", 'F', POPT_ARG_VAL, &Fork, False, "Daemon in foreground mode" },
 		{ "interactive", 'i', POPT_ARG_NONE, NULL, 'i', "Interactive mode" },
 		{ "single-daemon", 'Y', POPT_ARG_VAL, &opt_dual_daemon, False, "Single daemon mode" },
-		{ "no-caching", 'n', POPT_ARG_VAL, &opt_nocache, False, "Disable caching" },
+		{ "no-caching", 'n', POPT_ARG_VAL, &opt_nocache, True, "Disable caching" },
 		POPT_COMMON_SAMBA
 		POPT_TABLEEND
 	};
@@ -843,7 +843,7 @@ int main(int argc, char **argv)
 	DEBUG(1, ("winbindd version %s started.\n", SAMBA_VERSION_STRING) );
 	DEBUGADD( 1, ( "Copyright The Samba Team 2000-2004\n" ) );
 
-	if (!reload_services_file(False)) {
+	if (!reload_services_file()) {
 		DEBUG(0, ("error opening config file\n"));
 		exit(1);
 	}
@@ -879,6 +879,8 @@ int main(int argc, char **argv)
 
 	if (!idmap_init(lp_idmap_backend()))
 		return 1;
+
+	generate_wellknown_sids();
 
 	/* Unblock all signals we are interested in as they may have been
 	   blocked by the parent process. */

@@ -156,15 +156,15 @@ struct sys_pwent * getpwent_list(void)
 		pent->pw_uid = pwd->pw_uid;
 		pent->pw_gid = pwd->pw_gid;
 		if (pwd->pw_gecos) {
-			if ((pent->pw_name = strdup(pwd->pw_gecos)) == NULL)
+			if ((pent->pw_gecos = strdup(pwd->pw_gecos)) == NULL)
 				goto err;
 		}
 		if (pwd->pw_dir) {
-			if ((pent->pw_name = strdup(pwd->pw_dir)) == NULL)
+			if ((pent->pw_dir = strdup(pwd->pw_dir)) == NULL)
 				goto err;
 		}
 		if (pwd->pw_shell) {
-			if ((pent->pw_name = strdup(pwd->pw_shell)) == NULL)
+			if ((pent->pw_shell = strdup(pwd->pw_shell)) == NULL)
 				goto err;
 		}
 
@@ -303,4 +303,49 @@ void free_userlist(struct sys_userlist *list_head)
 		SAFE_FREE(old_head->unix_name);
 		SAFE_FREE(old_head);
 	}
+}
+
+/****************************************************************
+****************************************************************/
+
+static int int_compare( int *a, int *b ) 
+{
+	if ( *a == *b )
+		return 0;
+	else if ( *a < *b )
+		return -1;
+	else 
+		return 1;
+}
+
+void remove_duplicate_gids( int *num_groups, gid_t *groups )
+{
+	int i;
+	int count = *num_groups;
+
+	if ( *num_groups <= 0 || !groups )
+		return;
+
+	
+	DEBUG(8,("remove_duplicate_gids: Enter %d gids\n", *num_groups));
+
+	qsort( groups, *num_groups, sizeof(gid_t), QSORT_CAST int_compare );
+
+	for ( i=1; i<count; ) {
+		if ( groups[i-1] == groups[i] ) {
+			memmove( &groups[i-1], &groups[i], (count - i + 1)*sizeof(gid_t) );
+
+			/* decrement the total number of groups and do not increment 
+			   the loop counter */
+			count--;
+			continue;
+		}
+		i++;
+	}
+
+	*num_groups = count;
+
+	DEBUG(8,("remove_duplicate_gids: Exit %d gids\n", *num_groups));
+
+	return;
 }

@@ -61,7 +61,8 @@ enum
     kErrataDisableOvercurrent		= (1 << 4),		// Always set the NOCP bit in rhDescriptorA register
     kErrataLucentSuspendResume		= (1 << 5),		// Don't allow port suspend at the root hub
     kErrataNeedsWatchdogTimer		= (1 << 6),		// Use Watchdog timer to reset confused controllers
-    kErrataNeedsPortPowerOff		= (1 << 7)		// Power off the ports and back on again to clear weird status.
+    kErrataNeedsPortPowerOff		= (1 << 7),		// Power off the ports and back on again to clear weird status.
+    kErrataAgereEHCIAsyncSched		= (1 << 8)		// needs workaround for Async Sched bug
 };
 
 enum

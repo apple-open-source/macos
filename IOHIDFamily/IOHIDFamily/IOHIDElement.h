@@ -136,7 +136,8 @@ public:
                                 void *               reportData,
                                 UInt32               reportBits,
                                 const AbsoluteTime * timestamp,
-                                IOHIDElement **      next = 0 );
+                                IOHIDElement **      next = 0,
+                                IOOptionBits         options = 0 );
 
     virtual bool createReport( UInt8           reportID,
                                void *		reportData, // report should be allocated outside this method

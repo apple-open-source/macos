@@ -54,7 +54,7 @@
 #define DEBUG_ASSERT_COMPONENT_NAME_STRING					"SPI Device"
 
 #if DEBUG
-#define SCSI_PARALLEL_DEVICE_DEBUGGING_LEVEL				3
+#define SCSI_PARALLEL_DEVICE_DEBUGGING_LEVEL				0
 #endif
 
 #include "IOSCSIParallelFamilyDebugging.h"
@@ -158,16 +158,14 @@ IOSCSIParallelInterfaceDevice::start ( IOService * provider )
 	bool			result			= false;
 	char			unit[10];
 	
-	fController = NULL;
-	
-	// Execute the inherited start
-	result = super::start ( provider );
-	require ( result, PROVIDER_START_FAILURE );
-	
 	// Save access to the controller object so that Tasks can be sent
 	// for execution.
 	fController = OSDynamicCast ( IOSCSIParallelInterfaceController, provider );
 	require_nonzero ( fController, PROVIDER_CAST_FAILURE );
+	
+	// Execute the inherited start
+	result = super::start ( provider );
+	require ( result, PROVIDER_START_FAILURE );
 	
 	// Open the controller, the provider.
 	result = fController->open ( this );
@@ -214,8 +212,8 @@ IOSCSIParallelInterfaceDevice::start ( IOService * provider )
 	
 CONTROLLER_INIT_FAILURE:
 CONTROLLER_OPEN_FAILURE:
-PROVIDER_CAST_FAILURE:
 PROVIDER_START_FAILURE:
+PROVIDER_CAST_FAILURE:
 	
 	
 	return false;
@@ -354,12 +352,12 @@ IOSCSIParallelInterfaceDevice::message (
 		}
 		break;
 		
-		case kSCSIControllerNotificationPortStatus:
+		case kSCSIPort_NotificationStatusChange:
 		{
 			
 			// Port status is changing, let target device object know
 			// about it.
-			messageClients ( kSCSIControllerNotificationPortStatus, argument );
+			messageClients ( kSCSIPort_NotificationStatusChange, argument );
 			
 		}
 		
@@ -1220,6 +1218,12 @@ IOSCSIParallelInterfaceDevice::IsProtocolServiceSupported (
 		case kSCSIProtocolFeature_SubmitDefaultInquiryData:
 		{
 			isSupported = true;
+		}
+		break;
+		
+		case kSCSIProtocolFeature_ProtocolAlwaysReportsAutosenseData:
+		{
+			isSupported = fController->DoesHBAPerformAutoSense ( );
 		}
 		break;
 		

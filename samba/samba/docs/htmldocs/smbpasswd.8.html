@@ -1,11 +1,11 @@
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>smbpasswd</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.61.2"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="smbpasswd.8"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2>Name</h2><p>smbpasswd &#8212; change a user's SMB password</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><tt class="command">smbpasswd</tt>  [-a] [-x] [-d] [-e] [-D debuglevel] [-n] [-r &lt;remote machine&gt;] [-R &lt;name resolve order&gt;] [-m] [-U username[%password]] [-h] [-s] [-w pass] [-i] [-L] [username]</p></div></div><div class="refsect1" lang="en"><h2>DESCRIPTION</h2><p>This tool is part of the <a href="Samba.7.html"><span class="citerefentry"><span class="refentrytitle">Samba</span>(7)</span></a> suite.</p><p>The smbpasswd program has several different 
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>smbpasswd</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.64.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="smbpasswd.8"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2>Name</h2><p>smbpasswd &#8212; change a user's SMB password</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><tt class="command">smbpasswd</tt>  [-a] [-x] [-d] [-e] [-D debuglevel] [-n] [-r &lt;remote machine&gt;] [-R &lt;name resolve order&gt;] [-m] [-U username[%password]] [-h] [-s] [-w pass] [-i] [-L] [username]</p></div></div><div class="refsect1" lang="en"><a name="id2432600"></a><h2>DESCRIPTION</h2><p>This tool is part of the <a href="samba.7.html"><span class="citerefentry"><span class="refentrytitle">samba</span>(7)</span></a> suite.</p><p>The smbpasswd program has several different 
 	functions, depending on whether it is run by the <span class="emphasis"><em>root</em></span> user 
 	or not. When run as a normal user it allows the user to change 
 	the password used for their SMB sessions on any machines that store 
 	SMB passwords. </p><p>By default (when run with no arguments) it will attempt to 
 	change the current user's SMB password on the local machine. This is 
-	similar to the way the <b class="command">passwd(1)</b> program works. <b class="command">
-	smbpasswd</b> differs from how the passwd program works 
+	similar to the way the <span><b class="command">passwd(1)</b></span> program works. <span><b class="command">
+	smbpasswd</b></span> differs from how the passwd program works 
 	however in that it is not <span class="emphasis"><em>setuid root</em></span> but works in 
 	a client-server mode and communicates with a 
 	locally running <a href="smbd.8.html"><span class="citerefentry"><span class="refentrytitle">smbd</span>(8)</span></a>. As a consequence in order for this to 
@@ -22,10 +22,10 @@
 	Controllers.   See the (<i class="parameter"><tt>-r</tt></i>) and <i class="parameter"><tt>-U</tt></i> options 
 	below. </p><p>When run by root, smbpasswd allows new users to be added 
 	and deleted in the smbpasswd file, as well as allows changes to 
-	the attributes of the user in this file to be made. When run by root, <b class="command">
-	smbpasswd</b> accesses the local smbpasswd file 
+	the attributes of the user in this file to be made. When run by root, <span><b class="command">
+	smbpasswd</b></span> accesses the local smbpasswd file 
 	directly, thus enabling changes to be made even if smbd is not 
-	running. </p></div><div class="refsect1" lang="en"><h2>OPTIONS</h2><div class="variablelist"><dl><dt><span class="term">-a</span></dt><dd><p>This option specifies that the username 
+	running. </p></div><div class="refsect1" lang="en"><a name="id2479976"></a><h2>OPTIONS</h2><div class="variablelist"><dl><dt><span class="term">-a</span></dt><dd><p>This option specifies that the username 
 		following should be added to the local smbpasswd file, with the 
 		new password typed (type &lt;Enter&gt; for the old password). This 
 		option is ignored if the username following already exists in 
@@ -50,8 +50,8 @@
 		should be <tt class="constant">enabled</tt> in the local smbpasswd file, 
 		if the account was previously disabled. If the account was not 
 		disabled this option has no effect. Once the account is enabled then 
-		the user will be able to authenticate via SMB once again. </p><p>If the smbpasswd file is in the 'old' format, then <b class="command">
-		smbpasswd</b> will FAIL to enable the account.  
+		the user will be able to authenticate via SMB once again. </p><p>If the smbpasswd file is in the 'old' format, then <span><b class="command">
+		smbpasswd</b></span> will FAIL to enable the account.  
                 See <a href="smbpasswd.5.html"><span class="citerefentry"><span class="refentrytitle">smbpasswd</span>(5)</span></a> for 
 		details on the 'old' and new password file formats. </p><p>This option is only available when running smbpasswd as root. 
 		</p></dd><dt><span class="term">-D debuglevel</span></dt><dd><p><i class="replaceable"><tt>debuglevel</tt></i> is an integer 
@@ -69,7 +69,7 @@
 		smbpasswd file. </p><p>Note that to allow users to logon to a Samba server once 
 		the password has been set to "NO PASSWORD" in the smbpasswd
 		file the administrator must set the following parameter in the [global]
-		section of the <tt class="filename">smb.conf</tt> file : </p><p><b class="command">null passwords = yes</b></p><p>This option is only available when running smbpasswd as 
+		section of the <tt class="filename">smb.conf</tt> file : </p><p><span><b class="command">null passwords = yes</b></span></p><p>This option is only available when running smbpasswd as 
 		root.</p></dd><dt><span class="term">-r remote machine name</span></dt><dd><p>This option allows a user to specify what machine 
 		they wish to change their password on. Without this parameter 
 		smbpasswd defaults to the local host. The <i class="replaceable"><tt>remote 
@@ -107,7 +107,7 @@
             each of the known local interfaces listed in the
             <i class="parameter"><tt>interfaces</tt></i> parameter. This is the least 
 	    reliable of the name resolution methods as it depends on the 
-	    target host being on a locally connected subnet.</p></li></ul></div><p>The default order is <b class="command">lmhosts, host, wins, bcast</b> 
+	    target host being on a locally connected subnet.</p></li></ul></div><p>The default order is <span><b class="command">lmhosts, host, wins, bcast</b></span> 
 		and without this parameter or any entry in the <a href="smb.conf.5.html"><span class="citerefentry"><span class="refentrytitle">smb.conf</span>(5)</span></a> file the name resolution methods will 
 		be attempted in this order. </p></dd><dt><span class="term">-m</span></dt><dd><p>This option tells smbpasswd that the account 
 		being changed is a MACHINE account. Currently this is used 
@@ -117,17 +117,17 @@
 		a password on a remote machine it allows the user to specify 
 		the user name on that machine whose password will be changed. It 
 		is present to allow users who have different user names on 
-		different systems to change these passwords. </p></dd><dt><span class="term">-h</span></dt><dd><p>This option prints the help string for <b class="command">
-		smbpasswd</b>, selecting the correct one for running as root 
+		different systems to change these passwords. </p></dd><dt><span class="term">-h</span></dt><dd><p>This option prints the help string for <span><b class="command">
+		smbpasswd</b></span>, selecting the correct one for running as root 
 		or as an ordinary user. </p></dd><dt><span class="term">-s</span></dt><dd><p>This option causes smbpasswd to be silent (i.e. 
 		not issue prompts) and to read its old and new passwords from 
 		standard  input, rather than from <tt class="filename">/dev/tty</tt> 
-		(like the <b class="command">passwd(1)</b> program does). This option 
+		(like the <span><b class="command">passwd(1)</b></span> program does). This option 
 		is to aid people writing scripts to drive smbpasswd</p></dd><dt><span class="term">-w password</span></dt><dd><p>This parameter is only available if Samba
 		has been configured to use the experimental
-		<b class="command">--with-ldapsam</b> option. The <i class="parameter"><tt>-w</tt></i> 
+		<span><b class="command">--with-ldapsam</b></span> option. The <i class="parameter"><tt>-w</tt></i> 
 		switch is used to specify the password to be used with the 
-		<a class="indexterm" name="id2802597"></a>ldap admin dn.  Note that the password is stored in
+		<a class="indexterm" name="id2429334"></a>ldap admin dn.  Note that the password is stored in
 		the <tt class="filename">secrets.tdb</tt> and is keyed off 
 		of the admin's DN.  This means that if the value of <i class="parameter"><tt>ldap
 		admin dn</tt></i> ever changes, the password will need to be 
@@ -140,15 +140,15 @@
 		<span class="emphasis"><em>root only</em></span> options to operate on. Only root 
 		can specify this parameter as only root has the permission needed 
 		to modify attributes directly in the local smbpasswd file. 
-		</p></dd></dl></div></div><div class="refsect1" lang="en"><h2>NOTES</h2><p>Since <b class="command">smbpasswd</b> works in client-server 
+		</p></dd></dl></div></div><div class="refsect1" lang="en"><a name="id2429410"></a><h2>NOTES</h2><p>Since <span><b class="command">smbpasswd</b></span> works in client-server 
 	mode communicating  with a local smbd for a non-root user then 
 	the smbd daemon must be running for this to work. A common problem 
-	is to add a restriction to the hosts that may access the <b class="command">
-	smbd</b> running on the local machine by specifying either <i class="parameter"><tt>allow
+	is to add a restriction to the hosts that may access the <span><b class="command">
+	smbd</b></span> running on the local machine by specifying either <i class="parameter"><tt>allow
 	hosts</tt></i> or <i class="parameter"><tt>deny hosts</tt></i> entry in 
 	the <a href="smb.conf.5.html"><span class="citerefentry"><span class="refentrytitle">smb.conf</span>(5)</span></a> file and neglecting to 
 	allow "localhost" access to the smbd. </p><p>In addition, the smbpasswd command is only useful if Samba
-	has been set up to use encrypted passwords. </p></div><div class="refsect1" lang="en"><h2>VERSION</h2><p>This man page is correct for version 3.0 of the Samba suite.</p></div><div class="refsect1" lang="en"><h2>SEE ALSO</h2><p><a href="smbpasswd.5.html"><span class="citerefentry"><span class="refentrytitle">smbpasswd</span>(5)</span></a>, <a href="Samba.7.html"><span class="citerefentry"><span class="refentrytitle">Samba</span>(7)</span></a>.</p></div><div class="refsect1" lang="en"><h2>AUTHOR</h2><p>The original Samba software and related utilities 
+	has been set up to use encrypted passwords. </p></div><div class="refsect1" lang="en"><a name="id2429463"></a><h2>VERSION</h2><p>This man page is correct for version 3.0 of the Samba suite.</p></div><div class="refsect1" lang="en"><a name="id2429474"></a><h2>SEE ALSO</h2><p><a href="smbpasswd.5.html"><span class="citerefentry"><span class="refentrytitle">smbpasswd</span>(5)</span></a>, <a href="Samba.7.html"><span class="citerefentry"><span class="refentrytitle">Samba</span>(7)</span></a>.</p></div><div class="refsect1" lang="en"><a name="id2429498"></a><h2>AUTHOR</h2><p>The original Samba software and related utilities 
 	were created by Andrew Tridgell. Samba is now developed
 	by the Samba Team as an Open Source project similar 
 	to the way the Linux kernel is developed.</p><p>The original Samba man pages were written by Karl Auer. 

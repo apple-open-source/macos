@@ -3,6 +3,7 @@ service microsoft-ds
 	disable		= yes
 	socket_type	= stream
 	protocol	= tcp
+	mdns		= no
 	wait		= no
 	user		= root
 	server		= /usr/sbin/smbd

@@ -18,7 +18,7 @@
  * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * @(#) $Header: /cvs/root/libpcap/libpcap/gencode.h,v 1.1.1.3 2004/02/05 19:22:28 rbraun Exp $ (LBL)
+ * @(#) $Header: /cvs/root/libpcap/libpcap/gencode.h,v 1.1.1.4 2004/05/21 20:31:59 rbraun Exp $ (LBL)
  */
 
 /*
@@ -280,6 +280,8 @@ struct block *gen_atmmulti_abbrev(int type);
 
 struct block *gen_pf_ifname(const char *);
 struct block *gen_pf_rnr(int);
+struct block *gen_pf_srnr(int);
+struct block *gen_pf_ruleset(char *);
 struct block *gen_pf_reason(int);
 struct block *gen_pf_action(int);
 struct block *gen_pf_dir(int);

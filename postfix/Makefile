@@ -12,6 +12,7 @@ OBJROOT=$(SRCROOT)
 SYMROOT=$(OBJROOT)
 DSTROOT=/usr/local
 RC_ARCHS=
+CFLAGS=-Os $(RC_CFLAGS)
 
 #ENV = \
 #        CFLAGS="-no-cpp-precomp $(RC_CFLAGS)" \
@@ -30,9 +31,9 @@ installsrc :
 
 build :
 	echo "ENV = $(ENV)"
-	$(ENV) $(MAKE) -C $(SRCROOT)/$(PROJECT) makefiles OPT="-DBIND_8_COMPAT -DHAS_SSL -DUSE_SASL_AUTH -I/AppleInternal/Developer/Headers/sasl -framework DirectoryService $(RC_CFLAGS)" AUXLIBS="-L/usr/lib -lssl -lsasl2.2.0.1 -lgssapi_krb5"
+	$(ENV) $(MAKE) -C $(SRCROOT)/$(PROJECT) makefiles OPT="-DBIND_8_COMPAT -DHAS_SSL -DUSE_SASL_AUTH -I/AppleInternal/Developer/Headers/sasl -framework DirectoryService $(CFLAGS)" AUXLIBS="-L/usr/lib -lssl -lsasl2.2.0.1 -lgssapi_krb5"
 	$(ENV) $(MAKE) -C $(SRCROOT)/$(PROJECT)
-	cc -O watchpostfix.c -o postfix-watch
+	cc $(CFLAGS) watchpostfix.c -o postfix-watch
 
 install : pre-install
 	install -d -m 755 $(DSTROOT)/System/Library/StartupItems/Postfix

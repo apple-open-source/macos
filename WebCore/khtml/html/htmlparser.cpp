@@ -533,6 +533,16 @@ bool KHTMLParser::insertNode(NodeImpl *n, bool flat)
             }
             break;
         }
+        case ID_THEAD:
+        case ID_TBODY:
+        case ID_TFOOT:
+        case ID_COLGROUP: {
+            if (isTableRelatedTag(current->id())) {
+                while (current->id() != ID_TABLE && isTableRelatedTag(current->id()))
+                    popOneBlock();
+                return insertNode(n);
+            }
+        }
         default:
             break;
         }

@@ -1,0 +1,844 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+Hi.
+
+I've been hacking together a way to use rsync with OpenSSL, and have
+attached my current patch against a recent CVS tree. The details of
+this implementation are:
+
+  1. The SSL code is added as a "layer" that is forked into its own
+     process.
+
+  2. An SSL connection is established by the client issuing the
+     command:
+
+       #starttls
+
+     And, if the server allows SSL, it replies with
+
+       @RSYNCD: starttls
+
+     At which point both sides begin negotiating the SSL connection.
+     Servers that can't or don't want to use SSL just treat it as a
+     normal unknown command.
+
+  3. The SSL code is meant to be unobtrusive, and when this patch is
+     applied the program may still be built with no SSL code.
+
+  4. There are a number of details not implemented.
+
+All warnings apply; I don't do C programming all that often, so I
+can't say if I've left any cleanup/compatibility errors in the code.
+
+Also: <http://rsync.samba.org/lists.html> refers to the (now gone)
+smart-questions document on tuxedo.org, which should now be catb.org.
+
+Cheers,
+
+- -- 
+Casey Marshall || rsdio@metastatic.org
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.1 (GNU/Linux)
+Comment: Processed by Mailcrypt 3.5.7 <http://mailcrypt.sourceforge.net/>
+
+iD8DBQE/ih9xgAuWMgRGsWsRAp8RAJ0XyONLiOSDgHHAOBRNO6sZ/P2dRwCeKfu8
+LEvhhkUglOm3xMyrdJT4u9Q=
+=aT/N
+-----END PGP SIGNATURE-----
+
+--- Makefile.in	10 Feb 2004 17:06:11 -0000	1.98
++++ Makefile.in	25 Apr 2004 18:37:22 -0000
+@@ -39,7 +39,7 @@ OBJS3=progress.o pipe.o
+ DAEMON_OBJ = params.o loadparm.o clientserver.o access.o connection.o authenticate.o
+ popt_OBJS=popt/findme.o  popt/popt.o  popt/poptconfig.o \
+ 	popt/popthelp.o popt/poptparse.o
+-OBJS=$(OBJS1) $(OBJS2) $(OBJS3) $(DAEMON_OBJ) $(LIBOBJ) $(ZLIBOBJ) @BUILD_POPT@
++OBJS=$(OBJS1) $(OBJS2) $(OBJS3) $(DAEMON_OBJ) $(LIBOBJ) $(ZLIBOBJ) @BUILD_POPT@ @SSL_OBJS@
+ 
+ TLS_OBJ = tls.o syscall.o lib/permstring.o
+ 
+--- cleanup.c	27 Jan 2004 08:14:33 -0000	1.21
++++ cleanup.c	25 Apr 2004 18:37:22 -0000
+@@ -87,6 +87,9 @@ void _exit_cleanup(int code, const char 
+ 	int ocode = code;
+ 	extern int keep_partial;
+ 	extern int log_got_error;
++#ifdef HAVE_OPENSSL
++	extern int use_ssl;
++#endif
+ 	static int inside_cleanup = 0;
+ 
+ 	if (inside_cleanup > 10) {
+@@ -97,6 +100,11 @@ void _exit_cleanup(int code, const char 
+ 
+ 	signal(SIGUSR1, SIG_IGN);
+ 	signal(SIGUSR2, SIG_IGN);
++
++#ifdef HAVE_OPENSSL
++	if (use_ssl)
++		end_tls();
++#endif
+ 
+ 	if (verbose > 3)
+ 		rprintf(FINFO,"_exit_cleanup(code=%d, file=%s, line=%d): entered\n", 
+--- clientserver.c	14 Apr 2004 23:33:34 -0000	1.121
++++ clientserver.c	25 Apr 2004 18:37:23 -0000
+@@ -46,6 +46,9 @@ extern int io_timeout;
+ extern int orig_umask;
+ extern int no_detach;
+ extern int default_af_hint;
++#ifdef HAVE_OPENSSL
++extern int use_ssl;
++#endif
+ extern char *bind_address;
+ extern struct exclude_list_struct server_exclude_list;
+ extern char *exclude_path_prefix;
+@@ -93,8 +96,18 @@ int start_socket_client(char *host, char
+ 		exit_cleanup(RERR_SOCKETIO);
+ 
+ 	ret = start_inband_exchange(user, path, fd, fd, argc);
++	if (ret < 0)
++		return ret;
++
++#ifdef HAVE_OPENSSL
++	if (use_ssl) {
++		int f_in = get_tls_rfd();
++		int f_out = get_tls_wfd();
++		return client_run(f_in, f_out, -1, argc, argv);
++	}
++#endif
+ 
+-	return ret < 0? ret : client_run(fd, fd, -1, argc, argv);
++	return client_run(fd, fd, -1, argc, argv);
+ }
+ 
+ int start_inband_exchange(char *user, char *path, int f_in, int f_out, int argc)
+@@ -145,6 +158,33 @@ int start_inband_exchange(char *user, ch
+ 	if (protocol_version > remote_protocol)
+ 		protocol_version = remote_protocol;
+ 
++#ifdef HAVE_OPENSSL
++	if (use_ssl) {
++		io_printf(f_out, "#starttls\n");
++		while (1) {
++			if (!read_line(f_in, line, sizeof(line)-1)) {
++				rprintf(FERROR, "rsync: did not receive reply to #starttls\n");
++				return -1;
++			}
++			if (strncmp(line, "@ERROR", 6) == 0) {
++				rprintf(FERROR, "rsync: ssl connection denied\n");
++				return -1;
++			}
++			if (strcmp(line, "@RSYNCD: starttls") == 0) {
++				break;
++			}
++			rprintf(FINFO, "%s\n", line);
++		}
++		if (start_tls(f_in, f_out)) {
++			rprintf(FERROR, "rsync: error during SSL handshake: %s\n",
++				get_ssl_error());
++			return -1;
++		}
++		f_in = get_tls_rfd();
++		f_out = get_tls_wfd();
++	}
++#endif
++
+ 	p = strchr(path,'/');
+ 	if (p) *p = 0;
+ 	io_printf(f_out, "%s\n", path);
+@@ -172,6 +212,10 @@ int start_inband_exchange(char *user, ch
+ 			 * server to terminate the listing of modules.
+ 			 * We don't want to go on and transfer
+ 			 * anything; just exit. */
++#ifdef HAVE_OPENSSL
++			if (use_ssl)
++				end_tls();
++#endif
+ 			exit(0);
+ 		}
+ 
+@@ -179,6 +223,10 @@ int start_inband_exchange(char *user, ch
+ 			rprintf(FERROR,"%s\n", line);
+ 			/* This is always fatal; the server will now
+ 			 * close the socket. */
++#ifdef HAVE_OPENSSL
++			if (use_ssl)
++				end_tls();
++#endif
+ 			return RERR_STARTCLIENT;
+ 		} else {
+ 			rprintf(FINFO,"%s\n", line);
+@@ -485,6 +533,7 @@ static void send_listing(int fd)
+ 		io_printf(fd,"@RSYNCD: EXIT\n");
+ }
+ 
++
+ /* this is called when a connection is established to a client
+    and we want to start talking. The setup of the system is done from
+    here */
+@@ -543,6 +592,20 @@ int start_daemon(int f_in, int f_out)
+ 			send_listing(f_out);
+ 			return -1;
+ 		}
++
++#if HAVE_OPENSSL
++		if (use_ssl && strcmp(line, "#starttls") == 0) {
++			io_printf(f_out, "@RSYNCD: starttls\n");
++			if (start_tls(f_in, f_out)) {
++				rprintf(FLOG, "SSL connection failed: %s\n",
++					get_ssl_error());
++				return -1;
++			}
++			f_in = get_tls_rfd();
++			f_out = get_tls_wfd();
++			continue;
++		}
++#endif
+ 
+ 		if (*line == '#') {
+ 			/* it's some sort of command that I don't understand */
+--- config.h.in	9 Apr 2004 18:09:30 -0000	1.89
++++ config.h.in	25 Apr 2004 18:37:23 -0000
+@@ -167,6 +167,9 @@
+ /* */
+ #undef HAVE_OFF64_T
+ 
++/* true if you want to use SSL. */
++#undef HAVE_OPENSSL
++
+ /* Define to 1 if you have the `readlink' function. */
+ #undef HAVE_READLINK
+ 
+--- configure.in	17 Apr 2004 18:40:16 -0000	1.191
++++ configure.in	25 Apr 2004 18:37:23 -0000
+@@ -266,6 +266,21 @@ yes
+ 	AC_SEARCH_LIBS(getaddrinfo, inet6)
+ fi
+ 
++AC_ARG_ENABLE(openssl,
++              AC_HELP_STRING([--enable-openssl], [compile SSL support with OpenSSL.]))
++
++if test "x$enable_openssl" != xno
++then
++	have_ssl=yes
++	AC_CHECK_LIB(ssl, SSL_library_init, , [have_ssl=no])
++	if test "x$have_ssl" = xyes
++	then
++		AC_DEFINE(HAVE_OPENSSL, 1, [true if you want to use SSL.])
++		SSL_OBJS=ssl.o
++		AC_SUBST(SSL_OBJS)
++	fi
++fi
++
+ AC_MSG_CHECKING([whether to call shutdown on all sockets])
+ case $host_os in
+ 	*cygwin* ) AC_MSG_RESULT(yes)
+--- main.c	10 Feb 2004 03:54:47 -0000	1.192
++++ main.c	25 Apr 2004 18:37:23 -0000
+@@ -51,6 +51,9 @@ extern int rsync_port;
+ extern int read_batch;
+ extern int write_batch;
+ extern int filesfrom_fd;
++#ifdef HAVE_OPENSSL
++extern int use_ssl;
++#endif
+ extern pid_t cleanup_child_pid;
+ extern char *files_from;
+ extern char *remote_filesfrom_file;
+@@ -701,17 +704,32 @@ static int start_client(int argc, char *
+ 	pid_t pid;
+ 	int f_in,f_out;
+ 	int rc;
++	int url_prefix = strlen(URL_PREFIX);
+ 
+ 	/* Don't clobber argv[] so that ps(1) can still show the right
+ 	 * command line. */
+ 	if ((rc = copy_argv(argv)))
+ 		return rc;
+ 
++	if (strncasecmp(URL_PREFIX, argv[0], url_prefix) != 0) {
++#ifdef HAVE_OPENSSL
++		url_prefix = strlen(SSL_URL_PREFIX);
++		if (strncasecmp(SSL_URL_PREFIX, argv[0], url_prefix) != 0)
++			url_prefix = 0;
++		else {
++			if (!use_ssl)
++				init_tls();
++			use_ssl = 1;
++		}
++#else
++		url_prefix = 0;
++#endif
++	}
+ 	/* rsync:// always uses rsync server over direct socket connection */
+-	if (strncasecmp(URL_PREFIX, argv[0], strlen(URL_PREFIX)) == 0) {
++	if (url_prefix) {
+ 		char *host, *path;
+ 
+-		host = argv[0] + strlen(URL_PREFIX);
++		host = argv[0] + url_prefix;
+ 		p = strchr(host,'/');
+ 		if (p) {
+ 			*p = 0;
+@@ -760,12 +778,27 @@ static int start_client(int argc, char *
+ 			argv++;
+ 		} else {
+ 			am_sender = 1;
++			url_prefix = strlen(URL_PREFIX);
++			if (strncasecmp(URL_PREFIX, argv[0], url_prefix) != 0) {
++#ifdef HAVE_OPENSSL
++				url_prefix = strlen(SSL_URL_PREFIX);
++				if (strncasecmp(SSL_URL_PREFIX, argv[0], url_prefix) != 0)
++					url_prefix = 0;
++				else {
++					if (!use_ssl)
++						init_tls();
++					use_ssl = 1;
++				}
++#else
++				url_prefix = 0;
++#endif
++			}
+ 
+ 			/* rsync:// destination uses rsync server over direct socket */
+-			if (strncasecmp(URL_PREFIX, argv[argc-1], strlen(URL_PREFIX)) == 0) {
++			if (url_prefix) {
+ 				char *host, *path;
+ 
+-				host = argv[argc-1] + strlen(URL_PREFIX);
++				host = argv[argc-1] + url_prefix;
+ 				p = strchr(host,'/');
+ 				if (p) {
+ 					*p = 0;
+--- options.c	17 Apr 2004 17:07:23 -0000	1.147
++++ options.c	25 Apr 2004 18:37:24 -0000
+@@ -130,6 +130,14 @@ int quiet = 0;
+ int always_checksum = 0;
+ int list_only = 0;
+ 
++#ifdef HAVE_OPENSSL
++int use_ssl = 0;
++char *ssl_cert_path = NULL;
++char *ssl_key_path = NULL;
++char *ssl_key_passwd = NULL;
++char *ssl_ca_path = NULL;
++#endif
++
+ #define FIXED_CHECKSUM_SEED 32761
+ #define MAX_BATCH_PREFIX_LEN 256	/* Must be less than MAXPATHLEN-13 */
+ char *batch_prefix = NULL;
+@@ -142,13 +150,13 @@ static int modify_window_set;
+  * address, or a hostname. **/
+ char *bind_address;
+ 
+-
+ static void print_rsync_version(enum logcode f)
+ {
+ 	char const *got_socketpair = "no ";
+ 	char const *hardlinks = "no ";
+ 	char const *links = "no ";
+ 	char const *ipv6 = "no ";
++	char const *ssl = "no ";
+ 	STRUCT_STAT *dumstat;
+ 
+ #ifdef HAVE_SOCKETPAIR
+@@ -167,6 +175,10 @@ static void print_rsync_version(enum log
+ 	ipv6 = "";
+ #endif
+ 
++#ifdef HAVE_OPENSSL
++	ssl = "";
++#endif
++
+ 	rprintf(f, "%s  version %s  protocol version %d\n",
+ 		RSYNC_NAME, RSYNC_VERSION, PROTOCOL_VERSION);
+ 	rprintf(f,
+@@ -180,10 +192,10 @@ static void print_rsync_version(enum log
+ 	/* Note that this field may not have type ino_t.  It depends
+ 	 * on the complicated interaction between largefile feature
+ 	 * macros. */
+-	rprintf(f, "              %sIPv6, %d-bit system inums, %d-bit internal inums\n",
++	rprintf(f, "              %sIPv6, %d-bit system inums, %d-bit internal inums, %sssl\n",
+ 		ipv6,
+ 		(int) (sizeof dumstat->st_ino * 8),
+-		(int) (sizeof (uint64) * 8));
++		(int) (sizeof (uint64) * 8), ssl);
+ #ifdef MAINTAINER_MODE
+ 	rprintf(f, "              panic action: \"%s\"\n",
+ 		get_panic_action());
+@@ -295,6 +307,13 @@ void usage(enum logcode F)
+   rprintf(F," -4                          prefer IPv4\n");
+   rprintf(F," -6                          prefer IPv6\n");
+ #endif
++#ifdef HAVE_OPENSSL
++  rprintf(F,"     --ssl                   allow socket connections to use SSL\n");
++  rprintf(F,"     --ssl-cert=FILE         path to server's SSL certificate\n");
++  rprintf(F,"     --ssl-key=FILE          path to server's SSL private key\n");
++  rprintf(F,"     --ssl-key-passwd=PASS   password for PEM-encoded private key\n");
++  rprintf(F,"     --ssl-ca-certs=FILE     path to trusted CA certificates\n");
++#endif
+ 
+   rprintf(F,"\n");
+ 
+@@ -305,7 +324,7 @@ void usage(enum logcode F)
+ enum {OPT_VERSION = 1000, OPT_SENDER, OPT_EXCLUDE, OPT_EXCLUDE_FROM,
+       OPT_DELETE_AFTER, OPT_DELETE_EXCLUDED, OPT_LINK_DEST,
+       OPT_INCLUDE, OPT_INCLUDE_FROM, OPT_MODIFY_WINDOW,
+-      OPT_READ_BATCH, OPT_WRITE_BATCH,
++      OPT_READ_BATCH, OPT_WRITE_BATCH, OPT_USE_SSL,
+       OPT_REFUSED_BASE = 9000};
+ 
+ static struct poptOption long_options[] = {
+@@ -390,6 +409,13 @@ static struct poptOption long_options[] 
+   {0,		      '4', POPT_ARG_VAL,    &default_af_hint, AF_INET, 0, 0 },
+   {0,		      '6', POPT_ARG_VAL,    &default_af_hint, AF_INET6, 0, 0 },
+ #endif
++#ifdef HAVE_OPENSSL
++  {"ssl",              0,  POPT_ARG_NONE,   0,               OPT_USE_SSL, 0, 0},
++  {"ssl-cert",         0,  POPT_ARG_STRING, &ssl_cert_path,  OPT_USE_SSL, 0, 0},
++  {"ssl-key",          0,  POPT_ARG_STRING, &ssl_key_path,   OPT_USE_SSL, 0, 0},
++  {"ssl-key-passwd",   0,  POPT_ARG_STRING, &ssl_key_passwd, OPT_USE_SSL, 0, 0},
++  {"ssl-ca-certs",     0,  POPT_ARG_STRING, &ssl_ca_path,    OPT_USE_SSL, 0, 0},
++#endif
+   {0,0,0,0, 0, 0, 0}
+ };
+ 
+@@ -584,6 +610,12 @@ int parse_arguments(int *argc, const cha
+ 			return 0;
+ #endif
+ 
++		case OPT_USE_SSL:
++#ifdef HAVE_OPENSSL
++			use_ssl = 1;
++#endif
++			break;
++
+ 		default:
+ 			/* A large opt value means that set_refuse_options()
+ 			 * turned this option off (opt-BASE is its index). */
+@@ -722,6 +754,17 @@ int parse_arguments(int *argc, const cha
+ 
+ 	if (do_progress && !verbose)
+ 		verbose = 1;
++
++#ifdef HAVE_OPENSSL
++	if (use_ssl) {
++		if (init_tls()) {
++			snprintf(err_buf, sizeof(err_buf),
++				 "Openssl error: %s\n",
++				 get_ssl_error());
++			return 0;
++		}
++	}
++#endif
+ 
+ 	if (files_from) {
+ 		char *colon;
+--- proto.h	22 Apr 2004 09:58:09 -0000	1.189
++++ proto.h	25 Apr 2004 18:37:24 -0000
+@@ -209,6 +209,12 @@ void start_accept_loop(int port, int (*f
+ void set_socket_options(int fd, char *options);
+ void become_daemon(void);
+ int sock_exec(const char *prog);
++int init_tls(void);
++char *get_ssl_error(void);
++int get_tls_rfd(void);
++int get_tls_wfd(void);
++int start_tls(int f_in, int f_out);
++void end_tls(void);
+ int do_unlink(char *fname);
+ int do_symlink(char *fname1, char *fname2);
+ int do_link(char *fname1, char *fname2);
+--- rsync.h	22 Apr 2004 09:58:24 -0000	1.198
++++ rsync.h	25 Apr 2004 18:37:24 -0000
+@@ -32,6 +32,7 @@
+ 
+ #define DEFAULT_LOCK_FILE "/var/run/rsyncd.lock"
+ #define URL_PREFIX "rsync://"
++#define SSL_URL_PREFIX "rsyncs://"
+ 
+ #define BACKUP_SUFFIX "~"
+ 
+@@ -321,6 +322,11 @@ enum msgcode {
+ #else
+ /* As long as it gets... */
+ #define uint64 unsigned off_t
++#endif
++
++#if HAVE_OPENSSL
++#include <openssl/ssl.h>
++#include <openssl/err.h>
+ #endif
+ 
+ /* Starting from protocol version 26, we always use 64-bit
+--- /dev/null	1 Jan 1970 00:00:00 -0000
++++ ssl.c	25 Apr 2004 18:37:24 -0000
+@@ -0,0 +1,366 @@
++/* -*- c-file-style: "linux" -*-
++ * ssl.c: operations for negotiating SSL rsync connections. 
++ *
++ * Copyright (C) 2003  Casey Marshall <rsdio@metastatic.org>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ * 
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ * 
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
++ */
++
++#include "rsync.h"
++
++#ifdef HAVE_SYS_SELECT_H
++#include <sys/select.h>
++#else
++#include <sys/time.h>
++#include <sys/types.h>
++#include <unistd.h>
++#endif
++#include <string.h>
++
++#define BUF_SIZE 1024
++
++extern int verbose;
++extern int am_daemon;
++extern int am_server;
++
++extern char *ssl_cert_path;
++extern char *ssl_key_path;
++extern char *ssl_key_passwd;
++extern char *ssl_ca_path;
++
++static SSL_CTX *ssl_ctx;
++static SSL *ssl;
++static int tls_read[2] = { -1, -1 };
++static int tls_write[2] = { -1, -1 };
++static int ssl_running;
++static int ssl_pid = -1;
++
++/**
++ * A non-interactive callback to be passed to SSL_CTX_set_default_password_cb,
++ * which merely copies the value of ssl_key_passwd into buf. This is
++ * used for when the private key password is supplied via an option.
++ */
++static int default_password_cb(char *buf, int n, UNUSED(int f), UNUSED(void *u))
++{
++	if (ssl_key_passwd == NULL || n < strlen(ssl_key_passwd))
++		return 0;
++	strncpy(buf, ssl_key_passwd, n-1);
++	return strlen(ssl_key_passwd);
++}
++
++/**
++ * If verbose, this method traces the status of the SSL handshake.
++ */
++static void info_callback(SSL *ssl, int cb, int val)
++{
++	char buf[128];
++	char *cbs;
++
++	switch (cb) {
++	case SSL_CB_LOOP:
++		cbs = "SSL_CB_LOOP";
++		break;
++	case SSL_CB_EXIT:
++		cbs = "SSL_CB_EXIT";
++		break;
++	case SSL_CB_READ:
++		cbs = "SSL_CB_READ";
++		break;
++	case SSL_CB_WRITE:
++		cbs = "SSL_CB_WRITE";
++		break;
++	case SSL_CB_ALERT:
++		cbs = "SSL_CB_ALERT";
++		break;
++	case SSL_CB_READ_ALERT:
++		cbs = "SSL_CB_READ_ALERT";
++		break;
++	case SSL_CB_WRITE_ALERT:
++		cbs = "SSL_CB_WRITE_ALERT";
++		break;
++	case SSL_CB_ACCEPT_LOOP:
++		cbs = "SSL_CB_ACCEPT_LOOP";
++		break;
++	case SSL_CB_ACCEPT_EXIT:
++		cbs = "SSL_CB_ACCEPT_EXIT";
++		break;
++	case SSL_CB_CONNECT_LOOP:
++		cbs = "SSL_CB_CONNECT_LOOP";
++		break;
++	case SSL_CB_CONNECT_EXIT:
++		cbs = "SSL_CB_CONNECT_EXIT";
++		break;
++	case SSL_CB_HANDSHAKE_START:
++		cbs = "SSL_CB_HANDSHAKE_START";
++		break;
++	case SSL_CB_HANDSHAKE_DONE:
++		cbs = "SSL_CB_HANDSHAKE_DONE";
++		break;
++	default:
++		snprintf(buf, sizeof buf, "??? (%d)", cb);
++		cbs = buf;
++		break;
++	}
++	if (verbose > 2) {
++		rprintf(FLOG, "SSL: info_callback(%p,%s,%d)\n", ssl, cbs, val);
++		if (cb == SSL_CB_HANDSHAKE_DONE) {
++			SSL_CIPHER_description(SSL_get_current_cipher(ssl),
++					       buf, sizeof buf);
++			rprintf(FLOG, "SSL: cipher: %s", buf);
++		}
++	}
++}
++
++/**
++ * Initializes the SSL context for TLSv1 connections; returns zero on
++ * success.
++ */
++int init_tls(void)
++{
++	if (ssl_ctx)
++		return 0;
++	SSL_library_init();
++	SSL_load_error_strings();
++	ssl_ctx = SSL_CTX_new(TLSv1_method());
++	if (!ssl_ctx)
++		return 1;
++	SSL_CTX_set_info_callback(ssl_ctx, info_callback);
++
++	/* Sets the certificate sent to the other party. */
++	if (ssl_cert_path != NULL
++	    && SSL_CTX_use_certificate_file(ssl_ctx, ssl_cert_path,
++					    SSL_FILETYPE_PEM) != 1)
++		return 1;
++	/* Set up the simple non-interactive callback if the password
++	 * was supplied on the command line. */
++	if (ssl_key_passwd != NULL)
++		SSL_CTX_set_default_passwd_cb(ssl_ctx, default_password_cb);
++	/* Sets the private key that matches the public certificate. */
++	if (ssl_key_path != NULL) {
++		if (SSL_CTX_use_PrivateKey_file(ssl_ctx, ssl_key_path,
++						SSL_FILETYPE_PEM) != 1)
++			return 1;
++		if (SSL_CTX_check_private_key(ssl_ctx) != 1)
++			return 1;
++	}
++	if (ssl_ca_path != NULL
++	    && !SSL_CTX_load_verify_locations(ssl_ctx, ssl_ca_path, NULL))
++		return 1;
++
++	return 0;
++}
++
++/**
++ * Returns the error string for the current SSL error, if any.
++ */
++char *get_ssl_error(void)
++{
++	return ERR_error_string(ERR_get_error(), NULL);
++}
++
++/**
++ * Returns the input file descriptor for the SSL connection.
++ */
++int get_tls_rfd(void)
++{
++	return tls_read[0];
++}
++
++/**
++ * Returns the output file descriptor for the SSL connection.
++ */
++int get_tls_wfd(void)
++{
++	return tls_write[1];
++}
++
++/**
++ * Signal handler that ends the SSL connection.
++ */
++static RETSIGTYPE tls_sigusr1(int UNUSED(val))
++{
++	if (ssl) {
++		SSL_shutdown(ssl);
++		SSL_free(ssl);
++		ssl = NULL;
++	}
++	ssl_running = 0;
++}
++
++/**
++ * Negotiates the TLS connection, creates a socket pair for communicating
++ * with the rsync process, then forks into a new process that will handle
++ * the communication.
++ *
++ * 0 is returned on success.
++ */
++int start_tls(int f_in, int f_out)
++{
++	int tls_fd;
++	int n = 0, r;
++	unsigned char buf1[BUF_SIZE], buf2[BUF_SIZE];
++	int avail1 = 0, avail2 = 0, write1 = 0, write2 = 0;
++	fd_set rd, wd;
++
++	if (fd_pair(tls_read))
++		return 1;
++	if (fd_pair(tls_write))
++		return 1;
++
++	set_blocking(tls_read[0]);
++	set_blocking(tls_read[1]);
++	set_blocking(tls_write[0]);
++	set_blocking(tls_write[1]);
++	set_blocking(f_in);
++	set_blocking(f_out);
++
++	ssl_pid = do_fork();
++	if (ssl_pid < 0)
++		return -1;
++	if (ssl_pid != 0) {
++		close(tls_write[0]);
++		close(tls_read[1]);
++		return 0;
++	}
++
++	signal(SIGUSR1, tls_sigusr1);
++	ssl = SSL_new(ssl_ctx);
++	if (!ssl)
++		goto closed;
++	if (am_daemon || am_server)
++		SSL_set_accept_state(ssl);
++	else
++		SSL_set_connect_state(ssl);
++	SSL_set_rfd(ssl, f_in);
++	SSL_set_wfd(ssl, f_out);
++
++	tls_fd = SSL_get_fd(ssl);
++	n = tls_write[0];
++	n = MAX(tls_read[1], n);
++	n = MAX(tls_fd, n) + 1;
++
++	ssl_running = 1;
++	while (ssl_running) {
++		FD_ZERO(&rd);
++		FD_ZERO(&wd);
++		FD_SET(tls_write[0], &rd);
++		FD_SET(tls_read[1], &wd);
++		FD_SET(tls_fd, &rd);
++		FD_SET(tls_fd, &wd);
++
++		r = select(n, &rd, &wd, NULL, NULL);
++
++		if (r == -1 && errno == EINTR)
++			continue;
++		if (FD_ISSET(tls_write[0], &rd)) {
++			r = read(tls_write[0], buf1+avail1, BUF_SIZE-avail1);
++			if (r >= 0)
++				avail1 += r;
++			else {
++				rprintf(FERROR, "pipe read error: %s\n",
++					strerror(errno));
++				break;
++			}
++		}
++		if (FD_ISSET(tls_fd, &rd)) {
++			r = SSL_read(ssl, buf2+avail2, BUF_SIZE-avail2);
++			if (r > 0)
++				avail2 += r;
++			else {
++				switch (SSL_get_error(ssl, r)) {
++				case SSL_ERROR_ZERO_RETURN:
++					goto closed;
++				case SSL_ERROR_WANT_READ:
++				case SSL_ERROR_WANT_WRITE:
++					break;
++				case SSL_ERROR_SYSCALL:
++					if (r == 0)
++						rprintf(FERROR, "SSL spurious EOF\n");
++					else
++						rprintf(FERROR, "SSL I/O error: %s\n",
++							strerror(errno));
++					goto closed;
++				case SSL_ERROR_SSL:
++					rprintf(FERROR, "SSL: %s\n",
++						ERR_error_string(ERR_get_error(), NULL));
++					goto closed;
++				default:
++					rprintf(FERROR, "unexpected ssl error %d\n", r);
++					goto closed;
++				}
++			}
++		}
++		if (FD_ISSET(tls_read[1], &wd) && write2 < avail2) {
++			r = write(tls_read[1], buf2+write2, avail2-write2);
++			if (r >= 0)
++				write2 += r;
++			else {
++				rprintf(FERROR, "pipe write error: %s\n",
++					strerror(errno));
++				break;
++			}
++		}
++		if (FD_ISSET(tls_fd, &wd) && write1 < avail1) {
++			r = SSL_write(ssl, buf1+write1, avail1-write1);
++			if (r > 0)
++				write1 += r;
++			else {
++				switch (SSL_get_error(ssl, r)) {
++				case SSL_ERROR_ZERO_RETURN:
++					goto closed;
++				case SSL_ERROR_WANT_READ:
++				case SSL_ERROR_WANT_WRITE:
++					break;
++				case SSL_ERROR_SYSCALL:
++					if (r == 0)
++						rprintf(FERROR, "SSL: spurious EOF\n");
++					else
++						rprintf(FERROR, "SSL: I/O error: %s\n",
++							strerror(errno));
++					goto closed;
++				case SSL_ERROR_SSL:
++					rprintf(FERROR, "SSL: %s\n",
++						ERR_error_string(ERR_get_error(), NULL));
++					goto closed;
++				default:
++					rprintf(FERROR, "unexpected ssl error %d\n", r);
++					goto closed;
++				}
++			}
++		}
++		if (avail1 == write1)
++			avail1 = write1 = 0;
++		if (avail2 == write2)
++			avail2 = write2 = 0;
++	}
++
++	/* XXX I'm pretty sure that there is a lot that I am not considering
++	   here. Bugs? Yes, probably. */
++
++	/* We're finished. */
++    closed:
++	close(tls_read[1]);
++	close(tls_write[0]);
++	exit(0);
++}
++
++/**
++ * Ends the TLS connection.
++ */
++void end_tls(void)
++{
++	if (ssl_pid > 0)
++		kill(ssl_pid, SIGUSR1);
++}

@@ -36,6 +36,10 @@
 
 #if KERNEL
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #if SAM_MODULE
 
 /* IOSCSIArchitectureModelFamilyDebugAssert prototype*/
@@ -61,6 +65,10 @@ IOSCSIArchitectureModelFamilyDebugAssert ( 	const char * componentNameString,
 
 
 #endif /* SAM_MODULE */
+
+#ifdef __cplusplus
+}
+#endif
 
 
 #define DEBUG_ASSERT_MESSAGE( componentNameString, \

@@ -316,7 +316,6 @@ __OSHashTable::RemoveHashEntry ( __OSHashEntry * oldEntry )
 	fEntries--;
 	if ( fEntries < ( fSize / 8 ) )
 	{
-		
 		STATUS_LOG ( ( "Should shrink hash table\n" ) );
 	}
 	
@@ -370,7 +369,10 @@ __OSHashTable::Rehash ( void )
 	
 	// Rearrange in single list. Keep track of list head.
 	listHead = SingleList ( );
-	require_nonzero_action ( listHead, ErrorExit, Unlock ( ); IODelete ( newTable, __OSHashEntryBucket, newSize ) );
+	require_nonzero_action ( listHead,
+							 ErrorExit,
+							 Unlock ( );
+							 IODelete ( newTable, __OSHashEntryBucket, newSize ) );
 	
 	// Switch the tables.
 	oldTable 	= fTable;
@@ -519,8 +521,9 @@ __OSHashTable::FindFirstBucketWithEntries ( void ) const
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 UInt32
-__OSHashTable::FindNextBucketWithEntries ( __OSHashEntryBucket ** 	bucket,
-										   UInt32					startLocation ) const
+__OSHashTable::FindNextBucketWithEntries (
+					__OSHashEntryBucket ** 	bucket,
+					UInt32					startLocation ) const
 {
 	
 	UInt32 					index 		= 0;

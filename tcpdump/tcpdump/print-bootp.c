@@ -22,7 +22,7 @@
  */
 #ifndef lint
 static const char rcsid[] _U_ =
-    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-bootp.c,v 1.1.1.4 2004/02/05 19:30:53 rbraun Exp $ (LBL)";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-bootp.c,v 1.1.1.5 2004/05/21 20:51:30 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -556,6 +556,10 @@ rfc1048_print(register const u_char *bp)
 				break;
 
 			case TAG_CLIENT_FQDN:
+				/* option 81 should be at least 4 bytes long */
+				if (len < 4) 
+                                        printf("ERROR: options 81 len %u < 4 bytes", len);
+					break;
 				if (*bp++)
 					printf("[svrreg]");
 				if (*bp)

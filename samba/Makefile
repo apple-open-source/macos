@@ -7,16 +7,16 @@ UserType        = Administration
 ToolType        = Services
 
 GnuNoChown      = YES
-GnuAfterInstall = install-startup-xinetd install-config install-logdir install-strip plugins
+GnuAfterInstall = install-startup-xinetd install-config install-logdir  install-strip plugins
 
-Extra_CC_Flags  = -no-cpp-precomp -I$(SRCROOT)/libopendirectorycommon \
-		-DWITH_OPENDIRECTORY -DUSES_RECVFROM
+Extra_CC_Flags  = -no-cpp-precomp -I$(SRCROOT)/libopendirectorycommon -F/System/Library/PrivateFrameworks\
+		-DWITH_OPENDIRECTORY -DUSES_RECVFROM -DDARWINOS=1
 
 Extra_Configure_Flags = --with-swatdir="$(SHAREDIR)/swat"			\
 			--with-sambabook="$(SHAREDIR)/swat/using_samba"		\
 			--with-privatedir="$(VARDIR)/db/samba"			\
-			--libdir="/etc"						\
-			--with-lockdir="$(SPOOLDIR)/lock"			\
+			--with-libdir="/etc"						\
+			--with-lockdir="$(VARDIR)/samba"			\
 			--with-logfilebase="$(LOGDIR)/samba"			\
 			--with-piddir="$(RUNDIR)"				\
 			--with-krb5						\
@@ -36,11 +36,12 @@ Extra_Install_Flags   = SWATDIR="$(DSTROOT)$(SHAREDIR)/swat"			\
 			LIBDIR="$(DSTROOT)/private/etc"				\
 			PIDDIR="$(DSTROOT)$(RUNDIR)"				\
 			MANDIR="$(DSTROOT)/usr/share/man"			\
-			LOCKDIR="$(DSTROOT)$(SPOOLDIR)/lock"
+			LOCKDIR="$(DSTROOT)$(VARDIR)/samba"
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
 LDFLAGS += -framework DirectoryService -L$(OBJROOT) -lopendirectorycommon
+
 PATCHES = $(wildcard $(SRCROOT)/patches/*.diff)
 
 Install_Target = install
@@ -81,6 +82,7 @@ install-config:
 install-logdir:
 	$(INSTALL) -d -m 755 $(DSTROOT)/private/var/log/samba
 	$(INSTALL) -d -m 777 $(DSTROOT)/private/var/spool/samba
+	$(INSTALL) -d -m 755 $(DSTROOT)/private/var/spool/lock
 
 install-strip:
 	for F in $(DSTROOT)/usr/{s,}bin/*; do	\

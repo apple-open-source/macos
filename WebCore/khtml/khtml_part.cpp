@@ -7,7 +7,7 @@
  *                     2000 Simon Hausmann <hausmann@kde.org>
  *                     2000 Stefan Schimanski <1Stein@gmx.de>
  *                     2001 George Staikos <staikos@kde.org>
- * Copyright (C) 2003 Apple Computer, Inc.
+ * Copyright (C) 2004 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -96,6 +96,7 @@ using namespace DOM;
 #include <CoreServices/CoreServices.h>
 #endif
 
+using khtml::ChildFrame;
 using khtml::Decoder;
 using khtml::RenderObject;
 using khtml::RenderText;
@@ -268,6 +269,8 @@ void KHTMLPart::init( KHTMLView *view, GUIProfile prof )
   connect( &d->m_redirectionTimer, SIGNAL( timeout() ),
            this, SLOT( slotRedirect() ) );
 
+  connect(&d->m_lifeSupportTimer, SIGNAL(timeout()), this, SLOT(slotEndLifeSupport()));
+
 #if !APPLE_CHANGES
   d->m_dcopobject = new KHTMLPartIface(this);
 #endif
@@ -371,7 +374,7 @@ bool KHTMLPart::openURL( const KURL &url )
 {
   kdDebug( 6050 ) << "KHTMLPart(" << this << ")::openURL " << url.url() << endl;
 
-  if (d->m_scheduledRedirection == redirectionDuringLoad){
+  if (d->m_scheduledRedirection == locationChangeScheduledDuringLoad){
     // We're about to get a redirect that happened before the document was
     // created.  This can happen when one frame may change the location of a 
     // sibling.
@@ -996,6 +999,7 @@ void KHTMLPart::clear()
     {
       if ( (*it).m_part )
       {
+        disconnectChild(&*it);
 #if !APPLE_CHANGES
         partManager()->removePart( (*it).m_part );
 #endif
@@ -1569,12 +1573,8 @@ void KHTMLPart::write( const char *str, int len )
     jScript()->appendSourceFile(m_url.url(),decoded);
   Tokenizer* t = d->m_doc->tokenizer();
 
-  // parsing some of the page can result in running a script which
-  // could possibly destroy the part. To avoid this, ref it temporarily.
-  ref();
   if(t)
     t->write( decoded, true );
-  deref();
 }
 
 void KHTMLPart::write( const QString &str )
@@ -1754,10 +1754,6 @@ void KHTMLPart::checkCompleted()
 
   checkEmitLoadEvent(); // if we didn't do it before
 
-#if APPLE_CHANGES
-  if (d->m_view) {
-#endif
-
 #if !APPLE_CHANGES
   // check that the view has not been moved by the user  
   if ( m_url.encodedHtmlRef().isEmpty() && d->m_view->contentsY() == 0 )
@@ -1766,10 +1762,6 @@ void KHTMLPart::checkCompleted()
 #endif
 
   d->m_view->complete();
-
-#if APPLE_CHANGES
-  } // if (d->m_view)
-#endif
 
   if ( d->m_scheduledRedirection != noRedirectionScheduled )
   {
@@ -1883,41 +1875,71 @@ KURL KHTMLPart::completeURL( const QString &url )
   return KURL( d->m_doc->completeURL( url ) );
 }
 
-void KHTMLPart::scheduleRedirection( double delay, const QString &url, bool doLockHistory, bool userGesture )
+void KHTMLPart::scheduleRedirection( double delay, const QString &url, bool doLockHistory)
 {
     kdDebug(6050) << "KHTMLPart::scheduleRedirection delay=" << delay << " url=" << url << endl;
     if (delay < 0 || delay > INT_MAX / 1000)
       return;
-    if ( d->m_scheduledRedirection == noRedirectionScheduled || delay < d->m_delayRedirect )
+    if ( d->m_scheduledRedirection == noRedirectionScheduled || delay <= d->m_delayRedirect )
     {
-       if (d->m_doc == 0){
-        // Handle a location change of a page with no document as a special case.
-        // This may happens when a frame changes the location of another frame.
-        d->m_scheduledRedirection = redirectionDuringLoad;
-       }
-       else
-         d->m_scheduledRedirection = redirectionScheduled;
+       d->m_scheduledRedirection = redirectionScheduled;
        d->m_delayRedirect = delay;
        d->m_redirectURL = url;
        d->m_redirectLockHistory = doLockHistory;
-       d->m_redirectUserGesture = userGesture;
+       d->m_redirectUserGesture = false;
 
-       if ( d->m_bComplete ) {
-         d->m_redirectionTimer.stop();
+       d->m_redirectionTimer.stop();
+       if ( d->m_bComplete )
          d->m_redirectionTimer.start( (int)(1000 * d->m_delayRedirect), true );
-       }
     }
 }
 
+void KHTMLPart::scheduleLocationChange(const QString &url, bool lockHistory, bool userGesture)
+{
+    // Handle a location change of a page with no document as a special case.
+    // This may happen when a frame changes the location of another frame.
+    d->m_scheduledRedirection = d->m_doc ? locationChangeScheduled : locationChangeScheduledDuringLoad;
+    d->m_delayRedirect = 0;
+    d->m_redirectURL = url;
+    d->m_redirectLockHistory = lockHistory;
+    d->m_redirectUserGesture = userGesture;
+    d->m_redirectionTimer.stop();
+    if (d->m_bComplete)
+        d->m_redirectionTimer.start(0, true);
+}
+
+bool KHTMLPart::isScheduledLocationChangePending() const
+{
+    switch (d->m_scheduledRedirection) {
+        case noRedirectionScheduled:
+        case redirectionScheduled:
+            return false;
+        case historyNavigationScheduled:
+        case locationChangeScheduled:
+        case locationChangeScheduledDuringLoad:
+            return true;
+    }
+    return false;
+}
+
+
 void KHTMLPart::scheduleHistoryNavigation( int steps )
 {
+#if APPLE_CHANGES
+    // navigation will always be allowed in the 0 steps case, which is OK because
+    // that's supposed to force a reload
+    if(!KWQ(this)->canGoBackOrForward(steps)) {
+        cancelRedirection();
+        return;
+    }
+#endif
     d->m_scheduledRedirection = historyNavigationScheduled;
     d->m_delayRedirect = 0;
     d->m_redirectURL = QString::null;
     d->m_scheduledHistoryNavigationSteps = steps;
+    d->m_redirectionTimer.stop();
     if ( d->m_bComplete ) {
-        d->m_redirectionTimer.stop();
-        d->m_redirectionTimer.start( (int)(1000 * d->m_delayRedirect), true );
+        d->m_redirectionTimer.start(0, true );
     }
 }
 
@@ -3143,6 +3165,7 @@ bool KHTMLPart::processObjectRequest( khtml::ChildFrame *child, const KURL &_url
     //CRITICAL STUFF
     if ( child->m_part )
     {
+      disconnectChild(child);
 #if !APPLE_CHANGES
       partManager()->removePart( (KParts::ReadOnlyPart *)child->m_part );
 #endif
@@ -3163,21 +3186,7 @@ bool KHTMLPart::processObjectRequest( khtml::ChildFrame *child, const KURL &_url
     child->m_part = part;
     assert( ((void*) child->m_part) != 0);
 
-    if ( child->m_type != khtml::ChildFrame::Object )
-    {
-      connect( part, SIGNAL( started( KIO::Job *) ),
-               this, SLOT( slotChildStarted( KIO::Job *) ) );
-      connect( part, SIGNAL( completed() ),
-               this, SLOT( slotChildCompleted() ) );
-      connect( part, SIGNAL( completed(bool) ),
-               this, SLOT( slotChildCompleted(bool) ) );
-      connect( part, SIGNAL( setStatusBarText( const QString & ) ),
-               this, SIGNAL( setStatusBarText( const QString & ) ) );
-      connect( this, SIGNAL( completed() ),
-               part, SLOT( slotParentCompleted() ) );
-      connect( this, SIGNAL( completed(bool) ),
-               part, SLOT( slotParentCompleted() ) );
-    }
+    connectChild(child);
 
 #if APPLE_CHANGES
   }
@@ -3607,8 +3616,8 @@ void KHTMLPart::slotChildCompleted( bool complete )
   child->m_bCompleted = true;
   child->m_args = KParts::URLArgs();
 
-  if ( parentPart() == 0 )
-    d->m_bPendingChildRedirection = (d->m_bPendingChildRedirection || complete);
+  if ( complete && parentPart() == 0 )
+    d->m_bPendingChildRedirection = true;
 
   checkCompleted();
 }
@@ -5511,6 +5520,60 @@ bool KHTMLPart::tabsToLinks() const
 bool KHTMLPart::tabsToAllControls() const
 {
     return true;
+}
+
+void KHTMLPart::connectChild(const khtml::ChildFrame *child) const
+{
+    ReadOnlyPart *part = child->m_part;
+    if (part && child->m_type != ChildFrame::Object)
+    {
+        connect( part, SIGNAL( started( KIO::Job *) ),
+                 this, SLOT( slotChildStarted( KIO::Job *) ) );
+        connect( part, SIGNAL( completed() ),
+                 this, SLOT( slotChildCompleted() ) );
+        connect( part, SIGNAL( completed(bool) ),
+                 this, SLOT( slotChildCompleted(bool) ) );
+        connect( part, SIGNAL( setStatusBarText( const QString & ) ),
+                 this, SIGNAL( setStatusBarText( const QString & ) ) );
+        connect( this, SIGNAL( completed() ),
+                 part, SLOT( slotParentCompleted() ) );
+        connect( this, SIGNAL( completed(bool) ),
+                 part, SLOT( slotParentCompleted() ) );
+    }
+}
+
+void KHTMLPart::disconnectChild(const khtml::ChildFrame *child) const
+{
+    ReadOnlyPart *part = child->m_part;
+    if (part && child->m_type != ChildFrame::Object)
+    {
+        disconnect( part, SIGNAL( started( KIO::Job *) ),
+                    this, SLOT( slotChildStarted( KIO::Job *) ) );
+        disconnect( part, SIGNAL( completed() ),
+                    this, SLOT( slotChildCompleted() ) );
+        disconnect( part, SIGNAL( completed(bool) ),
+                    this, SLOT( slotChildCompleted(bool) ) );
+        disconnect( part, SIGNAL( setStatusBarText( const QString & ) ),
+                    this, SIGNAL( setStatusBarText( const QString & ) ) );
+        disconnect( this, SIGNAL( completed() ),
+                    part, SLOT( slotParentCompleted() ) );
+        disconnect( this, SIGNAL( completed(bool) ),
+                    part, SLOT( slotParentCompleted() ) );
+    }
+}
+
+void KHTMLPart::keepAlive()
+{
+    if (d->m_lifeSupportTimer.isActive())
+        return;
+    ref();
+    d->m_lifeSupportTimer.start(0, true);
+}
+
+void KHTMLPart::slotEndLifeSupport()
+{
+    d->m_lifeSupportTimer.stop();
+    deref();
 }
 
 using namespace KParts;

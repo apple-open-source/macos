@@ -328,7 +328,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOStorageFamily;
-				MODULE_VERSION = 1.3.3;
+				MODULE_VERSION = 1.3.4;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -354,7 +354,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOStorageFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.3.3, Copyright Apple Computer, Inc. 1998-2003</string>
+	<string>1.3.4, Copyright Apple Computer, Inc. 1998-2004</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -366,13 +366,31 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.3</string>
+	<string>1.3.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.3</string>
+	<string>1.3.4</string>
 	<key>IOKitPersonalities</key>
 	<dict>
+		<key>IOAppleLabelScheme</key>
+		<dict>
+			<key>Content Mask</key>
+			<string>Apple_Label</string>
+			<key>IOClass</key>
+			<string>IOAppleLabelScheme</string>
+			<key>IOMatchCategory</key>
+			<string>IOStorage</string>
+			<key>IOProbeScore</key>
+			<integer>1000</integer>
+			<key>IOPropertyMatch</key>
+			<dict>
+				<key>Content Hint</key>
+				<string>Apple_Label</string>
+			</dict>
+			<key>IOProviderClass</key>
+			<string>IOMedia</string>
+		</dict>
 		<key>IOApplePartitionScheme</key>
 		<dict>
 			<key>Content Mask</key>
@@ -644,7 +662,7 @@
 		</dict>
 	</dict>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright Apple Computer, Inc. 1998-2003</string>
+	<string>Copyright Apple Computer, Inc. 1998-2004</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0b1</string>
 	<key>OSBundleLibraries</key>
@@ -665,10 +683,12 @@
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
+				60E64E6506E3C5E700CA31B3,
 				0560FFB2008B961F11CA2AA4,
 				0560FFB3008B961F11CA2AA4,
 				0560FFB4008B961F11CA2AA4,
 				0560FFB5008B961F11CA2AA4,
+				6088DEC306E3CB160031C699,
 				0560FFB6008B961F11CA2AA4,
 				0560FFB7008B961F11CA2AA4,
 				0560FFB8008B961F11CA2AA4,
@@ -692,10 +712,12 @@
 		089C1676FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
+				60E64E6406E3C5E700CA31B3,
 				0560FF9F008B94F111CA2AA4,
 				0560FFA8008B954511CA2AA4,
 				0560FFA0008B94F111CA2AA4,
 				0560FFA1008B94F111CA2AA4,
+				6088DEC406E3CB160031C699,
 				0560FFA2008B94F111CA2AA4,
 				0560FFA3008B94F111CA2AA4,
 				0560FFA4008B94F111CA2AA4,
@@ -847,10 +869,12 @@
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/storage";
 			dstSubfolderSpec = 0;
 			files = (
+				60E64E6706E3C6AE00CA31B3,
 				0FDE4B70008D0E3F11CA2AA4,
 				0FDE4B71008D0E3F11CA2AA4,
 				0FDE4B72008D0E3F11CA2AA4,
 				0FDE4B73008D0EC011CA2AA4,
+				6088DEC506E3CB540031C699,
 				0FDE4B74008D0EC011CA2AA4,
 				0FDE4B75008D0EC011CA2AA4,
 				0FDE4B76008D0EC011CA2AA4,
@@ -865,10 +889,12 @@
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/storage";
 			dstSubfolderSpec = 0;
 			files = (
+				60E64E6806E3C6B600CA31B3,
 				0FDE4B69008D0E0311CA2AA4,
 				122F5F6B01B286C003A87B01,
 				0FDE4B6A008D0E0311CA2AA4,
 				0FDE4B6B008D0E0311CA2AA4,
+				6088DEC606E3CB5C0031C699,
 				0FDE4B6C008D0E0311CA2AA4,
 				12C47A0300E939AE03CA2AA4,
 				0FDE4B6D008D0E1611CA2AA4,
@@ -1073,6 +1099,8 @@
 //244
 		247142CAFF3F8F9811CA285C = {
 			children = (
+				60E64E6206E3C5E700CA31B3,
+				60E64E6306E3C5E700CA31B3,
 				0560FF97008B94F111CA2AA4,
 				0560FFA9008B961F11CA2AA4,
 				0560FFA7008B954511CA2AA4,
@@ -1081,6 +1109,8 @@
 				0560FFAB008B961F11CA2AA4,
 				0560FF99008B94F111CA2AA4,
 				0560FFAC008B961F11CA2AA4,
+				6088DEC206E3CB160031C699,
+				6088DEC106E3CB160031C699,
 				0560FF9A008B94F111CA2AA4,
 				0560FFAD008B961F11CA2AA4,
 				0560FF9B008B94F111CA2AA4,
@@ -1096,6 +1126,88 @@
 			name = Source;
 			path = "";
 			refType = 4;
+		};
+//240
+//241
+//242
+//243
+//244
+//600
+//601
+//602
+//603
+//604
+		6088DEC106E3CB160031C699 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = IOFilterScheme.h;
+			refType = 4;
+		};
+		6088DEC206E3CB160031C699 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = IOFilterScheme.cpp;
+			refType = 4;
+		};
+		6088DEC306E3CB160031C699 = {
+			fileRef = 6088DEC106E3CB160031C699;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		6088DEC406E3CB160031C699 = {
+			fileRef = 6088DEC206E3CB160031C699;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		6088DEC506E3CB540031C699 = {
+			fileRef = 6088DEC106E3CB160031C699;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		6088DEC606E3CB5C0031C699 = {
+			fileRef = 6088DEC106E3CB160031C699;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		60E64E6206E3C5E700CA31B3 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOAppleLabelScheme.cpp;
+			refType = 4;
+		};
+		60E64E6306E3C5E700CA31B3 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOAppleLabelScheme.h;
+			refType = 4;
+		};
+		60E64E6406E3C5E700CA31B3 = {
+			fileRef = 60E64E6206E3C5E700CA31B3;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		60E64E6506E3C5E700CA31B3 = {
+			fileRef = 60E64E6306E3C5E700CA31B3;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		60E64E6706E3C6AE00CA31B3 = {
+			fileRef = 60E64E6306E3C5E700CA31B3;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		60E64E6806E3C6B600CA31B3 = {
+			fileRef = 60E64E6306E3C5E700CA31B3;
+			isa = PBXBuildFile;
+			settings = {
+			};
 		};
 	};
 	rootObject = 089C1669FE841209C02AAC07;

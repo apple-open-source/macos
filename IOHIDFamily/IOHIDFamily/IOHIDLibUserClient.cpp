@@ -80,14 +80,14 @@ sMethods[kIOHIDLibUserClientNumCommands] = {
 	(IOMethod) &IOHIDLibUserClient::addElementToQueue,
 	kIOUCScalarIScalarO,
 	3,
-	0
+	1
     },
     { //    kIOHIDLibUserClientRemoveElementFromQueue
 	0,
 	(IOMethod) &IOHIDLibUserClient::removeElementFromQueue,
 	kIOUCScalarIScalarO,
 	2,
-	0
+	1
     },
     { //    kIOHIDLibUserClientQueueHasElement
 	0,
@@ -406,8 +406,9 @@ clientMemoryForType (	UInt32			type,
                         IOOptionBits *		options,
                         IOMemoryDescriptor ** 	memory )
 {
-    IOReturn             ret = kIOReturnNoMemory;
-    IOMemoryDescriptor * memoryToShare = NULL;
+    IOReturn                ret             = kIOReturnNoMemory;
+    IOMemoryDescriptor *    memoryToShare   = NULL;
+    IOHIDEventQueue *       queue           = NULL;
     
     // if the type is element values, then get that
     if (type == IOHIDLibUserClientElementValuesType)
@@ -417,12 +418,9 @@ clientMemoryForType (	UInt32			type,
             memoryToShare = fNub->getMemoryWithCurrentElementValues();
     }
     // otherwise, the type is an object pointer (evil hack alert - see header)
-    else
+    // evil hack, the type is an IOHIDEventQueue ptr (as returned by createQueue)
+    else if (queue = OSDynamicCast(IOHIDEventQueue, type))
     {
-        // evil hack, the type is an IOHIDEventQueue ptr (as returned by createQueue)
-        IOHIDEventQueue * queue = (IOHIDEventQueue *) type;
-        
-        // get queue memory
         memoryToShare = queue->getMemoryDescriptor();
     }
     
@@ -452,8 +450,7 @@ createQueue(void * vInFlags, void * vInDepth, void * vOutQueue, void *, void *, 
     void **	outQueue = (void **) vOutQueue;
 
     // create the queue (fudge it a bit bigger than requested)
-    IOHIDEventQueue * eventQueue = IOHIDEventQueue::withEntries (depth+1, 
-                            sizeof(IOHIDElementValue) + sizeof(void *));
+    IOHIDEventQueue * eventQueue = IOHIDEventQueue::withEntries (depth+1, DEFAULT_HID_ENTRY_SIZE);
     
     // set out queue
     *outQueue = eventQueue;
@@ -482,35 +479,47 @@ disposeQueue(void * vInQueue, void *, void *, void *, void *, void * gated)
     // Add an element to a queue
 IOReturn IOHIDLibUserClient::
 addElementToQueue(void * vInQueue, void * vInElementCookie, 
-                            void * vInFlags, void *, void *, void * gated)
+                            void * vInFlags, void *vSizeChange, void *, void * gated)
 {
-    IOReturn ret = kIOReturnSuccess;
+    IOReturn    ret     = kIOReturnSuccess;
+    UInt32      size    = 0;
+    Boolean *   sizeChange = (Boolean *) vSizeChange;
 
     // parameter typing
     IOHIDEventQueue * queue = (IOHIDEventQueue *) vInQueue;
     IOHIDElementCookie elementCookie = (IOHIDElementCookie) vInElementCookie;
     // UInt32 flags = (UInt32) vInFlags;
     
+    size = (queue) ? queue->getEntrySize() : 0;
+    
     // add the queue to the element's queues
     if (fNub && !isInactive() && !fNubIsTerminated)
         ret = fNub->startEventDelivery (queue, elementCookie);
+        
+    *sizeChange = (queue && (size != queue->getEntrySize())) ? true : false;
     
     return ret;
 }   
     // remove an element from a queue
 IOReturn IOHIDLibUserClient::
 removeElementFromQueue (void * vInQueue, void * vInElementCookie, 
-                            void *, void *, void *, void * gated)
+                            void * vSizeChange, void *, void *, void * gated)
 {
-    IOReturn ret = kIOReturnSuccess;
+    IOReturn    ret     = kIOReturnSuccess;
+    UInt32      size    = 0;
+    Boolean *   sizeChange = (Boolean *) vSizeChange;
 
     // parameter typing
     IOHIDEventQueue * queue = (IOHIDEventQueue *) vInQueue;
     IOHIDElementCookie elementCookie = (IOHIDElementCookie) vInElementCookie;
 
+    size = (queue) ? queue->getEntrySize() : 0;
+
     // remove the queue from the element's queues
     if (fNub && !isInactive() && !fNubIsTerminated)
         ret = fNub->stopEventDelivery (queue, elementCookie);
+
+    *sizeChange = (queue && (size != queue->getEntrySize())) ? true : false;
     
     return ret;
 }    

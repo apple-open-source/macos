@@ -1,45 +1,32 @@
---- samba/source/smbd/chgpasswd.c.orig	Thu Dec 18 15:12:47 2003
-+++ samba/source/smbd/chgpasswd.c	Fri Dec 19 08:31:15 2003
-@@ -49,6 +49,12 @@
- 
- #include "includes.h"
- 
-+#ifdef WITH_OPENDIRECTORY
-+#include <DirectoryService/DirServices.h>
-+#include <DirectoryService/DirServicesConst.h>
-+#include <DirectoryService/DirServicesUtils.h>
-+#endif
-+
- extern struct passdb_ops pdb_ops;
- 
- static NTSTATUS check_oem_password(const char *user,
-@@ -715,7 +721,24 @@ NTSTATUS pass_oem_change(char *user,
+--- samba/source/smbd/chgpasswd.c.orig	2004-07-23 14:18:13.000000000 -0700
++++ samba/source/smbd/chgpasswd.c	2004-07-23 15:06:05.000000000 -0700
+@@ -703,7 +703,24 @@
  {
- 	fstring new_passwd;
+ 	pstring new_passwd;
  	SAM_ACCOUNT *sampass = NULL;
--	NTSTATUS nt_status = check_oem_password(user, lmdata, lmhash, ntdata, nthash,
-+
+-	NTSTATUS nt_status = check_oem_password(user, password_encrypted_with_lm_hash, 
 +	NTSTATUS nt_status = NT_STATUS_WRONG_PASSWORD;
++	
 +#ifdef WITH_OPENDIRECTORY
 +	tDirStatus	dir_status = eDSNullParameter;
 +	u_int8_t passwordFormat = 0;
 +	
 +	if (lp_opendirectory()) {
-+		if(ntdata != NULL && nthash != NULL)
++		if(password_encrypted_with_nt_hash != NULL && old_nt_hash_encrypted != NULL)
 +			passwordFormat = 1; /* 0 - UTF8 | 1 - UCS2 Unicode, >1 == codepage */
 +		become_root();
-+		dir_status = opendirectory_lmchap2changepasswd(user, lmdata, lmhash, passwordFormat, NULL);
++		dir_status = opendirectory_lmchap2changepasswd(user, password_encrypted_with_lm_hash, old_lm_hash_encrypted, passwordFormat, NULL);
 +		unbecome_root();
 +		DEBUG(3, ("pass_oem_change: [%d]opendirectory_lmchap2changepasswd passwordFormat(%d)\n", dir_status, passwordFormat));
 +		if (eDSNoErr == dir_status)
 +			nt_status = NT_STATUS_OK;
 +	} else {
 +#endif
-+		nt_status = check_oem_password(user, lmdata, lmhash, ntdata, nthash,
- 				     &sampass, new_passwd, sizeof(new_passwd));
- 
- 	if (!NT_STATUS_IS_OK(nt_status))
-@@ -729,6 +752,9 @@ NTSTATUS pass_oem_change(char *user,
++	nt_status = check_oem_password(user, password_encrypted_with_lm_hash, 
+ 						old_lm_hash_encrypted, 
+ 						password_encrypted_with_nt_hash, 
+ 						old_nt_hash_encrypted,
+@@ -720,6 +737,9 @@
  	memset(new_passwd, 0, sizeof(new_passwd));
  
  	pdb_free_sam(&sampass);

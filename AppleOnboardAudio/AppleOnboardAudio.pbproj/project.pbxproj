@@ -255,7 +255,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.AudioDeviceTreeUpdater;
-				MODULE_VERSION = 2.2.6;
+				MODULE_VERSION = 2.4.1;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -281,7 +281,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AudioDeviceTreeUpdater</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AudioDeviceTreeUpdater version 2.2.6, Copyright 2000-2004 Apple Computer, Inc.</string>
+	<string>AudioDeviceTreeUpdater version 2.4.1, Copyright 2000-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -293,11 +293,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.6</string>
+	<string>2.4.1</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.6</string>
+	<string>2.4.1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>Power Macintosh</key>
@@ -1086,11 +1086,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.6</string>
+	<string>2.4.1</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.6</string>
+	<string>2.4.1</string>
 </dict>
 </plist>
 ";
@@ -1169,7 +1169,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Apple02DBDMAAudio;
-				MODULE_VERSION = 2.2.6;
+				MODULE_VERSION = 2.4.1;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -1196,7 +1196,7 @@
 	<key>CFBundleExecutable</key>
 	<string>Apple02DBDMAAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>Apple02DBDMAAudio version 2.2.6, Copyright 2000-2004 Apple Computer, Inc.</string>
+	<string>Apple02DBDMAAudio version 2.4.1, Copyright 2000-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1208,11 +1208,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.6</string>
+	<string>2.4.1</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.6</string>
+	<string>2.4.1</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.7.0d1</string>
 	<key>OSBundleLibraries</key>
@@ -1527,7 +1527,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleScreamerAudio;
-				MODULE_VERSION = 2.2.6;
+				MODULE_VERSION = 2.4.1;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -1554,7 +1554,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleScreamerAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleScreamerAudio version 2.2.6, Copyright 2000-2004 Apple Computer, Inc.</string>
+	<string>AppleScreamerAudio version 2.4.1, Copyright 2000-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1566,11 +1566,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.6</string>
+	<string>2.4.1</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.6</string>
+	<string>2.4.1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleScreamerAudio</key>
@@ -1721,7 +1721,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleBurgundyAudio;
-				MODULE_VERSION = 2.2.6b0;
+				MODULE_VERSION = 2.4.1b1;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -1748,7 +1748,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleBurgundyAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleBurgundyAudio version 2.2.6, Copyright 2000-2004 Apple Computer, Inc.</string>
+	<string>AppleBurgundyAudio version 2.4.1, Copyright 2000-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1760,11 +1760,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.6</string>
+	<string>2.4.1</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.6b0</string>
+	<string>2.4.1b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleBurgundyAudio</key>
@@ -1979,8 +1979,6 @@
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
 		06AA1265FFB2107B11CA28AA = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				OPTIMIZATION_CFLAGS = "-O0";
@@ -1990,8 +1988,6 @@
 			name = Debug;
 		};
 		06AA1266FFB2107B11CA28AA = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 			};
@@ -2051,6 +2047,7 @@
 				4DE28F0204055CAF00CD2599,
 				8E7432120537263200A8101D,
 				F2983012062DA544005E9CA6,
+				DD6B9691065672AE00F4777F,
 			);
 		};
 		089C166AFE841209C02AAC07 = {
@@ -2092,7 +2089,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Apple02Audio;
-				MODULE_VERSION = 2.2.6b1;
+				MODULE_VERSION = 2.4.1b1;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -2126,7 +2123,7 @@
 	<key>CFBundleExecutable</key>
 	<string>Apple02Audio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>Apple02Audio version 2.2.6, Copyright 2000-2004 Apple Computer, Inc.</string>
+	<string>Apple02Audio version 2.4.1, Copyright 2000-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -2138,11 +2135,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.6</string>
+	<string>2.4.1</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.6b1</string>
+	<string>2.4.1b1</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.7.0d1</string>
 	<key>OSBundleLibraries</key>
@@ -2335,6 +2332,7 @@
 				1C4B16D90624A59E00178B12,
 				1C4B16DA0624A59E00178B12,
 				F2983013062DA544005E9CA6,
+				DD6B9692065672AE00F4777F,
 			);
 			isa = PBXGroup;
 			name = Products;
@@ -3348,7 +3346,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleTAS3004Audio;
-				MODULE_VERSION = 2.2.6b3;
+				MODULE_VERSION = 2.4.1b1;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -3373,7 +3371,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleTAS3004Audio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleTAS3004Audio version 2.2.6, Copyright 2000-2004 Apple Computer, Inc.</string>
+	<string>AppleTAS3004Audio version 2.4.1, Copyright 2000-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -3385,11 +3383,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.6</string>
+	<string>2.4.1</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.6b3</string>
+	<string>2.4.1b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleTAS3004Audio</key>
@@ -3501,7 +3499,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleTopazAudio;
-				MODULE_VERSION = 2.2.6b4;
+				MODULE_VERSION = 2.4.1b1;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -3527,7 +3525,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleTopazAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleTopazAudio version 2.2.6, Copyright 2000-2004 Apple Computer, Inc.</string>
+	<string>AppleTopazAudio version 2.4.1, Copyright 2000-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -3539,11 +3537,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.6</string>
+	<string>2.4.1</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.6b4</string>
+	<string>2.4.1b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleTopazAudio</key>
@@ -3617,6 +3615,7 @@
 			files = (
 				1C4B16B90624A59E00178B12,
 				1C4B16C50624A59E00178B12,
+				F221A7A606516C0E001B4F0D,
 				1C4B16CC0624A59E00178B12,
 				1C4B16D60624A59E00178B12,
 			);
@@ -3690,7 +3689,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleDBDMAAudio;
-				MODULE_VERSION = 2.2.6b0;
+				MODULE_VERSION = 2.4.1b1;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -3717,7 +3716,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleDBDMAAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleDBDMAAudio version 2.2.6, Copyright 2000-2004 Apple Computer, Inc.</string>
+	<string>AppleDBDMAAudio version 2.4.1, Copyright 2000-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -3729,11 +3728,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.6</string>
+	<string>2.4.1</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.6b0</string>
+	<string>2.4.1b1</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>2.0.0b1</string>
 	<key>OSBundleLibraries</key>
@@ -3955,6 +3954,7 @@
 		};
 		8E7432050537247000A8101D = {
 			children = (
+				DD6B96610655C8E500F4777F,
 				8E7432060537260700A8101D,
 				8E7432070537260700A8101D,
 				8E7432080537260700A8101D,
@@ -4054,7 +4054,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleOnyxAudio;
-				MODULE_VERSION = 2.2.6b2;
+				MODULE_VERSION = 2.4.1b1;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -4080,7 +4080,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleOnyxAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleOnyxAudio version 2.2.6, Copyright 2000-2004 Apple Computer, Inc.</string>
+	<string>AppleOnyxAudio version 2.4.1, Copyright 2000-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -4092,11 +4092,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.6</string>
+	<string>2.4.1</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.6b2</string>
+	<string>2.4.1b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleOnyxAudio</key>
@@ -4994,6 +4994,54 @@
 //942
 //943
 //944
+//A50
+//A51
+//A52
+//A53
+//A54
+		A5129B1706553C200054764C = {
+			children = (
+				A5129B8506555B260054764C,
+				A5129B8606555B260054764C,
+			);
+			isa = PBXGroup;
+			name = I2SOpaqueSlaveOnly;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A5129B8506555B260054764C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = I2SOpaqueSlaveOnlyTransportInterface.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A5129B8606555B260054764C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = I2SOpaqueSlaveOnlyTransportInterface.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A5129B8706555B260054764C = {
+			fileRef = A5129B8506555B260054764C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A5129B8806555B260054764C = {
+			fileRef = A5129B8606555B260054764C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//A50
+//A51
+//A52
+//A53
+//A54
 //AD0
 //AD1
 //AD2
@@ -5032,7 +5080,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleTexas2Audio;
-				MODULE_VERSION = 2.2.6;
+				MODULE_VERSION = 2.4.1;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -5057,7 +5105,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleTexas2Audio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleTexas2Audio version 2.2.6, Copyright 2000-2004 Apple Computer, Inc.</string>
+	<string>AppleTexas2Audio version 2.4.1, Copyright 2000-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -5069,11 +5117,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.6</string>
+	<string>2.4.1</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.6</string>
+	<string>2.4.1b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleTexas2Audio</key>
@@ -5303,7 +5351,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.VirtualAudioDriver;
-				MODULE_VERSION = 2.2.6;
+				MODULE_VERSION = 2.4.1;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -5331,7 +5379,7 @@
 	<key>CFBundleExecutable</key>
 	<string>VirtualAudioDriver</string>
 	<key>CFBundleGetInfoString</key>
-	<string>VirtualAudioDriver version 2.2.6, Copyright 2002-2004 Apple Computer, Inc.</string>
+	<string>VirtualAudioDriver version 2.4.1, Copyright 2002-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -5343,11 +5391,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.6</string>
+	<string>2.4.1</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.6</string>
+	<string>2.4.1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>VirtualAudioDriver</key>
@@ -5672,11 +5720,221 @@
 //C52
 //C53
 //C54
+//DD0
+//DD1
+//DD2
+//DD3
+//DD4
+		DD6B96610655C8E500F4777F = {
+			children = (
+				DD6B96640655C90800F4777F,
+				DD6B96650655C90800F4777F,
+			);
+			isa = PBXGroup;
+			name = AppleOnyxI2SMasterAudio;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		DD6B96640655C90800F4777F = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			name = AppleOnyxI2SMasterAudio.cpp;
+			path = AppleOnboardAudio/AppleOnyxI2SMasterAudio.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		DD6B96650655C90800F4777F = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = AppleOnyxI2SMasterAudio.h;
+			path = AppleOnboardAudio/AppleOnyxI2SMasterAudio.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		DD6B96670655C90800F4777F = {
+			fileRef = DD6B96650655C90800F4777F;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		DD6B968B065672AE00F4777F = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		DD6B968C065672AE00F4777F = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DD6B968D065672AE00F4777F = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DD6B968E065672AE00F4777F = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DD6B968F065672AE00F4777F = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DD6B9690065672AE00F4777F = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		DD6B9691065672AE00F4777F = {
+			buildPhases = (
+				DD6B968B065672AE00F4777F,
+				DD6B968C065672AE00F4777F,
+				DD6B968D065672AE00F4777F,
+				DD6B968E065672AE00F4777F,
+				DD6B968F065672AE00F4777F,
+				DD6B9690065672AE00F4777F,
+			);
+			buildSettings = {
+				GCC_VERSION = 3.3;
+				KERNEL_MODULE = YES;
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleOnyxI2SMasterAudio;
+				MODULE_VERSION = 2.4.1b1;
+				OPTIMIZATION_CFLAGS = "-Os";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleOnyxI2SMasterAudio;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = AppleOnyxI2SMasterAudio;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = AppleOnyxI2SMasterAudio;
+			productReference = DD6B9692065672AE00F4777F;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleOnyxI2SMasterAudio</string>
+	<key>CFBundleGetInfoString</key>
+	<string>AppleOnyxI2SMasterAudio version 2.4.1, Copyright 2004 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleOnyxI2SMasterAudio</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AppleOnyxI2SMasterAudio</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>2.4.1</string>
+	<key>CFBundleSignature</key>
+	<string>aaud</string>
+	<key>CFBundleVersion</key>
+	<string>2.4.1b1</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>AppleOnyxI2SMasterAudio</key>
+		<dict>
+			<key>AOAAttributes</key>
+			<dict>
+				<key>InputLatency</key>
+				<integer>18</integer>
+				<key>OutputLatency</key>
+				<integer>20</integer>
+				<key>PluginID</key>
+				<string>OnyxI2SMaster</string>
+				<key>SoftareInputGain</key>
+				<true/>
+			</dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleOnyxI2SMasterAudio</string>
+			<key>IOClass</key>
+			<string>AppleOnyxI2SMasterAudio</string>
+			<key>IOMatchCategory</key>
+			<string>OnyxI2SMaster</string>
+			<key>IOPropertyMatch</key>
+			<dict>
+				<key>LoadOnyxI2SMaster</key>
+				<string>YES</string>
+			</dict>
+			<key>IOProviderClass</key>
+			<string>AppleOnboardAudio</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.AppleOnboardAudio</key>
+		<string>2.0.0b1</string>
+		<key>com.apple.iokit.IOAudioFamily</key>
+		<string>1.1fc9</string>
+	</dict>
+</dict>
+</plist>
+";
+		};
+		DD6B9692065672AE00F4777F = {
+			explicitFileType = wrapper.cfbundle;
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			path = AppleOnyxI2SMasterAudio.kext;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+//DD0
+//DD1
+//DD2
+//DD3
+//DD4
 //F20
 //F21
 //F22
 //F23
 //F24
+		F221A7A606516C0E001B4F0D = {
+			fileRef = F2983013062DA544005E9CA6;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		F2656707062D963C0076D78D = {
 			children = (
 				F2FBF622062F20C70058847E,
@@ -5703,7 +5961,7 @@
 		F298300D062DA544005E9CA6 = {
 			buildActionMask = 2147483647;
 			files = (
-				F2FBF627062F20C70058847E,
+				F2B69C53065163C0001F0B18,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -5711,7 +5969,7 @@
 		F298300E062DA544005E9CA6 = {
 			buildActionMask = 2147483647;
 			files = (
-				F2FBF626062F20C70058847E,
+				F2B69C54065163C1001F0B18,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -5756,8 +6014,8 @@
 				GCC_VERSION = 3.3;
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.driver.kext.AppleToonieAudio;
-				MODULE_VERSION = 2.2.6b0;
+				MODULE_NAME = com.apple.driver.AppleToonieAudio;
+				MODULE_VERSION = 2.4.1b1;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -5783,11 +6041,11 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleToonieAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleToonieAudio version 2.2.6, Copyright 2004 Apple Computer, Inc.</string>
+	<string>AppleToonieAudio version 2.4.1, Copyright 2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
-	<string>com.apple.driver.kext.AppleToonieAudio</string>
+	<string>com.apple.driver.AppleToonieAudio</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -5795,11 +6053,48 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.6</string>
+	<string>2.4.1</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.6b0</string>
+	<string>2.4.1b1</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>AppleToonieAudio</key>
+		<dict>
+			<key>AOAAttributes</key>
+			<dict>
+				<key>InputLatency</key>
+				<integer>50</integer>
+				<key>OutputLatency</key>
+				<integer>50</integer>
+				<key>PluginID</key>
+				<string>Toonie</string>
+				<key>SoftwareInputGain</key>
+				<false/>
+			</dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleToonieAudio</string>
+			<key>IOClass</key>
+			<string>AppleToonieAudio</string>
+			<key>IOMatchCategory</key>
+			<string>Toonie</string>
+			<key>IOPropertyMatch</key>
+			<dict>
+				<key>LoadToonie</key>
+				<string>YES</string>
+			</dict>
+			<key>IOProviderClass</key>
+			<string>AppleOnboardAudio</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.AppleOnboardAudio</key>
+		<string>2.0.0b1</string>
+		<key>com.apple.iokit.IOAudioFamily</key>
+		<string>1.1fc9</string>
+	</dict>
 </dict>
 </plist>
 ";
@@ -5811,6 +6106,30 @@
 			path = AppleToonieAudio.kext;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		F2B69C53065163C0001F0B18 = {
+			fileRef = F2FBF623062F20C70058847E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F2B69C54065163C1001F0B18 = {
+			fileRef = F2FBF622062F20C70058847E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F2B69C80065165D0001F0B18 = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = F2983012062DA544005E9CA6;
+			remoteInfo = AppleToonieAudio;
+		};
+		F2B69C81065165D0001F0B18 = {
+			isa = PBXTargetDependency;
+			target = F2983012062DA544005E9CA6;
+			targetProxy = F2B69C80065165D0001F0B18;
 		};
 		F2FBF622062F20C70058847E = {
 			fileEncoding = 30;
@@ -5829,30 +6148,6 @@
 			path = AppleOnboardAudio/AppleToonieAudio/AppleToonieAudio.h;
 			refType = 4;
 			sourceTree = "<group>";
-		};
-		F2FBF624062F20C70058847E = {
-			fileRef = F2FBF622062F20C70058847E;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F2FBF625062F20C70058847E = {
-			fileRef = F2FBF623062F20C70058847E;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F2FBF626062F20C70058847E = {
-			fileRef = F2FBF622062F20C70058847E;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F2FBF627062F20C70058847E = {
-			fileRef = F2FBF623062F20C70058847E;
-			isa = PBXBuildFile;
-			settings = {
-			};
 		};
 //F20
 //F21
@@ -6107,6 +6402,7 @@
 		};
 		F55A712B041FD85F01CD2540 = {
 			children = (
+				A5129B1706553C200054764C,
 				8E0F286D058F5F400075CBB1,
 				F55A7127041FCF4D01CD2540,
 				F55E83E804268FA401CD2540,
@@ -6220,7 +6516,8 @@
 		F5A720E303FD6B9501CD2541 = {
 			buildActionMask = 2147483647;
 			files = (
-				F2FBF625062F20C70058847E,
+				A5129B8806555B260054764C,
+				DD6B96670655C90800F4777F,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -6240,7 +6537,7 @@
 				F5888CD3044CA61E01CD2540,
 				94785E380558862000ACDFF4,
 				8E0F2870058F5F7D0075CBB1,
-				F2FBF624062F20C70058847E,
+				A5129B8706555B260054764C,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -6288,7 +6585,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleOnboardAudio;
-				MODULE_VERSION = 2.2.6b12;
+				MODULE_VERSION = 2.4.1b1;
 				OPTIMZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -6303,6 +6600,7 @@
 				4DE28F1C0405895A00CD2599,
 				8E743217053729C700A8101D,
 				4DE28F0404055CB900CD2599,
+				F2B69C81065165D0001F0B18,
 				4DE28F0504055CBB00CD2599,
 				4D7DA63E0460431F00CD2599,
 			);
@@ -6320,7 +6618,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleOnboardAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleOnboardAudio version 2.2.6, Copyright 2000-2004 Apple Computer, Inc.</string>
+	<string>AppleOnboardAudio version 2.4.1, Copyright 2000-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -6332,11 +6630,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.6</string>
+	<string>2.4.1</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.6b12</string>
+	<string>2.4.1b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleOnboardAudioK2</key>
@@ -6467,8 +6765,8 @@
 					</dict>
 					<key>Inputs</key>
 					<array>
-						<string>LineIn</string>
 						<string>DigitalIn</string>
+						<string>LineIn</string>
 					</array>
 					<key>InputsBitmap</key>
 					<integer>18432</integer>
@@ -6485,174 +6783,6 @@
 						</array>
 						<key>PluginID</key>
 						<string>TAS</string>
-						<key>SignalProcessing</key>
-						<dict>
-							<key>SpeakerID_0</key>
-							<dict>
-								<key>SoftwareDSP</key>
-								<dict>
-									<key>Equalization</key>
-									<dict>
-										<key>Filter0</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1752195443</integer>
-											<key>Frequency</key>
-											<data>
-								Q5MNCA==
-											</data>
-											<key>Gain</key>
-											<data>
-								wSiesw==
-											</data>
-											<key>Q</key>
-											<data>
-								PzUE8w==
-											</data>
-											<key>index</key>
-											<integer>0</integer>
-										</dict>
-										<key>Filter1</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1885434465</integer>
-											<key>Frequency</key>
-											<data>
-								RH4UaA==
-											</data>
-											<key>Gain</key>
-											<data>
-								wWM2CQ==
-											</data>
-											<key>Q</key>
-											<data>
-								P/X4zg==
-											</data>
-											<key>index</key>
-											<integer>1</integer>
-										</dict>
-										<key>Filter2</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1885434465</integer>
-											<key>Frequency</key>
-											<data>
-								RQLTyA==
-											</data>
-											<key>Gain</key>
-											<data>
-								wYrZ6Q==
-											</data>
-											<key>Q</key>
-											<data>
-								P/lneg==
-											</data>
-											<key>index</key>
-											<integer>2</integer>
-										</dict>
-										<key>Filter3</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1885434465</integer>
-											<key>Frequency</key>
-											<data>
-								RUoTKw==
-											</data>
-											<key>Gain</key>
-											<data>
-								wKcz9Q==
-											</data>
-											<key>Q</key>
-											<data>
-								QEuRUQ==
-											</data>
-											<key>index</key>
-											<integer>3</integer>
-										</dict>
-										<key>Filter4</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1752195443</integer>
-											<key>Frequency</key>
-											<data>
-								QxInCg==
-											</data>
-											<key>Gain</key>
-											<data>
-								wA2yig==
-											</data>
-											<key>Q</key>
-											<data>
-								PzUE8w==
-											</data>
-											<key>index</key>
-											<integer>4</integer>
-										</dict>
-										<key>Filter5</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1819304307</integer>
-											<key>Frequency</key>
-											<data>
-								RkCQAg==
-											</data>
-											<key>Gain</key>
-											<data>
-								wUCqEw==
-											</data>
-											<key>Q</key>
-											<data>
-								PzUE8w==
-											</data>
-											<key>index</key>
-											<integer>5</integer>
-										</dict>
-									</dict>
-									<key>MultibandDRC</key>
-									<dict>
-										<key>Limiter</key>
-										<dict>
-											<key>AttackTime</key>
-											<data>
-								AAAAUA==
-											</data>
-											<key>BandIndex</key>
-											<integer>0</integer>
-											<key>Gain</key>
-											<data>
-								AAAAAA==
-											</data>
-											<key>HardLimit</key>
-											<integer>0</integer>
-											<key>LimiterType</key>
-											<integer>0</integer>
-											<key>Lookahead</key>
-											<integer>0</integer>
-											<key>Ratio</key>
-											<data>
-								AAAAWA==
-											</data>
-											<key>RatioBelow</key>
-											<data>
-								AAAAAg==
-											</data>
-											<key>ReleaseTime</key>
-											<data>
-								AAAAoA==
-											</data>
-											<key>RunInHardware</key>
-											<true/>
-											<key>Threshold</key>
-											<data>
-								AAAAxw==
-											</data>
-										</dict>
-									</dict>
-								</dict>
-								<key>maxVolumeOffset</key>
-								<integer>0</integer>
-							</dict>
-						</dict>
 					</dict>
 					<key>LayoutID</key>
 					<integer>36</integer>
@@ -6691,10 +6821,10 @@
 					</dict>
 					<key>Outputs</key>
 					<array>
+						<string>DigitalOut</string>
 						<string>Headphones</string>
 						<string>IntSpeakers</string>
 						<string>LineOut</string>
-						<string>DigitalOut</string>
 					</array>
 					<key>OutputsBitmap</key>
 					<integer>12291</integer>
@@ -6705,8 +6835,12 @@
 						<string>Topaz</string>
 						<string>TAS</string>
 					</array>
+					<key>TransportIndex</key>
+					<integer>0</integer>
 					<key>TransportObject</key>
 					<string>i2s</string>
+					<key>Version</key>
+					<string>3.3</string>
 				</dict>
 			</array>
 		</dict>
@@ -6725,6 +6859,208 @@
 			<string>AppleMacIODevice</string>
 			<key>Layouts</key>
 			<array>
+				<dict>
+					<key>AmpRecoveryTime</key>
+					<integer>250</integer>
+					<key>ComboIn</key>
+					<string>LineInDetect</string>
+					<key>ComboOut</key>
+					<string>LineOutDetect</string>
+					<key>DigitalOut</key>
+					<dict>
+						<key>ClipRoutines</key>
+						<array>
+							<string>FloatToInt</string>
+						</array>
+						<key>Controls</key>
+						<array>
+							<string>Mute</string>
+						</array>
+						<key>PluginID</key>
+						<string>Onyx</string>
+					</dict>
+					<key>ExternalClockSelect</key>
+					<true/>
+					<key>Formats</key>
+					<array>
+						<dict>
+							<key>BitDepth</key>
+							<integer>16</integer>
+							<key>BitWidth</key>
+							<integer>16</integer>
+							<key>Channels</key>
+							<integer>2</integer>
+							<key>Encoding</key>
+							<string>PCM</string>
+							<key>IsMixable</key>
+							<true/>
+							<key>SampleRates</key>
+							<array>
+								<integer>32000</integer>
+								<integer>44100</integer>
+								<integer>48000</integer>
+								<integer>64000</integer>
+								<integer>88200</integer>
+								<integer>96000</integer>
+							</array>
+						</dict>
+						<dict>
+							<key>BitDepth</key>
+							<integer>24</integer>
+							<key>BitWidth</key>
+							<integer>32</integer>
+							<key>Channels</key>
+							<integer>2</integer>
+							<key>Encoding</key>
+							<string>PCM</string>
+							<key>IsMixable</key>
+							<true/>
+							<key>SampleRates</key>
+							<array>
+								<integer>32000</integer>
+								<integer>44100</integer>
+								<integer>48000</integer>
+								<integer>64000</integer>
+								<integer>88200</integer>
+								<integer>96000</integer>
+							</array>
+						</dict>
+						<dict>
+							<key>BitDepth</key>
+							<integer>16</integer>
+							<key>BitWidth</key>
+							<integer>16</integer>
+							<key>Channels</key>
+							<integer>2</integer>
+							<key>Encoding</key>
+							<string>AC3</string>
+							<key>IsMixable</key>
+							<false/>
+							<key>SampleRates</key>
+							<array>
+								<integer>32000</integer>
+								<integer>44100</integer>
+								<integer>48000</integer>
+								<integer>64000</integer>
+								<integer>88200</integer>
+								<integer>96000</integer>
+							</array>
+						</dict>
+					</array>
+					<key>HardwareObjects</key>
+					<array>
+						<string>LoadOnyx</string>
+					</array>
+					<key>Inputs</key>
+					<array>
+						<string>InternalMic</string>
+						<string>LineIn</string>
+					</array>
+					<key>InputsBitmap</key>
+					<integer>2064</integer>
+					<key>IntSpeakers</key>
+					<dict>
+						<key>ClipRoutines</key>
+						<array>
+							<string>FloatToInt</string>
+						</array>
+						<key>Controls</key>
+						<array>
+							<string>Mute</string>
+							<string>Left</string>
+							<string>Right</string>
+						</array>
+						<key>PluginID</key>
+						<string>Onyx</string>
+					</dict>
+					<key>InternalMic</key>
+					<dict>
+						<key>ClipRoutines</key>
+						<array>
+							<string>IntToFloat</string>
+						</array>
+						<key>Controls</key>
+						<array>
+							<string>Mute</string>
+							<string>Master</string>
+						</array>
+						<key>Playthrough</key>
+						<false/>
+						<key>PluginID</key>
+						<string>Onyx</string>
+					</dict>
+					<key>LayoutID</key>
+					<integer>64</integer>
+					<key>LineIn</key>
+					<dict>
+						<key>ClipRoutines</key>
+						<array>
+							<string>IntToFloat</string>
+						</array>
+						<key>Controls</key>
+						<array>
+							<string>Mute</string>
+							<string>Master</string>
+						</array>
+						<key>Playthrough</key>
+						<false/>
+						<key>PluginID</key>
+						<string>Onyx</string>
+					</dict>
+					<key>LineOut</key>
+					<dict>
+						<key>ClipRoutines</key>
+						<array>
+							<string>FloatToInt</string>
+						</array>
+						<key>Controls</key>
+						<array>
+							<string>Mute</string>
+							<string>Left</string>
+							<string>Right</string>
+						</array>
+						<key>PluginID</key>
+						<string>Onyx</string>
+					</dict>
+					<key>MultipleDevicesxxxx</key>
+					<array>
+						<dict>
+							<key>i2sNode</key>
+							<string>i2s-b</string>
+							<key>matchProperty</key>
+							<string>Load-i2s-b</string>
+							<key>soundNodePath</key>
+							<string>AppleKeyLargo/sound</string>
+						</dict>
+					</array>
+					<key>MuteAmpWhenClockInterrupted</key>
+					<true/>
+					<key>Outputs</key>
+					<array>
+						<string>DigitalOut</string>
+						<string>IntSpeakers</string>
+						<string>LineOut</string>
+					</array>
+					<key>OutputsBitmap</key>
+					<integer>45057</integer>
+					<key>PlatformObject</key>
+					<string>KeyLargo</string>
+					<key>RecoveryOrder</key>
+					<array>
+						<string>Onyx</string>
+					</array>
+					<key>SWInterrupts</key>
+					<array>
+						<string>ClockLock</string>
+						<string>ClockUnLock</string>
+					</array>
+					<key>TransportIndex</key>
+					<integer>0</integer>
+					<key>TransportObject</key>
+					<string>i2s</string>
+					<key>Version</key>
+					<string>1.3</string>
+				</dict>
 				<dict>
 					<key>AmpRecoveryTime</key>
 					<integer>225</integer>
@@ -6777,6 +7113,21 @@
 					<array>
 						<string>LoadToonie</string>
 					</array>
+					<key>Headphones</key>
+					<dict>
+						<key>ClipRoutines</key>
+						<array>
+							<string>FloatToInt</string>
+						</array>
+						<key>Controls</key>
+						<array>
+							<string>Mute</string>
+							<string>Left</string>
+							<string>Right</string>
+						</array>
+						<key>PluginID</key>
+						<string>Toonie</string>
+					</dict>
 					<key>IntSpeakers</key>
 					<dict>
 						<key>ClipRoutines</key>
@@ -6797,10 +7148,11 @@
 					<true/>
 					<key>Outputs</key>
 					<array>
+						<string>Headphones</string>
 						<string>IntSpeakers</string>
 					</array>
 					<key>OutputsBitmap</key>
-					<integer>1</integer>
+					<integer>3</integer>
 					<key>PlatformObject</key>
 					<string>KeyLargo</string>
 					<key>RecoveryOrder</key>
@@ -6814,7 +7166,9 @@
 					<key>UIMutesAmps</key>
 					<true/>
 					<key>Version</key>
-					<string>3.0</string>
+					<string>3.3</string>
+					<key>suppressBootChimeLevelControl</key>
+					<true/>
 				</dict>
 				<dict>
 					<key>AmpRecoveryTime</key>
@@ -6885,7 +7239,7 @@
 						<string>LineIn</string>
 					</array>
 					<key>InputsBitmap</key>
-					<integer>2064</integer>
+					<integer>0</integer>
 					<key>IntSpeakers</key>
 					<dict>
 						<key>ClipRoutines</key>
@@ -7120,19 +7474,15 @@
 						<string>IntSpeakers</string>
 					</array>
 					<key>OutputsBitmap</key>
-					<integer>3</integer>
+					<integer>0</integer>
 					<key>PlatformObject</key>
 					<string>KeyLargo</string>
 					<key>RecoveryOrder</key>
 					<array>
 						<string>TAS</string>
 					</array>
-					<key>TransportIndex</key>
-					<integer>0</integer>
 					<key>TransportObject</key>
 					<string>i2s</string>
-					<key>Version</key>
-					<string>3.0</string>
 				</dict>
 				<dict>
 					<key>AmpRecoveryTime</key>
@@ -7635,6 +7985,146 @@
 					<string>i2s</string>
 					<key>Version</key>
 					<string>3.0</string>
+				</dict>
+			</array>
+		</dict>
+		<key>AppleOnboardAudioKeyLargo2</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleOnboardAudio</string>
+			<key>IOClass</key>
+			<string>AppleOnboardAudio</string>
+			<key>IOMatchCategory</key>
+			<string>S1</string>
+			<key>IOPropertyMatch</key>
+			<dict>
+				<key>Load-i2s-b</key>
+				<string>YES</string>
+			</dict>
+			<key>IOProviderClass</key>
+			<string>AppleMacIODevice</string>
+			<key>Layouts</key>
+			<array>
+				<dict>
+					<key>AmpRecoveryTime</key>
+					<integer>250</integer>
+					<key>DigitalIn</key>
+					<dict>
+						<key>ClipRoutines</key>
+						<array>
+							<string>IntToFloat</string>
+						</array>
+						<key>Controls</key>
+						<array>
+							<string>Mute</string>
+						</array>
+						<key>Playthrough</key>
+						<false/>
+						<key>PluginID</key>
+						<string>Topaz</string>
+					</dict>
+					<key>ExternalClockSelect</key>
+					<false/>
+					<key>Formats</key>
+					<array>
+						<dict>
+							<key>BitDepth</key>
+							<integer>16</integer>
+							<key>BitWidth</key>
+							<integer>16</integer>
+							<key>Channels</key>
+							<integer>2</integer>
+							<key>Encoding</key>
+							<string>PCM</string>
+							<key>IsMixable</key>
+							<true/>
+							<key>SampleRates</key>
+							<array>
+								<integer>32000</integer>
+								<integer>44100</integer>
+								<integer>48000</integer>
+								<integer>64000</integer>
+								<integer>88200</integer>
+								<integer>96000</integer>
+							</array>
+						</dict>
+						<dict>
+							<key>BitDepth</key>
+							<integer>24</integer>
+							<key>BitWidth</key>
+							<integer>32</integer>
+							<key>Channels</key>
+							<integer>2</integer>
+							<key>Encoding</key>
+							<string>PCM</string>
+							<key>IsMixable</key>
+							<true/>
+							<key>SampleRates</key>
+							<array>
+								<integer>32000</integer>
+								<integer>44100</integer>
+								<integer>48000</integer>
+								<integer>64000</integer>
+								<integer>88200</integer>
+								<integer>96000</integer>
+							</array>
+						</dict>
+						<dict>
+							<key>BitDepth</key>
+							<integer>16</integer>
+							<key>BitWidth</key>
+							<integer>16</integer>
+							<key>Channels</key>
+							<integer>2</integer>
+							<key>Encoding</key>
+							<string>AC3</string>
+							<key>IsMixable</key>
+							<false/>
+							<key>SampleRates</key>
+							<array>
+								<integer>32000</integer>
+								<integer>44100</integer>
+								<integer>48000</integer>
+								<integer>64000</integer>
+								<integer>88200</integer>
+								<integer>96000</integer>
+							</array>
+						</dict>
+					</array>
+					<key>HardwareObjects</key>
+					<array>
+						<string>LoadTopaz</string>
+					</array>
+					<key>Inputs</key>
+					<array>
+						<string>DigitalIn</string>
+					</array>
+					<key>InputsBitmap</key>
+					<integer>16384</integer>
+					<key>LayoutID</key>
+					<integer>65</integer>
+					<key>PlatformObject</key>
+					<string>KeyLargo</string>
+					<key>RecoveryOrder</key>
+					<array>
+						<string>Topaz</string>
+					</array>
+					<key>SWInterrupts</key>
+					<array>
+						<string>DigitalInDetectInsert</string>
+						<string>DigitalInDetectRemove</string>
+						<string>RemoteActive</string>
+						<string>RemoteIdle</string>
+						<string>RemoteSleep</string>
+					</array>
+					<key>TransportIndex</key>
+					<integer>1</integer>
+					<key>TransportObject</key>
+					<string>i2s</string>
+					<key>UsesAOAPowerManagement</key>
+					<integer>64</integer>
+					<key>Version</key>
+					<string>1.4</string>
 				</dict>
 			</array>
 		</dict>
@@ -8245,6 +8735,2385 @@
 					<string>i2s</string>
 					<key>Version</key>
 					<string>3.1</string>
+				</dict>
+				<dict>
+					<key>AmpRecoveryTime</key>
+					<integer>1</integer>
+					<key>ComboOut</key>
+					<string>LineOutDetect</string>
+					<key>DigitalOut</key>
+					<dict>
+						<key>ClipRoutines</key>
+						<array>
+							<string>FloatToInt</string>
+						</array>
+						<key>Controls</key>
+						<array>
+							<string>Mute</string>
+						</array>
+						<key>PluginID</key>
+						<string>Onyx</string>
+					</dict>
+					<key>ExternalClockSelect</key>
+					<false/>
+					<key>Formats</key>
+					<array>
+						<dict>
+							<key>BitDepth</key>
+							<integer>16</integer>
+							<key>BitWidth</key>
+							<integer>16</integer>
+							<key>Channels</key>
+							<integer>2</integer>
+							<key>Encoding</key>
+							<string>PCM</string>
+							<key>IsMixable</key>
+							<true/>
+							<key>SampleRates</key>
+							<array>
+								<integer>32000</integer>
+								<integer>44100</integer>
+								<integer>48000</integer>
+								<integer>64000</integer>
+								<integer>88200</integer>
+								<integer>96000</integer>
+							</array>
+						</dict>
+						<dict>
+							<key>BitDepth</key>
+							<integer>24</integer>
+							<key>BitWidth</key>
+							<integer>32</integer>
+							<key>Channels</key>
+							<integer>2</integer>
+							<key>Encoding</key>
+							<string>PCM</string>
+							<key>IsMixable</key>
+							<true/>
+							<key>SampleRates</key>
+							<array>
+								<integer>32000</integer>
+								<integer>44100</integer>
+								<integer>48000</integer>
+								<integer>64000</integer>
+								<integer>88200</integer>
+								<integer>96000</integer>
+							</array>
+						</dict>
+						<dict>
+							<key>BitDepth</key>
+							<integer>16</integer>
+							<key>BitWidth</key>
+							<integer>16</integer>
+							<key>Channels</key>
+							<integer>2</integer>
+							<key>Encoding</key>
+							<string>AC3</string>
+							<key>IsMixable</key>
+							<false/>
+							<key>SampleRates</key>
+							<array>
+								<integer>32000</integer>
+								<integer>44100</integer>
+								<integer>48000</integer>
+								<integer>64000</integer>
+								<integer>88200</integer>
+								<integer>96000</integer>
+							</array>
+						</dict>
+					</array>
+					<key>HardwareObjects</key>
+					<array>
+						<string>LoadOnyx</string>
+					</array>
+					<key>Inputs</key>
+					<array>
+						<string>InternalMic</string>
+						<string>LineIn</string>
+					</array>
+					<key>InputsBitmap</key>
+					<integer>2064</integer>
+					<key>IntSpeakers</key>
+					<dict>
+						<key>ClipRoutines</key>
+						<array>
+							<string>FloatToInt</string>
+						</array>
+						<key>Controls</key>
+						<array>
+							<string>Mute</string>
+							<string>Left</string>
+							<string>Right</string>
+						</array>
+						<key>PluginID</key>
+						<string>Onyx</string>
+						<key>SignalProcessing</key>
+						<dict>
+							<key>SpeakerID_0</key>
+							<dict>
+								<key>SoftwareDSP</key>
+								<dict>
+									<key>Equalization</key>
+									<dict>
+										<key>Filter0</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1752195443</integer>
+											<key>Frequency</key>
+											<data>
+								Qsj0+g==
+											</data>
+											<key>Gain</key>
+											<data>
+								QSgToQ==
+											</data>
+											<key>Q</key>
+											<data>
+								P0S7+A==
+											</data>
+											<key>index</key>
+											<integer>0</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter1</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1752195443</integer>
+											<key>Frequency</key>
+											<data>
+								QpzwFA==
+											</data>
+											<key>Gain</key>
+											<data>
+								QCvB1w==
+											</data>
+											<key>Q</key>
+											<data>
+								PzUE8w==
+											</data>
+											<key>index</key>
+											<integer>1</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter10</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								Q0TOHA==
+											</data>
+											<key>Gain</key>
+											<data>
+								wJIjPQ==
+											</data>
+											<key>Q</key>
+											<data>
+								QI0MVg==
+											</data>
+											<key>index</key>
+											<integer>10</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter11</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								RhSBkQ==
+											</data>
+											<key>Gain</key>
+											<data>
+								wITsTw==
+											</data>
+											<key>Q</key>
+											<data>
+								QEroGA==
+											</data>
+											<key>index</key>
+											<integer>11</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter12</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								RC+inQ==
+											</data>
+											<key>Gain</key>
+											<data>
+								wDsTsQ==
+											</data>
+											<key>Q</key>
+											<data>
+								QLYS5g==
+											</data>
+											<key>index</key>
+											<integer>12</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter13</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1819304307</integer>
+											<key>Frequency</key>
+											<data>
+								RiPzZA==
+											</data>
+											<key>Gain</key>
+											<data>
+								QbT+Xw==
+											</data>
+											<key>Q</key>
+											<data>
+								PzUE8w==
+											</data>
+											<key>index</key>
+											<integer>13</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter14</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1752394854</integer>
+											<key>Frequency</key>
+											<data>
+								Ra3MEg==
+											</data>
+											<key>Gain</key>
+											<data>
+								QDsTsQ==
+											</data>
+											<key>Q</key>
+											<data>
+								QBu+ow==
+											</data>
+											<key>index</key>
+											<integer>14</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter2</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								RLD8Yg==
+											</data>
+											<key>Gain</key>
+											<data>
+								wMoa8w==
+											</data>
+											<key>Q</key>
+											<data>
+								QEFXgw==
+											</data>
+											<key>index</key>
+											<integer>2</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter3</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								RGBOog==
+											</data>
+											<key>Gain</key>
+											<data>
+								wDAaFw==
+											</data>
+											<key>Q</key>
+											<data>
+								QN4AAA==
+											</data>
+											<key>index</key>
+											<integer>3</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter4</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								Q4OhIA==
+											</data>
+											<key>Gain</key>
+											<data>
+								wHKGvQ==
+											</data>
+											<key>Q</key>
+											<data>
+								QLKGYA==
+											</data>
+											<key>index</key>
+											<integer>4</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter5</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								RSwjZw==
+											</data>
+											<key>Gain</key>
+											<data>
+								wEZgWw==
+											</data>
+											<key>Q</key>
+											<data>
+								QJFurg==
+											</data>
+											<key>index</key>
+											<integer>5</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter6</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								RUP7Ew==
+											</data>
+											<key>Gain</key>
+											<data>
+								wBkIgA==
+											</data>
+											<key>Q</key>
+											<data>
+								QCyOag==
+											</data>
+											<key>index</key>
+											<integer>6</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter7</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								RYJKHQ==
+											</data>
+											<key>Gain</key>
+											<data>
+								wJCICA==
+											</data>
+											<key>Q</key>
+											<data>
+								QBtNeA==
+											</data>
+											<key>index</key>
+											<integer>7</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter8</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								QwoE6A==
+											</data>
+											<key>Gain</key>
+											<data>
+								wL2rAw==
+											</data>
+											<key>Q</key>
+											<data>
+								QIdPlQ==
+											</data>
+											<key>index</key>
+											<integer>8</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter9</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								Q/121g==
+											</data>
+											<key>Gain</key>
+											<data>
+								wE1zxQ==
+											</data>
+											<key>Q</key>
+											<data>
+								QLDiug==
+											</data>
+											<key>index</key>
+											<integer>9</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+									</dict>
+									<key>GainStage</key>
+									<dict>
+										<key>LeftGain</key>
+										<data>
+								Pw9Efw==
+										</data>
+										<key>RightGain</key>
+										<data>
+								Pw9Efw==
+										</data>
+									</dict>
+									<key>MultibandDRC</key>
+									<dict>
+										<key>Crossover</key>
+										<dict>
+											<key>NumberOfBands</key>
+											<integer>1</integer>
+										</dict>
+										<key>Limiter0</key>
+										<dict>
+											<key>AttackTime</key>
+											<data>
+								QSt7fA==
+											</data>
+											<key>AttackTimeBelow</key>
+											<data>
+								QaAAAA==
+											</data>
+											<key>AttackTimeHardLimiter</key>
+											<data>
+								QEDAwQ==
+											</data>
+											<key>BandIndex</key>
+											<integer>0</integer>
+											<key>ExpanderThreshold</key>
+											<data>
+								wfAAAA==
+											</data>
+											<key>Gain</key>
+											<data>
+								P4IY8w==
+											</data>
+											<key>HardLimit</key>
+											<integer>1</integer>
+											<key>LimiterThreshold</key>
+											<data>
+								wOHh4g==
+											</data>
+											<key>LimiterType</key>
+											<integer>1717989234</integer>
+											<key>Lookahead</key>
+											<integer>10</integer>
+											<key>NoiseThreshold</key>
+											<data>
+								wsAAAA==
+											</data>
+											<key>Ratio</key>
+											<data>
+								P8PDxA==
+											</data>
+											<key>RatioBelow</key>
+											<data>
+								P6ZmZg==
+											</data>
+											<key>ReleaseTime</key>
+											<data>
+								Q0gAAA==
+											</data>
+											<key>ReleaseTimeBelow</key>
+											<data>
+								Q8gAAA==
+											</data>
+											<key>RunInHardware</key>
+											<false/>
+											<key>Threshold</key>
+											<data>
+								wXdXWA==
+											</data>
+										</dict>
+									</dict>
+								</dict>
+								<key>maxVolumeOffset</key>
+								<integer>0</integer>
+							</dict>
+							<key>SpeakerID_1</key>
+							<dict>
+								<key>SoftwareDSP</key>
+								<dict>
+									<key>Equalization</key>
+									<dict>
+										<key>Filter0</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1752195443</integer>
+											<key>Frequency</key>
+											<data>
+								QqN1MA==
+											</data>
+											<key>Gain</key>
+											<data>
+								QIdSmQ==
+											</data>
+											<key>Q</key>
+											<data>
+								PzSMIA==
+											</data>
+											<key>index</key>
+											<integer>0</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter1</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1752195443</integer>
+											<key>Frequency</key>
+											<data>
+								Qq2sgw==
+											</data>
+											<key>Gain</key>
+											<data>
+								QaoINA==
+											</data>
+											<key>Q</key>
+											<data>
+								PzUE8w==
+											</data>
+											<key>index</key>
+											<integer>1</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter10</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								RQ5mSw==
+											</data>
+											<key>Gain</key>
+											<data>
+								wJZgrA==
+											</data>
+											<key>Q</key>
+											<data>
+								QBQUwg==
+											</data>
+											<key>index</key>
+											<integer>10</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter11</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								RZfk1Q==
+											</data>
+											<key>Gain</key>
+											<data>
+								v+f7UA==
+											</data>
+											<key>Q</key>
+											<data>
+								QKK0+A==
+											</data>
+											<key>index</key>
+											<integer>11</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter12</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								RiGVCQ==
+											</data>
+											<key>Gain</key>
+											<data>
+								wCUy9w==
+											</data>
+											<key>Q</key>
+											<data>
+								QJh6cQ==
+											</data>
+											<key>index</key>
+											<integer>12</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter13</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								Rbqu/g==
+											</data>
+											<key>Gain</key>
+											<data>
+								v28C7g==
+											</data>
+											<key>Q</key>
+											<data>
+								QCxqcA==
+											</data>
+											<key>index</key>
+											<integer>13</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter14</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								RFi/yQ==
+											</data>
+											<key>Gain</key>
+											<data>
+								wIui6Q==
+											</data>
+											<key>Q</key>
+											<data>
+								QFZmig==
+											</data>
+											<key>index</key>
+											<integer>14</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter15</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1819304307</integer>
+											<key>Frequency</key>
+											<data>
+								RkglIg==
+											</data>
+											<key>Gain</key>
+											<data>
+								QTQjJg==
+											</data>
+											<key>Q</key>
+											<data>
+								PzUE8w==
+											</data>
+											<key>index</key>
+											<integer>15</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter2</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								Qzr7CQ==
+											</data>
+											<key>Gain</key>
+											<data>
+								wAui6Q==
+											</data>
+											<key>Q</key>
+											<data>
+								QCAAAA==
+											</data>
+											<key>index</key>
+											<integer>2</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter3</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								QvOdbA==
+											</data>
+											<key>Gain</key>
+											<data>
+								v4WQsg==
+											</data>
+											<key>Q</key>
+											<data>
+								P/B8Hw==
+											</data>
+											<key>index</key>
+											<integer>3</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter4</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								Q4YAtg==
+											</data>
+											<key>Gain</key>
+											<data>
+								wJZgrA==
+											</data>
+											<key>Q</key>
+											<data>
+								QFlDXg==
+											</data>
+											<key>index</key>
+											<integer>4</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter5</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								Q8h8Gg==
+											</data>
+											<key>Gain</key>
+											<data>
+								wRu/jQ==
+											</data>
+											<key>Q</key>
+											<data>
+								QGCU8g==
+											</data>
+											<key>index</key>
+											<integer>5</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter6</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								RUVIkQ==
+											</data>
+											<key>Gain</key>
+											<data>
+								wKb03w==
+											</data>
+											<key>Q</key>
+											<data>
+								QFRe0g==
+											</data>
+											<key>index</key>
+											<integer>6</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter7</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								RX7twQ==
+											</data>
+											<key>Gain</key>
+											<data>
+								wJ/tQQ==
+											</data>
+											<key>Q</key>
+											<data>
+								QFbczA==
+											</data>
+											<key>index</key>
+											<integer>7</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter8</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								RBafjw==
+											</data>
+											<key>Gain</key>
+											<data>
+								wKZ9UQ==
+											</data>
+											<key>Q</key>
+											<data>
+								QFfQXw==
+											</data>
+											<key>index</key>
+											<integer>8</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter9</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								RLZkhQ==
+											</data>
+											<key>Gain</key>
+											<data>
+								wFbTPw==
+											</data>
+											<key>Q</key>
+											<data>
+								QEX2cA==
+											</data>
+											<key>index</key>
+											<integer>9</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+									</dict>
+									<key>GainStage</key>
+									<dict>
+										<key>LeftGain</key>
+										<data>
+								Pw9Efw==
+										</data>
+										<key>RightGain</key>
+										<data>
+								Pw9Efw==
+										</data>
+									</dict>
+									<key>MultibandDRC</key>
+									<dict>
+										<key>Crossover</key>
+										<dict>
+											<key>NumberOfBands</key>
+											<integer>1</integer>
+										</dict>
+										<key>Limiter0</key>
+										<dict>
+											<key>AttackTime</key>
+											<data>
+								QSQkJA==
+											</data>
+											<key>AttackTimeBelow</key>
+											<data>
+								QaAAAA==
+											</data>
+											<key>AttackTimeHardLimiter</key>
+											<data>
+								QEDAwQ==
+											</data>
+											<key>BandIndex</key>
+											<integer>0</integer>
+											<key>ExpanderThreshold</key>
+											<data>
+								wiCoqQ==
+											</data>
+											<key>Gain</key>
+											<data>
+								P4CFbA==
+											</data>
+											<key>HardLimit</key>
+											<integer>1</integer>
+											<key>LimiterThreshold</key>
+											<data>
+								wOHh4g==
+											</data>
+											<key>LimiterType</key>
+											<integer>1717989234</integer>
+											<key>Lookahead</key>
+											<integer>10</integer>
+											<key>NoiseThreshold</key>
+											<data>
+								wsAAAA==
+											</data>
+											<key>Ratio</key>
+											<data>
+								P8PDxA==
+											</data>
+											<key>RatioBelow</key>
+											<data>
+								P6ioqQ==
+											</data>
+											<key>ReleaseTime</key>
+											<data>
+								Q0gAAA==
+											</data>
+											<key>ReleaseTimeBelow</key>
+											<data>
+								Q8gAAA==
+											</data>
+											<key>RunInHardware</key>
+											<false/>
+											<key>Threshold</key>
+											<data>
+								wXdXWA==
+											</data>
+										</dict>
+									</dict>
+								</dict>
+								<key>maxVolumeOffset</key>
+								<integer>0</integer>
+							</dict>
+						</dict>
+					</dict>
+					<key>InternalMic</key>
+					<dict>
+						<key>ClipRoutines</key>
+						<array>
+							<string>IntToFloat</string>
+						</array>
+						<key>Controls</key>
+						<array>
+							<string>Mute</string>
+							<string>Master</string>
+						</array>
+						<key>Playthrough</key>
+						<false/>
+						<key>PluginID</key>
+						<string>Onyx</string>
+						<key>SignalProcessing</key>
+						<dict>
+							<key>MicrophoneID_0</key>
+							<dict>
+								<key>SiliconVersion_0</key>
+								<dict>
+									<key>SoftwareDSP</key>
+									<dict>
+										<key>Equalization</key>
+										<dict>
+											<key>Filter0</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1752195443</integer>
+												<key>Frequency</key>
+												<data>
+								QqX8hA==
+												</data>
+												<key>Gain</key>
+												<data>
+								Plw3Dg==
+												</data>
+												<key>Q</key>
+												<data>
+								PzUE8w==
+												</data>
+												<key>index</key>
+												<integer>0</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter1</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								RSDUKg==
+												</data>
+												<key>Gain</key>
+												<data>
+								v8oa8w==
+												</data>
+												<key>Q</key>
+												<data>
+								QD9sxQ==
+												</data>
+												<key>index</key>
+												<integer>1</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter10</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								RgvvhA==
+												</data>
+												<key>Gain</key>
+												<data>
+								v6vKGw==
+												</data>
+												<key>Q</key>
+												<data>
+								QDacgQ==
+												</data>
+												<key>index</key>
+												<integer>12</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter11</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1819304307</integer>
+												<key>Frequency</key>
+												<data>
+								Rk0Ukg==
+												</data>
+												<key>Gain</key>
+												<data>
+								v/KGvQ==
+												</data>
+												<key>Q</key>
+												<data>
+								PzUE8w==
+												</data>
+												<key>index</key>
+												<integer>15</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter2</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								RCvA5Q==
+												</data>
+												<key>Gain</key>
+												<data>
+								wKvKGw==
+												</data>
+												<key>Q</key>
+												<data>
+								P6cPCQ==
+												</data>
+												<key>index</key>
+												<integer>2</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter3</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								Q9Yyrg==
+												</data>
+												<key>Gain</key>
+												<data>
+								wDryhw==
+												</data>
+												<key>Q</key>
+												<data>
+								P5NIeA==
+												</data>
+												<key>index</key>
+												<integer>3</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter4</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								RTxkhA==
+												</data>
+												<key>Gain</key>
+												<data>
+								v415Qw==
+												</data>
+												<key>Q</key>
+												<data>
+								QKussw==
+												</data>
+												<key>index</key>
+												<integer>4</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter5</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								QvvrPg==
+												</data>
+												<key>Gain</key>
+												<data>
+								P9Q15Q==
+												</data>
+												<key>Q</key>
+												<data>
+								Pxrxhg==
+												</data>
+												<key>index</key>
+												<integer>5</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter6</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								RZQClA==
+												</data>
+												<key>Gain</key>
+												<data>
+								Pw15Qw==
+												</data>
+												<key>Q</key>
+												<data>
+								P541uw==
+												</data>
+												<key>index</key>
+												<integer>6</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter7</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								RK98tw==
+												</data>
+												<key>Gain</key>
+												<data>
+								v3KGvQ==
+												</data>
+												<key>Q</key>
+												<data>
+								QBkIug==
+												</data>
+												<key>index</key>
+												<integer>7</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter8</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								RbS/Dw==
+												</data>
+												<key>Gain</key>
+												<data>
+								v4NeUQ==
+												</data>
+												<key>Q</key>
+												<data>
+								QL6YCg==
+												</data>
+												<key>index</key>
+												<integer>9</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter9</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								ReJHqg==
+												</data>
+												<key>Gain</key>
+												<data>
+								v6GvKA==
+												</data>
+												<key>Q</key>
+												<data>
+								QIU1yQ==
+												</data>
+												<key>index</key>
+												<integer>11</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+										</dict>
+										<key>GainStage</key>
+										<dict>
+											<key>LeftGain</key>
+											<data>
+								P//7eQ==
+											</data>
+											<key>RightGain</key>
+											<data>
+								P//7eQ==
+											</data>
+										</dict>
+										<key>MultibandDRC</key>
+										<dict>
+											<key>Crossover</key>
+											<dict>
+												<key>NumberOfBands</key>
+												<integer>1</integer>
+											</dict>
+											<key>Limiter0</key>
+											<dict>
+												<key>AttackTime</key>
+												<data>
+								QSAAAA==
+												</data>
+												<key>AttackTimeBelow</key>
+												<data>
+								QaAAAA==
+												</data>
+												<key>AttackTimeHardLimiter</key>
+												<data>
+								P+Wlpg==
+												</data>
+												<key>BandIndex</key>
+												<integer>0</integer>
+												<key>ExpanderThreshold</key>
+												<data>
+								wkAAAA==
+												</data>
+												<key>Gain</key>
+												<data>
+								P5aXOQ==
+												</data>
+												<key>HardLimit</key>
+												<integer>0</integer>
+												<key>LimiterThreshold</key>
+												<data>
+								AAAAAA==
+												</data>
+												<key>LimiterType</key>
+												<integer>1717989234</integer>
+												<key>Lookahead</key>
+												<integer>0</integer>
+												<key>NoiseThreshold</key>
+												<data>
+								wsAAAA==
+												</data>
+												<key>Ratio</key>
+												<data>
+								P4AAAA==
+												</data>
+												<key>RatioBelow</key>
+												<data>
+								P4AAAA==
+												</data>
+												<key>ReleaseTime</key>
+												<data>
+								Q0gAAA==
+												</data>
+												<key>ReleaseTimeBelow</key>
+												<data>
+								Q8gAAA==
+												</data>
+												<key>RunInHardware</key>
+												<false/>
+												<key>Threshold</key>
+												<data>
+								AAAAAA==
+												</data>
+											</dict>
+										</dict>
+									</dict>
+									<key>maxVolumeOffset</key>
+									<integer>0</integer>
+								</dict>
+								<key>SiliconVersion_1</key>
+								<dict>
+									<key>SoftwareDSP</key>
+									<dict>
+										<key>Equalization</key>
+										<dict>
+											<key>Filter0</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1752195443</integer>
+												<key>Frequency</key>
+												<data>
+								QqX8hA==
+												</data>
+												<key>Gain</key>
+												<data>
+								Plw3Dg==
+												</data>
+												<key>Q</key>
+												<data>
+								PzUE8w==
+												</data>
+												<key>index</key>
+												<integer>0</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter1</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								RSDUKg==
+												</data>
+												<key>Gain</key>
+												<data>
+								v8oa8w==
+												</data>
+												<key>Q</key>
+												<data>
+								QD9sxQ==
+												</data>
+												<key>index</key>
+												<integer>1</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter10</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								RgvvhA==
+												</data>
+												<key>Gain</key>
+												<data>
+								v6vKGw==
+												</data>
+												<key>Q</key>
+												<data>
+								QDacgQ==
+												</data>
+												<key>index</key>
+												<integer>12</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter11</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1819304307</integer>
+												<key>Frequency</key>
+												<data>
+								Rk0Ukg==
+												</data>
+												<key>Gain</key>
+												<data>
+								v/KGvQ==
+												</data>
+												<key>Q</key>
+												<data>
+								PzUE8w==
+												</data>
+												<key>index</key>
+												<integer>15</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter2</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								RCvA5Q==
+												</data>
+												<key>Gain</key>
+												<data>
+								wKvKGw==
+												</data>
+												<key>Q</key>
+												<data>
+								P6cPCQ==
+												</data>
+												<key>index</key>
+												<integer>2</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter3</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								Q9Yyrg==
+												</data>
+												<key>Gain</key>
+												<data>
+								wDryhw==
+												</data>
+												<key>Q</key>
+												<data>
+								P5NIeA==
+												</data>
+												<key>index</key>
+												<integer>3</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter4</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								RTxkhA==
+												</data>
+												<key>Gain</key>
+												<data>
+								v415Qw==
+												</data>
+												<key>Q</key>
+												<data>
+								QKussw==
+												</data>
+												<key>index</key>
+												<integer>4</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter5</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								QvvrPg==
+												</data>
+												<key>Gain</key>
+												<data>
+								P9Q15Q==
+												</data>
+												<key>Q</key>
+												<data>
+								Pxrxhg==
+												</data>
+												<key>index</key>
+												<integer>5</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter6</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								RZQClA==
+												</data>
+												<key>Gain</key>
+												<data>
+								Pw15Qw==
+												</data>
+												<key>Q</key>
+												<data>
+								P541uw==
+												</data>
+												<key>index</key>
+												<integer>6</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter7</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								RK98tw==
+												</data>
+												<key>Gain</key>
+												<data>
+								v3KGvQ==
+												</data>
+												<key>Q</key>
+												<data>
+								QBkIug==
+												</data>
+												<key>index</key>
+												<integer>7</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter8</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								RbS/Dw==
+												</data>
+												<key>Gain</key>
+												<data>
+								v4NeUQ==
+												</data>
+												<key>Q</key>
+												<data>
+								QL6YCg==
+												</data>
+												<key>index</key>
+												<integer>9</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter9</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								ReJHqg==
+												</data>
+												<key>Gain</key>
+												<data>
+								v6GvKA==
+												</data>
+												<key>Q</key>
+												<data>
+								QIU1yQ==
+												</data>
+												<key>index</key>
+												<integer>11</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+										</dict>
+										<key>MultibandDRC</key>
+										<dict>
+											<key>Crossover</key>
+											<dict>
+												<key>NumberOfBands</key>
+												<integer>1</integer>
+											</dict>
+											<key>Limiter0</key>
+											<dict>
+												<key>AttackTime</key>
+												<data>
+								QSAAAA==
+												</data>
+												<key>AttackTimeBelow</key>
+												<data>
+								QaAAAA==
+												</data>
+												<key>AttackTimeHardLimiter</key>
+												<data>
+								P+Wlpg==
+												</data>
+												<key>BandIndex</key>
+												<integer>0</integer>
+												<key>ExpanderThreshold</key>
+												<data>
+								wkAAAA==
+												</data>
+												<key>Gain</key>
+												<data>
+								P5aXOQ==
+												</data>
+												<key>HardLimit</key>
+												<integer>0</integer>
+												<key>LimiterThreshold</key>
+												<data>
+								AAAAAA==
+												</data>
+												<key>LimiterType</key>
+												<integer>1717989234</integer>
+												<key>Lookahead</key>
+												<integer>0</integer>
+												<key>NoiseThreshold</key>
+												<data>
+								wsAAAA==
+												</data>
+												<key>Ratio</key>
+												<data>
+								P4AAAA==
+												</data>
+												<key>RatioBelow</key>
+												<data>
+								P4AAAA==
+												</data>
+												<key>ReleaseTime</key>
+												<data>
+								Q0gAAA==
+												</data>
+												<key>ReleaseTimeBelow</key>
+												<data>
+								Q8gAAA==
+												</data>
+												<key>RunInHardware</key>
+												<false/>
+												<key>Threshold</key>
+												<data>
+								AAAAAA==
+												</data>
+											</dict>
+										</dict>
+									</dict>
+									<key>maxVolumeOffset</key>
+									<integer>0</integer>
+								</dict>
+							</dict>
+							<key>MicrophoneID_1</key>
+							<dict>
+								<key>SiliconVersion_0</key>
+								<dict>
+									<key>SoftwareDSP</key>
+									<dict>
+										<key>Equalization</key>
+										<dict>
+											<key>Filter0</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1752195443</integer>
+												<key>Frequency</key>
+												<data>
+								QqX8hA==
+												</data>
+												<key>Gain</key>
+												<data>
+								Plw3Dg==
+												</data>
+												<key>Q</key>
+												<data>
+								PzUE8w==
+												</data>
+												<key>index</key>
+												<integer>0</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter1</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								RSDUKg==
+												</data>
+												<key>Gain</key>
+												<data>
+								v8oa8w==
+												</data>
+												<key>Q</key>
+												<data>
+								QD9sxQ==
+												</data>
+												<key>index</key>
+												<integer>1</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter10</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								RgvvhA==
+												</data>
+												<key>Gain</key>
+												<data>
+								v6vKGw==
+												</data>
+												<key>Q</key>
+												<data>
+								QDacgQ==
+												</data>
+												<key>index</key>
+												<integer>12</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter11</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1819304307</integer>
+												<key>Frequency</key>
+												<data>
+								Rk0Ukg==
+												</data>
+												<key>Gain</key>
+												<data>
+								v/KGvQ==
+												</data>
+												<key>Q</key>
+												<data>
+								PzUE8w==
+												</data>
+												<key>index</key>
+												<integer>15</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter2</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								RCvA5Q==
+												</data>
+												<key>Gain</key>
+												<data>
+								wKvKGw==
+												</data>
+												<key>Q</key>
+												<data>
+								P6cPCQ==
+												</data>
+												<key>index</key>
+												<integer>2</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter3</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								Q9Yyrg==
+												</data>
+												<key>Gain</key>
+												<data>
+								wDryhw==
+												</data>
+												<key>Q</key>
+												<data>
+								P5NIeA==
+												</data>
+												<key>index</key>
+												<integer>3</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter4</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								RTxkhA==
+												</data>
+												<key>Gain</key>
+												<data>
+								v415Qw==
+												</data>
+												<key>Q</key>
+												<data>
+								QKussw==
+												</data>
+												<key>index</key>
+												<integer>4</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter5</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								QvvrPg==
+												</data>
+												<key>Gain</key>
+												<data>
+								P9Q15Q==
+												</data>
+												<key>Q</key>
+												<data>
+								Pxrxhg==
+												</data>
+												<key>index</key>
+												<integer>5</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter6</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								RZQClA==
+												</data>
+												<key>Gain</key>
+												<data>
+								Pw15Qw==
+												</data>
+												<key>Q</key>
+												<data>
+								P541uw==
+												</data>
+												<key>index</key>
+												<integer>6</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter7</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								RK98tw==
+												</data>
+												<key>Gain</key>
+												<data>
+								v3KGvQ==
+												</data>
+												<key>Q</key>
+												<data>
+								QBkIug==
+												</data>
+												<key>index</key>
+												<integer>7</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter8</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								RbS/Dw==
+												</data>
+												<key>Gain</key>
+												<data>
+								v4NeUQ==
+												</data>
+												<key>Q</key>
+												<data>
+								QL6YCg==
+												</data>
+												<key>index</key>
+												<integer>9</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter9</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								ReJHqg==
+												</data>
+												<key>Gain</key>
+												<data>
+								v6GvKA==
+												</data>
+												<key>Q</key>
+												<data>
+								QIU1yQ==
+												</data>
+												<key>index</key>
+												<integer>11</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+										</dict>
+										<key>GainStage</key>
+										<dict>
+											<key>LeftGain</key>
+											<data>
+								P//7eQ==
+											</data>
+											<key>RightGain</key>
+											<data>
+								P//7eQ==
+											</data>
+										</dict>
+										<key>MultibandDRC</key>
+										<dict>
+											<key>Crossover</key>
+											<dict>
+												<key>NumberOfBands</key>
+												<integer>1</integer>
+											</dict>
+											<key>Limiter0</key>
+											<dict>
+												<key>AttackTime</key>
+												<data>
+								QSAAAA==
+												</data>
+												<key>AttackTimeBelow</key>
+												<data>
+								QaAAAA==
+												</data>
+												<key>AttackTimeHardLimiter</key>
+												<data>
+								P+Wlpg==
+												</data>
+												<key>BandIndex</key>
+												<integer>0</integer>
+												<key>ExpanderThreshold</key>
+												<data>
+								wkAAAA==
+												</data>
+												<key>Gain</key>
+												<data>
+								P5aXOQ==
+												</data>
+												<key>HardLimit</key>
+												<integer>0</integer>
+												<key>LimiterThreshold</key>
+												<data>
+								AAAAAA==
+												</data>
+												<key>LimiterType</key>
+												<integer>1717989234</integer>
+												<key>Lookahead</key>
+												<integer>0</integer>
+												<key>NoiseThreshold</key>
+												<data>
+								wsAAAA==
+												</data>
+												<key>Ratio</key>
+												<data>
+								P4AAAA==
+												</data>
+												<key>RatioBelow</key>
+												<data>
+								P4AAAA==
+												</data>
+												<key>ReleaseTime</key>
+												<data>
+								Q0gAAA==
+												</data>
+												<key>ReleaseTimeBelow</key>
+												<data>
+								Q8gAAA==
+												</data>
+												<key>RunInHardware</key>
+												<false/>
+												<key>Threshold</key>
+												<data>
+								AAAAAA==
+												</data>
+											</dict>
+										</dict>
+									</dict>
+									<key>maxVolumeOffset</key>
+									<integer>0</integer>
+								</dict>
+								<key>SiliconVersion_1</key>
+								<dict>
+									<key>SoftwareDSP</key>
+									<dict>
+										<key>Equalization</key>
+										<dict>
+											<key>Filter0</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1752195443</integer>
+												<key>Frequency</key>
+												<data>
+								QqX8hA==
+												</data>
+												<key>Gain</key>
+												<data>
+								Plw3Dg==
+												</data>
+												<key>Q</key>
+												<data>
+								PzUE8w==
+												</data>
+												<key>index</key>
+												<integer>0</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter1</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								RSDUKg==
+												</data>
+												<key>Gain</key>
+												<data>
+								v8oa8w==
+												</data>
+												<key>Q</key>
+												<data>
+								QD9sxQ==
+												</data>
+												<key>index</key>
+												<integer>1</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter10</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								RgvvhA==
+												</data>
+												<key>Gain</key>
+												<data>
+								v6vKGw==
+												</data>
+												<key>Q</key>
+												<data>
+								QDacgQ==
+												</data>
+												<key>index</key>
+												<integer>12</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter11</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1819304307</integer>
+												<key>Frequency</key>
+												<data>
+								Rk0Ukg==
+												</data>
+												<key>Gain</key>
+												<data>
+								v/KGvQ==
+												</data>
+												<key>Q</key>
+												<data>
+								PzUE8w==
+												</data>
+												<key>index</key>
+												<integer>15</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter2</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								RCvA5Q==
+												</data>
+												<key>Gain</key>
+												<data>
+								wKvKGw==
+												</data>
+												<key>Q</key>
+												<data>
+								P6cPCQ==
+												</data>
+												<key>index</key>
+												<integer>2</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter3</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								Q9Yyrg==
+												</data>
+												<key>Gain</key>
+												<data>
+								wDryhw==
+												</data>
+												<key>Q</key>
+												<data>
+								P5NIeA==
+												</data>
+												<key>index</key>
+												<integer>3</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter4</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								RTxkhA==
+												</data>
+												<key>Gain</key>
+												<data>
+								v415Qw==
+												</data>
+												<key>Q</key>
+												<data>
+								QKussw==
+												</data>
+												<key>index</key>
+												<integer>4</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter5</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								QvvrPg==
+												</data>
+												<key>Gain</key>
+												<data>
+								P9Q15Q==
+												</data>
+												<key>Q</key>
+												<data>
+								Pxrxhg==
+												</data>
+												<key>index</key>
+												<integer>5</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter6</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								RZQClA==
+												</data>
+												<key>Gain</key>
+												<data>
+								Pw15Qw==
+												</data>
+												<key>Q</key>
+												<data>
+								P541uw==
+												</data>
+												<key>index</key>
+												<integer>6</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter7</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								RK98tw==
+												</data>
+												<key>Gain</key>
+												<data>
+								v3KGvQ==
+												</data>
+												<key>Q</key>
+												<data>
+								QBkIug==
+												</data>
+												<key>index</key>
+												<integer>7</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter8</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								RbS/Dw==
+												</data>
+												<key>Gain</key>
+												<data>
+								v4NeUQ==
+												</data>
+												<key>Q</key>
+												<data>
+								QL6YCg==
+												</data>
+												<key>index</key>
+												<integer>9</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+											<key>Filter9</key>
+											<dict>
+												<key>FilterType</key>
+												<integer>1885434465</integer>
+												<key>Frequency</key>
+												<data>
+								ReJHqg==
+												</data>
+												<key>Gain</key>
+												<data>
+								v6GvKA==
+												</data>
+												<key>Q</key>
+												<data>
+								QIU1yQ==
+												</data>
+												<key>index</key>
+												<integer>11</integer>
+												<key>runInSoftware</key>
+												<true/>
+											</dict>
+										</dict>
+										<key>MultibandDRC</key>
+										<dict>
+											<key>Crossover</key>
+											<dict>
+												<key>NumberOfBands</key>
+												<integer>1</integer>
+											</dict>
+											<key>Limiter0</key>
+											<dict>
+												<key>AttackTime</key>
+												<data>
+								QSAAAA==
+												</data>
+												<key>AttackTimeBelow</key>
+												<data>
+								QaAAAA==
+												</data>
+												<key>AttackTimeHardLimiter</key>
+												<data>
+								P+Wlpg==
+												</data>
+												<key>BandIndex</key>
+												<integer>0</integer>
+												<key>ExpanderThreshold</key>
+												<data>
+								wkAAAA==
+												</data>
+												<key>Gain</key>
+												<data>
+								P5aXOQ==
+												</data>
+												<key>HardLimit</key>
+												<integer>0</integer>
+												<key>LimiterThreshold</key>
+												<data>
+								AAAAAA==
+												</data>
+												<key>LimiterType</key>
+												<integer>1717989234</integer>
+												<key>Lookahead</key>
+												<integer>0</integer>
+												<key>NoiseThreshold</key>
+												<data>
+								wsAAAA==
+												</data>
+												<key>Ratio</key>
+												<data>
+								P4AAAA==
+												</data>
+												<key>RatioBelow</key>
+												<data>
+								P4AAAA==
+												</data>
+												<key>ReleaseTime</key>
+												<data>
+								Q0gAAA==
+												</data>
+												<key>ReleaseTimeBelow</key>
+												<data>
+								Q8gAAA==
+												</data>
+												<key>RunInHardware</key>
+												<false/>
+												<key>Threshold</key>
+												<data>
+								AAAAAA==
+												</data>
+											</dict>
+										</dict>
+									</dict>
+									<key>maxVolumeOffset</key>
+									<integer>0</integer>
+								</dict>
+							</dict>
+						</dict>
+					</dict>
+					<key>LayoutID</key>
+					<integer>45</integer>
+					<key>LineIn</key>
+					<dict>
+						<key>ClipRoutines</key>
+						<array>
+							<string>IntToFloat</string>
+						</array>
+						<key>Controls</key>
+						<array>
+							<string>Mute</string>
+							<string>Master</string>
+						</array>
+						<key>Playthrough</key>
+						<false/>
+						<key>PluginID</key>
+						<string>Onyx</string>
+					</dict>
+					<key>LineOut</key>
+					<dict>
+						<key>ClipRoutines</key>
+						<array>
+							<string>FloatToInt</string>
+						</array>
+						<key>Controls</key>
+						<array>
+							<string>Mute</string>
+							<string>Left</string>
+							<string>Right</string>
+						</array>
+						<key>PluginID</key>
+						<string>Onyx</string>
+					</dict>
+					<key>MuteAmpWhenClockInterrupted</key>
+					<true/>
+					<key>Outputs</key>
+					<array>
+						<string>DigitalOut</string>
+						<string>IntSpeakers</string>
+						<string>LineOut</string>
+					</array>
+					<key>OutputsBitmap</key>
+					<integer>45057</integer>
+					<key>PlatformObject</key>
+					<string>Shasta</string>
+					<key>RecoveryOrder</key>
+					<array>
+						<string>Onyx</string>
+					</array>
+					<key>TransportIndex</key>
+					<integer>0</integer>
+					<key>TransportObject</key>
+					<string>i2s</string>
+					<key>Version</key>
+					<string>3.5</string>
 				</dict>
 				<dict>
 					<key>AmpRecoveryTime</key>
@@ -9249,1016 +12118,6 @@
 					<key>RecoveryOrder</key>
 					<array>
 						<string>Topaz</string>
-						<string>Onyx</string>
-					</array>
-					<key>TransportIndex</key>
-					<integer>0</integer>
-					<key>TransportObject</key>
-					<string>i2s</string>
-					<key>Version</key>
-					<string>3.0</string>
-				</dict>
-				<dict>
-					<key>AmpRecoveryTime</key>
-					<integer>1</integer>
-					<key>ComboOut</key>
-					<string>LineOutDetect</string>
-					<key>DigitalOut</key>
-					<dict>
-						<key>ClipRoutines</key>
-						<array>
-							<string>FloatToInt</string>
-						</array>
-						<key>Controls</key>
-						<array>
-							<string>Mute</string>
-						</array>
-						<key>PluginID</key>
-						<string>Onyx</string>
-					</dict>
-					<key>ExternalClockSelect</key>
-					<false/>
-					<key>Formats</key>
-					<array>
-						<dict>
-							<key>BitDepth</key>
-							<integer>16</integer>
-							<key>BitWidth</key>
-							<integer>16</integer>
-							<key>Channels</key>
-							<integer>2</integer>
-							<key>Encoding</key>
-							<string>PCM</string>
-							<key>IsMixable</key>
-							<true/>
-							<key>SampleRates</key>
-							<array>
-								<integer>32000</integer>
-								<integer>44100</integer>
-								<integer>48000</integer>
-								<integer>64000</integer>
-								<integer>88200</integer>
-								<integer>96000</integer>
-							</array>
-						</dict>
-						<dict>
-							<key>BitDepth</key>
-							<integer>24</integer>
-							<key>BitWidth</key>
-							<integer>32</integer>
-							<key>Channels</key>
-							<integer>2</integer>
-							<key>Encoding</key>
-							<string>PCM</string>
-							<key>IsMixable</key>
-							<true/>
-							<key>SampleRates</key>
-							<array>
-								<integer>32000</integer>
-								<integer>44100</integer>
-								<integer>48000</integer>
-								<integer>64000</integer>
-								<integer>88200</integer>
-								<integer>96000</integer>
-							</array>
-						</dict>
-						<dict>
-							<key>BitDepth</key>
-							<integer>16</integer>
-							<key>BitWidth</key>
-							<integer>16</integer>
-							<key>Channels</key>
-							<integer>2</integer>
-							<key>Encoding</key>
-							<string>AC3</string>
-							<key>IsMixable</key>
-							<false/>
-							<key>SampleRates</key>
-							<array>
-								<integer>32000</integer>
-								<integer>44100</integer>
-								<integer>48000</integer>
-								<integer>64000</integer>
-								<integer>88200</integer>
-								<integer>96000</integer>
-							</array>
-						</dict>
-					</array>
-					<key>HardwareObjects</key>
-					<array>
-						<string>LoadOnyx</string>
-					</array>
-					<key>Inputs</key>
-					<array>
-						<string>InternalMic</string>
-						<string>LineIn</string>
-					</array>
-					<key>InputsBitmap</key>
-					<integer>2064</integer>
-					<key>IntSpeakers</key>
-					<dict>
-						<key>ClipRoutines</key>
-						<array>
-							<string>FloatToInt</string>
-						</array>
-						<key>Controls</key>
-						<array>
-							<string>Mute</string>
-							<string>Left</string>
-							<string>Right</string>
-						</array>
-						<key>PluginID</key>
-						<string>Onyx</string>
-						<key>SignalProcessing</key>
-						<dict>
-							<key>SpeakerID_0</key>
-							<dict>
-								<key>SoftwareDSP</key>
-								<dict>
-									<key>BassEnhancer</key>
-									<dict>
-										<key>Attack</key>
-										<data>
-								QSAAAA==
-										</data>
-										<key>Cutoff</key>
-										<data>
-								Qw9jzA==
-										</data>
-										<key>Drive</key>
-										<data>
-								AAAAAA==
-										</data>
-										<key>Ratio</key>
-										<data>
-								Qgytjw==
-										</data>
-										<key>Release</key>
-										<data>
-								Q3oAAA==
-										</data>
-										<key>Threshold</key>
-										<data>
-								wgcNBA==
-										</data>
-									</dict>
-									<key>Equalization</key>
-									<dict>
-										<key>Filter0</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1752195443</integer>
-											<key>Frequency</key>
-											<data>
-								Qy4AAA==
-											</data>
-											<key>Gain</key>
-											<data>
-								wAqzzQ==
-											</data>
-											<key>Q</key>
-											<data>
-								P4IiIg==
-											</data>
-											<key>index</key>
-											<integer>0</integer>
-											<key>runInSoftware</key>
-											<true/>
-										</dict>
-										<key>Filter1</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1885434465</integer>
-											<key>Frequency</key>
-											<data>
-								Q3gAAA==
-											</data>
-											<key>Gain</key>
-											<data>
-								wNUwzQ==
-											</data>
-											<key>Q</key>
-											<data>
-								QHZElw==
-											</data>
-											<key>index</key>
-											<integer>1</integer>
-											<key>runInSoftware</key>
-											<true/>
-										</dict>
-										<key>Filter10</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1885434465</integer>
-											<key>Frequency</key>
-											<data>
-								Rj1SmA==
-											</data>
-											<key>Gain</key>
-											<data>
-								wN1Jww==
-											</data>
-											<key>Q</key>
-											<data>
-								P5x0wQ==
-											</data>
-											<key>index</key>
-											<integer>10</integer>
-											<key>runInSoftware</key>
-											<true/>
-										</dict>
-										<key>Filter11</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1885434465</integer>
-											<key>Frequency</key>
-											<data>
-								Q0NVVQ==
-											</data>
-											<key>Gain</key>
-											<data>
-								wSWsGA==
-											</data>
-											<key>Q</key>
-											<data>
-								QDEaKw==
-											</data>
-											<key>index</key>
-											<integer>11</integer>
-											<key>runInSoftware</key>
-											<true/>
-										</dict>
-										<key>Filter12</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1885434465</integer>
-											<key>Frequency</key>
-											<data>
-								Q5YAAA==
-											</data>
-											<key>Gain</key>
-											<data>
-								wDPMoQ==
-											</data>
-											<key>Q</key>
-											<data>
-								QIAAAA==
-											</data>
-											<key>index</key>
-											<integer>12</integer>
-											<key>runInSoftware</key>
-											<true/>
-										</dict>
-										<key>Filter13</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1819304307</integer>
-											<key>Frequency</key>
-											<data>
-								Rjn3aw==
-											</data>
-											<key>Gain</key>
-											<data>
-								wWx5fg==
-											</data>
-											<key>Q</key>
-											<data>
-								PzUE8w==
-											</data>
-											<key>index</key>
-											<integer>15</integer>
-											<key>runInSoftware</key>
-											<true/>
-										</dict>
-										<key>Filter2</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1885434465</integer>
-											<key>Frequency</key>
-											<data>
-								RFNToA==
-											</data>
-											<key>Gain</key>
-											<data>
-								wAqqqw==
-											</data>
-											<key>Q</key>
-											<data>
-								QGQ8RA==
-											</data>
-											<key>index</key>
-											<integer>2</integer>
-											<key>runInSoftware</key>
-											<true/>
-										</dict>
-										<key>Filter3</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1885434465</integer>
-											<key>Frequency</key>
-											<data>
-								RAB4EQ==
-											</data>
-											<key>Gain</key>
-											<data>
-								wEAAAA==
-											</data>
-											<key>Q</key>
-											<data>
-								QMiAHg==
-											</data>
-											<key>index</key>
-											<integer>3</integer>
-											<key>runInSoftware</key>
-											<true/>
-										</dict>
-										<key>Filter4</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1885434465</integer>
-											<key>Frequency</key>
-											<data>
-								RZ+2TA==
-											</data>
-											<key>Gain</key>
-											<data>
-								wGGgiw==
-											</data>
-											<key>Q</key>
-											<data>
-								QEViXA==
-											</data>
-											<key>index</key>
-											<integer>4</integer>
-											<key>runInSoftware</key>
-											<true/>
-										</dict>
-										<key>Filter5</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1885434465</integer>
-											<key>Frequency</key>
-											<data>
-								RTjNtg==
-											</data>
-											<key>Gain</key>
-											<data>
-								wJOGgg==
-											</data>
-											<key>Q</key>
-											<data>
-								QSmdqw==
-											</data>
-											<key>index</key>
-											<integer>5</integer>
-											<key>runInSoftware</key>
-											<true/>
-										</dict>
-										<key>Filter6</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1885434465</integer>
-											<key>Frequency</key>
-											<data>
-								RI+0dw==
-											</data>
-											<key>Gain</key>
-											<data>
-								wFVVVQ==
-											</data>
-											<key>Q</key>
-											<data>
-								QKsA0A==
-											</data>
-											<key>index</key>
-											<integer>6</integer>
-											<key>runInSoftware</key>
-											<true/>
-										</dict>
-										<key>Filter7</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1885434465</integer>
-											<key>Frequency</key>
-											<data>
-								RSdXkw==
-											</data>
-											<key>Gain</key>
-											<data>
-								wKCK2Q==
-											</data>
-											<key>Q</key>
-											<data>
-								QDyb4g==
-											</data>
-											<key>index</key>
-											<integer>7</integer>
-											<key>runInSoftware</key>
-											<true/>
-										</dict>
-										<key>Filter8</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1885434465</integer>
-											<key>Frequency</key>
-											<data>
-								RBYAAA==
-											</data>
-											<key>Gain</key>
-											<data>
-								wA+AcQ==
-											</data>
-											<key>Q</key>
-											<data>
-								Px1xpw==
-											</data>
-											<key>index</key>
-											<integer>8</integer>
-											<key>runInSoftware</key>
-											<true/>
-										</dict>
-										<key>Filter9</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1885434465</integer>
-											<key>Frequency</key>
-											<data>
-								RWkkxA==
-											</data>
-											<key>Gain</key>
-											<data>
-								wJw0EQ==
-											</data>
-											<key>Q</key>
-											<data>
-								P831kw==
-											</data>
-											<key>index</key>
-											<integer>9</integer>
-											<key>runInSoftware</key>
-											<true/>
-										</dict>
-									</dict>
-									<key>MultibandDRC</key>
-									<dict>
-										<key>Crossover</key>
-										<dict>
-											<key>NumberOfBands</key>
-											<integer>1</integer>
-										</dict>
-										<key>Limiter0</key>
-										<dict>
-											<key>AttackTime</key>
-											<data>
-								QSt7fA==
-											</data>
-											<key>AttackTimeBelow</key>
-											<data>
-								QaAAAA==
-											</data>
-											<key>AttackTimeHardLimiter</key>
-											<data>
-								QC/P0A==
-											</data>
-											<key>BandIndex</key>
-											<integer>0</integer>
-											<key>ExpanderThreshold</key>
-											<data>
-								wfvb3A==
-											</data>
-											<key>Gain</key>
-											<data>
-								P5hwDA==
-											</data>
-											<key>HardLimit</key>
-											<integer>1</integer>
-											<key>LimiterThreshold</key>
-											<data>
-								wD29vQ==
-											</data>
-											<key>LimiterType</key>
-											<integer>1717989234</integer>
-											<key>Lookahead</key>
-											<integer>1</integer>
-											<key>NoiseThreshold</key>
-											<data>
-								wsAAAA==
-											</data>
-											<key>Ratio</key>
-											<data>
-								QHpaWw==
-											</data>
-											<key>RatioBelow</key>
-											<data>
-								P6fn6A==
-											</data>
-											<key>ReleaseTime</key>
-											<data>
-								Q0gAAA==
-											</data>
-											<key>ReleaseTimeBelow</key>
-											<data>
-								Q8gAAA==
-											</data>
-											<key>RunInHardware</key>
-											<false/>
-											<key>Threshold</key>
-											<data>
-								wRUVFA==
-											</data>
-										</dict>
-									</dict>
-								</dict>
-								<key>maxVolumeOffset</key>
-								<integer>0</integer>
-							</dict>
-							<key>SpeakerID_1</key>
-							<dict>
-								<key>SoftwareDSP</key>
-								<dict>
-									<key>BassEnhancer</key>
-									<dict>
-										<key>Attack</key>
-										<data>
-								QSAAAA==
-										</data>
-										<key>Cutoff</key>
-										<data>
-								Qx+pOA==
-										</data>
-										<key>Drive</key>
-										<data>
-								PZw0EQ==
-										</data>
-										<key>Ratio</key>
-										<data>
-								QiqThg==
-										</data>
-										<key>Release</key>
-										<data>
-								Q3oAAA==
-										</data>
-										<key>Threshold</key>
-										<data>
-								wgCK2Q==
-										</data>
-									</dict>
-									<key>Equalization</key>
-									<dict>
-										<key>Filter0</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1752195443</integer>
-											<key>Frequency</key>
-											<data>
-								QzCPAQ==
-											</data>
-											<key>Gain</key>
-											<data>
-								QOCfvA==
-											</data>
-											<key>Q</key>
-											<data>
-								Py2C2A==
-											</data>
-											<key>index</key>
-											<integer>0</integer>
-											<key>runInSoftware</key>
-											<true/>
-										</dict>
-										<key>Filter1</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1885434465</integer>
-											<key>Frequency</key>
-											<data>
-								Q1N4qQ==
-											</data>
-											<key>Gain</key>
-											<data>
-								wLGPVQ==
-											</data>
-											<key>Q</key>
-											<data>
-								QCEIEA==
-											</data>
-											<key>index</key>
-											<integer>2</integer>
-											<key>runInSoftware</key>
-											<true/>
-										</dict>
-										<key>Filter10</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1885434465</integer>
-											<key>Frequency</key>
-											<data>
-								RmQgAA==
-											</data>
-											<key>Gain</key>
-											<data>
-								AAAAAA==
-											</data>
-											<key>Q</key>
-											<data>
-								QemZmg==
-											</data>
-											<key>index</key>
-											<integer>11</integer>
-											<key>runInSoftware</key>
-											<true/>
-										</dict>
-										<key>Filter11</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1885434465</integer>
-											<key>Frequency</key>
-											<data>
-								RjcneQ==
-											</data>
-											<key>Gain</key>
-											<data>
-								wGLDYw==
-											</data>
-											<key>Q</key>
-											<data>
-								QGFuJw==
-											</data>
-											<key>index</key>
-											<integer>12</integer>
-											<key>runInSoftware</key>
-											<true/>
-										</dict>
-										<key>Filter12</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1885434465</integer>
-											<key>Frequency</key>
-											<data>
-								Rmbk3g==
-											</data>
-											<key>Gain</key>
-											<data>
-								wFo0xQ==
-											</data>
-											<key>Q</key>
-											<data>
-								QJ/8pg==
-											</data>
-											<key>index</key>
-											<integer>13</integer>
-											<key>runInSoftware</key>
-											<true/>
-										</dict>
-										<key>Filter13</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1885434465</integer>
-											<key>Frequency</key>
-											<data>
-								RpCIAA==
-											</data>
-											<key>Gain</key>
-											<data>
-								AAAAAA==
-											</data>
-											<key>Q</key>
-											<data>
-								QhQAAA==
-											</data>
-											<key>index</key>
-											<integer>14</integer>
-											<key>runInSoftware</key>
-											<true/>
-										</dict>
-										<key>Filter14</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1819304307</integer>
-											<key>Frequency</key>
-											<data>
-								RjqSKw==
-											</data>
-											<key>Gain</key>
-											<data>
-								v158FA==
-											</data>
-											<key>Q</key>
-											<data>
-								PzUE8w==
-											</data>
-											<key>index</key>
-											<integer>15</integer>
-											<key>runInSoftware</key>
-											<true/>
-										</dict>
-										<key>Filter2</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1885434465</integer>
-											<key>Frequency</key>
-											<data>
-								Q4sHBg==
-											</data>
-											<key>Gain</key>
-											<data>
-								wQ5DCA==
-											</data>
-											<key>Q</key>
-											<data>
-								QC08kg==
-											</data>
-											<key>index</key>
-											<integer>3</integer>
-											<key>runInSoftware</key>
-											<true/>
-										</dict>
-										<key>Filter3</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1885434465</integer>
-											<key>Frequency</key>
-											<data>
-								Q9SX8Q==
-											</data>
-											<key>Gain</key>
-											<data>
-								wKS5Zw==
-											</data>
-											<key>Q</key>
-											<data>
-								QHfqrA==
-											</data>
-											<key>index</key>
-											<integer>4</integer>
-											<key>runInSoftware</key>
-											<true/>
-										</dict>
-										<key>Filter4</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1885434465</integer>
-											<key>Frequency</key>
-											<data>
-								RGupLQ==
-											</data>
-											<key>Gain</key>
-											<data>
-								wKkAtw==
-											</data>
-											<key>Q</key>
-											<data>
-								QKEVYg==
-											</data>
-											<key>index</key>
-											<integer>5</integer>
-											<key>runInSoftware</key>
-											<true/>
-										</dict>
-										<key>Filter5</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1885434465</integer>
-											<key>Frequency</key>
-											<data>
-								RKaQEQ==
-											</data>
-											<key>Gain</key>
-											<data>
-								wJOcKw==
-											</data>
-											<key>Q</key>
-											<data>
-								QIU8gg==
-											</data>
-											<key>index</key>
-											<integer>6</integer>
-											<key>runInSoftware</key>
-											<true/>
-										</dict>
-										<key>Filter6</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1885434465</integer>
-											<key>Frequency</key>
-											<data>
-								RCDZDw==
-											</data>
-											<key>Gain</key>
-											<data>
-								wBW/0g==
-											</data>
-											<key>Q</key>
-											<data>
-								QMldqQ==
-											</data>
-											<key>index</key>
-											<integer>7</integer>
-											<key>runInSoftware</key>
-											<true/>
-										</dict>
-										<key>Filter7</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1885434465</integer>
-											<key>Frequency</key>
-											<data>
-								RSVlpA==
-											</data>
-											<key>Gain</key>
-											<data>
-								wDqDqA==
-											</data>
-											<key>Q</key>
-											<data>
-								QEBOag==
-											</data>
-											<key>index</key>
-											<integer>8</integer>
-											<key>runInSoftware</key>
-											<true/>
-										</dict>
-										<key>Filter8</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1885434465</integer>
-											<key>Frequency</key>
-											<data>
-								RU8n9A==
-											</data>
-											<key>Gain</key>
-											<data>
-								wQZmZg==
-											</data>
-											<key>Q</key>
-											<data>
-								QAmuTQ==
-											</data>
-											<key>index</key>
-											<integer>9</integer>
-											<key>runInSoftware</key>
-											<true/>
-										</dict>
-										<key>Filter9</key>
-										<dict>
-											<key>FilterType</key>
-											<integer>1885434465</integer>
-											<key>Frequency</key>
-											<data>
-								RYU3Fw==
-											</data>
-											<key>Gain</key>
-											<data>
-								wHFfFg==
-											</data>
-											<key>Q</key>
-											<data>
-								QGst/g==
-											</data>
-											<key>index</key>
-											<integer>10</integer>
-											<key>runInSoftware</key>
-											<true/>
-										</dict>
-									</dict>
-									<key>MultibandDRC</key>
-									<dict>
-										<key>Crossover</key>
-										<dict>
-											<key>NumberOfBands</key>
-											<integer>1</integer>
-										</dict>
-										<key>Limiter0</key>
-										<dict>
-											<key>AttackTime</key>
-											<data>
-								QSt7fA==
-											</data>
-											<key>AttackTimeBelow</key>
-											<data>
-								QaAAAA==
-											</data>
-											<key>AttackTimeHardLimiter</key>
-											<data>
-								QCJCQg==
-											</data>
-											<key>BandIndex</key>
-											<integer>0</integer>
-											<key>ExpanderThreshold</key>
-											<data>
-								wg0tLQ==
-											</data>
-											<key>Gain</key>
-											<data>
-								P6IEkw==
-											</data>
-											<key>HardLimit</key>
-											<integer>1</integer>
-											<key>LimiterThreshold</key>
-											<data>
-								wAnJyg==
-											</data>
-											<key>LimiterType</key>
-											<integer>1717989234</integer>
-											<key>Lookahead</key>
-											<integer>1</integer>
-											<key>NoiseThreshold</key>
-											<data>
-								wsAAAA==
-											</data>
-											<key>Ratio</key>
-											<data>
-								QHS0tQ==
-											</data>
-											<key>RatioBelow</key>
-											<data>
-								P6ioqQ==
-											</data>
-											<key>ReleaseTime</key>
-											<data>
-								Q0gAAA==
-											</data>
-											<key>ReleaseTimeBelow</key>
-											<data>
-								Q8gAAA==
-											</data>
-											<key>RunInHardware</key>
-											<false/>
-											<key>Threshold</key>
-											<data>
-								wRUVFA==
-											</data>
-										</dict>
-									</dict>
-								</dict>
-								<key>maxVolumeOffset</key>
-								<integer>0</integer>
-							</dict>
-						</dict>
-					</dict>
-					<key>InternalMic</key>
-					<dict>
-						<key>ClipRoutines</key>
-						<array>
-							<string>IntToFloat</string>
-						</array>
-						<key>Controls</key>
-						<array>
-							<string>Mute</string>
-							<string>Master</string>
-						</array>
-						<key>Playthrough</key>
-						<false/>
-						<key>PluginID</key>
-						<string>Onyx</string>
-					</dict>
-					<key>LayoutID</key>
-					<integer>45</integer>
-					<key>LineIn</key>
-					<dict>
-						<key>ClipRoutines</key>
-						<array>
-							<string>IntToFloat</string>
-						</array>
-						<key>Controls</key>
-						<array>
-							<string>Mute</string>
-							<string>Master</string>
-						</array>
-						<key>Playthrough</key>
-						<false/>
-						<key>PluginID</key>
-						<string>Onyx</string>
-					</dict>
-					<key>LineOut</key>
-					<dict>
-						<key>ClipRoutines</key>
-						<array>
-							<string>FloatToInt</string>
-						</array>
-						<key>Controls</key>
-						<array>
-							<string>Mute</string>
-							<string>Left</string>
-							<string>Right</string>
-						</array>
-						<key>PluginID</key>
-						<string>Onyx</string>
-					</dict>
-					<key>MuteAmpWhenClockInterrupted</key>
-					<true/>
-					<key>Outputs</key>
-					<array>
-						<string>DigitalOut</string>
-						<string>IntSpeakers</string>
-						<string>LineOut</string>
-					</array>
-					<key>OutputsBitmap</key>
-					<integer>45057</integer>
-					<key>PlatformObject</key>
-					<string>Shasta</string>
-					<key>RecoveryOrder</key>
-					<array>
 						<string>Onyx</string>
 					</array>
 					<key>TransportIndex</key>
@@ -11352,7 +13211,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleTexasAudio;
-				MODULE_VERSION = 2.2.6;
+				MODULE_VERSION = 2.4.1;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -11378,7 +13237,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleTexasAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleTexasAudio version 2.2.6, Copyright 2000-2004 Apple Computer, Inc.</string>
+	<string>AppleTexasAudio version 2.4.1, Copyright 2000-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -11390,11 +13249,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.6</string>
+	<string>2.4.1</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.6</string>
+	<string>2.4.1b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleTexasAudio</key>
@@ -11537,7 +13396,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleDallasDriver;
-				MODULE_VERSION = 2.2.6;
+				MODULE_VERSION = 2.4.1;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -11563,7 +13422,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleDallasDriver</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleDallasDriver version 2.2.6, Copyright 2000-2002 Apple Computer, Inc.</string>
+	<string>AppleDallasDriver version 2.4.1, Copyright 2000-2002 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -11575,11 +13434,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.6</string>
+	<string>2.4.1</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.6</string>
+	<string>2.4.1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleDallasDriver</key>
@@ -11749,7 +13608,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleDACAAudio;
-				MODULE_VERSION = 2.2.6;
+				MODULE_VERSION = 2.4.1;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -11775,7 +13634,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleDACAAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleDACAAudio version 2.2.6, Copyright 2000-2004 Apple Computer, Inc.</string>
+	<string>AppleDACAAudio version 2.4.1, Copyright 2000-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -11787,11 +13646,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.6</string>
+	<string>2.4.1</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.6</string>
+	<string>2.4.1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleDACAAudio</key>
@@ -12021,7 +13880,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AudioI2SControl;
-				MODULE_VERSION = 2.2.6;
+				MODULE_VERSION = 2.4.1;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -12047,7 +13906,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AudioI2SControl</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AudioI2SControl version 2.2.6, Copyright 2000-2004 Apple Computer, Inc.</string>
+	<string>AudioI2SControl version 2.4.1, Copyright 2000-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -12059,11 +13918,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.6</string>
+	<string>2.4.1</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.6</string>
+	<string>2.4.1</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.8.1b1</string>
 	<key>OSBundleLibraries</key>

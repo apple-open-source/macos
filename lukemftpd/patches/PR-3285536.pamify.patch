@@ -1,0 +1,102 @@
+Index: src/Makefile.in
+===================================================================
+RCS file: src/Makefile.in,v
+retrieving revision 1.3
+diff -u -d -b -w -u -d -r1.3 Makefile.in
+--- src/Makefile.in	2003/03/19 18:50:43	1.3
++++ src/Makefile.in	2003/06/10 23:25:44
+@@ -17,7 +17,7 @@
+ 
+ CC     = @CC@
+ CFLAGS = -I${srcdir} -I${srcdir}/.. -I. -I.. @INCLUDES@ -DHAVE_TNFTPD_H=1 @CFLAGS@ -D_DEFAULT_CONFDIR=\"${sysconfdir}\"
+-LIBS   = @LIBS@
++LIBS   = @LIBS@ -lpam
+ LDFLAGS        = @LDFLAGS@
+ 
+ INSTALL        = @INSTALL@
+
+Index: src/ftpd.c
+===================================================================
+RCS file: src/ftpd.c,v
+retrieving revision 1.4
+diff -u -d -b -w -u -d -r1.4 ftpd.c
+--- src/ftpd.c	2003/03/19 18:50:43	1.4
++++ src/ftpd.c	2003/06/10 23:25:44
+@@ -119,6 +119,11 @@
+ #include <com_err.h>
+ #include <krb5/krb5.h>
+ #endif
++#ifdef __APPLE__
++#include <pam/pam_appl.h>
++#include <pam/pam_misc.h>
++#include <pam/pam_mod_misc.h>
++#endif
+ 
+ #define	GLOBAL
+ #include "extern.h"
+@@ -2891,6 +2896,26 @@
+        );
+ }
+ 
++char *mystuff = NULL;
++/* This is an extremely limited pam conversation module.
++ * It is the bare minimum to get the password.
++ */
++int aapl_conv(int num_msg, const struct pam_message **msg, struct pam_response **resp, void *appdata_ptr)
++{
++	struct pam_response *reply;
++
++	if( msg[0]->msg_style != PAM_PROMPT_ECHO_OFF ) 
++		return PAM_CONV_ERR;
++
++	reply = calloc(num_msg, sizeof(struct pam_response));
++	if( reply == NULL )
++		return PAM_CONV_ERR;
++
++	reply[0].resp = mystuff;
++	*resp = reply;
++	return PAM_SUCCESS;
++}
++
+ /*
+  * Determine if `password' is valid for user given in `pw'.
+  * Returns 2 if password expired, 1 if otherwise failed, 0 if ok
+@@ -2903,6 +2928,11 @@
+ #if HAVE_GETSPNAM
+    struct spwd *spw;
+ #endif
++#ifdef __APPLE__
++	pam_handle_t *pamh = NULL;
++	struct pam_conv conv = {aapl_conv, NULL};
++	int rval;
++#endif
+ 
+    expire = 0;
+    if (pw == NULL)
+@@ -2919,15 +2949,25 @@
+ #endif
+ #endif /* HAVE_GETSPNAM */
+ 
+-	if (orig[0] == '\0')		/* don't allow empty passwords */
++#ifdef __APPLE__
++	mystuff = password;
++	rval = pam_start("ftpd", pw->pw_name, &conv, &pamh);
++	if( rval != PAM_SUCCESS )
++		return 1;
++	rval = pam_authenticate(pamh, 0);
++	if( rval != PAM_SUCCESS ) 
+	return 1;
++#else
+ 
++	if (orig[0] == '\0')		/* don't allow empty passwords */
++		return 1;
+    new = crypt(password, orig);	/* encrypt given password */
+    if (strcmp(new, orig) != 0)	/* compare */
+	return 1;
+ 
+    if (expire && time(NULL) >= expire)
+	return 2;		/* check if expired */
++#endif
+ 
+    return 0;			/* OK! */
+ }

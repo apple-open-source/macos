@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -34,12 +31,13 @@
  *  Created.
  *
  */
-#include "UniNEnet.h"
-#include "UniNEnetMII.h"
+
 #include <libkern/OSByteOrder.h>
 #include <IOKit/IORegistryEntry.h>
-#include <IOKit/IOKitKeys.h>			// kIODeviceTreePlane
-
+#include <IOKit/IOKitKeys.h>				// kIODeviceTreePlane
+#include <IOKit/IOBufferMemoryDescriptor.h>
+#include "UniNEnet.h"
+#include "UniNEnetMII.h"
 
 
 
@@ -48,25 +46,20 @@ bool UniNEnet::allocateMemory()
 	UInt32		rxRingSize, txRingSize;
 
  
-		/* Allocate memory for DMA ring elements:	*/
+		/* Allocate memory for DMA ring elements - Tx ring first:	*/
 
-    txRingSize = fTxRingElements * sizeof( TxDescriptor );
-	fTxDescriptorRing = (TxDescriptor*)IOMallocContiguous(	txRingSize,
-															PAGE_SIZE, 0 );
-    if ( fTxDescriptorRing == 0 )
+    txRingSize		= fTxRingElements * sizeof( TxDescriptor );
+    fTxRingMemDesc	= IOBufferMemoryDescriptor::withOptions(	kIOMemoryPhysicallyContiguous,
+																txRingSize,
+																PAGE_SIZE );
+    if ( !fTxRingMemDesc )
 	{
         ALRT( 0, txRingSize, 'TRM-', "UniNEnet::allocateMemory - failed to alloc Tx Ring memory" );
 		return false;
 	}
-
-	fTxRingMemDesc = IOMemoryDescriptor::withAddress(
-							(vm_address_t)fTxDescriptorRing,
-							txRingSize,
-							kIODirectionOutIn,
-							kernel_task );
 	fTxRingMemDesc->prepare( kIODirectionOutIn );
-
-	fTxDescriptorRingPhys = fTxRingMemDesc->getPhysicalAddress();
+	fTxDescriptorRing		= (TxDescriptor*)fTxRingMemDesc->getBytesNoCopy();	// get virtual address
+	fTxDescriptorRingPhys	= fTxRingMemDesc->getPhysicalAddress();				// may be DART address
 
     if ( fTxDescriptorRingPhys == 0 )
 	{
@@ -80,28 +73,24 @@ bool UniNEnet::allocateMemory()
 
 
     rxRingSize = fRxRingElements * sizeof( RxDescriptor );
-	fRxDescriptorRing = (RxDescriptor*)IOMallocContiguous(	rxRingSize,
-															PAGE_SIZE, 0 );
-	if ( fRxDescriptorRing == 0 )
+    fRxRingMemDesc	= IOBufferMemoryDescriptor::withOptions(	kIOMemoryPhysicallyContiguous,
+																rxRingSize,
+																PAGE_SIZE );
+	if ( !fRxRingMemDesc )
 	{
 		ALRT( 0, rxRingSize, 'RRM-', "UniNEnet::allocateMemory - failed to alloc Rx Ring" );
 		return false;
 	}
-	ELG( rxRingSize, fRxDescriptorRing, '=RxR', "UniNEnet::allocateMemory - Rx Ring alloc'd" );
-
-	fRxRingMemDesc = IOMemoryDescriptor::withAddress(	(vm_address_t)fRxDescriptorRing,
-														rxRingSize,
-														kIODirectionOutIn,
-														kernel_task );
 	fRxRingMemDesc->prepare( kIODirectionOutIn );
-
-	fRxDescriptorRingPhys = fRxRingMemDesc->getPhysicalAddress();
+	fRxDescriptorRing		= (RxDescriptor*)fRxRingMemDesc->getBytesNoCopy();	// get virtual address
+	fRxDescriptorRingPhys	= fRxRingMemDesc->getPhysicalAddress();				// may be DART address
 
 	if ( fRxDescriptorRingPhys == 0 )
     {
         ALRT( 0, rxRingSize, 'RRP-', "UniNEnet::allocateMemory - Bad Rx Ring" );
         return false;
     }
+	ELG( rxRingSize, fRxDescriptorRing, '=RxR', "UniNEnet::allocateMemory - Rx Ring alloc'd" );
 
 
 		/* set up the Tx and Rx mBuf pointer arrays:	*/
@@ -164,8 +153,6 @@ bool UniNEnet::initTxRing()
 			fTxMbuf[ i ] = 0;
         }
 	}
-
-    fTxElementsAvail = fTxRingElements - 1; 
 
     txIntCnt  = 0;
     txWDCount = 0;
@@ -620,7 +607,40 @@ void UniNEnet::getPhyType()
 
 		fpgMediumTable		= gMediumTable100;
 		fMediumTableCount	=  sizeof( gMediumTable100 ) / sizeof( MediumTable ) ;
-	}
+	}/* end ELSE 5221 */
+	else if ( (phyType & MII_BCM5241_MASK) == MII_BCM5241_ID )
+	{
+		fPHYType = 0x5241;
+		ELG( this, phyId, '5241', "UniNEnet::getPhyType" );
+		setProperty( "PHY type", "Broadcom 5241" );
+
+			// Use some symbols in common with 5221.
+
+			// 1: enable shadow register mode
+		miiReadWord( &phyWord, MII_BCM5221_TestRegister );
+		phyWord |= MII_BCM5221_ShadowRegEnableBit;
+		miiWriteWord( phyWord, MII_BCM5221_TestRegister );
+
+			// 2: enable APD (Auto PowerDetect)
+		miiReadWord( &phyWord, MII_BCM5221_AuxiliaryStatus2 );
+		phyWord |= MII_BCM5221_APD_EnableBit;
+		miiWriteWord( phyWord, MII_BCM5221_AuxiliaryStatus2 );
+
+			// 3: clear standby power bit:
+		miiReadWord( &phyWord, MII_BCM5221_AuxiliaryMode4 );
+		phyWord &= ~MII_BCM5241_StandbyPowerMode;
+		miiWriteWord( phyWord, MII_BCM5221_AuxiliaryMode4 );
+
+			// 4: Disable shadow register mode
+		miiReadWord( &phyWord, MII_BCM5221_TestRegister );
+		phyWord &= ~MII_BCM5221_ShadowRegEnableBit;
+		miiWriteWord( phyWord, MII_BCM5221_TestRegister );
+
+///		miiWriteWord( MII_BCM5201_INTERRUPT_INTREnable, MII_BCM5201_INTERRUPT );
+
+		fpgMediumTable		= gMediumTable100;
+		fMediumTableCount	=  sizeof( gMediumTable100 ) / sizeof( MediumTable ) ;
+	}/* end ELSE 5241 */
 	else if ( (phyType & MII_LXT971_MASK) == MII_LXT971_ID )
 	{
 		fPHYType = 0x0971;
@@ -818,7 +838,7 @@ bool UniNEnet::initChip()
 }/* end initChip */
 
 
-void UniNEnet::setDuplexMode( bool duplexMode )
+void UniNEnet::setDuplexMode( bool duplexMode )		/* called only by monitorLinkStatus	*/
 {
 	isFullDuplex = duplexMode;
 
@@ -1008,22 +1028,23 @@ bool UniNEnet::transmitPacket( struct mbuf *packet )
 	UInt32			demandMask;
 	UInt16			param0, param1;
 	bool			needSegs = true;	// may need MbufCursor physical segments
+	UInt32			txElementsAvail;
 
 
+	txElementsAvail = (txCommandHead + fTxRingElements - txCommandTail - 1) & (fTxRingElements-1);
     for ( m = packet; m->m_next; m = m->m_next )
 		segCount++;
 
-	ELG( READ_REGISTER( TxCompletion ), fTxElementsAvail << 16 | segCount, '  Tx', "UniNEnet::transmitPacket" );
+	ELG( READ_REGISTER( TxCompletion ), txElementsAvail << 16 | segCount, '  Tx', "UniNEnet::transmitPacket" );
 
-	if ( segCount > fTxElementsAvail )
+	if ( segCount > txElementsAvail )
 	{
-		ELG( fTxElementsAvail << 16 | segCount, packet, ' Tx-', "UniNEnet::transmitPacket - not enough elements avail." );
+		ELG( txElementsAvail << 16 | segCount, packet, ' Tx-', "UniNEnet::transmitPacket - not enough elements avail." );
 		return false;
 	}
 
 	k = j = txCommandTail;
 
-	OSAddAtomic( -segCount, (SInt32*)&fTxElementsAvail );
 	txIntCnt += segCount;
 
     m = packet;
@@ -1412,23 +1433,15 @@ bool UniNEnet::receivePackets( bool debuggerParam )
 
 bool UniNEnet::transmitInterruptOccurred()
 {
-	UInt32		i, elemCnt = 0;
-	bool		serviced	= false;
+	ELG( txCommandHead, fTxCompletion, ' Tx+', "UniNEnet::transmitInterruptOccurred" );
 
+	if( txCommandHead == fTxCompletion )
+		return false;
 
-	i = READ_REGISTER( TxCompletion );	/// get i from parm - from int status reg
-	ELG( txCommandHead, i, ' Tx+', "UniNEnet::transmitInterruptOccurred" );
-
-	if( i == txCommandHead )
-		return serviced;
-
-	serviced = true;
-
-	while ( i != txCommandHead )	// i and txCommandHead race each other
+	while ( txCommandHead != fTxCompletion )
 	{
 		KERNEL_DEBUG(	DBG_UniN_TXCOMPLETE | DBG_FUNC_NONE,
 						fTxMbuf[ txCommandHead ], 0, 0, 0, 0 );
-		elemCnt++;
 
 		if ( fTxMbuf[ txCommandHead ] )
 		{
@@ -1439,7 +1452,7 @@ bool UniNEnet::transmitInterruptOccurred()
 			}
 			else
 			{
-				ELG( i, txCommandHead, 'TxDb', "UniNEnet::transmitInterruptOccurred - recycling txDebuggerPkt" );
+				ELG( txCommandHead, fTxMbuf[ txCommandHead ], 'TxDb', "UniNEnet::transmitInterruptOccurred - recycling txDebuggerPkt" );
 				txDebuggerPktInUse = false;
 			}
 			fTxMbuf[ txCommandHead ] = 0;
@@ -1448,18 +1461,11 @@ bool UniNEnet::transmitInterruptOccurred()
 		txCommandHead = (txCommandHead + 1) & (fTxRingElements - 1);
 	}/* end WHILE */
 
-	OSAddAtomic( elemCnt, (SInt32*)&fTxElementsAvail );
 	fpNetStats->outputPackets += releaseFreePackets();	
 
-	return serviced;
+	return true;
 }/* end transmitInterruptOccurred */
 
-
-/*-------------------------------------------------------------------------
- *
- *
- *
- *-------------------------------------------------------------------------*/
 
 void UniNEnet::debugTransmitInterruptOccurred()
 {
@@ -1489,8 +1495,6 @@ void UniNEnet::debugTransmitInterruptOccurred()
 			 * interrupt polling, we expect only the txDebuggerPkt
 			 * to show up on the transmit mbuf ring.
 			 */
-
-		OSIncrementAtomic( (SInt32*)&fTxElementsAvail );
 
 		KERNEL_DEBUG(	DBG_UniN_TXCOMPLETE | DBG_FUNC_NONE,
 						(int)fTxMbuf[ txCommandHead ],
@@ -1556,6 +1560,7 @@ void UniNEnet::monitorLinkStatus( bool firstPoll )
 	UInt32          linkSpeed	= 0;
     IOMediumType    mediumType	= kIOMediumEthernetNone;
     IONetworkMedium	*medium;
+	bool			rc = true;
 
 
 	ELG( phyId, firstPoll, ' MLS', "monitorLinkStatus" );
@@ -1573,22 +1578,24 @@ void UniNEnet::monitorLinkStatus( bool firstPoll )
 		clockWasOff = true;
     }
 
-    if ( !fBuiltin )
+    if ( fBuiltin )
+    {
+		rc = miiReadWord( &phyStatus, MII_STATUS );
+    }
+    else 
     {		/* GEM card:	*/
 		phyStatus = READ_REGISTER( PCSMIIStatus ) & 0x0000FFFF; // read latched value
 		IODelay( 3 );
 		if ( firstPoll )
 			IOSleep( 5000 );	/// fake wait for AutoNegotiation
-		phyStatus = READ_REGISTER( PCSMIIStatus )				& 0x0000FFFF;
-    }
-    else 
-    {
-        if ( miiReadWord( &phyStatus, MII_STATUS ) != true )
-            return;
+		phyStatus = READ_REGISTER( PCSMIIStatus ) & 0x0000FFFF;
     }
 
     if ( clockWasOff )			// if it was off in the first place,
 		disableCellClock();		//  turn it back off
+
+	if ( rc == false || phyStatus == 0xFFFF )	// proceed no further if PHY is not responding
+		return;
 
 		// see if Link UP, autonegotiation complete bits changed:
 
@@ -1613,9 +1620,7 @@ void UniNEnet::monitorLinkStatus( bool firstPoll )
 			// this function returns, and we want the duplex setting
 			// on the MAC to match the PHY.
 
-		if ( !fLoopback && fAutoNegotiate )
-			miiWaitForAutoNegotiation();
-		miiReadWord( &phyStatus, MII_STATUS );
+	///	miiReadWord( &phyStatus, MII_STATUS );	// we read this reg earlier - no need to reread
 		miiReadWord( &phyStatus, MII_STATUS );
 		if ( fLoopback )	// fake link UP if in loopback
 			phyStatus |= MII_STATUS_LINK_STATUS;
@@ -1644,25 +1649,14 @@ void UniNEnet::monitorLinkStatus( bool firstPoll )
 			mediumType = (linkSpeed == 10)	? kIOMediumEthernet10BaseT
 											: kIOMediumEthernet100BaseTX;
 		}
-		else if ( (phyType & MII_BCM5221_MASK) == MII_BCM5221_ID )
+		else if ( ((phyType & MII_BCM5201_MASK) == MII_BCM5201_ID)
+			  ||  ((phyType & MII_BCM5221_MASK) == MII_BCM5221_ID)
+			  ||  ((phyType & MII_BCM5241_MASK) == MII_BCM5241_ID) )
 		{
 			miiReadWord( &linkStatus,  MII_BCM5201_AUXSTATUS );
-			linkSpeed  = (linkStatus & MII_BCM5201_AUXSTATUS_SPEED)  ?
-						  100 : 10;
-			fullDuplex = (linkStatus & MII_BCM5201_AUXSTATUS_DUPLEX) ?
-						  true : false;
-			mediumType = (linkSpeed == 10)	? kIOMediumEthernet10BaseT
-											: kIOMediumEthernet100BaseTX;
-		}
-		else if ( (phyType & MII_BCM5201_MASK) == MII_BCM5201_ID )
-		{
-			miiReadWord( &linkStatus,  MII_BCM5201_AUXSTATUS );
-			linkSpeed	= (linkStatus & MII_BCM5201_AUXSTATUS_SPEED)
-						? 100 : 10;
-			fullDuplex	= (linkStatus & MII_BCM5201_AUXSTATUS_DUPLEX)
-						? true : false;
-			mediumType = (linkSpeed == 10)	? kIOMediumEthernet10BaseT
-											: kIOMediumEthernet100BaseTX;
+			linkSpeed  = (linkStatus & MII_BCM5201_AUXSTATUS_SPEED)  ? 100 : 10;
+			fullDuplex = (linkStatus & MII_BCM5201_AUXSTATUS_DUPLEX) ? true : false;
+			mediumType = (linkSpeed == 10) ? kIOMediumEthernet10BaseT : kIOMediumEthernet100BaseTX;
 		}
 		else if ( ((phyType & MII_BCM5400_MASK) == MII_BCM5400_ID)
 			  ||  ((phyType & MII_BCM5400_MASK) == MII_BCM5401_ID)		/// mlj temporary quick fix
@@ -1787,7 +1781,7 @@ void UniNEnet::monitorLinkStatus( bool firstPoll )
 
 			medium = IONetworkMedium::getMediumWithType( fMediumDict, mediumType );
 
-			setLinkStatus( kIONetworkLinkValid, medium, 0 );
+			setLinkStatus( kIONetworkLinkValid, medium, 0 );	// valid but not kIONetworkLinkActive
    
 			if ( fLinkStatus != kLinkStatusUnknown )
 			   IOLog( "UniNEnet::monitorLinkStatus - Link is down.\n" );
@@ -1841,18 +1835,20 @@ IOReturn UniNEnet::getHardwareAddress( IOEthernetAddress *ea )
 
 IOReturn UniNEnet::setHardwareAddress( const IOEthernetAddress *ea )
 {
-	UInt16		a0, a1, a2;
+	UInt16		*p16;
+	int			i;
 
 
-	a0 = ea->bytes[ 0 ] << 8 | ea->bytes[ 1 ];
-	a1 = ea->bytes[ 2 ] << 8 | ea->bytes[ 3 ];
-	a2 = ea->bytes[ 4 ] << 8 | ea->bytes[ 5 ];
+	myAddress = *ea;			/* for WOL and wakeup	*/
 
-	ELG( a0, a1 << 16 | a2, 'SetA', "UniNEnet::setHardwareAddress" );
+    p16 = (UInt16*)myAddress.bytes;
+    for ( i = 0; i < sizeof( IOEthernetAddress ) / 2; i++ )
+	{
+		WRITE_REGISTER( MACAddress[ i ],		p16[ 2 - i ] );
+		WRITE_REGISTER( MACAddress[ i + 3 ],	p16[ 2 - i ] );	// init the alternate MAC address
+	}
 
-	WRITE_REGISTER( MACAddress[ 0 ], a2 );
-	WRITE_REGISTER( MACAddress[ 1 ], a1 );
-	WRITE_REGISTER( MACAddress[ 2 ], a0 );
+	ELG( p16[0], p16[1] << 16 | p16[2], 'SetA', "UniNEnet::setHardwareAddress" );
 
     return kIOReturnSuccess;
 }/* end setHardwareAddress */

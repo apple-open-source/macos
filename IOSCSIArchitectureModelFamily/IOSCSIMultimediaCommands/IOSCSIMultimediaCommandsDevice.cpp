@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -112,6 +112,7 @@ OSDefineAbstractStructors ( IOSCSIMultimediaCommandsDevice, IOSCSIPrimaryCommand
 #define kSubChannelDataBufferSize				24
 #define kCDAudioModePageBufferSize				24
 #define kDiscStatusOffset						2
+#define kDVDBookTypePlusRDoubleLayer			0xE	// Until it gets to IODVDTypes.h
 
 // Offsets into the CD Mechanical Capabilities mode page
 #define kMediaAccessSpeedOffset					14
@@ -141,6 +142,7 @@ enum
 	kGetConfigurationProfile_CDTAO						= 0x002D, /* CD Track At Once Profile */
 	kGetConfigurationProfile_CDMastering				= 0x002E, /* CD Mastering Profile */
 	kGetConfigurationProfile_DVDWrite					= 0x002F, /* DVD-R Write Profile */
+	kGetConfigurationProfile_DVDPlusRDoubleLayer		= 0x003B, /* DVD+R Double Layer Profile */
 	kGetConfigurationProfile_AnalogAudio				= 0x0103, /* Analog Audio Profile */
 	kGetConfigurationProfile_DVDCSS						= 0x0106  /* DVD-CSS Profile */
 };
@@ -2418,7 +2420,7 @@ IOSCSIMultimediaCommandsDevice::ClearNotReadyStatus ( void )
 				if ( validSense == true )
 				{
 					
-					if ( ( ( senseBuffer.SENSE_KEY & kSENSE_KEY_Mask ) == kSENSE_KEY_NOT_READY ) && 
+					if ( ( ( senseBuffer.SENSE_KEY & kSENSE_KEY_Mask ) == kSENSE_KEY_NOT_READY ) &&
 							( senseBuffer.ADDITIONAL_SENSE_CODE == 0x04 ) &&
 							( senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER == 0x00 ) )
 					{
@@ -2593,7 +2595,7 @@ IOSCSIMultimediaCommandsDevice::HandleSetUserClientExclusivityState (
 	
 	else
 	{
-	
+		
 		if ( fMediaPresent )
 		{
 			
@@ -4397,12 +4399,17 @@ IOSCSIMultimediaCommandsDevice::CheckForDVDMediaType ( void )
 				STATUS_LOG ( ( "fMediaType = DVD+R\n" ) );
 				fMediaType = kDVDMediaTypePlusR;
 				break;
-				
-			default:
-				STATUS_LOG ( ( "physicalFormatInfo.bookType = %d\n", physicalFormatInfo.bookType ) );
-				STATUS_LOG ( ( "fMediaType = kCDMediaTypeUnknown\n" ) );
+			
+			case kDVDBookTypePlusRDoubleLayer:
+				STATUS_LOG ( ( "fMediaType = DVD+R\n" ) );
+				fMediaType = kDVDMediaTypePlusR;
 				break;
 				
+			default:
+				STATUS_LOG ( ( "physicalFormatInfo->bookType = %d\n", physicalFormatInfo->bookType ) );
+				STATUS_LOG ( ( "fMediaType = kCDMediaTypeUnknown\n" ) );
+				break;
+			
 		}
 			
 	}
@@ -4459,6 +4466,46 @@ IOSCSIMultimediaCommandsDevice::CheckForDVDMediaType ( void )
 									bufferDesc,
 									0x02, // Only one feature descriptor
 									kGetConfigurationProfile_DVDPlusR,
+									kProfileFeatureHeaderSize + kProfileDescriptorSize,
+									0 ) == true )
+		
+		{
+			// The command was successfully built, now send it
+			serviceResponse = SendCommand ( request, kThirtySecondTimeoutInMS );
+		}
+		
+		if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
+			 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
+		{
+			
+			UInt8 *		profilePtr;
+			
+			profilePtr = buffer + kProfileFeatureHeaderSize;
+			
+			if ( profilePtr[2] & 0x01 )
+			{
+				
+				STATUS_LOG ( ( "fMediaType = DVD+R\n" ) );
+				fMediaType = kDVDMediaTypePlusR;
+				
+			}
+			
+		}
+		
+	}
+	
+	if ( ( fMediaType == kCDMediaTypeUnknown ) &&
+		 ( fSupportedDVDFeatures & kDVDFeaturesPlusRMask ) )
+	{
+		
+		STATUS_LOG ( ( "Check for DVD+R DL media\n" ) );
+		
+		bzero ( buffer, bufferSize );
+		
+		if ( GET_CONFIGURATION ( 	request,
+									bufferDesc,
+									0x02, // Only one feature descriptor
+									kGetConfigurationProfile_DVDPlusRDoubleLayer,
 									kProfileFeatureHeaderSize + kProfileDescriptorSize,
 									0 ) == true )
 		

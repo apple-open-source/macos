@@ -68,30 +68,34 @@ class MacRISC2PE : public ApplePlatformExpert
     OSDeclareDefaultStructors(MacRISC2PE);
   
     friend class MacRISC2CPU;
+    friend class Portable_PlatformMonitor;
     friend class Portable2003_PlatformMonitor;
     friend class Portable2004_PlatformMonitor;
-  
+ 
 private:
 	struct PlatformPowerBits {
 		UInt32 bitsXor;
 		UInt32 bitsMask;
 	};
 	
-    const char 				*provider_name;
-    unsigned long			uniNVersion;
-    IOService				*usb1;
-    IOService				*usb2;
-    IOService				*keylargoUSB1;
-    IOService				*keylargoUSB2;
-	MacRISC2CPU				*macRISC2CPU;
-	AppleUniN				*uniN;
-    class IOPMPagingPlexus	*plexus;
-    class IOPMSlotsMacRISC2	*slotsMacRISC2;
-    IOLock					*mutex;
-    UInt32					processorSpeedChangeFlags;
-	bool					isPortable;
-	bool					doPlatformPowerMonitor;
-        bool					hasPMon;
+    const char 					*provider_name;
+    unsigned long				uniNVersion;
+    IOService					*usb1;
+    IOService					*usb2;
+    IOService					*keylargoUSB1;
+    IOService					*keylargoUSB2;
+	MacRISC2CPU					*macRISC2CPU;
+	AppleUniN					*uniN;
+    class IOPMPagingPlexus		*plexus;
+    class IOPMSlotsMacRISC2		*slotsMacRISC2;
+    IOLock						*mutex;
+    UInt32						processorSpeedChangeFlags;
+	bool						isPortable;
+	bool						doPlatformPowerMonitor;
+    bool						hasPMon;
+    bool						hasEmbededThermals;
+    UInt32						pMonPlatformNumber;
+    
 	// Possible power states we care about
     PlatformPowerBits		powerMonWeakCharger;
     PlatformPowerBits		powerMonBatteryWarning;
@@ -102,6 +106,8 @@ private:
 	IOService				*ioPMonNub;
 	IOPlatformMonitor		*ioPMon;
 	IOService				*plFuncNub;
+    
+    void determinePlatformNumber( void );
 
     void getDefaultBusSpeeds(long *numSpeeds, unsigned long **speedList);
     void enableUniNEthernetClock(bool enable, IOService *nub);
@@ -134,7 +140,7 @@ enum {
 	kClamshellClosedSpeedChange		= (1 << 4),
 	kEnvironmentalSpeedChange		= (1 << 5),
 	kForceDisableL3					= (1 << 6),
-        kBusSlewBasedSpeedChange		= (1 << 7),
+    kBusSlewBasedSpeedChange		= (1 << 7),
 	// Hi bits reflect current state information
 	kProcessorFast					= (1 << 31),
 	kL3CacheEnabled					= (1 << 30),

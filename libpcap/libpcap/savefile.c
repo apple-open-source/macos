@@ -30,7 +30,7 @@
 
 #ifndef lint
 static const char rcsid[] _U_ =
-    "@(#) $Header: /cvs/root/libpcap/libpcap/savefile.c,v 1.1.1.3 2004/02/05 19:22:28 rbraun Exp $ (LBL)";
+    "@(#) $Header: /cvs/root/libpcap/libpcap/savefile.c,v 1.1.1.4 2004/05/21 20:31:59 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -118,6 +118,12 @@ static const char rcsid[] _U_ =
  * to handle the new encapsulation type, so that they can also be checked
  * into the tcpdump.org CVS repository and so that they will appear in
  * future libpcap and tcpdump releases.
+ *
+ * Do *NOT* assume that any values after the largest value in this file
+ * are available; you might not have the most up-to-date version of this
+ * file, and new values after that one might have been assigned.  Also,
+ * do *NOT* use any values below 100 - those might already have been
+ * taken by one (or more!) organizations.
  */
 #define LINKTYPE_NULL		DLT_NULL
 #define LINKTYPE_ETHERNET	DLT_EN10MB	/* also for 100Mb and up */
@@ -150,6 +156,13 @@ static const char rcsid[] _U_ =
 
 #define LINKTYPE_PPP_ETHER	51		/* NetBSD PPP-over-Ethernet */
 
+/*
+ * This isn't supported in libpcap 0.8[.x], but is supported in the
+ * current CVS version; we include it here to note that it's not available
+ * for anybody else to use.
+ */
+#define LINKTYPE_SYMANTEC_FIREWALL 99		/* Symantec Enterprise Firewall */
+
 #define LINKTYPE_ATM_RFC1483	100		/* LLC/SNAP-encapsulated ATM */
 #define LINKTYPE_RAW		101		/* raw IP */
 #define LINKTYPE_SLIP_BSDOS	102		/* BSD/OS SLIP BPF header */
@@ -161,24 +174,64 @@ static const char rcsid[] _U_ =
 #define LINKTYPE_LOOP		108		/* OpenBSD loopback */
 #define LINKTYPE_ENC		109		/* OpenBSD IPSEC enc */
 
+/*
+ * These three types are reserved for future use.
+ */
+#define LINKTYPE_LANE8023	110		/* ATM LANE + 802.3 */
+#define LINKTYPE_HIPPI		111		/* NetBSD HIPPI */
+#define LINKTYPE_HDLC		112		/* NetBSD HDLC framing */
+
 #define LINKTYPE_LINUX_SLL	113		/* Linux cooked socket capture */
 #define LINKTYPE_LTALK		114		/* Apple LocalTalk hardware */
 #define LINKTYPE_ECONET		115		/* Acorn Econet */
+
+/*
+ * Reserved for use with OpenBSD ipfilter.
+ */
+#define LINKTYPE_IPFILTER	116
 
 #define LINKTYPE_PFLOG		117		/* OpenBSD DLT_PFLOG */
 #define LINKTYPE_CISCO_IOS	118		/* For Cisco-internal use */
 #define LINKTYPE_PRISM_HEADER	119		/* 802.11+Prism II monitor mode */
 #define LINKTYPE_AIRONET_HEADER	120		/* FreeBSD Aironet driver stuff */
+
+/*
+ * Reserved for Siemens HiPath HDLC.
+ */
+#define LINKTYPE_HHDLC		121
+
 #define LINKTYPE_IP_OVER_FC	122		/* RFC 2625 IP-over-Fibre Channel */
 #define LINKTYPE_SUNATM		123		/* Solaris+SunATM */
 
-#define LINKTYPE_IEEE802_11_RADIO 127		/* 802.11 plus WLAN header */
+/*
+ * Reserved as per request from Kent Dahlgren <kent@praesum.com>
+ * for private use.
+ */
+#define LINKTYPE_RIO		124		/* RapidIO */
+#define LINKTYPE_PCI_EXP	125		/* PCI Express */
+#define LINKTYPE_AURORA		126		/* Xilinx Aurora link layer */
 
+#define LINKTYPE_IEEE802_11_RADIO 127		/* 802.11 plus BSD radio header */
+
+/*
+ * Reserved for the TZSP encapsulation, as per request from
+ * Chris Waters <chris.waters@networkchemistry.com>
+ * TZSP is a generic encapsulation for any other link type,
+ * which includes a means to include meta-information
+ * with the packet, e.g. signal strength and channel
+ * for 802.11 packets.
+ */
 #define LINKTYPE_TZSP		128		/* Tazmen Sniffer Protocol */
 
 #define LINKTYPE_ARCNET_LINUX	129		/* Linux-style headers */
 
-#define LINKTYPE_JUNIPER_MLPPP  130		/* Juniper-internal chassis encapsulation */
+/*
+ * Juniper-private data link types, as per request from
+ * Hannes Gredler <hannes@juniper.net>.  The corresponding
+ * DLT_s are used for passing on chassis-internal
+ * metainformation such as QOS profiles, etc..
+ */
+#define LINKTYPE_JUNIPER_MLPPP  130
 #define LINKTYPE_JUNIPER_MLFR   131
 #define LINKTYPE_JUNIPER_ES     132
 #define LINKTYPE_JUNIPER_GGSN   133
@@ -194,22 +247,83 @@ static const char rcsid[] _U_ =
 #define LINKTYPE_RAWSS7_MTP3    141             /* definitions */
 #define LINKTYPE_RAWSS7_SCCP    142
 
+/*
+ * This isn't supported in libpcap 0.8[.x], but is supported in the
+ * current CVS version; we include it here to note that it's not available
+ * for anybody else to use.
+ */
+#define LINKTYPE_DOCSIS		143		/* DOCSIS MAC frames */
+
 #define LINKTYPE_LINUX_IRDA	144		/* Linux-IrDA */
 
 /*
- * These types are reserved for future use.
+ * Reserved for IBM SP switch and IBM Next Federation switch.
  */
-#define LINKTYPE_LANE8023	110		/* ATM LANE + 802.3 */
-#define LINKTYPE_HIPPI		111		/* NetBSD HIPPI */
-#define LINKTYPE_HDLC		112		/* NetBSD HDLC framing */
-#define LINKTYPE_IPFILTER	116		/* IP Filter capture files */
-#define LINKTYPE_HHDLC		121		/* Siemens HiPath HDLC */
-#define LINKTYPE_RIO		124		/* RapidIO */
-#define LINKTYPE_PCI_EXP	125		/* PCI Express */
-#define LINKTYPE_AURORA		126		/* Xilinx Aurora link layer */
-#define LINKTYPE_DOCSIS		143		/* DOCSIS MAC frames */
-#define LINKTYPE_IBM_SP		145		/* IBM SP switch */
-#define LINKTYPE_IBM_SN		146		/* IBM Next Federation switch */
+#define LINKTYPE_IBM_SP		145
+#define LINKTYPE_IBM_SN		146
+
+/*
+ * Reserved for private use.  If you have some link-layer header type
+ * that you want to use within your organization, with the capture files
+ * using that link-layer header type not ever be sent outside your
+ * organization, you can use these values.
+ *
+ * No libpcap release will use these for any purpose, nor will any
+ * tcpdump release use them, either.
+ *
+ * Do *NOT* use these in capture files that you expect anybody not using
+ * your private versions of capture-file-reading tools to read; in
+ * particular, do *NOT* use them in products, otherwise you may find that
+ * people won't be able to use tcpdump, or snort, or Ethereal, or... to
+ * read capture files from your firewall/intrusion detection/traffic
+ * monitoring/etc. appliance, or whatever product uses that LINKTYPE_ value,
+ * and you may also find that the developers of those applications will
+ * not accept patches to let them read those files.
+ *
+ * Also, do not use them if somebody might send you a capture using them
+ * for *their* private type and tools using them for *your* private type
+ * would have to read them.
+ *
+ * Instead, in those cases, ask "tcpdump-workers@tcpdump.org" for a new DLT_
+ * and LINKTYPE_ value, as per the comment in pcap-bpf.h, and use the type
+ * you're given.
+ */
+#define LINKTYPE_USER0		147
+#define LINKTYPE_USER1		148
+#define LINKTYPE_USER2		149
+#define LINKTYPE_USER3		150
+#define LINKTYPE_USER4		151
+#define LINKTYPE_USER5		152
+#define LINKTYPE_USER6		153
+#define LINKTYPE_USER7		154
+#define LINKTYPE_USER8		155
+#define LINKTYPE_USER9		156
+#define LINKTYPE_USER10		157
+#define LINKTYPE_USER11		158
+#define LINKTYPE_USER12		159
+#define LINKTYPE_USER13		160
+#define LINKTYPE_USER14		161
+#define LINKTYPE_USER15		162
+
+/*
+ * For future use with 802.11 captures - defined by AbsoluteValue
+ * Systems to store a number of bits of link-layer information
+ * including radio information:
+ *
+ *	http://www.shaftnet.org/~pizza/software/capturefrm.txt
+ *
+ * but could and arguably should also be used by non-AVS Linux
+ * 802.11 drivers; that may happen in the future.
+ */
+#define LINKTYPE_IEEE802_11_RADIO_AVS 163	/* 802.11 plus AVS radio header */
+
+/*
+ * Juniper-private data link type, as per request from
+ * Hannes Gredler <hannes@juniper.net>.  The corresponding
+ * DLT_s are used for passing on chassis-internal
+ * metainformation such as QOS profiles, etc..
+ */
+#define LINKTYPE_JUNIPER_MONITOR 164
 
 static struct linktype_map {
 	int	dlt;
@@ -241,6 +355,8 @@ static struct linktype_map {
 	/* BSD/OS Frame Relay */
 	{ DLT_FR,		LINKTYPE_FRELAY },
 #endif
+
+	{ DLT_SYMANTEC_FIREWALL, LINKTYPE_SYMANTEC_FIREWALL },
 	{ DLT_ATM_RFC1483, 	LINKTYPE_ATM_RFC1483 },
 	{ DLT_RAW,		LINKTYPE_RAW },
 	{ DLT_SLIP_BSDOS,	LINKTYPE_SLIP_BSDOS },
@@ -313,7 +429,7 @@ static struct linktype_map {
 	/* Xilinx Aurora link layer */
 	{ DLT_AURORA,		LINKTYPE_AURORA },
 
-	/* 802.11 plus WLAN header */
+	/* 802.11 plus BSD radio header */
 	{ DLT_IEEE802_11_RADIO,	LINKTYPE_IEEE802_11_RADIO },
 
 	/* Tazmen Sniffer Protocol */
@@ -345,6 +461,9 @@ static struct linktype_map {
 	{ DLT_IBM_SP,		LINKTYPE_IBM_SP },
 	{ DLT_IBM_SN,		LINKTYPE_IBM_SN },
 
+	/* 802.11 plus AVS radio header */
+	{ DLT_IEEE802_11_RADIO_AVS, LINKTYPE_IEEE802_11_RADIO_AVS },
+
 	/*
 	 * Any platform that defines additional DLT_* codes should:
 	 *
@@ -363,6 +482,10 @@ static struct linktype_map {
 	 *	defining DLT_* values that collide with those
 	 *	LINKTYPE_* values, either).
 	 */
+
+        /* Juniper-internal chassis encapsulation */
+        { DLT_JUNIPER_MONITOR,     LINKTYPE_JUNIPER_MONITOR },
+
 	{ -1,			-1 }
 };
 

@@ -1,11 +1,11 @@
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>smbclient</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.61.2"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="smbclient.1"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2>Name</h2><p>smbclient &#8212; ftp-like client to access SMB/CIFS resources 
-	on servers</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><tt class="command">smbclient</tt>  {servicename} [password] [-b &lt;buffer size&gt;] [-d debuglevel] [-D Directory] [-U username] [-W workgroup] [-M &lt;netbios name&gt;] [-m maxprotocol] [-A authfile] [-N] [-l logfile] [-L &lt;netbios name&gt;] [-I destinationIP] [-E] [-c &lt;command string&gt;] [-i scope] [-O &lt;socket options&gt;] [-p port] [-R &lt;name resolve order&gt;] [-s &lt;smb config file&gt;] [-T&lt;c|x&gt;IXFqgbNan] [-k]</p></div></div><div class="refsect1" lang="en"><h2>DESCRIPTION</h2><p>This tool is part of the <a href="Samba.7.html"><span class="citerefentry"><span class="refentrytitle">Samba</span>(7)</span></a> suite.</p><p><b class="command">smbclient</b> is a client that can 
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>smbclient</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.64.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="smbclient.1"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2>Name</h2><p>smbclient &#8212; ftp-like client to access SMB/CIFS resources 
+	on servers</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><tt class="command">smbclient</tt>  {servicename} [password] [-b &lt;buffer size&gt;] [-d debuglevel] [-D Directory] [-U username] [-W workgroup] [-M &lt;netbios name&gt;] [-m maxprotocol] [-A authfile] [-N] [-l logdir] [-L &lt;netbios name&gt;] [-I destinationIP] [-E] [-c &lt;command string&gt;] [-i scope] [-O &lt;socket options&gt;] [-p port] [-R &lt;name resolve order&gt;] [-s &lt;smb config file&gt;] [-T&lt;c|x&gt;IXFqgbNan] [-k]</p></div></div><div class="refsect1" lang="en"><a name="id2479914"></a><h2>DESCRIPTION</h2><p>This tool is part of the <a href="samba.7.html"><span class="citerefentry"><span class="refentrytitle">samba</span>(7)</span></a> suite.</p><p><span><b class="command">smbclient</b></span> is a client that can 
 	'talk' to an SMB/CIFS server. It offers an interface
 	similar to that of the ftp program (see <a href="ftp.1.html"><span class="citerefentry"><span class="refentrytitle">ftp</span>(1)</span></a>).  
 	Operations include things like getting files from the server 
 	to the local machine, putting files from the local machine to 
 	the server, retrieving directory information from the server 
-	and so on. </p></div><div class="refsect1" lang="en"><h2>OPTIONS</h2><div class="variablelist"><dl><dt><span class="term">servicename</span></dt><dd><p>servicename is the name of the service 
+	and so on. </p></div><div class="refsect1" lang="en"><a name="id2479954"></a><h2>OPTIONS</h2><div class="variablelist"><dl><dt><span class="term">servicename</span></dt><dd><p>servicename is the name of the service 
 		you want to use on the server. A service name takes the form
 		<tt class="filename">//server/service</tt> where <i class="parameter"><tt>server
 		</tt></i> is the NetBIOS name of the SMB/CIFS server 
@@ -18,7 +18,7 @@
 		a NetBIOS server name, which may or may not be the
 		same as the IP hostname of the machine running the server.
 		</p><p>The server name is looked up according to either 
-		the <i class="parameter"><tt>-R</tt></i> parameter to <b class="command">smbclient</b> or 
+		the <i class="parameter"><tt>-R</tt></i> parameter to <span><b class="command">smbclient</b></span> or 
 		using the name resolve order parameter in 
 		the <a href="smb.conf.5.html"><span class="citerefentry"><span class="refentrytitle">smb.conf</span>(5)</span></a> file, 
 		allowing an administrator to change the order and methods 
@@ -73,8 +73,8 @@
 		occur. </p><p>The message is also automatically truncated if the message 
 		is over 1600 bytes, as this is the limit of the protocol. 
 		</p><p>One useful trick is to cat the message through
-		<b class="command">smbclient</b>. For example: <b class="command">
-		cat mymessage.txt | smbclient -M FRED </b> will 
+		<span><b class="command">smbclient</b></span>. For example: <span><b class="command">
+		cat mymessage.txt | smbclient -M FRED </b></span> will 
 		send the message in the file <tt class="filename">mymessage.txt</tt> 
 		to the machine FRED. </p><p>You may also find the <i class="parameter"><tt>-U</tt></i> and 
 		<i class="parameter"><tt>-I</tt></i> options useful, as they allow you to 
@@ -98,16 +98,16 @@
 		to the standard error stream (stderr) rather than to the standard 
 		output stream. </p><p>By default, the client writes messages to standard output 
 		- typically the user's tty. </p></dd><dt><span class="term">-L</span></dt><dd><p>This option allows you to look at what services 
-		are available on a server. You use it as <b class="command">smbclient -L 
-		host</b> and a list should appear.  The <i class="parameter"><tt>-I
+		are available on a server. You use it as <span><b class="command">smbclient -L 
+		host</b></span> and a list should appear.  The <i class="parameter"><tt>-I
 		</tt></i> option may be useful if your NetBIOS names don't 
 		match your TCP/IP DNS host names or if you are trying to reach a 
-		host on another network. </p></dd><dt><span class="term">-t terminal code</span></dt><dd><p>This option tells <b class="command">smbclient</b> how to interpret 
+		host on another network. </p></dd><dt><span class="term">-t terminal code</span></dt><dd><p>This option tells <span><b class="command">smbclient</b></span> how to interpret 
 		filenames coming from the remote server. Usually Asian language 
 		multibyte UNIX implementations use different character sets than 
 		SMB/CIFS servers (<span class="emphasis"><em>EUC</em></span> instead of <span class="emphasis"><em>
 		SJIS</em></span> for example). Setting this parameter will let 
-		<b class="command">smbclient</b> convert between the UNIX filenames and 
+		<span><b class="command">smbclient</b></span> convert between the UNIX filenames and 
 		the SMB filenames correctly. This option has not been seriously tested 
 		and may have some problems. </p><p>The terminal codes include CWsjis, CWeuc, CWjis7, CWjis8,
 		CWjunet, CWhex, CWcap. This is not a complete list, check the Samba 
@@ -135,10 +135,10 @@ amounts of log data, and should only be used when
 investigating a problem. Levels above 3 are designed for 
 use only by developers and generate HUGE amounts of log
 data, most of which is extremely cryptic.</p><p>Note that specifying this parameter here will 
-override the <a class="indexterm" name="id2800535"></a>log level parameter
-in the <tt class="filename">smb.conf</tt> file.</p></dd><dt><span class="term">-l|--logfile=logbasename</span></dt><dd><p>File name for log/debug files. The extension
-<tt class="constant">".client"</tt> will be appended. The log file is
-never removed by the client.
+override the <a class="indexterm" name="id2429399"></a>log level parameter
+in the <tt class="filename">smb.conf</tt> file.</p></dd><dt><span class="term">-l|--logfile=logdirectory</span></dt><dd><p>Base directory name for log/debug files. The extension
+<tt class="constant">".progname"</tt> will be appended (e.g. log.smbclient, 
+log.smbd, etc...). The log file is never removed by the client.
 </p></dd><dt><span class="term">-N</span></dt><dd><p>If specified, this parameter suppresses the normal
 password prompt from the client to the user. This is useful when
 accessing a service that does not require a password. </p><p>Unless a password is specified on the command line or
@@ -166,15 +166,15 @@ variables. If this method is used, make certain that the permissions
 on the file restrict access from unwanted users.  See the
 <i class="parameter"><tt>-A</tt></i> for more details. </p><p>Be cautious about including passwords in scripts. Also, on
 many systems the command line of a running process may be seen
-via the <b class="command">ps</b> command.  To be safe always allow
-<b class="command">rpcclient</b> to prompt for a password and type
+via the <span><b class="command">ps</b></span> command.  To be safe always allow
+<span><b class="command">rpcclient</b></span> to prompt for a password and type
 it in directly. </p></dd><dt><span class="term">-n &lt;primary NetBIOS name&gt;</span></dt><dd><p>This option allows you to override
 the NetBIOS name that Samba uses for itself. This is identical
-to setting the <a class="indexterm" name="id2800100"></a>netbios name parameter in the <tt class="filename">smb.conf</tt> file. 
+to setting the <a class="indexterm" name="id2492575"></a>netbios name parameter in the <tt class="filename">smb.conf</tt> file. 
 However, a command
 line setting will take precedence over settings in
 <tt class="filename">smb.conf</tt>.</p></dd><dt><span class="term">-i &lt;scope&gt;</span></dt><dd><p>This specifies a NetBIOS scope that
-<b class="command">nmblookup</b> will use to communicate with when
+<span><b class="command">nmblookup</b></span> will use to communicate with when
 generating NetBIOS names. For details on the use of NetBIOS
 scopes, see rfc1001.txt and rfc1002.txt. NetBIOS scopes are
 <span class="emphasis"><em>very</em></span> rarely used, only set this parameter
@@ -186,8 +186,8 @@ NetBIOS name, it causes the client to log on using the servers local
 SAM (as opposed to the Domain SAM). </p></dd><dt><span class="term">-O socket options</span></dt><dd><p>TCP socket options to set on the client
 socket. See the socket options parameter in
 the <tt class="filename">smb.conf</tt> manual page for the list of valid
-options. </p></dd><dt><span class="term">-T tar options</span></dt><dd><p>smbclient may be used to create <b class="command">tar(1)
-		</b> compatible backups of all the files on an SMB/CIFS
+options. </p></dd><dt><span class="term">-T tar options</span></dt><dd><p>smbclient may be used to create <span><b class="command">tar(1)
+		</b></span> compatible backups of all the files on an SMB/CIFS
 		share. The secondary tar flags that can be given to this option 
 		are : </p><div class="itemizedlist"><ul type="disc"><li><p><i class="parameter"><tt>c</tt></i> - Create a tar file on UNIX. 
 			Must be followed by the name of a tar file, tape device
@@ -227,28 +227,28 @@ options. </p></dd><dt><span class="term">-T tar options</span></dt><dd><p>smbcli
 			<i class="parameter"><tt>c</tt></i> flag. </p></li><li><p><i class="parameter"><tt>a</tt></i> - Set archive bit. Causes the 
 			archive bit to be reset when a file is backed up. Useful with the 
 			<i class="parameter"><tt>g</tt></i> and <i class="parameter"><tt>c</tt></i> flags. 
-			</p></li></ul></div><p><span class="emphasis"><em>Tar Long File Names</em></span></p><p><b class="command">smbclient</b>'s tar option now supports long 
+			</p></li></ul></div><p><span class="emphasis"><em>Tar Long File Names</em></span></p><p><span><b class="command">smbclient</b></span>'s tar option now supports long 
 		file names both on backup and restore. However, the full path 
 		name of the file must be less than 1024 bytes.  Also, when
-		a tar archive is created, <b class="command">smbclient</b>'s tar option places all 
+		a tar archive is created, <span><b class="command">smbclient</b></span>'s tar option places all 
 		files in the archive with relative names, not absolute names. 
 		</p><p><span class="emphasis"><em>Tar Filenames</em></span></p><p>All file names can be given as DOS path names (with '\\' 
 		as the component separator) or as UNIX path names (with '/' as 
 		the component separator). </p><p><span class="emphasis"><em>Examples</em></span></p><p>Restore from tar file <tt class="filename">backup.tar</tt> into myshare on mypc 
-		(no password on share). </p><p><b class="command">smbclient //mypc/yshare "" -N -Tx backup.tar
-		</b></p><p>Restore everything except <tt class="filename">users/docs</tt>
-		</p><p><b class="command">smbclient //mypc/myshare "" -N -TXx backup.tar 
-		users/docs</b></p><p>Create a tar file of the files beneath <tt class="filename">
-		users/docs</tt>. </p><p><b class="command">smbclient //mypc/myshare "" -N -Tc
-		backup.tar users/docs </b></p><p>Create the same tar file as above, but now use 
-		a DOS path name. </p><p><b class="command">smbclient //mypc/myshare "" -N -tc backup.tar 
-		users\edocs </b></p><p>Create a tar file of all the files and directories in 
-		the share. </p><p><b class="command">smbclient //mypc/myshare "" -N -Tc backup.tar *
-		</b></p></dd><dt><span class="term">-D initial directory</span></dt><dd><p>Change to initial directory before starting. Probably 
+		(no password on share). </p><p><span><b class="command">smbclient //mypc/yshare "" -N -Tx backup.tar
+		</b></span></p><p>Restore everything except <tt class="filename">users/docs</tt>
+		</p><p><span><b class="command">smbclient //mypc/myshare "" -N -TXx backup.tar 
+		users/docs</b></span></p><p>Create a tar file of the files beneath <tt class="filename">
+		users/docs</tt>. </p><p><span><b class="command">smbclient //mypc/myshare "" -N -Tc
+		backup.tar users/docs </b></span></p><p>Create the same tar file as above, but now use 
+		a DOS path name. </p><p><span><b class="command">smbclient //mypc/myshare "" -N -tc backup.tar 
+		users\edocs </b></span></p><p>Create a tar file of all the files and directories in 
+		the share. </p><p><span><b class="command">smbclient //mypc/myshare "" -N -Tc backup.tar *
+		</b></span></p></dd><dt><span class="term">-D initial directory</span></dt><dd><p>Change to initial directory before starting. Probably 
 		only of any use with the tar -T option. </p></dd><dt><span class="term">-c command string</span></dt><dd><p>command string is a semicolon-separated list of 
 		commands to be executed instead of prompting from stdin. <i class="parameter"><tt>
 		-N</tt></i> is implied by <i class="parameter"><tt>-c</tt></i>.</p><p>This is particularly useful in scripts and for printing stdin 
-		to the server, e.g. <b class="command">-c 'print -'</b>. </p></dd></dl></div></div><div class="refsect1" lang="en"><h2>OPERATIONS</h2><p>Once the client is running, the user is presented with 
+		to the server, e.g. <span><b class="command">-c 'print -'</b></span>. </p></dd></dl></div></div><div class="refsect1" lang="en"><a name="id2493015"></a><h2>OPERATIONS</h2><p>Once the client is running, the user is presented with 
 	a prompt : </p><p><tt class="prompt">smb:\&gt; </tt></p><p>The backslash ("\\") indicates the current working directory 
 	on the server, and will change if the current working directory 
 	is changed. </p><p>The prompt indicates that the client is ready and waiting to 
@@ -294,7 +294,7 @@ options. </p></dd><dt><span class="term">-T tar options</span></dt><dd><p>smbcli
 		from the program. </p></dd><dt><span class="term">get &lt;remote file name&gt; [local file name]</span></dt><dd><p>Copy the file called <tt class="filename">remote file name</tt> from 
 		the server to the machine running the client. If specified, name 
 		the local copy <tt class="filename">local file name</tt>.  Note that all transfers in 
-		<b class="command">smbclient</b> are binary. See also the 
+		<span><b class="command">smbclient</b></span> are binary. See also the 
 		lowercase command. </p></dd><dt><span class="term">help [command]</span></dt><dd><p>See the ? command above. </p></dd><dt><span class="term">lcd [directory name]</span></dt><dd><p>If <i class="replaceable"><tt>directory name</tt></i> is specified, the current 
 		working directory on the local machine will be changed to 
 		the directory specified. This operation will fail if for any 
@@ -326,12 +326,12 @@ options. </p></dd><dt><span class="term">-T tar options</span></dt><dd><p>smbcli
 		the machine running the client. </p><p>Note that <i class="replaceable"><tt>mask</tt></i> is interpreted differently during recursive 
 		operation and non-recursive operation - refer to the recurse and 
 		mask commands for more information. Note that all transfers in 
-		<b class="command">smbclient</b> are binary. See also the lowercase command. </p></dd><dt><span class="term">mkdir &lt;directory name&gt;</span></dt><dd><p>Create a new directory on the server (user access 
+		<span><b class="command">smbclient</b></span> are binary. See also the lowercase command. </p></dd><dt><span class="term">mkdir &lt;directory name&gt;</span></dt><dd><p>Create a new directory on the server (user access 
 		privileges permitting) with the specified name. </p></dd><dt><span class="term">mput &lt;mask&gt;</span></dt><dd><p>Copy all files matching <i class="replaceable"><tt>mask</tt></i> in the current working 
 		directory on the local machine to the current working directory on 
 		the server. </p><p>Note that <i class="replaceable"><tt>mask</tt></i> is interpreted differently during recursive 
 		operation and non-recursive operation - refer to the recurse and mask 
-		commands for more information. Note that all transfers in <b class="command">smbclient</b> 
+		commands for more information. Note that all transfers in <span><b class="command">smbclient</b></span> 
 		are binary. </p></dd><dt><span class="term">print &lt;file name&gt;</span></dt><dd><p>Print the specified file from the local machine 
 		through a printable service on the server. </p><p>See also the printmode command.</p></dd><dt><span class="term">printmode &lt;graphics or text&gt;</span></dt><dd><p>Set the print mode to suit either binary data 
 		(such as graphical information) or text. Subsequent print
@@ -342,7 +342,7 @@ options. </p></dd><dt><span class="term">-T tar options</span></dt><dd><p>smbcli
 		</p></dd><dt><span class="term">put &lt;local file name&gt; [remote file name]</span></dt><dd><p>Copy the file called <tt class="filename">local file name</tt> from the 
 		machine running the client to the server. If specified,
 		name the remote copy <tt class="filename">remote file name</tt>. Note that all transfers 
-		in <b class="command">smbclient</b> are binary. See also the lowercase command. 
+		in <span><b class="command">smbclient</b></span> are binary. See also the lowercase command. 
 		</p></dd><dt><span class="term">queue</span></dt><dd><p>Displays the print queue, showing the job id, 
 		name, size and current status. </p></dd><dt><span class="term">quit</span></dt><dd><p>See the exit command. </p></dd><dt><span class="term">rd &lt;directory name&gt;</span></dt><dd><p>See the rmdir command. </p></dd><dt><span class="term">recurse</span></dt><dd><p>Toggle directory recursion for the commands mget 
 		and mput. </p><p>When toggled ON, these commands will process all directories 
@@ -356,7 +356,7 @@ options. </p></dd><dt><span class="term">-T tar options</span></dt><dd><p>smbcli
 		using the mask command will be ignored. </p></dd><dt><span class="term">rm &lt;mask&gt;</span></dt><dd><p>Remove all files matching <i class="replaceable"><tt>mask</tt></i> from the current 
 		working directory on the server. </p></dd><dt><span class="term">rmdir &lt;directory name&gt;</span></dt><dd><p>Remove the specified directory (user access 
 		privileges permitting) from the server. </p></dd><dt><span class="term">setmode &lt;filename&gt; &lt;perm=[+|\-]rsha&gt;</span></dt><dd><p>A version of the DOS attrib command to set 
-		file permissions. For example: </p><p><b class="command">setmode myfile +r </b></p><p>would make myfile read only. </p></dd><dt><span class="term">symlink source destination</span></dt><dd><p>This command depends on the server supporting the CIFS
+		file permissions. For example: </p><p><span><b class="command">setmode myfile +r </b></span></p><p>would make myfile read only. </p></dd><dt><span class="term">symlink source destination</span></dt><dd><p>This command depends on the server supporting the CIFS
 		UNIX extensions and will fail if the server does not. The client requests that the server
 		create a symbolic hard link between the source and destination files. The source file
 		must not exist. Note that the server will not create a link to any path that lies 
@@ -373,14 +373,14 @@ options. </p></dd><dt><span class="term">-T tar options</span></dt><dd><p>smbcli
 		archive bit setting (this is the default mode). In incremental mode, 
 		tar will only back up files with the archive bit set. In reset mode, 
 		tar will reset the archive bit on all files it backs up (implies 
-		read/write share). </p></dd></dl></div></div><div class="refsect1" lang="en"><h2>NOTES</h2><p>Some servers are fussy about the case of supplied usernames, 
+		read/write share). </p></dd></dl></div></div><div class="refsect1" lang="en"><a name="id2493769"></a><h2>NOTES</h2><p>Some servers are fussy about the case of supplied usernames, 
 	passwords, share names (AKA service names) and machine names. 
 	If you fail to connect try giving all parameters in uppercase. 
 	</p><p>It is often necessary to use the -n option when connecting 
 	to some types of servers. For example OS/2 LanManager insists 
 	on a valid NetBIOS name being used, so you need to supply a valid 
 	name that would be known to the server.</p><p>smbclient supports long file names where the server 
-	supports the LANMAN2 protocol or above. </p></div><div class="refsect1" lang="en"><h2>ENVIRONMENT VARIABLES</h2><p>The variable <tt class="envar">USER</tt> may contain the 
+	supports the LANMAN2 protocol or above. </p></div><div class="refsect1" lang="en"><a name="id2493794"></a><h2>ENVIRONMENT VARIABLES</h2><p>The variable <tt class="envar">USER</tt> may contain the 
 	username of the person  using the client. This information is 
 	used only if the protocol  level is high enough to support 
 	session-level passwords.</p><p>The variable <tt class="envar">PASSWD</tt> may contain 
@@ -390,7 +390,7 @@ options. </p></dd><dt><span class="term">-T tar options</span></dt><dd><p>smbcli
 	the path, executed with system(), which the client should connect 
         to instead of connecting to a server.  This functionality is primarily
         intended as a development aid, and works best when using a LMHOSTS 
-        file</p></div><div class="refsect1" lang="en"><h2>INSTALLATION</h2><p>The location of the client program is a matter for 
+        file</p></div><div class="refsect1" lang="en"><a name="id2493832"></a><h2>INSTALLATION</h2><p>The location of the client program is a matter for 
 	individual system administrators. The following are thus
 	suggestions only. </p><p>It is recommended that the smbclient software be installed
 	in the <tt class="filename">/usr/local/samba/bin/</tt> or <tt class="filename">
@@ -401,11 +401,11 @@ options. </p></dd><dt><span class="term">-T tar options</span></dt><dd><p>smbcli
 	and writeable only by the user. </p><p>To test the client, you will need to know the name of a 
 	running SMB/CIFS server. It is possible to run <a href="smbd.8.html"><span class="citerefentry"><span class="refentrytitle">smbd</span>(8)</span></a> as an ordinary user - running that server as a daemon 
 	on a user-accessible port (typically any port number over 1024)
-	would provide a suitable test server. </p></div><div class="refsect1" lang="en"><h2>DIAGNOSTICS</h2><p>Most diagnostics issued by the client are logged in a 
+	would provide a suitable test server. </p></div><div class="refsect1" lang="en"><a name="id2493888"></a><h2>DIAGNOSTICS</h2><p>Most diagnostics issued by the client are logged in a 
 	specified log file. The log file name is specified at compile time, 
 	but may be overridden on the command line. </p><p>The number and nature of diagnostics available depends 
 	on the debug level used by the client. If you have problems, 
-	set the debug level to 3 and peruse the log files. </p></div><div class="refsect1" lang="en"><h2>VERSION</h2><p>This man page is correct for version 2.2 of the Samba suite.</p></div><div class="refsect1" lang="en"><h2>AUTHOR</h2><p>The original Samba software and related utilities 
+	set the debug level to 3 and peruse the log files. </p></div><div class="refsect1" lang="en"><a name="id2493907"></a><h2>VERSION</h2><p>This man page is correct for version 2.2 of the Samba suite.</p></div><div class="refsect1" lang="en"><a name="id2493918"></a><h2>AUTHOR</h2><p>The original Samba software and related utilities 
 	were created by Andrew Tridgell. Samba is now developed
 	by the Samba Team as an Open Source project similar 
 	to the way the Linux kernel is developed.</p><p>The original Samba man pages were written by Karl Auer. 

@@ -21,6 +21,9 @@
 
 #include "includes.h"
 
+#undef  DBGC_CLASS
+#define DBGC_CLASS DBGC_ACLS
+
 /****************************************************************************
  Data structures representing the internal ACE format.
 ****************************************************************************/
@@ -56,8 +59,6 @@ typedef struct canon_ace {
  * | vers | flag | num_entries | num_default_entries | ..entries.. | default_entries... |
  * +------+------+-------------+---------------------+-------------+--------------------+
  */
-
-#define SAMBA_POSIX_INHERITANCE_EA_NAME "user.SAMBA_PAI"
 
 #define PAI_VERSION_OFFSET	0
 #define PAI_FLAG_OFFSET		1
@@ -1365,12 +1366,12 @@ static BOOL create_canon_ace_lists(files_struct *fsp, SMB_STRUCT_STAT *pst,
 			if (nt4_compatible_acls())
 				psa->flags |= SEC_ACE_FLAG_INHERIT_ONLY;
 
-		} else if (NT_STATUS_IS_OK(sid_to_gid( &current_ace->trustee, &current_ace->unix_ug.gid))) {
-			current_ace->owner_type = GID_ACE;
-			current_ace->type = SMB_ACL_GROUP;
 		} else if (NT_STATUS_IS_OK(sid_to_uid( &current_ace->trustee, &current_ace->unix_ug.uid))) {
 			current_ace->owner_type = UID_ACE;
 			current_ace->type = SMB_ACL_USER;
+		} else if (NT_STATUS_IS_OK(sid_to_gid( &current_ace->trustee, &current_ace->unix_ug.gid))) {
+			current_ace->owner_type = GID_ACE;
+			current_ace->type = SMB_ACL_GROUP;
 		} else {
 			fstring str;
 
@@ -3183,7 +3184,7 @@ BOOL set_nt_acl(files_struct *fsp, uint32 security_info_sent, SEC_DESC *psd)
  the mask bits, not the real group bits, for a file with an ACL.
 ****************************************************************************/
 
-int get_acl_group_bits( connection_struct *conn, char *fname, mode_t *mode )
+int get_acl_group_bits( connection_struct *conn, const char *fname, mode_t *mode )
 {
 	int entry_id = SMB_ACL_FIRST_ENTRY;
 	SMB_ACL_ENTRY_T entry;

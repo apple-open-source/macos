@@ -6,24 +6,23 @@
 	objectVersion = 39;
 	objects = {
 		014F4CCE00C5613A11CE15BF = {
-			expectedFileType = wrapper.framework;
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = System.framework;
 			path = /System/Library/Frameworks/System.framework;
 			refType = 0;
 			sourceTree = "<absolute>";
 		};
 		01D59BA400ADEAD811CE1A69 = {
-			expectedFileType = sourcecode.c.h;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = AuthoringDeviceTester.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		01D59BA500ADEAD811CE1A69 = {
-			expectedFileType = sourcecode.c.objc;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			path = AuthoringDeviceTester.m;
 			refType = 4;
 			sourceTree = "<group>";
@@ -35,9 +34,8 @@
 			};
 		};
 		01D59BAE00AE1C8911CE1A69 = {
-			expectedFileType = wrapper.framework;
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = IOKit.framework;
 			path = /System/Library/Frameworks/IOKit.framework;
 			refType = 0;
@@ -99,8 +97,8 @@
 			sourceTree = "<group>";
 		};
 		04F1F35300C6FC1E11CE15BF = {
-			expectedFileType = wrapper.nib;
 			isa = PBXFileReference;
+			lastKnownFileType = wrapper.nib;
 			name = English;
 			path = English.lproj/MainMenu.nib;
 			refType = 4;
@@ -145,29 +143,29 @@
 			};
 		};
 		0826EDEE00BED45011CE15BF = {
-			expectedFileType = sourcecode.c.h;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = InterfaceController.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0826EDEF00BED45011CE15BF = {
-			expectedFileType = sourcecode.c.objc;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			path = InterfaceController.m;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0826EDF400BED9B911CE15BF = {
-			expectedFileType = sourcecode.c.h;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = DeviceDataSource.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0826EDF500BED9B911CE15BF = {
-			expectedFileType = sourcecode.c.objc;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			path = DeviceDataSource.m;
 			refType = 4;
 			sourceTree = "<group>";
@@ -185,15 +183,15 @@
 			};
 		};
 		0826EDF800BEDBD311CE15BF = {
-			expectedFileType = sourcecode.c.h;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = AuthoringDevice.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0826EDF900BEDBD311CE15BF = {
-			expectedFileType = sourcecode.c.objc;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			path = AuthoringDevice.m;
 			refType = 4;
 			sourceTree = "<group>";
@@ -220,9 +218,9 @@
 			sourceTree = "<group>";
 		};
 		089C1660FE840EACC02AAC07 = {
-			expectedFileType = text.plist.strings;
 			fileEncoding = 10;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = English;
 			path = English.lproj/InfoPlist.strings;
 			refType = 4;
@@ -245,9 +243,8 @@
 //0F3
 //0F4
 		0F623CF400BF100E11CE15BF = {
-			expectedFileType = wrapper.framework;
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = CoreFoundation.framework;
 			path = /System/Library/Frameworks/CoreFoundation.framework;
 			refType = 0;
@@ -265,6 +262,7 @@
 //104
 		1058C7A6FEA54F5311CA2CBB = {
 			children = (
+				E60314C206C1D7F00085690D,
 				0F623CF400BF100E11CE15BF,
 				1058C7A7FEA54F5311CA2CBB,
 				01D59BAE00AE1C8911CE1A69,
@@ -275,9 +273,8 @@
 			sourceTree = "<group>";
 		};
 		1058C7A7FEA54F5311CA2CBB = {
-			expectedFileType = wrapper.framework;
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = Cocoa.framework;
 			path = /System/Library/Frameworks/Cocoa.framework;
 			refType = 0;
@@ -311,9 +308,8 @@
 //173
 //174
 		1758732AFF379DA111CA2CBB = {
-			expectedFileType = wrapper.application;
-			fallbackIsa = PBXFileReference;
-			isa = PBXApplicationReference;
+			explicitFileType = wrapper.application;
+			isa = PBXFileReference;
 			path = AuthoringUnitTest.app;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -390,22 +386,22 @@
 			sourceTree = "<group>";
 		};
 		2A37F4ACFDCFA73011CA2CEA = {
-			expectedFileType = sourcecode.c.objc;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			path = MyDocument.m;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		2A37F4AEFDCFA73011CA2CEA = {
-			expectedFileType = sourcecode.c.h;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = MyDocument.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		2A37F4B0FDCFA73011CA2CEA = {
-			expectedFileType = sourcecode.c.objc;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			path = main.m;
 			refType = 4;
 			sourceTree = "<group>";
@@ -421,8 +417,8 @@
 			sourceTree = "<group>";
 		};
 		2A37F4B5FDCFA73011CA2CEA = {
-			expectedFileType = wrapper.nib;
 			isa = PBXFileReference;
+			lastKnownFileType = wrapper.nib;
 			name = English;
 			path = English.lproj/MyDocument.nib;
 			refType = 4;
@@ -452,18 +448,16 @@
 			sourceTree = "<group>";
 		};
 		2A37F4C4FDCFA73011CA2CEA = {
-			expectedFileType = wrapper.framework;
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = AppKit.framework;
 			path = /System/Library/Frameworks/AppKit.framework;
 			refType = 0;
 			sourceTree = "<absolute>";
 		};
 		2A37F4C5FDCFA73011CA2CEA = {
-			expectedFileType = wrapper.framework;
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = Foundation.framework;
 			path = /System/Library/Frameworks/Foundation.framework;
 			refType = 0;
@@ -601,6 +595,7 @@
 				1058C7A9FEA54F5311CA2CBB,
 				01D59BAF00AE1C8911CE1A69,
 				5C608A3B00FD238705CE15BF,
+				E60314C306C1D7F00085690D,
 			);
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -616,8 +611,6 @@
 //4A3
 //4A4
 		4A9504D0FFE6A4CB11CA0CBA = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -631,8 +624,6 @@
 			name = Development;
 		};
 		4A9504D1FFE6A4CB11CA0CBA = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -668,72 +659,72 @@
 //AC3
 //AC4
 		AC989A3704E99EE600C23B3E = {
-			expectedFileType = image.icns;
 			isa = PBXFileReference;
+			lastKnownFileType = image.icns;
 			name = "CD-R.icns";
 			path = "Images/CD-R.icns";
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		AC989A3804E99EE600C23B3E = {
-			expectedFileType = image.icns;
 			isa = PBXFileReference;
+			lastKnownFileType = image.icns;
 			name = "CD-RW.icns";
 			path = "Images/CD-RW.icns";
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		AC989A3904E99EE600C23B3E = {
-			expectedFileType = image.icns;
 			isa = PBXFileReference;
+			lastKnownFileType = image.icns;
 			name = "DVD-R.icns";
 			path = "Images/DVD-R.icns";
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		AC989A3A04E99EE600C23B3E = {
-			expectedFileType = image.icns;
 			isa = PBXFileReference;
+			lastKnownFileType = image.icns;
 			name = "DVD-RAM.icns";
 			path = "Images/DVD-RAM.icns";
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		AC989A3B04E99EE600C23B3E = {
-			expectedFileType = image.icns;
 			isa = PBXFileReference;
+			lastKnownFileType = image.icns;
 			name = "DVD-RW.icns";
 			path = "Images/DVD-RW.icns";
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		AC989A3C04E99EE600C23B3E = {
-			expectedFileType = image.png;
 			isa = PBXFileReference;
+			lastKnownFileType = image.png;
 			name = "Fibre Channel Interface.png";
 			path = "Images/Fibre Channel Interface.png";
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		AC989A3D04E99EE600C23B3E = {
-			expectedFileType = image.png;
 			isa = PBXFileReference;
+			lastKnownFileType = image.png;
 			name = FireWire.png;
 			path = Images/FireWire.png;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		AC989A3E04E99EE600C23B3E = {
-			expectedFileType = image.png;
 			isa = PBXFileReference;
+			lastKnownFileType = image.png;
 			name = "SCSI Parallel Interface.png";
 			path = "Images/SCSI Parallel Interface.png";
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		AC989A3F04E99EE600C23B3E = {
-			expectedFileType = image.png;
 			isa = PBXFileReference;
+			lastKnownFileType = image.png;
 			name = USB.png;
 			path = Images/USB.png;
 			refType = 4;
@@ -821,17 +812,17 @@
 			sourceTree = "<group>";
 		};
 		ACCEF86904D8814100D5E026 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = VerticallyCenteredTextFieldCell.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		ACCEF86A04D8814100D5E026 = {
-			expectedFileType = sourcecode.c.objc;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			path = VerticallyCenteredTextFieldCell.m;
 			refType = 4;
 			sourceTree = "<group>";
@@ -849,17 +840,17 @@
 			};
 		};
 		ACDEE76604D89E1A0001C085 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = ImageAndTextCell.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		ACDEE76704D89E1A0001C085 = {
-			expectedFileType = sourcecode.c.objc;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
 			path = ImageAndTextCell.m;
 			refType = 4;
 			sourceTree = "<group>";
@@ -872,6 +863,30 @@
 		};
 		ACDEE76904D89E1A0001C085 = {
 			fileRef = ACDEE76704D89E1A0001C085;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//AC0
+//AC1
+//AC2
+//AC3
+//AC4
+//E60
+//E61
+//E62
+//E63
+//E64
+		E60314C206C1D7F00085690D = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = DiskArbitration.framework;
+			path = /System/Library/Frameworks/DiskArbitration.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		E60314C306C1D7F00085690D = {
+			fileRef = E60314C206C1D7F00085690D;
 			isa = PBXBuildFile;
 			settings = {
 			};

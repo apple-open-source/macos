@@ -186,11 +186,11 @@ protected:
 
     // Add an element to a queue
     virtual IOReturn addElementToQueue(void * vInQueue, void * vInElementCookie, 
-                            void * vInFlags, void *, void *, void * gated);
+                            void * vInFlags, void * vSizeChange, void *, void * gated);
    
     // remove an element from a queue
     virtual IOReturn removeElementFromQueue (void * vInQueue, void * vInElementCookie, 
-                            void *, void *, void *, void * gated);
+                            void * vSizeChange, void *, void *, void * gated);
     
     // Check to see if a queue has an element
     virtual IOReturn queueHasElement (void * vInQueue, void * vInElementCookie, 

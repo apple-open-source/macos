@@ -5,6 +5,7 @@
 
    Copyright (C) Andrew Tridgell 2001
    Copyright (C) Andrew Bartlett <abartlet@samba.org> 2003
+   Copyright (C) Gerald (Jerry) Carter 2004
    
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -39,7 +40,22 @@ static ADS_STRUCT *ads_cached_connection(struct winbindd_domain *domain)
 	ADS_STATUS status;
 
 	if (domain->private) {
-		return (ADS_STRUCT *)domain->private;
+		ads = (ADS_STRUCT *)domain->private;
+
+		/* check for a valid structure */
+
+		DEBUG(7, ("Current tickets expire at %d\n, time is now %d\n",
+			  (uint32) ads->auth.expire, (uint32) time(NULL)));
+		if ( ads->config.realm && (ads->auth.expire > time(NULL))) {
+			return ads;
+		}
+		else {
+			/* we own this ADS_STRUCT so make sure it goes away */
+			ads->is_mine = True;
+			ads_destroy( &ads );
+			ads_kdestroy("MEMORY:winbind_ccache");
+			domain->private = NULL;
+		}	
 	}
 
 	/* we don't want this to affect the users ccache */
@@ -78,6 +94,12 @@ static ADS_STRUCT *ads_cached_connection(struct winbindd_domain *domain)
 		}
 		return NULL;
 	}
+
+	/* set the flag that says we don't own the memory even 
+	   though we do so that ads_destroy() won't destroy the 
+	   structure we pass back by reference */
+
+	ads->is_mine = False;
 
 	domain->private = (void *)ads;
 	return ads;
@@ -301,48 +323,6 @@ static NTSTATUS enum_local_groups(struct winbindd_domain *domain,
 	return NT_STATUS_OK;
 }
 
-/* convert a single name to a sid in a domain */
-static NTSTATUS name_to_sid(struct winbindd_domain *domain,
-			    TALLOC_CTX *mem_ctx,
-			    const char *name,
-			    DOM_SID *sid,
-			    enum SID_NAME_USE *type)
-{
-	ADS_STRUCT *ads;
-
-	DEBUG(3,("ads: name_to_sid\n"));
-
-	ads = ads_cached_connection(domain);
-	
-	if (!ads) {
-		domain->last_status = NT_STATUS_SERVER_DISABLED;
-		return NT_STATUS_UNSUCCESSFUL;
-	}
-
-	return ads_name_to_sid(ads, name, sid, type);
-}
-
-/* convert a sid to a user or group name */
-static NTSTATUS sid_to_name(struct winbindd_domain *domain,
-			    TALLOC_CTX *mem_ctx,
-			    const DOM_SID *sid,
-			    char **name,
-			    enum SID_NAME_USE *type)
-{
-	ADS_STRUCT *ads = NULL;
-	DEBUG(3,("ads: sid_to_name\n"));
-
-	ads = ads_cached_connection(domain);
-	
-	if (!ads) {
-		domain->last_status = NT_STATUS_SERVER_DISABLED;
-		return NT_STATUS_UNSUCCESSFUL;
-	}
-
-	return ads_sid_to_name(ads, mem_ctx, sid, name, type);
-}
-
-
 /* convert a DN to a name, SID and name type 
    this might become a major speed bottleneck if groups have
    lots of users, in which case we could cache the results
@@ -390,7 +370,7 @@ failed:
 /* Lookup user information from a rid */
 static NTSTATUS query_user(struct winbindd_domain *domain, 
 			   TALLOC_CTX *mem_ctx, 
-			   DOM_SID *sid, 
+			   const DOM_SID *sid, 
 			   WINBIND_USERINFO *info)
 {
 	ADS_STRUCT *ads = NULL;
@@ -561,7 +541,7 @@ done:
 /* Lookup groups a user is a member of. */
 static NTSTATUS lookup_usergroups(struct winbindd_domain *domain,
 				  TALLOC_CTX *mem_ctx,
-				  DOM_SID *sid, 
+				  const DOM_SID *sid, 
 				  uint32 *num_groups, DOM_SID ***user_gids)
 {
 	ADS_STRUCT *ads = NULL;
@@ -659,7 +639,7 @@ done:
  */
 static NTSTATUS lookup_groupmem(struct winbindd_domain *domain,
 				TALLOC_CTX *mem_ctx,
-				DOM_SID *group_sid, uint32 *num_names, 
+				const DOM_SID *group_sid, uint32 *num_names, 
 				DOM_SID ***sid_mem, char ***names, 
 				uint32 **name_types)
 {
@@ -982,8 +962,8 @@ struct winbindd_methods ads_methods = {
 	query_user_list,
 	enum_dom_groups,
 	enum_local_groups,
-	name_to_sid,
-	sid_to_name,
+	msrpc_name_to_sid,
+	msrpc_sid_to_name,
 	query_user,
 	lookup_usergroups,
 	lookup_groupmem,

@@ -24,7 +24,7 @@
 encode a buffer using base64 - simple and slow algorithm. null terminates
 the result.
   ***************************************************************************/
-static void base64_encode(char *buf, int len, char *out)
+void base64_encode(char *buf, int len, char *out)
 {
 	char *b64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 	int bit_offset, byte_offset, idx, i;
@@ -33,7 +33,7 @@ static void base64_encode(char *buf, int len, char *out)
 
 	memset(out, 0, bytes+1);
 
-	for (i=0;i<bytes;i++) {
+	for (i = 0; i < bytes; i++) {
 		byte_offset = (i*6)/8;
 		bit_offset = (i*6)%8;
 		if (bit_offset < 3) {
@@ -239,7 +239,7 @@ char *auth_server(int f_in, int f_out, int module, char *addr, char *leader)
 	if (!users) return NULL;
 
 	for (tok=strtok(users," ,\t"); tok; tok = strtok(NULL," ,\t")) {
-		if (fnmatch(tok, user, 0) == 0) break;
+		if (wildmatch(tok, user)) break;
 	}
 	free(users);
 
@@ -269,12 +269,19 @@ void auth_client(int fd, char *user, char *challenge)
 	char pass2[30];
 	extern char *password_file;
 
-	if (!user || !*user) return;
+	if (!user || !*user)
+		user = "nobody";
 
 	if (!(pass=getpassf(password_file)) && !(pass=getenv("RSYNC_PASSWORD"))) {
 		/* XXX: cyeoh says that getpass is deprecated, because
-		   it may return a truncated password on some systems,
-		   and it is not in the LSB. */
+		 * it may return a truncated password on some systems,
+		 * and it is not in the LSB.
+                 *
+                 * Andrew Klein says that getpassphrase() is present
+                 * on Solaris and reads up to 256 characters.
+                 *
+                 * OpenBSD has a readpassphrase() that might be more suitable.
+                 */
 		pass = getpass("Password: ");
 	}
 

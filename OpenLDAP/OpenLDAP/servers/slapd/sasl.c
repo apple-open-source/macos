@@ -360,9 +360,20 @@ sasl_ap_lookup(
 			sl->sparams->utils->prop_erase( sl->sparams->propctx,
 			sl->list[i].name );
 		}
-		for ( bv = a->a_vals; bv->bv_val; bv++ ) {
-			sl->sparams->utils->prop_set( sl->sparams->propctx,
-				sl->list[i].name, bv->bv_val, bv->bv_len );
+		if ( !strcasecmp(name,"userPassword") ) {
+#if SLAPD_CLEARTEXT
+			for ( bv = a->a_vals; bv->bv_val; bv++ ) {
+				if (bv->bv_val[0] != '{') {
+					sl->sparams->utils->prop_set( sl->sparams->propctx,
+						sl->list[i].name, bv->bv_val, bv->bv_len );
+				}
+			}
+#endif
+		} else {
+			for ( bv = a->a_vals; bv->bv_val; bv++ ) {
+				sl->sparams->utils->prop_set( sl->sparams->propctx,
+					sl->list[i].name, bv->bv_val, bv->bv_len );
+			}
 		}
 	}
 	return LDAP_SUCCESS;

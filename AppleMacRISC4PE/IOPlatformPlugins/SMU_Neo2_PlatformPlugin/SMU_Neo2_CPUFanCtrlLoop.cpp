@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: SMU_Neo2_CPUFanCtrlLoop.cpp,v 1.8 2004/06/25 02:44:18 dirty Exp $
+ *  File: $Id: SMU_Neo2_CPUFanCtrlLoop.cpp,v 1.13 2004/08/31 02:38:08 dirty Exp $
  *
  */
 
@@ -172,7 +172,7 @@ OSDictionary* SMU_Neo2_CPUFanCtrlLoop::getPIDDataset( const OSDictionary* dict )
 		goto SMU_Neo2_CPUFanCtrlLoop_getPIDDataset_ReleaseDataset;
 		}
 
-	tmpNumber = OSNumber::withNumber( ( *( unsigned short * ) &buffer[ 0 ] ) << 16, 32 );
+	tmpNumber = OSNumber::withNumber( ( *( short * ) &buffer[ 0 ] ) << 16, 32 );
 	dataset->setObject( kIOPPIDCtrlLoopMaxPowerAdjustmentKey, tmpNumber );
 	tmpNumber->release();
 
@@ -219,6 +219,8 @@ IOReturn SMU_Neo2_CPUFanCtrlLoop::initPlatformCtrlLoop( const OSDictionary* dict
 
 	result = IOPlatformPIDCtrlLoop::initPlatformCtrlLoop( dict );
 
+	targetValue = 0;
+
 	OSArray*							sensorArray;
 
 	if ( ( sensorArray = OSDynamicCast( OSArray, dict->getObject( kIOPPluginThermalSensorIDsKey ) ) ) == NULL )
@@ -255,6 +257,9 @@ IOReturn SMU_Neo2_CPUFanCtrlLoop::initPlatformCtrlLoop( const OSDictionary* dict
 
 		return( kIOReturnError );
 		}
+
+	linkedControlOutputMin = 0x7FFFFFFF;
+	linkedControlOutputMax = 0;
 
 	if ( ( linkedControl = OSDynamicCast( IOPlatformControl, platformPlugin->lookupControlByID( OSDynamicCast( OSNumber, controlArray->getObject( 1 ) ) ) ) ) != NULL )
 		{
@@ -299,7 +304,7 @@ bool SMU_Neo2_CPUFanCtrlLoop::updateMetaState( void )
 	// Check for door ajar condition.
 
 	if ( ( safeMetaStateIndex != (unsigned int) -1 ) &&
-	     ( platformPlugin->getEnv( gIOPPluginEnvChassisSwitch ) == kOSBooleanTrue ) )
+	     ( platformPlugin->getEnv( gIOPPluginEnvChassisSwitch ) == kOSBooleanFalse ) )
 		{
 		CTRLLOOP_DLOG( "SMU_Neo2_CPUFanCtrlLoop::updateMetaState: Entering Safe Mode. (Meta State %u)\n", safeMetaStateIndex );
 
@@ -685,14 +690,14 @@ ControlValue SMU_Neo2_CPUFanCtrlLoop::calculateNewTarget( void ) const
 		// This is 12.20 * 16.16 => 28.36
 
 		rProd = ( SInt64 ) G_r * ( SInt64 ) rRaw;
-		sVal.sensValue = ( SInt32 ) ( ( rProd >> 20 ) & 0xFFFFFFFF );
-		sVal.sensValue = inputMax.sensValue - sVal.sensValue;
 
-		adjInputTarget.sensValue = inputTarget.sensValue < sVal.sensValue ? inputTarget.sensValue : sVal.sensValue;
+		sVal.sensValue = inputMax.sensValue - ( SInt32 ) ( ( rProd >> 20 ) & 0xFFFFFFFF );
+
+		adjInputTarget.sensValue = min( inputTarget.sensValue, sVal.sensValue );
 
 		// Do the PID iteration.
 
-		result = ( SInt32 ) outputControl->getTargetValue();
+		result = ( SInt32 ) targetValue;
 
 		// Calculate the derivative term and apply the derivative gain.
 		// 12.20 * 16.16 => 28.36
@@ -714,25 +719,10 @@ ControlValue SMU_Neo2_CPUFanCtrlLoop::calculateNewTarget( void ) const
 		result += ( SInt32 ) accum;
 		}
 
-	newTarget = ( UInt32 )( ( result > 0 ) ? result : 0 );
+	newTarget = ( ControlValue )( ( result > 0 ) ? result : 0 );
 
-	// Apply any hard limits.
-
-	if ( newTarget < outputMin )
-		{
-		newTarget = outputMin;
-		}
-	else
-		{
-		if ( newTarget > outputMax )
-			{
-			newTarget = outputMax;
-			}
-		}
-
-	// Update "ctrlloop-output-at-max" key for Eric to know in the SlewCtrlLoop.
-
-	( void ) platformPlugin->setEnvArray( gIOPPluginEnvCtrlLoopOutputAtMax, this, ( newTarget == outputMax ) );
+	newTarget = min( newTarget, maxMaximum );
+	newTarget = max( newTarget, minMinimum );
 
 #if 0
 #ifdef CTRLLOOP_DEBUG
@@ -805,28 +795,62 @@ SensorValue SMU_Neo2_CPUFanCtrlLoop::calculateDerivativeTerm( void ) const
 
 void SMU_Neo2_CPUFanCtrlLoop::sendNewTarget( ControlValue newTarget )
 	{
-	// If the new target value is different, send it to the control
+	UInt32						mainNewTarget = newTarget;
+	bool						outputAtMax = false;
+	bool						updateOutputAtMax = false;
 
-	if ( ctrlloopState == kIOPCtrlLoopFirstAdjustment || ctrlloopState == kIOPCtrlLoopDidWake ||
-		newTarget != outputControl->getTargetValue() )
+	targetValue = newTarget;
+
+	// Apply any hard limits.
+
+	mainNewTarget = min( mainNewTarget, outputMax );
+	mainNewTarget = max( mainNewTarget, outputMin );
+
+	if ( mainNewTarget == outputMax )
 		{
-		if ( outputControl->sendTargetValue( newTarget ) )
+		outputAtMax |= true;
+		}
+
+	if ( ( ctrlloopState == kIOPCtrlLoopFirstAdjustment ) || ( ctrlloopState == kIOPCtrlLoopDidWake ) ||
+		( mainNewTarget != outputControl->getTargetValue() ) )
+		{
+		updateOutputAtMax |= true;
+
+		if ( outputControl->sendTargetValue( mainNewTarget ) )
 			{
-			outputControl->setTargetValue(newTarget);
+			outputControl->setTargetValue( mainNewTarget );
 			ctrlloopState = kIOPCtrlLoopAllRegistered;
 			}
 		else
 			{
 			CTRLLOOP_DLOG( "SMU_Neo2_CPUFanCtrlLoop::sendNewTarget failed to send target value to first control\n" );
 			}
+		}
 
-		// If there is a linkedControl, then set it to have the same value as outputControl.
+	// If there is a linkedControl, then set it to have the same value as outputControl.
 
-		if ( linkedControl )
+	if ( linkedControl )
+		{
+		UInt32						linkedNewTarget = newTarget;
+
+		// Apply any hard limits.
+
+		linkedNewTarget = min( mainNewTarget, linkedControlOutputMax );
+		linkedNewTarget = max( mainNewTarget, linkedControlOutputMin );
+
+		if ( linkedNewTarget == linkedControlOutputMax )
 			{
-			if ( linkedControl->sendTargetValue( newTarget ) )
+			outputAtMax |= true;
+			}
+
+		if ( ( ctrlloopState == kIOPCtrlLoopFirstAdjustment ) || ( ctrlloopState == kIOPCtrlLoopDidWake ) ||
+			( linkedNewTarget != linkedControl->getTargetValue() ) )
+			{
+			updateOutputAtMax |= true;
+
+			if ( linkedControl->sendTargetValue( linkedNewTarget ) )
 				{
-				linkedControl->setTargetValue( newTarget );
+				linkedControl->setTargetValue( linkedNewTarget );
 				ctrlloopState = kIOPCtrlLoopAllRegistered;
 				}
 			else
@@ -834,6 +858,13 @@ void SMU_Neo2_CPUFanCtrlLoop::sendNewTarget( ControlValue newTarget )
 				CTRLLOOP_DLOG( "SMU_Neo2_CPUFanCtrlLoop::sendNewTarget failed to send target value to linked control\n" );
 				}
 			}
+		}
+
+	if ( updateOutputAtMax )
+		{
+		// Update "ctrlloop-output-at-max" key for Eric to know in the SlewCtrlLoop.
+
+		( void ) platformPlugin->setEnvArray( gIOPPluginEnvCtrlLoopOutputAtMax, this, outputAtMax );
 		}
 	}
 
@@ -873,19 +904,22 @@ void SMU_Neo2_CPUFanCtrlLoop::controlRegistered( IOPlatformControl* aControl )
 
 		metaStateDict = OSDynamicCast( OSDictionary, metaStateArray->getObject( 0 ) );
 
-		// Min output (RPM/PWM) (16-bit integer).  Get from the outputControl's dictionary.
+		// Min output (RPM/PWM) (16-bit integer).  Get it from outputControl.
 
 		outputMin = outputControl->getControlMinValue();
 		tmpNumber = OSNumber::withNumber( outputMin, 16 );
 		metaStateDict->setObject( kIOPPIDCtrlLoopOutputMinKey, tmpNumber );
 		tmpNumber->release();
 
-		// Max output (RPM/PWM) (16-bit integer).  Get from the outputControl's dictionary.
+		// Max output (RPM/PWM) (16-bit integer).  Get it from outputControl.
 
 		outputMax = outputControl->getControlMaxValue();
 		tmpNumber = OSNumber::withNumber( outputMax, 16 );
 		metaStateDict->setObject( kIOPPIDCtrlLoopOutputMaxKey, tmpNumber );
 		tmpNumber->release();
+
+		minMinimum = outputMin;
+		maxMaximum = outputMax;
 
 		// Get "Failsafe" meta state dictionary.
 
@@ -911,8 +945,7 @@ void SMU_Neo2_CPUFanCtrlLoop::controlRegistered( IOPlatformControl* aControl )
 
 		// A Safe value of 0xFFFF indicates that the safe-value is not populated / does not exist
 		// for this control.
-		if ( platformPlugin->matchPlatformFlags( kIOPPluginFlagEnableSafeModeHack ) &&
-		     ( ( outputSafe = outputControl->getControlSafeValue() ) != 0xFFFF ) )
+		if ( ( outputSafe = outputControl->getControlSafeValue() ) != 0xFFFF )
 		{
 			// Encapsulate the Safe output speed in an OSNumber object (released below)
 			tmpNumber = OSNumber::withNumber( outputSafe, 16 );
@@ -964,5 +997,19 @@ void SMU_Neo2_CPUFanCtrlLoop::controlRegistered( IOPlatformControl* aControl )
 
 			deadlinePassed();
 			}
+		}
+
+	if ( ( linkedControl != NULL ) && ( aControl == linkedControl ) )
+		{
+		// Min output (RPM/PWM) (16-bit integer).  Get it from linkedControl.
+
+		linkedControlOutputMin = linkedControl->getControlMinValue();
+
+		// Max output (RPM/PWM) (16-bit integer).  Get it from linkedControl.
+
+		linkedControlOutputMax = linkedControl->getControlMaxValue();
+
+		minMinimum = min( outputMin, linkedControlOutputMin );
+		maxMaximum = max( outputMax, linkedControlOutputMax );
 		}
 	}

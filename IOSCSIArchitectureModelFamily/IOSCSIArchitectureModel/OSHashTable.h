@@ -71,9 +71,8 @@ typedef struct __OSHashEntryBucket
 class __OSHashTable
 {
 	
-	static const UInt32	kDefaultStartSize 	= 2;
+	static const UInt32	kDefaultStartSize 	= 8;
 	static const UInt32 kScaleFactor		= 2;
-	
 	
 public:
 	

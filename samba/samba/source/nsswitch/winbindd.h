@@ -46,6 +46,8 @@ struct winbindd_cli_state {
 
 	struct winbindd_request request;          /* Request from client */
 	struct winbindd_response response;        /* Respose to client */
+	BOOL getpwent_initialized;                /* Has getpwent_state been initialized? */
+	BOOL getgrent_initialized;                /* Has getgrent_state been initialized? */
 	struct getent_state *getpwent_state;      /* State for getpwent() */
 	struct getent_state *getgrent_state;      /* State for getgrent() */
 };
@@ -94,9 +96,11 @@ struct winbindd_domain {
 	fstring name;                          /* Domain name */	
 	fstring alt_name;                      /* alt Domain name (if any) */
 	DOM_SID sid;                           /* SID for this domain */
+	BOOL initialized;		       /* Did we already ask for the domain mode? */
 	BOOL native_mode;                      /* is this a win2k domain in native mode ? */
 	BOOL active_directory;                 /* is this a win2k active directory ? */
 	BOOL primary;                          /* is this our primary domain ? */
+	BOOL internal;		/* BUILTIN and member SAM */
 
 	/* Lookup methods for this domain (LDAP or RPC) */
 	struct winbindd_methods *methods;
@@ -148,6 +152,7 @@ struct winbindd_methods {
 	/* convert one user or group name to a sid */
 	NTSTATUS (*name_to_sid)(struct winbindd_domain *domain,
 				TALLOC_CTX *mem_ctx,
+				const char *domain_name,
 				const char *name,
 				DOM_SID *sid,
 				enum SID_NAME_USE *type);
@@ -156,13 +161,14 @@ struct winbindd_methods {
 	NTSTATUS (*sid_to_name)(struct winbindd_domain *domain,
 				TALLOC_CTX *mem_ctx,
 				const DOM_SID *sid,
+				char **domain_name,
 				char **name,
 				enum SID_NAME_USE *type);
 
 	/* lookup user info for a given SID */
 	NTSTATUS (*query_user)(struct winbindd_domain *domain, 
 			       TALLOC_CTX *mem_ctx, 
-			       DOM_SID *user_sid,
+			       const DOM_SID *user_sid,
 			       WINBIND_USERINFO *user_info);
 
 	/* lookup all groups that a user is a member of. The backend
@@ -170,13 +176,13 @@ struct winbindd_methods {
 	   function */
 	NTSTATUS (*lookup_usergroups)(struct winbindd_domain *domain,
 				      TALLOC_CTX *mem_ctx,
-				      DOM_SID *user_sid,
+				      const DOM_SID *user_sid,
 				      uint32 *num_groups, DOM_SID ***user_gids);
 
 	/* find all members of the group with the specified group_rid */
 	NTSTATUS (*lookup_groupmem)(struct winbindd_domain *domain,
 				    TALLOC_CTX *mem_ctx,
-				    DOM_SID *group_sid,
+				    const DOM_SID *group_sid,
 				    uint32 *num_names, 
 				    DOM_SID ***sid_mem, char ***names, 
 				    uint32 **name_types);

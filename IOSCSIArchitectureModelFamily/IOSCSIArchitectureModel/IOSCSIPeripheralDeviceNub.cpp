@@ -40,6 +40,7 @@
 
 // SCSI Architecture Model Family includes
 #include "SCSITask.h"
+#include "SCSILibraryRoutines.h"
 #include "SCSICmds_INQUIRY_Definitions.h"
 #include "IOSCSIPeripheralDeviceNub.h"
 #include "SCSITaskLib.h"
@@ -129,7 +130,7 @@ bool
 IOSCSIPeripheralDeviceNub::start ( IOService * provider )
 {
 	
-	OSDictionary * 	characterDict 	= NULL;
+	OSDictionary *	characterDict	= NULL;
 	OSObject *		obj				= NULL;
 	bool			result			= false;
 	
@@ -143,7 +144,7 @@ IOSCSIPeripheralDeviceNub::start ( IOService * provider )
 	require_nonzero_quiet ( fProvider, ErrorExit );
 	
 	// Call our super class' start routine so that all inherited
-	// behavior is initialized.	
+	// behavior is initialized.
 	require ( super::start ( provider ), ErrorExit );
 	
 	fSCSIPrimaryCommandObject = OSTypeAlloc ( SCSIPrimaryCommands );
@@ -152,6 +153,7 @@ IOSCSIPeripheralDeviceNub::start ( IOService * provider )
 	require ( fProvider->open ( this ), ReleaseCommandObject );
 	
 	STATUS_LOG ( ( "%s: Check for the SCSI Device Characteristics property from provider.\n", getName ( ) ) );
+	
 	// Check if the personality for this device specifies a preferred protocol
 	if ( ( fProvider->getProperty ( kIOPropertySCSIDeviceCharacteristicsKey ) ) == NULL )
 	{
@@ -183,18 +185,18 @@ IOSCSIPeripheralDeviceNub::start ( IOService * provider )
 		else
 		{
 			
-			OSNumber *	defaultInquiry;
+			OSNumber *	defaultInquiry = NULL;
 			
 			STATUS_LOG ( ( "%s: Get Inquiry Length property.\n", getName ( ) ) );
 			defaultInquiry = OSDynamicCast ( OSNumber, characterDict->getObject ( kIOPropertySCSIInquiryLengthKey ) );
 			
 			// This device has a preferred protocol, use that.
 			fDefaultInquiryCount = defaultInquiry->unsigned32BitValue ( );
-		
+			
 		}
-	
-	}
 		
+	}
+	
 	STATUS_LOG ( ( "%s: default inquiry count is: %d\n", getName ( ), fDefaultInquiryCount ) );
 	
 	require ( InterrogateDevice ( ), CloseProvider );
@@ -209,7 +211,7 @@ IOSCSIPeripheralDeviceNub::start ( IOService * provider )
 	
 	else
 	{
-		characterDict->retain ( );
+		characterDict = OSDictionary::withDictionary ( characterDict );
 	}
 	
 	obj = fProvider->getProperty ( kIOPropertyPhysicalInterconnectTypeKey );
@@ -224,7 +226,7 @@ IOSCSIPeripheralDeviceNub::start ( IOService * provider )
 		characterDict->setObject ( kIOPropertyPhysicalInterconnectLocationKey, obj );
 	}
 	
-	obj = fProvider->getProperty ( kIOPropertyReadTimeOutDurationKey );	
+	obj = fProvider->getProperty ( kIOPropertyReadTimeOutDurationKey ); 
 	if ( obj != NULL );
 	{
 		characterDict->setObject ( kIOPropertyReadTimeOutDurationKey, obj );
@@ -307,7 +309,7 @@ ErrorExit:
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
-IOSCSIPeripheralDeviceNub::message ( UInt32 		type,
+IOSCSIPeripheralDeviceNub::message ( UInt32			type,
 									 IOService *	nub,
 									 void *			arg )
 {
@@ -395,12 +397,12 @@ IOSCSIPeripheralDeviceNub::InitializePowerManagement ( IOService * provider )
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
-IOSCSIPeripheralDeviceNub::matchPropertyTable (	OSDictionary *	table,
+IOSCSIPeripheralDeviceNub::matchPropertyTable ( OSDictionary *	table,
 												SInt32 *		score )
 {
 	
-	bool 	returnValue 	= true;
-	bool 	isMatch 		= false;
+	bool	returnValue		= true;
+	bool	isMatch			= false;
 	SInt32	propertyScore	= *score;
 	
 	// Clamp the copy of the score to 4000 to prevent us from promoting
@@ -532,19 +534,19 @@ IOSCSIPeripheralDeviceNub::matchPropertyTable (	OSDictionary *	table,
 
 bool
 IOSCSIPeripheralDeviceNub::sCompareIOProperty (
-								IOService * 		object,
-								OSDictionary * 		table,
-								char * 				propertyKeyName,
-								bool * 				matches )
+								IOService *			object,
+								OSDictionary *		table,
+								char *				propertyKeyName,
+								bool *				matches )
 {
 	
 	OSObject *	tableObject		= NULL;
 	OSObject *	deviceObject	= NULL;
-	bool 		returnValue		= false;
+	bool		returnValue		= false;
 	
 	*matches = false;
 	
-	tableObject  = table->getObject ( propertyKeyName );
+	tableObject	 = table->getObject ( propertyKeyName );
 	deviceObject = object->getProperty ( propertyKeyName );
 	
 	require_nonzero_quiet ( deviceObject, ErrorExit );
@@ -559,34 +561,6 @@ ErrorExit:
 	
 	return returnValue;
 	
-}
-
-
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ sStripWhitespace - Strips whitespace at the end of strings.
-//															  [STATIC][PRIVATE]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-
-void
-IOSCSIPeripheralDeviceNub::sStripWhitespace ( char * string, UInt32 length )
-{
-	
-	UInt32	index = 0;
-	
-   	for ( index = length - 1; index != 0; index-- )
-   	{
-   		
-   		if ( string[index] != ' ' )
-   		{
-   			
-   			// Found a real character
-   			string[index + 1] = 0;
-   			break;
-   			
-   		}
-   		
-   	}
-   	
 }
 
 
@@ -605,7 +579,7 @@ IOSCSIPeripheralDeviceNub::sStripWhitespace ( char * string, UInt32 length )
 bool
 IOSCSIPeripheralDeviceNub::SendSCSICommand (
 							SCSITaskIdentifier		request,
-							SCSIServiceResponse * 	serviceResponse,
+							SCSIServiceResponse *	serviceResponse,
 							SCSITaskStatus *		taskStatus )
 {
 	return false;
@@ -642,7 +616,7 @@ IOSCSIPeripheralDeviceNub::ExecuteCommand ( SCSITaskIdentifier request )
 SCSIServiceResponse
 IOSCSIPeripheralDeviceNub::AbortTask ( UInt8 theLogicalUnit, SCSITaggedTaskIdentifier theTag )
 {
-	return 	fProvider->AbortTask ( theLogicalUnit, theTag );
+	return	fProvider->AbortTask ( theLogicalUnit, theTag );
 }
 
 
@@ -653,7 +627,7 @@ IOSCSIPeripheralDeviceNub::AbortTask ( UInt8 theLogicalUnit, SCSITaggedTaskIdent
 SCSIServiceResponse		
 IOSCSIPeripheralDeviceNub::AbortTaskSet ( UInt8 theLogicalUnit )
 {
-	return 	fProvider->AbortTaskSet ( theLogicalUnit );
+	return	fProvider->AbortTaskSet ( theLogicalUnit );
 }
 
 
@@ -664,7 +638,7 @@ IOSCSIPeripheralDeviceNub::AbortTaskSet ( UInt8 theLogicalUnit )
 SCSIServiceResponse
 IOSCSIPeripheralDeviceNub::ClearACA ( UInt8 theLogicalUnit )
 {
-	return 	fProvider->ClearACA ( theLogicalUnit );
+	return	fProvider->ClearACA ( theLogicalUnit );
 }
 
 
@@ -675,9 +649,9 @@ IOSCSIPeripheralDeviceNub::ClearACA ( UInt8 theLogicalUnit )
 SCSIServiceResponse
 IOSCSIPeripheralDeviceNub::ClearTaskSet ( UInt8 theLogicalUnit )
 {
-	return 	fProvider->ClearTaskSet ( theLogicalUnit );
+	return	fProvider->ClearTaskSet ( theLogicalUnit );
 }
-    
+	
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	¥ LogicalUnitReset - Relays command to protocol services driver.[PROTECTED]
@@ -686,7 +660,7 @@ IOSCSIPeripheralDeviceNub::ClearTaskSet ( UInt8 theLogicalUnit )
 SCSIServiceResponse
 IOSCSIPeripheralDeviceNub::LogicalUnitReset ( UInt8 theLogicalUnit )
 {
-	return 	fProvider->LogicalUnitReset ( theLogicalUnit );
+	return	fProvider->LogicalUnitReset ( theLogicalUnit );
 }
 
 
@@ -697,7 +671,7 @@ IOSCSIPeripheralDeviceNub::LogicalUnitReset ( UInt8 theLogicalUnit )
 SCSIServiceResponse
 IOSCSIPeripheralDeviceNub::TargetReset ( void )
 {
-	return 	fProvider->TargetReset ( );
+	return	fProvider->TargetReset ( );
 }
 
 
@@ -756,7 +730,7 @@ void
 IOSCSIPeripheralDeviceNub::TaskCallback ( SCSITaskIdentifier completedTask )
 {
 	
-	SCSITask *						scsiRequest	= NULL;
+	SCSITask *						scsiRequest = NULL;
 	IOSCSIPeripheralDeviceNub *		owner		= NULL;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, completedTask );
@@ -790,17 +764,17 @@ IOSCSIPeripheralDeviceNub::TaskCompletion ( SCSITaskIdentifier completedTask )
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-// ¥ sWaitForTask -	Called to wait for a task until it completes.
+// ¥ sWaitForTask - Called to wait for a task until it completes.
 //															  [STATIC][PRIVATE]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
 IOSCSIPeripheralDeviceNub::sWaitForTask (
-									void * 		object,
-									SCSITask * 	request )
+									void *		object,
+									SCSITask *	request )
 {
 	
-	IOSCSIPeripheralDeviceNub *	device = NULL;
+	IOSCSIPeripheralDeviceNub * device = NULL;
 	
 	device = OSDynamicCast ( IOSCSIPeripheralDeviceNub, ( OSObject * ) object );
 	
@@ -859,18 +833,18 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
 {
 	
 	OSString *						string			= NULL;
-	SCSICmd_INQUIRY_StandardData * 	inqData 		= NULL;
-	SCSIServiceResponse 			serviceResponse	= kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
+	SCSICmd_INQUIRY_StandardData *	inqData			= NULL;
+	SCSIServiceResponse				serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
 	SCSI_Sense_Data					senseBuffer		= { 0 };
-	IOMemoryDescriptor *			bufferDesc 		= NULL;
-	SCSITask *						request 		= NULL;
+	IOMemoryDescriptor *			bufferDesc		= NULL;
+	SCSITask *						request			= NULL;
 	UInt8							inqDataCount	= 0;
 	int								index			= 0;
 	bool							result			= false;
-	char							tempString[17]; // Maximum + 1 for null char
+	char							tempString[17]	= { 0 }; // Maximum + 1 for null char
 	
-   	// Before we register ourself as a nub, we need to find out what 
-   	// type of device we want to connect to us
+	// Before we register ourself as a nub, we need to find out what 
+	// type of device we want to connect to us
 	// Do an Inquiry command and parse the data to determine the peripheral
 	// device type.
 	if ( fDefaultInquiryCount == 0 )
@@ -905,8 +879,8 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
 	request = OSTypeAlloc ( SCSITask );	
 	require_nonzero ( request, ReleaseBuffer );
 	request->ResetForNewTask ( );
-	request->SetTimeoutDuration ( 10000 );
 	fSCSIPrimaryCommandObject->TEST_UNIT_READY ( request, 0x00 );
+	request->SetTimeoutDuration ( 10000 );
 	
 	// The command was successfully built, now send it
 	serviceResponse = SendTask ( request );
@@ -915,7 +889,7 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
 	{
 		
 		bool validSense = false;
-
+		
 		if ( request->GetTaskStatus ( ) == kSCSITaskStatus_CHECK_CONDITION )
 		{
 			
@@ -924,11 +898,11 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
 			{
 				
 				request->ResetForNewTask ( );
-				request->SetTimeoutDuration ( 10000 );
 				fSCSIPrimaryCommandObject->REQUEST_SENSE ( request,
 														   bufferDesc,
 														   kSenseDefaultSize,
 														   0 );
+				request->SetTimeoutDuration ( 10000 );
 				serviceResponse = SendTask ( request );
 				
 				if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
@@ -960,12 +934,14 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
 				{
 					
 					// Check the sense data to see if the TUR was sent to an invalid LUN and if so,
-					// abort trying to access this Logical Unit.
-					if ( ( ( senseBuffer.SENSE_KEY & kSENSE_KEY_Mask ) == kSENSE_KEY_ILLEGAL_REQUEST ) &&
-						   ( senseBuffer.ADDITIONAL_SENSE_CODE == 0x25 ) &&
-						   ( senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER == 0x00 ) )
-				 	{
-				 		
+					// abort trying to access this Logical Unit. We used to check the sense key for
+					// ILLEGAL_REQUEST, but some devices which aren't spun up yet will set NOT_READY
+					// for the SENSE_KEY. Might as well not use it...
+					if ( ( senseBuffer.ADDITIONAL_SENSE_CODE == 0x25 ) &&
+						 ( senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER == 0x00 ) )
+					{
+						
+						ERROR_LOG ( ( "ASC/ASCQ = 0x25/0x00 - Invalid LUN\n" ) );
 						goto ReleaseTask;
 						
 					}
@@ -981,33 +957,39 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
 	else if ( ( serviceResponse == kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE ) &&
 			  ( request->GetTaskStatus ( ) == kSCSITaskStatus_DeviceNotResponding ) )
 	{
+		
+		ERROR_LOG ( ( "taskStatus = DeviceNotResponding\n" ) );
 		goto ReleaseTask;
+		
 	}
 
 	else if ( ( serviceResponse == kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE ) &&
 			  ( request->GetTaskStatus ( ) == kSCSITaskStatus_DeviceNotPresent ) )
 	{
+		
+		ERROR_LOG ( ( "taskStatus = DeviceNotPresent\n" ) );
 		goto ReleaseTask;
+		
 	}
 	
- 	IOSleep ( 100 );
- 	
- 	// Check if we got terminated. If so, bail early.
- 	require ( ( isInactive ( ) == false ), ReleaseTask );
- 	
-   	for ( index = 0; ( index < kMaxInquiryAttempts ) && ( isInactive ( ) == false ); index++ )
+	IOSleep ( 100 );
+	
+	// Check if we got terminated. If so, bail early.
+	require ( ( isInactive ( ) == false ), ReleaseTask );
+	
+	for ( index = 0; ( index < kMaxInquiryAttempts ) && ( isInactive ( ) == false ); index++ )
 	{
 		
 		request->ResetForNewTask ( );
-		request->SetTimeoutDuration ( 10000 );
 		fSCSIPrimaryCommandObject->INQUIRY (
 									request,
 									bufferDesc,
 									0,
-								  	0,
+									0,
 									0,
 									inqDataCount,
 									0 );
+		request->SetTimeoutDuration ( 10000 );
 		
 		serviceResponse = SendTask ( request );
 		
@@ -1020,13 +1002,27 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
 		else if ( ( serviceResponse == kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE ) &&
 				  ( request->GetTaskStatus ( ) == kSCSITaskStatus_DeviceNotResponding ) )
 		{
+			
+			ERROR_LOG ( ( "taskStatus = DeviceNotResponding\n" ) );
 			goto ReleaseTask;
+			
 		}
 		
 		else if ( ( serviceResponse == kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE ) &&
 				  ( request->GetTaskStatus ( ) == kSCSITaskStatus_DeviceNotPresent ) )
 		{
+			
+			ERROR_LOG ( ( "taskStatus = DeviceNotPresent\n" ) );
 			goto ReleaseTask;
+			
+		}
+		
+		else if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
+				  ( request->GetTaskStatus ( ) == kSCSITaskStatus_CHECK_CONDITION ) )
+		{
+			
+			ERROR_LOG ( ( "CHECK_CONDITION on INQUIRY command. THIS SHOULD NEVER HAPPEN! BAD DEVICE, NO COOKIE!!\n" ) );
+			
 		}
 		
 		IOSleep ( 1000 );
@@ -1035,47 +1031,73 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
 	
 	// Check if we have exhausted our max number of attempts. If so, bail early.
 	require ( ( index != kMaxInquiryAttempts ), ReleaseTask );
- 	
- 	// Check if we got terminated. If so, bail early.
- 	require ( isInactive ( ) == false, ReleaseTask );
 	
-	require ( ( request->GetRealizedDataTransferCount ( ) >= sizeof ( SCSICmd_INQUIRY_StandardData ) ), ReleaseTask );
+	// Check if we got terminated. If so, bail early.
+	require ( isInactive ( ) == false, ReleaseTask );
+	
+	require ( ( request->GetRealizedDataTransferCount ( ) >= ( sizeof ( SCSICmd_INQUIRY_StandardData ) ) ), ReleaseTask );
 	
 	{
-        
-		UInt8	qualifier = inqData->PERIPHERAL_DEVICE_TYPE & kINQUIRY_PERIPHERAL_QUALIFIER_Mask;
-            
-		if ( qualifier & kINQUIRY_PERIPHERAL_QUALIFIER_SupportedButNotConnected )
-			goto ReleaseTask;
 		
-		if ( qualifier & kINQUIRY_PERIPHERAL_QUALIFIER_NotSupported )
-			goto ReleaseTask;
+		UInt8	qualifier = inqData->PERIPHERAL_DEVICE_TYPE & kINQUIRY_PERIPHERAL_QUALIFIER_Mask;
+		
+		switch ( qualifier )
+		{
+			
+			case kINQUIRY_PERIPHERAL_QUALIFIER_NotSupported:
+				// According to the SPC-2 spec, if a devices responds with this
+				// qualifier type, it should set the PDT to 0x1F for backward
+				// compatibility...
+				ERROR_LOG ( ( "Device not supported at this Logical Unit\n" ) );
+				check ( ( inqData->PERIPHERAL_DEVICE_TYPE & kINQUIRY_PERIPHERAL_TYPE_Mask ) == kINQUIRY_PERIPHERAL_TYPE_UnknownOrNoDeviceType );
+				goto ReleaseTask;
+				break;
+			
+			case kINQUIRY_PERIPHERAL_QUALIFIER_SupportedButNotConnected:
+				// Why do some devices respond with this qualifier type when they actually have
+				// a Logical Unit present at this Logical Unit Number? So many arrays
+				// do this, so we have to allow for it and not reject the LUN if it responds
+				// this way...
+				STATUS_LOG ( ( "Device supported but not connected\n" ) );
+				break;
+			
+			case kINQUIRY_PERIPHERAL_QUALIFIER_Connected:
+				// A device is definitely connected.
+				STATUS_LOG ( ( "Device supported and connected\n" ) );
+				break;
+				
+			default:
+				ERROR_LOG ( ( "Some reserved qualifier = 0x%02x\n", qualifier ) );
+				break;
+			
+		}
 		
 	}
 	
-   	// Set the Peripheral Device Type property for the device.
-   	setProperty ( kIOPropertySCSIPeripheralDeviceType,
-   				( UInt64 ) ( inqData->PERIPHERAL_DEVICE_TYPE & kINQUIRY_PERIPHERAL_TYPE_Mask ),
-   				kIOPropertySCSIPeripheralDeviceTypeSize );
+	// Set the Peripheral Device Type property for the device.
+	setProperty ( kIOPropertySCSIPeripheralDeviceType,
+				( UInt64 ) ( inqData->PERIPHERAL_DEVICE_TYPE & kINQUIRY_PERIPHERAL_TYPE_Mask ),
+				kIOPropertySCSIPeripheralDeviceTypeSize );
 	
-   	// Set the Vendor Identification property for the device.
+	// Set the Vendor Identification property for the device.
 	bcopy ( inqData->VENDOR_IDENTIFICATION, tempString, kINQUIRY_VENDOR_IDENTIFICATION_Length );
 	tempString[kINQUIRY_VENDOR_IDENTIFICATION_Length] = 0;
-	sStripWhitespace ( tempString, kINQUIRY_VENDOR_IDENTIFICATION_Length );
-   	
+	StripWhiteSpace ( tempString, kINQUIRY_VENDOR_IDENTIFICATION_Length );
+	
 	string = OSString::withCString ( tempString );
 	if ( string != NULL )
 	{
 		
 		setProperty ( kIOPropertySCSIVendorIdentification, string );
 		string->release ( );
+		string = NULL;
 		
 	}
 	
-   	// Set the Product Indentification property for the device.
+	// Set the Product Indentification property for the device.
 	bcopy ( inqData->PRODUCT_IDENTIFICATION, tempString, kINQUIRY_PRODUCT_IDENTIFICATION_Length );
 	tempString[kINQUIRY_PRODUCT_IDENTIFICATION_Length] = 0;
-	sStripWhitespace ( tempString, kINQUIRY_PRODUCT_IDENTIFICATION_Length );
+	StripWhiteSpace ( tempString, kINQUIRY_PRODUCT_IDENTIFICATION_Length );
 	
 	string = OSString::withCString ( tempString );
 	if ( string != NULL )
@@ -1083,13 +1105,14 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
 		
 		setProperty ( kIOPropertySCSIProductIdentification, string );
 		string->release ( );
+		string = NULL;
 		
 	}
 
-   	// Set the Product Revision Level property for the device.
+	// Set the Product Revision Level property for the device.
 	bcopy ( inqData->PRODUCT_REVISION_LEVEL, tempString, kINQUIRY_PRODUCT_REVISION_LEVEL_Length );
 	tempString[kINQUIRY_PRODUCT_REVISION_LEVEL_Length] = 0;
-	sStripWhitespace ( tempString, kINQUIRY_PRODUCT_REVISION_LEVEL_Length );
+	StripWhiteSpace ( tempString, kINQUIRY_PRODUCT_REVISION_LEVEL_Length );
 	
 	string = OSString::withCString ( tempString );
 	if ( string != NULL )
@@ -1097,6 +1120,7 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
 		
 		setProperty ( kIOPropertySCSIProductRevisionLevel, string );
 		string->release ( );
+		string = NULL;
 		
 	}
 	
@@ -1144,7 +1168,7 @@ SCSIServiceResponse
 IOSCSIPeripheralDeviceNub::SendTask ( SCSITask * request )
 {
 	
-	SCSIServiceResponse 	serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
+	SCSIServiceResponse		serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
 	
 	request->SetTaskCompletionCallback ( &IOSCSIPeripheralDeviceNub::TaskCallback );
 	request->SetTaskOwner ( this );
@@ -1207,17 +1231,22 @@ bool
 IOSCSILogicalUnitNub::start ( IOService * provider )
 {
 	
-	OSDictionary * 	characterDict 	= NULL;
+	OSDictionary *	characterDict	= NULL;
 	OSNumber *		number			= NULL;
 	OSObject *		obj				= NULL;
 	bool			result			= false;
 	
+	// Check if our provider is one of us. If it is, we don't want to
+	// load again.
 	fProvider = OSDynamicCast ( IOSCSIPeripheralDeviceNub, provider );
-	require_nonzero_quiet ( ( fProvider == NULL ), ErrorExit );
+	require_quiet ( ( fProvider == NULL ), ErrorExit );
 	
+	// Make sure our provider is a protocol services driver.
 	fProvider = OSDynamicCast ( IOSCSIProtocolInterface, provider );
 	require_nonzero_quiet ( fProvider, ErrorExit );
 	
+	// Call our super class' start routine so that all inherited
+	// behavior is initialized.
 	require ( super::start ( provider ), ErrorExit );
 	
 	fSCSIPrimaryCommandObject = OSTypeAlloc ( SCSIPrimaryCommands );
@@ -1226,6 +1255,7 @@ IOSCSILogicalUnitNub::start ( IOService * provider )
 	require ( fProvider->open ( this ), ReleaseCommandObject );
 	
 	STATUS_LOG ( ( "%s: Check for the SCSI Device Characteristics property from provider.\n", getName ( ) ) );
+	
 	// Check if the personality for this device specifies a preferred protocol
 	if ( ( fProvider->getProperty ( kIOPropertySCSIDeviceCharacteristicsKey ) ) == NULL )
 	{
@@ -1257,18 +1287,18 @@ IOSCSILogicalUnitNub::start ( IOService * provider )
 		else
 		{
 			
-			OSNumber *	defaultInquiry;
+			OSNumber *	defaultInquiry = NULL;
 			
 			STATUS_LOG ( ( "%s: Get Inquiry Length property.\n", getName ( ) ) );
 			defaultInquiry = OSDynamicCast ( OSNumber, characterDict->getObject ( kIOPropertySCSIInquiryLengthKey ) );
 			
 			// This device has a preferred protocol, use that.
 			fDefaultInquiryCount = defaultInquiry->unsigned32BitValue ( );
-		
+			
 		}
-	
-	}
 		
+	}
+	
 	STATUS_LOG ( ( "%s: default inquiry count is: %d\n", getName ( ), fDefaultInquiryCount ) );
 	
 	require ( InterrogateDevice ( ), CloseProvider );
@@ -1415,9 +1445,9 @@ IOSCSILogicalUnitNub::ExecuteCommand ( SCSITaskIdentifier request )
 		
 		SCSITask *	scsiRequest;
 		
-	    scsiRequest = OSDynamicCast ( SCSITask, request );
-	    if ( scsiRequest != NULL )
-	    {
+		scsiRequest = OSDynamicCast ( SCSITask, request );
+		if ( scsiRequest != NULL )
+		{
 			
 			scsiRequest->SetLogicalUnitNumber ( fLogicalUnitNumber );
 			
@@ -1449,15 +1479,15 @@ IOSCSILogicalUnitNub::AbortCommand ( SCSITaskIdentifier abortTask )
 
 
 // Space reserved for future expansion.
-OSMetaClassDefineReservedUnused ( IOSCSILogicalUnitNub,  1 );
-OSMetaClassDefineReservedUnused ( IOSCSILogicalUnitNub,  2 );
-OSMetaClassDefineReservedUnused ( IOSCSILogicalUnitNub,  3 );
-OSMetaClassDefineReservedUnused ( IOSCSILogicalUnitNub,  4 );
-OSMetaClassDefineReservedUnused ( IOSCSILogicalUnitNub,  5 );
-OSMetaClassDefineReservedUnused ( IOSCSILogicalUnitNub,  6 );
-OSMetaClassDefineReservedUnused ( IOSCSILogicalUnitNub,  7 );
-OSMetaClassDefineReservedUnused ( IOSCSILogicalUnitNub,  8 );
-OSMetaClassDefineReservedUnused ( IOSCSILogicalUnitNub,  9 );
+OSMetaClassDefineReservedUnused ( IOSCSILogicalUnitNub,	 1 );
+OSMetaClassDefineReservedUnused ( IOSCSILogicalUnitNub,	 2 );
+OSMetaClassDefineReservedUnused ( IOSCSILogicalUnitNub,	 3 );
+OSMetaClassDefineReservedUnused ( IOSCSILogicalUnitNub,	 4 );
+OSMetaClassDefineReservedUnused ( IOSCSILogicalUnitNub,	 5 );
+OSMetaClassDefineReservedUnused ( IOSCSILogicalUnitNub,	 6 );
+OSMetaClassDefineReservedUnused ( IOSCSILogicalUnitNub,	 7 );
+OSMetaClassDefineReservedUnused ( IOSCSILogicalUnitNub,	 8 );
+OSMetaClassDefineReservedUnused ( IOSCSILogicalUnitNub,	 9 );
 OSMetaClassDefineReservedUnused ( IOSCSILogicalUnitNub, 10 );
 OSMetaClassDefineReservedUnused ( IOSCSILogicalUnitNub, 11 );
 OSMetaClassDefineReservedUnused ( IOSCSILogicalUnitNub, 12 );

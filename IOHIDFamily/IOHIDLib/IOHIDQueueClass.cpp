@@ -32,6 +32,7 @@
 
 __BEGIN_DECLS
 #include <IOKit/IODataQueueClient.h>
+#include <mach/mach.h>
 #include <mach/mach_interface.h>
 #include <IOKit/iokitmig.h>
 __END_DECLS
@@ -66,9 +67,9 @@ __END_DECLS
 
 #define allChecks() do {		\
     connectCheck();			\
+    seizeCheck();			\
     openCheck();			\
     terminatedCheck();			\
-    seizeCheck();			\
 } while (0)
 
 #define deviceInitiatedChecks() do {	\
@@ -78,16 +79,22 @@ __END_DECLS
 } while (0)
 
 IOHIDQueueClass::IOHIDQueueClass()
-: IOHIDIUnknown(NULL),
-  fAsyncPort(MACH_PORT_NULL),
-  fIsCreated(false),
-  fIsStopped(false),
-  fEventCallback(NULL),
-  fEventTarget(NULL),
-  fEventRefcon(NULL)
+: IOHIDIUnknown(NULL)
 {
     fHIDQueue.pseudoVTable = (IUnknownVTbl *)  &sHIDQueueInterfaceV1;
     fHIDQueue.obj = this;
+    
+    fAsyncPort              = MACH_PORT_NULL;
+    fAsyncPortIsCreated     = false;
+    fIsCreated              = false;
+    fIsStopped              = false;
+    fEventCallback          = NULL;
+    fEventTarget            = NULL;
+    fEventRefcon            = NULL;    
+    fQueueRef               = NULL;
+    fQueueMappedMemory      = NULL;
+    fQueueMappedMemorySize  = 0;
+    fQueueEntrySizeChanged  = false;
 }
 
 IOHIDQueueClass::~IOHIDQueueClass()
@@ -95,6 +102,9 @@ IOHIDQueueClass::~IOHIDQueueClass()
     // if we are owned, detatch
     if (fOwningDevice)
         fOwningDevice->detachQueue(this);
+		
+	if (fAsyncPort && fAsyncPortIsCreated)
+        mach_port_deallocate(mach_task_self(), fAsyncPort);
 }
 
 HRESULT IOHIDQueueClass::queryInterface(REFIID /*iid*/, void **	/*ppv*/)
@@ -147,7 +157,7 @@ CFRunLoopSourceRef IOHIDQueueClass::getAsyncEventSource()
 }
 
 /* CFMachPortCallBack */
-void IOHIDQueueClass::queueEventSourceCallback(CFMachPortRef *cfPort, mach_msg_header_t *msg, CFIndex size, void *info){
+void IOHIDQueueClass::queueEventSourceCallback(CFMachPortRef cfPort, mach_msg_header_t *msg, CFIndex size, void *info){
     
     IOHIDQueueClass *queue = (IOHIDQueueClass *)info;
     
@@ -165,26 +175,18 @@ void IOHIDQueueClass::queueEventSourceCallback(CFMachPortRef *cfPort, mach_msg_h
 
 IOReturn IOHIDQueueClass::createAsyncPort(mach_port_t *port)
 {
-    IOReturn ret;
-    
+    IOReturn	ret;
+    mach_port_t asyncPort;
     connectCheck();
     
-    ret = IOCreateReceivePort(kOSAsyncCompleteMessageID, &fAsyncPort);
+    ret = IOCreateReceivePort(kOSAsyncCompleteMessageID, &asyncPort);
     if (kIOReturnSuccess == ret) {
+		fAsyncPortIsCreated = true;
+		
         if (port)
-            *port = fAsyncPort;
+            *port = asyncPort;
 
-        if (fIsCreated) {
-            natural_t 			asyncRef[1];
-            int				input[1];
-            mach_msg_type_number_t 	len = 0;
-        
-            input[0] = (int) fQueueRef;
-            // async kIOHIDLibUserClientSetQueueAsyncPort, kIOUCScalarIScalarO, 1, 0
-            return io_async_method_scalarI_scalarO(
-                    fOwningDevice->fConnection, fAsyncPort, asyncRef, 1,
-                    kIOHIDLibUserClientSetQueueAsyncPort, input, 1, NULL, &len);
-        }
+		return setAsyncPort(asyncPort);
     }
 
     return ret;
@@ -194,6 +196,28 @@ mach_port_t IOHIDQueueClass::getAsyncPort()
 {
     return fAsyncPort;
 }
+
+IOReturn IOHIDQueueClass::setAsyncPort(mach_port_t port)
+{
+    if ( !port )
+		return kIOReturnError;
+
+	fAsyncPort = port;
+
+	if (!fIsCreated)
+		return kIOReturnSuccess;
+		
+	natural_t				asyncRef[1];
+	int						input[1];
+	mach_msg_type_number_t 	len = 0;
+
+	input[0] = (int) fQueueRef;
+	// async kIOHIDLibUserClientSetQueueAsyncPort, kIOUCScalarIScalarO, 1, 0
+	return io_async_method_scalarI_scalarO(
+			fOwningDevice->fConnection, fAsyncPort, asyncRef, 1,
+			kIOHIDLibUserClientSetQueueAsyncPort, input, 1, NULL, &len);
+}
+
 
 IOReturn IOHIDQueueClass::create (UInt32 flags, UInt32 depth)
 {
@@ -224,37 +248,13 @@ IOReturn IOHIDQueueClass::create (UInt32 flags, UInt32 depth)
     // if we have async port, set it on other side
     if (fAsyncPort)
     {
-        natural_t 			asyncRef[1];
-        int				input[1];
-        mach_msg_type_number_t 	len = 0;
-    
-        input[0] = (int) fQueueRef;
-        // async kIOHIDLibUserClientSetQueueAsyncPort, kIOUCScalarIScalarO, 1, 0
-        return io_async_method_scalarI_scalarO(
-                fOwningDevice->fConnection, fAsyncPort, asyncRef, 1,
-                kIOHIDLibUserClientSetQueueAsyncPort, input, 1, NULL, &len);
+        ret = setAsyncPort(fAsyncPort);
         if (ret != kIOReturnSuccess) {
             (void) this->dispose();
             return ret;
         }
     }
-    
-    // get the queue shared memory
-    vm_address_t address = nil;
-    vm_size_t size = 0;
-    
-    ret = IOConnectMapMemory (	fOwningDevice->fConnection, 
-                                fQueueRef, 
-                                mach_task_self(), 
-                                &address, 
-                                &size, 
-                                kIOMapAnywhere	);
-    if (ret == kIOReturnSuccess)
-    {
-        fQueueMappedMemory = (IODataQueueMemory *) address;
-        fQueueMappedMemorySize = size;
-    }
-    
+        
     return ret;
 }
 
@@ -263,6 +263,17 @@ IOReturn IOHIDQueueClass::dispose()
     IOReturn ret = kIOReturnSuccess;
 
     allChecks();
+
+    // ееее TODO unmap memory when that call works
+    if ( fQueueMappedMemory )
+    {
+        ret = IOConnectUnmapMemory (fOwningDevice->fConnection, 
+                                    fQueueRef, 
+                                    mach_task_self(), 
+                                    (vm_address_t)fQueueMappedMemory);
+        fQueueMappedMemory = NULL;
+        fQueueMappedMemorySize = 0;
+    }    
 
     // sent message to dispose queue
     mach_msg_type_number_t len = 0;
@@ -277,8 +288,7 @@ IOReturn IOHIDQueueClass::dispose()
 
     // mark it dead
     fIsCreated = false;
-    
-    // ееее TODO unmap memory when that call works
+    fQueueRef = 0;    
     
     return kIOReturnSuccess;
 }
@@ -288,7 +298,7 @@ IOReturn IOHIDQueueClass::addElement (
                             IOHIDElementCookie elementCookie,
                             UInt32 flags)
 {
-    IOReturn ret = kIOReturnSuccess;
+    IOReturn    ret = kIOReturnSuccess;
 
     allChecks();
 
@@ -297,9 +307,9 @@ IOReturn IOHIDQueueClass::addElement (
     args[i++] = fQueueRef;
     args[i++] = (int) elementCookie;
     args[i++] = flags;
-    mach_msg_type_number_t len = 0;
+    mach_msg_type_number_t len = 1;
     ret = io_connect_method_scalarI_scalarO(
-            fOwningDevice->fConnection, kIOHIDLibUserClientAddElementToQueue, args, i, NULL, &len);
+            fOwningDevice->fConnection, kIOHIDLibUserClientAddElementToQueue, args, i, (int *) &fQueueEntrySizeChanged, &len);
     if (ret != kIOReturnSuccess)
         return ret;
 
@@ -316,9 +326,9 @@ IOReturn IOHIDQueueClass::removeElement (IOHIDElementCookie elementCookie)
     int args[6], i = 0;
     args[i++] = fQueueRef;
     args[i++] = (int) elementCookie;
-    mach_msg_type_number_t len = 0;
+    mach_msg_type_number_t len = 1;
     ret = io_connect_method_scalarI_scalarO(
-            fOwningDevice->fConnection, kIOHIDLibUserClientRemoveElementFromQueue, args, i, NULL, &len);
+            fOwningDevice->fConnection, kIOHIDLibUserClientRemoveElementFromQueue, args, i, (int *) &fQueueEntrySizeChanged, &len);
     if (ret != kIOReturnSuccess)
         return ret;
 
@@ -366,6 +376,18 @@ IOReturn IOHIDQueueClass::start (bool deviceInitiated)
     {
         allChecks();
     }
+    
+    // if the queue size changes, we will need to dispose of the 
+    // queue mapped memory
+    if ( fQueueEntrySizeChanged && fQueueMappedMemory )
+    {
+        ret = IOConnectUnmapMemory (fOwningDevice->fConnection, 
+                                    fQueueRef, 
+                                    mach_task_self(), 
+                                    (vm_address_t)fQueueMappedMemory);
+        fQueueMappedMemory      = NULL;
+        fQueueMappedMemorySize  = 0;
+    }    
 
     //  kIOHIDLibUserClientStartQueue, kIOUCScalarIScalarO, 1, 0
     int args[6], i = 0;
@@ -377,6 +399,26 @@ IOReturn IOHIDQueueClass::start (bool deviceInitiated)
         return ret;
     
     fIsStopped = false;
+
+    // get the queue shared memory
+    if ( !fQueueMappedMemory )
+    {
+        vm_address_t address = nil;
+        vm_size_t size = 0;
+        
+        ret = IOConnectMapMemory (	fOwningDevice->fConnection, 
+                                    fQueueRef, 
+                                    mach_task_self(), 
+                                    &address, 
+                                    &size, 
+                                    kIOMapAnywhere	);
+        if (ret == kIOReturnSuccess)
+        {
+            fQueueMappedMemory = (IODataQueueMemory *) address;
+            fQueueMappedMemorySize = size;
+            fQueueEntrySizeChanged  = false;
+        }
+    }
 
     return kIOReturnSuccess;
 }
@@ -408,7 +450,7 @@ IOReturn IOHIDQueueClass::stop (bool deviceInitiated)
         
     if (!deviceInitiated)
         fIsStopped = true;
-    
+        
     // еее TODO after we stop the queue, we should empty the queue here, in user space
     // (to be consistant with setting the head from user space)
     
@@ -431,6 +473,8 @@ IOReturn IOHIDQueueClass::getNextEvent (
     
     allChecks();
     
+    if ( !fQueueMappedMemory )
+        return kIOReturnNoMemory;
 #if 0
     printf ("IOHIDQueueClass::getNextEvent about to peek\n");
 
@@ -553,13 +597,18 @@ IOReturn IOHIDQueueClass::setEventCallout (
 /* Get the current notification callout */
 IOReturn IOHIDQueueClass::getEventCallout (
                         IOHIDCallbackFunction * 	outCallback,
-                        void ** 			outCallbackTarget,
-                        void **			outCallbackRefcon)
+                        void **                     outCallbackTarget,
+                        void **                     outCallbackRefcon)
 {
 
-    *outCallback = fEventCallback;
-    *outCallbackTarget = fEventTarget;
-    *outCallbackRefcon = fEventRefcon;
+    if (outCallback)
+        *outCallback        = fEventCallback;
+        
+    if (outCallbackTarget)
+        *outCallbackTarget  = fEventTarget;
+        
+    if (outCallbackRefcon)
+        *outCallbackRefcon  = fEventRefcon;
     
     return kIOReturnSuccess;
 }

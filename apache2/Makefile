@@ -1,11 +1,11 @@
 ##
 # Apple wrapper Makefile for Apache 2
-# Copyright (c) 2003 by Apple Computer, Inc.
+# Copyright (c) 2003-2004 by Apple Computer, Inc.
 ##
 # Untar, build, create a binary distribution, install into /opt/apache2
 #
 PROJECT_NAME=httpd
-PROJECT_VERSION=2.0.49
+PROJECT_VERSION=2.0.50
 PROJECT_DIR=$(PROJECT_NAME)-$(PROJECT_VERSION)
 PROJECT_ARCHIVE=$(PROJECT_DIR).tar.gz
 FINAL_DIR=/opt/apache2

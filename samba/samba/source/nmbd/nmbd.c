@@ -43,7 +43,7 @@ BOOL found_lm_clients = False;
 
 /* what server type are we currently */
 
-time_t StartupTime = 0;
+time_t NMBDStartupTime = 0;
 
 /**************************************************************************** **
  Handle a SIGTERM in band.
@@ -619,7 +619,7 @@ static BOOL open_sockets(BOOL isdaemon, int port)
 
 	global_in_nmbd = True;
 	
-	StartupTime = time(NULL);
+	NMBDStartupTime = time(NULL);
 	
 	sys_srandom(time(NULL) ^ sys_getpid());
 	

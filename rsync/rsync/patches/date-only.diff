@@ -1,0 +1,93 @@
+Greetings, and thanks for all of your work on the wonderful rsync!
+
+I recently had the need to transfer files only with different mod
+dates (and to *not* transfer them based on file size differences).
+This is because I'm backing up files remotely on an untrusted machine,
+so I'm encrypting them with gpg before transfer.  I discovered that
+rsync didn't already have a --date-only flag, so I added one and am
+enclosing the diffs in case you (as I hope) decide to include this
+option in future releases.
+
+Again, thanks!
+
+Best Regards,
+Jeremy Bornstein
+
+[Patched update to have context and apply to latest CVS source.]
+
+--- generator.c	15 Apr 2004 16:55:23 -0000	1.79
++++ generator.c	15 Apr 2004 19:06:13 -0000
+@@ -50,11 +50,14 @@ extern int list_only;
+ extern int only_existing;
+ extern int orig_umask;
+ extern int safe_symlinks;
++extern int date_only;
+ 
+ 
+ /* choose whether to skip a particular file */
+ static int skip_file(char *fname, struct file_struct *file, STRUCT_STAT *st)
+ {
++	if (date_only)
++		return cmp_modtime(st->st_mtime,file->modtime) == 0;
+ 	if (st->st_size != file->length) {
+ 		return 0;
+ 	}
+--- options.c	14 Apr 2004 23:33:34 -0000	1.146
++++ options.c	15 Apr 2004 19:06:13 -0000
+@@ -82,6 +82,7 @@ int keep_partial = 0;
+ int safe_symlinks = 0;
+ int copy_unsafe_links = 0;
+ int size_only = 0;
++int date_only = 0;
+ int bwlimit = 0;
+ int delete_after = 0;
+ int only_existing = 0;
+@@ -262,6 +263,7 @@ void usage(enum logcode F)
+   rprintf(F,"     --timeout=TIME          set I/O timeout in seconds\n");
+   rprintf(F," -I, --ignore-times          turn off mod time & file size quick check\n");
+   rprintf(F,"     --size-only             ignore mod time for quick check (use size)\n");
++  rprintf(F,"     --date-only             ignore size for quick check (use mod time)\n");
+   rprintf(F,"     --modify-window=NUM     compare mod times with reduced accuracy\n");
+   rprintf(F," -T  --temp-dir=DIR          create temporary files in directory DIR\n");
+   rprintf(F,"     --compare-dest=DIR      also compare destination files relative to DIR\n");
+@@ -316,6 +318,7 @@ static struct poptOption long_options[] 
+   {"password-file",    0,  POPT_ARG_STRING, &password_file,	0, 0, 0 },
+   {"ignore-times",    'I', POPT_ARG_NONE,   &ignore_times, 0, 0, 0 },
+   {"size-only",        0,  POPT_ARG_NONE,   &size_only, 0, 0, 0 },
++  {"date-only",        0,  POPT_ARG_NONE,   &date_only, 0, 0, 0 },
+   {"modify-window",    0,  POPT_ARG_INT,    &modify_window, OPT_MODIFY_WINDOW, 0, 0 },
+   {"one-file-system", 'x', POPT_ARG_NONE,   &one_file_system, 0, 0, 0 },
+   {"delete",           0,  POPT_ARG_NONE,   &delete_mode, 0, 0, 0 },
+@@ -905,6 +908,9 @@ void server_options(char **args,int *arg
+ 
+ 	if (size_only)
+ 		args[ac++] = "--size-only";
++
++	if (date_only)
++		args[ac++] = "--date-only";
+ 
+ 	if (modify_window_set) {
+ 		if (asprintf(&arg, "--modify-window=%d", modify_window) < 0)
+--- rsync.yo	15 Apr 2004 18:32:24 -0000	1.157
++++ rsync.yo	15 Apr 2004 19:06:15 -0000
+@@ -320,6 +320,7 @@
+      --timeout=TIME          set I/O timeout in seconds
+  -I, --ignore-times          turn off mod time & file size quick check
+      --size-only             ignore mod time for quick check (use size)
++     --date-only             ignore size for quick check (use mod time)
+      --modify-window=NUM     compare mod times with reduced accuracy
+  -T  --temp-dir=DIR          create temporary files in directory DIR
+      --compare-dest=DIR      also compare received files relative to DIR
+@@ -390,6 +391,12 @@
+ regardless of timestamp. This is useful when starting to use rsync
+ after using another mirroring system which may not preserve timestamps
+ exactly.
++
++dit(bf(--date-only)) Normally rsync will skip any files that are
++already the same size and have the same modification time-stamp. With the
++--date-only option, files will be skipped if they have the same
++timestamp, regardless of size. This may be useful when the remote
++files have passed through a size-changing filter, e.g. for encryption.
+ 
+ dit(bf(--modify-window)) When comparing two timestamps rsync treats
+ the timestamps as being equal if they are within the value of

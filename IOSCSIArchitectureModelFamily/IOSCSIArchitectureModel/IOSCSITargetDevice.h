@@ -35,11 +35,11 @@
 // General IOKit headers
 #include <IOKit/IOLib.h>
 #include <IOKit/IOService.h>
-#include <IOKit/IOSyncer.h>
 
 // SCSI Architecture Model Family includes
 #include <IOKit/scsi/IOSCSIPrimaryCommandsDevice.h>
 #include <IOKit/scsi/SCSICmds_INQUIRY_Definitions.h>
+#include <IOKit/scsi/SCSICmds_REPORT_LUNS_Definitions.h>
 #include <IOKit/scsi/IOSCSIPeripheralDeviceNub.h>
 
 
@@ -65,7 +65,6 @@ class IOSCSITargetDevice : public IOSCSIPrimaryCommandsDevice
 	
 public:
 	
-	
 	static bool			Create ( IOSCSIProtocolServices * provider );
 	virtual IOReturn 	message ( UInt32 type, IOService * nub, void * arg );
 	
@@ -84,8 +83,6 @@ protected:
 	void			TargetTaskCompletion ( SCSITaskIdentifier request );
 	static bool		SetTargetLayerReference ( SCSITaskIdentifier request, void * target );
 	static void *	GetTargetLayerReference ( SCSITaskIdentifier request );
-	
-protected:
 	
 	bool	CreateTargetDeviceOrPath (
 				IOSCSIProtocolServices * 	provider );
@@ -110,6 +107,9 @@ protected:
 	bool	DetermineTargetCharacteristics ( void );
 	bool	VerifyTargetPresence ( void );
 	bool	SetCharacteristicsFromINQUIRY ( SCSICmd_INQUIRY_StandardDataAll * inquiryBuffer );
+	bool	PerformREPORTLUNS ( void );
+	void	ParseReportLUNsInformation ( SCSICmd_REPORT_LUNS_Header * buffer );
+
 	bool	RetrieveReportLUNsData (
 						SCSILogicalUnitNumber					logicalUnit,
 						UInt8 * 								dataBuffer,  

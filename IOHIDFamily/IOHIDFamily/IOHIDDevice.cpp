@@ -53,6 +53,7 @@ OSDefineMetaClassAndAbstractStructors( IOHIDDevice, IOService )
 #define _eventDeadline			_reserved->eventDeadline
 #define _publishNotify			_reserved->publishNotify
 #define _inputInterruptElementArray	_reserved->inputInterruptElementArray
+#define _postNullEvents				_reserved->postNullEvents
 
 #define kIOHIDEventThreshold	10
 
@@ -95,24 +96,25 @@ static SInt32 g3DGameControllerCount = 0;
 
 //---------------------------------------------------------------------------
 // Static helper function that will return a new IOHIDevice depending
-// on the type of HID device.
-static void CreateIOHIDevices(
-                                IOService * owner, 
-                                OSArray *elements, 
-                                IOHIDPointing ** pointingNub, 
-                                IOHIDKeyboard ** keyboardNub, 
-                                IOHIDConsumer ** consumerNub)
+// on the type of HID device.  Returns true if an HI device has been created
+// or already exists for this service.
+static bool CreateIOHIDevices(  IOHIDDevice *		owner, 
+                                OSArray *			elements, 
+                                IOHIDPointing **	pointingNub, 
+                                IOHIDKeyboard **	keyboardNub, 
+                                IOHIDConsumer **	consumerNub)
 {
     OSString 	*defaultBehavior;
     IOService	*provider = owner;
     
-    if (!owner)
-        return 0;
-    
     while (provider = provider->getProvider())
     {
-	if(OSDynamicCast(IOHIDevice, provider) || OSDynamicCast(IOHIDDevice, provider))
-            return  0;
+		if(OSDynamicCast(IOHIDevice, provider))
+		{
+            return true;
+		}
+		else if (OSDynamicCast(IOHIDDevice, provider))
+			return false;
     }
     
     defaultBehavior = OSDynamicCast(OSString, 
@@ -145,8 +147,10 @@ static void CreateIOHIDevices(
         {
             (*consumerNub)->release();
             *consumerNub = 0;
-        }
+        }		
     }
+	
+	return ( *pointingNub || *keyboardNub || *consumerNub );
 }
 
 //---------------------------------------------------------------------------
@@ -187,6 +191,7 @@ bool IOHIDDevice::init( OSDictionary * dict )
     _publishNotify = 0;
     _inputInterruptElementArray = 0;
     AbsoluteTime_to_scalar(&_eventDeadline) = 0;
+	_postNullEvents = false;
     
     // Create an OSSet to store client objects. Initial capacity
     // (which can grow) is set at 2 clients.
@@ -322,11 +327,11 @@ bool IOHIDDevice::start( IOService * provider )
 
     // *** IOHIDSYSTEM DEVICE SUPPORT ***
     // RY: Create an IOHIDevice nub
-    CreateIOHIDevices(this, 
-                    _elementArray,
-                    &_pointingNub,
-                    &_keyboardNub,
-                    &_consumerNub);
+    _postNullEvents = ! CreateIOHIDevices(  this, 
+                                            _elementArray,
+                                            &_pointingNub,
+                                            &_keyboardNub,
+                                            &_consumerNub);
 
     // RY: Add a notification to get an instance of the Display
     // Manager.  This will allow us to tickle it upon receiveing
@@ -337,8 +342,7 @@ bool IOHIDDevice::start( IOService * provider )
     OSNumber *primaryUsage = OSDynamicCast(OSNumber,
                                     getProperty(kIOHIDPrimaryUsageKey));
                                     
-    if (!(_pointingNub || _keyboardNub || _consumerNub) &&
-        primaryUsagePage && 
+    if (_postNullEvents && primaryUsagePage && 
        (primaryUsagePage->unsigned32BitValue() == kHIDPage_GenericDesktop)) 
     {
         _publishNotify = addNotification( gIOPublishNotification, 
@@ -579,6 +583,7 @@ bool IOHIDDevice::publishProperties(IOService * provider)
     SET_PROP( newManufacturerString,     kIOHIDManufacturerKey );
     SET_PROP( newProductString,          kIOHIDProductKey );
     SET_PROP( newLocationIDNumber,       kIOHIDLocationIDKey );
+    SET_PROP( newCountryCodeNumber,      kIOHIDCountryCodeKey );
     
     // RY: By default we publish the SerialNumber number, but if a
     // SerialNumber string is present, overwrite that table entry.
@@ -840,20 +845,10 @@ IOReturn IOHIDDevice::handleReport( IOMemoryDescriptor * report,
                                     reportData,
                                     reportLength << 3,
                                     &currentTime,
-                                    &element );
+                                    &element,
+                                    options );
         }
         
-        // Next process the interrupt report handler element
-        if ( ( reportType == kIOHIDReportTypeInput ) &&
-             ( ( options & kIOHIDReportOptionNotInterrupt ) == 0 ) &&
-             ( element = _inputInterruptElementArray->getObject(reportID) ) )
-        {
-            element->processReport( reportID,
-                                    reportData,
-                                    reportLength << 3,
-                                    &currentTime);        
-        }
-
         ret = kIOReturnSuccess;
     }
 
@@ -882,8 +877,7 @@ IOReturn IOHIDDevice::handleReport( IOMemoryDescriptor * report,
 
     // RY: If this is a non-system HID device, post a null hid
     // event to prevent the system from sleeping.
-    if (changed && _hidSystem && _clientSet->getCount() && 
-        !_pointingNub && !_keyboardNub && !_consumerNub)
+    if (changed && _hidSystem && _postNullEvents && _clientSet->getCount())
     {
         if (CMP_ABSOLUTETIME(&currentTime, &_eventDeadline) > 0)
         {
@@ -1601,16 +1595,6 @@ IOBufferMemoryDescriptor * IOHIDDevice::createMemoryForElementValues()
         }
     }
 
-    // RY: Take care of interrupt report handlers
-    for ( UInt32 report = 0; report < _inputInterruptElementArray->getCount(); report++ )
-    {
-        if ( element = _inputInterruptElementArray->getObject(report) )
-        {
-            capacity += element->getElementValueSize();
-            element   = element->getNextReportHandler();
-        }
-    }
-
     // Allocate an IOBufferMemoryDescriptor object.
 
 	DLOG("Element value capacity %ld\n", capacity);
@@ -1644,20 +1628,6 @@ IOBufferMemoryDescriptor * IOHIDDevice::createMemoryForElementValues()
                 buffer += element->getElementValueSize();
                 element = element->getNextReportHandler();
             }
-        }
-    }
-
-    // RY: Now assign the update memory area for each interrupt report element.
-    for ( UInt32 report = 0; report < _inputInterruptElementArray->getCount(); report++ )
-    {
-        if ( element = _inputInterruptElementArray->getObject(report) )
-        {
-            assert ( buffer < (start + capacity) );
-        
-            element->setMemoryForElementValue( (IOVirtualAddress) buffer,
-                                            (void *) (buffer - start) );
-
-            buffer += element->getElementValueSize();
         }
     }
 
@@ -2022,7 +1992,15 @@ OSNumber * IOHIDDevice::newVendorIDSourceNumber() const
     return 0;
 }
 
-OSMetaClassDefineReservedUnused(IOHIDDevice,  7);
+//---------------------------------------------------------------------------
+// Return the country code
+
+OSMetaClassDefineReservedUsed(IOHIDDevice,  7);
+OSNumber * IOHIDDevice::newCountryCodeNumber() const
+{
+    return 0;
+}
+
 OSMetaClassDefineReservedUnused(IOHIDDevice,  8);
 OSMetaClassDefineReservedUnused(IOHIDDevice,  9);
 OSMetaClassDefineReservedUnused(IOHIDDevice, 10);

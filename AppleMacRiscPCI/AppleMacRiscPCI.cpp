@@ -1198,8 +1198,13 @@ IOReturn AppleMacRiscAGP::setAGPEnable( IOAGPDevice * _master,
 
 	if( targetStatus > masterStatus)
 	    targetStatus = masterStatus;
-	command |= (targetStatus & kIOAGPRequestQueueMask);
-
+        
+        if((uniNVersion >= 0x30) && (uniNVersion <= 0x33))
+            // We neeed to set the REQ_DEPTH to 7 for U3 versions V1.0, V2.1, V2.2 and V2.3.
+            command |= 0x07000000;
+        else
+            command |= (targetStatus & kIOAGPRequestQueueMask);
+        
         _master->setProperty(kIOAGPCommandValueKey, &command, sizeof(command));
 
         configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN );

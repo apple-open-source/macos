@@ -53,6 +53,9 @@
  *    got rid of fcvt code (twas buggy and made testing harder)
  *    added C99 semantics
  *
+ *  Paul Green (paulg@samba.org) April 9, 2003
+ *    fixed handling of %f when converting fractions with leading zeros.
+ *    (e.g., 0.025).
  **************************************************************/
 
 #ifndef NO_CONFIG_H /* for some tests */
@@ -725,15 +728,15 @@ static void fmtfp (char *buffer, size_t *currlen, size_t maxlen,
 	if (max > 0) {
 		dopr_outch (buffer, currlen, maxlen, '.');
 		
+		while (zpadlen > 0) {
+		  dopr_outch (buffer, currlen, maxlen, '0');
+		  --zpadlen;
+		}
+
 		while (fplace > 0) 
 			dopr_outch (buffer, currlen, maxlen, fconvert[--fplace]);
 	}
 	
-	while (zpadlen > 0) {
-		dopr_outch (buffer, currlen, maxlen, '0');
-		--zpadlen;
-	}
-
 	while (padlen < 0) {
 		dopr_outch (buffer, currlen, maxlen, ' ');
 		++padlen;
@@ -749,13 +752,15 @@ static void dopr_outch(char *buffer, size_t *currlen, size_t maxlen, char c)
 }
 
 #if !defined(HAVE_VSNPRINTF) || !defined(HAVE_C99_VSNPRINTF)
- int vsnprintf (char *str, size_t count, const char *fmt, va_list args)
+#define vsnprintf rsync_vsnprintf
+ int vsnprintf(char *str, size_t count, const char *fmt, va_list args)
 {
 	return dopr(str, count, fmt, args);
 }
 #endif
 
 #if !defined(HAVE_SNPRINTF) || !defined(HAVE_C99_VSNPRINTF)
+#define snprintf rsync_snprintf
  int snprintf(char *str,size_t count,const char *fmt,...)
 {
 	size_t ret;

@@ -351,6 +351,8 @@ enum CS8416_ID_Version {
 
 #define kUnlockFilterCounterSeed		 4												/*  [3678605]   */
 
+#define	kIRQ_HARDWARE_ACK_SEED_COUNT	 2												/*	[3800414]	*/
+
 class AppleTopazPluginCS8416 : public AppleTopazPlugin {
     OSDeclareDefaultStructors ( AppleTopazPluginCS8416 );
 

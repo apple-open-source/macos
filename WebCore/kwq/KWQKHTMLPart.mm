@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -649,18 +649,25 @@ void KWQKHTMLPart::addData(const char *bytes, int length)
 
 void KHTMLPart::frameDetached()
 {
+    // FIXME: This should be a virtual function, with the first part in KWQKHTMLPart, and the second
+    // part in KHTMLPart, so it works for KHTML too.
+
     KWQ_BLOCK_EXCEPTIONS;
     [KWQ(this)->bridge() frameDetached];
     KWQ_UNBLOCK_EXCEPTIONS;
 
-    // FIXME: There may be a better place to do this that works for KHTML too.
-    FrameList& parentFrames = parentPart()->d->m_frames;
-    FrameIt end = parentFrames.end();
-    for (FrameIt it = parentFrames.begin(); it != end; ++it) {
-        if ((*it).m_part == this) {
-            parentFrames.remove(it);
-            deref();
-            break;
+    KHTMLPart *parent = parentPart();
+    if (parent) {
+        FrameList& parentFrames = parent->d->m_frames;
+        FrameIt end = parentFrames.end();
+        for (FrameIt it = parentFrames.begin(); it != end; ++it) {
+            ChildFrame &child = *it;
+            if (child.m_part == this) {
+                parent->disconnectChild(&child);
+                parentFrames.remove(it);
+                deref();
+                break;
+            }
         }
     }
 }
@@ -1496,6 +1503,43 @@ bool KWQKHTMLPart::runJavaScriptPrompt(const QString &prompt, const QString &def
     KWQ_UNBLOCK_EXCEPTIONS;
     
     return false;
+}
+
+bool KWQKHTMLPart::locationbarVisible()
+{
+    return [_bridge areToolbarsVisible];
+}
+
+bool KWQKHTMLPart::menubarVisible()
+{
+    // The menubar is always on in Mac OS X UI
+    return true;
+}
+
+bool KWQKHTMLPart::personalbarVisible()
+{
+    return [_bridge areToolbarsVisible];
+}
+
+bool KWQKHTMLPart::scrollbarsVisible()
+{
+    if (!view())
+	return false;
+
+    if (view()->hScrollBarMode() == QScrollView::AlwaysOff || view()->vScrollBarMode() == QScrollView::AlwaysOff)
+	return false;
+
+    return true;
+}
+
+bool KWQKHTMLPart::statusbarVisible()
+{
+    return [_bridge isStatusBarVisible];
+}
+
+bool KWQKHTMLPart::toolbarVisible()
+{
+    return [_bridge areToolbarsVisible];
 }
 
 void KWQKHTMLPart::createEmptyDocument()
@@ -2837,3 +2881,7 @@ void KWQKHTMLPart::cleanupPluginRootObjects()
     }
 }
 
+bool KWQKHTMLPart::canGoBackOrForward(int distance) const
+{
+    return [_bridge canGoBackOrForward:distance];
+}

@@ -89,6 +89,8 @@
  */
 enum 
 {
+    kSCSICmd_ACCESS_CONTROL_IN              = 0x86,
+    kSCSICmd_ACCESS_CONTROL_OUT             = 0x87,
     kSCSICmd_BLANK                          = 0xA1,
     kSCSICmd_CHANGE_DEFINITION              = 0x40,
     kSCSICmd_CLOSE_TRACK_SESSION            = 0x5B,
@@ -105,8 +107,11 @@ enum
     kSCSICmd_INQUIRY                        = 0x12,
     kSCSICmd_LOAD_UNLOAD_MEDIUM             = 0xA6,
     kSCSICmd_LOCK_UNLOCK_CACHE              = 0x36,
+    kSCSICmd_LOCK_UNLOCK_CACHE_16           = 0x92,
     kSCSICmd_LOG_SELECT                     = 0x4C,
     kSCSICmd_LOG_SENSE                      = 0x4D,
+    kSCSICmd_MAINTENANCE_IN               	= 0xA3,
+    kSCSICmd_MAINTENANCE_OUT                = 0xA4,
     kSCSICmd_MECHANISM_STATUS               = 0xBD,
     kSCSICmd_MEDIUM_SCAN                    = 0x38,
     kSCSICmd_MODE_SELECT_6                  = 0x15,
@@ -125,10 +130,13 @@ enum
     kSCSICmd_PLAY_RELATIVE_10               = 0x49,
     kSCSICmd_PLAY_RELATIVE_12               = 0xA9,
     kSCSICmd_PREFETCH                       = 0x34,
+    kSCSICmd_PREFETCH_16                    = 0x90,
     kSCSICmd_PREVENT_ALLOW_MEDIUM_REMOVAL   = 0x1E,
     kSCSICmd_READ_6                         = 0x08,
     kSCSICmd_READ_10                        = 0x28,
     kSCSICmd_READ_12                        = 0xA8,
+    kSCSICmd_READ_16                        = 0x88,
+    kSCSICmd_READ_ATTRIBUTE                 = 0x8C,
     kSCSICmd_READ_BUFFER                    = 0x3C,
     kSCSICmd_READ_BUFFER_CAPACITY           = 0x5C,
     kSCSICmd_READ_CAPACITY                  = 0x25,
@@ -153,6 +161,8 @@ enum
     kSCSICmd_RECEIVE                        = 0x08,
     kSCSICmd_RECEIVE_COPY_RESULTS           = 0x84,
     kSCSICmd_RECEIVE_DIAGNOSTICS_RESULTS    = 0x1C,
+    kSCSICmd_REDUNDANCY_GROUP_IN			= 0xBA,
+    kSCSICmd_REDUNDANCY_GROUP_OUT			= 0xBB,
     kSCSICmd_REGENERATE                     = 0x82,
     kSCSICmd_RELEASE_6                      = 0x17,
     kSCSICmd_RELEASE_10                     = 0x57,
@@ -181,33 +191,94 @@ enum
     kSCSICmd_SEND_EVENT                     = 0xA2,
     kSCSICmd_SEND_KEY                       = 0xA3,
     kSCSICmd_SEND_OPC_INFORMATION           = 0x54,
+    kSCSICmd_SERVICE_ACTION_IN		        = 0x9E,
+    kSCSICmd_SERVICE_ACTION_OUT		        = 0x9F,
     kSCSICmd_SET_CD_SPEED                   = 0xBB,
     kSCSICmd_SET_DEVICE_IDENTIFIER      	= 0xA4,
     kSCSICmd_SET_LIMITS_10                  = 0x33,
     kSCSICmd_SET_LIMITS_12                  = 0xB3,
     kSCSICmd_SET_READ_AHEAD                 = 0xA7,
     kSCSICmd_SET_STREAMING                  = 0xB6,
+    kSCSICmd_SPARE_IN		                = 0xBC,
+    kSCSICmd_SPARE_OUT		                = 0xBD,
     kSCSICmd_START_STOP_UNIT                = 0x1B,
     kSCSICmd_STOP_PLAY_SCAN                 = 0x4E,
     kSCSICmd_SYNCHRONIZE_CACHE              = 0x35,
+    kSCSICmd_SYNCHRONIZE_CACHE_16           = 0x91,
     kSCSICmd_TEST_UNIT_READY                = 0x00,
 	kSCSICmd_UPDATE_BLOCK					= 0x3D,
     kSCSICmd_VERIFY_10                      = 0x2F,
     kSCSICmd_VERIFY_12                      = 0xAF,
+    kSCSICmd_VERIFY_16                      = 0x8F,
+    kSCSICmd_VOLUME_SET_IN                  = 0xBE,
+    kSCSICmd_VOLUME_SET_OUT                 = 0xBF,
     kSCSICmd_WRITE_6                        = 0x0A,
     kSCSICmd_WRITE_10                       = 0x2A,
     kSCSICmd_WRITE_12                       = 0xAA,
+    kSCSICmd_WRITE_16                       = 0x8A,
     kSCSICmd_WRITE_AND_VERIFY_10            = 0x2E,
 	kSCSICmd_WRITE_AND_VERIFY_12            = 0xAE,
+	kSCSICmd_WRITE_AND_VERIFY_16            = 0x8E,
+	kSCSICmd_WRITE_ATTRIBUTE	            = 0x8D,
     kSCSICmd_WRITE_BUFFER                   = 0x3B,
     kSCSICmd_WRITE_LONG                     = 0x3F,
     kSCSICmd_WRITE_SAME                     = 0x41,
+    kSCSICmd_WRITE_SAME_16                  = 0x93,
     kSCSICmd_XDREAD                         = 0x52,
     kSCSICmd_XDWRITE                        = 0x50,
     kSCSICmd_XDWRITE_EXTENDED               = 0x80,
-    kSCSICmd_XPWRITE                        = 0x51
+    kSCSICmd_XDWRITEREAD_10           		= 0x53,
+    kSCSICmd_XPWRITE                        = 0x51,
+    
+    kSCSICmdVariableLengthCDB				= 0x7F
 };
 
+// Service Action Definitions for the Variable Length CDB (7Fh) command
+enum
+{
+	kSCSIServiceAction_READ_32				= 0x0009,
+	kSCSIServiceAction_VERIFY_32			= 0x000A,
+	kSCSIServiceAction_WRITE_32				= 0x000B,
+	kSCSIServiceAction_WRITE_AND_VERIFY_32	= 0x000C,
+	kSCSIServiceAction_WRITE_SAME_32		= 0x000D,
+	kSCSIServiceAction_XDREAD_32			= 0x0003,
+	kSCSIServiceAction_XDWRITE_32			= 0x0004,
+	kSCSIServiceAction_XDWRITEREAD_32		= 0x0007,
+	kSCSIServiceAction_XPWRITE_32			= 0x0006
+};
+
+// Service Action Definitions for the MAINTENANCE IN (A3h) command
+enum
+{
+	kSCSIServiceAction_REPORT_ALIASES				= 0x0B,
+	kSCSIServiceAction_REPORT_DEVICE_IDENTIFIER		= 0x05,
+	kSCSIServiceAction_REPORT_PRIORITY				= 0x0E,
+	kSCSIServiceAction_REPORT_SUPPORTED_OPERATION_CODES				= 0x0C,
+	kSCSIServiceAction_REPORT_SUPPORTED_TASK_MANAGEMENT_FUNCTIONS	= 0x0D,
+	kSCSIServiceAction_REPORT_TARGET_PORT_GROUPS	= 0x0A	
+};
+
+// Service Action Definitions for the MAINTENANCE OUT (A4h) command
+enum
+{
+	kSCSIServiceAction_CHANGE_ALIASES			= 0x0B,
+	kSCSIServiceAction_SET_DEVICE_IDENTIFIER	= 0x06,
+	kSCSIServiceAction_SET_PRIORITY				= 0x0E,
+	kSCSIServiceAction_SET_TARGET_PORT_GROUPS	= 0x0A	
+};
+
+// Service Action Definitions for the SERVICE ACTION IN (9Eh) command
+enum
+{
+	kSCSIServiceAction_READ_CAPACITY_16		= 0x10,
+	kSCSIServiceAction_READ_LONG_16			= 0x11	
+};
+
+// Service Action Definitions for the SERVICE ACTION OUT (9Fh) command
+enum
+{
+	kSCSIServiceAction_WRITE_LONG_16		= 0x11	
+};
 
 #pragma mark -
 #pragma mark Command Definitions by Number
@@ -226,6 +297,7 @@ enum
  *
  * These commands are defined for all devices.
  */
+ // Needs to be updated for SPC-3
 #if 0
 enum 
 {
@@ -282,6 +354,7 @@ enum
  * specification.  The definitions and section numbers are based on section 6.1
  * of the revision 8c, 13 November 1997 version of the specification. 
  */
+ // Needs to be updated for SBC-2
 #if 0
 enum
 {

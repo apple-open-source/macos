@@ -31,7 +31,7 @@ smbspool \- send a print file to an SMB printer
 .SH "DESCRIPTION"
 
 .PP
-This tool is part of the \fBSamba\fR(7) suite\&.
+This tool is part of the \fBsamba\fR(7) suite\&.
 
 .PP
 smbspool is a very small print spooling program that sends a print file to an SMB printer\&. The command\-line arguments are position\-dependent for compatibility with the Common UNIX Printing System, but you can use smbspool with any printing system or from a program or script\&.
@@ -45,19 +45,15 @@ smbspool specifies the destination using a Uniform Resource Identifier ("URI") w
 .TP 3
 \(bu
 smb://server/printer
-
 .TP
 \(bu
 smb://workgroup/server/printer
-
 .TP
 \(bu
 smb://username:password@server/printer
-
 .TP
 \(bu
 smb://username:password@workgroup/server/printer
-
 .LP
 
 .PP
@@ -71,27 +67,21 @@ Programs using the \fBexec(2)\fR functions can pass the URI in argv[0], while sh
 .TP 3
 \(bu
 The job argument (argv[1]) contains the job ID number and is presently not used by smbspool\&.
-
 .TP
 \(bu
 The user argument (argv[2]) contains the print user's name and is presently not used by smbspool\&.
-
 .TP
 \(bu
 The title argument (argv[3]) contains the job title string and is passed as the remote file name when sending the print job\&.
-
 .TP
 \(bu
 The copies argument (argv[4]) contains the number of copies to be printed of the named file\&. If no filename is provided then this argument is not used by smbspool\&.
-
 .TP
 \(bu
 The options argument (argv[5]) contains the print options in a single string and is currently not used by smbspool\&.
-
 .TP
 \(bu
 The filename argument (argv[6]) contains the name of the file to print\&. If this argument is not specified then the print file is read from the standard input\&.
-
 .LP
 
 .SH "VERSION"
@@ -102,7 +92,7 @@ This man page is correct for version 3\&.0 of the Samba suite\&.
 .SH "SEE ALSO"
 
 .PP
-\fBsmbd\fR(8) and \fBSamba\fR(7)\&.
+\fBsmbd\fR(8) and \fBsamba\fR(7)\&.
 
 .SH "AUTHOR"
 

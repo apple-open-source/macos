@@ -22,19 +22,19 @@ IOFWLocalIsochPort :: init (
 		IODCLProgram *			program, 
 		IOFireWireController *	control)
 {
-    if ( ! IOFWIsochPort::init( ) )
+	if ( ! IOFWIsochPort::init( ) )
 		return false;
 		
-    fProgram = program; // belongs to us.
+	fProgram = program; // belongs to us.
 	
-    fControl = control;
+	fControl = control;
 
-    return true;
+	return true;
 }
 
 void IOFWLocalIsochPort::free()
 {
-    if ( fProgram )
+	if ( fProgram )
 	{
 		fProgram->stop() ;
 
@@ -42,16 +42,16 @@ void IOFWLocalIsochPort::free()
 		fProgram = NULL ;
 	}
 	
-    IOFWIsochPort::free();
+	IOFWIsochPort::free();
 }
 
 // Return maximum speed and channels supported
 // (bit n set = chan n supported)
 IOReturn IOFWLocalIsochPort::getSupported(IOFWSpeed &maxSpeed, UInt64 &chanSupported)
 {
-    maxSpeed = kFWSpeedMaximum;
-    chanSupported = ~(UInt64)0;
-    return kIOReturnSuccess;
+	maxSpeed = kFWSpeedMaximum;
+	chanSupported = ~(UInt64)0;
+	return kIOReturnSuccess;
 }
 
 /*
@@ -60,54 +60,54 @@ IOReturn IOFWLocalIsochPort::getSupported(IOFWSpeed &maxSpeed, UInt64 &chanSuppo
  */
 IOReturn IOFWLocalIsochPort::allocatePort(IOFWSpeed speed, UInt32 chan)
 {
-    IOReturn res;
+	IOReturn res;
 
-    fControl->closeGate();
-    res = fProgram->allocateHW(speed, chan);
-    fControl->openGate();
-    
-    if(kIOReturnSuccess != res)
+//	fControl->closeGate();
+	res = fProgram->allocateHW(speed, chan);
+//	fControl->openGate();
+	
+	if(kIOReturnSuccess != res)
 		return res; 
 		
-    return fProgram->compile(speed, chan);	// Not on workloop
+	return fProgram->compile(speed, chan);	// Not on workloop
 }
 
 IOReturn IOFWLocalIsochPort::releasePort()
 {
-    IOReturn res;
+	IOReturn res;
 
-    fControl->closeGate();
-    res = fProgram->releaseHW();
-    fControl->openGate();
-    return res;
+//	fControl->closeGate();
+	res = fProgram->releaseHW();
+//	fControl->openGate();
+	return res;
 }
 
 IOReturn IOFWLocalIsochPort::start()
 {
-    IOReturn res;
+	IOReturn res;
 
-    fControl->closeGate();
-    res = fProgram->start();
-    fControl->openGate();
-    return res;
+//	fControl->closeGate();
+	res = fProgram->start();
+//	fControl->openGate();
+	return res;
 }
 
 IOReturn IOFWLocalIsochPort::stop()
 {
-    fControl->closeGate();
-    fProgram->stop();
-    fControl->openGate();
-    return kIOReturnSuccess;
+//	fControl->closeGate();
+	fProgram->stop();
+//	fControl->openGate();
+	return kIOReturnSuccess;
 }
 
 IOReturn IOFWLocalIsochPort::notify( IOFWDCLNotificationType notificationType,
 	DCLCommand** dclCommandList, UInt32 numDCLCommands)
 {
-    IOReturn res;
+	IOReturn res;
 	
 	res = fProgram->notify(notificationType,
 								dclCommandList, numDCLCommands);
-    return res;
+	return res;
 }
 
 void
@@ -190,7 +190,7 @@ IOFWLocalIsochPort :: printDCLProgram (
 				(*printFN)("(DCLUpdateDCLList) dclCommandList=%p, numDCLCommands=%lud\n",
 					(UInt32)((DCLUpdateDCLList*)currentDCL)->dclCommandList,
 					((DCLUpdateDCLList*)currentDCL)->numDCLCommands) ;
-				
+
 				for(UInt32 listIndex=0; listIndex < ((DCLUpdateDCLList*)currentDCL)->numDCLCommands; ++listIndex)
 				{
 					(*printFN)("%p ", (UInt32)(((DCLUpdateDCLList*)currentDCL)->dclCommandList)[listIndex]) ;
@@ -250,4 +250,10 @@ IOFWLocalIsochPort::getProgramRef() const
 {
 	fProgram->retain() ;
 	return fProgram ;
+}
+
+IOReturn
+IOFWLocalIsochPort :: synchronizeWithIO()
+{
+	return fProgram->synchronizeWithIO() ;
 }

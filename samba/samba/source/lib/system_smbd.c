@@ -88,6 +88,10 @@ static int getgrouplist_internals(const char *user, gid_t gid, gid_t *groups, in
 			groups[0] = gid;
 			*grpcnt = ret + 1;
 		}
+		
+		/* remove any duplicates gids in the list */
+
+		remove_duplicate_gids( grpcnt, groups );
 	}
 
 	restore_re_gid();
@@ -99,7 +103,7 @@ static int getgrouplist_internals(const char *user, gid_t gid, gid_t *groups, in
 		free(gids_saved);
 		return -1;
 	}
-
+	
 	free(gids_saved);
 	return ret;
 }

@@ -147,8 +147,8 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleMacRISC4PE;
-				MODULE_VERSION = 1.2.5b2;
-				OTHER_CFLAGS = "-D_BIG_ENDIAN";
+				MODULE_VERSION = 1.4.0b1;
+				OTHER_CFLAGS = "-D_BIG_ENDIAN -mno-string";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleMacRISC4PE;
@@ -180,7 +180,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleMacRISC4PE</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleMacRISC2PE version 1.2.5, Copyright 2003-2004 Apple Computer, Inc.</string>
+	<string>AppleMacRISC4PE version 1.4.0, Copyright 2003-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -192,11 +192,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.5</string>
+	<string>1.4.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.5b2</string>
+	<string>1.4.0b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>MacRISC4CPU</key>
@@ -225,10 +225,6 @@
 			<string>MacRISC4</string>
 			<key>IOPlatformPluginTable</key>
 			<dict>
-				<key>PowerBook7,1</key>
-				<string>SMU_Neo2_PlatformPlugin</string>
-				<key>PowerBook7,2</key>
-				<string>SMU_Neo2_PlatformPlugin</string>
 				<key>PowerMac7,2</key>
 				<string>PowerMac7_2_PlatformPlugin</string>
 				<key>PowerMac7,3</key>
@@ -1190,8 +1186,8 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.RackMac3_1_PlatformPlugin;
-				MODULE_VERSION = 1.2.5b2;
-				OTHER_CFLAGS = "";
+				MODULE_VERSION = 1.4.0b1;
+				OTHER_CFLAGS = "-mno-string";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = RackMac3_1_PlatformPlugin;
@@ -1216,7 +1212,7 @@
 	<key>CFBundleExecutable</key>
 	<string>RackMac3_1_PlatformPlugin</string>
 	<key>CFBundleGetInfoString</key>
-	<string>RackMac3_1_PlatformPlugin version 1.2.5, Copyright 2003-2004 Apple Computer, Inc.</string>
+	<string>RackMac3_1_PlatformPlugin version 1.4.0, Copyright 2003-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1228,11 +1224,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.5</string>
+	<string>1.4.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.5b2</string>
+	<string>1.4.0b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>RackMac3_1_PlatformPlugin</key>
@@ -3524,12 +3520,13 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.SMU.PowerMac9_1_ThermalProfile;
-				MODULE_VERSION = 1.2.5b2;
-				OTHER_CFLAGS = "";
+				MODULE_VERSION = 1.4.0b1;
+				OTHER_CFLAGS = "-mno-string";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PowerMac9_1_ThermalProfile;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -3548,7 +3545,7 @@
 	<key>CFBundleExecutable</key>
 	<string>PowerMac9_1_ThermalProfile</string>
 	<key>CFBundleGetInfoString</key>
-	<string>PowerMac9_1_ThermalProfile version 1.2.5, Copyright 2004 Apple Computer, Inc.</string>
+	<string>PowerMac9_1_ThermalProfile version 1.4.0, Copyright 2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -3560,11 +3557,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.5</string>
+	<string>1.4.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.5b2</string>
+	<string>1.4.0b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PowerMac9_1_ThermalProfile</key>
@@ -3665,6 +3662,8 @@
 						</array>
 						<key>ctrlloop-id</key>
 						<integer>0</integer>
+						<key>xgc-slew-done-interrupt</key>
+						<true/>
 					</dict>
 					<dict>
 						<key>ControlIDArray</key>
@@ -3707,7 +3706,7 @@
 						<key>Description</key>
 						<string>PCI Slot Fan</string>
 						<key>IOClass</key>
-						<string>SMU_Neo2_PIDCtrlLoop</string>
+						<string>SMU_Neo2_SlotFanCtrlLoop</string>
 						<key>MetaStateArray</key>
 						<array>
 							<dict>
@@ -3737,6 +3736,36 @@
 								<string>Failsafe</string>
 								<key>interval</key>
 								<integer>1</integer>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>AGP Card Control</string>
+								<key>G_d</key>
+								<data>
+								AUAAAA==
+								</data>
+								<key>G_p</key>
+								<data>
+								AGAAAA==
+								</data>
+								<key>G_r</key>
+								<data>
+								AAAAAA==
+								</data>
+								<key>history-length</key>
+								<integer>2</integer>
+								<key>interval</key>
+								<integer>2</integer>
+								<key>pci-fan-max</key>
+								<integer>93</integer>
+								<key>pci-fan-min</key>
+								<integer>50</integer>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Failsafe w/ AGP Card</string>
+								<key>interval</key>
+								<integer>2</integer>
 							</dict>
 						</array>
 						<key>SensorIDArray</key>
@@ -3800,7 +3829,7 @@
 				</array>
 				<key>PlatformFlags</key>
 				<data>
-				AAAAAQ==
+				AAAAAA==
 				</data>
 				<key>SensorArray</key>
 				<array>
@@ -3872,8 +3901,10 @@
 		<key>com.apple.driver.IOPlatformPluginFamily</key>
 		<string>1.1.0d2</string>
 		<key>com.apple.driver.SMU_Neo2_PlatformPlugin</key>
-		<string>1.2.4b5</string>
+		<string>1.3.0b12</string>
 	</dict>
+	<key>OSBundleRequired</key>
+	<string>Safe Boot</string>
 </dict>
 </plist>
 ";
@@ -3985,6 +4016,12 @@
 				7E840BC4060AAE2F001385C1,
 				7E2C11980637B39400C50292,
 				7E2C11990637B39400C50292,
+				B45D195106A867D400969DF3,
+				B45D195206A867D400969DF3,
+				7E9CF42D06C19F8B00C0C082,
+				7E9CF42E06C19F8B00C0C082,
+				7EBEF52D06C04D84003660E7,
+				7EBEF52E06C04D84003660E7,
 			);
 			isa = PBXGroup;
 			name = CtrlLoops;
@@ -4140,12 +4177,13 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.SMU.PowerMac8_1_ThermalProfile;
-				MODULE_VERSION = 1.2.5b2;
-				OTHER_CFLAGS = "";
+				MODULE_VERSION = 1.4.0b1;
+				OTHER_CFLAGS = "-mno-string";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PowerMac8_1_ThermalProfile;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -4164,7 +4202,7 @@
 	<key>CFBundleExecutable</key>
 	<string>PowerMac8_1_ThermalProfile</string>
 	<key>CFBundleGetInfoString</key>
-	<string>PowerMac8_1_ThermalProfile version 1.2.5, Copyright 2004 Apple Computer, Inc.</string>
+	<string>PowerMac8_1_ThermalProfile version 1.4.0, Copyright 2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -4176,11 +4214,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.5</string>
+	<string>1.4.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.5b2</string>
+	<string>1.4.0b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PowerMac8_1_ThermalProfile</key>
@@ -4300,12 +4338,248 @@
 					<dict>
 						<key>ControlIDArray</key>
 						<array>
+							<integer>0</integer>
+							<integer>2</integer>
+						</array>
+						<key>Description</key>
+						<string>PowerMac8,1 A System Fans</string>
+						<key>IOClass</key>
+						<string>PowerMac8_1_SystemFansCtrlLoop</string>
+						<key>MetaStateArray</key>
+						<array>
+							<dict>
+								<key>Description</key>
+								<string>Normal</string>
+								<key>G_d</key>
+								<data>
+								FUAAAA==
+								</data>
+								<key>G_p</key>
+								<data>
+								ACAAAA==
+								</data>
+								<key>G_r</key>
+								<data>
+								AAAC/Q==
+								</data>
+								<key>history-length</key>
+								<integer>2</integer>
+								<key>input-target</key>
+								<integer>3801088</integer>
+								<key>interval</key>
+								<integer>5</integer>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Failsafe</string>
+								<key>interval</key>
+								<integer>5</integer>
+							</dict>
+						</array>
+						<key>SensorIDArray</key>
+						<array>
+							<integer>4</integer>
+						</array>
+						<key>ValidConfigs</key>
+						<array>
+							<integer>2</integer>
+						</array>
+						<key>ctrlloop-id</key>
+						<integer>1</integer>
+						<key>linear-factors</key>
+						<array>
+							<dict>
+								<key>offset</key>
+								<data>
+								/zg=
+								</data>
+								<key>scaling</key>
+								<data>
+								DM0=
+								</data>
+							</dict>
+							<dict>
+								<key>offset</key>
+								<data>
+								Agg=
+								</data>
+								<key>scaling</key>
+								<data>
+								B64=
+								</data>
+							</dict>
+						</array>
+						<key>linked-ctrlloop-id</key>
+						<integer>2</integer>
+						<key>meta-state-format</key>
+						<string>PID</string>
+					</dict>
+					<dict>
+						<key>ControlIDArray</key>
+						<array>
+							<integer>0</integer>
+							<integer>2</integer>
+						</array>
+						<key>Description</key>
+						<string>PowerMac8,1 B System Fans</string>
+						<key>IOClass</key>
+						<string>PowerMac8_1_SystemFansCtrlLoop</string>
+						<key>MetaStateArray</key>
+						<array>
+							<dict>
+								<key>Description</key>
+								<string>Normal</string>
+								<key>G_d</key>
+								<data>
+								COAAAA==
+								</data>
+								<key>G_p</key>
+								<data>
+								AFZmZg==
+								</data>
+								<key>G_r</key>
+								<data>
+								AAAHKw==
+								</data>
+								<key>history-length</key>
+								<integer>2</integer>
+								<key>input-target</key>
+								<integer>3473408</integer>
+								<key>interval</key>
+								<integer>5</integer>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Failsafe</string>
+								<key>interval</key>
+								<integer>5</integer>
+							</dict>
+						</array>
+						<key>SensorIDArray</key>
+						<array>
+							<integer>4</integer>
+						</array>
+						<key>ValidConfigs</key>
+						<array>
+							<integer>3</integer>
+						</array>
+						<key>ctrlloop-id</key>
+						<integer>1</integer>
+						<key>linear-factors</key>
+						<array>
+							<dict>
+								<key>offset</key>
+								<data>
+								/zg=
+								</data>
+								<key>scaling</key>
+								<data>
+								DM0=
+								</data>
+							</dict>
+							<dict>
+								<key>offset</key>
+								<data>
+								AAA=
+								</data>
+								<key>scaling</key>
+								<data>
+								AAA=
+								</data>
+							</dict>
+						</array>
+						<key>linked-ctrlloop-id</key>
+						<integer>2</integer>
+						<key>meta-state-format</key>
+						<string>PID</string>
+					</dict>
+					<dict>
+						<key>ControlIDArray</key>
+						<array>
+							<integer>0</integer>
+						</array>
+						<key>Description</key>
+						<string>PowerMac8,1 EDU System Fans</string>
+						<key>IOClass</key>
+						<string>PowerMac8_1_SystemFansCtrlLoop</string>
+						<key>MetaStateArray</key>
+						<array>
+							<dict>
+								<key>Description</key>
+								<string>Normal</string>
+								<key>G_d</key>
+								<data>
+								FUAAAA==
+								</data>
+								<key>G_p</key>
+								<data>
+								ACMzMw==
+								</data>
+								<key>G_r</key>
+								<data>
+								AAAC/Q==
+								</data>
+								<key>history-length</key>
+								<integer>2</integer>
+								<key>input-target</key>
+								<integer>3801088</integer>
+								<key>interval</key>
+								<integer>5</integer>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Failsafe</string>
+								<key>interval</key>
+								<integer>5</integer>
+							</dict>
+						</array>
+						<key>SensorIDArray</key>
+						<array>
+							<integer>4</integer>
+						</array>
+						<key>ValidConfigs</key>
+						<array>
+							<integer>5</integer>
+						</array>
+						<key>ctrlloop-id</key>
+						<integer>1</integer>
+						<key>linear-factors</key>
+						<array>
+							<dict>
+								<key>offset</key>
+								<data>
+								AAA=
+								</data>
+								<key>scaling</key>
+								<data>
+								EAA=
+								</data>
+							</dict>
+							<dict>
+								<key>offset</key>
+								<data>
+								AJE=
+								</data>
+								<key>scaling</key>
+								<data>
+								C64=
+								</data>
+							</dict>
+						</array>
+						<key>linked-ctrlloop-id</key>
+						<integer>2</integer>
+						<key>meta-state-format</key>
+						<string>PID</string>
+					</dict>
+					<dict>
+						<key>ControlIDArray</key>
+						<array>
 							<integer>1</integer>
 						</array>
 						<key>Description</key>
 						<string>CPU Fan</string>
 						<key>IOClass</key>
-						<string>SMU_Neo2_CPUFanCtrlLoop</string>
+						<string>PowerMac8_1_CPUFanCtrlLoop</string>
 						<key>MetaStateArray</key>
 						<array>
 							<dict>
@@ -4325,227 +4599,24 @@
 							<integer>5</integer>
 						</array>
 						<key>ctrlloop-id</key>
+						<integer>2</integer>
+						<key>linear-factors</key>
+						<array>
+							<dict>
+								<key>offset</key>
+								<data>
+								+1A=
+								</data>
+								<key>scaling</key>
+								<data>
+								EAA=
+								</data>
+							</dict>
+						</array>
+						<key>linked-ctrlloop-id</key>
 						<integer>1</integer>
 						<key>meta-state-format</key>
 						<string>SMU-CPU-PID</string>
-					</dict>
-					<dict>
-						<key>ControlIDArray</key>
-						<array>
-							<integer>0</integer>
-						</array>
-						<key>Description</key>
-						<string>System Fan (EVT)</string>
-						<key>IOClass</key>
-						<string>SMU_Neo2_PIDCtrlLoop</string>
-						<key>MetaStateArray</key>
-						<array>
-							<dict>
-								<key>Description</key>
-								<string>Normal</string>
-								<key>G_d</key>
-								<data>
-								BBAAAA==
-								</data>
-								<key>G_p</key>
-								<data>
-								ANAAAA==
-								</data>
-								<key>G_r</key>
-								<data>
-								AAAAAA==
-								</data>
-								<key>history-length</key>
-								<integer>2</integer>
-								<key>input-target</key>
-								<integer>3604480</integer>
-								<key>interval</key>
-								<integer>5</integer>
-							</dict>
-							<dict>
-								<key>Description</key>
-								<string>Failsafe</string>
-								<key>interval</key>
-								<integer>5</integer>
-							</dict>
-						</array>
-						<key>SensorIDArray</key>
-						<array>
-							<integer>3</integer>
-						</array>
-						<key>ValidConfigs</key>
-						<array>
-							<integer>4</integer>
-							<integer>0</integer>
-							<integer>1</integer>
-						</array>
-						<key>ctrlloop-id</key>
-						<integer>2</integer>
-						<key>meta-state-format</key>
-						<string>PID</string>
-					</dict>
-					<dict>
-						<key>ControlIDArray</key>
-						<array>
-							<integer>2</integer>
-						</array>
-						<key>Description</key>
-						<string>HD Fan (EVT)</string>
-						<key>IOClass</key>
-						<string>SMU_Neo2_PIDCtrlLoop</string>
-						<key>MetaStateArray</key>
-						<array>
-							<dict>
-								<key>Description</key>
-								<string>Normal</string>
-								<key>G_d</key>
-								<data>
-								A0AAAA==
-								</data>
-								<key>G_p</key>
-								<data>
-								AJAAAA==
-								</data>
-								<key>G_r</key>
-								<data>
-								AAAAAA==
-								</data>
-								<key>history-length</key>
-								<integer>2</integer>
-								<key>input-target</key>
-								<integer>3145728</integer>
-								<key>interval</key>
-								<integer>5</integer>
-							</dict>
-							<dict>
-								<key>Description</key>
-								<string>Failsafe</string>
-								<key>interval</key>
-								<integer>5</integer>
-							</dict>
-						</array>
-						<key>SensorIDArray</key>
-						<array>
-							<integer>4</integer>
-						</array>
-						<key>ValidConfigs</key>
-						<array>
-							<integer>0</integer>
-							<integer>1</integer>
-						</array>
-						<key>ctrlloop-id</key>
-						<integer>3</integer>
-						<key>meta-state-format</key>
-						<string>PID</string>
-					</dict>
-					<dict>
-						<key>ControlIDArray</key>
-						<array>
-							<integer>0</integer>
-						</array>
-						<key>Description</key>
-						<string>System Fan (DVT)</string>
-						<key>IOClass</key>
-						<string>SMU_Neo2_PIDCtrlLoop</string>
-						<key>MetaStateArray</key>
-						<array>
-							<dict>
-								<key>Description</key>
-								<string>Normal</string>
-								<key>G_d</key>
-								<data>
-								AoAAAA==
-								</data>
-								<key>G_p</key>
-								<data>
-								AHAAAA==
-								</data>
-								<key>G_r</key>
-								<data>
-								AAAAAA==
-								</data>
-								<key>history-length</key>
-								<integer>2</integer>
-								<key>input-target</key>
-								<integer>2752512</integer>
-								<key>interval</key>
-								<integer>5</integer>
-							</dict>
-							<dict>
-								<key>Description</key>
-								<string>Failsafe</string>
-								<key>interval</key>
-								<integer>5</integer>
-							</dict>
-						</array>
-						<key>SensorIDArray</key>
-						<array>
-							<integer>3</integer>
-						</array>
-						<key>ValidConfigs</key>
-						<array>
-							<integer>2</integer>
-							<integer>5</integer>
-							<integer>3</integer>
-						</array>
-						<key>ctrlloop-id</key>
-						<integer>4</integer>
-						<key>meta-state-format</key>
-						<string>PID</string>
-					</dict>
-					<dict>
-						<key>ControlIDArray</key>
-						<array>
-							<integer>2</integer>
-						</array>
-						<key>Description</key>
-						<string>HD Fan (DVT)</string>
-						<key>IOClass</key>
-						<string>SMU_Neo2_PIDCtrlLoop</string>
-						<key>MetaStateArray</key>
-						<array>
-							<dict>
-								<key>Description</key>
-								<string>Normal</string>
-								<key>G_d</key>
-								<data>
-								A/AAAA==
-								</data>
-								<key>G_p</key>
-								<data>
-								AFAAAA==
-								</data>
-								<key>G_r</key>
-								<data>
-								AAAAAA==
-								</data>
-								<key>history-length</key>
-								<integer>2</integer>
-								<key>input-target</key>
-								<integer>2949120</integer>
-								<key>interval</key>
-								<integer>5</integer>
-							</dict>
-							<dict>
-								<key>Description</key>
-								<string>Failsafe</string>
-								<key>interval</key>
-								<integer>5</integer>
-							</dict>
-						</array>
-						<key>SensorIDArray</key>
-						<array>
-							<integer>4</integer>
-						</array>
-						<key>ValidConfigs</key>
-						<array>
-							<integer>2</integer>
-							<integer>3</integer>
-						</array>
-						<key>ctrlloop-id</key>
-						<integer>5</integer>
-						<key>meta-state-format</key>
-						<string>PID</string>
 					</dict>
 				</array>
 				<key>SensorArray</key>
@@ -4573,12 +4644,6 @@
 						<string>SMU_Neo2_CPUVoltageSensor</string>
 						<key>sensor-id</key>
 						<integer>2</integer>
-					</dict>
-					<dict>
-						<key>Desc-Key</key>
-						<string>SYSTEM_TEMP</string>
-						<key>sensor-id</key>
-						<integer>3</integer>
 					</dict>
 					<dict>
 						<key>Desc-Key</key>
@@ -4616,8 +4681,10 @@
 		<key>com.apple.driver.IOPlatformPluginFamily</key>
 		<string>1.1.0d2</string>
 		<key>com.apple.driver.SMU_Neo2_PlatformPlugin</key>
-		<string>1.2.4b5</string>
+		<string>1.3.0b12</string>
 	</dict>
+	<key>OSBundleRequired</key>
+	<string>Safe Boot</string>
 </dict>
 </plist>
 ";
@@ -4708,6 +4775,9 @@
 				7E3D21800618DD4300C89E1F,
 				052C6F32061CF5E200BAAEBE,
 				7E2C119B0637B39400C50292,
+				B45D195406A867D400969DF3,
+				7EBEF53006C04D84003660E7,
+				7E9CF43006C19F8B00C0C082,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -4731,6 +4801,9 @@
 				7E3D217F0618DD4300C89E1F,
 				052C6F30061CF5BE00BAAEBE,
 				7E2C119A0637B39400C50292,
+				B45D195306A867D400969DF3,
+				7EBEF52F06C04D84003660E7,
+				7E9CF42F06C19F8B00C0C082,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -4766,8 +4839,8 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.SMU_Neo2_PlatformPlugin;
-				MODULE_VERSION = 1.2.5b2;
-				OTHER_CFLAGS = "";
+				MODULE_VERSION = 1.4.0b1;
+				OTHER_CFLAGS = "-mno-string";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = SMU_Neo2_PlatformPlugin;
@@ -4792,7 +4865,7 @@
 	<key>CFBundleExecutable</key>
 	<string>SMU_Neo2_PlatformPlugin</string>
 	<key>CFBundleGetInfoString</key>
-	<string>SMU_Neo2_PlatformPlugin version 1.2.5, Copyright 2004 Apple Computer, Inc.</string>
+	<string>SMU_Neo2_PlatformPlugin version 1.4.0, Copyright 2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -4804,11 +4877,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.5</string>
+	<string>1.4.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.5b2</string>
+	<string>1.4.0b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>SMU_Neo2_PlatformPlugin</key>
@@ -4969,6 +5042,32 @@
 			settings = {
 			};
 		};
+		7E9CF42D06C19F8B00C0C082 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = PowerMac8_1_CPUFanCtrlLoop.cpp;
+			path = IOPlatformPlugins/SMU_Neo2_PlatformPlugin/PowerMac8_1_CPUFanCtrlLoop.cpp;
+			refType = 4;
+		};
+		7E9CF42E06C19F8B00C0C082 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = PowerMac8_1_CPUFanCtrlLoop.h;
+			path = IOPlatformPlugins/SMU_Neo2_PlatformPlugin/PowerMac8_1_CPUFanCtrlLoop.h;
+			refType = 4;
+		};
+		7E9CF42F06C19F8B00C0C082 = {
+			fileRef = 7E9CF42D06C19F8B00C0C082;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7E9CF43006C19F8B00C0C082 = {
+			fileRef = 7E9CF42E06C19F8B00C0C082;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		7EBE342305B7623400A8D637 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
@@ -4991,6 +5090,32 @@
 		};
 		7EBE342605B7623400A8D637 = {
 			fileRef = 7EBE342405B7623400A8D637;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7EBEF52D06C04D84003660E7 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = PowerMac8_1_SystemFansCtrlLoop.cpp;
+			path = IOPlatformPlugins/SMU_Neo2_PlatformPlugin/PowerMac8_1_SystemFansCtrlLoop.cpp;
+			refType = 4;
+		};
+		7EBEF52E06C04D84003660E7 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = PowerMac8_1_SystemFansCtrlLoop.h;
+			path = IOPlatformPlugins/SMU_Neo2_PlatformPlugin/PowerMac8_1_SystemFansCtrlLoop.h;
+			refType = 4;
+		};
+		7EBEF52F06C04D84003660E7 = {
+			fileRef = 7EBEF52D06C04D84003660E7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7EBEF53006C04D84003660E7 = {
+			fileRef = 7EBEF52E06C04D84003660E7;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -5234,8 +5359,8 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.MacRISC4_PlatformPlugin;
-				MODULE_VERSION = 1.2.5b2;
-				OTHER_CFLAGS = "";
+				MODULE_VERSION = 1.4.0b1;
+				OTHER_CFLAGS = "-mno-string";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = MacRISC4_PlatformPlugin;
@@ -5259,7 +5384,7 @@
 	<key>CFBundleExecutable</key>
 	<string>MacRISC4_PlatformPlugin</string>
 	<key>CFBundleGetInfoString</key>
-	<string>MacRISC4_PlatformPlugin version 1.2.5, Copyright 2003-2004 Apple Computer, Inc.</string>
+	<string>MacRISC4_PlatformPlugin version 1.4.0, Copyright 2003-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -5271,11 +5396,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.5</string>
+	<string>1.4.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.5b2</string>
+	<string>1.4.0b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>MacRISC4_PlatformPlugin</key>
@@ -5979,6 +6104,32 @@
 			name = CtrlLoops;
 			refType = 4;
 		};
+		B45D195106A867D400969DF3 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = SMU_Neo2_SlotFanCtrlLoop.cpp;
+			path = IOPlatformPlugins/SMU_Neo2_PlatformPlugin/SMU_Neo2_SlotFanCtrlLoop.cpp;
+			refType = 4;
+		};
+		B45D195206A867D400969DF3 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = SMU_Neo2_SlotFanCtrlLoop.h;
+			path = IOPlatformPlugins/SMU_Neo2_PlatformPlugin/SMU_Neo2_SlotFanCtrlLoop.h;
+			refType = 4;
+		};
+		B45D195306A867D400969DF3 = {
+			fileRef = B45D195106A867D400969DF3;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B45D195406A867D400969DF3 = {
+			fileRef = B45D195206A867D400969DF3;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		B4673E64041E8FD800CE0E5B = {
 			fileEncoding = 4;
 			isa = PBXFileReference;
@@ -6117,8 +6268,8 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.IOPlatformPluginFamily;
-				MODULE_VERSION = 1.2.5b2;
-				OTHER_CFLAGS = "";
+				MODULE_VERSION = 1.4.0b1;
+				OTHER_CFLAGS = "-mno-string";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOPlatformPluginFamily;
@@ -6143,7 +6294,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOPlatformPluginFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOPlatformPluginFamily version 1.2.5, Copyright 2003-2004 Apple Computer, Inc.</string>
+	<string>IOPlatformPluginFamily version 1.4.0, Copyright 2003-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -6155,11 +6306,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.5</string>
+	<string>1.4.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.5b2</string>
+	<string>1.4.0b1</string>
 	<key>IOKitPersonalities</key>
 	<dict/>
 	<key>OSBundleCompatibleVersion</key>
@@ -6339,8 +6490,8 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.PowerMac7_2_PlatformPlugin;
-				MODULE_VERSION = 1.2.5b2;
-				OTHER_CFLAGS = "";
+				MODULE_VERSION = 1.4.0b1;
+				OTHER_CFLAGS = "-mno-string";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PowerMac7_2_PlatformPlugin;
@@ -6364,7 +6515,7 @@
 	<key>CFBundleExecutable</key>
 	<string>PowerMac7_2_PlatformPlugin</string>
 	<key>CFBundleGetInfoString</key>
-	<string>PowerMac7_2_PlatformPlugin version 1.2.5, Copyright 2003-2004 Apple Computer, Inc.</string>
+	<string>PowerMac7_2_PlatformPlugin version 1.4.0, Copyright 2003-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -6376,11 +6527,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.5</string>
+	<string>1.4.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.5b2</string>
+	<string>1.4.0b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PowerMac7_2_PlatformPlugin</key>
@@ -6676,7 +6827,7 @@
 								<key>output-max</key>
 								<integer>100</integer>
 								<key>output-min</key>
-								<integer>30</integer>
+								<integer>20</integer>
 							</dict>
 							<dict>
 								<key>Description</key>
@@ -7371,6 +7522,36 @@
 								<integer>1</integer>
 								<key>output-override</key>
 								<integer>100</integer>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>AGP Card Control</string>
+								<key>G_d</key>
+								<data>
+								AUAAAA==
+								</data>
+								<key>G_p</key>
+								<data>
+								AGAAAA==
+								</data>
+								<key>G_r</key>
+								<data>
+								AAAAAA==
+								</data>
+								<key>history-length</key>
+								<integer>2</integer>
+								<key>interval</key>
+								<integer>2</integer>
+								<key>pci-fan-max</key>
+								<integer>93</integer>
+								<key>pci-fan-min</key>
+								<integer>50</integer>
+							</dict>
+							<dict>
+								<key>Description</key>
+								<string>Failsafe w/ AGP Card</string>
+								<key>interval</key>
+								<integer>2</integer>
 							</dict>
 						</array>
 						<key>SensorIDArray</key>

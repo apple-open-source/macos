@@ -107,10 +107,11 @@ bool AppleUniN::start ( IOService * nub )
 	retval = provider->getPlatform()->callPlatformFunction (functionSymbol, true, (void *)provider, 
 		(void *)&platformFuncArray, (void *)0, (void *)0);
 	if (retval == kIOReturnSuccess && (platformFuncArray != NULL)) {
-		unsigned int i;
+		unsigned int i, count;
 		
 		// Examine the functions and for any that are demand, publish the function so callers can find us
-		for (i = 0; i < platformFuncArray->getCount(); i++)
+        count = platformFuncArray->getCount();
+		for (i = 0; i < count; i++)
 			if (func = OSDynamicCast (IOPlatformFunction, platformFuncArray->getObject(i)))
 				if (func->getCommandFlags() & kIOPFFlagOnDemand)
 					func->publishPlatformFunction (this);
@@ -186,10 +187,11 @@ IOReturn AppleUniN::callPlatformFunction(const OSSymbol *functionName, bool wait
 		return readIntrepidClockStopStatus((UInt32 *)param1, (UInt32 *)param2);
 
 	if (platformFuncArray) {
-		UInt32 i;
+		UInt32 i, count;
 		IOPlatformFunction *pfFunc;
 		
-		for (i = 0; i < platformFuncArray->getCount(); i++)
+        count = platformFuncArray->getCount();
+		for (i = 0; i < count; i++)
 			if (pfFunc = OSDynamicCast (IOPlatformFunction, platformFuncArray->getObject(i)))
 				// Check for on-demand case
 				if (pfFunc->platformFunctionMatch (functionName, kIOPFFlagOnDemand, NULL))

@@ -20,23 +20,17 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <IOKit/audio/IOAudioDebug.h>
 #include <IOKit/audio/IOAudioEngine.h>
 #include <IOKit/audio/IOAudioStream.h>
 #include <IOKit/audio/IOAudioTypes.h>
-#include <IOKit/audio/IOAudioDebug.h>
-
-#ifdef DEBUG_OUTPUT
-#include <IOKit/IOLib.h>
-#endif
 
 IOReturn IOAudioEngine::mixOutputSamples(const void *sourceBuf, void *mixBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream)
 {
     IOReturn result = kIOReturnBadArgument;
     
-#ifdef DEBUG_OUTPUT_CALLS
-    //IOLog("IOAudioEngine[%p]::mixOutputSamples(%p, %p, 0x%lx, 0x%lx, %p, %p)\n", sourceBuf, mixBuf, firstSampleFrame, numSampleFrames, streamFormat, audioStream);
-    IOLog("mix(%p,%p,%lx,%lx) cur=(%lx,%lx) erase=%lx\n", sourceBuf, mixBuf, firstSampleFrame, numSampleFrames, status->fCurrentLoopCount, getCurrentSampleFrame(), status->fEraseHeadSampleFrame);
-#endif
+    //audioDebugIOLog(6, "IOAudioEngine[%p]::mixOutputSamples(%p, %p, 0x%lx, 0x%lx, %p, %p)", sourceBuf, mixBuf, firstSampleFrame, numSampleFrames, streamFormat, audioStream);
+    //audioDebugIOLog(6, "mix(%p,%p,%lx,%lx) cur=(%lx,%lx) erase=%lx", sourceBuf, mixBuf, firstSampleFrame, numSampleFrames, status->fCurrentLoopCount, getCurrentSampleFrame(), status->fEraseHeadSampleFrame);
 
     if (sourceBuf && mixBuf) {
         float *floatSourceBuf, *floatMixBuf;

@@ -24,7 +24,7 @@ samba \- A Windows SMB/CIFS fileserver for UNIX
 .ad l
 .hy 0
 .HP 6
-\fBSamba\fR
+\fBsamba\fR
 .ad
 .hy
 
@@ -35,143 +35,115 @@ The Samba software suite is a collection of programs that implements the Server 
 
 .TP
 \fBsmbd\fR(8)
-The \fBsmbd\fR daemon provides the file and print services to SMB clients, such as Windows 95/98, Windows NT, Windows for Workgroups or LanManager\&. The configuration file for this daemon is described in \fBsmb\&.conf\fR(5)
-
+The \fBsmbd\fR daemon provides the file and print services to SMB clients, such as Windows 95/98, Windows NT, Windows for Workgroups or LanManager\&. The configuration file for this daemon is described in \fBsmb\&.conf\fR(5) 
 
 .TP
 \fBnmbd\fR(8)
 The \fBnmbd\fR daemon provides NetBIOS nameservice and browsing support\&. The configuration file for this daemon is described in \fBsmb\&.conf\fR(5)
 
-
 .TP
 \fBsmbclient\fR(1)
 The \fBsmbclient\fR program implements a simple ftp\-like client\&. This is useful for accessing SMB shares on other compatible servers (such as Windows NT), and can also be used to allow a UNIX box to print to a printer attached to any SMB server (such as a PC running Windows NT)\&.
-
 
 .TP
 \fBtestparm\fR(1)
 The \fBtestparm\fR utility is a simple syntax checker for Samba's \fBsmb\&.conf\fR(5) configuration file\&.
 
-
 .TP
 \fBtestprns\fR(1)
 The \fBtestprns\fR utility supports testing printer names defined in your \fIprintcap\fR file used by Samba\&.
-
 
 .TP
 \fBsmbstatus\fR(1)
 The \fBsmbstatus\fR tool provides access to information about the current connections to \fBsmbd\fR\&.
 
-
 .TP
 \fBnmblookup\fR(1)
 The \fBnmblookup\fR tools allows NetBIOS name queries to be made from a UNIX host\&.
-
 
 .TP
 \fBsmbpasswd\fR(8)
 The \fBsmbpasswd\fR command is a tool for changing LanMan and Windows NT password hashes on Samba and Windows NT servers\&.
 
-
 .TP
 \fBsmbcacls\fR(1)
 The \fBsmbcacls\fR command is a tool to set ACL's on remote CIFS servers\&.
-
 
 .TP
 \fBsmbsh\fR(1)
 The \fBsmbsh\fR command is a program that allows you to run a unix shell with with an overloaded VFS\&.
 
-
 .TP
 \fBsmbtree\fR(1)
 The \fBsmbtree\fR command is a text\-based network neighborhood tool\&.
-
 
 .TP
 \fBsmbtar\fR(1)
 The \fBsmbtar\fR can make backups of data on CIFS/SMB servers\&.
 
-
 .TP
 \fBsmbspool\fR(8)
 \fBsmbspool\fR is a helper utility for printing on printers connected to CIFS servers\&.
-
 
 .TP
 \fBsmbcontrol\fR(1)
 \fBsmbcontrol\fR is a utility that can change the behaviour of running samba daemons\&.
 
-
 .TP
 \fBrpcclient\fR(1)
 \fBrpcclient\fR is a utility that can be used to execute RPC commands on remote CIFS servers\&.
-
 
 .TP
 \fBpdbedit\fR(8)
 The \fBpdbedit\fR command can be used to maintain the local user database on a samba server\&.
 
-
 .TP
 \fBfindsmb\fR(1)
 The \fBfindsmb\fR command can be used to find SMB servers on the local network\&.
-
 
 .TP
 \fBnet\fR(8)
 The \fBnet\fR command is supposed to work similar to the DOS/Windows NET\&.EXE command\&.
 
-
 .TP
 \fBswat\fR(8)
 \fBswat\fR is a web\-based interface to configuring \fIsmb\&.conf\fR\&.
-
 
 .TP
 \fBwinbindd\fR(8)
 \fBwinbindd\fR is a daemon that is used for integrating authentication and the user database into unix\&.
 
-
 .TP
 \fBwbinfo\fR(1)
 \fBwbinfo\fR is a utility that retrieves and stores information related to winbind\&.
-
 
 .TP
 \fBeditreg\fR(1)
 \fBeditreg\fR is a command\-line utility that can edit windows registry files\&.
 
-
 .TP
 \fBprofiles\fR(1)
 \fBprofiles\fR is a command\-line utility that can be used to replace all occurences of a certain SID with another SID\&.
-
 
 .TP
 \fBlog2pcap\fR(1)
 \fBlog2pcap\fR is a utility for generating pcap trace files from Samba log files\&.
 
-
 .TP
 \fBvfstest\fR(1)
 \fBvfstest\fR is a utility that can be used to test vfs modules\&.
-
 
 .TP
 \fBntlm_auth\fR(1)
 \fBntlm_auth\fR is a helper\-utility for external programs wanting to do NTLM\-authentication\&.
 
-
 .TP
 \fBsmbmount\fR(8), \fBsmbumount\fR(8), \fBsmbmnt\fR(8)
 \fBsmbmount\fR,\fBsmbumount\fR and \fBsmbmnt\fR are commands that can be used to mount CIFS/SMB shares on Linux\&.
 
-
 .TP
 \fBsmbcquotas\fR(1)
 \fBsmbcquotas\fR is a tool that can set remote QUOTA's on server with NTFS 5\&.
-
 
 .SH "COMPONENTS"
 

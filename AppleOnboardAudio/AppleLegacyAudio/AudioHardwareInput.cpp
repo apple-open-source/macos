@@ -105,31 +105,31 @@ bool AudioHardwareInput::deviceSetActive( UInt32 currentDevices ){
 
 void AudioHardwareInput::ioLog() {
 #ifdef DEBUGLOG
-    debugIOLog (3,  "+ Input port information :");
+    debugIOLog (3,  "  # Input port information :");
      switch (inputPortType) {
-        case kNoSource:debugIOLog (3, " -- Type is : none ");break;
-        case kCDSource :debugIOLog (3, " -- Type is : cd  ");break;
-        case kExtMicSource:debugIOLog (3, " -- Type is : emic or %d", kExtMicSource);break;
-        case kSoundInSource:debugIOLog (3, " -- Type is : sinj");break;
-        case kRCAInSource:debugIOLog (3, " -- Type is :irca (RCA jack) ");break;
-        case kTVFMTunerSource:debugIOLog (3, " -- Type is : tvfm (TVFM Tuner) ");break;
-        case kDAVInSource:debugIOLog (3, " -- Type is :idav (DAV analog)");break;
-        case kIntMicSource:debugIOLog (3, " -- Type is :imic or %d", kIntMicSource);break;
-        case kMediaBaySource:debugIOLog (3, " -- Type is :mbay");break;
-        case kModemSource :debugIOLog (3, " -- Type is :modm or %d", kModemSource);break;
-        case kPCCardSource:debugIOLog (3, " -- Type is :pcm");break;
-        case kZoomVideoSource:debugIOLog (3, " -- Type is :zvpc");break;
-        case kDVDSource:debugIOLog (3, " -- Type is :dvda");break;
-        case kMicrophoneArray:debugIOLog (3, " -- Type is : mica (microphone array) ");break;
-        default:debugIOLog (3, " -- Type is : unknown "); break;
+        case kNoSource:debugIOLog (3, "  -- Type is : 'none' ");													break;
+        case kCDSource :debugIOLog (3, "  -- Type is : 'cd  '");													break;
+        case kExtMicSource:debugIOLog (3, "  -- Type is : 'emic' or %d or 0x%lX", kExtMicSource, kExtMicSource);	break;
+        case kSoundInSource:debugIOLog (3, "  -- Type is : 'sinj'");												break;
+        case kRCAInSource:debugIOLog (3, "  -- Type is :'irca' (RCA jack) ");										break;
+        case kTVFMTunerSource:debugIOLog (3, "  -- Type is : 'tvfm' (TVFM Tuner) ");								break;
+        case kDAVInSource:debugIOLog (3, "  -- Type is :'idav' (DAV analog)");										break;
+        case kIntMicSource:debugIOLog (3, "  -- Type is :'imic' or %d or 0x%lX", kIntMicSource, kIntMicSource);		break;
+        case kMediaBaySource:debugIOLog (3, "  -- Type is :'mbay'");												break;
+        case kModemSource :debugIOLog (3, "  -- Type is :'modm' or %d or 0x%lX", kModemSource, kModemSource);		break;
+        case kPCCardSource:debugIOLog (3, "  -- Type is :'pcm'");													break;
+        case kZoomVideoSource:debugIOLog (3, "  -- Type is :'zvpc'");												break;
+        case kDVDSource:debugIOLog (3, "  -- Type is :'dvda'");														break;
+        case kMicrophoneArray:debugIOLog (3, "  -- Type is : 'mica' (microphone array) ");							break;
+        default:debugIOLog (3, "  -- Type is : unknown ");															break;
     }
     
-    debugIOLog (3, " -- Physical port is %ld", sndHWPort);
-    debugIOLog (3, " -- Affected channels are %ld", channels);
-    debugIOLog (3, " -- Is a Mux input ? : %d", isOnMuX);
+    debugIOLog (3, "  -- Physical port is %ld", sndHWPort);
+    debugIOLog (3, "  -- Affected channels are %ld", channels);
+    debugIOLog (3, "  -- Is a Mux input ? : %d", isOnMuX);
     if(isOnMuX)
         theMuxRef->ioLog();
-    debugIOLog (3, " -- Active State ? : %d", active);
+    debugIOLog (3, "  -- Active State ? : %d", active);
 #endif
 }
 

@@ -1,0 +1,22 @@
+This allows you to use the samba style @netgroup names in hosts allow
+and hosts deny.
+
+This patch still needs autoconf support for portability.
+
+--- access.c	30 Jul 2003 06:12:27 -0000	1.13
++++ access.c	25 Apr 2004 17:20:47 -0000
+@@ -22,11 +22,14 @@
+   */
+ 
+ #include "rsync.h"
++#include <netdb.h>
+ 
+ 
+ static int match_hostname(char *host, char *tok)
+ {
+ 	if (!host || !*host) return 0;
++ 	if (*tok == '@' && tok[1])
++		return innetgr(tok + 1, host, NULL, NULL);
+ 	return wildmatch(tok, host);
+ }
+ 

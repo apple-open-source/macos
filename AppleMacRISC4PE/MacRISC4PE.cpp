@@ -66,13 +66,14 @@ bool MacRISC4PE::start(IOService *provider)
     long            		machineType;
 	char					tmpName[32];
     OSData          		*tmpData;
-//    IORegistryEntry 		*uniNRegEntry;
-    IORegistryEntry 		*powerMgtEntry;
+	IORegistryEntry 		*uniNRegEntry,
+							*spuRegEntry,
+							*powerMgtEntry;
     UInt32			   		*primInfo;
 	const OSSymbol			*nameValueSymbol;
 	const OSData			*nameValueData;
 	OSDictionary			*pluginDict, *platFuncDict;
-	bool					result;
+	bool					result, spuNeedsRamFix;
 	
 	kprintf ("MacRISC4PE::start - entered\n");
 	
@@ -107,53 +108,93 @@ bool MacRISC4PE::start(IOService *provider)
 	}
     macRISC4Speed[0] = *(unsigned long *)tmpData->getBytesNoCopy();
 
+	spuNeedsRamFix = true;		// Assume we don't have the latest SPU
+	
+	spuRegEntry = provider->childFromPath("spu", gIODTPlane);
+	if (spuRegEntry) {
+		const UInt32 kProjectPhaseMask = 0xFFFFFF0F; // mask out the a,b,d,f phases since d<a<b<f. 
+		const UInt32 kConvertDevelopmentMask = 0xFFFFFF9F; // Used to convert DX to 9X, EX to 8X. 
+		const UInt32 kDevelopmentPhase = 0xD0; 
+		const UInt32 kEngineeringBuild = 0xE0; 
+		OSData *spuVersionData;
+		UInt32	minSPUVersion, currentSPUVersion;
+		UInt32 tempCurrent, tempMin; 
+		
+		minSPUVersion = 0x111f1;		// 1.1.1f1
+		spuVersionData = OSDynamicCast (OSData, spuRegEntry->getProperty ("version"));
+		if (spuVersionData) {
+			currentSPUVersion = ((unsigned long *)spuVersionData->getBytesNoCopy())[0];
+		
+			// Convert versions into numerically compareable values
+			if ((kDevelopmentPhase == (currentSPUVersion & ~kProjectPhaseMask)) ||  
+				(kEngineeringBuild == (currentSPUVersion & ~kProjectPhaseMask))) 
+					tempCurrent = currentSPUVersion & kConvertDevelopmentMask; 
+			else tempCurrent = currentSPUVersion; 
+			
+			if ((kDevelopmentPhase == (minSPUVersion & ~kProjectPhaseMask)) || 
+				(kEngineeringBuild == (minSPUVersion & ~kProjectPhaseMask))) 
+					tempMin = minSPUVersion & kConvertDevelopmentMask; 
+			else tempMin = minSPUVersion; 
+			
+			if (tempMin <= tempCurrent)
+				spuNeedsRamFix = false;		// SPU is updated - don't need to do workaround
+			
+			spuRegEntry->release();
+		}
+	} else
+		spuNeedsRamFix = false;		// No SPU, nothing to fix
 
-// Ethan turned this ON for PowerMac 1.8ghz specific hack below
-#if 1
-    IORegistryEntry     *uniNRegEntry = NULL;
-	// get uni-N version for use by platformAdjustService
-	uniNRegEntry = provider->childFromPath("u3", gIODTPlane);
-	if (uniNRegEntry == 0) {
-		kprintf ("MacRISC4PE::start - no u3\n");
-		return false;
+
+	if (spuNeedsRamFix) {
+		// get uni-N version
+		uniNRegEntry = provider->childFromPath("u3", gIODTPlane);
+		if ((uniNRegEntry) && 
+			(tmpData = OSDynamicCast(OSData, uniNRegEntry->getProperty("device-rev")))) {
+   				uniNVersion = ((unsigned long *)tmpData->getBytesNoCopy())[0];
+
+			IORegistryEntry *cpuRegEntry = NULL;
+			OSData *cpu0FreqData = NULL;
+			UInt32 cpu0Freq = 0;
+			int cpuCount;
+   			const UInt32 one_eight_ghz_freq = 1800000000;
+    
+			// Count the CPUs
+			cpuRegEntry = fromPath ("/cpus/@1", gIODTPlane);
+			if (cpuRegEntry) {
+				cpuCount = 2;
+				cpuRegEntry->release();
+			} else
+				cpuCount = 1;
+				
+			cpuRegEntry = fromPath ("/cpus/@0", gIODTPlane);
+			if(cpuRegEntry) {
+				// get the cpu clock frequency
+				cpu0FreqData = OSDynamicCast (OSData, cpuRegEntry->getProperty ("clock-frequency"));
+				if(cpu0FreqData) 
+					cpu0Freq = *(UInt32 *)cpu0FreqData->getBytesNoCopy();
+				cpuRegEntry->release();
+   			}
+    
+			cannotSleep = ((0 == strncmp(provider_name, "PowerMac7,2", strlen("PowerMac7,2")))     // check model
+				&& (kUniNRevision3_2_1 == uniNVersion)                      // check U3 version 2.1
+				&& (cpuCount == 1)                                     		// check uniprocessor
+				&& (one_eight_ghz_freq == cpu0Freq) );						// check CPU0 speed = 1.8ghz
+
+			if (cannotSleep) setProperty ("PlatformCannotSleep", true);
+
+			uniNRegEntry->release();
+		}
 	}
-    tmpData = OSDynamicCast(OSData, uniNRegEntry->getProperty("device-rev"));
-    if (tmpData == 0) return false;
-    uniNVersion = ((unsigned long *)tmpData->getBytesNoCopy())[0];
-
-// Ethan B: PowerMac G5 UP 1.8ghz specific hack
-// Disable sleep on these machines because of unstable sleep problems
-    IORegistryEntry *cpu0_reg_entry = NULL;
-    OSData *cpu0_freq_data = NULL;
-    UInt32 cpu0_freq = 0;
-    int second_cpu_exists = (int)fromPath ("/cpus/@1", gIODTPlane);
-    const UInt32 one_eight_ghz_freq = 1800000000;
-    
-    cpu0_reg_entry = fromPath ("/cpus/@0", gIODTPlane);
-    if(cpu0_reg_entry) 
-    {
-        cpu0_freq_data = OSDynamicCast (OSData, cpu0_reg_entry->getProperty ("clock-frequency"));
-        if(cpu0_freq_data) 
-        {
-            cpu0_freq = *(UInt32 *)cpu0_freq_data->getBytesNoCopy();
-			IOLog ("PE: cpu freq %ld\n", cpu0_freq);
-        }
-    }
-    
-    cannotSleep = ((0 == strncmp(provider_name, "PowerMac7,2", strlen("PowerMac7,2")))     // check model
-        && ((kUniNRevision3_2_1 == uniNVersion)                      // check U3 version 2.1
-        || (kUniNRevision3_2_3 == uniNVersion))                     // check U3 version 2.3
-        && (!second_cpu_exists)                                     // check for existence of second CPU
-        && (one_eight_ghz_freq == cpu0_freq) );                      // check CPU0 speed = 1.8ghz
-
-	if (cannotSleep) setProperty ("PlatformCannotSleep", true);
-
-#endif
 
     // Get PM features and private features
 	// The power-mgt node is being deprecated in favor of specfic properties to describe
 	// platform behaviors.  This is here mostly for backward compatibility
     powerMgtEntry = retrievePowerMgtEntry ();
+
+	// If primInfo not defined init _pePMFeatures so we can at least power off PCI
+	// Disable this for now as it triggered other, unintended consequences [3802979]
+	//_pePMFeatures = kPMCanPowerOffPCIBusMask;
+	_pePMFeatures = 0;
 
 	if (powerMgtEntry) {
 		tmpData  = OSDynamicCast(OSData, powerMgtEntry->getProperty ("prim-info"));
@@ -249,7 +290,7 @@ bool MacRISC4PE::start(IOService *provider)
 	pluginDict->setObject( "name", nameValueData );
 	pluginDict->setObject( "compatible", platformPluginNameData );
 	pluginDict->setObject( "model", modelString );
-	
+
 	nameValueData->release();
 	platformPluginNameData->release();
 
@@ -521,7 +562,7 @@ void MacRISC4PE::PMInstantiatePowerDomains ( void )
         // This forces the machines to doze at all times rather than sleep.
         root->setSleepSupported(kPCICantSleep);
     } else {
-		root->setSleepSupported(kRootDomainSleepSupported);
+   		root->setSleepSupported(kRootDomainSleepSupported);
     }
 // End of hack
    

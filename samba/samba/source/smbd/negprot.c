@@ -169,6 +169,8 @@ static int reply_lanman2(char *inbuf, char *outbuf)
 static int negprot_spnego(char *p)
 {
 	DATA_BLOB blob;
+	nstring dos_name;
+	fstring unix_name;
 	uint8 guid[17];
 	const char *OIDs_krb5[] = {OID_KERBEROS5,
 				   OID_KERBEROS5_OLD,
@@ -181,7 +183,11 @@ static int negprot_spnego(char *p)
 	global_spnego_negotiated = True;
 
 	ZERO_STRUCT(guid);
-	safe_strcpy((char *)guid, global_myname(), sizeof(guid)-1);
+
+	safe_strcpy(unix_name, global_myname(), sizeof(unix_name)-1);
+	strlower_m(unix_name);
+	push_ascii_nstring(dos_name, unix_name);
+	safe_strcpy((char *)guid, dos_name, sizeof(guid)-1);
 
 #ifdef DEVELOPER
 	/* valgrind fixer... */
@@ -191,8 +197,6 @@ static int negprot_spnego(char *p)
 			memset(&guid[sl], '\0', sizeof(guid)-sl);
 	}
 #endif
-
-	strlower_m((char *)guid);
 
 #if 0
 	/* strangely enough, NT does not sent the single OID NTLMSSP when
@@ -247,7 +251,7 @@ static int reply_nt1(char *inbuf, char *outbuf)
 		capabilities |= CAP_EXTENDED_SECURITY;
 	}
 	
-	capabilities |= CAP_NT_SMBS|CAP_RPC_REMOTE_APIS;
+	capabilities |= CAP_NT_SMBS|CAP_RPC_REMOTE_APIS|CAP_UNICODE;
 
 	if (lp_unix_extensions()) {
 		capabilities |= CAP_UNIX;
@@ -262,10 +266,6 @@ static int reply_nt1(char *inbuf, char *outbuf)
 	if (lp_readraw() && lp_writeraw())
 		capabilities |= CAP_RAW_MODE;
 	
-	/* allow for disabling unicode */
-	if (lp_unicode())
-		capabilities |= CAP_UNICODE;
-
 	if (lp_nt_status_support())
 		capabilities |= CAP_STATUS32;
 	

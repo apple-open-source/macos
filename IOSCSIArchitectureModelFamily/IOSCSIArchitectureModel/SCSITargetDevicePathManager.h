@@ -107,6 +107,7 @@ protected:
 	
 	static bool		SetPathLayerReference ( SCSITaskIdentifier request, void * newReference );
 	static void *	GetPathLayerReference ( SCSITaskIdentifier request );
+	static UInt64	GetRequestedDataTransferCount ( SCSITaskIdentifier request );
 	
 	IOSCSITargetDevice *	fTarget;
 	OSArray *				fStatistics;

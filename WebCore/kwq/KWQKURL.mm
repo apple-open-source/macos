@@ -211,6 +211,22 @@ static inline bool isPathSegmentEndChar(unsigned char c) { return characterClass
 static inline bool isBadChar(unsigned char c) { return characterClassTable[c] & BadChar; }
 static inline bool isHexDigit(unsigned char c) { return characterClassTable[c] & HexDigitChar; }
 
+static QString substituteBackslashes(const QString &string)
+{
+    int questionPos = string.find('?');
+    int hashPos = string.find('#');
+    unsigned pathEnd;
+    
+    if (hashPos > 0 && (questionPos < 0 || questionPos > hashPos)) {
+	pathEnd = hashPos;
+    } else if (questionPos > 0) {
+	pathEnd = questionPos;
+    } else {
+	pathEnd = string.length();
+    }
+
+    return string.left(pathEnd).replace('\\','/') + string.mid(pathEnd);
+}
 
 // KURL
 
@@ -267,29 +283,38 @@ KURL::KURL(const KURL &base, const QString &relative, const QTextCodec *codec)
     }
     
     bool absolute = false;
+
+    // for compatibility with Win IE, we must treat backslashes as if they were slashes
+    QString substitutedRelative;
+    bool containsBackslash = relative.contains('\\');
+    if (containsBackslash) {
+	substitutedRelative = substituteBackslashes(relative);
+    }
+
+    const QString &rel = containsBackslash ? substitutedRelative : relative;
     
-    bool allASCII = relative.isAllASCII();
+    bool allASCII = rel.isAllASCII();
     char *strBuffer;
     const char *str;
     if (allASCII) {
         strBuffer = 0;
-        str = relative.ascii();
+        str = rel.ascii();
     } else {
 #if HAVE_ICU_LIBRARY
-        QString s = encodeHostnames(relative);
+        QString s = encodeHostnames(rel);
 #else
-        QString s = relative;
+        QString s = rel;
 #endif
 
         // Always use UTF-8 if the protocol is file, mailto, or help because that's
         // what these protocols expect.
         if (codec) {
             QString protocol;
-            if (relative.length() > 0 && isSchemeFirstChar(relative.at(0).latin1())) {
-                for (uint i = 1; i < relative.length(); i++) {
-                    char p = relative.at(i).latin1();
+            if (rel.length() > 0 && isSchemeFirstChar(rel.at(0).latin1())) {
+                for (uint i = 1; i < rel.length(); i++) {
+                    char p = rel.at(i).latin1();
                     if (p == ':') {
-                        protocol = relative.left(i);
+                        protocol = rel.left(i);
                         break;
                     }
                     if (!isSchemeChar(p)) {
@@ -330,7 +355,7 @@ KURL::KURL(const KURL &base, const QString &relative, const QTextCodec *codec)
     }
         
     if (absolute) {
-	parse(str, allASCII ? &relative : 0);
+	parse(str, allASCII ? &rel : 0);
     } else {
 	// workaround for sites that put leading whitespace on relative URLs
 	while (*str == ' ') {

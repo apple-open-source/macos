@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
  *
  *  DRI: Dave Radcliffe
  *
@@ -50,7 +50,8 @@ static unsigned long macRISC2Speed[] = { 0, 1 };
 #include <IOKit/pwr_mgt/IOPMPowerSource.h>
 #include <pexpert/pexpert.h>
 
-#include "PB6_1_PlatformMonitor.h"
+#include "IOPlatformMonitor.h"
+#include "Portable_PlatformMonitor.h"
 
 extern char *gIOMacRISC2PMTree;
 
@@ -70,12 +71,14 @@ bool MacRISC2PE::start(IOService *provider)
     IORegistryEntry 		*powerMgtEntry;
     UInt32			   		*primInfo;
 	UInt32					stepType, bitsSet, bitsClear;
+    UInt32					platformOptions = 0;
 	bool					result;
 	
     setChipSetType(kChipSetTypeCore2001);
 	
     // Set the machine type.
-    provider_name = provider->getName();  
+    provider_name = provider->getName(); 
+    determinePlatformNumber();
 
 	machineType = kMacRISC2TypeUnknown;
 	doPlatformPowerMonitor = false;
@@ -101,13 +104,16 @@ bool MacRISC2PE::start(IOService *provider)
     if (tmpData == 0) return false;
     macRISC2Speed[0] = *(unsigned long *)tmpData->getBytesNoCopy();
     
-    // If this machine is a P99, P84, P72D, Q16, Q41, or Q54, it has a platform monitor, which we'll load later in this function
-    hasPMon = (!strcmp (provider_name, "PowerBook6,1")) || (!strcmp (provider_name, "PowerBook5,1")) || (!strcmp (provider_name, "PowerBook5,2")) || (!strcmp (provider_name, "PowerBook5,3")) || (!strcmp (provider_name, "PowerBook6,2")) || (!strcmp (provider_name, "PowerBook6,3"));
+    // Do we have our thermal information stored already configured in the bootROM ?
     
-    // Or a Q72, Q54A or a Q16A
-    if (!hasPMon)
-        hasPMon = (!strcmp (provider_name, "PowerBook6,4")) || (!strcmp (provider_name, "PowerBook6,5")) || (!strcmp (provider_name, "PowerBook5,4")) || (!strcmp (provider_name, "PowerBook5,5"));
-        
+    tmpData = OSDynamicCast(OSData, provider->getProperty("platform-options"));
+    
+    if ( tmpData != NULL)
+        platformOptions = *((UInt32 *)(tmpData->getBytesNoCopy()));
+    
+    hasEmbededThermals = ((platformOptions & 0x00000001) != 0);
+    hasPMon = (pMonPlatformNumber != 0) || hasEmbededThermals;
+    
 	// get uni-N version for use by platformAdjustService
 	uniNRegEntry = provider->childFromPath("uni-n", gIODTPlane);
 	if (uniNRegEntry == 0) return false;
@@ -138,7 +144,7 @@ bool MacRISC2PE::start(IOService *provider)
         }
     }
   
-    // This is to make sure that  is PMRegisterDevice reentrant
+    // This is to make sure that is PMRegisterDevice reentrant
     mutex = IOLockAlloc();
     if (mutex == NULL)
 		return false;
@@ -148,33 +154,37 @@ bool MacRISC2PE::start(IOService *provider)
     // Set up processorSpeedChangeFlags depending on platform
 	processorSpeedChangeFlags = kNoSpeedChange;
 	stepType = 0;
-    if (machineType == kMacRISC2TypePowerBook) {
+    if (machineType == kMacRISC2TypePowerBook)
+    {
 		OSIterator 		*childIterator;
 		IORegistryEntry *cpuEntry, *powerPCEntry;
 		OSData			*cpuSpeedData, *stepTypeData;
 
 		// locate the first PowerPC,xx cpu node so we can get clock properties
 		cpuEntry = provider->childFromPath("cpus", gIODTPlane);
-		if ((childIterator = cpuEntry->getChildIterator (gIODTPlane)) != NULL) {
-			while ((powerPCEntry = (IORegistryEntry *)(childIterator->getNextObject ())) != NULL) {
-				if (!strncmp ("PowerPC", powerPCEntry->getName(gIODTPlane), strlen ("PowerPC"))) {
+		if ((childIterator = cpuEntry->getChildIterator (gIODTPlane)) != NULL)
+        {
+			while ((powerPCEntry = (IORegistryEntry *)(childIterator->getNextObject ())) != NULL)
+            {
+				if (!strncmp ("PowerPC", powerPCEntry->getName(gIODTPlane), strlen ("PowerPC")))
+                {
 					// Look for dynamic power step feature
 					stepTypeData = OSDynamicCast( OSData, powerPCEntry->getProperty( "dynamic-power-step" ));
 					if (stepTypeData)
-                                        {
+                    {
 						processorSpeedChangeFlags = kProcessorBasedSpeedChange | kProcessorFast | 
 							kL3CacheEnabled | kL2CacheEnabled;
                                                         
-                                                stepTypeData = OSDynamicCast( OSData, powerPCEntry->getProperty( "has-bus-slewing" ));
-                                                if (stepTypeData)
-                                                {
-                                                    processorSpeedChangeFlags |= kBusSlewBasedSpeedChange;
-                                                }
-                                        }
-					else {	// Look for forced-reduced-speed case
+                            stepTypeData = OSDynamicCast( OSData, powerPCEntry->getProperty( "has-bus-slewing" ));
+                            if (stepTypeData)
+                                processorSpeedChangeFlags |= kBusSlewBasedSpeedChange;
+                    }
+					else
+                    {	// Look for forced-reduced-speed case
 						stepTypeData = OSDynamicCast( OSData, powerPCEntry->getProperty( "force-reduced-speed" ));
 						cpuSpeedData = OSDynamicCast( OSData, powerPCEntry->getProperty( "max-clock-frequency" ));
-						if (stepTypeData && cpuSpeedData) {
+						if (stepTypeData && cpuSpeedData)
+                        {
 							// Platform requires environmentally forced speed changes possibly overriding user
 							// choices.  These might include slowing down when charging with a weak charger or 
 							// reducing speed when the lid is closed to avoid heat buildup.
@@ -190,7 +200,8 @@ bool MacRISC2PE::start(IOService *provider)
 								stepType = *(UInt32 *) stepTypeData->getBytesNoCopy();
 				
 							newCPUSpeed = *(UInt32 *) cpuSpeedData->getBytesNoCopy();
-							if (newCPUSpeed != gPEClockFrequencyInfo.cpu_clock_rate_hz) {
+							if (newCPUSpeed != gPEClockFrequencyInfo.cpu_clock_rate_hz)
+                            {
 								// If max cpu speed is greater than what OF reported to us
 								// then enable PMU speed change in addition to L3 speed change
 								// and assuming platform supports that feature.
@@ -203,10 +214,13 @@ bool MacRISC2PE::start(IOService *provider)
 								gPEClockFrequencyInfo.bus_to_cpu_rate_num = newNum;		// Set new numerator
 								gPEClockFrequencyInfo.cpu_clock_rate_hz = newCPUSpeed;	// Set new speed
 							}
-						} else { // All other notebooks
+						}
+                        else
+                        { // All other notebooks
 							// Enable PMU speed change, if platform supports it.  Note that there is also
 							// an implicit assumption here that machine started up in fastest mode.
-							if ((_pePrivPMFeatures & (1 << 17)) != 0) {
+							if ((_pePrivPMFeatures & (1 << 17)) != 0)
+                            {
 								processorSpeedChangeFlags = kPMUBasedSpeedChange | kProcessorFast | 
 									kL3CacheEnabled | kL2CacheEnabled;
 								// Some platforms need to disable the L3 at slow speed.  Since we're
@@ -278,20 +292,28 @@ bool MacRISC2PE::start(IOService *provider)
 			nameValueData = OSData::withBytes(tmpName, strlen(tmpName)+1);
 			dict->setObject (nameKey, nameValueData);
 			compatKey = OSSymbol::withCStringNoCopy("compatible");
-                        if ((!strcmp(provider_name, "PowerBook5,2")) || 	// Q16
-                            (!strcmp(provider_name, "PowerBook5,3")) || 	// Q41
-                            (!strcmp(provider_name, "PowerBook6,2")) || 	// P54
-                            (!strcmp(provider_name, "PowerBook6,3"))) {  	// P72D
-                            strcpy (tmpCompat, "Portable2003");
-                        } else if ((!strcmp(provider_name, "PowerBook5,4")) || 	// Q16A
-                            (!strcmp(provider_name, "PowerBook5,5")) || 	// Q41A
-                            (!strcmp(provider_name, "PowerBook6,4")) || 	// Q54A
-                            (!strcmp(provider_name, "PowerBook6,5"))) {  	// Q72
-                            strcpy (tmpCompat, "Portable2004");
-                        } else {
-                            strcpy (tmpCompat, provider_name);
-                        }
-			strcat (tmpCompat, "_PlatformMonitor");
+ 
+			if ( pMonPlatformNumber == kPB51MachineModel )
+ 			{
+ 				strcpy (tmpCompat, "PB5_1");
+ 			}
+ 			else if (( pMonPlatformNumber == kPB52MachineModel ) ||
+ 					 ( pMonPlatformNumber == kPB53MachineModel ))
+ 			{
+ 				strcpy (tmpCompat, "Portable2003");
+ 			}
+ 			else if (( pMonPlatformNumber == kPB54MachineModel ) ||
+ 					 ( pMonPlatformNumber == kPB55MachineModel ) ||
+ 					 ( pMonPlatformNumber == kPB56MachineModel ) ||
+ 					 ( pMonPlatformNumber == kPB57MachineModel ))
+ 			{
+ 				strcpy (tmpCompat, "Portable2004");
+ 			}
+ 			else 
+            	strcpy (tmpCompat, "Portable");
+ 			
+ 			strcat (tmpCompat, "_PlatformMonitor");
+                                               
 			compatValueData = OSData::withBytes(tmpCompat, strlen(tmpCompat)+1);
 			dict->setObject (compatKey, compatValueData);
 			if (ioPMonNub = IOPlatformExpert::createNub (dict)) {
@@ -357,6 +379,38 @@ bool MacRISC2PE::start(IOService *provider)
 	}
 
     return result;
+}
+
+// **********************************************************************************
+//
+//   determinePlatformNumber
+//
+//   I realized there were at least three places in the Platform Monitor code where
+//   the same string comparisons were being done to determine which machine we were
+//	 running on.  Goal of this routine is to get it down to one.  It all revolves
+//	 around a single instance variable named 'pMonPlatformNumber'
+//
+//	 pMonPlatformNumber == 0	 		- Means this code has not yet run or the machine
+//								          is not one Platform Expert knows about.
+//	 pMonPlatformNumber == other 		- Encoded UInt32 machine representation.
+//
+// **********************************************************************************
+void MacRISC2PE::determinePlatformNumber( void )
+{
+	if	(!strcmp(provider_name, "PowerBook5,1")) pMonPlatformNumber = kPB51MachineModel;
+    else if	(!strcmp(provider_name, "PowerBook5,2")) pMonPlatformNumber = kPB52MachineModel;
+    else if	(!strcmp(provider_name, "PowerBook5,3")) pMonPlatformNumber = kPB53MachineModel;
+    else if	(!strcmp(provider_name, "PowerBook5,4")) pMonPlatformNumber = kPB54MachineModel;
+    else if	(!strcmp(provider_name, "PowerBook5,5")) pMonPlatformNumber = kPB55MachineModel;
+    else if	(!strcmp(provider_name, "PowerBook5,6")) pMonPlatformNumber = kPB56MachineModel;
+    else if	(!strcmp(provider_name, "PowerBook5,7")) pMonPlatformNumber = kPB57MachineModel;
+    else if	(!strcmp(provider_name, "PowerBook6,1")) pMonPlatformNumber = kPB61MachineModel;
+    else if	(!strcmp(provider_name, "PowerBook6,2")) pMonPlatformNumber = kPB62MachineModel;
+    else if	(!strcmp(provider_name, "PowerBook6,3")) pMonPlatformNumber = kPB63MachineModel;
+    else if (!strcmp(provider_name, "PowerBook6,4")) pMonPlatformNumber = kPB64MachineModel;
+    else if	(!strcmp(provider_name, "PowerBook6,5")) pMonPlatformNumber = kPB65MachineModel;
+    else if	(!strcmp(provider_name, "PowerBook6,6")) pMonPlatformNumber = kPB66MachineModel;
+    else pMonPlatformNumber = 0;
 }
 
 IORegistryEntry * MacRISC2PE::retrievePowerMgtEntry (void)

@@ -162,7 +162,7 @@ static int get_ai(struct addrinfo ** to_ai,
 	memset((*to_ai)->ai_addr, 0, (afd)->a_socklen);
 	(*to_ai)->ai_addrlen = (afd)->a_socklen;
 #if HAVE_SOCKADDR_LEN
-	(*to_ai)->ai_addr->sa_len= (afd)->a_socklen;
+	(*to_ai)->ai_addr->sa_len = (afd)->a_socklen;
 #endif
 	(*to_ai)->ai_addr->sa_family = (*to_ai)->ai_family = (afd)->a_af;
 	((struct sockinet *)(*to_ai)->ai_addr)->si_port = port;
@@ -171,7 +171,7 @@ static int get_ai(struct addrinfo ** to_ai,
 	return 1;
 }
 
-#define ERR(err) { error = (err); goto bad; }
+#define ERR(err) do { error = (err); if (1) goto bad; } while (0)
 
 char *
 gai_strerror(ecode)

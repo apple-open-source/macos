@@ -1,7 +1,7 @@
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>wbinfo</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.61.2"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="wbinfo.1"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2>Name</h2><p>wbinfo &#8212; Query information from winbind daemon</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><tt class="command">wbinfo</tt>  [-a user%password] [-c username] [-C groupname] [--domain domain] [-I ip] [-s sid] [-u] [-U uid] [-g] [--get-auth-user] [-G gid] [-m] [-n name] [-N netbios-name] [-o user:group] [-O user:group] [-p] [-r user] [--set-auth-user user%password] [--sequence] [-S sid] [-t] [-x username] [-X groupname] [-Y sid]</p></div></div><div class="refsect1" lang="en"><h2>DESCRIPTION</h2><p>This tool is part of the <a href="Samba.7.html"><span class="citerefentry"><span class="refentrytitle">Samba</span>(7)</span></a> suite.</p><p>The <b class="command">wbinfo</b> program queries and returns information 
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>wbinfo</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.64.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="wbinfo.1"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2>Name</h2><p>wbinfo &#8212; Query information from winbind daemon</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><tt class="command">wbinfo</tt>  [-a user%password] [-c username] [-C groupname] [--domain domain] [-I ip] [-s sid] [-u] [-U uid] [-g] [--get-auth-user] [-G gid] [-m] [-n name] [-N netbios-name] [-o user:group] [-O user:group] [-p] [-r user] [--set-auth-user user%password] [--sequence] [-S sid] [-t] [-x username] [-X groupname] [-Y sid]</p></div></div><div class="refsect1" lang="en"><a name="id2479925"></a><h2>DESCRIPTION</h2><p>This tool is part of the <a href="samba.7.html"><span class="citerefentry"><span class="refentrytitle">samba</span>(7)</span></a> suite.</p><p>The <span><b class="command">wbinfo</b></span> program queries and returns information 
 	created and used by the <a href="winbindd.8.html"><span class="citerefentry"><span class="refentrytitle">winbindd</span>(8)</span></a> daemon. </p><p>The <a href="winbindd.8.html"><span class="citerefentry"><span class="refentrytitle">winbindd</span>(8)</span></a> daemon must be configured 
-	and running for the <b class="command">wbinfo</b> program to be able 
-	to return information.</p></div><div class="refsect1" lang="en"><h2>OPTIONS</h2><div class="variablelist"><dl><dt><span class="term">-a username%password</span></dt><dd><p>Attempt to authenticate a user via winbindd. 
+	and running for the <span><b class="command">wbinfo</b></span> program to be able 
+	to return information.</p></div><div class="refsect1" lang="en"><a name="id2479980"></a><h2>OPTIONS</h2><div class="variablelist"><dl><dt><span class="term">-a username%password</span></dt><dd><p>Attempt to authenticate a user via winbindd. 
                 This checks both authenticaion methods and reports its results.
 		</p></dd><dt><span class="term">-c user</span></dt><dd><p>Create a local winbind user.
 		</p></dd><dt><span class="term">-C group</span></dt><dd><p>Create a local winbindd group.
@@ -11,7 +11,7 @@
 		<tt class="option">--sequence</tt>,
 		<tt class="option">-u</tt>, and <tt class="option">-g</tt> options honor this parameter.
 		</p></dd><dt><span class="term">-g</span></dt><dd><p>This option will list all groups available 
-		in the Windows NT domain for which the <a href="Samba.7.html"><span class="citerefentry"><span class="refentrytitle">Samba</span>(7)</span></a> daemon is operating in. Groups in all trusted domains
+		in the Windows NT domain for which the <a href="samba.7.html"><span class="citerefentry"><span class="refentrytitle">samba</span>(7)</span></a> daemon is operating in. Groups in all trusted domains
 		will also be listed.  Note that this operation does not assign 
 		group ids to any groups that have not already been 
 		seen by <a href="winbindd.8.html"><span class="citerefentry"><span class="refentrytitle">winbindd</span>(8)</span></a>. </p></dd><dt><span class="term">--get-auth-user</span></dt><dd><p>Print username and password used by winbindd
@@ -72,13 +72,13 @@
 		does not correspond to a UNIX group mapped by <a href="winbindd.8.html"><span class="citerefentry"><span class="refentrytitle">winbindd</span>(8)</span></a> then 
 		the operation will fail. </p></dd><dt><span class="term">-V</span></dt><dd><p>Prints the program version number.
 </p></dd><dt><span class="term">-h|--help</span></dt><dd><p>Print a summary of command line options.
-</p></dd></dl></div></div><div class="refsect1" lang="en"><h2>EXIT STATUS</h2><p>The wbinfo program returns 0 if the operation 
-	succeeded, or 1 if the operation failed.  If the <a href="winbindd.8.html"><span class="citerefentry"><span class="refentrytitle">winbindd</span>(8)</span></a> daemon is not working <b class="command">wbinfo</b> will always return 
-	failure. </p></div><div class="refsect1" lang="en"><h2>VERSION</h2><p>This man page is correct for version 3.0 of 
-	the Samba suite.</p></div><div class="refsect1" lang="en"><h2>SEE ALSO</h2><p><a href="winbindd.8.html"><span class="citerefentry"><span class="refentrytitle">winbindd</span>(8)</span></a></p></div><div class="refsect1" lang="en"><h2>AUTHOR</h2><p>The original Samba software and related utilities 
+</p></dd></dl></div></div><div class="refsect1" lang="en"><a name="id2429343"></a><h2>EXIT STATUS</h2><p>The wbinfo program returns 0 if the operation 
+	succeeded, or 1 if the operation failed.  If the <a href="winbindd.8.html"><span class="citerefentry"><span class="refentrytitle">winbindd</span>(8)</span></a> daemon is not working <span><b class="command">wbinfo</b></span> will always return 
+	failure. </p></div><div class="refsect1" lang="en"><a name="id2429370"></a><h2>VERSION</h2><p>This man page is correct for version 3.0 of 
+	the Samba suite.</p></div><div class="refsect1" lang="en"><a name="id2429381"></a><h2>SEE ALSO</h2><p><a href="winbindd.8.html"><span class="citerefentry"><span class="refentrytitle">winbindd</span>(8)</span></a></p></div><div class="refsect1" lang="en"><a name="id2429397"></a><h2>AUTHOR</h2><p>The original Samba software and related utilities 
 	were created by Andrew Tridgell. Samba is now developed
 	by the Samba Team as an Open Source project similar 
-	to the way the Linux kernel is developed.</p><p><b class="command">wbinfo</b> and <b class="command">winbindd</b>
+	to the way the Linux kernel is developed.</p><p><span><b class="command">wbinfo</b></span> and <span><b class="command">winbindd</b></span>
 	were written by Tim Potter.</p><p>The conversion to DocBook for Samba 2.2 was done 
 	by Gerald Carter. The conversion to DocBook XML 4.2 for Samba
 	3.0 was done by Alexander Bokovoy.</p></div></div></body></html>

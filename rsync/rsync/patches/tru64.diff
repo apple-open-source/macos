@@ -1,0 +1,71 @@
+This is an adapted version of the original by Zoong Pham.
+
+--- rsync.h	11 Feb 2004 08:01:21 -0000	1.186
++++ rsync.h	23 Feb 2004 18:56:02 -0000
+@@ -156,6 +156,11 @@ enum msgcode {
+ #include <sys/socket.h>
+ #endif
+ 
++#ifdef HAVE_SYS_UN_H
++#define _SOCKADDR_LEN
++#include <sys/un.h>
++#endif
++
+ #ifdef HAVE_STRING_H
+ #include <string.h>
+ #endif
+--- syscall.c	18 Feb 2004 22:33:21 -0000	1.30
++++ syscall.c	23 Feb 2004 18:56:02 -0000
+@@ -76,6 +76,29 @@ int do_mknod(char *pathname, mode_t mode
+ {
+ 	if (dry_run) return 0;
+ 	RETURN_ERROR_IF_RO_OR_LO;
++# if HAVE_MKFIFO
++	if (S_ISFIFO(mode))
++		return mkfifo(pathname, mode);
++# endif
++# if HAVE_SYS_UN_H
++	if (S_ISSOCK(mode)) {
++		int sock;
++		struct sockaddr_un saddr;
++		int len = strlen(pathname) + 1; /* include null */
++
++		saddr.sun_family = AF_UNIX;
++		strncpy(saddr.sun_path, pathname, sizeof saddr.sun_path);
++		saddr.sun_len = len > sizeof saddr.sun_path ? sizeof saddr.sun_path: len;
++
++		if ((sock = socket(PF_UNIX, SOCK_STREAM, 0)) < 0)
++			return -1;
++		unlink(pathname);
++		if ((bind(sock, (struct sockaddr*)&saddr, sizeof saddr)) < 0)
++			return -1;
++		close(sock);
++		return do_chmod(pathname, mode);
++	}
++# endif
+ 	return mknod(pathname, mode, dev);
+ }
+ #endif
+--- lib/getaddrinfo.c	10 Jan 2003 22:38:25 -0000	1.17
++++ lib/getaddrinfo.c	23 Feb 2004 18:56:02 -0000
+@@ -41,6 +41,20 @@
+ 
+ #include <rsync.h>
+ 
++/****** Start Zoong added here */
++
++#define EAI_BADHINTS	12
++#define EAI_PROTOCOL	13
++#define EAI_MAX	14
++
++#define AI_PASSIVE	0x00000001 /* get address to use bind() */
++#define AI_CANONNAME	0x00000002 /* fill ai_canonname */
++#define AI_NUMERICHOST	0x00000004 /* prevent name resolution */
++#define AI_MASK	(AI_PASSIVE | AI_CANONNAME | AI_NUMERICHOST)
++
++/****** End Zoong added here */
++
++
+ #if defined(__KAME__) && defined(INET6)
+ # define FAITH
+ #endif

@@ -1311,7 +1311,11 @@ extern char *nettoa(u_int32_t net);
 
 	ip.s_addr = i;
 	str = malloc(16);
-	sprintf(str, "%s", inet_ntoa(ip));
+	if (inet_ntop(AF_INET, &ip, str, 16) == NULL)
+	{
+		free(str);
+		return NULL;
+	}
 
 	return str;
 }
@@ -1340,7 +1344,7 @@ extern char *nettoa(u_int32_t net);
 	lu_xdr_free(inxdr);
 
 	str = malloc(64);
-	if (inet_ntop(AF_INET6, &(ip.__u6_addr.__u6_addr32[0]), str, 64) == NULL)
+	if (inet_ntop(AF_INET6, &ip, str, 64) == NULL)
 	{
 		free(str);
 		return NULL;

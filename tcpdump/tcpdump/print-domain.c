@@ -21,7 +21,7 @@
 
 #ifndef lint
 static const char rcsid[] _U_ =
-    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-domain.c,v 1.1.1.4 2004/02/05 19:30:53 rbraun Exp $ (LBL)";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-domain.c,v 1.1.1.5 2004/05/21 20:51:30 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -89,7 +89,6 @@ static const u_char *
 blabel_print(const u_char *cp)
 {
 	int bitlen, slen, b;
-	int truncated = 0;
 	const u_char *bitp, *lim;
 	char tc;
 
@@ -98,27 +97,28 @@ blabel_print(const u_char *cp)
 	if ((bitlen = *cp) == 0)
 		bitlen = 256;
 	slen = (bitlen + 3) / 4;
-	if ((lim = cp + 1 + slen) > snapend) {
-		truncated = 1;
-		lim = snapend;
-	}
+	lim = cp + 1 + slen;
 
 	/* print the bit string as a hex string */
 	printf("\\[x");
-	for (bitp = cp + 1, b = bitlen; bitp < lim && b > 7; b -= 8, bitp++)
+	for (bitp = cp + 1, b = bitlen; bitp < lim && b > 7; b -= 8, bitp++) {
+		TCHECK(*bitp);
 		printf("%02x", *bitp);
-	if (bitp == lim)
-		printf("...");
-	else if (b > 4) {
+	}
+	if (b > 4) {
+		TCHECK(*bitp);
 		tc = *bitp++;
 		printf("%02x", tc & (0xff << (8 - b)));
 	} else if (b > 0) {
+		TCHECK(*bitp);
 		tc = *bitp++;
 		printf("%1x", ((tc >> 4) & 0x0f) & (0x0f << (4 - b)));
 	}
 	printf("/%d]", bitlen);
-
-	return(truncated ? NULL : lim);
+	return lim;
+trunc:
+	printf(".../%d]", bitlen);
+	return NULL;
 }
 
 static int

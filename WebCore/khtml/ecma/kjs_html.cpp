@@ -2,7 +2,7 @@
 /*
  *  This file is part of the KDE libraries
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2003 Apple Computer, Inc.
+ *  Copyright (C) 2004 Apple Computer, Inc.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -380,9 +380,9 @@ void KJS::HTMLDocument::putValue(ExecState *exec, int token, const Value& value,
 #if APPLE_CHANGES
       // We want a new history item if this JS was called via a user gesture
       bool userGesture = static_cast<ScriptInterpreter *>(exec->interpreter())->wasRunByUserGesture();
-      part->scheduleRedirection(0, str, !userGesture);
+      part->scheduleLocationChange(str, !userGesture);
 #else
-      part->scheduleRedirection(0, str, false/*don't lock history*/);
+      part->scheduleLocationChange(str, false/*don't lock history*/);
 #endif
     }
     break;

@@ -21,6 +21,13 @@
 
 #include "rsync.h"
 
+extern int am_sender;
+extern int am_server;
+extern int blocking_io;
+extern int orig_umask;
+extern int read_batch;
+extern int filesfrom_fd;
+
 /**
  * Create a child connected to use on stdin/stdout.
  *
@@ -39,7 +46,6 @@ pid_t piped_child(char **command, int *f_in, int *f_out)
 	pid_t pid;
 	int to_child_pipe[2];
 	int from_child_pipe[2];
-	extern int blocking_io;
 	
 	if (verbose >= 2) {
 		print_child_argv(command);
@@ -58,7 +64,6 @@ pid_t piped_child(char **command, int *f_in, int *f_out)
 	}
 
 	if (pid == 0) {
-		extern int orig_umask;
 		if (dup2(to_child_pipe[0], STDIN_FILENO) < 0 ||
 		    close(to_child_pipe[1]) < 0 ||
 		    close(from_child_pipe[0]) < 0 ||
@@ -73,9 +78,8 @@ pid_t piped_child(char **command, int *f_in, int *f_out)
 			close(from_child_pipe[1]);
 		umask(orig_umask);
 		set_blocking(STDIN_FILENO);
-		if (blocking_io) {
+		if (blocking_io > 0)
 			set_blocking(STDOUT_FILENO);
-		}
 		execvp(command[0], command);
 		rprintf(FERROR, "Failed to exec %s : %s\n",
 			command[0], strerror(errno));
@@ -99,7 +103,6 @@ pid_t local_child(int argc, char **argv,int *f_in,int *f_out,
 	pid_t pid;
 	int to_child_pipe[2];
 	int from_child_pipe[2];
-	extern int read_batch;  /* dw */
 
 	if (fd_pair(to_child_pipe) < 0 ||
 	    fd_pair(from_child_pipe) < 0) {
@@ -115,11 +118,11 @@ pid_t local_child(int argc, char **argv,int *f_in,int *f_out,
 	}
 
 	if (pid == 0) {
-		extern int am_sender;
-		extern int am_server;
-
 		am_sender = read_batch ? 0 : !am_sender;
 		am_server = 1;		
+
+		if (!am_sender)
+			filesfrom_fd = -1;
 
 		if (dup2(to_child_pipe[0], STDIN_FILENO) < 0 ||
 		    close(to_child_pipe[1]) < 0 ||
@@ -133,6 +136,9 @@ pid_t local_child(int argc, char **argv,int *f_in,int *f_out,
 		child_main(argc, argv);
 	}
 
+	if (!am_sender)
+		filesfrom_fd = -1;
+
 	if (close(from_child_pipe[1]) < 0 ||
 	    close(to_child_pipe[0]) < 0) {
 		rprintf(FERROR,"Failed to close : %s\n",strerror(errno));   
@@ -144,5 +150,3 @@ pid_t local_child(int argc, char **argv,int *f_in,int *f_out,
   
 	return pid;
 }
-
-

@@ -33,6 +33,9 @@
 #include <IOKit/usb/IOUSBCommand.h>
 #endif
 
+#define		APPLE_USB_EHCI_64	1
+
+
 typedef	char *Ptr;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -401,8 +404,14 @@ struct EHCIQueueHeadShared
 	volatile IOPhysicalAddress				AltqTDPtr;			// 0x14 pointer to first TD (physical)
 	volatile UInt32						qTDFlags;			// 0x18
 	volatile IOPhysicalAddress				BuffPtr[5];			// 0x1C - 2F	
-	UInt32							padding[4];			// 0x30-0x3C
-};
+#if !APPLE_USB_EHCI_64
+	UInt32							padding[4];			// 0x30-0x3f
+};												// 0x40 length of structure
+#else
+	volatile IOPhysicalAddress				extBuffPtr[5];			// 0x30-0x43	
+	UInt32							padding[7];			// 0x44-0x5F
+};												// 0x60 length of structure
+#endif											
 
 
 struct EHCIGeneralTransferDescriptorShared
@@ -411,7 +420,13 @@ struct EHCIGeneralTransferDescriptorShared
 	volatile IOPhysicalAddress			altTD;				// 0x04 Pointer to next transfer descriptor on short packet(physical)
 	volatile UInt32					flags;				// 0x08 Data controlling transfer.
 	volatile IOPhysicalAddress			BuffPtr[5];			// 0x0c-0x1f  buffer pointer (physical)
-};
+#if !APPLE_USB_EHCI_64
+};											// 0x20 length of structure
+#else
+	volatile IOPhysicalAddress			extBuffPtr[5];			// 0x20-0x33  buffer pointer (physical)
+	UInt32						padding[3];			// 0x34-0x3F padding for alignment
+};											// 0x40 length of data structure
+#endif 
 
 
 struct EHCIIsochTransferDescriptorShared
@@ -432,7 +447,19 @@ struct EHCIIsochTransferDescriptorShared
 	IOPhysicalAddress					bufferPage4;		// 0x34 Buffer Page 4 (physical)
 	IOPhysicalAddress					bufferPage5;		// 0x38 Buffer Page 5 (physical)
 	IOPhysicalAddress					bufferPage6;		// 0x3c Buffer Page 6 (physical)
+#if !APPLE_USB_EHCI_64
 };											// 0x40 length of structure
+#else
+	IOPhysicalAddress					extBufferPage0;		// 0x40 extended Buffer Page 0 (physical)
+	IOPhysicalAddress					extBufferPage1;		// 0x44 extended Buffer Page 1 (physical)
+	IOPhysicalAddress					extBufferPage2;		// 0x48 extended Buffer Page 2 (physical)
+	IOPhysicalAddress					extBufferPage3;		// 0x4c extended Buffer Page 3 (physical)
+	IOPhysicalAddress					extBufferPage4;		// 0x50 extended Buffer Page 4 (physical)
+	IOPhysicalAddress					extBufferPage5;		// 0x54 extended Buffer Page 5 (physical)
+	IOPhysicalAddress					extBufferPage6;		// 0x58 extended Buffer Page 6 (physical)
+	UInt32							padding;		// 0x5C to align on 32 bit boundary
+};											// 0x60 length of structure
+#endif
 
 
 struct EHCISplitIsochTransferDescriptorShared
@@ -444,8 +471,15 @@ struct EHCISplitIsochTransferDescriptorShared
     volatile UInt32					buffPtr0;		// 0x10 page 0 pointer and offset
     volatile UInt32					buffPtr1;		// 0x14 page 1 pointer and other flags
     volatile IOPhysicalAddress				backPtr;		// 0x18 back pointer
+#if !APPLE_USB_EHCI_64
     UInt32						padding;		// 0x1c make sure we are 32 byte aligned
-};
+};										// 0x20 length of structure
+#else
+    volatile IOPhysicalAddress				extBuffPtr0;		// 0x1c extended page 0 pointer
+    volatile IOPhysicalAddress				extBuffPtr1;		// 0x20 extended page 1 pointer
+    UInt32						padding[7];		// 0x24 to make sure of 32 bit alignment
+};										// 0x40 length of data structure
+#endif
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 * * * * * *

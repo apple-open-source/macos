@@ -1,35 +1,16 @@
---- samba/source/configure.orig	Fri Dec 19 08:30:35 2003
-+++ samba/source/configure	Fri Dec 19 08:31:10 2003
-@@ -3340,7 +3340,7 @@ DYNEXP=
+--- samba/source/include/includes.h.orig        2004-07-26 18:59:19.000000000 -0700
++++ samba/source/include/includes.h     2004-07-26 19:00:54.000000000 -0700
+@@ -25,6 +25,10 @@
+ #include "config.h"
+ #endif
  
- default_static_modules="pdb_smbpasswd pdb_tdbsam rpc_lsa rpc_samr rpc_reg rpc_lsa_ds rpc_wks rpc_net rpc_dfs rpc_srv rpc_spoolss auth_rhosts auth_sam auth_unix auth_winbind auth_server auth_domain auth_builtin"
++#ifdef WITH_OPENDIRECTORY
++#include <DirectoryService/DirectoryService.h>
++#endif
++
+ #include "local.h"
  
--default_shared_modules="vfs_recycle vfs_audit vfs_extd_audit vfs_netatalk vfs_fake_perms vfs_default_quota vfs_readonly vfs_cap charset_CP850 charset_CP437"
-+default_shared_modules="vfs_recycle vfs_audit vfs_extd_audit vfs_netatalk vfs_fake_perms vfs_default_quota vfs_readonly vfs_cap"
- 
- if test "x$developer" = xyes; then
-    default_static_modules="$default_static_modules rpc_echo"
-@@ -3904,7 +3904,7 @@ done
- 
- #Add a system specific charset module.
- 
--		default_shared_modules="$default_shared_modules charset_macosxfs"
-+#		default_shared_modules="$default_shared_modules charset_macosxfs"
- 		old_CPPFLAGS="$CPPFLAGS"
- 		CPPFLAGS="-Iinclude $CPPFLAGS"
- 
-@@ -26267,9 +26267,10 @@ else
-   {
-     krb5_context context;
-     krb5_keytab keytab;
--
-+/* B&I SystemVersion plist is incomplete, causing this test to hang
-     krb5_init_context(&context);
-     if (krb5_kt_resolve(context, "MEMORY:", &keytab))
-+*/
-       exit(1);
-     exit(0);
-   }
+ #ifdef AIX
 --- samba/source/include/smb.h.orig	Thu Dec 18 15:12:42 2003
 +++ samba/source/include/smb.h	Fri Dec 19 08:31:10 2003
 @@ -171,7 +171,7 @@ typedef uint16 smb_ucs2_t;
@@ -72,3 +53,86 @@
  
  static inline int __spin_trylock(spinlock_t *lock)
  {
+--- samba/source/configure.in.orig	2004-07-23 15:51:36.000000000 -0700
++++ samba/source/configure.in	2004-07-23 15:58:41.000000000 -0700
+@@ -360,7 +360,7 @@
+ default_static_modules="pdb_smbpasswd pdb_tdbsam rpc_lsa rpc_samr rpc_reg rpc_lsa_ds rpc_wks rpc_net rpc_dfs rpc_srv rpc_spoolss auth_rhosts auth_sam auth_unix auth_winbind auth_server auth_domain auth_builtin"
+ 
+ dnl These are preferably build shared, and static if dlopen() is not available
+-default_shared_modules="vfs_recycle vfs_audit vfs_extd_audit vfs_netatalk vfs_fake_perms vfs_default_quota vfs_readonly vfs_cap vfs_expand_msdfs vfs_shadow_copy charset_CP850 charset_CP437"
++default_shared_modules="vfs_recycle vfs_audit vfs_extd_audit vfs_netatalk vfs_fake_perms vfs_default_quota vfs_readonly vfs_cap vfs_expand_msdfs vfs_shadow_copy"
+ 
+ if test "x$developer" = xyes; then
+    default_static_modules="$default_static_modules rpc_echo"
+@@ -597,7 +597,7 @@
+ 
+ # Add a system specific charset module.
+ 
+-	default_shared_modules="$default_shared_modules charset_macosxfs"
++	#DISABLE !!!charset_macosxfs!!! default_shared_modules="$default_shared_modules charset_macosxfs"
+ 	;;
+     *hurd*)
+         AC_MSG_CHECKING([for LFS support])
+@@ -635,7 +635,7 @@
+ AC_CHECK_HEADERS(sys/mman.h sys/filio.h sys/priv.h sys/shm.h string.h strings.h stdlib.h sys/socket.h)
+ AC_CHECK_HEADERS(sys/mount.h sys/vfs.h sys/fs/s5param.h sys/filsys.h termios.h termio.h)
+ AC_CHECK_HEADERS(sys/termio.h sys/statfs.h sys/dustat.h sys/statvfs.h stdarg.h sys/sockio.h)
+-AC_CHECK_HEADERS(security/pam_modules.h security/_pam_macros.h dlfcn.h)
++AC_CHECK_HEADERS(pam/pam_modules.h pam/_pam_macros.h dlfcn.h)
+ AC_CHECK_HEADERS(sys/syslog.h syslog.h execinfo.h)
+ AC_CHECK_HEADERS(langinfo.h locale.h)
+ 
+@@ -2765,6 +2765,17 @@
+               [Whether the ENCTYPE_ARCFOUR_HMAC_MD5 key type is available])
+   fi
+ 
++  AC_CACHE_CHECK([for ENCTYPE_ARCFOUR_HMAC],
++                 samba_cv_HAVE_ENCTYPE_ARCFOUR_HMAC,[
++    AC_TRY_COMPILE([#include <krb5.h>],
++      [krb5_enctype enctype; enctype = ENCTYPE_ARCFOUR_HMAC;],
++      samba_cv_HAVE_ENCTYPE_ARCFOUR_HMAC=yes,
++      samba_cv_HAVE_ENCTYPE_ARCFOUR_HMAC=no)])
++  if test x"$samba_cv_HAVE_ENCTYPE_ARCFOUR_HMAC" = x"yes"; then
++    AC_DEFINE(HAVE_ENCTYPE_ARCFOUR_HMAC,1,
++              [Whether the ENCTYPE_ARCFOUR_HMAC key type is available])
++  fi
++
+   AC_CACHE_CHECK([for AP_OPTS_USE_SUBKEY],
+                  samba_cv_HAVE_AP_OPTS_USE_SUBKEY,[
+     AC_TRY_COMPILE([#include <krb5.h>],
+@@ -2924,9 +2935,9 @@
+ [ case "$withval" in
+   yes)
+     AC_MSG_RESULT(yes)
+-    if test x"$ac_cv_header_security_pam_appl_h" = x"no"; then
+-       if test x"$ac_cv_header_security_pam_modules_h" = x"no"; then
+-	  if test x"$ac_cv_header_security__pam_macros_h" = x"no"; then
++    if test x"$ac_cv_header_pam_pam_appl_h" = x"no"; then
++       if test x"$ac_cv_header_pam_pam_modules_h" = x"no"; then
++	  if test x"$ac_cv_header_pam__pam_macros_h" = x"no"; then
+ 	     AC_MSG_ERROR(--with-pam specified but no PAM headers found)
+ 	  fi
+        fi
+@@ -2958,8 +2969,8 @@
+ 
+        if test x$PICFLAGS = x; then
+           AC_MSG_ERROR([No support for PIC code])
+-       elif test x"$ac_cv_header_security_pam_appl_h" = x"no"; then
+-	  AC_MSG_ERROR([No security/pam_appl.h found])
++       elif test x"$ac_cv_header_pam_pam_appl_h" = x"no"; then
++	  AC_MSG_ERROR([No pam/pam_appl.h found])
+        elif test x$ac_cv_lib_pam_pam_get_data = xno; then
+           AC_MSG_ERROR([No libpam found])
+        else
+@@ -3730,6 +3741,11 @@
+   yes)
+ 
+ 	case "$host_os" in
++	*darwin*)
++		AC_MSG_RESULT(Using Darwin ACLs)
++		AC_DEFINE(HAVE_DARWIN_ACLS,1,[Whether Darwin ACLs are available])
++		AC_DEFINE(HAVE_ACL_GET_PERM_NP,1,[Whether acl_get_perm_np() is available])
++		;;
+ 	*sysv5*)
+ 		AC_MSG_RESULT(Using UnixWare ACLs)
+ 		AC_DEFINE(HAVE_UNIXWARE_ACLS,1,[Whether UnixWare ACLs are available])

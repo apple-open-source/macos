@@ -184,7 +184,6 @@ bool AppleUSBCDC::start(IOService *provider)
 
     fTerminate = false;
     fStopping = false;
-	fCDCInterfaceNumber = 0xFF;
     
 #if USE_ELG
     XTraceLogInfo	*logInfo;
@@ -321,6 +320,7 @@ bool AppleUSBCDC::initDevice(UInt8 numConfigs)
     IOReturn				ior = kIOReturnSuccess;
     UInt8				cval;
 //    UInt8				config = 0;
+	UInt16				dataClass;
     bool				configOK = false;
        
     XTRACE(this, 0, numConfigs, "initDevice");
@@ -333,6 +333,9 @@ bool AppleUSBCDC::initDevice(UInt8 numConfigs)
     {
     	XTRACE(this, 0, cval, "initDevice - Checking Configuration");
 		
+		dataClass = 0;
+		fDataInterfaceNumber = 0xFF;
+		
      	cd = fpDevice->GetFullConfigurationDescriptor(cval);
      	if (!cd)
     	{
@@ -342,7 +345,8 @@ bool AppleUSBCDC::initDevice(UInt8 numConfigs)
             intf = NULL;
             do
             {
-                req.bInterfaceClass = kUSBCommClass;
+//                req.bInterfaceClass = kUSBCommClass;
+				req.bInterfaceClass = kIOUSBFindInterfaceDontCare;
                 req.bInterfaceSubClass = kIOUSBFindInterfaceDontCare;
                 req.bInterfaceProtocol = kIOUSBFindInterfaceDontCare;
                 req.bAlternateSetting = kIOUSBFindInterfaceDontCare;
@@ -353,41 +357,46 @@ bool AppleUSBCDC::initDevice(UInt8 numConfigs)
                     {
                         XTRACE(this, intf, 0, "initDevice - Interface descriptor found");
                         
-                            // Let's make sure it's something we can really work with
-                        
-                        switch (intf->bInterfaceSubClass)
-                        {
-                            case kUSBAbstractControlModel:
-                                if (intf->bInterfaceProtocol == kUSBv25)
-                                {
-                                    configOK = true;
-									fCDCInterfaceNumber = intf->bInterfaceNumber;
-                                }
-                                break;
-                            case kUSBEthernetControlModel:
-                                configOK = true;
-								fCDCInterfaceNumber = intf->bInterfaceNumber;
-                                break;
-                            case kUSBWirelessHandsetControlModel:
-                                configOK = true;
-								fCDCInterfaceNumber = intf->bInterfaceNumber;
-                                break;
-                            case kUSBDeviceManagementModel:
-                                configOK = true;
-								fCDCInterfaceNumber = intf->bInterfaceNumber;
-                                break;
-                            default:
-                                break;
-                        }
+                            // Let's make sure it's something we can really work with (Data or Comm)
+						
+						if (intf->bInterfaceClass == kUSBDataClass)
+						{
+							dataClass++;
+							fDataInterfaceNumber = intf->bInterfaceNumber;
+						} else {
+							if (intf->bInterfaceClass == kUSBCommClass)
+							{
+								switch (intf->bInterfaceSubClass)
+								{
+									case kUSBAbstractControlModel:
+										if (intf->bInterfaceProtocol == kUSBv25)
+										{
+											configOK = true;
+										}
+										break;
+									case kUSBEthernetControlModel:
+										configOK = true;
+										break;
+									case kUSBWirelessHandsetControlModel:
+										configOK = true;
+										break;
+									case kUSBDeviceManagementModel:
+										configOK = true;
+										break;
+									default:
+										break;
+								}
+							}
+						}
                     }
                 } else {
                     XTRACE(this, ior, cval, "initDevice - FindNextInterfaceDescriptor returned error");
                     break;
                 }
-                if (configOK)
-                {
-                    break;
-                }
+//                if (configOK)
+//				{
+//					break;
+//				}
             } while (intf);
             
             if (configOK)
@@ -399,6 +408,10 @@ bool AppleUSBCDC::initDevice(UInt8 numConfigs)
     
     if (configOK)
     {
+		if (dataClass > 1)				// Can only be one in order to save the number
+		{
+			fDataInterfaceNumber = 0xFF;
+		}
         fConfig = cd->bConfigurationValue;
         fbmAttributes = cd->bmAttributes;
                                     
@@ -456,6 +469,7 @@ IOReturn AppleUSBCDC::reInitDevice()
 //		Method:		AppleUSBCDC::checkACM
 //
 //		Inputs:		Comm - pointer to the interface
+//				cInterfaceNum - the interface number of the current Comm. interface
 //				dataInterfaceNum - the interface number of the enquiring driver
 //
 //		Outputs:	return Code - true (correct), false (incorrect)
@@ -464,11 +478,11 @@ IOReturn AppleUSBCDC::reInitDevice()
 //
 /****************************************************************************************************/
 
-bool AppleUSBCDC::checkACM(IOUSBInterface *Comm, UInt8 dataInterfaceNum)
+bool AppleUSBCDC::checkACM(IOUSBInterface *Comm, UInt8 cInterfaceNumber, UInt8 dataInterfaceNum)
 {
     bool				gotDescriptors = false;
     bool				configOK = true;
-    UInt8				acmDataInterfaceNumber = 0xff;
+    UInt8				acmDataInterfaceNumber = 0xFF;
     const FunctionalDescriptorHeader 	*funcDesc = NULL;
     CMFunctionalDescriptor		*CMFDesc;		// call management functional descriptor
     UnionFunctionalDescriptor		*UNNFDesc;		// union functional descriptor
@@ -496,14 +510,15 @@ bool AppleUSBCDC::checkACM(IOUSBInterface *Comm, UInt8 dataInterfaceNum)
                     (const FunctionalDescriptorHeader*)UNNFDesc = funcDesc;
                     if (UNNFDesc->bFunctionLength > sizeof(FunctionalDescriptorHeader))
                     {
-						if (fCDCInterfaceNumber == UNNFDesc->bMasterInterface)
+						XTRACE(this, cInterfaceNumber, UNNFDesc->bMasterInterface, "checkACM - Interfaces(Control, Master)");
+						if (cInterfaceNumber == UNNFDesc->bMasterInterface)
 						{
-							if (acmDataInterfaceNumber == 0xff)
+							if (acmDataInterfaceNumber == 0xFF)
 							{
 								acmDataInterfaceNumber = UNNFDesc->bSlaveInterface[0];		// Use the first slave (only if CMF not present)
 							}
 						} else {
-							if (fCDCInterfaceNumber == UNNFDesc->bSlaveInterface[0])
+							if (cInterfaceNumber == UNNFDesc->bSlaveInterface[0])
 							{
 								acmDataInterfaceNumber = UNNFDesc->bMasterInterface;		// Work around for Conexant problem
 								descError = true;											// Set the error flag just in case the Union descriptor is before the CM descriptor
@@ -518,10 +533,22 @@ bool AppleUSBCDC::checkACM(IOUSBInterface *Comm, UInt8 dataInterfaceNum)
             }
         }
     } while(!gotDescriptors);
+	
+		//
+		// This'll need explaining. It's for devices that have no functional descriptors or they are in the wrong place (I.E. usually after the Data interface)
+		//
+		// If the acmDataInterfaceNumber is stil 0xFF then there's every reason to believe there's no functional descriptors present (or they're incorrect)
+		// If the fDataInterfaceNumber is not 0xFF (see initDevice) then there's only one data interface present so that's probably the one we want, correct?
+		//
+	
+	if ((acmDataInterfaceNumber == 0xFF) && (fDataInterfaceNumber != 0xFF))
+	{
+		acmDataInterfaceNumber = fDataInterfaceNumber;
+	}
 
     if (acmDataInterfaceNumber != dataInterfaceNum)
     {
-        XTRACE(this, acmDataInterfaceNumber, dataInterfaceNum, "checkACM - No data interface found");
+        XTRACE(this, acmDataInterfaceNumber, dataInterfaceNum, "checkACM - No data interface found from functional descriptors");
         configOK = false;
     }
     
@@ -534,6 +561,7 @@ bool AppleUSBCDC::checkACM(IOUSBInterface *Comm, UInt8 dataInterfaceNum)
 //		Method:		AppleUSBCDC::checkECM
 //
 //		Inputs:		Comm - pointer to the interface
+//				cInterfaceNum - the interface number of the current Comm. interface
 //				dataInterfaceNum - the interface number of the enquiring driver
 //
 //		Outputs:	return Code - true (correct), false (incorrect)
@@ -542,11 +570,11 @@ bool AppleUSBCDC::checkACM(IOUSBInterface *Comm, UInt8 dataInterfaceNum)
 //
 /****************************************************************************************************/
 
-bool AppleUSBCDC::checkECM(IOUSBInterface *Comm, UInt8 dataInterfaceNum)
+bool AppleUSBCDC::checkECM(IOUSBInterface *Comm, UInt8 cInterfaceNumber, UInt8 dataInterfaceNum)
 {
     bool				gotDescriptors = false;
     bool				configOK = true;
-    UInt8				ecmDataInterfaceNumber = 0xff;
+    UInt8				ecmDataInterfaceNumber = 0xFF;
     const FunctionalDescriptorHeader 	*funcDesc = NULL;
     UnionFunctionalDescriptor		*UNNFDesc;		// union functional descriptor
     ECMFunctionalDescriptor		*ENETFDesc;		// ethernet functional descriptor
@@ -569,7 +597,10 @@ bool AppleUSBCDC::checkECM(IOUSBInterface *Comm, UInt8 dataInterfaceNum)
                 (const FunctionalDescriptorHeader*)UNNFDesc = funcDesc;
                 if (UNNFDesc->bFunctionLength > sizeof(FunctionalDescriptorHeader))
                 {
-                    ecmDataInterfaceNumber = UNNFDesc->bSlaveInterface[0];	// Use the first slave
+					if (cInterfaceNumber == UNNFDesc->bMasterInterface)
+					{
+						ecmDataInterfaceNumber = UNNFDesc->bSlaveInterface[0];	// Use the first slave
+					}
                 }
             } else {
                 if (funcDesc->bDescriptorSubtype == ECM_Functional_Descriptor)
@@ -616,6 +647,7 @@ bool AppleUSBCDC::checkECM(IOUSBInterface *Comm, UInt8 dataInterfaceNum)
 //		Method:		AppleUSBCDC::checkWMC
 //
 //		Inputs:		Comm - pointer to the interface
+//				cInterfaceNum - the interface number of the current Comm. interface
 //				dataInterfaceNum - the interface number of the enquiring driver
 //
 //		Outputs:	return Code - true (correct), false (incorrect)
@@ -624,7 +656,7 @@ bool AppleUSBCDC::checkECM(IOUSBInterface *Comm, UInt8 dataInterfaceNum)
 //
 /****************************************************************************************************/
 
-bool AppleUSBCDC::checkWMC(IOUSBInterface *Comm, UInt8 dataInterfaceNum)
+bool AppleUSBCDC::checkWMC(IOUSBInterface *Comm, UInt8 cInterfaceNumber, UInt8 dataInterfaceNum)
 {
        
     XTRACE(this, 0, 0, "checkWMC");
@@ -638,6 +670,7 @@ bool AppleUSBCDC::checkWMC(IOUSBInterface *Comm, UInt8 dataInterfaceNum)
 //		Method:		AppleUSBCDC::checkDMM
 //
 //		Inputs:		Comm - pointer to the interface
+//				cInterfaceNum - the interface number of the current Comm. interface
 //				dataInterfaceNum - the interface number of the enquiring driver
 //
 //		Outputs:	return Code - true (correct), false (incorrect)
@@ -646,7 +679,7 @@ bool AppleUSBCDC::checkWMC(IOUSBInterface *Comm, UInt8 dataInterfaceNum)
 //
 /****************************************************************************************************/
 
-bool AppleUSBCDC::checkDMM(IOUSBInterface *Comm, UInt8 dataInterfaceNum)
+bool AppleUSBCDC::checkDMM(IOUSBInterface *Comm, UInt8 cInterfaceNumber, UInt8 dataInterfaceNum)
 {
        
     XTRACE(this, 0, 0, "checkDMM");
@@ -659,7 +692,7 @@ bool AppleUSBCDC::checkDMM(IOUSBInterface *Comm, UInt8 dataInterfaceNum)
 //
 //		Method:		AppleUSBCDC::confirmDriver
 //
-//		Inputs:		subClass - the subclass of the inquiring data driver
+//		Inputs:		subClass - the subclass needed by the inquiring data driver
 //				dataInterface - the data interface of the data driver
 //
 //		Outputs:	
@@ -674,14 +707,16 @@ bool AppleUSBCDC::confirmDriver(UInt8 subClass, UInt8 dataInterface)
     IOUSBFindInterfaceRequest	req;
     IOUSBInterface		*Comm;
     UInt8			intSubClass;
+	UInt8			controlInterfaceNumber;
     bool			driverOK = false;
 
     XTRACE(this, subClass, dataInterface, "confirmDriver");
     
-        // We need to look at the interfaces
+        // We need to look for CDC interfaces of the specified subclass
     
     req.bInterfaceClass	= kUSBCommClass;
-    req.bInterfaceSubClass = kIOUSBFindInterfaceDontCare;
+//    req.bInterfaceSubClass = kIOUSBFindInterfaceDontCare;
+	req.bInterfaceSubClass = subClass;
     req.bInterfaceProtocol = kIOUSBFindInterfaceDontCare;
     req.bAlternateSetting = kIOUSBFindInterfaceDontCare;
     
@@ -692,24 +727,26 @@ bool AppleUSBCDC::confirmDriver(UInt8 subClass, UInt8 dataInterface)
         return false;
     }
 
+	controlInterfaceNumber = Comm->GetInterfaceNumber();
+
     while (Comm)
     {
         intSubClass = Comm->GetInterfaceSubClass();
-        if (intSubClass == subClass)
+        if (intSubClass == subClass)					// Just to make sure...
         {
             switch (intSubClass)
             {
                 case kUSBAbstractControlModel:
-                    driverOK = checkACM(Comm, dataInterface);
+                    driverOK = checkACM(Comm, controlInterfaceNumber, dataInterface);
                     break;
                 case kUSBEthernetControlModel:
-                    driverOK = checkECM(Comm, dataInterface);
+                    driverOK = checkECM(Comm, controlInterfaceNumber, dataInterface);
                     break;
                 case kUSBWirelessHandsetControlModel:
-                    driverOK = checkWMC(Comm, dataInterface);
+                    driverOK = checkWMC(Comm, controlInterfaceNumber, dataInterface);
                     break;
                 case kUSBDeviceManagementModel:
-                    driverOK = checkDMM(Comm, dataInterface);
+                    driverOK = checkDMM(Comm, controlInterfaceNumber, dataInterface);
                     break;
                 default:
                     break;
@@ -722,10 +759,11 @@ bool AppleUSBCDC::confirmDriver(UInt8 subClass, UInt8 dataInterface)
             break;
         }
 
-            // see if there's another interface
+            // see if there's another CDC interface
             
         req.bInterfaceClass = kUSBCommClass;
-	req.bInterfaceSubClass = kIOUSBFindInterfaceDontCare;
+//	req.bInterfaceSubClass = kIOUSBFindInterfaceDontCare;
+	req.bInterfaceSubClass = subClass;
 	req.bInterfaceProtocol = kIOUSBFindInterfaceDontCare;
 	req.bAlternateSetting = kIOUSBFindInterfaceDontCare;
             
@@ -739,6 +777,75 @@ bool AppleUSBCDC::confirmDriver(UInt8 subClass, UInt8 dataInterface)
     return driverOK;
 
 }/* end confirmDriver */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDC::confirmControl
+//
+//		Inputs:		subClass - the subclass of the inquiring control driver
+//					CInterface - the control interface
+//
+//		Outputs:	
+//
+//		Desc:		Called by the control driver to confirm if this is the correct interface
+//
+/****************************************************************************************************/
+
+bool AppleUSBCDC::confirmControl(UInt8 subClass, IOUSBInterface *CInterface)
+{
+    IOUSBFindInterfaceRequest	req;
+    IOUSBInterface		*Comm;
+    UInt8			intSubClass;
+    bool			driverOK = false;
+
+    XTRACE(this, 0, CInterface, "confirmControl");
+    
+        // We need to look for CDC interfaces of the specified subclass
+    
+    req.bInterfaceClass	= kUSBCommClass;
+//    req.bInterfaceSubClass = kIOUSBFindInterfaceDontCare;
+	req.bInterfaceSubClass = subClass;
+    req.bInterfaceProtocol = kIOUSBFindInterfaceDontCare;
+    req.bAlternateSetting = kIOUSBFindInterfaceDontCare;
+    
+    Comm = fpDevice->FindNextInterface(NULL, &req);
+    if (!Comm)
+    {
+        XTRACE(this, 0, 0, "confirmDriver - Finding the first CDC interface failed");
+        return false;
+    }
+
+    while (Comm)
+    {
+        intSubClass = Comm->GetInterfaceSubClass();
+        if (intSubClass == subClass)					// Just to make sure...
+        {
+			XTRACE(this, Comm, CInterface, "confirmControl - Checkink interfaces");
+            if (Comm == CInterface)
+			{
+				driverOK = true;
+				break;
+			}
+        }
+
+            // see if there's another CDC interface
+            
+        req.bInterfaceClass = kUSBCommClass;
+//	req.bInterfaceSubClass = kIOUSBFindInterfaceDontCare;
+	req.bInterfaceSubClass = subClass;
+	req.bInterfaceProtocol = kIOUSBFindInterfaceDontCare;
+	req.bAlternateSetting = kIOUSBFindInterfaceDontCare;
+            
+        Comm = fpDevice->FindNextInterface(Comm, &req);
+        if (!Comm)
+        {
+            XTRACE(this, 0, 0, "confirmControl - No more CDC interfaces");
+        }
+    }
+    
+    return driverOK;
+
+}/* end confirmControl */
 
 /****************************************************************************************************/
 //

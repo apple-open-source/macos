@@ -773,12 +773,15 @@ protected:
 protected:
 	bool delayedStateCommandInUse() const;
 	void enterBusResetDisabledState( );
+	
+	virtual UInt32 getPortNumberFromIndex( UInt16 index );
 												
 public:
 
  	IOReturn clipMaxRec2K(Boolean clipMaxRec );
 	void setNodeSpeed( UInt16 nodeAddress, IOFWSpeed speed );
 	void useHalfSizePackets( void );
+	void disablePhyPortOnSleepForNodeID( UInt32 nodeID );
 	
 private:
     OSMetaClassDeclareReservedUnused(IOFireWireController, 0);

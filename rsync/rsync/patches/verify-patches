@@ -1,0 +1,98 @@
+#!/bin/sh
+
+[ -d patches ] && cd patches
+
+if [ ! -f verify-patches ]; then
+    echo "Please run this script from the root of the rsync dir"
+    echo "or from inside the patches subdir."
+    exit 1
+fi
+
+root=`cat ../CVS/Root`
+tmpdir=,tmp-for-patch-tests
+
+[ -d $tmpdir ] || mkdir $tmpdir
+cd $tmpdir || exit 1
+
+[ -d workdir ] || mkdir workdir
+echo "Using CVS to update the $tmpdir/cvsdir copy of the source."
+cvs -d "$root" co -d cvsdir rsync
+
+cd workdir || exit 1
+
+if [ -z "$1" ]; then
+    set -- ../../*.diff
+fi
+
+for xx in "${@}"; do
+    case "$xx" in
+    *gzip-rsyncable.diff) continue ;;
+    patches/*) xx=`echo $xx | sed 's:patches:../..:'` ;;
+    */*.diff) ;;
+    *.diff) xx=../../$xx ;;
+    *) continue ;;
+    esac
+    apply=y
+    while : ; do
+	echo -e "\n----------- $xx ------------"
+	if [ $apply = y ]; then
+	    rsync -a --delete ../cvsdir/ .
+	    patch -p0 <$xx | tee ,patch.output
+	    new=''
+	    for nn in `sed -n 's/^patching file //p' ,patch.output`; do
+		[ -f ../cvsdir/$nn ] || new="$new $nn"
+	    done
+	    if grep "^Hunk #[0-9]* FAILED" ,patch.output >/dev/null; then
+		default=F
+	    elif grep "^Hunk #[0-9]* succeeded" ,patch.output >/dev/null; then
+		default=E
+	    else
+		default=N
+	    fi
+	    apply=n
+	fi
+	echo -e "\nFix rejects, Make proto, Edit both diffs, Update patch,"
+	echo -n "Apply patch again, Next, Quit: [$default] "
+	read ans
+	[ -z "$ans" ] && ans=$default
+	case "$ans" in
+	[Ee]*)
+	    [ ! -z "$new" ] && cvs add $new
+	    new=''
+	    rm -f *.rej *.orig
+	    sed '/^--- /,$ d' $xx >,new.patch
+	    cvs diff -N | egrep -v '^(diff -|===============|RCS file: |retrieving revision |Index: )' >>,new.patch
+	    vim -d $xx ,new.patch
+	    default=U
+	    ;;
+	[Ff]*)
+	    vim *.rej
+	    default=E
+	    ;;
+	[Mm]*)
+	    cat *.c lib/compat.c | awk -f mkproto.awk >proto.h
+	    echo -e "\nRegenerated proto.h"
+	    default=E
+	    ;;
+	[Uu]*)
+	    if [ -f ,new.patch ]; then
+		cp -p ,new.patch $xx
+		echo -e "\nCopied ,new.patch to $xx"
+		default=A
+	    else
+		echo -e "\n*** Edit the diffs first. ***"
+		default=E
+	    fi
+	    ;;
+	[Aa]*)
+	    apply=y
+	    ;;
+	[Nn]*)
+	    break
+	    ;;
+	[Qq]*)
+	    exit 0
+	    ;;
+	esac
+    done
+done

@@ -798,6 +798,7 @@ char *smtpd_pw_server_authenticate (	SMTPD_STATE *state,
 			if ( len < MAX_USER_BUF_SIZE )
 			{
 				/* copy user name */
+				memset( user, 0, MAX_USER_BUF_SIZE );
 				strncpy( user, resp, len );
 
 				/* move past the space */

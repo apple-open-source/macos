@@ -141,7 +141,7 @@ BAIL:
 
 IOReturn Apple02Audio::configureAudioDetects(IOService *provider) {
     IOReturn result = kIOReturnSuccess;   
-    debugIOLog (3, "+ Apple02Audio::configureAudioDetects");
+    debugIOLog ( 3, "+ Apple02Audio::configureAudioDetects ( %p )", provider );
     
     if(!theAudioDeviceTreeParser) 
         goto BAIL;
@@ -149,7 +149,7 @@ IOReturn Apple02Audio::configureAudioDetects(IOService *provider) {
     AudioDetects = theAudioDeviceTreeParser->createDetectsArray();
 
 EXIT:
-    debugIOLog (3, "- Apple02Audio::configureAudioDetects, %d ", (result == kIOReturnSuccess));
+    debugIOLog (3, "- Apple02Audio::configureAudioDetects ( %p ), %d ", provider, (result == kIOReturnSuccess));
     return(result);
 BAIL:
     result = kIOReturnError;
@@ -163,7 +163,7 @@ IOReturn Apple02Audio::configureAudioInputs(IOService *provider) {
     AudioHardwareMux *		theMux;
 	UInt32					numInputs;
 
-    debugIOLog (3, "+ Apple02Audio::configureAudioDetects");
+    debugIOLog ( 3, "+ Apple02Audio::configureAudioInputs ( %p )", provider );
 
     FailIf (NULL == theAudioDeviceTreeParser, BAIL);
 
@@ -187,7 +187,7 @@ IOReturn Apple02Audio::configureAudioInputs(IOService *provider) {
 	}
 
 EXIT:
-    debugIOLog (3, "- %d = Apple02Audio::configureAudioDetects", result);
+    debugIOLog ( 3, "- Apple02Audio::configureAudioInputs ( %p ) returns 0x%lX", provider, result);
     return (result);
 BAIL:
     result = kIOReturnError;
@@ -503,7 +503,7 @@ IOReturn Apple02Audio::createDefaultsPorts () {
 	Boolean						done;
 	Boolean						hasPlaythrough;
 
-    debugIOLog (3, "+ Apple02Audio::createDefaultsPorts");
+    debugIOLog (3, "+ Apple02Audio::createDefaultsPorts()");
 
 	hasPlaythrough = FALSE;
 	result = kIOReturnSuccess;
@@ -757,7 +757,7 @@ IOReturn Apple02Audio::createDefaultsPorts () {
 	}
 
 EXIT:    
-    debugIOLog (3, "- %d = Apple02Audio::createDefaultsPorts", result);
+    debugIOLog (3, "- Apple02Audio::createDefaultsPorts() returns 0x%lX", result);
     return result;
 BAIL:
     result = kIOReturnError;
@@ -805,25 +805,36 @@ IOReturn Apple02Audio::outputControlChangeHandler (IOService *target, IOAudioCon
 	UInt32							rightVol;
 	Boolean							wasPoweredDown;
 
-	debugIOLog (3, "+ Apple02Audio::outputControlChangeHandler (%p, %p, %ld, %ld)", target, control, oldValue, newValue);
+	debugIOLog (3, "+ Apple02Audio::outputControlChangeHandler (%p, %p, 0x%lX, 0x%lX)", target, control, oldValue, newValue);
 
 	audioDevice = OSDynamicCast (Apple02Audio, target);
 	wasPoweredDown = FALSE;
+	
 	FailIf (NULL == audioDevice, Exit);
 	FailIf (NULL == control, Exit);
 
 	// We have to make sure the hardware is on before we can send it any control changes [2981190]
-	if (kIOAudioDeviceSleep == audioDevice->ourPowerState && NULL != audioDevice->theAudioPowerObject) {
-		audioDevice->ourPowerState = kIOAudioDeviceActive;
-		audioDevice->theAudioPowerObject->setHardwarePowerOn ();
-		if (NULL != audioDevice->outMute) {
-			audioDevice->outMute->flushValue ();					// Restore hardware to the user's selected state
+	if ( NULL != audioDevice->theAudioPowerObject ) {
+		switch ( audioDevice->ourPowerState ) {
+			case kIOAudioDeviceActive:  debugIOLog ( 3, "  ourPowerState %d kIOAudioDeviceActive", audioDevice->ourPowerState );	break;
+			case kIOAudioDeviceIdle:	debugIOLog ( 3, "  ourPowerState %d kIOAudioDeviceIdle", audioDevice->ourPowerState );		break;
+			case kIOAudioDeviceSleep:   debugIOLog ( 3, "  ourPowerState %d kIOAudioDeviceSleep", audioDevice->ourPowerState );		break;
+			default:					debugIOLog ( 3, "  ourPowerState %d", audioDevice->ourPowerState );							break;
 		}
-		wasPoweredDown = TRUE;
+		
+		if ( kIOAudioDeviceActive != audioDevice->ourPowerState ) {
+			wasPoweredDown = TRUE;
+			audioDevice->ourPowerState = kIOAudioDeviceActive;
+			audioDevice->theAudioPowerObject->setHardwarePowerOn ();
+			if (NULL != audioDevice->outMute) {
+				audioDevice->outMute->flushValue ();					// Restore hardware to the user's selected state
+			}
+		}
 	}
 
     switch (control->getSubType ()) {
 		case kIOAudioLevelControlSubTypeVolume:
+			debugIOLog ( 3, "  control->getSubType() returns kIOAudioLevelControlSubTypeVolume" );
 			levelControl = OSDynamicCast (IOAudioLevelControl, control);
 
 			switch (control->getChannelID ()) {
@@ -855,6 +866,7 @@ IOReturn Apple02Audio::outputControlChangeHandler (IOService *target, IOAudioCon
 			}
 			break;
 		case kIOAudioToggleControlSubTypeMute:
+			debugIOLog ( 3, "  control->getSubType() returns kIOAudioToggleControlSubTypeMute" );
 			if (audioDevice->gVolLeft != 0 || audioDevice->gVolRight != 0) {
 				result = audioDevice->outputMuteChange (newValue);
 				if (kIOReturnSuccess == result) {
@@ -864,10 +876,12 @@ IOReturn Apple02Audio::outputControlChangeHandler (IOService *target, IOAudioCon
 			}
 			break;
 		case kIOAudioSelectorControlSubTypeOutput:
+			debugIOLog ( 3, "  control->getSubType() returns kIOAudioSelectorControlSubTypeOutput" );
 			result = kIOReturnUnsupported;
 			break;
 #if 1
 		case kIOAudioLevelControlSubTypePRAMVolume:
+			debugIOLog ( 3, "  control->getSubType() returns kIOAudioLevelControlSubTypePRAMVolume" );
 			platform = OSDynamicCast (IODTPlatformExpert, getPlatform());
 			if (platform) {
 				UInt8 							curPRAMVol;
@@ -930,7 +944,7 @@ Exit:
 	if (TRUE == wasPoweredDown) {
 		audioDevice->setTimerForSleep ();
 	}
-	debugIOLog (3, "- Apple02Audio::outputControlChangeHandler (%p, %p, %ld, %ld) returns %X", target, control, oldValue, newValue, result);
+	debugIOLog (3, "- Apple02Audio::outputControlChangeHandler (%p, %p, 0x%lX, 0x%lX) returns %X", target, control, oldValue, newValue, result);
 
 	return result;
 }
@@ -1185,7 +1199,7 @@ IOReturn Apple02Audio::passThruChanged(SInt32 newValue){
     return result;
 }
 
-IOReturn Apple02Audio::inputSelectorChanged(SInt32 newValue){
+IOReturn Apple02Audio::inputSelectorChanged(SInt32 newValue) {
     AudioHardwareInput *theInput;
     UInt32				idx;
 	UInt32				numInputs;
@@ -1195,7 +1209,7 @@ IOReturn Apple02Audio::inputSelectorChanged(SInt32 newValue){
 	IOFixed				dBOffset;
     IOReturn			result = kIOReturnSuccess;
     
-    debugIOLog (3, "+ Apple02Audio::inputSelectorChanged");
+    debugIOLog ( 3, "+ Apple02Audio::inputSelectorChanged ( %d )", newValue );
     if(AudioInputs) {
 		numInputs = AudioInputs->getCount();
         for(idx = 0; idx < numInputs; idx++) {
@@ -1217,8 +1231,6 @@ IOReturn Apple02Audio::inputSelectorChanged(SInt32 newValue){
 	
 				audioEngine = OSDynamicCast (IOAudioEngine, audioEngines->getObject(0));
 			
-//				audioEngine->pauseAudioEngine ();	// Turn these off to fix 3267775
-//				audioEngine->beginConfigurationChange ();
 				if (NULL != inGainLeft) {
 					inGainLeft->setMinDB (mindBVol);
 					inGainLeft->setMaxDB (maxdBVol);
@@ -1230,8 +1242,6 @@ IOReturn Apple02Audio::inputSelectorChanged(SInt32 newValue){
 					inGainRight->setMaxDB (maxdBVol);
 					mRangeInChanged = true;
 				}				
-//				audioEngine->completeConfigurationChange ();
-//				audioEngine->resumeAudioEngine ();
 			}
 	
 			// aml 6.17.02
@@ -1248,8 +1258,6 @@ IOReturn Apple02Audio::inputSelectorChanged(SInt32 newValue){
 				mRangeInChanged = false;
 				audioEngine = OSDynamicCast (IOAudioEngine, audioEngines->getObject(0));
 			
-//				audioEngine->pauseAudioEngine ();	// Turn these off to fix 3267775
-//				audioEngine->beginConfigurationChange ();
 				if (NULL != inGainLeft) {
 					inGainLeft->setMinDB (mDefaultInMinDB);
 					inGainLeft->setMaxDB (mDefaultInMaxDB);
@@ -1259,8 +1267,6 @@ IOReturn Apple02Audio::inputSelectorChanged(SInt32 newValue){
 					inGainRight->setMinDB (mDefaultInMinDB);
 					inGainRight->setMaxDB (mDefaultInMaxDB);
 				}
-//				audioEngine->completeConfigurationChange ();
-//				audioEngine->resumeAudioEngine ();
 			}
 				
 			// aml 6.17.02
@@ -1270,7 +1276,7 @@ IOReturn Apple02Audio::inputSelectorChanged(SInt32 newValue){
 	}    
 
     }  
-    debugIOLog (3, "- Apple02Audio::inputSelectorChanged");
+    debugIOLog ( 3, "- Apple02Audio::inputSelectorChanged ( %d ) returns 0x%lX", newValue, result );
     return result;
 }
 
@@ -1349,39 +1355,39 @@ Exit:
 }
 
 // Have to call super::setAggressiveness to complete the function call
-IOReturn Apple02Audio::setAggressiveness(unsigned long type, unsigned long newLevel) {
+IOReturn Apple02Audio::setAggressiveness ( unsigned long type, unsigned long newLevel ) {
 	IOReturn				result;
 	UInt32					time = 0;
 
-	debugIOLog (3,  "+ Apple02Audio::setAggressiveness ( %ld, %ld )", type, newLevel );
 	if (type == kPMPowerSource) {
-		debugIOLog (3, "setting power aggressivness state to ");
 		switch (newLevel) {
 			case kIOPMInternalPower:								// Running on battery only
-				debugIOLog (3, "battery power");
+				debugIOLog (3,  "+ Apple02Audio::setAggressiveness ( %ld kIOPMInternalPower, %ld kIOPMInternalPower )", type, newLevel );
 				idleSleepDelayTime = kBatteryPowerDownDelayTime;
 				setIdleAudioSleepTime (idleSleepDelayTime);
 				if (!asyncPowerStateChangeInProgress && getPowerState () != kIOAudioDeviceActive) {
 					performPowerStateChange (getPowerState (), kIOAudioDeviceIdle, &time);
 				}
+				result = super::setAggressiveness(type, newLevel);
+				debugIOLog (3,  "- Apple02Audio::setAggressiveness ( %ld kIOPMInternalPower, %ld kIOPMInternalPower ) returns 0x%lX", type, newLevel, result );
 				break;
 			case kIOPMExternalPower:								// Running on AC power
-				debugIOLog (3, "wall power");
-				// idleSleepDelayTime = kACPowerDownDelayTime;		// idle power down after 5 minutes
+				debugIOLog (3,  "+ Apple02Audio::setAggressiveness ( %ld kIOPMInternalPower, %ld kIOPMExternalPower )", type, newLevel );
 				idleSleepDelayTime = kNoIdleAudioPowerDown;
 				setIdleAudioSleepTime (idleSleepDelayTime);			// don't tell us about going to the idle state
 				if (!asyncPowerStateChangeInProgress && getPowerState () != kIOAudioDeviceActive) {
 					performPowerStateChange (getPowerState (), kIOAudioDeviceActive, &time);
 				}
+				result = super::setAggressiveness(type, newLevel);
+				debugIOLog (3,  "- Apple02Audio::setAggressiveness ( %ld kIOPMInternalPower, %ld kIOPMExternalPower ) returns 0x%lX", type, newLevel, result );
 				break;
 			default:
-				debugIOLog (3,  "UNKOWN STATE %ld", newLevel );
+				result = super::setAggressiveness(type, newLevel);
 				break;
 		}
+	} else {
+		result = super::setAggressiveness(type, newLevel);
 	}
-
-	result = super::setAggressiveness(type, newLevel);
-	debugIOLog (3,  "- Apple02Audio::setAggressiveness ( %ld, %ld )", type, newLevel );
 	return result;
 }
 
@@ -1390,7 +1396,7 @@ IOReturn Apple02Audio::performPowerStateChange (IOAudioDevicePowerState oldPower
 {
 	IOReturn				result;
 
-	debugIOLog (3, "+ Apple02Audio::performPowerStateChange (%d, %d) -- ourPowerState = %d", oldPowerState, newPowerState, ourPowerState);
+	debugIOLog (3, "+ Apple02Audio::performPowerStateChange ( %d, %d, %d ), ourPowerState = %d", oldPowerState, newPowerState, microsecondsUntilComplete, ourPowerState);
 
 	if (NULL != theAudioPowerObject) {
 		*microsecondsUntilComplete = theAudioPowerObject->GetTimeToChangePowerState (ourPowerState, newPowerState);
@@ -1409,11 +1415,11 @@ IOReturn Apple02Audio::performPowerStateChange (IOAudioDevicePowerState oldPower
 		}
 	}
 
-	debugIOLog (3, "- Apple02Audio::performPowerStateChange -- ourPowerState = %d", ourPowerState);
-
+	debugIOLog (3, "- Apple02Audio::performPowerStateChange ( %d, %d, %d ) returns 0x%lX, ourPowerState = %d", oldPowerState, newPowerState, microsecondsUntilComplete, result, ourPowerState);
 	return result;
 }
 
+//  --------------------------------------------------------------------------------
 void Apple02Audio::performPowerStateChangeThread (Apple02Audio * aoa, thread_call_param_t newPowerState) {
 	IOCommandGate *			cg;
 
@@ -1429,42 +1435,53 @@ Exit:
 	return;
 }
 
-IOReturn Apple02Audio::performPowerStateChangeThreadAction (OSObject * owner, void * newPowerState, void * arg2, void * arg3, void * arg4) {
+//  --------------------------------------------------------------------------------
+IOReturn Apple02Audio::performPowerStateChangeThreadAction ( OSObject * owner, void * newPowerState, void * arg2, void * arg3, void * arg4 ) {
 	Apple02Audio *			aoa;
-	IOReturn				result;
+	IOReturn				result = kIOReturnError;
+	
+	switch ( (UInt32)newPowerState ) {
+		case kIOAudioDeviceSleep:   debugIOLog ( 3, "+ Apple02Audio::performPowerStateChangeThreadAction ( %p, %ld kIOAudioDeviceSleep, %d, %d, %d )", owner, (UInt32)newPowerState, arg2, arg3, arg4 );		break;
+		case kIOAudioDeviceIdle:	debugIOLog ( 3, "+ Apple02Audio::performPowerStateChangeThreadAction ( %p, %ld kIOAudioDeviceIdle, %d, %d, %d )", owner, (UInt32)newPowerState, arg2, arg3, arg4 );			break;
+		case kIOAudioDeviceActive:  debugIOLog ( 3, "+ Apple02Audio::performPowerStateChangeThreadAction ( %p, %ld kIOAudioDeviceActive, %d, %d, %d )", owner, (UInt32)newPowerState, arg2, arg3, arg4 );		break;
+		default:					debugIOLog ( 3, "+ Apple02Audio::performPowerStateChangeThreadAction ( %p, %ld, %d, %d, %d )", owner, (UInt32)newPowerState, arg2, arg3, arg4 );							break;
+	}
 	
 	aoa = (Apple02Audio *)owner;
-	debugIOLog (3, "+ Apple02Audio::performPowerStateChangeThreadAction (%p, %ld) -- ourPowerState = %d", owner, (UInt32)newPowerState, aoa->ourPowerState);
-	
-	result = kIOReturnError;
-	
 	FailIf (NULL == aoa, Exit);
+	
+	switch ( aoa->ourPowerState ) {
+		case kIOAudioDeviceSleep:   debugIOLog ( 3, "  ourPowerState = %d kIOAudioDeviceSleep", aoa->ourPowerState );		break;
+		case kIOAudioDeviceIdle:	debugIOLog ( 3, "  ourPowerState = %d kIOAudioDeviceIdle", aoa->ourPowerState );		break;
+		case kIOAudioDeviceActive:  debugIOLog ( 3, "  ourPowerState = %d kIOAudioDeviceActive", aoa->ourPowerState );		break;
+		default:					debugIOLog ( 3, "  ourPowerState = %d ", aoa->ourPowerState );							break;
+	}
 	
 	if (NULL != aoa->theAudioPowerObject) {
 		switch ((UInt32)newPowerState) {
 			case kIOAudioDeviceSleep:
-				if (kIOAudioDeviceSleep != aoa->ourPowerState) {				//	[3193592]
+				if ( kIOAudioDeviceSleep != aoa->ourPowerState ) {				//	[3193592]
 					aoa->outputMuteChange (TRUE);							// Mute before turning off power
 					aoa->ourPowerState = kIOAudioDeviceSleep;
-					debugIOLog (3, "going to sleep state");
+					debugIOLog (3, "  request kIOAudioDeviceSleep");
 					aoa->theAudioPowerObject->setHardwarePowerOff ();
 				}
 				break;
 			case kIOAudioDeviceIdle:
-				if ((kIOAudioDeviceActive == aoa->ourPowerState) || ( kIOAudioDeviceIdle == aoa->ourPowerState )) {	//	[3361022, 3366480]
+				if ( ( kIOAudioDeviceActive == aoa->ourPowerState ) || ( kIOAudioDeviceIdle == aoa->ourPowerState ) ) {	//	[3361022, 3366480]
 					aoa->outputMuteChange (TRUE);							// Mute before turning off power
 					aoa->ourPowerState = kIOAudioDeviceIdle;					//	[3193592]
-					debugIOLog (3, "going idle from active state");
+					debugIOLog (3, "  request kIOAudioDeviceIdle sleep from kIOAudioDeviceActive");
 					aoa->theAudioPowerObject->setIdlePowerState ();			//	[3193592]
-				} else if (kIOAudioDeviceSleep == aoa->ourPowerState && kNoIdleAudioPowerDown == aoa->idleSleepDelayTime) {
+				} else if ( kIOAudioDeviceSleep == aoa->ourPowerState && kNoIdleAudioPowerDown == aoa->idleSleepDelayTime ) {
 					aoa->ourPowerState = kIOAudioDeviceActive;
-					debugIOLog (3, "going active from sleep state");
+					debugIOLog (3, "  request kIOAudioDeviceIdle active from kIOAudioDeviceSleep");
 					aoa->theAudioPowerObject->setHardwarePowerOn ();
-					if (NULL != aoa->outMute) {
+					if ( NULL != aoa->outMute ) {
 						aoa->outMute->flushValue ();							// Restore hardware to the user's selected state
 					}
-				} else if (kIOAudioDeviceSleep == aoa->ourPowerState) {
-					debugIOLog (3, "going idle from sleep state");
+				} else if ( kIOAudioDeviceSleep == aoa->ourPowerState ) {
+					debugIOLog (3, "  request kIOAudioDeviceIdle active from kIOAudioDeviceSleep");
 					aoa->theAudioPowerObject->setHardwarePowerIdleOn ();		//	[3193592]
 					//	[3361022, 3366480]	begin {
 					aoa->setTimerForSleep();									
@@ -1474,41 +1491,52 @@ IOReturn Apple02Audio::performPowerStateChangeThreadAction (OSObject * owner, vo
 						aoa->outMute->flushValue ();							// Restore hardware to the user's selected state
 					}
 				} else {
-					debugIOLog (3, "Trying to go idle, but we already are");
+					debugIOLog (3, "  request kIOAudioDeviceIdle when already kIOAudioDeviceIdle");
 				}
 				break;
 			case kIOAudioDeviceActive:
-				if (kIOAudioDeviceActive != aoa->ourPowerState) {
+				if ( kIOAudioDeviceActive != aoa->ourPowerState ) {
 					//	[3361022, 3366480]	begin {
 					if ( aoa->idleTimer ) {
 						aoa->idleTimer->cancelTimeout ();
 					}
 					//	} end	[3361022, 3366480]
 					aoa->ourPowerState = kIOAudioDeviceActive;
-					debugIOLog (3, "going to active state");
+					debugIOLog (3, "  request kIOAudioDeviceActive");
 					aoa->theAudioPowerObject->setHardwarePowerOn ();
-					if (NULL != aoa->outMute) {
+					if ( NULL != aoa->outMute ) {
 						aoa->outMute->flushValue ();							// Restore hardware to the user's selected state
 					}
 				} else {
-					debugIOLog (3, "trying to wake, but we're already awake");
+					debugIOLog (3, "  request kIOAudioDeviceActive when already kIOAudioDeviceActive");
 				}
 				break;
 			default:
-				;
+				break;
 		}
 	}	
 
-	aoa->setProperty ("IOAudioPowerState", aoa->ourPowerState, 32);
-
+	switch ( aoa->ourPowerState ) {
+		case kIOAudioDeviceSleep:   debugIOLog ( 3, "  ourPowerState = %d kIOAudioDeviceSleep", aoa->ourPowerState );		break;
+		case kIOAudioDeviceIdle:	debugIOLog ( 3, "  ourPowerState = %d kIOAudioDeviceIdle", aoa->ourPowerState );		break;
+		case kIOAudioDeviceActive:  debugIOLog ( 3, "  ourPowerState = %d kIOAudioDeviceActive", aoa->ourPowerState );		break;
+		default:					debugIOLog ( 3, "  ourPowerState = %d ", aoa->ourPowerState );							break;
+	}
+	
+	aoa->setProperty ( "IOAudioPowerState", aoa->ourPowerState, 32 );
 	result = kIOReturnSuccess;
 
 Exit:
 	aoa->protectedCompletePowerStateChange ();
-
-	debugIOLog (3, "- Apple02Audio::performPowerStateChangeThreadAction -- ourPowerState = %d", aoa->ourPowerState);
+	switch ( (UInt32)newPowerState ) {
+		case kIOAudioDeviceSleep:   debugIOLog ( 3, "- Apple02Audio::performPowerStateChangeThreadAction ( %p, %ld kIOAudioDeviceSleep, %d, %d, %d ) returns 0x%lX", owner, (UInt32)newPowerState, arg2, arg3, arg4, result );		break;
+		case kIOAudioDeviceIdle:	debugIOLog ( 3, "- Apple02Audio::performPowerStateChangeThreadAction ( %p, %ld kIOAudioDeviceIdle, %d, %d, %d ) returns 0x%lX", owner, (UInt32)newPowerState, arg2, arg3, arg4, result );		break;
+		case kIOAudioDeviceActive:  debugIOLog ( 3, "- Apple02Audio::performPowerStateChangeThreadAction ( %p, %ld kIOAudioDeviceActive, %d, %d, %d ) returns 0x%lX", owner, (UInt32)newPowerState, arg2, arg3, arg4, result );		break;
+		default:					debugIOLog ( 3, "- Apple02Audio::performPowerStateChangeThreadAction ( %p, %ld, %d, %d, %d ) returns 0x%lX", owner, (UInt32)newPowerState, arg2, arg3, arg4, result );							break;
+	}
 	return result;
 }
+
 
 //********************************************************************************
 //

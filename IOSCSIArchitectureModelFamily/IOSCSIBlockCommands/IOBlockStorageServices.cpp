@@ -96,8 +96,8 @@ struct BlockServicesClientData
 	// The request parameters provided by the client.
 	IOStorageCompletion			completionData;
 	IOMemoryDescriptor * 		clientBuffer;
-	UInt32 						clientStartingBlock;
-	UInt32 						clientRequestedBlockCount;
+	UInt64 						clientStartingBlock;
+	UInt64 						clientRequestedBlockCount;
 	UInt32 						clientRequestedBlockSize;
 	
 	// The internally needed parameters.
@@ -180,6 +180,22 @@ IOBlockStorageServices::doAsyncReadWrite (
 				UInt32					nblks,
 				IOStorageCompletion		completion )
 {
+
+	return doAsyncReadWrite ( buffer, (UInt64) block, (UInt64) nblks, completion );
+
+}
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ doAsyncReadWrite - Performs an asynchronous read or write		   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+IOBlockStorageServices::doAsyncReadWrite (
+				IOMemoryDescriptor *	buffer,
+				UInt64					block,
+				UInt64					nblks,
+				IOStorageCompletion		completion )
+{
 	
 	BlockServicesClientData	*	clientData			= NULL;
 	IOReturn					status 				= kIOReturnNotAttached;
@@ -224,7 +240,7 @@ IOBlockStorageServices::doAsyncReadWrite (
 	
 	fProvider->CheckPowerState ( );
 	
-	status = fProvider->AsyncReadWrite ( buffer, (UInt64) block, (UInt64) nblks, (UInt64) requestBlockSize, (void *) clientData );
+	status = fProvider->AsyncReadWrite ( buffer, block, nblks, (UInt64) requestBlockSize, (void *) clientData );
 	require_success ( status, ReleaseClientDataAndRetain );
 	
 	

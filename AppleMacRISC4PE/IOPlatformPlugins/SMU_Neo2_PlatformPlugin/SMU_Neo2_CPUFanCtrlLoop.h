@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: SMU_Neo2_CPUFanCtrlLoop.h,v 1.5 2004/06/25 02:44:25 dirty Exp $
+ *  File: $Id: SMU_Neo2_CPUFanCtrlLoop.h,v 1.7 2004/07/30 00:17:29 dirty Exp $
  *
  */
 
@@ -54,7 +54,16 @@ protected:
 		// In this class, if we detect a second control in ControlIDsArray,
 		// then we will treat it as the linked control.
 
+		// Even though they are identical, then can have differing min/max values.
+
+	ControlValue			targetValue;
+
 	IOPlatformControl*		linkedControl;
+	ControlValue			linkedControlOutputMin;
+	ControlValue			linkedControlOutputMax;
+
+	ControlValue			minMinimum;
+	ControlValue			maxMaximum;
 
 		// Dedicated temperature sample buffer -- historyArray will be used for power readings.
 

@@ -71,8 +71,6 @@ class IOSCSIPeripheralDeviceNub : public IOSCSIProtocolServices
 	
 private:
 	
-	static void		sStripWhitespace ( char * string, UInt32 length );
-	
 	static bool		sCompareIOProperty (
 										IOService *		object,
 										OSDictionary *	table,

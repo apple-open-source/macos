@@ -1,3 +1,345 @@
+=== WebCore-125.8.10 ===
+
+2004-10-07  Adele Amchan  <adele@apple.com>
+
+        Reviewed by Darin.
+
+        Some of this was rolled from HEAD, and some is a new bug fix that we'll do on TOT separately.
+
+        - fixed <rdar://problem/3827035> REGRESSION (Navy): Safari no longer works with Wachovia online banking after logging in
+        - fixed <rdar://problem/3830201> REGRESSION (Navy): onload handler doesn't run on page with meta refresh (0 duration) (clone for SUPanNavy)
+
+        The fix for <rdar://problem/3773150> made it so we stopped tokenizing once an immediate redirect was pending.
+        For the Wachovia bug, there was a failing history.go call in the <head>; even though it did not cause any
+        navigation, it prevented the rest of the page from being loaded. Now we check to see if the requested history
+        navigation is possible, and if it's not then we continue processing the rest of the page as normal.
+
+        Another problem caused by the same fix is that <meta> redirects were preventing tokenizing in the same way.
+        This is incorrect; the reason the JavaScript-triggered loads prevent tokenizing is that they take place
+        "right away" in other browsers, but that is not true of <meta> redirect. We fixed this by using a separate
+        call for <meta> redirect and not preventing tokenizing when that's in effect.
+
+        * khtml/khtml_part.h: Removed userGesture parameter from scheduleRedirection. Renamed
+        isImmediateRedirectPending to isScheduledLocationChangePending. Added scheduleLocationChange.
+        * khtml/khtml_part.cpp:
+        (KHTMLPart::openURL): Updated for new constant name.
+        (KHTMLPart::scheduleRedirection): Removed now-unneeded userGesture parameter, and removed code that
+        does the special case for redirection during load; a <meta> refresh can never be one of those special
+        redirects during a load because it redirects the frame itself, not another frame. Also tightened up
+        the logic by always stopping the redirect timer even if we aren't restarting it.
+        (KHTMLPart::scheduleLocationChange): Added. Like scheduleRedirection, but with a different constant
+        so we can tell it apart and always a delay of 0. The "redirection during load" case was moved in here
+        and renamed to locationChangeScheduledDuringLoad.
+        (KHTMLPart::isScheduledLocationChangePending): Renamed from isImmediateRedirectPending. This now
+        returns true only for location changes and history navigation, not <meta> redirects.
+        (KHTMLPart::scheduleHistoryNavigation): Added a check of canGoBackOrForward across bridge so we don't
+        set up a history navigation that will just fail later. This fixes the Wachovia bug. Also tightened up
+        logic to do the stop() outside the if as above, and got rid of a silly timer delay computation that
+        always resulted in 0.
+
+        * khtml/khtmlpart_p.h: Added a new value to the RedirectionScheduled enum for scheduleLocationChange
+        and also renamed one of the existing values.
+
+        * khtml/html/htmltokenizer.cpp: (HTMLTokenizer::write): Changed to use isScheduledLocationChangePending instead
+        of isImmediateRedirectPending, because we do want to continue tokenizing if it's actually a redirect.
+
+        * khtml/ecma/kjs_html.cpp: (KJS::HTMLDocument::putValue): Changed to call the new scheduleLocationChange
+        instead of calling scheduleRedirection with delay of 0.
+        * khtml/ecma/kjs_window.cpp:
+        (Window::put): Ditto.
+        (WindowFunc::tryCall): Ditto.
+        (Location::put): Ditto.
+        (LocationFunc::tryCall): Ditto.
+
+        * kwq/KWQKHTMLPart.h: Added canGoBackOrForward.
+        * kwq/KWQKHTMLPart.mm: (KWQKHTMLPart::canGoBackOrForward): Added. Calls across bridge to do the real work.
+
+        * kwq/WebCoreBridge.h: Added canGoBackOrForward.
+
+=== WebCore-125.8.9 ===
+
+2004-09-20  Vicki Murley  <vicki@apple.com>
+
+        - rolled in the fix for 3801256
+
+    2004-09-03  Darin Adler  <darin@apple.com>
+
+        Reviewed by Chris.
+
+        - fixed <rdar://problem/3410112> filename with non-ASCII name for <input type=file> should be sent in the page's encoding
+
+        * khtml/html/html_formimpl.cpp: (DOM::HTMLFormElementImpl::formData):
+        Encode filename using the codec rather than doing the &# dance. It turns out that Mozilla
+        only does the &# thing under certain circumstances that are not important. Always encoding
+        the filename is almost certainly better behavior, and will fix many serious problems for
+        Japanese and Korean users and websites.
+
+2004-09-14  Vicki Murley <vicki@apple.com>
+
+        - roll the fix for 3710123 in
+
+    2004-09-13  Darin Adler  <darin@apple.com>
+
+        Reviewed by Maciej.
+
+        - fixed <rdar://problem/3710123> Loading iframe that replaces content in the parent document crashes Safari (Oracle Portal)
+
+        This is a more complete fix, but it requires the previous attempt at a fix for this same
+        bug below, because this is only the "don't destroy the KHTMLPart" portion; other fixes are
+        still needed to survive shutdown of the part.
+
+        * khtml/ecma/kjs_proxy.cpp: (KJSProxyImpl::interpreter): Call the new keepAlive method.
+        This is called whenever we're about to use an interpreter to run some JavaScript, and
+        it's JavaScript that might destroy the part, hence the interpreter.
+
+        * khtml/khtml_part.h: Added keepAlive() and slotEndLifeSupport() member functions.
+        * khtml/khtmlpart_p.h: Added m_lifeSupportTimer.
+        * khtml/khtml_part.cpp:
+        (KHTMLPart::init): Connects m_lifeSupportTimer to slotEndLifeSupport.
+        (KHTMLPart::write): Removed old attempt to work around this issue.
+        (KHTMLPart::end): Ditto.
+        (KHTMLPart::keepAlive): Added. References the part, then sets up a one-shot timer.
+        (KHTMLPart::slotEndLifeSupport): Added. Stops the timer and then removes the reference
+        from the part, possibly destroying it.
+
+        * kwq/KWQSlot.mm:
+        (KWQSlot::KWQSlot): Added the new slot to the list of slots.
+        (KWQSlot::call): Ditto.
+
+2004-09-14  Vicki Murley <vicki@apple.com>
+
+        - roll the fix for <rdar://problem/3791496> back in
+
+=== WebCore-125.8.8 ===
+
+2004-09-13  Vicki Murley <vicki@apple.com>
+
+        - roll the fix for <rdar://problem/3791496> off the branch, since we won't be including this in SUPanNavy
+
+2004-09-13  Vicki Murley <vicki@apple.com>
+
+	- fix merge errors from <rdar://problem/3773150>
+
+        * khtml/html/htmltokenizer.cpp:
+        (HTMLTokenizer::write):
+        * khtml/khtml_part.cpp:
+        (KHTMLPart::isImmediateRedirectPending):
+
+2004-09-10  Vicki Murley <vicki@apple.com>
+
+	- merge these changes for SUPanNavy, <rdar://problem/3773150> 
+
+    2004-08-13  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Darin.
+
+        - fixed <rdar://problem/3752509> Pop up windows not showing up within SAP's 
+	BW Module (changing location.href on new window created by window.open)
+        
+        (actually the previous fix for this bug was mostly correct, but
+        this additional change is needed to avoid the regression in
+        <rdar://problem/3751025> REGRESSION: website rejects Safari 125.9
+        as "need to upgrade to IE 6", but didn't reject 125.8
+
+        So if merging for a software update, make sure to include both
+        this and the previous fix.
+        
+        * khtml/html/htmltokenizer.cpp:
+        (khtml::HTMLTokenizer::write): When there is an immediate reidrect pending,
+        make sure to stop tokenizing, because we need to make sure no further
+        script tags are processed beyond the one that triggered the redirect.
+        * khtml/khtml_part.cpp:
+        (KHTMLPart::isImmediateRedirectPending): New method to allow
+        checking if a redirect is pending.
+        * khtml/khtml_part.h:
+
+    2004-06-18  John Sullivan  <sullivan@apple.com>
+
+        Reviewed by Darin
+        
+        - fixed <rdar://problem/3534851> Pop up windows not showing up within SAP's 
+        BW Module (changing location.href on new window created by window.open)
+
+        * khtml/khtml_part.cpp:
+        (KHTMLPart::scheduleRedirection):
+        allow new redirect to win if delay <= current delay, not just <
+
+2004-09-10  Vicki Murley <vicki@apple.com>
+
+	- code changes by Darin, reviewed by Vicki
+
+	Fix build breakage on the branch caused by bad merging for <rdar://problem/3772916> controls 
+	on page at http://help.sap.com don't work properly (clone for SUPanNavy)
+
+        * khtml/ecma/kjs_dom.lut.h:
+        (KJS::):
+        * khtml/ecma/kjs_window.cpp:
+        (Window::Window):
+        (BarInfo::BarInfo):
+
+2004-09-08  Vicki Murley <vicki@apple.com>
+
+	- check in regenerated file khtml/ecma/kjs_window.lut.h, for 3772916
+        
+	* khtml/ecma/kjs_window.lut.h:
+        (KJS::):
+
+2004-09-08  Vicki Murley <vicki@apple.com>
+
+	- merge this fix from HEAD for SUPanNavy, <rdar://problem/3791496>
+
+    2004-08-10  Darin Adler  <darin@apple.com>
+
+        Reviewed by Trey.
+
+        - fixed <rdar://problem/3710123> Loading iframe that replaces content in the parent document crashes Safari
+
+        I fixed three problems:
+
+            1) script interpreter destroyed while it was interpreting scripts, caused random havoc
+            2) code trying to get to view after view was detached from part, caused nil-deref
+            3) signals sent to parent after child was no longer in the parent's frames list, caused nil-deref
+
+        Now the test page works fine. Hope the real sites do too.
+
+        * khtml/khtml_part.h: Add connectChild and disconnectChild helper functions (private). 
+        * khtml/khtml_part.cpp: 
+        (KHTMLPart::clear): Call disconnectChild on each frame as we detach it (see below).
+        (KHTMLPart::end): Ref the part at the start, and deref the part at the end, of this function.
+        Otherwise, we can end up destroying the part, and hence the interpreter, inside a script that
+        the interpreter itself is running.
+        (KHTMLPart::slotFinishedParsing): Add another check for a nil m_view, after the call to
+        checkCompleted.
+        (KHTMLPart::checkCompleted): Remove bogus if statement with empty body.
+        (KHTMLPart::processObjectRequest): Call disconnectChild to disconnect the child <-> parent signals of the
+        old child that the new one is replacing, and connectChild to connect the signals (nicer factoring).
+        (KHTMLPart::slotChildCompleted): Fixed up a confusing boolean if/expression to be simpler. Not related to
+        the bug fix, but an earlier version of the fix had changes in this function.
+        (KHTMLPart::connectChild): Added. Connects the appropriate signals for a child frame.
+        (KHTMLPart::disconnectChild): Added. Disconnects the same signals that connectChild connects.
+
+        * kwq/KWQKHTMLPart.mm: (KHTMLPart::frameDetached): Added a call to disconnectChild before removing the
+        child from the frames list. 
+
+2004-09-08  Vicki Murley <vicki@apple.com>
+
+	- A few follow up changes necessary to really fix the colgroup crash, 
+	<rdar://problem/3791559>.  I've included the original ChangeLog comments 
+	below. I did not merge the changes in render_block.cpp to eliminate redundant
+	setPos -500000 calls, since those weren't necessary for this fix.
+
+        * khtml/html/htmlparser.cpp:
+        (KHTMLParser::insertNode):
+        * khtml/rendering/render_block.cpp:
+        (khtml::RenderBlock::addChildToFlow):
+
+    2004-09-01  David Hyatt  <hyatt@apple.com>
+
+        Fix for 3769409, a regression from 10.3.4 to 10.3.5 involving <colgroup>s in malformed HTML.
+        
+        Reviewed by mjs
+
+        * khtml/html/htmlparser.cpp: 
+        (KHTMLParser::insertNode):
+
+    2004-09-01  David Hyatt  <hyatt@apple.com>
+
+        Fix for the <colgroup> crasher.  Make sure adding to an anonymous box just returns immediately. Also eliminate
+        all the redundant setPos -500000 calls, since we don't need those at all.
+        
+        Reviewed by john
+
+        * khtml/rendering/render_block.cpp: 
+        (khtml::RenderBlock::addChildToFlow):
+
+2004-09-08  Vicki Murley <vicki@apple.com>
+
+	- merge this fix from HEAD for SUPanNavy, <rdar://problem/3791559>
+
+    2004-08-26  David Hyatt  <hyatt@apple.com>
+
+        Fix for 3777172, crash from nested colgroup.  Don't allow nested table sections or col groups.
+        
+        Reviewed by darin
+
+        * khtml/html/htmlparser.cpp:
+        (KHTMLParser::insertNode):
+
+2004-09-07  Vicki Murley <vicki@apple.com>
+
+	- merge this fix from HEAD for SUPanNavy, <rdar://problem/3791536>
+
+    2004-08-25  Kevin Decker  <kdecker@apple.com>
+
+        Reviewed by John and Maciej.
+
+        - Fixes SAP bug <rdar://problem/3751295> Personalize link at the
+        top gives an error in the pop-up window. 
+
+        * khtml/ecma/kjs_window.cpp:
+        (WindowFunc::tryCall): Passes a referrer to KHTMLPart::begin() 
+
+2004-09-07  Vicki Murley <vicki@apple.com>
+
+	- merge this change from HEAD for SUPanNavy, <rdar://problem/3772907>
+
+    2004-08-12  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Richard.
+
+        <rdar://problem/3245706> URLs with backslashes instead of slashes work on WinIE; should work on Safari (SAP)
+        <rdar://problem/3506429> <BASE> tag containing backslash is breaking images with absolute URLs
+        
+        * kwq/KWQKURL.mm:
+        (substituteBackslashes): Helper method
+        (KURL::KURL): If the URL contains any backslashes, substitute all
+        that appear before the query or fragment.
+
+2004-09-07  Vicki Murley <vicki@apple.com>
+
+	- merge this fix from HEAD for SUPanNavy, <rdar://problem/3772916>
+
+    2004-07-28  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Trey.
+
+        <rdar://problem/3678534> controls on page at http://help.sap.com don't work properly
+
+        To fix this I implemented the various JavaScript BarInfo properties in JavaScript.
+        
+        * khtml/ecma/kjs_window.cpp:
+        (Window::Window):
+        (Window::locationbar):
+        (Window::menubar):
+        (Window::personalbar):
+        (Window::statusbar):
+        (Window::toolbar):
+        (Window::scrollbars):
+        (Window::mark):
+        (Window::get):
+        (SelectionFunc::tryCall):
+        (BarInfo::BarInfo):
+        (BarInfo::~BarInfo):
+        (BarInfo::get):
+        (BarInfo::put):
+        * khtml/ecma/kjs_window.h:
+        (KJS::Window::):
+        (KJS::BarInfo::):
+        (KJS::BarInfo::part):
+        (KJS::BarInfo::classInfo):
+        * khtml/ecma/kjs_window.lut.h:
+        (KJS::):
+        * kwq/KWQKHTMLPart.h:
+        * kwq/KWQKHTMLPart.mm:
+        (KWQKHTMLPart::locationbarVisible):
+        (KWQKHTMLPart::menubarVisible):
+        (KWQKHTMLPart::personalbarVisible):
+        (KWQKHTMLPart::scrollbarsVisible):
+        (KWQKHTMLPart::statusbarVisible):
+        (KWQKHTMLPart::toolbarVisible):
+
+=== WebCore-125.8.7 === versioning for Security Update, SUPanXpress.  SUPanXpress needs the fix for 3752542 too.
+
 === WebCore-125.8.6 ===
 
 2004-08-05  Vicki Murley  <vicki@apple.com>

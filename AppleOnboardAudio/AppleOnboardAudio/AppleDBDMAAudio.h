@@ -183,6 +183,8 @@ public:
 
 	void				updateDSPForSampleRate (UInt32 inSampleRate);
 	
+	virtual bool		isMixable ();
+	
 	IOReturn			copyDMAStateAndFormat (DBDMAUserClientStructPtr outState);
 	IOReturn			setDMAStateAndFormat ( DBDMAUserClientStructPtr inState );
 	IOReturn			copyInputChannelCommands ( void * inputChannelCommands );
@@ -192,6 +194,8 @@ public:
 	IOReturn			setInputChannelRegisters (void * inState);
 	IOReturn			setOutputChannelRegisters (void * inState);
 
+	bool				updateOutputStreamFormats ();
+
 
 #ifdef _TIME_CLIP_ROUTINE
 	UInt64				getTotalNanos () { return mCurrentTotalNanos; }
@@ -199,6 +203,7 @@ public:
     static const int 	kDBDMADeviceIndex;
     static const int 	kDBDMAOutputIndex;
     static const int 	kDBDMAInputIndex;
+    static const UInt32 kMaxBitWidth;
 #if 0
 	virtual bool		getRunEraseHead ( void ) { return ( false ); }
 #endif
@@ -222,12 +227,14 @@ protected:
 	IOAudioStream *					mInputStream;
 	OSArray *						deviceFormats;
 	void *							mOutputSampleBuffer;
-	void *							mIntermediateSampleBuffer;
+	void *							mIntermediateOutputSampleBuffer;
+	void *							mIntermediateInputSampleBuffer;
 	void *							mInputSampleBuffer;
     UInt32							commandBufferSize;
 	IOFilterInterruptEventSource *	interruptEventSource;
     UInt32							numBlocks;
     UInt32							blockSize;
+    UInt32							mMaxBlockSize;
 	PlatformInterface *				mPlatformObject;
 	
 	//	[3305011]	begin {
@@ -271,6 +278,8 @@ protected:
 	
 	DualMonoModeType				mInputDualMonoMode;
 
+	UInt32							mLastSampleFrameConverted;
+	
 	bool							mUseSoftwareOutputVolume;
 	float							mLeftVolume[1];
 	float							mRightVolume[1];
@@ -290,7 +299,10 @@ protected:
 	bool							dmaRunState;			//	rbm 7.12.02 added for user client support
 	IOAudioStreamFormat				mDBDMAOutputFormat;		//	rbm 7.15.02 added for user client support
 	IOAudioStreamFormat				mDBDMAInputFormat;		//	mpc changed to allow for different formats of input and output dma
-
+	
+	IOAudioStreamFormat				mPreviousDBDMAFormat;
+	UInt32							mPreviousSampleRate;
+	
     IOAudioStreamDirection			direction;
 
 	float							mLastInputSample;
@@ -302,6 +314,7 @@ protected:
 	void							chooseInputConversionRoutinePtr();
 
 	bool							publishStreamFormats (void);
+
 	void							allocateDMABuffers (void);
 	bool							allocateOutputDMADescriptors (void);
 	bool							allocateInputDMADescriptors (void);

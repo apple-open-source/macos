@@ -100,7 +100,7 @@ static struct in_addr *lookup_byname_backend(const char *name, int *count)
 	*count = 0;
 
 	/* always try with wins first */
-	if (resolve_wins(name,0x20,&address,count)) {
+	if (resolve_wins(name,0x00,&address,count)) {
 		if ( (ret = (struct in_addr *)malloc(sizeof(struct in_addr))) == NULL ) {
 			free( address );
 			return NULL;
@@ -118,7 +118,7 @@ static struct in_addr *lookup_byname_backend(const char *name, int *count)
 	/* uggh, we have to broadcast to each interface in turn */
 	for (j=iface_count() - 1;j >= 0;j--) {
 		struct in_addr *bcast = iface_n_bcast(j);
-		ret = name_query(fd,name,0x20,True,True,*bcast,count, &flags, NULL);
+		ret = name_query(fd,name,0x00,True,True,*bcast,count, &flags, NULL);
 		if (ret) break;
 	}
 
@@ -145,7 +145,7 @@ static struct node_status *lookup_byaddr_backend(char *addr, int *count)
 
 	make_nmb_name(&nname, "*", 0);
 	ip = *interpret_addr2(addr);
-	status = node_status_query(fd,&nname,ip, count);
+	status = node_status_query(fd,&nname,ip, count, NULL);
 
 	close(fd);
 	return status;

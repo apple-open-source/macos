@@ -1,15 +1,4 @@
 /* config.h.in.  Generated from configure.in by autoheader.  */
-#undef ino_t
-#undef HAVE_CONNECT
-#undef HAVE_SHORT_INO_T
-#undef HAVE_GETOPT_LONG
-#undef REPLACE_INET_NTOA
-#undef REPLACE_INET_ATON
-#undef HAVE_GETTIMEOFDAY_TZ
-#undef ENABLE_IPV6
-#undef HAVE_SOCKADDR_LEN
-#undef HAVE_SOCKADDR_IN6_SCOPE_ID
-#undef HAVE_SOCKETPAIR
 
 /* Define to one of `_getb67', `GETB67', `getb67' for Cray-2 and Cray-YMP
    systems. This function is required for `alloca.c' support on those systems.
@@ -76,9 +65,6 @@
 /* Define to 1 if you have the <float.h> header file. */
 #undef HAVE_FLOAT_H
 
-/* */
-#undef HAVE_FNMATCH
-
 /* Define to 1 if you have the `fstat' function. */
 #undef HAVE_FSTAT
 
@@ -87,6 +73,15 @@
 
 /* Define to 1 if you have the `getcwd' function. */
 #undef HAVE_GETCWD
+
+/* Define to 1 if you have the `getegid' function. */
+#undef HAVE_GETEGID
+
+/* Define to 1 if you have the `geteuid' function. */
+#undef HAVE_GETEUID
+
+/* Define to 1 if you have the `getgroups' function. */
+#undef HAVE_GETGROUPS
 
 /* Define to 1 if you have the `getnameinfo' function. */
 #undef HAVE_GETNAMEINFO
@@ -193,6 +188,15 @@
 /* Define to 1 if you have the `snprintf' function. */
 #undef HAVE_SNPRINTF
 
+/* Do we have sockaddr_in6.sin6_scope_id? */
+#undef HAVE_SOCKADDR_IN6_SCOPE_ID
+
+/* Do we have sockaddr_in.sin_len? */
+#undef HAVE_SOCKADDR_IN_LEN
+
+/* Do we have sockaddr.sa_len? */
+#undef HAVE_SOCKADDR_LEN
+
 /* Define if you have strct sockaddr_storage. */
 #undef HAVE_SOCKADDR_STORAGE
 
@@ -273,9 +277,6 @@
 /* Define to 1 if you have the <sys/stat.h> header file. */
 #undef HAVE_SYS_STAT_H
 
-/* Define to 1 if you have the <sys/sysctl.h> header file. */
-#undef HAVE_SYS_SYSCTL_H
-
 /* Define to 1 if you have the <sys/time.h> header file. */
 #undef HAVE_SYS_TIME_H
 
@@ -324,6 +325,14 @@
 /* true if you have IPv6 */
 #undef INET6
 
+/* Define to 1 if `major', `minor', and `makedev' are declared in <mkdev.h>.
+   */
+#undef MAJOR_IN_MKDEV
+
+/* Define to 1 if `major', `minor', and `makedev' are declared in
+   <sysmacros.h>. */
+#undef MAJOR_IN_SYSMACROS
+
 /* Define to the address where bug reports for this package should be sent. */
 #undef PACKAGE_BUGREPORT
 
@@ -347,6 +356,9 @@
 
 /* Define as the return type of signal handlers (`int' or `void'). */
 #undef RETSIGTYPE
+
+/* location of configuration file for rsync server */
+#undef RSYNCD_SYSCONF
 
 /* location of rsync on remote machine */
 #undef RSYNC_PATH
@@ -372,9 +384,9 @@
 /* If using the C implementation of alloca, define if you know the
    direction of stack growth for your system; otherwise it will be
    automatically deduced at run-time.
-        STACK_DIRECTION > 0 => grows toward higher addresses
-        STACK_DIRECTION < 0 => grows toward lower addresses
-        STACK_DIRECTION = 0 => direction of growth unknown */
+	STACK_DIRECTION > 0 => grows toward higher addresses
+	STACK_DIRECTION < 0 => grows toward lower addresses
+	STACK_DIRECTION = 0 => direction of growth unknown */
 #undef STACK_DIRECTION
 
 /* Define to 1 if you have the ANSI C header files. */
@@ -399,9 +411,11 @@
 /* Define to `int' if <sys/types.h> doesn't define. */
 #undef gid_t
 
-/* Define as `__inline' if that's what the C compiler calls it, or to nothing
-   if it is not supported. */
+/* Define to `__inline__' or `__inline' if that's what the C compiler
+   calls it, or to nothing if 'inline' is not supported under any name.  */
+#ifndef __cplusplus
 #undef inline
+#endif
 
 /* Define to `unsigned' if <sys/types.h> does not define. */
 #undef ino_t

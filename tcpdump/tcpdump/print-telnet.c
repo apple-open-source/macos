@@ -51,7 +51,7 @@
 
 #ifndef lint
 static const char rcsid[] _U_ =
-     "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-telnet.c,v 1.1.1.4 2004/02/05 19:30:57 rbraun Exp $";
+     "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-telnet.c,v 1.1.1.5 2004/05/21 20:51:30 rbraun Exp $";
 #endif
 
 #include <tcpdump-stdinc.h>
@@ -244,7 +244,7 @@ telnet_print(const u_char *sp, u_int length)
 		if (Xflag && 2 < vflag) {
 			if (first)
 				printf("\nTelnet:");
-			hex_print_with_offset(sp, l, sp - osp);
+			hex_print_with_offset("\n", sp, l, sp - osp);
 			if (l > 8)
 				printf("\n\t\t\t\t");
 			else

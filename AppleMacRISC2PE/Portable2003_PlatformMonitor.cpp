@@ -137,7 +137,7 @@ static ConSensorInfo subSensorArray[kMaxSensorIndex];
  * for each sensor.  For this platform, an additional factor is clamshell state, so that is one of the
  * dimensions here.
  */
-static ThresholdInfo	thermalThresholdInfoArray[kMaxMachineTypes][kMaxSensorIndex][kNumClamshellStates][kMaxThermalStates] =
+static OldThresholdInfo	thermalThresholdInfoArray[kMaxMachineTypes][kMaxSensorIndex][kNumClamshellStates][kMaxThermalStates] =
 {
     {	// PowerBook6,2 values
             {	// Sensor 0

@@ -1,0 +1,784 @@
+Add support for logging daemon messages to an SQL database.
+
+After applying this patch you'll need to run autoconf and autoheader to
+generate updated versions of "configure" and "config.h.in".
+
+You'll need to run configure with the --with-ODBC option in order for the
+extended features to be active.
+
+Patch provided by Steve Sether.
+
+(Tweaked by Wayne Davison for rsync-style purposes but not compiled, so if the
+dblog.c file has a compile problem, it's probably my fault...)
+
+
+--- Makefile.in	10 Feb 2004 17:06:11 -0000	1.98
++++ Makefile.in	24 Apr 2004 08:14:37 -0000
+@@ -32,7 +32,7 @@ ZLIBOBJ=zlib/deflate.o zlib/infblock.o z
+ 	zlib/inflate.o zlib/inftrees.o zlib/infutil.o zlib/trees.o \
+ 	zlib/zutil.o zlib/adler32.o
+ OBJS1=rsync.o generator.o receiver.o cleanup.o sender.o exclude.o util.o \
+-	main.o checksum.o match.o syscall.o log.o backup.o
++	main.o checksum.o match.o syscall.o log.o backup.o @EXTRA_OBJECT@
+ OBJS2=options.o flist.o io.o compat.o hlink.o token.o uidlist.o socket.o \
+ 	fileio.o batch.o clientname.o
+ OBJS3=progress.o pipe.o
+--- /dev/null	1 Jan 1970 00:00:00 -0000
++++ README-ODBC	24 Apr 2004 08:14:37 -0000
+@@ -0,0 +1,80 @@
++This patch adds the following options:
++
++"database logging"
++If set to True, rsync will attempt to connect to
++the specified datasource and write to the named tables.
++Defaults to False.
++
++
++"database datasource"
++Specifies the name of the ODBC data source to use.
++
++"database username"
++The username to use when connecting to the database.
++
++"database password"
++The password to use when connecting to the database.
++
++"transfer table name"
++The name of the transfer table to log to.
++This table contains individual filenames, file sizes, bytes transferred, checksum bytes transferred, operation (send or receive), and a timestamp.
++
++"session table name"
++The name of the session table to log to.
++This table contains the username, module name, module path, ip address, process ID, and a timestamp.
++
++"exit table name"
++The name of the exit table to log to.
++This table contains the total bytes read, total bytes written, total size
++of all files, error code, line the error occured at, file the error occured at
++and the text of the error. (most of which will be blank if the program exited normally).
++
++
++"unique id method"
++Different databases use different methods to get a unique identifier.
++Some databases support sequence objects, and use various forms of the
++nextval command to retrieve a unique identifier from it.  Other databases
++support an autonumber field, and support different methds of retrieving
++the ID used in the last insert.  Valid values for this option are:
++
++	nextval-postgres
++	uses the syntax of nextval for PostgreSQL databases
++
++	nextval-oracle
++	uses the syntax of nextval for Oracle databases
++
++	nextval-db2
++	uses the syntax of nextval for  DB2 databases
++
++	last_insert_id
++	uses the last_insert_id() command for the MySQL databases
++
++	@@IDENTITY
++	uses the @@IDENTITY command for Sybase databases
++
++	custom
++	Define your own method to get a unique identifier.  See the
++	"custom unique id select", and the "get custom id before select"
++	parameters.
++
++
++"sequence name"
++If your database supports sequences, list the name of the sequence to use
++for the session unique identifier.
++
++"custom unique id select"
++Only used if you specify the custom method in "unique id method".  This
++is a SQL statement to be executed to get a unique ID.  This SQL
++statement must return one column with the unique ID to use for
++the session ID.  Should be used in concert with the "get custom
++id before select" parameter.
++
++"get custom id before insert"
++This parameter is ignored unless the "unique id method" is set to custom.
++If set to true, the "custom unique id select" statement will
++be executed BEFORE the session row is inserted into the database.
++(as is done when a sequence is used for unique IDs).
++If False the statement will be executed after the session
++row is inserted (as is done when the session ID is automatically generates
++unique IDs).
++Defaults to True.
+--- cleanup.c	27 Jan 2004 08:14:33 -0000	1.21
++++ cleanup.c	24 Apr 2004 08:14:37 -0000
+@@ -138,7 +138,12 @@ void _exit_cleanup(int code, const char 
+ 			code = RERR_VANISHED;
+ 	}
+ 
+-	if (code) log_exit(code, file, line);
++	if (code) {
++		log_exit(code, file, line);
++#ifdef HAVE_LIBODBC
++		db_log_exit(code,file,line);
++#endif
++	}
+ 
+ 	if (verbose > 2)
+ 		rprintf(FINFO,"_exit_cleanup(code=%d, file=%s, line=%d): about to call exit(%d)\n", 
+--- clientserver.c	14 Apr 2004 23:33:34 -0000	1.121
++++ clientserver.c	24 Apr 2004 08:14:37 -0000
+@@ -311,6 +311,9 @@ static int rsync_module(int f_in, int f_
+ 	exclude_path_prefix = NULL;
+ 
+ 	log_init();
++#ifdef HAVE_LIBODBC
++	db_log_open();
++#endif
+ 
+ 	if (use_chroot) {
+ 		/*
+@@ -429,6 +432,9 @@ static int rsync_module(int f_in, int f_
+ 			rprintf(FINFO,"rsync %s %s from %s@%s (%s)\n",
+ 				am_sender?"on":"to",
+ 				request, auth_user, host, addr);
++#ifdef HAVE_LIBODBC
++			db_log_session();
++#endif
+ 		} else {
+ 			rprintf(FINFO,"rsync %s %s from %s (%s)\n",
+ 				am_sender?"on":"to",
+--- configure.in	17 Apr 2004 18:40:16 -0000	1.191
++++ configure.in	24 Apr 2004 08:14:38 -0000
+@@ -94,6 +94,8 @@ AC_ARG_WITH(rsync-path,
+ 	[  --with-rsync-path=PATH  set default --rsync-path to PATH (default: rsync)],
+ 	[ RSYNC_PATH="$with_rsync_path" ],
+ 	[ RSYNC_PATH="rsync" ])
++AC_ARG_WITH(ODBC,
++	[  --with-ODBC             compile in support for ODBC database logging])
+ 
+ AC_DEFINE_UNQUOTED(RSYNC_PATH, "$RSYNC_PATH", [location of rsync on remote machine])
+ 
+@@ -458,6 +460,14 @@ fi
+ if test x"$with_included_popt" != x"yes"
+ then
+     AC_CHECK_LIB(popt, poptGetContext, , [with_included_popt=yes])
++fi
++
++if test x"$with_ODBC" = x"yes"
++then
++    AC_CHECK_HEADERS(sql.h sqlext.h sqltypes.h)
++    AC_CHECK_LIB(odbc,SQLExecDirect)
++    EXTRA_OBJECT="$EXTRA_OBJECT dblog.o"
++    AC_SUBST(EXTRA_OBJECT)
+ fi
+ 
+ AC_MSG_CHECKING([whether to use included libpopt])
+--- /dev/null	1 Jan 1970 00:00:00 -0000
++++ dblog-tables-mysql.sql	24 Apr 2004 08:14:38 -0000
+@@ -0,0 +1,43 @@
++drop table transfer;
++drop table exit;
++drop table session;
++
++CREATE TABLE session (
++	id			int auto_increment NOT NULL,
++	date			timestamp NOT NULL,
++	ip_address		varchar(15) NOT NULL,
++	username		varchar(20) NOT NULL,
++	module_name		varchar(20) NOT NULL,
++	module_path		varchar(255) NOT NULL,
++	process_id		int NOT NULL,
++	Primary Key (id)
++);
++
++CREATE TABLE transfer (
++	id			int auto_increment NOT NULL,
++	session_id		int NOT NULL,
++	date			timestamp NOT NULL,
++	file_path		varchar(255) NOT NULL,
++	file_name		varchar(255) NOT NULL,
++	file_size		bigint NOT NULL,
++	bytes_transferred	bigint NOT NULL,
++	checksum_bytes_transferred bigint NOT NULL,
++	operation		varchar(20),
++	Primary Key (id),
++	foreign key (session_id) references session (id)
++);
++
++CREATE TABLE exit (
++	id			int auto_increment NOT NULL,
++	session_id		int NOT NULL,
++	date			timestamp NOT NULL,
++	total_bytes_written	bigint NOT NULL,
++	total_bytes_read	bigint NOT NULL,
++	total_size		bigint NOT NULL,
++	error_text		varchar(128) NOT NULL,
++	error_code		int NOT NULL,
++	error_file		varchar(64) NOT NULL,
++	error_line		int NOT NULL,
++	Primary Key (id),
++	foreign key (session_id) references session (id)
++);
+--- /dev/null	1 Jan 1970 00:00:00 -0000
++++ dblog-tables-postgresql.sql	24 Apr 2004 08:14:38 -0000
+@@ -0,0 +1,45 @@
++drop table transfer;
++drop table exit;
++drop table session;
++drop sequence session_id_seq;
++create sequence session_id_seq;
++
++CREATE TABLE "session" (
++	"id"			int NOT NULL,
++	"date"			timestamp NOT NULL default now(),
++	"ip_address"		varchar(15) NOT NULL,
++	"username"		varchar(20) NOT NULL,
++	"module_name"		varchar(20) NOT NULL,
++	"module_path"		varchar(255) NOT NULL,
++	"process_id"		int NOT NULL,
++	Primary Key (id)
++);
++
++CREATE TABLE "transfer" (
++	"id"			serial NOT NULL,
++	"session_id"		int NOT NULL,
++	"date"			timestamp NOT NULL default now(),
++	"file_path"		varchar(512) NOT NULL,
++	"file_name"		varchar(512) NOT NULL,
++	"file_size"		bigint NOT NULL,
++	"bytes_transferred"	bigint NOT NULL,
++	"checksum_bytes_transferred" bigint NOT NULL,
++	"operation"		varchar(20),
++	Primary Key (id),
++	foreign key (session_id) references session (id)
++);
++
++CREATE TABLE "exit" (
++	"id"			serial NOT NULL,
++	"session_id"		int NOT NULL,
++	"date"			timestamp NOT NULL default now(),
++	"total_bytes_written"	bigint NOT NULL,
++	"total_bytes_read"	bigint NOT NULL,
++	"total_size"		bigint NOT NULL,
++	"error_text"		varchar(128) NOT NULL,
++	"error_code"		int NOT NULL,
++	"error_file"		varchar(64) NOT NULL,
++	"error_line"		int NOT NULL,
++	Primary Key (id),
++	foreign key (session_id) references session (id)
++);
+--- /dev/null	1 Jan 1970 00:00:00 -0000
++++ dblog.c	24 Apr 2004 08:14:38 -0000
+@@ -0,0 +1,352 @@
++/*
++ *  ODBC Database logging functions
++ *
++ *  Written by Steve Sether, April 2004
++ *  steve@vellmont.com
++ */
++
++#include "rsync.h"
++
++#ifdef HAVE_SQL_H
++#include <sql.h>
++#else
++#ifdef HAVE_ODBC_SQL_H
++#include <odbc/sql.h>
++#endif
++#endif
++
++#ifdef HAVE_SQLEXT_H
++#include <sqlext.h>
++#else
++#ifdef HAVE_ODBC_SQLEXT_H
++#include <odbc/sqlext.h>
++#endif
++#endif
++
++#ifdef HAVE_SQLTYPES_H
++#include <sqltypes.h>
++#else
++#ifdef HAVE_ODBC_SQLTYPES_H
++#include <odbc/sqltypes.h>
++#endif
++#endif
++
++SQLHENV db_environ_handle;			/* Handle ODBC environment */
++long result;					/* result of functions */
++SQLHDBC db_handle= NULL;			/* database connection handle */
++SQLHSTMT sql_statement_handle;			/* SQL statement handle */
++extern int am_sender;
++extern char *auth_user;
++extern int module_id;
++
++char sql_status[10];				/* Status SQL */
++SQLINTEGER V_OD_err, V_OD_rowanz, V_OD_id;
++SQLSMALLINT V_OD_mlen, V_OD_colanz;
++char V_OD_msg[200], V_OD_buffer[200];
++SQLINTEGER session_id;
++
++
++/* This function simply removes invalid characters from the SQL statement
++ * to prevent SQL injection attacks. */
++char *sanitizeSql(const char *input)
++{
++	char *out, *ptr;
++	const char *c;
++
++	if (strlen(input) > ((~(unsigned int)0)>>1)-3)
++		return 0;
++	if (!(out = ptr = new_array(char, strlen(input) * 2 + 1)))
++		return 0;
++
++	for (c = input;  *c;  c++) {
++		switch (*c) {
++		case '\'':
++			*ptr++ = '\'';
++			*ptr++ = '\'';
++			break;
++		case '\b':
++			*ptr++ = '\\';
++			*ptr++ = 'b';
++			break;
++		case '\n':
++			*ptr++ = '\\';
++			*ptr++ = 'n';
++			break;
++		case '\r':
++			*ptr++ = '\\';
++			*ptr++ = 'r';
++			break;
++		case '\t':
++			*ptr++ = '\\';
++			*ptr++ = 't';
++			break;
++		default:
++			*ptr++ = *c;
++			break;
++		}
++	}
++	*ptr = '\0';
++	return out;
++}
++
++void db_log_open(void)
++{
++	if (lp_database_logging(module_id)) {
++		if (db_handle == NULL) {
++			/* get ODBC environment handle */
++			result = SQLAllocHandle(SQL_HANDLE_ENV,SQL_NULL_HANDLE,&db_environ_handle);
++			if (result != SQL_SUCCESS && result != SQL_SUCCESS_WITH_INFO) {
++				rprintf(FERROR, "Error: couldn't get database environment handle\n");
++				return;
++			}
++
++			/* Setting database enviroment */
++			result = SQLSetEnvAttr(db_environ_handle, SQL_ATTR_ODBC_VERSION, (void*)SQL_OV_ODBC3, 0);
++			if (result != SQL_SUCCESS && result != SQL_SUCCESS_WITH_INFO) {
++				rprintf(FERROR, "Error: couldn't set database environment.\n");
++				SQLFreeHandle(SQL_HANDLE_ENV, db_environ_handle);
++				db_environ_handle = NULL;
++				return;
++			}
++
++			/* Get a database handle */
++			result = SQLAllocHandle(SQL_HANDLE_DBC, db_environ_handle, &db_handle);
++			if (result != SQL_SUCCESS && result != SQL_SUCCESS_WITH_INFO) {
++				rprintf(FERROR, "Error: couldn't allocate database handle\n");
++				SQLFreeHandle(SQL_HANDLE_ENV, db_environ_handle);
++				db_environ_handle = NULL;
++				return;
++			}
++
++			/* Set connection attributes */
++			SQLSetConnectAttr(db_handle, SQL_LOGIN_TIMEOUT, (SQLPOINTER *)5, 0);
++
++			/* Connect to the database. */
++			result = SQLConnect(db_handle, (SQLCHAR*) lp_database_datasource(module_id), SQL_NTS,
++			    (SQLCHAR*) lp_database_username(module_id), SQL_NTS,
++			    (SQLCHAR*) lp_database_password(module_id), SQL_NTS);
++
++			if (result != SQL_SUCCESS && result != SQL_SUCCESS_WITH_INFO) {
++				SQLGetDiagRec(SQL_HANDLE_DBC, db_handle,1,
++				    sql_status, &V_OD_err,V_OD_msg,100,&V_OD_mlen);
++				rprintf(FERROR,"Error Connecting to Database %s\n",V_OD_msg);
++				SQLFreeHandle(SQL_HANDLE_DBC,db_handle);
++				db_handle = NULL;
++				SQLFreeHandle(SQL_HANDLE_ENV, db_environ_handle);
++				db_environ_handle = NULL;
++				return;
++			}
++			rprintf(FLOG,"Connected to database!\n");
++
++			/* get SQL statement handle */
++			result = SQLAllocHandle(SQL_HANDLE_STMT, db_handle, &sql_statement_handle);
++			if (result != SQL_SUCCESS && result != SQL_SUCCESS_WITH_INFO) {
++				SQLGetDiagRec(SQL_HANDLE_DBC, db_handle,1, sql_status,&V_OD_err,V_OD_msg,100,&V_OD_mlen);
++				rprintf(FERROR,"Error in allocating SQL statement handle %s\n",V_OD_msg);
++				SQLDisconnect(db_handle);
++				SQLFreeHandle(SQL_HANDLE_DBC,db_handle);
++				db_handle = NULL;
++				SQLFreeHandle(SQL_HANDLE_ENV, db_environ_handle);
++				db_environ_handle = NULL;
++				return;
++			}
++		} else {
++			rprintf(FERROR,"Already connected to database\n");
++		}
++	}
++}
++
++void db_log_close()
++{
++	if (lp_database_logging(module_id)) {
++		if (sql_statement_handle != NULL) {
++			/* free the statement handle first */
++			SQLFreeHandle(SQL_HANDLE_STMT,sql_statement_handle);
++			sql_statement_handle = NULL;
++		} else {
++			rprintf(FERROR,"No sql statement handle to close\n");
++		}
++		if (db_handle != NULL) {
++			/* disconnect, and free the database handle. */
++			SQLDisconnect(db_handle);
++			SQLFreeHandle(SQL_HANDLE_DBC,db_handle);
++			db_handle = NULL;
++		} else {
++			rprintf(FERROR,"Database already closed");
++		}
++		if (db_environ_handle != NULL) {
++			/* free the environment handle */
++			SQLFreeHandle(SQL_HANDLE_ENV, db_environ_handle);
++			db_environ_handle = NULL;
++		} else {
++			rprintf(FERROR,"No environment handle to close");
++		}
++	}
++}
++
++static long get_unique_session_id()
++{
++	long unique;
++	char strSqlStatement[1024];
++
++	if (db_handle != NULL) {
++		/* choose the appropriate select statement based upon which DBMS we're using.
++		 * different datbases use different methods to get a unique ID.  Some use a counter
++		 * object (sequence), others use an auto increment datatype and have a method
++		 * to get the last ID inserted using this connection. */
++		if (strcmp(lp_unique_id_method(module_id),"nextval-postgresql") == 0) {
++			snprintf(strSqlStatement,sizeof(strSqlStatement),"SELECT NEXTVAL('%s');",lp_sequence_name(module_id));
++		} else if (strcmp(lp_unique_id_method(module_id),"nextval-oracle") == 0) {
++			snprintf(strSqlStatement,sizeof(strSqlStatement),"SELECT %s.NEXTVAL FROM dual;",lp_sequence_name(module_id));
++		} else if (strcmp(lp_unique_id_method(module_id),"nextval-db2") == 0) {
++			snprintf(strSqlStatement,sizeof(strSqlStatement),"VALUES NEXTVAL FOR %s;",lp_sequence_name(module_id));
++		} else if (strcmp(lp_unique_id_method(module_id),"last_insert_id") == 0) {  /* MySql */
++			snprintf(strSqlStatement,sizeof(strSqlStatement),"SELECT LAST_INSERT_ID()");
++		} else if (strcmp(lp_unique_id_method(module_id),"@@IDENTITY") == 0) {           /* Sybase */
++			snprintf(strSqlStatement,sizeof(strSqlStatement),"SELECT @@IDENTITY");
++		} else if (strcmp(lp_unique_id_method(module_id),"custom") == 0){     /* Users custom statement */
++			snprintf(strSqlStatement,sizeof(strSqlStatement),lp_custom_unique_id_select(module_id));
++		}
++
++		/* bind the 1st column to unique */
++		SQLBindCol(sql_statement_handle,1,SQL_C_LONG,&unique,150,&V_OD_err);
++		/* execute the SQL statement */
++		result = SQLExecDirect(sql_statement_handle,strSqlStatement,SQL_NTS);
++		if (result != SQL_SUCCESS && result != SQL_SUCCESS_WITH_INFO) {
++			SQLGetDiagRec(SQL_HANDLE_DBC, db_handle,1, sql_status,&V_OD_err,V_OD_msg,100,&V_OD_mlen);
++			rprintf(FERROR,"Error at get_sequence:  Error in Select! %s %s\n",strSqlStatement,V_OD_msg);
++		} else {
++			result = SQLFetch(sql_statement_handle);
++			if (result != SQL_NO_DATA && unique != 0) {
++				rprintf(FINFO,"Got unique sequence! %ld\n",unique);
++			} else {
++				rprintf(FERROR,"Error at get_sequence:  Didn't get unique session ID\n");
++			}
++			/* Close the cursor so the statement can be re-used */
++			result = SQLFreeStmt(sql_statement_handle,SQL_CLOSE);
++			if (result != SQL_SUCCESS && result != SQL_SUCCESS_WITH_INFO) {
++				SQLGetDiagRec(SQL_HANDLE_DBC, db_handle,1, sql_status,&V_OD_err,V_OD_msg,100,&V_OD_mlen);
++				rprintf(FERROR,"Error at get_sequence: Error in closing SQL statement handle %s\n",V_OD_msg);
++				return unique;
++			}
++			return unique;
++		}
++	}
++	rprintf(FERROR,"Error at get_sequence: Not connected to database\n");
++	return -1;
++}
++
++
++void db_log_session()
++{
++	char strSqlStatement[1024];
++	int gotSessionID = 0;
++	if (lp_database_logging(module_id)) {
++		/* if we're using a sequence via the nextval command to get a unique ID, we need to get it before
++		 * we do the insert. We also get the unique ID  now if custom, and get_custom_id_before_insert is set. */
++		if (strcmp(lp_unique_id_method(module_id),"nextval-postgresql") == 0
++		    || strcmp(lp_unique_id_method(module_id),"nextval-oracle") == 0
++		    || strcmp(lp_unique_id_method(module_id),"nextval-db2") == 0
++		    || (strcmp(lp_unique_id_method(module_id),"custom") == 0
++		     && lp_get_custom_id_before_insert(module_id))) {
++			session_id = get_unique_session_id();
++			gotSessionID = 1;
++			snprintf(strSqlStatement,sizeof(strSqlStatement),"INSERT INTO %s (id, date, ip_address, username, module_name, module_path, process_id) VALUES ('%ld', '%s', '%s', '%s','%s','%s','%d');",lp_session_table_name(module_id),session_id,timestring(time(NULL)),client_addr(0),auth_user,lp_name(module_id),lp_path(module_id),getpid());
++		} else {
++			/* Otherwise the ID gets created automatically, and we get the ID it used after the insert. */
++			snprintf(strSqlStatement,sizeof(strSqlStatement),"INSERT INTO %s (date, ip_address, username, module_name, module_path, process_id) VALUES ('%s', '%s', '%s', '%s','%s','%d');",lp_session_table_name(module_id),timestring(time(NULL)),client_addr(0),auth_user,lp_name(module_id),lp_path(module_id),getpid());
++		}
++
++		/* Insert the new session into the database */
++		result = SQLExecDirect(sql_statement_handle,strSqlStatement,SQL_NTS);
++		if (result != SQL_SUCCESS && result != SQL_SUCCESS_WITH_INFO) {
++			SQLGetDiagRec(SQL_HANDLE_DBC, db_handle,1, sql_status,&V_OD_err,V_OD_msg,100,&V_OD_mlen);
++			rprintf(FERROR,"Error at db_log_session: Error in Insert %s %s\n",strSqlStatement,V_OD_msg);
++		}
++
++		/* close the cursor so the statement handle can be re-used. */
++		result = SQLFreeStmt(sql_statement_handle,SQL_CLOSE);
++		if (result != SQL_SUCCESS && result != SQL_SUCCESS_WITH_INFO) {
++			SQLGetDiagRec(SQL_HANDLE_DBC, db_handle,1, sql_status,&V_OD_err,V_OD_msg,100,&V_OD_mlen);
++			rprintf(FERROR,"Error in resetting SQL statement handle %s\n",V_OD_msg);
++		}
++		/* get the session ID for databases that give the unique ID after an insert */
++		if (gotSessionID == 0) {
++			session_id = get_unique_session_id();
++		}
++	}
++	else {
++		rprintf(FERROR,"Error at db_log_session:  Not connected to database!\n");
++	}
++}
++
++void db_log_transfer(struct file_struct *file,struct stats *initial_stats,char *operation)
++{
++	extern struct stats stats;
++	char strSqlStatement[1024];
++	char strFilePath[255];
++	char strFileName[255];
++	char strFileSize[255];
++	int64 intBytesTransferred;
++	int64 intCheckSumBytes;
++
++	if (lp_database_logging(module_id)) {
++		if (db_handle != NULL) {
++			snprintf(strFileName,sizeof(strFileName), "%s",f_name(file));
++			snprintf(strFilePath, sizeof(strFilePath), "%s", file->basedir?file->basedir:"");
++			snprintf(strFileSize,sizeof(strFileSize),"%.0f", (double)file->length);
++			if (am_sender) {
++				intBytesTransferred = stats.total_written - initial_stats->total_written;
++			} else {
++				intBytesTransferred = stats.total_read - initial_stats->total_read;
++			}
++
++			if (!am_sender) {
++				intCheckSumBytes = stats.total_written - initial_stats->total_written;
++			} else {
++				intCheckSumBytes = stats.total_read - initial_stats->total_read;
++			}
++
++			snprintf(strSqlStatement,sizeof(strSqlStatement),"INSERT INTO %s (session_id,date,file_path, file_name, file_size, bytes_transferred, checksum_bytes_transferred, operation) VALUES ('%ld','%s','%s','%s','%s','%Ld','%Ld','%s');",lp_transfer_table_name(module_id),session_id,timestring(time(NULL)),sanitizeSql(strFilePath),sanitizeSql(strFileName),strFileSize,intBytesTransferred,intCheckSumBytes,operation);
++			result = SQLExecDirect(sql_statement_handle,strSqlStatement,SQL_NTS);
++			if (result != SQL_SUCCESS && result != SQL_SUCCESS_WITH_INFO) {
++				SQLGetDiagRec(SQL_HANDLE_DBC, db_handle,1, sql_status,&V_OD_err,V_OD_msg,100,&V_OD_mlen);
++				rprintf(FERROR,"Error at db_log_transfer:  Error in Insert %s %s\n",strSqlStatement,V_OD_msg);
++				if (result == SQL_INVALID_HANDLE)
++					rprintf(FERROR,"INVALID HANDLE\n");
++			}
++		} else {
++			rprintf(FERROR,"Error at db_log_transfer: Not connected to database!\n");
++		}
++	}
++}
++
++
++void db_log_exit(int code, const char *file, int line)
++{
++	char strSqlStatement[2048];
++	const char *error_text;
++	extern struct stats stats;
++	if (db_handle != NULL) {
++		if (lp_database_logging(module_id)) {
++			if (code != 0) {
++				error_text = rerr_name(code);
++				if (!error_text) {
++					error_text = "unexplained error";
++				}
++			} else {
++				error_text = "";
++			}
++			snprintf(strSqlStatement,sizeof(strSqlStatement),"INSERT INTO %s (session_id, date, total_bytes_written,total_bytes_read,total_size,error_text,error_code,error_file,error_line) VALUES ('%ld','%s','%Ld','%Ld','%Ld','%s','%d','%s','%d');",lp_exit_table_name(module_id),session_id,timestring(time(NULL)),stats.total_written,stats.total_read,stats.total_size,error_text,code,file,line);
++
++			result = SQLExecDirect(sql_statement_handle,strSqlStatement,SQL_NTS);
++
++			if (result != SQL_SUCCESS && result != SQL_SUCCESS_WITH_INFO) {
++				SQLGetDiagRec(SQL_HANDLE_DBC, db_handle,1, sql_status,&V_OD_err,V_OD_msg,100,&V_OD_mlen);
++				rprintf(FERROR,"Error at db_log_exit: Error in Insert %s %s\n",strSqlStatement,V_OD_msg);
++			}
++		}
++	} else {
++		rprintf(FERROR,"Error at db_log_exit: Not connected to database!\n");
++	}
++}
+--- loadparm.c	4 Feb 2004 07:31:29 -0000	1.50
++++ loadparm.c	24 Apr 2004 08:14:38 -0000
+@@ -122,6 +122,17 @@ typedef struct
+ 	BOOL list;
+ 	BOOL use_chroot;
+ 	BOOL transfer_logging;
++	BOOL database_logging;
++	char *database_datasource;
++	char *database_username;
++	char *database_password;
++	char *transfer_table_name;
++	char *exit_table_name;
++	char *session_table_name;
++	char *sequence_name;
++	char *unique_id_method;
++	char *custom_unique_id_select;
++	BOOL get_custom_id_before_insert;
+ 	BOOL ignore_errors;
+ 	char *uid;
+ 	char *gid;
+@@ -154,6 +165,17 @@ static service sDefault =
+ 	True,    /* list */
+ 	True,    /* use chroot */
+ 	False,   /* transfer logging */
++	False,   /* Database Logging */
++	NULL,    /* Database datasource */
++	NULL,    /* Database username */
++	NULL,    /* Database password */
++	NULL,    /* Transfer table name */
++	NULL,    /* Exit table name */
++	NULL,    /* Session table name */
++	NULL,    /* sequence name */
++	NULL,    /* unique method */
++	NULL,    /* custom unique id select*/
++	True,    /* get custom id before insert */
+ 	False,   /* ignore errors */
+ 	"nobody",/* uid */
+ 
+@@ -292,6 +314,17 @@ static struct parm_struct parm_table[] =
+   {"include",          P_STRING,  P_LOCAL,  &sDefault.include,     NULL,   0},
+   {"include from",     P_STRING,  P_LOCAL,  &sDefault.include_from,NULL,   0},
+   {"transfer logging", P_BOOL,    P_LOCAL,  &sDefault.transfer_logging,NULL,0},
++  {"database logging", P_BOOL,    P_LOCAL,  &sDefault.database_logging,NULL,0},
++  {"database datasource",P_STRING,P_LOCAL,  &sDefault.database_datasource,NULL,0},
++  {"database username",P_STRING,  P_LOCAL,  &sDefault.database_username,NULL,0},
++  {"database password",P_STRING,  P_LOCAL,  &sDefault.database_password,NULL,0},
++  {"transfer table name",P_STRING,P_LOCAL,  &sDefault.transfer_table_name,NULL,0},
++  {"exit table name",  P_STRING,  P_LOCAL,  &sDefault.exit_table_name,NULL,0},
++  {"session table name",P_STRING, P_LOCAL,  &sDefault.session_table_name,NULL,0},
++  {"sequence name",    P_STRING,  P_LOCAL,  &sDefault.sequence_name,NULL,0},
++  {"unique id method", P_STRING,  P_LOCAL,  &sDefault.unique_id_method,NULL,0},
++  {"custom unique id select",P_STRING,P_LOCAL,&sDefault.custom_unique_id_select,NULL,0},
++  {"get custom id before insert",P_BOOL,P_LOCAL,&sDefault.get_custom_id_before_insert,NULL,0},
+   {"ignore errors",    P_BOOL,    P_LOCAL,  &sDefault.ignore_errors,NULL,0},
+   {"log format",       P_STRING,  P_LOCAL,  &sDefault.log_format,  NULL,   0},
+   {"refuse options",   P_STRING,  P_LOCAL,  &sDefault.refuse_options,NULL, 0},
+@@ -359,6 +392,17 @@ FN_LOCAL_BOOL(lp_read_only, read_only)
+ FN_LOCAL_BOOL(lp_list, list)
+ FN_LOCAL_BOOL(lp_use_chroot, use_chroot)
+ FN_LOCAL_BOOL(lp_transfer_logging, transfer_logging)
++FN_LOCAL_BOOL(lp_database_logging, database_logging)
++FN_LOCAL_STRING(lp_database_datasource, database_datasource)
++FN_LOCAL_STRING(lp_database_username, database_username)
++FN_LOCAL_STRING(lp_database_password, database_password)
++FN_LOCAL_STRING(lp_transfer_table_name, transfer_table_name)
++FN_LOCAL_STRING(lp_exit_table_name, exit_table_name)
++FN_LOCAL_STRING(lp_session_table_name,session_table_name)
++FN_LOCAL_STRING(lp_sequence_name,sequence_name)
++FN_LOCAL_STRING(lp_unique_id_method,unique_id_method)
++FN_LOCAL_STRING(lp_custom_unique_id_select,custom_unique_id_select)
++FN_LOCAL_BOOL(lp_get_custom_id_before_insert,get_custom_id_before_insert)
+ FN_LOCAL_BOOL(lp_ignore_errors, ignore_errors)
+ FN_LOCAL_BOOL(lp_ignore_nonreadable, ignore_nonreadable)
+ FN_LOCAL_STRING(lp_uid, uid)
+--- log.c	20 Jan 2004 05:15:14 -0000	1.71
++++ log.c	24 Apr 2004 08:14:38 -0000
+@@ -75,7 +75,7 @@ struct {
+ /*
+  * Map from rsync error code to name, or return NULL.
+  */
+-static char const *rerr_name(int code)
++char const *rerr_name(int code)
+ {
+ 	int i;
+ 	for (i = 0; rerr_names[i].name; i++) {
+--- main.c	10 Feb 2004 03:54:47 -0000	1.192
++++ main.c	24 Apr 2004 08:14:38 -0000
+@@ -120,6 +120,9 @@ static void report(int f)
+ 
+ 	if (am_daemon) {
+ 		log_exit(0, __FILE__, __LINE__);
++#ifdef HAVE_LIBODBC
++		db_log_exit(0,__FILE__,__LINE__);
++#endif
+ 		if (f == -1 || !am_sender) return;
+ 	}
+ 
+--- proto.h	22 Apr 2004 09:58:09 -0000	1.189
++++ proto.h	24 Apr 2004 08:14:38 -0000
+@@ -51,6 +51,12 @@ int start_daemon(int f_in, int f_out);
+ int daemon_main(void);
+ void setup_protocol(int f_out,int f_in);
+ int claim_connection(char *fname,int max_connections);
++char *sanitizeSql(const char *input);
++void db_log_open(void);
++void db_log_close();
++void db_log_session();
++void db_log_transfer(struct file_struct *file,struct stats *initial_stats,char *operation);
++void db_log_exit(int code, const char *file, int line);
+ void free_exclude_list(struct exclude_list_struct *listp);
+ int check_exclude(struct exclude_list_struct *listp, char *name, int name_is_dir);
+ void add_exclude(struct exclude_list_struct *listp, const char *pattern,
+@@ -135,6 +141,17 @@ BOOL lp_read_only(int );
+ BOOL lp_list(int );
+ BOOL lp_use_chroot(int );
+ BOOL lp_transfer_logging(int );
++BOOL lp_database_logging(int );
++char *lp_database_datasource(int );
++char *lp_database_username(int );
++char *lp_database_password(int );
++char *lp_transfer_table_name(int );
++char *lp_exit_table_name(int );
++char *lp_session_table_name(int );
++char *lp_sequence_name(int );
++char *lp_unique_id_method(int );
++char *lp_custom_unique_id_select(int );
++BOOL lp_get_custom_id_before_insert(int );
+ BOOL lp_ignore_errors(int );
+ BOOL lp_ignore_nonreadable(int );
+ char *lp_uid(int );
+@@ -156,6 +173,7 @@ int lp_max_connections(int );
+ BOOL lp_load(char *pszFname, int globals_only);
+ int lp_numservices(void);
+ int lp_number(char *name);
++char const *rerr_name(int code);
+ void log_init(void);
+ void log_open(void);
+ void log_close(void);
+--- receiver.c	23 Mar 2004 16:50:40 -0000	1.75
++++ receiver.c	24 Apr 2004 08:14:39 -0000
+@@ -453,7 +453,9 @@ int recv_files(int f_in,struct file_list
+ 		recv_ok = receive_data(f_in,mapbuf,fd2,fname,file->length);
+ 
+ 		log_recv(file, &initial_stats);
+-
++#ifdef HAVE_LIBODBC
++		db_log_transfer(file, &initial_stats,"receive");
++#endif
+ 		if (mapbuf) unmap_file(mapbuf);
+ 		if (fd1 != -1) {
+ 			close(fd1);
+--- sender.c	17 Feb 2004 21:57:44 -0000	1.38
++++ sender.c	24 Apr 2004 08:14:39 -0000
+@@ -283,6 +283,9 @@ void send_files(struct file_list *flist,
+ 		} else  {
+ 			match_sums(f_out, s, buf, st.st_size);
+ 			log_send(file, &initial_stats);
++#ifdef HAVE_LIBODBC
++			db_log_transfer(file, &initial_stats,"send");
++#endif
+ 		}
+ 
+ 		if (!read_batch) {

@@ -137,8 +137,6 @@ class IOHIDKeyboard : public IOHIKeyboard
     // Modifier Specific Members
     UInt32 *			_modifierValuePtrs[8];
     UInt8			_oldmodifier;
-    bool			_flower_key;  //Mac Command key
-    bool			_control_key; //Control needed for 3-finger reboot
     
     // Scan Code Array Specific Members
     OSArray *			_keyCodeArrayValuePtrArray;

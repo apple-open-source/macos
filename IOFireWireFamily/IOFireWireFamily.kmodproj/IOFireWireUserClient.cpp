@@ -28,6 +28,12 @@
 */
 /*
 	$Log: IOFireWireUserClient.cpp,v $
+	Revision 1.104.2.3.8.2  2004/09/23 02:26:58  niels
+	navy 9_22
+	
+	Revision 1.104.2.3.8.1  2004/09/13 21:10:10  niels
+	*** empty log message ***
+	
 	Revision 1.104.2.3  2004/05/11 22:38:43  niels
 	*** empty log message ***
 	
@@ -412,15 +418,13 @@ IOFireWireUserClient :: clientClose ()
 {
 	clipMaxRec2K( false );	// Make sure maxRec isn't clipped
 
-	IOReturn	result = userClose() ;
+	IOReturn result = userClose() ;
 
-	if ( result == kIOReturnSuccess )
+	if ( result == kIOReturnNotOpen )
 	{
-		DebugLog("IOFireWireUserClient :: clientClose(): client left user client open, should call close. Closing...\n") ;
-	}
-	else if ( result == kIOReturnNotOpen )
 		result = kIOReturnSuccess ;
-
+	}
+	
 	if ( !terminate() )
 	{
 		IOLog("IOFireWireUserClient :: clientClose: terminate failed!, getOwner()->isOpen( this ) returned %u\n", getOwner()->isOpen(this)) ;
@@ -1735,12 +1739,19 @@ IOFireWireUserClient :: physicalAddressSpace_GetSegments (
 	IOReturn error = addressSpace->getSegmentCount( &segmentCount ) ;
 	if ( error == kIOReturnSuccess )
 	{
-		
 		segmentCount = segmentCount <? inSegmentCount ;
 	
-		IOPhysicalSegment	segments[ segmentCount ] ;
-			
-		error = addressSpace->getSegments( & segmentCount, segments ) ;
+		IOPhysicalSegment * segments = new IOPhysicalSegment[ segmentCount ] ;
+		
+		if ( !segments )
+		{
+			error = kIOReturnNoMemory ;
+		}
+		
+		if ( !error )
+		{
+			error = addressSpace->getSegments( & segmentCount, segments ) ;
+		}
 		
 		if ( ! error )
 		{
@@ -1749,6 +1760,8 @@ IOFireWireUserClient :: physicalAddressSpace_GetSegments (
 	
 			*outSegmentCount = bytesCopied / sizeof( IOPhysicalSegment ) ;
 		}
+
+		delete[] segments ;
 	}
 	
 	addressSpace->release() ; // retained by call to lookupObject()
@@ -2677,9 +2690,15 @@ IOFireWireUserClient :: userAsyncCommand_Submit(
 		cmd = IOFWUserCommand :: withSubmitParams( params, this ) ;
 
 		if ( ! cmd )
+		{
+			DebugLog("IOFireWireUserClient::userAsyncCommand_Submit: IOFWUserCommand::withSubmitParams failed\n") ;
 			error = kIOReturnNoMemory ;
+		}
 		else
+		{
 			error = fExporter->addObject( *cmd, NULL, outResult->kernCommandRef ) ;
+			DebugLog("fExporter->addObject error=%x\n", error ) ;
+		}
 	}
 
 	if ( cmd )
@@ -2691,11 +2710,15 @@ IOFireWireUserClient :: userAsyncCommand_Submit(
 			cmd->setAsyncReference( asyncRef ) ;
 			
 			error = cmd->submit( params, outResult ) ;
+			DebugLog("cmd->submit error=%x\n", error ) ;
+			
 		}
 		
 		cmd->release() ;		// we need to release this in all cases
 	}
 
+	DebugLog("error=%x\n", error ) ;
+	
 	return error ;
 }
 

@@ -233,70 +233,128 @@ protected:
 		IOBufferMemoryDescriptor			*statusDescriptor;
 		IOBufferMemoryDescriptor			*bytesInInputBufferArrayDescriptor;
 		IOBufferMemoryDescriptor			*bytesInOutputBufferArrayDescriptor;
+		UInt32								mixClipOverhead;
+		OSArray								*streams;
 	};
     
-    ExpansionData *reserved;
+    ExpansionData   *reserved;
+
+//	static UInt32	sInstanceCount;	
 
 public:
-// This takes the 0th reserved slot:
+	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 0);
     virtual IOReturn performFormatChange(IOAudioStream *audioStream, const IOAudioStreamFormat *newFormat, const IOAudioStreamFormatExtension *formatExtension, const IOAudioSampleRate *newSampleRate);
-// This takes the 1st reserved slot:
+	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 1);
 	virtual IOBufferMemoryDescriptor * getStatusDescriptor();
-// This takes the second reserved slot:
+	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 2);
 	virtual IOReturn getNearestStartTime(IOAudioStream *audioStream, IOAudioTimeStamp *ioTimeStamp, bool isInput);
+	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 3);
 	virtual IOBufferMemoryDescriptor * getBytesInInputBufferArrayDescriptor();
+	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 4);
 	virtual IOBufferMemoryDescriptor * getBytesInOutputBufferArrayDescriptor();
+	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 5);
+    /*!
+	 * @function eraseOutputSamples
+     * @abstract This function allows for the actual erasing of the mix and sample buffer to be overridden by
+	 * a child class.
+	 * @param mixBuf Pointer to the IOAudioFamily allocated mix buffer.
+	 * @param sampleBuf Pointer to the child class' sample buffer.
+	 * @param firstSampleFrame Index to the first sample frame to erase.
+	 * @param numSampleFrames Number of sample frames to erase.
+	 * @param streamFormat Format of the data to be erased.
+	 * @param audioStream Pointer to stream object that corresponds to the sample buffer being erased.
+	 * @result Must return kIOReturnSuccess if the samples have been erased.
+     */
+	virtual IOReturn eraseOutputSamples(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream);
+	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 6);
+    /*!
+	 * @function setClockIsStable
+     * @abstract This function sets a flag that CoreAudio uses to select its sample rate tracking algorithm.  Set
+	 * this to TRUE unless that results in dropped audio.  If the driver is experiencing unexplained dropouts
+	 * setting this FALSE might help.
+	 * @param clockIsStable TRUE tells CoreAudio to use an agressive PLL to quickly lock to the engine's sample rate
+	 * while FALSE tells CoreAudio to adjust more slowly to perceived sample rate changes that might just be the
+	 * result of an unstable clock.
+     */
+	virtual void setClockIsStable(bool clockIsStable);
+
+	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 7);
+	/*!
+     * @function setMixClipOverhead
+     * @abstract Used to tell IOAudioFamily when the watchdog timer must fire by.
+     * @discussion setMixClipOverhead allows an audio engine to tell IOAudioFamily how much time
+	 * an engine will take to mix and clip its samples, in percent.
+	 * The default value is 10, meaning 10%.  This will cause IOAudioFamily to make
+	 * the watchdog timer fire when there is just over 10% of the time to complete
+	 * a buffer set left (e.g. 51 samples when the HAL is using a buffer size of 512
+	 * samples).
+     * @param newMixClipOverhead How much time per buffer should be made available for the
+	 * mix and clip routines to run.  Valid values are 1 through 99, inclusive.
+     * @result return no error
+	*/
+	virtual void setMixClipOverhead(UInt32 newMixClipOverhead);
+
+	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 8);
+    /*!
+	 * @function setClockDomain
+     * @abstract Sets a property that CoreAudio uses to determine how devices are synchronized.  If an audio device can tell that it is
+	 * synchronized to another engine, it should set this value to that engine's clock domain.  If an audio device can be a clock master, it may publish
+	 * its own clock domain for other devices to use.
+	 * @param clockDomain is the unique ID of another engine that this engine realizes it is synchronized to, use the default value kIOAudioNewClockDomain 
+	 * to have IOAudioEngine create a unique clock domain.
+     */
+	virtual void setClockDomain(UInt32 clockDomain = kIOAudioNewClockDomain);
 
 private:
-    OSMetaClassDeclareReservedUsed(IOAudioEngine, 0);
-    OSMetaClassDeclareReservedUsed(IOAudioEngine, 1);
-    OSMetaClassDeclareReservedUsed(IOAudioEngine, 2);
-    OSMetaClassDeclareReservedUsed(IOAudioEngine, 3);
-    OSMetaClassDeclareReservedUsed(IOAudioEngine, 4);
+	OSMetaClassDeclareReservedUsed(IOAudioEngine, 0);
+	OSMetaClassDeclareReservedUsed(IOAudioEngine, 1);
+	OSMetaClassDeclareReservedUsed(IOAudioEngine, 2);
+	OSMetaClassDeclareReservedUsed(IOAudioEngine, 3);
+	OSMetaClassDeclareReservedUsed(IOAudioEngine, 4);
+	OSMetaClassDeclareReservedUsed(IOAudioEngine, 5);
+	OSMetaClassDeclareReservedUsed(IOAudioEngine, 6);
+	OSMetaClassDeclareReservedUsed(IOAudioEngine, 7);
+	OSMetaClassDeclareReservedUsed(IOAudioEngine, 8);
 
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 5);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 6);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 7);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 8);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 9);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 10);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 11);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 12);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 13);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 14);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 15);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 16);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 17);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 18);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 19);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 20);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 21);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 22);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 23);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 24);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 25);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 26);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 27);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 28);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 29);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 30);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 31);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 32);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 33);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 34);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 35);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 36);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 37);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 38);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 39);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 40);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 41);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 42);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 43);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 44);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 45);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 46);
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 47);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 9);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 10);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 11);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 12);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 13);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 14);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 15);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 16);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 17);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 18);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 19);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 20);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 21);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 22);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 23);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 24);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 25);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 26);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 27);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 28);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 29);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 30);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 31);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 32);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 33);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 34);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 35);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 36);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 37);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 38);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 39);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 40);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 41);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 42);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 43);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 44);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 45);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 46);
+	OSMetaClassDeclareReservedUnused(IOAudioEngine, 47);
 
 public:
     /*!
@@ -730,6 +788,14 @@ protected:
     
     virtual void detachAudioStreams();
 	void setWorkLoopOnAllAudioControls(IOWorkLoop *wl);
+
+	static inline void lockStreamForIO(IOAudioStream *stream);
+	static inline void unlockStreamForIO(IOAudioStream *stream);
+
+	// These aren't virtual by design
+	UInt32 getNextStreamID(IOAudioStream * newStream);
+	IOAudioStream * getStreamForID(UInt32 streamID);
+
 };
 
 #endif /* _IOKIT_IOAUDIOENGINE_H */

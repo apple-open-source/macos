@@ -93,6 +93,8 @@ extern const OSSymbol * gIOPPluginPlatformID;
 
 extern const OSNumber * gIOPPluginZero;
 extern const OSNumber * gIOPPluginOne;
+extern const OSNumber * gIOPPluginTwo;
+extern const OSNumber * gIOPPluginThree;
 
 extern IOPlatformPlugin * platformPlugin;
 

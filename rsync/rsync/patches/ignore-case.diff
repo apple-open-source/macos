@@ -1,0 +1,120 @@
+From: David Bolen <db3l@fitlinxx.com>
+To: Peter Tattam <peter@jazz-1.trumpet.com.au>
+Cc: rsync@lists.samba.org
+Subject: RE: mixed case file systems.
+Date: Thu, 18 Apr 2002 23:04:06 -0400
+
+Peter Tattam [peter@jazz-1.trumpet.com.au] writes:
+
+> I believe a suitable workaround would be to ignore case for file names
+> when the rsync process is undertaken.  Is this facility available or
+> planned in the near future?
+
+I've attached a context diff for some changes I made to our local copy
+a while back to add an "--ignore-case" option just for this purpose.
+In our case it came up in the context of disting between NTFS and FAT
+remote systems.  I think we ended up not needing it, but it does make
+rsync match filenames in a case insensitive manner, so it might at
+least be worth trying to see if it resolves your issue.
+
+A few caveats - both ends have to support the option - I couldn't make
+it backwards compatible because both ends exchange information about a
+sorted file list that has to sort the same way on either side (which
+very subtly bit me when I first did this).  I also didn't bump the
+protocol in this patch (wasn't quite sure it was appropriate just for an
+incompatible command line option) since it was for local use.
+
+NOTE: patch updated for latest CVS source by Wayne Davison, but UNTESTED!
+
+-- David
+
+/-----------------------------------------------------------------------\
+ \               David Bolen            \   E-mail: db3l@fitlinxx.com  /
+  |             FitLinxx, Inc.            \  Phone: (203) 708-5192    |
+ /  860 Canal Street, Stamford, CT  06902   \  Fax: (203) 316-5150     \
+\-----------------------------------------------------------------------/
+
+	  - - - - - - - - - - - - - - - - - - - - - - - - -
+
+--- options.c	17 Apr 2004 17:07:23 -0000	1.147
++++ options.c	22 Apr 2004 23:44:15 -0000
+@@ -89,6 +89,7 @@ int opt_ignore_existing = 0;
+ int max_delete = 0;
+ int ignore_errors = 0;
+ int modify_window = 0;
++int ignore_case = 0;
+ int blocking_io = -1;
+ int checksum_seed = 0;
+ unsigned int block_size = 0;
+@@ -275,6 +276,7 @@ void usage(enum logcode F)
+   rprintf(F,"     --include-from=FILE     don't exclude patterns listed in FILE\n");
+   rprintf(F,"     --files-from=FILE       read FILE for list of source-file names\n");
+   rprintf(F," -0  --from0                 all *-from file lists are delimited by nulls\n");
++  rprintf(F,"     --ignore-case           ignore case when comparing filenames\n");
+   rprintf(F,"     --version               print version number\n");
+   rprintf(F,"     --daemon                run as an rsync daemon\n");
+   rprintf(F,"     --no-detach             do not detach from the parent\n");
+@@ -329,6 +331,7 @@ static struct poptOption long_options[] 
+   {"include",          0,  POPT_ARG_STRING, 0,              OPT_INCLUDE, 0, 0 },
+   {"exclude-from",     0,  POPT_ARG_STRING, 0,              OPT_EXCLUDE_FROM, 0, 0 },
+   {"include-from",     0,  POPT_ARG_STRING, 0,              OPT_INCLUDE_FROM, 0, 0 },
++  {"ignore-case",      0,  POPT_ARG_NONE,   &ignore_case, 0, 0, 0 },
+   {"safe-links",       0,  POPT_ARG_NONE,   &safe_symlinks, 0, 0, 0 },
+   {"help",            'h', POPT_ARG_NONE,   0,              'h', 0, 0 },
+   {"backup",          'b', POPT_ARG_NONE,   &make_backups, 0, 0, 0 },
+@@ -911,6 +914,9 @@ void server_options(char **args,int *arg
+ 			goto oom;
+ 		args[ac++] = arg;
+ 	}
++
++	if (ignore_case)
++		args[ac++] = "--ignore-case";
+ 
+ 	if (keep_partial)
+ 		args[ac++] = "--partial";
+--- util.c	22 Apr 2004 22:17:15 -0000	1.138
++++ util.c	22 Apr 2004 23:44:15 -0000
+@@ -924,6 +924,19 @@ int u_strcmp(const char *cs1, const char
+ {
+ 	const uchar *s1 = (const uchar *)cs1;
+ 	const uchar *s2 = (const uchar *)cs2;
++	extern int ignore_case;
++ 	
++	if (ignore_case) {
++		while (*s1 && *s2) {
++			uchar c1 = islower(*s1) ? toupper(*s1) : *s1;
++			uchar c2 = islower(*s2) ? toupper(*s2) : *s2;
++			if (c1 != c2)
++				return (int)c1 - (int)c2;
++			s1++; s2++;
++		}
++
++		return (int)*s1 - (int)*s2;
++	}
+ 
+ 	while (*s1 && *s2 && (*s1 == *s2)) {
+ 		s1++; s2++;
+--- lib/wildmatch.c	14 Jul 2003 15:12:59 -0000	1.12
++++ lib/wildmatch.c	22 Apr 2004 23:44:15 -0000
+@@ -76,8 +76,20 @@ static int domatch(const unsigned char *
+ 	    ch = *++p;
+ 	    /* FALLTHROUGH */
+ 	  default:
+-	    if (*text != ch)
++	    if (*text != ch) {
++		extern int ignore_case;
++		if (ignore_case) {
++		    if (ISUPPER(*text)) {
++			if (tolower(*text) == ch)
++			    continue;
++		    }
++		    else if (ISUPPER(ch)) {
++			if (*text == tolower(ch))
++			    continue;
++		    }
++		}
+ 		return FALSE;
++	    }
+ 	    continue;
+ 	  case '?':
+ 	    /* Match anything but '/'. */

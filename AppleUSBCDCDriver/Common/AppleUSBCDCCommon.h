@@ -89,7 +89,7 @@ enum
     Union_FunctionalDescriptor	= 0x06,
     CS_FunctionalDescriptor	= 0x07,
     ECM_Functional_Descriptor	= 0x0f,
-    WMC_FunctionalDescriptor	= 0x11,
+    WCM_FunctionalDescriptor	= 0x11,
     DMM_FunctionalDescriptor	= 0x14,
     OBEX_FunctionalDescriptor	= 0x15,
 		
@@ -201,6 +201,15 @@ typedef struct
     UInt16 	wNumberMCFilters;
     UInt8 	bNumberPowerFilters;
 } ECMFunctionalDescriptor;
+
+typedef struct 
+{
+    UInt8	bFunctionLength;
+    UInt8 	bDescriptorType;
+    UInt8 	bDescriptorSubtype;
+    UInt8 	bcdCDC1;
+    UInt8 	bcdCDC2;
+} WHCMFunctionalDescriptor;
 
 typedef struct 
 {

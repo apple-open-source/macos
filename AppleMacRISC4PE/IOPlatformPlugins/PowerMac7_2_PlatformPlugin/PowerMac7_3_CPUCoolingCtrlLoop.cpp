@@ -242,6 +242,61 @@ IOReturn PowerMac7_3_CPUCoolingCtrlLoop::initPlatformCtrlLoop( const OSDictionar
 	addSensor( powerSensor2 );        
  
 
+ 	// [3751599, 3751602] Setup CPU pump min/max values from processor ROM...
+	#define MAX(a,b) (((a)>(b))?(a):(b))
+	#define MIN(a,b) (((a)<(b))?(a):(b))
+	#define kDefaultOutputMinForPump	1250
+	#define kDefaultOutputMaxForPump	3200
+	UInt16 tmp_buf[4];
+
+	// Fetch pump1 and pump2 min/max values.
+	if (false == PM72Plugin->readProcROM( procID, 0x54, 8, (UInt8*)tmp_buf ))
+	{
+		// Can't read ROM?... hard-code pump min/max.
+		CTRLLOOP_DLOG("PowerMac7_3_CPUCoolingCtrlLoop::initPlatformCtrlLoop failed to fetch pump min/max from ROM\n");
+		outputMinForPump = kDefaultOutputMinForPump;
+		outputMaxForPump = kDefaultOutputMaxForPump;
+	}
+	else
+	if ((tmp_buf[0] != 0xffff) && (tmp_buf[1] != 0xffff) &&
+		(tmp_buf[2] != 0xffff) && (tmp_buf[3] != 0xffff))
+	{
+		// Both pumps are present... use the larger min and the smaller max between pump 1 and 2.
+		outputMinForPump = MAX(tmp_buf[0], tmp_buf[2]);
+		outputMaxForPump = MIN(tmp_buf[1], tmp_buf[3]);
+	}
+	else // Find a pump with a good min/max pair...
+	if ((tmp_buf[0] != 0xffff) && (tmp_buf[1] != 0xffff))
+	{
+		// Using min/max from pump1
+		outputMinForPump = tmp_buf[0];
+		outputMaxForPump = tmp_buf[1];
+	}
+	else
+	if ((tmp_buf[2] != 0xffff) && (tmp_buf[3] != 0xffff))
+	{
+		// Using min/max from pump2
+		outputMinForPump = tmp_buf[2];
+		outputMaxForPump = tmp_buf[3];
+	}
+	else
+	{
+		// Otherwise hard-code them thar puppies...
+		outputMinForPump = kDefaultOutputMinForPump;
+		outputMaxForPump = kDefaultOutputMaxForPump;
+	}
+
+	// Make sure min/max are NOT the same...
+	if (outputMinForPump == outputMaxForPump)
+	{
+		outputMinForPump = kDefaultOutputMinForPump;
+		outputMaxForPump = kDefaultOutputMaxForPump;
+	}
+
+//	IOLog("*******************************************************************************\n");
+//	IOLog("PowerMac7_3_CPUCoolingCtrlLoop::initPlatformCtrlLoop using pump min=%d max=%d\n", outputMinForPump, outputMaxForPump);
+//	IOLog("procID:%d min0:%d min1:%d max0:%d max1:%d\n", procID, tmp_buf[0],tmp_buf[2],tmp_buf[1],tmp_buf[3]);
+
 #ifdef CTRLLOOP_DEBUG
 	const OSNumber * slewID = OSNumber::withNumber( 0x10, 32 );
 	if ((slewControl = platformPlugin->lookupControlByID( slewID )) == NULL)
@@ -618,7 +673,7 @@ OSDictionary *PowerMac7_3_CPUCoolingCtrlLoop::fetchPIDDatasetFromROM( void ) con
 		goto failReleaseDataset;
 	}
 
-	tmp_number = OSNumber::withNumber( ((UInt32)tmp_bytebuf[0]) << 16, 32 );
+	tmp_number = OSNumber::withNumber( (*(SInt8 *)&tmp_bytebuf[0]) << 16, 32 );
 	dataset->setObject( kPM72MaxPowerAdjustmentKey, tmp_number );
 	tmp_number->release();
 
@@ -1018,7 +1073,7 @@ ControlValue PowerMac7_3_CPUCoolingCtrlLoop::calculateNewTarget( void ) const
 		else if (newTarget > outputMax)
 			newTarget = outputMax;
 
-
+#if 0
 #ifdef CTRLLOOP_DEBUG
 		if (timerCallbackActive)
 		{
@@ -1063,7 +1118,7 @@ ControlValue PowerMac7_3_CPUCoolingCtrlLoop::calculateNewTarget( void ) const
 #ifdef CTRLLOOP_DEBUG
 		}
 #endif
-
+#endif
 
 	}
 
@@ -1201,9 +1256,6 @@ void PowerMac7_3_CPUCoolingCtrlLoop::sendNewTarget( ControlValue newTarget )
 	// pumpTarget is the pump speeds
 	ControlValue intakeTarget, pumpTarget;
 
-	// hard-coded pump max & min RPMs
-	UInt32 outputMaxForPump = 3700;
-	UInt32 outputMinForPump = 1000;
         
 
 /*
@@ -1280,13 +1332,17 @@ void PowerMac7_3_CPUCoolingCtrlLoop::sendNewTarget( ControlValue newTarget )
 		// scaling factor is simply a proportion between the max fan RPM and the max
 		// pump RPM, the objective being that if the fans are at max, the pumps will
 		// also be at max.
-		pumpTarget = newTarget * (outputMaxForPump/outputMax);
 
-		// clip to the pump's max and min
-		if (pumpTarget < outputMinForPump)
-			pumpTarget = outputMinForPump;
-		else if (pumpTarget > outputMaxForPump)
-			pumpTarget = outputMaxForPump;
+		// [3751602]
+		// NOTE:  	The order of the math here is critical.  The mutiplication must be done first to
+		//			avoid rounding errors which will keep the pump speed at min, or not allow it
+		//			to go above the fan speed.  This math makes sure that the fan speed does not
+		//			exceed the outputMaxForPump value, hence keeping the value at or below the max.
+		pumpTarget = (newTarget * outputMaxForPump)/outputMax;
+		
+		// Now we need to check to make sure we do not go below the MIN value for the pump.
+		pumpTarget = MAX(pumpTarget, outputMinForPump);
+
 		
 		if (fifOutputControl->sendTargetValue( pumpTarget ))
 		{

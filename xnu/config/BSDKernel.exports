@@ -2723,6 +2723,7 @@ _sotoxsocket
 _sowakeup
 _sowriteable
 _sowwakeup
+_spec_advlock
 _spec_badop
 _spec_blktooff
 _spec_bmap

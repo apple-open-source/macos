@@ -74,7 +74,33 @@ enum {
 	kIOPMonMessageCurrentValue		= 5,
 	kIOPMonMessageStateChanged		= 6,
 	kIOPMonMessagePowerMonitor		= 7,
-	kIOPMonMessageError			= 8, 
+	kIOPMonMessageError				= 8, 
+};
+
+enum
+{
+    kPowerBookModel		= 0x00010000,
+    kPowerMacModel		= 0x00020000,
+    kRackMacModel		= 0x00040000,
+
+    kPB51MachineModel	= kPowerBookModel + 0x00000501,
+
+    kPB61MachineModel	= kPowerBookModel + 0x00000601,
+
+    kPB52MachineModel	= kPowerBookModel + 0x00000502,
+    kPB53MachineModel	= kPowerBookModel + 0x00000503,
+    kPB62MachineModel	= kPowerBookModel + 0x00000602,
+    kPB63MachineModel	= kPowerBookModel + 0x00000603,
+
+    kPB64MachineModel	= kPowerBookModel + 0x00000604,
+    kPB65MachineModel	= kPowerBookModel + 0x00000605,
+    kPB54MachineModel	= kPowerBookModel + 0x00000504,
+    kPB55MachineModel	= kPowerBookModel + 0x00000505,
+    
+    kPB66MachineModel	= kPowerBookModel + 0x00000606,
+
+    kPB56MachineModel	= kPowerBookModel + 0x00000506,
+    kPB57MachineModel	= kPowerBookModel + 0x00000507
 };
 
 // Thermal sensor values and thresholds are 16.16 fixed point format
@@ -83,17 +109,40 @@ typedef UInt32 ThermalValue;
 // Macro to convert integer to sensor temperature format (16.16)
 #define TEMP_SENSOR_FMT(x) ((x) << 16)
 
-typedef struct ThresholdInfo {
+typedef struct OldThresholdInfo {
 	ThermalValue	thresholdLow;
 	UInt32			nextStateLow;
 	ThermalValue	thresholdHigh;
 	UInt32			nextStateHigh;
 };
 
-typedef struct NewThresholdInfo {
+typedef struct SmallerThresholdInfo {
+	ThermalValue	thresholdLow;
+	ThermalValue	thresholdHigh;
+};
 
-	ThermalValue	  thresholdLow;
-	ThermalValue	  thresholdHigh;
+typedef struct ThresholdInfo {
+	ThermalValue	thresholdLow;
+	ThermalValue	thresholdHigh;
+	ThermalValue	thresholdAction;
+};
+
+enum {
+	kThrottleCPU			= 0x00000001,
+	kThrottleGPU			= 0x00000002
+};
+
+enum {
+	kNoSpecialState			= 0x00000000,
+	kClamshellClosedState	= 0x00000001
+};
+
+typedef struct LimitsInfo {
+	SInt32		sensorID;
+	UInt16		sensorThreshold;
+    UInt16		sensorHysteresis;
+    UInt32		sensorEffect;
+    UInt16		machineState;
 };
 
 typedef struct ConSensorInfo {
@@ -159,7 +208,6 @@ enum {
 	kIOPMonFanController		= 7
 };
 
-
 enum {
 	kIOPMonCommandHandleEvent	= 1,
 	kIOPMonCommandSaveState		= 2,
@@ -167,25 +215,31 @@ enum {
 };
 
 	//	Common symbols
-	const OSSymbol 		*gIOPMonTypeKey;
-        const OSSymbol 		*gIOPMonConTypeKey;
-	const OSSymbol 		*gIOPMonTypePowerSens;
-	const OSSymbol 		*gIOPMonTypeThermalSens;
-	const OSSymbol		*gIOPMonTypeClamshellSens;
-	const OSSymbol 		*gIOPMonTypeCPUCon;
-	const OSSymbol 		*gIOPMonTypeGPUCon;
-	const OSSymbol 		*gIOPMonTypeSlewCon;
-	const OSSymbol 		*gIOPMonTypeFanCon;
-	const OSSymbol 		*gIOPMonIDKey;
-	const OSSymbol 		*gIOPMonCPUIDKey;
-	const OSSymbol 		*gIOPMonLowThresholdKey;
-	const OSSymbol 		*gIOPMonHighThresholdKey;
-	const OSSymbol 		*gIOPMonThresholdValueKey;
-	const OSSymbol 		*gIOPMonCurrentValueKey;
+	const OSSymbol 				*gIOPMonTypeKey;
+    const OSSymbol 				*gIOPMonConTypeKey;
+	const OSSymbol 				*gIOPMonTypePowerSens;
+	const OSSymbol 				*gIOPMonTypeThermalSens;
+	const OSSymbol				*gIOPMonTypeClamshellSens;
+	const OSSymbol 				*gIOPMonTypeCPUCon;
+	const OSSymbol 				*gIOPMonTypeGPUCon;
+	const OSSymbol 				*gIOPMonTypeSlewCon;
+	const OSSymbol 				*gIOPMonTypeFanCon;
+	const OSSymbol 				*gIOPMonIDKey;
+	const OSSymbol 				*gIOPMonCPUIDKey;
+	const OSSymbol 				*gIOPMonLowThresholdKey;
+	const OSSymbol 				*gIOPMonHighThresholdKey;
+	const OSSymbol 				*gIOPMonThresholdValueKey;
+	const OSSymbol 				*gIOPMonCurrentValueKey;
 
-	UInt32						currentPowerState, currentThermalState, currentClamshellState;
-	UInt32						lastPowerState, lastThermalState, lastClamshellState;
-	IOPlatformMonitorAction		lastAction;
+	UInt32						currentPowerState;
+    UInt32						currentClamshellState;
+    UInt32						currentThermalState;		// Not needed for iBooks/miniPBs
+    
+	UInt32						lastPowerState;
+    UInt32						lastClamshellState;
+    UInt32						lastThermalState;			// Not needed for iBooks/miniPBs
+    
+    IOPlatformMonitorAction		lastAction;					// Not needed for iBooks/miniPBs	
 
     IOPMrootDomain				*pmRootDomain;
 
@@ -195,6 +249,15 @@ enum {
 	IOCommandGate::Action		commandGateCaller;	// handler for commandGate runCommand
 
 	virtual bool initSymbols ();
+
+	virtual IOReturn monitorPower (OSDictionary *dict, IOService *provider);
+	
+	// Dictionary access utility functions
+	bool retrieveSensorIndex (OSDictionary *dict, UInt32 *value);
+	bool retrieveThreshold (OSDictionary *dict, ThermalValue *value);
+	bool retrieveCurrentValue (OSDictionary *dict, UInt32 *value);
+
+	// Unneeded by cleaned up PlatformMonitor, delete when possible
 
 	virtual bool initPowerState ();
 	virtual void savePowerState ();
@@ -207,13 +270,6 @@ enum {
 	virtual bool initClamshellState ();
 	virtual void saveClamshellState ();
 	virtual bool restoreClamshellState ();
-	virtual IOReturn monitorPower (OSDictionary *dict, IOService *provider);
-	
-	// Dictionary access utility functions
-	bool retrieveSensorIndex (OSDictionary *dict, UInt32 *value);
-	bool retrieveThreshold (OSDictionary *dict, ThermalValue *value);
-	bool retrieveCurrentValue (OSDictionary *dict, UInt32 *value);
-
 public:
 
     virtual bool start(IOService *nub);

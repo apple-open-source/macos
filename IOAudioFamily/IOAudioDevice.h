@@ -185,8 +185,10 @@ public:
 	static void idleAudioSleepHandlerTimer(OSObject *owner, IOTimerEventSource *sender);
 	virtual IOReturn setAggressiveness(unsigned long type, unsigned long newLevel);
 
+	// OSMetaClassDeclareReservedUsed(IOAudioDevice, 0);
 	virtual void setDeviceTransportType(const UInt32 transportType);
 
+	// OSMetaClassDeclareReservedUsed(IOAudioDevice, 1);
     /*!
 	 * @function setIdleAudioSleepTime
      * @abstract This function is to be called by a driver that doesn't want to be told about the audio
@@ -200,7 +202,11 @@ public:
      * @param sleepDelay The amount of time, in nanoseconds, before the hardware should be told to go idle.
      */
 	virtual void setIdleAudioSleepTime(unsigned long long sleepDelay);
+
+	// OSMetaClassDeclareReservedUsed(IOAudioDevice, 2);
 	virtual void scheduleIdleAudioSleep(void);
+
+	// OSMetaClassDeclareReservedUsed(IOAudioDevice, 3);
     /*!
 	 * @function setConfigurationApplicationBundle
      * @abstract This function is to be called if an external configuration application is available to set
@@ -211,40 +217,56 @@ public:
      */
 	virtual void setConfigurationApplicationBundle(const char *bundleID);
 
-private:
-    OSMetaClassDeclareReservedUsed(IOAudioDevice, 0);
-    OSMetaClassDeclareReservedUsed(IOAudioDevice, 1);
-    OSMetaClassDeclareReservedUsed(IOAudioDevice, 2);
-    OSMetaClassDeclareReservedUsed(IOAudioDevice, 3);
+	// OSMetaClassDeclareReservedUsed(IOAudioDevice, 4);
+    /*!
+	 * @function setDeviceCanBeDefault
+     * @abstract This function is to be called to tell CoreAudio if this device shouldn't be a default device.
+	 * @discussion This is useful for device drivers that don't want to be a default device.  Can be called with
+	 * kIOAudioDeviceCanBeDefaultNothing to prevent CoreAudio from allowing this device to be any default device, or it
+	 * can be called with any combination of kIOAudioDeviceCanBeDefaultInput, kIOAudioDeviceCanBeDefaultOutput, or
+	 * kIOAudioDeviceCanBeSystemOutput.  The default is 
+	 * (kIOAudioDeviceCanBeDefaultInput | kIOAudioDeviceCanBeDefaultOutput | kIOAudioDeviceCanBeSystemOutput).
+     * @param defaultsFlags The flags to instruct CoreAudio to allow this device to be only the indicated default devices.
+     */
+	virtual void setDeviceCanBeDefault(UInt32 defaultsFlags);
 
-    OSMetaClassDeclareReservedUnused(IOAudioDevice, 4);
-    OSMetaClassDeclareReservedUnused(IOAudioDevice, 5);
-    OSMetaClassDeclareReservedUnused(IOAudioDevice, 6);
-    OSMetaClassDeclareReservedUnused(IOAudioDevice, 7);
-    OSMetaClassDeclareReservedUnused(IOAudioDevice, 8);
-    OSMetaClassDeclareReservedUnused(IOAudioDevice, 9);
-    OSMetaClassDeclareReservedUnused(IOAudioDevice, 10);
-    OSMetaClassDeclareReservedUnused(IOAudioDevice, 11);
-    OSMetaClassDeclareReservedUnused(IOAudioDevice, 12);
-    OSMetaClassDeclareReservedUnused(IOAudioDevice, 13);
-    OSMetaClassDeclareReservedUnused(IOAudioDevice, 14);
-    OSMetaClassDeclareReservedUnused(IOAudioDevice, 15);
-    OSMetaClassDeclareReservedUnused(IOAudioDevice, 16);
-    OSMetaClassDeclareReservedUnused(IOAudioDevice, 17);
-    OSMetaClassDeclareReservedUnused(IOAudioDevice, 18);
-    OSMetaClassDeclareReservedUnused(IOAudioDevice, 19);
-    OSMetaClassDeclareReservedUnused(IOAudioDevice, 20);
-    OSMetaClassDeclareReservedUnused(IOAudioDevice, 21);
-    OSMetaClassDeclareReservedUnused(IOAudioDevice, 22);
-    OSMetaClassDeclareReservedUnused(IOAudioDevice, 23);
-    OSMetaClassDeclareReservedUnused(IOAudioDevice, 24);
-    OSMetaClassDeclareReservedUnused(IOAudioDevice, 25);
-    OSMetaClassDeclareReservedUnused(IOAudioDevice, 26);
-    OSMetaClassDeclareReservedUnused(IOAudioDevice, 27);
-    OSMetaClassDeclareReservedUnused(IOAudioDevice, 28);
-    OSMetaClassDeclareReservedUnused(IOAudioDevice, 29);
-    OSMetaClassDeclareReservedUnused(IOAudioDevice, 30);
-    OSMetaClassDeclareReservedUnused(IOAudioDevice, 31);
+	// OSMetaClassDeclareReservedUsed(IOAudioDevice, 5);
+	virtual void setDeviceModelName(const char * modelName);
+
+private:
+	OSMetaClassDeclareReservedUsed(IOAudioDevice, 0);
+	OSMetaClassDeclareReservedUsed(IOAudioDevice, 1);
+	OSMetaClassDeclareReservedUsed(IOAudioDevice, 2);
+	OSMetaClassDeclareReservedUsed(IOAudioDevice, 3);
+	OSMetaClassDeclareReservedUsed(IOAudioDevice, 4);
+	OSMetaClassDeclareReservedUsed(IOAudioDevice, 5);
+
+	OSMetaClassDeclareReservedUnused(IOAudioDevice, 6);
+	OSMetaClassDeclareReservedUnused(IOAudioDevice, 7);
+	OSMetaClassDeclareReservedUnused(IOAudioDevice, 8);
+	OSMetaClassDeclareReservedUnused(IOAudioDevice, 9);
+	OSMetaClassDeclareReservedUnused(IOAudioDevice, 10);
+	OSMetaClassDeclareReservedUnused(IOAudioDevice, 11);
+	OSMetaClassDeclareReservedUnused(IOAudioDevice, 12);
+	OSMetaClassDeclareReservedUnused(IOAudioDevice, 13);
+	OSMetaClassDeclareReservedUnused(IOAudioDevice, 14);
+	OSMetaClassDeclareReservedUnused(IOAudioDevice, 15);
+	OSMetaClassDeclareReservedUnused(IOAudioDevice, 16);
+	OSMetaClassDeclareReservedUnused(IOAudioDevice, 17);
+	OSMetaClassDeclareReservedUnused(IOAudioDevice, 18);
+	OSMetaClassDeclareReservedUnused(IOAudioDevice, 19);
+	OSMetaClassDeclareReservedUnused(IOAudioDevice, 20);
+	OSMetaClassDeclareReservedUnused(IOAudioDevice, 21);
+	OSMetaClassDeclareReservedUnused(IOAudioDevice, 22);
+	OSMetaClassDeclareReservedUnused(IOAudioDevice, 23);
+	OSMetaClassDeclareReservedUnused(IOAudioDevice, 24);
+	OSMetaClassDeclareReservedUnused(IOAudioDevice, 25);
+	OSMetaClassDeclareReservedUnused(IOAudioDevice, 26);
+	OSMetaClassDeclareReservedUnused(IOAudioDevice, 27);
+	OSMetaClassDeclareReservedUnused(IOAudioDevice, 28);
+	OSMetaClassDeclareReservedUnused(IOAudioDevice, 29);
+	OSMetaClassDeclareReservedUnused(IOAudioDevice, 30);
+	OSMetaClassDeclareReservedUnused(IOAudioDevice, 31);
 
 public:
     // Initialization

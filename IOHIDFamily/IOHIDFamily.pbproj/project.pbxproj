@@ -3,13 +3,15 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 38;
+	objectVersion = 39;
 	objects = {
 		0140D13CFFF91A5311CA29FD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOHIDParserPriv.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0140D13DFFF91A5311CA29FD = {
 			fileRef = 0140D13CFFF91A5311CA29FD;
@@ -18,10 +20,13 @@
 			};
 		};
 		014C794B00027ECC11CA2CF6 = {
+			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = IOKit.framework;
 			path = /System/Library/Frameworks/IOKit.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		014C794C00027ECC11CA2CF6 = {
 			fileRef = 014C794B00027ECC11CA2CF6;
@@ -51,30 +56,39 @@
 			isa = PBXGroup;
 			path = IOHIDFamily;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		014D176BFFE1C65511CA2CF6 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOHIDDevice.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		014D176CFFE1C65511CA2CF6 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOHIDLibUserClient.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		014D176DFFE1C65511CA2CF6 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOHIDLibUserClient.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		014D176EFFE1C65511CA2CF6 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOHIDLibUserClientIniter.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		014D176FFFE1C65511CA2CF6 = {
 			children = (
@@ -84,13 +98,16 @@
 			name = InfoPlist.strings;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		014D1770FFE1C65511CA2CF6 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = English;
 			path = English.lproj/InfoPlist.strings;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		014D1771FFE1C65511CA2CF6 = {
 			children = (
@@ -110,30 +127,39 @@
 			isa = PBXGroup;
 			path = IOHIDLib;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		014D1772FFE1C65511CA2CF6 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOHIDDeviceClass.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		014D1773FFE1C65511CA2CF6 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOHIDDeviceClass.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		014D1774FFE1C65511CA2CF6 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOHIDIUnknown.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		014D1775FFE1C65511CA2CF6 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOHIDIUnknown.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		014D1776FFE1C65511CA2CF6 = {
 			fileRef = 014D1773FFE1C65511CA2CF6;
@@ -200,8 +226,10 @@
 		019150F3FFE6F74111CA29FD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOHIDDevice.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		019150F4FFE6F74111CA29FD = {
 			fileRef = 019150F3FFE6F74111CA29FD;
@@ -214,8 +242,10 @@
 		019D7CAFFFE8274811CA2CF6 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOHIDKeys.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		019D7CB0FFE8274811CA2CF6 = {
 			fileRef = 019D7CAFFFE8274811CA2CF6;
@@ -226,19 +256,24 @@
 			};
 		};
 		019D7CB1FFE829CD11CA2CF6 = {
+			explicitFileType = "compiled.mach-o.executable";
+			fallbackIsa = PBXFileReference;
 			isa = PBXExecutableFileReference;
 			path = InstallHeaders;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		019D7CB2FFE829CD11CA2CF6 = {
 			isa = PBXTargetDependency;
 			target = 019D7CB3FFE829CD11CA2CF6;
+			targetProxy = F7E54588065BD96B009938EB;
 		};
 		019D7CB3FFE829CD11CA2CF6 = {
 			buildPhases = (
 				019D7CB4FFE829CD11CA2CF6,
 				019D7CB5FFE829CD11CA2CF6,
 				019D7CB6FFE829CD11CA2CF6,
+				84AB8477065DBA5200A40ECE,
 				019D7CB9FFE82BC211CA2CF6,
 				5801C60402400F4E04CA2A11,
 				586366BD02B147590400010D,
@@ -283,6 +318,7 @@
 				F59AD17702ADDC540193FF54,
 				F59AD17902ADDC740193FF54,
 				F72B60C1048FC76D00302827,
+				84AB846E065DBA1200A40ECE,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -329,14 +365,18 @@
 		01ABF5C2FFEAD77011CA29FD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOHIDElement.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01ABF5C3FFEAD77011CA29FD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOHIDElement.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01ABF5C4FFEAD77011CA29FD = {
 			fileRef = 01ABF5C2FFEAD77011CA29FD;
@@ -357,14 +397,18 @@
 		01ABF5C6FFEAF24711CA29FD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOHIDTestDriver.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01ABF5C7FFEAF24711CA29FD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOHIDTestDriver.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01ABF5C8FFEAF24711CA29FD = {
 			fileRef = 01ABF5C7FFEAF24711CA29FD;
@@ -395,14 +439,18 @@
 		02CE16E8FFFAC28A11CA2CF6 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOHIDQueueClass.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		02CE16E9FFFAC28A11CA2CF6 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOHIDQueueClass.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		02CE16EAFFFAC28A11CA2CF6 = {
 			fileRef = 02CE16E9FFFAC28A11CA2CF6;
@@ -431,8 +479,10 @@
 		03314B2DFFEFB07611CA29FD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOHIDLib.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		03314B2EFFEFB07611CA29FD = {
 			fileRef = 03314B2DFFEFB07611CA29FD;
@@ -443,6 +493,7 @@
 		0391B0BAFFE983AE11CA2CF6 = {
 			isa = PBXTargetDependency;
 			target = 019D7CB3FFE829CD11CA2CF6;
+			targetProxy = F7E54587065BD96B009938EB;
 		};
 		0391B0BBFFE983AE11CA2CF6 = {
 			buildActionMask = 2147483647;
@@ -527,6 +578,8 @@
 //083
 //084
 		089C1669FE841209C02AAC07 = {
+			buildSettings = {
+			};
 			buildStyles = (
 				06AA1265FFB2107B11CA28AA,
 				06AA1266FFB2107B11CA28AA,
@@ -553,6 +606,7 @@
 			isa = PBXGroup;
 			name = IOHIDFamily;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C1673FE841209C02AAC07 = {
 			buildPhases = (
@@ -574,7 +628,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOHIDFamily;
-				MODULE_VERSION = 1.3.4;
+				MODULE_VERSION = 1.3.5;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -602,7 +656,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOHIDFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.3.4, Copyright Apple Computer, Inc. 2000-2004</string>
+	<string>1.3.5, Copyright Apple Computer, Inc. 2000-2004</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -614,11 +668,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.4</string>
+	<string>1.3.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.4</string>
+	<string>1.3.5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOBSDConsole</key>
@@ -721,6 +775,7 @@
 				F5982CED0319687801000107,
 				F72B60C2048FC76D00302827,
 				84470BB004B0C488002A8D37,
+				F7E301D4065D87E000771214,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -795,6 +850,7 @@
 				F5982CEE0319687801000107,
 				F77B35F7047D9CBF00D3A5B3,
 				84470BAF04B0C488002A8D37,
+				F7E301D3065D87E000771214,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -824,9 +880,12 @@
 //093
 //094
 		09CF03A8FFC4B24911CA285C = {
+			explicitFileType = wrapper.cfbundle;
+			fallbackIsa = PBXFileReference;
 			isa = PBXBundleReference;
 			path = IOHIDLib.plugin;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		09CF03A9FFC4B24911CA285C = {
 			buildPhases = (
@@ -876,11 +935,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.4</string>
+	<string>1.3.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.4</string>
+	<string>1.3.5</string>
 	<key>CFPlugInDynamicRegistration</key>
 	<string>NO</string>
 	<key>CFPlugInFactories</key>
@@ -960,6 +1019,7 @@
 		09CF03BDFFC4B63911CA285C = {
 			isa = PBXTargetDependency;
 			target = 09CF03A9FFC4B24911CA285C;
+			targetProxy = F7E5458B065BD96B009938EB;
 		};
 		09CF03BEFFC4B63911CA285C = {
 			buildActionMask = 2147483647;
@@ -991,14 +1051,18 @@
 		0A308BA3FFFA5B7A11CA29FD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOHIDEventQueue.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0A308BA4FFFA5B7A11CA29FD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOHIDEventQueue.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0A308BA5FFFA5B7A11CA29FD = {
 			fileRef = 0A308BA4FFFA5B7A11CA29FD;
@@ -1025,9 +1089,12 @@
 //0B3
 //0B4
 		0B81C263FFB7832611CA28AA = {
+			explicitFileType = wrapper.cfbundle;
+			fallbackIsa = PBXFileReference;
 			isa = PBXBundleReference;
 			path = IOHIDFamily.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 //0B0
 //0B1
@@ -1049,6 +1116,7 @@
 			isa = PBXGroup;
 			name = Products;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 //190
 //191
@@ -1087,14 +1155,18 @@
 		583C4C91030989AE04CA2A11 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOHIDKeyboard.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		583C4C92030989AE04CA2A11 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOHIDKeyboard.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		583C4C93030989AE04CA2A11 = {
 			fileRef = 583C4C91030989AE04CA2A11;
@@ -1111,8 +1183,10 @@
 		583C4D890309B2BA04CA2A11 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = Cosmo_USB2ADB.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		583C4D8A0309B2BA04CA2A11 = {
 			fileRef = 583C4D890309B2BA04CA2A11;
@@ -1167,14 +1241,18 @@
 		58DBF979020875DE04CA2A11 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOHIDPointing.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		58DBF97A020875DE04CA2A11 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOHIDPointing.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		58DBF97B020875DE04CA2A11 = {
 			fileRef = 58DBF97A020875DE04CA2A11;
@@ -1191,14 +1269,18 @@
 		58F019A5029A222F040001C9 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOHIDOutputTransactionClass.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		58F019A6029A222F040001C9 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOHIDOutputTransactionClass.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		58F019A7029A222F040001C9 = {
 			fileRef = 58F019A6029A222F040001C9;
@@ -1246,18 +1328,23 @@
 			isa = PBXGroup;
 			name = "IOHIDDevice Shims";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		84470BAD04B0C488002A8D37 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOHIDDeviceShim.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		84470BAE04B0C488002A8D37 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOHIDDeviceShim.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		84470BAF04B0C488002A8D37 = {
 			fileRef = 84470BAD04B0C488002A8D37;
@@ -1271,6 +1358,28 @@
 			settings = {
 			};
 		};
+		84AB846E065DBA1200A40ECE = {
+			fileRef = F7E301D2065D87E000771214;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84AB8477065DBA5200A40ECE = {
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/PrivateHeaders/IOKit/hidsystem";
+			dstSubfolderSpec = 0;
+			files = (
+				84AB8478065DBA7200A40ECE,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		84AB8478065DBA7200A40ECE = {
+			fileRef = F7E301D2065D87E000771214;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		84BD0C1005902D9D0080C692 = {
 			children = (
 				84BD0C1505902DF40080C692,
@@ -1280,20 +1389,25 @@
 			name = "UPS Support";
 			path = "";
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		84BD0C1505902DF40080C692 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IOHIDUPSClass.cpp;
 			path = IOHIDLib/IOHIDUPSClass.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		84BD0C1605902DF40080C692 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOHIDUPSClass.h;
 			path = IOHIDLib/IOHIDUPSClass.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		84BD0C1705902DF40080C692 = {
 			fileRef = 84BD0C1505902DF40080C692;
@@ -1318,10 +1432,13 @@
 //B93
 //B94
 		B963F4B700BC660708CA29FD = {
+			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = CoreFoundation.framework;
 			path = /System/Library/Frameworks/CoreFoundation.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		B963F4B800BC660708CA29FD = {
 			fileRef = B963F4B700BC660708CA29FD;
@@ -1342,14 +1459,18 @@
 		F50AFCA502B4429701E77AAF = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOHIDKeyboardDevice.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F50AFCA602B4429701E77AAF = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOHIDKeyboardDevice.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F50AFCA702B4429701E77AAF = {
 			fileRef = F50AFCA502B4429701E77AAF;
@@ -1372,14 +1493,18 @@
 		F558801602AF4C8901000102 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOHIDPointingDevice.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F558801702AF4C8901000102 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOHIDPointingDevice.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F592DCCC02AFC562012FD7AD = {
 			fileRef = F558801702AF4C8901000102;
@@ -1390,14 +1515,18 @@
 		F5982CEB0319687801000107 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOHIDConsumer.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5982CEC0319687801000107 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOHIDConsumer.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5982CED0319687801000107 = {
 			fileRef = F5982CEB0319687801000107;
@@ -1424,10 +1553,12 @@
 			isa = PBXGroup;
 			name = "IOHIDevice Shims";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F59AD16902ADDC1B0193FF54 = {
 			isa = PBXTargetDependency;
 			target = F5AB668F02ADD3B101FF6135;
+			targetProxy = F7E5458A065BD96B009938EB;
 		};
 		F59AD16A02ADDC4B0193FF54 = {
 			fileRef = F5AB66D902ADD67601FF6135;
@@ -1639,7 +1770,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOHIDSystem;
-				MODULE_VERSION = 1.3.4;
+				MODULE_VERSION = 1.3.5;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1661,7 +1792,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.3.4, Copyright Apple Computer, Inc. 2000-2004</string>
+	<string>1.3.5, Copyright Apple Computer, Inc. 2000-2004</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1673,11 +1804,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.4</string>
+	<string>1.3.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.4</string>
+	<string>1.3.5</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0b1</string>
 	<key>OSBundleLibraries</key>
@@ -1694,9 +1825,12 @@
 ";
 		};
 		F5AB669002ADD3B101FF6135 = {
+			explicitFileType = wrapper.cfbundle;
+			fallbackIsa = PBXFileReference;
 			isa = PBXBundleReference;
 			path = IOHIDSystem.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		F5AB669302ADD67601FF6135 = {
 			children = (
@@ -1704,6 +1838,8 @@
 				F5AB669502ADD67601FF6135,
 				F5AB66BF02ADD67601FF6135,
 				F5AB66C002ADD67601FF6135,
+				F7E301D1065D87E000771214,
+				F7E301D2065D87E000771214,
 				F5AB66C102ADD67601FF6135,
 				F5AB66C202ADD67601FF6135,
 				F5AB66C302ADD67601FF6135,
@@ -1718,18 +1854,23 @@
 			isa = PBXGroup;
 			path = IOHIDSystem;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB669402ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOBSDConsole.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB669502ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOBSDConsole.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB669602ADD67601FF6135 = {
 			children = (
@@ -1778,306 +1919,408 @@
 			name = IOHIDDescriptorParser;
 			path = IOHIDSystem/IOHIDDescriptorParser;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB669702ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDCheckReport.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB669802ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDCountDescriptorItems.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB669902ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDGetButtonCaps.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB669A02ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDGetButtons.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB669B02ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDGetButtonsOnPage.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB669C02ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDGetCaps.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB669D02ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDGetCollectionNodes.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB669E02ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDGetData.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB669F02ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDGetNextButtonInfo.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66A002ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDGetNextUsageValueInfo.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66A102ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDGetReportLength.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66A202ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDGetUsageValue.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66A302ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDGetUsageValueArray.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66A402ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDGetValueCaps.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66A502ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDHasUsage.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66A602ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDInitReport.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66A702ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDIsButtonOrValue.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66A802ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = HIDLib.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66A902ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDMaxUsageListLength.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66AA02ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDNextItem.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66AB02ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDOpenCloseDescriptor.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66AC02ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDParseDescriptor.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66AD02ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDPostProcessRIValue.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66AE02ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = HIDPriv.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66AF02ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDProcessCollection.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66B002ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDProcessGlobalItem.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66B102ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDProcessLocalItem.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66B202ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDProcessMainItem.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66B302ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDProcessReportItem.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66B402ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDPutData.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66B502ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDScaleUsageValue.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66B602ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDSetButtons.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66B702ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDSetScaledUsageValue.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66B802ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDSetUsageValue.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66B902ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDSetUsageValueArray.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66BA02ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDUsageAndPageFromIndex.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66BB02ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDUsageInRange.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66BC02ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = HIDUsageListDifference.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66BD02ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = MacTypes.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66BE02ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = PoolAlloc.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66BF02ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOHIDevice.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66C002ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOHIDIO.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66C102ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			lineEnding = 0;
 			path = IOHIDSystem.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66C202ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOHIDUserClient.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66C302ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOHIDUserClient.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66C402ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOHIKeyboard.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66C502ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOHIKeyboardMapper.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66C602ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOHIPointing.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66C702ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOHITablet.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66C802ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOHITabletPointer.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66C902ADD67601FF6135 = {
 			children = (
@@ -2086,6 +2329,7 @@
 			isa = PBXGroup;
 			path = IOKit;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66CA02ADD67601FF6135 = {
 			children = (
@@ -2107,90 +2351,119 @@
 			isa = PBXGroup;
 			path = hidsystem;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66CB02ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = ev_keymap.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66CC02ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = ev_private.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66CD02ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOHIDDescriptorParser.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66CE02ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOHIDevice.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66CF02ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOHIDParameter.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66D002ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOHIDShared.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66D102ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOHIDSystem.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66D202ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOHIDTypes.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66D402ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOHIKeyboard.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66D502ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOHIKeyboardMapper.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66D602ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOHIPointing.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66D702ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOHITablet.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66D802ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOHITabletPointer.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66D902ADD67601FF6135 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOLLEvent.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5AB66DA02ADD67601FF6135 = {
 			fileRef = F5AB669402ADD67601FF6135;
@@ -2601,8 +2874,10 @@
 		F72B60C0048FC76D00302827 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOHIDUsageTables.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F72B60C1048FC76D00302827 = {
 			fileRef = F72B60C0048FC76D00302827;
@@ -2645,6 +2920,62 @@
 			isa = PBXBuildFile;
 			settings = {
 			};
+		};
+		F7E301D1065D87E000771214 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = IOHIDPrivate.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		F7E301D2065D87E000771214 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = IOHIDPrivate.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		F7E301D3065D87E000771214 = {
+			fileRef = F7E301D1065D87E000771214;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F7E301D4065D87E000771214 = {
+			fileRef = F7E301D2065D87E000771214;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F7E54587065BD96B009938EB = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 019D7CB3FFE829CD11CA2CF6;
+			remoteInfo = InstallHeaders;
+		};
+		F7E54588065BD96B009938EB = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 019D7CB3FFE829CD11CA2CF6;
+			remoteInfo = InstallHeaders;
+		};
+		F7E5458A065BD96B009938EB = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = F5AB668F02ADD3B101FF6135;
+			remoteInfo = IOHIDSystem;
+		};
+		F7E5458B065BD96B009938EB = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 09CF03A9FFC4B24911CA285C;
+			remoteInfo = IOHIDLib;
 		};
 	};
 	rootObject = 089C1669FE841209C02AAC07;

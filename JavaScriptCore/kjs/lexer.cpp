@@ -276,7 +276,10 @@ int Lexer::lex()
         state = InHexEscape;
       else if (current == 'u')
         state = InUnicodeEscape;
-      else {
+      else if (isLineTerminator()) {
+        nextLine();
+        state = InString;
+      } else {
         record16(singleEscape(current));
         state = InString;
       }

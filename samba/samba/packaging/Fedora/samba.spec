@@ -3,7 +3,7 @@
 
 Summary: The Samba SMB server.
 Name: samba
-Version: 3.0.2
+Version: 3.0.5
 Release: 1
 License: GNU GPL Version 2
 Group: System Environment/Daemons
@@ -12,14 +12,15 @@ URL: http://www.samba.org/
 Source: ftp://www.samba.org/pub/samba/%{name}-%{version}.tar.bz2
 
 # Red Hat specific replacement-files
-Source1: samba.log
-Source2: samba.xinetd
-Source3: swat.desktop
-Source4: samba.sysconfig
-Source5: smb.init
-Source6: samba.pamd
-Source7: smbprint
-Source8: winbind.init
+Source1:  samba.log
+Source2:  samba.xinetd
+Source4:  samba.sysconfig
+Source5:  smb.init
+Source6:  winbind.init
+Source7:  samba.pamd
+Source8:  smbprint
+Source9:  smbusers
+Source10: smb.conf
 
 # Don't depend on Net::LDAP
 Source999: filter-requires-samba.sh
@@ -144,20 +145,25 @@ make DESTDIR=$RPM_BUILD_ROOT \
 cd ..
 
 # Install other stuff
-install -m644 packaging/RedHat/smb.conf $RPM_BUILD_ROOT%{_sysconfdir}/samba/smb.conf
+install -m644 %{SOURCE10} $RPM_BUILD_ROOT%{_sysconfdir}/samba/smb.conf
+install -m644 %{SOURCE9} $RPM_BUILD_ROOT/etc/samba/smbusers
+install -m755 %{SOURCE8} $RPM_BUILD_ROOT%{_bindir}
+install -m644 %{SOURCE7} $RPM_BUILD_ROOT/etc/pam.d/samba
+install -m644 %{SOURCE1} $RPM_BUILD_ROOT/etc/logrotate.d/samba
 install -m755 source/script/mksmbpasswd.sh $RPM_BUILD_ROOT%{_bindir}
-install -m644 packaging/RedHat/smbusers $RPM_BUILD_ROOT/etc/samba/smbusers
-install -m755 packaging/RedHat/smbprint $RPM_BUILD_ROOT%{_bindir}
-install -m755 packaging/RedHat/smb.init $RPM_BUILD_ROOT%{initdir}/smb
-install -m755 packaging/RedHat/winbind.init $RPM_BUILD_ROOT%{initdir}/winbind
+
+install -m755 %{SOURCE5} $RPM_BUILD_ROOT%{initdir}/smb
+install -m755 %{SOURCE6} $RPM_BUILD_ROOT%{initdir}/winbind
 ln -s ../..%{initdir}/smb  $RPM_BUILD_ROOT%{_sbindir}/samba
-install -m644 packaging/RedHat/samba.pamd.stack $RPM_BUILD_ROOT/etc/pam.d/samba
-install -m644 $RPM_SOURCE_DIR/samba.log $RPM_BUILD_ROOT/etc/logrotate.d/samba
+ln -s ../..%{initdir}/winbind  $RPM_BUILD_ROOT%{_sbindir}/winbind
+
 ln -s ../usr/bin/smbmount $RPM_BUILD_ROOT/sbin/mount.smb
 ## Samba's Makefile is breaking this currently.  Remove it and set our own
 /bin/rm -f $RPM_BUILD_ROOT/sbin/mount.smbfs
 ln -s ../usr/bin/smbmount $RPM_BUILD_ROOT/sbin/mount.smbfs
+
 echo 127.0.0.1 localhost > $RPM_BUILD_ROOT%{_sysconfdir}/samba/lmhosts
+
 
 # pam_smbpass
 mkdir -p $RPM_BUILD_ROOT/%{_lib}/security
@@ -177,8 +183,8 @@ install -m 755 source/nsswitch/libnss_wins.so $RPM_BUILD_ROOT/%{_lib}/libnss_win
 # make install puts libsmbclient.so in the wrong place on x86_64
 rm -f $RPM_BUILD_ROOT/usr/lib || true
 mkdir -p $RPM_BUILD_ROOT%{_libdir} $RPM_BUILD_ROOT%{_includedir}
-install -m 644 source/bin/libsmbclient.so $RPM_BUILD_ROOT%{_libdir}/libsmbclient.so
-install -m 644 source/bin/libsmbclient.a $RPM_BUILD_ROOT%{_libdir}/libsmbclient.a
+install -m 755 source/bin/libsmbclient.so $RPM_BUILD_ROOT%{_libdir}/libsmbclient.so
+install -m 755 source/bin/libsmbclient.a $RPM_BUILD_ROOT%{_libdir}/libsmbclient.a
 install -m 644 source/include/libsmbclient.h $RPM_BUILD_ROOT%{_includedir}
 
 mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/xinetd.d
@@ -194,6 +200,7 @@ rm -f $RPM_BUILD_ROOT/%{_mandir}/man1/editreg.1*
 rm -f $RPM_BUILD_ROOT%{_mandir}/man1/log2pcap.1*
 rm -f $RPM_BUILD_ROOT%{_mandir}/man1/smbsh.1*
 rm -f $RPM_BUILD_ROOT%{_mandir}/man1/smbget.1*
+rm -f $RPM_BUILD_ROOT%{_mandir}/man5/smbget.5*
 rm -f $RPM_BUILD_ROOT/%{_mandir}/man8/mount.cifs.8*
 
 %clean

@@ -772,7 +772,7 @@ bool AppleUSBCDCWMCControl::getFunctionalDescriptors()
                         XTRACE(this, UNNFDesc->bFunctionLength, 0, "getFunctionalDescriptors - Union descriptor length error");
                     }
                     break;
-                case WMC_FunctionalDescriptor:
+                case WCM_FunctionalDescriptor:
                     XTRACE(this, funcDesc->bDescriptorType, funcDesc->bDescriptorSubtype, "getFunctionalDescriptors - WMC Functional Descriptor");
                     break;
                 default:

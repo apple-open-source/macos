@@ -53,8 +53,8 @@ const char*  KeyLargoPlatform::kAnalogHWResetEntry			= "audio-hw-reset";
 
 const char*	 KeyLargoPlatform::kCodecErrorIrqTypeEntry		= "codec-error-irq";
 const char*	 KeyLargoPlatform::kCodecIrqTypeEntry			= "codec-irq";
-const char*	 KeyLargoPlatform::kComboInJackTypeEntry		= "combo-input-type";
-const char*	 KeyLargoPlatform::kComboOutJackTypeEntry		= "combo-output-type";
+const char*	 KeyLargoPlatform::kComboInJackTypeEntry		= "combo-in-detect";
+const char*	 KeyLargoPlatform::kComboOutJackTypeEntry		= "combo-out-detect";
 const char*  KeyLargoPlatform::kDigitalHWResetEntry			= "audio-dig-hw-reset";
 const char*	 KeyLargoPlatform::kDigitalInDetectEntry		= "digital-input-detect";
 const char*	 KeyLargoPlatform::kDigitalOutDetectEntry		= "digital-output-detect";
@@ -142,23 +142,6 @@ bool KeyLargoPlatform::init (IOService* device, AppleOnboardAudio* provider, UIn
 	}
 	debugIOLog (3, "KeyLargoPlatform - mI2CPort = %ld", mI2CPort);
 
-	initAudioGpioPtr ( gpio, kAmpMuteEntry, &mAmplifierMuteGpio, &mAmplifierMuteActiveState, NULL );											//	control - no interrupt
-	initAudioGpioPtr ( gpio, kAnalogHWResetEntry, &mAnalogResetGpio, &mAnalogResetActiveState, NULL );											//	control - no interrupt
-	initAudioGpioPtr ( gpio, kCodecErrorIrqTypeEntry, &mCodecErrorInterruptGpio, &mCodecErrorInterruptActiveState, &mCodecErrorIntProvider );	//	control - does interrupt
-	initAudioGpioPtr ( gpio, kCodecIrqTypeEntry, &mCodecInterruptGpio, &mCodecInterruptActiveState, &mCodecIntProvider );						//	control - does interrupt
-	initAudioGpioPtr ( gpio, kComboInJackTypeEntry, &mComboInJackTypeGpio, &mComboInJackTypeActiveState, NULL );								//	control - no interrupt
-	initAudioGpioPtr ( gpio, kComboOutJackTypeEntry, &mComboOutJackTypeGpio, &mComboOutJackTypeActiveState, NULL );								//	control - no interrupt
-	initAudioGpioPtr ( gpio, kDigitalHWResetEntry, &mDigitalResetGpio, &mDigitalResetActiveState, NULL );										//	control - no interrupt
-	initAudioGpioPtr ( gpio, kDigitalInDetectEntry, &mDigitalInDetectGpio, &mDigitalInDetectActiveState, &mDigitalInDetectIntProvider );		//	detect  - does interrupt
-	initAudioGpioPtr ( gpio, kDigitalOutDetectEntry, &mDigitalOutDetectGpio, &mDigitalOutDetectActiveState, &mDigitalOutDetectIntProvider );	//	detect  - does interrupt
-	initAudioGpioPtr ( gpio, kHeadphoneDetectInt, &mHeadphoneDetectGpio, &mHeadphoneDetectActiveState, &mHeadphoneDetectIntProvider );			//	detect  - does interrupt
-	initAudioGpioPtr ( gpio, kHeadphoneMuteEntry, &mHeadphoneMuteGpio, &mHeadphoneMuteActiveState, NULL );										//	control - no interrupt
-	initAudioGpioPtr ( gpio, kInternalSpeakerIDEntry, &mInternalSpeakerIDGpio, &mInternalSpeakerIDActiveState, NULL );							//	control - no interrupt
-	initAudioGpioPtr ( gpio, kLineInDetectInt, &mLineInDetectGpio, &mLineInDetectActiveState, &mDigitalInDetectIntProvider );					//	detect  - does interrupt
-	initAudioGpioPtr ( gpio, kLineOutDetectInt, &mLineOutDetectGpio, &mLineOutDetectActiveState, &mLineOutDetectIntProvider );					//	detect  - does interrupt
-	initAudioGpioPtr ( gpio, kLineOutMuteEntry, &mLineOutMuteGpio, &mLineOutMuteActiveState, NULL );											//	control - no interrupt
-	initAudioGpioPtr ( gpio, kSpeakerDetectEntry, &mSpeakerDetectGpio, &mSpeakerDetectActiveState, &mSpeakerDetectIntProvider );				//	detect  - does interrupt
-
 	theService = (OSDynamicCast(IOService, i2s));
 	FailWithAction (!theService, result = false, Exit);
 
@@ -166,6 +149,26 @@ bool KeyLargoPlatform::init (IOService* device, AppleOnboardAudio* provider, UIn
 	FailWithAction (!map, result = false, Exit);
 	FailWithAction (kIOReturnSuccess != initI2S(map), result = false, Exit);
 	
+	if ( kUseI2SCell0 == mI2SInterfaceNumber ) {
+		initAudioGpioPtr ( gpio, kAmpMuteEntry, &mAmplifierMuteGpio, &mAmplifierMuteActiveState, NULL );											//	control - no interrupt
+		initAudioGpioPtr ( gpio, kAnalogHWResetEntry, &mAnalogResetGpio, &mAnalogResetActiveState, NULL );											//	control - no interrupt
+		initAudioGpioPtr ( gpio, kComboInJackTypeEntry, &mComboInJackTypeGpio, &mComboInJackTypeActiveState, &mComboInDetectIntProvider );			//	detect  - does interrupt
+		initAudioGpioPtr ( gpio, kComboOutJackTypeEntry, &mComboOutJackTypeGpio, &mComboOutJackTypeActiveState, &mComboOutDetectIntProvider );		//	detect  - does interrupt
+		initAudioGpioPtr ( gpio, kDigitalInDetectEntry, &mDigitalInDetectGpio, &mDigitalInDetectActiveState, &mDigitalInDetectIntProvider );		//	detect  - does interrupt
+		initAudioGpioPtr ( gpio, kDigitalOutDetectEntry, &mDigitalOutDetectGpio, &mDigitalOutDetectActiveState, &mDigitalOutDetectIntProvider );	//	detect  - does interrupt
+		initAudioGpioPtr ( gpio, kHeadphoneDetectInt, &mHeadphoneDetectGpio, &mHeadphoneDetectActiveState, &mHeadphoneDetectIntProvider );			//	detect  - does interrupt
+		initAudioGpioPtr ( gpio, kHeadphoneMuteEntry, &mHeadphoneMuteGpio, &mHeadphoneMuteActiveState, NULL );										//	control - no interrupt
+		initAudioGpioPtr ( gpio, kInternalSpeakerIDEntry, &mInternalSpeakerIDGpio, &mInternalSpeakerIDActiveState, NULL );							//	control - no interrupt
+		initAudioGpioPtr ( gpio, kLineInDetectInt, &mLineInDetectGpio, &mLineInDetectActiveState, &mDigitalInDetectIntProvider );					//	detect  - does interrupt
+		initAudioGpioPtr ( gpio, kLineOutDetectInt, &mLineOutDetectGpio, &mLineOutDetectActiveState, &mLineOutDetectIntProvider );					//	detect  - does interrupt
+		initAudioGpioPtr ( gpio, kLineOutMuteEntry, &mLineOutMuteGpio, &mLineOutMuteActiveState, NULL );											//	control - no interrupt
+		initAudioGpioPtr ( gpio, kSpeakerDetectEntry, &mSpeakerDetectGpio, &mSpeakerDetectActiveState, &mSpeakerDetectIntProvider );				//	detect  - does interrupt
+	} else {
+		initAudioGpioPtr ( gpio, kCodecErrorIrqTypeEntry, &mCodecErrorInterruptGpio, &mCodecErrorInterruptActiveState, &mCodecErrorIntProvider );	//	control - does interrupt
+		initAudioGpioPtr ( gpio, kCodecIrqTypeEntry, &mCodecInterruptGpio, &mCodecInterruptActiveState, &mCodecIntProvider );						//	control - does interrupt
+		initAudioGpioPtr ( gpio, kDigitalHWResetEntry, &mDigitalResetGpio, &mDigitalResetActiveState, NULL );										//	control - no interrupt
+	}
+
 	debugIOLog (3, "- KeyLargoPlatform::init");
 
 Exit:
@@ -717,6 +720,7 @@ void KeyLargoPlatform::initAudioGpioPtr ( const IORegistryEntry * start, const c
                     gpioRegMem = IODeviceMemory::withRange ( *theGpioAddr, sizeof ( UInt8 ) );
                     map = gpioRegMem->map ( 0 );
                     *gpioH = (UInt8*)map->getVirtualAddress();
+					debugIOLog (3, "KeyLargoPlatform - %s at %p", gpioName, *gpioH);
 				}
             }
 		}
@@ -799,16 +803,23 @@ GpioAttributes KeyLargoPlatform::getGpioAttributes ( GPIOSelector theGpio ) {
 					result = kGPIO_CodecInterruptInactive;
 				}
 				break;
-			case kGPIO_Selector_DigitalInDetect:
 			case kGPIO_Selector_ComboInJackType:
-			case kGPIO_Selector_DigitalOutDetect:
 			case kGPIO_Selector_ComboOutJackType:
+				//	active state indicates digital
+				if ( ( gpioValue & ( gpioBIT_MASK << gpioPIN_RO ) ) == ( activeState << gpioPIN_RO ) ) {
+					result = kGPIO_TypeIsDigital;
+				} else {
+					result = kGPIO_TypeIsAnalog;
+				}
+				break;
+			case kGPIO_Selector_DigitalInDetect:
+			case kGPIO_Selector_DigitalOutDetect:
 			case kGPIO_Selector_HeadphoneDetect:
 			case kGPIO_Selector_InternalSpeakerID:
 			case kGPIO_Selector_LineInDetect:
 			case kGPIO_Selector_LineOutDetect:
 			case kGPIO_Selector_SpeakerDetect:
-				if ( kGPIO_Selector_HeadphoneDetect == theGpio ) { *gpioPtr |= 0x80; }	//	BROWN PATCH - TEMPORARY!!!
+				if ( kGPIO_Selector_HeadphoneDetect == theGpio ) { *gpioPtr |= 0x80; }	//	REQUIRED for Q59/Q16A (DO NOT REMOVE)
 				if ( ( gpioValue & ( gpioBIT_MASK << gpioPIN_RO ) ) == ( activeState << gpioPIN_RO ) ) {
 					result = kGPIO_Connected;
 				} else {
@@ -925,18 +936,43 @@ GpioAttributes KeyLargoPlatform::getCodecInterrupt() {
 }
 
 //	--------------------------------------------------------------------------------
-GpioAttributes KeyLargoPlatform::getDigitalInConnected() {
-	return getGpioAttributes ( kGPIO_Selector_DigitalInDetect );
-}
-
-//	--------------------------------------------------------------------------------
 GpioAttributes KeyLargoPlatform::getComboInJackTypeConnected() {
 	return getGpioAttributes ( kGPIO_Selector_ComboInJackType );
 }
 
 //	--------------------------------------------------------------------------------
-GpioAttributes KeyLargoPlatform::getDigitalOutConnected() {
-	return getGpioAttributes ( kGPIO_Selector_DigitalOutDetect );
+GpioAttributes 	KeyLargoPlatform::getDigitalInConnected() {
+	GpioAttributes 			gpioState;
+
+	if ( kGPIO_Selector_NotAssociated == getComboInAssociation () ) {
+		debugIOLog ( 6, "± KeyLargoPlatform[%ld]::getDigitalInConnected() indicates NO ASSOCIATION %d, Returns dedicated Digital Input Detect status!", mInstanceIndex, getComboInAssociation () );
+		gpioState = getGpioAttributes ( kGPIO_Selector_DigitalInDetect );
+	} else {
+		if ( kGPIO_TypeIsDigital == getComboInJackTypeConnected () ) {
+			debugIOLog ( 6, "± KeyLargoPlatform[%ld]::getDigitalInConnected() indicates combo jack is digital: return jack status!", mInstanceIndex );
+			gpioState = getGpioAttributes ( getComboInAssociation () );
+		} else {
+			debugIOLog ( 6, "± KeyLargoPlatform[%ld]::getDigitalInConnected() indicates combo jack is not digital: return disconnected status!", mInstanceIndex );
+			gpioState = kGPIO_Disconnected;
+		}
+	}
+	return gpioState;
+}
+
+//	--------------------------------------------------------------------------------
+GpioAttributes 	KeyLargoPlatform::getDigitalOutConnected() {
+	GpioAttributes 			gpioState;
+
+	if (kGPIO_Selector_NotAssociated == getComboOutAssociation () ) {
+		gpioState = getGpioAttributes ( kGPIO_Selector_DigitalOutDetect );
+	} else {
+		if (kGPIO_TypeIsDigital == getComboOutJackTypeConnected () ) {
+			gpioState = getGpioAttributes ( getComboOutAssociation () );
+		} else {
+			gpioState = kGPIO_Disconnected;
+		}
+	}
+	return gpioState;
 }
 
 //	--------------------------------------------------------------------------------
@@ -1067,7 +1103,9 @@ IOReturn KeyLargoPlatform::registerInterruptHandler (IOService * theDevice, void
 	result = kIOReturnError;
 	switch ( source ) {
 		case kCodecInterrupt: 				result = setCodecInterruptHandler (theDevice, interruptHandler);				break;
-		case kCodecErrorInterrupt: 			result = setCodecErrorInterruptHandler (theDevice, interruptHandler);			break;
+		case kCodecErrorInterrupt:			result = setCodecErrorInterruptHandler (theDevice, interruptHandler);			break;
+		case kComboInDetectInterrupt:		result = setComboInDetectInterruptHandler (theDevice, interruptHandler);		break;
+		case kComboOutDetectInterrupt:		result = setComboOutDetectInterruptHandler (theDevice, interruptHandler);		break;
 		case kDigitalInDetectInterrupt: 	result = setDigitalInDetectInterruptHandler (theDevice, interruptHandler);		break;
 		case kDigitalOutDetectInterrupt: 	result = setDigitalOutDetectInterruptHandler (theDevice, interruptHandler);		break;
 		case kHeadphoneDetectInterrupt: 	result = setHeadphoneDetectInterruptHandler (theDevice, interruptHandler);		break;
@@ -1088,7 +1126,9 @@ IOReturn KeyLargoPlatform::unregisterInterruptHandler (IOService * theDevice, vo
 	result = kIOReturnError;
 	switch ( source ) {
 		case kCodecInterrupt: 				result = setCodecInterruptHandler (theDevice, NULL);							break;
-		case kCodecErrorInterrupt: 			result = setCodecErrorInterruptHandler (theDevice, NULL);						break;
+		case kCodecErrorInterrupt: 		result = setCodecErrorInterruptHandler (theDevice, NULL);						break;
+		case kComboInDetectInterrupt:		result = setComboInDetectInterruptHandler (theDevice, NULL);						break;
+		case kComboOutDetectInterrupt: 	result = setComboOutDetectInterruptHandler (theDevice, NULL);						break;
 		case kDigitalInDetectInterrupt: 	result = setDigitalInDetectInterruptHandler (theDevice, NULL);					break;
 		case kDigitalOutDetectInterrupt: 	result = setDigitalOutDetectInterruptHandler (theDevice, NULL);					break;
 		case kHeadphoneDetectInterrupt: 	result = setHeadphoneDetectInterruptHandler (theDevice, NULL);					break;
@@ -1344,6 +1384,66 @@ Exit:
 		theInterruptEventSource->release();
 	}
 	debugIOLog (3,  "KeyLargoPlatform::setCodecErrorInterruptHandler() returns %X", result );
+	return result;
+}
+
+//	--------------------------------------------------------------------------------
+IOReturn KeyLargoPlatform::setComboInDetectInterruptHandler (IOService* theDevice, void* interruptHandler) {
+	IOReturn result;
+	IOInterruptEventSource * theInterruptEventSource;
+
+	theInterruptEventSource = NULL;
+	result = kIOReturnError;
+
+	if ( NULL == interruptHandler && NULL != mComboInDetectInterruptEventSource) {
+		mComboInDetectInterruptEventSource->disable ();
+		result = mWorkLoop->removeEventSource (mComboInDetectInterruptEventSource);		mComboInDetectInterruptEventSource = NULL;
+	} else {
+		FailIf (NULL == mComboInDetectIntProvider, Exit);
+		mComboInDetectInterruptEventSource = theInterruptEventSource = IOInterruptEventSource::interruptEventSource (this,
+																				(IOInterruptEventSource::Action)interruptHandler,
+																				mComboInDetectIntProvider,
+																				0);
+		FailIf (NULL == theInterruptEventSource, Exit);
+		
+		result = mWorkLoop->addEventSource (theInterruptEventSource);	
+		theInterruptEventSource->enable ();
+	}
+Exit:
+	if (NULL != theInterruptEventSource) {
+		theInterruptEventSource->release();
+	}
+	debugIOLog (3,  "KeyLargoPlatform::setComboInDetectInterruptHandler() returns %X", result );
+	return result;
+}
+
+//	--------------------------------------------------------------------------------
+IOReturn KeyLargoPlatform::setComboOutDetectInterruptHandler (IOService* theDevice, void* interruptHandler) {
+	IOReturn result;
+	IOInterruptEventSource * theInterruptEventSource;
+
+	theInterruptEventSource = NULL;
+	result = kIOReturnError;
+
+	if ( NULL == interruptHandler && NULL != mComboOutDetectInterruptEventSource) {
+		mComboOutDetectInterruptEventSource->disable ();
+		result = mWorkLoop->removeEventSource (mComboOutDetectInterruptEventSource);		mComboOutDetectInterruptEventSource = NULL;
+	} else {
+		FailIf (NULL == mComboOutDetectIntProvider, Exit);
+		mComboOutDetectInterruptEventSource = theInterruptEventSource = IOInterruptEventSource::interruptEventSource (this,
+																				(IOInterruptEventSource::Action)interruptHandler,
+																				mComboOutDetectIntProvider,
+																				0);
+		FailIf (NULL == theInterruptEventSource, Exit);
+		
+		result = mWorkLoop->addEventSource (theInterruptEventSource);	
+		theInterruptEventSource->enable ();
+	}
+Exit:
+	if (NULL != theInterruptEventSource) {
+		theInterruptEventSource->release();
+	}
+	debugIOLog (3,  "KeyLargoPlatform::setComboOutDetectInterruptHandler() returns %X", result );
 	return result;
 }
 

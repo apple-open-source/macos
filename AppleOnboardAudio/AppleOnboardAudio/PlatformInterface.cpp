@@ -696,11 +696,11 @@ Exit:
 //
 void PlatformInterface::RunComboStateMachine ( IOCommandGate * cg, PlatformInterface * platformInterface, UInt32 detectState, UInt32 typeSenseState, UInt32 analogJackType ) {
 	
-	debugIOLog (5,  "+ RunComboStateMachine ( %p, %p, %ld, %ld, %ld ), power state = %d", cg, platformInterface, detectState, typeSenseState, analogJackType, platformInterface->mProvider->getPowerState () );
-
 	FailIf ( NULL == cg, Exit );
 	FailIf ( NULL == platformInterface, Exit );
 	FailIf ( NULL == platformInterface->mProvider, Exit );
+
+	debugIOLog (5,  "+ RunComboStateMachine ( %p, %p, %ld, %ld, %ld ), power state = %d", cg, platformInterface, detectState, typeSenseState, analogJackType, platformInterface->mProvider->getPowerState () );
 
 	if (platformInterface->mProvider->getPowerState () == kIOAudioDeviceSleep) goto Exit;		// don't advance the state machine if we are asleep (we'll run this code on wake)
 
@@ -825,8 +825,8 @@ void PlatformInterface::RunComboStateMachine ( IOCommandGate * cg, PlatformInter
 			break;
 	}
 	
-Exit:
 	debugIOLog (5,  "- RunComboStateMachine ( %p, %p, %ld, %ld, %ld )", cg, platformInterface, detectState, typeSenseState, analogJackType );
+Exit:
 	return;
 }
 

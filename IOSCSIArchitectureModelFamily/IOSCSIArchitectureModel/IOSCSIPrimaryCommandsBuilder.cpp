@@ -134,6 +134,35 @@ ErrorExit:
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		IOSCSIPrimaryCommandsDevice::IsParameterValid
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		Validate Parameter used for 33 bit to 8 byte paramaters
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOSCSIPrimaryCommandsDevice::IsParameterValid ( SCSICmdField8Byte param,
+										SCSICmdField8Byte mask )
+{
+	
+	bool	valid = false;
+	
+	require ( ( param | mask ) == mask, ErrorExit );
+	valid = true;
+	
+	
+ErrorExit:
+	
+	
+	return valid;
+	
+}
+
+
 
 bool
 IOSCSIPrimaryCommandsDevice::IsMemoryDescriptorValid (

@@ -31,7 +31,7 @@ net \- Tool for administration of Samba and remote CIFS servers.
 .SH "DESCRIPTION"
 
 .PP
-This tool is part of the \fBSamba\fR(7) suite\&.
+This tool is part of the \fBsamba\fR(7) suite\&.
 
 .PP
 The samba net utility is meant to work just like the net utility available for windows and DOS\&. The first argument should be used to specify the protocol to use when executing a certain command\&. ADS is used for ActiveDirectory, RAP is using for old (Win9x/NT3) clients and RPC can be used for NT4 and Windows 2000\&. If this argument is omitted, net will try to determine it automatically\&. Not all commands are available on all protocols\&.
@@ -42,70 +42,55 @@ The samba net utility is meant to work just like the net utility available for w
 \-h|\-\-help
 Print a summary of command line options\&.
 
-
 .TP
 \-w target\-workgroup
 Sets target workgroup or domain\&. You have to specify either this option or the IP address or the name of a server\&.
-
 
 .TP
 \-W workgroup
 Sets client workgroup or domain
 
-
 .TP
 \-U user
 User name to use
-
 
 .TP
 \-I ip\-address
 IP address of target server to use\&. You have to specify either this option or a target workgroup or a target server\&.
 
-
 .TP
 \-p port
 Port on the target server to connect to (usually 139 or 445)\&. Defaults to trying 445 first, then 139\&.
-
 
 .TP
 \-n <primary NetBIOS name>
 This option allows you to override the NetBIOS name that Samba uses for itself\&. This is identical to setting the netbios name parameter in the \fIsmb\&.conf\fR file\&. However, a command line setting will take precedence over settings in \fIsmb\&.conf\fR\&.
 
-
 .TP
 \-s <configuration file>
 The file specified contains the configuration details required by the server\&. The information in this file includes server\-specific information such as what printcap file to use, as well as descriptions of all the services that the server is to provide\&. See \fIsmb\&.conf\fR for more information\&. The default configuration file name is determined at compile time\&.
-
 
 .TP
 \-S server
 Name of target server\&. You should specify either this option or a target workgroup or a target IP address\&.
 
-
 .TP
 \-l
 When listing data, give more information on each item\&.
-
 
 .TP
 \-P
 Make queries to the external server using the machine account of the local server\&.
 
-
 .TP
 \-d|\-\-debug=debuglevel
 \fIdebuglevel\fR is an integer from 0 to 10\&. The default value if this parameter is not specified is zero\&.
 
-
 The higher this value, the more detail will be logged to the log files about the activities of the server\&. At level 0, only critical errors and serious warnings will be logged\&. Level 1 is a reasonable level for day\-to\-day running \- it generates a small amount of information about operations carried out\&.
-
 
 Levels above 1 will generate considerable amounts of log data, and should only be used when investigating a problem\&. Levels above 3 are designed for use only by developers and generate HUGE amounts of log data, most of which is extremely cryptic\&.
 
-
 Note that specifying this parameter here will override the log level parameter in the \fIsmb\&.conf\fR file\&.
-
 
 .SH "COMMANDS"
 
@@ -433,27 +418,21 @@ Manage the mappings between Windows group SIDs and UNIX groups\&. Parameters tak
 .TP 3
 \(bu
 unixgroup \- Name of the UNIX group
-
 .TP
 \(bu
 ntgroup \- Name of the Windows NT group (must be resolvable to a SID
-
 .TP
 \(bu
 rid \- Unsigned 32\-bit integer
-
 .TP
 \(bu
 sid \- Full SID in the form of "S\-1\-\&.\&.\&."
-
 .TP
 \(bu
 type \- Type of the group; either 'domain', 'local', or 'builtin'
-
 .TP
 \(bu
 comment \- Freeform text description of the group
-
 .LP
 
 .SS "GROUPMAP ADD"
@@ -557,21 +536,17 @@ Shut down the remote server\&.
 \-r
 Reboot after shutdown\&.
 
-
 .TP
 \-f
 Force shutting down all applications\&.
-
 
 .TP
 \-t timeout
 Timeout before system will be shut down\&. An interactive user of the system can use this time to cancel the shutdown\&.
 
-
 .TP
 \-C message
 Display the specified message on the screen to announce the shutdown\&.
-
 
 .SS "SAMDUMP"
 

@@ -61,7 +61,7 @@ bool		I2STransportInterface::init ( PlatformInterface * inPlatformInterface ) {
 	
 	err = restartTransport ();
 	FailIf ( kIOReturnSuccess != err, Exit );
-
+	
 	success = true;
 Exit:
 	
@@ -514,7 +514,7 @@ IOReturn I2STransportInterface::requestClockSources () {
 	if (FALSE == mHave45MHzClock) {
 		result = mPlatformObject->requestI2SClockSource (kI2S_45MHz);
 		if (kIOReturnSuccess != result) {
-			debugIOLog ( 3, "  I2STransportInterface[%ld] failed to acquire 45 MHz clock.", mInstanceIndex );
+			debugIOLog ( 3, "  FAILED to acquire 45.1584 MHz clock.");
 		} else {
 			mHave45MHzClock = TRUE;
 		}
@@ -522,7 +522,7 @@ IOReturn I2STransportInterface::requestClockSources () {
 	if (FALSE == mHave49MHzClock) {
 		result = mPlatformObject->requestI2SClockSource (kI2S_49MHz);
 		if (kIOReturnSuccess != result) {
-			debugIOLog ( 3, "  I2STransportInterface failed[%ld] to acquire 49 MHz clock.", mInstanceIndex );
+			debugIOLog ( 3, "  FAILED to acquire 49.1520 MHz clock.");
 		} else {
 			mHave49MHzClock = TRUE;
 		}
@@ -530,7 +530,7 @@ IOReturn I2STransportInterface::requestClockSources () {
 	if (FALSE == mHave18MHzClock) {
 		result = mPlatformObject->requestI2SClockSource (kI2S_18MHz);
 		if (kIOReturnSuccess != result) {
-			debugIOLog ( 3, "  I2STransportInterface[%ld] failed to acquire 18 MHz clock.", mInstanceIndex );
+			debugIOLog ( 3, "  FAILED to acquire 18.4320 MHz clock.");
 		} else {
 			mHave18MHzClock = TRUE;
 		}
@@ -539,7 +539,7 @@ IOReturn I2STransportInterface::requestClockSources () {
 		result = kIOReturnSuccess;
 	}
 
-	debugIOLog ( 3, "- I2STransportInterface[%ld]::requestClockSources () returns 0x%0.8X", mInstanceIndex, result );
+	debugIOLog ( 3, "- I2STransportInterface[%ld]::requestClockSources () returns 0x%0.8X", result );
 	return result;
 }
 
@@ -555,7 +555,7 @@ IOReturn I2STransportInterface::releaseClockSources () {
 	if (TRUE == mHave45MHzClock) {
 		result = mPlatformObject->releaseI2SClockSource (kI2S_45MHz);
 		if (kIOReturnSuccess != result) {
-			debugIOLog ( 3, "  I2STransportInterface[%ld]Failed to release 45 MHz clock.", mInstanceIndex );
+			debugIOLog ( 3, "  FAILED to release 45.1584 MHz clock.");
 		} else {
 			mHave45MHzClock = FALSE;
 		}
@@ -563,7 +563,7 @@ IOReturn I2STransportInterface::releaseClockSources () {
 	if (TRUE == mHave49MHzClock) {
 		result = mPlatformObject->releaseI2SClockSource (kI2S_49MHz);
 		if (kIOReturnSuccess != result) {
-			debugIOLog ( 3, "  I2STransportInterface[%ld]Failed to release 49 MHz clock.", mInstanceIndex );
+			debugIOLog ( 3, "  FAILED to release 49.1520 MHz clock.");
 		} else {
 			mHave49MHzClock = FALSE;
 		}
@@ -571,7 +571,7 @@ IOReturn I2STransportInterface::releaseClockSources () {
 	if (TRUE == mHave18MHzClock) {
 		result = mPlatformObject->releaseI2SClockSource (kI2S_18MHz);
 		if (kIOReturnSuccess != result) {
-			debugIOLog ( 3, "  I2STransportInterface[%ld]Failed to release 18 MHz clock.", mInstanceIndex );
+			debugIOLog ( 3, "  FAILED to release 18.4320 MHz clock.");
 		} else {
 			mHave18MHzClock = FALSE;
 		}
@@ -622,7 +622,7 @@ IOReturn		I2STransportInterface::calculateSerialFormatRegisterValue ( UInt32 sam
 		validClockSource = TRUE;
 	} else {
 		//	The sample rate cannot be derived from available clock sources
-		debugIOLog ( 1, "  I2STransportInterface[%ld] UNABLE TO DERIVE SAMPLE RATE (%ld)", mInstanceIndex, sampleRate);
+		debugIOLog ( 1, "  I2STransportInterface[%ld] UNABLE TO DERIVE SAMPLE RATE %ld (i.e. rate * N[...] ­ any clock)", mInstanceIndex, sampleRate);
 	}
 	if ( validClockSource ) {		//  [3686032]   dont assert on external clock when clock is missing
 		debugIOLog ( 6, "  I2STransportInterface[%ld]::calculateSerialFormatRegisterValue: mClockSourceFrequency = %ld", mInstanceIndex, mClockSourceFrequency);
@@ -651,7 +651,7 @@ IOReturn		I2STransportInterface::calculateSerialFormatRegisterValue ( UInt32 sam
 		//	The I2S I/O Module has exceptions for register configurations based on the clock 
 		//	divisor which must be resolved to determine register confuration SCLK values.
 		mSClkDivisor = ( mClockSourceFrequency / mMClkDivisor ) / mSClkFrequency;
-		debugIOLog ( 6, "  I2STransportInterface[%ld]::calculateSerialFormatRegisterValue: mSClkDivisor = %ld", mInstanceIndex, mSClkDivisor);
+			debugIOLog ( 6, "  I2STransportInterface[%ld]::calculateSerialFormatRegisterValue: mSClkDivisor = %ld", mInstanceIndex, mSClkDivisor);
 		switch ( mSClkDivisor ) {
 			// exception cases require decimal divider constants (not hex!)
 			case 1:			mSClkDivider = 8;											break;

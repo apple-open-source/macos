@@ -22,7 +22,7 @@
 
 #ifndef lint
 static const char rcsid[] _U_ =
-    "@(#) $Header: /cvs/root/libpcap/libpcap/scanner.l,v 1.1.1.3 2004/02/05 19:22:28 rbraun Exp $ (LBL)";
+    "@(#) $Header: /cvs/root/libpcap/libpcap/scanner.l,v 1.1.1.4 2004/05/21 20:31:59 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -277,7 +277,9 @@ connectmsg	return CONNECTMSG;
 metaconnect	return METACONNECT;
 
 on|ifname	return PF_IFNAME;
+rset|ruleset	return PF_RSET;
 rnr|rulenum	return PF_RNR;
+srnr|subrulenum	return PF_SRNR;
 reason		return PF_REASON;
 action		return PF_ACTION;
 

@@ -957,6 +957,7 @@ appendDomainName(char *h, char *d)
 {
 	LUArray *all;
 	char **lookupOrder;
+	LUAgent *agent;
 	LUDictionary *item;
 	int i, len;
 	char scratch[256];
@@ -981,6 +982,8 @@ appendDomainName(char *h, char *d)
 	lookupOrder = [self lookupOrderForCategory:LUCategoryGroup];
 	item = nil;
 	len = listLength(lookupOrder);
+
+	if (len == 0) return nil;
 
 	cacheEnabled = [cacheAgent cacheIsEnabledForCategory:LUCategoryGroup];
 	if (cacheEnabled)
@@ -1010,6 +1013,13 @@ appendDomainName(char *h, char *d)
 				[self recordCall:currentCall time:allTime hit:YES];
 				currentCall = NULL;
 			}
+			
+			if ([item isNegative])
+			{
+				[item release];
+				return nil;
+			}
+			
 			return item;
 		}
 	}
@@ -1024,8 +1034,20 @@ appendDomainName(char *h, char *d)
 	all = [self query:q];
 	[q release];
 
-	if (all == nil) return nil;
-
+	if (all == nil)
+	{
+		agent = [self agentNamed:lookupOrder[len - 1]];
+		if (agent == nil) return nil;
+		
+		if (streq([agent shortName], "NIL"))
+		{
+			item = [agent itemWithKey:key value:val category:LUCategoryGroup];
+			return [self stamp:item key:key agent:agent category:LUCategoryGroup];
+		}
+		
+		return nil;
+	}
+	
 	item = [[LUDictionary alloc] initTimeStamped];
 	[item setCategory:LUCategoryGroup];
 	sprintf(scratch, "LUServer: group %s %s", key, val);

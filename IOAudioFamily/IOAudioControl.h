@@ -24,6 +24,7 @@
 #define _IOKIT_IOAUDIOCONTROL_H
 
 #include <IOKit/IOService.h>
+#include <IOKit/audio/IOAudioEngine.h>
 
 class IOAudioPort;
 class OSDictionary;
@@ -147,22 +148,34 @@ protected:
     OSSet		*userClients;
 
 protected:
-    struct ExpansionData { };
+    struct ExpansionData {
+		IOAudioEngine *				providerEngine;
+		OSArray *					notificationQueue;
+	};
     
     ExpansionData *reserved;
     
 public:
+	// OSMetaClassDeclareReservedUsed(IOAudioControl, 0);
 	virtual void sendChangeNotification(UInt32 notificationType);
-	// Call the setReadOnlyFlag() function to say that a control is read only.
-	// This call cannot be undone, so if a control is only temporarily unsetable,
-	// do not use this call but instead return an error from the control handler.
+
+	// OSMetaClassDeclareReservedUsed(IOAudioControl, 1);
+    /*!
+	 * @function setReadOnlyFlag
+     * @abstract Call this function to say that a control is read only.
+	 * This call cannot be undone, so if a control is only temporarily unsetable,
+	 * do not use this call but instead return an error from the control handler.
+     */
 	virtual void setReadOnlyFlag();
+
+	// OSMetaClassDeclareReservedUsed(IOAudioControl, 2);
+	virtual void sendQueuedNotifications(void);
 
 private:
     OSMetaClassDeclareReservedUsed(IOAudioControl, 0);
     OSMetaClassDeclareReservedUsed(IOAudioControl, 1);
+    OSMetaClassDeclareReservedUsed(IOAudioControl, 2);
 
-    OSMetaClassDeclareReservedUnused(IOAudioControl, 2);
     OSMetaClassDeclareReservedUnused(IOAudioControl, 3);
     OSMetaClassDeclareReservedUnused(IOAudioControl, 4);
     OSMetaClassDeclareReservedUnused(IOAudioControl, 5);

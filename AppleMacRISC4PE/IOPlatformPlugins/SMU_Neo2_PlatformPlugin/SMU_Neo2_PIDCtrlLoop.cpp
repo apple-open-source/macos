@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: SMU_Neo2_PIDCtrlLoop.cpp,v 1.7 2004/06/24 01:31:49 eem Exp $
+ *  File: $Id: SMU_Neo2_PIDCtrlLoop.cpp,v 1.14 2004/08/31 02:39:32 dirty Exp $
  *
  */
 
@@ -35,12 +35,52 @@
 
 OSDefineMetaClassAndStructors( SMU_Neo2_PIDCtrlLoop, IOPlatformPIDCtrlLoop )
 
+void SMU_Neo2_PIDCtrlLoop::free( void )
+	{
+	if ( linkedControl != NULL )
+		{
+		linkedControl->release();
+		linkedControl = NULL;
+		}
+
+	IOPlatformPIDCtrlLoop::free();
+	}
+
+
 IOReturn SMU_Neo2_PIDCtrlLoop::initPlatformCtrlLoop(const OSDictionary *dict)
-{
+	{
+	IOReturn							result;
+
 	safeMetaStateIndex = (unsigned int) -1;
 
-	return IOPlatformPIDCtrlLoop::initPlatformCtrlLoop( dict );
-}
+	outputMin = linkedControlOutputMin = minMinimum = 0x7FFFFFFF;
+	outputMax = linkedControlOutputMax = maxMaximum = 0;
+
+	result = IOPlatformPIDCtrlLoop::initPlatformCtrlLoop( dict );
+
+	targetValue = 0;
+
+	// If there is a second entry in control-id array, then we treat it as a control which should be driven
+	// exactly the same as the first control.
+
+	OSArray*							controlArray;
+
+	if ( ( controlArray = OSDynamicCast( OSArray, dict->getObject( kIOPPluginThermalControlIDsKey ) ) ) == NULL )
+		{
+		CTRLLOOP_DLOG( "SMU_Neo2_PIDCtrlLoop::initPlatformCtrlLoop: control-id array is missing.\n" );
+
+		return( kIOReturnError );
+		}
+
+	if ( ( linkedControl = OSDynamicCast( IOPlatformControl, platformPlugin->lookupControlByID( OSDynamicCast( OSNumber, controlArray->getObject( 1 ) ) ) ) ) != NULL )
+		{
+		linkedControl->retain();
+		addControl( linkedControl );
+		}
+
+	return( result );
+	}
+
 
 bool SMU_Neo2_PIDCtrlLoop::updateMetaState( void )
 	{
@@ -57,7 +97,7 @@ bool SMU_Neo2_PIDCtrlLoop::updateMetaState( void )
 	// Check for door ajar condition.
 
 	if ( ( safeMetaStateIndex != (unsigned int) -1 ) &&
-	     ( platformPlugin->getEnv( gIOPPluginEnvChassisSwitch ) == kOSBooleanTrue ) )
+	     ( platformPlugin->getEnv( gIOPPluginEnvChassisSwitch ) == kOSBooleanFalse ) )
 		{
 		CTRLLOOP_DLOG( "SMU_Neo2_PIDCtrlLoop::updateMetaState: Entering Safe Mode. (Meta State %u)\n", safeMetaStateIndex );
 
@@ -292,27 +332,22 @@ ControlValue SMU_Neo2_PIDCtrlLoop::calculateNewTarget( void ) const
 	// If there is an output override, use it.
 
 	if ( overrideActive )
-	{
+		{
 		CTRLLOOP_DLOG( "*** PID *** Override Active\n" );
 
 		newTarget = outputOverride->unsigned32BitValue();
 
 		return( newTarget );
-	}
+		}
 
 	// Apply the PID algorithm to choose a new control target value.
 
 	if ( ctrlloopState == kIOPCtrlLoopFirstAdjustment )
-	{
-		result = 0;
-	}
-	else
-	{
-		if (!isDirectControlType)
 		{
-			result = ( SInt32 ) outputControl->getTargetValue();
+		result = 0;
 		}
-
+	else
+		{
 		// Calculate the derivative term.
 
 		dRaw = calculateDerivativeTerm().sensValue;
@@ -340,31 +375,22 @@ ControlValue SMU_Neo2_PIDCtrlLoop::calculateNewTarget( void ) const
 
 		accum >>= 36;
 
-		if (isDirectControlType)
-		{
+		// Direct controlled fans 
+
+		if ( isDirectControlType )
+			{
 			result = ( SInt32 ) accum;
-		}
+			}
 		else
-		{
-			result += ( SInt32 ) accum;
+			{
+			result = ( SInt32 ) accum + ( SInt32 ) targetValue;
+			}
 		}
-	}
 
-	newTarget = ( UInt32 )( result > 0 ) ? result : 0;
+	newTarget = ( ControlValue )( result > 0 ) ? result : 0;
 
-	// Apply any hard limits.
-
-	if ( newTarget < outputMin )
-	{
-		newTarget = outputMin;
-	}
-	else
-	{
-		if ( newTarget > outputMax )
-		{
-			newTarget = outputMax;
-		}
-	}
+	newTarget = min( newTarget, maxMaximum );
+	newTarget = max( newTarget, minMinimum );
 
 #if 0
 #ifdef CTRLLOOP_DEBUG
@@ -411,7 +437,60 @@ ControlValue SMU_Neo2_PIDCtrlLoop::calculateNewTarget( void ) const
 #endif
 
 	return( newTarget );
-}
+	}
+
+
+void SMU_Neo2_PIDCtrlLoop::sendNewTarget( ControlValue newTarget )
+	{
+	UInt32						mainNewTarget = newTarget;
+
+	targetValue = newTarget;
+
+	// Apply any hard limits.
+
+	mainNewTarget = min( mainNewTarget, outputMax );
+	mainNewTarget = max( mainNewTarget, outputMin );
+
+	if ( ( ctrlloopState == kIOPCtrlLoopFirstAdjustment ) || ( ctrlloopState == kIOPCtrlLoopDidWake ) ||
+		( mainNewTarget != outputControl->getTargetValue() ) )
+		{
+		if ( outputControl->sendTargetValue( mainNewTarget ) )
+			{
+			outputControl->setTargetValue( mainNewTarget );
+			ctrlloopState = kIOPCtrlLoopAllRegistered;
+			}
+		else
+			{
+			CTRLLOOP_DLOG( "SMU_Neo2_PIDCtrlLoop::sendNewTarget failed to send target value to first control\n" );
+			}
+		}
+
+	// If there is a linkedControl, then set it to have the same value as outputControl.
+
+	if ( linkedControl )
+		{
+		UInt32						linkedNewTarget = newTarget;
+
+		// Apply any hard limits.
+
+		linkedNewTarget = min( linkedNewTarget, linkedControlOutputMax );
+		linkedNewTarget = max( linkedNewTarget, linkedControlOutputMin );
+
+		if ( ( ctrlloopState == kIOPCtrlLoopFirstAdjustment ) || ( ctrlloopState == kIOPCtrlLoopDidWake ) ||
+			( linkedNewTarget != linkedControl->getTargetValue() ) )
+			{
+			if ( linkedControl->sendTargetValue( linkedNewTarget ) )
+				{
+				linkedControl->setTargetValue( linkedNewTarget );
+				ctrlloopState = kIOPCtrlLoopAllRegistered;
+				}
+			else
+				{
+				CTRLLOOP_DLOG( "SMU_Neo2_PIDCtrlLoop::sendNewTarget failed to send target value to linked control\n" );
+				}
+			}
+		}
+	}
 
 
 void SMU_Neo2_PIDCtrlLoop::controlRegistered( IOPlatformControl* aControl )
@@ -451,6 +530,12 @@ void SMU_Neo2_PIDCtrlLoop::controlRegistered( IOPlatformControl* aControl )
 		metaStateDict->setObject( kIOPPIDCtrlLoopOutputMaxKey, tmpNumber );
 		tmpNumber->release();
 
+		// [3765953] Since the primary control is not always registered first, be careful when updating
+		// minMinimum or maxMaximum.
+
+		minMinimum = min( minMinimum, outputMin );
+		maxMaximum = max( maxMaximum, outputMax );
+
 		// Get "Failsafe" meta state dictionary.
 
 		metaStateDict = OSDynamicCast( OSDictionary, metaStateArray->getObject( 1 ) );
@@ -475,8 +560,7 @@ void SMU_Neo2_PIDCtrlLoop::controlRegistered( IOPlatformControl* aControl )
 
 		// A Safe value of 0xFFFF indicates that the safe-value is not populated / does not exist
 		// for this control.
-		if ( platformPlugin->matchPlatformFlags( kIOPPluginFlagEnableSafeModeHack ) &&
-		     ( ( outputSafe = outputControl->getControlSafeValue() ) != 0xFFFF ) )
+		if ( ( outputSafe = outputControl->getControlSafeValue() ) != 0xFFFF )
 		{
 			// Encapsulate the Safe output speed in an OSNumber object (released below)
 			tmpNumber = OSNumber::withNumber( outputSafe, 16 );
@@ -528,5 +612,19 @@ void SMU_Neo2_PIDCtrlLoop::controlRegistered( IOPlatformControl* aControl )
 
 			deadlinePassed();
 			}
+		}
+
+	if ( ( linkedControl != NULL ) && ( aControl == linkedControl ) )
+		{
+		// Min output (RPM/PWM) (16-bit integer).  Get it from linkedControl.
+
+		linkedControlOutputMin = linkedControl->getControlMinValue();
+
+		// Max output (RPM/PWM) (16-bit integer).  Get it from linkedControl.
+
+		linkedControlOutputMax = linkedControl->getControlMaxValue();
+
+		minMinimum = min( outputMin, linkedControlOutputMin );
+		maxMaximum = max( outputMax, linkedControlOutputMax );
 		}
 	}

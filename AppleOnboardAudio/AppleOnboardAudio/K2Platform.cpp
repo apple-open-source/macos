@@ -278,15 +278,15 @@ bool K2Platform::writeCodecRegister(UInt8 address, UInt8 subAddress, UInt8 *data
 		mI2C_lastTransactionResult = success;
 		
 		if (!success) { 
-			debugIOLog (7,  "  K2Platform[%ld]::writeCodecRegister( %X, %X, %p %d), mI2CInterface->writeI2CBus returned false.", mInstanceIndex, address, subAddress, data, len );
+			debugIOLog (7,  "  K2Platform[%ld]::writeCodecRegister( %X, %X, %p %d), mI2CInterface->writeI2CBus returned FALSE (i.e. no I2C device).", mInstanceIndex, address, subAddress, data, len );
 		}
-		FailIf ( !success && ( 0x8C == address ), Exit );   //  this is so the codec address associated with the failure can be determined from the fail message
-		FailIf ( !success && ( 0x8E == address ), Exit );   //  this is so the codec address associated with the failure can be determined from the fail message
-		FailIf ( !success && ( 0x20 == address ), Exit );   //  this is so the codec address associated with the failure can be determined from the fail message
-		FailIf ( !success && ( 0x22 == address ), Exit );   //  this is so the codec address associated with the failure can be determined from the fail message
-		FailIf ( !success && ( 0x24 == address ), Exit );   //  this is so the codec address associated with the failure can be determined from the fail message
-		FailIf ( !success && ( 0x26 == address ), Exit );   //  this is so the codec address associated with the failure can be determined from the fail message
-		FailIf ( !success && ( 0x6A == address ), Exit );   //  this is so the codec address associated with the failure can be determined from the fail message
+		FailIf ( !success && ( 0x8C == address ), Exit );   //  this is so the codec address associated with the failure can be determined from the fail message:   PCM3052
+		FailIf ( !success && ( 0x8E == address ), Exit );   //  this is so the codec address associated with the failure can be determined from the fail message:   PCM3052
+		FailIf ( !success && ( 0x20 == address ), Exit );   //  this is so the codec address associated with the failure can be determined from the fail message:   CS84xx
+		FailIf ( !success && ( 0x22 == address ), Exit );   //  this is so the codec address associated with the failure can be determined from the fail message:   CS84xx
+		FailIf ( !success && ( 0x24 == address ), Exit );   //  this is so the codec address associated with the failure can be determined from the fail message:   CS84xx
+		FailIf ( !success && ( 0x26 == address ), Exit );   //  this is so the codec address associated with the failure can be determined from the fail message:   CS84xx
+		FailIf ( !success && ( 0x6A == address ), Exit );   //  this is so the codec address associated with the failure can be determined from the fail message:   TAS3004
 		FailIf ( !success, Exit );
 Exit:
 		closeI2C();
@@ -331,7 +331,7 @@ bool K2Platform::readCodecRegister(UInt8 address, UInt8 subAddress, UInt8 *data,
 		success = mI2CInterface->readI2CBus (address >> 1, subAddress, data, len);
 		mI2C_lastTransactionResult = success;
 
-		if (!success) debugIOLog ( 7, "  K2Platform[%ld]::readCodecRegister(), mI2CInterface->writeI2CBus returned false.", mInstanceIndex );
+		if (!success) debugIOLog ( 7, "  K2Platform[%ld]::readCodecRegister(), mI2CInterface->writeI2CBus returned FALSE (i.e. no I2C device).", mInstanceIndex );
 Exit:
 		closeI2C();
 	} else {
@@ -1375,7 +1375,7 @@ GpioAttributes 	K2Platform::getClockMux() {
 
 //	--------------------------------------------------------------------------------
 IOReturn 	K2Platform::setClockMux ( GpioAttributes muxState ) {
-	debugIOLog ( 5, "± K2Platform::setClockMux ( %ld )", muxState );
+	debugIOLog ( 5, "± K2Platform[%ld]::setClockMux ( %ld )", mInstanceIndex, muxState );
 	return writeGpioState ( kGPIO_Selector_ClockMux, muxState );
 }
 	
@@ -1469,6 +1469,7 @@ GpioAttributes 	K2Platform::getInputDataMux() {
 
 //	--------------------------------------------------------------------------------
 IOReturn 	K2Platform::setInputDataMux(GpioAttributes muxState) {
+	debugIOLog ( 5, "± K2Platform[%ld]::setInputDataMux ( %ld )", mInstanceIndex, muxState );
 	return writeGpioState ( kGPIO_Selector_InputDataMux, muxState );
 }
 
@@ -1563,7 +1564,7 @@ bool K2Platform::findAndAttachI2C()
 			do {
 				theObject = iterator->getNextObject ();
 				if ( theObject ) {
-					debugIOLog (5, "found theObject=%p",theObject);
+					debugIOLog (5, "  found theObject=%p",theObject);
 					i2cCandidate = OSDynamicCast(IOService,theObject);
 				}
 			} while ( !found && NULL != theObject );
@@ -1645,8 +1646,6 @@ bool K2Platform::findAndAttachI2S()
 	
 Exit:
 	if (i2sDriverName) i2sDriverName->release ();
-//	if (i2sCandidate) i2sCandidate->release ();
-//	if (i2sServiceDictionary) i2sServiceDictionary->release ();
 	return result;
 }
 
@@ -1851,7 +1850,7 @@ IOReturn K2Platform::writeGpioState ( GPIOSelector selector, GpioAttributes gpio
 			}
 		}
 	} else {
-		debugIOLog ( 5, "  K2Platform::writeGpioState() blocked due to 0 == mK2Service" );
+		debugIOLog ( 5, "  K2Platform[%ld]::writeGpioState() blocked due to 0 == mK2Service", mInstanceIndex );
 	}
 Exit:
 	return result;
@@ -1948,7 +1947,7 @@ IODBDMAChannelRegisters *	K2Platform::GetInputChannelRegistersVirtualAddress ( I
 	
 	mIOBaseDMA[kDMAInputIndex] = NULL;
 	FailIf ( NULL == dbdmaProvider, Exit );
-	debugIOLog (7,  "K2Platform[%ld]::GetInputChannelRegistersVirtualAddress i2s-a name is %s", mInstanceIndex, dbdmaProvider->getName() );
+	debugIOLog (7,  "  K2Platform[%ld]::GetInputChannelRegistersVirtualAddress i2s-a name is %s", mInstanceIndex, dbdmaProvider->getName() );
 	parentOfParent = (IOService*)dbdmaProvider->getParentEntry ( gIODTPlane );
 	FailIf ( NULL == parentOfParent, Exit );
 	debugIOLog (7,  "   parentOfParent name is %s", parentOfParent->getName() );
@@ -1962,8 +1961,10 @@ IODBDMAChannelRegisters *	K2Platform::GetInputChannelRegistersVirtualAddress ( I
 	FailIf ( NULL == map, Exit );
 	mIOBaseDMA[kDMAInputIndex] = (IODBDMAChannelRegisters*)map->getVirtualAddress();
 	
-	debugIOLog (7,  "mIOBaseDMA[kDMAInputIndex] %p", mIOBaseDMA[kDMAInputIndex] );
-	if ( NULL == mIOBaseDMA[kDMAInputIndex] ) { debugIOLog (1,  "K2Platform[%ld]::GetInputChannelRegistersVirtualAddress IODBDMAChannelRegisters NOT IN VIRTUAL SPACE", mInstanceIndex ); }
+	debugIOLog (7,  "  mIOBaseDMA[kDMAInputIndex] %p", mIOBaseDMA[kDMAInputIndex] );
+	if ( NULL == mIOBaseDMA[kDMAInputIndex] ) {
+		debugIOLog (1,  "  K2Platform[%ld]::GetInputChannelRegistersVirtualAddress IODBDMAChannelRegisters NOT IN VIRTUAL SPACE", mInstanceIndex );
+	}
 Exit:
 	return mIOBaseDMA[kDMAInputIndex];
 }
@@ -1975,7 +1976,7 @@ IODBDMAChannelRegisters *	K2Platform::GetOutputChannelRegistersVirtualAddress ( 
 
 	mIOBaseDMA[kDMAOutputIndex] = NULL;
 	FailIf ( NULL == dbdmaProvider, Exit );
-	debugIOLog (7,  "K2Platform[%ld]::GetOutputChannelRegistersVirtualAddress i2s-a name is %s", mInstanceIndex, dbdmaProvider->getName() );
+	debugIOLog (7,  "  K2Platform[%ld]::GetOutputChannelRegistersVirtualAddress i2s-a name is %s", mInstanceIndex, dbdmaProvider->getName() );
 	parentOfParent = (IOService*)dbdmaProvider->getParentEntry ( gIODTPlane );
 	FailIf ( NULL == parentOfParent, Exit );
 	debugIOLog (7,  "   parentOfParent name is %s", parentOfParent->getName() );
@@ -1983,8 +1984,10 @@ IODBDMAChannelRegisters *	K2Platform::GetOutputChannelRegistersVirtualAddress ( 
 	FailIf ( NULL == map, Exit );
 	mIOBaseDMA[kDMAOutputIndex] = (IODBDMAChannelRegisters*)map->getVirtualAddress();
 	
-	debugIOLog (7,  "mIOBaseDMA[kDMAOutputIndex] %p is at physical %p", mIOBaseDMA[kDMAOutputIndex], (void*)map->getPhysicalAddress() );
-	if ( NULL == mIOBaseDMA[kDMAOutputIndex] ) { debugIOLog (1,  "K2Platform[%ld]::GetOutputChannelRegistersVirtualAddress IODBDMAChannelRegisters NOT IN VIRTUAL SPACE", mInstanceIndex ); }
+	debugIOLog (7,  "  mIOBaseDMA[kDMAOutputIndex] %p is at physical %p", mIOBaseDMA[kDMAOutputIndex], (void*)map->getPhysicalAddress() );
+	if ( NULL == mIOBaseDMA[kDMAOutputIndex] ) {
+		debugIOLog (1,  "  K2Platform[%ld]::GetOutputChannelRegistersVirtualAddress IODBDMAChannelRegisters NOT IN VIRTUAL SPACE", mInstanceIndex ); 
+	}
 Exit:
 	return mIOBaseDMA[kDMAOutputIndex];
 }

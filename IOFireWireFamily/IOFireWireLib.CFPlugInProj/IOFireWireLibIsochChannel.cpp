@@ -33,7 +33,7 @@ namespace IOFireWireLib {
 	  mPrefSpeed( inPrefSpeed )
 	{
 		if (!mListeners)
-			throw;//return kIOReturnNoMemory ;
+			throw kIOReturnNoMemory ;
 
 		mUserClient.AddRef() ;
 
@@ -41,7 +41,9 @@ namespace IOFireWireLib {
 								kIsochChannel_Allocate, 3, 1, inDoIRM, inPacketSize, inPrefSpeed, 
 								& mKernChannelRef) ;
 		if(err)
-			throw ;//err !!!
+		{
+			throw err ;
+		}
 	}
 	
 
@@ -360,7 +362,7 @@ namespace IOFireWireLib {
 			{
 				// have kernel channel force stop proc call user dcl program force stop proc
 
-				LocalIsochPort * port = dynamic_cast<LocalIsochPort*>( IOFireWireIUnknown::InterfaceMap<IsochPort>::GetThis( reinterpret_cast<IsochPort*>( ::CFArrayGetValueAtIndex( mListeners, index ) ) ) ) ;
+				LocalIsochPort * port = const_cast<LocalIsochPort*>( dynamic_cast<LocalIsochPort*>( IOFireWireIUnknown::InterfaceMap<IsochPort>::GetThis( reinterpret_cast<IsochPort*>( ::CFArrayGetValueAtIndex( mListeners, index ) ) ) ) ) ;
 				if ( port )
 				{
 					error = ::IOConnectMethodScalarIScalarO( connection, kLocalIsochPort_SetChannel, 2, 0, port->mKernPortRef, mKernChannelRef ) ;

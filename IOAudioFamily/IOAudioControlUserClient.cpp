@@ -20,8 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#undef DEBUG_CALLS
-
+#include <IOKit/audio/IOAudioDebug.h>
 #include <IOKit/audio/IOAudioControlUserClient.h>
 #include <IOKit/audio/IOAudioControl.h>
 #include <IOKit/audio/IOAudioTypes.h>
@@ -108,9 +107,7 @@ bool IOAudioControlUserClient::initWithAudioControl(IOAudioControl *control, tas
 
 void IOAudioControlUserClient::free()
 {
-#ifdef DEBUG_CALLS
-    IOLog("IOAudioControlUserClient[%p]::free()\n", this);
-#endif
+    audioDebugIOLog(3, "IOAudioControlUserClient[%p]::free()", this);
     
     if (notificationMessage) {
         IOFreeAligned(notificationMessage, sizeof(IOAudioNotificationMessage));
@@ -131,9 +128,7 @@ void IOAudioControlUserClient::free()
 
 IOReturn IOAudioControlUserClient::clientClose()
 {
-#ifdef DEBUG_CALLS
-    IOLog("IOAudioControlUserClient[%p]::clientClose()\n", this);
-#endif
+    audioDebugIOLog(3, "IOAudioControlUserClient[%p]::clientClose()", this);
 
     if (audioControl) {
 		if (!audioControl->isInactive () && !isInactive()) {
@@ -148,9 +143,7 @@ IOReturn IOAudioControlUserClient::clientClose()
 
 IOReturn IOAudioControlUserClient::clientDied()
 {
-#ifdef DEBUG_CALLS
-    IOLog("IOAudioControlUserClient[%p]::clientDied()\n", this);
-#endif
+    audioDebugIOLog(3, "IOAudioControlUserClient[%p]::clientDied()", this);
 
     return clientClose();
 }

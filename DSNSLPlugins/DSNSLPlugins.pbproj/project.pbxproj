@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 38;
+	objectVersion = 39;
 	objects = {
 		770B6C3001EF836E05DD284B = {
 			buildActionMask = 8;
@@ -22,15 +22,21 @@
 			};
 		};
 		773C789F01D146CD05DD284B = {
+			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = DirectoryService.framework;
 			path = /System/Library/Frameworks/DirectoryService.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		773C78A101D14E4B05DD284B = {
+			explicitFileType = wrapper.cfbundle;
+			fallbackIsa = PBXFileReference;
 			isa = PBXBundleReference;
 			path = SLP.dsplug;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		773C78A201D14E4B05DD284B = {
 			buildPhases = (
@@ -89,11 +95,11 @@
 	<key>CFBundlePackageType</key>
 	<string>dspi</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1</string>
+	<string>1.1.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1</string>
+	<string>1.1.1</string>
 	<key>CFPlugInDynamicRegistration</key>
 	<string>NO</string>
 	<key>CFPlugInFactories</key>
@@ -232,12 +238,16 @@
 		7740372B01D166C105DD284B = {
 			isa = PBXTargetDependency;
 			target = 773C78A201D14E4B05DD284B;
+			targetProxy = FE8292CC064816CD00CC5839;
 		};
 		7743A29D01D155D805DD284B = {
+			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = SystemConfiguration.framework;
 			path = /System/Library/Frameworks/SystemConfiguration.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		7743A29E01D155D805DD284B = {
 			fileRef = 7743A29D01D155D805DD284B;
@@ -246,9 +256,12 @@
 			};
 		};
 		7743A29F01D1562505DD284B = {
+			explicitFileType = wrapper.cfbundle;
+			fallbackIsa = PBXFileReference;
 			isa = PBXBundleReference;
 			path = SMB.dsplug;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		7743A2A001D1562505DD284B = {
 			buildPhases = (
@@ -306,11 +319,11 @@
 	<key>CFBundlePackageType</key>
 	<string>dspi</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.2</string>
+	<string>1.1.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.2</string>
+	<string>1.1.3</string>
 	<key>CFPlugInDynamicRegistration</key>
 	<string>NO</string>
 	<key>CFPlugInFactories</key>
@@ -403,6 +416,8 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		774A93FD01D12BAB05DD284B = {
+			buildSettings = {
+			};
 			buildStyles = (
 				774A93FF01D12BAB05DD284B,
 				774A940001D12BAB05DD284B,
@@ -440,6 +455,7 @@
 			);
 			isa = PBXGroup;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		774A93FF01D12BAB05DD284B = {
 			buildRules = (
@@ -482,11 +498,15 @@
 			isa = PBXGroup;
 			name = Products;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		774A942A01D12DDF05DD284B = {
+			explicitFileType = wrapper.cfbundle;
+			fallbackIsa = PBXFileReference;
 			isa = PBXBundleReference;
 			path = AppleTalk.dsplug;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		774A942B01D12DDF05DD284B = {
 			buildPhases = (
@@ -545,11 +565,11 @@
 	<key>CFBundlePackageType</key>
 	<string>dspi</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1</string>
+	<string>1.1.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1</string>
+	<string>1.1.1</string>
 	<key>CFPlugInDynamicRegistration</key>
 	<string>NO</string>
 	<key>CFPlugInFactories</key>
@@ -646,28 +666,40 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		774A948501D12F4505DD284B = {
+			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = AppleTalk.framework;
 			path = /System/Library/Frameworks/AppleTalk.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		774A948601D12F4505DD284B = {
+			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = CoreFoundation.framework;
 			path = /System/Library/Frameworks/CoreFoundation.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		774A948701D12F4505DD284B = {
+			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = CoreServices.framework;
 			path = /System/Library/Frameworks/CoreServices.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		774A948901D12F4505DD284B = {
+			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = System.framework;
 			path = /System/Library/Frameworks/System.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		774A949301D1302F05DD284B = {
 			buildActionMask = 8;
@@ -694,11 +726,15 @@
 			isa = PBXGroup;
 			name = Frameworks;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		77CDAAE401D162E305DD284B = {
+			explicitFileType = wrapper.cfbundle;
+			fallbackIsa = PBXFileReference;
 			isa = PBXBundleReference;
 			path = Rendezvous.dsplug;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		77CDAAE501D162E305DD284B = {
 			buildPhases = (
@@ -756,11 +792,11 @@
 	<key>CFBundlePackageType</key>
 	<string>dspi</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1</string>
+	<string>1.1.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1</string>
+	<string>1.1.1</string>
 	<key>CFPlugInDynamicRegistration</key>
 	<string>NO</string>
 	<key>CFPlugInFactories</key>
@@ -869,14 +905,17 @@
 		A40155FF028B540703DD2834 = {
 			isa = PBXTargetDependency;
 			target = 7743A2A001D1562505DD284B;
+			targetProxy = FE8292D0064816CD00CC5839;
 		};
 		A402EF740282192D03DD2834 = {
 			isa = PBXTargetDependency;
 			target = A46FCD6401EF60DF03DD2834;
+			targetProxy = FE8292CB064816CD00CC5839;
 		};
 		A402EF750282193203DD2834 = {
 			isa = PBXTargetDependency;
 			target = A46FCDC301EF631903DD2834;
+			targetProxy = FE8292CE064816CD00CC5839;
 		};
 		A414E3A7022DA65003DD2834 = {
 			children = (
@@ -891,6 +930,7 @@
 			name = Recents/Favorites;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A41AEDD503E213FD03DD2834 = {
 			fileRef = A4C5892B02217F5D03DD2834;
@@ -913,9 +953,11 @@
 		A41D9D8D022DAFAE03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = file;
 			name = tool_main.cpp;
 			path = RecentsFavorites/tool_main.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A41D9DB1022DBA5503DD2834 = {
 			fileRef = A453433B01D3AB0C03DD2834;
@@ -932,22 +974,29 @@
 		A44ECD50022F0D0403DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = DNSBrowserThread.cpp;
 			path = DNS/DNSBrowserThread.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A44ECD51022F0D0403DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DNSBrowserThread.h;
 			path = DNS/DNSBrowserThread.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A4533E2E02A4583D03DD2834 = {
+			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = Security.framework;
 			path = /System/Library/Frameworks/Security.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		A453432401D3AB0C03DD2834 = {
 			children = (
@@ -968,41 +1017,52 @@
 			isa = PBXGroup;
 			name = Rendezvous;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453432A01D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = mDNSPlugin.cpp;
 			path = DNS/mDNSPlugin.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453432B01D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = mDNSPlugin.h;
 			path = DNS/mDNSPlugin.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453432C01D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = mDNSServiceLookupThread.cpp;
 			path = DNS/mDNSServiceLookupThread.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453432D01D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = mDNSServiceLookupThread.h;
 			path = DNS/mDNSServiceLookupThread.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453432E01D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.exports;
 			name = ServerModule.exp;
 			path = DNS/ServerModule.exp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453433A01D3AB0C03DD2834 = {
 			children = (
@@ -1020,69 +1080,88 @@
 			isa = PBXGroup;
 			name = SMB;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453433B01D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CommandLineUtilities.cpp;
 			path = SMB/CommandLineUtilities.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453433C01D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CommandLineUtilities.h;
 			path = SMB/CommandLineUtilities.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453433D01D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CSMBNodeLookupThread.cpp;
 			path = SMB/CSMBNodeLookupThread.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453433E01D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CSMBNodeLookupThread.h;
 			path = SMB/CSMBNodeLookupThread.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453433F01D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CSMBPlugin.cpp;
 			path = SMB/CSMBPlugin.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453434001D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CSMBPlugin.h;
 			path = SMB/CSMBPlugin.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453434101D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CSMBServiceLookupThread.cpp;
 			path = SMB/CSMBServiceLookupThread.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453434201D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CSMBServiceLookupThread.h;
 			path = SMB/CSMBServiceLookupThread.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453434301D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.exports;
 			name = ServerModule.exp;
 			path = SMB/ServerModule.exp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453434601D3AB0C03DD2834 = {
 			children = (
@@ -1097,55 +1176,70 @@
 			isa = PBXGroup;
 			name = SLP;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453434701D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CSLPNodeLookupThread.cpp;
 			path = SLP/CSLPNodeLookupThread.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453434801D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CSLPNodeLookupThread.h;
 			path = SLP/CSLPNodeLookupThread.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453434901D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CSLPPlugin.cpp;
 			path = SLP/CSLPPlugin.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453434A01D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CSLPPlugin.h;
 			path = SLP/CSLPPlugin.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453434B01D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CSLPServiceLookupThread.cpp;
 			path = SLP/CSLPServiceLookupThread.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453434C01D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CSLPServiceLookupThread.h;
 			path = SLP/CSLPServiceLookupThread.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453435101D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.exports;
 			name = ServerModule.exp;
 			path = SLP/ServerModule.exp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453435501D3AB0C03DD2834 = {
 			children = (
@@ -1155,13 +1249,16 @@
 			name = Localizable.strings;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453435601D3AB0C03DD2834 = {
 			fileEncoding = 4;
 			isa = PBXFileReference;
+			lastKnownFileType = file;
 			name = English;
 			path = SLP/English.lproj/Localizable.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453435701D3AB0C03DD2834 = {
 			children = (
@@ -1186,118 +1283,151 @@
 			isa = PBXGroup;
 			name = AppleTalk;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453435801D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CNBPNodeLookupThread.cpp;
 			path = AppleTalk/CNBPNodeLookupThread.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453435901D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CNBPNodeLookupThread.h;
 			path = AppleTalk/CNBPNodeLookupThread.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453435A01D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CNBPPlugin.cpp;
 			path = AppleTalk/CNBPPlugin.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453435B01D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CNBPPlugin.h;
 			path = AppleTalk/CNBPPlugin.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453435C01D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CNBPServiceLookupThread.cpp;
 			path = AppleTalk/CNBPServiceLookupThread.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453435D01D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CNBPServiceLookupThread.h;
 			path = AppleTalk/CNBPServiceLookupThread.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453435E01D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = GenericNBPURL.cpp;
 			path = AppleTalk/GenericNBPURL.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453435F01D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = GenericNBPURL.h;
 			path = AppleTalk/GenericNBPURL.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453436001D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = nbputilities.cpp;
 			path = AppleTalk/nbputilities.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453436101D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = nbputilities.h;
 			path = AppleTalk/nbputilities.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453436201D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = NSLSemaphore.cpp;
 			path = AppleTalk/NSLSemaphore.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453436301D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = NSLSemaphore.h;
 			path = AppleTalk/NSLSemaphore.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453436501D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = serverlist.h;
 			path = AppleTalk/serverlist.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453436601D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.exports;
 			name = ServerModule.exp;
 			path = AppleTalk/ServerModule.exp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453436701D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = zonelist.cpp;
 			path = AppleTalk/zonelist.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453436801D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = zonelist.h;
 			path = AppleTalk/zonelist.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453436901D3AB0C03DD2834 = {
 			children = (
@@ -1307,13 +1437,16 @@
 			name = Localizable.strings;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453436A01D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = English;
 			path = AppleTalk/English.lproj/Localizable.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453436B01D3AB0C03DD2834 = {
 			children = (
@@ -1337,90 +1470,115 @@
 			isa = PBXGroup;
 			name = Common;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453436C01D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CNSLDirNodeRep.cpp;
 			path = NSLCommon/CNSLDirNodeRep.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453436D01D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CNSLDirNodeRep.h;
 			path = NSLCommon/CNSLDirNodeRep.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453436E01D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CNSLHeaders.h;
 			path = NSLCommon/CNSLHeaders.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453436F01D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CNSLNodeLookupThread.cpp;
 			path = NSLCommon/CNSLNodeLookupThread.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453437001D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CNSLNodeLookupThread.h;
 			path = NSLCommon/CNSLNodeLookupThread.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453437101D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CNSLPlugin.cpp;
 			path = NSLCommon/CNSLPlugin.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453437201D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CNSLPlugin.h;
 			path = NSLCommon/CNSLPlugin.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453437301D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CNSLResult.cpp;
 			path = NSLCommon/CNSLResult.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453437401D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CNSLResult.h;
 			path = NSLCommon/CNSLResult.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453437501D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CNSLServiceLookupThread.cpp;
 			path = NSLCommon/CNSLServiceLookupThread.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453437601D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CNSLServiceLookupThread.h;
 			path = NSLCommon/CNSLServiceLookupThread.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453437701D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = NSLDebugLog.h;
 			path = NSLCommon/NSLDebugLog.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453437A01D3AB0C03DD2834 = {
 			fileRef = A453436D01D3AB0C03DD2834;
@@ -1922,61 +2080,79 @@
 			name = Localizable.strings;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A45343F801D3AC2103DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = English;
 			path = DNS/English.lproj/Localizable.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A455D2C4022EC83003DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = file;
 			name = CRFPlugin.h;
 			path = RecentsFavorites/CRFPlugin.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A455D2C5022EC83003DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = file;
 			name = CRFPlugin.cpp;
 			path = RecentsFavorites/CRFPlugin.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A455D2C8022EC85103DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = file;
 			name = CRFServiceLookupThread.h;
 			path = RecentsFavorites/CRFServiceLookupThread.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A455D2C9022EC85103DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = file;
 			name = CRFServiceLookupThread.cpp;
 			path = RecentsFavorites/CRFServiceLookupThread.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A466358801FF490903DD2834 = {
+			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = IOKit.framework;
 			path = /System/Library/Frameworks/IOKit.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		A469BA3C02529F8F031E9CD3 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = LinkAddresses.cpp;
 			path = DNS/LinkAddresses.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A469BA3D02529F8F031E9CD3 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = LinkAddresses.h;
 			path = DNS/LinkAddresses.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A469BA4002529F8F031E9CD3 = {
 			fileRef = A469BA3C02529F8F031E9CD3;
@@ -1991,9 +2167,12 @@
 			};
 		};
 		A46FCD6301EF60DE03DD2834 = {
+			explicitFileType = "compiled.mach-o.executable";
+			fallbackIsa = PBXFileReference;
 			isa = PBXExecutableFileReference;
 			path = slpd;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		A46FCD6401EF60DF03DD2834 = {
 			buildPhases = (
@@ -2107,6 +2286,7 @@
 			name = slpd;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD6B01EF611003DD2834 = {
 			children = (
@@ -2130,6 +2310,7 @@
 			isa = PBXGroup;
 			name = Headers;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD6C01EF611003DD2834 = {
 			children = (
@@ -2156,237 +2337,304 @@
 			isa = PBXGroup;
 			name = Sources;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD6D01EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text;
 			name = slpsa.conf;
 			path = slpd/slpsa.conf;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD6E01EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = mslpd_mask.h;
 			path = slpd/mslpd_mask.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD6F01EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = mslpd_parse.h;
 			path = slpd/mslpd_parse.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD7001EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = mslpd_query.h;
 			path = slpd/mslpd_query.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD7101EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = mslpd_stack.h;
 			path = slpd/mslpd_stack.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD7201EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = mslpd_store.h;
 			path = slpd/mslpd_store.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD7301EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = mslpd.h;
 			path = slpd/mslpd.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD7801EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = ServiceInfo.h;
 			path = slpd/ServiceInfo.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD7901EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = SLPDAAdvertiser.h;
 			path = slpd/SLPDAAdvertiser.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD7A01EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = SLPDARegisterer.h;
 			path = slpd/SLPDARegisterer.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD7B01EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = SLPInternalProcessListener.h;
 			path = slpd/SLPInternalProcessListener.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD7C01EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = slpipc.h;
 			path = slpd/slpipc.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD7D01EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = SLPRegistrar.h;
 			path = slpd/SLPRegistrar.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD7E01EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = SLPTCPListener.h;
 			path = slpd/SLPTCPListener.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD7F01EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = SLPUDPListener.h;
 			path = slpd/SLPUDPListener.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD8201EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = URLUtilities.h;
 			path = slpd/URLUtilities.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD8301EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = mslpd_init.cpp;
 			path = slpd/mslpd_init.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD8401EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = mslpd_mask.cpp;
 			path = slpd/mslpd_mask.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD8501EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = mslpd_mcast.cpp;
 			path = slpd/mslpd_mcast.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD8601EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = mslpd_net.cpp;
 			path = slpd/mslpd_net.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD8701EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = mslpd_opt.cpp;
 			path = slpd/mslpd_opt.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD8801EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = mslpd_parse.cpp;
 			path = slpd/mslpd_parse.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD8901EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = mslpd_query.cpp;
 			path = slpd/mslpd_query.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD8A01EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = mslpd_reader.cpp;
 			path = slpd/mslpd_reader.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD8B01EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = mslpd_stack.cpp;
 			path = slpd/mslpd_stack.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD8C01EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = mslpd.cpp;
 			path = slpd/mslpd.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD8D01EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = SLPDAAdvertiser.cpp;
 			path = slpd/SLPDAAdvertiser.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD8E01EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = SLPDARegisterer.cpp;
 			path = slpd/SLPDARegisterer.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD8F01EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = SLPInternalProcessListener.cpp;
 			path = slpd/SLPInternalProcessListener.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD9001EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = SLPRegistrar.cpp;
 			path = slpd/SLPRegistrar.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD9101EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = SLPTCPListener.cpp;
 			path = slpd/SLPTCPListener.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD9201EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = SLPUDPListener.cpp;
 			path = slpd/SLPUDPListener.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD9301EF615C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = URLUtilities.cpp;
 			path = slpd/URLUtilities.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCD9401EF615C03DD2834 = {
 			fileRef = A46FCD6E01EF615C03DD2834;
@@ -2595,9 +2843,11 @@
 		A46FCDBF01EF627203DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = ServiceInfo.cpp;
 			path = slpd/ServiceInfo.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCDC001EF627203DD2834 = {
 			fileRef = A46FCDBF01EF627203DD2834;
@@ -2614,11 +2864,15 @@
 			name = slp_reg;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCDC201EF631903DD2834 = {
+			explicitFileType = "compiled.mach-o.executable";
+			fallbackIsa = PBXFileReference;
 			isa = PBXExecutableFileReference;
 			path = slp_reg;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		A46FCDC301EF631903DD2834 = {
 			buildPhases = (
@@ -2684,9 +2938,11 @@
 		A46FCDC901EF633D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = slp_reg.cpp;
 			path = slp_reg/slp_reg.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCDCA01EF633D03DD2834 = {
 			fileRef = A46FCDC901EF633D03DD2834;
@@ -2715,14 +2971,17 @@
 			isa = PBXGroup;
 			name = "SLP Framework";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A46FCDCF01EF644B03DD2834 = {
 			isa = PBXTargetDependency;
 			target = A49A0A5801EF59CD03DD2834;
+			targetProxy = FE8292C9064816CD00CC5839;
 		};
 		A47AFA6B0253A2FE03DD2833 = {
 			isa = PBXTargetDependency;
 			target = 77CDAAE501D162E305DD284B;
+			targetProxy = FE8292CF064816CD00CC5839;
 		};
 		A484866F029D543103DD2834 = {
 			fileRef = A4C5892B02217F5D03DD2834;
@@ -2743,9 +3002,12 @@
 			};
 		};
 		A49A0A5701EF59CD03DD2834 = {
+			explicitFileType = "compiled.mach-o.dylib";
+			fallbackIsa = PBXFileReference;
 			isa = PBXLibraryReference;
 			path = libslplib.a;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		A49A0A5801EF59CD03DD2834 = {
 			buildPhases = (
@@ -2850,20 +3112,25 @@
 			name = slplib;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A6201EF5B5D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text;
 			name = "RFC2608 (SLPv2)";
 			path = "slplibrary/RFC2608 (SLPv2)";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A6301EF5B5D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text;
 			name = "Sun Labs ExperimentalSW License";
 			path = "slplibrary/Sun Labs ExperimentalSW License";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A6401EF5B5D03DD2834 = {
 			children = (
@@ -2888,125 +3155,160 @@
 			isa = PBXGroup;
 			name = Sources;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A6601EF5B5D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = mslp_dat.cpp;
 			path = slplibrary/mslp_dat.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A6701EF5B5D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = mslp_disc.cpp;
 			path = slplibrary/mslp_disc.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A6801EF5B5D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = mslp_list.cpp;
 			path = slplibrary/mslp_list.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A6901EF5B5D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = mslp_macosx.cpp;
 			path = slplibrary/mslp_macosx.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A6A01EF5B5D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = mslp_mcast.cpp;
 			path = slplibrary/mslp_mcast.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A6B01EF5B5D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = mslp_net.cpp;
 			path = slplibrary/mslp_net.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A6C01EF5B5D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = mslp_prefs.cpp;
 			path = slplibrary/mslp_prefs.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A6D01EF5B5D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = mslp_util.cpp;
 			path = slplibrary/mslp_util.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A6E01EF5B5D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = mslplib_int.cpp;
 			path = slplibrary/mslplib_int.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A6F01EF5B5D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = mslplib_net.cpp;
 			path = slplibrary/mslplib_net.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A7001EF5B5D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = mslplib_opt.cpp;
 			path = slplibrary/mslplib_opt.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A7101EF5B5D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = mslplib_prlist.cpp;
 			path = slplibrary/mslplib_prlist.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A7201EF5B5D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = mslplib_regipc.cpp;
 			path = slplibrary/mslplib_regipc.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A7301EF5B5D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = mslplib.cpp;
 			path = slplibrary/mslplib.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A7401EF5B5D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = SLPComm.cpp;
 			path = slplibrary/SLPComm.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A7501EF5B5D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = SLPDALocator.cpp;
 			path = slplibrary/SLPDALocator.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A7601EF5B5D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = SLPSystemConfiguration.cpp;
 			path = slplibrary/SLPSystemConfiguration.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A7701EF5B5D03DD2834 = {
 			children = (
@@ -3027,97 +3329,124 @@
 			isa = PBXGroup;
 			name = Headers;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A7801EF5B5D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = file;
 			name = LThread.h;
 			path = slplibrary/LThread.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A7901EF5B5D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = mslp_dat.h;
 			path = slplibrary/mslp_dat.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A7A01EF5B5D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = mslp_macosx.h;
 			path = slplibrary/mslp_macosx.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A7B01EF5B5D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = mslp_sd.h;
 			path = slplibrary/mslp_sd.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A7C01EF5B5D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = mslp.h;
 			path = slplibrary/mslp.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A7D01EF5B5D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = mslpd_store.h;
 			path = slplibrary/mslpd_store.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A7E01EF5B5D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = mslplib_opt.h;
 			path = slplibrary/mslplib_opt.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A7F01EF5B5D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = mslplib.h;
 			path = slplibrary/mslplib.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A8001EF5B5D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = slp.h;
 			path = slplibrary/slp.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A8101EF5B5D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = SLPComm.h;
 			path = slplibrary/SLPComm.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A8201EF5B5D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = SLPDALocator.h;
 			path = slplibrary/SLPDALocator.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A8301EF5B5D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = SLPDefines.h;
 			path = slplibrary/SLPDefines.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A8401EF5B5D03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = SLPSystemConfiguration.h;
 			path = slplibrary/SLPSystemConfiguration.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A49A0A8501EF5B5D03DD2834 = {
 			fileRef = A49A0A7801EF5B5D03DD2834;
@@ -3313,9 +3642,11 @@
 		};
 		A4A09E7E021C680303DD2834 = {
 			isa = PBXFileReference;
+			lastKnownFileType = archive.ar;
 			name = libDSPlugInCommon.a;
 			path = /AppleInternal/Developer/libs/libDSPlugInCommon.a;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		A4A09E80021C680303DD2834 = {
 			fileRef = A4A09E7E021C680303DD2834;
@@ -3332,6 +3663,7 @@
 		A4A7189E020B0D1E03DD2834 = {
 			isa = PBXTargetDependency;
 			target = A49A0A5801EF59CD03DD2834;
+			targetProxy = FE8292CD064816CD00CC5839;
 		};
 		A4B6993803E8953303DD2834 = {
 			buildActionMask = 8;
@@ -3346,16 +3678,20 @@
 		A4B6993F03E895A803DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text.man;
 			name = slp_reg.1;
 			path = slp_reg/slp_reg.1;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A4B6994103E895D003DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text.man;
 			name = slpd.1;
 			path = slpd/slpd.1;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A4B6994203E895D403DD2834 = {
 			fileRef = A4B6994103E895D003DD2834;
@@ -3386,13 +3722,16 @@
 			isa = PBXGroup;
 			name = "DNS tool sources";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A4B964D40237EAA203DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = file;
 			name = DNS_tool.cpp;
 			path = DNS/DNS_tool.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A4C07A2D02496E9703DD2834 = {
 			fileRef = A453432D01D3AB0C03DD2834;
@@ -3407,10 +3746,13 @@
 			};
 		};
 		A4C5892B02217F5D03DD2834 = {
+			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = DirectoryServiceCore.framework;
 			path = /System/Library/PrivateFrameworks/DirectoryServiceCore.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		A4C5892E02217F5D03DD2834 = {
 			fileRef = A4C5892B02217F5D03DD2834;
@@ -3433,16 +3775,20 @@
 		A4D6797A0247B44703DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DNSRegistrationThread.h;
 			path = DNS/DNSRegistrationThread.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A4D6797B0247B44703DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = DNSRegistrationThread.cpp;
 			path = DNS/DNSRegistrationThread.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A4D6797C0247B44703DD2834 = {
 			fileRef = A4D6797A0247B44703DD2834;
@@ -3459,9 +3805,11 @@
 		A4FFA5870225B1DD03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = SLPdSystemConfiguration.h;
 			path = slpd/SLPdSystemConfiguration.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A4FFA5880225B1DD03DD2834 = {
 			fileRef = A4FFA5870225B1DD03DD2834;
@@ -3472,9 +3820,11 @@
 		A4FFA58A0225B29A03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = SLPdSystemConfiguration.cpp;
 			path = slpd/SLPdSystemConfiguration.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A4FFA58C0225B29A03DD2834 = {
 			fileRef = A4FFA58A0225B29A03DD2834;
@@ -3503,6 +3853,69 @@
 			isa = PBXBuildFile;
 			settings = {
 			};
+		};
+		FE8292C9064816CD00CC5839 = {
+			containerPortal = 774A93FD01D12BAB05DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = A49A0A5801EF59CD03DD2834;
+			remoteInfo = libslplib;
+		};
+		FE8292CA064816CD00CC5839 = {
+			containerPortal = 774A93FD01D12BAB05DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 774A942B01D12DDF05DD284B;
+			remoteInfo = AppleTalk;
+		};
+		FE8292CB064816CD00CC5839 = {
+			containerPortal = 774A93FD01D12BAB05DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = A46FCD6401EF60DF03DD2834;
+			remoteInfo = slpd;
+		};
+		FE8292CC064816CD00CC5839 = {
+			containerPortal = 774A93FD01D12BAB05DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 773C78A201D14E4B05DD284B;
+			remoteInfo = SLP;
+		};
+		FE8292CD064816CD00CC5839 = {
+			containerPortal = 774A93FD01D12BAB05DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = A49A0A5801EF59CD03DD2834;
+			remoteInfo = libslplib;
+		};
+		FE8292CE064816CD00CC5839 = {
+			containerPortal = 774A93FD01D12BAB05DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = A46FCDC301EF631903DD2834;
+			remoteInfo = slpreg;
+		};
+		FE8292CF064816CD00CC5839 = {
+			containerPortal = 774A93FD01D12BAB05DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 77CDAAE501D162E305DD284B;
+			remoteInfo = Rendezvous;
+		};
+		FE8292D0064816CD00CC5839 = {
+			containerPortal = 774A93FD01D12BAB05DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 7743A2A001D1562505DD284B;
+			remoteInfo = SMB;
+		};
+		FE8292D1064816CD00CC5839 = {
+			containerPortal = 774A93FD01D12BAB05DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 7740372901D166C105DD284B;
+			remoteInfo = ALL;
 		};
 		FE99019C04055DF600DD2834 = {
 			fileRef = 7743A29D01D155D805DD284B;
@@ -3567,9 +3980,11 @@
 		FE9C075E047EDA7E004431D2 = {
 			fileEncoding = 4;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = LMBDiscovererMain.cpp;
 			path = SMB/LMBDiscovererMain.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		FE9C0760047EDA7E004431D2 = {
 			fileRef = FE9C075E047EDA7E004431D2;
@@ -3676,23 +4091,30 @@
 			productReference = FE9CFA0A047EC667004431D2;
 		};
 		FE9CFA0A047EC667004431D2 = {
+			explicitFileType = "compiled.mach-o.executable";
+			fallbackIsa = PBXFileReference;
 			isa = PBXExecutableFileReference;
 			path = LMBDiscoveryTest;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		FE9CFA0C047EC753004431D2 = {
 			fileEncoding = 4;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = LMBDiscoverer.h;
 			path = SMB/LMBDiscoverer.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		FE9CFA0D047EC753004431D2 = {
 			fileEncoding = 4;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = LMBDiscoverer.cpp;
 			path = SMB/LMBDiscoverer.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		FE9CFA0E047EC753004431D2 = {
 			fileRef = FE9CFA0C047EC753004431D2;
@@ -3740,24 +4162,30 @@
 		FEB174AF044F4DB2008EFFDA = {
 			isa = PBXTargetDependency;
 			target = 7740372901D166C105DD284B;
+			targetProxy = FE8292D1064816CD00CC5839;
 		};
 		FEB174B0044F4DB5008EFFDA = {
 			isa = PBXTargetDependency;
 			target = 774A942B01D12DDF05DD284B;
+			targetProxy = FE8292CA064816CD00CC5839;
 		};
 		FEE62E5704E18E1C0088D97B = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CNSLTimingUtils.cpp;
 			path = NSLCommon/CNSLTimingUtils.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		FEE62E5804E18E1C0088D97B = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CNSLTimingUtils.h;
 			path = NSLCommon/CNSLTimingUtils.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		FEE62E5904E18E1C0088D97B = {
 			fileRef = FEE62E5704E18E1C0088D97B;

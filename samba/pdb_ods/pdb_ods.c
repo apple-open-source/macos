@@ -21,17 +21,16 @@
 
 //#ifdef WITH_ODS_SAM
 #define USE_SETATTRIBUTEVALUE 1
-#define AUTH_GET_POLICY 1
+#define AUTH_GET_POLICY 0
 #define GLOBAL_DEFAULT 1
+#define WITH_PASSWORD_HASH 1
 
 static int odssam_debug_level = DBGC_ALL;
 
 #undef DBGC_CLASS
 #define DBGC_CLASS odssam_debug_level
 
-#include <DirectoryService/DirServices.h>
-#include <DirectoryService/DirServicesConst.h>
-#include <DirectoryService/DirServicesUtils.h>
+#include <DirectoryService/DirectoryService.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <libopendirectorycommon.h>
 
@@ -167,12 +166,12 @@ static tDirStatus odssam_open(struct odssam_privates *ods_state)
 {
     tDirStatus dirStatus = eDSNoErr;
 
-    if (ods_state->dirRef != NULL) {
+    if (ods_state->dirRef != 0) {
     	dirStatus = dsVerifyDirRefNum(ods_state->dirRef);
     	if (dirStatus == eDSNoErr) {
     		return eDSNoErr;
     	} else {
-    		ods_state->dirRef = NULL;
+    		ods_state->dirRef = 0;
     	}
 	}
 
@@ -190,12 +189,15 @@ static tDirStatus odssam_open(struct odssam_privates *ods_state)
 																				
 										kDS1AttrSMBRID,
 										kDS1AttrSMBGroupRID,
+										
+#if defined(kDS1AttrSMBSID) && defined(kDS1AttrSMBPrimaryGroupSID)
+										kDS1AttrSMBSID,
+										kDS1AttrSMBPrimaryGroupSID,
+#endif
 										kDS1AttrSMBPWDLastSet,
 										kDS1AttrSMBLogonTime,
 										kDS1AttrSMBLogoffTime,
 										kDS1AttrSMBKickoffTime,
-										//kDS1AttrSMBPWDCanChange,
-										//kDS1AttrSMBPWDMustChange,
 										kDS1AttrSMBHome,
 										kDS1AttrSMBHomeDrive,
 										kDS1AttrSMBScriptPath,
@@ -213,10 +215,10 @@ static tDirStatus odssam_close(struct odssam_privates *ods_state)
 {
     tDirStatus dirStatus = eDSNoErr;
 
-    if (ods_state->dirRef != NULL) {
+    if (ods_state->dirRef != 0) {
 		dirStatus = dsCloseDirService(ods_state->dirRef);
         DEBUG(4,("odssam_close: [%d]dsCloseDirService\n",dirStatus));		
-		ods_state->dirRef = NULL;
+		ods_state->dirRef = 0;
     }
     return dirStatus;
 }
@@ -233,7 +235,7 @@ static tDirStatus odssam_open_search_node(struct odssam_privates *ods_state)
         status = odssam_open(ods_state);
     if (status != eDSNoErr) goto cleanup;
 
-    if (ods_state->searchNodeRef == NULL) {
+    if (ods_state->searchNodeRef == 0) {
         nodeBuffer = dsDataBufferAllocate(ods_state->dirRef, bufferSize);
         if (nodeBuffer == NULL) goto cleanup;
         status = dsFindDirNodes(ods_state->dirRef, nodeBuffer, NULL, eDSSearchNodeName, &returnCount, NULL);
@@ -256,10 +258,10 @@ static tDirStatus odssam_open_search_node(struct odssam_privates *ods_state)
 static tDirStatus odssam_close_search_node(struct odssam_privates *ods_state)
 {
     tDirStatus dirStatus = eDSNoErr;
-    if (ods_state->searchNodeRef != NULL) {
+    if (ods_state->searchNodeRef != 0) {
 		dirStatus = dsCloseDirNode(ods_state->searchNodeRef);
 		DEBUG(4,("odssam_close_search_node: [%d]dsCloseDirNode\n",dirStatus));		
-		 ods_state->searchNodeRef = NULL;
+		 ods_state->searchNodeRef = 0;
     }
     return dirStatus;
 }
@@ -322,10 +324,10 @@ static tDirStatus odssam_open_node(struct odssam_privates *ods_state, const char
 static tDirStatus odssam_close_node(struct odssam_privates *ods_state, tDirNodeReference *nodeReference)
 {
     tDirStatus dirStatus = eDSNoErr;
-    if (nodeReference != NULL && *nodeReference != NULL) {
+    if (nodeReference != NULL && *nodeReference != 0) {
 		dirStatus = dsCloseDirNode(*nodeReference);
 		 DEBUG(4,("odssam_close_node: [%d]dsCloseDirNode\n",dirStatus));
-		*nodeReference = NULL;
+		*nodeReference = 0;
     }
     return dirStatus;
 }
@@ -495,50 +497,70 @@ static tDirStatus odssam_authenticate_node(struct odssam_privates *ods_state, tD
 
 }
 
-static tDirStatus set_password(struct odssam_privates *ods_state, tDirNodeReference userNode, char* user, char *password, char *type)
+static tDirStatus set_password(struct odssam_privates *ods_state, tDirNodeReference userNode, char* user, char *passwordstring, char *passwordType, char *type)
 {
 	tDirStatus 		status			= eDSNullParameter;
 	unsigned long	bufferSize		= 1024 * 10;
-	tDataBufferPtr		authBuff  		= NULL;
-	tDataBufferPtr		stepBuff  		= NULL;
-	tDataNodePtr		authType		= NULL;
-	tDataNodePtr		recordType		= NULL;
-				
-        authBuff = dsDataBufferAllocate( ods_state->dirRef, bufferSize );
-        if ( authBuff != NULL )
-        {
-                stepBuff = dsDataBufferAllocate( ods_state->dirRef, bufferSize );
-                if ( stepBuff != NULL )
-                {
-                        authType = dsDataNodeAllocateString( ods_state->dirRef,  kDSStdAuthSetPasswdAsRoot);
-                         recordType = dsDataNodeAllocateString( ods_state->dirRef,  type);
-                       if ( authType != NULL )
-                        {
-                                // User Name
-								add_data_buffer_item(authBuff, strlen( user ), user);
-                                // Password
-								add_data_buffer_item(authBuff, strlen( password ), password);
+	tDataBufferPtr	authBuff  		= NULL;
+	tDataBufferPtr	stepBuff  		= NULL;
+	tDataNodePtr	authType		= NULL;
+	tDataNodePtr	recordType		= NULL;
+	char			*password		= NULL;
+	unsigned long	passwordLen		= 0;
+#if defined(kDSStdAuthSetNTHash) && defined(kDSStdAuthSetLMHash)
+	uint8			binarypwd[NT_HASH_LEN];
+#endif
 
-                                status = dsDoDirNodeAuthOnRecordType( userNode, authType, True, authBuff, stepBuff, NULL, recordType );
-                                if ( status == eDSNoErr )
-                                {
-                                        DEBUG(2,("Set password was successful for user  \"%s\" :)\n", user));
-                                }
-                                else
-                                {
-                                        DEBUG(0,("Set password FAILED for user \"%s\" (%d) :(\n", user, status) );
-                                }
-                        }
-                }
-                else
-                {
-                        DEBUG(0,("set_password: *** dsDataBufferAllocate(2) faild with \n" ));
-                }
-        }
-        else
-        {
-                DEBUG(0,("set_password: *** dsDataBufferAllocate(1) faild with \n" ));
-        }
+	if (strcmp(passwordType, kDSStdAuthSetPasswdAsRoot) == 0) {
+		password = passwordstring;
+		passwordLen = strlen( password );
+#if defined(kDSStdAuthSetNTHash) && defined(kDSStdAuthSetLMHash)
+	} else if (strcmp(passwordType, kDSStdAuthSetNTHash) == 0 || strcmp(passwordType, kDSStdAuthSetLMHash) == 0) {
+		if (pdb_gethexpwd(passwordstring, binarypwd)) {
+			password = binarypwd;
+			passwordLen = NT_HASH_LEN;
+		}
+#endif
+	} else {
+		return status;
+	}
+	
+	authBuff = dsDataBufferAllocate( ods_state->dirRef, bufferSize );
+	if ( authBuff != NULL  && password && passwordLen)
+	{
+			stepBuff = dsDataBufferAllocate( ods_state->dirRef, bufferSize );
+			if ( stepBuff != NULL )
+			{
+					authType = dsDataNodeAllocateString( ods_state->dirRef,  passwordType);
+					 recordType = dsDataNodeAllocateString( ods_state->dirRef,  type);
+				   if ( authType != NULL )
+					{
+							// User Name
+							add_data_buffer_item(authBuff, strlen( user ), user);
+							// Password
+							add_data_buffer_item(authBuff, passwordLen, password);
+							DEBUG(4,("set_password len (%ld), password (%s) \n", passwordLen, password));
+
+							status = dsDoDirNodeAuthOnRecordType( userNode, authType, True, authBuff, stepBuff, NULL, recordType );
+							if ( status == eDSNoErr )
+							{
+									DEBUG(2,("Set password (%s) was successful for account  \"%s\" accountType (%s) :)\n", passwordType, user, type));
+							}
+							else
+							{
+									DEBUG(0,("Set password (%s) FAILED for account \"%s\" accountType (%s) (%d) :(\n", passwordType, user, type, status) );
+							}
+					}
+			}
+			else
+			{
+					DEBUG(0,("set_password: *** dsDataBufferAllocate(2) faild with \n" ));
+			}
+	}
+	else
+	{
+			DEBUG(0,("set_password: *** dsDataBufferAllocate(1) faild with \n" ));
+	}
 
 
 	delete_data_buffer(ods_state, authBuff);
@@ -671,16 +693,16 @@ tDirStatus get_records(struct odssam_privates *ods_state, CFMutableArrayRef reco
 //	tContextData 		localContextData;
 	tContextData		*currentContextData = NULL;
 	unsigned long		attributeIndex			=	0;
-	tAttributeListRef	attributeList			= 	NULL;
+	tAttributeListRef	attributeList			= 	0;
 	tAttributeEntryPtr 	attributeEntry			=	NULL;
 	
 	unsigned long		valueIndex			=	0;
 	tAttributeValueEntryPtr valueEntry			=	NULL;
-	tAttributeValueListRef 	valueList			= 	NULL;
+	tAttributeValueListRef 	valueList			= 	0;
 	CFStringRef key = NULL;
 	CFStringRef value = NULL;
 	
-	if (NULL == ods_state->dirRef || NULL == ods_state->searchNodeRef)
+	if (0 == ods_state->dirRef || 0 == ods_state->searchNodeRef)
 	    return status;    
 
 	if (continueSearch)
@@ -752,12 +774,12 @@ tDirStatus get_records(struct odssam_privates *ods_state, CFMutableArrayRef reco
 				dsCloseAttributeValueList(valueList);
 				key = NULL;
 				value = NULL;
-				valueList = NULL;
+				valueList = 0;
 				dsDeallocAttributeEntry(ods_state->searchNodeRef, attributeEntry);
 				attributeEntry = NULL;
 			}
 			dsCloseAttributeList(attributeList);
-			attributeList = NULL;
+			attributeList = 0;
 			dsDeallocRecordEntry(ods_state->searchNodeRef, recordEntry);
             CFArrayAppendValue(recordsArray, dsrecord);
             CFRelease(dsrecord);
@@ -781,18 +803,18 @@ tDirStatus search_record_attributes(struct odssam_privates *ods_state, CFMutable
 //	tContextData 		localContextData;
 	tContextData		*currentContextData = NULL;
 	unsigned long		attributeIndex			=	0;
-	tAttributeListRef	attributeList			= 	NULL;
+	tAttributeListRef	attributeList			= 	0;
 	tAttributeEntryPtr 	attributeEntry			=	NULL;
 	
 	unsigned long		valueIndex			=	0;
 	tAttributeValueEntryPtr valueEntry			=	NULL;
-	tAttributeValueListRef 	valueList			= 	NULL;
+	tAttributeValueListRef 	valueList			= 	0;
 	CFStringRef key = NULL;
 	CFStringRef value = NULL;
 	CFMutableDictionaryRef dsrecord = NULL;
 	CFMutableArrayRef valueArray = NULL;
 	
-	if (NULL == ods_state->dirRef || NULL == ods_state->searchNodeRef)
+	if (0 == ods_state->dirRef || 0 == ods_state->searchNodeRef)
 	    return status;    
 
 	if (continueSearch)
@@ -869,7 +891,7 @@ tDirStatus search_record_attributes(struct odssam_privates *ods_state, CFMutable
 				}
 				if (valueList) {
 					dsCloseAttributeValueList(valueList);
-					valueList = NULL;
+					valueList = 0;
 				}
 				if (attributeEntry) {
 					dsDeallocAttributeEntry(ods_state->searchNodeRef, attributeEntry);
@@ -878,7 +900,7 @@ tDirStatus search_record_attributes(struct odssam_privates *ods_state, CFMutable
 			}
 			if (attributeList) {
 				dsCloseAttributeList(attributeList);
-				attributeList = NULL;
+				attributeList = 0;
 			}
 			if (recordEntry) {
 				dsDeallocRecordEntry(ods_state->searchNodeRef, recordEntry);
@@ -1096,8 +1118,8 @@ static tDirStatus get_passwordpolicy_attributes(struct odssam_privates *ods_stat
 	CFArrayRef authAuthorities = NULL;
 	char *recordType = NULL;
 	char dirNode[512] = {0};
-	tDirNodeReference nodeReference = NULL;
-	tRecordReference recordReference = NULL;
+	tDirNodeReference nodeReference = 0;
+	tRecordReference recordReference = 0;
 	char policy[1024];
 	
 	if (get_attributevalue_list(entry, kDSNAttrAuthenticationAuthority, &authAuthorities) && 
@@ -1108,7 +1130,7 @@ static tDirStatus get_passwordpolicy_attributes(struct odssam_privates *ods_stat
 		} else {
 			status = odssam_open_node(ods_state, dirNode, &nodeReference);
 			if (eDSNoErr != status) goto cleanup;
-#ifdef AUTH_GET_POLICY
+#if AUTH_GET_POLICY
 			status = odssam_authenticate_node(ods_state, nodeReference);
 			if (eDSNoErr != status) goto cleanup;
 #endif	
@@ -1117,7 +1139,7 @@ static tDirStatus get_passwordpolicy_attributes(struct odssam_privates *ods_stat
 				status = get_record_ref(ods_state, nodeReference, &recordReference, recordType, userName);
 			}
 		}
-		if (eDSNoErr == status && nodeReference != NULL) {
+		if (eDSNoErr == status && nodeReference != 0) {
 			status = get_password_policy(ods_state, nodeReference, userName, policy, recordType);
 			DEBUG(3, ("get_passwordpolicy_attributes: [%d]get_password_policy (%s, %s)\n", status, policy, recordType));
 			if (eDSNoErr == status)
@@ -1148,8 +1170,8 @@ tDirStatus add_user_attributes(struct odssam_privates *ods_state, CFDictionaryRe
 	char policy[1024] = {0};
 	BOOL addValue;
 	
-	tDirNodeReference nodeReference = NULL;
-	tRecordReference recordReference = NULL;
+	tDirNodeReference nodeReference = 0;
+	tRecordReference recordReference = 0;
 	char *recordType = NULL;
 	
 	if (!get_single_attribute(userCurrent, kDSNAttrRecordName, userName)) {
@@ -1181,8 +1203,12 @@ tDirStatus add_user_attributes(struct odssam_privates *ods_state, CFDictionaryRe
 					addValue = true;
 	
 				if (isKey && isValue) {
-					if (strcmp(key, kPlainTextPassword) == 0) {
-						status = set_password(ods_state, nodeReference, userName, value, recordType);
+					if (strcmp(key, kDSStdAuthSetPasswdAsRoot) == 0 
+#if defined(kDSStdAuthSetNTHash) && defined(kDSStdAuthSetLMHash)
+					|| strcmp(key, kDSStdAuthSetNTHash) == 0 || strcmp(key, kDSStdAuthSetLMHash) == 0 
+#endif					
+					) {
+						status = set_password(ods_state, nodeReference, userName, value, key, recordType);
 					#ifdef DEBUG_PASSWORDS
 						DEBUG (100, ("add_user_attributes: [%d]SetPassword(%s, %s, %s, %s)\n",status, userName, key, value, recordType));
 					else
@@ -1198,8 +1224,7 @@ tDirStatus add_user_attributes(struct odssam_privates *ods_state, CFDictionaryRe
 						add_password_policy_attribute(policy, key, value);
 					} else {
 						status = add_attribute_with_value(ods_state, recordReference, key, value, addValue);
-						if (status != eDSNoErr)
-							DEBUG (3, ("[%d]add_user_attributes: add_attribute_with_value(%s,%s,%s) error\n",status, userName, key, value));
+						DEBUG (4, ("[%d]add_user_attributes: add_attribute_with_value(%s,%s,%s) error\n",status, userName, key, value));
 					}
 					if (status != eDSNoErr)
 						break;
@@ -1212,7 +1237,7 @@ tDirStatus add_user_attributes(struct odssam_privates *ods_state, CFDictionaryRe
 		}
     }
 cleanup:
-	if (NULL != recordReference)
+	if (0 != recordReference)
 		dsCloseRecord(recordReference);
 	odssam_close_node(ods_state, &nodeReference);    
 	return status;
@@ -1302,31 +1327,45 @@ static BOOL init_sam_from_ods (struct odssam_privates *ods_state,
         ///pdb_set_uid(sampass, uid, PDB_SET);
 	}
 
+#if defined(kDS1AttrSMBSID)
+	if (get_single_attribute(entry, kDS1AttrSMBSID, temp)) {
+		DEBUG(3, ("init_sam_from_ods: kDS1AttrSMBSID (%s)\n", temp));
+		pdb_set_user_sid_from_string(sampass, temp, PDB_SET);
+	} else 
+#endif
 	if (get_single_attribute(entry, kDS1AttrSMBRID, temp)) {
 		DEBUG(3, ("init_sam_from_ods: kDS1AttrSMBRID (%s)\n", temp));
 		user_rid = (uint32)atol(temp);
+		pdb_set_user_sid_from_rid(sampass, user_rid, PDB_SET);
 	} else if (get_single_attribute(entry, kDS1AttrUniqueID, temp)) {
 		if (uid == 99)
 			user_rid = DOMAIN_USER_RID_GUEST;
 		else
 			user_rid = fallback_pdb_uid_to_user_rid((uint32)uid);
 		DEBUG(3, ("init_sam_from_ods: use kDS1AttrUniqueID (%s) -> RID(%d)\n", temp, user_rid));
-
+		pdb_set_user_sid_from_rid(sampass, user_rid, PDB_SET);
 	} else {
 		DEBUG(3, ("init_sam_from_ods: kDS1AttrSMBRID mapped to DOMAIN_USER_RID_GUEST\n"));
 		user_rid = DOMAIN_USER_RID_GUEST;
+		pdb_set_user_sid_from_rid(sampass, user_rid, PDB_SET);
 	}
 		
-	pdb_set_user_sid_from_rid(sampass, user_rid, PDB_SET);
 
-	if (!get_single_attribute(entry, kDS1AttrSMBGroupRID, temp)) {
-		group_rid = 0;
-	} else {
+#if defined(kDS1AttrSMBPrimaryGroupSID)
+	if (get_single_attribute(entry, kDS1AttrSMBPrimaryGroupSID, temp)) {
+		DEBUG(3, ("init_sam_from_ods: kDS1AttrSMBPrimaryGroupSID (%s)\n", temp));
+		pdb_set_group_sid_from_string(sampass, temp, PDB_SET);			
+	} else
+#endif
+	if (get_single_attribute(entry, kDS1AttrSMBGroupRID, temp)) {
+		DEBUG(3, ("init_sam_from_ods: kDS1AttrSMBGroupRID (%s)\n", temp));
 		group_rid = (uint32)atol(temp);
 		pdb_set_group_sid_from_rid(sampass, group_rid, PDB_SET);
+	} else {
+		DEBUG(3, ("init_sam_from_ods: DOMAIN_GROUP_RID_USERS \n"));
+		pdb_set_group_sid_from_rid(sampass, DOMAIN_GROUP_RID_USERS, PDB_DEFAULT);	
 	}
-
-
+	
 	if (!get_single_attribute(entry, kDS1AttrPrimaryGroupID, temp)) {
 		/* leave as default */
 	} else {
@@ -1338,7 +1377,7 @@ static BOOL init_sam_from_ods (struct odssam_privates *ods_state,
 	} else {
                 pdb_set_unix_homedir(sampass, temp, PDB_SET);
 	}
-
+#if 0
 	if (group_rid == 0) {
 		GROUP_MAP map;
 		
@@ -1352,6 +1391,7 @@ static BOOL init_sam_from_ods (struct odssam_privates *ods_state,
 			pdb_set_group_sid_from_rid(sampass, pdb_gid_to_group_rid(gid), PDB_SET);
 		}
 	}
+#endif
 
 	if (!get_single_attribute(entry, kPWSPWDLastSetTime, temp)) {
 		/* leave as default */
@@ -1566,7 +1606,6 @@ static BOOL need_ods_mod(BOOL pdb_add, const SAM_ACCOUNT * sampass, enum pdb_ele
 
 /**********************************************************************
 Initialize Open Directory account from SAM_ACCOUNT 
-(Based on init_buffer_from_sam in pdb_tdb.c)
 *********************************************************************/
 static BOOL init_ods_from_sam (struct odssam_privates *ods_state, BOOL pdb_add, SAM_ACCOUNT * sampass, CFMutableDictionaryRef userEntry)
 
@@ -1584,41 +1623,74 @@ static BOOL init_ods_from_sam (struct odssam_privates *ods_state, BOOL pdb_add, 
 		DEBUG(2, ("Setting entry for user: %s\n", pdb_get_username(sampass)));
 	}
 	
-	if ((rid = pdb_get_user_rid(sampass))!=0 ) {
-		if (need_ods_mod(pdb_add, sampass, PDB_USERSID)) {		
+	if (need_ods_mod(pdb_add, sampass, PDB_USERSID)) {
+#if defined(kDS1AttrSMBSID)
+		fstring sid_string;
+		fstring dom_sid_string;
+		const DOM_SID *user_sid = pdb_get_user_sid(sampass);
+		if(NULL != user_sid) {
+			if (!sid_peek_check_rid(get_global_sam_sid(), user_sid, &rid)) {
+				DEBUG(1, ("init_ods_from_sam: User's SID (%s) is not for this domain (%s), cannot add to Open Directory!\n", 
+					sid_to_string(sid_string, user_sid), 
+					sid_to_string(dom_sid_string, get_global_sam_sid())));
+				return False;
+			}
+			sid_to_string(sid_string, user_sid);
+			DEBUG(2, ("Setting SID entry for user: %s [%s]\n", pdb_get_username(sampass), sid_string));
+			make_a_mod(userEntry, kDS1AttrSMBSID, sid_string);
+		} else 	
+#endif
+		if ((rid = pdb_get_user_rid(sampass))!=0 ) {
 			slprintf(temp, sizeof(temp) - 1, "%i", rid);
+			DEBUG(2, ("Setting RID entry for user: %s [%s]\n", pdb_get_username(sampass), temp));
 			make_a_mod(userEntry, kDS1AttrSMBRID, temp);
 		}
-	}
 #ifdef STORE_ALGORITHMIC_RID
-	 else if (!IS_SAM_DEFAULT(sampass, PDB_UID)) {
-		rid = fallback_pdb_uid_to_user_rid(pdb_get_uid(sampass));
-		slprintf(temp, sizeof(temp) - 1, "%i", rid);
-		make_a_mod(userEntry, kDS1AttrSMBRID, temp);
-	} else {
-		DEBUG(0, ("NO user RID specified on account %s, cannot store!\n", pdb_get_username(sampass)));
-		return False;
+		 else if (!IS_SAM_DEFAULT(sampass, PDB_UID)) {
+			rid = fallback_pdb_uid_to_user_rid(pdb_get_uid(sampass));
+			slprintf(temp, sizeof(temp) - 1, "%i", rid);
+			make_a_mod(userEntry, kDS1AttrSMBRID, temp);
+		} else {
+			DEBUG(0, ("NO user RID specified on account %s, cannot store!\n", pdb_get_username(sampass)));
+			return False;
+		}
+#endif
 	}
 
-#endif
+	if (need_ods_mod(pdb_add, sampass, PDB_GROUPSID)) {		
+#if defined(kDS1AttrSMBPrimaryGroupSID)
+		fstring sid_string;
+		fstring dom_sid_string;
+		const DOM_SID *group_sid = pdb_get_group_sid(sampass);
 
-	if ((rid = pdb_get_group_rid(sampass))!=0 ) {
-		if (need_ods_mod(pdb_add, sampass, PDB_GROUPSID)) {		
+
+		if(NULL != group_sid) {
+			if (!sid_peek_check_rid(get_global_sam_sid(), group_sid, &rid)) {
+				DEBUG(1, ("init_ods_from_sam: User's Primary Group SID (%s) is not for this domain (%s), cannot add to Open Directory!\n",
+					sid_to_string(sid_string, group_sid),
+					sid_to_string(dom_sid_string, get_global_sam_sid())));
+				return False;
+			}
+			sid_to_string(sid_string, group_sid);
+			DEBUG(2, ("Setting Primary Group SID entry for user: %s [%s]\n", pdb_get_username(sampass), sid_string));
+			make_a_mod(userEntry, kDS1AttrSMBPrimaryGroupSID, sid_string);
+		} else	
+#endif
+		if ((rid = pdb_get_group_rid(sampass))!=0 ) {
 			slprintf(temp, sizeof(temp) - 1, "%i", rid);
 			make_a_mod(userEntry, kDS1AttrSMBGroupRID, temp);
-		}
-	} 
-	
+		} 
 #ifdef STORE_ALGORITHMIC_RID
-	else if (!IS_SAM_DEFAULT(sampass, PDB_GID)) {
-		rid = pdb_gid_to_group_rid(pdb_get_gid(sampass));
-		slprintf(temp, sizeof(temp) - 1, "%i", rid);
-		make_a_mod(userEntry, kDS1AttrSMBGroupRID, temp);
-	} else {
-		DEBUG(0, ("NO group RID specified on account %s, cannot store!\n", pdb_get_username(sampass)));
-		return False;
-	}
+		else if (!IS_SAM_DEFAULT(sampass, PDB_GID)) {
+			rid = pdb_gid_to_group_rid(pdb_get_gid(sampass));
+			slprintf(temp, sizeof(temp) - 1, "%i", rid);
+			make_a_mod(userEntry, kDS1AttrSMBGroupRID, temp);
+		} else {
+			DEBUG(0, ("NO group RID specified on account %s, cannot store!\n", pdb_get_username(sampass)));
+			return False;
+		}
 #endif
+	}
 
 	/* displayName, cn, and gecos should all be the same
 	 *  most easily accomplished by giving them the same OID
@@ -1681,19 +1753,19 @@ static BOOL init_ods_from_sam (struct odssam_privates *ods_state, BOOL pdb_add, 
 //	if ((pdb_get_acct_ctrl(sampass)&(ACB_WSTRUST|ACB_SVRTRUST|ACB_DOMTRUST))) {
 	if ((pdb_get_acct_ctrl(sampass)&(ACB_WSTRUST|ACB_SVRTRUST|ACB_DOMTRUST|ACB_NORMAL))) {
 
-#if WITH_PASSWORD_HASH
+#if defined(kDSStdAuthSetNTHash) && defined(kDSStdAuthSetLMHash)
 		if (need_ods_mod(pdb_add, sampass, PDB_LMPASSWD)) {
 			pdb_sethexpwd (temp, pdb_get_lanman_passwd(sampass), pdb_get_acct_ctrl(sampass));
-			make_a_mod (userEntry, kDS1AttrSMBLMPassword, temp);
+			make_a_mod (userEntry, kDSStdAuthSetLMHash, temp);
 		}
 		
 		if (need_ods_mod(pdb_add, sampass, PDB_NTPASSWD)) {
 			pdb_sethexpwd (temp, pdb_get_nt_passwd(sampass), pdb_get_acct_ctrl(sampass));
-			make_a_mod (userEntry, kDS1AttrSMBNTPassword, temp);
+			make_a_mod (userEntry, kDSStdAuthSetNTHash, temp);
 		}
 #endif		
 		if (need_ods_mod(pdb_add, sampass, PDB_PLAINTEXT_PW)) {
-			make_a_mod (userEntry, kPlainTextPassword, pdb_get_plaintext_passwd(sampass));
+			make_a_mod (userEntry, kDSStdAuthSetPasswdAsRoot, pdb_get_plaintext_passwd(sampass));
 		}
 #if USES_PWS
 		if (need_ods_mod(pdb_add, sampass, PDB_PASSLASTSET)) {

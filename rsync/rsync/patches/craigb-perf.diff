@@ -31,6 +31,8 @@ There are some other unneeded system calls:
   - One example is that show_progress() calls gettimeofday() even
     if do_progress is not set.  show_progress() is called on every
     block, so there is an extra system call per (700 byte) block.
+    (NOTE: this was already fixed in 2.6.0, so it is no longer in
+    this patch.)
 
   - Another example is that file_write writes each matching (700 byte)
     block without buffering, so that's another system call per block.
@@ -106,61 +108,69 @@ the patch at your own risk...
 Craig
 
 ###########################################################################
-diff -bur rsync/fileio.c rsync-craig/fileio.c
---- rsync/fileio.c	Fri Jan 25 15:07:34 2002
-+++ rsync-craig/fileio.c	Sat Dec  7 22:21:10 2002
-@@ -76,7 +76,35 @@
- 	int ret = 0;
+Note: This is an updated patch for 2.6.0, created by Wayne Davison.
+###########################################################################
+--- orig/fileio.c	6 Dec 2003 21:07:27 -0000	1.8
++++ rsync-2.6.0/fileio.c	24 Dec 2003 01:47:40 -0000
+@@ -69,6 +69,21 @@
+ 	return len;
+ }
  
- 	if (!sparse_files) {
--		return write(f,buf,len);
-+		static char *writeBuf;
-+		static size_t writeBufSize;
-+		static size_t writeBufCnt;
 +
-+		if ( !writeBuf ) {
-+		    writeBufSize = MAX_MAP_SIZE;
-+		    writeBufCnt  = 0;
-+		    writeBuf = (char*)malloc(MAX_MAP_SIZE);
-+		    if (!writeBuf) out_of_memory("write_file");
-+		}
-+		ret = len;
-+		do {
-+		    if ( buf && writeBufCnt < writeBufSize ) {
-+			size_t copyLen = len;
-+			if ( copyLen > writeBufSize - writeBufCnt ) {
-+			    copyLen = writeBufSize - writeBufCnt;
-+			}
-+			memcpy(writeBuf + writeBufCnt, buf, copyLen);
-+			writeBufCnt += copyLen;
-+			buf += copyLen;
-+			len -= copyLen;
-+		    }
-+		    if ( !buf || writeBufCnt == writeBufSize ) {
-+			int thisRet = write(f, writeBuf, writeBufCnt);
-+			if ( thisRet < 0 ) return thisRet;
-+			writeBufCnt = 0;
-+		    }
-+		} while ( buf && len > 0 );
++static char *wf_writeBuf;
++static size_t wf_writeBufSize;
++static size_t wf_writeBufCnt;
++
++int flush_write_file(int f)
++{
++	int ret = write(f, wf_writeBuf, wf_writeBufCnt);
++	if (ret < 0)
 +		return ret;
- 	}
- 
- 	while (len>0) {
-diff -bur rsync/flist.c rsync-craig/flist.c
---- rsync/flist.c	Sat Jul 27 11:01:21 2002
-+++ rsync-craig/flist.c	Sun Dec  8 16:28:14 2002
-@@ -889,7 +889,7 @@
++	/* if (ret < wf_writeBufCnt) ??? */
++	wf_writeBufCnt = 0;
++	return ret;
++}
++
+ /*
+  * write_file does not allow incomplete writes.  It loops internally
+  * until len bytes are written or errno is set.
+@@ -83,7 +98,22 @@
+ 			int len1 = MIN(len, SPARSE_WRITE_SIZE);
+ 			r1 = write_sparse(f, buf, len1);
+ 		} else {
+-			r1 = write(f, buf, len);
++			if (!wf_writeBuf) {
++				wf_writeBufSize = MAX_MAP_SIZE;
++				wf_writeBufCnt  = 0;
++				wf_writeBuf = new_array(char, MAX_MAP_SIZE);
++				if (!wf_writeBuf) out_of_memory("write_file");
++			}
++			r1 = MIN(len, wf_writeBufSize - wf_writeBufCnt);
++			if (r1) {
++				memcpy(wf_writeBuf + wf_writeBufCnt, buf, r1);
++				wf_writeBufCnt += r1;
++			}
++			if (wf_writeBufCnt == wf_writeBufSize) {
++				if (flush_write_file(f) < 0) return -1;
++				if (!r1 && len)
++					continue;
++			}
+ 		}
+ 		if (r1 <= 0) {
+ 			if (ret > 0) return ret;
+--- orig/flist.c	15 Dec 2003 08:10:31 -0000	1.144
++++ rsync-2.6.0/flist.c	24 Dec 2003 01:47:40 -0000
+@@ -925,7 +925,7 @@
  	flist = flist_new();
  
  	if (f != -1) {
 -		io_start_buffering(f);
 +		io_start_buffering_out(f);
- 	}
- 
- 	for (i = 0; i < argc; i++) {
-diff -bur rsync/io.c rsync-craig/io.c
---- rsync/io.c	Wed Apr 10 19:11:50 2002
-+++ rsync-craig/io.c	Sun Dec  8 17:54:23 2002
+ 		if (filesfrom_fd >= 0) {
+ 			if (argv[0] && !push_dir(argv[0], 0)) {
+ 				rprintf(FERROR, "push_dir %s failed: %s\n",
+--- orig/io.c	24 Dec 2003 01:46:07 -0000	1.113
++++ rsync-2.6.0/io.c	24 Dec 2003 01:47:41 -0000
 @@ -41,8 +41,8 @@
  
  static int io_multiplexing_out;
@@ -172,13 +182,13 @@ diff -bur rsync/io.c rsync-craig/io.c
  static time_t last_io;
  static int no_flush;
  
-@@ -286,17 +286,31 @@
+@@ -440,17 +440,31 @@
  	static size_t remaining;
  	int tag, ret = 0;
  	char line[1024];
-+        static char *buffer;
-+        static size_t bufferIdx = 0;
-+        static size_t bufferSz;
++	static char *buffer;
++	static size_t bufferIdx = 0;
++	static size_t bufferSz;
  
 -	if (!io_multiplexing_in || fd != multiplex_in_fd)
 +	if (fd != multiplex_in_fd)
@@ -187,12 +197,12 @@ diff -bur rsync/io.c rsync-craig/io.c
 +	if (!io_multiplexing_in && remaining == 0) {
 +		if (!buffer) {
 +			bufferSz = 2 * IO_BUFFER_SIZE;
-+			buffer   = malloc(bufferSz);
++			buffer   = new_array(char, bufferSz);
 +			if (!buffer) out_of_memory("read_unbuffered");
 +		}
 +		remaining = read_timeout(fd, buffer, bufferSz);
-+                bufferIdx = 0;
-+        }
++		bufferIdx = 0;
++	}
 +
  	while (ret == 0) {
  		if (remaining) {
@@ -207,45 +217,44 @@ diff -bur rsync/io.c rsync-craig/io.c
  		}
  
  		read_loop(fd, line, 4);
-@@ -305,8 +319,16 @@
+@@ -459,8 +473,16 @@
  		remaining = tag & 0xFFFFFF;
  		tag = tag >> 24;
  
 -		if (tag == MPLEX_BASE)
 +		if (tag == MPLEX_BASE) {
 +			if (!buffer || remaining > bufferSz) {
-+				buffer = Realloc(buffer, remaining);
++				buffer = realloc_array(buffer, char, remaining);
 +				if (!buffer) out_of_memory("read_unbuffered");
 +				bufferSz = remaining;
 +			}
 +			read_loop(fd, buffer, remaining);
-+                        bufferIdx = 0;
++			bufferIdx = 0;
  			continue;
-+                }
++		}
  
  		tag -= MPLEX_BASE;
  
-@@ -327,7 +349,9 @@
- 		rprintf((enum logcode) tag, "%s", line);
+@@ -482,6 +504,9 @@
  		remaining = 0;
  	}
--
-+        if (remaining == 0) {
+ 
++	if (remaining == 0)
 +		io_flush();
-+	}
++
  	return ret;
  }
  
-@@ -344,8 +368,6 @@
+@@ -498,8 +523,6 @@
  	size_t total=0;  
- 	
+ 
  	while (total < N) {
 -		io_flush();
 -
- 		ret = read_unbuffered (fd, buffer + total, N-total);
+ 		ret = read_unbuffered(fd, buffer + total, N-total);
  		total += ret;
  	}
-@@ -531,7 +553,7 @@
+@@ -682,7 +705,7 @@
  static char *io_buffer;
  static int io_buffer_count;
  
@@ -254,7 +263,7 @@ diff -bur rsync/io.c rsync-craig/io.c
  {
  	if (io_buffer) return;
  	multiplex_out_fd = fd;
-@@ -540,6 +562,11 @@
+@@ -691,6 +714,11 @@
  	io_buffer_count = 0;
  }
  
@@ -266,7 +275,7 @@ diff -bur rsync/io.c rsync-craig/io.c
  /**
   * Write an message to a multiplexed stream. If this fails then rsync
   * exits.
-@@ -726,7 +753,7 @@
+@@ -881,7 +909,7 @@
  {
  	multiplex_out_fd = fd;
  	io_flush();
@@ -275,19 +284,18 @@ diff -bur rsync/io.c rsync-craig/io.c
  	io_multiplexing_out = 1;
  }
  
-diff -bur rsync/main.c rsync-craig/main.c
---- rsync/main.c	Thu Aug  1 13:46:59 2002
-+++ rsync-craig/main.c	Sun Dec  8 17:39:07 2002
-@@ -346,6 +346,8 @@
+--- orig/main.c	20 Dec 2003 16:57:24 -0000	1.176
++++ rsync-2.6.0/main.c	24 Dec 2003 01:47:41 -0000
+@@ -380,6 +380,8 @@
  		exit_cleanup(0);
  	}
  
-+        io_start_buffering_in(f_in);
-+        io_start_buffering_out(f_out);
++	io_start_buffering_in(f_in);
++	io_start_buffering_out(f_out);
  	send_files(flist,f_out,f_in);
  	io_flush();
  	report(f_out);
-@@ -421,7 +423,7 @@
+@@ -454,7 +456,7 @@
  	close(error_pipe[1]);
  	if (f_in != f_out) close(f_in);
  
@@ -296,34 +304,34 @@ diff -bur rsync/main.c rsync-craig/main.c
  
  	io_set_error_fd(error_pipe[0]);
  
-@@ -476,6 +478,7 @@
- 		}    
+@@ -508,6 +510,7 @@
+ 		}
  	}
  
-+        io_start_buffering_in(f_in);
++	io_start_buffering_in(f_in);
  	if (delete_mode && !delete_excluded)
  		recv_exclude_list(f_in);
  
-@@ -569,6 +572,7 @@
+@@ -606,6 +609,7 @@
  		extern int cvs_exclude;
  		extern int delete_mode;
  		extern int delete_excluded;
-+                io_start_buffering_out(f_out);
++		io_start_buffering_out(f_out);
  		if (cvs_exclude)
  			add_cvs_excludes();
- 		if (delete_mode && !delete_excluded) 
-@@ -578,7 +582,10 @@
- 		if (verbose > 3) 
+ 		if (delete_mode && !delete_excluded)
+@@ -617,7 +621,10 @@
+ 		if (verbose > 3)
  			rprintf(FINFO,"file list sent\n");
  
-+                io_flush();
-+                io_start_buffering_out(f_out);
++		io_flush();
++		io_start_buffering_out(f_out);
  		send_files(flist,f_out,f_in);
-+                io_flush();
- 		if (remote_version >= 24) {
- 			/* final goodbye message */		
++		io_flush();
+ 		if (protocol_version >= 24) {
+ 			/* final goodbye message */
  			read_int(f_in);
-@@ -590,6 +597,7 @@
+@@ -629,6 +636,7 @@
  			wait_process(pid, &status);
  		}
  		report(-1);
@@ -331,22 +339,17 @@ diff -bur rsync/main.c rsync-craig/main.c
  		exit_cleanup(status);
  	}
  
-diff -bur rsync/progress.c rsync-craig/progress.c
---- rsync/progress.c	Sun Apr  7 22:28:57 2002
-+++ rsync-craig/progress.c	Sat Dec  7 18:57:19 2002
-@@ -97,6 +97,8 @@
- 	extern int do_progress, am_server;
-         struct timeval now;
- 
-+	if (!do_progress) return;
-+
-         gettimeofday(&now, NULL);
- 
-         if (!start_time.tv_sec && !start_time.tv_usec) {
-diff -bur rsync/proto.h rsync-craig/proto.h
---- rsync/proto.h	Wed Jul 31 17:37:02 2002
-+++ rsync-craig/proto.h	Sun Dec  8 16:27:55 2002
-@@ -102,7 +102,8 @@
+--- orig/proto.h	6 Dec 2003 21:07:27 -0000	1.161
++++ rsync-2.6.0/proto.h	24 Dec 2003 01:47:41 -0000
+@@ -68,6 +68,7 @@
+ 		      const char *line, int include);
+ void add_cvs_excludes(void);
+ int sparse_end(int f);
++int flush_write_file(int f);
+ int write_file(int f,char *buf,size_t len);
+ struct map_struct *map_file(int fd,OFF_T len);
+ char *map_ptr(struct map_struct *map,OFF_T offset,int len);
+@@ -101,7 +102,8 @@
  void read_buf(int f,char *buf,size_t len);
  void read_sbuf(int f,char *buf,size_t len);
  unsigned char read_byte(int f);
@@ -356,18 +359,14 @@ diff -bur rsync/proto.h rsync-craig/proto.h
  void io_flush(void);
  void io_end_buffering(void);
  void write_int(int f,int32 x);
-diff -bur rsync/receiver.c rsync-craig/receiver.c
---- rsync/receiver.c	Tue May 28 08:42:51 2002
-+++ rsync-craig/receiver.c	Sat Dec  7 22:09:04 2002
-@@ -273,6 +273,11 @@
+--- orig/receiver.c	15 Dec 2003 08:14:27 -0000	1.56
++++ rsync-2.6.0/receiver.c	24 Dec 2003 01:47:41 -0000
+@@ -307,6 +307,8 @@
  		offset += len;
  	}
  
-+	/*
-+	 * do a write flush
-+	 */
-+	write_file(fd, NULL, 0);
++	flush_write_file(fd);
 +
- 	end_progress(total_size);
+ 	if (do_progress)
+ 		end_progress(total_size);
  
- 	if (fd != -1 && offset > 0 && sparse_end(fd) != 0) {

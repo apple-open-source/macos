@@ -1,5 +1,5 @@
 /*
- * "$Id: printers.c,v 1.19.4.1 2003/11/14 23:48:30 jlovell Exp $"
+ * "$Id: printers.c,v 1.19.4.2 2004/09/23 22:42:27 jlovell Exp $"
  *
  *   Printer routines for the Common UNIX Printing System (CUPS).
  *
@@ -1365,12 +1365,7 @@ SetPrinterAttrs(printer_t *p)		/* I - Printer to setup */
         * http://..., ipp://..., etc.
 	*/
 
-        httpSeparate(p->device_uri, method, username, host, &port, resource);
-	if (port)
-	  snprintf(uri, sizeof(uri), "%s://%s:%d%s", method, host, port,
-	           resource);
-	else
-	  snprintf(uri, sizeof(uri), "%s://%s%s", method, host, resource);
+	SanitizeURI(uri, sizeof(uri), p->device_uri);
       }
       else
       {
@@ -2580,5 +2575,5 @@ apple_conv_utf8(char **str,		/* I/O - string to be converted */
 #endif	/* __APPLE__ */
 
 /*
- * End of "$Id: printers.c,v 1.19.4.1 2003/11/14 23:48:30 jlovell Exp $".
+ * End of "$Id: printers.c,v 1.19.4.2 2004/09/23 22:42:27 jlovell Exp $".
  */

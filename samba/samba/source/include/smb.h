@@ -82,6 +82,7 @@ typedef int BOOL;
 #define READ_ERROR 3
 #define WRITE_ERROR 4 /* This error code can go into the client smb_rw_error. */
 #define READ_BAD_SIG 5
+#define DO_NOT_DO_TDIS 6 /* cli_close_connection() check for this when smbfs wants to keep tree connected */
 
 #define DIR_STRUCT_SIZE 43
 
@@ -421,7 +422,8 @@ typedef struct files_struct
 #include "sysquotas.h"
 
 /* used to hold an arbitrary blob of data */
-typedef struct data_blob {
+typedef struct data_blob
+{
 	uint8 *data;
 	size_t length;
 	void (*free)(struct data_blob *data_blob);
@@ -434,19 +436,27 @@ typedef struct data_blob {
 
 typedef struct
 {
-  time_t modify_time;
-  time_t status_time;
+	time_t modify_time;
+	time_t status_time;
 } dir_status_struct;
 
-struct vuid_cache {
-  unsigned int entries;
-  uint16 list[VUID_CACHE_SIZE];
+struct vuid_cache_entry
+{
+	uint16 vuid;
+	BOOL read_only;
+	BOOL admin_user;
+};
+
+struct vuid_cache
+{
+	unsigned int entries;
+	struct vuid_cache_entry array[VUID_CACHE_SIZE];
 };
 
 typedef struct
 {
-  char *name;
-  BOOL is_wild;
+	char *name;
+	BOOL is_wild;
 } name_compare_entry;
 
 /* Include VFS stuff */
@@ -466,8 +476,8 @@ typedef struct connection_struct
 	void *dirptr;
 	BOOL printer;
 	BOOL ipc;
-	BOOL read_only;
-	BOOL admin_user;
+	BOOL read_only; /* Attributes for the current user of the share. */
+	BOOL admin_user; /* Attributes for the current user of the share. */
 	char *dirpath;
 	char *connectpath;
 	char *origpath;
@@ -529,7 +539,7 @@ enum {LPQ_QUEUED=0,LPQ_PAUSED,LPQ_SPOOLING,LPQ_PRINTING,LPQ_ERROR,LPQ_DELETING,
 
 typedef struct _print_queue_struct
 {
-  int job;		/* normally the SMB jobid -- see note in 
+  int job;		/* normally the UNIX jobid -- see note in 
 			   printing.c:traverse_fn_delete() */
   int size;
   int page_count;
@@ -694,7 +704,7 @@ struct parm_struct
 	parm_type type;
 	parm_class class;
 	void *ptr;
-	BOOL (*special)(const char *, char **);
+	BOOL (*special)(int snum, const char *, char **);
 	const struct enum_list *enum_list;
 	unsigned flags;
 	union {
@@ -862,6 +872,7 @@ struct bitmap {
 #define SMBnttranss      0xA1   /* NT transact secondary */
 #define SMBntcreateX     0xA2   /* NT create and X */
 #define SMBntcancel      0xA4   /* NT cancel */
+#define SMBntrename      0xA5   /* NT rename */
 
 /* These are the trans subcommands */
 #define TRANSACT_SETNAMEDPIPEHANDLESTATE  0x01 
@@ -1075,6 +1086,7 @@ struct bitmap {
 #define REQUEST_OPLOCK 2
 #define REQUEST_BATCH_OPLOCK 4
 #define OPEN_DIRECTORY 8
+#define EXTENDED_RESPONSE_REQUIRED 0x10
 
 /* ShareAccess field. */
 #define FILE_SHARE_NONE 0 /* Cannot be used in bitmask. */
@@ -1139,6 +1151,12 @@ struct bitmap {
 
 /* Flag for NT transact rename call. */
 #define RENAME_REPLACE_IF_EXISTS 1
+
+/* flags for SMBntrename call (from Samba4) */
+#define RENAME_FLAG_MOVE_CLUSTER_INFORMATION 0x102 /* ???? */
+#define RENAME_FLAG_HARD_LINK                0x103
+#define RENAME_FLAG_RENAME                   0x104
+#define RENAME_FLAG_COPY                     0x105
 
 /* Filesystem Attributes. */
 #define FILE_CASE_SENSITIVE_SEARCH      0x00000001
@@ -1487,7 +1505,11 @@ struct cnotify_fns {
 
 #include "smb_macros.h"
 
-typedef char nstring[16];
+#define MAX_NETBIOSNAME_LEN 16
+/* DOS character, NetBIOS namestring. Type used on the wire. */
+typedef char nstring[MAX_NETBIOSNAME_LEN];
+/* Unix character, NetBIOS namestring. Type used to manipulate name in nmbd. */
+typedef char unstring[MAX_NETBIOSNAME_LEN*4];
 
 /* A netbios name structure. */
 struct nmb_name {
@@ -1504,26 +1526,19 @@ struct node_status {
 	unsigned char flags;
 };
 
+/* The extra info from a NetBIOS node status query */
+struct node_status_extra {
+	unsigned char mac_addr[6];
+	/* There really is more here ... */ 
+};
+
 struct pwd_info
 {
 	BOOL null_pwd;
 	BOOL cleartext;
-	BOOL crypted;
 
 	fstring password;
 
-	uchar smb_lm_pwd[16];
-	uchar smb_nt_pwd[16];
-
-	uchar smb_lm_owf[24];
-	uchar smb_nt_owf[128];
-	size_t nt_owf_len;
-
-	uchar lm_cli_chal[8];
-	uchar nt_cli_chal[128];
-	size_t nt_cli_chal_len;
-
-	uchar sess_key[16];
 };
 
 typedef struct user_struct
@@ -1641,7 +1656,7 @@ struct ip_service {
 
 typedef struct smb_sign_info {
 	void (*sign_outgoing_message)(char *outbuf, struct smb_sign_info *si);
-	BOOL (*check_incoming_message)(char *inbuf, struct smb_sign_info *si);
+	BOOL (*check_incoming_message)(char *inbuf, struct smb_sign_info *si, BOOL must_be_ok);
 	void (*free_signing_context)(struct smb_sign_info *si);
 	void *signing_context;
 
@@ -1649,6 +1664,18 @@ typedef struct smb_sign_info {
 	BOOL allow_smb_signing;
 	BOOL doing_signing;
 	BOOL mandatory_signing;
+	BOOL seen_valid; /* Have I ever seen a validly signed packet? */
 } smb_sign_info;
+
+struct ea_struct {
+	uint8 flags;
+	char *name;
+	DATA_BLOB value;
+};
+
+/* EA names used internally in Samba. KEEP UP TO DATE with prohibited_ea_names in trans2.c !. */
+#define SAMBA_POSIX_INHERITANCE_EA_NAME "user.SAMBA_PAI"
+/* EA to use for DOS attributes */
+#define SAMBA_XATTR_DOS_ATTRIB "user.DOSATTRIB"
 
 #endif /* _SMB_H */

@@ -77,7 +77,7 @@ void SearchCompleted( void )
 	DBGLOG( "SearchCompleted, gOutstandingSearches=%d\n", gOutstandingSearches );
     pthread_mutex_unlock(&gOutstandingSearchesLock);
 
-    if ( okToStartNextSearch )
+    if ( CNSLPlugin::TheNSLPlugin()->OKToStartNewSearch() )
 	{
 		CNSLPlugin::TheNSLPlugin()->LockSearchQueue();
         CNSLPlugin::TheNSLPlugin()->StartNextQueuedSearch();		// just give this a chance to fire one off

@@ -494,8 +494,11 @@ precsize_ntoa(u_int8_t prec)
 	switch (r->dnstype)
 	{
 		case ns_t_a:
+			if (inet_ntop(AF_INET, &(r->data.A->addr), str, 32) == NULL) break;
+
 			[item setValue:r->name forKey:"name"];
-			[item setValue:inet_ntoa(r->data.A->addr) forKey:"ip_address"];
+			[item setValue:str forKey:"ip_address"];
+
 			if (iface > 0)
 			{
 				asprintf(&ifname, "%u", iface);
@@ -755,8 +758,10 @@ precsize_ntoa(u_int8_t prec)
 
 		if (r->answer[i]->dnstype == ns_t_a)
 		{
+			if (inet_ntop(AF_INET,&(r->answer[i]->data.A->addr), scratch, 256) == NULL) continue;
+
 			got_data++;
-			[host mergeValue:inet_ntoa(r->answer[i]->data.A->addr) forKey:"ip_address"];
+			[host mergeValue:scratch forKey:"ip_address"];
 		}
 
 		else if (r->answer[i]->dnstype == ns_t_aaaa)
@@ -894,7 +899,10 @@ precsize_ntoa(u_int8_t prec)
 	host = [self dictForDNSReply:r];
 	dns_free_reply(r);
 
-	if (host != nil) [host mergeValue:inet_ntoa(*addr) forKey:"ip_address"];
+	if ((host != nil) && (inet_ntop(AF_INET, addr, name, 64) != NULL))
+	{
+		[host mergeValue:name forKey:"ip_address"];
+	}
 
 	return [self stamp:host];
 }
@@ -984,7 +992,11 @@ precsize_ntoa(u_int8_t prec)
 
 	if (net == nil) return nil;
 
-	[net mergeValue:inet_ntoa(*addr) forKey:"ip_address"];
+	if (inet_ntop(AF_INET, addr, name, 64) != NULL)
+	{
+		[net mergeValue:name forKey:"ip_address"];
+	}
+
 	[net removeKey:"ptr_name"];
 
 	return [self stamp:net];

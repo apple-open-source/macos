@@ -1,0 +1,85 @@
+This patch from Sami Farin lets you specify --fsync if you want fsync()
+to be called on every file we write.
+
+--- options.c	17 Apr 2004 17:07:23 -0000	1.147
++++ options.c	27 Apr 2004 20:05:03 -0000
+@@ -37,6 +37,7 @@ int make_backups = 0;
+  **/
+ int whole_file = -1;
+ 
++int do_fsync = 0;
+ int archive_mode = 0;
+ int copy_links = 0;
+ int preserve_links = 0;
+@@ -230,6 +231,7 @@ void usage(enum logcode F)
+   rprintf(F," -b, --backup                make backups (see --suffix & --backup-dir)\n");
+   rprintf(F,"     --backup-dir            make backups into this directory\n");
+   rprintf(F,"     --suffix=SUFFIX         backup suffix (default %s w/o --backup-dir)\n",BACKUP_SUFFIX);
++  rprintf(F,"     --fsync                 fsync every written file\n");
+   rprintf(F," -u, --update                update only (don't overwrite newer files)\n");
+   rprintf(F," -l, --links                 copy symlinks as symlinks\n");
+   rprintf(F," -L, --copy-links            copy the referent of all symlinks\n");
+@@ -332,6 +334,7 @@ static struct poptOption long_options[] 
+   {"safe-links",       0,  POPT_ARG_NONE,   &safe_symlinks, 0, 0, 0 },
+   {"help",            'h', POPT_ARG_NONE,   0,              'h', 0, 0 },
+   {"backup",          'b', POPT_ARG_NONE,   &make_backups, 0, 0, 0 },
++  {"fsync",            0,  POPT_ARG_NONE,   &do_fsync, 0, 0, 0 },
+   {"dry-run",         'n', POPT_ARG_NONE,   &dry_run, 0, 0, 0 },
+   {"sparse",          'S', POPT_ARG_NONE,   &sparse_files, 0, 0, 0 },
+   {"cvs-exclude",     'C', POPT_ARG_NONE,   &cvs_exclude, 0, 0, 0 },
+@@ -943,6 +946,9 @@ void server_options(char **args,int *arg
+ 		args[ac++] = "--temp-dir";
+ 		args[ac++] = tmpdir;
+ 	}
++
++	if (do_fsync && am_sender)
++		args[ac++] = "--fsync";
+ 
+ 	if (compare_dest && am_sender) {
+ 		/* the server only needs this option if it is not the sender,
+--- receiver.c	27 Apr 2004 19:51:33 -0000	1.76
++++ receiver.c	27 Apr 2004 20:05:03 -0000
+@@ -45,6 +45,7 @@ extern int cleanup_got_literal;
+ extern int module_id;
+ extern int ignore_errors;
+ extern int orig_umask;
++extern int do_fsync;
+ 
+ static void delete_one(char *fn, int is_dir)
+ {
+@@ -264,6 +265,12 @@ static int receive_data(int f_in,struct 
+ 
+ 	if (fd != -1 && offset > 0 && sparse_end(fd) != 0) {
+ 		rprintf(FERROR, "write failed on %s: %s\n",
++			full_fname(fname), strerror(errno));
++		exit_cleanup(RERR_FILEIO);
++	}
++
++	if (do_fsync && (fd != -1) && (fsync(fd) != 0)) {
++		rprintf(FERROR, "fsync failed on %s: %s\n",
+ 			full_fname(fname), strerror(errno));
+ 		exit_cleanup(RERR_FILEIO);
+ 	}
+--- util.c	27 Apr 2004 19:59:37 -0000	1.141
++++ util.c	27 Apr 2004 20:05:04 -0000
+@@ -29,6 +29,7 @@
+ 
+ extern int verbose;
+ extern struct exclude_list_struct server_exclude_list;
++extern int do_fsync;
+ 
+ int sanitize_paths = 0;
+ 
+@@ -296,6 +297,12 @@ int copy_file(char *source, char *dest, 
+ 
+ 	if (close(ofd) < 0) {
+ 		rprintf(FERROR, "close failed on %s: %s\n",
++			full_fname(dest), strerror(errno));
++		return -1;
++	}
++
++	if (do_fsync && fsync(ofd) < 0) {
++		rprintf(FERROR, "fsync failed on %s: %s\n",
+ 			full_fname(dest), strerror(errno));
+ 		return -1;
+ 	}

@@ -120,6 +120,8 @@ const OSSymbol * gIOPPluginPlatformID;
 
 const OSNumber * gIOPPluginZero;
 const OSNumber * gIOPPluginOne;
+const OSNumber * gIOPPluginTwo;
+const OSNumber * gIOPPluginThree;
 
 IOPlatformPlugin * platformPlugin;
 
@@ -156,6 +158,8 @@ bool IOPlatformPlugin::start(IOService *nub)
 	// globals used for one, zero, true, false
 	gIOPPluginZero = OSNumber::withNumber( (unsigned long long) 0, 1);
 	gIOPPluginOne = OSNumber::withNumber( (unsigned long long) 1, 1);
+	gIOPPluginTwo = OSNumber::withNumber( (unsigned long long) 2, 2);
+	gIOPPluginThree = OSNumber::withNumber( (unsigned long long) 3, 2);
 
 	// allocate the thread call used for timer callbacks
 	timerCallout = thread_call_allocate( (thread_call_func_t) IOPlatformPlugin::timerEventOccured,
@@ -244,6 +248,10 @@ failReleaseSymbols:
 	gIOPPluginZero = NULL;
 	gIOPPluginOne->release();
 	gIOPPluginOne = NULL;
+	gIOPPluginTwo->release();
+	gIOPPluginTwo = NULL;
+	gIOPPluginThree->release();
+	gIOPPluginThree = NULL;
 
 failOnly:	
 	return(false);
@@ -1424,7 +1432,23 @@ IOReturn IOPlatformPlugin::registrationHandler( IOService *sender, OSDictionary 
 			status = sensor->registerDriver( sender, dict );
 
 			if (status == kIOReturnSuccess)
+			{
+				// add this sensor to the I/O registry
 				sensorInfoDicts->setObject( sensor->getInfoDict() );
+
+				// notify all the control loops about this sensor
+				int count;
+				if ( ctrlLoops && ( count = ctrlLoops->getCount() ) > 0 )
+				{
+					int i;
+					IOPlatformCtrlLoop * loop;
+					for ( i=0; i<count; i++ )
+					{
+						if ( ( loop = OSDynamicCast( IOPlatformCtrlLoop, ctrlLoops->getObject( i ) ) ) != NULL )
+							loop->sensorRegistered( sensor );
+					}
+				}
+			}
 
 			return(status);
 		}
@@ -1500,7 +1524,23 @@ IOReturn IOPlatformPlugin::registrationHandler( IOService *sender, OSDictionary 
 			status = control->registerDriver( sender, dict );
 
 			if (status == kIOReturnSuccess)
+			{
+				// add this control to the I/O registry
 				controlInfoDicts->setObject( control->getInfoDict() );
+
+				// notify all the control loops about this control
+				int count;
+				if ( ctrlLoops && ( count = ctrlLoops->getCount() ) > 0 )
+				{
+					int i;
+					IOPlatformCtrlLoop * loop;
+					for ( i=0; i<count; i++ )
+					{
+						if ( ( loop = OSDynamicCast( IOPlatformCtrlLoop, ctrlLoops->getObject( i ) ) ) != NULL )
+							loop->controlRegistered( control );
+					}
+				}
+			}
 
 			return(status);
 		}

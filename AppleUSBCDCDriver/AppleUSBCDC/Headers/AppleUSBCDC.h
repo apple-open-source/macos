@@ -32,7 +32,7 @@ class AppleUSBCDC : public IOService
 private:
     bool			fTerminate;				// Are we being terminated (ie the device was unplugged)
     bool			fStopping;				// Are we being "stopped"
-	UInt8			fCDCInterfaceNumber;	// CDC interface number
+//	UInt8			fCDCInterfaceNumber;	// CDC interface number (the first one found)
 	UInt8			fConfig;				// The Configuration value
 
 public:
@@ -40,6 +40,8 @@ public:
     IOUSBDevice			*fpDevice;
     UInt8			fbmAttributes;
     UInt8			fCacheEaddr[6];
+	
+	UInt8			fDataInterfaceNumber;	// Data interface number (if there's only one)
 
         // IOKit methods
 		
@@ -53,10 +55,11 @@ public:
     virtual IOUSBDevice		*getCDCDevice(void);
     bool			initDevice(UInt8 numConfigs);
 	IOReturn		reInitDevice(void);
-    bool			checkACM(IOUSBInterface *Comm, UInt8 dataInterfaceNum);
-    bool			checkECM(IOUSBInterface *Comm, UInt8 dataInterfaceNum);
-    bool			checkWMC(IOUSBInterface *Comm, UInt8 dataInterfaceNum);
-    bool			checkDMM(IOUSBInterface *Comm, UInt8 dataInterfaceNum);
-    virtual bool		confirmDriver(UInt8 subClass, UInt8 dataInterface);
+    bool			checkACM(IOUSBInterface *Comm, UInt8 cInterfaceNumber, UInt8 dataInterfaceNum);
+    bool			checkECM(IOUSBInterface *Comm, UInt8 cInterfaceNumber, UInt8 dataInterfaceNum);
+    bool			checkWMC(IOUSBInterface *Comm, UInt8 cInterfaceNumber, UInt8 dataInterfaceNum);
+    bool			checkDMM(IOUSBInterface *Comm, UInt8 cInterfaceNumber, UInt8 dataInterfaceNum);
+    virtual bool	confirmDriver(UInt8 subClass, UInt8 dataInterface);
+	virtual bool	confirmControl(UInt8 subClass, IOUSBInterface *CInterface);
 
 }; /* end class  */

@@ -182,7 +182,7 @@
 		[ badge compositeToPoint: NSMakePoint ( 80, 0 ) operation: NSCompositeSourceOver ];
 		
 		[ finalImage unlockFocus ];
-		image = [ finalImage autorelease ];
+		image = finalImage;
 		
 	}
 	

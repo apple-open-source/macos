@@ -37,12 +37,9 @@
 // IOKit includes
 #include <IOKit/IOLocks.h>
 
-// SCSI Parallel Interface Family includes
-#include <IOKit/scsi/spi/IOSCSIParallelInterfaceController.h>
-
 // SCSI Architecture Model Family includes
 #include "SCSITargetDevicePathManager.h"
-
+#include <IOKit/scsi/SCSIPort.h>
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Class declaration
@@ -66,58 +63,17 @@ public:
 	
 };
 
-class SCSIFailoverPathManager : public SCSITargetDevicePathManager
-{
-	
-	OSDeclareDefaultStructors ( SCSIFailoverPathManager )
-	
-private:
-	
-	SCSIPathSet *	fPathSet;
-	SCSIPathSet *	fInactivePathSet;
-	IOLock *		fLock;
-	
-protected:
-	
-	bool InitializePathManagerForTarget (
-						IOSCSITargetDevice * 		target,
-						IOSCSIProtocolServices * 	initialPath );
-	
-	void free ( void );
-	
-public:
-	
-	static SCSIFailoverPathManager * Create (
-						IOSCSITargetDevice * 		target,
-						IOSCSIProtocolServices * 	initialPath );
-	
-	void							ExecuteCommand ( SCSITaskIdentifier request );
-	virtual SCSIServiceResponse		AbortTask ( SCSILogicalUnitNumber theLogicalUnit, SCSITaggedTaskIdentifier theTag );
-	virtual SCSIServiceResponse		AbortTaskSet ( SCSILogicalUnitNumber theLogicalUnit );
-	virtual SCSIServiceResponse		ClearACA ( SCSILogicalUnitNumber theLogicalUnit );
-	virtual SCSIServiceResponse		ClearTaskSet ( SCSILogicalUnitNumber theLogicalUnit );
-	virtual SCSIServiceResponse		LogicalUnitReset ( SCSILogicalUnitNumber theLogicalUnit );
-	virtual SCSIServiceResponse		TargetReset ( void );
-	
-	bool		AddPath ( IOSCSIProtocolServices * path );
-	void		ActivatePath ( IOSCSIProtocolServices * path );
-	void		InactivatePath ( IOSCSIProtocolServices * path );
-	void		RemovePath ( IOSCSIProtocolServices * path );
-	void		PathStatusChanged ( IOSCSIProtocolServices * path, SPIPortStatus newStatus );
-	
-};
 
-class SCSIRoundRobinPathManager : public SCSITargetDevicePathManager
+class SCSIPressurePathManager : public SCSITargetDevicePathManager
 {
 	
-	OSDeclareDefaultStructors ( SCSIRoundRobinPathManager )
+	OSDeclareDefaultStructors ( SCSIPressurePathManager )
 	
 private:
 	
+	IOLock *		fLock;
 	SCSIPathSet *	fPathSet;
 	SCSIPathSet *	fInactivePathSet;
-	IOLock *		fLock;
-	UInt32			fPathNumber;
 	
 protected:
 	
@@ -129,7 +85,7 @@ protected:
 	
 public:
 	
-	static SCSIRoundRobinPathManager * Create (
+	static SCSIPressurePathManager * Create (
 						IOSCSITargetDevice * 		target,
 						IOSCSIProtocolServices * 	initialPath );
 	
@@ -140,12 +96,53 @@ public:
 	virtual SCSIServiceResponse		ClearTaskSet ( SCSILogicalUnitNumber theLogicalUnit );
 	virtual SCSIServiceResponse		LogicalUnitReset ( SCSILogicalUnitNumber theLogicalUnit );
 	virtual SCSIServiceResponse		TargetReset ( void );
+	virtual void					TaskCompletion ( SCSITaskIdentifier request, SCSITargetDevicePath * path );
 	
 	bool		AddPath ( IOSCSIProtocolServices * path );
 	void		ActivatePath ( IOSCSIProtocolServices * path );
 	void		InactivatePath ( IOSCSIProtocolServices * path );
 	void		RemovePath ( IOSCSIProtocolServices * path );
-	void		PathStatusChanged ( IOSCSIProtocolServices * path, SPIPortStatus newStatus );
+	void		PathStatusChanged ( IOSCSIProtocolServices * path, SCSIPortStatus newStatus );
+	
+	
+	class PortBandwidthGlobals
+	{
+		
+	public:
+		
+		static PortBandwidthGlobals * GetSharedInstance ( void );
+		
+		PortBandwidthGlobals ( void );
+		virtual ~PortBandwidthGlobals ( void );
+		
+		SCSITargetDevicePath *	AllocateBandwidth ( SCSIPathSet *	pathSet,
+													UInt64			bytes );
+		
+		void	DeallocateBandwidth ( SCSITargetDevicePath * 	path,
+									  UInt64 					bytes );
+		
+		void AddSCSIPort ( UInt32 domainID );
+		
+	private:
+	
+	#if DEBUG_STATS
+		
+		static void	sDumpDebugInfo (
+							thread_call_param_t 	param0,
+							thread_call_param_t 	param1 );
+		void	DumpDebugInfo ( void );
+		
+		void	SetTimer ( void );
+		
+	#endif	/* DEBUG_STATS */
+		
+		UInt64 *		fListHead;
+		IOLock *		fLock;
+		UInt32			fPathsAllocated;
+		UInt32			fCapacity;
+		
+	};
+
 	
 };
 

@@ -99,9 +99,9 @@ getnameinfo(sa, salen, host, hostlen, serv, servlen, flags)
 	if (sa == NULL)
 		return ENI_NOSOCKET;
 
-#ifdef HAVE_SOCKADDR_LEN
+#if HAVE_SOCKADDR_LEN
 	if (sa->sa_len != salen) return ENI_SALEN;
-#endif /* HAVE_SOCKADDR_LEN */
+#endif
 	
 	family = sa->sa_family;
 	for (i = 0; afdl[i].a_af; i++)

@@ -31,7 +31,7 @@ smbtar \- shell script for backing up SMB/CIFS shares directly to UNIX tape driv
 .SH "DESCRIPTION"
 
 .PP
-This tool is part of the \fBSamba\fR(7) suite\&.
+This tool is part of the \fBsamba\fR(7) suite\&.
 
 .PP
 \fBsmbtar\fR is a very small shell script on top of \fBsmbclient\fR(1) which dumps SMB shares directly to tape\&.
@@ -42,71 +42,57 @@ This tool is part of the \fBSamba\fR(7) suite\&.
 \-s server
 The SMB/CIFS server that the share resides upon\&.
 
-
 .TP
 \-x service
 The share name on the server to connect to\&. The default is "backup"\&.
-
 
 .TP
 \-X
 Exclude mode\&. Exclude filenames\&.\&.\&. from tar create or restore\&.
 
-
 .TP
 \-d directory
 Change to initial \fIdirectory \fR before restoring / backing up files\&.
-
 
 .TP
 \-v
 Verbose mode\&.
 
-
 .TP
 \-p password
 The password to use to access a share\&. Default: none
-
 
 .TP
 \-u user
 The user id to connect as\&. Default: UNIX login name\&.
 
-
 .TP
 \-a
 Reset DOS archive bit mode to indicate file has been archived\&.
-
 
 .TP
 \-t tape
 Tape device\&. May be regular file or tape device\&. Default: \fI$TAPE\fR environmental variable; if not set, a file called \fItar\&.out \fR\&.
 
-
 .TP
 \-b blocksize
-Blocking factor\&. Defaults to 20\&. See \fBtar(1)\fR for a fuller explanation\&.
-
+Blocking factor\&. Defaults to 20\&. See\fBtar(1)\fR for a fuller explanation\&.
 
 .TP
 \-N filename
 Backup only files newer than filename\&. Could be used (for example) on a log file to implement incremental backups\&.
 
-
 .TP
 \-i
 Incremental mode; tar files are only backed up if they have the archive bit set\&. The archive bit is reset after each file is read\&.
-
 
 .TP
 \-r
 Restore\&. Files are restored to the share from the tar file\&.
 
-
 .TP
 \-l log level
-Log (debug) level\&. Corresponds to the \fI\-d\fR flag of \fBsmbclient\fR(1)\&.
-
+Log (debug) level\&. Corresponds to the\fI\-d\fR flag of \fBsmbclient\fR(1)\&.
 
 .SH "ENVIRONMENT VARIABLES"
 

@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -32,9 +29,11 @@
  * HISTORY
  *
  */
+
+#include <libkern/OSByteOrder.h>
+#include <IOKit/IOBufferMemoryDescriptor.h>
 #include "UniNEnet.h"
 #include "UniNEnetMII.h"
-#include <libkern/OSByteOrder.h>
 
 
 	/* Read from MII/PHY registers.	 */
@@ -171,68 +170,3 @@ bool UniNEnet::miiWaitForAutoNegotiation()
 
 	return false;
 }/* end miiWaitForAutoNegotiation */
-
-
-bool UniNEnet::miiInitializePHY()
-{
-	UInt16           phyWord; 
-
-
-	ELG( fPHYType, phyId, 'miIP', "miiInitializePHY" );
-
-		// Clear enable auto-negotiation bit
-
-	miiReadWord( &phyWord, MII_CONTROL );
-	phyWord &= ~MII_CONTROL_AUTONEGOTIATION;
-	miiWriteWord( phyWord, MII_CONTROL );
-
-		/* Advertise 10/100 Half/Full duplex and Pause to link partner:	*/
-
-	miiReadWord( &phyWord, MII_ADVERTISEMENT );
-	phyWord	|=	MII_ANAR_100BASETX_FD	|   MII_ANAR_100BASETX
-			|	MII_ANAR_10BASET_FD		|   MII_ANAR_10BASET
-			|	MII_ANAR_PAUSE;
-	miiWriteWord( phyWord, MII_ADVERTISEMENT );
-
-	if ( fPHYType == 0x1011 )
-	{		// Marvell 88E1011:
-		ELG( 0, 0, 'mrvl', "miiInitializePHY" );
-		miiReadWord( &phyWord, MII_1000BASETCONTROL );
-		phyWord |= MII_1000BASETCONTROL_FULLDUPLEXCAP
-				|  MII_1000BASETCONTROL_HALFDUPLEXCAP;
-		miiWriteWord( phyWord, MII_1000BASETCONTROL );
-		
-		miiReadWord( &phyWord, MII_CONTROL );
-		phyWord |= MII_CONTROL_AUTONEGOTIATION
-				|  MII_CONTROL_RESTART_NEGOTIATION
-				|  MII_CONTROL_RESET;
-		miiWriteWord( phyWord, MII_CONTROL );
-		IOSleep( 1 );
-		return true;
-	}/* end IF Marvell */
-
-		// Set auto-negotiation-enable bit:
-
-	miiReadWord( &phyWord, MII_CONTROL );
-	phyWord |= MII_CONTROL_AUTONEGOTIATION;
-	miiWriteWord( phyWord, MII_CONTROL );
-
-		// Restart auto-negotiation:
-
-	miiReadWord( &phyWord, MII_CONTROL );
-	phyWord |= MII_CONTROL_RESTART_NEGOTIATION;
-	miiWriteWord( phyWord, MII_CONTROL );
-
-#if 0
-		/* If the system is not connected to the network, then			*/
-		/* auto-negotiation never completes and we hang in this loop!	*/
-	while ( 1 ) 
-	{
-		miiReadWord( &phyWord, MII_CONTROL );
-		if ( (phyWord & MII_CONTROL_RESTART_NEGOTIATION) == 0 )
-			break;
-	}
-#endif
-
-	return true;
-}/* end miiInitializePHY */

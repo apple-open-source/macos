@@ -31,7 +31,7 @@ swat \- Samba Web Administration Tool
 .SH "DESCRIPTION"
 
 .PP
-This tool is part of the \fBSamba\fR(7) suite\&.
+This tool is part of the \fBsamba\fR(7) suite\&.
 
 .PP
 \fBswat\fR allows a Samba administrator to configure the complex \fBsmb\&.conf\fR(5) file via a Web browser\&. In addition, a \fBswat\fR configuration page has help links to all the configurable options in the \fIsmb\&.conf\fR file allowing an administrator to easily look up the effects of any change\&.
@@ -45,48 +45,37 @@ This tool is part of the \fBSamba\fR(7) suite\&.
 \-s smb configuration file
 The default configuration file path is determined at compile time\&. The file specified contains the configuration details required by the \fBsmbd\fR(8) server\&. This is the file that \fBswat\fR will modify\&. The information in this file includes server\-specific information such as what printcap file to use, as well as descriptions of all the services that the server is to provide\&. See \fIsmb\&.conf\fR for more information\&.
 
-
 .TP
 \-a
-This option disables authentication and puts \fBswat\fR in demo mode\&. In that mode anyone will be able to modify the \fIsmb\&.conf\fR file\&.
-
+This option disables authentication and puts\fBswat\fR in demo mode\&. In that mode anyone will be able to modify the \fIsmb\&.conf\fR file\&.
 
 \fBWARNING: Do NOT enable this option on a production server\&. \fR
-
 
 .TP
 \-V
 Prints the program version number\&.
 
-
 .TP
 \-s <configuration file>
 The file specified contains the configuration details required by the server\&. The information in this file includes server\-specific information such as what printcap file to use, as well as descriptions of all the services that the server is to provide\&. See \fIsmb\&.conf\fR for more information\&. The default configuration file name is determined at compile time\&.
-
 
 .TP
 \-d|\-\-debug=debuglevel
 \fIdebuglevel\fR is an integer from 0 to 10\&. The default value if this parameter is not specified is zero\&.
 
-
 The higher this value, the more detail will be logged to the log files about the activities of the server\&. At level 0, only critical errors and serious warnings will be logged\&. Level 1 is a reasonable level for day\-to\-day running \- it generates a small amount of information about operations carried out\&.
-
 
 Levels above 1 will generate considerable amounts of log data, and should only be used when investigating a problem\&. Levels above 3 are designed for use only by developers and generate HUGE amounts of log data, most of which is extremely cryptic\&.
 
-
 Note that specifying this parameter here will override the log level parameter in the \fIsmb\&.conf\fR file\&.
 
-
 .TP
-\-l|\-\-logfile=logbasename
-File name for log/debug files\&. The extension \fB"\&.client"\fR will be appended\&. The log file is never removed by the client\&.
-
+\-l|\-\-logfile=logdirectory
+Base directory name for log/debug files\&. The extension \fB"\&.progname"\fR will be appended (e\&.g\&. log\&.smbclient, log\&.smbd, etc\&.\&.\&.)\&. The log file is never removed by the client\&.
 
 .TP
 \-h|\-\-help
 Print a summary of command line options\&.
-
 
 .SH "INSTALLATION"
 
@@ -98,16 +87,13 @@ After you compile SWAT you need to run \fBmake install \fR to install the \fBswa
 
 .TP 3
 \(bu
-/usr/local/samba/bin/swat
-
+/usr/local/samba/sbin/swat
 .TP
 \(bu
 /usr/local/samba/swat/images/*
-
 .TP
 \(bu
 /usr/local/samba/swat/help/*
-
 .LP
 
 .SS "Inetd Installation"
@@ -131,7 +117,7 @@ the choice of port number isn't really important except that it should be less t
 In \fI/etc/inetd\&.conf\fR you should add a line like this:
 
 .PP
-\fBswat stream tcp nowait\&.400 root /usr/local/samba/bin/swat swat\fR
+\fBswat stream tcp nowait\&.400 root /usr/local/samba/sbin/swat swat\fR
 
 .PP
 Once you have edited \fI/etc/services\fR and \fI/etc/inetd\&.conf\fR you need to send a HUP signal to inetd\&. To do this use \fBkill \-1 PID \fR where PID is the process ID of the inetd daemon\&.
@@ -150,16 +136,13 @@ Note that you can attach to SWAT from any IP connected machine but connecting fr
 \fI/etc/inetd\&.conf\fR
 This file must contain suitable startup information for the meta\-daemon\&.
 
-
 .TP
 \fI/etc/services\fR
 This file must contain a mapping of service name (e\&.g\&., swat) to service port (e\&.g\&., 901) and protocol type (e\&.g\&., tcp)\&.
 
-
 .TP
 \fI/usr/local/samba/lib/smb\&.conf\fR
 This is the default location of the \fBsmb\&.conf\fR(5) server configuration file that swat edits\&. Other common places that systems install this file are \fI /usr/samba/lib/smb\&.conf\fR and \fI/etc/smb\&.conf \fR\&. This file describes all the services the server is to make available to clients\&.
-
 
 .SH "WARNINGS"
 

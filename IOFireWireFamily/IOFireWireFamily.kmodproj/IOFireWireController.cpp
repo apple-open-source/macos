@@ -1876,6 +1876,68 @@ UInt32 IOFireWireController::countNodeIDChildren( UInt16 nodeID )
 	return children;
 }
 
+// getPortNumberFromIndex
+//
+//
+
+UInt32 IOFireWireController::getPortNumberFromIndex( UInt16 index )
+{
+	UInt32 id0, idn;
+	UInt32 *idPtr;
+	int i;
+	int children = 0;
+	int ports;
+	UInt32 port;
+	int mask, shift;
+	
+	// get type 0 self id
+	i = fLocalNodeID & 63;
+	idPtr = fNodeIDs[i];
+	id0 = *idPtr++;
+	mask = kFWSelfID0P0;
+	shift = kFWSelfID0P0Phase;
+	
+	// count children
+	// 3 ports in type 0 self id
+	for(ports=0; ports<3; ports++) 
+	{
+		port = (id0 & mask) >> shift;
+		if(port == kFWSelfIDPortStatusChild)
+		{
+			if( index == children )
+				return ports;
+			children++;
+		}
+		mask >>= 2;
+		shift -= 2;
+	}
+
+	// any more self ids for this node?
+	if(fNodeIDs[i+1] > idPtr) 
+	{
+		// get type 1 self id
+		idn = *idPtr++;
+		mask = kFWSelfIDNPa;
+		shift = kFWSelfIDNPaPhase;
+		
+		// count children
+		// 8 ports in type 1 self id
+		for(ports=0; ports<8; ports++) 
+		{
+		if(port == kFWSelfIDPortStatusChild)
+			{
+				if( index == children )
+					return ports;
+				children++;
+			}
+			mask >>= 2;
+			shift -= 2;
+		}
+	}
+	
+	return 0xFFFFFFFF;
+}
+
 // buildTopology
 //
 //
@@ -3779,15 +3841,11 @@ IOFireWireLink * IOFireWireController::getLink() const
 
 IOReturn IOFireWireController::getCycleTime(UInt32 &cycleTime)
 {
-    // Have to take workloop lock, in case the hardware is sleeping.
+    // No need to take workloop lock; FWIM is safe to call at any time
     
 	IOReturn res;
     
-	closeGate();
-    
 	res = fFWIM->getCycleTime(cycleTime);
-    
-	openGate();
     
 	return res;
 }
@@ -3798,15 +3856,11 @@ IOReturn IOFireWireController::getCycleTime(UInt32 &cycleTime)
 
 IOReturn IOFireWireController::getBusCycleTime(UInt32 &busTime, UInt32 &cycleTime)
 {
-    // Have to take workloop lock, in case the hardware is sleeping.
+    // No need to take workloop lock; FWIM is safe to call at any time
     IOReturn res;
     UInt32 cycleSecs;
     
-	closeGate();
-    
 	res = fFWIM->getBusCycleTime(busTime, cycleTime);
-    
-	openGate();
     
 	if(res == kIOReturnSuccess) {
         // Bottom 7 bits of busTime should be same as top 7 bits of cycle time.
@@ -4056,6 +4110,38 @@ void IOFireWireController::useHalfSizePackets( void )
 	fUseHalfSizePackets = true;
 	fRequestedHalfSizePackets = true;
 }
+
+// disablePhyPortForNodeIDOnSleep
+//
+//
+
+void IOFireWireController::disablePhyPortOnSleepForNodeID( UInt32 nodeID )
+{
+	UInt32					childNodeID;
+	UInt32					childNumber = 0;
+	UInt32					childPort;
+	
+	for( childNodeID = 0; childNodeID < fLocalNodeID; childNodeID++ )
+	{
+		if( childNodeID == nodeID )
+		{
+			IOLog( "IOFireWireController::disablePhyPortOnSleepForNodeID found child %lx\n",childNodeID);
+			// Found it. Now, which port is it connected to?
+			childPort = getPortNumberFromIndex( childNumber );
+			
+			if( childPort != 0xFFFFFFFF ) {
+				IOLog( "IOFireWireController::disablePhyPortOnSleepForNodeID disable port %lx\n",childPort);
+				fFWIM->disablePHYPortOnSleep( 1 << childPort );
+				break;
+			}
+		}
+		if( hopCount( childNodeID, fLocalNodeID ) == 1 )
+		{
+			childNumber++;
+		}
+	}
+}
+ 
  
 #pragma mark -
 /////////////////////////////////////////////////////////////////////////////

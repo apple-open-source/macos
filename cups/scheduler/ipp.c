@@ -1,5 +1,5 @@
 /*
- * "$Id: ipp.c,v 1.15.4.1 2003/11/14 23:48:30 jlovell Exp $"
+ * "$Id: ipp.c,v 1.15.4.2 2004/09/23 22:42:27 jlovell Exp $"
  *
  *   IPP routines for the Common UNIX Printing System (CUPS) scheduler.
  *
@@ -1032,8 +1032,11 @@ add_printer(client_t        *con,	/* I - Client connection */
 					/* Username portion of URI */
 			host[HTTP_MAX_URI],
 					/* Host portion of URI */
-			resource[HTTP_MAX_URI];
+			resource[HTTP_MAX_URI],
 					/* Resource portion of URI */
+			old_device_uri[HTTP_MAX_URI],
+					/* Sanitized old URI */
+			new_device_uri[HTTP_MAX_URI];
   int			port;		/* Port portion of URI */
   printer_t		*printer;	/* Printer/class */
   ipp_attribute_t	*attr;		/* Printer attribute */
@@ -1220,7 +1223,9 @@ add_printer(client_t        *con,	/* I - Client connection */
     }
 
     LogMessage(L_INFO, "Setting %s device-uri to \"%s\" (was \"%s\".)",
-               printer->name, attr->values[0].string.text, printer->device_uri);
+		printer->name, 
+		SanitizeURI(new_device_uri, sizeof(new_device_uri), attr->values[0].string.text),
+		SanitizeURI(old_device_uri, sizeof(old_device_uri), printer->device_uri));
 
     SetString(&printer->device_uri, attr->values[0].string.text);
   }
@@ -6715,5 +6720,5 @@ validate_user(client_t   *con,		/* I - Client connection */
 
 
 /*
- * End of "$Id: ipp.c,v 1.15.4.1 2003/11/14 23:48:30 jlovell Exp $".
+ * End of "$Id: ipp.c,v 1.15.4.2 2004/09/23 22:42:27 jlovell Exp $".
  */

@@ -41,6 +41,9 @@ class IODCLProgram : public OSObject
 {
     OSDeclareAbstractStructors(IODCLProgram)
 
+	friend class IOFWUserLocalIsochPort ;
+	friend class IOFWLocalIsochPort ;
+	
 	protected:
 	
 		void * 						reserved0 ;//fDCLTaskToKernel;
@@ -96,7 +99,7 @@ class IODCLProgram : public OSObject
 												IOFWIsochChannel *			channel ) ;
 	protected :
 	
-		IOMemoryMap *			generateBufferMap( DCLCommand * program ) ;
+		void					generateBufferMap( DCLCommand * program ) ;
 		IOReturn				virtualToPhysical( 
 												IOVirtualRange						ranges[], 
 												unsigned							rangeCount, 
@@ -107,6 +110,18 @@ class IODCLProgram : public OSObject
 	public :
 	
 		IOMemoryMap *			getBufferMap() const ;
+
+	protected :
+	
+		// close/open isoch workloop gate...
+		// clients should not need to call these.
+		// (internal use only)
+		virtual void			closeGate() ;
+		virtual void			openGate() ;
+
+		// call to synchronize with hardware/check for completed DCLs
+		// (internal use only)
+		virtual IOReturn		synchronizeWithIO() ;
 		
 	private:
 	

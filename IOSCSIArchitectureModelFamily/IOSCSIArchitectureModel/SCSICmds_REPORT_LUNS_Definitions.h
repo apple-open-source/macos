@@ -61,6 +61,38 @@ enum
 	kREPORT_LUNS_ADDRESS_METHOD_OFFSET				= 14
 };
 
+typedef struct REPORT_LUNS_LOGICAL_UNIT_ADDRESSING
+{
+#ifdef __LITTLE_ENDIAN__
+	UInt16		LUN			: 5;
+	UInt16		BUS_NUMBER	: 3;
+	UInt16		TARGET		: 6;
+	UInt16		reserved2	: 1;
+	UInt16		reserved	: 1;
+#else /* !__LITTLE_ENDIAN__ */
+	UInt16		reserved	: 1;
+	UInt16		reserved2	: 1;
+	UInt16		TARGET		: 6;
+	UInt16		BUS_NUMBER	: 3;
+	UInt16		LUN			: 5;
+#endif /* !__LITTLE_ENDIAN__ */
+} REPORT_LUNS_LOGICAL_UNIT_ADDRESSING;
+
+typedef struct REPORT_LUNS_PERIPHERAL_DEVICE_ADDRESSING
+{
+#ifdef __LITTLE_ENDIAN__
+	UInt16		TARGET_LUN		: 8;
+	UInt16		BUS_IDENTIFIER	: 6;
+	UInt16		reserved2		: 1;
+	UInt16		reserved		: 1;
+#else /* !__LITTLE_ENDIAN__ */
+	UInt16		reserved		: 1;
+	UInt16		reserved2		: 1;
+	UInt16		BUS_IDENTIFIER	: 6;
+	UInt16		TARGET_LUN		: 8;
+#endif /* !__LITTLE_ENDIAN__ */
+} REPORT_LUNS_PERIPHERAL_DEVICE_ADDRESSING;
+
 
 // This structure defines the format of the data that is returned for
 // the REPORT_LUNS command.

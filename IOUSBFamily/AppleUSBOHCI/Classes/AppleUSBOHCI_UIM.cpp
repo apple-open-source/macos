@@ -926,10 +926,11 @@ AppleUSBOHCI::UIMCreateIsochTransfer(
             // Handy for debugging transfer lists
             itdFlags |= (kOHCIGTDConditionNotAccessed << kOHCIGTDControl_CCPhase);
             
-            // Set the DI bits (Delay Interrupt) to 111b on all but the last TD
-            // (this means that only the last TD will generate an interrupt)
-            //
-            itdFlags |= ( 0x7 << kOHCIGTDControl_DIPhase );
+            // In the past, we set the DI bits to 111b at this point, so that we only interrupted in the last transfer.  
+            // However, this presents a problem when we abort a pipe, there might be a partial transfer 
+            // in the done queue that has not caused an interrupt.  Then  when another TD completes, we will
+            // process this orphaned  TD and update the framelist the memory could have been released in the meantime, since
+            // our client could have closed the connection.  So, we need to interrupt for every TD.
             
             OSWriteLittleInt32(&pTailITD->pShared->flags, 0, itdFlags);
 
@@ -2246,14 +2247,11 @@ AppleUSBOHCI::UIMCreateIsochTransfer(
             // Handy for debugging transfer lists
             itdFlags |= (kOHCIGTDConditionNotAccessed << kOHCIGTDControl_CCPhase);
             
-            // Set the DI bits (Delay Interrupt) to 111b on all but the last TD
-            // (this means that only the last TD will generate an interrupt)
-            //
-            if ( !(useUpdateFrequency && (curFrameInTD >= updateFrequency)) || !useUpdateFrequency )
-            {
-                USBLog(7, "%s[%p]::UIMCreateIsochTransfer(LL) - Seting DI bits to 111b (curFrameInRequest %d)", getName(), this, curFrameInRequest);
-                itdFlags |= ( 0x7 << kOHCIGTDControl_DIPhase );
-            }
+            // In the past, we set the DI bits to 111b at this point, so that we only interrupted in the last transfer.  However, this presents a problem
+            // for low latency in the case of a transfer having multiple TDs:  When we abort a pipe, there might be a partial transfer 
+            // in the done queue that has not caused an interrupt.  If we then unmap the frame list (because our user client died), then
+            // when another TD completes, we will process this orphaned low latency TD and hang/panic 'cause we'll try to access the unmapped memory.
+            // Hence, we need to make sure that we interrupt after every TD.
            
             curFrameInTD = 0;
             needNewITD = true;	// To simplify test at top of loop.

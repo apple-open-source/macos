@@ -38,6 +38,7 @@ namespace KJS {
   class WindowFunc;
   class WindowQObject;
   class Location;
+  class BarInfo;
   class History;
   class FrameArray;
   class JSEventListener;
@@ -100,6 +101,12 @@ namespace KJS {
     void scheduleClose();
     bool isSafeScript(ExecState *exec) const;
     Location *location() const;
+    BarInfo *locationbar(ExecState *exec) const;
+    BarInfo *menubar(ExecState *exec) const;
+    BarInfo *personalbar(ExecState *exec) const;
+    BarInfo *scrollbars(ExecState *exec) const;
+    BarInfo *statusbar(ExecState *exec) const;
+    BarInfo *toolbar(ExecState *exec) const;
     JSEventListener *getJSEventListener(const Value &val, bool html = false);
     JSLazyEventListener *getJSLazyEventListener(const QString &code, bool html = false);
     void clear( ExecState *exec );
@@ -113,8 +120,8 @@ namespace KJS {
     static const ClassInfo info;
     enum { Closed, Crypto, DefaultStatus, Status, Document, Node, EventCtor, Range,
            NodeFilter, DOMException, CSSRule, Frames, _History, Event, InnerHeight,
-           InnerWidth, Length, _Location, Name, _Navigator, _Konqueror, ClientInformation,
-           OffscreenBuffering, Opener, OuterHeight, OuterWidth, PageXOffset, PageYOffset,
+           InnerWidth, Length, _Location, Locationbar, Name, _Navigator, _Konqueror, ClientInformation,
+           Menubar, OffscreenBuffering, Opener, OuterHeight, OuterWidth, PageXOffset, PageYOffset,
            Parent, Personalbar, ScreenX, ScreenY, Scrollbars, Scroll, ScrollBy,
            ScreenTop, ScreenLeft,
            ScrollTo, ScrollX, ScrollY, MoveBy, MoveTo, ResizeBy, ResizeTo, Self, _Window, Top, _Screen,
@@ -124,7 +131,8 @@ namespace KJS {
 	   Onabort, Onblur, Onchange, Onclick, Ondblclick, Ondragdrop, Onerror, 
 	   Onfocus, Onkeydown, Onkeypress, Onkeyup, Onload, Onmousedown, Onmousemove,
            Onmouseout, Onmouseover, Onmouseup, Onmove, Onreset, Onresize, Onscroll, 
-           Onselect, Onsubmit, Onunload };
+           Onselect, Onsubmit, Onunload,
+           Statusbar, Toolbar };
   protected:
     Value getListener(ExecState *exec, int eventId) const;
     void setListener(ExecState *exec, int eventId, Value func);
@@ -136,6 +144,12 @@ namespace KJS {
     History *history;
     FrameArray *frames;
     Location *loc;
+    BarInfo *m_locationbar;
+    BarInfo *m_menubar;
+    BarInfo *m_personalbar;
+    BarInfo *m_scrollbars;
+    BarInfo *m_statusbar;
+    BarInfo *m_toolbar;
     WindowQObject *winq;
     DOM::Event *m_evt;
   };
@@ -201,6 +215,23 @@ namespace KJS {
     friend class Window;
     Location(KHTMLPart *p);
     QGuardedPtr<KHTMLPart> m_part;
+  };
+
+  class BarInfo : public ObjectImp {
+  public:
+    ~BarInfo();
+    virtual Value get(ExecState *exec, const Identifier &propertyName) const;
+    virtual void put(ExecState *exec, const Identifier &propertyName, const Value &value, int attr = None);
+    enum { Visible };
+    enum Type { Locationbar, Menubar, Personalbar, Scrollbars, Statusbar, Toolbar };
+    KHTMLPart *part() const { return m_part; }
+    virtual const ClassInfo* classInfo() const { return &info; }
+    static const ClassInfo info;
+  private:
+    friend class Window;
+    BarInfo(ExecState *exec, KHTMLPart *p, Type barType);
+    QGuardedPtr<KHTMLPart> m_part;
+    Type m_type;
   };
 
 #ifdef Q_WS_QWS
