@@ -71,6 +71,8 @@ public:
     virtual IOReturn update(UInt32 offset, const UInt32 *&romBase);
 
     virtual IOReturn compile(OSData *rom);
+    
+    // All flavours of addEntry eat a retain of the desc string
     virtual IOReturn addEntry(int key, UInt32 value, OSString *desc = NULL);
     virtual IOReturn addEntry(int key, IOLocalConfigDirectory *value,
                               OSString *desc = NULL);
@@ -85,9 +87,12 @@ protected:
 	virtual void unlockData( void );
 	virtual IOReturn updateROMCache( UInt32 offset, UInt32 length );
 	virtual IOReturn checkROMState( void );
+
+    // call eats a retain count
+    virtual IOReturn addEntry(OSString *desc);
 		
 private:
-    OSMetaClassDeclareReservedUnused(IOLocalConfigDirectory, 0);
+    OSMetaClassDeclareReservedUsed(IOLocalConfigDirectory, 0);
     OSMetaClassDeclareReservedUnused(IOLocalConfigDirectory, 1);
     OSMetaClassDeclareReservedUnused(IOLocalConfigDirectory, 2);
 };

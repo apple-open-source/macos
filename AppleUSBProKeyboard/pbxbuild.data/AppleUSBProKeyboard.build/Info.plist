@@ -1,27 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
-<plist version="0.9">
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBProKeyboard</string>
 	<key>CFBundleGetInfoString</key>
-	<string>Driver for Multimedia keys on the Apple Pro USB Keyboard.</string>
+	<string>2.0.2, Copyright Apple Computer, Inc. 2000-2002</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.driver.AppleUSBProKeyboard</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Apple Pro Keyboard HID Driver</string>
+	<string>Driver for Multimedia keys on the Apple Pro Keyboard</string>
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.0.0</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
+	<string>2.0.2</string>
 	<key>CFBundleVersion</key>
-	<string>2.0.0d1</string>
+	<string>2.0.2</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>ANSI</key>
@@ -89,5 +87,7 @@
 		<key>com.apple.kernel.mach</key>
 		<string>1.0.0b1</string>
 	</dict>
+	<key>OSBundleRequired</key>
+	<string>Safe Boot</string>
 </dict>
 </plist>

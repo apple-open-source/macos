@@ -1220,16 +1220,20 @@ IOReturn IOFireWireSBP2Login::executeLogin( void )
 	
 	if( status == kIOReturnSuccess )
 	{
+		fInCriticalSection = true;
 		status = fLoginWriteCommand->submit();
-    }
+		if( status != kIOReturnSuccess )
+		{
+			fInCriticalSection = false;
+			fTarget->endIOCriticalSection();
+		}
+	}
 	
 	if( status != kIOReturnSuccess )
-    {
-		fTarget->endIOCriticalSection();
-		
-        fLoginWriteInProgress = false;
-        fLoginState = kLoginStateIdle;
-        return status;
+	{		
+		fLoginWriteInProgress = false;
+		fLoginState = kLoginStateIdle;
+		return status;
     }
     
     return kIOReturnSuccess;
@@ -1351,8 +1355,12 @@ void IOFireWireSBP2Login::completeLogin( IOReturn state, const void *buf, UInt32
 {
 	FWKLOG( ( "IOFireWireSBP2Login : completeLogin\n" ) );
 	
-	fTarget->endIOCriticalSection();
-		
+	if( fInCriticalSection )
+	{
+		fInCriticalSection = false;
+		fTarget->endIOCriticalSection();
+	}
+	
 	if( state != kIOReturnSuccess && fLoginRetryCount != 0 )
 	{
 		fLoginRetryCount--;
@@ -2264,8 +2272,8 @@ void IOFireWireSBP2Login::clearAllTasksInSet( void )
 			if( isORBAppended( item ) )
 			{
 				setORBIsAppended( item, false );
-				fTarget->endIOCriticalSection();
-			}		
+                fTarget->endIOCriticalSection();
+            }		
 			
 			// send solicited status
 			if( fStatusNotifyCallback != NULL )
@@ -2443,6 +2451,8 @@ IOReturn IOFireWireSBP2Login::executeORB( IOFireWireSBP2ORB * orb )
 	
     if( status == kIOReturnSuccess )
     {
+        // retries failed fetch agent writes up to four times
+        orb->setFetchAgentWriteRetries( 4 );
         prepareORBForExecution(orb);
     }
 
@@ -2525,6 +2535,19 @@ void IOFireWireSBP2Login::fetchAgentWriteComplete( IOReturn status, IOFireWireNu
     
 	fFetchAgentWriteCommandInUse = false;
 
+    UInt32 retries = fLastORB->getFetchAgentWriteRetries();
+    if( status != kIOReturnSuccess && status != kIOFireWireBusReset && retries != 0 )
+    {
+        IOLog( "IOFireWireSBP2Login::fetchAgentWriteComplete fetch agent write failed! retrying\n" );
+        
+        // retry
+        retries--;
+        fLastORB->setFetchAgentWriteRetries( retries );
+        
+        appendORBImmediate( fLastORB );
+        return;
+    }
+    
 	fORBToWrite = 0; // no more orb pending a fetch agent write
 	
 	// theoretically fORBToWrite should already be cleared to zero 
@@ -2849,6 +2872,12 @@ IOReturn IOFireWireSBP2Login::appendORB( IOFireWireSBP2ORB * orb )
 
 void IOFireWireSBP2Login::sendTimeoutNotification( IOFireWireSBP2ORB * orb )
 {
+	if( isORBAppended( orb ) )
+	{
+		setORBIsAppended( orb, false );
+		fTarget->endIOCriticalSection();
+	}
+	
     // send solicited status
     if( fStatusNotifyCallback != NULL )
     {

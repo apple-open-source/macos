@@ -3172,9 +3172,7 @@ rule MakePFEFile
         if $(ARCH) in ppc {
             KERNEL_COMPILE_OPTIONS += -mlong-branch ;
         }
-        if $(MODULE_IOKIT) = YES {
-            KERNEL_COMPILE_OPTIONS += -fapple-kext ;
-        }
+        KERNEL_COMPILE_OPTIONS += -fapple-kext ;
         local KERNEL_DEFINITIONS = -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT ;
         FLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_CFLAGS) -fno-common -nostdinc $(OPTIMIZATION_CFLAGS) $(WARNING_CFLAGS) $(OTHER_CFLAGS) -I$(KERNEL_INCLUDE_PATHS) -I$(PROJECT_HEADER_DIR) $(KERNEL_COMPILE_OPTIONS) -static $(KERNEL_DEFINITIONS) ;
         GLOBAL_CFLAGS on $(1) = ;
@@ -4958,13 +4956,10 @@ rule CompileCplusplus
         local KERNEL_INCLUDE_PATHS = $(KERNEL_HEADERS) $(KERNEL_HEADERS)/bsd $(KERNEL_FRAMEWORK)/PrivateHeaders ;
         #!!!:cmolick:20020228 different default flags for gcc3 kext builds
         if $(USE_GCC3) = YES {
-            KERNEL_COMPILE_OPTIONS = -fno-builtin -x c++ -fno-rtti -fno-exceptions -fcheck-new ;
-            if $(MODULE_IOKIT) = YES {
-                KERNEL_COMPILE_OPTIONS += -fapple-kext ;
-            }
+            KERNEL_COMPILE_OPTIONS = -fno-builtin -finline -fno-keep-inline-functions -force_cpusubtype_ALL -fno-rtti -fno-exceptions -fcheck-new -msoft-float -fapple-kext ;
         }
         else {
-            KERNEL_COMPILE_OPTIONS = -fno-builtin -x c++ -fno-rtti -fno-exceptions -fcheck-new -fvtable-thunks ;
+            KERNEL_COMPILE_OPTIONS = -fno-builtin -finline -fno-keep-inline-functions -force_cpusubtype_ALL -fno-rtti -fno-exceptions -fcheck-new -fvtable-thunks -msoft-float ;
             if $(MODULE_IOKIT) = YES {
                 KERNEL_COMPILE_OPTIONS += -findirect-virtual-calls ;
             }

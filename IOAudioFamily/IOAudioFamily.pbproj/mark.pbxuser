@@ -52,259 +52,14 @@
 			F63AA8F401B6F9FE01CE1662,
 		);
 		perUserDictionary = {
-			PBXPerProjectTemplateStateSaveDate = 47577044;
-			"PBXTemplateGeometry-F5314676015831810DCA290F" = {
-				ContentSize = "{1260, 800}";
-				LeftSlideOut = {
-					Collapsed = NO;
-					Frame = "{{0, 23}, {1260, 777}}";
-					Split0 = {
-						ActiveTab = 2;
-						Collapsed = NO;
-						Frame = "{{0, 0}, {1260, 777}}";
-						Split0 = {
-							Frame = "{{0, 221}, {1260, 556}}";
-						};
-						SplitCount = 1;
-						Tab0 = {
-							Debugger = {
-								Collapsed = NO;
-								Frame = "{{0, 0}, {952, 321}}";
-								Split0 = {
-									Frame = "{{0, 24}, {952, 297}}";
-									Split0 = {
-										Frame = "{{0, 0}, {468, 297}}";
-									};
-									Split1 = {
-										DebugVariablesTableConfiguration = (
-											Name,
-											126.803,
-											Value,
-											150.074,
-											Summary,
-											172.123,
-										);
-										Frame = "{{477, 0}, {475, 297}}";
-									};
-									SplitCount = 2;
-								};
-								SplitCount = 1;
-								Tab0 = {
-									Frame = "{{0, 0}, {100, 50}}";
-								};
-								Tab1 = {
-									Frame = "{{0, 0}, {100, 50}}";
-								};
-								TabCount = 2;
-								TabsVisible = YES;
-							};
-							Frame = "{{0, 0}, {952, 321}}";
-							LauncherConfigVersion = 7;
-						};
-						Tab1 = {
-							Frame = "{{0, 0}, {781, 452}}";
-							LauncherConfigVersion = 3;
-							Runner = {
-								Frame = "{{0, 0}, {781, 452}}";
-							};
-						};
-						Tab2 = {
-							BuildMessageFrame = "{{0, 0}, {1262, 208}}";
-							BuildTranscriptFrame = "{{0, 217}, {1262, 0}}";
-							Frame = "{{0, 0}, {1260, 215}}";
-						};
-						Tab3 = {
-							Frame = "{{0, 0}, {612, 295}}";
-						};
-						TabCount = 4;
-						TabsVisible = NO;
-					};
-					SplitCount = 1;
-					Tab0 = {
-						Frame = "{{0, 0}, {300, 533}}";
-						GroupTreeTableConfiguration = (
-							TargetStatusColumn,
-							18,
-							MainColumn,
-							267,
-						);
-					};
-					Tab1 = {
-						ClassesFrame = "{{0, 0}, {280, 398}}";
-						ClassesTreeTableConfiguration = (
-							PBXBookColumnIdentifier,
-							20,
-							PBXClassColumnIdentifier,
-							237,
-						);
-						Frame = "{{0, 0}, {278, 659}}";
-						MembersFrame = "{{0, 407}, {280, 252}}";
-						MembersTreeTableConfiguration = (
-							PBXBookColumnIdentifier,
-							20,
-							PBXMethodColumnIdentifier,
-							236,
-						);
-					};
-					Tab2 = {
-						Frame = "{{0, 0}, {200, 100}}";
-					};
-					Tab3 = {
-						Frame = "{{0, 0}, {200, 100}}";
-						TargetTableConfiguration = (
-							ActiveObject,
-							16,
-							ObjectNames,
-							202.296,
-						);
-					};
-					Tab4 = {
-						BreakpointsTreeTableConfiguration = (
-							breakpointColumn,
-							197,
-							enabledColumn,
-							31,
-						);
-						Frame = "{{0, 0}, {250, 100}}";
-					};
-					TabCount = 5;
-					TabsVisible = NO;
-				};
-				StatusViewVisible = YES;
-				Template = F5314676015831810DCA290F;
-				ToolbarVisible = YES;
-				WindowLocation = "{7, 136}";
-			};
-			"PBXTemplateGeometry-F5CA7ECB015C094F0DCA290F" = {
-				ContentSize = "{668, 621}";
-				LeftSlideOut = {
-					Collapsed = NO;
-					Frame = "{{0, 0}, {668, 621}}";
-					Split0 = {
-						Collapsed = NO;
-						Frame = "{{0, 0}, {668, 621}}";
-						Split0 = {
-							Frame = "{{0, 0}, {668, 621}}";
-						};
-						SplitCount = 1;
-						Tab0 = {
-							Debugger = {
-								Collapsed = NO;
-								Frame = "{{0, 0}, {484, 208}}";
-								Split0 = {
-									Frame = "{{0, 24}, {484, 184}}";
-									Split0 = {
-										Frame = "{{0, 0}, {236, 184}}";
-									};
-									Split1 = {
-										DebugVariablesTableConfiguration = (
-											Name,
-											123,
-											Value,
-											85,
-											Summary,
-											62.123,
-										);
-										Frame = "{{245, 0}, {239, 184}}";
-									};
-									SplitCount = 2;
-								};
-								SplitCount = 1;
-								Tab0 = {
-									Frame = "{{0, 0}, {100, 50}}";
-								};
-								Tab1 = {
-									Frame = "{{0, 0}, {100, 50}}";
-								};
-								TabCount = 2;
-								TabsVisible = YES;
-							};
-							Frame = "{{0, 0}, {484, 208}}";
-							LauncherConfigVersion = 7;
-						};
-						Tab1 = {
-							Frame = "{{0, 0}, {664, 208}}";
-							LauncherConfigVersion = 3;
-							Runner = {
-								Frame = "{{0, 0}, {664, 208}}";
-							};
-						};
-						Tab2 = {
-							BuildMessageFrame = "{{0, 0}, {666, 43}}";
-							BuildTranscriptFrame = "{{0, 52}, {666, 0}}";
-							Frame = "{{0, 0}, {664, 50}}";
-						};
-						Tab3 = {
-							Frame = "{{0, 0}, {612, 295}}";
-						};
-						TabCount = 4;
-						TabsVisible = NO;
-					};
-					SplitCount = 1;
-					Tab0 = {
-						Frame = "{{0, 0}, {313, 531}}";
-						GroupTreeTableConfiguration = (
-							SCMStatusColumn,
-							22,
-							TargetStatusColumn,
-							18,
-							MainColumn,
-							258,
-						);
-					};
-					Tab1 = {
-						ClassesFrame = "{{0, 0}, {280, 398}}";
-						ClassesTreeTableConfiguration = (
-							PBXBookColumnIdentifier,
-							20,
-							PBXClassColumnIdentifier,
-							237,
-						);
-						Frame = "{{0, 0}, {278, 659}}";
-						MembersFrame = "{{0, 407}, {280, 252}}";
-						MembersTreeTableConfiguration = (
-							PBXBookColumnIdentifier,
-							20,
-							PBXMethodColumnIdentifier,
-							236,
-						);
-					};
-					Tab2 = {
-						Frame = "{{0, 0}, {200, 100}}";
-					};
-					Tab3 = {
-						Frame = "{{0, 0}, {200, 557}}";
-						TargetTableConfiguration = (
-							ActiveObject,
-							16,
-							ObjectNames,
-							202.296,
-						);
-					};
-					Tab4 = {
-						BreakpointsTreeTableConfiguration = (
-							breakpointColumn,
-							197,
-							enabledColumn,
-							31,
-						);
-						Frame = "{{0, 0}, {250, 100}}";
-					};
-					TabCount = 5;
-					TabsVisible = NO;
-				};
-				StatusViewVisible = NO;
-				Template = F5CA7ECB015C094F0DCA290F;
-				ToolbarVisible = NO;
-				WindowLocation = "{48, 349}";
-			};
+			PBXPerProjectTemplateStateSaveDate = 52355952;
 			PBXWorkspaceContents = (
 				{
 					LeftSlideOut = {
 						Split0 = {
 							Split0 = {
 								NavContent0 = {
-									bookmark = F6533DEE02D7549E01CD2599;
+									bookmark = F6D331DA031EE3C001CD2599;
 									history = (
 										F6C5229002B64CA901CD2599,
 										F6C5229302B64CA901CD2599,
@@ -325,11 +80,13 @@
 										F622C5E402D1658C01CD2599,
 										F622C5FE02D275E601CD2599,
 										F6533DB702D5F4C401CD2599,
-										F6533DE302D7549E01CD2599,
-										F6533DE402D7549E01CD2599,
-										F6533DE502D7549E01CD2599,
-										F6533DE602D7549E01CD2599,
-										F6533DE702D7549E01CD2599,
+										F68EC208031E9F8601CD2599,
+										F68EC209031E9F8601CD2599,
+										F68EC20A031E9F8601CD2599,
+										F6D331CC031EE31701CD2599,
+										F6D331D4031EE3C001CD2599,
+										F6D331D5031EE3C001CD2599,
+										F6D331D6031EE3C001CD2599,
 									);
 									prevStack = (
 										F6B879C602B0131D01CD2599,
@@ -538,11 +295,21 @@
 										F6533DEB02D7549E01CD2599,
 										F6533DEC02D7549E01CD2599,
 										F6533DED02D7549E01CD2599,
+										F68EC20C031E9F8601CD2599,
+										F68EC20D031E9F8601CD2599,
+										F68EC20E031E9F8601CD2599,
+										F68EC20F031E9F8601CD2599,
+										F6D331D0031EE31701CD2599,
+										F6D331D1031EE31701CD2599,
+										F6D331D2031EE31701CD2599,
+										F6D331D7031EE3C001CD2599,
+										F6D331D8031EE3C001CD2599,
+										F6D331D9031EE3C001CD2599,
 									);
 								};
 								NavCount = 1;
 								NavGeometry0 = {
-									Frame = "{{0, 0}, {1103, 968}}";
+									Frame = "{{0, 0}, {1176, 968}}";
 									NavBarVisible = YES;
 								};
 							};
@@ -576,14 +343,14 @@
 				{
 					ContentSize = "{1439, 991}";
 					LeftSlideOut = {
-						ActiveTab = 0;
+						ActiveTab = 3;
 						Collapsed = NO;
 						Frame = "{{0, 23}, {1439, 968}}";
 						Split0 = {
 							Collapsed = NO;
-							Frame = "{{336, 0}, {1103, 968}}";
+							Frame = "{{263, 0}, {1176, 968}}";
 							Split0 = {
-								Frame = "{{0, 0}, {1103, 968}}";
+								Frame = "{{0, 0}, {1176, 968}}";
 							};
 							SplitCount = 1;
 							Tab0 = {
@@ -695,10 +462,10 @@
 					StatusViewVisible = YES;
 					Template = 64ABBB4501FA494900185B06;
 					ToolbarVisible = YES;
-					WindowLocation = "{27, 96}";
+					WindowLocation = "{113, 125}";
 				},
 			);
-			PBXWorkspaceStateSaveDate = 47577044;
+			PBXWorkspaceStateSaveDate = 52355952;
 		};
 		perUserProjectItems = {
 			F622C5E402D1658C01CD2599 = F622C5E402D1658C01CD2599;
@@ -748,21 +515,22 @@
 			F6533DBA02D5F4C401CD2599 = F6533DBA02D5F4C401CD2599;
 			F6533DBB02D5F4C401CD2599 = F6533DBB02D5F4C401CD2599;
 			F6533DBC02D5F4C401CD2599 = F6533DBC02D5F4C401CD2599;
-			F6533DE302D7549E01CD2599 = F6533DE302D7549E01CD2599;
-			F6533DE402D7549E01CD2599 = F6533DE402D7549E01CD2599;
-			F6533DE502D7549E01CD2599 = F6533DE502D7549E01CD2599;
-			F6533DE602D7549E01CD2599 = F6533DE602D7549E01CD2599;
-			F6533DE702D7549E01CD2599 = F6533DE702D7549E01CD2599;
 			F6533DE802D7549E01CD2599 = F6533DE802D7549E01CD2599;
 			F6533DE902D7549E01CD2599 = F6533DE902D7549E01CD2599;
 			F6533DEA02D7549E01CD2599 = F6533DEA02D7549E01CD2599;
 			F6533DEB02D7549E01CD2599 = F6533DEB02D7549E01CD2599;
 			F6533DEC02D7549E01CD2599 = F6533DEC02D7549E01CD2599;
 			F6533DED02D7549E01CD2599 = F6533DED02D7549E01CD2599;
-			F6533DEE02D7549E01CD2599 = F6533DEE02D7549E01CD2599;
 			F65F25B902BAB8EE01CD2599 = F65F25B902BAB8EE01CD2599;
 			F65F25BA02BAB8EE01CD2599 = F65F25BA02BAB8EE01CD2599;
 			F65F25BB02BAB8EE01CD2599 = F65F25BB02BAB8EE01CD2599;
+			F68EC208031E9F8601CD2599 = F68EC208031E9F8601CD2599;
+			F68EC209031E9F8601CD2599 = F68EC209031E9F8601CD2599;
+			F68EC20A031E9F8601CD2599 = F68EC20A031E9F8601CD2599;
+			F68EC20C031E9F8601CD2599 = F68EC20C031E9F8601CD2599;
+			F68EC20D031E9F8601CD2599 = F68EC20D031E9F8601CD2599;
+			F68EC20E031E9F8601CD2599 = F68EC20E031E9F8601CD2599;
+			F68EC20F031E9F8601CD2599 = F68EC20F031E9F8601CD2599;
 			F69FC3C802D3ABFC01CD2599 = F69FC3C802D3ABFC01CD2599;
 			F6AAF2C802CCE61301CD2599 = F6AAF2C802CCE61301CD2599;
 			F6AAF2C902CCE61301CD2599 = F6AAF2C902CCE61301CD2599;
@@ -919,6 +687,17 @@
 			F6C5A0D502C7C79101CD2599 = F6C5A0D502C7C79101CD2599;
 			F6C5A0D602C7C79101CD2599 = F6C5A0D602C7C79101CD2599;
 			F6C5AD3402C80BD701CD2599 = F6C5AD3402C80BD701CD2599;
+			F6D331CC031EE31701CD2599 = F6D331CC031EE31701CD2599;
+			F6D331D0031EE31701CD2599 = F6D331D0031EE31701CD2599;
+			F6D331D1031EE31701CD2599 = F6D331D1031EE31701CD2599;
+			F6D331D2031EE31701CD2599 = F6D331D2031EE31701CD2599;
+			F6D331D4031EE3C001CD2599 = F6D331D4031EE3C001CD2599;
+			F6D331D5031EE3C001CD2599 = F6D331D5031EE3C001CD2599;
+			F6D331D6031EE3C001CD2599 = F6D331D6031EE3C001CD2599;
+			F6D331D7031EE3C001CD2599 = F6D331D7031EE3C001CD2599;
+			F6D331D8031EE3C001CD2599 = F6D331D8031EE3C001CD2599;
+			F6D331D9031EE3C001CD2599 = F6D331D9031EE3C001CD2599;
+			F6D331DA031EE3C001CD2599 = F6D331DA031EE3C001CD2599;
 			F6D466F802B17AE901CD2599 = F6D466F802B17AE901CD2599;
 			F6D466FA02B17AE901CD2599 = F6D466FA02B17AE901CD2599;
 			F6DACDBC02BAB9C801CD2599 = F6DACDBC02BAB9C801CD2599;
@@ -1116,7 +895,7 @@
 		isa = PBXTextBookmark;
 		name = "IOAudioEngineUserClient.cpp: 1579";
 		rLen = 28;
-		rLoc = 52192;
+		rLoc = 52045;
 		rType = 0;
 		vrLen = 2648;
 		vrLoc = 51561;
@@ -1236,7 +1015,7 @@
 		isa = PBXTextBookmark;
 		name = "IOAudioEngineUserClient.cpp: 1608";
 		rLen = 16;
-		rLoc = 53769;
+		rLoc = 53622;
 		rType = 0;
 		vrLen = 2648;
 		vrLoc = 51561;
@@ -1346,7 +1125,7 @@
 		isa = PBXTextBookmark;
 		name = "IOAudioEngineUserClient.cpp: sendFormatChangeNotification";
 		rLen = 0;
-		rLoc = 52250;
+		rLoc = 52103;
 		rType = 0;
 		vrLen = 2648;
 		vrLoc = 51561;
@@ -1451,7 +1230,7 @@
 		isa = PBXTextBookmark;
 		name = "IOAudioStream.cpp: processOutputSamples";
 		rLen = 20;
-		rLoc = 62947;
+		rLoc = 62887;
 		rType = 0;
 		vrLen = 4214;
 		vrLoc = 45767;
@@ -1465,64 +1244,6 @@
 		rType = 0;
 		vrLen = 1092;
 		vrLoc = 4532;
-	};
-	F6533DE302D7549E01CD2599 = {
-		fRef = 06F44E0FFFE702AD11CA29EB;
-		isa = PBXTextBookmark;
-		name = "IOAudioEngineUserClient.cpp: performClientIO";
-		rLen = 0;
-		rLoc = 37951;
-		rType = 0;
-		vrLen = 2638;
-		vrLoc = 36831;
-	};
-	F6533DE402D7549E01CD2599 = {
-		fRef = 06F44E0DFFE702AD11CA29EB;
-		isa = PBXTextBookmark;
-		name = "IOAudioEngine.cpp: sendFormatChangeNotification";
-		rLen = 0;
-		rLoc = 55504;
-		rType = 0;
-		vrLen = 2023;
-		vrLoc = 54724;
-	};
-	F6533DE502D7549E01CD2599 = {
-		fRef = 06F44E15FFE702AD11CA29EB;
-		isa = PBXTextBookmark;
-		name = "IOAudioStream.cpp: processOutputSamples";
-		rLen = 20;
-		rLoc = 62947;
-		rType = 0;
-		vrLen = 1499;
-		vrLoc = 45767;
-	};
-	F6533DE602D7549E01CD2599 = {
-		isa = PBXTargetBookmark;
-		trg = 089C1673FE841209C02AAC07;
-		uiCtxt = {
-			TOCViewDetailVisibleRect = "{{0, 0}, {760, 514}}";
-			TOCViewExpandedItems = (
-				"com.apple.target-editor-pane.settings",
-				"com.apple.target-editor-pane.settings.simple",
-				"com.apple.target-editor-pane.info-plist",
-				"com.apple.target-editor-pane.info-plist.simple",
-				"com.apple.target-editor-pane.buildphases",
-			);
-			TOCViewMasterVisibleRect = "{{0, 0}, {304, 914}}";
-			TOCViewSelectedItems = (
-				PBXInfoPlistExpertSettingsEditorModule,
-			);
-		};
-	};
-	F6533DE702D7549E01CD2599 = {
-		fRef = 06F44E0CFFE702AD11CA29EB;
-		isa = PBXTextBookmark;
-		name = "IOAudioDevice.cpp: 118";
-		rLen = 0;
-		rLoc = 4311;
-		rType = 0;
-		vrLen = 2292;
-		vrLoc = 3783;
 	};
 	F6533DE802D7549E01CD2599 = {
 		fRef = 06F44E0FFFE702AD11CA29EB;
@@ -1539,7 +1260,7 @@
 		isa = PBXTextBookmark;
 		name = "IOAudioStream.cpp: processOutputSamples";
 		rLen = 20;
-		rLoc = 62947;
+		rLoc = 62887;
 		rType = 0;
 		vrLen = 4098;
 		vrLoc = 45767;
@@ -1559,7 +1280,7 @@
 		isa = PBXTextBookmark;
 		name = "IOAudioStream.cpp: processOutputSamples";
 		rLen = 20;
-		rLoc = 62947;
+		rLoc = 62887;
 		rType = 0;
 		vrLen = 1499;
 		vrLoc = 45767;
@@ -1577,30 +1298,6 @@
 	F6533DED02D7549E01CD2599 = {
 		isa = PBXTargetBookmark;
 		trg = 089C1673FE841209C02AAC07;
-		uiCtxt = {
-			TOCViewDetailVisibleRect = "{{0, 0}, {760, 514}}";
-			TOCViewExpandedItems = (
-				"com.apple.target-editor-pane.settings",
-				"com.apple.target-editor-pane.settings.simple",
-				"com.apple.target-editor-pane.info-plist",
-				"com.apple.target-editor-pane.info-plist.simple",
-				"com.apple.target-editor-pane.buildphases",
-			);
-			TOCViewMasterVisibleRect = "{{0, 0}, {304, 914}}";
-			TOCViewSelectedItems = (
-				PBXInfoPlistExpertSettingsEditorModule,
-			);
-		};
-	};
-	F6533DEE02D7549E01CD2599 = {
-		fRef = 06F44E0CFFE702AD11CA29EB;
-		isa = PBXTextBookmark;
-		name = "IOAudioDevice.cpp: 118";
-		rLen = 0;
-		rLoc = 4311;
-		rType = 0;
-		vrLen = 2292;
-		vrLoc = 3783;
 	};
 	F65F25B902BAB8EE01CD2599 = {
 		fRef = 06F44E0CFFE702AD11CA29EB;
@@ -1631,6 +1328,76 @@
 		rType = 0;
 		vrLen = 2400;
 		vrLoc = 4114;
+	};
+	F68EC208031E9F8601CD2599 = {
+		fRef = 06F44E0CFFE702AD11CA29EB;
+		isa = PBXTextBookmark;
+		name = "IOAudioDevice.cpp: 118";
+		rLen = 0;
+		rLoc = 4311;
+		rType = 0;
+		vrLen = 2345;
+		vrLoc = 3731;
+	};
+	F68EC209031E9F8601CD2599 = {
+		fRef = 06F44E0DFFE702AD11CA29EB;
+		isa = PBXTextBookmark;
+		name = "IOAudioEngine.cpp: 1828";
+		rLen = 0;
+		rLoc = 55214;
+		rType = 0;
+		vrLen = 2089;
+		vrLoc = 54698;
+	};
+	F68EC20A031E9F8601CD2599 = {
+		fRef = 06F44E15FFE702AD11CA29EB;
+		isa = PBXTextBookmark;
+		name = "IOAudioStream.cpp: 1539";
+		rLen = 0;
+		rLoc = 62909;
+		rType = 0;
+		vrLen = 2374;
+		vrLoc = 61623;
+	};
+	F68EC20C031E9F8601CD2599 = {
+		fRef = 06F44E0CFFE702AD11CA29EB;
+		isa = PBXTextBookmark;
+		name = "IOAudioDevice.cpp: 118";
+		rLen = 0;
+		rLoc = 4311;
+		rType = 0;
+		vrLen = 2345;
+		vrLoc = 3731;
+	};
+	F68EC20D031E9F8601CD2599 = {
+		fRef = 06F44E0FFFE702AD11CA29EB;
+		isa = PBXTextBookmark;
+		name = "IOAudioEngineUserClient.cpp: 1201";
+		rLen = 0;
+		rLoc = 38415;
+		rType = 0;
+		vrLen = 2453;
+		vrLoc = 36831;
+	};
+	F68EC20E031E9F8601CD2599 = {
+		fRef = 06F44E0DFFE702AD11CA29EB;
+		isa = PBXTextBookmark;
+		name = "IOAudioEngine.cpp: 1828";
+		rLen = 0;
+		rLoc = 55214;
+		rType = 0;
+		vrLen = 2089;
+		vrLoc = 54698;
+	};
+	F68EC20F031E9F8601CD2599 = {
+		fRef = 06F44E15FFE702AD11CA29EB;
+		isa = PBXTextBookmark;
+		name = "IOAudioStream.cpp: 1539";
+		rLen = 0;
+		rLoc = 62909;
+		rType = 0;
+		vrLen = 2374;
+		vrLoc = 61623;
 	};
 	F69FC3C802D3ABFC01CD2599 = {
 		fRef = 06F44E0FFFE702AD11CA29EB;
@@ -1717,7 +1484,7 @@
 		isa = PBXTextBookmark;
 		name = "IOAudioStream.cpp: processOutputSamples";
 		rLen = 20;
-		rLoc = 57422;
+		rLoc = 57362;
 		rType = 0;
 		vrLen = 4258;
 		vrLoc = 53108;
@@ -1727,7 +1494,7 @@
 		isa = PBXTextBookmark;
 		name = "IOAudioEngineUserClient.cpp: startClient";
 		rLen = 11;
-		rLoc = 48696;
+		rLoc = 48549;
 		rType = 0;
 		vrLen = 2649;
 		vrLoc = 47776;
@@ -1757,7 +1524,7 @@
 		isa = PBXTextBookmark;
 		name = "IOAudioEngineUserClient.cpp: startClient";
 		rLen = 0;
-		rLoc = 48657;
+		rLoc = 48510;
 		rType = 0;
 		vrLen = 2649;
 		vrLoc = 47776;
@@ -1777,7 +1544,7 @@
 		isa = PBXTextBookmark;
 		name = "IOAudioEngineUserClient.cpp: 1458";
 		rLen = 36;
-		rLoc = 48178;
+		rLoc = 48031;
 		rType = 0;
 		vrLen = 2609;
 		vrLoc = 47894;
@@ -1787,7 +1554,7 @@
 		isa = PBXTextBookmark;
 		name = "IOAudioStream.cpp: processOutputSamples";
 		rLen = 20;
-		rLoc = 57422;
+		rLoc = 57362;
 		rType = 0;
 		vrLen = 3040;
 		vrLoc = 1542;
@@ -1847,7 +1614,7 @@
 		isa = PBXTextBookmark;
 		name = "IOAudioEngineUserClient.cpp: performClientIO";
 		rLen = 16;
-		rLoc = 38614;
+		rLoc = 38467;
 		rType = 0;
 		vrLen = 2555;
 		vrLoc = 36652;
@@ -1867,7 +1634,7 @@
 		isa = PBXTextBookmark;
 		name = "IOAudioStream.cpp: processOutputSamples";
 		rLen = 0;
-		rLoc = 54655;
+		rLoc = 54595;
 		rType = 0;
 		vrLen = 3952;
 		vrLoc = 52685;
@@ -3197,6 +2964,134 @@
 		rType = 0;
 		vrLen = 2250;
 		vrLoc = 36363;
+	};
+	F6D331CC031EE31701CD2599 = {
+		fRef = 06F44E0FFFE702AD11CA29EB;
+		isa = PBXTextBookmark;
+		name = "IOAudioEngineUserClient.cpp: 1178";
+		rLen = 0;
+		rLoc = 37350;
+		rType = 0;
+		vrLen = 2269;
+		vrLoc = 36363;
+	};
+	F6D331D0031EE31701CD2599 = {
+		fRef = 06F44E0FFFE702AD11CA29EB;
+		isa = PBXTextBookmark;
+		name = "IOAudioEngineUserClient.cpp: 1178";
+		rLen = 0;
+		rLoc = 37350;
+		rType = 0;
+		vrLen = 2269;
+		vrLoc = 36363;
+	};
+	F6D331D1031EE31701CD2599 = {
+		isa = PBXTargetBookmark;
+		trg = 089C1673FE841209C02AAC07;
+	};
+	F6D331D2031EE31701CD2599 = {
+		fRef = 089C167EFE841241C02AAC07;
+		isa = PBXTextBookmark;
+		name = "English: 7";
+		rLen = 0;
+		rLoc = 270;
+		rType = 0;
+		vrLen = 270;
+		vrLoc = 0;
+	};
+	F6D331D4031EE3C001CD2599 = {
+		fRef = 4027DBB9010E532A05CA29EB;
+		isa = PBXTextBookmark;
+		name = "HISTORY.rtf: 277";
+		rLen = 0;
+		rLoc = 20408;
+		rType = 0;
+		vrLen = 5490;
+		vrLoc = 14918;
+	};
+	F6D331D5031EE3C001CD2599 = {
+		fRef = 089C167EFE841241C02AAC07;
+		isa = PBXTextBookmark;
+		name = "English: 7";
+		rLen = 0;
+		rLoc = 270;
+		rType = 0;
+		vrLen = 270;
+		vrLoc = 0;
+	};
+	F6D331D6031EE3C001CD2599 = {
+		isa = PBXTargetBookmark;
+		trg = 089C1673FE841209C02AAC07;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {760, 514}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.info-plist",
+				"com.apple.target-editor-pane.info-plist.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {304, 914}}";
+			TOCViewSelectedItems = (
+				PBXInfoPlistExpertSettingsEditorModule,
+			);
+		};
+	};
+	F6D331D7031EE3C001CD2599 = {
+		fRef = 4027DBB9010E532A05CA29EB;
+		isa = PBXTextBookmark;
+		name = "HISTORY.rtf: 277";
+		rLen = 0;
+		rLoc = 20408;
+		rType = 0;
+		vrLen = 5490;
+		vrLoc = 14918;
+	};
+	F6D331D8031EE3C001CD2599 = {
+		isa = PBXTargetBookmark;
+		trg = 089C1673FE841209C02AAC07;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {760, 514}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.info-plist",
+				"com.apple.target-editor-pane.info-plist.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {304, 914}}";
+			TOCViewSelectedItems = (
+				PBXInfoPlistExpertSettingsEditorModule,
+			);
+		};
+	};
+	F6D331D9031EE3C001CD2599 = {
+		fRef = 089C167EFE841241C02AAC07;
+		isa = PBXTextBookmark;
+		name = "English: 7";
+		rLen = 0;
+		rLoc = 270;
+		rType = 0;
+		vrLen = 270;
+		vrLoc = 0;
+	};
+	F6D331DA031EE3C001CD2599 = {
+		isa = PBXTargetBookmark;
+		trg = 089C1673FE841209C02AAC07;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {811, 514}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.info-plist",
+				"com.apple.target-editor-pane.info-plist.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {326, 914}}";
+			TOCViewSelectedItems = (
+				PBXInfoPlistExpertSettingsEditorModule,
+			);
+		};
 	};
 	F6D466F802B17AE901CD2599 = {
 		fRef = 1B71235B00570F9911CA29EB;

@@ -1,0 +1,8 @@
+README.pdftops - 05/02/2002
+------------------------------
+
+In the standard CUPS distribution this directory contains the pdftops or xpdf
+filter. For MacOS X Apple uses a replacement filter called cgpdftops. Replace
+the contents of this directory with the one from CUPS if you want to use the
+xpdf converter.
+

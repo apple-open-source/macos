@@ -70,7 +70,7 @@ IOUSBInterfaceClass::IOUSBInterfaceClass()
   fCFSource(0),
   fIsOpen(false)
 {
-    fUSBInterface.pseudoVTable = (IUnknownVTbl *)  &sUSBInterfaceInterfaceV190;
+    fUSBInterface.pseudoVTable = (IUnknownVTbl *)  &sUSBInterfaceInterfaceV192;
     fUSBInterface.obj = this;
 }
 
@@ -103,7 +103,8 @@ IOUSBInterfaceClass::queryInterface(REFIID iid, void **ppv)
     else if (CFEqual(uuid, kIOUSBInterfaceInterfaceID) 
 	    || CFEqual(uuid, kIOUSBInterfaceInterfaceID182) 
 	    || CFEqual(uuid, kIOUSBInterfaceInterfaceID183) 
-	    || CFEqual(uuid, kIOUSBInterfaceInterfaceID190)) 
+	    || CFEqual(uuid, kIOUSBInterfaceInterfaceID190) 
+	    || CFEqual(uuid, kIOUSBInterfaceInterfaceID192)) 
     {
         *ppv = &fUSBInterface;
         addRef();
@@ -575,7 +576,6 @@ IOUSBInterfaceClass::GetEndpointProperties(UInt8 alternateSetting, UInt8 endpoin
     ret = io_connect_method_scalarI_scalarO(fConnection, kUSBInterfaceUserClientGetEndpointProperties, toUserClient, 3, fromUserClient, &fromUCsize);
     if (ret == kIOReturnSuccess)
     {
-        printf("IOUSBInterfaceClass::GetEndpointProperties fromUserClient = 0x%08x, 0x%08x, 0x%08x\n", fromUserClient[0], fromUserClient[1], fromUserClient[2]);
 	*transferType = fromUserClient[0];
 	*maxPacketSize = fromUserClient[1];
 	*interval = fromUserClient[2];
@@ -1086,6 +1086,90 @@ IOUSBInterfaceClass::WriteIsochPipeAsync(UInt8 pipeRef, void *buf, UInt64 frameS
 
 
 
+IOReturn 
+IOUSBInterfaceClass::LowLatencyReadIsochPipeAsync(UInt8 pipeRef, void *buf, UInt64 frameStart, UInt32 numFrames, UInt32 updateFrequency, IOUSBLowLatencyIsocFrame *frameList, IOAsyncCallback1 callback, void *refcon)
+{
+    IOUSBLowLatencyIsocStruct		pb;
+    natural_t				asyncRef[kIOAsyncCalloutCount];
+    mach_msg_type_number_t		len = 0;
+    UInt32				i, total;
+    IOReturn				ret;
+
+    allChecks();
+
+    if (!fAsyncPort)
+        return kIOUSBNoAsyncPortErr;
+
+    total = 0;
+    for(i=0; i < numFrames; i++)
+        total += frameList[i].frReqCount;
+
+    pb.fPipe = pipeRef;
+    pb.fBuffer = buf;
+    pb.fBufSize = total;
+    pb.fStartFrame = frameStart;
+    pb.fNumFrames = numFrames;
+    pb.fUpdateFrequency = updateFrequency;
+    pb.fFrameCounts = frameList;
+
+    asyncRef[kIOAsyncCalloutFuncIndex] = (natural_t) callback;
+    asyncRef[kIOAsyncCalloutRefconIndex] = (natural_t) refcon;
+
+    ret = io_async_method_structureI_structureO( fConnection, fAsyncPort, asyncRef, kIOAsyncCalloutCount, kUSBInterfaceUserClientLowLatencyReadIsochPipe, (char *)&pb, sizeof(pb), NULL, &len);
+    if (ret == MACH_SEND_INVALID_DEST)
+    {
+	fIsOpen = false;
+	fConnection = MACH_PORT_NULL;
+	ret = kIOReturnNoDevice;
+    }
+    return ret;
+
+}
+
+
+
+IOReturn 
+IOUSBInterfaceClass::LowLatencyWriteIsochPipeAsync(UInt8 pipeRef, void *buf, UInt64 frameStart, UInt32 numFrames, UInt32 updateFrequency, IOUSBLowLatencyIsocFrame *frameList, IOAsyncCallback1 callback, void *refcon)
+{
+    IOUSBLowLatencyIsocStruct		pb;
+    natural_t				asyncRef[kIOAsyncCalloutCount];
+    mach_msg_type_number_t		len = 0;
+    UInt32				i, total;
+    IOReturn				ret;
+
+    allChecks();
+
+    if (!fAsyncPort)
+        return kIOUSBNoAsyncPortErr;
+
+    total = 0;
+    for(i=0; i < numFrames; i++)
+        total += frameList[i].frReqCount;
+
+    pb.fPipe = pipeRef;
+    pb.fBuffer = buf;
+    pb.fBufSize = total;
+    pb.fStartFrame = frameStart;
+    pb.fNumFrames = numFrames;
+    pb.fUpdateFrequency = updateFrequency;
+    pb.fFrameCounts = frameList;
+
+    asyncRef[kIOAsyncCalloutFuncIndex] = (natural_t) callback;
+    asyncRef[kIOAsyncCalloutRefconIndex] = (natural_t) refcon;
+
+    ret = io_async_method_structureI_structureO( fConnection, fAsyncPort, asyncRef, kIOAsyncCalloutCount, kUSBInterfaceUserClientLowLatencyWriteIsochPipe, (char *)&pb, sizeof(pb), NULL, &len);
+    if (ret == MACH_SEND_INVALID_DEST)
+    {
+	fIsOpen = false;
+	fConnection = MACH_PORT_NULL;
+	ret = kIOReturnNoDevice;
+    }
+    return ret;
+}
+
+
+
+
 IOCFPlugInInterface 
 IOUSBInterfaceClass::sIOCFPlugInInterfaceV1 = {
     0,
@@ -1099,8 +1183,8 @@ IOUSBInterfaceClass::sIOCFPlugInInterfaceV1 = {
 };
 
 
-IOUSBInterfaceStruct190 
-IOUSBInterfaceClass::sUSBInterfaceInterfaceV190 = {
+IOUSBInterfaceStruct192 
+IOUSBInterfaceClass::sUSBInterfaceInterfaceV192 = {
     0,
     &IOUSBIUnknown::genericQueryInterface,
     &IOUSBIUnknown::genericAddRef,
@@ -1153,6 +1237,9 @@ IOUSBInterfaceClass::sUSBInterfaceInterfaceV190 = {
     &IOUSBInterfaceClass::interfaceSetPipePolicy,
     &IOUSBInterfaceClass::interfaceGetBandwidthAvailable,
     &IOUSBInterfaceClass::interfaceGetEndpointProperties,
+    // ---------- new with 1.9.2
+    &IOUSBInterfaceClass::interfaceLowLatencyReadIsochPipeAsync,
+    &IOUSBInterfaceClass::interfaceLowLatencyWriteIsochPipeAsync,
 };
 
 
@@ -1385,5 +1472,12 @@ IOReturn
 IOUSBInterfaceClass::interfaceGetEndpointProperties(void *self, UInt8 alternateSetting, UInt8 endpointNumber, UInt8 direction, UInt8 *transferType, UInt16 *maxPacketSize, UInt8 *interval)
     { return getThis(self)->GetEndpointProperties(alternateSetting, endpointNumber, direction, transferType, maxPacketSize, interval); }
 
+//--------------- added in 1.9.2
+IOReturn 
+IOUSBInterfaceClass::interfaceLowLatencyReadIsochPipeAsync(void *self, UInt8 pipeRef, void *buf, UInt64 frameStart, UInt32 numFrames, UInt32 updateFrequency, IOUSBLowLatencyIsocFrame *frameList, IOAsyncCallback1 callback, void *refcon)
+    { return getThis(self)->LowLatencyReadIsochPipeAsync(pipeRef, buf, frameStart, numFrames, updateFrequency, frameList, callback, refcon); }
 
+IOReturn 
+IOUSBInterfaceClass::interfaceLowLatencyWriteIsochPipeAsync(void *self, UInt8 pipeRef, void *buf, UInt64 frameStart, UInt32 numFrames, UInt32 updateFrequency, IOUSBLowLatencyIsocFrame *frameList, IOAsyncCallback1 callback, void *refcon)
+    { return getThis(self)->LowLatencyWriteIsochPipeAsync(pipeRef, buf, frameStart, numFrames, updateFrequency, frameList, callback, refcon); }
 

@@ -53,7 +53,7 @@
 #if defined(LIBC_SCCS) && !defined(lint)
 /*static char *sccsid = "from: @(#)xdr_array.c 1.10 87/08/11 Copyr 1984 Sun Micro";*/
 /*static char *sccsid = "from: @(#)xdr_array.c	2.1 88/07/29 4.0 RPCSRC";*/
-static char *rcsid = "$Id: xdr_array.c,v 1.3 2002/02/19 20:36:26 epeyton Exp $";
+static char *rcsid = "$Id: xdr_array.c,v 1.3.84.1 2002/08/06 19:46:15 bbraun Exp $";
 #endif
 
 /*
@@ -70,6 +70,7 @@ static char *rcsid = "$Id: xdr_array.c,v 1.3 2002/02/19 20:36:26 epeyton Exp $";
 #include <string.h>
 #include <rpc/types.h>
 #include <rpc/xdr.h>
+#include <limits.h>
 
 #define LASTUNSIGNED	((u_int)0-1)
 
@@ -101,7 +102,8 @@ xdr_array(xdrs, addrp, sizep, maxsize, elsize, elproc)
 		return (FALSE);
 	}
 	c = *sizep;
-	if ((c > maxsize) && (xdrs->x_op != XDR_FREE)) {
+	if ((c > maxsize || UINT_MAX/elsize < c) &&
+			(xdrs->x_op != XDR_FREE)) {
 		return (FALSE);
 	}
 	nodesize = c * elsize;

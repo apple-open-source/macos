@@ -765,9 +765,9 @@ CSSM_RETURN tp_policyVerify(
 					case kTP_SSL:
 						/* 
 						 * not present, not leaf, not root, kTPx509Basic 
-						 * ....OK; infer as true 
+						 * ....RFC2459 says this can not be a CA 
 						 */
-						cA = CSSM_TRUE;
+						cA = CSSM_FALSE;
 						break;
 					case kTPiSign:
 						/* required for iSign in this position */
@@ -793,7 +793,28 @@ CSSM_RETURN tp_policyVerify(
 				thisTpCertInfo->addStatusCode(CSSMERR_TP_VERIFY_ACTION_FAILED);
 			}
 			#endif	/* BASIC_CONSTRAINTS_MUST_BE_CRITICAL */
-			cA = thisCertInfo->basicConstraints.extnData->basicConstraints.cA;
+
+			const CE_BasicConstraints *bcp = 
+				&thisCertInfo->basicConstraints.extnData->basicConstraints;
+			
+			cA = bcp->cA;
+			
+			/* Verify pathLenConstraint if present */
+			if(!isLeaf &&							// leaf, certDex=0, don't care
+			   cA && 								// p.l.c. only valid for CAs
+			   bcp->pathLenConstraintPresent) {		// present?
+				/*
+				 * pathLenConstraint=0 legal for certDex 1 only
+				 * pathLenConstraint=1 legal for certDex {1,2}
+				 * etc. 
+				 */ 
+				if(certDex > (bcp->pathLenConstraint + 1)) {
+					errorLog0("tp_policyVerify: pathLenConstraint exceeded\n");
+					policyFail = CSSM_TRUE;
+					thisTpCertInfo->addStatusCode(
+							CSSMERR_APPLETP_PATH_LEN_CONSTRAINT);
+				}
+			}
 		}
 		
 		if(isLeaf) {

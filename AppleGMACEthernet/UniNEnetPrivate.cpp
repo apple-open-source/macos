@@ -46,7 +46,6 @@
 bool UniNEnet::allocateMemory()
 {
 	UInt32		rxRingSize, txRingSize;
-//	IOReturn	rc;						// return code
 
  
 		/* Allocate memory for DMA ring elements:	*/
@@ -59,12 +58,6 @@ bool UniNEnet::allocateMemory()
 		ALRT( 0, txRingSize, '-Tx-', "UniNEnet::allocateMemory - failed to alloc Tx Ring" );
 		return false;
 	}
-#ifdef UNNECESSARY
-	rc = IOSetProcessorCacheMode(	kernel_task,
-									(IOVirtualAddress)fTxDescriptorRing,
-									txRingSize,
-									kIOMapInhibitCache );
-#endif // UNNECESSARY
 	ELG( txRingSize, fTxDescriptorRing, '=TxR', "UniNEnet::allocateMemory - Tx Ring alloc'd" );
 
 
@@ -76,12 +69,6 @@ bool UniNEnet::allocateMemory()
 		ALRT( 0, rxRingSize, '-Rx-', "UniNEnet::allocateMemory - failed to alloc Rx Ring" );
 		return false;
 	}
-#ifdef UNNECESSARY
-	rc = IOSetProcessorCacheMode(	kernel_task,
-									(IOVirtualAddress)fRxDescriptorRing,
-									rxRingSize,
-									kIOMapInhibitCache );
-#endif // UNNECESSARY
 	ELG( rxRingSize, fRxDescriptorRing, '=RxR', "UniNEnet::allocateMemory - Rx Ring alloc'd" );
 
 		/* set up the Tx and Rx mBuf pointer arrays:	*/
@@ -212,7 +199,7 @@ bool UniNEnet::initRxRing()
 		/* Set the receive queue head to point to the first entry in the ring.	*/
 
     rxCommandHead = 0;
-    rxCommandTail = i - 4;
+    rxCommandTail = i - 4;	// rxCommandTail is not used anywhere
 
     return true;
 }/* end initRxRing */
@@ -1102,6 +1089,7 @@ bool UniNEnet::receivePackets( bool debuggerParam )
 	UInt16		dmaFlags;
 	UInt16		checksum;
 	UInt32		rxPktStatus = 0;
+	UInt32		rxCompletion;
 	bool		passPacketUp;
 	bool		reusePkt;
 	bool		status;
@@ -1110,10 +1098,10 @@ bool UniNEnet::receivePackets( bool debuggerParam )
 	bool		replaced;
 
    
-    last      = (UInt32)-1;  
-    i         = rxCommandHead;
-
-//	ELG( rxCommandTail, rxCommandHead, 'Rx I', "receivePackets" );
+    last			= (UInt32)-1;  
+    i		        = rxCommandHead;
+    rxCompletion	= READ_REGISTER( RxCompletion );
+//	ELG( rxCompletion, i, 'Rx I', "receivePackets" );
 
 ///	for ( UInt32 loopLimit = fRxRingElements; loopLimit; --loopLimit )
     while ( 1 )
@@ -1128,6 +1116,21 @@ bool UniNEnet::receivePackets( bool debuggerParam )
 
 		if ( dmaFlags & kGEMRxDescFrameSize_Own )
 			break;
+
+            /* Radar 2999214 - the DMA's PCI transaction to update the		*/
+            /* Rx Descriptor is not atomic on the memory bus. The Own bit	*/
+            /* and byte count get written first and then the buffer address.*/
+            /* If the driver processes a packet based on the Own bit		*/
+            /* and the packet is a replacement requiring a new buffer		*/
+            /* address, the new address can under the right circumstances	*/
+            /* be overwritten by the now stale address from the DMA engine.	*/
+
+        if ( i == rxCompletion )
+        {		// Refresh the completion number only when needed:
+            rxCompletion = READ_REGISTER( RxCompletion );
+            if ( i == rxCompletion )			// If packet still not ours,
+                break;							// get it on the next interrupt.
+        }
 
         receivedFrameSize	= dmaFlags & kGEMRxDescFrameSize_Mask;
 		rxPktStatus			= OSReadLittleInt32( &fRxDescriptorRing[ i ].flags, 0 );
@@ -1210,7 +1213,7 @@ bool UniNEnet::receivePackets( bool debuggerParam )
 
 		if ( (i & 3) == 3 )		// only kick modulo 4
 		{
-			OSSynchronizeIO();
+			OSSynchronizeIO();	/// this is unnecessary - delete this line.
 			WRITE_REGISTER( RxKick, (i - 3) );
 		}
         last = i;	/* Keep track of the last receive descriptor processed	*/
@@ -1243,7 +1246,7 @@ bool UniNEnet::receivePackets( bool debuggerParam )
 
     if ( last != (UInt32)-1 )
     {
-        rxCommandTail = last;
+        rxCommandTail = last;	// rxCommandTail is not used anywhere
         rxCommandHead = i;
     }
 

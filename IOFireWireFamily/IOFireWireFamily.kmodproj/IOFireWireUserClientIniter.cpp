@@ -62,12 +62,6 @@ IOFireWireUserClientIniter::init(OSDictionary * propTable)
 	return IOService::init(propTable) ;
 }
 
-IOService*
-IOFireWireUserClientIniter::probe(IOService* provider, SInt32* score)
-{
-	return IOService::probe(provider, score) ;
-}
-
 bool
 IOFireWireUserClientIniter::start(
 	IOService*	provider)
@@ -81,6 +75,7 @@ IOFireWireUserClientIniter::start(
 	if ( !fProviderMergeProperties )
 	{
 		fHasUCIniter = false;
+		IOLog("%s %u: couldn't get fProviderMergeProperties\n", __FILE__, __LINE__ ) ;
 		return false;
 	}
 

@@ -225,6 +225,7 @@ typedef struct OHCIRegistersStruct *OHCIRegistersPtr;
 // hcControl register defs.
 enum
 {
+        kOHCIHcControl_Zero		= 0,
         kOHCIHcControl_CBSR		= OHCIBitRange (0, 1),
         kOHCIHcControl_CBSRPhase	= OHCIBitRangePhase (0, 1),
         kOHCIHcControl_PLE		= kOHCIBit2,
@@ -487,7 +488,11 @@ enum
     kOHCIEDToggleBitMask 		= OHCIBitRange (1, 1),
     kOHCIGTDClearErrorMask		= OHCIBitRange (0, 25),
     kHCCAalignment			= 0x100,	// required alignment for HCCA
-    kHCCAsize				= 256		// size of HCCA
+    kHCCAsize				= 256,		// size of HCCA
+    kHCCAInterruptTableOffset		= 0x0,
+    kHCCAFrameNumberOffset		= 0x80,
+    kHCCAPad1Offset			= 0x82,
+    kHCCADoneHeadOffset			= 0x84
 };
 
 
@@ -501,7 +506,9 @@ enum {
     kOHCIInterruptOutType		= 7,
     kOHCIOptiLSBug			= 8,
     kOHCIIsochronousInType		= 9,
-    kOHCIIsochronousOutType		= 10
+    kOHCIIsochronousOutType		= 10,
+    kOHCIIsochronousInLowLatencyType	= 11,
+    kOHCIIsochronousOutLowLatencyType	= 12
 };
 
 enum {

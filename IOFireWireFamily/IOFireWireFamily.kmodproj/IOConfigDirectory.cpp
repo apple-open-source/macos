@@ -784,7 +784,7 @@ IOReturn IOConfigDirectory::getIndexOffset(int index, FWAddress &value)
 		offset = entry & kConfigEntryValue;
 		if(((entry & kConfigEntryKeyType) >> kConfigEntryKeyTypePhase) == kConfigOffsetKeyType) 
 		{
-			value.addressLo = kCSRCoreRegistersBaseAddress + offset*sizeof(UInt32);
+			value.addressLo = kCSRRegisterSpaceBaseAddressLo + offset*sizeof(UInt32);
 		}
 		else 
 		{

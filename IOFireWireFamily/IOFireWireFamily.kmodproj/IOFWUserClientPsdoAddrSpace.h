@@ -20,13 +20,19 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
-*  IOFWUserClientPsdoAddrSpace.h
+ *  IOFWUserClientPsdoAddrSpace.h
  *  IOFireWireFamily
  *
  *  Created by NWG on Fri Dec 08 2000.
- *  Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  */
+/*
+	$Log: IOFWUserClientPsdoAddrSpace.h,v $
+	Revision 1.11  2002/08/06 19:42:54  niels
+	now send conflict response if user pseudo address space can't receive a write because the queue is full in cases where the hardware has not already responded 'ack complete'
+	
+*/
 
 #ifndef __IOFWUserClientPsduAddrSpace_H__
 #define __IOFWUserClientPsduAddrSpace_H__

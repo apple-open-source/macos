@@ -1,7 +1,7 @@
 Package: openssl
-Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Maintainer: Darwin Developers <darwin-development@lists.apple.com>
 Vendor: OpenSSL Project
-Version: 0.9.6b
+Version: 0.9.6e
 URL: http://www.openssl.org/
 Build-Depends: build-base, perl
 Description: SSL library

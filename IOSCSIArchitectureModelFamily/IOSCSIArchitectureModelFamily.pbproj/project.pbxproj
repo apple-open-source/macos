@@ -87,7 +87,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.SCSITaskUserClient;
-				MODULE_VERSION = 1.2.0;
+				MODULE_VERSION = 1.2.1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -112,7 +112,7 @@
 	<key>CFBundleExecutable</key>
 	<string>SCSITaskUserClient</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.2.0, Copyright Apple Computer, Inc. 1999-2001</string>
+	<string>1.2.1, Copyright Apple Computer, Inc. 1999-2001</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -124,11 +124,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.0</string>
+	<string>1.2.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.0</string>
+	<string>1.2.1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>CDIniter</key>
@@ -328,7 +328,7 @@
 	<key>CFBundleExecutable</key>
 	<string>SCSITaskLib</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.2.0, Copyright Apple Computer, Inc. 1999-2001</string>
+	<string>1.2.1, Copyright Apple Computer, Inc. 1999-2001</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -340,11 +340,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.0</string>
+	<string>1.2.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.0</string>
+	<string>1.2.1</string>
 	<key>CFPlugInDynamicRegistration</key>
 	<string>NO</string>
 	<key>CFPlugInFactories</key>
@@ -763,7 +763,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIArchitectureModelFamily;
-				MODULE_VERSION = 1.2.0;
+				MODULE_VERSION = 1.2.1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -793,7 +793,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOSCSIArchitectureModelFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.2.0, Copyright Apple Computer, Inc. 1999-2001</string>
+	<string>1.2.1, Copyright Apple Computer, Inc. 1999-2001</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -805,11 +805,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.0</string>
+	<string>1.2.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.0</string>
+	<string>1.2.1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSCSIPeripheralDeviceNub</key>
@@ -861,7 +861,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIBlockCommandsDevice;
-				MODULE_VERSION = 1.2.0;
+				MODULE_VERSION = 1.2.1;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -885,7 +885,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOSCSIBlockCommandsDevice</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.2.0, Copyright Apple Computer, Inc. 1999-2001</string>
+	<string>1.2.1, Copyright Apple Computer, Inc. 1999-2001</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -897,11 +897,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.0</string>
+	<string>1.2.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.0</string>
+	<string>1.2.1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSCSIPeripheralDeviceType00</key>
@@ -1119,7 +1119,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIMultimediaCommandsDevice;
-				MODULE_VERSION = 1.2.0;
+				MODULE_VERSION = 1.2.1;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1143,7 +1143,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOSCSIMultimediaCommandsDevice</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.2.0, Copyright Apple Computer, Inc. 1999-2001</string>
+	<string>1.2.1, Copyright Apple Computer, Inc. 1999-2001</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1155,11 +1155,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.0</string>
+	<string>1.2.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.0</string>
+	<string>1.2.1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSCSIPeripheralDeviceType05</key>
@@ -1360,7 +1360,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIReducedBlockCommandsDevice;
-				MODULE_VERSION = 1.2.0;
+				MODULE_VERSION = 1.2.1;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1384,7 +1384,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOSCSIReducedBlockCommandsDevice</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.2.0, Copyright Apple Computer, Inc. 1999-2001</string>
+	<string>1.2.1, Copyright Apple Computer, Inc. 1999-2001</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1396,11 +1396,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.0</string>
+	<string>1.2.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.0</string>
+	<string>1.2.1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSCSIPeripheralDeviceType0E</key>

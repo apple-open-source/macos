@@ -65,7 +65,6 @@ IOUSBCommand::init()
 void 
 IOUSBCommand::free()
 {
-    IOLog("+IOUSBCommand::free");
     //  This needs to be the LAST thing we do, as it disposes of our "fake" member
     //  variables.
     //
@@ -73,7 +72,6 @@ IOUSBCommand::free()
 	IOFree(_expansionData, sizeof(ExpansionData));
 
     super::free();
-    IOLog("-IOUSBCommand::free");
 }
 
 // accessor methods
@@ -298,6 +296,48 @@ UInt32 IOUSBCommand::GetUIMScratch(UInt32 index)
 IOByteCount IOUSBCommand::GetReqCount(void) 
 { 
     return _expansionData->_reqCount;
+}
+
+IOUSBIsocCommand*
+IOUSBIsocCommand::NewCommand()
+{
+    IOUSBIsocCommand *me = new IOUSBIsocCommand;
+    
+    if (me && !me->init())
+    {
+	me->free();
+	me = NULL;
+    }
+    return me;
+}
+
+bool 
+IOUSBIsocCommand::init()
+{
+    if (!super::init())
+        return false;
+    // allocate our expansion data
+    if (!_expansionData)
+    {
+	_expansionData = (ExpansionData *)IOMalloc(sizeof(ExpansionData));
+	if (!_expansionData)
+	    return false;
+	bzero(_expansionData, sizeof(ExpansionData));
+    }
+    return true;
+ }
+
+
+void 
+IOUSBIsocCommand::free()
+{
+    //  This needs to be the LAST thing we do, as it disposes of our "fake" member
+    //  variables.
+    //
+    if (_expansionData)
+	IOFree(_expansionData, sizeof(ExpansionData));
+
+    super::free();
 }
 
 

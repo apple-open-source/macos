@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = IOAudioFamily ;
-export deferred SRCROOT = /Volumes/Files/mark/releases/Jaguar/IOAudioFamily ;
+export deferred SRCROOT = /Volumes/Files/mark/releases/Red/IOAudioFamily/IOAudioFamily-130.2.10 ;
 
 # User-defined project-wide settings for project
 
@@ -31,7 +31,7 @@ export deferred KERNEL_MODULE = YES ;
 export deferred LIBRARY_SEARCH_PATHS =  ;
 export deferred MODULE_IOKIT = YES ;
 export deferred MODULE_NAME = com.apple.iokit.IOAudioFamily ;
-export deferred MODULE_VERSION = 1.3.0b10 ;
+export deferred MODULE_VERSION = 1.3.1 ;
 export deferred OPTIMIZATION_CFLAGS = -Os ;
 export deferred OTHER_CFLAGS = "$(DEBUG_CFLAGS)" ;
 export deferred OTHER_LDFLAGS =  ;

@@ -282,22 +282,24 @@ IOUSBHIDDriver::getReport( IOMemoryDescriptor * report,
 IOReturn 
 IOUSBHIDDriver::SetReport(UInt8 outReportType, UInt8 outReportID, UInt8 *vOutBuf, UInt32 vOutSize)
 {
-    IOUSBCompletion reportCompletion;
     IOUSBDevRequest requestPB;
     IOReturn err;
-
-    reportCompletion.action = &IOUSBHIDDriver::ReportCompletion;
-    reportCompletion.target = this;
-    reportCompletion.parameter = 0;
     
     // If we have an interrupt out pipe, try to use it for output type of reports.
     if (kHIDOutputReport == outReportType && _interruptOutPipe && _outBuffer)
     {
         // Copy data into buffer for Write call.
+        // This is a real shame if we came in through setReport because it originally had a
+        // memory descriptor that we converted to the vOutBuf and which is now being converted 
+        // back to a memory descriptor.
         _outBuffer->setLength(0);
         if (_outBuffer->appendBytes(vOutBuf, vOutSize))
         {
-            err = _interruptOutPipe->Write(_outBuffer, &reportCompletion);
+#if ENABLE_HIDREPORT_LOGGING
+            USBLog(3, "%s[%p]::SetReport sending out interrupt out pipe buffer (%p,%d):", getName(), this, vOutBuf, _outBuffer->getLength() );
+            LogMemReport(_outBuffer);
+#endif
+            err = _interruptOutPipe->Write(_outBuffer);
             if (err == kIOReturnSuccess)
             {
                 return err;
@@ -309,6 +311,11 @@ IOUSBHIDDriver::SetReport(UInt8 outReportType, UInt8 outReportID, UInt8 *vOutBuf
         }
         // If we did not succeed using the interrupt out pipe, we may still be able to use the control pipe.
     }
+
+#if ENABLE_HIDREPORT_LOGGING
+    USBLog(3, "%s[%p]::SetReport sending out control pipe:", getName(), this);
+    LogBufferReport((char *)vOutBuf, vOutSize);
+#endif
 
     //--- Fill out device request form
     requestPB.bmRequestType = USBmakebmRequestType(kUSBOut, kUSBClass, kUSBInterface);
@@ -1019,6 +1026,10 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
 
             // Handle the data
             //
+#if ENABLE_HIDREPORT_LOGGING
+            USBLog(6, "%s[%p]::InterruptReadHandler report came in:", getName(), this);
+            LogMemReport(_buffer);
+#endif
             handleReport(_buffer);
 	    
 	    if (isInactive())
@@ -1371,17 +1382,68 @@ IOUSBHIDDriver::SetIdleMillisecs(UInt16 msecs)
 }
 
 
+#if ENABLE_HIDREPORT_LOGGING
 void 
-IOUSBHIDDriver::ReportCompletion(
-                void *			target,
-                void *			parameter,
-                IOReturn		status,
-                UInt32			bufferSizeRemaining)
+IOUSBHIDDriver::LogBufferReport(char *report, UInt32 len)
 {
-    IOService *nub = OSDynamicCast(IOService, (OSObject*)target);
-    if (nub && status != kIOReturnSuccess)
-        USBError(1, "%s[%p]::ReportCompletion - error %x", nub->getName(), nub, status);
+    IOByteCount reportSize;
+    char outBuffer[1024];
+    char *out;
+    char *in;
+    char inChar;
+    
+    out = (char *)&outBuffer;
+    in = report;
+	reportSize = len;
+    if (reportSize > 256) reportSize = 256;
+    
+    for (unsigned int i = 0; i < reportSize; i++)
+    {
+        inChar = *in++;
+        *out++ = ' ';
+        *out++ = GetHexChar(inChar >> 4);
+        *out++ = GetHexChar(inChar & 0x0F);
+    }
+    
+    *out = 0;
+    
+    USBLog(6, outBuffer);
 }
+
+void 
+IOUSBHIDDriver::LogMemReport(IOBufferMemoryDescriptor * reportBuffer)
+{
+    IOByteCount reportSize;
+    char outBuffer[1024];
+    char *out;
+    char *in;
+    char inChar;
+    
+    out = (char *)&outBuffer;
+    in = (char *)reportBuffer->getBytesNoCopy();
+	reportSize = reportBuffer->getLength();
+    if (reportSize > 256) reportSize = 256;
+    
+    for (unsigned int i = 0; i < reportSize; i++)
+    {
+        inChar = *in++;
+        *out++ = ' ';
+        *out++ = GetHexChar(inChar >> 4);
+        *out++ = GetHexChar(inChar & 0x0F);
+    }
+    
+    *out = 0;
+    
+    USBLog(6, outBuffer);
+}
+
+char 
+IOUSBHIDDriver::GetHexChar(char hexChar)
+{
+    char hexChars[] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
+    return hexChars[0x0F & hexChar];
+}
+#endif
 
 
 OSMetaClassDefineReservedUnused(IOUSBHIDDriver,  0);

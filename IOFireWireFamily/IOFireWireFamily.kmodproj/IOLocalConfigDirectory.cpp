@@ -24,6 +24,7 @@
 #include <libkern/c++/OSData.h>
 #include <libkern/c++/OSArray.h>
 #include <libkern/c++/OSObject.h>
+#include <libkern/c++/OSString.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/firewire/IOFWRegs.h>
 #include <IOKit/firewire/IOLocalConfigDirectory.h>
@@ -127,9 +128,11 @@ unsigned int IOConfigEntry::totalSize()
         {
             OSData *data = OSDynamicCast(OSData, fData);
             if(!data)
-                return 0;	// Oops!
-            size = data->getLength() / sizeof(UInt32) + 1;
+                return 0;
+            // Round up size to multiple of 4, plus header
+            size = (data->getLength()-1) / sizeof(UInt32) + 2;
             break;
+            
         }
         case kConfigDirectoryKeyType:
         {
@@ -155,7 +158,7 @@ unsigned int IOConfigEntry::totalSize()
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 OSDefineMetaClassAndStructors(IOLocalConfigDirectory, IOConfigDirectory);
-OSMetaClassDefineReservedUnused(IOLocalConfigDirectory, 0);
+OSMetaClassDefineReservedUsed(IOLocalConfigDirectory, 0);
 OSMetaClassDefineReservedUnused(IOLocalConfigDirectory, 1);
 OSMetaClassDefineReservedUnused(IOLocalConfigDirectory, 2);
 
@@ -295,8 +298,7 @@ IOReturn IOLocalConfigDirectory::compile(OSData *rom)
                 val = entry->fValue;
                 break;
             case kConfigOffsetKeyType:
-                val = (entry->fAddr.addressLo -
-                       kConfigROMBaseAddress)/sizeof(UInt32);
+                val = (entry->fAddr.addressLo-kCSRRegisterSpaceBaseAddressLo)/sizeof(UInt32);
                 break;
             case kConfigLeafKeyType:
             case kConfigDirectoryKeyType:
@@ -330,15 +332,25 @@ IOReturn IOLocalConfigDirectory::compile(OSData *rom)
             case kConfigLeafKeyType:
             {
                 OSData *data = OSDynamicCast(OSData, entry->fData);
-                unsigned int len;
-                if(!data)
+                const void *buffer;
+                unsigned int len, pad;
+                if(data) {
+                    len = data->getLength();
+                    pad = (4 - (len & 3)) & 3;
+                    if(pad) {
+                        len += pad;
+                        // Make sure the buffer is big enough for the CRC calc.
+                        data->ensureCapacity(len);
+                    }
+                    buffer = data->getBytesNoCopy();
+                }
+                else
                     return kIOReturnInternalError;	// Oops!
-                len = data->getLength() / sizeof(UInt32);
-                crc = FWComputeCRC16((const UInt32 *)data->getBytesNoCopy(), len);
+                crc = FWComputeCRC16((const UInt32 *)buffer, len / 4);
                 val = len << kConfigLeafDirLengthPhase;
                 val |= crc;
                 rom->appendBytes(&val, sizeof(UInt32));
-                rom->appendBytes(data);
+                rom->appendBytes(buffer, len);
                 break;
             }
             case kConfigDirectoryKeyType:
@@ -360,7 +372,7 @@ IOReturn IOLocalConfigDirectory::compile(OSData *rom)
     return kIOReturnSuccess;                           
 }
 
-IOReturn IOLocalConfigDirectory::addEntry(int key, UInt32 value, OSString *desc = NULL)
+IOReturn IOLocalConfigDirectory::addEntry(int key, UInt32 value, OSString *desc)
 {
     IOReturn res;
 
@@ -372,10 +384,13 @@ IOReturn IOLocalConfigDirectory::addEntry(int key, UInt32 value, OSString *desc 
     else
         res = kIOReturnSuccess;
     entry->release();	// In array now.
+    if(desc) {
+        addEntry(desc);
+    }
     return res;
 }
 IOReturn IOLocalConfigDirectory::addEntry(int key, IOLocalConfigDirectory *value,
-                          OSString *desc = NULL)
+                                                                    OSString *desc)
 {
     IOReturn res;
 
@@ -387,10 +402,13 @@ IOReturn IOLocalConfigDirectory::addEntry(int key, IOLocalConfigDirectory *value
     else
         res = kIOReturnSuccess;
     entry->release();	// In array now.
+    if(desc) {
+        addEntry(desc);
+    }
     return res;
 }
 
-IOReturn IOLocalConfigDirectory::addEntry(int key, OSData *value, OSString *desc = NULL)
+IOReturn IOLocalConfigDirectory::addEntry(int key, OSData *value, OSString *desc)
 {
     IOReturn res;
 
@@ -402,10 +420,13 @@ IOReturn IOLocalConfigDirectory::addEntry(int key, OSData *value, OSString *desc
     else
         res = kIOReturnSuccess;
     entry->release();	// In array now.
+    if(desc) {
+        addEntry(desc);
+    }
     return res;
 }
 
-IOReturn IOLocalConfigDirectory::addEntry(int key, FWAddress value, OSString *desc = NULL)
+IOReturn IOLocalConfigDirectory::addEntry(int key, FWAddress value, OSString *desc)
 {
     IOReturn res;
 
@@ -417,6 +438,42 @@ IOReturn IOLocalConfigDirectory::addEntry(int key, FWAddress value, OSString *de
     else
         res = kIOReturnSuccess;
     entry->release();	// In array now.
+    if(desc) {
+        addEntry(desc);
+    }
+    return res;
+}
+
+IOReturn IOLocalConfigDirectory::addEntry(OSString *desc)
+{
+    IOReturn res;
+    OSData * value;
+
+	UInt64 zeros = 0;    
+	
+    int stringLength = desc->getLength();
+	int paddingLength = (4 - (stringLength & 3)) & 3;
+	int headerLength = 8;
+	
+    // make an OSData containing the string
+    value = OSData::withCapacity( headerLength + stringLength + paddingLength );
+    if( !value )
+        return kIOReturnNoMemory;
+
+	// append zeros for header
+ 	value->appendBytes( &zeros, headerLength );
+
+	// append the string
+    value->appendBytes( desc->getCStringNoCopy(), stringLength );
+	
+	// append zeros to pad to nearest quadlet
+	value->appendBytes( &zeros, paddingLength );
+
+    res = addEntry( kConfigTextualDescriptorKey, value );
+
+    value->release(); 	// In ROM now
+    desc->release();	// call eats a retain count
+
     return res;
 }
 

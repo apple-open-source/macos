@@ -1913,7 +1913,9 @@ FWDVIDHSetDeviceConfiguration(IsochComponentInstancePtr ih,
         FailWithVal( result != noErr, Exit, result);
         if(deviceDescriptionPtr2->fConnected) {
             deviceDescriptionPtr2->fConnected--;
-            if(deviceDescriptionPtr2->fConnected == 0 && deviceDescriptionPtr2->fDevice->fDevInterface) {
+            // Close device if nobody else has it open and it hasn't been unplugged already
+            if(deviceDescriptionPtr2->fConnected == 0 && deviceDescriptionPtr2->fActive &&
+                deviceDescriptionPtr2->fDevice->fDevInterface) {
                 DVDeviceClose(deviceDescriptionPtr2->fDevice);
             }
         }

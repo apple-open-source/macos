@@ -299,8 +299,41 @@ public:
     */
     virtual IOReturn SetPipePolicy(UInt16 maxPacketSize, UInt8 maxInterval);
 
-    OSMetaClassDeclareReservedUnused(IOUSBPipe,  9);
-    OSMetaClassDeclareReservedUnused(IOUSBPipe,  10);
+    OSMetaClassDeclareReservedUsed(IOUSBPipe,  9);
+
+    // Transfer data over Isochronous pipes and process the frame list at hardware interrupt time
+    /*!
+        @function Read
+	AVAILABLE ONLY IN VERSION 1.9.2 AND ABOVE
+        Read from an isochronous endpoint and process the IOUSBLowLatencyIsocFrame fields at 
+        hardware interrupt time
+        @param buffer place to put the transferred data
+        @param frameStart USB frame number of the frame to start transfer
+	@param numFrames Number of frames to transfer
+	@param frameList Bytes to transfer, result, and time stamp for each frame
+        @param completion describes action to take when buffer has been filled
+        @param updateFrequency describes how often (in milliseconds) should the frame list be processed
+    */
+    virtual IOReturn Read(IOMemoryDescriptor *	buffer,
+                          UInt64 frameStart, UInt32 numFrames, IOUSBLowLatencyIsocFrame *frameList,
+                          IOUSBLowLatencyIsocCompletion *	completion = 0, UInt32 updateFrequency = 0);
+
+    OSMetaClassDeclareReservedUsed(IOUSBPipe,  10);
+    /*!
+        @function Write
+	AVAILABLE ONLY IN VERSION 1.9.2 AND ABOVE
+        Write to an isochronous endpoint
+        @param buffer place to get the data to transfer
+        @param frameStart USB frame number of the frame to start transfer
+        @param numFrames Number of frames to transfer
+        @param frameList Pointer to list of frames indicating bytes to transfer and result for each frame
+        @param completion describes action to take when buffer has been emptied
+        @param updateFrequency describes how often (in milliseconds) should the frame list be processed
+    */
+    virtual IOReturn Write(IOMemoryDescriptor *	buffer,
+                           UInt64 frameStart, UInt32 numFrames, IOUSBLowLatencyIsocFrame *frameList,
+                           IOUSBLowLatencyIsocCompletion * completion = 0, UInt32 updateFrequency = 0);
+
     OSMetaClassDeclareReservedUnused(IOUSBPipe,  11);
     OSMetaClassDeclareReservedUnused(IOUSBPipe,  12);
     OSMetaClassDeclareReservedUnused(IOUSBPipe,  13);

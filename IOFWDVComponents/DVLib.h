@@ -68,6 +68,7 @@ typedef struct _DVDevice
     UInt8		fWriteChan;			// Channel the Mac writes to the device on
     UInt8		fReadChan;			// Channel the Mac reads from the device on
     UInt8		fMaxSpeed;			// Max bus speed for isoc channel
+    bool		fSupportsFCP;		// Does device support AVC commands using the FCP protocol?
     bool		p2pConnected;
     UInt32		p2pPlug;
     UInt32		p2pChan;

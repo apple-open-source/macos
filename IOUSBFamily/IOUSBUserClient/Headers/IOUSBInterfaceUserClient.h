@@ -56,7 +56,7 @@ private:
     virtual bool 	willTerminate( IOService * provider, IOOptionBits options );
     virtual bool 	didTerminate( IOService * provider, IOOptionBits options, bool * defer );
   
-    // psuedo IOKit methods - these methods are NOT the IOService:: methods, since both IOService::open
+    // pseudo IOKit methods - these methods are NOT the IOService:: methods, since both IOService::open
     // and IOService::close require an IOService* as the first parameter
     virtual IOReturn  	open(bool seize);
     virtual IOReturn  	close(void);
@@ -73,6 +73,7 @@ private:
 
     // worker method for Isoch stuff
     virtual IOReturn DoIsochPipeAsync(OSAsyncReference asyncRef, IOUSBIsocStruct *stuff, IODirection direction);
+    virtual IOReturn DoLowLatencyIsochPipeAsync(OSAsyncReference asyncRef, IOUSBLowLatencyIsocStruct *stuff, IODirection direction);
 
     // IOUSBInterface methods
     virtual IOReturn GetDevice(io_service_t *device);
@@ -112,6 +113,8 @@ private:
 
     virtual IOReturn ReadIsochPipe(OSAsyncReference asyncRef, IOUSBIsocStruct *stuff, UInt32 sizeIn);
     virtual IOReturn WriteIsochPipe(OSAsyncReference asyncRef, IOUSBIsocStruct *stuff, UInt32 sizeIn);
+    virtual IOReturn LowLatencyReadIsochPipe(OSAsyncReference asyncRef, IOUSBLowLatencyIsocStruct *stuff, UInt32 sizeIn);
+    virtual IOReturn LowLatencyWriteIsochPipe(OSAsyncReference asyncRef, IOUSBLowLatencyIsocStruct *stuff, UInt32 sizeIn);
 
     // bookkeeping methods
     void		DecrementOutstandingIO(void);
@@ -121,6 +124,7 @@ private:
     // static methods
     static void 	ReqComplete(void *obj, void *param, IOReturn status, UInt32 remaining);
     static void		IsoReqComplete(void *obj, void *param, IOReturn res, IOUSBIsocFrame *pFrames);
+    static void		LowLatencyIsoReqComplete(void *obj, void *param, IOReturn res, IOUSBLowLatencyIsocFrame *pFrames);
     static IOReturn	ChangeOutstandingIO(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
     static IOReturn	GetGatedOutstandingIO(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
 

@@ -208,6 +208,13 @@ protected:
                                             void *	arg2, 
                                             void *	arg3 );
                                             
+    static IOReturn 		DoLowLatencyIsocTransfer(	
+                                            OSObject *	owner, 
+                                            void *	arg0, 
+                                            void *	arg1, 
+                                            void *	arg2, 
+                                            void *	arg3 );
+                                            
     static void			ControlPacketHandler( 
                                                     OSObject *	target,
                                                     void *	parameter,
@@ -232,6 +239,12 @@ protected:
                                                     IOReturn		status,
                                                     IOUSBIsocFrame	*pFrames );
                                                     
+    static void			LowLatencyIsocCompletionHandler(
+                                                    OSObject *		target,
+                                                    void * 		parameter,
+                                                    IOReturn		status,
+                                                    IOUSBLowLatencyIsocFrame	*pFrames );
+                                                    
     static void			WatchdogTimer(OSObject *target, IOTimerEventSource *sender);
     
     static IOReturn		ProtectedDevZeroLock(OSObject *target, void* lock, void *, void *, void*);
@@ -245,6 +258,8 @@ protected:
     IOReturn    		BulkTransaction( IOUSBCommand *	command );
     
     IOReturn    		IsocTransaction( IOUSBIsocCommand *  command );
+    
+    IOReturn    		LowLatencyIsocTransaction( IOUSBIsocCommand *  command );
     
     void 			FreeCommand( IOUSBCommand *  command );
 
@@ -951,8 +966,55 @@ public:
     
     virtual IOReturn GetRootHubStringDescriptor(UInt8	index, OSData *desc) = 0;
     
-    OSMetaClassDeclareReservedUnused(IOUSBController,  15);
-    OSMetaClassDeclareReservedUnused(IOUSBController,  16);
+    OSMetaClassDeclareReservedUsed(IOUSBController,  15);
+    /*!
+        @function IsocIO
+        Read from or write to an isochronous endpoint
+        @param buffer place to put the transferred data
+        @param frameStart USB frame number of the frame to start transfer
+        @param numFrames Number of frames to transfer
+        @param frameList Bytes to transfer and result for each frame
+        @param address Address of the device on the USB bus
+        @param endpoint description of endpoint
+        @param completion describes action to take when buffer has been filled
+        @param updateFrequency describes how often to update the framelist once the transfer has completed (in ms)
+    */
+    virtual IOReturn IsocIO(  IOMemoryDescriptor * 			buffer,
+                                        UInt64 				frameStart,
+                                        UInt32 				numFrames,
+                                        IOUSBLowLatencyIsocFrame *	frameList,
+                                        USBDeviceAddress 		address,
+                                        Endpoint *			endpoint,
+                                        IOUSBLowLatencyIsocCompletion *	completion,
+                                        UInt32				updateFrequency );
+
+    OSMetaClassDeclareReservedUsed(IOUSBController,  16);
+    
+    /*!
+    @function UIMCreateIsochTransfer
+    @abstract UIM function, Do a transfer on an Isocchronous endpoint.
+    @param functionNumber  The USB device ID of the device to perform the transaction with
+    @param endpointNumber  The endpoint number for the transaction
+    @param completion      Action to perform when I/O completes
+    @param direction       Specifies direction for transfer. kUSBIn or KUSBOut.
+    @param frameStart      The frame number in which to start the transactions
+    @param pBuffer         describes memory buffer. 
+    @param frameCount      number of frames to do transactions in
+    @param pFrames         Describes transactions in individual frames, gives sizes and reults for transactions.
+    @param updateFrequency Describes how often we update the frameList parameters (in ms)
+*/
+    virtual IOReturn 		UIMCreateIsochTransfer(
+                                                        short			functionAddress,
+                                                        short			endpointNumber,
+                                                        IOUSBIsocCompletion	completion,
+                                                        UInt8			direction,
+                                                        UInt64			frameStart,
+                                                        IOMemoryDescriptor *	pBuffer,
+                                                        UInt32			frameCount,
+                                                        IOUSBLowLatencyIsocFrame *pFrames,
+                                                        UInt32			updateFrequency) = 0;
+
+
     OSMetaClassDeclareReservedUnused(IOUSBController,  17);
     OSMetaClassDeclareReservedUnused(IOUSBController,  18);
     OSMetaClassDeclareReservedUnused(IOUSBController,  19);

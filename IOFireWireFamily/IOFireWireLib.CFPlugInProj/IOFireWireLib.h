@@ -79,7 +79,7 @@ IODestroyPlugInInterface(). Do not call Release() on it.
 // 	version 4 interfaces
 //
 //		availability: 
-//				Mac OS X "Jaguar" and later
+//				Mac OS X 10.2 "Jaguar" and later
 //
 //	kIOFireWireNubInterface_v4
 //		uuid string: 939151B8-6945-11D6-BEC7-0003933F84F0
@@ -103,7 +103,7 @@ IODestroyPlugInInterface(). Do not call Release() on it.
 // 	version 3 interfaces (include isochronous functions)
 //
 //		availability: 
-//				Mac OS X 10.1.2 and later
+//				Mac OS X 10.2 "Jaguar" and later
 //
 
 //	kIOFireWireNubInterfaceID_v3

@@ -54,17 +54,20 @@
 
 // 100 mSec delay after bus reset before scanning bus
 // 1000 mSec delay before pruning devices
+// 15000 mSec delay before pruning devices after wake
 // 2000 mSec delay between bus resets (1394a)
-#define kScanBusDelay		100	
-#define kDevicePruneDelay	1000
-#define kRepeatResetDelay	2000
+#define kScanBusDelay			100	
+#define kNormalDevicePruneDelay	1000
+#define kWakeDevicePruneDelay	15000
+#define kRepeatResetDelay		2000
 
 #define FWAddressToID(addr) (addr & 63)
 
 enum requestRefConBits {
-    kRequestLabel = kFWAsynchTTotal-1,
+    kRequestLabel = kFWAsynchTTotal-1,	// 6 bits
     kRequestExtTCodeShift = 6,
     kRequestExtTCodeMask = 0x3fffc0,	// 16 bits
+    kRequestIsComplete = 0x20000000,	// Was write request already ack-complete?
     kRequestIsLock = 0x40000000,
     kRequestIsQuad = 0x80000000
 };
@@ -502,6 +505,7 @@ bool IOFireWireController::init(IOFireWireLink *fwim)
         fAllocChannelIterator =  OSCollectionIterator::withCollection(fAllocatedChannels);
 
     fLastTrans = kMaxPendingTransfers-1;
+	fDevicePruneDelay = kNormalDevicePruneDelay;
 
     UInt32 bad = 0xdeadbabe;
     fBadReadResponse = IOBufferMemoryDescriptor::withBytes(&bad, sizeof(bad), kIODirectionOutIn);
@@ -566,22 +570,26 @@ IOReturn IOFireWireController::setPowerState( unsigned long powerStateOrdinal,
 {
     IOReturn res;
     IOReturn sleepRes;
-    
+	
     // use gate to keep other threads off the hardware,
     // Either close gate or wake workloop.
     // First time through, we aren't really asleep.
-    if(fBusState != kAsleep || fROMHeader[1] != kFWBIBBusName) {
+    if( fBusState != kAsleep ) 
+	{
         fPendingQ.fSource->closeGate();
     }
-    else {
+    else 
+	{
         sleepRes = fWorkLoop->wake(&fBusState);
-        if(sleepRes != kIOReturnSuccess) {
+        if(sleepRes != kIOReturnSuccess) 
+		{
             IOLog("Can't wake FireWire workloop, error 0x%x\n", sleepRes);
         }
     }
     // Either way, we have the gate closed against invaders/lost sheep
     if(powerStateOrdinal != 0)
     {
+		fDevicePruneDelay = kWakeDevicePruneDelay;
         fBusState = kRunning;	// Will transition to a bus reset state.
         if( fDelayedStateChangeCmdNeedAbort )
         {
@@ -596,8 +604,8 @@ IOReturn IOFireWireController::setPowerState( unsigned long powerStateOrdinal,
         
     res = fFWIM->setLinkPowerState(powerStateOrdinal);
     
-    // Reset bus if we're waking, not if we're starting up.
-    if(powerStateOrdinal == 1 && res == IOPMAckImplied && fROMHeader[1] == kFWBIBBusName)
+    // reset bus 
+    if( powerStateOrdinal == 1 && res == IOPMAckImplied )
 	{
 		if ( kIOReturnSuccess != UpdateROM() )
 			IOLog(" %s %u: UpdateROM() got error\n", __FILE__, __LINE__ ) ;
@@ -638,12 +646,13 @@ IOReturn IOFireWireController::setPowerState( unsigned long powerStateOrdinal,
 
 bool IOFireWireController::start(IOService *provider)
 {
-    UInt16 crc16;
     IOReturn res;
 
     if (!IOService::start(provider))
-        return false;
-    
+    {
+	    return false;
+    }
+	
     CSRNodeUniqueID guid = fFWIM->getGUID();
     
     // blow away device tree children from where we've taken over
@@ -680,8 +689,10 @@ bool IOFireWireController::start(IOService *provider)
     // do before power management so the PM code can access the workloop
     fTimer = IOTimerEventSource::timerEventSource(this, clockTick);
     if(!fTimer)
-	return false;
-
+	{
+		return false;
+	}
+	
     fTimeoutQ.fTimer = fTimer;
 
     IOFWQEventSource *q;
@@ -693,37 +704,33 @@ bool IOFireWireController::start(IOService *provider)
     fWorkLoop->addEventSource(fTimer);
     fWorkLoop->addEventSource(fPendingQ.fSource);
 
-    // register ourselves with superclass policy-maker
-    PMinit();
-    provider->joinPMtree(this);
-    registerPowerDriver(this, ourPowerStates, number_of_power_states);
-    
-    // No idle sleep
-    res = changePowerStateTo(1);
-    IOLog("Local FireWire GUID = 0x%lx:0x%lx\n", (UInt32)(guid >> 32), (UInt32)(guid & 0xffffffff));
-
     // Build local device ROM
     // Allocate address space for Configuration ROM and fill in Bus Info
     // block.
     fROMHeader[1] = kFWBIBBusName;
     fROMHeader[2] = fFWIM->getBusCharacteristics();
+
+    // Zero out generation
+    fROMHeader[2] &= ~kFWBIBGeneration;
+
+    // Get max speed
     fMaxRecvLog = ((fROMHeader[2] & kFWBIBMaxRec) >> kFWBIBMaxRecPhase)+1;
     fMaxSendLog = fFWIM->getMaxSendLog();
     fROMHeader[3] = guid >> 32;
     fROMHeader[4] = guid & 0xffffffff;
 
-    crc16 = FWComputeCRC16 (&fROMHeader[1], 4);
-    fROMHeader[0] = 0x04040000 | crc16;
-
     // Create root directory in FWIM data.//zzz should we have one for each FWIM or just one???
     fRootDir = IOLocalConfigDirectory::create();
     if(!fRootDir)
+	{
         return false;
-
+	}
+	
     // Set our Config ROM generation.
-    fRootDir->addEntry(kConfigGenerationKey, (UInt32)0);
+    fRootDir->addEntry(kConfigGenerationKey, (UInt32)1);
     // Set our module vendor ID.
-    fRootDir->addEntry(kConfigModuleVendorIdKey, 0x00A040);
+    fRootDir->addEntry(kConfigModuleVendorIdKey, 0x000a27, OSString::withCString("Apple Computer, Inc."));
+    fRootDir->addEntry(kConfigModelIdKey, 10, OSString::withCString("Macintosh"));
     // Set our capabilities.
     fRootDir->addEntry(kConfigNodeCapabilitiesKey, 0x000083C0);
 
@@ -762,14 +769,19 @@ bool IOFireWireController::start(IOService *provider)
 	
 #endif
 
-    res = UpdateROM();
-    if(res == kIOReturnSuccess)
-        res = fFWIM->resetBus();
-
     fWorkLoop->enableAllInterrupts();	// Enable the interrupt delivery.
 
-    registerService();			// Enable matching with this object
+    // register ourselves with superclass policy-maker
+    PMinit();
+    provider->joinPMtree(this);
+    registerPowerDriver(this, ourPowerStates, number_of_power_states);
+    
+    // No idle sleep
+    res = changePowerStateTo(1);
+    IOLog("Local FireWire GUID = 0x%lx:0x%lx\n", (UInt32)(guid >> 32), (UInt32)(guid & 0xffffffff));
 
+    registerService();			// Enable matching with this object
+	
     return res == kIOReturnSuccess;
 }
 
@@ -880,44 +892,24 @@ void IOFireWireController::readDeviceROM(IOFWNodeScan *scan, IOReturn status)
 	
 	FWKLOG(( "IOFireWireController::readDeviceROM entered\n" ));
 
-    if(status != kIOReturnSuccess) {
-	// If status isn't bus reset, make a dummy registry entry.
-        if(status == kIOFireWireBusReset) {
+    if(status != kIOReturnSuccess) 
+	{
+		// If status isn't bus reset, make a dummy registry entry.
+        
+		if(status == kIOFireWireBusReset) 
+		{
             scan->fCmd->release();
             IOFree(scan, sizeof(*scan));
 			FWKLOG(( "IOFireWireController::readDeviceROM exited\n" ));
 			return;
         }
 
-        OSDictionary *propTable;
-        UInt32 nodeID = FWAddressToID(scan->fAddr.nodeID);
-        OSObject * prop;
-        propTable = OSDictionary::withCapacity(3);
-        prop = OSNumber::withNumber(scan->fAddr.nodeID, 16);
-        propTable->setObject(gFireWireNodeID, prop);
-        prop->release();
-
-        prop = OSNumber::withNumber((scan->fSelfIDs[0] & kFWSelfID0SP) >> kFWSelfID0SPPhase, 32);
-        propTable->setObject(gFireWireSpeed, prop);
-        prop->release();
-
-        prop = OSData::withBytes(scan->fSelfIDs, scan->fNumSelfIDs*sizeof(UInt32));
-        propTable->setObject(gFireWireSelfIDs, prop);
-        prop->release();
-
-        IORegistryEntry * newPhy;
-        newPhy = new IORegistryEntry;
-	if(newPhy) {
-            if(!newPhy->init(propTable)) {
-                newPhy->release();	
-		newPhy = NULL;
-            }
-	}
-        fNodes[nodeID] = newPhy;
-        if(propTable)
-            propTable->release();
-        fNumROMReads--;
-        if(fNumROMReads == 0) {
+		UInt32 nodeID = FWAddressToID(scan->fAddr.nodeID);
+        fNodes[nodeID] = createDummyRegistryEntry( scan );
+        
+		fNumROMReads--;
+        if(fNumROMReads == 0) 
+		{
             finishedBusScan();
         }
 
@@ -927,13 +919,16 @@ void IOFireWireController::readDeviceROM(IOFWNodeScan *scan, IOReturn status)
 		return;
     }
 
-    if(scan->fRead == 0) {
-	if( ((scan->fBuf[0] & kConfigBusInfoBlockLength) >> kConfigBusInfoBlockLengthPhase) == 1) {
+    if(scan->fRead == 0) 
+	{
+		if( ((scan->fBuf[0] & kConfigBusInfoBlockLength) >> kConfigBusInfoBlockLengthPhase) == 1) 
+		{
             // Minimal ROM
             scan->fROMSize = 4;
             done = true;
-	}
-	else {
+		}
+		else 
+		{
             scan->fROMSize = 4*((scan->fBuf[0] & kConfigROMCRCLength) >> kConfigROMCRCLengthPhase) + 4;
             if(scan->fROMSize > 20)
                 scan->fROMSize = 20;	// Just read bus info block
@@ -944,10 +939,12 @@ void IOFireWireController::readDeviceROM(IOFWNodeScan *scan, IOReturn status)
                                                         &readROMGlue, scan, true);
             scan->fCmd->submit();
             done = false;
-	}
+		}
     }
-    else if(scan->fRead < 16) {
-        if(scan->fROMSize > scan->fRead) {
+    else if(scan->fRead < 16) 
+	{
+        if(scan->fROMSize > scan->fRead) 
+		{
             scan->fRead += 4;
             scan->fAddr.addressLo = kConfigROMBaseAddress+scan->fRead;
             scan->fCmd->reinit(scan->fAddr, scan->fBuf+scan->fRead/4, 1,
@@ -958,7 +955,9 @@ void IOFireWireController::readDeviceROM(IOFWNodeScan *scan, IOReturn status)
         else
             done = true;
     }
-    if(done) {
+	
+    if( done ) 
+	{
         // See if this is a bus manager
         if(!fBusMgr)
             fBusMgr = scan->fBuf[2] & kFWBIBBmc;
@@ -968,20 +967,36 @@ void IOFireWireController::readDeviceROM(IOFWNodeScan *scan, IOReturn status)
         DEBUGLOG("Finished reading ROM for node 0x%x\n", scan->fAddr.nodeID);
 #endif
         IOFireWireDevice *	newDevice = NULL;
-        do {
+        do 
+		{
             CSRNodeUniqueID guid;
             OSIterator *childIterator;
             if(scan->fROMSize >= 20)
             	guid = *(CSRNodeUniqueID *)(scan->fBuf+3);
             else
                 guid = scan->fBuf[0];	// Best we can do.
-            
+
+			//
+			// GUID zero is not a valid GUID. Unfortunately some devices return this as
+			// their GUID until they're fully powered up.
+			//
+			
+			if( guid == 0 )
+			{
+				UInt32 nodeID = FWAddressToID(scan->fAddr.nodeID);
+				fNodes[nodeID] = createDummyRegistryEntry( scan );
+				continue;
+			}
+			
             childIterator = getClientIterator();
-            if( childIterator) {
+            if( childIterator) 
+			{
                 OSObject *child;
-                while( (child = childIterator->getNextObject())) {
+                while( (child = childIterator->getNextObject())) 
+				{
                     IOFireWireDevice * found = OSDynamicCast(IOFireWireDevice, child);
-                    if(found && found->fUniqueID == guid && !found->isInactive()) {
+                    if(found && found->fUniqueID == guid && !found->isInactive()) 
+					{
                         newDevice = found;
                         break;
                     }
@@ -989,7 +1004,8 @@ void IOFireWireController::readDeviceROM(IOFWNodeScan *scan, IOReturn status)
                 childIterator->release();
             }
 
-            if(newDevice) {
+            if(newDevice) 
+			{
 				// Just update device properties.
 				#if IOFIREWIREDEBUG > 0
 					IOLog("Found old device 0x%p\n", newDevice);
@@ -997,7 +1013,8 @@ void IOFireWireController::readDeviceROM(IOFWNodeScan *scan, IOReturn status)
 				newDevice->setNodeROM(fBusGeneration, fLocalNodeID, scan);
 				newDevice->retain();	// match release, since not newly created.
             }
-            else {
+            else 
+			{
                 newDevice = fFWIM->createDeviceNub(guid, scan);
                 if (!newDevice)
                     continue;
@@ -1036,23 +1053,67 @@ void IOFireWireController::readDeviceROM(IOFWNodeScan *scan, IOReturn status)
 				newDevice->setNodeROM( fBusGeneration, fLocalNodeID, scan );
 
             }
+			
             UInt32 nodeID = FWAddressToID(scan->fAddr.nodeID);
             fNodes[nodeID] = newDevice;
             fNodes[nodeID]->retain();
-	} while (false);
-        if (newDevice)
+		
+		} while (false);
+        
+		if (newDevice)
             newDevice->release();
-        scan->fCmd->release();
+        
+		scan->fCmd->release();
         IOFree(scan, sizeof(*scan));
         fNumROMReads--;
-        if(fNumROMReads == 0) {
+        if(fNumROMReads == 0)
+		{
             finishedBusScan();
         }
+
     }
 	
 	FWKLOG(( "IOFireWireController::readDeviceROM exited\n" ));
 }
 
+// createDummyRegistryEntry
+//
+// if we are unable to successfully read the BIB of a a device, we create
+// a dummy registry entry by calling this routine
+
+IORegistryEntry * IOFireWireController::createDummyRegistryEntry( IOFWNodeScan *scan )
+{
+	OSDictionary *propTable;
+	OSObject * prop;
+	propTable = OSDictionary::withCapacity(3);
+	prop = OSNumber::withNumber(scan->fAddr.nodeID, 16);
+	propTable->setObject(gFireWireNodeID, prop);
+	prop->release();
+
+	prop = OSNumber::withNumber((scan->fSelfIDs[0] & kFWSelfID0SP) >> kFWSelfID0SPPhase, 32);
+	propTable->setObject(gFireWireSpeed, prop);
+	prop->release();
+
+	prop = OSData::withBytes(scan->fSelfIDs, scan->fNumSelfIDs*sizeof(UInt32));
+	propTable->setObject(gFireWireSelfIDs, prop);
+	prop->release();
+
+	IORegistryEntry * newPhy;
+	newPhy = new IORegistryEntry;
+	if(newPhy) 
+	{
+		if(!newPhy->init(propTable)) 
+		{
+			newPhy->release();	
+			newPhy = NULL;
+		}
+
+        if(propTable)
+            propTable->release();
+	}
+	
+	return newPhy;
+}
 
 //
 // Hardware detected a bus reset.
@@ -1060,7 +1121,7 @@ void IOFireWireController::readDeviceROM(IOFWNodeScan *scan, IOReturn status)
 void IOFireWireController::processBusReset()
 {
 	FWKLOG(( "IOFireWireController::processBusReset\n" ));
-
+	
     clock_get_uptime(&fResetTime);	// Update even if we're already processing a reset
 	
 	// we got our bus reset, cancel any reset work in progress
@@ -1309,6 +1370,9 @@ void IOFireWireController::startBusScan() {
 
 	FWKLOG(( "IOFireWireController::startBusScan entered\n" ));
 	
+    // Send global resume packet
+	fFWIM->sendPHYPacket(((fLocalNodeID & 0x3f) << kFWPhyPacketPhyIDPhase) | 0x003c0000);
+
     fNumROMReads = 0;
     for(i=0; i<=fRootNodeID; i++) {
         UInt16 nodeID;
@@ -1418,11 +1482,45 @@ void IOFireWireController::finishedBusScan()
     }
 
 
+	//
     // Don't change to the waiting prune state if we're about to bus reset again anyway.
-    if(fBusState == kScanning) 
+    //
+	
+	if(fBusState == kScanning) 
 	{
+		bool 			wouldTerminateDevice = false;
+		OSIterator *	childIterator;
+		
+		//
+		// check if we would terminate a device if the prune timer ran right now
+		//
+		
+		childIterator = getClientIterator();
+		if( childIterator ) 
+		{
+			OSObject *child;
+			while( (child = childIterator->getNextObject())) 
+			{
+				IOFireWireDevice * found = OSDynamicCast(IOFireWireDevice, child);
+				if( found && !found->isInactive() && found->fNodeID == kFWBadNodeID ) 
+				{
+					wouldTerminateDevice = true;
+				}
+			}
+			childIterator->release();
+		}
+		
+		//
+		// if we found all of our devices, set the prune delay to normal
+		//
+		
+		if( !wouldTerminateDevice )
+		{
+			fDevicePruneDelay = kNormalDevicePruneDelay;
+		}
+		
         fBusState = kWaitingPrune; 	// Indicate end of bus scan
-        fDelayedStateChangeCmd->reinit(1000 * kDevicePruneDelay, delayedStateChange, NULL); // One second
+        fDelayedStateChangeCmd->reinit(1000 * fDevicePruneDelay, delayedStateChange, NULL); // One second
         fDelayedStateChangeCmd->submit();
     }
 
@@ -1587,6 +1685,9 @@ void IOFireWireController::buildTopology(bool doFWPlane)
 void IOFireWireController::updatePlane()
 {
     OSIterator *childIterator;
+		
+	fDevicePruneDelay = kNormalDevicePruneDelay;
+
     childIterator = getClientIterator();
     if( childIterator) {
         OSObject *child;
@@ -2610,6 +2711,10 @@ bool IOFireWireController::isQuadRequest(IOFWRequestRefCon refcon)
     return ((UInt32)refcon) & kRequestIsQuad;
 }
 
+bool IOFireWireController::isCompleteRequest(IOFWRequestRefCon refcon)
+{
+    return ((UInt32)refcon) & kRequestIsComplete;
+}
 UInt32 IOFireWireController::getExtendedTCode(IOFWRequestRefCon refcon)
 {
     return((UInt32)refcon & kRequestExtTCodeMask) >> kRequestExtTCodeShift;

@@ -624,6 +624,7 @@ static void deviceArrived(void *refcon, io_iterator_t iterator )
             }
         }
         if(!refound) {
+            CFBooleanRef hasFCP;
             device = dvThread->fNumDevices;
             dvThread->fNumDevices++;
             dev = &dvThread->fDevices[device];
@@ -632,6 +633,11 @@ static void deviceArrived(void *refcon, io_iterator_t iterator )
                 dev->fName[0] = 0;
                 CFStringGetCString(strDesc, dev->fName, sizeof(dev->fName), kCFStringEncodingMacRoman);
             }
+            hasFCP = (CFBooleanRef)CFDictionaryGetValue(properties, CFSTR("supportsFCP"));
+            dev->fSupportsFCP = true;
+            if(hasFCP)
+                dev->fSupportsFCP = CFBooleanGetValue(hasFCP);
+
             dev->fGUID = GUID;
             dev->fMaxSpeed = kFWSpeed100MBit;
             dev->fWriteChan = kWriteChannel;
@@ -656,25 +662,29 @@ static void deviceArrived(void *refcon, io_iterator_t iterator )
             // Assume NTSC, standard DV if device doesn't support AVC.
             dev->fDVFormats = 1 << kIDHDV_SD;	// Standard DV
             dev->standard = ntscIn; 			// device standard - NTSC/PAL
-            err = getSignalMode(dev->fAVCInterface, &mode);
-            if(err == kIOReturnSuccess) {
-                if(mode & kAVCSignalModeMask_50)
-                    dev->standard = palIn; 
-                stype = mode & kAVCSignalModeMask_STYPE;
-                if(stype == kAVCSignalModeMask_DVCPro25) {
-                    dev->fDVFormats |= 1 << kIDHDVCPro_25;
-                }
-                else {
-                    // Ask device via vender-dependent command if it's a DVCPro device.
-                    if(isDVCPro(dev->fAVCInterface))
+            
+            
+            if(dev->fSupportsFCP) {
+                err = getSignalMode(dev->fAVCInterface, &mode);
+                if(err == kIOReturnSuccess) {
+                    if(mode & kAVCSignalModeMask_50)
+                        dev->standard = palIn; 
+                    stype = mode & kAVCSignalModeMask_STYPE;
+                    if(stype == kAVCSignalModeMask_DVCPro25) {
                         dev->fDVFormats |= 1 << kIDHDVCPro_25;
-                }
-                if(stype == kAVCSignalModeMask_SDL)
-                    dev->fDVFormats |= 1 << kIDHDV_SDL;
-                else {
-                    // Ask camera if it's SDL.
-                    if(isSDL(dev->fAVCInterface, mode))
+                    }
+                    else {
+                        // Ask device via vender-dependent command if it's a DVCPro device.
+                        if(isDVCPro(dev->fAVCInterface))
+                            dev->fDVFormats |= 1 << kIDHDVCPro_25;
+                    }
+                    if(stype == kAVCSignalModeMask_SDL)
                         dev->fDVFormats |= 1 << kIDHDV_SDL;
+                    else {
+                        // Ask camera if it's SDL.
+                        if(isSDL(dev->fAVCInterface, mode))
+                            dev->fDVFormats |= 1 << kIDHDV_SDL;
+                    }
                 }
             }
             // Notify client

@@ -7,32 +7,33 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = AppleUSBProKbd ;
+export deferred SRCROOT = /var/tmp/AppleUSBProKeyboard ;
 
 # User-defined project-wide settings for project
 
 # Target "AppleUSBProKeyboard"
 
-export deferred _INFO_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/Info.plist" ;
-export deferred _PKGINFO_FILE_PATH = "$(SRCROOT)/pbxbuild.data/PkgInfo" ;
-export deferred _PBDEVELOPMENT_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/pbdevelopment.plist" ;
+export deferred _INFO_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/AppleUSBProKeyboard.build/Info.plist" ;
+export deferred _PKGINFO_FILE_PATH = "$(SRCROOT)/pbxbuild.data/AppleUSBProKeyboard.build/PkgInfo" ;
+export deferred _PBDEVELOPMENT_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/AppleUSBProKeyboard.build/pbdevelopment.plist" ;
 
 # Implicitly computed build settings for target "AppleUSBProKeyboard"
 export deferred CLONE_HEADERS = NO ;
+export deferred PFE_FILE_C_DIALECTS = "c++" ;
 export deferred TARGETNAME = $(TARGET_NAME) ;
 export deferred TARGET_NAME = AppleUSBProKeyboard ;
 
 # User-defined build settings for target "AppleUSBProKeyboard"
-export deferred FRAMEWORK_SEARCH_PATHS =  ;
-export deferred HEADER_SEARCH_PATHS =  ;
+export deferred INSTALL_GROUP = wheel ;
+export deferred INSTALL_MODE_FLAG = a-w,u+w,a+rX ;
+export deferred INSTALL_OWNER = root ;
 export deferred INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions" ;
 export deferred KERNEL_MODULE = YES ;
-export deferred LIBRARY_SEARCH_PATHS =  ;
 export deferred MODULE_IOKIT = YES ;
 export deferred MODULE_NAME = com.apple.driver.AppleUSBProKeyboard ;
-export deferred MODULE_VERSION = 2.0.0d1 ;
-export deferred OTHER_CFLAGS =  ;
+export deferred MODULE_VERSION = 2.0.2 ;
+export deferred OTHER_CFLAGS = -W -Wall -Wno-unused ;
 export deferred OTHER_LDFLAGS =  ;
-export deferred OTHER_REZFLAGS =  ;
 export deferred PRODUCT_NAME = AppleUSBProKeyboard ;
 export deferred SECTORDER_FLAGS =  ;
 export deferred WARNING_CFLAGS = -Wmost -Wno-four-char-constants -Wno-unknown-pragmas ;
@@ -48,13 +49,14 @@ if "$(BUILD_STYLE)" = Deployment {
 }
 
 
+ConditionalDefinitions _ ;
 commitdeferred ;
 
 
 BeginBundle "<AppleUSBProKeyboard>AppleUSBProKeyboard.kext" ;
 
 # Script Build Phase Files
-SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/BPTag000-script.sh" ;
+SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/AppleUSBProKeyboard.build/BPTag000-script.sh" ;
 ProcessScriptBuildPhaseFiles "<AppleUSBProKeyboard>AppleUSBProKeyboard.kext" : "$(SCRIPT_BUILD_PHASE_FILES)" : "" : BPTag000 ;
 
 # Headers
@@ -80,7 +82,7 @@ REZ_FILES = ;
 ProcessRezFiles "<AppleUSBProKeyboard>AppleUSBProKeyboard.kext" : "$(REZ_FILES)" : BPTag004 : BPTag005 ;
 
 # Script Build Phase Files
-SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/BPTag006-script.sh" ;
+SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/AppleUSBProKeyboard.build/BPTag006-script.sh" ;
 ProcessScriptBuildPhaseFiles "<AppleUSBProKeyboard>AppleUSBProKeyboard.kext" : "$(SCRIPT_BUILD_PHASE_FILES)" : BPTag005 : BPTag006 ;
 
 EndBundle "<AppleUSBProKeyboard>AppleUSBProKeyboard.kext" ;

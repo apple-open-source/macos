@@ -290,38 +290,56 @@ IOUSBDeviceUserClient::start( IOService * provider )
 {
     IOWorkLoop	*wl;
     
+    IncrementOutstandingIO();		// make sure we don't close until start is done
+
     fOwner = OSDynamicCast(IOUSBDevice, provider);
 
     if (!fOwner)
-	return false;
+    {
+ 	USBError(1, "%s[%p]::start - provider is NULL!", getName(), this);
+	goto ErrorExit;
+    }
     
     if(!super::start(provider))
-        return false;
-
+    {
+ 	USBError(1, "%s[%p]::start - super::start returned false!", getName(), this);
+        goto ErrorExit;
+    }
+    
     fGate = IOCommandGate::commandGate(this);
 
     if(!fGate)
     {
 	USBError(1, "%s[%p]::start - unable to create command gate", getName(), this);
-	return false;
+	goto ErrorExit;
     }
 
     wl = getWorkLoop();
     if (!wl)
     {
 	USBError(1, "%s[%p]::start - unable to find my workloop", getName(), this);
-	fGate->release();
-	return false;
+	goto ErrorExit;
     }
     
     if (wl->addEventSource(fGate) != kIOReturnSuccess)
     {
 	USBError(1, "%s[%p]::start - unable to add gate to work loop", getName(), this);
-	fGate->release();
-	return false;
+	goto ErrorExit;
     }
 
+    DecrementOutstandingIO();
     return true;
+    
+ErrorExit:
+    
+    if ( fGate != NULL )
+    {
+        fGate->release();
+        fGate = NULL;
+    }
+        
+    DecrementOutstandingIO();
+    return false;
 }
 
 

@@ -281,7 +281,7 @@ public:
 	UInt32		txCommandHead;  			// TX ring descriptor index
 	UInt32		txCommandTail;
 	UInt32		rxCommandHead;				// RX ring descriptor index
-	UInt32		rxCommandTail;
+	UInt32		rxCommandTail;				/// rxCommandTail is not used anywhere
 
 	TxDescriptor	*fTxDescriptorRing; 	// TX descriptor ring ptr
 	UInt32			fTxDescriptorRingPhys;

@@ -121,7 +121,7 @@
 			);
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 53;
+				DYLIB_CURRENT_VERSION = 54.1;
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				HEADER_SEARCH_PATHS = "\"$(BUILT_PRODUCTS_DIR)/BSafe.framework/Headers\" \"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/BSafe.framework/Headers\" \"$(SRCROOT)/AppleCSP\" \"$(SRCROOT)/AppleCSP/open_ssl\"";
 				LIBRARY_STYLE = STATIC;
@@ -388,7 +388,7 @@
 			);
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 53;
+				DYLIB_CURRENT_VERSION = 54.1;
 				LIBRARY_STYLE = STATIC;
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
 				OTHER_CFLAGS = "-DVDADER_RULES";
@@ -463,7 +463,7 @@
 			);
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 53;
+				DYLIB_CURRENT_VERSION = 54.1;
 				LIBRARY_STYLE = STATIC;
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
 				OTHER_CFLAGS = "";
@@ -520,7 +520,7 @@
 			);
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 53;
+				DYLIB_CURRENT_VERSION = 54.1;
 				LIBRARY_STYLE = STATIC;
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
 				OTHER_CFLAGS = "-DVDADER_RULES";
@@ -599,7 +599,7 @@
 			);
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 53;
+				DYLIB_CURRENT_VERSION = 54.1;
 				LIBRARY_STYLE = STATIC;
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
 				OTHER_CFLAGS = "-DVDADER_RULES";
@@ -7560,7 +7560,7 @@
 				01FA8900FFF2BC5611CD283A,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 53;
+				CURRENT_PROJECT_VERSION = 54.1;
 				INSTALL_PATH = "$(SYSTEM_CORE_SERVICES_DIR)";
 				LIBRARY_SEARCH_PATHS = "";
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
@@ -7673,7 +7673,7 @@
 				01FA890AFFF2BCA811CD283A,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 53;
+				CURRENT_PROJECT_VERSION = 54.1;
 				INSTALL_PATH = "$(SYSTEM_CORE_SERVICES_DIR)";
 				LIBRARY_SEARCH_PATHS = "";
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
@@ -8019,7 +8019,7 @@
 			);
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 53;
+				DYLIB_CURRENT_VERSION = 54.1;
 				INSTALL_PATH = /usr/local/lib;
 				LIBRARY_STYLE = STATIC;
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
@@ -9330,9 +9330,9 @@
 				F5DDE3AE00B3358F01CD283A,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 53;
+				CURRENT_PROJECT_VERSION = 54.1;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 53;
+				DYLIB_CURRENT_VERSION = 54.1;
 				FRAMEWORK_SEARCH_PATHS = "";
 				FRAMEWORK_VERSION = A;
 				HEADER_SEARCH_PATHS = "\"$(SRCROOT)\" \"$(BUILT_PRODUCTS_DIR)/derived_src\"";
@@ -9379,11 +9379,11 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1</string>
+	<string>1.1.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>53</string>
+	<string>54.1</string>
 </dict>
 </plist>
 ";
@@ -10479,7 +10479,7 @@
 			);
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 53;
+				DYLIB_CURRENT_VERSION = 54.1;
 				HEADER_SEARCH_PATHS = "\"$(BUILT_PRODUCTS_DIR)/include\"";
 				INSTALL_PATH = /usr/local/lib;
 				LIBRARY_STYLE = STATIC;
@@ -12245,7 +12245,7 @@
 				325EAA2800D6B08805CD296C,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 53;
+				CURRENT_PROJECT_VERSION = 54.1;
 				LIBRARY_SEARCH_PATHS = "";
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
 				OTHER_CFLAGS = "";
@@ -12285,11 +12285,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1</string>
+	<string>1.1.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>53</string>
+	<string>54.1</string>
 </dict>
 </plist>
 ";
@@ -12794,7 +12794,7 @@
 				3290382100D6BA5905CD296C,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 53;
+				CURRENT_PROJECT_VERSION = 54.1;
 				LIBRARY_SEARCH_PATHS = "";
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
 				OTHER_CFLAGS = "";
@@ -12835,11 +12835,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1</string>
+	<string>1.1.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>53</string>
+	<string>54.1</string>
 </dict>
 </plist>
 ";
@@ -12899,7 +12899,7 @@
 				3290382700D6BA5905CD296C,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 53;
+				CURRENT_PROJECT_VERSION = 54.1;
 				LIBRARY_SEARCH_PATHS = "";
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
 				OTHER_CFLAGS = "";
@@ -12940,11 +12940,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1</string>
+	<string>1.1.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>53</string>
+	<string>54.1</string>
 </dict>
 </plist>
 ";
@@ -12992,7 +12992,7 @@
 				3290382D00D6BA5905CD296C,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 53;
+				CURRENT_PROJECT_VERSION = 54.1;
 				LIBRARY_SEARCH_PATHS = "";
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
 				OTHER_CFLAGS = "";
@@ -13033,11 +13033,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1</string>
+	<string>1.1.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>53</string>
+	<string>54.1</string>
 </dict>
 </plist>
 ";
@@ -13085,7 +13085,7 @@
 				3290383300D6BA5905CD296C,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 53;
+				CURRENT_PROJECT_VERSION = 54.1;
 				LIBRARY_SEARCH_PATHS = "";
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
 				OTHER_LDFLAGS = "-bundle -undefined error";
@@ -13124,11 +13124,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1</string>
+	<string>1.1.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>53</string>
+	<string>54.1</string>
 </dict>
 </plist>
 ";

@@ -227,6 +227,14 @@ AppleUSBComposite::ReConfigureDevice()
     request.pData = 0;
     err = _device->DeviceRequest(&request, 5000, 0);
     
+    // Set the remote wakeup feature if it's supported
+    //
+    if (cd->bmAttributes & kUSBAtrRemoteWakeup)
+    {
+        USBLog(3,"%s[%p]::ReConfigureDevice Setting kUSBFeatureDeviceRemoteWakeup for device: %s", getName(), this, _device->getName());
+        _device->SetFeature(kUSBFeatureDeviceRemoteWakeup);
+    }
+
     if (err)
     {
         USBLog(3, "%s[%p]::ReConfigureDevice.  SET_CONFIG returned 0x%x",getName(), this, err);

@@ -1,0 +1,224 @@
+#!/bin/sh
+# Removal script for Common UNIX Printing System version 1.1.15.
+# Produced using ESP Package Manager v3.5.0; report problems to epm@easysw.com.
+#%product Common UNIX Printing System
+#%vendor Easy Software Products
+#%copyright 1993-2002 by Easy Software Products, All Rights Reserved.
+#%version 1.1.15 1011500
+#%rootsize 49
+#%usrsize 5302
+#
+PATH=/usr/xpg4/bin:/bin:/usr/bin:/usr/ucb:${PATH}
+SHELL=/bin/sh
+if test "`id -u`" -ne 0; then
+	echo Sorry, you must be root to remove this software.
+	exit 1
+fi
+echo 'Copyright 1993-2002 by Easy Software Products, All Rights Reserved.'
+# Reset umask for remove...
+umask 002
+# Determine correct echo options...
+if (echo "testing\c"; echo 1,2,3) | grep c >/dev/null; then
+	ac_n=-n
+	ac_c=
+else
+	ac_n=
+	ac_c='\c'
+fi
+# Determine correct extract options for the tar command...
+if test `uname` = Darwin; then
+	ac_tar="tar -xpPf"
+else if test "`tar --help 2>&1 | grep GNU`" = ""; then
+	ac_tar="tar -xpf"
+else
+	ac_tar="tar -xpPf"
+fi fi
+if test ! "$*" = "now"; then
+	echo ""
+	echo This removal script will remove the 'Common UNIX Printing System'
+	echo software version '1.1.15' from your system.
+	echo ""
+	while true ; do
+		echo $ac_n "Do you wish to continue? $ac_c"
+		read yesno
+		case "$yesno" in
+			y | yes | Y | Yes | YES)
+			break
+			;;
+			n | no | N | No | NO)
+			exit 1
+			;;
+			*)
+			echo Please enter yes or no.
+			;;
+		esac
+	done
+fi
+/etc/software/init.d/cups stop
+echo Cleaning up init scripts...
+rcdir=""
+for dir in /sbin/rc.d /sbin /etc/rc.d /etc ; do
+	if test -d $dir/rc2.d -o -h $dir/rc2.d -o -d $dir/rc3.d -o -h $dir/rc3.d; then
+		rcdir="$dir"
+	fi
+done
+if test "$rcdir" = "" ; then
+	if test -d /usr/local/etc/rc.d; then
+		for file in cups; do
+			rm -f /usr/local/src/rc.d/$file.sh
+		done
+	else
+		echo Unable to determine location of startup scripts!
+	fi
+else
+	for file in cups; do
+		rm -f $rcdir/init.d/$file
+		rm -f $rcdir/rc0.d/K00$file
+		rm -f $rcdir/rc2.d/S99$file
+		rm -f $rcdir/rc3.d/S99$file
+		rm -f $rcdir/rc5.d/S99$file
+		if test -x /etc/chkconfig; then
+			rm -f /etc/config/$file
+		fi
+	done
+fi
+echo Removing/restoring installed files...
+if test -w /usr ; then
+	for file in /usr/bin/cancel /usr/bin/cups-config /usr/bin/disable /usr/bin/enable /usr/bin/lp \
+/usr/bin/lpoptions /usr/bin/lppasswd /usr/bin/lpq /usr/bin/lpr /usr/bin/lprm /usr/bin/lpstat \
+/usr/include/cups/cups.h /usr/include/cups/http.h /usr/include/cups/image.h /usr/include/cups/ipp.h \
+/usr/include/cups/language.h /usr/include/cups/md5.h /usr/include/cups/ppd.h /usr/include/cups/raster.h \
+/usr/lib/accept /usr/lib/libcups.2.dylib /usr/lib/libcups.a /usr/lib/libcups.dylib \
+/usr/lib/libcupsimage.2.dylib /usr/lib/libcupsimage.dylib /usr/lib/lpadmin /usr/lib/reject \
+/usr/libexec/cups/backend/http /usr/libexec/cups/backend/ipp /usr/libexec/cups/backend/lpd \
+/usr/libexec/cups/backend/socket /usr/libexec/cups/cgi-bin/admin.cgi /usr/libexec/cups/cgi-bin/classes.cgi \
+/usr/libexec/cups/cgi-bin/jobs.cgi /usr/libexec/cups/cgi-bin/printers.cgi /usr/libexec/cups/daemon/cups-lpd \
+/usr/libexec/cups/daemon/cups-polld /usr/libexec/cups/filter/hpgltops /usr/libexec/cups/filter/imagetops \
+/usr/libexec/cups/filter/imagetoraster /usr/libexec/cups/filter/pstops /usr/libexec/cups/filter/rastertodymo \
+/usr/libexec/cups/filter/rastertoepson /usr/libexec/cups/filter/rastertohp /usr/libexec/cups/filter/texttops \
+/usr/sbin/accept /usr/sbin/cupsaddsmb /usr/sbin/cupsd /usr/sbin/lpadmin /usr/sbin/lpc \
+/usr/sbin/lpinfo /usr/sbin/lpmove /usr/sbin/reject /usr/share/cups/banners/classified \
+/usr/share/cups/banners/confidential /usr/share/cups/banners/secret /usr/share/cups/banners/standard \
+/usr/share/cups/banners/topsecret /usr/share/cups/banners/unclassified /usr/share/cups/charsets/iso-8859-1 \
+/usr/share/cups/charsets/iso-8859-10 /usr/share/cups/charsets/iso-8859-13 /usr/share/cups/charsets/iso-8859-14 \
+/usr/share/cups/charsets/iso-8859-15 /usr/share/cups/charsets/iso-8859-2 /usr/share/cups/charsets/iso-8859-3 \
+/usr/share/cups/charsets/iso-8859-4 /usr/share/cups/charsets/iso-8859-5 /usr/share/cups/charsets/iso-8859-6 \
+/usr/share/cups/charsets/iso-8859-7 /usr/share/cups/charsets/iso-8859-8 /usr/share/cups/charsets/iso-8859-9 \
+/usr/share/cups/charsets/utf-8 /usr/share/cups/charsets/windows-1250 /usr/share/cups/charsets/windows-1251 \
+/usr/share/cups/charsets/windows-1252 /usr/share/cups/charsets/windows-1253 /usr/share/cups/charsets/windows-1254 \
+/usr/share/cups/charsets/windows-1255 /usr/share/cups/charsets/windows-1256 /usr/share/cups/charsets/windows-1257 \
+/usr/share/cups/charsets/windows-1258 /usr/share/cups/charsets/windows-874 /usr/share/cups/data/HPGLprolog \
+/usr/share/cups/data/psglyphs /usr/share/cups/data/testprint.ps /usr/share/cups/fonts/Courier \
+/usr/share/cups/fonts/Courier-Bold /usr/share/cups/fonts/Courier-BoldOblique /usr/share/cups/fonts/Courier-Oblique \
+/usr/share/cups/fonts/Symbol /usr/share/cups/model/deskjet.ppd /usr/share/cups/model/deskjet2.ppd \
+/usr/share/cups/model/dymo.ppd /usr/share/cups/model/epson24.ppd /usr/share/cups/model/epson9.ppd \
+/usr/share/cups/model/laserjet.ppd /usr/share/cups/model/okidat24.ppd /usr/share/cups/model/okidata9.ppd \
+/usr/share/cups/model/stcolor.ppd /usr/share/cups/model/stcolor2.ppd /usr/share/cups/model/stphoto.ppd \
+/usr/share/cups/model/stphoto2.ppd /usr/share/doc/cups/cmp.html /usr/share/doc/cups/cmp.pdf \
+/usr/share/doc/cups/cups.css /usr/share/doc/cups/cupsdoc.css /usr/share/doc/cups/documentation.html \
+/usr/share/doc/cups/idd.html /usr/share/doc/cups/idd.pdf /usr/share/doc/cups/images/accept-jobs.gif \
+/usr/share/doc/cups/images/add-class.gif /usr/share/doc/cups/images/add-printer.gif \
+/usr/share/doc/cups/images/cancel-job.gif /usr/share/doc/cups/images/cancel-jobs.gif \
+/usr/share/doc/cups/images/cancel.gif /usr/share/doc/cups/images/classes.gif /usr/share/doc/cups/images/config-printer.gif \
+/usr/share/doc/cups/images/continue.gif /usr/share/doc/cups/images/cups-bar.gif /usr/share/doc/cups/images/cups-block-diagram.gif \
+/usr/share/doc/cups/images/cups-large.gif /usr/share/doc/cups/images/cups-medium.gif \
+/usr/share/doc/cups/images/cups-small.gif /usr/share/doc/cups/images/delete-class.gif \
+/usr/share/doc/cups/images/delete-printer.gif /usr/share/doc/cups/images/draft.gif \
+/usr/share/doc/cups/images/hold-job.gif /usr/share/doc/cups/images/left.gif /usr/share/doc/cups/images/logo.gif \
+/usr/share/doc/cups/images/manage-classes.gif /usr/share/doc/cups/images/manage-jobs.gif \
+/usr/share/doc/cups/images/manage-printers.gif /usr/share/doc/cups/images/modify-class.gif \
+/usr/share/doc/cups/images/modify-printer.gif /usr/share/doc/cups/images/navbar.gif \
+/usr/share/doc/cups/images/print-test-page.gif /usr/share/doc/cups/images/printer-idle.gif \
+/usr/share/doc/cups/images/printer-processing.gif /usr/share/doc/cups/images/printer-stopped.gif \
+/usr/share/doc/cups/images/reject-jobs.gif /usr/share/doc/cups/images/release-job.gif \
+/usr/share/doc/cups/images/restart-job.gif /usr/share/doc/cups/images/right.gif /usr/share/doc/cups/images/show-active.gif \
+/usr/share/doc/cups/images/show-completed.gif /usr/share/doc/cups/images/start-class.gif \
+/usr/share/doc/cups/images/start-printer.gif /usr/share/doc/cups/images/stop-class.gif \
+/usr/share/doc/cups/images/stop-printer.gif /usr/share/doc/cups/index.html /usr/share/doc/cups/ipp.html \
+/usr/share/doc/cups/ipp.pdf /usr/share/doc/cups/overview.html /usr/share/doc/cups/overview.pdf \
+/usr/share/doc/cups/sam.html /usr/share/doc/cups/sam.pdf /usr/share/doc/cups/sdd.html \
+/usr/share/doc/cups/sdd.pdf /usr/share/doc/cups/spm.html /usr/share/doc/cups/spm.pdf \
+/usr/share/doc/cups/sps.html /usr/share/doc/cups/sps.pdf /usr/share/doc/cups/ssr.html \
+/usr/share/doc/cups/ssr.pdf /usr/share/doc/cups/stp.html /usr/share/doc/cups/stp.pdf \
+/usr/share/doc/cups/sum.html /usr/share/doc/cups/sum.pdf /usr/share/doc/cups/svd.html \
+/usr/share/doc/cups/svd.pdf /usr/share/doc/cups/translation.html /usr/share/doc/cups/translation.pdf \
+/usr/share/locale/C/cups_C /usr/share/locale/be/cups_be /usr/share/locale/cs/cups_cs \
+/usr/share/locale/de/cups_de /usr/share/locale/en/cups_en /usr/share/locale/es/cups_es \
+/usr/share/locale/fr/cups_fr /usr/share/locale/it/cups_it /usr/share/locale/ru_RU.cp1251/cups_ru_RU.cp1251 \
+/usr/share/locale/ru_RU.koi8r/cups_ru_RU.koi8r /usr/share/locale/sv/cups_sv /usr/share/locale/uk/cups_uk \
+/usr/share/locale/uk_UA.cp1251/cups_uk_UA.cp1251 /usr/share/locale/zh_CN/cups_zh_CN \
+/usr/share/man/cat1/backend.0 /usr/share/man/cat1/cancel.0 /usr/share/man/cat1/filter.0 \
+/usr/share/man/cat1/lp.0 /usr/share/man/cat1/lpoptions.0 /usr/share/man/cat1/lppasswd.0 \
+/usr/share/man/cat1/lpq.0 /usr/share/man/cat1/lpr.0 /usr/share/man/cat1/lprm.0 /usr/share/man/cat1/lpstat.0 \
+/usr/share/man/cat3/cups-config.0 /usr/share/man/cat5/classes.conf.0 /usr/share/man/cat5/cupsd.conf.0 \
+/usr/share/man/cat5/mime.convs.0 /usr/share/man/cat5/mime.types.0 /usr/share/man/cat5/printers.conf.0 \
+/usr/share/man/cat8/accept.0 /usr/share/man/cat8/cups-lpd.0 /usr/share/man/cat8/cups-polld.0 \
+/usr/share/man/cat8/cupsaddsmb.0 /usr/share/man/cat8/cupsd.0 /usr/share/man/cat8/disable.0 \
+/usr/share/man/cat8/enable.0 /usr/share/man/cat8/lpadmin.0 /usr/share/man/cat8/lpc.0 \
+/usr/share/man/cat8/lpinfo.0 /usr/share/man/cat8/lpmove.0 /usr/share/man/cat8/reject.0 \
+/usr/share/man/fr/cat1/backend.0 /usr/share/man/fr/cat1/cancel.0 /usr/share/man/fr/cat1/filter.0 \
+/usr/share/man/fr/cat1/lp.0 /usr/share/man/fr/cat1/lpoptions.0 /usr/share/man/fr/cat1/lppasswd.0 \
+/usr/share/man/fr/cat1/lpq.0 /usr/share/man/fr/cat1/lpr.0 /usr/share/man/fr/cat1/lprm.0 \
+/usr/share/man/fr/cat1/lpstat.0 /usr/share/man/fr/cat3/cups-config.0 /usr/share/man/fr/cat5/classes.conf.0 \
+/usr/share/man/fr/cat5/cupsd.conf.0 /usr/share/man/fr/cat5/mime.convs.0 /usr/share/man/fr/cat5/mime.types.0 \
+/usr/share/man/fr/cat5/printers.conf.0 /usr/share/man/fr/cat8/accept.0 /usr/share/man/fr/cat8/cups-lpd.0 \
+/usr/share/man/fr/cat8/cups-polld.0 /usr/share/man/fr/cat8/cupsaddsmb.0 /usr/share/man/fr/cat8/cupsd.0 \
+/usr/share/man/fr/cat8/disable.0 /usr/share/man/fr/cat8/enable.0 /usr/share/man/fr/cat8/lpadmin.0 \
+/usr/share/man/fr/cat8/lpc.0 /usr/share/man/fr/cat8/lpinfo.0 /usr/share/man/fr/cat8/lpmove.0 \
+/usr/share/man/fr/cat8/reject.0 /usr/share/man/fr/man1/backend. /usr/share/man/fr/man1/cancel. \
+/usr/share/man/fr/man1/filter. /usr/share/man/fr/man1/lp. /usr/share/man/fr/man1/lpoptions. \
+/usr/share/man/fr/man1/lppasswd. /usr/share/man/fr/man1/lpq. /usr/share/man/fr/man1/lpr. \
+/usr/share/man/fr/man1/lprm. /usr/share/man/fr/man1/lpstat. /usr/share/man/fr/man3/cups-config. \
+/usr/share/man/fr/man5/classes.conf. /usr/share/man/fr/man5/cupsd.conf. /usr/share/man/fr/man5/mime.convs. \
+/usr/share/man/fr/man5/mime.types. /usr/share/man/fr/man5/printers.conf. /usr/share/man/fr/man8/accept.8 \
+/usr/share/man/fr/man8/cups-lpd.8 /usr/share/man/fr/man8/cups-polld.8 /usr/share/man/fr/man8/cupsaddsmb.8 \
+/usr/share/man/fr/man8/cupsd.8 /usr/share/man/fr/man8/disable.8 /usr/share/man/fr/man8/enable.8 \
+/usr/share/man/fr/man8/lpadmin.8 /usr/share/man/fr/man8/lpc.8 /usr/share/man/fr/man8/lpinfo.8 \
+/usr/share/man/fr/man8/lpmove.8 /usr/share/man/fr/man8/reject.8 /usr/share/man/man1/backend. \
+/usr/share/man/man1/cancel. /usr/share/man/man1/filter. /usr/share/man/man1/lp. /usr/share/man/man1/lpoptions. \
+/usr/share/man/man1/lppasswd. /usr/share/man/man1/lpq. /usr/share/man/man1/lpr. /usr/share/man/man1/lprm. \
+/usr/share/man/man1/lpstat. /usr/share/man/man3/cups-config. /usr/share/man/man5/classes.conf. \
+/usr/share/man/man5/cupsd.conf. /usr/share/man/man5/mime.convs. /usr/share/man/man5/mime.types. \
+/usr/share/man/man5/printers.conf. /usr/share/man/man8/accept.8 /usr/share/man/man8/cups-lpd.8 \
+/usr/share/man/man8/cups-polld.8 /usr/share/man/man8/cupsaddsmb.8 /usr/share/man/man8/cupsd.8 \
+/usr/share/man/man8/disable.8 /usr/share/man/man8/enable.8 /usr/share/man/man8/lpadmin.8 \
+/usr/share/man/man8/lpc.8 /usr/share/man/man8/lpinfo.8 /usr/share/man/man8/lpmove.8 \
+/usr/share/man/man8/reject.8; do
+		rm -f $file
+		if test -d $file.O -o -f $file.O -o -h $file.O; then
+			mv -f $file.O $file
+		fi
+	done
+fi
+echo Checking configuration files...
+for file in /private/etc/cups/classes.conf /private/etc/cups/client.conf /private/etc/cups/cupsd.conf \
+/private/etc/cups/mime.convs /private/etc/cups/mime.types /private/etc/cups/printers.conf \
+/usr/share/cups/templates/add-class.tmpl /usr/share/cups/templates/add-printer.tmpl \
+/usr/share/cups/templates/admin-op.tmpl /usr/share/cups/templates/admin.tmpl /usr/share/cups/templates/choose-device.tmpl \
+/usr/share/cups/templates/choose-make.tmpl /usr/share/cups/templates/choose-members.tmpl \
+/usr/share/cups/templates/choose-model.tmpl /usr/share/cups/templates/choose-serial.tmpl \
+/usr/share/cups/templates/choose-uri.tmpl /usr/share/cups/templates/class-added.tmpl \
+/usr/share/cups/templates/class-confirm.tmpl /usr/share/cups/templates/class-deleted.tmpl \
+/usr/share/cups/templates/class-modified.tmpl /usr/share/cups/templates/classes.tmpl \
+/usr/share/cups/templates/config-printer.tmpl /usr/share/cups/templates/config-printer2.tmpl \
+/usr/share/cups/templates/error.tmpl /usr/share/cups/templates/header.tmpl /usr/share/cups/templates/job-cancel.tmpl \
+/usr/share/cups/templates/job-hold.tmpl /usr/share/cups/templates/job-op.tmpl /usr/share/cups/templates/job-release.tmpl \
+/usr/share/cups/templates/job-restart.tmpl /usr/share/cups/templates/jobs.tmpl /usr/share/cups/templates/modify-class.tmpl \
+/usr/share/cups/templates/modify-printer.tmpl /usr/share/cups/templates/option-boolean.tmpl \
+/usr/share/cups/templates/option-header.tmpl /usr/share/cups/templates/option-pickmany.tmpl \
+/usr/share/cups/templates/option-pickone.tmpl /usr/share/cups/templates/option-trailer.tmpl \
+/usr/share/cups/templates/printer-accept.tmpl /usr/share/cups/templates/printer-added.tmpl \
+/usr/share/cups/templates/printer-configured.tmpl /usr/share/cups/templates/printer-confirm.tmpl \
+/usr/share/cups/templates/printer-deleted.tmpl /usr/share/cups/templates/printer-modified.tmpl \
+/usr/share/cups/templates/printer-purge.tmpl /usr/share/cups/templates/printer-reject.tmpl \
+/usr/share/cups/templates/printer-start.tmpl /usr/share/cups/templates/printer-stop.tmpl \
+/usr/share/cups/templates/printers.tmpl /usr/share/cups/templates/test-page.tmpl \
+/usr/share/cups/templates/trailer.tmpl; do
+	if cmp -s $file $file.N; then
+		# Config file not changed
+		rm -f $file
+	fi
+	rm -f $file.N
+done
+rm -f /etc/software/cups.remove
+echo Removal is complete.

@@ -67,13 +67,20 @@ AppleUSBOHCI::CreateGeneralTransfer(
 
     // Handy for debugging transfer lists
     flags |= (kOHCIGTDConditionNotAccessed << kOHCIGTDControl_CCPhase);
-    altFlags = flags & ~kOHCIGTDControl_R;			// clear bufferRounding for all but the last TD
+    
+    // Clear bufferRounding for all but the last TD
+    altFlags = flags & ~kOHCIGTDControl_R;			
+    
+    // Set the DI bits (Delay Interrupt) to 111b on all but the last TD
+    // (this means that only the last TD will generate an interrupt)
+    //
+    altFlags |= ( 0x7 << kOHCIGTDControl_DIPhase );
 
-// FERG DEBUG
-// uncomment the next line to force the data to be put in TD list, but not be processed
-// this is handy for using USBProber/Macsbug to look at TD's to see if they're OK.
-// pEDQueue->dWord0 |= HostToUSBLong(kOHCIEDControl_K);
-// FERG DEBUG
+    // FERG DEBUG
+    // uncomment the next line to force the data to be put in TD list, but not be processed
+    // this is handy for using USBProber/Macsbug to look at TD's to see if they're OK.
+    // pEDQueue->dWord0 |= HostToUSBLong(kOHCIEDControl_K);
+    // FERG DEBUG
 
     // 5-14-02 JRH
     // 2905718
@@ -793,15 +800,16 @@ AppleUSBOHCI::UIMCreateIsochTransfer(
             USBLog(3,"%s[%p]::UIMCreateIsochTransfer Isoch frame too big %d",getName(), this, pFrames[i].frReqCount);
             return kIOReturnBadArgument;
         }
-        bufferSize += pFrames[i].frReqCount;
+        bufferSize += pFrames[i].frReqCount;        
     }
 
-    USBLog(6,"%s[%p]::UIMCreateIsochTransfer transfer %s, buffer: %p, length: %d",getName(), this, (direction == kOHCIEDDirectionIn) ? "in" : "out", pBuffer, bufferSize);
+    USBLog(7,"%s[%p]::UIMCreateIsochTransfer transfer %s, buffer: %p, length: %d",getName(), this, (direction == kOHCIEDDirectionIn) ? "in" : "out", pBuffer, bufferSize);
 
     //
     // go ahead and make sure we can grab at least ONE TD, before we lock the buffer	
     //
     pNewITD = AllocateITD();
+    USBLog(7, "%s[%p]::UIMCreateIsochTransfer - new iTD %p", getName(), this, pNewITD);
     if (pNewITD == NULL)
     {
         USBLog(1,"%s[%p]::UIMCreateIsochTransfer Could not allocate a new iTD",getName(), this);
@@ -869,6 +877,7 @@ AppleUSBOHCI::UIMCreateIsochTransfer(
             OSWriteLittleInt32(&pTailITD->bufferEnd, 0, lastPhysical);
             curFrameInTD = 0;
             pNewITD = AllocateITD();
+            USBLog(7, "%s[%p]::UIMCreateIsochTransfer - new iTD %p", getName(), this, pNewITD);
             if (pNewITD == NULL) 
 	    {
                 status = kIOReturnNoMemory;
@@ -876,7 +885,14 @@ AppleUSBOHCI::UIMCreateIsochTransfer(
             }
             // Handy for debugging transfer lists
             itdFlags |= (kOHCIGTDConditionNotAccessed << kOHCIGTDControl_CCPhase);
+            
+            // Set the DI bits (Delay Interrupt) to 111b on all but the last TD
+            // (this means that only the last TD will generate an interrupt)
+            //
+            itdFlags |= ( 0x7 << kOHCIGTDControl_DIPhase );
+            
             OSWriteLittleInt32(&pTailITD->flags, 0, itdFlags);
+            
             pTailITD->completion.action = NULL;
             pTailITD = pTailITD->pLogicalNext;		// this is the "old" pNewTD
             OSWriteLittleInt32(&pTailITD->nextTD, 0, pNewITD->pPhysical);	// link to the "new" pNewTD
@@ -1908,9 +1924,279 @@ AppleUSBOHCI::UIMCheckForTimeouts(void)
             IOSleep(3);			
             
             _pOHCIRegisters->hcControl =  HostToUSBLong((kOHCIFunctionalState_Operational << kOHCIHcControl_HCFSPhase)
-                                                | kOHCIHcControl_CLE | (_OptiOn ? 0 : kOHCIHcControl_BLE) 
+                                                | kOHCIHcControl_CLE | (_OptiOn ? kOHCIHcControl_Zero : kOHCIHcControl_BLE) 
                                                 | kOHCIHcControl_PLE | kOHCIHcControl_IE);
         }
     }
+
+}
+
+IOReturn 
+AppleUSBOHCI::UIMCreateIsochTransfer(
+            short				functionAddress,
+            short				endpointNumber,
+            IOUSBIsocCompletion			completion,
+            UInt8				direction,
+            UInt64				frameNumberStart,
+            IOMemoryDescriptor *		pBuffer,
+            UInt32				frameCount,
+            IOUSBLowLatencyIsocFrame		*pFrames,
+            UInt32				updateFrequency)
+{
+    IOReturn 				status = kIOReturnSuccess;
+    OHCIIsochTransferDescriptorPtr	pTailITD = NULL;
+    OHCIIsochTransferDescriptorPtr	pNewITD = NULL;
+    OHCIIsochTransferDescriptorPtr	pTempITD = NULL;
+    UInt32				i;
+    UInt32				curFrameInRequest = 0;
+    UInt32				bufferSize = 0;
+    UInt32				pageOffset = 0;
+    UInt32				lastPhysical = 0;
+    OHCIEndpointDescriptorPtr		pED;
+    UInt32				curFrameInTD = 0;
+    UInt16				frameNumber = (UInt16) frameNumberStart;
+    UInt64				curFrameNumber = GetFrameNumber();
+    UInt64				frameDiff;
+    UInt64				maxOffset = (UInt64)(0x00007FF0);
+    UInt32				diff32;
+
+    UInt32				itdFlags = 0;
+    UInt32				numSegs = 0;
+    UInt32				physPageStart = 0;
+    UInt32				physPageEnd = 0;
+    UInt32				pageSelectMask = 0;
+    bool				needNewITD;
+    IOPhysicalSegment			segs[2];
+    UInt32				tdType;
+    IOByteCount				transferOffset;
+    bool				useUpdateFrequency = true;
+    
+    if ( (frameCount == 0) || (frameCount > 1000) )
+    {
+        USBLog(3,"%s[%p]::UIMCreateIsochTransfer(LL) bad frameCount: %d",getName(), this, frameCount);
+        return kIOReturnBadArgument;
+    }
+
+    if (direction == kUSBOut) {
+        direction = kOHCIEDDirectionOut;
+        tdType = kOHCIIsochronousOutLowLatencyType;
+    }
+    else if (direction == kUSBIn) {
+        direction = kOHCIEDDirectionIn;
+        tdType = kOHCIIsochronousInLowLatencyType;
+    }
+    else
+        return kIOReturnInternalError;
+
+    pED = FindIsochronousEndpoint(functionAddress, endpointNumber, direction, NULL);
+
+    if (!pED)
+    {
+        USBLog(3,"%s[%p]::UIMCreateIsochTransfer(LL) endpoint (%d) not found. Returning 0x%x", getName(), this, endpointNumber, kIOUSBEndpointNotFound);
+        return kIOUSBEndpointNotFound;
+    }
+
+    if ( updateFrequency == 0 )
+        useUpdateFrequency = false;
+        
+    if (frameNumberStart <= curFrameNumber)
+    {
+        if (frameNumberStart < (curFrameNumber - maxOffset))
+        {
+            USBLog(3,"%s[%p]::UIMCreateIsochTransfer(LL) request frame WAY too old.  frameNumberStart: %ld, curFrameNumber: %ld.  Returning 0x%x", getName(), this, (UInt32) frameNumberStart, (UInt32) curFrameNumber, kIOReturnIsoTooOld);
+            return kIOReturnIsoTooOld;
+        }
+        USBLog(6,"%s[%p]::UIMCreateIsochTransfer(LL) WARNING! curframe later than requested, expect some notSent errors!  frameNumberStart: %ld, curFrameNumber: %ld.  USBIsocFrame Ptr: %p, First ITD: %p",getName(), this, (UInt32) frameNumberStart, (UInt32) curFrameNumber, pFrames, pED->pLogicalTailP);
+    } else 
+    {	
+        // frameNumberStart > curFrameNumber
+        //
+        if (frameNumberStart > (curFrameNumber + maxOffset))
+        {
+            USBLog(3,"%s[%p]::UIMCreateIsochTransfer(LL) request frame too far ahead!  frameNumberStart: %ld, curFrameNumber: %ld, Returning 0x%x",getName(), this, (UInt32) frameNumberStart, (UInt32) curFrameNumber, kIOReturnIsoTooNew);
+            return kIOReturnIsoTooNew;
+        }
+        
+        // Check to see how far in advance the frame is scheduled
+        frameDiff = frameNumberStart - curFrameNumber;
+        diff32 = (UInt32)frameDiff;
+        if (diff32 < 2)
+        {
+            USBLog(5,"%s[%p]::UIMCreateIsochTransfer(LL) WARNING! - frameNumberStart less than 2 ms (is %ld)!  frameNumberStart: %ld, curFrameNumber: %ld",getName(), this, (UInt32) diff32, (UInt32) frameNumberStart, (UInt32) curFrameNumber);
+        }
+    }
+
+    //
+    //  Get the total size of buffer
+    //
+    for ( i = 0; i< frameCount; i++)
+    {
+        if (pFrames[i].frReqCount > kUSBMaxIsocFrameReqCount)
+        {
+            USBLog(3,"%s[%p]::UIMCreateIsochTransfer(LL) Isoch frame (%d) too big %d",getName(), this, i + 1, pFrames[i].frReqCount);
+            return kIOReturnBadArgument;
+        }
+        bufferSize += pFrames[i].frReqCount;
+        
+        // Make sure our frStatus field has a known value (debugging aid)
+        //
+        pFrames[i].frStatus = (IOReturn) kUSBLowLatencyIsochTransferKey;
+    }
+
+    USBLog(7,"%s[%p]::UIMCreateIsochTransfer(LL) transfer %s, buffer: %p, length: %d frames: %d",getName(), this, (direction == kOHCIEDDirectionIn) ? "in" : "out", pBuffer, bufferSize, frameCount);
+
+    //
+    // go ahead and make sure we can grab at least ONE TD, before we lock the buffer	
+    //
+    pNewITD = AllocateITD();
+    USBLog(7, "%s[%p]::UIMCreateIsochTransfer(LL) - new iTD %p", getName(), this, pNewITD);
+    if (pNewITD == NULL)
+    {
+        USBLog(1,"%s[%p]::UIMCreateIsochTransfer(LL) Could not allocate a new iTD",getName(), this);
+        return kIOReturnNoMemory;
+    }
+
+    if (!bufferSize) 
+    {
+	// Set up suitable dummy info
+        numSegs = 1;
+        segs[0].location = segs[0].length = 0;
+	pageOffset = 0;
+    }
+    
+    pTailITD = (OHCIIsochTransferDescriptorPtr)pED->pLogicalTailP;	// start with the unused TD on the tail of the list
+    OSWriteLittleInt32(&pTailITD->nextTD, 0, pNewITD->pPhysical);	// link in the new ITD
+    pTailITD->pLogicalNext = pNewITD;
+
+    needNewITD = false;
+    transferOffset = 0;
+    while (curFrameInRequest < frameCount) 
+    {
+        // Get physical segments for next frame
+        if (!needNewITD && bufferSize) 
+	{
+            numSegs = _isoCursor->getPhysicalSegments(pBuffer, transferOffset, segs, 2, pFrames[curFrameInRequest].frReqCount);
+            pageOffset = segs[0].location & kOHCIPageOffsetMask;
+            transferOffset += segs[0].length;
+            if(numSegs == 2)
+                transferOffset += segs[1].length;
+        }
+
+        if (curFrameInTD == 0) 
+	{
+            // set up counters which get reinitialized with each TD
+            physPageStart = segs[0].location & kOHCIPageMask;	// for calculating real 13 bit offsets
+            pageSelectMask = 0;					// First frame always starts on first page
+            needNewITD = false;
+
+            // set up the header of the TD - itdFlags will be stored into flags later
+            itdFlags = (UInt16)(curFrameInRequest + frameNumber);
+            pTailITD->pIsocFrame = (IOUSBIsocFrame *) pFrames;		// so we can get back to our info later
+            pTailITD->frameNum = curFrameInRequest;	// our own index into the above array
+            pTailITD->pType = tdType;			// So interrupt handler knows TD type.
+            OSWriteLittleInt32(&pTailITD->bufferPage0, 0,  physPageStart);
+        }
+        else if ((segs[0].location & kOHCIPageMask) != physPageStart) 
+	{
+            // pageSelectMask is set if we've already used our one allowed page cross.
+            if(pageSelectMask && (((segs[0].location & kOHCIPageMask) != physPageEnd) || numSegs == 2)) 
+	    {
+                // Need new ITD for this condition
+                needNewITD = true;
+		USBLog(7, "%s[%p]::UIMCreateIsochTransfer(LL) - got it! (%d, %p, %p, %d)", getName(), this, pageSelectMask, segs[0].location & kOHCIPageMask, physPageEnd, numSegs);
+            }
+	    else
+	    {
+		pageSelectMask = kOHCIPageSize;	// ie. set bit 13
+		physPageEnd = segs[numSegs-1].location & kOHCIPageMask;
+	    }
+        }
+        
+        if ( (curFrameInTD > 7) || needNewITD || (useUpdateFrequency && (curFrameInTD >= updateFrequency)) ) 
+	{
+            // Need to start a new TD
+            //
+            itdFlags |= (curFrameInTD-1) << kOHCIITDControl_FCPhase;
+            OSWriteLittleInt32(&pTailITD->bufferEnd, 0, lastPhysical);
+            pNewITD = AllocateITD();
+            USBLog(7, "%s[%p]::UIMCreateIsochTransfer(LL) - new iTD %p (curFrameInRequest: %d, curFrameInTD: %d, needNewITD: %d, updateFrequency: %d", getName(), this, pNewITD, curFrameInRequest, curFrameInTD, needNewITD, updateFrequency);
+            if (pNewITD == NULL) 
+	    {
+                curFrameInTD = 0;
+                needNewITD = true;	// To simplify test at top of loop.
+                status = kIOReturnNoMemory;
+		break;
+            }
+            // Handy for debugging transfer lists
+            itdFlags |= (kOHCIGTDConditionNotAccessed << kOHCIGTDControl_CCPhase);
+            
+            // Set the DI bits (Delay Interrupt) to 111b on all but the last TD
+            // (this means that only the last TD will generate an interrupt)
+            //
+            if ( !(useUpdateFrequency && (curFrameInTD >= updateFrequency)) )
+            {
+                USBLog(7, "%s[%p]::UIMCreateIsochTransfer(LL) - Seting DI bits to 111b (curFrameInRequest %d)", getName(), this, curFrameInRequest);
+                itdFlags |= ( 0x7 << kOHCIGTDControl_DIPhase );
+            }
+            
+            curFrameInTD = 0;
+            needNewITD = true;	// To simplify test at top of loop.
+
+            OSWriteLittleInt32(&pTailITD->flags, 0, itdFlags);
+            
+            pTailITD->completion.action = NULL;
+            pTailITD = pTailITD->pLogicalNext;		// this is the "old" pNewTD
+            OSWriteLittleInt32(&pTailITD->nextTD, 0, pNewITD->pPhysical);	// link to the "new" pNewTD
+            pTailITD->pLogicalNext = pNewITD;
+            continue;		// start over
+        }
+
+        // At this point we know we have a frame which will fit into the current TD.
+        // calculate the buffer offset for the beginning of this frame
+        //
+        OSWriteLittleInt16(&pTailITD->offset[curFrameInTD], 0,
+                                pageOffset |							// offset
+                                pageSelectMask |						// offset from BP0 or BufferEnd
+                                (kOHCIITDOffsetConditionNotAccessed << kOHCIITDOffset_CCPhase) 	// mark as unused
+                                );	
+
+        // adjust counters and calculate the physical offset of the end of the frame for the next time around the loop
+        //
+        curFrameInRequest++;
+        curFrameInTD++;
+        lastPhysical = segs[numSegs-1].location + segs[numSegs-1].length - 1;
+    }			
+
+    if (status != kIOReturnSuccess)
+    {
+        // unlink the TDs, unlock the buffer, and return the status
+        pNewITD = pTailITD->pLogicalNext;	// point to the "old" pNewTD, which will also get deallocated
+        pTempITD = (OHCIIsochTransferDescriptorPtr)pED->pLogicalTailP;
+        pTailITD = pTempITD->pLogicalNext;	// don't deallocate the real tail!
+        pTempITD->pLogicalNext = NULL;		// just to make sure
+        pTempITD->nextTD = NULL;			// just to make sure
+        while (pTailITD != pNewITD)
+        {
+            pTempITD = pTailITD;
+            pTailITD = pTailITD->pLogicalNext;
+            DeallocateITD(pTempITD);
+        }
+    }
+    else
+    {
+        // we have good status, so let's kick off the machine
+        // we need to tidy up the last TD, which is not yet complete
+        itdFlags |= (curFrameInTD-1) << kOHCIITDControl_FCPhase;
+        OSWriteLittleInt32(&pTailITD->flags, 0, itdFlags);
+        OSWriteLittleInt32(&pTailITD->bufferEnd, 0, lastPhysical);
+        pTailITD->completion = completion;
+        //print_itd(pTailITD);
+        // Make new descriptor the tail
+        pED->pLogicalTailP = pNewITD;
+        OSWriteLittleInt32(&pED->tdQueueTailPtr, 0, pNewITD->pPhysical);
+    }
+
+
+    return status;
 
 }

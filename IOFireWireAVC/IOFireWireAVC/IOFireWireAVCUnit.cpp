@@ -72,7 +72,7 @@ void IOFireWireAVCUnit::updateSubUnits(bool firstTime)
     UInt32 size;
     UInt8 cmd[8],response[8];
     OSObject *prop;
-
+    bool hasFCP = true;
 // Get SubUnit info
     cmd[kAVCCommandResponse] = kAVCStatusInquiryCommand;
     cmd[kAVCAddress] = kAVCUnitAddress;
@@ -86,6 +86,8 @@ void IOFireWireAVCUnit::updateSubUnits(bool firstTime)
     if(res != kIOReturnSuccess || response[kAVCCommandResponse] != kAVCImplementedStatus) {
         if(firstTime) {
             // Stupid convertor box doesn't do AVC, make it look like a camcorder.
+            hasFCP = false;
+            
             response[kAVCOperand2] = 0x20;	// One VCR
             response[kAVCOperand3] = 0xff;
             response[kAVCOperand4] = 0xff;
@@ -94,6 +96,9 @@ void IOFireWireAVCUnit::updateSubUnits(bool firstTime)
         else
             return;	// No update necessary
     }
+
+    if(firstTime)
+        setProperty("supportsFCP", hasFCP);
     
     // Zero count of subunits before updating with new counts
     bzero(fSubUnitCount, sizeof(fSubUnitCount));
@@ -106,11 +111,7 @@ void IOFireWireAVCUnit::updateSubUnits(bool firstTime)
             num = (val & 0x7)+1;
             fSubUnitCount[type] = num;
             //IOLog("Subunit type %x, num %d\n", type, num);
-            prop = OSNumber::withNumber(num, 8);
-            if(prop) {
-                setProperty(gIOFireWireAVCSubUnitCount[type], prop);
-                prop->release();
-            }
+            setProperty(gIOFireWireAVCSubUnitCount[type]->getCStringNoCopy(), num, 8);
             
             // Create sub unit nub if it doesn't exist
             IOFireWireAVCSubUnit *sub = NULL;
@@ -150,6 +151,8 @@ void IOFireWireAVCUnit::updateSubUnits(bool firstTime)
                     break;
                 if (!sub->attach(this))	
                     break;
+                sub->setProperty("supportsFCP", hasFCP);
+
                 sub->registerService();
                 
             } while (0);
@@ -227,6 +230,7 @@ bool IOFireWireAVCUnit::start(IOService *provider)
     IOReturn res;
     UInt32 size;
     UInt8 cmd[8],response[8];
+
     cmd[kAVCCommandResponse] = kAVCStatusInquiryCommand;
     cmd[kAVCAddress] = kAVCUnitAddress;
     cmd[kAVCOpcode] = kAVCUnitInfoOpcode;
@@ -253,11 +257,8 @@ bool IOFireWireAVCUnit::start(IOService *provider)
     prop = provider->getProperty(gFireWireProduct_Name);
     if(prop)
         setProperty(gFireWireProduct_Name, prop);
-    prop = OSNumber::withNumber(type, 32);
-    if(prop) {
-        setProperty(gIOFireWireAVCUnitType, prop);
-        prop->release();
-    }
+    
+    setProperty("Unit_Type", type, 32);
     
 	// mark ourselves as started, this allows us to service resumed messages
 	// resumed messages after this point should be safe.

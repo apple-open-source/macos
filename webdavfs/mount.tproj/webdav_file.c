@@ -1581,7 +1581,10 @@ int webdav_fsync(proxy_ok, pcr, file_handle, a_socket)
 	struct fetch_state fs;
 	struct timeval tv;
 	struct timezone tz;
+	struct webdav_put_struct putinfo;
 
+	putinfo.locktoken = NULL;
+	
 	error = pthread_mutex_lock(&garray_lock);
 	if (error)
 	{
@@ -1614,27 +1617,54 @@ int webdav_fsync(proxy_ok, pcr, file_handle, a_socket)
 		error = EIO;
 		goto unlock_finish;
 	}
-
-	error = make_request(&fs, http_put, (void *) & gfile_array[file_handle], WEBDAV_FS_CLOSE);
+	
+	putinfo.fd = gfile_array[file_handle].fd;
+	if ( gfile_array[file_handle].lockdata.locktoken != NULL )
+	{
+		putinfo.locktoken = malloc(strlen(gfile_array[file_handle].lockdata.locktoken) + 1);
+		if ( putinfo.locktoken != NULL )
+		{
+			strcpy(putinfo.locktoken, gfile_array[file_handle].lockdata.locktoken);
+		}
+		else
+		{
+			goto unlock_finish;
+		}
+	}
+	
+	error = pthread_mutex_unlock(&garray_lock);
 	if (error)
 	{
-		goto unlock_finish;
+		goto done;
 	}
+
+	error = make_request(&fs, http_put, (void *) &putinfo, WEBDAV_FS_CLOSE);
+	if (error)
+	{
+		goto done;
+	}
+
+	/* clear out the time so that the next statfs will get the value from
+	 * the server
+	 */
+	gstatfstime = 0;
 
 	/* Since we just wrote the file out to the server, update our internal
 	  idea of the modtime, for use in the get-if-modified-since when the 
 	  file is re-opened.
 	*/
-
-	gettimeofday(&tv, &tz);
-	gfile_array[file_handle].modtime = tv.tv_sec;
 	/* *** it would be better to use the date from the response *** */
-
-	/* clear out the time so that the next statfs will get the value from
-	 * the server
-	 */
-
-	gstatfstime = 0;
+	gettimeofday(&tv, &tz);
+	
+	/* grab the lock again */
+	error = pthread_mutex_lock(&garray_lock);
+	if (error)
+	{
+		goto done;
+	}
+	
+	/* change the modtime */
+	gfile_array[file_handle].modtime = tv.tv_sec;
 
 unlock_finish:
 
@@ -1649,6 +1679,11 @@ unlock_finish:
 	}
 
 done:
+
+	if ( putinfo.locktoken != NULL )
+	{
+		free(putinfo.locktoken);
+	}
 
 	return (error);
 }

@@ -1022,7 +1022,7 @@ protected:
 
 	virtual bool isORBAppended( IOFireWireSBP2ORB * orb );
 	virtual void setORBIsAppended( IOFireWireSBP2ORB * orb, bool state );
-	
+    
 private:
     
     OSMetaClassDeclareReservedUnused(IOFireWireSBP2Login, 6);

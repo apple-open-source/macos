@@ -26,6 +26,7 @@
 
 #include <IOKit/IOService.h>
 #include <IOKit/IOInterruptEventSource.h>
+#include <IOKit/IOFilterInterruptEventSource.h>
 #include <IOKit/pci/IOPCIBridge.h>
 #include <IOKit/pci/IOPCIDevice.h>
 
@@ -126,7 +127,7 @@ protected:
     UInt32					_isochBandwidthAvail;	// amount of available bandwidth for Isochronous transfers
     UInt32					_disablePortsBitmap;	// Bitmaps of ports that support port suspend even if they have an errata
     UInt32					_dataAllocationSize;	// # of bytes allocated in for TD's
-    IOInterruptEventSource *			_interruptSource;
+    IOFilterInterruptEventSource *		_filterInterruptSource;
     IOLock *					_intLock;
     struct InterruptTransaction			_outstandingTrans[kMaxOutstandingTrans];
     bool					_uimInitialized;
@@ -135,11 +136,19 @@ protected:
     bool					_idleSuspend;
     IOPhysicalAddress 				_hccaPhysAddr;
     UInt8					_ohciBusState;
-    AbsoluteTime				_lastCheckedTime;	// Last time we checked the Root Hub for inactivity
+    AbsoluteTime				_lastCheckedTime;		// Last time we checked the Root Hub for inactivity
     AbsoluteTime				_lastRootHubStatusChanged;	// Last time we had activity on the root hub
+    AbsoluteTime				_filterTimeStamp;
+    AbsoluteTime				_filterTimeStamp2;
+    UInt32					_lowLatencyIsochTDsProcessed;	// Number of low latency isoch TD's processed at primary interrupt time
+    UInt32					_filterInterruptCount;
+    UInt32					_framesUpdated;
+    UInt32					_framesError;
     
-
     static void 				InterruptHandler(OSObject *owner,  IOInterruptEventSource * source, int count);
+    static bool 				PrimaryInterruptFilter(OSObject *owner, IOFilterInterruptEventSource *source);
+    bool 					FilterInterrupt(int index);
+
     void					SetVendorInfo(void);
     void					finishPending();
     IOReturn 					ControlInitialize(void);
@@ -168,6 +177,7 @@ protected:
     OHCIIsochTransferDescriptorPtr AllocateITD(void);
     OHCIGeneralTransferDescriptorPtr AllocateTD(void);
     OHCIEndpointDescriptorPtr AllocateED(void);
+    void ProcessCompletedITD (OHCIIsochTransferDescriptorPtr pITD, IOReturn status);
     IOReturn DeallocateITD (OHCIIsochTransferDescriptorPtr pTD);
     IOReturn DeallocateTD (OHCIGeneralTransferDescriptorPtr pTD);
     IOReturn DeallocateED (OHCIEndpointDescriptorPtr pED);
@@ -378,6 +388,17 @@ public:
 	IOMemoryDescriptor *		pBuffer,
 	UInt32				frameCount,
 	IOUSBIsocFrame			*pFrames);
+
+    virtual IOReturn UIMCreateIsochTransfer(
+	short				functionAddress,
+	short				endpointNumber,
+	IOUSBIsocCompletion		completion,
+	UInt8				direction,
+	UInt64				frameStart,
+	IOMemoryDescriptor *		pBuffer,
+	UInt32				frameCount,
+	IOUSBLowLatencyIsocFrame	*pFrames,
+        UInt32				updateFrequency);
 
     virtual IOReturn UIMAbortEndpoint(
             short				functionNumber,

@@ -1198,7 +1198,6 @@ IOReturn IOAudioEngineUserClient::performClientIO(UInt32 firstSampleFrame, UInt3
     IOLog("IOAudioEngineUserClient[%p]::performClientIO(0x%lx, 0x%lx, %d, 0x%lx) - firstSampleFrame is out of range - 0x%lx frames per buffer.\n", this, firstSampleFrame, loopCount, inputIO, bufferSetID, audioEngine->numSampleFramesPerBuffer);
 #endif
                 result = kIOReturnBadArgument;
-				IOLog ("!!! firstSampleFrame > audioEngine->numSampleFramesPerBuffer (%ld > %ld)\n", firstSampleFrame, audioEngine->numSampleFramesPerBuffer);
             }
         } else {
             result = kIOReturnOffline;
