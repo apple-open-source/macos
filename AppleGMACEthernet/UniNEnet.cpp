@@ -48,81 +48,78 @@ extern "C"
 
 	OSDefineMetaClassAndStructors( UniNEnet, IOEthernetController )		;
 
-	globals		g;	/**** Instantiate the globals ****/
-
 
 #if USE_ELG
-static void AllocateEventLog( UInt32 size )
+void UniNEnet::AllocateEventLog( UInt32 size )
 {
 	IOPhysicalAddress	phys;
 
-
 //	IOSleep( 60000 );
-	if ( g.evLogBuf )
-		return;
-
-	g.evLogFlag = 0;			/* assume insufficient memory	*/
-	g.evLogBuf = (UInt8*)IOMallocContiguous( size, 0x1000, &phys );
-	if ( !g.evLogBuf )
+	fpELG = (elg*)IOMallocContiguous( size, 0x1000, &phys );
+	if ( !fpELG )
 	{
 		kprintf( "AllocateEventLog - UniNEnet evLog allocation failed " );
 		return;
 	}
+	bzero( fpELG, size );
+	fpELG->evLogBuf = (UInt8*)fpELG + sizeof( struct elg );
 
-	bzero( g.evLogBuf, size );
-	g.evLogBufp = g.evLogBuf;
-	g.evLogBufe = g.evLogBufp + kEvLogSize - 0x20; // ??? overran buffer?
-	g.evLogFlag	 = 0xFEEDBEEF;	// continuous wraparound
-//	g.evLogFlag	 = 0x0333;		// any nonzero - don't wrap - stop logging at buffer end
-//	g.evLogFlag	 = 'step';		// stop at each ELG
+	fpELG->evLogBufp = fpELG->evLogBuf;
+	fpELG->evLogBufe = fpELG->evLogBufp + kEvLogSize - 0x20; // ??? overran buffer?
+	fpELG->evLogFlag	 = 0xFEEDBEEF;	// continuous wraparound
+//	fpELG->evLogFlag	 = 0x0333;		// any nonzero - don't wrap - stop logging at buffer end
+//	fpELG->evLogFlag	 = 'step';		// stop at each ELG
 
-	IOLog( "UniNEnet - AllocateEventLog - &globals=%8x buffer=%8x phys=%8x\n",
-							(unsigned int)&g, (unsigned int)g.evLogBuf, (UInt32)phys );
+	IOLog( "UniNEnet - AllocateEventLog - buffer=%8x phys=%8x\n",
+							(unsigned int)fpELG, (UInt32)phys );
 	return;
 }/* end AllocateEventLog */
 
 
-void EvLog( UInt32 a, UInt32 b, UInt32 ascii, char* str )
+void UniNEnet::EvLog( UInt32 a, UInt32 b, UInt32 ascii, char* str )
 {
 	register UInt32		*lp;			/* Long pointer		*/
 	mach_timespec_t		time;
-	UInt32				lefty;
+	//UInt32				lefty;
 
 
-	if ( g.evLogFlag == 0 )
+	if ( fpELG->evLogFlag == 0 )
 		return;
 
 	IOGetTime( &time );
 
-	if ( g.evLogFlag == 0xDEBEEFED )
+	if ( fpELG->evLogFlag == 0xDEBEEFED )
 	{
-		for ( lp = (UInt32*)g.evLogBuf; lp < (UInt32*)g.evLogBufe; lp++ )
+		for ( lp = (UInt32*)fpELG->evLogBuf; lp < (UInt32*)fpELG->evLogBufe; lp++ )
 			*lp = 0xDEBEEFED;
-		g.evLogBufp	= g.evLogBuf;			// rewind
-		g.evLogFlag	= 0x333;				// stop at end
+		fpELG->evLogBufp	= fpELG->evLogBuf;			// rewind
+		fpELG->evLogFlag	= 0x333;				// stop at end
 	}
 
-	lp = (UInt32*)g.evLogBufp;
-	g.evLogBufp += 0x10;
+	lp = (UInt32*)fpELG->evLogBufp;
+	fpELG->evLogBufp += 0x10;
 
-	if ( g.evLogBufp >= g.evLogBufe )		/* handle buffer wrap around if any */
-	{	 g.evLogBufp  = g.evLogBuf;
-		if ( g.evLogFlag != 0xFEEDBEEF )	// make 0xFEEDBEEF a symbolic ???
-			g.evLogFlag = 0;				/* stop tracing if wrap undesired	*/
-		IOFlushProcessorCache( kernel_task, (IOVirtualAddress)g.evLogBuf, kEvLogSize );
+	if ( fpELG->evLogBufp >= fpELG->evLogBufe )		/* handle buffer wrap around if any */
+	{	 fpELG->evLogBufp  = fpELG->evLogBuf;
+		if ( fpELG->evLogFlag != 0xFEEDBEEF )	// make 0xFEEDBEEF a symbolic ???
+		{
+			fpELG->evLogFlag = 0;				/* stop tracing if wrap undesired	*/
+			IOFlushProcessorCache( kernel_task, (IOVirtualAddress)fpELG->evLogBuf, kEvLogSize );
+		}
 	}
 
 		/* compose interrupt level with 3 byte time stamp:	*/
 
-	if ( g.pRegs )
-		 lefty = OSSwapInt32( ((GMAC_Registers*)g.pRegs)->RxCompletion ) << 24;
-	else lefty = 0xFF000000;
-	*lp++ = lefty | (time.tv_nsec >> 10);	// ~ 1 microsec resolution
+	//if ( fpRegs )
+	//	 lefty = OSSwapInt32( fpRegs->RxCompletion ) << 24;
+	//else lefty = 0xFF000000;
+	//*lp++ = lefty | (time.tv_nsec >> 10);	// ~ 1 microsec resolution
+	*lp++ = (time.tv_nsec >> 10);	// ~ 1 microsec resolution
 	*lp++ = a;
 	*lp++ = b;
 	*lp	  = ascii;
 
-	if ( g.evLogFlag == 'step' )
+	if ( fpELG->evLogFlag == 'step' )
 	{	static char code[ 5 ] = {0,0,0,0,0};
 		*(UInt32*)&code = ascii;
 	//	kprintf( "%8x UniNEnet: %8x %8x %s		   %s\n", time.tv_nsec>>10, a, b, code, str );
@@ -132,14 +129,11 @@ void EvLog( UInt32 a, UInt32 b, UInt32 ascii, char* str )
 		IOSleep( 2 );
 	}
 
-	lp = (UInt32*)g.evLogBufe;	// to find next location
-	*lp = (UInt32)g.evLogBufp;	// to log using OF.
-
 	return;
 }/* end EvLog */
 
 
-void Alert( UInt32 a, UInt32 b, UInt32 ascii, char* str )
+UInt32 UniNEnet::Alrt( UInt32 a, UInt32 b, UInt32 ascii, char* str )
 {
 	char		work [ 256 ];
 	char		name[] = "UniNEnet: ";
@@ -149,7 +143,7 @@ void Alert( UInt32 a, UInt32 b, UInt32 ascii, char* str )
 
 
 	EvLog( a, b, ascii, str );
-	EvLog( '****', '** A', 'lert', "*** Alert" );
+	EvLog( '****', '** A', 'lert', "*** Alrt" );
 
 	bcopy( name, bp, sizeof( name ) );
 	bp += sizeof( name ) - 1;
@@ -185,19 +179,20 @@ void Alert( UInt32 a, UInt32 b, UInt32 ascii, char* str )
 	for ( i = sizeof( work ) - (int)(bp - work) - 1; i && (*bp++ = *str++); --i )	;
 	*bp++ = '\n';
 
-//	kprintf( work );
-//	panic( work );
-///	Debugger( work );
-///	IOLog( work );
-///	g.evLogFlag = 0;		// prevent the log buffer fm getting wiped.
-///	g.evLogFlag = 0x333;	// prevent the log buffer fm getting wiped.
-
 		// The following is ensure viewability with Open Firmware:
 	OSSynchronizeIO();
-	IOFlushProcessorCache( kernel_task, (IOVirtualAddress)g.evLogBuf, kEvLogSize );
+	IOFlushProcessorCache( kernel_task, (IOVirtualAddress)fpELG, kEvLogSize );
 
-	return;
-}/* end Alert */
+///	fpELG->evLogFlag = 0;		// prevent the log buffer fm getting wiped.
+///	fpELG->evLogFlag = 0x333;	// prevent the log buffer fm getting wiped.
+
+//	kprintf( work );
+///	panic( work );
+///	Debugger( work );
+///	IOLog( work );
+
+	return 1;
+}/* end Alrt */
 #endif // USE_ELG
 
 
@@ -211,10 +206,7 @@ bool UniNEnet::init( OSDictionary *properties )
 {
 #if USE_ELG
 	AllocateEventLog( kEvLogSize );
-	fpGlobals = &g;				// improves ease of finding globals
-	g.UniNEnetInstance = this;
-	g.pRegs = 0;
-	ELG( &g, g.evLogBufp, 'eNet', "UniNEnet::init - event logging set up." );
+	ELG( 0, 0, 'eNet', "UniNEnet::init - event logging set up." );
 #endif /* USE_ELG */
 
     if ( super::init( properties ) == false )
@@ -223,6 +215,7 @@ bool UniNEnet::init( OSDictionary *properties )
 		/* Initialize my instance variables:	*/
     phyId          = 0xFF;
     linkStatusPrev = kLinkStatusUnknown;
+	enetClockOff   = false;
 
     return true;
 }/* end init */
@@ -231,7 +224,9 @@ bool UniNEnet::init( OSDictionary *properties )
 bool UniNEnet::start( IOService *provider )
 {    
     OSString	*matchEntry;
+    OSNumber	*numObj;
     IOWorkLoop	*myWorkLoop	= getWorkLoop();
+	UInt32		x, xFactor;
 
 
 	ELG( IOThreadSelf(), provider, 'Strt', "UniNEnet::start - this, provider." );
@@ -239,7 +234,7 @@ bool UniNEnet::start( IOService *provider )
     matchEntry = OSDynamicCast( OSString, getProperty( gIONameMatchedKey ) );
     if ( matchEntry == 0 )
     {
-        ALERT( 0, 0, 'Mat-', "UniNEnet::start: Cannot obtain matching property." );
+        ALRT( 0, 0, 'Mat-', "UniNEnet::start: Cannot obtain matching property." );
         return false;
     }
 	fBuiltin = matchEntry->isEqualTo( "gmac" );
@@ -301,7 +296,7 @@ bool UniNEnet::start( IOService *provider )
         return false;
     }
 
-    phyId		= 0xFF;
+    phyId = 0xFF;
    
 		/* Get a reference to the IOWorkLoop in our superclass.	*/
 	myWorkLoop = getWorkLoop();
@@ -341,6 +336,7 @@ bool UniNEnet::start( IOService *provider )
 
 		/* allocate KDB buffer:	 */
 
+		/// talk to Joe about using allocatePacket()
     MGETHDR( txDebuggerPkt, M_DONTWAIT, MT_DATA );
     
     if ( !txDebuggerPkt ) 
@@ -351,14 +347,77 @@ bool UniNEnet::start( IOService *provider )
 		/* Cache my MAC address:	*/
 
     if ( getHardwareAddress( &myAddress ) != kIOReturnSuccess )
-    {	ALERT( 0, 0, 'gha-', "UniNEnet::start - getHardwareAddress failed" );
+    {	ALRT( 0, 0, 'gha-', "UniNEnet::start - getHardwareAddress failed" );
         return false;
     }
+
+		/* set defaults:	*/
+
+	fTxQueueSize	= TRANSMIT_QUEUE_SIZE;
+	fTxRingElements	= TX_RING_LENGTH;	fTxRingLengthFactor = TX_RING_LENGTH_FACTOR;
+	fRxRingElements	= RX_RING_LENGTH;	fRxRingLengthFactor = RX_RING_LENGTH_FACTOR;
+
+		/* Override with values from the IORegistry:	*/
+
+    numObj = OSDynamicCast( OSNumber, getProperty( kTxQueueSize ) );
+    if ( numObj )
+    {
+		x = numObj->unsigned32BitValue();
+		if ( x >= 32 && x <= 9999 )
+			fTxQueueSize = x;
+		ELG( x, fTxQueueSize, '=txq', "UniNEnet::start - TxQueueSize" );
+	}
+
+    numObj = OSDynamicCast( OSNumber, getProperty( kTxRingElements ) );
+    if ( numObj )
+    {
+		xFactor = 0;
+		x = numObj->unsigned32BitValue();
+		switch ( x )
+		{
+		case 8192:	++xFactor;
+		case 4096:	++xFactor;
+		case 2048:	++xFactor;
+		case 1024:	++xFactor;
+		case 512:	++xFactor;
+		case 256:	++xFactor;
+		case 128:	++xFactor;
+		case 64:	++xFactor;
+		case 32:
+			fTxRingElements		= x;
+			fTxRingLengthFactor	= xFactor;
+		}
+		ELG( x, fTxRingElements, '=txe', "UniNEnet::start - TxRingElements" );
+	}
+
+    numObj = OSDynamicCast( OSNumber, getProperty( kRxRingElements ) );
+    if ( numObj )
+    {
+		xFactor = 0;
+		x = numObj->unsigned32BitValue();
+		switch ( x )
+		{
+		case 8192:	++xFactor;
+		case 4096:	++xFactor;
+		case 2048:	++xFactor;
+		case 1024:	++xFactor;
+		case 512:	++xFactor;
+		case 256:	++xFactor;
+		case 128:	++xFactor;
+		case 64:	++xFactor;
+		case 32:
+			fRxRingElements		= x;
+			fRxRingLengthFactor	= xFactor;
+		}
+		ELG( x, fRxRingElements, '=rxe', "UniNEnet::start - TxRingElements" );
+	}
+
+	ELG( fTxQueueSize, fTxRingElements << 16 | fRxRingElements, 'parm', "UniNEnet::start - config parms" );
 
 		/* Allocate memory for ring buffers:	*/
 
     if ( allocateMemory() == false )
-    {	ALERT( 0, 0, 'alo-', "UniNEnet::start - allocateMemory failed" );    
+    {	ALRT( 0, 0, 'alo-', "UniNEnet::start - allocateMemory failed" );    
         return false;
     }
 
@@ -366,7 +425,7 @@ bool UniNEnet::start( IOService *provider )
 		/* But don't register it just yet			*/
 	ELG( IOThreadSelf(), 0, 'AttI', "UniNEnet::start - attach interface" );
     if ( !attachInterface( (IONetworkInterface**)&networkInterface, false ) )
-    {	ALERT( 0, 0, 'Att-', "UniNEnet::start - attachInterface failed" );      
+    {	ALRT( 0, 0, 'Att-', "UniNEnet::start - attachInterface failed" );      
         return false;
     }
 
@@ -438,13 +497,13 @@ void UniNEnet::free()
 {
 	ELG( this, 0, 'Free', "UniNEnet::free" );
 
-	putToSleep();
+	putToSleep(false);
 
 	flushRings( true, true );	// Flush both Tx and Rx rings.
 
 	if ( debugger )			debugger->release();
     if ( getWorkLoop() )	getWorkLoop()->disableAllEventSources();
-    if ( timerSource )	  { timerSource->release(); timerSource = 0;	}
+    if ( timerSource )		timerSource->release();
     if ( interruptSource )	interruptSource->release();
 	if ( txDebuggerPkt )	freePacket( txDebuggerPkt );
 	if ( transmitQueue )	transmitQueue->release();
@@ -453,8 +512,11 @@ void UniNEnet::free()
 	if ( mbufCursor )		mbufCursor->release();
 	if ( mediumDict )		mediumDict->release();
 	if ( ioMapEnet )		ioMapEnet->release();
-	if ( dmaCommands )		IOFreeContiguous( (void*)dmaCommands, dmaCommandsSize );
-	if ( workLoop )		  {	workLoop->release(); workLoop = 0;	}
+	if ( fTxDescriptorRing )IOFreeContiguous( (void*)fTxDescriptorRing, fTxRingElements * sizeof( TxDescriptor ) );
+	if ( fRxDescriptorRing )IOFreeContiguous( (void*)fRxDescriptorRing, fRxRingElements * sizeof( RxDescriptor ) );
+	if ( fTxMbuf )			IOFree( fTxMbuf, sizeof( mbuf* ) * fTxRingElements );
+	if ( fRxMbuf )			IOFree( fRxMbuf, sizeof( mbuf* ) * fRxRingElements );
+	if ( workLoop )			workLoop->release();
 
 	if ( keyLargo_resetUniNEthernetPhy )
 	{
@@ -467,11 +529,11 @@ void UniNEnet::free()
 }/* end free */
 
 
-/*-------------------------------------------------------------------------
- * Override IONetworkController::createWorkLoop() method and create
- * a workloop.
- *
- *-------------------------------------------------------------------------*/
+	/*-------------------------------------------------------------------------
+	 * Override IONetworkController::createWorkLoop() method and create
+	 * a workloop.
+	 *
+	 *-------------------------------------------------------------------------*/
 
 bool UniNEnet::createWorkLoop()
 {
@@ -500,7 +562,7 @@ void UniNEnet::interruptOccurred( IOInterruptEventSource *src, int /*count*/ )
 
     if ( ready == false )
 	{
-		ALERT( 0, READ_REGISTER( Status ), 'int-', "interruptOccurred - not ready" );
+		ALRT( 0, READ_REGISTER( Status ), 'int-', "interruptOccurred - not ready" );
 		return;
 	}
 
@@ -576,7 +638,7 @@ UInt32 UniNEnet::outputPacket(struct mbuf * pkt, void * param)
 		ELG( pkt, linkStatusPrev, 'Out-', "UniNEnet::outputPacket - link is down" );
         freePacket( pkt );
     }
-    else if ( transmitPacket(pkt) == false )
+    else if ( transmitPacket( pkt ) == false )
     {
         ret = kIOReturnOutputStall;
     }
@@ -587,10 +649,24 @@ UInt32 UniNEnet::outputPacket(struct mbuf * pkt, void * param)
 }/* end outputPacket */
 
 
-void UniNEnet::putToSleep()
+void UniNEnet::putToSleep(bool pangeaClockOnly)
 {
 	ELG( this, 0, 'Slep', "UniNEnet::putToSleep" );
 
+    if(enetClockOff)
+    {
+        // check if the whole thing is shutting down, or just turn the clock off
+        if(!pangeaClockOnly)
+        {
+            // shutting down the whole thing. the pangea ethernet clock is off, 
+            // so we must enable it before continuing
+            OSSynchronizeIO();
+            callPlatformFunction("EnableUniNEthernetClock", true, (void*)true, 0, 0, 0);
+            OSSynchronizeIO();
+            enetClockOff = false;
+        } else return; // need to only turn the clock off, but it's already off, so just return
+    }
+	
 	reserveDebuggerLock();
 
 	ready = false;
@@ -603,24 +679,36 @@ void UniNEnet::putToSleep()
 	if ( getWorkLoop() )
 		 getWorkLoop()->disableAllInterrupts();
 
-    setLinkStatus( 0, 0 );
+	if(pangeaClockOnly)
+		setLinkStatus(kIONetworkLinkValid);
+	else
+		setLinkStatus( 0, 0 );
 
-	stopChip();					// stop the DMA engines.
+	if(!pangeaClockOnly)
+		stopChip();					// stop the DMA engines.
 								// Flush all mbufs from TX ring.
 	flushRings( true, false );	// Flush the Tx ring.
 
-	stopPHY();					// Set up for wake on Magic Packet if wanted.
+	if(!pangeaClockOnly)
+		stopPHY();					// Set up for wake on Magic Packet if wanted.
 
 	currentPowerState = 0;		// No more accesses to chip's registers.
 
-	if ( fBuiltin && !fWOL )
+	if ( fBuiltin && (!fWOL || pangeaClockOnly) )
 	{
-		ALERT( 0, 0, '-Clk', "UniNEnet::setPowerState - turning off cell clock!!!" );
+		ALRT( 0, 0, '-Clk', "UniNEnet::putToSleep - turning off cell clock!!!" );
 		OSSynchronizeIO();
 		callPlatformFunction( "EnableUniNEthernetClock", true, (void*)false, 0, 0, 0 );
 		OSSynchronizeIO();
-		ALERT( 0, 0, '-clk', "UniNEnet::setPowerState - turned off cell clock!!!" );
+	///	ALRT( 0, 0, '-clk', "UniNEnet::putToSleep - turned off cell clock!!!" );
 	}
+
+    if(pangeaClockOnly)
+    {
+        timerSource->setTimeoutMS(WATCHDOG_TIMER_MS);
+        enetClockOff = true;
+        ready = true;
+    }
 
     releaseDebuggerLock();
 
@@ -628,19 +716,23 @@ void UniNEnet::putToSleep()
 }/* end putToSleep */
 
 
-bool UniNEnet::wakeUp()
+bool UniNEnet::wakeUp(bool pangeaClockOnly)
 {
 	bool	rc = false;
 	bool	regAvail;
 	UInt32	gemReg = 0;
 
 
+/// fpELG->evLogFlag = 0xDEBEEFED;		/// clear and reset the log buffer.
+
 	ELG( this, 0, 'Wake', "UniNEnet::wakeUp" );
 
     reserveDebuggerLock();
 
     ready = false;
-	phyId = 0xFF;
+	
+	if(!pangeaClockOnly)
+		phyId = 0xFF;
 
 	if ( timerSource ) 
 		 timerSource->cancelTimeout();
@@ -652,7 +744,7 @@ bool UniNEnet::wakeUp()
 
 	if ( fBuiltin )
 	{
-			// Set PHY and Cell to full power:
+			// Set PHY and/or Cell to full power:
 
 		callPlatformFunction( "EnableUniNEthernetClock", true, (void*)true, 0, 0, 0 );
 
@@ -679,27 +771,31 @@ bool UniNEnet::wakeUp()
 		}/* end IF can probe UniN register access */
 	}/* end IF builtin ethernet */
 
+	if(pangeaClockOnly)
+		enetClockOff = false;
+	else
+	{
 		/* BUS MASTER, MEM I/O Space, MEM WR & INV	*/
 
-	nub->configWrite32( 0x04, 0x16 );		// write to the Config space
+		nub->configWrite32( 0x04, 0x16 );		// write to the Config space
 
 		/* set Latency to Max , cache 32	*/
 
-	nub->configWrite32( 0x0C, ((2 + (kGEMBurstSize * (0+1)))<< 8) | (CACHE_LINE_SIZE >> 2) );
+		nub->configWrite32( 0x0C, ((2 + (kGEMBurstSize * (0+1)))<< 8) | (CACHE_LINE_SIZE >> 2) );
 
-	if ( ioMapEnet == NULL )
-	{
-		ioMapEnet = nub->mapDeviceMemoryWithRegister( 0x10 );
 		if ( ioMapEnet == NULL )
-			goto wakeUp_exit;
+		{
+			ioMapEnet = nub->mapDeviceMemoryWithRegister( 0x10 );
+			if ( ioMapEnet == NULL )
+				goto wakeUp_exit;
 
-		fpRegs	= (GMAC_Registers*)ioMapEnet->getVirtualAddress();
-		g.pRegs	= (UInt32)fpRegs;
-		ELG( ioMapEnet, fpRegs, 'Adrs', "start - base eNet addr" );
+			fpRegs	= (GMAC_Registers*)ioMapEnet->getVirtualAddress();
+			ELG( ioMapEnet, fpRegs, 'Adrs', "start - base eNet addr" );
 			// for ml_probe_read on Wake:
-		fpRegsPhys	= (GMAC_Registers*)ioMapEnet->getPhysicalAddress();
+			fpRegsPhys	= (GMAC_Registers*)ioMapEnet->getPhysicalAddress();
+		}
 	}
-
+	
 	if ( !initRxRing() || !initTxRing() ) 
 		goto wakeUp_exit;
 
@@ -707,37 +803,40 @@ bool UniNEnet::wakeUp()
 
 	WRITE_REGISTER( SoftwareReset, kSoftwareReset_TX | kSoftwareReset_RX );
     do
-    {
+    {		/// ??? put a time limit here.
 		gemReg = READ_REGISTER( SoftwareReset );
     } 
 	while( gemReg & (kSoftwareReset_TX | kSoftwareReset_RX) );
 
 	initChip();					// set up the important registers in the cell
 
-	if ( !mediumDict && createMediumTables() == false )
-	{	ALERT( 0, 0, 'cmt-', "UniNEnet::start - createMediumTables failed" );    
-		goto wakeUp_exit;
-	}
-
-	if ( fBuiltin )
+	if(!pangeaClockOnly)
 	{
-		hardwareResetPHY();			/* Generate a hardware PHY reset.	*/
-	
-		if ( phyId == 0xFF)
+		if ( fBuiltin )
 		{
-			if ( miiFindPHY( &phyId ) == false )
-				goto wakeUp_exit;
-		}
+			hardwareResetPHY();			/* Generate a hardware PHY reset.	*/
 	
-		if ( getPhyType() == false )	// Also patches PHYs
+			if ( phyId == 0xFF)
+			{
+				if ( miiFindPHY( &phyId ) == false )
+					goto wakeUp_exit;
+			}
+		}
+
+		getPhyType();					// Also patches PHYs
+
+		if ( !mediumDict && createMediumTables() == false )
+		{	
+			ALRT( 0, 0, 'cmt-', "UniNEnet::start - createMediumTables failed" );    
 			goto wakeUp_exit;
+		}
+
+		startPHY();						// Bring up the PHY and the MAC.
+
+		if ( fBuiltin )
+			miiInitializePHY( phyId );
 	}
-
-	startPHY();						// Bring up the PHY and the MAC.
-
-	if ( fBuiltin )
-		miiInitializePHY( phyId );
-
+	
 	timerSource->setTimeoutMS( WATCHDOG_TIMER_MS );
 
 	if ( getWorkLoop() )
@@ -745,7 +844,9 @@ bool UniNEnet::wakeUp()
 
 	ready = true;
 
-	monitorLinkStatus( true );		// startChip is done here.
+	if(!pangeaClockOnly)
+		monitorLinkStatus( true );		// startChip is done here.
+	
 	rc = true;
 
 wakeUp_exit:
@@ -777,7 +878,7 @@ IOReturn UniNEnet::enable(IONetworkInterface * netif)
         return kIOReturnSuccess;
     }
 
-    if ( (ready == false) && !wakeUp() )
+    if ( (ready == false) && !wakeUp(false) )
         return kIOReturnIOError;
 
     /*
@@ -803,6 +904,8 @@ IOReturn UniNEnet::enable(IONetworkInterface * netif)
  
 IOReturn UniNEnet::disable(IONetworkInterface * /*netif*/)
 {
+///	if ( fpELG->evLogFlag == 0xFEEDBEEF )	fpELG->evLogFlag = 0xDEBEEFED;
+
 	ELG( this, debugEnabled, 'NetD', "disable( IONetworkInterface* )" );
 
     /*
@@ -820,7 +923,7 @@ IOReturn UniNEnet::disable(IONetworkInterface * /*netif*/)
     	/* If we have no active clients, then disable the controller.	*/
 
 	if ( debugEnabled == false )
-		putToSleep();
+		putToSleep(false);
 
     netifEnabled = false;
 
@@ -844,7 +947,7 @@ IOReturn UniNEnet::enable(IOKernelDebugger * /*debugger*/)
 
     	/* Enable hardware and make it ready to support the debugger client:	*/
 
-    if ( (ready == false) && !wakeUp() )
+    if ( (ready == false) && !wakeUp(false) )
         return kIOReturnIOError;
 
     /*
@@ -879,7 +982,7 @@ IOReturn UniNEnet::disable(IOKernelDebugger * /*debugger*/)
      * If we have no active clients, then disable the controller.
      */
 	if ( netifEnabled == false )
-		putToSleep();
+		putToSleep(false);
 
     return kIOReturnSuccess;
 }/* end disable debugger */
@@ -887,7 +990,7 @@ IOReturn UniNEnet::disable(IOKernelDebugger * /*debugger*/)
 
 IOReturn UniNEnet::getPacketFilters( const OSSymbol	*group, UInt32 *filters ) const
 {
-	ELG( group, filters, 'G PF', "UniNEnet::getPacketFilters" );
+///	ELG( 0, 0, 'G PF', "UniNEnet::getPacketFilters" );
 
 	if ( group == gIOEthernetWakeOnLANFilterGroup )
 	{
@@ -921,14 +1024,35 @@ void UniNEnet::timeoutOccurred(IOTimerEventSource * /*timer*/)
 	bool  				doService = false;
 	UInt32				txRingIndex;
 	UInt32				x;
+	UInt32				txMACStatus, rxMACStatus, macControlStatus;	// Auto-clear registers
 
+	ELG( txCommandHead, txCommandTail, 'Time', "UniNEnet::timeoutOccurred" );
+
+    // check to see if the pangea ethernet clock is off. if so, monitorLinkStatus is
+    // called, and the rest of this function is skipped.
+    if(enetClockOff)
+    {
+        monitorLinkStatus(false);
+        timerSource->setTimeoutMS(WATCHDOG_TIMER_MS);
+        return; 
+    }    
 
     if ( ready == false )
     {
-		ALERT( txCommandHead, txCommandTail, 'TIM-', "UniNEnet::timeoutOccurred - spurious" );
+		ALRT( txCommandHead, txCommandTail, 'TIM-', "UniNEnet::timeoutOccurred - spurious" );
         return;
     }
-	ELG( txCommandHead, txCommandTail, 'Time', "UniNEnet::timeoutOccurred" );
+
+	txMACStatus = READ_REGISTER( TxMACStatus );
+	rxMACStatus = READ_REGISTER( RxMACStatus );
+	ELG( txMACStatus, rxMACStatus, 'MACS', "timeoutOccurred - Tx and Rx MAC Status regs" );
+
+{
+	UInt32	interruptStatus, rxKick;
+	interruptStatus	= READ_REGISTER( Status );
+	rxKick			= READ_REGISTER( RxKick );
+	ELG( rxKick, interruptStatus, 'rxIS', "timeoutOccurred" );
+}
 
 
 		/* Update statistics from the GMAC statistics registers:	*/
@@ -965,6 +1089,15 @@ void UniNEnet::timeoutOccurred(IOTimerEventSource * /*timer*/)
 
     monitorLinkStatus( false );	/// ??? don't do this if Tx and Rx are moving
 
+    // if the link went down (linkStatusPrev is updated in monitorLinkStatus), turn 
+    // the pangea ethernet clock off and exit this function.
+    if(linkStatusPrev ==  kLinkStatusDown)
+    { 
+        putToSleep(true);
+        timerSource->setTimeoutMS(WATCHDOG_TIMER_MS);
+        return;
+    } 
+
     /*
      * If there are pending entries on the Tx ring
      */
@@ -987,8 +1120,7 @@ void UniNEnet::timeoutOccurred(IOTimerEventSource * /*timer*/)
    
         if ( txWDCount > 2 )
         {
-            /* 
-             * We only take interrupts every 64 tx completions, so we may be here just
+            /* We take interrupts every 32 or so tx completions, so we may be here just
              * to do normal clean-up of tx packets. We check if the hardware tx pointer
              * points to the next available tx slot. This indicates that we transmitted all
              * packets that were scheduled vs rather than the hardware tx being stalled.
@@ -1023,35 +1155,30 @@ void UniNEnet::timeoutOccurred(IOTimerEventSource * /*timer*/)
     
     if ( rxWDInterrupts == 0 )
     {
-        UInt32 rxMACStatus;
+		switch ( rxWDCount )
+		{
+		case 0:
+		case 1:
+			rxWDCount++;	// Extend timeout
+			break;
 
-        switch ( rxWDCount )
-        {
-            case 0:
-            case 1:
-                rxWDCount++;	// Extend timeout
-                break;
+		default:
+				// We could be less conservative here and restart the
+				// receiver unconditionally.
 
-            default:
-                // We could be less conservative here and restart the
-                // receiver unconditionally.
+			if ( rxMACStatus & kRX_MAC_Status_Rx_Overflow )
+			{
+					// Bad news, the receiver may be deaf as a result of this
+					// overflow, and if so, a RX MAC reset is needed.
 
-                rxMACStatus = READ_REGISTER( RxMACStatus );
+				restartReceiver();
 
-                if ( rxMACStatus & kRX_MAC_Status_Rx_Overflow )
-                {
-                    // Bad news, the receiver may be deaf as a result of this
-                    // condition, and if so, a RX MAC reset is needed. Note
-                    // that reading this register will clear all bits.
-
-                    restartReceiver();
-
-					NETWORK_STAT_ADD( inputErrors );
-					ETHERNET_STAT_ADD( dot3RxExtraEntry.watchdogTimeouts );
-                }
-                rxWDCount = 0;
-                break;
-        }
+				NETWORK_STAT_ADD( inputErrors );
+				ETHERNET_STAT_ADD( dot3RxExtraEntry.watchdogTimeouts );
+			}
+			rxWDCount = 0;
+			break;
+		}/* end SWITCH */
     }
     else
     {
@@ -1123,13 +1250,13 @@ IOReturn UniNEnet::setPromiscuousMode( bool active )
 
 	isPromiscuous	= active;
 
-	rxMacConfigReg	= READ_REGISTER( RxMACConfiguration );
+	fRxMACConfiguration	= READ_REGISTER( RxMACConfiguration );
 
 	if ( active )
-		 rxMacConfigReg |=  kRxMACConfiguration_Promiscuous;
-	else rxMacConfigReg &= ~kRxMACConfiguration_Promiscuous;
+		 fRxMACConfiguration |=  kRxMACConfiguration_Promiscuous;
+	else fRxMACConfiguration &= ~kRxMACConfiguration_Promiscuous;
 
-	WRITE_REGISTER( RxMACConfiguration, rxMacConfigReg );
+	WRITE_REGISTER( RxMACConfiguration, fRxMACConfiguration );
 
 	releaseDebuggerLock();
 
@@ -1161,7 +1288,11 @@ IOReturn UniNEnet::setMulticastMode( bool active )
 IOReturn UniNEnet::setMulticastList(IOEthernetAddress *addrs, UInt32 count)
 {
 	ELG( addrs, count, 'SetL', "setMulticastList" );
-    reserveDebuggerLock();
+    
+	if(enetClockOff)
+		return kIOReturnSuccess;
+	
+	reserveDebuggerLock();
     
     resetHashTableMask();
     for (UInt32 i = 0; i < count; i++) 
@@ -1188,64 +1319,22 @@ IOOutputQueue* UniNEnet::createOutputQueue()
 }/* end createOutputQueue */
 
 
-/*-------------------------------------------------------------------------
- *
- *
- *
- *-------------------------------------------------------------------------*/
-
-	static struct MediumTable
-	{
-		UInt32	type;
-		UInt32	speed;
-	} 
-	mediumTable[] =
-	{
-		{ kIOMediumEthernetNone                                  ,   0   },
-		{ kIOMediumEthernetAuto                                  ,   0   },
-		{ kIOMediumEthernet10BaseT    | kIOMediumOptionHalfDuplex,	10   },
-		{ kIOMediumEthernet10BaseT    | kIOMediumOptionFullDuplex,	10   },
-		{ kIOMediumEthernet100BaseTX  | kIOMediumOptionHalfDuplex,	100  },
-		{ kIOMediumEthernet100BaseTX  | kIOMediumOptionFullDuplex,	100  },
-		{ kIOMediumEthernet1000BaseSX | kIOMediumOptionFullDuplex,	1000 },
-		{ kIOMediumEthernet1000BaseTX | kIOMediumOptionFullDuplex,	1000 }
-	};
-
-
 bool UniNEnet::createMediumTables()
 {
 	IONetworkMedium		*medium;
-	UInt64				maxSpeed;
-	UInt16				phyWord;
 	UInt32				i;
 
 
-	if ( fBuiltin )
-	{
-		miiReadWord( &phyWord, MII_CONTROL, phyId );
-
-		if ( phyWord & MII_CONTROL_SPEED_SELECTION_2 )
-			 maxSpeed = 1000;
-		else maxSpeed = 100;
-	}
-	else
-	{
-		maxSpeed = 1000;	// GEM card.
-	}
-
-	mediumDict = OSDictionary::withCapacity( sizeof( mediumTable ) / sizeof( mediumTable[0] ) );
+	mediumDict = OSDictionary::withCapacity( fMediumTableCount );
 	ELG( 0, mediumDict, 'MTbl', "createMediumTables" );
 	if ( mediumDict == 0 )
 		return false;
 
-	for ( i = 0; i < sizeof( mediumTable ) / sizeof( mediumTable[0] ); i++ )
+	for ( i = 0; i < fMediumTableCount; i++ )
 	{
-		medium = IONetworkMedium::medium( mediumTable[i].type, mediumTable[i].speed );
-		if ( medium && (medium->getSpeed() <= maxSpeed) )
-		{
-			IONetworkMedium::addMedium( mediumDict, medium );
-			medium->release();
-		}
+		medium = IONetworkMedium::medium( fpgMediumTable[i].type, fpgMediumTable[i].speed );
+		IONetworkMedium::addMedium( mediumDict, medium );
+		medium->release();
 	}/* end FOR */
 
 	if ( publishMediumDictionary( mediumDict ) != true )
@@ -1259,7 +1348,6 @@ bool UniNEnet::createMediumTables()
 }/* end createMediumTables */
 
 
-#ifdef HDW_CHECKSUM
 IOReturn UniNEnet::getChecksumSupport(	UInt32	*checksumMask,
 										UInt32	checksumFamily,
 										bool	/*isOutput*/ )
@@ -1271,15 +1359,19 @@ IOReturn UniNEnet::getChecksumSupport(	UInt32	*checksumMask,
 
 	return kIOReturnSuccess;
 }/* end getChecksumSupport */
-#endif // HDW_CHECKSUM
 
 
 void UniNEnet::writeRegister( volatile UInt32 *pReg, UInt32 data )
 {
+    if(enetClockOff)
+    {
+        ALRT(0, 0, 'Wrg-', "writeRegister: enet clock is off");
+        return;
+    }
+
 	if ( pReg != &fpRegs->MIFBitBangFrame_Output )
 		ELG( data, (UInt32)pReg - (UInt32)fpRegs, 'wReg', "writeRegister" );
 
 	OSWriteLittleInt32( pReg, 0, data );
-///	OSSynchronizeIO();	// this may be needed only sometimes.
 	return;
 }/* end writeRegister */

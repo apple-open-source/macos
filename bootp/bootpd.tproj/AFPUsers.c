@@ -135,7 +135,7 @@ AFPUsers_init(AFPUsers_t * users, NIDomain_t * domain)
 	    dir.nii_object = id_list.niil_val[i];
 	    status = ni_read(NIDomain_handle(domain), &dir, &pl);
 	    if (status == NI_OK)
-		PLCache_add(&users->list, PLCacheEntry_create(dir, pl));
+		PLCache_append(&users->list, PLCacheEntry_create(dir, pl));
 	    ni_proplist_free(&pl);
 	}
     }
@@ -230,7 +230,7 @@ AFPUsers_create(AFPUsers_t * users, gid_t gid,
 		   user, ni_error(status));
 	    goto failed;
 	}
-	PLCache_add(&users->list, PLCacheEntry_create(child, pl));
+	PLCache_append(&users->list, PLCacheEntry_create(child, pl));
 	need--;
     }
     ret = TRUE;

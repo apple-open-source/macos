@@ -35,7 +35,7 @@
 //#include <IOKit/IOReturn.h>
 //#include <IOKit/IOTypes.h>
 #include <IOKit/firewire/IOFWLocalIsochPort.h>
-#include <IOKit/firewire/IOFireWireUserClient.h>
+#include"IOFireWireUserClient.h"
 
 class IOFWUserIsochPort: public IOFWIsochPort
 {
@@ -74,7 +74,8 @@ class IOFWUserIsochPortProxy: public OSObject
     virtual IOReturn start() ;			// Start port processing packets
     virtual IOReturn stop() ;			// Stop processing packets
 
-	virtual const IOFWIsochPort* getPort() const { return fPort; }
+	const IOFWIsochPort* 	getPort() const { return fPort; }
+	virtual IOReturn		createPort() ;
 	
  protected:
 	IOFireWireUserClient*	fUserClient ;
@@ -118,12 +119,14 @@ class IOFWUserLocalIsochPortProxy: public IOFWUserIsochPortProxy
 										DCLUpdateDCLListStruct*	inDCLCommand,
 										DCLCommandStruct*		inUserDCLTable[],
 										DCLCommandStruct*		inUserToKernelDCLLookupTable[],
-										UInt32					inLookupTableLength ) ;
+										UInt32					inLookupTableLength,
+										UInt32&					inOutHint ) ;
 	virtual IOReturn			convertToKernelDCL(
 										DCLJumpStruct*			inDCLCommand,
 										DCLCommandStruct*		inUserDCLTable[],
 										DCLCommandStruct*		inUserToKernelDCLLookupTable[],
-										UInt32					inLookupTableLength ) ;
+										UInt32					inLookupTableLength,
+										UInt32&					inOutHint ) ;
 	virtual IOReturn			convertToKernelDCL(
 										DCLPtrTimeStampStruct*	inDCLCommand,
 										IOVirtualRange			inBufferRanges[],
@@ -131,18 +134,19 @@ class IOFWUserLocalIsochPortProxy: public IOFWUserIsochPortProxy
 										IOMemoryDescriptor*		inBufferMem) ;
 	virtual IOReturn			convertToKernelDCL(
 										DCLCallProcStruct*		inDCLCommand,
-										DCLCommandStruct*		inUserDCL) ;
+										DCLCommandStruct*		inUserDCL ) ;
 	static	Boolean				findOffsetInRanges(
 										IOVirtualAddress		inAddress,
 										IOVirtualRange			inRanges[],
 										UInt32					inRangeCount,
 										IOByteCount*			outOffset) ;
-	static Boolean				userToKernLookup(
+	static Boolean				userToKernLookup( 
 										DCLCommandStruct*	inDCLCommand,
 										DCLCommandStruct*	inUserDCLList[],
 										DCLCommandStruct*	inKernDCLList[],
 										UInt32				inTableLength,
-										DCLCommandStruct**	outDCLCommand) ;
+										UInt32&				inOutHint,
+										DCLCommandStruct**	outDCLCommand ) ;
 	static	void				dclCallProcHandler(
 										DCLCommandStruct*		pDCLCommand) ;
 	virtual IOReturn			setAsyncRef_DCLCallProc(
@@ -153,11 +157,11 @@ class IOFWUserLocalIsochPortProxy: public IOFWUserIsochPortProxy
 										UInt32				inLabelDCLCompilerData) ;
 
  protected:
-//	IOFWLocalIsochPort*		fLocalPort ;
 	IOMemoryDescriptor*		fUserDCLProgramMem ;
 	IOByteCount				fDCLProgramBytes ;
 	IOMemoryDescriptor*		fUserBufferMem ;
 	Boolean					fUserBufferMemPrepared ;
+	IOMemoryMap*			fUserBufferMemMap ;
 	Boolean					fUserDCLProgramMemPrepared ;
 	
 	UInt8*					fKernDCLProgramBuffer ;

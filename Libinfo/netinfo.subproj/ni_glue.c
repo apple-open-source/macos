@@ -722,6 +722,7 @@ setmaster(
 		ni->needwrite = needwrite;
 		return (0);
 	}
+	NI_INIT(&nl);
 	if (ni_lookupprop(ni, &root, NAME_MASTER, &nl) != NI_OK) {
 		ni->needwrite = needwrite;
 		return (0);
@@ -737,6 +738,7 @@ setmaster(
 	}
 	*sep++ = 0;
 	master = nl.ninl_val[0];
+	NI_INIT(&idl);
 	if (ni_lookup(ni, &root, NAME_NAME, NAME_MACHINES, &idl) != NI_OK) {
 		ni->needwrite = needwrite;
 		ni_namelist_free(&nl);
@@ -748,6 +750,7 @@ setmaster(
 	}
 	id.nii_object = idl.niil_val[0];
 	ni_idlist_free(&idl);
+	NI_INIT(&idl);
 	if (ni_lookup(ni, &id, NAME_NAME, master, &idl) != NI_OK) {
 		ni_namelist_free(&nl);
 		ni->needwrite = needwrite;
@@ -760,6 +763,7 @@ setmaster(
 	}
 	id.nii_object = idl.niil_val[0];
 	ni_idlist_free(&idl);
+	NI_INIT(&nl);
 	if (ni_lookupprop(ni, &id, NAME_IP_ADDRESS, &nl) != NI_OK) {
 		return (0);
 	}
@@ -1026,6 +1030,7 @@ addaddr(
 	int i;
 
 	id.nii_object = ido;
+	NI_INIT(&nl);
 	if (ni_lookupprop(ni, &id, NAME_IP_ADDRESS, &nl) != NI_OK) {
 		return (0);
 	}
@@ -1078,6 +1083,7 @@ get_daddr(
 		return(0);
 	}
 
+	NI_INIT(&ids);
 	if (ni_lookup(ni, &id, NAME_NAME, NAME_MACHINES, &ids) != NI_OK) {
 		return (0);
 	}
@@ -1085,6 +1091,7 @@ get_daddr(
 	id.nii_object = ids.niil_val[0];
 	ni_idlist_free(&ids);
 
+	NI_INIT(&entries);
 	if (ni_list(ni, &id, NAME_SERVES, &entries) != NI_OK) {
 		return (0);
 	}
@@ -1127,12 +1134,14 @@ get_haddr(
 	if (ni_root(ni, &id) != NI_OK) {
 		return(0);
 	}
+	NI_INIT(&ids);
 	if (ni_lookup(ni, &id, NAME_NAME, NAME_MACHINES, &ids) != NI_OK) {
 		return (0);
 	}
 	id.nii_object = ids.niil_val[0];
 	ni_idlist_free(&ids);
 
+	NI_INIT(&ids);
 	if (ni_lookup(ni, &id, NAME_NAME, hname, &ids) != NI_OK) {
 		return (0);
 	}
@@ -1981,17 +1990,20 @@ ni_setuser(
 	if (ni_root(ni, &id) != NI_OK) {
 		return(NI_NOUSER);
 	}
+	NI_INIT(&ids);
 	if (ni_lookup(ni, &id, NAME_NAME, NAME_USERS, &ids) != NI_OK) {
 		return (NI_NOUSER);
 	}
 	id.nii_object = ids.niil_val[0];
 	ni_idlist_free(&ids);
 
+	NI_INIT(&ids);
 	if (ni_lookup(ni, &id, NAME_NAME, user, &ids) != NI_OK) {
 		return (NI_NOUSER);
 	}
 	id.nii_object = ids.niil_val[0];
 	ni_idlist_free(&ids);
+	NI_INIT(&nl);
 	if (ni_lookupprop(ni, &id, NAME_UID, &nl) != NI_OK) {
 		return (NI_NOUSER);
 	}

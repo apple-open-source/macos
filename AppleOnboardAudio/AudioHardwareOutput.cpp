@@ -99,6 +99,7 @@ bool AudioHardwareOutput::init(AudioHardwareOutputInfo theInfo) {
 
 
 void AudioHardwareOutput::free(){
+    //pluginRef->release();
     super::free();
 }
 

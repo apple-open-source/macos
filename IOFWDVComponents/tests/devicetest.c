@@ -274,12 +274,28 @@ static void OpenDV()
     err = IDHSetDeviceConfiguration( theInst, &videoConfig);
     if( err != noErr)
             goto error;
-
+#if 0
     doControlTest(theInst, &videoConfig,
         0xc3, //kAVCPlayOpcode
         0x75 //kAVCPlayForward
     );
-
+#else
+    {
+        TimeRecord time1, time2;
+        do {
+            err = IDHGetDeviceTime(theInst, &time1);
+            err = IDHGetDeviceTime(theInst, &time2);
+            if(time2.value.lo > time1.value.lo+1) {
+                //printf("read device time1, scale: %d, time 0x%x:0x%x\n",
+               //     time1.scale, time1.value.hi, time1.value.lo);
+                //printf("read device time2, scale: %d, time 0x%x:0x%x\n",
+                //    time2.scale, time2.value.hi, time2.value.lo);
+                    
+                printf("Diff is %d\n", time2.value.lo-time1.value.lo);
+            }
+        } while (1);
+    }
+#endif
 error:
     if( err != noErr)
         printf("error %d(0x%x)\n", err, err);

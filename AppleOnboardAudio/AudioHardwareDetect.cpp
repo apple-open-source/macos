@@ -126,7 +126,13 @@ UInt32 AudioHardwareDetect::refreshDevices(UInt32 inSense){
                 result = 0;
             break;
         case kAudioHardwareDetectGPIO: //We need to add the GPIO detect
-            result = 0;
+			debug4IOLog("AudioHardwareDetect::refreshDevices inSense %08lx, dbitMask %08lx, dbitMatch %08lx\n", inSense, dbitMask, dbitMatch) ;
+
+            if((inSense & dbitMask) == dbitMatch) {
+                result = dDevice;
+            } else {
+                result = 0;
+			}
             break;
         case kAudioHardwareDetectUnknown:
         default:

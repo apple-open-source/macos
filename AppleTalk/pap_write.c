@@ -86,10 +86,6 @@ int  eof, flush;
 		return -1;
 	}
 
-	if (papp->pap_eof_sent)
-		return 0;
-	papp->pap_eof_sent = eof;
-
 	do {
 		register unsigned int i;
 

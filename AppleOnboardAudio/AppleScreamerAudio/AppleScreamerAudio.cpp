@@ -255,7 +255,7 @@ bool AppleScreamerAudio::initHardware(IOService *provider)
     } */
     
     
-    flushAudioControls();
+//    flushAudioControls();
     
         //Prepare the timer loop --> should go on the workloop
     nanoseconds_to_absolutetime(NSEC_PER_SEC, &timerInterval);

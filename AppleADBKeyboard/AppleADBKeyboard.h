@@ -52,6 +52,12 @@ void keyboardEvent(unsigned eventType,
       /* charSet */          unsigned charSet,
       /* originalCharCode */ unsigned origCharCode,
       /* originalCharSet */  unsigned origCharSet);
+      
+ 
+void updateFKeyMap();       // Update the F key mapping in PMU from device tree
+                            //use adb write to PMU register
+void setButtonTransTableEntry(unsigned char fkeynum, unsigned char transvalue);
+
 
 bool programmerKey;
 AbsoluteTime  programmerKeyTime;

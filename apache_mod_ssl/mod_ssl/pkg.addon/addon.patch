@@ -8,7 +8,7 @@
 ##
 ## Annotated patch file: addon.patch
 ## Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved. 
-## Created on: 20-May-2001
+## Created on: 16-Oct-2001
 ##
 ## This file assembles changes to existing Apache source files
 ## between the original Apache and the patched variant. It can be
@@ -21,9 +21,9 @@
 | Add an entry for mod_define.
 +---------------------------------------------------------------------------
 Index: src/Configuration.tmpl
---- src/Configuration.tmpl	1999/08/17 11:21:38	1.1.1.5
-+++ src/Configuration.tmpl	2000/10/09 12:15:02	1.21
-@@ -243,6 +298,11 @@
+--- src/Configuration.tmpl	2001/10/16 11:47:06	1.1.1.6
++++ src/Configuration.tmpl	2001/10/16 11:57:38	1.22
+@@ -250,6 +305,11 @@
  
  AddModule modules/standard/mod_env.o
  
@@ -126,30 +126,33 @@ Index: src/modules/standard/mod_status.c
 +---------------------------------------------------------------------------
 | Add a hyperlink to the mod_define.html document.
 +---------------------------------------------------------------------------
-Index: htdocs/manual/mod/index.html
---- htdocs/manual/mod/index.html	2001/01/23 11:35:19	1.1.1.4
-+++ htdocs/manual/mod/index.html	2001/01/23 11:48:05	1.10
-@@ -65,6 +65,8 @@
- <DT><A HREF="mod_cookies.html">mod_cookies</A> up to Apache 1.1.1
- <DD>Support for Netscape-like cookies.  Replaced in Apache 1.2 by
- mod_usertrack
-+<DT><A HREF="mod_define.html">mod_define</A>
-+<DD>Variable Definition for Arbitrary Directives
- <DT><A HREF="mod_digest.html">mod_digest</A> Apache 1.1 and up
- <DD>MD5 authentication
- <DT><A HREF="mod_dir.html">mod_dir</A>
+Index: htdocs/manual/mod/index.html.en
+--- htdocs/manual/mod/index.html.en	2001/10/16 11:46:59	1.1.1.1
++++ htdocs/manual/mod/index.html.en	2001/10/16 12:17:00	1.2
+@@ -101,6 +101,10 @@
+       <dd>Support for Netscape-like cookies. Replaced in Apache 1.2
+       by mod_usertrack</dd>
+ 
++      <dt><a href="mod_define.html">mod_define</a></dt>
++
++      <dd>Variable Definition for Arbitrary Directives</dd>
++
+       <dt><a href="mod_digest.html">mod_digest</a> Apache 1.1 and
+       up</dt>
+ 
 
 +---------------------------------------------------------------------------
 | Add a hyperlink for the Define directives.
 +---------------------------------------------------------------------------
-Index: htdocs/manual/mod/directives.html
---- htdocs/manual/mod/directives.html	2001/05/20 08:16:32	1.1.1.10
-+++ htdocs/manual/mod/directives.html	2001/05/20 08:23:01	1.20
-@@ -99,6 +99,7 @@
- <LI><A HREF="mod_autoindex.html#defaulticon">DefaultIcon</A>
- <LI><A HREF="mod_mime.html#defaultlanguage">DefaultLanguage</A>
- <LI><A HREF="core.html#defaulttype">DefaultType</A>
-+<LI><A HREF="mod_define.html#define">Define</A>
- <LI><A HREF="mod_access.html#deny">Deny</A>
- <LI><A HREF="core.html#directory">&lt;Directory&gt;</A>
- <LI><A HREF="core.html#directorymatch">&lt;DirectoryMatch&gt;</A>
+Index: htdocs/manual/mod/directives.html.en
+--- htdocs/manual/mod/directives.html.en	2001/10/16 11:46:59	1.1.1.1
++++ htdocs/manual/mod/directives.html.en	2001/10/16 12:17:00	1.2
+@@ -214,6 +214,8 @@
+ 
+       <li><a href="core.html#defaulttype">DefaultType</a></li>
+ 
++      <li><a href="mod_define.html#define">Define</a>
++
+       <li><a href="mod_access.html#deny">Deny</a></li>
+ 
+       <li><a href="core.html#directory">&lt;Directory&gt;</a></li>

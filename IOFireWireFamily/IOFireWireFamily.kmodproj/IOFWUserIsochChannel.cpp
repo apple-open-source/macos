@@ -33,7 +33,11 @@
 #include <IOKit/firewire/IOFireWireController.h>
 #include <IOKit/firewire/IOFWCommand.h>
 #include <IOKit/firewire/IOFWIsochPort.h>
-#include <IOKit/firewire/IOFWUserIsochChannel.h>
+
+#include "IOFWUserIsochChannel.h"
+
+// so niels can use the IOFireWireUserClientLog_ macro (et. al.)
+#include"IOFireWireUserClient.h"
 
 OSDefineMetaClassAndStructors(IOFWUserIsochChannel, IOFWIsochChannel)
 
@@ -79,17 +83,17 @@ IOFWUserIsochChannel::stop()
 IOReturn
 IOFWUserIsochChannel::userAllocateChannelBegin(
 	IOFWSpeed		inSpeed,
-//	UInt32			inAllowedChansHi,
-//	UInt32			inAllowedChansLo,
-	UInt64			inAllowedChans,
+	UInt32			inAllowedChansHi,
+	UInt32			inAllowedChansLo,
+//	UInt64			inAllowedChans,
 	IOFWSpeed*		outActualSpeed,
 	UInt32*			outActualChannel)
 {
-    IOReturn 		result = kIOReturnSuccess;
+	IOReturn 	result = kIOReturnSuccess;
 
 	if (!fBandwidthAllocated)
 	{
-		UInt64 			allowedChans = inAllowedChans;//((UInt64)inAllowedChansHi)<<32 | inAllowedChansLo ;
+		UInt64 			allowedChans = (UInt64)inAllowedChansHi<<32 | inAllowedChansLo ;
 		UInt64 			savedChans ;
 		UInt16 			irm ;
 		UInt32 			generation ;
@@ -100,8 +104,8 @@ IOFWUserIsochChannel::userAllocateChannelBegin(
 		UInt32 			channel ;
 		bool 			tryAgain ;	// For locks.
 	
-//		IOLog("IOFWUserIsochChannel::userAllocateChannelBegin: allowedChans=%08lX%08lX\n",
-//			(UInt32)(allowedChans >> 32), (UInt32)(allowedChans & 0xFFFFFFFF)) ;
+		IOFireWireUserClientLog_( ("IOFWUserIsochChannel::userAllocateChannelBegin: allowedChans=%08lX%08lX\n",
+			(UInt32)(allowedChans >> 32), (UInt32)(allowedChans & 0xFFFFFFFF)) ) ;
 	
 		// Get best speed, minimum of requested speed and paths from talker to each listener
 		fSpeed = inSpeed ;
@@ -110,17 +114,21 @@ IOFWUserIsochChannel::userAllocateChannelBegin(
 	
 			// reserve bandwidth, allocate a channel
 			if(fDoIRM) {
-//				IOLog("IOFWUserIsochChannel::userAllocateChannelBegin: doing IRM\n") ;
+				IOFireWireUserClientLog_(("IOFWUserIsochChannel::userAllocateChannelBegin: doing IRM\n") ) ;
 				
 				fControl->getIRMNodeID(generation, irm);
 				savedChans = allowedChans; // In case we have to try a few times
 				// bandwidth is in units of quads at 1600 Mbs
 				bandwidth = (fPacketSize/4 + 3) * 16 / (1 << fSpeed);
 				addr.nodeID = irm;
-				fReadCmd->reinit(generation, addr, old, 3);
-				// many cameras don't like block reads to IRM registers, eg. Canon GL-1
-				fReadCmd->setMaxPacket(4);
-				result = fReadCmd->submit();
+				
+				do {
+					fReadCmd->reinit(generation, addr, old, 3);
+					// many cameras don't like block reads to IRM registers, eg. Canon GL-1
+					fReadCmd->setMaxPacket(4);
+					result = fReadCmd->submit();
+				} while ( result == kIOFireWireBusReset ) ;
+				
 				if(kIOReturnSuccess != result) {
 					break;
 				}
@@ -130,15 +138,16 @@ IOFWUserIsochChannel::userAllocateChannelBegin(
 				tryAgain = false;
 				do {
 					if(old[0] < bandwidth) {
-						IOLog("IOFWUserIsochChannel::userAllocateChannelBegin: bandwidth=0x%08lX, old[0]=0x%08lX\n", bandwidth, old[0]) ;
+						IOFireWireUserClientLog_(("IOFWUserIsochChannel::userAllocateChannelBegin: bandwidth=0x%08lX, old[0]=0x%08lX\n", bandwidth, old[0])) ;
 						result = kIOReturnNoSpace;
 						break;
 					}
 					newVal = old[0] - bandwidth;
 					fLockCmd->reinit(generation, addr, &old[0], &newVal, 1);
 					result = fLockCmd->submit();
-					if(kIOReturnSuccess != result)
-						IOLog("IOFWUserIsochChannel::userAllocateChannelBegin: bandwith update result 0x%x\n", result);
+
+					IOFireWireUserClientLogIfErr_( result, ("IOFWUserIsochChannel::userAllocateChannelBegin: bandwith update result 0x%x\n", result) ) ;
+
 					tryAgain = !fLockCmd->locked(&old[0]);
 				} while (tryAgain);
 				if(kIOReturnSuccess != result)
@@ -166,16 +175,16 @@ IOFWUserIsochChannel::userAllocateChannelBegin(
 						addr.addressLo = kCSRChannelsAvailable31_0;
 						oldPtr = &old[1];
 						newVal = *oldPtr & ~(1<<(31-channel));
-			}
-			else {
-						addr.addressLo = kCSRChannelsAvailable63_32;
-						oldPtr = &old[2];
-						newVal = *oldPtr & ~( (UInt64)1 << (63-channel) );
-			}
+					}
+					else {
+								addr.addressLo = kCSRChannelsAvailable63_32;
+								oldPtr = &old[2];
+								newVal = *oldPtr & ~( (UInt64)1 << (63-channel) );
+					}
 					fLockCmd->reinit(generation, addr, oldPtr, &newVal, 1);
 					result = fLockCmd->submit();
-					if(kIOReturnSuccess != result)
-						IOLog("channel update result 0x%x\n", result);
+					
+					IOFireWireUserClientLogIfErr_( result, ("channel update result 0x%x\n", result) );
 					tryAgain = !fLockCmd->locked(oldPtr);
 				}
 				else
@@ -196,9 +205,7 @@ IOFWUserIsochChannel::userAllocateChannelBegin(
 		fBandwidthAllocated = (kIOReturnSuccess == result) ;
 	}
 
-	if (kIOReturnSuccess != result)
-		IOLog( "-IOFWUserIsochChannel::userAllocateChannelBegin: result=0x%08lX, fSpeed=%u, fChannel=0x%08lX\n", 
-		       (UInt32) result, fSpeed, fChannel) ;
+	IOFireWireUserClientLogIfErr_( result, ( "-IOFWUserIsochChannel::userAllocateChannelBegin: result=0x%08lX, fSpeed=%u, fChannel=0x%08lX\n", (UInt32) result, fSpeed, fChannel) ) ;
 
 	*outActualSpeed 	= fSpeed ;
 	*outActualChannel	= fChannel ;
@@ -225,7 +232,7 @@ IOFWUserIsochChannel::userReleaseChannelComplete()
 			fControl->removeAllocatedChannel(this);
 			updateBandwidth(false);
 			
-			IOLog("IOFWUserIsochChannel::userReleaseChannelComplete: freeing up bandwidth (is now %08lX)\n", fBandwidth) ;
+			IOFireWireUserClientLog_(("IOFWUserIsochChannel::userReleaseChannelComplete: freeing up bandwidth (is now %08lX)\n", fBandwidth)) ;
 		}
 		
 	fBandwidthAllocated = false ;	

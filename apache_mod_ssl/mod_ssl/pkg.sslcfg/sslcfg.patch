@@ -8,7 +8,7 @@
 ##
 ## Annotated patch file: sslcfg.patch
 ## Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved. 
-## Created on: 20-May-2001
+## Created on: 16-Oct-2001
 ##
 ## This file assembles changes to existing Apache source files
 ## between the original Apache and the patched variant. It can be
@@ -27,8 +27,8 @@
 | which speaks SSL.
 +---------------------------------------------------------------------------
 Index: conf/httpd.conf-dist
---- conf/httpd.conf-dist	2001/05/20 08:16:27	1.1.1.11
-+++ conf/httpd.conf-dist	2001/05/20 08:23:00	1.62
+--- conf/httpd.conf-dist	2001/10/16 11:46:54	1.1.1.12
++++ conf/httpd.conf-dist	2001/10/16 11:57:37	1.63
 @@ -231,6 +231,17 @@
  #
  Port 80
@@ -47,7 +47,7 @@ Index: conf/httpd.conf-dist
  #
  # If you wish httpd to run as a different user or group, you must run
  # httpd as root initially and it will switch.  
-@@ -969,3 +980,245 @@
+@@ -984,3 +995,245 @@
  #    ErrorLog logs/dummy-host.example.com-error_log
  #    CustomLog logs/dummy-host.example.com-access_log common
  #</VirtualHost>
@@ -298,13 +298,13 @@ Index: conf/httpd.conf-dist
 | 
 +---------------------------------------------------------------------------
 Index: conf/httpd.conf-dist-win
---- conf/httpd.conf-dist-win	2001/05/20 08:16:27	1.1.1.11
-+++ conf/httpd.conf-dist-win	2001/05/20 08:23:00	1.10
-@@ -200,6 +200,7 @@
- #LoadModule info_module modules/mod_info.so
- #LoadModule status_module modules/mod_status.so
+--- conf/httpd.conf-dist-win	2001/10/16 11:46:54	1.1.1.12
++++ conf/httpd.conf-dist-win	2001/10/16 11:57:37	1.11
+@@ -190,6 +190,7 @@
+ #LoadModule headers_module modules/mod_headers.so
  #LoadModule usertrack_module modules/mod_usertrack.so
+ #LoadModule unique_id_module modules/mod_unique_id.so
 +#LoadModule ssl_module modules/mod_ssl.so
  
  #
- # ExtendedStatus controls whether Apache will generate "full" status
+ #  Reconstruction of the complete module list from all available modules

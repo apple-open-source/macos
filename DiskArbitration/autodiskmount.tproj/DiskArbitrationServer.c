@@ -768,7 +768,7 @@ kern_return_t DiskArbUnmountRequest_async_rpc (
                 goto Return;
         }
 	
-	if ( AreWeBusy() )
+	if ( AreWeBusyForDisk(diskPtr) )
 	{
 		pwarning(("%s(diskIdentifier = '%s', flags = $%08x): already busy\n", __FUNCTION__, diskIdentifier, flags));
                 err = -1;
@@ -892,7 +892,7 @@ kern_return_t DiskArbEjectRequest_async_rpc (
                 goto Return;
         }
 
-        if ( AreWeBusy() )
+        if ( AreWeBusyForDisk(diskPtr) )
         {
                 pwarning(("%s(diskIdentifier = '%s', flags = $%08x): already busy\n", __FUNCTION__, diskIdentifier, flags));
                 err = -1;
@@ -1000,7 +1000,7 @@ kern_return_t DiskArbUnmountAndEjectRequest_async_rpc (
                 goto Return;
         }
 
-        if ( AreWeBusy() )
+        if ( AreWeBusyForDisk(diskPtr) )
         {
                 pwarning(("%s(diskIdentifier = '%s', flags = $%08x): already busy\n", __FUNCTION__, diskIdentifier, flags));
                 err = -1;

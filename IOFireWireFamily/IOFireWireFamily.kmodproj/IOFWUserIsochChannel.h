@@ -43,9 +43,9 @@ class IOFWUserIsochChannel: public IOFWIsochChannel
  public:
 	virtual IOReturn	userAllocateChannelBegin(
 								IOFWSpeed	inSpeed,
-//								UInt32		inAllowedChansHi,
-//								UInt32		inAllowedChansLo,
-								UInt64		inAllowedChans,
+								UInt32		inAllowedChansHi,
+								UInt32		inAllowedChansLo,
+//								UInt64		inAllowedChans,
 								IOFWSpeed*	outActualSpeed,
 								UInt32*		outActualChannel) ;
 	virtual IOReturn	userReleaseChannelComplete() ;

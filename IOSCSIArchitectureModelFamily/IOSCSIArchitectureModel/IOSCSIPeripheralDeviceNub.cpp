@@ -40,6 +40,7 @@
 // 		1 	PANIC_NOW only
 //		2	PANIC_NOW and ERROR_LOG
 //		3	PANIC_NOW, ERROR_LOG and STATUS_LOG
+#define SCSI_PERIPHERAL_DEVICE_NUB_DEBUGGING_LEVEL 0
 
 
 #if ( SCSI_PERIPHERAL_DEVICE_NUB_DEBUGGING_LEVEL >= 1 )
@@ -619,7 +620,7 @@ IOSCSIPeripheralDeviceNub::SendTask ( SCSITask * request )
 	fSyncLock->reinit ( );
 	
 	STATUS_LOG ( ( "%s:SendTask Execute the command.\n", getName ( ) ) );
-	fProvider->ExecuteCommand ( request );
+	ExecuteCommand ( request );
 	
 	STATUS_LOG ( ( "%s:SendTask wait for the signal.\n", getName ( ) ) );
 	
@@ -944,3 +945,198 @@ OSMetaClassDefineReservedUnused( IOSCSIPeripheralDeviceNub, 13 );
 OSMetaClassDefineReservedUnused( IOSCSIPeripheralDeviceNub, 14 );
 OSMetaClassDefineReservedUnused( IOSCSIPeripheralDeviceNub, 15 );
 OSMetaClassDefineReservedUnused( IOSCSIPeripheralDeviceNub, 16 );
+
+OSDefineMetaClassAndStructors( IOSCSILogicalUnitNub, IOSCSIPeripheralDeviceNub );
+
+bool
+IOSCSILogicalUnitNub::start( IOService * provider )
+{
+	
+	OSDictionary * 	characterDict = NULL;
+	
+	if ( !super::start ( provider ) )
+	{
+		return false;
+   	}
+
+	fProvider = OSDynamicCast ( IOSCSIPeripheralDeviceNub, provider );
+	if ( fProvider != NULL )
+	{
+		
+		// Our provider is one of us, don't load again.
+		return false;
+		
+	}
+	
+	fProvider = OSDynamicCast ( IOSCSIProtocolServices, provider );
+	if ( fProvider == NULL )
+	{
+		
+		ERROR_LOG ( ( "%s: Provider was not a IOSCSIProtocolServices object\n", getName ( ) ) );
+		return false;
+		
+	}
+	
+	fSCSIPrimaryCommandObject = new SCSIPrimaryCommands;
+	if ( fSCSIPrimaryCommandObject == NULL )
+	{
+		
+		ERROR_LOG ( ( "%s: Could not allocate a SCSIPrimaryCommands object\n", getName ( ) ) );
+		return false;
+		
+	}
+
+	STATUS_LOG ( ( "%s: Check for the SCSI Device Characteristics property from provider.\n", getName ( ) ) );
+	// Check if the personality for this device specifies a preferred protocol
+	if ( ( fProvider->getProperty ( kIOPropertySCSIDeviceCharacteristicsKey ) ) == NULL )
+	{
+		
+		STATUS_LOG ( ( "%s: No SCSI Device Characteristics property, set defaults.\n", getName ( ) ) );
+		fDefaultInquiryCount = 0;
+		
+	}
+	
+	else
+	{
+		
+		STATUS_LOG ( ( "%s: Get the SCSI Device Characteristics property from provider.\n", getName ( ) ) );
+		characterDict = OSDynamicCast ( OSDictionary, ( fProvider->getProperty ( kIOPropertySCSIDeviceCharacteristicsKey ) ) );
+		
+		STATUS_LOG ( ( "%s: set this SCSI Device Characteristics property.\n", getName ( ) ) );
+		setProperty ( kIOPropertySCSIDeviceCharacteristicsKey, characterDict );
+		
+		// Check if the personality for this device specifies a preferred protocol
+		STATUS_LOG ( ( "%s: check for the Inquiry Length property.\n", getName ( ) ) );
+		if ( characterDict->getObject ( kIOPropertySCSIInquiryLengthKey ) == NULL )
+		{
+			
+			STATUS_LOG ( ( "%s: No Inquiry Length property, use default.\n", getName ( ) ) );
+			fDefaultInquiryCount = 0;
+			
+		}
+		
+		else
+		{
+			
+			OSNumber *	defaultInquiry;
+			
+			STATUS_LOG ( ( "%s: Get Inquiry Length property.\n", getName ( ) ) );
+			defaultInquiry = OSDynamicCast ( OSNumber, characterDict->getObject ( kIOPropertySCSIInquiryLengthKey ) );
+			
+			// This device has a preferred protocol, use that.
+			fDefaultInquiryCount = defaultInquiry->unsigned32BitValue ( );
+		
+		}
+	
+	}
+		
+	STATUS_LOG ( ( "%s: default inquiry count is: %d\n", getName ( ), fDefaultInquiryCount ) );
+	
+	if ( InterrogateDevice ( ) == true )
+	{
+				
+		OSObject *	obj;
+		
+		STATUS_LOG ( ( "%s: The device has been interrogated, register services.\n", getName ( ) ) );
+		
+		setProperty ( kIOMatchCategoryKey, kSCSITaskUserClientIniterKey );
+		
+		characterDict = OSDynamicCast ( OSDictionary, fProvider->getProperty ( kIOPropertyProtocolCharacteristicsKey ) );
+		if ( characterDict == NULL )
+		{
+			
+			characterDict = OSDictionary::withCapacity ( 1 );
+			
+		}
+		
+		else
+		{
+			characterDict->retain ( );
+		}
+		
+		obj = fProvider->getProperty ( kIOPropertyPhysicalInterconnectTypeKey );
+		if ( obj != NULL )
+		{
+			characterDict->setObject ( kIOPropertyPhysicalInterconnectTypeKey, obj );
+		}
+
+		obj = fProvider->getProperty ( kIOPropertyPhysicalInterconnectLocationKey );
+		if ( obj != NULL )
+		{
+			characterDict->setObject ( kIOPropertyPhysicalInterconnectLocationKey, obj );
+		}
+		
+		setProperty ( kIOPropertyProtocolCharacteristicsKey, characterDict );
+		
+		characterDict->release ( );
+		
+		// Register this object as a nub for the Logical Unit Driver.
+		registerService ( );
+	   	
+	   	STATUS_LOG ( ( "%s: Registered and setup is complete\n", getName ( ) ) );
+	   	// Setup was successful, return true.
+   		return true;
+		
+	}
+	
+	// The setup was unsuccessful, return false to allow this object to
+	// get removed.	
+	stop ( provider );
+	
+	return false;
+	
+}
+
+void
+IOSCSILogicalUnitNub::SetLogicalUnitNumber( UInt8 newLUN )
+{
+	STATUS_LOG ( ( "%s: SetLogicalUnitNumber to %d\n", getName(), newLUN ) );
+	fLogicalUnitNumber = newLUN;
+}
+
+// The ExecuteCommand function will take a SCSITask Object and transport
+// it across the physical wire(s) to the device
+void
+IOSCSILogicalUnitNub::ExecuteCommand( SCSITaskIdentifier request )
+{
+	STATUS_LOG ( ( "%s: ExecuteCommand for %d\n", getName(), fLogicalUnitNumber ) );
+	if( fLogicalUnitNumber != 0 )
+	{
+		SCSITask *	scsiRequest;
+		
+	    scsiRequest = OSDynamicCast( SCSITask, request );
+	    if( scsiRequest != NULL )
+	    {
+			scsiRequest->SetLogicalUnitNumber( fLogicalUnitNumber );
+		}
+	}
+	
+	IOSCSIPeripheralDeviceNub::ExecuteCommand( request );
+}
+
+
+// The AbortCommand function will abort the indicated SCSITask object,
+// if it is possible and the SCSITask has not already completed.
+SCSIServiceResponse
+IOSCSILogicalUnitNub::AbortCommand( SCSITaskIdentifier abortTask )
+{
+	return IOSCSIPeripheralDeviceNub::AbortCommand( abortTask );
+}
+
+// Space reserved for future expansion.
+OSMetaClassDefineReservedUnused( IOSCSILogicalUnitNub, 1 );
+OSMetaClassDefineReservedUnused( IOSCSILogicalUnitNub, 2 );
+OSMetaClassDefineReservedUnused( IOSCSILogicalUnitNub, 3 );
+OSMetaClassDefineReservedUnused( IOSCSILogicalUnitNub, 4 );
+OSMetaClassDefineReservedUnused( IOSCSILogicalUnitNub, 5 );
+OSMetaClassDefineReservedUnused( IOSCSILogicalUnitNub, 6 );
+OSMetaClassDefineReservedUnused( IOSCSILogicalUnitNub, 7 );
+OSMetaClassDefineReservedUnused( IOSCSILogicalUnitNub, 8 );
+OSMetaClassDefineReservedUnused( IOSCSILogicalUnitNub, 9 );
+OSMetaClassDefineReservedUnused( IOSCSILogicalUnitNub, 10 );
+OSMetaClassDefineReservedUnused( IOSCSILogicalUnitNub, 11 );
+OSMetaClassDefineReservedUnused( IOSCSILogicalUnitNub, 12 );
+OSMetaClassDefineReservedUnused( IOSCSILogicalUnitNub, 13 );
+OSMetaClassDefineReservedUnused( IOSCSILogicalUnitNub, 14 );
+OSMetaClassDefineReservedUnused( IOSCSILogicalUnitNub, 15 );
+OSMetaClassDefineReservedUnused( IOSCSILogicalUnitNub, 16 );

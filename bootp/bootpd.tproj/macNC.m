@@ -86,6 +86,7 @@
 #import "AFPUsers.h"
 #import "NetBootServer.h"
 
+#define AGE_TIME_SECONDS	(60 * 60 * 24)
 #define AFP_USERS_MAX		50
 #define ADMIN_GROUP_NAME	"admin"
 #define ROOT_UID		0
@@ -96,6 +97,7 @@ char *  	ether_ntoa(struct ether_addr *e);
 /* globals */
 gid_t		netboot_gid;
 int		afp_users_max = AFP_USERS_MAX;
+u_int32_t	age_time_seconds = AGE_TIME_SECONDS;
 
 /* local defines/variables */
 #define NIPROP__CREATOR		"_creator"
@@ -116,7 +118,7 @@ int		afp_users_max = AFP_USERS_MAX;
  */ 
 #define SHADOW_SIZE_SAME	0 
 #define SHADOW_SIZE_DEFAULT	48
-
+#define MACOSROM	"Mac OS ROM"
 static gid_t		S_admin_gid;
 
 static nbspList_t	S_sharepoints = NULL;
@@ -126,7 +128,7 @@ static u_long		S_shadow_size_meg = SHADOW_SIZE_DEFAULT;
 
 /* strings retrieved from the configuration directory: */
 static ni_name		S_client_image_dir = "Clients";
-static ni_name		S_default_bootfile = "Mac OS ROM";
+static ni_name		S_default_bootfile = MACOSROM;
 static ni_name		S_images_dir = "Images";
 static ni_name		S_private_image_name = "Applications HD.img";
 static ni_name		S_shadow_name = "Shadow";
@@ -295,6 +297,7 @@ S_read_config()
 
     S_shadow_size_meg = SHADOW_SIZE_DEFAULT;
     afp_users_max = AFP_USERS_MAX;
+    age_time_seconds = AGE_TIME_SECONDS;
 
     if (PropList_read(&S_config_netboot) == TRUE) {
 	nl_p = PropList_lookup(&S_config_netboot, CFGPROP_SHADOW_SIZE_MEG);
@@ -304,6 +307,10 @@ S_read_config()
 	nl_p = PropList_lookup(&S_config_netboot, CFGPROP_AFP_USERS_MAX);
 	if (nl_p && nl_p->ninl_len) {
 	    afp_users_max = strtol(nl_p->ninl_val[0], 0, 0);
+	}
+	nl_p = PropList_lookup(&S_config_netboot, CFGPROP_AGE_TIME_SECONDS);
+	if (nl_p && nl_p->ninl_len) {
+	    age_time_seconds = strtoul(nl_p->ninl_val[0], 0, 0);
 	}
     }
     if (S_shadow_size_meg == SHADOW_SIZE_SAME) {
@@ -315,6 +322,25 @@ S_read_config()
 	       "macNC: shadow file size will be set to %d megabytes",
 	       S_shadow_size_meg);
     }
+    {
+	u_int32_t	hours = 0;
+	u_int32_t	minutes = 0;
+	u_int32_t	seconds = 0;
+	u_int32_t	remainder = age_time_seconds;
+
+#define SECS_PER_MINUTE	60
+#define SECS_PER_HOUR	(60 * SECS_PER_MINUTE)
+
+	hours = remainder / SECS_PER_HOUR;
+	remainder = remainder % SECS_PER_HOUR;
+	if (remainder > 0) {
+	    minutes = remainder / SECS_PER_MINUTE;
+	    remainder = remainder % SECS_PER_MINUTE;
+	    seconds = remainder;
+	}
+	syslog(LOG_INFO,
+	       "macNC: age time %02u:%02u:%02u", hours, minutes, seconds);
+    }
     return;
 }
 
@@ -322,7 +348,7 @@ static void
 S_update_bootfile_symlink(char * path)
 {
     (void)mkdir("/private/tftpboot", 0755);
-    (void)symlink(path, "/private/tftpboot/Mac OS ROM");
+    (void)symlink(path, "/private/tftpboot/" MACOSROM);
     return;
 }
 
@@ -355,6 +381,8 @@ S_find_images(nbspList_t list)
 	    continue;
 	}
 	images = entry;
+	snprintf(path, sizeof(path), "%s/%s/%s",
+		 entry->path, S_images_dir, S_default_bootfile);
 	S_update_bootfile_symlink(path);
 	break;
     }
@@ -1113,3 +1141,38 @@ macNC_allocate(struct dhcp * reply, u_char * hostname, struct in_addr servip,
     return (TRUE);
 }
 
+void
+macNC_unlink_shadow(int host_number, u_char * hostname)
+{
+    int			def_vol_index;
+    int			i;
+    u_char		nc_images_dir[PATH_MAX];
+    nbspEntry_t *	nc_volume = NULL;
+    struct stat		shadow_statb;
+    u_char		shadow_path[PATH_MAX];
+    int			vol_index;
+
+    snprintf(nc_images_dir, sizeof(nc_images_dir),
+	     "%s/%s", S_client_image_dir, hostname);
+
+    def_vol_index = (host_number - 1) % nbspList_count(S_sharepoints);
+
+    /* check all volumes for a client image directory starting at default */
+    nc_volume = NULL;
+    for (i = 0, vol_index = def_vol_index; i < nbspList_count(S_sharepoints);
+	 i++) {
+	nbspEntry_t * entry = nbspList_element(S_sharepoints, vol_index);
+	if (S_stat_path_vol_file(shadow_path, entry, nc_images_dir, 
+				 S_shadow_name, &shadow_statb) == 0) {
+	    if (unlink(shadow_path) < 0) {
+		if (verbose) {
+		    syslog(LOG_INFO, 
+			   "macNC: unlink(%s) failed, %m", shadow_path);
+		}
+	    }
+	    return;
+	}
+	vol_index = (vol_index + 1) % nbspList_count(S_sharepoints);
+    }
+    return;
+}

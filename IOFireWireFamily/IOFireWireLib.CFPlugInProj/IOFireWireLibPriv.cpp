@@ -65,6 +65,34 @@ extern "C" {
 //
 // ============================================================
 
+// Reserved0() was:
+//	IOFireWireLibCommandRef	
+//						(*CreateReadQuadletCommand)(
+//									IOFireWireLibDeviceRef	self,
+//									io_object_t			device,
+//									const FWAddress *	addr,
+//									UInt32				quads[],
+//									UInt32				numQuads,
+//									IOFireWireLibCommandCallback callback,
+//									Boolean				failOnReset,
+//									UInt32				generation,
+//									void*				inRefCon,
+//									REFIID				iid) ;
+
+// Reserved1() was:
+//	IOFireWireLibCommandRef
+//						(*CreateWriteQuadletCommand)(
+//									IOFireWireLibDeviceRef	self,
+//									io_object_t			device,
+//									const FWAddress *	addr,
+//									UInt32				quads[],
+//									UInt32				numQuads,
+//									IOFireWireLibCommandCallback callback,
+//									Boolean				failOnReset,
+//									UInt32				generation,
+//									void*				inRefCon,
+//									REFIID				iid) ;
+
 // static interface table for IOCFPlugInInterface
 IOCFPlugInInterface IOFireWireDeviceInterfaceCOM::sIOCFPlugInInterface = 
 {
@@ -131,7 +159,18 @@ IOFireWireDeviceInterface IOFireWireDeviceInterfaceCOM::sInterface =
 	& IOFireWireDeviceInterfaceCOM::SCreateRemoteIsochPort,
 	& IOFireWireDeviceInterfaceCOM::SCreateLocalIsochPort,
 	& IOFireWireDeviceInterfaceCOM::SCreateIsochChannel,
-	& IOFireWireDeviceInterfaceCOM::SCreateDCLCommandPool
+	& IOFireWireDeviceInterfaceCOM::SCreateDCLCommandPool,
+
+		// --- refcon ----------------------------------
+	& IOFireWireDeviceInterfaceCOM::SGetRefCon,
+	& IOFireWireDeviceInterfaceCOM::SSetRefCon,
+
+		// --- debugging -------------------------------
+	// do not use this function
+//	& IOFireWireDeviceInterfaceCOM::SGetDebugProperty,
+	nil,
+
+	& IOFireWireDeviceInterfaceCOM::SPrintDCLProgram
 } ;
 
 // ============================================================
@@ -195,23 +234,9 @@ IOFireWireDeviceInterfaceImp::Start(CFDictionaryRef propertyTable, io_service_t 
 		mDefaultDevice = service ;
 
 		if ( kIOReturnSuccess == OpenDefaultConnection() )
-		{
-			#if __IOFireWireClientDebug__
-				fprintf(stderr, "IOFireWireDeviceInterfaceImp::OpenWithDevice: Opened connection %08lX, service=%08lX\n", 
-						(UInt32) mUserClientConnection, 
-						(UInt32) service) ;
-			#endif
 			mIsInited = true ;
-		}
 		else
-		{
 			kr = kIOReturnBadArgument ;
-			#if __IOFireWireClientDebug__
-			fprintf(stderr, "IOFireWireDeviceInterfaceImp::OpenWithDevice: Couldn't get specified device! (service=%08lX, mUserClientConnection=%08lX)\n", 
-					(UInt32) service, 
-					(UInt32) mUserClientConnection) ;
-			#endif
-		}
 	}
 	
 	return kr ;
@@ -235,10 +260,6 @@ IOFireWireDeviceInterfaceImp::Stop()
 IOReturn
 IOFireWireDeviceInterfaceImp::Probe(CFDictionaryRef propertyTable, io_service_t service, SInt32 *order)
 {
-	#if __IOFireWireClientDebug__
-	fprintf(stderr, "IOFireWireDeviceInterfaceImp::Probe()\n") ;
-	#endif
-
 	// only load against firewire nubs
     if( !service || !IOObjectConformsTo(service, "IOFireWireNub") )
         return kIOReturnBadArgument;
@@ -253,10 +274,6 @@ IOFireWireDeviceInterfaceImp::Probe(CFDictionaryRef propertyTable, io_service_t 
 
 IOFireWireDeviceInterfaceImp::IOFireWireDeviceInterfaceImp(): IOFireWireIUnknown()
 {
-	#if __IOFireWireClientDebug__
-	fprintf(stderr, "+ IOFireWireDeviceInterfaceImp::IOFireWireDeviceInterfaceImp()\n") ;
-	#endif
-	
 	// mr. safety says, "initialize for safety!"
 	mUserClientConnection		= nil ;
 	mIsInited					= false ;
@@ -284,32 +301,28 @@ IOFireWireDeviceInterfaceImp::IOFireWireDeviceInterfaceImp(): IOFireWireIUnknown
 	mIsochAsyncPort				= 0 ;
 	mIsochAsyncCFPort			= 0 ;
 
-	#if __IOFireWireClientDebug__
-	fprintf(stderr, "+ IOFireWireDeviceInterfaceImp::IOFireWireDeviceInterfaceImp()\n") ;
-	#endif
-
 }
 
 IOFireWireDeviceInterfaceImp::~IOFireWireDeviceInterfaceImp()
 {
-	#if __IOFireWireClientDebug__
-		fprintf(stderr, "+ IOFireWireDeviceInterfaceImp::~IOFireWireDeviceInterfaceImp()\n") ;
-	#endif
-
-	// zzz		need to set the callback procs to dispose all connections and 
-	//			devices when CFRelease is called for mPseudoAddressSpaces, et. al.
-	//			(or do it ourselves)
-	
 	if (mIsOpen)
 		Close() ;
 
 	if (mRunLoopSource)
 	{
-		RemoveCallbackDispatcherFromRunLoop() ;
+//		RemoveCallbackDispatcherFromRunLoop() ;
+		AddCallbackDispatcherToRunLoop( 0 ) ;
 		CFRelease(mRunLoopSource) ;
 		mRunLoopSource = 0 ;
 	}
 	
+	if ( mIsochRunLoopSource )
+	{
+		AddIsochCallbackDispatcherToRunLoop( 0 ) ;
+		CFRelease( mIsochRunLoopSource ) ;
+		mIsochRunLoopSource = 0 ;
+	}
+
 	if (mRunLoop)
 	{
 		CFRelease(mRunLoop) ;
@@ -318,7 +331,8 @@ IOFireWireDeviceInterfaceImp::~IOFireWireDeviceInterfaceImp()
 
 	if (mIsochRunLoopSource)
 	{
-		RemoveCallbackDispatcherFromRunLoop() ;
+//		RemoveCallbackDispatcherFromRunLoop() ;
+		RemoveDispatcherFromRunLoop( mIsochRunLoop, mIsochRunLoopSource, kCFRunLoopDefaultMode ) ;
 		CFRelease(mIsochRunLoopSource) ;
 		mIsochRunLoopSource = 0 ;
 	}
@@ -388,10 +402,6 @@ IOFireWireDeviceInterfaceImp::OpenDefaultConnection()
 	if (kIOReturnSuccess == kr )
 		mUserClientConnection = connection ;
 	
-	#if __IOFireWireClientDebug__
-		fprintf(stderr, "IOFireWireDeviceInterfaceImp::OpenDefaultConnection: kr = %08lX\n", kr) ;
-	#endif
-
 	return kr ;
 }
 
@@ -488,10 +498,6 @@ IOFireWireDeviceInterfaceImp::OpenWithSessionRef(IOFireWireSessionRef session)
 		mIsOpen = (kIOReturnSuccess == result) ;
 	}
 	
-	#if __IOFireWireClientDebug__
-	fprintf(stderr, "-IOFireWireDeviceInterfaceImp::OpenWithSessionRef() result=%08lX\n", result) ;
-	#endif
-	
 	return result ;
 }
 
@@ -510,8 +516,7 @@ IOFireWireDeviceInterfaceImp::Close()
 			0,
 			0) ;
 			
-		if (kIOReturnSuccess != result)
-			fprintf(stderr, "IOFireWireDeviceInterfaceImp::Close(): error %08lX returned from Close()!\n", (UInt32) result) ;
+		IOFireWireLibLogIfErr_(result, ("IOFireWireDeviceInterfaceImp::Close(): error %08lX returned from Close()!\n", (UInt32) result ) ) ;
 
 		mIsOpen = false ;
 	}
@@ -523,6 +528,15 @@ const IOReturn
 IOFireWireDeviceInterfaceImp::AddCallbackDispatcherToRunLoop(
 	CFRunLoopRef			inRunLoop)
 {
+	// if the client passes 0 as the runloop, that means
+	// we should remove the source instead of adding it.
+
+	if ( !inRunLoop )
+	{
+		RemoveDispatcherFromRunLoop( mRunLoop, mRunLoopSource, kCFRunLoopDefaultMode ) ;
+		return kIOReturnSuccess ;
+	}
+
 	IOReturn result = kIOReturnSuccess ;
 	
 	if (!AsyncPortsExist())
@@ -549,11 +563,14 @@ IOFireWireDeviceInterfaceImp::AddCallbackDispatcherToRunLoop(
 }
 
 void
-IOFireWireDeviceInterfaceImp::RemoveCallbackDispatcherFromRunLoop()
+IOFireWireDeviceInterfaceImp::RemoveDispatcherFromRunLoop(
+	CFRunLoopRef			runLoop,
+	CFRunLoopSourceRef		runLoopSource,
+	CFStringRef				mode)
 {
-	if ( (mRunLoop != 0) && (mRunLoopSource != 0) )
-		if (CFRunLoopContainsSource(mRunLoop, mRunLoopSource, kCFRunLoopDefaultMode))
-			CFRunLoopRemoveSource(mRunLoop, mRunLoopSource, kCFRunLoopDefaultMode);
+	if ( runLoop && runLoopSource )
+		if (CFRunLoopContainsSource( runLoop, runLoopSource, mode ))
+			CFRunLoopRemoveSource( runLoop, runLoopSource, mode );
 }
 
 const Boolean
@@ -711,7 +728,7 @@ IOFireWireDeviceInterfaceImp::BusResetHandler(
 	IOFireWireDeviceInterfaceImp*	me = IOFireWireDeviceInterfaceCOM::GetThis((IOFireWireLibDeviceRef)refCon) ;
 
 	if (me->mBusResetHandler)
-		(me->mBusResetHandler)((IOFireWireLibDeviceRef) refCon, (FWClientCommandID) me) ;
+		(me->mBusResetHandler)( (IOFireWireLibDeviceRef)refCon, (FWClientCommandID) me) ;
 }
 
 void
@@ -722,7 +739,7 @@ IOFireWireDeviceInterfaceImp::BusResetDoneHandler(
 	IOFireWireDeviceInterfaceImp*	me = IOFireWireDeviceInterfaceCOM::GetThis((IOFireWireLibDeviceRef) refCon) ;
 
 	if (me->mBusResetDoneHandler)
-		(me->mBusResetDoneHandler)((IOFireWireLibDeviceRef) refCon, (FWClientCommandID) me) ;
+		(me->mBusResetDoneHandler)( (IOFireWireLibDeviceRef)refCon, (FWClientCommandID) me) ;
 }
 
 void
@@ -1062,7 +1079,6 @@ IOFireWireDeviceInterfaceImp::CreateWriteCommand(
 		(*iUnknown)->Release(iUnknown) ;
 	}
 	
-//	fprintf(stderr, "CreateWriteCommand returned %08lX\n", result) ;
 	return result ;
 	
 }
@@ -1305,10 +1321,14 @@ IOFireWireDeviceInterfaceImp::CreatePseudoAddressSpace(
 	IOFireWireLibPseudoAddressSpaceRef				result = 0 ;
 
 	if (!mUserClientConnection || !mIsOpen)
-		fprintf(stderr, "IOFireWireDeviceInterfaceImp::CreatePseudoAddressSpace: no connection or device is not open\n") ;
+	{
+		IOFireWireLibLog_(("IOFireWireDeviceInterfaceImp::CreatePseudoAddressSpace: no connection or device is not open\n")) ;
+	}
 	else
 	{
-		void* queueBuffer	= new Byte[inQueueBufferSize] ;
+		void*	queueBuffer = nil ;
+		if ( inQueueBufferSize > 0 )
+			queueBuffer	= new Byte[inQueueBufferSize] ;
 
 		FWAddrSpaceCreateParams	params ;
 		params.size 			= inSize ;
@@ -1497,6 +1517,12 @@ IOFireWireDeviceInterfaceImp::AddIsochCallbackDispatcherToRunLoop(
 {
 	IOReturn result = kIOReturnSuccess ;
 	
+	if ( !inRunLoop )
+	{
+		RemoveDispatcherFromRunLoop( mIsochRunLoop, mIsochRunLoopSource, kCFRunLoopDefaultMode ) ;
+		return result ;
+	}
+
 	if (!IsochAsyncPortsExist())
 		result = CreateIsochAsyncPorts() ;
 
@@ -1787,7 +1813,9 @@ IOFireWireDeviceInterfaceCOM::QueryInterface(REFIID iid, LPVOID* ppv)
 		AddRef() ;
 	}
 	else if ( CFEqual(interfaceID, kIOFireWireDeviceInterfaceID) || 
-			  CFEqual(interfaceID, kIOFireWireDeviceInterfaceID_v2))
+			  CFEqual(interfaceID, kIOFireWireDeviceInterfaceID_v2) ||
+			  CFEqual(interfaceID, kIOFireWireNubInterfaceID) ||
+			  CFEqual(interfaceID, kIOFireWireUnitInterfaceID) )
 	{
 		*ppv = & mInterface ;
 		AddRef() ;
@@ -1878,7 +1906,9 @@ IOFireWireDeviceInterfaceCOM::SAddCallbackDispatcherToRunLoop(IOFireWireLibDevic
 void
 IOFireWireDeviceInterfaceCOM::SRemoveCallbackDispatcherFromRunLoop(IOFireWireLibDeviceRef self)
 {
-	GetThis(self)->RemoveCallbackDispatcherFromRunLoop() ;
+//	GetThis(self)->RemoveCallbackDispatcherFromRunLoop() ;
+	IOFireWireDeviceInterfaceImp*	me = GetThis( self ) ;
+	me->RemoveDispatcherFromRunLoop( me->GetRunLoop(), me->GetRunLoopSource(), kCFRunLoopDefaultMode ) ;
 }
 
 // Makes notification active. Returns false if notification could not be activated.

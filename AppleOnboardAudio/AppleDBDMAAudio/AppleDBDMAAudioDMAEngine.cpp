@@ -1,14 +1,18 @@
+#define DEBUGTIMESTAMPS		FALSE
+
 #include "AppleDBDMAAudioDMAEngine.h"
+#include "AppleOnboardAudio.h"
 
 #include <IOKit/IOMemoryDescriptor.h>
 #include <IOKit/audio/IOAudioDevice.h>
 #include <IOKit/audio/IOAudioTypes.h>
 #include <IOKit/audio/IOAudioDefines.h>
 #include <IOKit/audio/IOAudioDebug.h>
-#include <IOKit/audio/IOAudioToggleControl.h>
+//#include <IOKit/audio/IOAudioToggleControl.h>
 #include <IOKit/audio/IOAudioLevelControl.h>
 
 #include <IOKit/IOFilterInterruptEventSource.h>
+#include <IOKit/IOTimerEventSource.h>
 #include <IOKit/IOWorkLoop.h>
 #include "AudioHardwareUtilities.h"
 #include "AppleiSubEngine.h"
@@ -26,56 +30,73 @@ const int AppleDBDMAAudioDMAEngine::kDBDMAOutputIndex	= 1;
 const int AppleDBDMAAudioDMAEngine::kDBDMAInputIndex	= 2;
 
 bool AppleDBDMAAudioDMAEngine::init(OSDictionary	*properties,
-                                 IOService 	*theDeviceProvider,
-                                 bool		hasInput,
-                                 UInt32		nBlocks,
-                                 UInt32		bSize,
-                                 UInt32		rate,
-                                 UInt16		bitDepth,
-                                 UInt16		numChannels)
+                                 IOService 			*theDeviceProvider,
+								 IOAudioDevice		*theDevice,
+                                 bool				hasInput,
+                                 UInt32				nBlocks,
+                                 UInt32				bSize,
+                                 UInt32				rate,
+                                 UInt16				bitDepth,
+                                 UInt16				numChannels)
 {
-    IOAudioSampleRate initialSampleRate;
-    IOMemoryMap *map;
-    
-    CLOG("+ AppleDBDMAAudioDMAEngine::init\n");
-            //Ususal check
-    if (!super::init(properties)) {return false;}
-    if (!theDeviceProvider) {return false;}
+	IOAudioSampleRate initialSampleRate;
+	IOMemoryMap *map;
+	Boolean					result;
 
-            //create the memory places for DMA
-    map = theDeviceProvider->mapDeviceMemoryWithIndex(AppleDBDMAAudioDMAEngine::kDBDMAOutputIndex);
-    if(!map) { return false;}
-    ioBaseDMAOutput = (IODBDMAChannelRegisters *) map->getVirtualAddress();
-    
-    if(hasInput) {
-        map = theDeviceProvider->mapDeviceMemoryWithIndex(AppleDBDMAAudioDMAEngine::kDBDMAInputIndex);
-        if(!map) { return false;}
-        ioBaseDMAInput = (IODBDMAChannelRegisters *) map->getVirtualAddress();
-    } else {
-        ioBaseDMAInput = 0;
-    }
-    
-    dmaCommandBufferIn = 0;
-    dmaCommandBufferOut = 0;
-    commandBufferSize = 0;
-    interruptEventSource = 0;
+	CLOG("+ AppleDBDMAAudioDMAEngine::init\n");
+	result = FALSE;
 
-    numBlocks = nBlocks;
-    blockSize = bSize;
-    setSampleOffset(kMinimumLatency);
-    setNumSampleFramesPerBuffer(numBlocks * blockSize / 4);
-    
-    initialSampleRate.whole = rate;
-    initialSampleRate.fraction = 0;
-    
-    setSampleRate(&initialSampleRate);
+	// Ususal check
+	FailIf (FALSE == super::init (properties), Exit);
+	FailIf (NULL == theDeviceProvider, Exit);
 
-    CLOG("- AppleDBDMAAudioDMAEngine::init\n");    
-    return true;
+	gTheDevice = theDevice;
+	if (NULL != gTheDevice) {
+		gTheDevice->retain ();
+	}
+
+	// create the memory places for DMA
+	map = theDeviceProvider->mapDeviceMemoryWithIndex(AppleDBDMAAudioDMAEngine::kDBDMAOutputIndex);
+	FailIf (NULL == map, Exit);
+	ioBaseDMAOutput = (IODBDMAChannelRegisters *) map->getVirtualAddress();
+
+	if(hasInput) {
+		map = theDeviceProvider->mapDeviceMemoryWithIndex(AppleDBDMAAudioDMAEngine::kDBDMAInputIndex);
+		FailIf (NULL == map, Exit);
+		ioBaseDMAInput = (IODBDMAChannelRegisters *) map->getVirtualAddress();
+	} else {
+		ioBaseDMAInput = 0;
+	}
+
+	dmaCommandBufferIn = 0;
+	dmaCommandBufferOut = 0;
+	commandBufferSize = 0;
+	interruptEventSource = 0;
+
+	numBlocks = nBlocks;
+	blockSize = bSize;
+	setSampleOffset(kMinimumLatency);
+	setNumSampleFramesPerBuffer(numBlocks * blockSize / 4);
+
+	initialSampleRate.whole = rate;
+	initialSampleRate.fraction = 0;
+
+	setSampleRate(&initialSampleRate);
+
+	result = TRUE;
+
+Exit:
+	CLOG("- AppleDBDMAAudioDMAEngine::init\n");    
+	return result;
 }
 
 void AppleDBDMAAudioDMAEngine::free()
 {
+	if (NULL != gTheDevice) {
+		gTheDevice->release ();
+		gTheDevice = NULL;
+	}
+
     if (interruptEventSource) {
         interruptEventSource->release();
         interruptEventSource = 0;
@@ -134,7 +155,7 @@ bool AppleDBDMAAudioDMAEngine::initHardware(IOService *provider)
     ourProvider = provider;
     fBadCmd = 0;
     fBadResult = 0;
-	
+
     if (!super::initHardware(provider)) {return false;}
         
         //allocate the memory for the buffer
@@ -339,6 +360,15 @@ bool AppleDBDMAAudioDMAEngine::initHardware(IOService *provider)
 		iSubEngineNotifier->remove ();
     }
 
+	// Create a timer event source
+	idleTimer = IOTimerEventSource::timerEventSource (this, IdleSleepHandlerTimer);
+	if (NULL != idleTimer) {
+		workLoop->addEventSource (idleTimer);
+	}
+
+	playing = FALSE;
+	ScheduleIdle ();
+
     DEBUG_IOLOG("- AppleDBDMAAudioDMAEngine::initHardware()\n");
     return true;
 }
@@ -416,7 +446,11 @@ IOReturn AppleDBDMAAudioDMAEngine::performAudioEngineStart()
 {
     DEBUG_IOLOG(" + AppleDBDMAAudioDMAEngine::performAudioEngineStart()\n");
 
-    
+	playing = TRUE;			// tell the timer function that it shouldn't do anything.
+	if (TRUE == idling) {
+		performFullPower ();
+	}
+
     if (!ioBaseDMAOutput || !dmaCommandBufferOut || !status || !interruptEventSource) {
         return kIOReturnError;
     }
@@ -482,7 +516,7 @@ IOReturn AppleDBDMAAudioDMAEngine::restartOutputIfFailure(){
 
     interruptEventSource->enable();
 
-        //add the time stamp take to test
+	// add the time stamp take to test
     takeTimeStamp(false);
     
     IOSetDBDMAChannelControl(ioBaseDMAOutput, IOClearDBDMAChannelControlBits(kdbdmaS0));
@@ -491,14 +525,11 @@ IOReturn AppleDBDMAAudioDMAEngine::restartOutputIfFailure(){
                                 (vm_address_t)(dmaCommandBufferOut)));
 
     return kIOReturnSuccess;
-
-
 }
 
 IOReturn AppleDBDMAAudioDMAEngine::performAudioEngineStop()
 {
     UInt16 attemptsToStop = 1000;
-
 
     DEBUG2_IOLOG("+ AppleDBDMAAudioDMAEngine[%p]::performAudioEngineStop()\n", this);
 
@@ -513,7 +544,7 @@ IOReturn AppleDBDMAAudioDMAEngine::performAudioEngineStop()
 
     interruptEventSource->disable();
         
-        //stop the output
+	// stop the output
     IOSetDBDMAChannelControl(ioBaseDMAOutput, IOSetDBDMAChannelControlBits(kdbdmaS0));
     while ((IOGetDBDMAChannelStatus(ioBaseDMAOutput) & kdbdmaActive) && (attemptsToStop--)) {
         eieio();
@@ -523,7 +554,7 @@ IOReturn AppleDBDMAAudioDMAEngine::performAudioEngineStop()
     IODBDMAStop(ioBaseDMAOutput);
     IODBDMAReset(ioBaseDMAOutput);
 
-        //stop the input
+	// stop the input
     if(ioBaseDMAInput){
         IOSetDBDMAChannelControl(ioBaseDMAInput, IOSetDBDMAChannelControlBits(kdbdmaS0));
         while ((IOGetDBDMAChannelStatus(ioBaseDMAInput) & kdbdmaActive) && (attemptsToStop--)) {
@@ -536,10 +567,52 @@ IOReturn AppleDBDMAAudioDMAEngine::performAudioEngineStop()
     }
     
     interruptEventSource->enable();
+
+	playing = FALSE;
+	ScheduleIdle ();
+
     DEBUG_IOLOG("- AppleDBDMAAudioDMAEngine::performAudioEngineStop()\n");
     return kIOReturnSuccess;
 }
 
+// Set up a timer to power down the hardware if we haven't used it in a while.
+void AppleDBDMAAudioDMAEngine::ScheduleIdle (void) {
+    AbsoluteTime				fireTime;
+    UInt64						nanos;
+
+	if (NULL != idleTimer) {
+		clock_get_uptime (&fireTime);
+		absolutetime_to_nanoseconds (fireTime, &nanos);
+		nanos += kPowerDownDelayTime;	// Schedule 30 seconds in the future...
+
+		nanoseconds_to_absolutetime (nanos, &fireTime);
+		idleTimer->wakeAtTime (fireTime);
+	}
+
+	return;
+}
+
+void AppleDBDMAAudioDMAEngine::IdleSleepHandlerTimer (OSObject *owner, IOTimerEventSource *sender) {
+	AppleDBDMAAudioDMAEngine *		audioEngine;
+
+	audioEngine = OSDynamicCast (AppleDBDMAAudioDMAEngine, owner);
+	FailIf (NULL == audioEngine, Exit);
+
+	if (FALSE == audioEngine->playing && NULL != audioEngine->gTheDevice) {
+		audioEngine->idling = TRUE;
+		((AppleOnboardAudio *)audioEngine->gTheDevice)->GoIdlePower ();
+	}
+
+Exit:
+	return;
+}
+
+IOReturn AppleDBDMAAudioDMAEngine::performFullPower (void) {
+	((AppleOnboardAudio *)gTheDevice)->GoFullPower ();
+	idling = FALSE;
+
+	return kIOReturnSuccess;
+}
 
 bool AppleDBDMAAudioDMAEngine::filterInterrupt(int index)
 {
@@ -598,17 +671,35 @@ UInt32 AppleDBDMAAudioDMAEngine::getCurrentSampleFrame()
 }
 
 void AppleDBDMAAudioDMAEngine::resetClipPosition (IOAudioStream *audioStream, UInt32 clipSampleFrame) {
-	iSubBufferOffset -= (previousClippedToFrame - clipSampleFrame) * 2;		// should be * streamFormat->fNumChannels, but that's not readily available
-	previousClippedToFrame = clipSampleFrame;
+    if (NULL != iSubBufferMemory) {
 #if DEBUGLOG
-	IOLog ("resetClipPosition, iSubBufferOffset=%ld, previousClippedToFrame=%ld\n", iSubBufferOffset, previousClippedToFrame);
+		IOLog ("resetClipPosition, iSubBufferOffset=%ld, previousClippedToFrame=%ld, clipSampleFrame=%ld\n", iSubBufferOffset, previousClippedToFrame, clipSampleFrame);
 #endif
+		if (previousClippedToFrame < clipSampleFrame) {
+			// ((numBlocks * blockSize) / 4) is the number of samples in the buffer
+			iSubBufferOffset -= (previousClippedToFrame + (((numBlocks * blockSize) / 4) - clipSampleFrame)) * 2;
+		} else {
+			iSubBufferOffset -= (previousClippedToFrame - clipSampleFrame) * 2;		// should be * streamFormat->fNumChannels, but that's not readily available
+		}
+
+		if (iSubBufferOffset < 0) {
+			iSubBufferOffset += (iSubBufferMemory->getLength () / 2);
+		}
+		previousClippedToFrame = clipSampleFrame;
+#if DEBUGLOG
+		IOLog ("now: iSubBufferOffset=%ld, previousClippedToFrame=%ld\n", iSubBufferOffset, previousClippedToFrame);
+#endif
+    }
 }
 
 extern "C" {
 UInt32 CalculateOffset (UInt64 nanoseconds, UInt32 sampleRate);
 IOReturn clipAppleDBDMAToOutputStream(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat);
+IOReturn clipAppleDBDMAToOutputStreamInvertRightChannel(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat);
+IOReturn clipAppleDBDMAToOutputStreamMixRightChannel(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat);
 IOReturn clipAppleDBDMAToOutputStreamiSub(const void *mixBuf, void *sampleBuf, PreviousValues *filterState, float *low, float *high, UInt32 firstSampleFrame, UInt32 numSampleFrames, UInt32 sampleRate, const IOAudioStreamFormat *streamFormat, SInt16 * iSubBufferMemory, UInt32 *loopCount, SInt32 *iSubBufferOffset, UInt32 iSubBufferLen);
+IOReturn clipAppleDBDMAToOutputStreamiSubInvertRightChannel(const void *mixBuf, void *sampleBuf, PreviousValues *filterState, float *low, float *high, UInt32 firstSampleFrame, UInt32 numSampleFrames, UInt32 sampleRate, const IOAudioStreamFormat *streamFormat, SInt16 * iSubBufferMemory, UInt32 *loopCount, SInt32 *iSubBufferOffset, UInt32 iSubBufferLen);
+IOReturn clipAppleDBDMAToOutputStreamiSubMixRightChannel(const void *mixBuf, void *sampleBuf, PreviousValues *filterState, float *low, float *high, UInt32 firstSampleFrame, UInt32 numSampleFrames, UInt32 sampleRate, const IOAudioStreamFormat *streamFormat, SInt16 * iSubBufferMemory, UInt32 *loopCount, SInt32 *iSubBufferOffset, UInt32 iSubBufferLen);
 IOReturn convertAppleDBDMAFromInputStream(const void *sampleBuf, void *destBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat);
 };
 
@@ -620,9 +711,24 @@ IOReturn AppleDBDMAAudioDMAEngine::clipOutputSamples(const void *mixBuf, void *s
 	UInt32						iSubBufferLen = 0;
 	UInt32						sampleRate;
 
+#if DEBUGTIMESTAMPS
+	AbsoluteTime					currentTime;
+	static AbsoluteTime				lastLoopTime = {0, 0};
+	AbsoluteTime					diff;
+	UInt64						nanos;
+
+	clock_get_uptime (&currentTime);
+	diff.hi = currentTime.hi;
+	diff.lo = currentTime.lo;
+	SUB_ABSOLUTETIME (&diff, &lastLoopTime);
+	lastLoopTime.hi = currentTime.hi;
+	lastLoopTime.lo = currentTime.lo;
+	absolutetime_to_nanoseconds (diff, &nanos);
+	IOLog ("delta = %ld\n", (UInt32)(nanos / (1000 * 1000)));
+#endif
 	// if the DMA went bad restart it
 	if (fBadCmd && fBadResult)
-	{		
+	{
 		fBadCmd = 0;
 		fBadResult = 0;
                 restartOutputIfFailure();
@@ -668,36 +774,41 @@ IOReturn AppleDBDMAAudioDMAEngine::clipOutputSamples(const void *mixBuf, void *s
 		}
 		previousClippedToFrame = firstSampleFrame + numSampleFrames;
 
-#if 0
-		if (iSubBufferOffset > (iSubEngine->GetCurrentByteCount () / 2)) {
-			iSubLead = iSubBufferOffset - (iSubEngine->GetCurrentByteCount () / 2);
-		} else {
-			iSubLead = iSubBufferLen - (iSubEngine->GetCurrentByteCount () / 2) + iSubBufferOffset;
-		}
-//		IOLog ("iSubLead=%ld\n", iSubLead);
-
-		if (FALSE == needToSync && (iSubEngine->GetCurrentLoopCount () > iSubLoopCount || iSubLead < (initialiSubLead / 2))) {
+		// Detect being out of sync with the iSub
+		if (needToSync == FALSE && 0xFFFFFFFF != iSubEngine->GetCurrentLoopCount ()) {
+		    if (iSubLoopCount > (iSubEngine->GetCurrentLoopCount () + 1) && !(iSubBufferOffset < (SInt32)(iSubEngine->GetCurrentByteCount () / 2))) {
 #if DEBUGLOG
-			IOLog ("iSubLoopCount=%ld, iSubCurrentLoopCount=%ld, iSubCurrentByteCount=%ld, iSubBufferOffset=%ld\n", iSubLoopCount, iSubEngine->GetCurrentLoopCount (), iSubEngine->GetCurrentByteCount (), iSubBufferOffset);
+			IOLog ("****looped more than the iSub iSubLoopCount = %ld, iSubEngine->GetCurrentLoopCount () = %ld\n", iSubLoopCount, iSubEngine->GetCurrentLoopCount ());
 #endif
-			needToSync = true;
+			needToSync = TRUE;
+			startiSub = TRUE;
+		    } else if (iSubLoopCount < iSubEngine->GetCurrentLoopCount ()) {
+#if DEBUGLOG
+			IOLog ("****iSub is ahead of us iSubLoopCount = %ld, iSubEngine->GetCurrentLoopCount () = %ld\n", iSubLoopCount, iSubEngine->GetCurrentLoopCount ());
+#endif
+			needToSync = TRUE;
+			startiSub = TRUE;
+		    } else if (iSubLoopCount == iSubEngine->GetCurrentLoopCount () && iSubBufferOffset < (SInt32)(iSubEngine->GetCurrentByteCount () / 2)) {
+#if DEBUGLOG
+			IOLog ("****iSub is in front of our write head iSubBufferOffset = %ld, (iSubEngine->GetCurrentByteCount () / 2) = %ld\n", iSubBufferOffset, iSubEngine->GetCurrentByteCount () / 2);
+#endif
+			needToSync = TRUE;
+			startiSub = TRUE;
+		    }
 		}
-#endif
 
 		// sync up with iSub
 		if (TRUE == needToSync) {
 			needToSync = FALSE;
 			iSubLoopCount = iSubEngine->GetCurrentLoopCount ();
-//			if (0 == initialiSubLead) {
-				iSubBufferOffset = (firstSampleFrame - getCurrentSampleFrame ()) * streamFormat->fNumChannels;
-//				initialiSubLead = iSubBufferOffset;
-//			} else {
-//				iSubBufferOffset += (firstSampleFrame - getCurrentSampleFrame () + (iSubEngine->GetCurrentByteCount () / 4)) * streamFormat->fNumChannels;
-//			}
+			iSubBufferOffset = (firstSampleFrame - getCurrentSampleFrame ()) * streamFormat->fNumChannels;
 #if DEBUGLOG
-			IOLog ("starting iSubBufferOffset = %ld, iSubLoopCount = %ld\n", iSubBufferOffset, iSubLoopCount);
+			IOLog ("firstSampleFrame = %ld, getCurrentSampleFrame () = %ld\n", firstSampleFrame, getCurrentSampleFrame ());
 #endif
 			iSubBufferOffset -= 88 * 5;
+#if DEBUGLOG
+			IOLog ("starting iSubBufferOffset = %ld, iSubLoopCount = %ld, numSampleFrames = %ld\n", iSubBufferOffset, iSubLoopCount, numSampleFrames);
+#endif
 		}
 
 		if (iSubBufferOffset > (SInt32)iSubBufferLen) {
@@ -705,7 +816,7 @@ IOReturn AppleDBDMAAudioDMAEngine::clipOutputSamples(const void *mixBuf, void *s
 			iSubLoopCount += iSubBufferOffset / iSubBufferLen;
 			iSubBufferOffset = iSubBufferOffset % iSubBufferLen;
 #if DEBUGLOG
-			IOLog ("iSubBufferOffset > iSubBufferLen, iSubBufferOffset is now %ld\n", iSubBufferOffset);
+			IOLog ("iSubBufferOffset > iSubBufferLen (%ld), iSubBufferOffset is now %ld\n", iSubBufferLen, iSubBufferOffset);
 #endif
 		} else if (iSubBufferOffset < 0) {
 			iSubBufferOffset += iSubBufferLen;
@@ -714,14 +825,30 @@ IOReturn AppleDBDMAAudioDMAEngine::clipOutputSamples(const void *mixBuf, void *s
 #endif
 		}
 
-		result = clipAppleDBDMAToOutputStreamiSub(mixBuf, sampleBuf, &filterState, lowFreqSamples, highFreqSamples, firstSampleFrame, numSampleFrames, sampleRate, streamFormat, (SInt16*)iSubBuffer, &iSubLoopCount, &iSubBufferOffset, iSubBufferLen);
+         // this will be true on a slot load iMac that has the built in speakers enabled
+		if (TRUE == fNeedsPhaseInversion) {
+            result = clipAppleDBDMAToOutputStreamiSubInvertRightChannel(mixBuf, sampleBuf, &filterState, lowFreqSamples, highFreqSamples, firstSampleFrame, numSampleFrames, sampleRate, streamFormat, (SInt16*)iSubBuffer, &iSubLoopCount, &iSubBufferOffset, iSubBufferLen);
+		} else if (TRUE == fNeedsRightChanMixed) {
+            result = clipAppleDBDMAToOutputStreamiSubMixRightChannel(mixBuf, sampleBuf, &filterState, lowFreqSamples, highFreqSamples, firstSampleFrame, numSampleFrames, sampleRate, streamFormat, (SInt16*)iSubBuffer, &iSubLoopCount, &iSubBufferOffset, iSubBufferLen);
+		} else {
+            result = clipAppleDBDMAToOutputStreamiSub(mixBuf, sampleBuf, &filterState, lowFreqSamples, highFreqSamples, firstSampleFrame, numSampleFrames, sampleRate, streamFormat, (SInt16*)iSubBuffer, &iSubLoopCount, &iSubBufferOffset, iSubBufferLen);
+		}
+            
 		if (TRUE == startiSub) {
 			iSubEngine->StartiSub ();
 			startiSub = FALSE;
+			iSubLoopCount = 0;
 		}
 	} else {
-		result = clipAppleDBDMAToOutputStream(mixBuf, sampleBuf, firstSampleFrame, numSampleFrames, streamFormat);
-	}
+		// this will be true on a slot load iMac that has the built in speakers enabled
+		if (TRUE == fNeedsPhaseInversion) {
+			result = clipAppleDBDMAToOutputStreamInvertRightChannel(mixBuf, sampleBuf, firstSampleFrame, numSampleFrames, streamFormat);
+		} else if (TRUE == fNeedsRightChanMixed) {
+			result = clipAppleDBDMAToOutputStreamMixRightChannel(mixBuf, sampleBuf, firstSampleFrame, numSampleFrames, streamFormat);
+		} else {
+			result = clipAppleDBDMAToOutputStream(mixBuf, sampleBuf, firstSampleFrame, numSampleFrames, streamFormat);
+		}
+    }
 
 	return result;
 }
@@ -876,6 +1003,22 @@ IOReturn AppleDBDMAAudioDMAEngine::iSubOpenAction (OSObject *owner, void *arg1, 
 }
 
 /*
+#if 0
+		if (iSubBufferOffset > (iSubEngine->GetCurrentByteCount () / 2)) {
+			iSubLead = iSubBufferOffset - (iSubEngine->GetCurrentByteCount () / 2);
+		} else {
+			iSubLead = iSubBufferLen - (iSubEngine->GetCurrentByteCount () / 2) + iSubBufferOffset;
+		}
+//		IOLog ("iSubLead=%ld\n", iSubLead);
+
+		if (FALSE == needToSync && (iSubEngine->GetCurrentLoopCount () > iSubLoopCount || iSubLead < (initialiSubLead / 2))) {
+#if DEBUGLOG
+			IOLog ("iSubLoopCount=%ld, iSubCurrentLoopCount=%ld, iSubCurrentByteCount=%ld, iSubBufferOffset=%ld\n", iSubLoopCount, iSubEngine->GetCurrentLoopCount (), iSubEngine->GetCurrentByteCount (), iSubBufferOffset);
+#endif
+			needToSync = true;
+		}
+#endif
+
 	Pulled out of clipOutputSamples
 	AbsoluteTime				deltaTime;
 	UInt64						nanoseconds;

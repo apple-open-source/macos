@@ -4,6 +4,10 @@
 <dict>
 	<key>DHCPAcceptsBOOTP</key>
 	<false/>
+	<key>DHCPFailureConfiguresLinkLocal</key>
+	<true/>
+	<key>DHCPSuccessDeconfiguresLinkLocal</key>
+	<false/>
 	<key>DHCPRequestedParameterList</key>
 	<array>
 		<integer>1</integer>
@@ -19,10 +23,20 @@
 	<integer>2</integer>
 	<key>LinkInactiveWaitTimeSeconds</key>
 	<integer>4</integer>
+	<key>RetryCount</key>
+	<integer>7</integer>
+	<key>InitialRetryTimeSeconds</key>
+	<integer>4</integer>
+	<key>MaximumRetryTimeSeconds</key>
+	<integer>8</integer>
+	<key>ARPProbeCount</key>
+	<integer>3</integer>
+	<key>ARPGratuitousCount</key>
+	<integer>1</integer>
+	<key>ARPRetryTimeSeconds</key>
+	<real>1.0</real>
 	<key>MustBroadcast</key>
 	<false/>
-	<key>RetryCount</key>
-	<integer>2</integer>
 	<key>Verbose</key>
 	<false/>
 </dict>

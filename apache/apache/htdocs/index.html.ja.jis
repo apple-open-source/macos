@@ -1,4 +1,4 @@
-<!doctype html public "-//W3C//DTD HTML 4.0 Transitional//EN"
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN"
  "http://www.w3.org/TR/REC-html40/loose.dtd">
 <html>
  <head>
@@ -30,7 +30,7 @@
 
 
 <p>
-Apache に関する<A HREF="manual/index.html">文書</A> は、この web サーバ配布物の中に含まれています。
+Apache に関する<a href="manual/index.html">文書</a> は、この web サーバ配布物の中に含まれています。
 </p>
 <p>
 以下の画像は、Apache を利用している web サーバで自由に使うことができます。Apache をご利用いただき、ありがとうございます!

@@ -72,6 +72,7 @@ protected:
     UInt32		fChannel;	// Actual channel used
     IOFWReadQuadCommand *fReadCmd;
     IOFWCompareAndSwapCommand *fLockCmd;
+    UInt32		fGeneration;	// When bandwidth was allocated
     
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the class in the future.

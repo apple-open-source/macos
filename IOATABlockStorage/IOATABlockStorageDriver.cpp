@@ -320,6 +320,7 @@ IOATABlockStorageDriver::inspectDevice ( IOATADevice * ataDevice )
 	
 	OSString *		string			= NULL;
 	IOReturn		theErr			= kIOReturnSuccess;
+	UInt16			tempWord		= 0;
 	
 	// Fetch ATA device information from the nub.
 	string = OSDynamicCast ( 	OSString,
@@ -354,15 +355,25 @@ IOATABlockStorageDriver::inspectDevice ( IOATADevice * ataDevice )
 		
 	}	
 	
-	if ( ( fDeviceIdentifyData[kATAIdentifyCommandSetSupported] & kATASupportsPowerManagementMask ) == kATASupportsPowerManagementMask )
+	tempWord = fDeviceIdentifyData[kATAIdentifyCommandSetSupported];
+	
+	if ( ( tempWord & kATASupportsPowerManagementMask ) == kATASupportsPowerManagementMask )
 		fSupportedFeatures |= kIOATAFeaturePowerManagement;
 	
-	if ( ( fDeviceIdentifyData[kATAIdentifyCommandSetSupported] & kATASupportsWriteCacheMask ) == kATASupportsWriteCacheMask )
+	if ( ( tempWord & kATASupportsWriteCacheMask ) == kATASupportsWriteCacheMask )
 		fSupportedFeatures |= kIOATAFeatureWriteCache;
 	
-	if ( ( fDeviceIdentifyData[kATAIdentifyCommandSetSupported2] & kATASupportsAdvancedPowerManagementMask ) == kATASupportsAdvancedPowerManagementMask )
-		fSupportedFeatures |= kIOATAFeatureAdvancedPowerManagement;
-
+	tempWord = fDeviceIdentifyData[kATAIdentifyCommandSetSupported2];
+	if ( ( tempWord & kATADataIsValidMask ) == 0x4000 )
+	{
+		
+		if ( ( tempWord & kATASupportsAdvancedPowerManagementMask ) == kATASupportsAdvancedPowerManagementMask )
+			fSupportedFeatures |= kIOATAFeatureAdvancedPowerManagement;
+		
+		if ( ( tempWord & kATASupportsCompactFlashMask ) == kATASupportsCompactFlashMask )
+			fSupportedFeatures |= kIOATAFeatureCompactFlash;
+		
+	}
 	
 	if ( fDeviceIdentifyData[kATAIdentifyDriveCapabilities] & kLBASupportedMask )
 		fUseLBAAddressing = true;
@@ -629,21 +640,40 @@ IOReturn
 IOATABlockStorageDriver::doSynchronizeCache ( void )
 {
 	
-	IOReturn			status;
-	IOATACommand *		cmd = ataCommandFlushCache ( );
+	IOReturn			status 	= kIOReturnSuccess;
+	IOATACommand *		cmd 	= NULL;
 	
 	STATUS_LOG ( ( "IOATABlockStorageDriver::doSynchronizeCache called.\n" ) );
 	
-	if ( cmd == NULL )
+	if ( fATASocketType == kPCCardSocket )
 	{
 		
-		return kIOReturnNoMemory;
+		// Device doesn’t support flush cache. Don’t send the command.
+		fNumCommandsOutstanding--;
+		status = kIOReturnSuccess;
+		goto Exit;
 		
 	}
 	
-	status = syncExecute ( cmd, kATATimeout1Minute, 0 );	
+	cmd = ataCommandFlushCache ( );
 	
-	STATUS_LOG ( ( "IOATABlockStorageDriver::doSynchronizeCache returing status = %ld.\n", ( UInt32 ) status ) );
+	// Do we have a valid command?
+	if ( cmd == NULL )
+	{
+		
+		// Return no memory error.
+		fNumCommandsOutstanding--;
+		status = kIOReturnNoMemory;
+		goto Exit;
+		
+	}
+	
+	// Send the command to flush the cache.
+	status = syncExecute ( cmd, kATATimeout1Minute, 0 );	
+
+Exit:
+	
+	STATUS_LOG ( ( "IOATABlockStorageDriver::doSynchronizeCache returning status = %ld.\n", ( UInt32 ) status ) );
 	
 	return status;
 	

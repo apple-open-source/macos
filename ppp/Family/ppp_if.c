@@ -816,6 +816,16 @@ int ppp_if_xmit(struct ifnet *ifp)
     while (wan->outm) {
 
         link = TAILQ_FIRST(&wan->link_head);
+        if (link == 0) {
+            LOGDBG(ifp, (LOGVAL, "ppp%d: Trying to send data with link detached\n", ifp->if_unit));
+            // just flush everything
+            getmicrotime(&ifp->if_lastchange);
+            while (wan->outm) {
+                ifp->if_oerrors++;
+                IF_DEQUEUE(&ifp->if_snd, wan->outm);
+            };
+            return 1;
+        }
     
         if (link->lk_state & PPP_LINK_STATE_XMIT_FULL) {
             // should try next link

@@ -111,7 +111,7 @@ IOFireWireLibIsochChannelImp::AddListener(
 IOReturn
 IOFireWireLibIsochChannelImp::AllocateChannel()
 {
-	fprintf(stderr, "+ IOFireWireLibIsochChannelImp::AllocateChannel\n") ;
+	IOFireWireLibLog_(("+ IOFireWireLibIsochChannelImp::AllocateChannel\n")) ;
 
 	IOReturn	result		= kIOReturnSuccess ;
 
@@ -151,9 +151,9 @@ IOFireWireLibIsochChannelImp::AllocateChannel()
 						2,
 						mKernChannelRef,
 						mSpeed,
-//							(UInt32)(allowedChans >> 32),
-//							(UInt32)(0xFFFFFFFF & allowedChans),
-						allowedChans,
+						(UInt32)(allowedChans >> 32),
+						(UInt32)(0xFFFFFFFF & allowedChans),
+//						allowedChans,
 						& mSpeed,
 						& mChannel) ;
 
@@ -177,13 +177,7 @@ IOFireWireLibIsochChannelImp::AllocateChannel()
 IOReturn
 IOFireWireLibIsochChannelImp::ReleaseChannel()
 {
-	fprintf(stderr, "+ IOFireWireLibIsochChannelImp::ReleaseChannel\n") ;
-//	return IOConnectMethodScalarIScalarO(
-//						mUserClient.GetUserClientConnection(),
-//						kFWIsochChannel_ReleaseChannel,
-//						1,
-//						0,
-//						mKernChannelRef) ;
+	IOFireWireLibLog_(("+ IOFireWireLibIsochChannelImp::ReleaseChannel\n")) ;
 
 	IOReturn 	result = kIOReturnSuccess ;
 	
@@ -191,8 +185,7 @@ IOFireWireLibIsochChannelImp::ReleaseChannel()
 		result = mTalker->ReleasePort();
 	}
 
-	if (kIOReturnSuccess != result)
-		fprintf(stderr, "IOFireWireLibIsochChannelImp::ReleaseChannel: error 0x%08lX calling ReleasePort() on talker\n", result) ;
+	IOFireWireLibLogIfErr_(result, ("IOFireWireLibIsochChannelImp::ReleaseChannel: error 0x%08lX calling ReleasePort() on talker\n", result)) ;
 
 	UInt32							listenCount	= CFArrayGetCount(mListeners) ;
 	IOFireWireLibIsochPortImp*		listen ;
@@ -203,8 +196,7 @@ IOFireWireLibIsochChannelImp::ReleaseChannel()
 		listen = (IOFireWireLibIsochPortImp*)CFArrayGetValueAtIndex(mListeners, index) ;
 		result = listen->ReleasePort();
 
-		if (kIOReturnSuccess != result)
-			fprintf(stderr, "IOFireWireLibIsochChannelImp::ReleaseChannel: error 0x%08lX calling ReleasePort() on listener\n", listen) ;
+		IOFireWireLibLogIfErr_(result, ("IOFireWireLibIsochChannelImp::ReleaseChannel: error 0x%08lX calling ReleasePort() on listener\n", listen)) ;
 		
 		index++ ;
 	}
@@ -221,7 +213,7 @@ IOFireWireLibIsochChannelImp::ReleaseChannel()
 IOReturn
 IOFireWireLibIsochChannelImp::Start()
 {
-	fprintf(stderr, "+ IOFireWireLibIsochChannelImp::Start\n") ;
+	IOFireWireLibLog_(("+ IOFireWireLibIsochChannelImp::Start\n")) ;
 //	return IOConnectMethodScalarIScalarO(
 //						mUserClient.GetUserClientConnection(),
 //						kFWIsochChannel_Start,
@@ -242,8 +234,8 @@ IOFireWireLibIsochChannelImp::Start()
 	{
 		listen = (IOFireWireLibIsochPortImp*) CFArrayGetValueAtIndex( mListeners, listenIndex) ;
 		result = listen->Start() ;
-		if (kIOReturnSuccess != result)
-			fprintf(stderr, "IOFireWireLibIsochChannelImp::Start: error 0x%08lX starting channel\n", result) ;
+
+		IOFireWireLibLogIfErr_(result, ("IOFireWireLibIsochChannelImp::Start: error 0x%08lX starting channel\n", result)) ;
 			
 		listenIndex++ ;
 	}
@@ -257,13 +249,8 @@ IOFireWireLibIsochChannelImp::Start()
 IOReturn
 IOFireWireLibIsochChannelImp::Stop()
 {
-	fprintf(stderr, "+ IOFireWireLibIsochChannelImp::Stop\n") ;
-//	return IOConnectMethodScalarIScalarO(
-//						mUserClient.GetUserClientConnection(),
-//						kFWIsochChannel_Stop,
-//						1,
-//						0,
-//						mKernChannelRef) ;
+	IOFireWireLibLog_(("+ IOFireWireLibIsochChannelImp::Stop\n")) ;
+
 	if (mTalker)
 		mTalker->Stop() ;
 

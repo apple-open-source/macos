@@ -112,11 +112,65 @@ bool AppleADBKeyboard::start ( IOService * theNub )
     
     clock_interval_to_absolutetime_interval( 4, kSecondScale, &rebootTime);
     clock_interval_to_absolutetime_interval( 1, kSecondScale, &debuggerTime);
-    
+    updateFKeyMap();  //UPDATE PMU DATA IF APPROPRIATE 
     
     return super::start(theNub);
 }
 
+// --------------------------------------------------------------------------
+//
+// Method: updateFKeyMap
+//
+// Purpose:  Update the Fkey map in PMU with the values from the name
+//   	     registry, if needed.  This came from the UpdateFKeyMap routine
+//	     in OS9 Excelsior:OS:Wallyworld sources.       
+/* static */ void
+AppleADBKeyboard::updateFKeyMap()
+{
+    IORegistryEntry		*devicetreeRegEntry;
+    typedef char  	keystrtype[4];
+    unsigned long 	buttonkeyvalue; 	// button translation value from name registry
+    unsigned char	fkeyindex;		// f key number being checked
+    keystrtype mapentry[] = 
+					{
+					{"F0"},  {"F1"},  {"F2"},  {"F3"},  {"F4"},  {"F5"},  {"F6"},
+							{"F7"},  {"F8"},  {"F9"},  {"F10"},  {"F11"},  {"F12"}, 
+					};
+    devicetreeRegEntry = fromPath("mac-io/via-pmu/adb/keyboard", gIODTPlane);
+    if(devicetreeRegEntry != NULL)  {
+	if (OSDynamicCast(OSData, devicetreeRegEntry->getProperty("AAPL,has-embedded-fn-keys"))) {
+            for (fkeyindex = 1; fkeyindex <= 12;  fkeyindex++)
+                {
+		OSData *tmpData = OSDynamicCast(OSData, devicetreeRegEntry->getProperty(mapentry[fkeyindex]));
+		if(tmpData != NULL) {
+			memcpy(&buttonkeyvalue, (UInt8 *)tmpData->getBytesNoCopy(), sizeof(buttonkeyvalue));
+			setButtonTransTableEntry(fkeyindex, buttonkeyvalue);
+			}
+		}
+            }
+	}
+}
+
+// ******************************************************************************************************
+// Method:  setButtonTransTableEntry
+//
+// Purpose:	Used for local write to PMU adb interface (to set up PMU registers).
+//		This is essentially a writeToDevice routine (as in ADB device).
+//		The command string typically looks like (on the ApplePMU driver
+//		sendMiscCommand side) as an example: 
+//		ADBcmd ADBcnt IntKbdCmd AutoPollbit ADBcount PMUcount selector  F12key keyvalue
+//		  20      07      28        02         04      03       01        0c      8b
+// ******************************************************************************************************
+/* static */ void
+AppleADBKeyboard::setButtonTransTableEntry(unsigned char fkeynum, unsigned char transvalue)
+{						// CMD: int KBD 2 reg 0 listen filled in by IOPMUADBController
+    UInt8 oBuffer[3];				// embed. data count =3 to PMU filled in by IOPMUADBController
+    oBuffer[0] = 1;				// selector for PMU: set fkey command
+    oBuffer[1] = fkeynum;			// fkey to set
+    oBuffer[2] = transvalue;			// button code to attach
+    IOByteCount oLength = sizeof(oBuffer);
+    adbDevice->writeRegister(0, oBuffer, &oLength);   // adbRegister = 0, IOADBDevice adds addr of 0x02 => 0x28
+}	
 
 // **********************************************************************************
 // interfaceID

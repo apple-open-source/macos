@@ -629,7 +629,7 @@ fi
 #   Applying: SSL Module Documentation
 #
 echo "$prefixo SSL Module Documentation" | eval $disp_std
-./etc/apply.sh 'mod_ssl' $apache/htdocs/manual/mod/directives.html \
+./etc/apply.sh 'mod_ssl' $apache/htdocs/manual/mod/directives.html.en \
                $patch pkg.ssldoc/ssldoc.patch $apache "$prefixe" "$disp_ver"
 if [ ! -d "$apache/htdocs/manual/mod/mod_ssl" ]; then
     echo "$prefixe creating: [DIR]  htdocs/manual/mod/mod_ssl" | eval $disp_ver

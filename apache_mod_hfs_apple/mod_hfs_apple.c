@@ -94,56 +94,6 @@ static int check_file_system(char *path, int *case_sensitive)
 	unixPath = malloc(len + 1);
 	if (unixPath == NULL) return (int) memFullErr;
 	strcpy(unixPath, path);
-// removing so I can change the way this is done	
-#if 0	
-	do {
-		FSRef			fsRef;
-		Boolean			isDirectory;
-		FSSpec			fsSpec;
-		FSVolumeRefNum	actualVRefNum;
-		FSVolumeInfo 	vInfo;
-		
-		/* Get rid of trailing slash unless that's all what's there */
-		if (len > 1 && unixPath[len - 1] == '/') unixPath[--len] = 0;
-		if (*unixPath == 0 || strcasecmp(unixPath, VOLUME) == 0) {
-			err = (OSStatus) fnfErr;
-			break;
-		}
-		
-		/* Try to convert path to a 'FSRef' */
-		err = FSPathMakeRef((UInt8*) unixPath, &fsRef, &isDirectory);
-		if (err != (OSStatus) noErr) {
-		
-			/* Walk the path up: remove last item until slash */
-			len--;
-			while (len > 0 && unixPath[len] != '/') len--;
-			if (len == 0 && unixPath[0] == '/') len++;
-			unixPath[len] = 0;
-			continue;
-		}
-		
-		/* Convert the 'FSRef' (an existing path) to a 'FSSpec' */
-		err = (OSStatus) FSGetCatalogInfo(
-			&fsRef, kFSCatInfoNone, NULL, NULL, &fsSpec, NULL);
-		if (err != (OSStatus) noErr) break;
-
-		/* Query volume information */
-		err = (OSStatus) FSGetVolumeInfo(
-			(FSVolumeRefNum) fsSpec.vRefNum, (ItemCount) 0,
-			(FSVolumeRefNum*) &actualVRefNum, kFSVolInfoFSInfo,
-			&vInfo, NULL, NULL);
-		if (err != (OSStatus) noErr) break;
-		
-		/* Parse result */
-		if (vInfo.signature == kHFSSigWord || 
-			vInfo.signature == kHFSPlusSigWord) {
-			*case_sensitive = 0;
-		}
-		free(unixPath);
-		return (int) noErr;
-		
-	} while (1);
-#endif
 	
 	err = statfs(unixPath, &fsInfo);
 	
@@ -188,18 +138,28 @@ static void add_directory_entry(request_rec *r, char *path) {
 	char *dir_path;
 	int i,case_sens = 0;
 	dir_rec **elt;
+	int len = strlen(path)+2;
+
+	/* malloc dir_path so we can explicitly free it if the path
+	 * already exists in the cache, rather than leaving it in 
+	 * apache's main pool.
+	 */
+	dir_path = malloc(len);
+	if( dir_path == NULL ) return;
+	memset(dir_path, 0, len);
+	strcpy(dir_path, path);
 
 	/* Make sure input path has a trailing slash */
-	if (path[strlen(path) - 1] != '/') {
-		dir_path = ap_pstrcat(g_pool, path, "/", NULL);
-	} else {
-		dir_path = ap_pstrdup(g_pool, path);
-	}
+	if (path[strlen(path) - 1] != '/') 
+		strcat(dir_path, "/");
 	
 	/* If the entry already exists then get out */
 	for (i = 0; i < directories->nelts; i++) {
 		dir_rec *entry = ((dir_rec**) directories->elts)[i];
-		if (strcmp(dir_path, entry->dir_path) == 0) return;
+		if (strcmp(dir_path, entry->dir_path) == 0) {
+			free(dir_path);
+			return;
+		}
 	}
 	
 	/* Figure whether the targeted volume is case-sensitive */
@@ -211,7 +171,12 @@ static void add_directory_entry(request_rec *r, char *path) {
 	elt = ap_push_array(directories);
 	*elt = (dir_rec*) ap_pcalloc(g_pool, sizeof(dir_rec));
 	if (*elt == NULL) return;
+	/* duplicate the path into apache's main pool (along with the rest
+	 * of the structure) so everything stays together.  Then free what
+	 * we've malloc'd.
+	 */
 	(*elt)->dir_path = ap_pstrdup(g_pool, dir_path); 
+	free(dir_path);
 	(*elt)->case_sens = case_sens;
 
 	/* Print a debug notice */
@@ -305,9 +270,16 @@ static int hfs_apple_module_fixups(request_rec *r) {
 	max_n_matches = 0;
 	found = -1;
 	if (r->filename[strlen(r->filename) - 1] != '/') {
-		url_path = ap_pstrcat(g_pool, r->filename, "/", NULL);
+		url_path = malloc(strlen(r->filename) +2);
+		if( url_path == NULL ) return FORBIDDEN;
+		strcpy(url_path, r->filename);
+		strcat(url_path, "/");
+		url_path[strlen(url_path)-1] = '\0';
 	} else {
-		url_path = ap_pstrdup(g_pool, r->filename);
+		url_path = malloc(strlen(r->filename) +1);
+		if( url_path == NULL ) return FORBIDDEN;
+		strcpy(url_path, r->filename);
+		url_path[strlen(url_path)-1] = '\0';
 	}
 	for (i = 0; i < directories->nelts; i++) {
 		int	related;
@@ -322,7 +294,10 @@ static int hfs_apple_module_fixups(request_rec *r) {
 	 		found = i;
 	 	}
 	}
-	if (found < 0) return OK;
+	if (found < 0) {
+		free(url_path);
+		return OK;
+	}
 	
 	/*
 	 * We found at least one <Directory> statement that defines
@@ -338,9 +313,11 @@ static int hfs_apple_module_fixups(request_rec *r) {
 			r->filename,
 			((dir_rec**) directories->elts)[found]->dir_path);
 		#endif
+		free(url_path);
 		return FORBIDDEN;
 	}
 	
+	free(url_path);
 	return OK;
 }
 

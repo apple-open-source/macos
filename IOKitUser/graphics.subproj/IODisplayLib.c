@@ -19,6 +19,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 #include <mach/mach.h>
 #include <mach/thread_switch.h>
 #include <sys/file.h>
@@ -613,22 +614,21 @@ IOCheckTimingWithRange( const void * range,
     return( CheckTimingWithRange( (VDDisplayTimingRangeRec *) range, (VDDetailedTimingRec *) timing));
 }
 
-static CFDataRef
-PreflightDetailedTiming( io_connect_t connect,
+static kern_return_t
+PreflightDetailedTiming( IOFBConnectRef connectRef,
                             VDDetailedTimingRec * timing,
                             VDDisplayTimingRangeRec * fbRange,
                             VDDisplayTimingRangeRec * displayRange )
 {
-    IOReturn 			err;
+    IOReturn 			err = kIOReturnUnsupportedMode;
     unsigned int		len;
-    CFDataRef			data = 0;
 
     do {
         if( !CheckTimingWithRange( fbRange, timing))
             continue;
-    
+
         len = sizeof( VDDetailedTimingRec);
-        err = io_connect_method_structureI_structureO( connect, 17, /*index*/
+        err = io_connect_method_structureI_structureO( connectRef->connect, 17, /*index*/
                         (void *) timing, len, (void *) timing, &len);
     
 #if LOG
@@ -642,60 +642,54 @@ PreflightDetailedTiming( io_connect_t connect,
         if( kIOReturnSuccess != err)
             continue;
 
-        if( !CheckTimingWithRange( displayRange, timing))
-            continue;
-
-        data = CFDataCreate( kCFAllocatorDefault,
-                        (UInt8 *) timing, sizeof(VDDetailedTimingRec));
+        err = CheckTimingWithRange( displayRange, timing) ? kIOReturnSuccess : kIOReturnUnsupportedMode;
 
     } while( false );
 
-    return( data );
+    return( err );
 }
 
-static CFDataRef
-EDIDDescToDetailedTiming( io_connect_t connect, 
+static kern_return_t
+InstallFromEDIDDesc( IOFBConnectRef connectRef, 
                             EDID * edid, EDIDDetailedTimingDesc * desc,
                             VDDisplayTimingRangeRec * fbRange,
                             VDDisplayTimingRangeRec * displayRange )
 {
     IOReturn		err;
-    VDDetailedTimingRec	timing;
+    IOTimingInformation	timing;
 
-    err = EDIDDescToDetailedTimingRec( edid, desc, &timing );
+    bzero( &timing, sizeof( timing ));
+    timing.flags = kIODetailedTimingValid;
+
+    err = EDIDDescToDetailedTimingRec( edid, desc, (VDDetailedTimingRec *) &timing.detailedInfo.v2 );
     if( kIOReturnSuccess != err)
-        return( 0 );
+        return( err );
 
-    return( PreflightDetailedTiming( connect, &timing, fbRange, displayRange ));
+    err = PreflightDetailedTiming( connectRef, (VDDetailedTimingRec *) &timing.detailedInfo.v2,
+                                    fbRange, displayRange );
+    if( kIOReturnSuccess != err)
+        return( err );
+
+    err = IOFBInstallMode( connectRef, 0xffffffff, NULL, &timing, 0 );
+
+    return( err );
 }
 
 void
 IODisplayInstallDetailedTimings( IOFBConnectRef connectRef )
 {
-    IOReturn			err;
     int				i;
-    io_connect_t		connect = connectRef->connect;
     io_service_t		service = connectRef->framebuffer;
     EDID *			edid;
     CFDictionaryRef		dict = 0;
     CFDataRef			fbRange = 0;
     CFDataRef			data;
-    CFMutableArrayRef		finalArray = 0;
     CFArrayRef			array;
     CFIndex			count;
     VDDisplayTimingRangeRec *	displayRange;
     VDDisplayTimingRangeRec	localDisplayRange;
 
     do {
-
-        array = (CFArrayRef) IORegistryEntryCreateCFProperty( service, 
-                                    CFSTR(kIOFBDetailedTimingsKey),
-                                    kCFAllocatorDefault, kNilOptions);
-        if( array) {
-            CFRelease( array );
-            continue;
-        }
-
         dict = IODisplayCreateInfoDictionary( service, kNilOptions );
         if( !dict)
             continue;
@@ -704,11 +698,6 @@ IODisplayInstallDetailedTimings( IOFBConnectRef connectRef )
         if( !data || (CFDataGetLength(data) < sizeof( EDID)) )
             continue;
         edid = (EDID *) CFDataGetBytePtr( data );
-
-        finalArray = CFArrayCreateMutable( kCFAllocatorDefault, 0,
-                                        &kCFTypeArrayCallBacks);
-        if( !finalArray)
-            continue;
 
         // Install no detailed timings from digital displays
         if( 0x80 & edid->displayParams[0])
@@ -740,14 +729,10 @@ IODisplayInstallDetailedTimings( IOFBConnectRef connectRef )
             if( !data || (sizeof(EDIDDetailedTimingDesc) != CFDataGetLength(data)))
                 continue;
 
-            data = EDIDDescToDetailedTiming( connect,
+            InstallFromEDIDDesc( connectRef,
                             edid, (EDIDDetailedTimingDesc *) CFDataGetBytePtr(data),
                             (VDDisplayTimingRangeRec *) CFDataGetBytePtr(fbRange),
                             displayRange );
-            if( data) {
-                CFArrayAppendValue( finalArray, data );
-                CFRelease( data );
-            }
         }
 
         // EDID timing recs
@@ -757,44 +742,17 @@ IODisplayInstallDetailedTimings( IOFBConnectRef connectRef )
                                  &edid->descriptors[i].timing,
                                  sizeof( EDIDDetailedTimingDesc))))
                 continue;
-            data = EDIDDescToDetailedTiming( connect,
+            InstallFromEDIDDesc( connectRef,
                                 edid,
                                 &edid->descriptors[i].timing,
                                 (VDDisplayTimingRangeRec *) CFDataGetBytePtr(fbRange),
                                 displayRange );
-            if( data) {
-                CFArrayAppendValue( finalArray, data );
-                CFRelease( data );
-            }
         }
-
-        count = CFArrayGetCount(finalArray);
-        if( !count)
-            continue;
-
-        err = IOConnectSetCFProperty( connect,
-                        CFSTR(kIOFBDetailedTimingsKey), finalArray );
-#if LOG
-        printf("IORegistryEntrySetCFProperty(%x)\n", err);
-        CFShow(finalArray);
-
-        for( i = 0; i < count; i++ ) {
-            IOPixelInformation info;
-
-            err = IOFBGetPixelInformation( connect, kDisplayModeIDReservedBase + i,
-                                            0, kIOFBSystemAperture, &info );
-            printf("IOFBGetPixelInformation(%x), %ld, %ld\n", err,
-                    info.activeWidth, info.activeHeight);
-
-        }
-#endif
 
     } while( false );
 
     if( dict)
         CFRelease(dict);
-    if( finalArray)
-        CFRelease(finalArray);
     if( fbRange)
         CFRelease(fbRange);
 }
@@ -966,7 +924,7 @@ IODisplayCreateInfoDictionary(
 
 #define makeInt( key, value )	\
 	num = CFNumberCreate( kCFAllocatorDefault, kCFNumberSInt32Type, &value );	\
-	CFDictionarySetValue( dict, key,  num );					\
+	CFDictionaryAddValue( dict, key,  num );					\
 	CFRelease( num );
 
 #define addFloat( key )	\
@@ -1034,8 +992,15 @@ IODisplayCreateInfoDictionary(
         if( !edid)
             continue;
 
-        if( 0x80 & edid->displayParams[0])
+        if( 0x80 & edid->displayParams[0]) {
             CFDictionarySetValue( dict, CFSTR(kIODisplayIsDigitalKey), kCFBooleanTrue );
+
+            if( kDisplayAppleVendorID == vendor) {
+                CFDictionaryAddValue( dict, CFSTR(kDisplayFixedPixelFormat), kCFBooleanTrue );
+                sint = kDisplaySubPixelLayoutRGB;
+                makeInt( CFSTR( kDisplaySubPixelLayout ), sint );
+            }
+        }
 
         if( !CFDictionaryGetValue( dict, CFSTR("trng"))) {
             // EDID timing range

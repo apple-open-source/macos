@@ -118,8 +118,11 @@ public:
     virtual IOReturn activate();
     virtual void deactivate();
     
+    // returns number of bytes starting at addr in this space (0 if not in it)
+    virtual UInt32 contains(FWAddress addr);
+    
 private:
-    OSMetaClassDeclareReservedUnused(IOFWAddressSpace, 0);
+    OSMetaClassDeclareReservedUsed(IOFWAddressSpace, 0);
     OSMetaClassDeclareReservedUnused(IOFWAddressSpace, 1);
     
 };
@@ -194,7 +197,7 @@ protected:
 											UInt32 					len,
 											IOMemoryDescriptor**	buf,
 											IOByteCount* 			offset,
-                                            IOFWRequestRefCon		refcon);
+                                            IOFWRequestRefCon		reqrefcon);
     
     static 	UInt32 					simpleWriter(
 											void*					refcon,
@@ -203,7 +206,7 @@ protected:
 											FWAddress 				addr,
 											UInt32 					len,
 											const void*				buf,
-                                            IOFWRequestRefCon		refcon);
+                                            IOFWRequestRefCon		reqrefcon);
 
     // Get a unique address range
     IOReturn						allocateAddress(
@@ -279,6 +282,7 @@ public:
 											const void*				buf,
                                             IOFWRequestRefCon		reqrefcon);
 
+    virtual UInt32					contains(FWAddress addr);
     
 private:
     OSMetaClassDeclareReservedUnused(IOFWPseudoAddressSpace, 0);

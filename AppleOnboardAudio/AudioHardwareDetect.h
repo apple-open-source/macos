@@ -64,7 +64,8 @@ enum{
     kAudioHardwareDetectUnknown = 0,
     kAudioHardwareDetectInSense = 1,
     kAudioHardwareDetectAnyInSense = 2,
-    kAudioHardwareDetectGPIO = 3
+    kAudioHardwareDetectGPIO = 3,
+    kAudioHardwareGenericDetectGPIO = 4
 };
 
 

@@ -257,7 +257,27 @@ API_VAR_EXPORT int ap_daemons_max_free=0;
 API_VAR_EXPORT int ap_daemons_limit=0;
 time_t ap_restart_time=0;
 API_VAR_EXPORT int ap_suexec_enabled = 0;
-int ap_listenbacklog;
+int ap_listenbacklog=0;
+
+struct accept_mutex_methods_s {
+    void (*child_init)(pool *p);
+    void (*init)(pool *p);
+    void (*on)(void);
+    void (*off)(void);
+    char *name;
+};
+typedef struct accept_mutex_methods_s accept_mutex_methods_s;
+accept_mutex_methods_s *amutex;
+
+#ifdef SO_ACCEPTFILTER
+int ap_acceptfilter =
+#ifdef AP_ACCEPTFILTER_OFF
+	0;
+#else
+	1;
+#endif
+#endif
+
 int ap_dump_settings = 0;
 API_VAR_EXPORT int ap_extended_status = 0;
 
@@ -285,7 +305,7 @@ static int max_daemons_limit = -1;
  *
  * Note that listeners != NULL is ensured by read_config().
  */
-listen_rec *ap_listeners;
+listen_rec *ap_listeners=NULL;
 static listen_rec *head_listener;
 
 API_VAR_EXPORT char ap_server_root[MAX_STRING_LEN]="";
@@ -494,7 +514,20 @@ static void clean_child_exit(int code)
     exit(code);
 }
 
-#if defined(USE_FCNTL_SERIALIZED_ACCEPT) || defined(USE_FLOCK_SERIALIZED_ACCEPT)
+/*
+ * Start of accept() mutex fluff:
+ *  Concept: Each method has it's own distinct set of mutex functions,
+ *   which it shoves in a nice struct for us. We then pick
+ *   which struct to use. We tell Apache which methods we
+ *   support via HAVE_FOO_SERIALIZED_ACCEPT. We can
+ *   specify the default via USE_FOO_SERIALIZED_ACCEPT
+ *   (this pre-1.3.21 builds which use that at the command-
+ *   line during builds work as expected). Without a set
+ *   method, we pick the 1st from the following order:
+ *   uslock, pthread, sysvsem, fcntl, flock, os2sem, tpfcore and none.
+ */
+
+#if defined(HAVE_FCNTL_SERIALIZED_ACCEPT) || defined(HAVE_FLOCK_SERIALIZED_ACCEPT)
 static void expand_lock_fname(pool *p)
 {
     /* XXXX possibly bogus cast */
@@ -503,15 +536,13 @@ static void expand_lock_fname(pool *p)
 }
 #endif
 
-#if defined (USE_USLOCK_SERIALIZED_ACCEPT)
-
+#if defined (HAVE_USLOCK_SERIALIZED_ACCEPT)
 #include <ulocks.h>
-
 static ulock_t uslock = NULL;
 
-#define accept_mutex_child_init(x)
+#define accept_mutex_child_init_uslock(x)
 
-static void accept_mutex_init(pool *p)
+static void accept_mutex_init_uslock(pool *p)
 {
     ptrdiff_t old;
     usptr_t *us;
@@ -542,7 +573,7 @@ static void accept_mutex_init(pool *p)
     }
 }
 
-static void accept_mutex_on(void)
+static void accept_mutex_on_uslock(void)
 {
     switch (ussetlock(uslock)) {
     case 1:
@@ -557,7 +588,7 @@ static void accept_mutex_on(void)
     }
 }
 
-static void accept_mutex_off(void)
+static void accept_mutex_off_uslock(void)
 {
     if (usunsetlock(uslock) == -1) {
 	perror("usunsetlock");
@@ -565,7 +596,16 @@ static void accept_mutex_off(void)
     }
 }
 
-#elif defined (USE_PTHREAD_SERIALIZED_ACCEPT)
+accept_mutex_methods_s accept_mutex_uslock_s = {
+    NULL,
+    accept_mutex_init_uslock,
+    accept_mutex_on_uslock,
+    accept_mutex_off_uslock,
+    "uslock"
+};
+#endif
+
+#if defined (HAVE_PTHREAD_SERIALIZED_ACCEPT)
 
 /* This code probably only works on Solaris ... but it works really fast
  * on Solaris.  Note that pthread mutexes are *NOT* released when a task
@@ -580,7 +620,7 @@ static int have_accept_mutex;
 static sigset_t accept_block_mask;
 static sigset_t accept_previous_mask;
 
-static void accept_mutex_child_cleanup(void *foo)
+static void accept_mutex_child_cleanup_pthread(void *foo)
 {
     if (accept_mutex != (void *)(caddr_t)-1
 	&& have_accept_mutex) {
@@ -588,12 +628,12 @@ static void accept_mutex_child_cleanup(void *foo)
     }
 }
 
-static void accept_mutex_child_init(pool *p)
+static void accept_mutex_child_init_pthread(pool *p)
 {
-    ap_register_cleanup(p, NULL, accept_mutex_child_cleanup, ap_null_cleanup);
+    ap_register_cleanup(p, NULL, accept_mutex_child_cleanup_pthread, ap_null_cleanup);
 }
 
-static void accept_mutex_cleanup(void *foo)
+static void accept_mutex_cleanup_pthread(void *foo)
 {
     if (accept_mutex != (void *)(caddr_t)-1
 	&& munmap((caddr_t) accept_mutex, sizeof(*accept_mutex))) {
@@ -602,7 +642,7 @@ static void accept_mutex_cleanup(void *foo)
     accept_mutex = (void *)(caddr_t)-1;
 }
 
-static void accept_mutex_init(pool *p)
+static void accept_mutex_init_pthread(pool *p)
 {
     pthread_mutexattr_t mattr;
     int fd;
@@ -636,10 +676,10 @@ static void accept_mutex_init(pool *p)
     sigdelset(&accept_block_mask, SIGHUP);
     sigdelset(&accept_block_mask, SIGTERM);
     sigdelset(&accept_block_mask, SIGUSR1);
-    ap_register_cleanup(p, NULL, accept_mutex_cleanup, ap_null_cleanup);
+    ap_register_cleanup(p, NULL, accept_mutex_cleanup_pthread, ap_null_cleanup);
 }
 
-static void accept_mutex_on(void)
+static void accept_mutex_on_pthread(void)
 {
     int err;
 
@@ -661,7 +701,7 @@ static void accept_mutex_on(void)
     ap_unblock_alarms();
 }
 
-static void accept_mutex_off(void)
+static void accept_mutex_off_pthread(void)
 {
     int err;
 
@@ -683,7 +723,16 @@ static void accept_mutex_off(void)
     }
 }
 
-#elif defined (USE_SYSVSEM_SERIALIZED_ACCEPT)
+accept_mutex_methods_s accept_mutex_pthread_s = {
+    accept_mutex_child_init_pthread,
+    accept_mutex_init_pthread,
+    accept_mutex_on_pthread,
+    accept_mutex_off_pthread,
+    "pthread"
+};
+#endif
+
+#if defined (HAVE_SYSVSEM_SERIALIZED_ACCEPT)
 
 #include <sys/types.h>
 #include <sys/ipc.h>
@@ -707,7 +756,7 @@ static struct sembuf op_off;
  * means we have to be sure to clean this up or else we'll leak
  * semaphores.
  */
-static void accept_mutex_cleanup(void *foo)
+static void accept_mutex_cleanup_sysvsem(void *foo)
 {
     union semun ick;
 
@@ -718,9 +767,9 @@ static void accept_mutex_cleanup(void *foo)
     semctl(sem_id, 0, IPC_RMID, ick);
 }
 
-#define accept_mutex_child_init(x)
+#define accept_mutex_child_init_sysvsem(x)
 
-static void accept_mutex_init(pool *p)
+static void accept_mutex_init_sysvsem(pool *p)
 {
     union semun ick;
     struct semid_ds buf;
@@ -749,7 +798,7 @@ static void accept_mutex_init(pool *p)
 	    exit(APEXIT_INIT);
 	}
     }
-    ap_register_cleanup(p, NULL, accept_mutex_cleanup, ap_null_cleanup);
+    ap_register_cleanup(p, NULL, accept_mutex_cleanup_sysvsem, ap_null_cleanup);
 
     /* pre-initialize these */
     op_on.sem_num = 0;
@@ -760,7 +809,7 @@ static void accept_mutex_init(pool *p)
     op_off.sem_flg = SEM_UNDO;
 }
 
-static void accept_mutex_on(void)
+static void accept_mutex_on_sysvsem(void)
 {
     while (semop(sem_id, &op_on, 1) < 0) {
 	if (errno != EINTR) {
@@ -770,7 +819,7 @@ static void accept_mutex_on(void)
     }
 }
 
-static void accept_mutex_off(void)
+static void accept_mutex_off_sysvsem(void)
 {
     while (semop(sem_id, &op_off, 1) < 0) {
 	if (errno != EINTR) {
@@ -780,19 +829,28 @@ static void accept_mutex_off(void)
     }
 }
 
-#elif defined(USE_FCNTL_SERIALIZED_ACCEPT)
+accept_mutex_methods_s accept_mutex_sysvsem_s = {
+    NULL,
+    accept_mutex_init_sysvsem,
+    accept_mutex_on_sysvsem,
+    accept_mutex_off_sysvsem,
+    "sysvsem"
+};
+#endif
+
+#if defined(HAVE_FCNTL_SERIALIZED_ACCEPT)
 static struct flock lock_it;
 static struct flock unlock_it;
 
 static int lock_fd = -1;
 
-#define accept_mutex_child_init(x)
+#define accept_mutex_child_init_fcntl(x)
 
 /*
  * Initialize mutex lock.
  * Must be safe to call this on a restart.
  */
-static void accept_mutex_init(pool *p)
+static void accept_mutex_init_fcntl(pool *p)
 {
 
     lock_it.l_whence = SEEK_SET;	/* from current point */
@@ -816,7 +874,7 @@ static void accept_mutex_init(pool *p)
     unlink(ap_lock_fname);
 }
 
-static void accept_mutex_on(void)
+static void accept_mutex_on_fcntl(void)
 {
     int ret;
 
@@ -833,7 +891,7 @@ static void accept_mutex_on(void)
     }
 }
 
-static void accept_mutex_off(void)
+static void accept_mutex_off_fcntl(void)
 {
     int ret;
 
@@ -849,11 +907,20 @@ static void accept_mutex_off(void)
     }
 }
 
-#elif defined(USE_FLOCK_SERIALIZED_ACCEPT)
+accept_mutex_methods_s accept_mutex_fcntl_s = {
+    NULL,
+    accept_mutex_init_fcntl,
+    accept_mutex_on_fcntl,
+    accept_mutex_off_fcntl,
+    "fcntl"
+};
+#endif
 
-static int lock_fd = -1;
+#if defined(HAVE_FLOCK_SERIALIZED_ACCEPT)
 
-static void accept_mutex_cleanup(void *foo)
+static int flock_fd = -1;
+
+static void accept_mutex_cleanup_flock(void *foo)
 {
     unlink(ap_lock_fname);
 }
@@ -862,11 +929,11 @@ static void accept_mutex_cleanup(void *foo)
  * Initialize mutex lock.
  * Done by each child at it's birth
  */
-static void accept_mutex_child_init(pool *p)
+static void accept_mutex_child_init_flock(pool *p)
 {
 
-    lock_fd = ap_popenf(p, ap_lock_fname, O_WRONLY, 0600);
-    if (lock_fd == -1) {
+    flock_fd = ap_popenf(p, ap_lock_fname, O_WRONLY, 0600);
+    if (flock_fd == -1) {
 	ap_log_error(APLOG_MARK, APLOG_EMERG, server_conf,
 		    "Child cannot open lock file: %s", ap_lock_fname);
 	clean_child_exit(APEXIT_CHILDINIT);
@@ -877,24 +944,24 @@ static void accept_mutex_child_init(pool *p)
  * Initialize mutex lock.
  * Must be safe to call this on a restart.
  */
-static void accept_mutex_init(pool *p)
+static void accept_mutex_init_flock(pool *p)
 {
     expand_lock_fname(p);
     unlink(ap_lock_fname);
-    lock_fd = ap_popenf(p, ap_lock_fname, O_CREAT | O_WRONLY | O_EXCL, 0600);
-    if (lock_fd == -1) {
+    flock_fd = ap_popenf(p, ap_lock_fname, O_CREAT | O_WRONLY | O_EXCL, 0600);
+    if (flock_fd == -1) {
 	ap_log_error(APLOG_MARK, APLOG_EMERG, server_conf,
 		    "Parent cannot open lock file: %s", ap_lock_fname);
 	exit(APEXIT_INIT);
     }
-    ap_register_cleanup(p, NULL, accept_mutex_cleanup, ap_null_cleanup);
+    ap_register_cleanup(p, NULL, accept_mutex_cleanup_flock, ap_null_cleanup);
 }
 
-static void accept_mutex_on(void)
+static void accept_mutex_on_flock(void)
 {
     int ret;
 
-    while ((ret = flock(lock_fd, LOCK_EX)) < 0 && errno == EINTR)
+    while ((ret = flock(flock_fd, LOCK_EX)) < 0 && errno == EINTR)
 	continue;
 
     if (ret < 0) {
@@ -904,20 +971,29 @@ static void accept_mutex_on(void)
     }
 }
 
-static void accept_mutex_off(void)
+static void accept_mutex_off_flock(void)
 {
-    if (flock(lock_fd, LOCK_UN) < 0) {
+    if (flock(flock_fd, LOCK_UN) < 0) {
 	ap_log_error(APLOG_MARK, APLOG_EMERG, server_conf,
 		    "flock: LOCK_UN: Error freeing accept lock. Exiting!");
 	clean_child_exit(APEXIT_CHILDFATAL);
     }
 }
 
-#elif defined(USE_OS2SEM_SERIALIZED_ACCEPT)
+accept_mutex_methods_s accept_mutex_flock_s = {
+    accept_mutex_child_init_flock,
+    accept_mutex_init_flock,
+    accept_mutex_on_flock,
+    accept_mutex_off_flock,
+    "flock"
+};
+#endif
+
+#if defined(HAVE_OS2SEM_SERIALIZED_ACCEPT)
 
 static HMTX lock_sem = -1;
 
-static void accept_mutex_cleanup(void *foo)
+static void accept_mutex_cleanup_os2sem(void *foo)
 {
     DosReleaseMutexSem(lock_sem);
     DosCloseMutexSem(lock_sem);
@@ -927,7 +1003,7 @@ static void accept_mutex_cleanup(void *foo)
  * Initialize mutex lock.
  * Done by each child at it's birth
  */
-static void accept_mutex_child_init(pool *p)
+static void accept_mutex_child_init_os2sem(pool *p)
 {
     int rc = DosOpenMutexSem(NULL, &lock_sem);
 
@@ -936,7 +1012,7 @@ static void accept_mutex_child_init(pool *p)
 		    "Child cannot open lock semaphore, rc=%d", rc);
 	clean_child_exit(APEXIT_CHILDINIT);
     } else {
-        ap_register_cleanup(p, NULL, accept_mutex_cleanup, ap_null_cleanup);
+        ap_register_cleanup(p, NULL, accept_mutex_cleanup_os2sem, ap_null_cleanup);
     }
 }
 
@@ -944,7 +1020,7 @@ static void accept_mutex_child_init(pool *p)
  * Initialize mutex lock.
  * Must be safe to call this on a restart.
  */
-static void accept_mutex_init(pool *p)
+static void accept_mutex_init_os2sem(pool *p)
 {
     int rc = DosCreateMutexSem(NULL, &lock_sem, DC_SEM_SHARED, FALSE);
 
@@ -954,10 +1030,10 @@ static void accept_mutex_init(pool *p)
 	exit(APEXIT_INIT);
     }
 
-    ap_register_cleanup(p, NULL, accept_mutex_cleanup, ap_null_cleanup);
+    ap_register_cleanup(p, NULL, accept_mutex_cleanup_os2sem, ap_null_cleanup);
 }
 
-static void accept_mutex_on(void)
+static void accept_mutex_on_os2sem(void)
 {
     int rc = DosRequestMutexSem(lock_sem, SEM_INDEFINITE_WAIT);
 
@@ -968,7 +1044,7 @@ static void accept_mutex_on(void)
     }
 }
 
-static void accept_mutex_off(void)
+static void accept_mutex_off_os2sem(void)
 {
     int rc = DosReleaseMutexSem(lock_sem);
     
@@ -979,52 +1055,200 @@ static void accept_mutex_off(void)
     }
 }
 
-#elif defined(USE_TPF_CORE_SERIALIZED_ACCEPT)
+accept_mutex_methods_s accept_mutex_os2sem_s = {
+    accept_mutex_child_init_os2sem,
+    accept_mutex_init_os2sem,
+    accept_mutex_on_os2sem,
+    accept_mutex_off_os2sem,
+    "os2sem"
+};
+#endif
+
+#if defined(HAVE_TPF_CORE_SERIALIZED_ACCEPT)
 
 static int tpf_core_held;
 
-static void accept_mutex_cleanup(void *foo)
+static void accept_mutex_cleanup_tpfcore(void *foo)
 {
     if(tpf_core_held)
         coruc(RESOURCE_KEY);
 }
 
-#define accept_mutex_init(x)
+#define accept_mutex_init_tpfcore(x)
 
-static void accept_mutex_child_init(pool *p)
+static void accept_mutex_child_init_tpfcore(pool *p)
 {
-    ap_register_cleanup(p, NULL, accept_mutex_cleanup, ap_null_cleanup);
+    ap_register_cleanup(p, NULL, accept_mutex_cleanup_tpfcore, ap_null_cleanup);
     tpf_core_held = 0;
 }
 
-static void accept_mutex_on(void)
+static void accept_mutex_on_tpfcore(void)
 {
     corhc(RESOURCE_KEY);
     tpf_core_held = 1;
     ap_check_signals();
 }
 
-static void accept_mutex_off(void)
+static void accept_mutex_off_tpfcore(void)
 {
     coruc(RESOURCE_KEY);
     tpf_core_held = 0;
     ap_check_signals();
 }
 
-#else
-/* Default --- no serialization.  Other methods *could* go here,
- * as #elifs...
- */
+accept_mutex_methods_s accept_mutex_tpfcore_s = {
+    accept_mutex_child_init_tpfcore,
+    NULL,
+    accept_mutex_on_tpfcore,
+    accept_mutex_off_tpfcore,
+    "tpfcore"
+};
+#endif
+
+/* Generally, HAVE_NONE_SERIALIZED_ACCEPT simply won't work but
+ * for testing purposes, here it is... */
+#if defined HAVE_NONE_SERIALIZED_ACCEPT
 #if !defined(MULTITHREAD)
 /* Multithreaded systems don't complete between processes for
  * the sockets. */
 #define NO_SERIALIZED_ACCEPT
-#define accept_mutex_child_init(x)
-#define accept_mutex_init(x)
-#define accept_mutex_on()
-#define accept_mutex_off()
+#endif 
+
+accept_mutex_methods_s accept_mutex_none_s = {
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    "none"
+};
 #endif
+
+#define AP_FPTR1(x,y)	{ if (x) ((* x)(y)); }
+#define AP_FPTR0(x)	{ if (x) ((* x)()); }
+
+#define accept_mutex_child_init(x) 	AP_FPTR1(amutex->child_init,x)
+#define accept_mutex_init(x) 		AP_FPTR1(amutex->init,x)
+#define accept_mutex_off() 		AP_FPTR0(amutex->off)
+#define accept_mutex_on() 		AP_FPTR0(amutex->on)
+
+char *ap_default_mutex_method(void)
+{
+    char *t;
+#if defined USE_USLOCK_SERIALIZED_ACCEPT
+    t = "uslock";
+#elif defined USE_PTHREAD_SERIALIZED_ACCEPT
+    t = "pthread";
+#elif defined USE_SYSVSEM_SERIALIZED_ACCEPT
+    t = "sysvsem";
+#elif defined USE_FCNTL_SERIALIZED_ACCEPT
+    t = "fcntl";
+#elif defined USE_FLOCK_SERIALIZED_ACCEPT
+    t = "flock";
+#elif defined USE_OS2SEM_SERIALIZED_ACCEPT
+    t = "os2sem";
+#elif defined USE_TPF_CORE_SERIALIZED_ACCEPT
+    t = "tpfcore";
+#elif defined USE_NONE_SERIALIZED_ACCEPT
+    t = "none";
+#else
+    t = "default";
 #endif
+#if defined HAVE_USLOCK_SERIALIZED_ACCEPT
+    if ((!(strcasecmp(t,"default"))) || (!(strcasecmp(t,"uslock"))))
+    	return "uslock";
+#endif
+#if defined HAVE_PTHREAD_SERIALIZED_ACCEPT
+    if ((!(strcasecmp(t,"default"))) || (!(strcasecmp(t,"pthread"))))
+    	return "pthread";
+#endif
+#if defined HAVE_SYSVSEM_SERIALIZED_ACCEPT
+    if ((!(strcasecmp(t,"default"))) || (!(strcasecmp(t,"sysvsem"))))
+    	return "sysvsem";
+#endif
+#if defined HAVE_FCNTL_SERIALIZED_ACCEPT
+    if ((!(strcasecmp(t,"default"))) || (!(strcasecmp(t,"fcntl"))))
+    	return "fcntl";
+#endif
+#if defined HAVE_FLOCK_SERIALIZED_ACCEPT
+    if ((!(strcasecmp(t,"default"))) || (!(strcasecmp(t,"flock"))))
+    	return "flock";
+#endif
+#if defined HAVE_OS2SEM_SERIALIZED_ACCEPT
+    if ((!(strcasecmp(t,"default"))) || (!(strcasecmp(t,"os2sem"))))
+    	return "os2sem";
+#endif
+#if defined HAVE_TPF_CORE_SERIALIZED_ACCEPT
+    if ((!(strcasecmp(t,"default"))) || (!(strcasecmp(t,"tpfcore"))))
+    	return "tpfcore";
+#endif
+#if defined HAVE_NONE_SERIALIZED_ACCEPT
+    if ((!(strcasecmp(t,"default"))) || (!(strcasecmp(t,"none"))))
+    	return "none";
+#endif
+
+    fprintf(stderr, "No default accept serialization known!!\n");
+    exit(APEXIT_INIT);
+    /*NOTREACHED */
+    return "unknown";
+}
+
+char *ap_init_mutex_method(char *t)
+{
+    if (!(strcasecmp(t,"default")))
+	t = ap_default_mutex_method();
+
+#if defined HAVE_USLOCK_SERIALIZED_ACCEPT
+    if (!(strcasecmp(t,"uslock"))) {
+    	amutex = &accept_mutex_uslock_s;
+    } else 
+#endif
+#if defined HAVE_PTHREAD_SERIALIZED_ACCEPT
+    if (!(strcasecmp(t,"pthread"))) {
+    	amutex = &accept_mutex_pthread_s;
+    } else 
+#endif
+#if defined HAVE_SYSVSEM_SERIALIZED_ACCEPT
+    if (!(strcasecmp(t,"sysvsem"))) {
+    	amutex = &accept_mutex_sysvsem_s;
+    } else 
+#endif
+#if defined HAVE_FCNTL_SERIALIZED_ACCEPT
+    if (!(strcasecmp(t,"fcntl"))) {
+    	amutex = &accept_mutex_fcntl_s;
+    } else
+#endif
+#if defined HAVE_FLOCK_SERIALIZED_ACCEPT
+    if (!(strcasecmp(t,"flock"))) {
+    	amutex = &accept_mutex_flock_s;
+    } else 
+#endif
+#if defined HAVE_OS2SEM_SERIALIZED_ACCEPT
+    if (!(strcasecmp(t,"os2sem"))) {
+    	amutex = &accept_mutex_os2sem_s;
+    } else 
+#endif
+#if defined HAVE_TPF_CORE_SERIALIZED_ACCEPT
+    if (!(strcasecmp(t,"tpfcore"))) {
+    	amutex = &accept_mutex_tpfcore_s;
+    } else 
+#endif
+#if defined HAVE_NONE_SERIALIZED_ACCEPT
+    if (!(strcasecmp(t,"none"))) {
+    	amutex = &accept_mutex_none_s;
+    } else
+#endif
+    {
+    if (server_conf) {
+        ap_log_error(APLOG_MARK, APLOG_NOERRNO|APLOG_NOTICE, server_conf,
+                    "Requested serialization method '%s' not available",t);
+        exit(APEXIT_INIT);
+    } else {
+        fprintf(stderr, "Requested serialization method '%s' not available\n", t);
+        exit(APEXIT_INIT);
+    }
+    }
+    return NULL;
+}
 
 /* On some architectures it's safe to do unserialized accept()s in the single
  * Listen case.  But it's never safe to do it in the case where there's
@@ -1086,6 +1310,8 @@ static void usage(char *bin)
     fprintf(stderr, "  -k install   | -i: install an Apache service\n");
     fprintf(stderr, "  -k config        : reconfigure an installed Apache service\n");
     fprintf(stderr, "  -k uninstall | -u: uninstall an Apache service\n");
+    fprintf(stderr, "  -W service       : after -k config|install; Apache starts after 'service'\n");
+    fprintf(stderr, "  -w               : holds the window open for 30 seconds for fatal errors.\n");
 #endif
 
 #if defined(NETWARE)
@@ -1565,7 +1791,11 @@ static void lingering_close(request_rec *r)
 	select_rv = ap_select(lsd + 1, &lfds, NULL, NULL, &tv);
 
     } while ((select_rv > 0) &&
+#if defined(WIN32) || defined(NETWARE)
+             (recv(lsd, dummybuf, sizeof dummybuf, 0) > 0));
+#else
              (read(lsd, dummybuf, sizeof dummybuf) > 0));
+#endif
 
     /* Should now have seen final ack.  Safe to finally kill socket */
 
@@ -2213,6 +2443,19 @@ static ap_inline void put_scoreboard_info(int child_num,
 
 /* a clean exit from the parent with proper cleanup */
 #ifdef NETWARE
+void clean_shutdown_on_exit(void)
+{
+    if (!ap_main_finished) {
+        AMCSocketCleanup();
+        ap_destroy_pool(pcommands);    
+        free(ap_loaded_modules);    
+        ap_cleanup_method_ptrs();    
+        ap_destroy_pool(pglobal);
+        ap_cleanup_alloc();
+        ap_main_finished = TRUE;
+    }
+}
+
 void clean_parent_exit(int code) __attribute__((noreturn));
 void clean_parent_exit(int code)
 #else
@@ -2492,7 +2735,7 @@ static void reclaim_child_processes(int terminate)
 	    waitret = waitpid(ocr->pid, &status, WNOHANG);
 	    if (waitret == ocr->pid) {
 		ocr->pid = -1;
-		(*ocr->maintenance) (OC_REASON_DEATH, ocr->data, (ap_wait_t)status);
+		(*ocr->maintenance) (OC_REASON_RESTART, ocr->data, (ap_wait_t)status);
 	    }
 	    else if (waitret == 0) {
 		(*ocr->maintenance) (OC_REASON_RESTART, ocr->data, (ap_wait_t)-1);
@@ -3183,7 +3426,7 @@ static int init_suexec(void)
 {
     int result = 0;
 
-#if !defined(WIN32) && !defined(NETWARE)
+#if !defined(WIN32) && !defined(NETWARE) && !defined(TPF)
     struct stat wrapper;
 
     if ((stat(SUEXEC_BIN, &wrapper)) != 0) {
@@ -3413,7 +3656,7 @@ static int make_sock(pool *p, const struct sockaddr_in *server)
     }
 
 #ifdef SO_ACCEPTFILTER
-    {
+    if (ap_acceptfilter) {
 #ifndef ACCEPT_FILTER_NAME
 #define ACCEPT_FILTER_NAME "dataready"
 #endif
@@ -3424,14 +3667,14 @@ static int make_sock(pool *p, const struct sockaddr_in *server)
 	struct accept_filter_arg af = {
 	    ACCEPT_FILTER_NAME, ""
 	};
-	if (setsockopt(s, SOL_SOCKET, SO_ACCEPTFILTER, &af, sizeof(af)) < 0
-	    && errno != ENOENT) {
-	    ap_log_error(APLOG_MARK, APLOG_CRIT, server_conf,
-			 "make_sock: for %s, setsockopt: (SO_ACCEPTFILTER)",
-			 addr);
-	    close(s);
-	    ap_unblock_alarms();
-	    exit(1);
+	if (setsockopt(s, SOL_SOCKET, SO_ACCEPTFILTER, &af, sizeof(af)) < 0) {
+            if (errno == ENOPROTOOPT) {
+	    	ap_log_error(APLOG_MARK, APLOG_INFO | APLOG_NOERRNO, server_conf,
+			 "socket option SO_ACCEPTFILTER unkown on this machine. Continuing.");
+	     } else {
+	    	ap_log_error(APLOG_MARK, APLOG_WARNING | APLOG_INFO, server_conf,
+			 "make_sock: for %s, setsockopt: (SO_ACCEPTFILTER)", addr);
+	     }
 	}
     }
 #endif
@@ -3648,6 +3891,9 @@ static void show_compile_settings(void)
     printf("Server's Module Magic Number: %u:%u\n",
 	   MODULE_MAGIC_NUMBER_MAJOR, MODULE_MAGIC_NUMBER_MINOR);
     printf("Server compiled with....\n");
+#ifdef TPF
+    show_os_specific_compile_settings();
+#endif
 #ifdef BIG_SECURITY_HOLE
     printf(" -D BIG_SECURITY_HOLE\n");
 #endif
@@ -3665,12 +3911,6 @@ static void show_compile_settings(void)
 #endif
 #ifdef USE_SHMGET_SCOREBOARD
     printf(" -D USE_SHMGET_SCOREBOARD\n");
-#endif
-#ifdef USE_TPF_SCOREBOARD
-    printf(" -D USE_TPF_SCOREBOARD\n");
-#endif
-#ifdef NO_SAWNC
-    printf(" -D NO_SAWNC\n");
 #endif
 #ifdef USE_OS2_SCOREBOARD
     printf(" -D USE_OS2_SCOREBOARD\n");
@@ -3690,20 +3930,29 @@ static void show_compile_settings(void)
 #ifdef NO_LINGCLOSE
     printf(" -D NO_LINGCLOSE\n");
 #endif
-#ifdef USE_FCNTL_SERIALIZED_ACCEPT
-    printf(" -D USE_FCNTL_SERIALIZED_ACCEPT\n");
+#ifdef HAVE_FCNTL_SERIALIZED_ACCEPT
+    printf(" -D HAVE_FCNTL_SERIALIZED_ACCEPT\n");
 #endif
-#ifdef USE_FLOCK_SERIALIZED_ACCEPT
-    printf(" -D USE_FLOCK_SERIALIZED_ACCEPT\n");
+#ifdef HAVE_FLOCK_SERIALIZED_ACCEPT
+    printf(" -D HAVE_FLOCK_SERIALIZED_ACCEPT\n");
 #endif
-#ifdef USE_USLOCK_SERIALIZED_ACCEPT
-    printf(" -D USE_USLOCK_SERIALIZED_ACCEPT\n");
+#ifdef HAVE_USLOCK_SERIALIZED_ACCEPT
+    printf(" -D HAVE_USLOCK_SERIALIZED_ACCEPT\n");
 #endif
-#ifdef USE_SYSVSEM_SERIALIZED_ACCEPT
-    printf(" -D USE_SYSVSEM_SERIALIZED_ACCEPT\n");
+#ifdef HAVE_SYSVSEM_SERIALIZED_ACCEPT
+    printf(" -D HAVE_SYSVSEM_SERIALIZED_ACCEPT\n");
 #endif
-#ifdef USE_PTHREAD_SERIALIZED_ACCEPT
-    printf(" -D USE_PTHREAD_SERIALIZED_ACCEPT\n");
+#ifdef HAVE_PTHREAD_SERIALIZED_ACCEPT
+    printf(" -D HAVE_PTHREAD_SERIALIZED_ACCEPT\n");
+#endif
+#ifdef HAVE_OS2SEM_SERIALIZED_ACCEPT
+    printf(" -D HAVE_OS2SEM_SERIALIZED_ACCEPT\n");
+#endif
+#ifdef HAVE_TPF_CORE_SERIALIZED_ACCEPT
+    printf(" -D HAVE_TPF_CORE_SERIALIZED_ACCEPT\n");
+#endif
+#ifdef HAVE_NONE_SERIALIZED_ACCEPT
+    printf(" -D HAVE_NONE_SERIALIZED_ACCEPT\n");
 #endif
 #ifdef SINGLE_LISTEN_UNSERIALIZED_ACCEPT
     printf(" -D SINGLE_LISTEN_UNSERIALIZED_ACCEPT\n");
@@ -3732,12 +3981,19 @@ static void show_compile_settings(void)
 #ifdef SHARED_CORE
     printf(" -D SHARED_CORE\n");
 #endif
+#ifdef SO_ACCEPTFILTER
+    printf(" -D SO_ACCEPTFILTER\n");
+    printf(" -D ACCEPT_FILTER_NAME=\"" ACCEPT_FILTER_NAME "\"\n");
+#endif
+#ifdef AP_ACCEPTFILTER_OFF
+    printf(" -D AP_ACCEPTFILTER_OFF\n");
+#endif
 
 /* This list displays the compiled-in default paths: */
 #ifdef HTTPD_ROOT
     printf(" -D HTTPD_ROOT=\"" HTTPD_ROOT "\"\n");
 #endif
-#ifdef SUEXEC_BIN
+#if defined(SUEXEC_BIN) && !defined(TPF)
     printf(" -D SUEXEC_BIN=\"" SUEXEC_BIN "\"\n");
 #endif
 #if defined(SHARED_CORE) && defined(SHARED_CORE_DIR)
@@ -4412,6 +4668,20 @@ static int idle_spawn_rate = 1;
 #endif
 static int hold_off_on_exponential_spawning;
 
+/*
+ * Define the signal that is used to kill off children if idle_count
+ * is greater then ap_daemons_max_free. Usually we will use SIGUSR1
+ * to gracefully shutdown, but unfortunatly some OS will need other 
+ * signals to ensure that the child process is terminated and the 
+ * scoreboard pool is not growing to infinity. This effect has been
+ * seen at least on Cygwin 1.x. -- Stipe Tolj <tolj@wapme-systems.de>
+ */
+#if defined(CYGWIN)
+#define SIG_IDLE_KILL SIGKILL
+#else
+#define SIG_IDLE_KILL SIGUSR1
+#endif
+
 static void perform_idle_server_maintenance(void)
 {
     int i;
@@ -4491,9 +4761,10 @@ static void perform_idle_server_maintenance(void)
     if (idle_count > ap_daemons_max_free) {
 	/* kill off one child... we use SIGUSR1 because that'll cause it to
 	 * shut down gracefully, in case it happened to pick up a request
-	 * while we were counting
+	 * while we were counting. Use the define SIG_IDLE_KILL to reflect
+	 * which signal should be used on the specific OS.
 	 */
-	kill(ap_scoreboard_image->parent[to_kill].pid, SIGUSR1);
+	kill(ap_scoreboard_image->parent[to_kill].pid, SIG_IDLE_KILL);
 	idle_spawn_rate = 1;
     }
     else if (idle_count < ap_daemons_min_free) {
@@ -4643,6 +4914,8 @@ static void standalone_main(int argc, char **argv)
 	ap_clear_pool(pconf);
 	ptrans = ap_make_sub_pool(pconf);
 
+	ap_init_mutex_method(ap_default_mutex_method());
+
 	server_conf = ap_read_config(pconf, ptrans, ap_server_confname);
 	setup_listeners(pconf);
 	ap_clear_pool(plog);
@@ -4698,6 +4971,9 @@ static void standalone_main(int argc, char **argv)
 	}
 	ap_log_error(APLOG_MARK, APLOG_NOERRNO|APLOG_INFO, server_conf,
 		    "Server built: %s", ap_get_server_built());
+	ap_log_error(APLOG_MARK, APLOG_NOERRNO|APLOG_NOTICE, server_conf,
+		    "Accept mutex: %s (Default: %s)",
+		     amutex->name, ap_default_mutex_method());
 	restart_pending = shutdown_pending = 0;
 
 	while (!restart_pending && !shutdown_pending) {
@@ -4763,9 +5039,15 @@ static void standalone_main(int argc, char **argv)
 
 	    perform_idle_server_maintenance();
 #ifdef TPF
-        shutdown_pending = os_check_server(tpf_server_name);
-        ap_check_signals();
-        sleep(1);
+            ap_check_signals();
+            if (!shutdown_pending) {
+                if (os_check_server(tpf_server_name)) {
+                    shutdown_pending++;
+                } else {
+                    sleep(1);
+                    ap_check_signals();
+                }
+            }
 #endif /*TPF */
 	}
 
@@ -4856,6 +5138,15 @@ void STANDALONE_MAIN(int argc, char **argv);
 
 extern char *optarg;
 extern int optind;
+
+/* Cygwin 1.x SHARED_CORE support needs REALMAIN to be declared as dllexport,
+ * so we can later while SHARED_CORE_BOOTSTRAP is compiled and linked see the 
+ * dllimport for it. -- Stipe Tolj <tolj@wapme-systems.de>
+ */
+
+#if defined(CYGWIN)
+__declspec(dllexport)  
+#endif
 
 int REALMAIN(int argc, char *argv[])
 {
@@ -5032,6 +5323,7 @@ int REALMAIN(int argc, char *argv[])
             ap_scoreboard_image =
                 (scoreboard *)input_parms.child.scoreboard_heap;
 #endif
+            ap_init_mutex_method(ap_default_mutex_method());
             child_main(input_parms.child.slot);
         }
         else
@@ -6697,8 +6989,13 @@ int REALMAIN(int argc, char *argv[])
 #endif
 
 #ifdef NETWARE
+    /* If top_module is not NULL then APACHEC was not exited cleanly
+     * and is in a bad state.  Simply clean up and exit.
+     */
+    check_clean_load (top_module);
     init_name_space();
     signal(SIGTERM, signal_handler);
+    atexit(clean_shutdown_on_exit);
     init_tsd();
 #endif
 
@@ -6765,7 +7062,7 @@ int REALMAIN(int argc, char *argv[])
         reparsed = 1;
     }
 
-    while ((c = getopt(argc, argv, "D:C:c:Xd:f:vVlLz:Z:wiuStThk:n:")) != -1) {
+    while ((c = getopt(argc, argv, "D:C:c:Xd:f:vVlLz:Z:wiuStThk:n:W:")) != -1) {
 #else /* !WIN32 */
     while ((c = getopt(argc, argv, "D:C:c:Xd:f:vVlLsStTh")) != -1) {
 #endif
@@ -6831,6 +7128,19 @@ int REALMAIN(int argc, char *argv[])
             else
                 signal_to_send = optarg;
 	    break;
+        case 'W':
+            /* -With a dependent service */
+            if (install < 1) {
+	        fprintf(stderr, "%s: invalid option: -W %s ignored\n"
+                        "\t-W only modifies -k install or -k config\n",
+                        argv[0], optarg);
+            }
+            else if (!isWindowsNT()) {
+                fprintf(stderr, "%s: invalid option: -W %s ignored\n"
+                        "\t-W is only supported for Windows NT/2000\n",
+                        argv[0], optarg);
+            }
+            break;
 #endif /* WIN32 */
 #ifdef NETWARE
         case 's':
@@ -6931,6 +7241,10 @@ int REALMAIN(int argc, char *argv[])
         service_name = DEFAULTSERVICENAME;
     }
 
+    if (service_name) {
+        service_name = get_display_name(service_name);
+    }
+
     if (service_name && isValidService(service_name)) 
     {
         if (install == 2) {
@@ -7020,8 +7334,6 @@ int REALMAIN(int argc, char *argv[])
     }
 
     if (install) {
-        if (!service_name)
-            service_name = ap_pstrdup(pconf, DEFAULTSERVICENAME);
         if (install > 0) 
             InstallService(pconf, service_name, argc, argv, install == 1);
         else
@@ -7182,6 +7494,7 @@ int main(int argc, char *argv[])
 #if defined(CYGWIN)
 __declspec(dllimport) 
 #endif
+
 
 int ap_main(int argc, char *argv[]); /* Load time linked from libhttpd.dll */
 

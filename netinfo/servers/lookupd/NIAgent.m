@@ -475,7 +475,9 @@ _ni_find_any(ni_data *domain, unsigned long domain_count, char **str, unsigned l
 		h0 = h1;
 
 		ni_setreadtimeout(h0->ni, timeout);
+		syslock_lock(rpcLock);
 		ni_setpassword(h0->ni, "checksum");
+		syslock_unlock(rpcLock);
 		domain = (ni_data *)realloc(domain, (domain_count + 1) * sizeof(ni_data));
 		domain[domain_count].handle = h0;
 		domain[domain_count].checksum = 0;
@@ -500,7 +502,9 @@ _ni_find_any(ni_data *domain, unsigned long domain_count, char **str, unsigned l
 
 		domain = (ni_data *)malloc(sizeof(ni_data));
 		ni_setreadtimeout(h->ni, timeout);
+		syslock_lock(rpcLock);
 		ni_setpassword(h->ni, "checksum");
+		syslock_unlock(rpcLock);
 		domain[0].handle = h;
 		domain[0].checksum = 0;
 		domain[0].checksum_time = 0;
@@ -529,7 +533,9 @@ _ni_find_any(ni_data *domain, unsigned long domain_count, char **str, unsigned l
 			if (h == NULL) continue;
 
 			ni_setreadtimeout(h->ni, timeout);
+			syslock_lock(rpcLock);
 			ni_setpassword(h->ni, "checksum");
+			syslock_unlock(rpcLock);
 			domain = (ni_data *)realloc(domain, (domain_count + 1) * sizeof(ni_data));
 			domain[domain_count].handle = h;
 			domain[domain_count].checksum = 0;

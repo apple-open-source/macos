@@ -91,6 +91,8 @@ protected:
     void setDeviceDetectionInActive();      
 
     void 	sndHWInitialize(IOService *provider);
+	virtual void	sndHWPostDMAEngineInit (IOService *provider) {return;}
+
     UInt32 	sndHWGetInSenseBits(void);
     UInt32 	sndHWGetRegister(UInt32 regNum);
     IOReturn   	sndHWSetRegister(UInt32 regNum, UInt32 value);

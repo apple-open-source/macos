@@ -121,9 +121,7 @@ bpf_arp_filter(int fd)
 {
     struct bpf_insn insns[] = {
 	BPF_STMT(BPF_LD+BPF_H+BPF_ABS, 12),
-	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, ETHERTYPE_ARP, 0, 3),
-	BPF_STMT(BPF_LD+BPF_H+BPF_ABS, 20),
-	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, ARPOP_REPLY, 0, 1),
+	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, ETHERTYPE_ARP, 0, 1),
 	BPF_STMT(BPF_RET+BPF_K, sizeof(struct ether_arp) +
 		 sizeof(struct ether_header)),
 	BPF_STMT(BPF_RET+BPF_K, 0),

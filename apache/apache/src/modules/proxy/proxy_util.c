@@ -290,9 +290,6 @@ char *
 	return "Bad IP address in URL";
     }
 
-/*    if (strchr(host,'.') == NULL && domain != NULL)
-   host = pstrcat(p, host, domain, NULL);
- */
     *urlp = url;
     *hostp = host;
 
@@ -591,7 +588,7 @@ long int ap_proxy_send_fb(BUFF *f, request_rec *r, cache_req *c)
                 ap_reset_timeout(r);
 
             if (w <= 0) {
-                if (c != NULL && c->fp != NULL) {
+                if (c != NULL) {
                     /* when a send failure occurs, we need to decide
                      * whether to continue loading and caching the
                      * document, or to abort the whole thing
@@ -601,8 +598,10 @@ long int ap_proxy_send_fb(BUFF *f, request_rec *r, cache_req *c)
                          (c->len * c->cache_completion < total_bytes_rcvd);
 
                     if (! ok) {
+                        if (c->fp!=NULL) {
                         ap_pclosef(c->req->pool, ap_bfileno(c->fp, B_WR));
                         c->fp = NULL;
+                        }
                         unlink(c->tempfile);
 			c = NULL;
                     }
@@ -1273,6 +1272,7 @@ int ap_proxy_send_hdr_line(void *p, const char *key, const char *value)
 	value = "";
     if (!parm->req->assbackwards)
 	ap_rvputs(parm->req, key, ": ", value, CRLF, NULL);
+    ap_table_add(parm->req->headers_out, key, value);
     if (parm->cache != NULL && parm->cache->fp != NULL &&
 	ap_bvputs(parm->cache->fp, key, ": ", value, CRLF, NULL) == -1) {
 	    ap_log_rerror(APLOG_MARK, APLOG_ERR, parm->cache->req,

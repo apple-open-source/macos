@@ -28,14 +28,16 @@
  *
  */
 
-#include <IOKit/firewire/IOFireWireUserClient.h>
 #include <IOKit/firewire/IOFireWireBus.h>
 #include <IOKit/firewire/IOFWLocalIsochPort.h>
 #include <IOKit/firewire/IOFWIsochChannel.h>
 #include <IOKit/firewire/IOFireWireDevice.h>
 #include <IOKit/firewire/IOFireWireController.h>
-#include <IOKit/firewire/IOFWUserIsochPort.h>
-#include <IOKit/firewire/IOFWUserIsochChannel.h>
+
+#include "IOFireWireUserClient.h"
+#include "IOFWUserIsochPort.h"
+#include "IOFWUserIsochChannel.h"
+
 void
 IOFireWireUserClient::initIsochMethodTable()
 {
@@ -240,8 +242,8 @@ IOFireWireUserClient::isochPortGetSupported(
 
 	result = inPortRef->getSupported(*outMaxSpeed, chanSupported) ;
 
-	*outChanSupportedHi = *(UInt32*)&chanSupported ;
-	*outChanSupportedLo	= *((UInt32*)&chanSupported + 1) ;
+	*outChanSupportedHi = (UInt32)(chanSupported >> 32) ;
+	*outChanSupportedLo	= (UInt32)(chanSupported & 0xFFFFFFFF) ;
 	
 	return result ;
 }
@@ -303,10 +305,13 @@ IOFireWireUserClient::localIsochPortAllocate(
 //	IOLog("IOFireWireUserClient::localIsochPortAllocate: new IOFWUserLocalIsochPortProxy @ 0x%08lX\n", newPort) ;
 
 	if (!newPort->initWithUserDCLProgram(inParams, this))
-		return kIOReturnNoMemory ;
+		result = kIOReturnNoMemory ;
 
 	if (kIOReturnSuccess != result)
+	{
 		newPort->release() ;
+//		IOLog("%s %u: released newPort\n", __FILE__, __LINE__) ;
+	}
 	else
 	{
 		IOLockLock(fSetLock) ;
@@ -419,97 +424,21 @@ IOFireWireUserClient::isochChannelRelease(
 	
 	return kIOReturnSuccess ;
 }
-/*
-IOReturn
-IOFireWireUserClient::isochChannelSetTalker(
-	FWKernIsochChannelRef	inChannelRef,
-	FWKernIsochPortRef		inTalkerRef)
-{
-	if (!OSDynamicCast(IOFWUserIsochChannel, inChannelRef))
-		return kIOReturnBadArgument ;
-	if (!OSDynamicCast(IOFWUserIsochPort, inTalkerRef))
-		return kIOReturnBadArgument ;
-	
-	return inChannelRef->setTalker(inTalkerRef->getPort()) ;
-}
-							
-IOReturn
-IOFireWireUserClient::isochChannelAddListener(
-	FWKernIsochChannelRef	inChannelRef,
-	FWKernIsochPortRef		inListenerRef)
-{
-	if (!OSDynamicCast(IOFWUserIsochChannel, inChannelRef))
-	{
-		IOLog("IOFireWireUserClient::isochChannelAddListener: bad inChannelRef 0x%08lX\n", inChannelRef) ;
-		return kIOReturnBadArgument ;
-	}
-	if (!OSDynamicCast(IOFWUserIsochPortProxy, inListenerRef))
-	{
-		IOLog("IOFireWireUserClient::isochChannelAddListener: bad inListenerRef 0x%08lX\n", inListenerRef) ;
-		return kIOReturnBadArgument ;
-	}
-	else
-		IOLog("IOFireWireUserClient::isochChannelAddListener: inListenerRef->port=0x%08lX\n", inListenerRef->getPort()) ;
-
-	return inChannelRef->addListener(inListenerRef->getPort()) ;
-}
-
-IOReturn
-IOFireWireUserClient::isochChannelAllocateChannel(
-	FWKernIsochChannelRef	inChannelRef)
-{
-	if (!OSDynamicCast(IOFWUserIsochChannel, inChannelRef))
-		return kIOReturnBadArgument ;
-	
-	return inChannelRef->allocateChannel() ;
-}
-
-IOReturn
-IOFireWireUserClient::isochChannelReleaseChannel(
-	FWKernIsochChannelRef	inChannelRef)
-{
-	if (!OSDynamicCast(IOFWUserIsochChannel, inChannelRef))
-		return kIOReturnBadArgument ;
-	
-	return inChannelRef->releaseChannel() ;
-}
-
-IOReturn
-IOFireWireUserClient::isochChannelStart(
-	FWKernIsochChannelRef	inChannelRef)
-{
-	IOLog("+ IOFireWireUserClient::isochChannelStart\n") ;
-	if (!OSDynamicCast(IOFWUserIsochChannel, inChannelRef))
-		return kIOReturnBadArgument ;
-	
-	IOLog("IOFireWireUserClient::isochChannelStart: starting channel %08lX\n", inChannelRef) ;
-	return inChannelRef->start() ;
-}
-
-IOReturn
-IOFireWireUserClient::isochChannelStop(
-	FWKernIsochChannelRef	inChannelRef)
-{
-	if (!OSDynamicCast(IOFWUserIsochChannel, inChannelRef))
-		return kIOReturnBadArgument ;
-	
-	return inChannelRef->stop() ;
-}*/
 
 IOReturn
 IOFireWireUserClient::isochChannelUserAllocateChannelBegin(
 	FWKernIsochChannelRef	inChannelRef,
 	IOFWSpeed				inSpeed,
-//	UInt32					inAllowedChansHi,
-//	UInt32					inAllowedChansLo,	
-	UInt64					inAllowedChans,
+	UInt32					inAllowedChansHi,
+	UInt32					inAllowedChansLo,
+//	UInt64					inAllowedChans,
 	IOFWSpeed*				outSpeed,
 	UInt32*					outChannel)
 {
 	if (!OSDynamicCast(IOFWUserIsochChannel, inChannelRef))
 		return kIOReturnBadArgument ;
 	
-	return inChannelRef->userAllocateChannelBegin(inSpeed, inAllowedChans,/*inAllowedChansHi, inAllowedChansLo,*/ outSpeed, outChannel) ;
+	return inChannelRef->userAllocateChannelBegin(inSpeed, /*inAllowedChans,*/inAllowedChansHi, inAllowedChansLo, outSpeed, outChannel) ;
 }
 
 IOReturn

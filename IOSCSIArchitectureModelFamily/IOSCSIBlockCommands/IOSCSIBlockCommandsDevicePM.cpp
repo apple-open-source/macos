@@ -445,13 +445,14 @@ IOSCSIBlockCommandsDevice::HandlePowerChange ( void )
 bool
 IOSCSIBlockCommandsDevice::VerifyMediumPresence ( void )
 {
+	
 	SCSI_Sense_Data				senseBuffer;
 	IOMemoryDescriptor *		bufferDesc;
 	SCSITaskIdentifier			request;
 	bool						mediaPresent 	= false;
 	bool						driveReady 		= false;
 	SCSIServiceResponse 		serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
-
+	
 	STATUS_LOG ( ( "%s::%s called\n", getName ( ), __FUNCTION__ ) );
 	
 	bufferDesc = IOMemoryDescriptor::withAddress ( ( void * ) &senseBuffer,
@@ -462,17 +463,21 @@ IOSCSIBlockCommandsDevice::VerifyMediumPresence ( void )
 	
 	do
 	{
+		
 		if ( TEST_UNIT_READY ( request, 0 ) == true )
 	    {
-	    	STATUS_LOG ( ( "sending TUR.\n" ) );
+			
+			STATUS_LOG ( ( "sending TUR.\n" ) );
 	    	// The command was successfully built, now send it
-	    	serviceResponse = SendCommand( request, 0 );
+	    	serviceResponse = SendCommand ( request, 0 );
+	    	
 		}
+		
 		else
 		{
 			PANIC_NOW ( ( "IOSCSIBlockCommandsDevice::VerifyMediumPresence malformed command" ) );
 		}
-
+		
 		if ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE )
 		{
 			
@@ -480,7 +485,7 @@ IOSCSIBlockCommandsDevice::VerifyMediumPresence ( void )
 			
 			bool validSense = false;
 			
-			if ( GetTaskStatus( request ) == kSCSITaskStatus_CHECK_CONDITION )
+			if ( GetTaskStatus ( request ) == kSCSITaskStatus_CHECK_CONDITION )
 			{
 				
 				validSense = GetAutoSenseData ( request, &senseBuffer );
@@ -489,10 +494,13 @@ IOSCSIBlockCommandsDevice::VerifyMediumPresence ( void )
 					
 					if ( REQUEST_SENSE ( request, bufferDesc, kSenseDefaultSize, 0  ) == true )
 				    {
+				    	
 				    	STATUS_LOG ( ( "sending REQ_SENSE.\n" ) );
 				    	// The command was successfully built, now send it
 				    	serviceResponse = SendCommand ( request, 0 );
+				    	
 					}
+					
 					else
 					{
 						PANIC_NOW ( ( "IOSCSIBlockCommandsDevice::VerifyMediumPresence malformed command" ) );
@@ -531,9 +539,12 @@ IOSCSIBlockCommandsDevice::VerifyMediumPresence ( void )
 							// Device requires a start command before we can tell if media is there
 							if ( START_STOP_UNIT ( request, 0x00, 0x00, 0x00, 0x01, 0x00 ) == true )
 							{
+								
 								STATUS_LOG ( ( "Sending START_STOP_UNIT.\n" ) );
 								serviceResponse = SendCommand ( request, 0 );
+								
 							}
+							
 							else
 							{
 								PANIC_NOW ( ( "IOSCSIBlockCommandsDevice::VerifyMediumPresence malformed command" ) );
@@ -545,14 +556,18 @@ IOSCSIBlockCommandsDevice::VerifyMediumPresence ( void )
 							continue;
 							
 						}
+						
 						else if ( ( senseBuffer.ADDITIONAL_SENSE_CODE == 0x3A ) && 
 							 	  ( senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER == 0x00 ) )
 						{
+							
 							STATUS_LOG ( ( "No Media.\n" ) );
 							// No media is present, return false
 							driveReady = true;
 							mediaPresent = false;
+							
 						}
+						
 						else
 						{
 							
@@ -561,7 +576,9 @@ IOSCSIBlockCommandsDevice::VerifyMediumPresence ( void )
 							continue;
 							
 						}
+						
 					}
+					
 					else
 					{
 						
@@ -571,28 +588,36 @@ IOSCSIBlockCommandsDevice::VerifyMediumPresence ( void )
 						mediaPresent = true;
 						
 					}
+					
 				}
+				
 			}
+			
 			else
 			{
+				
 				STATUS_LOG ( ( "%s::drive READY, media present\n", getName ( ) ) );
 				// Media is present, return true
 				driveReady = true;
 				mediaPresent = true;
 				
 			}
+			
 		}
+		
         else
         {
-            // the command failed - perhaps the device was hot unplugged
-            // give other threads some time to run.
-            IOSleep ( 200 );
-        }
-    
-    // check isInactive in case device was hot unplugged during sleep
-    // and we are in an infinite loop here
+			
+			// the command failed - perhaps the device was hot unplugged
+			// give other threads some time to run.
+			IOSleep ( 200 );
+			
+		}
+		
+	// check isInactive in case device was hot unplugged during sleep
+	// and we are in an infinite loop here
 	} while ( ( driveReady == false ) && ( isInactive ( ) == false ) );
-
+	
 	bufferDesc->release ( );
 	ReleaseSCSITask ( request );
 	

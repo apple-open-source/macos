@@ -77,6 +77,7 @@ typedef struct interrupt_handler {
 } interrupt_handler_t;
 
 class IOPCCardInterruptController;
+class IOPCCardEjectController;
 
 class IOPCCardBridge : public IOPCI2PCIBridge
 {
@@ -94,7 +95,7 @@ private:
     IOInterruptEventSource *	interruptSource;
 
     interrupt_handler_t *	interruptHandlers;
-    
+
     struct ExpansionData 	{ };
     ExpansionData *		reserved;
 
@@ -158,7 +159,11 @@ public:
 
     virtual IODeviceMemory *	ioDeviceMemory(void);
     
-    OSMetaClassDeclareReservedUnused(IOPCCardBridge,  0);
+    // original end methods
+
+    static int			requestCardEjection(IOService * bridgeDevice);	// slot 0
+
+    OSMetaClassDeclareReservedUsed(IOPCCardBridge,  0);
     OSMetaClassDeclareReservedUnused(IOPCCardBridge,  1);
     OSMetaClassDeclareReservedUnused(IOPCCardBridge,  2);
     OSMetaClassDeclareReservedUnused(IOPCCardBridge,  3);

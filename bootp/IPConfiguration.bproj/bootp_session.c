@@ -44,6 +44,7 @@
 #import <sys/socket.h>
 #import <sys/ioctl.h>
 #import <sys/sockio.h>
+#import <sys/filio.h>
 #import <ctype.h>
 #import <net/if.h>
 #import <net/etherdefs.h>
@@ -94,10 +95,17 @@ S_get_bootp_socket(u_short client_port)
     opt = 1;
     status = setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, &opt, 
 			sizeof(opt));
-    if (status < 0)	{
+    if (status < 0) {
 	my_log(LOG_ERR, "setsockopt SO_BROADCAST");
 	goto failed;
     }
+    opt = 1;
+    status = ioctl(sockfd, FIONBIO, &opt);
+    if (status < 0) {
+	my_log(LOG_ERR, "ioctl FIONBIO failed %s", strerror(errno));
+	goto failed;
+    }
+
     return sockfd;
 
  failed:
@@ -277,7 +285,10 @@ bootp_session_read(void * arg1, void * arg2)
 		 sizeof(session->receive_buf), 0,
 		 (struct sockaddr *)&from, &fromlen);
     if (n < 0) {
-	perror("recvfrom");
+	if (errno != EAGAIN) {
+	    my_log(LOG_ERR, "bootp_session_read(): recvfrom %s", 
+		   strerror(errno));
+	}
     }
     else if (n > 0) {
 	bootp_session_deliver(session, session->receive_buf, n);

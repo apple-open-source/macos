@@ -44,5 +44,6 @@ __END_DECLS
 #include <IOKit/pccard/IOPCCardBridge.h>
 #include <IOKit/pccard/IOPCCard16Device.h>
 #include <IOKit/pccard/IOPCCard16Enabler.h>
+#include <IOKit/pccard/IOPCCardEjectController.h>
 
 #endif /* ! _IOKIT_IOPCCARD_H */

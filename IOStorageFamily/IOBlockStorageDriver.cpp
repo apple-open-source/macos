@@ -69,7 +69,6 @@ static char * strclean(char * s)
 
             s[targetIndex++] = s[sourceIndex];
         }
-
     }
 
     s[targetLength] = '\0';
@@ -100,6 +99,9 @@ bool IOBlockStorageDriver::init(OSDictionary * properties = 0)
 
     if (super::init(properties) == false)  return false;
 
+    _expansionData = IONew(ExpansionData, 1);
+    if (_expansionData == 0)  return false;
+
     initMediaState();
     
     _ejectable               = false;
@@ -110,8 +112,19 @@ bool IOBlockStorageDriver::init(OSDictionary * properties = 0)
     
     _mediaBlockSize          = 0;
     _maxBlockNumber          = 0;
-    _maxReadByteTransfer     = 0;
-    _maxWriteByteTransfer    = 0;
+
+    _maxReadBlockTransfer    = 256;
+    _maxWriteBlockTransfer   = 256;
+    _maxReadByteTransfer     = 131072;
+    _maxWriteByteTransfer    = 131072;
+
+///m:workaround:added:start
+    if (metaCast("IOCDBlockStorageDriver"))
+    {
+        _maxReadByteTransfer  = 196608;
+        _maxWriteByteTransfer = 196608;
+    }
+///m:workaround:added:stop
 
     _mediaStateLock          = IOLockAlloc();
 
@@ -262,6 +275,8 @@ void IOBlockStorageDriver::free()
     for (unsigned index = 0; index < kStatisticsCount; index++)
         if (_statistics[index])  _statistics[index]->release();
 
+    if (_expansionData)  IODelete(_expansionData, ExpansionData, 1);
+
     super::free();
 }
 
@@ -376,7 +391,7 @@ void IOBlockStorageDriver::handleClose(IOService * client, IOOptionBits options)
 
             if (isMediaPollRequired() && !isMediaPollExpensive())
                 schedulePoller();    // (schedule the poller, increments retain)
-          }
+        }
     }
 }
 
@@ -391,11 +406,13 @@ void IOBlockStorageDriver::read(IOService *          /* client */,
     // The read method is the receiving end for all read requests from the
     // storage framework, ie. via the media object created by this driver.
     //
-    // This method kicks off a sequence of three methods for each read or write
+    // This method initiates a sequence of methods (stages) for each read/write
     // request.  The first is prepareRequest, which allocates and prepares some
     // context for the transfer; the second is deblockRequest, which aligns the
-    // transfer at the media block boundaries; and the third is executeRequest,
-    // which implements the actual transfer from the block storage device.
+    // transfer at the media's block boundaries; third is breakUpRequest, which
+    // breaks up the transfer into multiple sub-transfers when certain hardware
+    // constraints are exceeded; fourth is executeRequest, which implements the
+    // actual transfer from the block storage device.
     //
 
     // State our assumptions.
@@ -418,11 +435,13 @@ void IOBlockStorageDriver::write(IOService *          /* client */,
     // The write method is the receiving end for all write requests from the
     // storage framework, ie. via the media object created by this driver.
     //
-    // This method kicks off a sequence of three methods for each read or write
+    // This method initiates a sequence of methods (stages) for each read/write
     // request.  The first is prepareRequest, which allocates and prepares some
     // context for the transfer; the second is deblockRequest, which aligns the
-    // transfer at the media block boundaries; and the third is executeRequest,
-    // which implements the actual transfer from the block storage driver.
+    // transfer at the media's block boundaries; third is breakUpRequest, which
+    // breaks up the transfer into multiple sub-transfers when certain hardware
+    // constraints are exceeded; fourth is executeRequest, which implements the
+    // actual transfer from the block storage device.
     //
 
     // State our assumptions.
@@ -576,8 +595,10 @@ void IOBlockStorageDriver::prepareRequest(UInt64               byteStart,
     // This method is part of a sequence of methods invoked for each read/write
     // request.  The first is prepareRequest, which allocates and prepares some
     // context for the transfer; the second is deblockRequest, which aligns the
-    // transfer at the media block boundaries; and the third is executeRequest,
-    // which implements the actual transfer from the block storage device.
+    // transfer at the media's block boundaries; third is breakUpRequest, which
+    // breaks up the transfer into multiple sub-transfers when certain hardware
+    // constraints are exceeded; fourth is executeRequest, which implements the
+    // actual transfer from the block storage device.
     //
 
     Context * context;
@@ -1057,9 +1078,12 @@ IOBlockStorageDriver::handleStart(IOService * provider)
 {
     IOReturn result;
 
-    /* Print device name/type information on the console: */
-    
-    /*The protocol-specific provider determines whether the media is removable. */
+    OSNumber * maxBlockCountRead;
+    OSNumber * maxBlockCountWrite;
+    OSNumber * maxSegmentCountRead;
+    OSNumber * maxSegmentCountWrite;
+
+    /* The protocol-specific provider determines whether the media is removable. */
 
     result = getProvider()->reportRemovability(&_removable);
     if (result != kIOReturnSuccess) {
@@ -1108,6 +1132,116 @@ IOBlockStorageDriver::handleStart(IOService * provider)
         _pollIsRequired	= true;		/* polling detects device disappearance */
     }
     
+    /* Obtain the constraint values for reads and writes. */
+
+    maxBlockCountRead = OSDynamicCast(
+                        /* class  */ OSNumber,
+                        /* object */ getProperty(
+                                     /* key   */ kIOMaximumBlockCountReadKey,
+                                     /* plane */ gIOServicePlane ) );
+    maxBlockCountWrite = OSDynamicCast(
+                        /* class  */ OSNumber,
+                        /* object */ getProperty(
+                                     /* key   */ kIOMaximumBlockCountWriteKey,
+                                     /* plane */ gIOServicePlane ) );
+    maxSegmentCountRead = OSDynamicCast(
+                        /* class  */ OSNumber,
+                        /* object */ getProperty(
+                                     /* key   */ kIOMaximumSegmentCountReadKey,
+                                     /* plane */ gIOServicePlane ) );
+    maxSegmentCountWrite = OSDynamicCast(
+                        /* class  */ OSNumber,
+                        /* object */ getProperty(
+                                     /* key   */ kIOMaximumSegmentCountWriteKey,
+                                     /* plane */ gIOServicePlane ) );
+
+    /* Obtain the constraint values for reads and writes (old method). */
+
+    if ( maxBlockCountRead == 0 || maxBlockCountWrite == 0 )
+    {
+        UInt64 maxReadTransfer;
+        UInt64 maxWriteTransfer;
+
+        result = getProvider()->reportMaxReadTransfer(512, &maxReadTransfer);
+
+        if (result == kIOReturnSuccess)
+        {
+            _maxReadBlockTransfer = maxReadTransfer / 512;
+            _maxReadBlockTransfer = min(_maxReadBlockTransfer, 0xFFFFFFFF);
+///m:workaround:added:start
+            _maxReadBlockTransfer = min(_maxReadBlockTransfer, 0x7FFFF);
+///m:workaround:added:stop
+        }
+
+        result = getProvider()->reportMaxWriteTransfer(512, &maxWriteTransfer);
+
+        if (result == kIOReturnSuccess)
+        {
+            _maxWriteBlockTransfer = maxWriteTransfer / 512;
+            _maxWriteBlockTransfer = min(_maxWriteBlockTransfer, 0xFFFFFFFF);
+///m:workaround:added:start
+            _maxWriteBlockTransfer = min(_maxWriteBlockTransfer, 0x7FFFF);
+///m:workaround:added:stop
+        }
+    }
+
+    /* Process the constraint values: */
+
+    if ( maxBlockCountRead )
+    {
+        _maxReadBlockTransfer = maxBlockCountRead->unsigned64BitValue();
+        _maxReadBlockTransfer = min(_maxReadBlockTransfer, 0xFFFFFFFF);
+    }
+    else
+    {
+        getProvider()->setProperty(
+                             /* key   */ kIOMaximumBlockCountReadKey,
+                             /* value */ _maxReadBlockTransfer, 64);
+    }
+
+    if ( maxBlockCountWrite )
+    {
+        _maxWriteBlockTransfer = maxBlockCountWrite->unsigned64BitValue();
+        _maxWriteBlockTransfer = min(_maxWriteBlockTransfer, 0xFFFFFFFF);
+    }
+    else
+    {
+        getProvider()->setProperty(
+                             /* key   */ kIOMaximumBlockCountWriteKey,
+                             /* value */ _maxWriteBlockTransfer, 64);
+    }
+
+    if ( maxSegmentCountRead )
+    {
+        _maxReadByteTransfer = maxSegmentCountRead->unsigned64BitValue();
+        _maxReadByteTransfer = min(_maxReadByteTransfer, 0xFFFFFFFF);
+        _maxReadByteTransfer = _maxReadByteTransfer * page_size;
+    }
+    else
+    {
+        getProvider()->setProperty(
+                             /* key   */ kIOMaximumSegmentCountReadKey,
+                             /* value */ _maxReadByteTransfer / page_size, 64);
+    }
+
+    if ( maxSegmentCountWrite )
+    {
+        _maxWriteByteTransfer = maxSegmentCountWrite->unsigned64BitValue();
+        _maxWriteByteTransfer = min(_maxWriteByteTransfer, 0xFFFFFFFF);
+        _maxWriteByteTransfer = _maxWriteByteTransfer * page_size;
+    }
+    else
+    {
+        getProvider()->setProperty(
+                             /* key   */ kIOMaximumSegmentCountWriteKey,
+                             /* value */ _maxWriteByteTransfer / page_size, 64);
+    }
+
+    if ( _maxReadBlockTransfer  == 0 )  _maxReadBlockTransfer  = 0xFFFFFFFF;
+    if ( _maxWriteBlockTransfer == 0 )  _maxWriteBlockTransfer = 0xFFFFFFFF;
+    if ( _maxReadByteTransfer   == 0 )  _maxReadByteTransfer   = 0xFFFFFFFF;
+    if ( _maxWriteByteTransfer  == 0 )  _maxWriteByteTransfer  = 0xFFFFFFFF;
+
     /* Check for the device being ready with media inserted: */
 
     result = checkForMedia();
@@ -1119,17 +1253,6 @@ IOBlockStorageDriver::handleStart(IOService * provider)
 			getName(),stringFromReturn(result));
         return(false);
     }
-
-    /* Set default constraint values where none exist: */
-
-    if ( getProperty(kIOMaximumBlockCountReadKey, gIOServicePlane) == 0 )
-        getProvider()->setProperty(kIOMaximumBlockCountReadKey, 256, 64);
-    if ( getProperty(kIOMaximumBlockCountWriteKey, gIOServicePlane) == 0 )
-        getProvider()->setProperty(kIOMaximumBlockCountWriteKey, 256, 64);
-    if ( getProperty(kIOMaximumSegmentCountReadKey, gIOServicePlane) == 0 )
-        getProvider()->setProperty(kIOMaximumSegmentCountReadKey, 32, 64);
-    if ( getProperty(kIOMaximumSegmentCountWriteKey, gIOServicePlane) == 0 )
-        getProvider()->setProperty(kIOMaximumSegmentCountWriteKey, 32, 64);
 
     return(true);
 }
@@ -1168,6 +1291,7 @@ IOBlockStorageDriver::handleYield(IOService *  provider,
 void
 IOBlockStorageDriver::initMediaState(void)
 {
+    _mediaDirtied	= false;
     _mediaPresent	= false;
     _writeProtected    	= false;
 }
@@ -1262,7 +1386,7 @@ IOBlockStorageDriver::recordMediaParameters(void)
     IOReturn result;
 
     /* Determine the device's block size and max block number.
-     * What should an unformatted device report? All zeroes, or an error?
+     * What should an unformatted device report? All zeroes.
      */
 
     result = getProvider()->reportBlockSize(&_mediaBlockSize);    
@@ -1271,18 +1395,6 @@ IOBlockStorageDriver::recordMediaParameters(void)
     }
 
     result = getProvider()->reportMaxValidBlock(&_maxBlockNumber);    
-    if (result != kIOReturnSuccess) {
-        goto err;
-    }
-
-    /* Calculate the maximum allowed byte transfers for reads and writes. */
-
-    result = getProvider()->reportMaxReadTransfer(_mediaBlockSize,&_maxReadByteTransfer);
-    if (result != kIOReturnSuccess) {
-        goto err;
-    }
-
-    result = getProvider()->reportMaxWriteTransfer(_mediaBlockSize,&_maxWriteByteTransfer);
     if (result != kIOReturnSuccess) {
         goto err;
     }
@@ -2088,8 +2200,10 @@ void IOBlockStorageDriver::deblockRequest(
     // This method is part of a sequence of methods invoked for each read/write
     // request.  The first is prepareRequest, which allocates and prepares some
     // context for the transfer; the second is deblockRequest, which aligns the
-    // transfer at the media block boundaries; and the third is executeRequest,
-    // which implements the actual transfer from the block storage device.
+    // transfer at the media's block boundaries; third is breakUpRequest, which
+    // breaks up the transfer into multiple sub-transfers when certain hardware
+    // constraints are exceeded; fourth is executeRequest, which implements the
+    // actual transfer from the block storage device.
     //
     // The current implementation of deblockRequest is asynchronous.
     //
@@ -2097,12 +2211,12 @@ void IOBlockStorageDriver::deblockRequest(
     IODeblocker * deblocker;
 
     // If the request is aligned with the media's block boundaries, we
-    // do short-circuit the deblocker and call executeRequest directly.
+    // do short-circuit the deblocker and call breakUpRequest directly.
 
     if ( (byteStart           % context->block.size) == 0 &&
          (buffer->getLength() % context->block.size) == 0 )
     {
-        executeRequest(byteStart, buffer, completion, context);
+        breakUpRequest(byteStart, buffer, completion, context);
         return;
     }
 
@@ -2123,8 +2237,7 @@ void IOBlockStorageDriver::deblockRequest(
 
     // This implementation of the deblocker permits only one read-modify-write
     // at any given time.  Note that other write requests can, and do, proceed
-    // simultaneously so long as they do not require the deblocker -- refer to
-    // the read() and the write() routines for the short-cut logic.
+    // simultaneously so long as they do not require the deblocker.
 
     if ( buffer->getDirection() == kIODirectionOut )
     {
@@ -2194,14 +2307,347 @@ void IOBlockStorageDriver::deblockRequestCompletion( void *   target,
 
     context = (Context *) deblocker->getRequestContext();
 
-    driver->executeRequest(byteStart, deblocker, completion, context);
+    driver->breakUpRequest(byteStart, deblocker, completion, context);
 
     return;
 }
 
+// -----------------------------------------------------------------------------
+// Breaker Implementation
+
+class IOBreaker : public IOSubMemoryDescriptor
+{
+    OSDeclareDefaultStructors(IOBreaker);
+
+protected:
+
+    UInt64                     _breakSize;
+
+    IOMemoryDescriptor *       _requestBuffer;
+    IOStorageCompletion        _requestCompletion;
+    void *                     _requestContext;
+    UInt64                     _requestCount;
+    UInt64                     _requestStart;
+
+    virtual void free();
+
+public:
+
+    static IOBreaker * withBreakSize(
+                                  UInt64               breakSize,
+                                  UInt64               withRequestStart,
+                                  IOMemoryDescriptor * withRequestBuffer,
+                                  IOStorageCompletion  withRequestCompletion,
+                                  void *               withRequestContext );
+
+    virtual bool initWithBreakSize(
+                                  UInt64               breakSize,
+                                  UInt64               withRequestStart,
+                                  IOMemoryDescriptor * withRequestBuffer,
+                                  IOStorageCompletion  withRequestCompletion,
+                                  void *               withRequestContext );
+
+    virtual bool getNextStage(UInt64 * byteStart);
+
+    virtual void getRequestCompletion( IOStorageCompletion * completion,
+                                       IOReturn *            status,
+                                       UInt64 *              actualByteCount );
+
+    virtual IOMemoryDescriptor * getRequestBuffer();
+
+    virtual void * getRequestContext();
+};
+
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-OSMetaClassDefineReservedUnused(IOBlockStorageDriver,  0);
+#undef  super
+#define super IOSubMemoryDescriptor
+OSDefineMetaClassAndStructors(IOBreaker, IOSubMemoryDescriptor)
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+IOBreaker * IOBreaker::withBreakSize(
+                                  UInt64               breakSize,
+                                  UInt64               withRequestStart,
+                                  IOMemoryDescriptor * withRequestBuffer,
+                                  IOStorageCompletion  withRequestCompletion,
+                                  void *               withRequestContext )
+{
+    //
+    // Create a new IOBreaker.
+    //
+
+    IOBreaker * me = new IOBreaker;
+    
+    if ( me && me->initWithBreakSize(
+                /* breakSize               */ breakSize,
+                /* withRequestStart        */ withRequestStart,
+                /* withRequestBuffer       */ withRequestBuffer,
+                /* withRequestCompletion   */ withRequestCompletion,
+                /* withRequestContext      */ withRequestContext ) == false )
+    {
+	    me->release();
+	    me = 0;
+    }
+
+    return me;
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+bool IOBreaker::initWithBreakSize(
+                                  UInt64               breakSize,
+                                  UInt64               withRequestStart,
+                                  IOMemoryDescriptor * withRequestBuffer,
+                                  IOStorageCompletion  withRequestCompletion,
+                                  void *               withRequestContext )
+{
+    //
+    // Initialize an IOBreaker.
+    //
+
+    // Ask our superclass' opinion.
+
+    if ( super::initSubRange( 
+              /* parent        */ withRequestBuffer, 
+              /* withOffset    */ 0,
+              /* withLength    */ withRequestBuffer->getLength(),
+              /* withDirection */ withRequestBuffer->getDirection() ) == false )
+    {
+        return false;
+    }
+
+    // Initialize our minimal state.
+
+    _breakSize         = breakSize;
+    _length            = 0;
+
+    _requestBuffer     = withRequestBuffer;
+    _requestBuffer->retain();
+    _requestCompletion = withRequestCompletion;
+    _requestContext    = withRequestContext;
+    _requestCount      = withRequestBuffer->getLength();
+    _requestStart      = withRequestStart;
+
+    return true;
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+void IOBreaker::free()
+{
+    //
+    // Free all of this object's outstanding resources.
+    //
+
+    if ( _requestBuffer )  _requestBuffer->release();
+
+    super::free();
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+bool IOBreaker::getNextStage(UInt64 * byteStart)
+{
+    //
+    // Obtain the next stage of the transfer.   The transfer buffer will be the
+    // breaker object itself and the byte start will be returned in byteStart.
+    //
+    // This method must not be called if the current stage failed with an error
+    // or a short byte count, but instead getRequestCompletion() must be called
+    // to adjust the status and actual byte count (with respect to the original
+    // request) and return the original request's completion routine.  The same
+    // call to getRequestCompletion() should also be done if the getNextStage()
+    // method returns false.
+    //
+
+    if ( _start + _length < _requestCount )
+    {
+        _start += _length;
+        _length = min(_breakSize, _requestCount - _start);
+    }
+    else
+    {
+        return false;
+    }
+
+    *byteStart = _requestStart + _start;
+
+    return true;
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+void IOBreaker::getRequestCompletion( IOStorageCompletion * completion,
+                                      IOReturn *            status,
+                                      UInt64 *              actualByteCount )
+{
+    //
+    // Obtain the completion information for the original request, taking
+    // into account the status and actual byte count of the current stage. 
+    //
+
+    *actualByteCount += _start;
+    *completion       = _requestCompletion;
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+IOMemoryDescriptor * IOBreaker::getRequestBuffer()
+{
+    //
+    // Obtain the buffer for the original request. 
+    //
+
+    return _requestBuffer;
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+void * IOBreaker::getRequestContext()
+{
+    //
+    // Obtain the context for the original request. 
+    //
+
+    return _requestContext;
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+void IOBlockStorageDriver::breakUpRequest(
+                                     UInt64                          byteStart,
+                                     IOMemoryDescriptor *            buffer,
+                                     IOStorageCompletion             completion,
+                                     IOBlockStorageDriver::Context * context )
+{
+    //
+    // The breakUpRequest method checks to see if the incoming request exceeds
+    // our transfer constraints, and if so, breaks up the request into smaller
+    // sub-requests.
+    //
+    // This method is part of a sequence of methods invoked for each read/write
+    // request.  The first is prepareRequest, which allocates and prepares some
+    // context for the transfer; the second is deblockRequest, which aligns the
+    // transfer at the media's block boundaries; third is breakUpRequest, which
+    // breaks up the transfer into multiple sub-transfers when certain hardware
+    // constraints are exceeded; fourth is executeRequest, which implements the
+    // actual transfer from the block storage device.
+    //
+    // The current implementation of breakUpRequest is asynchronous.
+    //
+
+    IOBreaker * breaker;
+    UInt64      breakSize;
+
+    // State our assumptions.
+
+    assert((byteStart           % context->block.size) == 0);
+    assert((buffer->getLength() % context->block.size) == 0);
+
+    // Determine the transfer constraint, based on direction.
+
+    if ( buffer->getDirection() == kIODirectionIn )
+    {
+        breakSize = min( _maxReadByteTransfer,
+                         _maxReadBlockTransfer * context->block.size );
+    }
+    else
+    {
+        breakSize = min( _maxWriteByteTransfer,
+                         _maxWriteBlockTransfer * context->block.size );
+    }
+
+    // If the request doesn't exceed our transfer constaints, we do
+    // short-circuit the break-up and call executeRequest directly.
+
+    if ( buffer->getLength() <= breakSize )
+    {
+        executeRequest(byteStart, buffer, completion, context);
+        return;
+    }
+
+    // Round the sub-transfer size to a block boundary.
+
+    breakSize = IOTrunc(breakSize, context->block.size);
+
+    // Build a breaker object.
+
+    breaker = IOBreaker::withBreakSize(
+                                /* breakSize             */ breakSize,
+                                /* withRequestStart      */ byteStart,
+                                /* withRequestBuffer     */ buffer,
+                                /* withRequestCompletion */ completion,
+                                /* withRequestContext    */ context );
+
+    if ( breaker == 0 )
+    {
+        complete(completion, kIOReturnNoMemory);
+        return;
+    }
+
+    // Execute the transfer (for the next stage).
+
+    breakUpRequestCompletion(this, breaker, kIOReturnSuccess, 0);
+
+    return;
+}
+
+OSMetaClassDefineReservedUsed(IOBlockStorageDriver, 1);
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+void IOBlockStorageDriver::breakUpRequestCompletion( void *   target,
+                                                     void *   parameter,
+                                                     IOReturn status,
+                                                     UInt64   actualByteCount )
+{
+    //
+    // This is the completion routine for the broken-up breaker subrequests.
+    // It verifies the success of the just-completed stage,  transitions to
+    // the next stage, then builds and issues a transfer for the next stage.
+    //
+
+    UInt64                 byteStart;
+    IOStorageCompletion    completion;
+    Context *              context;
+    IOBreaker *            breaker = (IOBreaker            *) parameter;
+    IOBlockStorageDriver * driver  = (IOBlockStorageDriver *) target;
+
+    // Determine whether an error occurred or whether there are no more stages.
+
+    if ( actualByteCount                    < breaker->getLength() ||
+         status                            != kIOReturnSuccess     ||
+         breaker->getNextStage(&byteStart) == false                )
+    {
+        // Obtain the completion information for the original request, taking
+        // into account the status and actual byte count of the current stage. 
+
+        breaker->getRequestCompletion(&completion, &status, &actualByteCount);
+
+        // Complete the original request.
+
+        IOStorage::complete(completion, status, actualByteCount);
+
+        // Release our resources.
+
+        breaker->release();
+
+        return;
+    }
+
+    // Execute the transfer (for the next stage).
+
+    completion.target    = driver;
+    completion.action    = breakUpRequestCompletion;
+    completion.parameter = breaker;
+
+    context = (Context *) breaker->getRequestContext();
+
+    driver->executeRequest(byteStart, breaker, completion, context);
+
+    return;
+}
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

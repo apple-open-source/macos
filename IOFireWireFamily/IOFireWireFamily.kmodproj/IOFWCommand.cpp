@@ -120,40 +120,23 @@ IOReturn IOFWCommand::submit(bool queue)
     if(res == kIOReturnBusy || res == kIOFireWirePending)
         res = kIOReturnSuccess;
     if(fSync) {
-	if(res == kIOReturnSuccess)
-            res = fSyncWakeup->wait();
-        else
-            fSyncWakeup->release();
-        fSyncWakeup = NULL;
-    }
+		if(res == kIOReturnSuccess)
+		{
+			res = fSyncWakeup->wait();
+			if (res) IOLog("%s %u: fSyncWakeup->wait returned %x\n", __FILE__, __LINE__, res) ;
+		}
+		else
+		{
+			fSyncWakeup->release();
+			fSyncWakeup = NULL;
+		}
+	}
     return res;
 }
 
 IOReturn IOFWCommand::startExecution()
 {
-    if(fTimeout) {
-        AbsoluteTime delta;
-        IOFWCommand *prev;
-        IOFWCmdQ &timeoutQ = fControl->getTimeoutQ();
-        clock_interval_to_absolutetime_interval(fTimeout, kMicrosecondScale, &delta);
-        clock_get_uptime(&fDeadline);
-        ADD_ABSOLUTETIME(&fDeadline, &delta);
-
-        // add cmd to right place in list, which is sorted by deadline
-        prev = timeoutQ.fTail;
-        while(prev) {
-            if(CMP_ABSOLUTETIME(&prev->getDeadline(), &fDeadline) != 1)
-                break; // prev command's deadline is before new one, so insert here.
-            prev = prev->getPrevious();
-        }
-
-        if(!prev) {
-            setHead(timeoutQ);
-        }
-        else {
-            insertAfter(*prev);
-        }
-    }
+    updateTimer();
     return execute();
 }
 
@@ -168,55 +151,94 @@ void IOFWCommand::updateTimer()
 {
     if(fTimeout) {
         AbsoluteTime delta;
-        IOFWCommand *oldHead = fQueue->fHead;
-        IOFWCommand *next;
         clock_interval_to_absolutetime_interval(fTimeout, kMicrosecondScale, &delta);
         clock_get_uptime(&fDeadline);
         ADD_ABSOLUTETIME(&fDeadline, &delta);
-
-        // Now move command down list to keep list sorted
-        next = fQueueNext;
-        while(next) {
-            if(CMP_ABSOLUTETIME(&next->fDeadline, &fDeadline) == 1)
-                break;	// Next command's deadline still later than new deadline.
-            next = next->fQueueNext;
+        if(fQueue) {
+            IOFWCommand *oldHead = fQueue->fHead;
+            IOFWCommand *next;
+    
+            // Now move command down list to keep list sorted
+            next = fQueueNext;
+            while(next) {
+                if(CMP_ABSOLUTETIME(&next->fDeadline, &fDeadline) == 1)
+                    break;	// Next command's deadline still later than new deadline.
+                next = next->fQueueNext;
+            }
+            if(next != fQueueNext) {
+                // Move this command from where it is to just before 'next'
+                IOFWCommand *prev;
+                if(fQueuePrev) {
+                    assert(fQueuePrev->fQueueNext == this);
+                    fQueuePrev->fQueueNext = fQueueNext;
+                }
+                else {
+                    // First in list.
+                    assert(fQueue->fHead == this);
+                    fQueue->fHead = fQueueNext;
+                }
+                assert(fQueueNext);	// Can't be last already!
+                assert(fQueueNext->fQueuePrev == this);
+                fQueueNext->fQueuePrev = fQueuePrev;
+    
+                if(!next) {
+                    prev = fQueue->fTail;
+                    fQueue->fTail = this;
+                }
+                else {
+                    prev = next->fQueuePrev;
+                    next->fQueuePrev = this;
+                }
+    
+                assert(prev);	// Must be a command to go after
+                prev->fQueueNext = this;
+                fQueuePrev = prev;
+                fQueueNext = next;
+            }
+            // if the command was at the head, then either:
+            // 1) it still is, but with a new, later, deadline
+            // 2) it isn't, another command now is.
+            // Either way, need to update the clock timeout.
+            if(oldHead == this) {
+                fQueue->headChanged(this);
+            }
         }
-        if(next != fQueueNext) {
-            // Move this command from where it is to just before 'next'
+        else {
+            // Not already on timeout queue
             IOFWCommand *prev;
-            if(fQueuePrev) {
-                assert(fQueuePrev->fQueueNext == this);
-                fQueuePrev->fQueueNext = fQueueNext;
+            IOFWCmdQ &timeoutQ = fControl->getTimeoutQ();
+            // add cmd to right place in list, which is sorted by deadline
+            prev = timeoutQ.fTail;
+            while(prev) {
+                if(CMP_ABSOLUTETIME(&prev->getDeadline(), &fDeadline) != 1)
+                    break; // prev command's deadline is before new one, so insert here.
+                prev = prev->getPrevious();
+            }
+    
+            if(!prev) {
+                setHead(timeoutQ);
             }
             else {
-                // First in list.
-                assert(fQueue->fHead == this);
-                fQueue->fHead = fQueueNext;
+                insertAfter(*prev);
+                /** DUMP Q **/
+#if 0
+                {
+                    AbsoluteTime now, dead;
+                    clock_get_uptime(&now);
+                    IOLog("%s: insertAfter %s, time is %lx:%lx\n",
+                        getMetaClass()->getClassName(), prev->getMetaClass()->getClassName(), now.hi, now.lo);
+                    {
+                        IOFWCommand *t = timeoutQ.fHead;
+                        while(t) {
+                            AbsoluteTime d = t->getDeadline();
+                            IOLog("%s:%p deadline %lx:%lx\n",
+                                t->getMetaClass()->getClassName(), t, d.hi, d.lo);
+                            t = t->getNext();
+                        }
+                    }
+                }
+#endif
             }
-            assert(fQueueNext);	// Can't be last already!
-            assert(fQueueNext->fQueuePrev == this);
-            fQueueNext->fQueuePrev = fQueuePrev;
-
-            if(!next) {
-                prev = fQueue->fTail;
-                fQueue->fTail = this;
-            }
-            else {
-                prev = next->fQueuePrev;
-                next->fQueuePrev = this;
-            }
-
-            assert(prev);	// Must be a command to go after
-            prev->fQueueNext = this;
-            fQueuePrev = prev;
-            fQueueNext = next;
-        }
-        // if the command was at the head, then either:
-        // 1) it still is, but with a new, later, deadline
-        // 2) it isn't, another command now is.
-        // Either way, need to update the clock timeout.
-        if(oldHead == this) {
-            fQueue->headChanged(this);
         }
     }
 }

@@ -807,6 +807,8 @@ precsize_ntoa(u_int8_t prec)
 	dns_reply_t *r;
 	dns_question_t q;
 
+	if (k == NULL) return nil;
+
 	q.class = DNS_CLASS_IN;	
 	q.type = t;
 	q.name = k;
@@ -1023,6 +1025,7 @@ precsize_ntoa(u_int8_t prec)
 			if (streq(key, "ip_address"))
 			{
 				str = reverse_ipv4(val);
+				if (str == NULL) return nil;
 				item = [self hostWithKey:str dnstype:DNS_TYPE_PTR];
 				free(str);
 				if (item != nil) [item mergeValue:val forKey:"ip_address"];
@@ -1031,6 +1034,7 @@ precsize_ntoa(u_int8_t prec)
 			if (streq(key, "ipv6_address"))
 			{
 				str = reverse_ipv6(val);
+				if (str == NULL) return nil;
 				item = [self hostWithKey:str dnstype:DNS_TYPE_PTR];
 				free(str);
 				if (item != nil) [item mergeValue:val forKey:"ipv6_address"];

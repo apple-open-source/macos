@@ -92,7 +92,21 @@ class IOFireWireLibCommandImp: public IOFireWireIUnknown
 	static IOReturn			SCancel(
 									IOFireWireLibCommandRef self,
 									IOReturn				reason) ;
-	
+	static void				SSetBuffer(
+									IOFireWireLibCommandRef self,
+									UInt32					size,
+									void*					buf) ;
+	static void				SGetBuffer(
+									IOFireWireLibCommandRef	self,
+									UInt32*					outSize,
+									void**					outBuf) ;
+	static IOReturn			SSetMaxPacket(
+									IOFireWireLibCommandRef self,
+									IOByteCount				inMaxBytes) ;
+	static void				SSetFlags(
+									IOFireWireLibCommandRef	self,
+									UInt32					inFlags) ;
+
 	// ==================================
 	// virtual members
 	// ==================================
@@ -125,12 +139,27 @@ class IOFireWireLibCommandImp: public IOFireWireIUnknown
 	virtual void			SetRefCon(
 									void*				refCon) ;
 	virtual const Boolean	IsExecuting() const ;
-	virtual IOReturn		Submit() ;
+	virtual IOReturn		Submit() = 0 ;
+	virtual IOReturn		Submit(
+									FWUserCommandSubmitParams*	params,
+									mach_msg_type_number_t		paramsSize,
+									FWUserCommandSubmitResult*	ioResult,
+									mach_msg_type_number_t*		ioResultSize ) ;
 	virtual IOReturn		SubmitWithRefconAndCallback(
 									void*				refCon,
 									IOFireWireLibCommandCallback inCallback) ;
 	virtual IOReturn		Cancel(
 									IOReturn			reason) ;
+	virtual void			SetBuffer(
+									UInt32				size,
+									void*				buf) ;
+	virtual void			GetBuffer(
+									UInt32*				outSize,
+									void**				outBuf) ;
+	virtual IOReturn		SetMaxPacket(
+									IOByteCount				inMaxBytes) ;
+	virtual void			SetFlags(
+									UInt32					inFlags) ;
 	static void				CommandCompletionHandler(
 									void*				refcon,
 									IOReturn			result,
@@ -184,14 +213,6 @@ class IOFireWireLibReadCommandImp: public IOFireWireLibCommandImp
 									Boolean				failOnReset,
 									UInt32				generation,
 									void*				inRefCon) ;
-	static void				SSetBuffer(
-									IOFireWireLibReadCommandRef self,
-									UInt32						size,
-									void*						buf) ;
-	static void				SGetBuffer(
-									IOFireWireLibReadCommandRef	self,
-									UInt32*						outSize,
-									void**						outBuf) ;
 
 	// --- ctor/dtor ----------------
 							IOFireWireLibReadCommandImp(
@@ -205,15 +226,9 @@ class IOFireWireLibReadCommandImp: public IOFireWireLibCommandImp
 									UInt32				generation,
 									void*				inRefCon) ;
 	virtual					~IOFireWireLibReadCommandImp() {}
-							
-	virtual void			SetBuffer(
-									UInt32				size,
-									void*				buf) ;
-	virtual void			GetBuffer(
-									UInt32*				outSize,
-									void**				outBuf) ;
-	// --- required submit method ----------------
-//	virtual IOReturn Submit() ;
+
+	// required Submit() method
+	virtual IOReturn		Submit() ;
 
  protected:
 //	void*			mBuffer ;
@@ -271,7 +286,9 @@ class IOFireWireLibReadQuadletCommandImp: public IOFireWireLibCommandImp
 	virtual void			SetQuads(
 									UInt32				quads[],
 									UInt32				numQuads) ;
+	// required Submit() method
 	virtual IOReturn		Submit() ;
+
 	static void				CommandCompletionHandler(
 									void*				refcon,
 									IOReturn			result,
@@ -319,15 +336,6 @@ class IOFireWireLibWriteCommandImp: public IOFireWireLibCommandImp
 									Boolean				failOnReset,
 									UInt32				generation,
 									void*				inRefCon) ;
-
-	static void				SSetBuffer(
-									IOFireWireLibWriteCommandRef self,
-									UInt32					size,
-									void*					buf) ;
-	static void				SGetBuffer(
-									IOFireWireLibWriteCommandRef	self,
-									UInt32*					outSize,
-									const void**			outBuf) ;
 	// --- ctor/dtor ----------------
 
 							IOFireWireLibWriteCommandImp(
@@ -335,15 +343,8 @@ class IOFireWireLibWriteCommandImp: public IOFireWireLibCommandImp
 									io_object_t			device) ;
 	virtual					~IOFireWireLibWriteCommandImp() {}
 							
-	virtual void			SetBuffer(
-									UInt32				size,
-									void*				buf) ;
-	virtual void			GetBuffer(
-									UInt32*				outSize,
-									const void**		outBuf) ;
-	// --- required submit method ----------------
-
-//	virtual IOReturn Submit() ;
+	// required Submit() method
+	virtual IOReturn		Submit() ;
 
  protected:
 //	void*		mBuffer ;
@@ -406,8 +407,6 @@ class IOFireWireLibWriteQuadletCommandImp: public IOFireWireLibCommandImp
 	virtual IOReturn 		Submit() ;
 
  protected:
-//	UInt32	mQuads[2] ;
-//	UInt32	mNumQuads ;
 	UInt8*	mParamsExtra ;
 } ;
 
@@ -465,7 +464,6 @@ class IOFireWireLibCompareSwapCommandImp: public IOFireWireLibCommandImp
 	virtual IOReturn 		Submit() ;
 
  protected:
-//	UInt32		mCmpVal, mNewVal ;
 	UInt8*		mParamsExtra ;
 } ;
 

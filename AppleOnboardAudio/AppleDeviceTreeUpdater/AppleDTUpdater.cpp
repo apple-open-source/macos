@@ -38,7 +38,7 @@ AudioDeviceTreeUpdater::mergeProperties(OSObject* inDest, OSObject* inSrc)
 bool AudioDeviceTreeUpdater::start(IOService * provider )
 {
     super::start(provider);
-    IOLog("Starting Up\n");
+
 	OSArray*	arrayObj = OSDynamicCast(OSArray, getProperty("DeviceTreePatches"));
     
     do {

@@ -207,6 +207,7 @@ ApplePCCardSample::start(IOService * provider)
     
     bool success = nub->installEnabler(customEnabler);
     if (!success) IOLog("%s: nub->installEnabler(customEnabler) failed\n", getName());
+    customEnabler->release();
 #endif	
     
     // configure card, if the card's CIS contains multiple configurations, the enabler will

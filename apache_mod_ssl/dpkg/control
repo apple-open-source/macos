@@ -1,6 +1,7 @@
 Package: apache-mod-ssl
-Maintainer: Wilfredo Sanchez <wsanchez@apple.com>
+Maintainer: Wilfredo Sanchez <wsanchez@opensource.apple.com>
 Vendor: mod_ssl
 Version: 2.8.4
+URL: http://www.modssl.org/
 Description: SSL module for the Apache HTTP Server
 Build-Depends: build-base, perl, apache, openssl, gnuzip, yacc, flex

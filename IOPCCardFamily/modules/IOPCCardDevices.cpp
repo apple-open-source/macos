@@ -98,22 +98,14 @@ IOCardBusDevice::setPowerState(unsigned long powerState,
 {
     DEBUG(1, "IOCardBusDevice:setPowerState state=%d\n", powerState);
 
-#ifdef CHEETAH_STYLE_PM
-    if (powerState) {
-#else
     if ((powerState == kIOPCIDeviceOnState) || (powerState == 1)) {
-#endif
 	if (!(state & DEV_SUSPEND)) return IOPMAckImplied;
 	state &= ~DEV_SUSPEND;
 
 	// restore basic pci config regs
 	parent->setDevicePowerState(this, 1);
 
-#ifdef CHEETAH_STYLE_PM
-    } else {
-#else
     } else if (powerState == kIOPCIDeviceOffState) {
-#endif
 	if (state & DEV_SUSPEND) return IOPMAckImplied;
 	state |= DEV_SUSPEND;
 
@@ -193,7 +185,7 @@ IOCardBusDevice::bindCardServices(void)
     client_reg.EventMask = 
 	CS_EVENT_CARD_INSERTION | CS_EVENT_CARD_REMOVAL |
 	CS_EVENT_RESET_PHYSICAL | CS_EVENT_CARD_RESET |
-	CS_EVENT_RESET_REQUEST;
+	CS_EVENT_RESET_REQUEST  | CS_EVENT_EJECTION_REQUEST;
     client_reg.Version = 0x0210;
     client_reg.event_callback_args.client_data = (void *)this;
     ret = CardServices(RegisterClient, &handle, &client_reg);
@@ -483,25 +475,15 @@ OSMetaClassDefineReservedUnused(IOPCCard16Device, 29);
 OSMetaClassDefineReservedUnused(IOPCCard16Device, 30);
 OSMetaClassDefineReservedUnused(IOPCCard16Device, 31);
 
-#ifdef CHEETAH_STYLE_PM
-enum { kIOPCCard16DevicePowerStateCount = 2 };
-#endif
 
 bool
 IOPCCard16Device::attach(IOService * provider)
 {
-#ifdef CHEETAH_STYLE_PM
-    static const IOPMPowerState powerStates[kIOPCCard16DevicePowerStateCount] = {
-        { 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-        { 1, IOPMPowerOn, IOPMPowerOn, IOPMPowerOn, 0, 0, 0, 0, 0, 0, 0, 0 }
-    };
-#else
     static IOPMPowerState powerStates[kIOPCCard16DevicePowerStateCount] = {
-	{ 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0 },
+	{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 	{ 1, 0, IOPMSoftSleep, IOPMSoftSleep, 0, 0, 0, 0, 0, 0, 0, 0 },
 	{ 1, 0, IOPMPowerOn, IOPMPowerOn, 0, 0, 0, 0, 0, 0, 0, 0 }
     };
-#endif
     
     bridge = OSDynamicCast(IOPCCardBridge, provider);
     if (!bridge) return false;
@@ -610,7 +592,7 @@ IOPCCard16Device::bindCardServices(void)
     client_reg.EventMask = 
 	CS_EVENT_CARD_INSERTION | CS_EVENT_CARD_REMOVAL |
 	CS_EVENT_RESET_PHYSICAL | CS_EVENT_CARD_RESET |
-	CS_EVENT_RESET_REQUEST;
+	CS_EVENT_RESET_REQUEST  | CS_EVENT_EJECTION_REQUEST;
     client_reg.Version = 0x0210;
     client_reg.event_callback_args.client_data = (void *)this;
     ret = CardServices(RegisterClient, &handle, &client_reg);
@@ -710,12 +692,15 @@ IOPCCard16Device::installEnabler(IOPCCard16Enabler *customEnabler = 0)
     }
 
     if (customEnabler) {
+	// use the specified custom enabler
 	enabler = OSDynamicCast(IOPCCard16Enabler, customEnabler);
+	if (!enabler) return false;
+	enabler->retain();
     } else {
 	// create a default enabler
 	enabler = IOPCCard16Enabler::withDevice(this);
+	if (!enabler) return false;
     }
-    if (!enabler) return false;
 
     return enabler->attach(this);
 }

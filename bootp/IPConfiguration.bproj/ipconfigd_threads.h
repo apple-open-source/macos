@@ -39,28 +39,6 @@
 #import "timer.h"
 #import "interfaces.h"
 
-#define MAX_RETRIES			2
-#define INITIAL_WAIT_SECS		4
-#define MAX_WAIT_SECS			60
-#define RAND_SECS			1
-
-/*
- * Define: GATHER_TIME_SECS
- * Purpose:
- *   Time to wait for the ideal packet after receiving 
- *   the first acceptable packet.
- */ 
-#define GATHER_TIME_SECS		2
-
-/* 
- * Define: LINK_INACTIVE_WAIT_SECS
- * Purpose:
- *   Time to wait after the link goes inactive before unpublishing 
- *   the interface state information
- */
-#define LINK_INACTIVE_WAIT_SECS		4
-
-
 typedef enum {
     IFEventID_start_e = 0,		/* start the configuration method */
     IFEventID_stop_e, 			/* stop/clean-up */
@@ -91,8 +69,9 @@ IFEventID_names(IFEventID_t evid)
     return (names[evid]);
 }
 
+typedef struct ServiceState Service_t;
 typedef struct IFState IFState_t;
-typedef ipconfig_status_t (ipconfig_func_t)(IFState_t * ifstate, 
+typedef ipconfig_status_t (ipconfig_func_t)(Service_t * service_p, 
 					    IFEventID_t evid, void * evdata);
 struct completion_results {
     ipconfig_status_t		status;
@@ -108,17 +87,25 @@ typedef struct {
     boolean_t			active;
 } link_status_t;
 
-struct IFState {
+struct ServiceState {
+    Service_t *			child_service_p;
+    Service_t *			parent_service_p;
+    IFState_t *			ifstate;
     ipconfig_method_t		method;
-    interface_t *		if_p;
-    void *			ifname;
     void *			serviceID;
     void *			user_notification;
     void *			user_rls;
-    int				our_addrs_start;
     struct completion_results	published;
-    link_status_t		link;
+    inet_addrinfo_t		info;
     void * 			private;
+};
+
+struct IFState {
+    interface_t *		if_p;
+    void *			ifname;
+    link_status_t		link;
+    dynarray_t			services;
+    boolean_t			startup_ready;
 };
 
 struct saved_pkt {
@@ -191,45 +178,69 @@ extern unsigned	count_params(dhcpol_t * options, u_char * tags, int size);
 extern char *	computer_name();
 
 int
-inet_enable_autoaddr(IFState_t * ifstate);
+service_enable_autoaddr(Service_t * service_p);
 
 int
-inet_disable_autoaddr(IFState_t * ifstate);
+service_disable_autoaddr(Service_t * service_p);
 
 int
-inet_add(IFState_t * ifstate, const struct in_addr ip, 
-	 const struct in_addr * mask, const struct in_addr * broadcast);
+service_set_address(Service_t * service_p, struct in_addr ip, 
+		    struct in_addr mask, struct in_addr  broadcast);
 
 int
-inet_remove(IFState_t * ifstate, struct in_addr ip);
+service_remove_address(Service_t * service_p);
 
 void
-ifstate_publish_success(IFState_t * ifstate, void * pkt, int pkt_size);
+service_publish_success(Service_t * service_p, void * pkt, int pkt_size);
 
 void
-ifstate_publish_failure(IFState_t * ifstate, 
+service_publish_failure(Service_t * service_p, 
 			ipconfig_status_t status, char * msg);
 
 void
-ifstate_remove_addresses(IFState_t * ifstate);
+service_publish_failure_sync(Service_t * service_p, ipconfig_status_t status,
+			     char * msg, boolean_t sync);
+
 
 void
-ifstate_tell_user(IFState_t * ifstate, char * msg);
+service_tell_user(Service_t * service_p, char * msg);
+
+static __inline__ interface_t *
+service_interface(Service_t * service_p)
+{
+    return (service_p->ifstate->if_p);
+}
+
+static __inline__ link_status_t *
+service_link_status(Service_t * service_p)
+{
+    return (&service_p->ifstate->link);
+}
+
+Service_t *
+linklocal_service_start(Service_t * parent_service_p);
+
+void
+linklocal_service_stop(Service_t * parent_service_p);
 
 /* 
  * interface configuration "threads" 
  */
 ipconfig_status_t
-bootp_thread(IFState_t * ifstate, IFEventID_t evid, void * evdata);
+bootp_thread(Service_t * service_p, IFEventID_t evid, void * evdata);
 
 ipconfig_status_t
-dhcp_thread(IFState_t * ifstate, IFEventID_t evid, void * evdata);
+dhcp_thread(Service_t * service_p, IFEventID_t evid, void * evdata);
 
 ipconfig_status_t
-manual_thread(IFState_t * ifstate, IFEventID_t evid, void * evdata);
+manual_thread(Service_t * service_p, IFEventID_t evid, void * evdata);
 
 ipconfig_status_t
-inform_thread(IFState_t * ifstate, IFEventID_t evid, void * evdata);
+inform_thread(Service_t * service_p, IFEventID_t evid, void * evdata);
+
+ipconfig_status_t
+linklocal_thread(Service_t * service_p, IFEventID_t evid, void * evdata);
+
 
 /*
  * DHCP lease information
@@ -246,9 +257,6 @@ dhcp_lease_clear(char * idstr);
 /*
  * in dhcp.c
  */
-inet_addrinfo_t *
-interface_is_ad_hoc(interface_t * if_p);
-
 void
 dhcp_set_default_parameters(u_char * params, int n_params);
 

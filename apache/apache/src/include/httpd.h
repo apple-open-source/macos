@@ -141,7 +141,11 @@ extern "C" {
 #define DEFAULT_HTTP_PORT	80
 #define DEFAULT_HTTPS_PORT	443
 #define ap_is_default_port(port,r)	((port) == ap_default_port(r))
+#ifdef NETWARE
+#define ap_http_method(r) ap_os_http_method(r)
+#else
 #define ap_http_method(r)	"http"
+#endif
 #define ap_default_port(r)	DEFAULT_HTTP_PORT
 
 /* --------- Default user name and group name running standalone ---------- */
@@ -432,7 +436,7 @@ extern "C" {
 
 #define SERVER_BASEVENDOR   "Apache Group"
 #define SERVER_BASEPRODUCT  "Apache"
-#define SERVER_BASEREVISION "1.3.20"
+#define SERVER_BASEREVISION "1.3.22"
 #define SERVER_BASEVERSION  SERVER_BASEPRODUCT "/" SERVER_BASEREVISION
 
 #define SERVER_PRODUCT  SERVER_BASEPRODUCT
@@ -453,7 +457,7 @@ API_EXPORT(const char *) ap_get_server_built(void);
  * Always increases along the same track as the source branch.
  * For example, Apache 1.4.2 would be '10402100', 2.5b7 would be '20500007'.
  */
-#define APACHE_RELEASE 10320100
+#define APACHE_RELEASE 10322100
 
 #define SERVER_PROTOCOL "HTTP/1.1"
 #ifndef SERVER_SUPPORT
@@ -802,7 +806,7 @@ struct request_rec {
 
     char *unparsed_uri;		/* the uri without any parsing performed */
     char *uri;			/* the path portion of the URI */
-    char *filename;
+    char *filename;		/* filename if found, otherwise NULL */
     char *path_info;
     char *args;			/* QUERY_ARGS, if any */
     struct stat finfo;		/* ST_MODE set to zero if no such file */

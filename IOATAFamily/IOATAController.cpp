@@ -1119,8 +1119,9 @@ IOATAController::asyncIO(void)
 			}
 		
 			// if there's more data to transfer, then 
-			// break.		
-			if(_currentCommand->state == kATADataTx)
+			// break. If ATA protocol PIO write, then break for IRQ
+			if(_currentCommand->state == kATADataTx
+				|| ( (_currentCommand->getFlags() & (mATAFlagProtocolATAPI | mATAFlagIOWrite | mATAFlagUseDMA) ) == mATAFlagIOWrite ) )
 			{
 				 break;
 			}

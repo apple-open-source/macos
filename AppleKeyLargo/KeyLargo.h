@@ -20,9 +20,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1999-2001 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 1998-2001 Apple Computer, Inc.  All rights reserved.
  *
- *  DRI: Josh de Cesare
+ *  DRI: Dave Radcliffe
  *
  */
 
@@ -35,22 +35,25 @@
 #include <IOKit/system_management/IOWatchDogTimer.h>
 
 enum {
-    kKeyLargoDeviceId22			= 0x22,
-    kKeyLargoDeviceId25			= 0x25
+    kKeyLargoDeviceId22			= 0x22,				// KeyLargo
+	kKeyLargoVersion2			= 2,
+
+    kPangeaDeviceId25			= 0x25,				// Pangea
+	kPangeaVersion0				= 0
 };
 
 enum {
-  kKeyLargoVersion2                      = 2,
-  
   // KeyLargo Register Offsets
   kKeyLargoMediaBay                      = 0x00034,
   kKeyLargoFCRBase                       = 0x00038,
-  kKeyLargoFCRCount                      = 5,
+  kKeyLargoFCRCount						 = 5,
+  kPangeaFCRCount						 = 6,
   kKeyLargoFCR0                          = 0x00038,
   kKeyLargoFCR1                          = 0x0003C,
   kKeyLargoFCR2                          = 0x00040,
   kKeyLargoFCR3                          = 0x00044,
   kKeyLargoFCR4                          = 0x00048,
+  kKeyLargoFCR5							 = 0x0004C,			// Pangea only
   
   kKeyLargoExtIntGPIOBase                = 0x00050,
   kKeyLargoExtIntGPIOCount               = 18,
@@ -75,10 +78,21 @@ enum {
   kKeyLargoMB1Enable                      = 1 << 24,
   
   // Feature Control Register 0 Definitions
+  kKeyLargoFCR0ChooseSCCB				 = 1 << 0,
+  kKeyLargoFCR0ChooseSCCA				 = 1 << 1,
   kKeyLargoFCR0SlowSccPClk               = 1 << 2,
+  kKeyLargoFCR0ResetSCC					 = 1 << 3,
   kKeyLargoFCR0SccAEnable                = 1 << 4,
   kKeyLargoFCR0SccBEnable                = 1 << 5,
   kKeyLargoFCR0SccCellEnable             = 1 << 6,
+  kKeyLargoFCR0ChooseVIA				 = 1 << 7,
+  kKeyLargoFCR0HighBandFor1MB			 = 1 << 8,
+  kKeyLargoFCR0UseIRSource2				 = 1 << 9,
+  kKeyLargoFCR0UseIRSource1				 = 1 << 10,
+  kKeyLargoFCR0IRDASWReset				 = 1 << 11,
+  kKeyLargoFCR0IRDADefault1				 = 1 << 12,
+  kKeyLargoFCR0IRDADefault0				 = 1 << 13,
+  kKeyLargoFCR0IRDAFastCon				 = 1 << 14,
   kKeyLargoFCR0IRDAEnable                = 1 << 15,
   kKeyLargoFCR0IRDAClk32Enable           = 1 << 16,
   kKeyLargoFCR0IRDAClk19Enable           = 1 << 17,
@@ -96,6 +110,7 @@ enum {
   kKeyLargoFCR1AudioClkOutEnable         = 1 << 5,
   kKeyLargoFCR1AudioCellEnable           = 1 << 6,
   kKeyLargoFCR1ChooseAudio               = 1 << 7,
+  kKeyLargoFCR1ChooseI2S0                = 1 << 9,
   kKeyLargoFCR1I2S0CellEnable            = 1 << 10,
   kKeyLargoFCR1I2S0ClkEnable             = 1 << 12,
   kKeyLargoFCR1I2S0Enable                = 1 << 13,
@@ -359,7 +374,14 @@ enum {
     kFCR4_Port1_Enable			= 0x00000008,	// RW - enable port 1 events
     kFCR4_Port1_ResumeSelect		= 0x00000004,	// RW - enable resume on port 1
     kFCR4_Port1_ConnectSelect		= 0x00000002,	// RW - enable connect on port 1
-    kFCR4_Port1_DisconnectSelect	= 0x00000001	// RW - enable disconnect on port 1
+    kFCR4_Port1_DisconnectSelect	= 0x00000001,	// RW - enable disconnect on port 1
+
+	// Feature Control Register 5 Definitions (Pangea only, FCR5 does not exist on KeyLargo)
+	kPangeaFCR5ViaUseClk31					= 1 << 0,				// ViaUseClk31
+	kPangeaFCR5SCCUseClk31					= 1 << 1,				// SCCUseClk31
+	kPangeaFCR5PwmClk32Enable				= 1 << 2,				// PwmClk32_EN_h
+	kPangeaFCR5Clk3_68Enable				= 1 << 4,				// Clk3_68_EN_h
+	kPangeaFCR5Clk32Enable					= 1 << 5,				// Clk32_EN_h
 };
 
 // desired state of Pangea FCR registers when sleeping
@@ -449,10 +471,17 @@ private:
   void			PowerModem(bool state);
   void 			ModemResetLow();
   void 			ModemResetHigh();
+  void			PowerI2S (bool powerOn, UInt32 cellNum);
   void			AdjustBusSpeeds ( void );
   
   KeyLargoWatchDogTimer	*watchDogTimer;
-
+  
+  // ***Added for outputting the FCR values to the IORegistry
+  IOService 		*keyLargoService;
+  const OSSymbol	*keyLargo_FCRNode;
+  const OSObject	*fcrs[kPangeaFCRCount];  
+  const OSArray	  	*fcrArray;
+  
   // callPlatformFunction symbols
   const OSSymbol 	*keyLargo_resetUniNEthernetPhy;
   const OSSymbol 	*keyLargo_restoreRegisterState;
@@ -465,7 +494,12 @@ private:
   const OSSymbol 	*keyLargo_safeWriteRegUInt32;
   const OSSymbol 	*keyLargo_safeReadRegUInt32;
   const OSSymbol 	*keyLargo_powerMediaBay;
+  const OSSymbol 	*keyLargo_enableSCC;
+  const OSSymbol 	*keyLargo_powerModem;
+  const OSSymbol 	*keyLargo_modemResetLow;
+  const OSSymbol 	*keyLargo_modemResetHigh;
   const OSSymbol 	*keyLargo_getHostKeyLargo;
+  const OSSymbol 	*keyLargo_powerI2S;
   
   // Offsets for the registers we wish to save.
   // These come (almost) unchanged from the MacOS9 Power
@@ -738,6 +772,12 @@ enum
   // Remember the bus speed:
   long long busSpeed;
   
+  // Reference counts for shared hardware
+  long clk31RefCount;			// 31.3 MHz clock - SCC & VIA
+  long clk45RefCount;			// 45.1 MHz clock - Audio, I2S & SCC
+  long clk49RefCount;			// 49.1 MHz clock - Audio & I2S
+  long clk32RefCount;			// 32.0 MHz clock - SCC & VIA (Pangea only)
+  
   void resetUniNEthernetPhy(void);
   
 public:
@@ -757,6 +797,7 @@ public:
 
   virtual void      powerWireless(bool powerOn);
 
+  virtual void		setReferenceCounts (void);
   virtual void      saveRegisterState(void);
   virtual void      restoreRegisterState(void);
   virtual void      enableCells();

@@ -172,7 +172,7 @@ int ap_proxy_http_handler(request_rec *r, cache_req *c, char *url,
 {
     const char *strp;
     char *strp2;
-    const char *err, *desthost;
+    const char *err, *desthost, *pragma;
     int i, j, sock, len, backasswards;
     array_header *reqhdrs_arr;
     table *resp_hdrs;
@@ -440,6 +440,8 @@ int ap_proxy_http_handler(request_rec *r, cache_req *c, char *url,
 	}
 
 	clear_connection(p, resp_hdrs);	/* Strip Connection hdrs */
+        /* Now add out bound headers set by other modules */
+        resp_hdrs = ap_overlay_tables(r->pool, r->err_headers_out, resp_hdrs);
     }
     else {
 /* an http/0.9 response */
@@ -470,6 +472,16 @@ int ap_proxy_http_handler(request_rec *r, cache_req *c, char *url,
 	ap_table_set(resp_hdrs, "Location", proxy_location_reverse_map(r, datestr));
     if ((datestr = ap_table_get(resp_hdrs, "URI")) != NULL)
 	ap_table_set(resp_hdrs, "URI", proxy_location_reverse_map(r, datestr));
+
+ /*
+  * If "Pragma: no-cache" set nocache and make reply un-buffered to
+  * ensure timely delivery
+  */
+    if (((pragma = ap_table_get(resp_hdrs, "Pragma")) != NULL &&
+        ap_proxy_liststr(pragma, "no-cache"))) {
+        nocache = 1;
+        r->connection->client->flags &= ~B_WR;
+    }
 
 /* check if NoCache directive on this host */
     if (nocache == 0) {

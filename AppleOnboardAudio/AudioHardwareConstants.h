@@ -38,67 +38,70 @@
 
 #define kSoundEntryName	"sound"
 
-        //Sound Entry 
+// Sound Entry
+#define kSoundObjectsPropName		"sound-objects"
 
-#define kSoundObjectsPropName	"sound-objects"
-
-#define kInputObjEntryName	"input"
-#define kOutputObjEntryName	"output"
-#define kDetectObjEntryName	"detect"
-#define kFeatureObjEntryName	"feature"
-#define kInitObjEntryName	"init"	
-#define kMuxObjEntryName	"mux"	        
+#define kInputObjEntryName			"input"
+#define kOutputObjEntryName			"output"
+#define kDetectObjEntryName			"detect"
+#define kFeatureObjEntryName		"feature"
+#define kInitObjEntryName			"init"
+#define kMuxObjEntryName			"mux"
         
-#define kNumDetectsPropName	"#-detects"
-#define kNumFeaturesPropName	"#-features"
-#define kNumOutputsPropName	"#-outputs"
-#define kNumInputsPropName	"#-inputs"
-#define kModelPropName		"model"
+#define kNumDetectsPropName			"#-detects"
+#define kNumFeaturesPropName		"#-features"
+#define kNumOutputsPropName			"#-outputs"
+#define kNumInputsPropName			"#-inputs"
+#define kModelPropName				"model"
 
-#define kAnyInDetectObjName	"AnyInSenseBitsDetect"
-#define kInSenseBitsDetectObjName "InSenseBitsDetect"	
+#define kAnyInDetectObjName			"AnyInSenseBitsDetect"
+#define kInSenseBitsDetectObjName	"InSenseBitsDetect"	
+#define kGPIODetectObjName			"GPIODetect"
+#define kGPIOGenericDetectObjName	"GPIOGenericDetect"
 
-#define kBitMaskPropName	"bit-mask"
-#define kBitMatchPropName	"bit-match"
-#define kDevicePropName		"device"
-#define kDeviceIDPropName	"device-id"
-#define kDeviceMaskPropName	"device-mask"
-#define kDeviceMatchPropName	"device-match"
-#define kDeviceTypePropName	"device_type"
-#define kIconIDPropName         "icon-id" 
-#define kPortChannelsPropName   "port-channels"
-#define kPortConnectionPropName "port-connection"
-#define kPortTypePropName       "port-type"      
-#define kNameIDPropName         "name-id" 
+#define kBitMaskPropName			"bit-mask"
+#define kBitMatchPropName			"bit-match"
+#define kDevicePropName				"device"
+#define kDeviceIDPropName			"device-id"
+#define kDeviceMaskPropName			"device-mask"
+#define kDeviceMatchPropName		"device-match"
+#define kDeviceTypePropName			"device_type"
+#define kIconIDPropName         	"icon-id"
+#define kPortChannelsPropName   	"port-channels"
+#define kPortConnectionPropName 	"port-connection"
+#define kPortTypePropName       	"port-type"
+#define kNameIDPropName         	"name-id"
 
-#define kOutputPortObjName	"OutputPort"
+#define kOutputPortObjName			"OutputPort"
 #define kOutputEQPortObjName		"OutputEQPort"
-#define kOutputDallasEQPortObjName	"OutputDallasEQPort"	
+#define kOutputDallasEQPortObjName	"OutputDallasEQPort"
+#define	kOutputMonoEQPortObjName	"OutputMonoEQPort"
 #define kGazIntSpeakerObjName		"Proj1Speaker"
 #define kGazSubwooferObjName		"Proj2Speaker"
 #define kWSIntSpeakerObjName		"Proj3Speaker"
 #define kGossSGSToneOutObjName		"Proj4Speaker"
 #define kKiheiSpeakerObjName		"Proj5Speaker"
 
-#define kAWACsModelName		"343S0140"
-#define kScreamerModelName	"343S0184"
-#define kBurgundyModelName	"343S0177"
-#define kDacaModelName		"353S0228"
-#define kTexasModelName		"355S0056"
+#define kAWACsModelName				"343S0140"
+#define kScreamerModelName			"343S0184"
+#define kBurgundyModelName			"343S0177"
+#define kDacaModelName				"353S0228"
+#define kTexasModelName				"355S0056"
+#define	kTexas2ModelName			"353S0303"
 
-#define kMuxPSurgeObjName 	"Proj1Mux"        
-#define kMuxAlchemyObjName   	"Proj2Mux"    
-#define kMuxHooperObjName    	"Proj3Mux"
-#define kMuxPExpressObjName	"Proj4Mux"    
-#define kMuxWSObjName         	"Proj5Mux"
-#define kMuxGossWingsAObjName  	"Proj6Mux" 
-#define kMuxGossWingsBObjName   "Proj7Mux"
-#define kMuxGossCanardObjName   "Proj8Mux"
-#define kMux101ObjName          "Proj9Mux"
-#define kMuxProgOutName         "MuxProgOut" 
+#define kMuxPSurgeObjName 			"Proj1Mux"        
+#define kMuxAlchemyObjName   		"Proj2Mux"    
+#define kMuxHooperObjName    		"Proj3Mux"
+#define kMuxPExpressObjName			"Proj4Mux"    
+#define kMuxWSObjName         		"Proj5Mux"
+#define kMuxGossWingsAObjName  		"Proj6Mux" 
+#define kMuxGossWingsBObjName   	"Proj7Mux"
+#define kMuxGossCanardObjName   	"Proj8Mux"
+#define kMux101ObjName          	"Proj9Mux"
+#define kMuxProgOutName         	"MuxProgOut" 
 
-#define kSourceMapPropName      "source-map"
-#define kSourceMapCountPropName "source-map-count"
+#define kSourceMapPropName      	"source-map"
+#define kSourceMapCountPropName 	"source-map-count"
 
 // Machine layout constants. All NewWorld machines have a device-id property
 // matching one of these layout constants for specifying the sound hardware layout.
@@ -121,10 +124,16 @@ enum {
 	layoutP29					=	16,
 	layoutWallStreet			=   17,
 	layoutP25					=	18,
-	layoutP53					=	19
+	layoutP53					=	19,
+	layoutP54					=	20,
+	layoutP57					=	21,
+	layoutP58					=	22,
+	layoutP62					=	23,
+	layoutP72					=	24,
+	layoutP92					=	25
 };
 
-        //Hardware type 
+// Hardware type 
 enum{
     kUnknownHardwareType,
     kGCAwacsHardwareType,
@@ -133,7 +142,7 @@ enum{
     kTexas3001HardwareType,
 };
 
-        //Kind of devices
+// Kind of devices
 enum {
     kSndHWInternalSpeaker	=	0x00000001,		// internal speaker present on CPU
     kSndHWCPUHeadphone		=	0x00000002,		// headphones inserted into CPU headphone port
@@ -152,21 +161,23 @@ enum {
     
 };
 
-    // Codec kind
+// Codec kind
 enum {
     kSndHWTypeUnknown			=	0x00000000,		// unknown part
     kSndHWTypeAWACs			=	0x00000001,		// AWACs part
     kSndHWTypeScreamer			=	0x00000002,		// Screamer part
     kSndHWTypeBurgundy			=	0x00000003,		// Burgundy
-    kSndHWTypeUSB			=	0x00000004,		// USB codec on a wire...
-    kSndHWTypeDaca			= 	0x00000005,		// DAC3550A
+    kSndHWTypeUSB				=	0x00000004,		// USB codec on a wire...
+    kSndHWTypeDaca				= 	0x00000005,		// DAC3550A
     kSndHWTypeDigitalSnd		=	0x00000006,		// DigitalSnd virtual HW
     kSndHWTypeTumbler			=	0x00000007,		// Tumbler I2S with Equalizer & Dallas ID thing...
+	kSndHWTypeTexas2			=	0x00000008,		// Texas2 I2s with Equalizer & Dallas ID thing...
 
     kSndHWManfUnknown			=	0x00000000,		// unknown manufacturer (error during read)
     kSndHWManfCrystal			=	0x00000001,		// manufactured by crystal
     kSndHWManfNational			=	0x00000002,		// manufactured by national
-    kSndHWManfTI			=	0x00000003		// manufactured by texas instruments
+    kSndHWManfTI				=	0x00000003,		// manufactured by texas instruments
+    kSndHWManfMicronas			=	0x00000004		// manufactured by Micronas Intermetall
 };
 
 
@@ -190,7 +201,7 @@ enum {
 	kSndHWProgOutput4			=	0x00000010		// programmable output four
 };
 
-//Input Port constants
+// Input Port constants
 enum {
 	kSndHWInSenseNone			=	0x00000000,		// no input sense bits
 	kSndHWInSense0				=	0x00000001,		// input sense bit zero
@@ -223,7 +234,7 @@ enum {
 #define INPUTSHIFT  1200
 
 
-    //PRAM read write values
+// PRAM read write values
 enum{
     kMaximumPRAMVolume 	= 7,
     kMinimumPRAMVolume	= 0,

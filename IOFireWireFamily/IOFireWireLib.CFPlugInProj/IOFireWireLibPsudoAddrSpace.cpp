@@ -163,7 +163,7 @@ IOFireWirePseudoAddressSpaceImp::SGetFWAddress(IOFireWireLibPseudoAddressSpaceRe
 void*
 IOFireWirePseudoAddressSpaceImp::SGetBuffer(IOFireWireLibPseudoAddressSpaceRef self)
 { 
-	return GetThis(self)->mBuffer; 
+	return GetThis(self)->GetBuffer() ; 
 }
 
 const UInt32
@@ -193,6 +193,9 @@ IOFireWirePseudoAddressSpaceImp::IOFireWirePseudoAddressSpaceImp(
 	void*							inBackingStore,
 	void*							inRefCon) : IOFireWireIUnknown(), // COM fixup
 												mNotifyIsOn(false),
+												mWriter( nil ),
+												mReader( nil ),
+												mSkippedPacketHandler( nil ),
 												mUserClient(inUserClient), 
 												mKernAddrSpaceRef(inKernAddrSpaceRef),
 												mBuffer(inBuffer),
@@ -213,8 +216,7 @@ IOFireWirePseudoAddressSpaceImp::~IOFireWirePseudoAddressSpaceImp()
 													 1,
 													 0,
 													 mKernAddrSpaceRef) ;
-	if (kIOReturnSuccess != result)
-		fprintf(stderr, "IOFireWirePseudoAddressSpaceImp::~IOFireWirePseudoAddressSpaceImp: error releasing address space!\n") ;
+	IOFireWireLibLogIfErr_(result, ("IOFireWirePseudoAddressSpaceImp::~IOFireWirePseudoAddressSpaceImp: error %x releasing address space!\n", result) ) ;
 
 	mUserClient.Release() ;
 }
@@ -236,19 +238,9 @@ IOFireWirePseudoAddressSpaceImp::Init()
                 output,
                 & size) ;
     
-	#if __IOFireWireClientDebug__
-    fprintf(stderr, "IOFireWirePseudoAddressSpaceImp::Init(): kr = %08lX\n",(UInt32) err) ;
-	#endif
-
     if ( kIOReturnSuccess == err )
-    {
         mFWAddress 		= FWAddress(output[1], output[2], output[0]) ;
-    }
     
-	#if __IOFireWireClientDebug__
-	fprintf(stderr, "mFWAddress = %04lX:%08lX\n", (UInt16) mFWAddress.addressHi, (UInt32) mFWAddress.addressLo) ;
-	#endif
-
     return err ;
 }
 
@@ -305,26 +297,6 @@ IOFireWirePseudoAddressSpaceImp::TurnOnNotification(
 	
 	if (!connection)
 		err = kIOReturnNoDevice ;
-
-/*	if (mUserClient.AsyncPortsExist()) ;
-		err = mUserClient.CreateAsyncPorts() ;
-		
-	if ( kIOReturnSuccess == err )
-	{
-		CFRunLoopSourceRef	runLoopSource	= CFMachPortCreateRunLoopSource(
-													kCFAllocatorDefault,
-													mUserClient.GetAsyncCFPort(),
-													0) ;
-
-		if (!runLoopSource)
-			err = kIOReturnNoMemory ;
-		
-		if ((kIOReturnSuccess == err) && inRunLoop && runLoopSource)
-		{
-			CFRunLoopAddSource(inRunLoop, runLoopSource, kCFRunLoopDefaultMode) ;
-			CFRelease(runLoopSource) ;
-		}														
-	} */
 	
 	if ( kIOReturnSuccess == err )
 	{
@@ -367,13 +339,13 @@ IOFireWirePseudoAddressSpaceImp::TurnOnNotification(
 	if ( kIOReturnSuccess == err)
 	{
 		params[0]	= (UInt32) mKernAddrSpaceRef ;
-		params[1]	= (UInt32) & IOFireWirePseudoAddressSpaceImp::ReadHandler ;
-		params[2]	= (UInt32) this ;
+		params[1]	= (UInt32)(IOAsyncCallback) & IOFireWirePseudoAddressSpaceImp::Reader ;
+		params[2]	= (UInt32) callBackRefCon ;
 		
 		err = io_async_method_scalarI_scalarO(
 				connection,
 				mUserClient.GetAsyncPort(),
-				mSkippedPacketAsyncRef,
+				mReadPacketAsyncRef,
 				1,
 				kFWSetAsyncRef_Read,
 				params,
@@ -437,6 +409,22 @@ IOFireWirePseudoAddressSpaceImp::TurnOffNotification()
 				3,
 				params,
 				& size) ;
+
+		// set callback for skipped packets to 0
+		params[0]	= (UInt32) mKernAddrSpaceRef ;
+		params[1]	= (UInt32)(IOAsyncCallback) 0 ;
+		params[2]	= (UInt32) this ;
+		
+		err = io_async_method_scalarI_scalarO(
+				connection,
+				mUserClient.GetAsyncPort(),
+				mReadPacketAsyncRef,
+				1,
+				kFWSetAsyncRef_Read,
+				params,
+				3,
+				params,
+				& size) ;
 	}
 	
 	mNotifyIsOn = false ;
@@ -447,18 +435,14 @@ IOFireWirePseudoAddressSpaceImp::ClientCommandIsComplete(
 	FWClientCommandID				commandID,
 	IOReturn						status)
 {
-	io_scalar_inband_t		params	= {(int)mKernAddrSpaceRef, (int)commandID} ;
-	mach_msg_type_number_t	size 	= 0 ;
-	
-	OSStatus err = io_connect_method_scalarI_scalarO(
-				mUserClient.GetUserClientConnection(),
-				kFWPseudoAddrSpace_ClientCommandIsComplete,
-				params,
-				2,
-				params,
-				& size) ;
-				
-	assert( kIOReturnSuccess == err ) ;
+	OSStatus err = IOConnectMethodScalarIScalarO(
+						mUserClient.GetUserClientConnection(),
+						kFWPseudoAddrSpace_ClientCommandIsComplete,
+						3,
+						0,
+						mKernAddrSpaceRef, commandID, status) ;
+						
+	IOFireWireLibLogIfErr_(err, ("IOFireWirePseudoAddressSpaceImp::ClientCommandIsComplete: err=0x%08lX\n", err)) ;
 }
 
 void
@@ -498,23 +482,32 @@ IOFireWirePseudoAddressSpaceImp::SkippedPacketHandler(
 			commandID,
 			packetCount) ;
 }
-/*
+
 void
-IOFireWirePseudoAddressSpaceImp::NotificationHandler(
-	IOFireWirePseudoAddressSpaceImp* that,
-	io_service_t					service,
-	natural_t						messageType,
-	void*							messageArgument)
+IOFireWirePseudoAddressSpaceImp::Reader(
+	IOFireWireLibPseudoAddressSpaceRef	refCon,
+	IOReturn							result,
+	void**								args,
+	int									numArgs)
 {
-	#if __IOFireWireClientDebug__
-	fprintf(stderr, "IOFireWirePseudoAddressSpaceImp::NotificationHandler: that = %08lX, service=%08lX, messageType=%08lX, messageArgument=%08lX\n",
-			(UInt32) that,
-			(UInt32) service,
-			(UInt32) messageType,
-			(UInt32) messageArgument) ;
-	#endif
-	
-} */
+	IOFireWirePseudoAddressSpaceImp* me = GetThis(refCon) ;
+
+	if (me->mReader)
+	{
+		(me->mReader)( (IOFireWireLibPseudoAddressSpaceRef) refCon,
+					   (FWClientCommandID) args[0],						// commandID,
+					   (UInt32) args[1],								// packetSize
+					   (UInt32) args[2],								// packetOffset
+					   (UInt16) args[3],								// nodeID
+					   (UInt32) args[5],								// addr.nodeID, addr.addressHi,
+					   (UInt32) args[6],
+					   (UInt32) me->mRefCon) ;							// refCon
+	}
+	else
+		me->ClientCommandIsComplete( args[0], //commandID
+								 kFWResponseDataError) ;
+}
+
 
 #pragma mark -
 #pragma mark --accessors
@@ -528,7 +521,8 @@ IOFireWirePseudoAddressSpaceImp::GetFWAddress()
 void*
 IOFireWirePseudoAddressSpaceImp::GetBuffer()
 {
-	return mBuffer ;
+	return mBackingStore ;	// I assume this is what the user wants instead of 
+							// the queue buffer stored in mBuffer.
 }
 
 const UInt32

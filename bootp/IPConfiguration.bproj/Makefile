@@ -18,7 +18,7 @@ HFILES = arp_session.h bootp_session.h FDSet.h globals.h ipconfigd.h\
          ipconfigd_globals.h ipconfigd_threads.h server.h timer.h
 
 CFILES = arp_session.c bootp_session.c bootp.c dhcp.c FDSet.c\
-         ipconfigd.c manual.c server.c timer.c
+         ipconfigd.c manual.c server.c timer.c linklocal.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble\
             CustomInfo.plist

@@ -763,7 +763,8 @@ void ssl_init_ConfigureServer(server_rec *s, pool *p, SSLSrvConfigRec *sc)
             }
             if (SSL_X509_getCN(p, sc->pPublicCert[i], &cp)) {
                 if (ap_is_fnmatch(cp) &&
-                    !ap_fnmatch(cp, s->server_hostname, FNM_PERIOD|FNM_CASE_BLIND)) {
+                    ap_fnmatch(cp, s->server_hostname, 
+                               FNM_PERIOD|FNM_CASE_BLIND) == FNM_NOMATCH) {
                     ssl_log(s, SSL_LOG_WARN,
                         "Init: (%s) %s server certificate wildcard CommonName (CN) `%s' "
                         "does NOT match server name!?", cpVHostID, 

@@ -38,13 +38,13 @@
 #include <IOKit/pci/IOPCIDevice.h>
 #include <IOKit/IOLib.h>            /* bcopy */
 
+
 extern "C" 
 {
-    #include <sys/param.h>
-    #include <sys/mbuf.h>
+#include <sys/param.h>
+#include <sys/mbuf.h>
 }
 
-#define HDW_CHECKSUM 1	/// enable hardware checksum
 
 	// No kernel tracing support at this time.
 #define KERNEL_DEBUG( x, a, b, c, d, e )
@@ -54,8 +54,8 @@ extern "C"
 
 
 	/*****	For fans of kprintf, IOLog and debugging infrastructure of the	*****/
-	/*****	string ilk, please modify the ELG and ALERT macros or their		*****/
-	/*****	associated EvLog and Alert functions to suit your taste. These	*****/
+	/*****	string ilk, please modify the ELG and ALRT macros or their		*****/
+	/*****	associated EvLog and Alrt functions to suit your taste. These	*****/
 	/*****	macros currently are set up to log events to a wraparound		*****/
 	/*****	buffer with minimal performance impact. They take 2 UInt32		*****/
 	/*****	parameters so that when the buffer is dumped 16 bytes per line, *****/
@@ -64,71 +64,92 @@ extern "C"
 	/*****	Preserving this convention facilitates different maintainers	*****/
 	/*****	using different debugging styles with minimal code clutter.		*****/
 
-#define USE_ELG	  0					// for debugging
+#define USE_ELG	 	 0			// for debugging
 #define kEvLogSize	(4096*16)		// 16 pages = 64K = 4096 events 0x10000
+///#define kEvLogSize	(4096*1)		// 1 page = 4K = 256 events
 
 #if USE_ELG /* (( */
 #define ELG(A,B,ASCI,STRING)	EvLog( (UInt32)(A), (UInt32)(B), (UInt32)(ASCI), STRING )
-#define ALERT(A,B,ASCI,STRING)	Alert( (UInt32)(A), (UInt32)(B), (UInt32)(ASCI), STRING )
+#define ALRT(A,B,ASCI,STRING)	Alrt(  (UInt32)(A), (UInt32)(B), (UInt32)(ASCI), STRING )
 	void EvLog( UInt32 a, UInt32 b, UInt32 ascii, char* str );
-	void Alert( UInt32 a, UInt32 b, UInt32 ascii, char* str );
+	void Alrt(  UInt32 a, UInt32 b, UInt32 ascii, char* str );
 #else /* ) not USE_ELG: (	*/
 #define ELG(A,B,ASCI,S)
-#define ALERT(A,B,ASCI,STRING)	IOLog( "UniNEnet: %8x %8x " STRING "\n", (unsigned int)(A), (unsigned int)(B) )
+#define ALRT(A,B,ASCI,STRING)	IOLog( "UniNEnet: %8x %8x " STRING "\n", (unsigned int)(A), (unsigned int)(B) )
 #endif /* USE_ELG )) */
 
-	typedef struct globals		/* Globals for this module (not per instance)	*/
+	typedef struct elg		/* Event Log flag and pointers	*/
 	{
 		UInt32		 evLogFlag; // debugging only
 		UInt8		*evLogBuf;
 		UInt8		*evLogBufe;
 		UInt8		*evLogBufp;
-		UInt8		intLevel;
-		class UniNEnet	*UniNEnetInstance;
-		UInt32		pRegs;
-		UInt32		rxRing[ 128 * 16 ];	/// needs to be: sizeof( enet_dma_cmd_t ) * RX_RING_LENGTH
-	} globals;
+	};
 
 
 
 #define NETWORK_STAT_ADD(  x )	(fpNetStats->x++)
 #define ETHERNET_STAT_ADD( x )	(fpEtherStats->x++)
 
-#define READ_REGISTER( REG )	(UInt32)(currentPowerState > 0 ? OSReadLittleInt32( (void*)&fpRegs->REG, 0 ) : 0x8badF00d )
+#if USE_ELG
+#define READ_REGISTER( REG )	(UInt32)(enetClockOff ?  Alrt( 0, 0, 'REG-', "regs unavail" ) : \
+OSReadLittleInt32( (void*)&fpRegs->REG, 0 ) )
+#define WRITE_REGISTER( REG, VAL )	writeRegister( &fpRegs->REG, VAL )
+#else
+#define READ_REGISTER( REG ) OSReadLittleInt32( (void*)&fpRegs->REG, 0 )
+#define WRITE_REGISTER( REG, VAL )	OSWriteLittleInt32( (void*)&fpRegs->REG, 0, VAL )
+#endif // USE_ELG
 
-#define DBG_WRITE 0
-
-#if DBG_WRITE
+/*#if USE_ELG
 #define WRITE_REGISTER( REG, VAL )	writeRegister( &fpRegs->REG, VAL )
 #else
 #define WRITE_REGISTER( REG, VAL )	OSWriteLittleInt32( (void*)&fpRegs->REG, 0, VAL )
-#endif // DBG_WRITE
+#endif // USE_ELG
+*/
 
 
-typedef void  *         IOPPCAddress;
+	typedef void	*IOPPCAddress;
 
-#define NUM_RX_DESC     1
-typedef struct enet_dma_cmd_t
-{
-    GEMRxDescriptor     desc_seg[NUM_RX_DESC];
-} enet_dma_cmd_t;
 
-#define NUM_TX_DESC     1
-typedef struct enet_txdma_cmd_t
-{
-    GEMTxDescriptor     desc_seg[NUM_TX_DESC];
-} enet_txdma_cmd_t;
+	enum LinkStatus
+	{
+		kLinkStatusUnknown,
+		kLinkStatusDown,
+		kLinkStatusUp,
+	};
 
-enum LinkStatus
-{
-    kLinkStatusUnknown,
-    kLinkStatusDown,
-    kLinkStatusUp,
-};
+	struct MediumTable
+	{
+		UInt32	type;
+		UInt32	speed;
+	};
 
 
 #define kNumOfPowerStates		2
 #define kUniNsettle_time		500		// guess 500 microseconds for settling
+
+	/* Items in the IORegistry:	*/
+
+#define kTxQueueSize		"TxPacketQueueSize"
+#define kTxRingElements		"TxRingElements: 32,64,128,256,512,1024,2048,4096,8192"
+#define kRxRingElements		"RxRingElements: 32,64,128,256,512,1024,2048,4096,8192"
+
+
+	/* Performance tracepoints
+	 *
+	 * DBG_UniN_RXIRQ       - Receive  ISR run time
+	 * DBG_UniN_TXIRQ       - Transmit ISR run time
+	 * DBG_UniN_TXQUEUE     - Transmit packet passed from network stack
+	 * DBG_UniN_TXCOMPLETE  - Transmit packet sent
+	 * DBG_UniN_RXCOMPLETE  - Receive packet passed to network stack
+	 */
+#define DBG_UniN_ENET          0x0900
+#define DBG_UniN_RXIRQ         DRVDBG_CODE( DBG_DRVNETWORK, (DBG_UniN_ENET+1) )
+#define DBG_UniN_TXIRQ         DRVDBG_CODE( DBG_DRVNETWORK, (DBG_UniN_ENET+2) )
+#define DBG_UniN_TXQUEUE       DRVDBG_CODE( DBG_DRVNETWORK, (DBG_UniN_ENET+3) )
+#define DBG_UniN_TXCOMPLETE    DRVDBG_CODE( DBG_DRVNETWORK, (DBG_UniN_ENET+4) )
+#define DBG_UniN_RXCOMPLETE    DRVDBG_CODE( DBG_DRVNETWORK, (DBG_UniN_ENET+5) )
+
 
 
 class UniNEnet: public IOEthernetController
@@ -137,7 +158,7 @@ class UniNEnet: public IOEthernetController
 
 private:	// Instance variables:
 
-	globals					*fpGlobals;		// ptr to ELG structure
+	elg						*fpELG;			//  pointer to ELG structure & buffer
 	volatile GMAC_Registers	*fpRegs;
 	GMAC_Registers			*fpRegsPhys;	// for ml_probe_read
     IOPCIDevice *             nub;
@@ -159,7 +180,8 @@ private:	// Instance variables:
     bool                      fBuiltin;			// UniN builtin = 1; PCI card = 0
     bool                      ready;
     bool                      fWOL;				// WakeOnLAN desired.
-    bool                      netifEnabled;
+    bool					  enetClockOff;
+	bool                      netifEnabled;
     bool                      debugEnabled;
     bool                      debugTxPoll;
         
@@ -168,20 +190,30 @@ private:	// Instance variables:
     bool                      multicastEnabled;
     bool                      isFullDuplex;
 
-    UInt32                    phyType;
+    UInt32                    phyType;			// both PHY ID registers
     UInt8                     phyId;
 
 	UInt32					linkStatusPrev;
 	UInt16					phyStatusPrev;
 
 	UInt16					fPHYControl;		// 16 bit PHY Control register.
-	UInt32					phyBCMType;			// 5400, 5401 or 5201 for PM
+	UInt32					fPHYType;			// 5400, 5401 or 5201 for PM
 
     OSDictionary *            mediumDict;
-    
-	struct mbuf		*txMbuf[ TX_RING_LENGTH ];	// index of last segment of pkt -> mbuf
-    struct mbuf		*rxMbuf[ RX_RING_LENGTH ];
-    struct mbuf		*txDebuggerPkt;
+
+	MediumTable		*fpgMediumTable;
+	UInt32			fMediumTableCount;
+
+	UInt32		fTxQueueSize;				// size of the Tx queue
+	UInt32		fTxRingElements;			// number of Tx ring elements
+	UInt32		fRxRingElements;			// number of Rx ring elements
+
+	mbuf		**fTxMbuf;	// array of Tx mBuf pointers; index of last segment of pkt -> mbuf
+	mbuf		**fRxMbuf;	// array of Rx mBuf pointers
+	mbuf		*txDebuggerPkt;
+
+	mbuf		*rxMbufBucket;
+	UInt32		*fRxBucketPhysAddr;				// Physical addr of bit bucket
 
     void *                    debuggerPkt;
     u_int32_t                 debuggerPktSize;
@@ -191,14 +223,14 @@ private:	// Instance variables:
     UInt32                    rxCommandHead;  // RX ring descriptor index
     UInt32                    rxCommandTail;
 
-    UInt32                    dmaCommandsSize;
-    UInt8 *                   dmaCommands;
-    enet_txdma_cmd_t *        txDMACommands;  // TX descriptor ring ptr
-    UInt32                    txDMACommandsPhys;
-    UInt32                    txCommandsAvail;
+	TxDescriptor	*fTxDescriptorRing;  // TX descriptor ring ptr
+	UInt32			fTxDescriptorRingPhys;
+	UInt32			fTxElementsAvail;
+	UInt32			fTxRingLengthFactor;
 
-    enet_dma_cmd_t *          rxDMACommands;  // RX descriptor ring ptr
-    UInt32                    rxDMACommandsPhys;
+	RxDescriptor	*fRxDescriptorRing;  // RX descriptor ring ptr
+	UInt32			fRxDescriptorRingPhys;
+	UInt32			fRxRingLengthFactor;
 
     UInt32                    txIntCnt;
     UInt32                    txRingIndexLast;
@@ -207,17 +239,23 @@ private:	// Instance variables:
     
     UInt32                    rxWDInterrupts;
     UInt32                    rxWDCount;
-    UInt32                    rxMacConfigReg;
 
     UInt16                    hashTableUseCount[256];
     UInt16                    hashTableMask[16];
 
     unsigned long             currentPowerState;  /* must be 0 or 1 */
 
-	UInt32			fXIFConfiguration;	// copy of the XIFConfiguration reg
+		/* Local copies of certain key registers:	*/
+
+	UInt32			fXIFConfiguration;
+	UInt32			fRxMACConfiguration;
+	UInt32			fMACControlConfiguration;
 
 private:			// Instance methods:
 
+	void			AllocateEventLog( UInt32 size );
+	void			EvLog( UInt32 a, UInt32 b, UInt32 ascii, char* str );
+	UInt32			Alrt(  UInt32 a, UInt32 b, UInt32 ascii, char* str );
     bool             allocateMemory();
     bool             initTxRing();
     bool             initRxRing();
@@ -226,9 +264,7 @@ private:			// Instance methods:
     void             setDuplexMode(bool duplexMode);
     void             startChip();
     void             stopChip();
-    bool             updateDescriptorFromMbuf(struct mbuf * m,
-                                              enet_dma_cmd_t * desc,
-                                              bool isReceive);
+	bool		genRxDescriptor( UInt32 index );
     void             monitorLinkStatus( bool firstPoll = false );
     bool             transmitPacket(struct mbuf * packet);
     bool             transmitInterruptOccurred();
@@ -238,8 +274,8 @@ private:			// Instance methods:
     bool             receivePackets(bool fDebugger);
     void             packetToDebugger(struct mbuf * packet, u_int size);
     void             restartReceiver();
-	void		putToSleep();
-    bool		wakeUp();
+	void		putToSleep(bool pangeaClockOnly);
+    bool		wakeUp(bool pangeaClockOnly);
     void             sendDummyPacket();
     void             resetHashTableMask();
     void             addToHashTableMask(u_int8_t *addr);
@@ -275,7 +311,7 @@ private:			// Instance methods:
 
 	void		writeRegister( volatile UInt32 *pReg, UInt32 data );
 
-	bool		getPhyType();
+	void		getPhyType();
 	void		stopPHY(); 
 	void		startPHY();
 	bool		hardwareResetPHY();
@@ -318,11 +354,9 @@ public:		// Override methods:
     virtual IOReturn         disable(IOKernelDebugger * debugger);
 
     virtual bool		configureInterface( IONetworkInterface *netif );
-#ifdef HDW_CHECKSUM
 	virtual IOReturn	getChecksumSupport(	UInt32		*checksumMask,
 											UInt32		checksumFamily,
 											bool		isOutput );
-#endif // HDW_CHECKSUM
 
 	    // Power management methods:
 
@@ -333,20 +367,3 @@ public:		// Override methods:
     virtual IOReturn   setPowerState(	UInt32		powerStateOrdinal,
 										IOService	*whatDevice );
 };/* end class UniNEnet */
-
-
-/*
- * Performance tracepoints
- *
- * DBG_UniN_RXIRQ       - Receive  ISR run time
- * DBG_UniN_TXIRQ       - Transmit ISR run time
- * DBG_UniN_TXQUEUE     - Transmit packet passed from network stack
- * DBG_UniN_TXCOMPLETE  - Transmit packet sent
- * DBG_UniN_RXCOMPLETE  - Receive packet passed to network stack
- */
-#define DBG_UniN_ENET          0x0900
-#define DBG_UniN_RXIRQ         DRVDBG_CODE(DBG_DRVNETWORK,(DBG_UniN_ENET+1))
-#define DBG_UniN_TXIRQ         DRVDBG_CODE(DBG_DRVNETWORK,(DBG_UniN_ENET+2))
-#define DBG_UniN_TXQUEUE       DRVDBG_CODE(DBG_DRVNETWORK,(DBG_UniN_ENET+3))
-#define DBG_UniN_TXCOMPLETE    DRVDBG_CODE(DBG_DRVNETWORK,(DBG_UniN_ENET+4)) 
-#define DBG_UniN_RXCOMPLETE    DRVDBG_CODE(DBG_DRVNETWORK,(DBG_UniN_ENET+5)) 

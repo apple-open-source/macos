@@ -70,6 +70,26 @@ struct PLCache {
 };
 typedef struct PLCache PLCache_t;
 
+typedef struct {
+    u_long		dir_id;
+    struct ether_addr	en_addr;
+    struct in_addr	ip_addr;
+} en_binding_t;
+
+typedef struct {
+    en_binding_t *	list;
+    int			count;
+} en_binding_list_t;
+
+typedef struct {
+    u_long		dir_id;
+    struct in_addr	ip_addr;
+} ip_binding_t;
+
+typedef struct {
+    ip_binding_t *	list;
+    int			count;
+} ip_binding_list_t;
 
 typedef struct {
     NIDomain_t *	domain;		/* domain */
@@ -78,10 +98,8 @@ typedef struct {
     struct timeval	last_checked;	/* time we last checked */
 
     unsigned long	check_interval;	/* how often to check domain for changes*/
-
-    /* id list cache: */
-    ni_entrylist	en_list;	/* ids/values for en_address */
-    ni_entrylist	ip_list;	/* ids/values for ip_address */
+    en_binding_list_t	en_bindings;
+    ip_binding_list_t 	ip_bindings;
 
     PLCache_t		pos; 		/* positive cache */
 

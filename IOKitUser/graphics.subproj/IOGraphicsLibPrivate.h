@@ -20,6 +20,15 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+enum {
+    kDisplayAppleVendorID = 0x610
+};
+
+enum {
+    kOvrFlagDisableScaling	= 0x00000001,
+    kOvrFlagDisableNonScaled	= 0x00000002,
+};
+
 struct EDIDDetailedTimingDesc {
     UInt16	clock;
     UInt8	horizActive;
@@ -77,26 +86,38 @@ typedef struct EDID EDID;
 struct IOFBConnect {
     io_service_t		framebuffer;
     io_connect_t		connect;
+    CFMutableDictionaryRef	kernelInfo;
+    CFMutableDictionaryRef	modes;
+    CFMutableArrayRef		modesArray;
     CFMutableDictionaryRef	overrides;
     IONotificationPortRef	notifyPort;
     io_iterator_t		interestNotifier;
     IOOptionBits		state;
     IODisplayModeID		defaultMode;
     IOIndex			defaultDepth;
+    UInt32			ovrFlags;
 
     const IOFBMessageCallbacks * clientCallbacks;
-    void *			clientCallbackRef;
+    void *			 clientCallbackRef;
 };
 typedef struct IOFBConnect * IOFBConnectRef;
 
 
-IOFBConnectRef IOFBConnectToRef( io_connect_t connect );
-void IODisplayInstallDetailedTimings( IOFBConnectRef connectRef );
+IOFBConnectRef
+IOFBConnectToRef( io_connect_t connect );
+void
+IODisplayInstallDetailedTimings( IOFBConnectRef connectRef );
+kern_return_t
+IOFBInstallMode( IOFBConnectRef connectRef, IODisplayModeID mode,
+                 IODisplayModeInformation * info, IOTimingInformation * timingInfo,
+                 UInt32 driverFlags );
+
 io_service_t
 IODisplayForFramebuffer(
 	io_service_t		framebuffer,
 	IOOptionBits		options );
 void IOFBCreateOverrides( IOFBConnectRef connectRef );
 
-Boolean IOCheckTimingWithRange( const void * range,
+Boolean
+IOCheckTimingWithRange( const void * range,
                                 const IODetailedTimingInformationV2 * timing );

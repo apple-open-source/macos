@@ -149,9 +149,10 @@ bool
 IOATAPIProtocolTransport::start ( IOService * provider )
 {
 	
-	IOReturn		theErr		= kIOReturnSuccess;
-	IOWorkLoop *	workLoop	= NULL;
-	OSDictionary *	dict		= NULL;
+	IOReturn		theErr			= kIOReturnSuccess;
+	IOWorkLoop *	workLoop		= NULL;
+	OSDictionary *	dict			= NULL;
+	IOService *		powerProvider	= NULL;
 	
 	STATUS_LOG ( ( "IOATAPIProtocolTransport::start called\n" ) );
 	
@@ -322,7 +323,75 @@ IOATAPIProtocolTransport::start ( IOService * provider )
 		
 	}
 	
-	InitializePowerManagement ( provider );
+	// Initialize the power provider to default
+	powerProvider = provider;
+	
+	// Look to see if we are the slave device and there is a master
+	// device on the bus.
+	if ( fATAUnitID == kATADevice1DeviceID )
+	{
+		
+		IOService *		obj;
+		OSIterator *	iter;
+		OSNumber *		deviceNumber;
+		
+		STATUS_LOG ( ( "We are the slave, find a master.\n" ) );
+		
+		// We are the slave. Find a master.
+		obj = provider->getProvider ( );
+		
+		iter = obj->getChildIterator ( gIOServicePlane );
+		if ( iter != NULL )
+		{
+			
+			STATUS_LOG ( ( "Got an iterator.\n" ) );
+
+			while ( ( obj = ( IOService * ) iter->getNextObject ( ) ) != NULL )
+			{
+				
+				STATUS_LOG ( ( "Looping over objects.\n" ) );
+
+				if ( obj == provider )
+					continue;
+
+				STATUS_LOG ( ( "Check the IOUnit property.\n" ) );
+				
+				deviceNumber = OSDynamicCast ( OSNumber, obj->getProperty ( "IOUnit" ) );
+				if ( deviceNumber != NULL )
+				{
+					
+					STATUS_LOG ( ( "Found the IOUnit property.\n" ) );
+
+					if ( deviceNumber->unsigned8BitValue ( ) == kATADevice0DeviceID )
+					{
+						
+						IOService *		possibleProvider = NULL;
+						
+						// Find this object's child to get the item which is the master.
+						possibleProvider = ( IOService * ) obj->getChildEntry ( gIOServicePlane );
+						if ( possibleProvider != NULL )
+						{
+							
+							STATUS_LOG ( ( "Found the master.\n" ) );
+							
+							// Couldn't find the child entry, so reset the power provider
+							powerProvider = possibleProvider;
+							
+						}
+						
+					}
+					
+				}
+				
+			}
+			
+			iter->release ( );
+			
+		}
+		
+	}
+	
+	InitializePowerManagement ( powerProvider );
 	
 	STATUS_LOG ( ( "IOATAPIProtocolTransport::start complete\n" ) );
 	

@@ -58,14 +58,11 @@ protected:
     Reserved for future use.  (Internal use only)  */
     ExpansionData *reserved;
 
-    DCLCommandPtr convertDCLPtrToKernel(DCLCommandPtr dcl)
-      {if (dcl) return (DCLCommandPtr)((UInt32)dcl + fDCLTaskToKernel); else return dcl;};
+	DCLCommandPtr convertDCLPtrToKernel(DCLCommandPtr dcl)
+		{if (dcl) return (DCLCommandPtr)((UInt32)dcl + fDCLTaskToKernel); else return dcl;};
 
-    DCLCommandPtr convertDCLPtrFromKernel(DCLCommandPtr dcl)
-      {if (dcl) return (DCLCommandPtr)((UInt32)dcl - fDCLTaskToKernel); else return dcl;};
-
-    void * convertDataPtrToKernel(void *ptr)
-        {if (ptr) return (void *)((UInt32)ptr + fDataTaskToKernel); else return ptr;};
+	DCLCommandPtr convertDCLPtrFromKernel(DCLCommandPtr dcl)
+		{if (dcl) return (DCLCommandPtr)((UInt32)dcl - fDCLTaskToKernel); else return dcl;};
 
     virtual UInt32 getPhysicalSegs(void *addr, IOByteCount len,
                     IOMemoryCursor::PhysicalSegment segs[], UInt32 maxSegs);

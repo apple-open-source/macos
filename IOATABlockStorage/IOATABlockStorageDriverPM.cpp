@@ -474,11 +474,19 @@ IOATABlockStorageDriver::issuePowerTransition ( UInt32 function )
 	
 	IOReturn	status = kIOReturnSuccess;
 	IOSyncer *	syncer;
+
+	// Check if the device is CompactFlash. We won’t do power transitions for
+	// CF since they don't seem to like them.
+	if ( fATASocketType == kPCCardSocket )
+	{
+		return status;
+		
+	}	
 	
 	// We have found several drives that will hang the bus when going from
 	// kATAStandbyDevice or kATAIdleDevice to kATASleepDevice. For now
 	// to be safe we are going to simplify power transitions to kATASleepDevice
-	if (  ( function == kATAStandbyDevice ) || ( function == kATAIdleDevice ) )
+	if ( ( function == kATAStandbyDevice ) || ( function == kATAIdleDevice ) )
 	{
 		
 		return status;

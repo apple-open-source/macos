@@ -30,6 +30,8 @@
  *
  * Dieter Siegmund (dieter@apple.com)		November 24, 1999
  * - created
+ * Dieter Siegmund (dieter@apple.com)		September 6, 2001
+ * - added AFP user/shadow file reclamation/aging
  */
 
 #import <unistd.h>
@@ -92,6 +94,7 @@ static AFPUsers_t	S_afp_users;
 
 #define AFP_UID_START	100
 static int		S_afp_uid_start = AFP_UID_START;
+static int		S_next_host_number = 0;
 
 void
 BSDPClients_free(BSDPClients_t * clients)
@@ -116,6 +119,29 @@ BSDPClients_init(BSDPClients_t * clients)
  failed:
     BSDPClients_free(clients);
     return (FALSE);
+}
+
+static int
+S_host_number_max()
+{
+    PLCacheEntry_t * 	scan;
+    int			max_number = 0;
+
+    for (scan = S_clients.list.head; scan; scan = scan->next) {
+	int			number_index;
+	ni_namelist *		number_nl_p;
+	int			val;
+
+	number_index = ni_proplist_match(scan->pl, NIPROP_NETBOOT_NUMBER, NULL);
+	if (number_index == NI_INDEX_NULL)
+	    continue; /* this can't happen */
+	number_nl_p = &scan->pl.nipl_val[number_index].nip_val;
+	val = strtol(number_nl_p->ninl_val[0], NULL, NULL);
+	if (val > max_number) {
+	    max_number = val;
+	}
+    }
+    return (max_number);
 }
 
 boolean_t
@@ -154,116 +180,75 @@ bsdp_init()
 	    S_afp_users = new_users;
 	}
     }
-    return (TRUE);
-}
-
-static boolean_t
-S_client_number_in_use(int number)
-{
-    PLCacheEntry_t * 	scan;
-
-    for (scan = S_clients.list.head; scan; scan = scan->next) {
-	int			number_index;
-	ni_namelist *		number_nl_p;
-	int			val;
-
-	number_index = ni_proplist_match(scan->pl, NIPROP_NETBOOT_NUMBER, NULL);
-	if (number_index == NI_INDEX_NULL)
-	    continue; /* this can't happen */
-	number_nl_p = &scan->pl.nipl_val[number_index].nip_val;
-	val = strtol(number_nl_p->ninl_val[0], NULL, NULL);
-	if (val == number) {
-	    return (TRUE);
-	}
-    }
-    return (FALSE);
-}
-
-static int
-S_next_client_number()
-{
-    int i = 1;
-
-    while (1) {
-	if (S_client_number_in_use(i) == FALSE)
-	    return (i);
-	i++;
-    }
-    return (0); /* NOT REACHED */
-}
-
-static boolean_t
-S_commit_mods(PLCacheEntry_t * entry)
-{
-    return (PLCache_write(&S_clients.list, BSDP_CLIENTS_FILE));
-}
-
-static boolean_t
-S_client_update(PLCacheEntry_t * entry, struct dhcp * reply, 
-		char * idstr, struct in_addr server_ip,
-		bsdp_image_id_t image_id,
-		dhcpoa_t * options)
-{
-    u_char *		afp_user;
-    u_char *		hostname;
-    boolean_t		modified = FALSE;
-    u_char 		passwd[AFP_PASSWORD_LEN + 1];
-    PLCacheEntry_t *	user_entry;
-    unsigned long	password;
-    uid_t		uid;
-    u_char *		val;
-
-
-    /* XXX */
-    /* get the type of image i.e. Classic, NFS */
-    /* dispatch to appropriate handler for the type of image */
-    /* XXX */
-
-    hostname = ni_valforprop(&entry->pl, NIPROP_NAME);
-    val = ni_valforprop(&entry->pl, NIPROP_NETBOOT_NUMBER);
-    afp_user = ni_valforprop(&entry->pl, NIPROP_NETBOOT_AFP_USER);
-    if (hostname == NULL || val == NULL
-	|| afp_user == NULL ) {
-	syslog(LOG_INFO, "NetBoot: %s missing " NIPROP_NAME 
-	       ", " NIPROP_NETBOOT_NUMBER
-	       ", or " NIPROP_NETBOOT_AFP_USER, idstr);
-	return (FALSE);
-    }
-    user_entry = PLCache_lookup_prop(&S_afp_users.list, 
-				     NIPROP_NAME, afp_user);
-    if (user_entry == NULL) {
-	syslog(LOG_INFO, "NetBoot: failed to locate entry for %s",
-	       afp_user);
-	return (FALSE);
-    }
-    password = random();
-    uid = strtoul(ni_valforprop(&user_entry->pl, NIPROP_UID), NULL, NULL);
-
-    sprintf(passwd, "%08lx", password);
-    if (AFPUsers_set_password(&S_afp_users, user_entry, passwd)
-	== FALSE) {
-	syslog(LOG_INFO, "NetBoot: failed to set password for %s",
-	       hostname);
-	return (FALSE);
-    }
-    if (macNC_allocate(reply, hostname, server_ip, strtol(val, NULL, NULL),
-		       options, uid, afp_user, passwd) == FALSE) {
-	return (FALSE);
-    }
-    {
-	char	buf[32];
-	sprintf(buf, "0x%x", image_id);
-	ni_set_prop(&entry->pl, NIPROP_NETBOOT_IMAGE_ID, buf, &modified);
-    }
-
-    if (modified && S_commit_mods(entry) == FALSE) {
-	return (FALSE);
-    }
+    S_next_host_number = S_host_number_max() + 1;
     return (TRUE);
 }
 
 static PLCacheEntry_t *
-S_next_afp_user(u_char * * afp_user)
+S_reclaim_afp_user(struct timeval * time_in_p, char * * afp_user_p,
+		   boolean_t * modified)
+{
+    PLCacheEntry_t *	reclaimed_entry = NULL;
+    PLCacheEntry_t *	scan;
+
+    *afp_user_p = NULL;
+
+    for (scan = S_clients.list.tail; scan; scan = scan->prev) {
+	char *			afp_user;
+	int			host_number = 0;
+	char *			last_boot;
+	char *			name;
+	char *			number;
+
+	afp_user = ni_valforprop(&scan->pl, NIPROP_NETBOOT_AFP_USER);
+	if (afp_user == NULL) {
+	    /* already reclaimed */
+	    continue;
+	}
+	name = ni_valforprop(&scan->pl, NIPROP_NAME);
+	last_boot = ni_valforprop(&scan->pl, NIPROP_NETBOOT_LAST_BOOT_TIME);
+	if (last_boot) {
+	    u_int32_t	t;
+
+	    t = strtol(last_boot, NULL, NULL);
+	    if (t == LONG_MAX && errno == ERANGE) {
+		continue;
+	    }
+	    if ((time_in_p->tv_sec - t) < age_time_seconds) {
+		/* no point in continuing, the list is kept in sorted order */
+		break;
+	    }
+	}
+	/* lookup the entry we're going to steal first */
+	reclaimed_entry = PLCache_lookup_prop(&S_afp_users.list, 
+					      NIPROP_NAME, afp_user, TRUE);
+	if (reclaimed_entry == NULL) {
+	    /* netboot user has been removed, stale entry */
+	    ni_delete_prop(&scan->pl, NIPROP_NETBOOT_AFP_USER, modified);
+	    continue;
+	}
+	number = ni_valforprop(&scan->pl, NIPROP_NETBOOT_NUMBER);
+	if (number != NULL) {
+	    host_number = strtol(number, 0, 0);
+	}
+	/* unlink the shadow file: if not in use, will save disk space */
+	if (name) {
+	    macNC_unlink_shadow(host_number, name);
+	    if (verbose) {
+		syslog(LOG_INFO, "NetBoot: reclaimed login %s from %s",
+		       afp_user, name);
+	    }
+	}
+	/* disassociate the client from its afp login */
+	ni_delete_prop(&scan->pl, NIPROP_NETBOOT_AFP_USER, modified);
+	*afp_user_p = ni_valforprop(&reclaimed_entry->pl, NIPROP_NAME);
+	break;
+    }
+    return (reclaimed_entry);
+}
+
+static PLCacheEntry_t *
+S_next_afp_user(char * * afp_user)
 {
     PLCacheEntry_t * scan;
 
@@ -279,7 +264,7 @@ S_next_afp_user(u_char * * afp_user)
 	    continue;
 
 	if (PLCache_lookup_prop(&S_clients.list, NIPROP_NETBOOT_AFP_USER,
-				nl_p->ninl_val[0]) == NULL) {
+				nl_p->ninl_val[0], FALSE) == NULL) {
 	    *afp_user = nl_p->ninl_val[0];
 	    return (scan);
 	}
@@ -288,18 +273,100 @@ S_next_afp_user(u_char * * afp_user)
 }
 
 static boolean_t
+S_client_update(PLCacheEntry_t * entry, struct dhcp * reply, 
+		char * idstr, struct in_addr server_ip,
+		bsdp_image_id_t image_id,
+		dhcpoa_t * options, struct timeval * time_in_p)
+{
+    char *		afp_user;
+    char *		hostname;
+    boolean_t		modified = FALSE;
+    char 		passwd[AFP_PASSWORD_LEN + 1];
+    unsigned long	password;
+    boolean_t		ret = TRUE;
+    uid_t		uid;
+    PLCacheEntry_t *	user_entry = NULL;
+    char *		val;
+
+    /* XXX */
+    /* get the type of image i.e. Classic, NFS */
+    /* dispatch to appropriate handler for the type of image */
+    /* XXX */
+
+    hostname = ni_valforprop(&entry->pl, NIPROP_NAME);
+    val = ni_valforprop(&entry->pl, NIPROP_NETBOOT_NUMBER);
+    afp_user = ni_valforprop(&entry->pl, NIPROP_NETBOOT_AFP_USER);
+    if (hostname == NULL || val == NULL) {
+	syslog(LOG_INFO, "NetBoot: %s missing " NIPROP_NAME 
+	       " or " NIPROP_NETBOOT_NUMBER, idstr);
+	return (FALSE);
+    }
+
+    if (afp_user == NULL) {
+	user_entry = S_next_afp_user(&afp_user);
+	if (user_entry == NULL) {
+	    user_entry = S_reclaim_afp_user(time_in_p, &afp_user, &modified);
+	}
+	if (user_entry != NULL) {
+	    ni_set_prop(&entry->pl, NIPROP_NETBOOT_AFP_USER, afp_user, 
+			&modified);
+	}
+    }
+    else {
+	user_entry = PLCache_lookup_prop(&S_afp_users.list,
+					 NIPROP_NAME, afp_user, TRUE);
+    }
+    if (user_entry == NULL) {
+	syslog(LOG_INFO, 
+	       "NetBoot: AFP login capacity of %d reached servicing %s",
+	       afp_users_max, hostname);
+	return (FALSE);
+    }
+    {
+	char	buf[32];
+
+	sprintf(buf, "0x%x", image_id);
+	ni_set_prop(&entry->pl, NIPROP_NETBOOT_IMAGE_ID, buf, &modified);
+
+	sprintf(buf, "0x%x", time_in_p->tv_sec);
+	ni_set_prop(&entry->pl, NIPROP_NETBOOT_LAST_BOOT_TIME, buf, &modified);
+    }
+    password = random();
+    uid = strtoul(ni_valforprop(&user_entry->pl, NIPROP_UID), NULL, NULL);
+
+    sprintf(passwd, "%08lx", password);
+    if (AFPUsers_set_password(&S_afp_users, user_entry, passwd)
+	== FALSE) {
+	syslog(LOG_INFO, "NetBoot: failed to set password for %s",
+	       hostname);
+	ret = FALSE;
+    }
+    else if (macNC_allocate(reply, hostname, server_ip, strtol(val, NULL, NULL),
+		       options, uid, afp_user, passwd) == FALSE) {
+	ret = FALSE;
+    }
+    if (PLCache_write(&S_clients.list, BSDP_CLIENTS_FILE) == FALSE) {
+	syslog(LOG_INFO, 
+	       "NetBoot: failed to save file " BSDP_CLIENTS_FILE ", %m");
+    }
+    return (ret);
+}
+
+static boolean_t
 S_client_create(struct dhcp * reply, char * idstr, 
 		char * arch, char * sysid, 
 		struct in_addr server_ip,
-		bsdp_image_id_t image_id, dhcpoa_t * options)
+		bsdp_image_id_t image_id, dhcpoa_t * options,
+		struct timeval * time_in_p)
 {
-    u_char *		afp_user = NULL;
+    char *		afp_user = NULL;
     ni_id		child = {0, 0};
     char		hostname[256];
     int			num;
-    u_char 		passwd[AFP_PASSWORD_LEN + 1];
+    char 		passwd[AFP_PASSWORD_LEN + 1];
     unsigned long	password;
     ni_proplist		pl;
+    boolean_t		ret = TRUE;
     PLCacheEntry_t *	user_entry;
     uid_t		uid;
 
@@ -308,13 +375,19 @@ S_client_create(struct dhcp * reply, char * idstr,
      * dispatch to appropriate handler for the type of image
      */
 
-    num = S_next_client_number();
+    num = S_next_host_number;
     user_entry = S_next_afp_user(&afp_user);
     if (user_entry == NULL) {
-	syslog(LOG_INFO, "NetBoot AFP login capacity of %d reached",
-	       afp_users_max);
-	return (FALSE);
+	user_entry = S_reclaim_afp_user(time_in_p, &afp_user, NULL);
+	if (user_entry == NULL) {
+	    syslog(LOG_INFO, "NetBoot: AFP login capacity of %d reached",
+		   afp_users_max);
+	    return (FALSE);
+	}
     }
+    /* increment for the next host */
+    S_next_host_number++;
+
     password = random();
     uid = strtoul(ni_valforprop(&user_entry->pl, NIPROP_UID), NULL, NULL);
     NI_INIT(&pl);
@@ -325,42 +398,55 @@ S_client_create(struct dhcp * reply, char * idstr,
     ni_proplist_addprop(&pl, NIPROP_NETBOOT_ARCH, arch);
     ni_proplist_addprop(&pl, NIPROP_NETBOOT_SYSID, sysid);
     {
-	char buf[64];
+	char buf[32];
 
 	sprintf(buf, "0x%x", image_id);
 	ni_proplist_addprop(&pl, NIPROP_NETBOOT_IMAGE_ID, (ni_name)buf);
 	sprintf(buf, "%d", num);
 	ni_proplist_addprop(&pl, NIPROP_NETBOOT_NUMBER, (ni_name)buf);
+	sprintf(buf, "0x%x", time_in_p->tv_sec);
+	ni_proplist_addprop(&pl, NIPROP_NETBOOT_LAST_BOOT_TIME, buf);
     }
     sprintf(passwd, "%08lx", password);
     if (AFPUsers_set_password(&S_afp_users, user_entry, passwd)
 	== FALSE) {
 	syslog(LOG_INFO, "NetBoot: failed to set password for %s",
 	       hostname);
-	return (FALSE);
+	ret = FALSE;
     }
-
-    if (macNC_allocate(reply, hostname, server_ip, num, 
+    else if (macNC_allocate(reply, hostname, server_ip, num, 
 		       options, uid, afp_user, passwd) == FALSE) {
-	goto error;
+	ret = FALSE;
     }
-
     PLCache_add(&S_clients.list, PLCacheEntry_create(child, pl));
-    PLCache_write(&S_clients.list, BSDP_CLIENTS_FILE);
-
+    if (PLCache_write(&S_clients.list, BSDP_CLIENTS_FILE) == FALSE) {
+	syslog(LOG_INFO, 
+	       "NetBoot: failed to save file " BSDP_CLIENTS_FILE ", %m");
+    }
     ni_proplist_free(&pl);
-    return (TRUE);
- error:
-    ni_proplist_free(&pl);
-    return (FALSE);
-
+    return (ret);
 }
 
 static boolean_t
 S_client_remove(PLCacheEntry_t * * entry)
 {
     PLCacheEntry_t *	ent = *entry;
+    int			host_number = 0;
+    char *		name;
+    char *		number;
 
+    /* clean-up shadow file */
+    name = ni_valforprop(&ent->pl, NIPROP_NAME);
+    number = ni_valforprop(&ent->pl, NIPROP_NETBOOT_NUMBER);
+    if (number != NULL) {
+	host_number = strtol(number, 0, 0);
+    }
+    if (name) {
+	macNC_unlink_shadow(host_number, name);
+	if (verbose) {
+	    syslog(LOG_INFO, "NetBoot: removed shadow file for %s", name);
+	}
+    }
     PLCache_remove(&S_clients.list, ent);
     PLCacheEntry_free(ent);
     *entry = NULL;
@@ -389,6 +475,53 @@ make_bsdp_reply(struct dhcp * reply, int pkt_size,
     return (r);
 }
 
+static struct dhcp * 
+make_bsdp_failed_reply(struct dhcp * reply, int pkt_size, 
+		       struct in_addr server_id,
+		       struct dhcp * request, dhcpoa_t * options_p)
+{
+    unsigned char		msgtype = bsdp_msgtype_failed_e;
+    char			bsdp_buf[32];
+    dhcpoa_t			bsdp_options;
+
+    reply = make_bsdp_reply(reply, pkt_size, server_id, dhcp_msgtype_ack_e,
+			    request, options_p);
+    if (reply == NULL) {
+	return (NULL);
+    }
+    dhcpoa_init(&bsdp_options, bsdp_buf, sizeof(bsdp_buf));
+    if (dhcpoa_add(&bsdp_options, bsdptag_message_type_e,
+		   sizeof(msgtype), &msgtype) != dhcpoa_success_e) {
+	syslog(LOG_INFO, 
+	       "NetBoot: add BSDP end tag failed, %s",
+	       dhcpoa_err(&bsdp_options));
+	return (NULL);
+    }
+
+    if (dhcpoa_add(&bsdp_options, dhcptag_end_e, 0, 0) 
+	!= dhcpoa_success_e) {
+	syslog(LOG_INFO, 
+	       "NetBoot: add BSDP end tag failed, %s",
+	       dhcpoa_err(&bsdp_options));
+	return (NULL);
+    }
+    /* add the BSDP options to the packet */
+    if (dhcpoa_add(options_p, dhcptag_vendor_specific_e,
+		   dhcpoa_used(&bsdp_options), &bsdp_buf)
+	!= dhcpoa_success_e) {
+	syslog(LOG_INFO, "NetBoot: add vendor specific failed, %s",
+	       dhcpoa_err(options_p));
+	return (NULL);
+    }
+    if (dhcpoa_add(options_p, dhcptag_end_e, 0, NULL)
+	!= dhcpoa_success_e) {
+	syslog(LOG_INFO, "NetBoot: add dhcp options end failed, %s",
+	       dhcpoa_err(options_p));
+	return (NULL);
+    }
+    return (reply);
+}
+
 
 static __inline__ boolean_t
 S_prop_u_int32(ni_proplist * pl_p, u_char * prop, u_int32_t * retval)
@@ -407,6 +540,8 @@ S_prop_u_int32(ni_proplist * pl_p, u_char * prop, u_int32_t * retval)
 #define TXBUF_SIZE	2048
 static char	txbuf[TXBUF_SIZE];
 
+
+
 void
 bsdp_request(dhcp_msgtype_t dhcpmsg, interface_t * if_p,
 	     u_char * rxpkt, int n, dhcpol_t * rq_options, 
@@ -420,12 +555,12 @@ bsdp_request(dhcp_msgtype_t dhcpmsg, interface_t * if_p,
     PLCacheEntry_t *	entry;
     u_char *		idstr = NULL;
     dhcpoa_t		options;
-    u_char		err[256];
+    char		err[256];
     struct dhcp *	rq = (struct dhcp *)rxpkt;
     u_int16_t		reply_port = IPPORT_BOOTPC;
     struct dhcp *	reply = NULL;
     dhcpol_t		rq_vsopt;
-    u_char		sysid[256];
+    char		sysid[256];
     u_int16_t *		vers;
 
     if (dhcpmsg != dhcp_msgtype_discover_e
@@ -468,15 +603,24 @@ bsdp_request(dhcp_msgtype_t dhcpmsg, interface_t * if_p,
     }
 
     idstr = identifierToString(rq->dp_htype, rq->dp_chaddr, rq->dp_hlen);
-    if (!quiet) {
-	syslog(LOG_INFO, "BSDP %s [%s] %s arch=%s sysid=%s", 
-	       dhcp_msgtype_names(dhcpmsg), 
-	       if_name(if_p), idstr, arch, sysid);
-    }
     entry = PLCache_lookup_identifier(&S_clients.list, idstr,
 				      NULL, NULL, NULL, NULL);
+    if (!quiet) {
+	char *		name = NULL;
+
+	if (entry) {
+	    name = ni_valforprop(&entry->pl, NIPROP_NAME);
+	}
+	syslog(LOG_INFO, "BSDP %s [%s] %s %s%sarch=%s sysid=%s", 
+	       dhcp_msgtype_names(dhcpmsg), 
+	       if_name(if_p), idstr, 
+	       name ? name : "",
+	       name ? " " : "",
+	       arch, sysid);
+    }
     switch (dhcpmsg) {
       case dhcp_msgtype_discover_e: { /* DISCOVER */
+	  char *	afp_user = NULL;
 	  u_int32_t	image_id;
 
 	  if (strchr(testing_control, 'd')) {
@@ -484,9 +628,16 @@ bsdp_request(dhcp_msgtype_t dhcpmsg, interface_t * if_p,
 	      goto no_reply;
 	  }
 
-	  if (entry == NULL) {
+	  /* have an entry, but not bound */
+	  if (entry) {
+	      afp_user = ni_valforprop(&entry->pl, NIPROP_NETBOOT_AFP_USER);
+	  }
+
+	  /* no entry or user */
+	  if (afp_user == NULL) {
 	      goto no_reply;
 	  }
+
 	  /* reply with a BSDP OFFER packet */
 	  reply = make_bsdp_reply((struct dhcp *)txbuf, sizeof(txbuf),
 				  if_inet_addr(if_p), dhcp_msgtype_offer_e,
@@ -517,16 +668,14 @@ bsdp_request(dhcp_msgtype_t dhcpmsg, interface_t * if_p,
 	  }
 
 	  if (S_client_update(entry, reply, idstr, if_inet_addr(if_p),
-			      image_id, &options) == FALSE) {
-	      /* send an ACK[FAILED] XXX */
-
-	      goto no_reply; /* XXX for now */
+			      image_id, &options, time_in_p) == FALSE) {
+	      goto no_reply;
 	  }
 
 	  if (dhcpoa_add(&bsdp_options, dhcptag_end_e, 0, 0) 
 	      != dhcpoa_success_e) {
 	      syslog(LOG_INFO, 
-		     "NetBoot: [%s] add BSDP end tag failed, %s",
+		     "NetBoot: [%s] add BSDP end tag failed, %s", idstr,
 		     dhcpoa_err(&bsdp_options));
 	      goto no_reply;
 	  }
@@ -541,7 +690,7 @@ bsdp_request(dhcp_msgtype_t dhcpmsg, interface_t * if_p,
 	  if (dhcpoa_add(&options, dhcptag_end_e, 0, NULL)
 	      != dhcpoa_success_e) {
 	      syslog(LOG_INFO, "NetBoot: [%s] add dhcp options end failed, %s",
-		     idstr, dhcpoa_err(&bsdp_options));
+		     idstr, dhcpoa_err(&options));
 	      goto no_reply;
 	  }
 	  { /* send a reply */
@@ -602,6 +751,7 @@ bsdp_request(dhcp_msgtype_t dhcpmsg, interface_t * if_p,
 
 	  switch (msgtype) {
 	    case bsdp_msgtype_list_e: {
+		int		current_count;
 		bsdp_priority_t	priority;
 		u_int32_t	default_image_id = htonl(DEFAULT_IMAGE_ID); /* XXX */
 		u_int32_t	image_id;
@@ -616,16 +766,18 @@ bsdp_request(dhcp_msgtype_t dhcpmsg, interface_t * if_p,
 		if (dhcpoa_add(&bsdp_options, bsdptag_message_type_e,
 			       sizeof(msgtype), &msgtype) 
 		    != dhcpoa_success_e) {
-		    syslog(LOG_INFO, "NetBoot: [%s] add message type failed, %s",
+		    syslog(LOG_INFO, 
+			   "NetBoot: [%s] add message type failed, %s",
 			   idstr, dhcpoa_err(&bsdp_options));
 		    goto no_reply;
 		}
-		if (PLCache_count(&S_clients.list) > server_priority) {
+		current_count = PLCache_count(&S_clients.list);
+		if (current_count > server_priority) {
 		    priority = 0;
 		}
 		else {
-		    priority = htons(server_priority - 
-				     PLCache_count(&S_clients.list));
+		    priority = htons(server_priority - current_count);
+				     
 		}
 		if (dhcpoa_add(&bsdp_options, bsdptag_server_priority_e,
 			       sizeof(priority), &priority) 
@@ -643,15 +795,19 @@ bsdp_request(dhcp_msgtype_t dhcpmsg, interface_t * if_p,
 		    goto no_reply;
 		}
 		if (entry) {
-		    if (strchr(testing_control, 'e')) {
-			printf("NetBoot: Not supplying selected image id\n");
+		    char * afp_user;
+
+		    afp_user = ni_valforprop(&entry->pl, 
+					     NIPROP_NETBOOT_AFP_USER);
+		    if (afp_user == NULL || strchr(testing_control, 'e')) {
+			/* don't supply the selected image */
 		    }
 		    else {
 			if (S_prop_u_int32(&entry->pl, 
 					   NIPROP_NETBOOT_IMAGE_ID, 
 					   &image_id) == FALSE) {
 			    syslog(LOG_INFO, 
-				   "NetBoot: [%s] image id invalid for %s", 
+				   "NetBoot: [%s] image id invalid", 
 				   idstr);
 			    goto no_reply;
 			}
@@ -698,13 +854,13 @@ bsdp_request(dhcp_msgtype_t dhcpmsg, interface_t * if_p,
 		    != dhcpoa_success_e) {
 		    syslog(LOG_INFO, 
 			   "NetBoot: [%s] add dhcp options end failed, %s",
-			   idstr, dhcpoa_err(&bsdp_options));
+			   idstr, dhcpoa_err(&options));
 		    goto no_reply;
 		}
 		break;
 	    }
 	    case bsdp_msgtype_select_e: {
-		bsdp_image_id_t	image_id;
+		bsdp_image_id_t	image_id = DEFAULT_IMAGE_ID;
 		u_int32_t *	selected_image_id;
 		struct in_addr *server_id;
 
@@ -731,15 +887,10 @@ bsdp_request(dhcp_msgtype_t dhcpmsg, interface_t * if_p,
 		selected_image_id = (u_int32_t *)
 		    dhcpol_find(&rq_vsopt, bsdptag_selected_boot_image_e,
 				NULL, NULL);
-		if (selected_image_id == NULL) {
-		    if (!quiet) {
-			syslog(LOG_INFO,
-			       "NetBoot: [%s] INFORM[SELECT] missing "
-			       "selected boot image", idstr);
-		    }
-		    goto no_reply;
+		if (selected_image_id) {
+		    image_id = ntohl(*selected_image_id);
 		}
-		image_id = ntohl(*selected_image_id);
+		
 		/* reply with an ACK[SELECT] packet */
 		reply = make_bsdp_reply((struct dhcp *)txbuf, sizeof(txbuf),
 					if_inet_addr(if_p), dhcp_msgtype_ack_e,
@@ -766,18 +917,35 @@ bsdp_request(dhcp_msgtype_t dhcpmsg, interface_t * if_p,
 		if (entry) {
 		    if (S_client_update(entry, reply, idstr, 
 					if_inet_addr(if_p),
-					image_id, &options)
+					image_id, &options, time_in_p)
 			== FALSE) {
-			/* send an ACK[FAILED] */
-			goto no_reply; /* XXX for now */
+			reply = make_bsdp_failed_reply((struct dhcp *)txbuf,
+						       sizeof(txbuf),
+						       if_inet_addr(if_p),
+						       rq, &options);
+			if (reply) {
+			    /* send an ACK[FAILED] */
+			    msgtype = bsdp_msgtype_failed_e;
+			    goto send_reply;
+			}
+			goto no_reply;
 		    }
 		}
 		else {
 		    if (S_client_create(reply, idstr, arch, sysid, 
 					if_inet_addr(if_p),
-					image_id, &options) == FALSE) {
-			/* send an ACK[FAILED] */
-			goto no_reply; /* XXX for now */
+					image_id, &options, time_in_p) 
+			== FALSE) {
+			reply = make_bsdp_failed_reply((struct dhcp *)txbuf,
+						       sizeof(txbuf),
+						       if_inet_addr(if_p),
+						       rq, &options);
+			if (reply) {
+			    /* send an ACK[FAILED] */
+			    msgtype = bsdp_msgtype_failed_e;
+			    goto send_reply;
+			}
+			goto no_reply;
 		    }
 		}
 		if (dhcpoa_add(&bsdp_options, dhcptag_end_e, 0, NULL)
@@ -801,7 +969,7 @@ bsdp_request(dhcp_msgtype_t dhcpmsg, interface_t * if_p,
 		    != dhcpoa_success_e) {
 		    syslog(LOG_INFO, 
 			   "NetBoot: [%s] add dhcp options end failed, %s",
-			   idstr, dhcpoa_err(&bsdp_options));
+			   idstr, dhcpoa_err(&options));
 		    goto no_reply;
 		}
 		break;
@@ -816,6 +984,7 @@ bsdp_request(dhcp_msgtype_t dhcpmsg, interface_t * if_p,
 		break;
 	    }
 	  }
+      send_reply:
 	  { /* send a reply */
 	      int size;
 	      
@@ -891,7 +1060,7 @@ old_netboot_request(interface_t * if_p,
 {
     PLCacheEntry_t *	bsdp_entry = NULL;
     struct in_addr	iaddr = {0};
-    u_char *		idstr = NULL;
+    char *		idstr = NULL;
     dhcpoa_t		options;
     struct dhcp *	rq = (struct dhcp *)rxpkt;
     struct dhcp *	reply = NULL;
@@ -906,10 +1075,6 @@ old_netboot_request(interface_t * if_p,
     if (idstr == NULL) {
 	return (FALSE);
     }
-    if (!quiet) {
-	syslog(LOG_INFO, "NetBoot[BOOTP]: [%s] %s",
-	       if_name(if_p), idstr);
-    }
     if (dhcp_bootp_allocate(idstr, idstr, rq, if_p, time_in_p, &iaddr,
 			    &subnet) == FALSE) {
 	/* no client binding available */
@@ -917,7 +1082,16 @@ old_netboot_request(interface_t * if_p,
     }
     bsdp_entry = PLCache_lookup_identifier(&S_clients.list, idstr,
 					   NULL, NULL, NULL, NULL);
+    if (!quiet) {
+	char *		name = NULL;
 
+	if (bsdp_entry) {
+	    name = ni_valforprop(&bsdp_entry->pl, NIPROP_NAME);
+	}
+
+	syslog(LOG_INFO, "NetBoot[BOOTP]: [%s] %s %s",
+	       if_name(if_p), idstr, name ? name : "");
+    }
     reply = make_bsdp_bootp_reply((struct dhcp *)txbuf, sizeof(txbuf),
 				  rq, &options);
     if (reply == NULL)
@@ -932,7 +1106,7 @@ old_netboot_request(interface_t * if_p,
 
     if (bsdp_entry) {
 	if (S_client_update(bsdp_entry, reply, idstr, if_inet_addr(if_p),
-			    DEFAULT_IMAGE_ID, &options) 
+			    DEFAULT_IMAGE_ID, &options, time_in_p) 
 	    == FALSE) {
 	    goto no_reply;
 	}
@@ -940,7 +1114,7 @@ old_netboot_request(interface_t * if_p,
     else {
 	if (S_client_create(reply, idstr, "ppc", "unknown", 
 			    if_inet_addr(if_p), DEFAULT_IMAGE_ID, 
-			    &options) == FALSE) {
+			    &options, time_in_p) == FALSE) {
 	    goto no_reply;
 	}
     }

@@ -35,7 +35,7 @@ class IOPCCard16Enabler : public OSObject
 {
     OSDeclareDefaultStructors(IOPCCard16Enabler);
 
- private:
+ protected:
     IOPCCard16Device *		device;
     client_handle_t		handle;
     u_int			state;

@@ -469,7 +469,7 @@ API_EXPORT(void) ap_getparents(char *name)
 {
     int l, w;
 
-    /* Four paseses, as per RFC 1808 */
+    /* Four passes, as per RFC 1808 */
     /* a) remove ./ path segments */
 
     for (l = 0, w = 0; name[l] != '\0';) {
@@ -811,6 +811,9 @@ API_EXPORT(char *) ap_getword_conf(pool *p, const char **line)
 	    ++strend;
     }
     else {
+	if (*str == '#')
+	    ap_log_error(APLOG_MARK, APLOG_WARNING|APLOG_NOERRNO, NULL, 
+			 "Apache does not support line-end comments. Consider using quotes around argument: \"%s\"", str);
 	strend = str;
 	while (*strend && !ap_isspace(*strend))
 	    ++strend;

@@ -49,27 +49,34 @@
 	& IOFireWireLibCommandImp::SSubmitWithRefconAndCallback, \
 	& IOFireWireLibCommandImp::SCancel
 
+#define IOFIREWIRELIBCOMMANDIMP_INTERFACE_v2	\
+	& IOFireWireLibCommandImp::SSetBuffer,	\
+	& IOFireWireLibCommandImp::SGetBuffer,	\
+	& IOFireWireLibCommandImp::SSetMaxPacket,	\
+	& IOFireWireLibCommandImp::SSetFlags
+
 IOFireWireCommandInterface IOFireWireLibCommandImp::sInterface = 
 {
 	INTERFACEIMP_INTERFACE,
 	1, 0, // version/revision
+	
 	IOFIREWIRELIBCOMMANDIMP_INTERFACE
 } ;
 
 IOFireWireReadCommandInterface IOFireWireLibReadCommandImp::sInterface =
 {
 	INTERFACEIMP_INTERFACE,
-	1, 0, // version/revision
+	1, 1, // version/revision
+	
 	IOFIREWIRELIBCOMMANDIMP_INTERFACE,
-
-	& IOFireWireLibReadCommandImp::SSetBuffer,
-	& IOFireWireLibReadCommandImp::SGetBuffer
+	IOFIREWIRELIBCOMMANDIMP_INTERFACE_v2
 } ;
 
 IOFireWireReadQuadletCommandInterface IOFireWireLibReadQuadletCommandImp::sInterface =
 {
 	INTERFACEIMP_INTERFACE,
 	1, 0, // version/revision
+	
 	IOFIREWIRELIBCOMMANDIMP_INTERFACE,
 
 	& IOFireWireLibReadQuadletCommandImp::SSetQuads
@@ -78,11 +85,10 @@ IOFireWireReadQuadletCommandInterface IOFireWireLibReadQuadletCommandImp::sInter
 IOFireWireWriteCommandInterface IOFireWireLibWriteCommandImp::sInterface =
 {
 	INTERFACEIMP_INTERFACE,
-	1, 0, // version/revision
+	1, 1, // version/revision
+	
 	IOFIREWIRELIBCOMMANDIMP_INTERFACE,
-
-	& IOFireWireLibWriteCommandImp::SSetBuffer,
-	& IOFireWireLibWriteCommandImp::SGetBuffer
+	IOFIREWIRELIBCOMMANDIMP_INTERFACE_v2
 } ;
 
 IOFireWireWriteQuadletCommandInterface IOFireWireLibWriteQuadletCommandImp::sInterface =
@@ -111,7 +117,10 @@ IOFireWireLibReadCommandImp::QueryInterface(REFIID iid, LPVOID* ppv)
 
 	CFUUIDRef	interfaceID	= CFUUIDCreateFromUUIDBytes(kCFAllocatorDefault, iid) ;
 
-	if (CFEqual(interfaceID, IUnknownUUID) || CFEqual(interfaceID, kIOFireWireCommandInterfaceID) || CFEqual(interfaceID, kIOFireWireReadCommandInterfaceID) )
+	if ( CFEqual(interfaceID, IUnknownUUID)
+		 || CFEqual(interfaceID, kIOFireWireCommandInterfaceID)
+		 || CFEqual(interfaceID, kIOFireWireReadCommandInterfaceID)
+		 || CFEqual( interfaceID, kIOFireWireReadCommandInterfaceID_v2 ) )
 	{
 		*ppv = & mInterface ;
 		AddRef() ;
@@ -157,7 +166,10 @@ IOFireWireLibWriteCommandImp::QueryInterface(REFIID iid, LPVOID* ppv)
 
 	CFUUIDRef	interfaceID	= CFUUIDCreateFromUUIDBytes(kCFAllocatorDefault, iid) ;
 
-	if (CFEqual(interfaceID, IUnknownUUID) || CFEqual(interfaceID, kIOFireWireCommandInterfaceID) || CFEqual(interfaceID, kIOFireWireWriteCommandInterfaceID) )
+	if ( CFEqual(interfaceID, IUnknownUUID) 
+		 || CFEqual( interfaceID, kIOFireWireCommandInterfaceID ) 
+		 || CFEqual( interfaceID, kIOFireWireWriteCommandInterfaceID )
+		 || CFEqual( interfaceID, kIOFireWireWriteCommandInterfaceID_v2 ) )
 	{
 		*ppv = & mInterface ;
 		AddRef() ;
@@ -328,6 +340,40 @@ IOFireWireLibCommandImp::SCancel(
 	return GetThis(self)->Cancel(reason) ;
 }
 
+void
+IOFireWireLibCommandImp::SSetBuffer(
+	IOFireWireLibCommandRef		self,
+	UInt32						inSize,
+	void*						inBuf)
+{
+	GetThis(self)->SetBuffer(inSize, inBuf) ;
+}
+
+void
+IOFireWireLibCommandImp::SGetBuffer(
+	IOFireWireLibCommandRef		self,
+	UInt32*						outSize,
+	void**						outBuf)
+{
+	GetThis(self)->GetBuffer(outSize, outBuf) ;
+}
+
+IOReturn
+IOFireWireLibCommandImp::SSetMaxPacket(
+	IOFireWireLibCommandRef self,
+	IOByteCount				inMaxBytes)
+{
+	return GetThis(self)->SetMaxPacket(inMaxBytes) ;
+}
+
+void
+IOFireWireLibCommandImp::SSetFlags(
+	IOFireWireLibCommandRef	self,
+	UInt32					inFlags)
+{
+	GetThis(self)->SetFlags(inFlags) ;
+}
+
 
 // ==================================
 // virtual members
@@ -359,13 +405,12 @@ IOFireWireLibCommandImp::~IOFireWireLibCommandImp()
 	{
 		if (mParams->kernCommandRef)
 		{
-				IOReturn result = IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(),
-															kFWCommand_Release,
-															1,
-															0,
-															mParams->kernCommandRef) ;
-			if (kIOReturnSuccess != result)
-				fprintf(stderr, "IOFireWireLibCommandImp::~IOFireWireLibCommandImp: command release returned 0x%08lX\n", result) ;
+			IOReturn result = IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(),
+														kFWCommand_Release,
+														1,
+														0,
+														mParams->kernCommandRef) ;
+			IOFireWireLibLogIfErr_( result, ("IOFireWireLibCommandImp::~IOFireWireLibCommandImp: command release returned 0x%08lX\n", result)) ;
 		}
 	
 		delete mParams ;
@@ -393,7 +438,7 @@ IOFireWireLibCommandImp::Init(
 	mParams->newFailOnReset	= inFailOnReset ;
 	mParams->newGeneration	= inGeneration ;
 	mParams->staleFlags 	= kFireWireCommandStale ;
-	mParams->syncFlag		= inCallback == NULL ;
+	mParams->flags			= (inCallback == nil) ? kFWCommandInterfaceSyncExecute : kFWCommandNoFlags ;
 	mParams->kernCommandRef	= 0 ;
 	
 	return true ;
@@ -440,7 +485,11 @@ IOFireWireLibCommandImp::SetCallback(
 	IOFireWireLibCommandCallback inCallback)
 {
 	mCallback = inCallback ;
-	mParams->syncFlag = (mCallback == nil) ;
+
+	if (mCallback)
+		mParams->flags |= kFWCommandInterfaceSyncExecute ;
+	else
+		mParams->flags &= ~kFWCommandInterfaceSyncExecute ;
 }
 
 void
@@ -456,16 +505,18 @@ IOFireWireLibCommandImp::IsExecuting() const
 	return mIsExecuting; 
 }
 
+
 IOReturn
-IOFireWireLibCommandImp::Submit()
+IOFireWireLibCommandImp::Submit(
+	FWUserCommandSubmitParams*	params,
+	mach_msg_type_number_t		paramsSize,
+	FWUserCommandSubmitResult*	submitResult,
+	mach_msg_type_number_t*		submitResultSize)
 {
+	assert( !mIsExecuting ) ;
+
 	IOReturn 				result 			= kIOReturnSuccess ;
-//	if (mIsExecuting)
-//		return kIOReturnBusy ;
-
-	FWUserCommandSubmitResult		submitResult ;
-	mach_msg_type_number_t			submitResultSize = sizeof(submitResult) ;
-
+		
 	if (mDevice == mUserClient.GetDevice() )
 	{
 		result = io_async_method_structureI_structureO( mUserClient.GetUserClientConnection(),
@@ -473,10 +524,10 @@ IOFireWireLibCommandImp::Submit()
 														mAsyncRef,
 														1,
 														kFWCommand_Submit,
-														(char*) mParams,
-														sizeof(*mParams),
-														(char*) & submitResult,
-														& submitResultSize ) ;
+														(io_struct_inband_t) params,
+														paramsSize,
+														(io_struct_inband_t) submitResult,
+														submitResultSize ) ;
 	}
 	else if (mDevice == 0)
 	{
@@ -485,27 +536,27 @@ IOFireWireLibCommandImp::Submit()
 														mAsyncRef,
 														1,
 														kFWCommand_SubmitAbsolute,
-														(char*) mParams,
-														sizeof(*mParams),
-														(char*) & submitResult,
-														& submitResultSize ) ;
+														(io_struct_inband_t) params,
+														paramsSize,
+														(io_struct_inband_t) submitResult,
+														submitResultSize ) ;
 	}
 	else
 		result = kIOReturnNoDevice ;
 	
 	if (kIOReturnSuccess == result)
 	{
-		if (mParams->syncFlag)
+		if (mParams->flags & kFWCommandInterfaceSyncExecute)
 		{
-			mStatus = submitResult.result ;
-			mBytesTransferred = submitResult.bytesTransferred ;
+			mStatus = submitResult->result ;
+			mBytesTransferred = submitResult->bytesTransferred ;
 		}
 		else	
 			mIsExecuting = true ;
 
 		mParams->staleFlags = 0 ;
 		if (!mParams->kernCommandRef)
-			mParams->kernCommandRef = submitResult.kernCommandRef ;
+			mParams->kernCommandRef = submitResult->kernCommandRef ;
  	}
 
 	return result ;
@@ -537,6 +588,46 @@ IOFireWireLibCommandImp::Cancel(
 										  1,
 										  0,
 										  mParams->kernCommandRef) ;
+}
+
+void
+IOFireWireLibCommandImp::SetBuffer(
+	UInt32				inSize,
+	void*				inBuffer)
+{
+	mParams->newBufferSize = inSize ;
+	mParams->newBuffer = inBuffer ;
+	mParams->staleFlags |= kFireWireCommandStale_Buffer ;
+}
+
+void
+IOFireWireLibCommandImp::GetBuffer(
+	UInt32*				outSize,
+	void**				outBuf)
+{
+	*outSize = mParams->newBufferSize ;
+	*outBuf	= mParams->newBuffer ;
+}
+
+IOReturn
+IOFireWireLibCommandImp::SetMaxPacket(
+	IOByteCount				inMaxBytes)
+{
+	mParams->newMaxPacket = inMaxBytes ;
+	return kIOReturnSuccess ;
+}
+
+void
+IOFireWireLibCommandImp::SetFlags(
+	UInt32					inFlags)
+{
+	mParams->flags &= ~kFireWireCommandUserFlagsMask ;
+	mParams->flags |= (inFlags | kFireWireCommandUserFlagsMask) ;
+
+	if (mParams->flags & kFWCommandInterfaceForceCopyAlways)
+		mParams->flags |= kFireWireCommandUseCopy ;
+	if (mParams->flags & kFWCommandInterfaceForceNoCopy)
+		mParams->flags &= ~kFireWireCommandUseCopy ;
 }
 
 void
@@ -606,30 +697,15 @@ IOFireWireLibReadCommandImp::Init(
 	if (!IOFireWireLibCommandImp::Init(addr, callback, failOnReset, generation, inRefCon))
 		return false ;
 
-	mParams->type			= kFireWireCommandType_Read ;
-	mParams->newBuffer		= buf ;
-	mParams->newBufferSize	= size ;
-	mParams->staleFlags |= kFireWireCommandStale_Buffer ;
+	mParams->type			 = kFireWireCommandType_Read ;
+	mParams->newBuffer		 = buf ;
+	mParams->newBufferSize	 = size ;
+	mParams->staleFlags 	|= kFireWireCommandStale_Buffer ;
+
+//	mSubmitSelector 			= kFWCommand_SubmitRead ;
+//	mSubmitAbsoluteSelector 	= kFWCommand_SubmitReadAbsolute ;
 
 	return true ;
-}
-
-void
-IOFireWireLibReadCommandImp::SSetBuffer(
-	IOFireWireLibReadCommandRef	self,
-	UInt32						inSize,
-	void*						inBuf)
-{
-	GetThis(self)->SetBuffer(inSize, inBuf) ;
-}
-
-void
-IOFireWireLibReadCommandImp::SGetBuffer(
-	IOFireWireLibReadCommandRef	self,
-	UInt32*						outSize,
-	void**						outBuf)
-{
-	GetThis(self)->GetBuffer(outSize, outBuf) ;
 }
 
 IOFireWireLibReadCommandImp::IOFireWireLibReadCommandImp(
@@ -651,25 +727,34 @@ IOFireWireLibReadCommandImp::IOFireWireLibReadCommandImp(
 
 }
 
-void
-IOFireWireLibReadCommandImp::GetBuffer(
-	UInt32*				outSize,
-	void**				outBuf)
+IOReturn
+IOFireWireLibReadCommandImp::Submit()
 {
-	*outSize = mParams->newBufferSize ;
-	*outBuf	= mParams->newBuffer ;
-}
+	if ( mIsExecuting )
+		return kIOReturnBusy ;
 
-void
-IOFireWireLibReadCommandImp::SetBuffer(
-	UInt32				inSize,
-	void*				inBuffer)
-{
-	mParams->newBufferSize = inSize ;
-	mParams->newBuffer = inBuffer ;
-	mParams->staleFlags |= kFireWireCommandStale_Buffer ;
-}
+	IOReturn 				result 			= kIOReturnSuccess ;
 
+	UInt8						submitResultExtra[sizeof(FWUserCommandSubmitResult) + kFWUserCommandSubmitWithCopyMaxBufferBytes] ;
+	FWUserCommandSubmitResult*	submitResult = (FWUserCommandSubmitResult*) submitResultExtra ;
+	mach_msg_type_number_t		submitResultSize ;
+	
+	if (mParams->flags & kFireWireCommandUseCopy)
+		submitResultSize = sizeof(*submitResult) + mParams->newBufferSize ;
+	else
+		submitResultSize = sizeof(*submitResult) ;
+
+	result = IOFireWireLibCommandImp::Submit(mParams, sizeof(*mParams), submitResult, & submitResultSize) ;
+	
+	if ((mParams->flags & kFWCommandInterfaceSyncExecute) && 
+		(mParams->flags & kFireWireCommandUseCopy) &&
+		(kIOReturnSuccess == result))
+	{
+		bcopy(submitResult + 1, mParams->newBuffer, mBytesTransferred) ;
+	}
+		
+	return result ;
+}
 
 // ============================================================
 //
@@ -726,7 +811,8 @@ IOFireWireLibReadQuadletCommandImp::Init(
 	mParams->type			= kFireWireCommandType_ReadQuadlet ;
 	mParams->newBuffer		= quads ;
 	mParams->newBufferSize	= numQuads << 2 ;	// x * 4
-	mParams->staleFlags |= kFireWireCommandStale_Buffer ;
+	mParams->staleFlags 	|= kFireWireCommandStale_Buffer ;
+	mParams->flags			|= kFireWireCommandUseCopy ;
 
 	return true ;
 }
@@ -764,15 +850,17 @@ IOFireWireLibReadQuadletCommandImp::SetQuads(
 IOReturn
 IOFireWireLibReadQuadletCommandImp::Submit()
 {
-	IOReturn 				result 			= kIOReturnSuccess ;
 	if (mIsExecuting)
 		return kIOReturnBusy ;
 
-	UInt8							submitResultExtra[sizeof(FWUserCommandSubmitResult) + (mParams->syncFlag ? mParams->newBufferSize : 0)] ;
+	IOReturn 				result 			= kIOReturnSuccess ;
+
+	Boolean							syncFlag = mParams->flags & kFWCommandInterfaceSyncExecute ;
+	UInt8							submitResultExtra[sizeof(FWUserCommandSubmitResult) + (syncFlag ? mParams->newBufferSize : 0)] ;
 	mach_msg_type_number_t			submitResultSize = sizeof(submitResultExtra) ;
 	FWUserCommandSubmitResult*		submitResult = (FWUserCommandSubmitResult*) submitResultExtra ;
 
-	if (mDevice == mUserClient.GetDevice() )
+/*	if (mDevice == mUserClient.GetDevice() )
 	{
 		result = io_async_method_structureI_structureO( mUserClient.GetUserClientConnection(),
 														mUserClient.GetAsyncPort(),
@@ -797,22 +885,24 @@ IOFireWireLibReadQuadletCommandImp::Submit()
 														& submitResultSize ) ;
 	}
 	else
-		result = kIOReturnNoDevice ;
+		result = kIOReturnNoDevice ; */
+	
+	result = IOFireWireLibCommandImp::Submit(mParams, sizeof(*mParams), submitResult, & submitResultSize) ;
 	
 	if (kIOReturnSuccess == result)
 	{
-		if (mParams->syncFlag)
+		if ( syncFlag )
 		{
-			mStatus = submitResult->result ;
-			mBytesTransferred = submitResult->bytesTransferred ;
+//			mStatus = submitResult->result ;
+//			mBytesTransferred = submitResult->bytesTransferred ;
 			bcopy(submitResult + 1, mParams->newBuffer, mBytesTransferred) ;
 		}
-		else	
-			mIsExecuting = true ;
+//		else	
+//			mIsExecuting = true ;
 
-		mParams->staleFlags = 0 ;
-		if (!mParams->kernCommandRef)
-			mParams->kernCommandRef = submitResult->kernCommandRef ;
+//		mParams->staleFlags = 0 ;
+//		if (!mParams->kernCommandRef)
+//			mParams->kernCommandRef = submitResult->kernCommandRef ;
  	}
 
 	return result ;
@@ -895,25 +985,10 @@ IOFireWireLibWriteCommandImp::Init(
 	mParams->newBufferSize	= size ;
 	mParams->staleFlags |= kFireWireCommandStale_Buffer ;
 
+//	mSubmitSelector 			= kFWCommand_SubmitWrite ;
+//	mSubmitAbsoluteSelector 	= kFWCommand_SubmitWriteAbsolute ;
+
 	return true ;
-}
-
-void
-IOFireWireLibWriteCommandImp::SSetBuffer(
-	IOFireWireLibWriteCommandRef	self,
-	UInt32					inSize,
-	void*					inBuf)
-{
-	GetThis(self)->SetBuffer(inSize, inBuf) ;
-}
-
-void
-IOFireWireLibWriteCommandImp::SGetBuffer(
-	IOFireWireLibWriteCommandRef	self,
-	UInt32*					outSize,
-	const void**					outBuf)
-{
-	GetThis(self)->GetBuffer(outSize, outBuf) ;
 }
 
 IOFireWireLibWriteCommandImp::IOFireWireLibWriteCommandImp(
@@ -926,25 +1001,27 @@ IOFireWireLibWriteCommandImp::IOFireWireLibWriteCommandImp(
 	
 }
 
-void
-IOFireWireLibWriteCommandImp::GetBuffer(
-	UInt32*				outSize,
-	const void**		outBuf)
+IOReturn
+IOFireWireLibWriteCommandImp::Submit()
 {
-	*outSize = mParams->newBufferSize ;
-	*outBuf	= mParams->newBuffer ;
-}
+	if (mIsExecuting)
+		return kIOReturnBusy ;
 
-void
-IOFireWireLibWriteCommandImp::SetBuffer(
-	UInt32				inSize,
-	void*				inBuffer)
-{
-	mParams->newBufferSize = inSize ;
-	mParams->newBuffer = inBuffer ;
-	mParams->staleFlags |= kFireWireCommandStale_Buffer ;
-}
+	IOReturn 				result 			= kIOReturnSuccess ;
 
+	FWUserCommandSubmitResult	submitResult ;
+	mach_msg_type_number_t		submitResultSize = sizeof(submitResult) ;
+	UInt32						paramsSize ;
+
+	if (mParams->flags & kFireWireCommandUseCopy)
+		paramsSize = sizeof(*mParams) + mParams->newBufferSize ;
+	else
+		paramsSize = sizeof(*mParams) ;
+
+	result = IOFireWireLibCommandImp::Submit(mParams, paramsSize, & submitResult, & submitResultSize) ;
+
+	return result ;
+}
 
 // ============================================================
 //
@@ -1001,7 +1078,11 @@ IOFireWireLibWriteQuadletCommandImp::Init(
 	mParams->type			= kFireWireCommandType_WriteQuadlet ;
 	mParams->newBuffer 		= mParams+1;//(void*) quads ;
 	mParams->newBufferSize 	= numQuads << 2 ; // * 4
-	mParams->staleFlags |= kFireWireCommandStale_Buffer ;
+	mParams->staleFlags 	|= kFireWireCommandStale_Buffer ;
+	mParams->flags			|= kFireWireCommandUseCopy ;
+
+//	mSubmitSelector 			= kFWCommand_SubmitWrite ;
+//	mSubmitAbsoluteSelector 	= kFWCommand_SubmitWriteAbsolute ;
 
 	bcopy(quads, mParams+1, mParams->newBufferSize) ;
 
@@ -1029,17 +1110,6 @@ IOFireWireLibWriteQuadletCommandImp::IOFireWireLibWriteQuadletCommandImp(
 
 IOFireWireLibWriteQuadletCommandImp::~IOFireWireLibWriteQuadletCommandImp()
 {
-	if (mParams->kernCommandRef)
-	{
-		IOReturn result = IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(),
-													kFWCommand_Release,
-													1,
-													0,
-													mParams->kernCommandRef) ;
-		if (kIOReturnSuccess != result)
-			fprintf(stderr, "IOFireWireLibWriteQuadletCommandImp::~IOFireWireLibWriteQuadletCommandImp: command release returned 0x%08lX\n", result) ;
-	}
-
 	delete[] mParamsExtra ;
 	mParamsExtra = nil ;
 	mParams = nil ;
@@ -1059,8 +1129,8 @@ IOFireWireLibWriteQuadletCommandImp::SetQuads(
 
 		// allocate a new submit params + quad storage area:
 		UInt8* newParamsExtra = new UInt8[sizeof(FWUserCommandSubmitParams) + newSize] ;
-		if (!newParamsExtra)
-			fprintf(stderr, "warning: IOFireWireLibWriteQuadletCommandImp::SetQuads: out of memory!\n") ;
+
+		IOFireWireLibLogIfNil_(newParamsExtra, ("warning: IOFireWireLibWriteQuadletCommandImp::SetQuads: out of memory!\n")) ;
 
 		// copy the old params to the new param block (which is at the beginning of ParamsExtra):
 		bcopy(mParams, newParamsExtra+0, sizeof(*mParams)) ;
@@ -1086,16 +1156,17 @@ IOFireWireLibWriteQuadletCommandImp::SetQuads(
 IOReturn
 IOFireWireLibWriteQuadletCommandImp::Submit()
 {
-	IOReturn 				result 			= kIOReturnSuccess ;
 	if (mIsExecuting)
 		return kIOReturnBusy ;
+
+	IOReturn 				result 			= kIOReturnSuccess ;
 
 //	mParams->syncFlag	= (mParams.callback == NULL) ? kFireWireCommandExecute_Sync : kFireWireCommandExecute_Async ;
 
 	FWUserCommandSubmitResult		submitResult ;
 	mach_msg_type_number_t			submitResultSize = sizeof(result) ;
 
-	if (mDevice == mUserClient.GetDevice() )
+/*	if (mDevice == mUserClient.GetDevice() )
 	{
 		result = io_async_method_structureI_structureO( mUserClient.GetUserClientConnection(),
 														mUserClient.GetAsyncPort(),
@@ -1120,11 +1191,13 @@ IOFireWireLibWriteQuadletCommandImp::Submit()
 														& submitResultSize ) ;
 	}
 	else
-		result = kIOReturnNoDevice ;
+		result = kIOReturnNoDevice ; */
 	
-	if (kIOReturnSuccess == result)
+	IOFireWireLibCommandImp::Submit(mParams, sizeof(*mParams)+mParams->newBufferSize, & submitResult, & submitResultSize) ;
+
+/*	if (kIOReturnSuccess == result)
 	{
-		if (mParams->syncFlag)
+		if (mParams->flags & kFireWireCommandUseCopy)
 		{
 			mStatus = submitResult.result ;
 			mBytesTransferred = submitResult.bytesTransferred ;
@@ -1135,7 +1208,7 @@ IOFireWireLibWriteQuadletCommandImp::Submit()
 		mParams->staleFlags = 0 ;
 		if (!mParams->kernCommandRef)
 			mParams->kernCommandRef = submitResult.kernCommandRef ;
- 	}
+ 	} */
 
 	return result ;
 }
@@ -1193,7 +1266,9 @@ IOFireWireLibCompareSwapCommandImp::Init(
 		return false ;
 	
 	mParams->type			= kFireWireCommandType_CompareSwap ;
-	mParams->newBufferSize = numQuads << 2 ;
+	mParams->newBufferSize 	= numQuads << 2 ;
+	mParams->flags			|= kFireWireCommandUseCopy ;	// compare swap always does in-line submits
+
 	if (cmpVal && newVal)
 	{
 		bcopy(& newVal, (UInt32*)(mParams + 1), mParams->newBufferSize) ;
@@ -1225,17 +1300,6 @@ IOFireWireLibCompareSwapCommandImp::IOFireWireLibCompareSwapCommandImp(
 
 IOFireWireLibCompareSwapCommandImp::~IOFireWireLibCompareSwapCommandImp()
 {
-	if (mParams->kernCommandRef)
-	{
-		IOReturn result = IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(),
-													kFWCommand_Release,
-													1,
-													0,
-													mParams->kernCommandRef) ;
-		if (kIOReturnSuccess != result)
-			fprintf(stderr, "IOFireWireLibWriteQuadletCommandImp::~IOFireWireLibWriteQuadletCommandImp: command release returned 0x%08lX\n", result) ;
-	}
-
 	delete[] mParamsExtra ;
 	mParamsExtra = nil ;
 	mParams = nil ;
@@ -1263,16 +1327,20 @@ IOFireWireLibCompareSwapCommandImp::SetValues(
 IOReturn
 IOFireWireLibCompareSwapCommandImp::Submit()
 {
-	IOReturn 				result 			= kIOReturnSuccess ;
 	if (mIsExecuting)
 		return kIOReturnBusy ;
+
+	IOReturn 				result 			= kIOReturnSuccess ;
 
 //	mParams.syncFlag	= (mParams.callback == NULL) ? kFireWireCommandExecute_Sync : kFireWireCommandExecute_Async ;
 
 	FWUserCommandSubmitResult		submitResult ;
 	mach_msg_type_number_t			submitResultSize = sizeof(result) ;
 
-	if (mDevice == mUserClient.GetDevice() )
+	result = IOFireWireLibCommandImp::Submit(mParams, (mach_msg_type_number_t)(sizeof(*mParams)+mParams->newBufferSize << 1), 
+											 & submitResult, & submitResultSize) ;
+
+/*	if (mDevice == mUserClient.GetDevice() )
 	{
 		result = io_async_method_structureI_structureO( mUserClient.GetUserClientConnection(),
 														mUserClient.GetAsyncPort(),
@@ -1312,7 +1380,7 @@ IOFireWireLibCompareSwapCommandImp::Submit()
 		mParams->staleFlags = 0 ;
 		if (!mParams->kernCommandRef)
 			mParams->kernCommandRef = submitResult.kernCommandRef ;
- 	}
+ 	}*/
 
 	return result ;
 }

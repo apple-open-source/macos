@@ -1364,8 +1364,13 @@ static int modify_configuration(client_handle_t handle,
 	s->ss_entry(s->sock, SS_SetSocket, &s->socket);
     }
 
+#ifdef __MACOSX__
+    if (mod->Attributes & CONF_VCC_CHANGE_VALID)
+	c->Vcc = mod->Vcc;
+#else
     if (mod->Attributes & CONF_VCC_CHANGE_VALID)
 	return CS_BAD_VCC;
+#endif
 
     /* We only allow changing Vpp1 and Vpp2 to the same value */
     if ((mod->Attributes & CONF_VPP1_CHANGE_VALID) &&
@@ -1695,9 +1700,13 @@ static int request_configuration(client_handle_t handle,
     if (c->state & CONFIG_LOCKED)
 	return CS_CONFIGURATION_LOCKED;
 
+#ifdef __MACOSX__
+    s->socket.Vcc = req->Vcc;
+#else
     /* Do power control.  We don't allow changes in Vcc. */
     if (s->socket.Vcc != req->Vcc)
 	return CS_BAD_VCC;
+#endif
     if (req->Vpp1 != req->Vpp2)
 	return CS_BAD_VPP;
     s->socket.Vpp = req->Vpp1;
@@ -2097,6 +2106,9 @@ static int resume_card(client_handle_t handle, client_req_t *req)
 {
     int i;
     socket_info_t *s;
+#ifdef __MACOSX__
+    int stat;
+#endif
     
     if (CHECK_HANDLE(handle))
 	return CS_BAD_HANDLE;
@@ -2107,7 +2119,17 @@ static int resume_card(client_handle_t handle, client_req_t *req)
 	return CS_IN_USE;
 
     DEBUG(1, "cs: waking up socket %d\n", i);
+#ifdef __MACOSX__
+    /* Do this just to reinitialize the socket */
+    init_socket(s);
+    s->ss_entry(s->sock, SS_GetStatus, &stat);
+    /* If there was or is a card here, we need to do something
+       about it... but parse_events will sort it all out. */
+    if ((s->state & SOCKET_PRESENT) || (stat & SS_DETECT))
+	parse_events(s, SS_DETECT);
+#else
     setup_socket(i);
+#endif
 
     return CS_SUCCESS;
 } /* resume_card */
@@ -2146,6 +2168,12 @@ static int eject_card(client_handle_t handle, client_req_t *req)
     spin_unlock_irqrestore(&s->lock, flags);
 #endif
     
+#ifdef __MACOSX__
+    ret = send_event(s, CS_EVENT_EJECTION_COMPLETE, CS_EVENT_PRI_LOW);
+    if (ret != 0)
+	return ret;
+#endif
+
     return CS_SUCCESS;
     
 } /* eject_card */

@@ -1,307 +1,356 @@
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
-<html>
-<!-- Traduction anglais 1.17 -->
-<head>
-<meta http-equiv="Content-Type" content=
-"text/html; charset=iso-8859-1">
-<title>Fichiers de configuration</title>
-</head>
-<!-- Background white, links blue (unvisited), navy (visited), red (active) -->
-<body bgcolor="#FFFFFF" text="#000000" link="#0000FF" vlink=
-"#000080" alink="#FF0000">
-<!--#include virtual="header.html" -->
-<h1 align="CENTER">Fichiers de configuration</h1>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
-<ul>
-<li><a href="#main">Principaux fichiers de configuration</a></li>
-<li><a href="#syntax">Syntaxe des fichiers de
-configuration</a></li>
-<li><a href="#modules">Modules</a></li>
-<li><a href="#scope">Portée des directives</a></li>
-<li><a href="#htaccess">Fichiers .htaccess</a></li>
-<li><a href="#logs">Fichiers de trace</a></li>
-</ul>
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <!-- Traduction anglais 1.17 -->
 
-<hr>
-<h2><a name="main">Principaux fichiers de configuration</a></h2>
+  <head>
+    <meta name="generator" content="HTML Tidy, see www.w3.org" />
+    <meta http-equiv="Content-Type"
+    content="text/html; charset=iso-8859-1" />
 
-<table border="1">
-<tr>
-<td valign="top"><strong>Modules liés</strong><br>
-<br>
-<a href="mod/mod_mime.html">mod_mime</a><br>
-</td>
-<td valign="top"><strong>Directives liées</strong><br>
-<br>
-<a href="mod/core.html#accessconfig">AccessConfig</a><br>
-<a href="mod/core.html#ifdefine">&lt;IfDefine&gt;</a><br>
-<a href="mod/core.html#include">Include</a><br>
-<a href="mod/core.html#resourceconfig">ResourceConfig</a><br>
-<a href="mod/mod_mime.html#typesconfig">TypesConfig</a><br>
-</td>
-</tr>
-</table>
+    <title>Fichiers de configuration</title>
+  </head>
+  <!-- Background white, links blue (unvisited), navy (visited), red (active) -->
 
-<p>Apache se configure en plaçant des <a href=
-"mod/directives.html">directives</a> dans des fichiers textes de
-configuration. Le fichier de configuration principal est
-généralement appelé <code>httpd.conf</code>.
-L'emplacement de ce fichier est fixé à la
-compilation, mais peut être redéfini en utilisant
-l'option de ligne de commande <code>-f</code>. Certains sites
-possèdent également des fichiers
-<code>srm.conf</code> et <code>access.conf</code> pour des <a
-href="http://www.apache.org/info/three-config-files.html">raisons
-historiques</a>. De plus, d'autres fichiers de configuration
-peuvent être ajoutés en utilisant la directive
-<code><a href="mod/core.html#include">Include</a></code>. Les
-directives peuvent être placées dans n'importe quel
-fichier. Les modifications dans le fichier de configuration
-principal ne sont prises en compte qu'au démarrage ou
-au redémarrage d'Apache.</p>
+  <body bgcolor="#FFFFFF" text="#000000" link="#0000FF"
+  vlink="#000080" alink="#FF0000">
+        <div align="CENTER">
+      <img src="images/sub.gif" alt="[APACHE DOCUMENTATION]" /> 
 
-<p>Une nouveauté de la version 1.3.13 d'Apache est la
-possibilité qu'un fichier de configuration soit en fait un
-répertoire. Dans ce cas, Apache lira tous les fichiers et
-sous répertoires et les traitera comme fichiers de
-configuration. Une utilisation possible de cette
-fonctionnalité est de pouvoir ajouter des hôtes
-virtuels en créant des fichiers de configuration pour
-chaque hôte, et de les placer dans le répertoire de
-configuration. Ainsi, vous pouvez ajouter ou retirer des
-hôtes virtuels sans avoir à éditer de
-fichiers, mais simplement en ajoutant ou supprimant un fichier.
-Celà permet d'automatiser plus facilement ce genre de
-traitement.</p>
+      <h3>Apache HTTP Server</h3>
+    </div>
 
-<p>Le serveur lit également un fichier décrivant
-les types de contenu MIME; le nom de ce fichier est
-défini par la directive <a href=
-"mod/mod_mime.html#typesconfig">TypesConfig</a> et est par
-défaut <code>mime.types</code>.</p>
 
-<hr>
-<h2><a name="syntax">Syntaxe des fichiers de
-configuration</a></h2>
 
-<p>Les fichiers de configurations contiennent au plus une
-directive par ligne. Le caractère &quot;\&quot; peut être
-utilisé à la fin d'une ligne pour indiquer que la
-directive se poursuit sur la ligne suivante. Il ne doit pas y
-avoir d'autres caractère ou d'espace entre le
-caractère &quot;\&quot; et la fin de la ligne.</p>
+    <h1 align="CENTER">Fichiers de configuration</h1>
 
-<p>Dans les fichiers de configuration, l'écriture des noms
-des directives n'est pas sensible à la casse, mais les
-arguments des directives le sont généralement. Les
-lignes blanches et les espaces précédant une
-directive sont ignorés. Les commentaires <strong>ne
-doivent pas</strong> être inclus sur la même ligne
-qu'une directive. Les lignes commençant par le
-caractère dièse "#" sont traitées comme des
-commentaires et sont ignorés; vous pouvez les utiliser
-pour indenter les directives et rendre leur lecture plus
-facile.</p>
+    <ul>
+      <li><a href="#main">Principaux fichiers de
+      configuration</a></li>
 
-<p>Vous pouvez vérifier la syntaxe de vos fichiers de
-configuration en utilisant soit <code>apachectl configtest</code>
-soit l'option de ligne de commande <code>-t</code>.</p>
+      <li><a href="#syntax">Syntaxe des fichiers de
+      configuration</a></li>
 
-<hr>
-<h2><a name="modules">Modules</a></h2>
+      <li><a href="#modules">Modules</a></li>
 
-<table border="1">
-<tr>
-<td valign="top"><strong>Modules liés</strong><br>
-<br>
-<a href="mod/mod_so.html">mod_so</a><br>
-</td>
-<td valign="top"><strong>Directives liées</strong><br>
-<br>
-<a href="mod/core.html#addmodule">AddModule</a><br>
-<a href="mod/core.html#clearmodulelist">ClearModuleList</a><br>
-<a href="mod/core.html#ifmodule">&lt;IfModule&gt;</a><br>
-<a href="mod/mod_so.html#loadmodule">LoadModule</a><br>
-</td>
-</tr>
-</table>
+      <li><a href="#scope">Port&eacute;e des directives</a></li>
 
-<p>Apache est un serveur modulaire. Celà implique que seules les
-fonctions de base sont incluses dans le noyau du serveur. Les
-fonctionnalités plus avancées sont disponibles
-grâce aux <a href="mod/index-bytype.html">modules</a> qui
-peuvent être chargés dans Apache. Par défaut,
-un ensemble de modules de <a href=
-"mod/module-dict.html#Status">base</a> sont inclus à la
-compilation. Si le serveur est compilé pour utiliser les
-modules <a href="dso.html">dynamiquement chargés</a>,
-alors les modules peuvent être compilés
-séparément et ajouté à n'importe quel
-moment en utilisant la directive <a href=
-"mod/mod_so.html#loadmodule">LoadModule</a>. Sinon, Apache doit
-être recompilé pour ajouter ou supprimer des
-modules. Des directives de configuration peuvent être
-incluses de manière conditionnelle en fonction de la
-présence d'un module particulier en les entourant par un
-bloc <a href="mod/core.html#ifmodule">&lt;IfModule&gt;</a>.</p>
+      <li><a href="#htaccess">Fichiers .htaccess</a></li>
 
-<p>Pour savoir quels modules ont été compilés
-dans le serveur, vous pouvez utiliser l'option de ligne de
-commande <code>-l</code>.</p>
+      <li><a href="#logs">Fichiers de trace</a></li>
+    </ul>
+    <hr />
 
-<hr>
-<h2><a name="scope">Portée des directives</a></h2>
+    <h2><a id="main" name="main">Principaux fichiers de
+    configuration</a></h2>
 
-<table border="1">
-<tr>
-<td valign="top"><strong>Directives liées</strong><br>
-<br>
-<a href="mod/core.html#directory">&lt;Directory&gt;</a><br>
-<a href=
-"mod/core.html#directorymatch">&lt;DirectoryMatch&gt;</a><br>
-<a href="mod/core.html#files">&lt;Files&gt;</a><br>
-<a href="mod/core.html#filesmatch">&lt;FilesMatch&gt;</a><br>
-<a href="mod/core.html#location">&lt;Location&gt;</a><br>
-<a href=
-"mod/core.html#locationmatch">&lt;LocationMatch&gt;</a><br>
-<a href="mod/core.html#virtualhost">&lt;VirtualHost&gt;</a><br>
-</td>
-</tr>
-</table>
+    <table border="1">
+      <tr>
+        <td valign="top"><strong>Modules li&eacute;s</strong><br />
+         <br />
+         <a href="mod/mod_mime.html">mod_mime</a><br />
+         </td>
 
-<p>Les directives placées dans les principaux fichiers de
-configuration s'appliquent à l'ensemble du serveur. Si
-vous souhaitez modifier la configuration pour une partie
-seulement du serveur, vous pouvez mettre en contexte vos
-directives en les plaçant dans des sections <code><a href=
-"mod/core.html#directory">&lt;Directory&gt;</a>, <a href=
-"mod/core.html#directorymatch">&lt;DirectoryMatch&gt;</a>, <a
-href="mod/core.html#files">&lt;Files&gt;</a>, <a href=
-"mod/core.html#filesmatch">&lt;FilesMatch&gt;</a>, <a href=
-"mod/core.html#location">&lt;Location&gt;</a>,</code> et <code><a
-href=
-"mod/core.html#locationmatch">&lt;LocationMatch&gt;</a></code> .
-Ces sections limitent la portée d'application des
-directives qu'elles contiennent à un emplacement des
-fichiers ou à certaines URL. Elles peuvent être
-imbriquées, permettant ainsi une configuration très
-fine.</p>
+        <td valign="top"><strong>Directives
+        li&eacute;es</strong><br />
+         <br />
+         <a
+        href="mod/core.html#accessconfig">AccessConfig</a><br />
+         <a
+        href="mod/core.html#ifdefine">&lt;IfDefine&gt;</a><br />
+         <a href="mod/core.html#include">Include</a><br />
+         <a
+        href="mod/core.html#resourceconfig">ResourceConfig</a><br />
+         <a
+        href="mod/mod_mime.html#typesconfig">TypesConfig</a><br />
+         </td>
+      </tr>
+    </table>
 
-<p>Apache a la possibilité de servir plusieurs sites web
-simultanément. Cette possibilité est appelée
-<a href="vhosts/">hébergement virtuel</a>. Des directives
-peuvent également être limitées en utilisant
-des sections <code><a href=
-"mod/core.html#virtualhost">&lt;VirtualHost&gt;</a></code> afin
-qu'elles ne s'appliquent qu'à certains sites web.</p>
+    <p>Apache se configure en pla&ccedil;ant des <a
+    href="mod/directives.html">directives</a> dans des fichiers
+    textes de configuration. Le fichier de configuration principal
+    est g&eacute;n&eacute;ralement appel&eacute;
+    <code>httpd.conf</code>. L'emplacement de ce fichier est
+    fix&eacute; &agrave; la compilation, mais peut &ecirc;tre
+    red&eacute;fini en utilisant l'option de ligne de commande
+    <code>-f</code>. Certains sites poss&egrave;dent
+    &eacute;galement des fichiers <code>srm.conf</code> et
+    <code>access.conf</code> pour des <a
+    href="http://httpd.apache.org/info/three-config-files.html">raisons
+    historiques</a>. De plus, d'autres fichiers de configuration
+    peuvent &ecirc;tre ajout&eacute;s en utilisant la directive
+    <code><a href="mod/core.html#include">Include</a></code>. Les
+    directives peuvent &ecirc;tre plac&eacute;es dans n'importe
+    quel fichier. Les modifications dans le fichier de
+    configuration principal ne sont prises en compte qu'au
+    d&eacute;marrage ou au red&eacute;marrage d'Apache.</p>
 
-<p>Bien que la plupart des directives peuvent être
-placées à l'intérieur de n'importe quelle
-section, certaines directives n'ont pas de sens dans certains
-contextes. Par exemple, les directives contrôlant la
-création des processus ne peuvent être placées
-que dans le contexte pricipal du serveur. Pour savoir quelles
-directives peuvent être placées dans quelles
-sections, vérifiez le <a href=
-"mod/directive-dict.html#Context">contexte</a> de la directive.
-Pour plus d'informations, voir <a href="sections.html">comment
-les sections Directory, Location et Files fonctionnent</a>.</p>
+    <p>Une nouveaut&eacute; de la version 1.3.13 d'Apache est la
+    possibilit&eacute; qu'un fichier de configuration soit en fait
+    un r&eacute;pertoire. Dans ce cas, Apache lira tous les
+    fichiers et sous r&eacute;pertoires et les traitera comme
+    fichiers de configuration. Une utilisation possible de cette
+    fonctionnalit&eacute; est de pouvoir ajouter des h&ocirc;tes
+    virtuels en cr&eacute;ant des fichiers de configuration pour
+    chaque h&ocirc;te, et de les placer dans le r&eacute;pertoire
+    de configuration. Ainsi, vous pouvez ajouter ou retirer des
+    h&ocirc;tes virtuels sans avoir &agrave; &eacute;diter de
+    fichiers, mais simplement en ajoutant ou supprimant un fichier.
+    Cel&agrave; permet d'automatiser plus facilement ce genre de
+    traitement.</p>
 
-<hr>
-<h2><a name="htaccess">Fichiers .htaccess</a></h2>
+    <p>Le serveur lit &eacute;galement un fichier d&eacute;crivant
+    les types de contenu MIME; le nom de ce fichier est
+    d&eacute;fini par la directive <a
+    href="mod/mod_mime.html#typesconfig">TypesConfig</a> et est par
+    d&eacute;faut <code>mime.types</code>.</p>
+    <hr />
 
-<table border="1">
-<tr>
-<td valign="top"><strong>Directives liées</strong><br>
-<br>
-<a href="mod/core.html#accessfilename">AccessFileName</a><br>
-<a href="mod/core.html#allowoverride">AllowOverride</a><br>
-</td>
-</tr>
-</table>
+    <h2><a id="syntax" name="syntax">Syntaxe des fichiers de
+    configuration</a></h2>
 
-<p>Apache permet une gestion décentralisée de la
-configuration par l'utilisation de fichiers spéciaux
-à l'intérieur de l'arborescence web. Ces fichiers
-spéciaux sont généralement appelés
-<code>.htaccess</code>, mais n'importe quel nom peut être
-défini par la directive <a href=
-"mod/core.html#accessfilename"><code>AccessFileName</code></a>.
-Les directives placées dans les fichiers
-<code>.htaccess</code> s'appliquent au répertoire
-où se trouve le fichier ainsi qu'aux sous
-répertoires. Les fichiers <code>.htaccess</code>
-respectent la même syntaxe que les fichiers principaux de
-configuration. Comme les fichiers <code>.htaccess</code> sont lus
-à chaque requête, Les modifications
-effectuées dans ces fichiers prennent effet
-immédiatement.</p>
+    <p>Les fichiers de configurations contiennent au plus une
+    directive par ligne. Le caract&egrave;re "\" peut &ecirc;tre
+    utilis&eacute; &agrave; la fin d'une ligne pour indiquer que la
+    directive se poursuit sur la ligne suivante. Il ne doit pas y
+    avoir d'autres caract&egrave;re ou d'espace entre le
+    caract&egrave;re "\" et la fin de la ligne.</p>
 
-<p>Pour savoir si une directive peut être placée
-dans les fichiers <code>.htaccess</code>, vérifiez le <a
-href="mod/directive-dict.html#Context">contexte</a> de la
-directive. L'administrateur peut contôler quelles
-directives peuvent être placées dans les fichiers
-<code>.htaccess</code> en modifiant la directive <a href=
-"mod/core.html#allowoverride"><code>AllowOverride</code></a> du
-fichier principal de configuration.</p>
+    <p>Dans les fichiers de configuration, l'&eacute;criture des
+    noms des directives n'est pas sensible &agrave; la casse, mais
+    les arguments des directives le sont
+    g&eacute;n&eacute;ralement. Les lignes blanches et les espaces
+    pr&eacute;c&eacute;dant une directive sont ignor&eacute;s. Les
+    commentaires <strong>ne doivent pas</strong> &ecirc;tre inclus
+    sur la m&ecirc;me ligne qu'une directive. Les lignes
+    commen&ccedil;ant par le caract&egrave;re di&egrave;se "#" sont
+    trait&eacute;es comme des commentaires et sont ignor&eacute;s;
+    vous pouvez les utiliser pour indenter les directives et rendre
+    leur lecture plus facile.</p>
 
-<hr>
-<h2><a name="logs">Fichiers de trace</a></h2>
+    <p>Vous pouvez v&eacute;rifier la syntaxe de vos fichiers de
+    configuration en utilisant soit <code>apachectl
+    configtest</code> soit l'option de ligne de commande
+    <code>-t</code>.</p>
+    <hr />
 
-<h3>Avertissement sur la sécurité</h3>
+    <h2><a id="modules" name="modules">Modules</a></h2>
 
-Toute personne pouvant écrire dans le répertoire
-où Apache écrit un fichier de trace peut avoir
-accès à l'uid sous lequel le serveur est
-lancé, généralement root. <em>Ne donnez
-pas</em> accès en écriture au répertoire
-où les fichiers de trace sont stockés sans
-être clairement conscient des conséquences; voir le
-document <a href="misc/security_tips.html">trucs sur la
-sécurité</a> pour plus de détails. 
+    <table border="1">
+      <tr>
+        <td valign="top"><strong>Modules li&eacute;s</strong><br />
+         <br />
+         <a href="mod/mod_so.html">mod_so</a><br />
+         </td>
 
-<h3>Fichier pid</h3>
+        <td valign="top"><strong>Directives
+        li&eacute;es</strong><br />
+         <br />
+         <a href="mod/core.html#addmodule">AddModule</a><br />
+         <a
+        href="mod/core.html#clearmodulelist">ClearModuleList</a><br />
+         <a
+        href="mod/core.html#ifmodule">&lt;IfModule&gt;</a><br />
+         <a href="mod/mod_so.html#loadmodule">LoadModule</a><br />
+         </td>
+      </tr>
+    </table>
 
-<p>Au lancement, Apache écrit le numéro de
-processus du processus père httpd dans le fichier
-<code>logs/httpd.pid</code>. Le nom du fichier peut être
-changé en modifiant la directive <a href=
-"mod/core.html#pidfile">PidFile</a>. Le numéro de
-processus est utilisé par l'administrateur pour relancer
-et arrêter le démon. Sur Unix, un signal HUP ou USR1
-a pour effet de faire relire par le démon les fichiers de
-configuration, et un signal TERM le fait terminer de
-manière douce. Sur Windows, il faut employer l'option -k.
-Pour plus d'information voir la page <a href=
-"stopping.html">Arrêt et redémarrage</a>.</p>
+    <p>Apache est un serveur modulaire. Cel&agrave; implique que
+    seules les fonctions de base sont incluses dans le noyau du
+    serveur. Les fonctionnalit&eacute;s plus avanc&eacute;es sont
+    disponibles gr&acirc;ce aux <a
+    href="mod/index-bytype.html">modules</a> qui peuvent &ecirc;tre
+    charg&eacute;s dans Apache. Par d&eacute;faut, un ensemble de
+    modules de <a href="mod/module-dict.html#Status">base</a> sont
+    inclus &agrave; la compilation. Si le serveur est
+    compil&eacute; pour utiliser les modules <a
+    href="dso.html">dynamiquement charg&eacute;s</a>, alors les
+    modules peuvent &ecirc;tre compil&eacute;s
+    s&eacute;par&eacute;ment et ajout&eacute; &agrave; n'importe
+    quel moment en utilisant la directive <a
+    href="mod/mod_so.html#loadmodule">LoadModule</a>. Sinon, Apache
+    doit &ecirc;tre recompil&eacute; pour ajouter ou supprimer des
+    modules. Des directives de configuration peuvent &ecirc;tre
+    incluses de mani&egrave;re conditionnelle en fonction de la
+    pr&eacute;sence d'un module particulier en les entourant par un
+    bloc <a href="mod/core.html#ifmodule">&lt;IfModule&gt;</a>.</p>
 
-<p>Si le processus meurt (ou est tué) de manière
-anormale, il peut alors être nécessaire de tuer les
-processus fils.</p>
+    <p>Pour savoir quels modules ont &eacute;t&eacute;
+    compil&eacute;s dans le serveur, vous pouvez utiliser l'option
+    de ligne de commande <code>-l</code>.</p>
+    <hr />
 
-<h3>Trace des erreurs</h3>
+    <h2><a id="scope" name="scope">Port&eacute;e des
+    directives</a></h2>
 
-<p>Le serveur trace les messages d'erreurs dans un fichier, par
-défaut <code>logs/error_log</code> sur Unix ou
-<code>logs/error.log</code> sur Windows and OS/2. Le nom du
-fichier peut être défini en utilisant la directive
-<a href="mod/core.html#errorlog">ErrorLog</a> D'autres traces
-peuvent être définies pour différents <a
-href="mod/core.html#virtualhost">hôtes virtuels</a>.</p>
+    <table border="1">
+      <tr>
+        <td valign="top"><strong>Directives
+        li&eacute;es</strong><br />
+         <br />
+         <a
+        href="mod/core.html#directory">&lt;Directory&gt;</a><br />
+         <a
+        href="mod/core.html#directorymatch">&lt;DirectoryMatch&gt;</a><br />
+         <a href="mod/core.html#files">&lt;Files&gt;</a><br />
+         <a
+        href="mod/core.html#filesmatch">&lt;FilesMatch&gt;</a><br />
+         <a
+        href="mod/core.html#location">&lt;Location&gt;</a><br />
+         <a
+        href="mod/core.html#locationmatch">&lt;LocationMatch&gt;</a><br />
+         <a
+        href="mod/core.html#virtualhost">&lt;VirtualHost&gt;</a><br />
+         </td>
+      </tr>
+    </table>
 
-<h3>Trace des requêtes</h3>
+    <p>Les directives plac&eacute;es dans les principaux fichiers
+    de configuration s'appliquent &agrave; l'ensemble du serveur.
+    Si vous souhaitez modifier la configuration pour une partie
+    seulement du serveur, vous pouvez mettre en contexte vos
+    directives en les pla&ccedil;ant dans des sections <code><a
+    href="mod/core.html#directory">&lt;Directory&gt;</a>, <a
+    href="mod/core.html#directorymatch">&lt;DirectoryMatch&gt;</a>,
+    <a href="mod/core.html#files">&lt;Files&gt;</a>, <a
+    href="mod/core.html#filesmatch">&lt;FilesMatch&gt;</a>, <a
+    href="mod/core.html#location">&lt;Location&gt;</a>,</code> et
+    <code><a
+    href="mod/core.html#locationmatch">&lt;LocationMatch&gt;</a></code>
+    . Ces sections limitent la port&eacute;e d'application des
+    directives qu'elles contiennent &agrave; un emplacement des
+    fichiers ou &agrave; certaines URL. Elles peuvent &ecirc;tre
+    imbriqu&eacute;es, permettant ainsi une configuration
+    tr&egrave;s fine.</p>
 
-<p>Le serveur trace généralement chaque
-requête dans un fichier de transfert, par défaut
-<code>logs/access_log</code> sur Unix ou
-<code>logs/access.log</code> sur Windows and OS/2. Le nom du
-fichier peut être défini en utilisant la directive
-<a href="mod/mod_log_config.html#customlog">CustomLog</a>.
-D'autres traces peuvent être définies pour
-différents <a href="mod/core.html#virtualhost">hôtes
-virtuels</a>. <!--#include virtual="footer.html" -->
-</p>
-</body>
+    <p>Apache a la possibilit&eacute; de servir plusieurs sites web
+    simultan&eacute;ment. Cette possibilit&eacute; est
+    appel&eacute;e <a href="vhosts/">h&eacute;bergement
+    virtuel</a>. Des directives peuvent &eacute;galement &ecirc;tre
+    limit&eacute;es en utilisant des sections <code><a
+    href="mod/core.html#virtualhost">&lt;VirtualHost&gt;</a></code>
+    afin qu'elles ne s'appliquent qu'&agrave; certains sites
+    web.</p>
+
+    <p>Bien que la plupart des directives peuvent &ecirc;tre
+    plac&eacute;es &agrave; l'int&eacute;rieur de n'importe quelle
+    section, certaines directives n'ont pas de sens dans certains
+    contextes. Par exemple, les directives contr&ocirc;lant la
+    cr&eacute;ation des processus ne peuvent &ecirc;tre
+    plac&eacute;es que dans le contexte pricipal du serveur. Pour
+    savoir quelles directives peuvent &ecirc;tre plac&eacute;es
+    dans quelles sections, v&eacute;rifiez le <a
+    href="mod/directive-dict.html#Context">contexte</a> de la
+    directive. Pour plus d'informations, voir <a
+    href="sections.html">comment les sections Directory, Location
+    et Files fonctionnent</a>.</p>
+    <hr />
+
+    <h2><a id="htaccess" name="htaccess">Fichiers
+    .htaccess</a></h2>
+
+    <table border="1">
+      <tr>
+        <td valign="top"><strong>Directives
+        li&eacute;es</strong><br />
+         <br />
+         <a
+        href="mod/core.html#accessfilename">AccessFileName</a><br />
+         <a
+        href="mod/core.html#allowoverride">AllowOverride</a><br />
+         </td>
+      </tr>
+    </table>
+
+    <p>Apache permet une gestion d&eacute;centralis&eacute;e de la
+    configuration par l'utilisation de fichiers sp&eacute;ciaux
+    &agrave; l'int&eacute;rieur de l'arborescence web. Ces fichiers
+    sp&eacute;ciaux sont g&eacute;n&eacute;ralement appel&eacute;s
+    <code>.htaccess</code>, mais n'importe quel nom peut &ecirc;tre
+    d&eacute;fini par la directive <a
+    href="mod/core.html#accessfilename"><code>AccessFileName</code></a>.
+    Les directives plac&eacute;es dans les fichiers
+    <code>.htaccess</code> s'appliquent au r&eacute;pertoire
+    o&ugrave; se trouve le fichier ainsi qu'aux sous
+    r&eacute;pertoires. Les fichiers <code>.htaccess</code>
+    respectent la m&ecirc;me syntaxe que les fichiers principaux de
+    configuration. Comme les fichiers <code>.htaccess</code> sont
+    lus &agrave; chaque requ&ecirc;te, Les modifications
+    effectu&eacute;es dans ces fichiers prennent effet
+    imm&eacute;diatement.</p>
+
+    <p>Pour savoir si une directive peut &ecirc;tre plac&eacute;e
+    dans les fichiers <code>.htaccess</code>, v&eacute;rifiez le <a
+    href="mod/directive-dict.html#Context">contexte</a> de la
+    directive. L'administrateur peut cont&ocirc;ler quelles
+    directives peuvent &ecirc;tre plac&eacute;es dans les fichiers
+    <code>.htaccess</code> en modifiant la directive <a
+    href="mod/core.html#allowoverride"><code>AllowOverride</code></a>
+    du fichier principal de configuration.</p>
+    <hr />
+
+    <h2><a id="logs" name="logs">Fichiers de trace</a></h2>
+
+    <h3>Avertissement sur la s&eacute;curit&eacute;</h3>
+    Toute personne pouvant &eacute;crire dans le r&eacute;pertoire
+    o&ugrave; Apache &eacute;crit un fichier de trace peut avoir
+    acc&egrave;s &agrave; l'uid sous lequel le serveur est
+    lanc&eacute;, g&eacute;n&eacute;ralement root. <em>Ne donnez
+    pas</em> acc&egrave;s en &eacute;criture au r&eacute;pertoire
+    o&ugrave; les fichiers de trace sont stock&eacute;s sans
+    &ecirc;tre clairement conscient des cons&eacute;quences; voir
+    le document <a href="misc/security_tips.html">trucs sur la
+    s&eacute;curit&eacute;</a> pour plus de d&eacute;tails. 
+
+    <h3>Fichier pid</h3>
+
+    <p>Au lancement, Apache &eacute;crit le num&eacute;ro de
+    processus du processus p&egrave;re httpd dans le fichier
+    <code>logs/httpd.pid</code>. Le nom du fichier peut &ecirc;tre
+    chang&eacute; en modifiant la directive <a
+    href="mod/core.html#pidfile">PidFile</a>. Le num&eacute;ro de
+    processus est utilis&eacute; par l'administrateur pour relancer
+    et arr&ecirc;ter le d&eacute;mon. Sur Unix, un signal HUP ou
+    USR1 a pour effet de faire relire par le d&eacute;mon les
+    fichiers de configuration, et un signal TERM le fait terminer
+    de mani&egrave;re douce. Sur Windows, il faut employer l'option
+    -k. Pour plus d'information voir la page <a
+    href="stopping.html">Arr&ecirc;t et red&eacute;marrage</a>.</p>
+
+    <p>Si le processus meurt (ou est tu&eacute;) de mani&egrave;re
+    anormale, il peut alors &ecirc;tre n&eacute;cessaire de tuer
+    les processus fils.</p>
+
+    <h3>Trace des erreurs</h3>
+
+    <p>Le serveur trace les messages d'erreurs dans un fichier, par
+    d&eacute;faut <code>logs/error_log</code> sur Unix ou
+    <code>logs/error.log</code> sur Windows and OS/2. Le nom du
+    fichier peut &ecirc;tre d&eacute;fini en utilisant la directive
+    <a href="mod/core.html#errorlog">ErrorLog</a> D'autres traces
+    peuvent &ecirc;tre d&eacute;finies pour diff&eacute;rents <a
+    href="mod/core.html#virtualhost">h&ocirc;tes virtuels</a>.</p>
+
+    <h3>Trace des requ&ecirc;tes</h3>
+
+    <p>Le serveur trace g&eacute;n&eacute;ralement chaque
+    requ&ecirc;te dans un fichier de transfert, par d&eacute;faut
+    <code>logs/access_log</code> sur Unix ou
+    <code>logs/access.log</code> sur Windows and OS/2. Le nom du
+    fichier peut &ecirc;tre d&eacute;fini en utilisant la directive
+    <a href="mod/mod_log_config.html#customlog">CustomLog</a>.
+    D'autres traces peuvent &ecirc;tre d&eacute;finies pour
+    diff&eacute;rents <a
+    href="mod/core.html#virtualhost">h&ocirc;tes virtuels</a>. 
+        <hr />
+
+    <h3 align="CENTER">Apache HTTP Server</h3>
+    <a href="./"><img src="images/index.gif" alt="Index" /></a>
+
+    </p>
+  </body>
 </html>
 

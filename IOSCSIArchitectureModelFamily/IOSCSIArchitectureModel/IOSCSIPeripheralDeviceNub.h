@@ -59,6 +59,8 @@ private:
 	
 	static void		TaskCallback( SCSITaskIdentifier	completedTask );
 	SCSIServiceResponse SendTask( SCSITask *request );
+
+public:
 	bool			InterrogateDevice( void );										
 
 protected:
@@ -101,11 +103,11 @@ public:
 
     // The ExecuteCommand method will take a SCSITask object and transport
     // it across the physical wires to the device
-    void					ExecuteCommand ( SCSITaskIdentifier	request );
+    virtual	void		ExecuteCommand ( SCSITaskIdentifier	request );
     
     // The AbortCommand method will abort the indicated SCSI Task object,
     // if it is possible and the SCSI Task has not already completed.
-    SCSIServiceResponse    	AbortCommand ( SCSITaskIdentifier	abortTask );
+    virtual SCSIServiceResponse    	AbortCommand ( SCSITaskIdentifier	abortTask );
 
 private:
 	// Space reserved for future expansion.
@@ -125,6 +127,52 @@ private:
     OSMetaClassDeclareReservedUnused( IOSCSIPeripheralDeviceNub, 14 );
     OSMetaClassDeclareReservedUnused( IOSCSIPeripheralDeviceNub, 15 );
     OSMetaClassDeclareReservedUnused( IOSCSIPeripheralDeviceNub, 16 );
+};
+
+class IOSCSILogicalUnitNub : public IOSCSIPeripheralDeviceNub
+{
+	
+	OSDeclareDefaultStructors ( IOSCSILogicalUnitNub )
+
+private:
+	UInt8				fLogicalUnitNumber;
+
+protected:
+    // Reserve space for future expansion.
+    struct IOSCSILogicalUnitNubExpansionData { };
+    IOSCSILogicalUnitNubExpansionData *fIOSCSILogicalUnitNubReserved;
+
+public:
+    virtual bool		start	( IOService * provider );
+
+	virtual void		SetLogicalUnitNumber( UInt8 newLUN );
+
+    // The ExecuteCommand method will take a SCSITask object and transport
+    // it across the physical wires to the device
+    virtual	void		ExecuteCommand ( SCSITaskIdentifier	request );
+    
+    // The AbortCommand method will abort the indicated SCSI Task object,
+    // if it is possible and the SCSI Task has not already completed.
+    virtual SCSIServiceResponse    	AbortCommand ( SCSITaskIdentifier	abortTask );
+
+private:
+	// Space reserved for future expansion.
+    OSMetaClassDeclareReservedUnused( IOSCSILogicalUnitNub, 1 );
+    OSMetaClassDeclareReservedUnused( IOSCSILogicalUnitNub, 2 );
+    OSMetaClassDeclareReservedUnused( IOSCSILogicalUnitNub, 3 );
+    OSMetaClassDeclareReservedUnused( IOSCSILogicalUnitNub, 4 );
+    OSMetaClassDeclareReservedUnused( IOSCSILogicalUnitNub, 5 );
+    OSMetaClassDeclareReservedUnused( IOSCSILogicalUnitNub, 6 );
+    OSMetaClassDeclareReservedUnused( IOSCSILogicalUnitNub, 7 );
+    OSMetaClassDeclareReservedUnused( IOSCSILogicalUnitNub, 8 );
+    OSMetaClassDeclareReservedUnused( IOSCSILogicalUnitNub, 9 );
+    OSMetaClassDeclareReservedUnused( IOSCSILogicalUnitNub, 10 );
+    OSMetaClassDeclareReservedUnused( IOSCSILogicalUnitNub, 11 );
+    OSMetaClassDeclareReservedUnused( IOSCSILogicalUnitNub, 12 );
+    OSMetaClassDeclareReservedUnused( IOSCSILogicalUnitNub, 13 );
+    OSMetaClassDeclareReservedUnused( IOSCSILogicalUnitNub, 14 );
+    OSMetaClassDeclareReservedUnused( IOSCSILogicalUnitNub, 15 );
+    OSMetaClassDeclareReservedUnused( IOSCSILogicalUnitNub, 16 );
 };
 
 #endif	/* defined(KERNEL) && defined(__cplusplus) */

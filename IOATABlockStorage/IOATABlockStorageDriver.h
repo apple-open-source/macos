@@ -158,7 +158,7 @@ protected:
 	bool					fPowerTransitionInProgress;
 	bool					fPowerManagementInitialized;
 	bool					fResetInProgress;
-
+	
 	// binary compatibility instance variable expansion
 	struct ExpansionData { };
 	ExpansionData * reserved;

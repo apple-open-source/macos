@@ -80,6 +80,7 @@ typedef enum {
     ipconfig_method_bootp_e = 2,
     ipconfig_method_dhcp_e = 3,
     ipconfig_method_inform_e = 4,
+    ipconfig_method_linklocal_e = 5,
     ipconfig_method_last_e,
 } ipconfig_method_t;
 
@@ -91,7 +92,8 @@ ipconfig_method_string(ipconfig_method_t m)
 	"MANUAL",
 	"BOOTP",
 	"DHCP",
-	"INFORM"
+	"INFORM",
+	"LINKLOCAL"
     };
     if (m < 0 || m >= ipconfig_method_last_e)
 	return ("<unknown>");

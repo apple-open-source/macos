@@ -380,6 +380,9 @@ typedef struct mtd_bind_t {
 #define CS_EVENT_CB_DETECT		0x100000
 #define CS_EVENT_3VCARD			0x200000
 #define CS_EVENT_XVCARD			0x400000
+#ifdef __MACOSX__
+#define CS_EVENT_EJECTION_COMPLETE	0x800000
+#endif
 
 /* Return codes */
 #define CS_SUCCESS		0x00

@@ -323,8 +323,8 @@ IOFireWireLibIsochPortImp::Init(
 														   & params,
 														   & mKernPortRef) ;
 
-	if (kIOReturnSuccess != result)
-		fprintf(stderr, "IOFireWireLibIsochPortImp::Init: result=0x%08lX\n", (UInt32) result) ;
+	IOFireWireLibLogIfErr_( result, ("IOFireWireLibIsochPortImp::Init: result=0x%08lX\n", (UInt32) result ) ) ;
+
 	return result ;
 }
 
@@ -390,6 +390,25 @@ IOFireWireLibIsochPortImp::Stop()
 					1,
 					0,
 					mKernPortRef) ;
+}
+
+void
+IOFireWireLibIsochPortImp::SetRefCon(
+	void*							inRefCon)
+{
+	mRefCon = inRefCon ;
+}
+
+void*
+IOFireWireLibIsochPortImp::GetRefCon() const
+{
+	return mRefCon ;
+}
+
+Boolean
+IOFireWireLibIsochPortImp::GetTalking() const
+{
+	return mTalking ;
 }
 
 // ============================================================
@@ -564,25 +583,6 @@ IOFireWireLibRemoteIsochPortImp::SetStopHandler(
 	return oldHandler ;
 }
 							
-void
-IOFireWireLibIsochPortImp::SetRefCon(
-	void*							inRefCon)
-{
-	mRefCon = inRefCon ;
-}
-
-void*
-IOFireWireLibIsochPortImp::GetRefCon() const
-{
-	return mRefCon ;
-}
-
-Boolean
-IOFireWireLibIsochPortImp::GetTalking() const
-{
-	return mTalking ;
-}
-
 // ============================================================
 //
 // IOFireWireLibRemoteIsochPortCOM
@@ -800,20 +800,6 @@ IOFireWireLibLocalIsochPortImp::Init(
 	{
 		programTree.GetCoalesceList(programRanges) ;
 		bufferTree.GetCoalesceList(bufferRanges) ;
-
-//		fprintf(stderr, "programRanges: ") ;
-//		for(UInt32 index=0; index < programRangeCount; index++)
-//		{
-//			fprintf(stderr, "[0x%08lX, %u] ", programRanges[index].address, programRanges[index].length) ;
-//		}
-//		fprintf(stderr, "\n") ;
-
-//		fprintf(stderr, "bufferRanges: ") ;
-//		for(UInt32 index=0; index < bufferRangeCount; index++)
-//		{
-//			fprintf(stderr, "[0x%08lX, %u] ", bufferRanges[index].address, bufferRanges[index].length) ;
-//		}
-//		fprintf(stderr, "\n") ;
 	}
 	
 	// fill out param struct and submit to kernel
@@ -839,10 +825,7 @@ IOFireWireLibLocalIsochPortImp::Init(
 						sizeof(params),
 						& outputSize,
 						& params,
-						& mKernPortRef) ;
-
-//		PrintDCLProgram(params.userDCLProgram, params.userDCLProgramDCLCount) ;
-		
+						& mKernPortRef) ;		
 	}
 	
 	if (programRanges)
@@ -893,9 +876,7 @@ void
 IOFireWireLibLocalIsochPortImp::DCLCallProcHandler(
 	void*				inRefCon,
 	IOReturn			result)
-{
-//	fprintf(stderr, "+ IOFireWireLibLocalIsochPortImp::DCLCallProcHandler\n") ;
-	
+{	
 	DCLCallProcStruct*	callProcDCL = (DCLCallProcStruct*)inRefCon ;
 	
 	(*callProcDCL->proc)((DCLCommandStruct*)inRefCon) ;

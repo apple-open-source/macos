@@ -29,7 +29,8 @@
             ipconfigd.c, 
             manual.c, 
             server.c, 
-            timer.c
+            timer.c, 
+            linklocal.c
         ); 
         OTHER_RESOURCES = (IPConfiguration.xml); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, CustomInfo.plist); 

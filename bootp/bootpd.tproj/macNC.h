@@ -41,6 +41,7 @@
 
 #define CFGPROP_SHADOW_SIZE_MEG		"shadow_size_meg"
 #define CFGPROP_AFP_USERS_MAX		"afp_users_max"
+#define CFGPROP_AGE_TIME_SECONDS	"age_time_seconds"
 
 /*
  * MACNC_SERVER_VERSION
@@ -78,9 +79,12 @@ boolean_t	macNC_allocate(struct dhcp * reply, u_char * hostname,
 boolean_t	macNC_get_client_info(struct dhcp * pkt, int pkt_size, 
 				      dhcpol_t * options, 
 				      u_int * client_version);
+void
+macNC_unlink_shadow(int host_number, u_char * hostname);
 
 /**
  ** Globals
  **/
-extern gid_t	netboot_gid;
-extern int	afp_users_max;
+extern gid_t		netboot_gid;
+extern int		afp_users_max;
+extern u_int32_t	age_time_seconds;

@@ -106,9 +106,11 @@ IOReturn IOFWIsochChannel::updateBandwidth(bool claim)
     UInt32 oldVal;
     IOReturn result = kIOReturnSuccess;
     bool tryAgain;
-
     do {
         fControl->getIRMNodeID(generation, irm);
+        // Check we aren't being asked to reclaim in the same generation we originally allocated
+        if(claim && fGeneration == generation)
+            return kIOReturnSuccess;
         addr.nodeID = irm;
         if(fBandwidth != 0) {
             fReadCmd->reinit(generation, addr, &oldVal, 1);
@@ -118,8 +120,13 @@ IOReturn IOFWIsochChannel::updateBandwidth(bool claim)
                 break;
             }
             do {
-				if(claim)
+				if(claim) {
+                    if(oldVal < fBandwidth) {
+                        result = kIOReturnNoSpace;
+                        break;
+                    }
                     newVal = oldVal - fBandwidth;
+                }
                 else
                     newVal = oldVal + fBandwidth;
 
@@ -131,6 +138,11 @@ IOReturn IOFWIsochChannel::updateBandwidth(bool claim)
                 }
                 tryAgain = !fLockCmd->locked(&oldVal);
             } while (tryAgain);
+            if(claim && kIOReturnNoSpace == result) {
+                // Couldn't reallocate bandwidth!
+                fBandwidth = 0;
+                fChannel = 64;
+            }
             if(!claim)
                 fBandwidth = 0;
         }
@@ -150,10 +162,17 @@ IOReturn IOFWIsochChannel::updateBandwidth(bool claim)
                 break;
             }
             do {
-                if(claim)
+                if(claim) {
                     newVal = oldVal & ~mask;
-                else
-                    newVal = oldVal | mask;
+                    if(newVal == oldVal) {
+                        // Channel already allocated!
+                        result = kIOReturnNoSpace;
+                        break;
+                    }
+                }
+                else {
+                     newVal = oldVal | mask;
+                }
                 fLockCmd->reinit(generation, addr, &oldVal, &newVal, 1);
                 result = fLockCmd->submit();
                 if(kIOReturnSuccess != result) {
@@ -166,6 +185,12 @@ IOReturn IOFWIsochChannel::updateBandwidth(bool claim)
                 fChannel = 64;
         }
     } while (false);
+    if(claim && kIOReturnNoSpace == result) {
+        // Couldn't reallocate bandwidth or channel
+        stop();
+        releaseChannel();
+    }
+    fGeneration = generation;
     return result;
 }
 
@@ -283,9 +308,10 @@ IOReturn IOFWIsochChannel::allocateChannel()
         if(kIOReturnSuccess != result)
             break;
         fChannel = channel;
-        if(fDoIRM)
+        if(fDoIRM) {
+            fGeneration = generation;
             fControl->addAllocatedChannel(this);
-
+        }
         // allocate hardware resources for each port
         if(listenIterator) {
             listenIterator->reset();

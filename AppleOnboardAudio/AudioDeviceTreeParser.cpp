@@ -19,7 +19,7 @@
 OSDefineMetaClassAndStructors(AudioDeviceTreeParser, OSObject)
 
 
-        //Creation and destruction of the object
+// Creation and destruction of the object
 AudioDeviceTreeParser *AudioDeviceTreeParser::createWithEntryProvider(IOService *provider){
     AudioDeviceTreeParser *myAudioDTParser = 0;
     FAIL_IF(!provider, EXIT);    
@@ -55,7 +55,7 @@ void AudioDeviceTreeParser::free(){
     super::free();
 }
 
-        //Information getter for outputs
+// Information getter for outputs
 UInt32 AudioDeviceTreeParser::getNumberOfOutputs(){
     OSData *tempData;
     UInt32 AudioOutputNb = 0;
@@ -82,14 +82,14 @@ OSArray *AudioDeviceTreeParser::createOutputsArray(){
     AudioHardwareOutput *theOutput;
     int size;
          
-            //get the output numbers and create the detects array
+	// get the output numbers and create the detects array
     AudioOutputNb = getNumberOfOutputs();
     FAIL_IF(0 == AudioOutputNb,EXIT);
 
     AudioOutputs = OSArray::withCapacity(AudioOutputNb);
     FAIL_IF(!AudioOutputs, BAIL);
     
-            //get all the sound objects and do the parsing
+	// get all the sound objects and do the parsing
     tempData = OSDynamicCast(OSData, soundEntry->getProperty(kSoundObjectsPropName));
     FAIL_IF(!tempData, BAIL);
 
@@ -99,13 +99,13 @@ OSArray *AudioDeviceTreeParser::createOutputsArray(){
     
     while(parser < size) {
 
-            //find the end of string
+        // find the end of string
         ASSIGNSTARTSTRING(startidx, parser);
         NEXTENDOFSTRING(theSoundObjects, parser);
         ASSIGNSTOPSTRING(stopidx, parser);
         thetempObject = theSoundObjects+startidx;
                         
-            //do the detect parsing if it is one
+		// do the detect parsing if it is one
         stopwordidx = 0;
         NEXTENDOFWORD(thetempObject, stopwordidx);
                         
@@ -149,12 +149,14 @@ OSArray *AudioDeviceTreeParser::createOutputsArray(){
                     ASSIGNNEXTWORD(thetempObject,startwordidx, stopwordidx); 
                     NEXTENDOFWORD(thetempObject, stopwordidx);
                     
-                    if(!bcmp(thetempObject+startwordidx, kOutputPortObjName, 8)) 
+                    if(!bcmp(thetempObject+startwordidx, kOutputPortObjName, 8))
                         myInfo.outputKind = kOutputPortTypeClassic;
-                    else if(!bcmp(thetempObject+startwordidx, kKiheiSpeakerObjName, 8)) 
-                        myInfo.outputKind = kOutputPortTypeProj5;   
-                    else if(!bcmp(thetempObject+startwordidx, kWSIntSpeakerObjName, 8)) 
-                        myInfo.outputKind = kOutputPortTypeProj3;   
+                    else if(!bcmp(thetempObject+startwordidx, kKiheiSpeakerObjName, 8))
+                        myInfo.outputKind = kOutputPortTypeProj5;
+                    else if(!bcmp(thetempObject+startwordidx, kWSIntSpeakerObjName, 8))
+                        myInfo.outputKind = kOutputPortTypeProj3;
+                    else if(!bcmp(thetempObject+startwordidx, kOutputEQPortObjName, 8))
+                        myInfo.outputKind = kOutputPortTypeEQ;
                     else 
                         myInfo.outputKind = kOutputPortTypeUnknown;
                 }
@@ -214,10 +216,10 @@ UInt32 AudioDeviceTreeParser::getNumberofInputsWithMuxes(){
         ASSIGNSTOPSTRING(stopidx, parser);
         thetempObject = theSoundObjects+startidx;
                         
-            //do the detect parsing if it is one
+		// do the detect parsing if it is one
         stopwordidx = 0;
         NEXTENDOFWORD(thetempObject, stopwordidx);
-        if(!bcmp(thetempObject, "input", stopwordidx-1)) 
+        if(!bcmp(thetempObject, kInputObjEntryName, stopwordidx-1)) 
             result++;
         else if( !bcmp(thetempObject, kMuxObjEntryName, stopwordidx-1))
             result++;
@@ -261,7 +263,7 @@ SInt16 AudioDeviceTreeParser::getInitOperationType(){
     short opkind = 0;
     int size;
          
-        //get all the sound objects and do the parsing
+	// get all the sound objects and do the parsing
     tempData = OSDynamicCast(OSData, soundEntry->getProperty(kSoundObjectsPropName));
     FAIL_IF(!tempData, BAIL);
 
@@ -271,13 +273,13 @@ SInt16 AudioDeviceTreeParser::getInitOperationType(){
     
     while(parser < size) {
 
-            //find the end of string
+		// find the end of string
         ASSIGNSTARTSTRING(startidx, parser);
         NEXTENDOFSTRING(theSoundObjects, parser);
         ASSIGNSTOPSTRING(stopidx, parser);
         thetempObject = theSoundObjects+startidx;
                         
-            //do the detect parsing if it is one
+		// do the detect parsing if it is one
         stopwordidx = 0;
         NEXTENDOFWORD(thetempObject, stopwordidx);
                         
@@ -316,15 +318,79 @@ BAIL:
     goto EXIT;
 }
 
+
+// cheap and dirty way to get the phase inversion feature object.
+// Do it this way until we parse all the features directly
+bool AudioDeviceTreeParser::getPhaseInversion()
+{
+    bool result = false;
+    OSData *tempData;
+    char * theSoundObjects, *thetempObject;
+    int parser, startidx, stopidx, startwordidx, stopwordidx, length;
+    int size;
+    
+    // get all the sound objects and do the parsing
+    tempData = OSDynamicCast(OSData, soundEntry->getProperty(kSoundObjectsPropName));
+    FAIL_IF(!tempData, BAIL);
+
+    theSoundObjects = (char *) tempData->getBytesNoCopy();
+    size = (int) tempData->getCapacity();
+    parser = -1;
+    
+    while(parser < size) 
+    {
+
+		// find the end of string
+        ASSIGNSTARTSTRING(startidx, parser);
+        NEXTENDOFSTRING(theSoundObjects, parser);
+        ASSIGNSTOPSTRING(stopidx, parser);
+        thetempObject = theSoundObjects+startidx;
+                        
+		// do the feature  parsing if it is one
+        stopwordidx = 0;
+        NEXTENDOFWORD(thetempObject, stopwordidx);
+                        
+        if(!bcmp(thetempObject, "feature", stopwordidx-1)) 
+        {
+            length = stopidx-startidx;
+            startwordidx = ++stopwordidx;
+            
+            while(stopwordidx < length) 
+            {
+                NEXTENDOFWORD(thetempObject, stopwordidx);
+                
+                if(!bcmp(thetempObject+startwordidx, "model", stopwordidx-startwordidx)) 
+                {
+                    ASSIGNNEXTWORD(thetempObject,startwordidx, stopwordidx);
+                    NEXTENDOFWORD(thetempObject, stopwordidx);
+                    if(!bcmp(thetempObject+startwordidx, "PhaseInversion", 8)) 
+                    {
+                        result = true;
+                        // we are done so lets get out of here
+                        goto EXIT;
+                    }
+                 } 
+                ASSIGNNEXTWORD(thetempObject,startwordidx, stopwordidx);                                                 
+            }
+                 
+        }
+    }              
+
+EXIT: 
+    return result;
+BAIL:
+    goto EXIT;
+    result = 0;   
+}
+
 SInt16 AudioDeviceTreeParser::getPowerObjectType(){
     SInt16 result = 0;
     OSData *tempData;
     char * theSoundObjects, *thetempObject;
     int parser, startidx, stopidx, startwordidx, stopwordidx, length;
     int size;
-     
-    
-        //get all the sound objects and do the parsing
+
+	// get all the sound objects and do the parsing
     tempData = OSDynamicCast(OSData, soundEntry->getProperty(kSoundObjectsPropName));
     FAIL_IF(!tempData, BAIL);
 
@@ -334,13 +400,13 @@ SInt16 AudioDeviceTreeParser::getPowerObjectType(){
     
     while(parser < size) {
 
-            //find the end of string
+		// find the end of string
         ASSIGNSTARTSTRING(startidx, parser);
         NEXTENDOFSTRING(theSoundObjects, parser);
         ASSIGNSTOPSTRING(stopidx, parser);
         thetempObject = theSoundObjects+startidx;
                         
-            //do the feature  parsing if it is one
+		// do the feature  parsing if it is one
         stopwordidx = 0;
         NEXTENDOFWORD(thetempObject, stopwordidx);
                         
@@ -358,9 +424,15 @@ SInt16 AudioDeviceTreeParser::getPowerObjectType(){
                         result= kProj7PowerObject;
                     else if (!bcmp(thetempObject+startwordidx, "Proj10PowerControl", 8)) 
                         result= kProj10PowerObject;
+                    else if (!bcmp(thetempObject+startwordidx, "Proj8PowerControl", 8)) 
+                        result= kProj8PowerObject;
                     else if (!bcmp(thetempObject+startwordidx, "Proj6PowerControl", 8)) 
                         result= kProj6PowerObject;
-                 } 
+                    else if (!bcmp(thetempObject+startwordidx, "Proj14PowerControl", 8)) 
+                        result= kProj14PowerObject;
+                    else if (!bcmp(thetempObject+startwordidx, "Proj16PowerControl", 8)) 
+                        result= kProj16PowerObject;
+                 }
                 ASSIGNNEXTWORD(thetempObject,startwordidx, stopwordidx);                                                 
             }
                  
@@ -398,13 +470,12 @@ OSArray *AudioDeviceTreeParser::getDSPFeatures(){
 
 
 OSArray *AudioDeviceTreeParser::createInputsArray(){
-    //this get the inputs
- 
-  return(0);
+	// this get the inputs, not used because handles everything.
+	return(0);
 }
 
 OSArray *AudioDeviceTreeParser::createInputsArrayWithMuxes(){
-    //this get the inputs and the muxes there are on
+    // this get the inputs and the muxes there are on
     OSArray *AudioInputs = 0;
     OSData *tempData;
     char * theSoundObjects, *thetempObject;
@@ -419,15 +490,16 @@ OSArray *AudioDeviceTreeParser::createInputsArrayWithMuxes(){
     int size;
     
 	muxIndex = 0;
-            //get the output numbers and create the detects array
+	// get the output numbers and create the detects array
     AudioMuxNb = 0; 
     AudioInputMuxNb = getNumberofInputsWithMuxes();
+	DEBUG2_IOLOG ("Number of inputs with muxes = %ld\n", AudioInputMuxNb);
 
     if( 0 != AudioInputMuxNb)
         AudioInputs = OSArray::withCapacity(AudioInputMuxNb);
     FAIL_IF(!AudioInputs, BAIL);
     
-        //get all the sound objects abd do the parsing
+	// get all the sound objects and do the parsing
     tempData = OSDynamicCast(OSData, soundEntry->getProperty(kSoundObjectsPropName));
     FAIL_IF(!tempData, BAIL);
 
@@ -440,13 +512,13 @@ OSArray *AudioDeviceTreeParser::createInputsArrayWithMuxes(){
 
     while(parser < size) {
 
-            //find the end of string
+		// find the end of string
         ASSIGNSTARTSTRING(startidx, parser);
         NEXTENDOFSTRING(theSoundObjects, parser);
         ASSIGNSTOPSTRING(stopidx, parser);
         thetempObject = theSoundObjects+startidx;
                         
-            //do the detect parsing if it is one
+		// do the detect parsing if it is one
         stopwordidx = 0;
         NEXTENDOFWORD(thetempObject, stopwordidx);
                         
@@ -470,7 +542,7 @@ OSArray *AudioDeviceTreeParser::createInputsArrayWithMuxes(){
                     ASSIGNNEXTWORD(thetempObject,startwordidx, stopwordidx);
                     NEXTENDOFWORD(thetempObject, stopwordidx); 
                     READWORDASNUMBER(myInfo.inputPortType, thetempObject, startwordidx, stopwordidx);
-                }                 
+                }
                 ASSIGNNEXTWORD(thetempObject,startwordidx, stopwordidx);                                                 
             }
             
@@ -489,7 +561,7 @@ OSArray *AudioDeviceTreeParser::createInputsArrayWithMuxes(){
             muxflag = true;
             myInfo.isOnMuX = muxflag;
             
-                //we know we have 1 mux we should create the array
+			// we know we have 1 mux we should create the array
             length = stopidx-startidx;
             startwordidx = ++stopwordidx;
 
@@ -527,8 +599,8 @@ OSArray *AudioDeviceTreeParser::createInputsArrayWithMuxes(){
             }
             
             if(kAudioHardwareMuxUnknown != myMuxInfo.MuxPortType) {
-                    //we don't add a mux that is unknown
-                if (0 == AudioMuxNb)    { //creation of an array of one Mux we should think of more
+				// we don't add a mux that is unknown
+                if (0 == AudioMuxNb)    { // creation of an array of one Mux we should think of more
                     theMux = AudioHardwareMux::create(myMuxInfo);
                     muxIndex = AudioInputs->getCount();
                     if(theMux)
@@ -601,16 +673,20 @@ OSArray *AudioDeviceTreeParser::createDetectsArray(){
                     READWORDASNUMBER(myInfo.bitMatch, thetempObject, startwordidx, stopwordidx);
                 } else if(!bcmp(thetempObject+startwordidx, kDevicePropName, stopwordidx-startwordidx)) {
                     ASSIGNNEXTWORD(thetempObject,startwordidx, stopwordidx);
-                    NEXTENDOFWORD(thetempObject, stopwordidx); 
+                    NEXTENDOFWORD(thetempObject, stopwordidx);
                     READWORDASNUMBER(myInfo.device, thetempObject, startwordidx, stopwordidx);
                 } else if(!bcmp(thetempObject+startwordidx, kModelPropName, stopwordidx-startwordidx)) {
                     ASSIGNNEXTWORD(thetempObject,startwordidx, stopwordidx);
                     NEXTENDOFWORD(thetempObject, stopwordidx);
-                    if(!bcmp(thetempObject+startwordidx, kAnyInDetectObjName, 6)) 
+                    if(!bcmp(thetempObject+startwordidx, kAnyInDetectObjName, 6))
                         myInfo.detectKind = kAudioHardwareDetectAnyInSense;
                     else if(!bcmp(thetempObject+startwordidx, kInSenseBitsDetectObjName, 6)) 
-                        myInfo.detectKind = kAudioHardwareDetectInSense;   
-                    else 
+                        myInfo.detectKind = kAudioHardwareDetectInSense;
+                    else if(!bcmp(thetempObject+startwordidx, kGPIODetectObjName, 6)) 
+                        myInfo.detectKind = kAudioHardwareDetectGPIO;
+                    else if(!bcmp(thetempObject+startwordidx, kGPIOGenericDetectObjName, 6)) 
+                        myInfo.detectKind = kAudioHardwareGenericDetectGPIO;
+                    else
                         myInfo.detectKind = kAudioHardwareDetectUnknown;
                 }
                 ASSIGNNEXTWORD(thetempObject,startwordidx, stopwordidx);
@@ -654,7 +730,7 @@ UInt32 AudioDeviceTreeParser::getStringAsNumber(char *string){
     
     valueStr = string;
     number = 0;
-    if (('0' == *valueStr) && ('x' == *(valueStr+1))) { //this is an hexa
+    if (('0' == *valueStr) && ('x' == *(valueStr+1))) { // this is an hexa
         valueStr+=2;
         while(*valueStr)
             number = number*16+convertAsciiToHexData(*valueStr++);
