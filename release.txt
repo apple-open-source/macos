@@ -1,4 +1,4 @@
-# Mac OS X 10.2.5 SUJagPlaid6L29
+# Mac OS X 10.2.6 SUJagBlack6L60
 adv_cmds	46	Other
 am_utils	3	Other
 apache	661	Other
@@ -131,13 +131,13 @@ IOHIDFamily	34.12	Other
 IOKitTools	34	Other
 IOKitUser	120.3	Other
 IONetworkingFamily	12	Other
-IOPCCardFamily	24.4	Other
+IOPCCardFamily	24.5	Other
 IOPCIFamily	9	Other
 IOSCSIArchitectureModelFamily	124.3.1	Other
 IOSCSIParallelFamily	124.3.2	Other
 IOSerialFamily	19	Other
 IOStorageFamily	25.5	Other
-IOUSBFamily	198.4.15	Other
+IOUSBFamily	199.4.1	Other
 IOUSBMassStorageClass	123.3.2	Other
 IPFirewall	12	Other
 isoutil	22.3	Other
@@ -218,7 +218,7 @@ vi	7	Other
 volfs	24	Other
 webdavfs	115	Other
 xinetd	11	Other
-xnu	344.32	Other
+xnu	344.34	Other
 yacc	6	Other
 zlib	6	Other
 zsh	30	Other

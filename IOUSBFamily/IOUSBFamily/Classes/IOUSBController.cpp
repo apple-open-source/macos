@@ -286,6 +286,8 @@ IOUSBController::CreateDevice(	IOUSBDevice 		*newDevice,
     USBLog(5,"%s: CreateDevice: addr=%d, speed=%s, power=%d", getName(), 
              deviceAddress, (speed == kUSBDeviceSpeedLow) ? "low" :  ((speed == kUSBDeviceSpeedFull) ? "full" : "high"), (int)powerAvailable*2);
     
+    _addressPending[deviceAddress] = true;			// in case the INIT takes a long time
+    
     do 
     {
         if (!newDevice->init(deviceAddress, powerAvailable, speed, maxPacketSize))
@@ -386,11 +388,11 @@ IOUSBController::GetNewAddress(void)
     {
 	if (!assigned[i])
         {
-            _addressPending[i] = true;
             return i;
         }
     }
 
+    USBLog(2, "%s[%p]::GetnewAddress - ran out of new addresses!", getName(), this);
     return (0);	// No free device addresses!
 }
 
@@ -1221,6 +1223,7 @@ IOUSBController::MakeDevice(USBDeviceAddress *	address)
     *address = GetNewAddress();
     if(*address == NULL) 
     {
+        USBError(1, "%s[%p]::MakeDevice error getting address - releasing newDev", getName(), this);
 	newDev->release();
 	return NULL;
     }
@@ -1229,9 +1232,10 @@ IOUSBController::MakeDevice(USBDeviceAddress *	address)
     
     if (err)
     {
-        USBLog(3,"%s[%p]::MakeDevice error setting address. err=0x%x device=%p", getName(), this, err, newDev);
+        USBError(1, "%s[%p]::MakeDevice error setting address. err=0x%x device=%p - releasing device", getName(), this, err, newDev);
         *address = 0;
-        //return(0); Some devices produce a spurious error here, eg. Altec Lansing speakers
+	newDev->release();
+	return NULL;
     }
 	
     return(newDev);

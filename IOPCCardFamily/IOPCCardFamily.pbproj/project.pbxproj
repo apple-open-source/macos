@@ -6,16 +6,19 @@
 	objectVersion = 38;
 	objects = {
 		01228F11FF71C3DEC0A8010A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = BUGS;
 			refType = 4;
 		};
 		01228F13FF71C46AC0A8010A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = CHANGES;
 			refType = 4;
 		};
 		01228F14FF71C46AC0A8010A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = COPYING;
 			refType = 4;
@@ -32,6 +35,7 @@
 			refType = 4;
 		};
 		01228F16FF71C46AC0A8010A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = "PCMCIA-HOWTO";
 			refType = 4;
@@ -42,6 +46,7 @@
 			refType = 4;
 		};
 		01228F18FF71C46AC0A8010A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = "PCMCIA-PROG";
 			refType = 4;
@@ -52,16 +57,19 @@
 			refType = 4;
 		};
 		01228F1AFF71C46AC0A8010A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = LICENSE;
 			refType = 4;
 		};
 		01228F1BFF71C46AC0A8010A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = README;
 			refType = 4;
 		};
 		01228F1DFF71C46AC0A8010A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = APPLE_TODO;
 			refType = 4;
@@ -93,11 +101,13 @@
 			};
 		};
 		01D330D8FF7FF22211CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = APPLE_LICENSE;
 			refType = 4;
 		};
 		01D330D9FF7FF22211CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = APPLE_README;
 			refType = 4;
@@ -260,7 +270,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		052E693C017CF4D202CA299A = {
 			buildActionMask = 2147483647;
@@ -337,6 +346,7 @@
 			refType = 4;
 		};
 		052E6945017CFC5B02CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ApplePMUPCCardEject.cpp;
 			refType = 4;
@@ -348,6 +358,7 @@
 			};
 		};
 		052E6954017CFE6202CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ApplePMUPCCardEject.h;
 			refType = 4;
@@ -365,6 +376,7 @@
 			};
 		};
 		057C0702018E92BE02CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOPCCardEjectController.cpp;
 			refType = 4;
@@ -376,6 +388,7 @@
 			};
 		};
 		057C0704018E930502CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOPCCardEjectController.h;
 			refType = 4;
@@ -403,6 +416,7 @@
 //083
 //084
 		084B1DE1FFA6B2ED11CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOPCCard16Enabler.h;
 			refType = 4;
@@ -414,6 +428,7 @@
 			};
 		};
 		084B1DE3FFA6B77611CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOPCCard16Enabler.cpp;
 			refType = 4;
@@ -431,6 +446,7 @@
 				01A2A179FF9D20B011CA29D1,
 				01A2A17AFF9D20B011CA29D1,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 089C166AFE841209C02AAC07;
 			projectDirPath = "";
@@ -470,7 +486,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOPCCardFamily;
-				MODULE_VERSION = 1.3.1;
+				MODULE_VERSION = 1.3.2;
 				OTHER_CFLAGS = " -no-cpp-precomp";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -497,7 +513,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOPCCardFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOPCCardFamily version 1.3.1, Copyright 2002 Apple Computer, Inc.</string>
+	<string>IOPCCardFamily version 1.3.2, Copyright 2003 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -509,11 +525,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.1</string>
+	<string>1.3.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.1</string>
+	<string>1.3.2</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOPCCardFamily</key>
@@ -642,6 +658,24 @@
 						</data>
 					</array>
 				</dict>
+				<key>PowerBook5,1</key>
+				<dict>
+					<key>I/O Port Ranges</key>
+					<array>
+						<data>
+						AAAAAAAAj/8=
+						</data>
+						<data>
+						AACgAAAA//8=
+						</data>
+					</array>
+					<key>Memory Ranges</key>
+					<array>
+						<data>
+						kAAAAJ////8=
+						</data>
+					</array>
+				</dict>
 				<key>Test Machine</key>
 				<dict>
 					<key>I/O Port Ranges</key>
@@ -727,7 +761,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -916,6 +949,7 @@
 			refType = 4;
 		};
 		0DA3259DFF6DAF8811CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = bulkmem.c;
 			refType = 4;
@@ -929,6 +963,7 @@
 			};
 		};
 		0DA3259FFF6DAFAC11CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = cardbus.c;
 			refType = 4;
@@ -942,36 +977,43 @@
 			};
 		};
 		0DA325A1FF6DB01811CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = cirrus.h;
 			refType = 4;
 		};
 		0DA325A2FF6DB01811CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = cistpl.c;
 			refType = 4;
 		};
 		0DA325A3FF6DB01811CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = cs.c;
 			refType = 4;
 		};
 		0DA325A4FF6DB01811CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = cs_internal.h;
 			refType = 4;
 		};
 		0DA325A6FF6DB01811CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = i82365.c;
 			refType = 4;
 		};
 		0DA325A7FF6DB01811CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = i82365.h;
 			refType = 4;
 		};
 		0DA325A8FF6DB01811CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = o2micro.h;
 			refType = 4;
@@ -1023,41 +1065,49 @@
 			};
 		};
 		0DA325B3FF6DB06911CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ricoh.h;
 			refType = 4;
 		};
 		0DA325B4FF6DB06911CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = rsrc_mgr.c;
 			refType = 4;
 		};
 		0DA325B5FF6DB06911CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = rsrc_mgr.h;
 			refType = 4;
 		};
 		0DA325B6FF6DB06911CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smc34c90.h;
 			refType = 4;
 		};
 		0DA325B7FF6DB06911CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ti113x.h;
 			refType = 4;
 		};
 		0DA325B8FF6DB06911CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = topic.h;
 			refType = 4;
 		};
 		0DA325B9FF6DB06911CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = vg468.h;
 			refType = 4;
 		};
 		0DA325BAFF6DB06911CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = yenta.h;
 			refType = 4;
@@ -1113,36 +1163,43 @@
 			};
 		};
 		0DA325C3FF6DB14C11CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = bulkmem.h;
 			refType = 4;
 		};
 		0DA325C4FF6DB14C11CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = bus_ops.h;
 			refType = 4;
 		};
 		0DA325C5FF6DB14C11CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = cisreg.h;
 			refType = 4;
 		};
 		0DA325C6FF6DB14C11CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = cistpl.h;
 			refType = 4;
 		};
 		0DA325C7FF6DB14C11CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = config.h;
 			refType = 4;
 		};
 		0DA325C8FF6DB14C11CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = cs.h;
 			refType = 4;
 		};
 		0DA325C9FF6DB14C11CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = cs_types.h;
 			refType = 4;
@@ -1196,11 +1253,13 @@
 			};
 		};
 		0DA325D5FF6DB16F11CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ss.h;
 			refType = 4;
 		};
 		0DA325D6FF6DB16F11CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = version.h;
 			refType = 4;
@@ -1222,6 +1281,7 @@
 			};
 		};
 		0DEAC1C9FF6DB67711CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = k_compat.h;
 			refType = 4;
@@ -1245,39 +1305,46 @@
 //183
 //184
 		18928F05FF704AFF11CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOPCCard.h;
 			path = pccard/IOPCCard.h;
 			refType = 2;
 		};
 		18928F06FF704AFF11CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOPCCard16Device.h;
 			path = pccard/IOPCCard16Device.h;
 			refType = 2;
 		};
 		18928F07FF704AFF11CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOPCCardBridge.h;
 			path = pccard/IOPCCardBridge.h;
 			refType = 2;
 		};
 		18928F08FF704AFF11CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOPCCardBridge.cpp;
 			refType = 4;
 		};
 		18928F09FF704AFF11CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOPCCardDevices.cpp;
 			refType = 4;
 		};
 		18928F0AFF704AFF11CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOPCCardSupport.cpp;
 			refType = 4;
 		};
 		18928F0BFF704AFF11CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOCardBusDevice.h;
 			path = pccard/IOCardBusDevice.h;
@@ -1396,7 +1463,6 @@
 			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/pccard";
 			productName = InstallHeaders;
 			productReference = 2D9C1A5DFFE6DFA911CA299A;
-			shouldUseHeadermap = 0;
 		};
 		2D9C1A60FFE6DFA911CA299A = {
 			buildActionMask = 2147483647;
@@ -1555,6 +1621,7 @@
 			shellScript = "mkdir -p \"$DERIVED_SOURCES_DIR/IOKit\" && ln -sf \"$SRCROOT/pccard\" \"$DERIVED_SOURCES_DIR/IOKit/pccard\"";
 		};
 		2D9C1A76FFE6FEC111CA299A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = pio.h;
 			refType = 4;

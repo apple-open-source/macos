@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = IOPCCardFamily ;
-export deferred SRCROOT = /Volumes/sandbox/pccard/IOPCCardFamily ;
+export deferred SRCROOT = /Volumes/home/ras/IOPCCardFamily ;
 
 # User-defined project-wide settings for project
 
@@ -87,6 +87,12 @@ else {
 # Rez Files
 REZ_FILES = ;
 ProcessRezFiles "<InstallHeaders>InstallHeaders$(TOOL_SUFFIX)" : "$(REZ_FILES)" : BPTag003 : BPTag004 ;
+
+rule DefineHeaderDependencies
+{
+}
+
+DefineHeaderDependencies "<InstallHeaders>InstallHeaders$(TOOL_SUFFIX)" ;
 
 EndTool "<InstallHeaders>InstallHeaders$(TOOL_SUFFIX)" ;
 
